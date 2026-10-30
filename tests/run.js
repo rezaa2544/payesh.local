@@ -202,6 +202,88 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(old.data.total_size <= old.data.full_size);
   });
 
+  /* ── ۲.۵ شبکه: آدرس رسمی، QR، انتقال دستگاه، قفل PIN ── */
+
+  await test('اطلاعات شبکه و آدرس عمومی', async () => {
+    const n = await req('/api/network');
+    assert.strictEqual(n.data.ok, true);
+    assert.ok(Array.isArray(n.data.lan_urls));
+    assert.strictEqual(n.data.public_url, null, 'ابتدا آدرس عمومی تنظیم نشده');
+
+    const set = await req('/api/admin/network', { method: 'POST', token: managerToken, body: { public_url: 'https://payesh.example.test/' } });
+    assert.strictEqual(set.data.public_url, 'https://payesh.example.test', 'اسلش انتهایی حذف شود');
+
+    const h = await req('/api/health');
+    assert.strictEqual(h.data.public_url, 'https://payesh.example.test');
+    assert.ok(h.data.instance);
+
+    const n2 = await req('/api/network');
+    assert.strictEqual(n2.data.public_url, 'https://payesh.example.test');
+  });
+
+  await test('آدرس غیر HTTPS رد می‌شود', async () => {
+    const r = await req('/api/admin/network', { method: 'POST', token: managerToken, body: { public_url: 'http://insecure.test' } });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.data.error, 'https_required');
+  });
+
+  await test('QR ساخته می‌شود و قابل اسکن است', async () => {
+    const res = await fetch(BASE + '/api/qr?text=' + encodeURIComponent('https://payesh.example.test') + '&scale=6');
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.headers.get('content-type'), 'image/png');
+    const buf = Buffer.from(await res.arrayBuffer());
+    assert.strictEqual(buf.subarray(1, 4).toString(), 'PNG');
+
+    const { PNG } = require('pngjs');
+    const jsQR = require('jsqr');
+    const img = PNG.sync.read(buf);
+    const decoded = jsQR(new Uint8ClampedArray(img.data), img.width, img.height);
+    assert.ok(decoded, 'QR باید خوانده شود');
+    assert.strictEqual(decoded.data, 'https://payesh.example.test');
+  });
+
+  await test('انتقال دستگاه به آدرس رسمی (یک‌بارمصرف)', async () => {
+    const t = await req('/api/auth/transfer', { method: 'POST', token: managerToken });
+    assert.strictEqual(t.data.ok, true);
+    assert.ok(t.data.code.length >= 16);
+    assert.strictEqual(t.data.public_url, 'https://payesh.example.test');
+
+    const r = await req('/api/auth/transfer/redeem', { method: 'POST', body: { code: t.data.code, pin: '4321' } });
+    assert.strictEqual(r.data.ok, true);
+    assert.ok(r.data.device_token);
+    assert.ok(r.data.session.token);
+
+    const again = await req('/api/auth/transfer/redeem', { method: 'POST', body: { code: t.data.code, pin: '4321' } });
+    assert.strictEqual(again.data.error, 'code_used');
+
+    const bad = await req('/api/auth/transfer/redeem', { method: 'POST', body: { code: 'nope', pin: '4321' } });
+    assert.strictEqual(bad.data.error, 'bad_code');
+  });
+
+  await test('قفل موقت پس از ۸ PIN اشتباه', async () => {
+    const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 1 } });
+    const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '5555' } });
+    const dev = paired.data.device_token;
+    let last = null;
+    for (let i = 0; i < 8; i++) last = await req('/api/auth/unlock', { method: 'POST', body: { device_token: dev, pin: '0000' } });
+    assert.strictEqual(last.status, 401);
+    const locked = await req('/api/auth/unlock', { method: 'POST', body: { device_token: dev, pin: '0000' } });
+    assert.strictEqual(locked.status, 429);
+    assert.strictEqual(locked.data.error, 'locked');
+    assert.ok(locked.data.until);
+    /* حتی با PIN درست هم تا پایان قفل باز نمی‌شود */
+    const correct = await req('/api/auth/unlock', { method: 'POST', body: { device_token: dev, pin: '5555' } });
+    assert.strictEqual(correct.status, 429);
+  });
+
+  await test('X-Forwarded-For از تونل محلی پذیرفته می‌شود', async () => {
+    const cfg = require('../server/config');
+    const fake = { socket: { remoteAddress: '127.0.0.1' }, headers: { 'x-forwarded-for': '203.0.113.7, 127.0.0.1' } };
+    assert.strictEqual(cfg.clientIp(fake), '203.0.113.7');
+    const direct = { socket: { remoteAddress: '198.51.100.9' }, headers: { 'x-forwarded-for': '203.0.113.7' } };
+    assert.strictEqual(cfg.clientIp(direct), '198.51.100.9', 'بدون تونل، هدر جعلی نادیده گرفته می‌شود');
+  });
+
   /* ── ۳. دود رابط کاربری ── */
   await test('صفحهٔ ورود در مرورگر بدون خطا رندر می‌شود', async () => {
     const { JSDOM } = require('jsdom');

@@ -37,9 +37,13 @@
   <div class="sub">یک برنامه، سه نوع دستگاه — همه به همین سرور مدرسه وصل می‌شوند.</div>
 
   <div class="card">
-    <h2>آدرس سرور مدرسه</h2>
+    <h2>آدرس برنامه</h2>
     <div class="url" id="srv">…</div>
-    <div class="muted" style="margin-top:8px">این آدرس را در شبکهٔ Wi-Fi مدرسه باز کنید. اگر بیرون از مدرسه هستید، از لینک ابری استفاده کنید (در صورت فعال بودن).</div>
+    <div id="net-note" class="muted" style="margin-top:8px"></div>
+    <div id="qr-wrap" style="display:none;margin-top:12px;display:flex;gap:14px;align-items:center">
+      <img id="qr" alt="QR" style="width:150px;height:150px;background:#fff;padding:6px;border-radius:10px">
+      <div class="muted">با دوربین گوشی اسکن کنید؛ برنامه باز می‌شود و می‌توانید «افزودن به صفحهٔ اصلی» را بزنید.</div>
+    </div>
   </div>
 
   <div class="tabs">
@@ -84,7 +88,20 @@
   </div>
 </div>
 <script>
-  document.getElementById('srv').textContent = location.origin;
+  const $ = (s) => document.querySelector(s);
+  fetch('/api/network', { cache: 'no-store' }).then(r => r.json()).then(n => {
+    const pub = n.public_url || '';
+    const url = pub || (n.lan_urls && n.lan_urls[0]) || location.origin;
+    $('#srv').textContent = url;
+    $('#net-note').innerHTML = pub
+      ? 'این آدرس <b>ثابت</b> است و از هر اینترنتی (خانه، موبایل، مدرسه) باز می‌شود.'
+      : '⚠️ هنوز «آدرس رسمی» تنظیم نشده؛ این آدرس فقط داخل Wi-Fi مدرسه کار می‌کند. مدیر می‌تواند از پنل ← «شبکه» آدرس HTTPS را وارد کند.';
+    if (pub) {
+      const img = $('#qr');
+      img.src = '/api/qr?text=' + encodeURIComponent(pub) + '&scale=6';
+      $('#qr-wrap').style.display = 'flex';
+    }
+  }).catch(() => { $('#srv').textContent = location.origin; });
   document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
     t.classList.add('on');

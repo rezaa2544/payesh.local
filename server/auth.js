@@ -144,6 +144,37 @@ function unlock(store, input) {
   return { ok: true, session: createSession(store, user.id, device.id), user: publicUser(user) };
 }
 
+/* ── انتقال دستگاه به آدرس عمومی (وقتی کاربر با آدرس محلی وارد شده) ── */
+const TRANSFER_TTL_MS = 10 * 60 * 1000;
+
+function createTransfer(store, userId, deviceId) {
+  const code = randomId(24);
+  const expires = Date.now() + TRANSFER_TTL_MS;
+  store.setMeta('transfer:' + sha256(code), { user_id: Number(userId), device_id: deviceId || null, expires, used: false });
+  return { ok: true, code, expires_at: new Date(expires).toISOString() };
+}
+
+function redeemTransfer(store, code, opts = {}) {
+  const c = String(code || '').trim();
+  if (!c) return { ok: false, error: 'bad_code' };
+  const key = 'transfer:' + sha256(c);
+  const rec = store.getMeta(key, null);
+  if (!rec) return { ok: false, error: 'bad_code' };
+  if (rec.used) return { ok: false, error: 'code_used' };
+  if (Number(rec.expires) < Date.now()) return { ok: false, error: 'code_expired' };
+  const user = store.get('users', rec.user_id);
+  if (!user || user.active === false) return { ok: false, error: 'user_inactive' };
+  const pin = String(opts.pin || '');
+  if (!/^\d{4,6}$/.test(pin)) return { ok: false, error: 'bad_pin' };
+
+  const dev = createDevice(store, user.id, {
+    name: opts.name || 'دستگاه منتقل‌شده', platform: opts.platform || 'web', pin,
+  });
+  store.setMeta(key, Object.assign({}, rec, { used: true, used_at: nowISO() }));
+  store.audit({ user_id: user.id, role: user.role, device_id: dev.device_id, action: 'transfer_redeem', collection: 'devices' });
+  return { ok: true, device_token: dev.device_token, session: dev.session, user: publicUser(user) };
+}
+
 function changePin(store, device, pin) {
   if (!/^\d{4,6}$/.test(String(pin))) return { ok: false, error: 'bad_pin' };
   store.db.prepare('UPDATE devices SET pin_hash=? WHERE id=?').run(scryptHash(String(pin)), device.id);
@@ -193,6 +224,7 @@ function prune(store) {
 
 module.exports = {
   needsSetup, setup, createPairCode, pair, unlock, changePin,
+  createTransfer, redeemTransfer,
   verifySession, listDevices, revokeDevice, logout, publicUser, prune, findUserByPhone,
   SESSION_HOURS,
 };
