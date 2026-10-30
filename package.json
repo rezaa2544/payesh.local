@@ -1,0 +1,27 @@
+{
+  "name": "payesh-local",
+  "version": "0.1.1",
+  "private": true,
+  "description": "پایش-لوکال — سامانهٔ مدیریت مدرسه، درون‌مدرسه‌ای و آفلاین (Node + SQLite)",
+  "type": "commonjs",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning server/index.js",
+    "seed": "node --experimental-sqlite --disable-warning=ExperimentalWarning server/seed.js --fresh",
+    "reset": "node -e \"require('fs').rmSync('data',{recursive:true,force:true})\"",
+    "check": "node --check server/index.js && node --check server/db.js && node --check server/auth.js && node --check server/sync.js && node --check server/policy.js && node --check client/app.js && node --check client/pages.js && node --check client/sw.js",
+    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/run.js",
+    "build:release": "node scripts/build-release.mjs",
+    "test:ui": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/ui.js",
+    "test:all": "npm test && npm run test:ui && npm run test:flow",
+    "test:flow": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/flow.js"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}

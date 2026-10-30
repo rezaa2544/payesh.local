@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نصب پایش روی دستگاه‌ها</title>
+<style>
+  :root{--p:#1e3a8a;--bg:#f4f6fa;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0}
+  @media (prefers-color-scheme:dark){:root{--bg:#0b1220;--card:#121b2e;--ink:#e5eaf3;--muted:#9aa8bf;--line:#22304a}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Vazirmatn","IRANSans","Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--ink);line-height:1.8}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;margin:6px 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+  .card h2{font-size:16px;margin:0 0 8px}
+  .url{direction:ltr;text-align:left;background:#eef3ff;color:#1e3a8a;border-radius:10px;padding:10px 12px;font-weight:800;font-size:16px;word-break:break-all}
+  @media (prefers-color-scheme:dark){.url{background:#16223a;color:#9dc0ff}}
+  ol{padding-inline-start:20px;margin:8px 0}
+  li{margin:4px 0}
+  .btn{display:inline-block;background:var(--p);color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;font-weight:700;margin:6px 6px 0 0}
+  .btn.ghost{background:transparent;color:var(--p);border:1px solid var(--p)}
+  .badge{display:inline-block;font-size:12px;background:#eef3ff;color:#1e3a8a;border-radius:999px;padding:2px 10px}
+  .muted{color:var(--muted);font-size:12.5px}
+  .step{display:flex;gap:8px;margin:6px 0}
+  .n{width:22px;height:22px;border-radius:50%;background:var(--p);color:#fff;display:grid;place-items:center;font-size:12px;flex:none}
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tab{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;cursor:pointer;font-size:13px}
+  .tab.on{background:var(--p);color:#fff;border-color:var(--p)}
+  code{background:#eef3ff;color:#1e3a8a;padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
+  @media (prefers-color-scheme:dark){code{background:#16223a;color:#9dc0ff}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>نصب پایش روی دستگاه‌ها</h1>
+  <div class="sub">یک برنامه، سه نوع دستگاه — همه به همین سرور مدرسه وصل می‌شوند.</div>
+
+  <div class="card">
+    <h2>آدرس سرور مدرسه</h2>
+    <div class="url" id="srv">…</div>
+    <div class="muted" style="margin-top:8px">این آدرس را در شبکهٔ Wi-Fi مدرسه باز کنید. اگر بیرون از مدرسه هستید، از لینک ابری استفاده کنید (در صورت فعال بودن).</div>
+  </div>
+
+  <div class="tabs">
+    <span class="tab on" data-t="android">اندروید</span>
+    <span class="tab" data-t="ios">آیفون</span>
+    <span class="tab" data-t="win">ویندوز (سیستم مدرسه)</span>
+  </div>
+
+  <div class="card" data-panel="android">
+    <span class="badge">نصب با یک لمس</span>
+    <h2 style="margin-top:8px">گوشی اندروید</h2>
+    <div class="step"><span class="n">۱</span><div>آدرس بالا را در <b>کروم</b> باز کنید.</div></div>
+    <div class="step"><span class="n">۲</span><div>منوی سه‌نقطه ← <b>«نصب برنامه»</b> یا <b>«افزودن به صفحهٔ اصلی»</b>.</div></div>
+    <div class="step"><span class="n">۳</span><div>آیکون پایش به صفحهٔ گوشی اضافه می‌شود و بدون مرورگر باز می‌شود.</div></div>
+    <div class="muted" style="margin-top:8px">اگر APK آماده باشد، از دکمهٔ زیر دانلود کنید (نصب خارج از Play Store):</div>
+    <a class="btn ghost" id="apk-link" href="/downloads/payesh-local.apk">دانلود APK</a>
+  </div>
+
+  <div class="card" data-panel="ios" style="display:none">
+    <span class="badge">بدون App Store</span>
+    <h2 style="margin-top:8px">آیفون / آیپد</h2>
+    <div class="step"><span class="n">۱</span><div>آدرس را در <b>Safari</b> باز کنید (نه کروم).</div></div>
+    <div class="step"><span class="n">۲</span><div>دکمهٔ <b>اشتراک‌گذاری</b> (مربع با فلش) را بزنید.</div></div>
+    <div class="step"><span class="n">۳</span><div>گزینهٔ <b>«Add to Home Screen» / «افزودن به صفحهٔ اصلی»</b> را انتخاب کنید.</div></div>
+    <div class="muted" style="margin-top:8px">برای نصب روی آیفون، آدرس باید <b>HTTPS</b> باشد؛ اگر سرور فقط داخل شبکه است، از حالت مرورگر یا تبلت مشترک استفاده کنید.</div>
+  </div>
+
+  <div class="card" data-panel="win" style="display:none">
+    <span class="badge">سیستم دفتر</span>
+    <h2 style="margin-top:8px">ویندوز</h2>
+    <div class="step"><span class="n">۱</span><div>بستهٔ نصبی را دانلود و از حالت فشرده خارج کنید.</div></div>
+    <div class="step"><span class="n">۲</span><div>روی <code>install.bat</code> دوبار کلیک کنید (بدون نیاز به دانش فنی).</div></div>
+    <div class="step"><span class="n">۳</span><div>نصب‌کننده Node.js را بررسی می‌کند، برنامه را در <code>C:\Payesh</code> می‌گذارد، سرویس را خودکار اجرا می‌کند و مرورگر را باز می‌کند.</div></div>
+    <a class="btn" id="win-link" href="/downloads/">دانلود بستهٔ ویندوز</a>
+    <div class="muted" style="margin-top:8px">لینک مستقیم همیشه در صفحهٔ اول مخزن (README) هم هست.</div>
+  </div>
+
+  <div class="card">
+    <h2>به‌روزرسانی برنامه</h2>
+    <div>برنامه هر بار که باز می‌شود و هر ۹۰ ثانیه یک‌بار، نسخه را چک می‌کند. اگر نسخهٔ تازه‌ای باشد، نوار آبی بالای صفحه ظاهر می‌شود و با یک لمس فقط <b>فایل‌های تغییرکرده</b> دانلود و نصب می‌شوند (کل برنامه دوباره دانلود نمی‌شود).</div>
+    <div class="muted" style="margin-top:8px">اگر در حال تدریس هستید، به‌روزرسانی را به بعد از کلاس موکول کنید؛ داده‌های ثبت‌شده در صف می‌مانند و از دست نمی‌روند.</div>
+  </div>
+</div>
+<script>
+  document.getElementById('srv').textContent = location.origin;
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+    t.classList.add('on');
+    document.querySelectorAll('[data-panel]').forEach(p => { p.style.display = p.getAttribute('data-panel') === t.getAttribute('data-t') ? '' : 'none'; });
+  }));
+  const ua = navigator.userAgent;
+  const guess = /iPhone|iPad|iPod/i.test(ua) ? 'ios' : /Android/i.test(ua) ? 'android' : 'win';
+  const tab = document.querySelector('.tab[data-t="' + guess + '"]');
+  if (tab) tab.click();
+  fetch('/api/version', { cache: 'no-store' }).then(r => r.json()).then(v => {
+    const a = document.getElementById('apk-link');
+    a.textContent = 'دانلود APK (نسخهٔ ' + v.version + ')';
+    return fetch('/downloads/payesh-local.apk', { method: 'HEAD' });
+  }).then(r => {
+    if (!r || !r.ok) {
+      const a = document.getElementById('apk-link');
+      a.style.opacity = '.5'; a.textContent = 'APK هنوز ساخته نشده — فعلاً از «افزودن به صفحهٔ اصلی» استفاده کنید';
+      a.removeAttribute('href');
+    }
+  }).catch(() => {});
+</script>
+</body>
+</html>

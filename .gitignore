@@ -1,0 +1,44 @@
+# وابستگی‌ها
+node_modules/
+.pnp/
+.pnp.js
+
+# خروجی build و artifact
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# داده و رازها — هرگز کامیت نشود
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+server/data/
+backups/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!docs/**/*.key.md
+*.p12
+secrets/
+
+# فایل‌های کاربر/سیستم
+.DS_Store
+Thumbs.db
+*.log
+logs/
+tmp/
+.cache/
+
+# مخزن مرجع (با scripts/fetch-upstream.sh گرفته می‌شود)
+.upstream/
+
+# ساخت و ابزار
+.build/
+install/android/.gradle/
+install/android/app/build/
+install/android/local.properties

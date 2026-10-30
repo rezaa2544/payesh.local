@@ -1,0 +1,42 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'ir.payesh.local'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "ir.payesh.local"
+        minSdk 23
+        targetSdk 34
+        /* مقدارها توسط اسکریپت ساخت/CI به‌روز می‌شوند */
+        versionCode 1
+        versionName "0.1.1"
+        resConfigs "fa", "en"
+    }
+
+    signingConfigs {
+        /* اگر در CI کلید موجود باشد از آن استفاده می‌شود، وگرنه debug */
+        if (System.getenv("PAYESH_KEYSTORE")) {
+            release {
+                storeFile file(System.getenv("PAYESH_KEYSTORE"))
+                storePassword System.getenv("PAYESH_KEYSTORE_PASS")
+                keyAlias System.getenv("PAYESH_KEY_ALIAS")
+                keyPassword System.getenv("PAYESH_KEY_PASS")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (System.getenv("PAYESH_KEYSTORE")) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies { }
