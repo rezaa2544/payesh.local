@@ -8,9 +8,9 @@ android {
         applicationId "ir.payesh.local"
         minSdk 23
         targetSdk 34
-        /* در CI از package.json پر می‌شود: -PversionName -PversionCode */
-        versionCode (project.findProperty("versionCode") ?: "1").toInteger()
-        versionName (project.findProperty("versionName") ?: "0.1.1")
+        /* مقدارها توسط اسکریپت ساخت/CI به‌روز می‌شوند */
+        versionCode 1
+        versionName "0.1.1"
         resConfigs "fa", "en"
     }
 
