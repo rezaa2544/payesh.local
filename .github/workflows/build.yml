@@ -26,8 +26,11 @@ jobs:
       - name: آزمون‌های سرور
         run: npm test
 
-      - name: آزمون رابط و جریان کاربری
-        run: npm run test:flow
+      - name: آزمون رابط، جریان کاربری و Hub
+        run: |
+          npm run test:ui
+          npm run test:flow
+          npm run test:hub
 
       - name: ساخت بسته و مانیفست دلتا
         run: node scripts/build-release.mjs

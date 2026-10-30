@@ -18,6 +18,7 @@ const sync = require('./sync');
 const policy = require('./policy');
 const cfg = require('./config');
 const qr = require('./qr');
+const hub = require('./hub');
 const { nowISO, json, normDigits, validNationalId, sha256 } = require('./util');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -160,6 +161,28 @@ function userRow(u) {
   };
 }
 
+/* اطلاعات Hub برای همین کاربر (فقط نمای خانوادهٔ خودش) */
+function hubInfoFor(store, actor) {
+  const h = cfg.hubConfig(store);
+  if (!h.enabled || !h.url) return { enabled: false };
+  const ids = [];
+  if (actor.role === 'student') ids.push(actor.user.id);
+  if (actor.role === 'parent') {
+    for (const link of store.all('parent_links')) {
+      if (Number(link.parent_id) === Number(actor.user.id)) ids.push(Number(link.student_id));
+    }
+  }
+  if (!ids.length) return { enabled: true, url: h.url, children: [] };
+  return {
+    enabled: true,
+    url: h.url,
+    children: ids.slice(0, 10).map(id => {
+      const st = store.get('users', id) || {};
+      return { student_id: Number(id), name: st.name || '', token: hub.familyToken(store, id) };
+    }),
+  };
+}
+
 /* ── مسیرهای API ──────────────────────────────────────────────────── */
 async function api(req, res, url, ip) {
   const p = url.pathname;
@@ -298,6 +321,7 @@ async function api(req, res, url, ip) {
         attendance: store.count('attendance'), grades: store.count('grades'),
       },
       version: readManifest().version,
+      hub: hubInfoFor(store, actor),
     });
   }
 
@@ -366,7 +390,11 @@ async function api(req, res, url, ip) {
       lan_urls: cfg.lanUrls(PORT),
       port: PORT,
       instance: cfg.instanceId(store),
-      hub: cfg.hubConfig(store),
+      hub: Object.assign({}, cfg.hubConfig(store), {
+        key: hub.schoolKey(store),
+        last_push: cfg.getMeta(store, 'hub:last_push') || null,
+        last_drain: cfg.getMeta(store, 'hub:last_drain') || null,
+      }),
       tunnel: await cfg.tunnelStatus(store, { force: q.get('force') === '1' }),
     });
   }
@@ -382,7 +410,20 @@ async function api(req, res, url, ip) {
     }
     if (body.hub_url !== undefined) cfg.setMeta(store, 'hub_url', cfg.normalizeUrl(body.hub_url));
     if (body.hub_enabled !== undefined) cfg.setMeta(store, 'hub_enabled', !!body.hub_enabled);
-    return json({ ok: true, public_url: cfg.publicUrl(store) || null, tunnel: await cfg.tunnelStatus(store, { force: true }) });
+    if (body.regenerate_key) cfg.setMeta(store, 'hub_key', '');
+    return json({
+      ok: true,
+      public_url: cfg.publicUrl(store) || null,
+      hub: Object.assign({}, cfg.hubConfig(store), { key: hub.schoolKey(store) }),
+      tunnel: await cfg.tunnelStatus(store, { force: true }),
+    });
+  }
+
+  if (p === '/api/admin/hub/sync' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const b = await readBody(req);
+    const r = await hub.sync(store, { force: !!b.force });
+    return json(Object.assign({ ok: true }, r));
   }
 
   if (p === '/api/admin/devices' && m === 'GET') return json({ ok: true, devices: auth.listDevices(store) });
@@ -597,7 +638,11 @@ server.listen(PORT, HOST, () => {
   console.log('  داده               : ' + path.join(DATA_DIR, 'payesh.sqlite'));
   console.log('  بکاپ               : ' + BACKUP_DIR);
   console.log('  راه‌اندازی         : ' + (auth.needsSetup(store) ? 'انجام نشده — از مرورگر اول را انجام دهید' : 'انجام شده'));
+  const pub = cfg.publicUrl(store);
+  console.log('  آدرس عمومی (همه)   : ' + (pub || 'تنظیم نشده — پنل مدیر ← شبکه'));
   console.log('');
+  /* همگام‌سازی دوره‌ای با Hub ابری (اگر فعال باشد) */
+  try { hub.start(store); } catch (e) { console.error('hub start failed', e.message); }
 });
 
 process.on('SIGINT', () => { store.close(); process.exit(0); });

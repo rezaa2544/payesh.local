@@ -84,7 +84,7 @@ const copy = (rel) => {
   fs.cpSync(src, dst, { recursive: true });
 };
 
-['server', 'client', 'install', 'package.json', 'README.md'].forEach(copy);
+['server', 'client', 'install', 'hub', 'package.json', 'README.md'].forEach(copy);
 fs.mkdirSync(path.join(stage, 'releases'), { recursive: true });
 fs.copyFileSync(path.join(RELEASES, 'manifest.json'), path.join(stage, 'releases', 'manifest.json'));
 fs.mkdirSync(path.join(stage, 'releases', 'history'), { recursive: true });

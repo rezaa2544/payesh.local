@@ -606,7 +606,28 @@ function parentHome() {
         <span class="badge ${pct >= 90 ? 'green' : 'amber'}">حضور ${fa(pct)}٪</span></div></div>
     </a>`;
   }).join('') : empty('فرزندی به حساب شما متصل نیست — با دفتر مدرسه تماس بگیرید.')}
+  ${cloudCard(kids)}
   ${card(`<div class="row"><a class="btn grow" href="#/leaves">📨 درخواست مرخصی</a><a class="btn grow" href="#/announcements">📢 اطلاعیه‌ها</a></div>`)}`;
+}
+
+/* ── وضعیت ابری: وقتی سیستم مدرسه خاموش است، ولی از Hub می‌خواند ── */
+function cloudCard(kids) {
+  const hub = S.hub || {};
+  if (!hub.enabled) return '';
+  const rows = kids.map(k => ({ kid: k, d: (S.hubData || {})[Number(k.id)] })).filter(x => x.d);
+  const anyData = rows.length > 0;
+  return card(`<div class="row between"><b>☁️ ابر پایش</b>
+      ${S.hubOffline ? badge('سیستم مدرسه در دسترس نیست', 'amber') : badge('متصل', 'green')}</div>
+    <div class="small muted" style="margin-top:6px">
+      ${anyData
+        ? 'آخرین وضعیت ثبت‌شده در فضای ابری. ثبت‌ها و درخواست‌های شما در صف می‌مانند و با روشن شدن سیستم مدرسه اعمال می‌شوند.'
+        : 'برای دیدن آخرین وضعیت وقتی مدرسه تعطیل است، از همین دکمه استفاده کنید.'}
+    </div>
+    ${anyData ? rows.map(({ kid, d }) => `<div class="item" style="margin-top:8px">
+        <div class="grow"><div class="t">${esc(kid.name)}</div>
+          <div class="s">حضور ${fa(d.attendance && d.attendance.percent != null ? d.attendance.percent : '—')}٪ · ${fa((d.grades || []).length)} نمره</div></div>
+        <span class="small muted">${esc(d.updated_at ? jdate(d.updated_at) : '')}</span></div>`).join('') : ''}
+    <button class="btn sm block" style="margin-top:10px" data-act="hub-load">دریافت از ابر</button>`);
 }
 
 PAGES.child = (params) => {
@@ -721,9 +742,21 @@ PAGES.network = () => {
     ${(n.lan_urls || []).map(u => `<div class="ltr">${esc(u)}</div>`).join('') || '<div>—</div>'}
     <div style="margin-top:6px">این آدرس‌ها فقط وقتی گوشی به همان Wi-Fi وصل است کار می‌کنند. برای همین، آدرس رسمی بالا را به همه بدهید.</div>
   </div>`)}
-  ${card(`<b>Hub ابری (اختیاری)</b>
-    <div class="small muted" style="margin-top:6px">برای دیدن دادهٔ زنده وقتی سیستم مدرسه خاموش است، می‌توانید Hub رایگان Cloudflare را فعال کنید (فاز بعد).</div>
-    <div class="row" style="margin-top:8px"><span class="badge">${(n.hub && n.hub.enabled) ? 'فعال' : 'غیرفعال'}</span></div>`)}`;
+  ${card(`<div class="row between"><b>☁️ Hub ابری</b>${n.hub && n.hub.enabled ? badge('فعال', 'green') : badge('غیرفعال', 'amber')}</div>
+    <div class="small muted" style="margin-top:6px">با فعال بودن Hub، ولی و دانش‌آموز حتی وقتی سیستم مدرسه خاموش است آخرین وضعیت را می‌بینند و درخواست مرخصی‌شان در صف می‌ماند. دادهٔ هر دانش‌آموز جداگانه و بدون کد ملی فرستاده می‌شود.</div>
+    <form data-form="hub" style="margin-top:10px">
+      <input class="input ltr" name="hub_url" value="${esc((n.hub && n.hub.url) || '')}" placeholder="https://payesh-hub.xxx.workers.dev" inputmode="url" autocomplete="off">
+      <label class="row small" style="margin-top:8px;gap:6px;align-items:center">
+        <input type="checkbox" name="hub_enabled" ${n.hub && n.hub.enabled ? 'checked' : ''}> فعال باشد
+      </label>
+      <button class="btn primary block" style="margin-top:8px">ذخیرهٔ Hub</button>
+    </form>
+    <div class="small muted" style="margin-top:10px">کلید مدرسه (در Worker به‌عنوان <span class="ltr">SCHOOL_KEY</span> تنظیم کنید):</div>
+    <div class="ltr small" style="background:var(--soft);padding:8px;border-radius:8px;word-break:break-all;margin-top:4px">${esc((n.hub && n.hub.key) || '—')}</div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn sm" data-act="hub-sync">همگام‌سازی اکنون</button>
+      <span class="small muted">آخرین ارسال: ${esc(n.hub && n.hub.last_push ? jdate(n.hub.last_push) : '—')} · آخرین دریافت: ${esc(n.hub && n.hub.last_drain ? jdate(n.hub.last_drain) : '—')}</span>
+    </div>`)}`;
 };
 
 PAGES.system = () => {

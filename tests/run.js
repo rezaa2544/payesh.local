@@ -284,6 +284,33 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(cfg.clientIp(direct), '198.51.100.9', 'بدون تونل، هدر جعلی نادیده گرفته می‌شود');
   });
 
+  await test('bootstrap برای ولی، توکن ابری فرزند می‌دهد', async () => {
+    const imp = await req('/api/admin/import', { method: 'POST', token: managerToken, body: {
+      kind: 'students',
+      rows: [{ name: 'دانش‌آموز ابری', national_id: '1000000036', parent_name: 'ولی ابری', parent_phone: '09121234567' }],
+    } });
+    assert.strictEqual(imp.data.created, 1);
+
+    await req('/api/admin/network', { method: 'POST', token: managerToken, body: { hub_url: 'https://hub.example.test', hub_enabled: true } });
+
+    const pull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: managerToken });
+    const parent = pull.data.collections.users.find(u => u.name === 'ولی ابری');
+    assert.ok(parent, 'ولی ساخته شد');
+
+    const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: parent.id } });
+    const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '3333' } });
+    const boot = await req('/api/bootstrap', { token: paired.data.session.token });
+    assert.strictEqual(boot.data.hub.enabled, true);
+    assert.strictEqual(boot.data.hub.url, 'https://hub.example.test');
+    assert.strictEqual(boot.data.hub.children.length, 1);
+    assert.strictEqual(boot.data.hub.children[0].token.length, 64, 'توکن HMAC هر خانواده');
+
+    /* دبیر نباید توکن ابری بگیرد */
+    const teacherBoot = await req('/api/bootstrap', { token: (await req('/api/auth/pair', { method: 'POST', body: { code: (await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } })).data.code, pin: '4444' } })).data.session.token });
+    assert.strictEqual(teacherBoot.data.hub.enabled, true);
+    assert.deepStrictEqual(teacherBoot.data.hub.children, []);
+  });
+
   /* ── ۳. دود رابط کاربری ── */
   await test('صفحهٔ ورود در مرورگر بدون خطا رندر می‌شود', async () => {
     const { JSDOM } = require('jsdom');
