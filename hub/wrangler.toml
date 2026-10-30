@@ -1,0 +1,12 @@
+name = "payesh-hub"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# پس از: wrangler d1 create payesh_hub  → شناسه را این‌جا بگذارید
+[[d1_databases]]
+binding = "DB"
+database_name = "payesh_hub"
+database_id = "PASTE_D1_DATABASE_ID"
+
+# کلید مدرسه (همان چیزی که در پنل مدیر ← شبکه نمایش داده می‌شود)
+# wrangler secret put SCHOOL_KEY

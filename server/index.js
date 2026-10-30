@@ -16,7 +16,10 @@ const { openStore } = require('./db');
 const auth = require('./auth');
 const sync = require('./sync');
 const policy = require('./policy');
-const { nowISO, json, normDigits, validNationalId } = require('./util');
+const cfg = require('./config');
+const qr = require('./qr');
+const hub = require('./hub');
+const { nowISO, json, normDigits, validNationalId, sha256 } = require('./util');
 
 const ROOT = path.resolve(__dirname, '..');
 const CLIENT_DIR = path.join(ROOT, 'client');
@@ -158,6 +161,28 @@ function userRow(u) {
   };
 }
 
+/* اطلاعات Hub برای همین کاربر (فقط نمای خانوادهٔ خودش) */
+function hubInfoFor(store, actor) {
+  const h = cfg.hubConfig(store);
+  if (!h.enabled || !h.url) return { enabled: false };
+  const ids = [];
+  if (actor.role === 'student') ids.push(actor.user.id);
+  if (actor.role === 'parent') {
+    for (const link of store.all('parent_links')) {
+      if (Number(link.parent_id) === Number(actor.user.id)) ids.push(Number(link.student_id));
+    }
+  }
+  if (!ids.length) return { enabled: true, url: h.url, children: [] };
+  return {
+    enabled: true,
+    url: h.url,
+    children: ids.slice(0, 10).map(id => {
+      const st = store.get('users', id) || {};
+      return { student_id: Number(id), name: st.name || '', token: hub.familyToken(store, id) };
+    }),
+  };
+}
+
 /* ── مسیرهای API ──────────────────────────────────────────────────── */
 async function api(req, res, url, ip) {
   const p = url.pathname;
@@ -170,6 +195,8 @@ async function api(req, res, url, ip) {
       ok: true, name: 'payesh-local', version: readManifest().version,
       time: nowISO(), server_time: nowISO(), uptime_s: Math.round(process.uptime()),
       setup_done: !auth.needsSetup(store), school: (store.get('schools', 1) || {}).name || null,
+      public_url: cfg.publicUrl(store) || null,
+      instance: cfg.instanceId(store),
     });
   }
 
@@ -180,6 +207,30 @@ async function api(req, res, url, ip) {
 
   if (p === '/api/update/check' && m === 'GET') {
     return json(updateCheck(String(q.get('current') || '0.0.0')));
+  }
+
+  /* اطلاعات شبکه برای صفحهٔ نصب و کلاینت (بدون احراز هویت) */
+  if (p === '/api/network' && m === 'GET') {
+    return json({
+      ok: true,
+      public_url: cfg.publicUrl(store) || null,
+      lan_urls: cfg.lanUrls(PORT),
+      port: PORT,
+      instance: cfg.instanceId(store),
+    });
+  }
+
+  /* QR برای آدرس نصب/پیوند — بدون وابستگی خارجی */
+  if (p === '/api/qr' && m === 'GET') {
+    const text = String(q.get('text') || cfg.publicUrl(store) || (cfg.lanUrls(PORT)[0] || '')).slice(0, 300);
+    if (!text) return json({ ok: false, error: 'empty_text' }, 400);
+    const scale = Math.max(2, Math.min(16, Number(q.get('scale') || 8)));
+    try {
+      const png = qr.toPNG(qr.encode(text), scale, 4);
+      return { body: png, headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=300' } };
+    } catch (e) {
+      return json({ ok: false, error: 'qr_failed' }, 400);
+    }
   }
 
   if (p === '/api/setup/state' && m === 'GET') {
@@ -202,11 +253,34 @@ async function api(req, res, url, ip) {
     return json(r);
   }
 
+  if (p === '/api/auth/transfer/redeem' && m === 'POST') {
+    if (!rateLimit('transfer:' + ip, 20, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    const body = await readBody(req);
+    const r = auth.redeemTransfer(store, body.code, body);
+    return json(r, r.ok ? 200 : 400);
+  }
+
   if (p === '/api/auth/unlock' && m === 'POST') {
     if (!rateLimit('unlock:' + ip, 30, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const body = await readBody(req);
+    /* قفل موقت پس از چند PIN اشتباه — روی همان دستگاه، ذخیره‌شده در پایگاه‌داده */
+    const devKey = 'lock:' + sha256(String(body.device_token || ip)).slice(0, 32);
+    const lock = store.getMeta(devKey, null);
+    if (lock && lock.until && Date.parse(lock.until) > Date.now()) {
+      return json({ ok: false, error: 'locked', until: lock.until, tries: lock.tries }, 429);
+    }
     const r = auth.unlock(store, body);
-    if (!r.ok) return json(r, 401);
+    if (!r.ok) {
+      const tries = ((lock && lock.tries) || 0) + 1;
+      if (tries >= 8) {
+        store.setMeta(devKey, { tries, until: new Date(Date.now() + 10 * 60_000).toISOString() });
+        store.audit({ role: 'system', action: 'pin_locked', collection: 'devices', after: { ip } });
+      } else {
+        store.setMeta(devKey, { tries, until: null });
+      }
+      return json(r, 401);
+    }
+    store.setMeta(devKey, { tries: 0, until: null });
     return json(r);
   }
 
@@ -221,6 +295,11 @@ async function api(req, res, url, ip) {
   if (p === '/api/auth/logout' && m === 'POST') {
     auth.logout(store, actor.session);
     return json({ ok: true });
+  }
+
+  if (p === '/api/auth/transfer' && m === 'POST') {
+    const r = auth.createTransfer(store, actor.user.id, actor.device ? actor.device.id : null);
+    return json(Object.assign(r, { public_url: cfg.publicUrl(store) || null }));
   }
 
   if (p === '/api/auth/pin' && m === 'POST') {
@@ -242,6 +321,7 @@ async function api(req, res, url, ip) {
         attendance: store.count('attendance'), grades: store.count('grades'),
       },
       version: readManifest().version,
+      hub: hubInfoFor(store, actor),
     });
   }
 
@@ -300,6 +380,50 @@ async function api(req, res, url, ip) {
     const body = await readBody(req);
     const r = auth.createPairCode(store, Number(body.user_id), actor.user.id);
     return json(r, r.ok ? 200 : 400);
+  }
+
+  if (p === '/api/admin/network' && m === 'GET') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    return json({
+      ok: true,
+      public_url: cfg.publicUrl(store) || null,
+      lan_urls: cfg.lanUrls(PORT),
+      port: PORT,
+      instance: cfg.instanceId(store),
+      hub: Object.assign({}, cfg.hubConfig(store), {
+        key: hub.schoolKey(store),
+        last_push: cfg.getMeta(store, 'hub:last_push') || null,
+        last_drain: cfg.getMeta(store, 'hub:last_drain') || null,
+      }),
+      tunnel: await cfg.tunnelStatus(store, { force: q.get('force') === '1' }),
+    });
+  }
+
+  if (p === '/api/admin/network' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const body = await readBody(req);
+    if (body.public_url !== undefined) {
+      const u = cfg.normalizeUrl(body.public_url);
+      if (u && !/^https:\/\//i.test(u)) return json({ ok: false, error: 'https_required' }, 400);
+      cfg.setMeta(store, 'public_url', u);
+      store.audit({ user_id: actor.user.id, role: 'manager', action: 'network_public_url', collection: 'config', after: { public_url: u } });
+    }
+    if (body.hub_url !== undefined) cfg.setMeta(store, 'hub_url', cfg.normalizeUrl(body.hub_url));
+    if (body.hub_enabled !== undefined) cfg.setMeta(store, 'hub_enabled', !!body.hub_enabled);
+    if (body.regenerate_key) cfg.setMeta(store, 'hub_key', '');
+    return json({
+      ok: true,
+      public_url: cfg.publicUrl(store) || null,
+      hub: Object.assign({}, cfg.hubConfig(store), { key: hub.schoolKey(store) }),
+      tunnel: await cfg.tunnelStatus(store, { force: true }),
+    });
+  }
+
+  if (p === '/api/admin/hub/sync' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const b = await readBody(req);
+    const r = await hub.sync(store, { force: !!b.force });
+    return json(Object.assign({ ok: true }, r));
   }
 
   if (p === '/api/admin/devices' && m === 'GET') return json({ ok: true, devices: auth.listDevices(store) });
@@ -420,7 +544,7 @@ function toCSV(rows) {
 /* ── سرور ─────────────────────────────────────────────────────────── */
 const server = http.createServer(async (req, res) => {
   const started = Date.now();
-  const ip = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  const ip = cfg.clientIp(req);
   let url;
   try { url = new URL(req.url, 'http://' + (req.headers.host || 'localhost')); }
   catch (e) { res.writeHead(400).end(); return; }
@@ -514,7 +638,11 @@ server.listen(PORT, HOST, () => {
   console.log('  داده               : ' + path.join(DATA_DIR, 'payesh.sqlite'));
   console.log('  بکاپ               : ' + BACKUP_DIR);
   console.log('  راه‌اندازی         : ' + (auth.needsSetup(store) ? 'انجام نشده — از مرورگر اول را انجام دهید' : 'انجام شده'));
+  const pub = cfg.publicUrl(store);
+  console.log('  آدرس عمومی (همه)   : ' + (pub || 'تنظیم نشده — پنل مدیر ← شبکه'));
   console.log('');
+  /* همگام‌سازی دوره‌ای با Hub ابری (اگر فعال باشد) */
+  try { hub.start(store); } catch (e) { console.error('hub start failed', e.message); }
 });
 
 process.on('SIGINT', () => { store.close(); process.exit(0); });

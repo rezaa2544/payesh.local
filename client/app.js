@@ -306,6 +306,43 @@ async function doPair(form) {
   }
 }
 
+/* ثبت درخواست در صف ابری (وقتی سیستم مدرسه در دسترس نیست) */
+async function queueLeaveToHub(studentId, row) {
+  const hub = S.hub || {};
+  const child = (hub.children || []).find(c => Number(c.student_id) === Number(studentId));
+  if (!hub.enabled || !hub.url || !child) return false;
+  try {
+    const res = await fetch(hub.url.replace(/\/+$/, '') + '/v1/outbox', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + child.token },
+      body: JSON.stringify({
+        uid: row.uid || ('leave-' + studentId + '-' + row.date),
+        kind: 'leave',
+        payload: { date: row.date, reason: row.reason },
+      }),
+    });
+    const out = await res.json();
+    return !!out.ok;
+  } catch (e) { return false; }
+}
+
+async function doTransfer(form) {
+  const code = form.code.value.trim();
+  const pin = form.pin.value.trim();
+  if (!/^\d{4,6}$/.test(pin)) return toast('PIN باید ۴ تا ۶ رقم باشد', 'err');
+  try {
+    const r = await api('/api/auth/transfer/redeem', { method: 'POST', body: { code, pin, platform: platformName(), name: deviceName() } });
+    saveDevice(r.device_token);
+    saveSession(r.session.token);
+    S.user = r.user; S.role = r.user.role;
+    go('home');
+    await start();
+  } catch (e) {
+    const map = { bad_code: 'کد انتقال نامعتبر است', code_used: 'این کد قبلاً استفاده شده', code_expired: 'کد انتقال منقضی شده', bad_pin: 'PIN نامعتبر' };
+    toast(map[e.message] || 'انتقال ناموفق: ' + e.message, 'err');
+  }
+}
+
 async function doUnlock(form) {
   const pin = form.pin.value.trim();
   try {
@@ -342,14 +379,23 @@ async function start() {
   try {
     const boot = await api('/api/bootstrap');
     S.boot = boot; S.user = boot.user; S.role = boot.role;
-    S.server = { ok: true, version: boot.version, school: boot.school, setupDone: true };
+    S.hub = boot.hub || { enabled: false };
+    S.server = Object.assign({}, S.server, {
+      ok: true, version: boot.version, school: boot.school, setupDone: true,
+      publicUrl: boot.public_url || S.server.publicUrl || null,
+    });
     S.clockOffset = new Date(boot.server_time).getTime() - Date.now();
     const cached = await idbGet('data');
     if (cached) {
       S.data = {};
       for (const c of Object.keys(cached)) S.data[c] = new Map(cached[c].map(r => [Number(r.id), r]));
     }
-    try { await pullAll(); await flushQueue(); } catch (e) { /* آفلاین: با کش ادامه می‌دهیم */ }
+    try { await pullAll(); await flushQueue(); S.hubOffline = false; }
+    catch (e) { /* آفلاین: با کش ادامه می‌دهیم */ await tryCloudFallback(); }
+    if (S.hub && S.hub.enabled && (S.role === 'parent' || S.role === 'student')) {
+      /* بی‌صدا و در پس‌زمینه، تازه‌ترین نمای ابری را هم بگیر */
+      loadHub(true).then(() => { if (S.role === 'parent' && S.route === 'home') render(); });
+    }
     routeFromHash();
     render();
     scheduleSync();
@@ -387,7 +433,56 @@ function routeFromHash() {
   S.route = route; S.params = params;
 }
 function go(route) { location.hash = '#/' + route; }
-window.addEventListener('hashchange', () => { routeFromHash(); render(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', async () => {
+  routeFromHash();
+  render();
+  window.scrollTo(0, 0);
+  if (S.route === 'network' && S.role === 'manager') { await loadNetwork(false); render(); }
+});
+
+/* ── Hub ابری: خواندن نمای خانواده وقتی مدرسه خاموش است ─────────── */
+async function loadHub(silent = true) {
+  const hub = S.hub || {};
+  if (!hub.enabled || !hub.url || !(hub.children || []).length) return null;
+  S.hubData = S.hubData || {};
+  let ok = 0;
+  for (const child of hub.children) {
+    try {
+      const res = await fetch(hub.url.replace(/\/+$/, '') + '/v1/family', {
+        headers: { authorization: 'Bearer ' + child.token },
+        cache: 'no-store',
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.ok) { S.hubData[Number(child.student_id)] = data; ok++; }
+    } catch (e) { /* ابر هم در دسترس نیست */ }
+  }
+  S.hubOffline = ok === 0;
+  if (!silent) toast(ok ? 'وضعیت از ابر به‌روز شد' : 'دسترسی به ابر ممکن نشد', ok ? 'ok' : 'err');
+  return ok;
+}
+
+/* اگر سیستم مدرسه جواب نداد، از ابر بخوان */
+async function tryCloudFallback() {
+  const hub = S.hub || {};
+  if (!hub.enabled) return false;
+  const n = await loadHub(true);
+  if (n) { S.hubOffline = true; render(); return true; }
+  return false;
+}
+
+/* ── وضعیت شبکه/تونل (فقط مدیر) ─────────────────────────────────── */
+async function loadNetwork(force) {
+  try {
+    const r = await api('/api/admin/network' + (force ? '?force=1' : ''), { noAuthRedirect: true });
+    S.network = r;
+    if (r.public_url) S.server.publicUrl = r.public_url;
+    return r;
+  } catch (e) {
+    S.network = S.network || {};
+    return null;
+  }
+}
 
 /* ── رندر ───────────────────────────────────────────────────────── */
 function render() {
@@ -397,6 +492,11 @@ function render() {
   const page = (window.PAGES && window.PAGES[S.route]) || null;
   const view = page ? page(S.params) : `<div class="card"><h3>صفحه پیدا نشد</h3><p class="muted">مسیر «${esc(S.route)}» وجود ندارد.</p></div>`;
   root.innerHTML = shellHtml(view);
+  /* بارگذاری تنبل وضعیت شبکه در صفحهٔ «شبکه» */
+  if (S.route === 'network' && S.role === 'manager' && !S.network && !S._netLoading) {
+    S._netLoading = true;
+    loadNetwork(false).then(() => { S._netLoading = false; if (S.route === 'network') render(); });
+  }
   updateTopChrome();
 }
 
@@ -468,9 +568,15 @@ async function boot() {
       fetch('/api/setup/state', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
     ]);
     if (!health || !health.ok) { renderOffline(); return; }
-    S.server = { ok: true, version: health.version, school: health.school, setupDone: !!(setup && !setup.needs_setup) };
+    S.server = {
+      ok: true, version: health.version, school: health.school,
+      setupDone: !!(setup && !setup.needs_setup),
+      publicUrl: health.public_url || null, instance: health.instance || null,
+    };
     if (health.server_time) S.clockOffset = new Date(health.server_time).getTime() - Date.now();
     if (!S.server.setupDone) { renderSetup(); return; }
+    const tr = String(location.hash || '').match(/^#\/transfer\/([A-Za-z0-9_-]+)/);
+    if (tr) { renderTransfer(tr[1]); return; }
     if (S.deviceToken) renderLock();
     else renderPair();
   } catch (e) {
@@ -497,6 +603,32 @@ document.addEventListener('click', async (e) => {
       renderPair(); return;
     case 'lock': lockApp(); return;
     case 'sync': await syncNow(false); return;
+    case 'net-refresh': await loadNetwork(true); render(); return;
+    case 'hub-load': await loadHub(false); render(); return;
+    case 'hub-sync': {
+      try {
+        const r = await api('/api/admin/hub/sync', { method: 'POST', body: { force: true } });
+        const p = r.push || {}, d = r.drain || {};
+        toast('ارسال: ' + fa(p.sent || 0) + ' · دریافت: ' + fa(d.fetched || 0), p.ok === false || d.ok === false ? 'err' : 'ok');
+        await loadNetwork(true); render();
+      } catch (err) { toast('همگام‌سازی ابری ناموفق: ' + err.message, 'err'); }
+      return;
+    }
+    case 'copy-url': {
+      const url = el.getAttribute('data-id') || '';
+      try { await navigator.clipboard.writeText(url); toast('آدرس کپی شد', 'ok'); }
+      catch (e) { toast(url, 'ok'); }
+      return;
+    }
+    case 'transfer': {
+      try {
+        const r = await api('/api/auth/transfer', { method: 'POST' });
+        if (!r.public_url) return toast('آدرس رسمی تنظیم نشده — از مدیر بخواهید', 'err');
+        location.href = r.public_url + '/#/transfer/' + r.code;
+      } catch (err) { toast('انتقال ناموفق: ' + err.message, 'err'); }
+      return;
+    }
+    case 'goto-network': go('network'); return;
     case 'goto': go(el.getAttribute('data-route')); return;
     case 'print': window.print(); return;
     case 'update-check': await checkUpdate(false); render(); return;
@@ -588,6 +720,32 @@ document.addEventListener('submit', async (e) => {
   if (kind === 'setup') return doSetup(f);
   if (kind === 'pair') return doPair(f);
   if (kind === 'unlock') return doUnlock(f);
+  if (kind === 'transfer') return doTransfer(f);
+
+  if (kind === 'hub') {
+    try {
+      const r = await api('/api/admin/network', {
+        method: 'POST',
+        body: { hub_url: f.hub_url.value.trim(), hub_enabled: !!f.hub_enabled.checked },
+      });
+      if (r.hub) S.network = Object.assign({}, S.network, { hub: r.hub });
+      await loadNetwork(true);
+      toast('تنظیمات Hub ذخیره شد', 'ok');
+      render();
+    } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
+    return;
+  }
+
+  if (kind === 'network') {
+    try {
+      const r = await api('/api/admin/network', { method: 'POST', body: { public_url: f.public_url.value.trim() } });
+      S.server.publicUrl = r.public_url;
+      await loadNetwork(true);
+      toast('آدرس رسمی ذخیره شد', 'ok');
+      render();
+    } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
+    return;
+  }
 
   if (kind === 'leave') {
     const row = {
@@ -596,8 +754,16 @@ document.addEventListener('submit', async (e) => {
     };
     if (!row.date) return toast('تاریخ را انتخاب کنید', 'err');
     putLocal('leaves', row);
+    const op = S.queue[S.queue.length - 1];
     closeModal(); saveCache(); render();
     await flushQueue();
+    const stillQueued = !!(op && S.queue.some(x => x.uid === op.uid));
+    if (stillQueued && S.hub && S.hub.enabled) {
+      const sent = await queueLeaveToHub(row.student_id, { date: row.date, reason: row.reason, uid: op.uid });
+      if (sent) toast('درخواست ثبت شد و در صف ابری قرار گرفت', 'ok');
+      else toast('درخواست روی گوشی ذخیره شد — با اتصال بعدی ارسال می‌شود', 'ok');
+      return;
+    }
     toast('درخواست ثبت شد', 'ok');
     return;
   }

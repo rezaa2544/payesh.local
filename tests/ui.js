@@ -100,7 +100,7 @@ async function mount(label, token, pathes, device) {
     return { token: p.session.token, device: p.device_token };
   };
 
-  await mount('مدیر', mgr.session.token, ['#/', '#/attendance', '#/grades', '#/students', '#/users', '#/classes', '#/schedule', '#/reports', '#/attendance-report', '#/announcements', '#/system'], mgr.device_token);
+  await mount('مدیر', mgr.session.token, ['#/', '#/attendance', '#/grades', '#/students', '#/users', '#/classes', '#/schedule', '#/reports', '#/attendance-report', '#/announcements', '#/network', '#/system'], mgr.device_token);
   const t = await pair(teacher.id);
   await mount('دبیر', t.token, ['#/', '#/attendance', '#/grades', '#/students', '#/schedule', '#/announcements', '#/system'], t.device);
   const p = await pair(parent.id);

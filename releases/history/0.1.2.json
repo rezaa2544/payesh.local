@@ -1,0 +1,60 @@
+{
+  "version": "0.1.2",
+  "built_at": "2026-10-30T21:31:24.650Z",
+  "shell": {
+    "android": "0.1.2"
+  },
+  "files": [
+    {
+      "path": "app.js",
+      "sha256": "1c5814b682582eff13208c5417d949a33ab3cca4477d3c9a1c1aaf6ec17841d2",
+      "size": 33638
+    },
+    {
+      "path": "icons/apple-touch-icon.png",
+      "sha256": "5729bb601826310a59013b4db0c5a5ddc595beabd416312dbc4e40dc01f59c8a",
+      "size": 7028
+    },
+    {
+      "path": "icons/icon-192.png",
+      "sha256": "370ab173bc616faceeaf603c015912c648b4e79cac77f8ff82b68a22df9b5620",
+      "size": 7447
+    },
+    {
+      "path": "icons/icon-512.png",
+      "sha256": "1c7c5042830e23f4e21eafc61ff39f8fff71d0a2df3b4f5c46d066b7ff457218",
+      "size": 13315
+    },
+    {
+      "path": "index.html",
+      "sha256": "4e29d584c38c9f1c4b0ac4bbb889e5598ff6d62fb286f36674fd837ecf4af5c4",
+      "size": 1074
+    },
+    {
+      "path": "install.html",
+      "sha256": "217c3bb2ab0aa1b6321051221b64c330abdbcc7d8ccc2a68e531d3d219d9234b",
+      "size": 8932
+    },
+    {
+      "path": "manifest.webmanifest",
+      "sha256": "175a463c06fd172da665f4850c7d3598b5468a1071c1f3a55463bf307ef10987",
+      "size": 960
+    },
+    {
+      "path": "pages.js",
+      "sha256": "c7615c28955f7c4442a75c54ee0952e1ed5f02283298752de93f03d81f2f7155",
+      "size": 66120
+    },
+    {
+      "path": "styles.css",
+      "sha256": "98631472fdb9d27fc058dd618388a8029cc50e9412f8e42b56bed90deb9bbe69",
+      "size": 9817
+    },
+    {
+      "path": "sw.js",
+      "sha256": "53afed18ecb6cac9c02525d1af1c43ac640cb9c199d019913491ee7d1e4dcc0c",
+      "size": 5959
+    }
+  ],
+  "total_size": 154290
+}

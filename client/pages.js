@@ -25,7 +25,7 @@ function navConfig(role) {
   if (role === 'manager') {
     base.push(['home', '🏠', 'داشبورد'], ['users', '👥', 'کاربران'], ['classes', '🏛️', 'کلاس‌ها'],
       ['schedule', '🗓️', 'برنامه'], ['attendance-report', '✅', 'حضور'], ['reports', '📑', 'گزارش‌ها'],
-      ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
+      ['announcements', '📢', 'اطلاعیه‌ها'], ['network', '🌐', 'شبکه'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'teacher') {
     base.push(['home', '🏠', 'امروز'], ['attendance', '✅', 'حضور'], ['grades', '📝', 'نمره'],
       ['students', '👥', 'دانش‌آموزان'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
@@ -58,9 +58,21 @@ function shellHtml(view) {
       <div class="navgroup">حساب</div>
       <div class="small muted" style="padding:6px">${esc(S.user ? S.user.name : '')} · ${esc(ROLE_FA[role] || role)}</div>
     </aside>
-    <main class="main">${updateBarHtml()}${offlineBarHtml()}${view}</main>
+    <main class="main">${canonicalBarHtml()}${updateBarHtml()}${offlineBarHtml()}${view}</main>
   </div>
   <nav class="bottomnav">${mkNav(true)}</nav>`;
+}
+
+/* اگر کاربر از آدرس محلی (فقط شبکهٔ مدرسه) وارد شده، به آدرس رسمی هدایتش کن */
+function canonicalBarHtml() {
+  const pub = S.server && S.server.publicUrl;
+  if (!pub) return '';
+  try { if (location.origin === new URL(pub).origin) return ''; } catch (e) { return ''; }
+  return `<div class="banner warn" id="origin-bar">
+    <div>🌐 این آدرس فقط داخل شبکهٔ مدرسه کار می‌کند. برای استفاده از هر اینترنتی (خانه و موبایل)، آدرس رسمی را باز کنید:
+      <span class="ltr small" style="font-weight:700">${esc(pub.replace(/^https?:\/\//, ''))}</span></div>
+    <button class="btn sm primary" data-act="transfer">انتقال به آدرس رسمی</button>
+  </div>`;
 }
 
 function updateBarHtml() {
@@ -131,6 +143,25 @@ function renderPair() {
     <div class="card tight small muted">
       سرور: <span class="ltr">${esc(location.host)}</span> · نسخه ${esc(S.server.version || '')}
       ${S.user ? '' : `<br><a href="#" data-act="forget-device">دستگاه دیگری انتخاب شود</a>`}
+    </div>
+  </div>`;
+}
+
+function renderTransfer(code) {
+  $('#app').innerHTML = `
+  <div class="auth">
+    <div class="logo">پ</div>
+    <h1>انتقال به آدرس رسمی</h1>
+    <div class="sub">برای ادامه روی این دستگاه یک PIN تازه انتخاب کنید</div>
+    <form data-form="transfer" class="card">
+      <input type="hidden" name="code" value="${esc(code)}">
+      <label class="field"><span>PIN (۴ تا ۶ رقم)</span>
+        <input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="new-password"></label>
+      <button class="btn primary block" type="submit">فعال‌سازی روی این آدرس</button>
+      <p class="small muted center" style="margin-top:10px">همین PIN را فردا برای ورود به برنامه می‌زنید.</p>
+    </form>
+    <div class="card tight small muted center">
+      <a href="#/" data-act="forget-device">انصراف</a>
     </div>
   </div>`;
 }
@@ -575,7 +606,28 @@ function parentHome() {
         <span class="badge ${pct >= 90 ? 'green' : 'amber'}">حضور ${fa(pct)}٪</span></div></div>
     </a>`;
   }).join('') : empty('فرزندی به حساب شما متصل نیست — با دفتر مدرسه تماس بگیرید.')}
+  ${cloudCard(kids)}
   ${card(`<div class="row"><a class="btn grow" href="#/leaves">📨 درخواست مرخصی</a><a class="btn grow" href="#/announcements">📢 اطلاعیه‌ها</a></div>`)}`;
+}
+
+/* ── وضعیت ابری: وقتی سیستم مدرسه خاموش است، ولی از Hub می‌خواند ── */
+function cloudCard(kids) {
+  const hub = S.hub || {};
+  if (!hub.enabled) return '';
+  const rows = kids.map(k => ({ kid: k, d: (S.hubData || {})[Number(k.id)] })).filter(x => x.d);
+  const anyData = rows.length > 0;
+  return card(`<div class="row between"><b>☁️ ابر پایش</b>
+      ${S.hubOffline ? badge('سیستم مدرسه در دسترس نیست', 'amber') : badge('متصل', 'green')}</div>
+    <div class="small muted" style="margin-top:6px">
+      ${anyData
+        ? 'آخرین وضعیت ثبت‌شده در فضای ابری. ثبت‌ها و درخواست‌های شما در صف می‌مانند و با روشن شدن سیستم مدرسه اعمال می‌شوند.'
+        : 'برای دیدن آخرین وضعیت وقتی مدرسه تعطیل است، از همین دکمه استفاده کنید.'}
+    </div>
+    ${anyData ? rows.map(({ kid, d }) => `<div class="item" style="margin-top:8px">
+        <div class="grow"><div class="t">${esc(kid.name)}</div>
+          <div class="s">حضور ${fa(d.attendance && d.attendance.percent != null ? d.attendance.percent : '—')}٪ · ${fa((d.grades || []).length)} نمره</div></div>
+        <span class="small muted">${esc(d.updated_at ? jdate(d.updated_at) : '')}</span></div>`).join('') : ''}
+    <button class="btn sm block" style="margin-top:10px" data-act="hub-load">دریافت از ابر</button>`);
 }
 
 PAGES.child = (params) => {
@@ -650,6 +702,63 @@ function studentHomeCard() {
 }
 
 /* ══════════════ سیستم ══════════════ */
+/* ══════════════ مدیر: شبکه و دسترسی ══════════════ */
+PAGES.network = () => {
+  if (S.role !== 'manager') return pageHead('شبکه') + empty('دسترسی ندارید.');
+  const pub = S.server.publicUrl || '';
+  const n = S.network || {};
+  const tun = n.tunnel || {};
+  const status = !pub
+    ? badge('تنظیم نشده', 'amber')
+    : (tun.reachable ? badge('در دسترس از اینترنت', 'green') : badge('در دسترس نیست', 'red'));
+  return `${pageHead('شبکه و دسترسی', 'هر کاربر اینترنت خودش را دارد؛ همه باید از یک آدرس ثابت وارد شوند',
+    `<button class="btn sm" data-act="net-refresh">بازبینی</button>`)}
+  ${card(`<div class="row between"><b>آدرس رسمی (HTTPS)</b>${status}</div>
+    <div class="small muted" style="margin-top:8px">این آدرس را روی همهٔ گوشی‌ها و رایانه‌ها باز کنید. بدون آن، برنامه فقط داخل Wi-Fi مدرسه کار می‌کند.</div>
+    <form data-form="network" style="margin-top:10px">
+      <input class="input ltr" name="public_url" value="${esc(pub)}" placeholder="https://payesh.school.ts.net" inputmode="url" autocomplete="off">
+      <button class="btn primary block" style="margin-top:8px">ذخیرهٔ آدرس</button>
+    </form>
+    ${tun.reachable ? `<div class="small muted" style="margin-top:8px">آخرین بررسی: ${esc(tun.latency_ms != null ? fa(tun.latency_ms) + ' میلی‌ثانیه' : '—')}${tun.same_server === false ? ' · ⚠ پاسخ از سرور دیگری آمد' : ''}</div>`
+      : (tun.configured ? `<div class="small muted" style="margin-top:8px;color:var(--red,#b91c1c)">تونل پاسخ نداد (${esc(tun.error || 'نامشخص')}) — Tailscale Funnel روی سیستم روشن است؟</div>` : '')}
+  `)}
+  ${pub ? card(`<div class="row between" style="align-items:flex-start">
+      <div><b>کد QR برای نصب سریع</b>
+        <div class="small muted" style="margin-top:6px">این کد را روی تخته بزنید یا در گروه بفرستید؛ با دوربین گوشی باز می‌شود.</div>
+        <div class="row" style="margin-top:8px"><a class="btn sm" href="${esc(pub)}" target="_blank">باز کردن</a>
+          <button class="btn sm" data-act="copy-url" data-id="${esc(pub)}">کپی آدرس</button></div>
+      </div>
+      <img alt="QR" src="/api/qr?text=${encodeURIComponent(pub)}&scale=6" style="width:150px;height:150px;border-radius:10px;background:#fff;padding:6px">
+    </div>`) : ''}
+  ${card(`<b>راه‌اندازی تونل رایگان (Tailscale Funnel)</b>
+    <ol class="small" style="margin:8px 0 0;padding-inline-start:18px;line-height:2">
+      <li>روی همین سیستم، Tailscale را نصب و با یک حساب رایگان وارد شوید.</li>
+      <li>در ترمینال: <code class="ltr">tailscale funnel 8080 on</code></li>
+      <li>آدرسی مثل <span class="ltr">https://payesh-xxx.ts.net</span> می‌گیرید؛ همان را بالا ذخیره کنید.</li>
+      <li>در Tailscale، گزینهٔ Funnel باید برای همین دستگاه فعال بماند تا آدرس ثابت بماند.</li>
+    </ol>
+    <div class="small muted" style="margin-top:8px">توجه: با فعال شدن آدرس عمومی، این سرور از اینترنت قابل دسترسی است؛ PIN همهٔ کاربران را جدی بگیرید و دستگاه‌های ناشناس را از «دستگاه‌ها» باطل کنید.</div>`)}
+  ${card(`<b>آدرس‌های شبکهٔ محلی</b><div class="small muted" style="margin-top:6px">
+    ${(n.lan_urls || []).map(u => `<div class="ltr">${esc(u)}</div>`).join('') || '<div>—</div>'}
+    <div style="margin-top:6px">این آدرس‌ها فقط وقتی گوشی به همان Wi-Fi وصل است کار می‌کنند. برای همین، آدرس رسمی بالا را به همه بدهید.</div>
+  </div>`)}
+  ${card(`<div class="row between"><b>☁️ Hub ابری</b>${n.hub && n.hub.enabled ? badge('فعال', 'green') : badge('غیرفعال', 'amber')}</div>
+    <div class="small muted" style="margin-top:6px">با فعال بودن Hub، ولی و دانش‌آموز حتی وقتی سیستم مدرسه خاموش است آخرین وضعیت را می‌بینند و درخواست مرخصی‌شان در صف می‌ماند. دادهٔ هر دانش‌آموز جداگانه و بدون کد ملی فرستاده می‌شود.</div>
+    <form data-form="hub" style="margin-top:10px">
+      <input class="input ltr" name="hub_url" value="${esc((n.hub && n.hub.url) || '')}" placeholder="https://payesh-hub.xxx.workers.dev" inputmode="url" autocomplete="off">
+      <label class="row small" style="margin-top:8px;gap:6px;align-items:center">
+        <input type="checkbox" name="hub_enabled" ${n.hub && n.hub.enabled ? 'checked' : ''}> فعال باشد
+      </label>
+      <button class="btn primary block" style="margin-top:8px">ذخیرهٔ Hub</button>
+    </form>
+    <div class="small muted" style="margin-top:10px">کلید مدرسه (در Worker به‌عنوان <span class="ltr">SCHOOL_KEY</span> تنظیم کنید):</div>
+    <div class="ltr small" style="background:var(--soft);padding:8px;border-radius:8px;word-break:break-all;margin-top:4px">${esc((n.hub && n.hub.key) || '—')}</div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn sm" data-act="hub-sync">همگام‌سازی اکنون</button>
+      <span class="small muted">آخرین ارسال: ${esc(n.hub && n.hub.last_push ? jdate(n.hub.last_push) : '—')} · آخرین دریافت: ${esc(n.hub && n.hub.last_drain ? jdate(n.hub.last_drain) : '—')}</span>
+    </div>`)}`;
+};
+
 PAGES.system = () => {
   const isManager = S.role === 'manager';
   const dev = S.boot && S.boot.counts;
@@ -672,9 +781,10 @@ PAGES.system = () => {
     </div>`)}
   ${isManager ? managerSystemSections() : changePinCard()}
   ${card(`<b>راهنمای دستگاه‌ها</b><div class="small muted" style="margin-top:6px">
-    برای نصب روی گوشی، آدرس زیر را در مرورگر باز کنید و «افزودن به صفحهٔ اصلی» را بزنید:<br>
-    <span class="ltr" style="font-weight:700">http://${esc(location.host)}</span><br>
-    <a href="/install" target="_blank">صفحهٔ نصب و راهنما</a>
+    ${S.server.publicUrl
+      ? `آدرس رسمی را روی گوشی باز کنید و «افزودن به صفحهٔ اصلی» را بزنید:<br><span class="ltr" style="font-weight:700">${esc(S.server.publicUrl)}</span>`
+      : `آدرس زیر فقط داخل شبکهٔ مدرسه کار می‌کند. برای دسترسی از هر اینترنتی، <a href="#/network">آدرس رسمی</a> را تنظیم کنید:<br><span class="ltr" style="font-weight:700">http://${esc(location.host)}</span>`}
+    <br><a href="/install" target="_blank">صفحهٔ نصب و راهنما</a>
   </div>`)}`;
 };
 
