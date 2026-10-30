@@ -44,12 +44,14 @@ function readHistory(version) {
 function updateCheck(current) {
   const latest = readManifest();
   const cur = readHistory(current);
-  if (cur && cur.version === latest.version) {
-    return { ok: true, up_to_date: true, version: latest.version, server_time: nowISO() };
-  }
+  /* مقایسه همیشه بر اساس هش است، نه فقط شمارهٔ نسخه:
+     اگر همان نسخه دوباره ساخته شده باشد هم تفاوت فایل‌ها دیده می‌شود. */
   const known = new Map((cur ? cur.files : []).map(f => [f.path, f.sha256]));
   const changed = (latest.files || []).filter(f => known.get(f.path) !== f.sha256);
   const removed = [...known.keys()].filter(p => !(latest.files || []).some(f => f.path === p));
+  if (cur && !changed.length && !removed.length) {
+    return { ok: true, up_to_date: true, version: latest.version, built_at: latest.built_at, server_time: nowISO() };
+  }
   return {
     ok: true,
     up_to_date: false,

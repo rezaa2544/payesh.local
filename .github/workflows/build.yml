@@ -37,7 +37,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
+      - name: بررسی Android SDK پیش‌نصب‌شده
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" 2>/dev/null | tail -3 || true
 
       - uses: gradle/actions/setup-gradle@v3
         with:

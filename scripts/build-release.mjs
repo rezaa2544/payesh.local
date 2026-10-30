@@ -54,9 +54,20 @@ const manifest = {
 
 fs.writeFileSync(path.join(RELEASES, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
-/* تاریخچه: نسخه‌های قبلی دست‌نخورده می‌مانند تا دلتا محاسبه شود */
+/* تاریخچه: برای هر شمارهٔ نسخه یک «عکس فوری» نگه می‌داریم تا دلتا محاسبه شود.
+   اگر فایل‌های یک نسخهٔ منتشرشده تغییر کنند، باید شمارهٔ نسخه بالا برود. */
 const histFile = path.join(HISTORY, VERSION + '.json');
-if (!fs.existsSync(histFile)) fs.writeFileSync(histFile, JSON.stringify(manifest, null, 2));
+if (fs.existsSync(histFile)) {
+  const prev = JSON.parse(fs.readFileSync(histFile, 'utf8'));
+  const prevMap = new Map((prev.files || []).map(f => [f.path, f.sha256]));
+  const diff = files.filter(f => prevMap.get(f.path) !== f.sha256).length;
+  if (diff && !process.env.FORCE) {
+    console.error(`\n⛔ نسخهٔ ${VERSION} قبلاً ساخته شده و ${diff} فایل تغییر کرده است.`);
+    console.error('   شمارهٔ نسخه را بالا ببرید (npm version patch) یا با FORCE=1 اجرا کنید.\n');
+    process.exit(1);
+  }
+}
+fs.writeFileSync(histFile, JSON.stringify(manifest, null, 2));
 
 console.log(`📦 manifest نسخهٔ ${VERSION} — ${files.length} فایل، ${(manifest.total_size / 1024).toFixed(1)}KB`);
 
