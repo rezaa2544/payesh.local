@@ -394,12 +394,29 @@ function render() {
 }
 
 /* ── آپدیت ──────────────────────────────────────────────────────── */
+/* نسخهٔ نصب‌شده روی همین دستگاه را از سرویس‌ورکر می‌پرسیم
+   (نه از سرور — وگرنه بعد از آپدیت سرور، کلاینت کهنه هرگز آپدیت نمی‌بیند) */
+function swAsk(msg, timeout = 1200) {
+  return new Promise(resolve => {
+    const sw = navigator.serviceWorker;
+    if (!sw || !sw.controller) return resolve(null);
+    try {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = e => resolve(e.data || null);
+      sw.controller.postMessage(msg, [ch.port2]);
+      setTimeout(() => resolve(null), timeout);
+    } catch (e) { resolve(null); }
+  });
+}
+
 async function checkUpdate(silent = false) {
   if (!navigator.serviceWorker) return null;
   try {
     const reg = await navigator.serviceWorker.getRegistration();
     if (reg) await reg.update();
-    const r = await api('/api/update/check?current=' + encodeURIComponent(S.server.version || '0.0.0'), { noAuthRedirect: true });
+    const v = await swAsk({ type: 'GET_VERSION' });
+    const current = (v && v.version) || S.server.version || '0.0.0';
+    const r = await api('/api/update/check?current=' + encodeURIComponent(current), { noAuthRedirect: true });
     S.update = r.up_to_date ? null : r;
     if (!silent && !r.up_to_date) toast('نسخهٔ جدید آماده است — از «سیستم» به‌روزرسانی کنید', 'ok');
     const bar = $('#update-bar');
@@ -424,6 +441,7 @@ if ('serviceWorker' in navigator && navigator.serviceWorker) {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
     navigator.serviceWorker.addEventListener('message', ev => {
       const d = ev.data || {};
+      if (d.type === 'VERSION' && d.version) S.installedVersion = d.version;
       if (d.type === 'UPDATE_DONE' && !d.up_to_date) {
         toast('آپدیت دریافت شد (' + (d.changed || 0) + ' فایل) — بازخوانی…', 'ok');
       }

@@ -17,9 +17,10 @@ self.addEventListener('install', event => {
       try { await cache.add(new Request(url, { cache: 'reload' })); } catch (e) { /* noop */ }
     }));
     try {
-      const r = await fetch('/api/version', { cache: 'no-store' });
+      /* نسخهٔ دقیق همین فایل‌هایی که الان کش شدند = نسخهٔ مانیفست سرور */
+      const r = await fetch('/api/update/check?current=0.0.0', { cache: 'no-store' });
       const j = await r.json();
-      await cache.put(VERSION_KEY, new Response(JSON.stringify(j), { headers: { 'content-type': 'application/json' } }));
+      await cache.put(VERSION_KEY, new Response(JSON.stringify({ version: j.version, built_at: j.built_at }), { headers: { 'content-type': 'application/json' } }));
     } catch (e) { /* noop */ }
     self.skipWaiting();
   })());
@@ -119,6 +120,14 @@ function notify(msg) {
 
 self.addEventListener('message', event => {
   const d = event.data || {};
+  if (d.type === 'GET_VERSION') {
+    event.waitUntil((async () => {
+      const cache = await caches.open(CACHE);
+      const version = await currentVersion(cache);
+      if (event.ports && event.ports[0]) event.ports[0].postMessage({ type: 'VERSION', version });
+    })());
+    return;
+  }
   if (d.type === 'CHECK_UPDATE') {
     event.waitUntil(applyDelta(!!d.reload).catch(err => notify({ type: 'UPDATE_FAILED', error: String(err.message || err) })));
   }

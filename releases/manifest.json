@@ -1,14 +1,14 @@
 {
   "version": "0.1.0",
-  "built_at": "2026-10-30T21:00:57.413Z",
+  "built_at": "2026-10-30T21:01:54.747Z",
   "shell": {
     "android": "0.1.0"
   },
   "files": [
     {
       "path": "app.js",
-      "sha256": "c220e8f57119e26c80202d96f828596d1755db9b9cfe08a2465772121214db02",
-      "size": 29203
+      "sha256": "ddac6b6a9d1356ca5e872ce61959d0be32f21376cf7081a87bbc09749ba12b21",
+      "size": 30039
     },
     {
       "path": "icons/apple-touch-icon.png",
@@ -52,9 +52,9 @@
     },
     {
       "path": "sw.js",
-      "sha256": "a208fcb34b1d325dfcc6eb65d829f0ab38a612beb77f061ba06be12480d30e3a",
-      "size": 5479
+      "sha256": "53afed18ecb6cac9c02525d1af1c43ac640cb9c199d019913491ee7d1e4dcc0c",
+      "size": 5959
     }
   ],
-  "total_size": 141664
+  "total_size": 142980
 }
