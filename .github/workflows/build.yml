@@ -1,0 +1,93 @@
+name: build-and-release
+
+on:
+  push:
+    tags: ['v*']
+    branches: [main, 'arena/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: آزمون، بستهٔ ویندوز و APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: نصب وابستگی‌های آزمون
+        run: npm install --no-audit --no-fund
+
+      - name: آزمون‌های سرور
+        run: npm test
+
+      - name: آزمون رابط و جریان کاربری
+        run: npm run test:flow
+
+      - name: ساخت بسته و مانیفست دلتا
+        run: node scripts/build-release.mjs
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: ساخت APK اندروید
+        run: gradle assembleDebug --no-daemon -p install/android
+
+      - name: آماده‌سازی فایل‌های انتشار
+        run: |
+          mkdir -p out
+          cp install/android/app/build/outputs/apk/debug/app-debug.apk out/payesh-local.apk
+          # نام ثابت برای لینک‌های همیشه‌درست در README
+          cp releases/payesh-local-windows-*.zip out/payesh-local-windows.zip
+          cp releases/*.zip releases/*.tar.gz out/ 2>/dev/null || true
+          cp releases/manifest.json out/manifest.json
+          ls -lh out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: payesh-local
+          path: out/*
+
+      - name: انتشار پیوسته (هر push روی main)
+        if: startsWith(github.ref, 'refs/heads/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view continuous >/dev/null 2>&1; then
+            echo "release exists"
+          else
+            gh release create continuous --prerelease \
+              --title "آخرین نسخهٔ ساخته‌شده" \
+              --notes "این نسخه با هر push روی main به‌روز می‌شود. لینک‌های ثابت: payesh-local-windows.zip و payesh-local.apk"
+          fi
+          gh release upload continuous out/payesh-local.apk out/payesh-local-windows.zip out/manifest.json --clobber
+
+      - name: انتشار (روی تگ)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/payesh-local.apk
+            out/payesh-local-windows.zip
+            out/payesh-local-windows-*.zip
+            out/manifest.json
+          generate_release_notes: true
+          body: |
+            ## پایش-لوکال
+            - بستهٔ ویندوز: `payesh-local-windows-*.zip` (از حالت فشرده خارج کنید و `install.bat` را اجرا کنید)
+            - اندروید: `payesh-local.apk` (نصب از منابع ناشناس را اجازه دهید)
+            - آیفون: از Safari باز کنید و «افزودن به صفحهٔ اصلی»
+            - به‌روزرسانی برنامه‌ها یک‌کلیکی و فقط با فایل‌های تغییرکرده انجام می‌شود.

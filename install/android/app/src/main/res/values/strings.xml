@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">پایش</string>
+    <string name="server_title">آدرس سرور مدرسه</string>
+    <string name="server_hint">مثلاً 192.168.1.50:8080</string>
+    <string name="server_help">آدرس سیستم مدرسه را وارد کنید. اگر سرور داخل شبکه است، همان IP سیستم را بزنید. برای استفاده از خانه، آدرس ابری (https) را وارد کنید.</string>
+    <string name="save">ذخیره</string>
+    <string name="cancel">انصراف</string>
+    <string name="change_server">تغییر آدرس سرور</string>
+    <string name="reload">تلاش دوباره</string>
+    <string name="conn_error">اتصال به سرور مدرسه برقرار نشد. مطمئن شوید سیستم مدرسه روشن و به همان Wi-Fi وصل است.</string>
+</resources>

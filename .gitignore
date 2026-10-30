@@ -36,3 +36,9 @@ tmp/
 
 # مخزن مرجع (با scripts/fetch-upstream.sh گرفته می‌شود)
 .upstream/
+
+# ساخت و ابزار
+.build/
+install/android/.gradle/
+install/android/app/build/
+install/android/local.properties
