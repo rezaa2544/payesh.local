@@ -95,6 +95,13 @@ for (const junk of ['data', 'node_modules', '.git']) {
   fs.rmSync(path.join(stage, junk), { recursive: true, force: true });
 }
 
+/* فقط آخرین بسته‌ها در پوشهٔ releases بمانند (تاریخچهٔ هش‌ها می‌ماند) */
+for (const f of fs.readdirSync(RELEASES)) {
+  if (/^payesh-local-(windows|src)-.*\.(zip|tar\.gz)$/.test(f) && !f.includes(VERSION)) {
+    fs.rmSync(path.join(RELEASES, f), { force: true });
+  }
+}
+
 const zipName = `payesh-local-windows-${VERSION}.zip`;
 const zipPath = path.join(RELEASES, zipName);
 fs.rmSync(zipPath, { force: true });

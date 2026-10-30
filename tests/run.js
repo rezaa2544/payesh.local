@@ -191,12 +191,15 @@ async function waitFor(fn, ms = 15000) {
   });
 
   await test('آپدیت: دلتا فقط فایل‌های تغییرکرده را برمی‌گرداند', async () => {
-    const r = await req('/api/update/check?current=0.1.0');
+    const manifest = require('../releases/manifest.json');
+    const r = await req('/api/update/check?current=' + encodeURIComponent(manifest.version));
     assert.strictEqual(r.data.ok, true);
-    assert.strictEqual(r.data.up_to_date, true);
+    assert.strictEqual(r.data.up_to_date, true, 'همان نسخه = بدون تغییر');
     const old = await req('/api/update/check?current=0.0.1');
     assert.ok(Array.isArray(old.data.changed) && old.data.changed.length > 0);
     assert.ok(old.data.changed[0].sha256);
+    assert.strictEqual(old.data.changed.length, manifest.files.length, 'نسخهٔ نامعلوم = دانلود کامل');
+    assert.ok(old.data.total_size <= old.data.full_size);
   });
 
   /* ── ۳. دود رابط کاربری ── */

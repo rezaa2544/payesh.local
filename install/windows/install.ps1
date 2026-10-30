@@ -9,6 +9,14 @@
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 
+# ── دسترسی مدیر لازم است (فایروال + وظیفهٔ زمان‌بندی) ────────────────
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host 'درخواست دسترسی مدیر…' -ForegroundColor Yellow
+    Start-Process powershell -Verb RunAs -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File', ('"' + $PSCommandPath + '"'))
+    exit
+}
+
 $TargetDir   = 'C:\Payesh'
 $Port        = 8080
 $TaskName    = 'PayeshLocal'
@@ -63,6 +71,7 @@ if (Test-Path $TargetDir) {
     Write-Warn2 'نسخهٔ قبلی پیدا شد؛ داده‌ها در پوشهٔ data دست‌نخورده می‌مانند.'
 }
 New-Item -ItemType Directory -Force -Path $TargetDir | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $TargetDir 'data') | Out-Null
 foreach ($item in @('server','client','releases','package.json','install')) {
     $src = Join-Path $PackageRoot $item
     if (Test-Path $src) {

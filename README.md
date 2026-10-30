@@ -6,11 +6,11 @@
 
 ---
 
-## ⬇️ دانلود و نصب — نسخهٔ ۰٫۱٫۰
+## ⬇️ دانلود و نصب — نسخهٔ ۰٫۱٫۱
 
 | دستگاه | فایل / روش | لینک مستقیم |
 |---|---|---|
-| 🖥️ **سیستم مدرسه (ویندوز)** | بستهٔ نصبی `.zip` — از حالت فشرده خارج کنید و `install.bat` را دوبار کلیک کنید | **[دانلود بستهٔ ویندوز](https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local-windows.zip)**<br><sub>[نسخهٔ داخل مخزن](releases/payesh-local-windows-0.1.0.zip) · [همهٔ نسخه‌ها](https://github.com/rezaa2544/payesh.local/releases)</sub> |
+| 🖥️ **سیستم مدرسه (ویندوز)** | بستهٔ نصبی `.zip` — از حالت فشرده خارج کنید و `install.bat` را دوبار کلیک کنید | **[دانلود بستهٔ ویندوز](https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local-windows.zip)**<br><sub>[نسخهٔ داخل مخزن](releases/payesh-local-windows-0.1.1.zip) · [همهٔ نسخه‌ها](https://github.com/rezaa2544/payesh.local/releases)</sub> |
 | 🤖 **اندروید** | فایل `APK` — نصب از «منابع ناشناس» را اجازه دهید | **[دانلود APK اندروید](https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local.apk)**<br><sub>یا: آدرس سرور را در Chrome باز کنید ← منو ← «نصب برنامه»</sub> |
 | 🍎 **آیفون / آیپد** | بدون App Store: Safari ← دکمهٔ اشتراک‌گذاری ← «افزودن به صفحهٔ اصلی» | **[راهنمای نصب آیفون](client/install.html)**<br><sub>نیاز به آدرس HTTPS دارد — [بخش تونل رایگان](#-دسترسی-از-خانه-بدون-دامنه)</sub> |
 | 🐧 **لینوکس / سرور** | اسکریپت نصب با سرویس systemd | `sudo bash install/linux/install.sh` |

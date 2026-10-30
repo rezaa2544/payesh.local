@@ -360,14 +360,21 @@ async function start() {
   }
 }
 
-let syncTimer = null;
+let syncTimer = null, updateTimer = null;
 function scheduleSync() {
   if (syncTimer) clearInterval(syncTimer);
   syncTimer = setInterval(() => { if (S.online && S.session) syncNow(true); }, 90_000);
+  /* بررسی دوره‌ای آپدیت — سبک و بی‌صدا */
+  if (updateTimer) clearInterval(updateTimer);
+  updateTimer = setInterval(() => { if (S.online) checkUpdate(true); }, 5 * 60_000);
 }
-window.addEventListener('online', () => { S.online = true; syncNow(true); render(); });
+window.addEventListener('online', () => { S.online = true; syncNow(true); if (S.session) checkUpdate(true); render(); });
 window.addEventListener('offline', () => { S.online = false; render(); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.session) syncNow(true); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !S.session) return;
+  syncNow(true);
+  checkUpdate(true);          /* هر بار که کاربر برمی‌گردد: نسخه چک می‌شود */
+});
 
 /* ── مسیریابی ───────────────────────────────────────────────────── */
 function hashParts() {
