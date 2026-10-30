@@ -47,7 +47,19 @@ jobs:
           gradle-version: '8.7'
 
       - name: ساخت APK اندروید
-        run: gradle assembleDebug --no-daemon -p install/android
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "ساخت APK نسخهٔ $VERSION"
+          gradle assembleDebug --no-daemon -p install/android \
+            -PversionName="$VERSION" -PversionCode="${{ github.run_number }}"
+
+      - name: بررسی سلامت APK
+        run: |
+          APK=install/android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK" || { echo "APK ساخته نشد"; exit 1; }
+          unzip -l "$APK" | grep -q "classes.dex"
+          unzip -l "$APK" | grep -q "AndroidManifest.xml"
+          echo "APK سالم است:" $(stat -c%s "$APK") "بایت"
 
       - name: آماده‌سازی فایل‌های انتشار
         run: |

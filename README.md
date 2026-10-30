@@ -106,6 +106,7 @@ docs/        اسناد تحلیل و معماری
 | ۲ | [docs/02-payesh-local-architecture.md](docs/02-payesh-local-architecture.md) | معماری پیشنهادی: توپولوژی، سخت‌افزار، شبکه، HTTPS/PWA/APK، ورود بدون پیامک، همگام‌سازی |
 | ۳ | [docs/03-payesh-local-roadmap.md](docs/03-payesh-local-roadmap.md) | دامنهٔ نسخهٔ اول، فازبندی، معیار پذیرش، ریسک‌ها |
 | ۴ | [docs/04-decisions-final-architecture.md](docs/04-decisions-final-architecture.md) | **معماری نهایی بر اساس نیازهای مدرسه** (۴۵۰ دانش‌آموز، کاردانش، اندروید+آیفون) |
+| ۵ | [docs/05-install-and-updates.md](docs/05-install-and-updates.md) | نصب گام‌به‌گام سه سکو، سازوکار به‌روزرسانی افزایشی و رفع اشکال |
 
 ---
 
