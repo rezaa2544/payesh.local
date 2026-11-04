@@ -1,5 +1,19 @@
 plugins { id 'com.android.application' }
 
+/* ── آدرس سامانه که داخل خودِ برنامه «پخته» می‌شود ────────────────────
+   ترتیب اولویت: متغیر محیطی PAYESH_APP_URL  →  فایل url.properties
+   اگر خالی باشد، برنامه آدرس را از android-config.json مخزن یا شبکه پیدا می‌کند. */
+def payeshUrl = ""
+def urlProps = file("url.properties")
+if (urlProps.exists()) {
+    def p = new Properties()
+    urlProps.withInputStream { p.load(it) }
+    payeshUrl = (p.getProperty("url", "") ?: "").trim()
+}
+if (System.getenv("PAYESH_APP_URL")) {
+    payeshUrl = System.getenv("PAYESH_APP_URL").trim()
+}
+
 android {
     namespace 'ir.payesh.local'
     compileSdk 34
@@ -12,7 +26,10 @@ android {
         versionCode 1
         versionName "0.1.1"
         resConfigs "fa", "en"
+        buildConfigField "String", "PAYESH_URL", '"' + payeshUrl.replace('"', '') + '"'
     }
+
+    buildFeatures { buildConfig true }
 
     signingConfigs {
         /* اگر در CI کلید موجود باشد از آن استفاده می‌شود، وگرنه debug */
