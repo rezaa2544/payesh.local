@@ -219,6 +219,13 @@ async function waitFor(fn, ms = 15000) {
     const asksOnStart = onCreate.split('\n').some(l => l.trim() === 'askServer();');
     assert.ok(!asksOnStart, 'در اولین اجرا آدرس پرسیده نمی‌شود (فقط دکمهٔ اضطراری)');
 
+    /* نحو جاوا هم بررسی می‌شود تا خطای کامپایل به CI نرسد */
+    const { parse } = require('java-parser');
+    parse(main);
+    assert.ok(main.includes('KEY_PUBLIC') && main.includes('learnPublicUrl'),
+      'آدرس عمومی را از خود سرور یاد می‌گیرد (کار در خانه)');
+    assert.ok(/candidates\(\)/.test(main), 'فهرست آدرس‌های جایگزین');
+
     const gradle = fs.readFileSync(path.join(ROOT, 'install/android/app/build.gradle'), 'utf8');
     assert.ok(gradle.includes('buildConfigField'), 'PAYESH_URL در BuildConfig ساخته می‌شود');
     assert.ok(gradle.includes('PAYESH_APP_URL'), 'متغیر محیطی برای پختن آدرس');
