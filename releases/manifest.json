@@ -1,8 +1,8 @@
 {
-  "version": "0.3.0",
-  "built_at": "2026-11-04T21:37:18.881Z",
+  "version": "0.3.1",
+  "built_at": "2026-11-04T21:41:40.054Z",
   "shell": {
-    "android": "0.3.0"
+    "android": "0.3.1"
   },
   "files": [
     {
@@ -98,7 +98,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "c12472d16ff2a39fd62da72e3f6b5e20669fda36863d0045a4d1ead7c9eddc1a",
+      "sha256": "d328c5019a642e4f68e735ebbc776f948811219ba392d4a83645ece716a62b8d",
       "size": 1762
     },
     {
@@ -128,8 +128,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "b6886012479b7532ad19dd08c2db1124fccb46b1bdb470a06c1f76dbcdc85641",
-      "size": 34787
+      "sha256": "8e906b493b8cbf74e4b9612228068c95b6ef86b8c42518e3e611929265182971",
+      "size": 35435
     },
     {
       "path": "server/policy.js",
@@ -185,6 +185,6 @@
     "server": 19
   },
   "client_size": 175628,
-  "server_size": 146040,
-  "total_size": 321668
+  "server_size": 146688,
+  "total_size": 322316
 }
