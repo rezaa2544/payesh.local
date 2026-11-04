@@ -13,8 +13,6 @@ jobs:
   build:
     name: آزمون، بستهٔ ویندوز و APK
     runs-on: ubuntu-latest
-    # کامیت خودکار «ثبت مانیفست» نباید دوباره همین کار را تکرار کند
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,6 +41,11 @@ jobs:
       - name: ثبت مانیفست در مخزن (کانال به‌روزرسانی درجا)
         if: github.ref == 'refs/heads/main'
         run: |
+          # کامیت خودکارِ همین مرحله نباید دوباره اجرا شود
+          if git log -1 --pretty=%B | grep -q "\[skip ci\]"; then
+            echo "کامیت مانیفست؛ رد می‌شود"
+            exit 0
+          fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add releases/manifest.json releases/history

@@ -702,21 +702,27 @@ function scheduleRestart(reason) {
   if (restarting || !autoRestartEnabled()) return;
   restarting = true;
   console.log('[update] راه‌اندازی مجدد (' + reason + ')…');
+  /* اول درگاه آزاد می‌شود، بعد پروسهٔ تازه بالا می‌آید تا EADDRINUSE نگیریم */
   setTimeout(() => {
-    try {
-      const { spawn } = require('child_process');
-      const args = process.argv.slice(1);
-      const child = spawn(process.execPath, args, {
-        cwd: process.cwd(), env: process.env, stdio: 'inherit', detached: false,
-      });
-      child.on('error', err => console.error('[update] اجرای مجدد ناموفق:', err.message));
-      child.unref();
-    } catch (e) {
-      console.error('[update] اجرای مجدد ناموفق:', e.message);
-    }
     try { server.close(); } catch (e) { /* noop */ }
-    setTimeout(() => { try { store.close(); } catch (e) { /* noop */ } process.exit(0); }, 150);
-  }, 350);
+    try { if (server.closeAllConnections) server.closeAllConnections(); } catch (e) { /* noop */ }
+    setTimeout(() => {
+      try {
+        const { spawn } = require('child_process');
+        const child = spawn(process.execPath, process.argv.slice(1), {
+          cwd: process.cwd(), env: process.env, stdio: 'inherit', detached: false,
+        });
+        child.on('error', err => console.error('[update] اجرای مجدد ناموفق:', err.message));
+        child.unref();
+      } catch (e) {
+        console.error('[update] اجرای مجدد ناموفق:', e.message);
+      }
+      setTimeout(() => {
+        try { store.close(); } catch (e) { /* noop */ }
+        process.exit(0);
+      }, 250);
+    }, 500);
+  }, 120);
 }
 
 function lanAddresses() {
@@ -729,6 +735,17 @@ function lanAddresses() {
   }
   return out;
 }
+
+let listenTries = 0;
+server.on('error', err => {
+  if (err && err.code === 'EADDRINUSE' && listenTries < 12) {
+    listenTries++;
+    console.log('[server] درگاه ' + PORT + ' هنوز آزاد نشده — تلاش ' + listenTries);
+    setTimeout(() => server.listen(PORT, HOST), 500);
+    return;
+  }
+  console.error('[server]', err && err.message);
+});
 
 server.listen(PORT, HOST, () => {
   const ips = lanAddresses();
