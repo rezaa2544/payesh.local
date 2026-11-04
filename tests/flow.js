@@ -13,7 +13,7 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.resolve(__dirname, '..');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'payesh-flow-'));
-const env = Object.assign({}, process.env, { PAYESH_DATA: TMP, PAYESH_LOG: '0', PAYESH_AUTO_BACKUP: '0' });
+const env = Object.assign({}, process.env, { PAYESH_DATA: TMP, PAYESH_LOG: '0', PAYESH_UPDATE_AUTO: '0', PAYESH_AUTO_BACKUP: '0' });
 const seed = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', 'server/seed.js', '--fresh'], { cwd: ROOT, env, encoding: 'utf8' });
 const adminCode = (seed.stdout.match(/[A-Z0-9]{4}-[A-Z0-9]{4}/) || [])[0];
 

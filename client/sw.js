@@ -92,7 +92,13 @@ async function applyDelta(reload) {
     if (reload) notify({ type: 'UPDATE_READY', reload: true, version: info.version });
     return;
   }
-  const changed = info.changed || [];
+  /* سرور فهرست کلاینت‌محور می‌دهد (info.client)؛ فایل‌های کد سرور در
+     مرورگر معنا ندارند و هرگز در کش نوشته نمی‌شوند. */
+  const changed = Array.isArray(info.client)
+    ? info.client
+    : (info.changed || [])
+      .filter(f => String(f.path).startsWith('client/') || !String(f.path).includes('/'))
+      .map(f => Object.assign({}, f, { path: String(f.path).replace(/^client\//, '') }));
   /* دانلود موازی با سقف ۴ هم‌زمان */
   let i = 0;
   const workers = Array.from({ length: Math.min(4, changed.length || 1) }, async () => {

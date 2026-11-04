@@ -75,7 +75,25 @@ function canonicalBarHtml() {
   </div>`;
 }
 
+/* نوار آپدیت:
+   ۱) اگر نسخهٔ تازه‌ای در مخزن منتشر شده (S.remote) — مدیر با یک کلیک همان
+      بخش‌های تغییرکرده را روی خود سیستم می‌نشاند.
+   ۲) وگرنه اگر فایل‌های همین دستگاه با سرور فرق دارند (S.update) — دلتای
+      مرورگر اعمال می‌شود. */
 function updateBarHtml() {
+  const r = S.remote;
+  if (r && r.available && !isUpdateDismissed(r.remote_version)) {
+    const kb = Math.max(1, Math.round((r.total_size || 0) / 1024));
+    const n = (r.changed || []).length;
+    const bits = [];
+    if (r.counts && r.counts.client) bits.push(`${fa(r.counts.client)} فایل رابط`);
+    if (r.counts && r.counts.server) bits.push(`${fa(r.counts.server)} فایل برنامه`);
+    return `<div class="banner info" id="update-bar">
+      <div>🎁 نسخهٔ <b>${esc(r.remote_version)}</b> منتشر شده — فقط ${fa(n)} فایل تغییر کرده (${fa(kb)} کیلوبایت${bits.length ? ' · ' + bits.join('، ') : ''})</div>
+      <button class="btn sm primary" data-act="update-fetch">به‌روزرسانی</button>
+      <button class="btn sm ghost" data-act="update-later">بعداً</button>
+    </div>`;
+  }
   if (!S.update) return '';
   const n = (S.update.changed || []).length;
   const kb = Math.round((S.update.total_size || 0) / 1024);
@@ -84,6 +102,9 @@ function updateBarHtml() {
     <button class="btn sm primary" data-act="update-apply">به‌روزرسانی</button>
   </div>`;
 }
+function isUpdateDismissed(version) {
+  try { return localStorage.getItem('payesh.upd.dismiss') === String(version); } catch (e) { return false; }
+}
 function offlineBarHtml() {
   if (S.online) return '';
   const q = S.queue.length;
@@ -91,9 +112,11 @@ function offlineBarHtml() {
 }
 function updateTopChrome() {
   const bar = $('#update-bar');
-  if (!bar && S.update) {
+  const html = updateBarHtml();
+  if (bar) { bar.outerHTML = html || '<div id="update-bar" hidden></div>'; return; }
+  if (html) {
     const main = $('.main');
-    if (main) main.insertAdjacentHTML('afterbegin', updateBarHtml());
+    if (main) main.insertAdjacentHTML('afterbegin', html);
   }
 }
 
@@ -759,6 +782,58 @@ PAGES.network = () => {
     </div>`)}`;
 };
 
+/* ── کارت به‌روزرسانی ──────────────────────────────────────────────── */
+function updateCard() {
+  const r = S.remote || {};
+  const last = r.last || S.updateLast || null;
+  const running = S.server && S.server.version;
+  let line;
+  if (!r.ok && r.error) {
+    line = `<div class="small" style="color:var(--amber,#b45309);margin-top:6px">منبع آپدیت در دسترس نیست (${esc(r.error === 'source_unreachable' ? 'اینترنت یا آینه' : r.error)}). برنامه بدون آپدیت هم کار می‌کند.</div>`;
+  } else if (r.available) {
+    const kb = Math.max(1, Math.round((r.total_size || 0) / 1024));
+    line = `<div class="small" style="margin-top:6px">نسخهٔ <b>${esc(r.remote_version)}</b> منتشر شده است — ${fa((r.changed || []).length)} فایل تغییر کرده، مجموع ${fa(kb)} کیلوبایت${r.needs_restart ? ' · پس از نصب، برنامه خودکار دوباره راه می‌افتد' : ''}.</div>`;
+  } else if (r.ok) {
+    line = `<div class="small muted" style="margin-top:6px">برنامه به‌روز است.${r.checked_at ? ' آخرین بررسی: ' + esc(jdate(r.checked_at)) : ''}</div>`;
+  } else {
+    line = `<div class="small muted" style="margin-top:6px">برای دیدن نسخهٔ تازه، «بررسی آپدیت» را بزنید.</div>`;
+  }
+  const lastLine = last && last.applied !== false && last.version
+    ? `<div class="small muted" style="margin-top:6px">آخرین به‌روزرسانی نصب‌شده: ${esc(last.version)}${last.at ? ' — ' + esc(jdate(last.at)) : ''}${last.files != null ? ' (' + fa(last.files) + ' فایل، ' + fa(Math.max(1, Math.round((last.bytes || 0) / 1024))) + ' کیلوبایت)' : ''}</div>`
+    : '';
+  return card(`<b>به‌روزرسانی برنامه</b>
+    <div class="small muted" style="margin-top:4px">نسخهٔ در حال اجرا: <b>${esc(running || '—')}</b>${r.remote_version && r.remote_version !== running ? ' · منتشرشده: <b>' + esc(r.remote_version) + '</b>' : ''}</div>
+    ${line}${lastLine}
+    <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+      <button class="btn sm" data-act="update-recheck">${S.remoteBusy ? '…' : 'بررسی آپدیت'}</button>
+      ${r.available ? `<button class="btn sm primary" data-act="update-fetch">به‌روزرسانی (${Math.max(1, Math.round((r.total_size || 0) / 1024))}KB)</button>` : ''}
+      ${last && last.version ? `<button class="btn sm ghost" data-act="update-rollback">بازگشت به نسخهٔ قبل</button>` : ''}
+    </div>
+    <form data-form="update" class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px;align-items:flex-end">
+      <label class="field grow" style="min-width:220px"><span>منبع آپدیت (اختیاری)</span>
+        <input class="input ltr" name="base" placeholder="https://…/payesh.local/main/" value="${esc(r.base || '')}"></label>
+      <button class="btn sm" type="submit">ذخیره</button>
+    </form>
+    <div class="small muted" style="margin-top:6px">${r.bases && r.bases.length ? 'آینه‌ها: ' + r.bases.map(b => esc(b.replace(/^https?:\/\//, '').replace(/\/$/, ''))).join(' · ') : ''}</div>
+    <label class="row" style="margin-top:10px;gap:8px;align-items:center">
+      <input type="checkbox" data-act="update-auto" ${r.auto ? 'checked' : ''}> <span class="small">بررسی خودکار نسخهٔ تازه (پیشنهاد می‌شود)</span>
+    </label>
+    <label class="row" style="margin-top:6px;gap:8px;align-items:center">
+      <input type="checkbox" data-act="update-autoapply" ${r.auto_apply ? 'checked' : ''}> <span class="small">نصب خودکار بدون پرسش (شب‌ها، فقط فایل‌های تغییرکرده)</span>
+    </label>
+    <div class="small muted" style="margin-top:8px">هیچ‌وقت داده‌های مدرسه (پوشهٔ data) دست نمی‌خورد؛ نسخهٔ قبلی برای بازگشت نگه داشته می‌شود.</div>`);
+}
+
+function clientUpdateCard() {
+  return card(`<b>به‌روزرسانی برنامه</b>
+    <div class="small muted" style="margin-top:6px">${S.update ? `نسخهٔ ${esc(S.update.version)} آماده است؛ فقط فایل‌های تغییرکرده دانلود می‌شود.` : 'برنامه به‌روز است.'}</div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn sm" data-act="update-check">بررسی به‌روزرسانی</button>
+      ${S.update ? `<button class="btn sm primary" data-act="update-apply">اعمال (${Math.round((S.update.total_size || 0) / 1024)}KB)</button>` : ''}
+    </div>
+    <div class="small muted" style="margin-top:8px">به‌روزرسانی خود سیستم را مدیر انجام می‌دهد؛ دستگاه شما خودکار تازه می‌شود.</div>`);
+}
+
 PAGES.system = () => {
   const isManager = S.role === 'manager';
   const dev = S.boot && S.boot.counts;
@@ -773,12 +848,7 @@ PAGES.system = () => {
       <button class="btn sm" data-act="sync">همگام‌سازی</button>
       <button class="btn sm" data-act="lock">🔒 خروج</button>
     </div>`)}
-  ${card(`<b>به‌روزرسانی برنامه</b>
-    <div class="small muted" style="margin-top:6px">${S.update ? `نسخهٔ ${esc(S.update.version)} آماده است.` : 'برنامه به‌روز است. فقط فایل‌های تغییرکرده دانلود می‌شوند.'}</div>
-    <div class="row" style="margin-top:8px">
-      <button class="btn sm" data-act="update-check">بررسی آپدیت</button>
-      ${S.update ? `<button class="btn sm primary" data-act="update-apply">نصب آپدیت (${Math.round((S.update.total_size || 0) / 1024)}KB)</button>` : ''}
-    </div>`)}
+  ${isManager ? updateCard() : clientUpdateCard()}
   ${isManager ? managerSystemSections() : changePinCard()}
   ${card(`<b>راهنمای دستگاه‌ها</b><div class="small muted" style="margin-top:6px">
     ${S.server.publicUrl

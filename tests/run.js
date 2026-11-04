@@ -77,7 +77,7 @@ async function waitFor(fn, ms = 15000) {
   PORT = await freePort();
   BASE = 'http://127.0.0.1:' + PORT;
   const child = spawn(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', 'server/index.js'], {
-    cwd: ROOT, env: Object.assign({}, process.env, { PORT: String(PORT), HOST: '127.0.0.1', PAYESH_DATA: TMP, PAYESH_LOG: '0', PAYESH_AUTO_BACKUP: '0' }),
+    cwd: ROOT, env: Object.assign({}, process.env, { PORT: String(PORT), HOST: '127.0.0.1', PAYESH_DATA: TMP, PAYESH_LOG: '0', PAYESH_AUTO_BACKUP: '0', PAYESH_UPDATE_AUTO: '0' }),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stderr.on('data', d => process.env.VERBOSE && console.error(String(d)));
