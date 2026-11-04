@@ -38,17 +38,39 @@ function sha(file) {
 fs.mkdirSync(RELEASES, { recursive: true });
 fs.mkdirSync(HISTORY, { recursive: true });
 
-/* ── فایل‌های کلاینت ── */
-const files = walk(CLIENT)
-  .filter(f => !f.startsWith('icons/') || /\.png$/.test(f))
-  .sort()
-  .map(f => ({ path: f, sha256: sha(path.join(CLIENT, f)), size: fs.statSync(path.join(CLIENT, f)).size }));
+/* ── فایل‌هایی که «درجا» به‌روزرسانی می‌شوند ──────────────────────────
+   کلاینت + کد سرور + Hub + اسکریپت اجرا. هر فایل با مسیر کامل مخزن
+   (client/app.js، server/index.js، …) تا آپدیت بتواند هر دو طرف را
+   جدا و فقط با هش تغییرکرده‌ها بفرستد. */
+const MANIFEST_DIRS = ['client', 'server', 'hub'];
+const MANIFEST_FILES = ['package.json', 'start.bat', 'start.sh'];
 
+const kindOf = rel => (rel.startsWith('client/') ? 'client' : rel.startsWith('docs/') ? 'docs' : 'server');
+
+const files = [
+  ...MANIFEST_DIRS.flatMap(dir =>
+    walk(path.join(ROOT, dir))
+      .filter(f => !f.startsWith('icons/') || /\.png$/.test(f))
+      .map(f => ({ path: dir + '/' + f, abs: path.join(ROOT, dir, f) }))),
+  ...MANIFEST_FILES
+    .filter(f => fs.existsSync(path.join(ROOT, f)))
+    .map(f => ({ path: f, abs: path.join(ROOT, f) })),
+]
+  .sort((a, b) => (a.path < b.path ? -1 : 1))
+  .map(f => ({ path: f.path, kind: kindOf(f.path), sha256: sha(f.abs), size: fs.statSync(f.abs).size }));
+
+const sum = (list, pick) => list.filter(pick).reduce((a, f) => a + f.size, 0);
 const manifest = {
   version: VERSION,
   built_at: new Date().toISOString(),
   shell: { android: VERSION },
   files,
+  counts: {
+    client: files.filter(f => f.kind === 'client').length,
+    server: files.filter(f => f.kind === 'server').length,
+  },
+  client_size: sum(files, f => f.kind === 'client'),
+  server_size: sum(files, f => f.kind === 'server'),
   total_size: files.reduce((a, f) => a + f.size, 0),
 };
 
@@ -69,7 +91,7 @@ if (fs.existsSync(histFile)) {
 }
 fs.writeFileSync(histFile, JSON.stringify(manifest, null, 2));
 
-console.log(`📦 manifest نسخهٔ ${VERSION} — ${files.length} فایل، ${(manifest.total_size / 1024).toFixed(1)}KB`);
+console.log(`📦 manifest نسخهٔ ${VERSION} — ${files.length} فایل (کلاینت ${manifest.counts.client}، سرور ${manifest.counts.server})، ${(manifest.total_size / 1024).toFixed(1)}KB`);
 
 /* ── بستهٔ ویندوز ── */
 const stage = path.join(ROOT, '.build', 'stage');
@@ -84,7 +106,7 @@ const copy = (rel) => {
   fs.cpSync(src, dst, { recursive: true });
 };
 
-['server', 'client', 'install', 'hub', 'package.json', 'README.md'].forEach(copy);
+['server', 'client', 'install', 'hub', 'package.json', 'README.md', 'start.bat', 'start.sh', 'docs'].forEach(copy);
 fs.mkdirSync(path.join(stage, 'releases'), { recursive: true });
 fs.copyFileSync(path.join(RELEASES, 'manifest.json'), path.join(stage, 'releases', 'manifest.json'));
 fs.mkdirSync(path.join(stage, 'releases', 'history'), { recursive: true });

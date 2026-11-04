@@ -17,6 +17,8 @@ const S = {
   modal: null, busy: false,
   clockOffset: 0,
   update: null,
+  remote: null,             /* وضعیت به‌روزرسانی درجا از مخزن (مدیر) */
+  remoteBusy: false,
   tempId: -1,
   syncing: false,
 };
@@ -400,19 +402,25 @@ async function start() {
     render();
     scheduleSync();
     checkUpdate(true);
+    if (S.role === 'manager') loadRemoteUpdate(false).then(() => { updateTopChrome(); if (S.remote && S.remote.available) render(); });
   } catch (e) {
     toast('اتصال به سرور برقرار نشد: ' + e.message, 'err');
     renderLock();
   }
 }
 
-let syncTimer = null, updateTimer = null;
+let syncTimer = null, updateTimer = null, remoteTimer = null;
 function scheduleSync() {
   if (syncTimer) clearInterval(syncTimer);
   syncTimer = setInterval(() => { if (S.online && S.session) syncNow(true); }, 90_000);
   /* بررسی دوره‌ای آپدیت — سبک و بی‌صدا */
   if (updateTimer) clearInterval(updateTimer);
   updateTimer = setInterval(() => { if (S.online) checkUpdate(true); }, 5 * 60_000);
+  /* نسخهٔ منتشرشده در مخزن را هم دوره‌ای ببین (فقط مدیر) */
+  if (remoteTimer) clearInterval(remoteTimer);
+  remoteTimer = setInterval(() => {
+    if (S.online && S.role === 'manager' && !S.remoteBusy) loadRemoteUpdate(false).then(() => updateTopChrome());
+  }, 20 * 60_000);
 }
 window.addEventListener('online', () => { S.online = true; syncNow(true); if (S.session) checkUpdate(true); render(); });
 window.addEventListener('offline', () => { S.online = false; render(); });
@@ -420,6 +428,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !S.session) return;
   syncNow(true);
   checkUpdate(true);          /* هر بار که کاربر برمی‌گردد: نسخه چک می‌شود */
+  if (S.role === 'manager' && !S.remoteBusy && !$('#upd-overlay')) {
+    loadRemoteUpdate(false).then(() => updateTopChrome());
+  }
 });
 
 /* ── مسیریابی ───────────────────────────────────────────────────── */
@@ -542,6 +553,123 @@ async function applyUpdate() {
   setTimeout(() => { if (S.wantReload) location.reload(); }, 12000);
 }
 
+/* ── به‌روزرسانی درجا (فقط مدیر) ───────────────────────────────────
+   خود سرور مدرسه نسخهٔ منتشرشده را می‌بیند و فقط فایل‌های تغییرکرده را
+   می‌گیرد؛ کلاینت هم کش خودش را با دلتا تازه می‌کند. */
+async function loadRemoteUpdate(force = false) {
+  if (S.role !== 'manager') { S.remote = null; return null; }
+  try {
+    S.remoteBusy = true;
+    const r = force
+      ? (await api('/api/admin/update/check', { method: 'POST', body: { force: true } })).plan
+      : null;
+    const info = force ? null : await api('/api/admin/update');
+    const plan = r || (info && info.plan) || null;
+    S.remote = Object.assign({}, plan || { ok: false, error: 'unavailable' }, {
+      last: (info && info.last) || (S.remote && S.remote.last) || null,
+      auto: info ? info.auto : (S.remote && S.remote.auto),
+      auto_apply: info ? info.auto_apply : (S.remote && S.remote.auto_apply),
+      base: info ? info.base : (S.remote && S.remote.base),
+      bases: (info && info.bases) || (S.remote && S.remote.bases) || [],
+    });
+    if (S.remote && S.remote.available && !force) {
+      toast('نسخهٔ ' + fa(S.remote.remote_version) + ' منتشر شده — فقط فایل‌های تغییرکرده', 'ok');
+    }
+    updateTopChrome();
+    return S.remote;
+  } catch (e) {
+    S.remote = Object.assign({}, S.remote || {}, { ok: false, error: e.message });
+    return S.remote;
+  } finally { S.remoteBusy = false; }
+}
+
+function updateOverlay(text, sub) {
+  let el = $('#upd-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'upd-overlay';
+    el.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '<div class="card" style="max-width:420px;text-align:center">' +
+    '<div style="font-size:34px;margin-bottom:6px">🔄</div>' +
+    '<div style="font-weight:700;font-size:1.05rem">' + esc(text) + '</div>' +
+    '<div class="small muted" style="margin-top:8px">' + esc(sub || '') + '</div>' +
+    '<div style="width:22px;height:22px;border:3px solid rgba(99,102,241,.22);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite;margin:14px auto 0"></div></div>';
+  return el;
+}
+function hideUpdateOverlay() { const el = $('#upd-overlay'); if (el) el.remove(); }
+
+async function waitForRestart(previousVersion, version) {
+  const started = Date.now();
+  while (Date.now() - started < 90_000) {
+    await new Promise(r => setTimeout(r, 1500));
+    try {
+      const h = await fetch('/api/health', { cache: 'no-store' }).then(r => r.json());
+      const sameProcess = h.version === previousVersion;
+      if (!sameProcess || (h.installed_version && h.installed_version === version && !h.restart_pending)) {
+        updateOverlay('نسخهٔ ' + fa(h.version) + ' فعال شد', 'در حال بازخوانی برنامه…');
+        await new Promise(r => setTimeout(r, 600));
+        location.reload();
+        return;
+      }
+    } catch (e) { /* سرور در حال بالا آمدن است */ }
+  }
+  updateOverlay('سرور دوباره بالا نیامد', 'برنامه را ببندید و دوباره اجرا کنید.');
+}
+
+async function applyRemoteUpdate() {
+  if (S.role !== 'manager') { toast('فقط مدیر سیستم می‌تواند به‌روزرسانی کند', 'err'); return; }
+  if (S.remoteBusy) return;
+  const prev = (S.server && S.server.version) || '0.0.0';
+  S.remoteBusy = true;
+  toast('در حال گرفتن فقط فایل‌های تغییرکرده…');
+  updateOverlay('در حال دریافت تغییرات', 'فقط بخش‌هایی که عوض شده‌اند دانلود می‌شوند');
+  try {
+    const r = await api('/api/admin/update/apply', { method: 'POST', body: {} });
+    if (!r.ok) throw new Error(r.detail || r.error || 'خطا');
+    if (!r.applied) {
+      hideUpdateOverlay(); S.remoteBusy = false;
+      toast('برنامه همین حالا به‌روز است', 'ok');
+      await loadRemoteUpdate(true); render(); return;
+    }
+    const kb = Math.max(1, Math.round((r.bytes || 0) / 1024));
+    try { localStorage.removeItem('payesh.upd.dismiss'); } catch (e) { /* noop */ }
+    toast('نسخهٔ ' + fa(r.version) + ' نصب شد — ' + fa(r.files) + ' فایل، ' + fa(kb) + ' کیلوبایت', 'ok');
+    if (r.restart) {
+      updateOverlay('نسخهٔ ' + fa(r.version) + ' نصب شد', 'برنامهٔ مدرسه دوباره راه می‌افتد؛ چند لحظه…');
+      await waitForRestart(prev, r.version);
+      return;
+    }
+    S.remoteBusy = false;
+    hideUpdateOverlay();
+    await refreshClientCache();
+  } catch (e) {
+    S.remoteBusy = false; hideUpdateOverlay();
+    toast('به‌روزرسانی ناموفق: ' + e.message, 'err');
+    await loadRemoteUpdate(true); render();
+  }
+}
+
+async function refreshClientCache() {
+  const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration().catch(() => null);
+  if (!reg || !reg.active) { location.reload(); return; }
+  S.wantReload = true;
+  reg.active.postMessage({ type: 'CHECK_UPDATE', reload: true });
+  setTimeout(() => { if (S.wantReload) location.reload(); }, 6000);
+}
+
+async function rollbackUpdate() {
+  if (!confirm('به نسخهٔ قبلی برگردیم؟ فایل‌های فعلی جای‌گذاری می‌شوند (داده‌ها دست نمی‌خورند).')) return;
+  const prev = (S.server && S.server.version) || '0.0.0';
+  updateOverlay('در حال بازگشت به نسخهٔ قبل', 'کمی صبر کنید…');
+  try {
+    const r = await api('/api/admin/update/rollback', { method: 'POST' });
+    if (!r.ok) throw new Error(r.error || 'خطا');
+    await waitForRestart(prev, r.version);
+  } catch (e) { hideUpdateOverlay(); toast('بازگشت ناموفق: ' + e.message, 'err'); }
+}
+
 /* ── ثبت Service Worker ─────────────────────────────────────────── */
 if ('serviceWorker' in navigator && navigator.serviceWorker) {
   window.addEventListener('load', () => {
@@ -633,6 +761,23 @@ document.addEventListener('click', async (e) => {
     case 'print': window.print(); return;
     case 'update-check': await checkUpdate(false); render(); return;
     case 'update-apply': await applyUpdate(); return;
+    case 'update-fetch': await applyRemoteUpdate(); return;
+    case 'update-recheck': await loadRemoteUpdate(true); render(); return;
+    case 'update-rollback': await rollbackUpdate(); return;
+    case 'update-later': {
+      try { localStorage.setItem('payesh.upd.dismiss', String((S.remote && S.remote.remote_version) || '')); } catch (e) { /* noop */ }
+      updateTopChrome(); render(); return;
+    }
+    case 'update-auto':
+    case 'update-autoapply': {
+      const key = el.getAttribute('data-act') === 'update-auto' ? 'auto' : 'auto_apply';
+      try {
+        await api('/api/admin/update/settings', { method: 'POST', body: { [key]: !!el.checked } });
+        if (S.remote) S.remote[key] = !!el.checked;
+        toast(el.checked ? 'روشن شد' : 'خاموش شد', 'ok');
+      } catch (err) { el.checked = !el.checked; toast(err.message, 'err'); }
+      return;
+    }
 
     case 'att-all': {
       const status = el.getAttribute('data-status');
@@ -731,6 +876,16 @@ document.addEventListener('submit', async (e) => {
       if (r.hub) S.network = Object.assign({}, S.network, { hub: r.hub });
       await loadNetwork(true);
       toast('تنظیمات Hub ذخیره شد', 'ok');
+      render();
+    } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
+    return;
+  }
+
+  if (kind === 'update') {
+    try {
+      await api('/api/admin/update/settings', { method: 'POST', body: { base: f.base.value.trim() } });
+      await loadRemoteUpdate(true);
+      toast('منبع آپدیت ذخیره شد', 'ok');
       render();
     } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
     return;

@@ -19,9 +19,11 @@ const policy = require('./policy');
 const cfg = require('./config');
 const qr = require('./qr');
 const hub = require('./hub');
+const update = require('./update');
 const { nowISO, json, normDigits, validNationalId, sha256 } = require('./util');
 
-const ROOT = path.resolve(__dirname, '..');
+/* ریشهٔ برنامه — آزمون‌ها می‌توانند با PAYESH_APP_ROOT روی یک کپی کار کنند */
+const ROOT = process.env.PAYESH_APP_ROOT || path.resolve(__dirname, '..');
 const CLIENT_DIR = path.join(ROOT, 'client');
 const RELEASES_DIR = path.join(ROOT, 'releases');
 const PORT = Number(process.env.PORT || 8080);
@@ -30,6 +32,12 @@ const DATA_DIR = process.env.PAYESH_DATA || path.join(ROOT, 'data');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 
 const store = openStore(path.join(DATA_DIR, 'payesh.sqlite'));
+
+/* نسخه‌ای که همین پروسه با آن بالا آمده — برای تشخیص «راه‌اندازی مجدد لازم است» */
+const RUNNING_VERSION = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(RELEASES_DIR, 'manifest.json'), 'utf8')).version || '0.0.0'; }
+  catch (e) { return '0.0.0'; }
+})();
 
 /* ── نسخه و آپدیت ─────────────────────────────────────────────────── */
 function readManifest() {
@@ -55,14 +63,22 @@ function updateCheck(current) {
   if (cur && !changed.length && !removed.length) {
     return { ok: true, up_to_date: true, version: latest.version, built_at: latest.built_at, server_time: nowISO() };
   }
+  /* کلاینت فقط فایل‌های client/ را می‌تواند در کش خودش بنشاند */
+  const client = changed
+    .filter(f => String(f.path).startsWith('client/') || !String(f.path).includes('/'))
+    .map(f => ({ path: String(f.path).replace(/^client\//, ''), sha256: f.sha256, size: f.size }));
   return {
     ok: true,
     up_to_date: false,
     version: latest.version,
+    running_version: RUNNING_VERSION,
+    restart_pending: latest.version !== RUNNING_VERSION,
     built_at: latest.built_at,
     changed,
+    client,
     removed,
     total_size: changed.reduce((a, f) => a + (f.size || 0), 0),
+    client_size: client.reduce((a, f) => a + (f.size || 0), 0),
     full_size: (latest.files || []).reduce((a, f) => a + (f.size || 0), 0),
     server_time: nowISO(),
   };
@@ -192,7 +208,9 @@ async function api(req, res, url, ip) {
   /* سلامت — کلاینت با همین حالت سروری را تشخیص می‌دهد */
   if (p === '/api/health' && m === 'GET') {
     return json({
-      ok: true, name: 'payesh-local', version: readManifest().version,
+      ok: true, name: 'payesh-local', version: RUNNING_VERSION,
+      installed_version: readManifest().version,
+      restart_pending: readManifest().version !== RUNNING_VERSION,
       time: nowISO(), server_time: nowISO(), uptime_s: Math.round(process.uptime()),
       setup_done: !auth.needsSetup(store), school: (store.get('schools', 1) || {}).name || null,
       public_url: cfg.publicUrl(store) || null,
@@ -439,6 +457,67 @@ async function api(req, res, url, ip) {
     return json({ ok: true, rows: store.recentAudit(Number(q.get('limit') || 100)) });
   }
 
+  /* ── به‌روزرسانی درجا: بررسی، اعمال، بازگشت ─────────────────────── */
+  if (p === '/api/admin/update' && m === 'GET') {
+    const plan = await update.plan(store, { force: false });
+    const last = store.getMeta('update:last', null);
+    return json({
+      ok: true,
+      auto: update.autoCheckEnabled(store),
+      auto_apply: update.autoApplyEnabled(store),
+      base: String(process.env.PAYESH_UPDATE_BASE || cfg.getMeta(store, 'update_base') || ''),
+      bases: update.bases(store),
+      running_version: RUNNING_VERSION,
+      installed_version: readManifest().version,
+      restart_pending: readManifest().version !== RUNNING_VERSION,
+      plan,
+      last,
+      progress: update.status(),
+    });
+  }
+
+  if (p === '/api/admin/update/check' && m === 'POST') {
+    const body = await readBody(req).catch(() => ({}));
+    const plan = await update.plan(store, { force: body.force !== false });
+    store.setMeta('update:checked', { at: nowISO(), available: !!plan.available, version: plan.remote_version || null, error: plan.ok ? null : plan.error });
+    return json({ ok: true, plan });
+  }
+
+  if (p === '/api/admin/update/apply' && m === 'POST') {
+    if (!rateLimit('update:' + ip, 6, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    const body = await readBody(req).catch(() => ({}));
+    const r = await update.apply(store, { force: true, by: actor.user.name || 'manager' });
+    if (r.ok && r.applied) {
+      /* اگر کد سرور عوض شده، همین پروسه باید دوباره بالا بیاید */
+      if (r.restart) scheduleRestart('update');
+      return json(Object.assign(r, { restarting: !!(r.restart && autoRestartEnabled()) }));
+    }
+    return json(r, r.ok ? 200 : 502);
+  }
+
+  if (p === '/api/admin/update/rollback' && m === 'POST') {
+    const r = update.rollback(store);
+    if (r.ok) scheduleRestart('rollback');
+    return json(Object.assign(r, { restarting: r.ok && autoRestartEnabled() }), r.ok ? 200 : 400);
+  }
+
+  if (p === '/api/admin/update/settings' && m === 'POST') {
+    const body = await readBody(req);
+    if (body.auto != null) cfg.setMeta(store, 'update_auto', !!body.auto);
+    if (body.auto_apply != null) cfg.setMeta(store, 'update_auto_apply', !!body.auto_apply);
+    if (body.base != null) {
+      const b = String(body.base).trim();
+      if (b && !/^https?:\/\//i.test(b)) return json({ ok: false, error: 'bad_url' }, 400);
+      cfg.setMeta(store, 'update_base', b);
+    }
+    return json({ ok: true, auto: update.autoCheckEnabled(store), auto_apply: update.autoApplyEnabled(store), base: cfg.getMeta(store, 'update_base') || '' });
+  }
+
+  if (p === '/api/admin/update/restart' && m === 'POST') {
+    scheduleRestart('manual');
+    return json({ ok: true, restarting: true });
+  }
+
   if (p === '/api/admin/backup' && m === 'POST') {
     const file = store.backupTo(BACKUP_DIR, 48);
     return json({ ok: true, file: path.basename(file), size: fs.statSync(file).size });
@@ -616,6 +695,36 @@ if (process.env.PAYESH_AUTO_BACKUP !== '0') {
   try { store.backupTo(BACKUP_DIR, 48); } catch (e) { /* noop */ }
 }
 
+/* ── راه‌اندازی مجدد خودکار پس از آپدیت ───────────────────────────── */
+function autoRestartEnabled() { return process.env.PAYESH_NO_RESTART !== '1'; }
+let restarting = false;
+function scheduleRestart(reason) {
+  if (restarting || !autoRestartEnabled()) return;
+  restarting = true;
+  console.log('[update] راه‌اندازی مجدد (' + reason + ')…');
+  /* اول درگاه آزاد می‌شود، بعد پروسهٔ تازه بالا می‌آید تا EADDRINUSE نگیریم */
+  setTimeout(() => {
+    try { server.close(); } catch (e) { /* noop */ }
+    try { if (server.closeAllConnections) server.closeAllConnections(); } catch (e) { /* noop */ }
+    setTimeout(() => {
+      try {
+        const { spawn } = require('child_process');
+        const child = spawn(process.execPath, process.argv.slice(1), {
+          cwd: process.cwd(), env: process.env, stdio: 'inherit', detached: false,
+        });
+        child.on('error', err => console.error('[update] اجرای مجدد ناموفق:', err.message));
+        child.unref();
+      } catch (e) {
+        console.error('[update] اجرای مجدد ناموفق:', e.message);
+      }
+      setTimeout(() => {
+        try { store.close(); } catch (e) { /* noop */ }
+        process.exit(0);
+      }, 250);
+    }, 500);
+  }, 120);
+}
+
 function lanAddresses() {
   const out = [];
   const ifs = os.networkInterfaces();
@@ -626,6 +735,17 @@ function lanAddresses() {
   }
   return out;
 }
+
+let listenTries = 0;
+server.on('error', err => {
+  if (err && err.code === 'EADDRINUSE' && listenTries < 12) {
+    listenTries++;
+    console.log('[server] درگاه ' + PORT + ' هنوز آزاد نشده — تلاش ' + listenTries);
+    setTimeout(() => server.listen(PORT, HOST), 500);
+    return;
+  }
+  console.error('[server]', err && err.message);
+});
 
 server.listen(PORT, HOST, () => {
   const ips = lanAddresses();
@@ -643,6 +763,16 @@ server.listen(PORT, HOST, () => {
   console.log('');
   /* همگام‌سازی دوره‌ای با Hub ابری (اگر فعال باشد) */
   try { hub.start(store); } catch (e) { console.error('hub start failed', e.message); }
+  /* بررسی خودکار نسخهٔ منتشرشده (اگر «نصب خودکار» روشن باشد، خودش اعمال می‌کند) */
+  try {
+    update.start(store, {
+      onApply: async (plan) => {
+        const r = await update.apply(store, { force: false, by: 'auto' });
+        if (r.ok && r.applied && r.restart) scheduleRestart('auto');
+        return r;
+      },
+    });
+  } catch (e) { console.error('update start failed', e.message); }
 });
 
 process.on('SIGINT', () => { store.close(); process.exit(0); });

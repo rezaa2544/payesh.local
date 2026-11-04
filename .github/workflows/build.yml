@@ -26,14 +26,36 @@ jobs:
       - name: آزمون‌های سرور
         run: npm test
 
-      - name: آزمون رابط، جریان کاربری و Hub
+      - name: آزمون رابط، جریان کاربری، Hub و به‌روزرسانی
         run: |
           npm run test:ui
           npm run test:flow
           npm run test:hub
+          npm run test:update
 
       - name: ساخت بسته و مانیفست دلتا
         run: node scripts/build-release.mjs
+
+      # مانیفست باید روی شاخهٔ main باشد تا برنامه‌ها بتوانند «نسخهٔ تازه» را
+      # از همین‌جا ببینند و فقط فایل‌های تغییرکرده را بگیرند.
+      - name: ثبت مانیفست در مخزن (کانال به‌روزرسانی درجا)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # کامیت خودکارِ همین مرحله نباید دوباره اجرا شود
+          if git log -1 --pretty=%B | grep -q "\[skip ci\]"; then
+            echo "کامیت مانیفست؛ رد می‌شود"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add releases/manifest.json releases/history
+          if git diff --cached --quiet; then
+            echo "مانیفست تغییری نکرد"
+            exit 0
+          fi
+          V=$(node -p "require('./releases/manifest.json').version")
+          git commit -m "chore(release): مانیفست $V [skip ci]"
+          git push
 
       - uses: actions/setup-java@v4
         with:
