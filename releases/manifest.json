@@ -1,8 +1,8 @@
 {
-  "version": "0.3.1",
-  "built_at": "2026-11-04T21:45:15.298Z",
+  "version": "0.3.2",
+  "built_at": "2026-11-04T21:55:42.715Z",
   "shell": {
-    "android": "0.3.1"
+    "android": "0.3.2"
   },
   "files": [
     {
@@ -96,9 +96,15 @@
       "size": 414
     },
     {
+      "path": "install.bat",
+      "kind": "server",
+      "sha256": "e7bff8e3fda9a280ced1550fe52d5cb404a3aa9472added6b0825f6d864f2799",
+      "size": 409
+    },
+    {
       "path": "package.json",
       "kind": "server",
-      "sha256": "d328c5019a642e4f68e735ebbc776f948811219ba392d4a83645ece716a62b8d",
+      "sha256": "1dd8b873d82bac5867cfacaccdb1dcabec0ab4fcc8fdfb4deada0c03f4fd5d63",
       "size": 1762
     },
     {
@@ -170,21 +176,27 @@
     {
       "path": "start.bat",
       "kind": "server",
-      "sha256": "31ab55e98dc0162f1722d98bd52fccb9272a61092700c265e1e7b08bc923c730",
-      "size": 156
+      "sha256": "104c83f90f839e39f904e4bfe135caad385c7c82bb3d43c64bf46abf13e53a7f",
+      "size": 292
     },
     {
       "path": "start.sh",
       "kind": "server",
       "sha256": "4419326c416d5d9d4b698e5ae0f90e9b6e0a5aa30cb8064169a21a620f75ff98",
       "size": 216
+    },
+    {
+      "path": "uninstall.bat",
+      "kind": "server",
+      "sha256": "2c421ee99ad515ed535fd346758883535d9a49b20058194001fd035bb775ded0",
+      "size": 151
     }
   ],
   "counts": {
     "client": 10,
-    "server": 19
+    "server": 21
   },
   "client_size": 175628,
-  "server_size": 146688,
-  "total_size": 322316
+  "server_size": 147384,
+  "total_size": 323012
 }

@@ -133,3 +133,58 @@ jobs:
             - اندروید: `payesh-local.apk` (نصب از منابع ناشناس را اجازه دهید)
             - آیفون: از Safari باز کنید و «افزودن به صفحهٔ اصلی»
             - به‌روزرسانی برنامه‌ها یک‌کلیکی و فقط با فایل‌های تغییرکرده انجام می‌شود.
+
+  windows-installer:
+    name: نصب‌کنندهٔ استاندارد ویندوز (payesh-setup.exe)
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Node قابل حمل تا نصب بدون اینترنت هم کامل انجام شود
+      - name: آوردن Node قابل حمل
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force runtime | Out-Null
+          $url = 'https://nodejs.org/dist/v22.14.0/win-x64/node.exe'
+          Invoke-WebRequest -Uri $url -OutFile runtime/node.exe -UseBasicParsing
+          "node.exe: {0:N1} MB" -f ((Get-Item runtime/node.exe).Length / 1MB)
+
+      - name: آماده‌سازی پوشهٔ نصب
+        run: node scripts/stage-windows.mjs
+
+      - name: نصب Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw 'ISCC پیدا نشد' }
+          echo "ISCC=$iscc" >> $env:GITHUB_ENV
+
+      - name: ساخت payesh-setup.exe
+        shell: pwsh
+        run: |
+          $v = node -p "require('./package.json').version"
+          & $env:ISCC "/DAppVersion=$v" "installer\payesh.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC ناموفق ($LASTEXITCODE)" }
+          $exe = 'releases/payesh-setup.exe'
+          if (-not (Test-Path $exe)) { throw 'خروجی exe ساخته نشد' }
+          "✓ {0:N1} MB — نسخهٔ {1}" -f ((Get-Item $exe).Length/1MB), $v
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: payesh-setup
+          path: releases/payesh-setup.exe
+
+      - name: انتشار در انتشار پیوسته
+        if: startsWith(github.ref, 'refs/heads/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload continuous releases/payesh-setup.exe --clobber
+          gh release view continuous --json assets --jq '.assets[] | select(.name=="payesh-setup.exe") | "\(.name) — \(.size) بایت"'
