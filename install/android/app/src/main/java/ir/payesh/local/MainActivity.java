@@ -55,6 +55,7 @@ public class MainActivity extends Activity {
     private static final String PREFS = "payesh";
     private static final String KEY_URL = "server_url";       /* آدرس انتخاب‌شده */
     private static final String KEY_REMOTE = "config_url";    /* آخرین آدرسِ گرفته‌شده از پیکربندی مرکزی */
+    private static final String KEY_PUBLIC = "public_url";    /* آدرس عمومی که خود سرور اعلام کرده */
 
     /* پیکربندی مرکزی: تغییر آدرس بدون نیاز به ساخت دوبارهٔ برنامه */
     private static final String[] CONFIG_URLS = {
@@ -63,7 +64,7 @@ public class MainActivity extends Activity {
     };
 
     private static final int FILE_PICK = 1001;
-    private static final int MAX_AUTO_TRIES = 6;
+    private static final int MAX_AUTO_TRIES = 3;
 
     private WebView web;
     private ProgressBar bar;
@@ -77,6 +78,9 @@ public class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private int tries = 0;
     private boolean scanning = false;
+    private java.util.List<String> queue = new java.util.ArrayList<>();
+    private int queueIndex = 0;
+    private String loadedBase = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -163,30 +167,42 @@ public class MainActivity extends Activity {
 
     private void connect(boolean firstRun) {
         tries = 0;
-        String url = resolveKnownUrl();
-        if (!url.isEmpty()) { load(url); return; }
+        queue = candidates();
+        queueIndex = 0;
+        if (!queue.isEmpty()) { load(queue.get(0)); return; }
         if (firstRun) showSplash(R.string.connecting);
         fetchRemoteConfig(url2 -> {
             if (url2 != null && !url2.isEmpty()) {
                 prefs.edit().putString(KEY_REMOTE, url2).apply();
-                load(url2);
+                queue = candidates();
+                queueIndex = 0;
+                load(queue.get(0));
             } else if (firstRun) {
-                /* هیچ آدرسی پیدا نشد: جستجوی شبکه، وگرنه پرسش */
+                /* هیچ آدرسی نبود: جستجوی شبکه، وگرنه پرسش */
                 showSplash(R.string.searching);
                 scanLan();
             }
         });
     }
 
-    /** آدرس‌های شناخته‌شده به‌ترتیب اولویت (بدون شبکه) */
+    /** همهٔ آدرس‌های ممکن، به‌ترتیب اولویت و بدون تکرار */
+    private java.util.List<String> candidates() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String raw : new String[]{
+                prefs.getString(KEY_URL, ""),
+                BuildConfig.PAYESH_URL == null ? "" : BuildConfig.PAYESH_URL,
+                prefs.getString(KEY_PUBLIC, ""),
+                prefs.getString(KEY_REMOTE, "")}) {
+            String u = normalize(raw);
+            if (!u.isEmpty() && !out.contains(u)) out.add(u);
+        }
+        return out;
+    }
+
+    /** اولین آدرس شناخته‌شده (برای بررسی‌های سریع) */
     private String resolveKnownUrl() {
-        String stored = prefs.getString(KEY_URL, "");
-        if (stored != null && !stored.isEmpty()) return stored;
-        String baked = BuildConfig.PAYESH_URL == null ? "" : BuildConfig.PAYESH_URL.trim();
-        if (!baked.isEmpty()) return normalize(baked);
-        String remote = prefs.getString(KEY_REMOTE, "");
-        if (remote != null && !remote.isEmpty()) return normalize(remote);
-        return "";
+        java.util.List<String> list = candidates();
+        return list.isEmpty() ? "" : list.get(0);
     }
 
     private interface UrlCallback { void onUrl(String url); }
@@ -250,6 +266,7 @@ public class MainActivity extends Activity {
                         String body = httpGet(base + "/api/health", 450);
                         if (body != null && body.contains("payesh-local")) {
                             hit.set(true);
+                            prefs.edit().putString(KEY_URL, base).apply();   /* دفعهٔ بعد یادش می‌ماند */
                             ui.post(() -> load(base));
                         }
                     });
@@ -329,6 +346,8 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 tries = 0;
+                loadedBase = baseOf(url);
+                learnPublicUrl(loadedBase);
                 bar.setVisibility(View.GONE);
                 splash.setVisibility(View.GONE);
                 errorBox().setVisibility(View.GONE);
@@ -339,11 +358,18 @@ public class MainActivity extends Activity {
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (!request.isForMainFrame()) return;
                 bar.setVisibility(View.GONE);
-                String url = resolveKnownUrl();
-                if (!url.isEmpty() && tries < MAX_AUTO_TRIES) {
+                if (!loadedBase.isEmpty() && tries < MAX_AUTO_TRIES) {
                     tries++;
                     showSplash(R.string.retrying);
-                    ui.postDelayed(() -> load(url), 2500);
+                    ui.postDelayed(() -> load(loadedBase), 2000);
+                    return;
+                }
+                /* این آدرس جواب نداد → آدرس بعدی را امتحان کن (مثلاً آدرس عمومی به‌جای شبکهٔ مدرسه) */
+                if (queueIndex + 1 < queue.size()) {
+                    queueIndex++;
+                    tries = 0;
+                    showSplash(R.string.retrying);
+                    ui.postDelayed(() -> load(queue.get(queueIndex)), 800);
                     return;
                 }
                 showError();
@@ -379,8 +405,35 @@ public class MainActivity extends Activity {
         });
     }
 
+    /** ریشهٔ آدرس یک صفحه (scheme://host:port) */
+    private String baseOf(String url) {
+        try {
+            Uri u = Uri.parse(url);
+            String scheme = u.getScheme() == null ? "https" : u.getScheme();
+            String host = u.getHost();
+            if (host == null) return url;
+            int port = u.getPort();
+            return scheme + "://" + host + (port > 0 ? ":" + port : "");
+        } catch (Exception e) { return url; }
+    }
+
+    /** سرور خودش آدرس عمومی را اعلام می‌کند؛ همان را نگه می‌داریم تا در خانه هم وصل شود */
+    private void learnPublicUrl(String base) {
+        if (base == null || base.isEmpty()) return;
+        new Thread(() -> {
+            String body = httpGet(base + "/api/health", 3500);
+            if (body == null) return;
+            try {
+                JSONObject j = new JSONObject(body);
+                String pub = normalize(j.optString("public_url", ""));
+                if (!pub.isEmpty() && !pub.equals(base)) prefs.edit().putString(KEY_PUBLIC, pub).apply();
+            } catch (Exception ignored) { }
+        }).start();
+    }
+
     private void load(String url) {
         if (url == null || url.isEmpty()) { connect(false); return; }
+        loadedBase = url;
         showSplash(R.string.connecting);
         bar.setVisibility(View.VISIBLE);
         web.loadUrl(url);
@@ -389,7 +442,11 @@ public class MainActivity extends Activity {
     private String normalize(String raw) {
         String u = raw == null ? "" : raw.trim();
         if (u.isEmpty()) return "";
-        if (!u.startsWith("http://") && !u.startsWith("https://")) u = "https://" + u;
+        if (!u.startsWith("http://") && !u.startsWith("https://")) {
+            /* شبکهٔ محلی http است، اینترنت https */
+            boolean local = u.matches("^(localhost|[0-9.]+)(:.*)?$") || u.startsWith("192.168.") || u.startsWith("10.");
+            u = (local ? "http://" : "https://") + u;
+        }
         if (u.endsWith("/")) u = u.substring(0, u.length() - 1);
         return u;
     }
@@ -415,7 +472,7 @@ public class MainActivity extends Activity {
                 connect(false);
             })
             .setNeutralButton(R.string.clear, (d, w) -> {
-                prefs.edit().remove(KEY_URL).remove(KEY_REMOTE).apply();
+                prefs.edit().remove(KEY_URL).remove(KEY_REMOTE).remove(KEY_PUBLIC).apply();
                 connect(false);
             })
             .setNegativeButton(R.string.cancel, null)
