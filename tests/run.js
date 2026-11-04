@@ -202,6 +202,28 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(old.data.total_size <= old.data.full_size);
   });
 
+  await test('اپلیکیشن اندروید: آدرس سرویس را خودش پیدا می‌کند (بدون پرسش از کاربر)', () => {
+    const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'android-config.json'), 'utf8'));
+    assert.strictEqual(cfg.app, 'payesh-local');
+    assert.strictEqual(typeof cfg.url, 'string', 'کلید url باید باشد (حتی خالی)');
+
+    const main = fs.readFileSync(path.join(ROOT, 'install/android/app/src/main/java/ir/payesh/local/MainActivity.java'), 'utf8');
+    assert.ok(main.includes('BuildConfig.PAYESH_URL'), 'آدرس پخته‌شده در APK');
+    assert.ok(main.includes('CONFIG_URLS'), 'پیکربندی مرکزی مخزن');
+    assert.ok(/void scanLan\(/.test(main), 'جستجوی خودکار در شبکه');
+    assert.ok(/MAX_AUTO_TRIES/.test(main), 'تلاش دوبارهٔ خودکار');
+
+    /* شروع برنامه نباید مستقیم آدرس بپرسد — همان شکایتی که کاربر داشت */
+    const onCreate = main.slice(main.indexOf('protected void onCreate'), main.indexOf('private int dp('));
+    assert.ok(onCreate.includes('connect(true)'), 'شروع برنامه اتصال خودکار است');
+    const asksOnStart = onCreate.split('\n').some(l => l.trim() === 'askServer();');
+    assert.ok(!asksOnStart, 'در اولین اجرا آدرس پرسیده نمی‌شود (فقط دکمهٔ اضطراری)');
+
+    const gradle = fs.readFileSync(path.join(ROOT, 'install/android/app/build.gradle'), 'utf8');
+    assert.ok(gradle.includes('buildConfigField'), 'PAYESH_URL در BuildConfig ساخته می‌شود');
+    assert.ok(gradle.includes('PAYESH_APP_URL'), 'متغیر محیطی برای پختن آدرس');
+  });
+
   /* ── ۲.۵ شبکه: آدرس رسمی، QR، انتقال دستگاه، قفل PIN ── */
 
   await test('اطلاعات شبکه و آدرس عمومی', async () => {

@@ -1,0 +1,7 @@
+{
+  "app": "payesh-local",
+  "url": "",
+  "note": "آدرس عمومی سامانه را در url بگذارید (مثلاً https://payesh.example.ts.net). برنامهٔ اندروید همین فایل را در اولین اجرا می‌خواند و مستقیم وصل می‌شود؛ بدون نیاز به ساخت دوبارهٔ APK.",
+  "note_en": "Put the public HTTPS address of the school server in 'url'. The Android app reads this file on first launch and connects automatically.",
+  "updated_at": null
+}

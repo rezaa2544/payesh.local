@@ -72,6 +72,9 @@ jobs:
           gradle-version: '8.7'
 
       - name: ساخت APK اندروید
+        env:
+          # آدرس سامانه که داخل APK پخته می‌شود (تنظیم با gh variable set PAYESH_PUBLIC_URL)
+          PAYESH_APP_URL: ${{ vars.PAYESH_PUBLIC_URL }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "ساخت APK نسخهٔ $VERSION"
@@ -79,6 +82,7 @@ jobs:
           sed -i "s/versionCode [0-9]\+/versionCode ${{ github.run_number }}/" install/android/app/build.gradle
           grep -E "versionName|versionCode" install/android/app/build.gradle
           gradle assembleDebug --no-daemon -p install/android
+          echo "آدرس پخته‌شده در APK: ${PAYESH_APP_URL:-خالی (برنامه از android-config.json یا شبکه پیدا می‌کند)}"
 
       - name: بررسی سلامت APK
         run: |
