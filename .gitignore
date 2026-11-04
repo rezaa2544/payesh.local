@@ -42,3 +42,4 @@ tmp/
 install/android/.gradle/
 install/android/app/build/
 install/android/local.properties
+runtime/
