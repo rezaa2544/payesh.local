@@ -108,6 +108,42 @@ jobs:
           gradle assembleDebug --no-daemon -p install/android
           echo "آدرس پخته‌شده در APK: ${PAYESH_APP_URL:-خالی (برنامه از android-config.json یا شبکه پیدا می‌کند)}"
 
+      - name: بررسی امضای APK (نصب روی نسخهٔ قبلی)
+        run: |
+          set +e
+          APK=install/android/app/build/outputs/apk/debug/app-debug.apk
+          ls -l "$APK"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BT=$(ls -d "$SDK"/build-tools/* 2>/dev/null | sort -V | tail -1)
+          echo "SDK=$SDK build-tools=$BT"
+          SIGNED=no
+          if [ -n "$BT" ] && [ -x "$BT/apksigner" ]; then
+            "$BT/apksigner" verify --print-certs "$APK" > /tmp/sig.txt 2>&1
+            echo "apksigner exit=$?"
+            head -8 /tmp/sig.txt
+            if grep -q "Signer #1 certificate SHA-256 digest" /tmp/sig.txt; then
+              SIGNED=yes
+              FP=$(grep "Signer #1 certificate SHA-256 digest" /tmp/sig.txt | tr -d ' ' | cut -d: -f2 | tr 'A-F' 'a-f')
+              echo "اثر انگشت امضا: $FP"
+              # کلید باید همان کلید ثابت مخزن باشد؛ وگرنه نصب روی نسخهٔ قبلی رد می‌شود
+              if [ "$FP" != "d646302bdfae9495c8726c3d582f5816dca5401e2cfb77b137c845cff6b2e36e" ]; then
+                echo "::error::کلید امضا با کلید ثابت مخزن یکی نیست ($FP) — به‌روزرسانی روی گوشی‌ها نصب نخواهد شد"
+                exit 1
+              fi
+            fi
+          fi
+          if [ "$SIGNED" = no ]; then
+            # بررسی ساده و بدون ابزار: آیا بلوک امضا داخل فایل هست؟
+            if unzip -l "$APK" | grep -Eq "META-INF/[^/]+\.(RSA|DSA|EC)$"; then SIGNED=yes; fi
+            if grep -qa "APK Sig Block 42" "$APK"; then SIGNED=yes; fi
+            echo "بررسی بدون ابزار: امضا=$SIGNED"
+          fi
+          if [ "$SIGNED" != yes ]; then
+            echo "::error::APK امضا نشده — روی گوشی نصب نمی‌شود"
+            exit 1
+          fi
+          echo "APK امضا شده است."
+
       - name: بررسی سلامت APK
         run: |
           APK=install/android/app/build/outputs/apk/debug/app-debug.apk

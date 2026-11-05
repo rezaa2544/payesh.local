@@ -24,6 +24,8 @@ backups/
 *.key
 !docs/**/*.key.md
 *.p12
+# کلید امضای ثابتِ برنامهٔ اندروید (عمداً در مخزن است تا نصب روی نسخهٔ قبلی کار کند)
+!install/android/payesh-signing.p12
 secrets/
 
 # فایل‌های کاربر/سیستم
