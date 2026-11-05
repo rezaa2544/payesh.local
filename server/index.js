@@ -305,10 +305,13 @@ async function api(req, res, url, ip) {
     if (!mgr) return json({ ok: false, error: 'no_manager' }, 400);
     const phone = normDigitsLocal(body.phone || mgr.phone || '');
     if (phone.length !== 11) return json({ ok: false, error: 'bad_phone' }, 400);
-    if (mgr.phone && normDigitsLocal(mgr.phone) !== phone) return json({ ok: false, error: 'bad_phone' }, 400);
     const set = auth.setPassword(store, mgr.id, body.password);
     if (!set.ok) return json(set, 400);
-    if (!mgr.phone) store.update('users', mgr.id, { phone });
+    /* شمارهٔ همراه = نام کاربری؛ روی خود دستگاه اجازه داریم آن را با شمارهٔ دلخواه مدیر هم‌تراز کنیم */
+    if (!mgr.phone || normDigitsLocal(mgr.phone) !== phone) {
+      store.update('users', mgr.id, { phone });
+      store.audit({ user_id: mgr.id, role: 'manager', action: 'phone_reset', collection: 'users' });
+    }
     store.audit({ user_id: mgr.id, role: 'manager', action: 'password_claim', collection: 'users' });
     const dev = auth.login(store, { phone, password: body.password, name: 'رایانهٔ مدرسه', platform: 'server' });
     return json(dev.ok ? Object.assign({ ok: true }, dev) : { ok: true, need_login: true });

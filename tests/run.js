@@ -603,8 +603,12 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(back.status, 401);
     const relog = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'zzzz' } });
     assert.strictEqual(relog.data.ok, true);
-    const badPhone = await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000077', password: 'zzzz' } });
-    assert.strictEqual(badPhone.data.error, 'bad_phone');
+    /* شمارهٔ تازه روی خودِ دستگاه پذیرفته و نام کاربری به‌روز می‌شود */
+    const newPhone = await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000077', password: 'zzzz' } });
+    assert.strictEqual(newPhone.data.ok, true);
+    const viaNew = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000077', password: 'zzzz' } });
+    assert.strictEqual(viaNew.data.ok, true);
+    await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000001', password: 'zzzz' } });
     const shortPw = await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000001', password: '1' } });
     assert.strictEqual(shortPw.data.error, 'bad_password');
     /* رمز را به مقدار اولیه برمی‌گردانیم تا تست‌های بعدی نشکنند */
