@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.4';
+const CLIENT_VERSION = '0.8.5';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -515,6 +515,17 @@ async function doPhoneLogin(f) {
         no_config: 'برنامه بدون تنظیم حافظه ساخته شده — نسخهٔ تازه را نصب کنید',
       };
       toast(map[r.error] || ('ورود ناموفق: ' + r.error), 'err');
+      /* اگر به حافظه نرسیدیم، همان‌جا خودمان بررسی می‌کنیم و می‌گوییم کجا گیر است */
+      if (r.error === 'net' || r.error === 'cors' || r.error === 'denied') {
+        const box = document.getElementById('diag-out');
+        if (box) {
+          box.innerHTML = '<div class="muted">در حال بررسی اتصال…</div>';
+          try {
+            const steps = await window.PayeshPhone.diagnose(phone);
+            box.innerHTML = steps.map(st => `<div>${st.ok ? '✅' : '❌'} ${st.text}${st.detail ? ' — <span class="ltr small">' + String(st.detail).replace(/[<>&]/g, '') + '</span>' : ''}</div>`).join('');
+          } catch (e) { box.innerHTML = ''; }
+        }
+      }
       return;
     }
     await enterPhone(r.user);

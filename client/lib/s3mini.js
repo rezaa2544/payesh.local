@@ -92,19 +92,28 @@
 
   async function call(cfg, opts) {
     const signed = buildRequest(cfg, opts);
-    let res;
-    try {
-      res = await fetch(signed.url, {
-        method: opts.method || 'GET',
-        headers: signed.headers,
-        body: opts.body || undefined,
-        mode: 'cors',
-        /* صندوقچهٔ بی‌پاسخ نباید برنامه را معطل کند */
-        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined,
-      });
-    } catch (e) {
+    /* اینترنت موبایل در ایران گاهی کند/لرزان است: یک بار دیگر هم تلاش می‌کنیم
+       و مهلت را بلندتر می‌گیریم تا «نرسیدیم» الکی نشان داده نشود. */
+    let res = null, lastErr = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        res = await fetch(signed.url, {
+          method: opts.method || 'GET',
+          headers: signed.headers,
+          body: opts.body || undefined,
+          mode: 'cors',
+          signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined,
+        });
+        break;
+      } catch (e) {
+        lastErr = e;
+        res = null;
+        if (attempt === 0 && typeof setTimeout === 'function') await new Promise(r => setTimeout(r, 700));
+      }
+    }
+    if (!res) {
       const err = new Error('به صندوقچه نرسیدیم — آدرس/اینترنت/CORS را بررسی کنید');
-      err.kind = 'network'; err.detail = e.message;
+      err.kind = 'network'; err.detail = (lastErr && (lastErr.name + ': ' + lastErr.message)) || '';
       throw err;
     }
     const text = await res.text();
