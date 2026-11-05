@@ -442,12 +442,16 @@ namespace Payesh
                     if (token == _connectToken)
                     {
                         SetStatus("یافتن آدرس سامانه…");
-                        string remote = await RemoteAddress();
-                        if (remote.Length > 0 && await Up(remote) && token == _connectToken)
+                        List<string> remotes = await RemoteAddresses();
+                        foreach (string remote in remotes)
                         {
-                            SaveIni(_settingsFile, "server_url", remote);
-                            ShowApp(remote);
-                            return;
+                            if (token != _connectToken) return;
+                            if (await Up(remote))
+                            {
+                                SaveIni(_settingsFile, "server_url", remote);
+                                ShowApp(remote);
+                                return;
+                            }
                         }
                     }
 
@@ -474,9 +478,18 @@ namespace Payesh
             var list = new List<string>();
             AddCandidate(list, ReadIni(_settingsFile, "server_url"));
             AddCandidate(list, ReadIni(Path.Combine(_appDir, "payesh.ini"), "server_url"));
+            /* چند سرور: سیستم مدرسه + رایانه‌های پشتیبان (هر کدام روشن باشد جواب می‌دهد) */
+            foreach (string extra in SplitList(ReadIni(Path.Combine(_appDir, "payesh.ini"), "urls")))
+                AddCandidate(list, extra);
             AddCandidate(list, _learnedPublic);
             AddCandidate(list, ReadIni(_settingsFile, "public_url"));
             return list;
+        }
+
+        private static string[] SplitList(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return new string[0];
+            return raw.Split(new char[] { ',', ';', '|', '\n', ' ' }, StringSplitOptions.RemoveEmptyEntries);
         }
 
         private static void AddCandidate(List<string> list, string raw)
@@ -760,13 +773,25 @@ namespace Payesh
             return true;
         }
 
-        private static async Task<string> RemoteAddress()
+        /// <summary>آدرس‌های مخزن: هم «url» تکی هم آرایهٔ «urls» (چند سرور).</summary>
+        private static async Task<List<string>> RemoteAddresses()
         {
+            var list = new List<string>();
             string body = await HttpGet(RemoteConfig, 6000);
-            if (body == null) return "";
-            Match m = Regex.Match(body, "\"url\"\\s*:\\s*\"([^\"]*)\"");
-            if (!m.Success) return "";
-            string url = Normalize(m.Groups[1].Value);
+            if (body == null) return list;
+            foreach (Match m in Regex.Matches(body, "\"urls\"\\s*:\\s*\\[(.*?)\\]", RegexOptions.Singleline))
+            {
+                foreach (Match item in Regex.Matches(m.Groups[1].Value, "\"([^\"]*)\""))
+                    AddCandidate(list, PlaceholderSafe(item.Groups[1].Value));
+            }
+            Match single = Regex.Match(body, "\"url\"\\s*:\\s*\"([^\"]*)\"");
+            if (single.Success) AddCandidate(list, PlaceholderSafe(single.Groups[1].Value));
+            return list;
+        }
+
+        private static string PlaceholderSafe(string raw)
+        {
+            string url = Normalize(raw);
             if (Regex.IsMatch(url, "XXXX|example", RegexOptions.IgnoreCase)) return "";
             return url;
         }

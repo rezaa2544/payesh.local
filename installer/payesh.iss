@@ -87,6 +87,7 @@ Filename: "{app}\payesh.ini"; Section: "payesh"; Key: "role"; String: "client"; 
 ; پنجرهٔ واقعی برنامه (WebView2) — نه تب مرورگر
 Name: "{group}\{#AppName}"; Filename: "{app}\desktop\Payesh.exe"; WorkingDir: "{app}"; IconFilename: "{app}\payesh.ico"; Comment: "سامانهٔ مدیریت مدرسه"
 Name: "{group}\پایش — اتصال به سرور مدرسه"; Filename: "{app}\desktop\Payesh.exe"; Parameters: "--client"; WorkingDir: "{app}"; IconFilename: "{app}\payesh.ico"
+Name: "{group}\پایش — اجرا به‌عنوان سرور (این رایانه)"; Filename: "{app}\desktop\Payesh.exe"; Parameters: "--server"; WorkingDir: "{app}"; IconFilename: "{app}\payesh.ico"; Comment: "این رایانه هم سامانه را بالا می‌آورد (سرور پشتیبان)"
 Name: "{group}\اجرای سرور با پنجرهٔ خط فرمان"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
 Name: "{group}\حذف {#AppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\desktop\Payesh.exe"; WorkingDir: "{app}"; IconFilename: "{app}\payesh.ico"; Tasks: desktopicon
