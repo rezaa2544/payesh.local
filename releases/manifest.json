@@ -1,14 +1,14 @@
 {
-  "version": "0.5.4",
-  "built_at": "2026-11-05T12:36:48.989Z",
+  "version": "0.5.5",
+  "built_at": "2026-11-05T12:40:04.300Z",
   "shell": {
-    "android": "0.5.4"
+    "android": "0.5.5"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "c3cdebfcc6a16aaacf7ec7c11d5e092f6f709fd5f1e8850492406318c2aeb64c",
+      "sha256": "039ff0d31763a0a74b6de18f184e6fd2c3e6b144b0de778adaebcfa636b82b76",
       "size": 60341
     },
     {
@@ -116,7 +116,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "efcea31837e6baa64c7bb36161d70b9fd9170a08d4c6f8b2592a9a158d62253c",
+      "sha256": "3f61ed39d91669428bc863b4b95865f5e1696ac21e86242f616d77e827aa3807",
       "size": 1979
     },
     {
@@ -146,8 +146,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "19eaf720d0e8a3c3281f84570e68fc7acbb5d314ffa09c7b263504433b1686c1",
-      "size": 45117
+      "sha256": "a8107edd7523c1b2d1abb3daf1d865e07fb0970e4b9e40fe4be9105c49257f55",
+      "size": 45342
     },
     {
       "path": "server/policy.js",
@@ -227,6 +227,6 @@
     "server": 24
   },
   "client_size": 225633,
-  "server_size": 181485,
-  "total_size": 407118
+  "server_size": 181710,
+  "total_size": 407343
 }
