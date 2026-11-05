@@ -1141,6 +1141,23 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  /* — نگهبان دائمی: هیچ کاربری، در هیچ نقشی، نباید به دیوار
+     «این بخش به سیستم مدرسه نیاز دارد» بخورد. متن این پیام نباید حتی
+     به‌صورت کدِ پرتاب‌شونده در برنامهٔ گوشی باقی بماند. */
+  await test('هیچ کدی در نسخهٔ گوشی پیام «نیاز به سیستم مدرسه» پرتاب نمی‌کند', async () => {
+    const files = ['client/app.js', 'client/pages.js', 'client/lib/phone.js'];
+    for (const f of files) {
+      const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+      assert.ok(!/throw[^;\n]*نیاز دارد/.test(src), f + ' نباید پیام «نیاز به سیستم مدرسه» را پرتاب کند');
+      assert.ok(!/به سیستم مدرسه نیاز دارد/.test(src), f + ' نباید متن دیوار را در خود داشته باشد');
+    }
+    const app = fs.readFileSync(path.join(ROOT, 'client/app.js'), 'utf8');
+    assert.ok(/function phoneApiStub/.test(app), 'در حالت گوشی، پاسخ‌های بی‌خطر محلی ساخته می‌شوند');
+    assert.ok(/if \(PHONE_MODE\) return phoneApiStub/.test(app), 'درخواست‌های گوشی به پاسخ محلی می‌روند، نه پرتاب خطا');
+    const pages = fs.readFileSync(path.join(ROOT, 'client/pages.js'), 'utf8');
+    assert.ok(/function layerRoot/.test(pages), 'پنجره‌ها اگر جایگاه نداشته باشند خودشان ساخته می‌شوند');
+  });
+
   await test('صفحهٔ ورود در مرورگر بدون خطا رندر می‌شود', async () => {
     const { JSDOM } = require('jsdom');
     const html = fs.readFileSync(path.join(ROOT, 'client/index.html'), 'utf8');

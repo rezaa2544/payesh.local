@@ -635,7 +635,7 @@ PAGES.users = () => {
         return '<span class="muted" title="رمز قبلاً تعیین شده و قابل خواندن نیست">—</span>';
       })()}</td>
       <td>
-        ${/^pbkdf2\$/.test(String(u.phone_hash || '')) ? '' : `<button class="btn sm ghost" data-act="user-auto-pw" data-id="${u.id}" title="رمز گوشی = کد ملی">آماده‌سازی گوشی</button>`}
+        ${(!isPhoneMode() && !/^pbkdf2\$/.test(String(u.phone_hash || ''))) ? `<button class="btn sm ghost" data-act="user-auto-pw" data-id="${u.id}" title="رمز گوشی = کد ملی">آماده‌سازی گوشی</button>` : ''}
         <button class="btn sm" data-act="pair-code" data-id="${u.id}">کارت پیوند</button>
         <button class="btn sm ghost" data-act="user-edit" data-id="${u.id}">ویرایش</button>
         <button class="btn sm ghost" data-act="user-delete" data-id="${u.id}" style="color:#b91c1c">حذف</button>
@@ -1212,13 +1212,22 @@ function phoneCheckHtml(r) {
 }
 
 /* ══════════════ کنش‌ها ══════════════ */
+/* هر پنجره و پیامی که باز می‌شود باید جایی برای نشستن داشته باشد؛
+   اگر صفحهٔ میزبان آن را نداشته باشد، خودمان می‌سازیم تا هیچ دکمه‌ای
+   بی‌اثر نماند. */
+function layerRoot(id) {
+  let el = document.getElementById(id);
+  if (!el) { el = document.createElement('div'); el.id = id; document.body.appendChild(el); }
+  return el;
+}
+
 function modal(html) {
   S.modal = html;
-  $('#modal-root').innerHTML = `<div class="modal-bg" data-act="modal-close"><div class="modal" onclick="event.stopPropagation()">
+  layerRoot('modal-root').innerHTML = `<div class="modal-bg" data-act="modal-close"><div class="modal" onclick="event.stopPropagation()">
     <div class="row between" style="margin-bottom:8px"><b>${esc(S.modalTitle || '')}</b><button class="btn sm ghost" data-act="modal-close">✕</button></div>
     ${html}</div></div>`;
 }
-function closeModal() { S.modal = null; $('#modal-root').innerHTML = ''; }
+function closeModal() { S.modal = null; layerRoot('modal-root').innerHTML = ''; }
 
 function pairCardHtml(r) {
   return `<div class="paircard">
