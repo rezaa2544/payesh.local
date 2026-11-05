@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ═══════════════════════════════════════════════════════════════════
+     مانیفست برنامهٔ ویندوز — همان چیزی که مایکروسافت برای برنامه‌های
+     رومیزی استاندارد می‌داند:
+       • asInvoker : برنامه هیچ‌وقت درخواست دسترسی مدیر نمی‌کند، پس ویندوز
+         پنجرهٔ «اجازه می‌دهید این برنامه تغییر ایجاد کند؟» نشان نمی‌دهد.
+       • PerMonitorV2 : در نمایشگرهای مختلف (و بزرگ‌نمایی ۱۵۰٪) تار نمی‌شود.
+       • supportedOS : ویندوز می‌فهمد برنامه برای ۱۰ و ۱۱ ساخته شده است
+         (نه یک برنامهٔ قدیمی که حالت سازگاری می‌خواهد).
+       • UTF-8 : مسیرها و نام‌های فارسی بدون خطا خوانده می‌شوند.
+     ═══════════════════════════════════════════════════════════════════ -->
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="Payesh.Local.Desktop" type="win32" />
+  <description>پایش-لوکال — سامانهٔ مدیریت مدرسه</description>
+
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- ویندوز ۱۰ و ۱۱ -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+      <!-- ویندوز ۸.۱ -->
+      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}" />
+    </application>
+  </compatibility>
+
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+      <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+    </windowsSettings>
+  </application>
+</assembly>

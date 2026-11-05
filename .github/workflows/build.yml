@@ -114,22 +114,55 @@ jobs:
           sed -i "s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" install/android/app/build.gradle
           sed -i "s/versionCode [0-9]\+/versionCode ${{ github.run_number }}/" install/android/app/build.gradle
           grep -E "versionName|versionCode" install/android/app/build.gradle
-          gradle assembleDebug --no-daemon -p install/android
+          # نسخهٔ «انتشار» ساخته می‌شود، نه debug:
+          #  • debuggable=false → گوگل برنامه را «آزمایشی» نمی‌بیند
+          #  • امضای v1+v2+v3 با کلید ثابت → نصب و به‌روزرسانی بی‌هشدار
+          set +e
+          gradle assembleRelease --no-daemon -p install/android > /tmp/gradle.log 2>&1
+          code=$?
+          if [ $code -ne 0 ]; then
+            # خطا را به‌صورت annotation بیرون بده تا بدون لاگ هم دیده شود
+            grep -E "What went wrong|FAILURE:|error:|Caused by:|Could not|Execution failed|lint" -A4 /tmp/gradle.log \
+              | head -60 | while IFS= read -r line; do echo "::error title=Gradle::$line"; done
+            tail -40 /tmp/gradle.log | while IFS= read -r line; do echo "::error title=Gradle tail::$line"; done
+            exit $code
+          fi
+          tail -4 /tmp/gradle.log
           echo "آدرس پخته‌شده در APK: ${PAYESH_APP_URL:-خالی (برنامه از android-config.json یا شبکه پیدا می‌کند)}"
 
-      - name: بررسی امضای APK (نصب روی نسخهٔ قبلی)
+      - name: بررسی امضا و استانداردهای APK (گوگل)
         run: |
           set +e
-          APK=install/android/app/build/outputs/apk/debug/app-debug.apk
+          APK=install/android/app/build/outputs/apk/release/app-release.apk
           ls -l "$APK"
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           BT=$(ls -d "$SDK"/build-tools/* 2>/dev/null | sort -V | tail -1)
           echo "SDK=$SDK build-tools=$BT"
+          # ── ۱) تراز بایت (zipalign): شرط نصب روان و بی‌خطا در اندروید ──
+          if [ -n "$BT" ] && [ -x "$BT/zipalign" ]; then
+            "$BT/zipalign" -c -v 4 "$APK" > /tmp/align.txt 2>&1
+            if [ $? -ne 0 ]; then
+              echo "::error::APK تراز (zipalign) نیست — اندروید نصب آن را رد می‌کند"
+              tail -5 /tmp/align.txt
+              exit 1
+            fi
+            echo "✓ تراز بایت درست است (zipalign)"
+          fi
+          # ── ۲) امضای v1/v2/v3 با کلید ثابت ─────────────────────────────
           SIGNED=no
           if [ -n "$BT" ] && [ -x "$BT/apksigner" ]; then
-            "$BT/apksigner" verify --print-certs "$APK" > /tmp/sig.txt 2>&1
+            "$BT/apksigner" verify --verbose --print-certs "$APK" > /tmp/sig.txt 2>&1
             echo "apksigner exit=$?"
-            head -8 /tmp/sig.txt
+            head -14 /tmp/sig.txt
+            for v in 2 3; do
+              if ! grep -Eq "Verified using v$v scheme.*: true" /tmp/sig.txt; then
+                echo "::error::امضای v$v نیست — اندروید برنامه را قبول نمی‌کند"
+                grep -i "verified using" /tmp/sig.txt | sed 's/^/::error::/' | head -8
+                exit 1
+              fi
+              echo "✓ امضای v$v درست است"
+            done
+            echo "✓ امضای v2 و v3 هر دو درست است"
             if grep -q "Signer #1 certificate SHA-256 digest" /tmp/sig.txt; then
               SIGNED=yes
               FP=$(grep "Signer #1 certificate SHA-256 digest" /tmp/sig.txt | tr -d ' ' | cut -d: -f2 | tr 'A-F' 'a-f')
@@ -155,8 +188,20 @@ jobs:
 
       - name: بررسی سلامت APK
         run: |
-          APK=install/android/app/build/outputs/apk/debug/app-debug.apk
+          APK=install/android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK" || { echo "APK ساخته نشد"; exit 1; }
+          # نسخهٔ منتشرشده نباید «اشکال‌زدایی‌شدنی» باشد؛ وگرنه گوگل آن را
+          # برنامهٔ آزمایشی می‌شناسد و هنگام نصب هشدار می‌دهد.
+          SDK2="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BT2=$(ls -d "$SDK2"/build-tools/* 2>/dev/null | sort -V | tail -1)
+          if [ -n "$BT2" ] && [ -x "$BT2/aapt" ]; then
+            if "$BT2/aapt" dump badging "$APK" 2>/dev/null | grep -q "application-debuggable"; then
+              echo "::error::APK نسخهٔ debug است — باید نسخهٔ release ساخته شود"
+              exit 1
+            fi
+            echo "✓ نسخهٔ انتشار است (debuggable=false)"
+            "$BT2/aapt" dump badging "$APK" 2>/dev/null | grep -E "^(package|sdkVersion|targetSdkVersion|application-label|uses-permission)" | head -12
+          fi
           unzip -l "$APK" | grep -q "classes.dex"
           unzip -l "$APK" | grep -q "AndroidManifest.xml"
           # برنامهٔ کاملِ وب باید داخل APK باشد (نه یک پوستهٔ خالی)
@@ -176,7 +221,7 @@ jobs:
       - name: آماده‌سازی فایل‌های انتشار
         run: |
           mkdir -p out
-          cp install/android/app/build/outputs/apk/debug/app-debug.apk out/payesh-local.apk
+          cp install/android/app/build/outputs/apk/release/app-release.apk out/payesh-local.apk
           # نام ثابت برای لینک‌های همیشه‌درست در README
           cp releases/payesh-local-windows-*.zip out/payesh-local-windows.zip
           cp releases/*.zip releases/*.tar.gz out/ 2>/dev/null || true
@@ -248,12 +293,37 @@ jobs:
       - name: آماده‌سازی پوشهٔ نصب
         run: node scripts/stage-windows.mjs
 
-      - name: ساخت برنامهٔ ویندوز (Payesh.exe — پنجرهٔ واقعی)
+      - name: ساخت برنامهٔ ویندوز (Payesh.exe — پنجرهٔ واقعی + شناسنامه)
         shell: pwsh
         run: |
-          powershell -ExecutionPolicy Bypass -File desktop\build.ps1 -Out .build\win\desktop
-          if (-not (Test-Path .build\win\desktop\Payesh.exe)) { throw 'Payesh.exe ساخته نشد' }
-          Get-ChildItem .build\win\desktop | Select-Object Name, Length | Format-Table
+          $ErrorActionPreference = 'Stop'
+          $log = 'build-win.log'
+          powershell -ExecutionPolicy Bypass -File desktop\build.ps1 -Out .build\win\desktop *>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content $log | Select-Object -Last 30 | ForEach-Object { "::error title=build.ps1::$_" }
+            exit 1
+          }
+          try {
+            $exe = '.build\win\desktop\Payesh.exe'
+            if (-not (Test-Path $exe)) { throw 'Payesh.exe ساخته نشد' }
+            Get-ChildItem .build\win\desktop | Select-Object Name, Length | Format-Table
+            # ── استاندارد مایکروسافت: شناسنامهٔ فایل نباید خالی باشد ────────
+            $vi = (Get-Item $exe).VersionInfo
+            "ProductName=$($vi.ProductName)  Company=$($vi.CompanyName)  FileVersion=$($vi.FileVersion)"
+            if (-not $vi.ProductName) { throw 'شناسنامهٔ فایل اجرایی خالی است (ProductName)' }
+            if (-not $vi.CompanyName) { throw 'شناسنامهٔ فایل اجرایی خالی است (CompanyName)' }
+            if (-not $vi.FileVersion) { throw 'نسخهٔ فایل نوشته نشده است' }
+            # ── مانیفست asInvoker باید داخل exe باشد (بدون درخواست مدیر) ───
+            $txt = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes((Resolve-Path $exe)))
+            if ($txt -notmatch 'asInvoker') { throw 'مانیفست asInvoker داخل exe نیست' }
+            if ($txt -notmatch 'supportedOS') { throw 'شناسهٔ ویندوز ۱۰/۱۱ در مانیفست نیست' }
+            "✓ شناسنامه و مانیفست برنامهٔ ویندوز درست است"
+          } catch {
+            "::error title=Payesh.exe::$($_.Exception.Message)"
+            $pos = ($_.InvocationInfo.PositionMessage -replace "`r?`n", ' ')
+            "::error title=Payesh.exe خط::$pos"
+            exit 1
+          }
 
       - name: نصب Inno Setup
         shell: pwsh
@@ -272,7 +342,7 @@ jobs:
           $v = node -p "require('./package.json').version"
           & $env:ISCC "/DAppVersion=$v" "installer\payesh.iss" 2>&1 | Tee-Object -FilePath iscc.log
           if ($LASTEXITCODE -ne 0) {
-            Get-Content iscc.log | Select-Object -Last 25 | ForEach-Object { "::error::ISCC: $_" }
+            Get-Content iscc.log | Select-Object -Last 30 | ForEach-Object { "::error::ISCC: $_" }
             throw "ISCC ناموفق ($LASTEXITCODE)"
           }
           $exe = 'releases/payesh-setup.exe'

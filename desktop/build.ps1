@@ -71,11 +71,44 @@ $loader = Get-ChildItem $pkg -Filter WebView2Loader.dll -Recurse |
 if (-not $loader) { $loader = Get-ChildItem $pkg -Filter WebView2Loader.dll -Recurse | Select-Object -First 1 }
 if (-not $loader) { throw 'WebView2Loader.dll پیدا نشد' }
 
-# ── ۳) کامپایل ─────────────────────────────────────────────────────
+# ── ۳) شناسنامهٔ فایل اجرایی (استاندارد مایکروسافت) ────────────────
+#  هر فایل اجرایی ویندوز باید نام محصول، شرکت، نسخه و حق نشر داشته باشد؛
+#  بدون این‌ها «ویژگی‌های فایل» خالی است و ویندوز برنامه را ناشناس می‌بیند.
+Say 'ساختن شناسنامهٔ فایل (Version Info)'
+$pkgVersion = '0.0.0'
+try {
+  $pkg = Get-Content (Join-Path $root 'package.json') -Raw | ConvertFrom-Json
+  if ($pkg.version) { $pkgVersion = [string]$pkg.version }
+} catch { }
+$fileVersion = ($pkgVersion + '.0').Split('.')[0..3] -join '.'
+$verSrc = Join-Path $env:TEMP ('payesh-ver-' + [Guid]::NewGuid().ToString('N') + '.cs')
+$verCode = @"
+using System.Reflection;
+using System.Resources;
+using System.Runtime.InteropServices;
+
+[assembly: AssemblyTitle("Payesh Local")]
+[assembly: AssemblyDescription("Payesh Local - school management system (desktop app)")]
+[assembly: AssemblyProduct("Payesh Local")]
+[assembly: AssemblyCompany("Payesh Local")]
+[assembly: AssemblyCopyright("(c) 1404 Payesh Local - MIT License")]
+[assembly: AssemblyTrademark("Payesh Local")]
+[assembly: AssemblyConfiguration("Release")]
+[assembly: AssemblyVersion("$fileVersion")]
+[assembly: AssemblyFileVersion("$fileVersion")]
+[assembly: AssemblyInformationalVersion("$pkgVersion")]
+[assembly: NeutralResourcesLanguage("fa")]
+[assembly: ComVisible(false)]
+"@
+Set-Content -Path $verSrc -Value $verCode -Encoding UTF8
+Ok "نسخهٔ $pkgVersion داخل Payesh.exe نوشته می‌شود"
+
+# ── ۴) کامپایل ─────────────────────────────────────────────────────
 Say 'کامپایل Payesh.exe'
 if (-not (Test-Path $Out)) { New-Item -ItemType Directory -Force -Path $Out | Out-Null }
 $exe = Join-Path $Out 'Payesh.exe'
 $ico = Join-Path $root 'install\windows\payesh.ico'
+$manifest = Join-Path $root 'desktop\app.manifest'
 $cscArgs = @(
   '/nologo', '/target:winexe', '/platform:x64', '/optimize+', '/codepage:65001',
   "/out:$exe",
@@ -84,6 +117,10 @@ $cscArgs = @(
   "/r:$core", "/r:$winf"
 )
 if (Test-Path $ico) { $cscArgs += "/win32icon:$ico" }
+# مانیفست: بدون درخواست دسترسی مدیر + نمایش درست در ویندوز ۱۰/۱۱
+if (Test-Path $manifest) { $cscArgs += "/win32manifest:$manifest"; Ok 'مانیفست asInvoker/PerMonitorV2 پیوست شد' }
+else { throw 'desktop\app.manifest پیدا نشد — بدون آن ویندوز پنجرهٔ دسترسی مدیر نشان می‌دهد' }
+$cscArgs += $verSrc
 $cscArgs += (Join-Path $root 'desktop\PayeshApp.cs')
 
 & $csc $cscArgs
@@ -98,4 +135,5 @@ Copy-Item $ico (Join-Path $Out 'payesh.ico') -Force -ErrorAction SilentlyContinu
 Ok 'DLLها و آیکون کنار برنامه گذاشته شدند'
 
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item $verSrc -Force -ErrorAction SilentlyContinue
 Write-Host "`n✅ برنامهٔ ویندوز آماده است: $Out" -ForegroundColor Green

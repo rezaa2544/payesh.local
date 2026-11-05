@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- آیکون تطبیقی (Adaptive Icon) — استاندارد اندروید ۸ به بعد و گوگل:
+     پس‌زمینه و نماد جدا هستند تا گوشی خودش شکل (دایره/مربع/…) را بدهد. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

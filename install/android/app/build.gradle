@@ -37,8 +37,8 @@ android {
         targetSdk 34
         /* با هر انتشار یکی زیاد شود؛ اندروید فقط نسخه‌ای را روی نسخهٔ
            نصب‌شده می‌پذیرد که شمارهٔ ساختش بزرگ‌تر یا مساوی باشد. */
-        versionCode 811
-        versionName "0.8.11"
+        versionCode 812
+        versionName "0.8.12"
         resConfigs "fa", "en"
         buildConfigField "String", "PAYESH_URL", '"' + payeshUrl.replace('"', '') + '"'
         buildConfigField "String", "PAYESH_CLOUD_BUCKET", '"' + payeshBucket.replace('"', '') + '"'
@@ -57,6 +57,12 @@ android {
            اگر در CI کلید خصوصی جدا گذاشته شود (PAYESH_KEYSTORE و …)
            همان مقدم است. */
         stable {
+            /* امضا در هر سه قالب استاندارد گوگل: v1 (قدیمی)، v2 (اندروید ۷+)
+               و v3 (اندروید ۹+). بدون این‌ها بعضی گوشی‌ها هنگام نصب
+               «بستهٔ برنامه مشکل دارد» یا «برنامه تأیید نشد» می‌گویند. */
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
             if (System.getenv("PAYESH_KEYSTORE")) {
                 storeFile file(System.getenv("PAYESH_KEYSTORE"))
                 storePassword System.getenv("PAYESH_KEYSTORE_PASS")
@@ -78,7 +84,12 @@ android {
             signingConfig signingConfigs.stable
         }
         release {
+            /* نسخهٔ انتشار: بدون قابلیت اشکال‌زدایی — همان چیزی که برای
+               نصب روی گوشی کاربران استاندارد است (نسخهٔ debug را گوگل
+               «برنامهٔ آزمایشی» می‌شناسد و ممکن است هشدار بدهد). */
+            debuggable false
             minifyEnabled false
+            shrinkResources false
             signingConfig signingConfigs.stable
         }
     }

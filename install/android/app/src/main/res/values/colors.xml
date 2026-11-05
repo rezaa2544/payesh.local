@@ -3,4 +3,5 @@
     <color name="brand">#1E3A8A</color>
     <color name="brand_dark">#152A63</color>
     <color name="white">#FFFFFF</color>
+    <color name="ic_launcher_background">#1E3A8A</color>
 </resources>

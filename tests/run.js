@@ -1158,6 +1158,53 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/function layerRoot/.test(pages), 'پنجره‌ها اگر جایگاه نداشته باشند خودشان ساخته می‌شوند');
   });
 
+  /* — استانداردهای نصب (گوگل و مایکروسافت) ─────────────────────────
+     هدف: هنگام نصب هیچ هشدار «برنامهٔ پرخطر / ناشر ناشناس» نیاید و
+     بسته‌ها همان چیزی باشند که گوگل و مایکروسافت استاندارد می‌دانند. */
+  await test('APK مطابق استاندارد گوگل ساخته و امضا می‌شود', async () => {
+    const mf = fs.readFileSync(path.join(ROOT, 'install/android/app/src/main/AndroidManifest.xml'), 'utf8');
+    /* هیچ مجوز پرخطری نباید خواسته شود */
+    const risky = ['REQUEST_INSTALL_PACKAGES', 'READ_CONTACTS', 'READ_SMS', 'SEND_SMS', 'CAMERA',
+      'RECORD_AUDIO', 'READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE', 'MANAGE_EXTERNAL_STORAGE',
+      'SYSTEM_ALERT_WINDOW', 'REQUEST_IGNORE_BATTERY_OPTIMIZATIONS', 'READ_PHONE_STATE'];
+    for (const r of risky) {
+      assert.ok(!new RegExp('android\\.permission\\.' + r + '\\b').test(mf),
+        'مجوز پرخطر ' + r + ' نباید در برنامه باشد');
+    }
+    assert.ok(/android:allowBackup="false"/.test(mf), 'پشتیبان‌گیری ابری گوگل از دادهٔ دانش‌آموزان خاموش است');
+    assert.ok(/<queries>/.test(mf), 'بازکردن پیوند در مرورگر (اندروید ۱۱+) اعلام شده است');
+    const gradle = fs.readFileSync(path.join(ROOT, 'install/android/app/build.gradle'), 'utf8');
+    assert.ok(/enableV2Signing true/.test(gradle) && /enableV3Signing true/.test(gradle),
+      'امضای v2 و v3 (استاندارد گوگل) روشن است');
+    const wf = fs.readFileSync(path.join(ROOT, '.github/workflows/build.yml'), 'utf8');
+    assert.ok(/gradle assembleRelease/.test(wf), 'نسخهٔ انتشار (release) ساخته می‌شود، نه debug');
+    assert.ok(!/gradle assembleDebug/.test(wf), 'دیگر نسخهٔ debug منتشر نمی‌شود');
+    assert.ok(/Verified using v\$v scheme/.test(wf) && /for v in 2 3/.test(wf), 'ساخت بدون امضای v2/v3 متوقف می‌شود');
+    assert.ok(/zipalign/.test(wf), 'تراز بایت APK بررسی می‌شود');
+    assert.ok(/application-debuggable/.test(wf), 'نسخهٔ debug بودن APK بررسی می‌شود');
+    /* آیکون تطبیقی اندروید ۸+ */
+    assert.ok(fs.existsSync(path.join(ROOT, 'install/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml')),
+      'آیکون تطبیقی (adaptive icon) وجود دارد');
+  });
+
+  await test('نصب‌کنندهٔ ویندوز مطابق استاندارد مایکروسافت است', async () => {
+    const iss = fs.readFileSync(path.join(ROOT, 'installer/payesh.iss'), 'utf8');
+    for (const key of ['AppPublisher', 'AppPublisherURL', 'AppSupportURL', 'AppCopyright',
+      'VersionInfoCompany', 'VersionInfoProductName', 'VersionInfoProductVersion', 'VersionInfoCopyright']) {
+      assert.ok(new RegExp('^' + key + '=', 'm').test(iss), 'شناسنامهٔ نصب‌کننده: ' + key + ' نوشته شده است');
+    }
+    assert.ok(/PrivilegesRequiredOverridesAllowed=dialog/.test(iss),
+      'امکان نصب بدون دسترسی مدیر (بدون پنجرهٔ UAC) وجود دارد');
+    assert.ok(/Check: IsAdminInstallMode/.test(iss), 'کارهای نیازمند مدیر فقط در حالت همه‌کاربره اجرا می‌شوند');
+    /* برنامهٔ ویندوز: مانیفست asInvoker + شناسنامهٔ نسخه */
+    const man = fs.readFileSync(path.join(ROOT, 'desktop/app.manifest'), 'utf8');
+    assert.ok(/requestedExecutionLevel level="asInvoker"/.test(man), 'برنامه هیچ‌وقت دسترسی مدیر نمی‌خواهد');
+    assert.ok(/supportedOS/.test(man) && /dpiAware/.test(man), 'شناسهٔ ویندوز ۱۰/۱۱ و نمایش درست اعلام شده است');
+    const ps = fs.readFileSync(path.join(ROOT, 'desktop/build.ps1'), 'utf8');
+    assert.ok(/win32manifest/.test(ps), 'مانیفست به فایل اجرایی پیوست می‌شود');
+    assert.ok(/AssemblyFileVersion/.test(ps), 'نسخهٔ فایل اجرایی نوشته می‌شود');
+  });
+
   await test('صفحهٔ ورود در مرورگر بدون خطا رندر می‌شود', async () => {
     const { JSDOM } = require('jsdom');
     const html = fs.readFileSync(path.join(ROOT, 'client/index.html'), 'utf8');
