@@ -134,6 +134,31 @@
     steps.push({ ok: hasKeys(cfg), text: 'نشانی و کلیدهای حافظه در برنامه هست', detail: cfg.endpoint || '—' });
     if (!hasKeys(cfg)) return steps;
 
+    /* ۰) برنامهٔ نصبی اندروید خودش بومی وصل می‌شود (بدون محدودیت مرورگر) */
+    const native = !!(s3.nativeBridge && s3.nativeBridge());
+    if (native) {
+      steps.push({ ok: true, text: 'این نسخه خودش مستقیم به حافظه وصل می‌شود (بدون محدودیت مرورگر)' });
+      try {
+        const names = await s3.listBuckets(cfg);
+        const pick = (names || []).find(n => /payesh|madrese|school/i.test(n)) || (names || [])[0];
+        if (pick) { cfg = saveConfig(Object.assign({}, cfg, { bucket: pick })); steps.push({ ok: true, text: 'صندوقچهٔ مدرسه پیدا شد', detail: pick }); }
+        else steps.push({ ok: false, text: 'هیچ صندوقچه‌ای در حساب پیدا نشد — در سیستم مدرسه یک‌بار همگام‌سازی کنید' });
+      } catch (e) {
+        steps.push({ ok: false, text: 'به حافظه وصل نشدیم', detail: (e && (e.detail || e.message)) || '' });
+        return steps;
+      }
+      /* اگر صندوقچه پیدا نشد، بقیهٔ گام‌ها معنا ندارد */
+      if (!cfg.bucket) return steps;
+      const probeN = await s3.corsProbe(cfg);
+      steps.push({
+        ok: !!probeN.ok,
+        text: probeN.ok ? 'خواندن و نوشتن روی حافظه ممکن است' : 'خواندن حافظه ممکن نشد',
+        detail: probeN.ok ? 'native' : (probeN.detail || probeN.error || ''),
+      });
+      if (!probeN.ok) return steps;
+      return steps.concat(await accountStep(s3, cfg, phone));
+    }
+
     /* ۱) آیا اصل اینترنت به سرور حافظه می‌رسد؟ */
     let reach = null;
     try {
@@ -171,18 +196,21 @@
     }
 
     /* ۴) حساب این شماره */
+    return steps.concat(await accountStep(s3, cfg, phone));
+  }
+
+  /* گام «حساب این شماره» — مشترک بین هر دو مسیر */
+  async function accountStep(s3, cfg, phone) {
+    const out = [];
     const p = normPhone(phone);
-    if (p.length >= 10) {
-      try {
-        const env = JSON.parse(await s3.get(cfg, cfg.prefix + 'auth/' + p + '.json'));
-        steps.push({ ok: !!env.verifier, text: 'حساب این شماره در حافظه هست', detail: (env.user && env.user.name) || '' });
-      } catch (e) {
-        steps.push({ ok: false, text: 'برای این شماره حساب پیدا نشد — مدیر باید یک‌بار با سیستم مدرسه همگام شود', detail: e && e.status ? ('کد ' + e.status) : '' });
-      }
-    } else {
-      steps.push({ ok: true, text: 'شماره را کامل وارد کنید تا حسابش هم بررسی شود' });
+    if (p.length < 10) { out.push({ ok: true, text: 'شماره را کامل وارد کنید تا حسابش هم بررسی شود' }); return out; }
+    try {
+      const env = JSON.parse(await s3.get(cfg, cfg.prefix + 'auth/' + p + '.json'));
+      out.push({ ok: !!env.verifier, text: 'حساب این شماره در حافظه هست', detail: (env.user && env.user.name) || '' });
+    } catch (e) {
+      out.push({ ok: false, text: 'برای این شماره حساب پیدا نشد — مدیر باید یک‌بار با سیستم مدرسه همگام شود', detail: e && e.status ? ('کد ' + e.status) : '' });
     }
-    return steps;
+    return out;
   }
 
   function normPhone(p) {

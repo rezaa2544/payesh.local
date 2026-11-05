@@ -13,6 +13,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -30,6 +31,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -41,7 +43,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -183,6 +187,83 @@ public class MainActivity extends Activity {
         setupWebView();
 
         boot();
+    }
+
+
+    /* ═══════════════════════════════════════════════════════════════
+       پل بومی برای حافظهٔ مشترک (Arvan S3).
+
+       چرا لازم است؟ مرورگرِ داخل برنامه، پیش از خواندن پاسخ از یک دامنهٔ
+       دیگر، «اجازهٔ خواندن» (CORS) می‌خواهد؛ اگر صندوقچهٔ ابری آن را
+       نداشته باشد، درخواست بی‌صدا رد می‌شود و کاربر پیام «به حافظه
+       نرسیدیم» می‌بیند — درست همان چیزی که اتفاق افتاد.
+
+       این‌جا همان درخواست از خودِ اندروید فرستاده می‌شود: نه CORS، نه
+       پیش‌پرواز، نه محدودیت مرورگر. امضای SigV4 در جاوااسکریپت ساخته
+       می‌شود و همین‌جا فقط ارسال می‌شود.
+       ═══════════════════════════════════════════════════════════════ */
+    private class NativeBridge {
+        private final AtomicLong seq = new AtomicLong(1);
+        private final ExecutorService pool = Executors.newCachedThreadPool();
+
+        @JavascriptInterface
+        public String s3(final String method, final String url, final String headersJson, final String body) {
+            final String id = "r" + seq.getAndIncrement();
+            pool.submit(() -> {
+                int status = 0;
+                String text = "";
+                String error = null;
+                HttpURLConnection c = null;
+                try {
+                    c = (HttpURLConnection) new URL(url).openConnection();
+                    c.setRequestMethod(method == null || method.isEmpty() ? "GET" : method);
+                    c.setConnectTimeout(20000);
+                    c.setReadTimeout(40000);
+                    c.setInstanceFollowRedirects(false);
+                    c.setUseCaches(false);
+                    JSONObject h = new JSONObject(headersJson == null || headersJson.isEmpty() ? "{}" : headersJson);
+                    Iterator<String> keys = h.keys();
+                    while (keys.hasNext()) {
+                        String k = keys.next();
+                        c.setRequestProperty(k, h.optString(k));
+                    }
+                    if (body != null && !body.isEmpty()) {
+                        c.setDoOutput(true);
+                        c.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+                        c.getOutputStream().flush();
+                        c.getOutputStream().close();
+                    } else {
+                        c.setDoOutput(false);
+                    }
+                    status = c.getResponseCode();
+                    InputStream is = status >= 400 ? c.getErrorStream() : c.getInputStream();
+                    text = readStream(is);
+                } catch (Exception e) {
+                    error = String.valueOf(e.getMessage());
+                } finally {
+                    if (c != null) c.disconnect();
+                }
+                final int st = status;
+                final String tx = text;
+                final String er = error;
+                ui.post(() -> {
+                    String js = "window.__payeshNativeDone(" + JSONObject.quote(id) + "," + st + ","
+                        + JSONObject.quote(tx == null ? "" : tx) + "," + JSONObject.quote(er == null ? "" : er) + ")";
+                    try { web.evaluateJavascript(js, null); } catch (Exception ignored) { }
+                });
+            });
+            return id;
+        }
+    }
+
+    private String readStream(InputStream is) {
+        if (is == null) return "";
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader r = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = r.readLine()) != null) sb.append(line).append('\n');
+        } catch (Exception ignored) { }
+        return sb.toString();
     }
 
     private int dp(int v) {
@@ -465,6 +546,8 @@ public class MainActivity extends Activity {
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         web.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
+        web.addJavascriptInterface(new NativeBridge(), "PayeshNative");
 
         web.setWebViewClient(new WebViewClient() {
             @Override
