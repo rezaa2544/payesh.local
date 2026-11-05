@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.10';
+const CLIENT_VERSION = '0.8.11';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -152,8 +152,27 @@ async function silentRefresh() {
   return refreshing;
 }
 
+/* ── در حالت گوشی هیچ سروری نیست ─────────────────────────────────────
+   پیش‌تر این‌جا خطا پرتاب می‌شد و کاربر (هر نقشی، از جمله ولی) به دیوار
+   «نیازمند سیستم مدرسه» می‌خورد — حتی برای کاری که روی گوشی کاملاً ممکن
+   بود. حالا به‌جای خطا، یک پاسخ خالی و بی‌خطر برمی‌گردد: خواندن‌ها چیزی
+   اضافه نمی‌کنند (دادهٔ محلی/صندوقچه همان‌جا هست) و نوشتن‌ها از مسیر
+   صف → صندوقچه می‌روند. هیچ کاربری به این دیوار نمی‌خورد. */
+function phoneApiStub(path, opts) {
+  const method = String((opts && opts.method) || 'GET').toUpperCase();
+  const at = new Date().toISOString();
+  if (method !== 'GET') return { ok: true, offline: true, queued: true, at };
+  if (/\/api\/v1\/pull/.test(path)) {
+    return { ok: true, offline: true, collections: {}, deleted: [], more: false, server_time: at };
+  }
+  if (/\/api\/live\/rev/.test(path)) return { ok: true, offline: true, rev: '', every_ms: 1000, cloud: true };
+  if (/\/api\/outbox\/state/.test(path)) return { ok: true, offline: true, pending: 0 };
+  if (/\/api\/bootstrap/.test(path)) return { ok: true, offline: true, role: S.role, user: S.user };
+  return { ok: true, offline: true };
+}
+
 async function api(path, opts = {}) {
-  if (PHONE_MODE) throw new Error('این بخش به سیستم مدرسه نیاز دارد');
+  if (PHONE_MODE) return phoneApiStub(path, opts);
   const headers = { 'content-type': 'application/json' };
   if (S.session) headers.authorization = 'Bearer ' + S.session;
   const res = await fetch(apiUrl(path), {
@@ -229,6 +248,8 @@ function mergeRows(collections, deleted) {
 }
 
 async function pullAll() {
+  /* روی گوشی هیچ سروری نیست؛ داده از صندوقچه می‌آید (pullData) */
+  if (PHONE_MODE) return;
   let since = S.lastSync || '1970-01-01T00:00:00.000Z';
   let guard = 0, serverTime = null;
   while (guard++ < 25) {
@@ -247,6 +268,12 @@ async function pullAll() {
 
 async function flushQueue() {
   if (!S.queue.length || S.syncing) return { pushed: 0 };
+  /* روی گوشی، مقصدِ ثبت‌ها صندوقچهٔ ابری است، نه یک سرور */
+  if (PHONE_MODE) {
+    S.syncing = true;
+    try { return { pushed: await pushQueueToOutbox() }; }
+    finally { S.syncing = false; }
+  }
   S.syncing = true;
   let pushed = 0;
   try {
@@ -399,6 +426,29 @@ let liveBusy = false;
 let liveServerRev = null;
 const liveState = { at: null, changes: 0, error: null };
 
+/* «فرزندان من» برای ولی — دادهٔ گوشی فقط فرزندان همان ولی را می‌آورد
+   (data/person/<id>.json → children)، پس همان‌جا پیوند والد ساخته می‌شود
+   تا همهٔ صفحه‌های ولی (خانه، مرخصی، پرونده) درست کار کنند. */
+function applyChildren(children) {
+  if (!Array.isArray(children) || !children.length) return false;
+  const me = S.user && S.user.id != null ? Number(S.user.id) : null;
+  if (me == null) return false;
+  if (!S.data.users) S.data.users = new Map();
+  if (!S.data.parent_links) S.data.parent_links = new Map();
+  let changed = false;
+  for (const child of children) {
+    if (!child || child.id == null) continue;
+    const id = Number(child.id);
+    if (!S.data.users.has(id)) { S.data.users.set(id, Object.assign({ role: 'student' }, child)); changed = true; }
+    const linkId = -(id);   /* شناسهٔ محلی پایدار و منفی: با سرور تعارض ندارد */
+    if (!S.data.parent_links.has(linkId)) {
+      S.data.parent_links.set(linkId, { id: linkId, parent_id: me, student_id: id, _local: true });
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function applyPulled(data) {
   if (!data || data.missing) return false;
   let changed = false;
@@ -415,6 +465,8 @@ function applyPulled(data) {
     S.server.school = data.school;
     S.data.schools = new Map([[1, Object.assign({ id: 1 }, data.school)]]);
   }
+  if (data.me && S.user) S.user = Object.assign({}, S.user, data.me);
+  if (applyChildren(data.children)) changed = true;
   if (data.at) S.lastSync = data.at;
   return changed;
 }
@@ -693,6 +745,10 @@ async function enterPhone(user) {
       S.server.school = data.school;
       S.data.schools = new Map([[1, Object.assign({ id: 1 }, data.school)]]);
     }
+    /* ولی: فرزندانش از پروندهٔ خودش ساخته می‌شوند (نه از جدول parent_links
+       که روی گوشی وجود ندارد) */
+    if (data.me) S.user = Object.assign({}, S.user, data.me);
+    applyChildren(data.children);
     S.lastSync = data.at || null;
     saveCache();
   } else {
@@ -1322,7 +1378,7 @@ document.addEventListener('click', async (e) => {
     case 'modal-close': closeModal(); return;
     case 'retry': boot(); return;
     case 'cloud-phone-check': {
-      if (PHONE_MODE) { toast('این کار را یک‌بار از سیستم مدرسه انجام دهید', 'err'); return; }
+      if (PHONE_MODE) { toast('این بررسی روی رایانهٔ مدرسه انجام می‌شود — روی گوشی لازم نیست', 'ok'); return; }
       S._cloudBusy = true; S.phoneCheck = null; render();
       try {
         const r = await api('/api/admin/cloud/phone-check', { method: 'POST', body: {} });
@@ -1385,7 +1441,7 @@ document.addEventListener('click', async (e) => {
           await syncNow(true); render();
         } catch (e) { toast('انجام نشد: ' + friendlyError(e), 'err'); }
       } else {
-        toast('این کار را از سیستم مدرسه انجام دهید', 'err');
+        toast('این کار روی رایانهٔ مدرسه انجام می‌شود — روی گوشی لازم نیست', 'ok');
       }
       return;
     }
