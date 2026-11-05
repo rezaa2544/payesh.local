@@ -1,0 +1,10 @@
+.git
+node_modules
+.build
+releases
+data
+install/android
+install/windows
+desktop
+tests
+*.log

@@ -127,6 +127,17 @@ https://payesh-<tailnet>.ts.net
 
 جزئیات: [docs/05](docs/05-install-and-updates.md#45-آدرس-عمومی-ثابت--بدون-آن-برنامه-فقط-داخل-مدرسه-کار-میکند)
 
+### ☁️ اجرا روی میزبان همیشه‌روشن (ابر)
+اگر می‌خواهید سامانه شبانه‌روز و بدون هیچ تونل/تنظیمی در دسترس باشد:
+
+- بستهٔ آمادهٔ آپلود: **[payesh-cloud.zip](https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-cloud.zip)**
+- یا روی VPS: `sudo DOMAIN=payesh.example.ir bash deploy/vps-setup.sh`
+- یا با داکر: `docker compose up -d`
+- راهنمای کامل و تله‌ها: [deploy/README.md](deploy/README.md)
+- بعد از استقرار، سلامت را چک کنید: `node deploy/selfcheck.mjs https://آدرس-شما`
+
+> نیاز: **Node 22.5+**. داده باید روی مسیر ماندگار باشد (`PAYESH_DATA`)، نه `/tmp`.
+
 ### 🔁 بیش از یک سرور (سیستم مدرسه + رایانهٔ پشتیبان)
 هر رایانه‌ای که `payesh-setup.exe` رویش نصب شود می‌تواند خودش سرور باشد: میان‌بر **«پایش — اجرا به‌عنوان سرور (این رایانه)»** یا `Payesh.exe --server`. آدرس هر سرور را در `android-config.json` داخل آرایهٔ `urls` (یا در `payesh.ini` با کلید `urls`) بگذارید؛ برنامهٔ ویندوز و اندروید هر کدام را که روشن باشد پیدا می‌کند و اگر یکی خاموش بود، سراغ بعدی می‌رود.
 
