@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.5';
+const CLIENT_VERSION = '0.8.6';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -493,10 +493,12 @@ async function doPhoneLogin(f) {
   const btn = form ? form.querySelector('button[type="submit"]') : null;
   if (btn) { btn.disabled = true; btn.textContent = 'در حال بررسی…'; }
   try {
-    /* اگر همین‌جا سیستم مدرسه در دسترس باشد، نشانی حافظه را از آن یاد بگیر */
-    if (/^https?:/.test(location.protocol)) {
+    /* اگر سیستم مدرسه در دسترس باشد (شبکهٔ مدرسه یا آدرس عمومی)، نشانی
+       حافظه را از آن یاد می‌گیریم و نگه می‌داریم؛ بعد در خانه هم کار می‌کند. */
+    const learnBase = API_BASE || (/^https?:/.test(location.protocol) ? location.origin : '');
+    if (learnBase) {
       await Promise.race([
-        window.PayeshPhone.learnFromServer(location.origin),
+        window.PayeshPhone.learnFromServer(learnBase),
         new Promise(res => setTimeout(res, 2500)),
       ]);
     }
@@ -692,6 +694,7 @@ async function start() {
     scheduleSync();
     checkUpdate(true);
     maybeShowReleaseNotes();
+    maybeFixPhoneAccess();
     if (S.role === 'manager') loadRemoteUpdate(false).then(() => { updateTopChrome(); if (S.remote && S.remote.available) render(); });
   } catch (e) {
     toast('اتصال به سرور برقرار نشد: ' + e.message, 'err');
@@ -756,13 +759,61 @@ async function loadNetwork(force) {
 }
 
 /* ── رندر ───────────────────────────────────────────────────────── */
+
+/* ── حفظ فوکوس و صفحه‌کلید هنگام بازسازی صفحه ─────────────────────────
+   روی گوشی، اگر کادرِ در حال تایپ از DOM برداشته شود، صفحه‌کلید بسته می‌شود
+   و کاربر باید برای هر رقم دوباره روی کادر بزند. پس هر بار که صفحه بازسازی
+   می‌شود: کادرِ فعال و جای نشانگر را نگه می‌داریم و بعد برمی‌گردانیم. */
+function focusSnapshot() {
+  const el = document.activeElement;
+  if (!el || !el.tagName) return null;
+  const tag = el.tagName.toLowerCase();
+  if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') return null;
+  const key = el.getAttribute('name') || el.getAttribute('data-focus-key') || el.id || '';
+  if (!key) return null;
+  const form = el.form && el.form.getAttribute ? (el.form.getAttribute('data-form') || '') : '';
+  let start = null, end = null;
+  try { start = el.selectionStart; end = el.selectionEnd; } catch (e) { /* بعضی کادرها ندارند */ }
+  return { key, form, start, end, value: el.value };
+}
+
+function focusRestore(snap) {
+  if (!snap) return;
+  let el = null;
+  const scope = snap.form ? document.querySelector('form[data-form="' + snap.form + '"]') : document;
+  if (scope && scope.elements) {
+    el = scope.elements[snap.key] || null;
+  }
+  if (!el && document.querySelector) {
+    const all = document.querySelectorAll('input, textarea, select');
+    for (const cand of all) {
+      if (cand.getAttribute('name') === snap.key) { el = cand; break; }
+    }
+  }
+  if (!el || typeof el.focus !== 'function') return;
+  try {
+    if (el.value !== snap.value) el.value = snap.value;
+    el.focus({ preventScroll: true });
+    if (snap.start != null && el.setSelectionRange) el.setSelectionRange(snap.start, snap.end);
+  } catch (e) { /* بی‌صدا */ }
+}
+
+/* جایگزینی محتوای صفحه با نگه‌داشتن فوکوس/صفحه‌کلید */
+function paintApp(html) {
+  const root = $('#app');
+  if (!root) return;
+  const snap = focusSnapshot();
+  root.innerHTML = html;
+  if (snap) focusRestore(snap);
+}
+
 function render() {
   const root = $('#app');
   if (!root) return;
   if (!S.session || !S.user) return;
   const page = (window.PAGES && window.PAGES[S.route]) || null;
   const view = page ? page(S.params) : `<div class="card"><h3>صفحه پیدا نشد</h3><p class="muted">مسیر «${esc(S.route)}» وجود ندارد.</p></div>`;
-  root.innerHTML = shellHtml(view);
+  paintApp(shellHtml(view));
   /* بارگذاری تنبل وضعیت شبکه در صفحهٔ «شبکه» */
   if (S.route === 'network' && S.role === 'manager' && !S.network && !S._netLoading) {
     S._netLoading = true;
@@ -1022,6 +1073,28 @@ async function startOffline() {
     toast('سرور در دسترس نیست — آخرین اطلاعات ذخیره‌شده نمایش داده می‌شود');
     return true;
   } catch (e) { return false; }
+}
+
+
+/* ── تعمیر خودکار دسترسی گوشی‌ها ────────────────────────────────────
+   مدیر فقط برنامه را باز می‌کند؛ اگر دسترسی مرورگر به حافظهٔ مشترک بسته
+   باشد، همین‌جا یک‌بار (و بعد هر ۱۲ ساعت) خودش درست می‌شود. */
+async function maybeFixPhoneAccess() {
+  try {
+    if (PHONE_MODE || S.role !== 'manager' || !S.server || !S.server.ok) return;
+    if (!S.server.cloudReady) return;
+    const at = Number(localStorage.getItem('payesh.phonecheck.at') || 0);
+    if (Date.now() - at < 12 * 3600 * 1000) return;
+    localStorage.setItem('payesh.phonecheck.at', String(Date.now()));
+    const r = await api('/api/admin/cloud/phone-check', { method: 'POST', body: {} });
+    if (r && r.ok) {
+      toast('دسترسی گوشی‌ها به حافظهٔ مشترک آماده است ✅', 'ok');
+    } else if (r && r.steps) {
+      S.phoneCheck = r;
+      localStorage.removeItem('payesh.phonecheck.at');
+      toast('دسترسی گوشی‌ها کامل نشد — در «حافظهٔ ابری» ببینید', 'err');
+    }
+  } catch (e) { /* بی‌صدا */ }
 }
 
 async function boot() {

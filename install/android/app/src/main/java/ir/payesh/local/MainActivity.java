@@ -436,8 +436,11 @@ public class MainActivity extends Activity {
         if (path.endsWith("index.html")) {
             /* آدرس سرور و حالت «بسته‌بندی‌شده» را به برنامه تزریق می‌کنیم */
             String html = new String(body, StandardCharsets.UTF_8);
+            String bucket = BuildConfig.PAYESH_CLOUD_BUCKET == null ? "" : BuildConfig.PAYESH_CLOUD_BUCKET.trim();
             String inject = "<script>window.PAYESH_API_BASE=" + JSONObject.quote(apiBase)
-                + ";window.PAYESH_BUNDLED=true;</script>";
+                + ";window.PAYESH_BUNDLED=true;"
+                + (bucket.isEmpty() ? "" : "window.PAYESH_CLOUD_BUCKET=" + JSONObject.quote(bucket) + ";")
+                + "</script>";
             html = html.contains("<head>") ? html.replace("<head>", "<head>" + inject) : inject + html;
             body = html.getBytes(StandardCharsets.UTF_8);
         }

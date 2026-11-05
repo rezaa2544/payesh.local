@@ -8,3 +8,6 @@ window.PAYESH_CLOUD = {
   "prefix": "payesh/",
   "pathStyle": true
 };
+
+/* اگر نام صندوقچه موقع ساخت APK داده شده باشد، همان مقدم است */
+if (window.PAYESH_CLOUD_BUCKET) window.PAYESH_CLOUD.bucket = window.PAYESH_CLOUD_BUCKET;
