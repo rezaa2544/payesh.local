@@ -1,0 +1,238 @@
+{
+  "version": "0.6.0",
+  "built_at": "2026-11-05T13:56:08.002Z",
+  "shell": {
+    "android": "0.6.0"
+  },
+  "files": [
+    {
+      "path": "client/app.js",
+      "kind": "client",
+      "sha256": "eea6d20f69fe6426ca1586d4fdd1bd7c01317a16d7ef322704567cb65d7daf8a",
+      "size": 64167
+    },
+    {
+      "path": "client/icons/apple-touch-icon.png",
+      "kind": "client",
+      "sha256": "5729bb601826310a59013b4db0c5a5ddc595beabd416312dbc4e40dc01f59c8a",
+      "size": 7028
+    },
+    {
+      "path": "client/icons/icon-192.png",
+      "kind": "client",
+      "sha256": "370ab173bc616faceeaf603c015912c648b4e79cac77f8ff82b68a22df9b5620",
+      "size": 7447
+    },
+    {
+      "path": "client/icons/icon-512.png",
+      "kind": "client",
+      "sha256": "1c7c5042830e23f4e21eafc61ff39f8fff71d0a2df3b4f5c46d066b7ff457218",
+      "size": 13315
+    },
+    {
+      "path": "client/index.html",
+      "kind": "client",
+      "sha256": "4ebad76ca87dddfc20ae73166da87e24e9ac7326437ca34e0a95325c764b0208",
+      "size": 1151
+    },
+    {
+      "path": "client/install.html",
+      "kind": "client",
+      "sha256": "df63fb9668876018cc3fdec95cbf0469af2197806629fe278e1ae964d32aff15",
+      "size": 10109
+    },
+    {
+      "path": "client/lib/s3mini.js",
+      "kind": "client",
+      "sha256": "b6c451eb1bafcf251cd91c567325969ab6f8738754f12bcacb6653424b16bff4",
+      "size": 10333
+    },
+    {
+      "path": "client/lib/sigv4.js",
+      "kind": "client",
+      "sha256": "6039b7f7f1d824f6d492a4a4e33b624863b10a802f0afaebfacfd0bf9b65678a",
+      "size": 9444
+    },
+    {
+      "path": "client/manifest.webmanifest",
+      "kind": "client",
+      "sha256": "175a463c06fd172da665f4850c7d3598b5468a1071c1f3a55463bf307ef10987",
+      "size": 960
+    },
+    {
+      "path": "client/pages.js",
+      "kind": "client",
+      "sha256": "695a7b51917644e14788530f1cf0164505beed341a7f438ffc97941857788c57",
+      "size": 92145
+    },
+    {
+      "path": "client/styles.css",
+      "kind": "client",
+      "sha256": "98631472fdb9d27fc058dd618388a8029cc50e9412f8e42b56bed90deb9bbe69",
+      "size": 9817
+    },
+    {
+      "path": "client/sw.js",
+      "kind": "client",
+      "sha256": "7746ea3a20403bbda90b2b5da4310ed86099202b00686cc0b70fda7321c67086",
+      "size": 7278
+    },
+    {
+      "path": "hub/README.md",
+      "kind": "server",
+      "sha256": "a25f713892b157a783317678fb955dd2a1db19ca97177fc3400c5020fc8306a9",
+      "size": 1679
+    },
+    {
+      "path": "hub/package.json",
+      "kind": "server",
+      "sha256": "a22f7e387362822cd5f994e5b8bfed1c2c54455529e4b5a500e6f4cb64301ed4",
+      "size": 53
+    },
+    {
+      "path": "hub/schema.sql",
+      "kind": "server",
+      "sha256": "cc5d2819897505d82337d66da7ae239546167c9fb807eda604086f6367f06422",
+      "size": 913
+    },
+    {
+      "path": "hub/worker.js",
+      "kind": "server",
+      "sha256": "0817acaefcde899d8bfa0930ee4f1b1f62663d8a17e9a50ba8e8d8bd498c190f",
+      "size": 6715
+    },
+    {
+      "path": "hub/wrangler.toml",
+      "kind": "server",
+      "sha256": "a09c07f586d7ef1f17bf42dde577dd6cc29751dd2f4187f7959369d89c6ad82d",
+      "size": 414
+    },
+    {
+      "path": "install.bat",
+      "kind": "server",
+      "sha256": "e7bff8e3fda9a280ced1550fe52d5cb404a3aa9472added6b0825f6d864f2799",
+      "size": 409
+    },
+    {
+      "path": "package.json",
+      "kind": "server",
+      "sha256": "86c78df35892baec14c76396f53f54979d5dc3d0a0903a04d605d92d529964b6",
+      "size": 1979
+    },
+    {
+      "path": "server/auth.js",
+      "kind": "server",
+      "sha256": "994abcb7da35e85652593bee2e4b27c6560c7650501b815aced4d6e1dc5d35f3",
+      "size": 14183
+    },
+    {
+      "path": "server/cloud-defaults.js",
+      "kind": "server",
+      "sha256": "09a4e869ee46555cbbf215653e2e019298fcfec78af703be4cbe228baee381ba",
+      "size": 2129
+    },
+    {
+      "path": "server/config.js",
+      "kind": "server",
+      "sha256": "cf89f334e3cb252bde144b83a5880d9b97a41798103e6d033b47fb8606cc9538",
+      "size": 4456
+    },
+    {
+      "path": "server/db.js",
+      "kind": "server",
+      "sha256": "aaa48fd1d84aa524db10d1d1fa0ead5b474c3b7ccfbfa57301d4c1e1401a6027",
+      "size": 11280
+    },
+    {
+      "path": "server/hub.js",
+      "kind": "server",
+      "sha256": "2928aea53169ed0e9b8c1b748c9c1539317e4061caa1f373e47cfae8fc699032",
+      "size": 8351
+    },
+    {
+      "path": "server/index.js",
+      "kind": "server",
+      "sha256": "94aef7c5fcb5afdf0ee6d6fd27fcfa7a744ac83ee13d8f95c3f682653b413c0b",
+      "size": 48521
+    },
+    {
+      "path": "server/policy.js",
+      "kind": "server",
+      "sha256": "afc96e47f399099a9b14c62cf53ca5acf3481eab3af7de8d88406f366156a759",
+      "size": 8975
+    },
+    {
+      "path": "server/qr.js",
+      "kind": "server",
+      "sha256": "5a3540a4e33af3acf3261a5a66c9d4547521203b7f71cedf45d91300268f6a65",
+      "size": 13353
+    },
+    {
+      "path": "server/s3mem.js",
+      "kind": "server",
+      "sha256": "20acd6a99fcc352e6190c699467adc5317545bc3cce781a83a44b6d0fe3fa545",
+      "size": 4208
+    },
+    {
+      "path": "server/seed.js",
+      "kind": "server",
+      "sha256": "1a0f7c07a032f33d140e344b33e4e4dd9ea9f60460b9de06bd0d0961a53eed97",
+      "size": 13166
+    },
+    {
+      "path": "server/start.js",
+      "kind": "server",
+      "sha256": "f07ae0d2c7e41847beb0a900251b2eb20814c76dd657d6ba51c18f7f78e9246e",
+      "size": 2522
+    },
+    {
+      "path": "server/sync.js",
+      "kind": "server",
+      "sha256": "e1ceea570da481e39db6b06686fba8ef452d80f3e4aa4ba60d417fb4b733b12c",
+      "size": 6154
+    },
+    {
+      "path": "server/tunnel.js",
+      "kind": "server",
+      "sha256": "47800cb0b4314bd23fd9eef2a77a21e16b9d5e06f5acfec45a6810862265eccf",
+      "size": 16108
+    },
+    {
+      "path": "server/update.js",
+      "kind": "server",
+      "sha256": "123e46e616461c403dd3cc2fadbab22ccc75e3e94b2962a93f5c8603ddc4068f",
+      "size": 20696
+    },
+    {
+      "path": "server/util.js",
+      "kind": "server",
+      "sha256": "101667b4f104ed6d68e0599c81f18eeffaa2a2f7287af4d70f1960c7c4e21a55",
+      "size": 2310
+    },
+    {
+      "path": "start.bat",
+      "kind": "server",
+      "sha256": "104c83f90f839e39f904e4bfe135caad385c7c82bb3d43c64bf46abf13e53a7f",
+      "size": 292
+    },
+    {
+      "path": "start.sh",
+      "kind": "server",
+      "sha256": "4419326c416d5d9d4b698e5ae0f90e9b6e0a5aa30cb8064169a21a620f75ff98",
+      "size": 216
+    },
+    {
+      "path": "uninstall.bat",
+      "kind": "server",
+      "sha256": "2c421ee99ad515ed535fd346758883535d9a49b20058194001fd035bb775ded0",
+      "size": 151
+    }
+  ],
+  "counts": {
+    "client": 12,
+    "server": 25
+  },
+  "client_size": 233194,
+  "server_size": 189233,
+  "total_size": 422427
+}

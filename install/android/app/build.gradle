@@ -56,4 +56,18 @@ android {
     }
 }
 
+/* ── «همه‌چیز داخل APK» ──────────────────────────────────────────────
+   کل برنامهٔ وب (HTML/JS/CSS/آیکون‌ها = همان چیزی که سرور سرو می‌کند)
+   پیش از ساخت داخل assets/www کپی می‌شود؛ برنامه بدون هیچ سروری هم
+   بالا می‌آید و فقط برای همگام‌سازی به سرور وصل می‌شود. */
+def webSrc = rootProject.file('../../client')
+def webDst = file("$projectDir/src/main/assets/www")
+tasks.register('bundleWebAssets', Copy) {
+    from(webSrc) {
+        exclude '**/node_modules/**', '**/*.map', '**/.DS_Store'
+    }
+    into webDst
+}
+tasks.named('preBuild').configure { dependsOn 'bundleWebAssets' }
+
 dependencies { }

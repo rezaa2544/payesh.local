@@ -18,6 +18,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -32,23 +33,40 @@ import android.widget.Toast;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * پوستهٔ اندروید پایش.
+ * اپلیکیشن کامل اندرویدِ پایش — «همه‌چیز داخل خود گوشی».
  *
- * کاربر نباید هیچ آدرسی وارد کند: آدرس سرویس به‌ترتیب از این منابع پیدا می‌شود
- *   ۱) آدرسی که قبلاً روی همین گوشی ذخیره شده
- *   ۲) آدرس پخته‌شده در خودِ APK (هنگام ساخت: PAYESH_APP_URL یا url.properties)
- *   ۳) فایل پیکربندی مرکزی مخزن  android-config.json
- *   ۴) جستجوی خودکار سرویس در شبکهٔ محلی
- *   ۵) و تنها در آخرین حالت، پرسیدن از کاربر
+ * برخلاف نسخهٔ قدیمی (پوستهٔ مرورگر که آدرس سرور را باز می‌کرد)، این‌جا تمام
+ * فایل‌های برنامه (HTML/JS/CSS/آیکون‌ها + موتور همگام‌سازی و کش آفلاین) داخل
+ * خودِ APK است و از یک مبدأ امن محلی سرو می‌شود:
+ *
+ *      https://appassets.androidplatform.net/assets/www/index.html
+ *
+ * چرا این مبدأ؟ چون سرویس‌ورکر، localStorage و IndexedDB فقط روی https کار
+ * می‌کنند و file:// این‌ها را نمی‌دهد. (Service Worker در حالت بسته‌بندی لازم
+ * نیست و کلاینت خودش غیرفعالش می‌کند.)
+ *
+ * اتصال به سرور:
+ *   - آدرس سرور (مدرسه یا آدرس عمومی) یک‌بار پیدا می‌شود:
+ *       ۱) آدرسی که قبلاً ذخیره شده  ۲) آدرس پخته‌شده در APK
+ *       ۳) android-config.json مخزن  ۴) جست‌وجوی خودکار در شبکهٔ محلی
+ *   - سپس به صفحهٔ محلی تزریق می‌شود:  window.PAYESH_API_BASE = "https://…"
+ *   - اگر هیچ سروری پیدا نشد، برنامه باز هم بالا می‌آید و آخرین دادهٔ ذخیره‌شده
+ *     را نشان می‌دهد (هیچ صفحهٔ بن‌بستی وجود ندارد).
  */
 public class MainActivity extends Activity {
 
@@ -58,6 +76,11 @@ public class MainActivity extends Activity {
     private static final String KEY_LAST = "last_url";        /* آخرین نشانی‌ای که واقعاً باز شد */
     private static final String KEY_PUBLIC = "public_url";    /* آدرس عمومی که خود سرور اعلام کرده */
 
+    /* میزبان محلیِ دارایی‌های برنامه (فقط داخل خود برنامه) */
+    private static final String APP_HOST = "appassets.androidplatform.net";
+    private static final String APP_ORIGIN = "https://" + APP_HOST;
+    private static final String APP_URL = APP_ORIGIN + "/assets/www/index.html";
+
     /* پیکربندی مرکزی: تغییر آدرس بدون نیاز به ساخت دوبارهٔ برنامه */
     private static final String[] CONFIG_URLS = {
         "https://raw.githubusercontent.com/rezaa2544/payesh.local/main/android-config.json",
@@ -65,7 +88,6 @@ public class MainActivity extends Activity {
     };
 
     private static final int FILE_PICK = 1001;
-    private static final int MAX_AUTO_TRIES = 3;
 
     private WebView web;
     private ProgressBar bar;
@@ -77,11 +99,16 @@ public class MainActivity extends Activity {
 
     private SharedPreferences prefs;
     private final Handler ui = new Handler(Looper.getMainLooper());
-    private int tries = 0;
     private boolean scanning = false;
     private java.util.List<String> queue = new java.util.ArrayList<>();
     private int queueIndex = 0;
+
+    /** آدرس سرور مدرسه — به صفحهٔ محلی تزریق می‌شود */
+    private String apiBase = "";
+    /** آدرسی که همین حالا در حال بررسی است (برای تلاش دوباره) */
     private String loadedBase = "";
+    /** کش دارایی‌ها در حافظه تا هر بار از دیسک خوانده نشود */
+    private final Map<String, byte[]> assetCache = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -125,7 +152,7 @@ public class MainActivity extends Activity {
         splash.addView(splashText);
         frame.addView(splash, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        /* صفحهٔ خطا */
+        /* صفحهٔ خطا — فقط برای حالت‌های بعید (دارایی‌ها خراب نصب شده باشند) */
         LinearLayout errBox = new LinearLayout(this);
         errBox.setOrientation(LinearLayout.VERTICAL);
         errBox.setGravity(android.view.Gravity.CENTER);
@@ -139,18 +166,12 @@ public class MainActivity extends Activity {
         errBox.addView(errorView);
         errorButton = new Button(this);
         errorButton.setText(R.string.retry);
-        errorButton.setOnClickListener(v -> connect(false));
-        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        bp.topMargin = dp(16);
-        errBox.addView(errorButton, bp);
+        errorButton.setOnClickListener(v -> boot());
+        errBox.addView(errorButton);
         Button findButton = new Button(this);
         findButton.setText(R.string.find_lan);
         findButton.setOnClickListener(v -> scanLan());
         errBox.addView(findButton);
-        Button offlineButton = new Button(this);
-        offlineButton.setText(R.string.offline_view);
-        offlineButton.setOnClickListener(v -> showOffline());
-        errBox.addView(offlineButton);
         Button setButton = new Button(this);
         setButton.setText(R.string.set_manual);
         setButton.setOnClickListener(v -> askServer());
@@ -161,35 +182,53 @@ public class MainActivity extends Activity {
         setContentView(root);
         setupWebView();
 
-        connect(true);
+        boot();
     }
 
     private int dp(int v) {
         return (int) (v * getResources().getDisplayMetrics().density);
     }
 
-    /* ── پیدا کردن آدرس و اتصال ─────────────────────────────────────── */
+    /* ── راه‌اندازی: پیدا کردن سرور، سپس باز کردنِ برنامهٔ محلی ─────────── */
 
-    private void connect(boolean firstRun) {
-        /* اتصال عادی همیشه شبکه را ترجیح می‌دهد؛ حالت «فقط کش» مال دکمهٔ آفلاین است */
-        if (web != null) web.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
-        tries = 0;
+    private void boot() {
+        showSplash(R.string.connecting);
         queue = candidates();
         queueIndex = 0;
-        if (!queue.isEmpty()) { load(queue.get(0)); return; }
-        if (firstRun) showSplash(R.string.connecting);
-        fetchRemoteConfig(url2 -> {
-            if (url2 != null && !url2.isEmpty()) {
-                prefs.edit().putString(KEY_REMOTE, url2).apply();
+        if (!queue.isEmpty()) { verifyThenOpen(queue.get(0)); return; }
+        fetchRemoteConfig(url -> {
+            if (url != null && !url.isEmpty()) {
+                prefs.edit().putString(KEY_REMOTE, url).apply();
                 queue = candidates();
                 queueIndex = 0;
-                load(queue.get(0));
-            } else if (firstRun) {
-                /* هیچ آدرسی نبود: جستجوی شبکه، وگرنه پرسش */
-                showSplash(R.string.searching);
-                scanLan();
+                if (!queue.isEmpty()) { verifyThenOpen(queue.get(0)); return; }
             }
+            showSplash(R.string.searching);
+            scanLan();
         });
+    }
+
+    /** آدرس را سریع بررسی می‌کند؛ اگر جواب نداد، سراغ بعدی می‌رود؛ در پایان برنامه را آفلاین باز می‌کند */
+    private void verifyThenOpen(String base) {
+        if (base == null || base.isEmpty()) { openApp(""); return; }
+        showSplash(R.string.connecting);
+        new Thread(() -> {
+            String body = httpGet(base + "/api/health", 2500);
+            boolean ok = body != null && body.contains("payesh-local");
+            ui.post(() -> {
+                if (ok) {
+                    prefs.edit().putString(KEY_URL, base).putString(KEY_LAST, base).apply();
+                    learnPublicUrl(base);
+                    openApp(base);
+                } else if (queueIndex + 1 < queue.size()) {
+                    queueIndex++;
+                    verifyThenOpen(queue.get(queueIndex));
+                } else {
+                    /* هیچ سروری نبود → همان برنامه، ولی آفلاین (دادهٔ ذخیره‌شده) */
+                    openApp(prefs.getString(KEY_URL, ""));
+                }
+            });
+        }).start();
     }
 
     /** همهٔ آدرس‌های ممکن، به‌ترتیب اولویت و بدون تکرار */
@@ -202,18 +241,11 @@ public class MainActivity extends Activity {
             String u = normalize(raw);
             if (!u.isEmpty() && !out.contains(u)) out.add(u);
         }
-        /* آدرس‌های مخزن می‌توانند چندتا باشند: سیستم مدرسه + رایانهٔ پشتیبان */
         for (String raw : prefs.getString(KEY_REMOTE, "").split("\n")) {
             String u = normalize(raw);
             if (!u.isEmpty() && !out.contains(u)) out.add(u);
         }
         return out;
-    }
-
-    /** اولین آدرس شناخته‌شده (برای بررسی‌های سریع) */
-    private String resolveKnownUrl() {
-        java.util.List<String> list = candidates();
-        return list.isEmpty() ? "" : list.get(0);
     }
 
     private interface UrlCallback { void onUrl(String url); }
@@ -227,7 +259,6 @@ public class MainActivity extends Activity {
                     String body = httpGet(cfg, 4000);
                     if (body == null) continue;
                     JSONObject j = new JSONObject(body);
-                    /* url تکی (سازگاری) + آرایهٔ urls برای چند سرور */
                     StringBuilder list = new StringBuilder();
                     String single = normalize(j.optString("url", "").trim());
                     if (!single.isEmpty()) list.append(single);
@@ -257,7 +288,7 @@ public class MainActivity extends Activity {
             c.setRequestProperty("Accept", "application/json");
             if (c.getResponseCode() != 200) return null;
             StringBuilder sb = new StringBuilder();
-            try (BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream(), "UTF-8"))) {
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = r.readLine()) != null) sb.append(line);
             }
@@ -267,6 +298,16 @@ public class MainActivity extends Activity {
         } finally {
             if (c != null) c.disconnect();
         }
+    }
+
+    /** باز کردن برنامهٔ کاملِ داخل گوشی، با آدرس سروری که پیدا شد (یا خالی = آفلاین) */
+    private void openApp(String base) {
+        apiBase = base == null ? "" : base;
+        splash.setVisibility(View.GONE);
+        errorBox().setVisibility(View.GONE);
+        bar.setVisibility(View.VISIBLE);
+        web.setVisibility(View.VISIBLE);
+        web.loadUrl(APP_URL);
     }
 
     /** تلاش برای پیدا کردن سرویس پایش در همان شبکهٔ Wi-Fi */
@@ -289,18 +330,21 @@ public class MainActivity extends Activity {
                         String body = httpGet(base + "/api/health", 450);
                         if (body != null && body.contains("payesh-local")) {
                             hit.set(true);
-                            prefs.edit().putString(KEY_URL, base).apply();   /* دفعهٔ بعد یادش می‌ماند */
-                            ui.post(() -> load(base));
+                            prefs.edit().putString(KEY_URL, base).putString(KEY_LAST, base).apply();
+                            ui.post(() -> { learnPublicUrl(base); openApp(base); });
                         }
                     });
                 }
                 pool.shutdown();
                 try { pool.awaitTermination(5, TimeUnit.SECONDS); } catch (InterruptedException ignored) { }
                 if (hit.get()) { scanning = false; return; }
+                found = null;
             }
             scanning = false;
+            final String last = prefs.getString(KEY_URL, "");
             ui.post(() -> {
-                if (resolveKnownUrl().isEmpty()) showError();
+                if (!last.isEmpty()) { openApp(last); return; }
+                openApp("");   /* آفلاین، ولی برنامه بالا می‌آید */
             });
         }).start();
     }
@@ -316,7 +360,8 @@ public class MainActivity extends Activity {
                     java.net.InetAddress a = addrs.nextElement();
                     if (a instanceof java.net.Inet4Address && !a.isLoopbackAddress()) {
                         String ip = a.getHostAddress();
-                        if (ip != null && ip.startsWith("192.168.") || ip != null && ip.startsWith("10.") || ip != null && ip.startsWith("172.")) return ip;
+                        if (ip == null) continue;
+                        if (ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) return ip;
                     }
                 }
             }
@@ -343,12 +388,72 @@ public class MainActivity extends Activity {
         bar.setVisibility(View.GONE);
     }
 
+    /* ── سرو دارایی‌های برنامه از داخل APK ───────────────────────────── */
+
+    private byte[] asset(String path) {
+        if (assetCache.containsKey(path)) return assetCache.get(path);
+        try (InputStream in = getAssets().open("www/" + path)) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            byte[] data = out.toByteArray();
+            assetCache.put(path, data);
+            return data;
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static String mimeOf(String path) {
+        String p = path.toLowerCase();
+        if (p.endsWith(".html")) return "text/html";
+        if (p.endsWith(".js")) return "application/javascript";
+        if (p.endsWith(".css")) return "text/css";
+        if (p.endsWith(".json") || p.endsWith(".webmanifest")) return "application/json";
+        if (p.endsWith(".png")) return "image/png";
+        if (p.endsWith(".svg")) return "image/svg+xml";
+        if (p.endsWith(".ico")) return "image/x-icon";
+        if (p.endsWith(".woff2")) return "font/woff2";
+        return "application/octet-stream";
+    }
+
+    /** پاسخی که WebView برای درخواست‌های میزبانِ محلی می‌گیرد */
+    private WebResourceResponse serveAsset(String path) {
+        if (path == null || path.isEmpty() || path.equals("/")) path = "index.html";
+        path = path.replaceFirst("^/+", "");
+        if (path.startsWith("api/")) {
+            /* برنامه داخل گوشی است؛ آدرس‌های API فقط از سرور می‌آیند */
+            return new WebResourceResponse("application/json", "utf-8",
+                new ByteArrayInputStream("{\"ok\":false,\"error\":\"offline\"}".getBytes(StandardCharsets.UTF_8)));
+        }
+        byte[] body = asset(path);
+        if (body == null && !path.contains(".")) body = asset("index.html");   /* مسیرهای SPA */
+        if (body == null) {
+            return new WebResourceResponse("text/plain", "utf-8",
+                new ByteArrayInputStream("not found".getBytes(StandardCharsets.UTF_8)));
+        }
+        if (path.endsWith("index.html")) {
+            /* آدرس سرور و حالت «بسته‌بندی‌شده» را به برنامه تزریق می‌کنیم */
+            String html = new String(body, StandardCharsets.UTF_8);
+            String inject = "<script>window.PAYESH_API_BASE=" + JSONObject.quote(apiBase)
+                + ";window.PAYESH_BUNDLED=true;</script>";
+            html = html.contains("<head>") ? html.replace("<head>", "<head>" + inject) : inject + html;
+            body = html.getBytes(StandardCharsets.UTF_8);
+        }
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Cache-Control", "no-cache");
+        WebResourceResponse res = new WebResourceResponse(mimeOf(path), "utf-8", new ByteArrayInputStream(body));
+        res.setResponseHeaders(headers);
+        return res;
+    }
+
     private void setupWebView() {
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
-        s.setAllowFileAccess(true);
+        s.setAllowFileAccess(false);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setSupportZoom(false);
         s.setLoadWithOverviewMode(true);
@@ -360,7 +465,20 @@ public class MainActivity extends Activity {
 
         web.setWebViewClient(new WebViewClient() {
             @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                Uri u = request.getUrl();
+                if (u != null && APP_HOST.equalsIgnoreCase(u.getHost())) {
+                    String p = u.getPath();
+                    if (p != null && p.startsWith("/assets/www")) p = p.substring("/assets/www".length());
+                    return serveAsset(p);
+                }
+                return null;
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (url == null) return false;
+                if (url.startsWith(APP_ORIGIN)) return false;
                 if (url.startsWith("http://") || url.startsWith("https://")) return false;
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
                 return true;
@@ -368,9 +486,6 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                tries = 0;
-                loadedBase = baseOf(url);
-                learnPublicUrl(loadedBase);
                 bar.setVisibility(View.GONE);
                 splash.setVisibility(View.GONE);
                 errorBox().setVisibility(View.GONE);
@@ -380,22 +495,11 @@ public class MainActivity extends Activity {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (!request.isForMainFrame()) return;
+                /* دارایی‌های محلی باید همیشه باز شوند؛ اگر نشد، یک‌بار دیگر */
                 bar.setVisibility(View.GONE);
-                if (!loadedBase.isEmpty() && tries < MAX_AUTO_TRIES) {
-                    tries++;
-                    showSplash(R.string.retrying);
-                    ui.postDelayed(() -> load(loadedBase), 2000);
-                    return;
-                }
-                /* این آدرس جواب نداد → آدرس بعدی را امتحان کن (مثلاً آدرس عمومی به‌جای شبکهٔ مدرسه) */
-                if (queueIndex + 1 < queue.size()) {
-                    queueIndex++;
-                    tries = 0;
-                    showSplash(R.string.retrying);
-                    ui.postDelayed(() -> load(queue.get(queueIndex)), 800);
-                    return;
-                }
-                showError();
+                ui.postDelayed(() -> {
+                    if (web.getUrl() == null) showError();
+                }, 1200);
             }
         });
 
@@ -428,18 +532,6 @@ public class MainActivity extends Activity {
         });
     }
 
-    /** ریشهٔ آدرس یک صفحه (scheme://host:port) */
-    private String baseOf(String url) {
-        try {
-            Uri u = Uri.parse(url);
-            String scheme = u.getScheme() == null ? "https" : u.getScheme();
-            String host = u.getHost();
-            if (host == null) return url;
-            int port = u.getPort();
-            return scheme + "://" + host + (port > 0 ? ":" + port : "");
-        } catch (Exception e) { return url; }
-    }
-
     /** سرور خودش آدرس عمومی را اعلام می‌کند؛ همان را نگه می‌داریم تا در خانه هم وصل شود */
     private void learnPublicUrl(String base) {
         if (base == null || base.isEmpty()) return;
@@ -454,37 +546,21 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    /** سیستم مدرسه خاموش است؟ همان صفحه‌ای که آخرین بار باز شد از کش نمایش داده می‌شود. */
+    /** سیستم مدرسه خاموش است؟ برنامه با آخرین دادهٔ ذخیره‌شده باز می‌شود. */
     private void showOffline() {
         String last = prefs.getString(KEY_LAST, "");
         if (last.isEmpty()) last = prefs.getString(KEY_URL, "");
         if (last.isEmpty()) last = prefs.getString(KEY_PUBLIC, "");
-        if (last.isEmpty()) {
-            android.widget.Toast.makeText(this, R.string.offline_empty, android.widget.Toast.LENGTH_LONG).show();
-            return;
-        }
-        /* فقط از کش بخوان تا وقتی شبکه نیست، WebView خطای شبکه نشان ندهد */
         web.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-        load(last);
-    }
-
-    private void load(String url) {
-        if (url == null || url.isEmpty()) { connect(false); return; }
-        loadedBase = url;
-        prefs.edit().putString(KEY_LAST, url).apply();
-        showSplash(R.string.connecting);
-        bar.setVisibility(View.VISIBLE);
-        web.loadUrl(url);
+        openApp(last);
     }
 
     private String normalize(String raw) {
         String u = raw == null ? "" : raw.trim();
         if (u.isEmpty()) return "";
-        /* مقدارهای نمونه/جای‌نگهدار را نادیده بگیر */
         String low = u.toLowerCase();
-        if (low.contains("xxxx") || low.contains("example") || low.contains("<") || low.contains(">") || low.contains("mySchool".toLowerCase())) return "";
+        if (low.contains("xxxx") || low.contains("example") || low.contains("<") || low.contains(">") || low.contains("myschool")) return "";
         if (!u.startsWith("http://") && !u.startsWith("https://")) {
-            /* شبکهٔ محلی http است، اینترنت https */
             boolean local = u.matches("^(localhost|[0-9.]+)(:.*)?$") || u.startsWith("192.168.") || u.startsWith("10.");
             u = (local ? "http://" : "https://") + u;
         }
@@ -510,11 +586,13 @@ public class MainActivity extends Activity {
                 String u = normalize(input.getText().toString());
                 if (u.isEmpty()) { Toast.makeText(this, R.string.server_hint, Toast.LENGTH_LONG).show(); return; }
                 prefs.edit().putString(KEY_URL, u).apply();
-                connect(false);
+                queue = candidates();
+                queueIndex = 0;
+                verifyThenOpen(u);
             })
             .setNeutralButton(R.string.clear, (d, w) -> {
                 prefs.edit().remove(KEY_URL).remove(KEY_REMOTE).remove(KEY_PUBLIC).apply();
-                connect(false);
+                boot();
             })
             .setNegativeButton(R.string.cancel, null)
             .show();
@@ -530,7 +608,7 @@ public class MainActivity extends Activity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == 1) { askServer(); return true; }
-        if (item.getItemId() == 2) { connect(false); return true; }
+        if (item.getItemId() == 2) { boot(); return true; }
         return super.onOptionsItemSelected(item);
     }
 
@@ -561,8 +639,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         web.onResume();
-        /* اگر برگشتیم و هنوز وصل نشده بود، یک‌بار دیگر تلاش کن */
-        if (web.getUrl() == null && !scanning) connect(false);
+        if (web.getUrl() == null && !scanning) boot();
     }
 
     @Override

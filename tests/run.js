@@ -211,11 +211,12 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(main.includes('BuildConfig.PAYESH_URL'), 'آدرس پخته‌شده در APK');
     assert.ok(main.includes('CONFIG_URLS'), 'پیکربندی مرکزی مخزن');
     assert.ok(/void scanLan\(/.test(main), 'جستجوی خودکار در شبکه');
-    assert.ok(/MAX_AUTO_TRIES/.test(main), 'تلاش دوبارهٔ خودکار');
+    assert.ok(/verifyThenOpen\(/.test(main), 'بررسی سریع آدرس‌ها و رفتن به بعدی');
+    assert.ok(main.includes('appassets.androidplatform.net'), 'دارایی‌های برنامه از داخل APK');
 
     /* شروع برنامه نباید مستقیم آدرس بپرسد — همان شکایتی که کاربر داشت */
     const onCreate = main.slice(main.indexOf('protected void onCreate'), main.indexOf('private int dp('));
-    assert.ok(onCreate.includes('connect(true)'), 'شروع برنامه اتصال خودکار است');
+    assert.ok(onCreate.includes('boot();'), 'شروع برنامه اتصال خودکار است');
     const asksOnStart = onCreate.split('\n').some(l => l.trim() === 'askServer();');
     assert.ok(!asksOnStart, 'در اولین اجرا آدرس پرسیده نمی‌شود (فقط دکمهٔ اضطراری)');
 
@@ -235,6 +236,7 @@ async function waitFor(fn, ms = 15000) {
     const gradle = fs.readFileSync(path.join(ROOT, 'install/android/app/build.gradle'), 'utf8');
     assert.ok(gradle.includes('buildConfigField'), 'PAYESH_URL در BuildConfig ساخته می‌شود');
     assert.ok(gradle.includes('PAYESH_APP_URL'), 'متغیر محیطی برای پختن آدرس');
+    assert.ok(gradle.includes('bundleWebAssets'), 'برنامهٔ کامل داخل APK کپی می‌شود');
   });
 
   await test('برنامهٔ ویندوز: پنجرهٔ واقعی است، نه مرورگر', () => {
@@ -704,6 +706,21 @@ async function waitFor(fn, ms = 15000) {
   });
 
   /* ── ۳. دود رابط کاربری ── */
+  await test('نسخهٔ کامل اندروید: همهٔ برنامه داخل APK است، نه یک پوسته', async () => {
+    const appJs = fs.readFileSync(path.join(ROOT, 'client/app.js'), 'utf8');
+    assert.ok(appJs.includes('PAYESH_API_BASE'), 'کلاینت آدرس سرورِ تزریق‌شده را می‌شناسد');
+    assert.ok(appJs.includes('PAYESH_BUNDLED'), 'حالت «همه‌چیز داخل برنامه»');
+    assert.ok(appJs.includes('async function startOffline'), 'بالا آمدن برنامه بدون سرور');
+    const act = fs.readFileSync(path.join(ROOT, 'install/android/app/src/main/java/ir/payesh/local/MainActivity.java'), 'utf8');
+    assert.ok(act.includes('appassets.androidplatform.net'), 'مبدأ امن محلی برای دارایی‌ها');
+    assert.ok(act.includes('PAYESH_API_BASE'), 'تزریق آدرس سرور در صفحهٔ محلی');
+    assert.ok(act.includes('shouldInterceptRequest'), 'سرو دارایی‌ها از داخل APK');
+    const gradle = fs.readFileSync(path.join(ROOT, 'install/android/app/build.gradle'), 'utf8');
+    assert.ok(gradle.includes('bundleWebAssets'), 'کپی خودکار client/ داخل assets هنگام ساخت');
+    const wf = fs.readFileSync(path.join(ROOT, '.github/workflows/build.yml'), 'utf8');
+    assert.ok(wf.includes('assets/www/app.js'), 'CI وجود فایل‌های برنامه در APK را بررسی می‌کند');
+  });
+
   await test('صفحهٔ ورود در مرورگر بدون خطا رندر می‌شود', async () => {
     const { JSDOM } = require('jsdom');
     const html = fs.readFileSync(path.join(ROOT, 'client/index.html'), 'utf8');
