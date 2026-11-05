@@ -117,7 +117,17 @@ jobs:
           # نسخهٔ «انتشار» ساخته می‌شود، نه debug:
           #  • debuggable=false → گوگل برنامه را «آزمایشی» نمی‌بیند
           #  • امضای v1+v2+v3 با کلید ثابت → نصب و به‌روزرسانی بی‌هشدار
-          gradle assembleRelease --no-daemon -p install/android
+          set +e
+          gradle assembleRelease --no-daemon -p install/android > /tmp/gradle.log 2>&1
+          code=$?
+          if [ $code -ne 0 ]; then
+            # خطا را به‌صورت annotation بیرون بده تا بدون لاگ هم دیده شود
+            grep -E "What went wrong|FAILURE:|error:|Caused by:|Could not|Execution failed|lint" -A4 /tmp/gradle.log \
+              | head -60 | while IFS= read -r line; do echo "::error title=Gradle::$line"; done
+            tail -40 /tmp/gradle.log | while IFS= read -r line; do echo "::error title=Gradle tail::$line"; done
+            exit $code
+          fi
+          tail -4 /tmp/gradle.log
           echo "آدرس پخته‌شده در APK: ${PAYESH_APP_URL:-خالی (برنامه از android-config.json یا شبکه پیدا می‌کند)}"
 
       - name: بررسی امضا و استانداردهای APK (گوگل)
@@ -281,12 +291,24 @@ jobs:
       - name: آماده‌سازی پوشهٔ نصب
         run: node scripts/stage-windows.mjs
 
-      - name: ساخت برنامهٔ ویندوز (Payesh.exe — پنجرهٔ واقعی)
+      - name: ساخت برنامهٔ ویندوز (Payesh.exe — پنجرهٔ واقعی + شناسنامه)
         shell: pwsh
         run: |
           powershell -ExecutionPolicy Bypass -File desktop\build.ps1 -Out .build\win\desktop
-          if (-not (Test-Path .build\win\desktop\Payesh.exe)) { throw 'Payesh.exe ساخته نشد' }
+          $exe = '.build\win\desktop\Payesh.exe'
+          if (-not (Test-Path $exe)) { throw 'Payesh.exe ساخته نشد' }
           Get-ChildItem .build\win\desktop | Select-Object Name, Length | Format-Table
+          # ── استاندارد مایکروسافت: شناسنامهٔ فایل نباید خالی باشد ──────────
+          $vi = (Get-Item $exe).VersionInfo
+          "ProductName=$($vi.ProductName)  Company=$($vi.CompanyName)  FileVersion=$($vi.FileVersion)"
+          if (-not $vi.ProductName) { throw 'شناسنامهٔ فایل اجرایی خالی است (ProductName)' }
+          if (-not $vi.CompanyName) { throw 'شناسنامهٔ فایل اجرایی خالی است (CompanyName)' }
+          if (-not $vi.FileVersion) { throw 'نسخهٔ فایل نوشته نشده است' }
+          # ── مانیفست asInvoker باید داخل exe باشد (بدون درخواست مدیر) ─────
+          $txt = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes((Resolve-Path $exe)))
+          if ($txt -notmatch 'asInvoker') { throw 'مانیفست asInvoker داخل exe نیست — ویندوز پنجرهٔ دسترسی مدیر نشان می‌دهد' }
+          if ($txt -notmatch 'supportedOS') { throw 'شناسهٔ ویندوز ۱۰/۱۱ در مانیفست نیست' }
+          "✓ شناسنامه و مانیفست برنامهٔ ویندوز درست است"
 
       - name: نصب Inno Setup
         shell: pwsh
@@ -305,7 +327,7 @@ jobs:
           $v = node -p "require('./package.json').version"
           & $env:ISCC "/DAppVersion=$v" "installer\payesh.iss" 2>&1 | Tee-Object -FilePath iscc.log
           if ($LASTEXITCODE -ne 0) {
-            Get-Content iscc.log | Select-Object -Last 25 | ForEach-Object { "::error::ISCC: $_" }
+            Get-Content iscc.log | Select-Object -Last 30 | ForEach-Object { "::error::ISCC: $_" }
             throw "ISCC ناموفق ($LASTEXITCODE)"
           }
           $exe = 'releases/payesh-setup.exe'
