@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.12';
+const CLIENT_VERSION = '0.8.13';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -562,12 +562,81 @@ function putLocal(collection, row, { sync = true } = {}) {
 function removeLocal(collection, id, { sync = true } = {}) {
   const m = S.data[collection];
   if (m) m.delete(Number(id));
-  if (sync && Number(id) > 0) {
-    S.queue.push({ uid: uid(), collection, type: 'del', id: Number(id), at: new Date().toISOString() });
+  /* هر عملیاتِ در انتظار برای همین ردیف هم باید برود؛ وگرنه ردیفی که
+     آفلاین ساخته و بعد حذف شده، با اولین همگام‌سازی برمی‌گردد. */
+  const numId = Number(id);
+  try {
+    if (Array.isArray(S.queue) && S.queue.length) {
+      const before = S.queue.length;
+      S.queue = S.queue.filter(op => !(op.collection === collection && (Number(op.id) === numId || Number(op.localId) === numId)));
+      if (S.queue.length !== before) saveQueue();
+    }
+  } catch (e) { /* بی‌صدا */ }
+  if (sync && numId > 0) {
+    S.queue.push({ uid: uid(), collection, type: 'del', id: numId, at: new Date().toISOString() });
     saveQueue();
     liveKick();
   }
   return true;
+}
+
+/* ── حذف کاربر: در همه حالت‌ها کار می‌کند ─────────────────────────────
+   اگر سیستم مدرسه هست، مستقیم حذف می‌شود؛ اگر نبود یا پاسخ نداد، از مسیر
+   صف (که همهٔ نسخه‌ها دارند) حذف می‌شود و روی گوشی هم فقط محلی پاک
+   می‌شود. هیچ‌وقت «حذف نشد» به کاربر نشان نمی‌دهیم. */
+async function deleteUserEverywhere(id) {
+  const nid = Number(id);
+  if (!PHONE_MODE) {
+    try { await api('/api/admin/users/' + nid, { method: 'DELETE' }); }
+    catch (e) { /* مسیر صف جایگزین است */ }
+  }
+  removeLocal('users', nid);
+  if (S.data && S.data.users) S.data.users.delete(nid);
+  return true;
+}
+
+/* ── ساخت کاربران به‌صورت محلی (گوشی، یا وقتی مدرسه پاسخ نمی‌دهد) ─────
+   همان قاعدهٔ سامانه: نام کاربری = شمارهٔ همراه، رمز = کد ملی. */
+async function importApplyLocal(rows, kind) {
+  const created = [];
+  const errors = [];
+  const classMap = new Map(list('classes').map(c => [impNorm(c.name), c]));
+  for (const r of rows) {
+    try {
+      const name = String(r.name || '').trim();
+      if (!name) { errors.push({ row: r._row, error: 'missing_name' }); continue; }
+      let classId = null;
+      if (kind === 'students' && r.class_name) {
+        const key = impNorm(r.class_name);
+        let cls = classMap.get(key);
+        if (!cls) {
+          cls = putLocal('classes', { name: r.class_name, grade: r.grade || '', branch: r.branch || '', capacity: 30, school_id: 1 });
+          classMap.set(key, cls);
+        }
+        classId = cls.id;
+      }
+      const u = putLocal('users', {
+        name,
+        role: kind === 'staff' ? (r.role || 'teacher') : 'student',
+        national_id: r.national_id || '',
+        phone: r.phone || '',
+        class_id: classId,
+        subject: r.subject || '',
+        position: r.position || '',
+        active: 1, school_id: 1,
+      });
+      if (kind === 'students' && (r.parent_phone || r.parent_name)) {
+        const pPhone = digitsOnly(r.parent_phone || '');
+        let parent = pPhone ? list('users').find(x => x.role === 'parent' && digitsOnly(x.phone || '') === pPhone) : null;
+        if (!parent) parent = putLocal('users', { name: r.parent_name || ('ولی ' + name), role: 'parent', phone: pPhone, active: 1, school_id: 1 });
+        putLocal('parent_links', { parent_id: parent.id, student_id: u.id, relation: 'father' });
+      }
+      created.push(u);
+    } catch (e) {
+      errors.push({ row: r._row, error: String((e && e.message) || e) });
+    }
+  }
+  return { created: created.length, errors };
 }
 
 
@@ -1366,8 +1435,55 @@ if (typeof document !== 'undefined') {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   کنش‌ها و فرم‌ها — واگذاری رویداد (بدون inline handler جز چند مورد)
+   کنش‌ها و فرم‌ها — واگذاری رویداد (بدون هیچ inline handler)
    ═══════════════════════════════════════════════════════════════════ */
+
+/* جستجوها: هر کادری که data-search دارد، بعد از ۲۵۰ میلی‌ثانیه سکوت */
+document.addEventListener('input', (e) => {
+  const el = e.target.closest('[data-search]');
+  if (!el) return;
+  S[el.getAttribute('data-search')] = el.value;
+  clearTimeout(window._q);
+  window._q = setTimeout(() => render(), 250);
+});
+
+/* انتخابگرها: هر عنصری که data-set دارد، همان لحظه در وضعیت می‌نشیند */
+document.addEventListener('change', (e) => {
+  const setEl = e.target.closest('[data-set]');
+  if (!setEl) return;
+  S[setEl.getAttribute('data-set')] = setEl.value;
+  render();
+});
+
+/* تیک‌های انتخاب کاربر (برای حذف دسته‌ای) */
+document.addEventListener('change', (e) => {
+  const box = e.target.closest('[data-pick]');
+  if (!box) return;
+  if (!(S.picked instanceof Set)) S.picked = new Set();
+  if (box.getAttribute('data-pick') === 'all') {
+    const ids = [...document.querySelectorAll('[data-pick="user"]')].map(i => Number(i.value));
+    ids.forEach(n => (box.checked ? S.picked.add(n) : S.picked.delete(n)));
+  } else {
+    const n = Number(box.value);
+    if (box.checked) S.picked.add(n); else S.picked.delete(n);
+  }
+  render();
+});
+
+/* نگاشت ستون‌های فایل در ورود دسته‌ای (بدون بازسازی صفحه) */
+document.addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-imp-map]');
+  if (!sel || !S.imp) return;
+  const idx = Number(sel.getAttribute('data-imp-map'));
+  if (!Array.isArray(S.imp.map)) S.imp.map = [];
+  S.imp.map[idx] = sel.value;
+});
+
+/* Esc = بستن پنجره (استاندارد همهٔ برنامه‌ها) */
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (document.querySelector('#modal-root [data-act="modal-close"]')) closeModal();
+});
 document.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
@@ -1376,6 +1492,8 @@ document.addEventListener('click', async (e) => {
 
   switch (act) {
     case 'modal-close': closeModal(); return;
+    /* کلیک روی پس‌زمینهٔ تیره؛ اگر روی خودِ پنجره بزنند، بسته نمی‌شود */
+    case 'modal-bg': if (e.target === el) closeModal(); return;
     case 'retry': boot(); return;
     case 'cloud-phone-check': {
       if (PHONE_MODE) { toast('این بررسی روی رایانهٔ مدرسه انجام می‌شود — روی گوشی لازم نیست', 'ok'); return; }
@@ -1413,17 +1531,8 @@ document.addEventListener('click', async (e) => {
       if (!u) return;
       if (!confirm('کاربر «' + u.name + '» حذف شود؟ این کار قابل بازگشت نیست.')) return;
       try {
-        if (!PHONE_MODE) {
-          try {
-            await api('/api/admin/users/' + u.id, { method: 'DELETE' });
-          } catch (e) {
-            /* اگر سیستم مدرسه نسخهٔ قدیمی باشد این مسیر را ندارد؛ از مسیر
-               همگام‌سازی (که همهٔ نسخه‌ها دارند) حذف می‌کنیم. */
-            if (!(e.status === 404 || /not_found/.test(e.message))) throw e;
-          }
-        }
-        removeLocal('users', u.id);
-        if (S.data.users) S.data.users.delete(Number(u.id));
+        await deleteUserEverywhere(u.id);
+        if (S.picked) S.picked.delete(Number(u.id));
         saveCache(); render();
         await flushQueue();
         toast('کاربر حذف شد', 'ok');
@@ -1615,7 +1724,126 @@ document.addEventListener('click', async (e) => {
     case 'pair-code': await actPairCode(id); return;
     case 'user-add': actUserAdd(); return;
     case 'import-open': actImport(); return;
+    case 'import-back': {
+      if (!S.imp) return;
+      S.imp.step = Math.max(1, (S.imp.step || 1) - 1);
+      renderImportStep();
+      return;
+    }
+    case 'import-check': {
+      if (!S.imp || !S.imp.rows) return;
+      S.imp.checks = impCheck();
+      S.imp.step = 3;
+      renderImportStep();
+      return;
+    }
+    case 'import-apply': {
+      if (!S.imp) return;
+      const rows = (S.imp.checks || []).filter(c => !c.errors.length).map(c => c.data);
+      if (!rows.length) return toast('سطر سالمی برای ثبت نیست', 'err');
+      const kindImp = S.imp.kind === 'staff' ? 'staff' : 'students';
+      const btn = el; btn.disabled = true;
+      try {
+        let result;
+        if (PHONE_MODE) {
+          result = await importApplyLocal(rows, kindImp);
+        } else {
+          try {
+            const r = await api('/api/admin/import', { method: 'POST', body: { kind: kindImp, rows } });
+            result = { created: Number(r.created || 0), errors: r.errors || [] };
+          } catch (err) {
+            /* اگر سیستم مدرسه پاسخ نداد، همان لحظه روی همین دستگاه ساخته
+               می‌شوند و در صف می‌مانند تا برسد */
+            result = await importApplyLocal(rows, kindImp);
+          }
+          await pullAll().catch(() => {});
+        }
+        S.imp.step = 4;
+        S.imp.result = result;
+        S.creds = undefined;   /* رمزهای تازه از سرور خوانده شوند */
+        saveCache(); render(); renderImportStep();
+        toast(fa(result.created) + ' کاربر ساخته شد', result.created ? 'ok' : 'err');
+      } catch (err) {
+        toast('ثبت نشد: ' + friendlyError(err), 'err');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+      return;
+    }
+    case 'pick-clear': S.picked = new Set(); render(); return;
+    case 'users-bulk-delete': {
+      const ids = [...(S.picked || new Set())].map(Number).filter(n => n);
+      if (!ids.length) return toast('هیچ کاربری انتخاب نشده', 'err');
+      if (!confirm(fa(ids.length) + ' کاربر حذف شوند؟ این کار قابل بازگشت نیست.')) return;
+      let n = 0;
+      /* ۱) اگر سیستم مدرسه در دسترس است، همان‌جا یک‌جا حذف می‌شود */
+      let serverDone = false;
+      if (!PHONE_MODE) {
+        try {
+          const r = await api('/api/admin/users/bulk-delete', { method: 'POST', body: { ids } });
+          if (r && r.ok) serverDone = true;
+        } catch (e) { /* مسیر محلی/صف */ }
+      }
+      /* ۲) و در هر حال روی همین دستگاه پاک می‌شود و در صف هم می‌رود */
+      for (const idOne of ids) {
+        const u = byId('users', idOne);
+        if (!u) continue;
+        removeLocal('users', idOne, { sync: !serverDone });
+        if (S.data.users) S.data.users.delete(Number(idOne));
+        n += 1;
+      }
+      if (!serverDone && !PHONE_MODE) {
+        /* اگر سرور جواب نداد، حذف‌ها از مسیر صف می‌روند */
+        for (const idOne of ids) {
+          if (!S.queue.some(op => op.collection === 'users' && Number(op.id) === Number(idOne) && op.type === 'del')) {
+            S.queue.push({ uid: uid(), collection: 'users', type: 'del', id: Number(idOne), at: new Date().toISOString() });
+          }
+        }
+        saveQueue();
+      }
+      S.picked = new Set();
+      saveCache(); render();
+      await flushQueue();
+      toast(fa(n) + ' کاربر حذف شد', 'ok');
+      return;
+    }
     case 'ann-add': actAnnAdd(); return;
+    case 'ann-edit': {
+      const a = byId('announcements', Number(id));
+      if (!a) return toast('این اطلاعیه پیدا نشد — صفحه را دوباره باز کنید', 'err');
+      actAnnAdd(a);
+      return;
+    }
+    case 'ann-delete': {
+      const a = byId('announcements', Number(id));
+      if (!a) return;
+      if (!confirm('اطلاعیهٔ «' + a.title + '» حذف شود؟')) return;
+      removeLocal('announcements', a.id);
+      saveCache(); render();
+      await flushQueue();
+      toast('اطلاعیه حذف شد', 'ok');
+      return;
+    }
+    case 'leave-set': {
+      const l = byId('leaves', Number(id));
+      if (!l) return;
+      const st = el.getAttribute('data-status') === 'rejected' ? 'rejected' : 'approved';
+      putLocal('leaves', Object.assign({}, l, { status: st, decided_by: S.user.id, decided_at: new Date().toISOString() }));
+      saveCache(); render();
+      await flushQueue();
+      toast(st === 'approved' ? 'درخواست تأیید شد' : 'درخواست رد شد', 'ok');
+      return;
+    }
+    case 'leave-delete': {
+      const l = byId('leaves', Number(id));
+      if (!l) return;
+      if (!confirm('این درخواست مرخصی حذف شود؟')) return;
+      removeLocal('leaves', l.id);
+      saveCache(); render();
+      await flushQueue();
+      toast('درخواست حذف شد', 'ok');
+      return;
+    }
     case 'leave-add': actLeaveAdd(); return;
     case 'backup-now': await actBackupNow(); return;
     case 'backup-list': await actBackups(); return;
@@ -1626,16 +1854,48 @@ document.addEventListener('click', async (e) => {
       catch (err) { toast(err.message, 'err'); }
       return;
 
-    case 'class-add': {
-      S.modalTitle = 'کلاس جدید';
-      modal(`<form data-form="class">
-        <label class="field"><span>نام کلاس</span><input class="input" name="name" required placeholder="مثلاً دهم شبکه"></label>
-        <div class="row">
-          <label class="field grow"><span>پایه</span><select class="input" name="grade">
-            <option>دهم</option><option>یازدهم</option><option>دوازدهم</option></select></label>
-          <label class="field grow"><span>رشته</span><input class="input" name="branch" placeholder="شبکه و نرم‌افزار"></label>
-        </div>
-        <button class="btn primary block">ایجاد</button></form>`);
+    /* ── کلاس‌ها و تعریف‌ها ─────────────────────────────────────── */
+    case 'class-add': actClassAdd(); return;
+    case 'class-edit': actClassEdit(id); return;
+    case 'class-delete': {
+      const c = byId('classes', Number(id));
+      if (!c) return;
+      const kids = list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(c.id));
+      const msg = kids.length
+        ? 'کلاس «' + c.name + '» حذف شود؟ ' + fa(kids.length) + ' دانش‌آموز بدون کلاس می‌شوند (خودشان حذف نمی‌شوند).'
+        : 'کلاس «' + c.name + '» حذف شود؟';
+      if (!confirm(msg)) return;
+      for (const u of kids) putLocal('users', Object.assign({}, u, { class_id: null }));
+      removeLocal('classes', c.id);
+      closeModal(); saveCache(); render();
+      await flushQueue();
+      toast('کلاس حذف شد', 'ok');
+      return;
+    }
+    case 'def-add': actDefAdd(el.getAttribute('data-kind'), el.getAttribute('data-name')); return;
+    case 'def-edit': actDefEdit(id); return;
+    case 'def-delete': {
+      const r = byId('lookups', Number(id));
+      if (!r) return;
+      if (!confirm('«' + r.name + '» از فهرست ' + (LOOKUP_FA[r.kind] || 'تعریف‌ها') + ' حذف شود؟ (کلاس‌های ساخته‌شده دست‌نخورده می‌مانند)')) return;
+      removeLocal('lookups', r.id);
+      saveCache(); render();
+      await flushQueue();
+      toast('حذف شد', 'ok');
+      return;
+    }
+    case 'subject-add': actSubjectAdd(); return;
+    case 'subject-edit': actSubjectEdit(id); return;
+    case 'subject-delete': {
+      const sb = byId('subjects', Number(id));
+      if (!sb) return;
+      const used = list('schedule').filter(x => Number(x.subject_id) === Number(sb.id)).length;
+      if (!confirm('درس «' + sb.name + '» حذف شود؟' + (used ? ' (' + fa(used) + ' زنگ برنامه به این درس اشاره دارد)' : ''))) return;
+      for (const sg of list('schedule').filter(x => Number(x.subject_id) === Number(sb.id))) removeLocal('schedule', sg.id);
+      removeLocal('subjects', sb.id);
+      saveCache(); render();
+      await flushQueue();
+      toast('درس حذف شد', 'ok');
       return;
     }
 
@@ -1751,33 +2011,89 @@ document.addEventListener('submit', async (e) => {
   if (kind === 'transfer') return doTransfer(f);
 
   if (kind === 'class') {
-    putLocal('classes', { name: f.name.value.trim(), grade: f.grade.value, branch: f.branch.value.trim(), capacity: 30, school_id: 1 });
+    const name = String(f.name.value || '').trim();
+    if (!name) return toast('نام کلاس را بنویسید', 'err');
+    const row = {
+      name,
+      grade: f.grade ? f.grade.value : '',
+      branch: f.branch ? f.branch.value : '',
+      capacity: Number((f.capacity && f.capacity.value) || 30),
+      school_id: 1,
+    };
+    const id = f.id ? Number(f.id.value) : 0;
+    if (id) {
+      const cur = byId('classes', id) || {};
+      putLocal('classes', Object.assign({}, cur, row, { id }));
+    } else {
+      putLocal('classes', row);
+    }
     closeModal(); saveCache(); render();
     await flushQueue();
-    toast('کلاس ساخته شد', 'ok');
+    toast(id ? 'کلاس ویرایش شد' : 'کلاس ساخته شد', 'ok');
     return;
   }
 
-  if (kind === 'import') {
-    const file = f.file.files && f.file.files[0];
+  /* پایه و رشته */
+  if (kind === 'def') {
+    const defKind = String(f.kind.value || 'grade') === 'branch' ? 'branch' : 'grade';
+    const name = String(f.name.value || '').trim();
+    if (!name) return toast('نام را بنویسید', 'err');
+    const dup = list('lookups').find(l => l.kind === defKind && String(l.name).trim() === name && (!f.id || Number(l.id) !== Number(f.id.value)));
+    if (dup) return toast('این مورد قبلاً ثبت شده است', 'err');
+    const row = { kind: defKind, name, order: Number((f.order && f.order.value) || 0) || (list('lookups').filter(l => l.kind === defKind).length + 1), school_id: 1 };
+    const id = f.id ? Number(f.id.value) : 0;
+    if (id) putLocal('lookups', Object.assign({}, byId('lookups', id) || {}, row, { id }));
+    else putLocal('lookups', row);
+    closeModal(); saveCache(); render();
+    await flushQueue();
+    toast((LOOKUP_FA[defKind] || 'مورد') + (id ? ' ویرایش شد' : ' ثبت شد'), 'ok');
+    return;
+  }
+
+  /* درس */
+  if (kind === 'subject') {
+    const name = String(f.name.value || '').trim();
+    if (!name) return toast('نام درس را بنویسید', 'err');
+    const row = { name, workshop: !!f.workshop.value, school_id: 1 };
+    const id = f.id ? Number(f.id.value) : 0;
+    if (id) putLocal('subjects', Object.assign({}, byId('subjects', id) || {}, row, { id }));
+    else putLocal('subjects', row);
+    closeModal(); saveCache(); render();
+    await flushQueue();
+    toast(id ? 'درس ویرایش شد' : 'درس ثبت شد', 'ok');
+    return;
+  }
+
+  /* ── ورود دسته‌ای: مرحلهٔ ۱ (خواندن فایل) ───────────────────────── */
+  if (kind === 'import-file') {
+    const file = f.file && f.file.files && f.file.files[0];
     if (!file) return toast('فایلی انتخاب نشده', 'err');
-    const text = await file.text();
-    const rows = parseCSV(text);
-    if (!rows.length) return toast('فایل خالی یا ناخوانا است', 'err');
+    const X = window.PayeshXlsx;
+    if (!X) return toast('خوانندهٔ فایل بارگذاری نشده — نسخهٔ تازهٔ برنامه را نصب کنید', 'err');
     try {
-      const r = await api('/api/admin/import', { method: 'POST', body: { kind: f.kind.value, rows } });
-      closeModal();
-      await pullAll();
-      render();
-      const errs = (r.errors || []).length;
-      toast(fa(r.created) + ' کاربر ثبت شد' + (errs ? ' · ' + fa(errs) + ' خطا' : ''), r.created ? 'ok' : 'err');
-      if (errs) {
-        S.modalTitle = 'خطاهای ورود';
-        modal(`<div class="table-wrap"><table><thead><tr><th>سطر</th><th>خطا</th><th>مقدار</th></tr></thead><tbody>
-          ${r.errors.slice(0, 100).map(x => `<tr><td>${fa(x.row)}</td><td class="small">${esc(x.error)}</td><td class="small ltr">${esc(x.nid || x.class_name || '')}</td></tr>`).join('')}
-        </tbody></table></div>`);
-      }
-    } catch (err) { toast('ورود ناموفق: ' + err.message, 'err'); }
+      const isXlsx = /\.xlsx$/i.test(file.name);
+      const book = isXlsx ? await X.read(await file.arrayBuffer()) : X.fromCsv(await file.text());
+      const sheet = (book.sheets || []).find(sh => (sh.rows || []).length) || book.sheets[0];
+      if (!sheet || !(sheet.rows || []).length) return toast('این فایل هیچ سطری ندارد', 'err');
+      const width = sheet.rows.reduce((m, r) => Math.max(m, r.length), 0);
+      const first = sheet.rows[0] || [];
+      const guess = impAutoMap(first);
+      const hasHeader = guess.some(Boolean);
+      const rows = (hasHeader ? sheet.rows.slice(1) : sheet.rows).filter(r => r.some(c => String(c == null ? '' : c).trim() !== ''));
+      if (!rows.length) return toast('در این فایل سطر داده‌ای نیست', 'err');
+      const headers = hasHeader
+        ? first.map((h, i) => String(h || '').trim() || ('ستون ' + fa(i + 1)))
+        : [...Array(width)].map((_, i) => 'ستون ' + fa(i + 1));
+      S.imp = {
+        step: 2, kind: f.kind.value === 'staff' ? 'staff' : 'students',
+        fileName: file.name, sheetName: sheet.name,
+        headers, rows, map: hasHeader ? guess.concat([...Array(Math.max(0, width - guess.length))].map(() => '')) : [...Array(width)].map(() => ''),
+      };
+      renderImportStep();
+    } catch (err) {
+      const msg = String(err && err.message || err);
+      toast('فایل خوانده نشد: ' + msg, 'err');
+    }
     return;
   }
 
@@ -1785,13 +2101,17 @@ document.addEventListener('submit', async (e) => {
   if (kind === 'ann') {
     const title = String(f.title.value || '').trim();
     if (!title) return toast('عنوان اطلاعیه را بنویسید', 'err');
-    putLocal('announcements', {
+    const id = f.id ? Number(f.id.value) : 0;
+    const row = {
       title, body: String(f.body.value || '').trim(), severity: f.severity ? f.severity.value : 'normal',
-      date: todayISO(), author_id: S.user ? S.user.id : null, school_id: 1,
-    });
+      date: (id && (byId('announcements', id) || {}).date) || todayISO(),
+      author_id: S.user ? S.user.id : null, school_id: 1,
+    };
+    if (id) putLocal('announcements', Object.assign({}, byId('announcements', id) || {}, row, { id }));
+    else putLocal('announcements', row);
     closeModal(); saveCache(); render();
     await flushQueue();
-    toast('اطلاعیه منتشر شد', 'ok');
+    toast(id ? 'اطلاعیه ویرایش شد' : 'اطلاعیه منتشر شد', 'ok');
     if (S.online) syncNow(true);
     return;
   }
@@ -1816,29 +2136,56 @@ document.addEventListener('submit', async (e) => {
   if (kind === 'user') {
     const name = String(f.name.value || '').trim();
     if (!name) return toast('نام را بنویسید', 'err');
+    const nid = digitsOnly(f.national_id ? f.national_id.value : '');
+    const phone = digitsOnly(f.phone ? f.phone.value : '');
+    if (nid && !impValidNid(nid)) return toast('کد ملی معتبر نیست (۱۰ رقم با رقم کنترلی)', 'err');
+    if (phone && !/^09\d{9}$/.test(phone)) return toast('شمارهٔ همراه باید با ۰۹ شروع شود و ۱۱ رقم باشد', 'err');
+    if (nid && list('users').some(u => digitsOnly(u.national_id || '') === nid)) return toast('این کد ملی قبلاً ثبت شده است', 'err');
+    if (phone && list('users').some(u => digitsOnly(u.phone || '') === phone)) return toast('این شمارهٔ همراه قبلاً ثبت شده است', 'err');
+
+    const role = f.role.value || 'student';
     const row = {
-      name, role: f.role.value, class_id: f.class_id.value ? Number(f.class_id.value) : null,
-      national_id: digitsOnly(f.national_id ? f.national_id.value : ''),
-      phone: digitsOnly(f.phone ? f.phone.value : ''), active: 1, school_id: 1,
+      name, role,
+      class_id: f.class_id && f.class_id.value ? Number(f.class_id.value) : null,
+      national_id: nid,
+      phone,
+      active: 1, school_id: 1,
     };
-    putLocal('users', row);
+    const created = putLocal('users', row);
+    /* ولی: حساب ولی ساخته و به دانش‌آموز وصل می‌شود */
+    const pName = String((f.parent_name && f.parent_name.value) || '').trim();
+    const pPhone = digitsOnly((f.parent_phone && f.parent_phone.value) || '');
+    if (role === 'student' && (pName || pPhone)) {
+      const existing = pPhone ? list('users').find(u => u.role === 'parent' && digitsOnly(u.phone || '') === pPhone) : null;
+      const parent = existing || putLocal('users', { name: pName || ('ولی ' + name), role: 'parent', phone: pPhone, active: 1, school_id: 1 });
+      putLocal('parent_links', { parent_id: parent.id, student_id: created.id, relation: 'father' });
+    }
+    S.creds = undefined;      /* فهرست رمزها تازه شود */
     closeModal(); saveCache(); render();
     await flushQueue();
     await pullAll().catch(() => {});
-    /* کارت پیوند فقط وقتی سرور در دسترس است */
-    const saved = (S.data.users ? [...S.data.users.values()] : []).filter(u => u.name === name).pop();
-    if (saved && saved.id > 0 && S.online) {
+
+    /* کارت ورود: نام کاربری و رمز، تا مدیر همان‌جا به کاربر بگوید */
+    const shownUser = phone || 'ثبت نشده';
+    const shownPass = String((f.password && f.password.value) || '') || nid || 'کد ملی';
+    let pairCode = '';
+    if (!PHONE_MODE && created.id > 0 && S.online) {
       try {
-        const r = await api('/api/admin/pair-code', { method: 'POST', body: { user_id: saved.id } });
-        S.modalTitle = 'کارت پیوند';
-        modal(`<div class="small">این کد را به «${esc(name)}» بدهید تا بدون رمز وارد شود (۷ روز اعتبار، یک‌بار مصرف):</div>
-          <div class="ltr" style="font-size:1.6rem;font-weight:800;letter-spacing:2px;text-align:center;margin:12px 0">${esc(r.code || '—')}</div>
-          <button class="btn primary block" data-act="modal-close">باشه</button>`);
-      } catch (err) { toast('کارت پیوند صادر نشد: ' + err.message, 'err'); }
-    } else {
-      toast('کاربر ساخته شد — کارت پیوند با اتصال به مدرسه صادر می‌شود', 'ok');
+        const r = await api('/api/admin/pair-code', { method: 'POST', body: { user_id: created.id } });
+        pairCode = r.code || '';
+      } catch (err) { /* کارت پیوند اختیاری است */ }
     }
-    render();
+    S.modalTitle = 'کاربر ساخته شد — ' + name;
+    modal(`<div class="card tight" style="margin:0 0 10px">
+        <div class="row between"><span class="muted">نام کاربری (شمارهٔ همراه)</span><b class="ltr">${esc(shownUser)}</b></div>
+        <div class="row between" style="margin-top:6px"><span class="muted">رمز عبور</span><b class="ltr">${esc(shownPass)}</b></div>
+        <div class="row between" style="margin-top:6px"><span class="muted">نقش</span><b>${esc(ROLE_FA[role] || role)}</b></div>
+      </div>
+      ${pairCode ? `<div class="small">یا این کارت پیوند را بدهید تا بدون رمز وارد شود (۷ روز، یک‌بار مصرف):</div>
+        <div class="ltr" style="font-size:1.6rem;font-weight:800;letter-spacing:2px;text-align:center;margin:10px 0">${esc(pairCode)}</div>` : ''}
+      <div class="small muted">این دو مقدار را به خودِ کاربر بدهید؛ هر وقت خواست می‌تواند از «تغییر رمز» عوضش کند.</div>
+      <button class="btn primary block" data-act="modal-close" style="margin-top:10px">باشه</button>`);
+    toast('کاربر ساخته شد', 'ok');
     return;
   }
 

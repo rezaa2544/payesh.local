@@ -18,7 +18,10 @@ function card(body, cls = '') { return `<div class="card ${cls}">${body}</div>`;
 function empty(msg) { return `<div class="card center muted" style="padding:26px">${esc(msg)}</div>`; }
 function badge(text, kind = '') { return `<span class="badge ${kind}">${esc(text)}</span>`; }
 
-const ROLE_FA = { manager: 'مدیر', teacher: 'دبیر', parent: 'ولی', student: 'دانش‌آموز', counselor: 'مشاور', guard: 'نگهبان' };
+const ROLE_FA = {
+  manager: 'مدیر', vice: 'معاون', teacher: 'دبیر', parent: 'ولی', student: 'دانش‌آموز',
+  counselor: 'مشاور', staff: 'کارمند', office: 'اجرایی', guard: 'نگهبان',
+};
 
 /* حالت گوشی/بدون سرور (در app.js تعریف می‌شود) */
 function isPhoneMode() { return typeof PHONE_MODE !== 'undefined' && PHONE_MODE; }
@@ -592,7 +595,7 @@ PAGES.students = () => {
   const q = (S.q || '').trim();
   const rows = students.filter(s => !q || String(s.name).includes(q));
   return `${pageHead(all ? 'دانش‌آموزان مدرسه' : 'دانش‌آموزان من', fa(students.length) + ' نفر', '')}
-  <div class="card tight"><input class="input" placeholder="جستجو…" value="${esc(q)}" oninput="S.q=this.value;clearTimeout(window._q);window._q=setTimeout(()=>render(),250)"></div>
+  <div class="card tight"><input class="input" id="q-search" data-focus-key="q-search" data-search="q" placeholder="جستجو…" value="${esc(q)}"></div>
   ${rows.length ? card(`<div class="list">${rows.map(s => {
     const cls = byId('classes', s.class_id) || {};
     const g = list('grades').filter(x => Number(x.student_id) === Number(s.id));
@@ -609,21 +612,40 @@ PAGES.users = () => {
   const role = S.roleFilter || '';
   let users = list('users');
   if (role) users = users.filter(u => u.role === role);
-  if (q) users = users.filter(u => String(u.name).includes(q) || String(u.phone || '').includes(q));
+  if (q) users = users.filter(u => String(u.name).includes(q) || String(u.phone || '').includes(q) || String(u.national_id || '').includes(q));
   users = users.sort((a, b) => String(a.name).localeCompare(String(b.name))).slice(0, 300);
+
+  const picked = S.picked instanceof Set ? S.picked : new Set();
+  const pickedVisible = users.filter(u => picked.has(Number(u.id)));
+  const allPicked = users.length > 0 && pickedVisible.length === users.length;
+
   return `${pageHead('کاربران', fa(list('users').length) + ' کاربر',
-    `<button class="btn sm" data-act="import-open">📥 ورود دسته‌ای</button>
+    `<button class="btn sm" data-act="import-open">📥 ورود دسته‌ای (اکسل/CSV)</button>
      <button class="btn sm primary" data-act="user-add">+ کاربر جدید</button>`)}
+
   <div class="card tight">
-    <input class="input" placeholder="جستجوی نام یا شماره…" value="${esc(q)}" oninput="S.q=this.value;clearTimeout(window._q);window._q=setTimeout(()=>render(),250)">
+    <input class="input" id="q-search" data-focus-key="q-search" data-search="q" placeholder="جستجوی نام، شمارهٔ همراه یا کد ملی…" value="${esc(q)}">
     <div class="pill-tabs" style="margin-top:8px">
-      ${[['', 'همه'], ['student', 'دانش‌آموز'], ['teacher', 'دبیر'], ['parent', 'ولی'], ['manager', 'مدیر']].map(([v, t]) =>
+      ${[['', 'همه'], ['student', 'دانش‌آموز'], ['teacher', 'دبیر'], ['parent', 'ولی'], ['manager', 'مدیر'], ['vice', 'معاون'], ['staff', 'کارمند']].map(([v, t]) =>
         `<span class="pill ${role === v ? 'on' : ''}" data-act="role-filter" data-role="${v}">${t}</span>`).join('')}
     </div>
   </div>
-  ${card(`<div class="small muted" style="margin-bottom:6px">نام کاربری هر نفر همان شمارهٔ همراه است و رمز عبور کنارش نوشته شده تا بتوانید به خودش بگویید. این جدول را فقط مدیر می‌بیند.</div>
-  <div class="table-wrap"><table><thead><tr><th>نام</th><th>نقش</th><th>کلاس</th><th>نام کاربری (همراه)</th><th>رمز عبور</th><th></th></tr></thead><tbody>
-    ${users.map(u => `<tr>
+
+  ${picked.size ? `<div class="card tight" style="border-color:#b91c1c">
+    <div class="row between">
+      <b>${fa(picked.size)} کاربر انتخاب شده</b>
+      <span class="row" style="gap:8px">
+        <button class="btn sm ghost" data-act="pick-clear">لغو انتخاب</button>
+        <button class="btn sm" style="background:#b91c1c;color:#fff" data-act="users-bulk-delete">حذف انتخاب‌شده‌ها</button>
+      </span>
+    </div></div>` : ''}
+
+  ${card(`<div class="small muted" style="margin-bottom:6px">نام کاربری هر نفر همان <b>شمارهٔ همراه</b> است و رمزش <b>کد ملی</b>؛ رمز کنار هر نفر نوشته شده تا بتوانید به خودش بگویید. این جدول را فقط مدیر می‌بیند.</div>
+  <div class="table-wrap"><table><thead><tr>
+    <th style="width:34px"><input type="checkbox" data-pick="all" ${allPicked ? 'checked' : ''} title="انتخاب همه"></th>
+    <th>نام</th><th>نقش</th><th>کلاس</th><th>نام کاربری (همراه)</th><th>رمز عبور</th><th></th></tr></thead><tbody>
+    ${users.map(u => `<tr${picked.has(Number(u.id)) ? ' style="background:#fef2f2"' : ''}>
+      <td><input type="checkbox" data-pick="user" value="${u.id}" ${picked.has(Number(u.id)) ? 'checked' : ''}></td>
       <td>${esc(u.name)}</td>
       <td>${badge(ROLE_FA[u.role] || u.role, u.role === 'manager' ? 'purple' : '')}</td>
       <td class="small">${esc((byId('classes', u.class_id) || {}).name || '—')}</td>
@@ -634,26 +656,88 @@ PAGES.users = () => {
         if (c && c.password) return `<b>${esc(c.password)}</b>`;
         return '<span class="muted" title="رمز قبلاً تعیین شده و قابل خواندن نیست">—</span>';
       })()}</td>
-      <td>
+      <td class="nowrap">
         ${(!isPhoneMode() && !/^pbkdf2\$/.test(String(u.phone_hash || ''))) ? `<button class="btn sm ghost" data-act="user-auto-pw" data-id="${u.id}" title="رمز گوشی = کد ملی">آماده‌سازی گوشی</button>` : ''}
         <button class="btn sm" data-act="pair-code" data-id="${u.id}">کارت پیوند</button>
         <button class="btn sm ghost" data-act="user-edit" data-id="${u.id}">ویرایش</button>
         <button class="btn sm ghost" data-act="user-delete" data-id="${u.id}" style="color:#b91c1c">حذف</button>
       </td>
     </tr>`).join('')}
-  </tbody></table></div>`)}`;
+  </tbody></table></div>${users.length ? '' : empty('کاربری با این مشخصات پیدا نشد.')}`)}`;
 };
 
-/* ══════════════ مدیر: کلاس‌ها ══════════════ */
+/* ══════════════ تعریف‌ها (پایه، رشته) ══════════════ */
+/* اگر مدرسه هنوز چیزی تعریف نکرده باشد، فهرست‌های رایج نمایش داده می‌شوند
+   تا فرم کلاس از همان ابتدا پر شود؛ این‌ها فقط پیشنهادند و با اولین ثبت،
+   ردیف واقعی می‌شوند (قابل ویرایش و حذف). */
+const DEFAULT_LOOKUPS = {
+  grade: ['دهم', 'یازدهم', 'دوازدهم'],
+  branch: ['شبکه و نرم‌افزار', 'ریاضی و فیزیک', 'علوم تجربی', 'علوم انسانی'],
+};
+const LOOKUP_FA = { grade: 'پایه', branch: 'رشته' };
+
+function lookupList(kind) {
+  const rows = list('lookups')
+    .filter(l => String(l.kind) === String(kind))
+    .sort((a, b) => (Number(a.order || 0) - Number(b.order || 0)) || String(a.name).localeCompare(String(b.name)));
+  if (rows.length) return rows;
+  return (DEFAULT_LOOKUPS[kind] || []).map((name, i) => ({ id: 'پیش‌فرض-' + kind + i, name, kind, order: i + 1, _default: true }));
+}
+
+/* یک ردیف تعریف با دکمه‌های ویرایش و حذف */
+function lookupRowHtml(row, kind) {
+  const used = kind === 'grade'
+    ? list('classes').filter(c => String(c.grade || '') === String(row.name)).length
+    : list('classes').filter(c => String(c.branch || '') === String(row.name)).length;
+  const actions = row._default
+    ? `<button class="btn sm ghost" data-act="def-add" data-kind="${kind}" data-name="${esc(row.name)}" title="ثبت این مورد">افزودن</button>`
+    : `<button class="btn sm ghost" data-act="def-edit" data-id="${row.id}">ویرایش</button>
+       <button class="btn sm ghost" style="color:#b91c1c" data-act="def-delete" data-id="${row.id}">حذف</button>`;
+  return `<div class="item"><div class="grow"><div class="t">${esc(row.name)}</div>
+      <div class="s">${used ? fa(used) + ' کلاس از این مورد استفاده می‌کند' : 'بدون استفاده'}</div></div>
+    ${actions}</div>`;
+}
+
+/* ══════════════ مدیر: کلاس‌ها و تعریف‌ها ══════════════ */
 PAGES.classes = () => {
   if (S.role !== 'manager') return pageHead('کلاس‌ها') + empty('دسترسی ندارید.');
   const classes = list('classes');
-  return `${pageHead('کلاس‌ها و دروس', fa(classes.length) + ' کلاس', `<button class="btn sm primary" data-act="class-add">+ کلاس</button>`)}
-  ${card(`<div class="table-wrap"><table><thead><tr><th>کلاس</th><th>پایه</th><th>رشته</th><th>دانش‌آموز</th></tr></thead><tbody>
-    ${classes.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.grade || '—')}</td><td class="small">${esc(c.branch || '—')}</td>
-      <td>${fa(list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(c.id)).length)}</td></tr>`).join('')}
-  </tbody></table></div>`)}
-  ${card(`<b>دروس</b><div class="row" style="margin-top:8px">${list('subjects').map(s => `<span class="badge ${s.workshop ? 'purple' : ''}">${esc(s.name)}${s.workshop ? ' · کارگاهی' : ''}</span>`).join(' ')}</div>`)}`;
+  const subjects = list('subjects');
+  const countOf = id => list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(id)).length;
+  return `${pageHead('کلاس‌ها و تعریف‌ها', fa(classes.length) + ' کلاس',
+      `<button class="btn sm primary" data-act="class-add">+ کلاس جدید</button>`)}
+
+  ${card(`<div class="row between" style="margin-bottom:8px"><b>کلاس‌ها</b>
+      <span class="small muted">هر کلاس یک پایه و یک رشته دارد</span></div>
+    ${classes.length ? `<div class="table-wrap"><table><thead><tr>
+        <th>کلاس</th><th>پایه</th><th>رشته</th><th>دانش‌آموز</th><th>عملیات</th></tr></thead><tbody>
+      ${classes.map(c => `<tr>
+        <td><b>${esc(c.name)}</b></td>
+        <td class="small">${esc(c.grade || '—')}</td>
+        <td class="small">${esc(c.branch || '—')}</td>
+        <td>${fa(countOf(c.id))}</td>
+        <td class="nowrap">
+          <button class="btn sm ghost" data-act="class-edit" data-id="${c.id}">ویرایش</button>
+          <button class="btn sm ghost" style="color:#b91c1c" data-act="class-delete" data-id="${c.id}">حذف</button>
+        </td></tr>`).join('')}
+      </tbody></table></div>` : empty('هنوز کلاسی ساخته نشده.')}`)}
+
+  ${card(`<div class="row between" style="margin-bottom:8px"><b>پایه‌ها</b>
+      <button class="btn sm" data-act="def-add" data-kind="grade">+ پایه</button></div>
+    <div class="list">${lookupList('grade').map(r => lookupRowHtml(r, 'grade')).join('')}</div>`)}
+
+  ${card(`<div class="row between" style="margin-bottom:8px"><b>رشته‌ها</b>
+      <button class="btn sm" data-act="def-add" data-kind="branch">+ رشته</button></div>
+    <div class="list">${lookupList('branch').map(r => lookupRowHtml(r, 'branch')).join('')}</div>`)}
+
+  ${card(`<div class="row between" style="margin-bottom:8px"><b>دروس</b>
+      <button class="btn sm" data-act="subject-add">+ درس</button></div>
+    ${subjects.length ? `<div class="list">${subjects.map(sub => `<div class="item">
+        <div class="grow"><div class="t">${esc(sub.name)}${sub.workshop ? ' <span class="badge purple">کارگاهی</span>' : ''}</div>
+        <div class="s">${fa(list('schedule').filter(x => Number(x.subject_id) === Number(sub.id)).length)} زنگ در برنامه</div></div>
+        <button class="btn sm ghost" data-act="subject-edit" data-id="${sub.id}">ویرایش</button>
+        <button class="btn sm ghost" style="color:#b91c1c" data-act="subject-delete" data-id="${sub.id}">حذف</button>
+      </div>`).join('')}</div>` : empty('درسی تعریف نشده.')}`)}`;
 };
 
 /* ══════════════ برنامه و زنگ ══════════════ */
@@ -703,7 +787,7 @@ PAGES.reports = () => {
       <td>${badge(fa(r.pct) + '٪', r.pct >= 90 ? 'green' : r.pct >= 75 ? 'amber' : 'red')}</td></tr>`).join('')}
     </tbody></table></div>`)}
   ${card(`<div class="row between"><b>کارنامهٔ کلاسی</b>
-      <select class="input" style="max-width:240px" id="rc-class" onchange="S.repClass=this.value;render()">
+      <select class="input" style="max-width:240px" id="rc-class" data-set="repClass">
         ${classes.map(c => `<option value="${c.id}" ${Number(S.repClass) === Number(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
       </select></div>
     <div class="table-wrap" style="margin-top:8px">${classReportTable(Number(S.repClass || (classes[0] && classes[0].id)))}</div>
@@ -733,7 +817,7 @@ PAGES['attendance-report'] = () => {
   const date = S.attDate || todayISO();
   const all = list('attendance').filter(a => a.date === date);
   const byClass = list('classes').map(c => ({ c, rows: all.filter(a => Number(a.class_id) === Number(c.id)) }));
-  return `${pageHead('حضور و غیاب', jdate(date), `<input type="date" class="input" style="max-width:180px" value="${date}" onchange="S.attDate=this.value;render()">`)}
+  return `${pageHead('حضور و غیاب', jdate(date), `<input type="date" class="input" style="max-width:180px" id="att-date" data-focus-key="att-date" data-set="attDate" value="${date}">`)}
   ${byClass.map(({ c, rows }) => card(`<div class="row between"><b>${esc(c.name)}</b>
       <span class="small muted">${rows.length ? fa(rows.filter(r => r.status === 'present').length) + ' حاضر از ' + fa(rows.length) : 'ثبت نشده'}</span></div>
     ${rows.length ? `<div class="row" style="margin-top:6px">${rows.filter(r => r.status !== 'present').map(r => `<span class="badge red">${esc((byId('users', r.student_id) || {}).name || '')} · ${ATT_LABEL[r.status] || r.status}</span>`).join(' ') || '<span class="small muted">همه حاضر</span>'}</div>` : ''}`)).join('')}`;
@@ -745,7 +829,11 @@ PAGES.announcements = () => {
   const canWrite = S.role === 'manager';
   return `${pageHead('اطلاعیه‌ها', fa(rows.length) + ' مورد', canWrite ? `<button class="btn sm primary" data-act="ann-add">+ اطلاعیه</button>` : '')}
   ${rows.length ? rows.map(a => card(`<div class="row between"><b>${esc(a.title)}</b>${badge(jdate(a.date), a.severity === 'important' ? 'red' : a.severity === 'info' ? 'purple' : '')}</div>
-    <div class="small" style="margin-top:6px;white-space:pre-wrap">${esc(a.body)}</div>`)).join('') : empty('اطلاعیه‌ای ثبت نشده.')}`;
+    <div class="small" style="margin-top:6px;white-space:pre-wrap">${esc(a.body)}</div>
+    ${canWrite ? `<div class="row" style="gap:8px;margin-top:8px">
+      <button class="btn sm ghost" data-act="ann-edit" data-id="${a.id}">ویرایش</button>
+      <button class="btn sm ghost" style="color:#b91c1c" data-act="ann-delete" data-id="${a.id}">حذف</button>
+    </div>` : ''}`)).join('') : empty('اطلاعیه‌ای ثبت نشده.')}`;
 };
 
 /* ══════════════ ولی ══════════════ */
@@ -828,12 +916,20 @@ PAGES.child = (params) => {
 };
 
 PAGES.leaves = () => {
+  const canManage = ['manager', 'vice', 'office', 'staff'].includes(S.role);
   const mine = S.role === 'parent' ? myChildren().map(k => Number(k.id)) : [Number(S.user.id)];
-  const rows = list('leaves').filter(l => mine.includes(Number(l.student_id))).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-  return `${pageHead('مرخصی و غیبت موجه', '', `<button class="btn sm primary" data-act="leave-add">+ درخواست</button>`)}
+  let rows = list('leaves');
+  if (!canManage) rows = rows.filter(l => mine.includes(Number(l.student_id)));
+  rows = rows.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  return `${pageHead('مرخصی و غیبت موجه', fa(rows.length) + ' درخواست', `<button class="btn sm primary" data-act="leave-add">+ درخواست</button>`)}
   ${rows.length ? rows.map(l => card(`<div class="row between"><b>${esc((byId('users', l.student_id) || {}).name || '')}</b>
       ${badge(l.status === 'approved' ? 'تأییدشده' : l.status === 'rejected' ? 'رد شده' : 'در انتظار', l.status === 'approved' ? 'green' : l.status === 'rejected' ? 'red' : 'amber')}</div>
-    <div class="small muted">${esc(jdate(l.date))} · ${esc(l.reason || '')}</div>`)).join('') : empty('درخواستی ثبت نشده.')}`;
+    <div class="small muted">${esc(jdate(l.date))} · ${esc(l.reason || '')}</div>
+    ${canManage ? `<div class="row" style="gap:8px;margin-top:8px">
+      <button class="btn sm" data-act="leave-set" data-id="${l.id}" data-status="approved">تأیید</button>
+      <button class="btn sm ghost" data-act="leave-set" data-id="${l.id}" data-status="rejected">رد</button>
+      <button class="btn sm ghost" style="color:#b91c1c" data-act="leave-delete" data-id="${l.id}">حذف</button>
+    </div>` : ''}`)).join('') : empty('درخواستی ثبت نشده.')}`;
 };
 
 PAGES.record = () => {
@@ -1221,10 +1317,22 @@ function layerRoot(id) {
   return el;
 }
 
+/* ── پنجرهٔ بازشو ─────────────────────────────────────────────────────
+   هیچ «هندلر درون‌خطی» (onclick) نداریم؛ همه از یک‌جا مدیریت می‌شوند.
+   دلیلش پیدا شدن همین ایراد بود: `onclick="event.stopPropagation()"` روی
+   خودِ پنجره، کلیک دکمهٔ ✕ را هم می‌بلعید و دکمه هیچ‌جا کار نمی‌کرد.
+   حالا:
+     • دکمهٔ ✕ → data-act="modal-close" → بستن
+     • کلیک روی پس‌زمینهٔ تیره → بستن (فقط اگر مستقیم روی خودش بزنند)
+     • کلید Esc → بستن
+   ─────────────────────────────────────────────────────────────────── */
 function modal(html) {
   S.modal = html;
-  layerRoot('modal-root').innerHTML = `<div class="modal-bg" data-act="modal-close"><div class="modal" onclick="event.stopPropagation()">
-    <div class="row between" style="margin-bottom:8px"><b>${esc(S.modalTitle || '')}</b><button class="btn sm ghost" data-act="modal-close">✕</button></div>
+  layerRoot('modal-root').innerHTML = `<div class="modal-bg" data-act="modal-bg"><div class="modal" role="dialog" aria-modal="true">
+    <div class="row between" style="margin-bottom:8px">
+      <b>${esc(S.modalTitle || '')}</b>
+      <button type="button" class="btn sm ghost" data-act="modal-close" aria-label="بستن" title="بستن">✕</button>
+    </div>
     ${html}</div></div>`;
 }
 function closeModal() { S.modal = null; layerRoot('modal-root').innerHTML = ''; }
@@ -1318,14 +1426,19 @@ function actLeaveAdd() {
   </form>`);
 }
 
-function actAnnAdd() {
-  S.modalTitle = 'اطلاعیهٔ جدید';
+function actAnnAdd(row) {
+  const editing = row && row.id;
+  S.modalTitle = editing ? 'ویرایش اطلاعیه' : 'اطلاعیهٔ جدید';
+  const sev = editing ? String(row.severity || 'normal') : 'normal';
   modal(`<form data-form="ann">
-    <label class="field"><span>عنوان</span><input class="input" name="title" required></label>
-    <label class="field"><span>متن</span><textarea class="input" name="body" required></textarea></label>
+    ${editing ? `<input type="hidden" name="id" value="${esc(row.id)}">` : ''}
+    <label class="field"><span>عنوان</span><input class="input" name="title" required value="${esc(editing ? row.title : '')}"></label>
+    <label class="field"><span>متن</span><textarea class="input" name="body" required>${esc(editing ? row.body : '')}</textarea></label>
     <label class="field"><span>اهمیت</span><select class="input" name="severity">
-      <option value="normal">عادی</option><option value="info">اطلاع‌رسانی</option><option value="important">مهم</option></select></label>
-    <button class="btn primary block">انتشار</button>
+      <option value="normal" ${sev === 'normal' ? 'selected' : ''}>عادی</option>
+      <option value="info" ${sev === 'info' ? 'selected' : ''}>اطلاع‌رسانی</option>
+      <option value="important" ${sev === 'important' ? 'selected' : ''}>مهم</option></select></label>
+    <button class="btn primary block">${editing ? 'ذخیرهٔ تغییرات' : 'انتشار'}</button>
   </form>`);
 }
 
@@ -1350,39 +1463,326 @@ function actUserEdit(id) {
   </form>`);
 }
 
+/* ── کلاس: ایجاد و ویرایش (پایه و رشته از فهرست تعریف‌ها می‌آید) ── */
+function classFormHtml(c) {
+  const opts = (arr, val) => arr.map(r =>
+    `<option value="${esc(r.name)}" ${String(r.name) === String(val || '') ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
+  const grades = lookupList('grade');
+  const branches = lookupList('branch');
+  const editing = c && c.id;
+  return `<form data-form="class">
+    ${editing ? `<input type="hidden" name="id" value="${esc(c.id)}">` : ''}
+    <label class="field"><span>نام کلاس</span>
+      <input class="input" name="name" required value="${esc(editing ? c.name : '')}" placeholder="مثلاً دهم شبکه"></label>
+    <div class="row">
+      <label class="field grow"><span>پایه</span><select class="input" name="grade">${opts(grades, editing ? c.grade : '')}</select></label>
+      <label class="field grow"><span>رشته</span><select class="input" name="branch">${opts(branches, editing ? c.branch : '')}</select></label>
+    </div>
+    <label class="field"><span>ظرفیت</span>
+      <input class="input ltr" name="capacity" inputmode="numeric" value="${esc(editing ? (c.capacity || 30) : 30)}"></label>
+    <div class="small muted">اگر پایه یا رشتهٔ دلخواه در فهرست نیست، در همین صفحه از بخش «پایه‌ها» یا «رشته‌ها» اضافه کنید.</div>
+    <button class="btn primary block" style="margin-top:10px">${editing ? 'ذخیرهٔ تغییرات' : 'ایجاد کلاس'}</button>
+  </form>`;
+}
+function actClassAdd() { S.modalTitle = 'کلاس جدید'; modal(classFormHtml(null)); }
+function actClassEdit(id) {
+  const c = byId('classes', Number(id));
+  if (!c) return toast('این کلاس پیدا نشد — صفحه را دوباره باز کنید', 'err');
+  S.modalTitle = 'ویرایش کلاس — ' + c.name;
+  modal(classFormHtml(c));
+}
+
+/* ── پایه و رشته: افزودن و ویرایش ── */
+function defFormHtml(kind, row) {
+  const editing = row && row.id;
+  return `<form data-form="def">
+    <input type="hidden" name="kind" value="${esc(kind)}">
+    ${editing ? `<input type="hidden" name="id" value="${esc(row.id)}">` : ''}
+    <label class="field"><span>نام ${LOOKUP_FA[kind] || ''}</span>
+      <input class="input" name="name" required value="${esc(editing ? row.name : (row && row.name) || '')}"></label>
+    <label class="field"><span>ترتیب نمایش (اختیاری)</span>
+      <input class="input ltr" name="order" inputmode="numeric" value="${esc(editing ? (row.order || '') : '')}" placeholder="۱، ۲، ۳ …"></label>
+    <button class="btn primary block">${editing ? 'ذخیرهٔ تغییرات' : 'ثبت'}</button>
+  </form>`;
+}
+function actDefAdd(kind, name) {
+  kind = kind === 'branch' ? 'branch' : 'grade';
+  S.modalTitle = 'افزودن ' + (LOOKUP_FA[kind] || 'مورد');
+  modal(defFormHtml(kind, { name: name || '' }));
+}
+function actDefEdit(id) {
+  const r = byId('lookups', Number(id));
+  if (!r) return toast('این مورد پیدا نشد — صفحه را دوباره باز کنید', 'err');
+  S.modalTitle = 'ویرایش ' + (LOOKUP_FA[r.kind] || 'مورد') + ' — ' + r.name;
+  modal(defFormHtml(r.kind, r));
+}
+
+/* ── درس: افزودن و ویرایش ── */
+function subjectFormHtml(sb) {
+  const editing = sb && sb.id;
+  return `<form data-form="subject">
+    ${editing ? `<input type="hidden" name="id" value="${esc(sb.id)}">` : ''}
+    <label class="field"><span>نام درس</span>
+      <input class="input" name="name" required value="${esc(editing ? sb.name : '')}" placeholder="مثلاً ریاضی ۱"></label>
+    <label class="field"><span>نوع درس</span>
+      <select class="input" name="workshop">
+        <option value="" ${editing && sb.workshop ? '' : 'selected'}>نظری — نمره از ۲۰</option>
+        <option value="1" ${editing && sb.workshop ? 'selected' : ''}>کارگاهی — نمرهٔ عملی</option>
+      </select></label>
+    <button class="btn primary block">${editing ? 'ذخیرهٔ تغییرات' : 'ثبت درس'}</button>
+  </form>`;
+}
+function actSubjectAdd() { S.modalTitle = 'درس جدید'; modal(subjectFormHtml(null)); }
+function actSubjectEdit(id) {
+  const sb = byId('subjects', Number(id));
+  if (!sb) return toast('این درس پیدا نشد — صفحه را دوباره باز کنید', 'err');
+  S.modalTitle = 'ویرایش درس — ' + sb.name;
+  modal(subjectFormHtml(sb));
+}
+
 function actUserAdd() {
   S.modalTitle = 'کاربر جدید';
+  const roles = [['student', 'دانش‌آموز'], ['teacher', 'دبیر'], ['parent', 'ولی'], ['vice', 'معاون'],
+    ['staff', 'کارمند'], ['office', 'اجرایی'], ['counselor', 'مشاور'], ['guard', 'نگهبان'], ['manager', 'مدیر']];
   modal(`<form data-form="user">
     <label class="field"><span>نام و نام خانوادگی</span><input class="input" name="name" required></label>
     <div class="row">
       <label class="field grow"><span>نقش</span><select class="input" name="role">
-        <option value="student">دانش‌آموز</option><option value="teacher">دبیر</option><option value="parent">ولی</option>
-        <option value="counselor">مشاور</option></select></label>
+        ${roles.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label>
       <label class="field grow"><span>کلاس (دانش‌آموز)</span><select class="input" name="class_id">
         <option value="">—</option>${list('classes').map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
     </div>
     <div class="row">
       <label class="field grow"><span>کد ملی</span><input class="input ltr" name="national_id" inputmode="numeric" maxlength="10"></label>
-      <label class="field grow"><span>همراه</span><input class="input ltr" name="phone" inputmode="numeric"></label>
+      <label class="field grow"><span>شمارهٔ همراه (نام کاربری)</span><input class="input ltr" name="phone" inputmode="numeric" maxlength="11" placeholder="09…"></label>
+    </div>
+    <div class="row">
+      <label class="field grow"><span>نام ولی (اختیاری)</span><input class="input" name="parent_name"></label>
+      <label class="field grow"><span>همراه ولی (اختیاری)</span><input class="input ltr" name="parent_phone" inputmode="numeric" maxlength="11" placeholder="09…"></label>
     </div>
     <label class="field"><span>رمز عبور (اختیاری — پیش‌فرض: کد ملی)</span>
       <input class="input ltr" name="password" placeholder="اگر خالی بماند، کد ملی می‌شود"></label>
-    <div class="small muted" style="margin-top:6px">نام کاربری هر کاربر همان <b>شمارهٔ همراه</b> است و رمزش <b>کد ملی</b>؛ بعداً از «ویرایش» قابل تغییر است.</div>
+    <div class="small muted" style="margin-top:6px">نام کاربری هر کاربر همان <b>شمارهٔ همراه</b> است و رمزش <b>کد ملی</b>؛ هر دو بعداً از «ویرایش» قابل تغییرند.</div>
     <button class="btn primary block" style="margin-top:10px">ایجاد کاربر</button>
   </form>`);
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   ورود دسته‌ای کاربران — جادوگر چهار مرحله‌ای
+     ۱) انتخاب فایل (اکسل xlsx یا CSV) و نوع (دانش‌آموز / کارکنان)
+     ۲) نگاشت ستون‌ها (خودکار پیشنهاد می‌شود، مدیر می‌تواند عوض کند)
+     ۳) بررسی: هر سطر سبز/زرد/قرمز و دلیلش
+     ۴) ثبت و کارنامهٔ نتیجه
+   منطق: فایل مدرسه هر شکلی باشد، ما خودمان ستون‌ها را می‌شناسیم.
+   ══════════════════════════════════════════════════════════════════ */
+
+const IMP_FIELDS = [
+  ['full_name', 'نام و نام خانوادگی', ['نام و نام خانوادگی', 'نام کامل', 'نام و نام‌خانوادگی', 'نام دانش آموز', 'اسم']],
+  ['first_name', 'نام', ['نام']],
+  ['last_name', 'نام خانوادگی', ['نام خانوادگی', 'فامیل', 'فامیلی', 'نام فامیل']],
+  ['national_id', 'کد ملی', ['کد ملی', 'کدملی', 'شماره ملی', 'شماره‌ملی', 'کد ملی دانش آموز']],
+  ['phone', 'شمارهٔ همراه', ['شماره همراه', 'همراه', 'موبایل', 'تلفن همراه', 'شماره تماس', 'موبایل دانش آموز', 'تلفن']],
+  ['class_name', 'کلاس', ['کلاس', 'نام کلاس', 'پایه و کلاس']],
+  ['grade', 'پایه', ['پایه', 'مقطع', 'پایه تحصیلی', 'مقطع تحصیلی']],
+  ['branch', 'رشته', ['رشته', 'گرایش', 'رشته تحصیلی', 'رشته و گرایش']],
+  ['parent_name', 'نام ولی', ['نام ولی', 'نام پدر', 'پدر', 'سرپرست', 'نام سرپرست']],
+  ['parent_phone', 'همراه ولی', ['همراه ولی', 'موبایل پدر', 'تلفن پدر', 'شماره پدر', 'موبایل ولی']],
+  ['role', 'نقش', ['نقش', 'نوع کاربر', 'نوع']],
+  ['subject', 'درس تخصصی', ['درس', 'تخصص', 'درس تخصصی']],
+  ['position', 'سمت', ['سمت', 'عنوان شغلی', 'واحد']],
+];
+
+/* یکسان‌سازی متن فارسی برای مقایسهٔ عنوان ستون‌ها */
+function impNorm(x) {
+  return String(x == null ? '' : x)
+    .replace(/[ىي]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/\u200c/g, ' ')
+    .replace(/[_\-.:،؛/\\()[\]{}]/g, ' ')
+    .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+}
+function impFieldLabel(key) {
+  const f = IMP_FIELDS.find(x => x[0] === key);
+  return f ? f[1] : '';
+}
+/* کد ملی ایران: ۱۰ رقم با رقم کنترلی */
+function impValidNid(v) {
+  const s = digitsOnly(v);
+  if (!/^\d{10}$/.test(s) || /^(\d)\1{9}$/.test(s)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += Number(s[i]) * (10 - i);
+  const r = sum % 11;
+  const check = Number(s[9]);
+  return (r < 2 && check === r) || (r >= 2 && check === 11 - r);
+}
+
+function impAutoMap(headers) {
+  return headers.map(h => {
+    const n = impNorm(h);
+    if (!n) return '';
+    const exact = IMP_FIELDS.find(f => f[2].some(syn => impNorm(syn) === n));
+    if (exact) return exact[0];
+    const partial = IMP_FIELDS.find(f => f[2].some(syn => n.includes(impNorm(syn)) || impNorm(syn).includes(n)));
+    return partial ? partial[0] : '';
+  });
+}
+
+/* سطرهای نگاشت‌شده (بدون سطرهای خالی) */
+function impMapped() {
+  const imp = S.imp || {};
+  const map = imp.map || [];
+  return (imp.rows || []).map((row, idx) => {
+    const o = { _row: idx + 2 };            /* شمارهٔ سطر در فایل: سرستون + ۱ */
+    map.forEach((key, col) => {
+      if (!key) return;
+      const val = row[col] == null ? '' : String(row[col]).trim();
+      if (val === '') return;
+      if (key === 'national_id' || key === 'phone' || key === 'parent_phone') o[key] = digitsOnly(val);
+      else o[key] = val;
+    });
+    if (o.full_name) o.name = o.full_name;
+    else if (o.first_name || o.last_name) o.name = ((o.first_name || '') + ' ' + (o.last_name || '')).trim();
+    else o.name = '';
+    /* اگر پایه و رشته آمده و کلاس خالی است، نام کلاس را می‌سازیم */
+    if (!o.class_name && o.grade) o.class_name = (o.grade + ' ' + (o.branch || '')).trim();
+    return o;
+  }).filter(o => Object.keys(o).length > 1);
+}
+
+/* بررسی کامل: خطا (نمی‌شود ثبت کرد) و هشدار (ثبت می‌شود، ولی بدانید) */
+function impCheck() {
+  const kind = (S.imp && S.imp.kind) || 'students';
+  const existingNid = new Set(list('users').map(u => digitsOnly(u.national_id || '')).filter(Boolean));
+  const existingPhone = new Set(list('users').map(u => digitsOnly(u.phone || '')).filter(Boolean));
+  const classNames = new Set(list('classes').map(c => impNorm(c.name)));
+  const seenNid = new Map(), seenPhone = new Map();
+  const out = [];
+  for (const r of impMapped()) {
+    const errors = [], warns = [];
+    if (!r.name) errors.push('ستون نام خالی است');
+    if (r.national_id) {
+      if (!impValidNid(r.national_id)) errors.push('کد ملی «' + r.national_id + '» معتبر نیست');
+      else if (existingNid.has(r.national_id)) errors.push('کد ملی قبلاً در سامانه ثبت شده');
+      else if (seenNid.has(r.national_id)) errors.push('کد ملی در سطر ' + fa(seenNid.get(r.national_id)) + ' هم آمده');
+      else seenNid.set(r.national_id, r._row);
+    }
+    if (r.phone) {
+      if (!/^09\d{9}$/.test(r.phone)) warns.push('شمارهٔ همراه ' + r.phone + ' استاندارد نیست (۰۹xxxxxxxxx)');
+      else if (existingPhone.has(r.phone)) errors.push('این شمارهٔ همراه قبلاً ثبت شده');
+      else if (seenPhone.has(r.phone)) errors.push('شمارهٔ همراه در سطر ' + fa(seenPhone.get(r.phone)) + ' هم آمده');
+      else seenPhone.set(r.phone, r._row);
+    } else {
+      warns.push('شمارهٔ همراه ندارد؛ نام کاربری‌اش باید بعداً ثبت شود');
+    }
+    if (kind === 'students' && r.class_name && !classNames.has(impNorm(r.class_name))) {
+      warns.push('کلاس «' + r.class_name + '» ساخته می‌شود');
+    }
+    out.push({ row: r._row, data: r, errors, warns });
+  }
+  return out;
+}
+
+function impStepHtml() {
+  const imp = S.imp || { step: 1, kind: 'students' };
+  const head = s => `<div class="small muted" style="margin-bottom:8px">${s}</div>`;
+
+  if (imp.step === 1) {
+    return `<form data-form="import-file">
+      ${head('فایل اکسلی که از مدرسه دارید را همان‌طور که هست بدهید؛ لازم نیست ستون‌ها را مرتب کنید. با CSV هم کار می‌کند.')}
+      <label class="field"><span>نوع ورود</span><select class="input" name="kind">
+        <option value="students" ${imp.kind === 'students' ? 'selected' : ''}>دانش‌آموزان</option>
+        <option value="staff" ${imp.kind === 'staff' ? 'selected' : ''}>دبیران و کارکنان</option>
+      </select></label>
+      <label class="field"><span>فایل اکسل یا CSV</span><input class="input" type="file" name="file" accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label>
+      <button class="btn primary block" style="margin-top:10px">بعدی — نگاشت ستون‌ها</button>
+    </form>`;
+  }
+
+  if (imp.step === 2) {
+    const map = imp.map || [];
+    const preview = (imp.rows || []).slice(0, 3);
+    return `<div class="small muted" style="margin-bottom:8px">فایل «${esc(imp.fileName || '')}» خوانده شد — برگهٔ «${esc(imp.sheetName || '')}» با ${fa((imp.rows || []).length)} سطر. ستون‌ها را بررسی کنید.</div>
+      <div class="table-wrap" style="max-height:46vh;overflow:auto"><table><thead><tr>
+        <th>ستون فایل</th><th>مقدار در فایل</th><th>این ستون چیست؟</th></tr></thead><tbody>
+        ${(imp.headers || []).map((h, i) => `<tr>
+          <td class="small">${esc(h || ('ستون ' + fa(i + 1)))}</td>
+          <td class="small ltr">${esc(String((preview[0] || [])[i] || '—')).slice(0, 24)}</td>
+          <td><select class="input" data-imp-map="${i}" style="min-width:170px">
+            <option value="">— نادیده بگیر —</option>
+            ${IMP_FIELDS.map(f => `<option value="${f[0]}" ${map[i] === f[0] ? 'selected' : ''}>${f[1]}</option>`).join('')}
+          </select></td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="row" style="margin-top:10px;gap:8px">
+        <button class="btn ghost" data-act="import-back">مرحلهٔ قبل</button>
+        <button class="btn primary grow" data-act="import-check">بررسی ${fa((imp.rows || []).length)} سطر</button>
+      </div>`;
+  }
+
+  if (imp.step === 3) {
+    const checks = imp.checks || [];
+    const ok = checks.filter(c => !c.errors.length);
+    const bad = checks.filter(c => c.errors.length);
+    return `<div class="row between" style="margin-bottom:8px">
+        <b>${fa(ok.length)} سطر آمادهٔ ثبت</b>
+        ${bad.length ? `<span class="badge" style="background:#fee2e2;color:#b91c1c">${fa(bad.length)} سطر مشکل دارد</span>` : '<span class="badge green">همه سالم</span>'}
+      </div>
+      <div class="table-wrap" style="max-height:44vh;overflow:auto"><table><thead><tr>
+        <th>سطر</th><th>نام</th><th>کد ملی</th><th>همراه</th><th>کلاس</th><th>وضعیت</th></tr></thead><tbody>
+        ${checks.slice(0, 200).map(c => `<tr>
+          <td>${fa(c.row)}</td>
+          <td>${esc(c.data.name || '—')}</td>
+          <td class="ltr small">${esc(c.data.national_id || '—')}</td>
+          <td class="ltr small">${esc(c.data.phone || '—')}</td>
+          <td class="small">${esc(c.data.class_name || '—')}</td>
+          <td class="small">${c.errors.length
+            ? '<span style="color:#b91c1c">' + c.errors.map(esc).join(' · ') + '</span>'
+            : (c.warns.length ? '<span style="color:#b45309">' + c.warns.map(esc).join(' · ') + '</span>' : '<span style="color:#15803d">آماده</span>')}</td>
+        </tr>`).join('')}
+      </tbody></table></div>
+      ${checks.length > 200 ? `<div class="small muted">فقط ۲۰۰ سطر اول نمایش داده شده است.</div>` : ''}
+      <div class="row" style="margin-top:10px;gap:8px">
+        <button class="btn ghost" data-act="import-back">مرحلهٔ قبل</button>
+        <button class="btn primary grow" data-act="import-apply" ${ok.length ? '' : 'disabled'}>ثبت ${fa(ok.length)} کاربر</button>
+      </div>`;
+  }
+
+  /* مرحلهٔ ۴: نتیجه */
+  const res = imp.result || { created: 0, errors: [] };
+  return `<div class="row between" style="margin-bottom:8px"><b style="color:#15803d">✅ ${fa(res.created)} کاربر ساخته شد</b>
+      ${(res.errors || []).length ? `<span class="badge" style="background:#fee2e2;color:#b91c1c">${fa(res.errors.length)} سطر ثبت نشد</span>` : ''}</div>
+    <div class="small muted">نام کاربری هر کاربر همان شمارهٔ همراه و رمز عبورش کد ملی است. با دکمهٔ «ورود دسته‌ای» می‌توانید فایل بعدی را هم وارد کنید.</div>
+    ${(res.errors || []).length ? `<div class="table-wrap" style="max-height:34vh;overflow:auto"><table><thead><tr><th>سطر</th><th>دلیل</th><th>مقدار</th></tr></thead><tbody>
+      ${res.errors.slice(0, 200).map(e => `<tr><td>${fa(e.row || '')}</td><td class="small">${esc(impErrorText(e.error))}</td>
+        <td class="small ltr">${esc(e.nid || e.phone || e.class_name || '')}</td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+    <div class="row" style="margin-top:10px;gap:8px">
+      <button class="btn ghost" data-act="import-open">فایل بعدی</button>
+      <button class="btn primary grow" data-act="modal-close">تمام</button>
+    </div>`;
+}
+
+/* پیام فارسی خطاهای سرور در ورود دسته‌ای */
+function impErrorText(code) {
+  const map = {
+    missing_name: 'نام ندارد',
+    bad_national_id: 'کد ملی معتبر نیست',
+    duplicate_national_id: 'کد ملی تکراری است',
+    duplicate_phone: 'شمارهٔ همراه تکراری است',
+    class_not_found: 'کلاس پیدا نشد',
+    no_rows: 'سطر قابل ثبتی نبود',
+  };
+  return map[code] || String(code || 'خطا');
+}
+
 function actImport() {
-  S.modalTitle = 'ورود دسته‌ای از CSV';
-  modal(`<form data-form="import">
-    <div class="small muted" style="margin-bottom:8px">
-      ستون‌های پیشنهادی: <span class="ltr">name, national_id, phone, class_name, parent_name, parent_phone</span><br>
-      سطر اول می‌تواند عنوان ستون‌ها باشد. فایل اکسل را با «ذخیره به‌صورت CSV» خروجی بگیرید.
-    </div>
-    <label class="field"><span>نوع</span><select class="input" name="kind"><option value="students">دانش‌آموزان</option><option value="staff">دبیران/کارکنان</option></select></label>
-    <label class="field"><span>فایل CSV</span><input class="input" type="file" name="file" accept=".csv,text/csv"></label>
-    <button class="btn primary block">بارگذاری و ثبت</button>
-  </form>`);
+  S.imp = { step: 1, kind: (S.imp && S.imp.kind) || 'students' };
+  S.modalTitle = 'ورود دسته‌ای کاربران';
+  modal(impStepHtml());
+}
+function renderImportStep() {
+  S.modalTitle = 'ورود دسته‌ای کاربران';
+  modal(impStepHtml());
 }
 
 function parseCSV(text) {
