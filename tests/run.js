@@ -269,9 +269,16 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/public_url/.test(app), 'آدرس عمومی HTTPS در نردبان اتصال');
     assert.ok(/ScanLan\(/.test(app), 'شبکهٔ محلی فقط آخرین گزینه');
 
+    /* ۵.۵) برنامه در {app}\desktop است و سرور در {app} → ریشهٔ نصب باید یک پله بالا برود
+       (باگ 0.4.2: برنامه خودش را «کاربر» می‌دید و هیچ سروری بالا نمی‌آمد) */
+    assert.ok(/ResolveRoot\(/.test(app), 'تشخیص ریشهٔ نصب');
+    assert.ok(app.includes('Directory.GetParent'), 'پوشهٔ desktop → ریشهٔ نصب');
+    assert.ok(app.includes('runtime", "node.exe"'), 'Node همراه بسته پیدا می‌شود');
+
     /* ۶) نگهبان زمان کامپایل: بدون exe، نصب‌کننده ساخته نمی‌شود */
     assert.ok(/FileExists\([\s\S]{0,160}?Payesh\.exe/.test(iss), 'ISCC بدون Payesh.exe باید خطا بدهد');
     assert.ok(/FileExists\([\s\S]{0,160}?WebView2Loader\.dll/.test(iss), 'ISCC بدون WebView2Loader باید خطا بدهد');
+    assert.ok(/FileExists\([\s\S]{0,160}?runtime\\node\.exe/.test(iss), 'ISCC بدون Node باید خطا بدهد');
 
     /* ۷) اسکریپت ساخت و CI */
     const ps = fs.readFileSync(path.join(ROOT, 'desktop/build.ps1'), 'utf8');

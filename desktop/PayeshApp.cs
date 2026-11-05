@@ -88,8 +88,9 @@ namespace Payesh
         /* همان فایل پیکربندی که اپ اندروید می‌خواند — یک جای مشخص برای آدرس عمومی */
         private const string RemoteConfig =
             "https://raw.githubusercontent.com/rezaa2544/payesh.local/main/android-config.json";
+        private readonly string _baseDir;
         private readonly string _appDir;
-        private readonly bool _serverMode;
+        private bool _serverMode;
         private readonly string _settingsFile;
 
         private WebView2 _view;
@@ -97,6 +98,7 @@ namespace Payesh
         private Panel _error;
         private Label _statusLabel;
         private Label _errorLabel;
+        private Label _diagLabel;
         private TextBox _addrBox;
         private NotifyIcon _tray;
         private string _currentUrl = "";
@@ -107,7 +109,10 @@ namespace Payesh
 
         public Shell(string[] args)
         {
-            _appDir = AppDomain.CurrentDomain.BaseDirectory;
+            _baseDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+            /* برنامه در {app}\desktop می‌نشیند و سرور در {app}\server → ریشهٔ نصب یک پله بالاتر است.
+               این نکته در نسخهٔ 0.4.2 فراموش شده بود و برنامه اشتباهاً «حالت کاربر» می‌شد. */
+            _appDir = ResolveRoot(_baseDir);
             _settingsFile = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Payesh", "settings.ini");
 
@@ -118,6 +123,10 @@ namespace Payesh
             bool installedAsClient = role == "client" || ReadIni(_settingsFile, "mode") == "client";
             _serverMode = forceServer || (!forceClient && !installedAsClient
                 && File.Exists(Path.Combine(_appDir, "server", "index.js")));
+
+            Log("start base=" + _baseDir + " root=" + _appDir + " role=" + role
+                + " serverMode=" + _serverMode + " node=" + (NodePath() ?? "(none)")
+                + " serverJs=" + File.Exists(Path.Combine(_appDir, "server", "index.js")));
 
             BuildUi();
             if (_trayMode)
@@ -230,11 +239,22 @@ namespace Payesh
             addrRow.Controls.Add(MakeButton("ذخیرهٔ آدرس", (s, e) => SaveAddress()));
             addrRow.Controls.Add(_addrBox);
 
+            _diagLabel = new Label
+            {
+                ForeColor = Color.FromArgb(150, 168, 194),
+                Font = new Font("Tahoma", 8.5f),
+                Dock = DockStyle.Top,
+                Height = 78,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Text = "",
+            };
+
             var btnRow = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top, Height = 56, FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false, Padding = new Padding(0, 12, 0, 0),
             };
+            btnRow.Controls.Add(MakeButton("راه‌اندازی سرور در همین رایانه", (s, e) => { ForceServerMode(); }));
             btnRow.Controls.Add(MakeButton("تلاش دوباره", (s, e) => StartConnect()));
             btnRow.Controls.Add(MakeButton("جستجوی شبکهٔ مدرسه", (s, e) => { SaveMode(); StartConnect(); }));
             btnRow.Controls.Add(MakeButton("باز کردن در مرورگر", (s, e) => OpenInBrowser(_addrBox.Text.Trim().Length > 0 ? Normalize(_addrBox.Text) : LocalUrl)));
@@ -249,6 +269,7 @@ namespace Payesh
             var box = new Panel { AutoSize = true, Dock = DockStyle.Fill };
             box.Controls.Add(addrRow);
             box.Controls.Add(btnRow);
+            box.Controls.Add(_diagLabel);
             box.Controls.Add(_errorLabel);
             center.Controls.Add(new Panel(), 0, 0);
             center.Controls.Add(box, 0, 1);
@@ -272,6 +293,55 @@ namespace Payesh
                 menu.Items.Add("خروج", null, (s, e) => { _reallyExit = true; Close(); });
                 _tray.ContextMenuStrip = menu;
                 _tray.DoubleClick += (s, e) => { Show(); WindowState = FormWindowState.Normal; Activate(); };
+            }
+            catch { }
+        }
+
+        /// <summary>ریشهٔ نصب: پوشه‌ای که server/index.js در آن است (خود پوشه یا پوشهٔ والد).</summary>
+        private static string ResolveRoot(string baseDir)
+        {
+            try
+            {
+                if (File.Exists(Path.Combine(baseDir, "server", "index.js"))) return baseDir;
+                DirectoryInfo parent = Directory.GetParent(baseDir);
+                if (parent != null && File.Exists(Path.Combine(parent.FullName, "server", "index.js")))
+                    return parent.FullName;
+            }
+            catch { }
+            return baseDir;
+        }
+
+        /// <summary>Node همراه بسته، وگرنه Node نصب‌شده روی سیستم.</summary>
+        private string NodePath()
+        {
+            try
+            {
+                string bundled = Path.Combine(_appDir, "runtime", "node.exe");
+                if (File.Exists(bundled)) return bundled;
+                string[] dirs = new string[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "nodejs"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "nodejs"),
+                };
+                foreach (string d in dirs)
+                {
+                    string cand = Path.Combine(d, "node.exe");
+                    if (File.Exists(cand)) return cand;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private static void Log(string line)
+        {
+            try
+            {
+                string file = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Payesh", "app.log");
+                Directory.CreateDirectory(Path.GetDirectoryName(file));
+                string text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + line + Environment.NewLine;
+                File.AppendAllText(file, text, Encoding.UTF8);
             }
             catch { }
         }
@@ -415,6 +485,51 @@ namespace Payesh
             });
         }
 
+        /// <summary>این رایانه را سرور می‌کند و دوباره وصل می‌شود (اگر تشخیص خودکار اشتباه بود).</summary>
+        private void ForceServerMode()
+        {
+            SaveIni(_settingsFile, "mode", "server");
+            SaveIni(Path.Combine(_appDir, "payesh.ini"), "role", "server");
+            _serverMode = true;
+            Log("user forced server mode");
+            StartConnect();
+        }
+
+        private void FillDiag()
+        {
+            try
+            {
+                string serverJs = File.Exists(Path.Combine(_appDir, "server", "index.js")) ? "هست" : "نیست";
+                string node = NodePath();
+                _diagLabel.Text =
+                    "نقش: " + (_serverMode ? "سرور همین رایانه" : "کاربر (اتصال به سرور مدرسه)") +
+                    "   ·   پوشهٔ نصب: " + _appDir + Environment.NewLine +
+                    "سرور: " + serverJs + "   ·   Node: " + (node == null ? "پیدا نشد" : Path.GetFileName(Path.GetDirectoryName(node)) + "\\" + Path.GetFileName(node)) +
+                    "   ·   گزارش: %LOCALAPPDATA%\\Payesh\\app.log";
+
+                /* آخرین خط لاگ سرور، تا کاربر لازم نباشد فایل را باز کند */
+                try
+                {
+                    string logFile = Path.Combine(_appDir, "data", "server.log");
+                    if (File.Exists(logFile))
+                    {
+                        string[] all = File.ReadAllLines(logFile, Encoding.UTF8);
+                        int from = Math.Max(0, all.Length - 2);
+                        string tail = "";
+                        for (int i = from; i < all.Length; i++) tail += all[i] + " ";
+                        tail = tail.Trim();
+                        if (tail.Length > 0)
+                        {
+                            if (tail.Length > 220) tail = tail.Substring(tail.Length - 220);
+                            _diagLabel.Text += Environment.NewLine + "آخرین خط سرور: " + tail;
+                        }
+                    }
+                }
+                catch { }
+            }
+            catch { }
+        }
+
         /// <summary>وقتی کاربر دوباره روی آیکون برنامه کلیک می‌کند: پنجرهٔ موجود را نشان بده.</summary>
         internal void BringToFrontFromSecond()
         {
@@ -533,11 +648,24 @@ namespace Payesh
         {
             try
             {
-                string node = Path.Combine(_appDir, "runtime", "node.exe");
-                if (!File.Exists(node)) node = "node";
+                string node = NodePath();
+                if (node == null)
+                {
+                    Log("error: node.exe پیدا نشد (نه همراه بسته، نه نصب‌شده)");
+                    SetStatus("Node.js پیدا نشد — سرور بالا نمی‌آید");
+                    return;
+                }
+
+                string serverJs = Path.Combine(_appDir, "server", "index.js");
+                if (!File.Exists(serverJs))
+                {
+                    Log("error: server/index.js پیدا نشد در " + _appDir);
+                    return;
+                }
 
                 Directory.CreateDirectory(Path.Combine(_appDir, "data"));
-                var psi = new ProcessStartInfo(node, "--experimental-sqlite --disable-warning=ExperimentalWarning \"server\\index.js\"")
+                var psi = new ProcessStartInfo(node,
+                    "--experimental-sqlite --disable-warning=ExperimentalWarning \"server\\index.js\"")
                 {
                     WorkingDirectory = _appDir,
                     UseShellExecute = false,
@@ -549,18 +677,23 @@ namespace Payesh
 
                 var proc = new Process { StartInfo = psi };
                 string logPath = Path.Combine(_appDir, "data", "server.log");
-                DataReceivedEventHandler sink = (s, e) =>
+                DataReceivedEventHandler sink = (s2, e) =>
                 {
                     if (e.Data == null) return;
-                    try { File.AppendAllText(logPath, e.Data + Environment.NewLine); } catch { }
+                    try { File.AppendAllText(logPath, e.Data + Environment.NewLine, Encoding.UTF8); } catch { }
                 };
                 proc.OutputDataReceived += sink;
                 proc.ErrorDataReceived += sink;
                 proc.Start();
                 proc.BeginOutputReadLine();
                 proc.BeginErrorReadLine();
+                Log("server started pid=" + proc.Id + " node=" + node);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log("error: راه‌اندازی سرور ناموفق — " + ex.Message);
+                SetStatus("راه‌اندازی سرور ناموفق");
+            }
         }
 
         /* ── بررسی سلامت ────────────────────────────────────────────── */
@@ -678,6 +811,7 @@ namespace Payesh
                 {
                     try { _tray.ShowBalloonTip(4000, "پایش", "اتصال به سامانه برقرار نشد — آیکون کنار ساعت را بزنید.", ToolTipIcon.Warning); } catch { }
                 }
+                FillDiag();
                 _errorLabel.Text =
                     "اتصال به سامانه برقرار نشد." + Environment.NewLine +
                     "اینترنت/شبکه را بررسی کنید یا آدرس سامانه را وارد کنید." +

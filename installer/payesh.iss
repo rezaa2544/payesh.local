@@ -17,6 +17,10 @@
 #if !FileExists(AddBackslash(SourcePath) + "..\.build\win\desktop\WebView2Loader.dll")
   #error WebView2Loader.dll کنار برنامه نیست — build.ps1 ناقص اجرا شده
 #endif
+; بدون Node، سرور مدرسه بالا نمی‌آید و کاربر صفحهٔ «اتصال برقرار نشد» می‌بیند
+#if !FileExists(AddBackslash(SourcePath) + "..\.build\win\runtime\node.exe")
+  #error runtime\node.exe در بسته نیست — نصب بدون Node ناقص است
+#endif
 
 [Setup]
 AppId={{7C4E2A51-9F3B-4E7A-9C21-5B8A1D3E6F02}
@@ -92,7 +96,7 @@ Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 ; cloudflared پشتیبان: اگر دانلود نشد، برنامه فقط از Tailscale/شبکه استفاده می‌کند (بی‌خطر)
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$ErrorActionPreference='SilentlyContinue'; New-Item -ItemType Directory -Force -Path '{app}\bin' | Out-Null; Invoke-WebRequest -Uri 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe' -OutFile '{app}\bin\cloudflared.exe' -UseBasicParsing"""; Flags: runhidden; Tasks: cloudflared
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$ErrorActionPreference='SilentlyContinue'; New-Item -ItemType Directory -Force -Path '{app}\bin' | Out-Null; Invoke-WebRequest -Uri 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe' -OutFile '{app}\bin\cloudflared.exe' -UseBasicParsing"""; Flags: runhidden nowait; Tasks: cloudflared
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Payesh Local"""; Flags: runhidden; Tasks: firewall
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Payesh Local"" dir=in action=allow protocol=TCP localport=8080 profile=any"; Flags: runhidden; Tasks: firewall
 Filename: "{cmd}"; Parameters: "/c winget install --id Tailscale.Tailscale -e --silent --accept-package-agreements --accept-source-agreements"; Flags: runhidden waituntilterminated; Tasks: tailscale; StatusMsg: "نصب Tailscale برای دسترسی از هر اینترنتی…"
