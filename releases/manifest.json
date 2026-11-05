@@ -1,15 +1,15 @@
 {
-  "version": "0.5.7",
-  "built_at": "2026-11-05T13:11:51.405Z",
+  "version": "0.5.8",
+  "built_at": "2026-11-05T13:43:37.981Z",
   "shell": {
-    "android": "0.5.7"
+    "android": "0.5.8"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "658938702c4217fce5933e0aa2d8025294115295f167db07410a61dbc19a00e2",
-      "size": 61080
+      "sha256": "30a1b2868f9b302264d30f7591858c52771b91a3772a2521d341485439c5539e",
+      "size": 61767
     },
     {
       "path": "client/icons/apple-touch-icon.png",
@@ -62,8 +62,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "c3f9f453389b559db608778efc34f25941fcf74b0ffbee87de7a772099e3733a",
-      "size": 90713
+      "sha256": "af0ee38add4b9d120c9fdb09c244940a3dd6df456b842d4a0d07efdcaffaf7bb",
+      "size": 91461
     },
     {
       "path": "client/styles.css",
@@ -116,7 +116,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "f37c9d522d92aaad38fd9ab9fcae4af9e7b175625e5e5614648069e1c2b66f07",
+      "sha256": "9358ec6e95f0cae9f3597f522ae624c293e8e15630b27d1589b16712bba6ce8b",
       "size": 1979
     },
     {
@@ -152,8 +152,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "05624c1f9eca4041cbf4ea7ddae69c71f368aeb38077665b5185f4e95e1bcc13",
-      "size": 46878
+      "sha256": "94aef7c5fcb5afdf0ee6d6fd27fcfa7a744ac83ee13d8f95c3f682653b413c0b",
+      "size": 48521
     },
     {
       "path": "server/policy.js",
@@ -232,7 +232,7 @@
     "client": 12,
     "server": 25
   },
-  "client_size": 228675,
-  "server_size": 187590,
-  "total_size": 416265
+  "client_size": 230110,
+  "server_size": 189233,
+  "total_size": 419343
 }

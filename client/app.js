@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.5.7';
+const CLIENT_VERSION = '0.5.8';
 
 const S = {
   online: navigator.onLine,
@@ -463,6 +463,11 @@ async function start() {
       S.data = {};
       for (const c of Object.keys(cached)) S.data[c] = new Map(cached[c].map(r => [Number(r.id), r]));
     }
+    /* پیکربندی صندوقچه را روی همین دستگاه نگه می‌داریم: اگر روزی سیستم مدرسه خاموش بود،
+       همین گوشی می‌تواند مستقیم روی صندوقچه بنویسد (بدون این‌که کسی کلیدی تایپ کند). */
+    api('/api/cloud/config').then(r => {
+      if (r && r.ready && r.config) { try { localStorage.setItem('payesh.cloudcfg', JSON.stringify(r.config)); } catch (e) { /* noop */ } }
+    }).catch(() => { /* بی‌اهمیت */ });
     try { await pullAll(); await flushQueue(); S.hubOffline = false; }
     catch (e) { /* آفلاین: با کش ادامه می‌دهیم */ await tryCloudFallback(); }
     if (S.hub && S.hub.enabled && (S.role === 'parent' || S.role === 'student')) {
@@ -1046,6 +1051,9 @@ document.addEventListener('click', async (e) => {
       return;
     }
 
+    case 'originbar-off':
+      localStorage.setItem('payesh.originbar.off', (S.server && S.server.publicUrl) || 'none');
+      render(); return;
     case 'cloud-edit':
       S.cloudEdit = !S.cloudEdit;
       render(); return;
