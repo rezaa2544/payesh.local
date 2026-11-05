@@ -38,7 +38,8 @@ jobs:
             grep -E "✗" -A3 /tmp/test.log | head -60 | while IFS= read -r line; do
               echo "::error title=آزمون ناموفق::$line"
             done
-            tail -40 /tmp/test.log
+            # خط‌های آخر لاگ را به‌صورت annotation بیرون بده (لاگ کامل همیشه در دسترس نیست)
+            tail -60 /tmp/test.log | sed 's/^/::error::/'
           else
             tail -3 /tmp/test.log
           fi
