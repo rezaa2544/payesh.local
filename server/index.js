@@ -1203,7 +1203,7 @@ server.listen(PORT, HOST, () => {
 
   /* همگام‌سازی زنده: هر ۱ ثانیه — تغییرها به حافظهٔ مشترک می‌روند و
      تغییرهای گوشی‌ها همان‌جا برداشته می‌شوند. */
-  try { live.start(store, { everyMs: live.INTERVAL_MS }); } catch (e) { console.error('live start failed', e.message); }
+  try { live.start(store, { everyMs: Number(process.env.PAYESH_LIVE_MS || live.INTERVAL_MS) }); } catch (e) { console.error('live start failed', e.message); }
 
   /* بررسی خودکار نسخهٔ منتشرشده (اگر «نصب خودکار» روشن باشد، خودش اعمال می‌کند) */
   try {

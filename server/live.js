@@ -137,6 +137,8 @@ async function tick(store) {
 
 function start(store, { everyMs = INTERVAL_MS } = {}) {
   if (timer) clearInterval(timer);
+  /* آزمون‌های قطعی می‌توانند با PAYESH_LIVE_MS=0 خاموشش کنند */
+  if (Number(everyMs) === 0) return null;
   const loop = () => { tick(store).catch(() => {}); };
   /* یک‌بار بلافاصله، بعد هر ثانیه */
   setTimeout(loop, 800).unref?.();
