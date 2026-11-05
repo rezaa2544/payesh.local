@@ -1,8 +1,8 @@
 {
-  "version": "0.4.3",
-  "built_at": "2026-11-05T07:54:07.891Z",
+  "version": "0.4.4",
+  "built_at": "2026-11-05T08:08:58.414Z",
   "shell": {
-    "android": "0.4.3"
+    "android": "0.4.4"
   },
   "files": [
     {
@@ -104,7 +104,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "2f7cf47bbf84510307d343ac3e9c005505341156a1b940a98dabe9b3d2b1bffd",
+      "sha256": "4502381320b3d6c9aea40aefeaf683edc5f61e8739dda8a02c759d15013bca02",
       "size": 1962
     },
     {

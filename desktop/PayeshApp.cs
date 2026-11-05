@@ -99,6 +99,7 @@ namespace Payesh
         private Label _statusLabel;
         private Label _errorLabel;
         private Label _diagLabel;
+        private Panel _offlineBar;
         private TextBox _addrBox;
         private NotifyIcon _tray;
         private string _currentUrl = "";
@@ -120,9 +121,19 @@ namespace Payesh
             bool forceServer = Array.IndexOf(args, "--server") >= 0;
             _trayMode = Array.IndexOf(args, "--tray") >= 0;
             string role = ReadIni(Path.Combine(_appDir, "payesh.ini"), "role");
-            bool installedAsClient = role == "client" || ReadIni(_settingsFile, "mode") == "client";
-            _serverMode = forceServer || (!forceClient && !installedAsClient
-                && File.Exists(Path.Combine(_appDir, "server", "index.js")));
+            bool hasServer = File.Exists(Path.Combine(_appDir, "server", "index.js"));
+            /* قاعدهٔ ساده و بی‌سؤال: هر رایانه‌ای که فایل‌های سرور را دارد، خودِ سیستم مدرسه است.
+               «حالت کاربر» فقط وقتی است که مدیر خودش این رایانه را کاربر اعلام کرده باشد
+               (تیک نصب یا میان‌بر --client). تنظیم چسبندهٔ قدیمی mode=client دیگر باعث
+               نمی‌شود سیستم مدرسه برای همیشه «کاربر» بماند. */
+            bool hasDb = File.Exists(Path.Combine(_appDir, "data", "payesh.db"));
+            bool hasAnyTarget = ReadIni(_settingsFile, "server_url").Length > 0
+                || ReadIni(_settingsFile, "last_url").Length > 0;
+            /* «کاربر» فقط وقتی معنا دارد که آدرسی برای اتصال داشته باشد؛ رایانهٔ بی‌آدرس
+               که فایل‌های سرور را دارد، خودِ سیستم مدرسه است. */
+            _serverMode = forceServer ? true
+                : forceClient ? false
+                : hasServer && (role != "client" || hasDb || !hasAnyTarget);
 
             Log("start base=" + _baseDir + " root=" + _appDir + " role=" + role
                 + " serverMode=" + _serverMode + " node=" + (NodePath() ?? "(none)")
@@ -212,6 +223,24 @@ namespace Payesh
             _splash.Controls.Add(logo);
             Controls.Add(_splash);
 
+            /* نوار «آفلاین» بالای صفحه */
+            _offlineBar = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 30,
+                BackColor = Color.FromArgb(120, 53, 15),
+                Visible = false,
+            };
+            _offlineBar.Controls.Add(new Label
+            {
+                Text = "حالت آفلاین — سیستم مدرسه در دسترس نیست؛ نمایش آخرین اطلاعات ذخیره‌شده. ثبت‌ها در صف می‌مانند.",
+                ForeColor = Color.FromArgb(253, 230, 138),
+                Font = new Font("Tahoma", 9f),
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+            });
+            Controls.Add(_offlineBar);
+
             /* صفحهٔ خطا */
             _error = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(11, 27, 51), Visible = false };
             _errorLabel = new Label
@@ -221,7 +250,7 @@ namespace Payesh
                 Dock = DockStyle.Top,
                 Height = 90,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Text = "اتصال برقرار نشد.",
+                Text = "سامانهٔ مدرسه در دسترس نیست",
             };
             _addrBox = new TextBox
             {
@@ -254,9 +283,10 @@ namespace Payesh
                 Dock = DockStyle.Top, Height = 56, FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false, Padding = new Padding(0, 12, 0, 0),
             };
-            btnRow.Controls.Add(MakeButton("راه‌اندازی سرور در همین رایانه", (s, e) => { ForceServerMode(); }));
+            btnRow.Controls.Add(MakeButton("نمایش آخرین وضعیت (آفلاین)", (s, e) => { ShowOffline(); }));
+            btnRow.Controls.Add(MakeButton("روشن کردن سامانه در همین رایانه", (s, e) => { ForceServerMode(); }));
             btnRow.Controls.Add(MakeButton("تلاش دوباره", (s, e) => StartConnect()));
-            btnRow.Controls.Add(MakeButton("جستجوی شبکهٔ مدرسه", (s, e) => { SaveMode(); StartConnect(); }));
+            btnRow.Controls.Add(MakeButton("جستجوی شبکهٔ مدرسه", (s, e) => { SearchLanNow(); }));
             btnRow.Controls.Add(MakeButton("باز کردن در مرورگر", (s, e) => OpenInBrowser(_addrBox.Text.Trim().Length > 0 ? Normalize(_addrBox.Text) : LocalUrl)));
 
             var center = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4 };
@@ -458,6 +488,7 @@ namespace Payesh
         private void ShowApp(string url)
         {
             _currentUrl = url;
+            SaveIni(_settingsFile, "last_url", url);
             OnUi(() =>
             {
                 try
@@ -471,6 +502,7 @@ namespace Payesh
                     }
                     _splash.Visible = false;
                     _error.Visible = false;
+                    if (_offlineBar != null) _offlineBar.Visible = false;
                     _view.Visible = true;
                     _view.BringToFront();
                     try { _tray.Text = "پایش — " + new Uri(url).Host; } catch { }
@@ -495,6 +527,16 @@ namespace Payesh
             StartConnect();
         }
 
+        private void ShowOffline()
+        {
+            string last = ReadIni(_settingsFile, "last_url");
+            if (last.Length == 0) last = Normalize(ReadIni(_settingsFile, "server_url"));
+            if (last.Length == 0) return;
+            Log("offline view: " + last);
+            if (_offlineBar != null) _offlineBar.Visible = true;
+            ShowApp(last);
+        }
+
         private void FillDiag()
         {
             try
@@ -502,7 +544,7 @@ namespace Payesh
                 string serverJs = File.Exists(Path.Combine(_appDir, "server", "index.js")) ? "هست" : "نیست";
                 string node = NodePath();
                 _diagLabel.Text =
-                    "نقش: " + (_serverMode ? "سرور همین رایانه" : "کاربر (اتصال به سرور مدرسه)") +
+                    "این رایانه: " + (_serverMode ? "سیستم اصلی مدرسه" : "کاربر (به سیستم مدرسه وصل می‌شود)") +
                     "   ·   پوشهٔ نصب: " + _appDir + Environment.NewLine +
                     "سرور: " + serverJs + "   ·   Node: " + (node == null ? "پیدا نشد" : Path.GetFileName(Path.GetDirectoryName(node)) + "\\" + Path.GetFileName(node)) +
                     "   ·   گزارش: %LOCALAPPDATA%\\Payesh\\app.log";
@@ -813,8 +855,10 @@ namespace Payesh
                 }
                 FillDiag();
                 _errorLabel.Text =
-                    "اتصال به سامانه برقرار نشد." + Environment.NewLine +
-                    "اینترنت/شبکه را بررسی کنید یا آدرس سامانه را وارد کنید." +
+                    "سامانهٔ مدرسه در دسترس نیست." + Environment.NewLine +
+                    "اگر سیستم مدرسه خاموش است این طبیعی است: با «نمایش آخرین وضعیت» " +
+                    "همان صفحه‌ای که آخرین بار دیدید باز می‌شود و ثبت‌های جدید در صف می‌مانند " +
+                    "تا سیستم مدرسه روشن شود." +
                     (detail != null ? Environment.NewLine + "جزئیات: " + detail : "");
             });
         }
@@ -828,9 +872,12 @@ namespace Payesh
             StartConnect();
         }
 
-        private void SaveMode()
+        /* قبلاً اینجا mode=client ذخیره می‌شد و سیستم مدرسه برای همیشه «کاربر» می‌ماند.
+           حالا فقط همان لحظه جستجوی شبکه انجام می‌شود. */
+        private void SearchLanNow()
         {
-            SaveIni(_settingsFile, "mode", "client");
+            SaveIni(_settingsFile, "lan_now", "1");
+            StartConnect();
         }
 
         private static string Normalize(string raw)

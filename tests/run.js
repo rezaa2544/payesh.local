@@ -226,6 +226,11 @@ async function waitFor(fn, ms = 15000) {
       'آدرس عمومی را از خود سرور یاد می‌گیرد (کار در خانه)');
     assert.ok(/candidates\(\)/.test(main), 'فهرست آدرس‌های جایگزین');
 
+    /* سیستم مدرسه خاموش → همان صفحهٔ قبلی از کش گوشی */
+    assert.ok(/private void showOffline\(/.test(main), 'دکمهٔ آفلاین در گوشی');
+    assert.ok(main.includes('LOAD_CACHE_ELSE_NETWORK'), 'خواندن از کش بدون شبکه');
+    assert.ok(main.includes('KEY_LAST'), 'آخرین نشانی موفق ذخیره می‌شود');
+
     const gradle = fs.readFileSync(path.join(ROOT, 'install/android/app/build.gradle'), 'utf8');
     assert.ok(gradle.includes('buildConfigField'), 'PAYESH_URL در BuildConfig ساخته می‌شود');
     assert.ok(gradle.includes('PAYESH_APP_URL'), 'متغیر محیطی برای پختن آدرس');
@@ -259,6 +264,17 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(app.includes('/api/health'), 'انتظار برای آماده شدن سرور');
     assert.ok(app.includes('server/index.js') || app.includes('"server"'), 'اجرای سرور محلی');
     assert.ok(app.includes('--tray'), 'حالت سینی سیستم برای اجرای خودکار');
+
+    /* ۴.۲) نقش این رایانه با «سیستم مدرسه» یکی است: اگر فایل‌های سرور هست، سرور است
+       (باگ 0.4.3: یک تنظیم چسبندهٔ mode=client سیستم مدرسه را برای همیشه «کاربر» می‌کرد) */
+    assert.ok(app.includes('bool hasServer'), 'وجود فایل‌های سرور تعیین‌کننده است');
+    assert.ok(!/mode"\) == "client"/.test(app), 'تنظیم چسبندهٔ mode=client حذف شده');
+    assert.ok(!app.includes('SaveIni(_settingsFile, "mode", "client")'), 'دکمهٔ جستجو رایانه را کاربر نمی‌کند');
+
+    /* ۴.۳) حالت آفلاین: سیستم مدرسه خاموش است → آخرین وضعیت ذخیره‌شده */
+    assert.ok(/private void ShowOffline\(/.test(app), 'دکمهٔ نمایش آخرین وضعیت');
+    assert.ok(/SaveIni\(_settingsFile, "last_url", url\)/.test(app), 'آخرین نشانی موفق ذخیره می‌شود');
+    assert.ok(app.includes('حالت آفلاین'), 'نوار آفلاین');
 
     /* ۴.۵) کلیک دوباره روی آیکون = آوردن پنجرهٔ موجود، نه پیام «باز است» */
     assert.ok(app.includes('TryOpenExisting'), 'سیگنال تک‌نمونه‌ای');

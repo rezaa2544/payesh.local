@@ -7,6 +7,8 @@
     <string name="retry">تلاش دوباره</string>
     <string name="find_lan">جستجوی خودکار در شبکهٔ مدرسه</string>
     <string name="set_manual">تنظیم دستی آدرس</string>
+    <string name="offline_view">نمایش آخرین وضعیت (آفلاین)</string>
+    <string name="offline_empty">هنوز هیچ صفحه‌ای روی این گوشی ذخیره نشده است. یک‌بار که به سامانه وصل شوید، بعد از آن حتی با خاموش بودن سیستم مدرسه هم آخرین وضعیت را می‌بینید.</string>
     <string name="server_title">آدرس سامانه</string>
     <string name="server_hint">مثلاً https://payesh.example.ts.net</string>
     <string name="server_help_short">این آدرس را فقط در حالت اضطراری وارد کنید؛ معمولاً برنامه خودش وصل می‌شود.</string>
@@ -15,5 +17,5 @@
     <string name="clear">پاک کردن و اتصال خودکار</string>
     <string name="change_server">تغییر آدرس سامانه</string>
     <string name="reload">اتصال دوباره</string>
-    <string name="conn_error">اتصال به سامانهٔ مدرسه برقرار نشد.\n\nمطمئن شوید اینترنت گوشی وصل است و سامانه روشن است. برنامه خودش هر چند لحظه دوباره تلاش می‌کند.</string>
+    <string name="conn_error">سامانهٔ مدرسه در دسترس نیست.\n\nاگر سیستم مدرسه خاموش است این طبیعی است: با «نمایش آخرین وضعیت» همان صفحهٔ قبلی از حافظهٔ گوشی باز می‌شود و ثبت‌های جدید در صف می‌مانند تا سیستم روشن شود.</string>
 </resources>
