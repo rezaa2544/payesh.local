@@ -22,12 +22,28 @@
   #error runtime\node.exe در بسته نیست — نصب بدون Node ناقص است
 #endif
 
+; ── استانداردهای مایکروسافت ─────────────────────────────────────────
+;  • شناسنامهٔ کامل (نام، شرکت، نسخه، حق نشر، نشانی) — بدون آن ویندوز
+;    نصب‌کننده را «ناشناس» می‌بیند و «ویژگی‌های فایل» خالی است.
+;  • PrivilegesRequiredOverridesAllowed: اگر کاربر دسترسی مدیر ندارد،
+;    می‌تواند «فقط برای من» نصب کند و هیچ پنجرهٔ دسترسیِ مدیر نبیند.
+;  • اگر روزی گواهی امضای کد (Authenticode) داشتیم، با /DSignedBuild
+;    همین فایل خودکار امضا می‌شود و هشدار «ناشر ناشناس» برداشته می‌شود.
+#ifdef SignedBuild
+SignTool=payesh
+SignedUninstaller=yes
+#endif
+
 [Setup]
 AppId={{7C4E2A51-9F3B-4E7A-9C21-5B8A1D3E6F02}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
+AppPublisherURL=https://github.com/rezaa2544/payesh.local
+AppSupportURL=https://github.com/rezaa2544/payesh.local
+AppUpdatesURL=https://github.com/rezaa2544/payesh.local/releases
+AppCopyright=© 1404 {#AppPublisher} — MIT License
 AppComments=سامانهٔ مدیریت مدرسه — اجرا روی همین سیستم، دسترسی از هر اینترنتی
 DefaultDirName={autopf}\Payesh
 DefaultGroupName={#AppName}
@@ -42,14 +58,22 @@ SolidCompression=yes
 LZMANumBlockThreads=4
 WizardStyle=modern
 PrivilegesRequired=admin
+; اجازهٔ نصب «فقط برای من» بدون دسترسی مدیر (بدون پنجرهٔ UAC)
+PrivilegesRequiredOverridesAllowed=dialog
+; در به‌روزرسانی، همان حالت نصب قبلی حفظ می‌شود و دوباره پرسیده نمی‌شود
+UsePreviousPrivileges=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 UninstallDisplayName={#AppName}
 VersionInfoVersion={#AppVersion}.0
+VersionInfoProductVersion={#AppVersion}.0
+VersionInfoProductTextVersion={#AppVersion}
+VersionInfoTextVersion={#AppVersion}
 VersionInfoProductName={#AppName}
 VersionInfoCompany={#AppPublisher}
-VersionInfoDescription=نصب‌کنندهٔ پایش-لوکال
+VersionInfoCopyright=© 1404 {#AppPublisher} — MIT License
+VersionInfoDescription=نصب‌کنندهٔ پایش-لوکال — سامانهٔ مدیریت مدرسه
 SetupLogging=yes
 SetupIconFile=install\windows\payesh.ico
 UninstallDisplayIcon={app}\payesh.ico
@@ -58,6 +82,7 @@ UsePreviousAppDir=yes
 CloseApplications=yes
 RestartApplications=no
 ChangesAssociations=no
+ChangesEnvironment=no
 
 [Code]
 { ─────────────────────────────────────────────────────────────────
@@ -109,6 +134,8 @@ var
   Code: Integer;
   Args: String;
 begin
+  { در نصب «فقط برای من» پوشه مالِ خودِ کاربر است و اجازه‌دادن لازم نیست }
+  if not IsAdminInstallMode then Exit;
   Args :=
     '"' + ExpandConstant('{app}\client') + '" ' +
     '"' + ExpandConstant('{app}\server') + '" ' +
@@ -142,7 +169,7 @@ Name: "fa"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "autostart"; Description: "اجرای خودکار هنگام روشن شدن ویندوز"; GroupDescription: "گزینه‌ها:"; Flags: checkedonce
-Name: "firewall"; Description: "باز کردن درگاه ۸۰۸۰ برای شبکهٔ مدرسه"; GroupDescription: "گزینه‌ها:"; Flags: checkedonce
+Name: "firewall"; Description: "باز کردن درگاه ۸۰۸۰ برای شبکهٔ مدرسه (نیاز به دسترسی مدیر)"; GroupDescription: "گزینه‌ها:"; Flags: checkedonce
 Name: "desktopicon"; Description: "ساخت آیکون روی دسکتاپ"; GroupDescription: "گزینه‌ها:"; Flags: checkedonce
 Name: "tailscale"; Description: "نصب Tailscale برای دسترسی از هر اینترنتی (رایگان، بدون دامنه)"; GroupDescription: "دسترسی از راه دور:"; Flags: checkedonce
 Name: "clientmode"; Description: "این رایانه فقط کاربر است و به سیستم مدرسه وصل می‌شود (نه سرور)"; GroupDescription: "نوع نصب:"; Flags: unchecked
@@ -174,13 +201,15 @@ Name: "{group}\حذف {#AppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\desktop\Payesh.exe"; WorkingDir: "{app}"; IconFilename: "{app}\payesh.ico"; Tasks: desktopicon
 
 [Registry]
-Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "PayeshLocal"; ValueData: """{app}\desktop\Payesh.exe"" --server --tray"; Flags: uninsdeletevalue; Tasks: autostart
+; اجرای خودکار هنگام روشن‌شدن ویندوز — جای درستش با نوع نصب تعیین می‌شود
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "PayeshLocal"; ValueData: """{app}\desktop\Payesh.exe"" --server --tray"; Flags: uninsdeletevalue; Tasks: autostart; Check: IsAdminInstallMode
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "PayeshLocal"; ValueData: """{app}\desktop\Payesh.exe"" --server --tray"; Flags: uninsdeletevalue; Tasks: autostart; Check: not IsAdminInstallMode
 
 [Run]
 ; اجازهٔ نوشتن برای همهٔ کاربران روی پوشه‌های کد (نسخه‌های قبلی این اجازه را نداشتند)
-Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Payesh Local"""; Flags: runhidden; Tasks: firewall
-Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Payesh Local"" dir=in action=allow protocol=TCP localport=8080 profile=any"; Flags: runhidden; Tasks: firewall
-Filename: "{cmd}"; Parameters: "/c winget install --id Tailscale.Tailscale -e --silent --accept-package-agreements --accept-source-agreements"; Flags: runhidden waituntilterminated; Tasks: tailscale; StatusMsg: "نصب Tailscale برای دسترسی از هر اینترنتی…"
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Payesh Local"""; Flags: runhidden; Tasks: firewall; Check: IsAdminInstallMode
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Payesh Local"" dir=in action=allow protocol=TCP localport=8080 profile=any"; Flags: runhidden; Tasks: firewall; Check: IsAdminInstallMode
+Filename: "{cmd}"; Parameters: "/c winget install --id Tailscale.Tailscale -e --silent --accept-package-agreements --accept-source-agreements"; Flags: runhidden waituntilterminated; Tasks: tailscale; StatusMsg: "نصب Tailscale برای دسترسی از هر اینترنتی…"; Check: IsAdminInstallMode
 Filename: "{sys}\wscript.exe"; Parameters: """{app}\start-hidden.vbs"""; Flags: nowait runhidden; StatusMsg: "راه‌اندازی سامانه…"
 Filename: "{app}\desktop\Payesh.exe"; Description: "باز کردن برنامهٔ پایش"; Flags: postinstall nowait skipifsilent
 

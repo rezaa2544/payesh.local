@@ -1,15 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ══ استانداردهای گوگل ═══════════════════════════════════════════
+         • تنها مجوزهای لازم: اینترنت و وضعیت شبکه. هیچ مجوز حساسی
+           (دوربین، مخاطبین، پیامک، نصب برنامه، دسترسی فایل) خواسته
+           نمی‌شود؛ همین باعث می‌شود هنگام نصب هشدار «برنامهٔ پرخطر»
+           دیده نشود.
+         • allowBackup=false : اطلاعات دانش‌آموزان در نسخهٔ پشتیبان ابری
+           گوگل کپی نمی‌شود (هم حریم خصوصی، هم توصیهٔ گوگل برای دادهٔ
+           سازمانی).
+         • appCategory=education و localeConfig : برنامه در فهرست، در
+           دستهٔ «آموزش» و با زبان فارسی شناخته می‌شود.
+         • enableOnBackInvokedCallback : رفتار دکمهٔ بازگشت مطابق اندروید ۱۳+.
+         • <queries> : بازکردن پیوند در مرورگر روی اندروید ۱۱+ بدون خطا.
+         ══════════════════════════════════════════════════════════════ -->
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
+
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:appCategory="education"
+        android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
+        android:hardwareAccelerated="true"
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/AppTheme">

@@ -114,22 +114,43 @@ jobs:
           sed -i "s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" install/android/app/build.gradle
           sed -i "s/versionCode [0-9]\+/versionCode ${{ github.run_number }}/" install/android/app/build.gradle
           grep -E "versionName|versionCode" install/android/app/build.gradle
-          gradle assembleDebug --no-daemon -p install/android
+          # نسخهٔ «انتشار» ساخته می‌شود، نه debug:
+          #  • debuggable=false → گوگل برنامه را «آزمایشی» نمی‌بیند
+          #  • امضای v1+v2+v3 با کلید ثابت → نصب و به‌روزرسانی بی‌هشدار
+          gradle assembleRelease --no-daemon -p install/android
           echo "آدرس پخته‌شده در APK: ${PAYESH_APP_URL:-خالی (برنامه از android-config.json یا شبکه پیدا می‌کند)}"
 
-      - name: بررسی امضای APK (نصب روی نسخهٔ قبلی)
+      - name: بررسی امضا و استانداردهای APK (گوگل)
         run: |
           set +e
-          APK=install/android/app/build/outputs/apk/debug/app-debug.apk
+          APK=install/android/app/build/outputs/apk/release/app-release.apk
           ls -l "$APK"
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           BT=$(ls -d "$SDK"/build-tools/* 2>/dev/null | sort -V | tail -1)
           echo "SDK=$SDK build-tools=$BT"
+          # ── ۱) تراز بایت (zipalign): شرط نصب روان و بی‌خطا در اندروید ──
+          if [ -n "$BT" ] && [ -x "$BT/zipalign" ]; then
+            "$BT/zipalign" -c -v 4 "$APK" > /tmp/align.txt 2>&1
+            if [ $? -ne 0 ]; then
+              echo "::error::APK تراز (zipalign) نیست — اندروید نصب آن را رد می‌کند"
+              tail -5 /tmp/align.txt
+              exit 1
+            fi
+            echo "✓ تراز بایت درست است (zipalign)"
+          fi
+          # ── ۲) امضای v1/v2/v3 با کلید ثابت ─────────────────────────────
           SIGNED=no
           if [ -n "$BT" ] && [ -x "$BT/apksigner" ]; then
-            "$BT/apksigner" verify --print-certs "$APK" > /tmp/sig.txt 2>&1
+            "$BT/apksigner" verify --verbose --print-certs "$APK" > /tmp/sig.txt 2>&1
             echo "apksigner exit=$?"
-            head -8 /tmp/sig.txt
+            head -14 /tmp/sig.txt
+            for scheme in "v2 scheme: true" "v3 scheme: true"; do
+              if ! grep -q "Verified using $scheme" /tmp/sig.txt; then
+                echo "::error::امضای «$scheme» نیست — اندروید ۷ به بعد برنامه را قبول نمی‌کند"
+                exit 1
+              fi
+            done
+            echo "✓ امضای v2 و v3 هر دو درست است"
             if grep -q "Signer #1 certificate SHA-256 digest" /tmp/sig.txt; then
               SIGNED=yes
               FP=$(grep "Signer #1 certificate SHA-256 digest" /tmp/sig.txt | tr -d ' ' | cut -d: -f2 | tr 'A-F' 'a-f')
@@ -155,8 +176,20 @@ jobs:
 
       - name: بررسی سلامت APK
         run: |
-          APK=install/android/app/build/outputs/apk/debug/app-debug.apk
+          APK=install/android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK" || { echo "APK ساخته نشد"; exit 1; }
+          # نسخهٔ منتشرشده نباید «اشکال‌زدایی‌شدنی» باشد؛ وگرنه گوگل آن را
+          # برنامهٔ آزمایشی می‌شناسد و هنگام نصب هشدار می‌دهد.
+          SDK2="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BT2=$(ls -d "$SDK2"/build-tools/* 2>/dev/null | sort -V | tail -1)
+          if [ -n "$BT2" ] && [ -x "$BT2/aapt" ]; then
+            if "$BT2/aapt" dump badging "$APK" 2>/dev/null | grep -q "application-debuggable"; then
+              echo "::error::APK نسخهٔ debug است — باید نسخهٔ release ساخته شود"
+              exit 1
+            fi
+            echo "✓ نسخهٔ انتشار است (debuggable=false)"
+            "$BT2/aapt" dump badging "$APK" 2>/dev/null | grep -E "^(package|sdkVersion|targetSdkVersion|application-label|uses-permission)" | head -12
+          fi
           unzip -l "$APK" | grep -q "classes.dex"
           unzip -l "$APK" | grep -q "AndroidManifest.xml"
           # برنامهٔ کاملِ وب باید داخل APK باشد (نه یک پوستهٔ خالی)
@@ -176,7 +209,7 @@ jobs:
       - name: آماده‌سازی فایل‌های انتشار
         run: |
           mkdir -p out
-          cp install/android/app/build/outputs/apk/debug/app-debug.apk out/payesh-local.apk
+          cp install/android/app/build/outputs/apk/release/app-release.apk out/payesh-local.apk
           # نام ثابت برای لینک‌های همیشه‌درست در README
           cp releases/payesh-local-windows-*.zip out/payesh-local-windows.zip
           cp releases/*.zip releases/*.tar.gz out/ 2>/dev/null || true
