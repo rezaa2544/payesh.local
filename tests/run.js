@@ -326,6 +326,35 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(health.slice(0, 900).includes('public_url'), 'public_url در /api/health');
   });
 
+  await test('استقرار ابری: بستهٔ آماده، داکر و اسکریپت VPS', () => {
+    const need = ['deploy/README.md', 'deploy/vps-setup.sh', 'deploy/payesh.service',
+      'deploy/backup.sh', 'deploy/selfcheck.mjs', 'deploy/.env.example',
+      'Dockerfile', 'docker-compose.yml', 'scripts/build-cloud-bundle.mjs'];
+    for (const f of need) assert.ok(fs.existsSync(path.join(ROOT, f)), 'فایل موجود: ' + f);
+
+    const docker = fs.readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8');
+    assert.ok(/FROM node:22/.test(docker), 'Node 22 برای node:sqlite');
+    assert.ok(docker.includes('--experimental-sqlite'), 'پرچم sqlite در اجرا');
+    assert.ok(/PAYESH_DATA=\/data/.test(docker), 'دادهٔ ماندگار در volume');
+    assert.ok(/EXPOSE 8080/.test(docker), 'درگاه');
+
+    const vps = fs.readFileSync(path.join(ROOT, 'deploy/vps-setup.sh'), 'utf8');
+    assert.ok(vps.includes('systemctl enable --now payesh'), 'سرویس systemd');
+    assert.ok(vps.includes('PAYESH_TUNNEL_AUTO=0'), 'تونل روی ابر خاموش');
+    assert.ok(/certbot/.test(vps), 'SSL خودکار با دامنه');
+    assert.ok(/23\.5|minor.*-ge 5|node:sqlite/i.test(vps), 'بررسی نسخهٔ Node');
+
+    const env = fs.readFileSync(path.join(ROOT, 'deploy/.env.example'), 'utf8');
+    assert.ok(env.includes('PAYESH_DATA') && env.includes('PAYESH_PUBLIC_URL'), 'متغیرهای لازم');
+
+    const bundle = fs.readFileSync(path.join(ROOT, 'scripts/build-cloud-bundle.mjs'), 'utf8');
+    assert.ok(bundle.includes('payesh-cloud.zip'), 'خروجی ZIP برای پنل');
+    assert.ok(bundle.includes('START-HERE.txt'), 'راهنمای کنار بسته');
+
+    const check = fs.readFileSync(path.join(ROOT, 'deploy/selfcheck.mjs'), 'utf8');
+    assert.ok(check.includes('/api/health') && check.includes('setup_done'), 'بررسی سلامت استقرار');
+  });
+
   /* ── ۲.۵ شبکه: آدرس رسمی، QR، انتقال دستگاه، قفل PIN ── */
 
   await test('اطلاعات شبکه و آدرس عمومی', async () => {
