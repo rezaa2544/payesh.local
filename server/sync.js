@@ -50,6 +50,10 @@ function pull(store, actor, params) {
       }
       if (!policy.rowInScope(scope, name, data)) continue;
       data._version = r.version;
+      /* رمزها فقط برای مدیر می‌آیند؛ بقیهٔ نقش‌ها حتی هش را نمی‌بینند */
+      if (name === 'users' && actor.role !== 'manager') {
+        delete data.password_hash; delete data.phone_hash; delete data.password_plain;
+      }
       out.push(data);
     }
     if (out.length || truncated) collections[name] = out;

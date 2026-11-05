@@ -38,6 +38,7 @@ async function openAs(token, device) {
       win.indexedDB = undefined;
       win.scrollTo = () => {};
       win.alert = () => {};
+      win.confirm = () => true;
       win.addEventListener('error', ev => errors.push(ev.message || String(ev.error)));
       win.addEventListener('unhandledrejection', ev => errors.push('promise: ' + (ev.reason && ev.reason.message)));
     },
@@ -137,6 +138,29 @@ async function go(win, hash) {
   const afterLeave = await api('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: MT });
   assert.ok(afterLeave.collections.leaves.some(l => l.reason === 'مراجعه به پزشک'), 'مرخصی در سرور');
   console.log('  ✓ درخواست مرخصی از پنل ولی به سرور رسید');
+
+  /* ── مدیر: رمز عبور هر کاربر دیده می‌شود و حذف کاربر از رابط کار می‌کند ── */
+  await go(mw, '#/users');
+  await sleep(1200);
+  const usersTxt = mw.document.body.textContent;
+  assert.ok(usersTxt.includes('رمز عبور'), 'ستون رمز عبور در فهرست کاربران');
+  const credsRow = (await api('/api/admin/users/credentials', { token: MT })).users.find(u => u.role === 'manager');
+  assert.ok(credsRow && credsRow.password, 'رمز مدیر در سرور ثبت است');
+  assert.ok(usersTxt.includes(credsRow.password), 'رمز کنار نام کاربر دیده می‌شود');
+  console.log('  ✓ رمز عبور کنار هر کاربر نمایش داده می‌شود');
+
+  const beforeDel = (await api('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: MT })).collections.users;
+  const victim = beforeDel.find(u => u.role === 'student');
+  const victimRow = [...mw.document.querySelectorAll('tr')].find(tr => tr.textContent.includes(victim.name));
+  assert.ok(victimRow, 'ردیف کاربر پیدا شد');
+  const delBtn = victimRow.querySelector('[data-act="user-delete"]');
+  assert.ok(delBtn, 'دکمهٔ حذف');
+  delBtn.dispatchEvent(new mw.MouseEvent('click', { bubbles: true }));
+  await sleep(1500);
+  const afterDel = (await api('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: MT })).collections.users;
+  assert.ok(!afterDel.some(u => u.id === victim.id), 'کاربر از سرور حذف شد');
+  assert.ok(mw.document.body.textContent.includes('کاربر حذف شد') || !mw.document.body.textContent.includes(victim.name), 'از فهرست رابط هم رفت');
+  console.log('  ✓ حذف کاربر از رابط کار کرد');
 
   const errs = [...tw.errors, ...mw.errors, ...pw.errors];
   assert.strictEqual(errs.length, 0, 'خطای اجرایی: ' + errs[0]);

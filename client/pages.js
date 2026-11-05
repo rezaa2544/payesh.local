@@ -79,16 +79,20 @@ function canonicalBarHtml() {
     try { if (location.origin === new URL(pub).origin) return ''; } catch (e) { return ''; }
     if (localStorage.getItem('payesh.originbar.off') === pub) return '';
     return `<div class="banner warn" id="origin-bar">
-      <div>🌐 این آدرس فقط داخل شبکهٔ مدرسه کار می‌کند. برای استفاده از هر اینترنتی (خانه و موبایل)، آدرس رسمی را باز کنید:
+      <div>🌐 آدرس رسمی برنامه این است؛ با همان هم می‌توانید از هر اینترنتی وارد شوید:
         <span class="ltr small" style="font-weight:700">${esc(pub.replace(/^https?:\/\//, ''))}</span></div>
       <button class="btn sm primary" data-act="transfer">انتقال به آدرس رسمی</button>
     </div>`;
   }
   if (S.role !== 'manager') return '';
+  /* هیچ پیام «فقط شبکهٔ مدرسه» نداریم: هر دستگاه خودش کار می‌کند و حافظهٔ
+     مشترک ابری همه‌جا در دسترس است. فقط اگر خودِ حافظه تنظیم نشده باشد،
+     یک یادآوری کوچک با دکمهٔ تنظیم خودکار نشان می‌دهیم. */
+  if (S.server && S.server.cloudReady) return '';
   if (localStorage.getItem('payesh.originbar.off') === 'none') return '';
   return `<div class="banner warn" id="origin-bar">
-    <div>🌐 الآن فقط داخل شبکهٔ مدرسه کار می‌کند. برای ورود از هر اینترنتی (خانه و موبایل) یک آدرس ثابت لازم است.</div>
-    <button class="btn sm primary" data-act="goto" data-route="network">تنظیم آدرس ثابت</button>
+    <div>☁️ حافظهٔ مشترک ابری هنوز آماده نیست — با یک کلیک خودکار تنظیم می‌شود؛ بعد از آن گوشی و خانه هم به همه‌چیز دسترسی دارند.</div>
+    <button class="btn sm primary" data-act="cloud-phone-check">تنظیم خودکار</button>
     <button class="btn sm ghost" data-act="originbar-off">بستن</button>
   </div>`;
 }
@@ -306,6 +310,8 @@ function renderPhoneLogin() {
         ۲) اگر بازهم نشد، یک‌بار در <b>سیستم مدرسه</b> برنامه را باز کنید تا تنظیم‌ها و اجازهٔ دسترسی خودکار انجام شود.<br>
         ۳) بعد همین‌جا دوباره «ورود» را بزنید.
       </div>
+      <div class="row" style="margin-top:10px"><button class="btn sm" type="button" data-act="phone-diagnose">بررسی دقیق اتصال</button></div>
+      <div id="diag-out" class="small" style="margin-top:8px;text-align:right;line-height:2"></div>
     </details>
     <div class="center small" style="margin-top:14px">
       <button class="btn sm ghost" data-act="retry">تلاش مجدد برای اتصال به سیستم مدرسه</button>
@@ -585,12 +591,19 @@ PAGES.users = () => {
         `<span class="pill ${role === v ? 'on' : ''}" data-act="role-filter" data-role="${v}">${t}</span>`).join('')}
     </div>
   </div>
-  ${card(`<div class="table-wrap"><table><thead><tr><th>نام</th><th>نقش</th><th>کلاس</th><th>نام کاربری (همراه)</th><th></th></tr></thead><tbody>
+  ${card(`<div class="small muted" style="margin-bottom:6px">نام کاربری هر نفر همان شمارهٔ همراه است و رمز عبور کنارش نوشته شده تا بتوانید به خودش بگویید. این جدول را فقط مدیر می‌بیند.</div>
+  <div class="table-wrap"><table><thead><tr><th>نام</th><th>نقش</th><th>کلاس</th><th>نام کاربری (همراه)</th><th>رمز عبور</th><th></th></tr></thead><tbody>
     ${users.map(u => `<tr>
       <td>${esc(u.name)}</td>
       <td>${badge(ROLE_FA[u.role] || u.role, u.role === 'manager' ? 'purple' : '')}</td>
       <td class="small">${esc((byId('classes', u.class_id) || {}).name || '—')}</td>
-      <td class="small ltr">${esc(u.phone || '—')}${u.password_hash ? ' 🔑' : ''}</td>
+      <td class="small ltr">${esc(u.phone || '—')}</td>
+      <td class="small ltr">${(() => {
+        const c = S.creds && S.creds[u.id];
+        if (!S.creds) return '<span class="muted">…</span>';
+        if (c && c.password) return `<b>${esc(c.password)}</b>`;
+        return '<span class="muted" title="رمز قبلاً تعیین شده و قابل خواندن نیست">—</span>';
+      })()}</td>
       <td>
         ${/^pbkdf2\$/.test(String(u.phone_hash || '')) ? '' : `<button class="btn sm ghost" data-act="user-auto-pw" data-id="${u.id}" title="رمز گوشی = کد ملی">آماده‌سازی گوشی</button>`}
         <button class="btn sm" data-act="pair-code" data-id="${u.id}">کارت پیوند</button>
@@ -1005,7 +1018,7 @@ PAGES.system = () => {
   ${card(`<b>راهنمای دستگاه‌ها</b><div class="small muted" style="margin-top:6px">
     ${S.server.publicUrl
       ? `آدرس رسمی را روی گوشی باز کنید و «افزودن به صفحهٔ اصلی» را بزنید:<br><span class="ltr" style="font-weight:700">${esc(S.server.publicUrl)}</span>`
-      : `آدرس زیر فقط داخل شبکهٔ مدرسه کار می‌کند. برای دسترسی از هر اینترنتی، <a href="#/network">آدرس رسمی</a> را تنظیم کنید:<br><span class="ltr" style="font-weight:700">http://${esc(location.host)}</span>`}
+      : `همهٔ دستگاه‌ها از طریق حافظهٔ مشترک ابری به همین اطلاعات می‌رسند؛ آدرس زیر فقط آدرس همین دستگاه است:<br><span class="ltr" style="font-weight:700">http://${esc(location.host)}</span>`}
     <br><a href="/install" target="_blank">صفحهٔ نصب و راهنما</a>
   </div>`)}`;
 };
@@ -1017,6 +1030,7 @@ function accountCard() {
   return card(`<div class="row between"><b>👤 حساب من</b>${badge(ROLE_FA[S.role] || S.role, '')}</div>
     <div class="small muted" style="margin-top:6px">نام: <b>${esc(u.name || '')}</b></div>
     <div class="small muted" style="margin-top:2px">نام کاربری (شمارهٔ همراه): <span class="ltr">${esc(phone || '—')}</span></div>
+    ${u.password ? `<div class="small muted" style="margin-top:2px">رمز عبور فعلی: <span class="ltr"><b>${esc(u.password)}</b></span></div>` : ''}
     <form data-form="own-password" style="margin-top:10px">
       <label class="field"><span>رمز فعلی</span><input class="input ltr" type="password" name="current" autocomplete="current-password"></label>
       <label class="field"><span>رمز تازه</span><input class="input ltr" type="password" name="next" autocomplete="new-password"></label>
@@ -1098,6 +1112,16 @@ PAGES.cloud = () => {
       <button class="btn sm ghost" data-act="cloud-test-browser" ${busy ? 'disabled' : ''}>آزمایش از همین دستگاه</button>
     </div>`) : ''}
 
+  ${card(`<b>📱 دسترسی گوشی‌ها</b>
+    <div class="small muted" style="margin-top:6px;line-height:1.9">
+      گوشی و رایانهٔ خانه با همین حافظهٔ مشترک کار می‌کنند. این دکمه همه‌چیز را خودش بررسی و درست می‌کند:
+      صندوقچه پیدا می‌شود، اجازهٔ خواندن برای گوشی گذاشته می‌شود، و نتیجه را همین‌جا می‌بینید.
+    </div>
+    <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+      <button class="btn sm primary" data-act="cloud-phone-check" ${busy ? 'disabled' : ''}>بررسی و درست‌کردن دسترسی گوشی</button>
+    </div>
+    <div id="cloud-phone-out" class="small" style="margin-top:10px">${S.phoneCheck ? phoneCheckHtml(S.phoneCheck) : ''}</div>`)}
+
   ${card(`<b>CORS — اجازهٔ مرورگر</b>
     <div class="small muted" style="margin-top:6px;line-height:1.9">
       گوشی‌ها مستقیم با صندوقچه حرف می‌زنند، پس صندوقچه باید به مرورگر اجازه بدهد.
@@ -1107,6 +1131,25 @@ PAGES.cloud = () => {
       <span class="ltr">*</span> و متدهای <span class="ltr">GET, PUT, DELETE, HEAD</span> بسازید.
     </div>`)}`;
 };
+
+/* نتیجهٔ «بررسی دسترسی گوشی» به زبان ساده */
+function phoneCheckHtml(r) {
+  if (!r) return '';
+  const ok = !!r.ok;
+  const steps = (r.steps || []).map(st => {
+    const label = {
+      bucket: 'پیدا کردن صندوقچه',
+      cors: 'اجازهٔ خواندن برای گوشی',
+      set_cors: 'گذاشتن اجازهٔ خواندن',
+      cors_after: 'آزمایش دوباره بعد از تنظیم',
+    }[st.step] || st.step;
+    const good = st.ok !== false;
+    return `<div>${good ? '✅' : '❌'} ${esc(label)}${st.status ? ' — کد ' + fa(st.status) : ''}${st.error ? ' — ' + esc(st.error) : ''}</div>`;
+  }).join('');
+  return `${ok ? badge('گوشی می‌تواند بخواند و بنویسد', 'green') : badge('هنوز نشده', 'amber')}
+    <div style="margin-top:6px;line-height:1.9">${steps}</div>
+    ${ok ? '' : '<div class="muted" style="margin-top:6px">اگر «گذاشتن اجازه» خطا داد، کلیدِ صندوقچه اجازهٔ مدیریت ندارد؛ در پنل ابری یک قانون CORS با <span class="ltr">*</span> و متدهای GET/PUT/DELETE/HEAD بسازید.</div>'}`;
+}
 
 /* ══════════════ کنش‌ها ══════════════ */
 function modal(html) {

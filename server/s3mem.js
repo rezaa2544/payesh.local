@@ -87,5 +87,5 @@ async function uploadBackup(store, file) {
 
 module.exports = Object.assign({}, s3, {
   META_KEY, DEFAULTS: baked.DEFAULTS, defaults, normalize, saved, usingMeta, ensureBucket, uploadBackup,
-  smartParse: s3.smartParse, setCors: s3.setCors, getCors: s3.getCors, listBuckets: s3.listBuckets,
+  smartParse: s3.smartParse, setCors: s3.setCors, getCors: s3.getCors, corsProbe: s3.corsProbe, listBuckets: s3.listBuckets,
 });

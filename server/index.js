@@ -205,6 +205,10 @@ async function api(req, res, url, ip) {
       data_dir: DATA_DIR, db_file: path.join(DATA_DIR, 'payesh.sqlite'),
       public_url: cfg.publicUrl(store) || null,
       instance: cfg.instanceId(store),
+      cloud_ready: (() => {
+        try { const v = s3mem.usingMeta(store).get(); return !!(v.endpoint && v.bucket && v.accessKey && v.secret); }
+        catch (e) { return false; }
+      })(),
     });
   }
 
@@ -375,7 +379,8 @@ async function api(req, res, url, ip) {
       ok: true, server_time: nowISO(),
       school: { id: 1, name: school.name, type: school.type, level: school.level, city: school.city, capabilities: school.capabilities || {} },
       year: { title: year.title || '' },
-      user: userRow(actor.user), role: actor.role,
+      user: Object.assign({}, userRow(actor.user), { password: auth.passwordOf(store, actor.user) }),
+      role: actor.role,
       counts: {
         users: store.count('users'), classes: store.count('classes'),
         attendance: store.count('attendance'), grades: store.count('grades'),
@@ -620,6 +625,32 @@ async function api(req, res, url, ip) {
       configured: !!(out.endpoint && out.bucket && out.accessKey && out.secret) });
   }
 
+  if (p === '/api/admin/cloud/phone-check' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const steps = [];
+    let cfg = s3mem.normalize(s3mem.usingMeta(store).get());
+    if (!cfg.bucket) {
+      try { cfg = await s3mem.ensureBucket(store); steps.push({ step: 'bucket', ok: !!cfg.bucket, bucket: cfg.bucket || null }); }
+      catch (e) { steps.push({ step: 'bucket', ok: false, error: e.message }); }
+    } else steps.push({ step: 'bucket', ok: true, bucket: cfg.bucket });
+    if (!cfg.bucket) return json({ ok: false, steps });
+    let probe = await s3mem.corsProbe(cfg);
+    steps.push({ step: 'cors', ok: !!probe.ok, status: probe.status, allow_origin: probe.allow_origin, error: probe.error || null });
+    if (!probe.ok && probe.reachable) {
+      /* اجازه نبود: همین‌جا می‌گذاریم و دوباره آزمایش می‌کنیم */
+      try {
+        await s3mem.setCors(cfg);
+        steps.push({ step: 'set_cors', ok: true });
+      } catch (e) {
+        steps.push({ step: 'set_cors', ok: false, error: e.message, status: e.status || 0, detail: String(e.detail || '').slice(0, 200) });
+      }
+      probe = await s3mem.corsProbe(cfg);
+      steps.push({ step: 'cors_after', ok: !!probe.ok, status: probe.status, allow_origin: probe.allow_origin, error: probe.error || null });
+    }
+    store.audit({ user_id: actor.user.id, role: 'manager', action: 'cloud_phone_check', collection: 'meta' });
+    return json({ ok: !!probe.ok, bucket: cfg.bucket, steps });
+  }
+
   if (p === '/api/admin/cloud/reset' && m === 'POST') {
     s3mem.usingMeta(store).clear();
     store.audit({ user_id: actor.user.id, role: 'manager', action: 'cloud_reset', collection: 'meta' });
@@ -653,6 +684,16 @@ async function api(req, res, url, ip) {
     } catch (e) {
       return json({ ok: false, error: e.message, detail: e.detail || null, status: e.status || 0 }, 200);
     }
+  }
+
+  /* ── رمز جاری همهٔ کاربران — فقط مدیر، برای اینکه بتواند رمز را بگوید ── */
+  if (p === '/api/admin/users/credentials' && m === 'GET') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const rows = (store.all('users') || []).map(u => ({
+      id: u.id, name: u.name, role: u.role,
+      phone: u.phone || '', password: auth.passwordOf(store, u),
+    }));
+    return json({ ok: true, users: rows });
   }
 
   /* ── ویرایش/حذف کاربر توسط مدیر (نام کاربری = شماره، رمز) ─────────── */
@@ -1023,10 +1064,15 @@ if (process.env.PAYESH_CLOUD_AUTO !== '0') {
         if (!c.bucket) return;
         console.log('[cloud] صندوقچه:', c.bucket, '·', c.endpoint);
         try {
-          const cors = await s3mem.getCors(c);
-          if (!cors || !cors.ok) {
+          let probe = await s3mem.corsProbe(c);
+          if (!probe.ok && probe.reachable) {
             await s3mem.setCors(c);
-            console.log('[cloud] اجازهٔ CORS خودکار تنظیم شد (برای برنامهٔ گوشی لازم است)');
+            probe = await s3mem.corsProbe(c);
+            console.log('[cloud] اجازهٔ CORS خودکار تنظیم شد — ' + (probe.ok ? 'گوشی می‌تواند بخواند ✅' : 'هنوز نه ❌'));
+          } else if (probe.ok) {
+            console.log('[cloud] اجازهٔ گوشی از قبل باز است ✅');
+          } else {
+            console.log('[cloud] به صندوقچه نرسیدیم:', probe.detail || probe.error || '');
           }
         } catch (e) {
           console.log('[cloud] تنظیم CORS ناموفق:', e.message);

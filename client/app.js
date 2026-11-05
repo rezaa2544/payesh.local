@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.3';
+const CLIENT_VERSION = '0.8.4';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -37,6 +37,7 @@ const S = {
   tunnelBusy: false,
   tempId: -1,
   syncing: false,
+  creds: undefined,         /* رمز جاری کاربران (فقط مدیر) */
 };
 
 /* ── ابزارهای پایه ─────────────────────────────────────────────── */
@@ -531,6 +532,7 @@ async function enterPhone(user) {
   S.user = user; S.role = user.role;
   S.offline = true;
   S.boot = Object.assign({}, S.boot || {}, { user, role: user.role });
+  S.creds = {};   /* روی گوشی رمزها نمایش داده نمی‌شوند */
   S.server = Object.assign({}, S.server, { ok: false, offline: true, setupDone: true, school: S.server.school || null });
   toast('در حال آوردن اطلاعات…');
   let data = null;
@@ -755,6 +757,18 @@ function render() {
     S._netLoading = true;
     loadNetwork(false).then(() => { S._netLoading = false; if (S.route === 'network') render(); });
   }
+  if (S.route === 'users' && S.role === 'manager' && S.creds === undefined && !S._credsLoading && !PHONE_MODE) {
+    S._credsLoading = true;
+    api('/api/admin/users/credentials')
+      .then(r => {
+        const m = {};
+        (r.users || []).forEach(u => { m[u.id] = u; });
+        S.creds = m;
+      })
+      .catch(() => { S.creds = {}; })
+      .then(() => { S._credsLoading = false; render(); });
+  }
+
   if (S.route === 'cloud' && S.role === 'manager' && S.cloud === undefined && !S._cloudLoading) {
     S._cloudLoading = true;
     loadCloud().then(() => { S._cloudLoading = false; if (S.route === 'cloud') render(); });
@@ -1019,6 +1033,7 @@ async function boot() {
       dataDir: (setup && setup.data_dir) || health.data_dir || null,
       dbFile: (setup && setup.db_file) || health.db_file || null,
       hasPassword: !!(setup && setup.has_password),
+      cloudReady: !!(health && health.cloud_ready),
     };
     if (health.server_time) S.clockOffset = new Date(health.server_time).getTime() - Date.now();
     /* اگر مرورگر نسخهٔ کهنه را از حافظه سرو می‌کند، یک‌بار خودمان را تازه می‌کنیم */
@@ -1063,13 +1078,51 @@ document.addEventListener('click', async (e) => {
   switch (act) {
     case 'modal-close': closeModal(); return;
     case 'retry': boot(); return;
+    case 'cloud-phone-check': {
+      if (PHONE_MODE) { toast('این کار را یک‌بار از سیستم مدرسه انجام دهید', 'err'); return; }
+      S._cloudBusy = true; S.phoneCheck = null; render();
+      try {
+        const r = await api('/api/admin/cloud/phone-check', { method: 'POST', body: {} });
+        S.phoneCheck = r;
+        S.server.cloudReady = !!(r.bucket) && !!r.ok;
+        toast(r.ok ? 'دسترسی گوشی درست شد ✅' : 'هنوز کامل نشد — پایین را ببینید', r.ok ? 'ok' : 'err');
+      } catch (e) {
+        S.phoneCheck = { ok: false, steps: [{ step: 'request', ok: false, error: e.message }] };
+        toast('بررسی انجام نشد: ' + e.message, 'err');
+      } finally {
+        S._cloudBusy = false;
+        if (S.route !== 'cloud') S.route = 'cloud';
+        render();
+      }
+      return;
+    }
+    case 'phone-diagnose': {
+      const box = document.getElementById('diag-out');
+      if (box) box.innerHTML = '<div class="muted">در حال بررسی…</div>';
+      try {
+        const inp = document.querySelector('form[data-form="phone-login"] input[name=phone]');
+        const steps = await window.PayeshPhone.diagnose(inp ? inp.value : '');
+        if (box) box.innerHTML = steps.map(s => `<div>${s.ok ? '✅' : '❌'} ${s.text}${s.detail ? ' — <span class="ltr small">' + s.detail + '</span>' : ''}</div>`).join('');
+      } catch (e) {
+        if (box) box.innerHTML = '<div>❌ ' + (e.message || e) + '</div>';
+      }
+      return;
+    }
     case 'user-edit': actUserEdit(id); return;
     case 'user-delete': {
       const u = byId('users', Number(id));
       if (!u) return;
       if (!confirm('کاربر «' + u.name + '» حذف شود؟ این کار قابل بازگشت نیست.')) return;
       try {
-        if (!PHONE_MODE) await api('/api/admin/users/' + u.id, { method: 'DELETE' });
+        if (!PHONE_MODE) {
+          try {
+            await api('/api/admin/users/' + u.id, { method: 'DELETE' });
+          } catch (e) {
+            /* اگر سیستم مدرسه نسخهٔ قدیمی باشد این مسیر را ندارد؛ از مسیر
+               همگام‌سازی (که همهٔ نسخه‌ها دارند) حذف می‌کنیم. */
+            if (!(e.status === 404 || /not_found/.test(e.message))) throw e;
+          }
+        }
         removeLocal('users', u.id);
         if (S.data.users) S.data.users.delete(Number(u.id));
         saveCache(); render();

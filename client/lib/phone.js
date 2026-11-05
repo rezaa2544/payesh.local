@@ -122,6 +122,69 @@
     }
   }
 
+
+  /* ── تشخیص گام‌به‌گام برای کاربر (بدون اصطلاح فنی) ────────────────
+     هر گام می‌گوید کجا گیر کرده‌ایم: اینترنت، صندوقچه، اجازهٔ دسترسی، یا حساب. */
+  async function diagnose(phone) {
+    const steps = [];
+    const s3 = S3();
+    let cfg = storedConfig();
+    if (!hasKeys(cfg)) cfg = bakedConfig();
+    cfg = s3.normalize(cfg);
+    steps.push({ ok: hasKeys(cfg), text: 'نشانی و کلیدهای حافظه در برنامه هست', detail: cfg.endpoint || '—' });
+    if (!hasKeys(cfg)) return steps;
+
+    /* ۱) آیا اصل اینترنت به سرور حافظه می‌رسد؟ */
+    let reach = null;
+    try {
+      await fetch(cfg.endpoint.replace(/\/+$/, '') + '/', { method: 'HEAD', mode: 'no-cors', cache: 'no-store' });
+      reach = { ok: true };
+    } catch (e) {
+      reach = { ok: false, detail: String(e.message || e).slice(0, 120) };
+    }
+    steps.push({ ok: reach.ok, text: reach.ok ? 'اینترنت گوشی به سرور حافظه می‌رسد' : 'گوشی به سرور حافظه نمی‌رسد (اینترنت/فیلترشکن)', detail: reach.detail || '' });
+    if (!reach.ok) return steps;
+
+    /* ۲) پیدا کردن صندوقچه */
+    if (!cfg.bucket) {
+      try {
+        cfg = await ready(true);
+        steps.push({ ok: true, text: 'صندوقچهٔ مدرسه پیدا شد', detail: cfg.bucket });
+      } catch (e) {
+        steps.push({ ok: false, text: 'صندوقچه پیدا نشد', detail: (e && (e.code || e.message)) || '' });
+        return steps;
+      }
+    } else steps.push({ ok: true, text: 'صندوقچهٔ مدرسه شناخته شده است', detail: cfg.bucket });
+
+    /* ۳) اجازهٔ خواندن (CORS) — اگر نباشد مرورگر جواب را دور می‌ریزد */
+    try {
+      const probe = await s3.corsProbe(cfg);
+      steps.push({
+        ok: !!probe.ok,
+        text: probe.ok ? 'اجازهٔ خواندن حافظه برای برنامه باز است' : 'اجازهٔ خواندن بسته است — یک‌بار در سیستم مدرسه «حافظهٔ ابری ← بررسی و درست‌کردن دسترسی گوشی» را بزنید',
+        detail: probe.ok ? ('allow-origin: ' + probe.allow_origin) : (probe.error || ('کد ' + probe.status)),
+      });
+      if (!probe.ok) return steps;
+    } catch (e) {
+      steps.push({ ok: false, text: 'اجازهٔ خواندن بررسی نشد', detail: String(e.message || e).slice(0, 120) });
+      return steps;
+    }
+
+    /* ۴) حساب این شماره */
+    const p = normPhone(phone);
+    if (p.length >= 10) {
+      try {
+        const env = JSON.parse(await s3.get(cfg, cfg.prefix + 'auth/' + p + '.json'));
+        steps.push({ ok: !!env.verifier, text: 'حساب این شماره در حافظه هست', detail: (env.user && env.user.name) || '' });
+      } catch (e) {
+        steps.push({ ok: false, text: 'برای این شماره حساب پیدا نشد — مدیر باید یک‌بار با سیستم مدرسه همگام شود', detail: e && e.status ? ('کد ' + e.status) : '' });
+      }
+    } else {
+      steps.push({ ok: true, text: 'شماره را کامل وارد کنید تا حسابش هم بررسی شود' });
+    }
+    return steps;
+  }
+
   function normPhone(p) {
     return String(p == null ? '' : p)
       .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
@@ -254,7 +317,7 @@
   }
 
   root.PayeshPhone = {
-    ready, adopt, learnFromServer, login, verify, pullData, send, pendingCount, lastUser,
+    ready, adopt, learnFromServer, diagnose, login, verify, pullData, send, pendingCount, lastUser,
     normPhone, saveConfig, storedConfig, bakedConfig,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
