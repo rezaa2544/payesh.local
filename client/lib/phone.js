@@ -49,17 +49,42 @@
 
   function hasKeys(c) { return !!(c && c.endpoint && c.accessKey && c.secret); }
 
+  /* نام‌های محتمل صندوقچه — فقط وقتی به کار می‌آید که فهرست‌کردن اجازه نداشته باشد */
+  const CANDIDATE_BUCKETS = ['payesh', 'payesh-madrese', 'payesh-school', 'madrese', 'school'];
+
+  function fail(code, detail) {
+    const err = new Error(code);
+    err.code = code;
+    err.detail = detail ? String(detail).slice(0, 200) : null;
+    return err;
+  }
+
   async function ready(force) {
     const s3 = S3();
     let c = storedConfig();
     if (!force && hasKeys(c) && c.bucket) return s3.normalize(c);
     if (!hasKeys(c)) c = bakedConfig();
     c = s3.normalize(c);
-    if (!hasKeys(c)) throw new Error('no_cloud_config');
+    if (!hasKeys(c)) throw fail('no_config');
     if (!c.bucket) {
-      const names = await s3.listBuckets(c);
-      const pick = names.find(n => /payesh|madrese|school/i.test(n)) || names[0];
-      if (!pick) throw new Error('no_bucket');
+      let names = [];
+      let listErr = null;
+      try {
+        names = await s3.listBuckets(c);
+      } catch (e) {
+        listErr = e;
+      }
+      let pick = names.find(n => /payesh|madrese|school/i.test(n)) || names[0];
+      /* اگر فهرست‌کردن صندوقچه‌ها اجازه نداشت، نام‌های محتمل را امتحان می‌کنیم */
+      if (!pick && !(listErr && listErr.kind === 'network')) {
+        for (const guess of CANDIDATE_BUCKETS) {
+          try { await s3.list(Object.assign({}, c, { bucket: guess }), { max: 1, prefix: c.prefix }); pick = guess; break; } catch (e) { /* بعدی */ }
+        }
+      }
+      if (!pick) {
+        if (listErr && listErr.kind === 'network') throw fail('net', listErr.detail || listErr.message);
+        throw fail(listErr ? 'denied' : 'no_bucket', listErr && (listErr.detail || listErr.message));
+      }
       c = Object.assign({}, c, { bucket: pick });
     }
     return saveConfig(c);
@@ -77,6 +102,24 @@
     });
     if (!hasKeys(c)) return null;
     return saveConfig(c);
+  }
+
+  /* اگر گوشی یک‌بار سیستم مدرسه را ببیند، نشانی صندوقچه را از آن یاد می‌گیرد
+     و بعد از آن در خانه هم بدون هیچ تنظیمی کار می‌کند. */
+  async function learnFromServer(baseUrl) {
+    const base = String(baseUrl || '').replace(/\/+$/, '');
+    if (!base) return null;
+    try {
+      const r = await fetch(base + '/api/phone/config', { cache: 'no-store' });
+      if (!r.ok) return null;
+      const j = await r.json();
+      if (!j || !j.ok || !j.config) return null;
+      const c = adopt(j.config);
+      if (c && j.ready) saveConfig(Object.assign({}, c, { ready: true }));
+      return c;
+    } catch (e) {
+      return null;
+    }
   }
 
   function normPhone(p) {
@@ -128,13 +171,17 @@
     if (p.length < 10) return { ok: false, error: 'bad_phone' };
     if (String(password || '').length < 4) return { ok: false, error: 'bad_password' };
     let cfg;
-    try { cfg = await ready(); } catch (e) { return { ok: false, error: 'offline' }; }
+    try { cfg = await ready(); } catch (e) { return { ok: false, error: (e && e.code) || 'net', detail: e && e.detail }; }
     const s3 = S3();
     let env;
     try {
       env = JSON.parse(await s3.get(cfg, cfg.prefix + 'auth/' + p + '.json'));
     } catch (e) {
-      return { ok: false, error: e && e.status === 404 ? 'not_registered' : 'offline' };
+      const status = e && e.status;
+      if (status === 404) return { ok: false, error: 'not_registered' };
+      if (e && e.kind === 'network') return { ok: false, error: 'net', detail: e.detail };
+      if (status === 403 || status === 401) return { ok: false, error: 'cors', detail: e.detail };
+      return { ok: false, error: 'cors', detail: e && (e.detail || e.message) };
     }
     if (!env || !env.verifier) return { ok: false, error: 'not_registered' };
     if (env.user && env.user.active === false) return { ok: false, error: 'user_inactive' };
@@ -207,7 +254,7 @@
   }
 
   root.PayeshPhone = {
-    ready, adopt, login, verify, pullData, send, pendingCount, lastUser,
+    ready, adopt, learnFromServer, login, verify, pullData, send, pendingCount, lastUser,
     normPhone, saveConfig, storedConfig, bakedConfig,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
