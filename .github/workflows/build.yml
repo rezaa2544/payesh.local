@@ -68,6 +68,8 @@ jobs:
           ls "$ANDROID_HOME/platforms" 2>/dev/null | tail -3 || true
 
       - uses: gradle/actions/setup-gradle@v3
+        # فقط برای حافظهٔ موقت است؛ اگر سرویسش بالا نیاید، ساخت APK باید ادامه دهد
+        continue-on-error: true
         with:
           gradle-version: '8.7'
 
