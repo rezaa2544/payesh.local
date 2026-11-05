@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.8';
+const CLIENT_VERSION = '0.8.9';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -383,6 +383,111 @@ async function syncNow(silent = true) {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   همگام‌سازی زنده — هر ۱ ثانیه، برای همه (مدیر، عوامل اجرایی، دبیر،
+   دانش‌آموز، ولی) و روی همهٔ دستگاه‌ها.
+
+   • هر تغییری که کاربر می‌دهد، همان لحظه به حافظهٔ مشترک می‌رود.
+   • هر دستگاه هر ثانیه یک «مُهر» کوچک می‌خواند؛ اگر عوض شده باشد،
+     همان لحظه دادهٔ تازه را می‌گیرد و صفحه را تازه می‌کند.
+   • اگر دستگاه مقصد خاموش/آفلاین باشد، داده در حافظه می‌ماند و اولین
+     ثانیه‌ای که آنلاین شود تحویلش می‌گیرد.
+   ══════════════════════════════════════════════════════════════════ */
+const LIVE_MS = 1000;
+let liveTimer = null;
+let liveBusy = false;
+let liveServerRev = null;
+const liveState = { at: null, changes: 0, error: null };
+
+function applyPulled(data) {
+  if (!data || data.missing) return false;
+  let changed = false;
+  for (const c of Object.keys(data.collections || {})) {
+    if (!S.data[c]) S.data[c] = new Map();
+    for (const r of data.collections[c] || []) {
+      const id = Number(r.id);
+      const prev = S.data[c].get(id);
+      if (!prev || JSON.stringify(prev) !== JSON.stringify(r)) changed = true;
+      S.data[c].set(id, r);
+    }
+  }
+  if (data.school) {
+    S.server.school = data.school;
+    S.data.schools = new Map([[1, Object.assign({ id: 1 }, data.school)]]);
+  }
+  if (data.at) S.lastSync = data.at;
+  return changed;
+}
+
+async function liveTick() {
+  if (liveBusy) return;
+  if (!S.user || !S.role) return;
+  if (typeof document !== 'undefined' && document.hidden) return;  /* صفحه در پس‌زمینه: بی‌دلیل باتری/داده نسوزد */
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  liveBusy = true;
+  try {
+    /* ۱) ثبت‌های خودمان بی‌درنگ بروند */
+    if (S.queue.length) await flushQueue();
+
+    if (PHONE_MODE) {
+      const r = await window.PayeshPhone.readRev();
+      if (!r || !r.ok) { liveState.error = (r && r.error) || 'net'; return; }
+      const seenRev = localStorage.getItem('payesh.live.rev') || '';
+      const seenCore = localStorage.getItem('payesh.live.core') || '';
+      const seenPersons = localStorage.getItem('payesh.live.persons') || '';
+      const first = !seenRev;
+      const coreChanged = !!r.core && r.core !== seenCore;
+      const personsChanged = !!r.persons && r.persons !== seenPersons;
+      if (r.rev && (r.rev !== seenRev)) {
+        localStorage.setItem('payesh.live.rev', r.rev);
+        if (first || coreChanged || personsChanged) {
+          if (r.core) localStorage.setItem('payesh.live.core', r.core);
+          if (r.persons) localStorage.setItem('payesh.live.persons', r.persons);
+          const data = await window.PayeshPhone.pullData(S.user);
+          if (applyPulled(data)) {
+            liveState.changes++;
+            saveCache();
+            render();
+            if (!first) toast('اطلاعات تازه شد', 'ok');
+          } else if (data && !data.missing) saveCache();
+        } else {
+          render();
+        }
+      }
+      liveState.at = new Date().toISOString();
+      liveState.error = null;
+    } else {
+      /* روی سیستم مدرسه: سرور خودش هر ثانیه با حافظه حرف می‌زند؛
+         ما هم هر ثانیه از سرور می‌پرسیم آیا چیزی عوض شده */
+      const r = await api('/api/live/rev', { noAuthRedirect: true });
+      if (!r || !r.ok) return;
+      if (liveServerRev === null) { liveServerRev = r.rev; }
+      else if (r.rev !== liveServerRev) {
+        liveServerRev = r.rev;
+        await pullAll();
+        await loadOutbox(true).catch(() => {});
+        saveCache();
+        render();
+        liveState.changes++;
+      }
+      liveState.at = new Date().toISOString();
+      liveState.error = null;
+    }
+  } catch (e) {
+    liveState.error = String((e && e.message) || e).slice(0, 120);
+  } finally {
+    liveBusy = false;
+  }
+}
+
+function startLive() {
+  if (liveTimer) return;
+  liveTimer = setInterval(() => { liveTick().catch(() => {}); }, LIVE_MS);
+  setTimeout(() => { liveTick().catch(() => {}); }, 400);
+}
+function stopLive() { if (liveTimer) clearInterval(liveTimer); liveTimer = null; }
+function liveKick() { setTimeout(() => { liveTick().catch(() => {}); }, 0); }
+
 /* ── نوشتن محلی + صف ───────────────────────────────────────────── */
 function putLocal(collection, row, { sync = true } = {}) {
   if (!S.data[collection]) S.data[collection] = new Map();
@@ -398,6 +503,7 @@ function putLocal(collection, row, { sync = true } = {}) {
       at: new Date().toISOString(),
     });
     saveQueue();
+    liveKick();
   }
   return row;
 }
@@ -407,6 +513,7 @@ function removeLocal(collection, id, { sync = true } = {}) {
   if (sync && Number(id) > 0) {
     S.queue.push({ uid: uid(), collection, type: 'del', id: Number(id), at: new Date().toISOString() });
     saveQueue();
+    liveKick();
   }
   return true;
 }
@@ -428,6 +535,7 @@ function saveDevice(token) { S.deviceToken = token; localStorage.setItem('payesh
 function lockApp() {
   S.session = ''; localStorage.removeItem('payesh.session');
   S.user = null; S.role = null;
+  stopLive();
   renderLock();
 }
 
@@ -598,6 +706,7 @@ async function enterPhone(user) {
   routeFromHash();
   render();
   scheduleSync();
+  startLive();                   /* هر ۱ ثانیه از حافظهٔ مشترک تازه‌سازی */
   toast('خوش آمدید ' + (user.name || ''), 'ok');
 }
 
@@ -718,6 +827,7 @@ async function start() {
     routeFromHash();
     render();
     scheduleSync();
+    startLive();                 /* هر ۱ ثانیه با حافظه هم‌گام شو */
     checkUpdate(true);
     maybeShowReleaseNotes();
     maybeFixPhoneAccess();
@@ -1194,6 +1304,10 @@ async function boot() {
   }
 }
 document.addEventListener('DOMContentLoaded', boot);
+/* وقتی کاربر به برنامه برمی‌گردد، همان لحظه تازه‌سازی (نه تا یک ثانیه بعد) */
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) liveKick(); });
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    کنش‌ها و فرم‌ها — واگذاری رویداد (بدون inline handler جز چند مورد)
