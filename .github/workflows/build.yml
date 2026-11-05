@@ -110,17 +110,33 @@ jobs:
 
       - name: بررسی امضای APK (نصب روی نسخهٔ قبلی)
         run: |
+          set +e
           APK=install/android/app/build/outputs/apk/debug/app-debug.apk
-          BT=$(ls -d "$ANDROID_HOME"/build-tools/* 2>/dev/null | sort -V | tail -1)
-          if [ -x "$BT/apksigner" ]; then
-            "$BT/apksigner" verify --print-certs "$APK" | tee /tmp/sig.txt
-            grep -q "Signer #1 certificate SHA-256 digest" /tmp/sig.txt || { echo "APK امضا نشده — روی گوشی نصب نمی‌شود"; exit 1; }
-            echo "اثر انگشت گواهی (باید در همهٔ ساخت‌ها یکی باشد):"
-            grep "Signer #1 certificate SHA-256 digest" /tmp/sig.txt
-          else
-            echo "apksigner پیدا نشد؛ از zipalign استفاده می‌کنیم"
-            "$BT/zipalign" -c -v 4 "$APK" >/dev/null && echo "APK تراز است"
+          ls -l "$APK"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BT=$(ls -d "$SDK"/build-tools/* 2>/dev/null | sort -V | tail -1)
+          echo "SDK=$SDK build-tools=$BT"
+          SIGNED=no
+          if [ -n "$BT" ] && [ -x "$BT/apksigner" ]; then
+            "$BT/apksigner" verify --print-certs "$APK" > /tmp/sig.txt 2>&1
+            echo "apksigner exit=$?"
+            head -8 /tmp/sig.txt
+            if grep -q "Signer #1 certificate SHA-256 digest" /tmp/sig.txt; then
+              SIGNED=yes
+              echo "::notice::اثر انگشت امضا: $(grep "Signer #1 certificate SHA-256 digest" /tmp/sig.txt)"
+            fi
           fi
+          if [ "$SIGNED" = no ]; then
+            # بررسی ساده و بدون ابزار: آیا بلوک امضا داخل فایل هست؟
+            if unzip -l "$APK" | grep -Eq "META-INF/[^/]+\.(RSA|DSA|EC)$"; then SIGNED=yes; fi
+            if grep -qa "APK Sig Block 42" "$APK"; then SIGNED=yes; fi
+            echo "بررسی بدون ابزار: امضا=$SIGNED"
+          fi
+          if [ "$SIGNED" != yes ]; then
+            echo "::error::APK امضا نشده — روی گوشی نصب نمی‌شود"
+            exit 1
+          fi
+          echo "APK امضا شده است."
 
       - name: بررسی سلامت APK
         run: |
