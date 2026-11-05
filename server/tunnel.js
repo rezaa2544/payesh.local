@@ -24,7 +24,11 @@ const TS_PATHS = [
   'C:\\Program Files (x86)\\Tailscale\\tailscale.exe',
   '/usr/bin/tailscale', '/usr/local/bin/tailscale', '/opt/homebrew/bin/tailscale',
 ];
+/* cloudflared کنار خود برنامه (نصب‌کننده ویندوز آن را در bin\ می‌گذارد) */
+const HERE = path.join(__dirname, '..', 'bin');
 const CF_PATHS = [
+  path.join(HERE, 'cloudflared.exe'),
+  path.join(HERE, 'cloudflared'),
   'C:\\Program Files (x86)\\Cloudflare\\Cloudflare Tunnel\\cloudflared.exe',
   'C:\\Program Files\\Cloudflare\\cloudflared.exe',
   '/usr/local/bin/cloudflared', '/usr/bin/cloudflared', '/opt/homebrew/bin/cloudflared',
