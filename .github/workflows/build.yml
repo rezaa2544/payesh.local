@@ -162,6 +162,13 @@ jobs:
       - name: آماده‌سازی پوشهٔ نصب
         run: node scripts/stage-windows.mjs
 
+      - name: ساخت برنامهٔ ویندوز (Payesh.exe — پنجرهٔ واقعی)
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File desktop\build.ps1 -Out .build\win\desktop
+          if (-not (Test-Path .build\win\desktop\Payesh.exe)) { throw 'Payesh.exe ساخته نشد' }
+          Get-ChildItem .build\win\desktop | Select-Object Name, Length | Format-Table
+
       - name: نصب Inno Setup
         shell: pwsh
         run: |
