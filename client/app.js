@@ -998,6 +998,15 @@ document.addEventListener('click', async (e) => {
       setTimeout(() => { loadNetwork(true).then(render); }, 4000);
       return;
     }
+    case 'outbox-sync': {
+      toast('در حال بررسی صندوقچه…');
+      const r = await loadOutbox(false);
+      if (!r) toast('صندوقچه در دسترس نیست — اینترنت را بررسی کنید', 'err');
+      else if (r.pending) toast(fa(r.pending) + ' ثبت هنوز منتظر است', 'err');
+      else toast('همه‌چیز اعمال شده است', 'ok');
+      render();
+      return;
+    }
     case 'copy-url': {
       const url = el.getAttribute('data-id') || '';
       try { await navigator.clipboard.writeText(url); toast('آدرس کپی شد', 'ok'); }
@@ -1234,5 +1243,76 @@ document.addEventListener('submit', async (e) => {
     } catch (err) { toast('ورود ناموفق: ' + err.message, 'err'); }
     return;
   }
+
+  /* اطلاعیه: اول روی همین دستگاه، بعد در صف — وقتی مدرسه خاموش است هم ثبت می‌شود */
+  if (kind === 'ann') {
+    const title = String(f.title.value || '').trim();
+    if (!title) return toast('عنوان اطلاعیه را بنویسید', 'err');
+    putLocal('announcements', {
+      title, body: String(f.body.value || '').trim(), severity: f.severity ? f.severity.value : 'normal',
+      date: todayISO(), author_id: S.user ? S.user.id : null, school_id: 1,
+    });
+    closeModal(); saveCache(); render();
+    await flushQueue();
+    toast('اطلاعیه منتشر شد', 'ok');
+    if (S.online) syncNow(true);
+    return;
+  }
+
+  /* درخواست مرخصی (ولی/دانش‌آموز/کادر) */
+  if (kind === 'leave') {
+    const studentId = Number(f.student_id ? f.student_id.value : (S.user && S.user.id));
+    if (!studentId) return toast('دانش‌آموز را انتخاب کنید', 'err');
+    putLocal('leaves', {
+      student_id: studentId, date: (f.date && f.date.value) || todayISO(),
+      reason: String(f.reason.value || '').trim(), status: 'pending',
+      by_id: S.user ? S.user.id : null, school_id: 1,
+    });
+    closeModal(); saveCache(); render();
+    await flushQueue();
+    toast('درخواست ثبت شد — اگر مدرسه خاموش باشد، خودکار می‌رسد', 'ok');
+    if (S.online) syncNow(true);
+    return;
+  }
+
+  /* کاربر تازه + کارت پیوند */
+  if (kind === 'user') {
+    const name = String(f.name.value || '').trim();
+    if (!name) return toast('نام را بنویسید', 'err');
+    const row = {
+      name, role: f.role.value, class_id: f.class_id.value ? Number(f.class_id.value) : null,
+      national_id: digitsOnly(f.national_id ? f.national_id.value : ''),
+      phone: digitsOnly(f.phone ? f.phone.value : ''), active: 1, school_id: 1,
+    };
+    putLocal('users', row);
+    closeModal(); saveCache(); render();
+    await flushQueue();
+    await pullAll().catch(() => {});
+    /* کارت پیوند فقط وقتی سرور در دسترس است */
+    const saved = (S.data.users ? [...S.data.users.values()] : []).filter(u => u.name === name).pop();
+    if (saved && saved.id > 0 && S.online) {
+      try {
+        const r = await api('/api/admin/pair-code', { method: 'POST', body: { user_id: saved.id } });
+        S.modalTitle = 'کارت پیوند';
+        modal(`<div class="small">این کد را به «${esc(name)}» بدهید تا بدون رمز وارد شود (۷ روز اعتبار، یک‌بار مصرف):</div>
+          <div class="ltr" style="font-size:1.6rem;font-weight:800;letter-spacing:2px;text-align:center;margin:12px 0">${esc(r.code || '—')}</div>
+          <button class="btn primary block" data-act="modal-close">باشه</button>`);
+      } catch (err) { toast('کارت پیوند صادر نشد: ' + err.message, 'err'); }
+    } else {
+      toast('کاربر ساخته شد — کارت پیوند با اتصال به مدرسه صادر می‌شود', 'ok');
+    }
+    render();
+    return;
+  }
+
+  /* منبع آپدیت */
+  if (kind === 'update') {
+    try {
+      const r = await api('/api/admin/update/settings', { method: 'POST', body: { base: String(f.base.value || '').trim() } });
+      S.remote = Object.assign({}, S.remote || {}, { base: r.base });
+      toast('منبع آپدیت ذخیره شد', 'ok');
+      render();
+    } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
+    return;
+  }
 });
-/* bumper */

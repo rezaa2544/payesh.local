@@ -534,12 +534,13 @@ async function api(req, res, url, ip) {
     }
 
     if (action === 'off') {
-      tunnel.stopQuick();
       if (body.tailscale_too) await tunnel.disableFunnel(PORT);
       cfg.setMeta(store, 'public_url', '');
       store.audit({ user_id: actor.user.id, role: 'manager', action: 'tunnel_off', collection: 'config' });
       return json({ ok: true, status: await tunnel.status(store) });
     }
+
+    if (action !== 'refresh') return json({ ok: false, error: 'unknown_action' }, 400);
 
     /* refresh: فقط تشخیص */
     const r = await tunnel.refresh(store, { quiet: false });

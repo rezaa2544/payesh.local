@@ -65,6 +65,9 @@ case "$1" in
       else
         echo "No serve config"
       fi
+    elif [ "$2" = "reset" ] || [ "$3" = "off" ]; then
+      rm -f "${BIN}/funnel-on"
+      echo "Funnel stopped"
     elif [ -f "${BIN}/needs-login" ]; then
       echo "not logged in" >&2
       exit 1
@@ -79,15 +82,7 @@ esac
 exit 0
 `;
 
-/* ── ابزار جعلی cloudflared ───────────────────────────────────────── */
-const FAKE_CF = `#!/usr/bin/env bash
-echo "INF Requesting new quick Tunnel on trycloudflare.com..." >&2
-echo "INF |  https://payesh-quick-4821.trycloudflare.com  |" >&2
-exec sleep 30
-`;
-
 fs.writeFileSync(path.join(BIN, 'tailscale'), FAKE_TS, { mode: 0o755 });
-fs.writeFileSync(path.join(BIN, 'cloudflared'), FAKE_CF, { mode: 0o755 });
 
 let BASE = '', child = null;
 
@@ -121,7 +116,6 @@ function startServer(port, env) {
   BASE = 'http://127.0.0.1:' + port;
   child = startServer(port, {
     PAYESH_TAILSCALE_BIN: path.join(BIN, 'tailscale'),
-    PAYESH_CLOUDFLARED_BIN: path.join(BIN, 'cloudflared'),
   });
   child.stderr.on('data', d => process.env.VERBOSE && console.error(String(d)));
 
@@ -147,7 +141,7 @@ function startServer(port, env) {
     assert.strictEqual(r.data.tailscale.installed, true, 'tailscale پیدا شود');
     assert.strictEqual(r.data.tailscale.logged_in, true);
     assert.strictEqual(r.data.tailscale.funnel, false);
-    assert.strictEqual(r.data.cloudflare.installed, true, 'cloudflared پیدا شود');
+    assert.strictEqual(r.data.cloudflare, undefined, 'هیچ ابزار ابری خارجی وجود ندارد');
     assert.strictEqual(r.data.can_enable, true);
   });
 
@@ -167,14 +161,11 @@ function startServer(port, env) {
   });
 
   /* ── ۳ ── */
-  await test('تونل موقت Cloudflare: آدرس trycloudflare گرفته می‌شود', async () => {
+  await test('تونل موقت ابری حذف شده است (آدرس ثابت می‌ماند)', async () => {
     const r = await req('/api/admin/tunnel', { method: 'POST', token: managerToken, body: { action: 'quick' } });
-    assert.strictEqual(r.data.ok, true, JSON.stringify(r.data));
-    assert.match(String(r.data.url), /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/);
+    assert.strictEqual(r.data.ok, false, JSON.stringify(r.data));
     const h = await req('/api/health');
-    assert.strictEqual(h.data.public_url, r.data.url, 'آدرس عمومی به‌روز می‌شود');
-    const st = await req('/api/admin/tunnel', { token: managerToken });
-    assert.strictEqual(st.data.cloudflare.running, true);
+    assert.strictEqual(h.data.public_url, 'https://payesh-test.tail1234.ts.net', 'آدرس ثابت دست‌نخورده می‌ماند');
   });
 
   /* ── ۴ ── */
@@ -184,7 +175,7 @@ function startServer(port, env) {
     const h = await req('/api/health');
     assert.ok(!h.data.public_url, 'آدرس عمومی پاک شود');
     const st = await req('/api/admin/tunnel', { token: managerToken });
-    assert.strictEqual(st.data.cloudflare.running, false);
+    assert.strictEqual(st.data.tailscale.funnel, false, 'تونل خاموش شد');
   });
 
   /* ── ۵ ── */
@@ -214,7 +205,6 @@ function startServer(port, env) {
     const B2 = 'http://127.0.0.1:' + p2;
     const c2 = startServer(p2, {
       PAYESH_TAILSCALE_BIN: path.join(TMP, 'nope-tailscale'),
-      PAYESH_CLOUDFLARED_BIN: path.join(TMP, 'nope-cloudflared'),
       PATH: path.join(TMP, 'empty-path'),
     });
     try {
@@ -226,7 +216,7 @@ function startServer(port, env) {
       assert.ok(s && s.session, 'راه‌اندازی انجام شود: ' + JSON.stringify(s).slice(0, 200));
       const r = await (await fetch(B2 + '/api/admin/tunnel', { headers: { authorization: 'Bearer ' + s.session.token } })).json();
       assert.strictEqual(r.tailscale.installed, false);
-      assert.strictEqual(r.cloudflare.installed, false);
+      assert.strictEqual(r.cloudflare, undefined, 'ابزار ابری خارجی وجود ندارد');
       assert.strictEqual(r.can_enable, false);
       assert.ok(String(r.tailscale.download).includes('tailscale.com'));
     } finally { c2.kill('SIGKILL'); }
