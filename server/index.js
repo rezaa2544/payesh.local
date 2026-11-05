@@ -683,6 +683,8 @@ async function api(req, res, url, ip) {
     let pw = null;
     if (body.password) pw = auth.setPassword(store, id, body.password);
     store.audit({ user_id: actor.user.id, role: 'manager', action: 'user_update', collection: 'users', record_id: id, after: Object.assign({}, patch, pw ? { password_changed: true } : {}) });
+    /* گوشی‌ها بی‌درنگ نام کاربری/رمز تازه را ببینند */
+    outbox.publishAll(store).catch(() => null);
     return json({ ok: true, user: auth.publicUser(store.get('users', id)), password_set: !!(pw && pw.ok), error: pw && !pw.ok ? pw.error : undefined });
   }
 
@@ -694,6 +696,7 @@ async function api(req, res, url, ip) {
     if (id === actor.user.id) return json({ ok: false, error: 'cannot_delete_self' }, 400);
     store.remove('users', id);
     store.audit({ user_id: actor.user.id, role: 'manager', action: 'user_delete', collection: 'users', record_id: id, before: auth.publicUser(user) });
+    outbox.publishAll(store).catch(() => null);
     return json({ ok: true, deleted: id });
   }
 
