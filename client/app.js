@@ -19,6 +19,7 @@ const S = {
   update: null,
   remote: null,             /* وضعیت به‌روزرسانی درجا از مخزن (مدیر) */
   remoteBusy: false,
+  tunnelBusy: false,
   tempId: -1,
   syncing: false,
 };
@@ -732,6 +733,65 @@ document.addEventListener('click', async (e) => {
     case 'lock': lockApp(); return;
     case 'sync': await syncNow(false); return;
     case 'net-refresh': await loadNetwork(true); render(); return;
+    case 'tunnel-refresh': {
+      S.tunnelBusy = true; render();
+      try {
+        const t = await api('/api/admin/tunnel?force=1');
+        S.network = Object.assign({}, S.network, { public: t });
+        toast(t.public_url ? 'آدرس عمومی فعال است' : 'آدرس عمومی فعال نیست', t.public_url ? 'ok' : 'err');
+      } catch (err) { toast('بازبینی ناموفق: ' + err.message, 'err'); }
+      S.tunnelBusy = false; render(); return;
+    }
+    case 'tunnel-enable': {
+      S.tunnelBusy = true; render();
+      toast('در حال ساخت آدرس عمومی…');
+      try {
+        const r = await api('/api/admin/tunnel', { method: 'POST', body: { action: 'enable' } });
+        if (!r.ok) {
+          const msg = r.error === 'tailscale_not_installed' ? 'Tailscale نصب نیست'
+            : r.error === 'tailscale_not_logged_in' ? 'اول وارد Tailscale شوید'
+            : 'فعال‌سازی ناموفق: ' + (r.detail || r.error || '');
+          toast(msg, 'err');
+        } else {
+          S.server.publicUrl = r.url;
+          toast('آدرس عمومی فعال شد: ' + r.url, 'ok');
+        }
+      } catch (err) { toast('ناموفق: ' + err.message, 'err'); }
+      await loadNetwork(true);
+      S.tunnelBusy = false; render(); return;
+    }
+    case 'tunnel-quick': {
+      S.tunnelBusy = true; render();
+      toast('در حال ساخت تونل موقت… (چند ثانیه)');
+      try {
+        const r = await api('/api/admin/tunnel', { method: 'POST', body: { action: 'quick' } });
+        if (r.url) { S.server.publicUrl = r.url; toast('آدرس موقت: ' + r.url, 'ok'); }
+        else toast('تونل موقت ساخته نشد (Cloudflare نصب است؟)', 'err');
+      } catch (err) { toast('ناموفق: ' + err.message, 'err'); }
+      await loadNetwork(true);
+      S.tunnelBusy = false; render(); return;
+    }
+    case 'tunnel-off': {
+      if (!confirm('دسترسی از اینترنت قطع شود؟ بعد از این، برنامه فقط داخل شبکهٔ مدرسه باز می‌شود.')) return;
+      S.tunnelBusy = true; render();
+      try {
+        await api('/api/admin/tunnel', { method: 'POST', body: { action: 'off', tailscale_too: true } });
+        S.server.publicUrl = null;
+        toast('دسترسی اینترنتی قطع شد', 'ok');
+      } catch (err) { toast(err.message, 'err'); }
+      await loadNetwork(true);
+      S.tunnelBusy = false; render(); return;
+    }
+    case 'tunnel-login': {
+      try {
+        const r = await api('/api/admin/tunnel', { method: 'POST', body: { action: 'login' } });
+        if (r.ok) toast(r.message || 'مرورگر برای ورود باز شد', 'ok');
+        else if (r.download) { window.open(r.download, '_blank'); toast('Tailscale را نصب کنید و دوباره برگردید', 'ok'); }
+        else toast('ناموفق: ' + (r.detail || r.error || ''), 'err');
+      } catch (err) { toast(err.message, 'err'); }
+      setTimeout(() => { loadNetwork(true).then(render); }, 4000);
+      return;
+    }
     case 'hub-load': await loadHub(false); render(); return;
     case 'hub-sync': {
       try {

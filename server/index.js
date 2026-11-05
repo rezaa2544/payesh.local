@@ -20,6 +20,7 @@ const cfg = require('./config');
 const qr = require('./qr');
 const hub = require('./hub');
 const update = require('./update');
+const tunnel = require('./tunnel');
 const { nowISO, json, normDigits, validNationalId, sha256 } = require('./util');
 
 /* ریشهٔ برنامه — آزمون‌ها می‌توانند با PAYESH_APP_ROOT روی یک کپی کار کنند */
@@ -414,6 +415,7 @@ async function api(req, res, url, ip) {
         last_drain: cfg.getMeta(store, 'hub:last_drain') || null,
       }),
       tunnel: await cfg.tunnelStatus(store, { force: q.get('force') === '1' }),
+      public: await tunnel.status(store),
     });
   }
 
@@ -424,6 +426,8 @@ async function api(req, res, url, ip) {
       const u = cfg.normalizeUrl(body.public_url);
       if (u && !/^https:\/\//i.test(u)) return json({ ok: false, error: 'https_required' }, 400);
       cfg.setMeta(store, 'public_url', u);
+      /* آدرس دستی = اولویت «custom»؛ تونل خودکار آن را بازنویسی نمی‌کند */
+      cfg.setMeta(store, 'tunnel_provider', u ? 'custom' : '');
       store.audit({ user_id: actor.user.id, role: 'manager', action: 'network_public_url', collection: 'config', after: { public_url: u } });
     }
     if (body.hub_url !== undefined) cfg.setMeta(store, 'hub_url', cfg.normalizeUrl(body.hub_url));
@@ -435,6 +439,62 @@ async function api(req, res, url, ip) {
       hub: Object.assign({}, cfg.hubConfig(store), { key: hub.schoolKey(store) }),
       tunnel: await cfg.tunnelStatus(store, { force: true }),
     });
+  }
+
+  /* ── تونل عمومی: دسترسی از هر اینترنتی ─────────────────────────── */
+  if (p === '/api/admin/tunnel' && m === 'GET') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const st = await tunnel.status(store);
+    st.probe = await cfg.tunnelStatus(store, { force: q.get('force') === '1' });
+    return json(st);
+  }
+
+  if (p === '/api/admin/tunnel' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const body = await readBody(req).catch(() => ({}));
+    const action = String(body.action || 'refresh');
+
+    if (action === 'enable') {
+      const r = await tunnel.enableFunnel(PORT);
+      if (r.ok) tunnel.rememberPublicUrl(store, r.url, 'tailscale');
+      store.audit({ user_id: actor.user.id, role: 'manager', action: 'tunnel_enable', collection: 'config', after: r });
+      return json(Object.assign({ ok: r.ok }, r, { status: await tunnel.status(store) }), r.ok ? 200 : 400);
+    }
+
+    if (action === 'quick') {
+      const started = tunnel.startQuick(PORT, url => tunnel.rememberPublicUrl(store, url, 'cloudflare'));
+      if (!started.ok) return json(Object.assign({ ok: false }, started), 400);
+      /* چند ثانیه صبر می‌کنیم تا آدرس اعلام شود */
+      const url = await new Promise(resolve => {
+        const t0 = Date.now();
+        const iv = setInterval(() => {
+          const q2 = tunnel.quickStatus();
+          if (q2.url) { clearInterval(iv); resolve(q2.url); }
+          else if (!q2.running && q2.error) { clearInterval(iv); resolve(null); }
+          else if (Date.now() - t0 > 25_000) { clearInterval(iv); resolve(null); }
+        }, 500);
+        iv.unref?.();
+      });
+      if (url) tunnel.rememberPublicUrl(store, url, 'cloudflare');
+      return json({ ok: !!url, url: url || null, status: await tunnel.status(store) }, url ? 200 : 504);
+    }
+
+    if (action === 'login') {
+      const r = tunnel.login();
+      return json(Object.assign({ ok: r.ok }, r, { status: await tunnel.status(store) }), r.ok ? 200 : 400);
+    }
+
+    if (action === 'off') {
+      tunnel.stopQuick();
+      if (body.tailscale_too) await tunnel.disableFunnel(PORT);
+      cfg.setMeta(store, 'public_url', '');
+      store.audit({ user_id: actor.user.id, role: 'manager', action: 'tunnel_off', collection: 'config' });
+      return json({ ok: true, status: await tunnel.status(store) });
+    }
+
+    /* refresh: فقط تشخیص */
+    const r = await tunnel.refresh(store, { quiet: false });
+    return json(Object.assign({ ok: true }, r, { status: await tunnel.status(store) }));
   }
 
   if (p === '/api/admin/hub/sync' && m === 'POST') {
@@ -763,6 +823,9 @@ server.listen(PORT, HOST, () => {
   console.log('');
   /* همگام‌سازی دوره‌ای با Hub ابری (اگر فعال باشد) */
   try { hub.start(store); } catch (e) { console.error('hub start failed', e.message); }
+  /* تونل عمومی: اگر Tailscale Funnel یا تونل Cloudflare روشن باشد، آدرس را برمی‌داریم */
+  try { tunnel.start(store, { port: PORT }); } catch (e) { console.error('tunnel start failed', e.message); }
+
   /* بررسی خودکار نسخهٔ منتشرشده (اگر «نصب خودکار» روشن باشد، خودش اعمال می‌کند) */
   try {
     update.start(store, {

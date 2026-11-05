@@ -1,15 +1,15 @@
 {
-  "version": "0.3.5",
-  "built_at": "2026-11-04T22:36:51.749Z",
+  "version": "0.4.0",
+  "built_at": "2026-11-05T03:49:26.141Z",
   "shell": {
-    "android": "0.3.5"
+    "android": "0.4.0"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "e1e490420535a59d30c986da2086ffbae984bc332a486d734b31fffd71dd6a25",
-      "size": 45681
+      "sha256": "c0319691fadc25a99df2cc6587330ef797d8c0109f140d8eb8b5f6d9206c869d",
+      "size": 48784
     },
     {
       "path": "client/icons/apple-touch-icon.png",
@@ -50,8 +50,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "48304186aaee53298aeb75852b0598c6135f7997a6de8e25349120cfe1904e91",
-      "size": 74972
+      "sha256": "e47bfc88487e31a9a940944470cd868fca51455d793be5fe417af595eb263117",
+      "size": 78822
     },
     {
       "path": "client/styles.css",
@@ -104,8 +104,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "917f5991c96895417558a96ff6b49ef55d6c34dd0312c9ab0f58ed67a8189e9d",
-      "size": 1791
+      "sha256": "ea44aea42163f4609847fa8cf70cd618a9a0df64dd607d06bdaee22f86a23afc",
+      "size": 1962
     },
     {
       "path": "server/auth.js",
@@ -134,8 +134,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "8e906b493b8cbf74e4b9612228068c95b6ef86b8c42518e3e611929265182971",
-      "size": 35435
+      "sha256": "cfa6efd51d1310d71098ee4b3fd35726eea54eb40f39df0b6fd538dace07f6bb",
+      "size": 38658
     },
     {
       "path": "server/policy.js",
@@ -160,6 +160,12 @@
       "kind": "server",
       "sha256": "e1ceea570da481e39db6b06686fba8ef452d80f3e4aa4ba60d417fb4b733b12c",
       "size": 6154
+    },
+    {
+      "path": "server/tunnel.js",
+      "kind": "server",
+      "sha256": "a17db90f96a97c0281529d25409471cb6bd0954a55a4d0ea28e68f132189c813",
+      "size": 12748
     },
     {
       "path": "server/update.js",
@@ -194,9 +200,9 @@
   ],
   "counts": {
     "client": 10,
-    "server": 21
+    "server": 22
   },
-  "client_size": 176096,
-  "server_size": 147413,
-  "total_size": 323509
+  "client_size": 183049,
+  "server_size": 163555,
+  "total_size": 346604
 }

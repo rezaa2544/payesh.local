@@ -32,6 +32,7 @@ jobs:
           npm run test:flow
           npm run test:hub
           npm run test:update
+          npm run test:tunnel
 
       - name: ساخت بسته و مانیفست دلتا
         run: node scripts/build-release.mjs
@@ -169,12 +170,18 @@ jobs:
           if (-not (Test-Path $iscc)) { throw 'ISCC پیدا نشد' }
           echo "ISCC=$iscc" >> $env:GITHUB_ENV
 
+      - name: بازبینی اسکریپت نصب
+        run: node scripts/lint-iss.mjs
+
       - name: ساخت payesh-setup.exe
         shell: pwsh
         run: |
           $v = node -p "require('./package.json').version"
-          & $env:ISCC "/DAppVersion=$v" "installer\payesh.iss"
-          if ($LASTEXITCODE -ne 0) { throw "ISCC ناموفق ($LASTEXITCODE)" }
+          & $env:ISCC "/DAppVersion=$v" "installer\payesh.iss" 2>&1 | Tee-Object -FilePath iscc.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content iscc.log | Select-Object -Last 25 | ForEach-Object { "::error::ISCC: $_" }
+            throw "ISCC ناموفق ($LASTEXITCODE)"
+          }
           $exe = 'releases/payesh-setup.exe'
           if (-not (Test-Path $exe)) { throw 'خروجی exe ساخته نشد' }
           "✓ {0:N1} MB — نسخهٔ {1}" -f ((Get-Item $exe).Length/1MB), $v
