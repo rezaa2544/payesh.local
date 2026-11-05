@@ -295,12 +295,20 @@ function autoEnabled(store) {
   return v === null || v === undefined ? true : !!v;
 }
 
-let autoTried = false;
+let autoRunning = false;
 async function autoStart(store, port) {
   if (!autoEnabled(store)) return { ok: false, error: 'auto_disabled' };
   if (cfg.publicUrl(store)) return { ok: true, skipped: true, url: cfg.publicUrl(store) };
-  if (autoTried) return { ok: false, error: 'already_tried' };
-  autoTried = true;
+  if (autoRunning) return { ok: false, error: 'in_progress' };
+  autoRunning = true;
+  try {
+    return await autoStartOnce(store, port);
+  } finally {
+    autoRunning = false;
+  }
+}
+
+async function autoStartOnce(store, port) {
 
   const ts = await tailscaleStatus({ force: true });
   if (ts.installed && ts.logged_in) {
@@ -329,12 +337,19 @@ async function autoStart(store, port) {
 function start(store, { everyMs = 10 * 60_000, port = 8080 } = {}) {
   const tick = () => { refresh(store).catch(() => {}); };
   setTimeout(tick, 8_000).unref?.();
-  /* چند ثانیه بعد از بالا آمدن، خودش تونل را روشن کن (اگر ممکن بود) */
-  setTimeout(() => {
+  /* چند ثانیه بعد از بالا آمدن، خودش تونل را روشن کن (اگر ممکن بود).
+     اگر ابزار تازه نصب شده/وارد نشده باشد، چند بار دیگر هم تلاش می‌کند:
+     مثلاً cloudflared که نصب‌کننده در حال دانلودش است، یا ورود مدیر به Tailscale. */
+  const delay = Number(process.env.PAYESH_TUNNEL_DELAY || 15_000);
+  const attempt = (n) => {
     autoStart(store, port)
-      .then(r => { if (r && r.ok && r.url) console.log('[tunnel] آدرس عمومی خودکار: ' + r.url); })
-      .catch(() => {});
-  }, Number(process.env.PAYESH_TUNNEL_DELAY || 15_000)).unref?.();
+      .then(r => {
+        if (r && r.ok && r.url) { console.log('[tunnel] آدرس عمومی خودکار: ' + r.url); return; }
+        if (n < 10) setTimeout(() => attempt(n + 1), 60_000).unref?.();
+      })
+      .catch(() => { if (n < 10) setTimeout(() => attempt(n + 1), 60_000).unref?.(); });
+  };
+  setTimeout(() => attempt(1), delay).unref?.();
   if (timer) clearInterval(timer);
   timer = setInterval(tick, everyMs);
   timer.unref?.();
