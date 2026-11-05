@@ -355,6 +355,105 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(check.includes('/api/health') && check.includes('setup_done'), 'بررسی سلامت استقرار');
   });
 
+
+  await test('حافظهٔ ابری: امضای S3 درست و چرخهٔ نوشتن/خواندن سالم', async () => {
+    const sig = require(path.join(ROOT, 'client', 'lib', 'sigv4.js'));
+    const s3 = require(path.join(ROOT, 'server', 's3mem.js'));
+    const http = require('http');
+    const crypto = require('crypto');
+
+    /* ۱) پایهٔ هش */
+    assert.equal(sig.sha256hex('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+    /* ۲) وکتور رسمی AWS (S3 GET Object) — اگر این درست باشد امضا سالم است */
+    const v = sig.sign({
+      method: 'GET', host: 'examplebucket.s3.amazonaws.com', path: '/test.txt',
+      region: 'us-east-1', service: 's3', headers: { Range: 'bytes=0-9' },
+      amzDate: '20130524T000000Z', accessKey: 'AKIAIOSFODNN7EXAMPLE',
+      secret: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+    });
+    assert.equal(v.signature, 'f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41',
+      'امضای S3 مطابق نمونهٔ رسمی AWS');
+
+    /* ۳) سرور ساختگی S3 که امضا را با crypto خودِ Node چک می‌کند */
+    const SECRET = 'testsecret';
+    const store = new Map();
+    const ham = (k, m) => crypto.createHmac('sha256', k).update(m).digest();
+    const server = http.createServer((req, res) => {
+      const chunks = [];
+      req.on('data', c => chunks.push(c));
+      req.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        const url = new URL(req.url, 'http://x');
+        const auth = req.headers.authorization || '';
+        const m = auth.match(/Credential=([^/]+)\/(\d{8})\/([^/]+)\/s3\/aws4_request, SignedHeaders=([^,]+), Signature=([0-9a-f]+)/);
+        if (!m) { res.writeHead(403); return res.end('<Error><Code>AccessDenied</Code></Error>'); }
+        const [, , date, region, signed, sigv] = m;
+        const hashPayload = crypto.createHash('sha256').update(buf).digest('hex');
+        const names = signed.split(';');
+        const vals = names.map(n => n === 'host' ? req.headers.host : (n === 'content-type' ? req.headers['content-type'] || '' : req.headers[n] || ''));
+        const canonHeaders = names.map((n, i) => n + ':' + String(vals[i]).trim() + '\n').join('');
+        const qs = [...url.searchParams.entries()].sort((a, b) => a[0] < b[0] ? -1 : 1)
+          .map(([k, val]) => encodeURIComponent(k) + '=' + encodeURIComponent(val)).join('&');
+        const canon = [req.method, url.pathname, qs, canonHeaders, signed, hashPayload].join('\n');
+        const sts = ['AWS4-HMAC-SHA256', req.headers['x-amz-date'], date + '/' + region + '/s3/aws4_request',
+          crypto.createHash('sha256').update(canon).digest('hex')].join('\n');
+        let k = ham('AWS4' + SECRET, date); k = ham(k, region); k = ham(k, 's3'); k = ham(k, 'aws4_request');
+        if (crypto.createHmac('sha256', k).update(sts).digest('hex') !== sigv) {
+          res.writeHead(403, { 'content-type': 'application/xml' });
+          return res.end('<Error><Code>SignatureDoesNotMatch</Code></Error>');
+        }
+        const pDec = decodeURIComponent(url.pathname);
+        if (!pDec.startsWith('/b1')) { res.writeHead(404); return res.end('<Error><Code>NoSuchBucket</Code></Error>'); }
+        const key = pDec.slice(4).replace(/^\//, '');
+        if (req.method === 'PUT' && key) { store.set(key, buf.toString()); res.writeHead(200); return res.end(); }
+        if (req.method === 'GET' && !key) {
+          const prefix = url.searchParams.get('prefix') || '';
+          const keys = [...store.keys()].filter(x => x.startsWith(prefix)).sort();
+          res.writeHead(200, { 'content-type': 'application/xml' });
+          return res.end('<?xml version="1.0"?><ListBucketResult><IsTruncated>false</IsTruncated>' +
+            keys.map(x => '<Contents><Key>' + x + '</Key><Size>' + store.get(x).length + '</Size></Contents>').join('') +
+            '</ListBucketResult>');
+        }
+        if (req.method === 'GET' && key) {
+          if (!store.has(key)) { res.writeHead(404); return res.end('<Error><Code>NoSuchKey</Code></Error>'); }
+          res.writeHead(200, { 'content-type': 'text/plain' }); return res.end(store.get(key));
+        }
+        if (req.method === 'DELETE' && key) { store.delete(key); res.writeHead(204); return res.end(); }
+        res.writeHead(400); res.end('bad');
+      });
+    });
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    const cfg = s3.normalize({ endpoint: 'http://127.0.0.1:' + port, bucket: 'b1', accessKey: 'AK', secret: SECRET, prefix: 'payesh/' });
+    try {
+      const out = await s3.test(cfg);
+      assert.ok(out.ok, 'چرخهٔ آزمایش سالم: ' + JSON.stringify(out.steps));
+      assert.ok(out.steps.length >= 4, 'چهار مرحله گزارش شود');
+
+      await s3.put(cfg, 'payesh/x.json', '{"x":1}');
+      const list = await s3.list(cfg, { max: 10 });
+      assert.equal(list.keys.length, 1, 'فهرست فایل');
+      assert.equal((await s3.get(cfg, 'payesh/x.json')).trim(), '{"x":1}', 'خواندن محتوا');
+
+      /* خطای رمز غلط باید پیام فارسی بدهد، نه استثنای خام */
+      const bad = await s3.test(s3.normalize(Object.assign({}, cfg, { secret: 'wrong' })));
+      assert.ok(!bad.ok && /دسترسی|کلید/.test(bad.error || ''), 'پیام خطای فارسی: ' + bad.error);
+    } finally {
+      await new Promise(r => server.close(r));
+    }
+
+    /* ۴) مسیرهای API و صفحهٔ رابط */
+    const idx = fs.readFileSync(path.join(ROOT, 'server/index.js'), 'utf8');
+    assert.ok(idx.includes("'/api/admin/cloud/test'"), 'مسیر آزمایش');
+    assert.ok(idx.includes("'/api/admin/cloud'"), 'مسیر تنظیمات');
+    const pages = fs.readFileSync(path.join(ROOT, 'client/pages.js'), 'utf8');
+    assert.ok(pages.includes('PAGES.cloud'), 'صفحهٔ حافظهٔ ابری');
+    const html = fs.readFileSync(path.join(ROOT, 'client/index.html'), 'utf8');
+    assert.ok(html.includes('/lib/s3mini.js') && html.includes('/lib/sigv4.js'), 'کتابخانه‌ها در صفحه');
+    const sw = fs.existsSync(path.join(ROOT, 'client/sw.js'));
+    assert.ok(sw, 'سرویس‌ورکر');
+  });
+
   /* ── ۲.۵ شبکه: آدرس رسمی، QR، انتقال دستگاه، قفل PIN ── */
 
   await test('اطلاعات شبکه و آدرس عمومی', async () => {

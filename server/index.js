@@ -19,6 +19,7 @@ const policy = require('./policy');
 const cfg = require('./config');
 const qr = require('./qr');
 const hub = require('./hub');
+const s3mem = require('./s3mem');
 const update = require('./update');
 const tunnel = require('./tunnel');
 const { nowISO, json, normDigits, validNationalId, sha256 } = require('./util');
@@ -502,6 +503,43 @@ async function api(req, res, url, ip) {
     const b = await readBody(req);
     const r = await hub.sync(store, { force: !!b.force });
     return json(Object.assign({ ok: true }, r));
+  }
+
+  /* ── حافظهٔ ابری (صندوقچهٔ S3 ایرانی) ─────────────────────────────── */
+  if (p === '/api/admin/cloud' && m === 'GET') {
+    const view = s3mem.usingMeta(store).get();
+    const reveal = q.get('reveal') === '1';
+    return json({
+      ok: true,
+      config: Object.assign({}, view, {
+        secret: view.secret ? (reveal ? view.secret : '••••••••') : '',
+        accessKey: reveal ? view.accessKey : (view.accessKey ? view.accessKey.slice(0, 4) + '…' : ''),
+        configured: !!(view.endpoint && view.bucket && view.accessKey && view.secret),
+      }),
+      region_guess: s3mem.regionOf(view),
+    });
+  }
+
+  if (p === '/api/admin/cloud' && m === 'POST') {
+    const body = await readBody(req);
+    const cur = s3mem.usingMeta(store).get();
+    const next = s3mem.normalize(Object.assign({}, cur, body));
+    /* اگر کاربر کلید را با • فرستاد، همان قبلی بماند */
+    if (/^•+$/.test(String(body.secret || ''))) next.secret = cur.secret;
+    if (/…$/.test(String(body.accessKey || ''))) next.accessKey = cur.accessKey;
+    s3mem.usingMeta(store).set(next);
+    store.audit({ user_id: actor.user.id, role: 'manager', action: 'cloud_config', collection: 'meta' });
+    return json({ ok: true, configured: !!(next.endpoint && next.bucket && next.accessKey && next.secret) });
+  }
+
+  if (p === '/api/admin/cloud/test' && m === 'POST') {
+    const body = await readBody(req);
+    const cur = s3mem.usingMeta(store).get();
+    const merged = Object.assign({}, cur, body && body.config ? body.config : {});
+    if (/^•+$/.test(String(merged.secret || ''))) merged.secret = cur.secret;
+    const result = await s3mem.test(s3mem.normalize(merged));
+    store.audit({ user_id: actor.user.id, role: 'manager', action: 'cloud_test', collection: 'meta' });
+    return json(Object.assign({ ok: !!result.ok }, result));
   }
 
   if (p === '/api/admin/devices' && m === 'GET') return json({ ok: true, devices: auth.listDevices(store) });

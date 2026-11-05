@@ -1,15 +1,15 @@
 {
-  "version": "0.4.8",
-  "built_at": "2026-11-05T09:58:53.158Z",
+  "version": "0.4.9",
+  "built_at": "2026-11-05T10:23:22.456Z",
   "shell": {
-    "android": "0.4.8"
+    "android": "0.4.9"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "c0319691fadc25a99df2cc6587330ef797d8c0109f140d8eb8b5f6d9206c869d",
-      "size": 48784
+      "sha256": "7afd16a36694cd9855612c86dadecbcd813eb3cf92827dcb67035e534eef8afb",
+      "size": 52187
     },
     {
       "path": "client/icons/apple-touch-icon.png",
@@ -32,14 +32,26 @@
     {
       "path": "client/index.html",
       "kind": "client",
-      "sha256": "4e29d584c38c9f1c4b0ac4bbb889e5598ff6d62fb286f36674fd837ecf4af5c4",
-      "size": 1074
+      "sha256": "4ebad76ca87dddfc20ae73166da87e24e9ac7326437ca34e0a95325c764b0208",
+      "size": 1151
     },
     {
       "path": "client/install.html",
       "kind": "client",
       "sha256": "df63fb9668876018cc3fdec95cbf0469af2197806629fe278e1ae964d32aff15",
       "size": 10109
+    },
+    {
+      "path": "client/lib/s3mini.js",
+      "kind": "client",
+      "sha256": "f9db5964e3d238430ca11d2a7ecf268abb61154c81c12a6edd3f668a53694b1b",
+      "size": 7562
+    },
+    {
+      "path": "client/lib/sigv4.js",
+      "kind": "client",
+      "sha256": "6039b7f7f1d824f6d492a4a4e33b624863b10a802f0afaebfacfd0bf9b65678a",
+      "size": 9444
     },
     {
       "path": "client/manifest.webmanifest",
@@ -50,8 +62,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "ba9c5377e972e6abac51e5a05ffea4bc83752958fb549a94a89bc840c548a365",
-      "size": 79952
+      "sha256": "97413e16e444665f2fd6440a6fdc7e5117eca4f06e803d49bd1bae86418e986a",
+      "size": 83701
     },
     {
       "path": "client/styles.css",
@@ -104,7 +116,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "90628f406cb1c88f1cba9ab8b7aeea7b12cb24083233b883c087acc4fd38bdca",
+      "sha256": "a133c32f8a15ce12645f815a46b6548003a96b7946bd9bb4ab447c4840a0fad1",
       "size": 1979
     },
     {
@@ -134,8 +146,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "36d58e040002037c64a2f1b94432096b8d6dd6649471484786ff8349bdb1ad95",
-      "size": 38685
+      "sha256": "98163214515835c9c7b30dd18b91de061767e5c2d586b5d805c1ae2c8b61b7ff",
+      "size": 40689
     },
     {
       "path": "server/policy.js",
@@ -148,6 +160,12 @@
       "kind": "server",
       "sha256": "5a3540a4e33af3acf3261a5a66c9d4547521203b7f71cedf45d91300268f6a65",
       "size": 13353
+    },
+    {
+      "path": "server/s3mem.js",
+      "kind": "server",
+      "sha256": "7933003b686bf5575a1810dad07fa2cab9fa39a2b3d910ab7e9b7e21c1d81847",
+      "size": 1924
     },
     {
       "path": "server/seed.js",
@@ -205,10 +223,10 @@
     }
   ],
   "counts": {
-    "client": 10,
-    "server": 23
+    "client": 12,
+    "server": 24
   },
-  "client_size": 184888,
-  "server_size": 169959,
-  "total_size": 354847
+  "client_size": 209123,
+  "server_size": 173887,
+  "total_size": 383010
 }

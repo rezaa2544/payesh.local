@@ -937,6 +937,9 @@ function managerSystemSections() {
     <div class="small muted" style="margin-top:6px">هر ساعت خودکار گرفته می‌شود و ۴۸ نسخه نگه داشته می‌شود.</div>
     <div class="row" style="margin-top:8px"><button class="btn sm" data-act="backup-now">پشتیبان همین حالا</button>
       <button class="btn sm ghost" data-act="backup-list">فهرست نسخه‌ها</button></div>`)}
+  ${card(`<b>حافظهٔ ابری</b>
+    <div class="small muted" style="margin-top:6px">جایی که وقتی هیچ سیستمی روشن نیست، پیام‌ها و تکالیف نگه داشته می‌شوند تا اولین دستگاه همه را بردارد.</div>
+    <button class="btn sm" style="margin-top:8px" data-act="goto" data-route="cloud">تنظیم صندوقچه</button>`)}
   ${card(`<b>دستگاه‌های متصل</b><div id="devices-box" class="small muted" style="margin-top:6px">برای دیدن فهرست، دکمه را بزنید.</div>
     <button class="btn sm" style="margin-top:8px" data-act="devices-list">نمایش دستگاه‌ها</button>`)}
   ${card(`<b>تنظیمات مدرسه</b>
@@ -948,6 +951,41 @@ function managerSystemSections() {
   </div><button class="btn sm" style="margin-top:8px" data-act="audit-list">سابقهٔ تغییرات</button>`)}
   ${changePinCard()}`;
 }
+
+/* ══════════════════ حافظهٔ ابری ══════════════════ */
+PAGES.cloud = () => {
+  const c = S.cloud || null;
+  const busy = S._cloudBusy;
+  const row = (id, label, val, ph, type) => `<label class="field" style="margin-top:8px"><span>${label}</span>
+    <input class="input" id="${id}" ${type === 'password' ? 'type="password"' : ''} placeholder="${esc(ph || '')}" value="${esc(val || '')}"></label>`;
+  return `${pageHead('حافظهٔ ابری', 'جایی در اینترنت که همهٔ دستگاه‌ها رویش می‌نویسند', '')}
+  ${card(`<div class="small muted" style="line-height:1.9">
+    وقتی هیچ سیستمی در مدرسه روشن نیست، پیام‌ها و تکالیف باید جایی بمانند تا اولین دستگاهِ روشن‌شده همه را بردارد.
+    اینجا همان «صندوقچه» است. با یک حساب رایگان در یکی از سرویس‌های ایرانی (مثلاً ابر آروان: ۵ گیگابایت رایگان)
+    یک <b>باکت</b> بسازید و مشخصاتش را اینجا وارد کنید.
+  </div>`)}
+  ${c === null ? card(`<div class="muted small">در حال خواندن تنظیمات…</div>`) : card(`
+    <div class="row between"><b>تنظیمات صندوقچه</b>${c.configured ? badge('تنظیم شده', 'green') : badge('تنظیم نشده', 'amber')}</div>
+    ${row('cl-endpoint', 'آدرس سرویس (Endpoint)', c.endpoint, 'https://s3.ir-thr-at1.arvanstorage.ir')}
+    ${row('cl-bucket', 'نام صندوقچه (Bucket)', c.bucket, 'my-school')}
+    ${row('cl-region', 'منطقه (اختیاری)', c.region, 'ir-thr-at1')}
+    ${row('cl-access', 'کلید عمومی (Access Key)', c.accessKey, '')}
+    ${row('cl-secret', 'کلید خصوصی (Secret Key)', '', 'کلید خصوصی', 'password')}
+    <div class="small muted" style="margin-top:6px">کلید خصوصی ذخیره می‌شود ولی دیگر نمایش داده نمی‌شود؛ برای تغییر، مقدار تازه بگذارید.</div>
+    <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+      <button class="btn sm" data-act="cloud-save" ${busy ? 'disabled' : ''}>ذخیره</button>
+      <button class="btn sm ghost" data-act="cloud-test" ${busy ? 'disabled' : ''}>آزمایش از سرور</button>
+      <button class="btn sm ghost" data-act="cloud-test-browser" ${busy ? 'disabled' : ''}>آزمایش از همین دستگاه</button>
+    </div>
+    <div id="cloud-out" class="small" style="margin-top:10px"></div>`)}
+  ${card(`<b>CORS — یک نکتهٔ مهم</b>
+    <div class="small muted" style="margin-top:6px;line-height:1.9">
+      گوشی‌ها مستقیم با صندوقچه حرف می‌زنند، پس صندوقچه باید اجازهٔ مرورگر بدهد. در پنل آروان:
+      Object Storage ← صندوقچه ← عملیات ← <b>تنظیمات CORS</b> ← قانون جدید با
+      Allowed Origins = <span class="ltr">*</span> و Allowed Methods = <span class="ltr">GET, PUT, DELETE, HEAD</span>.
+      اگر این را نبندید، «آزمایش از همین دستگاه» خطا می‌دهد ولی «آزمایش از سرور» سالم است.
+    </div>`)}`;
+};
 
 /* ══════════════ کنش‌ها ══════════════ */
 function modal(html) {
