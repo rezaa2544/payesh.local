@@ -43,6 +43,11 @@ function appRoot() {
 }
 function releasesDir() { return path.join(appRoot(), 'releases'); }
 function dataDir() { return process.env.PAYESH_DATA || path.join(appRoot(), 'data'); }
+/* جای نوشتنی برای فایل‌های رابط، وقتی پوشهٔ نصب محافظت‌شده است */
+function overlayDir() { return path.join(dataDir(), 'app'); }
+function canWrite(target) {
+  try { fs.accessSync(target, fs.constants.W_OK); return true; } catch (e) { return false; }
+}
 function updatesDir() { return path.join(dataDir(), 'updates'); }
 function backupsDir() { return path.join(dataDir(), 'backups'); }
 
@@ -74,8 +79,9 @@ function autoCheckEnabled(store) {
   return v === null || v === undefined ? true : !!v;
 }
 function autoApplyEnabled(store) {
+  /* پیش‌فرض روشن: کاربر می‌خواهد نسخهٔ تازه بی‌صدا نصب شود و فقط گزارش تغییرات را ببیند */
   const v = store ? cfg.getMeta(store, 'update_auto_apply') : null;
-  return !!v;
+  return v === null || v === undefined ? true : !!v;
 }
 
 /* ── شبکه ─────────────────────────────────────────────────────────── */
@@ -192,6 +198,8 @@ async function plan(store, { force = false } = {}) {
   return {
     ok: true,
     available,
+    _manifest: remote,
+    notes: remote.notes || [],
     local_version: local.version,
     remote_version: remote.version,
     built_at: remote.built_at || null,
@@ -303,14 +311,35 @@ async function apply(store, { force = true, by = 'manager' } = {}) {
     }
     /* ── جای‌گذاری فایل‌های جدید ── */
     const written = [];
+    const overlaid = [];
+    const blocked = [];
     for (const f of p.changed) {
       const src = path.join(stage, f.path);
       const dst = path.join(root, f.path);
-      fs.mkdirSync(path.dirname(dst), { recursive: true });
-      const tmp = dst + '.new-' + process.pid;
-      fs.copyFileSync(src, tmp);
-      fs.renameSync(tmp, dst);
-      written.push(f.path);
+      try {
+        fs.mkdirSync(path.dirname(dst), { recursive: true });
+        const tmp = dst + '.new-' + process.pid;
+        fs.copyFileSync(src, tmp);
+        fs.renameSync(tmp, dst);
+        written.push(f.path);
+        continue;
+      } catch (e) {
+        /* پوشهٔ نصب محافظت‌شده (مثل Program Files) → لایهٔ نوشتنی در data/app */
+        if (!(e && (e.code === 'EACCES' || e.code === 'EPERM' || e.code === 'EBUSY'))) throw e;
+      }
+      if (!isUpdatable(f.path)) throw new Error('update_not_writable');
+      if (f.kind === 'client') {
+        const dst2 = path.join(overlayDir(), f.path);
+        fs.mkdirSync(path.dirname(dst2), { recursive: true });
+        fs.copyFileSync(src, dst2);
+        overlaid.push(f.path);
+      } else {
+        blocked.push(f.path);
+      }
+    }
+    if (blocked.length && !written.length && !overlaid.length) {
+      return { ok: false, error: 'needs_admin', detail: blocked.slice(0, 5).join(', '),
+        files: blocked.length };
     }
 
     /* ── حذف فایل‌هایی که در نسخهٔ نو نیستند ── */
@@ -329,9 +358,11 @@ async function apply(store, { force = true, by = 'manager' } = {}) {
     fs.writeFileSync(path.join(histDir, version + '.json'), JSON.stringify(remote, null, 2));
 
     const record = {
-      version, from_version: p.local_version, files: written.length, removed: deleted.length,
+      version, from_version: p.local_version, files: written.length + overlaid.length, removed: deleted.length,
       bytes: progress.bytes, restart: p.needs_restart, at: nowISO(), by,
       source: p.source, errors: p.errors || [], backed_up: backedUp.length,
+      overlaid: overlaid.length, blocked: blocked.length,
+      notes: (p._manifest && p._manifest.notes) || [],
     };
     if (store) {
       store.setMeta('update:last', record);
@@ -343,8 +374,10 @@ async function apply(store, { force = true, by = 'manager' } = {}) {
 
     return {
       ok: true, applied: true, version, from_version: p.local_version,
-      files: written.length, removed: deleted.length, bytes: record.bytes,
+      files: written.length + overlaid.length, removed: deleted.length, bytes: record.bytes,
       restart: !!p.needs_restart, source: p.source,
+      overlaid: overlaid.length, blocked: blocked.length,
+      notes: record.notes,
     };
   } catch (e) {
     progress = Object.assign({}, progress, { state: 'error', error: errText(e), finished_at: nowISO() });
@@ -406,10 +439,10 @@ async function tick(store, { onApply } = {}) {
   }
 }
 
-function start(store, { onApply, everyMs = 30 * 60_000 } = {}) {
+function start(store, { onApply, everyMs = 15 * 60_000 } = {}) {
   if (timer) clearInterval(timer);
   /* اولین بررسی کمی بعد از بالا آمدن سرور (تا راه‌اندازی کند نشود) */
-  setTimeout(() => { if (autoCheckEnabled(store)) tick(store, { onApply }).catch(() => {}); }, 25_000).unref?.();
+  setTimeout(() => { if (autoCheckEnabled(store)) tick(store, { onApply }).catch(() => {}); }, 12_000).unref?.();
   timer = setInterval(() => {
     if (!autoCheckEnabled(store)) return;
     tick(store, { onApply }).catch(() => {});

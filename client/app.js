@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.6.0';
+const CLIENT_VERSION = '0.6.1';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -115,6 +115,37 @@ function saveCache() {
 function saveQueue() { localStorage.setItem('payesh.queue', JSON.stringify(S.queue.slice(-500))); }
 
 /* ── ارتباط با سرور ─────────────────────────────────────────────── */
+/* ── «یک‌بار ورود، همیشه داخل» ────────────────────────────────────────
+   اگر نشست منقضی شد ولی این دستگاه قبلاً به حساب گره خورده، بی‌صدا
+   نشست تازه می‌گیریم؛ کاربر دوباره رمز نمی‌زند. */
+let refreshing = null;
+async function silentRefresh() {
+  if (!S.deviceToken) return false;
+  if (refreshing) return refreshing;
+  refreshing = (async () => {
+    try {
+      const res = await fetch(apiUrl('/api/auth/refresh'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ device_token: S.deviceToken }),
+        cache: 'no-store',
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.ok || !data.session) return false;
+      saveSession(data.session.token);
+      S.session = data.session.token;
+      if (data.user) {
+        S.user = data.user; S.role = data.user.role;
+        localStorage.setItem('payesh.lastname', data.user.name || '');
+        try { localStorage.setItem('payesh.lastuser', JSON.stringify({ user: data.user, role: data.user.role, version: S.server.version, school: S.server.school })); } catch (e) { /* noop */ }
+      }
+      return true;
+    } catch (e) { return false; }
+    finally { setTimeout(() => { refreshing = null; }, 1500); }
+  })();
+  return refreshing;
+}
+
 async function api(path, opts = {}) {
   const headers = { 'content-type': 'application/json' };
   if (S.session) headers.authorization = 'Bearer ' + S.session;
@@ -126,6 +157,10 @@ async function api(path, opts = {}) {
   });
   let data = null;
   try { data = await res.json(); } catch (e) { data = { ok: false, error: 'bad_response' }; }
+  if (res.status === 401 && !opts.noAuthRedirect && !opts._retried && S.deviceToken) {
+    /* نشست منقضی شده؟ بی‌صدا تازه‌اش می‌کنیم و همان درخواست را تکرار می‌کنیم */
+    if (await silentRefresh()) return api(path, Object.assign({}, opts, { _retried: true }));
+  }
   if (res.status === 401 && !opts.noAuthRedirect) { lockApp(); }
   if (!res.ok || data.ok === false) {
     const err = new Error((data && data.error) || ('HTTP ' + res.status));
@@ -455,6 +490,24 @@ function deviceName() {
 }
 
 /* ── شروع ───────────────────────────────────────────────────────── */
+/* ── گزارش تغییرات: فقط یک‌بار برای هر نسخه ─────────────────────────── */
+async function maybeShowReleaseNotes() {
+  try {
+    const info = (S.boot && S.boot.update) || null;
+    if (!info || !info.version) return;
+    const notes = Array.isArray(info.notes) ? info.notes : [];
+    if (!notes.length) return;
+    const key = 'payesh.notes.' + info.version;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+    const body = `<div class="small muted" style="margin-bottom:8px">نسخهٔ <b>${esc(info.version)}</b> نصب شد (${esc(jdate(info.at))}) — چه چیزی تازه شد:</div>
+      <ul class="small" style="line-height:2;padding-inline-start:18px">${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>
+      <button class="btn primary block" data-act="modal-close" style="margin-top:10px">باشه، متوجه شدم</button>`;
+    S.modalTitle = 'تازه‌های برنامه';
+    modal(body);
+  } catch (e) { /* بی‌اهمیت */ }
+}
+
 async function start() {
   try {
     const boot = await api('/api/bootstrap');
@@ -486,6 +539,7 @@ async function start() {
     render();
     scheduleSync();
     checkUpdate(true);
+    maybeShowReleaseNotes();
     if (S.role === 'manager') loadRemoteUpdate(false).then(() => { updateTopChrome(); if (S.remote && S.remote.available) render(); });
   } catch (e) {
     toast('اتصال به سرور برقرار نشد: ' + e.message, 'err');
@@ -759,7 +813,13 @@ async function applyRemoteUpdate() {
     await refreshClientCache();
   } catch (e) {
     S.remoteBusy = false; hideUpdateOverlay();
-    toast('به‌روزرسانی ناموفق: ' + e.message, 'err');
+    const msg = String(e.message || '');
+    const fa2 = /needs_admin/.test(msg)
+      ? 'این آپدیت کدِ سرور را عوض می‌کند و پوشهٔ نصب محافظت‌شده است — یک‌بار نصب‌کنندهٔ تازه را اجرا کنید؛ از آن پس آپدیت‌ها خودکار می‌شوند.'
+      : /EACCES|EPERM|apply_failed/.test(msg)
+        ? 'اجازهٔ نوشتن در پوشهٔ نصب نبود. نصب‌کنندهٔ تازه این اجازه را می‌دهد (یک‌بار).'
+        : msg;
+    toast('به‌روزرسانی ناموفق: ' + fa2, 'err');
     await loadRemoteUpdate(true); render();
   }
 }
@@ -867,8 +927,13 @@ async function boot() {
     if (!S.server.setupDone) { renderSetup(); return; }
     const tr = String(location.hash || '').match(/^#\/transfer\/([A-Za-z0-9_-]+)/);
     if (tr) { renderTransfer(tr[1]); return; }
-    if (S.deviceToken) renderLock();
-    else renderPair();
+    if (S.deviceToken) {
+      /* دستگاهِ گره‌خورده: اول بی‌صدا نشست می‌گیریم؛ فقط اگر دستگاه باطل شده باشد، قفل */
+      if (!S.session || !(await silentRefresh())) { renderLock(); return; }
+      await start();
+      return;
+    }
+    renderPair();
   } catch (e) {
     renderOffline();
   }

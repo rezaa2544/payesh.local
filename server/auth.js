@@ -8,8 +8,8 @@
 const { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, normDigits } = require('./util');
 
 const PAIR_TTL_MIN = 7 * 24 * 60;      /* کد پیوند تا ۷ روز معتبر است */
-const DEVICE_DAYS = 90;
-const SESSION_HOURS = 12;
+const DEVICE_DAYS = 365;          /* دستگاهِ مورد اعتماد یک سال می‌ماند */
+const SESSION_HOURS = 24;         /* نشست ۲۴ ساعت، ولی بی‌صدا تمدید می‌شود */
 
 function needsSetup(store) {
   return store.count('users', " AND json_extract(data,'$.role')='manager'") === 0;
@@ -100,12 +100,38 @@ function verifySession(store, token) {
   const h = sha256(token);
   const s = store.db.prepare('SELECT * FROM sessions WHERE token_hash=?').get(h);
   if (!s || s.revoked_at || Date.parse(s.expires_at) < Date.now()) return null;
+  /* تمدید لغزان: تا وقتی کاربر کار می‌کند، نشست کهنه نمی‌شود (بدون ورود دوباره) */
+  try {
+    const fresh = Date.now() + SESSION_HOURS * 3600 * 1000;
+    if (Date.parse(s.expires_at) - Date.now() < SESSION_HOURS * 1800 * 1000) {
+      const exp = new Date(fresh).toISOString();
+      store.db.prepare('UPDATE sessions SET expires_at=? WHERE token_hash=?').run(exp, h);
+      s.expires_at = exp;
+    }
+    if (s.device_id) store.db.prepare('UPDATE devices SET last_seen_at=? WHERE id=?').run(nowISO(), s.device_id);
+  } catch (e) { /* تمدید حیاتی نیست */ }
   const user = store.get('users', s.user_id);
   if (!user || user.active === false) return null;
   const device = s.device_id ? store.db.prepare('SELECT * FROM devices WHERE id=?').get(s.device_id) : null;
   return { user, device, session: s };
 }
 
+
+/* ── «یک‌بار ورود، همیشه داخل» ─────────────────────────────────────────
+   دستگاهِ مورد اعتماد (توکن ۱ ساله) می‌تواند بدون رمز، نشست تازه بگیرد.
+   اگر مدیر دستگاه را باطل کند (فهرست دستگاه‌ها) این راه هم می‌بندد. */
+function refreshWithDevice(store, input = {}) {
+  const raw = String(input.device_token || '');
+  const device = deviceFromToken(store, raw);
+  if (!device) return { ok: false, error: 'bad_device' };
+  const user = store.get('users', device.user_id);
+  if (!user || user.active === false) return { ok: false, error: 'user_inactive' };
+  /* عمر دستگاه را از نو می‌شماریم (تا وقتی استفاده می‌شود نمی‌سوزد) */
+  store.setMeta('device:' + sha256(raw), { device_id: device.id, user_id: device.user_id, created_at: nowISO() });
+  try { store.db.prepare('UPDATE devices SET last_seen_at=? WHERE id=?').run(nowISO(), device.id); } catch (e) { /* noop */ }
+  const session = createSession(store, user.id, device.id);
+  return { ok: true, user: publicUser(user), session, device_token: raw, auth: 'device' };
+}
 
 /* ── ورود با شمارهٔ همراه و رمز عبور ──────────────────────────────── */
 function hasPassword(user) { return !!(user && user.password_hash); }
@@ -277,7 +303,7 @@ function prune(store) {
 
 module.exports = {
   needsSetup, setup, createPairCode, pair, unlock, changePin,
-  hasPassword, login, unlockWithPassword, setPassword, changeOwnPassword,
+  hasPassword, login, refreshWithDevice, unlockWithPassword, setPassword, changeOwnPassword,
   createTransfer, redeemTransfer,
   verifySession, listDevices, revokeDevice, logout, publicUser, prune, findUserByPhone,
   SESSION_HOURS,
