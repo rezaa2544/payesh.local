@@ -1,8 +1,8 @@
 {
-  "version": "0.4.1",
-  "built_at": "2026-11-05T07:08:06.199Z",
+  "version": "0.4.2",
+  "built_at": "2026-11-05T07:17:08.147Z",
   "shell": {
-    "android": "0.4.1"
+    "android": "0.4.2"
   },
   "files": [
     {
@@ -104,7 +104,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "8e23eca931d07347db67e915ded8ffbeacf5dabae4f14974ca0aee077514a23b",
+      "sha256": "3eb964f47c03a97a18eb8f2c9826fce6888a69e52a4173933dcf27a273e673bc",
       "size": 1962
     },
     {
@@ -164,8 +164,8 @@
     {
       "path": "server/tunnel.js",
       "kind": "server",
-      "sha256": "d3161ab8cd2d60dea2eb454198721ec6cd12e95a78fc40e96b1146bc226b53c9",
-      "size": 15242
+      "sha256": "9af555f211efb7ac5282fa0ba0e78deef5e779b98fafcf4765da4c637df44e74",
+      "size": 15482
     },
     {
       "path": "server/update.js",
@@ -203,6 +203,6 @@
     "server": 22
   },
   "client_size": 183758,
-  "server_size": 166049,
-  "total_size": 349807
+  "server_size": 166289,
+  "total_size": 350047
 }
