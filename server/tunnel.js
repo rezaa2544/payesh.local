@@ -276,7 +276,26 @@ function stop() {
   timer = null;
 }
 
+/* آدرس‌های موقتیِ نسخه‌های قدیمی را پاک می‌کنیم تا برنامه هیچ آدرسی را که
+   کار نمی‌کند نشان ندهد. فقط آدرس Tailscale (ساختهٔ خودمان) و آدرس دستیِ
+   مدیر می‌مانند. */
+function purgeStalePublicUrl(store) {
+  const prev = cfg.publicUrl(store);
+  if (!prev) return { cleared: false, url: '' };
+  const provider = String(cfg.getMeta(store, 'tunnel_provider') || '');
+  let keep = false;
+  try {
+    keep = /\.ts\.net$/i.test(new URL(prev).hostname) || provider === 'manual';
+  } catch (e) { keep = false; }
+  if (keep) return { cleared: false, url: prev };
+  cfg.setMeta(store, 'public_url', '');
+  cfg.setMeta(store, 'tunnel_provider', '');
+  try { store.audit({ role: 'system', action: 'public_url_cleared', collection: 'system', after: { url: prev } }); } catch (e) { /* noop */ }
+  return { cleared: true, url: prev };
+}
+
 module.exports = {
+  purgeStalePublicUrl,
   status, refresh, start, stop, autoStart, autoEnabled,
   enableFunnel, disableFunnel, login,
   tailscaleStatus, tailscaleBin,

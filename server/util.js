@@ -22,6 +22,16 @@ function scryptHash(secret, salt) {
   const hash = crypto.scryptSync(String(secret), salt, 32, { N: 16384, r: 8, p: 1 }).toString('hex');
   return 'scrypt$' + salt + '$' + hash;
 }
+/* نسخهٔ قابل‌بررسی روی گوشی: PBKDF2-SHA256 که مرورگر/WebView هم می‌تواند
+   حساب کند (WebCrypto اسکریپت ندارد). همین باعث می‌شود برنامهٔ گوشی بدون
+   هیچ سروری، شماره+رمزی که مدیر تعیین کرده را خودش بررسی کند. */
+const PBKDF2_ITER = 150000;
+function pbkdf2Hash(secret) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(String(secret), salt, PBKDF2_ITER, 32, 'sha256').toString('hex');
+  return 'pbkdf2$' + PBKDF2_ITER + '$' + salt + '$' + hash;
+}
+
 function scryptVerify(secret, stored) {
   try {
     const [algo, salt, hash] = String(stored || '').split('$');
@@ -56,4 +66,4 @@ function json(obj, status = 200, headers = {}) {
 
 function clamp(n, min, max) { return Math.max(min, Math.min(max, Number(n) || 0)); }
 
-module.exports = { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, normDigits, validNationalId, json, clamp };
+module.exports = { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, pbkdf2Hash, PBKDF2_ITER, normDigits, validNationalId, json, clamp };

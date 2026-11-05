@@ -417,7 +417,27 @@ async function api(req, res, url, ip) {
     if (!outbox.SERVER_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     const out = await outbox.drain(store);
     const snap = await outbox.pushSnapshot(store).catch(() => ({ ok: false }));
-    return json(Object.assign({}, out, { snapshot: snap }));
+    /* نسخهٔ گوشی (بدون سرور) هم تازه می‌شود: رمزها + دادهٔ هر نفر */
+    const published = await outbox.publishAll(store).catch(() => null);
+    return json(Object.assign({}, out, { snapshot: snap, published }));
+  }
+
+  /* انتشار دستی بستهٔ گوشی (وقتی مدیر کاربر یا رمزی را عوض کرده) */
+  if (p === '/api/outbox/publish' && m === 'POST') {
+    if (!outbox.SERVER_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
+    const r = await outbox.publishAll(store);
+    return json(Object.assign({ ok: !!(r.auth && r.auth.ok) }, r));
+  }
+
+  /* آنچه گوشی لازم دارد: نشانی صندوقچه + کلید (فقط برای کاربر واردشده) */
+  if (p === '/api/phone/config' && m === 'GET') {
+    let c = s3mem.usingMeta(store).get();
+    if (!c.bucket && c.accessKey) { try { c = await s3mem.ensureBucket(store); } catch (e) { /* بعداً */ } }
+    return json({
+      ok: true,
+      config: { endpoint: c.endpoint, bucket: c.bucket, region: c.region, prefix: c.prefix, accessKey: c.accessKey, secret: c.secret, pathStyle: c.pathStyle },
+      ready: !!(c.endpoint && c.bucket && c.accessKey && c.secret),
+    });
   }
 
   if (p === '/api/outbox/snapshot' && m === 'GET') {
@@ -906,6 +926,12 @@ if (process.env.PAYESH_AUTO_BACKUP !== '0') {
   }, 60 * 60 * 1000).unref();
   try { store.backupTo(BACKUP_DIR, 48); } catch (e) { /* noop */ }
 }
+
+/* ── آدرس موقتیِ نسخه‌های قدیمی: در شروع پاک می‌شود ── */
+try {
+  const purged = tunnel.purgeStalePublicUrl(store);
+  if (purged.cleared) console.log('[network] آدرس موقت قدیمی پاک شد:', purged.url);
+} catch (e) { /* بی‌خیال */ }
 
 /* ── صندوقچهٔ پیش‌فرض: در شروع یک‌بار نام صندوقچه را پیدا و ثبت می‌کنیم ── */
 if (process.env.PAYESH_CLOUD_AUTO !== '0') {

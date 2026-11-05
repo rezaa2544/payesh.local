@@ -20,6 +20,9 @@ function badge(text, kind = '') { return `<span class="badge ${kind}">${esc(text
 
 const ROLE_FA = { manager: 'مدیر', teacher: 'دبیر', parent: 'ولی', student: 'دانش‌آموز', counselor: 'مشاور', guard: 'نگهبان' };
 
+/* حالت گوشی/بدون سرور (در app.js تعریف می‌شود) */
+function isPhoneMode() { return typeof PHONE_MODE !== 'undefined' && PHONE_MODE; }
+
 function navConfig(role) {
   const base = [];
   if (role === 'manager') {
@@ -37,6 +40,8 @@ function navConfig(role) {
   } else {
     base.push(['home', '🏠', 'خانه'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   }
+  /* روی گوشی «شبکه» و «حافظهٔ ابری» معنا ندارد (سروری در کار نیست) */
+  if (isPhoneMode()) return base.filter(([r]) => r !== 'network' && r !== 'cloud');
   return base;
 }
 
@@ -67,6 +72,8 @@ function shellHtml(view) {
 /* نوار آدرس عمومی:
    اگر آدرس ثابتِ کارآمدی ثبت نشده، مدیر یک یادآوری کوچک می‌بیند (قابل بستن). */
 function canonicalBarHtml() {
+  /* روی گوشی هیچ آدرس/شبکه‌ای در کار نیست — هیچ نواری نشان نمی‌دهیم */
+  if (typeof PHONE_MODE !== 'undefined' && PHONE_MODE) return '';
   const pub = S.server && S.server.publicUrl;
   if (pub) {
     try { if (location.origin === new URL(pub).origin) return ''; } catch (e) { return ''; }
@@ -271,18 +278,34 @@ function renderLock() {
   </div>`;
 }
 
-function renderOffline() {
+/* صفحهٔ ورود «بدون سرور»: روی گوشی و هر رایانه‌ای که به سیستم مدرسه
+   دسترسی ندارد، همین صفحه می‌آید — نه پیام بن‌بست «سرور در دسترس نیست». */
+function renderPhoneLogin() {
+  const last = (window.PayeshPhone && window.PayeshPhone.lastUser && window.PayeshPhone.lastUser()) || null;
   $('#app').innerHTML = `
   <div class="auth">
     <div class="logo">پ</div>
-    <h1>سرور در دسترس نیست</h1>
-    <div class="sub">از Wi-Fi مدرسه استفاده کنید یا اتصال سرور را بررسی کنید.</div>
-    <div class="card small muted">
-      آدرس این صفحه: <span class="ltr">${esc(location.host || location.pathname)}</span><br>
-      اگر روی گوشی هستید، مطمئن شوید به Wi-Fi مدرسه وصل هستید.
+    <h1>ورود به پایش</h1>
+    <div class="sub">شمارهٔ همراه و رمزی که مدیر مدرسه برایتان ساخته است</div>
+    <form data-form="phone-login" class="card">
+      <label class="field"><span>شمارهٔ همراه</span>
+        <input class="input ltr" name="phone" inputmode="numeric" autocomplete="username"
+          maxlength="11" placeholder="09xxxxxxxxx" value="${esc((last && last.phone) || '')}" autofocus></label>
+      <label class="field"><span>رمز عبور</span>
+        <input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="رمز عبور"></label>
+      <button class="btn primary block" type="submit">ورود</button>
+      <div class="small muted center" style="margin-top:10px">
+        اولین بار کمی طول می‌کشد (اطلاعات از حافظهٔ مدرسه خوانده می‌شود).
+      </div>
+    </form>
+    <div class="center small" style="margin-top:14px">
+      <button class="btn sm ghost" data-act="retry">تلاش مجدد برای اتصال به سیستم مدرسه</button>
     </div>
-    <button class="btn primary block" data-act="retry">تلاش مجدد</button>
   </div>`;
+}
+
+function renderOffline() {
+  renderPhoneLogin();
 }
 
 /* ══════════════ داشبورد مدیر ══════════════ */
