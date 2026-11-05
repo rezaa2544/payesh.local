@@ -34,7 +34,6 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 UninstallDisplayName={#AppName}
-UninstallDisplayIcon={sys}\SHELL32.dll,14
 VersionInfoVersion={#AppVersion}.0
 VersionInfoProductName={#AppName}
 VersionInfoCompany={#AppPublisher}

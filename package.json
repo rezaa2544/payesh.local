@@ -21,7 +21,8 @@
     "test:flow": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/flow.js",
     "test:hub": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/hub.js",
     "test:update": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/update.js",
-    "test:tunnel": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/tunnel.js"
+    "test:tunnel": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/tunnel.js",
+    "lint:iss": "node scripts/lint-iss.mjs"
   },
   "license": "MIT",
   "devDependencies": {
