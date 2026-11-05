@@ -975,15 +975,17 @@ PAGES.cloud = () => {
     <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
       <button class="btn sm" data-act="cloud-save" ${busy ? 'disabled' : ''}>ذخیره</button>
       <button class="btn sm ghost" data-act="cloud-test" ${busy ? 'disabled' : ''}>آزمایش از سرور</button>
+      <button class="btn sm ghost" data-act="cloud-cors" ${busy ? 'disabled' : ''}>تنظیم خودکار CORS</button>
       <button class="btn sm ghost" data-act="cloud-test-browser" ${busy ? 'disabled' : ''}>آزمایش از همین دستگاه</button>
     </div>
     <div id="cloud-out" class="small" style="margin-top:10px"></div>`)}
-  ${card(`<b>CORS — یک نکتهٔ مهم</b>
+  ${card(`<b>CORS — اجازهٔ مرورگر</b>
     <div class="small muted" style="margin-top:6px;line-height:1.9">
-      گوشی‌ها مستقیم با صندوقچه حرف می‌زنند، پس صندوقچه باید اجازهٔ مرورگر بدهد. در پنل آروان:
-      Object Storage ← صندوقچه ← عملیات ← <b>تنظیمات CORS</b> ← قانون جدید با
-      Allowed Origins = <span class="ltr">*</span> و Allowed Methods = <span class="ltr">GET, PUT, DELETE, HEAD</span>.
-      اگر این را نبندید، «آزمایش از همین دستگاه» خطا می‌دهد ولی «آزمایش از سرور» سالم است.
+      گوشی‌ها مستقیم با صندوقچه حرف می‌زنند، پس صندوقچه باید به مرورگر اجازه بدهد.
+      دکمهٔ <b>«تنظیم خودکار CORS»</b> همین کار را از داخل برنامه انجام می‌دهد؛ لازم نیست در پنل دنبالش بگردی.
+      اگر کلید اجازهٔ مدیریت صندوقچه را نداشت، پیام خطا نشان داده می‌شود و آن‌وقت باید در پنل
+      (فضای ابری ← صندوقچه ← عملیات ← تنظیمات CORS) دستی یک قانون با
+      <span class="ltr">*</span> و متدهای <span class="ltr">GET, PUT, DELETE, HEAD</span> بسازی.
     </div>`)}`;
 };
 

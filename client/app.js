@@ -936,8 +936,32 @@ document.addEventListener('click', async (e) => {
         const r = await api('/api/admin/cloud', { method: 'POST', body: cloudForm() });
         await loadCloud(); render();
         toast(r.configured ? 'ذخیره شد' : 'ذخیره شد — ولی کامل نیست', r.configured ? 'ok' : 'err');
+        if (r.configured) {
+          /* خودمان CORS را تنظیم می‌کنیم تا کاربر دنبال منوی پنل نگردد */
+          try {
+            const c = await api('/api/admin/cloud/cors', { method: 'POST', body: {} });
+            toast(c.ok ? 'CORS هم خودکار تنظیم شد' : 'CORS خودکار نشد — دکمهٔ تنظیم خودکار CORS را بزن', c.ok ? 'ok' : 'err');
+          } catch (e) { /* بی‌صدا */ }
+        }
       } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
       return;
+    }
+    case 'cloud-cors': {
+      S._cloudBusy = true; render();
+      const box = $('#cloud-out');
+      try {
+        if (box) box.innerHTML = '<span class="muted">در حال تنظیم خودکار CORS…</span>';
+        const r = await api('/api/admin/cloud/cors', { method: 'POST', body: { config: cloudForm() } });
+        if (box) {
+          box.innerHTML = r.ok
+            ? '<b style="color:#15803d">✅ CORS تنظیم شد</b>' +
+              (r.origins && r.origins.length ? '<div class="small muted">دامنه‌های مجاز: ' + esc(r.origins.join(' , ')) + '</div>' : '') +
+              '<div class="small muted" style="margin-top:4px">حالا «آزمایش از همین دستگاه» را بزن.</div>'
+            : '<b style="color:#b91c1c">تنظیم خودکار نشد</b> <span class="muted">' + esc(r.error || '') + '</span>' +
+              '<div class="small muted" style="margin-top:4px">یعنی کلید تو اجازهٔ تغییر تنظیمات صندوقچه را ندارد؛ قانون CORS را در پنل دستی بساز (راهنمای پایین صفحه).</div>';
+        }
+      } catch (err) { if (box) box.innerHTML = '<b style="color:#b91c1c">خطا:</b> ' + esc(err.message); }
+      S._cloudBusy = false; return;
     }
     case 'cloud-test': {
       S._cloudBusy = true; render();
