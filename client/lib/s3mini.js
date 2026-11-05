@@ -34,6 +34,21 @@
     return m ? m[0] : 'us-east-1';
   }
 
+  /* اگر کاربر آدرس صندوقچه را بچسباند (مثل https://mybucket.s3.ir-thr-at1.arvanstorage.ir)
+     خودمان باکت را جدا می‌کنیم تا لازم نباشد چیزی را دستی بشکافد. */
+  function smartParse(cfg) {
+    const c = Object.assign({}, cfg);
+    try {
+      const u = new URL(c.endpoint.indexOf('://') >= 0 ? c.endpoint : 'https://' + c.endpoint);
+      const m = u.host.match(/^([a-z0-9][a-z0-9.\-]*)\.s3[.\-]([a-z0-9.\-]+)$/i);
+      if (m && !/^s3[.\-]/i.test(u.host)) {
+        c.bucket = c.bucket || m[1];
+        c.endpoint = u.protocol + '//s3.' + m[2] + (u.pathname && u.pathname !== '/' ? u.pathname : '');
+      }
+    } catch (e) { /* آدرس نامعتبر — همان‌جا خطا می‌دهیم */ }
+    return c;
+  }
+
   function splitEndpoint(endpoint) {
     const u = new URL(endpoint.indexOf('://') >= 0 ? endpoint : 'https://' + endpoint);
     return { host: u.host, basePath: u.pathname.replace(/\/+$/, ''), scheme: u.protocol.replace(':', '') };
@@ -131,8 +146,39 @@
   const get = async (cfg, key) => (await call(cfg, { method: 'GET', key })).text;
   const remove = async (cfg, key) => { await call(cfg, { method: 'DELETE', key }); return { key }; };
 
+  /* ── CORS صندوقچه ─────────────────────────────────────────────── */
+  const CORS_XML = '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<CORSConfiguration><CORSRule>' +
+    '<AllowedOrigin>*</AllowedOrigin>' +
+    '<AllowedMethod>GET</AllowedMethod><AllowedMethod>PUT</AllowedMethod>' +
+    '<AllowedMethod>DELETE</AllowedMethod><AllowedMethod>HEAD</AllowedMethod>' +
+    '<AllowedHeader>*</AllowedHeader>' +
+    '<ExposeHeader>ETag</ExposeHeader><ExposeHeader>Content-Length</ExposeHeader>' +
+    '<MaxAgeSeconds>3600</MaxAgeSeconds>' +
+    '</CORSRule></CORSConfiguration>';
+
+  async function setCors(cfg) {
+    cfg = smartParse(normalize(cfg));
+    await call(cfg, {
+      method: 'PUT', key: '', query: { cors: '' }, body: CORS_XML,
+      headers: { 'content-type': 'application/xml' },
+    });
+    return { ok: true };
+  }
+
+  async function getCors(cfg) {
+    cfg = smartParse(normalize(cfg));
+    try {
+      const r = await call(cfg, { method: 'GET', key: '', query: { cors: '' } });
+      if (/NoSuchCORSConfiguration/i.test(r.text)) return { ok: false, error: 'no_cors' };
+      return { ok: true, raw: r.text, origins: all(r.text, 'AllowedOrigin').map(unxml) };
+    } catch (e) {
+      return { ok: false, error: e.message, status: e.status || 0 };
+    }
+  }
+
   async function test(cfg) {
-    cfg = normalize(cfg);
+    cfg = smartParse(normalize(cfg));
     const out = { ok: false, steps: [], ms: 0, region: regionOf(cfg) };
     if (!cfg.endpoint || !cfg.bucket || !cfg.accessKey || !cfg.secret) {
       out.error = 'چهار مقدار لازم است: آدرس، نام صندوقچه، کلید عمومی، کلید خصوصی';
@@ -161,5 +207,5 @@
     return out;
   }
 
-  return { DEFAULTS, normalize, regionOf, buildRequest, call, list, put, get, remove, test };
+  return { DEFAULTS, normalize, smartParse, regionOf, buildRequest, call, list, put, get, remove, setCors, getCors, test };
 });

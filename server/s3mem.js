@@ -38,4 +38,4 @@ async function uploadBackup(store, file) {
   return { ok: true, key: name, bytes: text.length };
 }
 
-module.exports = Object.assign({}, s3, { META_KEY, defaults, normalize, usingMeta, uploadBackup });
+module.exports = Object.assign({}, s3, { META_KEY, defaults, normalize, usingMeta, uploadBackup, smartParse: s3.smartParse, setCors: s3.setCors, getCors: s3.getCors });

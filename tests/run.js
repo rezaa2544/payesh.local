@@ -356,6 +356,8 @@ async function waitFor(fn, ms = 15000) {
   });
 
 
+  const corsRulesOk = xml => ['GET', 'PUT', 'DELETE', 'HEAD'].every(m => String(xml).includes('<AllowedMethod>' + m + '</AllowedMethod>'));
+
   await test('حافظهٔ ابری: امضای S3 درست و چرخهٔ نوشتن/خواندن سالم', async () => {
     const sig = require(path.join(ROOT, 'client', 'lib', 'sigv4.js'));
     const s3 = require(path.join(ROOT, 'server', 's3mem.js'));
@@ -377,6 +379,7 @@ async function waitFor(fn, ms = 15000) {
     /* ۳) سرور ساختگی S3 که امضا را با crypto خودِ Node چک می‌کند */
     const SECRET = 'testsecret';
     const store = new Map();
+    const corsXml = new Map();
     const ham = (k, m) => crypto.createHmac('sha256', k).update(m).digest();
     const server = http.createServer((req, res) => {
       const chunks = [];
@@ -404,6 +407,17 @@ async function waitFor(fn, ms = 15000) {
         }
         const pDec = decodeURIComponent(url.pathname);
         if (!pDec.startsWith('/b1')) { res.writeHead(404); return res.end('<Error><Code>NoSuchBucket</Code></Error>'); }
+        if (url.searchParams.has('cors')) {
+          if (req.method === 'PUT') { corsXml.set('b1', buf.toString()); res.writeHead(200); return res.end(); }
+          if (req.method === 'GET') {
+            if (!corsXml.get('b1')) {
+              res.writeHead(404, { 'content-type': 'application/xml' });
+              return res.end('<Error><Code>NoSuchCORSConfiguration</Code></Error>');
+            }
+            res.writeHead(200, { 'content-type': 'application/xml' });
+            return res.end(corsXml.get('b1'));
+          }
+        }
         const key = pDec.slice(4).replace(/^\//, '');
         if (req.method === 'PUT' && key) { store.set(key, buf.toString()); res.writeHead(200); return res.end(); }
         if (req.method === 'GET' && !key) {
@@ -434,6 +448,20 @@ async function waitFor(fn, ms = 15000) {
       const list = await s3.list(cfg, { max: 10 });
       assert.equal(list.keys.length, 1, 'فهرست فایل');
       assert.equal((await s3.get(cfg, 'payesh/x.json')).trim(), '{"x":1}', 'خواندن محتوا');
+
+      /* CORS: تنظیم خودکار و خواندن برگشتی */
+      const before = await s3.getCors(cfg);
+      assert.ok(!before.ok, 'قبل از تنظیم، CORS نداریم');
+      await s3.setCors(cfg);
+      const after = await s3.getCors(cfg);
+      assert.ok(after.ok, 'CORS تنظیم شد');
+      assert.ok(after.origins.includes('*'), 'دامنهٔ مجاز * ثبت شد');
+      assert.ok(corsRulesOk(after.raw), 'متدهای لازم در قانون CORS هستند');
+
+      /* آدرس «دامنهٔ صندوقچه» باید خودکار به endpoint + باکت تبدیل شود */
+      const parsed = s3.smartParse({ endpoint: 'https://b1.s3.ir-thr-at1.arvanstorage.ir' });
+      assert.equal(parsed.bucket, 'b1');
+      assert.equal(parsed.endpoint, 'https://s3.ir-thr-at1.arvanstorage.ir');
 
       /* خطای رمز غلط باید پیام فارسی بدهد، نه استثنای خام */
       const bad = await s3.test(s3.normalize(Object.assign({}, cfg, { secret: 'wrong' })));

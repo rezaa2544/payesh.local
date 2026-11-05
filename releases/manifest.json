@@ -1,15 +1,15 @@
 {
-  "version": "0.4.9",
-  "built_at": "2026-11-05T10:29:17.210Z",
+  "version": "0.5.0",
+  "built_at": "2026-11-05T11:00:01.719Z",
   "shell": {
-    "android": "0.4.9"
+    "android": "0.5.0"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "7afd16a36694cd9855612c86dadecbcd813eb3cf92827dcb67035e534eef8afb",
-      "size": 52187
+      "sha256": "29e86b474594dfa2f96505617edc5871cce36f9293895312306c15fdd647def8",
+      "size": 53949
     },
     {
       "path": "client/icons/apple-touch-icon.png",
@@ -44,8 +44,8 @@
     {
       "path": "client/lib/s3mini.js",
       "kind": "client",
-      "sha256": "f9db5964e3d238430ca11d2a7ecf268abb61154c81c12a6edd3f668a53694b1b",
-      "size": 7562
+      "sha256": "d35e61d2846453f122a148a4fe90bfd51d71b950dc4a78e70096abf59abcb243",
+      "size": 9786
     },
     {
       "path": "client/lib/sigv4.js",
@@ -62,8 +62,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "97413e16e444665f2fd6440a6fdc7e5117eca4f06e803d49bd1bae86418e986a",
-      "size": 83701
+      "sha256": "596aeeb653a8c9e2d4d7fd57892dc1d48406077bdaae2ec2c1f368c8a9de3637",
+      "size": 83985
     },
     {
       "path": "client/styles.css",
@@ -116,7 +116,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "a133c32f8a15ce12645f815a46b6548003a96b7946bd9bb4ab447c4840a0fad1",
+      "sha256": "d0984e6933a99867090d04cdad8753701f3dc4263dfacf59d8e2e0c07d0c95d2",
       "size": 1979
     },
     {
@@ -146,8 +146,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "98163214515835c9c7b30dd18b91de061767e5c2d586b5d805c1ae2c8b61b7ff",
-      "size": 40689
+      "sha256": "d0e3f236486e19b271308c6f2ecbc6ba6dee6383397033febd7f85c5dccd201b",
+      "size": 41470
     },
     {
       "path": "server/policy.js",
@@ -164,8 +164,8 @@
     {
       "path": "server/s3mem.js",
       "kind": "server",
-      "sha256": "7933003b686bf5575a1810dad07fa2cab9fa39a2b3d910ab7e9b7e21c1d81847",
-      "size": 1924
+      "sha256": "0f6ddc34185b672e7daf4dad53a39f388fac51f597e5217ab7c6523c3dc3dbb7",
+      "size": 1993
     },
     {
       "path": "server/seed.js",
@@ -226,7 +226,7 @@
     "client": 12,
     "server": 24
   },
-  "client_size": 209123,
-  "server_size": 173887,
-  "total_size": 383010
+  "client_size": 213393,
+  "server_size": 174737,
+  "total_size": 388130
 }

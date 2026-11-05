@@ -20,11 +20,22 @@
 > ⚠️ سرویس‌های خارجی (Cloudflare، Supabase، Neon، Firebase، Turso، Atlas، Backblaze…) یا در ایران
 > فیلترند یا به کاربران ایرانی سرویس نمی‌دهند. سراغشان نروید.
 
+## لینک‌های مستقیم
+
+| کار | لینک |
+|---|---|
+| ثبت‌نام | <https://accounts.arvancloud.ir/register?lang=fa> |
+| ورود به پنل | <https://panel.arvancloud.ir> |
+| **صندوقچه‌ها (بخش اصلی)** | <https://panel.arvancloud.ir/object-storage/buckets> |
+| وضعیت سرویس‌ها (نه پنل!) | <https://status.arvancloud.ir> — اینجا هیچ کاری نمی‌شود کرد |
+
 ## ساخت باکت در ابر آروان (۵ دقیقه)
 
 1. ثبت‌نام و ورود به پنل → **Object Storage**.
 2. **ساخت صندوقچه (Bucket)** → یک نام یکتا، مثلاً `payesh-madrese`.
-3. داخل صندوقچه → **عملیات** → **تنظیمات CORS** → قانون جدید:
+3. CORS: **لازم نیست دستی تنظیم کنی** — دکمهٔ «تنظیم خودکار CORS» در برنامه همین کار را
+   با API خود آروان انجام می‌دهد. اگر کلید اجازه نداشت، در پنل: داخل صندوقچه → **عملیات** →
+   **تنظیمات CORS** → قانون جدید:
    - Allowed Origins: `*`
    - Allowed Methods: `GET, PUT, DELETE, HEAD`
    - Allowed Headers: `*`

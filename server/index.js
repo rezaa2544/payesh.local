@@ -542,6 +542,23 @@ async function api(req, res, url, ip) {
     return json(Object.assign({ ok: !!result.ok }, result));
   }
 
+
+  if (p === '/api/admin/cloud/cors' && m === 'POST') {
+    const body = await readBody(req);
+    const cur = s3mem.usingMeta(store).get();
+    let cfg = s3mem.normalize(Object.assign({}, cur, body && body.config ? body.config : {}));
+    if (/^•+$/.test(String(cfg.secret || ''))) cfg.secret = cur.secret;
+    cfg = s3mem.smartParse(cfg);
+    try {
+      await s3mem.setCors(cfg);
+      const back = await s3mem.getCors(cfg);
+      store.audit({ user_id: actor.user.id, role: 'manager', action: 'cloud_cors', collection: 'meta' });
+      return json({ ok: true, origins: (back && back.origins) || [], applied: s3mem.CORS_XML ? true : true });
+    } catch (e) {
+      return json({ ok: false, error: e.message, detail: e.detail || null, status: e.status || 0 }, 200);
+    }
+  }
+
   if (p === '/api/admin/devices' && m === 'GET') return json({ ok: true, devices: auth.listDevices(store) });
 
   const dm = p.match(/^\/api\/admin\/devices\/([a-f0-9]+)$/);
