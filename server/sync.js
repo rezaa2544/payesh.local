@@ -6,6 +6,7 @@
    ─────────────────────────────────────────────────────────────────── */
 const { nowISO } = require('./util');
 const policy = require('./policy');
+const auth = require('./auth');
 
 const ROW_LIMIT = 3000;          /* سقف ردیف هر کالکشن در هر درخواست */
 const MAX_OPS = 200;             /* سقف عملیات هر push (هم‌راستا با کلاینت) */
@@ -16,6 +17,13 @@ const DEFAULT_COLLECTIONS = [
   'attendance', 'grades', 'announcements', 'leaves', 'parent_links', 'internships',
   'staff_attendance', 'staff_posts', 'discipline', 'homework', 'exams', 'calendar',
 ];
+
+function normalizePhone(v) {
+  return String(v == null ? '' : v)
+    .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+    .replace(/\D/g, '');
+}
 
 function pull(store, actor, params) {
   const since = String(params.since || EPOCH);
@@ -82,7 +90,7 @@ function push(store, actor, body, ctx = {}) {
     if (store.syncSeen(uid)) { applied.push({ uid, duplicate: true }); continue; }
 
     const type = op.type === 'del' ? 'del' : 'put';
-    const incoming = Object.assign({}, op.data || {});
+    let incoming = Object.assign({}, op.data || {});
 
     if (type === 'del') {
       const existing = op.id != null ? store.get(collection, op.id) : null;
@@ -108,6 +116,16 @@ function push(store, actor, body, ctx = {}) {
     } else if (op.base_version != null && Number(op.base_version) > 0) {
       conflicts.push({ uid, collection, id, server_version: 0, server: null });
       continue;
+    }
+
+    /* کاربران: نام کاربری = شمارهٔ همراه (یکتا) و رمز اولیه = کد ملی */
+    if (collection === 'users') {
+      incoming.phone = normalizePhone(incoming.phone);
+      if (incoming.phone) {
+        const dup = auth.phoneTaken(store, incoming.phone, id != null ? id : null);
+        if (dup) { rejected.push({ uid, error: 'duplicate_phone', detail: 'این شماره قبلاً برای ' + dup.name + ' ثبت شده' }); continue; }
+      }
+      if (!existing) incoming = auth.applyDefaultCredentials(incoming);
     }
 
     /* gate نقش + مالکیت */

@@ -41,6 +41,20 @@ function scryptVerify(secret, stored) {
   } catch (e) { return false; }
 }
 
+/* بررسی رمز، مستقل از قالب ذخیره‌شده: نسخهٔ گوشی (pbkdf2) یا قدیمی (scrypt) */
+function verifySecret(secret, stored) {
+  const s = String(stored || '');
+  if (s.startsWith('pbkdf2$')) {
+    const [, iter, salt, hash] = s.split('$');
+    if (!iter || !salt || !hash) return false;
+    try {
+      const calc = crypto.pbkdf2Sync(String(secret), salt, Number(iter), 32, 'sha256').toString('hex');
+      return crypto.timingSafeEqual(Buffer.from(calc, 'hex'), Buffer.from(hash, 'hex'));
+    } catch (e) { return false; }
+  }
+  return scryptVerify(secret, s);
+}
+
 function normDigits(s) {
   return String(s == null ? '' : s)
     .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
@@ -66,4 +80,4 @@ function json(obj, status = 200, headers = {}) {
 
 function clamp(n, min, max) { return Math.max(min, Math.min(max, Number(n) || 0)); }
 
-module.exports = { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, pbkdf2Hash, PBKDF2_ITER, normDigits, validNationalId, json, clamp };
+module.exports = { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, pbkdf2Hash, PBKDF2_ITER, verifySecret, normDigits, validNationalId, json, clamp };

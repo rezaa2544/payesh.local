@@ -295,9 +295,18 @@ function renderPhoneLogin() {
         <input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="رمز عبور"></label>
       <button class="btn primary block" type="submit">ورود</button>
       <div class="small muted center" style="margin-top:10px">
-        اولین بار کمی طول می‌کشد (اطلاعات از حافظهٔ مدرسه خوانده می‌شود).
+        اولین بار کمی طول می‌کشد (اطلاعات از حافظهٔ مدرسه خوانده می‌شود).<br>
+        پس از اولین ورود، هر بار بدون اینترنت هم برنامه باز می‌شود.
       </div>
     </form>
+    <details class="center small" style="margin-top:12px;max-width:420px">
+      <summary style="cursor:pointer">پیام خطا داد؟ اینجا را باز کنید</summary>
+      <div class="muted" style="margin-top:8px;text-align:right;line-height:1.9">
+        ۱) اینترنت گوشی را روشن کنید (داده همراه یا وای‌فای).<br>
+        ۲) اگر بازهم نشد، یک‌بار در <b>سیستم مدرسه</b> برنامه را باز کنید تا تنظیم‌ها و اجازهٔ دسترسی خودکار انجام شود.<br>
+        ۳) بعد همین‌جا دوباره «ورود» را بزنید.
+      </div>
+    </details>
     <div class="center small" style="margin-top:14px">
       <button class="btn sm ghost" data-act="retry">تلاش مجدد برای اتصال به سیستم مدرسه</button>
     </div>
@@ -576,7 +585,7 @@ PAGES.users = () => {
         `<span class="pill ${role === v ? 'on' : ''}" data-act="role-filter" data-role="${v}">${t}</span>`).join('')}
     </div>
   </div>
-  ${card(`<div class="table-wrap"><table><thead><tr><th>نام</th><th>نقش</th><th>کلاس</th><th>همراه</th><th></th></tr></thead><tbody>
+  ${card(`<div class="table-wrap"><table><thead><tr><th>نام</th><th>نقش</th><th>کلاس</th><th>نام کاربری (همراه)</th><th></th></tr></thead><tbody>
     ${users.map(u => `<tr>
       <td>${esc(u.name)}</td>
       <td>${badge(ROLE_FA[u.role] || u.role, u.role === 'manager' ? 'purple' : '')}</td>
@@ -584,7 +593,8 @@ PAGES.users = () => {
       <td class="small ltr">${esc(u.phone || '—')}${u.password_hash ? ' 🔑' : ''}</td>
       <td>
         <button class="btn sm" data-act="pair-code" data-id="${u.id}">کارت پیوند</button>
-        <button class="btn sm ghost" data-act="user-password" data-id="${u.id}">رمز عبور</button>
+        <button class="btn sm ghost" data-act="user-edit" data-id="${u.id}">ویرایش</button>
+        <button class="btn sm ghost" data-act="user-delete" data-id="${u.id}" style="color:#b91c1c">حذف</button>
       </td>
     </tr>`).join('')}
   </tbody></table></div>`)}`;
@@ -988,6 +998,7 @@ PAGES.system = () => {
       <button class="btn sm" data-act="sync">همگام‌سازی</button>
       <button class="btn sm" data-act="lock">🔒 خروج</button>
     </div>`)}
+  ${accountCard()}
   ${isManager ? updateCard() : clientUpdateCard()}
   ${isManager ? managerSystemSections() : changePinCard()}
   ${card(`<b>راهنمای دستگاه‌ها</b><div class="small muted" style="margin-top:6px">
@@ -997,6 +1008,22 @@ PAGES.system = () => {
     <br><a href="/install" target="_blank">صفحهٔ نصب و راهنما</a>
   </div>`)}`;
 };
+
+/* کارت حساب: نام کاربری + تغییر رمز عبور (هر نقشی) */
+function accountCard() {
+  const u = S.user || {};
+  const phone = u.phone || (S.boot && S.boot.user && S.boot.user.phone) || '';
+  return card(`<div class="row between"><b>👤 حساب من</b>${badge(ROLE_FA[S.role] || S.role, '')}</div>
+    <div class="small muted" style="margin-top:6px">نام: <b>${esc(u.name || '')}</b></div>
+    <div class="small muted" style="margin-top:2px">نام کاربری (شمارهٔ همراه): <span class="ltr">${esc(phone || '—')}</span></div>
+    <form data-form="own-password" style="margin-top:10px">
+      <label class="field"><span>رمز فعلی</span><input class="input ltr" type="password" name="current" autocomplete="current-password"></label>
+      <label class="field"><span>رمز تازه</span><input class="input ltr" type="password" name="next" autocomplete="new-password"></label>
+      <label class="field"><span>تکرار رمز تازه</span><input class="input ltr" type="password" name="again" autocomplete="new-password"></label>
+      <button class="btn primary block">تغییر رمز عبور</button>
+    </form>
+    <div class="small muted" style="margin-top:6px">اگر رمز فعلی را نمی‌دانید، از مدیر بخواهید رمز تازه بگذارد.</div>`);
+}
 
 function changePinCard() {
   return card(`<b>تغییر PIN</b>
@@ -1189,6 +1216,27 @@ function actAnnAdd() {
   </form>`);
 }
 
+function actUserEdit(id) {
+  const u = byId('users', Number(id));
+  if (!u) return;
+  S.modalTitle = 'ویرایش کاربر — ' + u.name;
+  modal(`<form data-form="user-edit">
+    <input type="hidden" name="id" value="${esc(u.id)}">
+    <label class="field"><span>نام و نام خانوادگی</span><input class="input" name="name" value="${esc(u.name)}" required></label>
+    <label class="field"><span>نام کاربری (شمارهٔ همراه)</span>
+      <input class="input ltr" name="phone" inputmode="numeric" maxlength="11" value="${esc(u.phone || '')}" placeholder="09xxxxxxxxx"></label>
+    <label class="field"><span>رمز عبور تازه (خالی بگذارید تا عوض نشود)</span>
+      <input class="input ltr" name="password" placeholder="رمز تازه"></label>
+    <div class="row" style="margin-top:6px">
+      <label class="row small" style="gap:6px;align-items:center">
+        <input type="checkbox" name="active" ${u.active !== false ? 'checked' : ''}> حساب فعال باشد
+      </label>
+    </div>
+    <div class="small muted" style="margin-top:8px">اگر رمز را خالی بگذارید، همان رمز فعلی می‌ماند. رمز اولیهٔ هر کاربر برابر کد ملی اوست.</div>
+    <button class="btn primary block" style="margin-top:10px">ذخیره</button>
+  </form>`);
+}
+
 function actUserAdd() {
   S.modalTitle = 'کاربر جدید';
   modal(`<form data-form="user">
@@ -1204,7 +1252,10 @@ function actUserAdd() {
       <label class="field grow"><span>کد ملی</span><input class="input ltr" name="national_id" inputmode="numeric" maxlength="10"></label>
       <label class="field grow"><span>همراه</span><input class="input ltr" name="phone" inputmode="numeric"></label>
     </div>
-    <button class="btn primary block">ایجاد و صدور کارت پیوند</button>
+    <label class="field"><span>رمز عبور (اختیاری — پیش‌فرض: کد ملی)</span>
+      <input class="input ltr" name="password" placeholder="اگر خالی بماند، کد ملی می‌شود"></label>
+    <div class="small muted" style="margin-top:6px">نام کاربری هر کاربر همان <b>شمارهٔ همراه</b> است و رمزش <b>کد ملی</b>؛ بعداً از «ویرایش» قابل تغییر است.</div>
+    <button class="btn primary block" style="margin-top:10px">ایجاد کاربر</button>
   </form>`);
 }
 

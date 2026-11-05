@@ -5,7 +5,7 @@
    ۲) کاربر با کد + PIN دستگاهش را به حساب گره می‌زند ⇒ توکن دستگاه (۹۰ روز)
    ۳) هر بار باز کردن برنامه: PIN ⇒ نشست کوتاه (۱۲ ساعت)
    ─────────────────────────────────────────────────────────────────── */
-const { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, pbkdf2Hash, normDigits } = require('./util');
+const { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, pbkdf2Hash, verifySecret, normDigits } = require('./util');
 
 const PAIR_TTL_MIN = 7 * 24 * 60;      /* کد پیوند تا ۷ روز معتبر است */
 const DEVICE_DAYS = 365;          /* دستگاهِ مورد اعتماد یک سال می‌ماند */
@@ -52,12 +52,13 @@ function setup(store, input) {
   const year = String(input.school_year || new Date().toLocaleDateString('fa-IR')).trim();
   store.insert('school_years', { title: year, active: true, school_id: 1, created_at: nowISO() }, { id: 1 });
 
+  const verifier = pw ? pbkdf2Hash(pw) : null;
   const manager = store.insert('users', {
     name, role: 'manager', phone: normDigits(input.phone || ''),
     national_id: normDigits(input.national_id || ''), active: true,
     school_id: 1, created_at: nowISO(),
-    password_hash: pw ? scryptHash(pw) : null,
-    phone_hash: pw ? pbkdf2Hash(pw) : null,
+    password_hash: pw ? verifier : null,
+    phone_hash: pw ? verifier : null,
   });
 
   const device = createDevice(store, manager.id, { name: 'سیستم مدیر', platform: 'server', pin });
@@ -144,7 +145,7 @@ function login(store, input = {}) {
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
   let user = findUserByPhone(store, phone);
   if (!user || user.active === false || !user.password_hash) return { ok: false, error: 'bad_credentials' };
-  if (!scryptVerify(pw, user.password_hash)) return { ok: false, error: 'bad_credentials' };
+  if (!verifySecret(pw, user.password_hash)) return { ok: false, error: 'bad_credentials' };
   if (!user.phone_hash) {
     /* برای ورود بدون سرور روی گوشی لازم است */
     user = store.update('users', user.id, { phone_hash: pbkdf2Hash(pw) });
@@ -163,7 +164,7 @@ function unlockWithPassword(store, input = {}) {
   const user = store.get('users', device.user_id);
   if (!user || user.active === false) return { ok: false, error: 'user_inactive' };
   if (!user.password_hash) return { ok: false, error: 'no_password' };
-  if (!scryptVerify(String(input.password || ''), user.password_hash)) return { ok: false, error: 'bad_credentials' };
+  if (!verifySecret(String(input.password || ''), user.password_hash)) return { ok: false, error: 'bad_credentials' };
   store.db.prepare('UPDATE devices SET last_seen_at=? WHERE id=?').run(nowISO(), device.id);
   return { ok: true, user: publicUser(user), session: createSession(store, user.id, device.id), auth: 'password' };
 }
@@ -174,14 +175,15 @@ function setPassword(store, userId, nextPw) {
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
   const user = store.get('users', userId);
   if (!user) return { ok: false, error: 'user_not_found' };
-  const saved = store.update('users', user.id, { password_hash: scryptHash(pw), phone_hash: pbkdf2Hash(pw) });
+  const verifier = pbkdf2Hash(pw);
+  const saved = store.update('users', user.id, { password_hash: verifier, phone_hash: verifier });
   return { ok: true, user: publicUser(saved) };
 }
 
 function changeOwnPassword(store, userId, currentPw, nextPw) {
   const user = store.get('users', userId);
   if (!user) return { ok: false, error: 'user_not_found' };
-  if (user.password_hash && !scryptVerify(String(currentPw || ''), user.password_hash)) {
+  if (user.password_hash && !verifySecret(String(currentPw || ''), user.password_hash)) {
     return { ok: false, error: 'bad_credentials' };
   }
   return setPassword(store, userId, nextPw);
@@ -292,6 +294,31 @@ function logout(store, session) {
   return { ok: true };
 }
 
+/* ── ساخت خودکار نام کاربری و رمز ───────────────────────────────────
+   کاربری که مدیر تعریف می‌کند: نام کاربری = شمارهٔ همراه، رمز اولیه = کد ملی.
+   مدیر بعداً می‌تواند هر دو را عوض کند و کاربر هم می‌تواند رمزش را تغییر دهد. */
+function credentialsFor(row) {
+  const phone = normDigits(row && row.phone);
+  const nid = normDigits(row && row.national_id);
+  if (phone.length < 10 || nid.length < 4) return null;
+  return { phone, password: nid };
+}
+
+/* اگر کاربر رمز ندارد، از کد ملی ساخته می‌شود (فقط هنگام ساخت) */
+function applyDefaultCredentials(row) {
+  const c = credentialsFor(row);
+  if (!c) return row;
+  if (row.password_hash) return row;
+  const verifier = pbkdf2Hash(c.password);
+  return Object.assign({}, row, { password_hash: verifier, phone_hash: verifier });
+}
+
+function phoneTaken(store, phone, exceptId) {
+  const p = normDigits(phone);
+  if (!p) return null;
+  return (store.all('users') || []).find(u => normDigits(u.phone) === p && Number(u.id) !== Number(exceptId || 0)) || null;
+}
+
 function publicUser(u) {
   return {
     id: u.id, name: u.name, role: u.role, phone: u.phone, national_id: u.national_id,
@@ -308,6 +335,7 @@ function prune(store) {
 
 module.exports = {
   needsSetup, setup, createPairCode, pair, unlock, changePin,
+  credentialsFor, applyDefaultCredentials, phoneTaken,
   hasPassword, login, refreshWithDevice, unlockWithPassword, setPassword, changeOwnPassword,
   createTransfer, redeemTransfer,
   verifySession, listDevices, revokeDevice, logout, publicUser, prune, findUserByPhone,

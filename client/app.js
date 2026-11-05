@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.0';
+const CLIENT_VERSION = '0.8.1';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -473,6 +473,15 @@ async function doLogin(form) {
 }
 
 /* ── ورود بدون سرور: همان شماره+رمزی که مدیر تعریف کرده ───────────── */
+/* نسخهٔ قابل‌بررسی رمز (PBKDF2) — روی گوشی ساخته می‌شود و همان روی سرور
+   به‌عنوان رمز ذخیره می‌شود؛ پس رمز هیچ‌جا به‌صورت متن نمی‌ماند. */
+function makeVerifier(plain) {
+  const iter = 150000;
+  const salt = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
+  const hash = window.PayeshHash.hex(window.PayeshHash.pbkdf2(String(plain), salt, iter, 32));
+  return 'pbkdf2$' + iter + '$' + salt + '$' + hash;
+}
+
 async function doPhoneLogin(f) {
   const phone = digitsOnly(f.phone.value);
   const password = String(f.password.value || '');
@@ -483,17 +492,28 @@ async function doPhoneLogin(f) {
   const btn = form ? form.querySelector('button[type="submit"]') : null;
   if (btn) { btn.disabled = true; btn.textContent = 'در حال بررسی…'; }
   try {
+    /* اگر همین‌جا سیستم مدرسه در دسترس باشد، نشانی حافظه را از آن یاد بگیر */
+    if (/^https?:/.test(location.protocol)) {
+      await Promise.race([
+        window.PayeshPhone.learnFromServer(location.origin),
+        new Promise(res => setTimeout(res, 2500)),
+      ]);
+    }
     const r = await window.PayeshPhone.login(phone, password);
     if (!r.ok) {
       const map = {
         bad_credentials: 'شماره یا رمز عبور درست نیست',
-        not_registered: 'این شماره در مدرسه ثبت نشده — از مدیر بخواهید حساب بسازد',
+        not_registered: 'این شماره در مدرسه ثبت نشده — از مدیر بخواهید حساب بسازد (و یک‌بار با سیستم مدرسه همگام شود)',
         user_inactive: 'حساب غیرفعال است',
         bad_phone: 'شمارهٔ همراه کامل نیست',
         bad_password: 'رمز عبور خیلی کوتاه است',
-        offline: 'به صندوقچهٔ ابری نرسیدیم — اینترنت گوشی را بررسی کنید',
+        net: 'به حافظهٔ مدرسه نرسیدیم — اینترنت گوشی را بررسی کنید و دوباره بزنید',
+        cors: 'حافظهٔ مدرسه هنوز اجازهٔ خواندن به برنامه نداده — یک‌بار در سیستم مدرسه، «حافظهٔ ابری ← تنظیم خودکار CORS» را بزنید',
+        denied: 'دسترسی به حافظهٔ مدرسه باز نیست — در سیستم مدرسه «حافظهٔ ابری ← تنظیم خودکار CORS» را بزنید',
+        no_bucket: 'حافظهٔ مدرسه هنوز ساخته نشده — یک‌بار با سیستم مدرسه همگام شوید',
+        no_config: 'برنامه بدون تنظیم حافظه ساخته شده — نسخهٔ تازه را نصب کنید',
       };
-      toast(map[r.error] || 'ورود ناموفق', 'err');
+      toast(map[r.error] || ('ورود ناموفق: ' + r.error), 'err');
       return;
     }
     await enterPhone(r.user);
@@ -1043,6 +1063,21 @@ document.addEventListener('click', async (e) => {
   switch (act) {
     case 'modal-close': closeModal(); return;
     case 'retry': boot(); return;
+    case 'user-edit': actUserEdit(id); return;
+    case 'user-delete': {
+      const u = byId('users', Number(id));
+      if (!u) return;
+      if (!confirm('کاربر «' + u.name + '» حذف شود؟ این کار قابل بازگشت نیست.')) return;
+      try {
+        if (!PHONE_MODE) await api('/api/admin/users/' + u.id, { method: 'DELETE' });
+        removeLocal('users', u.id);
+        if (S.data.users) S.data.users.delete(Number(u.id));
+        saveCache(); render();
+        await flushQueue();
+        toast('کاربر حذف شد', 'ok');
+      } catch (e) { toast('حذف نشد: ' + e.message, 'err'); }
+      return;
+    }
     case 'user-password': {
       const u = byId('users', Number(id));
       if (!u) return;
@@ -1431,6 +1466,62 @@ document.addEventListener('submit', async (e) => {
   }
 
   /* منبع آپدیت */
+  /* تغییر رمز عبور خودِ کاربر */
+  if (kind === 'own-password') {
+    const current = String(f.current.value || S.user.__pw || '');
+    const next = String(f.next.value || '');
+    const again = String(f.again.value || '');
+    if (next.length < 4) return toast('رمز تازه باید حداقل ۴ نویسه باشد', 'err');
+    if (next !== again) return toast('رمز تازه و تکرارش یکی نیست', 'err');
+    try {
+      if (PHONE_MODE) {
+        /* روی گوشی: نسخهٔ قابل‌بررسی را خودمان می‌سازیم و در صندوقچه می‌گذاریم */
+        const verifier = makeVerifier(next);
+        await window.PayeshPhone.send({
+          uid: 'pw-' + uid(), user_id: S.user.id, role: S.role,
+          op: { collection: 'users', type: 'put', id: S.user.id, data: { __password_verifier: verifier }, base_version: 0 },
+        });
+        localStorage.setItem('payesh.own.pw', verifier);
+        toast('رمز تازه ثبت شد — با اولین اتصال به سیستم مدرسه اعمال می‌شود', 'ok');
+      } else {
+        await api('/api/auth/password', { method: 'POST', body: { current, next } });
+        toast('رمز عبور عوض شد', 'ok');
+      }
+      closeModal(); render();
+    } catch (e) { toast('تغییر رمز ناموفق: ' + e.message, 'err'); }
+    return;
+  }
+
+  /* ویرایش کاربر توسط مدیر */
+  if (kind === 'user-edit') {
+    const id = Number(f.id.value);
+    const u = byId('users', id);
+    if (!u) return;
+    const phone = digitsOnly(f.phone.value);
+    if (phone && phone.length < 10) return toast('شمارهٔ همراه کامل نیست', 'err');
+    const password = String(f.password.value || '');
+    const patch = { name: String(f.name.value || '').trim() || u.name, phone, active: f.active.checked };
+    if (!PHONE_MODE) {
+      try {
+        const r = await api('/api/admin/users/' + id, { method: 'PATCH', body: Object.assign({}, patch, password ? { password } : {}) });
+        if (!r.ok) throw new Error(r.error === 'duplicate_phone' ? 'این شماره برای «' + (r.name || 'کاربر دیگر') + '» ثبت شده' : (r.error || 'خطا'));
+      } catch (e) { return toast('ذخیره نشد: ' + e.message, 'err'); }
+    }
+    putLocal('users', Object.assign({}, u, patch, password ? { password_hash: 'set' } : {}));
+    if (PHONE_MODE && password) {
+      await window.PayeshPhone.send({
+        uid: 'pw-' + uid(), user_id: S.user.id, role: S.role,
+        op: { collection: 'users', type: 'put', id, data: { __password_verifier: makeVerifier(password) }, base_version: 0 },
+      });
+    }
+    closeModal(); saveCache(); render();
+    await flushQueue();
+    if (!PHONE_MODE) await pullAll().catch(() => {});
+    render();
+    toast('کاربر ویرایش شد', 'ok');
+    return;
+  }
+
   if (kind === 'update') {
     try {
       const r = await api('/api/admin/update/settings', { method: 'POST', body: { base: String(f.base.value || '').trim() } });

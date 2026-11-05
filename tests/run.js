@@ -132,6 +132,47 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(dup.data.error, 'code_used');
   });
 
+  await test('کاربر خودکار: نام کاربری = شماره، رمز = کد ملی + ویرایش/حذف/تغییر رمز', async () => {
+    /* ۱) ساخت با شماره و کد ملی → ورود خودکار ممکن می‌شود */
+    const made = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'nu-1', collection: 'users', type: 'put', data: { name: 'زهرا تازه', role: 'student', phone: '09121110001', national_id: '1000000010' } },
+    ] } });
+    assert.strictEqual(made.data.applied.length, 1, JSON.stringify(made.data));
+    const newId = made.data.applied[0].id;
+    const loginDefault = await req('/api/auth/login', { method: 'POST', body: { phone: '09121110001', password: '1000000010' } });
+    assert.strictEqual(loginDefault.data.ok, true, 'ورود با شماره + کد ملی: ' + JSON.stringify(loginDefault.data));
+    assert.strictEqual(loginDefault.data.user.role, 'student');
+    const newTok = loginDefault.data.session.token;
+
+    /* ۲) شمارهٔ تکراری رد می‌شود (نام کاربری باید یکتا باشد) */
+    const dupPhone = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'nu-2', collection: 'users', type: 'put', data: { name: 'کپی', role: 'student', phone: '09121110001', national_id: '1000000011' } },
+    ] } });
+    assert.strictEqual(dupPhone.data.applied.length, 0, 'شمارهٔ تکراری ساخته نشد');
+    assert.strictEqual(dupPhone.data.rejected[0].error, 'duplicate_phone');
+
+    /* ۳) مدیر نام کاربری و رمز را عوض می‌کند */
+    const edit = await req('/api/admin/users/' + newId, { method: 'PATCH', token: managerToken, body: { phone: '09121110002', password: 'Ramz-Taze-99' } });
+    assert.strictEqual(edit.data.ok, true, JSON.stringify(edit.data));
+    const oldLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09121110001', password: '1000000010' } });
+    assert.strictEqual(oldLogin.data.ok, false, 'نام کاربری قبلی دیگر کار نمی‌کند');
+    const newLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09121110002', password: 'Ramz-Taze-99' } });
+    assert.strictEqual(newLogin.data.ok, true, 'نام کاربری و رمز تازه کار می‌کند');
+
+    /* ۴) خود کاربر رمزش را عوض می‌کند */
+    const selfTok = newLogin.data.session.token;
+    const self = await req('/api/auth/password', { method: 'POST', token: selfTok, body: { current: 'Ramz-Taze-99', next: 'Khodam-77' } });
+    assert.strictEqual(self.data.ok, true, JSON.stringify(self.data));
+    const afterSelf = await req('/api/auth/login', { method: 'POST', body: { phone: '09121110002', password: 'Khodam-77' } });
+    assert.strictEqual(afterSelf.data.ok, true, 'رمز تازهٔ خودِ کاربر کار می‌کند');
+
+    /* ۵) حذف کاربر توسط مدیر */
+    const del = await req('/api/admin/users/' + newId, { method: 'DELETE', token: managerToken });
+    assert.strictEqual(del.data.ok, true, JSON.stringify(del.data));
+    const goneLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09121110002', password: 'Khodam-77' } });
+    assert.strictEqual(goneLogin.data.ok, false, 'کاربر حذف‌شده نمی‌تواند وارد شود');
+  });
+
   await test('قفل PIN: رمز غلط رد، رمز درست قبول', async () => {
     const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 1 } });
     const p = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '5555' } });
@@ -868,6 +909,17 @@ async function waitFor(fn, ms = 15000) {
       assert.ok(bucket.has('payesh/outbox/pending/ob-phone-1.json'), 'فایل ثبت گوشی در صندوقچه هست');
       const drainedFromPhone = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
       assert.ok(drainedFromPhone.data.applied >= 1, 'سیستم مدرسه ثبت گوشی را اعمال کرد');
+
+      /* تغییر رمز از روی گوشی: فقط نسخهٔ قابل‌بررسی می‌آید و همان رمز می‌شود */
+      const utilMod = require(path.join(ROOT, 'server', 'util.js'));
+      bucket.set('payesh/outbox/pending/pw-phone-1.json', JSON.stringify({
+        v: 1, uid: 'pw-phone-1', user_id: 1, role: 'manager', device_id: 'phone-x',
+        op: { collection: 'users', type: 'put', id: 1, data: { __password_verifier: utilMod.pbkdf2Hash('Ramz-Az-Ghooshi') } },
+      }));
+      const pwDrain = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
+      assert.ok(pwDrain.data.applied >= 1, 'تغییر رمز از گوشی اعمال شد');
+      const pwLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'Ramz-Az-Ghooshi' } });
+      assert.strictEqual(pwLogin.data.ok, true, 'رمزِ تعیین‌شده روی گوشی روی سرور کار می‌کند');
     } finally {
       await new Promise(r => fake.close(r));
     }

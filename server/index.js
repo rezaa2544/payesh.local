@@ -655,6 +655,48 @@ async function api(req, res, url, ip) {
     }
   }
 
+  /* ── ویرایش/حذف کاربر توسط مدیر (نام کاربری = شماره، رمز) ─────────── */
+  const um = p.match(/^\/api\/admin\/users\/(\d+)$/);
+  if (um && (m === 'PATCH' || m === 'PUT')) {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const id = Number(um[1]);
+    const user = store.get('users', id);
+    if (!user) return json({ ok: false, error: 'user_not_found' }, 404);
+    const body = await readBody(req);
+    const patch = {};
+    if (body.name) patch.name = String(body.name).trim().slice(0, 80);
+    if (body.phone != null) {
+      const phone = normDigits(body.phone);
+      if (phone && phone.length < 10) return json({ ok: false, error: 'bad_phone' }, 400);
+      const dup = phone && auth.phoneTaken(store, phone, id);
+      if (dup) return json({ ok: false, error: 'duplicate_phone', name: dup.name }, 409);
+      patch.phone = phone;
+    }
+    if (body.national_id != null) {
+      const nid = normDigits(body.national_id);
+      if (nid && !validNationalId(nid)) return json({ ok: false, error: 'bad_national_id' }, 400);
+      patch.national_id = nid;
+    }
+    if (body.active != null) patch.active = !!body.active;
+    if (body.role && ['student', 'teacher', 'parent', 'vice', 'counselor', 'office', 'staff', 'manager'].includes(body.role)) patch.role = body.role;
+    const saved = store.update('users', id, patch);
+    let pw = null;
+    if (body.password) pw = auth.setPassword(store, id, body.password);
+    store.audit({ user_id: actor.user.id, role: 'manager', action: 'user_update', collection: 'users', record_id: id, after: Object.assign({}, patch, pw ? { password_changed: true } : {}) });
+    return json({ ok: true, user: auth.publicUser(store.get('users', id)), password_set: !!(pw && pw.ok), error: pw && !pw.ok ? pw.error : undefined });
+  }
+
+  if (um && m === 'DELETE') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const id = Number(um[1]);
+    const user = store.get('users', id);
+    if (!user) return json({ ok: false, error: 'user_not_found' }, 404);
+    if (id === actor.user.id) return json({ ok: false, error: 'cannot_delete_self' }, 400);
+    store.remove('users', id);
+    store.audit({ user_id: actor.user.id, role: 'manager', action: 'user_delete', collection: 'users', record_id: id, before: auth.publicUser(user) });
+    return json({ ok: true, deleted: id });
+  }
+
   if (p === '/api/auth/password' && m === 'POST') {
     const body = await readBody(req);
     const r = auth.changeOwnPassword(store, actor.user.id, body.current, body.next);
@@ -814,12 +856,17 @@ function importUsers(body) {
       else errors.push({ row: i + 2, error: 'class_not_found', class_name: r.class_name, warning: true });
     }
 
-    const u = store.insert('users', {
+    if (phone && auth.phoneTaken(store, phone, null)) {
+      errors.push({ row: i + 2, error: 'duplicate_phone', phone });
+      continue;
+    }
+    /* نام کاربری = شمارهٔ همراه، رمز اولیه = کد ملی (خودکار) */
+    const u = store.insert('users', auth.applyDefaultCredentials({
       name, role: kind === 'staff' ? (r.role || 'teacher') : 'student',
       national_id: nid, phone, class_id: classId,
       subject: String(r.subject || ''), position: String(r.position || ''),
       active: true, school_id: 1, created_at: nowISO(),
-    });
+    }));
     if (nid) existingNid.add(nid);
     created.push(userRow(u));
 
@@ -933,11 +980,24 @@ try {
   if (purged.cleared) console.log('[network] آدرس موقت قدیمی پاک شد:', purged.url);
 } catch (e) { /* بی‌خیال */ }
 
-/* ── صندوقچهٔ پیش‌فرض: در شروع یک‌بار نام صندوقچه را پیدا و ثبت می‌کنیم ── */
+/* ── صندوقچهٔ پیش‌فرض: در شروع نام صندوقچه را پیدا می‌کنیم و اجازهٔ CORS را
+      هم خودکار می‌گذاریم — گوشی‌ها بدون هیچ کاری می‌توانند بخوانند/بنویسند. ── */
 if (process.env.PAYESH_CLOUD_AUTO !== '0') {
   setTimeout(() => {
     s3mem.ensureBucket(store)
-      .then(c => { if (c.bucket) console.log('[cloud] صندوقچه:', c.bucket, '·', c.endpoint); })
+      .then(async c => {
+        if (!c.bucket) return;
+        console.log('[cloud] صندوقچه:', c.bucket, '·', c.endpoint);
+        try {
+          const cors = await s3mem.getCors(c);
+          if (!cors || !cors.ok) {
+            await s3mem.setCors(c);
+            console.log('[cloud] اجازهٔ CORS خودکار تنظیم شد (برای برنامهٔ گوشی لازم است)');
+          }
+        } catch (e) {
+          console.log('[cloud] تنظیم CORS ناموفق:', e.message);
+        }
+      })
       .catch(e => console.log('[cloud] تشخیص صندوقچه ناموفق:', e.message));
   }, 2500).unref();
 }

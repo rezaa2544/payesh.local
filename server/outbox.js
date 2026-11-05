@@ -154,6 +154,19 @@ async function drain(store, { limit = MAX_DRAIN } = {}) {
         await markDone(store, cfg, doneKey, uid, 'no_user');
         continue;
       }
+      /* تغییر رمز از روی گوشی: گوشی فقط «نسخهٔ قابل‌بررسی» (PBKDF2) را
+         می‌فرستد و آن هم فقط برای خودِ همان کاربر پذیرفته می‌شود. */
+      const opData = (item.op && item.op.data) || {};
+      const verifier = opData.__password_verifier;
+      if (item.op.collection === 'users' && verifier && Number(item.op.id) === Number(item.user_id)) {
+        store.update('users', Number(item.op.id), { password_hash: String(verifier), phone_hash: String(verifier) });
+        try { store.audit({ user_id: user.id, role: user.role, action: 'password_change_phone', collection: 'users', record_id: Number(item.op.id) }); } catch (e) { /* noop */ }
+        out.applied++;
+        await markDone(store, cfg, doneKey, uid, 'password');
+        try { await s3mem.remove(cfg, key); } catch (e) { /* */ }
+        continue;
+      }
+
       const actor = { user, role: user.role, device: null };
       const op = Object.assign({}, item.op, { uid });
       const res = sync.push(store, actor, { ops: [op] }, { device_id: item.device_id || null, outbox: true });

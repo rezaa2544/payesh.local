@@ -68,6 +68,8 @@ jobs:
           ls "$ANDROID_HOME/platforms" 2>/dev/null | tail -3 || true
 
       - uses: gradle/actions/setup-gradle@v3
+        # فقط برای حافظهٔ موقت است؛ اگر سرویسش بالا نیاید، ساخت APK باید ادامه دهد
+        continue-on-error: true
         with:
           gradle-version: '8.7'
 
@@ -75,9 +77,12 @@ jobs:
         env:
           # آدرس سامانه که داخل APK پخته می‌شود (تنظیم با gh variable set PAYESH_PUBLIC_URL)
           PAYESH_APP_URL: ${{ vars.PAYESH_PUBLIC_URL }}
+          # نام صندوقچهٔ ابری که داخل APK پخته می‌شود (اختیاری — gh variable set CLOUD_BUCKET)
+          PAYESH_CLOUD_BUCKET: ${{ vars.CLOUD_BUCKET }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "ساخت APK نسخهٔ $VERSION"
+          node scripts/bake-cloud.mjs
           sed -i "s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" install/android/app/build.gradle
           sed -i "s/versionCode [0-9]\+/versionCode ${{ github.run_number }}/" install/android/app/build.gradle
           grep -E "versionName|versionCode" install/android/app/build.gradle
