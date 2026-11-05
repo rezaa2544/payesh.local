@@ -282,9 +282,17 @@ async function waitFor(fn, ms = 15000) {
       'آدرس عمومی را از خود سرور یاد می‌گیرد (کار در خانه)');
     assert.ok(/candidates\(\)/.test(main), 'فهرست آدرس‌های جایگزین');
 
-    /* سیستم مدرسه خاموش → همان صفحهٔ قبلی از کش گوشی */
+    /* سیستم مدرسه خاموش → همان برنامهٔ داخل گوشی (نه نسخهٔ کش‌شدهٔ قدیمی) */
     assert.ok(/private void showOffline\(/.test(main), 'دکمهٔ آفلاین در گوشی');
-    assert.ok(main.includes('LOAD_CACHE_ELSE_NETWORK'), 'خواندن از کش بدون شبکه');
+    assert.ok(!main.includes('LOAD_CACHE_ELSE_NETWORK'),
+      'نسخهٔ کهنه از کش نمایش داده نمی‌شود (باگ «بعد از آپدیت، صفحهٔ قدیمی»)');
+    assert.ok(/no-store/.test(main), 'فایل‌های برنامه کش نمی‌شوند');
+    assert.ok(/clearCache\(true\)/.test(main), 'با نصب نسخهٔ تازه، کش پاک می‌شود');
+    assert.ok(/setCacheMode\(WebSettings\.LOAD_NO_CACHE\)/.test(main), 'همیشه فایل تازهٔ داخل APK');
+    assert.ok(main.includes('PAYESH_BUILD'), 'نسخهٔ ساخت به برنامه داده می‌شود');
+    /* پل بومی حافظه: بدون CORS */
+    assert.ok(/JavascriptInterface/.test(main) && /"PayeshNative"/.test(main),
+      'پل بومی حافظهٔ ابری در برنامه هست');
     assert.ok(main.includes('KEY_LAST'), 'آخرین نشانی موفق ذخیره می‌شود');
     assert.ok(main.includes('optJSONArray("urls")'), 'چند آدرس از مخزن (سرور پشتیبان)');
 

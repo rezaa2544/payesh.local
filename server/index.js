@@ -1104,30 +1104,38 @@ if (process.env.PAYESH_OUTBOX_AUTO !== '0') {
 /* ── راه‌اندازی مجدد خودکار پس از آپدیت ───────────────────────────── */
 function autoRestartEnabled() { return process.env.PAYESH_NO_RESTART !== '1'; }
 let restarting = false;
+function closeServerForRestart() {
+  try { server.close(); } catch (e) { /* noop */ }
+  try { if (server.closeAllConnections) server.closeAllConnections(); } catch (e) { /* noop */ }
+  try { store.close(); } catch (e) { /* noop */ }
+}
+
 function scheduleRestart(reason) {
   if (restarting || !autoRestartEnabled()) return;
   restarting = true;
   console.log('[update] راه‌اندازی مجدد (' + reason + ')…');
-  /* اول درگاه آزاد می‌شود، بعد پروسهٔ تازه بالا می‌آید تا EADDRINUSE نگیریم */
   setTimeout(() => {
-    try { server.close(); } catch (e) { /* noop */ }
-    try { if (server.closeAllConnections) server.closeAllConnections(); } catch (e) { /* noop */ }
+    closeServerForRestart();
+    /* اگر «ناظر» (server/start.js) بالای سرِ ماست، خودش دوباره بالا می‌آورد.
+       وگرنه خودمان یک نمونهٔ تازه اجرا می‌کنیم. */
+    if (process.env.PAYESH_SUPERVISED === '1') {
+      setTimeout(() => process.exit(75), 120);
+      return;
+    }
     setTimeout(() => {
       try {
         const { spawn } = require('child_process');
-        const child = spawn(process.execPath, process.argv.slice(1), {
-          cwd: process.cwd(), env: process.env, stdio: 'inherit', detached: false,
+        const entry = require('path').resolve(process.argv[1] || 'server/index.js');
+        const child = spawn(process.execPath, [entry].concat(process.argv.slice(2)), {
+          cwd: process.cwd(), env: process.env, stdio: 'inherit', detached: true,
         });
         child.on('error', err => console.error('[update] اجرای مجدد ناموفق:', err.message));
         child.unref();
       } catch (e) {
         console.error('[update] اجرای مجدد ناموفق:', e.message);
       }
-      setTimeout(() => {
-        try { store.close(); } catch (e) { /* noop */ }
-        process.exit(0);
-      }, 250);
-    }, 500);
+      setTimeout(() => process.exit(0), 250);
+    }, 600);
   }, 120);
 }
 

@@ -102,6 +102,7 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> filePathCallback;
 
     private SharedPreferences prefs;
+    private boolean staleBundle = false;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private boolean scanning = false;
     private java.util.List<String> queue = new java.util.ArrayList<>();
@@ -118,6 +119,15 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+
+        /* نسخهٔ تازه نصب شده؟ کش قدیمی پاک شود تا فایل‌های تازه دیده شوند */
+        try {
+            String stamp = BuildConfig.VERSION_NAME + "-" + BuildConfig.VERSION_CODE;
+            if (!stamp.equals(prefs.getString("bundle.stamp", ""))) {
+                prefs.edit().putString("bundle.stamp", stamp).apply();
+                staleBundle = true;
+            }
+        } catch (Exception ignored) { }
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -185,6 +195,11 @@ public class MainActivity extends Activity {
 
         setContentView(root);
         setupWebView();
+        if (staleBundle) {
+            /* فقط کش فایل‌ها؛ حافظهٔ محلی (ورود کاربر و صف ثبت‌ها) دست‌نخورده می‌ماند */
+            try { web.clearCache(true); } catch (Exception ignored) { }
+            staleBundle = false;
+        }
 
         boot();
     }
@@ -519,6 +534,7 @@ public class MainActivity extends Activity {
             String html = new String(body, StandardCharsets.UTF_8);
             String bucket = BuildConfig.PAYESH_CLOUD_BUCKET == null ? "" : BuildConfig.PAYESH_CLOUD_BUCKET.trim();
             String inject = "<script>window.PAYESH_API_BASE=" + JSONObject.quote(apiBase)
+                + ";window.PAYESH_BUILD=" + JSONObject.quote(BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")")
                 + ";window.PAYESH_BUNDLED=true;"
                 + (bucket.isEmpty() ? "" : "window.PAYESH_CLOUD_BUCKET=" + JSONObject.quote(bucket) + ";")
                 + "</script>";
@@ -526,7 +542,12 @@ public class MainActivity extends Activity {
             body = html.getBytes(StandardCharsets.UTF_8);
         }
         Map<String, String> headers = new HashMap<>();
-        headers.put("Cache-Control", "no-cache");
+        /* هیچ‌چیزِ این برنامه کش نشود: اگر کش شود، بعد از نصب نسخهٔ تازه،
+           گوشی همان فایل‌های قدیمی را نشان می‌دهد (صفحهٔ ورودِ کهنه، نسخهٔ
+           ۰.۰.۰ و خطاهایی که در نسخهٔ تازه رفع شده‌اند). */
+        headers.put("Cache-Control", "no-store, no-cache, must-revalidate");
+        headers.put("Pragma", "no-cache");
+        headers.put("Expires", "0");
         WebResourceResponse res = new WebResourceResponse(mimeOf(path), "utf-8", new ByteArrayInputStream(body));
         res.setResponseHeaders(headers);
         return res;
@@ -543,7 +564,7 @@ public class MainActivity extends Activity {
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         web.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
@@ -637,8 +658,9 @@ public class MainActivity extends Activity {
         String last = prefs.getString(KEY_LAST, "");
         if (last.isEmpty()) last = prefs.getString(KEY_URL, "");
         if (last.isEmpty()) last = prefs.getString(KEY_PUBLIC, "");
-        web.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-        openApp(last);
+        /* آفلاین هم همان برنامهٔ داخل گوشی باز می‌شود (نه نسخهٔ کش‌شدهٔ قدیمی) */
+        web.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
+        openApp("");
     }
 
     private String normalize(String raw) {
