@@ -64,15 +64,27 @@ function shellHtml(view) {
   <nav class="bottomnav">${mkNav(true)}</nav>`;
 }
 
-/* اگر کاربر از آدرس محلی (فقط شبکهٔ مدرسه) وارد شده، به آدرس رسمی هدایتش کن */
+/* نوار آدرس عمومی:
+   اگر آدرس ثابتِ کارآمدی ثبت نشده، مدیر یک یادآوری کوچک می‌بیند (قابل بستن).
+   آدرس‌های موقتی Cloudflare دیگر تبلیغ نمی‌شوند — در ایران جواب نمی‌دهند. */
 function canonicalBarHtml() {
   const pub = S.server && S.server.publicUrl;
-  if (!pub) return '';
-  try { if (location.origin === new URL(pub).origin) return ''; } catch (e) { return ''; }
+  const usable = !!pub && !/trycloudflare\.com/i.test(pub);
+  if (usable) {
+    try { if (location.origin === new URL(pub).origin) return ''; } catch (e) { return ''; }
+    if (localStorage.getItem('payesh.originbar.off') === pub) return '';
+    return `<div class="banner warn" id="origin-bar">
+      <div>🌐 این آدرس فقط داخل شبکهٔ مدرسه کار می‌کند. برای استفاده از هر اینترنتی (خانه و موبایل)، آدرس رسمی را باز کنید:
+        <span class="ltr small" style="font-weight:700">${esc(pub.replace(/^https?:\/\//, ''))}</span></div>
+      <button class="btn sm primary" data-act="transfer">انتقال به آدرس رسمی</button>
+    </div>`;
+  }
+  if (S.role !== 'manager') return '';
+  if (localStorage.getItem('payesh.originbar.off') === 'none') return '';
   return `<div class="banner warn" id="origin-bar">
-    <div>🌐 این آدرس فقط داخل شبکهٔ مدرسه کار می‌کند. برای استفاده از هر اینترنتی (خانه و موبایل)، آدرس رسمی را باز کنید:
-      <span class="ltr small" style="font-weight:700">${esc(pub.replace(/^https?:\/\//, ''))}</span></div>
-    <button class="btn sm primary" data-act="transfer">انتقال به آدرس رسمی</button>
+    <div>🌐 الآن فقط داخل شبکهٔ مدرسه کار می‌کند. برای ورود از هر اینترنتی (خانه و موبایل) یک آدرس ثابت لازم است.</div>
+    <button class="btn sm primary" data-act="goto" data-route="network">تنظیم آدرس ثابت</button>
+    <button class="btn sm ghost" data-act="originbar-off">بستن</button>
   </div>`;
 }
 
@@ -819,18 +831,16 @@ function publicAccessCard(n) {
     body = `<div class="small muted" style="margin-top:8px">Tailscale نصب و آماده است. با یک کلیک آدرس ثابت عمومی ساخته می‌شود (همان آدرسی که بعد از این، همه از هر اینترنتی وارد می‌شوند).</div>
       <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
         <button class="btn sm primary" data-act="tunnel-enable">${busy ? 'در حال فعال‌سازی…' : 'فعال‌سازی آدرس عمومی'}</button>
-        <button class="btn sm" data-act="tunnel-quick">تونل موقت Cloudflare</button>
         <button class="btn sm ghost" data-act="tunnel-refresh">بازبینی</button>
       </div>`;
   } else {
     body = `<ol class="small" style="margin:8px 0 0;padding-inline-start:18px;line-height:2">
         <li><a href="${esc(ts.download || 'https://tailscale.com/download/windows')}" target="_blank">Tailscale</a> را روی همین سیستم نصب کنید (رایگان، بدون کارت بانکی).</li>
         <li>با حساب رایگان وارد شوید و برگردید؛ بقیه‌اش یک کلیک است.</li>
-        <li>اگر Tailscale نمی‌خواهید، «تونل موقت Cloudflare» هم هست (آدرسش با هر روشن شدن عوض می‌شود).</li>
+        <li>آدرس‌های موقت Cloudflare (<span class="ltr">trycloudflare.com</span>) در ایران فیلترند و با هر بار روشن شدن عوض می‌شوند — به‌کار نمی‌آیند.</li>
       </ol>
       <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
         <button class="btn sm primary" data-act="tunnel-login">ورود / نصب Tailscale</button>
-        <button class="btn sm" data-act="tunnel-quick">تونل موقت Cloudflare</button>
         <button class="btn sm ghost" data-act="tunnel-refresh">بازبینی</button>
       </div>`;
   }

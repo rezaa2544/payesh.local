@@ -557,6 +557,21 @@ async function api(req, res, url, ip) {
   }
 
   /* ── حافظهٔ ابری (صندوقچهٔ S3 ایرانی) ─────────────────────────────── */
+  /* پیکربندی صندوقچه برای «هر دستگاهِ واردشده» — گوشی/تبلت هم بدون تایپ کلید می‌داند
+     کجا بنویسد (برای وقتی که سیستم مدرسه خاموش است). کلید فقط به کاربر واردشده داده می‌شود. */
+  if (p === '/api/cloud/config' && m === 'GET') {
+    let c = s3mem.usingMeta(store).get();
+    if (!c.bucket && c.accessKey) { try { c = await s3mem.ensureBucket(store); } catch (e) { /* بعداً */ } }
+    return json({
+      ok: true,
+      config: {
+        endpoint: c.endpoint, bucket: c.bucket, region: c.region, prefix: c.prefix,
+        accessKey: c.accessKey, secret: c.secret, pathStyle: c.pathStyle,
+      },
+      ready: !!(c.endpoint && c.bucket && c.accessKey && c.secret),
+    });
+  }
+
   if (p === '/api/admin/cloud' && m === 'GET') {
     /* اگر نام صندوقچه هنوز معلوم نیست، همین‌جا از حساب می‌پرسیم */
     let view = s3mem.usingMeta(store).get();
@@ -897,6 +912,18 @@ if (process.env.PAYESH_AUTO_BACKUP !== '0') {
   }, 60 * 60 * 1000).unref();
   try { store.backupTo(BACKUP_DIR, 48); } catch (e) { /* noop */ }
 }
+
+/* ── آدرس عمومی موقتیِ Cloudflare در ایران کار نمی‌کند؛ در شروع پاکش می‌کنیم
+      تا برنامه آدرسی را تبلیغ نکند که جواب نمی‌دهد (Tailscale/دامنهٔ ثابت می‌ماند) ── */
+try {
+  const prev = cfg.publicUrl(store);
+  if (prev && /trycloudflare\.com$/i.test(new URL(prev).hostname)) {
+    cfg.setMeta(store, 'public_url', '');
+    cfg.setMeta(store, 'tunnel_provider', '');
+    store.audit({ role: 'system', action: 'public_url_cleared', collection: 'system', after: { url: prev, why: 'trycloudflare_filtered' } });
+    console.log('[network] آدرس موقت Cloudflare پاک شد (در ایران در دسترس نیست):', prev);
+  }
+} catch (e) { /* آدرس نامعتبر — بی‌خیال */ }
 
 /* ── صندوقچهٔ پیش‌فرض: در شروع یک‌بار نام صندوقچه را پیدا و ثبت می‌کنیم ── */
 if (process.env.PAYESH_CLOUD_AUTO !== '0') {

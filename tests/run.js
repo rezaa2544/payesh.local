@@ -621,6 +621,15 @@ async function waitFor(fn, ms = 15000) {
   });
 
 
+  await test('صندوقچه برای هر دستگاهِ واردشده آماده است (بدون تایپ کلید)', async () => {
+    const cc = await req('/api/cloud/config', { token: managerToken });
+    assert.strictEqual(cc.data.ok, true);
+    assert.ok(/arvanstorage/.test(cc.data.config.endpoint || ''), 'endpoint پیش‌فرض داخل برنامه');
+    assert.ok(cc.data.config.accessKey && cc.data.config.secret, 'کلید پیش‌فرض هست');
+    const anon = await req('/api/cloud/config');
+    assert.ok(anon.status >= 400 || !(anon.data && anon.data.config), 'بدون ورود، کلید داده نمی‌شود');
+  });
+
   await test('نجاتِ مدیر از خودِ رایانهٔ مدرسه (ساختن رمز)', async () => {
     /* مدیر رمز دارد → اجازهٔ بازنویسی بدون ورود داده نمی‌شود */
     const r1 = await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000001', password: 'zzzz' } });
