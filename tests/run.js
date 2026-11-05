@@ -263,7 +263,7 @@ async function waitFor(fn, ms = 15000) {
     /* ۴.۵) کلیک دوباره روی آیکون = آوردن پنجرهٔ موجود، نه پیام «باز است» */
     assert.ok(app.includes('TryOpenExisting'), 'سیگنال تک‌نمونه‌ای');
     assert.ok(/BringToFrontFromSecond/.test(app), 'آوردن پنجرهٔ سینی به جلو');
-    assert.ok(!app.includes('همین حالا باز است'), 'پیام بن‌بست تک‌نمونه حذف شده');
+    assert.ok(!/MessageBox\.Show\(\s*"پایش/.test(app), 'پیام بن‌بست «باز است» برنگشته');
 
     /* ۵) اتصال از هر اینترنت: نردبان آدرس شامل آدرس عمومی */
     assert.ok(/public_url/.test(app), 'آدرس عمومی HTTPS در نردبان اتصال');
