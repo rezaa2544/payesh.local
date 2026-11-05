@@ -198,8 +198,12 @@ public class MainActivity extends Activity {
         for (String raw : new String[]{
                 prefs.getString(KEY_URL, ""),
                 BuildConfig.PAYESH_URL == null ? "" : BuildConfig.PAYESH_URL,
-                prefs.getString(KEY_PUBLIC, ""),
-                prefs.getString(KEY_REMOTE, "")}) {
+                prefs.getString(KEY_PUBLIC, "")}) {
+            String u = normalize(raw);
+            if (!u.isEmpty() && !out.contains(u)) out.add(u);
+        }
+        /* آدرس‌های مخزن می‌توانند چندتا باشند: سیستم مدرسه + رایانهٔ پشتیبان */
+        for (String raw : prefs.getString(KEY_REMOTE, "").split("\n")) {
             String u = normalize(raw);
             if (!u.isEmpty() && !out.contains(u)) out.add(u);
         }
@@ -223,8 +227,20 @@ public class MainActivity extends Activity {
                     String body = httpGet(cfg, 4000);
                     if (body == null) continue;
                     JSONObject j = new JSONObject(body);
-                    String u = j.optString("url", "").trim();
-                    if (!u.isEmpty()) { found = normalize(u); break; }
+                    /* url تکی (سازگاری) + آرایهٔ urls برای چند سرور */
+                    StringBuilder list = new StringBuilder();
+                    String single = normalize(j.optString("url", "").trim());
+                    if (!single.isEmpty()) list.append(single);
+                    org.json.JSONArray arr = j.optJSONArray("urls");
+                    if (arr != null) {
+                        for (int i = 0; i < arr.length(); i++) {
+                            String u = normalize(arr.optString(i, "").trim());
+                            if (u.isEmpty()) continue;
+                            if (list.length() > 0) list.append("\n");
+                            list.append(u);
+                        }
+                    }
+                    if (list.length() > 0) { found = list.toString(); break; }
                 } catch (Exception ignored) { }
             }
             final String result = found;
