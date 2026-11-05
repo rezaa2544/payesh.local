@@ -1474,6 +1474,68 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  /* — حذف رشته: پرسش «فقط خودش» یا «همه چیز مربوط به آن» ───────────── */
+  await test('حذف رشته: انتخاب بین «فقط خودش» و «رشته + کلاس‌هایش»', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js') + '\n;window.__t = { S, list, putLocal };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'classes';
+    const boot = () => {
+      T.S.data = {
+        users: new Map([
+          [1, { id: 1, name: 'مدیر', role: 'manager' }],
+          [9, { id: 9, name: 'دانش‌آموز', role: 'student', class_id: 5 }],
+        ]),
+        classes: new Map([[5, { id: 5, name: 'دهم شبکه', branch: 'شبکه' }], [6, { id: 6, name: 'یازدهم ریاضی', branch: 'ریاضی' }]]),
+        subjects: new Map([[10, { id: 10, name: 'ریاضی' }]]),
+        lookups: new Map([[3, { id: 3, kind: 'branch', name: 'شبکه' }], [4, { id: 4, kind: 'branch', name: 'ریاضی' }]]),
+        schedule: new Map([[100, { id: 100, class_id: 5, subject_id: 10, weekday: 0, bell_order: 1 }]]),
+        substitutions: new Map([[7, { id: 7, schedule_id: 100, class_id: 5, sub_teacher_id: 1, date: '2026-11-07' }]]),
+        bell_schedules: new Map(), parent_links: new Map(),
+      };
+      T.S.queue = []; T.S.online = false;
+    };
+    const click = act => {
+      const b = win.document.createElement('button');
+      b.setAttribute('data-act', act);
+      b.setAttribute('data-id', '3');
+      win.document.body.appendChild(b);
+      b.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
+      b.remove();
+    };
+    const tick = () => new Promise(r => setTimeout(r, 20));
+
+    /* ۱) فقط خودِ رشته */
+    boot();
+    click('def-delete');
+    let html = win.document.querySelector('#modal-root').innerHTML;
+    assert.ok(/def-delete-only/.test(html) && /def-delete-cascade/.test(html), 'هر دو گزینه پرسیده شد');
+    assert.ok(/دهم شبکه/.test(html), 'کلاس‌های وابسته فهرست شدند');
+    click('def-delete-only'); await tick();
+    assert.ok(!T.S.data.lookups.has(3), 'رشته حذف شد');
+    assert.ok(T.S.data.classes.has(5), 'کلاس دست‌نخورده ماند');
+    assert.ok(T.S.data.schedule.has(100), 'زنگ برنامه دست‌نخورده ماند');
+
+    /* ۲) رشته + همهٔ کلاس‌هایش */
+    boot();
+    click('def-delete');
+    click('def-delete-cascade'); await tick();
+    assert.ok(!T.S.data.lookups.has(3), 'رشته حذف شد');
+    assert.ok(!T.S.data.classes.has(5), 'کلاس وابسته حذف شد');
+    assert.ok(T.S.data.classes.has(6), 'کلاس رشتهٔ دیگر ماند');
+    assert.ok(!T.S.data.schedule.has(100), 'زنگ‌های برنامهٔ آن کلاس پاک شد');
+    assert.ok(!T.S.data.substitutions.has(7), 'جابه‌جای آن کلاس پاک شد');
+    assert.strictEqual(Number(T.S.data.users.get(9).class_id), 0, 'دانش‌آموز حذف نشد، فقط بی‌کلاس شد');
+    assert.ok(T.S.data.users.has(9), 'دانش‌آموز باقی ماند');
+    assert.ok(T.S.data.lookups.has(4), 'رشتهٔ دیگر دست‌نخورده است');
+    dom.window.close();
+  });
+
   /* — برنامهٔ هفتگی (پیاده‌سازیِ p2): تداخل، پیشنهاد، تولیدِ خودکار و خانه‌های قابلِ کلیک ─ */
   await test('برنامهٔ هفتگی: تداخلِ دبیر، پیشنهاد جای آزاد و تولید خودکار', async () => {
     const { JSDOM } = require('jsdom');
