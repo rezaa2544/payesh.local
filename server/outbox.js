@@ -30,14 +30,17 @@ const SERVER_ROLES = new Set(['manager', 'vice', 'teacher', 'staff']);
 /* نوشتن فقط اگر محتوا عوض شده باشد — «هر ثانیه نوشتن» نباید پهنای‌باند بسوزاند */
 const PUT_HASH = new Map();
 async function putIfChanged(cfg, key, text, stable) {
+  /* کلید کش باید «صندوقچه + مسیر» باشد؛ وگرنه با عوض شدن صندوقچه،
+     فایل به صندوقچهٔ تازه نوشته نمی‌شود. */
+  const id = String(cfg.endpoint || '') + '|' + String(cfg.bucket || '') + '|' + key;
   const h = crypto.createHash('sha1').update(String(stable == null ? text : stable)).digest('hex');
-  if (PUT_HASH.get(key) === h) return false;
+  if (PUT_HASH.get(id) === h) return false;
   await s3mem.put(cfg, key, text);
-  PUT_HASH.set(key, h);
+  PUT_HASH.set(id, h);
   return true;
 }
 function forgetPutHashes(prefix) {
-  for (const k of [...PUT_HASH.keys()]) if (!prefix || k.startsWith(prefix)) PUT_HASH.delete(k);
+  for (const k of [...PUT_HASH.keys()]) if (!prefix || k.includes(prefix)) PUT_HASH.delete(k);
 }
 
 function keyOf(cfg, rel) {

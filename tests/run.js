@@ -83,7 +83,7 @@ async function waitFor(fn, ms = 15000) {
       /* آزمون‌های این فایل قطعی و دستی‌اند؛ حلقه‌های خودکار (۱ ثانیه‌ای و
          صندوقچه) در test:live و test:restart آزموده می‌شوند و این‌جا خاموش‌اند
          تا با درخواست‌های دستی آزمون مسابقه ندهند (روی ماشین کند، ۴۰ ثانیه). */
-      PAYESH_LIVE_MS: '0', PAYESH_OUTBOX_AUTO: '0',
+      PAYESH_LIVE_MS: '0', PAYESH_OUTBOX_AUTO: '0', PAYESH_CLOUD_AUTO: '0',
     }),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
