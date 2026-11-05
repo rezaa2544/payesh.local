@@ -14,7 +14,10 @@ jobs:
     # کار ساخت بسته و کار نصب‌کننده هر دو روی ریلیز «continuous» می‌نویسند؛
     # اگر هم‌زمان اجرا شوند، یکی فایل دیگری را نصفه می‌گذارد.
     concurrency:
-      group: payesh-release-upload
+      # هر شاخه گروه خودش را دارد؛ وگرنه اجرای شاخهٔ کاری، اجرای main را
+      # از صف بیرون می‌اندازد و نسخهٔ تازه هرگز منتشر نمی‌شود.
+      # درون یک شاخه هم اجراها یکی‌یکی می‌روند تا فایل‌های انتشار نصفه نشوند.
+      group: payesh-release-${{ github.ref }}
       cancel-in-progress: false
     name: آزمون، بستهٔ ویندوز و APK
     runs-on: ubuntu-latest
@@ -221,7 +224,7 @@ jobs:
 
   windows-installer:
     concurrency:
-      group: payesh-release-upload
+      group: payesh-release-${{ github.ref }}
       cancel-in-progress: false
     name: نصب‌کنندهٔ استاندارد ویندوز (payesh-setup.exe)
     runs-on: windows-latest
@@ -282,7 +285,7 @@ jobs:
           path: releases/payesh-setup.exe
 
       - name: انتشار در انتشار پیوسته
-        if: startsWith(github.ref, 'refs/heads/')
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
