@@ -33,6 +33,7 @@ jobs:
           npm run test:hub
           npm run test:update
           npm run test:tunnel
+          npm run test:shortcut
 
       - name: ساخت بسته و مانیفست دلتا
         run: node scripts/build-release.mjs

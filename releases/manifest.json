@@ -1,8 +1,8 @@
 {
-  "version": "0.4.0",
-  "built_at": "2026-11-05T03:52:52.798Z",
+  "version": "0.4.1",
+  "built_at": "2026-11-05T03:59:18.503Z",
   "shell": {
-    "android": "0.4.0"
+    "android": "0.4.1"
   },
   "files": [
     {
@@ -104,8 +104,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "ea44aea42163f4609847fa8cf70cd618a9a0df64dd607d06bdaee22f86a23afc",
-      "size": 1962
+      "sha256": "aa5e908e0dcf91fe60cd6a75de9da3f735b37566d49bc3cf64c39c0dc9288a72",
+      "size": 2034
     },
     {
       "path": "server/auth.js",
@@ -134,8 +134,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "cfa6efd51d1310d71098ee4b3fd35726eea54eb40f39df0b6fd538dace07f6bb",
-      "size": 38658
+      "sha256": "5dd45b6031b4c791395c0e56ff9e7f29e64b74029f632a6876bbb15e71fce22f",
+      "size": 39198
     },
     {
       "path": "server/policy.js",
@@ -154,6 +154,12 @@
       "kind": "server",
       "sha256": "1a0f7c07a032f33d140e344b33e4e4dd9ea9f60460b9de06bd0d0961a53eed97",
       "size": 13166
+    },
+    {
+      "path": "server/shortcut.js",
+      "kind": "server",
+      "sha256": "2d6dfb3e06378a6f232e317b53133f2541cc0a30f47411b828f9f739e1a06c58",
+      "size": 6643
     },
     {
       "path": "server/sync.js",
@@ -200,9 +206,9 @@
   ],
   "counts": {
     "client": 10,
-    "server": 22
+    "server": 23
   },
   "client_size": 183049,
-  "server_size": 163555,
-  "total_size": 346604
+  "server_size": 170810,
+  "total_size": 353859
 }
