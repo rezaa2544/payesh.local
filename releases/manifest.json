@@ -1,6 +1,6 @@
 {
   "version": "0.4.1",
-  "built_at": "2026-11-05T06:40:42.466Z",
+  "built_at": "2026-11-05T06:44:23.113Z",
   "shell": {
     "android": "0.4.1"
   },
@@ -38,8 +38,8 @@
     {
       "path": "client/install.html",
       "kind": "client",
-      "sha256": "5d00ab79362a1f470558124f56e0a60d5ed1f47d918af22249f97bbd910a2ffe",
-      "size": 9400
+      "sha256": "df63fb9668876018cc3fdec95cbf0469af2197806629fe278e1ae964d32aff15",
+      "size": 10109
     },
     {
       "path": "client/manifest.webmanifest",
@@ -202,7 +202,7 @@
     "client": 10,
     "server": 22
   },
-  "client_size": 183049,
+  "client_size": 183758,
   "server_size": 166049,
-  "total_size": 349098
+  "total_size": 349807
 }
