@@ -6,7 +6,15 @@
    ─────────────────────────────────────────────────────────────────── */
 const fs = require('fs');
 const path = require('path');
-const { DatabaseSync } = require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (e) {
+  console.error('\n  ✗ دیتابیس داخلی (node:sqlite) در این نسخهٔ Node نیست: ' + process.versions.node);
+  console.error('    Node 22.5 یا بالاتر لازم است. یا از «npm start» استفاده کنید (خودش پرچم لازم را می‌زند)،');
+  console.error('    یا دستور را با پرچم اجرا کنید: node --experimental-sqlite server/index.js\n');
+  process.exit(1);
+}
 const { nowISO } = require('./util');
 
 /* ستون‌های ایندکس برای کوئری‌های داغ (scope و تاریخ) */
