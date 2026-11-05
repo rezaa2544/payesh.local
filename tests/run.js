@@ -1179,7 +1179,7 @@ async function waitFor(fn, ms = 15000) {
     const wf = fs.readFileSync(path.join(ROOT, '.github/workflows/build.yml'), 'utf8');
     assert.ok(/gradle assembleRelease/.test(wf), 'نسخهٔ انتشار (release) ساخته می‌شود، نه debug');
     assert.ok(!/gradle assembleDebug/.test(wf), 'دیگر نسخهٔ debug منتشر نمی‌شود');
-    assert.ok(/v2 scheme: true/.test(wf) && /v3 scheme: true/.test(wf), 'ساخت بدون امضای v2/v3 متوقف می‌شود');
+    assert.ok(/Verified using v2 scheme/.test(wf) && /for v in 2 3/.test(wf), 'ساخت بدون امضای v2/v3 متوقف می‌شود');
     assert.ok(/zipalign/.test(wf), 'تراز بایت APK بررسی می‌شود');
     assert.ok(/application-debuggable/.test(wf), 'نسخهٔ debug بودن APK بررسی می‌شود');
     /* آیکون تطبیقی اندروید ۸+ */

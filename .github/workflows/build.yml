@@ -154,11 +154,13 @@ jobs:
             "$BT/apksigner" verify --verbose --print-certs "$APK" > /tmp/sig.txt 2>&1
             echo "apksigner exit=$?"
             head -14 /tmp/sig.txt
-            for scheme in "v2 scheme: true" "v3 scheme: true"; do
-              if ! grep -q "Verified using $scheme" /tmp/sig.txt; then
-                echo "::error::امضای «$scheme» نیست — اندروید ۷ به بعد برنامه را قبول نمی‌کند"
+            for v in 2 3; do
+              if ! grep -Eq "Verified using v$v scheme.*: true" /tmp/sig.txt; then
+                echo "::error::امضای v$v نیست — اندروید برنامه را قبول نمی‌کند"
+                grep -i "verified using" /tmp/sig.txt | sed 's/^/::error::/' | head -8
                 exit 1
               fi
+              echo "✓ امضای v$v درست است"
             done
             echo "✓ امضای v2 و v3 هر دو درست است"
             if grep -q "Signer #1 certificate SHA-256 digest" /tmp/sig.txt; then
