@@ -123,7 +123,13 @@ jobs:
             head -8 /tmp/sig.txt
             if grep -q "Signer #1 certificate SHA-256 digest" /tmp/sig.txt; then
               SIGNED=yes
-              echo "::notice::اثر انگشت امضا: $(grep "Signer #1 certificate SHA-256 digest" /tmp/sig.txt)"
+              FP=$(grep "Signer #1 certificate SHA-256 digest" /tmp/sig.txt | tr -d ' ' | cut -d: -f2 | tr 'A-F' 'a-f')
+              echo "اثر انگشت امضا: $FP"
+              # کلید باید همان کلید ثابت مخزن باشد؛ وگرنه نصب روی نسخهٔ قبلی رد می‌شود
+              if [ "$FP" != "d646302bdfae9495c8726c3d582f5816dca5401e2cfb77b137c845cff6b2e36e" ]; then
+                echo "::error::کلید امضا با کلید ثابت مخزن یکی نیست ($FP) — به‌روزرسانی روی گوشی‌ها نصب نخواهد شد"
+                exit 1
+              fi
             fi
           fi
           if [ "$SIGNED" = no ]; then
