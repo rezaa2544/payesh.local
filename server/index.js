@@ -34,6 +34,9 @@ const { nowISO, json, normDigits, validNationalId, sha256 } = require('./util');
 /* ریشهٔ برنامه — آزمون‌ها می‌توانند با PAYESH_APP_ROOT روی یک کپی کار کنند */
 const ROOT = process.env.PAYESH_APP_ROOT || path.resolve(__dirname, '..');
 const CLIENT_DIR = path.join(ROOT, 'client');
+/* اگر پوشهٔ نصب فقط‌خواندنی باشد (Program Files)، به‌روزرسانی فایل‌های رابط
+   را این‌جا می‌نویسد و سرور از همین لایه سرو می‌کند. */
+const OVERLAY_DIR = path.join(process.env.PAYESH_DATA || path.join(ROOT, 'data'), 'app');
 const RELEASES_DIR = path.join(ROOT, 'releases');
 const PORT = Number(process.env.PORT || process.env.SERVER_PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -293,6 +296,15 @@ async function api(req, res, url, ip) {
 
 
 
+  /* «یک‌بار ورود، همیشه داخل»: دستگاهِ مورد اعتماد بی‌صدا نشست تازه می‌گیرد */
+  if (p === '/api/auth/refresh' && m === 'POST') {
+    if (!rateLimit('refresh:' + ip, 60, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    const body = await readBody(req);
+    const r = auth.refreshWithDevice(store, body);
+    if (!r.ok) return json(r, 401);
+    return json(r);
+  }
+
   /* نجاتِ مدیر: اگر حساب مدیر رمز ندارد و کاربر پشتِ خودِ رایانهٔ مدرسه است،
      یک‌بار می‌تواند شماره + رمز بسازد و بلافاصله وارد شود. (فقط از خود دستگاه) */
   if (p === '/api/auth/claim' && m === 'POST') {
@@ -392,6 +404,7 @@ async function api(req, res, url, ip) {
         attendance: store.count('attendance'), grades: store.count('grades'),
       },
       version: readManifest().version,
+      update: store.getMeta('update:last', null) || null,
       hub: hubInfoFor(store, actor),
     });
   }
@@ -883,6 +896,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     const rel = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\/+/, '');
+    /* لایهٔ نوشتنی: فایل‌هایی که «به‌روزرسانی» جای داده (وقتی پوشهٔ نصب فقط خواندنی است) */
+    const over = safeJoin(OVERLAY_DIR, rel);
+    if (over && fs.existsSync(over) && sendFile(req, res, over, { noStore: /\.(html|js|webmanifest)$/.test(rel) })) return;
     const file = safeJoin(CLIENT_DIR, rel);
     if (file && sendFile(req, res, file, { noStore: /\.(html|js|webmanifest)$/.test(rel) })) return;
 

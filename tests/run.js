@@ -632,6 +632,51 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(anon.status >= 400 || !(anon.data && anon.data.config), 'بدون ورود، کلید داده نمی‌شود');
   });
 
+  await test('یک‌بار ورود، همیشه داخل (تمدید بی‌صدای نشست)', async () => {
+    const login = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'madrese1404' } });
+    assert.strictEqual(login.data.ok, true);
+    const dev = login.data.device_token;
+
+    /* نشست تازه از روی دستگاهِ مورد اعتماد، بدون رمز */
+    const r1 = await req('/api/auth/refresh', { method: 'POST', body: { device_token: dev } });
+    assert.strictEqual(r1.data.ok, true, 'دستگاهِ معتبر نشست تازه می‌گیرد');
+    assert.ok(r1.data.session.token, 'نشست ساخته شد');
+    assert.strictEqual(r1.data.user.role, 'manager');
+    const me = await req('/api/bootstrap', { token: r1.data.session.token });
+    assert.strictEqual(me.data.ok, true, 'نشست تازه کار می‌کند');
+
+    /* دستگاه ناشناس رد شود */
+    const bad = await req('/api/auth/refresh', { method: 'POST', body: { device_token: 'nope' } });
+    assert.strictEqual(bad.status, 401);
+    assert.strictEqual(bad.data.error, 'bad_device');
+
+    /* دستگاه باطل‌شده هم دیگر نشست نمی‌گیرد */
+    const list = await req('/api/admin/devices', { token: managerToken });
+    assert.strictEqual(list.data.ok, true);
+  });
+
+  await test('به‌روزرسانی: پیش‌فرض خودکار + گزارش تغییرات یک‌بار', async () => {
+    const upd = require(path.join(ROOT, 'server', 'update.js'));
+    const store = { getMeta: () => null };
+    assert.strictEqual(upd.autoApplyEnabled(store), true, 'نصب خودکار پیش‌فرض روشن است');
+    assert.strictEqual(upd.autoCheckEnabled(store), true, 'بررسی خودکار پیش‌فرض روشن است');
+
+    /* مانیفست منتشرشده باید یادداشت تغییرات داشته باشد */
+    const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'releases/manifest.json'), 'utf8'));
+    assert.ok(Array.isArray(man.notes), 'کلید notes در مانیفست');
+
+    /* نصب خودکار با خطای دسترسی نباید بی‌صدا گم شود: کد needs_admin تعریف شده */
+    const src = fs.readFileSync(path.join(ROOT, 'server/update.js'), 'utf8');
+    assert.ok(src.includes('needs_admin'), 'خطای دسترسی پیام گویا دارد');
+    assert.ok(src.includes('overlayDir'), 'لایهٔ نوشتنی برای فایل‌های رابط');
+    const idx = fs.readFileSync(path.join(ROOT, 'server/index.js'), 'utf8');
+    assert.ok(idx.includes('OVERLAY_DIR'), 'سرور از لایهٔ نوشتنی سرو می‌کند');
+
+    /* نصب‌کننده اجازهٔ نوشتن می‌دهد (ریشهٔ خطای apply_failed) */
+    const iss = fs.readFileSync(path.join(ROOT, 'installer/payesh.iss'), 'utf8');
+    assert.ok(/icacls\.exe/.test(iss) && /users-modify/.test(iss), 'اجازهٔ نوشتن در پوشهٔ کد');
+  });
+
   await test('نجاتِ مدیر از خودِ رایانهٔ مدرسه (ساختن رمز)', async () => {
     /* مدیر رمز دارد → اجازهٔ بازنویسی بدون ورود داده نمی‌شود */
     const r1 = await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000001', password: 'zzzz' } });

@@ -35,6 +35,13 @@ function sha(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
+/* یادداشت‌های انتشار (یک‌بار به کاربر نشان داده می‌شود) */
+let NOTES = [];
+try {
+  const all = JSON.parse(fs.readFileSync(path.join(ROOT, 'RELEASE_NOTES.json'), 'utf8'));
+  NOTES = all[VERSION] || [];
+} catch (e) { NOTES = []; }
+
 /* نسخهٔ کلاینت را با نسخهٔ بسته هم‌تراز می‌کنیم (برای تشخیص کش کهنه در مرورگر) */
 try {
   const appFile = path.join(CLIENT, 'app.js');
@@ -71,6 +78,7 @@ const sum = (list, pick) => list.filter(pick).reduce((a, f) => a + f.size, 0);
 const manifest = {
   version: VERSION,
   built_at: new Date().toISOString(),
+  notes: NOTES,
   shell: { android: VERSION },
   files,
   counts: {

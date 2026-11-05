@@ -1,15 +1,21 @@
 {
-  "version": "0.6.0",
-  "built_at": "2026-11-05T14:00:16.937Z",
+  "version": "0.6.1",
+  "built_at": "2026-11-05T14:07:48.117Z",
+  "notes": [
+    "به‌روزرسانی دیگر خطای apply_failed نمی‌دهد: نصب‌کننده اجازهٔ نوشتن می‌دهد و اگر پوشهٔ نصب محافظت‌شده باشد، فایل‌های رابط در لایهٔ نوشتنی به‌روز می‌شوند.",
+    "تشخیص و نصب خودکار نسخهٔ تازه هر ۱۵ دقیقه و در شروع برنامه؛ گزارش تغییرات فقط یک‌بار نشان داده می‌شود.",
+    "یک‌بار ورود، همیشه داخل: دستگاهِ مورد اعتماد بی‌صدا نشست تازه می‌گیرد و نشست فعال تمدید می‌شود.",
+    "آدرس‌های موقت trycloudflare دیگر تبلیغ نمی‌شوند و در شروع پاک می‌شوند."
+  ],
   "shell": {
-    "android": "0.6.0"
+    "android": "0.6.1"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "eea6d20f69fe6426ca1586d4fdd1bd7c01317a16d7ef322704567cb65d7daf8a",
-      "size": 64167
+      "sha256": "0aa9c898ef2262a034598cb9cd83540baeffa5dbbdf3e936d1d6a12ed5fe86c9",
+      "size": 67915
     },
     {
       "path": "client/icons/apple-touch-icon.png",
@@ -116,14 +122,14 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "86c78df35892baec14c76396f53f54979d5dc3d0a0903a04d605d92d529964b6",
+      "sha256": "d493315124bc6246e0e0fd13e0e2182daca9fc13d9544a7c5d95957a096bb8bc",
       "size": 1979
     },
     {
       "path": "server/auth.js",
       "kind": "server",
-      "sha256": "994abcb7da35e85652593bee2e4b27c6560c7650501b815aced4d6e1dc5d35f3",
-      "size": 14183
+      "sha256": "e235635db14cea3ccd6e16b66dfbfff4193ba5059e636c6aded9fd5ca7c0c179",
+      "size": 16295
     },
     {
       "path": "server/cloud-defaults.js",
@@ -152,8 +158,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "94aef7c5fcb5afdf0ee6d6fd27fcfa7a744ac83ee13d8f95c3f682653b413c0b",
-      "size": 48521
+      "sha256": "068859a4812f6ef518d29f519fdb0a13be3fb98455e1838e7762496370cc06cb",
+      "size": 49679
     },
     {
       "path": "server/policy.js",
@@ -200,8 +206,8 @@
     {
       "path": "server/update.js",
       "kind": "server",
-      "sha256": "123e46e616461c403dd3cc2fadbab22ccc75e3e94b2962a93f5c8603ddc4068f",
-      "size": 20696
+      "sha256": "7afdb7daf2fdea8f6329c69b370ca7e52ac28ad6e37723bca5195740d44827cb",
+      "size": 22357
     },
     {
       "path": "server/util.js",
@@ -232,7 +238,7 @@
     "client": 12,
     "server": 25
   },
-  "client_size": 233194,
-  "server_size": 189233,
-  "total_size": 422427
+  "client_size": 236942,
+  "server_size": 194164,
+  "total_size": 431106
 }
