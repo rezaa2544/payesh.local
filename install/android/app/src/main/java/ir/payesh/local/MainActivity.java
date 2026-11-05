@@ -55,6 +55,7 @@ public class MainActivity extends Activity {
     private static final String PREFS = "payesh";
     private static final String KEY_URL = "server_url";       /* آدرس انتخاب‌شده */
     private static final String KEY_REMOTE = "config_url";    /* آخرین آدرسِ گرفته‌شده از پیکربندی مرکزی */
+    private static final String KEY_LAST = "last_url";        /* آخرین نشانی‌ای که واقعاً باز شد */
     private static final String KEY_PUBLIC = "public_url";    /* آدرس عمومی که خود سرور اعلام کرده */
 
     /* پیکربندی مرکزی: تغییر آدرس بدون نیاز به ساخت دوبارهٔ برنامه */
@@ -146,6 +147,10 @@ public class MainActivity extends Activity {
         findButton.setText(R.string.find_lan);
         findButton.setOnClickListener(v -> scanLan());
         errBox.addView(findButton);
+        Button offlineButton = new Button(this);
+        offlineButton.setText(R.string.offline_view);
+        offlineButton.setOnClickListener(v -> showOffline());
+        errBox.addView(offlineButton);
         Button setButton = new Button(this);
         setButton.setText(R.string.set_manual);
         setButton.setOnClickListener(v -> askServer());
@@ -166,6 +171,8 @@ public class MainActivity extends Activity {
     /* ── پیدا کردن آدرس و اتصال ─────────────────────────────────────── */
 
     private void connect(boolean firstRun) {
+        /* اتصال عادی همیشه شبکه را ترجیح می‌دهد؛ حالت «فقط کش» مال دکمهٔ آفلاین است */
+        if (web != null) web.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
         tries = 0;
         queue = candidates();
         queueIndex = 0;
@@ -431,9 +438,24 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    /** سیستم مدرسه خاموش است؟ همان صفحه‌ای که آخرین بار باز شد از کش نمایش داده می‌شود. */
+    private void showOffline() {
+        String last = prefs.getString(KEY_LAST, "");
+        if (last.isEmpty()) last = prefs.getString(KEY_URL, "");
+        if (last.isEmpty()) last = prefs.getString(KEY_PUBLIC, "");
+        if (last.isEmpty()) {
+            android.widget.Toast.makeText(this, R.string.offline_empty, android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        /* فقط از کش بخوان تا وقتی شبکه نیست، WebView خطای شبکه نشان ندهد */
+        web.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
+        load(last);
+    }
+
     private void load(String url) {
         if (url == null || url.isEmpty()) { connect(false); return; }
         loadedBase = url;
+        prefs.edit().putString(KEY_LAST, url).apply();
         showSplash(R.string.connecting);
         bar.setVisibility(View.VISIBLE);
         web.loadUrl(url);
