@@ -682,6 +682,13 @@ async function api(req, res, url, ip) {
     const saved = store.update('users', id, patch);
     let pw = null;
     if (body.password) pw = auth.setPassword(store, id, body.password);
+    else if (body.auto_password) {
+      /* «آماده‌سازی برای گوشی»: رمز = کد ملی (همان قاعدهٔ ساخت کاربر) */
+      const cur = store.get('users', id) || {};
+      const nid = String(cur.national_id || '').replace(/\D/g, '');
+      if (nid.length < 4) return json({ ok: false, error: 'no_national_id' }, 400);
+      pw = auth.setPassword(store, id, nid);
+    }
     store.audit({ user_id: actor.user.id, role: 'manager', action: 'user_update', collection: 'users', record_id: id, after: Object.assign({}, patch, pw ? { password_changed: true } : {}) });
     /* گوشی‌ها بی‌درنگ نام کاربری/رمز تازه را ببینند */
     outbox.publishAll(store).catch(() => null);
@@ -982,6 +989,30 @@ try {
   const purged = tunnel.purgeStalePublicUrl(store);
   if (purged.cleared) console.log('[network] آدرس موقت قدیمی پاک شد:', purged.url);
 } catch (e) { /* بی‌خیال */ }
+
+/* ── رمز گوشی: هیچ حسابی نباید «رمزِ گوشی ندارد» بماند ──
+   • هر رمز PBKDF2 که هست، همان برای گوشی هم گذاشته می‌شود (همان رمز).
+   • حسابی که هیچ رمزی ندارد و کد ملی دارد، رمزش کد ملی می‌شود.
+   • رمزهای قدیمی scrypt فقط روی سیستم مدرسه کار می‌کنند؛ گوشی برای آن‌ها
+     رمز نمی‌گیرد و مدیر از «ویرایش» رمز تازه می‌گذارد. */
+try {
+  const users = store.all('users') || [];
+  let fixed = 0;
+  for (const u of users) {
+    const pwIsPbkdf2 = /^pbkdf2\$/.test(String(u.password_hash || ''));
+    const phIsPbkdf2 = /^pbkdf2\$/.test(String(u.phone_hash || ''));
+    const patch = {};
+    if (pwIsPbkdf2 && !phIsPbkdf2) patch.phone_hash = u.password_hash;
+    else if (!u.password_hash && !u.phone_hash) {
+      const next = auth.applyDefaultCredentials(u);
+      if (next.password_hash) { patch.password_hash = next.password_hash; patch.phone_hash = next.password_hash; }
+    }
+    if (Object.keys(patch).length) { store.update('users', u.id, patch); fixed++; }
+  }
+  if (fixed) console.log('[auth] رمز گوشی برای ' + fixed + ' حساب تنظیم شد');
+} catch (e) {
+  console.log('[auth] بررسی رمز گوشی ناموفق:', e.message);
+}
 
 /* ── صندوقچهٔ پیش‌فرض: در شروع نام صندوقچه را پیدا می‌کنیم و اجازهٔ CORS را
       هم خودکار می‌گذاریم — گوشی‌ها بدون هیچ کاری می‌توانند بخوانند/بنویسند. ── */

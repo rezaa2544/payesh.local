@@ -592,6 +592,7 @@ PAGES.users = () => {
       <td class="small">${esc((byId('classes', u.class_id) || {}).name || '—')}</td>
       <td class="small ltr">${esc(u.phone || '—')}${u.password_hash ? ' 🔑' : ''}</td>
       <td>
+        ${/^pbkdf2\$/.test(String(u.phone_hash || '')) ? '' : `<button class="btn sm ghost" data-act="user-auto-pw" data-id="${u.id}" title="رمز گوشی = کد ملی">آماده‌سازی گوشی</button>`}
         <button class="btn sm" data-act="pair-code" data-id="${u.id}">کارت پیوند</button>
         <button class="btn sm ghost" data-act="user-edit" data-id="${u.id}">ویرایش</button>
         <button class="btn sm ghost" data-act="user-delete" data-id="${u.id}" style="color:#b91c1c">حذف</button>

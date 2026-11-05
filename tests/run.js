@@ -166,7 +166,21 @@ async function waitFor(fn, ms = 15000) {
     const afterSelf = await req('/api/auth/login', { method: 'POST', body: { phone: '09121110002', password: 'Khodam-77' } });
     assert.strictEqual(afterSelf.data.ok, true, 'رمز تازهٔ خودِ کاربر کار می‌کند');
 
-    /* ۵) حذف کاربر توسط مدیر */
+    /* ۵) «آماده‌سازی گوشی»: رمز از کد ملی ساخته می‌شود */
+    const auto = await req('/api/admin/users/' + newId, { method: 'PATCH', token: managerToken, body: { auto_password: true } });
+    assert.strictEqual(auto.data.ok, true, JSON.stringify(auto.data));
+    const autoLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09121110002', password: '1000000010' } });
+    assert.strictEqual(autoLogin.data.ok, true, 'رمزِ آماده‌سازی‌شده (کد ملی) کار می‌کند');
+
+    /* ۶) ویرایش کاربر (مثلاً تغییر نام) رمز را پاک نمی‌کند */
+    const rename = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'nu-9', collection: 'users', type: 'put', id: newId, data: { name: 'زهرا تغییرنام' } },
+    ] } });
+    assert.strictEqual(rename.data.applied.length, 1, JSON.stringify(rename.data).slice(0, 200));
+    const afterRename = await req('/api/auth/login', { method: 'POST', body: { phone: '09121110002', password: '1000000010' } });
+    assert.strictEqual(afterRename.data.ok, true, 'رمز پس از ویرایش نام باقی می‌ماند');
+
+    /* ۷) حذف کاربر توسط مدیر */
     const del = await req('/api/admin/users/' + newId, { method: 'DELETE', token: managerToken });
     assert.strictEqual(del.data.ok, true, JSON.stringify(del.data));
     const goneLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09121110002', password: 'Khodam-77' } });
