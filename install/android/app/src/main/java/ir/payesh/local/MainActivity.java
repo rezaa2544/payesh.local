@@ -442,6 +442,9 @@ public class MainActivity extends Activity {
     private String normalize(String raw) {
         String u = raw == null ? "" : raw.trim();
         if (u.isEmpty()) return "";
+        /* مقدارهای نمونه/جای‌نگهدار را نادیده بگیر */
+        String low = u.toLowerCase();
+        if (low.contains("xxxx") || low.contains("example") || low.contains("<") || low.contains(">") || low.contains("mySchool".toLowerCase())) return "";
         if (!u.startsWith("http://") && !u.startsWith("https://")) {
             /* شبکهٔ محلی http است، اینترنت https */
             boolean local = u.matches("^(localhost|[0-9.]+)(:.*)?$") || u.startsWith("192.168.") || u.startsWith("10.");

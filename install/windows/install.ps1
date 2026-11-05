@@ -116,6 +116,12 @@ foreach ($item in $items) {
   if (Test-Path $src) { Copy-Item $src -Destination $TargetDir -Recurse -Force }
 }
 
+# اجراکنندهٔ «برنامه» و آیکون آن
+foreach ($f in @('payesh-app.vbs', 'payesh.ico')) {
+  $src2 = Join-Path $SourceDir $f
+  if (Test-Path $src2) { Copy-Item $src2 -Destination (Join-Path $TargetDir $f) -Force }
+}
+
 # Node همراه → داخل برنامه
 New-Item -ItemType Directory -Force -Path (Join-Path $TargetDir 'runtime') | Out-Null
 if (Test-Path $Bundled) {
@@ -161,20 +167,28 @@ Write-Step 'ساخت میان‌بر‌ها'
 $url = "http://localhost:$Port/"
 try {
   $shell = New-Object -ComObject WScript.Shell
-  $icon = Join-Path $TargetDir 'client\icons\icon-192.png'
-  $iconFile = 'C:\Windows\System32\SHELL32.dll'; $iconIndex = 14
+  $appVbs = Join-Path $TargetDir 'payesh-app.vbs'
+  $appIcon = Join-Path $TargetDir 'payesh.ico'
+  if (-not (Test-Path $appIcon)) { $appIcon = 'C:\Windows\System32\SHELL32.dll' }
 
   $desktop = [Environment]::GetFolderPath('Desktop')
-  $lnk = $shell.CreateShortcut((Join-Path $desktop 'پایش.url'))
-  $lnk.TargetPath = $url
+  Remove-Item (Join-Path $desktop 'پایش.url') -Force -ErrorAction SilentlyContinue
+  $lnk = $shell.CreateShortcut((Join-Path $desktop 'پایش.lnk'))
+  $lnk.TargetPath = 'C:\Windows\System32\wscript.exe'
+  $lnk.Arguments = '"' + $appVbs + '"'
+  $lnk.WorkingDirectory = $TargetDir
+  $lnk.IconLocation = $appIcon
+  $lnk.Description = 'پایش-لوکال — سامانهٔ مدرسه'
   $lnk.Save()
 
   # آیتم واقعی در منوی استارت (مثل هر برنامهٔ نصب‌شده)
   $startMenu = Join-Path ([Environment]::GetFolderPath('Programs')) 'پایش-لوکال'
   New-Item -ItemType Directory -Force -Path $startMenu | Out-Null
   $sm = $shell.CreateShortcut((Join-Path $startMenu 'پایش.lnk'))
-  $sm.TargetPath = 'explorer.exe'; $sm.Arguments = $url
-  $sm.IconLocation = "$iconFile,$iconIndex"
+  $sm.TargetPath = 'C:\Windows\System32\wscript.exe'
+  $sm.Arguments = '"' + $appVbs + '"'
+  $sm.WorkingDirectory = $TargetDir
+  $sm.IconLocation = $appIcon
   $sm.Description = 'سامانهٔ مدیریت مدرسه — پایش-لوکال'
   $sm.Save()
   $un = $shell.CreateShortcut((Join-Path $startMenu 'حذف پایش.lnk'))
@@ -198,7 +212,9 @@ try {
   Set-ItemProperty -Path $key -Name 'DisplayVersion'  -Value $Version
   Set-ItemProperty -Path $key -Name 'Publisher'       -Value $Publisher
   Set-ItemProperty -Path $key -Name 'InstallLocation' -Value $TargetDir
-  Set-ItemProperty -Path $key -Name 'DisplayIcon'     -Value 'C:\Windows\System32\SHELL32.dll,14'
+  $icoPath = Join-Path $TargetDir 'payesh.ico'
+  if (-not (Test-Path $icoPath)) { $icoPath = 'C:\Windows\System32\SHELL32.dll,14' }
+  Set-ItemProperty -Path $key -Name 'DisplayIcon'     -Value $icoPath
   Set-ItemProperty -Path $key -Name 'EstimatedSize'   -Value $size
   Set-ItemProperty -Path $key -Name 'NoModify'        -Value 1 -Type DWord
   Set-ItemProperty -Path $key -Name 'NoRepair'        -Value 1 -Type DWord
@@ -248,7 +264,10 @@ Write-Host @"
 
 "@ -ForegroundColor White
 
-try { Start-Process $url } catch { }
+try {
+  if (Test-Path (Join-Path $TargetDir 'payesh-app.vbs')) { Start-Process 'wscript.exe' -ArgumentList ('"' + (Join-Path $TargetDir 'payesh-app.vbs') + '"') }
+  else { Start-Process $url }
+} catch { }
 
 if (-not $Unattended) {
   Write-Host 'برای بستن این پنجره کلیدی بزنید…' -ForegroundColor DarkGray

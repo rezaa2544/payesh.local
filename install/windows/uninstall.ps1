@@ -38,11 +38,16 @@ Write-Host '▶ پاک کردن میان‌بر‌ها…' -ForegroundColor Cyan
 try {
   $desktop = [Environment]::GetFolderPath('Desktop')
   Remove-Item (Join-Path $desktop 'پایش.url') -Force -ErrorAction SilentlyContinue
+  Remove-Item (Join-Path $desktop 'پایش.lnk') -Force -ErrorAction SilentlyContinue
+  Remove-Item (Join-Path ([Environment]::GetFolderPath('Programs')) 'پایش.lnk') -Force -ErrorAction SilentlyContinue
   Remove-Item (Join-Path ([Environment]::GetFolderPath('Programs')) 'پایش-لوکال') -Recurse -Force -ErrorAction SilentlyContinue
 } catch { }
 
 Write-Host '▶ پاک کردن ثبت ویندوز…' -ForegroundColor Cyan
 Remove-Item ("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$AppId") -Recurse -Force -ErrorAction SilentlyContinue
+
+Write-Host '▶ پاک کردن پروفایل پنجرهٔ برنامه…' -ForegroundColor Cyan
+try { Remove-Item (Join-Path $env:LOCALAPPDATA 'Payesh\app') -Recurse -Force -ErrorAction SilentlyContinue } catch { }
 
 # ── داده‌ها ──
 $remove = $false

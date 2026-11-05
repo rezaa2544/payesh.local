@@ -726,6 +726,67 @@ function studentHomeCard() {
 
 /* ══════════════ سیستم ══════════════ */
 /* ══════════════ مدیر: شبکه و دسترسی ══════════════ */
+/* ── کارت «دسترسی از هر اینترنتی» ──────────────────────────────────
+   همهٔ کاربران اینترنت خودشان را دارند؛ پس مدرسه باید یک آدرس عمومی
+   ثابت داشته باشد. تونل از خود سیستم مدرسه به بیرون باز می‌شود. */
+function publicAccessCard(n) {
+  const p = n.public || {};
+  const ts = (p.tailscale || {});
+  const cf = (p.cloudflare || {});
+  const on = !!p.public_url;
+  const busy = S.tunnelBusy;
+  let state;
+  if (on) {
+    state = badge('فعال — ' + (/ts\.net$/.test(p.public_url) ? 'Tailscale' : /trycloudflare/.test(p.public_url) ? 'Cloudflare' : 'دستی'), 'green');
+  } else if (ts.installed && !ts.logged_in) {
+    state = badge('Tailscale نصب است، وارد نشده', 'amber');
+  } else if (!ts.installed && !cf.installed) {
+    state = badge('ابزاری نصب نیست', 'red');
+  } else {
+    state = badge('خاموش', 'amber');
+  }
+
+  let body;
+  if (on) {
+    body = `<div class="small muted" style="margin-top:8px">آدرس شما، از هر اینترنتی (خانه، مسافرت، موبایل) کار می‌کند:</div>
+      <div class="ltr" style="background:var(--soft);padding:10px;border-radius:8px;margin-top:6px;font-weight:700;word-break:break-all">${esc(p.public_url)}</div>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+        <button class="btn sm" data-act="copy-url" data-id="${esc(p.public_url)}">کپی آدرس</button>
+        <button class="btn sm" data-act="tunnel-refresh">${busy ? '…' : 'بازبینی'}</button>
+        <button class="btn sm ghost" data-act="tunnel-off">قطع دسترسی اینترنتی</button>
+      </div>`;
+  } else if (ts.installed && !ts.logged_in) {
+    body = `<div class="small muted" style="margin-top:8px">Tailscale نصب است ولی وارد حساب نشده. یک‌بار وارد شوید (مرورگر باز می‌شود) و بعد دکمهٔ فعال‌سازی را بزنید.</div>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+        <button class="btn sm primary" data-act="tunnel-login">ورود به Tailscale</button>
+        <button class="btn sm" data-act="tunnel-refresh">بازبینی وضعیت</button>
+      </div>`;
+  } else if (ts.installed) {
+    body = `<div class="small muted" style="margin-top:8px">Tailscale نصب و آماده است. با یک کلیک آدرس ثابت عمومی ساخته می‌شود (همان آدرسی که بعد از این، همه از هر اینترنتی وارد می‌شوند).</div>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+        <button class="btn sm primary" data-act="tunnel-enable">${busy ? 'در حال فعال‌سازی…' : 'فعال‌سازی آدرس عمومی'}</button>
+        <button class="btn sm" data-act="tunnel-quick">تونل موقت Cloudflare</button>
+        <button class="btn sm ghost" data-act="tunnel-refresh">بازبینی</button>
+      </div>`;
+  } else {
+    body = `<ol class="small" style="margin:8px 0 0;padding-inline-start:18px;line-height:2">
+        <li><a href="${esc(ts.download || 'https://tailscale.com/download/windows')}" target="_blank">Tailscale</a> را روی همین سیستم نصب کنید (رایگان، بدون کارت بانکی).</li>
+        <li>با حساب رایگان وارد شوید و برگردید؛ بقیه‌اش یک کلیک است.</li>
+        <li>اگر Tailscale نمی‌خواهید، «تونل موقت Cloudflare» هم هست (آدرسش با هر روشن شدن عوض می‌شود).</li>
+      </ol>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+        <button class="btn sm primary" data-act="tunnel-login">ورود / نصب Tailscale</button>
+        <button class="btn sm" data-act="tunnel-quick">تونل موقت Cloudflare</button>
+        <button class="btn sm ghost" data-act="tunnel-refresh">بازبینی</button>
+      </div>`;
+  }
+
+  return card(`<div class="row between"><b>🌍 دسترسی از هر اینترنتی (تونل)</b>${state}</div>
+    <div class="small muted" style="margin-top:6px">هیچ کاربری لازم نیست روی مودم مدرسه باشد: سیستم مدرسه یک تونل خروجی می‌سازد و همه با یک آدرس HTTPS ثابت وصل می‌شوند.</div>
+    ${body}
+    <div class="small muted" style="margin-top:10px">🔒 با فعال شدن آدرس عمومی، سرور از اینترنت دیده می‌شود: PIN همهٔ کاربران را جدی بگیرید و دستگاه‌های ناشناس را از «دستگاه‌ها» باطل کنید.</div>`);
+}
+
 PAGES.network = () => {
   if (S.role !== 'manager') return pageHead('شبکه') + empty('دسترسی ندارید.');
   const pub = S.server.publicUrl || '';
@@ -753,14 +814,7 @@ PAGES.network = () => {
       </div>
       <img alt="QR" src="/api/qr?text=${encodeURIComponent(pub)}&scale=6" style="width:150px;height:150px;border-radius:10px;background:#fff;padding:6px">
     </div>`) : ''}
-  ${card(`<b>راه‌اندازی تونل رایگان (Tailscale Funnel)</b>
-    <ol class="small" style="margin:8px 0 0;padding-inline-start:18px;line-height:2">
-      <li>روی همین سیستم، Tailscale را نصب و با یک حساب رایگان وارد شوید.</li>
-      <li>در ترمینال: <code class="ltr">tailscale funnel 8080 on</code></li>
-      <li>آدرسی مثل <span class="ltr">https://payesh-xxx.ts.net</span> می‌گیرید؛ همان را بالا ذخیره کنید.</li>
-      <li>در Tailscale، گزینهٔ Funnel باید برای همین دستگاه فعال بماند تا آدرس ثابت بماند.</li>
-    </ol>
-    <div class="small muted" style="margin-top:8px">توجه: با فعال شدن آدرس عمومی، این سرور از اینترنت قابل دسترسی است؛ PIN همهٔ کاربران را جدی بگیرید و دستگاه‌های ناشناس را از «دستگاه‌ها» باطل کنید.</div>`)}
+  ${publicAccessCard(n)}
   ${card(`<b>آدرس‌های شبکهٔ محلی</b><div class="small muted" style="margin-top:6px">
     ${(n.lan_urls || []).map(u => `<div class="ltr">${esc(u)}</div>`).join('') || '<div>—</div>'}
     <div style="margin-top:6px">این آدرس‌ها فقط وقتی گوشی به همان Wi-Fi وصل است کار می‌کنند. برای همین، آدرس رسمی بالا را به همه بدهید.</div>

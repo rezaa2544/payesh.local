@@ -1,6 +1,6 @@
 {
   "name": "payesh-local",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "private": true,
   "description": "پایش-لوکال — سامانهٔ مدیریت مدرسه، درون‌مدرسه‌ای و آفلاین (Node + SQLite)",
   "type": "commonjs",
@@ -17,10 +17,11 @@
     "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/run.js",
     "build:release": "node scripts/build-release.mjs",
     "test:ui": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/ui.js",
-    "test:all": "npm test && npm run test:ui && npm run test:flow && npm run test:hub && npm run test:update",
+    "test:all": "npm test && npm run test:ui && npm run test:flow && npm run test:hub && npm run test:update && npm run test:tunnel",
     "test:flow": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/flow.js",
     "test:hub": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/hub.js",
-    "test:update": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/update.js"
+    "test:update": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/update.js",
+    "test:tunnel": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/tunnel.js"
   },
   "license": "MIT",
   "devDependencies": {

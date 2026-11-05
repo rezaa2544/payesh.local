@@ -1,7 +1,7 @@
 {
   "app": "payesh-local",
-  "url": "",
-  "note": "آدرس عمومی سامانه را در url بگذارید (مثلاً https://payesh.example.ts.net). برنامهٔ اندروید همین فایل را در اولین اجرا می‌خواند و مستقیم وصل می‌شود؛ بدون نیاز به ساخت دوبارهٔ APK.",
-  "note_en": "Put the public HTTPS address of the school server in 'url'. The Android app reads this file on first launch and connects automatically.",
+  "url": "https://payesh-XXXX.tail1234.ts.net",
+  "note": "این یک نمونه است. آدرس عمومی خودتان (پنل مدیر ← شبکه ← «فعال‌سازی آدرس عمومی») را جای آن بگذارید. برنامهٔ اندروید مقدارهای نمونه (دارای XXXX/example) را نادیده می‌گیرد و در آن حالت آدرس را از خود سرور یا شبکه پیدا می‌کند.",
+  "note_en": "Placeholder. Replace with your own public address. The Android app ignores placeholder values (XXXX/example) and falls back to server discovery.",
   "updated_at": null
 }
