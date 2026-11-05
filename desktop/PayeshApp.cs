@@ -32,6 +32,7 @@ namespace Payesh
     internal static class Program
     {
         private static Mutex _mutex;
+        internal static EventWaitHandle ShowSignal;
 
         [STAThread]
         private static void Main(string[] args)
@@ -40,12 +41,44 @@ namespace Payesh
             _mutex = new Mutex(true, @"Local\PayeshDesktopApp", out created);
             if (!created)
             {
-                MessageBox.Show("پایش همین حالا باز است.", "پایش", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                /* برنامه از قبل باز است (مثلاً از اجرای خودکار ویندوز) → همان پنجره را بیاور
+                   جلو؛ پیام «همین حالا باز است» بی‌فایده بود چون پنجره در سینی پنهان است. */
+                try
+                {
+                    EventWaitHandle h;
+                    if (EventWaitHandle.TryOpenExisting(@"Local\PayeshShow", out h))
+                    {
+                        h.Set();
+                        h.Dispose();
+                    }
+                }
+                catch { }
                 return;
             }
+
+            try { ShowSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\PayeshShow"); }
+            catch { }
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Shell(args));
+            var shell = new Shell(args);
+
+            if (ShowSignal != null)
+            {
+                var t = new Thread(() =>
+                {
+                    while (true)
+                    {
+                        try { if (!ShowSignal.WaitOne()) break; }
+                        catch { break; }
+                        shell.BringToFrontFromSecond();
+                    }
+                });
+                t.IsBackground = true;
+                t.Start();
+            }
+
+            Application.Run(shell);
         }
     }
 
@@ -379,6 +412,23 @@ namespace Payesh
                     OpenInBrowser(url);
                     Close();
                 }
+            });
+        }
+
+        /// <summary>وقتی کاربر دوباره روی آیکون برنامه کلیک می‌کند: پنجرهٔ موجود را نشان بده.</summary>
+        internal void BringToFrontFromSecond()
+        {
+            OnUi(() =>
+            {
+                try
+                {
+                    ShowInTaskbar = true;
+                    Show();
+                    WindowState = FormWindowState.Normal;
+                    Activate();
+                    BringToFront();
+                }
+                catch { }
             });
         }
 
