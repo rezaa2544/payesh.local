@@ -43,3 +43,6 @@ install/android/.gradle/
 install/android/app/build/
 install/android/local.properties
 runtime/
+
+# دارایی‌های بسته‌بندی‌شدهٔ اندروید (در زمان ساخت از client/ کپی می‌شوند)
+install/android/app/src/main/assets/www/

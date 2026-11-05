@@ -91,7 +91,16 @@ jobs:
           test -s "$APK" || { echo "APK ساخته نشد"; exit 1; }
           unzip -l "$APK" | grep -q "classes.dex"
           unzip -l "$APK" | grep -q "AndroidManifest.xml"
-          echo "APK سالم است:" $(stat -c%s "$APK") "بایت"
+          # برنامهٔ کاملِ وب باید داخل APK باشد (نه یک پوستهٔ خالی)
+          for f in assets/www/index.html assets/www/app.js assets/www/pages.js assets/www/styles.css assets/www/sw.js assets/www/lib/s3mini.js assets/www/lib/sigv4.js; do
+            unzip -l "$APK" | grep -q "$f" || { echo "کم است: $f — APK فقط پوسته است"; exit 1; }
+          done
+          COUNT=$(unzip -l "$APK" | grep -c "assets/www/")
+          echo "فایل‌های برنامه داخل APK: $COUNT"
+          [ "$COUNT" -ge 10 ] || { echo "تعداد فایل‌های برنامه کم است"; exit 1; }
+          SIZE=$(stat -c%s "$APK")
+          echo "APK سالم است: $SIZE بایت"
+          [ "$SIZE" -ge 150000 ] || { echo "حجم APK برای نسخهٔ کامل خیلی کم است ($SIZE)"; exit 1; }
 
       - name: ساخت بستهٔ استقرار ابری (payesh-cloud.zip)
         run: node scripts/build-cloud-bundle.mjs

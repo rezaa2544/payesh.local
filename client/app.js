@@ -5,7 +5,14 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.5.8';
+const CLIENT_VERSION = '0.6.0';
+
+/* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
+   وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
+   از بیرون تزریق می‌شود: window.PAYESH_API_BASE = "https://…" */
+const API_BASE = String(window.PAYESH_API_BASE || '').replace(/\/+$/, '');
+const BUNDLED = !!window.PAYESH_BUNDLED;
+const apiUrl = (path) => (API_BASE ? API_BASE + path : path);
 
 const S = {
   online: navigator.onLine,
@@ -111,7 +118,7 @@ function saveQueue() { localStorage.setItem('payesh.queue', JSON.stringify(S.que
 async function api(path, opts = {}) {
   const headers = { 'content-type': 'application/json' };
   if (S.session) headers.authorization = 'Bearer ' + S.session;
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     method: opts.method || 'GET',
     headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -458,6 +465,7 @@ async function start() {
       publicUrl: boot.public_url || S.server.publicUrl || null,
     });
     S.clockOffset = new Date(boot.server_time).getTime() - Date.now();
+    try { localStorage.setItem('payesh.lastuser', JSON.stringify({ user: boot.user, role: boot.role, version: boot.version, school: boot.school })); } catch (e) { /* noop */ }
     const cached = await idbGet('data');
     if (cached) {
       S.data = {};
@@ -710,7 +718,7 @@ async function waitForRestart(previousVersion, version) {
   while (Date.now() - started < 90_000) {
     await new Promise(r => setTimeout(r, 1500));
     try {
-      const h = await fetch('/api/health', { cache: 'no-store' }).then(r => r.json());
+      const h = await fetch(apiUrl('/api/health'), { cache: 'no-store' }).then(r => r.json());
       const sameProcess = h.version === previousVersion;
       if (!sameProcess || (h.installed_version && h.installed_version === version && !h.restart_pending)) {
         updateOverlay('نسخهٔ ' + fa(h.version) + ' فعال شد', 'در حال بازخوانی برنامه…');
@@ -794,13 +802,45 @@ if ('serviceWorker' in navigator && navigator.serviceWorker) {
 }
 
 /* ── راه‌اندازی اولیهٔ برنامه ───────────────────────────────────── */
+/* ── بالا آوردن برنامه بدون سرور (آفلاین) ──────────────────────────────
+   روی گوشی/تبلت، همهٔ فایل‌ها داخل خود برنامه است؛ پس اگر سیستم مدرسه خاموش
+   باشد هم کاربر آخرین وضعیت را می‌بیند و کارهایش در صف می‌ماند. */
+async function startOffline() {
+  try {
+    const cached = await idbGet('data');
+    if (!cached) return false;
+    const raw = localStorage.getItem('payesh.lastuser');
+    if (!raw) return false;
+    const last = JSON.parse(raw);
+    S.data = {};
+    for (const c of Object.keys(cached)) S.data[c] = new Map((cached[c] || []).map(r => [Number(r.id), r]));
+    S.boot = S.boot || {};
+    S.user = last.user; S.role = last.role;
+    S.offline = true;
+    S.server = Object.assign({}, S.server, {
+      ok: false, offline: true, version: last.version || S.server.version, school: last.school || S.server.school,
+      setupDone: true, baseUrl: API_BASE || null,
+    });
+    routeFromHash();
+    render();
+    scheduleSync();
+    toast('سرور در دسترس نیست — آخرین اطلاعات ذخیره‌شده نمایش داده می‌شود');
+    return true;
+  } catch (e) { return false; }
+}
+
 async function boot() {
   try {
     const [health, setup] = await Promise.all([
-      fetch('/api/health', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
-      fetch('/api/setup/state', { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+      fetch(apiUrl('/api/health'), { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+      fetch(apiUrl('/api/setup/state'), { cache: 'no-store' }).then(r => r.json()).catch(() => null),
     ]);
-    if (!health || !health.ok) { renderOffline(); return; }
+    if (!health || !health.ok) {
+      /* سرور در دسترس نیست: اگر روی همین دستگاه داده و نشستِ قبلی داریم،
+         برنامه را از حافظه بالا می‌آوریم (هیچ صفحهٔ بن‌بستی نشان نمی‌دهیم) */
+      if (await startOffline()) return;
+      renderOffline(); return;
+    }
     S.server = {
       ok: true, version: health.version, school: health.school,
       setupDone: !!(setup && !setup.needs_setup),

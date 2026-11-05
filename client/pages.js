@@ -94,6 +94,8 @@ function canonicalBarHtml() {
    ۲) وگرنه اگر فایل‌های همین دستگاه با سرور فرق دارند (S.update) — دلتای
       مرورگر اعمال می‌شود. */
 function updateBarHtml() {
+  /* در نسخهٔ بسته‌بندی‌شده (APK) فایل‌ها داخل خود برنامه‌اند؛ آپدیت با نصب APK تازه است */
+  if (typeof BUNDLED !== 'undefined' && BUNDLED) return '';
   const r = S.remote;
   if (r && r.available && !isUpdateDismissed(r.remote_version)) {
     const kb = Math.max(1, Math.round((r.total_size || 0) / 1024));
@@ -121,6 +123,11 @@ function isUpdateDismissed(version) {
 function offlineBarHtml() {
   if (S.online) return '';
   const q = S.queue.length;
+  if (S.offline) {
+    return `<div class="banner warn">📴 سیستم مدرسه در دسترس نیست — همهٔ فایل‌های برنامه روی همین دستگاه است و آخرین اطلاعات نمایش داده می‌شود.
+      ${q ? `${fa(q)} تغییر در صف مانده و با اولین اتصال ارسال می‌شود.` : ''}
+      <button class="btn sm ghost" data-act="retry">اتصال دوباره</button></div>`;
+  }
   return `<div class="banner warn">📴 آفلاین هستید — برنامه کار می‌کند و ${fa(q)} تغییر در صف است. با وصل شدن شبکه خودکار ارسال می‌شود.</div>`;
 }
 function updateTopChrome() {
