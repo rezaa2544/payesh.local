@@ -55,9 +55,70 @@ SetupIconFile=install\windows\payesh.ico
 UninstallDisplayIcon={app}\payesh.ico
 SourceDir=..
 UsePreviousAppDir=yes
-CloseApplications=no
+CloseApplications=yes
 RestartApplications=no
 ChangesAssociations=no
+
+[Code]
+{ ─────────────────────────────────────────────────────────────────
+  نصب روی نسخهٔ در حال اجرا: سرور مدرسه (runtime\node.exe) و پنجرهٔ
+  برنامه (desktop\Payesh.exe) فایل‌ها را قفل می‌کنند و ویندوز خطای
+  «DeleteFile failed; code 5 — Access is denied» می‌دهد. قبل از کپی،
+  هر پردازه‌ای که از پوشهٔ نصب اجرا شده باشد را می‌بندیم.
+  ───────────────────────────────────────────────────────────────── }
+
+procedure RunHidden(const Exe, Params: String);
+var
+  Code: Integer;
+begin
+  Exec(Exe, Params, '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
+procedure StopPayeshProcesses();
+var
+  Ps, App, Script: String;
+begin
+  App := ExpandConstant('{app}');
+  Ps := ExpandConstant('{tmp}\payesh-stop.ps1');
+  Script :=
+    '$app = ''' + App + '''' + #13#10 +
+    '$me = $PID' + #13#10 +
+    'function KillIt($list) { foreach ($p in $list) { try { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue } catch {} } }' + #13#10 +
+    'KillIt (Get-CimInstance Win32_Process | Where-Object {' + #13#10 +
+    '  $_.ProcessId -ne $me -and (' + #13#10 +
+    '    ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($app, ''OrdinalIgnoreCase'')) -or' + #13#10 +
+    '    ($_.CommandLine -and $_.CommandLine.IndexOf($app, ''OrdinalIgnoreCase'') -ge 0)' + #13#10 +
+    '  )' + #13#10 +
+    '})' + #13#10 +
+    'Start-Sleep -Milliseconds 900' + #13#10 +
+    'KillIt (Get-CimInstance Win32_Process | Where-Object {' + #13#10 +
+    '  ($_.Name -eq ''node.exe'' -and $_.ExecutablePath -and $_.ExecutablePath.StartsWith($app, ''OrdinalIgnoreCase'')) -or' + #13#10 +
+    '  ($_.Name -eq ''Payesh.exe'')' + #13#10 +
+    '})' + #13#10;
+  SaveStringToFile(Ps, Script, False);
+  RunHidden(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + Ps + '"');
+  Sleep(400);
+  DeleteFile(Ps);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  StopPayeshProcesses();
+  Result := '';
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssInstall then
+    StopPayeshProcesses();
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  StopPayeshProcesses();
+  Result := True;
+end;
 
 [Languages]
 Name: "fa"; MessagesFile: "compiler:Default.isl"
