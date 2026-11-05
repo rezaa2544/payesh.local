@@ -1042,6 +1042,7 @@ PAGES.system = () => {
       <button class="btn sm" data-act="sync">همگام‌سازی</button>
       <button class="btn sm" data-act="lock">🔒 خروج</button>
     </div>`)}
+  ${liveCard()}
   ${isManager ? phoneAccessCard() : ''}
   ${accountCard()}
   ${isManager ? updateCard() : clientUpdateCard()}
@@ -1055,6 +1056,22 @@ PAGES.system = () => {
 };
 
 /* وضعیت دسترسی گوشی‌ها — یک نگاه، یک دکمه */
+/* وضعیت همگام‌سازی زنده — برای اینکه همه ببینند هر ثانیه به‌روز می‌شود */
+function liveCard() {
+  const last = (typeof S !== 'undefined' && S.lastSync) ? S.lastSync : '';
+  const stamp = last
+    ? new Date(last).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : '—';
+  return card(`<div class="row between" style="margin-bottom:6px">
+      <b>⚡ همگام‌سازی زنده</b>${badge('هر ۱ ثانیه', 'green')}</div>
+    <div class="small muted" style="line-height:1.9">
+      هر تغییری که هر کاربر بدهد، همان لحظه در حافظهٔ مشترک نوشته می‌شود و در همان ثانیه به
+      دستگاه‌های دیگر می‌رسد. اگر دستگاهِ مقصد خاموش باشد، داده در حافظه می‌ماند و
+      اولین ثانیه‌ای که آنلاین شود تحویلش می‌گیرد.
+    </div>
+    <div class="small" style="margin-top:8px">آخرین به‌روزرسانی روی این دستگاه: <b class="ltr">${esc(stamp)}</b></div>`);
+}
+
 function phoneAccessCard() {
   const r = S.phoneCheck;
   const state = !S.server.cloudReady

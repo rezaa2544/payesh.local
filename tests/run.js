@@ -22,7 +22,7 @@ function test(name, fn) {
   return Promise.resolve().then(fn).then(() => {
     passed++; console.log('  ✓ ' + name);
   }).catch(e => {
-    failed++; console.log('  ✗ ' + name + '\n     ' + (e && e.message));
+    failed++; console.log('  ✗ ' + name + ' — ' + String((e && (e.message || e)) || '').replace(/\s+/g, ' ').slice(0, 400));
   });
 }
 
@@ -77,7 +77,14 @@ async function waitFor(fn, ms = 15000) {
   PORT = await freePort();
   BASE = 'http://127.0.0.1:' + PORT;
   const child = spawn(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', 'server/index.js'], {
-    cwd: ROOT, env: Object.assign({}, process.env, { PORT: String(PORT), HOST: '127.0.0.1', PAYESH_DATA: TMP, PAYESH_LOG: '0', PAYESH_AUTO_BACKUP: '0', PAYESH_UPDATE_AUTO: '0' }),
+    cwd: ROOT, env: Object.assign({}, process.env, {
+      PORT: String(PORT), HOST: '127.0.0.1', PAYESH_DATA: TMP, PAYESH_LOG: '0',
+      PAYESH_AUTO_BACKUP: '0', PAYESH_UPDATE_AUTO: '0',
+      /* آزمون‌های این فایل قطعی و دستی‌اند؛ حلقه‌های خودکار (۱ ثانیه‌ای و
+         صندوقچه) در test:live و test:restart آزموده می‌شوند و این‌جا خاموش‌اند
+         تا با درخواست‌های دستی آزمون مسابقه ندهند (روی ماشین کند، ۴۰ ثانیه). */
+      PAYESH_LIVE_MS: '0', PAYESH_OUTBOX_AUTO: '0', PAYESH_CLOUD_AUTO: '0',
+    }),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stderr.on('data', d => process.env.VERBOSE && console.error(String(d)));

@@ -20,6 +20,7 @@ const cfg = require('./config');
 const qr = require('./qr');
 const s3mem = require('./s3mem');
 const outbox = require('./outbox');
+const live = require('./live');
 
 function normDigitsLocal(v) {
   return String(v == null ? '' : v)
@@ -418,6 +419,25 @@ async function api(req, res, url, ip) {
     return json(await outbox.state(store));
   }
 
+  /* ── همگام‌سازی زنده: هر دستگاه هر ۱ ثانیه همین را می‌پرسد ────────── */
+  if (p === '/api/live/rev' && m === 'GET') {
+    return json({
+      ok: true, rev: live.localRev(store), at: new Date().toISOString(),
+      every_ms: live.INTERVAL_MS, cloud: !!(await live.cloudCfg(store)),
+    });
+  }
+
+  if (p === '/api/live/state' && m === 'GET') {
+    const st = live.status(store);
+    let remote = null;
+    try { remote = await live.readRemote(store); } catch (e) { remote = null; }
+    const ob = await outbox.state(store);
+    return json({ ok: true, every_ms: live.INTERVAL_MS, local_rev: st.local_rev,
+      published_rev: st.published_rev, seen_rev: st.seen_rev, last: st.last,
+      remote: remote ? { rev: remote.rev, at: remote.at, by: remote.by } : null,
+      cloud: ob.cloud, bucket: ob.bucket, pending: ob.pending });
+  }
+
   if (p === '/api/outbox/drain' && m === 'POST') {
     if (!outbox.SERVER_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     const out = await outbox.drain(store);
@@ -653,6 +673,9 @@ async function api(req, res, url, ip) {
 
   if (p === '/api/admin/cloud/reset' && m === 'POST') {
     s3mem.usingMeta(store).clear();
+    outbox.forgetPutHashes();
+    store.setMeta('live:published', '');
+    store.setMeta('live:seen', '');
     store.audit({ user_id: actor.user.id, role: 'manager', action: 'cloud_reset', collection: 'meta' });
     let out = s3mem.usingMeta(store).get();
     try { out = await s3mem.ensureBucket(store); } catch (e) { /* بدون اینترنت */ }
@@ -1177,6 +1200,10 @@ server.listen(PORT, HOST, () => {
   console.log('');
   /* تونل عمومی: اگر Tailscale Funnel روشن باشد، آدرس را برمی‌داریم */
   try { tunnel.start(store, { port: PORT }); } catch (e) { console.error('tunnel start failed', e.message); }
+
+  /* همگام‌سازی زنده: هر ۱ ثانیه — تغییرها به حافظهٔ مشترک می‌روند و
+     تغییرهای گوشی‌ها همان‌جا برداشته می‌شوند. */
+  try { live.start(store, { everyMs: Number(process.env.PAYESH_LIVE_MS || live.INTERVAL_MS) }); } catch (e) { console.error('live start failed', e.message); }
 
   /* بررسی خودکار نسخهٔ منتشرشده (اگر «نصب خودکار» روشن باشد، خودش اعمال می‌کند) */
   try {

@@ -14,6 +14,7 @@
      outbox/done/<uid>.json      ← نشان «اعمال شد» (جلوگیری از تکرار)
      outbox/state/<sid>.json     ← خلاصهٔ هر دانش‌آموز برای اولیا
    ═══════════════════════════════════════════════════════════════════ */
+const crypto = require('crypto');
 const s3mem = require('./s3mem');
 const sync = require('./sync');
 
@@ -25,6 +26,22 @@ const MAX_ITEM_BYTES = 32 * 1024;
 const MAX_DRAIN = 300;
 /* نقش‌هایی که اجازه دارند «سرور» شوند و صندوقچه را اعمال کنند */
 const SERVER_ROLES = new Set(['manager', 'vice', 'teacher', 'staff']);
+
+/* نوشتن فقط اگر محتوا عوض شده باشد — «هر ثانیه نوشتن» نباید پهنای‌باند بسوزاند */
+const PUT_HASH = new Map();
+async function putIfChanged(cfg, key, text, stable) {
+  /* کلید کش باید «صندوقچه + مسیر» باشد؛ وگرنه با عوض شدن صندوقچه،
+     فایل به صندوقچهٔ تازه نوشته نمی‌شود. */
+  const id = String(cfg.endpoint || '') + '|' + String(cfg.bucket || '') + '|' + key;
+  const h = crypto.createHash('sha1').update(String(stable == null ? text : stable)).digest('hex');
+  if (PUT_HASH.get(id) === h) return false;
+  await s3mem.put(cfg, key, text);
+  PUT_HASH.set(id, h);
+  return true;
+}
+function forgetPutHashes(prefix) {
+  for (const k of [...PUT_HASH.keys()]) if (!prefix || k.includes(prefix)) PUT_HASH.delete(k);
+}
 
 function keyOf(cfg, rel) {
   return String(cfg.prefix || 'payesh/') + rel;
@@ -238,8 +255,7 @@ async function pushSnapshot(store, { students } = {}) {
   for (const st of list) {
     if (!st || st.id == null || st.role !== 'student') continue;
     try {
-      await s3mem.put(cfg, keyOf(cfg, STATE + st.id + '.json'), JSON.stringify(summary(store, st)));
-      count++;
+      if (await putIfChanged(cfg, keyOf(cfg, STATE + st.id + '.json'), JSON.stringify(summary(store, st)))) count++;
     } catch (e) {
       writeMeta(store, { last_error: 'snapshot: ' + String(e.message || e).slice(0, 120) });
       break;
@@ -357,14 +373,13 @@ async function publishAuth(store) {
   for (const u of (store.all('users') || [])) {
     const phone = phoneKey(u);
     if (!phone || !u.phone_hash) continue;
-    const body = JSON.stringify({
+    const stable = JSON.stringify({
       v: 1, phone, verifier: u.phone_hash,
       user: { id: u.id, name: u.name, role: u.role, class_id: u.class_id || null, phone, active: u.active !== false },
-      at: new Date().toISOString(),
     });
+    const body = JSON.stringify(Object.assign(JSON.parse(stable), { at: new Date().toISOString() }));
     try {
-      await s3mem.put(cfg, keyOf(cfg, 'auth/' + phone + '.json'), body);
-      count++;
+      if (await putIfChanged(cfg, keyOf(cfg, 'auth/' + phone + '.json'), body, stable)) count++;
     } catch (e) {
       writeMeta(store, { last_error: 'auth: ' + String(e.message || e).slice(0, 120) });
       break;
@@ -404,14 +419,16 @@ function personData(store, user) {
 async function publishData(store) {
   const cfg = await cloud(store);
   if (!cfg) return { ok: false, error: 'no_cloud', count: 0 };
-  const core = { v: 1, at: new Date().toISOString(), school: (store.all('schools') || [])[0] || null, collections: {}, directory: directory(store) };
+  const core = { v: 1, school: (store.all('schools') || [])[0] || null, collections: {}, directory: directory(store) };
   for (const c of CORE_COLLECTIONS) {
     try { core.collections[c] = (store.all(c) || []).map(safeRow); } catch (e) { core.collections[c] = []; }
   }
   let count = 0;
   try {
-    await s3mem.put(cfg, keyOf(cfg, 'data/core.json'), JSON.stringify(core));
-    count++;
+    /* «at» هر ثانیه عوض می‌شود؛ برای مقایسه حذفش می‌کنیم تا هر ثانیه ننویسیم */
+    const stableCore = JSON.stringify(Object.assign({}, core, { directory: core.directory }));
+    core.at = new Date().toISOString();
+    if (await putIfChanged(cfg, keyOf(cfg, 'data/core.json'), JSON.stringify(core), stableCore)) count++;
   } catch (e) {
     writeMeta(store, { last_error: 'data: ' + String(e.message || e).slice(0, 120) });
     return { ok: false, error: 'publish_failed', detail: String(e.message || e), count };
@@ -420,8 +437,9 @@ async function publishData(store) {
     if (u.active === false) continue;
     if (!['manager', 'vice', 'teacher', 'parent', 'student', 'staff', 'counselor'].includes(u.role)) continue;
     try {
-      await s3mem.put(cfg, keyOf(cfg, 'data/person/' + u.id + '.json'), JSON.stringify(personData(store, u)));
-      count++;
+      const pd = personData(store, u);
+      const stablePerson = JSON.stringify(Object.assign({}, pd, { at: undefined }));
+      if (await putIfChanged(cfg, keyOf(cfg, 'data/person/' + u.id + '.json'), JSON.stringify(pd), stablePerson)) count++;
     } catch (e) { break; }
   }
   writeMeta(store, { last_data: new Date().toISOString() });
@@ -435,7 +453,7 @@ async function publishAll(store) {
 }
 
 module.exports = {
-  publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop,
+  publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop, putIfChanged, forgetPutHashes,
   publishAuth, publishData, publishAll, personData, CORE_COLLECTIONS, PERSON_COLLECTIONS,
   SERVER_ROLES, summary, PENDING, DONE, STATE,
 };

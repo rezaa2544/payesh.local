@@ -118,6 +118,14 @@ class Store {
     `);
   }
 
+  /* آخرین زمان تغییر در همهٔ داده‌ها — برای «همگام‌سازی زندهٔ» هر ثانیه */
+  maxUpdatedAt() {
+    try {
+      const r = this.db.prepare('SELECT MAX(updated_at) AS m FROM records').get();
+      return (r && r.m) || '';
+    } catch (e) { return ''; }
+  }
+
   /* ── meta ── */
   getMeta(key, fallback = null) {
     const r = this.db.prepare('SELECT value FROM meta WHERE key=?').get(key);

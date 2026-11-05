@@ -24,7 +24,7 @@ function test(name, fn) {
   return Promise.resolve().then(fn).then(() => {
     passed++; console.log('  ✓ ' + name);
   }).catch(e => {
-    failed++; console.log('  ✗ ' + name + '\n     ' + (e && e.message));
+    failed++; console.log('  ✗ ' + name + ' — ' + String((e && (e.message || e)) || '').replace(/\s+/g, ' ').slice(0, 400));
   });
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));

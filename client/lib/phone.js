@@ -288,6 +288,34 @@
   }
 
   /* ── آوردن داده: سراسری + فقط دادهٔ خودِ همین کاربر ───────────────── */
+  /* «مُهر» تغییرها در حافظهٔ مشترک: همهٔ دستگاه‌ها هر ثانیه همین را می‌خوانند */
+  async function readRev() {
+    let cfg;
+    try { cfg = await ready(); } catch (e) { return { ok: false, error: (e && e.code) || 'net' }; }
+    const s3 = S3();
+    try {
+      const j = JSON.parse(await s3.get(cfg, cfg.prefix + 'realtime/rev.json'));
+      return { ok: true, rev: String(j.rev || ''), core: String(j.core || ''), persons: String(j.persons || ''), at: j.at || null, cfg };
+    } catch (e) {
+      if (e && e.status === 404) return { ok: true, rev: '', core: '', persons: '' };
+      return { ok: false, error: (e && e.kind) || 'net' };
+    }
+  }
+
+  /* بعد از هر ثبت از گوشی: به همه بگوییم «چیزی عوض شد» (فقط یک مُهر کوچک) */
+  async function bumpRev(cfg) {
+    const s3 = S3();
+    const key = cfg.prefix + 'realtime/rev.json';
+    let cur = {};
+    try { cur = JSON.parse(await s3.get(cfg, key)) || {}; } catch (e) { cur = {}; }
+    const body = {
+      v: 1, rev: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      at: new Date().toISOString(), by: 'device',
+      core: cur.core || '', persons: cur.persons || '',
+    };
+    try { await s3.put(cfg, key, JSON.stringify(body)); return true; } catch (e) { return false; }
+  }
+
   async function pullData(user) {
     const cfg = await ready();
     const s3 = S3();
@@ -333,6 +361,8 @@
       created_at: new Date().toISOString(),
     });
     await s3.put(cfg, cfg.prefix + 'outbox/pending/' + uid + '.json', body);
+    /* همان لحظه به همهٔ دستگاه‌ها خبر می‌دهیم که چیزی عوض شد */
+    await bumpRev(cfg).catch(() => {});
     return { ok: true, uid };
   }
 
@@ -345,7 +375,7 @@
   }
 
   root.PayeshPhone = {
-    ready, adopt, learnFromServer, diagnose, login, verify, pullData, send, pendingCount, lastUser,
+    ready, adopt, learnFromServer, diagnose, login, verify, pullData, send, pendingCount, readRev, bumpRev, lastUser,
     normPhone, saveConfig, storedConfig, bakedConfig,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
