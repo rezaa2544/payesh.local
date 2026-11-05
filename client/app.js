@@ -1760,6 +1760,7 @@ document.addEventListener('click', async (e) => {
         }
         S.imp.step = 4;
         S.imp.result = result;
+        S.creds = undefined;   /* رمزهای تازه از سرور خوانده شوند */
         saveCache(); render(); renderImportStep();
         toast(fa(result.created) + ' کاربر ساخته شد', result.created ? 'ok' : 'err');
       } catch (err) {
@@ -2159,6 +2160,7 @@ document.addEventListener('submit', async (e) => {
       const parent = existing || putLocal('users', { name: pName || ('ولی ' + name), role: 'parent', phone: pPhone, active: 1, school_id: 1 });
       putLocal('parent_links', { parent_id: parent.id, student_id: created.id, relation: 'father' });
     }
+    S.creds = undefined;      /* فهرست رمزها تازه شود */
     closeModal(); saveCache(); render();
     await flushQueue();
     await pullAll().catch(() => {});
