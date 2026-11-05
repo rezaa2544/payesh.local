@@ -35,6 +35,14 @@ function sha(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
+/* نسخهٔ کلاینت را با نسخهٔ بسته هم‌تراز می‌کنیم (برای تشخیص کش کهنه در مرورگر) */
+try {
+  const appFile = path.join(CLIENT, 'app.js');
+  const src = fs.readFileSync(appFile, 'utf8');
+  const patched = src.replace(/const CLIENT_VERSION = '[^']*';/, "const CLIENT_VERSION = '" + VERSION + "';");
+  if (patched !== src) fs.writeFileSync(appFile, patched);
+} catch (e) { console.warn('⚠️ هم‌ترازکردن نسخهٔ کلاینت ناموفق:', e.message); }
+
 fs.mkdirSync(RELEASES, { recursive: true });
 fs.mkdirSync(HISTORY, { recursive: true });
 

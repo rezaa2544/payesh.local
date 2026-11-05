@@ -20,6 +20,13 @@ const cfg = require('./config');
 const qr = require('./qr');
 const hub = require('./hub');
 const s3mem = require('./s3mem');
+
+function normDigitsLocal(v) {
+  return String(v == null ? '' : v)
+    .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+    .replace(/[^\d]/g, '');
+}
 const update = require('./update');
 const tunnel = require('./tunnel');
 const { nowISO, json, normDigits, validNationalId, sha256 } = require('./util');
@@ -284,6 +291,27 @@ async function api(req, res, url, ip) {
     return json(r, r.ok ? 200 : 400);
   }
 
+
+
+  /* نجاتِ مدیر: اگر حساب مدیر رمز ندارد و کاربر پشتِ خودِ رایانهٔ مدرسه است،
+     یک‌بار می‌تواند شماره + رمز بسازد و بلافاصله وارد شود. (فقط از خود دستگاه) */
+  if (p === '/api/auth/claim' && m === 'POST') {
+    const remote = String((req.socket && req.socket.remoteAddress) || '').replace('::ffff:', '');
+    const local = remote === '::1' || remote === '127.0.0.1' || remote.startsWith('127.');
+    if (!local) return json({ ok: false, error: 'local_only' }, 403);
+    const body = await readBody(req);
+    const mgr = store.all('users').find(u => u.role === 'manager' && u.active !== false);
+    if (!mgr) return json({ ok: false, error: 'no_manager' }, 400);
+    const phone = normDigitsLocal(body.phone || mgr.phone || '');
+    if (phone.length !== 11) return json({ ok: false, error: 'bad_phone' }, 400);
+    if (mgr.phone && normDigitsLocal(mgr.phone) !== phone) return json({ ok: false, error: 'bad_phone' }, 400);
+    const set = auth.setPassword(store, mgr.id, body.password);
+    if (!set.ok) return json(set, 400);
+    if (!mgr.phone) store.update('users', mgr.id, { phone });
+    store.audit({ user_id: mgr.id, role: 'manager', action: 'password_claim', collection: 'users' });
+    const dev = auth.login(store, { phone, password: body.password, name: 'رایانهٔ مدرسه', platform: 'server' });
+    return json(dev.ok ? Object.assign({ ok: true }, dev) : { ok: true, need_login: true });
+  }
 
   if (p === '/api/auth/login' && m === 'POST') {
     if (!rateLimit('login:' + ip, 20, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
