@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.5.6';
+const CLIENT_VERSION = '0.5.7';
 
 const S = {
   online: navigator.onLine,
@@ -593,8 +593,12 @@ async function loadCloud() {
   catch (e) { S.cloud = { configured: false }; toast('خواندن تنظیمات حافظهٔ ابری ناموفق: ' + e.message, 'err'); }
 }
 function cloudForm() {
+  /* فقط فیلدهای پرشده فرستاده می‌شوند تا مقادیر فعلی/پیش‌فرض پاک نشوند */
   const v = id => (($('#' + id) || {}).value || '').trim();
-  return { endpoint: v('cl-endpoint'), bucket: v('cl-bucket'), region: v('cl-region'), accessKey: v('cl-access'), secret: v('cl-secret') };
+  const map = [['endpoint', 'cl-endpoint'], ['bucket', 'cl-bucket'], ['region', 'cl-region'], ['accessKey', 'cl-access'], ['secret', 'cl-secret']];
+  const out = {};
+  for (const [k, id] of map) { const val = v(id); if (val) out[k] = val; }
+  return out;
 }
 function cloudStepsHtml(r) {
   const rows = (r.steps || []).map(s => `<div class="row" style="gap:8px;align-items:center;margin-top:4px">
@@ -1042,6 +1046,17 @@ document.addEventListener('click', async (e) => {
       return;
     }
 
+    case 'cloud-edit':
+      S.cloudEdit = !S.cloudEdit;
+      render(); return;
+    case 'cloud-reset': {
+      try {
+        const r = await api('/api/admin/cloud/reset', { method: 'POST', body: {} });
+        await loadCloud(); render();
+        toast(r.bucket ? 'به پیش‌فرض برنامه برگشت (صندوقچه: ' + r.bucket + ')' : 'به پیش‌فرض برنامه برگشت', 'ok');
+      } catch (e) { toast('برنگشت: ' + e.message, 'err'); }
+      return;
+    }
     case 'cloud-save': {
       try {
         const r = await api('/api/admin/cloud', { method: 'POST', body: cloudForm() });

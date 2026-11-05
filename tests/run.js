@@ -406,6 +406,13 @@ async function waitFor(fn, ms = 15000) {
           return res.end('<Error><Code>SignatureDoesNotMatch</Code></Error>');
         }
         const pDec = decodeURIComponent(url.pathname);
+        if (pDec === '/' && req.method === 'GET') {
+          res.writeHead(200, { 'content-type': 'application/xml' });
+          return res.end('<?xml version="1.0"?><ListAllMyBucketsResult><Buckets>' +
+            '<Bucket><Name>other-bucket</Name><CreationDate>2024-01-01T00:00:00Z</CreationDate></Bucket>' +
+            '<Bucket><Name>payesh-madrese</Name><CreationDate>2024-01-01T00:00:00Z</CreationDate></Bucket>' +
+            '</Buckets></ListAllMyBucketsResult>');
+        }
         if (!pDec.startsWith('/b1')) { res.writeHead(404); return res.end('<Error><Code>NoSuchBucket</Code></Error>'); }
         if (url.searchParams.has('cors')) {
           if (req.method === 'PUT') { corsXml.set('b1', buf.toString()); res.writeHead(200); return res.end(); }
@@ -462,6 +469,27 @@ async function waitFor(fn, ms = 15000) {
       const parsed = s3.smartParse({ endpoint: 'https://b1.s3.ir-thr-at1.arvanstorage.ir' });
       assert.equal(parsed.bucket, 'b1');
       assert.equal(parsed.endpoint, 'https://s3.ir-thr-at1.arvanstorage.ir');
+
+      /* صندوقچهٔ پیش‌فرض داخل برنامه: بدون هیچ تایپی باید آماده باشد */
+      const mem = new Map();
+      const fakeStore = { getMeta: (k, d) => (mem.has(k) ? mem.get(k) : d), setMeta: (k, v) => { mem.set(k, v); } };
+      const def = s3.defaults();
+      assert.ok(def.endpoint && def.accessKey && def.secret, 'کلیدهای پیش‌فرض داخل برنامه هست');
+      assert.equal(def.source, 'default');
+      assert.equal(s3.usingMeta(fakeStore).isDefault(), true, 'هیچ تنظیم دستی ذخیره نشده');
+      assert.equal(s3.usingMeta(fakeStore).get().accessKey, def.accessKey, 'پیش‌فرض برمی‌گردد');
+
+      /* نام صندوقچه خودکار از حساب پیدا شود (پیش‌فرضِ ما باکت ندارد) */
+      s3.usingMeta(fakeStore).set(Object.assign({}, def, { endpoint: 'http://127.0.0.1:' + port, secret: SECRET, accessKey: 'AK', bucket: '' }));
+      const found = await s3.ensureBucket(fakeStore);
+      assert.equal(found.bucket, 'payesh-madrese', 'صندوقچهٔ درست انتخاب شد: ' + found.bucket);
+      assert.equal(s3.usingMeta(fakeStore).get().bucket, 'payesh-madrese', 'نام صندوقچه ذخیره شد');
+
+      /* اگر مدیر مقدار تازه ذخیره کند، همان مقدم است؛ «بازگشت به پیش‌فرض» آن را پاک می‌کند */
+      s3.usingMeta(fakeStore).set(s3.normalize({ endpoint: 'http://127.0.0.1:' + port, bucket: 'b1', accessKey: 'AK', secret: SECRET }));
+      assert.equal(s3.usingMeta(fakeStore).get().source, 'saved', 'تنظیم دستی مقدم است');
+      s3.usingMeta(fakeStore).clear();
+      assert.equal(s3.usingMeta(fakeStore).get().source, 'default', 'بازگشت به پیش‌فرض');
 
       /* خطای رمز غلط باید پیام فارسی بدهد، نه استثنای خام */
       const bad = await s3.test(s3.normalize(Object.assign({}, cfg, { secret: 'wrong' })));

@@ -57,9 +57,11 @@
   function buildRequest(cfg, opts) {
     const { host, basePath, scheme } = splitEndpoint(cfg.endpoint);
     const key = String(opts.key || '').replace(/^\/+/, '');
-    const p = cfg.pathStyle === false
-      ? (key ? '/' + key : '/')
-      : ('/' + cfg.bucket + (key ? '/' + key : ''));
+    const p = opts.root
+      ? '/'
+      : (cfg.pathStyle === false
+        ? (key ? '/' + key : '/')
+        : ('/' + cfg.bucket + (key ? '/' + key : '')));
     const body = opts.body || '';
     const headers = Object.assign({}, opts.headers || {});
     if (body) headers['content-type'] = headers['content-type'] || 'application/json; charset=utf-8';
@@ -123,6 +125,16 @@
   };
   const unxml = s => String(s).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+
+  /* فهرست صندوقچه‌های حساب — برای پیدا کردن خودکار نام صندوقچه */
+  async function listBuckets(cfg) {
+    const r = await call(smartParse(normalize(cfg)), { method: 'GET', root: true });
+    const names = [];
+    const re = /<Bucket>[\s\S]*?<Name>([\s\S]*?)<\/Name>[\s\S]*?<\/Bucket>/g;
+    let m; while ((m = re.exec(r.text))) names.push(unxml(m[1]));
+    if (!names.length) names.push(...all(r.text, 'Name').map(unxml));
+    return names;
+  }
 
   async function list(cfg, opts) {
     opts = opts || {};
@@ -207,5 +219,5 @@
     return out;
   }
 
-  return { DEFAULTS, normalize, smartParse, regionOf, buildRequest, call, list, put, get, remove, setCors, getCors, test };
+  return { DEFAULTS, normalize, smartParse, regionOf, buildRequest, call, list, listBuckets, put, get, remove, setCors, getCors, test };
 });

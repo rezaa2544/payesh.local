@@ -1,15 +1,15 @@
 {
-  "version": "0.5.6",
-  "built_at": "2026-11-05T12:57:42.288Z",
+  "version": "0.5.7",
+  "built_at": "2026-11-05T13:07:15.130Z",
   "shell": {
-    "android": "0.5.6"
+    "android": "0.5.7"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "6d3d375e62cf44dac46f607453ba54cdabb693862f6d8e4d890a60629c6f0376",
-      "size": 60341
+      "sha256": "658938702c4217fce5933e0aa2d8025294115295f167db07410a61dbc19a00e2",
+      "size": 61080
     },
     {
       "path": "client/icons/apple-touch-icon.png",
@@ -44,8 +44,8 @@
     {
       "path": "client/lib/s3mini.js",
       "kind": "client",
-      "sha256": "d35e61d2846453f122a148a4fe90bfd51d71b950dc4a78e70096abf59abcb243",
-      "size": 9786
+      "sha256": "b6c451eb1bafcf251cd91c567325969ab6f8738754f12bcacb6653424b16bff4",
+      "size": 10333
     },
     {
       "path": "client/lib/sigv4.js",
@@ -62,8 +62,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "f7d9415777f1a1aa32d22ea25d3de8439cca7f4fd4bf154947e7dbc07b4ed87e",
-      "size": 89388
+      "sha256": "c3f9f453389b559db608778efc34f25941fcf74b0ffbee87de7a772099e3733a",
+      "size": 90713
     },
     {
       "path": "client/styles.css",
@@ -116,7 +116,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "c09b4d798c7824e4f494305fc6ac8c7448d1c88ecd5813b5f0be2abab112f585",
+      "sha256": "f37c9d522d92aaad38fd9ab9fcae4af9e7b175625e5e5614648069e1c2b66f07",
       "size": 1979
     },
     {
@@ -124,6 +124,12 @@
       "kind": "server",
       "sha256": "994abcb7da35e85652593bee2e4b27c6560c7650501b815aced4d6e1dc5d35f3",
       "size": 14183
+    },
+    {
+      "path": "server/cloud-defaults.js",
+      "kind": "server",
+      "sha256": "09a4e869ee46555cbbf215653e2e019298fcfec78af703be4cbe228baee381ba",
+      "size": 2129
     },
     {
       "path": "server/config.js",
@@ -146,8 +152,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "a8107edd7523c1b2d1abb3daf1d865e07fb0970e4b9e40fe4be9105c49257f55",
-      "size": 45342
+      "sha256": "05624c1f9eca4041cbf4ea7ddae69c71f368aeb38077665b5185f4e95e1bcc13",
+      "size": 46878
     },
     {
       "path": "server/policy.js",
@@ -164,8 +170,8 @@
     {
       "path": "server/s3mem.js",
       "kind": "server",
-      "sha256": "0f6ddc34185b672e7daf4dad53a39f388fac51f597e5217ab7c6523c3dc3dbb7",
-      "size": 1993
+      "sha256": "20acd6a99fcc352e6190c699467adc5317545bc3cce781a83a44b6d0fe3fa545",
+      "size": 4208
     },
     {
       "path": "server/seed.js",
@@ -224,9 +230,9 @@
   ],
   "counts": {
     "client": 12,
-    "server": 24
+    "server": 25
   },
-  "client_size": 226064,
-  "server_size": 181710,
-  "total_size": 407774
+  "client_size": 228675,
+  "server_size": 187590,
+  "total_size": 416265
 }

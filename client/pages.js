@@ -1011,36 +1011,51 @@ function managerSystemSections() {
 PAGES.cloud = () => {
   const c = S.cloud || null;
   const busy = S._cloudBusy;
+  const edit = !!S.cloudEdit;
   const row = (id, label, val, ph, type) => `<label class="field" style="margin-top:8px"><span>${label}</span>
     <input class="input" id="${id}" ${type === 'password' ? 'type="password"' : ''} placeholder="${esc(ph || '')}" value="${esc(val || '')}"></label>`;
+  const ready = !!(c && c.endpoint && c.accessKey && c.secret && c.bucket);
   return `${pageHead('حافظهٔ ابری', 'جایی در اینترنت که همهٔ دستگاه‌ها رویش می‌نویسند', '')}
   ${card(`<div class="small muted" style="line-height:1.9">
     وقتی هیچ سیستمی در مدرسه روشن نیست، پیام‌ها و تکالیف باید جایی بمانند تا اولین دستگاهِ روشن‌شده همه را بردارد.
-    اینجا همان «صندوقچه» است. با یک حساب رایگان در یکی از سرویس‌های ایرانی (مثلاً ابر آروان: ۵ گیگابایت رایگان)
-    یک <b>باکت</b> بسازید و مشخصاتش را اینجا وارد کنید.
+    اینجا همان «صندوقچه» است.
   </div>`)}
   ${c === null ? card(`<div class="muted small">در حال خواندن تنظیمات…</div>`) : card(`
-    <div class="row between"><b>تنظیمات صندوقچه</b>${c.configured ? badge('تنظیم شده', 'green') : badge('تنظیم نشده', 'amber')}</div>
-    ${row('cl-endpoint', 'آدرس سرویس (Endpoint)', c.endpoint, 'https://s3.ir-thr-at1.arvanstorage.ir')}
-    ${row('cl-bucket', 'نام صندوقچه (Bucket)', c.bucket, 'my-school')}
-    ${row('cl-region', 'منطقه (اختیاری)', c.region, 'ir-thr-at1')}
-    ${row('cl-access', 'کلید عمومی (Access Key)', c.accessKey, '')}
-    ${row('cl-secret', 'کلید خصوصی (Secret Key)', '', 'کلید خصوصی', 'password')}
-    <div class="small muted" style="margin-top:6px">کلید خصوصی ذخیره می‌شود ولی دیگر نمایش داده نمی‌شود؛ برای تغییر، مقدار تازه بگذارید.</div>
-    <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
-      <button class="btn sm" data-act="cloud-save" ${busy ? 'disabled' : ''}>ذخیره</button>
-      <button class="btn sm ghost" data-act="cloud-test" ${busy ? 'disabled' : ''}>آزمایش از سرور</button>
-      <button class="btn sm ghost" data-act="cloud-cors" ${busy ? 'disabled' : ''}>تنظیم خودکار CORS</button>
-      <button class="btn sm ghost" data-act="cloud-test-browser" ${busy ? 'disabled' : ''}>آزمایش از همین دستگاه</button>
+    <div class="row between"><b>وضعیت صندوقچه</b>${ready ? badge('آماده', 'green') : (c.accessKey ? badge('در حال آماده‌سازی', 'amber') : badge('تنظیم نشده', 'amber'))}</div>
+    ${c.built_in
+      ? `<div class="small muted" style="margin-top:8px;line-height:1.9">✅ <b>از قبل داخل برنامه تنظیم شده است</b> — لازم نیست چیزی وارد کنید.
+          ${c.bucket ? `<br>صندوقچه: <span class="ltr">${esc(c.bucket)}</span>` : '<br>نام صندوقچه به‌زودی خودکار پیدا می‌شود (به اینترنت نیاز دارد).'}
+          <br>سرور: <span class="ltr">${esc(c.endpoint || '')}</span></div>`
+      : `<div class="small muted" style="margin-top:8px">تنظیمات دستی روی این دستگاه فعال است (بر پیش‌فرضِ داخل برنامه مقدم است).</div>`}
+    <div class="row" style="margin-top:12px;flex-wrap:wrap;gap:6px">
+      <button class="btn sm" data-act="cloud-test" ${busy || !ready ? 'disabled' : ''}>آزمایش اتصال</button>
+      <button class="btn sm ghost" data-act="cloud-cors" ${busy || !ready ? 'disabled' : ''}>تنظیم خودکار CORS</button>
+      <button class="btn sm ghost" data-act="cloud-edit">${edit ? 'بستن کادر تغییر' : 'تغییر تنظیمات'}</button>
+      ${c.built_in ? '' : `<button class="btn sm ghost" data-act="cloud-reset">بازگشت به پیش‌فرض برنامه</button>`}
     </div>
     <div id="cloud-out" class="small" style="margin-top:10px"></div>`)}
+
+  ${c && edit ? card(`
+    <div class="row between"><b>تنظیمات صندوقچه (تغییر)</b></div>
+    <div class="small muted" style="margin-top:4px">فقط وقتی لازم است که صندوقچه عوض شود. مقدار خالی = همان مقدار فعلی می‌ماند.</div>
+    ${row('cl-endpoint', 'آدرس سرویس (Endpoint)', c.endpoint, 'https://s3.ir-central1.arvanstorage.ir')}
+    ${row('cl-bucket', 'نام صندوقچه (اختیاری — خودکار پیدا می‌شود)', c.bucket, '')}
+    ${row('cl-region', 'منطقه (اختیاری)', c.region, 'ir-central1')}
+    ${row('cl-access', 'کلید عمومی (Access Key)', c.accessKey, '')}
+    ${row('cl-secret', 'کلید خصوصی (Secret Key)', '', 'کلید خصوصی فعلی می‌ماند', 'password')}
+    <div class="small muted" style="margin-top:6px">کلید خصوصی ذخیره می‌شود ولی دیگر نمایش داده نمی‌شود؛ برای تغییر، مقدار تازه بگذارید.</div>
+    <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
+      <button class="btn sm" data-act="cloud-save" ${busy ? 'disabled' : ''}>ذخیرهٔ تنظیمات تازه</button>
+      <button class="btn sm ghost" data-act="cloud-test-browser" ${busy ? 'disabled' : ''}>آزمایش از همین دستگاه</button>
+    </div>`) : ''}
+
   ${card(`<b>CORS — اجازهٔ مرورگر</b>
     <div class="small muted" style="margin-top:6px;line-height:1.9">
       گوشی‌ها مستقیم با صندوقچه حرف می‌زنند، پس صندوقچه باید به مرورگر اجازه بدهد.
-      دکمهٔ <b>«تنظیم خودکار CORS»</b> همین کار را از داخل برنامه انجام می‌دهد؛ لازم نیست در پنل دنبالش بگردی.
-      اگر کلید اجازهٔ مدیریت صندوقچه را نداشت، پیام خطا نشان داده می‌شود و آن‌وقت باید در پنل
+      دکمهٔ <b>«تنظیم خودکار CORS»</b> همین کار را از داخل برنامه انجام می‌دهد؛ لازم نیست در پنل دنبالش بگردید.
+      اگر کلید اجازهٔ مدیریت صندوقچه را نداشت، باید در پنل
       (فضای ابری ← صندوقچه ← عملیات ← تنظیمات CORS) دستی یک قانون با
-      <span class="ltr">*</span> و متدهای <span class="ltr">GET, PUT, DELETE, HEAD</span> بسازی.
+      <span class="ltr">*</span> و متدهای <span class="ltr">GET, PUT, DELETE, HEAD</span> بسازید.
     </div>`)}`;
 };
 

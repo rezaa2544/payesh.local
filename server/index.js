@@ -558,7 +558,11 @@ async function api(req, res, url, ip) {
 
   /* ── حافظهٔ ابری (صندوقچهٔ S3 ایرانی) ─────────────────────────────── */
   if (p === '/api/admin/cloud' && m === 'GET') {
-    const view = s3mem.usingMeta(store).get();
+    /* اگر نام صندوقچه هنوز معلوم نیست، همین‌جا از حساب می‌پرسیم */
+    let view = s3mem.usingMeta(store).get();
+    if (!view.bucket && view.accessKey && view.secret) {
+      try { view = await s3mem.ensureBucket(store); } catch (e) { /* بی‌اینترنت — همان پیش‌فرض */ }
+    }
     const reveal = q.get('reveal') === '1';
     return json({
       ok: true,
@@ -566,6 +570,8 @@ async function api(req, res, url, ip) {
         secret: view.secret ? (reveal ? view.secret : '••••••••') : '',
         accessKey: reveal ? view.accessKey : (view.accessKey ? view.accessKey.slice(0, 4) + '…' : ''),
         configured: !!(view.endpoint && view.bucket && view.accessKey && view.secret),
+        source: view.source || (s3mem.usingMeta(store).isDefault() ? 'default' : 'saved'),
+        built_in: s3mem.usingMeta(store).isDefault(),
       }),
       region_guess: s3mem.regionOf(view),
     });
@@ -580,7 +586,20 @@ async function api(req, res, url, ip) {
     if (/…$/.test(String(body.accessKey || ''))) next.accessKey = cur.accessKey;
     s3mem.usingMeta(store).set(next);
     store.audit({ user_id: actor.user.id, role: 'manager', action: 'cloud_config', collection: 'meta' });
-    return json({ ok: true, configured: !!(next.endpoint && next.bucket && next.accessKey && next.secret) });
+    let out = next;
+    if (!out.bucket && out.accessKey && out.secret) {
+      try { out = await s3mem.ensureBucket(store); } catch (e) { /* بعداً دوباره */ }
+    }
+    return json({ ok: true, bucket: out.bucket || null,
+      configured: !!(out.endpoint && out.bucket && out.accessKey && out.secret) });
+  }
+
+  if (p === '/api/admin/cloud/reset' && m === 'POST') {
+    s3mem.usingMeta(store).clear();
+    store.audit({ user_id: actor.user.id, role: 'manager', action: 'cloud_reset', collection: 'meta' });
+    let out = s3mem.usingMeta(store).get();
+    try { out = await s3mem.ensureBucket(store); } catch (e) { /* بدون اینترنت */ }
+    return json({ ok: true, bucket: out.bucket || null, source: 'default' });
   }
 
   if (p === '/api/admin/cloud/test' && m === 'POST') {
@@ -877,6 +896,15 @@ if (process.env.PAYESH_AUTO_BACKUP !== '0') {
     try { store.backupTo(BACKUP_DIR, 48); } catch (e) { console.error('[backup]', e.message); }
   }, 60 * 60 * 1000).unref();
   try { store.backupTo(BACKUP_DIR, 48); } catch (e) { /* noop */ }
+}
+
+/* ── صندوقچهٔ پیش‌فرض: در شروع یک‌بار نام صندوقچه را پیدا و ثبت می‌کنیم ── */
+if (process.env.PAYESH_CLOUD_AUTO !== '0') {
+  setTimeout(() => {
+    s3mem.ensureBucket(store)
+      .then(c => { if (c.bucket) console.log('[cloud] صندوقچه:', c.bucket, '·', c.endpoint); })
+      .catch(e => console.log('[cloud] تشخیص صندوقچه ناموفق:', e.message));
+  }, 2500).unref();
 }
 
 /* ── راه‌اندازی مجدد خودکار پس از آپدیت ───────────────────────────── */
