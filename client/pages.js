@@ -25,7 +25,8 @@ function navConfig(role) {
   if (role === 'manager') {
     base.push(['home', '🏠', 'داشبورد'], ['users', '👥', 'کاربران'], ['classes', '🏛️', 'کلاس‌ها'],
       ['schedule', '🗓️', 'برنامه'], ['attendance-report', '✅', 'حضور'], ['reports', '📑', 'گزارش‌ها'],
-      ['announcements', '📢', 'اطلاعیه‌ها'], ['network', '🌐', 'شبکه'], ['system', '⚙️', 'سیستم']);
+      ['announcements', '📢', 'اطلاعیه‌ها'], ['network', '🌐', 'شبکه'],
+      ['cloud', '☁️', 'حافظهٔ ابری'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'teacher') {
     base.push(['home', '🏠', 'امروز'], ['attendance', '✅', 'حضور'], ['grades', '📝', 'نمره'],
       ['students', '👥', 'دانش‌آموزان'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
@@ -856,6 +857,7 @@ PAGES.network = () => {
       <input class="input ltr" name="public_url" value="${esc(pub)}" placeholder="https://payesh.school.ts.net" inputmode="url" autocomplete="off">
       <button class="btn primary block" style="margin-top:8px">ذخیرهٔ آدرس</button>
     </form>
+    ${/trycloudflare/.test(pub) ? `<div class="small muted" style="margin-top:8px;color:#b45309">این آدرس موقتی است: با بستن برنامه از کار می‌افتد و در ایران فیلتر است. برای آدرس دائمی، Tailscale (<span class="ltr">payesh.نام‌شما.ts.net</span>) یا میزبان ثابت بگذارید.</div>` : ''}
     ${tun.reachable ? `<div class="small muted" style="margin-top:8px">آخرین بررسی: ${esc(tun.latency_ms != null ? fa(tun.latency_ms) + ' میلی‌ثانیه' : '—')}${tun.same_server === false ? ' · ⚠ پاسخ از سرور دیگری آمد' : ''}</div>`
       : (tun.configured ? `<div class="small muted" style="margin-top:8px;color:var(--red,#b91c1c)">تونل پاسخ نداد (${esc(tun.error || 'نامشخص')}) — Tailscale Funnel روی سیستم روشن است؟</div>` : '')}
   `)}
