@@ -288,6 +288,9 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(tunnel.includes('PAYESH_TUNNEL_AUTO'), 'کلید خاموش/روشن');
     assert.ok(/autoStart\(\)/.test(tunnel) || /autoStart\(store/.test(tunnel), 'در start فراخوانی می‌شود');
     assert.ok(tunnel.includes('cloudflaredBin()'), 'تونل موقت بدون حساب');
+    assert.ok(/path\.join\(HERE, 'cloudflared\.exe'\)/.test(tunnel), 'cloudflared همراه برنامه هم پیدا می‌شود');
+    const iss = fs.readFileSync(path.join(ROOT, 'installer/payesh.iss'), 'utf8');
+    assert.ok(iss.includes('cloudflared-windows-amd64.exe'), 'نصب‌کننده پشتیبان تونل را می‌آورد');
     assert.ok(index.includes('tunnel.start('), 'سرور تونل را راه می‌اندازد');
 
     /* آدرس عمومی باید در health منتشر شود تا کلاینت‌ها یاد بگیرند */
