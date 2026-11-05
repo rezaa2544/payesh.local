@@ -260,6 +260,11 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(app.includes('server/index.js') || app.includes('"server"'), 'اجرای سرور محلی');
     assert.ok(app.includes('--tray'), 'حالت سینی سیستم برای اجرای خودکار');
 
+    /* ۴.۵) کلیک دوباره روی آیکون = آوردن پنجرهٔ موجود، نه پیام «باز است» */
+    assert.ok(app.includes('TryOpenExisting'), 'سیگنال تک‌نمونه‌ای');
+    assert.ok(/BringToFrontFromSecond/.test(app), 'آوردن پنجرهٔ سینی به جلو');
+    assert.ok(!app.includes('همین حالا باز است'), 'پیام بن‌بست تک‌نمونه حذف شده');
+
     /* ۵) اتصال از هر اینترنت: نردبان آدرس شامل آدرس عمومی */
     assert.ok(/public_url/.test(app), 'آدرس عمومی HTTPS در نردبان اتصال');
     assert.ok(/ScanLan\(/.test(app), 'شبکهٔ محلی فقط آخرین گزینه');
