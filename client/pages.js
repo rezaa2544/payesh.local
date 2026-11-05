@@ -815,10 +815,20 @@ PAGES.network = () => {
       <img alt="QR" src="/api/qr?text=${encodeURIComponent(pub)}&scale=6" style="width:150px;height:150px;border-radius:10px;background:#fff;padding:6px">
     </div>`) : ''}
   ${publicAccessCard(n)}
-  ${card(`<b>آدرس‌های شبکهٔ محلی</b><div class="small muted" style="margin-top:6px">
-    ${(n.lan_urls || []).map(u => `<div class="ltr">${esc(u)}</div>`).join('') || '<div>—</div>'}
-    <div style="margin-top:6px">این آدرس‌ها فقط وقتی گوشی به همان Wi-Fi وصل است کار می‌کنند. برای همین، آدرس رسمی بالا را به همه بدهید.</div>
-  </div>`)}
+  ${card(`<div class="row between" style="align-items:flex-start">
+      <div><b>آدرس‌های شبکهٔ محلی</b>
+        <div class="small muted" style="margin-top:6px">
+          ${(n.lan_urls || []).map(u => `<div class="ltr">${esc(u)}</div>`).join('') || '<div>—</div>'}
+          <div style="margin-top:6px">این آدرس‌ها فقط وقتی گوشی به همان Wi-Fi مدرسه وصل است کار می‌کنند.</div>
+          <div style="margin-top:4px">اگر گوشی با همین Wi-Fi هم وصل نشد، احتمالاً Wi-Fi مدرسه اجازهٔ ارتباط دستگاه‌ها با هم را نمی‌دهد (Client Isolation) — در این حالت فقط آدرس رسمی HTTPS بالا کار می‌کند.</div>
+        </div>
+        ${(n.lan_urls || []).length ? `<div class="row" style="margin-top:8px">
+          <button class="btn sm" data-act="copy-url" data-id="${esc(n.lan_urls[0])}">کپی آدرس محلی</button>
+          <a class="btn sm" href="${esc(n.lan_urls[0])}" target="_blank">باز کردن</a></div>` : ''}
+      </div>
+      ${(n.lan_urls || []).length ? `<img alt="QR" src="/api/qr?text=${encodeURIComponent(n.lan_urls[0])}&scale=6" style="width:150px;height:150px;border-radius:10px;background:#fff;padding:6px">` : ''}
+    </div>
+    ${(n.lan_urls || []).length ? `<div class="small muted" style="margin-top:6px">گوشی داخل مدرسه: این کد را با دوربین گوشی اسکن کنید — بدون تایپ هیچ آدرسی باز می‌شود.</div>` : ''}`)}
   ${card(`<div class="row between"><b>☁️ Hub ابری</b>${n.hub && n.hub.enabled ? badge('فعال', 'green') : badge('غیرفعال', 'amber')}</div>
     <div class="small muted" style="margin-top:6px">با فعال بودن Hub، ولی و دانش‌آموز حتی وقتی سیستم مدرسه خاموش است آخرین وضعیت را می‌بینند و درخواست مرخصی‌شان در صف می‌ماند. دادهٔ هر دانش‌آموز جداگانه و بدون کد ملی فرستاده می‌شود.</div>
     <form data-form="hub" style="margin-top:10px">
