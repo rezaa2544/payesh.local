@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.5.2';
+const CLIENT_VERSION = '0.5.3';
 
 const S = {
   online: navigator.onLine,
