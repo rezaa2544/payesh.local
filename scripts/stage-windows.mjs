@@ -15,7 +15,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const STAGE = path.join(ROOT, '.build', 'win');
 const RUNTIME = path.join(ROOT, 'runtime', 'node.exe');
 
-const DIRS = ['client', 'server', 'hub', 'docs', 'install', 'releases'];
+const DIRS = ['client', 'server', 'docs', 'install', 'releases'];
 const FILES = [
   'package.json', 'README.md',
   'start.bat', 'start.sh', 'install.bat', 'uninstall.bat',

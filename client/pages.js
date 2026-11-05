@@ -65,12 +65,10 @@ function shellHtml(view) {
 }
 
 /* نوار آدرس عمومی:
-   اگر آدرس ثابتِ کارآمدی ثبت نشده، مدیر یک یادآوری کوچک می‌بیند (قابل بستن).
-   آدرس‌های موقتی Cloudflare دیگر تبلیغ نمی‌شوند — در ایران جواب نمی‌دهند. */
+   اگر آدرس ثابتِ کارآمدی ثبت نشده، مدیر یک یادآوری کوچک می‌بیند (قابل بستن). */
 function canonicalBarHtml() {
   const pub = S.server && S.server.publicUrl;
-  const usable = !!pub && !/trycloudflare\.com/i.test(pub);
-  if (usable) {
+  if (pub) {
     try { if (location.origin === new URL(pub).origin) return ''; } catch (e) { return ''; }
     if (localStorage.getItem('payesh.originbar.off') === pub) return '';
     return `<div class="banner warn" id="origin-bar">
@@ -706,24 +704,20 @@ function parentHome() {
   ${card(`<div class="row"><a class="btn grow" href="#/leaves">📨 درخواست مرخصی</a><a class="btn grow" href="#/announcements">📢 اطلاعیه‌ها</a></div>`)}`;
 }
 
-/* ── وضعیت ابری: وقتی سیستم مدرسه خاموش است، ولی از Hub می‌خواند ── */
+/* ── وضعیت آفلاین و صندوقچهٔ ابری ──
+   دادهٔ نمایش‌داده‌شده همان آخرین همگام‌سازی این دستگاه است؛ ثبت‌ها در صف
+   می‌مانند و اولین سیستم/دستگاهی که روشن شود آن‌ها را اعمال می‌کند. */
 function cloudCard(kids) {
-  const hub = S.hub || {};
-  if (!hub.enabled) return '';
-  const rows = kids.map(k => ({ kid: k, d: (S.hubData || {})[Number(k.id)] })).filter(x => x.d);
-  const anyData = rows.length > 0;
-  return card(`<div class="row between"><b>☁️ ابر پایش</b>
-      ${S.hubOffline ? badge('سیستم مدرسه در دسترس نیست', 'amber') : badge('متصل', 'green')}</div>
-    <div class="small muted" style="margin-top:6px">
-      ${anyData
-        ? 'آخرین وضعیت ثبت‌شده در فضای ابری. ثبت‌ها و درخواست‌های شما در صف می‌مانند و با روشن شدن سیستم مدرسه اعمال می‌شوند.'
-        : 'برای دیدن آخرین وضعیت وقتی مدرسه تعطیل است، از همین دکمه استفاده کنید.'}
-    </div>
-    ${anyData ? rows.map(({ kid, d }) => `<div class="item" style="margin-top:8px">
-        <div class="grow"><div class="t">${esc(kid.name)}</div>
-          <div class="s">حضور ${fa(d.attendance && d.attendance.percent != null ? d.attendance.percent : '—')}٪ · ${fa((d.grades || []).length)} نمره</div></div>
-        <span class="small muted">${esc(d.updated_at ? jdate(d.updated_at) : '')}</span></div>`).join('') : ''}
-    <button class="btn sm block" style="margin-top:10px" data-act="hub-load">دریافت از ابر</button>`);
+  const q = (S.queue || []).length;
+  const ob = S.outbox || {};
+  if (!q && !ob.pending) return '';
+  const rows = [];
+  if (q) rows.push(`<div class="small" style="margin-top:6px">📤 <b>${fa(q)}</b> تغییر روی همین دستگاه ثبت شده و هنوز اعمال نشده.</div>`);
+  if (ob.pending) rows.push(`<div class="small" style="margin-top:6px">📦 <b>${fa(ob.pending)}</b> ثبت از دستگاه‌های دیگر در صندوقچهٔ ابری منتظر است.</div>`);
+  if (ob.last_drain) rows.push(`<div class="small muted" style="margin-top:4px">آخرین اعمال: ${esc(jdate(ob.last_drain))}</div>`);
+  return card(`<div class="row between"><b>📥 صندوقچهٔ ابری</b>${badge('در انتظار اعمال', 'amber')}</div>
+    ${rows.join('')}
+    <div class="small muted" style="margin-top:6px">لازم نیست کاری کنید: اولین سیستمی که روشن شود (مدرسه، خانه یا گوشیِ کادر) خودش این‌ها را اعمال می‌کند.</div>`);
 }
 
 PAGES.child = (params) => {
@@ -805,15 +799,14 @@ function studentHomeCard() {
 function publicAccessCard(n) {
   const p = n.public || {};
   const ts = (p.tailscale || {});
-  const cf = (p.cloudflare || {});
   const on = !!p.public_url;
   const busy = S.tunnelBusy;
   let state;
   if (on) {
-    state = badge('فعال — ' + (/ts\.net$/.test(p.public_url) ? 'Tailscale' : /trycloudflare/.test(p.public_url) ? 'Cloudflare' : 'دستی'), 'green');
+    state = badge('فعال — ' + (/ts\.net$/.test(p.public_url) ? 'Tailscale' : 'دستی'), 'green');
   } else if (ts.installed && !ts.logged_in) {
     state = badge('Tailscale نصب است، وارد نشده', 'amber');
-  } else if (!ts.installed && !cf.installed) {
+  } else if (!ts.installed) {
     state = badge('ابزاری نصب نیست', 'red');
   } else {
     state = badge('خاموش', 'amber');
@@ -844,7 +837,6 @@ function publicAccessCard(n) {
     body = `<ol class="small" style="margin:8px 0 0;padding-inline-start:18px;line-height:2">
         <li><a href="${esc(ts.download || 'https://tailscale.com/download/windows')}" target="_blank">Tailscale</a> را روی همین سیستم نصب کنید (رایگان، بدون کارت بانکی).</li>
         <li>با حساب رایگان وارد شوید و برگردید؛ بقیه‌اش یک کلیک است.</li>
-        <li>آدرس‌های موقت Cloudflare (<span class="ltr">trycloudflare.com</span>) در ایران فیلترند و با هر بار روشن شدن عوض می‌شوند — به‌کار نمی‌آیند.</li>
       </ol>
       <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
         <button class="btn sm primary" data-act="tunnel-login">ورود / نصب Tailscale</button>
@@ -874,7 +866,6 @@ PAGES.network = () => {
       <input class="input ltr" name="public_url" value="${esc(pub)}" placeholder="https://payesh.school.ts.net" inputmode="url" autocomplete="off">
       <button class="btn primary block" style="margin-top:8px">ذخیرهٔ آدرس</button>
     </form>
-    ${/trycloudflare/.test(pub) ? `<div class="small muted" style="margin-top:8px;color:#b45309">این آدرس موقتی است: با بستن برنامه از کار می‌افتد و در ایران فیلتر است. برای آدرس دائمی، Tailscale (<span class="ltr">payesh.نام‌شما.ts.net</span>) یا میزبان ثابت بگذارید.</div>` : ''}
     ${tun.reachable ? `<div class="small muted" style="margin-top:8px">آخرین بررسی: ${esc(tun.latency_ms != null ? fa(tun.latency_ms) + ' میلی‌ثانیه' : '—')}${tun.same_server === false ? ' · ⚠ پاسخ از سرور دیگری آمد' : ''}</div>`
       : (tun.configured ? `<div class="small muted" style="margin-top:8px;color:var(--red,#b91c1c)">تونل پاسخ نداد (${esc(tun.error || 'نامشخص')}) — Tailscale Funnel روی سیستم روشن است؟</div>` : '')}
   `)}
@@ -901,21 +892,11 @@ PAGES.network = () => {
       ${(n.lan_urls || []).length ? `<img alt="QR" src="/api/qr?text=${encodeURIComponent(n.lan_urls[0])}&scale=6" style="width:150px;height:150px;border-radius:10px;background:#fff;padding:6px">` : ''}
     </div>
     ${(n.lan_urls || []).length ? `<div class="small muted" style="margin-top:6px">گوشی داخل مدرسه: این کد را با دوربین گوشی اسکن کنید — بدون تایپ هیچ آدرسی باز می‌شود.</div>` : ''}`)}
-  ${card(`<div class="row between"><b>☁️ Hub ابری</b>${n.hub && n.hub.enabled ? badge('فعال', 'green') : badge('غیرفعال', 'amber')}</div>
-    <div class="small muted" style="margin-top:6px">با فعال بودن Hub، ولی و دانش‌آموز حتی وقتی سیستم مدرسه خاموش است آخرین وضعیت را می‌بینند و درخواست مرخصی‌شان در صف می‌ماند. دادهٔ هر دانش‌آموز جداگانه و بدون کد ملی فرستاده می‌شود.</div>
-    <form data-form="hub" style="margin-top:10px">
-      <input class="input ltr" name="hub_url" value="${esc((n.hub && n.hub.url) || '')}" placeholder="https://payesh-hub.xxx.workers.dev" inputmode="url" autocomplete="off">
-      <label class="row small" style="margin-top:8px;gap:6px;align-items:center">
-        <input type="checkbox" name="hub_enabled" ${n.hub && n.hub.enabled ? 'checked' : ''}> فعال باشد
-      </label>
-      <button class="btn primary block" style="margin-top:8px">ذخیرهٔ Hub</button>
-    </form>
-    <div class="small muted" style="margin-top:10px">کلید مدرسه (در Worker به‌عنوان <span class="ltr">SCHOOL_KEY</span> تنظیم کنید):</div>
-    <div class="ltr small" style="background:var(--soft);padding:8px;border-radius:8px;word-break:break-all;margin-top:4px">${esc((n.hub && n.hub.key) || '—')}</div>
-    <div class="row" style="margin-top:8px">
-      <button class="btn sm" data-act="hub-sync">همگام‌سازی اکنون</button>
-      <span class="small muted">آخرین ارسال: ${esc(n.hub && n.hub.last_push ? jdate(n.hub.last_push) : '—')} · آخرین دریافت: ${esc(n.hub && n.hub.last_drain ? jdate(n.hub.last_drain) : '—')}</span>
-    </div>`)}`;
+  ${card(`<div class="row between"><b>📥 صندوقچهٔ آفلاین</b>${(S.outbox && S.outbox.pending) ? badge('در انتظار اعمال', 'amber') : badge('خالی', 'green')}</div>
+    <div class="small muted" style="margin-top:6px">وقتی بعضی دستگاه‌ها خاموش‌اند، ثبت‌هایشان این‌جا می‌ماند و اولین دستگاهی که روشن شود (مدرسه، خانه یا گوشیِ کادر) خودکار اعمالشان می‌کند — لازم نیست کسی کاری کند.</div>
+    <div class="row" style="margin-top:8px"><button class="btn sm" data-act="outbox-sync">بررسی و اعمال اکنون</button></div>`)}
+
+  `;
 };
 
 /* ── کارت به‌روزرسانی ──────────────────────────────────────────────── */

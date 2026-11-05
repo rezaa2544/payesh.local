@@ -38,13 +38,6 @@ function publicUrl(store) {
   return normalizeUrl(getMeta(store, 'public_url'));
 }
 
-function hubConfig(store) {
-  return {
-    url: normalizeUrl(process.env.PAYESH_HUB_URL || getMeta(store, 'hub_url')),
-    enabled: process.env.PAYESH_HUB_ENABLED === '1' || !!getMeta(store, 'hub_enabled'),
-  };
-}
-
 function instanceId(store) {
   let id = getMeta(store, 'instance_id');
   if (!id) {
@@ -125,6 +118,6 @@ async function tunnelStatus(store, { force = false } = {}) {
 }
 
 module.exports = {
-  publicUrl, hubConfig, instanceId, lanUrls, clientIp, tunnelStatus, normalizeUrl,
+  publicUrl, instanceId, lanUrls, clientIp, tunnelStatus, normalizeUrl,
   getMeta, setMeta, trustProxyFor,
 };

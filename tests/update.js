@@ -59,7 +59,7 @@ const V1 = {
   'client/sw.js': '// sw v1\n',
   'server/index.js': '// server v1\n',
   'server/util.js': '// util v1\n',
-  'hub/worker.js': '// hub v1\n',
+  'server/outbox.js': '// outbox v1\n',
   'package.json': '{"name":"x","version":"0.1.0"}\n',
 };
 

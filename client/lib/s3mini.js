@@ -99,6 +99,8 @@
         headers: signed.headers,
         body: opts.body || undefined,
         mode: 'cors',
+        /* صندوقچهٔ بی‌پاسخ نباید برنامه را معطل کند */
+        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined,
       });
     } catch (e) {
       const err = new Error('به صندوقچه نرسیدیم — آدرس/اینترنت/CORS را بررسی کنید');

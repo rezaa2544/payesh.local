@@ -26,11 +26,10 @@ jobs:
       - name: آزمون‌های سرور
         run: npm test
 
-      - name: آزمون رابط، جریان کاربری، Hub و به‌روزرسانی
+      - name: آزمون رابط، جریان کاربری، صندوقچه و به‌روزرسانی
         run: |
           npm run test:ui
           npm run test:flow
-          npm run test:hub
           npm run test:update
           npm run test:tunnel
 

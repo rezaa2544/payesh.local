@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.6.1';
+const CLIENT_VERSION = '0.7.1';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -29,6 +29,7 @@ const S = {
   update: null,
   remote: null,             /* وضعیت به‌روزرسانی درجا از مخزن (مدیر) */
   remoteBusy: false,
+  outbox: null,             /* وضعیت صندوقچهٔ آفلاین (ابر) */
   tunnelBusy: false,
   tempId: -1,
   syncing: false,
@@ -269,11 +270,33 @@ function remapLocal(op, serverId, version) {
   });
 }
 
+/* وضعیت صندوقچهٔ ابری — اگر اینترنت/ابر نبود، بی‌صدا نادیده گرفته می‌شود */
+const SERVER_ROLES = ['manager', 'vice', 'teacher', 'staff'];
+async function loadOutbox(silent = true) {
+  if (!S.session || !S.online) return null;
+  try {
+    const r = await api('/api/outbox/state');
+    S.outbox = r || {};
+    if (SERVER_ROLES.includes(S.role) && (r.pending || 0) > 0) {
+      const d = await api('/api/outbox/drain', { method: 'POST', body: {} });
+      if (d && d.applied) {
+        S.outbox = Object.assign({}, S.outbox, { pending: 0, last_drain: new Date().toISOString() });
+        await pullAll();
+        if (!silent) toast('ثبت‌های صندوقچه اعمال شد', 'ok');
+      }
+      const again = await api('/api/outbox/state').catch(() => null);
+      if (again) S.outbox = again;
+    }
+    return S.outbox;
+  } catch (e) { return null; }
+}
+
 async function syncNow(silent = true) {
   if (!S.online) { if (!silent) toast('اینترنت/شبکه در دسترس نیست — تغییرات در صف می‌مانند', 'err'); return; }
   try {
     await flushQueue();
     await pullAll();
+    await loadOutbox(silent);
     if (!silent) toast('همگام‌سازی انجام شد', 'ok');
     render();
   } catch (e) {
@@ -412,26 +435,6 @@ async function doPair(form) {
   }
 }
 
-/* ثبت درخواست در صف ابری (وقتی سیستم مدرسه در دسترس نیست) */
-async function queueLeaveToHub(studentId, row) {
-  const hub = S.hub || {};
-  const child = (hub.children || []).find(c => Number(c.student_id) === Number(studentId));
-  if (!hub.enabled || !hub.url || !child) return false;
-  try {
-    const res = await fetch(hub.url.replace(/\/+$/, '') + '/v1/outbox', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + child.token },
-      body: JSON.stringify({
-        uid: row.uid || ('leave-' + studentId + '-' + row.date),
-        kind: 'leave',
-        payload: { date: row.date, reason: row.reason },
-      }),
-    });
-    const out = await res.json();
-    return !!out.ok;
-  } catch (e) { return false; }
-}
-
 async function doTransfer(form) {
   const code = form.code.value.trim();
   const pin = digitsOnly(form.pin.value);
@@ -512,7 +515,6 @@ async function start() {
   try {
     const boot = await api('/api/bootstrap');
     S.boot = boot; S.user = boot.user; S.role = boot.role;
-    S.hub = boot.hub || { enabled: false };
     S.server = Object.assign({}, S.server, {
       ok: true, version: boot.version, school: boot.school, setupDone: true,
       publicUrl: boot.public_url || S.server.publicUrl || null,
@@ -529,12 +531,8 @@ async function start() {
     api('/api/cloud/config').then(r => {
       if (r && r.ready && r.config) { try { localStorage.setItem('payesh.cloudcfg', JSON.stringify(r.config)); } catch (e) { /* noop */ } }
     }).catch(() => { /* بی‌اهمیت */ });
-    try { await pullAll(); await flushQueue(); S.hubOffline = false; }
-    catch (e) { /* آفلاین: با کش ادامه می‌دهیم */ await tryCloudFallback(); }
-    if (S.hub && S.hub.enabled && (S.role === 'parent' || S.role === 'student')) {
-      /* بی‌صدا و در پس‌زمینه، تازه‌ترین نمای ابری را هم بگیر */
-      loadHub(true).then(() => { if (S.role === 'parent' && S.route === 'home') render(); });
-    }
+    try { await pullAll(); await flushQueue(); S.offline = false; }
+    catch (e) { /* آفلاین: با کش ادامه می‌دهیم */ S.offline = true; }
     routeFromHash();
     render();
     scheduleSync();
@@ -588,37 +586,6 @@ window.addEventListener('hashchange', async () => {
   window.scrollTo(0, 0);
   if (S.route === 'network' && S.role === 'manager') { await loadNetwork(false); render(); }
 });
-
-/* ── Hub ابری: خواندن نمای خانواده وقتی مدرسه خاموش است ─────────── */
-async function loadHub(silent = true) {
-  const hub = S.hub || {};
-  if (!hub.enabled || !hub.url || !(hub.children || []).length) return null;
-  S.hubData = S.hubData || {};
-  let ok = 0;
-  for (const child of hub.children) {
-    try {
-      const res = await fetch(hub.url.replace(/\/+$/, '') + '/v1/family', {
-        headers: { authorization: 'Bearer ' + child.token },
-        cache: 'no-store',
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (data.ok) { S.hubData[Number(child.student_id)] = data; ok++; }
-    } catch (e) { /* ابر هم در دسترس نیست */ }
-  }
-  S.hubOffline = ok === 0;
-  if (!silent) toast(ok ? 'وضعیت از ابر به‌روز شد' : 'دسترسی به ابر ممکن نشد', ok ? 'ok' : 'err');
-  return ok;
-}
-
-/* اگر سیستم مدرسه جواب نداد، از ابر بخوان */
-async function tryCloudFallback() {
-  const hub = S.hub || {};
-  if (!hub.enabled) return false;
-  const n = await loadHub(true);
-  if (n) { S.hubOffline = true; render(); return true; }
-  return false;
-}
 
 /* ── وضعیت شبکه/تونل (فقط مدیر) ─────────────────────────────────── */
 async function loadNetwork(force) {
@@ -1010,17 +977,6 @@ document.addEventListener('click', async (e) => {
       await loadNetwork(true);
       S.tunnelBusy = false; render(); return;
     }
-    case 'tunnel-quick': {
-      S.tunnelBusy = true; render();
-      toast('در حال ساخت تونل موقت… (چند ثانیه)');
-      try {
-        const r = await api('/api/admin/tunnel', { method: 'POST', body: { action: 'quick' } });
-        if (r.url) { S.server.publicUrl = r.url; toast('آدرس موقت: ' + r.url, 'ok'); }
-        else toast('تونل موقت ساخته نشد (Cloudflare نصب است؟)', 'err');
-      } catch (err) { toast('ناموفق: ' + err.message, 'err'); }
-      await loadNetwork(true);
-      S.tunnelBusy = false; render(); return;
-    }
     case 'tunnel-off': {
       if (!confirm('دسترسی از اینترنت قطع شود؟ بعد از این، برنامه فقط داخل شبکهٔ مدرسه باز می‌شود.')) return;
       S.tunnelBusy = true; render();
@@ -1042,14 +998,13 @@ document.addEventListener('click', async (e) => {
       setTimeout(() => { loadNetwork(true).then(render); }, 4000);
       return;
     }
-    case 'hub-load': await loadHub(false); render(); return;
-    case 'hub-sync': {
-      try {
-        const r = await api('/api/admin/hub/sync', { method: 'POST', body: { force: true } });
-        const p = r.push || {}, d = r.drain || {};
-        toast('ارسال: ' + fa(p.sent || 0) + ' · دریافت: ' + fa(d.fetched || 0), p.ok === false || d.ok === false ? 'err' : 'ok');
-        await loadNetwork(true); render();
-      } catch (err) { toast('همگام‌سازی ابری ناموفق: ' + err.message, 'err'); }
+    case 'outbox-sync': {
+      toast('در حال بررسی صندوقچه…');
+      const r = await loadOutbox(false);
+      if (!r) toast('صندوقچه در دسترس نیست — اینترنت را بررسی کنید', 'err');
+      else if (r.pending) toast(fa(r.pending) + ' ثبت هنوز منتظر است', 'err');
+      else toast('همه‌چیز اعمال شده است', 'ok');
+      render();
       return;
     }
     case 'copy-url': {
@@ -1258,87 +1213,6 @@ document.addEventListener('submit', async (e) => {
   if (kind === 'unlock') return doUnlock(f);
   if (kind === 'transfer') return doTransfer(f);
 
-  if (kind === 'hub') {
-    try {
-      const r = await api('/api/admin/network', {
-        method: 'POST',
-        body: { hub_url: f.hub_url.value.trim(), hub_enabled: !!f.hub_enabled.checked },
-      });
-      if (r.hub) S.network = Object.assign({}, S.network, { hub: r.hub });
-      await loadNetwork(true);
-      toast('تنظیمات Hub ذخیره شد', 'ok');
-      render();
-    } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
-    return;
-  }
-
-  if (kind === 'update') {
-    try {
-      await api('/api/admin/update/settings', { method: 'POST', body: { base: f.base.value.trim() } });
-      await loadRemoteUpdate(true);
-      toast('منبع آپدیت ذخیره شد', 'ok');
-      render();
-    } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
-    return;
-  }
-
-  if (kind === 'network') {
-    try {
-      const r = await api('/api/admin/network', { method: 'POST', body: { public_url: f.public_url.value.trim() } });
-      S.server.publicUrl = r.public_url;
-      await loadNetwork(true);
-      toast('آدرس رسمی ذخیره شد', 'ok');
-      render();
-    } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
-    return;
-  }
-
-  if (kind === 'leave') {
-    const row = {
-      student_id: Number(f.student_id.value), date: f.date.value, reason: f.reason.value.trim(),
-      status: 'pending', created_by: S.user.id, school_id: 1,
-    };
-    if (!row.date) return toast('تاریخ را انتخاب کنید', 'err');
-    putLocal('leaves', row);
-    const op = S.queue[S.queue.length - 1];
-    closeModal(); saveCache(); render();
-    await flushQueue();
-    const stillQueued = !!(op && S.queue.some(x => x.uid === op.uid));
-    if (stillQueued && S.hub && S.hub.enabled) {
-      const sent = await queueLeaveToHub(row.student_id, { date: row.date, reason: row.reason, uid: op.uid });
-      if (sent) toast('درخواست ثبت شد و در صف ابری قرار گرفت', 'ok');
-      else toast('درخواست روی گوشی ذخیره شد — با اتصال بعدی ارسال می‌شود', 'ok');
-      return;
-    }
-    toast('درخواست ثبت شد', 'ok');
-    return;
-  }
-
-  if (kind === 'ann') {
-    putLocal('announcements', {
-      title: f.title.value.trim(), body: f.body.value.trim(), severity: f.severity.value,
-      audience: 'all', date: todayISO(), author_id: S.user.id, school_id: 1,
-    });
-    closeModal(); saveCache(); render();
-    await flushQueue();
-    toast('اطلاعیه منتشر شد', 'ok');
-    return;
-  }
-
-  if (kind === 'user') {
-    const row = {
-      name: f.name.value.trim(), role: f.role.value, national_id: norm(f.national_id.value),
-      phone: norm(f.phone.value), active: true, school_id: 1,
-      class_id: f.class_id.value ? Number(f.class_id.value) : null,
-    };
-    const saved = putLocal('users', row);
-    closeModal(); saveCache(); render();
-    await flushQueue();
-    toast('کاربر ساخته شد — حالا «کارت پیوند» بدهید', 'ok');
-    if (saved && saved.id) actPairCode(saved.id);
-    return;
-  }
-
   if (kind === 'class') {
     putLocal('classes', { name: f.name.value.trim(), grade: f.grade.value, branch: f.branch.value.trim(), capacity: 30, school_id: 1 });
     closeModal(); saveCache(); render();
@@ -1369,5 +1243,76 @@ document.addEventListener('submit', async (e) => {
     } catch (err) { toast('ورود ناموفق: ' + err.message, 'err'); }
     return;
   }
+
+  /* اطلاعیه: اول روی همین دستگاه، بعد در صف — وقتی مدرسه خاموش است هم ثبت می‌شود */
+  if (kind === 'ann') {
+    const title = String(f.title.value || '').trim();
+    if (!title) return toast('عنوان اطلاعیه را بنویسید', 'err');
+    putLocal('announcements', {
+      title, body: String(f.body.value || '').trim(), severity: f.severity ? f.severity.value : 'normal',
+      date: todayISO(), author_id: S.user ? S.user.id : null, school_id: 1,
+    });
+    closeModal(); saveCache(); render();
+    await flushQueue();
+    toast('اطلاعیه منتشر شد', 'ok');
+    if (S.online) syncNow(true);
+    return;
+  }
+
+  /* درخواست مرخصی (ولی/دانش‌آموز/کادر) */
+  if (kind === 'leave') {
+    const studentId = Number(f.student_id ? f.student_id.value : (S.user && S.user.id));
+    if (!studentId) return toast('دانش‌آموز را انتخاب کنید', 'err');
+    putLocal('leaves', {
+      student_id: studentId, date: (f.date && f.date.value) || todayISO(),
+      reason: String(f.reason.value || '').trim(), status: 'pending',
+      by_id: S.user ? S.user.id : null, school_id: 1,
+    });
+    closeModal(); saveCache(); render();
+    await flushQueue();
+    toast('درخواست ثبت شد — اگر مدرسه خاموش باشد، خودکار می‌رسد', 'ok');
+    if (S.online) syncNow(true);
+    return;
+  }
+
+  /* کاربر تازه + کارت پیوند */
+  if (kind === 'user') {
+    const name = String(f.name.value || '').trim();
+    if (!name) return toast('نام را بنویسید', 'err');
+    const row = {
+      name, role: f.role.value, class_id: f.class_id.value ? Number(f.class_id.value) : null,
+      national_id: digitsOnly(f.national_id ? f.national_id.value : ''),
+      phone: digitsOnly(f.phone ? f.phone.value : ''), active: 1, school_id: 1,
+    };
+    putLocal('users', row);
+    closeModal(); saveCache(); render();
+    await flushQueue();
+    await pullAll().catch(() => {});
+    /* کارت پیوند فقط وقتی سرور در دسترس است */
+    const saved = (S.data.users ? [...S.data.users.values()] : []).filter(u => u.name === name).pop();
+    if (saved && saved.id > 0 && S.online) {
+      try {
+        const r = await api('/api/admin/pair-code', { method: 'POST', body: { user_id: saved.id } });
+        S.modalTitle = 'کارت پیوند';
+        modal(`<div class="small">این کد را به «${esc(name)}» بدهید تا بدون رمز وارد شود (۷ روز اعتبار، یک‌بار مصرف):</div>
+          <div class="ltr" style="font-size:1.6rem;font-weight:800;letter-spacing:2px;text-align:center;margin:12px 0">${esc(r.code || '—')}</div>
+          <button class="btn primary block" data-act="modal-close">باشه</button>`);
+      } catch (err) { toast('کارت پیوند صادر نشد: ' + err.message, 'err'); }
+    } else {
+      toast('کاربر ساخته شد — کارت پیوند با اتصال به مدرسه صادر می‌شود', 'ok');
+    }
+    render();
+    return;
+  }
+
+  /* منبع آپدیت */
+  if (kind === 'update') {
+    try {
+      const r = await api('/api/admin/update/settings', { method: 'POST', body: { base: String(f.base.value || '').trim() } });
+      S.remote = Object.assign({}, S.remote || {}, { base: r.base });
+      toast('منبع آپدیت ذخیره شد', 'ok');
+      render();
+    } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
+    return;
+  }
 });
-/* bumper */

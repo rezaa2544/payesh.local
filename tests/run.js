@@ -317,10 +317,9 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/function autoStart\(/.test(tunnel), 'راه‌اندازی خودکار تونل');
     assert.ok(tunnel.includes('PAYESH_TUNNEL_AUTO'), 'کلید خاموش/روشن');
     assert.ok(/autoStart\(\)/.test(tunnel) || /autoStart\(store/.test(tunnel), 'در start فراخوانی می‌شود');
-    assert.ok(tunnel.includes('cloudflaredBin()'), 'تونل موقت بدون حساب');
-    assert.ok(/path\.join\(HERE, 'cloudflared\.exe'\)/.test(tunnel), 'cloudflared همراه برنامه هم پیدا می‌شود');
     const iss = fs.readFileSync(path.join(ROOT, 'installer/payesh.iss'), 'utf8');
-    assert.ok(iss.includes('cloudflared-windows-amd64.exe'), 'نصب‌کننده پشتیبان تونل را می‌آورد');
+    assert.ok(!/cloudflared/i.test(iss), 'نصب‌کننده هیچ اثری از Cloudflare ندارد');
+    assert.ok(!/cloudflared|trycloudflare|quick tunnel/i.test(tunnel), 'کد تونل بدون Cloudflare است');
     assert.ok(index.includes('tunnel.start('), 'سرور تونل را راه می‌اندازد');
 
     /* آدرس عمومی باید در health منتشر شود تا کلاینت‌ها یاد بگیرند */
@@ -723,31 +722,124 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(cfg.clientIp(direct), '198.51.100.9', 'بدون تونل، هدر جعلی نادیده گرفته می‌شود');
   });
 
-  await test('bootstrap برای ولی، توکن ابری فرزند می‌دهد', async () => {
-    const imp = await req('/api/admin/import', { method: 'POST', token: managerToken, body: {
-      kind: 'students',
-      rows: [{ name: 'دانش‌آموز ابری', national_id: '1000000036', parent_name: 'ولی ابری', parent_phone: '09121234567' }],
-    } });
-    assert.strictEqual(imp.data.created, 1);
+  await test('صندوقچهٔ آفلاین: ثبت یک دستگاه، اعمال روی دستگاه اول روشن‌شده', async () => {
+    const http = require('http');
+    /* صندوقچهٔ ساختگیِ سازگار با S3 (فقط همان چند کاری که صندوقچه لازم دارد) */
+    const bucket = new Map();
+    const fake = http.createServer((req, res) => {
+      const chunks = [];
+      req.on('data', c => chunks.push(c));
+      req.on('end', () => {
+        if (!/^AWS4-HMAC-SHA256/.test(req.headers.authorization || '')) {
+          res.writeHead(403); return res.end('<Error><Code>AccessDenied</Code></Error>');
+        }
+        const url = new URL(req.url, 'http://x');
+        const p = decodeURIComponent(url.pathname);
+        if (p === '/' && req.method === 'GET') {
+          res.writeHead(200, { 'content-type': 'application/xml' });
+          return res.end('<?xml version="1.0"?><ListAllMyBucketsResult><Buckets><Bucket><Name>ob1</Name></Bucket></Buckets></ListAllMyBucketsResult>');
+        }
+        if (!p.startsWith('/ob1')) { res.writeHead(404); return res.end('<Error><Code>NoSuchBucket</Code></Error>'); }
+        if (url.searchParams.has('cors')) { res.writeHead(200, { 'content-type': 'application/xml' }); return res.end('<CORSConfiguration/>'); }
+        const key = p.slice(5).replace(/^\//, '');
+        if (req.method === 'PUT' && key) { bucket.set(key, Buffer.concat(chunks).toString()); res.writeHead(200); return res.end(); }
+        if (req.method === 'GET' && !key) {
+          const prefix = url.searchParams.get('prefix') || '';
+          const keys = [...bucket.keys()].filter(x => x.startsWith(prefix)).sort();
+          res.writeHead(200, { 'content-type': 'application/xml' });
+          return res.end('<?xml version="1.0"?><ListBucketResult><IsTruncated>false</IsTruncated>' +
+            keys.map(x => '<Contents><Key>' + x + '</Key><Size>' + bucket.get(x).length + '</Size></Contents>').join('') +
+            '</ListBucketResult>');
+        }
+        if (req.method === 'GET' && key) {
+          if (!bucket.has(key)) { res.writeHead(404); return res.end('<Error><Code>NoSuchKey</Code></Error>'); }
+          res.writeHead(200, { 'content-type': 'text/plain' }); return res.end(bucket.get(key));
+        }
+        if (req.method === 'DELETE' && key) { bucket.delete(key); res.writeHead(204); return res.end(); }
+        res.writeHead(400); res.end('bad');
+      });
+    });
+    await new Promise(r => fake.listen(0, '127.0.0.1', r));
+    const cloudPort = fake.address().port;
+    try {
+      const setC = await req('/api/admin/cloud', { method: 'POST', token: managerToken, body: {
+        endpoint: 'http://127.0.0.1:' + cloudPort, bucket: 'ob1', region: 'ir-central1',
+        accessKey: 'AK', secret: 'SK', prefix: 'payesh/',
+      } });
+      assert.strictEqual(setC.data.ok, true, 'حافظهٔ ابری تنظیم شد');
 
-    await req('/api/admin/network', { method: 'POST', token: managerToken, body: { hub_url: 'https://hub.example.test', hub_enabled: true } });
+      const t = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } });
+      const teacher = await req('/api/auth/pair', { method: 'POST', body: { code: t.data.code, pin: '2222' } });
+      const teacherToken = teacher.data.session.token;
+      const teacherId = 2;
 
-    const pull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: managerToken });
-    const parent = pull.data.collections.users.find(u => u.name === 'ولی ابری');
-    assert.ok(parent, 'ولی ساخته شد');
+      /* «دستگاه دیگری» در خانه مرخصی ثبت کرده — رکورد مستقیم در صندوقچه */
+      const op = { collection: 'leaves', type: 'put', data: { student_id: 3, date: '2026-05-01', reason: 'بیماری', status: 'pending' }, base_version: 0 };
+      bucket.set('payesh/outbox/pending/ob-test-1.json', JSON.stringify({
+        v: 1, uid: 'ob-test-1', user_id: 1, role: 'manager', device_id: 'dev-home', op, created_at: '2026-05-01T10:00:00.000Z',
+      }));
 
-    const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: parent.id } });
-    const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '3333' } });
-    const boot = await req('/api/bootstrap', { token: paired.data.session.token });
-    assert.strictEqual(boot.data.hub.enabled, true);
-    assert.strictEqual(boot.data.hub.url, 'https://hub.example.test');
-    assert.strictEqual(boot.data.hub.children.length, 1);
-    assert.strictEqual(boot.data.hub.children[0].token.length, 64, 'توکن HMAC هر خانواده');
+      const st = await req('/api/outbox/state', { token: managerToken });
+      assert.strictEqual(st.data.cloud, true, 'صندوقچه در دسترس است');
+      assert.ok(st.data.pending >= 1, 'یک ثبت در صندوقچه منتظر است');
 
-    /* دبیر نباید توکن ابری بگیرد */
-    const teacherBoot = await req('/api/bootstrap', { token: (await req('/api/auth/pair', { method: 'POST', body: { code: (await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } })).data.code, pin: '4444' } })).data.session.token });
-    assert.strictEqual(teacherBoot.data.hub.enabled, true);
-    assert.deepStrictEqual(teacherBoot.data.hub.children, []);
+      /* برای نقش‌های پایین‌تر از کادر، «سرور شدن» ممنوع است */
+      const parentCode = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 4 } });
+      const parentTok = (await req('/api/auth/pair', { method: 'POST', body: { code: parentCode.data.code, pin: '1234' } })).data.session.token;
+      const denied = await req('/api/outbox/drain', { method: 'POST', token: parentTok, body: {} });
+      assert.strictEqual(denied.status, 403, 'ولی نمی‌تواند نقش سرور بگیرد');
+
+      /* اولین دستگاهِ روشن‌شده (اینجا: مدیر) صندوقچه را اعمال می‌کند */
+      const drained = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
+      assert.strictEqual(drained.data.ok, true);
+      assert.ok(drained.data.applied >= 1, 'ثبت صندوقچه اعمال شد: ' + JSON.stringify(drained.data.details || drained.data));
+      const after = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=leaves', { token: managerToken });
+      assert.ok(after.data.collections.leaves.some(l => l.reason === 'بیماری'), 'مرخصی از دستگاه خانه به دادهٔ مدرسه رسید');
+      assert.ok(bucket.get('payesh/outbox/pending/ob-test-1.json') == null, 'ثبت اعمال‌شده از صندوقچه پاک شد');
+      assert.ok(bucket.has('payesh/outbox/done/ob-test-1.json'), 'نشان «اعمال شد» گذاشته شد');
+
+      /* تکرار: همان ثبت دوباره اعمال نمی‌شود */
+      bucket.set('payesh/outbox/pending/ob-test-1.json', JSON.stringify({
+        v: 1, uid: 'ob-test-1', user_id: 1, role: 'manager', device_id: 'dev-home', op, created_at: '2026-05-01T10:00:00.000Z',
+      }));
+      const again = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
+      assert.strictEqual(again.data.applied, 0, 'اعمال دوباره انجام نشد (idempotent)');
+
+      /* ثبت غیرمجاز: دبیر نمی‌تواند کاربر بسازد */
+      bucket.set('payesh/outbox/pending/ob-test-2.json', JSON.stringify({
+        v: 1, uid: 'ob-test-2', user_id: teacherId, role: 'teacher', device_id: 'dev-home',
+        op: { collection: 'users', type: 'put', data: { name: 'نفوذی', role: 'manager' }, base_version: 0 },
+      }));
+      const bad = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
+      assert.strictEqual(bad.data.applied, 0, 'ثبت خارج از نقش اعمال نشد');
+      assert.ok(bad.data.rejected >= 1, 'رد شدن ثبت غیرمجاز گزارش شد');
+
+      /* خلاصهٔ دانش‌آموز: سنپ‌شات برای ولی همان فرزند خودش */
+      const sid = Number((( [...bucket.keys()].find(k => /^payesh\/outbox\/state\/\d+\.json$/.test(k)) || '').match(/(\d+)\.json$/) || [])[1]);
+      assert.ok(sid > 0, 'خلاصهٔ دانش‌آموزان در صندوقچه نوشته شد');
+      const snapMgr = await req('/api/outbox/snapshot?student_id=' + sid, { token: managerToken });
+      assert.strictEqual(snapMgr.data.ok, true, 'مدیر خلاصه را می‌بیند: ' + JSON.stringify(snapMgr.data));
+      assert.ok(snapMgr.data.snapshot && snapMgr.data.snapshot.student_id === sid, 'خلاصه مال همان دانش‌آموز است');
+      const snapParent = await req('/api/outbox/snapshot?student_id=' + sid, { token: parentTok });
+      assert.ok([200, 403].includes(snapParent.status), 'ولی فقط محدودهٔ خودش را می‌بیند');
+    } finally {
+      await new Promise(r => fake.close(r));
+    }
+  });
+
+  await test('هیچ اثری از Cloudflare در برنامه نمانده', () => {
+    const files = ['server/index.js', 'server/tunnel.js', 'client/app.js', 'client/pages.js', 'installer/payesh.iss', 'package.json'];
+    for (const f of files) {
+      const text = fs.readFileSync(path.join(ROOT, f), 'utf8');
+      assert.ok(!/cloudflare|cloudflared|trycloudflare|workers\.dev/i.test(text), f + ' پاک است');
+    }
+    for (const gone of ['server/hub.js', 'tests/hub.js', 'hub']) {
+      assert.ok(!fs.existsSync(path.join(ROOT, gone)), gone + ' حذف شده است');
+    }
+    const config = fs.readFileSync(path.join(ROOT, 'server/config.js'), 'utf8');
+    assert.ok(!/hubConfig/.test(config), 'تنظیمات Hub حذف شده است');
+    const ob = fs.readFileSync(path.join(ROOT, 'server/outbox.js'), 'utf8');
+    assert.ok(ob.includes('outbox/pending/'), 'صندوقچه روی payesh/outbox/… کار می‌کند');
   });
 
   /* ── ۳. دود رابط کاربری ── */

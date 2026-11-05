@@ -57,7 +57,7 @@ fs.mkdirSync(HISTORY, { recursive: true });
    کلاینت + کد سرور + Hub + اسکریپت اجرا. هر فایل با مسیر کامل مخزن
    (client/app.js، server/index.js، …) تا آپدیت بتواند هر دو طرف را
    جدا و فقط با هش تغییرکرده‌ها بفرستد. */
-const MANIFEST_DIRS = ['client', 'server', 'hub'];
+const MANIFEST_DIRS = ['client', 'server'];
 const MANIFEST_FILES = ['package.json', 'start.bat', 'start.sh', 'install.bat', 'uninstall.bat'];
 
 const kindOf = rel => (rel.startsWith('client/') ? 'client' : rel.startsWith('docs/') ? 'docs' : 'server');
@@ -122,7 +122,7 @@ const copy = (rel) => {
   fs.cpSync(src, dst, { recursive: true });
 };
 
-['server', 'client', 'install', 'hub', 'package.json', 'README.md',
+['server', 'client', 'install', 'package.json', 'README.md',
  'start.bat', 'start.sh', 'install.bat', 'uninstall.bat', 'docs'].forEach(copy);
 fs.mkdirSync(path.join(stage, 'releases'), { recursive: true });
 fs.copyFileSync(path.join(RELEASES, 'manifest.json'), path.join(stage, 'releases', 'manifest.json'));
@@ -158,7 +158,7 @@ if (r.status !== 0) {
 /* ── بستهٔ سورس (بدون data) برای لینوکس/داکر ── */
 const tgz = path.join(RELEASES, `payesh-local-src-${VERSION}.tar.gz`);
 fs.rmSync(tgz, { force: true });
-const t = spawnSync('tar', ['-czf', tgz, '-C', ROOT, 'server', 'client', 'install', 'hub', 'docs',
+const t = spawnSync('tar', ['-czf', tgz, '-C', ROOT, 'server', 'client', 'install', 'docs',
   'package.json', 'README.md', 'install.bat', 'start.bat', 'start.sh', 'releases/manifest.json'], {});
 if (t.status === 0) console.log(`🐧 payesh-local-src-${VERSION}.tar.gz`);
 
