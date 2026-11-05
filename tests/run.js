@@ -1040,6 +1040,50 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(wf.includes('assets/www/app.js'), 'CI وجود فایل‌های برنامه در APK را بررسی می‌کند');
   });
 
+  await test('سیستم مدرسه به برنامهٔ گوشی اجازهٔ دسترسی می‌دهد (CORS)', async () => {
+    const ORIGIN = 'https://appassets.androidplatform.net';
+    const r = await fetch(BASE + '/api/health', { headers: { origin: ORIGIN } });
+    assert.strictEqual(r.headers.get('access-control-allow-origin'), ORIGIN, 'سرآیند اجازهٔ مبدأ');
+    const pre = await fetch(BASE + '/api/auth/login', {
+      method: 'OPTIONS',
+      headers: { origin: ORIGIN, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' },
+    });
+    assert.strictEqual(pre.status, 204, 'پاسخ به پیش‌پرواز مرورگر');
+    assert.ok(/POST/.test(pre.headers.get('access-control-allow-methods') || ''), 'متدها اعلام شده‌اند');
+    assert.ok(/authorization/i.test(pre.headers.get('access-control-allow-headers') || ''), 'هدرها اعلام شده‌اند');
+  });
+
+  await test('نسخهٔ اندروید درخواست حافظه را بومی می‌فرستد (بدون CORS)', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      url: 'https://appassets.androidplatform.net/assets/www/index.html', runScripts: 'outside-only',
+    });
+    const win = dom.window;
+    let calls = 0, fetchUsed = 0, seen = null;
+    win.fetch = () => { fetchUsed++; return Promise.reject(new Error('fetch نباید صدا زده شود')); };
+    /* پل بومی مثل نسخهٔ اندروید */
+    win.PayeshNative = {
+      s3(method, url, headersJson, body) {
+        calls++;
+        seen = { method, url, headers: JSON.parse(headersJson), body };
+        setTimeout(() => win.__payeshNativeDone('r1', 200, '{"ok":1}', ''), 0);
+        return 'r1';
+      },
+    };
+    win.eval(fs.readFileSync(path.join(ROOT, 'client/lib/sigv4.js'), 'utf8'));
+    win.eval(fs.readFileSync(path.join(ROOT, 'client/lib/s3mini.js'), 'utf8'));
+    const s3 = win.PayeshS3;
+    assert.ok(s3.nativeBridge(), 'پل بومی شناخته می‌شود');
+    const text = await s3.get({ endpoint: 'https://s3.ir-central1.arvanstorage.ir', bucket: 'b1', accessKey: 'AK', secret: 'SK', region: 'ir-central1', prefix: 'payesh/' }, 'payesh/data/core.json');
+    assert.strictEqual(text, '{"ok":1}', 'پاسخ بومی خوانده شد');
+    assert.strictEqual(calls, 1, 'درخواست از پل بومی رفت');
+    assert.strictEqual(fetchUsed, 0, 'از fetch مرورگر استفاده نشد (پس CORS لازم نیست)');
+    assert.strictEqual(seen.method, 'GET');
+    assert.ok(/authorization/i.test(Object.keys(seen.headers).join(',')), 'امضای SigV4 همراه درخواست است');
+    assert.ok(String(seen.url).includes('payesh/data/core.json'));
+    dom.window.close();
+  });
+
   await test('بازسازی صفحه، فوکوس و جای نشانگر را نگه می‌دارد (صفحه‌کلید گوشی بسته نشود)', async () => {
     const { JSDOM } = require('jsdom');
     const dom = new JSDOM('<!doctype html><html><body><div id="app"></div></body></html>', {

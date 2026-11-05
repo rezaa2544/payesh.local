@@ -90,17 +90,77 @@
     return 'پاسخ نامنتظر از صندوقچه (' + status + ')';
   }
 
+
+  /* ── ارتباط مستقیم بومی (نسخهٔ اندروید) ────────────────────────────
+     مرورگر برای هر درخواست به یک دامنهٔ دیگر، «اجازهٔ خواندن» (CORS) از
+     صندوقچه می‌خواهد؛ اگر صندوقچه آن را نداشته باشد، درخواست بی‌صدا رد
+     می‌شود (همان خطای «به صندوقچه نرسیدیم»). خودِ برنامهٔ نصبی اندروید
+     می‌تواند همین درخواست را بومی بفرستد: بدون مرورگر، بدون CORS.
+     سمت جاوا: PayeshNative.s3(method, url, headersJson, body) → شناسه
+     و بعد window.__payeshNativeDone(id, status, body, error). */
+  function nativeBridge() {
+    try {
+      if (typeof window !== 'undefined' && window.PayeshNative
+          && typeof window.PayeshNative.s3 === 'function') return window.PayeshNative;
+    } catch (e) { /* در مرورگر عادی وجود ندارد */ }
+    return null;
+  }
+
+  const NATIVE_WAIT = {};
+  if (typeof window !== 'undefined' && !window.__payeshNativeDone) {
+    window.__payeshNativeDone = function (id, status, body, error) {
+      const slot = NATIVE_WAIT[id];
+      if (!slot) return;
+      delete NATIVE_WAIT[id];
+      clearTimeout(slot.timer);
+      if (error) { const e = new Error(error); e.kind = 'network'; e.detail = error; slot.reject(e); return; }
+      slot.resolve({ status: Number(status) || 0, text: String(body == null ? '' : body) });
+    };
+  }
+
+  function nativeRequest(method, url, headers, body) {
+    const native = nativeBridge();
+    if (!native) return null;
+    let id;
+    try {
+      id = native.s3(method, url, JSON.stringify(headers || {}), body == null ? '' : String(body));
+    } catch (e) {
+      return Promise.reject(Object.assign(new Error('native_bridge_failed'), { kind: 'network', detail: String(e.message || e) }));
+    }
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        if (!NATIVE_WAIT[id]) return;
+        delete NATIVE_WAIT[id];
+        reject(Object.assign(new Error('native_timeout'), { kind: 'network', detail: 'timeout' }));
+      }, 45000);
+      NATIVE_WAIT[id] = { resolve, reject, timer };
+    });
+  }
+
   async function call(cfg, opts) {
     const signed = buildRequest(cfg, opts);
-    /* اینترنت موبایل در ایران گاهی کند/لرزان است: یک بار دیگر هم تلاش می‌کنیم
-       و مهلت را بلندتر می‌گیریم تا «نرسیدیم» الکی نشان داده نشود. */
+    const method = (opts.method || 'GET').toUpperCase();
+    const body = opts.body || undefined;
+
+    /* ۱) اگر نسخهٔ نصبیِ اندروید باشد، درخواست را بومی می‌فرستیم:
+          نه مرورگری در کار است، نه اجازهٔ CORS لازم است. */
+    const native = nativeBridge();
+    if (native) {
+      const r = await nativeRequest(method, signed.url, signed.headers, body);
+      if (r.status >= 200 && r.status < 300) return { status: r.status, text: r.text };
+      const err = new Error(hint(r.status, r.text));
+      err.kind = 'http'; err.status = r.status; err.detail = r.text.slice(0, 300);
+      throw err;
+    }
+
+    /* ۲) در مرورگر: با CORS. اینترنت موبایل گاهی لرزان است، پس یک بار دیگر. */
     let res = null, lastErr = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         res = await fetch(signed.url, {
-          method: opts.method || 'GET',
+          method,
           headers: signed.headers,
-          body: opts.body || undefined,
+          body,
           mode: 'cors',
           signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined,
         });
@@ -208,7 +268,19 @@
   const PHONE_ORIGIN = 'https://appassets.androidplatform.net';
   async function corsProbe(cfg, origin) {
     cfg = smartParse(normalize(cfg));
-    const out = { ok: false, reachable: false, status: 0, allow_origin: null, detail: null, origin: origin || PHONE_ORIGIN };
+    const out = { ok: false, reachable: false, status: 0, allow_origin: null, detail: null, origin: origin || PHONE_ORIGIN, native: !!nativeBridge() };
+    /* برنامهٔ نصبی خودش بومی وصل می‌شود؛ اجازهٔ مرورگر لازم نیست */
+    if (out.native) {
+      try {
+        await list(Object.assign({}, cfg, { prefix: cfg.prefix }), { max: 1 });
+        out.ok = true; out.reachable = true; out.status = 200; out.allow_origin = 'native';
+        return out;
+      } catch (e) {
+        out.error = (e && e.kind) || 'network';
+        out.detail = (e && (e.detail || e.message)) || '';
+        return out;
+      }
+    }
     /* سه درخواست به‌ترتیب: فهرست صندوقچه (همیشه هست)، فایل داده، فایل آزمون */
     const attempts = [
       { key: '', query: { 'list-type': '2', 'max-keys': '1', prefix: cfg.prefix } },
@@ -265,5 +337,5 @@
     return out;
   }
 
-  return { DEFAULTS, normalize, smartParse, regionOf, buildRequest, call, list, listBuckets, put, get, remove, setCors, getCors, corsProbe, PHONE_ORIGIN, test };
+  return { DEFAULTS, normalize, smartParse, regionOf, buildRequest, call, list, listBuckets, put, get, remove, setCors, getCors, corsProbe, nativeBridge, PHONE_ORIGIN, test };
 });

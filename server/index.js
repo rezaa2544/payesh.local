@@ -959,6 +959,20 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('referrer-policy', 'no-referrer');
   res.setHeader('permissions-policy', 'geolocation=(), microphone=(), camera=()');
 
+  /* ── اجازهٔ دسترسی برنامه‌های دیگر (CORS) ────────────────────────────
+     نسخهٔ اندروید فایل‌هایش را از مبدأ محلی باز می‌کند
+     (https://appassets.androidplatform.net) و برای حرف زدن با سیستم مدرسه
+     به این سرآیندها نیاز دارد. بدون آن، مرورگر پاسخ را دور می‌ریزد و
+     کاربر فقط «به سیستم نرسیدیم» می‌بیند. */
+  const origin = String(req.headers.origin || '');
+  res.setHeader('access-control-allow-origin', origin || '*');
+  res.setHeader('vary', 'Origin');
+  res.setHeader('access-control-allow-methods', 'GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS');
+  res.setHeader('access-control-allow-headers', 'authorization, content-type, accept, x-requested-with, x-payesh-device');
+  res.setHeader('access-control-expose-headers', 'content-length, etag');
+  res.setHeader('access-control-max-age', '86400');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
   try {
     if (url.pathname.startsWith('/api/')) {
       const out = await api(req, res, url, ip);
