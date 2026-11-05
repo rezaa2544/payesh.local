@@ -6,7 +6,8 @@
    دامنه: یک تونل خروجی از خود سیستم مدرسه.
 
      • Tailscale Funnel → آدرس ثابت https://<machine>.<tailnet>.ts.net
-     • Cloudflare quick tunnel → https://<random>.trycloudflare.com (موقت)
+   (تونل‌های ابری خارجی عمداً پشتیبانی نمی‌شوند: در ایران در دسترس نیستند
+    و آدرسشان هم با هر بار روشن شدن عوض می‌شود.)
 
    این ماژول ابزارها را پیدا می‌کند، تونل را روشن می‌کند، آدرس عمومی را
    می‌گیرد و خودکار در تنظیمات ذخیره می‌کند تا:
@@ -23,15 +24,6 @@ const TS_PATHS = [
   'C:\\Program Files\\Tailscale\\tailscale.exe',
   'C:\\Program Files (x86)\\Tailscale\\tailscale.exe',
   '/usr/bin/tailscale', '/usr/local/bin/tailscale', '/opt/homebrew/bin/tailscale',
-];
-/* cloudflared کنار خود برنامه (نصب‌کننده ویندوز آن را در bin\ می‌گذارد) */
-const HERE = path.join(__dirname, '..', 'bin');
-const CF_PATHS = [
-  path.join(HERE, 'cloudflared.exe'),
-  path.join(HERE, 'cloudflared'),
-  'C:\\Program Files (x86)\\Cloudflare\\Cloudflare Tunnel\\cloudflared.exe',
-  'C:\\Program Files\\Cloudflare\\cloudflared.exe',
-  '/usr/local/bin/cloudflared', '/usr/bin/cloudflared', '/opt/homebrew/bin/cloudflared',
 ];
 
 /* ── ابزارها ──────────────────────────────────────────────────────── */
@@ -59,9 +51,7 @@ function hasCommand(cmd) {
 function tailscaleBin() {
   return locate('PAYESH_TAILSCALE_BIN', TS_PATHS, 'tailscale') || hasCommand('tailscale');
 }
-function cloudflaredBin() {
-  return locate('PAYESH_CLOUDFLARED_BIN', CF_PATHS, 'cloudflared') || hasCommand('cloudflared');
-}
+/* هیچ تونل ابری خارجی دیگری پشتیبانی نمی‌شود */
 
 /* ── اجرا ─────────────────────────────────────────────────────────── */
 function run(bin, args, { timeout = 20_000 } = {}) {
@@ -160,62 +150,9 @@ async function disableFunnel(port = 8080) {
   return { ok: true };
 }
 
-/* ── Cloudflare quick tunnel (بدون حساب) ─────────────────────────── */
-let quick = { proc: null, url: null, since: null, error: null };
+/* تونل ابری خارجی حذف شده است — فقط Tailscale Funnel */
 
-function startQuick(port = 8080, onUrl) {
-  const bin = cloudflaredBin();
-  if (!bin) return { ok: false, error: 'cloudflared_not_installed' };
-  if (quick.proc) return { ok: true, url: quick.url, running: true };
-
-  const args = ['tunnel', '--url', 'http://127.0.0.1:' + port, '--no-autoupdate'];
-  let proc;
-  try {
-    proc = spawn(bin, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-  } catch (e) {
-    return { ok: false, error: 'spawn_failed', detail: String(e.message || e) };
-  }
-  quick = { proc, url: null, since: nowISO(), error: null };
-
-  const onData = buf => {
-    const text = String(buf);
-    const m = text.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i);
-    if (m && !quick.url) {
-      quick.url = m[0];
-      if (typeof onUrl === 'function') { try { onUrl(quick.url); } catch (e) { /* noop */ } }
-    }
-  };
-  proc.stdout.on('data', onData);
-  proc.stderr.on('data', onData);
-  proc.on('exit', code => {
-    if (quick.proc === proc) {
-      quick = { proc: null, url: null, since: null, error: 'exited:' + code };
-      if (typeof onUrl === 'function') { try { onUrl(null); } catch (e) { /* noop */ } }
-    }
-  });
-  proc.on('error', err => { quick.error = String(err.message || err); });
-
-  return { ok: true, started: true };
-}
-
-function stopQuick() {
-  if (quick.proc) {
-    try { quick.proc.kill(); } catch (e) { /* noop */ }
-    quick = { proc: null, url: null, since: null, error: null };
-  }
-  return { ok: true };
-}
-
-function quickStatus() {
-  return {
-    running: !!quick.proc,
-    url: quick.url || null,
-    since: quick.since || null,
-    error: quick.error || null,
-  };
-}
-
-/* ── ذخیرهٔ آدرس عمومی ───────────────────────────────────────────── */
+/* ── وضعیت کلی برای پنل ──────────────────────────────────────────── */
 function rememberPublicUrl(store, url, provider) {
   if (!url) return null;
   const clean = String(url).replace(/\/+$/, '');
@@ -230,15 +167,12 @@ function rememberPublicUrl(store, url, provider) {
   return clean;
 }
 
-/* ── وضعیت کلی برای پنل ──────────────────────────────────────────── */
 async function status(store) {
   const ts = await tailscaleStatus();
-  const cf = quickStatus();
   const current = cfg.publicUrl(store) || '';
   const provider = current
-    ? (/\.ts\.net$/i.test(new URL(current).hostname) ? 'tailscale'
-      : /trycloudflare\.com$/i.test(new URL(current).hostname) ? 'cloudflare' : 'custom')
-    : (ts.funnel ? 'tailscale' : (cf.running ? 'cloudflare' : 'none'));
+    ? (/\.ts\.net$/i.test(new URL(current).hostname) ? 'tailscale' : 'custom')
+    : (ts.funnel ? 'tailscale' : 'none');
 
   return {
     ok: true,
@@ -252,8 +186,7 @@ async function status(store) {
       error: ts.error || null,
       download: 'https://tailscale.com/download/windows',
     },
-    cloudflare: Object.assign({ installed: !!cloudflaredBin() }, cf),
-    can_enable: !!(ts.installed || cloudflaredBin()),
+    can_enable: !!ts.installed,
     checked_at: nowISO(),
   };
 }
@@ -272,10 +205,6 @@ async function refresh(store, { quiet = true } = {}) {
       rememberPublicUrl(store, ts.url, 'tailscale');
       return { ok: true, url: ts.url, provider: 'tailscale' };
     }
-    if (quick.running && quick.url) {
-      rememberPublicUrl(store, quick.url, 'cloudflare');
-      return { ok: true, url: quick.url, provider: 'cloudflare' };
-    }
     if (!quiet) return { ok: true, url: null };
     return { ok: false, url: null };
   } catch (e) {
@@ -286,8 +215,7 @@ async function refresh(store, { quiet = true } = {}) {
 /* ── راه‌اندازی خودکار ─────────────────────────────────────────────
    هدف: «هر کاربر با اینترنت خودش» بدون اینکه مدیر دنبال دکمه بگردد.
    اگر آدرس عمومی تنظیم نشده باشد و یکی از ابزارها نصب باشد، خودش:
-     • Tailscale را (اگر وارد شده) با Funnel بالا می‌آورد → آدرس ثابت
-     • وگرنه تونل موقت Cloudflare را روشن می‌کند → آدرس HTTPS بدون حساب  */
+     • Tailscale را (اگر وارد شده) با Funnel بالا می‌آورد → آدرس ثابت  */
 function autoEnabled(store) {
   if (process.env.PAYESH_TUNNEL_AUTO === '0') return false;
   if (process.env.PAYESH_TUNNEL_AUTO === '1') return true;
@@ -318,20 +246,7 @@ async function autoStartOnce(store, port) {
       return { ok: true, provider: 'tailscale', url: r.url };
     }
   }
-  if (cloudflaredBin()) {
-    const started = startQuick(port, url => { if (url) rememberPublicUrl(store, url, 'cloudflare'); });
-    if (started.ok) {
-      for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 500));
-        if (quick.url) {
-          rememberPublicUrl(store, quick.url, 'cloudflare');
-          return { ok: true, provider: 'cloudflare', url: quick.url };
-        }
-      }
-      return { ok: false, error: 'no_url_yet', provider: 'cloudflare' };
-    }
-  }
-  return { ok: false, error: 'no_tool', hint: 'tailscale یا cloudflared نصب شود' };
+  return { ok: false, error: 'no_tool', hint: 'Tailscale را نصب و وارد شوید' };
 }
 
 function start(store, { everyMs = 10 * 60_000, port = 8080 } = {}) {
@@ -339,7 +254,7 @@ function start(store, { everyMs = 10 * 60_000, port = 8080 } = {}) {
   setTimeout(tick, 8_000).unref?.();
   /* چند ثانیه بعد از بالا آمدن، خودش تونل را روشن کن (اگر ممکن بود).
      اگر ابزار تازه نصب شده/وارد نشده باشد، چند بار دیگر هم تلاش می‌کند:
-     مثلاً cloudflared که نصب‌کننده در حال دانلودش است، یا ورود مدیر به Tailscale. */
+     مثلاً نصب Tailscale یا ورود مدیر. */
   const delay = Number(process.env.PAYESH_TUNNEL_DELAY || 15_000);
   const attempt = (n) => {
     autoStart(store, port)
@@ -353,19 +268,17 @@ function start(store, { everyMs = 10 * 60_000, port = 8080 } = {}) {
   if (timer) clearInterval(timer);
   timer = setInterval(tick, everyMs);
   timer.unref?.();
-  return { startQuick: (p) => startQuick(p || port, url => rememberPublicUrl(store, url, 'cloudflare')) };
+  return { ok: true };
 }
 
 function stop() {
   if (timer) clearInterval(timer);
   timer = null;
-  stopQuick();
 }
 
 module.exports = {
   status, refresh, start, stop, autoStart, autoEnabled,
   enableFunnel, disableFunnel, login,
-  startQuick, stopQuick, quickStatus,
-  tailscaleStatus, tailscaleBin, cloudflaredBin,
+  tailscaleStatus, tailscaleBin,
   rememberPublicUrl,
 };

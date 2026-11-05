@@ -112,7 +112,6 @@ begin
   Args :=
     '"' + ExpandConstant('{app}\client') + '" ' +
     '"' + ExpandConstant('{app}\server') + '" ' +
-    '"' + ExpandConstant('{app}\hub') + '" ' +
     '"' + ExpandConstant('{app}\releases') + '" ' +
     '/grant *S-1-5-32-545:(OI)(CI)M /T /C /Q';
   Exec(ExpandConstant('{sys}\icacls.exe'), Args, '', SW_HIDE, ewWaitUntilTerminated, Code);
@@ -146,7 +145,6 @@ Name: "autostart"; Description: "اجرای خودکار هنگام روشن ش�
 Name: "firewall"; Description: "باز کردن درگاه ۸۰۸۰ برای شبکهٔ مدرسه"; GroupDescription: "گزینه‌ها:"; Flags: checkedonce
 Name: "desktopicon"; Description: "ساخت آیکون روی دسکتاپ"; GroupDescription: "گزینه‌ها:"; Flags: checkedonce
 Name: "tailscale"; Description: "نصب Tailscale برای دسترسی از هر اینترنتی (رایگان، بدون دامنه)"; GroupDescription: "دسترسی از راه دور:"; Flags: checkedonce
-Name: "cloudflared"; Description: "آوردن cloudflared به‌عنوان پشتیبان تونل (اگر Tailscale نصب/وارد نشده باشد)"; GroupDescription: "دسترسی از راه دور:"; Flags: checkedonce
 Name: "clientmode"; Description: "این رایانه فقط کاربر است و به سیستم مدرسه وصل می‌شود (نه سرور)"; GroupDescription: "نوع نصب:"; Flags: unchecked
 
 [Files]
@@ -160,7 +158,6 @@ Name: "{app}\data"; Permissions: users-modify
 ; پوشه‌های کد باید نوشتنی باشند تا «به‌روزرسانی درجا» بدون خطای دسترسی انجام شود
 Name: "{app}\client"; Permissions: users-modify
 Name: "{app}\server"; Permissions: users-modify
-Name: "{app}\hub"; Permissions: users-modify
 Name: "{app}\releases"; Permissions: users-modify
 
 [INI]
@@ -181,8 +178,6 @@ Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 ; اجازهٔ نوشتن برای همهٔ کاربران روی پوشه‌های کد (نسخه‌های قبلی این اجازه را نداشتند)
-; cloudflared پشتیبان: اگر دانلود نشد، برنامه فقط از Tailscale/شبکه استفاده می‌کند (بی‌خطر)
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$ErrorActionPreference='SilentlyContinue'; New-Item -ItemType Directory -Force -Path '{app}\bin' | Out-Null; Invoke-WebRequest -Uri 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe' -OutFile '{app}\bin\cloudflared.exe' -UseBasicParsing"""; Flags: runhidden nowait; Tasks: cloudflared
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Payesh Local"""; Flags: runhidden; Tasks: firewall
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Payesh Local"" dir=in action=allow protocol=TCP localport=8080 profile=any"; Flags: runhidden; Tasks: firewall
 Filename: "{cmd}"; Parameters: "/c winget install --id Tailscale.Tailscale -e --silent --accept-package-agreements --accept-source-agreements"; Flags: runhidden waituntilterminated; Tasks: tailscale; StatusMsg: "نصب Tailscale برای دسترسی از هر اینترنتی…"

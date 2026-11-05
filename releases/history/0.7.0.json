@@ -1,0 +1,216 @@
+{
+  "version": "0.7.0",
+  "built_at": "2026-11-05T14:30:30.149Z",
+  "notes": [
+    "ثبت آفلاین: هر تغییری که وقتی سیستم مدرسه خاموش است ثبت شود، در صف می‌ماند و در صندوقچهٔ ابری (payesh/outbox) گذاشته می‌شود.",
+    "اولین دستگاهی که روشن شود — مدرسه، رایانهٔ خانه یا گوشیِ کادر — خودکار صندوقچه را می‌خواند و ثبت‌ها را اعمال می‌کند؛ لازم نیست کسی دکمه‌ای بزند.",
+    "هر دستگاه بر اساس نقشی که دارد محدود می‌ماند: ثبت خارج از نقش اعمال نمی‌شود و تکرار یک ثبت دو بار نوشته نمی‌شود.",
+    "اولیا در ساعت‌های خاموشی هم خلاصهٔ وضعیت فرزند خودشان را می‌بینند (فقط همان فرزند، بدون پروندهٔ کامل).",
+    "کلودفلر و Hub ابری کاملاً از برنامه حذف شدند؛ هیچ آدرس، فایل یا گزینه‌ای از آن‌ها نمانده است.",
+    "کارت‌های «شبکه» و «حافظهٔ ابری» ساده‌تر شدند: وضعیت صندوقچه و آدرس رسمی، بدون اصطلاح فنی."
+  ],
+  "shell": {
+    "android": "0.7.0"
+  },
+  "files": [
+    {
+      "path": "client/app.js",
+      "kind": "client",
+      "sha256": "bfa0a67e4a17c8ad29c85ef5645f0c2e3bd80e729c15d59a95efb56afa015fb6",
+      "size": 62350
+    },
+    {
+      "path": "client/icons/apple-touch-icon.png",
+      "kind": "client",
+      "sha256": "5729bb601826310a59013b4db0c5a5ddc595beabd416312dbc4e40dc01f59c8a",
+      "size": 7028
+    },
+    {
+      "path": "client/icons/icon-192.png",
+      "kind": "client",
+      "sha256": "370ab173bc616faceeaf603c015912c648b4e79cac77f8ff82b68a22df9b5620",
+      "size": 7447
+    },
+    {
+      "path": "client/icons/icon-512.png",
+      "kind": "client",
+      "sha256": "1c7c5042830e23f4e21eafc61ff39f8fff71d0a2df3b4f5c46d066b7ff457218",
+      "size": 13315
+    },
+    {
+      "path": "client/index.html",
+      "kind": "client",
+      "sha256": "4ebad76ca87dddfc20ae73166da87e24e9ac7326437ca34e0a95325c764b0208",
+      "size": 1151
+    },
+    {
+      "path": "client/install.html",
+      "kind": "client",
+      "sha256": "df63fb9668876018cc3fdec95cbf0469af2197806629fe278e1ae964d32aff15",
+      "size": 10109
+    },
+    {
+      "path": "client/lib/s3mini.js",
+      "kind": "client",
+      "sha256": "b6c451eb1bafcf251cd91c567325969ab6f8738754f12bcacb6653424b16bff4",
+      "size": 10333
+    },
+    {
+      "path": "client/lib/sigv4.js",
+      "kind": "client",
+      "sha256": "6039b7f7f1d824f6d492a4a4e33b624863b10a802f0afaebfacfd0bf9b65678a",
+      "size": 9444
+    },
+    {
+      "path": "client/manifest.webmanifest",
+      "kind": "client",
+      "sha256": "175a463c06fd172da665f4850c7d3598b5468a1071c1f3a55463bf307ef10987",
+      "size": 960
+    },
+    {
+      "path": "client/pages.js",
+      "kind": "client",
+      "sha256": "a1a4a3c9fae81bc7ae848274d69e951a612fe081cfc987f6f949f1a95b3d8b18",
+      "size": 74625
+    },
+    {
+      "path": "client/styles.css",
+      "kind": "client",
+      "sha256": "98631472fdb9d27fc058dd618388a8029cc50e9412f8e42b56bed90deb9bbe69",
+      "size": 9817
+    },
+    {
+      "path": "client/sw.js",
+      "kind": "client",
+      "sha256": "7746ea3a20403bbda90b2b5da4310ed86099202b00686cc0b70fda7321c67086",
+      "size": 7278
+    },
+    {
+      "path": "install.bat",
+      "kind": "server",
+      "sha256": "e7bff8e3fda9a280ced1550fe52d5cb404a3aa9472added6b0825f6d864f2799",
+      "size": 409
+    },
+    {
+      "path": "package.json",
+      "kind": "server",
+      "sha256": "dc8e30cb908dd3e70b925b0d95730f98f2f5dda2dd22b30f08eed585be68be6f",
+      "size": 1748
+    },
+    {
+      "path": "server/auth.js",
+      "kind": "server",
+      "sha256": "e235635db14cea3ccd6e16b66dfbfff4193ba5059e636c6aded9fd5ca7c0c179",
+      "size": 16295
+    },
+    {
+      "path": "server/cloud-defaults.js",
+      "kind": "server",
+      "sha256": "09a4e869ee46555cbbf215653e2e019298fcfec78af703be4cbe228baee381ba",
+      "size": 2129
+    },
+    {
+      "path": "server/config.js",
+      "kind": "server",
+      "sha256": "e2e27e4c6324a9f12c813b0540c762a8ca3b01e81f4e52f8281acd0bb0e915ac",
+      "size": 4230
+    },
+    {
+      "path": "server/db.js",
+      "kind": "server",
+      "sha256": "aaa48fd1d84aa524db10d1d1fa0ead5b474c3b7ccfbfa57301d4c1e1401a6027",
+      "size": 11280
+    },
+    {
+      "path": "server/index.js",
+      "kind": "server",
+      "sha256": "5ad1958612d88a389a38d59f10529bc4e06e5fe3897a00beca6341b24afd7e83",
+      "size": 48329
+    },
+    {
+      "path": "server/outbox.js",
+      "kind": "server",
+      "sha256": "1e224fb61a2cef32bcf657cf424f675781a7182068ee30cd2c4bc7eda584899d",
+      "size": 12341
+    },
+    {
+      "path": "server/policy.js",
+      "kind": "server",
+      "sha256": "afc96e47f399099a9b14c62cf53ca5acf3481eab3af7de8d88406f366156a759",
+      "size": 8975
+    },
+    {
+      "path": "server/qr.js",
+      "kind": "server",
+      "sha256": "5a3540a4e33af3acf3261a5a66c9d4547521203b7f71cedf45d91300268f6a65",
+      "size": 13353
+    },
+    {
+      "path": "server/s3mem.js",
+      "kind": "server",
+      "sha256": "20acd6a99fcc352e6190c699467adc5317545bc3cce781a83a44b6d0fe3fa545",
+      "size": 4208
+    },
+    {
+      "path": "server/seed.js",
+      "kind": "server",
+      "sha256": "1a0f7c07a032f33d140e344b33e4e4dd9ea9f60460b9de06bd0d0961a53eed97",
+      "size": 13166
+    },
+    {
+      "path": "server/start.js",
+      "kind": "server",
+      "sha256": "f07ae0d2c7e41847beb0a900251b2eb20814c76dd657d6ba51c18f7f78e9246e",
+      "size": 2522
+    },
+    {
+      "path": "server/sync.js",
+      "kind": "server",
+      "sha256": "e1ceea570da481e39db6b06686fba8ef452d80f3e4aa4ba60d417fb4b733b12c",
+      "size": 6154
+    },
+    {
+      "path": "server/tunnel.js",
+      "kind": "server",
+      "sha256": "ee2bc6c38a5ddc68e0f63ac47a188f7c3a703e5bb9becdeebeef7ea9a2ce4d13",
+      "size": 12557
+    },
+    {
+      "path": "server/update.js",
+      "kind": "server",
+      "sha256": "ba6689180817934928438b4c0677e3b1ff20494f87295ffc78f5fcaf80ce9f54",
+      "size": 22323
+    },
+    {
+      "path": "server/util.js",
+      "kind": "server",
+      "sha256": "101667b4f104ed6d68e0599c81f18eeffaa2a2f7287af4d70f1960c7c4e21a55",
+      "size": 2310
+    },
+    {
+      "path": "start.bat",
+      "kind": "server",
+      "sha256": "104c83f90f839e39f904e4bfe135caad385c7c82bb3d43c64bf46abf13e53a7f",
+      "size": 292
+    },
+    {
+      "path": "start.sh",
+      "kind": "server",
+      "sha256": "4419326c416d5d9d4b698e5ae0f90e9b6e0a5aa30cb8064169a21a620f75ff98",
+      "size": 216
+    },
+    {
+      "path": "uninstall.bat",
+      "kind": "server",
+      "sha256": "2c421ee99ad515ed535fd346758883535d9a49b20058194001fd035bb775ded0",
+      "size": 151
+    }
+  ],
+  "counts": {
+    "client": 12,
+    "server": 20
+  },
+  "client_size": 213857,
+  "server_size": 182988,
+  "total_size": 396845
+}

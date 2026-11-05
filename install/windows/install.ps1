@@ -109,7 +109,7 @@ if (Test-Path (Join-Path $TargetDir 'data\payesh.sqlite')) {
 New-Item -ItemType Directory -Force -Path $TargetDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $TargetDir 'data') | Out-Null
 
-$items = @('client', 'server', 'hub', 'docs', 'install', 'releases',
+$items = @('client', 'server', 'docs', 'install', 'releases',
            'package.json', 'README.md', 'start.bat', 'start.sh', 'install.bat', 'uninstall.bat')
 foreach ($item in $items) {
   $src = Join-Path $PackageRoot $item

@@ -35,7 +35,7 @@ const MAX_FILE = 4 * 1024 * 1024;   /* هیچ فایل تک‌فایلی از ا
 const DOWNLOAD_CONCURRENCY = 4;
 
 /* مسیرهایی که اجازهٔ نوشتن دارند — هر چیز دیگری رد می‌شود */
-const ALLOWED_PREFIX = ['client/', 'server/', 'hub/', 'docs/'];
+const ALLOWED_PREFIX = ['client/', 'server/', 'docs/'];
 const ALLOWED_FILE = ['package.json', 'start.bat', 'start.sh', 'README.md'];
 
 function appRoot() {
@@ -144,7 +144,7 @@ function isUpdatable(p) {
 }
 function isServerPath(p) {
   const rel = String(p || '');
-  return rel.startsWith('server/') || rel.startsWith('hub/') || ALLOWED_FILE.includes(rel);
+  return rel.startsWith('server/') || ALLOWED_FILE.includes(rel);
 }
 function kindOf(p) {
   const rel = String(p || '');

@@ -18,8 +18,8 @@ const sync = require('./sync');
 const policy = require('./policy');
 const cfg = require('./config');
 const qr = require('./qr');
-const hub = require('./hub');
 const s3mem = require('./s3mem');
+const outbox = require('./outbox');
 
 function normDigitsLocal(v) {
   return String(v == null ? '' : v)
@@ -188,29 +188,6 @@ function userRow(u) {
     position: u.position || '', created_at: u.created_at || null,
   };
 }
-
-/* اطلاعات Hub برای همین کاربر (فقط نمای خانوادهٔ خودش) */
-function hubInfoFor(store, actor) {
-  const h = cfg.hubConfig(store);
-  if (!h.enabled || !h.url) return { enabled: false };
-  const ids = [];
-  if (actor.role === 'student') ids.push(actor.user.id);
-  if (actor.role === 'parent') {
-    for (const link of store.all('parent_links')) {
-      if (Number(link.parent_id) === Number(actor.user.id)) ids.push(Number(link.student_id));
-    }
-  }
-  if (!ids.length) return { enabled: true, url: h.url, children: [] };
-  return {
-    enabled: true,
-    url: h.url,
-    children: ids.slice(0, 10).map(id => {
-      const st = store.get('users', id) || {};
-      return { student_id: Number(id), name: st.name || '', token: hub.familyToken(store, id) };
-    }),
-  };
-}
-
 /* ── مسیرهای API ──────────────────────────────────────────────────── */
 async function api(req, res, url, ip) {
   const p = url.pathname;
@@ -405,7 +382,6 @@ async function api(req, res, url, ip) {
       },
       version: readManifest().version,
       update: store.getMeta('update:last', null) || null,
-      hub: hubInfoFor(store, actor),
     });
   }
 
@@ -416,8 +392,43 @@ async function api(req, res, url, ip) {
 
   if (p === '/api/sync' && m === 'POST') {
     const body = await readBody(req, 8 * 1024 * 1024);
-    const out = sync.push(store, actor, body, { device_id: actor.device ? actor.device.id : null, ip });
+    const ctx = { device_id: actor.device ? actor.device.id : null, ip };
+    const out = sync.push(store, actor, body, ctx);
+    /* ثبت‌های تازه در صندوقچهٔ ابری آینه می‌شوند تا اگر «مدرسه» دستگاهی
+       دیگر باشد، همان‌ها را هم ببیند. خطای ابر هرگز جلوی ثبت را نمی‌گیرد. */
+    if (out && out.ok && (out.applied || []).length) {
+      const okUids = new Set((out.applied || []).map(a => a.uid));
+      const fresh = (Array.isArray(body && body.ops) ? body.ops : []).filter(op => okUids.has(String(op && op.uid || '')));
+      if (fresh.length) {
+        outbox.mirror(store, actor, fresh, ctx)
+          .then(m => { if (m && m.count) console.log('[outbox] ' + m.count + ' ثبت در صندوقچه آینه شد'); })
+          .catch(() => { /* ابر در دسترس نیست — داده روی همین دستگاه محفوظ است */ });
+      }
+    }
     return json(out);
+  }
+
+  /* ── صندوقچهٔ آفلاین: وضعیت، اعمال دستی، خلاصهٔ دانش‌آموز ── */
+  if (p === '/api/outbox/state' && m === 'GET') {
+    return json(await outbox.state(store));
+  }
+
+  if (p === '/api/outbox/drain' && m === 'POST') {
+    if (!outbox.SERVER_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
+    const out = await outbox.drain(store);
+    const snap = await outbox.pushSnapshot(store).catch(() => ({ ok: false }));
+    return json(Object.assign({}, out, { snapshot: snap }));
+  }
+
+  if (p === '/api/outbox/snapshot' && m === 'GET') {
+    const sid = Number(q.get('student_id'));
+    if (!sid) return json({ ok: false, error: 'bad_student' }, 400);
+    if (['parent', 'student'].includes(actor.role)) {
+      /* ولی/دانش‌آموز فقط خلاصهٔ همان فرزند خودش را می‌بیند */
+      const scope = policy.buildScope(store, actor.user);
+      if (!scope.all && !scope.studentIds.has(sid)) return json({ ok: false, error: 'forbidden' }, 403);
+    }
+    return json(await outbox.readSnapshot(store, sid));
   }
 
   /* پروندهٔ یک دانش‌آموز با اسکوپ */
@@ -474,11 +485,6 @@ async function api(req, res, url, ip) {
       lan_urls: cfg.lanUrls(PORT),
       port: PORT,
       instance: cfg.instanceId(store),
-      hub: Object.assign({}, cfg.hubConfig(store), {
-        key: hub.schoolKey(store),
-        last_push: cfg.getMeta(store, 'hub:last_push') || null,
-        last_drain: cfg.getMeta(store, 'hub:last_drain') || null,
-      }),
       tunnel: await cfg.tunnelStatus(store, { force: q.get('force') === '1' }),
       public: await tunnel.status(store),
     });
@@ -495,13 +501,9 @@ async function api(req, res, url, ip) {
       cfg.setMeta(store, 'tunnel_provider', u ? 'custom' : '');
       store.audit({ user_id: actor.user.id, role: 'manager', action: 'network_public_url', collection: 'config', after: { public_url: u } });
     }
-    if (body.hub_url !== undefined) cfg.setMeta(store, 'hub_url', cfg.normalizeUrl(body.hub_url));
-    if (body.hub_enabled !== undefined) cfg.setMeta(store, 'hub_enabled', !!body.hub_enabled);
-    if (body.regenerate_key) cfg.setMeta(store, 'hub_key', '');
     return json({
       ok: true,
       public_url: cfg.publicUrl(store) || null,
-      hub: Object.assign({}, cfg.hubConfig(store), { key: hub.schoolKey(store) }),
       tunnel: await cfg.tunnelStatus(store, { force: true }),
     });
   }
@@ -526,24 +528,6 @@ async function api(req, res, url, ip) {
       return json(Object.assign({ ok: r.ok }, r, { status: await tunnel.status(store) }), r.ok ? 200 : 400);
     }
 
-    if (action === 'quick') {
-      const started = tunnel.startQuick(PORT, url => tunnel.rememberPublicUrl(store, url, 'cloudflare'));
-      if (!started.ok) return json(Object.assign({ ok: false }, started), 400);
-      /* چند ثانیه صبر می‌کنیم تا آدرس اعلام شود */
-      const url = await new Promise(resolve => {
-        const t0 = Date.now();
-        const iv = setInterval(() => {
-          const q2 = tunnel.quickStatus();
-          if (q2.url) { clearInterval(iv); resolve(q2.url); }
-          else if (!q2.running && q2.error) { clearInterval(iv); resolve(null); }
-          else if (Date.now() - t0 > 25_000) { clearInterval(iv); resolve(null); }
-        }, 500);
-        iv.unref?.();
-      });
-      if (url) tunnel.rememberPublicUrl(store, url, 'cloudflare');
-      return json({ ok: !!url, url: url || null, status: await tunnel.status(store) }, url ? 200 : 504);
-    }
-
     if (action === 'login') {
       const r = tunnel.login();
       return json(Object.assign({ ok: r.ok }, r, { status: await tunnel.status(store) }), r.ok ? 200 : 400);
@@ -560,13 +544,6 @@ async function api(req, res, url, ip) {
     /* refresh: فقط تشخیص */
     const r = await tunnel.refresh(store, { quiet: false });
     return json(Object.assign({ ok: true }, r, { status: await tunnel.status(store) }));
-  }
-
-  if (p === '/api/admin/hub/sync' && m === 'POST') {
-    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
-    const b = await readBody(req);
-    const r = await hub.sync(store, { force: !!b.force });
-    return json(Object.assign({ ok: true }, r));
   }
 
   /* ── حافظهٔ ابری (صندوقچهٔ S3 ایرانی) ─────────────────────────────── */
@@ -929,18 +906,6 @@ if (process.env.PAYESH_AUTO_BACKUP !== '0') {
   try { store.backupTo(BACKUP_DIR, 48); } catch (e) { /* noop */ }
 }
 
-/* ── آدرس عمومی موقتیِ Cloudflare در ایران کار نمی‌کند؛ در شروع پاکش می‌کنیم
-      تا برنامه آدرسی را تبلیغ نکند که جواب نمی‌دهد (Tailscale/دامنهٔ ثابت می‌ماند) ── */
-try {
-  const prev = cfg.publicUrl(store);
-  if (prev && /trycloudflare\.com$/i.test(new URL(prev).hostname)) {
-    cfg.setMeta(store, 'public_url', '');
-    cfg.setMeta(store, 'tunnel_provider', '');
-    store.audit({ role: 'system', action: 'public_url_cleared', collection: 'system', after: { url: prev, why: 'trycloudflare_filtered' } });
-    console.log('[network] آدرس موقت Cloudflare پاک شد (در ایران در دسترس نیست):', prev);
-  }
-} catch (e) { /* آدرس نامعتبر — بی‌خیال */ }
-
 /* ── صندوقچهٔ پیش‌فرض: در شروع یک‌بار نام صندوقچه را پیدا و ثبت می‌کنیم ── */
 if (process.env.PAYESH_CLOUD_AUTO !== '0') {
   setTimeout(() => {
@@ -948,6 +913,11 @@ if (process.env.PAYESH_CLOUD_AUTO !== '0') {
       .then(c => { if (c.bucket) console.log('[cloud] صندوقچه:', c.bucket, '·', c.endpoint); })
       .catch(e => console.log('[cloud] تشخیص صندوقچه ناموفق:', e.message));
   }, 2500).unref();
+}
+
+/* ── صندوقچهٔ آفلاین: اولین دستگاهی که روشن شود، ثبت‌های بقیه را اعمال می‌کند ── */
+if (process.env.PAYESH_OUTBOX_AUTO !== '0') {
+  outbox.start(store, { everyMs: Number(process.env.PAYESH_OUTBOX_EVERY_MS || 3 * 60_000) });
 }
 
 /* ── راه‌اندازی مجدد خودکار پس از آپدیت ───────────────────────────── */
@@ -1016,9 +986,7 @@ server.listen(PORT, HOST, () => {
   const pub = cfg.publicUrl(store);
   console.log('  آدرس عمومی (همه)   : ' + (pub || 'تنظیم نشده — پنل مدیر ← شبکه'));
   console.log('');
-  /* همگام‌سازی دوره‌ای با Hub ابری (اگر فعال باشد) */
-  try { hub.start(store); } catch (e) { console.error('hub start failed', e.message); }
-  /* تونل عمومی: اگر Tailscale Funnel یا تونل Cloudflare روشن باشد، آدرس را برمی‌داریم */
+  /* تونل عمومی: اگر Tailscale Funnel روشن باشد، آدرس را برمی‌داریم */
   try { tunnel.start(store, { port: PORT }); } catch (e) { console.error('tunnel start failed', e.message); }
 
   /* بررسی خودکار نسخهٔ منتشرشده (اگر «نصب خودکار» روشن باشد، خودش اعمال می‌کند) */

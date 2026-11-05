@@ -1,21 +1,23 @@
 {
-  "version": "0.6.1",
-  "built_at": "2026-11-05T14:16:28.696Z",
+  "version": "0.7.0",
+  "built_at": "2026-11-05T14:30:30.149Z",
   "notes": [
-    "به‌روزرسانی دیگر خطای apply_failed نمی‌دهد: نصب‌کننده اجازهٔ نوشتن می‌دهد و اگر پوشهٔ نصب محافظت‌شده باشد، فایل‌های رابط در لایهٔ نوشتنی به‌روز می‌شوند.",
-    "تشخیص و نصب خودکار نسخهٔ تازه هر ۱۵ دقیقه و در شروع برنامه؛ گزارش تغییرات فقط یک‌بار نشان داده می‌شود.",
-    "یک‌بار ورود، همیشه داخل: دستگاهِ مورد اعتماد بی‌صدا نشست تازه می‌گیرد و نشست فعال تمدید می‌شود.",
-    "آدرس‌های موقت trycloudflare دیگر تبلیغ نمی‌شوند و در شروع پاک می‌شوند."
+    "ثبت آفلاین: هر تغییری که وقتی سیستم مدرسه خاموش است ثبت شود، در صف می‌ماند و در صندوقچهٔ ابری (payesh/outbox) گذاشته می‌شود.",
+    "اولین دستگاهی که روشن شود — مدرسه، رایانهٔ خانه یا گوشیِ کادر — خودکار صندوقچه را می‌خواند و ثبت‌ها را اعمال می‌کند؛ لازم نیست کسی دکمه‌ای بزند.",
+    "هر دستگاه بر اساس نقشی که دارد محدود می‌ماند: ثبت خارج از نقش اعمال نمی‌شود و تکرار یک ثبت دو بار نوشته نمی‌شود.",
+    "اولیا در ساعت‌های خاموشی هم خلاصهٔ وضعیت فرزند خودشان را می‌بینند (فقط همان فرزند، بدون پروندهٔ کامل).",
+    "کلودفلر و Hub ابری کاملاً از برنامه حذف شدند؛ هیچ آدرس، فایل یا گزینه‌ای از آن‌ها نمانده است.",
+    "کارت‌های «شبکه» و «حافظهٔ ابری» ساده‌تر شدند: وضعیت صندوقچه و آدرس رسمی، بدون اصطلاح فنی."
   ],
   "shell": {
-    "android": "0.6.1"
+    "android": "0.7.0"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "0aa9c898ef2262a034598cb9cd83540baeffa5dbbdf3e936d1d6a12ed5fe86c9",
-      "size": 67915
+      "sha256": "bfa0a67e4a17c8ad29c85ef5645f0c2e3bd80e729c15d59a95efb56afa015fb6",
+      "size": 62350
     },
     {
       "path": "client/icons/apple-touch-icon.png",
@@ -68,8 +70,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "695a7b51917644e14788530f1cf0164505beed341a7f438ffc97941857788c57",
-      "size": 92145
+      "sha256": "a1a4a3c9fae81bc7ae848274d69e951a612fe081cfc987f6f949f1a95b3d8b18",
+      "size": 74625
     },
     {
       "path": "client/styles.css",
@@ -84,36 +86,6 @@
       "size": 7278
     },
     {
-      "path": "hub/README.md",
-      "kind": "server",
-      "sha256": "a25f713892b157a783317678fb955dd2a1db19ca97177fc3400c5020fc8306a9",
-      "size": 1679
-    },
-    {
-      "path": "hub/package.json",
-      "kind": "server",
-      "sha256": "a22f7e387362822cd5f994e5b8bfed1c2c54455529e4b5a500e6f4cb64301ed4",
-      "size": 53
-    },
-    {
-      "path": "hub/schema.sql",
-      "kind": "server",
-      "sha256": "cc5d2819897505d82337d66da7ae239546167c9fb807eda604086f6367f06422",
-      "size": 913
-    },
-    {
-      "path": "hub/worker.js",
-      "kind": "server",
-      "sha256": "0817acaefcde899d8bfa0930ee4f1b1f62663d8a17e9a50ba8e8d8bd498c190f",
-      "size": 6715
-    },
-    {
-      "path": "hub/wrangler.toml",
-      "kind": "server",
-      "sha256": "a09c07f586d7ef1f17bf42dde577dd6cc29751dd2f4187f7959369d89c6ad82d",
-      "size": 414
-    },
-    {
       "path": "install.bat",
       "kind": "server",
       "sha256": "e7bff8e3fda9a280ced1550fe52d5cb404a3aa9472added6b0825f6d864f2799",
@@ -122,8 +94,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "d493315124bc6246e0e0fd13e0e2182daca9fc13d9544a7c5d95957a096bb8bc",
-      "size": 1979
+      "sha256": "dc8e30cb908dd3e70b925b0d95730f98f2f5dda2dd22b30f08eed585be68be6f",
+      "size": 1748
     },
     {
       "path": "server/auth.js",
@@ -140,8 +112,8 @@
     {
       "path": "server/config.js",
       "kind": "server",
-      "sha256": "cf89f334e3cb252bde144b83a5880d9b97a41798103e6d033b47fb8606cc9538",
-      "size": 4456
+      "sha256": "e2e27e4c6324a9f12c813b0540c762a8ca3b01e81f4e52f8281acd0bb0e915ac",
+      "size": 4230
     },
     {
       "path": "server/db.js",
@@ -150,16 +122,16 @@
       "size": 11280
     },
     {
-      "path": "server/hub.js",
-      "kind": "server",
-      "sha256": "2928aea53169ed0e9b8c1b748c9c1539317e4061caa1f373e47cfae8fc699032",
-      "size": 8351
-    },
-    {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "068859a4812f6ef518d29f519fdb0a13be3fb98455e1838e7762496370cc06cb",
-      "size": 49679
+      "sha256": "5ad1958612d88a389a38d59f10529bc4e06e5fe3897a00beca6341b24afd7e83",
+      "size": 48329
+    },
+    {
+      "path": "server/outbox.js",
+      "kind": "server",
+      "sha256": "1e224fb61a2cef32bcf657cf424f675781a7182068ee30cd2c4bc7eda584899d",
+      "size": 12341
     },
     {
       "path": "server/policy.js",
@@ -200,14 +172,14 @@
     {
       "path": "server/tunnel.js",
       "kind": "server",
-      "sha256": "47800cb0b4314bd23fd9eef2a77a21e16b9d5e06f5acfec45a6810862265eccf",
-      "size": 16108
+      "sha256": "ee2bc6c38a5ddc68e0f63ac47a188f7c3a703e5bb9becdeebeef7ea9a2ce4d13",
+      "size": 12557
     },
     {
       "path": "server/update.js",
       "kind": "server",
-      "sha256": "7afdb7daf2fdea8f6329c69b370ca7e52ac28ad6e37723bca5195740d44827cb",
-      "size": 22357
+      "sha256": "ba6689180817934928438b4c0677e3b1ff20494f87295ffc78f5fcaf80ce9f54",
+      "size": 22323
     },
     {
       "path": "server/util.js",
@@ -236,9 +208,9 @@
   ],
   "counts": {
     "client": 12,
-    "server": 25
+    "server": 20
   },
-  "client_size": 236942,
-  "server_size": 194164,
-  "total_size": 431106
+  "client_size": 213857,
+  "server_size": 182988,
+  "total_size": 396845
 }
