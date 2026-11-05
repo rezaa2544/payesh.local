@@ -5,7 +5,7 @@
    ۲) کاربر با کد + PIN دستگاهش را به حساب گره می‌زند ⇒ توکن دستگاه (۹۰ روز)
    ۳) هر بار باز کردن برنامه: PIN ⇒ نشست کوتاه (۱۲ ساعت)
    ─────────────────────────────────────────────────────────────────── */
-const { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, normDigits } = require('./util');
+const { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, pbkdf2Hash, normDigits } = require('./util');
 
 const PAIR_TTL_MIN = 7 * 24 * 60;      /* کد پیوند تا ۷ روز معتبر است */
 const DEVICE_DAYS = 365;          /* دستگاهِ مورد اعتماد یک سال می‌ماند */
@@ -57,6 +57,7 @@ function setup(store, input) {
     national_id: normDigits(input.national_id || ''), active: true,
     school_id: 1, created_at: nowISO(),
     password_hash: pw ? scryptHash(pw) : null,
+    phone_hash: pw ? pbkdf2Hash(pw) : null,
   });
 
   const device = createDevice(store, manager.id, { name: 'سیستم مدیر', platform: 'server', pin });
@@ -141,9 +142,13 @@ function login(store, input = {}) {
   const pw = String(input.password || '');
   if (phone.length < 10) return { ok: false, error: 'bad_phone' };
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
-  const user = findUserByPhone(store, phone);
+  let user = findUserByPhone(store, phone);
   if (!user || user.active === false || !user.password_hash) return { ok: false, error: 'bad_credentials' };
   if (!scryptVerify(pw, user.password_hash)) return { ok: false, error: 'bad_credentials' };
+  if (!user.phone_hash) {
+    /* برای ورود بدون سرور روی گوشی لازم است */
+    user = store.update('users', user.id, { phone_hash: pbkdf2Hash(pw) });
+  }
   const device = createDevice(store, user.id, {
     name: input.name || 'دستگاه', platform: input.platform || 'web', pin: '',
   });
@@ -169,7 +174,7 @@ function setPassword(store, userId, nextPw) {
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
   const user = store.get('users', userId);
   if (!user) return { ok: false, error: 'user_not_found' };
-  const saved = store.update('users', user.id, { password_hash: scryptHash(pw) });
+  const saved = store.update('users', user.id, { password_hash: scryptHash(pw), phone_hash: pbkdf2Hash(pw) });
   return { ok: true, user: publicUser(saved) };
 }
 

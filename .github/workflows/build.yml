@@ -91,7 +91,7 @@ jobs:
           unzip -l "$APK" | grep -q "classes.dex"
           unzip -l "$APK" | grep -q "AndroidManifest.xml"
           # برنامهٔ کاملِ وب باید داخل APK باشد (نه یک پوستهٔ خالی)
-          for f in assets/www/index.html assets/www/app.js assets/www/pages.js assets/www/styles.css assets/www/sw.js assets/www/lib/s3mini.js assets/www/lib/sigv4.js; do
+          for f in assets/www/index.html assets/www/app.js assets/www/pages.js assets/www/styles.css assets/www/sw.js assets/www/lib/s3mini.js assets/www/lib/sigv4.js assets/www/lib/phone.js assets/www/lib/hash.js assets/www/cloud-baked.js; do
             unzip -l "$APK" | grep -q "$f" || { echo "کم است: $f — APK فقط پوسته است"; exit 1; }
           done
           COUNT=$(unzip -l "$APK" | grep -c "assets/www/")

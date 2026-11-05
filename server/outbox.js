@@ -285,6 +285,7 @@ function start(store, { everyMs = 3 * 60_000 } = {}) {
       if (cfg) {
         await drain(store);
         await pushSnapshot(store);
+        await publishAll(store);
       }
     } catch (e) {
       writeMeta(store, { last_error: String(e.message || e).slice(0, 120) });
@@ -303,7 +304,124 @@ function stop() {
   timer = null;
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   نسخهٔ گوشی (بدون سرور): برنامهٔ اندروید/ویندوز خودش «کل برنامه» است؛
+   پس باید هم بتواند شماره+رمز را خودش بررسی کند و هم دادهٔ لازم را
+   داشته باشد. هر دو در همان صندوقچهٔ ابری منتشر می‌شوند:
+
+     auth/<phone>.json       ← برای بررسی رمز روی گوشی (PBKDF2)
+     data/core.json          ← کلاس‌ها، درس‌ها، برنامه، اطلاعیه‌ها، فهرست نام‌ها
+     data/person/<id>.json   ← فقط دادهٔ خودِ همان کاربر (و فرزندانش)
+   ═══════════════════════════════════════════════════════════════════ */
+const CORE_COLLECTIONS = ['schools', 'school_years', 'classes', 'subjects', 'schedule', 'announcements', 'bells'];
+const PERSON_COLLECTIONS = ['attendance', 'grades', 'leaves', 'internships', 'discipline', 'notes', 'staff_attendance'];
+
+function phoneKey(u) {
+  return String(u.phone || '').replace(/\D/g, '');
+}
+
+function safeRow(row) {
+  const out = Object.assign({}, row);
+  delete out.password_hash;
+  delete out.phone_hash;
+  delete out.pin_hash;
+  return out;
+}
+
+function directory(store) {
+  return (store.all('users') || []).map(u => ({
+    id: u.id, name: u.name, role: u.role, class_id: u.class_id || null,
+    phone: u.role === 'manager' ? u.phone || '' : '', active: u.active !== false,
+  }));
+}
+
+async function publishAuth(store) {
+  const cfg = await cloud(store);
+  if (!cfg) return { ok: false, error: 'no_cloud', count: 0 };
+  let count = 0;
+  for (const u of (store.all('users') || [])) {
+    const phone = phoneKey(u);
+    if (!phone || !u.phone_hash) continue;
+    const body = JSON.stringify({
+      v: 1, phone, verifier: u.phone_hash,
+      user: { id: u.id, name: u.name, role: u.role, class_id: u.class_id || null, phone, active: u.active !== false },
+      at: new Date().toISOString(),
+    });
+    try {
+      await s3mem.put(cfg, keyOf(cfg, 'auth/' + phone + '.json'), body);
+      count++;
+    } catch (e) {
+      writeMeta(store, { last_error: 'auth: ' + String(e.message || e).slice(0, 120) });
+      break;
+    }
+  }
+  return { ok: true, count };
+}
+
+function personData(store, user) {
+  const ids = new Set([Number(user.id)]);
+  if (user.role === 'parent') {
+    for (const l of (store.all('parent_links') || [])) {
+      if (Number(l.parent_id) === Number(user.id)) ids.add(Number(l.student_id));
+    }
+  }
+  const out = { v: 1, user_id: user.id, role: user.role, at: new Date().toISOString(), collections: {} };
+  for (const c of PERSON_COLLECTIONS) {
+    let rows = [];
+    try { rows = store.all(c) || []; } catch (e) { rows = []; }
+    out.collections[c] = rows
+      .filter(r => ids.has(Number(r.student_id)) || (c === 'staff_attendance' && ids.has(Number(r.user_id))))
+      .map(safeRow);
+  }
+  /* کاربر فقط خودش را در فهرست می‌بیند (بدون دادهٔ دیگران) */
+  out.me = safeRow(store.get('users', user.id) || {});
+  if (user.role === 'parent') {
+    out.children = [];
+    for (const sid of ids) {
+      if (Number(sid) === Number(user.id)) continue;
+      const st = store.get('users', Number(sid));
+      if (st) out.children.push({ id: st.id, name: st.name, class_id: st.class_id || null, role: st.role });
+    }
+  }
+  return out;
+}
+
+async function publishData(store) {
+  const cfg = await cloud(store);
+  if (!cfg) return { ok: false, error: 'no_cloud', count: 0 };
+  const core = { v: 1, at: new Date().toISOString(), school: (store.all('schools') || [])[0] || null, collections: {}, directory: directory(store) };
+  for (const c of CORE_COLLECTIONS) {
+    try { core.collections[c] = (store.all(c) || []).map(safeRow); } catch (e) { core.collections[c] = []; }
+  }
+  let count = 0;
+  try {
+    await s3mem.put(cfg, keyOf(cfg, 'data/core.json'), JSON.stringify(core));
+    count++;
+  } catch (e) {
+    writeMeta(store, { last_error: 'data: ' + String(e.message || e).slice(0, 120) });
+    return { ok: false, error: 'publish_failed', detail: String(e.message || e), count };
+  }
+  for (const u of (store.all('users') || [])) {
+    if (u.active === false) continue;
+    if (!['manager', 'vice', 'teacher', 'parent', 'student', 'staff', 'counselor'].includes(u.role)) continue;
+    try {
+      await s3mem.put(cfg, keyOf(cfg, 'data/person/' + u.id + '.json'), JSON.stringify(personData(store, u)));
+      count++;
+    } catch (e) { break; }
+  }
+  writeMeta(store, { last_data: new Date().toISOString() });
+  return { ok: true, count };
+}
+
+async function publishAll(store) {
+  const a = await publishAuth(store);
+  const d = await publishData(store);
+  return { auth: a, data: d };
+}
+
 module.exports = {
   publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop,
+  publishAuth, publishData, publishAll, personData, CORE_COLLECTIONS, PERSON_COLLECTIONS,
   SERVER_ROLES, summary, PENDING, DONE, STATE,
 };

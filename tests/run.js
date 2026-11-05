@@ -822,9 +822,110 @@ async function waitFor(fn, ms = 15000) {
       assert.ok(snapMgr.data.snapshot && snapMgr.data.snapshot.student_id === sid, 'خلاصه مال همان دانش‌آموز است');
       const snapParent = await req('/api/outbox/snapshot?student_id=' + sid, { token: parentTok });
       assert.ok([200, 403].includes(snapParent.status), 'ولی فقط محدودهٔ خودش را می‌بیند');
+
+      /* ── نسخهٔ گوشی: رمز و داده در صندوقچه، ورود بدون هیچ سروری ── */
+      const setPw = await req('/api/admin/users/1/password', { method: 'POST', token: managerToken, body: { password: 'Madrese1404' } });
+      assert.strictEqual(setPw.data.ok, true, 'رمز عبور مدیر تعیین شد');
+      const pub = await req('/api/outbox/publish', { method: 'POST', token: managerToken, body: {} });
+      assert.strictEqual(pub.data.ok, true, 'بستهٔ گوشی منتشر شد: ' + JSON.stringify(pub.data).slice(0, 200));
+      assert.ok(bucket.has('payesh/auth/09120000001.json'), 'پروندهٔ ورودِ هر شماره در صندوقچه هست');
+      assert.ok(bucket.has('payesh/data/core.json'), 'دادهٔ سراسری برای گوشی منتشر شد');
+      assert.ok([...bucket.keys()].some(k => /^payesh\/data\/person\/\d+\.json$/.test(k)), 'دادهٔ شخصی هر کاربر منتشر شد');
+
+      const authEnv = JSON.parse(bucket.get('payesh/auth/09120000001.json'));
+      assert.ok(/^pbkdf2\$\d+\$[0-9a-f]+\$[0-9a-f]+$/.test(authEnv.verifier), 'رمز به شکل قابل‌بررسی روی گوشی ذخیره شد');
+      assert.strictEqual(authEnv.user.role, 'manager');
+      assert.ok(!/secret|password_hash/.test(JSON.stringify(authEnv)), 'هیچ راز اضافه‌ای در پرونده نیست');
+      const core = JSON.parse(bucket.get('payesh/data/core.json'));
+      assert.ok(Array.isArray(core.directory) && core.directory.length > 2, 'فهرست نام‌ها هم منتشر شد');
+      assert.ok(!/password_hash|phone_hash/.test(bucket.get('payesh/data/core.json')), 'هیچ هشی در داده منتشر نمی‌شود');
+
+      /* همان بررسی که گوشی انجام می‌دهد (WebCrypto/PBKDF2) */
+      global.window = global;
+      if (!global.localStorage) {
+        const mem = {};
+        global.localStorage = { getItem: k => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: k => { delete mem[k]; } };
+      }
+      global.PayeshS3 = require(path.join(ROOT, 'client', 'lib', 's3mini.js'));
+      require(path.join(ROOT, 'client', 'lib', 'phone.js'));
+      const PH = global.PayeshPhone;
+      assert.ok(PH && PH.login, 'ماژول گوشی بارگذاری شد');
+      assert.strictEqual(await PH.verify('Madrese1404', authEnv.verifier), true, 'رمز درست روی گوشی تأیید می‌شود');
+      assert.strictEqual(await PH.verify('ramz-eshtebah', authEnv.verifier), false, 'رمز اشتباه رد می‌شود');
+
+      /* ورود کامل گوشی: از صندوقچه، بدون هیچ درخواستی به سرور */
+      PH.saveConfig(require(path.join(ROOT, 'client', 'lib', 's3mini.js')).normalize({
+        endpoint: 'http://127.0.0.1:' + cloudPort, bucket: 'ob1', region: 'ir-central1',
+        accessKey: 'AK', secret: 'SK', prefix: 'payesh/',
+      }));
+      const phoneLogin = await PH.login('۰۹۱۲۰۰۰۰۰۰۱', 'Madrese1404');
+      assert.strictEqual(phoneLogin.ok, true, 'ورود گوشی با شماره و رمز مدیر: ' + JSON.stringify(phoneLogin));
+      assert.strictEqual(phoneLogin.user.role, 'manager', 'نقش از مدرسه می‌آید');
+      const phoneData = await PH.pullData(phoneLogin.user);
+      assert.ok(Array.isArray(phoneData.collections.users) && phoneData.collections.users.length > 2, 'گوشی فهرست کاربران را می‌گیرد');
+      const sentOp = await PH.send({ uid: 'ob-phone-1', user_id: 1, role: 'manager', op: { collection: 'announcements', type: 'put', data: { title: 'از گوشی', body: 'بدون سرور', date: '2026-05-02' }, base_version: 0 } });
+      assert.strictEqual(sentOp.ok, true, 'ثبت گوشی در صندوقچه گذاشته شد');
+      assert.ok(bucket.has('payesh/outbox/pending/ob-phone-1.json'), 'فایل ثبت گوشی در صندوقچه هست');
+      const drainedFromPhone = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
+      assert.ok(drainedFromPhone.data.applied >= 1, 'سیستم مدرسه ثبت گوشی را اعمال کرد');
     } finally {
       await new Promise(r => fake.close(r));
     }
+  });
+
+  await test('آدرس موقت قدیمی خودکار پاک می‌شود (هیچ آدرس بی‌جوابی نمایش داده نمی‌شود)', () => {
+    const tunnel = require('../server/tunnel.js');
+    const meta = {};
+    const store = {
+      getMeta: (k, d) => (k in meta ? meta[k] : (d === undefined ? null : d)),
+      setMeta: (k, v) => { meta[k] = v; },
+      audit: () => {},
+    };
+    meta['cfg:public_url'] = 'https://abcd-efgh-1234.example-ephemeral.net';
+    const r1 = tunnel.purgeStalePublicUrl(store);
+    assert.strictEqual(r1.cleared, true, 'آدرس موقت پاک شد');
+    assert.strictEqual(meta['cfg:public_url'], '', 'آدرس از تنظیمات حذف شد');
+
+    meta['cfg:public_url'] = 'https://payesh.school.ts.net';
+    const r2 = tunnel.purgeStalePublicUrl(store);
+    assert.strictEqual(r2.cleared, false, 'آدرس ثابت Tailscale می‌ماند');
+
+    meta['cfg:public_url'] = 'https://payesh.example.ir';
+    meta['cfg:tunnel_provider'] = 'manual';
+    const r3 = tunnel.purgeStalePublicUrl(store);
+    assert.strictEqual(r3.cleared, false, 'آدرس دستیِ مدیر می‌ماند');
+  });
+
+  await test('گوشی: صفحهٔ ورود محلی به‌جای بن‌بست «سرور در دسترس نیست»', () => {
+    const app = fs.readFileSync(path.join(ROOT, 'client/app.js'), 'utf8');
+    const pages = fs.readFileSync(path.join(ROOT, 'client/pages.js'), 'utf8');
+    const phone = fs.readFileSync(path.join(ROOT, 'client/lib/phone.js'), 'utf8');
+    const html = fs.readFileSync(path.join(ROOT, 'client/index.html'), 'utf8');
+    assert.ok(phone.includes('async function login'), 'ورود محلی با شماره+رمز');
+    assert.ok(phone.includes("'PBKDF2'"), 'بررسی رمز با WebCrypto روی خود گوشی');
+    assert.ok(phone.includes("'auth/'"), 'پروندهٔ ورود از صندوقچه خوانده می‌شود');
+    assert.ok(phone.includes("'outbox/pending/'"), 'ثبت‌ها مستقیم در صندوقچه گذاشته می‌شوند');
+    assert.ok(html.includes('/lib/phone.js'), 'صفحهٔ گوشی ماژول را بار می‌کند');
+    assert.ok(pages.includes('function renderPhoneLogin'), 'صفحهٔ ورود گوشی وجود دارد');
+    assert.ok(app.includes("kind === 'phone-login'"), 'فرم ورود گوشی پردازش می‌شود');
+    assert.ok(!/سرور در دسترس نیست<\/h1>/.test(pages), 'پیام بن‌بست حذف شده است');
+  });
+
+  await test('PBKDF2 جاوااسکریپتی (برای ورود روی گوشی) با Node یکی است', () => {
+    const crypto = require('crypto');
+    global.window = global;
+    require(path.join(ROOT, 'client', 'lib', 'hash.js'));
+    const H = global.PayeshHash;
+    assert.ok(H && H.pbkdf2, 'ماژول هش بارگذاری شد');
+    assert.strictEqual(H.hex(H.sha256(H.utf8('abc'))),
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad', 'SHA-256 درست است');
+    const salt = '00112233445566778899aabbccddeeff';
+    assert.strictEqual(H.hex(H.pbkdf2('Madrese1404', salt, 1000, 32)),
+      crypto.pbkdf2Sync('Madrese1404', salt, 1000, 32, 'sha256').toString('hex'), 'PBKDF2 مطابق Node');
+    /* همان قالبی که سرور منتشر می‌کند باید روی گوشی باز شود */
+    const stored = require(path.join(ROOT, 'server', 'util.js')).pbkdf2Hash('Madrese1404');
+    const [, iter, s2, want] = stored.split('$');
+    assert.strictEqual(H.hex(H.pbkdf2('Madrese1404', s2, Number(iter), 32)), want, 'هش سرور روی گوشی تأیید می‌شود');
   });
 
   await test('هیچ اثری از Cloudflare در برنامه نمانده', () => {

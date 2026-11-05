@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.7.1';
+const CLIENT_VERSION = '0.8.0';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -13,6 +13,10 @@ const CLIENT_VERSION = '0.7.1';
 const API_BASE = String(window.PAYESH_API_BASE || '').replace(/\/+$/, '');
 const BUNDLED = !!window.PAYESH_BUNDLED;
 const apiUrl = (path) => (API_BASE ? API_BASE + path : path);
+
+/* حالت «گوشی/بدون سرور»: کل برنامه روی خودِ دستگاه، با داده و ورودی
+   صندوقچهٔ ابری. اگر سرور مدرسه پیدا شود، همان مسیر عادی مقدم است. */
+let PHONE_MODE = false;
 
 const S = {
   online: navigator.onLine,
@@ -148,6 +152,7 @@ async function silentRefresh() {
 }
 
 async function api(path, opts = {}) {
+  if (PHONE_MODE) throw new Error('این بخش به سیستم مدرسه نیاز دارد');
   const headers = { 'content-type': 'application/json' };
   if (S.session) headers.authorization = 'Bearer ' + S.session;
   const res = await fetch(apiUrl(path), {
@@ -252,11 +257,34 @@ async function flushQueue() {
     }
     saveCache();
   } catch (e) {
-    /* آفلاین یا خطای موقت: صف می‌ماند */
+    /* سرور در دسترس نیست: اگر روی گوشی هستیم، ثبت‌ها را مستقیم در
+       صندوقچهٔ ابری می‌گذاریم تا اولین دستگاهِ روشن اعمالشان کند. */
+    if (PHONE_MODE || BUNDLED) pushed += await pushQueueToOutbox();
   } finally {
     S.syncing = false;
   }
   return { pushed };
+}
+
+/* ── صف → صندوقچهٔ ابری (بدون سرور) ─────────────────────────────── */
+async function pushQueueToOutbox() {
+  if (!S.session && !(S.user && S.user.id)) return 0;
+  if (!window.PayeshPhone) return 0;
+  let sent = 0;
+  for (const op of S.queue.slice()) {
+    try {
+      await window.PayeshPhone.send({
+        uid: op.uid, user_id: S.user ? S.user.id : null, role: S.role || null,
+        device_id: localStorage.getItem('payesh.device') || null, op,
+      });
+      S.queue = S.queue.filter(q => q.uid !== op.uid);
+      sent++;
+    } catch (e) {
+      break; /* اینترنت نیست — صف دست‌نخورده می‌ماند */
+    }
+  }
+  if (sent) { saveQueue(); saveCache(); }
+  return sent;
 }
 
 function remapLocal(op, serverId, version) {
@@ -274,6 +302,13 @@ function remapLocal(op, serverId, version) {
 const SERVER_ROLES = ['manager', 'vice', 'teacher', 'staff'];
 async function loadOutbox(silent = true) {
   if (!S.session || !S.online) return null;
+  if (PHONE_MODE) {
+    try {
+      const pending = await window.PayeshPhone.pendingCount();
+      S.outbox = { ok: true, phone: true, cloud: true, pending, last_drain: S.outbox && S.outbox.last_drain };
+    } catch (e) { S.outbox = { ok: false, phone: true, pending: null }; }
+    return S.outbox;
+  }
   try {
     const r = await api('/api/outbox/state');
     S.outbox = r || {};
@@ -293,6 +328,24 @@ async function loadOutbox(silent = true) {
 
 async function syncNow(silent = true) {
   if (!S.online) { if (!silent) toast('اینترنت/شبکه در دسترس نیست — تغییرات در صف می‌مانند', 'err'); return; }
+  if (PHONE_MODE) {
+    await flushQueue();
+    try {
+      const data = await window.PayeshPhone.pullData(S.user);
+      if (data && !data.missing) {
+        for (const c of Object.keys(data.collections || {})) {
+          const rows = data.collections[c] || [];
+          if (!S.data[c]) S.data[c] = new Map();
+          for (const r of rows) S.data[c].set(Number(r.id), r);
+        }
+        S.lastSync = data.at || S.lastSync;
+        saveCache();
+        if (!silent) toast('اطلاعات تازه شد', 'ok');
+      } else if (!silent) toast('صندوقچهٔ ابری هنوز چیزی ندارد', 'err');
+    } catch (e) { if (!silent) toast('به صندوقچه نرسیدیم', 'err'); }
+    render();
+    return;
+  }
   try {
     await flushQueue();
     await pullAll();
@@ -417,6 +470,74 @@ async function doLogin(form) {
   } catch (e) {
     toast(/bad_credentials/.test(e.message) ? 'شماره یا رمز عبور درست نیست' : 'ورود ناموفق: ' + e.message, 'err');
   }
+}
+
+/* ── ورود بدون سرور: همان شماره+رمزی که مدیر تعریف کرده ───────────── */
+async function doPhoneLogin(f) {
+  const phone = digitsOnly(f.phone.value);
+  const password = String(f.password.value || '');
+  if (phone.length !== 11) return toast('شمارهٔ همراه باید ۱۱ رقم باشد', 'err');
+  if (!password) return toast('رمز عبور را وارد کنید', 'err');
+  const el = f.password;
+  const form = (el && el.closest && el.closest('form')) || null;
+  const btn = form ? form.querySelector('button[type="submit"]') : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'در حال بررسی…'; }
+  try {
+    const r = await window.PayeshPhone.login(phone, password);
+    if (!r.ok) {
+      const map = {
+        bad_credentials: 'شماره یا رمز عبور درست نیست',
+        not_registered: 'این شماره در مدرسه ثبت نشده — از مدیر بخواهید حساب بسازد',
+        user_inactive: 'حساب غیرفعال است',
+        bad_phone: 'شمارهٔ همراه کامل نیست',
+        bad_password: 'رمز عبور خیلی کوتاه است',
+        offline: 'به صندوقچهٔ ابری نرسیدیم — اینترنت گوشی را بررسی کنید',
+      };
+      toast(map[r.error] || 'ورود ناموفق', 'err');
+      return;
+    }
+    await enterPhone(r.user);
+  } catch (e) {
+    toast('ورود ناموفق: ' + (e.message || e), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'ورود'; }
+  }
+}
+
+/* بالا آوردن کل برنامه از دادهٔ صندوقچه، با نقشِ همان کاربر */
+async function enterPhone(user) {
+  PHONE_MODE = true;
+  S.session = 'phone';            /* نشست محلی؛ هیچ سروری در کار نیست */
+  S.user = user; S.role = user.role;
+  S.offline = true;
+  S.boot = Object.assign({}, S.boot || {}, { user, role: user.role });
+  S.server = Object.assign({}, S.server, { ok: false, offline: true, setupDone: true, school: S.server.school || null });
+  toast('در حال آوردن اطلاعات…');
+  let data = null;
+  try { data = await window.PayeshPhone.pullData(user); } catch (e) { data = null; }
+  if (data) {
+    S.data = {};
+    for (const c of Object.keys(data.collections || {})) {
+      S.data[c] = new Map((data.collections[c] || []).map(r => [Number(r.id), r]));
+    }
+    if (data.school) {
+      S.server.school = data.school;
+      S.data.schools = new Map([[1, Object.assign({ id: 1 }, data.school)]]);
+    }
+    S.lastSync = data.at || null;
+    saveCache();
+  } else {
+    const cached = await idbGet('data');
+    if (cached) {
+      S.data = {};
+      for (const c of Object.keys(cached)) S.data[c] = new Map((cached[c] || []).map(r => [Number(r.id), r]));
+    }
+  }
+  try { localStorage.setItem('payesh.lastuser', JSON.stringify({ user, role: user.role, version: CLIENT_VERSION, school: S.server.school })); } catch (e) { /* noop */ }
+  routeFromHash();
+  render();
+  scheduleSync();
+  toast('خوش آمدید ' + (user.name || ''), 'ok');
 }
 
 async function doPair(form) {
@@ -589,6 +710,7 @@ window.addEventListener('hashchange', async () => {
 
 /* ── وضعیت شبکه/تونل (فقط مدیر) ─────────────────────────────────── */
 async function loadNetwork(force) {
+  if (PHONE_MODE) { S.network = { phone: true, lan_urls: [], public: {} }; return S.network; }
   try {
     const r = await api('/api/admin/network' + (force ? '?force=1' : ''), { noAuthRedirect: true });
     S.network = r;
@@ -623,6 +745,7 @@ function render() {
 
 /* ── حافظهٔ ابری ────────────────────────────────────────────────── */
 async function loadCloud() {
+  if (PHONE_MODE) { S.cloud = { phone: true }; return S.cloud; }
   try { const r = await api('/api/admin/cloud'); S.cloud = r.config; }
   catch (e) { S.cloud = { configured: false }; toast('خواندن تنظیمات حافظهٔ ابری ناموفق: ' + e.message, 'err'); }
 }
@@ -863,10 +986,11 @@ async function boot() {
       fetch(apiUrl('/api/setup/state'), { cache: 'no-store' }).then(r => r.json()).catch(() => null),
     ]);
     if (!health || !health.ok) {
-      /* سرور در دسترس نیست: اگر روی همین دستگاه داده و نشستِ قبلی داریم،
-         برنامه را از حافظه بالا می‌آوریم (هیچ صفحهٔ بن‌بستی نشان نمی‌دهیم) */
+      /* سرور در دسترس نیست: روی گوشی/رایانهٔ بدون سرور، «کل برنامه» باید
+         باز شود؛ پس اول همین دستگاه، بعد ورود با شماره+رمز از صندوقچه. */
+      PHONE_MODE = true;
       if (await startOffline()) return;
-      renderOffline(); return;
+      renderPhoneLogin(); return;
     }
     S.server = {
       ok: true, version: health.version, school: health.school,
@@ -1209,6 +1333,7 @@ document.addEventListener('submit', async (e) => {
   if (kind === 'setup') return doSetup(f);
   if (kind === 'pair') return doPair(f);
   if (kind === 'login') return doLogin(f);
+  if (kind === 'phone-login') return doPhoneLogin(f);
   if (kind === 'claim') return doClaim(f);
   if (kind === 'unlock') return doUnlock(f);
   if (kind === 'transfer') return doTransfer(f);
