@@ -21,6 +21,8 @@ const COLLECTIONS = {
   lookups:          { write: ['manager'], read: 'all' },
   schedule:         { write: ['manager'], read: 'all' },
   bell_schedules:   { write: ['manager'], read: 'all' },
+  /* جابه‌جای موقتِ زنگ‌ها (دبیر جایگزین برای یک تاریخ) */
+  substitutions:    { write: ['manager'], read: 'all' },
   attendance:       { write: ['manager', 'teacher'], read: 'all' },
   grades:           { write: ['manager', 'teacher'], read: 'all' },
   announcements:    { write: ['manager'], read: 'all' },
@@ -127,6 +129,8 @@ function rowInScope(scope, collection, row) {
     case 'school_years':
     case 'bell_schedules':
       return true;
+    case 'substitutions':
+      return row.class_id == null || scope.classIds.has(Number(row.class_id));
     case 'discipline':
       return scope.studentIds.has(Number(row.student_id)) ||
         (scope.role === 'teacher' && scope.classIds.has(Number(row.class_id)));

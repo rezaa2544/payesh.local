@@ -37,8 +37,8 @@ android {
         targetSdk 34
         /* با هر انتشار یکی زیاد شود؛ اندروید فقط نسخه‌ای را روی نسخهٔ
            نصب‌شده می‌پذیرد که شمارهٔ ساختش بزرگ‌تر یا مساوی باشد. */
-        versionCode 813
-        versionName "0.8.13"
+        versionCode 814
+        versionName "0.8.14"
         resConfigs "fa", "en"
         buildConfigField "String", "PAYESH_URL", '"' + payeshUrl.replace('"', '') + '"'
         buildConfigField "String", "PAYESH_CLOUD_BUCKET", '"' + payeshBucket.replace('"', '') + '"'

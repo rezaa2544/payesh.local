@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.13';
+const CLIENT_VERSION = '0.8.14';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -723,7 +723,10 @@ async function doLogin(form) {
     S.user = r.user; S.role = r.user.role;
     await start();
   } catch (e) {
-    toast(/bad_credentials/.test(e.message) ? 'شماره یا رمز عبور درست نیست' : 'ورود ناموفق: ' + e.message, 'err');
+    const em = String((e && e.message) || '');
+    if (/no_password/.test(em)) return toast('این حساب هنوز رمز ندارد — مدیر باید از «کاربران ← ویرایش» یک رمز بسازد', 'err');
+    if (/bad_credentials/.test(em)) return toast('شماره یا رمز عبور درست نیست', 'err');
+    toast('ورود ناموفق: ' + em, 'err');
   }
 }
 
@@ -760,6 +763,7 @@ async function doPhoneLogin(f) {
     if (!r.ok) {
       const map = {
         bad_credentials: 'شماره یا رمز عبور درست نیست',
+        no_password: 'این حساب هنوز رمز ندارد — از مدیر بخواهید رمز بسازد',
         not_registered: 'این شماره در مدرسه ثبت نشده — از مدیر بخواهید حساب بسازد (و یک‌بار با سیستم مدرسه همگام شود)',
         user_inactive: 'حساب غیرفعال است',
         bad_phone: 'شمارهٔ همراه کامل نیست',
@@ -1489,6 +1493,10 @@ document.addEventListener('click', async (e) => {
   if (!el) return;
   const act = el.getAttribute('data-act');
   const id = el.getAttribute('data-id');
+  /* کنش‌های برنامهٔ هفتگی (client/schedule.js) */
+  if (window.SCHED_ACTIONS && typeof window.SCHED_ACTIONS[act] === 'function') {
+    return window.SCHED_ACTIONS[act](el, id, e);
+  }
 
   switch (act) {
     case 'modal-close': closeModal(); return;
@@ -1546,7 +1554,8 @@ document.addEventListener('click', async (e) => {
         try {
           const r = await api('/api/admin/users/' + u.id, { method: 'PATCH', body: { auto_password: true } });
           if (!r.ok) throw new Error(r.error === 'no_national_id' ? 'کد ملی این کاربر ثبت نشده' : (r.error || 'خطا'));
-          toast(u.name + ' آمادهٔ ورود از گوشی شد — رمز: کد ملی', 'ok');
+          toast(u.name + ' آمادهٔ ورود از گوشی شد — رمز: ' + (r.password || 'کد ملی'), 'ok');
+          S.creds = undefined;
           await syncNow(true); render();
         } catch (e) { toast('انجام نشد: ' + friendlyError(e), 'err'); }
       } else {
@@ -1561,8 +1570,13 @@ document.addEventListener('click', async (e) => {
       if (pw === null) return;
       if (String(pw).length < 4) return toast('رمز کوتاه است', 'err');
       try {
-        await api('/api/admin/users/' + u.id + '/password', { method: 'POST', body: { password: String(pw) } });
-        toast('رمز عبور ثبت شد — ' + (u.phone ? 'ورود با ' + u.phone : 'شمارهٔ همراه لازم است'), 'ok');
+        const r = await api('/api/admin/users/' + u.id + '/password', { method: 'POST', body: { password: String(pw) } });
+        /* رمزِ نمایش‌داده‌شده باید بلافاصله همان رمز تازه باشد */
+        putLocal('users', Object.assign({}, u, { password_plain: String(pw) }));
+        if (S.creds && S.creds[u.id]) S.creds[u.id] = Object.assign({}, S.creds[u.id], { password: String(pw) });
+        else S.creds = undefined;
+        if (r && r.password && S.creds) S.creds[u.id] = Object.assign({}, S.creds[u.id], { password: String(r.password) });
+        toast('رمز تازه ثبت شد: ' + (r && r.password ? r.password : String(pw)) + (u.phone ? ' — ورود با ' + u.phone : ' — شمارهٔ همراه لازم است'), 'ok');
         await syncNow(true); render();
       } catch (e) { toast('ثبت نشد: ' + friendlyError(e), 'err'); }
       return;
@@ -1877,11 +1891,53 @@ document.addEventListener('click', async (e) => {
     case 'def-delete': {
       const r = byId('lookups', Number(id));
       if (!r) return;
-      if (!confirm('«' + r.name + '» از فهرست ' + (LOOKUP_FA[r.kind] || 'تعریف‌ها') + ' حذف شود؟ (کلاس‌های ساخته‌شده دست‌نخورده می‌مانند)')) return;
+      /* هنگام حذف می‌پرسیم: فقط خودش، یا هر چیزی که به آن وابسته است */
+      const linked = list('classes').filter(c => String(r.kind === 'grade' ? c.grade : c.branch || '') === String(r.name));
+      const label = LOOKUP_FA[r.kind] || 'مورد';
+      if (!linked.length) {
+        if (!confirm('«' + r.name + '» از فهرست ' + label + '‌ها حذف شود؟')) return;
+        removeLocal('lookups', r.id);
+        saveCache(); render();
+        await flushQueue();
+        toast('حذف شد', 'ok');
+        return;
+      }
+      S.modalTitle = 'حذف ' + label + ' — ' + r.name;
+      modal(`<div class="small">این ${label} در <b>${fa(linked.length)} کلاس</b> استفاده شده است:
+          ${esc(linked.map(c => c.name).slice(0, 8).join('، '))}${linked.length > 8 ? ' …' : ''}
+        </div>
+        <div class="small muted" style="margin-top:8px">چه کاری انجام شود؟</div>
+        <button class="btn block" data-act="def-delete-only" data-id="${r.id}" style="margin-top:10px">فقط ${label} حذف شود (کلاس‌ها بمانند)</button>
+        <button class="btn block" data-act="def-delete-cascade" data-id="${r.id}" style="margin-top:8px;background:#b91c1c;color:#fff">
+          ${label} و ${fa(linked.length)} کلاسِ آن حذف شوند</button>
+        <button class="btn block ghost" data-act="modal-close" style="margin-top:8px">انصراف</button>
+        <div class="small muted" style="margin-top:8px">با حذف کلاس‌ها، دانش‌آموزان حذف نمی‌شوند؛ فقط بی‌کلاس می‌شوند و زنگ‌های برنامهٔ آن کلاس‌ها پاک می‌شود.</div>`);
+      return;
+    }
+    case 'def-delete-only': {
+      const r = byId('lookups', Number(id));
+      if (!r) return;
       removeLocal('lookups', r.id);
-      saveCache(); render();
+      closeModal(); saveCache(); render();
       await flushQueue();
       toast('حذف شد', 'ok');
+      return;
+    }
+    case 'def-delete-cascade': {
+      const r = byId('lookups', Number(id));
+      if (!r) return;
+      const linked = list('classes').filter(c => String(r.kind === 'grade' ? c.grade : c.branch || '') === String(r.name));
+      let removedClasses = 0;
+      for (const c of linked) {
+        for (const sg of list('schedule').filter(x => Number(x.class_id) === Number(c.id))) removeLocal('schedule', sg.id);
+        for (const u of list('users').filter(u2 => Number(u2.class_id) === Number(c.id))) putLocal('users', Object.assign({}, u, { class_id: null }));
+        removeLocal('classes', c.id);
+        removedClasses += 1;
+      }
+      removeLocal('lookups', r.id);
+      closeModal(); saveCache(); render();
+      await flushQueue();
+      toast((LOOKUP_FA[r.kind] || 'مورد') + ' و ' + fa(removedClasses) + ' کلاس حذف شد', 'ok');
       return;
     }
     case 'subject-add': actSubjectAdd(); return;
@@ -2001,6 +2057,10 @@ document.addEventListener('submit', async (e) => {
   e.preventDefault();
   const kind = form.getAttribute('data-form');
   const f = form.elements;
+  /* فرم‌های برنامهٔ هفتگی (client/schedule.js) */
+  if (window.SCHED_FORMS && typeof window.SCHED_FORMS[kind] === 'function') {
+    return window.SCHED_FORMS[kind](f, form);
+  }
 
   if (kind === 'setup') return doSetup(f);
   if (kind === 'pair') return doPair(f);
@@ -2018,6 +2078,7 @@ document.addEventListener('submit', async (e) => {
       grade: f.grade ? f.grade.value : '',
       branch: f.branch ? f.branch.value : '',
       capacity: Number((f.capacity && f.capacity.value) || 30),
+      teacher_id: Number((f.teacher_id && f.teacher_id.value) || 0) || null,
       school_id: 1,
     };
     const id = f.id ? Number(f.id.value) : 0;
@@ -2258,9 +2319,11 @@ document.addEventListener('submit', async (e) => {
         op: { collection: 'users', type: 'put', id, data: { __password_verifier: makeVerifier(password) }, base_version: 0 },
       });
     }
+    S.creds = undefined;      /* رمز نمایش‌داده‌شده باید تازه شود */
     closeModal(); saveCache(); render();
     await flushQueue();
     if (!PHONE_MODE) await pullAll().catch(() => {});
+    S.creds = undefined;
     render();
     if (password && !passwordOnServer) {
       toast(PHONE_MODE

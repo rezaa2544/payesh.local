@@ -14,7 +14,7 @@ const EPOCH = '1970-01-01T00:00:00.000Z';
 
 const DEFAULT_COLLECTIONS = [
   'schools', 'school_years', 'users', 'classes', 'subjects', 'lookups', 'schedule', 'bell_schedules',
-  'attendance', 'grades', 'announcements', 'leaves', 'parent_links', 'internships',
+  'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'parent_links', 'internships',
   'staff_attendance', 'staff_posts', 'discipline', 'homework', 'exams', 'calendar',
 ];
 

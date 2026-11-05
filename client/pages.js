@@ -667,21 +667,16 @@ PAGES.users = () => {
 };
 
 /* ══════════════ تعریف‌ها (پایه، رشته) ══════════════ */
-/* اگر مدرسه هنوز چیزی تعریف نکرده باشد، فهرست‌های رایج نمایش داده می‌شوند
-   تا فرم کلاس از همان ابتدا پر شود؛ این‌ها فقط پیشنهادند و با اولین ثبت،
-   ردیف واقعی می‌شوند (قابل ویرایش و حذف). */
-const DEFAULT_LOOKUPS = {
-  grade: ['دهم', 'یازدهم', 'دوازدهم'],
-  branch: ['شبکه و نرم‌افزار', 'ریاضی و فیزیک', 'علوم تجربی', 'علوم انسانی'],
-};
+/* فقط تعریف‌های واقعیِ ثبت‌شده نمایش داده می‌شوند؛ هیچ فهرست پیش‌فرضی در کار
+   نیست تا چیزی که حذف شده دیگر برنگردد. */
 const LOOKUP_FA = { grade: 'پایه', branch: 'رشته' };
 
+/* فقط چیزی که واقعاً تعریف شده برمی‌گردد. فهرست پیش‌فرضی در کار نیست،
+   وگرنه رشته‌ای که مدیر حذف کرده دوباره پایین صفحه ظاهر می‌شد. */
 function lookupList(kind) {
-  const rows = list('lookups')
+  return list('lookups')
     .filter(l => String(l.kind) === String(kind))
     .sort((a, b) => (Number(a.order || 0) - Number(b.order || 0)) || String(a.name).localeCompare(String(b.name)));
-  if (rows.length) return rows;
-  return (DEFAULT_LOOKUPS[kind] || []).map((name, i) => ({ id: 'پیش‌فرض-' + kind + i, name, kind, order: i + 1, _default: true }));
 }
 
 /* یک ردیف تعریف با دکمه‌های ویرایش و حذف */
@@ -689,9 +684,7 @@ function lookupRowHtml(row, kind) {
   const used = kind === 'grade'
     ? list('classes').filter(c => String(c.grade || '') === String(row.name)).length
     : list('classes').filter(c => String(c.branch || '') === String(row.name)).length;
-  const actions = row._default
-    ? `<button class="btn sm ghost" data-act="def-add" data-kind="${kind}" data-name="${esc(row.name)}" title="ثبت این مورد">افزودن</button>`
-    : `<button class="btn sm ghost" data-act="def-edit" data-id="${row.id}">ویرایش</button>
+  const actions = `<button class="btn sm ghost" data-act="def-edit" data-id="${row.id}">ویرایش</button>
        <button class="btn sm ghost" style="color:#b91c1c" data-act="def-delete" data-id="${row.id}">حذف</button>`;
   return `<div class="item"><div class="grow"><div class="t">${esc(row.name)}</div>
       <div class="s">${used ? fa(used) + ' کلاس از این مورد استفاده می‌کند' : 'بدون استفاده'}</div></div>
@@ -741,29 +734,7 @@ PAGES.classes = () => {
 };
 
 /* ══════════════ برنامه و زنگ ══════════════ */
-PAGES.schedule = () => {
-  const classes = list('classes');
-  const bells = sortBy(list('bell_schedules'), 'order');
-  const days = [0, 1, 2, 3, 4];
-  const sel = Number(S.schedClass || (classes[0] && classes[0].id) || 0);
-  const rows = list('schedule').filter(s => Number(s.class_id) === sel);
-  const cell = (day, order) => {
-    const s = rows.find(x => Number(x.weekday) === day && Number(x.bell_order) === Number(order));
-    if (!s) return '<td class="muted">—</td>';
-    const subj = byId('subjects', s.subject_id) || {};
-    const t = byId('users', s.teacher_id) || {};
-    return `<td><div style="font-size:12.5px"><b>${esc(subj.name || '')}</b></div><div class="small muted">${esc(String(t.name || '').split(' ')[0])}</div></td>`;
-  };
-  return `${pageHead('برنامهٔ هفتگی', 'نمای خواندنی', '')}
-  <div class="card tight"><div class="pill-tabs">
-    ${classes.map(c => `<span class="pill ${Number(c.id) === sel ? 'on' : ''}" data-act="sched-class" data-id="${c.id}">${esc(c.name)}</span>`).join('')}
-  </div></div>
-  ${card(`<div class="table-wrap"><table><thead><tr><th>زنگ</th>${days.map(d => `<th>${J_DAYS[d]}</th>`).join('')}</tr></thead><tbody>
-    ${bells.filter(b => b.type === 'lesson').map(b => `<tr><td class="small"><b>${esc(b.start)}</b><br><span class="muted">${esc(b.end)}</span></td>
-      ${days.map(d => cell(d, b.order)).join('')}</tr>`).join('')}
-  </tbody></table></div>`)}
-  <div class="small muted" style="padding:0 6px">ویرایش برنامه در نسخهٔ بعدی از همین صفحه اضافه می‌شود؛ فعلاً از دادهٔ ورودی/اکسل استفاده می‌شود.</div>`;
-};
+PAGES.schedule = () => (typeof window.schedPage === 'function' ? window.schedPage() : empty('برنامه در دسترس نیست.'));
 
 /* ══════════════ گزارش‌ها ══════════════ */
 PAGES.reports = () => {
@@ -1470,16 +1441,24 @@ function classFormHtml(c) {
   const grades = lookupList('grade');
   const branches = lookupList('branch');
   const editing = c && c.id;
+  const pick = (kind, listArr, val) => (listArr.length
+    ? `<select class="input" name="${kind}">${opts(listArr, val)}</select>`
+    : `<input class="input" name="${kind}" value="${esc(val || '')}" placeholder="در بخش ${LOOKUP_FA[kind]}ها تعریف کنید">`);
   return `<form data-form="class">
     ${editing ? `<input type="hidden" name="id" value="${esc(c.id)}">` : ''}
     <label class="field"><span>نام کلاس</span>
       <input class="input" name="name" required value="${esc(editing ? c.name : '')}" placeholder="مثلاً دهم شبکه"></label>
     <div class="row">
-      <label class="field grow"><span>پایه</span><select class="input" name="grade">${opts(grades, editing ? c.grade : '')}</select></label>
-      <label class="field grow"><span>رشته</span><select class="input" name="branch">${opts(branches, editing ? c.branch : '')}</select></label>
+      <label class="field grow"><span>پایه</span>${pick('grade', grades, editing ? c.grade : '')}</label>
+      <label class="field grow"><span>رشته</span>${pick('branch', branches, editing ? c.branch : '')}</label>
     </div>
     <label class="field"><span>ظرفیت</span>
       <input class="input ltr" name="capacity" inputmode="numeric" value="${esc(editing ? (c.capacity || 30) : 30)}"></label>
+    <label class="field"><span>دبیر پایه (سرپرست) — اختیاری</span>
+      <select class="input" name="teacher_id">
+        <option value="">— بدون دبیر پایه —</option>
+        ${list('users').filter(u => u.role === 'teacher').map(t => `<option value="${esc(t.id)}" ${Number(t.id) === Number(editing ? c.teacher_id : 0) ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
+      </select></label>
     <div class="small muted">اگر پایه یا رشتهٔ دلخواه در فهرست نیست، در همین صفحه از بخش «پایه‌ها» یا «رشته‌ها» اضافه کنید.</div>
     <button class="btn primary block" style="margin-top:10px">${editing ? 'ذخیرهٔ تغییرات' : 'ایجاد کلاس'}</button>
   </form>`;

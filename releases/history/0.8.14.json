@@ -1,0 +1,257 @@
+{
+  "version": "0.8.14",
+  "built_at": "2026-11-05T22:07:17.563Z",
+  "notes": [
+    "برنامهٔ هفتگی حالا کاملاً قابل تعریف است — همان چیزی که در نسخهٔ قبلی بود، مو‌به‌مو پیاده شد: روی هر خانهٔ جدول (روز × زنگ) بزنید و درس و دبیرش را انتخاب کنید؛ خانهٔ خالی «+ افزودن» دارد.",
+    "کنترل تداخل مثل قبل: اگر دبیر همان ساعت جای دیگری کلاس داشته باشد، خانه با 🔴 نشان داده می‌شود و ثبت نمی‌شود. تداخل‌های موجود در کارت جداگانه فهرست می‌شوند و دکمهٔ «پیشنهاد جای آزاد» برای هر زنگ، جای خالیِ کلاس و دبیر را می‌آورد و با یک کلیک جابه‌جا می‌کند.",
+    "جابه‌جای موقت: برای هر زنگ می‌توانید برای یک تاریخ مشخص (همان روز هفته) دبیر جایگزین بگذارید؛ در جدول با 🔁 دیده می‌شود و در فهرست پایین صفحه قابل حذف است.",
+    "تولید خودکار برنامه: با یک دکمه، برنامهٔ کل مدرسه پیشنهاد می‌شود (اول دبیرِ متخصص هر درس، بعد پرکردن خانه‌های خالی با پراکندگی روزانه). پیش‌نمایش نشان می‌دهد چند زنگ ثبت می‌شود و چه چیزی جا نمی‌ماند؛ ثبت فقط در خانه‌های خالی انجام می‌شود و برنامهٔ فعلی را خراب نمی‌کند.",
+    "تنظیم زنگ‌ها: مدیر می‌تواند زنگ‌ها را اضافه/حذف کند و ساعت شروع و پایان و درس یا تفریح بودن هر زنگ را تعیین کند؛ ترتیب همین زنگ‌ها، ستون‌های برنامه است.",
+    "دبیر «سرپرست» یک کلاس (دبیر پایه) می‌تواند از یک انتخابگر، برنامهٔ کامل همان کلاس را ببیند. دانش‌آموز برنامهٔ کلاس خودش و ولی برنامهٔ کلاس فرزندش را می‌بیند.",
+    "ولیِ بدون کد ملی: ریشهٔ پیام «نام کاربری یا رمز اشتباهه» پیدا و رفع شد. حسابی که شمارهٔ همراه داشت ولی کد ملی نداشت، هیچ رمزی برایش ساخته نمی‌شد و همیشه رد می‌شد. حالا برای چنین حسابی رمز ساخته می‌شود، در فهرست کاربران کنار نامش دیده می‌شود و همهٔ حساب‌های قدیمی هم یک‌بار خودکار تعمیر می‌شوند.",
+    "تغییر رمز: رمز واقعاً عوض می‌شود و همان رمز تازه بلافاصله در جدول کاربران نشان داده می‌شود (قبلاً رمز قبلی از حافظهٔ دستگاه خوانده می‌شد).",
+    "محدودیت ورود اشتباه: سقف تلاش ورود به ازای هر شماره شمرده می‌شود، نه به ازای یک آدرس اینترنتی؛ در مدرسه‌ای که همه با یک اینترنت وارد می‌شوند، ورود یک نفر دیگر کسی را بیرون نمی‌گذارد.",
+    "حذف پایه یا رشته: اگر آن پایه/رشته در کلاس‌ها استفاده شده باشد، هنگام حذف می‌پرسد «فقط خودش حذف شود» یا «خودش و همهٔ کلاس‌هایش»؛ با گزینهٔ دوم، دانش‌آموزان حذف نمی‌شوند و فقط بی‌کلاس می‌شوند.",
+    "تعریف‌های حذف‌شده دیگر برنمی‌گردند: فهرست پیش‌فرضی که رشته‌های حذف‌شده را دوباره نشان می‌داد برداشته شد."
+  ],
+  "shell": {
+    "android": "0.8.14"
+  },
+  "files": [
+    {
+      "path": "client/app.js",
+      "kind": "client",
+      "sha256": "38d45308a52703b70c9bcc3181fe0c835f49a061a61eabfd5be729044d9892b9",
+      "size": 120247
+    },
+    {
+      "path": "client/cloud-baked.js",
+      "kind": "client",
+      "sha256": "ac52983a820bc461c34f35f65b7c35e59899605bd5684200c4bb571e3906ed38",
+      "size": 620
+    },
+    {
+      "path": "client/icons/apple-touch-icon.png",
+      "kind": "client",
+      "sha256": "5729bb601826310a59013b4db0c5a5ddc595beabd416312dbc4e40dc01f59c8a",
+      "size": 7028
+    },
+    {
+      "path": "client/icons/icon-192.png",
+      "kind": "client",
+      "sha256": "370ab173bc616faceeaf603c015912c648b4e79cac77f8ff82b68a22df9b5620",
+      "size": 7447
+    },
+    {
+      "path": "client/icons/icon-512.png",
+      "kind": "client",
+      "sha256": "1c7c5042830e23f4e21eafc61ff39f8fff71d0a2df3b4f5c46d066b7ff457218",
+      "size": 13315
+    },
+    {
+      "path": "client/index.html",
+      "kind": "client",
+      "sha256": "0064f207b7e6ed7310ff2a8a962bc93ca64e22329029b00e30fc2ddd91d0e661",
+      "size": 1340
+    },
+    {
+      "path": "client/install.html",
+      "kind": "client",
+      "sha256": "df63fb9668876018cc3fdec95cbf0469af2197806629fe278e1ae964d32aff15",
+      "size": 10109
+    },
+    {
+      "path": "client/lib/hash.js",
+      "kind": "client",
+      "sha256": "5b7c5a70d25f50876074f13a7a9b3eda5b7daac2464eb17459edce3747dde645",
+      "size": 6150
+    },
+    {
+      "path": "client/lib/phone.js",
+      "kind": "client",
+      "sha256": "eea2d2089d5d695290ff5bb69049ce5e3468b646270e4a2c3c4678c4903c73a0",
+      "size": 18489
+    },
+    {
+      "path": "client/lib/s3mini.js",
+      "kind": "client",
+      "sha256": "b6c3e89264cf3e7c275493c479ba48eab23282097cb6028ac253f8a88eb7dc6e",
+      "size": 16251
+    },
+    {
+      "path": "client/lib/sigv4.js",
+      "kind": "client",
+      "sha256": "6039b7f7f1d824f6d492a4a4e33b624863b10a802f0afaebfacfd0bf9b65678a",
+      "size": 9444
+    },
+    {
+      "path": "client/lib/xlsx.js",
+      "kind": "client",
+      "sha256": "95bdbafc579fe2cba19804d657609cf75cbad165651dfd9c2db0d7b4e0da44f5",
+      "size": 11511
+    },
+    {
+      "path": "client/manifest.webmanifest",
+      "kind": "client",
+      "sha256": "175a463c06fd172da665f4850c7d3598b5468a1071c1f3a55463bf307ef10987",
+      "size": 960
+    },
+    {
+      "path": "client/pages.js",
+      "kind": "client",
+      "sha256": "2b4fa420a47eadd105e42211e044f52d68bef4d67629b96b0cb2f6cd2df1a351",
+      "size": 127940
+    },
+    {
+      "path": "client/schedule.js",
+      "kind": "client",
+      "sha256": "55a680cb1df01d28a6abe9be29264b671bc271430ce47528c0049f5464593d50",
+      "size": 41842
+    },
+    {
+      "path": "client/styles.css",
+      "kind": "client",
+      "sha256": "de334c60cc11468ac57d11ac3188c340b7ffea6e5b6ec1b5e933e06742f96405",
+      "size": 10693
+    },
+    {
+      "path": "client/sw.js",
+      "kind": "client",
+      "sha256": "b0b96ad9f10bf7c78d02e7db3290eb4b579af82147740a6eff8716c0d02898df",
+      "size": 7399
+    },
+    {
+      "path": "install.bat",
+      "kind": "server",
+      "sha256": "e7bff8e3fda9a280ced1550fe52d5cb404a3aa9472added6b0825f6d864f2799",
+      "size": 409
+    },
+    {
+      "path": "package.json",
+      "kind": "server",
+      "sha256": "7aaf80a2b9cac5d36540a4ca8876a5a1caa1639016565822637f1d88b1151dd4",
+      "size": 1963
+    },
+    {
+      "path": "server/auth.js",
+      "kind": "server",
+      "sha256": "1f74b86211d018a3751f77510e59fbeed5e2f859219fac5d20390e01d4c5b66b",
+      "size": 19705
+    },
+    {
+      "path": "server/cloud-defaults.js",
+      "kind": "server",
+      "sha256": "09a4e869ee46555cbbf215653e2e019298fcfec78af703be4cbe228baee381ba",
+      "size": 2129
+    },
+    {
+      "path": "server/config.js",
+      "kind": "server",
+      "sha256": "e2e27e4c6324a9f12c813b0540c762a8ca3b01e81f4e52f8281acd0bb0e915ac",
+      "size": 4230
+    },
+    {
+      "path": "server/db.js",
+      "kind": "server",
+      "sha256": "904fbbb7473525b1294c260b056de01b4c8ed5aaf7bed96ca1159431461ff107",
+      "size": 11594
+    },
+    {
+      "path": "server/index.js",
+      "kind": "server",
+      "sha256": "4969ca9be1fdd3f887feb7282a51d71a7bb4b3cef5b7a82ea08890d11a42577e",
+      "size": 66359
+    },
+    {
+      "path": "server/live.js",
+      "kind": "server",
+      "sha256": "521156bfbe8ea5b1bc78108bbfdfac2b4874faddb9a77ebf675b02fdad7ea615",
+      "size": 7396
+    },
+    {
+      "path": "server/outbox.js",
+      "kind": "server",
+      "sha256": "1ba39af66bd9cbf7c9f4ab801b975b40aaf97bbc6ed1f7e409273090c53a2d7a",
+      "size": 19852
+    },
+    {
+      "path": "server/policy.js",
+      "kind": "server",
+      "sha256": "af970640fa27210ebcb2f55728e29511c96b7e04418d20d7110a35ac49b8f5f7",
+      "size": 9439
+    },
+    {
+      "path": "server/qr.js",
+      "kind": "server",
+      "sha256": "5a3540a4e33af3acf3261a5a66c9d4547521203b7f71cedf45d91300268f6a65",
+      "size": 13353
+    },
+    {
+      "path": "server/s3mem.js",
+      "kind": "server",
+      "sha256": "f2ddb2bacd45e99b3b1f2b242a2fcceb5f7d8d8d9c64474f978468691d0b075f",
+      "size": 4233
+    },
+    {
+      "path": "server/seed.js",
+      "kind": "server",
+      "sha256": "1a0f7c07a032f33d140e344b33e4e4dd9ea9f60460b9de06bd0d0961a53eed97",
+      "size": 13166
+    },
+    {
+      "path": "server/start.js",
+      "kind": "server",
+      "sha256": "6d8d44108fcc49326a93c9d1d0d7265bd4836690a918a6e55ef97f20dacea673",
+      "size": 4052
+    },
+    {
+      "path": "server/sync.js",
+      "kind": "server",
+      "sha256": "4983a9b1494db30a17d6bff655acc03f99352b2482d7cb675240f3c26ebcb4a9",
+      "size": 7769
+    },
+    {
+      "path": "server/tunnel.js",
+      "kind": "server",
+      "sha256": "e6bd83bcbe2bef5bb88d1c4d9356b4bd598c05d8a9dcb64d155566e2af1f0a7e",
+      "size": 13528
+    },
+    {
+      "path": "server/update.js",
+      "kind": "server",
+      "sha256": "ba6689180817934928438b4c0677e3b1ff20494f87295ffc78f5fcaf80ce9f54",
+      "size": 22323
+    },
+    {
+      "path": "server/util.js",
+      "kind": "server",
+      "sha256": "8dbb0aad000c1ed598ac5188b291d13f5e1dba9a4e84a184d79e80202decc3ad",
+      "size": 3581
+    },
+    {
+      "path": "start.bat",
+      "kind": "server",
+      "sha256": "104c83f90f839e39f904e4bfe135caad385c7c82bb3d43c64bf46abf13e53a7f",
+      "size": 292
+    },
+    {
+      "path": "start.sh",
+      "kind": "server",
+      "sha256": "4419326c416d5d9d4b698e5ae0f90e9b6e0a5aa30cb8064169a21a620f75ff98",
+      "size": 216
+    },
+    {
+      "path": "uninstall.bat",
+      "kind": "server",
+      "sha256": "2c421ee99ad515ed535fd346758883535d9a49b20058194001fd035bb775ded0",
+      "size": 151
+    }
+  ],
+  "counts": {
+    "client": 17,
+    "server": 21
+  },
+  "client_size": 410785,
+  "server_size": 225740,
+  "total_size": 636525
+}
