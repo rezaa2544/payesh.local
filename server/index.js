@@ -21,6 +21,7 @@ const qr = require('./qr');
 const hub = require('./hub');
 const update = require('./update');
 const tunnel = require('./tunnel');
+const shortcut = require('./shortcut');
 const { nowISO, json, normDigits, validNationalId, sha256 } = require('./util');
 
 /* ریشهٔ برنامه — آزمون‌ها می‌توانند با PAYESH_APP_ROOT روی یک کپی کار کنند */
@@ -825,6 +826,16 @@ server.listen(PORT, HOST, () => {
   try { hub.start(store); } catch (e) { console.error('hub start failed', e.message); }
   /* تونل عمومی: اگر Tailscale Funnel یا تونل Cloudflare روشن باشد، آدرس را برمی‌داریم */
   try { tunnel.start(store, { port: PORT }); } catch (e) { console.error('tunnel start failed', e.message); }
+
+  /* ویندوز: بعد از به‌روزرسانی درجا، میان‌بر «برنامه» را بساز/اصلاح کن
+     (نسخه‌های قدیمی «پایش.url» داشتند که تب مرورگر باز می‌کرد) */
+  try {
+    shortcut.ensureInBackground({
+      root: ROOT, port: PORT, store,
+      version: require('../package.json').version,
+      log: m => console.log('  shortcut: ' + m),
+    });
+  } catch (e) { console.error('shortcut ensure failed', e.message); }
 
   /* بررسی خودکار نسخهٔ منتشرشده (اگر «نصب خودکار» روشن باشد، خودش اعمال می‌کند) */
   try {
