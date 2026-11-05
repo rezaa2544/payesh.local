@@ -126,7 +126,7 @@ function renderSetup() {
   <div class="auth">
     <div class="logo">پ</div>
     <h1>راه‌اندازی پایش-لوکال</h1>
-    <div class="sub">این فرم فقط یک‌بار پر می‌شود.</div>
+    <div class="sub">این فرم فقط یک‌بار پر می‌شود؛ بعد از آن همیشه صفحهٔ ورود می‌آید.</div>
     <form data-form="setup" class="card">
       <label class="field"><span>نام مدرسه</span><input class="input" name="school_name" required placeholder="دبیرستان کاردانش ..."></label>
       <div class="row">
@@ -138,11 +138,17 @@ function renderSetup() {
         <label class="field grow"><span>سال تحصیلی</span><input class="input" name="school_year" value="۱۴۰۵–۱۴۰۶"></label>
       </div>
       <label class="field"><span>نام مدیر</span><input class="input" name="manager_name" required placeholder="نام و نام خانوادگی"></label>
-      <label class="field"><span>شمارهٔ همراه مدیر</span><input class="input ltr" name="phone" inputmode="numeric" placeholder="09xxxxxxxxx"></label>
-      <label class="field"><span>PIN ورود مدیر (۴ تا ۶ رقم)</span><input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" required placeholder="••••"></label>
+      <label class="field"><span>شمارهٔ همراه مدیر (نام کاربری ورود)</span><input class="input ltr" name="phone" inputmode="numeric" data-digits placeholder="09xxxxxxxxx"></label>
+      <label class="field"><span>رمز عبور مدیر</span><input class="input ltr" type="password" name="password" minlength="4" required autocomplete="new-password" placeholder="حداقل ۴ نویسه"></label>
+      <label class="field"><span>تکرار رمز عبور</span><input class="input ltr" type="password" name="password2" minlength="4" required autocomplete="new-password"></label>
+      <label class="field"><span>PIN سریع برای این دستگاه (اختیاری، ۴ تا ۶ رقم)</span><input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" data-digits placeholder="••••"></label>
       <button class="btn primary block" type="submit">ایجاد مدرسه</button>
-      <p class="small muted center" style="margin-top:10px">پس از این مرحله، برای هر کاربر «کارت پیوند» می‌سازید.</p>
+      <p class="small muted center" style="margin-top:10px">بعد از این، با «شمارهٔ همراه + رمز عبور» وارد می‌شوید.</p>
     </form>
+    <div class="card tight small muted center">
+      محل ذخیرهٔ داده: <span class="ltr">${esc((S.server && S.server.dataDir) || '—')}</span>
+      ${S.deviceToken ? '<div style="margin-top:6px;color:#b45309">این دستگاه قبلاً به مدرسه وصل بوده باشد؛ اگر دادهٔ قبلی را می‌خواهید، پیش از ساخت مدرسهٔ تازه به مدیر اطلاع دهید.</div>' : ''}
+    </div>
   </div>`;
 }
 
@@ -150,19 +156,30 @@ function renderPair() {
   const href = location.hash;
   const m = href.match(/#\/join\/([A-Za-z0-9-]+)/);
   const pre = m ? m[1].toUpperCase() : '';
+  const mode = (S.loginMode || (pre ? 'pair' : 'password'));
+  const body = mode === 'pair' ? `
+      <label class="field"><span>کد پیوند</span>
+        <input class="input code-input" name="code" value="${esc(pre)}" maxlength="12" placeholder="XXXX-XXXX" autocomplete="off"></label>
+      <label class="field"><span>PIN انتخابی شما (۴ تا ۶ رقم)</span>
+        <input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" data-digits placeholder="••••" autocomplete="off"></label>
+      <button class="btn primary block" type="submit">ورود و ثبت این دستگاه</button>
+      <p class="small muted center" style="margin-top:10px">کد را از دفتر مدرسه بگیرید.</p>
+      <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="password">ورود با شمارهٔ همراه و رمز عبور</a></p>`
+    : `
+      <label class="field"><span>شمارهٔ همراه</span>
+        <input class="input ltr" name="phone" inputmode="numeric" data-digits autocomplete="username" placeholder="09xxxxxxxxx" autofocus></label>
+      <label class="field"><span>رمز عبور</span>
+        <input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="••••••"></label>
+      <button class="btn primary block" type="submit">ورود</button>
+      <p class="small muted center" style="margin-top:10px">رمز را مدیر مدرسه به شما داده است.</p>
+      <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="pair">ورود با کارت پیوند (بدون رمز)</a></p>`;
+
   $('#app').innerHTML = `
   <div class="auth">
     <div class="logo">پ</div>
     <h1>ورود به پایش</h1>
-    <div class="sub">با «کارت پیوند» مدرسه وارد شوید — بدون رمز و بدون پیامک</div>
-    <form data-form="pair" class="card">
-      <label class="field"><span>کد پیوند</span>
-        <input class="input code-input" name="code" value="${esc(pre)}" maxlength="12" placeholder="XXXX-XXXX" autocomplete="off"></label>
-      <label class="field"><span>PIN انتخابی شما (۴ تا ۶ رقم)</span>
-        <input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off"></label>
-      <button class="btn primary block" type="submit">ورود و ثبت این دستگاه</button>
-      <p class="small muted center" style="margin-top:10px">اگر کد ندارید، از دفتر مدرسه بخواهید.</p>
-    </form>
+    <div class="sub">${S.server.school ? esc(S.server.school) : 'سامانهٔ مدرسه'}</div>
+    <form data-form="${mode === 'pair' ? 'pair' : 'login'}" class="card">${body}</form>
     <div class="card tight small muted">
       سرور: <span class="ltr">${esc(location.host)}</span> · نسخه ${esc(S.server.version || '')}
       ${S.user ? '' : `<br><a href="#" data-act="forget-device">دستگاه دیگری انتخاب شود</a>`}
@@ -190,16 +207,23 @@ function renderTransfer(code) {
 }
 
 function renderLock() {
+  const pw = (S.unlockMode || localStorage.getItem('payesh.authmode')) === 'password';
+  const user = (localStorage.getItem('payesh.lastname') || '');
   $('#app').innerHTML = `
   <div class="auth">
     <div class="logo">پ</div>
     <h1>پایش</h1>
-    <div class="sub">PIN خود را وارد کنید</div>
+    <div class="sub">${user ? esc(user) + ' — ' : ''}${pw ? 'رمز عبور خود را وارد کنید' : 'PIN خود را وارد کنید'}</div>
     <form data-form="unlock" class="card">
-      <label class="field"><input class="input pin-input" id="pin" name="pin" inputmode="numeric" maxlength="6" placeholder="••••" autofocus></label>
+      ${pw
+        ? `<label class="field"><input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="رمز عبور" autofocus></label>`
+        : `<label class="field"><input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" data-digits placeholder="••••" autofocus></label>`}
       <button class="btn primary block" type="submit">ورود</button>
     </form>
-    <div class="center"><a href="#" class="small" data-act="forget-device">این دستگاه من نیست</a></div>
+    <div class="center small">
+      <a href="#" data-act="unlock-mode" data-id="${pw ? 'pin' : 'password'}">${pw ? 'ورود با PIN' : 'ورود با رمز عبور'}</a>
+    </div>
+    <div class="center" style="margin-top:8px"><a href="#" class="small" data-act="forget-device">این دستگاه من نیست</a></div>
   </div>`;
 }
 
@@ -490,8 +514,11 @@ PAGES.users = () => {
       <td>${esc(u.name)}</td>
       <td>${badge(ROLE_FA[u.role] || u.role, u.role === 'manager' ? 'purple' : '')}</td>
       <td class="small">${esc((byId('classes', u.class_id) || {}).name || '—')}</td>
-      <td class="small ltr">${esc(u.phone || '—')}</td>
-      <td><button class="btn sm" data-act="pair-code" data-id="${u.id}">کارت پیوند</button></td>
+      <td class="small ltr">${esc(u.phone || '—')}${u.password_hash ? ' 🔑' : ''}</td>
+      <td>
+        <button class="btn sm" data-act="pair-code" data-id="${u.id}">کارت پیوند</button>
+        <button class="btn sm ghost" data-act="user-password" data-id="${u.id}">رمز عبور</button>
+      </td>
     </tr>`).join('')}
   </tbody></table></div>`)}`;
 };

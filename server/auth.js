@@ -24,9 +24,11 @@ function findUserByPhone(store, phone) {
 function setup(store, input) {
   if (!needsSetup(store)) return { ok: false, error: 'already_setup' };
   const name = String(input.manager_name || '').trim();
-  const pin = String(input.pin || '');
+  const pin = normDigits(input.pin);          /* ارقام فارسی، فاصله و خط‌تیره پذیرفته می‌شود */
   if (name.length < 3) return { ok: false, error: 'bad_name' };
   if (!/^\d{4,6}$/.test(pin)) return { ok: false, error: 'bad_pin' };
+  const pw = String(input.password || '');
+  if (pw && pw.length < 4) return { ok: false, error: 'bad_password' };
 
   const school = store.insert('schools', {
     name: String(input.school_name || 'مدرسهٔ من').trim() || 'مدرسهٔ من',
@@ -54,6 +56,7 @@ function setup(store, input) {
     name, role: 'manager', phone: normDigits(input.phone || ''),
     national_id: normDigits(input.national_id || ''), active: true,
     school_id: 1, created_at: nowISO(),
+    password_hash: pw ? scryptHash(pw) : null,
   });
 
   const device = createDevice(store, manager.id, { name: 'سیستم مدیر', platform: 'server', pin });
@@ -103,6 +106,56 @@ function verifySession(store, token) {
   return { user, device, session: s };
 }
 
+
+/* ── ورود با شمارهٔ همراه و رمز عبور ──────────────────────────────── */
+function hasPassword(user) { return !!(user && user.password_hash); }
+
+function login(store, input = {}) {
+  const phone = normDigits(input.phone);
+  const pw = String(input.password || '');
+  if (phone.length < 10) return { ok: false, error: 'bad_phone' };
+  if (pw.length < 4) return { ok: false, error: 'bad_password' };
+  const user = findUserByPhone(store, phone);
+  if (!user || user.active === false || !user.password_hash) return { ok: false, error: 'bad_credentials' };
+  if (!scryptVerify(pw, user.password_hash)) return { ok: false, error: 'bad_credentials' };
+  const device = createDevice(store, user.id, {
+    name: input.name || 'دستگاه', platform: input.platform || 'web', pin: '',
+  });
+  return { ok: true, user: publicUser(user), session: device.session, device_token: device.device_token, auth: 'password' };
+}
+
+/* باز کردن قفلِ دستگاهِ ساخته‌شده با رمز عبور (بدون PIN) */
+function unlockWithPassword(store, input = {}) {
+  const device = deviceFromToken(store, String(input.device_token || ''));
+  if (!device) return { ok: false, error: 'bad_device' };
+  if (device.revoked_at) return { ok: false, error: 'device_revoked' };
+  const user = store.get('users', device.user_id);
+  if (!user || user.active === false) return { ok: false, error: 'user_inactive' };
+  if (!user.password_hash) return { ok: false, error: 'no_password' };
+  if (!scryptVerify(String(input.password || ''), user.password_hash)) return { ok: false, error: 'bad_credentials' };
+  store.db.prepare('UPDATE devices SET last_seen_at=? WHERE id=?').run(nowISO(), device.id);
+  return { ok: true, user: publicUser(user), session: createSession(store, user.id, device.id), auth: 'password' };
+}
+
+/* تعیین/تغییر رمز عبور (مدیر برای هر کاربر، یا خودِ کاربر با رمز فعلی) */
+function setPassword(store, userId, nextPw) {
+  const pw = String(nextPw || '');
+  if (pw.length < 4) return { ok: false, error: 'bad_password' };
+  const user = store.get('users', userId);
+  if (!user) return { ok: false, error: 'user_not_found' };
+  const saved = store.update('users', user.id, { password_hash: scryptHash(pw) });
+  return { ok: true, user: publicUser(saved) };
+}
+
+function changeOwnPassword(store, userId, currentPw, nextPw) {
+  const user = store.get('users', userId);
+  if (!user) return { ok: false, error: 'user_not_found' };
+  if (user.password_hash && !scryptVerify(String(currentPw || ''), user.password_hash)) {
+    return { ok: false, error: 'bad_credentials' };
+  }
+  return setPassword(store, userId, nextPw);
+}
+
 /* ── کد پیوند ── */
 function createPairCode(store, userId, createdBy) {
   const user = store.get('users', userId);
@@ -116,7 +169,7 @@ function createPairCode(store, userId, createdBy) {
 
 function pair(store, input) {
   const code = String(input.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const pin = String(input.pin || '');
+  const pin = normDigits(input.pin);
   if (!/^\d{4,6}$/.test(pin)) return { ok: false, error: 'bad_pin' };
   const row = store.db.prepare('SELECT * FROM pair_codes WHERE code_hash=?').get(sha256(code));
   if (!row) return { ok: false, error: 'bad_code' };
@@ -224,6 +277,7 @@ function prune(store) {
 
 module.exports = {
   needsSetup, setup, createPairCode, pair, unlock, changePin,
+  hasPassword, login, unlockWithPassword, setPassword, changeOwnPassword,
   createTransfer, redeemTransfer,
   verifySession, listDevices, revokeDevice, logout, publicUser, prune, findUserByPhone,
   SESSION_HOURS,

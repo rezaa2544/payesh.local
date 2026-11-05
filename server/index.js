@@ -215,6 +215,7 @@ async function api(req, res, url, ip) {
       restart_pending: readManifest().version !== RUNNING_VERSION,
       time: nowISO(), server_time: nowISO(), uptime_s: Math.round(process.uptime()),
       setup_done: !auth.needsSetup(store), school: (store.get('schools', 1) || {}).name || null,
+      data_dir: DATA_DIR, db_file: path.join(DATA_DIR, 'payesh.sqlite'),
       public_url: cfg.publicUrl(store) || null,
       instance: cfg.instanceId(store),
     });
@@ -254,7 +255,10 @@ async function api(req, res, url, ip) {
   }
 
   if (p === '/api/setup/state' && m === 'GET') {
-    return json({ ok: true, needs_setup: auth.needsSetup(store), version: readManifest().version });
+    return json({ ok: true, needs_setup: auth.needsSetup(store), version: readManifest().version,
+      data_dir: DATA_DIR, db_file: path.join(DATA_DIR, 'payesh.sqlite'),
+      school: (store.get('schools', 1) || {}).name || null,
+      has_password: !auth.needsSetup(store) ? auth.hasPassword((store.all('users').find(u => u.role === 'manager')) || null) : false });
   }
 
   if (p === '/api/setup' && m === 'POST') {
@@ -280,6 +284,19 @@ async function api(req, res, url, ip) {
     return json(r, r.ok ? 200 : 400);
   }
 
+
+  if (p === '/api/auth/login' && m === 'POST') {
+    if (!rateLimit('login:' + ip, 20, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    const body = await readBody(req);
+    const r = auth.login(store, body);
+    if (!r.ok) {
+      store.audit({ action: 'login_failed', role: 'system', collection: 'users', after: { ip } });
+      return json(r, 401);
+    }
+    store.audit({ user_id: r.user.id, role: r.user.role, action: 'login', collection: 'users' });
+    return json(r);
+  }
+
   if (p === '/api/auth/unlock' && m === 'POST') {
     if (!rateLimit('unlock:' + ip, 30, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const body = await readBody(req);
@@ -289,7 +306,9 @@ async function api(req, res, url, ip) {
     if (lock && lock.until && Date.parse(lock.until) > Date.now()) {
       return json({ ok: false, error: 'locked', until: lock.until, tries: lock.tries }, 429);
     }
-    const r = auth.unlock(store, body);
+    const r = body && body.password
+      ? auth.unlockWithPassword(store, body)
+      : auth.unlock(store, body);
     if (!r.ok) {
       const tries = ((lock && lock.tries) || 0) + 1;
       if (tries >= 8) {
@@ -557,6 +576,24 @@ async function api(req, res, url, ip) {
     } catch (e) {
       return json({ ok: false, error: e.message, detail: e.detail || null, status: e.status || 0 }, 200);
     }
+  }
+
+  if (p === '/api/auth/password' && m === 'POST') {
+    const body = await readBody(req);
+    const r = auth.changeOwnPassword(store, actor.user.id, body.current, body.next);
+    if (!r.ok) return json(r, 400);
+    store.audit({ user_id: actor.user.id, role: actor.role, action: 'password_change', collection: 'users' });
+    return json({ ok: true });
+  }
+
+  const pwUser = p.match(/^\/api\/admin\/users\/(\d+)\/password$/);
+  if (pwUser && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const body = await readBody(req);
+    const r = auth.setPassword(store, Number(pwUser[1]), body.password);
+    if (!r.ok) return json(r, 400);
+    store.audit({ user_id: actor.user.id, role: 'manager', action: 'password_set', collection: 'users', record_id: Number(pwUser[1]) });
+    return json({ ok: true });
   }
 
   if (p === '/api/admin/devices' && m === 'GET') return json({ ok: true, devices: auth.listDevices(store) });

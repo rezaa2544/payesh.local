@@ -540,6 +540,58 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(bad.data.error, 'bad_code');
   });
 
+
+  await test('ورود با شماره و رمز عبور (و فقط یک‌بار راه‌اندازی)', async () => {
+    /* ۱) راه‌اندازی دوباره نباید ممکن باشد — همان چیزی که باعث می‌شد فرم تکرار شود */
+    const again = await req('/api/setup', { method: 'POST', body: { school_name: 'x', manager_name: 'y', pin: '1234' } });
+    assert.strictEqual(again.data.error, 'already_setup');
+    const st = await req('/api/setup/state');
+    assert.strictEqual(st.data.needs_setup, false);
+    assert.ok(st.data.db_file, 'مسیر پایگاه داده گزارش شود');
+
+    /* ۲) تعیین رمز برای مدیر و ورود با آن */
+    const set = await req('/api/admin/users/1/password', { method: 'POST', token: managerToken, body: { password: 'madrese1404' } });
+    assert.strictEqual(set.data.ok, true);
+
+    const ok = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'madrese1404' } });
+    assert.strictEqual(ok.data.ok, true);
+    assert.ok(ok.data.session.token && ok.data.device_token, 'نشست و دستگاه ساخته شود');
+    assert.strictEqual(ok.data.user.role, 'manager');
+
+    /* ورود با همان نشست باید کار کند */
+    const me = await req('/api/bootstrap', { token: ok.data.session.token });
+    assert.strictEqual(me.data.ok, true);
+
+    /* ۳) باز کردن قفل دستگاه با رمز عبور (دستگاه بدون PIN) */
+    const unlock = await req('/api/auth/unlock', { method: 'POST', body: { device_token: ok.data.device_token, password: 'madrese1404' } });
+    assert.strictEqual(unlock.data.ok, true);
+    const badUnlock = await req('/api/auth/unlock', { method: 'POST', body: { device_token: ok.data.device_token, password: 'غلط' } });
+    assert.strictEqual(badUnlock.status, 401);
+
+    /* ۴) رمز غلط و شمارهٔ ناشناس */
+    const wrong = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'nope-nope' } });
+    assert.strictEqual(wrong.status, 401);
+    assert.strictEqual(wrong.data.error, 'bad_credentials');
+    const ghost = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000009', password: 'whatever' } });
+    assert.strictEqual(ghost.status, 401);
+
+    /* ۵) شمارهٔ همراه با ارقام فارسی هم پذیرفته می‌شود */
+    const fa = await req('/api/auth/login', { method: 'POST', body: { phone: '۰۹۱۲۰۰۰۰۰۰۱', password: 'madrese1404' } });
+    assert.strictEqual(fa.data.ok, true);
+
+    /* ۶) رمز کوتاه رد شود */
+    const short = await req('/api/admin/users/1/password', { method: 'POST', token: managerToken, body: { password: '12' } });
+    assert.strictEqual(short.data.error, 'bad_password');
+  });
+
+  await test('PIN با ارقام فارسی هم ثبت می‌شود (باگ تکرار راه‌اندازی)', async () => {
+    const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 1 } });
+    const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '۴۳۲۱' } });
+    assert.strictEqual(paired.data.ok, true, 'PIN فارسی پذیرفته شود');
+    const unlock = await req('/api/auth/unlock', { method: 'POST', body: { device_token: paired.data.device_token, pin: '4321' } });
+    assert.strictEqual(unlock.data.ok, true, 'همان PIN با ارقام انگلیسی هم کار کند');
+  });
+
   await test('قفل موقت پس از ۸ PIN اشتباه', async () => {
     const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 1 } });
     const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '5555' } });
