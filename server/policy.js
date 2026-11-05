@@ -17,6 +17,8 @@ const COLLECTIONS = {
   users:            { write: ['manager'], read: 'all' },
   classes:          { write: ['manager'], read: 'all' },
   subjects:         { write: ['manager'], read: 'all' },
+  /* پایه‌ها و رشته‌ها (تعریف‌های مدرسه) — فقط مدیر می‌نویسد، همه می‌خوانند */
+  lookups:          { write: ['manager'], read: 'all' },
   schedule:         { write: ['manager'], read: 'all' },
   bell_schedules:   { write: ['manager'], read: 'all' },
   attendance:       { write: ['manager', 'teacher'], read: 'all' },

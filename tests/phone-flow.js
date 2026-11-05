@@ -18,14 +18,22 @@ const student = { id: 9, name: 'دانش‌آموز تست', role: 'student', ph
 const parent = { id: 11, name: 'ولی تست', role: 'parent', phone: '09129999999', active: true };
 const vice = { id: 12, name: 'معاون تست', role: 'vice', phone: '09128888888', active: true };
 const staff = { id: 13, name: 'عامل اجرایی تست', role: 'staff', phone: '09127777777', active: true };
+const manager = { id: 14, name: 'مدیر تست', role: 'manager', phone: '09126666666', active: true };
 const password = '123456';
 
 const core = {
   at: '2026-11-05T10:00:00.000Z',
   school: { id: 1, name: 'دبیرستان تست', type: 'کاردانش', level: 'متوسطه دوم' },
-  directory: [teacher, student, parent, vice, staff].map(u => ({ id: u.id, name: u.name, role: u.role })),
+  directory: [teacher, student, parent, vice, staff, manager].map(u => ({ id: u.id, name: u.name, role: u.role })),
   collections: {
-    users: [teacher, student, parent, vice, staff],
+    users: [teacher, student, parent, vice, staff, manager],
+    /* تعریف‌های مدرسه: پایه‌ها و رشته‌ها (همان چیزی که سرور می‌سازد) */
+    lookups: [
+      { id: 1, kind: 'grade', name: 'دهم', order: 1 },
+      { id: 2, kind: 'grade', name: 'یازدهم', order: 2 },
+      { id: 3, kind: 'branch', name: 'شبکه و نرم‌افزار', order: 1 },
+    ],
+    subjects: [{ id: 1, name: 'ریاضی', workshop: false }],
     classes: [{ id: 1, name: 'کلاس الف', grade: 'دهم' }],
     schedule: [{ id: 1, class_id: 1, subject: 'ریاضی', teacher_id: 7, day: 0, hour: 1 }],
     attendance: [],
@@ -58,7 +66,7 @@ async function makeWindow() {
   win.scrollTo = () => {};
 
   /* همهٔ فایل‌ها مثل مرورگر در یک دامنهٔ مشترک اجرا می‌شوند */
-  const code = ['lib/sigv4.js', 'lib/s3mini.js', 'lib/hash.js', 'lib/phone.js', 'pages.js', 'app.js']
+  const code = ['lib/sigv4.js', 'lib/s3mini.js', 'lib/hash.js', 'lib/phone.js', 'lib/xlsx.js', 'pages.js', 'app.js']
     .map(f => fs.readFileSync(path.join(ROOT, 'client', f), 'utf8'))
     .join('\n;\n');
   win.eval(code);
@@ -70,11 +78,11 @@ async function makeWindow() {
 
   /* صندوقچهٔ قلابی */
   const objects = {};
-  for (const u of [teacher, student, parent, vice, staff]) {
+  for (const u of [teacher, student, parent, vice, staff, manager]) {
     objects[PREFIX + 'auth/' + u.phone + '.json'] = JSON.stringify({ verifier: mk(password), user: u });
   }
   objects[PREFIX + 'data/core.json'] = JSON.stringify(core);
-  for (const u of [teacher, student, vice, staff]) {
+  for (const u of [teacher, student, vice, staff, manager]) {
     objects[PREFIX + 'data/person/' + u.id + '.json'] = JSON.stringify({ me: u, children: [], collections: {} });
   }
   /* ولی: فقط پروندهٔ فرزند خودش */
@@ -139,7 +147,7 @@ async function login(win, phone) {
   const fails = [];
   const check = (ok, msg) => { if (!ok) fails.push(msg); console.log((ok ? '  ✅ ' : '  ❌ ') + msg); };
 
-  for (const who of [teacher, student, parent, vice, staff]) {
+  for (const who of [teacher, student, parent, vice, staff, manager]) {
     console.log('\n— ورود ' + who.role + ' —');
     const win = await makeWindow();
     await login(win, who.phone);
@@ -194,6 +202,52 @@ async function login(win, phone) {
     }
     check(win.__errors.length === 0, 'هیچ خطای اجرایی نبود' + (win.__errors.length ? ': ' + win.__errors.slice(0, 3).join(' | ') : ''));
     check(acts.size > 0, 'دکمه‌ها بررسی شدند (' + acts.size + ' مورد)');
+    if (who.role === 'manager') {
+      /* صفحات تازهٔ مدیر: ورود دسته‌ای، تعریف پایه/رشته، ویرایش و حذف */
+      win.location.hash = '#/users';
+      win.dispatchEvent(new win.HashChangeEvent('hashchange'));
+      await new Promise(r => setTimeout(r, 250));
+      const usersText = win.document.body.textContent;
+      check(/ورود دسته‌ای/.test(usersText), 'دکمهٔ ورود دسته‌ای روی گوشی هست');
+      check(!!win.document.querySelector('[data-pick="user"]'), 'تیک انتخاب کاربر (برای حذف دسته‌ای) هست');
+      check(!!win.document.querySelector('[data-pick="all"]'), 'تیک انتخاب همه هست');
+
+      /* تیک زدن و دیده‌شدن نوار «حذف انتخاب‌شده‌ها» */
+      const box = win.document.querySelector('[data-pick="user"]');
+      box.checked = true;
+      box.dispatchEvent(new win.Event('change', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 200));
+      check(!!win.document.querySelector('[data-act="users-bulk-delete"]'), 'نوار «حذف انتخاب‌شده‌ها» با انتخاب کاربر می‌آید');
+      const clearBtn = win.document.querySelector('[data-act="pick-clear"]');
+      if (clearBtn) clearBtn.click();
+
+      /* تعریف پایه و رشته: دکمه‌های ویرایش/حذف باید باشند */
+      win.location.hash = '#/classes';
+      win.dispatchEvent(new win.HashChangeEvent('hashchange'));
+      await new Promise(r => setTimeout(r, 250));
+      const clsText = win.document.body.textContent;
+      check(/پایه\u200cها|پایه‌ها/.test(clsText), 'بخش «پایه‌ها» در صفحه هست');
+      check(/رشته/.test(clsText), 'بخش «رشته‌ها» در صفحه هست');
+      check(!!win.document.querySelector('[data-act="def-edit"]'), 'دکمهٔ ویرایش پایه/رشته هست');
+      check(!!win.document.querySelector('[data-act="def-delete"]'), 'دکمهٔ حذف پایه/رشته هست');
+      check(!!win.document.querySelector('[data-act="class-edit"]') || !win.document.querySelector('[data-act="class-add"]'), 'کلاس‌ها ویرایش دارند');
+      check(!!win.document.querySelector('[data-act="subject-edit"]'), 'دروس ویرایش/حذف دارند');
+
+      /* دکمهٔ ✕ باید پنجره را ببندد */
+      const defEdit = win.document.querySelector('[data-act="def-edit"]');
+      if (defEdit) {
+        defEdit.click();
+        await new Promise(r => setTimeout(r, 150));
+        check(!!win.document.querySelector('#modal-root .modal'), 'پنجرهٔ ویرایش پایه باز شد');
+        const closeBtn = win.document.querySelector('#modal-root [data-act="modal-close"]');
+        if (closeBtn) closeBtn.click();
+        await new Promise(r => setTimeout(r, 150));
+        check(!win.document.querySelector('#modal-root .modal'), 'دکمهٔ ✕ پنجره را بست');
+      }
+      win.location.hash = '#/home';
+      win.dispatchEvent(new win.HashChangeEvent('hashchange'));
+      await new Promise(r => setTimeout(r, 200));
+    }
     if (who.role === 'parent') {
       win.location.hash = '#/home';
       win.dispatchEvent(new win.HashChangeEvent('hashchange'));

@@ -343,7 +343,7 @@ function stop() {
      data/core.json          ← کلاس‌ها، درس‌ها، برنامه، اطلاعیه‌ها، فهرست نام‌ها
      data/person/<id>.json   ← فقط دادهٔ خودِ همان کاربر (و فرزندانش)
    ═══════════════════════════════════════════════════════════════════ */
-const CORE_COLLECTIONS = ['schools', 'school_years', 'classes', 'subjects', 'schedule', 'announcements', 'bells'];
+const CORE_COLLECTIONS = ['schools', 'school_years', 'classes', 'subjects', 'lookups', 'schedule', 'announcements', 'bells'];
 const PERSON_COLLECTIONS = ['attendance', 'grades', 'leaves', 'internships', 'discipline', 'notes', 'staff_attendance'];
 
 function phoneKey(u) {

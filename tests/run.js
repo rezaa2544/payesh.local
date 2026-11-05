@@ -194,6 +194,51 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(goneLogin.data.ok, false, 'کاربر حذف‌شده نمی‌تواند وارد شود');
   });
 
+  await test('تعریف پایه و رشته: پیش‌فرض، افزودن، ویرایش، حذف و دسترسی', async () => {
+    /* فهرست پیش‌فرض سرور */
+    const p0 = await req('/api/v1/pull?collections=lookups', { token: managerToken });
+    const seeded = (p0.data.collections.lookups || []);
+    assert.ok(seeded.filter(l => l.kind === 'grade').length >= 3, 'پایه‌های پیش‌فرض ساخته شده‌اند');
+    assert.ok(seeded.filter(l => l.kind === 'branch').length >= 3, 'رشته‌های پیش‌فرض ساخته شده‌اند');
+
+    /* افزودن */
+    const add = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'lk1', collection: 'lookups', type: 'put', data: { kind: 'grade', name: 'پایهٔ آزمون', order: 9 } },
+    ] } });
+    assert.strictEqual(add.data.applied.length, 1, 'پایهٔ تازه ثبت شد');
+    const id = add.data.applied[0].id;
+
+    /* ویرایش (OCC) */
+    const cur = seeded.concat([{ id }]);
+    const edit = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'lk2', collection: 'lookups', type: 'put', id, data: { kind: 'grade', name: 'پایهٔ ویرایش‌شده', order: 9 }, base_version: add.data.applied[0].version },
+    ] } });
+    assert.strictEqual(edit.data.applied.length, 1, 'ویرایش ثبت شد');
+
+    /* حذف */
+    const del = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'lk3', collection: 'lookups', type: 'del', id },
+    ] } });
+    assert.strictEqual(del.data.applied.length, 1, 'حذف ثبت شد');
+    const p1 = await req('/api/v1/pull?collections=lookups&since=1970-01-01T00:00:00.000Z', { token: managerToken });
+    const left = (p1.data.collections.lookups || []).filter(l => Number(l.id) === Number(id));
+    assert.strictEqual(left.length, 0, 'ردیف حذف‌شده برنمی‌گردد');
+    assert.ok((p1.data.deleted || []).some(d => Number(d.id) === Number(id)), 'حذف به‌صورت tombstone اعلام می‌شود');
+
+    /* دبیر نباید بتواند تعریف را تغییر دهد */
+    const teacher = (await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } })).data;
+    if (teacher && teacher.code) {
+      const pair = await req('/api/auth/pair', { method: 'POST', body: { code: teacher.code, pin: '1' } });
+      if (pair.data && pair.data.session) {
+        const denied = await req('/api/sync', { method: 'POST', token: pair.data.session.token, body: { ops: [
+          { uid: 'lk4', collection: 'lookups', type: 'put', data: { kind: 'grade', name: 'دستکاری' } },
+        ] } });
+        const applied = (denied.data.applied || []).length;
+        assert.strictEqual(applied, 0, 'نقش غیرمدیر نمی‌تواند تعریف اضافه کند');
+      }
+    }
+  });
+
   await test('قفل PIN: رمز غلط رد، رمز درست قبول', async () => {
     const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 1 } });
     const p = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '5555' } });
@@ -240,6 +285,37 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(r.data.created, 2);
     assert.strictEqual(r.data.errors.length, 2);
     assert.strictEqual(r.data.errors[0].error, 'bad_national_id');
+  });
+
+  await test('ورود دسته‌ای: نام کاربری=همراه و رمز=کد ملی، سپس حذف دسته‌ای', async () => {
+    const r = await req('/api/admin/import', { method: 'POST', token: managerToken, body: {
+      kind: 'students',
+      rows: [
+        { name: 'دانش‌آموز یک', national_id: '1000000036', phone: '09123334455', class_name: 'دهم الف' },
+        { name: 'دانش‌آموز تکراری', national_id: '1000000036', phone: '09123334466' },
+        { name: '', national_id: '1000000044' },
+      ],
+    } });
+    assert.strictEqual(r.data.created, 1, 'یک کاربر ساخته شد');
+    assert.ok(r.data.errors.length >= 2, 'سطرهای مشکل‌دار گزارش شدند');
+    const made = r.data.users[0];
+    assert.strictEqual(String(made.phone), '09123334455');
+
+    /* ورود با نام کاربری = شماره، رمز = کد ملی */
+    const login = await req('/api/auth/login', { method: 'POST', body: { phone: '09123334455', password: '1000000036' } });
+    assert.strictEqual(login.data.ok, true, 'کاربر تازه با شماره و کد ملی وارد می‌شود');
+    assert.ok(login.data.session && login.data.session.token);
+
+    /* حذف دسته‌ای */
+    const del = await req('/api/admin/users/bulk-delete', { method: 'POST', token: managerToken, body: { ids: [made.id, 999999] } });
+    assert.strictEqual(del.data.ok, true);
+    assert.strictEqual(del.data.deleted, 1, 'فقط کاربر موجود حذف شد');
+    const creds = await req('/api/admin/users/credentials', { token: managerToken });
+    assert.ok(!creds.data.users.some(u => Number(u.id) === Number(made.id)), 'کاربر حذف‌شده در فهرست نیست');
+
+    /* دیگر نمی‌تواند وارد شود */
+    const again = await req('/api/auth/login', { method: 'POST', body: { phone: '09123334455', password: '1000000036' } });
+    assert.strictEqual(again.data.ok, false, 'کاربر حذف‌شده نمی‌تواند وارد شود');
   });
 
   await test('پشتیبان‌گیری ساخته و قابل دانلود است', async () => {
@@ -1225,6 +1301,175 @@ async function waitFor(fn, ms = 15000) {
       return el && el.textContent.includes('ورود') ? el : null;
     });
     assert.ok(app.textContent.includes('کارت پیوند') || app.textContent.includes('ورود'));
+    dom.window.close();
+  });
+
+  /* — خواندن اکسل بدون کتابخانهٔ بیرونی ───────────────────────────── */
+  await test('فایل اکسل (.xlsx) درست خوانده می‌شود', async () => {
+    const zlib = require('zlib');
+    /* یک xlsx کوچک می‌سازیم: دو برگه، متن مشترک، عدد و متن درون‌خطی */
+    const files = {
+      '[Content_Types].xml': '<?xml version="1.0"?><Types/>',
+      'xl/workbook.xml': '<?xml version="1.0"?><workbook><sheets>'
+        + '<sheet name="دانش‌آموزان" sheetId="1" r:id="rId1"/>'
+        + '</sheets></workbook>',
+      'xl/_rels/workbook.xml.rels': '<?xml version="1.0"?><Relationships>'
+        + '<Relationship Id="rId1" Type="worksheet" Target="worksheets/sheet1.xml"/>'
+        + '</Relationships>',
+      'xl/sharedStrings.xml': '<?xml version="1.0"?><sst>'
+        + '<si><t>نام و نام خانوادگی</t></si><si><t>کد ملی</t></si><si><t>علی رضایی</t></si>'
+        + '</sst>',
+      'xl/worksheets/sheet1.xml': '<?xml version="1.0"?><worksheet><sheetData>'
+        + '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>'
+        + '<row r="2"><c r="A2" t="s"><v>2</v></c><c r="B2"><v>0012345678</v></c>'
+        + '<c r="C2" t="inlineStr"><is><t>دهم الف</t></is></c></row>'
+        + '</sheetData></worksheet>',
+    };
+    const buildZip = (entries) => {
+      const locals = [], centrals = [];
+      let offset = 0;
+      for (const [name, content] of Object.entries(entries)) {
+        const raw = Buffer.from(content, 'utf8');
+        const method = name.endsWith('sheet1.xml') ? 8 : 0;   /* برگه فشرده، بقیه ذخیره */
+        const data = method === 8 ? zlib.deflateRawSync(raw) : raw;
+        const nameBuf = Buffer.from(name, 'utf8');
+        const local = Buffer.alloc(30);
+        local.writeUInt32LE(0x04034b50, 0);
+        local.writeUInt16LE(20, 4); local.writeUInt16LE(0, 6);
+        local.writeUInt16LE(method, 8);
+        local.writeUInt32LE(0, 10); local.writeUInt32LE(0, 14);
+        local.writeUInt32LE(data.length, 18); local.writeUInt32LE(raw.length, 22);
+        local.writeUInt16LE(nameBuf.length, 26); local.writeUInt16LE(0, 28);
+        locals.push(local, nameBuf, data);
+        const central = Buffer.alloc(46);
+        central.writeUInt32LE(0x02014b50, 0);
+        central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6);
+        central.writeUInt16LE(method, 10);
+        central.writeUInt32LE(0, 12); central.writeUInt32LE(0, 16);
+        central.writeUInt32LE(data.length, 20); central.writeUInt32LE(raw.length, 24);
+        central.writeUInt16LE(nameBuf.length, 28);
+        central.writeUInt32LE(offset, 42);
+        centrals.push(central, nameBuf);
+        offset += local.length + nameBuf.length + data.length;
+      }
+      const centralBuf = Buffer.concat(centrals);
+      const eocd = Buffer.alloc(22);
+      eocd.writeUInt32LE(0x06054b50, 0);
+      eocd.writeUInt16LE(Object.keys(entries).length, 8);
+      eocd.writeUInt16LE(Object.keys(entries).length, 10);
+      eocd.writeUInt32LE(centralBuf.length, 12);
+      eocd.writeUInt32LE(offset, 16);
+      return Buffer.concat([...locals, centralBuf, eocd]);
+    };
+    const zip = buildZip(files);
+    const X = require(path.join(ROOT, 'client/lib/xlsx.js'));
+    const parsed = await X.read(zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength));
+    assert.strictEqual(parsed.sheets.length, 1);
+    const sh = parsed.sheets[0];
+    assert.strictEqual(sh.name, 'دانش‌آموزان', 'نام برگه از workbook خوانده شد');
+    assert.deepStrictEqual(sh.rows[0], ['نام و نام خانوادگی', 'کد ملی'], 'سطر عنوان درست خوانده شد');
+    assert.strictEqual(sh.rows[1][0], 'علی رضایی', 'متن مشترک (sharedStrings) درست خوانده شد');
+    assert.strictEqual(sh.rows[1][1], '0012345678', 'عدد درست خوانده شد');
+    assert.strictEqual(sh.rows[1][2], 'دهم الف', 'متن درون‌خطی درست خوانده شد');
+
+    /* CSV با نقطه‌ویرگول و ارقام فارسی */
+    const csv = X.fromCsv('نام;کد ملی\r\nرضا;۰۰۱۲۳۴۵۶۷۸\r\n');
+    assert.deepStrictEqual(csv.sheets[0].rows[0], ['نام', 'کد ملی'], 'جداکنندهٔ ; تشخیص داده شد');
+    assert.strictEqual(csv.sheets[0].rows[1][1], '۰۰۱۲۳۴۵۶۷۸');
+  });
+
+  /* — جادوگر ورود دسته‌ای: نگاشت ستون، بررسی سطرها، ساخت محلی ────── */
+  await test('ورود دسته‌ای: نگاشت ستون‌ها و بررسی سطرها درست است', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, impAutoMap, impCheck, impMapped, importApplyLocal, putLocal, list };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
+    T.S.data = {
+      users: new Map([[1, { id: 1, name: 'کاربر موجود', role: 'student', national_id: '1000000011', phone: '09120000000' }]]),
+      classes: new Map([[1, { id: 1, name: 'دهم الف' }]]),
+      subjects: new Map(), lookups: new Map(), parent_links: new Map(),
+    };
+    T.S.queue = []; T.S.online = false;
+
+    const headers = ['نام و نام خانوادگی', 'کد ملی', 'موبایل', 'کلاس'];
+    const map = T.impAutoMap(headers);
+    assert.deepStrictEqual([...map], ['full_name', 'national_id', 'phone', 'class_name'],
+      'عنوان ستون‌های فارسی خودکار شناخته شدند');
+
+    T.S.imp = {
+      step: 2, kind: 'students', headers, map,
+      rows: [
+        ['علی رضایی', '1000000036', '09123334455', 'دهم الف'],
+        ['علی رضایی', '1000000036', '09123334455', 'دهم الف'],   /* تکراری در فایل */
+        ['بدون کد ملی', '', '09123334466', 'کلاس ناشناس'],
+        ['کد ملی خراب', '123', '', ''],
+        ['', '1000000052', '09123334477', ''],
+      ],
+    };
+    const checks = T.impCheck();
+    assert.strictEqual(checks.length, 5, 'همهٔ سطرها بررسی شدند');
+    assert.strictEqual(checks[0].errors.length, 0, 'سطر سالم خطا ندارد');
+    assert.ok(checks[0].warns.length === 0, 'سطر سالم هشدار ندارد');
+    assert.ok(checks[1].errors.some(x => /در سطر ۲ هم آمده/.test(x)), 'تکرار کد ملی در فایل تشخیص داده شد');
+    assert.ok(checks[2].warns.some(x => /کلاس/.test(x)), 'کلاس ناشناس به‌صورت هشدار اعلام شد');
+    assert.ok(checks[2].warns.some(x => /همراه ندارد/.test(x)) === false, 'شمارهٔ همراه دارد');
+    assert.ok(checks[3].errors.some(x => /معتبر نیست/.test(x)), 'کد ملی نامعتبر رد شد');
+    assert.ok(checks[4].errors.some(x => /نام/.test(x)), 'سطر بدون نام رد شد');
+
+    /* ساخت محلی (همان کاری که روی گوشی یا در نبود مدرسه انجام می‌شود) */
+    const good = checks.filter(c => !c.errors.length).map(c => c.data);
+    const res = await T.importApplyLocal(good, 'students');
+    assert.strictEqual(res.created, good.length, 'کاربران سالم ساخته شدند');
+    const made = [...T.S.data.users.values()].find(u => u.phone === '09123334455');
+    assert.ok(made, 'کاربر تازه در فهرست محلی هست');
+    assert.strictEqual(made.role, 'student');
+    assert.strictEqual(Number(made.class_id), 1, 'به کلاس درست وصل شد');
+    dom.window.close();
+  });
+
+  /* — دکمهٔ ✕ و بستن پنجره‌ها (ایراد گزارش‌شدهٔ کاربر) ───────────────
+     ریشه: هندلر درون‌خطی stopPropagation روی خودِ پنجره، کلیک ✕ را می‌بلعید. */
+  await test('دکمهٔ ✕ و Esc و پس‌زمینه، پنجره را می‌بندند', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js') + '\n;window.__t = { S, modal, closeModal };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'classes';
+    const openModal = () => {
+      T.S.modalTitle = 'آزمون';
+      T.modal('<div id="inside">داخل</div>');
+      return win.document.querySelector('#modal-root .modal');
+    };
+    const click = el => el.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    /* ۱) دکمهٔ ✕ */
+    assert.ok(openModal(), 'پنجره باز می‌شود');
+    click(win.document.querySelector('#modal-root [data-act="modal-close"]'));
+    assert.strictEqual(win.document.querySelector('#modal-root').innerHTML, '', 'دکمهٔ ✕ پنجره را بست');
+
+    /* ۲) کلیک داخل پنجره نباید ببندد (ریشهٔ همان ایراد) */
+    openModal();
+    click(win.document.querySelector('#inside'));
+    assert.ok(win.document.querySelector('#modal-root .modal'), 'کلیک داخل پنجره، آن را نمی‌بندد');
+
+    /* ۳) کلیک روی پس‌زمینهٔ تیره */
+    click(win.document.querySelector('#modal-root [data-act="modal-bg"]'));
+    assert.strictEqual(win.document.querySelector('#modal-root').innerHTML, '', 'کلیک روی پس‌زمینه پنجره را بست');
+
+    /* ۴) کلید Esc */
+    openModal();
+    win.document.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.strictEqual(win.document.querySelector('#modal-root').innerHTML, '', 'کلید Esc پنجره را بست');
     dom.window.close();
   });
 

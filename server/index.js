@@ -46,6 +46,26 @@ const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 
 const store = openStore(path.join(DATA_DIR, 'payesh.sqlite'));
 
+/* ── تعریف‌های پایه (پایه‌ها و رشته‌ها) ───────────────────────────────
+   اگر مدرسه هنوز چیزی تعریف نکرده باشد، فهرست‌های رایج یک‌بار ساخته
+   می‌شوند تا فرم کلاس از همان اول پر باشد. مدیر می‌تواند هر کدام را
+   ویرایش یا حذف کند و مورد تازه اضافه کند. */
+(function ensureLookups() {
+  try {
+    if ((store.all('lookups') || []).length) return;
+    const seed = [
+      ['grade', 'دهم'], ['grade', 'یازدهم'], ['grade', 'دوازدهم'],
+      ['branch', 'شبکه و نرم‌افزار'], ['branch', 'ریاضی و فیزیک'],
+      ['branch', 'علوم تجربی'], ['branch', 'علوم انسانی'],
+    ];
+    const counters = { grade: 0, branch: 0 };
+    for (const [kind, name] of seed) {
+      counters[kind] += 1;
+      store.insert('lookups', { kind, name, order: counters[kind], school_id: 1, created_at: new Date().toISOString() });
+    }
+  } catch (e) { /* بی‌صدا: نداشتن این فهرست نباید بالا آمدن سرور را بشکند */ }
+})();
+
 /* نسخه‌ای که همین پروسه با آن بالا آمده — برای تشخیص «راه‌اندازی مجدد لازم است» */
 const RUNNING_VERSION = (() => {
   try { return JSON.parse(fs.readFileSync(path.join(RELEASES_DIR, 'manifest.json'), 'utf8')).version || '0.0.0'; }
@@ -719,6 +739,28 @@ async function api(req, res, url, ip) {
     return json({ ok: true, users: rows });
   }
 
+  /* ── حذف دسته‌ای کاربران ──────────────────────────────────────────── */
+  if (p === '/api/admin/users/bulk-delete' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const body = await readBody(req);
+    const ids = (Array.isArray(body.ids) ? body.ids : []).map(Number)
+      .filter(n => Number.isFinite(n) && n > 0 && n !== Number(actor.user.id));
+    let deleted = 0;
+    for (const id of ids) {
+      const user = store.get('users', id);
+      if (!user) continue;
+      store.remove('users', id);
+      /* پیوندهای ولی هم پاک می‌شوند تا «ولیِ بی‌فرزند» نماند */
+      const links = (store.all('parent_links') || [])
+        .filter(l => Number(l.parent_id) === id || Number(l.student_id) === id);
+      for (const l of links) store.remove('parent_links', l.id);
+      store.audit({ user_id: actor.user.id, role: 'manager', action: 'user_delete', collection: 'users', record_id: id, before: auth.publicUser(user) });
+      deleted += 1;
+    }
+    if (deleted) outbox.publishAll(store).catch(() => null);
+    return json({ ok: true, deleted });
+  }
+
   /* ── ویرایش/حذف کاربر توسط مدیر (نام کاربری = شماره، رمز) ─────────── */
   const um = p.match(/^\/api\/admin\/users\/(\d+)$/);
   if (um && (m === 'PATCH' || m === 'PUT')) {
@@ -766,6 +808,9 @@ async function api(req, res, url, ip) {
     if (!user) return json({ ok: false, error: 'user_not_found' }, 404);
     if (id === actor.user.id) return json({ ok: false, error: 'cannot_delete_self' }, 400);
     store.remove('users', id);
+    const links = (store.all('parent_links') || [])
+      .filter(l => Number(l.parent_id) === id || Number(l.student_id) === id);
+    for (const l of links) store.remove('parent_links', l.id);
     store.audit({ user_id: actor.user.id, role: 'manager', action: 'user_delete', collection: 'users', record_id: id, before: auth.publicUser(user) });
     outbox.publishAll(store).catch(() => null);
     return json({ ok: true, deleted: id });
