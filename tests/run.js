@@ -231,6 +231,61 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(gradle.includes('PAYESH_APP_URL'), 'متغیر محیطی برای پختن آدرس');
   });
 
+  await test('برنامهٔ ویندوز: پنجرهٔ واقعی است، نه مرورگر', () => {
+    const app = fs.readFileSync(path.join(ROOT, 'desktop/PayeshApp.cs'), 'utf8');
+    const iss = fs.readFileSync(path.join(ROOT, 'installer/payesh.iss'), 'utf8');
+
+    /* ۱) خود فایل برنامه: پنجرهٔ WinForms + WebView2 */
+    assert.ok(/class\s+\w+\s*:\s*Form/.test(app), 'فرم WinForms');
+    assert.ok(app.includes('Microsoft.Web.WebView2.WinForms'), 'WebView2 داخل پنجره');
+    assert.ok(app.includes('CoreWebView2Environment') || app.includes('WebView2'), 'موتور نمایش داخلی');
+    assert.ok(!/Process\.Start\("http.*localhost:8080/.test(app), 'باز کردن مرورگر مسیر اصلی نیست');
+
+    /* ۲) نصب‌کننده: میان‌بر اصلی باید خود exe باشد */
+    const icons = iss.slice(iss.indexOf('[Icons]'), iss.indexOf('[Registry]'));
+    const mainIcon = icons.split('\n').find(l => l.includes('{group}') && l.includes('{#AppName}'));
+    assert.ok(mainIcon, 'میان‌بر برنامه در منوی شروع');
+    assert.ok(mainIcon.includes('{app}\\desktop\\Payesh.exe'), 'میان‌بر به Payesh.exe اشاره می‌کند');
+    assert.ok(!mainIcon.includes('explorer.exe'), 'میان‌بر برنامه explorer.exe نیست');
+    assert.ok(!mainIcon.includes('wscript.exe'), 'میان‌بر برنامه اسکریپت VBS نیست');
+    assert.ok(!/explorer\.exe"; Parameters: "http:\/\/localhost:8080/.test(icons),
+      'میان‌بر «باز کردن در مرورگر» وجود ندارد');
+
+    /* ۳) اجرای پس از نصب = برنامه، نه مرورگر */
+    const run = iss.slice(iss.indexOf('[Run]'));
+    assert.ok(run.includes('{app}\\desktop\\Payesh.exe'), 'اجرای پس از نصب برنامه را باز می‌کند');
+
+    /* ۴) خودکار بودن: سرور را بالا می‌آورد و منتظر آماده شدن می‌ماند */
+    assert.ok(app.includes('/api/health'), 'انتظار برای آماده شدن سرور');
+    assert.ok(app.includes('server/index.js') || app.includes('"server"'), 'اجرای سرور محلی');
+    assert.ok(app.includes('--tray'), 'حالت سینی سیستم برای اجرای خودکار');
+
+    /* ۵) اتصال از هر اینترنت: نردبان آدرس شامل آدرس عمومی */
+    assert.ok(/public_url/.test(app), 'آدرس عمومی HTTPS در نردبان اتصال');
+    assert.ok(/ScanLan\(/.test(app), 'شبکهٔ محلی فقط آخرین گزینه');
+
+    /* ۶) اسکریپت ساخت و CI */
+    const ps = fs.readFileSync(path.join(ROOT, 'desktop/build.ps1'), 'utf8');
+    assert.ok(ps.includes('WebView2'), 'SDK وب‌ویو در ساخت');
+    assert.ok(ps.includes('Payesh.exe'), 'خروجی exe');
+    const ci = fs.readFileSync(path.join(ROOT, '.github/workflows/build.yml'), 'utf8');
+    assert.ok(ci.includes('desktop\\build.ps1'), 'CI برنامه را می‌سازد');
+  });
+
+  await test('دسترسی از هر اینترنتی: تونل خودکار روشن می‌شود', () => {
+    const tunnel = fs.readFileSync(path.join(ROOT, 'server/tunnel.js'), 'utf8');
+    const index = fs.readFileSync(path.join(ROOT, 'server/index.js'), 'utf8');
+    assert.ok(/function autoStart\(/.test(tunnel), 'راه‌اندازی خودکار تونل');
+    assert.ok(tunnel.includes('PAYESH_TUNNEL_AUTO'), 'کلید خاموش/روشن');
+    assert.ok(/autoStart\(\)/.test(tunnel) || /autoStart\(store/.test(tunnel), 'در start فراخوانی می‌شود');
+    assert.ok(tunnel.includes('cloudflaredBin()'), 'تونل موقت بدون حساب');
+    assert.ok(index.includes('tunnel.start('), 'سرور تونل را راه می‌اندازد');
+
+    /* آدرس عمومی باید در health منتشر شود تا کلاینت‌ها یاد بگیرند */
+    const health = index.slice(index.indexOf("'/api/health'"));
+    assert.ok(health.slice(0, 900).includes('public_url'), 'public_url در /api/health');
+  });
+
   /* ── ۲.۵ شبکه: آدرس رسمی، QR، انتقال دستگاه، قفل PIN ── */
 
   await test('اطلاعات شبکه و آدرس عمومی', async () => {

@@ -47,6 +47,14 @@ for (const f of fs.readdirSync(rel)) {
   if (/\.(zip|tar\.gz)$/.test(f)) fs.rmSync(path.join(rel, f), { force: true });
 }
 
+/* برنامهٔ ویندوز (desktop/Payesh.exe) اگر ساخته شده باشد در .build/win/desktop می‌نشیند */
+if (fs.existsSync(path.join(STAGE, 'desktop', 'Payesh.exe'))) {
+  const s2 = fs.statSync(path.join(STAGE, 'desktop', 'Payesh.exe'));
+  console.log(`   🖥️  Payesh.exe موجود است (${(s2.size / 1024).toFixed(0)}KB)`);
+} else {
+  console.log('   ⚠️  desktop/Payesh.exe ساخته نشده — میان‌بر به حالت مرورگر برمی‌گردد');
+}
+
 /* Node قابل حمل (اختیاری) */
 let withNode = false;
 if (fs.existsSync(RUNTIME)) {

@@ -279,9 +279,58 @@ async function refresh(store, { quiet = true } = {}) {
   }
 }
 
+/* ── راه‌اندازی خودکار ─────────────────────────────────────────────
+   هدف: «هر کاربر با اینترنت خودش» بدون اینکه مدیر دنبال دکمه بگردد.
+   اگر آدرس عمومی تنظیم نشده باشد و یکی از ابزارها نصب باشد، خودش:
+     • Tailscale را (اگر وارد شده) با Funnel بالا می‌آورد → آدرس ثابت
+     • وگرنه تونل موقت Cloudflare را روشن می‌کند → آدرس HTTPS بدون حساب  */
+function autoEnabled(store) {
+  if (process.env.PAYESH_TUNNEL_AUTO === '0') return false;
+  if (process.env.PAYESH_TUNNEL_AUTO === '1') return true;
+  const v = store ? cfg.getMeta(store, 'tunnel_auto') : null;
+  return v === null || v === undefined ? true : !!v;
+}
+
+let autoTried = false;
+async function autoStart(store, port) {
+  if (!autoEnabled(store)) return { ok: false, error: 'auto_disabled' };
+  if (cfg.publicUrl(store)) return { ok: true, skipped: true, url: cfg.publicUrl(store) };
+  if (autoTried) return { ok: false, error: 'already_tried' };
+  autoTried = true;
+
+  const ts = await tailscaleStatus({ force: true });
+  if (ts.installed && ts.logged_in) {
+    const r = await enableFunnel(port);
+    if (r.ok && r.url) {
+      rememberPublicUrl(store, r.url, 'tailscale');
+      return { ok: true, provider: 'tailscale', url: r.url };
+    }
+  }
+  if (cloudflaredBin()) {
+    const started = startQuick(port, url => { if (url) rememberPublicUrl(store, url, 'cloudflare'); });
+    if (started.ok) {
+      for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        if (quick.url) {
+          rememberPublicUrl(store, quick.url, 'cloudflare');
+          return { ok: true, provider: 'cloudflare', url: quick.url };
+        }
+      }
+      return { ok: false, error: 'no_url_yet', provider: 'cloudflare' };
+    }
+  }
+  return { ok: false, error: 'no_tool', hint: 'tailscale یا cloudflared نصب شود' };
+}
+
 function start(store, { everyMs = 10 * 60_000, port = 8080 } = {}) {
   const tick = () => { refresh(store).catch(() => {}); };
   setTimeout(tick, 8_000).unref?.();
+  /* چند ثانیه بعد از بالا آمدن، خودش تونل را روشن کن (اگر ممکن بود) */
+  setTimeout(() => {
+    autoStart(store, port)
+      .then(r => { if (r && r.ok && r.url) console.log('[tunnel] آدرس عمومی خودکار: ' + r.url); })
+      .catch(() => {});
+  }, Number(process.env.PAYESH_TUNNEL_DELAY || 15_000)).unref?.();
   if (timer) clearInterval(timer);
   timer = setInterval(tick, everyMs);
   timer.unref?.();
@@ -295,7 +344,7 @@ function stop() {
 }
 
 module.exports = {
-  status, refresh, start, stop,
+  status, refresh, start, stop, autoStart, autoEnabled,
   enableFunnel, disableFunnel, login,
   startQuick, stopQuick, quickStatus,
   tailscaleStatus, tailscaleBin, cloudflaredBin,

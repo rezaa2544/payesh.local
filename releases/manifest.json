@@ -1,8 +1,8 @@
 {
-  "version": "0.4.0",
-  "built_at": "2026-11-05T03:52:52.798Z",
+  "version": "0.4.1",
+  "built_at": "2026-11-05T06:44:23.113Z",
   "shell": {
-    "android": "0.4.0"
+    "android": "0.4.1"
   },
   "files": [
     {
@@ -38,8 +38,8 @@
     {
       "path": "client/install.html",
       "kind": "client",
-      "sha256": "5d00ab79362a1f470558124f56e0a60d5ed1f47d918af22249f97bbd910a2ffe",
-      "size": 9400
+      "sha256": "df63fb9668876018cc3fdec95cbf0469af2197806629fe278e1ae964d32aff15",
+      "size": 10109
     },
     {
       "path": "client/manifest.webmanifest",
@@ -104,7 +104,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "ea44aea42163f4609847fa8cf70cd618a9a0df64dd607d06bdaee22f86a23afc",
+      "sha256": "8e23eca931d07347db67e915ded8ffbeacf5dabae4f14974ca0aee077514a23b",
       "size": 1962
     },
     {
@@ -164,8 +164,8 @@
     {
       "path": "server/tunnel.js",
       "kind": "server",
-      "sha256": "a17db90f96a97c0281529d25409471cb6bd0954a55a4d0ea28e68f132189c813",
-      "size": 12748
+      "sha256": "d3161ab8cd2d60dea2eb454198721ec6cd12e95a78fc40e96b1146bc226b53c9",
+      "size": 15242
     },
     {
       "path": "server/update.js",
@@ -202,7 +202,7 @@
     "client": 10,
     "server": 22
   },
-  "client_size": 183049,
-  "server_size": 163555,
-  "total_size": 346604
+  "client_size": 183758,
+  "server_size": 166049,
+  "total_size": 349807
 }
