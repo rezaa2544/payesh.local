@@ -1040,6 +1040,41 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(wf.includes('assets/www/app.js'), 'CI وجود فایل‌های برنامه در APK را بررسی می‌کند');
   });
 
+  await test('بازسازی صفحه، فوکوس و جای نشانگر را نگه می‌دارد (صفحه‌کلید گوشی بسته نشود)', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html><body><div id="app"></div></body></html>', {
+      url: 'https://example.test/', runScripts: 'outside-only', pretendToBeVisual: true,
+    });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js'));
+    win.eval(`setApp('<form data-form="phone-login"><input name="phone" value=""></form>')`);
+    const inp = win.document.querySelector('input[name="phone"]');
+    inp.focus();
+    inp.value = '0912';
+    inp.setSelectionRange(4, 4);
+    /* همان صفحه دوباره ساخته می‌شود (مثل وقتی همگام‌سازی تازه‌ای می‌رسد) */
+    win.eval(`setApp('<form data-form="phone-login"><input name="phone" value=""></form>')`);
+    const again = win.document.querySelector('input[name="phone"]');
+    assert.strictEqual(win.document.activeElement, again, 'فوکوس روی همان کادر می‌ماند');
+    assert.strictEqual(again.value, '0912', 'متن تایپ‌شده حفظ می‌شود');
+    assert.strictEqual(again.selectionStart, 4, 'جای نشانگر حفظ می‌شود');
+
+    /* صفحهٔ ورود گوشی اگر همین حالا روی نمایش است، دوباره ساخته نمی‌شود */
+    win.eval(`window.PAYESH_CLOUD = { endpoint: 'https://s3.ir-central1.arvanstorage.ir', bucket: 'pb1', accessKey: 'AK', secret: 'SK', prefix: 'payesh/' };`);
+    win.eval(`renderPhoneLogin(true)`);
+    const first = win.document.querySelector('input[name="phone"]');
+    assert.ok(first, 'فرم ورود گوشی ساخته شد');
+    const pageTxt = win.document.getElementById('app').textContent;
+    assert.ok(/حافظهٔ مشترک/.test(pageTxt), 'تنظیمات حافظه (آروان) در صفحهٔ گوشی دیده می‌شود');
+    /* آدرس بدون پیشوند https:// نمایش داده می‌شود */
+    assert.ok(/s3[.\-]ir\-central1[.\-]arvanstorage[.\-]ir/.test(pageTxt), 'آدرس سرویس پخته‌شده روی گوشی نمایش داده می‌شود: ' + pageTxt.slice(0, 200));
+    assert.ok(win.document.querySelector('[data-act="phone-diagnose"]'), 'دکمهٔ بررسی دقیق اتصال هست');
+    win.eval(`renderPhoneLogin()`);
+    assert.strictEqual(win.document.querySelector('input[name="phone"]'), first, 'بازسازی بی‌مورد انجام نمی‌شود');
+    dom.window.close();
+  });
+
   await test('صفحهٔ ورود در مرورگر بدون خطا رندر می‌شود', async () => {
     const { JSDOM } = require('jsdom');
     const html = fs.readFileSync(path.join(ROOT, 'client/index.html'), 'utf8');

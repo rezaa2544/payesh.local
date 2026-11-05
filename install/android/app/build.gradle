@@ -14,6 +14,19 @@ if (System.getenv("PAYESH_APP_URL")) {
     payeshUrl = System.getenv("PAYESH_APP_URL").trim()
 }
 
+/* ── نام صندوقچهٔ ابری (اگر معلوم باشد، داخل برنامه پخته می‌شود) ────────
+   با متغیر محیطی PAYESH_CLOUD_BUCKET یا فایل url.properties (bucket=…)
+   خالی باشد هم برنامه خودش پیدایش می‌کند. */
+def payeshBucket = ""
+if (urlProps.exists()) {
+    def p2 = new Properties()
+    urlProps.withInputStream { p2.load(it) }
+    payeshBucket = (p2.getProperty("bucket", "") ?: "").trim()
+}
+if (System.getenv("PAYESH_CLOUD_BUCKET")) {
+    payeshBucket = System.getenv("PAYESH_CLOUD_BUCKET").trim()
+}
+
 android {
     namespace 'ir.payesh.local'
     compileSdk 34
@@ -27,6 +40,7 @@ android {
         versionName "0.1.1"
         resConfigs "fa", "en"
         buildConfigField "String", "PAYESH_URL", '"' + payeshUrl.replace('"', '') + '"'
+        buildConfigField "String", "PAYESH_CLOUD_BUCKET", '"' + payeshBucket.replace('"', '') + '"'
     }
 
     buildFeatures { buildConfig true }

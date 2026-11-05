@@ -28,7 +28,7 @@ const cfg = Object.assign({}, DEFAULTS, bucket ? { bucket } : {});
 cfg.region = String(cfg.region || '');
 if (!cfg.bucket) delete cfg.bucket;
 
-const out = `/* ساختهٔ خودکار از server/cloud-defaults.js — دست نزنید\n   (بازسازی: node scripts/bake-cloud.mjs) */\nwindow.PAYESH_CLOUD = ${JSON.stringify(cfg, null, 2)};\n`;
+const out = `/* ساختهٔ خودکار از server/cloud-defaults.js — دست نزنید\n   (بازسازی: node scripts/bake-cloud.mjs) */\nwindow.PAYESH_CLOUD = ${JSON.stringify(cfg, null, 2)};\n\n/* اگر نام صندوقچه موقع ساخت APK داده شده باشد، همان مقدم است */\nif (window.PAYESH_CLOUD_BUCKET) window.PAYESH_CLOUD.bucket = window.PAYESH_CLOUD_BUCKET;\n`;
 const file = path.join(ROOT, 'client', 'cloud-baked.js');
 writeFileSync(file, out, 'utf8');
 console.log(`[bake] ${path.relative(ROOT, file)} · صندوقچه: ${cfg.bucket || '(خودکار پیدا می‌شود)'} · منطقه: ${cfg.region || '—'}`);

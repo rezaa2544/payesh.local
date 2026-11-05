@@ -149,9 +149,20 @@ function updateTopChrome() {
   }
 }
 
+
+/* جایگزینی صفحه با نگه‌داشتن فوکوس و صفحه‌کلید (تنها یک نسخه در app.js هست،
+   ولی صفحه‌های ورود این‌جا ساخته می‌شوند؛ پس هر دو مسیر از همین می‌گذرند) */
+function setApp(html) {
+  const root = $('#app');
+  if (!root) return;
+  const snap = (typeof focusSnapshot === 'function') ? focusSnapshot() : null;
+  root.innerHTML = html;
+  if (snap && typeof focusRestore === 'function') focusRestore(snap);
+}
+
 /* ══════════════ صفحه‌های ورود ══════════════ */
 function renderSetup() {
-  $('#app').innerHTML = `
+  setApp(`
   <div class="auth">
     <div class="logo">پ</div>
     <h1>راه‌اندازی پایش-لوکال</h1>
@@ -178,7 +189,7 @@ function renderSetup() {
       محل ذخیرهٔ داده: <span class="ltr">${esc((S.server && S.server.dataDir) || '—')}</span>
       ${S.deviceToken ? '<div style="margin-top:6px;color:#b45309">این دستگاه قبلاً به مدرسه وصل بوده باشد؛ اگر دادهٔ قبلی را می‌خواهید، پیش از ساخت مدرسهٔ تازه به مدیر اطلاع دهید.</div>' : ''}
     </div>
-  </div>`;
+  </div>`)
 }
 
 function claimCard() {
@@ -228,7 +239,7 @@ function renderPair() {
       <p class="small muted center" style="margin-top:10px">شمارهٔ همراه شما نام کاربری است؛ رمز را مدیر مدرسه داده است.</p>
       <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="pair">ورود با کارت پیوند (بدون رمز)</a></p>`;
 
-  $('#app').innerHTML = `
+  setApp(`
   <div class="auth">
     <div class="logo">پ</div>
     <h1>ورود به پایش</h1>
@@ -239,11 +250,11 @@ function renderPair() {
       سرور: <span class="ltr">${esc(location.host)}</span> · نسخه ${esc(S.server.version || '')}
       ${S.user ? '' : `<br><a href="#" data-act="forget-device">دستگاه دیگری انتخاب شود</a>`}
     </div>
-  </div>`;
+  </div>`)
 }
 
 function renderTransfer(code) {
-  $('#app').innerHTML = `
+  setApp(`
   <div class="auth">
     <div class="logo">پ</div>
     <h1>انتقال به آدرس رسمی</h1>
@@ -258,13 +269,13 @@ function renderTransfer(code) {
     <div class="card tight small muted center">
       <a href="#/" data-act="forget-device">انصراف</a>
     </div>
-  </div>`;
+  </div>`)
 }
 
 function renderLock() {
   const pw = (S.unlockMode || localStorage.getItem('payesh.authmode')) === 'password';
   const user = (localStorage.getItem('payesh.lastname') || '');
-  $('#app').innerHTML = `
+  setApp(`
   <div class="auth">
     <div class="logo">پ</div>
     <h1>پایش</h1>
@@ -279,14 +290,24 @@ function renderLock() {
       <a href="#" data-act="unlock-mode" data-id="${pw ? 'pin' : 'password'}">${pw ? 'ورود با PIN' : 'ورود با رمز عبور'}</a>
     </div>
     <div class="center" style="margin-top:8px"><a href="#" class="small" data-act="forget-device">این دستگاه من نیست</a></div>
-  </div>`;
+  </div>`)
 }
 
 /* صفحهٔ ورود «بدون سرور»: روی گوشی و هر رایانه‌ای که به سیستم مدرسه
    دسترسی ندارد، همین صفحه می‌آید — نه پیام بن‌بست «سرور در دسترس نیست». */
-function renderPhoneLogin() {
+function renderPhoneLogin(force) {
+  /* اگر همین صفحه روی نمایش است، دوباره نساز: بازسازیِ نابهنگام، فوکوس را
+     می‌برد و صفحه‌کلید گوشی بسته می‌شود. */
+  if (!force && document.querySelector('form[data-form="phone-login"]')) return;
   const last = (window.PayeshPhone && window.PayeshPhone.lastUser && window.PayeshPhone.lastUser()) || null;
-  $('#app').innerHTML = `
+  const cloud = (window.PayeshPhone && window.PayeshPhone.storedConfig
+      && (window.PayeshPhone.storedConfig() || window.PayeshPhone.bakedConfig()))
+    || window.PAYESH_CLOUD || {};
+  const cloudLine = cloud.endpoint
+    ? `حافظهٔ مشترک: <span class="ltr">${esc(String(cloud.endpoint).replace(/^https?:\/\//, ''))}</span>` +
+      (cloud.bucket ? ` · صندوقچه <span class="ltr">${esc(cloud.bucket)}</span>` : ' · صندوقچه خودکار')
+    : 'حافظهٔ مشترک در برنامه تنظیم نشده';
+  setApp(`
   <div class="auth">
     <div class="logo">پ</div>
     <h1>ورود به پایش</h1>
@@ -294,7 +315,7 @@ function renderPhoneLogin() {
     <form data-form="phone-login" class="card">
       <label class="field"><span>شمارهٔ همراه</span>
         <input class="input ltr" name="phone" inputmode="numeric" autocomplete="username"
-          maxlength="11" placeholder="09xxxxxxxxx" value="${esc((last && last.phone) || '')}" autofocus></label>
+          maxlength="11" placeholder="09xxxxxxxxx" value="${esc((last && last.phone) || '')}"></label>
       <label class="field"><span>رمز عبور</span>
         <input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="رمز عبور"></label>
       <button class="btn primary block" type="submit">ورود</button>
@@ -302,6 +323,7 @@ function renderPhoneLogin() {
         اولین بار کمی طول می‌کشد (اطلاعات از حافظهٔ مدرسه خوانده می‌شود).<br>
         پس از اولین ورود، هر بار بدون اینترنت هم برنامه باز می‌شود.
       </div>
+      <div class="small muted center" style="margin-top:6px;font-size:11px">${cloudLine}</div>
     </form>
     <details class="center small" style="margin-top:12px;max-width:420px">
       <summary style="cursor:pointer">پیام خطا داد؟ اینجا را باز کنید</summary>
@@ -316,7 +338,7 @@ function renderPhoneLogin() {
     <div class="center small" style="margin-top:14px">
       <button class="btn sm ghost" data-act="retry">تلاش مجدد برای اتصال به سیستم مدرسه</button>
     </div>
-  </div>`;
+  </div>`)
 }
 
 function renderOffline() {
@@ -1012,6 +1034,7 @@ PAGES.system = () => {
       <button class="btn sm" data-act="sync">همگام‌سازی</button>
       <button class="btn sm" data-act="lock">🔒 خروج</button>
     </div>`)}
+  ${isManager ? phoneAccessCard() : ''}
   ${accountCard()}
   ${isManager ? updateCard() : clientUpdateCard()}
   ${isManager ? managerSystemSections() : changePinCard()}
@@ -1022,6 +1045,18 @@ PAGES.system = () => {
     <br><a href="/install" target="_blank">صفحهٔ نصب و راهنما</a>
   </div>`)}`;
 };
+
+/* وضعیت دسترسی گوشی‌ها — یک نگاه، یک دکمه */
+function phoneAccessCard() {
+  const r = S.phoneCheck;
+  const state = !S.server.cloudReady
+    ? badge('حافظهٔ مشترک آماده نشده', 'amber')
+    : (r ? (r.ok ? badge('گوشی‌ها وصل‌اند', 'green') : badge('گوشی‌ها وصل نیستند', 'red')) : badge('بررسی نشده', 'amber'));
+  return card(`<div class="row between"><b>📱 گوشی‌ها به حافظهٔ مدرسه وصل‌اند؟</b>${state}</div>
+    <div class="small muted" style="margin-top:6px">اگر گوشی پیام «به حافظه نرسیدیم» می‌دهد، این دکمه را بزنید؛ خودش بررسی و درست می‌کند.</div>
+    <div class="row" style="margin-top:10px"><button class="btn sm primary" data-act="cloud-phone-check">بررسی و درست‌کردن</button></div>
+    <div id="cloud-phone-out" class="small" style="margin-top:8px">${r ? phoneCheckHtml(r) : ''}</div>`);
+}
 
 /* کارت حساب: نام کاربری + تغییر رمز عبور (هر نقشی) */
 function accountCard() {
