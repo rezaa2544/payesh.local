@@ -296,21 +296,34 @@ jobs:
       - name: ساخت برنامهٔ ویندوز (Payesh.exe — پنجرهٔ واقعی + شناسنامه)
         shell: pwsh
         run: |
-          powershell -ExecutionPolicy Bypass -File desktop\build.ps1 -Out .build\win\desktop
-          $exe = '.build\win\desktop\Payesh.exe'
-          if (-not (Test-Path $exe)) { throw 'Payesh.exe ساخته نشد' }
-          Get-ChildItem .build\win\desktop | Select-Object Name, Length | Format-Table
-          # ── استاندارد مایکروسافت: شناسنامهٔ فایل نباید خالی باشد ──────────
-          $vi = (Get-Item $exe).VersionInfo
-          "ProductName=$($vi.ProductName)  Company=$($vi.CompanyName)  FileVersion=$($vi.FileVersion)"
-          if (-not $vi.ProductName) { throw 'شناسنامهٔ فایل اجرایی خالی است (ProductName)' }
-          if (-not $vi.CompanyName) { throw 'شناسنامهٔ فایل اجرایی خالی است (CompanyName)' }
-          if (-not $vi.FileVersion) { throw 'نسخهٔ فایل نوشته نشده است' }
-          # ── مانیفست asInvoker باید داخل exe باشد (بدون درخواست مدیر) ─────
-          $txt = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes((Resolve-Path $exe)))
-          if ($txt -notmatch 'asInvoker') { throw 'مانیفست asInvoker داخل exe نیست — ویندوز پنجرهٔ دسترسی مدیر نشان می‌دهد' }
-          if ($txt -notmatch 'supportedOS') { throw 'شناسهٔ ویندوز ۱۰/۱۱ در مانیفست نیست' }
-          "✓ شناسنامه و مانیفست برنامهٔ ویندوز درست است"
+          $ErrorActionPreference = 'Stop'
+          $log = 'build-win.log'
+          powershell -ExecutionPolicy Bypass -File desktop\build.ps1 -Out .build\win\desktop *>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content $log | Select-Object -Last 30 | ForEach-Object { "::error title=build.ps1::$_" }
+            exit 1
+          }
+          try {
+            $exe = '.build\win\desktop\Payesh.exe'
+            if (-not (Test-Path $exe)) { throw 'Payesh.exe ساخته نشد' }
+            Get-ChildItem .build\win\desktop | Select-Object Name, Length | Format-Table
+            # ── استاندارد مایکروسافت: شناسنامهٔ فایل نباید خالی باشد ────────
+            $vi = (Get-Item $exe).VersionInfo
+            "ProductName=$($vi.ProductName)  Company=$($vi.CompanyName)  FileVersion=$($vi.FileVersion)"
+            if (-not $vi.ProductName) { throw 'شناسنامهٔ فایل اجرایی خالی است (ProductName)' }
+            if (-not $vi.CompanyName) { throw 'شناسنامهٔ فایل اجرایی خالی است (CompanyName)' }
+            if (-not $vi.FileVersion) { throw 'نسخهٔ فایل نوشته نشده است' }
+            # ── مانیفست asInvoker باید داخل exe باشد (بدون درخواست مدیر) ───
+            $txt = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes((Resolve-Path $exe)))
+            if ($txt -notmatch 'asInvoker') { throw 'مانیفست asInvoker داخل exe نیست' }
+            if ($txt -notmatch 'supportedOS') { throw 'شناسهٔ ویندوز ۱۰/۱۱ در مانیفست نیست' }
+            "✓ شناسنامه و مانیفست برنامهٔ ویندوز درست است"
+          } catch {
+            "::error title=Payesh.exe::$($_.Exception.Message)"
+            $pos = ($_.InvocationInfo.PositionMessage -replace "`r?`n", ' ')
+            "::error title=Payesh.exe خط::$pos"
+            exit 1
+          }
 
       - name: نصب Inno Setup
         shell: pwsh

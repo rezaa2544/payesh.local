@@ -84,6 +84,7 @@ $fileVersion = ($pkgVersion + '.0').Split('.')[0..3] -join '.'
 $verSrc = Join-Path $env:TEMP ('payesh-ver-' + [Guid]::NewGuid().ToString('N') + '.cs')
 $verCode = @"
 using System.Reflection;
+using System.Resources;
 using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("Payesh Local")]
