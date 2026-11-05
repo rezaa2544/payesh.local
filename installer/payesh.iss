@@ -102,6 +102,22 @@ begin
   DeleteFile(Ps);
 end;
 
+
+{ اجازهٔ نوشتن روی پوشه‌های کد برای همهٔ کاربران — لازمهٔ «به‌روزرسانی خودکار» بدون خطای دسترسی }
+procedure FixUpdatePermissions();
+var
+  Code: Integer;
+  Args: String;
+begin
+  Args :=
+    '"' + ExpandConstant('{app}\client') + '" ' +
+    '"' + ExpandConstant('{app}\server') + '" ' +
+    '"' + ExpandConstant('{app}\hub') + '" ' +
+    '"' + ExpandConstant('{app}\releases') + '" ' +
+    '/grant *S-1-5-32-545:(OI)(CI)M /T /C /Q';
+  Exec(ExpandConstant('{sys}\icacls.exe'), Args, '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   StopPayeshProcesses();
@@ -112,6 +128,8 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then
     StopPayeshProcesses();
+  if CurStep = ssPostInstall then
+    FixUpdatePermissions();
 end;
 
 function InitializeUninstall(): Boolean;
@@ -163,7 +181,6 @@ Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 ; اجازهٔ نوشتن برای همهٔ کاربران روی پوشه‌های کد (نسخه‌های قبلی این اجازه را نداشتند)
-Filename: "{sys}\icacls.exe"; Parameters: "{app}\client" "{app}\server" "{app}\hub" "{app}\releases" /grant *S-1-5-32-545:(OI)(CI)M /T /C /Q; Flags: runhidden; StatusMsg: "آماده‌سازی به‌روزرسانی خودکار…"
 ; cloudflared پشتیبان: اگر دانلود نشد، برنامه فقط از Tailscale/شبکه استفاده می‌کند (بی‌خطر)
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$ErrorActionPreference='SilentlyContinue'; New-Item -ItemType Directory -Force -Path '{app}\bin' | Out-Null; Invoke-WebRequest -Uri 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe' -OutFile '{app}\bin\cloudflared.exe' -UseBasicParsing"""; Flags: runhidden nowait; Tasks: cloudflared
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Payesh Local"""; Flags: runhidden; Tasks: firewall
