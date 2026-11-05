@@ -1929,7 +1929,11 @@ document.addEventListener('click', async (e) => {
       const linked = list('classes').filter(c => String(r.kind === 'grade' ? c.grade : c.branch || '') === String(r.name));
       let removedClasses = 0;
       for (const c of linked) {
-        for (const sg of list('schedule').filter(x => Number(x.class_id) === Number(c.id))) removeLocal('schedule', sg.id);
+        for (const sg of list('schedule').filter(x => Number(x.class_id) === Number(c.id))) {
+          /* جابه‌جای‌های موقت همان زنگ هم پاک می‌شوند */
+          for (const sb of (S.data.substitutions ? list('substitutions').filter(x => Number(x.schedule_id) === Number(sg.id)) : [])) removeLocal('substitutions', sb.id);
+          removeLocal('schedule', sg.id);
+        }
         for (const u of list('users').filter(u2 => Number(u2.class_id) === Number(c.id))) putLocal('users', Object.assign({}, u, { class_id: null }));
         removeLocal('classes', c.id);
         removedClasses += 1;
