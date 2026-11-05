@@ -1,8 +1,8 @@
 {
-  "version": "0.4.7",
-  "built_at": "2026-11-05T09:37:03.335Z",
+  "version": "0.4.8",
+  "built_at": "2026-11-05T09:52:00.201Z",
   "shell": {
-    "android": "0.4.7"
+    "android": "0.4.8"
   },
   "files": [
     {
@@ -104,8 +104,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "c16bb30d19228370d0a21ec6bf8047dd8ba7c572fddcee653fea317a8d27c6bd",
-      "size": 2067
+      "sha256": "90628f406cb1c88f1cba9ab8b7aeea7b12cb24083233b883c087acc4fd38bdca",
+      "size": 1979
     },
     {
       "path": "server/auth.js",
@@ -122,8 +122,8 @@
     {
       "path": "server/db.js",
       "kind": "server",
-      "sha256": "758f880051539b6d482987ca19821b9405ed3a7f29f6fb8ff5d17b8cc22192e3",
-      "size": 10802
+      "sha256": "aaa48fd1d84aa524db10d1d1fa0ead5b474c3b7ccfbfa57301d4c1e1401a6027",
+      "size": 11280
     },
     {
       "path": "server/hub.js",
@@ -134,8 +134,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "cfa6efd51d1310d71098ee4b3fd35726eea54eb40f39df0b6fd538dace07f6bb",
-      "size": 38658
+      "sha256": "36d58e040002037c64a2f1b94432096b8d6dd6649471484786ff8349bdb1ad95",
+      "size": 38685
     },
     {
       "path": "server/policy.js",
@@ -154,6 +154,12 @@
       "kind": "server",
       "sha256": "1a0f7c07a032f33d140e344b33e4e4dd9ea9f60460b9de06bd0d0961a53eed97",
       "size": 13166
+    },
+    {
+      "path": "server/start.js",
+      "kind": "server",
+      "sha256": "f07ae0d2c7e41847beb0a900251b2eb20814c76dd657d6ba51c18f7f78e9246e",
+      "size": 2522
     },
     {
       "path": "server/sync.js",
@@ -200,9 +206,9 @@
   ],
   "counts": {
     "client": 10,
-    "server": 22
+    "server": 23
   },
   "client_size": 184888,
-  "server_size": 167020,
-  "total_size": 351908
+  "server_size": 169959,
+  "total_size": 354847
 }

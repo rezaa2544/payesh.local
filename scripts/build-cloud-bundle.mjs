@@ -36,22 +36,53 @@ for (const f of ['selfcheck.mjs', 'backup.sh', '.env.example']) {
   if (fs.existsSync(src)) fs.copyFileSync(src, path.join(STAGE, 'deploy', f));
 }
 
+/* مانیفست نسخه — بدون آن، نسخه روی میزبان «0.0.0» گزارش می‌شود */
+fs.mkdirSync(path.join(STAGE, 'releases', 'history'), { recursive: true });
+for (const f of ['manifest.json']) {
+  const src = path.join(ROOT, 'releases', f);
+  if (fs.existsSync(src)) fs.copyFileSync(src, path.join(STAGE, 'releases', f));
+}
+const histSrc = path.join(ROOT, 'releases', 'history');
+if (fs.existsSync(histSrc)) {
+  for (const f of fs.readdirSync(histSrc)) {
+    if (f.endsWith('.json')) fs.copyFileSync(path.join(histSrc, f), path.join(STAGE, 'releases', 'history', f));
+  }
+}
+
 /* راهنمای کوتاه کنار بسته — همان چیزی که در پنل لازم است */
 fs.writeFileSync(path.join(STAGE, 'START-HERE.txt'), [
-  'پایش — بستهٔ استقرار ابری',
+  'پایش-لوکال — بستهٔ استقرار ابری',
+  '════════════════════════════════',
   '',
-  'دستور شروع (Startup command):',
-  '  node --experimental-sqlite --disable-warning=ExperimentalWarning server/index.js',
+  '۱) در پنل: اپلیکیشن جدید از نوع Node.js بسازید، نسخهٔ Node را ۲۲ یا ۲۴ بگذارید',
+  '   (نام‌های دیگر آن در بعضی پنل‌ها: runtime / engine version).',
   '',
-  'متغیرهای محیطی:',
-  '  PAYESH_DATA=<مسیر ماندگار، مثلاً /home/user/payesh/data>',
-  '  PAYESH_PUBLIC_URL=https://<آدرس نهایی>',
-  '  PAYESH_TUNNEL_AUTO=0',
-  '  PORT=<اگر پنل خودش تعیین می‌کند، دست نزنید>',
+  '۲) همین ZIP را آپلود کنید (نه از طریق GitHub، تا مطمئن باشیم همین نسخه است).',
   '',
-  'نیاز: Node.js 22.5 یا بالاتر.',
-  'بعد از استقرار: node deploy/selfcheck.mjs https://<آدرس نهایی>',
+  '۳) دستور شروع (Start / Startup command):',
+  '     npm start',
+  '   اگر پنل «npm start» را پیشنهاد داد، همان را بپذیرید.',
+  '   (دستور کامل، اگر لازم شد: node server/start.js)',
   '',
+  '۴) متغیرهای محیطی (Environment / Secrets):',
+  '     PAYESH_DATA        = <مسیر ماندگار، مثلاً /home/panel/payesh/data>',
+  '     PAYESH_PUBLIC_URL  = https://<آدرسی که پنل به شما می‌دهد>',
+  '     PAYESH_TUNNEL_AUTO = 0',
+  '   درگاه (PORT یا SERVER_PORT) را دستی نگذارید؛ خود برنامه از پنل می‌خواند',
+  '   و روی 0.0.0.0 گوش می‌دهد.',
+  '',
+  '۵) اگر پنل «Domains / دامنه» دارد، همان آدرس را به این اپلیکیشن وصل کنید.',
+  '',
+  '۶) آدرس را باز کنید → «راه‌اندازی پایش-لوکال» (نام مدرسه، مدیر، PIN).',
+  '',
+  '۷) بررسی سلامت (روی رایانهٔ خودتان، داخل همین پوشه):',
+  '     node deploy/selfcheck.mjs https://<آدرس نهایی>',
+  '',
+  '⚠️ نکتهٔ داده: تا یک‌بار ری‌استارت نکرده و مطمئن نشده‌اید داده می‌ماند،',
+  '   دادهٔ واقعی مدرسه را وارد نکنید. با «deploy/backup.sh» یا بکاپ پنل،',
+  '   یک نسخه همیشه بیرون از میزبان نگه دارید.',
+  '',
+  'نیاز: Node.js 22.5 یا بالاتر (برای دیتابیس داخلی SQLite).',
 ].join('\n'));
 
 fs.rmSync(OUT, { force: true });
@@ -74,4 +105,4 @@ const files = (function count(dir) {
 const kb = (fs.statSync(OUT).size / 1024).toFixed(0);
 
 console.log(`✅ ${path.relative(ROOT, OUT)} — ${kb}KB، ${files} فایل`);
-console.log('   در پنل میزبانی آپلود کنید (نوع: Node.js، نسخه: 22) و START-HERE.txt را ببینید.');
+console.log('   در پنل میزبانی آپلود کنید (نوع: Node.js، نسخه: 22/24)، دستور شروع: npm start');
