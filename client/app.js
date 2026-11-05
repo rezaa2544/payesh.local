@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.2';
+const CLIENT_VERSION = '0.8.3';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1076,6 +1076,21 @@ document.addEventListener('click', async (e) => {
         await flushQueue();
         toast('کاربر حذف شد', 'ok');
       } catch (e) { toast('حذف نشد: ' + e.message, 'err'); }
+      return;
+    }
+    case 'user-auto-pw': {
+      const u = byId('users', Number(id));
+      if (!u) return;
+      if (!PHONE_MODE) {
+        try {
+          const r = await api('/api/admin/users/' + u.id, { method: 'PATCH', body: { auto_password: true } });
+          if (!r.ok) throw new Error(r.error === 'no_national_id' ? 'کد ملی این کاربر ثبت نشده' : (r.error || 'خطا'));
+          toast(u.name + ' آمادهٔ ورود از گوشی شد — رمز: کد ملی', 'ok');
+          await syncNow(true); render();
+        } catch (e) { toast('انجام نشد: ' + e.message, 'err'); }
+      } else {
+        toast('این کار را از سیستم مدرسه انجام دهید', 'err');
+      }
       return;
     }
     case 'user-password': {

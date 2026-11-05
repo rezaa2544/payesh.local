@@ -120,12 +120,20 @@ function push(store, actor, body, ctx = {}) {
 
     /* کاربران: نام کاربری = شمارهٔ همراه (یکتا) و رمز اولیه = کد ملی */
     if (collection === 'users') {
-      incoming.phone = normalizePhone(incoming.phone);
+      if (incoming.phone !== undefined) incoming.phone = normalizePhone(incoming.phone);
       if (incoming.phone) {
         const dup = auth.phoneTaken(store, incoming.phone, id != null ? id : null);
         if (dup) { rejected.push({ uid, error: 'duplicate_phone', detail: 'این شماره قبلاً برای ' + dup.name + ' ثبت شده' }); continue; }
       }
-      if (!existing) incoming = auth.applyDefaultCredentials(incoming);
+      if (!existing) {
+        incoming = auth.applyDefaultCredentials(incoming);
+      } else {
+        /* ویرایش نام/کلاس نباید رمز را پاک کند: هر فیلد رمزی که از دستگاه
+           نیامده باشد، از همان رکورد سرور نگه داشته می‌شود. */
+        for (const f of ['password_hash', 'phone_hash', 'phone', 'national_id']) {
+          if (incoming[f] === undefined && existing[f] !== undefined) incoming[f] = existing[f];
+        }
+      }
     }
 
     /* gate نقش + مالکیت */
