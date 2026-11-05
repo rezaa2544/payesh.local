@@ -1,0 +1,165 @@
+/* ═══════════════════════════════════════════════════════════════════
+   کلاینت کوچک صندوقچه (S3) — هم در مرورگر، هم در Node
+   چهار چیز لازم داریم: فهرست، نوشتن، خواندن، پاک‌کردن.
+   هیچ وابستگی ندارد؛ امضا را از sigv4.js می‌گیرد.
+   ═══════════════════════════════════════════════════════════════════ */
+(function (root, factory) {
+  const sig = (typeof module === 'object' && module.exports)
+    ? require('./sigv4.js')
+    : root.PayeshSig;
+  const api = factory(sig);
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (root) root.PayeshS3 = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (sig) {
+  'use strict';
+
+  const DEFAULTS = { endpoint: '', bucket: '', accessKey: '', secret: '', region: '', prefix: 'payesh/', pathStyle: true };
+
+  function normalize(input) {
+    const c = Object.assign({}, DEFAULTS, input || {});
+    c.endpoint = String(c.endpoint || '').trim().replace(/\/+$/, '');
+    c.bucket = String(c.bucket || '').trim().replace(/^\/+|\/+$/g, '');
+    c.accessKey = String(c.accessKey || '').trim();
+    c.secret = String(c.secret || '');
+    c.region = String(c.region || '').trim();
+    c.prefix = String(c.prefix || 'payesh/').replace(/^\/+/, '');
+    if (c.prefix && !c.prefix.endsWith('/')) c.prefix += '/';
+    c.pathStyle = c.pathStyle !== false;
+    return c;
+  }
+
+  function regionOf(cfg) {
+    if (cfg.region) return cfg.region;
+    const m = String(cfg.endpoint).match(/ir-[a-z]{3}-[a-z0-9]{2}/i);
+    return m ? m[0] : 'us-east-1';
+  }
+
+  function splitEndpoint(endpoint) {
+    const u = new URL(endpoint.indexOf('://') >= 0 ? endpoint : 'https://' + endpoint);
+    return { host: u.host, basePath: u.pathname.replace(/\/+$/, ''), scheme: u.protocol.replace(':', '') };
+  }
+
+  function buildRequest(cfg, opts) {
+    const { host, basePath, scheme } = splitEndpoint(cfg.endpoint);
+    const key = String(opts.key || '').replace(/^\/+/, '');
+    const p = cfg.pathStyle === false
+      ? (key ? '/' + key : '/')
+      : ('/' + cfg.bucket + (key ? '/' + key : ''));
+    const body = opts.body || '';
+    const headers = Object.assign({}, opts.headers || {});
+    if (body) headers['content-type'] = headers['content-type'] || 'application/json; charset=utf-8';
+    return sig.sign({
+      method: opts.method || 'GET',
+      host: cfg.pathStyle === false ? cfg.bucket + '.' + host : host,
+      path: basePath + p,
+      query: opts.query || {},
+      headers,
+      body,
+      region: regionOf(cfg),
+      service: 's3',
+      scheme,
+      accessKey: cfg.accessKey,
+      secret: cfg.secret,
+    });
+  }
+
+  function hint(status, text) {
+    if (status === 403) return 'کلیدها یا اجازهٔ دسترسی درست نیست (Access Denied)';
+    if (status === 404) return /NoSuchBucket/i.test(text) ? 'صندوقچه با این نام پیدا نشد' : 'فایل یا صندوقچه پیدا نشد';
+    if (status === 400) return /region|AuthorizationHeaderMalformed/i.test(text)
+      ? 'منطقه (Region) با آدرس نمی‌خواند' : 'درخواست پذیرفته نشد (۴۰۰)';
+    if (status === 301) return 'آدرس یا منطقه اشتباه است';
+    if (status === 0) return 'شبکه اجازه نداد — احتمالاً CORS صندوقچه تنظیم نشده';
+    return 'پاسخ نامنتظر از صندوقچه (' + status + ')';
+  }
+
+  async function call(cfg, opts) {
+    const signed = buildRequest(cfg, opts);
+    let res;
+    try {
+      res = await fetch(signed.url, {
+        method: opts.method || 'GET',
+        headers: signed.headers,
+        body: opts.body || undefined,
+        mode: 'cors',
+      });
+    } catch (e) {
+      const err = new Error('به صندوقچه نرسیدیم — آدرس/اینترنت/CORS را بررسی کنید');
+      err.kind = 'network'; err.detail = e.message;
+      throw err;
+    }
+    const text = await res.text();
+    if (!res.ok) {
+      const err = new Error(hint(res.status, text));
+      err.kind = 'http'; err.status = res.status; err.detail = text.slice(0, 300);
+      throw err;
+    }
+    return { status: res.status, text };
+  }
+
+  const tag = (xml, t) => {
+    const m = xml.match(new RegExp('<' + t + '>([\\s\\S]*?)</' + t + '>'));
+    return m ? m[1] : null;
+  };
+  const all = (xml, t) => {
+    const out = []; const re = new RegExp('<' + t + '>([\\s\\S]*?)</' + t + '>', 'g'); let m;
+    while ((m = re.exec(xml))) out.push(m[1]);
+    return out;
+  };
+  const unxml = s => String(s).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+
+  async function list(cfg, opts) {
+    opts = opts || {};
+    const q = { 'list-type': '2', 'max-keys': String(opts.max || 1000) };
+    const prefix = opts.prefix !== undefined ? opts.prefix : cfg.prefix;
+    if (prefix) q.prefix = prefix;
+    if (opts.after) q['start-after'] = opts.after;
+    if (opts.token) q['continuation-token'] = opts.token;
+    const r = await call(cfg, { method: 'GET', key: '', query: q });
+    const keys = all(r.text, 'Key').map(unxml);
+    const sizes = all(r.text, 'Size').map(Number);
+    const truncated = /<IsTruncated>true<\/IsTruncated>/i.test(r.text);
+    return {
+      keys: keys.map((k, i) => ({ key: k, size: sizes[i] || 0 })),
+      truncated,
+      token: truncated ? (tag(r.text, 'NextContinuationToken') || null) : null,
+    };
+  }
+
+  const put = async (cfg, key, text) => { await call(cfg, { method: 'PUT', key, body: text }); return { key }; };
+  const get = async (cfg, key) => (await call(cfg, { method: 'GET', key })).text;
+  const remove = async (cfg, key) => { await call(cfg, { method: 'DELETE', key }); return { key }; };
+
+  async function test(cfg) {
+    cfg = normalize(cfg);
+    const out = { ok: false, steps: [], ms: 0, region: regionOf(cfg) };
+    if (!cfg.endpoint || !cfg.bucket || !cfg.accessKey || !cfg.secret) {
+      out.error = 'چهار مقدار لازم است: آدرس، نام صندوقچه، کلید عمومی، کلید خصوصی';
+      return out;
+    }
+    const t0 = Date.now();
+    const key = cfg.prefix + '_probe.txt';
+    const token = 'payesh-' + Date.now();
+    try {
+      const l = await list(cfg, { max: 3 });
+      out.steps.push({ name: 'دیدن صندوقچه', ok: true, note: l.keys.length ? l.keys.length + ' فایل' : 'خالی' });
+      const t1 = Date.now();
+      await put(cfg, key, token);
+      out.steps.push({ name: 'نوشتن', ok: true, ms: Date.now() - t1 });
+      const back = await get(cfg, key);
+      const same = String(back).trim() === token;
+      out.steps.push({ name: 'خواندن', ok: same, note: same ? null : 'محتوای برگشتی یکسان نبود' });
+      await remove(cfg, key);
+      out.steps.push({ name: 'پاک‌کردن', ok: true });
+      out.ok = out.steps.every(s => s.ok);
+    } catch (e) {
+      out.steps.push({ name: 'اتصال', ok: false, note: e.message });
+      out.error = e.message; out.kind = e.kind || 'unknown'; out.detail = e.detail || null;
+    }
+    out.ms = Date.now() - t0;
+    return out;
+  }
+
+  return { DEFAULTS, normalize, regionOf, buildRequest, call, list, put, get, remove, test };
+});

@@ -509,7 +509,32 @@ function render() {
     S._netLoading = true;
     loadNetwork(false).then(() => { S._netLoading = false; if (S.route === 'network') render(); });
   }
+  if (S.route === 'cloud' && S.role === 'manager' && S.cloud === undefined && !S._cloudLoading) {
+    S._cloudLoading = true;
+    loadCloud().then(() => { S._cloudLoading = false; if (S.route === 'cloud') render(); });
+  }
   updateTopChrome();
+}
+
+
+/* ── حافظهٔ ابری ────────────────────────────────────────────────── */
+async function loadCloud() {
+  try { const r = await api('/api/admin/cloud'); S.cloud = r.config; }
+  catch (e) { S.cloud = { configured: false }; toast('خواندن تنظیمات حافظهٔ ابری ناموفق: ' + e.message, 'err'); }
+}
+function cloudForm() {
+  const v = id => (($('#' + id) || {}).value || '').trim();
+  return { endpoint: v('cl-endpoint'), bucket: v('cl-bucket'), region: v('cl-region'), accessKey: v('cl-access'), secret: v('cl-secret') };
+}
+function cloudStepsHtml(r) {
+  const rows = (r.steps || []).map(s => `<div class="row" style="gap:8px;align-items:center;margin-top:4px">
+    <span>${s.ok ? '✅' : '⛔'}</span><span>${esc(s.name)}</span>
+    ${s.ms ? `<span class="muted">${fa(s.ms)}ms</span>` : ''}
+    ${s.note ? `<span class="muted">— ${esc(s.note)}</span>` : ''}</div>`).join('');
+  const head = r.ok
+    ? `<b style="color:#15803d">حافظهٔ ابری سالم است</b> <span class="muted">(${fa(r.ms)}ms)</span>`
+    : `<b style="color:#b91c1c">وصل نشد</b> <span class="muted">${esc(r.error || '')}</span>`;
+  return head + rows;
 }
 
 /* ── آپدیت ──────────────────────────────────────────────────────── */
@@ -906,6 +931,40 @@ document.addEventListener('click', async (e) => {
       return;
     }
 
+    case 'cloud-save': {
+      try {
+        const r = await api('/api/admin/cloud', { method: 'POST', body: cloudForm() });
+        await loadCloud(); render();
+        toast(r.configured ? 'ذخیره شد' : 'ذخیره شد — ولی کامل نیست', r.configured ? 'ok' : 'err');
+      } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
+      return;
+    }
+    case 'cloud-test': {
+      S._cloudBusy = true; render();
+      try {
+        const r = await api('/api/admin/cloud/test', { method: 'POST', body: { config: cloudForm() } });
+        const box = $('#cloud-out'); if (box) box.innerHTML = cloudStepsHtml(r);
+      } catch (err) { const box = $('#cloud-out'); if (box) box.innerHTML = '<b style="color:#b91c1c">خطا:</b> ' + esc(err.message); }
+      S._cloudBusy = false; return;
+    }
+    case 'cloud-test-browser': {
+      S._cloudBusy = true; render();
+      const box = $('#cloud-out');
+      try {
+        let cfg = cloudForm();
+        if (!cfg.secret) {
+          const r = await api('/api/admin/cloud?reveal=1');
+          cfg = Object.assign({}, r.config, cfg);
+        }
+        const CFG = (window.PayeshS3 && window.PayeshS3.normalize(cfg)) || cfg;
+        if (box) box.innerHTML = '<span class="muted">در حال آزمایش از همین دستگاه…</span>';
+        const out = await window.PayeshS3.test(CFG);
+        if (box) box.innerHTML = cloudStepsHtml(out) +
+          (out.ok ? '<div class="small muted" style="margin-top:6px">این دستگاه می‌تواند مستقیم بنویسد و بخواند.</div>'
+                  : '<div class="small muted" style="margin-top:6px">اگر «آزمایش از سرور» سالم بود و این نه، مشکل CORS است.</div>');
+      } catch (err) { if (box) box.innerHTML = '<b style="color:#b91c1c">خطا:</b> ' + esc(err.message); }
+      S._cloudBusy = false; return;
+    }
     case 'settings-save': {
       const name = ($('#set-name') || {}).value || '';
       try { await api('/api/admin/settings', { method: 'POST', body: { name } }); toast('ذخیره شد', 'ok'); await start(); }
