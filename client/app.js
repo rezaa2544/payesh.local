@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.5.3';
+const CLIENT_VERSION = '0.5.4';
 
 const S = {
   online: navigator.onLine,
@@ -851,6 +851,11 @@ document.addEventListener('click', async (e) => {
       } catch (e) { toast('ثبت نشد: ' + e.message, 'err'); }
       return;
     }
+    case 'claim-open':
+      S.claimOpen = true;
+      S.claimPhone = '';
+      if (S.server && S.user && S.user.phone) S.claimPhone = S.user.phone;
+      renderPair(); return;
     case 'login-mode':
       S.loginMode = el.getAttribute('data-id') === 'pair' ? 'pair' : 'password';
       renderPair(); return;
