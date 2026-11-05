@@ -318,6 +318,47 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(again.data.ok, false, 'کاربر حذف‌شده نمی‌تواند وارد شود');
   });
 
+  /* ── ولیِ بدون کد ملی: باید وارد شود (باگ «نام کاربری یا رمز اشتباهه») ── */
+  await test('ولی بدون کد ملی ساخته می‌شود و همان لحظه وارد می‌شود', async () => {
+    const mk = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'par-nonid', collection: 'users', type: 'put', data: { name: 'ولی بی‌کدملی', role: 'parent', phone: '09125550011' } },
+    ] } });
+    assert.strictEqual(mk.data.applied.length, 1, 'کاربر ساخته شد');
+    const parentId = mk.data.applied[0].id;
+
+    const creds = await req('/api/admin/users/credentials', { token: managerToken });
+    const row = creds.data.users.find(u => Number(u.id) === Number(parentId));
+    assert.ok(row, 'کاربر در فهرست رمزها هست');
+    assert.ok(row.password && String(row.password).length >= 4, 'رمز برای مدیر قابل دیدن است: ' + row.password);
+
+    const login = await req('/api/auth/login', { method: 'POST', body: { phone: '09125550011', password: String(row.password) } });
+    assert.strictEqual(login.data.ok, true, 'ولی بدون کد ملی وارد می‌شود');
+    assert.ok(login.data.session && login.data.session.token);
+
+    const wrong = await req('/api/auth/login', { method: 'POST', body: { phone: '09125550011', password: '000000' } });
+    assert.strictEqual(wrong.data.ok, false, 'رمز اشتباه رد می‌شود');
+  });
+
+  /* ── تغییر رمز: رمز واقعاً عوض می‌شود و نمایش هم همان رمز تازه است ── */
+  await test('تغییر رمز واقعاً اعمال می‌شود و رمز نمایش‌داده‌شده همان رمز تازه است', async () => {
+    const mk = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'pw-user', collection: 'users', type: 'put', data: { name: 'کاربر رمز', role: 'teacher', phone: '09125550022', national_id: '1000000052' } },
+    ] } });
+    const uid = mk.data.applied[0].id;
+    const set = await req('/api/admin/users/' + uid + '/password', { method: 'POST', token: managerToken, body: { password: 'newpass1234' } });
+    assert.strictEqual(set.data.ok, true);
+    assert.strictEqual(set.data.password, 'newpass1234', 'پاسخ، رمز تازه را برمی‌گرداند');
+
+    const creds = await req('/api/admin/users/credentials', { token: managerToken });
+    const row = creds.data.users.find(u => Number(u.id) === Number(uid));
+    assert.strictEqual(String(row.password), 'newpass1234', 'جدول رمزها رمز تازه را نشان می‌دهد');
+
+    const oldPw = await req('/api/auth/login', { method: 'POST', body: { phone: '09125550022', password: '1000000052' } });
+    assert.strictEqual(oldPw.data.ok, false, 'رمز قبلی دیگر کار نمی‌کند');
+    const newPw = await req('/api/auth/login', { method: 'POST', body: { phone: '09125550022', password: 'newpass1234' } });
+    assert.strictEqual(newPw.data.ok, true, 'رمز تازه کار می‌کند');
+  });
+
   await test('پشتیبان‌گیری ساخته و قابل دانلود است', async () => {
     const b = await req('/api/admin/backup', { method: 'POST', token: managerToken });
     assert.strictEqual(b.data.ok, true);
@@ -1294,7 +1335,7 @@ async function waitFor(fn, ms = 15000) {
     });
     const win = dom.window;
     const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
-    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js'));
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/schedule.js') + '\n;\n' + strip('client/app.js'));
     win.document.dispatchEvent(new win.Event('DOMContentLoaded'));
     const app = await waitFor(() => {
       const el = win.document.querySelector('#app');
@@ -1430,6 +1471,91 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(made, 'کاربر تازه در فهرست محلی هست');
     assert.strictEqual(made.role, 'student');
     assert.strictEqual(Number(made.class_id), 1, 'به کلاس درست وصل شد');
+    dom.window.close();
+  });
+
+  /* — برنامهٔ هفتگی (پیاده‌سازیِ p2): تداخل، پیشنهاد، تولیدِ خودکار و خانه‌های قابلِ کلیک ─ */
+  await test('برنامهٔ هفتگی: تداخلِ دبیر، پیشنهاد جای آزاد و تولید خودکار', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/schedule.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, schedPage, schedGenerate, schedConflicts, schedTeacherBusyAt, schedSuggestSlots, schedSlotModal, closeModal };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'schedule';
+    T.S.data = {
+      users: new Map([
+        [1, { id: 1, name: 'مدیر', role: 'manager' }],
+        [2, { id: 2, name: 'دبیر الف', role: 'teacher', active: true, subject: 'ریاضی' }],
+        [3, { id: 3, name: 'دبیر ب', role: 'teacher', active: true, subject: 'فیزیک' }],
+      ]),
+      classes: new Map([[1, { id: 1, name: 'دهم الف', grade: 'دهم' }], [2, { id: 2, name: 'دهم ب', grade: 'دهم' }]]),
+      subjects: new Map([[10, { id: 10, name: 'ریاضی', weekly_hours: 3 }], [11, { id: 11, name: 'فیزیک', weekly_hours: 2 }]]),
+      bell_schedules: new Map([1, 2, 3, 4, 5, 6].map(n => [n, { id: n, order: n, start: '0' + n + ':00', end: '0' + n + ':45', type: 'lesson' }])),
+      schedule: new Map([
+        [100, { id: 100, class_id: 1, subject_id: 10, teacher_id: 2, weekday: 0, bell_order: 1 }],
+        [101, { id: 101, class_id: 2, subject_id: 10, teacher_id: 2, weekday: 0, bell_order: 1 }],   /* تداخل: یک دبیر دو کلاس */
+      ]),
+      substitutions: new Map(),
+    };
+    T.S.queue = []; T.S.online = false;
+
+    const confs = T.schedConflicts();
+    assert.strictEqual(confs.length, 1, 'یک تداخل پیدا شد');
+    assert.strictEqual(confs[0].kind, 'teacher');
+    assert.strictEqual(confs[0].rows.length, 2);
+
+    assert.ok(T.schedTeacherBusyAt(2, 0, 1, 0), 'دبیر در آن ساعت مشغول است');
+    assert.strictEqual(T.schedTeacherBusyAt(2, 1, 1, 0), null, 'روز دیگر آزاد است');
+
+    const sugs = T.schedSuggestSlots(101);
+    assert.ok(sugs.length > 0, 'جای آزاد پیشنهاد شد');
+    assert.ok(sugs.every(g => !(g.day === 0 && g.period === 1)), 'پیشنهاد، خانهٔ تداخل‌دار نیست');
+    assert.ok(sugs.every(g => !T.schedTeacherBusyAt(2, g.day, g.period, 101)), 'دبیر در هیچ پیشنهادی مشغول نیست');
+
+    /* تولید خودکار: جزو خانه‌های پرشده نمی‌نویسد و تداخل نمی‌سازد */
+    const res = T.schedGenerate({
+      classes: [{ id: 1, grade: 'دهم' }, { id: 2, grade: 'دهم' }],
+      subjects: [{ id: 10, weekly_hours: 3 }, { id: 11, weekly_hours: 2 }],
+      teachers: [{ id: 2, subject_id: 10 }, { id: 3, subject_id: 11 }],
+      existing: [{ class_id: 1, subject_id: 10, teacher_id: 2, day: 0, period: 1 }],
+      days: [0, 1, 2, 3, 4, 5], periodsPerDay: 6,
+    });
+    assert.ok(res.stats.demands > 0, 'تقاضا ساخته شد');
+    assert.strictEqual(res.stats.placed, res.placements.length);
+    const seenClass = new Set(), seenTeacher = new Set();
+    for (const p of res.placements) {
+      const kc = p.class_id + '|' + p.day + '|' + p.period;
+      assert.ok(!seenClass.has(kc), 'هیچ کلاسی دو زنگ هم‌زمان ندارد');
+      seenClass.add(kc);
+      if (p.teacher_id != null) {
+        const kt = p.teacher_id + '|' + p.day + '|' + p.period;
+        assert.ok(!seenTeacher.has(kt), 'هیچ دبیری دو زنگ هم‌زمان ندارد');
+        seenTeacher.add(kt);
+      }
+      assert.ok(!(p.class_id === 1 && p.day === 0 && p.period === 1), 'خانهٔ پرشدهٔ کلاس دوباره پر نشد');
+      assert.ok(!(p.teacher_id === 2 && p.day === 0 && p.period === 1), 'دبیرِ مشغول در آن ساعت گذاشته نشد');
+    }
+
+    /* صفحه: نمای مدیر با خانه‌های قابلِ کلیک و دکمهٔ تولید خودکار */
+    const html = T.schedPage();
+    assert.ok(/data-act="sched-slot"/.test(html), 'خانه‌های جدول قابلِ کلیک‌اند');
+    assert.ok(/data-act="schedgen-open"/.test(html), 'دکمهٔ تولید خودکار هست');
+    assert.ok(/تداخل/.test(html), 'هشدار تداخل نمایش داده شد');
+    assert.ok(/data-act="sched-slot" data-day="0" data-period="1" data-id="100"/.test(html), 'خانهٔ پر با شناسهٔ زنگ');
+
+    /* پنجرهٔ زنگ: درس، دبیر با وضعیت آزاد/مشغول و جابه‌جای موقت */
+    T.S.modalTitle = '';
+    T.schedSlotModal(T.S.data.schedule.get(100));
+    const modalHtml = win.document.querySelector('#modal-root').innerHTML;
+    assert.ok(/data-form="slot"/.test(modalHtml), 'فرم زنگ باز شد');
+    assert.ok(/🔴/.test(modalHtml), 'دبیرِ مشغول با نشان سرخ دیده می‌شود');
+    assert.ok(/sub_date/.test(modalHtml), 'بخش جابه‌جای موقت هست');
+    assert.ok(/data-act="modal-close"/.test(modalHtml), 'دکمهٔ ✕ در پنجره هست');
+    T.closeModal();
     dom.window.close();
   });
 

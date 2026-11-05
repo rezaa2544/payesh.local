@@ -145,7 +145,8 @@ function login(store, input = {}) {
   if (phone.length < 10) return { ok: false, error: 'bad_phone' };
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
   let user = findUserByPhone(store, phone);
-  if (!user || user.active === false || !user.password_hash) return { ok: false, error: 'bad_credentials' };
+  if (!user || user.active === false) return { ok: false, error: 'bad_credentials' };
+  if (!user.password_hash) return { ok: false, error: 'no_password' };
   if (!verifySecret(pw, user.password_hash)) return { ok: false, error: 'bad_credentials' };
   if (!user.phone_hash) {
     /* برای ورود بدون سرور روی گوشی لازم است */
@@ -318,8 +319,19 @@ function logout(store, session) {
 function credentialsFor(row) {
   const phone = normDigits(row && row.phone);
   const nid = normDigits(row && row.national_id);
-  if (phone.length < 10 || nid.length < 4) return null;
-  return { phone, password: nid };
+  /* نام کاربری = شمارهٔ همراه. اگر کد ملی نباشد (مثلاً ولی‌ای که فقط با
+     شماره ساخته شده)، رمز به‌صورت تصادفی ساخته می‌شود تا حساب هرگز
+     «بی‌رمز» نماند و ورودش رد نشود؛ مدیر رمز را در فهرست کاربران
+     می‌بیند و به خودش می‌گوید. */
+  if (phone.length < 10) return null;
+  const password = nid.length >= 4 ? nid : randomDigits(6);
+  return { phone, password };
+}
+
+function randomDigits(n) {
+  let out = '';
+  while (out.length < n) out += String(Math.floor(Math.random() * 10));
+  return out;
 }
 
 /* اگر کاربر رمز ندارد، از کد ملی ساخته می‌شود (فقط هنگام ساخت) */
@@ -353,7 +365,7 @@ function prune(store) {
 
 module.exports = {
   needsSetup, setup, createPairCode, pair, unlock, changePin,
-  credentialsFor, applyDefaultCredentials, phoneTaken, passwordOf,
+  credentialsFor, applyDefaultCredentials, phoneTaken, passwordOf, randomDigits,
   hasPassword, login, refreshWithDevice, unlockWithPassword, setPassword, changeOwnPassword,
   createTransfer, redeemTransfer,
   verifySession, listDevices, revokeDevice, logout, publicUser, prune, findUserByPhone,

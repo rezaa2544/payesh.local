@@ -66,6 +66,37 @@ const store = openStore(path.join(DATA_DIR, 'payesh.sqlite'));
   } catch (e) { /* بی‌صدا: نداشتن این فهرست نباید بالا آمدن سرور را بشکند */ }
 })();
 
+/* ── تعمیر خودکار حساب‌های بی‌رمز ────────────────────────────────────
+   هر کاربری که شمارهٔ همراه دارد ولی رمز ندارد (مثلاً ولی‌ای که هنگام ثبت
+   دانش‌آموز ساخته شد و کد ملی نداشت) تا امروز نمی‌توانست وارد شود و پیام
+   «نام کاربری یا رمز اشتباه است» می‌گرفت. این‌جا یک‌بار برای همیشه رمز
+   ساخته می‌شود (کد ملی، و اگر نبود رمز تصادفی) و در فهرست کاربران برای
+   مدیر نمایش داده می‌شود. پس از تعمیر، فایل ورودِ گوشی هم دوباره منتشر
+   می‌شود تا همان لحظه روی گوشی کار کند. */
+(function repairCredentials() {
+  try {
+    let fixed = 0;
+    for (const u of (store.all('users') || [])) {
+      if (u.active === false) continue;
+      if (!auth.credentialsFor(u)) continue;              /* شماره ندارد؛ نام کاربری ممکن نیست */
+      if (u.password_hash && u.phone_hash) continue;       /* سالم است */
+      const patched = auth.applyDefaultCredentials(u);
+      if (patched.password_hash) {
+        store.update('users', u.id, {
+          password_hash: patched.password_hash,
+          phone_hash: patched.phone_hash || patched.password_hash,
+          password_plain: patched.password_plain || u.password_plain || '',
+        });
+        fixed += 1;
+      }
+    }
+    if (fixed) {
+      process.env.PAYESH_LOG !== '0' && console.log('🔑 ' + fixed + ' حساب بی‌رمز تعمیر شد (رمز ساخته شد)');
+      outbox.publishAll(store).catch(() => null);
+    }
+  } catch (e) { /* بی‌صدا */ }
+})();
+
 /* نسخه‌ای که همین پروسه با آن بالا آمده — برای تشخیص «راه‌اندازی مجدد لازم است» */
 const RUNNING_VERSION = (() => {
   try { return JSON.parse(fs.readFileSync(path.join(RELEASES_DIR, 'manifest.json'), 'utf8')).version || '0.0.0'; }
@@ -332,8 +363,14 @@ async function api(req, res, url, ip) {
   }
 
   if (p === '/api/auth/login' && m === 'POST') {
-    if (!rateLimit('login:' + ip, 20, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    /* محدودیت ورود به ازای «همان شماره» شمرده می‌شود، نه به ازای یک آدرس.
+       در مدرسه همهٔ گوشی‌ها یک آدرس مشترک دارند؛ اگر سقف روی آدرس بود،
+       ورودِ گروهی کاربران همدیگر را بیرون می‌گذاشت و پیام «رمز اشتباه»
+       می‌گرفتند. سقف کلیِ آدرس هم بالا است تا حملهٔ انبوه بسته بماند. */
     const body = await readBody(req);
+    const who = normDigitsLocal(body.phone || '');
+    if (!rateLimit('login-ip:' + ip, 240, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    if (who && !rateLimit('login-user:' + who, 20, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const r = auth.login(store, body);
     if (!r.ok) {
       store.audit({ action: 'login_failed', role: 'system', collection: 'users', after: { ip } });
@@ -787,18 +824,25 @@ async function api(req, res, url, ip) {
     if (body.role && ['student', 'teacher', 'parent', 'vice', 'counselor', 'office', 'staff', 'manager'].includes(body.role)) patch.role = body.role;
     const saved = store.update('users', id, patch);
     let pw = null;
-    if (body.password) pw = auth.setPassword(store, id, body.password);
+    let shownPassword = null;
+    if (body.password) { pw = auth.setPassword(store, id, body.password); shownPassword = String(body.password); }
     else if (body.auto_password) {
-      /* «آماده‌سازی برای گوشی»: رمز = کد ملی (همان قاعدهٔ ساخت کاربر) */
+      /* «ساخت/بازسازی رمز»: کد ملی، و اگر کد ملی نبود رمز تصادفی —
+         هیچ حسابی نباید بی‌رمز بماند. */
       const cur = store.get('users', id) || {};
-      const nid = String(cur.national_id || '').replace(/\D/g, '');
-      if (nid.length < 4) return json({ ok: false, error: 'no_national_id' }, 400);
-      pw = auth.setPassword(store, id, nid);
+      const c = auth.credentialsFor(cur);
+      if (!c) return json({ ok: false, error: 'no_phone' }, 400);
+      pw = auth.setPassword(store, id, c.password);
+      shownPassword = c.password;
     }
     store.audit({ user_id: actor.user.id, role: 'manager', action: 'user_update', collection: 'users', record_id: id, after: Object.assign({}, patch, pw ? { password_changed: true } : {}) });
     /* گوشی‌ها بی‌درنگ نام کاربری/رمز تازه را ببینند */
     outbox.publishAll(store).catch(() => null);
-    return json({ ok: true, user: auth.publicUser(store.get('users', id)), password_set: !!(pw && pw.ok), error: pw && !pw.ok ? pw.error : undefined });
+    return json({
+      ok: true, user: auth.publicUser(store.get('users', id)),
+      password: pw && pw.ok ? shownPassword : null,
+      password_set: !!(pw && pw.ok), error: pw && !pw.ok ? pw.error : undefined,
+    });
   }
 
   if (um && m === 'DELETE') {
@@ -831,7 +875,8 @@ async function api(req, res, url, ip) {
     const r = auth.setPassword(store, Number(pwUser[1]), body.password);
     if (!r.ok) return json(r, 400);
     store.audit({ user_id: actor.user.id, role: 'manager', action: 'password_set', collection: 'users', record_id: Number(pwUser[1]) });
-    return json({ ok: true });
+    /* رمزِ تازه را برمی‌گردانیم تا همان لحظه در جدول دیده شود */
+    return json({ ok: true, password: String(body.password) });
   }
 
   if (p === '/api/admin/devices' && m === 'GET') return json({ ok: true, devices: auth.listDevices(store) });
