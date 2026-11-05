@@ -788,6 +788,8 @@ async function waitFor(fn, ms = 15000) {
         if (!/^AWS4-HMAC-SHA256/.test(req.headers.authorization || '')) {
           res.writeHead(403); return res.end('<Error><Code>AccessDenied</Code></Error>');
         }
+        /* صندوقچهٔ واقعی وقتی CORS تنظیم شده باشد، هدر اجازه را در همهٔ پاسخ‌ها می‌گذارد */
+        res.setHeader('access-control-allow-origin', '*');
         const url = new URL(req.url, 'http://x');
         const p = decodeURIComponent(url.pathname);
         if (p === '/' && req.method === 'GET') {
@@ -808,7 +810,9 @@ async function waitFor(fn, ms = 15000) {
         }
         if (req.method === 'GET' && key) {
           if (!bucket.has(key)) { res.writeHead(404); return res.end('<Error><Code>NoSuchKey</Code></Error>'); }
-          res.writeHead(200, { 'content-type': 'text/plain' }); return res.end(bucket.get(key));
+          /* صندوقچهٔ واقعی وقتی CORS تنظیم شده باشد همین هدر را می‌دهد */
+          res.writeHead(200, { 'content-type': 'text/plain', 'access-control-allow-origin': '*' });
+          return res.end(bucket.get(key));
         }
         if (req.method === 'DELETE' && key) { bucket.delete(key); res.writeHead(204); return res.end(); }
         res.writeHead(400); res.end('bad');
@@ -837,6 +841,17 @@ async function waitFor(fn, ms = 15000) {
       const st = await req('/api/outbox/state', { token: managerToken });
       assert.strictEqual(st.data.cloud, true, 'صندوقچه در دسترس است');
       assert.ok(st.data.pending >= 1, 'یک ثبت در صندوقچه منتظر است');
+
+      /* ── دسترسی گوشی: بررسی واقعی CORS از سمت سرور ── */
+      const phoneChk = await req('/api/admin/cloud/phone-check', { method: 'POST', token: managerToken, body: {} });
+      assert.strictEqual(phoneChk.data.ok, true, 'دسترسی گوشی تأیید شد: ' + JSON.stringify(phoneChk.data).slice(0, 300));
+      assert.ok((phoneChk.data.steps || []).some(x => x.step === 'cors' && x.ok), 'گام CORS در گزارش هست');
+
+      /* ── رمز جاری کاربران: فقط مدیر می‌بیند ── */
+      const creds = await req('/api/admin/users/credentials', { token: managerToken });
+      assert.strictEqual(creds.data.ok, true);
+      const credMgr = creds.data.users.find(u => u.id === 1);
+      assert.ok(credMgr && credMgr.password, 'رمز مدیر نمایش داده می‌شود');
 
       /* برای نقش‌های پایین‌تر از کادر، «سرور شدن» ممنوع است */
       const parentCode = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 4 } });
@@ -893,7 +908,7 @@ async function waitFor(fn, ms = 15000) {
       assert.ok(!/secret|password_hash/.test(JSON.stringify(authEnv)), 'هیچ راز اضافه‌ای در پرونده نیست');
       const core = JSON.parse(bucket.get('payesh/data/core.json'));
       assert.ok(Array.isArray(core.directory) && core.directory.length > 2, 'فهرست نام‌ها هم منتشر شد');
-      assert.ok(!/password_hash|phone_hash/.test(bucket.get('payesh/data/core.json')), 'هیچ هشی در داده منتشر نمی‌شود');
+      assert.ok(!/password_hash|phone_hash|password_plain/.test(bucket.get('payesh/data/core.json')), 'هیچ هش/رمزی در داده منتشر نمی‌شود');
 
       /* همان بررسی که گوشی انجام می‌دهد (WebCrypto/PBKDF2) */
       global.window = global;

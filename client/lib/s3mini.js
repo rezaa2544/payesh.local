@@ -191,6 +191,41 @@
     }
   }
 
+
+  /* ── آزمایش دسترسی مرورگر/گوشی (CORS) ───────────────────────────
+     همان درخواستی را می‌فرستیم که یک مرورگر می‌فرستد: GET با هدر Origin.
+     اگر پاسخ هدرِ access-control-allow-origin داشته باشد، گوشی می‌تواند
+     بخواند؛ وگرنه مرورگر جواب را دور می‌ریزد (دقیقاً همان خطای «نرسیدیم»). */
+  const PHONE_ORIGIN = 'https://appassets.androidplatform.net';
+  async function corsProbe(cfg, origin) {
+    cfg = smartParse(normalize(cfg));
+    const out = { ok: false, reachable: false, status: 0, allow_origin: null, detail: null, origin: origin || PHONE_ORIGIN };
+    /* سه درخواست به‌ترتیب: فهرست صندوقچه (همیشه هست)، فایل داده، فایل آزمون */
+    const attempts = [
+      { key: '', query: { 'list-type': '2', 'max-keys': '1', prefix: cfg.prefix } },
+      { key: cfg.prefix + 'data/core.json' },
+      { key: cfg.prefix + '_probe.txt' },
+    ];
+    for (const a of attempts) {
+      const signed = buildRequest(cfg, { method: 'GET', key: a.key, query: a.query });
+      const headers = Object.assign({}, signed.headers, { origin: out.origin });
+      let res;
+      try {
+        res = await fetch(signed.url, { method: 'GET', headers });
+      } catch (e) {
+        out.error = 'network';
+        out.detail = String(e && e.message || e).slice(0, 160);
+        return out;
+      }
+      out.reachable = true;
+      out.status = res.status;
+      const acao = res.headers.get('access-control-allow-origin');
+      out.allow_origin = acao;
+      if (acao) { out.ok = true; return out; }
+    }
+    return out;
+  }
+
   async function test(cfg) {
     cfg = smartParse(normalize(cfg));
     const out = { ok: false, steps: [], ms: 0, region: regionOf(cfg) };
@@ -221,5 +256,5 @@
     return out;
   }
 
-  return { DEFAULTS, normalize, smartParse, regionOf, buildRequest, call, list, listBuckets, put, get, remove, setCors, getCors, test };
+  return { DEFAULTS, normalize, smartParse, regionOf, buildRequest, call, list, listBuckets, put, get, remove, setCors, getCors, corsProbe, PHONE_ORIGIN, test };
 });

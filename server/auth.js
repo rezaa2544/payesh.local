@@ -59,6 +59,7 @@ function setup(store, input) {
     school_id: 1, created_at: nowISO(),
     password_hash: pw ? verifier : null,
     phone_hash: pw ? verifier : null,
+    password_plain: pw ? String(pw) : null,   /* فقط برای اینکه مدیر بتواند رمز را بگوید */
   });
 
   const device = createDevice(store, manager.id, { name: 'سیستم مدیر', platform: 'server', pin });
@@ -176,8 +177,25 @@ function setPassword(store, userId, nextPw) {
   const user = store.get('users', userId);
   if (!user) return { ok: false, error: 'user_not_found' };
   const verifier = pbkdf2Hash(pw);
-  const saved = store.update('users', user.id, { password_hash: verifier, phone_hash: verifier });
+  const saved = store.update('users', user.id, {
+    password_hash: verifier, phone_hash: verifier,
+    password_plain: pw,     /* مدیر باید بتواند رمز فعلی را ببیند و به کاربر بگوید */
+  });
   return { ok: true, user: publicUser(saved) };
+}
+
+/* رمزِ جاری هر حساب — برای اینکه مدیر بتواند به کاربر بگوید «رمزت این است».
+   اگر رمزی که مدیر تعیین کرده ذخیره شده باشد همان را می‌دهیم؛ وگرنه اگر رمز
+   هنوز همان کد ملی باشد آن را برمی‌گردانیم و در پایگاه داده ثبت می‌کنیم. */
+function passwordOf(store, user) {
+  if (!user) return null;
+  if (user.password_plain) return String(user.password_plain);
+  const nid = normDigits(user.national_id);
+  if (nid.length >= 4 && user.password_hash && verifySecret(nid, user.password_hash)) {
+    try { store.update('users', user.id, { password_plain: nid }); } catch (e) { /* noop */ }
+    return nid;
+  }
+  return null;
 }
 
 function changeOwnPassword(store, userId, currentPw, nextPw) {
@@ -310,7 +328,7 @@ function applyDefaultCredentials(row) {
   if (!c) return row;
   if (row.password_hash) return row;
   const verifier = pbkdf2Hash(c.password);
-  return Object.assign({}, row, { password_hash: verifier, phone_hash: verifier });
+  return Object.assign({}, row, { password_hash: verifier, phone_hash: verifier, password_plain: c.password });
 }
 
 function phoneTaken(store, phone, exceptId) {
@@ -335,7 +353,7 @@ function prune(store) {
 
 module.exports = {
   needsSetup, setup, createPairCode, pair, unlock, changePin,
-  credentialsFor, applyDefaultCredentials, phoneTaken,
+  credentialsFor, applyDefaultCredentials, phoneTaken, passwordOf,
   hasPassword, login, refreshWithDevice, unlockWithPassword, setPassword, changeOwnPassword,
   createTransfer, redeemTransfer,
   verifySession, listDevices, revokeDevice, logout, publicUser, prune, findUserByPhone,

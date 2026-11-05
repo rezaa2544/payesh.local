@@ -338,6 +338,7 @@ function safeRow(row) {
   const out = Object.assign({}, row);
   delete out.password_hash;
   delete out.phone_hash;
+  delete out.password_plain;
   delete out.pin_hash;
   return out;
 }
