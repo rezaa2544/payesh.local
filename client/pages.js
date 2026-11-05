@@ -152,18 +152,38 @@ function renderSetup() {
   </div>`;
 }
 
+function claimCard() {
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(location.host || '');
+  if (!local) return '';
+  if (!(S.server && S.server.setupDone && S.server.hasPassword === false && !S.deviceToken)) return '';
+  return `
+    <form data-form="claim" class="card">
+      <div class="card-title">حساب مدیر هنوز رمز عبور ندارد</div>
+      <p class="small muted">چون این رایانه خودِ رایانهٔ مدرسه است، از همین‌جا یک‌بار شماره و رمز بسازید؛ بعد از این با همان‌ها وارد می‌شوید.</p>
+      <label class="field"><span>شمارهٔ همراه مدیر</span>
+        <input class="input ltr" name="phone" inputmode="numeric" data-digits placeholder="09xxxxxxxxx"></label>
+      <label class="field"><span>رمز عبور تازه</span>
+        <input class="input ltr" type="password" name="password" autocomplete="new-password" placeholder="••••"></label>
+      <button class="btn primary block" type="submit">ساختن رمز و ورود</button>
+    </form>`;
+}
+
 function renderPair() {
   const href = location.hash;
   const m = href.match(/#\/join\/([A-Za-z0-9-]+)/);
   const pre = m ? m[1].toUpperCase() : '';
-  const mode = (S.loginMode || (pre ? 'pair' : 'password'));
+  /* پیش‌فرض همیشه «شمارهٔ همراه + رمز عبور»؛ کد پیوند فقط راهِ سریعِ فرعی است */
+  let mode = 'password';
+  if (pre) mode = 'pair';
+  else if (S.loginMode) mode = S.loginMode;
+  else if (S.server && S.server.setupDone && S.server.hasPassword === false) mode = 'pair';
   const body = mode === 'pair' ? `
       <label class="field"><span>کد پیوند</span>
         <input class="input code-input" name="code" value="${esc(pre)}" maxlength="12" placeholder="XXXX-XXXX" autocomplete="off"></label>
       <label class="field"><span>PIN انتخابی شما (۴ تا ۶ رقم)</span>
         <input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" data-digits placeholder="••••" autocomplete="off"></label>
       <button class="btn primary block" type="submit">ورود و ثبت این دستگاه</button>
-      <p class="small muted center" style="margin-top:10px">کد را از دفتر مدرسه بگیرید.</p>
+      <p class="small muted center" style="margin-top:10px">این کد را مدیرِ مدرسه از صفحهٔ «کاربران» → دکمهٔ «کارت پیوند» برای شما چاپ می‌کند.<br>کد فقط برای همین یک‌بار است و ۷ روز اعتبار دارد.</p>
       <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="password">ورود با شمارهٔ همراه و رمز عبور</a></p>`
     : `
       <label class="field"><span>شمارهٔ همراه</span>
@@ -171,7 +191,7 @@ function renderPair() {
       <label class="field"><span>رمز عبور</span>
         <input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="••••••"></label>
       <button class="btn primary block" type="submit">ورود</button>
-      <p class="small muted center" style="margin-top:10px">رمز را مدیر مدرسه به شما داده است.</p>
+      <p class="small muted center" style="margin-top:10px">شمارهٔ همراه شما نام کاربری است؛ رمز را مدیر مدرسه داده است.</p>
       <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="pair">ورود با کارت پیوند (بدون رمز)</a></p>`;
 
   $('#app').innerHTML = `
@@ -180,6 +200,7 @@ function renderPair() {
     <h1>ورود به پایش</h1>
     <div class="sub">${S.server.school ? esc(S.server.school) : 'سامانهٔ مدرسه'}</div>
     <form data-form="${mode === 'pair' ? 'pair' : 'login'}" class="card">${body}</form>
+    ${claimCard()}
     <div class="card tight small muted">
       سرور: <span class="ltr">${esc(location.host)}</span> · نسخه ${esc(S.server.version || '')}
       ${S.user ? '' : `<br><a href="#" data-act="forget-device">دستگاه دیگری انتخاب شود</a>`}

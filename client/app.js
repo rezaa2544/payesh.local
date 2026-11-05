@@ -4,6 +4,9 @@
    ═══════════════════════════════════════════════════════════════════ */
 'use strict';
 
+/* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
+const CLIENT_VERSION = '0.5.2';
+
 const S = {
   online: navigator.onLine,
   server: { ok: false, version: '0.0.0', school: null, setupDone: false },
@@ -310,6 +313,27 @@ async function doSetup(form) {
     toast('مدرسه ساخته شد — از این پس با شمارهٔ همراه و رمز عبور وارد می‌شوید', 'ok');
     await start();
   } catch (e) { toast('راه‌اندازی ناموفق: ' + e.message, 'err'); }
+}
+
+/* نجاتِ مدیر روی خودِ رایانهٔ مدرسه: ساختن شماره + رمز وقتی حساب مدیر رمز ندارد */
+async function doClaim(form) {
+  if (!form) return;
+  const phone = digitsOnly(form.phone.value);
+  const password = String(form.password.value || '');
+  if (phone.length !== 11) return toast('شمارهٔ همراه باید ۱۱ رقم باشد', 'err');
+  if (password.length < 4) return toast('رمز عبور حداقل ۴ نویسه باشد', 'err');
+  try {
+    const r = await api('/api/auth/claim', { method: 'POST', body: { phone, password } });
+    if (r.device_token) saveDevice(r.device_token);
+    if (r.session && r.session.token) saveSession(r.session.token);
+    localStorage.setItem('payesh.authmode', 'password');
+    localStorage.setItem('payesh.lastname', (r.user && r.user.name) || '');
+    S.user = r.user || S.user; S.role = (r.user && r.user.role) || S.role;
+    toast('رمز ساخته شد');
+    await start();
+  } catch (e) {
+    toast(/local_only/.test(e.message) ? 'این کار فقط از رایانهٔ خود مدرسه ممکن است' : 'ثبت نشد: ' + e.message, 'err');
+  }
 }
 
 async function doLogin(form) {
@@ -774,8 +798,23 @@ async function boot() {
       publicUrl: health.public_url || null, instance: health.instance || null,
       dataDir: (setup && setup.data_dir) || health.data_dir || null,
       dbFile: (setup && setup.db_file) || health.db_file || null,
+      hasPassword: !!(setup && setup.has_password),
     };
     if (health.server_time) S.clockOffset = new Date(health.server_time).getTime() - Date.now();
+    /* اگر مرورگر نسخهٔ کهنه را از حافظه سرو می‌کند، یک‌بار خودمان را تازه می‌کنیم */
+    if (health.version && CLIENT_VERSION !== '0.0.0' && health.version !== CLIENT_VERSION
+        && !sessionStorage.getItem('payesh.client-refresh')) {
+      sessionStorage.setItem('payesh.client-refresh', '1');
+      try {
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) await r.unregister();
+        }
+        if (window.caches) { const keys = await caches.keys(); for (const k of keys) await caches.delete(k); }
+      } catch (e) { /* noop */ }
+      location.reload();
+      return;
+    }
     if (!S.server.setupDone) { renderSetup(); return; }
     const tr = String(location.hash || '').match(/^#\/transfer\/([A-Za-z0-9_-]+)/);
     if (tr) { renderTransfer(tr[1]); return; }
@@ -1082,6 +1121,7 @@ document.addEventListener('submit', async (e) => {
   if (kind === 'setup') return doSetup(f);
   if (kind === 'pair') return doPair(f);
   if (kind === 'login') return doLogin(f);
+  if (kind === 'claim') return doClaim(f);
   if (kind === 'unlock') return doUnlock(f);
   if (kind === 'transfer') return doTransfer(f);
 

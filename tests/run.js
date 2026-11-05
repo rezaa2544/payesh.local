@@ -592,6 +592,25 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(unlock.data.ok, true, 'همان PIN با ارقام انگلیسی هم کار کند');
   });
 
+
+  await test('نجاتِ مدیر از خودِ رایانهٔ مدرسه (ساختن رمز)', async () => {
+    /* مدیر رمز دارد → اجازهٔ بازنویسی بدون ورود داده نمی‌شود */
+    const r1 = await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000001', password: 'zzzz' } });
+    /* تست‌ها روی ۱۲۷.۰.۰.۱ اجرا می‌شوند ⇒ local است و رمز جایگزین می‌شود */
+    assert.strictEqual(r1.data.ok, true, 'روی خودِ دستگاه باید کار کند');
+    const back = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'madrese1404' } });
+    /* رمز قبلی دیگر معتبر نیست؛ رمز تازه هست */
+    assert.strictEqual(back.status, 401);
+    const relog = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'zzzz' } });
+    assert.strictEqual(relog.data.ok, true);
+    const badPhone = await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000077', password: 'zzzz' } });
+    assert.strictEqual(badPhone.data.error, 'bad_phone');
+    const shortPw = await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000001', password: '1' } });
+    assert.strictEqual(shortPw.data.error, 'bad_password');
+    /* رمز را به مقدار اولیه برمی‌گردانیم تا تست‌های بعدی نشکنند */
+    await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000001', password: 'madrese1404' } });
+  });
+
   await test('قفل موقت پس از ۸ PIN اشتباه', async () => {
     const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 1 } });
     const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '5555' } });

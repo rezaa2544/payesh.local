@@ -6,7 +6,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 'use strict';
 
-const CACHE = 'payesh-app-v1';
+const CACHE = 'payesh-app-v2';
 const VERSION_KEY = '/__payesh_version';
 const SHELL = ['/', '/index.html', '/app.js', '/pages.js', '/styles.css', '/manifest.webmanifest', '/icons/icon-192.png'];
 
@@ -42,11 +42,29 @@ self.addEventListener('fetch', event => {
 
   if (req.method !== 'GET') return;
 
+  /* شل برنامه (HTML/JS/CSS): اول شبکه، بعد کش.
+     اگر برعکس باشد، بعد از هر آپدیت نسخهٔ کهنه تا ری‌لود بعدی می‌ماند. */
+  const isShell = req.mode === 'navigate' || /\.(js|css|html|webmanifest)$/.test(url.pathname);
+  if (isShell) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE);
+      try {
+        const fresh = await Promise.race([
+          fetch(req, { cache: 'no-store' }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2500)),
+        ]);
+        if (fresh && fresh.ok) { try { await cache.put(req, fresh.clone()); } catch (e) { /* noop */ } return fresh; }
+      } catch (e) { /* آفلاین یا کند → کش */ }
+      const cached = await cache.match(req);
+      return cached || new Response('offline', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+    })());
+    return;
+  }
+
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const cached = await cache.match(req, { ignoreSearch: false });
     if (cached) {
-      /* stale-while-revalidate: پاسخ سریع + تازه‌سازی پس‌زمینه */
       event.waitUntil((async () => {
         try {
           const fresh = await fetch(req, { cache: 'no-cache' });
