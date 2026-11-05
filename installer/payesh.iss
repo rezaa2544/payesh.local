@@ -10,6 +10,14 @@
 #define AppPublisher "Payesh Local"
 #define AppExeName "start.bat"
 
+; ── نگهبان: میان‌بر برنامه به Payesh.exe اشاره می‌کند، پس باید واقعاً ساخته شده باشد
+#if !FileExists(AddBackslash(SourcePath) + "..\.build\win\desktop\Payesh.exe")
+  #error Payesh.exe ساخته نشده — اول desktop/build.ps1 را اجرا کنید
+#endif
+#if !FileExists(AddBackslash(SourcePath) + "..\.build\win\desktop\WebView2Loader.dll")
+  #error WebView2Loader.dll کنار برنامه نیست — build.ps1 ناقص اجرا شده
+#endif
+
 [Setup]
 AppId={{7C4E2A51-9F3B-4E7A-9C21-5B8A1D3E6F02}
 AppName={#AppName}
