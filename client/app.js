@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.7';
+const CLIENT_VERSION = '0.8.8';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -175,6 +175,31 @@ async function api(path, opts = {}) {
     throw err;
   }
   return data;
+}
+
+/* پیام فارسی و روشن برای خطاهای سرور — هیچ کد انگلیسی به کاربر نشان داده نمی‌شود */
+function friendlyError(e) {
+  const raw = String((e && (e.message || e)) || '');
+  const st = e && e.status;
+  const map = {
+    not_found: 'این کاربر در سیستم مدرسه هنوز ثبت نشده؛ تغییر شما ذخیره شد و با همگام‌سازی اعمال می‌شود',
+    user_not_found: 'این کاربر در سیستم مدرسه پیدا نشد (شاید حذف شده باشد)',
+    unauthorized: 'نشست شما منقضی شده — یک‌بار دوباره وارد شوید',
+    forbidden: 'اجازهٔ این کار را ندارید',
+    bad_password: 'رمز باید حداقل ۴ نویسه باشد',
+    bad_phone: 'شمارهٔ همراه کامل نیست',
+    duplicate_phone: 'این شماره برای کاربر دیگری ثبت شده است',
+    no_national_id: 'کد ملی این کاربر ثبت نشده',
+    rate_limited: 'کمی صبر کنید و دوباره بزنید',
+    body_too_large: 'حجم اطلاعات زیاد بود',
+    offline: 'سیستم مدرسه در دسترس نیست — تغییر ذخیره شد و با اتصال بعدی اعمال می‌شود',
+  };
+  if (map[raw]) return map[raw];
+  if (st === 404) return map.not_found;
+  if (st === 401) return map.unauthorized;
+  if (st === 403) return map.forbidden;
+  if (/Failed to fetch|NetworkError|load failed/i.test(raw)) return map.offline;
+  return raw || 'خطای نامشخص';
 }
 
 function toast(msg, kind = '') {
@@ -541,6 +566,7 @@ async function doPhoneLogin(f) {
 /* بالا آوردن کل برنامه از دادهٔ صندوقچه، با نقشِ همان کاربر */
 async function enterPhone(user) {
   PHONE_MODE = true;
+  S.server = Object.assign({}, S.server, { version: CLIENT_VERSION });
   S.session = 'phone';            /* نشست محلی؛ هیچ سروری در کار نیست */
   S.user = user; S.role = user.role;
   S.offline = true;
@@ -955,7 +981,9 @@ function hideUpdateOverlay() { const el = $('#upd-overlay'); if (el) el.remove()
 
 async function waitForRestart(previousVersion, version) {
   const started = Date.now();
-  while (Date.now() - started < 90_000) {
+  /* تا سه دقیقه صبر می‌کنیم؛ راه‌انداز خودکار (ناظر) سرور را برمی‌گرداند.
+     هیچ‌وقت به کاربر نمی‌گوییم «برنامه را ببندید». */
+  while (Date.now() - started < 180_000) {
     await new Promise(r => setTimeout(r, 1500));
     try {
       const h = await fetch(apiUrl('/api/health'), { cache: 'no-store' }).then(r => r.json());
@@ -966,9 +994,25 @@ async function waitForRestart(previousVersion, version) {
         location.reload();
         return;
       }
-    } catch (e) { /* سرور در حال بالا آمدن است */ }
+    } catch (e) {
+      /* سرور در حال بالا آمدن است — ادامه می‌دهیم */
+      const secs = Math.round((Date.now() - started) / 1000);
+      updateOverlay('نسخهٔ ' + fa(version) + ' نصب شد', 'برنامهٔ مدرسه دوباره راه می‌افتد… (' + fa(secs) + ' ثانیه)');
+    }
   }
-  updateOverlay('سرور دوباره بالا نیامد', 'برنامه را ببندید و دوباره اجرا کنید.');
+  /* خودکار برنگشت: خودمان یک‌بار تلاش می‌کنیم، بعد دکمهٔ تلاش دوباره */
+  try { await fetch(apiUrl('/api/admin/update/restart'), { method: 'POST', headers: { authorization: 'Bearer ' + S.session } }); } catch (e) { /* noop */ }
+  updateOverlay('در حال آماده کردن نسخهٔ تازه', 'اگر بیشتر طول کشید، «تلاش دوباره» را بزنید — نیازی به بستن برنامه نیست.');
+  const ov = $('#upd-overlay');
+  if (ov && !ov.querySelector('[data-act="upd-retry"]')) {
+    const card = ov.querySelector('.card') || ov;
+    const b = document.createElement('button');
+    b.className = 'btn primary block';
+    b.setAttribute('data-act', 'upd-retry');
+    b.style.marginTop = '12px';
+    b.textContent = 'تلاش دوباره';
+    card.appendChild(b);
+  }
 }
 
 async function applyRemoteUpdate() {
@@ -1107,6 +1151,7 @@ async function boot() {
       /* سرور در دسترس نیست: روی گوشی/رایانهٔ بدون سرور، «کل برنامه» باید
          باز شود؛ پس اول همین دستگاه، بعد ورود با شماره+رمز از صندوقچه. */
       PHONE_MODE = true;
+      S.server.version = CLIENT_VERSION;
       if (await startOffline()) return;
       renderPhoneLogin(); return;
     }
@@ -1212,7 +1257,7 @@ document.addEventListener('click', async (e) => {
         saveCache(); render();
         await flushQueue();
         toast('کاربر حذف شد', 'ok');
-      } catch (e) { toast('حذف نشد: ' + e.message, 'err'); }
+      } catch (e) { toast('حذف نشد: ' + friendlyError(e), 'err'); }
       return;
     }
     case 'user-auto-pw': {
@@ -1224,7 +1269,7 @@ document.addEventListener('click', async (e) => {
           if (!r.ok) throw new Error(r.error === 'no_national_id' ? 'کد ملی این کاربر ثبت نشده' : (r.error || 'خطا'));
           toast(u.name + ' آمادهٔ ورود از گوشی شد — رمز: کد ملی', 'ok');
           await syncNow(true); render();
-        } catch (e) { toast('انجام نشد: ' + e.message, 'err'); }
+        } catch (e) { toast('انجام نشد: ' + friendlyError(e), 'err'); }
       } else {
         toast('این کار را از سیستم مدرسه انجام دهید', 'err');
       }
@@ -1240,7 +1285,7 @@ document.addEventListener('click', async (e) => {
         await api('/api/admin/users/' + u.id + '/password', { method: 'POST', body: { password: String(pw) } });
         toast('رمز عبور ثبت شد — ' + (u.phone ? 'ورود با ' + u.phone : 'شمارهٔ همراه لازم است'), 'ok');
         await syncNow(true); render();
-      } catch (e) { toast('ثبت نشد: ' + e.message, 'err'); }
+      } catch (e) { toast('ثبت نشد: ' + friendlyError(e), 'err'); }
       return;
     }
     case 'claim-open':
@@ -1338,6 +1383,16 @@ document.addEventListener('click', async (e) => {
     case 'update-check': await checkUpdate(false); render(); return;
     case 'update-apply': await applyUpdate(); return;
     case 'update-fetch': await applyRemoteUpdate(); return;
+    case 'upd-retry': {
+      try {
+        const h = await fetch(apiUrl('/api/health'), { cache: 'no-store' }).then(r => r.json());
+        if (h && h.ok) { location.reload(); return; }
+      } catch (e) { /* noop */ }
+      try { await fetch(apiUrl('/api/admin/update/restart'), { method: 'POST', headers: { authorization: 'Bearer ' + S.session } }); } catch (e) { /* noop */ }
+      updateOverlay('دوباره تلاش شد', 'چند لحظه صبر کنید…');
+      setTimeout(() => location.reload(), 4000);
+      return;
+    }
     case 'update-recheck': await loadRemoteUpdate(true); render(); return;
     case 'update-rollback': await rollbackUpdate(); return;
     case 'update-later': {
@@ -1646,20 +1701,40 @@ document.addEventListener('submit', async (e) => {
 
   /* ویرایش کاربر توسط مدیر */
   if (kind === 'user-edit') {
-    const id = Number(f.id.value);
+    let id = Number(f.id.value);
     const u = byId('users', id);
-    if (!u) return;
+    if (!u) return toast('این کاربر پیدا نشد — صفحه را تازه کنید', 'err');
     const phone = digitsOnly(f.phone.value);
     if (phone && phone.length < 10) return toast('شمارهٔ همراه کامل نیست', 'err');
     const password = String(f.password.value || '');
     const patch = { name: String(f.name.value || '').trim() || u.name, phone, active: f.active.checked };
+    let savedOnServer = false, passwordOnServer = false;
     if (!PHONE_MODE) {
+      /* اگر کارمند تازه و آفلاین ساخته شده، شناسه‌اش محلی است؛ اول با
+         همگام‌سازی شناسهٔ واقعی را می‌گیریم تا ویرایش روی سرور بنشیند. */
+      if (id < 0) {
+        await flushQueue();
+        await pullAll().catch(() => {});
+        const found = list('users').find(x => x.id > 0 && (
+          (phone && x.phone === phone) || x.name === (patch.name || u.name)));
+        if (found) id = found.id;
+      }
       try {
         const r = await api('/api/admin/users/' + id, { method: 'PATCH', body: Object.assign({}, patch, password ? { password } : {}) });
         if (!r.ok) throw new Error(r.error === 'duplicate_phone' ? 'این شماره برای «' + (r.name || 'کاربر دیگر') + '» ثبت شده' : (r.error || 'خطا'));
-      } catch (e) { return toast('ذخیره نشد: ' + e.message, 'err'); }
+        savedOnServer = true;
+        passwordOnServer = !!password;
+      } catch (e) {
+        /* کاربر هنوز در سرور ساخته نشده (یا سرور نسخهٔ قدیمی است): تغییر را
+           نگه می‌داریم و از مسیر همگام‌سازی می‌فرستیم — هیچ‌وقت «not_found». */
+        const code = String((e && (e.message || e)) || '');
+        if (!(e && e.status === 404) && !/not_found/.test(code)) {
+          return toast('ذخیره نشد: ' + friendlyError(e), 'err');
+        }
+      }
     }
-    putLocal('users', Object.assign({}, u, patch, password ? { password_hash: 'set' } : {}));
+    /* اگر شناسهٔ واقعی پیدا شد، همان را نگه می‌داریم تا رکورد تکراری نشود */
+    putLocal('users', Object.assign({}, u, { id }, patch, password ? { password_hash: 'set' } : {}));
     if (PHONE_MODE && password) {
       await window.PayeshPhone.send({
         uid: 'pw-' + uid(), user_id: S.user.id, role: S.role,
@@ -1670,7 +1745,13 @@ document.addEventListener('submit', async (e) => {
     await flushQueue();
     if (!PHONE_MODE) await pullAll().catch(() => {});
     render();
-    toast('کاربر ویرایش شد', 'ok');
+    if (password && !passwordOnServer) {
+      toast(PHONE_MODE
+        ? 'اطلاعات ذخیره شد — رمز تازه با اولین اتصال به سیستم مدرسه اعمال می‌شود'
+        : 'اطلاعات ذخیره شد؛ رمز پس از همگام‌سازی با سیستم مدرسه اعمال می‌شود', 'ok');
+    } else {
+      toast(savedOnServer || PHONE_MODE ? 'کاربر ویرایش شد' : 'تغییرات ذخیره شد و با همگام‌سازی اعمال می‌شود', 'ok');
+    }
     return;
   }
 

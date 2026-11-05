@@ -1,10 +1,15 @@
 'use strict';
 /* ───────────────────────────────────────────────────────────────────
-   راه‌انداز هوشمند — «npm start» روی هر نسخهٔ Node کار کند.
-   مشکل: node:sqlite در Node 22.5..22.x فقط با پرچم --experimental-sqlite
-   بالا می‌آید، و در نسخه‌های جدیدتر پرچم لازم نیست (و ممکن است حذف شود).
-   راه‌حل: اول بی‌پرچم امتحان می‌کنیم؛ اگر نشد، خودمان با پرچم دوباره اجرا
-   می‌شویم. اگر نسخه خیلی قدیمی بود، پیام فارسی روشن می‌دهیم.
+   راه‌انداز هوشمند + ناظر.
+
+   ۱) «npm start» روی هر نسخهٔ Node کار کند:
+      node:sqlite در Node 22.5..22.x فقط با پرچم --experimental-sqlite
+      بالا می‌آید و در نسخه‌های تازه‌تر پرچم لازم نیست.
+
+   ۲) ناظر (supervisor): اگر سرور برای به‌روزرسانی خودش را ببندد
+      (کد خروج ۷۵)، همین‌جا دوباره بالا می‌آید. اگر هم به‌طور غیرمنتظره
+      بخوابد، یک‌بار دیگر امتحان می‌شود. پیش از این، بعد از آپدیت،
+      پنجرهٔ برنامه بالا نمی‌آمد تا کاربر همه‌چیز را ببندد و باز کند.
    ─────────────────────────────────────────────────────────────────── */
 const { spawn } = require('child_process');
 const path = require('path');
@@ -17,17 +22,7 @@ function sqliteReady() {
   try { require('node:sqlite'); return true; } catch (e) { return false; }
 }
 
-if (sqliteReady()) {
-  require(ENTRY);
-} else if (major > 22 || (major === 22 && minor >= 5)) {
-  // نسخه درست است ولی این فرایند بدون پرچم بالا آمده → با پرچم دوباره اجرا کن
-  const args = ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', ENTRY, ...process.argv.slice(2)];
-  const child = spawn(process.execPath, args, { stdio: 'inherit', env: process.env });
-  child.on('exit', code => process.exit(code === null ? 1 : code));
-  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
-    process.on(sig, () => { try { child.kill(sig); } catch (e) { /* noop */ } });
-  }
-} else {
+if (!sqliteReady() && !(major > 22 || (major === 22 && minor >= 5))) {
   console.error('');
   console.error('  ✗ نسخهٔ Node این میزبان «' + process.versions.node + '» است.');
   console.error('  پایش-لوکال به Node 22.5 یا بالاتر نیاز دارد (برای دیتابیس داخلی).');
@@ -37,3 +32,61 @@ if (sqliteReady()) {
   console.error('');
   process.exit(1);
 }
+
+const FLAGS = sqliteReady() ? [] : ['--experimental-sqlite', '--disable-warning=ExperimentalWarning'];
+const ARGS = (process.env.PAYESH_ARGS || '').trim() ? process.env.PAYESH_ARGS.trim().split(/\s+/) : process.argv.slice(2);
+const EXIT_RESTART = 75;
+
+let child = null;
+let stopping = false;
+let crashes = 0;
+
+function startServer() {
+  child = spawn(process.execPath, [...FLAGS, ENTRY, ...ARGS], {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+    env: Object.assign({}, process.env, { PAYESH_SUPERVISED: '1' }),
+  });
+  const startedAt = Date.now();
+
+  child.on('error', err => {
+    console.error('[راه‌انداز] اجرای سرور ناموفق بود:', err.message);
+    process.exit(1);
+  });
+
+  child.on('exit', (code, signal) => {
+    child = null;
+    if (stopping) process.exit(0);
+
+    /* درخواست راه‌اندازی مجدد (آپدیت) — همیشه دوباره بالا می‌آید */
+    if (code === EXIT_RESTART) {
+      console.log('[راه‌انداز] نسخهٔ تازه فعال شد — بالا آمدن دوباره…');
+      setTimeout(startServer, 350);
+      return;
+    }
+
+    /* خروج سریع و غیرعادی: تا ۳ بار دوباره تلاش می‌کنیم */
+    const quick = Date.now() - startedAt < 5000;
+    if (!signal && code !== 0 && quick && crashes < 3) {
+      crashes++;
+      const wait = 600 * crashes;
+      console.error('[راه‌انداز] سرور بسته شد (کد ' + code + ') — تلاش ' + crashes + ' از ۳…');
+      setTimeout(startServer, wait);
+      return;
+    }
+
+    process.exit(signal ? 0 : (code == null ? 0 : code));
+  });
+}
+
+function shutdown(sig) {
+  stopping = true;
+  try { if (child) child.kill(sig); } catch (e) { /* noop */ }
+  setTimeout(() => process.exit(0), 1500).unref();
+}
+
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(sig, () => shutdown(sig));
+}
+
+startServer();

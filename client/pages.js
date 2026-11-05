@@ -295,6 +295,13 @@ function renderLock() {
 
 /* صفحهٔ ورود «بدون سرور»: روی گوشی و هر رایانه‌ای که به سیستم مدرسه
    دسترسی ندارد، همین صفحه می‌آید — نه پیام بن‌بست «سرور در دسترس نیست». */
+/* نسخهٔ نصب‌شده — برای اینکه کاربر بداند نسخهٔ تازه روی گوشی است یا نه */
+function buildStamp() {
+  const v = (typeof CLIENT_VERSION !== 'undefined' && CLIENT_VERSION) || '';
+  const b = (typeof window !== 'undefined' && window.PAYESH_BUILD) || '';
+  return (v ? 'نسخهٔ ' + fa(v) : '') + (b && b.indexOf(v) !== 0 ? ' · ساخت ' + b : '');
+}
+
 function renderPhoneLogin(force) {
   /* اگر همین صفحه روی نمایش است، دوباره نساز: بازسازیِ نابهنگام، فوکوس را
      می‌برد و صفحه‌کلید گوشی بسته می‌شود. */
@@ -324,6 +331,7 @@ function renderPhoneLogin(force) {
         پس از اولین ورود، هر بار بدون اینترنت هم برنامه باز می‌شود.
       </div>
       <div class="small muted center" style="margin-top:6px;font-size:11px">${cloudLine}</div>
+      <div class="small muted center" style="margin-top:2px;font-size:10px;opacity:.75">${esc(buildStamp())}</div>
     </form>
     <details class="center small" style="margin-top:12px;max-width:420px">
       <summary style="cursor:pointer">پیام خطا داد؟ اینجا را باز کنید</summary>
