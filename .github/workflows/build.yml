@@ -108,6 +108,20 @@ jobs:
           gradle assembleDebug --no-daemon -p install/android
           echo "آدرس پخته‌شده در APK: ${PAYESH_APP_URL:-خالی (برنامه از android-config.json یا شبکه پیدا می‌کند)}"
 
+      - name: بررسی امضای APK (نصب روی نسخهٔ قبلی)
+        run: |
+          APK=install/android/app/build/outputs/apk/debug/app-debug.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* 2>/dev/null | sort -V | tail -1)
+          if [ -x "$BT/apksigner" ]; then
+            "$BT/apksigner" verify --print-certs "$APK" | tee /tmp/sig.txt
+            grep -q "Signer #1 certificate SHA-256 digest" /tmp/sig.txt || { echo "APK امضا نشده — روی گوشی نصب نمی‌شود"; exit 1; }
+            echo "اثر انگشت گواهی (باید در همهٔ ساخت‌ها یکی باشد):"
+            grep "Signer #1 certificate SHA-256 digest" /tmp/sig.txt
+          else
+            echo "apksigner پیدا نشد؛ از zipalign استفاده می‌کنیم"
+            "$BT/zipalign" -c -v 4 "$APK" >/dev/null && echo "APK تراز است"
+          fi
+
       - name: بررسی سلامت APK
         run: |
           APK=install/android/app/build/outputs/apk/debug/app-debug.apk

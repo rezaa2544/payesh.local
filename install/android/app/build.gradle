@@ -46,21 +46,39 @@ android {
     buildFeatures { buildConfig true }
 
     signingConfigs {
-        /* اگر در CI کلید موجود باشد از آن استفاده می‌شود، وگرنه debug */
-        if (System.getenv("PAYESH_KEYSTORE")) {
-            release {
+        /* ── کلید ثابتِ خودِ برنامه ────────────────────────────────────────
+           چرا لازم است: اگر هر ساخت با کلید تازه امضا شود (کلید debug روی
+           هر ماشین و هر اجرای CI از نو ساخته می‌شود)، اندروید نصب نسخهٔ
+           تازه را روی نسخهٔ قبلی قبول نمی‌کند و می‌گوید «برنامه نصب نشد»
+           یا «بستهٔ برنامه مشکل دارد». با یک کلید ثابت، هر نسخهٔ بعدی
+           روی قبلی نصب می‌شود و داده‌ها سر جایشان می‌مانند.
+
+           اگر در CI کلید خصوصی جدا گذاشته شود (PAYESH_KEYSTORE و …)
+           همان مقدم است. */
+        stable {
+            if (System.getenv("PAYESH_KEYSTORE")) {
                 storeFile file(System.getenv("PAYESH_KEYSTORE"))
                 storePassword System.getenv("PAYESH_KEYSTORE_PASS")
                 keyAlias System.getenv("PAYESH_KEY_ALIAS")
                 keyPassword System.getenv("PAYESH_KEY_PASS")
+            } else {
+                storeFile file("../payesh-signing.p12")
+                storeType "PKCS12"
+                storePassword "payesh1404"
+                keyAlias "payesh"
+                keyPassword "payesh1404"
             }
         }
     }
 
     buildTypes {
+        debug {
+            /* همین نسخهٔ داخل مخزن هم با کلید ثابت امضا می‌شود */
+            signingConfig signingConfigs.stable
+        }
         release {
             minifyEnabled false
-            if (System.getenv("PAYESH_KEYSTORE")) signingConfig signingConfigs.release
+            signingConfig signingConfigs.stable
         }
     }
 

@@ -282,6 +282,13 @@ async function waitFor(fn, ms = 15000) {
     const asksOnStart = onCreate.split('\n').some(l => l.trim() === 'askServer();');
     assert.ok(!asksOnStart, 'در اولین اجرا آدرس پرسیده نمی‌شود (فقط دکمهٔ اضطراری)');
 
+    /* ── امضای ثابت: بدون آن، گوشی نسخهٔ تازه را روی قبلی نصب نمی‌کند ── */
+    const gradleTxt = fs.readFileSync(path.join(ROOT, 'install/android/app/build.gradle'), 'utf8');
+    assert.ok(/payesh-signing\.p12/.test(gradleTxt), 'کلید امضای ثابت در ساخت استفاده می‌شود');
+    assert.ok(/buildTypes\s*\{[\s\S]*debug\s*\{[\s\S]*signingConfig signingConfigs\.stable/.test(gradleTxt),
+      'نسخهٔ debug هم با همان کلید ثابت امضا می‌شود (وگرنه نصب روی نسخهٔ قبلی رد می‌شود)');
+    assert.ok(fs.existsSync(path.join(ROOT, 'install/android/payesh-signing.p12')), 'فایل کلید امضا در مخزن هست');
+
     /* نحو جاوا هم بررسی می‌شود تا خطای کامپایل به CI نرسد */
     const { parse } = require('java-parser');
     parse(main);
