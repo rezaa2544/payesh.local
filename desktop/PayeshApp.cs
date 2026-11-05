@@ -102,6 +102,7 @@ namespace Payesh
         private Panel _offlineBar;
         private TextBox _addrBox;
         private NotifyIcon _tray;
+        private string _dataDir = "";
         private string _currentUrl = "";
         private string _learnedPublic = "";
         private bool _reallyExit;
@@ -114,6 +115,8 @@ namespace Payesh
             /* برنامه در {app}\desktop می‌نشیند و سرور در {app}\server → ریشهٔ نصب یک پله بالاتر است.
                این نکته در نسخهٔ 0.4.2 فراموش شده بود و برنامه اشتباهاً «حالت کاربر» می‌شد. */
             _appDir = ResolveRoot(_baseDir);
+            _dataDir = ResolveDataDir();
+            MigrateDataIfNeeded();
             _settingsFile = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Payesh", "settings.ini");
 
@@ -126,7 +129,7 @@ namespace Payesh
                «حالت کاربر» فقط وقتی است که مدیر خودش این رایانه را کاربر اعلام کرده باشد
                (تیک نصب یا میان‌بر --client). تنظیم چسبندهٔ قدیمی mode=client دیگر باعث
                نمی‌شود سیستم مدرسه برای همیشه «کاربر» بماند. */
-            bool hasDb = File.Exists(Path.Combine(_appDir, "data", "payesh.db"));
+            bool hasDb = File.Exists(Path.Combine(_dataDir, "payesh.sqlite"));
             bool hasAnyTarget = ReadIni(_settingsFile, "server_url").Length > 0
                 || ReadIni(_settingsFile, "last_url").Length > 0;
             /* «کاربر» فقط وقتی معنا دارد که آدرسی برای اتصال داشته باشد؛ رایانهٔ بی‌آدرس
@@ -325,6 +328,55 @@ namespace Payesh
                 _tray.DoubleClick += (s, e) => { Show(); WindowState = FormWindowState.Normal; Activate(); };
             }
             catch { }
+        }
+
+
+        /// <summary>محل داده — بیرون از پوشهٔ نصب تا آپدیت/نصب دوباره داده را پاک نکند.</summary>
+        private string ResolveDataDir()
+        {
+            string env = Environment.GetEnvironmentVariable("PAYESH_DATA");
+            if (!string.IsNullOrEmpty(env))
+            {
+                try { Directory.CreateDirectory(env); return env; } catch { }
+            }
+            string[] roots = new string[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Payesh", "data"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Payesh", "data"),
+            };
+            foreach (string r in roots)
+            {
+                try
+                {
+                    Directory.CreateDirectory(r);
+                    string probe = Path.Combine(r, ".write-test");
+                    File.WriteAllText(probe, "ok");
+                    File.Delete(probe);
+                    return r;
+                }
+                catch { }
+            }
+            return Path.Combine(_appDir, "data");
+        }
+
+        /// <summary>اگر دادهٔ قبلی کنار برنامه بود، یک‌بار به مسیر پایدار کپی می‌شود (پاک نمی‌شود).</summary>
+        private void MigrateDataIfNeeded()
+        {
+            try
+            {
+                string legacy = Path.Combine(_appDir, "data");
+                string legacyDb = Path.Combine(legacy, "payesh.sqlite");
+                string targetDb = Path.Combine(_dataDir, "payesh.sqlite");
+                if (!File.Exists(legacyDb) || File.Exists(targetDb)) return;
+                if (string.Equals(Path.GetFullPath(legacy), Path.GetFullPath(_dataDir), StringComparison.OrdinalIgnoreCase)) return;
+                Directory.CreateDirectory(_dataDir);
+                foreach (string f in Directory.GetFiles(legacy))
+                {
+                    try { File.Copy(f, Path.Combine(_dataDir, Path.GetFileName(f))); } catch { }
+                }
+                Log("data migrated: " + legacy + " -> " + _dataDir);
+            }
+            catch (Exception ex) { Log("data migrate failed: " + ex.Message); }
         }
 
         /// <summary>ریشهٔ نصب: پوشه‌ای که server/index.js در آن است (خود پوشه یا پوشهٔ والد).</summary>
@@ -559,13 +611,14 @@ namespace Payesh
                 _diagLabel.Text =
                     "این رایانه: " + (_serverMode ? "سیستم اصلی مدرسه" : "کاربر (به سیستم مدرسه وصل می‌شود)") +
                     "   ·   پوشهٔ نصب: " + _appDir + Environment.NewLine +
+                    "داده (همیشه همین‌جا): " + _dataDir + Environment.NewLine +
                     "سرور: " + serverJs + "   ·   Node: " + (node == null ? "پیدا نشد" : Path.GetFileName(Path.GetDirectoryName(node)) + "\\" + Path.GetFileName(node)) +
                     "   ·   گزارش: %LOCALAPPDATA%\\Payesh\\app.log";
 
                 /* آخرین خط لاگ سرور، تا کاربر لازم نباشد فایل را باز کند */
                 try
                 {
-                    string logFile = Path.Combine(_appDir, "data", "server.log");
+                    string logFile = Path.Combine(_dataDir, "server.log");
                     if (File.Exists(logFile))
                     {
                         string[] all = File.ReadAllLines(logFile, Encoding.UTF8);
@@ -718,7 +771,7 @@ namespace Payesh
                     return;
                 }
 
-                Directory.CreateDirectory(Path.Combine(_appDir, "data"));
+                Directory.CreateDirectory(_dataDir);
                 var psi = new ProcessStartInfo(node,
                     "--experimental-sqlite --disable-warning=ExperimentalWarning \"server\\index.js\"")
                 {
@@ -729,9 +782,11 @@ namespace Payesh
                     RedirectStandardError = true,
                 };
                 psi.EnvironmentVariables["PAYESH_TUNNEL_AUTO"] = "1";
+                /* داده بیرون از پوشهٔ نصب می‌ماند تا با آپدیت یا نصب دوباره از بین نرود */
+                psi.EnvironmentVariables["PAYESH_DATA"] = _dataDir;
 
                 var proc = new Process { StartInfo = psi };
-                string logPath = Path.Combine(_appDir, "data", "server.log");
+                string logPath = Path.Combine(_dataDir, "server.log");
                 DataReceivedEventHandler sink = (s2, e) =>
                 {
                     if (e.Data == null) return;
