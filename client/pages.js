@@ -155,13 +155,18 @@ function renderSetup() {
 function claimCard() {
   const local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(location.host || '');
   if (!local) return '';
-  if (!(S.server && S.server.setupDone && S.server.hasPassword === false && !S.deviceToken)) return '';
+  if (!(S.server && S.server.setupDone)) return '';
+  const noPassword = S.server.hasPassword === false;
+  /* پیش‌فرض: اگر رمزی وجود دارد، فقط یک لینک کم‌رنگ؛ اگر ندارد، فرم باز */
+  if (!noPassword && !S.claimOpen) {
+    return `<p class="small center" style="margin-top:8px"><a href="#" data-act="claim-open">رمز عبور را نمی‌دانم (فقط روی همین رایانه)</a></p>`;
+  }
   return `
     <form data-form="claim" class="card">
-      <div class="card-title">حساب مدیر هنوز رمز عبور ندارد</div>
-      <p class="small muted">چون این رایانه خودِ رایانهٔ مدرسه است، از همین‌جا یک‌بار شماره و رمز بسازید؛ بعد از این با همان‌ها وارد می‌شوید.</p>
+      <div class="card-title">${noPassword ? 'حساب مدیر هنوز رمز عبور ندارد' : 'تعیین رمز تازهٔ مدیر'}</div>
+      <p class="small muted">چون این رایانه خودِ رایانهٔ مدرسه است، از همین‌جا رمز مدیر را می‌سازید و بلافاصله وارد می‌شوید. از گوشی‌های دیگر این کار ممکن نیست.</p>
       <label class="field"><span>شمارهٔ همراه مدیر</span>
-        <input class="input ltr" name="phone" inputmode="numeric" data-digits placeholder="09xxxxxxxxx"></label>
+        <input class="input ltr" name="phone" inputmode="numeric" data-digits placeholder="09xxxxxxxxx" value="${esc(S.claimPhone || '')}"></label>
       <label class="field"><span>رمز عبور تازه</span>
         <input class="input ltr" type="password" name="password" autocomplete="new-password" placeholder="••••"></label>
       <button class="btn primary block" type="submit">ساختن رمز و ورود</button>

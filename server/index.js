@@ -299,6 +299,7 @@ async function api(req, res, url, ip) {
     const remote = String((req.socket && req.socket.remoteAddress) || '').replace('::ffff:', '');
     const local = remote === '::1' || remote === '127.0.0.1' || remote.startsWith('127.');
     if (!local) return json({ ok: false, error: 'local_only' }, 403);
+    if (!rateLimit('claim:' + ip, 10, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const body = await readBody(req);
     const mgr = store.all('users').find(u => u.role === 'manager' && u.active !== false);
     if (!mgr) return json({ ok: false, error: 'no_manager' }, 400);
