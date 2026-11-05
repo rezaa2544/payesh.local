@@ -9,8 +9,7 @@
          • allowBackup=false : اطلاعات دانش‌آموزان در نسخهٔ پشتیبان ابری
            گوگل کپی نمی‌شود (هم حریم خصوصی، هم توصیهٔ گوگل برای دادهٔ
            سازمانی).
-         • appCategory=education و localeConfig : برنامه در فهرست، در
-           دستهٔ «آموزش» و با زبان فارسی شناخته می‌شود.
+         • localeConfig : برنامه با زبان فارسی شناخته می‌شود.
          • enableOnBackInvokedCallback : رفتار دکمهٔ بازگشت مطابق اندروید ۱۳+.
          • <queries> : بازکردن پیوند در مرورگر روی اندروید ۱۱+ بدون خطا.
          ══════════════════════════════════════════════════════════════ -->
@@ -32,7 +31,6 @@
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
-        android:appCategory="education"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
