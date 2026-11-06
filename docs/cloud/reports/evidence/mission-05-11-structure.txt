@@ -1,8 +1,8 @@
 # شاهد ساختاری ممیزی ۰۵–۱۱
 # تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh
-# تاریخ اجرای آزمون (از لاگ خام): 2026-11-06T20:26:42Z
-# SHA اجرای آزمون (از لاگ خام): 54820d8e60648bf95ccfd6765bcdb2fd0e958be1
-# اثر انگشت کد محصول (log / HEAD): 4e5a65172fc4a45581aff0d3b13e3383397bbaf47657d1bb379a098efe806aba / 4e5a65172fc4a45581aff0d3b13e3383397bbaf47657d1bb379a098efe806aba
+# تاریخ اجرای آزمون (از لاگ خام): 2026-11-06T20:37:12Z
+# SHA اجرای آزمون (از لاگ خام): 550b08ee86fe0a1c27c9eac163b43e2f64a59d66
+# اثر انگشت کد محصول (log / HEAD): 8fb22a66bbe1f6fbedc08cc991699f8fcdd3224d75507e9f42bc26a26dca7756 / 8fb22a66bbe1f6fbedc08cc991699f8fcdd3224d75507e9f42bc26a26dca7756
 # هش بدنهٔ خام (بازمحاسبه‌شده): 49f64894166cff97b5f9beb9fde2dbdfb439110b7ca5d23441162ea53026f735
 # شمارش بدنه: 88 ✓ / 0 ✗ — SUMMARY: SUMMARY pass=88 fail=0
 # آزمون‌های ثبت‌شده: 88 · گزارش‌شده: 88
