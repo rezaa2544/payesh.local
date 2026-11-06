@@ -743,6 +743,7 @@ PAGES.users = () => {
       })()}</td>
       <td class="nowrap">
         ${(!isPhoneMode() && !/^pbkdf2\$/.test(String(u.phone_hash || ''))) ? `<button class="btn sm ghost" data-act="user-auto-pw" data-id="${u.id}" title="رمز گوشی = کد ملی">آماده‌سازی گوشی</button>` : ''}
+        <button class="btn sm primary" data-act="user-full" data-id="${u.id}">مشخصات کامل</button>
         <button class="btn sm" data-act="pair-code" data-id="${u.id}">کارت پیوند</button>
         <button class="btn sm ghost" data-act="user-edit" data-id="${u.id}">ویرایش</button>
         <button class="btn sm ghost" data-act="user-delete" data-id="${u.id}" style="color:#b91c1c">حذف</button>
@@ -978,8 +979,58 @@ PAGES.classes = () => {
        </td></tr>`).join('')}
      </tbody></table></div>`) : '';
 
-  return `${pageHead('کلاس‌ها و تعریف‌ها', fa(classes.length) + ' کلاس',
-      `<button class="btn sm primary" data-act="class-add">+ کلاس جدید</button>`)}
+  /* ── کلاس/کارگاه (محل برگزاری) در رشته‌محور ── */
+  const isFieldSchool = classes.some(c => String(c.mode || '') === 'field');
+  const rooms = classes.filter(c => String(c.kind || '') === 'room');
+  const groups = classes.filter(c => String(c.mode || '') === 'field' && String(c.kind || '') !== 'room');
+  const roomsCard = isFieldSchool ? card(
+    `<div class="row between" style="margin-bottom:8px"><b>🏫 کلاس‌ها و کارگاه‌ها (محل برگزاری)</b>
+       <span class="row" style="gap:6px">
+         <span class="small muted">${fa(rooms.length)} مورد</span>
+         <button class="btn sm primary" data-act="room-add">+ کلاس/کارگاه</button></span></div>
+     <div class="small muted" style="margin-bottom:8px;line-height:2">فقط نام لازم است؛ همین نام در برنامهٔ هفتگی به هر زنگ داده می‌شود.</div>
+     ${rooms.length ? `<div class="table-wrap"><table><thead><tr><th>نام</th><th>دانش‌آموز</th><th></th></tr></thead><tbody>
+       ${rooms.map(c => `<tr><td><b>${esc(c.name)}</b></td><td>${fa(list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(c.id)).length)}</td>
+         <td class="nowrap"><button class="btn sm ghost" data-act="room-edit" data-id="${esc(c.id)}">ویرایش</button>
+         <button class="btn sm ghost" data-act="class-delete" data-id="${esc(c.id)}" style="color:#b91c1c">حذف</button></td></tr>`).join('')}
+     </tbody></table></div>` : '<div class="small muted">هنوز کلاس یا کارگاهی تعریف نشده است.</div>'}`) : '';
+
+  const groupsCard = isFieldSchool ? card(
+    `<div class="row between" style="margin-bottom:8px"><b>🎓 گروه‌های ثبت‌نام (پایه + رشته)</b>
+       <span class="small muted">${fa(groups.length)} گروه</span></div>
+     <div class="small muted" style="margin-bottom:8px;line-height:2">این گروه‌ها از خود دانش‌آموزان ساخته می‌شوند (پایه + رشته) و پایه و رشته‌شان ثابت است.</div>
+     ${groups.length ? `<div class="table-wrap"><table><thead><tr><th>پایه</th><th>رشته</th><th>دانش‌آموز</th></tr></thead><tbody>
+       ${groups.map(c => `<tr><td><b>${esc(c.grade || '—')}</b></td><td>${esc(c.branch || '—')}</td>
+         <td>${fa(list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(c.id)).length)}</td></tr>`).join('')}
+     </tbody></table></div>` : ''}`) : '';
+
+  /* ── رشته‌های مشکوک به غلط تایپی (کرافیک ← گرافیک) ── */
+  const brLook = lookupList('branch');
+  const nearPairs = [];
+  for (let i = 0; i < brLook.length; i++) {
+    for (let j = 0; j < brLook.length; j++) {
+      if (i === j) continue;
+      const a = String(brLook[i].name), b = String(brLook[j].name);
+      if (typeof impLev === 'function' && impLev(impNorm(a), impNorm(b)) <= 2 && a.length >= 3) {
+        if (!nearPairs.some(p => p.from === b && p.to === a)) nearPairs.push({ from: a, to: b, id: brLook[i].id });
+      }
+    }
+  }
+  const nearCard = nearPairs.length ? card(
+    `<div class="row between" style="margin-bottom:8px"><b>🔤 رشته‌های شبیه هم (احتمال غلط تایپی)</b>
+       <span class="small muted">${fa(nearPairs.length)} مورد</span></div>
+     <div class="small muted" style="margin-bottom:8px">اگر یکی از این‌ها اشتباه تایپی است، «ادغام» را بزنید؛ دانش‌آموزان، نمرات و برنامهٔ آن به رشتهٔ درست منتقل می‌شوند.</div>
+     <div class="table-wrap"><table><thead><tr><th>رشتهٔ مشکوک</th><th>ادغام در</th><th></th></tr></thead><tbody>
+       ${nearPairs.map(p => `<tr><td><b>${esc(p.from)}</b></td><td>${esc(p.to)}</td>
+         <td><button class="btn sm" data-act="def-merge" data-kind="branch" data-from="${esc(p.from)}" data-to="${esc(p.to)}">ادغام</button></td></tr>`).join('')}
+     </tbody></table></div>`) : '';
+
+  return `${pageHead('کلاس‌ها و تعریف‌ها', fa(classes.length) + ' مورد',
+      `<span class="row" style="gap:6px">${isFieldSchool ? `<button class="btn sm primary" data-act="room-add">+ کلاس/کارگاه</button>` : ''}<button class="btn sm ${isFieldSchool ? 'ghost' : 'primary'}" data-act="class-add">+ ${isFieldSchool ? 'گروه (پایه + رشته)' : 'کلاس جدید'}</button></span>`)}
+
+  ${roomsCard}
+  ${groupsCard}
+  ${nearCard}
 
   ${brokenCard}
 
@@ -1760,6 +1811,43 @@ function actAnnAdd(row) {
   </form>`);
 }
 
+/* ── «مشخصات کامل»: همهٔ فیلدهای واردشده از اکسل، در همان‌جا قابل ویرایش ── */
+function actUserFull(id) {
+  const u = byId('users', Number(id));
+  if (!u) return toast('این کاربر پیدا نشد — صفحه را تازه کنید', 'err');
+  const lbl = {};
+  if (typeof IMP_FIELDS !== 'undefined' && IMP_FIELDS.students) IMP_FIELDS.students.forEach(fd => { lbl[fd[0]] = fd[1]; });
+  const inp = (k, title, val, extra) => `<label class="field"><span>${esc(title)}</span>
+    <input class="input" name="${esc(k)}" value="${esc(val == null ? '' : val)}" ${extra || ''}></label>`;
+  const core = [
+    inp('name', 'نام', u.name, 'required'),
+    inp('last_name', 'نام خانوادگی', u.last_name || ''),
+    inp('national_id', 'کد ملی', u.national_id || '', 'inputmode="numeric" maxlength="10" class="input ltr"'),
+    inp('phone', 'شمارهٔ همراه (نام کاربری)', u.phone || '', 'inputmode="numeric" maxlength="11" class="input ltr"'),
+    inp('birth_date', 'تاریخ تولد', u.birth_date ? (window.impIsoToJalali ? impIsoToJalali(u.birth_date) : u.birth_date) : '', 'placeholder="1390/05/12" class="input ltr"'),
+    inp('gender', 'جنسیت', u.gender || ''),
+  ].join('');
+  const extras = (typeof IMP_EXTRA_FIELDS !== 'undefined' ? IMP_EXTRA_FIELDS : [])
+    .map(k => inp(k, lbl[k] || k, u[k] || ''))
+    .join('');
+  const grp = byId('classes', u.class_id) || {};
+  S.modalTitle = 'مشخصات کامل — ' + u.name;
+  modal(`<form data-form="user-full">
+    <input type="hidden" name="id" value="${esc(u.id)}">
+    <div class="small muted" style="margin-bottom:10px;line-height:2">
+      نقش: <b>${esc(ROLE_FA[u.role] || u.role)}</b>
+      ${grp.grade ? ' · پایه: <b>' + esc(grp.grade) + '</b>' : ''}
+      ${grp.branch ? ' · رشته: <b>' + esc(grp.branch) + '</b>' : ''}
+      <br>هر تغییری اینجا بدهید، همان لحظه در همهٔ بخش‌های برنامه (فهرست کاربران، حساب خودِ ولی، کارت پیوند و پروندهٔ دانش‌آموز) اعمال می‌شود.
+    </div>
+    <div class="row" style="flex-wrap:wrap;gap:0 10px">${core}</div>
+    ${extras ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)">
+      <b class="small">اطلاعات خانواده و تحصیلی (همان ستون‌های اکسل)</b>
+      <div class="row" style="flex-wrap:wrap;gap:0 10px;margin-top:6px">${extras}</div></div>` : ''}
+    <button class="btn primary block" style="margin-top:12px">ذخیرهٔ همهٔ مشخصات</button>
+  </form>`);
+}
+
 function actUserEdit(id) {
   const u = byId('users', Number(id));
   if (!u) return;
@@ -1821,8 +1909,8 @@ function classFormHtml(c) {
         <option value="field" ${mode === 'field' ? 'selected' : ''}>رشته‌محور (متوسطه دوم)</option>
       </select></label>
     <div class="small muted" style="margin:-4px 0 8px;line-height:2">
-      کلاس‌محور: یک کلاس ثابت مثل «دوم ب» که تا آخر سال عوض نمی‌شود.<br>
-      رشته‌محور: پایه + رشته ثابت است (مثل «دهم الکترونیک») و محل برگزاری هر زنگ در برنامهٔ هفتگی نوشته می‌شود.
+      کلاس‌محور: یک گروه ثابت مثل «دوم ب» که تا آخر سال عوض نمی‌شود و رشته ندارد.<br>
+      رشته‌محور: فقط پایه + رشته (مثل «دهم الکترونیک»). محل برگزاری هر زنگ جداگانه در برنامهٔ هفتگی تعیین می‌شود.
     </div>
     <label class="field"><span>نام کلاس</span>
       <input class="input" name="name" value="${esc(editing ? c.name : '')}" placeholder="خالی بگذارید تا از پایه و رشته ساخته شود"></label>
@@ -1830,18 +1918,31 @@ function classFormHtml(c) {
       <label class="field grow"><span>پایه (الزامی)</span>${pick('grade', grades, editing ? c.grade : '')}</label>
       <label class="field grow"><span>رشته (فقط رشته‌محور)</span>${pick('branch', branches, editing ? c.branch : '')}</label>
     </div>
-    <label class="field"><span>ظرفیت</span>
-      <input class="input ltr" name="capacity" inputmode="numeric" value="${esc(editing ? (c.capacity || 30) : 30)}"></label>
-    <label class="field"><span>دبیر پایه (سرپرست) — اختیاری</span>
-      <select class="input" name="teacher_id">
-        <option value="">— بدون دبیر پایه —</option>
-        ${list('users').filter(u => u.role === 'teacher').map(t => `<option value="${esc(t.id)}" ${Number(t.id) === Number(editing ? c.teacher_id : 0) ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
-      </select></label>
+    <input type="hidden" name="kind" value="group">
     <div class="small muted">اگر پایه یا رشتهٔ دلخواه در فهرست نیست، در همین صفحه از بخش «پایه‌ها» یا «رشته‌ها» اضافه کنید.</div>
     <button class="btn primary block" style="margin-top:10px">${editing ? 'ذخیرهٔ تغییرات' : 'ایجاد کلاس'}</button>
   </form>`;
 }
+/* در رشته‌محور، «کلاس/کارگاه» فقط یک نام است (محل برگزاری). */
+function roomFormHtml(c) {
+  const editing = c && c.id;
+  return `<form data-form="class">
+    <input type="hidden" name="kind" value="room">
+    ${editing ? `<input type="hidden" name="id" value="${esc(c.id)}">` : ''}
+    <label class="field"><span>نام کلاس / کارگاه</span>
+      <input class="input" name="name" value="${esc(editing ? c.name : '')}" placeholder="کلاس ۱۰۱ یا کارگاه الکترونیک" required></label>
+    <div class="small muted" style="margin-top:6px">همین نام در برنامهٔ هفتگی به هر زنگ داده می‌شود. چیز دیگری لازم نیست.</div>
+    <button class="btn primary block" style="margin-top:10px">${editing ? 'ذخیرهٔ تغییرات' : 'افزودن'}</button>
+  </form>`;
+}
 function actClassAdd() { S.modalTitle = 'کلاس جدید'; modal(classFormHtml(null)); }
+function actRoomAdd() { S.modalTitle = 'کلاس / کارگاه جدید'; modal(roomFormHtml(null)); }
+function actRoomEdit(id) {
+  const c = byId('classes', Number(id));
+  if (!c) return toast('پیدا نشد', 'err');
+  S.modalTitle = 'ویرایش — ' + c.name;
+  modal(roomFormHtml(c));
+}
 function actClassEdit(id) {
   const c = byId('classes', Number(id));
   if (!c) return toast('این کلاس پیدا نشد — صفحه را دوباره باز کنید', 'err');

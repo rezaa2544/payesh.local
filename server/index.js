@@ -1314,7 +1314,7 @@ function importUsers(body) {
             cls = store.insert('classes', {
               name: place.name, grade: place.grade,
               branch: mode === 'field' ? place.branch : '',
-              mode, grade_level: lvl,
+              mode, grade_level: lvl, kind: 'group',
               capacity: 30, school_id: 1, created_at: nowISO(),
             });
             classIndex.set(importKey(place.name), cls);
