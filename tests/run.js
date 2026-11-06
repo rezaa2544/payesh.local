@@ -3644,6 +3644,41 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/<script src="\/scan\.js">/.test(html), 'اسکنر در صفحه بارگذاری می‌شود');
   });
 
+  /* ══ آیکون خودِ دکمه هنگام کلیک می‌چرخد ═══════════════════════════ */
+  await test('«بررسی دوباره» و هر دکمهٔ آیکون‌دار: آیکونش هنگام کار می‌چرخد و بعد برمی‌گردد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div><div id="live-bar"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js') + '\n;window.__t = { liveBegin, liveSpinIcon };');
+    const T = win.__t;
+
+    const btn = win.document.createElement('button');
+    btn.className = 'btn sm';
+    btn.setAttribute('data-act', 'diag-rerun');
+    btn.textContent = '🔄 بررسی دوباره';
+    win.document.body.appendChild(btn);
+
+    const done = T.liveBegin(btn);
+    const span = btn.querySelector('span.spin');
+    assert.ok(span, 'ایموجی دکمه داخل نشانگر چرخان رفت');
+    assert.strictEqual(span.textContent, '🔄', 'همان آیکون «بررسی دوباره» می‌چرخد');
+    assert.ok(btn.classList.contains('is-busy'), 'دکمه در حالت کار است');
+
+    const plain = win.document.createElement('button');
+    plain.textContent = 'ذخیره';
+    assert.strictEqual(T.liveSpinIcon(plain), null, 'دکمهٔ بی‌آیکون دست‌نخورده می‌ماند');
+    assert.strictEqual(plain.textContent, 'ذخیره');
+
+    done();
+    await new Promise(r => setTimeout(r, 700));
+    assert.ok(!btn.querySelector('span.spin'), 'پس از پایان کار نشانگر برمی‌گردد');
+    assert.strictEqual(btn.textContent.replace(/\s+/g, ' ').trim(), '🔄 بررسی دوباره', 'متن دکمه سالم است');
+    assert.ok(!btn.classList.contains('is-busy'), 'حالت کار تمام شد');
+    dom.window.close();
+  });
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));

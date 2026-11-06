@@ -88,7 +88,9 @@ small,.small{font-size:12.5px}
   border:2px solid currentColor;border-top-color:transparent;
   animation:payesh-spin .65s linear infinite;display:inline-block
 }
-.btn.is-busy>span.ico,.btn.is-busy .spin{animation:payesh-spin .9s linear infinite;display:inline-block}
+.btn.is-busy>span.ico{animation:payesh-spin .9s linear infinite;display:inline-block}
+.spin{display:inline-block;transform-origin:50% 50%}
+.is-busy .spin{animation:payesh-spin .9s linear infinite}
 @keyframes payesh-spin{to{transform:rotate(360deg)}}
 .navitem.is-busy,.pill.is-busy{opacity:.6;pointer-events:none}
 /* نوار باریک بالای صفحه وقتی کاری در جریان است */
@@ -97,7 +99,7 @@ small,.small{font-size:12.5px}
   background-size:220% 100%;animation:payesh-bar 1.1s linear infinite}
 @keyframes payesh-bar{0%{background-position:0% 0}100%{background-position:-200% 0}}
 @media (prefers-reduced-motion: reduce){
-  .btn.is-busy::before,.btn.is-busy .spin{animation-duration:1.6s}
+  .btn.is-busy::before,.btn.is-busy>span.ico,.is-busy .spin{animation-duration:1.6s}
   #live-bar.on{animation:none;background:var(--primary)}
 }
 /* پیام کوتاه «انجام شد» روی همان دکمه */
