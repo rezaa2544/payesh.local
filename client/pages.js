@@ -903,14 +903,56 @@ PAGES.leaves = () => {
     </div>` : ''}`)).join('') : empty('درخواستی ثبت نشده.')}`;
 };
 
+/* مشخصات شناسنامه‌ای و خانوادگی — همان فیلدهایی که از اکسل (یا فرم
+   کاربر) ذخیره می‌شوند؛ هر کدام پر بود، نمایش داده می‌شود. */
+function userDetailRows(u) {
+  const rows = [];
+  const add = (label, v) => {
+    const t = (v === undefined || v === null) ? '' : String(v).trim();
+    if (t && t !== '—') rows.push([label, t]);
+  };
+  add('تاریخ تولد', u.birth_date ? (typeof impIsoToJalali === 'function' ? impIsoToJalali(u.birth_date) : u.birth_date) : '');
+  add('جنسیت', u.gender);
+  add('شمارهٔ شناسنامه', [u.shenasname_seri, u.shenasname_serial].filter(x => x && String(x).trim()).join(' — '));
+  add('نام پدر', u.father_name);
+  add('کد ملی پدر', u.father_nid);
+  add('همراه پدر', u.father_phone);
+  add('نام مادر', u.mother_name);
+  add('کد ملی مادر', u.mother_nid);
+  add('همراه مادر', u.mother_phone);
+  add('سرپرست', u.guardian);
+  add('معدل سال گذشته', u.last_gpa != null ? fa(u.last_gpa) : '');
+  add('درس‌های تجدیدی', u.failed_count != null ? fa(u.failed_count) : '');
+  add('حمایتی', u.covered);
+  add('نوع حمایت', u.org_type);
+  add('درصد حمایت', u.org_percent != null ? fa(u.org_percent) + '٪' : '');
+  add('استعداد', u.talent);
+  add('تلفن ثابت', u.landline);
+  add('شمارهٔ همراه', u.phone);
+  add('کد ملی', u.national_id);
+  add('محل سکونت', [u.residence, u.village].filter(x => x && String(x).trim() && String(x).trim() !== '—').join(' — '));
+  add('وضعیت سکونت', u.residence_status);
+  add('نشانی', u.address);
+  add('خواهر', u.sisters != null ? fa(u.sisters) : '');
+  add('برادر', u.brothers != null ? fa(u.brothers) : '');
+  add('رشته', u.field);
+  add('مدرک', u.degree);
+  add('درس تخصصی', u.subject);
+  return rows;
+}
+
 PAGES.record = () => {
   const k = S.user;
   const grades = list('grades').filter(g => Number(g.student_id) === Number(k.id));
   const att = list('attendance').filter(a => Number(a.student_id) === Number(k.id));
   const pct = att.length ? Math.round(att.filter(a => a.status === 'present').length / att.length * 100) : 0;
+  const details = userDetailRows(k);
   return `${pageHead('پروندهٔ من', (byId('classes', k.class_id) || {}).name || '')}
   <div class="grid">${statCard('✅', fa(pct) + '٪', 'حضور', pct >= 90 ? 'green' : 'amber')}
     ${statCard('📝', fa(grades.length), 'نمره')}</div>
+  ${details.length ? card(`<b>مشخصات</b><div class="table-wrap" style="margin-top:8px"><table><tbody>
+    ${details.map(([l, v]) => `<tr><td class="small muted" style="width:40%">${esc(l)}</td><td class="small">${esc(fa(v))}</td></tr>`).join('')}
+  </tbody></table></div>`) : ''}
   ${card(`<div class="table-wrap"><table><thead><tr><th>درس</th><th>نمره</th><th>وضعیت</th></tr></thead><tbody>
     ${grades.map(g => `<tr><td>${esc((byId('subjects', g.subject_id) || {}).name || '')}</td><td><b>${fa(g.score)}</b></td>
       <td>${badge(g.status === 'approved' ? 'تأییدشده' : 'در انتظار', g.status === 'approved' ? 'green' : 'amber')}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">—</td></tr>'}
@@ -1422,6 +1464,16 @@ function actUserEdit(id) {
     <label class="field"><span>نام و نام خانوادگی</span><input class="input" name="name" value="${esc(u.name)}" required></label>
     <label class="field"><span>نام کاربری (شمارهٔ همراه)</span>
       <input class="input ltr" name="phone" inputmode="numeric" maxlength="11" value="${esc(u.phone || '')}" placeholder="09xxxxxxxxx"></label>
+    <div class="row">
+      <label class="field grow"><span>تاریخ تولد (شمسی)</span>
+        <input class="input ltr" name="birth_date" value="${esc(window.impIsoToJalali ? impIsoToJalali(u.birth_date) : '')}" placeholder="1390/05/12"></label>
+      <label class="field grow"><span>جنسیت</span>
+        <select class="input" name="gender">
+          <option value="">—</option>
+          <option value="پسر" ${u.gender === 'پسر' ? 'selected' : ''}>پسر</option>
+          <option value="دختر" ${u.gender === 'دختر' ? 'selected' : ''}>دختر</option>
+        </select></label>
+    </div>
     <label class="field"><span>رمز عبور تازه (خالی بگذارید تا عوض نشود)</span>
       <input class="input ltr" name="password" placeholder="رمز تازه"></label>
     <div class="row" style="margin-top:6px">
@@ -1539,6 +1591,16 @@ function actUserAdd() {
       <label class="field grow"><span>نام ولی (اختیاری)</span><input class="input" name="parent_name"></label>
       <label class="field grow"><span>همراه ولی (اختیاری)</span><input class="input ltr" name="parent_phone" inputmode="numeric" maxlength="11" placeholder="09…"></label>
     </div>
+    <div class="row">
+      <label class="field grow"><span>تاریخ تولد (شمسی)</span>
+        <input class="input ltr" name="birth_date" placeholder="1390/05/12"></label>
+      <label class="field grow"><span>جنسیت</span>
+        <select class="input" name="gender">
+          <option value="">—</option>
+          <option value="پسر">پسر</option>
+          <option value="دختر">دختر</option>
+        </select></label>
+    </div>
     <label class="field"><span>رمز عبور (اختیاری — پیش‌فرض: کد ملی)</span>
       <input class="input ltr" name="password" placeholder="اگر خالی بماند، کد ملی می‌شود"></label>
     <div class="small muted" style="margin-top:6px">نام کاربری هر کاربر همان <b>شمارهٔ همراه</b> است و رمزش <b>کد ملی</b>؛ هر دو بعداً از «ویرایش» قابل تغییرند.</div>
@@ -1547,252 +1609,10 @@ function actUserAdd() {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   ورود دسته‌ای کاربران — جادوگر چهار مرحله‌ای
-     ۱) انتخاب فایل (اکسل xlsx یا CSV) و نوع (دانش‌آموز / کارکنان)
-     ۲) نگاشت ستون‌ها (خودکار پیشنهاد می‌شود، مدیر می‌تواند عوض کند)
-     ۳) بررسی: هر سطر سبز/زرد/قرمز و دلیلش
-     ۴) ثبت و کارنامهٔ نتیجه
-   منطق: فایل مدرسه هر شکلی باشد، ما خودمان ستون‌ها را می‌شناسیم.
+   ورود دسته‌ای از اکسل → client/import.js
+   جادوگر چهار مرحله‌ای (انتخاب فایل، نگاشت، بررسی، ثبت) با چهار نوع
+   فایل: دانش‌آموزان (۳۹ فیلد + ولی و کلاس)، دبیران، نمرات و حضور.
    ══════════════════════════════════════════════════════════════════ */
-
-const IMP_FIELDS = [
-  ['full_name', 'نام و نام خانوادگی', ['نام و نام خانوادگی', 'نام کامل', 'نام و نام‌خانوادگی', 'نام دانش آموز', 'اسم']],
-  ['first_name', 'نام', ['نام']],
-  ['last_name', 'نام خانوادگی', ['نام خانوادگی', 'فامیل', 'فامیلی', 'نام فامیل']],
-  ['national_id', 'کد ملی', ['کد ملی', 'کدملی', 'شماره ملی', 'شماره‌ملی', 'کد ملی دانش آموز']],
-  ['phone', 'شمارهٔ همراه', ['شماره همراه', 'همراه', 'موبایل', 'تلفن همراه', 'شماره تماس', 'موبایل دانش آموز', 'تلفن']],
-  ['class_name', 'کلاس', ['کلاس', 'نام کلاس', 'پایه و کلاس']],
-  ['grade', 'پایه', ['پایه', 'مقطع', 'پایه تحصیلی', 'مقطع تحصیلی']],
-  ['branch', 'رشته', ['رشته', 'گرایش', 'رشته تحصیلی', 'رشته و گرایش']],
-  ['parent_name', 'نام ولی', ['نام ولی', 'نام پدر', 'پدر', 'سرپرست', 'نام سرپرست']],
-  ['parent_phone', 'همراه ولی', ['همراه ولی', 'موبایل پدر', 'تلفن پدر', 'شماره پدر', 'موبایل ولی']],
-  ['role', 'نقش', ['نقش', 'نوع کاربر', 'نوع']],
-  ['subject', 'درس تخصصی', ['درس', 'تخصص', 'درس تخصصی']],
-  ['position', 'سمت', ['سمت', 'عنوان شغلی', 'واحد']],
-];
-
-/* یکسان‌سازی متن فارسی برای مقایسهٔ عنوان ستون‌ها */
-function impNorm(x) {
-  return String(x == null ? '' : x)
-    .replace(/[ىي]/g, 'ی').replace(/ك/g, 'ک')
-    .replace(/\u200c/g, ' ')
-    .replace(/[_\-.:،؛/\\()[\]{}]/g, ' ')
-    .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-    .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
-    .replace(/\s+/g, ' ').trim().toLowerCase();
-}
-function impFieldLabel(key) {
-  const f = IMP_FIELDS.find(x => x[0] === key);
-  return f ? f[1] : '';
-}
-/* کد ملی ایران: ۱۰ رقم با رقم کنترلی */
-function impValidNid(v) {
-  const s = digitsOnly(v);
-  if (!/^\d{10}$/.test(s) || /^(\d)\1{9}$/.test(s)) return false;
-  let sum = 0;
-  for (let i = 0; i < 9; i++) sum += Number(s[i]) * (10 - i);
-  const r = sum % 11;
-  const check = Number(s[9]);
-  return (r < 2 && check === r) || (r >= 2 && check === 11 - r);
-}
-
-function impAutoMap(headers) {
-  return headers.map(h => {
-    const n = impNorm(h);
-    if (!n) return '';
-    const exact = IMP_FIELDS.find(f => f[2].some(syn => impNorm(syn) === n));
-    if (exact) return exact[0];
-    const partial = IMP_FIELDS.find(f => f[2].some(syn => n.includes(impNorm(syn)) || impNorm(syn).includes(n)));
-    return partial ? partial[0] : '';
-  });
-}
-
-/* سطرهای نگاشت‌شده (بدون سطرهای خالی) */
-function impMapped() {
-  const imp = S.imp || {};
-  const map = imp.map || [];
-  return (imp.rows || []).map((row, idx) => {
-    const o = { _row: idx + 2 };            /* شمارهٔ سطر در فایل: سرستون + ۱ */
-    map.forEach((key, col) => {
-      if (!key) return;
-      const val = row[col] == null ? '' : String(row[col]).trim();
-      if (val === '') return;
-      if (key === 'national_id' || key === 'phone' || key === 'parent_phone') o[key] = digitsOnly(val);
-      else o[key] = val;
-    });
-    if (o.full_name) o.name = o.full_name;
-    else if (o.first_name || o.last_name) o.name = ((o.first_name || '') + ' ' + (o.last_name || '')).trim();
-    else o.name = '';
-    /* اگر پایه و رشته آمده و کلاس خالی است، نام کلاس را می‌سازیم */
-    if (!o.class_name && o.grade) o.class_name = (o.grade + ' ' + (o.branch || '')).trim();
-    return o;
-  }).filter(o => Object.keys(o).length > 1);
-}
-
-/* بررسی کامل: خطا (نمی‌شود ثبت کرد) و هشدار (ثبت می‌شود، ولی بدانید) */
-function impCheck() {
-  const kind = (S.imp && S.imp.kind) || 'students';
-  const existingNid = new Set(list('users').map(u => digitsOnly(u.national_id || '')).filter(Boolean));
-  const existingPhone = new Set(list('users').map(u => digitsOnly(u.phone || '')).filter(Boolean));
-  const classNames = new Set(list('classes').map(c => impNorm(c.name)));
-  const seenNid = new Map(), seenPhone = new Map();
-  const out = [];
-  for (const r of impMapped()) {
-    const errors = [], warns = [];
-    if (!r.name) errors.push('ستون نام خالی است');
-    if (r.national_id) {
-      if (!impValidNid(r.national_id)) errors.push('کد ملی «' + r.national_id + '» معتبر نیست');
-      else if (existingNid.has(r.national_id)) errors.push('کد ملی قبلاً در سامانه ثبت شده');
-      else if (seenNid.has(r.national_id)) errors.push('کد ملی در سطر ' + fa(seenNid.get(r.national_id)) + ' هم آمده');
-      else seenNid.set(r.national_id, r._row);
-    }
-    if (r.phone) {
-      if (!/^09\d{9}$/.test(r.phone)) warns.push('شمارهٔ همراه ' + r.phone + ' استاندارد نیست (۰۹xxxxxxxxx)');
-      else if (existingPhone.has(r.phone)) errors.push('این شمارهٔ همراه قبلاً ثبت شده');
-      else if (seenPhone.has(r.phone)) errors.push('شمارهٔ همراه در سطر ' + fa(seenPhone.get(r.phone)) + ' هم آمده');
-      else seenPhone.set(r.phone, r._row);
-    } else {
-      warns.push('شمارهٔ همراه ندارد؛ نام کاربری‌اش باید بعداً ثبت شود');
-    }
-    if (kind === 'students' && r.class_name && !classNames.has(impNorm(r.class_name))) {
-      warns.push('کلاس «' + r.class_name + '» ساخته می‌شود');
-    }
-    out.push({ row: r._row, data: r, errors, warns });
-  }
-  return out;
-}
-
-function impStepHtml() {
-  const imp = S.imp || { step: 1, kind: 'students' };
-  const head = s => `<div class="small muted" style="margin-bottom:8px">${s}</div>`;
-
-  if (imp.step === 1) {
-    return `<form data-form="import-file">
-      ${head('فایل اکسلی که از مدرسه دارید را همان‌طور که هست بدهید؛ لازم نیست ستون‌ها را مرتب کنید. با CSV هم کار می‌کند.')}
-      <label class="field"><span>نوع ورود</span><select class="input" name="kind">
-        <option value="students" ${imp.kind === 'students' ? 'selected' : ''}>دانش‌آموزان</option>
-        <option value="staff" ${imp.kind === 'staff' ? 'selected' : ''}>دبیران و کارکنان</option>
-      </select></label>
-      <label class="field"><span>فایل اکسل یا CSV</span><input class="input" type="file" name="file" accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label>
-      <button class="btn primary block" style="margin-top:10px">بعدی — نگاشت ستون‌ها</button>
-    </form>`;
-  }
-
-  if (imp.step === 2) {
-    const map = imp.map || [];
-    const preview = (imp.rows || []).slice(0, 3);
-    return `<div class="small muted" style="margin-bottom:8px">فایل «${esc(imp.fileName || '')}» خوانده شد — برگهٔ «${esc(imp.sheetName || '')}» با ${fa((imp.rows || []).length)} سطر. ستون‌ها را بررسی کنید.</div>
-      <div class="table-wrap" style="max-height:46vh;overflow:auto"><table><thead><tr>
-        <th>ستون فایل</th><th>مقدار در فایل</th><th>این ستون چیست؟</th></tr></thead><tbody>
-        ${(imp.headers || []).map((h, i) => `<tr>
-          <td class="small">${esc(h || ('ستون ' + fa(i + 1)))}</td>
-          <td class="small ltr">${esc(String((preview[0] || [])[i] || '—')).slice(0, 24)}</td>
-          <td><select class="input" data-imp-map="${i}" style="min-width:170px">
-            <option value="">— نادیده بگیر —</option>
-            ${IMP_FIELDS.map(f => `<option value="${f[0]}" ${map[i] === f[0] ? 'selected' : ''}>${f[1]}</option>`).join('')}
-          </select></td></tr>`).join('')}
-      </tbody></table></div>
-      <div class="row" style="margin-top:10px;gap:8px">
-        <button class="btn ghost" data-act="import-back">مرحلهٔ قبل</button>
-        <button class="btn primary grow" data-act="import-check">بررسی ${fa((imp.rows || []).length)} سطر</button>
-      </div>`;
-  }
-
-  if (imp.step === 3) {
-    const checks = imp.checks || [];
-    const ok = checks.filter(c => !c.errors.length);
-    const bad = checks.filter(c => c.errors.length);
-    return `<div class="row between" style="margin-bottom:8px">
-        <b>${fa(ok.length)} سطر آمادهٔ ثبت</b>
-        ${bad.length ? `<span class="badge" style="background:#fee2e2;color:#b91c1c">${fa(bad.length)} سطر مشکل دارد</span>` : '<span class="badge green">همه سالم</span>'}
-      </div>
-      <div class="table-wrap" style="max-height:44vh;overflow:auto"><table><thead><tr>
-        <th>سطر</th><th>نام</th><th>کد ملی</th><th>همراه</th><th>کلاس</th><th>وضعیت</th></tr></thead><tbody>
-        ${checks.slice(0, 200).map(c => `<tr>
-          <td>${fa(c.row)}</td>
-          <td>${esc(c.data.name || '—')}</td>
-          <td class="ltr small">${esc(c.data.national_id || '—')}</td>
-          <td class="ltr small">${esc(c.data.phone || '—')}</td>
-          <td class="small">${esc(c.data.class_name || '—')}</td>
-          <td class="small">${c.errors.length
-            ? '<span style="color:#b91c1c">' + c.errors.map(esc).join(' · ') + '</span>'
-            : (c.warns.length ? '<span style="color:#b45309">' + c.warns.map(esc).join(' · ') + '</span>' : '<span style="color:#15803d">آماده</span>')}</td>
-        </tr>`).join('')}
-      </tbody></table></div>
-      ${checks.length > 200 ? `<div class="small muted">فقط ۲۰۰ سطر اول نمایش داده شده است.</div>` : ''}
-      <div class="row" style="margin-top:10px;gap:8px">
-        <button class="btn ghost" data-act="import-back">مرحلهٔ قبل</button>
-        <button class="btn primary grow" data-act="import-apply" ${ok.length ? '' : 'disabled'}>ثبت ${fa(ok.length)} کاربر</button>
-      </div>`;
-  }
-
-  /* مرحلهٔ ۴: نتیجه */
-  const res = imp.result || { created: 0, errors: [] };
-  return `<div class="row between" style="margin-bottom:8px"><b style="color:#15803d">✅ ${fa(res.created)} کاربر ساخته شد</b>
-      ${(res.errors || []).length ? `<span class="badge" style="background:#fee2e2;color:#b91c1c">${fa(res.errors.length)} سطر ثبت نشد</span>` : ''}</div>
-    <div class="small muted">نام کاربری هر کاربر همان شمارهٔ همراه و رمز عبورش کد ملی است. با دکمهٔ «ورود دسته‌ای» می‌توانید فایل بعدی را هم وارد کنید.</div>
-    ${(res.errors || []).length ? `<div class="table-wrap" style="max-height:34vh;overflow:auto"><table><thead><tr><th>سطر</th><th>دلیل</th><th>مقدار</th></tr></thead><tbody>
-      ${res.errors.slice(0, 200).map(e => `<tr><td>${fa(e.row || '')}</td><td class="small">${esc(impErrorText(e.error))}</td>
-        <td class="small ltr">${esc(e.nid || e.phone || e.class_name || '')}</td></tr>`).join('')}
-    </tbody></table></div>` : ''}
-    <div class="row" style="margin-top:10px;gap:8px">
-      <button class="btn ghost" data-act="import-open">فایل بعدی</button>
-      <button class="btn primary grow" data-act="modal-close">تمام</button>
-    </div>`;
-}
-
-/* پیام فارسی خطاهای سرور در ورود دسته‌ای */
-function impErrorText(code) {
-  const map = {
-    missing_name: 'نام ندارد',
-    bad_national_id: 'کد ملی معتبر نیست',
-    duplicate_national_id: 'کد ملی تکراری است',
-    duplicate_phone: 'شمارهٔ همراه تکراری است',
-    class_not_found: 'کلاس پیدا نشد',
-    no_rows: 'سطر قابل ثبتی نبود',
-  };
-  return map[code] || String(code || 'خطا');
-}
-
-function actImport() {
-  S.imp = { step: 1, kind: (S.imp && S.imp.kind) || 'students' };
-  S.modalTitle = 'ورود دسته‌ای کاربران';
-  modal(impStepHtml());
-}
-function renderImportStep() {
-  S.modalTitle = 'ورود دسته‌ای کاربران';
-  modal(impStepHtml());
-}
-
-function parseCSV(text) {
-  const rows = [];
-  let row = [], cell = '', q = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (q) {
-      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
-      else if (ch === '"') q = false;
-      else cell += ch;
-    } else if (ch === '"') q = true;
-    else if (ch === ',') { row.push(cell); cell = ''; }
-    else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
-    else if (ch !== '\r') cell += ch;
-  }
-  if (cell || row.length) { row.push(cell); rows.push(row); }
-  if (!rows.length) return [];
-  const header = rows[0].map(h => h.trim().toLowerCase());
-  const hasHeader = header.some(h => ['name', 'نام', 'national_id', 'کد ملی'].includes(h));
-  const keys = hasHeader ? header : ['name', 'national_id', 'phone', 'class_name'];
-  const data = hasHeader ? rows.slice(1) : rows;
-  return data.filter(r => r.some(c => String(c).trim())).map(r => {
-    const o = {};
-    keys.forEach((k, i) => {
-      const map = { 'نام': 'name', 'کد ملی': 'national_id', 'همراه': 'phone', 'کلاس': 'class_name', 'نام ولی': 'parent_name', 'همراه ولی': 'parent_phone' };
-      o[map[k] || k] = (r[i] || '').trim();
-    });
-    return o;
-  });
-}
 
 async function actBackupNow() {
   try { const r = await api('/api/admin/backup', { method: 'POST' }); toast('پشتیبان ساخته شد: ' + r.file, 'ok'); }
