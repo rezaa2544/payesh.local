@@ -43,6 +43,8 @@ const RELEASES_DIR = path.join(ROOT, 'releases');
 const PORT = Number(process.env.PORT || process.env.SERVER_PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = process.env.PAYESH_DATA || path.join(ROOT, 'data');
+/* نقش‌هایی که آینه/پشتیبان را می‌بینند و می‌توانند بازیابی کنند: مدیر و عوامل اجرایی */
+const BACKUP_ROLES = new Set(['manager', 'teacher', 'counselor', 'guard']);
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const MIRROR_DIR = path.join(DATA_DIR, 'mirror');
 const DAILY_BACKUP_DIR = path.join(BACKUP_DIR, 'daily');
@@ -552,7 +554,10 @@ async function api(req, res, url, ip) {
   }
 
   /* ── مدیر ── */
-  if (p.startsWith('/api/admin/') && actor.role !== 'manager') {
+  /* سد کلی: همهٔ /api/admin فقط برای مدیر — به‌جز آینه/پشتیبان/بازیابی که
+     «عوامل اجرایی» هم باید ببینند و در صورت از دست رفتن داده استفاده کنند */
+  const backupPath = /^\/api\/admin\/(mirror|restore|backups\/daily)/.test(p);
+  if (p.startsWith('/api/admin/') && actor.role !== 'manager' && !(backupPath && BACKUP_ROLES.has(actor.role))) {
     return json({ ok: false, error: 'forbidden' }, 403);
   }
 
@@ -1024,7 +1029,7 @@ async function api(req, res, url, ip) {
      مقایسه شود، هر روز یک فایل پشتیبان ساخته و به‌روز شود و بتوان
      همان فایل را در دیتابیس تازه آپلود (بازیابی) کرد. */
   if (p === '/api/admin/mirror' && m === 'GET') {
-    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    if (!BACKUP_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     return json({
       ok: true,
       mirror: mirror.compareMirror(store, MIRROR_DIR),
@@ -1034,10 +1039,10 @@ async function api(req, res, url, ip) {
     });
   }
   if (p === '/api/admin/mirror/refresh' && m === 'POST') {
-    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    if (!BACKUP_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     const mres = mirror.refreshMirror(store, MIRROR_DIR, { force: true });
     const dres = mirror.refreshDaily(store, DAILY_BACKUP_DIR);
-    store.audit({ role: 'manager', action: 'mirror_refresh', collection: 'users', after: { total: mres.total } });
+    store.audit({ role: actor.role, action: 'mirror_refresh', collection: 'users', after: { total: mres.total } });
     return json({
       ok: true,
       mirror: mirror.compareMirror(store, MIRROR_DIR),
@@ -1048,24 +1053,25 @@ async function api(req, res, url, ip) {
     });
   }
   if (p === '/api/admin/mirror/download' && m === 'GET') {
-    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    if (!BACKUP_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     const f = path.join(MIRROR_DIR, 'payesh-data.json');
     if (!sendFile(req, res, f, { download: true, noStore: true })) return json({ ok: false, error: 'not_found' }, 404);
     return null;
   }
   if (p === '/api/admin/backups/daily' && m === 'GET') {
-    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    if (!BACKUP_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     return json({ ok: true, files: mirror.listDaily(DAILY_BACKUP_DIR), dir: DAILY_BACKUP_DIR });
   }
   const dailyFile = p.match(/^\/api\/admin\/backups\/daily\/([A-Za-z0-9._-]+\.json)$/);
   if (dailyFile && m === 'GET') {
+    if (!BACKUP_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     const f = safeJoin(DAILY_BACKUP_DIR, dailyFile[1]);
     if (!f || !sendFile(req, res, f, { download: true, noStore: true })) return json({ ok: false, error: 'not_found' }, 404);
     return null;
   }
   /* بازیابی: متن فایل پشتیبان روزانه در یک پایگاه (تازه یا همین) */
   if (p === '/api/admin/restore' && m === 'POST') {
-    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    if (!BACKUP_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     const body = await readBody(req, 64 * 1024 * 1024);
     /* پیش از هر بازیابی، یک نسخهٔ ایمنی از وضعیت فعلی */
     let safety = '';
@@ -1073,7 +1079,7 @@ async function api(req, res, url, ip) {
     const r = mirror.restore(store, body && body.data, { replace: !!(body && body.replace) });
     if (!r.ok) return json({ ok: false, error: r.error, safety }, 400);
     try { mirror.refreshMirror(store, MIRROR_DIR, { force: true }); mirror.refreshDaily(store, DAILY_BACKUP_DIR); } catch (e) { /* بی‌صدا */ }
-    store.audit({ role: 'manager', action: 'restore', collection: 'users', after: { report: r.report, safety } });
+    store.audit({ role: actor.role, action: 'restore', collection: 'users', after: { report: r.report, safety } });
     return json({ ok: true, report: r.report, safety });
   }
 
