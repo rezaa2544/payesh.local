@@ -35,7 +35,7 @@ const IMP_FIELDS = {
     ['shenasname_serial', 'سریال شناسنامه', 0, ['سریال شناسنامه', 'سریال', 'شماره شناسنامه']],
     ['shenasname_seri', 'سری شناسنامه', 0, ['سری شناسنامه', 'سری']],
     /* تحصیلی */
-    ['class_name', 'کلاس', 0, ['کلاس', 'نام کلاس', 'پایه و کلاس']],
+    ['class_name', 'کلاس/شعبه در فایل (اختیاری)', 0, ['کلاس', 'نام کلاس', 'پایه و کلاس']],
     ['grade', 'پایه', 0, ['پایه', 'مقطع تحصیلی', 'سال تحصیلی', 'پایه تحصیلی']],
     ['field', 'رشته', 0, ['رشته', 'رشته تحصیلی', 'گرایش', 'رشته و گرایش']],
     ['last_gpa', 'معدل سال گذشته', 0, ['معدل سال گذشته', 'معدل قبلی', 'معدل']],
@@ -107,7 +107,7 @@ const IMP_FIELDS = {
 };
 
 const IMP_ENTITY_FA = {
-  students: 'دانش‌آموزان (به‌همراه اولیا و کلاس)',
+  students: 'دانش‌آموزان (به‌همراه اولیا و رشته)',
   teachers: 'دبیران',
   grades: 'نمرات دورهٔ گذشته',
   attendance: 'حضور و غیاب دورهٔ گذشته',
@@ -380,7 +380,22 @@ function impAutoMap(headers, entity) {
   entity = entity || (S.imp && S.imp.kind) || 'students';
   const fields = impFields(entity);
   const out = {}, used = {};
+  /* فایل‌های مدرسه معمولاً دو ستون هم‌نام «وضعیت حیات» دارند: اولی مال پدر و
+     دومی مال مادر. بدون این قاعده، هر دو به یک فیلد می‌رفتند و دومی گم می‌شد. */
+  const aliveCols = [];
   (headers || []).forEach((h, i) => {
+    const nh = impNorm(h);
+    if (!nh) return;
+    if (nh.indexOf('حیات') > -1 && nh.indexOf('پدر') < 0 && nh.indexOf('مادر') < 0) aliveCols.push(i);
+  });
+  const aliveOrder = ['father_alive', 'mother_alive', 'guardian_alive'];
+  aliveCols.forEach((idx, k) => {
+    if (k >= aliveOrder.length) return;
+    out[idx] = aliveOrder[k];
+    used[aliveOrder[k]] = true;
+  });
+  (headers || []).forEach((h, i) => {
+    if (out[i]) return;
     const nh = impNorm(h);
     if (!nh) { out[i] = ''; return; }
     /* ستون شماره ردیف داده نیست؛ نگاشت نمی‌شود */
@@ -517,7 +532,7 @@ function impCheck() {
         }
       } else if (place.bare) {
         data.class_id = null;
-        data.followup_reason = 'پایهٔ کلاس در فایل نبود (رشته: ' + place.branch + ')';
+        data.followup_reason = 'پایه در فایل نبود (رشته: ' + place.branch + ')';
         warns.push('کلاس ساخته نشد: ' + data.followup_reason + ' — در «نیازمند پیگیری» کامل کنید');
       } else warns.push('بدون کلاس');
 

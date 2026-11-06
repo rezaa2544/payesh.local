@@ -1,0 +1,268 @@
+{
+  "version": "0.8.24",
+  "built_at": "2026-11-06T10:14:47.355Z",
+  "notes": [
+    "با حذف دانش‌آموز، ولی‌هایش هم حذف می‌شوند: پیوندهای پدر و مادر پاک می‌شود و هر ولی‌ای که فرزند دیگری ندارد خودش هم حذف می‌شود. اگر ولی فرزند دیگری در مدرسه داشته باشد، فقط پیوند همان دانش‌آموز برداشته می‌شود و حساب ولی می‌ماند. حذف دسته‌ای هم همین‌طور کار می‌کند (هم روی دستگاه و هم روی سیستم مدرسه).",
+    "در ورود دسته‌ای، «دانش‌آموزان (به‌همراه اولیا و رشته)» — کلاس جای خودش را به رشته داد؛ چون پایه و رشتهٔ دانش‌آموز ثابت است و کلاس/محل برگزاری بعداً در برنامهٔ هفتگی تعیین می‌شود.",
+    "وضعیت حیات پدر و مادر درست تشخیص داده می‌شود: فایل‌های مدرسه دو ستون هم‌نام «وضعیت حیات» دارند — ستون اول برای پدر و ستون دوم برای مادر ثبت می‌شود (قبلاً هر دو به یک فیلد می‌رفتند و دومی گم می‌شد). اگر در تیتر ستون «پدر» یا «مادر» نوشته شده باشد، همان هم رعایت می‌شود.",
+    "متن دلیل ردیف‌های جامانده ساده‌تر شد: «پایه در فایل نبود (رشته: نقشه‌کشی)»."
+  ],
+  "shell": {
+    "android": "0.8.24"
+  },
+  "files": [
+    {
+      "path": "client/app.js",
+      "kind": "client",
+      "sha256": "62b71a49ada9cff5411c5af4a23389ee61ad3bba04695b1ad56122eb8781803d",
+      "size": 149795
+    },
+    {
+      "path": "client/authz.js",
+      "kind": "client",
+      "sha256": "e9a9fb337455c35f72dace773ded28d209f1339b6bc32aed61047c3e088685cb",
+      "size": 7845
+    },
+    {
+      "path": "client/cloud-baked.js",
+      "kind": "client",
+      "sha256": "ac52983a820bc461c34f35f65b7c35e59899605bd5684200c4bb571e3906ed38",
+      "size": 620
+    },
+    {
+      "path": "client/diag.js",
+      "kind": "client",
+      "sha256": "e5904f4016daddbf9ede95d05cb1a79af753091d817eae2697fb6ab2ad397bbe",
+      "size": 34794
+    },
+    {
+      "path": "client/icons/apple-touch-icon.png",
+      "kind": "client",
+      "sha256": "5729bb601826310a59013b4db0c5a5ddc595beabd416312dbc4e40dc01f59c8a",
+      "size": 7028
+    },
+    {
+      "path": "client/icons/icon-192.png",
+      "kind": "client",
+      "sha256": "370ab173bc616faceeaf603c015912c648b4e79cac77f8ff82b68a22df9b5620",
+      "size": 7447
+    },
+    {
+      "path": "client/icons/icon-512.png",
+      "kind": "client",
+      "sha256": "1c7c5042830e23f4e21eafc61ff39f8fff71d0a2df3b4f5c46d066b7ff457218",
+      "size": 13315
+    },
+    {
+      "path": "client/import.js",
+      "kind": "client",
+      "sha256": "a1fe2caa42bf14b2c268bf33fa9f5b72cba28f8a08f12f43ffc7dbfa0f68f89e",
+      "size": 62149
+    },
+    {
+      "path": "client/index.html",
+      "kind": "client",
+      "sha256": "9c326efc5fe3d08a322971c3b315b403fe5e253482e15645ebf4ed517ed1a579",
+      "size": 1442
+    },
+    {
+      "path": "client/install.html",
+      "kind": "client",
+      "sha256": "df63fb9668876018cc3fdec95cbf0469af2197806629fe278e1ae964d32aff15",
+      "size": 10109
+    },
+    {
+      "path": "client/lib/hash.js",
+      "kind": "client",
+      "sha256": "5b7c5a70d25f50876074f13a7a9b3eda5b7daac2464eb17459edce3747dde645",
+      "size": 6150
+    },
+    {
+      "path": "client/lib/phone.js",
+      "kind": "client",
+      "sha256": "7aa8521e3ecf0c8ecf417180fc95e7b9159aaefbad180bd7fdf446854fd9abfe",
+      "size": 18692
+    },
+    {
+      "path": "client/lib/s3mini.js",
+      "kind": "client",
+      "sha256": "b6c3e89264cf3e7c275493c479ba48eab23282097cb6028ac253f8a88eb7dc6e",
+      "size": 16251
+    },
+    {
+      "path": "client/lib/sigv4.js",
+      "kind": "client",
+      "sha256": "6039b7f7f1d824f6d492a4a4e33b624863b10a802f0afaebfacfd0bf9b65678a",
+      "size": 9444
+    },
+    {
+      "path": "client/lib/xlsx.js",
+      "kind": "client",
+      "sha256": "95bdbafc579fe2cba19804d657609cf75cbad165651dfd9c2db0d7b4e0da44f5",
+      "size": 11511
+    },
+    {
+      "path": "client/manifest.webmanifest",
+      "kind": "client",
+      "sha256": "175a463c06fd172da665f4850c7d3598b5468a1071c1f3a55463bf307ef10987",
+      "size": 960
+    },
+    {
+      "path": "client/pages.js",
+      "kind": "client",
+      "sha256": "694e62b4c5eee3a6337b68fc614d23b37206248240e8be214b79c91a4d6c6b2d",
+      "size": 141383
+    },
+    {
+      "path": "client/schedule.js",
+      "kind": "client",
+      "sha256": "de9ff91aae0c415b7d3546eb0dff442c058f8d14a1801406d6c96aac05557643",
+      "size": 42407
+    },
+    {
+      "path": "client/styles.css",
+      "kind": "client",
+      "sha256": "ccc8cd18ec3472ead8eb9316583a105bf2ed893c6373f278db00c8040a4d5c77",
+      "size": 11144
+    },
+    {
+      "path": "client/sw.js",
+      "kind": "client",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "install.bat",
+      "kind": "server",
+      "sha256": "e7bff8e3fda9a280ced1550fe52d5cb404a3aa9472added6b0825f6d864f2799",
+      "size": 409
+    },
+    {
+      "path": "package.json",
+      "kind": "server",
+      "sha256": "e1d6c94cbd3d53eea81116fde14d24f7bdc145aff292e1a66e86ce1469de42e3",
+      "size": 1996
+    },
+    {
+      "path": "server/auth.js",
+      "kind": "server",
+      "sha256": "c7ebd6072dc8bfbd46cac87fbd5d64e59dda03eaac245c3eb70a6ced81721366",
+      "size": 21159
+    },
+    {
+      "path": "server/cloud-defaults.js",
+      "kind": "server",
+      "sha256": "09a4e869ee46555cbbf215653e2e019298fcfec78af703be4cbe228baee381ba",
+      "size": 2129
+    },
+    {
+      "path": "server/config.js",
+      "kind": "server",
+      "sha256": "e2e27e4c6324a9f12c813b0540c762a8ca3b01e81f4e52f8281acd0bb0e915ac",
+      "size": 4230
+    },
+    {
+      "path": "server/db.js",
+      "kind": "server",
+      "sha256": "904fbbb7473525b1294c260b056de01b4c8ed5aaf7bed96ca1159431461ff107",
+      "size": 11594
+    },
+    {
+      "path": "server/index.js",
+      "kind": "server",
+      "sha256": "62bf576d765898533964ab2acebbd3ae48f42acd06bf22e3e28a93e73a70f9fb",
+      "size": 86324
+    },
+    {
+      "path": "server/live.js",
+      "kind": "server",
+      "sha256": "521156bfbe8ea5b1bc78108bbfdfac2b4874faddb9a77ebf675b02fdad7ea615",
+      "size": 7396
+    },
+    {
+      "path": "server/outbox.js",
+      "kind": "server",
+      "sha256": "a5f243b3b4bae74a83c4e2419bc75b9f864622e2ca273014ba26c20ab712e87e",
+      "size": 20341
+    },
+    {
+      "path": "server/policy.js",
+      "kind": "server",
+      "sha256": "53fb9bbe0a16ac9339deefe205c1c39c1475a393c95b8be42086ce8630246593",
+      "size": 9629
+    },
+    {
+      "path": "server/qr.js",
+      "kind": "server",
+      "sha256": "5a3540a4e33af3acf3261a5a66c9d4547521203b7f71cedf45d91300268f6a65",
+      "size": 13353
+    },
+    {
+      "path": "server/s3mem.js",
+      "kind": "server",
+      "sha256": "f2ddb2bacd45e99b3b1f2b242a2fcceb5f7d8d8d9c64474f978468691d0b075f",
+      "size": 4233
+    },
+    {
+      "path": "server/seed.js",
+      "kind": "server",
+      "sha256": "1a0f7c07a032f33d140e344b33e4e4dd9ea9f60460b9de06bd0d0961a53eed97",
+      "size": 13166
+    },
+    {
+      "path": "server/start.js",
+      "kind": "server",
+      "sha256": "6d8d44108fcc49326a93c9d1d0d7265bd4836690a918a6e55ef97f20dacea673",
+      "size": 4052
+    },
+    {
+      "path": "server/sync.js",
+      "kind": "server",
+      "sha256": "20b00e66eb134218bbcf120da9fa8e5cf4582bf7d3b0b567d504afc11c90441b",
+      "size": 7786
+    },
+    {
+      "path": "server/tunnel.js",
+      "kind": "server",
+      "sha256": "e6bd83bcbe2bef5bb88d1c4d9356b4bd598c05d8a9dcb64d155566e2af1f0a7e",
+      "size": 13528
+    },
+    {
+      "path": "server/update.js",
+      "kind": "server",
+      "sha256": "7fdb397a738f03d9c962a43db0ae5e4f4df7ba052dcaa20c50aa48982f2b9009",
+      "size": 31273
+    },
+    {
+      "path": "server/util.js",
+      "kind": "server",
+      "sha256": "8dbb0aad000c1ed598ac5188b291d13f5e1dba9a4e84a184d79e80202decc3ad",
+      "size": 3581
+    },
+    {
+      "path": "start.bat",
+      "kind": "server",
+      "sha256": "104c83f90f839e39f904e4bfe135caad385c7c82bb3d43c64bf46abf13e53a7f",
+      "size": 292
+    },
+    {
+      "path": "start.sh",
+      "kind": "server",
+      "sha256": "4419326c416d5d9d4b698e5ae0f90e9b6e0a5aa30cb8064169a21a620f75ff98",
+      "size": 216
+    },
+    {
+      "path": "uninstall.bat",
+      "kind": "server",
+      "sha256": "2c421ee99ad515ed535fd346758883535d9a49b20058194001fd035bb775ded0",
+      "size": 151
+    }
+  ],
+  "counts": {
+    "client": 20,
+    "server": 21
+  },
+  "client_size": 552486,
+  "server_size": 256838,
+  "total_size": 809324
+}

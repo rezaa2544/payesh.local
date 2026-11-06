@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.23';
+const CLIENT_VERSION = '0.8.24';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1677,13 +1677,22 @@ document.addEventListener('click', async (e) => {
     case 'user-delete': {
       const u = byId('users', Number(id));
       if (!u) return;
-      if (!confirm('کاربر «' + u.name + '» حذف شود؟ این کار قابل بازگشت نیست.')) return;
+      const isStudent = u.role === 'student';
+      const kidsParents = isStudent
+        ? [...new Set(list('parent_links').filter(l => Number(l.student_id) === Number(u.id)).map(l => Number(l.parent_id)).filter(Boolean))]
+            .map(pid => byId('users', pid)).filter(Boolean).map(p => p.name)
+        : [];
+      const msg = isStudent
+        ? 'دانش‌آموز «' + u.name + '» حذف شود؟' + (kidsParents.length ? '\nولیِ او هم (' + kidsParents.join('، ') + ') اگر فرزند دیگری نداشته باشد حذف می‌شود.' : '') + '\nاین کار قابل بازگشت نیست.'
+        : 'کاربر «' + u.name + '» حذف شود؟ این کار قابل بازگشت نیست.';
+      if (!confirm(msg)) return;
       try {
-        await deleteUserEverywhere(u.id);
+        const removedParents = isStudent ? await deleteStudentWithParents(u.id) : [];
+        if (!isStudent) await deleteUserEverywhere(u.id);
         if (S.picked) S.picked.delete(Number(u.id));
         saveCache(); render();
         await flushQueue();
-        toast('کاربر حذف شد', 'ok');
+        toast('کاربر حذف شد' + (removedParents.length ? ' · ولی هم حذف شد: ' + removedParents.join('، ') : ''), 'ok');
       } catch (e) { toast('حذف نشد: ' + friendlyError(e), 'err'); }
       return;
     }
@@ -1992,8 +2001,16 @@ document.addEventListener('click', async (e) => {
       for (const idOne of ids) {
         const u = byId('users', idOne);
         if (!u) continue;
-        removeLocal('users', idOne, { sync: !serverDone });
-        if (S.data.users) S.data.users.delete(Number(idOne));
+        if (u.role === 'student') {
+          /* ولی‌ها هم با دانش‌آموز می‌روند (اگر فرزند دیگری نداشته باشند) */
+          await deleteStudentWithParents(idOne).catch(() => {
+            removeLocal('users', idOne, { sync: !serverDone });
+            if (S.data.users) S.data.users.delete(Number(idOne));
+          });
+        } else {
+          removeLocal('users', idOne, { sync: !serverDone });
+          if (S.data.users) S.data.users.delete(Number(idOne));
+        }
         n += 1;
       }
       if (!serverDone && !PHONE_MODE) {
@@ -2407,6 +2424,29 @@ function userDupBanner(f, matched) {
   }
   box.innerHTML = `<div>⚠️ کاربری با همین مشخصات هست: <b>${list_}</b>.`
     + ' اگر همان شخص است، همان را ویرایش کنید. اگر مطمئنید شخص دیگری است، دوباره «ثبت» را بزنید.</div>';
+}
+
+/* حذف دانش‌آموز: پیوندهای ولی پاک و ولی‌هایی که فرزند دیگری ندارند هم حذف می‌شوند. */
+async function deleteStudentWithParents(studentId) {
+  const id = Number(studentId);
+  const links = list('parent_links').filter(l => Number(l.student_id) === id);
+  const parentIds = [...new Set(links.map(l => Number(l.parent_id)).filter(Boolean))];
+  await deleteUserEverywhere(id);
+  if (S.data.users) S.data.users.delete(Number(id));
+  for (const l of links) {
+    removeLocal('parent_links', l.id, { sync: true });
+    if (S.data.parent_links) S.data.parent_links.delete(Number(l.id));
+  }
+  const removedNames = [];
+  for (const pid of parentIds) {
+    const stillHas = list('parent_links').some(l => Number(l.parent_id) === pid);
+    const pu = byId('users', pid);
+    if (stillHas || !pu) continue;
+    await deleteUserEverywhere(pid);
+    if (S.data.users) S.data.users.delete(Number(pid));
+    removedNames.push(pu.name);
+  }
+  return removedNames;
 }
 
 /* گروه ثبت‌نام = پایه + رشته. در متوسطهٔ دوم همین کافی است؛ «کلاس/اتاق»
