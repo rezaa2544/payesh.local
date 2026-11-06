@@ -1,0 +1,71 @@
+# شاهد اجرایی مأموریت ۱۶ — رفتار سلامت/رصدپذیری/بار در کد امروز
+generated_by: docs/cloud/reports/evidence/gen-mission-16-evidence.sh
+probe: docs/cloud/reports/evidence/probe-16-observability.mjs
+branch: arena/f1efa594-payesh-local
+head: c6eaf1627aa5b96fcee2d26f8ebbd37f77151214
+node: v22.22.3
+note: دیتابیس موقت (mktemp)؛ هیچ نوشتنی روی data/ مخزن انجام نمی‌شود
+
+## اجرا
+PROBE-16-OBSERVABILITY — رفتار اجرایی کد امروز
+SHA=c6eaf1627aa5b96fcee2d26f8ebbd37f77151214
+TEMP_DB=isolated (not repository data/)
+H1 | نقاط سلامت و متریک | {"/healthz":{"status":200,"spa_html":true},"/readyz":{"status":200,"spa_html":true},"/metrics":{"status":200,"spa_html":true},"/api/metrics":{"status":401},"/api/health":{"status":200}}
+H2 | محتوای /api/health | {"status":200,"dependency_check_keys":[],"cloud_ready_in_body":false,"db_file_is_config_only":true,"keys":"cloud_ready,data_dir,db_file,installed_version,instance,name,ok,public_url,restart_pending,school,server_time,setup_done,time,uptime_s,version","body_bytes":406}
+H3 | بار /api/live/rev | {"status_without_token":401,"status_with_token":200,"every_ms":1000,"body_bytes":107,"assumed_header_bytes":500,"egress":{"conservative":{"devices":500,"tb_per_month":0.79},"mid":{"devices":4000,"tb_per_month":6.29},"growth":{"devices":20000,"tb_per_month":31.47}}}
+H4 | قالب لاگ درخواست | {"lines_seen":7,"sample":"GET /api/health 200 6ms || POST /api/setup 200 55ms || POST /api/sync 200 39ms","structured_json":false,"has_tenant_or_request_id":false}
+H5 | محل نشست‌ها | {"session_tables":["sessions"],"session_rows_after_login":1,"sessions_in_database":true}
+H6 | ۳۰۰ درخواست پشت‌سرهم به /api/live/rev | {"ok":300,"rate_limited":0,"other":0,"burst_ms":545}
+EXPECTATIONS=ALL-MET
+exit=0
+
+## جای کد مرجع (بدون تغییر)
+-- server/index.js:262-... (/api/health: بدون بررسی وابستگی)
+     /* سلامت — کلاینت با همین حالت سروری را تشخیص می‌دهد */
+     if (p === '/api/health' && m === 'GET') {
+       return json({
+         ok: true, name: 'payesh-local', version: RUNNING_VERSION,
+         installed_version: readManifest().version,
+         restart_pending: readManifest().version !== RUNNING_VERSION,
+         time: nowISO(), server_time: nowISO(), uptime_s: Math.round(process.uptime()),
+         setup_done: !auth.needsSetup(store), school: (store.get('schools', 1) || {}).name || null,
+-- server/index.js:166-174 (محدودیت نرخ درون‌حافظه، بدون پاک‌سازی)
+   const buckets = new Map();
+   function rateLimit(key, max, windowMs) {
+     const now = Date.now();
+     let b = buckets.get(key);
+     if (!b || now - b.start > windowMs) { b = { start: now, n: 0 }; buckets.set(key, b); }
+     b.n++;
+     return b.n <= max;
+   }
+   
+   /* ── بدنهٔ درخواست ────────────────────────────────────────────────── */
+-- server/index.js:418-420 (سد احراز هویت سراسری)
+   
+     /* از این‌جا به بعد نیاز به نشست */
+     const actor = actorFrom(req);
+     if (!actor && p.startsWith('/api/')) return json({ ok: false, error: 'unauthorized' }, 401);
+-- server/index.js:484-489 (/api/live/rev: every_ms=1000)
+     if (p === '/api/live/rev' && m === 'GET') {
+       return json({
+         ok: true, rev: live.localRev(store), at: new Date().toISOString(),
+         every_ms: live.INTERVAL_MS, cloud: !!(await live.cloudCfg(store)),
+       });
+     }
+-- server/index.js:1583-1589 (قالب لاگ درخواست: بدون tenant_id/request_id)
+     } finally {
+       if (process.env.PAYESH_LOG !== '0') {
+         const ms = Date.now() - started;
+         if (ms > 300 || url.pathname.startsWith('/api/')) {
+           console.log(`${req.method} ${url.pathname} ${res.statusCode} ${ms}ms`);
+         }
+       }
+-- server/live.js:24 (INTERVAL_MS=1000) و :30/:96-98 (حالت درون‌حافظه)
+   const INTERVAL_MS = 1000;          /* خواستهٔ صریح: هر ۱ ثانیه */
+   let cfgCache = { at: 0, cfg: null };
+   let timer = null;
+   let running = false;
+   let last = { at: null, pushed: 0, pulled: 0, error: null };
+
+## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)
+0
