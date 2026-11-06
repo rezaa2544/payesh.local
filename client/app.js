@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.25';
+const CLIENT_VERSION = '0.8.26';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -232,29 +232,23 @@ function busyOverlay(text, sub) {
     el.className = 'busy-overlay';
     el.innerHTML = '<div class="busy-box"><div class="spinner"></div>'
       + '<div class="busy-title" id="busy-title"></div>'
-      + '<div class="busy-sub" id="busy-sub"></div>'
       + '<div class="busy-bar"><i id="busy-fill"></i></div></div>';
     document.body.appendChild(el);
   }
   el.style.display = 'flex';
   const t = document.getElementById('busy-title');
-  const u = document.getElementById('busy-sub');
-  if (t) t.textContent = text || 'در حال پردازش…';
-  if (u) u.textContent = sub || 'چند لحظه صبر کنید؛ برنامه هنگ نکرده است.';
+  /* فقط یک جمله: «در حال ثبت» — بدون توضیح اضافه */
+  if (t) t.textContent = text || 'در حال ثبت';
   busyUpdate(0, 0);
   return el;
 }
-function busyUpdate(done, total, sub) {
+function busyUpdate(done, total) {
+  /* فقط نوار پیشرفت؛ هیچ متنی نوشته نمی‌شود */
   const fill = document.getElementById('busy-fill');
-  const u = document.getElementById('busy-sub');
-  if (total > 0) {
-    const pct = Math.max(0, Math.min(100, Math.round((done / total) * 100)));
-    if (fill) { fill.style.width = pct + '%'; fill.parentNode.style.display = 'block'; }
-    if (u) u.textContent = 'ثبت ' + fa(done) + ' از ' + fa(total) + ' — ' + fa(pct) + '٪';
-  } else {
-    if (fill) { fill.style.width = '35%'; fill.parentNode.style.display = 'block'; }
-    if (u && sub) u.textContent = sub;
-  }
+  if (!fill) return;
+  const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : 35;
+  fill.style.width = pct + '%';
+  if (fill.parentNode) fill.parentNode.style.display = 'block';
 }
 function busyHide() {
   const el = document.getElementById('busy-overlay');
@@ -1983,7 +1977,7 @@ document.addEventListener('click', async (e) => {
       if (!rows.length) return toast('سطر سالمی برای ثبت نیست', 'err');
       const kindImp = ['students', 'teachers', 'grades', 'attendance'].includes(S.imp.kind) ? S.imp.kind : 'students';
       const btn = el; btn.disabled = true;
-      busyOverlay('در حال ثبت اطلاعات', 'این کار برای ' + fa(rows.length) + ' ردیف چند لحظه طول می‌کشد؛ برنامه هنگ نکرده است.');
+      busyOverlay('در حال ثبت');
       try {
         await new Promise(r => setTimeout(r, 60));   /* فرصت نمایش نشانگر */
         let result;
