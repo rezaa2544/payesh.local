@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.16';
+const CLIENT_VERSION = '0.8.17';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -667,7 +667,9 @@ async function doClaim(form) {
 async function doLogin(form) {
   const phone = digitsOnly(form.phone.value);
   const password = String(form.password.value || '');
-  if (phone.length !== 11) return toast('شمارهٔ همراه باید ۱۱ رقم باشد', 'err');
+  if (phone.length !== 11 && phone.length !== 10) {
+    return toast('شمارهٔ همراه ۱۱ رقم است و کد ملی ۱۰ رقم — دوباره بنویسید', 'err');
+  }
   if (!password) return toast('رمز عبور را وارد کنید', 'err');
   try {
     const r = await api('/api/auth/login', { method: 'POST', body: { phone, password, platform: 'web' } });
@@ -680,7 +682,7 @@ async function doLogin(form) {
   } catch (e) {
     const em = String((e && e.message) || '');
     if (/no_password/.test(em)) return toast('این حساب هنوز رمز ندارد — مدیر باید از «کاربران ← ویرایش» یک رمز بسازد', 'err');
-    if (/bad_credentials/.test(em)) return toast('شماره یا رمز عبور درست نیست', 'err');
+    if (/bad_credentials/.test(em)) return toast('نام کاربری (شمارهٔ همراه یا کد ملی) یا رمز درست نیست', 'err');
     toast('ورود ناموفق: ' + em, 'err');
   }
 }
@@ -698,7 +700,9 @@ function makeVerifier(plain) {
 async function doPhoneLogin(f) {
   const phone = digitsOnly(f.phone.value);
   const password = String(f.password.value || '');
-  if (phone.length !== 11) return toast('شمارهٔ همراه باید ۱۱ رقم باشد', 'err');
+  if (phone.length !== 11 && phone.length !== 10) {
+    return toast('شمارهٔ همراه ۱۱ رقم است و کد ملی ۱۰ رقم — دوباره بنویسید', 'err');
+  }
   if (!password) return toast('رمز عبور را وارد کنید', 'err');
   const el = f.password;
   const form = (el && el.closest && el.closest('form')) || null;
@@ -717,11 +721,11 @@ async function doPhoneLogin(f) {
     const r = await window.PayeshPhone.login(phone, password);
     if (!r.ok) {
       const map = {
-        bad_credentials: 'شماره یا رمز عبور درست نیست',
+        bad_credentials: 'نام کاربری (شمارهٔ همراه یا کد ملی) یا رمز درست نیست',
         no_password: 'این حساب هنوز رمز ندارد — از مدیر بخواهید رمز بسازد',
-        not_registered: 'این شماره در مدرسه ثبت نشده — از مدیر بخواهید حساب بسازد (و یک‌بار با سیستم مدرسه همگام شود)',
+        not_registered: 'این شماره/کد ملی در مدرسه ثبت نشده — از مدیر بخواهید حساب بسازد (و یک‌بار با سیستم مدرسه همگام شود)',
         user_inactive: 'حساب غیرفعال است',
-        bad_phone: 'شمارهٔ همراه کامل نیست',
+        bad_phone: 'شمارهٔ همراه ۱۱ رقم و کد ملی ۱۰ رقم است — دوباره بنویسید',
         bad_password: 'رمز عبور خیلی کوتاه است',
         net: 'به حافظهٔ مدرسه نرسیدیم — اینترنت گوشی را بررسی کنید و دوباره بزنید',
         cors: 'حافظهٔ مدرسه هنوز اجازهٔ خواندن به برنامه نداده — یک‌بار در سیستم مدرسه، «حافظهٔ ابری ← تنظیم خودکار CORS» را بزنید',
@@ -1722,7 +1726,7 @@ document.addEventListener('click', async (e) => {
             result = {
               created: Number(r.created || 0), updated: Number(r.updated || 0),
               parents: Number(r.parents || 0), classes: Number(r.classes || 0),
-              errors: r.errors || [],
+              errors: r.errors || [], warnings: r.warnings || [],
             };
           } catch (err) {
             /* اگر سیستم مدرسه پاسخ نداد، همان لحظه روی همین دستگاه ساخته
@@ -2212,7 +2216,8 @@ document.addEventListener('submit', async (e) => {
     await pullAll().catch(() => {});
 
     /* کارت ورود: نام کاربری و رمز، تا مدیر همان‌جا به کاربر بگوید */
-    const shownUser = phone || 'ثبت نشده';
+    /* نام کاربری = شمارهٔ همراه، و اگر شماره نبود = کد ملی (همان قاعدهٔ سرور) */
+    const shownUser = phone || nid || 'ثبت نشده';
     const shownPass = String((f.password && f.password.value) || '') || nid || 'کد ملی';
     let pairCode = '';
     if (!PHONE_MODE && created.id > 0 && S.online) {
@@ -2223,7 +2228,7 @@ document.addEventListener('submit', async (e) => {
     }
     S.modalTitle = 'کاربر ساخته شد — ' + name;
     modal(`<div class="card tight" style="margin:0 0 10px">
-        <div class="row between"><span class="muted">نام کاربری (شمارهٔ همراه)</span><b class="ltr">${esc(shownUser)}</b></div>
+        <div class="row between"><span class="muted">نام کاربری ${phone ? '(شمارهٔ همراه)' : nid ? '(کد ملی)' : '(شمارهٔ همراه)'}</span><b class="ltr">${esc(shownUser)}</b></div>
         <div class="row between" style="margin-top:6px"><span class="muted">رمز عبور</span><b class="ltr">${esc(shownPass)}</b></div>
         <div class="row between" style="margin-top:6px"><span class="muted">نقش</span><b>${esc(ROLE_FA[role] || role)}</b></div>
       </div>

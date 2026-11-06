@@ -234,12 +234,12 @@ function renderPair() {
       <p class="small muted center" style="margin-top:10px">این کد را مدیرِ مدرسه از صفحهٔ «کاربران» → دکمهٔ «کارت پیوند» برای شما چاپ می‌کند.<br>کد فقط برای همین یک‌بار است و ۷ روز اعتبار دارد.</p>
       <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="password">ورود با شمارهٔ همراه و رمز عبور</a></p>`
     : `
-      <label class="field"><span>شمارهٔ همراه</span>
-        <input class="input ltr" name="phone" inputmode="numeric" data-digits autocomplete="username" placeholder="09xxxxxxxxx" autofocus></label>
+      <label class="field"><span>شمارهٔ همراه (یا کد ملی)</span>
+        <input class="input ltr" name="phone" inputmode="numeric" data-digits autocomplete="username" maxlength="11" placeholder="09xxxxxxxxx" autofocus></label>
       <label class="field"><span>رمز عبور</span>
         <input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="••••••"></label>
       <button class="btn primary block" type="submit">ورود</button>
-      <p class="small muted center" style="margin-top:10px">شمارهٔ همراه شما نام کاربری است؛ رمز را مدیر مدرسه داده است.</p>
+      <p class="small muted center" style="margin-top:10px">نام کاربری شما شمارهٔ همراهتان است و رمز، کد ملی؛ اگر شمارهٔ همراه ندارید، با کد ملی وارد شوید.</p>
       <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="pair">ورود با کارت پیوند (بدون رمز)</a></p>`;
 
   setApp(`
@@ -321,9 +321,9 @@ function renderPhoneLogin(force) {
   <div class="auth">
     <div class="logo">پ</div>
     <h1>ورود به پایش</h1>
-    <div class="sub">شمارهٔ همراه و رمزی که مدیر مدرسه برایتان ساخته است</div>
+    <div class="sub">شمارهٔ همراه (یا کد ملی) و رمزی که مدیر مدرسه برایتان ساخته است</div>
     <form data-form="phone-login" class="card">
-      <label class="field"><span>شمارهٔ همراه</span>
+      <label class="field"><span>شمارهٔ همراه (یا کد ملی)</span>
         <input class="input ltr" name="phone" inputmode="numeric" autocomplete="username"
           maxlength="11" placeholder="09xxxxxxxxx" value="${esc((last && last.phone) || '')}"></label>
       <label class="field"><span>رمز عبور</span>
@@ -640,16 +640,16 @@ PAGES.users = () => {
       </span>
     </div></div>` : ''}
 
-  ${card(`<div class="small muted" style="margin-bottom:6px">نام کاربری هر نفر همان <b>شمارهٔ همراه</b> است و رمزش <b>کد ملی</b>؛ رمز کنار هر نفر نوشته شده تا بتوانید به خودش بگویید. این جدول را فقط مدیر می‌بیند.</div>
+  ${card(`<div class="small muted" style="margin-bottom:6px">نام کاربری هر نفر همان <b>شمارهٔ همراه</b> است (و اگر شماره نداشت، <b>کد ملی</b>) و رمزش <b>کد ملی</b>؛ رمز کنار هر نفر نوشته شده تا بتوانید به خودش بگویید. این جدول را فقط مدیر می‌بیند.</div>
   <div class="table-wrap"><table><thead><tr>
     <th style="width:34px"><input type="checkbox" data-pick="all" ${allPicked ? 'checked' : ''} title="انتخاب همه"></th>
-    <th>نام</th><th>نقش</th><th>کلاس</th><th>نام کاربری (همراه)</th><th>رمز عبور</th><th></th></tr></thead><tbody>
+    <th>نام</th><th>نقش</th><th>کلاس</th><th>نام کاربری</th><th>رمز عبور</th><th></th></tr></thead><tbody>
     ${users.map(u => `<tr${picked.has(Number(u.id)) ? ' style="background:#fef2f2"' : ''}>
       <td><input type="checkbox" data-pick="user" value="${u.id}" ${picked.has(Number(u.id)) ? 'checked' : ''}></td>
       <td>${esc(u.name)}</td>
       <td>${badge(ROLE_FA[u.role] || u.role, u.role === 'manager' ? 'purple' : '')}</td>
       <td class="small">${esc((byId('classes', u.class_id) || {}).name || '—')}</td>
-      <td class="small ltr">${esc(u.phone || '—')}</td>
+      <td class="small ltr">${esc(u.phone || u.national_id || '—')}${u.phone ? '' : ' <span class="muted" style="font-size:10px">(کد ملی)</span>'}</td>
       <td class="small ltr">${(() => {
         const c = S.creds && S.creds[u.id];
         if (!S.creds) return '<span class="muted">…</span>';

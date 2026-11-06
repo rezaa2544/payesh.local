@@ -17,6 +17,7 @@
 const crypto = require('crypto');
 const s3mem = require('./s3mem');
 const sync = require('./sync');
+const util = require('./util');
 
 const META = 'outbox:state';
 const PENDING = 'outbox/pending/';
@@ -347,7 +348,16 @@ const CORE_COLLECTIONS = ['schools', 'school_years', 'classes', 'subjects', 'loo
 const PERSON_COLLECTIONS = ['attendance', 'grades', 'leaves', 'internships', 'discipline', 'notes', 'staff_attendance'];
 
 function phoneKey(u) {
-  return String(u.phone || '').replace(/\D/g, '');
+  return util.normDigits(u && u.phone);
+}
+
+/* نام کاربریِ ورود: شمارهٔ همراه، و اگر نداشت کد ملی — همان قاعده‌ای که
+   در auth.credentialsFor هست، تا ولیِ بی‌شماره هم روی گوشی وارد شود. */
+function loginKey(u) {
+  const phone = phoneKey(u);
+  if (phone.length >= 10) return phone;
+  const nid = util.normDigits(u && u.national_id);
+  return nid.length === 10 ? nid : '';
 }
 
 function safeRow(row) {
@@ -371,15 +381,15 @@ async function publishAuth(store) {
   if (!cfg) return { ok: false, error: 'no_cloud', count: 0 };
   let count = 0;
   for (const u of (store.all('users') || [])) {
-    const phone = phoneKey(u);
-    if (!phone || !u.phone_hash) continue;
+    const login = loginKey(u);
+    if (!login || !u.phone_hash) continue;
     const stable = JSON.stringify({
-      v: 1, phone, verifier: u.phone_hash,
-      user: { id: u.id, name: u.name, role: u.role, class_id: u.class_id || null, phone, active: u.active !== false },
+      v: 1, login, phone: phoneKey(u), verifier: u.phone_hash,
+      user: { id: u.id, name: u.name, role: u.role, class_id: u.class_id || null, phone: phoneKey(u), active: u.active !== false },
     });
     const body = JSON.stringify(Object.assign(JSON.parse(stable), { at: new Date().toISOString() }));
     try {
-      if (await putIfChanged(cfg, keyOf(cfg, 'auth/' + phone + '.json'), body, stable)) count++;
+      if (await putIfChanged(cfg, keyOf(cfg, 'auth/' + login + '.json'), body, stable)) count++;
     } catch (e) {
       writeMeta(store, { last_error: 'auth: ' + String(e.message || e).slice(0, 120) });
       break;
@@ -455,5 +465,5 @@ async function publishAll(store) {
 module.exports = {
   publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop, putIfChanged, forgetPutHashes,
   publishAuth, publishData, publishAll, personData, CORE_COLLECTIONS, PERSON_COLLECTIONS,
-  SERVER_ROLES, summary, PENDING, DONE, STATE,
+  SERVER_ROLES, summary, PENDING, DONE, STATE, loginKey,
 };

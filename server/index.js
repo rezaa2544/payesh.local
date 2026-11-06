@@ -1046,6 +1046,7 @@ function importUsers(body) {
   const rows = Array.isArray(body && body.rows) ? body.rows : [];
   const created = [];
   const errors = [];
+  const warnings = [];
   let updated = 0, parents = 0, classesMade = 0;
 
   const classIndex = new Map(store.all('classes').map(c => [importKey(c.name), c]));
@@ -1191,35 +1192,48 @@ function importUsers(body) {
       /* ── حساب پدر و مادر و پیوند ولی ── */
       if (kind === 'students') {
         const fName = String(r.father_name || r.parent_name || '').trim();
-        const fPhoneRaw = normDigits(r.father_phone || r.parent_phone || '');
-        const mPhoneRaw = normDigits(r.mother_phone || '');
-        /* اگر هیچ شماره‌ای برای والدین نبود، شمارهٔ خودِ دانش‌آموز به پدر
-           داده می‌شود تا بتواند وارد شود (همان قاعدهٔ p2) — نه به مادر،
-           وگرنه دو حساب روی یک شماره می‌افتند. */
-        const fPhone = fPhoneRaw || (mPhoneRaw ? '' : phone);
+        const fPhone = normDigits(r.father_phone || r.parent_phone || '');
+        const mPhone = normDigits(r.mother_phone || '');
+        /* هر ولی فقط شمارهٔ خودش را می‌گیرد (شمارهٔ دانش‌آموز یا شمارهٔ
+           ولیِ دیگر به او داده نمی‌شود، وگرنه دو حساب یک نام کاربری
+           پیدا می‌کنند). اگر شماره نداشت، نام کاربری‌اش کد ملی می‌شود
+           تا بازهم بتواند وارد شود. */
         const pairs = [
           [normDigits(r.father_nid || (fName ? r.parent_nid : '') || ''), fName, 'پدر', fPhone],
-          [normDigits(r.mother_nid || ''), String(r.mother_name || '').trim(), 'مادر', mPhoneRaw],
+          [normDigits(r.mother_nid || ''), String(r.mother_name || '').trim(), 'مادر', mPhone],
         ];
         for (const [pnid, pname, rel, pphone] of pairs) {
           if (!pnid && !pname && !pphone) continue;
           let parent = null;
+          /* ۱) همان ولی از قبل با همین کد ملی */
           if (pnid) parent = store.all('users').find(u => u.role === 'parent' && normDigits(u.national_id) === pnid) || null;
-          if (!parent && pphone) parent = store.all('users').find(u => u.role === 'parent' && normDigits(u.phone) === pphone) || null;
+          /* ۲) یا با همین شماره — ولی اگر آن حساب کد ملیِ دیگری دارد (مثلاً
+             شماره در فایل برای پدر و مادر یکسان نوشته شده)، حسابش را
+             به ولیِ دوم نمی‌دهیم؛ برای دومی حساب جدا با کد ملی ساخته می‌شود. */
+          if (!parent && pphone) {
+            const cand = auth.phoneTaken(store, pphone, null);
+            if (cand && cand.role === 'parent'
+              && (!pnid || !normDigits(cand.national_id) || normDigits(cand.national_id) === pnid)) parent = cand;
+          }
+          /* ولیِ بی‌شماره و بی‌کدملی: با نامش شناخته می‌شود تا تکرار نسازیم */
+          if (!parent && pname) {
+            parent = store.all('users').find(u => u.role === 'parent' && importKey(u.name) === importKey(pname)
+              && !normDigits(u.national_id) && !normDigits(u.phone)) || null;
+          }
           if (!parent) {
-            /* اگر این شماره از قبل حسابی دارد، همان حساب ولیِ این دانش‌آموز
-               میشود؛ حساب دوم با یک شماره ساخته نمیشود (نام کاربری یکتاست) */
-            const pPhone = pphone || '';
-            const taken = pPhone ? auth.phoneTaken(store, pPhone, null) : null;
-            if (taken && taken.role === 'parent') parent = taken;
-            else if (!taken) {
-              parent = store.insert('users', auth.applyDefaultCredentials({
-                name: pname || (rel + ' ' + name), role: 'parent',
-                national_id: pnid || '', phone: pPhone,
-                active: true, school_id: 1, created_at: nowISO(),
-              }));
-              parents += 1;
+            /* شماره فقط وقتی به حساب می‌نشیند که از قبل مال کسی نباشد */
+            const free = pphone && !auth.phoneTaken(store, pphone, null) ? pphone : '';
+            parent = store.insert('users', auth.applyDefaultCredentials({
+              name: pname || (rel + ' ' + name), role: 'parent',
+              national_id: pnid || '', phone: free,
+              active: true, school_id: 1, created_at: nowISO(),
+            }));
+            parents += 1;
+            /* نه شماره، نه کد ملی ۱۰ رقمی → راه ورودی ندارد؛ گزارش می‌شود */
+            if (!free && !(pnid && pnid.length === 10)) {
+              warnings.push({ row: rowNo, error: 'parent_without_login', name: parent.name });
             }
+            parent = store.get('users', parent.id) || parent;
           }
           if (!parent) continue;   /* شمارهٔ ولی به کاربر دیگری تعلق داشت */
           const linked = store.all('parent_links').some(l => Number(l.parent_id) === Number(parent.id) && Number(l.student_id) === Number(saved.id));
@@ -1232,7 +1246,7 @@ function importUsers(body) {
   }
 
   store.audit({ role: 'manager', action: 'import_' + kind, collection: 'users', after: { created: created.length, updated, parents, classes: classesMade } });
-  return { ok: true, kind, created: created.length, updated, parents, classes: classesMade, errors, users: created };
+  return { ok: true, kind, created: created.length, updated, parents, classes: classesMade, errors, warnings, users: created };
 }
 
 function toCSV(rows) {
