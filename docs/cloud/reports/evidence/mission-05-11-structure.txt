@@ -12,7 +12,7 @@
 SUMMARY: SUMMARY pass=88 fail=0
 EXIT: 0
 ادعای اسناد: 88 آزمون موفق
-احکام اسناد ۰۶–۱۱: PASS=25 FAIL=41 UNKNOWN=7 BLOCKED=0 TOTAL=73
+احکام اسناد ۰۶–۱۱: PASS=26 FAIL=40 UNKNOWN=7 BLOCKED=0 TOTAL=73
 
 ## پروب‌های اجرایی ۰۶–۱۰ (خروجی خام: mission-06-10-probes.txt)
 تعداد خط شاهد: 30
@@ -35,4 +35,4 @@ EXIT: 0
 --- docs/cloud/10-audit-crypto-backup-restore.md
   خطوط: 70
 --- docs/cloud/11-gap-report.md
-  خطوط: 113
+  خطوط: 119

@@ -116,12 +116,61 @@ if [ "${DIRTY_PROD:-0}" != "0" ]; then
   fail "working tree has $DIRTY_PROD uncommitted change(s) in product/CI paths — evidence cannot be attributed to HEAD"
 fi
 
-# ---------- ۴) شمارش واقعی احکام در اسناد ----------
-P=$(grep -rho '| \*\*PASS\*\*' $FA $FB 2>/dev/null | wc -l)
-F=$(grep -rho '| \*\*FAIL'      $FA $FB 2>/dev/null | wc -l)
-U=$(grep -rho '| \*\*UNKNOWN'   $FA $FB 2>/dev/null | wc -l)
-B=$(grep -rho '| \*\*BLOCKED'   $FA $FB 2>/dev/null | wc -l)
-TOTAL=$((P + F + U + B))
+# ---------- ۴) شمارش واقعی احکام در اسناد (ردیف‌محور) ----------
+# اصلاح C-05 (این دور): شمارش پیشین با `grep -o '| **PASS**'` انجام می‌شد و دو نقص داشت:
+#   (۱) «وقوع» می‌شمرد نه «ردیف» — ردیف E‑8 در ۱۰ دو بار **FAIL داشت و دو بار شمرده شد؛
+#   (۲) به پررنگ‌بودن (bold) وابسته بود — «PASS (با ایراد)» در A‑7 اصلاً شمرده نمی‌شد.
+#   نتیجه: PASS=25/FAIL=41 منتشر شد در حالی که احکام خود اسناد 26/40 است (جمع هر دو ۷۳ ⇒
+#   خطا خودش را پنهان می‌کرد). حالا ستون «حکم» هر ردیف A/B/C/D/E‑n جدا خوانده می‌شود.
+COUNTS_PY=$(python3 - "$FA $FB" <<'PYEOF'
+import re, sys, glob
+files = []
+for pat in sys.argv[1].split():
+    files += sorted(glob.glob(pat))
+files = sorted(set(files))
+KEYS = ('PASS', 'FAIL', 'UNKNOWN', 'BLOCKED')
+tot = dict.fromkeys(KEYS, 0)
+per = {}
+other = []
+decl_mismatch = []
+fa = lambda s: int(''.join(str(ord(ch) - 0x06f0) for ch in s))
+for f in files:
+    c = dict.fromkeys(KEYS, 0)
+    text = open(f, encoding='utf-8').read()
+    for ln in text.split('\n'):
+        if not ln.startswith('|'):
+            continue
+        cells = [x.strip() for x in ln.strip().strip('|').split('|')]
+        if not cells or not re.match(r'^[A-Z]\u2011\d+$', cells[0]):
+            continue
+        v = cells[-1].replace('*', '').strip()
+        tok = v.split()[0].rstrip('\u2014:\u060c').upper() if v else ''
+        if tok in c:
+            c[tok] += 1
+        else:
+            other.append(f + ':' + cells[0] + '=' + v[:40])
+    per[f] = c
+    for k in KEYS:
+        tot[k] += c[k]
+    m = re.search(r'([\u06f0-\u06f9]+)\s*PASS\s*\u00b7\s*([\u06f0-\u06f9]+)\s*FAIL\s*\u00b7\s*([\u06f0-\u06f9]+)\s*UNKNOWN', text)
+    if m:
+        d = (fa(m.group(1)), fa(m.group(2)), fa(m.group(3)))
+        got = (c['PASS'], c['FAIL'], c['UNKNOWN'])
+        if d != got:
+            decl_mismatch.append('%s: متن=%s محاسبه=%s' % (f.split('/')[-1], d, got))
+print(tot['PASS'], tot['FAIL'], tot['UNKNOWN'], tot['BLOCKED'], sum(tot.values()))
+print('PERDOC-OK' if not decl_mismatch else 'PERDOC-MISMATCH ' + ' | '.join(decl_mismatch))
+print('UNCLASSIFIED ' + ('none' if not other else ' | '.join(other)))
+PYEOF
+)
+COUNTS_LINE=$(printf '%s\n' "$COUNTS_PY" | sed -n 1p)
+PERDOC_LINE=$(printf '%s\n' "$COUNTS_PY" | sed -n 2p)
+UNCL_LINE=$(printf '%s\n' "$COUNTS_PY" | sed -n 3p)
+read -r P F U B TOTAL <<<"$COUNTS_LINE"
+[ -n "${TOTAL:-}" ] || fail "verdict counter produced no output (doc tables unreadable)"
+[ "$PERDOC_LINE" = "PERDOC-OK" ] || fail "verdict count disagrees with a document's own declared tally — ${PERDOC_LINE}"
+[ "$UNCL_LINE" = "UNCLASSIFIED none" ] || fail "row verdicts not classifiable — ${UNCL_LINE}"
+[ "$TOTAL" = "73" ] || fail "control-item denominator changed: TOTAL=$TOTAL (expected 73: 16+15+11+14+17)"
 
 # ---------- ۵) ادعاهای اسناد ----------
 read -r CLAIM_TESTS CLAIM_PASS CLAIM_FAIL CLAIM_UNK <<<"$(python3 - <<'PYEOF'
@@ -142,6 +191,15 @@ PYEOF
 [ -n "${CLAIM_TESTS:-}" ] || fail "docs 05/11 no longer state the test count — claims and evidence are not linked"
 if [ -n "${CLAIM_TESTS:-}" ] && [ "$CLAIM_TESTS" != "$PASS" ]; then
   fail "docs claim ${CLAIM_TESTS} passing tests but raw log shows ${PASS}"
+fi
+
+# ۵.۱) ادعای توزیع احکام در سند ۱۱ باید با شمارش واقعی بخواند (ضدِرانش C-05)
+if [ -z "${CLAIM_PASS:-}" ] || [ -z "${CLAIM_FAIL:-}" ] || [ -z "${CLAIM_UNK:-}" ]; then
+  fail "docs 11 no longer state PASS/FAIL/UNKNOWN counts — claim and evidence are not linked"
+else
+  if [ "$CLAIM_PASS" != "$P" ]; then fail "doc 11 claims PASS=$CLAIM_PASS but documents contain $P"; fi
+  if [ "$CLAIM_FAIL" != "$F" ]; then fail "doc 11 claims FAIL=$CLAIM_FAIL but documents contain $F"; fi
+  if [ "$CLAIM_UNK"  != "$U" ]; then fail "doc 11 claims UNKNOWN=$CLAIM_UNK but documents contain $U"; fi
 fi
 
 # ---------- ۶) تغییر کد محصول ----------

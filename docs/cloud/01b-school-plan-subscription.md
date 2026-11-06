@@ -193,6 +193,7 @@ active ──(owner cancel)──► canceled ──► (پنجرهٔ خروج �
 | `suspended` | **فقط `school_admin`** | **فقط صفحهٔ اشتراک/تمدید** | ❌ | متوقف، حفظ | کامل |
 | `expired` | ❌ هیچ‌کس (نه حتی مدیر)؛ تمدید فقط از پنل پلتفرم | ❌ | ❌ | متوقف، حفظ | ≥۱۸۰ روز |
 | `canceled` | ❌ | ❌ (به‌جز مسیر export مجاز) | ❌ | متوقف | پنجرهٔ خروج، سپس بایگانی |
+| `archived` | ❌ | فقط مسیر export/خواندن آرشیو برای `platform_owner` | ❌ | متوقف | آرشیو؛ حذف فقط با سیاست مصوب و پس از ≥۱۸۰ روز از انقضا |
 
 **نکتهٔ اجرایی:** «فقط مدیر در `suspended`» یعنی پاسخ ورود سایر نقش‌ها پیام `subscription_suspended` با کد ۴۰۳ است؛ **نه** ۴۰۱ (تا کلاینت آن را «رمز اشتباه» تفسیر نکند).
 
@@ -200,12 +201,20 @@ active ──(owner cancel)──► canceled ──► (پنجرهٔ خروج �
 
 | نقش در این سند | نقش فعلی محصول (`users.role`) | رفتار در `suspended` |
 |---|---|---|
+| `platform_owner` | — (پنل پلتفرم، خارج از `users` مدرسه؛ ۱۲‑ب) | مستقل از وضعیت مدرسه |
+| `platform_operator` | — (همان) | مستقل از وضعیت مدرسه |
+| `platform_support` | — (همان؛ Default Deny طبق D‑24) | مستقل از وضعیت مدرسه |
 | `school_admin` | **`manager`** | ورود مجاز، فقط صفحهٔ اشتراک/تمدید |
-| `platform_owner` / `platform_operator` / `platform_support` | نقش پلتفرم (خارج از `users` مدرسه؛ ۱۲‑ب) | مستقل از وضعیت مدرسه |
-| `vice` · `teacher` · `staff` | همان نام‌ها | ۴۰۳ `subscription_suspended` |
-| `student` · `parent` | همان نام‌ها | ۴۰۳ `subscription_suspended` |
+| `vice_principal` | **در محصول امروز وجود ندارد** (`server/policy.js`: ROLES = manager/teacher/parent/student/counselor/guard) — نقش تازهٔ مقصد | ۴۰۳ `subscription_suspended` |
+| `teacher` | **`teacher`** | ۴۰۳ `subscription_suspended` |
+| `counselor` | **`counselor`** | ۴۰۳ `subscription_suspended` |
+| `student` | **`student`** | ۴۰۳ `subscription_suspended` |
+| `parent` | **`parent`** | ۴۰۳ `subscription_suspended` |
+| `guard` | **`guard`** | ۴۰۳ `subscription_suspended` |
 
-اگر نام `school_admin` در پیاده‌سازی به‌کار رود، باید در همان لایه به `manager` نگاشت شود؛ در غیر این صورت gate اشتباه ارزیابی می‌کند.
+**قاعدهٔ نگاشت:** فهرست مرجع، **D‑24** است (۱۰ نقش؛ «دفتر/عامل اجرایی» `office` حذف شده). هر نامی که در این سند ≠ نام محصول است، در همین جدول صریح نگاشت شده است: `school_admin → manager`؛ `vice_principal` **در محصول امروز معادلی ندارد** و در پیاده‌سازی مقصد ساخته می‌شود. اگر نام `school_admin` در پیاده‌سازی به‌کار رود، باید در همان لایه به `manager` نگاشت شود؛ در غیر این صورت gate اشتباه ارزیابی می‌کند.
+
+> **اصلاح C‑07 (بازبینی بستن):** نسخهٔ پیشین این جدول ناقص و در دو مورد ناسازگار با D‑24 بود: `vice` و `staff` ذکر شده بودند (در حالی که نام مصوب `vice_principal` است و `office/staff` طبق D‑24 وجود ندارد) و `counselor` و `guard` از جدول جا افتاده بودند. اکنون هر ۱۰ نقش D‑24 ردیف دارد و رفتار `suspended` برای همه صریح است.
 
 ---
 
