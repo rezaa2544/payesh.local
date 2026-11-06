@@ -1,0 +1,10 @@
+# اثبات ۳ — commit f2fc472
+
+۱) دبیرِ بی‌کلاس برای کلاس «دهم الف» حضور ثبت می‌کند ⇒ rejected=[{"uid":"a1-mw54j3vn","error":"out_of_scope"}] applied=0
+۲) دبیرِ کلاس «دهم الف» برای کلاس «یازدهم الف» حضور ثبت می‌کند ⇒ rejected=[{"uid":"a2-mw54j3vn","error":"out_of_scope"}] applied=0
+۳) همان دبیر برای کلاس خودش ⇒ rejected=[] applied=1
+۴) دبیر بی‌کلاس می‌بیند: دبیر بی‌کلاس/teacher
+۵) دبیر کلاس الف می‌بیند: دانش‌آموز الف/student, دبیر کلاس الف/teacher
+۶) ولی می‌بیند: users=["دانش‌آموز الف","ولی الف"] grades=0
+۷) ولی تلاش می‌کند حضور را عوض کند ⇒ rejected=[{"uid":"pa-mw54j3vn","error":"role_denied"}] applied=0
+۸) ولی برای دانش‌آموزِ مدرسهٔ دیگر/دیگران مرخصی می‌زند (st2 فرزندش نیست) ⇒ rejected=[{"uid":"plv-mw54j3vn","error":"out_of_scope"}] applied=0

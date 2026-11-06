@@ -1,0 +1,31 @@
+# ممیزی پایه — اجرا روی /home/user/payesh.local
+commit: f2fc472c643a52d393b3160405e1581bda64da25
+node: v22.22.3   data_dir: /tmp/payesh-audit-RabrH8
+
+A1) setup مدیر: HTTP 200 — توکن نشست مدیر گرفته شد: true
+A2) ساخت دبیر با /api/sync: HTTP 200 applied=1 rejected=[]
+A3) تعیین رمز دبیر: HTTP 200
+A4) ورود دبیر: HTTP 200 role=teacher session=true
+
+## آزمون‌های کنترل دسترسی (سمت سرور)
+- دبیر → /api/admin/audit (باید 403) ⇒ HTTP 403 (انتظار 403) PASS
+- دبیر → /api/admin/devices (باید 403) ⇒ HTTP 403 (انتظار 403) PASS
+- دبیر → /api/admin/stats (باید 403) ⇒ HTTP 403 (انتظار 403) PASS
+- دبیر → /api/admin/mirror (کل داده) ⇒ HTTP 200 (انتظار 403) FAIL
+- دبیر → /api/admin/mirror/download (کل داده) ⇒ HTTP 404 (انتظار 403) FAIL
+- دبیر → /api/admin/backups/daily ⇒ HTTP 200 (انتظار 403) FAIL
+- دبیر → /api/admin/cloud/config ⇒ HTTP 403 (انتظار 403) PASS
+- دبیر → کالکشن ناشناس (put) ⇒ HTTP 200 rejected=[{"uid":"x-mw54igga","error":"unknown_collection"}]
+
+## آزمون ارتقای نقش از سمت کلاینت
+- دبیر تلاش می‌کند نقش خودش را manager کند ⇒ HTTP 200 rejected=[{"uid":"esc-mw54igga","error":"role_denied"}] applied=[]
+- نقش واقعی دبیر پس از تلاش: teacher
+
+## آزمون بازیابی کامل پایگاه داده توسط نقش غیرمدیر
+- GET /api/admin/mirror/download با نقش دبیر ⇒ HTTP 404 bytes=32
+- فایل آینه برای دبیر در دسترس نبود ⇒ آزمون بازیابی اجرا نشد
+
+## آزمون رمزِ خام در پاسخ‌ها
+- /api/bootstrap دبیر: password در پاسخ = "1777000011"
+- pull کاربران با نقش دبیر: ردیف=1 ردیفِ دارای رمز=0
+- pull کاربران با نقش مدیر: ردیف=2 ردیفِ دارای password_plain=2
