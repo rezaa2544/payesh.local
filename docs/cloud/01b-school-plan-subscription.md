@@ -42,7 +42,7 @@
 | `created_at` / `updated_at` | TEXT | ISO |
 
 ایندکس: `UNIQUE(code)`, `UNIQUE(storage_prefix)`, `INDEX(status)`.
-قاعده: `storage_prefix` **باید** با `id` شروع شود (`t/<tenant_id>/…`)، وگرنه ساخت مدرسه رد می‌شود.
+قاعده: `storage_prefix` **الزاماً** به شکل `t/` + `id` + `/` است (یعنی با `t/` شروع می‌شود و `id` بی‌درنگ پس از آن می‌آید)؛ هر مقدار دیگر ⇒ ساخت مدرسه رد می‌شود. همین پیشوند، ریشهٔ همهٔ مسیرهای ۱۶‑ب است (`t/<tenant>/files/`، `t/<tenant>/backups/db/`، `t/<tenant>/backups/files/`، `t/<tenant>/exports/`) — بازبینی C‑10.
 
 ### ۲.۲ `plan`
 

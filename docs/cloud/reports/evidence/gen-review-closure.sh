@@ -264,6 +264,130 @@ else
   bad "C9 شاهد ساختاری فاز ۲ وجود ندارد"
 fi
 
+# ---------------- C11) پیشوند ذخیره‌سازی: قاعدهٔ ۰۱‑ب ↔ مسیرهای ۱۲ / ۱۵ / ۱۶ / ۱۶‑ب ----------------
+C11=$(python3 - <<'PYEOF'
+import re
+D='docs/cloud/'
+r01b=open(D+'01b-school-plan-subscription.md',encoding='utf-8').read()
+pr=[]
+# قاعده باید صریح باشد: t/ + id + /
+if '`t/` + `id` + `/`' not in r01b: pr.append('قاعدهٔ storage_prefix در ۰۱‑ب صریح (t/ + id + /) نیست')
+if '**باید** با `id` شروع شود' in r01b: pr.append('قاعدهٔ متناقض قدیمی («باید با id شروع شود») هنوز در ۰۱‑ب است')
+canon=['files/','backups/db/','backups/files/','exports/']
+for c in canon:
+    if c not in r01b: pr.append('مسیر متعارف '+c+' در ۰۱‑ب نام برده نشده')
+allowed={'files','backups','exports'}
+for f in ['12-multitenant-architecture.md','12b-owner-panel-boundaries.md','15-backup-recovery.md',
+          '16-ha-observability-cost.md','16b-tenant-provisioning-migration.md']:
+    t=open(D+f,encoding='utf-8').read()
+    for m in re.finditer(r't/<[^>`/\s]+>/([A-Za-z0-9_\-]+)', t):
+        if m.group(1) not in allowed: pr.append(f+' مسیر ناشناخته: t/<tenant>/'+m.group(1))
+    if re.search(r'(?<!`)\btenants?/[a-z]', t): pr.append(f+' پیشوند غیرمتعارف tenant(s)/…')
+#جدول مسیرهای ۱۶‑ب باید همان چهار ریشه را با کلید مستأجر بدهد
+r16b=open(D+'16b-tenant-provisioning-migration.md',encoding='utf-8').read()
+for c in canon:
+    if c not in r16b: pr.append('۱۶‑ب مسیر '+c+' را تعریف نکرده')
+if r16b.count('DEK_tenant')<4: pr.append('۱۶‑ب برای چهار مسیر کلید مستأجر (DEK_tenant) را مشخص نکرده')
+if pr: print('FAIL '+'؛ '.join(sorted(set(pr))))
+else: print('OK قاعدهٔ «t/ + id + /» در ۰۱‑ب با هر ۴ مسیر ۱۶‑ب و همهٔ ارجاع‌های ۱۲/۱۵/۱۶ هم‌خوان است')
+PYEOF
+)
+case "$C11" in
+  OK*) ok "C11 پیشوند ذخیره‌سازی: ${C11#OK }" ;;
+  *)   bad "C11 پیشوند ذخیره‌سازی ناهم‌خوان: ${C11#FAIL }" ;;
+esac
+
+# ---------------- C12) RPO: منبع واحد ۰۴ §۴ ↔ ۱۵ §۲.۲ ↔ ۱۶ §۸ ----------------
+C12=$(python3 - <<'PYEOF'
+import re
+D='docs/cloud/'
+def rd(f): return open(D+f,encoding='utf-8').read()
+r04,r15,r16=rd('04-capacity-and-availability.md'),rd('15-backup-recovery.md'),rd('16-ha-observability-cost.md')
+pr=[]
+if '≤ ۵ دقیقه' not in r04: pr.append('۰۴ §۴ هدف RPO «≤ ۵ دقیقه» را ندارد')
+if 'WAL' not in r15: pr.append('۱۵ هیچ اشاره‌ای به WAL‑archive ندارد (پس RPO ۵ دقیقه بی‌مبنا می‌ماند)')
+if '≤ ۵ دقیقه' not in r15: pr.append('۱۵ هدف «≤ ۵ دقیقه» را ثبت نکرده')
+if '۰۴ §۴' not in r15: pr.append('۱۵ به منبع واحد (۰۴ §۴) ارجاع نداده')
+if '### ۲.۲' not in r15: pr.append('۱۵ بند «منبع واحد RPO» (§۲.۲) ندارد')
+if 'WAL' not in r16 or '≤ ۵ دقیقه' not in r16 or '۲۴h' not in r16:
+    pr.append('۱۶ §۸ هر دو حالت (۵ دقیقه با WAL / ۲۴h بدون WAL) را نگفته')
+if 'SLA' not in r16: pr.append('۱۶ هشدار «SLA نیست» را ندارد')
+# جدول §۲ سند ۱۵: ستون RPO فقط مقادیر حالت بدون WAL/صفر/تهی
+sec=r15.split('## ۲.')[1].split('### ۲.۱')[0]
+vals=set()
+for ln in sec.split('\n'):
+    if not ln.startswith('|'): continue
+    c=[x.strip().replace('**','') for x in ln.strip().strip('|').split('|')]
+    if len(c)>=6 and re.match(r'^[۰-۹]+$', c[0]): vals.add(c[4])
+extra=sorted(v for v in vals if v not in {'≤ ۲۴ ساعت','۰','—'})
+if extra: pr.append('۱۵ §۲ مقدار RPO خارج از سقف حالت بدون WAL: '+','.join(extra))
+if pr: print('FAIL '+'؛ '.join(sorted(set(pr))))
+else: print('OK منبع واحد RPO: ۰۴ ≤۵دقیقه (با WAL) · ۱۵ §۲.۲ دو حالت را تفکیک کرد · ۱۶ §۸ هر دو را برچسب زد · هیچ عددی «اندازه‌گیری‌شده» اعلام نشد')
+PYEOF
+)
+case "$C12" in
+  OK*) ok "C12 ${C12#OK }" ;;
+  *)   bad "C12 ناهم‌خوانی RPO: ${C12#FAIL }" ;;
+esac
+
+# ---------------- C13) صف ۱۳ ↔ تعارض ۱۴: کد 409 ordering و وضعیت orphaned ----------------
+C13=$(python3 - <<'PYEOF'
+import re
+D='docs/cloud/'
+def rd(f): return open(D+f,encoding='utf-8').read()
+r13,r14,rC=rd('13-secure-cache-offline-queue.md'),rd('14-conflict-convergence.md'),open('docs/00-PAYESH-CLOUD-CONSTITUTION.md',encoding='utf-8').read()
+pr=[]
+if '409 ordering' not in r13: pr.append('۱۳ کد 409 ordering را ندارد')
+if '409 ordering' not in r14: pr.append('۱۴ کد 409 ordering (تعریف‌شده در ۱۳) را تعریف/ارجاع نکرده')
+if 'D‑27' not in r14: pr.append('۱۴ به D‑27 ارجاع نداده')
+if '۱۳ §۳.۱' not in r14: pr.append('۱۴ به ۱۳ §۳.۱ (قرارداد صف) ارجاع نداده')
+for f,t in (('13',r13),('14',r14)):
+    if 'ORPHANED' in t: pr.append(f+' از شکل بزرگ ORPHANED استفاده می‌کند (نام وضعیت = orphaned)')
+if 'orphaned' not in r13 or 'orphaned' not in r14: pr.append('واژهٔ وضعیت orphaned در ۱۳/۱۴ کامل نیست')
+if '۲۰۰۰' not in r13: pr.append('۱۳ سقف ۲۰۰۰ عملیات D‑27 را ندارد')
+if '۲۰۰۰' not in rC: pr.append('قانون اساسی سقف ۲۰۰۰ را ندارد')
+if 'server_seq' not in r14: pr.append('۱۴ قاعدهٔ ساعت/ترتیب (server_seq) را ندارد')
+if pr: print('FAIL '+'؛ '.join(sorted(set(pr))))
+else: print('OK صف↔تعارض: 409 ordering در ۱۳ و ۱۴ یکسان · وضعیت orphaned یکدست (بدون ORPHANED) · سقف ۲۰۰۰ مطابق D‑27/قانون اساسی')
+PYEOF
+)
+case "$C13" in
+  OK*) ok "C13 ${C13#OK }" ;;
+  *)   bad "C13 ناهم‌خوانی صف/تعارض: ${C13#FAIL }" ;;
+esac
+
+# ---------------- C14) support_grant: نام یکتا و دامنهٔ یکسان در ۰۱ / ۰۱‑ب / ۱۲ / ۱۲‑ب ----------------
+C14=$(python3 - <<'PYEOF'
+import glob,re
+D='docs/cloud/'
+pr=[]
+for f in sorted(glob.glob(D+'*.md')):
+    t=open(f,encoding='utf-8').read()
+    if 'support_grants' in t: pr.append(f.split('/')[-1]+' نام جمع support_grants را به‌کار می‌برد')
+r01=open(D+'01-scope-and-roles-matrix.md',encoding='utf-8').read()
+r01b=open(D+'01b-school-plan-subscription.md',encoding='utf-8').read()
+r12=open(D+'12-multitenant-architecture.md',encoding='utf-8').read()
+r12b=open(D+'12b-owner-panel-boundaries.md',encoding='utf-8').read()
+s01b=r01b.split('### ۲.۶')[1].split('### ۲.۷')[0]
+s12b=r12b.split('## ۳. ')[1].split('## ۴.')[0]
+for name,sec in (('۰۱‑ب §۲.۶',s01b),('۱۲‑ب §۳',s12b)):
+    for tok,label in (('content_write','ممنوعیت content_write'),('۷۲','سقف ۷۲ ساعت'),
+                      ('approved_by','تأیید مالک'),('school_notified_at','اطلاع مدرسه'),('operator_id','تأیید غیرخودی')):
+        if tok not in sec: pr.append(name+' '+label+' را ندارد')
+if 'support_grant' not in r01: pr.append('۰۱ ماتریس نقش‌ها support_grant ندارد')
+if 'R:S0' not in r01: pr.append('۰۱ دیدِ حسابرسی (R:S0) روی مجوز اضطراری را ندارد')
+if 'support_grant' not in r12: pr.append('۱۲ جدول سطح پلتفرم support_grant را ندارد')
+if 'support_access_log' not in r01b: pr.append('۰۱‑ب ثبت هر خواندن در support_access_log را الزام نکرده')
+if 'support_access_log' not in r12b: pr.append('۱۲‑ب جدول ثبت خواندن (support_access_log) را نام نمی‌برد')
+if pr: print('FAIL '+'؛ '.join(sorted(set(pr))))
+else: print('OK support_grant: نام مفرد یکدست · دامنهٔ metadata/content_read بدون content_write · سقف ۷۲h · تأیید مالک ≠ درخواست‌کننده · ثبت خواندن در support_access_log')
+PYEOF
+)
+case "$C14" in
+  OK*) ok "C14 ${C14#OK }" ;;
+  *)   bad "C14 ناهم‌خوانی support_grant: ${C14#FAIL }" ;;
+esac
+
 # ---------------- C10) حکم ----------------
 if [ "$RC" -eq 0 ]; then
   say ""

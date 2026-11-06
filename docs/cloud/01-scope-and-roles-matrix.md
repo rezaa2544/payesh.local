@@ -63,7 +63,7 @@
 | ممنوعیت‌ها | دانلود انبوه، خروجی کامل داده، دسترسی بدون مجوز باز، تمدید بی‌پایان |
 | ابطال | مالک/مدیر مدرسه می‌تواند مجوز را فوری باطل کند |
 
-ساختار داده: `support_grants(tenant_id, operator_id, reason, starts_at, ends_at, approver, school_notified_at, revoked_at)`.
+ساختار داده: `support_grant(tenant_id, operator_id, case_ref, scope, reason, starts_at, ends_at, approved_by, school_notified_at, revoked_at)` — نام ستون‌ها همان ۰۱‑ب §۲.۶ است (`approved_by`، نه `approver`؛ `scope` فقط `metadata`/`content_read`) — بازبینی C‑13.
 
 ---
 
@@ -102,7 +102,7 @@
 | فاکتور/سند | RWC:S4 | R:S4 | — | R:S0 | — | — | — | — | — | — |
 | اپراتورهای پلتفرم | RWC:S4 | R:S0 | — | — | — | — | — | — | — | — |
 | رویداد پلتفرم (`platform_audit`) | R:S4 | R:S4 | R:S4 (فراداده) | R:S0 (رخدادهای مدرسهٔ خودش: ورود، تعلیق، مجوز) | — | — | — | — | — | — |
-| مجوز اضطراری (`support_grants`) | RWC:S4 · D(ابطال) | R:S4 · درخواست | R:S4 · درخواست (**بدون تأیید**) | **R:S0** (چه کسی، چه زمانی، چرا) | — | — | — | — | — | — |
+| مجوز اضطراری (`support_grant`) | RWC:S4 · D(ابطال) | R:S4 · درخواست | R:S4 · درخواست (**بدون تأیید**) | **R:S0** (چه کسی، چه زمانی، چرا) | — | — | — | — | — | — |
 | سلامت/تلمتری | R:S4 | R:S4 | R:S4 · W(فقط یادداشت حادثه) | R:S0 | R:S0 | — | — | — | — | — |
 | مصرف و سقف | R:S4 | R:S4 | R:S4 | R:S0 | — | — | — | — | — | — |
 

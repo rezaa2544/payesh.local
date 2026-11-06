@@ -1,14 +1,14 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
 branch: arena/f1efa594-payesh-local
-head: 626645b9c095cb540a7a5dccc41f67f631ee3f83
+head: 113b4050ff7a590caf7863e15ae6bfc43d9d6dc2
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=260  tables=81  ac_rows=8
 12b-owner-panel-boundaries                 lines=117  tables=40  ac_rows=7
 13-secure-cache-offline-queue              lines=160  tables=63  ac_rows=9
-14-conflict-convergence                    lines=163  tables=56  ac_rows=11
-15-backup-recovery                         lines=157  tables=74  ac_rows=12
+14-conflict-convergence                    lines=164  tables=57  ac_rows=11
+15-backup-recovery                         lines=169  tables=78  ac_rows=12
 16-ha-observability-cost                   lines=290  tables=136 ac_rows=14
 16b-tenant-provisioning-migration          lines=262  tables=106 ac_rows=12
 
@@ -31,16 +31,14 @@ school_id (files): 8
 api routes (unique /api literals in server/index.js): 62
 
 ## وضعیت درخت کاری
+ M docs/cloud/01-scope-and-roles-matrix.md
  M docs/cloud/01b-school-plan-subscription.md
- M docs/cloud/04-capacity-and-availability.md
- M docs/cloud/11-gap-report.md
- M docs/cloud/16-ha-observability-cost.md
- M docs/cloud/reports/PACKAGE-2-3-REPORT.md
- M docs/cloud/reports/REVIEW-11.md
- M docs/cloud/reports/evidence/gen-audit-evidence.sh
- M docs/cloud/reports/evidence/mission-05-11-structure.txt
+ M docs/cloud/12b-owner-panel-boundaries.md
+ M docs/cloud/13-secure-cache-offline-queue.md
+ M docs/cloud/14-conflict-convergence.md
+ M docs/cloud/15-backup-recovery.md
+ M docs/cloud/reports/REVIEW-CLOSURE-01.md
+ M docs/cloud/reports/evidence/gen-review-closure.sh
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
-?? docs/cloud/reports/REVIEW-CLOSURE-01.md
-?? docs/cloud/reports/evidence/gen-review-closure.sh
-?? docs/cloud/reports/evidence/review-closure-01.txt
+ M docs/cloud/reports/evidence/review-closure-01.txt
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
