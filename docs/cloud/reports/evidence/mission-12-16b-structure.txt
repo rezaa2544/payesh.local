@@ -1,14 +1,14 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
 branch: arena/f1efa594-payesh-local
-head: c65ce83cd69b96937ca350e3a8a00691916d71d3
+head: 7b23b2a353bbf9290fa6c0ab6e41a27c50bacb6f
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=260  tables=81  ac_rows=8
 12b-owner-panel-boundaries                 lines=117  tables=40  ac_rows=7
 13-secure-cache-offline-queue              lines=160  tables=63  ac_rows=9
 14-conflict-convergence                    lines=163  tables=56  ac_rows=11
-15-backup-recovery                         lines=89   tables=33  ac_rows=7
+15-backup-recovery                         lines=155  tables=74  ac_rows=12
 16-ha-observability-cost                   lines=123  tables=50  ac_rows=7
 16b-tenant-provisioning-migration          lines=141  tables=49  ac_rows=8
 
@@ -17,7 +17,7 @@ head: c65ce83cd69b96937ca350e3a8a00691916d71d3
 **حکم: ۷/۷ — REVIEW.** (پس از رفع تعارض تأییدکننده/مدت و هم‌سان‌سازی جدول با ۰۱‑ب.)
 **حکم: ۹/۹ — REVIEW.** (طراحی کامل است؛ پیاده‌سازی و آزمون در ۱۸/۲۰‑ب.)
 **حکم: ۱۱/۱۱ — REVIEW.** (طراحی کامل؛ اجرا در ۱۸ و شاهد در ۲۰‑ب. سه شکاف امروز با پروب باز هستند، نه «رفع‌شده».)
-**حکم: ۷/۷ — REVIEW.**
+**حکم: ۱۲/۱۲ — REVIEW.** (AC‑1..AC‑12 در سطح طراحی؛ E‑15‑۱..۷ امروز همه ❌)
 **حکم: ۷/۷ — REVIEW.**
 **حکم: ۸/۸ — REVIEW.**
 
@@ -31,11 +31,10 @@ school_id (files): 8
 api routes (unique /api literals in server/index.js): 62
 
 ## وضعیت درخت کاری
- M docs/cloud/14-conflict-convergence.md
- M docs/cloud/reports/evidence/gen-mission-12-16b.sh
+ M docs/cloud/15-backup-recovery.md
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
-?? docs/cloud/reports/REVIEW-14.md
-?? docs/cloud/reports/evidence/gen-mission-14-evidence.sh
-?? docs/cloud/reports/evidence/mission-14-conflict-probe.txt
-?? docs/cloud/reports/evidence/probe-14-conflict.mjs
+?? docs/cloud/reports/REVIEW-15.md
+?? docs/cloud/reports/evidence/gen-mission-15-evidence.sh
+?? docs/cloud/reports/evidence/mission-15-backup-probe.txt
+?? docs/cloud/reports/evidence/probe-15-backup.mjs
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
