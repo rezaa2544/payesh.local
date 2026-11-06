@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.28';
+const CLIENT_VERSION = '0.8.29';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1792,6 +1792,37 @@ document.addEventListener('click', async (e) => {
       return;
     }
     case 'user-full': { actUserFull(el.getAttribute('data-id')); return; }
+    case 'user-creds': { actUserCreds(el.getAttribute('data-id')); return; }
+    case 'creds-delete': {
+      const cu = byId('users', Number(id));
+      if (!cu) return;
+      const isStu = cu.role === 'student';
+      const kids = isStu
+        ? [...new Set(list('parent_links').filter(l => Number(l.student_id) === Number(cu.id)).map(l => Number(l.parent_id)).filter(Boolean))]
+            .map(pid => byId('users', pid)).filter(Boolean).map(p => fullName(p))
+        : [];
+      const msg = isStu
+        ? 'دانش‌آموز «' + fullName(cu) + '» و حساب کاربری‌اش حذف شود؟' + (kids.length ? '\nولیِ او هم (' + kids.join('، ') + ') اگر فرزند دیگری نداشته باشد حذف می‌شود.' : '') + '\nاین کار قابل بازگشت نیست.'
+        : 'حساب «' + fullName(cu) + '» حذف شود؟ این کار قابل بازگشت نیست.';
+      if (!confirm(msg)) return;
+      try {
+        const removedParents = isStu ? await deleteStudentWithParents(cu.id) : [];
+        if (!isStu) await deleteUserEverywhere(cu.id);
+        if (S.picked) S.picked.delete(Number(cu.id));
+        closeModal(); saveCache(); render();
+        await flushQueue();
+        toast('حساب حذف شد' + (removedParents.length ? ' · ولی هم حذف شد: ' + removedParents.join('، ') : ''), 'ok');
+      } catch (e) { toast('حذف نشد: ' + friendlyError(e), 'err'); }
+      return;
+    }
+    case 'user-pick-pw': {
+      const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+      let out = '';
+      for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+      const field = document.querySelector('form[data-form="user-creds"] input[name="password"]');
+      if (field) { field.value = out; field.focus(); field.select(); }
+      return;
+    }
     case 'user-auto-pw': {
       const u = byId('users', Number(id));
       if (!u) return;
@@ -2028,8 +2059,21 @@ document.addEventListener('click', async (e) => {
       renderImportStep();
       return;
     }
+    case 'imp-branch-yes':
+    case 'imp-branch-no': {
+      /* تصمیم مدیر دربارهٔ رشتهٔ شبیه‌هم: ادغام فقط با تأیید او */
+      const from = String(el.getAttribute('data-from') || '').trim();
+      if (!from) return;
+      S.impBranchAsk = S.impBranchAsk || {};
+      S.impBranchAsk[from] = el.getAttribute('data-act') === 'imp-branch-yes'
+        ? String(el.getAttribute('data-to') || '').trim() : '';
+      S.imp.checks = impCheck();
+      renderImportStep();
+      return;
+    }
     case 'import-check': {
       if (!S.imp || !S.imp.rows) return;
+      S.impBranchAsk = {};                    /* تصمیم‌های فایل قبلی پاک می‌شود */
       S.imp.checks = impCheck();
       S.imp.step = 3;
       renderImportStep();
@@ -2237,31 +2281,6 @@ document.addEventListener('click', async (e) => {
     }
     case 'room-add': actRoomAdd(); return;
     case 'room-edit': actRoomEdit(el.getAttribute('data-id')); return;
-    case 'def-merge': {
-      /* رشته/پایهٔ غلط تایپی در تعریف درست ادغام می‌شود */
-      const k = el.getAttribute('data-kind') || 'branch';
-      const from = String(el.getAttribute('data-from') || '').trim();
-      const to = String(el.getAttribute('data-to') || '').trim();
-      if (!from || !to || from === to) return;
-      if (!confirm('«' + from + '» در «' + to + '» ادغام شود؟ دانش‌آموزان و برنامه‌اش منتقل می‌شوند.')) return;
-      let moved = 0;
-      for (const c of list('classes')) {
-        const val = k === 'grade' ? String(c.grade || '') : String(c.branch || '');
-        if (impNorm(val) !== impNorm(from)) continue;
-        const patch = Object.assign({}, c, k === 'grade' ? { grade: to } : { branch: to });
-        patch.name = (String(patch.grade || '') + (patch.branch ? ' ' + patch.branch : '')).trim() || patch.name;
-        putLocal('classes', patch);
-        moved += 1;
-      }
-      for (const l of lookupList(k)) {
-        if (impNorm(l.name) === impNorm(from)) removeLocal('lookups', l.id, { sync: true });
-      }
-      if (!lookupList(k).some(l => impNorm(l.name) === impNorm(to))) putLocal('lookups', { kind: k, name: to, school_id: 1 });
-      saveCache(); render();
-      await flushQueue();
-      toast('ادغام شد' + (moved ? ' · ' + fa(moved) + ' گروه اصلاح شد' : ''), 'ok');
-      return;
-    }
     case 'followup-assign': {
       /* دانش‌آموز بی‌کلاس: کلاس درست را انتخاب و ثبت می‌کنیم */
       const u = byId('users', Number(id));
@@ -2588,7 +2607,7 @@ function ensureGroup(grade, branch) {
   const found = list('classes').find(c => String(c.name || '').trim() === name);
   if (found) return found;
   if (br && typeof impEnsureLookup === 'function') impEnsureLookup('branch', br);
-  return putLocal('classes', { name, grade: g, branch: br, mode, grade_level: lvl, kind: 'group', capacity: 30, school_id: 1 });
+  return putLocal('classes', { name, grade: g, branch: br, mode, grade_level: lvl, kind: 'class', capacity: 30, school_id: 1 });
 }
 
 document.addEventListener('submit', async (e) => {
@@ -2650,7 +2669,7 @@ document.addEventListener('submit', async (e) => {
     const dup = list('classes').find(c => String(c.name).trim() === name && Number(c.id) !== id);
     if (dup) return toast('کلاسی با همین نام هست: «' + dup.name + '»', 'err');
     const row = {
-      name, grade, branch, mode, grade_level: level, kind: 'group',
+      name, grade, branch, mode, grade_level: level, kind: 'class',
       capacity: Number((f.capacity && f.capacity.value) || 30),
       teacher_id: Number((f.teacher_id && f.teacher_id.value) || 0) || null,
       school_id: 1,
@@ -2669,9 +2688,26 @@ document.addEventListener('submit', async (e) => {
     } else {
       putLocal('classes', row);
     }
+    /* دانش‌آموزانی که پایه و رشته‌شان با همین کلاس یکی است و هنوز کلاس
+       ندارند، خودکار به آن وصل می‌شوند — همان‌هایی که از اکسل آمده‌اند و
+       منتظر ساخت دستی کلاس بودند. */
+    let joined = 0;
+    for (const u of list('users')) {
+      if (u.role !== 'student' || Number(u.class_id)) continue;
+      const ug = String(u.grade || '').trim();
+      const ub = String(u.field || u.branch || '').trim();
+      if (impNorm(ug) !== impNorm(grade)) continue;
+      if (mode === 'field' && impNorm(ub) !== impNorm(branch)) continue;
+      if (mode === 'class' && impNorm(name) !== impNorm(grade + ' ' + ub) && ub) continue;
+      const patch = Object.assign({}, u, { class_id: id || (list('classes').find(c => c.name === name) || {}).id });
+      if (!patch.class_id) continue;
+      delete patch.followup_reason;
+      putLocal('users', patch);
+      joined += 1;
+    }
     closeModal(); saveCache(); render();
     await flushQueue();
-    toast(id ? 'کلاس ویرایش شد' : 'کلاس ساخته شد', 'ok');
+    toast((id ? 'کلاس ویرایش شد' : 'کلاس ساخته شد') + (joined ? ' · ' + fa(joined) + ' دانش‌آموز به آن وصل شد' : ''), 'ok');
     return;
   }
 
@@ -2948,6 +2984,48 @@ document.addEventListener('submit', async (e) => {
     closeModal(); saveCache(); render();
     await flushQueue();
     toast('مشخصات ذخیره شد' + (u.role === 'student' ? ' — حساب ولی هم به‌روز شد' : ''), 'ok');
+    return;
+  }
+
+  if (kind === 'user-creds') {
+    const uidNum = Number(f.id.value);
+    const u = byId('users', uidNum);
+    if (!u) return toast('این کاربر پیدا نشد — صفحه را تازه کنید', 'err');
+    const phone = digitsOnly(f.phone.value);
+    const pass = String(f.password.value || '').trim();
+    if (phone && phone.length < 10) return toast('شمارهٔ همراه کامل نیست (۱۱ رقم)', 'err');
+    if (pass && pass.length < 4) return toast('رمز عبور حداقل ۴ نویسه باشد', 'err');
+    if (phone) {
+      const clash = list('users').find(x => Number(x.id) !== uidNum && digitsOnly(x.phone || '') === phone);
+      if (clash) return toast('این شماره برای «' + fullName(clash) + '» ثبت شده است', 'err');
+    }
+    const patch = { phone };
+    if (pass) patch.password = pass;
+    if (!PHONE_MODE) {
+      try {
+        const r = await api('/api/admin/users/' + uidNum, { method: 'PATCH', body: patch });
+        if (!r.ok) throw new Error(r.error === 'duplicate_phone' ? 'این شماره برای «' + (r.name || 'کاربر دیگر') + '» ثبت شده' : (r.error || 'خطا'));
+      } catch (e) {
+        const code = String((e && (e.message || e)) || '');
+        if (!(e && e.status === 404) && !/not_found/.test(code)) return toast('ذخیره نشد: ' + friendlyError(e), 'err');
+      }
+    }
+    putLocal('users', Object.assign({}, u, { phone }, pass ? { password_hash: 'set', password_plain: pass } : {}));
+    if (PHONE_MODE && pass) {
+      try {
+        await window.PayeshPhone.send({
+          uid: 'pw-' + uid(), user_id: S.user.id, role: S.role,
+          op: { collection: 'users', type: 'put', id: uidNum, data: { __password_verifier: makeVerifier(pass) }, base_version: 0 },
+        });
+      } catch (e) { /* آفلاین — در صف می‌ماند */ }
+    }
+    S.creds = undefined;
+    closeModal();
+    saveCache(); render();
+    await flushQueue();
+    if (!PHONE_MODE) await pullAll().catch(() => {});
+    toast('کاربری ذخیره شد' + (pass ? ' — رمز تازه: ' + pass : ''), 'ok');
+    render();
     return;
   }
 

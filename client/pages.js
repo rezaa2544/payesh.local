@@ -687,6 +687,20 @@ PAGES.students = () => {
 };
 
 /* ══════════════ مدیر: کاربران ══════════════ */
+/* نام کامل — اگر «نام» خودش نام خانوادگی را داشته باشد، دوباره تکرار نمی‌شود
+   (باگ: «آرسام سعیدی سعیدی»). */
+function fullName(u) {
+  const n = String((u && u.name) || '').replace(/\s+/g, ' ').trim();
+  const l = String((u && u.last_name) || '').replace(/\s+/g, ' ').trim();
+  if (!l) return n;
+  if (!n) return l;
+  const nn = impNorm(n), ll = impNorm(l);
+  if (nn === ll) return n;
+  if (nn.endsWith(' ' + ll)) return n;
+  if (nn.split(' ').indexOf(ll) > -1) return n;
+  return n + ' ' + l;
+}
+
 PAGES.users = () => {
   if (S.role !== 'manager') return pageHead('کاربران') + empty('دسترسی ندارید.');
   const q = (S.q || '').trim();
@@ -734,10 +748,10 @@ PAGES.users = () => {
       </span>
     </div></div>` : ''}
 
-  ${card(`<div class="small muted" style="margin-bottom:6px">نام کاربری هر نفر همان <b>شمارهٔ همراه</b> است (و اگر شماره نداشت، <b>کد ملی</b>) و رمزش <b>کد ملی</b>؛ رمز کنار هر نفر نوشته شده تا بتوانید به خودش بگویید. این جدول را فقط مدیر می‌بیند.</div>
+  ${card(`<div class="small muted" style="margin-bottom:6px">کاربری و رمز هر نفر داخل دکمهٔ <b>«کاربری»</b> است — همان‌جا می‌بینید، عوض می‌کنید یا حساب را حذف می‌کنید. نام کاربری همان <b>شمارهٔ همراه</b> است (اگر شماره نبود، <b>کد ملی</b>) و رمز اولیه <b>کد ملی</b>. این جدول را فقط مدیر می‌بیند.</div>
   <div class="table-wrap"><table><thead><tr>
     <th style="width:34px"><input type="checkbox" data-pick="all" ${allPicked ? 'checked' : ''} title="انتخاب همه"></th>
-    <th>نام و نام خانوادگی</th><th>نقش</th><th>پایه</th><th>رشته</th><th>${S.roleFilter === 'parent' ? 'ولیِ چه دانش‌آموزی' : 'دانش‌آموز'}</th><th>نام کاربری</th><th>رمز عبور</th><th></th></tr></thead><tbody>
+    <th>نام و نام خانوادگی</th><th>نقش</th><th>پایه</th><th>رشته</th>${S.roleFilter === 'parent' ? '<th>ولیِ چه دانش‌آموزی</th>' : ''}<th>عملیات</th></tr></thead><tbody>
     ${users.map(u => {
       /* پایه و رشته از گروه ثبت‌نام (کلاس) خوانده می‌شود؛ برای ولی، از فرزندش */
       const link = u.role === 'parent' ? list('parent_links').find(l => Number(l.parent_id) === Number(u.id)) : null;
@@ -748,23 +762,14 @@ PAGES.users = () => {
       const br = String(grp.branch || subject.branch || '');
       return `<tr${picked.has(Number(u.id)) ? ' style="background:#fef2f2"' : ''}>
       <td><input type="checkbox" data-pick="user" value="${u.id}" ${picked.has(Number(u.id)) ? 'checked' : ''}></td>
-      <td>${esc([u.name, u.last_name].filter(Boolean).join(' '))}</td>
+      <td>${esc(fullName(u))}</td>
       <td>${badge(ROLE_FA[u.role] || u.role, u.role === 'manager' ? 'purple' : '')}</td>
       <td class="small">${gr ? esc(gr) : '<span class="muted">—</span>'}</td>
       <td class="small">${br ? esc(br) : '<span class="muted">—</span>'}</td>
-      <td class="small">${u.role === 'parent'
-        ? (kids.length ? kids.map(k => esc(k.name)).join('، ') : '<span class="muted">—</span>')
-        : (u.role === 'student' ? (gr ? esc(gr + (br ? ' ' + br : '')) : '<span class="muted">—</span>') : '<span class="muted">—</span>')}</td>
-      <td class="small ltr">${esc(u.phone || u.national_id || '—')}${u.phone ? '' : ' <span class="muted" style="font-size:10px">(کد ملی)</span>'}</td>
-      <td class="small ltr">${(() => {
-        const c = S.creds && S.creds[u.id];
-        if (!S.creds) return '<span class="muted">…</span>';
-        if (c && c.password) return `<b>${esc(c.password)}</b>`;
-        return '<span class="muted" title="رمز قبلاً تعیین شده و قابل خواندن نیست">—</span>';
-      })()}</td>
+      ${S.roleFilter === 'parent' ? `<td class="small">${kids.length ? kids.map(k => esc(fullName(k))).join('، ') : '<span class="muted">—</span>'}</td>` : ''}
       <td class="nowrap">
-        ${(!isPhoneMode() && !/^pbkdf2\$/.test(String(u.phone_hash || ''))) ? `<button class="btn sm ghost" data-act="user-auto-pw" data-id="${u.id}" title="رمز گوشی = کد ملی">آماده‌سازی گوشی</button>` : ''}
         <button class="btn sm primary" data-act="user-full" data-id="${u.id}">مشخصات کامل</button>
+        <button class="btn sm" data-act="user-creds" data-id="${u.id}">کاربری</button>
         <button class="btn sm" data-act="pair-code" data-id="${u.id}">کارت پیوند</button>
         <button class="btn sm ghost" data-act="user-edit" data-id="${u.id}">ویرایش</button>
         <button class="btn sm ghost" data-act="user-delete" data-id="${u.id}" style="color:#b91c1c">حذف</button>
@@ -964,46 +969,17 @@ function lookupRowHtml(row, kind) {
 /* ══════════════ مدیر: کلاس‌ها و تعریف‌ها ══════════════ */
 PAGES.classes = () => {
   if (S.role !== 'manager') return pageHead('کلاس‌ها') + empty('دسترسی ندارید.');
-  const classes = list('classes');
+  const all = list('classes');
   const subjects = list('subjects');
   const countOf = id => list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(id)).length;
-  /* کلاس‌هایی که پایه ندارند یا پایه‌شان از تعریف‌ها حذف شده — همان
-     کلاس‌هایی که ورود دسته‌ای قدیمی از رشته ساخته بود. */
-  const gradeNames = lookupList('grade').map(l => String(l.name));
-  const hasGrade = c => {
-    const g = String(c.grade || '').trim();
-    if (!g) return false;
-    /* پایهٔ واقعی = یکی از اول…دوازدهم؛ «الکترونیک» هرچند در تعریف‌ها باشد پایه نیست */
-    if (typeof impGradeLevel === 'function' && !impGradeLevel(g)) return false;
-    return !gradeNames.length || gradeNames.indexOf(g) > -1;
-  };
-  const brokenClasses = classes.filter(c => !hasGrade(c));
-  const mergeTargets = classes.filter(hasGrade);
-  const brokenCard = brokenClasses.length ? card(
-    `<div class="row between" style="margin-bottom:8px"><b>🛠️ کلاس‌هایی که پایه ندارند</b>
-       <span class="small muted">${fa(brokenClasses.length)} کلاس</span></div>
-     <div class="small muted" style="margin-bottom:8px;line-height:2">
-       این کلاس‌ها معمولاً از ورود دسته‌ایِ قدیمی مانده‌اند که رشته را به‌جای کلاس ساخته است.
-       هر کدام را در کلاس درستش ادغام کنید (دانش‌آموزان و برنامه‌اش منتقل می‌شوند) یا با «ویرایش» پایه و رشته‌اش را درست کنید.
-     </div>
-     <div class="table-wrap"><table><thead><tr><th>کلاس</th><th>دانش‌آموز</th><th>ادغام در</th><th></th></tr></thead><tbody>
-     ${brokenClasses.map(c => `<tr>
-       <td><b>${esc(c.name)}</b><div class="small muted">رشته: ${esc(c.branch || '—')}</div></td>
-       <td>${fa(countOf(c.id))}</td>
-       <td><select class="input" id="merge-into-${c.id}">
-         <option value="">— کلاس درست —</option>
-         ${mergeTargets.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}
-       </select></td>
-       <td class="nowrap">
-         <button class="btn sm" data-act="class-merge" data-id="${c.id}">ادغام</button>
-         <button class="btn sm ghost" data-act="class-edit" data-id="${c.id}">ویرایش</button>
-       </td></tr>`).join('')}
-     </tbody></table></div>`) : '';
-
-  /* ── کلاس/کارگاه (محل برگزاری) در رشته‌محور ── */
-  const isFieldSchool = classes.some(c => String(c.mode || '') === 'field');
+  /* گروه‌های خودکارِ ورود دسته‌ایِ قدیمی (kind='group') دیگر کلاس نیستند؛
+     کلاس فقط چیزی است که مدیر خودش ساخته است. */
+  const classes = all.filter(c => String(c.kind || '') !== 'group');
   const rooms = classes.filter(c => String(c.kind || '') === 'room');
-  const groups = classes.filter(c => String(c.mode || '') === 'field' && String(c.kind || '') !== 'room');
+  const manual = classes.filter(c => String(c.kind || '') !== 'room');
+  const lvl = String((S.server.school && S.server.school.level) || '');
+  const isFieldSchool = /متوسطهٔ? ?دوم/.test(lvl) || all.some(c => String(c.mode || '') === 'field');
+
   const roomsCard = isFieldSchool ? card(
     `<div class="row between" style="margin-bottom:8px"><b>🏫 کلاس‌ها و کارگاه‌ها (محل برگزاری)</b>
        <span class="row" style="gap:6px">
@@ -1011,55 +987,26 @@ PAGES.classes = () => {
          <button class="btn sm primary" data-act="room-add">+ کلاس/کارگاه</button></span></div>
      <div class="small muted" style="margin-bottom:8px;line-height:2">فقط نام لازم است؛ همین نام در برنامهٔ هفتگی به هر زنگ داده می‌شود.</div>
      ${rooms.length ? `<div class="table-wrap"><table><thead><tr><th>نام</th><th>دانش‌آموز</th><th></th></tr></thead><tbody>
-       ${rooms.map(c => `<tr><td><b>${esc(c.name)}</b></td><td>${fa(list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(c.id)).length)}</td>
+       ${rooms.map(c => `<tr><td><b>${esc(c.name)}</b></td><td>${fa(countOf(c.id))}</td>
          <td class="nowrap"><button class="btn sm ghost" data-act="room-edit" data-id="${esc(c.id)}">ویرایش</button>
          <button class="btn sm ghost" data-act="class-delete" data-id="${esc(c.id)}" style="color:#b91c1c">حذف</button></td></tr>`).join('')}
      </tbody></table></div>` : '<div class="small muted">هنوز کلاس یا کارگاهی تعریف نشده است.</div>'}`) : '';
 
-  const groupsCard = isFieldSchool ? card(
-    `<div class="row between" style="margin-bottom:8px"><b>🎓 گروه‌های ثبت‌نام (پایه + رشته)</b>
-       <span class="small muted">${fa(groups.length)} گروه</span></div>
-     <div class="small muted" style="margin-bottom:8px;line-height:2">این گروه‌ها از خود دانش‌آموزان ساخته می‌شوند (پایه + رشته) و پایه و رشته‌شان ثابت است.</div>
-     ${groups.length ? `<div class="table-wrap"><table><thead><tr><th>پایه</th><th>رشته</th><th>دانش‌آموز</th></tr></thead><tbody>
-       ${groups.map(c => `<tr><td><b>${esc(c.grade || '—')}</b></td><td>${esc(c.branch || '—')}</td>
-         <td>${fa(list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(c.id)).length)}</td></tr>`).join('')}
-     </tbody></table></div>` : ''}`) : '';
-
-  /* ── رشته‌های مشکوک به غلط تایپی (کرافیک ← گرافیک) ── */
-  const brLook = lookupList('branch');
-  const nearPairs = [];
-  for (let i = 0; i < brLook.length; i++) {
-    for (let j = 0; j < brLook.length; j++) {
-      if (i === j) continue;
-      const a = String(brLook[i].name), b = String(brLook[j].name);
-      if (typeof impLev === 'function' && impLev(impNorm(a), impNorm(b)) <= 2 && a.length >= 3) {
-        if (!nearPairs.some(p => p.from === b && p.to === a)) nearPairs.push({ from: a, to: b, id: brLook[i].id });
-      }
-    }
-  }
-  const nearCard = nearPairs.length ? card(
-    `<div class="row between" style="margin-bottom:8px"><b>🔤 رشته‌های شبیه هم (احتمال غلط تایپی)</b>
-       <span class="small muted">${fa(nearPairs.length)} مورد</span></div>
-     <div class="small muted" style="margin-bottom:8px">اگر یکی از این‌ها اشتباه تایپی است، «ادغام» را بزنید؛ دانش‌آموزان، نمرات و برنامهٔ آن به رشتهٔ درست منتقل می‌شوند.</div>
-     <div class="table-wrap"><table><thead><tr><th>رشتهٔ مشکوک</th><th>ادغام در</th><th></th></tr></thead><tbody>
-       ${nearPairs.map(p => `<tr><td><b>${esc(p.from)}</b></td><td>${esc(p.to)}</td>
-         <td><button class="btn sm" data-act="def-merge" data-kind="branch" data-from="${esc(p.from)}" data-to="${esc(p.to)}">ادغام</button></td></tr>`).join('')}
-     </tbody></table></div>`) : '';
-
   return `${pageHead('کلاس‌ها و تعریف‌ها', fa(classes.length) + ' مورد',
-      `<span class="row" style="gap:6px">${isFieldSchool ? `<button class="btn sm primary" data-act="room-add">+ کلاس/کارگاه</button>` : ''}<button class="btn sm ${isFieldSchool ? 'ghost' : 'primary'}" data-act="class-add">+ ${isFieldSchool ? 'گروه (پایه + رشته)' : 'کلاس جدید'}</button></span>`)}
+      `<button class="btn sm primary" data-act="${isFieldSchool ? 'room-add' : 'class-add'}">+ ${isFieldSchool ? 'کلاس/کارگاه' : 'کلاس جدید'}</button>`)}
 
   ${roomsCard}
-  ${groupsCard}
-  ${nearCard}
 
-  ${brokenCard}
-
-  ${card(`<div class="row between" style="margin-bottom:8px"><b>کلاس‌ها</b>
-      <span class="small muted">هر کلاس یک پایه و یک رشته دارد</span></div>
-    ${classes.length ? `<div class="table-wrap"><table><thead><tr>
+  ${card(`<div class="row between" style="margin-bottom:8px"><b>کلاس‌های ثبت‌نام (پایه + رشته)</b>
+      <span class="row" style="gap:6px"><span class="small muted">${fa(manual.length)} کلاس</span>
+      <button class="btn sm" data-act="class-add">+ کلاس جدید</button></span></div>
+    <div class="small muted" style="margin-bottom:8px;line-height:2">
+      این کلاس‌ها فقط دستی ساخته می‌شوند — ورود دسته‌ای از اکسل هیچ کلاسی نمی‌سازد.
+      دانش‌آموزانِ اکسل با پایه و رشتهٔ خودشان ثبت می‌شوند و به کلاسی که نامِ «پایه + رشته»‌اش یکی باشد وصل می‌شوند.
+    </div>
+    ${manual.length ? `<div class="table-wrap"><table><thead><tr>
         <th>کلاس</th><th>پایه</th><th>رشته</th><th>دانش‌آموز</th><th>عملیات</th></tr></thead><tbody>
-      ${classes.map(c => `<tr>
+      ${manual.map(c => `<tr>
         <td><b>${esc(c.name)}</b></td>
         <td class="small">${esc(c.grade || '—')}</td>
         <td class="small">${esc(c.branch || '—')}</td>
@@ -1068,7 +1015,7 @@ PAGES.classes = () => {
           <button class="btn sm ghost" data-act="class-edit" data-id="${c.id}">ویرایش</button>
           <button class="btn sm ghost" style="color:#b91c1c" data-act="class-delete" data-id="${c.id}">حذف</button>
         </td></tr>`).join('')}
-      </tbody></table></div>` : empty('هنوز کلاسی ساخته نشده.')}`)}
+      </tbody></table></div>` : `<div class="small muted">هنوز کلاسی ساخته نشده — با دکمهٔ «+ کلاس جدید» بسازید.</div>`}`)}
 
   ${card(`<div class="row between" style="margin-bottom:8px"><b>پایه‌ها</b>
       <button class="btn sm" data-act="def-add" data-kind="grade">+ پایه</button></div>
@@ -1893,6 +1840,39 @@ function actUserFull(id) {
       <div class="row" style="flex-wrap:wrap;gap:0 10px;margin-top:6px">${extras}</div></div>` : ''}
     <button class="btn primary block" style="margin-top:12px">ذخیرهٔ همهٔ مشخصات</button>
   </form>`);
+}
+
+/* ── پنجرهٔ «کاربری»: نام کاربری و رمز، در یک جا، قابل ویرایش و حذف ── */
+function actUserCreds(id) {
+  const u = byId('users', Number(id));
+  if (!u) return toast('این کاربر پیدا نشد — صفحه را تازه کنید', 'err');
+  const c = (S.creds && S.creds[u.id]) || null;
+  const username = String((c && c.phone) || u.phone || u.national_id || '');
+  const password = (c && c.password) || u.password_plain || u.password || '';
+  S.modalTitle = 'کاربری — ' + fullName(u);
+  modal(`<form data-form="user-creds">
+    <input type="hidden" name="id" value="${esc(u.id)}">
+    <div class="small muted" style="line-height:2;margin-bottom:10px">
+      نقش: <b>${esc(ROLE_FA[u.role] || u.role)}</b>
+      ${u.national_id ? ' · کد ملی: <span class="ltr">' + esc(u.national_id) + '</span>' : ''}
+      <br>با همین دو چیز وارد برنامه می‌شود؛ روی هر گوشی و رایانه‌ای.
+    </div>
+    <label class="field"><span>نام کاربری (شمارهٔ همراه)</span>
+      <input class="input ltr" name="phone" inputmode="numeric" maxlength="11" value="${esc(username)}" placeholder="09xxxxxxxxx"></label>
+    <label class="field"><span>رمز عبور</span>
+      <input class="input ltr" name="password" value="${esc(password)}" placeholder="رمز عبور" autocomplete="off"></label>
+    <div class="row" style="gap:8px;margin-top:4px">
+      <button class="btn sm ghost" type="button" data-act="user-auto-pw" data-id="${esc(u.id)}">رمز = کد ملی</button>
+      <button class="btn sm ghost" type="button" data-act="user-pick-pw" data-id="${esc(u.id)}">رمز تصادفی</button>
+    </div>
+    <button class="btn primary block" style="margin-top:12px">ذخیرهٔ نام کاربری و رمز</button>
+  </form>
+  <div class="row" style="margin-top:10px;gap:8px;justify-content:flex-end">
+    <button class="btn sm" type="button" data-act="creds-delete" data-id="${esc(u.id)}" style="background:#b91c1c;color:#fff">حذف این حساب</button>
+  </div>
+  <div class="small muted" style="margin-top:8px;line-height:1.9">
+    اگر رمز را خالی بگذارید، همان رمز فعلی می‌ماند. هر تغییری اینجا بدهید، همان لحظه روی همهٔ دستگاه‌ها اعمال می‌شود و کاربر لازم نیست دوباره نصب کند.
+  </div>`);
 }
 
 function actUserEdit(id) {

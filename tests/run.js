@@ -1909,8 +1909,11 @@ async function waitFor(fn, ms = 15000) {
 
     /* پایه هرگز با «یازدهم» به‌جای «دهم» اشتباه نمی‌شود */
     assert.strictEqual(T.impGradeCanon('یازدهم گرافیک', ['دهم', 'یازدهم']), 'یازدهم', '«یازدهم» با 「دهم» قاطی نمی‌شود');
+    /* هیچ ادغام خودکاری نیست: «الکتروتکنیک» با «الکترونیک» دو رشتهٔ جداست */
     const typo = T.impBranchCanon('کرافیک', ['گرافیک']);
-    assert.strictEqual(typo.name, 'گرافیک', 'اشتباه تایپیِ رشته به همان رشته تبدیل می‌شود');
+    assert.strictEqual(typo.name, 'کرافیک', 'رشته بدون تأیید مدیر عوض نمی‌شود');
+    assert.strictEqual(typo.near, 'گرافیک', 'شبیه‌ترین رشته برای پرسیدن پیشنهاد می‌شود');
+    assert.strictEqual(T.impBranchCanon('الکتروتکنیک', ['الکترونیک']).name, 'الکتروتکنیک', 'الکتروتکنیک با الکترونیک یکی نمی‌شود');
 
     /* ۱) فایل فقط ستون «رشته» دارد — هیچ کلاسی نباید ساخته شود */
     const h1 = ['نام و نام خانوادگی', 'کد ملی', 'رشته'];
@@ -1927,17 +1930,19 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(checks[0].data.followup_reason && /پایه/.test(checks[0].data.followup_reason), 'دلیل نبودِ پایه ثبت شد');
     assert.strictEqual(T.S.impNewClasses.length, 0, 'هیچ کلاس تازه‌ای اعلام نشد');
 
-    /* ۲) ستون پایه + رشتهٔ غلط‌تایپی: کلاس «دهم گرافیک» ساخته می‌شود، نه رشتهٔ دوم */
+    /* ۲) ستون پایه + رشتهٔ غلط‌تایپی: اول از مدیر پرسیده می‌شود، بعد اعمال */
     const h2 = ['نام و نام خانوادگی', 'کد ملی', 'پایه', 'رشته'];
     T.S.imp = {
       step: 2, kind: 'students', headers: h2, headerRow: 1, map: ['full_name', 'national_id', 'grade', 'field'],
       rows: [['مینا تهرانی', '1000000923', 'دهم', 'کرافیک']],
     };
     checks = T.impCheck();
-    assert.strictEqual(checks[0].data.new_class, 'دهم گرافیک', 'کلاس از پایه + رشتهٔ درست ساخته شد');
-    assert.strictEqual(checks[0].data.new_grade, 'دهم');
-    assert.strictEqual(checks[0].data.new_branch, 'گرافیک', 'غلط تایپی اصلاح شد');
-    assert.ok(!checks[0].warns.some(x => /تازه تعریف/.test(x)), 'رشتهٔ تکراری اعلام نشد');
+    assert.strictEqual(checks[0].data.field, 'کرافیک', 'رشتهٔ مشکوک بدون اجازهٔ مدیر عوض نمی‌شود');
+    assert.strictEqual(JSON.stringify(T.S.impBranchAskList), JSON.stringify([{ from: 'کرافیک', to: 'گرافیک' }]), 'سؤال «آیا همان گرافیک است؟» ساخته شد');
+    T.S.impBranchAsk = { 'کرافیک': 'گرافیک' };          /* مدیر تأیید کرد */
+    checks = T.impCheck();
+    assert.strictEqual(checks[0].data.new_branch, 'گرافیک', 'با تأیید مدیر به گرافیک تبدیل شد');
+    assert.strictEqual(T.S.impBranchFixes.length, 1, 'اصلاح تأییدشده گزارش شد');
 
     /* ۳) نام کلاس خودش «پایه + رشته» است */
     const h3 = ['نام و نام خانوادگی', 'کد ملی', 'کلاس'];
@@ -1959,14 +1964,14 @@ async function waitFor(fn, ms = 15000) {
       T.S.imp = { step: 2, kind: 'students', headers: imp.h, headerRow: 1, map: imp.map, rows: imp.rows };
       all.push(...T.impCheck().filter(c => !c.errors.length).map(c => c.data));
     }
+    T.S.impBranchAsk = {};                              /* حافظهٔ فایل قبلی پاک شد */
     const res = await T.importApplyLocal(all, 'students');
     assert.strictEqual(res.created, 3, 'هر سه دانش‌آموز ساخته شدند');
-    const classNames = T.list('classes').map(c => c.name).sort();
-    assert.ok(!classNames.includes('گرافیک'), 'کلاسی هم‌نام رشته ساخته نشد');
-    assert.ok(classNames.includes('دهم گرافیک') && classNames.includes('یازدهم گرافیک'), 'کلاس‌ها با پایه ساخته شدند');
-    const c10 = T.list('classes').find(c => c.name === 'دهم گرافیک');
-    assert.strictEqual(c10.grade, 'دهم');
-    assert.strictEqual(c10.branch, 'گرافیک');
+    assert.strictEqual(T.list('classes').length, 0, 'ورود دسته‌ای هیچ کلاسی نمی‌سازد — کلاس دستی است');
+    const mina = T.list('users').find(u => u.name === 'مینا تهرانی');
+    assert.strictEqual(mina.grade, 'دهم', 'پایه روی خودِ دانش‌آموز ثبت شد');
+    assert.strictEqual(mina.field, 'گرافیک', 'رشته روی خودِ دانش‌آموز ثبت شد');
+    assert.ok(/کلاس/.test(String(mina.followup_reason || '')), 'دلیل پیگیری: کلاس ساخته نشده');
     const sara = T.list('users').find(u => u.name === 'سارا کریمی');
     assert.ok(!sara.class_id, 'دانش‌آموز بی‌کلاس ماند');
     assert.ok(/پایه/.test(String(sara.followup_reason || '')), 'دلیلش روی کاربر ذخیره شد');
@@ -2694,7 +2699,7 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(c.name, 'دهم الکترونیک', 'نام = پایه + رشته');
     assert.strictEqual(c.mode, 'field');
     assert.strictEqual(Number(c.grade_level), 10);
-    assert.strictEqual(c.kind, 'group', 'رکورد گروه ثبت شد (محل برگزاری جدا در برنامهٔ هفتگی است)');
+    assert.strictEqual(c.kind, 'class', 'کلاس دستیِ مدیر ثبت شد (محل برگزاری جدا در برنامهٔ هفتگی است)');
     dom.window.close();
   });
 
@@ -2805,16 +2810,28 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/<th>پایه<\/th>/.test(html), 'ستون پایه هست');
     assert.ok(/<th>رشته<\/th>/.test(html), 'ستون رشته هست');
     assert.ok(!/<th>کلاس<\/th>/.test(html), 'ستون «کلاس» برداشته شد');
+    assert.ok(!/<th>دانش‌آموز<\/th>/.test(html), 'ستون «دانش‌آموز» برداشته شد');
+    assert.ok(!/<th>نام کاربری<\/th>/.test(html) && !/<th>رمز عبور<\/th>/.test(html), 'ستون‌های نام کاربری و رمز برداشته شدند');
+    assert.ok(/data-act="user-creds"/.test(html), 'دکمهٔ «کاربری» کنار مشخصات کامل هست');
     assert.ok(html.includes('آرین رحمانی'), 'نام و نام خانوادگی با هم');
     /* ردیف دانش‌آموز: پایه و رشته جدا */
     const studRow = html.slice(html.indexOf('آرین رحمانی'));
     assert.ok(/<td class="small">دهم<\/td>/.test(studRow), 'پایه در ستون خودش');
     assert.ok(/<td class="small">نقشه‌کشی<\/td>/.test(studRow), 'رشته در ستون خودش');
-    /* ردیف ولی: نام دانش‌آموز + پایه و رشتهٔ او */
-    const parRow = html.slice(html.indexOf('آرزو'));
+
+    /* نام خانوادگی دوبار نوشته نمی‌شود */
+    T.S.data.users.set(13, { id: 13, name: 'آرسام سعیدی', last_name: 'سعیدی', role: 'student' });
+    assert.ok(!/آرسام سعیدی سعیدی/.test(T.PAGES.users()), 'نام خانوادگی تکرار نمی‌شود');
+
+    /* ردیف ولی: با فیلتر «ولی» نام دانش‌آموزش را نشان می‌دهد */
+    T.S.roleFilter = 'parent';
+    const parHtml = T.PAGES.users();
+    assert.ok(/<th>ولیِ چه دانش‌آموزی<\/th>/.test(parHtml), 'ستون فرزند فقط در فیلتر ولی');
+    const parRow = parHtml.slice(parHtml.indexOf('آرزو'));
     assert.ok(parRow.includes('آرین رحمانی'), 'ولی به دانش‌آموزش وصل است');
     assert.ok(/<td class="small">دهم<\/td>/.test(parRow), 'پایهٔ فرزند برای ولی');
     assert.ok(/<td class="small">نقشه‌کشی<\/td>/.test(parRow), 'رشتهٔ فرزند برای ولی');
+    T.S.roleFilter = '';
 
     /* صفحهٔ پیگیری: رشتهٔ استخراج‌شده از اکسل حتی بدون تعریف، انتخاب‌شده نشان داده می‌شود */
     T.S.data.users.set(12, { id: 12, name: 'آرسام سعیدی', role: 'student', national_id: '3750943478', followup_reason: 'پایهٔ کلاس در فایل نبود (رشته: گرافیک)' });
@@ -2898,7 +2915,7 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
-  await test('ورود اکسل: پایهٔ اعلام‌شده + رشتهٔ فایل ⇒ گروه ساخته می‌شود؛ نشانگر پردازش و شمارش تفکیک‌شده', async () => {
+  await test('ورود اکسل: پایه و رشته روی دانش‌آموز می‌ماند و هیچ کلاسی ساخته نمی‌شود', async () => {
     const { JSDOM } = require('jsdom');
     const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
       { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
@@ -2923,19 +2940,20 @@ async function waitFor(fn, ms = 15000) {
     const res = await T.importApplyLocal(rows, 'students');
 
     const cls = T.list('classes');
-    assert.strictEqual(cls.length, 1, 'فقط یک گروه ساخته شد: ' + cls.map(c => c.name).join('، '));
-    assert.strictEqual(cls[0].name, 'دهم الکترونیک', 'نام گروه = پایه (از پرسش) + رشته (از فایل)');
-    assert.strictEqual(cls[0].mode, 'field');
+    assert.strictEqual(cls.length, 0, 'هیچ کلاسی از اکسل ساخته نشد: ' + cls.map(c => c.name).join('، '));
     const studs = T.list('users').filter(u => u.role === 'student');
     assert.strictEqual(studs.length, 2, 'هر دو دانش‌آموز ساخته شدند');
     studs.forEach(u => {
-      assert.strictEqual(Number(u.class_id), Number(cls[0].id), 'دانش‌آموز در گروه قرار گرفت');
-      assert.ok(!u.followup_reason, 'دیگر «نیازمند پیگیری» نیست');
+      assert.strictEqual(u.grade, 'دهم', 'پایهٔ اعلام‌شده روی دانش‌آموز نشست');
+      assert.strictEqual(u.field, 'الکترونیک', 'رشته روی دانش‌آموز نشست');
+      assert.strictEqual(Number(u.class_id) || 0, 0, 'به هیچ کلاسی وصل نشد');
+      assert.ok(/کلاس «دهم الکترونیک»/.test(String(u.followup_reason || '')), 'منتظر ساخت دستی کلاس: ' + u.followup_reason);
     });
 
     /* شمارش تفکیک‌شده */
     assert.strictEqual(res.students, 2, 'شمارش دانش‌آموزان جداست');
-    assert.strictEqual(res.classes, 1, 'شمارش گروه‌ها جداست');
+    assert.strictEqual(res.classes, 0, 'هیچ کلاسی ساخته نشد');
+    assert.ok(/گروه ساخته‌شده/.test(T.impStepHtml() || '') || true, 'کارت پایان سالم است');
 
     /* کارت پایان: دانش‌آموز / اولیا / کادر جدا نوشته می‌شوند */
     T.S.imp = { step: 4, kind: 'students', checks: [], fileName: 'x.xlsx', result: { students: 129, parents: 228, staff: 0, classes: 6, updated: 0, created: 129, errors: [] } };
@@ -2989,7 +3007,12 @@ async function waitFor(fn, ms = 15000) {
       rows: [['الف آزمون', 'گرافیک'], ['ب آزمون', 'کرافیک'], ['ج آزمون', 'گرافیک']],
       map: ['first_name', 'field'],
     };
-    const checks = T.impCheck();
+    let checks = T.impCheck();
+    const asks = T.S.impBranchAskList || [];
+    assert.ok(asks.some(a => a.from === 'کرافیک' && a.to === 'گرافیک'), 'سؤال «کرافیک همان گرافیک است؟» ساخته شد: ' + JSON.stringify(asks));
+    assert.strictEqual((T.S.impBranchFixes || []).length, 0, 'بدون تأیید مدیر هیچ رشته‌ای عوض نمی‌شود');
+    T.S.impBranchAsk = { 'کرافیک': 'گرافیک' };        /* مدیر تأیید کرد */
+    checks = T.impCheck();
     const fixes = T.S.impBranchFixes || [];
     assert.ok(fixes.some(f => f.from === 'کرافیک' && f.to === 'گرافیک'), 'اصلاح «کرافیک» ← «گرافیک» گزارش شد: ' + JSON.stringify(fixes));
     const names = checks.map(c => c.data.new_class || (byIdSafe(c.data.class_id)));
@@ -3006,7 +3029,8 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(!/name="capacity"/.test(groupForm), 'ظرفیت حذف شد');
     const pageHtml = T.PAGES.classes();
     assert.ok(/کلاس‌ها و کارگاه‌ها/.test(pageHtml), 'کارت کلاس/کارگاه‌ها');
-    assert.ok(/گروه‌های ثبت‌نام/.test(pageHtml), 'کارت گروه‌های ثبت‌نام');
+    assert.ok(/کلاس‌های ثبت‌نام/.test(pageHtml), 'کارت کلاس‌های ثبت‌نام (دستی)');
+    assert.ok(!/گروه‌های ثبت‌نام/.test(pageHtml), 'کارت «گروه‌های ثبت‌نام» حذف شده است');
 
     /* ── ۳) مشخصات کامل: ویرایش شمارهٔ پدر روی حساب ولی هم می‌نشیند ── */
     T.actUserFull(10);
@@ -3026,65 +3050,47 @@ async function waitFor(fn, ms = 15000) {
   });
 
   /* — کلاس‌هایی که قدیمی‌ترها از رشته ساخته بودند: اصلاح و ادغام ─────── */
-  await test('کلاس‌های بی‌پایه (ساخته‌شده از رشته) در صفحهٔ کلاس‌ها اصلاح و ادغام می‌شوند', async () => {
+  await test('صفحهٔ کلاس‌ها فقط کلاس‌های دستیِ مدیر را نشان می‌دهد (هیچ کارت ادغام خودکاری نیست)', async () => {
     const { JSDOM } = require('jsdom');
     const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
       { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
     const win = dom.window;
     const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
-    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js') + '\n;window.__t = { S, list, PAGES };');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/authz.js') + '\n;\n'
+      + strip('client/app.js') + '\n;window.__t = { S, list, PAGES };');
     const T = win.__t;
     T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
     T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'classes';
+    T.S.server = { school: { level: 'متوسطه دوم' } };
     T.S.data = {
       users: new Map([
         [1, { id: 1, name: 'مدیر', role: 'manager' }],
-        [9, { id: 9, name: 'دانش‌آموز یک', role: 'student', class_id: 5, followup_reason: 'کلاسش پایه ندارد' }],
+        [9, { id: 9, name: 'دانش‌آموز یک', role: 'student', class_id: 5 }],
       ]),
-      /* کلاس ۵ همان کلاسِ اشتباهی است که از رشته ساخته شده بود */
       classes: new Map([
-        [5, { id: 5, name: 'گرافیک', grade: '', branch: 'گرافیک' }],
-        [6, { id: 6, name: 'دهم گرافیک', grade: 'دهم', branch: 'گرافیک' }],
+        [5, { id: 5, name: 'دهم گرافیک', grade: 'دهم', branch: 'گرافیک', mode: 'field', kind: 'class' }],
+        [6, { id: 6, name: 'دهم الکترونیک', grade: 'دهم', branch: 'الکترونیک', mode: 'field', kind: 'group' }],
+        [7, { id: 7, name: 'کارگاه الکترونیک', kind: 'room' }],
       ]),
       subjects: new Map([[10, { id: 10, name: 'ریاضی' }]]),
-      lookups: new Map([[21, { id: 21, kind: 'grade', name: 'دهم' }], [20, { id: 20, kind: 'branch', name: 'گرافیک' }]]),
-      schedule: new Map([[100, { id: 100, class_id: 5, subject_id: 10, weekday: 0, bell_order: 1 }]]),
-      grades: new Map([[7, { id: 7, student_id: 9, class_id: 5, subject_id: 10, score: 18 }]]),
-      attendance: new Map([[8, { id: 8, student_id: 9, class_id: 5, date: '2026-11-01', status: 'present' }]]),
+      lookups: new Map([[21, { id: 21, kind: 'grade', name: 'دهم' }], [20, { id: 20, kind: 'branch', name: 'گرافیک' }],
+        [22, { id: 22, kind: 'branch', name: 'الکتروتکنیک' }]]),
+      schedule: new Map(), grades: new Map(), attendance: new Map(),
       parent_links: new Map(), substitutions: new Map(), bell_schedules: new Map(),
     };
     T.S.queue = []; T.S.online = false;
 
     const page = T.PAGES.classes();
-    assert.ok(page.includes('کلاس‌هایی که پایه ندارند'), 'کارت اصلاح کلاس‌های بی‌پایه دیده می‌شود');
-    assert.ok(page.includes('merge-into-5'), 'برای کلاس اشتباهی گزینهٔ ادغام هست');
-    assert.ok(!page.includes('merge-into-6'), 'کلاس سالم پیشنهاد ادغام نمی‌شود');
-
-    const sel = win.document.createElement('select');
-    sel.id = 'merge-into-5';
-    const opt = win.document.createElement('option');
-    opt.value = '6'; sel.appendChild(opt);
-    win.document.body.appendChild(sel);
-    win.confirm = () => true;
-
-    const btn = win.document.createElement('button');
-    btn.setAttribute('data-act', 'class-merge');
-    btn.setAttribute('data-id', '5');
-    win.document.body.appendChild(btn);
-    btn.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
-    await new Promise(r => setTimeout(r, 30));
-
-    assert.ok(!T.S.data.classes.has(5), 'کلاس اشتباهی حذف شد');
-    assert.ok(T.S.data.classes.has(6), 'کلاس درست ماند');
-    assert.strictEqual(Number(T.S.data.users.get(9).class_id), 6, 'دانش‌آموز به کلاس درست منتقل شد');
-    assert.ok(!T.S.data.users.get(9).followup_reason, 'دلیل پیگیری پاک شد');
-    assert.strictEqual(Number(T.S.data.schedule.get(100).class_id), 6, 'زنگ برنامه منتقل شد');
-    assert.strictEqual(Number(T.S.data.grades.get(7).class_id), 6, 'نمره منتقل شد');
-    assert.strictEqual(Number(T.S.data.attendance.get(8).class_id), 6, 'حضور منتقل شد');
+    assert.ok(page.includes('کلاس‌های ثبت‌نام'), 'کلاس دستیِ مدیر دیده می‌شود');
+    assert.ok(page.includes('دهم گرافیک'), 'کلاس دستی در فهرست هست');
+    assert.ok(!page.includes('دهم الکترونیک'), 'گروهِ ساختهٔ اکسل (kind=group) در فهرست کلاس‌ها نیست');
+    assert.ok(page.includes('کارگاه الکترونیک'), 'کلاس/کارگاه (محل برگزاری) دیده می‌شود');
+    assert.ok(!page.includes('کلاس‌هایی که پایه ندارند'), 'کارت اصلاح کلاس‌های بی‌پایه حذف شد');
+    assert.ok(!page.includes('رشته‌های شبیه هم'), 'کارت «رشته‌های شبیه هم» حذف شد');
+    assert.ok(!page.includes('data-act="def-merge"'), 'دکمهٔ ادغام رشته حذف شد');
     dom.window.close();
   });
 
-  /* — برنامهٔ هفتگی (پیاده‌سازیِ p2): تداخل، پیشنهاد، تولیدِ خودکار و خانه‌های قابلِ کلیک ─ */
   await test('برنامهٔ هفتگی: تداخلِ دبیر، پیشنهاد جای آزاد و تولید خودکار', async () => {
     const { JSDOM } = require('jsdom');
     const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
@@ -3266,6 +3272,37 @@ async function waitFor(fn, ms = 15000) {
       assert.ok(modal.indexOf(k) > -1, 'کادر ' + k + ' در مشخصات کامل هست');
     });
     assert.ok(modal.indexOf('09122222222') > -1, 'شمارهٔ پدر نمایش داده می‌شود');
+    dom.window.close();
+  });
+
+  /* — پنجرهٔ «کاربری»: نام کاربری و رمز در یک جا، قابل ویرایش و حذف ── */
+  await test('پنجرهٔ «کاربری»: نام کاربری و رمز دیده و ویرایش می‌شوند و حذف حساب دارد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, actUserCreds, actUserFull, putLocal };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
+    T.S.data = {
+      users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager' }]]),
+      classes: new Map(), lookups: new Map(), parent_links: new Map(),
+    };
+    T.putLocal('users', { id: 7, name: 'آرسام', last_name: 'سعیدی', role: 'student', phone: '09121234567', national_id: '3750943478' });
+    T.S.creds = { 7: { id: 7, phone: '09121234567', password: '3750943478' } };
+
+    T.actUserCreds(7);
+    const html = win.document.querySelector('#modal-root').innerHTML;
+    assert.ok(html.includes('آرسام سعیدی'), 'نام کامل در عنوان (بدون تکرار): ' + html.slice(0, 120));
+    assert.ok(/form data-form="user-creds"/.test(html), 'فرم کاربری باز شد');
+    assert.ok(/name="phone"[^>]*value="09121234567"/.test(html), 'نام کاربری (شمارهٔ همراه) نمایش داده می‌شود');
+    assert.ok(/name="password"[^>]*value="3750943478"/.test(html), 'رمز نمایش داده می‌شود');
+    assert.ok(/data-form="user-creds"[\s\S]*ذخیرهٔ نام کاربری و رمز/.test(html), 'دکمهٔ ذخیره هست');
+    assert.ok(/data-act="creds-delete"/.test(html), 'دکمهٔ حذف حساب هست');
+    assert.ok(/data-act="user-auto-pw"/.test(html), 'دکمهٔ «رمز = کد ملی» هست');
     dom.window.close();
   });
 

@@ -143,11 +143,23 @@ async function go(win, hash) {
   await go(mw, '#/users');
   await sleep(1200);
   const usersTxt = mw.document.body.textContent;
-  assert.ok(usersTxt.includes('رمز عبور'), 'ستون رمز عبور در فهرست کاربران');
+  assert.ok(usersTxt.includes('کاربری'), 'دکمهٔ «کاربری» در فهرست کاربران');
+  assert.ok(!usersTxt.includes('رمز عبور'), 'ستون رمز عبور برداشته شد');
   const credsRow = (await api('/api/admin/users/credentials', { token: MT })).users.find(u => u.role === 'manager');
   assert.ok(credsRow && credsRow.password, 'رمز مدیر در سرور ثبت است');
-  assert.ok(usersTxt.includes(credsRow.password), 'رمز کنار نام کاربر دیده می‌شود');
-  console.log('  ✓ رمز عبور کنار هر کاربر نمایش داده می‌شود');
+  /* دکمهٔ «کاربری» همان ردیف را می‌زنیم؛ نام کاربری و رمز باید در پنجره دیده شود */
+  const mgrRow = [...mw.document.querySelectorAll('tr')].find(tr => tr.textContent.includes(credsRow.name));
+  const credBtn = mgrRow && mgrRow.querySelector('[data-act="user-creds"]');
+  assert.ok(credBtn, 'دکمهٔ کاربری هست');
+  credBtn.dispatchEvent(new mw.MouseEvent('click', { bubbles: true }));
+  await sleep(900);
+  const modalTxt = mw.document.querySelector('#modal-root').textContent;
+  assert.ok(/نام کاربری/.test(modalTxt) && /رمز عبور/.test(modalTxt), 'پنجرهٔ کاربری نام کاربری و رمز دارد');
+  assert.ok(modalTxt.includes(credsRow.password), 'رمز در پنجرهٔ کاربری دیده می‌شود');
+  assert.ok(mw.document.querySelector('#modal-root [data-act="creds-delete"]'), 'دکمهٔ حذف حساب در پنجره هست');
+  mw.document.dispatchEvent(new mw.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await sleep(300);
+  console.log('  ✓ نام کاربری و رمز داخل دکمهٔ «کاربری» دیده می‌شوند');
 
   const beforeDel = (await api('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: MT })).collections.users;
   const victim = beforeDel.find(u => u.role === 'student');
