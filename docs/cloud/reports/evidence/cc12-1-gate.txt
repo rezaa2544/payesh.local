@@ -1,0 +1,19 @@
+# دروازهٔ شرط CC-12-1 (ردیف ۱۲) — بازتولیدپذیری نتیجهٔ RLS
+# تولید: bash docs/cloud/reports/evidence/gen-cc12-1-evidence.sh
+# زمان: 2026-11-06T23:48:14Z
+# HEAD: 66984432e2566ba2cef400f8db1b6230debc6887
+# شاهد خام: docs/cloud/reports/evidence/mission-12-cc1-rls-repro.txt
+
+PASS  EXIT=0
+PASS  declared: TOTAL 14 · FAIL 0
+PASS  body has 0 failing assertion line
+PASS  body has 14 passing assertion lines
+PASS  declared total (14) matches body (14)
+PASS  declared fail (0) matches body (0)
+PASS  postgres version recorded: 16.2
+PASS  header version matches the live server reported by the test (PostgreSQL 16.2)
+PASS  harness .cjs hash matches (ff515cb5c4652afad9a16bdd5b71d03642ded26488561fbad5c010778b4e1b35)
+PASS  harness .sh hash matches (e3760f120eb06b7a1b916a72fde954f93a58b25e0e1a2b26b2dad6a882b671f1)
+PASS  product tree fingerprint matches HEAD (6270f8a8ecff7874ec6b24cb7fc24fcce9b62915041d28c97aeeff4851560309)
+
+CC12-1-OK  assertions=14  fail=0  postgres="PostgreSQL 16.2"  product_tree=6270f8a8ecff7874ec6b24cb7fc24fcce9b62915041d28c97aeeff4851560309

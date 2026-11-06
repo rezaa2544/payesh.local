@@ -1,0 +1,17 @@
+# آزمون منفی دروازهٔ CC-12-1
+# تولید: bash docs/cloud/reports/evidence/verify-cc12-1-negative.sh
+# زمان: 2026-11-06T23:48:15Z
+# HEAD: 66984432e2566ba2cef400f8db1b6230debc6887
+# شاهد خام: docs/cloud/reports/evidence/mission-12-cc1-rls-repro.txt
+
+PASS  P0  pristine evidence is accepted (control positive)
+PASS  N1  gate rejected: declared EXIT=1  → exit=1
+PASS  N2  gate rejected: declared FAIL 1 while body has none  → exit=1
+PASS  N3  gate rejected: one PASS line removed from body (13 ≠ 14)  → exit=1
+PASS  N4  gate rejected: harness .cjs hash replaced with zeros  → exit=1
+PASS  N5  gate rejected: product tree fingerprint replaced  → exit=1
+PASS  N6  gate rejected: header postgres version contradicts the live server  → exit=1
+PASS  N7  gate rejected: extra PASS line injected (15 ≠ 14)  → exit=1
+
+TOTAL 8 · pass=8 fail=0
+NEGATIVE-OK

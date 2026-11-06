@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
-branch: arena/fafde55f-payesh-local
-head: c1e55d0295992b164a8bcdb2355cf1621b53705a
+branch: arena/2dca1139-payesh-local
+head: 66984432e2566ba2cef400f8db1b6230debc6887
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=260  tables=81  ac_rows=8
@@ -34,6 +34,12 @@ api routes (unique /api literals in server/index.js): 62
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
  M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
- M docs/cloud/reports/evidence/slice-20b-tenant-isolation.txt
-?? docs/cloud/reports/evidence/tests-run-c1e55d0-20261106T233046Z.log
+ M docs/cloud/reports/evidence/rls-execution-test.sh
+?? docs/cloud/reports/REVIEW-12-CONDITIONS.md
+?? docs/cloud/reports/evidence/cc12-1-gate.txt
+?? docs/cloud/reports/evidence/cc12-1-negative.txt
+?? docs/cloud/reports/evidence/gen-cc12-1-evidence.sh
+?? docs/cloud/reports/evidence/mission-12-cc1-rls-repro.txt
+?? docs/cloud/reports/evidence/tests-run-6698443-20261106T234759Z.log
+?? docs/cloud/reports/evidence/verify-cc12-1-negative.sh
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
