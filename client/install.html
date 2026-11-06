@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>نصب پایش روی دستگاه‌ها</title>
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32">
+<link rel="icon" href="/icons/favicon-64.png" sizes="64x64">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#1e3a8a">
+<meta property="og:image" content="/icons/logo.png">
 <style>
   :root{--p:#1e3a8a;--bg:#f4f6fa;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0}
   @media (prefers-color-scheme:dark){:root{--bg:#0b1220;--card:#121b2e;--ink:#e5eaf3;--muted:#9aa8bf;--line:#22304a}}
@@ -24,6 +29,8 @@
   .muted{color:var(--muted);font-size:12.5px}
   .step{display:flex;gap:8px;margin:6px 0}
   .n{width:22px;height:22px;border-radius:50%;background:var(--p);color:#fff;display:grid;place-items:center;font-size:12px;flex:none}
+  .brand{display:flex;align-items:center;justify-content:center;margin:4px 0 14px}
+  .brand img{height:64px;width:auto;border-radius:12px;background:#fff;padding:4px}
   .tabs{display:flex;gap:6px;margin-bottom:10px}
   .tab{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;cursor:pointer;font-size:13px}
   .tab.on{background:var(--p);color:#fff;border-color:var(--p)}
@@ -33,6 +40,7 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="brand"><img src="/icons/logo.png" alt="پایش"></div>
   <h1>نصب پایش روی دستگاه‌ها</h1>
   <div class="sub">یک برنامه، سه نوع دستگاه — همه به همین سرور مدرسه وصل می‌شوند.</div>
 
