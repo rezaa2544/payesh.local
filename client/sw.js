@@ -6,9 +6,9 @@
    ═══════════════════════════════════════════════════════════════════ */
 'use strict';
 
-const CACHE = 'payesh-app-v9';
+const CACHE = 'payesh-app-v10';
 const VERSION_KEY = '/__payesh_version';
-const SHELL = ['/', '/index.html', '/app.js', '/pages.js', '/import.js', '/schedule.js', '/styles.css', '/manifest.webmanifest', '/icons/icon-192.png',
+const SHELL = ['/', '/index.html', '/app.js', '/pages.js', '/import.js', '/schedule.js', '/diag.js', '/authz.js', '/styles.css', '/manifest.webmanifest', '/icons/icon-192.png',
   '/lib/sigv4.js', '/lib/s3mini.js', '/lib/hash.js', '/lib/phone.js', '/lib/xlsx.js', '/cloud-baked.js'];
 
 self.addEventListener('install', event => {

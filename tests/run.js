@@ -636,6 +636,37 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(old.data.total_size <= old.data.full_size);
   });
 
+  /* ── به‌روزرسانی: همان چرخهٔ k3-reval (بررسی → دانلود با درصد → آمادهٔ نصب) ── */
+  await test('به‌روزرسانی: وضعیت لحظه‌ای، درصد پیشرفت و خطای فارسی (مثل k3-reval)', async () => {
+    /* بدون نشست: بسته است */
+    const anon = await req('/api/admin/update/state');
+    assert.strictEqual(anon.data.ok, false, 'بدون ورود، وضعیت به‌روزرسانی بسته است');
+
+    const st = await req('/api/admin/update/state', { token: managerToken });
+    assert.strictEqual(st.data.ok, true);
+    const s = st.data.state;
+    ['status', 'current', 'latest', 'hasUpdate', 'percent', 'ready', 'mode', 'errorText', 'files', 'sizeKb'].forEach(k => {
+      assert.ok(k in s, 'فیلد «' + k + '» در وضعیت هست');
+    });
+    assert.strictEqual(typeof s.current, 'string', 'نسخهٔ فعلی برگردانده می‌شود');
+    assert.ok(['idle', 'latest', 'available', 'checking', 'error', 'downloading', 'ready', 'installing', 'done'].includes(s.status),
+      'وضعیت یکی از حالت‌های شناخته‌شده است: ' + s.status);
+    assert.strictEqual(typeof s.percent, 'number');
+
+    /* منبعِ در دسترس‌نبودن: خطای فارسی، نه کد خام؛ و هیچ فایلی دست نمی‌خورد */
+    await req('/api/admin/update/settings', { method: 'POST', token: managerToken, body: { base: 'http://127.0.0.1:9/' } });
+    try {
+      const dl = await req('/api/admin/update/download', { method: 'POST', token: managerToken, body: {} });
+      assert.strictEqual(dl.data.ok, false, 'دانلود از منبعِ خاموش انجام نشد');
+      const txt = String((dl.data.state && dl.data.state.errorText) || '');
+      assert.ok(txt.length > 3 && /[آ-ی]/.test(txt), 'پیام خطا فارسی است: ' + txt);
+      const manifest = require('../releases/manifest.json');
+      assert.strictEqual(typeof manifest.version, 'string', 'مانیفست دست‌نخورده ماند');
+    } finally {
+      await req('/api/admin/update/settings', { method: 'POST', token: managerToken, body: { base: '' } });
+    }
+  });
+
   await test('اپلیکیشن اندروید: آدرس سرویس را خودش پیدا می‌کند (بدون پرسش از کاربر)', () => {
     const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'android-config.json'), 'utf8'));
     assert.strictEqual(cfg.app, 'payesh-local');
@@ -2304,6 +2335,211 @@ async function waitFor(fn, ms = 15000) {
     click('def-delete-only'); await tick();
     assert.ok(T.S.data.classes.has(5), 'کلاس ماند');
     assert.ok(T.S.data.users.has(9), 'دانش‌آموز ماند');
+    dom.window.close();
+  });
+
+  /* ══════════ دیاگ داده (همان ۴۲-self-diagnostics نسخهٔ p2) ══════════ */
+  await test('سلامت داده: کاربران تکراری (کد ملی، نام کاربری، یک نفر با دو حساب) تشخیص داده می‌شوند', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/diag.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, PayeshDiag, list, PAGES };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'health';
+    T.S.queue = [];
+    T.S.data = {
+      users: new Map([
+        [1, { id: 1, name: 'مدیر', role: 'manager' }],
+        /* کد ملی تکراری */
+        [10, { id: 10, name: 'سارا احمدی', role: 'student', national_id: '1000000036', phone: '09120000010' }],
+        [11, { id: 11, name: 'سارا احمدی ۲', role: 'student', national_id: '1000000036', phone: '09120000011' }],
+        /* نام کاربری (شمارهٔ همراه) تکراری */
+        [12, { id: 12, name: 'دبیر الف', role: 'teacher', phone: '09125550011', national_id: '1000000044' }],
+        [13, { id: 13, name: 'دبیر ب', role: 'teacher', phone: '09125550011', national_id: '1000000052' }],
+        /* یک نفر با دو حساب: هم‌نام + هم‌شماره */
+        [14, { id: 14, name: 'علی رضایی', role: 'student', phone: '09127770014', national_id: '1000000060', class_id: 5 }],
+        [15, { id: 15, name: 'علی  رضایی', role: 'student', phone: '09127770014', class_id: 5 }],
+        /* کد ملی نامعتبر */
+        [16, { id: 16, name: 'کاربر خراب', role: 'student', national_id: '1234567890' }],
+      ]),
+      classes: new Map([[5, { id: 5, name: 'دهم ریاضی', grade: 'دهم', branch: 'ریاضی' }]]),
+      subjects: new Map(),
+      lookups: new Map([
+        [20, { id: 20, kind: 'grade', name: 'دهم' }],
+        [21, { id: 21, kind: 'branch', name: 'ریاضی' }],
+        [22, { id: 22, kind: 'branch', name: 'ریاضی' }],
+      ]),
+      parent_links: new Map([
+        [30, { id: 30, parent_id: 10, student_id: 14 }],
+        [31, { id: 31, parent_id: 999, student_id: 14 }],
+      ]),
+      grades: new Map([[40, { id: 40, student_id: 14, subject_id: 1, score: 18 }]]),
+      attendance: new Map([[50, { id: 50, student_id: 14, date: '2026-11-01', status: 'present' }]]),
+      discipline: new Map(), leaves: new Map(), schedule: new Map(), substitutions: new Map(), bell_schedules: new Map(),
+    };
+    const D = T.PayeshDiag;
+    const run = D.run();
+    const res = id => (run.rows.find(r => r.check.id === id) || {}).res || { ok: true };
+
+    assert.strictEqual(res('dup-nid').ok, false, 'کد ملی تکراری تشخیص داده شد');
+    assert.strictEqual(res('dup-nid').count, 1);
+    assert.strictEqual(res('dup-login').ok, false, 'نام کاربری تکراری تشخیص داده شد');
+    assert.ok(res('dup-person').count >= 1, 'یک نفر با دو حساب تشخیص داده شد');
+    assert.strictEqual(res('invalid-nid').ok, false, 'کد ملی نامعتبر تشخیص داده شد');
+    assert.strictEqual(res('orphan-link').ok, false, 'پیوند بی‌صاحب تشخیص داده شد');
+    assert.strictEqual(res('dup-lookup').ok, false, 'تعریف تکراری تشخیص داده شد');
+
+    /* تعمیر خودکارِ امن */
+    T.list('parent_links');
+    const fixOrphan = run.rows.find(r => r.check.id === 'orphan-link').check;
+    fixOrphan.fix(res('orphan-link'));
+    assert.strictEqual(T.S.data.parent_links.size, 1, 'پیوند بی‌صاحب پاک شد');
+    assert.ok(!T.S.data.parent_links.has(31));
+
+    /* ادغام دو حسابِ یک نفر: داده‌ها منتقل و حساب تکراری حذف می‌شود */
+    const m = D.mergeUsers(14, [15]);
+    assert.strictEqual(m.ok, true, 'ادغام انجام شد');
+    assert.ok(T.S.data.users.has(14) && !T.S.data.users.has(15), 'حساب اصلی ماند و تکراری حذف شد');
+    assert.ok(T.S.data.grades.has(40), 'نمره از بین نرفت');
+    assert.strictEqual(Number(T.S.data.grades.get(40).student_id), 14, 'نمره به حساب اصلی منتقل شد');
+    assert.strictEqual(Number(T.S.data.attendance.get(50).student_id), 14, 'حضور منتقل شد');
+
+    /* صفحهٔ «سلامت» رندر می‌شود و موردها را نشان می‌دهد */
+    const page = T.PAGES.health();
+    assert.ok(page.includes('کد ملی تکراری'), 'صفحهٔ سلامت مورد را نشان می‌دهد');
+    assert.ok(page.includes('اصلاح خودکار') || page.includes('دیدن موارد'), 'دکمهٔ رسیدگی هست');
+    dom.window.close();
+  });
+
+  /* ══════════ مجوز نقش‌ها (همان ۳۰-authz نسخهٔ p2) ══════════════════ */
+  await test('دسترسی نقش‌ها: هر نقش فقط صفحه‌ها و کنش‌های خودش را دارد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/authz.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, navConfig, render, authzCanRoute, authzCanAct };');
+    const T = win.__t;
+    const A = win.authzCanRoute, ACT = win.authzCanAct;
+
+    assert.strictEqual(A('users', 'student'), false, 'دانش‌آموز به کاربران دسترسی ندارد');
+    assert.strictEqual(A('users', 'teacher'), false, 'دبیر به کاربران دسترسی ندارد');
+    assert.strictEqual(A('users', 'manager'), true, 'مدیر دارد');
+    assert.strictEqual(A('health', 'manager'), true, 'مدیر به سلامت داده دسترسی دارد');
+    assert.strictEqual(A('health', 'teacher'), false, 'دبیر ندارد');
+    assert.strictEqual(A('schedule', 'teacher'), true, 'دبیر برنامه را می‌بیند');
+    assert.strictEqual(A('schedule', 'parent'), true, 'ولی برنامهٔ فرزند را می‌بیند');
+    assert.strictEqual(A('child', 'parent'), true, 'صفحهٔ فرزند برای ولی');
+    assert.strictEqual(A('cloud', 'teacher'), false, 'حافظهٔ ابری فقط مدیر');
+    assert.strictEqual(A('some-unknown-route', 'teacher'), false, 'مسیر ناشناس بسته است (fail-closed)');
+
+    assert.strictEqual(ACT('user-add', 'teacher'), false, 'دبیر نمی‌تواند کاربر بسازد');
+    assert.strictEqual(ACT('users-bulk-delete', 'teacher'), false, 'دبیر نمی‌تواند حذف دسته‌ای کند');
+    assert.strictEqual(ACT('class-delete', 'parent'), false, 'ولی نمی‌تواند کلاس حذف کند');
+    assert.strictEqual(ACT('att-save', 'teacher'), true, 'دبیر حضور ثبت می‌کند');
+    assert.strictEqual(ACT('att-save', 'student'), false, 'دانش‌آموز حضور ثبت نمی‌کند');
+    assert.strictEqual(ACT('grade-save', 'teacher'), true, 'دبیر نمره ثبت می‌کند');
+    assert.strictEqual(ACT('leave-add', 'parent'), true, 'ولی مرخصی می‌گیرد');
+    assert.strictEqual(ACT('modal-close', 'student'), true, 'بستن پنجره همیشه کار می‌کند');
+
+    /* منو هم همین را نشان می‌دهد */
+    const teacherNav = win.navConfig('teacher').map(x => x[0]);
+    assert.ok(teacherNav.includes('schedule'), 'برنامه در منوی دبیر هست');
+    const mgNav = win.navConfig('manager').map(x => x[0]);
+    assert.ok(mgNav.includes('health') && mgNav.includes('followup'), 'سلامت و پیگیری در منوی مدیر');
+
+    /* اگر دانش‌آموز آدرس صفحهٔ مدیر را دستی باز کند، دادهٔ مدیر را نمی‌بیند */
+    T.S.user = { id: 3, name: 'دانش‌آموز', role: 'student' };
+    T.S.role = 'student'; T.S.session = 'x'; T.S.route = 'users';
+    T.S.data = { users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager', phone: '09121112233' }]]), classes: new Map(), subjects: new Map(), lookups: new Map(), parent_links: new Map() };
+    T.S.queue = []; T.S.creds = {};
+    T.render();
+    const txt = win.document.getElementById('app').textContent;
+    assert.ok(/دسترسی ندارید/.test(txt), 'صفحهٔ «دسترسی ندارید» نشان داده شد');
+    assert.ok(!/09121112233/.test(txt), 'دادهٔ مدیر بیرون نمی‌ریزد');
+    dom.window.close();
+  });
+
+  await test('ساخت کاربر: تکراری‌ها پیش از ثبت گرفته می‌شوند و نام همان شخص گفته می‌شود', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/diag.js') + '\n;\n'
+      + strip('client/authz.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, list, findUserDuplicates, userNameKey };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users'; T.S.queue = []; T.S.creds = {};
+    T.S.data = {
+      users: new Map([
+        [1, { id: 1, name: 'مدیر', role: 'manager' }],
+        [7, { id: 7, name: 'علی رضایی', role: 'student', phone: '09127770077', national_id: '1000000907', father_name: 'رضا', class_id: 5, birth_date: '1387-02-15' }],
+      ]),
+      classes: new Map([[5, { id: 5, name: 'دهم ریاضی', grade: 'دهم', branch: 'ریاضی' }]]),
+      subjects: new Map(), lookups: new Map(), parent_links: new Map(),
+    };
+
+    /* نام‌های نویسه‌های عربی/فارسی نباید فرق بگذارند */
+    assert.strictEqual(T.userNameKey('علی رضائي'), T.userNameKey('علی  رضایی'), 'ی/ي و فاصله یکی می‌شوند');
+
+    const mkForm = (vals) => {
+      const f = win.document.createElement('form');
+      f.setAttribute('data-form', 'user');
+      Object.keys(vals).forEach(k => {
+        const el = win.document.createElement(k === 'role' ? 'select' : 'input');
+        el.name = k; el.value = vals[k] || '';
+        f.appendChild(el);
+      });
+      win.document.body.appendChild(f);
+      return f;
+    };
+    const submit = async (f) => {
+      f.dispatchEvent(new win.Event('submit', { bubbles: true, cancelable: true }));
+      await new Promise(r => setTimeout(r, 60));
+    };
+    const toasts = () => win.document.getElementById('toasts').textContent;
+
+    /* ۱) کد ملی تکراری: پیام نام همان شخص را می‌گوید و چیزی ثبت نمی‌شود */
+    const f1 = mkForm({ name: 'اسم دیگر', national_id: '1000000907', phone: '09129990001', role: 'student' });
+    const before = T.S.data.users.size;
+    await submit(f1);
+    assert.strictEqual(T.S.data.users.size, before, 'کاربر تکراری ساخته نشد');
+    assert.ok(toasts().includes('علی رضایی'), 'پیام می‌گوید این کد ملی برای چه کسی است');
+    f1.remove();
+
+    /* ۲) شمارهٔ همراه تکراری (نام کاربری) */
+    const f2 = mkForm({ name: 'اسم دیگر ۲', national_id: '1000000915', phone: '09127770077', role: 'student' });
+    await submit(f2);
+    assert.strictEqual(T.S.data.users.size, before, 'شمارهٔ تکراری گرفته شد');
+    assert.ok(toasts().includes('علی رضایی'), 'پیام نام صاحب شماره را می‌گوید');
+    f2.remove();
+
+    /* ۳) نام + نام پدر یکسان (شخص احتمالاً همان است): هشدار پیش از ثبت، ثبت با تأیید دوم */
+    const f3 = mkForm({ name: 'علی رضایی', national_id: '1000000923', phone: '09129990003', role: 'student', father_name: 'رضا' });
+    await submit(f3);
+    assert.strictEqual(T.S.data.users.size, before, 'با اولین «ثبت» چیزی ساخته نشد');
+    const warn = win.document.getElementById('user-dup-warn');
+    assert.ok(warn && warn.textContent.includes('علی رضایی'), 'هشدار مشابهت نمایش داده شد');
+    assert.ok(f3.isConnected, 'فرم بسته نشد و مقدارها پاک نشدند');
+    await submit(f3);
+    assert.strictEqual(T.S.data.users.size, before + 1, 'با تأیید دوم کاربر ثبت شد');
+
+    /* ۴) تشخیص مستقیم: کد ملی و شمارهٔ تکراری + شخص مشابه */
+    const d = T.findUserDuplicates({ name: 'علی رضایی', national_id: '1000000907', phone: '09120000000' }, 0);
+    assert.strictEqual(d.nid.length, 1, 'کد ملی تکراری پیدا شد');
+    const dP = T.findUserDuplicates({ name: 'علی رضایی', father_name: 'رضا' }, 0);
+    assert.ok(dP.person.length >= 1, 'نام + نام پدر = شخص مشابه');
+    const dN = T.findUserDuplicates({ name: 'علی رضایی' }, 0);
+    assert.strictEqual(dN.person.length, 0, 'فقط هم‌نامی به‌تنهایی تکراری حساب نمی‌شود');
+    const d2 = T.findUserDuplicates({ name: 'علی رضایی', national_id: '1000000907' }, 7);
+    assert.strictEqual(d2.nid.length, 0, 'هنگام ویرایش، خودِ کاربر تکراری حساب نمی‌شود');
     dom.window.close();
   });
 

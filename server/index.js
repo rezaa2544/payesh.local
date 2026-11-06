@@ -927,7 +927,32 @@ async function api(req, res, url, ip) {
       plan,
       last,
       progress: update.status(),
+      state: update.snapshot(store),
     });
+  }
+
+  /* وضعیت لحظه‌ای به‌روزرسانی — همان شکل snapshot در k3-reval */
+  if (p === '/api/admin/update/state' && m === 'GET') {
+    update.fullInstallerInfo().catch(() => {});
+    return json({ ok: true, state: update.snapshot(store), running_version: RUNNING_VERSION });
+  }
+
+  /* مرحلهٔ ۱: دانلود (بدون تغییر برنامه) — کلاینت درصد را از /state می‌خواند */
+  if (p === '/api/admin/update/download' && m === 'POST') {
+    if (!rateLimit('update-dl:' + ip, 8, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    const r = await update.download(store, { force: true });
+    return json(r, r.ok ? 200 : 502);
+  }
+
+  /* مرحلهٔ ۲: نصب آنچه دانلود شده */
+  if (p === '/api/admin/update/install' && m === 'POST') {
+    if (!rateLimit('update-in:' + ip, 6, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    const r = await update.install(store, { by: (actor.user && actor.user.name) || 'manager' });
+    if (r.ok && r.applied) {
+      if (r.restart) scheduleRestart('update');
+      return json(Object.assign(r, { restarting: !!(r.restart && autoRestartEnabled()), state: update.snapshot(store) }));
+    }
+    return json(Object.assign(r, { state: update.snapshot(store) }), r.ok ? 200 : 502);
   }
 
   if (p === '/api/admin/update/check' && m === 'POST') {

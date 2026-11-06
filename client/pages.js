@@ -31,15 +31,15 @@ function navConfig(role) {
   if (role === 'manager') {
     base.push(['home', '🏠', 'داشبورد'], ['users', '👥', 'کاربران'], ['followup', '⚠️', 'پیگیری'], ['classes', '🏛️', 'کلاس‌ها'],
       ['schedule', '🗓️', 'برنامه'], ['attendance-report', '✅', 'حضور'], ['reports', '📑', 'گزارش‌ها'],
-      ['announcements', '📢', 'اطلاعیه‌ها'], ['network', '🌐', 'شبکه'],
+      ['announcements', '📢', 'اطلاعیه‌ها'], ['health', '🩺', 'سلامت'], ['network', '🌐', 'شبکه'],
       ['cloud', '☁️', 'حافظهٔ ابری'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'teacher') {
-    base.push(['home', '🏠', 'امروز'], ['attendance', '✅', 'حضور'], ['grades', '📝', 'نمره'],
+    base.push(['home', '🏠', 'امروز'], ['schedule', '🗓️', 'برنامه'], ['attendance', '✅', 'حضور'], ['grades', '📝', 'نمره'],
       ['students', '👥', 'دانش‌آموزان'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'parent') {
-    base.push(['home', '👨‍👩‍👦', 'فرزندان'], ['leaves', '📨', 'مرخصی'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
+    base.push(['home', '👨‍👩‍👦', 'فرزندان'], ['schedule', '🗓️', 'برنامه'], ['leaves', '📨', 'مرخصی'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'student') {
-    base.push(['home', '🏠', 'خانه'], ['record', '📁', 'پرونده'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
+    base.push(['home', '🏠', 'خانه'], ['schedule', '🗓️', 'برنامه'], ['record', '📁', 'پرونده'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   } else {
     base.push(['home', '🏠', 'خانه'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   }
@@ -109,15 +109,37 @@ function updateBarHtml() {
   /* در نسخهٔ بسته‌بندی‌شده (APK) فایل‌ها داخل خود برنامه‌اند؛ آپدیت با نصب APK تازه است */
   if (typeof BUNDLED !== 'undefined' && BUNDLED) return '';
   const r = S.remote;
+  const st = S.upd;
+  /* حین دانلود، نوار پیشرفت نشان داده می‌شود (مثل k3-reval) */
+  if (st && (st.status === 'downloading' || st.status === 'installing')) {
+    const pct = Math.max(0, Math.min(100, Number(st.percent) || 0));
+    return `<div class="banner info" id="update-bar">
+      <div style="flex:1;min-width:200px">
+        <div>⬇️ ${st.status === 'installing' ? 'در حال نصب نسخهٔ' : 'در حال دانلود نسخهٔ'} <b>${esc(st.latest || '')}</b>
+          ${st.totalKb ? ' — ' + fa(st.receivedKb || 0) + ' از ' + fa(st.totalKb) + ' کیلوبایت' : ''}</div>
+        <div style="height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px">
+          <div style="width:${pct}%;height:100%;background:#6366f1;transition:width .3s"></div></div>
+      </div>
+      <span class="small" style="font-weight:700">${fa(pct)}٪</span>
+    </div>`;
+  }
+  if (st && st.status === 'ready' && st.hasUpdate) {
+    return `<div class="banner info" id="update-bar">
+      <div>✅ نسخهٔ <b>${esc(st.latest)}</b> دانلود شد و آمادهٔ نصب است${st.mode === 'patch' && st.savedMb ? ` — ${fa(st.savedMb)} مگابایت کم‌تر از نصب کامل` : ''}</div>
+      <button class="btn sm primary" data-act="update-install">نصب و راه‌اندازی دوباره</button>
+      <button class="btn sm ghost" data-act="update-later">بعداً</button>
+    </div>`;
+  }
   if (r && r.available && !isUpdateDismissed(r.remote_version)) {
     const kb = Math.max(1, Math.round((r.total_size || 0) / 1024));
     const n = (r.changed || []).length;
     const bits = [];
     if (r.counts && r.counts.client) bits.push(`${fa(r.counts.client)} فایل رابط`);
     if (r.counts && r.counts.server) bits.push(`${fa(r.counts.server)} فایل برنامه`);
+    const saved = st && st.mode === 'patch' && st.savedMb ? ` · ${fa(st.savedMb)} مگابایت کم‌تر از نصب کامل` : '';
     return `<div class="banner info" id="update-bar">
-      <div>🎁 نسخهٔ <b>${esc(r.remote_version)}</b> منتشر شده — فقط ${fa(n)} فایل تغییر کرده (${fa(kb)} کیلوبایت${bits.length ? ' · ' + bits.join('، ') : ''})</div>
-      <button class="btn sm primary" data-act="update-fetch">به‌روزرسانی</button>
+      <div>🎁 نسخهٔ <b>${esc(r.remote_version)}</b> منتشر شده — فقط ${fa(n)} فایل تغییر کرده (${fa(kb)} کیلوبایت${bits.length ? ' · ' + bits.join('، ') : ''})${saved}</div>
+      <button class="btn sm primary" data-act="update-now">دانلود و نصب (یک کلیک)</button>
       <button class="btn sm ghost" data-act="update-later">بعداً</button>
     </div>`;
   }
@@ -1297,15 +1319,37 @@ function updateCard() {
   } else {
     line = `<div class="small muted" style="margin-top:6px">برای دیدن نسخهٔ تازه، «بررسی آپدیت» را بزنید.</div>`;
   }
+  const st = S.upd || {};
+  const stLine = st && st.status && st.status !== 'idle'
+    ? `<div class="small" style="margin-top:6px">
+        ${st.status === 'downloading' ? `⬇️ در حال دانلود ${fa(st.percent || 0)}٪ (${fa(st.receivedKb || 0)} از ${fa(st.totalKb || 0)} کیلوبایت)`
+          : st.status === 'ready' ? '✅ دانلود شد و آمادهٔ نصب است'
+          : st.status === 'installing' ? '⚙️ در حال نصب…'
+          : st.status === 'error' ? `⚠️ ${esc(st.errorText || 'به‌روزرسانی انجام نشد')}`
+          : st.status === 'latest' ? '✅ برنامه به‌روز است'
+          : esc(st.status)}
+      </div>`
+    : '';
+  const metaLine = (st && st.latest)
+    ? `<div class="small muted" style="margin-top:4px">
+        نسخهٔ منتشرشده: <b>${esc(st.latest)}</b>
+        ${st.sizeKb ? ' · دانلود: ' + fa(st.sizeKb) + ' کیلوبایت' : ''}
+        ${st.fullMb ? ' · نصب‌کنندهٔ کامل: ' + fa(st.fullMb) + ' مگابایت' : ''}
+        ${st.mode === 'patch' && st.savedMb ? ' · صرفه‌جویی ' + fa(st.savedMb) + ' مگابایت' : ''}
+        ${st.checkedAt ? ' · آخرین بررسی: ' + esc(jdate(st.checkedAt)) : ''}
+      </div>`
+    : '';
   const lastLine = last && last.applied !== false && last.version
     ? `<div class="small muted" style="margin-top:6px">آخرین به‌روزرسانی نصب‌شده: ${esc(last.version)}${last.at ? ' — ' + esc(jdate(last.at)) : ''}${last.files != null ? ' (' + fa(last.files) + ' فایل، ' + fa(Math.max(1, Math.round((last.bytes || 0) / 1024))) + ' کیلوبایت)' : ''}</div>`
     : '';
   return card(`<b>به‌روزرسانی برنامه</b>
     <div class="small muted" style="margin-top:4px">نسخهٔ در حال اجرا: <b>${esc(running || '—')}</b>${r.remote_version && r.remote_version !== running ? ' · منتشرشده: <b>' + esc(r.remote_version) + '</b>' : ''}</div>
-    ${line}${lastLine}
+    ${line}${metaLine}${stLine}${lastLine}
     <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
       <button class="btn sm" data-act="update-recheck">${S.remoteBusy ? '…' : 'بررسی آپدیت'}</button>
-      ${r.available ? `<button class="btn sm primary" data-act="update-fetch">به‌روزرسانی (${Math.max(1, Math.round((r.total_size || 0) / 1024))}KB)</button>` : ''}
+      ${r.available && st.status !== 'ready' ? `<button class="btn sm primary" data-act="update-now">دانلود و نصب (یک کلیک)</button>` : ''}
+      ${r.available && st.status !== 'ready' ? `<button class="btn sm ghost" data-act="update-download">فقط دانلود</button>` : ''}
+      ${st.status === 'ready' ? `<button class="btn sm primary" data-act="update-install">نصب نسخهٔ ${esc(st.latest || '')}</button>` : ''}
       ${last && last.version ? `<button class="btn sm ghost" data-act="update-rollback">بازگشت به نسخهٔ قبل</button>` : ''}
     </div>
     <form data-form="update" class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px;align-items:flex-end">
