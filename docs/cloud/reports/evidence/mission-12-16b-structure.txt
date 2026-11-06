@@ -1,12 +1,12 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
-branch: arena/2dca1139-payesh-local
-head: 66984432e2566ba2cef400f8db1b6230debc6887
+branch: arena/249910e2-payesh-local
+head: 4779584e31d6b1a89d5c9a02adceafa4b0f1a8af
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=260  tables=81  ac_rows=8
 12b-owner-panel-boundaries                 lines=117  tables=40  ac_rows=7
-13-secure-cache-offline-queue              lines=160  tables=63  ac_rows=9
+13-secure-cache-offline-queue              lines=177  tables=69  ac_rows=9
 14-conflict-convergence                    lines=164  tables=57  ac_rows=11
 15-backup-recovery                         lines=169  tables=78  ac_rows=12
 16-ha-observability-cost                   lines=290  tables=136 ac_rows=14
@@ -34,12 +34,5 @@ api routes (unique /api literals in server/index.js): 62
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
  M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
- M docs/cloud/reports/evidence/rls-execution-test.sh
-?? docs/cloud/reports/REVIEW-12-CONDITIONS.md
-?? docs/cloud/reports/evidence/cc12-1-gate.txt
-?? docs/cloud/reports/evidence/cc12-1-negative.txt
-?? docs/cloud/reports/evidence/gen-cc12-1-evidence.sh
-?? docs/cloud/reports/evidence/mission-12-cc1-rls-repro.txt
-?? docs/cloud/reports/evidence/tests-run-6698443-20261106T234759Z.log
-?? docs/cloud/reports/evidence/verify-cc12-1-negative.sh
+?? docs/cloud/reports/evidence/tests-run-4779584-20261107T000009Z.log
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)

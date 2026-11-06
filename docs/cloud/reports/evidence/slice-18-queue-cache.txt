@@ -1,16 +1,16 @@
 # شاهد نمونهٔ فنی ۱۸ — صف آفلاین، کش امن و ابطال دستگاه
 # تولید: bash prototype/slice-18/gen-evidence.sh
-# base_head: 28b8830b74411b6afe4362d32f5633c265978155
-# generated_at_utc: 2026-11-06T20:37:07Z
+# base_head: ef2859d91ec0e605585ad6d6a8f382d4a6c17c5c
+# generated_at_utc: 2026-11-06T23:58:36Z
 # node: v22.22.3
 # command: node prototype/slice-18/tests/run.js
 # product_diff_vs_f2fc472: 0 فایل (۰ = کد محصول دست‌نخورده)
 # مرجع طراحی: ۱۳ §۳.۱–§۳.۳ و §۴ (قرارداد صف، قاعدهٔ ۳۰ روز، ابطال دستگاه، امنیت کش) · D‑27 · CC‑13‑۱/۲/۳
 
 ## خلاصه
-SUMMARY pass=40 fail=0 total=40
-claims_passed=40
-queue_and_cap_cases=3
+SUMMARY pass=49 fail=0 total=49
+claims_passed=49
+queue_and_cap_cases=4
 tenant_or_identity_cases=4
 orphan_and_revoke_cases=8
 
@@ -18,8 +18,16 @@ orphan_and_revoke_cases=8
 MAX_OPS=2000  WARN=90%  REVIEW_DAYS=30  CACHE_TTL=7d  CACHE=AES-256-GCM  CLOCK=monotonic-after-sync
 
 ## خروجی خام آزمون
+✓ پیش از sync، حالت محافظه‌کارانه فعال است
+✓ پاسخ ۲۰۰ سرور server_time برمی‌گرداند
+✓ کلاینت offset = server_time − local_now را نگه می‌دارد
+✓ پس از sync، ساعت کلاینت با ساعت یکنوا جلو می‌رود
+✓ پاسخ ردشده (۴۰۱) هم server_time برمی‌گرداند
+✓ op ردشده «موفق» فرض نمی‌شود (applied فقط ۱)
 ✓ ۱۸۰۰ op ⇒ هشدار نرم ۹۰٪ فعال
+✓ ۱۸۰۰ op ⇒ بنر فشار صف (queue_pressure) فعال است
 ✓ ۲۰۰۰ op ⇒ پذیرش متوقف (full)
+✓ ۲۰۰۰ op ⇒ بنر queue_full (بدون نیازمند‑بررسی)
 ✓ op ۲۰۰۱ رد می‌شود (queue_full)، نه حذف قدیمی
 ✓ قدیمی‌ترین op هنوز در صف است (هیچ slice(-500))
 ✓ op اول applied و نسخهٔ رکورد ۱ شد
@@ -31,6 +39,7 @@ MAX_OPS=2000  WARN=90%  REVIEW_DAYS=30  CACHE_TTL=7d  CACHE=AES-256-GCM  CLOCK=m
 ✓ بدون نشست ⇒ 401 حتی با sig معتبر دستگاهی
 ✓ ۳۱ روز ⇒ op باز به review می‌رود (نه حذف، نه موفق)
 ✓ op اعمال‌شده با کهنگی جابه‌جا نمی‌شود
+✓ بنر «نیازمند بررسی» با وجود op در review فعال است
 ✓ payload در review کامل حفظ شده
 ✓ op در review خودکار ارسال نمی‌شود
 ✓ سمت سرور: op بازِ کهنه ⇒ review با payload حفظ‌شده
@@ -59,5 +68,5 @@ MAX_OPS=2000  WARN=90%  REVIEW_DAYS=30  CACHE_TTL=7d  CACHE=AES-256-GCM  CLOCK=m
 ✓ تصمیم بدون دلیل ثبت نمی‌شود
 ✓ تصمیم با دلیل ثبت می‌شود و در queue_decision می‌آید
 
-40 موفق · 0 ناموفق
-SUMMARY pass=40 fail=0 total=40
+49 موفق · 0 ناموفق
+SUMMARY pass=49 fail=0 total=49

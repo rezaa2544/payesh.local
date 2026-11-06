@@ -1,0 +1,33 @@
+# دروازهٔ شرط‌های CC-13-1..4 (ردیف ۱۳ — کش امن و صف آفلاین)
+# تولید: bash docs/cloud/reports/evidence/gen-cc13-evidence.sh
+# زمان: 2026-11-06T23:59:52Z
+# HEAD: ef2859d91ec0e605585ad6d6a8f382d4a6c17c5c
+# product_tree_sha256: fe1f8972c483a2cdf94590262dfa0e2fe7257424dc07655e902343f34389dd0f
+# شاهد خام: docs/cloud/reports/evidence/cc13-raw-slice18.txt · docs/cloud/reports/evidence/cc13-raw-slice20b.txt
+# کد آزمون‌شده:
+#   prototype/slice-18/tests/run.js = 69e15106c09f8ed614000ee0a98e9e74f88557f17615dd50e078dae3c49647c9
+#   prototype/slice-18/client-queue.js = 4b1b5f039463d302efc1572f8df4e30a0ff4fdf9d35378eac672c2437d9db0c8
+#   prototype/slice-18/server-side.js = 294002a31aac975a2036dfbf46c78e324759e3e72bf611280c4db7c1f0b877d0
+#   prototype/slice-20b/platform.js = d8cc3f7f674bb34aaae39f3d38df80af435699b6c3228514db017b08f5af3c4c
+#   prototype/slice-20b/tests/run.js = 371a641e4f1898bad755449bf04613ebd271010ff5cea934e2b2288b8092977c
+
+PASS  slice-18 exited 0
+PASS  slice-20b exited 0
+PASS  s18: SUMMARY pass=49 fail=0
+PASS  s18: declared pass matches body (49)
+PASS  s20b: SUMMARY pass=71 fail=0
+PASS  s20b: declared pass matches body (71)
+PASS  CC-13-1: 8/8 required assertions seen as ✓
+PASS  CC-13-2: 5/5 required assertions seen as ✓
+PASS  CC-13-3: 4/4 required assertions seen as ✓
+PASS  CC-13-4: 7/7 required assertions seen as ✓
+
+CC-13-1  required=8  verified=8
+CC-13-2  required=5  verified=5
+CC-13-3  required=4  verified=4
+CC-13-4  required=7  verified=7
+
+slice-18: pass=49 fail=0
+slice-20b: pass=71 fail=0
+
+CC13-OK
