@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.27';
+const CLIENT_VERSION = '0.8.28';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -630,7 +630,7 @@ async function deleteUserEverywhere(id) {
 }
 
 /* ارقام فارسی/عربی و فاصله‌ها را به رقم انگلیسی تبدیل می‌کند
-   (باگ مهم: PIN با ارقام فارسی ذخیره نمی‌شد و راه‌اندازی تکرار می‌شد) */
+   (باگ مهم: شمارهٔ همراه با ارقام فارسی ذخیره نمی‌شد و ورود شکست می‌خورد) */
 function digitsOnly(v) {
   return String(v == null ? '' : v)
     .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
@@ -656,7 +656,6 @@ async function doSetup(form) {
     school_name: form.school_name.value.trim(),
     manager_name: form.manager_name.value.trim(),
     phone: digitsOnly(form.phone.value),
-    pin: digitsOnly(form.pin.value) || '',
     password: pass,
     school_type: form.school_type.value,
     school_year: form.school_year.value.trim(),
@@ -664,12 +663,12 @@ async function doSetup(form) {
   if (body.phone.length !== 11) return toast('شمارهٔ همراه باید ۱۱ رقم باشد', 'err');
   if (pass.length < 4) return toast('رمز عبور حداقل ۴ نویسه باشد', 'err');
   if (pass !== pass2) return toast('رمز عبور و تکرارش یکی نیست', 'err');
-  if (body.pin && !/^\d{4,6}$/.test(body.pin)) return toast('PIN باید ۴ تا ۶ رقم باشد', 'err');
+
   try {
     const r = await api('/api/setup', { method: 'POST', body });
     saveDevice(r.device_token);
     saveSession(r.session.token);
-    localStorage.setItem('payesh.authmode', body.pin ? 'pin' : 'password');
+    localStorage.setItem('payesh.authmode', 'password');
     localStorage.setItem('payesh.lastname', body.manager_name);
     S.user = r.user; S.role = r.user.role;
     toast('مدرسه ساخته شد — از این پس با شمارهٔ همراه و رمز عبور وارد می‌شوید', 'ok');
@@ -833,43 +832,43 @@ async function enterPhone(user) {
 }
 
 async function doPair(form) {
-  const code = form.code.value.trim();
-  const pin = digitsOnly(form.pin.value);
-  if (!/^\d{4,6}$/.test(pin)) return toast('PIN باید ۴ تا ۶ رقم باشد', 'err');
+  return pairWithCode(String(form.code.value || ''));
+}
+
+async function pairWithCode(raw) {
+  const code = String(raw || '').replace(/[^0-9A-Za-z]/g, '').trim();
+  if (code.length < 4) return toast('کد پیوند را کامل بنویسید', 'err');
   try {
-    const r = await api('/api/auth/pair', { method: 'POST', body: { code, pin, platform: platformName(), name: deviceName() } });
+    const r = await api('/api/auth/pair', { method: 'POST', body: { code, platform: platformName(), name: deviceName() } });
     saveDevice(r.device_token);
     saveSession(r.session.token);
     S.user = r.user; S.role = r.user.role;
     await start();
   } catch (e) {
-    const map = { bad_code: 'کد پیوند نامعتبر است', code_used: 'این کد قبلاً استفاده شده', code_expired: 'کد منقضی شده — از مدیر کد تازه بگیرید', bad_pin: 'PIN نامعتبر', user_inactive: 'حساب غیرفعال است' };
+    const map = { bad_code: 'کد پیوند نامعتبر است — کد را کامل و درست وارد کنید', code_used: 'این کد قبلاً استفاده شده — از مدیر کد تازه بگیرید', code_expired: 'کد منقضی شده — از مدیر کد تازه بگیرید', user_inactive: 'حساب غیرفعال است' };
     toast(map[e.message] || 'ورود ناموفق: ' + e.message, 'err');
   }
 }
 
 async function doTransfer(form) {
   const code = form.code.value.trim();
-  const pin = digitsOnly(form.pin.value);
-  if (!/^\d{4,6}$/.test(pin)) return toast('PIN باید ۴ تا ۶ رقم باشد', 'err');
+  const password = String((form.password && form.password.value) || '');
   try {
-    const r = await api('/api/auth/transfer/redeem', { method: 'POST', body: { code, pin, platform: platformName(), name: deviceName() } });
+    const r = await api('/api/auth/transfer/redeem', { method: 'POST', body: { code, password, platform: platformName(), name: deviceName() } });
     saveDevice(r.device_token);
     saveSession(r.session.token);
     S.user = r.user; S.role = r.user.role;
     go('home');
     await start();
   } catch (e) {
-    const map = { bad_code: 'کد انتقال نامعتبر است', code_used: 'این کد قبلاً استفاده شده', code_expired: 'کد انتقال منقضی شده', bad_pin: 'PIN نامعتبر' };
+    const map = { bad_code: 'کد انتقال نامعتبر است', code_used: 'این کد قبلاً استفاده شده', code_expired: 'کد انتقال منقضی شده', bad_password: 'رمز عبور درست نیست' };
     toast(map[e.message] || 'انتقال ناموفق: ' + e.message, 'err');
   }
 }
 
 async function doUnlock(form) {
-  const usePw = form.password !== undefined;
-  const body = { device_token: S.deviceToken };
-  if (usePw) body.password = String(form.password.value || '');
-  else body.pin = digitsOnly(form.pin.value);
+  const field = form.password || form.querySelector('input[type="password"]');
+  const body = { device_token: S.deviceToken, password: String((field && field.value) || '') };
   try {
     const r = await api('/api/auth/unlock', { method: 'POST', body });
     saveSession(r.session.token);
@@ -884,14 +883,29 @@ async function doUnlock(form) {
       return;
     }
     if (e.message === 'no_password') {
-      S.unlockMode = 'pin'; toast('برای این حساب رمز عبور تنظیم نشده — با PIN وارد شوید', 'err');
+      S.unlockMode = 'password'; toast('برای این حساب رمز عبور تنظیم نشده — از مدیر بخواهید رمز بگذارد', 'err');
       renderLock(); return;
     }
     if (e.message === 'locked') { toast('چند بار اشتباه زدید — ۱۰ دقیقه صبر کنید', 'err'); return; }
-    toast(usePw ? 'رمز عبور نادرست است' : 'PIN نادرست است', 'err');
-    const inp = form.password || form.pin;
-    if (inp) { inp.value = ''; inp.focus(); }
+    toast('رمز عبور نادرست است', 'err');
+    if (field) { field.value = ''; field.focus(); }
   }
+}
+
+/* QR روی کارت پیوند در مرورگر باز می‌شود؛ اگر برنامه نصب باشد همان
+   اسکن باید مستقیم کاربر را داخل برنامه ببرد. یک‌بار و فقط یک‌بار تلاش
+   می‌کنیم و اگر برنامه باز نشد، صفحهٔ راهنما با دکمهٔ بزرگ می‌ماند. */
+function maybeOpenInstalledApp() {
+  const code = pairCodeFromHash();
+  if (!code) return;
+  if (typeof window !== 'undefined' && window.PAYESH_BUNDLED === true) return;  /* داخل خود برنامه‌ایم */
+  if (S.deviceToken || S.session) return;
+  if (!/Android/i.test(navigator.userAgent || '')) return;                       /* payesh:// فقط روی اندروید */
+  const key = 'payesh.deeplink.' + code;
+  try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch (e) { /* noop */ }
+  setTimeout(() => {
+    try { location.href = pairDeepLink(code); } catch (e) { /* مرورگر اجازه نداد؛ دکمه می‌ماند */ }
+  }, 700);
 }
 
 function platformName() {
@@ -995,9 +1009,54 @@ function routeFromHash() {
   S.route = route; S.params = params;
 }
 function go(route) { location.hash = '#/' + route; }
+
+/* ── کد پیوند از پیوند/QR ──────────────────────────────────────────
+   سه شکل پشتیبانی می‌شود:  #/pair=CODE  ·  #/pair?c=CODE  ·  #/join/CODE */
+function pairCodeFromHash() {
+  const h = String(location.hash || '');
+  const m = h.match(/#\/(?:join|pair)[=\/]?([A-Za-z0-9-]{4,})/) || h.match(/[?&]c=([A-Za-z0-9-]{4,})/);
+  return m ? m[1].replace(/[^0-9A-Za-z]/g, '').toUpperCase() : '';
+}
+function linkPairCode() {
+  const injected = String((typeof window !== 'undefined' && window.PAYESH_PAIR_CODE) || '').replace(/[^0-9A-Za-z]/g, '');
+  return injected || pairCodeFromHash();
+}
+/* در برنامهٔ نصب‌شده، اسکن QR یا پیوند payesh://pair?c=… باید بی‌درنگ
+   وارد حساب شود — بی‌هیچ رمز و بی‌هیچ دکمه‌ای. */
+async function autoPairFromLink() {
+  const code = linkPairCode();
+  if (!code) return false;
+  if (S.deviceToken || S.session) return false;              /* از قبل وارد است */
+  if (localStorage.getItem('payesh.pair.used') === code) return false;
+  const inApp = typeof window !== 'undefined' && window.PAYESH_BUNDLED === true;
+  const asked = /#\/pair[=\/]/.test(String(location.hash || '')) && /auto=1/.test(String(location.hash || ''));
+  if (!inApp && !asked) return false;                        /* در مرورگر، صفحهٔ راهنما نشان داده می‌شود */
+  try {
+    const r = await api('/api/auth/pair', { method: 'POST', body: { code, platform: platformName(), name: deviceName() } });
+    localStorage.setItem('payesh.pair.used', code);
+    saveDevice(r.device_token);
+    saveSession(r.session.token);
+    S.user = r.user; S.role = r.user.role;
+    try { if (window.PayeshNative && window.PayeshNative.pairCodeUsed) window.PayeshNative.pairCodeUsed(); } catch (e) { /* noop */ }
+    if (String(location.hash || '').indexOf('/pair') >= 0) location.hash = '#/home';
+    toast('خوش آمدید ' + (r.user.name || ''), 'ok');
+    await start();
+    return true;
+  } catch (e) {
+    const map = {
+      bad_code: 'کد پیوند نامعتبر است', code_used: 'این کد قبلاً استفاده شده — از مدیر کد تازه بگیرید',
+      code_expired: 'کد منقضی شده — از مدیر کد تازه بگیرید', user_inactive: 'حساب غیرفعال است',
+    };
+    toast(map[e.message] || 'ورود خودکار نشد: ' + e.message, 'err');
+    localStorage.setItem('payesh.pair.used', code);
+    return false;
+  }
+}
 window.addEventListener('hashchange', async () => {
   routeFromHash();
+  if (/\/pair[=\/]/.test(String(location.hash || '')) && await autoPairFromLink()) return;
   render();
+  maybeOpenInstalledApp();
   window.scrollTo(0, 0);
   if (S.route === 'network' && S.role === 'manager') { await loadNetwork(false); render(); }
 });
@@ -1586,6 +1645,7 @@ async function boot() {
     if (!S.server.setupDone) { renderSetup(); return; }
     const tr = String(location.hash || '').match(/^#\/transfer\/([A-Za-z0-9_-]+)/);
     if (tr) { renderTransfer(tr[1]); return; }
+    if (!S.deviceToken && await autoPairFromLink()) return;
     if (S.deviceToken) {
       /* دستگاهِ گره‌خورده: اول بی‌صدا نشست می‌گیریم؛ فقط اگر دستگاه باطل شده باشد، قفل */
       if (!S.session || !(await silentRefresh())) { renderLock(); return; }
@@ -1593,6 +1653,7 @@ async function boot() {
       return;
     }
     renderPair();
+    maybeOpenInstalledApp();
   } catch (e) {
     renderOffline();
   }
@@ -1773,9 +1834,11 @@ document.addEventListener('click', async (e) => {
     case 'login-mode':
       S.loginMode = el.getAttribute('data-id') === 'pair' ? 'pair' : 'password';
       renderPair(); return;
-    case 'unlock-mode':
-      S.unlockMode = el.getAttribute('data-id') === 'password' ? 'password' : 'pin';
-      renderLock(); return;
+    case 'pair-here': {
+      const code = pairCodeFromHash() || linkPairCode();
+      if (!code) return toast('کد پیوند پیدا نشد — آن را دستی وارد کنید', 'err');
+      return pairWithCode(code);
+    }
     case 'forget-device':
       localStorage.removeItem('payesh.device'); localStorage.removeItem('payesh.session');
       S.deviceToken = ''; S.session = ''; S.user = null; S.role = null;
@@ -2340,14 +2403,6 @@ document.addEventListener('click', async (e) => {
       return;
     }
 
-    case 'pin-change': {
-      const v = ($('#new-pin') || {}).value || '';
-      if (!/^\d{4,6}$/.test(v)) return toast('PIN باید ۴ تا ۶ رقم باشد', 'err');
-      try { await api('/api/auth/pin', { method: 'POST', body: { pin: v } }); toast('PIN تغییر کرد', 'ok'); }
-      catch (err) { toast(err.message, 'err'); }
-      return;
-    }
-
     case 'originbar-off':
       localStorage.setItem('payesh.originbar.off', (S.server && S.server.publicUrl) || 'none');
       render(); return;
@@ -2867,7 +2922,9 @@ document.addEventListener('submit', async (e) => {
     };
     ['name', 'last_name', 'national_id', 'phone', 'birth_date', 'gender'].forEach(take);
     (typeof IMP_EXTRA_FIELDS !== 'undefined' ? IMP_EXTRA_FIELDS : []).forEach(take);
-    if (patch.phone) patch.phone = digitsOnly(patch.phone);
+    ['phone', 'father_phone', 'mother_phone', 'guardian_phone'].forEach(k => {
+      if (patch[k]) patch[k] = digitsOnly(patch[k]);
+    });
     if (patch.national_id) patch.national_id = digitsOnly(patch.national_id);
     if (patch.phone) {
       const clash = list('users').find(x => Number(x.id) !== uid && digitsOnly(x.phone || '') === patch.phone);

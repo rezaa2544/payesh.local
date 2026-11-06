@@ -390,20 +390,18 @@ async function api(req, res, url, ip) {
   if (p === '/api/auth/unlock' && m === 'POST') {
     if (!rateLimit('unlock:' + ip, 30, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const body = await readBody(req);
-    /* قفل موقت پس از چند PIN اشتباه — روی همان دستگاه، ذخیره‌شده در پایگاه‌داده */
+    /* قفل موقت پس از چند رمز اشتباه — روی همان دستگاه، ذخیره‌شده در پایگاه‌داده */
     const devKey = 'lock:' + sha256(String(body.device_token || ip)).slice(0, 32);
     const lock = store.getMeta(devKey, null);
     if (lock && lock.until && Date.parse(lock.until) > Date.now()) {
       return json({ ok: false, error: 'locked', until: lock.until, tries: lock.tries }, 429);
     }
-    const r = body && body.password
-      ? auth.unlockWithPassword(store, body)
-      : auth.unlock(store, body);
+    const r = auth.unlockWithPassword(store, body);
     if (!r.ok) {
       const tries = ((lock && lock.tries) || 0) + 1;
       if (tries >= 8) {
         store.setMeta(devKey, { tries, until: new Date(Date.now() + 10 * 60_000).toISOString() });
-        store.audit({ role: 'system', action: 'pin_locked', collection: 'devices', after: { ip } });
+        store.audit({ role: 'system', action: 'unlock_locked', collection: 'devices', after: { ip } });
       } else {
         store.setMeta(devKey, { tries, until: null });
       }
@@ -429,12 +427,6 @@ async function api(req, res, url, ip) {
   if (p === '/api/auth/transfer' && m === 'POST') {
     const r = auth.createTransfer(store, actor.user.id, actor.device ? actor.device.id : null);
     return json(Object.assign(r, { public_url: cfg.publicUrl(store) || null }));
-  }
-
-  if (p === '/api/auth/pin' && m === 'POST') {
-    const body = await readBody(req);
-    const r = auth.changePin(store, actor.device, body.pin);
-    return json(r, r.ok ? 200 : 400);
   }
 
   if (p === '/api/bootstrap' && m === 'GET') {

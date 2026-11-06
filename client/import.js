@@ -46,17 +46,21 @@ const IMP_FIELDS = {
     ['father_edu', 'تحصیلات پدر', 0, ['تحصیلات پدر', 'مدرک پدر']],
     ['father_alive', 'وضعیت حیات پدر', 0, ['وضعیت حیات پدر', 'حیات پدر']],
     ['father_job', 'شغل پدر', 0, ['شغل پدر', 'حرفه پدر']],
-    ['father_phone', 'موبایل پدر', 0, ['موبایل پدر', 'شماره پدر', 'تلفن پدر', 'همراه پدر']],
+    ['father_phone', 'موبایل پدر', 0, ['موبایل پدر', 'شماره موبایل پدر', 'شماره همراه پدر', 'همراه پدر',
+      'تلفن همراه پدر', 'تلفن پدر', 'شماره پدر', 'شماره تماس پدر', 'موبایل ۱', 'موبایل 1']],
     /* مادر */
     ['mother_name', 'نام مادر', 0, ['نام مادر', 'مادر']],
     ['mother_nid', 'کد ملی مادر', 0, ['کد ملی مادر', 'کدملی مادر']],
     ['mother_edu', 'تحصیلات مادر', 0, ['تحصیلات مادر', 'مدرک مادر']],
     ['mother_alive', 'وضعیت حیات مادر', 0, ['وضعیت حیات مادر', 'حیات مادر']],
     ['mother_job', 'شغل مادر', 0, ['شغل مادر', 'حرفه مادر']],
-    ['mother_phone', 'موبایل مادر', 0, ['موبایل مادر', 'شماره مادر', 'تلفن مادر', 'همراه مادر']],
+    ['mother_phone', 'موبایل مادر', 0, ['موبایل مادر', 'شماره موبایل مادر', 'شماره همراه مادر', 'همراه مادر',
+      'تلفن همراه مادر', 'تلفن مادر', 'شماره مادر', 'شماره تماس مادر', 'موبایل ۲', 'موبایل 2']],
     /* سرپرست و خانواده */
     ['guardian', 'سرپرست دانش آموز', 0, ['سرپرست دانش آموز', 'سرپرست', 'ولی']],
     ['guardian_alive', 'وضعیت حیات', 0, ['وضعیت حیات', 'حیات']],
+    ['guardian_phone', 'موبایل سرپرست', 0, ['موبایل سرپرست', 'شماره همراه سرپرست', 'همراه سرپرست',
+      'موبایل ولی', 'شماره همراه ولی', 'همراه ولی', 'تلفن سرپرست', 'تلفن ولی']],
     ['sisters', 'تعداد خواهر', 0, ['تعداد خواهر', 'خواهر']],
     ['brothers', 'تعداد برادر', 0, ['تعداد برادر', 'برادر']],
     /* حمایتی */
@@ -65,7 +69,8 @@ const IMP_FIELDS = {
     ['org_percent', 'درصد', 0, ['درصد', 'درصد حمایت']],
     ['talent', 'استعداد یابی', 0, ['استعداد یابی', 'استعدادیابی', 'استعداد']],
     /* تماس و نشانی */
-    ['phone', 'موبایل دانش آموز', 0, ['موبایل دانش آموز', 'موبایل دانش‌آموز', 'همراه دانش آموز', 'موبایل', 'شماره تماس']],
+    ['phone', 'موبایل دانش آموز', 0, ['موبایل دانش آموز', 'موبایل دانش‌آموز', 'همراه دانش آموز',
+      'همراه دانش‌آموز', 'موبایل هنرجو', 'شماره همراه', 'تلفن همراه', 'شماره موبایل', 'همراه', 'موبایل', 'شماره تماس']],
     ['landline', 'شماره ثابت', 0, ['شماره ثابت', 'تلفن ثابت', 'ثابت', 'تلفن منزل']],
     ['residence', 'محل سکونت', 0, ['محل سکونت', 'سکونت', 'شهر یا روستا']],
     ['village', 'نام روستا', 0, ['نام روستا', 'روستا']],
@@ -118,9 +123,9 @@ const IMP_IGNORE = ['ردیف', 'شماره', 'رديف', '#', 'ش'];
 
 /* فیلدهای تکمیلی که مستقیم روی رکورد کاربر ذخیره می‌شوند */
 const IMP_EXTRA_FIELDS = ['first_name', 'last_name', 'field', 'last_gpa', 'failed_count',
-  'father_name', 'father_edu', 'father_alive', 'father_job', 'father_phone',
-  'mother_name', 'mother_edu', 'mother_alive', 'mother_job', 'mother_phone',
-  'guardian', 'guardian_alive', 'sisters', 'brothers',
+  'father_name', 'father_nid', 'father_edu', 'father_alive', 'father_job', 'father_phone',
+  'mother_name', 'mother_nid', 'mother_edu', 'mother_alive', 'mother_job', 'mother_phone',
+  'guardian', 'guardian_alive', 'guardian_phone', 'sisters', 'brothers',
   'covered', 'org_type', 'org_percent', 'talent',
   'landline', 'residence', 'village', 'residence_status', 'address',
   'shenasname_serial', 'shenasname_seri', 'degree', 'gender'];
@@ -381,6 +386,30 @@ function impValidNid(v) {
 function impFields(entity) { return IMP_FIELDS[entity] || IMP_FIELDS.students; }
 
 /* ── حدس هوشمند نگاشت ستون‌ها بر پایهٔ عنوان و مترادف‌ها ────────────── */
+/* «نسبتِ» ستون: پدر، مادر، سرپرست یا خودِ دانش‌آموز.
+   بدون این تشخیص، «شماره تماس پدر» به موبایل دانش‌آموز نگاشت می‌شد و
+   شمارهٔ پدر گم می‌شد — همان چیزی که در «مشخصات کامل» خالی دیده شد. */
+function impRelOf(nh) {
+  const t = String(nh || '');
+  if (/مادر/.test(t)) return 'mother';
+  if (/پدر/.test(t)) return 'father';
+  if (/(سرپرست|قیم|ولی)/.test(t)) return 'guardian';
+  if (/(دانش ?آموز|هنرجو)/.test(t)) return 'student';
+  return '';
+}
+function impKeyRel(key) {
+  if (/^father_/.test(key)) return 'father';
+  if (/^mother_/.test(key)) return 'mother';
+  if (/^guardian/.test(key)) return 'guardian';
+  return '';
+}
+function impRelOk(rel, keyRel) {
+  if (rel === keyRel) return true;
+  if (rel === 'guardian' && keyRel === 'father') return true;   /* «ولی» در این مدرسه همان پدر است */
+  if (rel === 'father' && keyRel === 'guardian') return true;
+  return false;
+}
+
 function impAutoMap(headers, entity) {
   entity = entity || (S.imp && S.imp.kind) || 'students';
   const fields = impFields(entity);
@@ -405,16 +434,21 @@ function impAutoMap(headers, entity) {
     if (!nh) { out[i] = ''; return; }
     /* ستون شماره ردیف داده نیست؛ نگاشت نمی‌شود */
     if (IMP_IGNORE.indexOf(nh) > -1) { out[i] = ''; return; }
+    const rel = impRelOf(nh);
     let best = '', score = 0;
     fields.forEach(fld => {
       const key = fld[0];
       if (used[key]) return;
+      const kr = impKeyRel(key);
+      if (rel && kr && !impRelOk(rel, kr)) return;   /* ستون «پدر» نباید به فیلد «مادر» برود */
       [fld[1]].concat(fld[3]).forEach(sy => {
         const ns = impNorm(sy);
         if (!ns) return;
         let sc = 0;
         if (nh === ns) sc = 100;
         else if (nh.indexOf(ns) > -1 || ns.indexOf(nh) > -1) sc = 70 + Math.min(20, ns.length);
+        /* ستون «موبایل پدر» هرگز نباید «موبایل خودِ دانش‌آموز» شود */
+        if (sc && rel && !kr) sc -= 36;
         if (sc > score) { score = sc; best = key; }
       });
     });
@@ -602,6 +636,9 @@ function impCheck() {
       const mph = impLatin(o.mother_phone || '').replace(/\D/g, '');
       if (mph && /^09\d{9}$/.test(mph)) data.mother_phone = mph;
       else if (mph) warns.push('موبایل مادر نامعتبر است');
+      const gph = impLatin(o.guardian_phone || '').replace(/\D/g, '');
+      if (gph && /^09\d{9}$/.test(gph)) data.guardian_phone = gph;
+      else if (gph) warns.push('موبایل سرپرست نامعتبر است');
 
       /* هر ولی باید یک راه ورود داشته باشد: شمارهٔ همراه، وگرنه کد ملی */
       const who = [['پدر', 'father_name', 'father_nid', 'father_phone'],

@@ -80,6 +80,7 @@ public class MainActivity extends Activity {
     private static final String KEY_REMOTE = "config_url";    /* آخرین آدرسِ گرفته‌شده از پیکربندی مرکزی */
     private static final String KEY_LAST = "last_url";        /* آخرین نشانی‌ای که واقعاً باز شد */
     private static final String KEY_PUBLIC = "public_url";    /* آدرس عمومی که خود سرور اعلام کرده */
+    private static final String KEY_PAIR = "pair_code";       /* کدی که با اسکن QR آمده است */
 
     /* میزبان محلیِ دارایی‌های برنامه (فقط داخل خود برنامه) */
     private static final String APP_HOST = "appassets.androidplatform.net";
@@ -202,7 +203,45 @@ public class MainActivity extends Activity {
             staleBundle = false;
         }
 
+        capturePairIntent(getIntent());
         boot();
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       پیوند کارت پیوند (QR):  payesh://pair?c=CODE&h=https://…
+       کد را نگه می‌داریم و به صفحهٔ محلی تزریق می‌کنیم؛ صفحه خودش
+       کد را می‌سوزاند و کاربر بی‌درنگ داخل حساب خودش می‌شود.
+       ═══════════════════════════════════════════════════════════════ */
+    private void capturePairIntent(Intent intent) {
+        if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) return;
+        Uri uri = intent.getData();
+        if (uri == null || !"payesh".equalsIgnoreCase(uri.getScheme())) return;
+        String code = uri.getQueryParameter("c");
+        if (code == null || code.isEmpty()) code = uri.getQueryParameter("code");
+        if (code == null) return;
+        code = code.replaceAll("[^0-9A-Za-z]", "").toUpperCase();
+        if (code.length() < 4) return;
+        prefs.edit().putString(KEY_PAIR, code).apply();
+        /* آدرسی که در QR آمده، اگر هنوز سروری نداریم، همان می‌شود سرور */
+        String h = uri.getQueryParameter("h");
+        String host = normalize(h);
+        if (!host.isEmpty() && prefs.getString(KEY_URL, "").isEmpty()) {
+            prefs.edit().putString(KEY_URL, host).apply();
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        capturePairIntent(intent);
+        if (web != null) {
+            final String code = prefs.getString(KEY_PAIR, "");
+            if (!code.isEmpty()) {
+                /* برنامه از قبل باز بود: همان کد به صفحه داده می‌شود */
+                web.loadUrl(APP_URL + "#/pair=" + code);
+            }
+        }
     }
 
 
@@ -221,6 +260,12 @@ public class MainActivity extends Activity {
     private class NativeBridge {
         private final AtomicLong seq = new AtomicLong(1);
         private final ExecutorService pool = Executors.newCachedThreadPool();
+
+        /* صفحه کد پیوند را مصرف کرد؛ دیگر به‌کار نمی‌آید */
+        @JavascriptInterface
+        public void pairCodeUsed() {
+            prefs.edit().remove(KEY_PAIR).apply();
+        }
 
         @JavascriptInterface
         public String s3(final String method, final String url, final String headersJson, final String body) {
@@ -534,7 +579,9 @@ public class MainActivity extends Activity {
             /* آدرس سرور و حالت «بسته‌بندی‌شده» را به برنامه تزریق می‌کنیم */
             String html = new String(body, StandardCharsets.UTF_8);
             String bucket = BuildConfig.PAYESH_CLOUD_BUCKET == null ? "" : BuildConfig.PAYESH_CLOUD_BUCKET.trim();
+            String pairCode = prefs.getString(KEY_PAIR, "");
             String inject = "<script>window.PAYESH_API_BASE=" + JSONObject.quote(apiBase)
+                + (pairCode == null || pairCode.isEmpty() ? "" : ";window.PAYESH_PAIR_CODE=" + JSONObject.quote(pairCode) + ";")
                 + ";window.PAYESH_BUILD=" + JSONObject.quote(BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")")
                 + ";window.PAYESH_BUNDLED=true;"
                 + (bucket.isEmpty() ? "" : "window.PAYESH_CLOUD_BUCKET=" + JSONObject.quote(bucket) + ";")
