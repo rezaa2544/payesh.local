@@ -37,8 +37,8 @@ android {
         targetSdk 34
         /* با هر انتشار یکی زیاد شود؛ اندروید فقط نسخه‌ای را روی نسخهٔ
            نصب‌شده می‌پذیرد که شمارهٔ ساختش بزرگ‌تر یا مساوی باشد. */
-        versionCode 830
-        versionName "0.8.30"
+        versionCode 831
+        versionName "0.8.31"
         resConfigs "fa", "en"
         buildConfigField "String", "PAYESH_URL", '"' + payeshUrl.replace('"', '') + '"'
         buildConfigField "String", "PAYESH_CLOUD_BUCKET", '"' + payeshBucket.replace('"', '') + '"'
@@ -114,4 +114,11 @@ tasks.register('bundleWebAssets', Copy) {
 }
 tasks.named('preBuild').configure { dependsOn 'bundleWebAssets' }
 
-dependencies { }
+dependencies {
+    /* ── خواندن QR کارت پیوند ─────────────────────────────────────
+       دو کتابخانهٔ سبک و بدون سرویس گوگل (روی گوشی‌های بدون Play هم
+       کار می‌کنند): یکی برای دوربینِ زنده، یکی برای خواندن QR از عکسِ
+       گالری. هیچ مجوز حساسی هم لازم نمی‌شود. */
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+    implementation 'com.google.zxing:core:3.5.3'
+}

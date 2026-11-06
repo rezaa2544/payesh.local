@@ -76,6 +76,33 @@ small,.small{font-size:12.5px}
 .btn.block{width:100%}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 
+/* ── «زنده بودن» همهٔ دکمه‌ها ────────────────────────────────────────
+   هر کلیک باید فوراً دیده شود: فشرده می‌شود، اگر کاری طول بکشد نشانگر
+   چرخان روی خودِ همان دکمه می‌آید و تا تمام‌شدن کار می‌چرخد. */
+.btn,button,[data-act],.navitem,.pill,.bn{cursor:pointer;transition:transform .08s ease, background .15s ease, box-shadow .15s ease}
+.btn:active,button[data-act]:active,.navitem:active,.pill:active,[data-act]:active{transform:scale(.965)}
+.btn:focus-visible,button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.btn.is-busy{position:relative;pointer-events:none;opacity:.9;cursor:progress}
+.btn.is-busy::before{
+  content:"";width:14px;height:14px;border-radius:50%;flex:none;
+  border:2px solid currentColor;border-top-color:transparent;
+  animation:payesh-spin .65s linear infinite;display:inline-block
+}
+.btn.is-busy>span.ico,.btn.is-busy .spin{animation:payesh-spin .9s linear infinite;display:inline-block}
+@keyframes payesh-spin{to{transform:rotate(360deg)}}
+.navitem.is-busy,.pill.is-busy{opacity:.6;pointer-events:none}
+/* نوار باریک بالای صفحه وقتی کاری در جریان است */
+#live-bar{position:fixed;inset-inline:0;top:0;height:3px;z-index:120;background:transparent;pointer-events:none}
+#live-bar.on{background:linear-gradient(90deg,transparent,var(--primary),#38bdf8,var(--primary),transparent);
+  background-size:220% 100%;animation:payesh-bar 1.1s linear infinite}
+@keyframes payesh-bar{0%{background-position:0% 0}100%{background-position:-200% 0}}
+@media (prefers-reduced-motion: reduce){
+  .btn.is-busy::before,.btn.is-busy .spin{animation-duration:1.6s}
+  #live-bar.on{animation:none;background:var(--primary)}
+}
+/* پیام کوتاه «انجام شد» روی همان دکمه */
+.btn.done-flash{box-shadow:0 0 0 3px rgba(15,118,110,.25)}
+
 .field{display:block;margin-bottom:.8rem}
 .field>label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px}
 .field>span{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px}
@@ -134,7 +161,11 @@ tr:last-child td{border-bottom:0}
 
 /* ورود */
 .auth{max-width:430px;margin:0 auto;padding:26px 16px 40px}
+/* لوگوی رسمی پایش — همان تصویری که در اختیار ماست */
+.auth .logo-img{display:block;width:150px;max-width:52vw;height:auto;margin:6px auto 10px;filter:drop-shadow(0 6px 14px rgba(16,24,40,.10))}
 .auth .logo{width:70px;height:70px;border-radius:20px;background:var(--primary);color:#fff;display:grid;place-items:center;font-size:30px;margin:10px auto 14px;box-shadow:var(--shadow)}
+.brand-mark{width:30px;height:30px;object-fit:contain;flex:none}
+.brand-logo{display:block;width:100%;max-width:150px;height:auto;margin-bottom:6px}
 .auth h1{font-size:21px;text-align:center}
 .auth .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:18px}
 .code-input{letter-spacing:.35em;text-align:center;font-weight:800;font-size:19px;direction:ltr}

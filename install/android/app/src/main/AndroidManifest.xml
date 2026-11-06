@@ -16,6 +16,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- دوربین فقط برای اسکن QR «کارت پیوند» استفاده می‌شود. گوشی بدون
+         دوربین هم می‌تواند برنامه را نصب و از گالری یا کد دستی استفاده کند. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <queries>
         <intent>

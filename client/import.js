@@ -416,17 +416,57 @@ function impCustomKey(label) {
 /* یک خانهٔ اکسل ممکن است چند شماره داشته باشد («9181763116 - 9181763394»).
    اولین شمارهٔ موبایلِ درست را برمی‌داریم و متن اصلی را هم نگه می‌داریم تا
    پیام خطا دقیق باشد. */
+/* آمار اصلاح‌های خودکارِ همین بررسی — برای نمایش در مرحلهٔ ۳ */
+let IMP_FIX_STATS = { phones: 0 };
+function impFixStats() { return IMP_FIX_STATS; }
+
+/* ── شمارهٔ همراه: اکسل صفرِ اول را می‌خورد ─────────────────────────
+   وقتی ستون موبایل در اکسل «عددی» باشد، خودِ اکسل صفرِ اول را حذف می‌کند
+   و 09123456789 به 9123456789 تبدیل می‌شود؛ گاهی هم به شکل نماد علمی
+   (9.12E+09) یا با ‎.0‎ در CSV درمی‌آید. هر شکلی باشد، اینجا به قالب
+   استاندارد ۱۱ رقمی «09xxxxxxxxx» برگردانده می‌شود.
+   خروجی: { value, raw, fixed } — fixed یعنی خودمان صفر را گذاشتیم. */
+function impMobileFromPart(part) {
+  let t = impLatin(String(part == null ? '' : part)).trim();
+  if (!t) return '';
+  /* اکسل عدد صحیح را گاهی «9123456789.0» می‌نویسد */
+  const dec = t.match(/^(\d+)[.,]0+$/);
+  if (dec) t = dec[1];
+  /* نماد علمی اکسل: 9.123456789E9 */
+  if (/^\d+(?:\.\d+)?e\+?\d+$/i.test(t.replace(/\s/g, ''))) {
+    const n = Number(t.replace(/\s/g, ''));
+    if (isFinite(n) && n > 0) t = String(Math.round(n));
+  }
+  let d = t.replace(/\D/g, '');
+  if (!d) return '';
+  /* اکسل عدد را اعشاری ذخیره می‌کند: 9123456789.0 → همان ۱۰ رقم */
+  if (/^0+$/.test(d)) return '';
+  if (/^0098/.test(d)) d = d.slice(4);
+  else if (/^98/.test(d) && d.length >= 12) d = d.slice(2);
+  if (/^09\d{9}$/.test(d)) return d;                  /* همان ۱۱ رقم درست */
+  if (/^9\d{9}$/.test(d)) return '0' + d;             /* صفر اول حذف شده */
+  if (/^989\d{9}$/.test(d)) return '0' + d.slice(2);  /* پیش‌شمارهٔ کشور */
+  return '';
+}
 function impPickMobile(raw) {
   const txt = String(raw == null ? '' : raw);
+  /* «+98 912 345 6789» با فاصله‌ها تکه‌تکه است؛ اول کل رشته را یک‌جا
+     امتحان می‌کنیم تا پیش‌شمارهٔ کشور گم نشود. */
+  const whole = impMobileFromPart(txt.replace(/[\s\-().]/g, ''));
+  if (whole) {
+    const digitsWhole = impLatin(txt).replace(/\D/g, '');
+    return { value: whole, raw: txt, fixed: !/^09/.test(digitsWhole) && !/^(0098|98)/.test(digitsWhole) };
+  }
   const parts = txt.split(/[\s,،;؛/\\|\-–—]+/).filter(Boolean);
   for (const part of parts) {
-    const d = impLatin(part).replace(/\D/g, '');
-    if (/^09\d{9}$/.test(d)) return { value: d, raw: txt };
-    /* ۹ رقم بدون صفرِ اول («9121234567») هم پذیرفته و کامل می‌شود */
-    if (/^9\d{9}$/.test(d)) return { value: '0' + d, raw: txt };
-    if (/^989\d{9}$/.test(d)) return { value: '0' + d.slice(2), raw: txt };
+    const value = impMobileFromPart(part);
+    if (!value) continue;
+    /* صفر را خودمان گذاشتیم؟ (در فایل ۱۰ رقم بود) */
+    const digits = impLatin(part).replace(/\D/g, '').replace(/^0098|^98(?=\d{10})/, '');
+    const fixed = !/^09/.test(digits) && !/^0098|^98/.test(digits);
+    return { value, raw: txt, fixed };
   }
-  return { value: '', raw: txt };
+  return { value: '', raw: txt, fixed: false };
 }
 /* یک شمارهٔ ثابت: هر تعداد رقم با جداکننده */
 function impPickLandline(raw) {
@@ -530,6 +570,7 @@ function impMapped() {
 function impCheck() {
   const imp = S.imp || {};
   const entity = imp.kind || 'students';
+  IMP_FIX_STATS = { phones: 0 };
   const users = list('users');
   const classes = list('classes');
   const clsByName = Object.create(null);
@@ -635,12 +676,12 @@ function impCheck() {
     /* موبایل دانش‌آموز و پدر جدا نگه داشته می‌شوند. اگر خانهٔ اکسل چند
        شماره داشته باشد، اولین شمارهٔ درست برداشته می‌شود. */
     const ph = impPickMobile(o.phone);
-    if (ph.value) data.phone = ph.value;
+    if (ph.value) { data.phone = ph.value; if (ph.fixed) IMP_FIX_STATS.phones += 1; }
     else if (String(ph.raw || '').trim()) {
       warns.push('موبایل دانش‌آموز «' + String(ph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود؛ خودتان در «مشخصات کامل» اصلاح کنید');
     }
     const fph = impPickMobile(o.father_phone);
-    if (fph.value) data.father_phone = fph.value;
+    if (fph.value) { data.father_phone = fph.value; if (fph.fixed) IMP_FIX_STATS.phones += 1; }
     else if (String(fph.raw || '').trim()) {
       warns.push('موبایل پدر «' + String(fph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود');
     }
@@ -708,10 +749,10 @@ function impCheck() {
 
       /* شمارهٔ مادر جدا از پدر نگه داشته می‌شود */
       const mph = impPickMobile(o.mother_phone);
-      if (mph.value) data.mother_phone = mph.value;
+      if (mph.value) { data.mother_phone = mph.value; if (mph.fixed) IMP_FIX_STATS.phones += 1; }
       else if (String(mph.raw || '').trim()) warns.push('موبایل مادر «' + String(mph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود');
       const gph = impPickMobile(o.guardian_phone);
-      if (gph.value) data.guardian_phone = gph.value;
+      if (gph.value) { data.guardian_phone = gph.value; if (gph.fixed) IMP_FIX_STATS.phones += 1; }
       else if (String(gph.raw || '').trim()) warns.push('موبایل سرپرست «' + String(gph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود');
 
       /* هر ولی باید یک راه ورود داشته باشد: شمارهٔ همراه، وگرنه کد ملی */
@@ -1002,6 +1043,7 @@ function impStepHtml() {
     const follow = checks.filter(impNeedsFollowUp);
     const updates = ok.filter(c => c.data.existing_id).length;
     const newCls = S.impNewClasses || [];
+    const fix = impFixStats();
 
     /* یک جدول برای هر گروه — خطادارها جدا، تا بتوان سراغشان رفت */
     const rowsHtml = (list, tone) => `<div class="table-wrap" style="max-height:34vh;overflow:auto"><table><thead><tr>
@@ -1070,6 +1112,7 @@ function impStepHtml() {
           <b>✅ ${fa(ok.length)} ردیف آمادهٔ ثبت${updates ? ' — ' + fa(updates) + ' به‌روزرسانی' : ''}</b>
         </div>
         ${newCls.length ? `<div class="small" style="margin-bottom:6px">🏛️ کلاس‌های جدید ساخته می‌شوند: <b>${esc(newCls.join('، '))}</b></div>` : ''}
+        ${fix.phones ? `<div class="small" style="margin-bottom:6px;color:#0f766e">☎️ صفرِ اولِ ${fa(fix.phones)} شمارهٔ همراه در فایل نبود (اکسل خودش حذف می‌کند) — خودکار به قالب ۱۱ رقمی «09…» برگردانده شد.</div>` : ''}
         ${ok.length ? rowsHtml(ok.slice(0, 40), 'green') : '<div class="small muted">ردیف سالمی نیست.</div>'}
         ${ok.length > 40 ? `<div class="small muted">۴۰ ردیف اول نمایش داده شد؛ همهٔ آن‌ها ثبت می‌شوند.</div>` : ''}
       </div>
@@ -1318,4 +1361,6 @@ window.impCustomLabels = impCustomLabels;
 window.impSaveCustomLabel = impSaveCustomLabel;
 window.impCustomKey = impCustomKey;
 window.impPickMobile = impPickMobile;
+window.impMobileFromPart = impMobileFromPart;
+window.impFixStats = impFixStats;
 window.impPickLandline = impPickLandline;

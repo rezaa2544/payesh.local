@@ -7,7 +7,6 @@
    ─────────────────────────────────────────────────────────────────── */
 const { nowISO, sha256, randomId, randomCode, pbkdf2Hash, verifySecret, normDigits } = require('./util');
 
-const PAIR_TTL_MIN = 7 * 24 * 60;      /* کد پیوند تا ۷ روز معتبر است */
 const DEVICE_DAYS = 365;          /* دستگاهِ مورد اعتماد یک سال می‌ماند */
 const SESSION_HOURS = 24;         /* نشست ۲۴ ساعت، ولی بی‌صدا تمدید می‌شود */
 
@@ -209,15 +208,43 @@ function changeOwnPassword(store, userId, currentPw, nextPw) {
   return setPassword(store, userId, nextPw);
 }
 
-/* ── کد پیوند ── */
-function createPairCode(store, userId, createdBy) {
+/* ── کد پیوند ────────────────────────────────────────────────────────
+   قاعدهٔ کار: کد تا وقتی کار می‌کند که خودِ مدیر «کد تازه» بزند.
+   یعنی نه یک‌بارمصرف است و نه با گذشت چند روز می‌سوزد؛ هر دستگاه
+   می‌تواند با همان کد وارد شود (گوشی دانش‌آموز، تبلت خانه، …) و
+   تنها راه باطل‌کردنش ساختن کد تازه در همان کارت است. */
+const PAIR_TTL_MIN = 10 * 365 * 24 * 60;   /* عملاً بدون انقضا */
+
+function pairRowOf(store, userId) {
+  return store.db.prepare(
+    'SELECT * FROM pair_codes WHERE user_id=? AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1'
+  ).get(Number(userId)) || null;
+}
+
+function createPairCode(store, userId, createdBy, opts = {}) {
   const user = store.get('users', userId);
   if (!user) return { ok: false, error: 'user_not_found' };
+  const refresh = !!opts.refresh;
+  const existing = pairRowOf(store, userId);
+  if (existing && !refresh && existing.code_plain) {
+    return {
+      ok: true, code: existing.code_plain, display: existing.code_plain.slice(0, 4) + '-' + existing.code_plain.slice(4),
+      expires_at: existing.expires_at, user: publicUser(user), reused: true, created_at: existing.created_at,
+    };
+  }
+  if (existing) {
+    /* کد تازه ⇒ کد قبلی همان لحظه باطل می‌شود */
+    store.db.prepare('UPDATE pair_codes SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL')
+      .run(nowISO(), Number(userId));
+  }
   const code = randomCode(8);
   const exp = new Date(Date.now() + PAIR_TTL_MIN * 60 * 1000).toISOString();
-  store.db.prepare('INSERT INTO pair_codes(code_hash,user_id,created_by,created_at,expires_at) VALUES(?,?,?,?,?)')
-    .run(sha256(code), Number(userId), createdBy || null, nowISO(), exp);
-  return { ok: true, code, display: code.slice(0, 4) + '-' + code.slice(4), expires_at: exp, user: publicUser(user) };
+  store.db.prepare('INSERT INTO pair_codes(code_hash,user_id,created_by,created_at,expires_at,code_plain) VALUES(?,?,?,?,?,?)')
+    .run(sha256(code), Number(userId), createdBy || null, nowISO(), exp, code);
+  return {
+    ok: true, code, display: code.slice(0, 4) + '-' + code.slice(4), expires_at: exp,
+    user: publicUser(user), reused: false, refreshed: !!existing,
+  };
 }
 
 function pair(store, input) {
@@ -225,13 +252,15 @@ function pair(store, input) {
   const code = String(input.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const row = store.db.prepare('SELECT * FROM pair_codes WHERE code_hash=?').get(sha256(code));
   if (!row) return { ok: false, error: 'bad_code' };
-  if (row.used_at) return { ok: false, error: 'code_used' };
+  if (row.revoked_at) return { ok: false, error: 'code_revoked' };
   if (Date.parse(row.expires_at) < Date.now()) return { ok: false, error: 'code_expired' };
   const user = store.get('users', row.user_id);
   if (!user || user.active === false) return { ok: false, error: 'user_inactive' };
 
   const dev = createDevice(store, user.id, { name: input.name || 'گوشی', platform: input.platform || 'web' });
-  store.db.prepare('UPDATE pair_codes SET used_at=? WHERE code_hash=?').run(nowISO(), sha256(code));
+  /* کد مصرف نمی‌شود؛ تا مدیر کد تازه نسازد، برای دستگاه‌های بعدی هم کار می‌کند */
+  store.db.prepare('UPDATE pair_codes SET used_at=? WHERE code_hash=? AND used_at IS NULL')
+    .run(nowISO(), sha256(code));
   store.audit({ user_id: user.id, role: user.role, device_id: dev.device_id, action: 'pair', collection: 'devices', record_id: null });
   return { ok: true, device_token: dev.device_token, session: dev.session, user: publicUser(user) };
 }

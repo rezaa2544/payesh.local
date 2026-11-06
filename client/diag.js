@@ -507,7 +507,15 @@ function diagMergeUsers(keepId, dropIds) {
 
 /* ── اکشن‌ها ────────────────────────────────────────────────────── */
 function diagAct(act, el, id) {
-  if (act === 'diag-rerun') { diagRun(); render(); return; }
+  if (act === 'diag-rerun') {
+    diagRun();
+    render();
+    const bad = (DIAG_LAST.rows || []).filter(r => !r.res.ok).length;
+    if (typeof toast === 'function') {
+      toast(bad ? ('بررسی دوباره تمام شد — ' + fa(bad) + ' مورد ایراد پیدا شد') : 'بررسی دوباره تمام شد — همه‌چیز سالم است ✅', bad ? 'err' : 'ok');
+    }
+    return;
+  }
   if (act === 'diag-fix') return diagFix(id);
   if (act === 'diag-open') {
     const c = DIAG_CHECKS.find(x => x.id === id);
