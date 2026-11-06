@@ -2543,6 +2543,128 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  await test('رشته هرگز پایه نمی‌شود: کلاس = پایه + رشته در متوسطهٔ دوم، پایه ثابت در کلاس‌محور', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/diag.js') + '\n;\n'
+      + strip('client/authz.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, list, impPlaceOf, impGradeLevel, byId };');
+    const T = win.__t;
+
+    /* پایه فقط ۱..۱۲ است */
+    assert.strictEqual(T.impGradeLevel('دهم'), 10);
+    assert.strictEqual(T.impGradeLevel('۱۲'), 12);
+    assert.strictEqual(T.impGradeLevel('الکترونیک'), 0, 'رشته پایه نیست');
+    assert.strictEqual(T.impGradeLevel(''), 0);
+
+    const ctx = { grades: ['اول', 'دوم', 'دهم', 'یازدهم', 'الکترونیک'], branches: ['الکترونیک', 'گرافیک'] };
+
+    /* موردِ عکس: ستون پایه «الکترونیک» و رشته هم «الکترونیک» → کلاس ساخته نمی‌شود */
+    const bad = T.impPlaceOf({ grade: 'الکترونیک', field: 'الکترونیک' }, ctx);
+    assert.strictEqual(bad.grade, '', 'رشته به‌عنوان پایه پذیرفته نشد');
+    assert.strictEqual(bad.name, '', 'کلاسی از رشته ساخته نشد');
+    assert.strictEqual(bad.bare, true, 'ردیف می‌رود به «نیازمند پیگیری»');
+
+    /* حالت درست متوسطهٔ دوم: دهم + الکترونیک */
+    const ok = T.impPlaceOf({ grade: 'دهم', field: 'الکترونیک' }, ctx);
+    assert.strictEqual(ok.name, 'دهم الکترونیک');
+    assert.strictEqual(ok.mode, 'field', 'دهم به بالا رشته‌محور است');
+    assert.strictEqual(ok.grade_level, 10);
+
+    /* متوسطهٔ اول: کلاس‌محور و بدون رشته */
+    const mid = T.impPlaceOf({ class_name: 'دوم ب' }, ctx);
+    assert.strictEqual(mid.grade, 'دوم');
+    assert.strictEqual(mid.mode, 'class', 'کلاس‌محور است');
+
+    /* فرم کلاس: پایهٔ نامعتبر و رشته در کلاس‌محور گرفته می‌شوند */
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'classes'; T.S.queue = []; T.S.online = false;
+    T.S.data = {
+      users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager' }]]),
+      classes: new Map(), subjects: new Map(),
+      lookups: new Map([[1, { id: 1, kind: 'grade', name: 'دهم' }], [2, { id: 2, kind: 'branch', name: 'الکترونیک' }]]),
+      parent_links: new Map(),
+    };
+    const mkForm = (vals) => {
+      const f = win.document.createElement('form');
+      f.setAttribute('data-form', 'class');
+      Object.keys(vals).forEach(k => {
+        const el = win.document.createElement(k === 'mode' ? 'select' : 'input');
+        el.name = k; el.value = vals[k] || '';
+        f.appendChild(el);
+      });
+      win.document.body.appendChild(f);
+      return f;
+    };
+    const submit = async (f) => {
+      f.dispatchEvent(new win.Event('submit', { bubbles: true, cancelable: true }));
+      await new Promise(r => setTimeout(r, 60));
+    };
+    const toasts = () => win.document.getElementById('toasts').textContent;
+
+    const f1 = mkForm({ grade: 'الکترونیک', branch: '' });
+    await submit(f1);
+    assert.strictEqual(T.S.data.classes.size, 0, 'کلاس با پایهٔ نامعتبر ساخته نشد');
+    assert.ok(/پایه نیست/.test(toasts()), 'پیام می‌گوید رشته پایه نیست: ' + toasts());
+    f1.remove();
+
+    const f2 = mkForm({ grade: 'دهم', branch: '', mode: 'field' });
+    await submit(f2);
+    assert.strictEqual(T.S.data.classes.size, 0, 'کلاس رشته‌محور بدون رشته ساخته نشد');
+    f2.remove();
+
+    const f3 = mkForm({ grade: 'دوم', branch: 'الکترونیک', mode: 'class' });
+    await submit(f3);
+    assert.strictEqual(T.S.data.classes.size, 0, 'کلاس‌محور با رشته ساخته نشد');
+    f3.remove();
+
+    const f4 = mkForm({ grade: 'دهم', branch: 'الکترونیک', mode: 'field', room: 'کلاس ۱۰۱', name: '' });
+    await submit(f4);
+    assert.strictEqual(T.S.data.classes.size, 1, 'کلاس درست ساخته شد');
+    const c = Array.from(T.S.data.classes.values())[0];
+    assert.strictEqual(c.name, 'دهم الکترونیک', 'نام = پایه + رشته');
+    assert.strictEqual(c.mode, 'field');
+    assert.strictEqual(Number(c.grade_level), 10);
+    assert.strictEqual(c.room, 'کلاس ۱۰۱', 'اتاق ذخیره شد');
+    dom.window.close();
+  });
+
+  await test('نوار بالای برنامه همیشه نسخه و چراغ وضعیت را نشان می‌دهد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/authz.js') + '\n;\n'
+      + strip('client/app.js') + '\n;window.__t = { S, updateBarHtml, CLIENT_VERSION };');
+    const T = win.__t;
+    T.S.user = { id: 3, name: 'دبیر', role: 'teacher' };
+    T.S.role = 'teacher'; T.S.route = 'home'; T.S.queue = [];
+    T.S.server = { version: T.CLIENT_VERSION };
+
+    const green = T.updateBarHtml();
+    assert.ok(/update-bar/.test(green), 'نوار همیشگی هست');
+    assert.ok(green.includes('v' + T.CLIENT_VERSION), 'نسخه نوشته شده: ' + T.CLIENT_VERSION);
+    assert.ok(/16a34a/.test(green), 'چراغ سبز وقتی به‌روز است');
+    assert.ok(/به‌روز/.test(green));
+
+    T.S.remote = { available: true, remote_version: '9.9.9' };
+    const amber = T.updateBarHtml();
+    assert.ok(/f59e0b/.test(amber), 'چراغ کهربایی وقتی نسخهٔ تازه هست');
+    assert.ok(amber.includes('9.9.9'));
+
+    T.S.role = 'manager';
+    assert.ok(/data-act="update-now"/.test(T.updateBarHtml()), 'مدیر دکمهٔ دانلود و نصب را می‌بیند');
+
+    T.S.upd = { status: 'ready', latest: '9.9.9', percent: 100 };
+    const ready = T.updateBarHtml();
+    assert.ok(/update-install|آمادهٔ نصب/.test(ready), 'در حالت آمادهٔ نصب، دکمهٔ نصب می‌آید');
+    dom.window.close();
+  });
+
   /* — کلاس‌هایی که قدیمی‌ترها از رشته ساخته بودند: اصلاح و ادغام ─────── */
   await test('کلاس‌های بی‌پایه (ساخته‌شده از رشته) در صفحهٔ کلاس‌ها اصلاح و ادغام می‌شوند', async () => {
     const { JSDOM } = require('jsdom');

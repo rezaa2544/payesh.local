@@ -238,6 +238,7 @@ function schedPage() {
             return `<div class="tt-cell" ${canEdit ? `role="button" tabindex="0" data-act="sched-slot" data-day="${d}" data-period="${p}" data-id="${r.id}"` : ''}>
               <b>${esc(schedSubjectName(r.subject_id))}</b>
               <span class="small muted">${esc(showTeacher ? schedTeacherName(r.teacher_id) : schedName('classes', r.class_id))}</span>
+              ${r.room ? `<span class="small" style="color:#6b7280">🏫 ${esc(r.room)}</span>` : ''}
               ${sub ? `<span class="badge amber" style="margin-top:3px">🔁 ${esc(schedTeacherName(sub.sub_teacher_id))}</span>` : ''}
             </div>`;
           }
@@ -318,6 +319,9 @@ function schedSlotModal(s) {
     </div>
     <label class="field"><span>درس</span>${sel('subject', [['', '— انتخاب درس —']].concat(subs.map(x => [x.id, x.name])), s.subject_id)}</label>
     <label class="field"><span>دبیر</span>${sel('teacher', [['', '— بدون دبیر —']].concat(teachers.map(t => [t.id, t.name])), s.teacher_id)}</label>
+    <label class="field"><span>محل برگزاری این زنگ (اختیاری)</span>
+      <input class="input" name="room" value="${esc(s.room || '')}" placeholder="کلاس ۱۰۱ یا کارگاه الکترونیک">
+      <span class="small muted">در دورهٔ متوسطهٔ دوم، پایه و رشته ثابت است و محل هر زنگ عوض می‌شود.</span></label>
     <div class="small muted" style="margin-top:8px;line-height:2">🟢 آزاد · 🔴 مشغول در همان ساعت — دبیرِ مشغول ثبت نمی‌شود.</div>
     <button class="btn primary block" style="margin-top:10px">ذخیره</button>
     ${editing ? '<button type="button" class="btn danger block" style="margin-top:8px" data-act="slot-del" data-id="' + esc(s.id) + '">حذف این زنگ</button>' : ''}
@@ -620,7 +624,8 @@ function schedSlotSave(f) {
       return toast('تداخل ساعت: این دبیر ' + SCHED_DAY_FA[day] + ' زنگ ' + fa(period) + ' در کلاس «' + schedName('classes', busy.class_id) + '» است', 'err');
     }
   }
-  const row = { class_id: classId, subject_id: subjectId, teacher_id: teacherId, weekday: day, bell_order: period, school_id: 1 };
+  const room = String((f.room && f.room.value) || '').trim();
+  const row = { class_id: classId, subject_id: subjectId, teacher_id: teacherId, weekday: day, bell_order: period, room, school_id: 1 };
   if (id) putLocal('schedule', Object.assign({}, byId('schedule', id) || {}, row, { id }));
   else putLocal('schedule', row);
   closeModal(); saveCache(); render();

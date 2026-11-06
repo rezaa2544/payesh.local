@@ -204,12 +204,25 @@ function impLev(a, b) {
 }
 
 /** پایه را از هر متنی بشناس (واژه، عدد ۱۰/۱۱/۱۲، یا تعریف‌های مدیر) */
+/* پایه فقط یک عدد ۱..۱۲ است. «الکترونیک» یا «ریاضی» هرگز پایه نیست —
+   این تابع جلوی همان اشتباهی را می‌گیرد که رشته را به‌جای پایه ثبت می‌کرد. */
+function impGradeLevel(txt) {
+  const t = impNorm(txt).replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  if (!t) return 0;
+  const fa = { 'اول': 1, 'دوم': 2, 'سوم': 3, 'چهارم': 4, 'پنجم': 5, 'ششم': 6, 'هفتم': 7, 'هشتم': 8, 'نهم': 9, 'دهم': 10, 'یازدهم': 11, 'دوازدهم': 12 };
+  for (const w of Object.keys(fa)) if (t === w || t.indexOf(w) > -1) return fa[w];
+  const m = t.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
+  if (m && Number(m[1]) >= 1 && Number(m[1]) <= 12) return Number(m[1]);
+  return 0;
+}
 function impGradeCanon(txt, known) {
   const t = impNorm(txt);
   if (!t) return '';
-  /* «یازدهم» شامل «دهم» است؛ اول بلندترین‌ها بررسی می‌شوند */
+  /* «یازدهم» شامل «دهم» است؛ اول بلندترین‌ها بررسی می‌شوند.
+     از فهرست تعریف‌ها فقط نام‌هایی که واقعاً پایه‌اند پذیرفته می‌شوند. */
   const cands = [];
-  for (const g of (known || [])) cands.push({ src: g, key: impNorm(g) });
+  for (const g of (known || [])) if (impGradeLevel(g)) cands.push({ src: g, key: impNorm(g) });
   for (const g of IMP_GRADE_WORDS) cands.push({ src: impNorm(g) === 'پیش دانشگاهی' ? 'پیش‌دانشگاهی' : g, key: impNorm(g) });
   cands.sort((a, b) => b.key.length - a.key.length);
   const tokens = t.split(' ');
@@ -284,9 +297,14 @@ function impPlaceOf(o, ctx) {
   if (!bc.name && cname) bc = impBranchCanon(impStripGrade(cname, grade), branches);
 
   const branch = bc.name || '';
+  /* اگر «پایه» با «رشته» یکی شد، یعنی فایل رشته را در ستون پایه گذاشته —
+     پایه بی‌اعتبار است و کلاس ساخته نمی‌شود (می‌رود به «نیازمند پیگیری»). */
+  if (grade && branch && impNorm(grade) === impNorm(branch)) grade = '';
   const name = grade ? (grade + (branch ? ' ' + branch : '')).trim() : '';
   return {
     grade, branch, name,
+    mode: impGradeLevel(grade) >= 10 ? 'field' : 'class',
+    grade_level: impGradeLevel(grade),
     matched: !!bc.matched,
     near: bc.near || '',
     bare: !grade && !!branch,
@@ -923,7 +941,13 @@ async function importApplyLocal(rows, kind) {
         if (!cls) {
           impEnsureLookup('grade', r.new_grade);
           if (r.new_branch) impEnsureLookup('branch', r.new_branch);
-          cls = putLocal('classes', { name: r.new_class, grade: r.new_grade || '', branch: r.new_branch || '', capacity: 30, school_id: 1 });
+          const mode = impGradeLevel(r.new_grade) >= 10 ? 'field' : 'class';
+          cls = putLocal('classes', {
+            name: r.new_class, grade: r.new_grade || '',
+            branch: mode === 'field' ? (r.new_branch || '') : '',
+            mode, grade_level: impGradeLevel(r.new_grade), room: '',
+            capacity: 30, school_id: 1,
+          });
           classMap.set(key, cls);
           classes += 1;
         }

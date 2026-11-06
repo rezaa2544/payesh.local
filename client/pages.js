@@ -48,6 +48,38 @@ function navConfig(role) {
   return base;
 }
 
+/* نوار همیشگیِ بالای برنامه: نسخه + چراغ وضعیت (سبز = به‌روز، کهربایی = نسخهٔ تازه،
+   آبی = در حال دانلود) — همان چیزی که در نسخهٔ کامل بالای صفحه دیده می‌شود. */
+function updateBarHtml() {
+  const cur = (S.server && S.server.version) || (typeof CLIENT_VERSION !== 'undefined' ? CLIENT_VERSION : '');
+  const st = S.upd || {};
+  const busy = st.status === 'downloading' || st.status === 'installing';
+  const ready = st.status === 'ready';
+  const avail = !!(S.remote && S.remote.available);
+  const latest = st.latest || (S.remote && (S.remote.remote_version || S.remote.version)) || '';
+  const dot = busy ? '#2563eb' : (ready || avail) ? '#f59e0b' : '#16a34a';
+  const text = busy ? ('در حال دانلود ' + fa(st.percent || 0) + '٪')
+    : ready ? ('نسخهٔ ' + esc(latest) + ' آمادهٔ نصب است')
+    : avail ? ('نسخهٔ تازهٔ ' + esc(latest) + ' موجود است')
+    : 'برنامه به‌روز است';
+  const isManager = S.role === 'manager';
+  const bundled = typeof BUNDLED !== 'undefined' && BUNDLED;
+  if (busy || ready) {
+    const body = updateBarBody();
+    if (body) return body;
+  }
+  return `<div class="updbar" id="update-bar" dir="rtl">
+    <span class="upd-dot" style="background:${dot}" title="${esc(text)}"></span>
+    <span class="small"><b class="ltr">v${esc(cur)}</b> — ${text}</span>
+    ${isManager && !bundled && (avail || ready)
+      ? `<button class="btn xs primary" data-act="${ready ? 'update-install' : 'update-now'}">${ready ? 'نصب و راه‌اندازی دوباره' : 'دانلود و نصب'}</button>`
+      : ''}
+    ${isManager && !bundled && !avail && !ready && !busy
+      ? `<button class="btn xs ghost" data-act="update-recheck">بررسی آپدیت</button>`
+      : ''}
+  </div>`;
+}
+
 function shellHtml(view) {
   const role = S.role || 'student';
   const nav = navConfig(role);
@@ -105,7 +137,7 @@ function canonicalBarHtml() {
       بخش‌های تغییرکرده را روی خود سیستم می‌نشاند.
    ۲) وگرنه اگر فایل‌های همین دستگاه با سرور فرق دارند (S.update) — دلتای
       مرورگر اعمال می‌شود. */
-function updateBarHtml() {
+function updateBarBody() {
   /* در نسخهٔ بسته‌بندی‌شده (APK) فایل‌ها داخل خود برنامه‌اند؛ آپدیت با نصب APK تازه است */
   if (typeof BUNDLED !== 'undefined' && BUNDLED) return '';
   const r = S.remote;
@@ -123,7 +155,7 @@ function updateBarHtml() {
       <span class="small" style="font-weight:700">${fa(pct)}٪</span>
     </div>`;
   }
-  if (st && st.status === 'ready' && st.hasUpdate) {
+  if (st && st.status === 'ready') {
     return `<div class="banner info" id="update-bar">
       <div>✅ نسخهٔ <b>${esc(st.latest)}</b> دانلود شد و آمادهٔ نصب است${st.mode === 'patch' && st.savedMb ? ` — ${fa(st.savedMb)} مگابایت کم‌تر از نصب کامل` : ''}</div>
       <button class="btn sm primary" data-act="update-install">نصب و راه‌اندازی دوباره</button>
@@ -888,7 +920,10 @@ PAGES.classes = () => {
   const gradeNames = lookupList('grade').map(l => String(l.name));
   const hasGrade = c => {
     const g = String(c.grade || '').trim();
-    return !!g && (!gradeNames.length || gradeNames.indexOf(g) > -1);
+    if (!g) return false;
+    /* پایهٔ واقعی = یکی از اول…دوازدهم؛ «الکترونیک» هرچند در تعریف‌ها باشد پایه نیست */
+    if (typeof impGradeLevel === 'function' && !impGradeLevel(g)) return false;
+    return !gradeNames.length || gradeNames.indexOf(g) > -1;
   };
   const brokenClasses = classes.filter(c => !hasGrade(c));
   const mergeTargets = classes.filter(hasGrade);
@@ -1744,14 +1779,30 @@ function classFormHtml(c) {
     const extra = val && !known ? `<option value="${esc(val)}" selected>${esc(val)} (تعریف نشده)</option>` : '';
     return `<select class="input" name="${kind}">${extra}${opts(listArr, val)}</select>`;
   };
+  const lvlOf = t => (typeof impGradeLevel === 'function' ? impGradeLevel(t) : 0);
+  const gl = editing ? (Number(c.grade_level) || lvlOf(c.grade || c.name) || 0) : 0;
+  const mode = editing ? (c.mode || (gl >= 10 ? 'field' : 'class')) : '';
   return `<form data-form="class">
     ${editing ? `<input type="hidden" name="id" value="${esc(c.id)}">` : ''}
+    <label class="field"><span>نوع چیدمان</span>
+      <select class="input" name="mode">
+        <option value="" ${mode ? '' : 'selected'}>— خودکار از روی پایه —</option>
+        <option value="class" ${mode === 'class' ? 'selected' : ''}>کلاس‌محور (ابتدایی و متوسطه اول)</option>
+        <option value="field" ${mode === 'field' ? 'selected' : ''}>رشته‌محور (متوسطه دوم)</option>
+      </select></label>
+    <div class="small muted" style="margin:-4px 0 8px;line-height:2">
+      کلاس‌محور: یک کلاس ثابت مثل «دوم ب» که تا آخر سال عوض نمی‌شود.<br>
+      رشته‌محور: پایه + رشته ثابت است (مثل «دهم الکترونیک») و محل برگزاری هر زنگ در برنامهٔ هفتگی نوشته می‌شود.
+    </div>
     <label class="field"><span>نام کلاس</span>
       <input class="input" name="name" value="${esc(editing ? c.name : '')}" placeholder="خالی بگذارید تا از پایه و رشته ساخته شود"></label>
     <div class="row">
       <label class="field grow"><span>پایه (الزامی)</span>${pick('grade', grades, editing ? c.grade : '')}</label>
-      <label class="field grow"><span>رشته</span>${pick('branch', branches, editing ? c.branch : '')}</label>
+      <label class="field grow"><span>رشته (فقط رشته‌محور)</span>${pick('branch', branches, editing ? c.branch : '')}</label>
     </div>
+    <label class="field"><span>اتاق / کارگاه این کلاس (اختیاری)</span>
+      <input class="input" name="room" value="${esc(editing ? (c.room || '') : '')}" placeholder="مثلاً کلاس ۱۰۱">
+      <span class="small muted">در برنامهٔ هفتگی، هر زنگ می‌تواند محل خودش را داشته باشد (کلاس ۱۰۱ یا کارگاه).</span></label>
     <label class="field"><span>ظرفیت</span>
       <input class="input ltr" name="capacity" inputmode="numeric" value="${esc(editing ? (c.capacity || 30) : 30)}"></label>
     <label class="field"><span>دبیر پایه (سرپرست) — اختیاری</span>

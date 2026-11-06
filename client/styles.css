@@ -173,3 +173,9 @@ tr:last-child td{border-bottom:0}
   .card{box-shadow:none;border:1px solid #ddd;break-inside:avoid}
   table{font-size:11pt}
 }
+
+/* نوار نسخه و چراغ به‌روزرسانی (بالای برنامه) */
+.updbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border-radius:10px;
+  background:#f8fafc;border:1px solid #e5e7eb;margin:0 0 10px;font-size:.82rem}
+.updbar .upd-dot{width:10px;height:10px;border-radius:999px;flex:0 0 auto;box-shadow:0 0 0 3px rgba(22,163,74,.12)}
+.updbar .btn.xs{padding:3px 9px;font-size:.75rem;border-radius:8px}

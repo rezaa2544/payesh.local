@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.20';
+const CLIENT_VERSION = '0.8.21';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -2429,15 +2429,31 @@ document.addEventListener('submit', async (e) => {
 
   if (kind === 'class') {
     const grade = String((f.grade && f.grade.value) || '').trim();
-    const branch = String((f.branch && f.branch.value) || '').trim();
+    let branch = String((f.branch && f.branch.value) || '').trim();
     if (!grade) return toast('پایه را انتخاب کنید — هر کلاس یک پایه دارد', 'err');
-    /* نام کلاس همیشه «پایه + رشته» است؛ اگر خالی بماند خودمان می‌سازیم */
+    /* پایه همیشه یکی از اول…دوازدهم است؛ رشته جای پایه نمی‌نشیند */
+    const level = impGradeLevel(grade);
+    if (!level) {
+      return toast('«' + grade + '» پایه نیست — پایه یکی از اول تا دوازدهم است. رشته را در کادر رشته بنویسید.', 'err');
+    }
+    if (branch && userNameKey(grade) === userNameKey(branch)) {
+      return toast('پایه و رشته یکی شده‌اند — رشته («' + branch + '») را در کادر پایه نوشته‌اید؛ پایه را اصلاح کنید', 'err');
+    }
+    const modeRaw = String((f.mode && f.mode.value) || '').trim();
+    const mode = modeRaw || (level >= 10 ? 'field' : 'class');
+    if (mode === 'field' && !branch) return toast('کلاس رشته‌محور باید رشته داشته باشد (مثل «دهم الکترونیک»)', 'err');
+    if (mode === 'class' && branch) {
+      return toast('کلاس کلاس‌محور رشته ندارد — یا نوع چیدمان را «رشته‌محور» کنید یا رشته را خالی بگذارید', 'err');
+    }
+    if (mode === 'class') branch = '';
+    const room = String((f.room && f.room.value) || '').trim();
+    /* نام کلاس: کلاس‌محور = پایه + نام ویژه؛ رشته‌محور = پایه + رشته */
     const name = String(f.name.value || '').trim() || (grade + (branch ? ' ' + branch : '')).trim();
     const id = f.id ? Number(f.id.value) : 0;
     const dup = list('classes').find(c => String(c.name).trim() === name && Number(c.id) !== id);
     if (dup) return toast('کلاسی با همین نام هست: «' + dup.name + '»', 'err');
     const row = {
-      name, grade, branch,
+      name, grade, branch, mode, grade_level: level, room,
       capacity: Number((f.capacity && f.capacity.value) || 30),
       teacher_id: Number((f.teacher_id && f.teacher_id.value) || 0) || null,
       school_id: 1,
