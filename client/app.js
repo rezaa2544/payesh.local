@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.18';
+const CLIENT_VERSION = '0.8.19';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -993,7 +993,7 @@ function focusSnapshot() {
   if (!el || !el.tagName) return null;
   const tag = el.tagName.toLowerCase();
   if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') return null;
-  const key = el.getAttribute('name') || el.getAttribute('data-focus-key') || el.id || '';
+  const key = el.getAttribute('data-focus-key') || el.getAttribute('name') || el.id || '';
   if (!key) return null;
   const form = el.form && el.form.getAttribute ? (el.form.getAttribute('data-form') || '') : '';
   let start = null, end = null;
@@ -1008,10 +1008,15 @@ function focusRestore(snap) {
   if (scope && scope.elements) {
     el = scope.elements[snap.key] || null;
   }
-  if (!el && document.querySelector) {
+  if (!el && document.getElementById) el = document.getElementById(snap.key);
+  if (!el && document.querySelectorAll) {
+    /* کادرهایی که «name» ندارند (مثل کادر جستجو که فقط id/data-focus-key
+       دارد) هم پیدا می‌شوند؛ وگرنه بعد از هر بازسازی، فوکوس و صفحه‌کلید
+       می‌پرید و کاربر باید دوباره روی کادر می‌زد. */
     const all = document.querySelectorAll('input, textarea, select');
     for (const cand of all) {
-      if (cand.getAttribute('name') === snap.key) { el = cand; break; }
+      const k = cand.getAttribute('name') || cand.getAttribute('data-focus-key') || cand.id || '';
+      if (k === snap.key) { el = cand; break; }
     }
   }
   if (!el || typeof el.focus !== 'function') return;
@@ -1884,11 +1889,72 @@ document.addEventListener('click', async (e) => {
         ? 'کلاس «' + c.name + '» حذف شود؟ ' + fa(kids.length) + ' دانش‌آموز بدون کلاس می‌شوند (خودشان حذف نمی‌شوند).'
         : 'کلاس «' + c.name + '» حذف شود؟';
       if (!confirm(msg)) return;
-      for (const u of kids) putLocal('users', Object.assign({}, u, { class_id: null }));
+      for (const u of kids) putLocal('users', Object.assign({}, u, {
+        class_id: null, followup_reason: 'کلاس «' + c.name + '» حذف شد — کلاس تازه انتخاب کنید', followup_ack: false,
+      }));
       removeLocal('classes', c.id);
       closeModal(); saveCache(); render();
       await flushQueue();
       toast('کلاس حذف شد', 'ok');
+      return;
+    }
+    case 'class-merge': {
+      /* کلاسِ بی‌پایه (که از رشته ساخته شده) را در کلاس درست ادغام می‌کند:
+         دانش‌آموزان، نمرات، حضور و برنامهٔ آن منتقل می‌شوند. */
+      const src = byId('classes', Number(id));
+      if (!src) return;
+      const sel = document.getElementById('merge-into-' + id);
+      const dst = byId('classes', Number(sel && sel.value));
+      if (!dst || Number(dst.id) === Number(src.id)) return toast('کلاس مقصد را انتخاب کنید', 'err');
+      if (!confirm('کلاس «' + src.name + '» در «' + dst.name + '» ادغام شود؟ دانش‌آموزان و برنامه‌اش به کلاس مقصد منتقل می‌شوند.')) return;
+      let moved = 0;
+      for (const u of list('users').filter(x => Number(x.class_id) === Number(src.id))) {
+        const patch = Object.assign({}, u, { class_id: dst.id });
+        delete patch.followup_reason;
+        patch.followup_ack = false;
+        putLocal('users', patch);
+        moved += 1;
+      }
+      for (const sg of list('schedule').filter(x => Number(x.class_id) === Number(src.id))) {
+        const dup = list('schedule').find(x => Number(x.class_id) === Number(dst.id)
+          && Number(x.weekday) === Number(sg.weekday) && Number(x.bell_order) === Number(sg.bell_order));
+        if (dup) {
+          for (const sb of (S.data.substitutions ? list('substitutions').filter(x => Number(x.schedule_id) === Number(sg.id)) : [])) removeLocal('substitutions', sb.id);
+          removeLocal('schedule', sg.id);
+        } else putLocal('schedule', Object.assign({}, sg, { class_id: dst.id }));
+      }
+      for (const g of list('grades').filter(x => Number(x.class_id) === Number(src.id))) putLocal('grades', Object.assign({}, g, { class_id: dst.id }));
+      for (const a of list('attendance').filter(x => Number(x.class_id) === Number(src.id))) putLocal('attendance', Object.assign({}, a, { class_id: dst.id }));
+      removeLocal('classes', src.id);
+      saveCache(); render();
+      await flushQueue();
+      toast('کلاس ادغام شد' + (moved ? ' · ' + fa(moved) + ' دانش‌آموز منتقل شد' : ''), 'ok');
+      return;
+    }
+    case 'followup-assign': {
+      /* دانش‌آموز بی‌کلاس: کلاس درست را انتخاب و ثبت می‌کنیم */
+      const u = byId('users', Number(id));
+      if (!u) return;
+      const sel = document.getElementById('fu-class-' + id);
+      const cls = byId('classes', Number(sel && sel.value));
+      if (!cls) return toast('اول کلاس را انتخاب کنید', 'err');
+      const patch = Object.assign({}, u, { class_id: cls.id });
+      delete patch.followup_reason;
+      patch.followup_ack = false;
+      putLocal('users', patch);
+      saveCache(); render();
+      await flushQueue();
+      toast('در کلاس «' + cls.name + '» گذاشته شد', 'ok');
+      return;
+    }
+    case 'followup-ack': {
+      /* مدیر می‌گوید همین‌طور بماند؛ دیگر در فهرست پیگیری نمی‌آید */
+      const u = byId('users', Number(id));
+      if (!u) return;
+      putLocal('users', Object.assign({}, u, { followup_ack: true }));
+      saveCache(); render();
+      await flushQueue();
+      toast('از فهرست پیگیری برداشته شد', 'ok');
       return;
     }
     case 'def-add': actDefAdd(el.getAttribute('data-kind'), el.getAttribute('data-name')); return;
@@ -1896,7 +1962,8 @@ document.addEventListener('click', async (e) => {
     case 'def-delete': {
       const r = byId('lookups', Number(id));
       if (!r) return;
-      /* هنگام حذف می‌پرسیم: فقط خودش، یا هر چیزی که به آن وابسته است */
+      /* هنگام حذف می‌پرسیم: فقط خودش، یا کلاس‌هایش هم بروند، و تکلیف
+         دانش‌آموزانِ آن کلاس‌ها چه شود. */
       const linked = list('classes').filter(c => String(r.kind === 'grade' ? c.grade : c.branch || '') === String(r.name));
       const label = LOOKUP_FA[r.kind] || 'مورد';
       if (!linked.length) {
@@ -1907,16 +1974,26 @@ document.addEventListener('click', async (e) => {
         toast('حذف شد', 'ok');
         return;
       }
+      const ids = new Set(linked.map(c => Number(c.id)));
+      const students = list('users').filter(u => u.role === 'student' && ids.has(Number(u.class_id)));
+      const nStu = students.length;
       S.modalTitle = 'حذف ' + label + ' — ' + r.name;
       modal(`<div class="small">این ${label} در <b>${fa(linked.length)} کلاس</b> استفاده شده است:
           ${esc(linked.map(c => c.name).slice(0, 8).join('، '))}${linked.length > 8 ? ' …' : ''}
         </div>
-        <div class="small muted" style="margin-top:8px">چه کاری انجام شود؟</div>
-        <button class="btn block" data-act="def-delete-only" data-id="${r.id}" style="margin-top:10px">فقط ${label} حذف شود (کلاس‌ها بمانند)</button>
-        <button class="btn block" data-act="def-delete-cascade" data-id="${r.id}" style="margin-top:8px;background:#b91c1c;color:#fff">
-          ${label} و ${fa(linked.length)} کلاسِ آن حذف شوند</button>
+        ${nStu ? `<div class="small" style="margin-top:8px;color:#b45309">در این کلاس‌ها <b>${fa(nStu)} دانش‌آموز</b> هست. تکلیفشان چه شود؟</div>` : ''}
+        <div class="small muted" style="margin-top:8px">یک گزینه را انتخاب کنید:</div>
+        <button class="btn block" id="del-keep-students" data-act="def-delete-cascade" data-id="${r.id}" style="margin-top:10px">
+          ${label} و ${fa(linked.length)} کلاسش حذف شوند — دانش‌آموزان بمانند و به «نیازمند پیگیری» بروند
+        </button>
+        ${nStu ? `<button class="btn block" id="del-drop-students" data-act="def-delete-students" data-id="${r.id}" style="margin-top:8px;background:#b91c1c;color:#fff">
+          ${label}، ${fa(linked.length)} کلاس و ${fa(nStu)} دانش‌آموزش هم حذف شوند
+        </button>` : ''}
+        <button class="btn block ghost" data-act="def-delete-only" data-id="${r.id}" style="margin-top:8px">
+          فقط ${label} از فهرست حذف شود (کلاس‌ها بمانند)
+        </button>
         <button class="btn block ghost" data-act="modal-close" style="margin-top:8px">انصراف</button>
-        <div class="small muted" style="margin-top:8px">با حذف کلاس‌ها، دانش‌آموزان حذف نمی‌شوند؛ فقط بی‌کلاس می‌شوند و زنگ‌های برنامهٔ آن کلاس‌ها پاک می‌شود.</div>`);
+        <div class="small muted" style="margin-top:8px">دانش‌آموزانی که می‌مانند حذف نمی‌شوند؛ بی‌کلاس می‌شوند و در صفحهٔ «پیگیری» با دلیل مشخص می‌آیند تا کلاس تازه برایشان انتخاب کنید.</div>`);
       return;
     }
     case 'def-delete-only': {
@@ -1932,21 +2009,51 @@ document.addEventListener('click', async (e) => {
       const r = byId('lookups', Number(id));
       if (!r) return;
       const linked = list('classes').filter(c => String(r.kind === 'grade' ? c.grade : c.branch || '') === String(r.name));
-      let removedClasses = 0;
+      const reason = (r.kind === 'grade' ? 'پایهٔ «' : 'رشتهٔ «') + r.name + '» حذف شد — کلاس تازه انتخاب کنید';
+      let removedClasses = 0, kept = 0;
       for (const c of linked) {
         for (const sg of list('schedule').filter(x => Number(x.class_id) === Number(c.id))) {
           /* جابه‌جای‌های موقت همان زنگ هم پاک می‌شوند */
           for (const sb of (S.data.substitutions ? list('substitutions').filter(x => Number(x.schedule_id) === Number(sg.id)) : [])) removeLocal('substitutions', sb.id);
           removeLocal('schedule', sg.id);
         }
-        for (const u of list('users').filter(u2 => Number(u2.class_id) === Number(c.id))) putLocal('users', Object.assign({}, u, { class_id: null }));
+        for (const u of list('users').filter(u2 => Number(u2.class_id) === Number(c.id))) {
+          putLocal('users', Object.assign({}, u, { class_id: null, followup_reason: reason, followup_ack: false }));
+          kept += 1;
+        }
         removeLocal('classes', c.id);
         removedClasses += 1;
       }
       removeLocal('lookups', r.id);
       closeModal(); saveCache(); render();
       await flushQueue();
-      toast((LOOKUP_FA[r.kind] || 'مورد') + ' و ' + fa(removedClasses) + ' کلاس حذف شد', 'ok');
+      toast((LOOKUP_FA[r.kind] || 'مورد') + ' و ' + fa(removedClasses) + ' کلاس حذف شد'
+        + (kept ? ' · ' + fa(kept) + ' دانش‌آموز به «نیازمند پیگیری» رفت' : ''), 'ok');
+      return;
+    }
+    case 'def-delete-students': {
+      const r = byId('lookups', Number(id));
+      if (!r) return;
+      const linked = list('classes').filter(c => String(r.kind === 'grade' ? c.grade : c.branch || '') === String(r.name));
+      const ids = new Set(linked.map(c => Number(c.id)));
+      const students = list('users').filter(u => u.role === 'student' && ids.has(Number(u.class_id)));
+      if (!confirm('«' + r.name + '» با ' + fa(linked.length) + ' کلاس و ' + fa(students.length) + ' دانش‌آموزش حذف شود؟ این کار برگشت‌پذیر نیست.')) return;
+      let removedStudents = 0;
+      for (const u of students) {
+        for (const g of list('grades').filter(x => Number(x.student_id) === Number(u.id))) removeLocal('grades', g.id);
+        for (const a of list('attendance').filter(x => Number(x.student_id) === Number(u.id))) removeLocal('attendance', a.id);
+        for (const l of list('parent_links').filter(x => Number(x.student_id) === Number(u.id))) removeLocal('parent_links', l.id);
+        removeLocal('users', u.id);
+        removedStudents += 1;
+      }
+      for (const c of linked) {
+        for (const sg of list('schedule').filter(x => Number(x.class_id) === Number(c.id))) removeLocal('schedule', sg.id);
+        removeLocal('classes', c.id);
+      }
+      removeLocal('lookups', r.id);
+      closeModal(); saveCache(); render();
+      await flushQueue();
+      toast(fa(removedStudents) + ' دانش‌آموز و ' + fa(linked.length) + ' کلاس حذف شد', 'ok');
       return;
     }
     case 'subject-add': actSubjectAdd(); return;
@@ -2080,20 +2187,31 @@ document.addEventListener('submit', async (e) => {
   if (kind === 'transfer') return doTransfer(f);
 
   if (kind === 'class') {
-    const name = String(f.name.value || '').trim();
-    if (!name) return toast('نام کلاس را بنویسید', 'err');
+    const grade = String((f.grade && f.grade.value) || '').trim();
+    const branch = String((f.branch && f.branch.value) || '').trim();
+    if (!grade) return toast('پایه را انتخاب کنید — هر کلاس یک پایه دارد', 'err');
+    /* نام کلاس همیشه «پایه + رشته» است؛ اگر خالی بماند خودمان می‌سازیم */
+    const name = String(f.name.value || '').trim() || (grade + (branch ? ' ' + branch : '')).trim();
+    const id = f.id ? Number(f.id.value) : 0;
+    const dup = list('classes').find(c => String(c.name).trim() === name && Number(c.id) !== id);
+    if (dup) return toast('کلاسی با همین نام هست: «' + dup.name + '»', 'err');
     const row = {
-      name,
-      grade: f.grade ? f.grade.value : '',
-      branch: f.branch ? f.branch.value : '',
+      name, grade, branch,
       capacity: Number((f.capacity && f.capacity.value) || 30),
       teacher_id: Number((f.teacher_id && f.teacher_id.value) || 0) || null,
       school_id: 1,
     };
-    const id = f.id ? Number(f.id.value) : 0;
     if (id) {
       const cur = byId('classes', id) || {};
       putLocal('classes', Object.assign({}, cur, row, { id }));
+      /* کلاس درست شد ⇒ دانش‌آموزانش از «نیازمند پیگیری» بیرون می‌آیند */
+      for (const u of list('users').filter(x => Number(x.class_id) === id)) {
+        if (!u.followup_reason && !u.followup_ack) continue;
+        const patch = Object.assign({}, u);
+        delete patch.followup_reason;
+        patch.followup_ack = false;
+        putLocal('users', patch);
+      }
     } else {
       putLocal('classes', row);
     }

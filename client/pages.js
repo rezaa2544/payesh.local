@@ -29,7 +29,7 @@ function isPhoneMode() { return typeof PHONE_MODE !== 'undefined' && PHONE_MODE;
 function navConfig(role) {
   const base = [];
   if (role === 'manager') {
-    base.push(['home', '🏠', 'داشبورد'], ['users', '👥', 'کاربران'], ['classes', '🏛️', 'کلاس‌ها'],
+    base.push(['home', '🏠', 'داشبورد'], ['users', '👥', 'کاربران'], ['followup', '⚠️', 'پیگیری'], ['classes', '🏛️', 'کلاس‌ها'],
       ['schedule', '🗓️', 'برنامه'], ['attendance-report', '✅', 'حضور'], ['reports', '📑', 'گزارش‌ها'],
       ['announcements', '📢', 'اطلاعیه‌ها'], ['network', '🌐', 'شبکه'],
       ['cloud', '☁️', 'حافظهٔ ابری'], ['system', '⚙️', 'سیستم']);
@@ -235,9 +235,12 @@ function renderPair() {
       <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="password">ورود با شمارهٔ همراه و رمز عبور</a></p>`
     : `
       <label class="field"><span>شمارهٔ همراه (یا کد ملی)</span>
-        <input class="input ltr" name="phone" inputmode="numeric" data-digits autocomplete="username" maxlength="11" placeholder="09xxxxxxxxx" autofocus></label>
+        <input class="input ltr" name="phone" inputmode="numeric" data-digits data-focus-key="phone"
+          autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+          maxlength="11" placeholder="09xxxxxxxxx" autofocus></label>
       <label class="field"><span>رمز عبور</span>
-        <input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="••••••"></label>
+        <input class="input ltr" type="password" name="password" data-focus-key="password"
+          autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="••••••"></label>
       <button class="btn primary block" type="submit">ورود</button>
       <p class="small muted center" style="margin-top:10px">نام کاربری شما شمارهٔ همراهتان است و رمز، کد ملی؛ اگر شمارهٔ همراه ندارید، با کد ملی وارد شوید.</p>
       <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="pair">ورود با کارت پیوند (بدون رمز)</a></p>`;
@@ -247,7 +250,7 @@ function renderPair() {
     <div class="logo">پ</div>
     <h1>ورود به پایش</h1>
     <div class="sub">${S.server.school ? esc(S.server.school) : 'سامانهٔ مدرسه'}</div>
-    <form data-form="${mode === 'pair' ? 'pair' : 'login'}" class="card">${body}</form>
+    <form data-form="${mode === 'pair' ? 'pair' : 'login'}" class="card" autocomplete="off">${body}</form>
     ${claimCard()}
     <div class="card tight small muted">
       سرور: <span class="ltr">${esc(location.host)}</span> · نسخه ${esc(S.server.version || '')}
@@ -322,12 +325,15 @@ function renderPhoneLogin(force) {
     <div class="logo">پ</div>
     <h1>ورود به پایش</h1>
     <div class="sub">شمارهٔ همراه (یا کد ملی) و رمزی که مدیر مدرسه برایتان ساخته است</div>
-    <form data-form="phone-login" class="card">
+    <form data-form="phone-login" class="card" autocomplete="off">
       <label class="field"><span>شمارهٔ همراه (یا کد ملی)</span>
-        <input class="input ltr" name="phone" inputmode="numeric" autocomplete="username"
+        <input class="input ltr" name="phone" data-focus-key="phone" inputmode="numeric"
+          autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
           maxlength="11" placeholder="09xxxxxxxxx" value="${esc((last && last.phone) || '')}"></label>
       <label class="field"><span>رمز عبور</span>
-        <input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="رمز عبور"></label>
+        <input class="input ltr" type="password" name="password" data-focus-key="password"
+          autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false"
+          placeholder="رمز عبور"></label>
       <button class="btn primary block" type="submit">ورود</button>
       <div class="small muted center" style="margin-top:10px">
         اولین بار کمی طول می‌کشد (اطلاعات از حافظهٔ مدرسه خوانده می‌شود).<br>
@@ -619,17 +625,21 @@ PAGES.users = () => {
   const pickedVisible = users.filter(u => picked.has(Number(u.id)));
   const allPicked = users.length > 0 && pickedVisible.length === users.length;
 
-  const openIssues = list('import_issues').filter(r => r.status !== 'done');
+  const openIssues = importIssueRows();
+  const fuCount = followupCount();
 
   return `${pageHead('کاربران', fa(list('users').length) + ' کاربر',
     `<button class="btn sm" data-act="import-open">📥 ورود دسته‌ای (اکسل/CSV)</button>
      <button class="btn sm primary" data-act="user-add">+ کاربر جدید</button>`)}
 
-  ${openIssues.length ? `<div class="card tight" style="border-color:#fcd34d;background:#fffbeb">
+  ${fuCount ? `<div class="card tight" style="border-color:#fcd34d;background:#fffbeb">
     <div class="row between" style="gap:8px;flex-wrap:wrap">
-      <div><b>🕒 ${fa(openIssues.length)} ردیف از ورود دسته‌ای نیاز به پیگیری دارد</b>
-        <div class="small muted" style="margin-top:4px">این ردیف‌ها کامل نشدند یا مشخصاتشان ناقص است (مثلاً موبایل ولی نامعتبر).</div></div>
-      <button class="btn sm" data-act="issues-open">مشاهده و اصلاح</button>
+      <div><b>🕒 ${fa(fuCount)} مورد نیاز به پیگیری دارد</b>
+        <div class="small muted" style="margin-top:4px">${fa(openIssues.length)} ردیف از ورود دسته‌ای + ${fa(fuCount - openIssues.length)} دانش‌آموز که کلاسش درست نیست (رشته یا پایه‌اش حذف شده یا پایه نداشت).</div></div>
+      <span class="row" style="gap:8px;flex-wrap:wrap">
+        <a class="btn sm ghost" href="#/followup">صفحهٔ پیگیری</a>
+        <button class="btn sm" data-act="issues-open">مشاهده و اصلاح</button>
+      </span>
     </div></div>` : ''}
 
   <div class="card tight">
@@ -679,9 +689,7 @@ PAGES.users = () => {
    هر ردیفی که ساخته نشد یا مشخصاتش ناقص بود اینجا می‌ماند: دلیلش را
    می‌بینید، با یک دکمه فرم کاربر با همان اطلاعات باز می‌شود تا کاملش
    کنید، و بعد «حل شد» می‌زنید. */
-function importIssuesHtml() {
-  const all = list('import_issues').filter(r => r.status !== 'done')
-    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+function importIssuesTableHtml(all) {
   const rows = all.map(r => {
     const d = r.data || {};
     const existed = list('users').find(u =>
@@ -699,15 +707,18 @@ function importIssuesHtml() {
         <button class="btn sm ghost" data-act="issue-done" data-id="${esc(r.id)}">حل شد</button>
       </td></tr>`;
   }).join('');
+  return `<div class="table-wrap" style="max-height:52vh;overflow:auto"><table><thead><tr>
+      <th>نام</th><th>شمارهٔ همراه</th><th>دلیل</th><th>وضعیت</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
 
+function importIssuesHtml() {
+  const all = importIssueRows();
   return `<div class="small muted" style="margin-bottom:8px;line-height:2">
       این فهرست برای ردیف‌هایی است که در ورود دسته‌ای ساخته نشدند یا مشخصاتشان کامل نبود.
       با «ساختن/اصلاح» فرم کاربر با همان اطلاعات باز می‌شود؛ بعد از ذخیره، ردیف از این فهرست برداشته می‌شود.
     </div>
-    ${all.length ? `<div class="table-wrap" style="max-height:60vh;overflow:auto"><table><thead><tr>
-        <th>نام</th><th>شمارهٔ همراه</th><th>دلیل</th><th>وضعیت</th><th></th></tr></thead>
-      <tbody>${rows}</tbody></table></div>
-      <div class="row" style="margin-top:10px;gap:8px">
+    ${all.length ? importIssuesTableHtml(all) + `<div class="row" style="margin-top:10px;gap:8px">
         <button class="btn ghost" data-act="modal-close">بستن</button>
         <button class="btn primary grow" data-act="issues-clear">همه را حل‌شده کن</button>
       </div>`
@@ -720,6 +731,104 @@ function actImportIssues() {
   S.modalTitle = 'نیازمند پیگیری — ورود دسته‌ای';
   modal(importIssuesHtml());
 }
+
+/* ══════════════ «نیازمند پیگیری» — یک جای مشخص و همیشه در دسترس ══════
+   دو دسته با هم نشان داده می‌شوند:
+     ۱) ردیف‌های ورود دسته‌ای که ساخته نشدند یا مشخصاتشان کامل نبود
+     ۲) دانش‌آموزانی که کلاسشان معتبر نیست — رشته/پایه‌شان حذف شده،
+        در فایل نبود، یا کلاسشان پایه ندارد
+   مورد دوم از خودِ داده حساب می‌شود، پس هر دانش‌آموزی که با حذف رشته
+   بی‌کلاس شود بی‌درنگ همین‌جا ظاهر می‌شود.
+   ═══════════════════════════════════════════════════════════════════ */
+function importIssueRows() {
+  return list('import_issues').filter(r => r.status !== 'done')
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+
+/** چرا این دانش‌آموز کلاس درست ندارد؟ رشتهٔ خالی برچسب نمی‌خورد. */
+function followupStudentReason(u) {
+  if (!u || u.role !== 'student') return '';
+  if (u.followup_ack) return '';
+  const c = u.class_id ? byId('classes', u.class_id) : null;
+  if (!c) return u.followup_reason || 'کلاس ندارد';
+  const gradeNames = lookupList('grade').map(l => String(l.name));
+  const branchNames = lookupList('branch').map(l => String(l.name));
+  const g = String(c.grade || '').trim();
+  const b = String(c.branch || '').trim();
+  if (!g) return u.followup_reason || 'کلاسش پایه ندارد';
+  if (gradeNames.length && gradeNames.indexOf(g) < 0) return 'پایه‌اش تعریف نشده («' + g + '»)';
+  if (b && branchNames.length && branchNames.indexOf(b) < 0) return 'رشته‌اش تعریف نشده («' + b + '»)';
+  /* کلاس سالم است: دلیلِ کهنه نباید او را در فهرست نگه دارد */
+  return '';
+}
+
+function followupStudents() {
+  const out = [];
+  for (const u of list('users')) {
+    if (u.role !== 'student') continue;
+    const r = followupStudentReason(u);
+    if (r) out.push({ user: u, reason: r });
+  }
+  out.sort((a, b) => String(a.user.name).localeCompare(String(b.user.name)));
+  return out;
+}
+
+function followupCount() {
+  return followupStudents().length + importIssueRows().length;
+}
+
+function classOptionList(selectedId) {
+  const classes = list('classes').sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  return classes.map(c => `<option value="${c.id}" ${Number(selectedId) === Number(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+}
+
+PAGES.followup = () => {
+  if (S.role !== 'manager') return pageHead('نیازمند پیگیری') + empty('دسترسی ندارید.');
+  const studs = followupStudents();
+  const issues = importIssueRows();
+  const total = studs.length + issues.length;
+
+  const studRows = studs.map(({ user, reason }) => `<tr>
+      <td><b>${esc(user.name)}</b>
+        <div class="small muted ltr">${esc(user.phone || user.national_id || '')}</div></td>
+      <td class="small">⚠️ ${esc(reason)}</td>
+      <td><select class="input" id="fu-class-${user.id}">
+        <option value="">— انتخاب کلاس —</option>${classOptionList(user.class_id)}</select></td>
+      <td class="nowrap">
+        <button class="btn sm primary" data-act="followup-assign" data-id="${user.id}">ذخیره</button>
+        <button class="btn sm ghost" data-act="followup-ack" data-id="${user.id}" title="بی‌کلاس بماند">حل شد</button>
+      </td></tr>`).join('');
+
+  const studentsCard = card(
+    `<div class="row between" style="margin-bottom:8px"><b>دانش‌آموزان بدون کلاسِ درست</b>
+       <span class="small muted">${fa(studs.length)} نفر</span></div>` +
+    (studs.length
+      ? `<div class="table-wrap"><table><thead><tr>
+           <th>دانش‌آموز</th><th>دلیل</th><th style="min-width:190px">کلاس درست</th><th></th>
+         </tr></thead><tbody>${studRows}</tbody></table></div>`
+      : `<div class="small muted">همهٔ دانش‌آموزان کلاس درست دارند. ✅</div>`)
+  );
+
+  const issuesCard = card(
+    `<div class="row between" style="margin-bottom:8px"><b>ردیف‌های ورود دسته‌ای</b>
+       <span class="small muted">${fa(issues.length)} ردیف</span></div>` +
+    (issues.length
+      ? importIssuesTableHtml(issues) +
+        `<div class="row" style="margin-top:10px;gap:8px">
+           <button class="btn primary" data-act="issues-clear">همه را حل‌شده کن</button></div>`
+      : `<div class="small muted">ردیف ناتمامی از ورود دسته‌ای نمانده. ✅</div>`)
+  );
+
+  return `${pageHead('نیازمند پیگیری', fa(total) + ' مورد برای رسیدگی',
+      `<button class="btn sm" data-act="import-open">📥 ورود دسته‌ای</button>`)}
+  <div class="small muted" style="margin-bottom:10px;line-height:2">
+    هر چیزی که کامل نیست اینجا جمع می‌شود: ردیف‌های ورود دسته‌ای که ساخته نشدند،
+    و دانش‌آموزانی که کلاسشان درست نیست (مثلاً رشته‌شان حذف شده یا پایه‌اش در فایل نبود).
+    تا اینجا باشند جایی گم نمی‌شوند.
+  </div>
+  ${studentsCard}
+  ${issuesCard}`;
+};
 
 /* ══════════════ تعریف‌ها (پایه، رشته) ══════════════ */
 /* فقط تعریف‌های واقعیِ ثبت‌شده نمایش داده می‌شوند؛ هیچ فهرست پیش‌فرضی در کار
@@ -752,8 +861,40 @@ PAGES.classes = () => {
   const classes = list('classes');
   const subjects = list('subjects');
   const countOf = id => list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(id)).length;
+  /* کلاس‌هایی که پایه ندارند یا پایه‌شان از تعریف‌ها حذف شده — همان
+     کلاس‌هایی که ورود دسته‌ای قدیمی از رشته ساخته بود. */
+  const gradeNames = lookupList('grade').map(l => String(l.name));
+  const hasGrade = c => {
+    const g = String(c.grade || '').trim();
+    return !!g && (!gradeNames.length || gradeNames.indexOf(g) > -1);
+  };
+  const brokenClasses = classes.filter(c => !hasGrade(c));
+  const mergeTargets = classes.filter(hasGrade);
+  const brokenCard = brokenClasses.length ? card(
+    `<div class="row between" style="margin-bottom:8px"><b>🛠️ کلاس‌هایی که پایه ندارند</b>
+       <span class="small muted">${fa(brokenClasses.length)} کلاس</span></div>
+     <div class="small muted" style="margin-bottom:8px;line-height:2">
+       این کلاس‌ها معمولاً از ورود دسته‌ایِ قدیمی مانده‌اند که رشته را به‌جای کلاس ساخته است.
+       هر کدام را در کلاس درستش ادغام کنید (دانش‌آموزان و برنامه‌اش منتقل می‌شوند) یا با «ویرایش» پایه و رشته‌اش را درست کنید.
+     </div>
+     <div class="table-wrap"><table><thead><tr><th>کلاس</th><th>دانش‌آموز</th><th>ادغام در</th><th></th></tr></thead><tbody>
+     ${brokenClasses.map(c => `<tr>
+       <td><b>${esc(c.name)}</b><div class="small muted">رشته: ${esc(c.branch || '—')}</div></td>
+       <td>${fa(countOf(c.id))}</td>
+       <td><select class="input" id="merge-into-${c.id}">
+         <option value="">— کلاس درست —</option>
+         ${mergeTargets.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}
+       </select></td>
+       <td class="nowrap">
+         <button class="btn sm" data-act="class-merge" data-id="${c.id}">ادغام</button>
+         <button class="btn sm ghost" data-act="class-edit" data-id="${c.id}">ویرایش</button>
+       </td></tr>`).join('')}
+     </tbody></table></div>`) : '';
+
   return `${pageHead('کلاس‌ها و تعریف‌ها', fa(classes.length) + ' کلاس',
       `<button class="btn sm primary" data-act="class-add">+ کلاس جدید</button>`)}
+
+  ${brokenCard}
 
   ${card(`<div class="row between" style="margin-bottom:8px"><b>کلاس‌ها</b>
       <span class="small muted">هر کلاس یک پایه و یک رشته دارد</span></div>
@@ -1549,15 +1690,22 @@ function classFormHtml(c) {
   const grades = lookupList('grade');
   const branches = lookupList('branch');
   const editing = c && c.id;
-  const pick = (kind, listArr, val) => (listArr.length
-    ? `<select class="input" name="${kind}">${opts(listArr, val)}</select>`
-    : `<input class="input" name="${kind}" value="${esc(val || '')}" placeholder="در بخش ${LOOKUP_FA[kind]}ها تعریف کنید">`);
+  const pick = (kind, listArr, val) => {
+    if (!listArr.length) {
+      return `<input class="input" name="${kind}" value="${esc(val || '')}" placeholder="در بخش ${LOOKUP_FA[kind]}ها تعریف کنید">`;
+    }
+    /* مقدار فعلی اگر در فهرست تعریف‌ها نباشد هم نمایش داده شود، وگرنه
+       ویرایشِ یک کلاس قدیمی بی‌خبر، پایه‌اش را عوض می‌کند. */
+    const known = val && listArr.some(r => String(r.name) === String(val));
+    const extra = val && !known ? `<option value="${esc(val)}" selected>${esc(val)} (تعریف نشده)</option>` : '';
+    return `<select class="input" name="${kind}">${extra}${opts(listArr, val)}</select>`;
+  };
   return `<form data-form="class">
     ${editing ? `<input type="hidden" name="id" value="${esc(c.id)}">` : ''}
     <label class="field"><span>نام کلاس</span>
-      <input class="input" name="name" required value="${esc(editing ? c.name : '')}" placeholder="مثلاً دهم شبکه"></label>
+      <input class="input" name="name" value="${esc(editing ? c.name : '')}" placeholder="خالی بگذارید تا از پایه و رشته ساخته شود"></label>
     <div class="row">
-      <label class="field grow"><span>پایه</span>${pick('grade', grades, editing ? c.grade : '')}</label>
+      <label class="field grow"><span>پایه (الزامی)</span>${pick('grade', grades, editing ? c.grade : '')}</label>
       <label class="field grow"><span>رشته</span>${pick('branch', branches, editing ? c.branch : '')}</label>
     </div>
     <label class="field"><span>ظرفیت</span>
