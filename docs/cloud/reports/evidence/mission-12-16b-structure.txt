@@ -1,0 +1,43 @@
+# شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
+generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
+branch: arena/f1efa594-payesh-local
+head: 8bd01ea13b9472381483df782781e00e9a5796e5
+
+## فایل‌های طراحی و تعداد خط/جدول/AC
+12-multitenant-architecture                lines=155  tables=48  ac_rows=7
+12b-owner-panel-boundaries                 lines=102  tables=37  ac_rows=7
+13-secure-cache-offline-queue              lines=93   tables=25  ac_rows=7
+14-conflict-convergence                    lines=100  tables=25  ac_rows=7
+15-backup-recovery                         lines=89   tables=33  ac_rows=7
+16-ha-observability-cost                   lines=123  tables=50  ac_rows=7
+16b-tenant-provisioning-migration          lines=109  tables=37  ac_rows=7
+
+## حکم‌های ثبت‌شده (باید ۷/۷ در همه)
+**حکم: ۷/۷ — REVIEW.**
+**حکم: ۷/۷ — REVIEW.**
+**حکم: ۷/۷ — REVIEW.**
+**حکم: ۷/۷ — REVIEW.**
+**حکم: ۷/۷ — REVIEW.**
+**حکم: ۷/۷ — REVIEW.**
+**حکم: ۷/۷ — REVIEW.**
+
+## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)
+0
+
+## شمارش واقعی مخزن (بدون تغییر از ممیزی)
+tenant_id: 0
+school_id (occurrences, server+client): 48
+school_id (files): 8
+api routes (unique /api literals in server/index.js): 62
+
+## وضعیت درخت کاری
+?? docs/cloud/12-multitenant-architecture.md
+?? docs/cloud/12b-owner-panel-boundaries.md
+?? docs/cloud/13-secure-cache-offline-queue.md
+?? docs/cloud/14-conflict-convergence.md
+?? docs/cloud/15-backup-recovery.md
+?? docs/cloud/16-ha-observability-cost.md
+?? docs/cloud/16b-tenant-provisioning-migration.md
+?? docs/cloud/reports/evidence/gen-mission-12-16b.sh
+?? docs/cloud/reports/evidence/mission-12-16b-structure.txt
+(اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
