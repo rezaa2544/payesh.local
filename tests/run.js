@@ -2933,13 +2933,15 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/۱۲۹/.test(summary) && /۲۲۸/.test(summary), 'عددها تفکیک شده‌اند');
 
     /* نشانگر پردازش: چرخان + درصد */
-    T.busyOverlay('در حال ثبت اطلاعات', 'هنگ نکرده است');
+    T.busyOverlay('در حال ثبت');
     const ov = win.document.getElementById('busy-overlay');
     assert.ok(ov, 'نشانگر ساخته شد');
     assert.strictEqual(ov.style.display, 'flex', 'نمایش داده شد');
     assert.ok(ov.querySelector('.spinner'), 'چرخان (spinner) دارد');
+    assert.strictEqual(win.document.getElementById('busy-title').textContent.trim(), 'در حال ثبت', 'فقط «در حال ثبت» نوشته می‌شود');
+    assert.strictEqual(ov.textContent.replace('در حال ثبت', '').trim(), '', 'هیچ نوشتهٔ اضافه‌ای نیست: «' + ov.textContent.trim() + '»');
     T.busyUpdate(65, 129);
-    assert.ok(/۶۵ از ۱۲۹/.test(win.document.getElementById('busy-sub').textContent), 'درصد/تعداد نشان داده می‌شود');
+    assert.strictEqual(win.document.getElementById('busy-fill').style.width, '50%', 'نوار پیشرفت بی‌متن کار می‌کند');
     dom.window.close();
   });
 
