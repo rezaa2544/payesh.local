@@ -25,8 +25,17 @@ const lines = text.split('\n');
 lines.forEach((rawLine, idx) => {
   const ln = idx + 1;
   const line = rawLine.trim();
-  if (!line || line.startsWith(';')) return;
+  if (!line) return;
   if (/^\[.+\]$/.test(line)) { section = line.slice(1, -1).toLowerCase(); return; }
+  /* در بخش [Code] زبان پاسکال است: «;» جداکنندهٔ دستور است، نه کامنت.
+     (این اشتباه یک‌بار کل ساخت نصب‌کننده را انداخت: 'BEGIN' expected) */
+  if (section === 'code') {
+    if (line.startsWith(';')) {
+      errors.push(`خط ${ln}: در [Code] کامنت با «;» نوشته شده — پاسکال آن را دستور می‌بیند؛ از // استفاده کنید`);
+    }
+    return;
+  }
+  if (line.startsWith(';')) return;
   if (line.startsWith('#')) return; // دستورهای پیش‌پردازنده
 
   const value = line.slice(line.indexOf(':') + 1);
@@ -46,6 +55,34 @@ lines.forEach((rawLine, idx) => {
     }
   }
 });
+
+/* ── [Code]: تعادل begin/end و سلامت کامنت‌ها ────────────────────── */
+(function checkCode() {
+  const i = text.search(/^\[Code\]\s*$/m);
+  if (i < 0) return;
+  let rest = text.slice(i).replace(/^\[Code\]\s*$/, '');
+  const nxt = rest.search(/^\[[A-Za-z]+\]\s*$/m);
+  if (nxt > 0) rest = rest.slice(0, nxt);
+  let clean = '', inStr = false;
+  for (let k = 0; k < rest.length; k++) {
+    const c = rest[k];
+    if (inStr) {
+      if (c === "'") {
+        if (rest[k + 1] === "'") { k++; continue; }
+        inStr = false;
+      }
+      clean += ' ';
+      continue;
+    }
+    if (c === "'") { inStr = true; clean += ' '; continue; }
+    if (c === '{') { const e = rest.indexOf('}', k); k = e < 0 ? rest.length : e; clean += ' '; continue; }
+    if (c === '/' && rest[k + 1] === '/') { const e = rest.indexOf('\n', k); k = e < 0 ? rest.length : e; continue; }
+    clean += c;
+  }
+  const begins = (clean.match(/\bbegin\b/gi) || []).length;
+  const ends = (clean.match(/\bend\b/gi) || []).length;
+  if (begins !== ends) errors.push(`بخش [Code]: تعداد begin (${begins}) با end (${ends}) یکی نیست — ISCC نمی‌تواند کامپایل کند`);
+})();
 
 /* پرونده‌های مورد نیاز */
 const win2posix = (r) => String(r).replace(/\\/g, '/');
