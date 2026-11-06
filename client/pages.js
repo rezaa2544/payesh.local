@@ -238,7 +238,6 @@ function renderSetup() {
       <label class="field"><span>شمارهٔ همراه مدیر (نام کاربری ورود)</span><input class="input ltr" name="phone" inputmode="numeric" data-digits placeholder="09xxxxxxxxx"></label>
       <label class="field"><span>رمز عبور مدیر</span><input class="input ltr" type="password" name="password" minlength="4" required autocomplete="new-password" placeholder="حداقل ۴ نویسه"></label>
       <label class="field"><span>تکرار رمز عبور</span><input class="input ltr" type="password" name="password2" minlength="4" required autocomplete="new-password"></label>
-      <label class="field"><span>PIN سریع برای این دستگاه (اختیاری، ۴ تا ۶ رقم)</span><input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" data-digits placeholder="••••"></label>
       <button class="btn primary block" type="submit">ایجاد مدرسه</button>
       <p class="small muted center" style="margin-top:10px">بعد از این، با «شمارهٔ همراه + رمز عبور» وارد می‌شوید.</p>
     </form>
@@ -272,8 +271,10 @@ function claimCard() {
 
 function renderPair() {
   const href = location.hash;
-  const m = href.match(/#\/join\/([A-Za-z0-9-]+)/);
-  const pre = m ? m[1].toUpperCase() : '';
+  /* کد پیوند می‌تواند از سه راه بیاید: #/join/CODE (کارت قدیمی)،
+     #/pair=CODE (QR یا پیوند کوتاه) و #/pair?c=CODE (پیوند دستی) */
+  const m = href.match(/#\/(?:join|pair)[=\/]?([A-Za-z0-9-]{4,})/) || href.match(/[?&]c=([A-Za-z0-9-]{4,})/);
+  const pre = m ? m[1].replace(/-/g, '').toUpperCase() : '';
   /* پیش‌فرض همیشه «شمارهٔ همراه + رمز عبور»؛ کد پیوند فقط راهِ سریعِ فرعی است */
   let mode = 'password';
   if (pre) mode = 'pair';
@@ -282,11 +283,10 @@ function renderPair() {
   const body = mode === 'pair' ? `
       <label class="field"><span>کد پیوند</span>
         <input class="input code-input" name="code" value="${esc(pre)}" maxlength="12" placeholder="XXXX-XXXX" autocomplete="off"></label>
-      <label class="field"><span>PIN انتخابی شما (۴ تا ۶ رقم)</span>
-        <input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" data-digits placeholder="••••" autocomplete="off"></label>
       <button class="btn primary block" type="submit">ورود و ثبت این دستگاه</button>
-      <p class="small muted center" style="margin-top:10px">این کد را مدیرِ مدرسه از صفحهٔ «کاربران» → دکمهٔ «کارت پیوند» برای شما چاپ می‌کند.<br>کد فقط برای همین یک‌بار است و ۷ روز اعتبار دارد.</p>
-      <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="password">ورود با شمارهٔ همراه و رمز عبور</a></p>`
+      <p class="small muted center" style="margin-top:10px">این کد را مدیرِ مدرسه از صفحهٔ «کاربران» → دکمهٔ «کارت پیوند» برای شما چاپ می‌کند.<br>می‌توانید روی کارت، QR را هم با دوربین گوشی اسکن کنید تا خودکار وارد شوید. کد فقط یک‌بار کار می‌کند.</p>
+      <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="password">ورود با شمارهٔ همراه و رمز عبور</a></p>
+      ${pre ? scanLandingHtml(pre) : ''}`
     : `
       <label class="field"><span>شمارهٔ همراه (یا کد ملی)</span>
         <input class="input ltr" name="phone" inputmode="numeric" data-digits data-focus-key="phone"
@@ -313,18 +313,44 @@ function renderPair() {
   </div>`)
 }
 
+/* ── راهنمای اسکنِ QR روی کارت پیوند ──────────────────────────────
+   کاربر QR را با دوربین گوشی می‌اسکند و به همین صفحه می‌رسد. اگر برنامه
+   نصب باشد با یک دکمه باز و خودکار وارد می‌شود؛ اگر نصب نباشد همین‌جا
+   نصبش می‌کنیم و بعد از نصب همان دکمه او را وارد حسابش می‌کند. */
+function pairDeepLink(code) {
+  const host = (typeof location !== 'undefined' ? location.origin : '');
+  return 'payesh://pair?c=' + encodeURIComponent(String(code || '')) + '&h=' + encodeURIComponent(host);
+}
+function scanLandingHtml(code) {
+  const plain = String(code || '').replace(/[^0-9A-Za-z]/g, '');
+  const apk = 'https://github.com/rezaa2544/payesh.local/releases/latest/download/payesh-local.apk';
+  const bundled = typeof window !== 'undefined' && window.PAYESH_BUNDLED === true;
+  if (bundled) return '';
+  return `<div class="card tight" style="margin-top:12px;text-align:right">
+      <b>📷 با اسکن این کد چه می‌شود؟</b>
+      <div class="small muted" style="margin-top:6px;line-height:1.9">
+        ۱) اگر برنامهٔ پایش روی این گوشی نصب است، دکمهٔ زیر را بزنید — بدون رمز وارد حساب خودتان می‌شوید.<br>
+        ۲) اگر نصب نیست، اول «نصب برنامه» را بزنید؛ بعد از نصب برگردید و همان دکمهٔ اول را بزنید.<br>
+        کد پیوند: <b class="ltr">${esc(plain.replace(/^(.{4})(.{4})$/, '$1-$2'))}</b>
+      </div>
+      <a class="btn primary block" style="margin-top:10px" href="${esc(pairDeepLink(plain))}" data-deeplink="1">باز کردن برنامه و ورود خودکار</a>
+      <a class="btn block" style="margin-top:8px" href="${esc(apk)}" rel="noopener">⬇️ نصب برنامه (اندروید)</a>
+      <button class="btn ghost block" style="margin-top:8px" type="button" data-act="pair-here">ورود در همین مرورگر (آیفون و رایانه)</button>
+    </div>`;
+}
+
 function renderTransfer(code) {
   setApp(`
   <div class="auth">
     <div class="logo">پ</div>
     <h1>انتقال به آدرس رسمی</h1>
-    <div class="sub">برای ادامه روی این دستگاه یک PIN تازه انتخاب کنید</div>
+    <div class="sub">برای ادامه، رمز عبور خودتان را وارد کنید</div>
     <form data-form="transfer" class="card">
       <input type="hidden" name="code" value="${esc(code)}">
-      <label class="field"><span>PIN (۴ تا ۶ رقم)</span>
-        <input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="new-password"></label>
+      <label class="field"><span>رمز عبور</span>
+        <input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="رمز عبور"></label>
       <button class="btn primary block" type="submit">فعال‌سازی روی این آدرس</button>
-      <p class="small muted center" style="margin-top:10px">همین PIN را فردا برای ورود به برنامه می‌زنید.</p>
+      <p class="small muted center" style="margin-top:10px">بعد از این، با شمارهٔ همراه و همین رمز وارد می‌شوید.</p>
     </form>
     <div class="card tight small muted center">
       <a href="#/" data-act="forget-device">انصراف</a>
@@ -339,16 +365,11 @@ function renderLock() {
   <div class="auth">
     <div class="logo">پ</div>
     <h1>پایش</h1>
-    <div class="sub">${user ? esc(user) + ' — ' : ''}${pw ? 'رمز عبور خود را وارد کنید' : 'PIN خود را وارد کنید'}</div>
+    <div class="sub">${user ? esc(user) + ' — ' : ''}رمز عبور خود را وارد کنید</div>
     <form data-form="unlock" class="card">
-      ${pw
-        ? `<label class="field"><input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="رمز عبور" autofocus></label>`
-        : `<label class="field"><input class="input pin-input" name="pin" inputmode="numeric" maxlength="6" data-digits placeholder="••••" autofocus></label>`}
+      <label class="field"><input class="input ltr" type="password" name="password" autocomplete="current-password" placeholder="رمز عبور" autofocus></label>
       <button class="btn primary block" type="submit">ورود</button>
     </form>
-    <div class="center small">
-      <a href="#" data-act="unlock-mode" data-id="${pw ? 'pin' : 'password'}">${pw ? 'ورود با PIN' : 'ورود با رمز عبور'}</a>
-    </div>
     <div class="center" style="margin-top:8px"><a href="#" class="small" data-act="forget-device">این دستگاه من نیست</a></div>
   </div>`)
 }
@@ -1367,7 +1388,7 @@ function publicAccessCard(n) {
   return card(`<div class="row between"><b>🌍 دسترسی از هر اینترنتی (تونل)</b>${state}</div>
     <div class="small muted" style="margin-top:6px">هیچ کاربری لازم نیست روی مودم مدرسه باشد: سیستم مدرسه یک تونل خروجی می‌سازد و همه با یک آدرس HTTPS ثابت وصل می‌شوند.</div>
     ${body}
-    <div class="small muted" style="margin-top:10px">🔒 با فعال شدن آدرس عمومی، سرور از اینترنت دیده می‌شود: PIN همهٔ کاربران را جدی بگیرید و دستگاه‌های ناشناس را از «دستگاه‌ها» باطل کنید.</div>`);
+    <div class="small muted" style="margin-top:10px">🔒 با فعال شدن آدرس عمومی، سرور از اینترنت دیده می‌شود: رمز عبور همهٔ کاربران را جدی بگیرید و دستگاه‌های ناشناس را از «دستگاه‌ها» باطل کنید.</div>`);
 }
 
 PAGES.network = () => {
@@ -1511,7 +1532,7 @@ PAGES.system = () => {
   ${isManager ? phoneAccessCard() : ''}
   ${accountCard()}
   ${isManager ? updateCard() : clientUpdateCard()}
-  ${isManager ? managerSystemSections() : changePinCard()}
+  ${isManager ? managerSystemSections() : ''}
   ${card(`<b>راهنمای دستگاه‌ها</b><div class="small muted" style="margin-top:6px">
     ${S.server.publicUrl
       ? `آدرس رسمی را روی گوشی باز کنید و «افزودن به صفحهٔ اصلی» را بزنید:<br><span class="ltr" style="font-weight:700">${esc(S.server.publicUrl)}</span>`
@@ -1565,14 +1586,6 @@ function accountCard() {
     <div class="small muted" style="margin-top:6px">اگر رمز فعلی را نمی‌دانید، از مدیر بخواهید رمز تازه بگذارد.</div>`);
 }
 
-function changePinCard() {
-  return card(`<b>تغییر PIN</b>
-    <div class="row" style="margin-top:8px">
-      <input class="input" id="new-pin" inputmode="numeric" maxlength="6" placeholder="PIN جدید (۴ تا ۶ رقم)" style="max-width:220px">
-      <button class="btn sm" data-act="pin-change">ذخیره</button>
-    </div>`);
-}
-
 function managerSystemSections() {
   const stats = S.boot && S.boot.counts || {};
   return `
@@ -1592,7 +1605,7 @@ function managerSystemSections() {
   ${card(`<b>آمار پایگاه داده</b><div class="small muted" style="margin-top:6px">
     کاربران: ${fa(stats.users || 0)} · کلاس‌ها: ${fa(stats.classes || 0)} · حضور: ${fa(stats.attendance || 0)} · نمره: ${fa(stats.grades || 0)}
   </div><button class="btn sm" style="margin-top:8px" data-act="audit-list">سابقهٔ تغییرات</button>`)}
-  ${changePinCard()}`;
+  `;
 }
 
 /* ══════════════════ حافظهٔ ابری ══════════════════ */
@@ -1707,13 +1720,31 @@ function modal(html) {
 function closeModal() { S.modal = null; layerRoot('modal-root').innerHTML = ''; }
 
 function pairCardHtml(r) {
+  const plain = String(r.code || r.display || '').replace(/[^0-9A-Za-z]/g, '');
+  const host = (typeof location !== 'undefined' ? location.origin : '');
+  /* یک QR، همه‌کاره: با اسکن، اگر برنامه نصب باشد مستقیم وارد می‌شود؛
+     اگر نصب نباشد همان QR صفحهٔ نصب را باز می‌کند و بعد از نصب هم
+     خودکار وارد حساب می‌شود. */
+  const web = host + '/#/pair=' + encodeURIComponent(plain);
+  const apk = 'https://github.com/rezaa2544/payesh.local/releases/latest/download/payesh-local.apk';
   return `<div class="paircard">
     <div class="who">${esc(r.user.name)}</div>
     <div class="small muted">${esc(ROLE_FA[r.user.role] || r.user.role)}</div>
     <div class="code">${esc(r.display)}</div>
     <div class="small muted">اعتبار: ${esc(jdate(r.expires_at))}</div>
+    <div style="text-align:center;margin-top:12px">
+      <img alt="QR" src="/api/qr?text=${encodeURIComponent(web)}&scale=6" style="width:210px;height:210px;border-radius:14px;background:#fff;padding:8px">
+      <div class="small" style="margin-top:6px;line-height:1.9">📷 <b>با دوربین گوشی اسکن کنید</b><br>
+        برنامه نصب است؟ بی‌درنگ وارد حساب خودتان می‌شوید.<br>
+        نصب نیست؟ همین اسکن، برنامه را نصب می‌کند و بعد از نصب هم خودکار وارد می‌شوید.</div>
+    </div>
+    <div class="small muted ltr" style="margin-top:8px;font-size:10px;word-break:break-all">${esc(web)}</div>
+    <div class="row" style="gap:10px;justify-content:center;align-items:center;margin-top:10px">
+      <img alt="QR" src="/api/qr?text=${encodeURIComponent(apk)}&scale=4" style="width:84px;height:84px;border-radius:10px;background:#fff;padding:4px">
+      <div class="small muted" style="text-align:right">نصب مستقیم برنامه<br><span class="ltr">payesh-local.apk</span></div>
+    </div>
   </div>
-  <div class="small muted">کاربر در صفحهٔ ورود، «ورود با کارت پیوند» را می‌زند، این کد را وارد می‌کند و یک PIN برای خودش انتخاب می‌کند. هر کد فقط یک‌بار کار می‌کند.</div>
+  <div class="small muted" style="margin-top:6px">کاربر یا کد را در صفحهٔ ورود می‌زند، یا QR را اسکن می‌کند. هر کد فقط یک‌بار کار می‌کند.</div>
   <button class="btn block" style="margin-top:10px" data-act="print">🖨️ چاپ کارت</button>`;
 }
 
@@ -1823,11 +1854,23 @@ function actUserFull(id) {
     inp('name', 'نام', u.name, 'required'),
     inp('last_name', 'نام خانوادگی', u.last_name || ''),
     inp('national_id', 'کد ملی', u.national_id || '', 'inputmode="numeric" maxlength="10" class="input ltr"'),
-    inp('phone', 'شمارهٔ همراه (نام کاربری)', u.phone || '', 'inputmode="numeric" maxlength="11" class="input ltr"'),
     inp('birth_date', 'تاریخ تولد', u.birth_date ? (window.impIsoToJalali ? impIsoToJalali(u.birth_date) : u.birth_date) : '', 'placeholder="1390/05/12" class="input ltr"'),
     inp('gender', 'جنسیت', u.gender || ''),
   ].join('');
+  /* شمارهٔ همراه‌ها — همان ستون‌های اکسل، همگی اینجا و همه قابل ویرایش.
+     اگر در اکسل بوده و اینجا خالی است، یعنی آن ستون در مرحلهٔ نگاشت به
+     «موبایل» وصل نشده بود؛ از این پس خودکار تشخیص داده می‌شود. */
+  const numInp = (k, title, val) => `<label class="field grow" style="min-width:160px"><span>${esc(title)}</span>
+    <input class="input ltr" name="${esc(k)}" inputmode="numeric" maxlength="14" value="${esc(val || '')}" placeholder="09xxxxxxxxx"></label>`;
+  const phones = [
+    numInp('phone', '📱 موبایل دانش‌آموز (نام کاربری)', u.phone),
+    numInp('father_phone', '📱 موبایل پدر', u.father_phone),
+    numInp('mother_phone', '📱 موبایل مادر', u.mother_phone),
+    numInp('guardian_phone', '📱 موبایل سرپرست', u.guardian_phone),
+  ].join('');
+  const phoneKeys = ['phone', 'father_phone', 'mother_phone', 'guardian_phone'];
   const extras = (typeof IMP_EXTRA_FIELDS !== 'undefined' ? IMP_EXTRA_FIELDS : [])
+    .filter(k => phoneKeys.indexOf(k) < 0)
     .map(k => inp(k, lbl[k] || k, u[k] || ''))
     .join('');
   const grp = byId('classes', u.class_id) || {};
@@ -1841,6 +1884,10 @@ function actUserFull(id) {
       <br>هر تغییری اینجا بدهید، همان لحظه در همهٔ بخش‌های برنامه (فهرست کاربران، حساب خودِ ولی، کارت پیوند و پروندهٔ دانش‌آموز) اعمال می‌شود.
     </div>
     <div class="row" style="flex-wrap:wrap;gap:0 10px">${core}</div>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)">
+      <b class="small">شماره‌های همراه (از اکسل — قابل ویرایش)</b>
+      <div class="row" style="flex-wrap:wrap;gap:0 10px;margin-top:6px">${phones}</div>
+    </div>
     ${extras ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)">
       <b class="small">اطلاعات خانواده و تحصیلی (همان ستون‌های اکسل)</b>
       <div class="row" style="flex-wrap:wrap;gap:0 10px;margin-top:6px">${extras}</div></div>` : ''}
@@ -2004,6 +2051,7 @@ const USER_EXTRA_FORM = [
   ['father_name', 'نام پدر', ''], ['father_nid', 'کد ملی پدر', 'num'],
   ['father_phone', 'همراه پدر', 'num'], ['mother_name', 'نام مادر', ''],
   ['mother_nid', 'کد ملی مادر', 'num'], ['mother_phone', 'همراه مادر', 'num'],
+  ['guardian_phone', 'همراه سرپرست', 'num'],
   ['landline', 'تلفن ثابت', 'num'], ['residence', 'محل سکونت', ''],
   ['address', 'نشانی', ''], ['last_gpa', 'معدل سال گذشته', 'num'],
   ['covered', 'حمایتی (بله/خیر)', ''], ['talent', 'استعداد', ''],

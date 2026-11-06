@@ -99,14 +99,15 @@ async function waitFor(fn, ms = 15000) {
   });
 
   let managerToken;
+  const managerPassword = 'Manager-99';
   await test('راه‌اندازی اولیه و ساخت مدیر', async () => {
     const r = await req('/api/setup', { method: 'POST', body: {
-      school_name: 'دبیرستان آزمون', manager_name: 'مدیر آزمون', pin: '1234', phone: '09120000001',
+      school_name: 'دبیرستان آزمون', manager_name: 'مدیر آزمون', password: managerPassword, phone: '09120000001',
     } });
     assert.strictEqual(r.data.ok, true);
     assert.ok(r.data.session.token);
     managerToken = r.data.session.token;
-    const again = await req('/api/setup', { method: 'POST', body: { school_name: 'x', manager_name: 'y', pin: '1234' } });
+    const again = await req('/api/setup', { method: 'POST', body: { school_name: 'x', manager_name: 'y', password: 'Another-1' } });
     assert.strictEqual(again.status, 400);
   });
 
@@ -239,13 +240,16 @@ async function waitFor(fn, ms = 15000) {
     }
   });
 
-  await test('قفل PIN: رمز غلط رد، رمز درست قبول', async () => {
+  await test('پیوند بدون PIN است و قفل دستگاه فقط با رمز عبور باز می‌شود', async () => {
     const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 1 } });
-    const p = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '5555' } });
-    const bad = await req('/api/auth/unlock', { method: 'POST', body: { device_token: p.data.device_token, pin: '0000' } });
-    assert.strictEqual(bad.status, 401);
-    const ok = await req('/api/auth/unlock', { method: 'POST', body: { device_token: p.data.device_token, pin: '5555' } });
-    assert.strictEqual(ok.data.ok, true);
+    const p = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code } });
+    assert.strictEqual(p.data.ok, true, 'کد پیوند بدون PIN کار می‌کند');
+    assert.ok(p.data.device_token);
+
+    const bad = await req('/api/auth/unlock', { method: 'POST', body: { device_token: p.data.device_token, password: 'Abcdef-123' } });
+    assert.strictEqual(bad.status >= 400, true, 'رمز غلط رد می‌شود');
+    const ok = await req('/api/auth/unlock', { method: 'POST', body: { device_token: p.data.device_token, password: managerPassword } });
+    assert.strictEqual(ok.data.ok, true, 'رمز درست قبول می‌شود');
   });
 
   await test('sync: idempotency، OCC و tombstone', async () => {
@@ -1089,15 +1093,19 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(t.data.code.length >= 16);
     assert.strictEqual(t.data.public_url, 'https://payesh.example.test');
 
-    const r = await req('/api/auth/transfer/redeem', { method: 'POST', body: { code: t.data.code, pin: '4321' } });
+    const wrong = await req('/api/auth/transfer/redeem', { method: 'POST', body: { code: t.data.code, password: 'Wrong-123' } });
+    assert.strictEqual(wrong.data.ok, false, 'رمز اشتباه اجازهٔ انتقال نمی‌دهد');
+    assert.strictEqual(wrong.data.error, 'bad_password');
+
+    const r = await req('/api/auth/transfer/redeem', { method: 'POST', body: { code: t.data.code, password: managerPassword } });
     assert.strictEqual(r.data.ok, true);
     assert.ok(r.data.device_token);
     assert.ok(r.data.session.token);
 
-    const again = await req('/api/auth/transfer/redeem', { method: 'POST', body: { code: t.data.code, pin: '4321' } });
+    const again = await req('/api/auth/transfer/redeem', { method: 'POST', body: { code: t.data.code, password: managerPassword } });
     assert.strictEqual(again.data.error, 'code_used');
 
-    const bad = await req('/api/auth/transfer/redeem', { method: 'POST', body: { code: 'nope', pin: '4321' } });
+    const bad = await req('/api/auth/transfer/redeem', { method: 'POST', body: { code: 'nope', password: managerPassword } });
     assert.strictEqual(bad.data.error, 'bad_code');
   });
 
@@ -1145,12 +1153,18 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(short.data.error, 'bad_password');
   });
 
-  await test('PIN با ارقام فارسی هم ثبت می‌شود (باگ تکرار راه‌اندازی)', async () => {
+  await test('PIN کاملاً حذف شده است (نه راه‌اندازی، نه پیوند، نه قفل دستگاه)', async () => {
+    /* پیوند هیچ PINی نمی‌خواهد و دستگاه بدون PIN ساخته می‌شود */
     const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 1 } });
-    const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '۴۳۲۱' } });
-    assert.strictEqual(paired.data.ok, true, 'PIN فارسی پذیرفته شود');
-    const unlock = await req('/api/auth/unlock', { method: 'POST', body: { device_token: paired.data.device_token, pin: '4321' } });
-    assert.strictEqual(unlock.data.ok, true, 'همان PIN با ارقام انگلیسی هم کار کند');
+    const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code } });
+    assert.strictEqual(paired.data.ok, true, 'کد پیوند بدون PIN کار می‌کند');
+    const dev = await req('/api/admin/devices', { token: managerToken });
+    const d = (dev.data.devices || []).find(x => x.id === paired.data.device_id) || {};
+    assert.ok(!d.pin_hash, 'دستگاه پیوندشده PIN ندارد');
+
+    /* مسیر قدیمی تغییر PIN و بدنهٔ PINدار پاسخ نمی‌دهند */
+    const pinRoute = await req('/api/auth/pin', { method: 'POST', token: managerToken, body: { pin: '4321' } });
+    assert.strictEqual(pinRoute.status, 404, 'مسیر تغییر PIN حذف شده است');
   });
 
 
@@ -1332,7 +1346,7 @@ async function waitFor(fn, ms = 15000) {
 
       /* برای نقش‌های پایین‌تر از کادر، «سرور شدن» ممنوع است */
       const parentCode = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 4 } });
-      const parentTok = (await req('/api/auth/pair', { method: 'POST', body: { code: parentCode.data.code, pin: '1234' } })).data.session.token;
+      const parentTok = (await req('/api/auth/pair', { method: 'POST', body: { code: parentCode.data.code } })).data.session.token;
       const denied = await req('/api/outbox/drain', { method: 'POST', token: parentTok, body: {} });
       assert.strictEqual(denied.status, 403, 'ولی نمی‌تواند نقش سرور بگیرد');
 
@@ -1804,8 +1818,8 @@ async function waitFor(fn, ms = 15000) {
     };
     T.S.queue = []; T.S.online = false;
 
-    /* فهرست کامل فیلدها — همان ۳۹ ستونِ دانش‌آموز در p2 */
-    assert.strictEqual(T.IMP_FIELDS.students.length, 39, 'دانش‌آموز: ۳۹ فیلد');
+    /* فهرست کامل فیلدها — ۳۹ ستونِ دانش‌آموز در p2 + ستون تازهٔ «موبایل سرپرست» */
+    assert.strictEqual(T.IMP_FIELDS.students.length, 40, 'دانش‌آموز: ۴۰ فیلد');
     assert.strictEqual(T.IMP_FIELDS.teachers.length, 8, 'دبیر: ۸ فیلد');
     assert.strictEqual(T.IMP_FIELDS.grades.length, 8, 'نمرات: ۸ فیلد');
     assert.strictEqual(T.IMP_FIELDS.attendance.length, 6, 'حضور: ۶ فیلد');
@@ -3192,6 +3206,66 @@ async function waitFor(fn, ms = 15000) {
     openModal();
     win.document.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     assert.strictEqual(win.document.querySelector('#modal-root').innerHTML, '', 'کلید Esc پنجره را بست');
+    dom.window.close();
+  });
+
+  /* — QR کارت پیوند + حذف PIN + موبایل‌های اکسل در «مشخصات کامل» —— */
+  await test('کارت پیوند QR دارد، کد از پیوند خودکار باز می‌شود و موبایل‌های اکسل گم نمی‌شوند', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, pairCardHtml, renderPair, pairCodeFromHash, pairDeepLink, impAutoMap, actUserFull, putLocal };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
+    T.S.server = { school: 'دبیرستان آزمون', version: '0.8.28' };
+    T.S.data = { users: new Map(), classes: new Map(), lookups: new Map(), parent_links: new Map() };
+
+    /* ۱) کارت پیوند: یک QR همه‌کاره + QR نصب */
+    const card = T.pairCardHtml({ code: 'ABCD1234', display: 'ABCD-1234', expires_at: new Date().toISOString(), user: { name: 'رضا', role: 'student' } });
+    const web = BASE + '/#/pair=ABCD1234';
+    assert.ok(card.indexOf(encodeURIComponent(web)) > -1, 'QR کارت به آدرس وبِ ورود خودکار اشاره می‌کند');
+    assert.strictEqual((card.match(/scale=6/g) || []).length, 1, 'فقط یک QR اصلی روی کارت است');
+    assert.ok(card.indexOf('payesh-local.apk') > -1, 'QR نصب برنامه هم روی کارت هست');
+    assert.ok(card.indexOf('ABCD-1234') > -1, 'کد چاپی هم روی کارت می‌ماند');
+
+    /* ۲) کد از هر سه شکل پیوند خوانده می‌شود */
+    win.location.hash = '#/pair=ABCD1234';
+    assert.strictEqual(T.pairCodeFromHash(), 'ABCD1234', '#/pair=CODE');
+    win.location.hash = '#/pair?c=ABCD-1234';
+    assert.strictEqual(T.pairCodeFromHash(), 'ABCD1234', '#/pair?c=CODE');
+    win.location.hash = '#/join/abcd1234';
+    assert.strictEqual(T.pairCodeFromHash(), 'ABCD1234', '#/join/CODE');
+    assert.ok(T.pairDeepLink('ABCD1234').indexOf('payesh://pair?c=ABCD1234') === 0, 'پیوند باز کردن برنامه ساخته می‌شود');
+
+    /* ۳) صفحهٔ ورود با کدِ آمده از QR: دکمهٔ «باز کردن برنامه» و «نصب» */
+    win.location.hash = '#/pair=ABCD1234';
+    T.renderPair();
+    const html = win.document.querySelector('#app').innerHTML;
+    assert.ok(html.indexOf('payesh://pair?c=ABCD1234') > -1, 'صفحه دکمهٔ باز کردن برنامه را دارد');
+    assert.ok(html.indexOf('payesh-local.apk') > -1, 'صفحه دکمهٔ نصب برنامه را دارد');
+    assert.ok(html.indexOf('همین مرورگر') > -1, 'ورود در مرورگر هم ممکن است (آیفون)');
+    assert.ok(!/PIN/i.test(html) && html.indexOf('پین') < 0, 'هیچ نشانی از PIN نیست');
+
+    /* ۴) نگاشت اکسل: «شماره تماس پدر» نباید موبایل دانش‌آموز شود */
+    const map = T.impAutoMap(['نام و نام خانوادگی', 'شماره همراه', 'شماره تماس پدر', 'همراه مادر', 'همراه سرپرست'], 'students');
+    assert.strictEqual(map[1], 'phone', '«شماره همراه» موبایل خودِ دانش‌آموز است');
+    assert.strictEqual(map[2], 'father_phone', '«شماره تماس پدر» موبایل پدر است');
+    assert.strictEqual(map[3], 'mother_phone', '«همراه مادر» موبایل مادر است');
+    assert.strictEqual(map[4], 'guardian_phone', '«همراه سرپرست» موبایل سرپرست است');
+
+    /* ۵) «مشخصات کامل» هر چهار موبایل را نشان می‌دهد */
+    const stu = { id: 5, name: 'رضا', role: 'student', phone: '09121111111', father_phone: '09122222222', mother_phone: '09123333333' };
+    T.putLocal('users', stu);
+    T.actUserFull(5);
+    const modal = win.document.querySelector('#modal-root').innerHTML;
+    ['name="phone"', 'name="father_phone"', 'name="mother_phone"', 'name="guardian_phone"'].forEach(k => {
+      assert.ok(modal.indexOf(k) > -1, 'کادر ' + k + ' در مشخصات کامل هست');
+    });
+    assert.ok(modal.indexOf('09122222222') > -1, 'شمارهٔ پدر نمایش داده می‌شود');
     dom.window.close();
   });
 

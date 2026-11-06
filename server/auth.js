@@ -5,7 +5,7 @@
    ۲) کاربر با کد + PIN دستگاهش را به حساب گره می‌زند ⇒ توکن دستگاه (۹۰ روز)
    ۳) هر بار باز کردن برنامه: PIN ⇒ نشست کوتاه (۱۲ ساعت)
    ─────────────────────────────────────────────────────────────────── */
-const { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, pbkdf2Hash, verifySecret, normDigits } = require('./util');
+const { nowISO, sha256, randomId, randomCode, pbkdf2Hash, verifySecret, normDigits } = require('./util');
 
 const PAIR_TTL_MIN = 7 * 24 * 60;      /* کد پیوند تا ۷ روز معتبر است */
 const DEVICE_DAYS = 365;          /* دستگاهِ مورد اعتماد یک سال می‌ماند */
@@ -24,11 +24,10 @@ function findUserByPhone(store, phone) {
 function setup(store, input) {
   if (!needsSetup(store)) return { ok: false, error: 'already_setup' };
   const name = String(input.manager_name || '').trim();
-  const pin = normDigits(input.pin);          /* ارقام فارسی، فاصله و خط‌تیره پذیرفته می‌شود */
+  /* PIN حذف شده است: از این پس ورود با شمارهٔ همراه + رمز عبور است */
   if (name.length < 3) return { ok: false, error: 'bad_name' };
-  if (!/^\d{4,6}$/.test(pin)) return { ok: false, error: 'bad_pin' };
   const pw = String(input.password || '');
-  if (pw && pw.length < 4) return { ok: false, error: 'bad_password' };
+  if (pw.length < 4) return { ok: false, error: 'bad_password' };
 
   const school = store.insert('schools', {
     name: String(input.school_name || 'مدرسهٔ من').trim() || 'مدرسهٔ من',
@@ -62,20 +61,20 @@ function setup(store, input) {
     password_plain: pw ? String(pw) : null,   /* فقط برای اینکه مدیر بتواند رمز را بگوید */
   });
 
-  const device = createDevice(store, manager.id, { name: 'سیستم مدیر', platform: 'server', pin });
+  const device = createDevice(store, manager.id, { name: 'سیستم مدیر', platform: 'server' });
   store.audit({ user_id: manager.id, role: 'manager', action: 'setup', collection: 'schools', record_id: 1, after: school });
   return { ok: true, user: publicUser(manager), session: device.session, device_token: device.device_token };
 }
 
 /* ── دستگاه ── */
 function createDevice(store, userId, opts = {}) {
-  const pin = String(opts.pin || '');
+  /* PIN از برنامه حذف شده است؛ این ستون برای دستگاه‌های قدیمی خالی می‌ماند */
   const deviceId = randomId(12);
   store.db.prepare(
     `INSERT INTO devices(id,user_id,name,platform,pin_hash,created_at,last_seen_at)
      VALUES(?,?,?,?,?,?,?)`
   ).run(deviceId, Number(userId), String(opts.name || 'دستگاه').slice(0, 60),
-    String(opts.platform || 'web').slice(0, 20), scryptHash(pin), nowISO(), nowISO());
+    String(opts.platform || 'web').slice(0, 20), '', nowISO(), nowISO());
   const deviceToken = randomId(32);
   store.setMeta('device:' + sha256(deviceToken), { device_id: deviceId, user_id: Number(userId), created_at: nowISO() });
   return { device_id: deviceId, device_token: deviceToken, session: createSession(store, userId, deviceId) };
@@ -155,7 +154,7 @@ function login(store, input = {}) {
     user = store.update('users', user.id, { phone_hash: pbkdf2Hash(pw) });
   }
   const device = createDevice(store, user.id, {
-    name: input.name || 'دستگاه', platform: input.platform || 'web', pin: '',
+    name: input.name || 'دستگاه', platform: input.platform || 'web',
   });
   return { ok: true, user: publicUser(user), session: device.session, device_token: device.device_token, auth: 'password' };
 }
@@ -222,9 +221,8 @@ function createPairCode(store, userId, createdBy) {
 }
 
 function pair(store, input) {
+  /* فقط کد پیوند — بدون PIN */
   const code = String(input.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const pin = normDigits(input.pin);
-  if (!/^\d{4,6}$/.test(pin)) return { ok: false, error: 'bad_pin' };
   const row = store.db.prepare('SELECT * FROM pair_codes WHERE code_hash=?').get(sha256(code));
   if (!row) return { ok: false, error: 'bad_code' };
   if (row.used_at) return { ok: false, error: 'code_used' };
@@ -232,23 +230,10 @@ function pair(store, input) {
   const user = store.get('users', row.user_id);
   if (!user || user.active === false) return { ok: false, error: 'user_inactive' };
 
-  const dev = createDevice(store, user.id, { name: input.name || 'گوشی', platform: input.platform || 'web', pin });
+  const dev = createDevice(store, user.id, { name: input.name || 'گوشی', platform: input.platform || 'web' });
   store.db.prepare('UPDATE pair_codes SET used_at=? WHERE code_hash=?').run(nowISO(), sha256(code));
   store.audit({ user_id: user.id, role: user.role, device_id: dev.device_id, action: 'pair', collection: 'devices', record_id: null });
   return { ok: true, device_token: dev.device_token, session: dev.session, user: publicUser(user) };
-}
-
-function unlock(store, input) {
-  const device = deviceFromToken(store, input.device_token);
-  if (!device) return { ok: false, error: 'device_unknown' };
-  if (!scryptVerify(String(input.pin || ''), device.pin_hash)) {
-    store.audit({ user_id: device.user_id, device_id: device.id, action: 'pin_failed' });
-    return { ok: false, error: 'bad_pin' };
-  }
-  const user = store.get('users', device.user_id);
-  if (!user || user.active === false) return { ok: false, error: 'user_inactive' };
-  store.db.prepare('UPDATE devices SET last_seen_at=? WHERE id=?').run(nowISO(), device.id);
-  return { ok: true, session: createSession(store, user.id, device.id), user: publicUser(user) };
 }
 
 /* ── انتقال دستگاه به آدرس عمومی (وقتی کاربر با آدرس محلی وارد شده) ── */
@@ -271,21 +256,17 @@ function redeemTransfer(store, code, opts = {}) {
   if (Number(rec.expires) < Date.now()) return { ok: false, error: 'code_expired' };
   const user = store.get('users', rec.user_id);
   if (!user || user.active === false) return { ok: false, error: 'user_inactive' };
-  const pin = String(opts.pin || '');
-  if (!/^\d{4,6}$/.test(pin)) return { ok: false, error: 'bad_pin' };
+  /* PIN حذف شده است: همین رمز عبور خودِ کاربر تأیید می‌شود */
+  const pw = String(opts.password || '');
+  if (!pw) return { ok: false, error: 'bad_password' };
+  if (!user.password_hash || !verifySecret(pw, user.password_hash)) return { ok: false, error: 'bad_password' };
 
   const dev = createDevice(store, user.id, {
-    name: opts.name || 'دستگاه منتقل‌شده', platform: opts.platform || 'web', pin,
+    name: opts.name || 'دستگاه منتقل‌شده', platform: opts.platform || 'web', pin: '',
   });
   store.setMeta(key, Object.assign({}, rec, { used: true, used_at: nowISO() }));
   store.audit({ user_id: user.id, role: user.role, device_id: dev.device_id, action: 'transfer_redeem', collection: 'devices' });
   return { ok: true, device_token: dev.device_token, session: dev.session, user: publicUser(user) };
-}
-
-function changePin(store, device, pin) {
-  if (!/^\d{4,6}$/.test(String(pin))) return { ok: false, error: 'bad_pin' };
-  store.db.prepare('UPDATE devices SET pin_hash=? WHERE id=?').run(scryptHash(String(pin)), device.id);
-  return { ok: true };
 }
 
 function listDevices(store) {
@@ -390,7 +371,7 @@ function prune(store) {
 
 module.exports = {
   findUserByLogin,
-  needsSetup, setup, createPairCode, pair, unlock, changePin,
+  needsSetup, setup, createPairCode, pair,
   credentialsFor, applyDefaultCredentials, phoneTaken, passwordOf, randomDigits,
   hasPassword, login, refreshWithDevice, unlockWithPassword, setPassword, changeOwnPassword,
   createTransfer, redeemTransfer,
