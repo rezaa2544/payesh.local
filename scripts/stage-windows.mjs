@@ -52,7 +52,7 @@ if (fs.existsSync(path.join(STAGE, 'desktop', 'Payesh.exe'))) {
   const s2 = fs.statSync(path.join(STAGE, 'desktop', 'Payesh.exe'));
   console.log(`   🖥️  Payesh.exe موجود است (${(s2.size / 1024).toFixed(0)}KB)`);
 } else {
-  console.log('   ⚠️  desktop/Payesh.exe ساخته نشده — میان‌بر به حالت مرورگر برمی‌گردد');
+  console.log('   ⚠️  desktop/Payesh.exe ساخته نشده — پنجرهٔ برنامه در بسته نیست (مرورگر هم باز نمی‌شود؛ پیام روشن داده می‌شود)');
 }
 
 /* Node قابل حمل (اختیاری) */

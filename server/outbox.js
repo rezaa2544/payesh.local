@@ -134,12 +134,24 @@ async function mirror(store, actor, ops, ctx) {
 async function drain(store, { limit = MAX_DRAIN } = {}) {
   const cfg = await cloud(store);
   if (!cfg) return { ok: false, error: 'no_cloud', checked: 0, applied: 0 };
-  let listing;
-  try {
-    listing = await s3mem.list(cfg, { prefix: keyOf(cfg, PENDING), max: limit });
-  } catch (e) {
-    writeMeta(store, { last_error: 'list: ' + String(e.message || e).slice(0, 120) });
-    return { ok: false, error: 'list_failed', detail: String(e.message || e).slice(0, 160), applied: 0 };
+  /* فهرست صندوقچه گاهی یک لحظه قطع می‌شود؛ سه بار تلاش می‌کنیم تا یک
+     اتصالِ لرزان، ثبت‌های خانه را «انگار خالی» نشان ندهد. */
+  let listing = null, listErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      listing = await s3mem.list(cfg, { prefix: keyOf(cfg, PENDING), max: limit });
+      break;
+    } catch (e) {
+      listErr = e;
+      if (attempt < 2) await new Promise(r => setTimeout(r, attempt === 0 ? 250 : 800));
+    }
+  }
+  if (!listing) {
+    writeMeta(store, { last_error: 'list: ' + String((listErr && listErr.message) || listErr).slice(0, 120) });
+    return {
+      ok: false, error: 'list_failed', checked: 0, applied: 0, skipped: 0, rejected: 0,
+      detail: String((listErr && listErr.message) || listErr).slice(0, 160),
+    };
   }
 
   const out = { ok: true, checked: 0, applied: 0, skipped: 0, rejected: 0, details: [] };

@@ -153,9 +153,13 @@
       throw err;
     }
 
-    /* ۲) در مرورگر: با CORS. اینترنت موبایل گاهی لرزان است، پس یک بار دیگر. */
-    let res = null, lastErr = null;
+    /* ۲) در مرورگر/سرور: با CORS. اینترنت موبایل و اتصال‌های کوتاه‌عمر
+          گاهی یک لحظه قطع می‌شوند. یک بار دیگر تلاش می‌کنیم — نه فقط برای
+          خودِ درخواست، بلکه برای خواندنِ بدنه و پاسخ‌های ۵xx/۴۲۹ هم. */
+    let lastErr = null;
     for (let attempt = 0; attempt < 2; attempt++) {
+      let res = null;
+      let text = null;
       try {
         res = await fetch(signed.url, {
           method,
@@ -164,25 +168,29 @@
           mode: 'cors',
           signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined,
         });
-        break;
+        text = await res.text();
       } catch (e) {
-        lastErr = e;
-        res = null;
+        lastErr = e; res = null;
         if (attempt === 0 && typeof setTimeout === 'function') await new Promise(r => setTimeout(r, 700));
+        continue;
       }
+      if (!res.ok && (res.status >= 500 || res.status === 429) && attempt === 0) {
+        lastErr = new Error('HTTP ' + res.status);
+        if (typeof setTimeout === 'function') await new Promise(r => setTimeout(r, 700));
+        continue;
+      }
+      if (!res.ok) {
+        const err = new Error(hint(res.status, text));
+        err.kind = 'http'; err.status = res.status; err.detail = String(text).slice(0, 300);
+        throw err;
+      }
+      return { status: res.status, text };
     }
-    if (!res) {
+    {
       const err = new Error('به صندوقچه نرسیدیم — آدرس/اینترنت/CORS را بررسی کنید');
       err.kind = 'network'; err.detail = (lastErr && (lastErr.name + ': ' + lastErr.message)) || '';
       throw err;
     }
-    const text = await res.text();
-    if (!res.ok) {
-      const err = new Error(hint(res.status, text));
-      err.kind = 'http'; err.status = res.status; err.detail = text.slice(0, 300);
-      throw err;
-    }
-    return { status: res.status, text };
   }
 
   const tag = (xml, t) => {

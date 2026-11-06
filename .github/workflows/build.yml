@@ -342,17 +342,47 @@ jobs:
           $v = node -p "require('./package.json').version"
           & $env:ISCC "/DAppVersion=$v" "installer\payesh.iss" 2>&1 | Tee-Object -FilePath iscc.log
           if ($LASTEXITCODE -ne 0) {
-            Get-Content iscc.log | Select-Object -Last 30 | ForEach-Object { "::error::ISCC: $_" }
+            # گیت‌هاب بیشتر از ۱۰ خط annotation در هر گام نشان نمی‌دهد؛ پس
+            # اول خط‌های خطا/هشدار را بیرون می‌کشیم و بعد ۴ خط آخر لاگ را.
+            $errs = @(Get-Content iscc.log | Where-Object { $_ -match 'Error|error|Warning|Compiling|Unknown|Duplicate|Unable' } | Select-Object -First 6)
+            $tail = @(Get-Content iscc.log -Tail 4)
+            ($errs + $tail) | Select-Object -Unique | ForEach-Object { "::error::ISCC: $_" }
             throw "ISCC ناموفق ($LASTEXITCODE)"
           }
           $exe = 'releases/payesh-setup.exe'
           if (-not (Test-Path $exe)) { throw 'خروجی exe ساخته نشد' }
           "✓ {0:N1} MB — نسخهٔ {1}" -f ((Get-Item $exe).Length/1MB), $v
 
+      # بستهٔ ویندوز باید پنجرهٔ واقعی برنامه را همراه داشته باشد؛ وگرنه کاربرِ
+      # نسخهٔ zip با «میان‌بر مرورگر» روبه‌رو می‌شد (شکایت کاربر).
+      - name: بستهٔ ویندوز همراه برنامهٔ پنجره‌ای
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = 'releases/payesh-local-windows.zip'
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          $exe = '.build\win\desktop\Payesh.exe'
+          if (-not (Test-Path $exe)) { throw 'Payesh.exe در بسته نیست' }
+          Compress-Archive -Path '.build\win\*' -DestinationPath $zip -CompressionLevel Optimal
+          "{0:N1} MB — {1}" -f ((Get-Item $zip).Length/1MB), $zip
+          # بازبینی: فایل اجرایی و موتور نمایش داخل بسته باشند
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $z = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip))
+          try {
+            $names = $z.Entries | ForEach-Object { $_.FullName }
+            foreach ($need in @('desktop/Payesh.exe', 'server/index.js', 'client/index.html', 'runtime/node.exe')) {
+              $hit = $names | Where-Object { $_ -like "*$need" }
+              if (-not $hit) { throw "در بستهٔ ویندوز نیست: $need" }
+            }
+            "✓ بسته شامل برنامه، سرور و Node است"
+          } finally { $z.Dispose() }
+
       - uses: actions/upload-artifact@v4
         with:
           name: payesh-setup
-          path: releases/payesh-setup.exe
+          path: |
+            releases/payesh-setup.exe
+            releases/payesh-local-windows.zip
 
       - name: انتشار در انتشار پیوسته
         if: github.ref == 'refs/heads/main'
@@ -361,4 +391,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload continuous releases/payesh-setup.exe --clobber
-          gh release view continuous --json assets --jq '.assets[] | select(.name=="payesh-setup.exe") | "\(.name) — \(.size) بایت"'
+          gh release upload continuous releases/payesh-local-windows.zip --clobber
+          gh release view continuous --json assets --jq '.assets[] | select(.name=="payesh-setup.exe" or .name=="payesh-local-windows.zip") | "\(.name) — \(.size) بایت"'

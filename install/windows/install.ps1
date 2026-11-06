@@ -6,7 +6,7 @@
 #  • قاعدهٔ فایروال برای شبکهٔ مدرسه
 #  • آیکون دسکتاپ + منوی استارت
 #  • ثبت در «افزودن یا حذف برنامه‌ها» با حذف‌کنندهٔ واقعی
-#  • راه‌اندازی سامانه و باز کردن مرورگر
+#  • باز کردن پنجرهٔ مستقل برنامه (desktop\Payesh.exe) — بدون مرورگر
 #  اجرا:  install.bat  (خودش دسترسی مدیر می‌گیرد)
 # ═══════════════════════════════════════════════════════════════════
 param(
@@ -173,9 +173,14 @@ try {
 
   $desktop = [Environment]::GetFolderPath('Desktop')
   Remove-Item (Join-Path $desktop 'پایش.url') -Force -ErrorAction SilentlyContinue
+  # میان‌بر مستقیم به پنجرهٔ برنامه (بدون هیچ مرورگری)؛ اگر فایل برنامه نبود،
+  # اسکریپت اجرا که خودش پیام روشن می‌دهد و مرورگر باز نمی‌کند
+  $appExe = Join-Path $TargetDir 'desktop\Payesh.exe'
+  $deskTarget = if (Test-Path $appExe) { $appExe } else { 'C:\Windows\System32\wscript.exe' }
+  $deskArgs = if (Test-Path $appExe) { '' } else { '"' + $appVbs + '"' }
   $lnk = $shell.CreateShortcut((Join-Path $desktop 'پایش.lnk'))
-  $lnk.TargetPath = 'C:\Windows\System32\wscript.exe'
-  $lnk.Arguments = '"' + $appVbs + '"'
+  $lnk.TargetPath = $deskTarget
+  if ($deskArgs -ne '') { $lnk.Arguments = $deskArgs }
   $lnk.WorkingDirectory = $TargetDir
   $lnk.IconLocation = $appIcon
   $lnk.Description = 'پایش-لوکال — سامانهٔ مدرسه'
@@ -185,8 +190,8 @@ try {
   $startMenu = Join-Path ([Environment]::GetFolderPath('Programs')) 'پایش-لوکال'
   New-Item -ItemType Directory -Force -Path $startMenu | Out-Null
   $sm = $shell.CreateShortcut((Join-Path $startMenu 'پایش.lnk'))
-  $sm.TargetPath = 'C:\Windows\System32\wscript.exe'
-  $sm.Arguments = '"' + $appVbs + '"'
+  $sm.TargetPath = $deskTarget
+  if ($deskArgs -ne '') { $sm.Arguments = $deskArgs }
   $sm.WorkingDirectory = $TargetDir
   $sm.IconLocation = $appIcon
   $sm.Description = 'سامانهٔ مدیریت مدرسه — پایش-لوکال'
@@ -265,8 +270,9 @@ Write-Host @"
 "@ -ForegroundColor White
 
 try {
-  if (Test-Path (Join-Path $TargetDir 'payesh-app.vbs')) { Start-Process 'wscript.exe' -ArgumentList ('"' + (Join-Path $TargetDir 'payesh-app.vbs') + '"') }
-  else { Start-Process $url }
+  $appExe = Join-Path $TargetDir 'desktop\Payesh.exe'
+  if (Test-Path $appExe) { Start-Process $appExe }
+  elseif (Test-Path (Join-Path $TargetDir 'payesh-app.vbs')) { Start-Process 'wscript.exe' -ArgumentList ('"' + (Join-Path $TargetDir 'payesh-app.vbs') + '"') }
 } catch { }
 
 if (-not $Unattended) {
