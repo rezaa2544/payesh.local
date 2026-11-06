@@ -156,8 +156,7 @@ if [ "$RC" -ne 0 ]; then
   {
     echo "# شاهد ساختاری ممیزی ۰۵–۱۱ — ناموفق"
     echo "# تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh"
-    echo "# تاریخ تولید: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    echo "# نتیجه: EVIDENCE-FAIL (کد خروج غیرصفر)"
+      echo "# نتیجه: EVIDENCE-FAIL (کد خروج غیرصفر)"
     echo "# فایل شاهد سالم قبلی بازنویسی نشد (append-only)"
   } > "$BAD"
   echo "EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: $BAD" >&2
@@ -168,7 +167,6 @@ fi
 {
   echo "# شاهد ساختاری ممیزی ۰۵–۱۱"
   echo "# تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh"
-  echo "# تاریخ تولید: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "# تاریخ اجرای آزمون (از لاگ خام): ${LOGTIME:-?}"
   echo "# SHA اجرای آزمون (از لاگ خام): ${LOGSHA:-?}"
   echo "# اثر انگشت کد محصول (log / HEAD): ${LOGFP:-?} / ${HEADFP}"
