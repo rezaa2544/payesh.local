@@ -1,13 +1,14 @@
 # بازبینی یکپارچگی PR #73
 # تولید: bash docs/cloud/reports/evidence/review-pr73-integrity.sh
-# زمان: 2026-11-06T17:08:31Z
-# HEAD: 13c44d4a95bdc3d8ee9a813289d9db4d909a1274
+# زمان: 2026-11-06T17:10:50Z
+# HEAD: 618202a02cfc0c5e3b5661f12e2b573c1d29c30d
 # base: f2fc472c643a52d393b3160405e1581bda64da25
 
 ## شمارش تغییرات نسبت به پایهٔ ممیزی
-added=43 modified=1 deleted=0 total=44
+added=53 modified=2 deleted=0 total=55
 
 ## فهرست کامل فایل‌های تغییرکرده
+M	.gitignore
 A	AGENTS.md
 M	README.md
 A	docs/00-PAYESH-CLOUD-CONSTITUTION.md
@@ -31,6 +32,7 @@ A	docs/cloud/14-conflict-convergence.md
 A	docs/cloud/15-backup-recovery.md
 A	docs/cloud/16-ha-observability-cost.md
 A	docs/cloud/16b-tenant-provisioning-migration.md
+A	docs/cloud/reports/MISSION-A-PR73-REMEDIATION.md
 A	docs/cloud/reports/PACKAGE-2-3-REPORT.md
 A	docs/cloud/reports/evidence/gen-audit-evidence.sh
 A	docs/cloud/reports/evidence/gen-mission-02-evidence.sh
@@ -44,12 +46,21 @@ A	docs/cloud/reports/evidence/mission-04-structure.txt
 A	docs/cloud/reports/evidence/mission-04b-structure.txt
 A	docs/cloud/reports/evidence/mission-05-11-structure.txt
 A	docs/cloud/reports/evidence/mission-05-inventory.txt
+A	docs/cloud/reports/evidence/mission-05-tests-run.log
 A	docs/cloud/reports/evidence/mission-06-10-probes.txt
 A	docs/cloud/reports/evidence/mission-12-16b-structure.txt
+A	docs/cloud/reports/evidence/mission-a-evidence-gate-behaviour.txt
+A	docs/cloud/reports/evidence/mission-a-pr73-integrity.txt
+A	docs/cloud/reports/evidence/mission-a-rls-execution.txt
 A	docs/cloud/reports/evidence/phase1-probe.txt
 A	docs/cloud/reports/evidence/phase1-probe2.txt
 A	docs/cloud/reports/evidence/phase1-probe3.txt
 A	docs/cloud/reports/evidence/probe-06-10.mjs
+A	docs/cloud/reports/evidence/review-pr73-integrity.sh
+A	docs/cloud/reports/evidence/rls-execution-test.cjs
+A	docs/cloud/reports/evidence/rls-execution-test.sh
+A	docs/cloud/reports/evidence/run-tests-evidence.sh
+A	docs/cloud/reports/evidence/verify-evidence-gate-negative.sh
 A	docs/cloud/reports/mission-01-acceptance.md
 A	docs/cloud/reports/phase0-comprehension.md
 
@@ -60,7 +71,7 @@ files=0
 checked=13 invalid_as_commit=none
 
 ## مسیرهای ارجاع‌شده در اسناد
-checked=32 missing=none
+checked=33 missing=none
 
 ## حکم
 INTEGRITY-OK

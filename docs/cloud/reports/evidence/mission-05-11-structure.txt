@@ -1,9 +1,9 @@
 # شاهد ساختاری ممیزی ۰۵–۱۱
 # تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh
-# تاریخ تولید: 2026-11-06T17:08:59Z
+# تاریخ تولید: 2026-11-06T17:10:51Z
 # تاریخ اجرای آزمون (از لاگ خام): 2026-11-06T17:08:45Z
 # SHA اجرای آزمون (از لاگ خام): 13c44d4a95bdc3d8ee9a813289d9db4d909a1274
-# SHA فعلی HEAD: 13c44d4a95bdc3d8ee9a813289d9db4d909a1274
+# SHA فعلی HEAD: 618202a02cfc0c5e3b5661f12e2b573c1d29c30d
 # اثر انگشت کد محصول (log / HEAD): 497e1cbda8e733268b0bc8e339f01270f2d910dee84fe2f08a348d632d9272c5 / 497e1cbda8e733268b0bc8e339f01270f2d910dee84fe2f08a348d632d9272c5
 # branch: arena/f1efa594-payesh-local
 
