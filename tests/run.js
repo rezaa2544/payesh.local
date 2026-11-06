@@ -1389,9 +1389,15 @@ async function waitFor(fn, ms = 15000) {
       assert.strictEqual(denied.status, 403, 'ولی نمی‌تواند نقش سرور بگیرد');
 
       /* اولین دستگاهِ روشن‌شده (اینجا: مدیر) صندوقچه را اعمال می‌کند */
-      const drained = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
-      assert.strictEqual(drained.data.ok, true);
-      assert.ok(drained.data.applied >= 1, 'ثبت صندوقچه اعمال شد: ' + JSON.stringify(drained.data.details || drained.data));
+      const drained = await drainNow();
+      assert.strictEqual(drained.data.ok, true, 'صندوقچه خوانده شد: ' + JSON.stringify(drained.data).slice(0, 300));
+      /* آنچه مهم است «اثر» است نه عددِ همان پاسخ: اگر همین دستگاه پیش از آن
+         صندوقچه را کشیده باشد، این درخواست صفر برمی‌گرداند ولی مرخصی
+         باید در داده باشد. */
+      const leaveIn = async () => (await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=leaves', { token: managerToken }))
+        .data.collections.leaves.some(l => l.reason === 'بیماری');
+      await waitFor(leaveIn, 8000);
+      assert.ok(await leaveIn(), 'ثبت صندوقچه اعمال شد: ' + JSON.stringify(drained.data).slice(0, 300));
       const after = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=leaves', { token: managerToken });
       assert.ok(after.data.collections.leaves.some(l => l.reason === 'بیماری'), 'مرخصی از دستگاه خانه به دادهٔ مدرسه رسید');
       assert.ok(bucket.get('payesh/outbox/pending/ob-test-1.json') == null, 'ثبت اعمال‌شده از صندوقچه پاک شد');
@@ -1467,7 +1473,10 @@ async function waitFor(fn, ms = 15000) {
       assert.strictEqual(sentOp.ok, true, 'ثبت گوشی در صندوقچه گذاشته شد');
       assert.ok(bucket.has('payesh/outbox/pending/ob-phone-1.json'), 'فایل ثبت گوشی در صندوقچه هست');
       const drainedFromPhone = await drainNow();
-      assert.ok(drainedFromPhone.data.applied >= 1, 'سیستم مدرسه ثبت گوشی را اعمال کرد: ' + JSON.stringify(drainedFromPhone.data).slice(0, 400));
+      const annIn = async () => (await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=announcements', { token: managerToken }))
+        .data.collections.announcements.some(a => a.title === 'از گوشی');
+      await waitFor(annIn, 8000);
+      assert.ok(await annIn(), 'سیستم مدرسه ثبت گوشی را اعمال کرد: ' + JSON.stringify(drainedFromPhone.data).slice(0, 400));
 
       /* تغییر رمز از روی گوشی: فقط نسخهٔ قابل‌بررسی می‌آید و همان رمز می‌شود */
       const utilMod = require(path.join(ROOT, 'server', 'util.js'));
@@ -1476,9 +1485,9 @@ async function waitFor(fn, ms = 15000) {
         op: { collection: 'users', type: 'put', id: 1, data: { __password_verifier: utilMod.pbkdf2Hash('Ramz-Az-Ghooshi') } },
       }));
       const pwDrain = await drainNow();
-      assert.ok(pwDrain.data.applied >= 1, 'تغییر رمز از گوشی اعمال شد: ' + JSON.stringify(pwDrain.data).slice(0, 400));
-      const pwLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'Ramz-Az-Ghooshi' } });
-      assert.strictEqual(pwLogin.data.ok, true, 'رمزِ تعیین‌شده روی گوشی روی سرور کار می‌کند');
+      const pwOk = async () => (await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'Ramz-Az-Ghooshi' } })).data.ok;
+      await waitFor(pwOk, 8000);
+      assert.ok(await pwOk(), 'تغییر رمز از گوشی اعمال شد: ' + JSON.stringify(pwDrain.data).slice(0, 400));
     } finally {
       await new Promise(r => fake.close(r));
     }
