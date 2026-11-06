@@ -1,6 +1,10 @@
 package ir.payesh.local;
 
 import android.app.Activity;
+import android.content.ContentValues;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.provider.MediaStore;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -32,6 +36,16 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
+import com.google.zxing.MultiFormatReader;
+import com.google.zxing.RGBLuminanceSource;
+import com.google.zxing.Result;
+import com.google.zxing.common.HybridBinarizer;
+import com.google.zxing.integration.android.IntentIntegrator;
+import com.google.zxing.integration.android.IntentResult;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -45,6 +59,9 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.ExecutorService;
@@ -94,6 +111,8 @@ public class MainActivity extends Activity {
     };
 
     private static final int FILE_PICK = 1001;
+    private static final int QR_SCAN = 1002;      /* دوربینِ زنده (ZXing) */
+    private static final int QR_GALLERY = 1003;   /* عکس از گالری */
 
     private WebView web;
     private ProgressBar bar;
@@ -265,6 +284,42 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void pairCodeUsed() {
             prefs.edit().remove(KEY_PAIR).apply();
+        }
+
+        /* ══ اسکن QR با دوربینِ زنده ══════════════════════════════════
+           کارت پیوند یک QR دارد؛ دوربین باز می‌شود، کاربر کد را در کادر
+           می‌گیرد و برنامه خودش وارد حساب می‌شود. */
+        @JavascriptInterface
+        public void scanQr() {
+            runOnUiThread(() -> {
+                try {
+                    IntentIntegrator it = new IntentIntegrator(MainActivity.this);
+                    it.setDesiredBarcodeFormats(IntentIntegrator.QR_CODE);
+                    it.setPrompt("QR کارت پیوند را داخل کادر بگیرید");
+                    it.setBeepEnabled(false);
+                    it.setBarcodeImageEnabled(false);
+                    it.setOrientationLocked(false);
+                    it.setRequestCode(QR_SCAN);
+                    it.initiateScan();
+                } catch (Exception e) {
+                    sendQrError("no_camera");
+                }
+            });
+        }
+
+        /* ══ انتخاب عکسِ QR از گالری ══════════════════════════════════ */
+        @JavascriptInterface
+        public void pickQr() {
+            runOnUiThread(() -> {
+                try {
+                    Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+                    i.setType("image/*");
+                    i.addCategory(Intent.CATEGORY_OPENABLE);
+                    startActivityForResult(Intent.createChooser(i, "عکس کارت پیوند را انتخاب کنید"), QR_GALLERY);
+                } catch (Exception e) {
+                    sendQrError("no_code");
+                }
+            });
         }
 
         @JavascriptInterface
@@ -759,6 +814,78 @@ public class MainActivity extends Activity {
             .show();
     }
 
+    /* نتیجهٔ اسکن را به صفحه بده (همان تابعی که صفحهٔ اسکن دارد) */
+    private void sendQr(final String text) {
+        runOnUiThread(() -> {
+            if (web == null) return;
+            try {
+                String js = "window.payeshOnQr && window.payeshOnQr(" + JSONObject.quote(text == null ? "" : text) + ")";
+                web.evaluateJavascript(js, null);
+            } catch (Exception e) { /* بی‌صدا */ }
+        });
+    }
+
+    private void sendQrError(final String reason) {
+        runOnUiThread(() -> {
+            if (web == null) return;
+            try {
+                web.evaluateJavascript("window.payeshOnQrError && window.payeshOnQrError(" + JSONObject.quote(reason) + ")", null);
+            } catch (Exception e) { /* بی‌صدا */ }
+        });
+    }
+
+    /* خواندن QR از یک عکس؛ اگر عکس کج یا کم‌نور بود، چند حالت را امتحان می‌کند */
+    private void decodeQrImage(final Uri uri) {
+        new Thread(() -> {
+            Bitmap bmp = null;
+            try (InputStream is = getContentResolver().openInputStream(uri)) {
+                bmp = BitmapFactory.decodeStream(is);
+            } catch (Exception e) {
+                sendQrError("no_code");
+                return;
+            }
+            if (bmp == null) { sendQrError("no_code"); return; }
+            Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
+            hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+            List<BarcodeFormat> formats = new ArrayList<>();
+            formats.add(BarcodeFormat.QR_CODE);
+            hints.put(DecodeHintType.POSSIBLE_FORMATS, formats);
+            MultiFormatReader reader = new MultiFormatReader();
+            reader.setHints(hints);
+            int[] variants = {0, 90, 180, 270};
+            for (int deg : variants) {
+                Bitmap b = deg == 0 ? bmp : rotateBitmap(bmp, deg);
+                String found = decodeBitmap(reader, b);
+                if (found != null) { sendQr(found); return; }
+            }
+            sendQrError("no_code");
+        }).start();
+    }
+
+    private String decodeBitmap(MultiFormatReader reader, Bitmap bmp) {
+        if (bmp == null) return null;
+        try {
+            int w = bmp.getWidth(), h = bmp.getHeight();
+            int[] px = new int[w * h];
+            bmp.getPixels(px, 0, w, 0, 0, w, h);
+            BinaryBitmap bb = new BinaryBitmap(new HybridBinarizer(new RGBLuminanceSource(w, h, px)));
+            Result r = reader.decodeWithState(bb);
+            return r == null ? null : r.getText();
+        } catch (Exception e) {
+            return null;
+        } finally {
+            try { reader.reset(); } catch (Exception e) { /* بی‌صدا */ }
+        }
+    }
+
+    private Bitmap rotateBitmap(Bitmap src, int degrees) {
+        try {
+            android.graphics.Matrix m = new android.graphics.Matrix();
+            m.postRotate(degrees);
+            return Bitmap.createBitmap(src, 0, 0, src.getWidth(), src.getHeight(), m, true);
+        } catch (Exception e) { return null; }
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(0, 2, 0, R.string.reload);
@@ -782,6 +909,17 @@ public class MainActivity extends Activity {
             }
             filePathCallback.onReceiveValue(result);
             filePathCallback = null;
+            return;
+        }
+        if (requestCode == QR_SCAN) {
+            IntentResult res = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+            if (res != null && res.getContents() != null) sendQr(res.getContents());
+            else sendQrError("cancel");
+            return;
+        }
+        if (requestCode == QR_GALLERY) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) decodeQrImage(data.getData());
+            else sendQrError("cancel");
             return;
         }
         super.onActivityResult(requestCode, resultCode, data);

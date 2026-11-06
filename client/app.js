@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.30';
+const CLIENT_VERSION = '0.8.31';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -638,6 +638,19 @@ function digitsOnly(v) {
     .replace(/[^\d]/g, '');
 }
 
+/* شمارهٔ همراه: هر شکلی را به ۱۱ رقم «09…» برمی‌گرداند.
+   اکسل و آدم‌ها صفرِ اول را جا می‌اندازند (9123456789) — همان را
+   خودکار کامل می‌کنیم تا نام کاربری هیچ‌وقت ناقص ذخیره نشود. */
+function mobile11(v) {
+  let d = digitsOnly(v);
+  if (!d) return '';
+  if (/^0098/.test(d)) d = d.slice(4);
+  else if (/^98/.test(d) && d.length >= 12) d = d.slice(2);
+  if (/^9\d{9}$/.test(d)) return '0' + d;
+  if (/^989\d{9}$/.test(d)) return '0' + d.slice(2);
+  return d;
+}
+
 /* ── کاربر و نشست ───────────────────────────────────────────────── */
 function saveSession(token) { S.session = token; localStorage.setItem('payesh.session', token); }
 function saveDevice(token) { S.deviceToken = token; localStorage.setItem('payesh.device', token); }
@@ -845,7 +858,7 @@ async function pairWithCode(raw) {
     S.user = r.user; S.role = r.user.role;
     await start();
   } catch (e) {
-    const map = { bad_code: 'کد پیوند نامعتبر است — کد را کامل و درست وارد کنید', code_used: 'این کد قبلاً استفاده شده — از مدیر کد تازه بگیرید', code_expired: 'کد منقضی شده — از مدیر کد تازه بگیرید', user_inactive: 'حساب غیرفعال است' };
+    const map = { bad_code: 'کد پیوند نامعتبر است — کد را کامل و درست وارد کنید', code_revoked: 'این کد باطل شده — مدیر کد تازه ساخته است؛ کارت تازه را بگیرید', code_used: 'این کد باطل شده — از مدیر کد تازه بگیرید', code_expired: 'کد منقضی شده — از مدیر کد تازه بگیرید', user_inactive: 'حساب غیرفعال است' };
     toast(map[e.message] || 'ورود ناموفق: ' + e.message, 'err');
   }
 }
@@ -861,7 +874,7 @@ async function doTransfer(form) {
     go('home');
     await start();
   } catch (e) {
-    const map = { bad_code: 'کد انتقال نامعتبر است', code_used: 'این کد قبلاً استفاده شده', code_expired: 'کد انتقال منقضی شده', bad_password: 'رمز عبور درست نیست' };
+    const map = { bad_code: 'کد انتقال نامعتبر است', code_revoked: 'این کد باطل شده', code_used: 'این کد باطل شده', code_expired: 'کد انتقال منقضی شده', bad_password: 'رمز عبور درست نیست' };
     toast(map[e.message] || 'انتقال ناموفق: ' + e.message, 'err');
   }
 }
@@ -1027,13 +1040,13 @@ async function autoPairFromLink() {
   const code = linkPairCode();
   if (!code) return false;
   if (S.deviceToken || S.session) return false;              /* از قبل وارد است */
-  if (localStorage.getItem('payesh.pair.used') === code) return false;
   const inApp = typeof window !== 'undefined' && window.PAYESH_BUNDLED === true;
   const asked = /#\/pair[=\/]/.test(String(location.hash || '')) && /auto=1/.test(String(location.hash || ''));
   if (!inApp && !asked) return false;                        /* در مرورگر، صفحهٔ راهنما نشان داده می‌شود */
   try {
     const r = await api('/api/auth/pair', { method: 'POST', body: { code, platform: platformName(), name: deviceName() } });
-    localStorage.setItem('payesh.pair.used', code);
+    /* کد پیوند دائمی است؛ دیگر «مصرف‌شده» علامت نمی‌خورد تا بعد از
+       خروج از حساب هم همان کارت دوباره کار کند. */
     saveDevice(r.device_token);
     saveSession(r.session.token);
     S.user = r.user; S.role = r.user.role;
@@ -1044,22 +1057,73 @@ async function autoPairFromLink() {
     return true;
   } catch (e) {
     const map = {
-      bad_code: 'کد پیوند نامعتبر است', code_used: 'این کد قبلاً استفاده شده — از مدیر کد تازه بگیرید',
+      bad_code: 'کد پیوند نامعتبر است', code_revoked: 'این کد باطل شده — مدیر کد تازه ساخته است؛ کارت تازه را بگیرید', code_used: 'این کد باطل شده — از مدیر کد تازه بگیرید',
       code_expired: 'کد منقضی شده — از مدیر کد تازه بگیرید', user_inactive: 'حساب غیرفعال است',
     };
     toast(map[e.message] || 'ورود خودکار نشد: ' + e.message, 'err');
-    localStorage.setItem('payesh.pair.used', code);
     return false;
   }
 }
 window.addEventListener('hashchange', async () => {
   routeFromHash();
   if (/\/pair[=\/]/.test(String(location.hash || '')) && await autoPairFromLink()) return;
+  /* پیش از ورود: صفحهٔ اسکن هم باید باز شود */
+  if ((!S.session || !S.user) && S.route === 'scan' && typeof window.renderScanPage === 'function') {
+    window.renderScanPage();
+    window.scrollTo(0, 0);
+    return;
+  }
   render();
   maybeOpenInstalledApp();
   window.scrollTo(0, 0);
   if (S.route === 'network' && S.role === 'manager') { await loadNetwork(false); render(); }
 });
+
+/* ── آینهٔ داده و پشتیبان روزانه (فقط مدیر، روی سیستم مدرسه) ─────── */
+async function loadMirror() {
+  if (PHONE_MODE) { S.mirror = null; return null; }
+  try {
+    const r = await api('/api/admin/mirror', { noAuthRedirect: true });
+    S.mirror = r;
+    return r;
+  } catch (e) {
+    S.mirror = { error: friendlyError(e), mirror: null, daily: [] };
+    return S.mirror;
+  }
+}
+
+async function actMirrorRefresh() {
+  if (PHONE_MODE) { toast('این کار روی رایانهٔ مدرسه انجام می‌شود', 'err'); return; }
+  try {
+    const r = await api('/api/admin/mirror/refresh', { method: 'POST', body: {} });
+    S.mirror = r;
+    render();
+    toast('آینه به‌روز شد · ' + fa((r.mirror && r.mirror.total) || 0) + ' رکورد' +
+      (r.mirror && r.mirror.ok ? ' — با دیتابیس یکی است ✅' : ' — اختلاف باقی است'), 'ok');
+  } catch (e) { toast('به‌روزرسانی نشد: ' + friendlyError(e), 'err'); }
+}
+
+async function actMirrorRestore() {
+  const input = document.getElementById('restore-file');
+  const file = input && input.files && input.files[0];
+  if (!file) { toast('اول فایل پشتیبان (.json) را انتخاب کنید', 'err'); return; }
+  if (file.size > 60 * 1024 * 1024) { toast('این فایل بزرگ‌تر از حد مجاز است', 'err'); return; }
+  const replace = confirm('اطلاعات همین فایل روی سیستم نوشته شود؟\n\nتأیید = بازگردانی و حفظ رکوردهای فعلی\nانصراف = لغو');
+  let text = '';
+  try { text = await file.text(); } catch (e) { toast('فایل خوانده نشد', 'err'); return; }
+  let data = null;
+  try { data = JSON.parse(text); } catch (e) { toast('این فایل پشتیبان معتبر نیست (JSON ناخوانا)', 'err'); return; }
+  if (!data || data.format !== 'payesh-backup') { toast('این فایل، فایل پشتیبان پایش نیست', 'err'); return; }
+  try {
+    const r = await api('/api/admin/restore', { method: 'POST', body: { data, replace: false } });
+    const n = r.report && r.report.restored ? Object.keys(r.report.restored).reduce((a, k) => a + Number(r.report.restored[k] || 0), 0) : 0;
+    toast('بازیابی انجام شد · ' + fa(n) + ' رکورد' + (r.safety ? ' · نسخهٔ ایمنی: ' + r.safety : ''), 'ok');
+    S.mirror = undefined;
+    await pullAll().catch(() => {});
+    await loadMirror().catch(() => {});
+    render();
+  } catch (e) { toast('بازیابی نشد: ' + friendlyError(e), 'err'); }
+}
 
 /* ── وضعیت شبکه/تونل (فقط مدیر) ─────────────────────────────────── */
 async function loadNetwork(force) {
@@ -1160,6 +1224,11 @@ function render() {
   }
 
   /* وضعیت به‌روزرسانی در صفحهٔ «سیستم» (همان snapshot k3-reval) */
+  if (S.route === 'system' && S.role === 'manager' && S.mirror === undefined && !S._mirrorLoading && !PHONE_MODE) {
+    S._mirrorLoading = true;
+    loadMirror().then(() => { S._mirrorLoading = false; if (S.route === 'system') render(); })
+      .catch(() => { S._mirrorLoading = false; });
+  }
   if (S.route === 'system' && S.role === 'manager' && S.upd === undefined && !S._updLoading) {
     S._updLoading = true;
     loadUpdState().then(() => { S._updLoading = false; if (S.route === 'system') render(); })
@@ -1616,6 +1685,10 @@ async function boot() {
       PHONE_MODE = true;
       S.server.version = CLIENT_VERSION;
       if (await startOffline()) return;
+      if (String(location.hash || '').indexOf('#/scan') === 0 && typeof window.renderScanPage === 'function') {
+        window.renderScanPage();
+        return;
+      }
       renderPhoneLogin(); return;
     }
     S.server = {
@@ -1650,6 +1723,11 @@ async function boot() {
       /* دستگاهِ گره‌خورده: اول بی‌صدا نشست می‌گیریم؛ فقط اگر دستگاه باطل شده باشد، قفل */
       if (!S.session || !(await silentRefresh())) { renderLock(); return; }
       await start();
+      return;
+    }
+    /* صفحهٔ اسکن، پیش از ورود هم باید باز شود (کاربر QR کارت را می‌آورد) */
+    if (String(location.hash || '').indexOf('#/scan') === 0 && typeof window.renderScanPage === 'function') {
+      window.renderScanPage();
       return;
     }
     renderPair();
@@ -1740,9 +1818,67 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (document.querySelector('#modal-root [data-act="modal-close"]')) closeModal();
 });
-document.addEventListener('click', async (e) => {
+/* ══════════════ «زنده» بودن همهٔ کنش‌ها ══════════════════════════════
+   شکایت کاربر: «وقتی گزینه‌ای را می‌زنیم هیچ واکنشی نشان نمی‌دهد».
+   راه‌حل: هر کلیک بی‌درنگ نشانه می‌گیرد — دکمه فشرده می‌شود، نشانگر
+   چرخان روی خودِ دکمه می‌آید، نوار باریک بالای صفحه روشن می‌شود و تا
+   تمام‌شدن کار می‌چرخد. هیچ کنشی هم بدون گزارش تمام نمی‌شود. */
+let LIVE_COUNT = 0;
+function liveBar(on) {
+  const bar = document.getElementById('live-bar');
+  if (bar) bar.classList.toggle('on', on);
+  document.body.style.cursor = on ? 'progress' : '';
+}
+function liveBegin(el) {
+  const noBusy = /^(modal-bg|modal-close|nav|go)$/.test(String(el && el.getAttribute('data-act') || ''));
+  if (el && !noBusy && !el.classList.contains('is-busy')) el.classList.add('is-busy');
+  LIVE_COUNT += 1;
+  liveBar(true);
+  const startedAt = Date.now();
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    /* هر کنشی حداقل نیم‌ثانیه نشانگر داشته باشد تا کاربر ببیند کلیکش
+       اثر کرده — نه اینکه صفرِ صفر ناپدید شود. */
+    const wait = Math.max(0, 520 - (Date.now() - startedAt));
+    const reveal = () => {
+      LIVE_COUNT = Math.max(0, LIVE_COUNT - 1);
+      if (!LIVE_COUNT) liveBar(false);
+      if (el && el.classList) {
+        el.classList.remove('is-busy');
+        el.classList.add('done-flash');
+        setTimeout(() => { try { el.classList.remove('done-flash'); } catch (e) { /* noop */ } }, 450);
+      }
+    };
+    if (wait) setTimeout(reveal, wait); else reveal();
+  };
+  /* اگر کنشی پنجره باز کند و منتظر کاربر بماند، نشانگر نباید تا ابد بچرخد */
+  const guard = setTimeout(finish, 15000);
+  return () => { clearTimeout(guard); finish(); };
+}
+
+document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act]');
-  if (!el) return;
+  if (!el || el.disabled) return;
+  const done = liveBegin(el);
+  /* بدنهٔ کنش همان‌جا و هم‌زمان اجرا می‌شود (مثل قبل) تا هیچ واکنشی
+     عقب نیفتد؛ فقط نشانگر و خطاگیری اضافه شده است. */
+  let running;
+  try { running = handleActionClick(e, el); }
+  catch (err) {
+    try { console.error(err); } catch (x) { /* noop */ }
+    toast('انجام نشد: ' + friendlyError(err), 'err');
+  }
+  Promise.resolve(running)
+    .catch((err) => {
+      try { console.error(err); } catch (x) { /* noop */ }
+      toast('انجام نشد: ' + friendlyError(err), 'err');
+    })
+    .then(done, done);
+});
+
+async function handleActionClick(e, el) {
   const act = el.getAttribute('data-act');
   const id = el.getAttribute('data-id');
   /* گارد کنش: کنش مدیریتی با نقش دیگر اجرا نمی‌شود (مثل p2) */
@@ -1817,6 +1953,23 @@ document.addEventListener('click', async (e) => {
       } catch (e) { toast('حذف نشد: ' + friendlyError(e), 'err'); }
       return;
     }
+    case 'pair-refresh': { await actPairCode(el.getAttribute('data-id'), true); return; }
+    case 'scan-open': { location.hash = '#/scan'; return; }
+    case 'scan-camera': {
+      if (typeof window.scanNativeAvailable === 'function' && window.scanNativeAvailable()) {
+        try { window.PayeshNative.scanQr(); return; } catch (e) { /* می‌رویم سراغ مرورگر */ }
+      }
+      if (typeof window.scanLiveCamera === 'function') window.scanLiveCamera();
+      return;
+    }
+    case 'scan-gallery': {
+      try {
+        if (window.PayeshNative && window.PayeshNative.pickQr) { window.PayeshNative.pickQr(); return; }
+      } catch (e) { /* بی‌صدا */ }
+      if (typeof window.scanPickFile === 'function') window.scanPickFile(false);
+      return;
+    }
+    case 'scan-stop': { if (typeof window.scanStopCamera === 'function') window.scanStopCamera(); return; }
     case 'user-full': { actUserFull(el.getAttribute('data-id')); return; }
     case 'user-creds': { actUserCreds(el.getAttribute('data-id')); return; }
     case 'creds-delete': {
@@ -2243,6 +2396,8 @@ document.addEventListener('click', async (e) => {
       return;
     }
     case 'leave-add': actLeaveAdd(); return;
+    case 'mirror-refresh': await actMirrorRefresh(); return;
+    case 'mirror-restore': await actMirrorRestore(); return;
     case 'backup-now': await actBackupNow(); return;
     case 'backup-list': await actBackups(); return;
     case 'devices-list': await actDevices(); return;
@@ -2541,7 +2696,7 @@ document.addEventListener('click', async (e) => {
       return;
     }
   }
-});
+}
 
 document.addEventListener('input', (e) => {
   const el = e.target;
@@ -2650,10 +2805,28 @@ function ensureGroup(grade, branch) {
   return putLocal('classes', { name, grade: g, branch: br, mode, grade_level: lvl, kind: 'class', capacity: 30, school_id: 1 });
 }
 
-document.addEventListener('submit', async (e) => {
+/* فرم‌ها هم همان واکنش زنده را دارند: دکمهٔ ثبت بی‌درنگ نشانگر می‌گیرد */
+document.addEventListener('submit', (e) => {
   const form = e.target.closest('form[data-form]');
   if (!form) return;
   e.preventDefault();
+  const btn = form.querySelector('button[type="submit"], button:not([type])');
+  const done = liveBegin(btn || form);
+  let running;
+  try { running = handleSubmit(form); }
+  catch (err) {
+    try { console.error(err); } catch (x) { /* noop */ }
+    toast('انجام نشد: ' + friendlyError(err), 'err');
+  }
+  Promise.resolve(running)
+    .catch((err) => {
+      try { console.error(err); } catch (x) { /* noop */ }
+      toast('انجام نشد: ' + friendlyError(err), 'err');
+    })
+    .then(done, done);
+});
+
+async function handleSubmit(form) {
   const kind = form.getAttribute('data-form');
   const f = form.elements;
   /* فرم‌های برنامهٔ هفتگی (client/schedule.js) */
@@ -2661,6 +2834,12 @@ document.addEventListener('submit', async (e) => {
     return window.SCHED_FORMS[kind](f, form);
   }
 
+  if (kind === 'scan-code') {
+    const code = String((f.code && f.code.value) || '').trim();
+    if (!code) { toast('کد کارت را بزنید', 'err'); return; }
+    await window.scanPairWithCode(code);
+    return;
+  }
   if (kind === 'setup') return doSetup(f);
   if (kind === 'pair') return doPair(f);
   if (kind === 'login') return doLogin(f);
@@ -2884,9 +3063,11 @@ document.addEventListener('submit', async (e) => {
     const name = String(f.name.value || '').trim();
     if (!name) return toast('نام را بنویسید', 'err');
     const nid = digitsOnly(f.national_id ? f.national_id.value : '');
-    const phone = digitsOnly(f.phone ? f.phone.value : '');
+    const phone = mobile11(f.phone ? f.phone.value : '');
     if (nid && !impValidNid(nid)) return toast('کد ملی باید دقیقاً ۱۰ رقم باشد', 'err');
-    if (phone && !/^09\d{9}$/.test(phone)) return toast('شمارهٔ همراه باید با ۰۹ شروع شود و ۱۱ رقم باشد', 'err');
+    if (String(digitsOnly(f.phone ? f.phone.value : '')).trim() && !/^09\d{9}$/.test(phone)) {
+      return toast('شمارهٔ همراه «' + String(f.phone.value).trim() + '» درست نیست — باید ۱۱ رقم و با ۰۹ شروع شود', 'err');
+    }
     const dupRow = {
       name, national_id: nid, phone,
       birth_date: impAnyDate((f.birth_date && f.birth_date.value) || ''),
@@ -2919,13 +3100,15 @@ document.addEventListener('submit', async (e) => {
     if (!row.gender) delete row.gender;
     USER_EXTRA_FORM.forEach(([k]) => {
       if (!f[k]) return;
-      const v = String(f[k].value || '').trim();
-      if (v) row[k] = v;
+      const raw = String(f[k].value || '').trim();
+      if (!raw) return;
+      /* شماره‌های همراهِ خانواده هم با صفرِ اول ذخیره می‌شوند */
+      row[k] = /_phone$/.test(k) ? (mobile11(raw) || raw) : raw;
     });
     const created = putLocal('users', row);
     /* ولی: حساب ولی ساخته و به دانش‌آموز وصل می‌شود */
     const pName = String((f.parent_name && f.parent_name.value) || '').trim();
-    const pPhone = digitsOnly((f.parent_phone && f.parent_phone.value) || '');
+    const pPhone = mobile11((f.parent_phone && f.parent_phone.value) || '');
     if (role === 'student' && (pName || pPhone)) {
       const existing = pPhone ? list('users').find(u => u.role === 'parent' && digitsOnly(u.phone || '') === pPhone) : null;
       const parent = existing || putLocal('users', { name: pName || ('ولی ' + name), role: 'parent', phone: pPhone, active: 1, school_id: 1 });
@@ -3008,7 +3191,7 @@ document.addEventListener('submit', async (e) => {
     ['name', 'last_name', 'national_id', 'phone', 'birth_date', 'gender'].forEach(take);
     (typeof IMP_EXTRA_FIELDS !== 'undefined' ? IMP_EXTRA_FIELDS : []).forEach(take);
     ['phone', 'father_phone', 'mother_phone', 'guardian_phone'].forEach(k => {
-      if (patch[k]) patch[k] = digitsOnly(patch[k]);
+      if (patch[k]) patch[k] = mobile11(patch[k]);
     });
     if (patch.national_id) patch.national_id = digitsOnly(patch.national_id);
     if (patch.phone) {
@@ -3156,4 +3339,4 @@ document.addEventListener('submit', async (e) => {
     } catch (err) { toast('ذخیره نشد: ' + err.message, 'err'); }
     return;
   }
-});
+}

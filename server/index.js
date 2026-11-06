@@ -29,8 +29,9 @@ function normDigitsLocal(v) {
     .replace(/[^\d]/g, '');
 }
 const update = require('./update');
+const mirror = require('./mirror');
 const tunnel = require('./tunnel');
-const { nowISO, json, normDigits, validNationalId, sha256 } = require('./util');
+const { nowISO, json, normDigits, normalizeMobile, validNationalId, sha256 } = require('./util');
 
 /* ریشهٔ برنامه — آزمون‌ها می‌توانند با PAYESH_APP_ROOT روی یک کپی کار کنند */
 const ROOT = process.env.PAYESH_APP_ROOT || path.resolve(__dirname, '..');
@@ -43,6 +44,8 @@ const PORT = Number(process.env.PORT || process.env.SERVER_PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = process.env.PAYESH_DATA || path.join(ROOT, 'data');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+const MIRROR_DIR = path.join(DATA_DIR, 'mirror');
+const DAILY_BACKUP_DIR = path.join(BACKUP_DIR, 'daily');
 
 const store = openStore(path.join(DATA_DIR, 'payesh.sqlite'));
 
@@ -574,7 +577,8 @@ async function api(req, res, url, ip) {
 
   if (p === '/api/admin/pair-code' && m === 'POST') {
     const body = await readBody(req);
-    const r = auth.createPairCode(store, Number(body.user_id), actor.user.id);
+    /* refresh=true ⇒ کد قبلی همان لحظه باطل و کد تازه ساخته می‌شود */
+    const r = auth.createPairCode(store, Number(body.user_id), actor.user.id, { refresh: !!body.refresh });
     return json(r, r.ok ? 200 : 400);
   }
 
@@ -837,6 +841,12 @@ async function api(req, res, url, ip) {
       const v = body[k];
       patch[k] = (v === null || v === '') ? '' : v;
     }
+    /* شماره‌های همراه همیشه ۱۱ رقمیِ «09…» ذخیره می‌شوند */
+    ['phone', 'father_phone', 'mother_phone', 'guardian_phone'].forEach(k => {
+      if (patch[k] === undefined) return;
+      const v = normalizeMobile(patch[k]);
+      if (v) patch[k] = v;
+    });
     /* فیلدهای دلخواهی که مدیر خودش در ورود اکسل تعریف کرده (x_…) */
     for (const k of Object.keys(body)) {
       if (!/^x_[\w\u0600-\u06FF-]{1,60}$/.test(k)) continue;
@@ -1009,6 +1019,64 @@ async function api(req, res, url, ip) {
     const file = store.backupTo(BACKUP_DIR, 48);
     return json({ ok: true, file: path.basename(file), size: fs.statSync(file).size });
   }
+  /* ══ آینهٔ داده + پشتیبان روزانه ══════════════════════════════════
+     درخواست کاربر: اطلاعات در خودِ سیستم هم باشد، هر بار با دیتابیس
+     مقایسه شود، هر روز یک فایل پشتیبان ساخته و به‌روز شود و بتوان
+     همان فایل را در دیتابیس تازه آپلود (بازیابی) کرد. */
+  if (p === '/api/admin/mirror' && m === 'GET') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    return json({
+      ok: true,
+      mirror: mirror.compareMirror(store, MIRROR_DIR),
+      daily: mirror.listDaily(DAILY_BACKUP_DIR),
+      dirs: { mirror: MIRROR_DIR, daily: DAILY_BACKUP_DIR },
+      today: mirror.dayStamp(),
+    });
+  }
+  if (p === '/api/admin/mirror/refresh' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const mres = mirror.refreshMirror(store, MIRROR_DIR, { force: true });
+    const dres = mirror.refreshDaily(store, DAILY_BACKUP_DIR);
+    store.audit({ role: 'manager', action: 'mirror_refresh', collection: 'users', after: { total: mres.total } });
+    return json({
+      ok: true,
+      mirror: mirror.compareMirror(store, MIRROR_DIR),
+      daily: mirror.listDaily(DAILY_BACKUP_DIR),
+      dirs: { mirror: MIRROR_DIR, daily: DAILY_BACKUP_DIR },
+      today: mirror.dayStamp(),
+      written: { mirror: mres.changed, daily: dres.changed },
+    });
+  }
+  if (p === '/api/admin/mirror/download' && m === 'GET') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const f = path.join(MIRROR_DIR, 'payesh-data.json');
+    if (!sendFile(req, res, f, { download: true, noStore: true })) return json({ ok: false, error: 'not_found' }, 404);
+    return null;
+  }
+  if (p === '/api/admin/backups/daily' && m === 'GET') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    return json({ ok: true, files: mirror.listDaily(DAILY_BACKUP_DIR), dir: DAILY_BACKUP_DIR });
+  }
+  const dailyFile = p.match(/^\/api\/admin\/backups\/daily\/([A-Za-z0-9._-]+\.json)$/);
+  if (dailyFile && m === 'GET') {
+    const f = safeJoin(DAILY_BACKUP_DIR, dailyFile[1]);
+    if (!f || !sendFile(req, res, f, { download: true, noStore: true })) return json({ ok: false, error: 'not_found' }, 404);
+    return null;
+  }
+  /* بازیابی: متن فایل پشتیبان روزانه در یک پایگاه (تازه یا همین) */
+  if (p === '/api/admin/restore' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const body = await readBody(req, 64 * 1024 * 1024);
+    /* پیش از هر بازیابی، یک نسخهٔ ایمنی از وضعیت فعلی */
+    let safety = '';
+    try { safety = path.basename(store.backupTo(BACKUP_DIR, 48)); } catch (e) { safety = ''; }
+    const r = mirror.restore(store, body && body.data, { replace: !!(body && body.replace) });
+    if (!r.ok) return json({ ok: false, error: r.error, safety }, 400);
+    try { mirror.refreshMirror(store, MIRROR_DIR, { force: true }); mirror.refreshDaily(store, DAILY_BACKUP_DIR); } catch (e) { /* بی‌صدا */ }
+    store.audit({ role: 'manager', action: 'restore', collection: 'users', after: { report: r.report, safety } });
+    return json({ ok: true, report: r.report, safety });
+  }
+
   if (p === '/api/admin/backups' && m === 'GET') {
     let files = [];
     try { files = fs.readdirSync(BACKUP_DIR).filter(f => f.endsWith('.sqlite')).sort().reverse(); } catch (e) { /* noop */ }
@@ -1290,7 +1358,7 @@ function importUsers(body) {
         continue;
       }
 
-      const phone = normDigits(r.phone || '');
+      const phone = normalizeMobile(r.phone || '') || normDigits(r.phone || '');
       if (phone && auth.phoneTaken(store, phone, existing ? existing.id : null)) {
         errors.push({ row: rowNo, error: 'duplicate_phone', phone });
         continue;
@@ -1365,8 +1433,8 @@ function importUsers(body) {
       /* ── حساب پدر و مادر و پیوند ولی ── */
       if (kind === 'students') {
         const fName = String(r.father_name || r.parent_name || '').trim();
-        const fPhone = normDigits(r.father_phone || r.parent_phone || '');
-        const mPhone = normDigits(r.mother_phone || '');
+        const fPhone = normalizeMobile(r.father_phone || r.parent_phone || '');
+        const mPhone = normalizeMobile(r.mother_phone || '');
         /* هر ولی فقط شمارهٔ خودش را می‌گیرد (شمارهٔ دانش‌آموز یا شمارهٔ
            ولیِ دیگر به او داده نمی‌شود، وگرنه دو حساب یک نام کاربری
            پیدا می‌کنند). اگر شماره نداشت، نام کاربری‌اش کد ملی می‌شود
@@ -1523,6 +1591,28 @@ if (process.env.PAYESH_AUTO_BACKUP !== '0') {
     try { store.backupTo(BACKUP_DIR, 48); } catch (e) { console.error('[backup]', e.message); }
   }, 60 * 60 * 1000).unref();
   try { store.backupTo(BACKUP_DIR, 48); } catch (e) { /* noop */ }
+}
+
+/* ── آینهٔ داده + پشتیبان روزانه ─────────────────────────────────────
+   هر دقیقه داده‌ها روی دیسک آینه می‌شوند (اگر عوض شده باشند) و همان
+   لحظه با دیتابیس مقایسه می‌شوند؛ فایل روزانه هم تازه می‌شود. */
+let mirrorBusy = false;
+async function mirrorTick() {
+  if (mirrorBusy) return;
+  mirrorBusy = true;
+  try {
+    const r = mirror.refreshMirror(store, MIRROR_DIR);
+    mirror.refreshDaily(store, DAILY_BACKUP_DIR);
+    if (r.changed) store.setMeta('mirror_status', { at: nowISO(), ok: true, total: r.total, counts: r.counts });
+  } catch (e) {
+    store.setMeta('mirror_status', { at: nowISO(), ok: false, error: String(e.message || e) });
+  } finally {
+    mirrorBusy = false;
+  }
+}
+if (process.env.PAYESH_MIRROR !== '0') {
+  setInterval(() => { mirrorTick(); }, 60 * 1000).unref();
+  setTimeout(() => { mirrorTick(); }, 1500).unref();
 }
 
 /* ── آدرس موقتیِ نسخه‌های قدیمی: در شروع پاک می‌شود ── */

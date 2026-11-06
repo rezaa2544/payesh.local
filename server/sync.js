@@ -4,7 +4,7 @@
    Pull : دلتا بر اساس updated_at + tombstone + server_time
    Push : صف عملیات با idempotency، OCC (base_version) و gate نقش/اسکوپ
    ─────────────────────────────────────────────────────────────────── */
-const { nowISO } = require('./util');
+const { nowISO, normalizeMobile } = require('./util');
 const policy = require('./policy');
 const auth = require('./auth');
 
@@ -18,8 +18,10 @@ const DEFAULT_COLLECTIONS = [
   'staff_attendance', 'staff_posts', 'discipline', 'homework', 'exams', 'calendar', 'import_issues',
 ];
 
+/* شمارهٔ همراه: ارقام فارسی/عربی به لاتین، و اگر اکسل صفرِ اول را
+   خورده باشد خودکار ۱۱ رقمی می‌شود (9123456789 ⇒ 09123456789). */
 function normalizePhone(v) {
-  return String(v == null ? '' : v)
+  return normalizeMobile(v) || String(v == null ? '' : v)
     .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
     .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
     .replace(/\D/g, '');
@@ -125,6 +127,9 @@ function push(store, actor, body, ctx = {}) {
     /* کاربران: نام کاربری = شمارهٔ همراه (یکتا) و رمز اولیه = کد ملی */
     if (collection === 'users') {
       if (incoming.phone !== undefined) incoming.phone = normalizePhone(incoming.phone);
+      ['father_phone', 'mother_phone', 'guardian_phone'].forEach(k => {
+        if (incoming[k] !== undefined && incoming[k] !== '') incoming[k] = normalizePhone(incoming[k]);
+      });
       if (incoming.phone) {
         const dup = auth.phoneTaken(store, incoming.phone, id != null ? id : null);
         if (dup) { rejected.push({ uid, error: 'duplicate_phone', detail: 'این شماره قبلاً برای ' + dup.name + ' ثبت شده' }); continue; }

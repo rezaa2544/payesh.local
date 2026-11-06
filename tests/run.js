@@ -137,9 +137,24 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(paired.data.ok, true);
     assert.ok(paired.data.session.token);
 
-    const dup = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code } });
-    assert.strictEqual(dup.data.ok, false);
-    assert.strictEqual(dup.data.error, 'code_used');
+    /* کد پیوند دیگر یک‌بارمصرف نیست: تا مدیر «کد تازه» نسازد کار می‌کند */
+    const againWithSame = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code } });
+    assert.strictEqual(againWithSame.data.ok, true, 'همان کد برای دستگاه دوم هم کار می‌کند');
+    assert.ok(againWithSame.data.session.token);
+
+    /* همان کارت دوباره خواسته شود ⇒ همان کد برمی‌گردد، نه کد تازه */
+    const same = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: teacherId } });
+    assert.strictEqual(same.data.code, pc.data.code, 'کد قبلی دوباره نشان داده می‌شود');
+    assert.strictEqual(same.data.reused, true);
+
+    /* «کد تازه» ⇒ کد قبلی باطل و کد تازه ساخته می‌شود */
+    const fresh = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: teacherId, refresh: true } });
+    assert.notStrictEqual(fresh.data.code, pc.data.code, 'کد تازه ساخته شد');
+    const oldNow = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code } });
+    assert.strictEqual(oldNow.data.ok, false, 'کد قبلی باطل شد');
+    assert.strictEqual(oldNow.data.error, 'code_revoked');
+    const newOk = await req('/api/auth/pair', { method: 'POST', body: { code: fresh.data.code } });
+    assert.strictEqual(newOk.data.ok, true, 'کد تازه کار می‌کند');
   });
 
   await test('کاربر خودکار: نام کاربری = شماره، رمز = کد ملی + ویرایش/حذف/تغییر رمز', async () => {
@@ -1665,14 +1680,19 @@ async function waitFor(fn, ms = 15000) {
      بسته‌ها همان چیزی باشند که گوگل و مایکروسافت استاندارد می‌دانند. */
   await test('APK مطابق استاندارد گوگل ساخته و امضا می‌شود', async () => {
     const mf = fs.readFileSync(path.join(ROOT, 'install/android/app/src/main/AndroidManifest.xml'), 'utf8');
-    /* هیچ مجوز پرخطری نباید خواسته شود */
-    const risky = ['REQUEST_INSTALL_PACKAGES', 'READ_CONTACTS', 'READ_SMS', 'SEND_SMS', 'CAMERA',
+    /* هیچ مجوز پرخطری نباید خواسته شود — تنها استثنا «دوربین» است که
+       فقط برای اسکن QR کارت پیوند لازم است و کاربر خودش درخواست کرده. */
+    const risky = ['REQUEST_INSTALL_PACKAGES', 'READ_CONTACTS', 'READ_SMS', 'SEND_SMS',
       'RECORD_AUDIO', 'READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE', 'MANAGE_EXTERNAL_STORAGE',
       'SYSTEM_ALERT_WINDOW', 'REQUEST_IGNORE_BATTERY_OPTIMIZATIONS', 'READ_PHONE_STATE'];
     for (const r of risky) {
       assert.ok(!new RegExp('android\\.permission\\.' + r + '\\b').test(mf),
         'مجوز پرخطر ' + r + ' نباید در برنامه باشد');
     }
+    /* دوربین فقط برای اسکن QR و به‌صورت «اختیاری» */
+    assert.ok(/android\.permission\.CAMERA/.test(mf), 'مجوز دوربین برای اسکن QR هست');
+    assert.ok(/android\.hardware\.camera" android:required="false"/.test(mf),
+      'گوشی بدون دوربین هم می‌تواند برنامه را نصب کند');
     assert.ok(/android:allowBackup="false"/.test(mf), 'پشتیبان‌گیری ابری گوگل از دادهٔ دانش‌آموزان خاموش است');
     assert.ok(/<queries>/.test(mf), 'بازکردن پیوند در مرورگر (اندروید ۱۱+) اعلام شده است');
     const gradle = fs.readFileSync(path.join(ROOT, 'install/android/app/build.gradle'), 'utf8');
@@ -3421,6 +3441,181 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/name="imp-grade"/.test(step1), 'کادر پایه در مرحلهٔ ۱ هست');
     assert.ok(/data-imp-next[^>]*disabled/.test(step1), 'دکمهٔ «بعدی» تا انتخاب پایه غیرفعال است');
     dom.window.close();
+  });
+
+  /* ══ صفرِ اولِ موبایل (اکسل خودش حذف می‌کند) ═════════════════════ */
+  await test('شمارهٔ همراه: صفرِ اولِ حذف‌شده خودکار برمی‌گردد (اکسل/CSV/نماد علمی)', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, impCheck, importApplyLocal, impPickMobile, impFixStats, list, mobile11 };');
+    const T = win.__t;
+    const pick = x => (T.impPickMobile(x) || {}).value;
+
+    /* همان چیزی که اکسل می‌سازد: عددِ بدون صفر */
+    assert.strictEqual(pick('9123456789'), '09123456789', 'عددِ ۱۰ رقمی اکسل ۱۱ رقمی شد');
+    assert.strictEqual(pick(9123456789), '09123456789', 'نوع عددی (نه متن) هم درست خوانده شد');
+    assert.strictEqual(pick('9123456789.0'), '09123456789', 'خروجی CSV با ‎.0‎');
+    assert.strictEqual(pick('9.123456789E9'), '09123456789', 'نماد علمی اکسل');
+    assert.strictEqual(pick('989123456789'), '09123456789', 'پیش‌شمارهٔ کشور');
+    assert.strictEqual(pick('+98 912 345 6789'), '09123456789', 'با +۹۸ و فاصله');
+    assert.strictEqual(pick('09123456789'), '09123456789', 'شمارهٔ سالم دست‌نخورده می‌ماند');
+    assert.strictEqual((T.impPickMobile('9123456789') || {}).fixed, true, 'می‌فهمد که خودش صفر گذاشته');
+    assert.strictEqual((T.impPickMobile('09123456789') || {}).fixed, false, 'برای شمارهٔ سالم «اصلاح» علامت نمی‌خورد');
+    assert.strictEqual(pick('12345'), '', 'عدد بی‌ربط موبایل نمی‌شود');
+    assert.strictEqual(T.mobile11('9123456789'), '09123456789', 'فرم دستی کاربر هم صفر می‌گذارد');
+
+    /* از دل یک فایل: موبایل دانش‌آموز و پدر و مادر */
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'import';
+    T.S.queue = []; T.S.online = false;
+    T.S.data = { users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager' }]]),
+      classes: new Map(), subjects: new Map(), lookups: new Map(), parent_links: new Map(), grades: new Map(), attendance: new Map() };
+    T.S.impGrades = ['دهم'];
+    T.S.imp = {
+      step: 2, kind: 'students', headerRow: 1,
+      headers: ['نام و نام خانوادگی', 'کد ملی', 'موبایل', 'موبایل پدر', 'موبایل مادر'],
+      map: ['full_name', 'national_id', 'phone', 'father_phone', 'mother_phone'],
+      rows: [['کیان مرادی', '3840511901', '9123456789', '9131112233', '9145556677']],
+    };
+    const checks = T.impCheck();
+    assert.strictEqual(checks[0].errors.length, 0, 'سطر سالم است: ' + JSON.stringify(checks[0].errors));
+    assert.strictEqual(checks[0].data.phone, '09123456789', 'موبایل دانش‌آموز ۱۱ رقمی');
+    assert.strictEqual(checks[0].data.father_phone, '09131112233', 'موبایل پدر ۱۱ رقمی');
+    assert.strictEqual(checks[0].data.mother_phone, '09145556677', 'موبایل مادر ۱۱ رقمی');
+    assert.ok(T.impFixStats().phones >= 3, 'تعداد اصلاح‌ها شمرده شد: ' + T.impFixStats().phones);
+    await T.importApplyLocal(checks.filter(c => !c.errors.length).map(c => c.data), 'students');
+    const stu = T.list('users').find(u => u.name === 'کیان مرادی');
+    assert.ok(stu && stu.phone.length === 11, 'روی کاربر هم ۱۱ رقمی ذخیره شد: ' + (stu && stu.phone));
+    dom.window.close();
+
+    /* همان قاعده روی سرور */
+    const { normalizeMobile } = require('../server/util');
+    assert.strictEqual(normalizeMobile('9123456789'), '09123456789');
+    assert.strictEqual(normalizeMobile('09123456789'), '09123456789');
+    assert.strictEqual(normalizeMobile('989123456789'), '09123456789');
+
+    /* از راه API: کاربری با شمارهٔ ۱۰ رقمی ساخته شود */
+    const made = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'pz-1', collection: 'users', type: 'put', data: { name: 'دبیر بدون صفر', role: 'teacher', phone: '9355566778', national_id: '1000000770' } },
+    ] } });
+    assert.strictEqual(made.data.applied.length, 1, JSON.stringify(made.data));
+    const pulled = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: managerToken });
+    const saved = ((pulled.data.collections || {}).users || []).find(u => u.name === 'دبیر بدون صفر');
+    assert.ok(saved, 'کاربر روی سرور ساخته شد');
+    assert.strictEqual(String(saved.phone), '09355566778', 'سرور هم صفر را گذاشت: ' + saved.phone);
+  });
+
+  /* ══ آینهٔ داده + پشتیبان روزانه + بازیابی ════════════════════════ */
+  await test('آینهٔ داده روی دیسک، پشتیبان روزانه و بازیابی در دیتابیس', async () => {
+    const r1 = await req('/api/admin/mirror/refresh', { method: 'POST', token: managerToken, body: {} });
+    assert.strictEqual(r1.data.ok, true, JSON.stringify(r1.data));
+    assert.ok(r1.data.mirror, 'وضعیت آینه برگشت');
+    assert.strictEqual(r1.data.mirror.ok, true, 'آینه با دیتابیس یکی است');
+    assert.ok(Array.isArray(r1.data.daily) && r1.data.daily.length >= 1, 'فایل روزانه ساخته شد');
+    const today = r1.data.daily[0];
+    assert.ok(/^payesh-\d{4}-\d{2}-\d{2}\.json$/.test(today.file), 'نام فایل روزانه: ' + today.file);
+    assert.ok(today.total > 0, 'تعداد رکوردها در فایل هست');
+
+    /* فایل هم روی دیسک قابل خواندن است (نه فقط در دیتابیس) */
+    const dailyPath = path.join(r1.data.dirs.daily, today.file);
+    assert.ok(fs.existsSync(dailyPath), 'فایل پشتیبان روی دیسک هست');
+    const backup = JSON.parse(fs.readFileSync(dailyPath, 'utf8'));
+    assert.strictEqual(backup.format, 'payesh-backup');
+    assert.ok(Array.isArray(backup.collections.users) && backup.collections.users.length,
+      'کاربران در فایل پشتیبان هستند');
+    assert.ok(backup.collections.users.some(u => u.password_hash),
+      'رمزها هم در پشتیبان می‌مانند تا بعد از بازیابی کسی از حساب نیفتد');
+    assert.ok(backup.collections.users.every(u => u._version === undefined),
+      'ستون‌های داخلیِ همگام‌سازی در فایل نیستند');
+
+    /* حذف یک کاربر، بعد بازیابی از همان فایل ⇒ کاربر برمی‌گردد */
+    const victim = backup.collections.users.find(u => u.role === 'teacher' && u.id);
+    assert.ok(victim, 'یک دبیر برای آزمایش پیدا شد');
+    const del = await req('/api/admin/users/' + victim.id, { method: 'DELETE', token: managerToken });
+    assert.ok(del.data.ok !== false, 'کاربر حذف شد');
+    const rest = await req('/api/admin/restore', { method: 'POST', token: managerToken, body: { data: backup } });
+    assert.strictEqual(rest.data.ok, true, JSON.stringify(rest.data));
+    assert.ok(rest.data.report.restored.users > 0, 'رکوردها بازیابی شدند');
+    const after = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: managerToken });
+    const back = ((after.data.collections || {}).users || []).find(u => Number(u.id) === Number(victim.id));
+    assert.ok(back, 'کاربر حذف‌شده با بازیابی برگشت');
+
+    /* فایل خراب و فایل بی‌ربط رد می‌شوند */
+    const bad = await req('/api/admin/restore', { method: 'POST', token: managerToken, body: { data: { hello: 1 } } });
+    assert.strictEqual(bad.data.ok, false);
+    assert.strictEqual(bad.data.error, 'bad_format');
+
+    /* فقط مدیر */
+    assert.ok(r1.data.dirs.mirror, 'مسیر آینه هم برگشت');
+  });
+
+  /* ══ اسکن QR کارت پیوند (دوربین + گالری) ═════════════════════════ */
+  await test('اسکن QR: کد از پیوند/QR خوانده می‌شود و اندروید دوربین و گالری دارد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/scan.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { scanExtractCode, PAGES };');
+    const T = win.__t;
+
+    assert.strictEqual(T.scanExtractCode('https://school.example/#/pair=ABCD2345'), 'ABCD2345');
+    assert.strictEqual(T.scanExtractCode('payesh://pair?c=ABCD2345&h=x'), 'ABCD2345');
+    assert.strictEqual(T.scanExtractCode('#/pair?c=ABCD-2345'), 'ABCD2345');
+    assert.strictEqual(T.scanExtractCode('ABCD-2345'), 'ABCD2345');
+    assert.strictEqual(T.scanExtractCode('سلام'), '', 'متن بی‌ربط کد نمی‌شود');
+
+    /* صفحهٔ اسکن: هم دوربین، هم گالری، هم کد دستی */
+    const page = T.PAGES.scan();
+    assert.ok(/data-act="scan-camera"/.test(page), 'دکمهٔ اسکن با دوربین');
+    assert.ok(/data-act="scan-gallery"/.test(page), 'دکمهٔ عکس از گالری');
+    assert.ok(/data-form="scan-code"/.test(page), 'کد دستی هم هست');
+    assert.ok(/camera-box|scan-status/.test(page), 'جایگاه نمایش وضعیت هست');
+    dom.window.close();
+
+    /* اندروید: دوربین زنده + گالری + کتابخانهٔ QR */
+    const java = fs.readFileSync(path.join(ROOT, 'install/android/app/src/main/java/ir/payesh/local/MainActivity.java'), 'utf8');
+    assert.ok(/public void scanQr\(/.test(java), 'پل بومی دوربین (scanQr) هست');
+    assert.ok(/public void pickQr\(/.test(java), 'پل بومی گالری (pickQr) هست');
+    assert.ok(/IntentIntegrator/.test(java), 'دوربینِ زنده با ZXing باز می‌شود');
+    assert.ok(/decodeQrImage/.test(java), 'عکس گالری هم رمزگشایی می‌شود');
+    assert.ok(/payeshOnQr/.test(java), 'نتیجه به صفحهٔ اسکن برمی‌گردد');
+    const gradle = fs.readFileSync(path.join(ROOT, 'install/android/app/build.gradle'), 'utf8');
+    assert.ok(/zxing-android-embedded/.test(gradle) && /com\.google\.zxing:core/.test(gradle), 'وابستگی QR در Gradle هست');
+    const web = fs.readFileSync(path.join(ROOT, 'client/scan.js'), 'utf8');
+    assert.ok(/BarcodeDetector/.test(web), 'مرورگر هم با BarcodeDetector اسکن می‌کند');
+  });
+
+  /* ══ «زنده» بودن دکمه‌ها + لوگو + متن ورود ═══════════════════════ */
+  await test('همهٔ دکمه‌ها واکنش زنده دارند، لوگوی پایش نشسته و توضیح اضافهٔ ورود حذف شده', () => {
+    const css = fs.readFileSync(path.join(ROOT, 'client/styles.css'), 'utf8');
+    assert.ok(/\.btn\.is-busy::before/.test(css), 'نشانگر چرخان روی خودِ دکمه');
+    assert.ok(/@keyframes payesh-spin/.test(css), 'چرخش تعریف شده');
+    assert.ok(/#live-bar/.test(css), 'نوار باریک بالای صفحه');
+    assert.ok(/\.btn:active/.test(css), 'فشرده‌شدن دکمه هنگام کلیک');
+
+    const app = fs.readFileSync(path.join(ROOT, 'client/app.js'), 'utf8');
+    assert.ok(/function liveBegin/.test(app), 'همهٔ کنش‌ها از مسیر زنده عبور می‌کنند');
+    assert.ok(/Promise\.resolve\(running\)/.test(app), 'خطای هر کنش هم گرفته می‌شود');
+    assert.ok(/زنده/.test(app) || /liveBegin/.test(app));
+
+    /* لوگو: فایل هست و در صفحه‌های ورود و نوار کنار استفاده می‌شود */
+    for (const f of ['logo.png', 'logo-mark.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'favicon-32.png']) {
+      assert.ok(fs.existsSync(path.join(ROOT, 'client/icons', f)), 'آیکون ' + f + ' هست');
+    }
+    const pages = fs.readFileSync(path.join(ROOT, 'client/pages.js'), 'utf8');
+    assert.ok(/\/icons\/logo\.png/.test(pages), 'لوگو در صفحهٔ ورود');
+    assert.ok(/\/icons\/logo-mark\.png/.test(pages), 'نشان در نوار کنار');
+    assert.ok(!pages.includes('نام کاربری شما شمارهٔ همراهتان است و رمز، کد ملی'),
+      'توضیح زیر دکمهٔ ورود حذف شد');
+    const html = fs.readFileSync(path.join(ROOT, 'client/index.html'), 'utf8');
+    assert.ok(/icons\/favicon-32\.png/.test(html), 'فاوآیکون لوگو شد');
+    assert.ok(/<script src="\/scan\.js">/.test(html), 'اسکنر در صفحه بارگذاری می‌شود');
   });
 
   childExited = true;

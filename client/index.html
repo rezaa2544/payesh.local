@@ -7,15 +7,17 @@
 <meta name="description" content="پایش-لوکال — سامانهٔ مدیریت مدرسه، درون مدرسه و آفلاین">
 <title>پایش — لوکال</title>
 <link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32">
 <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
-<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="stylesheet" href="/styles.css">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="پایش">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 </head>
 <body>
-<div id="app"><div class="auth"><div class="logo">پ</div><div class="sub">در حال بارگذاری…</div></div></div>
+<div id="app"><div class="auth"><img class="logo-img" src="/icons/logo.png" alt="پایش"><div class="sub">در حال بارگذاری…</div></div></div>
+<div id="live-bar"></div>
 <div class="toast-wrap" id="toasts"></div>
 <div id="modal-root"></div>
 <script src="/lib/sigv4.js"></script>
@@ -28,6 +30,7 @@
 <script src="/import.js"></script>
 <script src="/schedule.js"></script>
 <script src="/diag.js"></script>
+<script src="/scan.js"></script>
 <script src="/authz.js"></script>
 <script src="/app.js"></script>
 </body>

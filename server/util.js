@@ -62,6 +62,20 @@ function normDigits(s) {
     .replace(/[^\d]/g, '');
 }
 
+/* شمارهٔ همراه: اکسل صفرِ اول را حذف می‌کند (09123456789 ⇒ 9123456789).
+   هر شکلی که برسد به قالب استاندارد ۱۱ رقمی «09xxxxxxxxx» برگردانده
+   می‌شود تا نام کاربری و پیوند ولی هیچ‌وقت با شمارهٔ ناقص ساخته نشود. */
+function normalizeMobile(v) {
+  let d = normDigits(v);
+  if (!d) return '';
+  if (/^0098/.test(d)) d = d.slice(4);
+  else if (/^98/.test(d) && d.length >= 12) d = d.slice(2);
+  if (/^09\d{9}$/.test(d)) return d;
+  if (/^9\d{9}$/.test(d)) return '0' + d;
+  if (/^989\d{9}$/.test(d)) return '0' + d.slice(2);
+  return '';
+}
+
 /* کد ملی = شناسهٔ یکتای هر شخص؛ فقط «ده رقم» بودن بررسی می‌شود.
    (الگوریتم رقمِ کنترل، کدهای واقعی خانواده‌ها را رد می‌کرد.) */
 function validNationalId(id) {
@@ -75,4 +89,4 @@ function json(obj, status = 200, headers = {}) {
 
 function clamp(n, min, max) { return Math.max(min, Math.min(max, Number(n) || 0)); }
 
-module.exports = { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, pbkdf2Hash, PBKDF2_ITER, verifySecret, normDigits, validNationalId, json, clamp };
+module.exports = { nowISO, sha256, randomId, randomCode, scryptHash, scryptVerify, pbkdf2Hash, PBKDF2_ITER, verifySecret, normDigits, normalizeMobile, validNationalId, json, clamp };

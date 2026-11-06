@@ -31,6 +31,12 @@ const INDEXERS = {
   devices: d => ({ ref1: d.user_id, ref2: null, day: null }),
 };
 
+/* ستون‌هایی که در نسخه‌های قدیمی نبودند و باید اضافه شوند */
+const ADDED_COLUMNS = [
+  ['pair_codes', 'code_plain', 'TEXT'],
+  ['pair_codes', 'revoked_at', 'TEXT'],
+];
+
 class Store {
   constructor(file) {
     this.file = file;
@@ -91,7 +97,9 @@ class Store {
         created_by INTEGER,
         created_at TEXT NOT NULL,
         expires_at TEXT NOT NULL,
-        used_at TEXT
+        used_at TEXT,
+        code_plain TEXT,
+        revoked_at TEXT
       );
 
       CREATE TABLE IF NOT EXISTS audit (
@@ -116,6 +124,13 @@ class Store {
         result TEXT
       );
     `);
+    /* ستون‌های تازه در پایگاه‌های قدیمی (بدون از دست رفتن هیچ داده‌ای) */
+    for (const [table, col, type] of ADDED_COLUMNS) {
+      try {
+        const cols = this.db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+        if (cols.length && cols.indexOf(col) < 0) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
+      } catch (e) { /* جدول هنوز ساخته نشده یا ستون هست */ }
+    }
   }
 
   /* آخرین زمان تغییر در همهٔ داده‌ها — برای «همگام‌سازی زندهٔ» هر ثانیه */

@@ -92,7 +92,7 @@ function shellHtml(view) {
   return `
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand"><span style="font-size:22px">📘</span><span>پایش-لوکال</span></div>
+      <div class="brand"><img class="brand-mark" src="/icons/logo-mark.png" alt="پایش"><span>پایش-لوکال</span></div>
       <div class="small muted" style="margin-bottom:10px">${esc((S.server.school && S.server.school.name) || '')}</div>
       ${nav.slice(0, 1).map(() => '').join('')}
       ${mkNav(false)}
@@ -221,7 +221,7 @@ function setApp(html) {
 function renderSetup() {
   setApp(`
   <div class="auth">
-    <div class="logo">پ</div>
+    <img class="logo-img" src="/icons/logo.png" alt="پایش — سامانهٔ مدیریت مدرسه">
     <h1>راه‌اندازی پایش-لوکال</h1>
     <div class="sub">این فرم فقط یک‌بار پر می‌شود؛ بعد از آن همیشه صفحهٔ ورود می‌آید.</div>
     <form data-form="setup" class="card">
@@ -284,7 +284,11 @@ function renderPair() {
       <label class="field"><span>کد پیوند</span>
         <input class="input code-input" name="code" value="${esc(pre)}" maxlength="12" placeholder="XXXX-XXXX" autocomplete="off"></label>
       <button class="btn primary block" type="submit">ورود و ثبت این دستگاه</button>
-      <p class="small muted center" style="margin-top:10px">این کد را مدیرِ مدرسه از صفحهٔ «کاربران» → دکمهٔ «کارت پیوند» برای شما چاپ می‌کند.<br>می‌توانید روی کارت، QR را هم با دوربین گوشی اسکن کنید تا خودکار وارد شوید. کد فقط یک‌بار کار می‌کند.</p>
+      <div class="row" style="gap:8px;margin-top:8px">
+        <button class="btn grow" type="button" data-act="scan-camera">📷 اسکن با دوربین</button>
+        <button class="btn grow" type="button" data-act="scan-gallery">🖼️ عکس از گالری</button>
+      </div>
+      <p class="small muted center" style="margin-top:10px">کد روی کارتی است که مدیر از «کاربران → کارت پیوند» چاپ می‌کند.<br>هر کد تا وقتی مدیر «کد تازه» نسازد کار می‌کند.</p>
       <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="password">ورود با شمارهٔ همراه و رمز عبور</a></p>
       ${pre ? scanLandingHtml(pre) : ''}`
     : `
@@ -296,12 +300,14 @@ function renderPair() {
         <input class="input ltr" type="password" name="password" data-focus-key="password"
           autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="••••••"></label>
       <button class="btn primary block" type="submit">ورود</button>
-      <p class="small muted center" style="margin-top:10px">نام کاربری شما شمارهٔ همراهتان است و رمز، کد ملی؛ اگر شمارهٔ همراه ندارید، با کد ملی وارد شوید.</p>
-      <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="pair">ورود با کارت پیوند (بدون رمز)</a></p>`;
+      <div class="row" style="gap:8px;margin-top:10px">
+        <button class="btn grow" type="button" data-act="login-mode" data-id="pair">کارت پیوند</button>
+        <button class="btn grow" type="button" data-act="scan-open">📷 اسکن QR</button>
+      </div>`;
 
   setApp(`
   <div class="auth">
-    <div class="logo">پ</div>
+    <img class="logo-img" src="/icons/logo.png" alt="پایش — سامانهٔ مدیریت مدرسه">
     <h1>ورود به پایش</h1>
     <div class="sub">${S.server.school ? esc(S.server.school) : 'سامانهٔ مدرسه'}</div>
     <form data-form="${mode === 'pair' ? 'pair' : 'login'}" class="card" autocomplete="off">${body}</form>
@@ -342,7 +348,7 @@ function scanLandingHtml(code) {
 function renderTransfer(code) {
   setApp(`
   <div class="auth">
-    <div class="logo">پ</div>
+    <img class="logo-img" src="/icons/logo.png" alt="پایش — سامانهٔ مدیریت مدرسه">
     <h1>انتقال به آدرس رسمی</h1>
     <div class="sub">برای ادامه، رمز عبور خودتان را وارد کنید</div>
     <form data-form="transfer" class="card">
@@ -363,7 +369,7 @@ function renderLock() {
   const user = (localStorage.getItem('payesh.lastname') || '');
   setApp(`
   <div class="auth">
-    <div class="logo">پ</div>
+    <img class="logo-img" src="/icons/logo.png" alt="پایش — سامانهٔ مدیریت مدرسه">
     <h1>پایش</h1>
     <div class="sub">${user ? esc(user) + ' — ' : ''}رمز عبور خود را وارد کنید</div>
     <form data-form="unlock" class="card">
@@ -397,7 +403,7 @@ function renderPhoneLogin(force) {
     : 'حافظهٔ مشترک در برنامه تنظیم نشده';
   setApp(`
   <div class="auth">
-    <div class="logo">پ</div>
+    <img class="logo-img" src="/icons/logo.png" alt="پایش — سامانهٔ مدیریت مدرسه">
     <h1>ورود به پایش</h1>
     <div class="sub">شمارهٔ همراه (یا کد ملی) و رمزی که مدیر مدرسه برایتان ساخته است</div>
     <form data-form="phone-login" class="card" autocomplete="off">
@@ -410,10 +416,6 @@ function renderPhoneLogin(force) {
           autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false"
           placeholder="رمز عبور"></label>
       <button class="btn primary block" type="submit">ورود</button>
-      <div class="small muted center" style="margin-top:10px">
-        اولین بار کمی طول می‌کشد (اطلاعات از حافظهٔ مدرسه خوانده می‌شود).<br>
-        پس از اولین ورود، هر بار بدون اینترنت هم برنامه باز می‌شود.
-      </div>
       <div class="small muted center" style="margin-top:6px;font-size:11px">${cloudLine}</div>
       <div class="small muted center" style="margin-top:2px;font-size:10px;opacity:.75">${esc(buildStamp())}</div>
     </form>
@@ -1488,6 +1490,49 @@ PAGES.system = () => {
   </div>`)}`;
 };
 
+/* ── آینهٔ داده و پشتیبان روزانه ─────────────────────────────────────
+   داده‌ها هم در دیتابیس‌اند و هم روی خودِ سیستم در یک فایل خوانا؛ هر
+   دقیقه با دیتابیس مقایسه می‌شود و هر روز یک فایل پشتیبان ساخته و
+   به‌روز می‌شود. همان فایل را می‌شود در نصب تازه بازیابی کرد. */
+function mbSize(n) {
+  const b = Number(n || 0);
+  if (b > 1024 * 1024) return fa(Math.round(b / 1048576)) + ' مگابایت';
+  if (b > 1024) return fa(Math.round(b / 1024)) + ' کیلوبایت';
+  return fa(b) + ' بایت';
+}
+function mirrorCard() {
+  const m = S.mirror;
+  const state = !m ? badge('بررسی نشده', 'amber')
+    : (m.mirror && m.mirror.ok ? badge('آینه با دیتابیس یکی است', 'green') : badge('آینه عقب است', 'amber'));
+  const diffs = (m && m.mirror && m.mirror.diffs) || [];
+  const files = (m && m.daily) || [];
+  return card(`<div class="row between" style="margin-bottom:6px"><b>🗄️ آینهٔ داده و پشتیبان روزانه</b>${state}</div>
+    <div class="small muted" style="line-height:2">
+      اطلاعات فقط در دیتابیس نیست: یک نسخهٔ خوانا هم روی خودِ این سیستم نگه داشته می‌شود و هر دقیقه با دیتابیس مقایسه می‌شود.
+      هر روز یک فایل پشتیبان ساخته می‌شود و اگر همان روز داده عوض شود، همان فایل به‌روز می‌شود.
+      اگر روزی دیتابیس از دست رفت یا عوض شد، همین فایل را اینجا آپلود کنید.
+    </div>
+    ${m ? `<div class="small" style="margin-top:8px;line-height:2">
+      ${m.mirror && m.mirror.at ? 'آخرین آینه: ' + esc(m.mirror.at.slice(0, 16).replace('T', ' ')) + ' · ' + fa(m.mirror.total || 0) + ' رکورد<br>' : ''}
+      ${diffs.length ? '⚠️ اختلاف با دیتابیس: ' + esc(diffs.slice(0, 4).map(d => d.collection + ' (' + fa(d.db) + '/' + fa(d.mirror) + ')').join('، ')) + '<br>' : ''}
+      ${files.length ? 'روزهای پشتیبان: ' + fa(files.length) + ' فایل' : 'هنوز فایل روزانه ساخته نشده'}
+    </div>` : '<div class="small muted" style="margin-top:8px">برای دیدن وضعیت، دکمهٔ «به‌روزرسانی و مقایسه» را بزنید.</div>'}
+    <div class="row" style="margin-top:10px;gap:8px">
+      <button class="btn sm primary" data-act="mirror-refresh">🔄 به‌روزرسانی و مقایسه</button>
+      <a class="btn sm ghost" href="/api/admin/mirror/download">⬇️ دانلود آینه</a>
+    </div>
+    ${files.length ? `<div class="table-wrap" style="margin-top:10px;max-height:190px;overflow:auto"><table><thead><tr><th>روز</th><th>رکورد</th><th>حجم</th><th></th></tr></thead><tbody>
+      ${files.slice(0, 60).map(f => `<tr><td class="small ltr">${esc(f.file.replace(/^payesh-|\.json$/g, ''))}</td>
+        <td class="small">${fa(f.total || 0)}</td><td class="small">${mbSize(f.size)}</td>
+        <td class="nowrap"><a class="btn sm ghost" href="/api/admin/backups/daily/${encodeURIComponent(f.file)}">دانلود</a></td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+    <div class="small muted" style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)">بازیابی از فایل پشتیبان (روی همین سیستم یا سیستم تازه):</div>
+    <div class="row" style="margin-top:8px;gap:8px;align-items:center">
+      <input class="input grow" type="file" id="restore-file" accept=".json,application/json">
+      <button class="btn sm" data-act="mirror-restore">بازیابی</button>
+    </div>`);
+}
+
 /* وضعیت دسترسی گوشی‌ها — یک نگاه، یک دکمه */
 /* وضعیت همگام‌سازی زنده — برای اینکه همه ببینند هر ثانیه به‌روز می‌شود */
 function liveCard() {
@@ -1536,6 +1581,7 @@ function accountCard() {
 function managerSystemSections() {
   const stats = S.boot && S.boot.counts || {};
   return `
+  ${mirrorCard()}
   ${card(`<b>پشتیبان‌گیری</b>
     <div class="small muted" style="margin-top:6px">هر ساعت خودکار گرفته می‌شود و ۴۸ نسخه نگه داشته می‌شود.</div>
     <div class="row" style="margin-top:8px"><button class="btn sm" data-act="backup-now">پشتیبان همین حالا</button>
@@ -1678,7 +1724,7 @@ function pairCardHtml(r) {
     <div class="who">${esc(r.user.name)}</div>
     <div class="small muted">${esc(ROLE_FA[r.user.role] || r.user.role)}</div>
     <div class="code">${esc(r.display)}</div>
-    <div class="small muted">اعتبار: ${esc(jdate(r.expires_at))}</div>
+    <div class="small muted">این کد تا وقتی خودتان «کد تازه» نسازید کار می‌کند.</div>
     <div style="text-align:center;margin-top:12px">
       <img alt="QR" src="/api/qr?text=${encodeURIComponent(web)}&scale=6" style="width:210px;height:210px;border-radius:14px;background:#fff;padding:8px">
       <div class="small" style="margin-top:6px;line-height:1.9">📷 <b>با دوربین گوشی اسکن کنید</b><br>
@@ -1691,16 +1737,23 @@ function pairCardHtml(r) {
       <div class="small muted" style="text-align:right">نصب مستقیم برنامه<br><span class="ltr">payesh-local.apk</span></div>
     </div>
   </div>
-  <div class="small muted" style="margin-top:6px">کاربر یا کد را در صفحهٔ ورود می‌زند، یا QR را اسکن می‌کند. هر کد فقط یک‌بار کار می‌کند.</div>
-  <button class="btn block" style="margin-top:10px" data-act="print">🖨️ چاپ کارت</button>`;
+  <div class="small row" style="margin-top:6px;gap:8px;flex-wrap:wrap">
+    <span class="small muted grow">کاربر یا کد را در صفحهٔ ورود می‌زند، یا QR را اسکن می‌کند. این کد چندبار و برای چند دستگاه کار می‌کند — تا وقتی خودتان کد تازه نسازید.</span>
+  </div>
+  <div class="row" style="margin-top:10px;gap:8px">
+    <button class="btn block grow" data-act="print">🖨️ چاپ کارت</button>
+    <button class="btn block grow" data-act="pair-refresh" data-id="${esc(r.user.id)}">🔄 کد تازه</button>
+  </div>
+  <div class="small muted" style="margin-top:6px">«کد تازه» همین کارت را باطل می‌کند و کد تازه می‌سازد — بعد از آن، کد و QR قبلی دیگر کار نمی‌کند.</div>`;
 }
 
-async function actPairCode(id) {
+async function actPairCode(id, refresh) {
   try {
-    const r = await api('/api/admin/pair-code', { method: 'POST', body: { user_id: Number(id) } });
+    const r = await api('/api/admin/pair-code', { method: 'POST', body: { user_id: Number(id), refresh: !!refresh } });
     S.modalTitle = 'کارت پیوند';
     modal(pairCardHtml(r));
-  } catch (e) { toast('ساخت کد ناموفق: ' + e.message, 'err'); }
+    if (refresh && r.ok) toast('کد تازه ساخته شد — کد قبلی باطل شد', 'ok');
+  } catch (e) { toast('ساخت کد ناموفق: ' + friendlyError(e), 'err'); }
 }
 
 async function actAttendanceSave(classId, bell) {

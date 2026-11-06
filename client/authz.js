@@ -24,7 +24,7 @@ const AUTHZ_EXTRA_ROUTES = {
 };
 
 /* برای همهٔ نقش‌های واردشده باز است */
-const AUTHZ_COMMON = ['home', 'announcements', 'system'];
+const AUTHZ_COMMON = ['home', 'announcements', 'system', 'scan'];
 
 const _AUTHZ_CACHE = Object.create(null);
 
@@ -58,7 +58,7 @@ function authzCanRoute(route, role) {
    در این جدول نباشد با قاعدهٔ هر نقش در صفحه اجرا می‌شود (پیش‌فرض باز
    برای کنش‌های نمایشی). کنش‌های مدیریتی هیچ‌وقت با نقش دیگری اجرا نمی‌شوند.
    ───────────────────────────────────────────────────────────────── */
-const AUTHZ_MANAGER_ONLY = /^(user-add|user-edit|user-delete|user-password|user-auto-pw|users-bulk-delete|pick-clear|role-filter|class-add|class-edit|class-delete|class-merge|def-add|def-edit|def-delete|def-delete-only|def-delete-cascade|def-delete-students|subject-add|subject-edit|subject-delete|import-open|import-back|import-check|import-apply|issue-fix|issue-done|issues-open|issues-clear|followup-assign|followup-ack|diag-rerun|diag-fix|diag-open|diag-merge-open|diag-merge-do|backup-now|backup-list|devices-list|revoke-device|audit-list|cloud-edit|cloud-save|cloud-test|cloud-test-browser|cloud-cors|cloud-reset|cloud-phone-check|net-refresh|network|tunnel-enable|tunnel-login|tunnel-off|tunnel-refresh|update-apply|update-auto|update-autoapply|update-check|update-fetch|update-recheck|update-rollback|upd-retry|update-later|pair-code|transfer|settings-save|att-all|ann-add|ann-edit|ann-delete|sched-class|schedgen-open|schedgen-apply|bell-edit|bell-add|bell-del|sched-conf-move|sched-conf-sug|sched-slot|slot-del|sub-save|sub-del|sub-del-route)$/;
+const AUTHZ_MANAGER_ONLY = /^(user-add|user-edit|user-delete|user-password|user-auto-pw|users-bulk-delete|pick-clear|role-filter|class-add|class-edit|class-delete|class-merge|def-add|def-edit|def-delete|def-delete-only|def-delete-cascade|def-delete-students|subject-add|subject-edit|subject-delete|import-open|import-back|import-check|import-apply|issue-fix|issue-done|issues-open|issues-clear|followup-assign|followup-ack|diag-rerun|diag-fix|diag-open|diag-merge-open|diag-merge-do|backup-now|backup-list|mirror-refresh|mirror-restore|devices-list|revoke-device|audit-list|cloud-edit|cloud-save|cloud-test|cloud-test-browser|cloud-cors|cloud-reset|cloud-phone-check|net-refresh|network|tunnel-enable|tunnel-login|tunnel-off|tunnel-refresh|update-apply|update-auto|update-autoapply|update-check|update-fetch|update-recheck|update-rollback|upd-retry|update-later|pair-code|pair-refresh|transfer|settings-save|att-all|ann-add|ann-edit|ann-delete|sched-class|schedgen-open|schedgen-apply|bell-edit|bell-add|bell-del|sched-conf-move|sched-conf-sug|sched-slot|slot-del|sub-save|sub-del|sub-del-route)$/;
 
 /* کنش‌هایی که دبیر هم دارد (ثبت حضور و نمره و مرخصی) */
 const AUTHZ_TEACHER_OK = /^(att-save|att-set|grade-save|grade-reload|leave-add|leave-delete|leave-set)$/;
