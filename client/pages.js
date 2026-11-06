@@ -759,11 +759,11 @@ PAGES.users = () => {
       const subject = (u.role === 'parent' && kids.length) ? kids[0] : u;
       const grp = byId('classes', subject.class_id) || {};
       const gr = String(grp.grade || subject.grade || '');
-      const br = String(grp.branch || subject.branch || '');
+      const br = String(grp.branch || subject.field || subject.branch || '');
       return `<tr${picked.has(Number(u.id)) ? ' style="background:#fef2f2"' : ''}>
       <td><input type="checkbox" data-pick="user" value="${u.id}" ${picked.has(Number(u.id)) ? 'checked' : ''}></td>
       <td>${esc(fullName(u))}</td>
-      <td>${badge(ROLE_FA[u.role] || u.role, u.role === 'manager' ? 'purple' : '')}</td>
+      <td>${u.role === 'student' ? '<span class="muted">—</span>' : badge(ROLE_FA[u.role] || u.role, u.role === 'manager' ? 'purple' : '')}</td>
       <td class="small">${gr ? esc(gr) : '<span class="muted">—</span>'}</td>
       <td class="small">${br ? esc(br) : '<span class="muted">—</span>'}</td>
       ${S.roleFilter === 'parent' ? `<td class="small">${kids.length ? kids.map(k => esc(fullName(k))).join('، ') : '<span class="muted">—</span>'}</td>` : ''}
@@ -911,13 +911,13 @@ PAGES.followup = () => {
   }).join('');
 
   const studentsCard = card(
-    `<div class="row between" style="margin-bottom:8px"><b>دانش‌آموزان بدون کلاسِ درست</b>
+    `<div class="row between" style="margin-bottom:8px"><b>دانش‌آموزانی که پایه/رشته‌شان کامل نیست</b>
        <span class="small muted">${fa(studs.length)} نفر</span></div>` +
     (studs.length
       ? `<div class="table-wrap"><table><thead><tr>
-           <th>دانش‌آموز</th><th>دلیل</th><th style="min-width:190px">کلاس درست</th><th></th>
+           <th>دانش‌آموز</th><th>دلیل</th><th style="min-width:190px">پایه و رشته</th><th></th>
          </tr></thead><tbody>${studRows}</tbody></table></div>`
-      : `<div class="small muted">همهٔ دانش‌آموزان کلاس درست دارند. ✅</div>`)
+      : `<div class="small muted">پایه و رشتهٔ همهٔ دانش‌آموزان کامل است. ✅</div>`)
   );
 
   const issuesCard = card(
@@ -934,7 +934,7 @@ PAGES.followup = () => {
       `<button class="btn sm" data-act="import-open">📥 ورود دسته‌ای</button>`)}
   <div class="small muted" style="margin-bottom:10px;line-height:2">
     هر چیزی که کامل نیست اینجا جمع می‌شود: ردیف‌های ورود دسته‌ای که ساخته نشدند،
-    و دانش‌آموزانی که کلاسشان درست نیست (مثلاً رشته‌شان حذف شده یا پایه‌اش در فایل نبود).
+    و دانش‌آموزانی که پایه یا رشته‌شان کامل نیست (مثلاً رشته‌شان حذف شده یا پایه‌اش در فایل نبود).
     تا اینجا باشند جایی گم نمی‌شوند.
   </div>
   ${studentsCard}
@@ -1820,6 +1820,12 @@ function actUserFull(id) {
     .filter(k => phoneKeys.indexOf(k) < 0)
     .map(k => inp(k, lbl[k] || k, u[k] || ''))
     .join('');
+  /* فیلدهای دلخواهی که مدیر در ورود اکسل خودش تعریف کرده است */
+  const customLabels = (typeof impCustomLabels === 'function' ? impCustomLabels() : {}) || {};
+  const custom = Object.keys(u)
+    .filter(k => /^x_/.test(k))
+    .map(k => inp(k, customLabels[k] || 'مورد دلخواه', u[k] || ''))
+    .join('');
   const grp = byId('classes', u.class_id) || {};
   S.modalTitle = 'مشخصات کامل — ' + u.name;
   modal(`<form data-form="user-full">
@@ -1838,6 +1844,9 @@ function actUserFull(id) {
     ${extras ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)">
       <b class="small">اطلاعات خانواده و تحصیلی (همان ستون‌های اکسل)</b>
       <div class="row" style="flex-wrap:wrap;gap:0 10px;margin-top:6px">${extras}</div></div>` : ''}
+    ${custom ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)">
+      <b class="small">ستون‌های دلخواه شما (از اکسل)</b>
+      <div class="row" style="flex-wrap:wrap;gap:0 10px;margin-top:6px">${custom}</div></div>` : ''}
     <button class="btn primary block" style="margin-top:12px">ذخیرهٔ همهٔ مشخصات</button>
   </form>`);
 }
