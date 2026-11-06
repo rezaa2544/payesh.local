@@ -465,7 +465,7 @@ function impCheck() {
   };
   if (!gctx.branches.length) gctx.branches = [...new Set(classes.map(c => String(c.branch || '')).filter(Boolean))];
   if (!gctx.grades.length) gctx.grades = [...new Set(classes.map(c => String(c.grade || '')).filter(Boolean))];
-  gctx.onlyGrades = ((S.imp && S.imp.grades) || []).filter(Boolean);
+  gctx.onlyGrades = ((S.impGrades || (S.imp && S.imp.grades)) || []).filter(Boolean);
 
   impMapped().forEach(o => {
     const errors = [], warns = [], data = {};
@@ -890,12 +890,25 @@ function impStepHtml() {
   return `${bar}<div class="center" style="padding:16px 0">
       <div style="font-size:40px">🎉</div>
       <h3 style="margin:8px 0 14px">ورود اطلاعات کامل شد</h3>
-      <div class="grid g4" style="margin-bottom:12px">
-        ${impStat('➕', res.created || 0, unit + ' ثبت‌شده', 'green')}
-        ${impStat('♻️', res.updated || 0, 'به‌روزرسانی', '')}
-        ${impStat('👨‍👩‍👦', res.parents || 0, 'حساب ولی', '')}
-        ${impStat('🏛️', res.classes || 0, 'کلاس جدید', '')}
+      <div class="grid g4" style="margin-bottom:8px">
+        ${imp.kind === 'students'
+          ? impStat('🎓', res.students || 0, 'دانش‌آموز وارد شد', 'green')
+          : impStat('➕', res.marks || res.created || 0, unit + ' وارد شد', 'green')}
+        ${imp.kind === 'students'
+          ? impStat('👨‍👩‍👦', res.parents || 0, 'حساب ولی (پدر و مادر)', '')
+          : impStat('♻️', res.updated || 0, 'به‌روزرسانی', '')}
+        ${imp.kind === 'students'
+          ? impStat('♻️', res.updated || 0, 'به‌روزرسانی', '')
+          : impStat('🏛️', res.classes || 0, 'گروه (پایه + رشته)', '')}
+        ${impStat('🏛️', res.classes || 0, 'گروه ساخته‌شده', '')}
       </div>
+      ${imp.kind === 'students' ? `<div class="small" style="margin-bottom:10px;line-height:2">
+        🎓 دانش‌آموز واردشده: <b>${fa(res.students || 0)}</b> نفر ·
+        👨‍👩‍👦 اولیا ساخته‌شده: <b>${fa(res.parents || 0)}</b> حساب (پدر و مادر) ·
+        🧑‍🏫 دبیر و کادر: <b>${fa(res.staff || 0)}</b> ·
+        ♻️ به‌روزرسانی: <b>${fa(res.updated || 0)}</b> ·
+        🏛️ گروه تازه: <b>${fa(res.classes || 0)}</b>
+      </div>` : ''}
       ${(res.errors || []).length ? `<div class="small" style="color:#b91c1c;margin-bottom:8px">${fa(res.errors.length)} ردیف ثبت نشد:
         ${esc(res.errors.slice(0, 8).map(e => 'سطر ' + fa(e.row) + ': ' + impErrorText(e.error)).join(' · '))}</div>` : ''}
       <div class="small muted">نام کاربری هر نفر شمارهٔ همراه اوست و رمزش کد ملی؛ برای دانش‌آموز و پدر و مادر هر سه حساب ساخته شد.
@@ -913,6 +926,7 @@ function impStepHtml() {
 
 function actImport() {
   S.imp = { step: 1, kind: (S.imp && S.imp.kind) || 'students' };
+  S.impGrades = [];                    /* پایه‌های فایل قبلی پاک می‌شود */
   S.impSavedIssues = 0;
   S.modalTitle = 'ورود دسته‌ای از اکسل';
   modal(impStepHtml());
@@ -924,10 +938,10 @@ function renderImportStep() {
 
 /* ══════════════ ثبت روی همین دستگاه (گوشی / نبود مدرسه) ══════════════
    همان قواعد سرور، ولی با نوشتن در صف همگام‌سازی. */
-async function importApplyLocal(rows, kind) {
+async function importApplyLocal(rows, kind, onProgress) {
   const created = [];
   const errors = [];
-  let updated = 0, parents = 0, classes = 0;
+  let updated = 0, parents = 0, classes = 0, students = 0, staff = 0, marks = 0;
   const classMap = new Map(list('classes').map(c => [impNorm(c.name), c]));
 
   const findStudent = r => {
@@ -943,6 +957,8 @@ async function importApplyLocal(rows, kind) {
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i] || {};
+    if (typeof onProgress === 'function') onProgress(i, rows.length);
+    if (i % 25 === 24) await new Promise(res => setTimeout(res, 0));  /* صفحه قفل نکند */
     try {
       if (kind === 'grades' || kind === 'attendance') {
         const stu = findStudent(r);
@@ -963,13 +979,21 @@ async function importApplyLocal(rows, kind) {
           });
         }
         created.push({ id: stu.id });
+        marks += 1;
         continue;
       }
 
       const name = String(r.full_name || r.name || '').trim();
       if (!name) { errors.push({ row: r._row || i + 2, error: 'missing_name' }); continue; }
       let classId = Number(r.class_id) || null;
-      /* کلاس فقط با پایه ساخته می‌شود؛ رشتهٔ تنها کلاس نمی‌شود. */
+      /* گروه ثبت‌نام = پایه + رشته. پایه از ردیف یا از پاسخ «این فایل چه
+         پایه‌هایی است؟» گرفته می‌شود؛ رشته هم از خود فایل. */
+      if (kind === 'students' && !classId) {
+        const scopeGrade = (S.impGrades && S.impGrades.length === 1) ? S.impGrades[0] : '';
+        const g0 = String(r.new_grade || scopeGrade || '').trim();
+        const b0 = String(r.new_branch || '').trim();
+        if (g0) { r.new_grade = g0; r.new_class = (g0 + (b0 ? ' ' + b0 : '')).trim(); r.new_branch = b0; delete r.followup_reason; }
+      }
       if (kind === 'students' && !classId && r.new_class && r.new_grade) {
         const key = impNorm(r.new_class);
         let cls = classMap.get(key);
@@ -1003,7 +1027,11 @@ async function importApplyLocal(rows, kind) {
       const u = existing
         ? putLocal('users', Object.assign({}, existing, row, { id: existing.id }))
         : putLocal('users', row);
-      if (existing) updated += 1; else created.push(u);
+      if (existing) updated += 1;
+      else {
+        created.push(u);
+        if (row.role === 'student') students += 1; else staff += 1;
+      }
 
       if (kind === 'students') {
         [[r.father_nid, r.father_name, 'پدر', r.father_phone], [r.mother_nid, r.mother_name, 'مادر', r.mother_phone]]
@@ -1035,7 +1063,13 @@ async function importApplyLocal(rows, kind) {
       errors.push({ row: r._row || i + 2, error: String((e && e.message) || e) });
     }
   }
-  return { created: created.length, updated, parents, classes, errors };
+  if (typeof onProgress === 'function') onProgress(rows.length, rows.length);
+  return {
+    created: created.length, updated, parents, classes, errors,
+    students: kind === 'students' ? students : 0,
+    staff: kind === 'students' ? staff : created.length,
+    marks: kind === 'grades' || kind === 'attendance' ? created.length : 0,
+  };
 }
 
 /* در دسترسِ آزمون‌ها و app.js */
