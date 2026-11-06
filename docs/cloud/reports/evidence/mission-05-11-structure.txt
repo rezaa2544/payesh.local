@@ -1,16 +1,19 @@
 # شاهد ساختاری ممیزی ۰۵–۱۱
 # تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh
-# تاریخ تولید: 2026-11-06T17:10:51Z
-# تاریخ اجرای آزمون (از لاگ خام): 2026-11-06T17:08:45Z
-# SHA اجرای آزمون (از لاگ خام): 13c44d4a95bdc3d8ee9a813289d9db4d909a1274
-# SHA فعلی HEAD: 618202a02cfc0c5e3b5661f12e2b573c1d29c30d
-# اثر انگشت کد محصول (log / HEAD): 497e1cbda8e733268b0bc8e339f01270f2d910dee84fe2f08a348d632d9272c5 / 497e1cbda8e733268b0bc8e339f01270f2d910dee84fe2f08a348d632d9272c5
+# تاریخ تولید: 2026-11-06T17:47:31Z
+# تاریخ اجرای آزمون (از لاگ خام): 2026-11-06T17:47:13Z
+# SHA اجرای آزمون (از لاگ خام): 1332ca62f32623e047649687fb4f607a4a8cd433
+# اثر انگشت کد محصول (log / HEAD): 53c73512704358dc81f2a4b5a995a58f8903096e6fc8f78566e6a44d1e01ca3e / 53c73512704358dc81f2a4b5a995a58f8903096e6fc8f78566e6a44d1e01ca3e
+# هش بدنهٔ خام (بازمحاسبه‌شده): 49f64894166cff97b5f9beb9fde2dbdfb439110b7ca5d23441162ea53026f735
+# شمارش بدنه: 88 ✓ / 0 ✗ — SUMMARY: SUMMARY pass=88 fail=0
+# آزمون‌های ثبت‌شده: 88 · گزارش‌شده: 88
 # branch: arena/f1efa594-payesh-local
 
 ## آزمون واقعی مخزن (از لاگ خام، بدون دست‌کاری)
 SUMMARY: SUMMARY pass=88 fail=0
 EXIT: 0
 ادعای اسناد: 88 آزمون موفق
+احکام اسناد ۰۶–۱۱: PASS=25 FAIL=41 UNKNOWN=7 BLOCKED=0 TOTAL=73
 
 ## پروب‌های اجرایی ۰۶–۱۰ (خروجی خام: mission-06-10-probes.txt)
 تعداد خط شاهد: 30
@@ -21,49 +24,16 @@ EXIT: 0
 
 ## وضعیت هر سند
 --- docs/cloud/05-audit-sha-freeze.md
-خطوط: 83 · ردیف AC: 7
-11:| وضعیت | **Done** |
-
+  خطوط: 83
 --- docs/cloud/06-audit-auth-session.md
-خطوط: 78 · ردیف AC: 8
-9:| وضعیت | **Done (ممیزی)** — نتیجهٔ خود ممیزی: ۷ PASS · ۷ FAIL · ۲ UNKNOWN |
-
+  خطوط: 78
 --- docs/cloud/07-audit-roles-tenant.md
-خطوط: 78 · ردیف AC: 8
-8:| وضعیت | **Done (ممیزی)** — ۶ PASS · ۷ FAIL · ۲ UNKNOWN — **دو FAIL بحرانی** |
-یافته‌ها: F‑01 F‑02 F‑03 F‑04 F‑05 
+  خطوط: 78
 --- docs/cloud/08-audit-source-of-truth.md
-خطوط: 86 · ردیف AC: 5
-8:| وضعیت | **Done (ممیزی)** — ۴ PASS · ۶ FAIL · ۱ UNKNOWN |
-یافته‌ها: F‑04 F‑06 
+  خطوط: 86
 --- docs/cloud/09-audit-cache-queue-sync.md
-خطوط: 81 · ردیف AC: 7
-8:| وضعیت | **Done (ممیزی)** — ۶ PASS · ۷ FAIL · ۱ UNKNOWN — **سه FAIL یکپارچگی داده** |
-یافته‌ها: F‑07 F‑08 F‑09 
+  خطوط: 81
 --- docs/cloud/10-audit-crypto-backup-restore.md
-خطوط: 70 · ردیف AC: 8
-8:| وضعیت | **Done (ممیزی)** — ۳ PASS · ۱۳ FAIL · ۱ UNKNOWN — **دو FAIL بحرانی** |
-یافته‌ها: F‑01 F‑02 F‑03 F‑04 F‑05 F‑06 F‑07 F‑08 F‑09 
+  خطوط: 70
 --- docs/cloud/11-gap-report.md
-خطوط: 104 · ردیف AC: 5
-7:| وضعیت | **Done (گزارش)** — حکم: **آمادهٔ طراحی مقصد، ناآماده برای نمونه‌سازی چندمستأجری** |
-یافته‌ها: F‑01 F‑02 F‑03 F‑04 F‑05 F‑06 F‑07 F‑08 F‑09 
-
-## شمارش احکام ممیزی (پایهٔ درصد ۱۱)
-PASS    : 25 (ادعای سند ۱۱: 25)
-FAIL    : 41 (ادعای سند ۱۱: 41)
-UNKNOWN : 7 (ادعای سند ۱۱: 7)
-BLOCKED : 0
-TOTAL   : 73
-
-## تطبیق ادعا با اندازه‌گیری
-MATCH: بله
-
-## تغییر کد محصول در کل ممیزی
-diff محصول f2fc472..HEAD: 0 فایل
-
-## ۶۲ مسیر API (سطح حمله)
-'/api/' '/api/admin/' '/api/admin/audit' '/api/admin/backup' '/api/admin/backups' '/api/admin/backups/daily' '/api/admin/cloud' '/api/admin/cloud/cors' '/api/admin/cloud/phone-check' '/api/admin/cloud/reset' '/api/admin/cloud/test' '/api/admin/devices' '/api/admin/export' '/api/admin/import' '/api/admin/mirror' '/api/admin/mirror/download' '/api/admin/mirror/refresh' '/api/admin/network' '/api/admin/pair-code' '/api/admin/restore' '/api/admin/settings' '/api/admin/stats' '/api/admin/tunnel' '/api/admin/update' '/api/admin/update/apply' '/api/admin/update/check' '/api/admin/update/download' '/api/admin/update/install' '/api/admin/update/restart' '/api/admin/update/rollback' '/api/admin/update/settings' '/api/admin/update/state' '/api/admin/users/bulk-delete' '/api/admin/users/credentials' '/api/auth/claim' '/api/auth/login' '/api/auth/logout' '/api/auth/pair' '/api/auth/password' '/api/auth/refresh' '/api/auth/transfer' '/api/auth/transfer/redeem' '/api/auth/unlock' '/api/bootstrap' '/api/cloud/config' '/api/health' '/api/live/rev' '/api/live/state' '/api/me' '/api/network' '/api/outbox/drain' '/api/outbox/publish' '/api/outbox/snapshot' '/api/outbox/state' '/api/phone/config' '/api/qr' '/api/setup' '/api/setup/state' '/api/sync' '/api/update/check' '/api/v1/pull' '/api/version' 
-
-## حکم نهایی اسکریپت
-EVIDENCE-OK
+  خطوط: 104

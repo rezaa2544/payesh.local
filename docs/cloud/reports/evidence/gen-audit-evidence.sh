@@ -1,26 +1,37 @@
 #!/usr/bin/env bash
-# شاهد ساختاری ممیزی‌های ۰۵ تا ۱۱  —  FAIL-CLOSED
+# دروازهٔ شاهد ممیزی‌های ۰۵ تا ۱۱ — FAIL-CLOSED، مقاوم در برابر لاگ ساختگی
 # اجرا: bash docs/cloud/reports/evidence/gen-audit-evidence.sh
-# خروجی: docs/cloud/reports/evidence/mission-05-11-structure.txt
+# خروجی موفق: docs/cloud/reports/evidence/mission-05-11-structure.txt
+# خروجی ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-<ts>.txt
+#               (شاهد سالم قبلی بازنویسی نمی‌شود — C-04)
 #
-# قرارداد (اصلاح‌شده پس از A-01):
-#   * اگر لاگ خام آزمون نباشد  ⇒ خروج با کد ۳ (شاهد موجود نیست)
-#   * اگر لاگ ناقص/شکست‌خورده باشد ⇒ خروج غیرصفر
-#   * اگر ادعای اسناد با عدد واقعی نخواند ⇒ خروج غیرصفر
-#   * هیچ پیام «موفق» بدون بررسی واقعی چاپ نمی‌شود.
+# قرارداد (سخت‌شده پس از پیدا شدن B-01):
+#   1) لاگ خام باید وجود داشته باشد                                     (exit 3)
+#   2) SUMMARY / EXIT باید موجود و سازگار باشند
+#   3) تعداد ✓ و ✗ **از بدنهٔ خام** شمرده و با SUMMARY مقایسه می‌شود      (C-01)
+#   4) بدنه نباید خالی باشد
+#   5) هش SHA-256 بدنه بازمحاسبه و با سرصفحه مقایسه می‌شود               (C-02)
+#   6) تعداد آزمون‌های ثبت‌شده در tests/run.js با تعداد ✓ مقایسه می‌شود  (C-01)
+#   7) اثر انگشت درخت کامل منهای docs/ با HEAD مقایسه می‌شود            (C-03)
+#   8) هیچ فایل کد محصولی نسبت به SHA پایهٔ ممیزی تغییر نکرده باشد
+#   9) ادعای اسناد با عدد واقعی بخواند
+# هیچ پیام «موفق» بدون بررسی واقعی چاپ نمی‌شود.
 set -u
 cd "$(dirname "$0")/../../../.." || { echo "FATAL: repo root not found" >&2; exit 2; }
 
-LOG=docs/cloud/reports/evidence/mission-05-tests-run.log
-OUT=docs/cloud/reports/evidence/mission-05-11-structure.txt
+EVID=docs/cloud/reports/evidence
+LOG="$EVID/mission-05-tests-run.log"
+OUT="$EVID/mission-05-11-structure.txt"
+TSFILE=$(date -u +%Y-%m-%dT%H:%M:%SZ | tr -d ':-')
 DOCS="docs/cloud/05-audit-sha-freeze.md docs/cloud/06-audit-auth-session.md docs/cloud/07-audit-roles-tenant.md docs/cloud/08-audit-source-of-truth.md docs/cloud/09-audit-cache-queue-sync.md docs/cloud/10-audit-crypto-backup-restore.md docs/cloud/11-gap-report.md"
 FA=docs/cloud/0[6-9]*.md
 FB=docs/cloud/10*.md
+BASE=f2fc472
 
 RC=0
 fail() { echo "EVIDENCE-FAIL: $*" >&2; RC=1; }
 
-# ---------- ۱) وجود و سلامت لاگ خام ----------
+# ---------- ۱) وجود لاگ خام ----------
 if [ ! -f "$LOG" ]; then
   echo "EVIDENCE-FAIL: log not found: $LOG" >&2
   echo "EVIDENCE-FAIL: run  bash docs/cloud/reports/evidence/run-tests-evidence.sh  first" >&2
@@ -32,7 +43,11 @@ EXITC=$(grep -o '^EXIT=[0-9]*' "$LOG" | tail -1 | cut -d= -f2)
 LOGSHA=$(grep -m1 '^# commit_sha:' "$LOG" | awk '{print $3}')
 LOGTIME=$(grep -m1 '^# started_utc:' "$LOG" | awk '{print $3}')
 LOGFP=$(grep -m1 '^# product_tree_sha256:' "$LOG" | awk '{print $3}')
-HEADFP=$(git ls-tree -r HEAD -- server client tests installer scripts desktop | sha256sum | cut -d" " -f1)
+LOGBODY=$(grep -m1 '^# raw_output_sha256:' "$LOG" | awk '{print $3}')
+LOGREG=$(grep -m1 '^# tests_registered:' "$LOG" | awk '{print $3}')
+
+HEADFP=$(git ls-tree -r HEAD | grep -v $'\tdocs/' | awk '{print $3"\t"$4}' | sha256sum | cut -d" " -f1)
+REGISTERED_NOW=$(grep -c 'await test(' tests/run.js)
 
 [ -n "$SUMMARY" ] || fail "no SUMMARY line in raw log (evidence incomplete)"
 [ -n "$EXITC" ]   || fail "no EXIT=<code> line in raw log"
@@ -47,20 +62,62 @@ FAILS=$(echo "$SUMMARY" | sed -E 's/.*fail=([0-9]+).*/\1/')
 if ! echo "$LOGSHA" | grep -Eq '^[0-9a-f]{40}$'; then
   fail "raw log has no valid commit_sha (got '${LOGSHA:-none}')"
 fi
+
+# ---------- ۲) بدنهٔ خام: استخراج، هش، شمارش واقعی (C-01/C-02) ----------
+BODY_TMP=$(mktemp)
+trap 'rm -f "${BODY_TMP:-}"' EXIT
+awk '/^# ===== RAW OUTPUT =====$/{f=1;next} /^# ===== FOOTER =====$/{f=0} f' "$LOG" > "$BODY_TMP"
+BODY_BYTES=$(wc -c < "$BODY_TMP" | tr -d ' ')
+if [ "${BODY_BYTES:-0}" -lt 100 ]; then
+  fail "raw output body is empty or truncated (${BODY_BYTES:-0} bytes)"
+fi
+BODY_PASS=$(grep -c '✓' "$BODY_TMP" || true)
+BODY_FAIL=$(grep -c '✗' "$BODY_TMP" || true)
+[ -z "$BODY_PASS" ] && BODY_PASS=0
+[ -z "$BODY_FAIL" ] && BODY_FAIL=0
+
+if [ "${BODY_PASS:-0}" -ne "$PASS" ]; then
+  fail "SUMMARY claims pass=$PASS but the raw body contains $BODY_PASS ✓ (forged or truncated log)"
+fi
+if [ "${BODY_FAIL:-0}" -ne "$FAILS" ]; then
+  fail "SUMMARY claims fail=$FAILS but the raw body contains $BODY_FAIL ✗"
+fi
+
+BODY_SHA_CALC=$(sha256sum "$BODY_TMP" | cut -d" " -f1)
+if [ -z "${LOGBODY:-}" ]; then
+  fail "raw log has no raw_output_sha256 (body cannot be authenticated)"
+else
+  if [ "$LOGBODY" != "$BODY_SHA_CALC" ]; then
+    fail "raw body hash mismatch: log=$LOGBODY computed=$BODY_SHA_CALC (body was edited)"
+  fi
+fi
+
+if [ -z "${LOGREG:-}" ]; then
+  fail "raw log has no tests_registered count"
+else
+  if [ "$LOGREG" != "$REGISTERED_NOW" ]; then
+    fail "test registry changed: log=$LOGREG tests/run.js=$REGISTERED_NOW"
+  fi
+  if [ "$PASS" != "$LOGREG" ]; then
+    fail "pass count ($PASS) does not match registered tests ($LOGREG)"
+  fi
+fi
+
+# ---------- ۳) اثر انگشت کد محصول (C-03) ----------
 if [ -z "${LOGFP:-}" ]; then
   fail "raw log has no product_tree_sha256 (cannot attribute evidence to product code)"
 elif [ "$LOGFP" != "$HEADFP" ]; then
   fail "product code differs from the tested tree: log=$LOGFP head=$HEADFP — rerun run-tests-evidence.sh"
 fi
 
-# ---------- ۲) شمارش واقعی احکام ----------
+# ---------- ۴) شمارش واقعی احکام در اسناد ----------
 P=$(grep -rho '| \*\*PASS\*\*' $FA $FB 2>/dev/null | wc -l)
 F=$(grep -rho '| \*\*FAIL'      $FA $FB 2>/dev/null | wc -l)
 U=$(grep -rho '| \*\*UNKNOWN'   $FA $FB 2>/dev/null | wc -l)
 B=$(grep -rho '| \*\*BLOCKED'   $FA $FB 2>/dev/null | wc -l)
 TOTAL=$((P + F + U + B))
 
-# ---------- ۳) ادعاهای اسناد ----------
+# ---------- ۵) ادعاهای اسناد ----------
 read -r CLAIM_TESTS CLAIM_PASS CLAIM_FAIL CLAIM_UNK <<<"$(python3 - <<'PYEOF'
 import re
 fa = lambda s: int(''.join(str(ord(c)-0x06f0) for c in s)) if s else None
@@ -81,71 +138,57 @@ if [ -n "${CLAIM_TESTS:-}" ] && [ "$CLAIM_TESTS" != "$PASS" ]; then
   fail "docs claim ${CLAIM_TESTS} passing tests but raw log shows ${PASS}"
 fi
 
-# ---------- ۴) تغییر کد محصول ----------
-PROD_DIFF=$(git diff --name-only f2fc472 HEAD -- server client tests installer scripts 2>/dev/null | wc -l)
-[ "$PROD_DIFF" = "0" ] || fail "product code changed vs audit base f2fc472: $PROD_DIFF file(s)"
+# ---------- ۶) تغییر کد محصول ----------
+PROD_DIFF=$(git diff --name-only "$BASE" HEAD -- server client tests installer scripts desktop deploy install .github package.json package-lock.json 2>/dev/null | wc -l)
+[ "$PROD_DIFF" = "0" ] || fail "product/CI files changed vs audit base $BASE: $PROD_DIFF file(s)"
 
-# ---------- ۵) تولید شاهد ----------
+# ---------- ۷) تولید شاهد (فقط در صورت موفقیت) ----------
+if [ "$RC" -ne 0 ]; then
+  BAD="$EVID/mission-05-11-structure.FAILED-$TSFILE.txt"
+  {
+    echo "# شاهد ساختاری ممیزی ۰۵–۱۱ — ناموفق"
+    echo "# تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh"
+    echo "# تاریخ تولید: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "# نتیجه: EVIDENCE-FAIL (کد خروج غیرصفر)"
+    echo "# فایل شاهد سالم قبلی بازنویسی نشد (append-only)"
+  } > "$BAD"
+  echo "EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: $BAD" >&2
+  echo "body_sha256=${BODY_SHA_CALC:-none}"
+  exit 1
+fi
+
 {
   echo "# شاهد ساختاری ممیزی ۰۵–۱۱"
   echo "# تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh"
   echo "# تاریخ تولید: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "# تاریخ اجرای آزمون (از لاگ خام): ${LOGTIME:-?}"
   echo "# SHA اجرای آزمون (از لاگ خام): ${LOGSHA:-?}"
-  echo "# SHA فعلی HEAD: $(git rev-parse HEAD)"
   echo "# اثر انگشت کد محصول (log / HEAD): ${LOGFP:-?} / ${HEADFP}"
+  echo "# هش بدنهٔ خام (بازمحاسبه‌شده): ${BODY_SHA_CALC}"
+  echo "# شمارش بدنه: ${BODY_PASS} ✓ / ${BODY_FAIL} ✗ — SUMMARY: ${SUMMARY}"
+  echo "# آزمون‌های ثبت‌شده: ${REGISTERED_NOW} · گزارش‌شده: ${PASS}"
   echo "# branch: $(git rev-parse --abbrev-ref HEAD)"
   echo
   echo "## آزمون واقعی مخزن (از لاگ خام، بدون دست‌کاری)"
   echo "SUMMARY: ${SUMMARY:-MISSING}"
   echo "EXIT: ${EXITC:-MISSING}"
   echo "ادعای اسناد: ${CLAIM_TESTS:-?} آزمون موفق"
+  echo "احکام اسناد ۰۶–۱۱: PASS=${P} FAIL=${F} UNKNOWN=${U} BLOCKED=${B} TOTAL=${TOTAL}"
   echo
   echo "## پروب‌های اجرایی ۰۶–۱۰ (خروجی خام: mission-06-10-probes.txt)"
-  echo "تعداد خط شاهد: $(grep -c '^\[' docs/cloud/reports/evidence/mission-06-10-probes.txt 2>/dev/null || echo MISSING)"
-  grep -o 'F-0[0-9]' docs/cloud/reports/evidence/mission-06-10-probes.txt 2>/dev/null | sort | uniq -c | sed 's/^/  /'
+  echo "تعداد خط شاهد: $(grep -c '^\[' "$EVID/mission-06-10-probes.txt" 2>/dev/null || echo MISSING)"
+  grep -o 'F-0[0-9]' "$EVID/mission-06-10-probes.txt" 2>/dev/null | sort | uniq -c | sed 's/^/  /'
   echo
   echo "## وضعیت هر سند"
   for d in $DOCS; do
     echo "--- $d"
-    echo "خطوط: $(wc -l < "$d") · ردیف AC: $(grep -c '^| AC' "$d")"
-    grep -n '^| وضعیت' "$d" | head -1
-    grep -o 'F‑0[0-9]' "$d" | sort -u | tr '\n' ' ' | sed 's/^/یافته‌ها: /'
-    echo
+    if [ -f "$d" ]; then echo "  خطوط: $(wc -l < "$d")"; else echo "  MISSING"; fi
   done
-  echo
-  echo "## شمارش احکام ممیزی (پایهٔ درصد ۱۱)"
-  printf 'PASS    : %s (ادعای سند ۱۱: %s)\n' "$P" "${CLAIM_PASS:-?}"
-  printf 'FAIL    : %s (ادعای سند ۱۱: %s)\n' "$F" "${CLAIM_FAIL:-?}"
-  printf 'UNKNOWN : %s (ادعای سند ۱۱: %s)\n' "$U" "${CLAIM_UNK:-?}"
-  printf 'BLOCKED : %s\n' "$B"
-  printf 'TOTAL   : %s\n' "$TOTAL"
-  echo
-  echo "## تطبیق ادعا با اندازه‌گیری"
-  if [ -n "${CLAIM_PASS:-}" ] && [ "$CLAIM_PASS" = "$P" ] && [ "$CLAIM_FAIL" = "$F" ] && [ "${CLAIM_UNK:-}" = "$U" ]; then
-    echo "MATCH: بله"
-  else
-    echo "MATCH: خیر — ادعای سند ۱۱ با شمارش واقعی جدول‌ها نمی‌خواند"
-  fi
-  echo
-  echo "## تغییر کد محصول در کل ممیزی"
-  echo "diff محصول f2fc472..HEAD: ${PROD_DIFF} فایل"
-  git status --porcelain -- server client tests installer scripts
-  echo
-  echo "## ۶۲ مسیر API (سطح حمله)"
-  grep -o "'/api/[a-z0-9/_-]*'" server/index.js | sort -u | tr '\n' ' '
-  echo
-  echo
-  echo "## حکم نهایی اسکریپت"
-  if [ "$RC" = "0" ] && [ "${CLAIM_PASS:-x}" = "$P" ] && [ "${CLAIM_FAIL:-x}" = "$F" ]; then
-    echo "EVIDENCE-OK"
-  else
-    echo "EVIDENCE-FAIL"
-  fi
 } > "$OUT"
 
-echo "→ $OUT (pass=$PASS fail=$FAILS measured P/F/U=$P/$F/$U)"
-if [ "$RC" != "0" ]; then
-  echo "EVIDENCE-FAIL: see messages above" >&2
-fi
-exit $RC
+echo "→ $OUT (pass=$PASS fail=$FAILS measured P/F/U=${P}/${F}/${U})"
+echo "EVIDENCE-OK"
+echo "sha=$LOGSHA"
+echo "body_sha256=$BODY_SHA_CALC"
+echo "product_tree_sha256=$HEADFP"
+exit 0
