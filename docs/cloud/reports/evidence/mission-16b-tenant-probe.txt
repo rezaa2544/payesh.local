@@ -1,0 +1,68 @@
+# شاهد اجرایی مأموریت ۱۶‑ب — رفتار tenancy در کد امروز
+generated_by: docs/cloud/reports/evidence/gen-mission-16b-evidence.sh
+probe: docs/cloud/reports/evidence/probe-16b-tenant.mjs
+branch: arena/f1efa594-payesh-local
+head: 0afa72986e3760c78caea49b7808d396fc23b32a
+node: v22.22.3
+note: دیتابیس/بکاپ در mktemp؛ هیچ نوشتنی روی data/ مخزن انجام نمی‌شود
+
+## اجرا
+PROBE-16B-TENANT — رفتار اجرایی کد امروز
+SHA=0afa72986e3760c78caea49b7808d396fc23b32a
+TEMP_DB=isolated (not repository data/)
+T1 | طرح پایگاه | {"tables":["audit","devices","meta","pair_codes","records","seq","sessions","sqlite_sequence","sync_log"],"records_columns":["collection","id","data","version","ref1","ref2","day","created_at","updated_at","deleted_at"],"has_tenant_column_anywhere":false,"has_school_column":false,"tenancy_tables":[]}
+T2 | راه‌اندازی مدرسهٔ دوم | {"status":400,"ok":false,"error":"already_setup"}
+T5 | چرخهٔ عمر در پایگاه | {"subscription_tables":[]}
+T4 | بکاپ/کلید | {"backup_ok":true,"plaintext_sqlite":true,"enc_files":false}
+T3 | چیدمان ذخیره‌سازی | {"data_dirs":["backups"],"has_t_prefix":false}
+T6 | school_id ارسالی کلاینت | {"applied":1,"school_id_stored":1,"client_value_preserved":false}
+T7 | idempotency با uid | {"first_applied":1,"first_id":1,"second_applied":1,"second_duplicate_flag":true,"rows_with_name":1}
+EXPECTATIONS=ALL-MET
+exit=0
+
+## جای کد مرجع (بدون تغییر)
+-- server/sync.js:149 (برچسب مدرسه ثابت، نه از نشست)
+   
+       /* gate نقش + مالکیت */
+       incoming.school_id = 1;
+       const gate = policy.canWriteRow(store, actor.user, role, collection, incoming, existing);
+       if (!gate.ok) { rejected.push({ uid, error: gate.error }); continue; }
+-- server/db.js:201-212 (درج ردیف: بدون ستون tenant_id)
+       this.db.prepare(
+         `INSERT INTO records(collection,id,data,version,ref1,ref2,day,created_at,updated_at)
+          VALUES(?,?,?,1,?,?,?,?,?)`
+       ).run(collection, id, JSON.stringify(Object.assign({}, data, { id })),
+         idx.ref1 == null ? null : Number(idx.ref1),
+         idx.ref2 == null ? null : Number(idx.ref2),
+         idx.day == null ? null : String(idx.day), ts, ts);
+       return this.get(collection, id);
+-- server/index.js:48-50 (مسیر بکاپ سراسری، بدون پیشوند مستأجر)
+   const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+   const MIRROR_DIR = path.join(DATA_DIR, 'mirror');
+   const DAILY_BACKUP_DIR = path.join(BACKUP_DIR, 'daily');
+-- server/auth.js:44-60 (setup: فقط یک مدرسه)
+         has_bus: false,
+         has_dorm: false,
+       }, input.capabilities || {}),
+       created_at: nowISO(),
+     }, { id: 1 });
+   
+     const year = String(input.school_year || new Date().toLocaleDateString('fa-IR')).trim();
+     store.insert('school_years', { title: year, active: true, school_id: 1, created_at: nowISO() }, { id: 1 });
+   
+     const verifier = pw ? pbkdf2Hash(pw) : null;
+     const manager = store.insert('users', {
+       name, role: 'manager', phone: normDigits(input.phone || ''),
+       national_id: normDigits(input.national_id || ''), active: true,
+       school_id: 1, created_at: nowISO(),
+       password_hash: pw ? verifier : null,
+       phone_hash: pw ? verifier : null,
+       password_plain: pw ? String(pw) : null,   /* فقط برای اینکه مدیر بتواند رمز را بگوید */
+
+## شاهد مکمل RLS (Design، PostgreSQL واقعی)
+14
+postgres: PostgreSQL 18.6
+TOTAL 14 · FAIL 0
+
+## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)
+0

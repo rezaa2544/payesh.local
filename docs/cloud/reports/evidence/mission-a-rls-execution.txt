@@ -1,7 +1,7 @@
 # آزمون اجرایی RLS روی PostgreSQL واقعی (A-02)
 # تولید: bash docs/cloud/reports/evidence/rls-execution-test.sh
-# زمان: 2026-11-06T17:10:13Z
-# HEAD: 13c44d4a95bdc3d8ee9a813289d9db4d909a1274
+# زمان: 2026-11-06T19:12:46Z
+# HEAD: 0afa72986e3760c78caea49b7808d396fc23b32a
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 # postgres binary: /tmp/pgtest/node_modules/@embedded-postgres/linux-x64/native/bin (خارج از مخزن؛ وابستگی محصول نیست)
 
