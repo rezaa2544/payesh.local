@@ -837,6 +837,12 @@ async function api(req, res, url, ip) {
       const v = body[k];
       patch[k] = (v === null || v === '') ? '' : v;
     }
+    /* فیلدهای دلخواهی که مدیر خودش در ورود اکسل تعریف کرده (x_…) */
+    for (const k of Object.keys(body)) {
+      if (!/^x_[\w\u0600-\u06FF-]{1,60}$/.test(k)) continue;
+      const v = body[k];
+      patch[k] = (v === null || v === '') ? '' : String(v).slice(0, 200);
+    }
     if (body.birth_date) {
       const bd = String(body.birth_date).slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(bd)) return json({ ok: false, error: 'bad_birth_date' }, 400);
@@ -1054,6 +1060,7 @@ async function api(req, res, url, ip) {
      • شمارهٔ همراه باید یکتا بماند، چون نام کاربری همان است
    ─────────────────────────────────────────────────────────────────── */
 const IMP_STORE_FIELDS = ['first_name', 'last_name', 'national_id', 'phone', 'birth_date', 'gender',
+  'grade', 'mode',
   'father_nid', 'mother_nid', 'father_name', 'mother_name', 'father_phone', 'mother_phone',
   'field', 'last_gpa', 'failed_count', 'father_edu', 'father_alive', 'father_job',
   'mother_edu', 'mother_alive', 'mother_job', 'guardian', 'guardian_alive', 'sisters', 'brothers',
@@ -1289,40 +1296,29 @@ function importUsers(body) {
         continue;
       }
 
-      /* کلاس: شناسهٔ آماده، یا نامِ موجود، وگرنه ساخت کلاس تازه — فقط با پایه */
+      /* کلاس‌ها همیشه دستی توسط مدیر ساخته می‌شوند — ورود اکسل هرگز کلاس
+         نمی‌سازد. اکسل فقط پایه و رشته را ثبت می‌کند و اگر کلاسِ دستی با
+         همان نام از قبل هست، دانش‌آموز به آن وصل می‌شود. */
       let classId = Number(r.class_id) || (existing ? Number(existing.class_id) || null : null);
       let studentPlace = null;
       if (kind === 'students') {
         const place = importPlaceOf(r, placeCtx);
         studentPlace = place;
-        if (place.name) {
-          let cls = classIndex.get(importKey(place.name));
-          if (!cls && classId && store.get('classes', classId)) cls = store.get('classes', classId);
-          if (!cls) {
-            importEnsureLookup('grade', place.grade);
-            if (place.branch) importEnsureLookup('branch', place.branch);
-            const lvl = importGradeLevel(place.grade);
-            const mode = lvl >= 10 ? 'field' : 'class';
-            cls = store.insert('classes', {
-              name: place.name, grade: place.grade,
-              branch: mode === 'field' ? place.branch : '',
-              mode, grade_level: lvl, kind: 'group',
-              capacity: 30, school_id: 1, created_at: nowISO(),
-            });
-            classIndex.set(importKey(place.name), cls);
-            classesMade += 1;
-          }
-          classId = cls.id;
-        } else {
-          /* رشته به‌تنهایی کلاس نمی‌شود؛ دانش‌آموز بی‌کلاس می‌ماند */
-          classId = null;
-          if (place.bare) {
-            warnings.push({
-              row: rowNo, error: 'class_without_grade', name,
-              reason: 'پایهٔ کلاس در فایل نبود (رشته: ' + place.branch + ')',
-              followup_reason: 'پایهٔ کلاس در فایل نبود (رشته: ' + place.branch + ')',
-            });
-          }
+        if (place.grade) importEnsureLookup('grade', place.grade);
+        if (place.branch) importEnsureLookup('branch', place.branch);
+        let cls = null;
+        if (place.name) cls = classIndex.get(importKey(place.name)) || null;
+        if (!cls && classId && store.get('classes', classId)) cls = store.get('classes', classId);
+        /* هیچ کلاسی ساخته نمی‌شود؛ دانش‌آموز بی‌کلاس می‌ماند تا مدیر خودش
+           کلاس را بسازد (اتصال خودکار پس از ساختِ دستی انجام می‌شود). */
+        classId = cls ? cls.id : null;
+        /* رشته بدون پایه: پایه را باید مدیر بگوید (نه اینکه کلاسی ساخته شود) */
+        if (!place.grade && place.branch) {
+          warnings.push({
+            row: rowNo, error: 'class_without_grade', name,
+            reason: 'پایه در فایل نبود (رشته: ' + place.branch + ') — پایه را در «مشخصات کامل» مشخص کنید',
+            followup_reason: 'پایه در فایل نبود (رشته: ' + place.branch + ')',
+          });
         }
       }
 
@@ -1334,7 +1330,13 @@ function importUsers(body) {
         class_id: kind === 'students' ? (classId || null) : (classId || null),
         active: true, school_id: 1,
       };
-      /* دانش‌آموزِ بی‌کلاس با دلیلش می‌ماند تا در «نیازمند پیگیری» دیده شود */
+      /* پایه و رشته روی خود دانش‌آموز ثبت می‌شوند (کلاس دستی است) */
+      if (kind === 'students' && studentPlace) {
+        if (studentPlace.grade) base.grade = studentPlace.grade;
+        if (studentPlace.branch) base.field = studentPlace.branch;
+      }
+      /* دانش‌آموز بی‌کلاس می‌ماند تا در «نیازمند پیگیری» دیده شود؛ پیام
+         «کلاس ساخته نمی‌شود» نداریم — فقط نبودِ پایه پیگیری می‌شود. */
       if (kind === 'students' && !classId) {
         base.followup_reason = String(r.followup_reason || '').trim()
           || (studentPlace && studentPlace.bare ? 'پایهٔ کلاس در فایل نبود (رشته: ' + studentPlace.branch + ')' : 'کلاس مشخص نیست');

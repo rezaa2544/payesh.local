@@ -66,10 +66,12 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(policy.canWrite('teacher', 'users'), false);
     assert.strictEqual(policy.canWrite('manager', 'users'), true);
   });
-  await test('کد ملی ایرانی درست اعتبارسنجی می‌شود', () => {
+  await test('کد ملی: فقط ده رقم — بدون الگوریتم رقم کنترل', () => {
     const { validNationalId } = require('../server/util');
-    assert.strictEqual(validNationalId('1000000001'), true);
-    assert.strictEqual(validNationalId('1111111111'), false);
+    assert.strictEqual(validNationalId('1000000001'), true, 'ده رقم قابل قبول است');
+    assert.strictEqual(validNationalId('3840511858'), true, 'کد ملی واقعی مدرسه پذیرفته می‌شود');
+    assert.strictEqual(validNationalId('1111111111'), true, 'ده رقم بودن کافی است');
+    assert.strictEqual(validNationalId('384051185'), false, 'نه رقم رد می‌شود');
     assert.strictEqual(validNationalId('123'), false);
   });
 
@@ -323,7 +325,7 @@ async function waitFor(fn, ms = 15000) {
   });
 
   /* ── ورود دسته‌ایِ کامل: همهٔ فیلدهای دانش‌آموز + کلاس تازه + پدر و مادر ── */
-  await test('ورود دسته‌ای: همهٔ فیلدهای دانش‌آموز ذخیره می‌شود و کلاس و ولی ساخته می‌شود', async () => {
+  await test('ورود دسته‌ای: همهٔ فیلدهای دانش‌آموز ذخیره می‌شود، کلاسی ساخته نمی‌شود و ولی ساخته می‌شود', async () => {
     const imp = await req('/api/admin/import', { method: 'POST', token: managerToken, body: {
       kind: 'students',
       rows: [{
@@ -340,7 +342,7 @@ async function waitFor(fn, ms = 15000) {
     } });
     assert.strictEqual(imp.data.ok, true, 'درخواست پذیرفته شد');
     assert.strictEqual(imp.data.created, 1, 'دانش‌آموز ساخته شد');
-    assert.strictEqual(imp.data.classes, 1, 'کلاس ناشناس ساخته شد');
+    assert.strictEqual(imp.data.classes, 0, 'ورود اکسل هیچ کلاسی نمی‌سازد (کلاس دستی است)');
     assert.strictEqual(imp.data.parents, 2, 'حساب پدر و مادر ساخته شد');
 
     const stu = imp.data.users[0];
@@ -353,7 +355,9 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(stu.covered, 'بله');
     assert.strictEqual(stu.talent, 'شعر');
     assert.strictEqual(stu.address, 'خیابان اول');
-    assert.ok(stu.class_id, 'به کلاس وصل شد');
+    assert.ok(!stu.class_id, 'دانش‌آموز بی‌کلاس می‌ماند تا مدیر کلاس را دستی بسازد');
+    assert.strictEqual(stu.grade, 'یازدهم', 'پایه روی خود دانش‌آموز ثبت شد');
+    assert.strictEqual(stu.field, 'شبکه', 'رشته روی خود دانش‌آموز ثبت شد');
 
     /* هر سه نفر (دانش‌آموز، پدر، مادر) نام کاربری و رمز دارند و وارد می‌شوند */
     const login = await req('/api/auth/login', { method: 'POST', body: { phone: '09123335577', password: '1000000060' } });
@@ -411,7 +415,7 @@ async function waitFor(fn, ms = 15000) {
   });
 
   /* ── رشته هرگز کلاس نمی‌شود: کلاس = پایه + رشته ────────────────────── */
-  await test('ورود دسته‌ای: رشته به‌جای کلاس ساخته نمی‌شود و اشتباه تایپی رشتهٔ تازه نمی‌سازد', async () => {
+  await test('ورود دسته‌ای: رشته هرگز کلاس نمی‌شود، هیچ کلاسی ساخته نمی‌شود و رشتهٔ غلط‌تایپی تازه نمی‌سازد', async () => {
     const before = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: managerToken });
     const classesBefore = ((before.data.collections || {}).classes || []).map(c => c.name);
 
@@ -437,20 +441,20 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(noClass.class_id, null, 'رشته به کلاس تبدیل نشد');
     assert.ok(/پایه/.test(String(noClass.followup_reason || '')), 'دلیلِ نبودِ پایه ثبت شد');
 
-    /* ۲و۳) کلاس‌ها با پایه ساخته شدند، نه با رشتهٔ خالی */
+    /* ۲و۳) هیچ کلاسی ساخته نشد؛ پایه و رشته روی خود دانش‌آموز نشست */
     const after = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: managerToken });
     const classes = (after.data.collections || {}).classes || [];
     const names = classes.map(c => String(c.name));
     assert.ok(!names.includes('گرافیک'), 'کلاسی به نام رشته ساخته نشد');
-    assert.ok(!names.some(n => n === 'شبکه و نرم‌افزار'), 'رشتهٔ بدون پایه کلاس نشد');
-    const d10 = classes.find(c => String(c.name) === 'دهم شبکه و نرم‌افزار');
-    assert.ok(d10, 'کلاس «دهم شبکه و نرم‌افزار» ساخته شد');
-    assert.strictEqual(d10.grade, 'دهم', 'پایه روی کلاس ثبت شد');
-    assert.strictEqual(d10.branch, 'شبکه و نرم‌افزار', 'رشته روی کلاس ثبت شد');
-    const y11 = classes.find(c => String(c.name) === 'یازدهم علوم تجربی');
-    assert.ok(y11, 'نام کلاسِ «پایه + رشته» درست فهمیده شد');
-    assert.strictEqual(y11.grade, 'یازدهم');
-    assert.strictEqual(y11.branch, 'علوم تجربی');
+    assert.ok(!names.includes('دهم شبکه و نرم‌افزار'), 'کلاس از اکسل ساخته نشد — کلاس دستی است');
+    assert.ok(!names.includes('یازدهم علوم تجربی'), 'نام کلاسِ «پایه + رشته» هم کلاس نساخت');
+    assert.strictEqual(classes.length, classesBefore.length, 'تعداد کلاس‌ها تغییر نکرد');
+    const d10 = byName('دانش‌آموز غلط‌تایپی');
+    assert.strictEqual(d10.grade, 'دهم', 'پایه روی دانش‌آموز ماند');
+    assert.strictEqual(d10.field, 'شبکه و نرم‌افزار', 'رشته روی دانش‌آموز ماند');
+    const y11 = byName('دانش‌آموز کلاس‌نام');
+    assert.strictEqual(y11.grade, 'یازدهم', 'پایه از نام کلاس جدا شد');
+    assert.strictEqual(y11.field, 'علوم تجربی', 'رشته از نام کلاس جدا شد');
     assert.strictEqual(classesBefore.filter(n => !names.includes(n)).length, 0, 'کلاس قبلی جابه‌جا نشد');
 
     /* پایه و رشته‌های تازه در تعریف‌ها هم ثبت شده‌اند (پایه‌ها «بدون استفاده» نمی‌مانند) */
@@ -698,7 +702,7 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(have.has(s2), true, 'خواهر دست‌نخورده ماند');
   });
 
-  await test('ورود اکسل روی سیستم مدرسه: رشته پایه نمی‌شود و گروه «پایه + رشته» ساخته می‌شود', async () => {
+  await test('ورود اکسل روی سیستم مدرسه: رشته پایه نمی‌شود و هیچ کلاسی ساخته نمی‌شود', async () => {
     /* ۱) پایهٔ نادرست (رشته در ستون پایه) ⇒ کلاس ساخته نمی‌شود */
     const bad = await req('/api/admin/import', { method: 'POST', token: managerToken, body: { kind: 'students', rows: [
       { _row: 2, full_name: 'دانش‌آموز رشته‌ای', national_id: '1000000958', grade: 'الکترونیک', field: 'الکترونیک' },
@@ -707,14 +711,16 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(Number(bad.data.classes || 0), 0, 'از رشته کلاس ساخته نشد');
     assert.ok((bad.data.warnings || []).some(w => w.error === 'class_without_grade'), 'هشدار «پایه ندارد» داده شد');
 
-    /* ۲) پایهٔ درست + رشته ⇒ گروه «دهم الکترونیک» و ثبت دانش‌آموز در آن */
+    /* ۲) پایهٔ درست + رشته ⇒ پایه و رشته روی دانش‌آموز؛ کلاس دستی است و ساخته نمی‌شود */
     const ok = await req('/api/admin/import', { method: 'POST', token: managerToken, body: { kind: 'students', rows: [
       { _row: 2, full_name: 'پیشوا رحمانی', national_id: '1000000966', new_grade: 'دهم', new_branch: 'الکترونیک', new_class: 'دهم الکترونیک' },
     ] } });
     assert.strictEqual(ok.data.ok, true);
-    assert.strictEqual(Number(ok.data.classes), 1, 'یک گروه ساخته شد');
+    assert.strictEqual(Number(ok.data.classes), 0, 'هیچ کلاسی ساخته نشد');
     assert.strictEqual(Number(ok.data.created || 0), 1, 'دانش‌آموز ساخته شد');
-    assert.ok(!(ok.data.warnings || []).some(w => w.error === 'class_without_grade'), 'هشدار «پایه ندارد» ندارد — یعنی در گروه ثبت شد');
+    assert.strictEqual(ok.data.users[0].grade, 'دهم', 'پایه روی دانش‌آموز ثبت شد');
+    assert.strictEqual(ok.data.users[0].field, 'الکترونیک', 'رشته روی دانش‌آموز ثبت شد');
+    assert.ok(!(ok.data.warnings || []).some(w => w.error === 'class_without_grade'), 'هشدار «پایه ندارد» ندارد — پایه ثبت شد');
     const again = await req('/api/admin/import', { method: 'POST', token: managerToken, body: { kind: 'students', rows: [
       { _row: 2, full_name: 'پیشوا رحمانی', national_id: '1000000966', new_grade: 'دهم', new_branch: 'الکترونیک' },
     ] } });
@@ -1951,7 +1957,8 @@ async function waitFor(fn, ms = 15000) {
       rows: [['حسن نادری', '1000000931', 'یازدهم گرافیک']],
     };
     checks = T.impCheck();
-    assert.strictEqual(checks[0].data.new_class, 'یازدهم گرافیک', '«یازدهم گرافیک» درست تجزیه شد');
+    assert.strictEqual(checks[0].data.grade, 'یازدهم', 'پایه از «یازدهم گرافیک» جدا شد');
+    assert.strictEqual(checks[0].data.field, 'گرافیک', 'رشته از «یازدهم گرافیک» جدا شد');
     assert.strictEqual(checks[0].data.new_grade, 'یازدهم');
 
     /* ثبت روی دستگاه: کلاس‌ها فقط با پایه ساخته می‌شوند و تعریف‌ها هم ثبت می‌شوند */
@@ -1971,7 +1978,7 @@ async function waitFor(fn, ms = 15000) {
     const mina = T.list('users').find(u => u.name === 'مینا تهرانی');
     assert.strictEqual(mina.grade, 'دهم', 'پایه روی خودِ دانش‌آموز ثبت شد');
     assert.strictEqual(mina.field, 'گرافیک', 'رشته روی خودِ دانش‌آموز ثبت شد');
-    assert.ok(/کلاس/.test(String(mina.followup_reason || '')), 'دلیل پیگیری: کلاس ساخته نشده');
+    assert.ok(!mina.followup_reason, 'رشته‌محور با پایهٔ مشخص، پیگیری لازم ندارد: ' + (mina.followup_reason || ''));
     const sara = T.list('users').find(u => u.name === 'سارا کریمی');
     assert.ok(!sara.class_id, 'دانش‌آموز بی‌کلاس ماند');
     assert.ok(/پایه/.test(String(sara.followup_reason || '')), 'دلیلش روی کاربر ذخیره شد');
@@ -2435,7 +2442,7 @@ async function waitFor(fn, ms = 15000) {
         [14, { id: 14, name: 'علی رضایی', role: 'student', phone: '09127770014', national_id: '1000000060', class_id: 5 }],
         [15, { id: 15, name: 'علی  رضایی', role: 'student', phone: '09127770014', class_id: 5 }],
         /* کد ملی نامعتبر */
-        [16, { id: 16, name: 'کاربر خراب', role: 'student', national_id: '1234567890' }],
+        [16, { id: 16, name: 'کاربر خراب', role: 'student', national_id: '123456789' }],
       ]),
       classes: new Map([[5, { id: 5, name: 'دهم ریاضی', grade: 'دهم', branch: 'ریاضی' }]]),
       subjects: new Map(),
@@ -2692,6 +2699,9 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(T.S.data.classes.size, 0, 'کلاس‌محور با رشته ساخته نشد');
     f3.remove();
 
+    /* دانش‌آموزی که از اکسل آمده و کلاس ندارد، با ساخت دستی کلاس وصل می‌شود */
+    T.S.data.users.set(30, { id: 30, name: 'دانش‌آموز اکسل', role: 'student', grade: 'دهم', field: 'الکترونیک', followup_reason: 'کلاس مشخص نیست' });
+
     const f4 = mkForm({ grade: 'دهم', branch: 'الکترونیک', mode: 'field', room: 'کلاس ۱۰۱', name: '' });
     await submit(f4);
     assert.strictEqual(T.S.data.classes.size, 1, 'کلاس درست ساخته شد');
@@ -2700,6 +2710,9 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(c.mode, 'field');
     assert.strictEqual(Number(c.grade_level), 10);
     assert.strictEqual(c.kind, 'class', 'کلاس دستیِ مدیر ثبت شد (محل برگزاری جدا در برنامهٔ هفتگی است)');
+    const joinedStu = T.S.data.users.get(30);
+    assert.strictEqual(Number(joinedStu.class_id), Number(c.id), 'دانش‌آموز اکسل خودکار به کلاس دستی وصل شد');
+    assert.ok(!joinedStu.followup_reason, 'از فهرست پیگیری بیرون آمد');
     dom.window.close();
   });
 
@@ -2947,7 +2960,7 @@ async function waitFor(fn, ms = 15000) {
       assert.strictEqual(u.grade, 'دهم', 'پایهٔ اعلام‌شده روی دانش‌آموز نشست');
       assert.strictEqual(u.field, 'الکترونیک', 'رشته روی دانش‌آموز نشست');
       assert.strictEqual(Number(u.class_id) || 0, 0, 'به هیچ کلاسی وصل نشد');
-      assert.ok(/کلاس «دهم الکترونیک»/.test(String(u.followup_reason || '')), 'منتظر ساخت دستی کلاس: ' + u.followup_reason);
+      assert.ok(!u.followup_reason, 'با پایهٔ اعلام‌شده پیگیری لازم نیست: ' + (u.followup_reason || ''));
     });
 
     /* شمارش تفکیک‌شده */
@@ -3015,7 +3028,7 @@ async function waitFor(fn, ms = 15000) {
     checks = T.impCheck();
     const fixes = T.S.impBranchFixes || [];
     assert.ok(fixes.some(f => f.from === 'کرافیک' && f.to === 'گرافیک'), 'اصلاح «کرافیک» ← «گرافیک» گزارش شد: ' + JSON.stringify(fixes));
-    const names = checks.map(c => c.data.new_class || (byIdSafe(c.data.class_id)));
+    const names = checks.map(c => [c.data.grade, c.data.field].filter(Boolean).join(' ') || (byIdSafe(c.data.class_id)));
     function byIdSafe(id) { const c = T.byId('classes', id); return c ? c.name : ''; }
     assert.ok(names.every(n => String(n).indexOf('کرافیک') < 0), 'هیچ گروهی با نام غلط ساخته نمی‌شود: ' + names.join(' | '));
     assert.ok(names.filter(n => String(n) === 'دهم گرافیک').length === 3, 'همه در «دهم گرافیک»: ' + names.join(' | '));
@@ -3303,6 +3316,110 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/data-form="user-creds"[\s\S]*ذخیرهٔ نام کاربری و رمز/.test(html), 'دکمهٔ ذخیره هست');
     assert.ok(/data-act="creds-delete"/.test(html), 'دکمهٔ حذف حساب هست');
     assert.ok(/data-act="user-auto-pw"/.test(html), 'دکمهٔ «رمز = کد ملی» هست');
+    dom.window.close();
+  });
+
+  /* ══ شکایت‌های اکسل (تصاویر ۳۵–۳۷): کد ملی ۱۰ رقم، موبایل چندتایی،
+     ستون دلخواه، پایهٔ الزامی در مرحلهٔ ۱، و نامی که دو بار چاپ نمی‌شود ══ */
+  await test('اکسل: کد ملی ۱۰ رقم، موبایل چندتایی، ستون دلخواه و پایهٔ الزامی', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, impCheck, importApplyLocal, impPickMobile, impPickLandline, impOrderedFields,'
+      + ' impCustomLabels, impCustomKey, impSaveCustomLabel, IMP_FIELDS, fullName, list, PAGES, impStepHtml };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'import';
+    T.S.queue = []; T.S.online = false;
+    T.S.data = {
+      users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager' }]]),
+      classes: new Map([[5, { id: 5, name: 'دهم الف', kind: 'class', grade: 'دهم' }]]),
+      subjects: new Map(), lookups: new Map(), parent_links: new Map(), grades: new Map(), attendance: new Map(),
+    };
+    try { win.localStorage.removeItem('payesh.customFields'); } catch (e) { /* noop */ }
+
+    /* ۱) کد ملی: ده رقم کافی است، نه رقم رد می‌شود — بدون الگوریتم رقم کنترل */
+    T.S.imp = {
+      step: 2, kind: 'students', headerRow: 1,
+      headers: ['نام و نام خانوادگی', 'کد ملی'], map: ['full_name', 'national_id'],
+      rows: [
+        ['آرسام سعیدی', '3840511858'],
+        ['کد ناقص', '384051185'],
+        ['کد بلند', '38405118581'],
+      ],
+    };
+    let checks = T.impCheck();
+    assert.strictEqual(checks[0].errors.length, 0, 'کد ملی ده‌رقمی واقعی پذیرفته شد');
+    assert.ok(checks[1].errors.some(x => /۱۰ رقم/.test(x) && x.includes('384051185')), 'کد نه‌رقمی با مقدارش گزارش شد');
+    assert.ok(checks[2].errors.some(x => /۱۰ رقم/.test(x)), 'کد یازده‌رقمی رد شد');
+
+    /* ۲) موبایل داخل یک خانه که چند شماره دارد */
+    const pick = x => (T.impPickMobile(x) || {}).value;
+    assert.strictEqual(pick('9181763116 - 9181763394'), '09181763116', 'اولین شمارهٔ معتبر برداشته شد');
+    assert.strictEqual(pick('۰۹۱۲۳۴۵۶۷۸۹'), '09123456789', 'رقم فارسی و صفر اول');
+    assert.strictEqual(pick('989123456789'), '09123456789', 'پیش‌شمارهٔ ۹۸ حذف شد');
+    const land = x => String((T.impPickLandline(x) || {}).value || '');
+    assert.strictEqual(land('021-33445566'), '02133445566', 'تلفن ثابت');
+
+    /* ۳) نام هرگز دو بار چاپ نمی‌شود */
+    T.S.imp.rows = [['آرسام سعیدی', '3840511858']];
+    checks = T.impCheck();
+    const made = await T.importApplyLocal(checks.filter(c => !c.errors.length).map(c => c.data), 'students');
+    assert.strictEqual(made.created, 1, 'یک دانش‌آموز ساخته شد');
+    const stu = [...T.S.data.users.values()].find(u => u.role === 'student');
+    assert.ok(stu, 'دانش‌آموز در فهرست هست');
+    assert.strictEqual(T.fullName(stu), 'آرسام سعیدی', 'نام یک بار: ' + T.fullName(stu));
+    assert.ok(!/سعیدی\s+سعیدی/.test(T.fullName(stu)), 'فامیلی دو بار تکرار نشد');
+
+    /* ۴) رشته‌محور: هیچ کلاسی ساخته نمی‌شود و پیام «کلاس ساخته نمی‌شود» هم نیست */
+    const beforeClasses = T.S.data.classes.size;
+    T.S.imp = {
+      step: 2, kind: 'students', headerRow: 1,
+      headers: ['نام و نام خانوادگی', 'کد ملی', 'کلاس'],
+      map: ['full_name', 'national_id', 'class_name'],
+      rows: [['مهدی کریمی', '3844862215', 'دهم الکتروتکنیک']],
+    };
+    checks = T.impCheck();
+    const allMsgs = checks[0].errors.concat(checks[0].warns).join(' | ');
+    assert.ok(!/کلاس[^|]*ساخته نمی‌شود/.test(allMsgs), 'پیام «کلاس ساخته نمی‌شود» حذف شد: ' + allMsgs);
+    assert.strictEqual(checks[0].data.grade, 'دهم', 'پایه ثبت شد');
+    assert.strictEqual(checks[0].data.field, 'الکتروتکنیک', 'رشته ثبت شد');
+    assert.ok(!checks[0].data.class_id, 'هیچ کلاسی به دانش‌آموز وصل نشد');
+    await T.importApplyLocal(checks.filter(c => !c.errors.length).map(c => c.data), 'students');
+    assert.strictEqual(T.S.data.classes.size, beforeClasses, 'ورود اکسل هیچ کلاسی نساخت');
+
+    /* ۵) فهرست فیلدهای نگاشت: «موبایل دانش‌آموز» هست و «مورد دلخواه» هم می‌آید */
+    const ordered = T.impOrderedFields('students');
+    assert.ok(ordered.some(f => f[0] === 'phone' && /موبایل دانش‌آموز/.test(f[1])), '«موبایل دانش‌آموز» در فهرست هست');
+    const page = T.impStepHtml();
+    assert.ok(/__custom__/.test(page), 'گزینهٔ «مورد دلخواه» در منوی نگاشت هست');
+
+    /* ۶) ستون دلخواه: کلید x_ ساخته و برچسبش ذخیره می‌شود و روی کاربر می‌نشیند */
+    const key = T.impCustomKey('شمارهٔ پرونده');
+    assert.ok(/^x_/.test(key), 'کلید ستون دلخواه با x_ شروع می‌شود: ' + key);
+    T.impSaveCustomLabel(key, 'شمارهٔ پرونده');
+    assert.strictEqual(T.impCustomLabels()[key], 'شمارهٔ پرونده', 'برچسب دلخواه ذخیره شد');
+    T.S.imp = {
+      step: 2, kind: 'students', headerRow: 1,
+      headers: ['نام و نام خانوادگی', 'کد ملی', 'شمارهٔ پرونده'],
+      map: ['full_name', 'national_id', key],
+      rows: [['سارا نوری', '3840511886', '۴۵۶۷']],
+    };
+    checks = T.impCheck();
+    assert.strictEqual(checks[0].data[key], '۴۵۶۷', 'مقدار ستون دلخواه خوانده شد');
+    await T.importApplyLocal(checks.filter(c => !c.errors.length).map(c => c.data), 'students');
+    const sara = [...T.S.data.users.values()].find(u => u.name === 'سارا نوری');
+    assert.ok(sara && sara[key] === '۴۵۶۷', 'ستون دلخواه روی کاربر ذخیره شد');
+
+    /* ۷) پایهٔ الزامی در مرحلهٔ ۱ */
+    T.S.imp = { step: 1, kind: 'students' };
+    const step1 = T.impStepHtml();
+    assert.ok(/data-imp-grade-hint/.test(step1), 'راهنمای پایه در مرحلهٔ ۱ هست');
+    assert.ok(/name="imp-grade"/.test(step1), 'کادر پایه در مرحلهٔ ۱ هست');
+    assert.ok(/data-imp-next[^>]*disabled/.test(step1), 'دکمهٔ «بعدی» تا انتخاب پایه غیرفعال است');
     dom.window.close();
   });
 

@@ -62,15 +62,10 @@ function normDigits(s) {
     .replace(/[^\d]/g, '');
 }
 
+/* کد ملی = شناسهٔ یکتای هر شخص؛ فقط «ده رقم» بودن بررسی می‌شود.
+   (الگوریتم رقمِ کنترل، کدهای واقعی خانواده‌ها را رد می‌کرد.) */
 function validNationalId(id) {
-  const s = normDigits(id);
-  if (s.length !== 10) return false;
-  if (/^(\d)\1{9}$/.test(s)) return false;
-  let sum = 0;
-  for (let i = 0; i < 9; i++) sum += Number(s[i]) * (10 - i);
-  const r = sum % 11;
-  const c = Number(s[9]);
-  return (r < 2 && c === r) || (r >= 2 && c === 11 - r);
+  return /^\d{10}$/.test(normDigits(id));
 }
 
 function json(obj, status = 200, headers = {}) {

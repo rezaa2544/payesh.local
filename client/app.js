@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.29';
+const CLIENT_VERSION = '0.8.30';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1706,7 +1706,33 @@ document.addEventListener('change', (e) => {
   if (!sel || !S.imp) return;
   const idx = Number(sel.getAttribute('data-imp-map'));
   if (!Array.isArray(S.imp.map)) S.imp.map = [];
+  if (sel.value === '__custom__') {
+    /* ستونی که در فهرست نیست: مدیر خودش نامش را می‌نویسد */
+    const label = prompt('این ستون چه چیزی است؟ (مثلاً «شغل مادر»، «شمارهٔ پرونده»)', '');
+    const nm = String(label || '').replace(/\s+/g, ' ').trim();
+    if (!nm) { sel.value = S.imp.map[idx] || ''; return; }
+    const key = impCustomKey(nm);
+    impSaveCustomLabel(key, nm);
+    S.imp.map[idx] = key;
+    sel.innerHTML = `<option value="${key}" selected>✏️ ${nm}</option>` + sel.innerHTML;
+    sel.value = key;
+    toast('ستون «' + nm + '» به فیلدهای دلخواه اضافه شد', 'ok');
+    return;
+  }
   S.imp.map[idx] = sel.value;
+});
+
+/* پایه در مرحلهٔ ۱: تا پایه انتخاب نشود، «بعدی» فعال نیست */
+document.addEventListener('change', (e) => {
+  const box = e.target.closest('input[name="imp-grade"]');
+  if (!box) return;
+  const form = box.closest('form');
+  if (!form) return;
+  const any = Array.from(form.querySelectorAll('input[name="imp-grade"]')).some(b => b.checked);
+  const next = form.querySelector('button[type="submit"], .btn.primary.block');
+  if (next) next.disabled = !any;
+  const hint = form.querySelector('[data-imp-grade-hint]');
+  if (hint) hint.style.display = any ? 'none' : 'block';
 });
 
 /* Esc = بستن پنجره (استاندارد همهٔ برنامه‌ها) */
@@ -2282,20 +2308,34 @@ document.addEventListener('click', async (e) => {
     case 'room-add': actRoomAdd(); return;
     case 'room-edit': actRoomEdit(el.getAttribute('data-id')); return;
     case 'followup-assign': {
-      /* دانش‌آموز بی‌کلاس: کلاس درست را انتخاب و ثبت می‌کنیم */
+      /* دانش‌آموز ناقص: پایه و رشته را روی خودش می‌نشانیم. در رشته‌محور
+         هیچ کلاسی ساخته نمی‌شود (کلاس دستی است)؛ در کلاس‌محور کلاسِ پایه
+         ساخته/پیدا می‌شود چون کلاس همان پایه است. */
       const u = byId('users', Number(id));
       if (!u) return;
       const gSel = document.getElementById('fu-grade-' + id);
       const bSel = document.getElementById('fu-branch-' + id);
-      const cls = ensureGroup(gSel && gSel.value, bSel && bSel.value);
-      if (!cls) return toast('اول پایه را انتخاب کنید', 'err');
-      const patch = Object.assign({}, u, { class_id: cls.id });
+      const g = String((gSel && gSel.value) || '').trim();
+      const b = String((bSel && bSel.value) || '').trim();
+      if (!g) return toast('اول پایه را انتخاب کنید', 'err');
+      const lvl = (typeof impGradeLevel === 'function') ? impGradeLevel(g) : 0;
+      const patch = Object.assign({}, u, { grade: g, field: b || '' });
+      if (lvl >= 10) {
+        /* رشته‌محور: پایه + رشته کافی است */
+        patch.class_id = null;
+        if (b && typeof impEnsureLookup === 'function') impEnsureLookup('branch', b);
+      } else {
+        const cls = ensureGroup(g, '');
+        if (cls) patch.class_id = cls.id;
+      }
       delete patch.followup_reason;
       patch.followup_ack = false;
       putLocal('users', patch);
       saveCache(); render();
       await flushQueue();
-      toast('در «' + cls.name + '» ثبت شد', 'ok');
+      toast(lvl >= 10
+        ? 'پایه و رشته ثبت شد' + (b ? ' — ' + g + ' ' + b : '')
+        : ('در «' + ((byId('classes', patch.class_id) || {}).name || g) + '» ثبت شد'), 'ok');
       return;
     }
     case 'followup-ack': {
@@ -2745,14 +2785,23 @@ document.addEventListener('submit', async (e) => {
   /* ── ورود دسته‌ای: مرحلهٔ ۱ (خواندن فایل) ───────────────────────── */
   if (kind === 'import-file') {
     /* پایه‌های این فایل (پرسش مرحلهٔ ۱) */
+    let pickedGrades = [];
     try {
       const boxes = form.querySelectorAll('input[name="imp-grade"]');
-      const pickedGrades = Array.prototype.slice.call(boxes).filter(b => b.checked).map(b => String(b.value));
+      pickedGrades = Array.prototype.slice.call(boxes).filter(b => b.checked).map(b => String(b.value));
       S.imp = S.imp || {};
       S.imp.grades = pickedGrades;
       /* جدا از S.imp نگه داشته می‌شود تا با رفتن به مرحلهٔ بعد گم نشود */
       S.impGrades = pickedGrades;
     } catch (e) { /* بی‌صدا */ }
+    const entityNow = ['students', 'teachers', 'grades', 'attendance'].indexOf(f.kind && f.kind.value) > -1 ? f.kind.value : 'students';
+    /* بدون پایه، دانش‌آموز ساخته نمی‌شود: مرحلهٔ بعد باز نمی‌شود */
+    if (entityNow === 'students' && !pickedGrades.length) {
+      toast('اول پایه را انتخاب کنید — بدون پایه، دانش‌آموز و کلاسش ساخته نمی‌شود', 'err');
+      const hint = form.querySelector('[data-imp-grade-hint]');
+      if (hint) hint.style.display = 'block';
+      return;
+    }
     const file = f.file && f.file.files && f.file.files[0];
     if (!file) return toast('فایلی انتخاب نشده', 'err');
     const X = window.PayeshXlsx;
@@ -2836,7 +2885,7 @@ document.addEventListener('submit', async (e) => {
     if (!name) return toast('نام را بنویسید', 'err');
     const nid = digitsOnly(f.national_id ? f.national_id.value : '');
     const phone = digitsOnly(f.phone ? f.phone.value : '');
-    if (nid && !impValidNid(nid)) return toast('کد ملی معتبر نیست (۱۰ رقم با رقم کنترلی)', 'err');
+    if (nid && !impValidNid(nid)) return toast('کد ملی باید دقیقاً ۱۰ رقم باشد', 'err');
     if (phone && !/^09\d{9}$/.test(phone)) return toast('شمارهٔ همراه باید با ۰۹ شروع شود و ۱۱ رقم باشد', 'err');
     const dupRow = {
       name, national_id: nid, phone,

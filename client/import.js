@@ -17,7 +17,7 @@
      • وضعیت حیات: هر عبارتی که «فوت/مرحوم/متوفی» داشته باشد
      • اعداد فارسی و معدلِ «۱۲/۸۸» (اسلش نقش ممیز دارد)
      • تحت پوشش: بله/خیر/دارد/آری
-     • کلاس ناشناس ساخته می‌شود (با پایه و رشته)
+     • کلاس‌ها فقط دستی توسط مدیر ساخته می‌شوند؛ اکسل در رشته‌محور هیچ کلاسی نمی‌سازد
      • کد ملی موجود ⇒ به‌روزرسانی، نه خطا
      • نمره و حضور با پیدا کردن دانش‌آموز و درسِ موجود ثبت می‌شوند
    ═══════════════════════════════════════════════════════════════════ */
@@ -69,7 +69,7 @@ const IMP_FIELDS = {
     ['org_percent', 'درصد', 0, ['درصد', 'درصد حمایت']],
     ['talent', 'استعداد یابی', 0, ['استعداد یابی', 'استعدادیابی', 'استعداد']],
     /* تماس و نشانی */
-    ['phone', 'موبایل دانش آموز', 0, ['موبایل دانش آموز', 'موبایل دانش‌آموز', 'همراه دانش آموز',
+    ['phone', 'موبایل دانش‌آموز', 0, ['موبایل دانش آموز', 'موبایل دانش‌آموز', 'همراه دانش آموز',
       'همراه دانش‌آموز', 'موبایل هنرجو', 'شماره همراه', 'تلفن همراه', 'شماره موبایل', 'همراه', 'موبایل', 'شماره تماس']],
     ['landline', 'شماره ثابت', 0, ['شماره ثابت', 'تلفن ثابت', 'ثابت', 'تلفن منزل']],
     ['residence', 'محل سکونت', 0, ['محل سکونت', 'سکونت', 'شهر یا روستا']],
@@ -374,17 +374,67 @@ function impIsoToJalali(iso) {
 }
 
 /* کد ملی ایران: ۱۰ رقم با رقم کنترلی */
+/* کد ملی = شناسهٔ یکتای هر شخص: فقط «ده رقم» بودن مهم است.
+   (الگوریتم قدیمیِ رقمِ کنترل، کدهای واقعی مدارس را رد می‌کرد.) */
 function impValidNid(v) {
   const s = impLatin(v).replace(/\D/g, '');
-  if (!/^\d{10}$/.test(s) || /^(\d)\1{9}$/.test(s)) return false;
-  let sum = 0;
-  for (let i = 0; i < 9; i++) sum += Number(s[i]) * (10 - i);
-  const r = sum % 11;
-  const check = Number(s[9]);
-  return (r < 2 && check === r) || (r >= 2 && check === 11 - r);
+  return /^\d{10}$/.test(s);
 }
 
 function impFields(entity) { return IMP_FIELDS[entity] || IMP_FIELDS.students; }
+
+/* ترتیب نمایش در فهرست نگاشت: مهم‌ترین‌ها اول — «موبایل دانش‌آموز» دیگر
+   ته فهرست پنهان نمی‌شود. بقیه دقیقاً مثل قبل می‌آیند. */
+const IMP_FIELD_ORDER = ['first_name', 'last_name', 'full_name', 'national_id', 'phone',
+  'father_name', 'father_nid', 'father_phone', 'mother_name', 'mother_nid', 'mother_phone',
+  'guardian', 'guardian_phone', 'grade', 'field', 'class_name', 'birth_date', 'gender'];
+function impOrderedFields(entity) {
+  const all = impFields(entity);
+  const byKey = new Map(all.map(f => [f[0], f]));
+  const out = [];
+  IMP_FIELD_ORDER.forEach(k => { if (byKey.has(k)) { out.push(byKey.get(k)); byKey.delete(k); } });
+  all.forEach(f => { if (byKey.has(f[0])) { out.push(f); byKey.delete(f[0]); } });
+  return out;
+}
+
+/* فیلد دلخواه: هر ستونی که در فهرست نیست، با نام دلخواه خودِ مدیر
+   ذخیره می‌شود و در «مشخصات کامل» هم دیده می‌شود. */
+function impCustomLabels() {
+  try { return JSON.parse(localStorage.getItem('payesh.customFields') || '{}') || {}; }
+  catch (e) { return {}; }
+}
+function impSaveCustomLabel(key, label) {
+  const all = impCustomLabels();
+  all[key] = label;
+  try { localStorage.setItem('payesh.customFields', JSON.stringify(all)); } catch (e) { /* noop */ }
+}
+function impCustomKey(label) {
+  const base = impNorm(label).replace(/[^\u0600-\u06FF0-9a-z]+/g, '-').replace(/^-+|-+$/g, '');
+  return 'x_' + (base || String(Date.now())) + '_' + Math.floor(Math.random() * 1000);
+}
+
+/* یک خانهٔ اکسل ممکن است چند شماره داشته باشد («9181763116 - 9181763394»).
+   اولین شمارهٔ موبایلِ درست را برمی‌داریم و متن اصلی را هم نگه می‌داریم تا
+   پیام خطا دقیق باشد. */
+function impPickMobile(raw) {
+  const txt = String(raw == null ? '' : raw);
+  const parts = txt.split(/[\s,،;؛/\\|\-–—]+/).filter(Boolean);
+  for (const part of parts) {
+    const d = impLatin(part).replace(/\D/g, '');
+    if (/^09\d{9}$/.test(d)) return { value: d, raw: txt };
+    /* ۹ رقم بدون صفرِ اول («9121234567») هم پذیرفته و کامل می‌شود */
+    if (/^9\d{9}$/.test(d)) return { value: '0' + d, raw: txt };
+    if (/^989\d{9}$/.test(d)) return { value: '0' + d.slice(2), raw: txt };
+  }
+  return { value: '', raw: txt };
+}
+/* یک شمارهٔ ثابت: هر تعداد رقم با جداکننده */
+function impPickLandline(raw) {
+  const txt = String(raw == null ? '' : raw);
+  const first = txt.split(/[\s,،;؛/\\|]+/).filter(Boolean)[0] || '';
+  const d = impLatin(first).replace(/\D/g, '');
+  return { value: d, raw: txt };
+}
 
 /* ── حدس هوشمند نگاشت ستون‌ها بر پایهٔ عنوان و مترادف‌ها ────────────── */
 /* «نسبتِ» ستون: پدر، مادر، سرپرست یا خودِ دانش‌آموز.
@@ -497,6 +547,7 @@ function impCheck() {
   }
   const out = [];
   const newClasses = [];
+  const newBranches = [];
   /* تعریف‌های پایه و رشته برای تطبیق — اشتباه تایپی رشته، رشتهٔ تازه نمی‌سازد */
   const defs = list('lookups');
   const gctx = {
@@ -558,10 +609,14 @@ function impCheck() {
       errors.push('نام و نام خانوادگی الزامی است');
     }
 
-    const nid = impLatin(o.national_id || '').replace(/\D/g, '');
+    const nidRaw = String(o.national_id || '').trim();
+    const nid = impLatin(nidRaw).replace(/\D/g, '');
     if (nid) {
-      if (!impValidNid(nid)) errors.push('کد ملی «' + nid + '» معتبر نیست');
-      else if (seen[nid] && entity !== 'grades' && entity !== 'attendance') errors.push('کد ملی در همین فایل تکراری است');
+      if (!impValidNid(nid)) {
+        errors.push('کد ملی «' + nidRaw + '» معتبر نیست — باید دقیقاً ۱۰ رقم باشد (این مقدار ' + fa(nid.length) + ' رقم است)');
+      } else if (seen[nid] && entity !== 'grades' && entity !== 'attendance') {
+        errors.push('کد ملی «' + nid + '» تکراری است — در همین فایل دو بار آمده و کد ملی شناسهٔ یکتای هر شخص است');
+      }
       else {
         seen[nid] = true;
         const owner = users.find(u => impLatin(u.national_id || '').replace(/\D/g, '') === nid);
@@ -577,13 +632,18 @@ function impCheck() {
       }
     } else warns.push('بدون کد ملی');
 
-    /* موبایل دانش‌آموز و پدر جدا نگه داشته می‌شوند */
-    const ph = impLatin(o.phone || '').replace(/\D/g, '');
-    if (ph && /^09\d{9}$/.test(ph)) data.phone = ph;
-    else if (ph) warns.push('موبایل دانش‌آموز نامعتبر است');
-    const fph = impLatin(o.father_phone || '').replace(/\D/g, '');
-    if (fph && /^09\d{9}$/.test(fph)) data.father_phone = fph;
-    else if (fph) warns.push('موبایل پدر نامعتبر است');
+    /* موبایل دانش‌آموز و پدر جدا نگه داشته می‌شوند. اگر خانهٔ اکسل چند
+       شماره داشته باشد، اولین شمارهٔ درست برداشته می‌شود. */
+    const ph = impPickMobile(o.phone);
+    if (ph.value) data.phone = ph.value;
+    else if (String(ph.raw || '').trim()) {
+      warns.push('موبایل دانش‌آموز «' + String(ph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود؛ خودتان در «مشخصات کامل» اصلاح کنید');
+    }
+    const fph = impPickMobile(o.father_phone);
+    if (fph.value) data.father_phone = fph.value;
+    else if (String(fph.raw || '').trim()) {
+      warns.push('موبایل پدر «' + String(fph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود');
+    }
     if (data.phone) {
       const taken = users.find(u => impLatin(u.phone || '').replace(/\D/g, '') === data.phone
         && Number(u.id) !== Number(data.existing_id || 0));
@@ -602,14 +662,18 @@ function impCheck() {
       if (cls && String(cls.kind || '') !== 'group') {
         data.class_id = cls.id;
       } else if (fieldMode && place.grade) {
-        /* کلاس در رشته‌محور دستی است — این‌جا ساخته نمی‌شود */
+        /* رشته‌محور: پایه و رشته روی خودِ دانش‌آموز می‌نشیند و همین کافی است.
+           هیچ «کلاسی» ساخته نمی‌شود و هیچ پیگیری‌ای لازم نیست. */
         data.class_id = null;
-        data.new_class = place.name;
         data.new_grade = place.grade;
         data.new_branch = place.branch;
-        if (newClasses.indexOf(place.name) < 0) newClasses.push(place.name);
-        data.followup_reason = 'کلاس «' + place.name + '» هنوز ساخته نشده';
-        warns.push('کلاس «' + place.name + '» ساخته نمی‌شود (کلاس‌ها دستی تعریف می‌شوند) — پایه و رشته روی دانش‌آموز ثبت می‌شود');
+        if (place.branch && !place.matched && !gctx.aliasBranch[impNorm(place.branch)]) {
+          const key = impNorm(place.branch);
+          if (newBranches.indexOf(key) < 0) {
+            newBranches.push(key);
+            warns.push('رشتهٔ «' + place.branch + '» به فهرست رشته‌ها اضافه می‌شود');
+          }
+        }
       } else if (place.name) {
         data.new_class = place.name;
         data.new_grade = place.grade;
@@ -628,26 +692,27 @@ function impCheck() {
       if (o.birth_date) {
         const iso = impAnyDate(o.birth_date);
         if (iso) data.birth_date = iso;
-        else warns.push('تاریخ تولد خوانده نشد');
+        else warns.push('تاریخ تولد «' + String(o.birth_date).trim() + '» خوانده نشد — در «مشخصات کامل» درستش کنید');
       }
       const g = impNorm(o.gender);
       data.gender = /پسر|مذکر|مرد/.test(g) ? 'پسر' : /دختر|مونث|مؤنث|زن/.test(g) ? 'دختر' : '';
 
       ['father_nid', 'mother_nid'].forEach(k => {
-        const v = impLatin(o[k] || '').replace(/\D/g, '');
+        const rawV = String(o[k] || '').trim();
+        const v = impLatin(rawV).replace(/\D/g, '');
         if (v && impValidNid(v)) data[k] = v;
-        else if (v) warns.push('کد ملی ' + (k === 'father_nid' ? 'پدر' : 'مادر') + ' نامعتبر است');
+        else if (v) warns.push('کد ملی ' + (k === 'father_nid' ? 'پدر' : 'مادر') + ' «' + rawV + '» باید دقیقاً ۱۰ رقم باشد');
       });
       data.father_name = String(o.father_name || '').trim();
       data.mother_name = String(o.mother_name || '').trim();
 
       /* شمارهٔ مادر جدا از پدر نگه داشته می‌شود */
-      const mph = impLatin(o.mother_phone || '').replace(/\D/g, '');
-      if (mph && /^09\d{9}$/.test(mph)) data.mother_phone = mph;
-      else if (mph) warns.push('موبایل مادر نامعتبر است');
-      const gph = impLatin(o.guardian_phone || '').replace(/\D/g, '');
-      if (gph && /^09\d{9}$/.test(gph)) data.guardian_phone = gph;
-      else if (gph) warns.push('موبایل سرپرست نامعتبر است');
+      const mph = impPickMobile(o.mother_phone);
+      if (mph.value) data.mother_phone = mph.value;
+      else if (String(mph.raw || '').trim()) warns.push('موبایل مادر «' + String(mph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود');
+      const gph = impPickMobile(o.guardian_phone);
+      if (gph.value) data.guardian_phone = gph.value;
+      else if (String(gph.raw || '').trim()) warns.push('موبایل سرپرست «' + String(gph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود');
 
       /* هر ولی باید یک راه ورود داشته باشد: شمارهٔ همراه، وگرنه کد ملی */
       const who = [['پدر', 'father_name', 'father_nid', 'father_phone'],
@@ -672,6 +737,10 @@ function impCheck() {
         'shenasname_serial', 'shenasname_seri', 'talent', 'org_type'].forEach(k => {
         const v = String(o[k] || '').trim();
         if (v) data[k] = v;
+      });
+      /* فیلدهای دلخواه مدیر (x_…) */
+      Object.keys(o).forEach(k => {
+        if (/^x_/.test(k) && String(o[k] || '').trim()) data[k] = String(o[k]).trim();
       });
       /* رشته‌ای که مدیر تأیید کرده، بر مقدار خامِ فایل اولویت دارد */
       if (data.field && gctx.aliasBranch && gctx.aliasBranch[impNorm(data.field)]) {
@@ -702,8 +771,8 @@ function impCheck() {
       if (cov) data.covered = /بل[ىی]|بله|دارد|آر[ىی]/.test(cov) ? 1 : 0;
 
       /* شمارهٔ ثابت */
-      const land = impLatin(o.landline || '').replace(/\D/g, '');
-      if (land) data.landline = land;
+      const land = impPickLandline(o.landline);
+      if (land.value) data.landline = land.value;
 
       data.role = 'student';
     } else if (entity === 'teachers') {
@@ -729,7 +798,7 @@ function impCheck() {
       }
       if (!stu) {
         errors.push(data.national_id
-          ? 'دانش‌آموز با کد ملی «' + data.national_id + '» در این مدرسه نیست'
+          ? 'دانش‌آموز با کد ملی «' + data.national_id + '» پیدا نشد — چنین کدی در این مدرسه نیست'
           : 'دانش‌آموز «' + (data.full_name || '؟') + '» در این مدرسه پیدا نشد');
       }
       if (stu) {
@@ -877,6 +946,9 @@ function impStepHtml() {
         </div>
         <div class="small muted" style="margin-top:6px;line-height:2">اگر فقط یک پایه تیک بخورد، همان به همهٔ سطرهای بی‌پایه داده می‌شود.
         اگر چند پایه تیک بخورد (فایل کل مدرسه)، هر دانش‌آموزی که پایه‌اش در فایل نبود در «نیازمند پیگیری» می‌آید تا پایه‌اش انتخاب شود.</div>
+        <div data-imp-grade-hint class="small" style="display:${chosen.length ? 'none' : 'block'};color:#b45309;margin-top:6px">
+          ⚠️ تا یک پایه انتخاب نکنید، مرحلهٔ بعد باز نمی‌شود — پایه برای ثبت دانش‌آموز لازم است.
+        </div>
       </div>` : '';
     return `${bar}<form data-form="import-file">
       <div class="small muted" style="margin-bottom:8px;line-height:2">✅ نیازی به قالب آماده نیست؛ همان فایل موجود مدرسه با هر ترتیب ستونی قابل استفاده است.<br>
@@ -889,7 +961,7 @@ function impStepHtml() {
       ${gradeBox}
       <label class="field"><span>فایل اکسل یا CSV</span>
         <input class="input" type="file" name="file" accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label>
-      <button class="btn primary block" style="margin-top:10px">بعدی — نگاشت ستون‌ها</button>
+      <button class="btn primary block" data-imp-next style="margin-top:10px" ${imp.kind === 'students' && !chosen.length ? 'disabled' : ''}>بعدی — نگاشت ستون‌ها</button>
     </form>`;
   }
 
@@ -905,9 +977,16 @@ function impStepHtml() {
         ${(imp.headers || []).map((h, i) => `<tr${map[i] ? ' style="background:var(--soft)"' : ''}>
           <td class="small"><b>${esc(h || ('ستون ' + fa(i + 1)))}</b></td>
           <td class="small muted">${esc(preview.map(r => r[i]).filter(v => String(v || '').trim()).join(' · ') || '—').slice(0, 30)}</td>
-          <td><select class="input" data-imp-map="${i}" style="min-width:180px">
+          <td><select class="input" data-imp-map="${i}" style="min-width:200px">
             <option value="">— نادیده بگیر —</option>
-            ${fields.map(f => `<option value="${f[0]}" ${map[i] === f[0] ? 'selected' : ''}>${esc(f[1])}${f[2] ? ' *' : ''}</option>`).join('')}
+            ${impOrderedFields(imp.kind).map(f => `<option value="${f[0]}" ${map[i] === f[0] ? 'selected' : ''}>${esc(f[1])}${f[2] ? ' *' : ''}</option>`).join('')}
+            ${(() => {
+              const cur = String(map[i] || '');
+              const labels = impCustomLabels();
+              if (/^x_/.test(cur)) return `<option value="${esc(cur)}" selected>✏️ ${esc(labels[cur] || 'مورد دلخواه')}</option>`;
+              return '';
+            })()}
+            <option value="__custom__">➕ مورد دلخواه (خودم می‌نویسم)…</option>
           </select></td></tr>`).join('')}
       </tbody></table></div>
       <div class="row" style="margin-top:10px;gap:8px">
@@ -926,12 +1005,12 @@ function impStepHtml() {
 
     /* یک جدول برای هر گروه — خطادارها جدا، تا بتوان سراغشان رفت */
     const rowsHtml = (list, tone) => `<div class="table-wrap" style="max-height:34vh;overflow:auto"><table><thead><tr>
-        <th>سطر</th><th>نام</th><th>کد ملی</th><th>کلاس / درس</th><th>پیام‌ها</th></tr></thead><tbody>
+        <th>سطر</th><th>نام</th><th>کد ملی</th><th>پایه و رشته / درس</th><th>پیام‌ها</th></tr></thead><tbody>
         ${list.map(c => `<tr${tone === 'red' ? ' style="background:#fef2f2"' : ''}>
           <td class="small">${fa(c.row)}</td>
           <td><b>${esc(c.data.full_name || '—')}</b></td>
           <td class="small ltr">${esc(c.data.national_id || '—')}</td>
-          <td class="small">${esc(c.data.new_class || (byId('classes', c.data.class_id) || {}).name || (byId('subjects', c.data.subject_id) || {}).name || '—')}</td>
+          <td class="small">${esc([c.data.grade, c.data.field].filter(Boolean).join(' ') || (byId('classes', c.data.class_id) || {}).name || (byId('subjects', c.data.subject_id) || {}).name || '—')}</td>
           <td class="small">${c.errors.map(e => '<div style="color:#b91c1c">⛔ ' + esc(e) + '</div>').join('')}
             ${c.warns.map(w => '<div class="muted">⚠️ ' + esc(w) + '</div>').join('')}</td>
         </tr>`).join('')}
@@ -1149,12 +1228,18 @@ async function importApplyLocal(rows, kind, onProgress) {
         /* پایه و رشتهٔ تأییدشدهٔ مدیر بر مقدار خام فایل اولویت دارد */
         if (r.new_grade) row.grade = r.new_grade;
         if (r.new_branch) row.field = r.new_branch;
-        if (!classId && r.new_class) {
-          row.followup_reason = 'کلاس «' + r.new_class + '» هنوز ساخته نشده';
+        /* تنها در کلاس‌محور (ابتدایی و متوسطهٔ اول) پیگیری لازم است؛ در
+           رشته‌محور پایه و رشته کافی است و کلاس را مدیر دستی می‌سازد. */
+        if (!classId && r.new_class && !isFieldMode) {
+          row.followup_reason = 'کلاس «' + r.new_class + '» هنوز ساخته نشده — مدیر باید کلاس را دستی بسازد';
         }
       }
-      if (kind === 'students' && !classId && !row.followup_reason && r.followup_reason) row.followup_reason = r.followup_reason;
+      /* دلیل پیگیریِ قدیمی فقط وقتی می‌ماند که پایه هنوز معلوم نیست */
+      if (kind === 'students' && !classId && !row.followup_reason && !row.grade && r.followup_reason) {
+        row.followup_reason = r.followup_reason;
+      }
       IMP_EXTRA_FIELDS.forEach(k => { if (r[k] !== undefined && r[k] !== '' && r[k] !== null) row[k] = r[k]; });
+      Object.keys(r).forEach(k => { if (/^x_/.test(k) && String(r[k] || '').trim()) row[k] = String(r[k]).trim(); });
       if (r.birth_date) row.birth_date = r.birth_date;
       if (r.father_nid) row.father_nid = r.father_nid;
       if (r.mother_nid) row.mother_nid = r.mother_nid;
@@ -1228,3 +1313,9 @@ window.impIsoToJalali = impIsoToJalali;
 window.impNumFa = impNumFa;
 window.impNorm = impNorm;
 window.impLatin = impLatin;
+window.impOrderedFields = impOrderedFields;
+window.impCustomLabels = impCustomLabels;
+window.impSaveCustomLabel = impSaveCustomLabel;
+window.impCustomKey = impCustomKey;
+window.impPickMobile = impPickMobile;
+window.impPickLandline = impPickLandline;

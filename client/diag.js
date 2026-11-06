@@ -29,16 +29,11 @@ function diagDigits(v) {
   return s.replace(/\D/g, '');
 }
 
-/** همان الگوریتم رقم کنترل کد ملی که در سرور هم هست */
+/** کد ملی = ده رقم؛ همان قاعده‌ای که در سرور هم هست */
 function diagValidNid(v) {
-  const n = diagDigits(v);
-  if (n.length !== 10) return false;
-  if (/^(\d)\1{9}$/.test(n)) return false;
-  let s = 0;
-  for (let i = 0; i < 9; i++) s += Number(n[i]) * (10 - i);
-  const r = s % 11;
-  const c = Number(n[9]);
-  return r < 2 ? c === r : c === 11 - r;
+  /* کد ملی فقط باید ده رقم باشد؛ یکتایی‌اش جداگانه بررسی می‌شود */
+  return /^\d{10}$/.test(String(v == null ? '' : v).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g, ''));
 }
 
 function diagNormName(v) {
@@ -176,9 +171,9 @@ const DIAG_CHECKS = [
 
   {
     id: 'invalid-nid', cat: 'data', severity: 'warning', safe: false,
-    title: 'کد ملی نامعتبر',
-    desc: 'کد ملی‌ای که رقم کنترلش درست نیست (احتمالاً اشتباه تایپ شده)',
-    guide: 'از «کاربران ← ویرایش» کد ملی درست را وارد کنید. با کد ملی نامعتبر، ورود با کد ملی کار نمی‌کند.',
+    title: 'کد ملی ناقص',
+    desc: 'کد ملی‌ای که ده رقم نیست (احتمالاً اشتباه تایپ شده)',
+    guide: 'از «کاربران ← ویرایش» کد ملی ده‌رقمی درست را وارد کنید. با کد ملی ناقص، ورود با کد ملی کار نمی‌کند.',
     check() {
       const bad = diagUsers().filter(u => diagDigits(u.national_id).length && !diagValidNid(u.national_id));
       return bad.length
