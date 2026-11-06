@@ -1,8 +1,8 @@
 # شاهد نمونهٔ فنی ۲۱ — پایلوت، مهاجرت کنترل‌شده، بازیابی و rollback
 # تولید: bash prototype/slice-21/gen-evidence.sh
-# base_head: b65f724771dd1df0cef1b332ad063dc7d89bc31d
-# generated_at_utc: 2026-11-06T23:05:17Z
-# started_utc: 2026-11-06T23:05:17Z
+# base_head: 28d6c3a747c343494c50e49cd28e953c5d136ff7
+# generated_at_utc: 2026-11-06T23:05:23Z
+# started_utc: 2026-11-06T23:05:23Z
 # node: v22.22.3
 # os: Linux 6.1.158+ x86_64
 # command: node prototype/slice-21/tests/run.js
