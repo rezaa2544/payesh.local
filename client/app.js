@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.31';
+const CLIENT_VERSION = '0.8.32';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1224,7 +1224,7 @@ function render() {
   }
 
   /* وضعیت به‌روزرسانی در صفحهٔ «سیستم» (همان snapshot k3-reval) */
-  if (S.route === 'system' && S.role === 'manager' && S.mirror === undefined && !S._mirrorLoading && !PHONE_MODE) {
+  if (S.route === 'system' && ['manager', 'teacher', 'counselor', 'guard'].indexOf(S.role) >= 0 && S.mirror === undefined && !S._mirrorLoading && !PHONE_MODE) {
     S._mirrorLoading = true;
     loadMirror().then(() => { S._mirrorLoading = false; if (S.route === 'system') render(); })
       .catch(() => { S._mirrorLoading = false; });

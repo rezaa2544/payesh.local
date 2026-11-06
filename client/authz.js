@@ -67,12 +67,16 @@ const AUTHZ_FAMILY_OK = /^(leave-add|leave-delete|leave-set)$/;
 /* کنش‌های همیشه‌مجاز (نشست، نمایش، بستن پنجره، چاپ) */
 const AUTHZ_ALWAYS = /^(modal-close|modal-bg|retry|login-mode|unlock-mode|lock|pin-change|print|copy-url|originbar-off|originbar|phone-diagnose|outbox-sync|goto|sync|update-later|diag-rerun-always)$/;
 
+/* آینه/پشتیبان: مدیر و عوامل اجرایی (همان چیزی که سرور هم اجازه می‌دهد) */
+const AUTHZ_BACKUP_OK = /^(mirror-refresh|mirror-restore)$/;
+
 function authzCanAct(act, role) {
   const a = String(act || '');
   const r = String(role || '');
   if (!a) return true;
   if (AUTHZ_ALWAYS.test(a)) return true;
   if (r === 'manager') return true;
+  if (AUTHZ_BACKUP_OK.test(a)) return ['manager', 'teacher', 'counselor', 'guard'].indexOf(r) >= 0;
   if (AUTHZ_MANAGER_ONLY.test(a)) return false;
   /* خانواده (مرخصی) پیش از دبیر بررسی می‌شود: کنش مشترک است */
   if (AUTHZ_FAMILY_OK.test(a)) return r === 'teacher' || r === 'parent' || r === 'student';

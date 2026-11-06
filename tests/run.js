@@ -3549,8 +3549,34 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(bad.data.ok, false);
     assert.strictEqual(bad.data.error, 'bad_format');
 
-    /* فقط مدیر */
     assert.ok(r1.data.dirs.mirror, 'مسیر آینه هم برگشت');
+
+    /* مدیر و عوامل اجرایی هر دو می‌بینند؛ بقیهٔ نقش‌ها نه */
+    const st = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'bk-staff-1', collection: 'users', type: 'put', data: { name: 'کارشناس اجرایی', role: 'counselor', phone: '09127770001', national_id: '1777000001' } },
+    ] } });
+    const staffId = st.data.applied[0].id;
+    const staffLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09127770001', password: '1777000001' } });
+    const staffTok = staffLogin.data.session.token;
+    const staffMirror = await req('/api/admin/mirror', { token: staffTok });
+    assert.strictEqual(staffMirror.data.ok, true, 'عوامل اجرایی وضعیت پشتیبان را می‌بینند');
+    assert.ok(Array.isArray(staffMirror.data.daily), 'فهرست فایل‌های روزانه برای عوامل اجرایی هم می‌آید');
+    const staffDaily = await req('/api/admin/backups/daily/' + today.file, { token: staffTok });
+    assert.strictEqual(staffDaily.status, 200, 'دانلود فایل پشتیبان برای عوامل اجرایی');
+    await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'bk-stud-1', collection: 'users', type: 'put', data: { name: 'دانش‌آموز پشتیبان', role: 'student', phone: '09127770002', national_id: '1777000002' } },
+    ] } });
+    const studLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09127770002', password: '1777000002' } });
+    const studMirror = await req('/api/admin/mirror', { token: studLogin.data.session.token });
+    assert.strictEqual(studMirror.status, 403, 'دانش‌آموز به پشتیبان دسترسی ندارد');
+    const studRestore = await req('/api/admin/restore', { method: 'POST', token: studLogin.data.session.token, body: { data: backup } });
+    assert.strictEqual(studRestore.status, 403, 'دانش‌آموز نمی‌تواند بازیابی کند');
+    const srv = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
+    assert.ok(/BACKUP_ROLES = new Set\(\['manager', 'teacher', 'counselor', 'guard'\]\)/.test(srv),
+      'نقش‌های پشتیبان در سرور تعریف شده‌اند');
+    const pg = fs.readFileSync(path.join(ROOT, 'client', 'pages.js'), 'utf8');
+    assert.ok(/BACKUP_ROLES_FA/.test(pg), 'کارت پشتیبان در پنل عوامل اجرایی هم رندر می‌شود');
+    assert.strictEqual(typeof staffId, 'number');
   });
 
   /* ══ اسکن QR کارت پیوند (دوربین + گالری) ═════════════════════════ */

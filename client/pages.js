@@ -1480,6 +1480,7 @@ PAGES.system = () => {
   ${liveCard()}
   ${isManager ? phoneAccessCard() : ''}
   ${accountCard()}
+  ${!isManager && BACKUP_ROLES_FA.indexOf(S.role) >= 0 ? mirrorCard() : ''}
   ${isManager ? updateCard() : clientUpdateCard()}
   ${isManager ? managerSystemSections() : ''}
   ${card(`<b>راهنمای دستگاه‌ها</b><div class="small muted" style="margin-top:6px">
@@ -1500,6 +1501,9 @@ function mbSize(n) {
   if (b > 1024) return fa(Math.round(b / 1024)) + ' کیلوبایت';
   return fa(b) + ' بایت';
 }
+/* نقش‌هایی که پشتیبان و بازیابی را می‌بینند: مدیر و عوامل اجرایی */
+const BACKUP_ROLES_FA = ['manager', 'teacher', 'counselor', 'guard'];
+
 function mirrorCard() {
   const m = S.mirror;
   const state = !m ? badge('بررسی نشده', 'amber')
