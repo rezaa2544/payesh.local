@@ -85,7 +85,7 @@ async function mount(label, token, pathes, device) {
   child.on('exit', c => { if (!childExited) console.error('سرور بسته شد: ' + c); });
   for (let i = 0; i < 60; i++) { try { const h = await api('/api/health'); if (h.ok) break; } catch (e) { /* wait */ } await sleep(150); }
 
-  const mgr = await api('/api/auth/pair', { method: 'POST', body: { code, pin: '1234' } });
+  const mgr = await api('/api/auth/pair', { method: 'POST', body: { code } });
   assert.ok(mgr.session, 'ورود مدیر');
 
   const pull = await api('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: mgr.session.token });
@@ -96,7 +96,7 @@ async function mount(label, token, pathes, device) {
 
   const pair = async (uid) => {
     const pc = await api('/api/admin/pair-code', { method: 'POST', token: mgr.session.token, body: { user_id: uid } });
-    const p = await api('/api/auth/pair', { method: 'POST', body: { code: pc.code, pin: '1111' } });
+    const p = await api('/api/auth/pair', { method: 'POST', body: { code: pc.code } });
     return { token: p.session.token, device: p.device_token };
   };
 

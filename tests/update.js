@@ -171,7 +171,7 @@ const exists = rel => fs.existsSync(path.join(APP, rel));
 
   const setup = await req('/api/setup', {
     method: 'POST',
-    body: { school_name: 'دبیرستان آزمون', manager_name: 'مدیر آزمون', pin: '1234', phone: '09120000001' },
+    body: { school_name: 'دبیرستان آزمون', manager_name: 'مدیر آزمون', password: 'Manager-99', phone: '09120000001' },
   });
   const managerToken = setup.data.session.token;
 
@@ -180,7 +180,7 @@ const exists = rel => fs.existsSync(path.join(APP, rel));
     { uid: 'u1', collection: 'users', type: 'put', data: { name: 'دبیر آزمون', role: 'teacher', national_id: '1000000001' } },
   ] } });
   const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } });
-  const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '4321' } });
+  const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code } });
   const teacherToken = paired.data.session.token;
 
   /* ── ۱. دسترسی ── */

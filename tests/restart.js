@@ -65,7 +65,7 @@ async function main() {
 
     const setup = await (await fetch(BASE + '/api/setup', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ school_name: 'مدرسهٔ آزمون', manager_name: 'مدیر آزمون', pin: '1234', phone: '09120000009', password: '123456' }),
+      body: JSON.stringify({ school_name: 'مدرسهٔ آزمون', manager_name: 'مدیر آزمون', phone: '09120000009', password: '123456' }),
     })).json();
     assert.ok(setup.ok, 'راه‌اندازی: ' + JSON.stringify(setup));
     const login = await (await fetch(BASE + '/api/auth/login', {

@@ -128,7 +128,7 @@ async function main() {
   try {
     assert.ok(await waitFor(async () => (await req('/api/health')).data.ok, 20000), 'سرور بالا آمد — ' + log.slice(-300));
 
-    const setup = await req('/api/setup', { body: { school_name: 'مدرسهٔ زنده', manager_name: 'مدیر زنده', pin: '1234', phone: '09120000011', password: '123456' } });
+    const setup = await req('/api/setup', { body: { school_name: 'مدرسهٔ زنده', manager_name: 'مدیر زنده', phone: '09120000011', password: '123456' } });
     assert.ok(setup.data.ok, 'راه‌اندازی: ' + JSON.stringify(setup.data));
     const login = await req('/api/auth/login', { body: { phone: '09120000011', password: '123456' } });
     const token = login.data.session.token;

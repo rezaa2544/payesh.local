@@ -74,7 +74,7 @@ async function go(win, hash) {
   for (let i = 0; i < 60; i++) { try { if ((await api('/api/health')).ok) break; } catch (e) { /* wait */ } await sleep(150); }
 
   console.log('\nجریان کاربری\n');
-  const mgr = await api('/api/auth/pair', { method: 'POST', body: { code: adminCode, pin: '1234' } });
+  const mgr = await api('/api/auth/pair', { method: 'POST', body: { code: adminCode } });
   const MT = mgr.session.token;
   const pull = await api('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: MT });
   const teacher = pull.collections.users.find(u => u.role === 'teacher');
@@ -84,7 +84,7 @@ async function go(win, hash) {
 
   /* ── دبیر: حضور و غیاب ── */
   const tp = await api('/api/admin/pair-code', { method: 'POST', token: MT, body: { user_id: teacher.id } });
-  const tPair = await api('/api/auth/pair', { method: 'POST', body: { code: tp.code, pin: '1111' } });
+  const tPair = await api('/api/auth/pair', { method: 'POST', body: { code: tp.code } });
   const tw = await openAs(tPair.session.token, tPair.device_token);
 
   await go(tw, '#/attendance/' + sched.class_id);
@@ -123,7 +123,7 @@ async function go(win, hash) {
 
   /* ── ولی: درخواست مرخصی ── */
   const pp = await api('/api/admin/pair-code', { method: 'POST', token: MT, body: { user_id: parent.id } });
-  const pPair = await api('/api/auth/pair', { method: 'POST', body: { code: pp.code, pin: '2222' } });
+  const pPair = await api('/api/auth/pair', { method: 'POST', body: { code: pp.code } });
   const pw = await openAs(pPair.session.token, pPair.device_token);
   await go(pw, '#/child');
   assert.ok(pw.document.body.textContent.includes('معدل'), 'صفحهٔ فرزند برای ولی');
