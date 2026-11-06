@@ -145,7 +145,9 @@ if [ -n "${CLAIM_TESTS:-}" ] && [ "$CLAIM_TESTS" != "$PASS" ]; then
 fi
 
 # ---------- ۶) تغییر کد محصول ----------
-PROD_DIFF=$(git diff --name-only "$BASE" HEAD -- server client tests installer scripts desktop deploy install .github package.json package-lock.json 2>/dev/null | wc -l)
+# کد محصول = مسیرهایی که رفتار برنامه را تعیین می‌کنند؛ .github (CI) در اثر انگشت هست ولی
+# تغییرش ممنوع نیست، چون خود شاهد را در CI بالا می‌آورد.
+PROD_DIFF=$(git diff --name-only "$BASE" HEAD -- server client tests installer scripts desktop deploy install package.json package-lock.json 2>/dev/null | wc -l)
 [ "$PROD_DIFF" = "0" ] || fail "product/CI files changed vs audit base $BASE: $PROD_DIFF file(s)"
 
 # ---------- ۷) تولید شاهد (فقط در صورت موفقیت) ----------
