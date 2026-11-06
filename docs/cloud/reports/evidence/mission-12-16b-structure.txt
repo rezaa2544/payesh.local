@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
 branch: arena/f1efa594-payesh-local
-head: 0afa72986e3760c78caea49b7808d396fc23b32a
+head: f7b149b4c7576df01c2e52731c380a86370243a8
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=260  tables=81  ac_rows=8
@@ -9,7 +9,7 @@ head: 0afa72986e3760c78caea49b7808d396fc23b32a
 13-secure-cache-offline-queue              lines=160  tables=63  ac_rows=9
 14-conflict-convergence                    lines=163  tables=56  ac_rows=11
 15-backup-recovery                         lines=157  tables=74  ac_rows=12
-16-ha-observability-cost                   lines=283  tables=133 ac_rows=14
+16-ha-observability-cost                   lines=290  tables=136 ac_rows=14
 16b-tenant-provisioning-migration          lines=262  tables=106 ac_rows=12
 
 ## حکم‌های ثبت‌شده (هر سند حکم خودش — هیچ سبزی خودکار نیست)
@@ -31,11 +31,8 @@ school_id (files): 8
 api routes (unique /api literals in server/index.js): 62
 
 ## وضعیت درخت کاری
- M docs/cloud/16b-tenant-provisioning-migration.md
+ M docs/cloud/16-ha-observability-cost.md
+ M docs/cloud/reports/OWNER-DECISIONS-GATE-READINESS.md
+ M docs/cloud/reports/REVIEW-16.md
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
- M docs/cloud/reports/evidence/mission-a-rls-execution.txt
-?? docs/cloud/reports/REVIEW-16B.md
-?? docs/cloud/reports/evidence/gen-mission-16b-evidence.sh
-?? docs/cloud/reports/evidence/mission-16b-tenant-probe.txt
-?? docs/cloud/reports/evidence/probe-16b-tenant.mjs
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
