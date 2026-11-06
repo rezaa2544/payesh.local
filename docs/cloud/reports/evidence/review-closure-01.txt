@@ -1,7 +1,7 @@
 # شاهد بستن بازبینی — بررسی تقابلی ۰۱‑ب / ۰۴ / ۰۴‑ب / ۱۱ / ۱۲…۱۶‑ب
 # تولید: bash docs/cloud/reports/evidence/gen-review-closure.sh
-# base_head: 550b08ee86fe0a1c27c9eac163b43e2f64a59d66
-# generated_at_utc: 2026-11-06T20:37:24Z
+# base_head: 8e34f677b239798ce20aaed9bffef6e298c24eea
+# generated_at_utc: 2026-11-06T20:47:33Z
 
 [PASS] C1 دروازهٔ شاهد ممیزی ۰۵–۱۱: EVIDENCE-OK — docs/cloud/reports/evidence/mission-05-11-structure.txt (pass=88 fail=0 measured P/F/U=26/40/7)
 [PASS] C2 بازشماری ردیف‌محور ۰۶–۱۰ = 26/40/7 · جمع 73 · برابر با جدول سند ۱۱
