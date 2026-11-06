@@ -53,7 +53,8 @@
 | تغییرات کد محصول | **۰** | همان شاهد، بخش «تغییر کد محصول» |
 | SHAهای ذکرشده در اسناد | ۱۳ بررسی شد، **۰ نامعتبر** | همان |
 | مسیرهای فایل ارجاع‌شده | ۳۲ بررسی شد، **۰ ناموجود** | همان |
-| CI روی HEAD آغازین | `build-and-release` = **CANCELLED** · نصب‌کننده = SKIPPED · CodeRabbit = SKIPPED | `gh run list`, `gh pr view` |
+| CI روی HEAD آغازین (`13c44d4`) | `build-and-release` = **CANCELLED** (سبز نیست) · نصب‌کننده = SKIPPED · CodeRabbit = SKIPPED | `gh run list`, `gh pr view` |
+| CI روی الحاق شاهد (`75692f8`) | **SUCCESS** — همهٔ گام‌ها سبز: آزمون‌های سرور · رابط/جریان/صندوقچه/به‌روزرسانی · گوشی · ساخت بسته و مانیفست | `gh run view 42259249258` |
 | بازبینی مستقل | ۱ Review با وضعیت `COMMENTED` (کنترل‌پلین) — **نه Approve** | `gh pr view 73 --json reviews` |
 | کامنت‌های حل‌نشده | CodeRabbit هیچ بازبینی‌ای اجرا نکرد (repo < ۱۰ ستاره) | همان |
 
@@ -189,7 +190,8 @@ PostgreSQL **18.6** واقعی (بستهٔ `@embedded-postgres/linux-x64@18.6.0-
 | A‑04 | **PASS** (سند) | §۳.۲/۳.۲.۱/۳.۲.۲ | HEAD جاری | `sed -n '/۳.۲/…'` | — | — | `docs/cloud/13-…md` |
 | A‑05 | **PASS** (سند) | D‑29 + §۵.۱ + O‑10 | HEAD جاری | `grep -n 'D‑29' docs/00-…md` | — | — | قانون اساسی، سند ۱۲، گزارش بسته |
 | PR‑INT | **PASS** | ۴۴ فایل · ۰ کد محصول · ۱۳ SHA · ۳۲ مسیر | `f2fc472..HEAD` | `bash …/review-pr73-integrity.sh` | جاری | — | `…/mission-a-pr73-integrity.txt` |
-| CI | **NOT GREEN** | `CANCELLED` روی `13c44d4` | `13c44d4` | `gh run list` | — | GitHub Actions | — |
+| CI (آغازین) | **NOT GREEN** | `CANCELLED` روی `13c44d4` — هرگز سبز شمرده نشد | `13c44d4` | `gh run list` | 2026‑11‑06T16:56Z | GitHub Actions | run 42256977563 |
+| CI (الحاق شاهد) | **PASS** | **SUCCESS** همهٔ گام‌ها | `75692f8` | `gh run view 42259249258` | 2026‑11‑06 | GitHub Actions · ubuntu‑latest · Node 22 | https://github.com/rezaa2544/payesh.local/actions/runs/42259249258 |
 | Notion | **PASS/بخش‌ی** | یادداشت‌های A‑01…A‑05 + O‑10 | — | — | — | Notion API | بخش ۱۰ |
 
 ---
@@ -200,7 +202,7 @@ PostgreSQL **18.6** واقعی (بستهٔ `@embedded-postgres/linux-x64@18.6.0-
 |---|---|---|
 | R1 | RLS در **کد محصول** یکپارچه نشده (فقط الگو اثبات شد) | باز — مالک: ۲۰‑ب |
 | R2 | F‑04/F‑06 (کلید Storage در کلاینت، مسیر دوم نوشتن) هنوز در کد | باز — P0، پیش از هر نمونه‌سازی |
-| R3 | CI روی HEAD آغازین Cancelled بود؛ پس از این push باید سبز/قرمز واقعی ثبت شود | در حال بررسی |
+| R3 | CI روی HEAD آغازین Cancelled بود | ✅ بسته شد — `75692f8` = SUCCESS (run 42259249258)؛ CI روی هر HEAD بعدی باید دوباره دیده شود |
 | R4 | تکرارپذیری آزمون RLS به باینری embedded در `/tmp` وابسته است؛ در محیط بدون آن ⇒ `BLOCKED` (نه PASS) | مستند |
 | R5 | بستهٔ PostgreSQL ۱۸.۶ **beta** است؛ برای آزمون الگو کافی، برای production باید نسخهٔ پایدار تأیید شود | مستند |
 | R6 | تصمیم‌های باز تجاری/محیطی (O‑07, O‑09, O‑14, O‑15, O‑17, O‑18, P‑01b) | باز — نیازمند انسان |
@@ -211,7 +213,7 @@ PostgreSQL **18.6** واقعی (بستهٔ `@embedded-postgres/linux-x64@18.6.0-
 ## ۱۱. پیشنهاد
 
 **`READY FOR INDEPENDENT REVIEW`** — با قیدهای صریح:
-- CI روی SHA نهایی باید دیده و ثبت شود (سبز/قرمز؛ لغو‌شده = سبز نیست).
+- CI روی SHA نهایی این گزارش (`75692f8`) **SUCCESS** است؛ هر commit بعدی باید CI تازهٔ خودش را داشته باشد (لغو‌شده = سبز نیست).
 - A‑02 در سطح الگو اثبات شده، نه در محصول.
 - Gate فاز ۳ **بسته** است و این مأموریت آن را باز نمی‌کند.
 
