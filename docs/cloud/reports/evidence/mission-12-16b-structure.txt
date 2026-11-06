@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
 branch: arena/f1efa594-payesh-local
-head: 8bd01ea13b9472381483df782781e00e9a5796e5
+head: f58dc10228d95e768fdff730d77f35bd58077b25
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=155  tables=48  ac_rows=7
@@ -31,13 +31,6 @@ school_id (files): 8
 api routes (unique /api literals in server/index.js): 62
 
 ## وضعیت درخت کاری
-?? docs/cloud/12-multitenant-architecture.md
-?? docs/cloud/12b-owner-panel-boundaries.md
-?? docs/cloud/13-secure-cache-offline-queue.md
-?? docs/cloud/14-conflict-convergence.md
-?? docs/cloud/15-backup-recovery.md
-?? docs/cloud/16-ha-observability-cost.md
-?? docs/cloud/16b-tenant-provisioning-migration.md
-?? docs/cloud/reports/evidence/gen-mission-12-16b.sh
-?? docs/cloud/reports/evidence/mission-12-16b-structure.txt
+ M docs/cloud/reports/PACKAGE-2-3-REPORT.md
+ M docs/cloud/reports/evidence/mission-12-16b-structure.txt
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
