@@ -2711,6 +2711,70 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  await test('جدول کاربران: پایه و رشته جدا، نام کامل، و «ولیِ چه دانش‌آموزی»', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/authz.js') + '\n;\n'
+      + strip('client/app.js') + '\n;window.__t = { S, PAGES, impPlaceOf };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users'; T.S.queue = []; T.S.online = false; T.S.creds = null;
+    T.S.data = {
+      users: new Map([
+        [1, { id: 1, name: 'مدیر', role: 'manager' }],
+        [10, { id: 10, name: 'آرین', last_name: 'رحمانی', role: 'student', class_id: 5, national_id: '3840509807' }],
+        [11, { id: 11, name: 'آرزو', role: 'parent', national_id: '3840138957' }],
+      ]),
+      classes: new Map([[5, { id: 5, name: 'دهم نقشه‌کشی', grade: 'دهم', branch: 'نقشه‌کشی', mode: 'field' }]]),
+      subjects: new Map(),
+      lookups: new Map([[1, { id: 1, kind: 'grade', name: 'دهم' }], [2, { id: 2, kind: 'branch', name: 'نقشه‌کشی' }]]),
+      parent_links: new Map([[1, { id: 1, parent_id: 11, student_id: 10 }]]),
+      import_issues: new Map(),
+    };
+
+    const html = T.PAGES.users();
+    assert.ok(/<th>پایه<\/th>/.test(html), 'ستون پایه هست');
+    assert.ok(/<th>رشته<\/th>/.test(html), 'ستون رشته هست');
+    assert.ok(!/<th>کلاس<\/th>/.test(html), 'ستون «کلاس» برداشته شد');
+    assert.ok(html.includes('آرین رحمانی'), 'نام و نام خانوادگی با هم');
+    /* ردیف دانش‌آموز: پایه و رشته جدا */
+    const studRow = html.slice(html.indexOf('آرین رحمانی'));
+    assert.ok(/<td class="small">دهم<\/td>/.test(studRow), 'پایه در ستون خودش');
+    assert.ok(/<td class="small">نقشه‌کشی<\/td>/.test(studRow), 'رشته در ستون خودش');
+    /* ردیف ولی: نام دانش‌آموز + پایه و رشتهٔ او */
+    const parRow = html.slice(html.indexOf('آرزو'));
+    assert.ok(parRow.includes('آرین رحمانی'), 'ولی به دانش‌آموزش وصل است');
+    assert.ok(/<td class="small">دهم<\/td>/.test(parRow), 'پایهٔ فرزند برای ولی');
+    assert.ok(/<td class="small">نقشه‌کشی<\/td>/.test(parRow), 'رشتهٔ فرزند برای ولی');
+
+    /* صفحهٔ پیگیری: رشتهٔ استخراج‌شده از اکسل حتی بدون تعریف، انتخاب‌شده نشان داده می‌شود */
+    T.S.data.users.set(12, { id: 12, name: 'آرسام سعیدی', role: 'student', national_id: '3750943478', followup_reason: 'پایهٔ کلاس در فایل نبود (رشته: گرافیک)' });
+    T.S.route = 'followup';
+    const fu = T.PAGES.followup();
+    const row = fu.slice(fu.indexOf('آرسام سعیدی'));
+    assert.ok(/<option value="گرافیک" selected>گرافیک<\/option>/.test(row), 'رشته از اکسل در فهرست و انتخاب‌شده است: ' + row.slice(0, 400));
+    assert.ok(/id="fu-grade-12"/.test(row), 'پایه هم قابل انتخاب است');
+
+    /* مرحلهٔ ۱ ورود دسته‌ای: پرسش «این فایل چه پایه‌هایی است؟» */
+    T.S.imp = { step: 1, kind: 'students' };
+    const impHtml = typeof win.impStepHtml === 'function' ? win.impStepHtml() : '';
+    if (impHtml) {
+      assert.ok(/name="imp-grade"/.test(impHtml), 'پرسش پایه‌های فایل هست');
+      assert.ok(/این فایل شامل چه پایه‌هایی است/.test(impHtml));
+    }
+
+    /* پایهٔ اعلام‌شدهٔ فایل روی سطر بی‌پایه اعمال می‌شود */
+    const p = T.impPlaceOf({ field: 'نقشه‌کشی' }, { grades: [], branches: ['نقشه‌کشی'], onlyGrades: ['دهم'] });
+    assert.strictEqual(p.grade, 'دهم', 'پایه از پرسش فایل گرفته شد');
+    assert.strictEqual(p.name, 'دهم نقشه‌کشی');
+    const p2 = T.impPlaceOf({ field: 'نقشه‌کشی' }, { grades: [], branches: ['نقشه‌کشی'], onlyGrades: ['دهم', 'یازدهم'] });
+    assert.strictEqual(p2.name, '', 'با چند پایه، سطر به پیگیری می‌رود');
+    dom.window.close();
+  });
+
   /* — کلاس‌هایی که قدیمی‌ترها از رشته ساخته بودند: اصلاح و ادغام ─────── */
   await test('کلاس‌های بی‌پایه (ساخته‌شده از رشته) در صفحهٔ کلاس‌ها اصلاح و ادغام می‌شوند', async () => {
     const { JSDOM } = require('jsdom');

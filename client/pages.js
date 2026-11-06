@@ -716,12 +716,24 @@ PAGES.users = () => {
   ${card(`<div class="small muted" style="margin-bottom:6px">نام کاربری هر نفر همان <b>شمارهٔ همراه</b> است (و اگر شماره نداشت، <b>کد ملی</b>) و رمزش <b>کد ملی</b>؛ رمز کنار هر نفر نوشته شده تا بتوانید به خودش بگویید. این جدول را فقط مدیر می‌بیند.</div>
   <div class="table-wrap"><table><thead><tr>
     <th style="width:34px"><input type="checkbox" data-pick="all" ${allPicked ? 'checked' : ''} title="انتخاب همه"></th>
-    <th>نام</th><th>نقش</th><th>کلاس</th><th>نام کاربری</th><th>رمز عبور</th><th></th></tr></thead><tbody>
-    ${users.map(u => `<tr${picked.has(Number(u.id)) ? ' style="background:#fef2f2"' : ''}>
+    <th>نام و نام خانوادگی</th><th>نقش</th><th>پایه</th><th>رشته</th><th>${S.roleFilter === 'parent' ? 'ولیِ چه دانش‌آموزی' : 'دانش‌آموز'}</th><th>نام کاربری</th><th>رمز عبور</th><th></th></tr></thead><tbody>
+    ${users.map(u => {
+      /* پایه و رشته از گروه ثبت‌نام (کلاس) خوانده می‌شود؛ برای ولی، از فرزندش */
+      const link = u.role === 'parent' ? list('parent_links').find(l => Number(l.parent_id) === Number(u.id)) : null;
+      const kids = u.role === 'parent' ? list('parent_links').filter(l => Number(l.parent_id) === Number(u.id)).map(l => byId('users', l.student_id)).filter(Boolean) : [];
+      const subject = (u.role === 'parent' && kids.length) ? kids[0] : u;
+      const grp = byId('classes', subject.class_id) || {};
+      const gr = String(grp.grade || subject.grade || '');
+      const br = String(grp.branch || subject.branch || '');
+      return `<tr${picked.has(Number(u.id)) ? ' style="background:#fef2f2"' : ''}>
       <td><input type="checkbox" data-pick="user" value="${u.id}" ${picked.has(Number(u.id)) ? 'checked' : ''}></td>
-      <td>${esc(u.name)}</td>
+      <td>${esc([u.name, u.last_name].filter(Boolean).join(' '))}</td>
       <td>${badge(ROLE_FA[u.role] || u.role, u.role === 'manager' ? 'purple' : '')}</td>
-      <td class="small">${esc((byId('classes', u.class_id) || {}).name || '—')}</td>
+      <td class="small">${gr ? esc(gr) : '<span class="muted">—</span>'}</td>
+      <td class="small">${br ? esc(br) : '<span class="muted">—</span>'}</td>
+      <td class="small">${u.role === 'parent'
+        ? (kids.length ? kids.map(k => esc(k.name)).join('، ') : '<span class="muted">—</span>')
+        : (u.role === 'student' ? (gr ? esc(gr + (br ? ' ' + br : '')) : '<span class="muted">—</span>') : '<span class="muted">—</span>')}</td>
       <td class="small ltr">${esc(u.phone || u.national_id || '—')}${u.phone ? '' : ' <span class="muted" style="font-size:10px">(کد ملی)</span>'}</td>
       <td class="small ltr">${(() => {
         const c = S.creds && S.creds[u.id];
@@ -735,7 +747,8 @@ PAGES.users = () => {
         <button class="btn sm ghost" data-act="user-edit" data-id="${u.id}">ویرایش</button>
         <button class="btn sm ghost" data-act="user-delete" data-id="${u.id}" style="color:#b91c1c">حذف</button>
       </td>
-    </tr>`).join('')}
+    </tr>`;
+    }).join('')}
   </tbody></table></div>${users.length ? '' : empty('کاربری با این مشخصات پیدا نشد.')}`)}`;
 };
 
@@ -843,7 +856,7 @@ PAGES.followup = () => {
   const total = studs.length + issues.length;
 
   const gradeNames = lookupList('grade').map(l => String(l.name)).filter(g => !(typeof impGradeLevel === 'function') || impGradeLevel(g));
-  const branchNames = lookupList('branch').map(l => String(l.name));
+  const baseBranchNames = lookupList('branch').map(l => String(l.name));
   const studRows = studs.map(({ user, reason }) => {
     /* رشته از متن دلیل («رشته: نقشه‌کشی») برداشته می‌شود تا مدیر فقط پایه را بزند */
     const m = String(reason || '').match(/رشته:\s*([^)\n]+)/);
@@ -851,15 +864,18 @@ PAGES.followup = () => {
     const cur = byId('classes', user.class_id) || {};
     const gSel = String(cur.grade || '');
     const bSel = String(cur.branch || brGuess || '');
+    /* رشتهٔ استخراج‌شده از اکسل حتی اگر هنوز «تعریف» نشده باشد در فهرست می‌آید */
+    const fuBranches = bSel && baseBranchNames.indexOf(bSel) < 0 ? baseBranchNames.concat([bSel]) : baseBranchNames;
+    const gradeNames2 = gSel && gradeNames.indexOf(gSel) < 0 ? gradeNames.concat([gSel]) : gradeNames;
     return `<tr>
       <td><b>${esc(user.name)}</b>
         <div class="small muted ltr">${esc(user.phone || user.national_id || '')}</div></td>
       <td class="small">⚠️ ${esc(reason)}</td>
       <td class="nowrap">
         <select class="input" id="fu-grade-${user.id}" style="min-width:104px">
-          <option value="">— پایه —</option>${gradeNames.map(g => `<option value="${esc(g)}" ${g === gSel ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select>
+          <option value="">— پایه —</option>${gradeNames2.map(g => `<option value="${esc(g)}" ${g === gSel ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select>
         <select class="input" id="fu-branch-${user.id}" style="min-width:118px">
-          <option value="">— رشته —</option>${branchNames.map(b => `<option value="${esc(b)}" ${b === bSel ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>
+          <option value="">— رشته —</option>${fuBranches.map(b => `<option value="${esc(b)}" ${b === bSel ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>
       </td>
       <td class="nowrap">
         <button class="btn sm primary" data-act="followup-assign" data-id="${user.id}">ذخیره</button>
