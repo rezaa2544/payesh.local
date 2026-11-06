@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.26';
+const CLIENT_VERSION = '0.8.27';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1730,6 +1730,7 @@ document.addEventListener('click', async (e) => {
       } catch (e) { toast('حذف نشد: ' + friendlyError(e), 'err'); }
       return;
     }
+    case 'user-full': { actUserFull(el.getAttribute('data-id')); return; }
     case 'user-auto-pw': {
       const u = byId('users', Number(id));
       if (!u) return;
@@ -2171,6 +2172,33 @@ document.addEventListener('click', async (e) => {
       toast('کلاس ادغام شد' + (moved ? ' · ' + fa(moved) + ' دانش‌آموز منتقل شد' : ''), 'ok');
       return;
     }
+    case 'room-add': actRoomAdd(); return;
+    case 'room-edit': actRoomEdit(el.getAttribute('data-id')); return;
+    case 'def-merge': {
+      /* رشته/پایهٔ غلط تایپی در تعریف درست ادغام می‌شود */
+      const k = el.getAttribute('data-kind') || 'branch';
+      const from = String(el.getAttribute('data-from') || '').trim();
+      const to = String(el.getAttribute('data-to') || '').trim();
+      if (!from || !to || from === to) return;
+      if (!confirm('«' + from + '» در «' + to + '» ادغام شود؟ دانش‌آموزان و برنامه‌اش منتقل می‌شوند.')) return;
+      let moved = 0;
+      for (const c of list('classes')) {
+        const val = k === 'grade' ? String(c.grade || '') : String(c.branch || '');
+        if (impNorm(val) !== impNorm(from)) continue;
+        const patch = Object.assign({}, c, k === 'grade' ? { grade: to } : { branch: to });
+        patch.name = (String(patch.grade || '') + (patch.branch ? ' ' + patch.branch : '')).trim() || patch.name;
+        putLocal('classes', patch);
+        moved += 1;
+      }
+      for (const l of lookupList(k)) {
+        if (impNorm(l.name) === impNorm(from)) removeLocal('lookups', l.id, { sync: true });
+      }
+      if (!lookupList(k).some(l => impNorm(l.name) === impNorm(to))) putLocal('lookups', { kind: k, name: to, school_id: 1 });
+      saveCache(); render();
+      await flushQueue();
+      toast('ادغام شد' + (moved ? ' · ' + fa(moved) + ' گروه اصلاح شد' : ''), 'ok');
+      return;
+    }
     case 'followup-assign': {
       /* دانش‌آموز بی‌کلاس: کلاس درست را انتخاب و ثبت می‌کنیم */
       const u = byId('users', Number(id));
@@ -2505,7 +2533,7 @@ function ensureGroup(grade, branch) {
   const found = list('classes').find(c => String(c.name || '').trim() === name);
   if (found) return found;
   if (br && typeof impEnsureLookup === 'function') impEnsureLookup('branch', br);
-  return putLocal('classes', { name, grade: g, branch: br, mode, grade_level: lvl, capacity: 30, school_id: 1 });
+  return putLocal('classes', { name, grade: g, branch: br, mode, grade_level: lvl, kind: 'group', capacity: 30, school_id: 1 });
 }
 
 document.addEventListener('submit', async (e) => {
@@ -2528,6 +2556,20 @@ document.addEventListener('submit', async (e) => {
   if (kind === 'transfer') return doTransfer(f);
 
   if (kind === 'class') {
+    const recKind = String((f.kind && f.kind.value) || 'group');
+    const idc = f.id ? Number(f.id.value) : 0;
+    if (recKind === 'room') {
+      const roomName = String(f.name.value || '').trim();
+      if (!roomName) return toast('نام کلاس/کارگاه را بنویسید', 'err');
+      const clash = list('classes').find(c => Number(c.id) !== idc && impNorm(c.name) === impNorm(roomName));
+      if (clash) return toast('این نام قبلاً ثبت شده: «' + clash.name + '»', 'err');
+      if (idc) putLocal('classes', Object.assign({}, byId('classes', idc) || {}, { id: idc, name: roomName, kind: 'room' }));
+      else putLocal('classes', { name: roomName, kind: 'room', school_id: 1 });
+      closeModal(); saveCache(); render();
+      await flushQueue();
+      toast(idc ? 'ذخیره شد' : 'کلاس/کارگاه اضافه شد', 'ok');
+      return;
+    }
     const grade = String((f.grade && f.grade.value) || '').trim();
     let branch = String((f.branch && f.branch.value) || '').trim();
     if (!grade) return toast('پایه را انتخاب کنید — هر کلاس یک پایه دارد', 'err');
@@ -2553,7 +2595,7 @@ document.addEventListener('submit', async (e) => {
     const dup = list('classes').find(c => String(c.name).trim() === name && Number(c.id) !== id);
     if (dup) return toast('کلاسی با همین نام هست: «' + dup.name + '»', 'err');
     const row = {
-      name, grade, branch, mode, grade_level: level, room,
+      name, grade, branch, mode, grade_level: level, kind: 'group',
       capacity: Number((f.capacity && f.capacity.value) || 30),
       teacher_id: Number((f.teacher_id && f.teacher_id.value) || 0) || null,
       school_id: 1,
@@ -2813,6 +2855,45 @@ document.addEventListener('submit', async (e) => {
   }
 
   /* ویرایش کاربر توسط مدیر */
+  if (kind === 'user-full') {
+    const uid = Number(f.id.value);
+    const u = byId('users', uid);
+    if (!u) return toast('کاربر پیدا نشد — صفحه را تازه کنید', 'err');
+    const patch = Object.assign({}, u);
+    const take = k => {
+      if (!f[k]) return;
+      const v = String(f[k].value || '').trim();
+      if (v) patch[k] = v; else if (patch[k]) patch[k] = '';
+    };
+    ['name', 'last_name', 'national_id', 'phone', 'birth_date', 'gender'].forEach(take);
+    (typeof IMP_EXTRA_FIELDS !== 'undefined' ? IMP_EXTRA_FIELDS : []).forEach(take);
+    if (patch.phone) patch.phone = digitsOnly(patch.phone);
+    if (patch.national_id) patch.national_id = digitsOnly(patch.national_id);
+    if (patch.phone) {
+      const clash = list('users').find(x => Number(x.id) !== uid && digitsOnly(x.phone || '') === patch.phone);
+      if (clash) return toast('این شماره برای «' + clash.name + '» ثبت شده است', 'err');
+    }
+    putLocal('users', patch);
+    /* هر تغییری در مشخصات پدر/مادر، روی حساب خودِ ولی هم می‌نشیند */
+    if (u.role === 'student') {
+      const relMap = [['پدر', 'father_name', 'father_phone'], ['مادر', 'mother_name', 'mother_phone']];
+      for (const l of list('parent_links').filter(x => Number(x.student_id) === uid)) {
+        const hit = relMap.find(r => String(l.relation || '') === r[0]);
+        if (!hit) continue;
+        const pu = byId('users', Number(l.parent_id));
+        if (!pu) continue;
+        const pp = Object.assign({}, pu);
+        if (patch[hit[1]]) pp.name = patch[hit[1]];
+        if (patch[hit[2]]) pp.phone = digitsOnly(patch[hit[2]]);
+        putLocal('users', pp);
+      }
+    }
+    closeModal(); saveCache(); render();
+    await flushQueue();
+    toast('مشخصات ذخیره شد' + (u.role === 'student' ? ' — حساب ولی هم به‌روز شد' : ''), 'ok');
+    return;
+  }
+
   if (kind === 'user-edit') {
     let id = Number(f.id.value);
     const u = byId('users', id);

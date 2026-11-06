@@ -2680,7 +2680,7 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(c.name, 'دهم الکترونیک', 'نام = پایه + رشته');
     assert.strictEqual(c.mode, 'field');
     assert.strictEqual(Number(c.grade_level), 10);
-    assert.strictEqual(c.room, 'کلاس ۱۰۱', 'اتاق ذخیره شد');
+    assert.strictEqual(c.kind, 'group', 'رکورد گروه ثبت شد (محل برگزاری جدا در برنامهٔ هفتگی است)');
     dom.window.close();
   });
 
@@ -2942,6 +2942,72 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(ov.textContent.replace('در حال ثبت', '').trim(), '', 'هیچ نوشتهٔ اضافه‌ای نیست: «' + ov.textContent.trim() + '»');
     T.busyUpdate(65, 129);
     assert.strictEqual(win.document.getElementById('busy-fill').style.width, '50%', 'نوار پیشرفت بی‌متن کار می‌کند');
+    dom.window.close();
+  });
+
+  await test('غلط تایپی رشته اصلاح و گزارش می‌شود؛ کلاس/کارگاه فقط نام؛ مشخصات کامل همه‌جا اعمال می‌شود', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/authz.js') + '\n;\n'
+      + strip('client/app.js') + '\n;window.__t = { S, list, byId, impCheck, impPlaceOf, roomFormHtml, classFormHtml, PAGES, actUserFull };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'classes'; T.S.queue = []; T.S.online = false;
+    T.S.data = {
+      users: new Map([
+        [1, { id: 1, name: 'مدیر', role: 'manager' }],
+        [10, { id: 10, name: 'آرین رحمانی', role: 'student', national_id: '3840509807', class_id: 5 }],
+        [11, { id: 11, name: 'پدر آرین', role: 'parent', phone: '09121110001' }],
+      ]),
+      classes: new Map([[5, { id: 5, name: 'دهم گرافیک', grade: 'دهم', branch: 'گرافیک', mode: 'field', kind: 'group' }]]),
+      subjects: new Map(),
+      lookups: new Map([[1, { id: 1, kind: 'grade', name: 'دهم' }], [2, { id: 2, kind: 'branch', name: 'گرافیک' }]]),
+      parent_links: new Map([[1, { id: 1, parent_id: 11, student_id: 10, relation: 'پدر' }]]),
+    };
+    T.S.impGrades = ['دهم'];
+
+    /* ── ۱) غلط تایپی «کرافیک» در فایل ── */
+    T.S.imp = {
+      step: 2, kind: 'students', headers: ['نام', 'رشته'],
+      rows: [['الف آزمون', 'گرافیک'], ['ب آزمون', 'کرافیک'], ['ج آزمون', 'گرافیک']],
+      map: ['first_name', 'field'],
+    };
+    const checks = T.impCheck();
+    const fixes = T.S.impBranchFixes || [];
+    assert.ok(fixes.some(f => f.from === 'کرافیک' && f.to === 'گرافیک'), 'اصلاح «کرافیک» ← «گرافیک» گزارش شد: ' + JSON.stringify(fixes));
+    const names = checks.map(c => c.data.new_class || (byIdSafe(c.data.class_id)));
+    function byIdSafe(id) { const c = T.byId('classes', id); return c ? c.name : ''; }
+    assert.ok(names.every(n => String(n).indexOf('کرافیک') < 0), 'هیچ گروهی با نام غلط ساخته نمی‌شود: ' + names.join(' | '));
+    assert.ok(names.filter(n => String(n) === 'دهم گرافیک').length === 3, 'همه در «دهم گرافیک»: ' + names.join(' | '));
+
+    /* ── ۲) فرم کلاس/کارگاه فقط نام ── */
+    const room = T.roomFormHtml(null);
+    assert.ok(/name="name"/.test(room) && /kind/.test(room), 'فرم کارگاه نام دارد');
+    assert.ok(!/name="grade"/.test(room) && !/name="branch"/.test(room) && !/name="capacity"/.test(room), 'پایه/رشته/ظرفیت ندارد');
+    const groupForm = T.classFormHtml(null);
+    assert.ok(/name="grade"/.test(groupForm) && /name="branch"/.test(groupForm), 'فرم گروه پایه و رشته دارد');
+    assert.ok(!/name="capacity"/.test(groupForm), 'ظرفیت حذف شد');
+    const pageHtml = T.PAGES.classes();
+    assert.ok(/کلاس‌ها و کارگاه‌ها/.test(pageHtml), 'کارت کلاس/کارگاه‌ها');
+    assert.ok(/گروه‌های ثبت‌نام/.test(pageHtml), 'کارت گروه‌های ثبت‌نام');
+
+    /* ── ۳) مشخصات کامل: ویرایش شمارهٔ پدر روی حساب ولی هم می‌نشیند ── */
+    T.actUserFull(10);
+    const form = win.document.querySelector('form[data-form="user-full"]');
+    assert.ok(form, 'فرم مشخصات کامل باز شد');
+    assert.ok(form.elements['father_phone'], 'فیلد موبایل پدر هست');
+    assert.ok(form.elements['mother_phone'] || form.elements['father_job'], 'فیلدهای اکسل هست');
+    form.elements['father_name'].value = 'پدر آرین';
+    form.elements['father_phone'].value = '09121110999';
+    form.dispatchEvent(new win.Event('submit', { bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 120));
+    const stu = T.byId('users', 10);
+    assert.strictEqual(String(stu.father_phone), '09121110999', 'مشخصات دانش‌آموز ذخیره شد');
+    const pu = T.byId('users', 11);
+    assert.strictEqual(String(pu.phone), '09121110999', 'حساب خود ولی هم به‌روز شد: ' + pu.phone);
     dom.window.close();
   });
 

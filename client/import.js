@@ -290,12 +290,17 @@ function impPlaceOf(o, ctx) {
   const branches = (ctx && ctx.branches) || [];
   const cname = String(o.class_name || '').replace(/\s+/g, ' ').trim();
   const only = (ctx && ctx.onlyGrades) || [];
+  /* رشتهٔ با غلط تایپی، قبل از هر کاری به نام درست برگردانده می‌شود */
+  let branchTxt = String(o.field || '').trim();
+  if (branchTxt && ctx && ctx.aliasBranch && ctx.aliasBranch[impNorm(branchTxt)]) {
+    branchTxt = ctx.aliasBranch[impNorm(branchTxt)];
+    o = Object.assign({}, o, { field: branchTxt });
+  }
   let grade = impGradeCanon(String(o.grade || ''), grades);
   if (!grade && cname) grade = impGradeCanon(cname, grades);
   /* فایل ستون پایه ندارد ولی مدیر گفته «این فایل فقط دهم است» */
   if (!grade && only.length === 1) grade = only[0];
 
-  let branchTxt = String(o.field || '').trim();
   let bc = impBranchCanon(branchTxt, branches);
   if (!bc.name && cname) bc = impBranchCanon(impStripGrade(cname, grade), branches);
 
@@ -466,6 +471,47 @@ function impCheck() {
   if (!gctx.branches.length) gctx.branches = [...new Set(classes.map(c => String(c.branch || '')).filter(Boolean))];
   if (!gctx.grades.length) gctx.grades = [...new Set(classes.map(c => String(c.grade || '')).filter(Boolean))];
   gctx.onlyGrades = ((S.impGrades || (S.imp && S.imp.grades)) || []).filter(Boolean);
+
+  /* ── اصلاح غلط تایپی رشته ───────────────────────────────────────
+     «کرافیک» یک حرف با «گرافیک» فاصله دارد. اول شمارش تکرار در همین فایل،
+     بعد تطبیق با تعاریف موجود، و آخر خوشه‌بندی مقادیر خود فایل: پرتکرارترین
+     نگه داشته می‌شود و بقیه به آن اصلاح می‌شوند. هر اصلاح گزارش می‌شود. */
+  gctx.aliasBranch = Object.create(null);
+  gctx.branchFixes = [];
+  if (entity === 'students') {
+    const rawVals = [];
+    try {
+      impMapped().forEach(o => {
+        const v = String(o.field || '').trim();
+        if (v) rawVals.push(v);
+      });
+    } catch (e) { /* بی‌صدا */ }
+    const freq = new Map();
+    rawVals.forEach(v => { const k = impNorm(v); freq.set(k, (freq.get(k) || 0) + 1); });
+    const defsNorm = new Map(gctx.branches.map(b => [impNorm(b), b]));
+    /* مقادیری که دقیقاً در تعاریف هستند، مرجع‌اند */
+    const anchors = [...freq.keys()].filter(k => defsNorm.has(k));
+    const others = [...freq.keys()].filter(k => !defsNorm.has(k));
+    others.sort((a, b) => (freq.get(b) || 0) - (freq.get(a) || 0));
+    for (const k of others) {
+      let best = '', bestD = 999;
+      const pool = anchors.concat([...freq.keys()].filter(x => x !== k && !others.includes(x)));
+      for (const a of pool) {
+        if (a === k) continue;
+        const d = impLev(a, k);
+        if (d < bestD) { bestD = d; best = a; }
+      }
+      if (best && bestD <= 2) {
+        gctx.aliasBranch[k] = defsNorm.get(best) || best;
+        const orig = rawVals.find(v => impNorm(v) === k) || k;
+        const to = (defsNorm.get(best) || rawVals.find(v => impNorm(v) === best) || best);
+        gctx.branchFixes.push({ from: orig, to });
+        anchors.push(best);            /* تا اصلاح‌های بعدی به همین بچسبند */
+      } else {
+        anchors.push(k);
+      }
+    }
+  }
 
   impMapped().forEach(o => {
     const errors = [], warns = [], data = {};
@@ -683,6 +729,7 @@ function impCheck() {
   });
 
   S.impNewClasses = newClasses;
+  S.impBranchFixes = gctx.branchFixes || [];
   return out;
 }
 
@@ -840,8 +887,16 @@ function impStepHtml() {
       </tbody></table></div>`;
 
     const incomplete = follow.filter(c => !c.errors.length);
+    const fixes = S.impBranchFixes || [];
+    const fixesBox = fixes.length ? `<div class="banner info" style="margin-bottom:8px;display:block">
+      <b>✍️ غلط تایپی اصلاح شد</b>
+      <div class="small muted" style="margin-top:4px;line-height:2">
+        ${fixes.slice(0, 6).map(f => `«${esc(f.from)}» ← <b>${esc(f.to)}</b>`).join(' · ')}
+        ${fixes.length > 6 ? ' · و ' + fa(fixes.length - 6) + ' مورد دیگر' : ''}
+      </div>
+    </div>` : '';
 
-    return `${bar}
+    return `${bar}${fixesBox}
       <div class="grid g4" style="margin-bottom:10px">
         ${impStat('📋', checks.length, 'کل ردیف‌ها')}
         ${impStat('✅', ok.length, 'آمادهٔ ثبت', 'green')}
@@ -1004,7 +1059,7 @@ async function importApplyLocal(rows, kind, onProgress) {
           cls = putLocal('classes', {
             name: r.new_class, grade: r.new_grade || '',
             branch: mode === 'field' ? (r.new_branch || '') : '',
-            mode, grade_level: impGradeLevel(r.new_grade), room: '',
+            mode, grade_level: impGradeLevel(r.new_grade), kind: 'group',
             capacity: 30, school_id: 1,
           });
           classMap.set(key, cls);
