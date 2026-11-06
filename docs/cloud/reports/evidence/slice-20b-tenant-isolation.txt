@@ -1,9 +1,9 @@
 # شاهد نمونهٔ فنی ۲۰‑ب — آزمون چندمستأجری (نشت، سقف پلن، اشتراک، مجوز اضطراری)
 # تولید: bash prototype/slice-20b/gen-evidence.sh
-# base_head: efe889f1101b9766eec406356b847414c55e9086
+# base_head: c1e55d0295992b164a8bcdb2355cf1621b53705a
 # audit_base: f2fc472c643a52d393b3160405e1581bda64da25
-# generated_at_utc: 2026-11-06T23:30:15Z
-# started_utc: 2026-11-06T23:30:15Z
+# generated_at_utc: 2026-11-06T23:30:44Z
+# started_utc: 2026-11-06T23:30:44Z
 # node: v22.22.3
 # os: Linux 6.1.158+ x86_64
 # command: node prototype/slice-20b/tests/run.js
