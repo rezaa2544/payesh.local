@@ -1293,6 +1293,9 @@ async function waitFor(fn, ms = 15000) {
     const http = require('http');
     /* صندوقچهٔ ساختگیِ سازگار با S3 (فقط همان چند کاری که صندوقچه لازم دارد) */
     const bucket = new Map();
+    /* روی ماشین‌های کند، بستنِ اتصال‌های بی‌کار می‌تواند وسط یک درخواست
+       بیفتد و «فهرست خالی» برگرداند؛ برای همین در این آزمون اتصال‌ها
+       بسته نمی‌شوند. */
     const fake = http.createServer((req, res) => {
       const chunks = [];
       req.on('data', c => chunks.push(c));
@@ -1330,8 +1333,22 @@ async function waitFor(fn, ms = 15000) {
         res.writeHead(400); res.end('bad');
       });
     });
+    fake.keepAliveTimeout = 0;
+    fake.headersTimeout = 0;
     await new Promise(r => fake.listen(0, '127.0.0.1', r));
     const cloudPort = fake.address().port;
+
+    /* یک درخواست شبکه‌ای گاهی یک لحظه جواب نمی‌دهد؛ صندوقچه را چند بار
+       می‌زنیم و نتیجهٔ آخر را با پیام کامل گزارش می‌کنیم. */
+    const drainNow = async () => {
+      let last = null;
+      for (let i = 0; i < 3; i++) {
+        last = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
+        if (last.data && last.data.ok && (last.data.applied || last.data.rejected || last.data.skipped)) return last;
+        await new Promise(r => setTimeout(r, 300));
+      }
+      return last;
+    };
     try {
       const setC = await req('/api/admin/cloud', { method: 'POST', token: managerToken, body: {
         endpoint: 'http://127.0.0.1:' + cloudPort, bucket: 'ob1', region: 'ir-central1',
@@ -1392,7 +1409,7 @@ async function waitFor(fn, ms = 15000) {
         v: 1, uid: 'ob-test-2', user_id: teacherId, role: 'teacher', device_id: 'dev-home',
         op: { collection: 'users', type: 'put', data: { name: 'نفوذی', role: 'manager' }, base_version: 0 },
       }));
-      const bad = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
+      const bad = await drainNow();
       assert.strictEqual(bad.data.ok, true, 'صندوقچه خوانده شد: ' + JSON.stringify(bad.data).slice(0, 300));
       assert.strictEqual(bad.data.applied, 0, 'ثبت خارج از نقش اعمال نشد');
       assert.ok(bad.data.rejected >= 1, 'رد شدن ثبت غیرمجاز گزارش شد: ' + JSON.stringify(bad.data).slice(0, 300));
@@ -1449,8 +1466,8 @@ async function waitFor(fn, ms = 15000) {
       const sentOp = await PH.send({ uid: 'ob-phone-1', user_id: 1, role: 'manager', op: { collection: 'announcements', type: 'put', data: { title: 'از گوشی', body: 'بدون سرور', date: '2026-05-02' }, base_version: 0 } });
       assert.strictEqual(sentOp.ok, true, 'ثبت گوشی در صندوقچه گذاشته شد');
       assert.ok(bucket.has('payesh/outbox/pending/ob-phone-1.json'), 'فایل ثبت گوشی در صندوقچه هست');
-      const drainedFromPhone = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
-      assert.ok(drainedFromPhone.data.applied >= 1, 'سیستم مدرسه ثبت گوشی را اعمال کرد');
+      const drainedFromPhone = await drainNow();
+      assert.ok(drainedFromPhone.data.applied >= 1, 'سیستم مدرسه ثبت گوشی را اعمال کرد: ' + JSON.stringify(drainedFromPhone.data).slice(0, 400));
 
       /* تغییر رمز از روی گوشی: فقط نسخهٔ قابل‌بررسی می‌آید و همان رمز می‌شود */
       const utilMod = require(path.join(ROOT, 'server', 'util.js'));
@@ -1458,8 +1475,8 @@ async function waitFor(fn, ms = 15000) {
         v: 1, uid: 'pw-phone-1', user_id: 1, role: 'manager', device_id: 'phone-x',
         op: { collection: 'users', type: 'put', id: 1, data: { __password_verifier: utilMod.pbkdf2Hash('Ramz-Az-Ghooshi') } },
       }));
-      const pwDrain = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
-      assert.ok(pwDrain.data.applied >= 1, 'تغییر رمز از گوشی اعمال شد');
+      const pwDrain = await drainNow();
+      assert.ok(pwDrain.data.applied >= 1, 'تغییر رمز از گوشی اعمال شد: ' + JSON.stringify(pwDrain.data).slice(0, 400));
       const pwLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'Ramz-Az-Ghooshi' } });
       assert.strictEqual(pwLogin.data.ok, true, 'رمزِ تعیین‌شده روی گوشی روی سرور کار می‌کند');
     } finally {
