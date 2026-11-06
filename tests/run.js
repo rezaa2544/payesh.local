@@ -424,6 +424,41 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(outbox.loginKey({ phone: '۰۹۱۲۱۱۱۲۲۳۳', national_id: '' }), '09121112233', 'ارقام فارسی هم خوانده می‌شود');
   });
 
+  /* ── فهرست پیگیری روی سرور می‌ماند و برای مدیر برمی‌گردد ──────────── */
+  await test('فهرست «نیازمند پیگیری» در پایگاه داده ذخیره و برای مدیر برگردانده می‌شود', async () => {
+    const push = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [{
+      uid: 'issue-1', collection: 'import_issues', type: 'put',
+      data: { kind: 'students', name: 'ردیف ناتمام', national_id: '1000000052', phone: '09123335566',
+        row_no: 7, reasons: ['موبایل پدر نامعتبر است'], status: 'open', school_id: 1 },
+    }] } });
+    assert.strictEqual(push.data.applied.length, 1, 'ردیف پیگیری ذخیره شد');
+    const id = push.data.applied[0].id;
+
+    const pull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: managerToken });
+    const rows = ((pull.data.collections || {}).import_issues) || [];
+    const mine = rows.find(r => Number(r.id) === Number(id));
+    assert.ok(mine, 'ردیف برای مدیر برمی‌گردد');
+    assert.strictEqual(mine.status, 'open');
+    assert.ok(Array.isArray(mine.reasons) && mine.reasons.length, 'دلیل‌ها همراه ردیف ذخیره شد');
+
+    /* بستن ردیف (حل‌شده) */
+    const close = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [{
+      uid: 'issue-1b', collection: 'import_issues', type: 'put', id, base_version: 1,
+      data: Object.assign({}, mine, { status: 'done' }),
+    }] } });
+    assert.strictEqual(close.data.applied.length, 1, 'ردیف حل‌شده ثبت شد');
+    const after = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: managerToken });
+    const closed = (((after.data.collections || {}).import_issues) || []).find(r => Number(r.id) === Number(id));
+    assert.strictEqual(closed.status, 'done', 'وضعیت ردیف «حل‌شده» شد');
+
+    /* نقش‌های دیگر به این فهرست دسترسی ندارند */
+    const stud = await req('/api/auth/login', { method: 'POST', body: { phone: '09121234567', password: '123456' } });
+    if (stud.data.ok) {
+      const other = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: stud.data.session.token });
+      assert.ok(!((other.data.collections || {}).import_issues || []).length, 'دانش‌آموز این فهرست را نمی‌بیند');
+    }
+  });
+
   /* ── پدر و مادر: هر دو حساب بسازند و بتوانند وارد شوند ───────────── */
   await test('ورود دسته‌ای: برای پدر و مادر هر دو حساب و رمز ساخته می‌شود (با شماره یا با کد ملی)', async () => {
     const rows = [
@@ -1743,6 +1778,78 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(html.includes('الف — ۱۲۳۴'), 'شمارهٔ شناسنامه دیده می‌شود');
     /* فیلدهای خالی نباید ردیف خالی بسازند */
     assert.ok(!html.includes('استعداد</td><td class="small"></td>'), 'فیلد خالی ردیف خالی نمی‌سازد');
+    dom.window.close();
+  });
+
+  /* — پیگیری: ردیف‌های ناتمام جدا می‌شوند و بعداً قابل اصلاح‌اند ─────── */
+  await test('ورود دسته‌ای: ردیف‌های خطادار و ناقص جدا نگه داشته می‌شوند و از صفحهٔ کاربران قابل پیگیری‌اند', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, PAGES, impStepHtml, impSaveIssues, impNeedsFollowUp, actImportIssues, actUserAdd, list, byId };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
+    T.S.data = {
+      users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager' }]]),
+      classes: new Map(), subjects: new Map(), lookups: new Map(), parent_links: new Map(), import_issues: new Map(),
+    };
+    T.S.queue = []; T.S.online = false;
+
+    /* قاعدهٔ تشخیص پیگیری */
+    assert.strictEqual(T.impNeedsFollowUp({ errors: ['کد ملی معتبر نیست'], warns: [] }), true, 'ردیف خطادار پیگیری می‌شود');
+    assert.strictEqual(T.impNeedsFollowUp({ errors: [], warns: ['موبایل پدر نامعتبر است'] }), true, 'مشخصات ناقص پیگیری می‌شود');
+    assert.strictEqual(T.impNeedsFollowUp({ errors: [], warns: ['کلاس «دهم» ساخته می‌شود'] }), false, 'هشدار معمولی پیگیری لازم ندارد');
+    assert.strictEqual(T.impNeedsFollowUp({ errors: [], warns: [] }), false, 'ردیف سالم پیگیری لازم ندارد');
+
+    /* دو بخش جدا در مرحلهٔ ۳ */
+    T.S.imp = { step: 3, kind: 'students', checks: [
+      { row: 2, data: { full_name: 'علی رضایی', national_id: '1000000011' }, errors: [], warns: [], ok: true },
+      { row: 3, data: { full_name: 'بدون کد ملی', national_id: '' }, errors: ['کد ملی معتبر نیست'], warns: [], ok: false },
+      { row: 4, data: { full_name: 'ولی خراب', national_id: '1000000028' }, errors: [], warns: ['موبایل پدر نامعتبر است'], ok: true },
+    ] };
+    const html = T.impStepHtml();
+    assert.ok(html.includes('ثبت نمی‌شوند'), 'بخش «ثبت نمی‌شوند» هست');
+    assert.ok(html.includes('مشخصاتش کامل نیست'), 'بخش «مشخصات ناقص» هست');
+    assert.ok(html.includes('آمادهٔ ثبت'), 'بخش «آمادهٔ ثبت» هست');
+    assert.ok(html.indexOf('بدون کد ملی') < html.indexOf('ردیف آمادهٔ ثبت'), 'ردیف خطادار بالاتر و جدا نمایش داده شد');
+    assert.ok(html.includes('نیازمند پیگیری'), 'شمارندهٔ پیگیری نمایش داده شد');
+
+    /* ذخیرهٔ فهرست پیگیری (با خطاهای سرور هم) */
+    const saved = T.impSaveIssues(T.S.imp.checks, 'students', 'a.xlsx', [{ row: 2, error: 'duplicate_phone' }]);
+    assert.strictEqual(saved.added, 3, 'سه ردیف برای پیگیری ذخیره شد');
+    const issues = T.list('import_issues');
+    assert.strictEqual(issues.length, 3);
+    assert.ok(issues.every(r => r.status === 'open'), 'همه باز هستند');
+    assert.ok(issues.find(r => r.national_id === '1000000011').reasons.some(x => /تکراری|ثبت شده/.test(x)),
+      'خطای سرور هم به دلیل‌ها اضافه شد');
+    const again = T.impSaveIssues(T.S.imp.checks, 'students', 'a.xlsx');
+    assert.strictEqual(again.added, 0, 'ردیف تکراری دوباره ذخیره نمی‌شود');
+
+    /* کارت پیگیری در صفحهٔ کاربران */
+    const page = T.PAGES.users();
+    assert.ok(page.includes('نیاز به پیگیری'), 'کارت «نیاز به پیگیری» در صفحهٔ کاربران هست');
+    assert.ok(page.includes('data-act="issues-open"'), 'دکمهٔ مشاهدهٔ فهرست هست');
+
+    /* پنجرهٔ فهرست + کنش‌ها */
+    T.actImportIssues();
+    let box = win.document.getElementById('modal-root').innerHTML;
+    assert.ok(box.includes('علی رضایی') && box.includes('ولی خراب'), 'نام‌ها در فهرست هستند');
+    assert.ok(box.includes('data-act="issue-fix"') && box.includes('data-act="issue-done"'), 'دکمه‌های اصلاح و حل‌شد وجود دارند');
+    assert.ok(/ساختن کاربر|اصلاح/.test(box), 'دکمهٔ ساخت/اصلاح هست');
+
+    /* «ساختن کاربر» فرم را با همان اطلاعات باز می‌کند */
+    const issue = T.list('import_issues').find(r => r.national_id === '1000000011');
+    T.actUserAdd(Object.assign({}, issue.data, {
+      name: issue.data.full_name, national_id: issue.national_id, phone: issue.phone, role: 'student',
+    }), issue.id);
+    box = win.document.getElementById('modal-root').innerHTML;
+    assert.ok(box.includes('value="علی رضایی"'), 'نام در فرم پر شد');
+    assert.ok(box.includes('value="1000000011"'), 'کد ملی در فرم پر شد');
+    assert.strictEqual(Number(T.S.fixIssueId), Number(issue.id), 'ردیف پیگیری به فرم وصل شد');
     dom.window.close();
   });
 

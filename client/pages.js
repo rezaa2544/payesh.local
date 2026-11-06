@@ -619,9 +619,18 @@ PAGES.users = () => {
   const pickedVisible = users.filter(u => picked.has(Number(u.id)));
   const allPicked = users.length > 0 && pickedVisible.length === users.length;
 
+  const openIssues = list('import_issues').filter(r => r.status !== 'done');
+
   return `${pageHead('کاربران', fa(list('users').length) + ' کاربر',
     `<button class="btn sm" data-act="import-open">📥 ورود دسته‌ای (اکسل/CSV)</button>
      <button class="btn sm primary" data-act="user-add">+ کاربر جدید</button>`)}
+
+  ${openIssues.length ? `<div class="card tight" style="border-color:#fcd34d;background:#fffbeb">
+    <div class="row between" style="gap:8px;flex-wrap:wrap">
+      <div><b>🕒 ${fa(openIssues.length)} ردیف از ورود دسته‌ای نیاز به پیگیری دارد</b>
+        <div class="small muted" style="margin-top:4px">این ردیف‌ها کامل نشدند یا مشخصاتشان ناقص است (مثلاً موبایل ولی نامعتبر).</div></div>
+      <button class="btn sm" data-act="issues-open">مشاهده و اصلاح</button>
+    </div></div>` : ''}
 
   <div class="card tight">
     <input class="input" id="q-search" data-focus-key="q-search" data-search="q" placeholder="جستجوی نام، شمارهٔ همراه یا کد ملی…" value="${esc(q)}">
@@ -665,6 +674,52 @@ PAGES.users = () => {
     </tr>`).join('')}
   </tbody></table></div>${users.length ? '' : empty('کاربری با این مشخصات پیدا نشد.')}`)}`;
 };
+
+/* ══════════════ پیگیری ردیف‌های ناتمامِ ورود دسته‌ای ══════════════
+   هر ردیفی که ساخته نشد یا مشخصاتش ناقص بود اینجا می‌ماند: دلیلش را
+   می‌بینید، با یک دکمه فرم کاربر با همان اطلاعات باز می‌شود تا کاملش
+   کنید، و بعد «حل شد» می‌زنید. */
+function importIssuesHtml() {
+  const all = list('import_issues').filter(r => r.status !== 'done')
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const rows = all.map(r => {
+    const d = r.data || {};
+    const existed = list('users').find(u =>
+      (r.national_id && String(u.national_id || '') === String(r.national_id)) ||
+      (r.phone && String(u.phone || '') === String(r.phone)) ||
+      (!r.national_id && !r.phone && String(u.name || '') === String(r.name)));
+    return `<tr>
+      <td><b>${esc(r.name || '—')}</b>
+        ${r.national_id ? `<div class="small muted ltr">${esc(r.national_id)}</div>` : ''}</td>
+      <td class="small ltr">${esc(r.phone || '—')}</td>
+      <td class="small">${(r.reasons || []).slice(0, 4).map(x => `<div>⚠️ ${esc(x)}</div>`).join('') || '—'}</td>
+      <td class="small">${existed ? badge('در سامانه هست', 'green') : badge('ساخته نشده', 'red')}</td>
+      <td class="nowrap">
+        <button class="btn sm" data-act="issue-fix" data-id="${esc(r.id)}">${existed ? 'اصلاح' : 'ساختن کاربر'}</button>
+        <button class="btn sm ghost" data-act="issue-done" data-id="${esc(r.id)}">حل شد</button>
+      </td></tr>`;
+  }).join('');
+
+  return `<div class="small muted" style="margin-bottom:8px;line-height:2">
+      این فهرست برای ردیف‌هایی است که در ورود دسته‌ای ساخته نشدند یا مشخصاتشان کامل نبود.
+      با «ساختن/اصلاح» فرم کاربر با همان اطلاعات باز می‌شود؛ بعد از ذخیره، ردیف از این فهرست برداشته می‌شود.
+    </div>
+    ${all.length ? `<div class="table-wrap" style="max-height:60vh;overflow:auto"><table><thead><tr>
+        <th>نام</th><th>شمارهٔ همراه</th><th>دلیل</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+      <div class="row" style="margin-top:10px;gap:8px">
+        <button class="btn ghost" data-act="modal-close">بستن</button>
+        <button class="btn primary grow" data-act="issues-clear">همه را حل‌شده کن</button>
+      </div>`
+      : `<div class="center" style="padding:16px 0"><div style="font-size:32px">✅</div>
+         <b>هیچ ردیفی برای پیگیری نمانده</b></div>
+         <button class="btn primary block" data-act="modal-close" style="margin-top:10px">باشه</button>`}`;
+}
+
+function actImportIssues() {
+  S.modalTitle = 'نیازمند پیگیری — ورود دسته‌ای';
+  modal(importIssuesHtml());
+}
 
 /* ══════════════ تعریف‌ها (پایه، رشته) ══════════════ */
 /* فقط تعریف‌های واقعیِ ثبت‌شده نمایش داده می‌شوند؛ هیچ فهرست پیش‌فرضی در کار
@@ -1593,29 +1648,32 @@ function userExtraFieldsHtml(u) {
   </div>`;
 }
 
-function actUserAdd() {
+function actUserAdd(prefill, issueId) {
   S.modalTitle = 'کاربر جدید';
+  const P = prefill || {};
+  const pv = k => esc(P[k] == null ? '' : P[k]);
+  S.fixIssueId = issueId || null;
   const roles = [['student', 'دانش‌آموز'], ['teacher', 'دبیر'], ['parent', 'ولی'], ['vice', 'معاون'],
     ['staff', 'کارمند'], ['office', 'اجرایی'], ['counselor', 'مشاور'], ['guard', 'نگهبان'], ['manager', 'مدیر']];
   modal(`<form data-form="user">
-    <label class="field"><span>نام و نام خانوادگی</span><input class="input" name="name" required></label>
+    <label class="field"><span>نام و نام خانوادگی</span><input class="input" name="name" required value="${pv('name')}"></label>
     <div class="row">
       <label class="field grow"><span>نقش</span><select class="input" name="role">
-        ${roles.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label>
+        ${roles.map(([v, t]) => `<option value="${v}" ${(P.role || 'student') === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <label class="field grow"><span>کلاس (دانش‌آموز)</span><select class="input" name="class_id">
         <option value="">—</option>${list('classes').map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
     </div>
     <div class="row">
-      <label class="field grow"><span>کد ملی</span><input class="input ltr" name="national_id" inputmode="numeric" maxlength="10"></label>
-      <label class="field grow"><span>شمارهٔ همراه (نام کاربری)</span><input class="input ltr" name="phone" inputmode="numeric" maxlength="11" placeholder="09…"></label>
+      <label class="field grow"><span>کد ملی</span><input class="input ltr" name="national_id" inputmode="numeric" maxlength="10" value="${pv('national_id')}"></label>
+      <label class="field grow"><span>شمارهٔ همراه (نام کاربری)</span><input class="input ltr" name="phone" inputmode="numeric" maxlength="11" placeholder="09…" value="${pv('phone')}"></label>
     </div>
     <div class="row">
-      <label class="field grow"><span>نام ولی (اختیاری)</span><input class="input" name="parent_name"></label>
-      <label class="field grow"><span>همراه ولی (اختیاری)</span><input class="input ltr" name="parent_phone" inputmode="numeric" maxlength="11" placeholder="09…"></label>
+      <label class="field grow"><span>نام ولی (اختیاری)</span><input class="input" name="parent_name" value="${pv('father_name')}"></label>
+      <label class="field grow"><span>همراه ولی (اختیاری)</span><input class="input ltr" name="parent_phone" inputmode="numeric" maxlength="11" placeholder="09…" value="${pv('father_phone')}"></label>
     </div>
     <div class="row">
       <label class="field grow"><span>تاریخ تولد (شمسی)</span>
-        <input class="input ltr" name="birth_date" placeholder="1390/05/12"></label>
+        <input class="input ltr" name="birth_date" placeholder="1390/05/12" value="${esc(P.birth_date && typeof impIsoToJalali === 'function' ? impIsoToJalali(P.birth_date) : '')}"></label>
       <label class="field grow"><span>جنسیت</span>
         <select class="input" name="gender">
           <option value="">—</option>

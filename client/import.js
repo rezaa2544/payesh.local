@@ -539,6 +539,49 @@ function impStat(ico, num, label, tone) {
     <div class="small muted">${esc(label)}</div></div></div></div>`;
 }
 
+/* ── پیگیری: ردیف‌هایی که کامل نشدند در یک فهرست جدا می‌مانند ────────
+   «خطا» یعنی اصلاً ساخته نشد، «مشخصات ناقص» یعنی ساخته شد ولی چیزی
+   کم دارد (مثلاً موبایل ولی نامعتبر است). هر دو باید بعداً اصلاح شوند. */
+const IMP_FOLLOW_RE = /نامعتبر|بدون کد ملی|نه شمارهٔ همراه|بدون شماره/;
+
+function impNeedsFollowUp(check) {
+  if (!check) return false;
+  if ((check.errors || []).length) return true;
+  return (check.warns || []).some(w => IMP_FOLLOW_RE.test(String(w)));
+}
+
+/* ذخیرهٔ فهرست پیگیری (روی دستگاه و در صف همگام‌سازی؛ مدیر همه‌جا می‌بیند) */
+function impSaveIssues(checks, kind, fileName, serverErrors) {
+  const byRow = new Map();
+  (serverErrors || []).forEach(e => {
+    const n = Number(e && e.row);
+    if (!n) return;
+    if (!byRow.has(n)) byRow.set(n, []);
+    byRow.get(n).push(impErrorText(e.error) + (e.name ? ' — ' + e.name : ''));
+  });
+  const picked = (checks || []).filter(c => impNeedsFollowUp(c) || byRow.has(Number(c.row)));
+  const existing = list('import_issues');
+  const keyOf = (nid, name) => impNorm(nid || '') + '|' + impNorm(name || '');
+  const seen = new Set(existing.filter(r => r.status !== 'done').map(r => keyOf(r.national_id, r.name)));
+  let added = 0;
+  picked.forEach(c => {
+    const name = c.data.full_name || c.data.name || '';
+    const nid = impLatin(c.data.national_id || '').replace(/\D/g, '');
+    const key = keyOf(nid, name);
+    if (seen.has(key)) return;
+    seen.add(key);
+    const reasons = (c.errors || []).concat(c.warns || []).concat(byRow.get(Number(c.row)) || []);
+    putLocal('import_issues', {
+      kind: kind || 'students', name, national_id: nid,
+      phone: impLatin(c.data.phone || '').replace(/\D/g, ''),
+      row_no: Number(c.row) || 0, file_name: fileName || '',
+      reasons, data: c.data, status: 'open', school_id: 1,
+    });
+    added += 1;
+  });
+  return { added, total: picked.length };
+}
+
 function impStepHtml() {
   const imp = S.imp || { step: 1, kind: 'students' };
   const steps = ['انتخاب فایل', 'نگاشت ستون‌ها', 'بررسی و خطاها', 'ثبت نهایی'];
@@ -590,38 +633,70 @@ function impStepHtml() {
     const checks = imp.checks || [];
     const ok = checks.filter(c => !c.errors.length);
     const bad = checks.filter(c => c.errors.length);
-    const warn = ok.filter(c => c.warns.length);
+    const follow = checks.filter(impNeedsFollowUp);
     const updates = ok.filter(c => c.data.existing_id).length;
     const newCls = S.impNewClasses || [];
-    return `${bar}
-      <div class="grid g4" style="margin-bottom:10px">
-        ${impStat('📋', checks.length, 'کل ردیف‌ها')}
-        ${impStat('✅', ok.length, 'آمادهٔ ثبت', 'green')}
-        ${impStat('⛔', bad.length, 'دارای خطا', 'red')}
-        ${impStat('♻️', updates, 'به‌روزرسانی', '')}
-      </div>
-      ${newCls.length ? `<div class="small" style="margin-bottom:8px">🏛️ کلاس‌های جدید ساخته می‌شوند: <b>${esc(newCls.join('، '))}</b></div>` : ''}
-      ${warn.length ? `<div class="small muted" style="margin-bottom:8px">${fa(warn.length)} ردیف هشدار دارد (ثبت می‌شود) — جزئیات در جدول.</div>` : ''}
-      <div style="max-height:42vh;overflow:auto"><table><thead><tr>
-        <th>#</th><th>وضعیت</th><th>نام</th><th>کد ملی</th><th>کلاس/درس</th><th>پیام‌ها</th></tr></thead><tbody>
-        ${checks.slice(0, 300).map(c => `<tr${c.ok ? '' : ' style="background:#fef2f2"'}>
+
+    /* یک جدول برای هر گروه — خطادارها جدا، تا بتوان سراغشان رفت */
+    const rowsHtml = (list, tone) => `<div class="table-wrap" style="max-height:34vh;overflow:auto"><table><thead><tr>
+        <th>سطر</th><th>نام</th><th>کد ملی</th><th>کلاس / درس</th><th>پیام‌ها</th></tr></thead><tbody>
+        ${list.map(c => `<tr${tone === 'red' ? ' style="background:#fef2f2"' : ''}>
           <td class="small">${fa(c.row)}</td>
-          <td>${badge(c.ok ? (c.warns.length ? 'با هشدار' : 'سالم') : 'خطا', c.ok ? (c.warns.length ? 'amber' : 'green') : 'red')}</td>
           <td><b>${esc(c.data.full_name || '—')}</b></td>
           <td class="small ltr">${esc(c.data.national_id || '—')}</td>
           <td class="small">${esc(c.data.new_class || (byId('classes', c.data.class_id) || {}).name || (byId('subjects', c.data.subject_id) || {}).name || '—')}</td>
           <td class="small">${c.errors.map(e => '<div style="color:#b91c1c">⛔ ' + esc(e) + '</div>').join('')}
             ${c.warns.map(w => '<div class="muted">⚠️ ' + esc(w) + '</div>').join('')}</td>
         </tr>`).join('')}
-      </tbody></table></div>
-      ${checks.length > 300 ? `<div class="small muted">فقط ۳۰۰ سطر اول نمایش داده شده است.</div>` : ''}
+      </tbody></table></div>`;
+
+    const incomplete = follow.filter(c => !c.errors.length);
+
+    return `${bar}
+      <div class="grid g4" style="margin-bottom:10px">
+        ${impStat('📋', checks.length, 'کل ردیف‌ها')}
+        ${impStat('✅', ok.length, 'آمادهٔ ثبت', 'green')}
+        ${impStat('⛔', bad.length, 'ثبت نمی‌شوند', 'red')}
+        ${impStat('🕒', follow.length, 'نیازمند پیگیری', 'amber')}
+      </div>
+
+      ${bad.length ? `<div class="card tight" style="margin-bottom:10px;border-color:#fecaca">
+        <div class="row between" style="margin-bottom:6px">
+          <b style="color:#b91c1c">⛔ ${fa(bad.length)} ردیف ثبت نمی‌شود — این‌ها جدا نگه داشته می‌شوند</b>
+        </div>
+        <div class="small muted" style="margin-bottom:8px">این ردیف‌ها در پایان در بخش «نیازمند پیگیری» (صفحهٔ کاربران) می‌مانند تا یکی‌یکی اصلاح و ساخته شوند.</div>
+        ${rowsHtml(bad.slice(0, 300), 'red')}
+      </div>` : ''}
+
+      ${incomplete.length ? `<div class="card tight" style="margin-bottom:10px">
+        <div class="row between" style="margin-bottom:6px">
+          <b>⚠️ ${fa(incomplete.length)} ردیف ثبت می‌شود ولی مشخصاتش کامل نیست</b>
+        </div>
+        <div class="small muted" style="margin-bottom:8px">مثلاً شمارهٔ همراهِ ولی نامعتبر یا خالی است. این‌ها هم برای پیگیری نگه داشته می‌شوند.</div>
+        ${rowsHtml(incomplete.slice(0, 300), 'amber')}
+      </div>` : ''}
+
+      <div class="card tight" style="margin-bottom:10px">
+        <div class="row between" style="margin-bottom:6px">
+          <b>✅ ${fa(ok.length)} ردیف آمادهٔ ثبت${updates ? ' — ' + fa(updates) + ' به‌روزرسانی' : ''}</b>
+        </div>
+        ${newCls.length ? `<div class="small" style="margin-bottom:6px">🏛️ کلاس‌های جدید ساخته می‌شوند: <b>${esc(newCls.join('، '))}</b></div>` : ''}
+        ${ok.length ? rowsHtml(ok.slice(0, 40), 'green') : '<div class="small muted">ردیف سالمی نیست.</div>'}
+        ${ok.length > 40 ? `<div class="small muted">۴۰ ردیف اول نمایش داده شد؛ همهٔ آن‌ها ثبت می‌شوند.</div>` : ''}
+      </div>
+
       <div class="row" style="margin-top:10px;gap:8px">
         <button class="btn ghost" data-act="import-back">بازگشت به نگاشت</button>
-        <button class="btn primary grow" data-act="import-apply" ${ok.length ? '' : 'disabled'}>ثبت ${fa(ok.length)} ردیف</button>
-      </div>`;
+        <button class="btn primary grow" data-act="import-apply" ${ok.length ? '' : 'disabled'}>
+          ${ok.length ? 'ثبت ' + fa(ok.length) + ' ردیف' : 'ردیفی برای ثبت نیست'}
+        </button>
+      </div>
+      ${follow.length ? `<div class="small muted" style="margin-top:8px">${fa(follow.length)} ردیف پس از ثبت، در «کاربران ← نیازمند پیگیری» برای اصلاح می‌ماند.</div>` : ''}
+    `;
   }
 
   const res = imp.result || { created: 0, updated: 0, parents: 0, classes: 0, errors: [] };
+  const openIssues = list('import_issues').filter(r => r.status !== 'done').length;
   const unit = imp.kind === 'grades' ? 'نمره' : imp.kind === 'attendance' ? 'حضور' : 'کاربر';
   return `${bar}<div class="center" style="padding:16px 0">
       <div style="font-size:40px">🎉</div>
@@ -638,14 +713,18 @@ function impStepHtml() {
         اگر کسی شمارهٔ همراه نداشت، نام کاربری‌اش کد ملی اوست. همه در «کاربران» با رمزشان دیده می‌شوند.</div>
       ${(res.warnings || []).length ? `<div class="small muted" style="margin-top:6px">⚠️ ${fa(res.warnings.length)} مورد نیاز به تکمیل دارد:
         ${esc((res.warnings || []).slice(0, 6).map(w => w.name || '').join('، '))}</div>` : ''}
+      ${S.impSavedIssues ? `<div class="small" style="margin-top:6px;color:#b45309">🕒 ${fa(S.impSavedIssues)} ردیف در «کاربران ← نیازمند پیگیری» ذخیره شد تا بعداً کامل شوند.</div>` : ''}
+      ${openIssues ? `<div class="small muted" style="margin-top:4px">در کل ${fa(openIssues)} ردیف نیازمند پیگیری در فهرست مانده است.</div>` : ''}
       <div class="row" style="margin-top:14px;gap:8px;justify-content:center">
         <button class="btn ghost" data-act="import-open">فایل بعدی</button>
+        ${openIssues ? '<button class="btn" data-act="issues-open">🕒 فهرست پیگیری</button>' : ''}
         <button class="btn primary" data-act="modal-close">تمام</button>
       </div></div>`;
 }
 
 function actImport() {
   S.imp = { step: 1, kind: (S.imp && S.imp.kind) || 'students' };
+  S.impSavedIssues = 0;
   S.modalTitle = 'ورود دسته‌ای از اکسل';
   modal(impStepHtml());
 }
@@ -768,6 +847,8 @@ window.impAutoMap = impAutoMap;
 window.impCheck = impCheck;
 window.impMapped = impMapped;
 window.impStepHtml = impStepHtml;
+window.impNeedsFollowUp = impNeedsFollowUp;
+window.impSaveIssues = impSaveIssues;
 window.actImport = actImport;
 window.renderImportStep = renderImportStep;
 window.importApplyLocal = importApplyLocal;

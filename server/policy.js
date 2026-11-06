@@ -38,6 +38,8 @@ const COLLECTIONS = {
   exams:            { write: ['manager'], read: 'all' },
   calendar:         { write: ['manager'], read: 'all' },
   app_settings:     { write: ['manager'], read: ['manager'] },
+  /* ردیف‌هایی از ورود دسته‌ای که کامل نشدند — برای پیگیری بعدی مدیر */
+  import_issues:    { write: ['manager'], read: ['manager'] },
 };
 
 const PROTECTED = new Set(['audit', 'devices', 'sessions', 'pair_codes', 'sync_log']);
