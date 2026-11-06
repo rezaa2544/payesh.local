@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Log;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -126,6 +127,10 @@ public class MainActivity extends Activity {
     private boolean staleBundle = false;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private boolean scanning = false;
+    /* چند بار بارگذاری خودکار دوباره انجام شد (برای اینکه هیچ‌وقت صفحهٔ خطای
+       موتور نمایش به کاربر نشان داده نشود) */
+    private int retryLoad = 0;
+    private static final String TAG = "Payesh";
     private java.util.List<String> queue = new java.util.ArrayList<>();
     private int queueIndex = 0;
 
@@ -500,6 +505,7 @@ public class MainActivity extends Activity {
     /** باز کردن برنامهٔ کاملِ داخل گوشی، با آدرس سروری که پیدا شد (یا خالی = آفلاین) */
     private void openApp(String base) {
         apiBase = base == null ? "" : base;
+        retryLoad = 0;
         splash.setVisibility(View.GONE);
         errorBox().setVisibility(View.GONE);
         bar.setVisibility(View.VISIBLE);
@@ -627,8 +633,12 @@ public class MainActivity extends Activity {
         byte[] body = asset(path);
         if (body == null && !path.contains(".")) body = asset("index.html");   /* مسیرهای SPA */
         if (body == null) {
-            return new WebResourceResponse("text/plain", "utf-8",
-                new ByteArrayInputStream("not found".getBytes(StandardCharsets.UTF_8)));
+            /* هرگز null برنمی‌گردانیم: null یعنی «خودت از اینترنت بگیر» و
+               نتیجه‌اش صفحهٔ خطای موتور نمایش بود. */
+            Log.w(TAG, "asset missing in APK: " + path);
+            return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found",
+                new HashMap<String, String>(),
+                new ByteArrayInputStream("فایل در بستهٔ برنامه نیست".getBytes(StandardCharsets.UTF_8)));
         }
         if (path.endsWith("index.html")) {
             /* آدرس سرور و حالت «بسته‌بندی‌شده» را به برنامه تزریق می‌کنیم */
@@ -693,15 +703,31 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 if (url == null) return false;
+                /* داخل خودِ برنامه: هر آدرسی که مال برنامه است */
                 if (url.startsWith(APP_ORIGIN)) return false;
-                if (url.startsWith("http://") || url.startsWith("https://")) return false;
+                /* هر آدرس اینترنتیِ دیگر (سامانهٔ مدرسه، گیت‌هاب، هر جای دیگر) با
+                   برنامهٔ بیرونی باز می‌شود؛ هرگز داخل قاب برنامه بارگذاری نمی‌شود
+                   تا صفحهٔ خطای انگلیسیِ «Hmmm… can't reach this page» دیده نشود. */
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
+                    return true;
+                }
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
                 return true;
             }
 
             @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return shouldOverrideUrlLoading(view, request == null || request.getUrl() == null ? null : request.getUrl().toString());
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 bar.setVisibility(View.GONE);
+                /* «about:blank» یعنی عمداً خالی کردیم تا صفحهٔ خطا دیده نشود؛
+                   در آن حالت صفحهٔ فارسیِ خودمان باید بماند. */
+                if (url != null && url.startsWith("about:")) return;
+                retryLoad = 0;
                 splash.setVisibility(View.GONE);
                 errorBox().setVisibility(View.GONE);
                 web.setVisibility(View.VISIBLE);
@@ -709,12 +735,31 @@ public class MainActivity extends Activity {
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (!request.isForMainFrame()) return;
-                /* دارایی‌های محلی باید همیشه باز شوند؛ اگر نشد، یک‌بار دیگر */
+                if (request == null || !request.isForMainFrame()) return;
+                /* دارایی‌های برنامه از داخل خود APK خوانده می‌شوند و باید همیشه باز
+                   شوند؛ اگر یک بار نشد، بی‌صدا دوباره تلاش می‌کنیم و در نهایت صفحهٔ
+                   فارسیِ خودمان را نشان می‌دهیم — هرگز صفحهٔ خطای موتور نمایش. */
                 bar.setVisibility(View.GONE);
-                ui.postDelayed(() -> {
-                    if (web.getUrl() == null) showError();
-                }, 1200);
+                String why = "";
+                try { why = String.valueOf(error.getDescription()); } catch (Exception ignored) { }
+                Log.w(TAG, "main frame error: " + why + " url=" + (request.getUrl() == null ? "" : request.getUrl()));
+                retryLoad++;
+                if (retryLoad <= 3) {
+                    ui.postDelayed(() -> {
+                        if (web != null) { web.loadUrl(APP_URL); }
+                    }, 500L * retryLoad);
+                } else {
+                    ui.post(() -> {
+                        try { web.loadUrl("about:blank"); } catch (Exception ignored) { }
+                        showError();
+                    });
+                }
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
+                if (request == null || !request.isForMainFrame()) return;
+                Log.w(TAG, "main frame http " + (response == null ? "?" : response.getStatusCode()));
             }
         });
 

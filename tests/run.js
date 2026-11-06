@@ -1393,8 +1393,9 @@ async function waitFor(fn, ms = 15000) {
         op: { collection: 'users', type: 'put', data: { name: 'نفوذی', role: 'manager' }, base_version: 0 },
       }));
       const bad = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
+      assert.strictEqual(bad.data.ok, true, 'صندوقچه خوانده شد: ' + JSON.stringify(bad.data).slice(0, 300));
       assert.strictEqual(bad.data.applied, 0, 'ثبت خارج از نقش اعمال نشد');
-      assert.ok(bad.data.rejected >= 1, 'رد شدن ثبت غیرمجاز گزارش شد');
+      assert.ok(bad.data.rejected >= 1, 'رد شدن ثبت غیرمجاز گزارش شد: ' + JSON.stringify(bad.data).slice(0, 300));
 
       /* خلاصهٔ دانش‌آموز: سنپ‌شات برای ولی همان فرزند خودش */
       const sid = Number((( [...bucket.keys()].find(k => /^payesh\/outbox\/state\/\d+\.json$/.test(k)) || '').match(/(\d+)\.json$/) || [])[1]);
@@ -2093,7 +2094,7 @@ async function waitFor(fn, ms = 15000) {
     const win = dom.window;
     const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
     win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
-      + '\n;window.__t = { S, PAGES, impStepHtml, impSaveIssues, impNeedsFollowUp, actImportIssues, actUserAdd, list, byId };');
+      + '\n;window.__t = { S, PAGES, impStepHtml, impSaveIssues, impNeedsFollowUp, actImportIssues, actUserAdd, list, byId, importedModalOpts, impAutoMap, impCheck, impFixCardHtml, impMobileFix };');
     const T = win.__t;
     T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
     T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
@@ -2109,18 +2110,23 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(T.impNeedsFollowUp({ errors: [], warns: ['کلاس «دهم» ساخته می‌شود'] }), false, 'هشدار معمولی پیگیری لازم ندارد');
     assert.strictEqual(T.impNeedsFollowUp({ errors: [], warns: [] }), false, 'ردیف سالم پیگیری لازم ندارد');
 
-    /* دو بخش جدا در مرحلهٔ ۳ */
-    T.S.imp = { step: 3, kind: 'students', checks: [
-      { row: 2, data: { full_name: 'علی رضایی', national_id: '1000000011' }, errors: [], warns: [], ok: true },
-      { row: 3, data: { full_name: 'بدون کد ملی', national_id: '' }, errors: ['کد ملی معتبر نیست'], warns: [], ok: false },
-      { row: 4, data: { full_name: 'ولی خراب', national_id: '1000000028' }, errors: [], warns: ['موبایل پدر نامعتبر است'], ok: true },
+    /* بخش‌های جدا در مرحلهٔ ۳: هر چیزی که اصلاح لازم دارد، جدا و قابل ویرایش */
+    T.S.imp = { step: 3, kind: 'students', edits: {}, rows: [], checks: [
+      { idx: 0, row: 2, data: { full_name: 'علی رضایی', national_id: '1000000011', grade: 'دهم', field: 'الکتروتکنیک' }, errors: [], blocks: [], warns: [], ok: true },
+      { idx: 1, row: 3, data: { full_name: 'بدون کد ملی', national_id: '' }, errors: ['کد ملی معتبر نیست'], blocks: [], warns: [], ok: false },
+      { idx: 2, row: 4, data: { full_name: 'ولی خراب', national_id: '1000000028' }, errors: [], blocks: ['موبایل پدر «9181763116» نامعتبر است'], warns: ['موبایل پدر «9181763116» نامعتبر است'], ok: false },
     ] };
     const html = T.impStepHtml();
-    assert.ok(html.includes('ثبت نمی‌شوند'), 'بخش «ثبت نمی‌شوند» هست');
-    assert.ok(html.includes('مشخصاتش کامل نیست'), 'بخش «مشخصات ناقص» هست');
+    assert.ok(html.includes('نیازمند اصلاح'), 'بخش «نیازمند اصلاح» هست');
+    assert.ok(html.includes('data-form="imp-fix"'), 'هر ردیف ایراددار همان‌جا قابل ویرایش است');
+    assert.ok(html.includes('name="mother_phone"'), 'فیلد موبایل مادر برای اصلاح درجا هست');
     assert.ok(html.includes('آمادهٔ ثبت'), 'بخش «آمادهٔ ثبت» هست');
-    assert.ok(html.indexOf('بدون کد ملی') < html.indexOf('ردیف آمادهٔ ثبت'), 'ردیف خطادار بالاتر و جدا نمایش داده شد');
+    assert.ok(html.indexOf('بدون کد ملی') < html.indexOf('ردیف آمادهٔ ثبت'), 'ردیف ایراددار بالاتر و جدا نمایش داده شد');
     assert.ok(html.includes('نیازمند پیگیری'), 'شمارندهٔ پیگیری نمایش داده شد');
+    /* پنجرهٔ ورود اطلاعات: بزرگ و قفل (کلیک بیرون آن را نمی‌بندد) */
+    const opts = T.importedModalOpts();
+    assert.strictEqual(opts.wide, true, 'پنجرهٔ ورود اطلاعات بزرگ است');
+    assert.strictEqual(opts.lock, true, 'پنجرهٔ ورود اطلاعات با کلیک بیرون بسته نمی‌شود');
 
     /* ذخیرهٔ فهرست پیگیری (با خطاهای سرور هم) */
     const saved = T.impSaveIssues(T.S.imp.checks, 'students', 'a.xlsx', [{ row: 2, error: 'duplicate_phone' }]);
@@ -3577,6 +3583,146 @@ async function waitFor(fn, ms = 15000) {
     const pg = fs.readFileSync(path.join(ROOT, 'client', 'pages.js'), 'utf8');
     assert.ok(/BACKUP_ROLES_FA/.test(pg), 'کارت پشتیبان در پنل عوامل اجرایی هم رندر می‌شود');
     assert.strictEqual(typeof staffId, 'number');
+  });
+
+  /* ══ ورود اکسل: نگاشت «موبایل دانش‌آموز»، صفرِ اول، پیام دقیق، اصلاح درجا ══ */
+  await test('اکسل: «موبایل دانش‌آموز» خودکار نگاشت می‌شود، صفرِ اول می‌آید، پیام تکراری نام/پایه/رشته دارد و درجا اصلاح می‌شود', () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, impAutoMap, impCheck, impFixCardHtml, impMobileFix, impMapped, impStepHtml, list, byId };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.route = 'users';
+    T.S.data = {
+      users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager' }]]),
+      classes: new Map(), subjects: new Map(), lookups: new Map(), parent_links: new Map(),
+      import_issues: new Map(), schools: new Map([[1, { id: 1, name: 'مدرسه' }]]),
+    };
+    T.S.queue = []; T.S.online = false;
+
+    /* ۱) نگاشت: ستون «موبایل دانش‌آموز» باید فیلد خودش را بگیرد،
+       نه «— دیده نشد —» (شکایت کاربر با همان تصویر) */
+    const map = T.impAutoMap(['ردیف', 'نام و نام خانوادگی', 'کد ملی', 'پایه', 'رشته', 'موبایل دانش آموز',
+      'شماره پدر', 'کد ملی مادر'], 'students');
+    assert.strictEqual(map[5], 'phone', 'موبایل دانش‌آموز ⇒ phone شد: ' + map[5]);
+    assert.strictEqual(map[6], 'father_phone', 'شمارهٔ پدر ⇒ موبایل پدر');
+    assert.strictEqual(map[7], 'mother_nid', 'کد ملی مادر ⇒ mother_nid');
+    assert.strictEqual(map[1], 'full_name', 'نام و نام خانوادگی ⇒ full_name');
+    assert.strictEqual(map[4], 'field', 'رشته ⇒ field');
+
+    /* ۲) صفرِ اول: اکسل آن را حذف می‌کند */
+    const fx1 = T.impMobileFix('9123456789');
+    assert.strictEqual(fx1.value, '09123456789', '۱۰ رقمی با ۰ کامل می‌شود');
+    assert.strictEqual(fx1.ok, true, '۱۰ رقمی معتبر است');
+    const fx2 = T.impMobileFix('918452959');
+    assert.strictEqual(fx2.value, '0918452959', '۹ رقمی هم صفر می‌گیرد');
+    assert.strictEqual(fx2.complete, false, 'اما یک رقم کم دارد و باید اصلاح شود');
+
+    /* ۳) بررسی سطرها: کد ملی تکراری با نام و پایه و رشتهٔ نفر اول،
+       و موبایل ناقص ⇒ سطر «آمادهٔ ثبت» نیست */
+    T.S.imp = {
+      step: 3, kind: 'students', headerRow: 1, edits: {}, grades: ['دهم'],
+      headers: ['نام و نام خانوادگی', 'کد ملی', 'پایه', 'رشته', 'موبایل دانش آموز', 'موبایل مادر', 'کد ملی مادر'],
+      map: ['full_name', 'national_id', 'grade', 'field', 'phone', 'mother_phone', 'mother_nid'],
+      rows: [
+        ['آرین یزدانی', '3840515939', 'دهم', 'الکتروتکنیک', '9337749635', '918452959', '3849680780'],
+        ['نیکوان محمدپور', '3840515939', 'دهم', 'الکتروتکنیک', '', '', ''],
+        ['مانی یزدانی', '3840515041', 'دهم', 'الکتروتکنیک', '', '', '3849680'],
+      ],
+    };
+    const checks = T.impCheck();
+    assert.strictEqual(checks.length, 3, 'سه سطر بررسی شد');
+    assert.strictEqual(checks[0].data.phone, '09337749635', 'صفرِ موبایل دانش‌آموز خودکار اضافه شد');
+    const dupMsg = checks[1].errors.join(' | ');
+    assert.ok(/تکراری/.test(dupMsg), 'کد ملی تکراری گزارش شد');
+    assert.ok(dupMsg.indexOf('آرین یزدانی') > -1, 'نام نفرِ اول در پیام آمده: ' + dupMsg);
+    assert.ok(/سطر\s*[۲2]/.test(dupMsg), 'شمارهٔ سطر نفرِ اول در پیام آمده: ' + dupMsg);
+    assert.ok(/پایهٔ دهم/.test(dupMsg) && /رشتهٔ الکتروتکنیک/.test(dupMsg), 'پایه و رشتهٔ نفرِ اول هم آمده: ' + dupMsg);
+    assert.ok(checks[2].blocks.some(b => /کد ملی مادر/.test(b)), 'کد ملی ناقصِ مادر «اصلاح لازم» شد');
+    assert.ok(checks[2].blocks.some(b => /۷ رقم|7 رقم/.test(b)), 'تعداد رقمِ کم را هم دقیق گفت: ' + JSON.stringify(checks[2].blocks));
+    assert.strictEqual(checks[2].ok, false, 'سطر با کد ملی ناقص «آمادهٔ ثبت» نیست');
+    assert.strictEqual(checks[0].ok, false, 'سطر با موبایل ناقصِ مادر هم آمادهٔ ثبت نیست');
+    assert.ok(checks[0].blocks.some(b => /موبایل مادر/.test(b)), 'موبایل ناقص مادر در فهرست اصلاح است');
+
+    /* ۴) اصلاح درجا: همان سطر را در فرم ویرایش می‌کنیم و دوباره بررسی */
+    const card = T.impFixCardHtml(checks[0]);
+    assert.ok(/data-form="imp-fix"/.test(card), 'کارت اصلاح فرم دارد');
+    assert.ok(/name="mother_phone" value="0918452959"/.test(card), 'موبایل مادر با صفرِ اضافه‌شده پیش‌پر شد: ' + card.slice(card.indexOf('mother_phone'), card.indexOf('mother_phone') + 90));
+    assert.ok(/name="national_id"/.test(card) && /name="grade"/.test(card) && /name="field"/.test(card), 'همهٔ فیلدهای حساس قابل ویرایش‌اند');
+
+    T.S.imp.edits = { 0: { mother_phone: '09184529590', mother_nid: '3849680780' } };
+    const after = T.impCheck();
+    assert.strictEqual(after[0].data.mother_phone, '09184529590', 'شمارهٔ اصلاح‌شده ذخیره شد');
+    assert.strictEqual(after[0].blocks.length, 0, 'با اصلاح، ایرادها صفر شد');
+    assert.strictEqual(after[0].ok, true, 'سطر بعد از اصلاح «آمادهٔ ثبت» شد');
+
+    /* ۵) آمار مرحله: بعد از اصلاح، سطر در بخش «آمادهٔ ثبت» دیده می‌شود */
+    T.S.imp.checks = after;
+    const page = T.impStepHtml();
+    assert.ok(/آمادهٔ ثبت/.test(page), 'بخش آمادهٔ ثبت هست');
+    assert.strictEqual((page.match(/data-form="imp-fix"/g) || []).length, 2, 'فقط دو سطرِ اصلاح‌نشده فرم اصلاح دارند');
+    dom.window.close();
+  });
+
+  /* ══ برنامهٔ مستقل: هیچ مرورگری باز نمی‌شود و صفحهٔ خطای مرورگر نمی‌آید ══ */
+  await test('ویندوز و اندروید مستقل‌اند: بدون پنجرهٔ مرورگر، بدون صفحهٔ خطای «can\'t reach this page»', () => {
+    const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+    const cs = read('desktop/PayeshApp.cs');
+
+    /* ۱) هیچ مسیر خودکاری مرورگر باز نمی‌کند */
+    assert.ok(!/OpenInBrowser/.test(cs), 'برنامه هیچ‌جا مرورگر باز نمی‌کند');
+    assert.ok(!/--app=/.test(cs), 'حالت «برنامه»ی Edge (--app) حذف شد');
+    assert.ok(/private bool TryCreateWebView/.test(cs), 'پنجرهٔ واقعی WebView2 هست');
+
+    /* ۲) صفحهٔ خطای موتور نمایش هرگز دیده نمی‌شود */
+    assert.ok(/NavigationCompleted/.test(cs), 'نتیجهٔ بارگذاری گرفته می‌شود');
+    assert.ok(/OnNavigated\(/.test(cs) && /about:blank/.test(cs), 'صفحهٔ خطای موتور پنهان و جایگزین می‌شود');
+    assert.ok(/ShowLoadFail|ShowEngineMissing/.test(cs), 'پیام فارسی خودمان هست');
+    assert.ok(/void ShowEngineMissing/.test(cs) && /MicrosoftEdgeWebView2Setup\.exe/.test(cs),
+      'اگر موتور نمایش نباشد، نصبش می‌کند (نه باز کردن مرورگر)');
+
+    /* ۳) نگهبان سرور و پورت آزاد */
+    assert.ok(/void StartWatchdog/.test(cs) && /WatchTick/.test(cs), 'نگهبان سرور هست');
+    assert.ok(/void PickLocalPort/.test(cs) && /PORT_CANDIDATES/.test(cs), 'پورت آزاد انتخاب می‌شود');
+    assert.ok(/EnvironmentVariables\["PORT"\]/.test(cs), 'پورت به سرور داده می‌شود');
+    assert.ok(/TcpListener/.test(cs), 'آزادبودن پورت بررسی می‌شود');
+
+    /* ۴) میان‌بر ویندوز: برنامهٔ پنجره‌ای، نه Edge */
+    const vbs = read('install/windows/payesh-app.vbs');
+    assert.ok(/desktop\\Payesh\.exe/.test(vbs), 'میان‌بر به پنجرهٔ برنامه اشاره می‌کند');
+    assert.ok(!/msedge/i.test(vbs), 'از Edge استفاده نمی‌شود');
+    assert.ok(!/--app=/.test(vbs), 'حالت مرورگر حذف شد');
+    assert.ok(/MsgBox/.test(vbs), 'اگر برنامه نبود، پیام فارسی می‌دهد');
+    const ips = read('install/windows/install.ps1');
+    assert.ok(/desktop\\Payesh\.exe/.test(ips), 'نصب‌کنندهٔ zip میان‌بر برنامه را می‌سازد');
+    assert.ok(!/Start-Process \$url/.test(ips), 'نصب‌کننده دیگر آدرس را در مرورگر باز نمی‌کند');
+
+    /* ۵) نصب‌کنندهٔ استاندارد: موتور نمایش و پورت‌ها */
+    const iss = read('installer/payesh.iss');
+    assert.ok(/MicrosoftEdgeWebView2Setup\.exe/.test(iss), 'نصب‌کننده موتور نمایش را همراه دارد');
+    assert.ok(/WebView2Installed/.test(iss), 'نصب‌بودنش را بررسی می‌کند');
+    assert.ok(/localport=8080,8090-8093/.test(iss), 'پورت‌های جایگزین در فایروال باز می‌شوند');
+    const wf = read('.github/workflows/build.yml');
+    assert.ok(/desktop\/Payesh\.exe/.test(wf) && /payesh-local-windows\.zip/.test(wf),
+      'بستهٔ ویندوز همراه برنامهٔ پنجره‌ای منتشر می‌شود');
+
+    /* ۶) اندروید: صفحهٔ اینترنتی داخل قاب برنامه باز نمی‌شود */
+    const java = read('install/android/app/src/main/java/ir/payesh/local/MainActivity.java');
+    assert.ok(/public boolean shouldOverrideUrlLoading\(WebView view, WebResourceRequest request\)/.test(java),
+      'نسخهٔ جدید shouldOverrideUrlLoading هم هست');
+    const ovr = java.slice(java.indexOf('public boolean shouldOverrideUrlLoading(WebView view, String url)'));
+    assert.ok(/startActivity\(new Intent\(Intent\.ACTION_VIEW/.test(ovr.slice(0, 1200)), 'آدرس بیرونی در برنامهٔ سیستم باز می‌شود');
+    assert.ok(/return true;/.test(ovr.slice(0, 1200)), 'خودِ قاب برنامه به آدرس بیرونی نمی‌رود');
+    assert.ok(/retryLoad/.test(java), 'اگر بارگذاری نشد، خودکار دوباره تلاش می‌کند');
+    assert.ok(/asset missing in APK/.test(java), 'دارایی ناموجود به‌جای «null» پاسخ ۴۰۴ می‌دهد');
+    /* هیچ‌جای مسیر بارگذاری «null» برنمی‌گردد (که باعث خطای موتور شود) */
+    const seg = java.slice(java.indexOf('private WebResourceResponse serveAsset'),
+      java.indexOf('private WebResourceResponse serveAsset') + 3000);
+    assert.ok(!/return null;/.test(seg), 'serveAsset هیچ‌وقت null برنمی‌گرداند');
   });
 
   /* ══ اسکن QR کارت پیوند (دوربین + گالری) ═════════════════════════ */

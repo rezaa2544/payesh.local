@@ -92,6 +92,21 @@ ChangesEnvironment=no
   هر پردازه‌ای که از پوشهٔ نصب اجرا شده باشد را می‌بندیم.
   ───────────────────────────────────────────────────────────────── }
 
+; آیا موتور نمایش (WebView2 Runtime) روی این ویندوز هست؟
+; برنامه هیچ مرورگری باز نمی‌کند؛ اگر این جزء نباشد، برنامه پیام فارسی
+; می‌دهد و نصب‌کننده همان‌جا نصبش می‌کند.
+function WebView2Installed(): Boolean;
+var
+  v: String;
+begin
+  Result := False;
+  if RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', v) and (v <> '') then Result := True;
+  if (not Result) and RegQueryStringValue(HKLM, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', v) and (v <> '') then Result := True;
+  if (not Result) and RegQueryStringValue(HKCU, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', v) and (v <> '') then Result := True;
+  if not Result then
+    Result := FileExists(ExpandConstant('{programfiles(x86)}\Microsoft\EdgeWebView\Application\msedgewebview2.exe'));
+end;
+
 procedure RunHidden(const Exe, Params: String);
 var
   Code: Integer;
@@ -208,8 +223,10 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 [Run]
 ; اجازهٔ نوشتن برای همهٔ کاربران روی پوشه‌های کد (نسخه‌های قبلی این اجازه را نداشتند)
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Payesh Local"""; Flags: runhidden; Tasks: firewall; Check: IsAdminInstallMode
-Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Payesh Local"" dir=in action=allow protocol=TCP localport=8080 profile=any"; Flags: runhidden; Tasks: firewall; Check: IsAdminInstallMode
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Payesh Local"" dir=in action=allow protocol=TCP localport=8080,8090-8093 profile=any"; Flags: runhidden; Tasks: firewall; Check: IsAdminInstallMode
 Filename: "{cmd}"; Parameters: "/c winget install --id Tailscale.Tailscale -e --silent --accept-package-agreements --accept-source-agreements"; Flags: runhidden waituntilterminated; Tasks: tailscale; StatusMsg: "نصب Tailscale برای دسترسی از هر اینترنتی…"; Check: IsAdminInstallMode
+; موتور نمایش برنامه (پنجرهٔ واقعی) — نصب رسمی و بی‌صدا، بدون باز کردن مرورگر
+Filename: "{app}\runtime\MicrosoftEdgeWebView2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "نصب موتور نمایش برنامه…"; Flags: runhidden waituntilterminated skipifdoesntexist; Check: not WebView2Installed
 Filename: "{sys}\wscript.exe"; Parameters: """{app}\start-hidden.vbs"""; Flags: nowait runhidden; StatusMsg: "راه‌اندازی سامانه…"
 Filename: "{app}\desktop\Payesh.exe"; Description: "باز کردن برنامهٔ پایش"; Flags: postinstall nowait skipifsilent
 

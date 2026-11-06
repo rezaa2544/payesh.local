@@ -383,6 +383,27 @@ function impValidNid(v) {
 
 function impFields(entity) { return IMP_FIELDS[entity] || IMP_FIELDS.students; }
 
+/* «نام (پایهٔ دهم، رشتهٔ الکتروتکنیک)» — برای اینکه هر پیام بگوید دقیقاً
+   کدام شخص، تا مدیر بدون حدس‌زدن بداند با چه کسی برخورد دارد. */
+function impPersonLabel(u) {
+  if (!u) return '';
+  const bits = [];
+  if (u.grade) bits.push('پایهٔ ' + u.grade);
+  if (u.field) bits.push('رشتهٔ ' + u.field);
+  if (!bits.length && u.class_id && typeof byId === 'function') {
+    const c = byId('classes', u.class_id);
+    if (c) bits.push('کلاس ' + c.name);
+  }
+  return bits.length ? ' (' + bits.join('، ') + ')' : '';
+}
+/** پایه و رشتهٔ یک سطرِ همین فایل، برای پیام «کد ملی تکراری» */
+function impRowPlace(x) {
+  const bits = [];
+  if (x && x.grade) bits.push('پایهٔ ' + x.grade);
+  if (x && x.field) bits.push('رشتهٔ ' + x.field);
+  return bits.length ? ' — ' + bits.join('، ') : '';
+}
+
 /* ترتیب نمایش در فهرست نگاشت: مهم‌ترین‌ها اول — «موبایل دانش‌آموز» دیگر
    ته فهرست پنهان نمی‌شود. بقیه دقیقاً مثل قبل می‌آیند. */
 const IMP_FIELD_ORDER = ['first_name', 'last_name', 'full_name', 'national_id', 'phone',
@@ -469,6 +490,34 @@ function impPickMobile(raw) {
   return { value: '', raw: txt, fixed: false };
 }
 /* یک شمارهٔ ثابت: هر تعداد رقم با جداکننده */
+/* پیش‌نمایشِ اصلاح برای مدیر: اکسل صفرِ اول را نمی‌نویسد، پس صفر را
+   خودمان می‌گذاریم و اگر باز هم یک رقم کم بود، همان‌جا با عددِ آماده
+   به مدیر نشان می‌دهیم تا کاملش کند. */
+function impMobileFix(raw) {
+  const txt = String(raw == null ? '' : raw);
+  const got = impPickMobile(txt);
+  if (got.value) return { ok: true, value: got.value, raw: txt };
+  let d = impLatin(txt).replace(/[^\d]/g, '');
+  if (/^0098/.test(d)) d = d.slice(4);
+  else if (/^98/.test(d) && d.length >= 11) d = d.slice(2);
+  let guess = d;
+  if (/^9/.test(d)) guess = '0' + d;               /* صفرِ حذف‌شدهٔ اکسل */
+  else if (/^0/.test(d) && d.length < 11) guess = d;
+  return { ok: false, value: guess, digits: d.length, raw: txt, complete: /^09\d{9}$/.test(guess) };
+}
+/** پیام دقیقِ «این شماره ایراد دارد» — با تعداد رقم و مقدار اصلاح‌شده */
+function impPhoneMsg(who, raw) {
+  const fx = impMobileFix(raw);
+  const digits = fa(fx.digits || 0);
+  const head = 'موبایل ' + who + ' «' + String(raw == null ? '' : raw).trim() + '»';
+  if (fx.complete) return head + ' با صفرِ اول «' + fx.value + '» می‌شود — ثبت می‌شود.';
+  if (fx.value) {
+    return head + ' ' + digits + ' رقم است؛ با صفرِ اول «' + fx.value + '» می‌شود و هنوز یک رقم کم دارد ' +
+      '(باید ۱۱ رقم و با ۰۹ شروع شود) — همین‌جا کاملش کنید.';
+  }
+  return head + ' خوانده نشد — باید ۱۱ رقم و با ۰۹ شروع شود؛ همین‌جا درستش کنید.';
+}
+
 function impPickLandline(raw) {
   const txt = String(raw == null ? '' : raw);
   const first = txt.split(/[\s,،;؛/\\|]+/).filter(Boolean)[0] || '';
@@ -538,14 +587,36 @@ function impAutoMap(headers, entity) {
         let sc = 0;
         if (nh === ns) sc = 100;
         else if (nh.indexOf(ns) > -1 || ns.indexOf(nh) > -1) sc = 70 + Math.min(20, ns.length);
-        /* ستون «موبایل پدر» هرگز نباید «موبایل خودِ دانش‌آموز» شود */
-        if (sc && rel && !kr) sc -= 36;
+        /* ستون «موبایل پدر/مادر/سرپرست» هرگز نباید «موبایل خودِ دانش‌آموز» شود؛
+           اما ستونی که صریحاً «دانش‌آموز» است باید همان فیلد خودش را بگیرد.
+           (باگ قبلی: جریمهٔ ۳۶ روی همین ستون هم می‌خورد و «موبایل دانش‌آموز»
+           نگاشت نمی‌شد و «— دیده نشد —» می‌ماند.) */
+        if (sc && (rel === 'father' || rel === 'mother' || rel === 'guardian') && !kr) sc -= 36;
+        if (sc && rel === 'student' && !kr) sc += 30;
         if (sc > score) { score = sc; best = key; }
       });
     });
     out[i] = score >= 70 ? best : '';
     if (out[i]) used[best] = true;
   });
+
+  /* ── پس‌گذر: اگر ستونی «موبایل/همراه» دارد ولی هیچ‌جای دیگری نرفت و
+     «موبایل دانش‌آموز» خالی مانده، همان می‌شود موبایل دانش‌آموز.
+     (فایل‌های واقعی عنوان‌هایی مثل «موبایل دانش آموز» یا «تلفن همراه
+     هنرجو» دارند و نباید «— دیده نشد —» بماند.) */
+  if (entity === 'students' && !used['phone']) {
+    (headers || []).some((h, i) => {
+      if (out[i]) return false;
+      const nh = impNorm(h);
+      const mobileish = /(موبایل|همراه)/.test(nh) || /تلفن همراه/.test(nh);
+      if (!mobileish) return false;
+      const rel = impRelOf(nh);
+      if (rel === 'father' || rel === 'mother' || rel === 'guardian') return false;
+      out[i] = 'phone';
+      used['phone'] = true;
+      return true;
+    });
+  }
   return out;
 }
 
@@ -554,16 +625,24 @@ function impMapped() {
   const imp = S.imp || {};
   const map = imp.map || [];
   const firstDataRow = (Number(imp.headerRow) || 0) + 1 || 1;   /* شمارهٔ سطرِ دادهٔ اول در فایل */
+  const edits = imp.edits || {};
   return (imp.rows || []).map((row, idx) => {
-    const o = { _row: idx + (firstDataRow > 1 ? firstDataRow : 1) };
+    const o = { _row: idx + (firstDataRow > 1 ? firstDataRow : 1), _idx: idx };
     map.forEach((key, col) => {
       if (!key) return;
       const val = row[col] == null ? '' : String(row[col]).trim();
       if (val === '') return;
       o[key] = val;
     });
+    /* ویرایش دستیِ مدیر (همان‌جا در مرحلهٔ ۴) بر مقدار خامِ فایل اولویت
+       دارد؛ بعد از هر اصلاح، همهٔ بررسی‌ها از نو اجرا می‌شوند. */
+    const ed = edits[idx];
+    if (ed) Object.keys(ed).forEach(k => {
+      const v = String(ed[k] == null ? '' : ed[k]).trim();
+      if (v !== '') o[k] = v; else delete o[k];
+    });
     return o;
-  }).filter(o => Object.keys(o).length > 1);
+  }).filter(o => Object.keys(o).some(k => k[0] !== '_'));
 }
 
 /* ── بررسی کامل: خطا (ثبت نمی‌شود) و هشدار (ثبت می‌شود، ولی بدانید) ── */
@@ -638,6 +717,11 @@ function impCheck() {
 
   impMapped().forEach(o => {
     const errors = [], warns = [], data = {};
+    /* «blocks» = چیزهایی که باید همین‌جا اصلاح شوند و تا اصلاح نشوند سطر
+       «آمادهٔ ثبت» نیست. هر مورد هم در فهرست پیام‌ها می‌ماند (warns) تا
+       بعد از ثبت هم در «نیازمند پیگیری» دیده شود. */
+    const blocks = [];
+    const fixIt = (msg) => { blocks.push(msg); warns.push(msg); };
 
     /* نام و نام خانوادگی: جدا یا یکی — در نبود نام کامل از دو ستون ساخته می‌شود */
     const fn = String(o.first_name || '').replace(/\s+/g, ' ').trim();
@@ -656,17 +740,21 @@ function impCheck() {
       if (!impValidNid(nid)) {
         errors.push('کد ملی «' + nidRaw + '» معتبر نیست — باید دقیقاً ۱۰ رقم باشد (این مقدار ' + fa(nid.length) + ' رقم است)');
       } else if (seen[nid] && entity !== 'grades' && entity !== 'attendance') {
-        errors.push('کد ملی «' + nid + '» تکراری است — در همین فایل دو بار آمده و کد ملی شناسهٔ یکتای هر شخص است');
+        const first = seen[nid];
+        errors.push('کد ملی «' + nid + '» تکراری است — همین کد در سطر ' + fa(first.row) +
+          ' برای «' + (first.name || '؟') + '»' + impRowPlace(first) + ' هم آمده است؛ ' +
+          'کد ملی شناسهٔ یکتای هر شخص است و دو نفر نمی‌توانند یک کد داشته باشند.');
       }
       else {
-        seen[nid] = true;
+        seen[nid] = { row: o._row, name: data.full_name || '', grade: '', field: '' };
         const owner = users.find(u => impLatin(u.national_id || '').replace(/\D/g, '') === nid);
         if (owner) {
           if (owner.role === 'student' || entity === 'teachers') {
             warns.push('قبلاً ثبت شده — به‌روزرسانی می‌شود');
             data.existing_id = owner.id;
           } else {
-            errors.push('کد ملی متعلق به «' + (owner.name || '') + '» با نقش ' + (ROLE_FA[owner.role] || owner.role) + ' است');
+            errors.push('کد ملی متعلق به «' + (owner.name || '') + '» با نقش ' +
+              (ROLE_FA[owner.role] || owner.role) + impPersonLabel(owner) + ' است — این کد برای نقش دیگری ثبت شده');
           }
         }
         data.national_id = nid;
@@ -678,17 +766,24 @@ function impCheck() {
     const ph = impPickMobile(o.phone);
     if (ph.value) { data.phone = ph.value; if (ph.fixed) IMP_FIX_STATS.phones += 1; }
     else if (String(ph.raw || '').trim()) {
-      warns.push('موبایل دانش‌آموز «' + String(ph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود؛ خودتان در «مشخصات کامل» اصلاح کنید');
+      const fx = impMobileFix(ph.raw);
+      if (fx.complete) { data.phone = fx.value; IMP_FIX_STATS.phones += 1; }
+      else fixIt(impPhoneMsg('دانش‌آموز', ph.raw));
     }
     const fph = impPickMobile(o.father_phone);
     if (fph.value) { data.father_phone = fph.value; if (fph.fixed) IMP_FIX_STATS.phones += 1; }
     else if (String(fph.raw || '').trim()) {
-      warns.push('موبایل پدر «' + String(fph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود');
+      const fx = impMobileFix(fph.raw);
+      if (fx.complete) { data.father_phone = fx.value; IMP_FIX_STATS.phones += 1; }
+      else fixIt(impPhoneMsg('پدر', fph.raw));
     }
     if (data.phone) {
       const taken = users.find(u => impLatin(u.phone || '').replace(/\D/g, '') === data.phone
         && Number(u.id) !== Number(data.existing_id || 0));
-      if (taken) errors.push('این شمارهٔ همراه برای «' + (taken.name || '') + '» ثبت شده است');
+      if (taken) {
+        errors.push('این شمارهٔ همراه برای «' + (taken.name || '') + '» با نقش ' +
+          (ROLE_FA[taken.role] || taken.role) + impPersonLabel(taken) + ' ثبت شده است — هر شماره یک حساب دارد');
+      }
     }
 
     if (entity === 'students') {
@@ -742,7 +837,10 @@ function impCheck() {
         const rawV = String(o[k] || '').trim();
         const v = impLatin(rawV).replace(/\D/g, '');
         if (v && impValidNid(v)) data[k] = v;
-        else if (v) warns.push('کد ملی ' + (k === 'father_nid' ? 'پدر' : 'مادر') + ' «' + rawV + '» باید دقیقاً ۱۰ رقم باشد');
+        else if (v) {
+          fixIt('کد ملی ' + (k === 'father_nid' ? 'پدر' : 'مادر') + ' «' + rawV + '» معتبر نیست — باید دقیقاً ۱۰ رقم باشد (این مقدار ' +
+            fa(v.length) + ' رقم است)؛ همین‌جا اصلاحش کنید.');
+        }
       });
       data.father_name = String(o.father_name || '').trim();
       data.mother_name = String(o.mother_name || '').trim();
@@ -750,10 +848,18 @@ function impCheck() {
       /* شمارهٔ مادر جدا از پدر نگه داشته می‌شود */
       const mph = impPickMobile(o.mother_phone);
       if (mph.value) { data.mother_phone = mph.value; if (mph.fixed) IMP_FIX_STATS.phones += 1; }
-      else if (String(mph.raw || '').trim()) warns.push('موبایل مادر «' + String(mph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود');
+      else if (String(mph.raw || '').trim()) {
+        const fx = impMobileFix(mph.raw);
+        if (fx.complete) { data.mother_phone = fx.value; IMP_FIX_STATS.phones += 1; }
+        else fixIt(impPhoneMsg('مادر', mph.raw));
+      }
       const gph = impPickMobile(o.guardian_phone);
       if (gph.value) { data.guardian_phone = gph.value; if (gph.fixed) IMP_FIX_STATS.phones += 1; }
-      else if (String(gph.raw || '').trim()) warns.push('موبایل سرپرست «' + String(gph.raw).trim() + '» نامعتبر است — باید ۱۱ رقم و با ۰۹ شروع شود');
+      else if (String(gph.raw || '').trim()) {
+        const fx = impMobileFix(gph.raw);
+        if (fx.complete) { data.guardian_phone = fx.value; IMP_FIX_STATS.phones += 1; }
+        else fixIt(impPhoneMsg('سرپرست', gph.raw));
+      }
 
       /* هر ولی باید یک راه ورود داشته باشد: شمارهٔ همراه، وگرنه کد ملی */
       const who = [['پدر', 'father_name', 'father_nid', 'father_phone'],
@@ -885,7 +991,15 @@ function impCheck() {
       }
     }
 
-    out.push({ row: o._row, data, errors, warns, ok: errors.length === 0 });
+    /* پایه و رشتهٔ همین سطر را روی «کد ملی» ثبت می‌کنیم تا اگر سطر بعدی
+       همان کد را داشت، پیام دقیقاً بگوید با چه کسی و در چه پایه/رشته‌ای. */
+    if (data.national_id && seen[data.national_id] && seen[data.national_id].row === o._row) {
+      seen[data.national_id].grade = data.grade || '';
+      seen[data.national_id].field = data.field || '';
+      seen[data.national_id].name = data.full_name || seen[data.national_id].name;
+    }
+
+    out.push({ row: o._row, idx: o._idx, raw: o, data, errors, warns, blocks, ok: errors.length === 0 && blocks.length === 0 });
   });
 
   S.impNewClasses = newClasses;
@@ -928,6 +1042,7 @@ const IMP_FOLLOW_RE = /نامعتبر|بدون کد ملی|نه شمارهٔ ه�
 function impNeedsFollowUp(check) {
   if (!check) return false;
   if ((check.errors || []).length) return true;
+  if ((check.blocks || []).length) return true;      /* چیزی برای اصلاح مانده */
   return (check.warns || []).some(w => IMP_FOLLOW_RE.test(String(w)));
 }
 
@@ -961,6 +1076,63 @@ function impSaveIssues(checks, kind, fileName, serverErrors) {
     added += 1;
   });
   return { added, total: picked.length };
+}
+
+/* ── کارت «اصلاح درجا» برای سطری که ایراد دارد ─────────────────────
+   درخواست کاربر: «باید همان‌جا و همان لحظه بتوانم اصلاحش کنم». هر مقدار
+   در فرم ویرایش می‌شود، ذخیره می‌شود و همهٔ بررسی‌ها از نو اجرا می‌شوند.
+   شمارهٔ همراه با صفرِ اضافه‌شده پیش‌پر می‌شود، پس مدیر فقط رقمِ کم را
+   اضافه می‌کند. */
+function impFixCardHtml(c) {
+  const imp = S.imp || {};
+  const kind = imp.kind || 'students';
+  const ed = ((imp.edits || {})[c.idx]) || {};
+  const raw = c.raw || {};
+  const val = (k, dflt) => (ed[k] !== undefined ? ed[k] : (raw[k] !== undefined && raw[k] !== '' ? raw[k] : (dflt || '')));
+  const phoneVal = (k) => {
+    const v = ed[k] !== undefined ? ed[k] : (raw[k] || '');
+    if (String(v).trim() === '') return '';
+    const fx = impMobileFix(v);
+    return fx.value || String(v);
+  };
+  const fld = (nm, label, value, hint, numeric) => `<label class="field" style="margin:0">
+    <span class="small">${esc(label)}</span>
+    <input class="input${numeric ? ' ltr' : ''}" name="${nm}" value="${esc(value)}"${numeric ? ' inputmode="numeric" dir="ltr"' : ''} autocomplete="off">
+    ${hint ? `<span class="small muted">${esc(hint)}</span>` : ''}</label>`;
+  const issues = (c.errors || []).map(e => `<div style="color:#b91c1c">⛔ ${esc(e)}</div>`)
+    .concat((c.blocks || []).map(b => `<div style="color:#b45309">✏️ ${esc(b)}</div>`)).join('');
+  let inputs = '';
+  if (kind === 'students') {
+    inputs += fld('full_name', 'نام و نام خانوادگی', val('full_name') || c.data.full_name || '');
+    inputs += fld('national_id', 'کد ملی دانش‌آموز', val('national_id'), 'دقیقاً ۱۰ رقم', true);
+    inputs += fld('phone', 'موبایل دانش‌آموز', phoneVal('phone'), '۱۱ رقم، با ۰۹', true);
+    inputs += fld('father_nid', 'کد ملی پدر', val('father_nid'), 'دقیقاً ۱۰ رقم', true);
+    inputs += fld('father_phone', 'موبایل پدر', phoneVal('father_phone'), '۱۱ رقم، با ۰۹', true);
+    inputs += fld('mother_nid', 'کد ملی مادر', val('mother_nid'), 'دقیقاً ۱۰ رقم', true);
+    inputs += fld('mother_phone', 'موبایل مادر', phoneVal('mother_phone'), '۱۱ رقم، با ۰۹', true);
+    inputs += fld('guardian_phone', 'موبایل سرپرست', phoneVal('guardian_phone'), '۱۱ رقم، با ۰۹', true);
+    inputs += fld('grade', 'پایه', val('grade') || c.data.grade || '', 'مثلاً دهم');
+    inputs += fld('field', 'رشته', val('field') || c.data.field || '', 'مثلاً الکتروتکنیک');
+  } else if (kind === 'teachers') {
+    inputs += fld('full_name', 'نام و نام خانوادگی', val('full_name') || c.data.full_name || '');
+    inputs += fld('national_id', 'کد ملی', val('national_id'), 'دقیقاً ۱۰ رقم', true);
+    inputs += fld('phone', 'موبایل', phoneVal('phone'), '۱۱ رقم، با ۰۹', true);
+  } else {
+    inputs += fld('full_name', 'نام دانش‌آموز', val('full_name') || c.data.full_name || '');
+    inputs += fld('national_id', 'کد ملی دانش‌آموز', val('national_id'), 'دقیقاً ۱۰ رقم', true);
+  }
+  return `<form class="imp-fix" data-form="imp-fix" data-idx="${c.idx}">
+    <div class="row between" style="flex-wrap:wrap;gap:6px">
+      <b>سطر ${fa(c.row)} — ${esc(c.data.full_name || '—')}</b>
+      <span class="small muted">${esc([c.data.grade, c.data.field].filter(Boolean).join(' '))}</span>
+    </div>
+    <div class="hint">${issues || '<span class="muted">ایراد مشخصی پیدا نشد؛ دوباره بررسی کنید.</span>'}</div>
+    <div class="grid" style="margin-top:8px">${inputs}</div>
+    <div class="row" style="margin-top:8px;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn sm primary">✔ ذخیره و بررسی دوباره</button>
+      <span class="small muted">صفرِ اولِ شماره‌ها خودکار گذاشته شده است؛ اگر یک رقم کم است، همین‌جا کاملش کنید.</span>
+    </div>
+  </form>`;
 }
 
 function impStepHtml() {
@@ -1038,14 +1210,19 @@ function impStepHtml() {
 
   if (imp.step === 3) {
     const checks = imp.checks || [];
-    const ok = checks.filter(c => !c.errors.length);
-    const bad = checks.filter(c => c.errors.length);
+    const isBad = c => (c.errors || []).length > 0;
+    const isFix = c => !isBad(c) && (c.blocks || []).length > 0;
+    /* «آمادهٔ ثبت» فقط سطری است که هیچ ایراد و هیچ اصلاحِ لازم ندارد.
+       هر سطری که چیزی برای درست‌کردن دارد، جدا و قابل ویرایش نشان داده
+       می‌شود تا هیچ دادهٔ مشکوکی بی‌صدا ثبت نشود. */
+    const ready = checks.filter(c => !isBad(c) && !isFix(c));
+    const todo = checks.filter(c => isBad(c) || isFix(c));
+    const badCount = checks.filter(isBad).length;
     const follow = checks.filter(impNeedsFollowUp);
-    const updates = ok.filter(c => c.data.existing_id).length;
+    const updates = ready.filter(c => c.data.existing_id).length;
     const newCls = S.impNewClasses || [];
     const fix = impFixStats();
 
-    /* یک جدول برای هر گروه — خطادارها جدا، تا بتوان سراغشان رفت */
     const rowsHtml = (list, tone) => `<div class="table-wrap" style="max-height:34vh;overflow:auto"><table><thead><tr>
         <th>سطر</th><th>نام</th><th>کد ملی</th><th>پایه و رشته / درس</th><th>پیام‌ها</th></tr></thead><tbody>
         ${list.map(c => `<tr${tone === 'red' ? ' style="background:#fef2f2"' : ''}>
@@ -1053,12 +1230,12 @@ function impStepHtml() {
           <td><b>${esc(c.data.full_name || '—')}</b></td>
           <td class="small ltr">${esc(c.data.national_id || '—')}</td>
           <td class="small">${esc([c.data.grade, c.data.field].filter(Boolean).join(' ') || (byId('classes', c.data.class_id) || {}).name || (byId('subjects', c.data.subject_id) || {}).name || '—')}</td>
-          <td class="small">${c.errors.map(e => '<div style="color:#b91c1c">⛔ ' + esc(e) + '</div>').join('')}
-            ${c.warns.map(w => '<div class="muted">⚠️ ' + esc(w) + '</div>').join('')}</td>
+          <td class="small">${(c.errors || []).map(e => '<div style="color:#b91c1c">⛔ ' + esc(e) + '</div>').join('')}
+            ${(c.blocks || []).map(w => '<div style="color:#b45309">✏️ ' + esc(w) + '</div>').join('')}
+            ${(c.warns || []).filter(w => (c.blocks || []).indexOf(w) < 0).map(w => '<div class="muted">⚠️ ' + esc(w) + '</div>').join('')}</td>
         </tr>`).join('')}
       </tbody></table></div>`;
 
-    const incomplete = follow.filter(c => !c.errors.length);
     const fixes = S.impBranchFixes || [];
     const asks = S.impBranchAskList || [];
     const askBox = asks.length ? `<div class="card tight" style="margin-bottom:10px;border-color:#93c5fd;background:#eff6ff">
@@ -1086,44 +1263,43 @@ function impStepHtml() {
     return `${bar}${askBox}${fixesBox}
       <div class="grid g4" style="margin-bottom:10px">
         ${impStat('📋', checks.length, 'کل ردیف‌ها')}
-        ${impStat('✅', ok.length, 'آمادهٔ ثبت', 'green')}
-        ${impStat('⛔', bad.length, 'ثبت نمی‌شوند', 'red')}
+        ${impStat('✅', ready.length, 'آمادهٔ ثبت', 'green')}
+        ${impStat('✏️', todo.length, 'نیازمند اصلاح' + (badCount ? ' (' + fa(badCount) + ' ثبت‌نشدنی)' : ''), 'red')}
         ${impStat('🕒', follow.length, 'نیازمند پیگیری', 'amber')}
       </div>
 
-      ${bad.length ? `<div class="card tight" style="margin-bottom:10px;border-color:#fecaca">
-        <div class="row between" style="margin-bottom:6px">
-          <b style="color:#b91c1c">⛔ ${fa(bad.length)} ردیف ثبت نمی‌شود — این‌ها جدا نگه داشته می‌شوند</b>
+      ${todo.length ? `<div class="card tight" style="margin-bottom:10px;border-color:#fca5a5;background:#fffafa">
+        <div class="row between" style="margin-bottom:6px;flex-wrap:wrap;gap:6px">
+          <b style="color:#b91c1c">✏️ ${fa(todo.length)} ردیف تا اصلاح نشود ثبت نمی‌شود — همین‌جا درستش کنید</b>
+          <button class="btn sm ghost" data-act="imp-recheck">🔄 بررسی دوباره</button>
         </div>
-        <div class="small muted" style="margin-bottom:8px">این ردیف‌ها در پایان در بخش «نیازمند پیگیری» (صفحهٔ کاربران) می‌مانند تا یکی‌یکی اصلاح و ساخته شوند.</div>
-        ${rowsHtml(bad.slice(0, 300), 'red')}
-      </div>` : ''}
-
-      ${incomplete.length ? `<div class="card tight" style="margin-bottom:10px">
-        <div class="row between" style="margin-bottom:6px">
-          <b>⚠️ ${fa(incomplete.length)} ردیف ثبت می‌شود ولی مشخصاتش کامل نیست</b>
+        <div class="small muted" style="margin-bottom:8px;line-height:2">
+          هر ردیف را باز کنید، مقدار درست را بنویسید و «ذخیره و بررسی دوباره» را بزنید.
+          هرچه اینجا اصلاح شود، همان لحظه از فهرست اصلاح بیرون می‌رود و به «آمادهٔ ثبت» می‌آید؛
+          آنچه اصلاح نشد، پس از ثبت در «کاربران ← نیازمند پیگیری» می‌ماند.
         </div>
-        <div class="small muted" style="margin-bottom:8px">مثلاً شمارهٔ همراهِ ولی نامعتبر یا خالی است. این‌ها هم برای پیگیری نگه داشته می‌شوند.</div>
-        ${rowsHtml(incomplete.slice(0, 300), 'amber')}
+        ${todo.slice(0, 200).map(c => impFixCardHtml(c)).join('')}
+        ${todo.length > 200 ? `<div class="small muted">۲۰۰ ردیف اول نمایش داده شد؛ بقیه را بعد از ثبت از «نیازمند پیگیری» اصلاح کنید.</div>` : ''}
       </div>` : ''}
 
       <div class="card tight" style="margin-bottom:10px">
         <div class="row between" style="margin-bottom:6px">
-          <b>✅ ${fa(ok.length)} ردیف آمادهٔ ثبت${updates ? ' — ' + fa(updates) + ' به‌روزرسانی' : ''}</b>
+          <b>✅ ${fa(ready.length)} ردیف آمادهٔ ثبت${updates ? ' — ' + fa(updates) + ' به‌روزرسانی' : ''}</b>
         </div>
         ${newCls.length ? `<div class="small" style="margin-bottom:6px">🏛️ کلاس‌های جدید ساخته می‌شوند: <b>${esc(newCls.join('، '))}</b></div>` : ''}
         ${fix.phones ? `<div class="small" style="margin-bottom:6px;color:#0f766e">☎️ صفرِ اولِ ${fa(fix.phones)} شمارهٔ همراه در فایل نبود (اکسل خودش حذف می‌کند) — خودکار به قالب ۱۱ رقمی «09…» برگردانده شد.</div>` : ''}
-        ${ok.length ? rowsHtml(ok.slice(0, 40), 'green') : '<div class="small muted">ردیف سالمی نیست.</div>'}
-        ${ok.length > 40 ? `<div class="small muted">۴۰ ردیف اول نمایش داده شد؛ همهٔ آن‌ها ثبت می‌شوند.</div>` : ''}
+        ${ready.length ? rowsHtml(ready.slice(0, 60), 'green') : '<div class="small muted">ردیف سالمی نیست — اول ایرادها را اصلاح کنید.</div>'}
+        ${ready.length > 60 ? `<div class="small muted">۶۰ ردیف اول نمایش داده شد؛ همهٔ آن‌ها ثبت می‌شوند.</div>` : ''}
       </div>
 
       <div class="row" style="margin-top:10px;gap:8px">
         <button class="btn ghost" data-act="import-back">بازگشت به نگاشت</button>
-        <button class="btn primary grow" data-act="import-apply" ${ok.length ? '' : 'disabled'}>
-          ${ok.length ? 'ثبت ' + fa(ok.length) + ' ردیف' : 'ردیفی برای ثبت نیست'}
+        <button class="btn primary grow" data-act="import-apply" ${ready.length ? '' : 'disabled'}>
+          ${ready.length ? 'ثبت ' + fa(ready.length) + ' ردیف' : 'ردیفی برای ثبت نیست'}
         </button>
       </div>
-      ${follow.length ? `<div class="small muted" style="margin-top:8px">${fa(follow.length)} ردیف پس از ثبت، در «کاربران ← نیازمند پیگیری» برای اصلاح می‌ماند.</div>` : ''}
+      ${todo.length ? `<div class="small muted" style="margin-top:8px">${fa(todo.length)} ردیف فعلاً ثبت نمی‌شود؛ اگر همین‌جا اصلاحش نکنید، پس از ثبت در «کاربران ← نیازمند پیگیری» می‌ماند.</div>`
+        : (follow.length ? `<div class="small muted" style="margin-top:8px">${fa(follow.length)} ردیف پس از ثبت، در «کاربران ← نیازمند پیگیری» برای تکمیل می‌ماند.</div>` : '')}
     `;
   }
 
@@ -1171,13 +1347,18 @@ function actImport() {
   S.imp = { step: 1, kind: (S.imp && S.imp.kind) || 'students' };
   S.impGrades = [];                    /* پایه‌های فایل قبلی پاک می‌شود */
   S.impSavedIssues = 0;
+  S.imp.edits = {};
   S.modalTitle = 'ورود دسته‌ای از اکسل';
-  modal(impStepHtml());
+  modal(impStepHtml(), importedModalOpts());
 }
 function renderImportStep() {
   S.modalTitle = 'ورود دسته‌ای از اکسل';
-  modal(impStepHtml());
+  modal(impStepHtml(), importedModalOpts());
 }
+/* پنجرهٔ ورود اطلاعات: بزرگ‌تر (کار حساس است) و «قفل» — کلیکِ بیرونِ
+   کادر یا Esc نباید نیمه‌کارِ ثبت اطلاعات را پاک کند؛ فقط ✕ یا دکمهٔ
+   خودِ پنجره آن را می‌بندد. */
+function importedModalOpts() { return { wide: true, lock: true, title: 'ورود دسته‌ای از اکسل' }; }
 
 /* ══════════════ ثبت روی همین دستگاه (گوشی / نبود مدرسه) ══════════════
    همان قواعد سرور، ولی با نوشتن در صف همگام‌سازی. */

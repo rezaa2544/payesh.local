@@ -134,6 +134,32 @@ Copy-Item $loader.FullName (Join-Path $Out 'WebView2Loader.dll') -Force
 Copy-Item $ico (Join-Path $Out 'payesh.ico') -Force -ErrorAction SilentlyContinue
 Ok 'DLLها و آیکون کنار برنامه گذاشته شدند'
 
+# ── ۵) موتور نمایش (WebView2 Runtime) — نصب‌کنندهٔ رسمی مایکروسافت ──
+#  برنامه هیچ مرورگری باز نمی‌کند؛ اگر این جزء روی ویندوز نباشد، باید
+#  همراه بسته باشد تا نصب بدون اینترنت هم کامل شود.
+Say 'آوردن نصب‌کنندهٔ WebView2 Runtime'
+$appRoot = Split-Path -Parent (Resolve-Path $Out)
+$appRoot = (Resolve-Path $appRoot).Path
+$rtDir = Join-Path $appRoot 'runtime'
+New-Item -ItemType Directory -Force -Path $rtDir | Out-Null
+$setup = Join-Path $rtDir 'MicrosoftEdgeWebView2Setup.exe'
+$okSetup = $false
+foreach ($u in @(
+  'https://go.microsoft.com/fwlink/p/?LinkId=2124703',
+  'https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/2b1b1b0e-6b8b-4c7f-9f57-1e3c2b5b2b2d/MicrosoftEdgeWebView2Setup.exe'
+)) {
+  try {
+    Invoke-WebRequest -Uri $u -OutFile $setup -UseBasicParsing -TimeoutSec 120
+    if ((Get-Item $setup).Length -gt 500000) { $okSetup = $true; break }
+  } catch { }
+}
+if ($okSetup) {
+  Ok ("MicrosoftEdgeWebView2Setup.exe — {0:N1} مگابایت" -f ((Get-Item $setup).Length / 1MB))
+  Copy-Item $setup (Join-Path $Out 'MicrosoftEdgeWebView2Setup.exe') -Force -ErrorAction SilentlyContinue
+} else {
+  Write-Host '  ⚠️  نصب‌کنندهٔ WebView2 دانلود نشد؛ برنامه خودش پیام روشن می‌دهد (بدون مرورگر)' -ForegroundColor Yellow
+}
+
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item $verSrc -Force -ErrorAction SilentlyContinue
 Write-Host "`n✅ برنامهٔ ویندوز آماده است: $Out" -ForegroundColor Green

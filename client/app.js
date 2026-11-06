@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.34';
+const CLIENT_VERSION = '0.8.35';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1816,6 +1816,8 @@ document.addEventListener('change', (e) => {
 /* Esc = بستن پنجره (استاندارد همهٔ برنامه‌ها) */
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  const bg = document.querySelector('#modal-root .modal-bg');
+  if (bg && bg.getAttribute('data-lock') === '1') return;   /* پنجرهٔ قفل‌دار با Esc بسته نمی‌شود */
   if (document.querySelector('#modal-root [data-act="modal-close"]')) closeModal();
 });
 /* ══════════════ «زنده» بودن همهٔ کنش‌ها ══════════════════════════════
@@ -1937,7 +1939,9 @@ async function handleActionClick(e, el) {
   switch (act) {
     case 'modal-close': closeModal(); return;
     /* کلیک روی پس‌زمینهٔ تیره؛ اگر روی خودِ پنجره بزنند، بسته نمی‌شود */
-    case 'modal-bg': if (e.target === el) closeModal(); return;
+    /* «قفل»: پنجره‌های حساس (مثل ورود اطلاعات) فقط با ✕ یا دکمهٔ خودشان
+       بسته می‌شوند — کلیکِ accidentally بیرونِ کادر نباید همهٔ کار را پاک کند. */
+    case 'modal-bg': if (e.target === el && el.getAttribute('data-lock') !== '1') closeModal(); return;
     case 'retry': boot(); return;
     case 'cloud-phone-check': {
       if (PHONE_MODE) { toast('این بررسی روی رایانهٔ مدرسه انجام می‌شود — روی گوشی لازم نیست', 'ok'); return; }
@@ -2289,6 +2293,13 @@ async function handleActionClick(e, el) {
       renderImportStep();
       return;
     }
+    case 'imp-recheck': {
+      if (!S.imp || !S.imp.rows) return;
+      S.imp.checks = impCheck();
+      renderImportStep();
+      toast('دوباره بررسی شد', 'ok');
+      return;
+    }
     case 'import-check': {
       if (!S.imp || !S.imp.rows) return;
       S.impBranchAsk = {};                    /* تصمیم‌های فایل قبلی پاک می‌شود */
@@ -2299,8 +2310,10 @@ async function handleActionClick(e, el) {
     }
     case 'import-apply': {
       if (!S.imp) return;
-      const rows = (S.imp.checks || []).filter(c => !c.errors.length).map(c => c.data);
-      if (!rows.length) return toast('سطر سالمی برای ثبت نیست', 'err');
+      const rows = (S.imp.checks || [])
+        .filter(c => !(c.errors || []).length && !(c.blocks || []).length)
+        .map(c => c.data);
+      if (!rows.length) return toast('سطر سالمی برای ثبت نیست — اول ایرادها را اصلاح کنید', 'err');
       const kindImp = ['students', 'teachers', 'grades', 'attendance'].includes(S.imp.kind) ? S.imp.kind : 'students';
       const btn = el; btn.disabled = true;
       busyOverlay('در حال ثبت');
@@ -3001,6 +3014,24 @@ async function handleSubmit(form) {
   }
 
   /* ── ورود دسته‌ای: مرحلهٔ ۱ (خواندن فایل) ───────────────────────── */
+  if (kind === 'imp-fix') {
+    const idx = Number(form.getAttribute('data-idx'));
+    if (!S.imp || !isFinite(idx)) return;
+    const edits = Object.assign({}, S.imp.edits || {});
+    const cur = Object.assign({}, edits[idx] || {});
+    Array.prototype.forEach.call(form.querySelectorAll('[name]'), inp => {
+      const v = String(inp.value == null ? '' : inp.value).trim();
+      if (v === '') delete cur[inp.name]; else cur[inp.name] = v;
+    });
+    edits[idx] = cur;
+    S.imp.edits = edits;
+    S.imp.checks = impCheck();          /* همه‌چیز از نو بررسی می‌شود */
+    const row = (S.imp.checks || []).find(c => Number(c.idx) === idx);
+    renderImportStep();
+    if (row && !(row.errors || []).length && !(row.blocks || []).length) toast('اصلاح شد و به «آمادهٔ ثبت» رفت ✅', 'ok');
+    else if (row) toast('ذخیره شد — هنوز ' + fa((row.errors || []).length + (row.blocks || []).length) + ' مورد مانده', 'err');
+    return;
+  }
   if (kind === 'import-file') {
     /* پایه‌های این فایل (پرسش مرحلهٔ ۱) */
     let pickedGrades = [];

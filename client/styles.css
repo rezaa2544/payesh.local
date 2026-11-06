@@ -177,6 +177,16 @@ tr:last-child td{border-bottom:0}
 .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:end center;z-index:70}
 @media (min-width:640px){ .modal-bg{place-items:center} }
 .modal{background:var(--card);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:16px;max-height:90vh;overflow:auto}
+/* پنجرهٔ بزرگ برای کارهای حساس (ورود اطلاعات): عرض و ارتفاع بیشتر */
+.modal.wide{max-width:1180px;width:96vw;max-height:94vh}
+@media (max-width:700px){ .modal.wide{width:100vw;max-height:96vh;padding:12px} }
+.modal.wide .table-wrap{max-height:44vh}
+.modal-bg.locked{background:rgba(15,23,42,.66)}
+/* ردیف نیازمند اصلاح در ورود اطلاعات */
+.imp-fix{border:1px solid #fecaca;border-radius:12px;padding:10px;margin:8px 0;background:#fff7f7}
+.imp-fix .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.imp-fix .hint{color:#b91c1c;font-size:12px;line-height:1.9;margin-top:6px}
+.imp-fix .okline{color:#0f766e;font-size:12px;margin-top:6px}
 @media (min-width:640px){ .modal{border-radius:18px} }
 .modal h3{font-size:16px;margin-bottom:12px}
 

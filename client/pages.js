@@ -1705,16 +1705,22 @@ function layerRoot(id) {
      • کلیک روی پس‌زمینهٔ تیره → بستن (فقط اگر مستقیم روی خودش بزنند)
      • کلید Esc → بستن
    ─────────────────────────────────────────────────────────────────── */
-function modal(html) {
+/* فرم‌های بزرگ (کاربر جدید، مشخصات کامل، ویرایش کاربر): پنجرهٔ بزرگ‌تر و
+  «قفل» — کلیکِ بیرونِ کادر نباید داده‌های نیمه‌کاره را پاک کند. */
+const FORM_MODAL_OPTS = { wide: true, lock: true };
+
+function modal(html, opts) {
+  const o = opts || {};
   S.modal = html;
-  layerRoot('modal-root').innerHTML = `<div class="modal-bg" data-act="modal-bg"><div class="modal" role="dialog" aria-modal="true">
+  S.modalOpts = o;
+  layerRoot('modal-root').innerHTML = `<div class="modal-bg${o.lock ? ' locked' : ''}" data-act="modal-bg"${o.lock ? ' data-lock="1"' : ''}><div class="modal${o.wide ? ' wide' : ''}" role="dialog" aria-modal="true"${o.title ? ' data-title="' + esc(o.title) + '"' : ''}>
     <div class="row between" style="margin-bottom:8px">
       <b>${esc(S.modalTitle || '')}</b>
       <button type="button" class="btn sm ghost" data-act="modal-close" aria-label="بستن" title="بستن">✕</button>
     </div>
     ${html}</div></div>`;
 }
-function closeModal() { S.modal = null; layerRoot('modal-root').innerHTML = ''; }
+function closeModal() { S.modal = null; S.modalOpts = null; layerRoot('modal-root').innerHTML = ''; }
 
 function pairCardHtml(r) {
   const plain = String(r.code || r.display || '').replace(/[^0-9A-Za-z]/g, '');
@@ -1905,7 +1911,7 @@ function actUserFull(id) {
       <b class="small">ستون‌های دلخواه شما (از اکسل)</b>
       <div class="row" style="flex-wrap:wrap;gap:0 10px;margin-top:6px">${custom}</div></div>` : ''}
     <button class="btn primary block" style="margin-top:12px">ذخیرهٔ همهٔ مشخصات</button>
-  </form>`);
+  </form>`, FORM_MODAL_OPTS)
 }
 
 /* ── پنجرهٔ «کاربری»: نام کاربری و رمز، در یک جا، قابل ویرایش و حذف ── */
@@ -1970,7 +1976,7 @@ function actUserEdit(id) {
     </div>
     <div class="small muted" style="margin-top:8px">اگر رمز را خالی بگذارید، همان رمز فعلی می‌ماند. رمز اولیهٔ هر کاربر برابر کد ملی اوست.</div>
     <button class="btn primary block" style="margin-top:10px">ذخیره</button>
-  </form>`);
+  </form>`, FORM_MODAL_OPTS)
 }
 
 /* ── کلاس: ایجاد و ویرایش (پایه و رشته از فهرست تعریف‌ها می‌آید) ── */
@@ -2151,7 +2157,7 @@ function actUserAdd(prefill, issueId) {
       <input class="input ltr" name="password" placeholder="اگر خالی بماند، کد ملی می‌شود"></label>
     <div class="small muted" style="margin-top:6px">نام کاربری هر کاربر همان <b>شمارهٔ همراه</b> است و رمزش <b>کد ملی</b>؛ هر دو بعداً از «ویرایش» قابل تغییرند.</div>
     <button class="btn primary block" style="margin-top:10px">ایجاد کاربر</button>
-  </form>`);
+  </form>`, FORM_MODAL_OPTS)
 }
 
 /* ══════════════════════════════════════════════════════════════════

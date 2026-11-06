@@ -84,7 +84,12 @@ namespace Payesh
 
     internal sealed class Shell : Form
     {
-        private const string LocalUrl = "http://127.0.0.1:8080";
+        /* آدرس محلی: پورت ثابت نیست. اگر برنامهٔ دیگری ۸۰۸۰ را گرفته باشد،
+           سامانه روی پورت آزاد بعدی بالا می‌آید؛ وگرنه کاربر پیام
+           «Hmmm... can't reach this page» می‌دید. */
+        private static string LocalUrl = "http://127.0.0.1:8080";
+        private static int _localPort = 8080;
+        private static readonly int[] PORT_CANDIDATES = { 8080, 8090, 8091, 8092, 8093 };
         /* همان فایل پیکربندی که اپ اندروید می‌خواند — یک جای مشخص برای آدرس عمومی */
         private const string RemoteConfig =
             "https://raw.githubusercontent.com/rezaa2544/payesh.local/main/android-config.json";
@@ -108,6 +113,12 @@ namespace Payesh
         private bool _reallyExit;
         private bool _trayMode;
         private int _connectToken;
+        /* نگهبان سرور و صفحه: اگر سامانه وسط کار بخوابد، دوباره بالا می‌آید
+           و پنجره هرگز صفحهٔ خطای مرورگر را نشان نمی‌دهد. */
+        private System.Windows.Forms.Timer _watch;
+        private int _navFails;
+        private int _restarting;
+        private bool _runtimeTried;
 
         public Shell(string[] args)
         {
@@ -290,7 +301,7 @@ namespace Payesh
             btnRow.Controls.Add(MakeButton("روشن کردن سامانه در همین رایانه", (s, e) => { ForceServerMode(); }));
             btnRow.Controls.Add(MakeButton("تلاش دوباره", (s, e) => StartConnect()));
             btnRow.Controls.Add(MakeButton("جستجوی شبکهٔ مدرسه", (s, e) => { SearchLanNow(); }));
-            btnRow.Controls.Add(MakeButton("باز کردن در مرورگر", (s, e) => OpenInBrowser(_addrBox.Text.Trim().Length > 0 ? Normalize(_addrBox.Text) : LocalUrl)));
+            btnRow.Controls.Add(MakeButton("نصب موتور نمایش", (s, e) => { _runtimeTried = false; if (TryInstallWebViewRuntime()) StartConnect(); else ShowEngineMissing(); }));
 
             var center = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4 };
             center.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
@@ -321,7 +332,7 @@ namespace Payesh
                 };
                 var menu = new ContextMenuStrip { RightToLeft = RightToLeft.Yes };
                 menu.Items.Add("باز کردن پایش", null, (s, e) => { Show(); WindowState = FormWindowState.Normal; Activate(); });
-                menu.Items.Add("نمایش در مرورگر", null, (s, e) => OpenInBrowser(_currentUrl.Length > 0 ? _currentUrl : LocalUrl));
+                menu.Items.Add("تشخیص و گزارش", null, (s, e) => ShowError(null));
                 menu.Items.Add(new ToolStripSeparator());
                 menu.Items.Add("خروج", null, (s, e) => { _reallyExit = true; Close(); });
                 _tray.ContextMenuStrip = menu;
@@ -459,11 +470,19 @@ namespace Payesh
             {
                 try
                 {
+                    /* اگر موتور نمایش نصب نباشد، همان‌جا (نه در رشتهٔ پنجره) نصبش
+                       می‌کنیم تا هیچ‌وقت لازم نباشد مرورگر باز شود. */
+                    if (!RuntimeReady())
+                    {
+                        SetStatus("نصب موتور نمایش…");
+                        TryInstallWebViewRuntime();
+                    }
                     if (_serverMode)
                     {
                         if (!await Up(LocalUrl))
                         {
                             SetStatus("راه‌اندازی سامانه…");
+                            PickLocalPort();
                             StartServer();
                             for (int i = 0; i < 60 && token == _connectToken; i++)
                             {
@@ -473,6 +492,7 @@ namespace Payesh
                         }
                         if (await Up(LocalUrl))
                         {
+                            StartWatchdog();
                             ShowApp(LocalUrl);
                             return;
                         }
@@ -560,9 +580,8 @@ namespace Payesh
                 {
                     if (_view == null && !TryCreateWebView())
                     {
-                        _reallyExit = true;
-                        OpenInBrowser(url);
-                        Close();
+                        /* موتور نمایش نیست: پیام خودمان — هیچ مرورگری باز نمی‌شود */
+                        ShowEngineMissing();
                         return;
                     }
                     _splash.Visible = false;
@@ -575,10 +594,226 @@ namespace Payesh
                 }
                 catch
                 {
-                    _reallyExit = true;
-                    OpenInBrowser(url);
-                    Close();
+                    ShowError("پنجرهٔ برنامه باز نشد. دوباره تلاش کنید.");
                 }
+            });
+        }
+
+        /* ══ پایداری: پورت آزاد، نگهبان سرور و صفحهٔ خطای خودمان ════════
+           شکایت کاربر: «بعضی وقت‌ها موقع باز کردن، صفحهٔ خطای مرورگر می‌آید».
+           سه ریشه داشت و هر سه بسته شد:
+             ۱) اگر پورت ۸۰۸۰ را برنامهٔ دیگری گرفته بود، سرور بالا نمی‌آمد
+                ولی پنجره باز می‌شد ⇒ حالا پورت آزاد بعدی انتخاب می‌شود.
+             ۲) اگر بارگذاری صفحه شکست می‌خورد، موتور نمایش (WebView2)
+                صفحهٔ خطای انگلیسیِ خودش را نشان می‌داد ⇒ حالا رویداد
+                NavigationCompleted گرفته می‌شود و صفحهٔ فارسی می‌آید.
+             ۳) اگر سرور وسط کار می‌خوابید، پنجره «به سامانه نرسیدیم» می‌شد
+                ⇒ حالا نگهبان هر ۶ ثانیه چک و سرور را دوباره بالا می‌آورد.
+           هیچ‌جای این مسیرها مرورگر باز نمی‌شود. */
+
+        /// <summary>پورت آزاد برای سرور محلی (ترجیح: ۸۰۸۰، وگرنه ۸۰۹۰ به بعد).</summary>
+        private void PickLocalPort()
+        {
+            int stored = 0;
+            try { int.TryParse(ReadIni(_settingsFile, "port"), out stored); } catch { }
+            var order = new List<int>();
+            if (stored > 0) order.Add(stored);
+            foreach (int p in PORT_CANDIDATES) if (!order.Contains(p)) order.Add(p);
+            foreach (int p in order)
+            {
+                if (PortFree(p))
+                {
+                    _localPort = p;
+                    LocalUrl = "http://127.0.0.1:" + p;
+                    SaveIni(_settingsFile, "port", p.ToString());
+                    Log("local port = " + p);
+                    return;
+                }
+            }
+            /* همه اشغال بودند: همان ۸۰۸۰ را امتحان می‌کنیم تا پیام روشن بدهیم */
+            _localPort = 8080;
+            LocalUrl = "http://127.0.0.1:8080";
+            Log("no free local port found — sticking with 8080");
+        }
+
+        private static bool PortFree(int port)
+        {
+            TcpListener l = null;
+            try
+            {
+                l = new TcpListener(IPAddress.Loopback, port);
+                l.Start();
+                return true;
+            }
+            catch { return false; }
+            finally { try { if (l != null) l.Stop(); } catch { } }
+        }
+
+        /// <summary>نگهبان: هر ۶ ثانیه سرور محلی را چک می‌کند و اگر خوابیده باشد بیدارش می‌کند.</summary>
+        private void StartWatchdog()
+        {
+            if (!_serverMode) return;
+            OnUi(() =>
+            {
+                if (_watch == null)
+                {
+                    _watch = new System.Windows.Forms.Timer { Interval = 6000 };
+                    _watch.Tick += async (s, e) => { try { await WatchTick(); } catch { } };
+                }
+                _watch.Start();
+            });
+        }
+
+        private async Task WatchTick()
+        {
+            if (!_serverMode || _restarting != 0 || _connectToken == 0) return;
+            if (await Up(LocalUrl))
+            {
+                if (_error != null && _error.Visible && _currentUrl.Length > 0) RecoverTo(LocalUrl);
+                return;
+            }
+            if (Interlocked.CompareExchange(ref _restarting, 1, 0) != 0) return;
+            try
+            {
+                Log("watchdog: server is down — restarting");
+                SetStatus("سامانه پاسخ نمی‌دهد — راه‌اندازی دوباره…");
+                OnUi(() => { _splash.Visible = true; _splash.BringToFront(); _error.Visible = false; });
+                PickLocalPort();
+                StartServer();
+                for (int i = 0; i < 40; i++)
+                {
+                    if (await Up(LocalUrl)) break;
+                    await Task.Delay(500);
+                }
+                if (await Up(LocalUrl)) RecoverTo(LocalUrl);
+                else ShowError("سامانه دوباره بالا نیامد. یک بار برنامه را ببندید و باز کنید.");
+            }
+            catch (Exception ex) { Log("watchdog error: " + ex.Message); }
+            finally { Interlocked.Exchange(ref _restarting, 0); }
+        }
+
+        /// <summary>برگشتن بی‌صدا به برنامه بعد از قطعی موقت.</summary>
+        private void RecoverTo(string url)
+        {
+            _navFails = 0;
+            OnUi(() =>
+            {
+                try
+                {
+                    _splash.Visible = false;
+                    _error.Visible = false;
+                    if (_offlineBar != null) _offlineBar.Visible = false;
+                    if (_view == null) { ShowApp(url); return; }
+                    _view.Visible = true;
+                    _view.BringToFront();
+                    if (_view.CoreWebView2 != null) _view.CoreWebView2.Navigate(url);
+                    else _view.Source = new Uri(url);
+                }
+                catch { }
+            });
+        }
+
+        /// <summary>نتیجهٔ بارگذاری صفحه: موفق ⇒ پنهان‌کردن پیام‌ها، ناموفق ⇒ پیام فارسی خودمان.</summary>
+        private void OnNavigated(bool ok, string status)
+        {
+            if (ok)
+            {
+                _navFails = 0;
+                OnUi(() => { _splash.Visible = false; _error.Visible = false; });
+                return;
+            }
+            _navFails++;
+            Log("navigation failed (" + status + ") for " + _currentUrl + " — attempt " + _navFails);
+            /* صفحهٔ خطای موتور نمایش پنهان می‌شود؛ کاربر هیچ صفحهٔ انگلیسی نمی‌بیند */
+            OnUi(() =>
+            {
+                try
+                {
+                    if (_view != null)
+                    {
+                        _view.Visible = false;
+                        if (_view.CoreWebView2 != null) _view.CoreWebView2.Navigate("about:blank");
+                    }
+                }
+                catch { }
+            });
+            if (_navFails <= 3)
+            {
+                SetStatus("بارگذاری دوباره… (" + _navFails + ")");
+                Task.Delay(700).ContinueWith(_ =>
+                {
+                    if (_serverMode && _currentUrl.Length > 0)
+                    {
+                        Task.Run(async () =>
+                        {
+                            if (!await Up(LocalUrl)) { try { StartServer(); } catch { } }
+                            ShowApp(_currentUrl);
+                        });
+                    }
+                    else if (_currentUrl.Length > 0) ShowApp(_currentUrl);
+                });
+                return;
+            }
+            ShowLoadFail(status);
+        }
+
+        private void ShowLoadFail(string status)
+        {
+            ShowError("صفحهٔ برنامه باز نشد (" + status + "). «تلاش دوباره» را بزنید.");
+        }
+
+        /* ── موتور نمایش (WebView2) ──────────────────────────────────── */
+        private static bool RuntimeReady()
+        {
+            try
+            {
+                string v = CoreWebView2Environment.GetAvailableBrowserVersionString();
+                return !string.IsNullOrEmpty(v);
+            }
+            catch { return false; }
+        }
+
+        /// <summary>نصب بی‌صدا از فایل همراهِ بسته (بدون اینترنت هم کار می‌کند).</summary>
+        private bool TryInstallWebViewRuntime()
+        {
+            if (_runtimeTried) return RuntimeReady();
+            _runtimeTried = true;
+            string[] spots =
+            {
+                Path.Combine(_appDir, "runtime", "MicrosoftEdgeWebView2Setup.exe"),
+                Path.Combine(_appDir, "install", "windows", "MicrosoftEdgeWebView2Setup.exe"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MicrosoftEdgeWebView2Setup.exe"),
+            };
+            foreach (string exe in spots)
+            {
+                if (!File.Exists(exe)) continue;
+                try
+                {
+                    Log("installing WebView2 runtime from " + exe);
+                    SetStatus("نصب موتور نمایش…");
+                    var p = Process.Start(new ProcessStartInfo(exe, "/silent /install") { UseShellExecute = false });
+                    if (p != null) p.WaitForExit(240000);
+                }
+                catch (Exception ex) { Log("webview2 install failed: " + ex.Message); }
+                if (RuntimeReady()) return true;
+            }
+            return RuntimeReady();
+        }
+
+        /// <summary>موتور نمایش نصب نیست: پیام فارسی خودمان، بدون باز کردن مرورگر.</summary>
+        private void ShowEngineMissing()
+        {
+            OnUi(() =>
+            {
+                _splash.Visible = false;
+                _error.Visible = true;
+                _error.BringToFront();
+                FillDiag();
+                _errorLabel.Text =
+                    "موتور نمایش برنامه روی این ویندوز نصب نیست." + Environment.NewLine +
+                    "این برنامه هیچ مرورگری باز نمی‌کند؛ فقط باید یک جزء رسمی مایکروسافت " +
+                    "(WebView2) یک بار نصب شود. نصب‌کنندهٔ پایش خودش این کار را می‌کند؛ " +
+                    "اگر انجام نشد، برنامه را دوباره نصب کنید یا دکمهٔ «نصب موتور نمایش» را بزنید.";
             });
         }
 
@@ -697,9 +932,8 @@ namespace Payesh
                     {
                         try { _view.Dispose(); } catch { }
                         _view = null;
-                        _reallyExit = true;
-                        OpenInBrowser(_currentUrl);
-                        Close();
+                        Log("webview2 init failed: " + (e.InitializationException == null ? "?" : e.InitializationException.Message));
+                        ShowEngineMissing();
                         return;
                     }
                     try
@@ -708,10 +942,20 @@ namespace Payesh
                         st.AreDefaultContextMenusEnabled = false;
                         st.IsStatusBarEnabled = false;
                         st.AreDevToolsEnabled = false;
+                        st.AreBrowserAcceleratorKeysEnabled = false;
                         _view.CoreWebView2.NewWindowRequested += (s2, e2) =>
                         {
                             e2.Handled = true;
                             try { Process.Start(e2.Uri); } catch { }
+                        };
+                        /* هیچ‌وقت صفحهٔ خطای «Hmmm… can't reach this page» دیده نشود:
+                           اگر بارگذاری موفق نبود، خودمان صفحهٔ فارسی می‌دهیم و
+                           چند بار بی‌صدا دوباره تلاش می‌کنیم. */
+                        _view.CoreWebView2.NavigationCompleted += (s2, e2) => OnNavigated(e2.IsSuccess, e2.WebErrorStatus.ToString());
+                        _view.CoreWebView2.ProcessFailed += (s2, e2) =>
+                        {
+                            Log("renderer process failed: " + e2.ProcessFailedKind);
+                            try { _view.CoreWebView2.Reload(); } catch { }
                         };
                     }
                     catch { }
@@ -724,31 +968,6 @@ namespace Payesh
                 _view = null;
                 return false;
             }
-        }
-
-        /// <summary>اگر WebView2 نبود: حالت «برنامه»ی Edge (بدون نوار آدرس) و در نهایت مرورگر.</summary>
-        private void OpenInBrowser(string url)
-        {
-            try
-            {
-                string[] edges =
-                {
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft", "Edge", "Application", "msedge.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft", "Edge", "Application", "msedge.exe"),
-                };
-                foreach (string edge in edges)
-                {
-                    if (!File.Exists(edge)) continue;
-                    string profile = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Payesh", "browser");
-                    Process.Start(new ProcessStartInfo(edge,
-                        "--app=" + url + " --window-size=1240,880 --user-data-dir=\"" + profile + "\" --no-first-run --no-default-browser-check")
-                    { UseShellExecute = false });
-                    return;
-                }
-                Process.Start(url);
-            }
-            catch { }
         }
 
         /* ── سرور ───────────────────────────────────────────────────── */
@@ -782,6 +1001,8 @@ namespace Payesh
                     RedirectStandardError = true,
                 };
                 psi.EnvironmentVariables["PAYESH_TUNNEL_AUTO"] = "1";
+                /* پورت انتخابی به سرور داده می‌شود (اگر ۸۰۸۰ اشغال باشد) */
+                psi.EnvironmentVariables["PORT"] = _localPort.ToString();
                 /* داده بیرون از پوشهٔ نصب می‌ماند تا با آپدیت یا نصب دوباره از بین نرود */
                 psi.EnvironmentVariables["PAYESH_DATA"] = _dataDir;
 
@@ -886,8 +1107,12 @@ namespace Payesh
                 tasks.Add(Task.Run(async () =>
                 {
                     if (Volatile.Read(ref found[0]) != null || token != _connectToken) return;
-                    string candidate = "http://" + prefix + host + ":8080";
-                    if (await Up(candidate)) lock (gate) { if (found[0] == null) found[0] = candidate; }
+                    foreach (int port in PORT_CANDIDATES)
+                    {
+                        if (Volatile.Read(ref found[0]) != null || token != _connectToken) return;
+                        string candidate = "http://" + prefix + host + ":" + port;
+                        if (await Up(candidate)) { lock (gate) { if (found[0] == null) found[0] = candidate; } return; }
+                    }
                 }));
                 if (tasks.Count >= 400) { await Task.WhenAll(tasks); tasks.Clear(); }
             }
