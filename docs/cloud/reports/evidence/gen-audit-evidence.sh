@@ -110,6 +110,12 @@ elif [ "$LOGFP" != "$HEADFP" ]; then
   fail "product code differs from the tested tree: log=$LOGFP head=$HEADFP — rerun run-tests-evidence.sh"
 fi
 
+# ---------- ۳.۵) درخت کاری کد محصول باید پاک باشد (C-03) ----------
+DIRTY_PROD=$(git status --porcelain -- server client tests installer scripts desktop deploy install .github package.json package-lock.json | wc -l | tr -d ' ')
+if [ "${DIRTY_PROD:-0}" != "0" ]; then
+  fail "working tree has $DIRTY_PROD uncommitted change(s) in product/CI paths — evidence cannot be attributed to HEAD"
+fi
+
 # ---------- ۴) شمارش واقعی احکام در اسناد ----------
 P=$(grep -rho '| \*\*PASS\*\*' $FA $FB 2>/dev/null | wc -l)
 F=$(grep -rho '| \*\*FAIL'      $FA $FB 2>/dev/null | wc -l)
