@@ -1,0 +1,66 @@
+# بازبینی یکپارچگی PR #73
+# تولید: bash docs/cloud/reports/evidence/review-pr73-integrity.sh
+# زمان: 2026-11-06T17:08:31Z
+# HEAD: 13c44d4a95bdc3d8ee9a813289d9db4d909a1274
+# base: f2fc472c643a52d393b3160405e1581bda64da25
+
+## شمارش تغییرات نسبت به پایهٔ ممیزی
+added=43 modified=1 deleted=0 total=44
+
+## فهرست کامل فایل‌های تغییرکرده
+A	AGENTS.md
+M	README.md
+A	docs/00-PAYESH-CLOUD-CONSTITUTION.md
+A	docs/cloud/01-scope-and-roles-matrix.md
+A	docs/cloud/01b-school-plan-subscription.md
+A	docs/cloud/02-scenarios.md
+A	docs/cloud/03-local-data-and-manager-backup.md
+A	docs/cloud/04-capacity-and-availability.md
+A	docs/cloud/04b-plan-caps-usage-model.md
+A	docs/cloud/05-audit-sha-freeze.md
+A	docs/cloud/06-audit-auth-session.md
+A	docs/cloud/07-audit-roles-tenant.md
+A	docs/cloud/08-audit-source-of-truth.md
+A	docs/cloud/09-audit-cache-queue-sync.md
+A	docs/cloud/10-audit-crypto-backup-restore.md
+A	docs/cloud/11-gap-report.md
+A	docs/cloud/12-multitenant-architecture.md
+A	docs/cloud/12b-owner-panel-boundaries.md
+A	docs/cloud/13-secure-cache-offline-queue.md
+A	docs/cloud/14-conflict-convergence.md
+A	docs/cloud/15-backup-recovery.md
+A	docs/cloud/16-ha-observability-cost.md
+A	docs/cloud/16b-tenant-provisioning-migration.md
+A	docs/cloud/reports/PACKAGE-2-3-REPORT.md
+A	docs/cloud/reports/evidence/gen-audit-evidence.sh
+A	docs/cloud/reports/evidence/gen-mission-02-evidence.sh
+A	docs/cloud/reports/evidence/gen-mission-05-inventory.sh
+A	docs/cloud/reports/evidence/gen-mission-12-16b.sh
+A	docs/cloud/reports/evidence/gen-phase0-evidence.sh
+A	docs/cloud/reports/evidence/mission-01b-structure.txt
+A	docs/cloud/reports/evidence/mission-02-structure.txt
+A	docs/cloud/reports/evidence/mission-03-structure.txt
+A	docs/cloud/reports/evidence/mission-04-structure.txt
+A	docs/cloud/reports/evidence/mission-04b-structure.txt
+A	docs/cloud/reports/evidence/mission-05-11-structure.txt
+A	docs/cloud/reports/evidence/mission-05-inventory.txt
+A	docs/cloud/reports/evidence/mission-06-10-probes.txt
+A	docs/cloud/reports/evidence/mission-12-16b-structure.txt
+A	docs/cloud/reports/evidence/phase1-probe.txt
+A	docs/cloud/reports/evidence/phase1-probe2.txt
+A	docs/cloud/reports/evidence/phase1-probe3.txt
+A	docs/cloud/reports/evidence/probe-06-10.mjs
+A	docs/cloud/reports/mission-01-acceptance.md
+A	docs/cloud/reports/phase0-comprehension.md
+
+## تغییر کد محصول (server client tests installer scripts desktop)
+files=0
+
+## SHAهای بررسی‌شده
+checked=13 invalid_as_commit=none
+
+## مسیرهای ارجاع‌شده در اسناد
+checked=32 missing=none
+
+## حکم
+INTEGRITY-OK

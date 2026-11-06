@@ -5,6 +5,7 @@
 | تاریخ | ۱۴۰۴/۰۸/۱۵ · 2026‑11‑06 |
 | شاخه | `arena/f1efa594-payesh-local` |
 | SHA ثابت ممیزی | **`04e0636`** (= محتوای کد HEAD؛ تغییر کد محصول نسبت به `f2fc472`: **۰ فایل**) |
+| یادداشت | این گزارش وضعیت **پیش از مأموریت A (اصلاح PR #73)** است؛ گزارش جاری: `MISSION-A-PR73-REMEDIATION.md` |
 | SHA بستهٔ طراحی و مستندات | `f58dc10` (طراحی و مستندات فاز ۲) |
 | دروازهٔ فاز ۳ | **بسته** |
 | Pull Request | https://github.com/rezaa2544/payesh.local/pull/73 |
@@ -22,13 +23,13 @@
 | ۰۹ کش/صف/همگام‌سازی | **Done** (۱۴) | `09-audit-cache-queue-sync.md` | `server/outbox.js`، `server/sync.js`، `client/app.js` |
 | ۱۰ رمزنگاری/بکاپ/بازیابی | **Done** (۱۷) | `10-audit-crypto-backup-restore.md` | `server/mirror.js`، `server/index.js:1023–1090` |
 | ۱۱ گزارش شکاف | **Review** | `11-gap-report.md` | `mission-05-11-structure.txt` |
-| ۱۲ معماری چندمستأجری | **Review ۷/۷** | `12-multitenant-architecture.md` | `mission-12-16b-structure.txt` |
+| ۱۲ معماری چندمستأجری | **Review ۸/۸** (A‑02) | `12-multitenant-architecture.md` | `mission-12-16b-structure.txt` |
 | ۱۲‑ب پنل مالک/مرز پشتیبان | **Review ۷/۷** | `12b-owner-panel-boundaries.md` | همان |
-| ۱۳ کش امن و صف آفلاین | **Review ۷/۷** | `13-secure-cache-offline-queue.md` | همان |
+| ۱۳ کش امن و صف آفلاین | **Review ۹/۹** (A‑04) | `13-secure-cache-offline-queue.md` | همان |
 | ۱۴ تعارض و هم‌گرایی | **Review ۷/۷** | `14-conflict-convergence.md` | همان |
 | ۱۵ بکاپ و بازیابی مرکز داده | **Review ۷/۷** | `15-backup-recovery.md` | همان |
 | ۱۶ HA/رصدپذیری/هزینه | **Review ۷/۷** | `16-ha-observability-cost.md` | همان |
-| ۱۶‑ب راه‌اندازی/مهاجرت مستأجر | **Review ۷/۷** | `16b-tenant-provisioning-migration.md` | همان |
+| ۱۶‑ب راه‌اندازی/مهاجرت مستأجر | **Review ۸/۸** (A‑03) | `16b-tenant-provisioning-migration.md` | همان |
 
 **هیچ خطی از کد محصول تغییر نکرد.** بازپخش:
 ```bash
@@ -87,7 +88,7 @@ git diff --name-only f2fc472 -- server client tests scripts package.json | wc -l
 
 | # | تصمیم | گزینه‌ها | اثر |
 |---|---|---|---|
-| **O‑10** | مخزن دیتاسنتر: رشد همین مخزن یا مخزن تازه با همان قرارداد؟ | A: همین مخزن · B: مخزن تازه + قرارداد مشترک (پیشنهاد) | ساختار، CI، مالکیت کد |
+| ~~**O‑10**~~ | **پاسخ داده شد: گزینهٔ A — همین مخزن (D‑29، ۱۴۰۴/۰۸/۱۵)** | — | مرز کد در ۱۲ §۵.۱ |
 | **O‑09** | پشتهٔ کلاینت مقصد | همان وب فعلی · Tauri/Capacitor · بومی | کل ۱۳، ۱۷ |
 | **O‑07** | محیط آزمون (میزبان/دیتاسنتر) | Arvan · میزبان داخلی دیگر · اروپا | ۱۶، هزینه، RTO |
 | **O‑14** | سقف پلن و سهمیهٔ هر مدرسه | اعداد ۰۴‑ب | اشتراک، فروش |
