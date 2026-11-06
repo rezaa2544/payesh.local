@@ -1576,6 +1576,45 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  /* — فرم کاربر: همان فیلدهای اکسل در ساخت و ویرایش دستی ──────────── */
+  await test('فرم «کاربر جدید» و «ویرایش کاربر» فیلدهای تکمیلیِ اکسل را دارند', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, actUserAdd, actUserEdit, USER_EXTRA_FORM };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.route = 'users'; T.S.session = 'x';
+    T.S.data = {
+      users: new Map([[5, {
+        id: 5, name: 'علی رضایی', role: 'student', phone: '09121234567', national_id: '1000000011',
+        birth_date: '2011-08-03', gender: 'پسر', father_name: 'حسین رضایی', father_nid: '1000000028',
+        father_phone: '09121110000', mother_name: 'زهرا رضایی', address: 'خیابان اول',
+        residence: 'تهران', last_gpa: 18.5, covered: 'بله', talent: 'شعر', landline: '02133445566',
+      }]]),
+      classes: new Map(), subjects: new Map(), lookups: new Map(), parent_links: new Map(),
+    };
+    T.S.queue = [];
+    assert.strictEqual(T.USER_EXTRA_FORM.length >= 12, true, 'فهرست فیلدهای تکمیلی هست');
+
+    T.actUserAdd();
+    let html = win.document.getElementById('modal-root').innerHTML;
+    assert.ok(html.includes('name="birth_date"'), 'تاریخ تولد در فرم ساخت هست');
+    assert.ok(html.includes('name="father_nid"'), 'کد ملی پدر در فرم ساخت هست');
+    assert.ok(html.includes('name="mother_phone"'), 'همراه مادر در فرم ساخت هست');
+    assert.ok(html.includes('name="address"'), 'نشانی در فرم ساخت هست');
+
+    T.actUserEdit(5);
+    html = win.document.getElementById('modal-root').innerHTML;
+    assert.ok(html.includes('name="father_name"') && html.includes('حسین رضایی'), 'مقدار نام پدر پر شده است');
+    assert.ok(html.includes('value="تهران"'), 'محل سکونت پر شده است');
+    assert.ok(html.includes('name="gender"') && html.includes('name="birth_date"'), 'جنسیت و تاریخ تولد در ویرایش هست');
+    dom.window.close();
+  });
+
   /* — پروندهٔ دانش‌آموز: فیلدهای آمده از اکسل دیده می‌شوند ───────── */
   await test('پروندهٔ دانش‌آموز همهٔ مشخصات واردشده را نشان می‌دهد', async () => {
     const { JSDOM } = require('jsdom');

@@ -1474,6 +1474,7 @@ function actUserEdit(id) {
           <option value="دختر" ${u.gender === 'دختر' ? 'selected' : ''}>دختر</option>
         </select></label>
     </div>
+    ${userExtraFieldsHtml(u)}
     <label class="field"><span>رمز عبور تازه (خالی بگذارید تا عوض نشود)</span>
       <input class="input ltr" name="password" placeholder="رمز تازه"></label>
     <div class="row" style="margin-top:6px">
@@ -1571,6 +1572,27 @@ function actSubjectEdit(id) {
   modal(subjectFormHtml(sb));
 }
 
+/* فیلدهای تکمیلیِ فرم کاربر — همان کلیدهایی که از اکسل هم می‌آیند،
+   تا کاربر دستی هم بتواند همه‌چیز را ثبت کند. */
+const USER_EXTRA_FORM = [
+  ['father_name', 'نام پدر', ''], ['father_nid', 'کد ملی پدر', 'num'],
+  ['father_phone', 'همراه پدر', 'num'], ['mother_name', 'نام مادر', ''],
+  ['mother_nid', 'کد ملی مادر', 'num'], ['mother_phone', 'همراه مادر', 'num'],
+  ['landline', 'تلفن ثابت', 'num'], ['residence', 'محل سکونت', ''],
+  ['address', 'نشانی', ''], ['last_gpa', 'معدل سال گذشته', 'num'],
+  ['covered', 'حمایتی (بله/خیر)', ''], ['talent', 'استعداد', ''],
+];
+function userExtraFieldsHtml(u) {
+  const src = u || {};
+  return `<div class="row" style="flex-wrap:wrap">
+    ${USER_EXTRA_FORM.map(([k, label, mode]) => `<label class="field grow" style="min-width:150px">
+      <span>${esc(label)}</span>
+      <input class="input${mode === 'num' ? ' ltr' : ''}" name="${k}"
+        ${mode === 'num' ? 'inputmode="numeric"' : ''}
+        value="${esc(src[k] == null ? '' : src[k])}"></label>`).join('')}
+  </div>`;
+}
+
 function actUserAdd() {
   S.modalTitle = 'کاربر جدید';
   const roles = [['student', 'دانش‌آموز'], ['teacher', 'دبیر'], ['parent', 'ولی'], ['vice', 'معاون'],
@@ -1601,6 +1623,7 @@ function actUserAdd() {
           <option value="دختر">دختر</option>
         </select></label>
     </div>
+    ${userExtraFieldsHtml(null)}
     <label class="field"><span>رمز عبور (اختیاری — پیش‌فرض: کد ملی)</span>
       <input class="input ltr" name="password" placeholder="اگر خالی بماند، کد ملی می‌شود"></label>
     <div class="small muted" style="margin-top:6px">نام کاربری هر کاربر همان <b>شمارهٔ همراه</b> است و رمزش <b>کد ملی</b>؛ هر دو بعداً از «ویرایش» قابل تغییرند.</div>

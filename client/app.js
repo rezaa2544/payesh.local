@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.15';
+const CLIENT_VERSION = '0.8.16';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -2192,6 +2192,11 @@ document.addEventListener('submit', async (e) => {
     };
     if (!row.birth_date) delete row.birth_date;
     if (!row.gender) delete row.gender;
+    USER_EXTRA_FORM.forEach(([k]) => {
+      if (!f[k]) return;
+      const v = String(f[k].value || '').trim();
+      if (v) row[k] = v;
+    });
     const created = putLocal('users', row);
     /* ولی: حساب ولی ساخته و به دانش‌آموز وصل می‌شود */
     const pName = String((f.parent_name && f.parent_name.value) || '').trim();
@@ -2268,6 +2273,12 @@ document.addEventListener('submit', async (e) => {
     const patch = { name: String(f.name.value || '').trim() || u.name, phone, active: f.active.checked };
     if (f.birth_date) patch.birth_date = impAnyDate(f.birth_date.value || '');
     if (f.gender) patch.gender = String(f.gender.value || '').trim();
+    /* فیلدهای تکمیلیِ فرم (پدر و مادر، نشانی، معدل، حمایتی، …) */
+    USER_EXTRA_FORM.forEach(([k]) => {
+      if (!f[k]) return;
+      const v = String(f[k].value || '').trim();
+      if (v) patch[k] = v; else if (u[k]) patch[k] = '';
+    });
     let savedOnServer = false, passwordOnServer = false;
     if (!PHONE_MODE) {
       /* اگر کارمند تازه و آفلاین ساخته شده، شناسه‌اش محلی است؛ اول با
