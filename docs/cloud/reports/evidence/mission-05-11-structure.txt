@@ -35,4 +35,4 @@ EXIT: 0
 --- docs/cloud/10-audit-crypto-backup-restore.md
   خطوط: 70
 --- docs/cloud/11-gap-report.md
-  خطوط: 104
+  خطوط: 113
