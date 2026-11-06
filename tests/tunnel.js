@@ -122,7 +122,7 @@ function startServer(port, env) {
   await waitFor(async () => (await req('/api/health')).data?.ok);
   const setup = await req('/api/setup', {
     method: 'POST',
-    body: { school_name: 'دبیرستان تونل', manager_name: 'مدیر', pin: '1234', phone: '09120000009' },
+    body: { school_name: 'دبیرستان تونل', manager_name: 'مدیر', password: 'Manager-99', phone: '09120000009' },
   });
   const managerToken = setup.data.session.token;
 
@@ -130,7 +130,7 @@ function startServer(port, env) {
     { uid: 'u1', collection: 'users', type: 'put', data: { name: 'دبیر', role: 'teacher', national_id: '1000000001' } },
   ] } });
   const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } });
-  const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '4321' } });
+  const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code } });
   const teacherToken = paired.data.session.token;
 
   /* ── ۱ ── */
@@ -211,7 +211,7 @@ function startServer(port, env) {
       await waitFor(async () => (await (await fetch(B2 + '/api/health')).json()).ok);
       const s = await (await fetch(B2 + '/api/setup', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ school_name: 'دبیرستان آزمون', manager_name: 'مدیر آزمون', pin: '1234', phone: '09120000008' }),
+        body: JSON.stringify({ school_name: 'دبیرستان آزمون', manager_name: 'مدیر آزمون', password: 'Manager-99', phone: '09120000008' }),
       })).json();
       assert.ok(s && s.session, 'راه‌اندازی انجام شود: ' + JSON.stringify(s).slice(0, 200));
       const r = await (await fetch(B2 + '/api/admin/tunnel', { headers: { authorization: 'Bearer ' + s.session.token } })).json();

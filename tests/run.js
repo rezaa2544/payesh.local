@@ -131,11 +131,11 @@ async function waitFor(fn, ms = 15000) {
 
     const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: teacherId } });
     assert.ok(pc.data.code);
-    const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '4321' } });
+    const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code } });
     assert.strictEqual(paired.data.ok, true);
     assert.ok(paired.data.session.token);
 
-    const dup = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '4321' } });
+    const dup = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code } });
     assert.strictEqual(dup.data.ok, false);
     assert.strictEqual(dup.data.error, 'code_used');
   });
@@ -229,7 +229,7 @@ async function waitFor(fn, ms = 15000) {
     /* دبیر نباید بتواند تعریف را تغییر دهد */
     const teacher = (await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } })).data;
     if (teacher && teacher.code) {
-      const pair = await req('/api/auth/pair', { method: 'POST', body: { code: teacher.code, pin: '1' } });
+      const pair = await req('/api/auth/pair', { method: 'POST', body: { code: teacher.code } });
       if (pair.data && pair.data.session) {
         const denied = await req('/api/sync', { method: 'POST', token: pair.data.session.token, body: { ops: [
           { uid: 'lk4', collection: 'lookups', type: 'put', data: { kind: 'grade', name: 'دستکاری' } },
@@ -1244,19 +1244,19 @@ async function waitFor(fn, ms = 15000) {
     await req('/api/auth/claim', { method: 'POST', body: { phone: '09120000001', password: 'madrese1404' } });
   });
 
-  await test('قفل موقت پس از ۸ PIN اشتباه', async () => {
+  await test('قفل موقت پس از ۸ رمز اشتباه', async () => {
     const pc = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 1 } });
-    const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code, pin: '5555' } });
+    const paired = await req('/api/auth/pair', { method: 'POST', body: { code: pc.data.code } });
     const dev = paired.data.device_token;
     let last = null;
-    for (let i = 0; i < 8; i++) last = await req('/api/auth/unlock', { method: 'POST', body: { device_token: dev, pin: '0000' } });
+    for (let i = 0; i < 8; i++) last = await req('/api/auth/unlock', { method: 'POST', body: { device_token: dev, password: 'wrong-' + i } });
     assert.strictEqual(last.status, 401);
-    const locked = await req('/api/auth/unlock', { method: 'POST', body: { device_token: dev, pin: '0000' } });
+    const locked = await req('/api/auth/unlock', { method: 'POST', body: { device_token: dev, password: 'wrong-9' } });
     assert.strictEqual(locked.status, 429);
     assert.strictEqual(locked.data.error, 'locked');
     assert.ok(locked.data.until);
-    /* حتی با PIN درست هم تا پایان قفل باز نمی‌شود */
-    const correct = await req('/api/auth/unlock', { method: 'POST', body: { device_token: dev, pin: '5555' } });
+    /* حتی با رمز درست هم تا پایان قفل باز نمی‌شود */
+    const correct = await req('/api/auth/unlock', { method: 'POST', body: { device_token: dev, password: 'madrese1404' } });
     assert.strictEqual(correct.status, 429);
   });
 
@@ -1319,7 +1319,7 @@ async function waitFor(fn, ms = 15000) {
       assert.strictEqual(setC.data.ok, true, 'حافظهٔ ابری تنظیم شد');
 
       const t = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } });
-      const teacher = await req('/api/auth/pair', { method: 'POST', body: { code: t.data.code, pin: '2222' } });
+      const teacher = await req('/api/auth/pair', { method: 'POST', body: { code: t.data.code } });
       const teacherToken = teacher.data.session.token;
       const teacherId = 2;
 
