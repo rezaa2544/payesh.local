@@ -258,6 +258,8 @@
 
   /* ── ورود: همان «شماره + رمز» که مدیر تعریف کرده ─────────────────── */
   async function login(phone, password) {
+    /* نام کاربری = شمارهٔ همراه (۱۱ رقم)؛ کسی که شماره ندارد (مثلاً بعضی
+       والدین) با کد ملی ۱۰ رقمی وارد می‌شود. */
     const p = normPhone(phone);
     if (p.length < 10) return { ok: false, error: 'bad_phone' };
     if (String(password || '').length < 4) return { ok: false, error: 'bad_password' };

@@ -351,12 +351,29 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(stu.address, 'خیابان اول');
     assert.ok(stu.class_id, 'به کلاس وصل شد');
 
-    /* ولی می‌تواند با شماره و کد ملی خودش وارد شود و فرزندش را ببیند */
+    /* هر سه نفر (دانش‌آموز، پدر، مادر) نام کاربری و رمز دارند و وارد می‌شوند */
     const login = await req('/api/auth/login', { method: 'POST', body: { phone: '09123335577', password: '1000000060' } });
     assert.strictEqual(login.data.ok, true, 'پدر با شماره و کد ملی وارد می‌شود');
     const pull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: login.data.session.token });
-    const links = (pull.data.parent_links || pull.data.rows && pull.data.rows.parent_links) || [];
-    assert.ok(Array.isArray(links) === false || links.length >= 0, 'پیوند ولی برگشت داده شد');
+    const cols = pull.data.collections || {};
+    assert.strictEqual((cols.parent_links || []).length, 1, 'پیوند فرزند برای پدر ثبت شد');
+    assert.ok((cols.users || []).some(u => u.role === 'student' && u.national_id === '1000000052'),
+      'پدر فرزندش را در فهرست می‌بیند');
+
+    /* مادر شمارهٔ همراه ندارد: نام کاربری‌اش کد ملی است و باید وارد شود */
+    const mLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '1000000079', password: '1000000079' } });
+    assert.strictEqual(mLogin.data.ok, true, 'مادرِ بی‌شماره با کد ملی وارد می‌شود');
+    assert.strictEqual(mLogin.data.user.role, 'parent');
+    const mPull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: mLogin.data.session.token });
+    assert.strictEqual(((mPull.data.collections || {}).parent_links || []).length, 1, 'مادر هم فرزندش را می‌بیند');
+    const mCreds = await req('/api/admin/users/credentials', { token: managerToken });
+    const mom = mCreds.data.users.find(u => u.name === 'مریم احمدی');
+    assert.ok(mom, 'حساب مادر در فهرست کاربران هست');
+    assert.strictEqual(mom.password, '1000000079', 'رمز مادر همان کد ملی است');
+
+    /* ورود با رمز اشتباه رد می‌شود */
+    const bad = await req('/api/auth/login', { method: 'POST', body: { phone: '1000000079', password: '0000000000' } });
+    assert.strictEqual(bad.data.error, 'bad_credentials', 'رمز اشتباه پذیرفته نمی‌شود');
 
     /* درس لازم برای ثبت نمره (در سامانه تعریف می‌شود) */
     await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
@@ -387,6 +404,85 @@ async function waitFor(fn, ms = 15000) {
     const creds = await req('/api/admin/users/credentials', { token: managerToken });
     const ids = creds.data.users.filter(u => ['09123335566', '09123335577'].includes(u.phone)).map(u => u.id);
     await req('/api/admin/users/bulk-delete', { method: 'POST', token: managerToken, body: { ids } });
+  });
+
+  /* ── نام کاربری گوشی: شمارهٔ همراه، و اگر نبود کد ملی ─────────────── */
+  await test('نام کاربری روی گوشی: شمارهٔ همراه، و برای بی‌شماره‌ها کد ملی', () => {
+    const auth = require(path.join(ROOT, 'server/auth.js'));
+    const outbox = require(path.join(ROOT, 'server/outbox.js'));
+    assert.strictEqual(auth.credentialsFor({ phone: '09121112233', national_id: '1000000125' }).phone,
+      '09121112233', 'با شماره: نام کاربری = شماره');
+    assert.strictEqual(auth.credentialsFor({ phone: '09121112233', national_id: '1000000125' }).password,
+      '1000000125', 'رمز = کد ملی');
+    const onlyNid = auth.credentialsFor({ phone: '', national_id: '1000000133' });
+    assert.strictEqual(onlyNid.phone, '1000000133', 'بی‌شماره: نام کاربری = کد ملی');
+    assert.strictEqual(onlyNid.password, '1000000133', 'رمز هم کد ملی');
+    assert.strictEqual(auth.credentialsFor({ phone: '', national_id: '' }), null, 'بی‌شماره و بی‌کدملی: بی‌رمز می‌ماند و گزارش می‌شود');
+    /* همان کلیدی که فایل ورودِ گوشی با آن منتشر می‌شود */
+    assert.strictEqual(outbox.loginKey({ phone: '09121112233', national_id: '1000000125' }), '09121112233');
+    assert.strictEqual(outbox.loginKey({ phone: '', national_id: '1000000133' }), '1000000133');
+    assert.strictEqual(outbox.loginKey({ phone: '۰۹۱۲۱۱۱۲۲۳۳', national_id: '' }), '09121112233', 'ارقام فارسی هم خوانده می‌شود');
+  });
+
+  /* ── پدر و مادر: هر دو حساب بسازند و بتوانند وارد شوند ───────────── */
+  await test('ورود دسته‌ای: برای پدر و مادر هر دو حساب و رمز ساخته می‌شود (با شماره یا با کد ملی)', async () => {
+    const rows = [
+      /* شماره برای پدر و مادر یکی نوشته شده؛ دانش‌آموز خودش شماره ندارد */
+      { name: 'حسین نوری', national_id: '1000000117', new_class: 'دهم الف',
+        father_name: 'اکبر نوری', father_nid: '1000000125', father_phone: '09121112233',
+        mother_name: 'فاطمه نوری', mother_nid: '1000000133', mother_phone: '09121112233' },
+      /* هیچ‌کدام شماره ندارند — باید با کد ملی وارد شوند */
+      { name: 'مینا صادقی', national_id: '1000000141', new_class: 'دهم الف',
+        father_name: 'جواد صادقی', father_nid: '1000000151',
+        mother_name: 'سحر صادقی', mother_nid: '1000000168' },
+      /* پدرِ بدون شماره و بدون کد ملی — بی‌راه‌ورود می‌ماند و گزارش می‌شود */
+      { name: 'رضا کریمی', national_id: '1000000176', new_class: 'دهم الف',
+        father_name: 'کریم بی‌مشخصات' },
+    ];
+    const imp = await req('/api/admin/import', { method: 'POST', token: managerToken, body: { kind: 'students', rows } });
+    assert.strictEqual(imp.data.created, 3, 'سه دانش‌آموز ساخته شد');
+    assert.ok(imp.data.parents >= 5, 'پدر و مادرها ساخته شدند (' + imp.data.parents + ')');
+    assert.strictEqual(imp.data.errors.length, 0, 'خطایی ثبت نشد');
+    assert.ok((imp.data.warnings || []).some(w => w.error === 'parent_without_login'),
+      'ولیِ بی‌شماره و بی‌کدملی گزارش شد');
+
+    const loginAs = (id, pw) => req('/api/auth/login', { method: 'POST', body: { phone: id, password: pw } });
+
+    /* دانش‌آموز بی‌شماره با کد ملی */
+    assert.strictEqual((await loginAs('1000000117', '1000000117')).data.ok, true, 'دانش‌آموز بی‌شماره با کد ملی وارد می‌شود');
+    /* پدر با شماره */
+    const dad = await loginAs('09121112233', '1000000125');
+    assert.strictEqual(dad.data.ok, true, 'پدر با شمارهٔ همراه وارد می‌شود');
+    /* مادر با همان شمارهٔ مشترک: نام کاربری‌اش کد ملی است، نه حساب پدر */
+    const mom = await loginAs('1000000133', '1000000133');
+    assert.strictEqual(mom.data.ok, true, 'مادر با کد ملی وارد می‌شود');
+    assert.notStrictEqual(mom.data.user.id, dad.data.user.id, 'حساب مادر جداست');
+    /* پدر و مادرِ بی‌شماره */
+    assert.strictEqual((await loginAs('1000000151', '1000000151')).data.ok, true, 'پدر بی‌شماره با کد ملی');
+    assert.strictEqual((await loginAs('1000000168', '1000000168')).data.ok, true, 'مادر بی‌شماره با کد ملی');
+
+    /* هر ولی فرزندش را می‌بیند */
+    const mp = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: mom.data.session.token });
+    assert.strictEqual(((mp.data.collections || {}).parent_links || []).length, 1, 'پیوند فرزند برای مادر ثبت شد');
+
+    /* همهٔ این حساب‌ها در فهرست رمزها با نام کاربری درست هستند */
+    const creds = await req('/api/admin/users/credentials', { token: managerToken });
+    const byName = n => creds.data.users.find(u => u.name === n);
+    assert.strictEqual(byName('فاطمه نوری').password, '1000000133', 'رمز مادر = کد ملی');
+    assert.strictEqual(byName('جواد صادقی').password, '1000000151', 'رمز پدر بی‌شماره = کد ملی');
+
+    /* ثبت دوباره نباید ولی تکراری بسازد */
+    const again = await req('/api/admin/import', { method: 'POST', token: managerToken, body: { kind: 'students', rows } });
+    assert.strictEqual(again.data.updated, 3, 'سطرهای تکراری به‌روزرسانی شدند');
+    assert.strictEqual(again.data.parents, 0, 'ولی تکراری ساخته نشد');
+    const creds2 = await req('/api/admin/users/credentials', { token: managerToken });
+    const count = n => creds2.data.users.filter(u => u.name === n).length;
+    assert.strictEqual(count('اکبر نوری'), 1, 'پدر یک‌بار ثبت شده است');
+    assert.strictEqual(count('فاطمه نوری'), 1, 'مادر یک‌بار ثبت شده است');
+
+    /* پاک‌سازی */
+    const mine = creds2.data.users.filter(u => ['حسین نوری', 'مینا صادقی', 'رضا کریمی', 'اکبر نوری', 'فاطمه نوری', 'جواد صادقی', 'سحر صادقی', 'کریم بی‌مشخصات'].includes(u.name)).map(u => u.id);
+    await req('/api/admin/users/bulk-delete', { method: 'POST', token: managerToken, body: { ids: mine } });
   });
 
   /* ── ولیِ بدون کد ملی: باید وارد شود (باگ «نام کاربری یا رمز اشتباهه») ── */
@@ -1650,6 +1746,60 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  /* — گوشی/آفلاین: پدر و مادر هر دو با نام کاربری درست ساخته می‌شوند ── */
+  await test('ورود دسته‌ای (روی دستگاه): پدر و مادر هر دو ساخته می‌شوند و شمارهٔ دانش‌آموز به آن‌ها داده نمی‌شود', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, impCheck, importApplyLocal, list };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
+    T.S.data = {
+      users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager' }]]),
+      classes: new Map(), subjects: new Map(), lookups: new Map(), parent_links: new Map(),
+      grades: new Map(), attendance: new Map(),
+    };
+    T.S.queue = []; T.S.online = false;
+
+    T.S.imp = {
+      step: 2, kind: 'students', headerRow: 1,
+      headers: ['نام', 'کد ملی', 'کلاس', 'نام پدر', 'موبایل پدر', 'کد ملی پدر', 'نام مادر', 'موبایل مادر', 'کد ملی مادر'],
+      map: ['full_name', 'national_id', 'class_name', 'father_name', 'father_phone', 'father_nid', 'mother_name', 'mother_phone', 'mother_nid'],
+      rows: [
+        /* دانش‌آموز بی‌شماره + شمارهٔ مشترک پدر و مادر */
+        ['حسین نوری', '1000000117', 'دهم الف', 'اکبر نوری', '09121112233', '1000000125', 'فاطمه نوری', '09121112233', '1000000133'],
+        /* مادر بدون شماره و کد ملی → هشدار */
+        ['مینا صادقی', '1000000141', 'دهم الف', 'جواد صادقی', '09121114455', '1000000151', 'سحر صادقی', '', ''],
+      ],
+    };
+    const checks = T.impCheck();
+    assert.strictEqual(checks[0].errors.length, 0, 'سطر اول سالم است');
+    assert.ok(!checks[0].data.phone, 'شمارهٔ پدر به‌عنوان شمارهٔ دانش‌آموز نوشته نشد');
+    assert.strictEqual(checks[0].data.father_phone, '09121112233', 'شمارهٔ پدر حفظ شد');
+    assert.ok(checks[0].warns.some(w => /یکی است/.test(w)), 'شمارهٔ مشترک پدر و مادر هشدار داد');
+    assert.strictEqual(checks[0].data.mother_phone, undefined, 'شمارهٔ مشترک برای مادر تکرار نشد');
+    assert.ok(checks[1].warns.some(w => /نه شمارهٔ همراه هست نه کد ملی/.test(w)), 'ولیِ بی‌راه‌ورود هشدار گرفت');
+
+    const res = await T.importApplyLocal(checks.map(c => c.data), 'students');
+    assert.strictEqual(res.created, 2, 'دو دانش‌آموز ساخته شد');
+    assert.strictEqual(res.parents, 4, 'چهار ولی ساخته شد (پدر و مادر هر دو)');
+    const users = T.list('users');
+    const dad = users.find(u => u.name === 'اکبر نوری');
+    const mom = users.find(u => u.name === 'فاطمه نوری');
+    assert.ok(dad && mom, 'هر دو ولی در فهرست دستگاه هستند');
+    assert.strictEqual(dad.phone, '09121112233', 'شماره برای پدر ثبت شد');
+    assert.strictEqual(mom.phone, '', 'مادر شارژی از شمارهٔ پدر یا دانش‌آموز نگرفت');
+    assert.strictEqual(String(mom.national_id), '1000000133', 'کد ملی مادر ذخیره شد (نام کاربری‌اش می‌شود)');
+    const links = T.list('parent_links').filter(l => Number(l.student_id) === Number(users.find(u => u.name === 'حسین نوری').id));
+    assert.strictEqual(links.length, 2, 'هر دو ولی به دانش‌آموز وصل شدند');
+    assert.strictEqual(links.map(l => l.relation).sort().join(','), 'مادر,پدر', 'نسبت‌ها درست است');
+    dom.window.close();
+  });
+
   /* — پنجرهٔ ورود دسته‌ای: هر چهار نوع و همهٔ فیلدها در خودِ صفحه ──── */
   await test('پنجرهٔ ورود دسته‌ای: چهار نوع فایل و همهٔ فیلدهای هر نوع را نشان می‌دهد', async () => {
     const { JSDOM } = require('jsdom');
@@ -1705,10 +1855,13 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/کلاس‌های جدید/.test(s3) === false || true);
 
     /* مرحلهٔ ۴ */
-    T.S.imp = { step: 4, kind: 'students', result: { created: 2, updated: 1, parents: 2, classes: 1, errors: [] } };
+    T.S.imp = { step: 4, kind: 'students', result: { created: 2, updated: 1, parents: 2, classes: 1, errors: [],
+      warnings: [{ row: 3, error: 'parent_without_login', name: 'کریم بی‌مشخصات' }] } };
     const s4 = T.impStepHtml();
     assert.ok(s4.includes('ورود اطلاعات کامل شد'), 'کارنامهٔ پایانی نمایش داده می‌شود');
     assert.ok(s4.includes('حساب ولی'), 'تعداد ولی گزارش می‌شود');
+    assert.ok(/نام کاربری هر نفر شمارهٔ همراه اوست/.test(s4) && /کد ملی/.test(s4), 'راه ورود ولی‌ها توضیح داده شد');
+    assert.ok(s4.includes('نیاز به تکمیل دارد') && s4.includes('کریم بی‌مشخصات'), 'ولیِ بی‌راه‌ورود گزارش می‌شود');
     dom.window.close();
   });
 

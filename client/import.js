@@ -339,8 +339,6 @@ function impCheck() {
     const fph = impLatin(o.father_phone || '').replace(/\D/g, '');
     if (fph && /^09\d{9}$/.test(fph)) data.father_phone = fph;
     else if (fph) warns.push('موبایل پدر نامعتبر است');
-    /* اگر دانش‌آموز شماره ندارد، شمارهٔ پدر جای تماس اصلی می‌نشیند */
-    if (!data.phone && data.father_phone) data.phone = data.father_phone;
     if (data.phone) {
       const taken = users.find(u => impLatin(u.phone || '').replace(/\D/g, '') === data.phone
         && Number(u.id) !== Number(data.existing_id || 0));
@@ -385,6 +383,23 @@ function impCheck() {
       const mph = impLatin(o.mother_phone || '').replace(/\D/g, '');
       if (mph && /^09\d{9}$/.test(mph)) data.mother_phone = mph;
       else if (mph) warns.push('موبایل مادر نامعتبر است');
+
+      /* هر ولی باید یک راه ورود داشته باشد: شمارهٔ همراه، وگرنه کد ملی */
+      const who = [['پدر', 'father_name', 'father_nid', 'father_phone'],
+        ['مادر', 'mother_name', 'mother_nid', 'mother_phone']];
+      who.forEach(([fa2, nm, nidKey, phKey]) => {
+        const has = String(data[nm] || '').trim() || data[nidKey] || data[phKey];
+        if (!has) return;
+        if (!data[nm]) data[nm] = fa2 + ' ' + String(data.full_name || '').trim();
+        if (!data[nidKey] && !data[phKey]) {
+          warns.push('برای ' + fa2 + ' نه شمارهٔ همراه هست نه کد ملی — بعداً در «کاربران ← ویرایش» کامل کنید');
+        }
+      });
+      /* یک شماره برای دو ولی نمی‌تواند دو نام کاربری باشد */
+      if (data.father_phone && data.mother_phone && data.father_phone === data.mother_phone) {
+        warns.push('شمارهٔ همراه پدر و مادر یکی است — مادر با کد ملی وارد می‌شود');
+        delete data.mother_phone;
+      }
 
       /* اطلاعات تکمیلی — بدون اعتبارسنجی سخت‌گیرانه، چون اختیاری‌اند */
       ['father_edu', 'mother_edu', 'father_job', 'mother_job', 'guardian',
@@ -619,7 +634,10 @@ function impStepHtml() {
       </div>
       ${(res.errors || []).length ? `<div class="small" style="color:#b91c1c;margin-bottom:8px">${fa(res.errors.length)} ردیف ثبت نشد:
         ${esc(res.errors.slice(0, 8).map(e => 'سطر ' + fa(e.row) + ': ' + impErrorText(e.error)).join(' · '))}</div>` : ''}
-      <div class="small muted">نام کاربری هر کاربر همان شمارهٔ همراه و رمزش کد ملی است؛ در فهرست کاربران دیده می‌شود.</div>
+      <div class="small muted">نام کاربری هر نفر شمارهٔ همراه اوست و رمزش کد ملی؛ برای دانش‌آموز و پدر و مادر هر سه حساب ساخته شد.
+        اگر کسی شمارهٔ همراه نداشت، نام کاربری‌اش کد ملی اوست. همه در «کاربران» با رمزشان دیده می‌شوند.</div>
+      ${(res.warnings || []).length ? `<div class="small muted" style="margin-top:6px">⚠️ ${fa(res.warnings.length)} مورد نیاز به تکمیل دارد:
+        ${esc((res.warnings || []).slice(0, 6).map(w => w.name || '').join('، '))}</div>` : ''}
       <div class="row" style="margin-top:14px;gap:8px;justify-content:center">
         <button class="btn ghost" data-act="import-open">فایل بعدی</button>
         <button class="btn primary" data-act="modal-close">تمام</button>
@@ -712,14 +730,22 @@ async function importApplyLocal(rows, kind) {
       if (kind === 'students') {
         [[r.father_nid, r.father_name, 'پدر', r.father_phone], [r.mother_nid, r.mother_name, 'مادر', r.mother_phone]]
           .forEach(([pnid, pname, rel, pphone]) => {
-            if (!pnid && !pname) return;
+            if (!pnid && !pname && !pphone) return;
+            const digits = x => impLatin(x || '').replace(/\D/g, '');
             let parent = pnid
-              ? list('users').find(x => x.role === 'parent' && impLatin(x.national_id || '').replace(/\D/g, '') === pnid)
+              ? list('users').find(x => x.role === 'parent' && digits(x.national_id) === pnid)
               : null;
+            if (!parent && pphone) {
+              const cand = list('users').find(x => digits(x.phone) === pphone);
+              /* همان حساب فقط اگر از آنِ همین ولی باشد (کد ملی هم‌خوان) */
+              if (cand && cand.role === 'parent' && (!pnid || !digits(cand.national_id) || digits(cand.national_id) === pnid)) parent = cand;
+            }
             if (!parent) {
+              /* شماره فقط اگر آزاد است؛ اگر نبود، نام کاربری با کد ملی می‌شود */
+              const free = pphone && !list('users').some(x => digits(x.phone) === pphone) ? pphone : '';
               parent = putLocal('users', {
                 name: pname || (rel + ' ' + name), role: 'parent',
-                national_id: pnid || '', phone: pphone || r.phone || '', active: 1, school_id: 1,
+                national_id: pnid || '', phone: free, active: 1, school_id: 1,
               });
               parents += 1;
             }

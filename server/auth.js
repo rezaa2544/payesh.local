@@ -140,11 +140,13 @@ function refreshWithDevice(store, input = {}) {
 function hasPassword(user) { return !!(user && user.password_hash); }
 
 function login(store, input = {}) {
+  /* نام کاربری: شمارهٔ همراه (۱۱ رقم) یا کد ملی (۱۰ رقم) برای کسانی که
+     شمارهٔ همراه ندارند. */
   const phone = normDigits(input.phone);
   const pw = String(input.password || '');
   if (phone.length < 10) return { ok: false, error: 'bad_phone' };
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
-  let user = findUserByPhone(store, phone);
+  let user = findUserByLogin(store, phone);
   if (!user || user.active === false) return { ok: false, error: 'bad_credentials' };
   if (!user.password_hash) return { ok: false, error: 'no_password' };
   if (!verifySecret(pw, user.password_hash)) return { ok: false, error: 'bad_credentials' };
@@ -319,13 +321,24 @@ function logout(store, session) {
 function credentialsFor(row) {
   const phone = normDigits(row && row.phone);
   const nid = normDigits(row && row.national_id);
-  /* نام کاربری = شمارهٔ همراه. اگر کد ملی نباشد (مثلاً ولی‌ای که فقط با
-     شماره ساخته شده)، رمز به‌صورت تصادفی ساخته می‌شود تا حساب هرگز
-     «بی‌رمز» نماند و ورودش رد نشود؛ مدیر رمز را در فهرست کاربران
-     می‌بیند و به خودش می‌گوید. */
-  if (phone.length < 10) return null;
+  /* نام کاربری = شمارهٔ همراه؛ و اگر کسی (مثلاً مادری که در فایل اکسل
+     شمارهٔ همراه ندارد) شماره نداشت، نام کاربری = کد ملی، تا هیچ حسابی
+     بدون راه ورود نماند. رمز هم کد ملی است (و اگر کد ملی نبود، تصادفی). */
+  const login = phone.length >= 10 ? phone : (nid.length === 10 ? nid : '');
+  if (!login) return null;
   const password = nid.length >= 4 ? nid : randomDigits(6);
-  return { phone, password };
+  return { phone: login, password };
+}
+
+/* کاربر را با «نام کاربری» پیدا می‌کند: اول شمارهٔ همراه، بعد کد ملی. */
+function findUserByLogin(store, input) {
+  const key = normDigits(input);
+  if (key.length < 10) return null;
+  const users = store.all('users') || [];
+  const byPhone = users.find(u => normDigits(u.phone) === key);
+  if (byPhone) return byPhone;
+  if (key.length === 10) return users.find(u => normDigits(u.national_id) === key) || null;
+  return null;
 }
 
 function randomDigits(n) {
@@ -376,6 +389,7 @@ function prune(store) {
 }
 
 module.exports = {
+  findUserByLogin,
   needsSetup, setup, createPairCode, pair, unlock, changePin,
   credentialsFor, applyDefaultCredentials, phoneTaken, passwordOf, randomDigits,
   hasPassword, login, refreshWithDevice, unlockWithPassword, setPassword, changeOwnPassword,
