@@ -342,7 +342,11 @@ jobs:
           $v = node -p "require('./package.json').version"
           & $env:ISCC "/DAppVersion=$v" "installer\payesh.iss" 2>&1 | Tee-Object -FilePath iscc.log
           if ($LASTEXITCODE -ne 0) {
-            Get-Content iscc.log | Select-Object -Last 30 | ForEach-Object { "::error::ISCC: $_" }
+            # گیت‌هاب بیشتر از ۱۰ خط annotation در هر گام نشان نمی‌دهد؛ پس
+            # اول خط‌های خطا/هشدار را بیرون می‌کشیم و بعد ۴ خط آخر لاگ را.
+            $errs = @(Get-Content iscc.log | Where-Object { $_ -match 'Error|error|Warning|Compiling|Unknown|Duplicate|Unable' } | Select-Object -First 6)
+            $tail = @(Get-Content iscc.log -Tail 4)
+            ($errs + $tail) | Select-Object -Unique | ForEach-Object { "::error::ISCC: $_" }
             throw "ISCC ناموفق ($LASTEXITCODE)"
           }
           $exe = 'releases/payesh-setup.exe'
