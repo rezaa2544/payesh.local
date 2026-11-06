@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.33';
+const CLIENT_VERSION = '0.8.34';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1829,9 +1829,47 @@ function liveBar(on) {
   if (bar) bar.classList.toggle('on', on);
   document.body.style.cursor = on ? 'progress' : '';
 }
+/* آیکونِ خودِ دکمه هم بچرخد (درخواست کاربر: «آیکون بررسی دوباره بچرخه»).
+   ایموجیِ ابتدای متن را در یک span می‌گذاریم و پس از پایان کار برمی‌گردانیم؛
+   هیچ متن یا ساختاری از دکمه از دست نمی‌رود. */
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u2600-\u27BF\u2B00-\u2BFF\u2190-\u21FF]/u;
+function liveSpinIcon(el) {
+  if (!el || !el.childNodes || el.querySelector('.spin')) return null;
+  try {
+    for (const n of Array.from(el.childNodes)) {
+      if (n.nodeType !== 3) continue;
+      const txt = n.nodeValue || '';
+      const i = txt.search(EMOJI_RE);
+      if (i < 0) continue;
+      const cp = String.fromCodePoint(txt.codePointAt(i));
+      const vs = txt.slice(i + cp.length, i + cp.length + 1);
+      const extra = (vs === '\uFE0F' || vs === '\u200D') ? vs : '';
+      const before = txt.slice(0, i);
+      const after = txt.slice(i + cp.length + extra.length);
+      const span = document.createElement('span');
+      span.className = 'spin';
+      span.textContent = cp + extra;
+      const head = document.createTextNode(before);
+      const tail = document.createTextNode(after);
+      el.replaceChild(head, n);
+      head.parentNode.insertBefore(span, head.nextSibling);
+      span.parentNode.insertBefore(tail, span.nextSibling);
+      return () => {
+        try {
+          head.nodeValue = txt;
+          if (span.parentNode) span.parentNode.removeChild(span);
+          if (tail.parentNode) tail.parentNode.removeChild(tail);
+        } catch (e) { /* noop */ }
+      };
+    }
+  } catch (e) { /* noop */ }
+  return null;
+}
+
 function liveBegin(el) {
   const noBusy = /^(modal-bg|modal-close|nav|go)$/.test(String(el && el.getAttribute('data-act') || ''));
   if (el && !noBusy && !el.classList.contains('is-busy')) el.classList.add('is-busy');
+  const restoreIcon = noBusy ? null : liveSpinIcon(el);
   LIVE_COUNT += 1;
   liveBar(true);
   const startedAt = Date.now();
@@ -1845,6 +1883,7 @@ function liveBegin(el) {
     const reveal = () => {
       LIVE_COUNT = Math.max(0, LIVE_COUNT - 1);
       if (!LIVE_COUNT) liveBar(false);
+      if (restoreIcon) { try { restoreIcon(); } catch (e) { /* noop */ } }
       if (el && el.classList) {
         el.classList.remove('is-busy');
         el.classList.add('done-flash');
