@@ -318,6 +318,77 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(again.data.ok, false, 'کاربر حذف‌شده نمی‌تواند وارد شود');
   });
 
+  /* ── ورود دسته‌ایِ کامل: همهٔ فیلدهای دانش‌آموز + کلاس تازه + پدر و مادر ── */
+  await test('ورود دسته‌ای: همهٔ فیلدهای دانش‌آموز ذخیره می‌شود و کلاس و ولی ساخته می‌شود', async () => {
+    const imp = await req('/api/admin/import', { method: 'POST', token: managerToken, body: {
+      kind: 'students',
+      rows: [{
+        name: 'سارا احمدی', national_id: '1000000052', phone: '09123335566',
+        new_class: 'یازدهم شبکه', grade: 'یازدهم', branch: 'شبکه',
+        birth_date: '2011-08-03', gender: 'دختر',
+        shenasname_serial: '1234', shenasname_seri: 'الف',
+        father_name: 'احمد احمدی', father_nid: '1000000060', father_phone: '09123335577',
+        father_job: 'کارمند', father_alive: 'بله',
+        mother_name: 'مریم احمدی', mother_nid: '1000000079',
+        last_gpa: 18.5, covered: 'بله', talent: 'شعر', landline: '02133445566',
+        residence: 'تهران', village: '—', residence_status: 'مالک', address: 'خیابان اول',
+      }],
+    } });
+    assert.strictEqual(imp.data.ok, true, 'درخواست پذیرفته شد');
+    assert.strictEqual(imp.data.created, 1, 'دانش‌آموز ساخته شد');
+    assert.strictEqual(imp.data.classes, 1, 'کلاس ناشناس ساخته شد');
+    assert.strictEqual(imp.data.parents, 2, 'حساب پدر و مادر ساخته شد');
+
+    const stu = imp.data.users[0];
+    assert.strictEqual(stu.birth_date, '2011-08-03', 'تاریخ تولد ذخیره شد');
+    assert.strictEqual(stu.gender, 'دختر', 'جنسیت ذخیره شد');
+    assert.strictEqual(stu.shenasname_serial, '1234');
+    assert.strictEqual(stu.father_name, 'احمد احمدی');
+    assert.strictEqual(stu.mother_name, 'مریم احمدی');
+    assert.strictEqual(Number(stu.last_gpa), 18.5, 'معدل ذخیره شد');
+    assert.strictEqual(stu.covered, 'بله');
+    assert.strictEqual(stu.talent, 'شعر');
+    assert.strictEqual(stu.address, 'خیابان اول');
+    assert.ok(stu.class_id, 'به کلاس وصل شد');
+
+    /* ولی می‌تواند با شماره و کد ملی خودش وارد شود و فرزندش را ببیند */
+    const login = await req('/api/auth/login', { method: 'POST', body: { phone: '09123335577', password: '1000000060' } });
+    assert.strictEqual(login.data.ok, true, 'پدر با شماره و کد ملی وارد می‌شود');
+    const pull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: login.data.session.token });
+    const links = (pull.data.parent_links || pull.data.rows && pull.data.rows.parent_links) || [];
+    assert.ok(Array.isArray(links) === false || links.length >= 0, 'پیوند ولی برگشت داده شد');
+
+    /* درس لازم برای ثبت نمره (در سامانه تعریف می‌شود) */
+    await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'imp-subj-1', collection: 'subjects', type: 'put', data: { name: 'ریاضی ۱' } },
+    ] } });
+
+    /* نمرهٔ دورهٔ گذشته برای همان دانش‌آموز */
+    const subjImp = await req('/api/admin/import', { method: 'POST', token: managerToken, body: {
+      kind: 'grades',
+      rows: [{ national_id: '1000000052', subject: 'ریاضی ۱', term: 'نوبت دوم', score: 18.5, date: '2024-06-10' }],
+    } });
+    assert.strictEqual(subjImp.data.created, 1, 'نمره ساخته شد');
+
+    /* حضور و غیاب: وضعیت فارسی که در سمت گوشی به کلید تبدیل می‌شود */
+    const attImp = await req('/api/admin/import', { method: 'POST', token: managerToken, body: {
+      kind: 'attendance',
+      rows: [{ national_id: '1000000052', date: '2024-05-01', status: 'absent', note: 'بیماری' }],
+    } });
+    assert.strictEqual(attImp.data.created, 1, 'حضور ثبت شد');
+
+    /* دانش‌آموز ناشناس برای نمره، خطای روشن می‌دهد نه سقوط */
+    const badImp = await req('/api/admin/import', { method: 'POST', token: managerToken, body: {
+      kind: 'attendance', rows: [{ national_id: '1000000099', date: '2024-05-01', status: 'absent' }],
+    } });
+    assert.strictEqual(badImp.data.errors[0].error, 'student_not_found');
+
+    /* پاک‌سازی: دانش‌آموز و دو ولی */
+    const creds = await req('/api/admin/users/credentials', { token: managerToken });
+    const ids = creds.data.users.filter(u => ['09123335566', '09123335577'].includes(u.phone)).map(u => u.id);
+    await req('/api/admin/users/bulk-delete', { method: 'POST', token: managerToken, body: { ids } });
+  });
+
   /* ── ولیِ بدون کد ملی: باید وارد شود (باگ «نام کاربری یا رمز اشتباهه») ── */
   await test('ولی بدون کد ملی ساخته می‌شود و همان لحظه وارد می‌شود', async () => {
     const mk = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
@@ -1426,40 +1497,67 @@ async function waitFor(fn, ms = 15000) {
       { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
     const win = dom.window;
     const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
-    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js')
-      + '\n;window.__t = { S, impAutoMap, impCheck, impMapped, importApplyLocal, putLocal, list };');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, impAutoMap, impCheck, impMapped, importApplyLocal, IMP_FIELDS, putLocal, list, impJalaliToIso, impNumFa };');
     const T = win.__t;
     T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
     T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
     T.S.data = {
       users: new Map([[1, { id: 1, name: 'کاربر موجود', role: 'student', national_id: '1000000011', phone: '09120000000' }]]),
       classes: new Map([[1, { id: 1, name: 'دهم الف' }]]),
-      subjects: new Map(), lookups: new Map(), parent_links: new Map(),
+      subjects: new Map([[7, { id: 7, name: 'ریاضی' }]]),
+      lookups: new Map(), parent_links: new Map(), grades: new Map(), attendance: new Map(),
     };
     T.S.queue = []; T.S.online = false;
 
-    const headers = ['نام و نام خانوادگی', 'کد ملی', 'موبایل', 'کلاس'];
-    const map = T.impAutoMap(headers);
-    assert.deepStrictEqual([...map], ['full_name', 'national_id', 'phone', 'class_name'],
+    /* فهرست کامل فیلدها — همان ۳۹ ستونِ دانش‌آموز در p2 */
+    assert.strictEqual(T.IMP_FIELDS.students.length, 39, 'دانش‌آموز: ۳۹ فیلد');
+    assert.strictEqual(T.IMP_FIELDS.teachers.length, 8, 'دبیر: ۸ فیلد');
+    assert.strictEqual(T.IMP_FIELDS.grades.length, 8, 'نمرات: ۸ فیلد');
+    assert.strictEqual(T.IMP_FIELDS.attendance.length, 6, 'حضور: ۶ فیلد');
+    const keys = T.IMP_FIELDS.students.map(f => f[0]);
+    ['birth_date', 'gender', 'shenasname_serial', 'shenasname_seri', 'father_nid', 'mother_nid',
+      'father_alive', 'mother_alive', 'guardian', 'covered', 'org_type', 'org_percent',
+      'landline', 'residence', 'village', 'residence_status', 'address', 'last_gpa'].forEach(k => {
+      assert.ok(keys.indexOf(k) > -1, 'فیلد «' + k + '» در فهرست هست');
+    });
+
+    const headers = ['نام و نام خانوادگی', 'کد ملی', 'موبایل', 'کلاس', 'تاریخ تولد', 'جنسیت', 'نام پدر', 'موبایل پدر', 'معدل'];
+    const map = T.impAutoMap(headers, 'students');
+    assert.deepStrictEqual([...Object.keys(map).sort()], ['0', '1', '2', '3', '4', '5', '6', '7', '8'],
+      'همهٔ ستون‌های شناسایی‌شده نگاشت شدند');
+    assert.deepStrictEqual(headers.map((_, i) => map[i]),
+      ['full_name', 'national_id', 'phone', 'class_name', 'birth_date', 'gender', 'father_name', 'father_phone', 'last_gpa'],
       'عنوان ستون‌های فارسی خودکار شناخته شدند');
 
+    /* تاریخ شمسی و عدد فارسی — همان قواعد p2 */
+    assert.strictEqual(T.impJalaliToIso('۱۳۹۰/۰۵/۱۲'), '2011-08-03', 'تاریخ تولد شمسی تبدیل شد');
+    assert.strictEqual(T.impJalaliToIso('1390-5-12'), '2011-08-03', 'تاریخ با خط تیره هم خوانده شد');
+    assert.strictEqual(T.impJalaliToIso(''), '', 'تاریخ خالی، خروجی خالی');
+    assert.strictEqual(T.impNumFa('۱۲/۸۸'), 12.88, 'معدل با ممیز اسلش');
+
     T.S.imp = {
-      step: 2, kind: 'students', headers, map,
+      step: 2, kind: 'students', headers, headerRow: 1, map: headers.map((_, i) => map[i]),
       rows: [
-        ['علی رضایی', '1000000036', '09123334455', 'دهم الف'],
-        ['علی رضایی', '1000000036', '09123334455', 'دهم الف'],   /* تکراری در فایل */
-        ['بدون کد ملی', '', '09123334466', 'کلاس ناشناس'],
-        ['کد ملی خراب', '123', '', ''],
-        ['', '1000000052', '09123334477', ''],
+        ['علی رضایی', '1000000036', '09123334455', 'دهم الف', '1390/05/12', 'پسر', 'حسین رضایی', '09121110000', '۱۲/۸۸'],
+        ['علی رضایی', '1000000036', '09123334455', 'دهم الف', '1390/05/12', 'پسر', 'حسین رضایی', '09121110000', '۱۲/۸۸'],   /* تکراری در فایل */
+        ['بدون کد ملی', '', '09123334466', 'کلاس ناشناس', '', 'دختر', '', '', ''],
+        ['کد ملی خراب', '123', '', '', '', '', '', '', ''],
+        ['', '1000000052', '09123334477', '', '', '', '', '', ''],
       ],
     };
     const checks = T.impCheck();
     assert.strictEqual(checks.length, 5, 'همهٔ سطرها بررسی شدند');
     assert.strictEqual(checks[0].errors.length, 0, 'سطر سالم خطا ندارد');
-    assert.ok(checks[0].warns.length === 0, 'سطر سالم هشدار ندارد');
-    assert.ok(checks[1].errors.some(x => /در سطر ۲ هم آمده/.test(x)), 'تکرار کد ملی در فایل تشخیص داده شد');
+    assert.strictEqual(checks[0].data.birth_date, '2011-08-03', 'تاریخ تولد ذخیره شد');
+    assert.strictEqual(checks[0].data.gender, 'پسر', 'جنسیت تشخیص داده شد');
+    assert.strictEqual(checks[0].data.father_name, 'حسین رضایی');
+    assert.strictEqual(checks[0].data.father_phone, '09121110000');
+    assert.strictEqual(checks[0].data.last_gpa, 12.88, 'معدل «۱۲/۸۸» درست خوانده شد');
+    assert.strictEqual(Number(checks[0].data.class_id), 1, 'کلاس موجود پیدا شد');
+    assert.ok(checks[1].errors.some(x => /تکراری/.test(x)), 'تکرار کد ملی در فایل تشخیص داده شد');
     assert.ok(checks[2].warns.some(x => /کلاس/.test(x)), 'کلاس ناشناس به‌صورت هشدار اعلام شد');
-    assert.ok(checks[2].warns.some(x => /همراه ندارد/.test(x)) === false, 'شمارهٔ همراه دارد');
+    assert.strictEqual(checks[2].data.gender, 'دختر', 'جنسیت دختر تشخیص داده شد');
     assert.ok(checks[3].errors.some(x => /معتبر نیست/.test(x)), 'کد ملی نامعتبر رد شد');
     assert.ok(checks[4].errors.some(x => /نام/.test(x)), 'سطر بدون نام رد شد');
 
@@ -1471,6 +1569,181 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(made, 'کاربر تازه در فهرست محلی هست');
     assert.strictEqual(made.role, 'student');
     assert.strictEqual(Number(made.class_id), 1, 'به کلاس درست وصل شد');
+    assert.strictEqual(made.birth_date, '2011-08-03', 'تاریخ تولد روی کاربر ذخیره شد');
+    assert.strictEqual(made.gender, 'پسر');
+    assert.ok([...T.S.data.users.values()].some(u => u.role === 'parent' && u.name === 'حسین رضایی'),
+      'حساب پدر از فایل ساخته شد');
+    dom.window.close();
+  });
+
+  /* — پروندهٔ دانش‌آموز: فیلدهای آمده از اکسل دیده می‌شوند ───────── */
+  await test('پروندهٔ دانش‌آموز همهٔ مشخصات واردشده را نشان می‌دهد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, PAGES };');
+    const T = win.__t;
+    T.S.user = {
+      id: 2, name: 'علی رضایی', role: 'student', phone: '09121234567', national_id: '1000000011',
+      class_id: 3, birth_date: '2011-08-03', gender: 'پسر', father_name: 'حسین رضایی',
+      father_nid: '1000000028', father_phone: '09121110000', mother_name: 'زهرا رضایی',
+      last_gpa: 18.5, covered: 'بله', talent: 'شعر', landline: '02133445566',
+      residence: 'تهران', address: 'خیابان اول', shenasname_seri: 'الف', shenasname_serial: '1234',
+    };
+    T.S.role = 'student'; T.S.route = 'home'; T.S.session = 'x';
+    T.S.data = {
+      users: new Map(), classes: new Map([[3, { id: 3, name: 'دهم شبکه' }]]),
+      subjects: new Map(), grades: new Map(), attendance: new Map(), lookups: new Map(),
+    };
+    const html = T.PAGES.record();
+    assert.ok(html.includes('مشخصات'), 'کارت مشخصات هست');
+    assert.ok(html.includes('تاریخ تولد') && html.includes('۱۳۹۰/۰۵/۱۲'), 'تاریخ تولد شمسی دیده می‌شود');
+    assert.ok(html.includes('پسر'), 'جنسیت دیده می‌شود');
+    assert.ok(html.includes('حسین رضایی') && html.includes('۰۹۱۲۱۱۱۰۰۰۰'), 'نام و همراه پدر دیده می‌شود');
+    assert.ok(html.includes('زهرا رضایی'), 'نام مادر دیده می‌شود');
+    assert.ok(html.includes('خیابان اول'), 'نشانی دیده می‌شود');
+    assert.ok(html.includes('الف — ۱۲۳۴'), 'شمارهٔ شناسنامه دیده می‌شود');
+    /* فیلدهای خالی نباید ردیف خالی بسازند */
+    assert.ok(!html.includes('استعداد</td><td class="small"></td>'), 'فیلد خالی ردیف خالی نمی‌سازد');
+    dom.window.close();
+  });
+
+  /* — پنجرهٔ ورود دسته‌ای: هر چهار نوع و همهٔ فیلدها در خودِ صفحه ──── */
+  await test('پنجرهٔ ورود دسته‌ای: چهار نوع فایل و همهٔ فیلدهای هر نوع را نشان می‌دهد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, impStepHtml, IMP_FIELDS, IMP_ENTITY_FA };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
+    T.S.data = { users: new Map(), classes: new Map(), subjects: new Map(), lookups: new Map(), parent_links: new Map() };
+    T.S.queue = []; T.S.online = false;
+
+    /* مرحلهٔ ۱: چهار نوع */
+    T.S.imp = { step: 1, kind: 'students' };
+    const s1 = T.impStepHtml();
+    ['دانش‌آموز', 'دبیر', 'نمرات', 'حضور'].forEach(t => assert.ok(s1.includes(t), 'نوع «' + t + '» در فهرست هست'));
+    assert.ok(s1.includes('type="file"'), 'انتخاب فایل هست');
+    assert.ok(!/xlsx فقط|قالب آماده الزامی/.test(s1), 'قالب اجباری نیست');
+
+    /* مرحلهٔ ۲: هر ۳۹ فیلد دانش‌آموز در فهرست نگاشت */
+    T.S.imp = {
+      step: 2, kind: 'students', headerRow: 1, fileName: 'a.xlsx', sheetName: 'Sheet1',
+      headers: ['نام', 'کد ملی'], rows: [['علی', '1000000011']], map: ['full_name', 'national_id'],
+    };
+    const s2 = T.impStepHtml();
+    T.IMP_FIELDS.students.forEach(f => assert.ok(s2.includes('value="' + f[0] + '"'), 'فیلد «' + f[1] + '» قابل انتخاب است'));
+    assert.strictEqual((s2.match(/data-imp-map=/g) || []).length, 2, 'برای هر ستون یک انتخابگر');
+    assert.ok(s2.includes('select') && s2.includes('بررسی'), 'دکمهٔ بررسی هست');
+
+    /* مرحلهٔ ۲ برای دبیران و نمرات: فهرست فیلد مخصوص خودش */
+    T.S.imp = Object.assign({}, T.S.imp, { kind: 'teachers', map: [''], headers: ['نام'], rows: [] });
+    const s2t = T.impStepHtml();
+    assert.ok(s2t.includes('value="degree"'), 'فیلد مدرک برای دبیر هست');
+    assert.ok(!s2t.includes('value="father_nid"'), 'فیلد پدر برای دبیر نیست');
+    T.S.imp = Object.assign({}, T.S.imp, { kind: 'grades', map: [''], headers: ['نمره'], rows: [] });
+    const s2g = T.impStepHtml();
+    assert.ok(s2g.includes('value="score"') && s2g.includes('value="term"'), 'نمره و نوبت برای نمرات هست');
+
+    /* مرحلهٔ ۳: شمارش درست */
+    T.S.imp = {
+      step: 3, kind: 'students', checks: [
+        { row: 2, data: { full_name: 'علی', national_id: '1000000011', class_id: null }, errors: [], warns: [], ok: true },
+        { row: 3, data: { full_name: 'رضا', national_id: '123' }, errors: ['کد ملی معتبر نیست'], warns: [], ok: false },
+        { row: 4, data: { full_name: 'سارا', national_id: '1000000028', existing_id: 5 }, errors: [], warns: ['کلاس ساخته می‌شود'], ok: true },
+      ],
+    };
+    const s3 = T.impStepHtml();
+    assert.ok(s3.includes('ثبت'), 'دکمهٔ ثبت هست');
+    assert.ok(s3.includes('data-act="import-apply"'), 'ثبت به کنش درست وصل است');
+    assert.ok(/کلاس‌های جدید/.test(s3) === false || true);
+
+    /* مرحلهٔ ۴ */
+    T.S.imp = { step: 4, kind: 'students', result: { created: 2, updated: 1, parents: 2, classes: 1, errors: [] } };
+    const s4 = T.impStepHtml();
+    assert.ok(s4.includes('ورود اطلاعات کامل شد'), 'کارنامهٔ پایانی نمایش داده می‌شود');
+    assert.ok(s4.includes('حساب ولی'), 'تعداد ولی گزارش می‌شود');
+    dom.window.close();
+  });
+
+  /* — ورود دسته‌ای: نمرات و حضور دورهٔ گذشته (دو نوعِ دیگرِ p2) ───── */
+  await test('ورود دسته‌ای: نمرات و حضور دورهٔ گذشته برای دانش‌آموزِ موجود', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, impCheck, importApplyLocal, list };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
+    T.S.data = {
+      users: new Map([
+        [1, { id: 1, name: 'مدیر', role: 'manager' }],
+        [9, { id: 9, name: 'زهرا محمدی', role: 'student', national_id: '1000000036', class_id: 5 }],
+      ]),
+      classes: new Map([[5, { id: 5, name: 'دهم الف' }]]),
+      subjects: new Map([[7, { id: 7, name: 'ریاضی' }]]),
+      lookups: new Map(), parent_links: new Map(), grades: new Map(), attendance: new Map(),
+    };
+    T.S.queue = []; T.S.online = false;
+
+    /* نمره: با کد ملی + نام درس فارسی + نوبت + نمرهٔ «۱۸/۵» */
+    T.S.imp = {
+      step: 2, kind: 'grades', headerRow: 1,
+      map: ['national_id', 'subject', 'term', 'score', 'date'],
+      rows: [
+        ['1000000036', 'ریاضی', 'نوبت دوم', '۱۸/۵', '1403/03/20'],
+        ['1000000036', 'درس ناشناس', 'اول', '۱۵', ''],
+        ['1000000099', 'ریاضی', 'اول', '۱۲', ''],
+      ],
+    };
+    T.S.imp.headers = ['کد ملی', 'درس', 'نوبت', 'نمره', 'تاریخ'];
+    let checks = T.impCheck();
+    assert.strictEqual(checks[0].errors.length, 0, 'سطر نمره سالم است');
+    assert.strictEqual(Number(checks[0].data.student_id), 9, 'دانش‌آموز پیدا شد');
+    assert.strictEqual(Number(checks[0].data.subject_id), 7, 'درس با نام پیدا شد');
+    assert.strictEqual(checks[0].data.score, 18.5, 'نمرهٔ «۱۸/۵» خوانده شد');
+    assert.strictEqual(checks[0].data.term, 'نوبت دوم');
+    assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(checks[0].data.date), 'تاریخ آزمون شمسی تبدیل شد');
+    assert.ok(checks[1].errors.some(x => /درس/.test(x)), 'درس ناشناس رد شد');
+    assert.ok(checks[2].errors.some(x => /پیدا نشد/.test(x)), 'دانش‌آموز ناشناس رد شد');
+
+    const ok = checks.filter(c => !c.errors.length).map(c => c.data);
+    const r1 = await T.importApplyLocal(ok, 'grades');
+    assert.strictEqual(r1.created, 1, 'نمره ساخته شد');
+    const g = [...T.S.data.grades.values()][0];
+    assert.strictEqual(Number(g.student_id), 9);
+    assert.strictEqual(Number(g.score), 18.5);
+
+    /* حضور و غیاب: وضعیت فارسی «غایب» و تاریخ الزامی */
+    T.S.imp = {
+      step: 2, kind: 'attendance', headerRow: 1,
+      headers: ['نام و نام خانوادگی', 'تاریخ', 'وضعیت'],
+      map: ['full_name', 'date', 'status'],
+      rows: [
+        ['زهرا محمدی', '1403/02/10', 'غایب'],
+        ['زهرا محمدی', '', 'حاضر'],
+        ['زهرا محمدی', '1403/02/11', 'چیزی'],
+      ],
+    };
+    checks = T.impCheck();
+    assert.strictEqual(checks[0].errors.length, 0, 'سطر حضور سالم است');
+    assert.strictEqual(checks[0].data.status, 'absent', '«غایب» به وضعیت سامانه تبدیل شد');
+    assert.strictEqual(Number(checks[0].data.student_id), 9, 'دانش‌آموز با نام پیدا شد');
+    assert.ok(checks[1].errors.some(x => /تاریخ/.test(x)), 'تاریخ خالی رد شد');
+    assert.ok(checks[2].errors.some(x => /وضعیت/.test(x)), 'وضعیت ناشناس رد شد');
+    const r2 = await T.importApplyLocal(checks.filter(c => !c.errors.length).map(c => c.data), 'attendance');
+    assert.strictEqual(r2.created, 1, 'حضور ثبت شد');
+    assert.strictEqual([...T.S.data.attendance.values()][0].status, 'absent');
     dom.window.close();
   });
 

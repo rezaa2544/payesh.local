@@ -234,11 +234,16 @@ function sendFile(req, res, filePath, opts = {}) {
 
 /* ── تبدیل رکورد کاربر برای کلاینت ─────────────────────────────────── */
 function userRow(u) {
-  return {
+  const row = {
     id: u.id, name: u.name, role: u.role, phone: u.phone, national_id: u.national_id || '',
     class_id: u.class_id || null, subject: u.subject || '', active: u.active !== false,
     position: u.position || '', created_at: u.created_at || null,
   };
+  /* فیلدهای شناسنامه‌ای/تکمیلی که از اکسل آمده‌اند */
+  for (const k of IMP_STORE_FIELDS) {
+    if (u[k] !== undefined && u[k] !== null && u[k] !== '') row[k] = u[k];
+  }
+  return row;
 }
 /* ── مسیرهای API ──────────────────────────────────────────────────── */
 async function api(req, res, url, ip) {
@@ -822,6 +827,18 @@ async function api(req, res, url, ip) {
     }
     if (body.active != null) patch.active = !!body.active;
     if (body.role && ['student', 'teacher', 'parent', 'vice', 'counselor', 'office', 'staff', 'manager'].includes(body.role)) patch.role = body.role;
+    /* فیلدهای شناسنامه‌ای و تکمیلی (تاریخ تولد، جنسیت، پدر و مادر، …) */
+    for (const k of IMP_STORE_FIELDS) {
+      if (body[k] === undefined) continue;
+      const v = body[k];
+      patch[k] = (v === null || v === '') ? '' : v;
+    }
+    if (body.birth_date) {
+      const bd = String(body.birth_date).slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(bd)) return json({ ok: false, error: 'bad_birth_date' }, 400);
+      patch.birth_date = bd;
+    }
+    if (body.class_id !== undefined) patch.class_id = Number(body.class_id) || null;
     const saved = store.update('users', id, patch);
     let pw = null;
     let shownPassword = null;
@@ -996,57 +1013,226 @@ async function api(req, res, url, ip) {
   return json({ ok: false, error: 'not_found' }, 404);
 }
 
-/* ── ورود دسته‌ای ─────────────────────────────────────────────────── */
+/* ── ورود دسته‌ای از اکسل ───────────────────────────────────────────
+   چهار نوع فایل، همان چهار نوعی که در نسخهٔ p2 هست:
+     students   → دانش‌آموز + کلاس + حساب پدر و مادر + همهٔ فیلدهای تکمیلی
+     teachers   → دبیر (درس تخصصی، مدرک، آدرس)
+     grades     → نمرهٔ دورهٔ گذشته برای دانش‌آموزِ موجود
+     attendance → حضور و غیاب دورهٔ گذشته برای دانش‌آموزِ موجود
+   قاعده‌ها:
+     • کد ملیِ موجود ⇒ به‌روزرسانی، نه خطای تکراری (مثل p2)
+     • کلاس ناشناس ساخته می‌شود
+     • شمارهٔ همراه باید یکتا بماند، چون نام کاربری همان است
+   ─────────────────────────────────────────────────────────────────── */
+const IMP_STORE_FIELDS = ['first_name', 'last_name', 'national_id', 'phone', 'birth_date', 'gender',
+  'father_nid', 'mother_nid', 'father_name', 'mother_name', 'father_phone', 'mother_phone',
+  'field', 'last_gpa', 'failed_count', 'father_edu', 'father_alive', 'father_job',
+  'mother_edu', 'mother_alive', 'mother_job', 'guardian', 'guardian_alive', 'sisters', 'brothers',
+  'covered', 'org_type', 'org_percent', 'talent', 'landline', 'residence', 'village',
+  'residence_status', 'address', 'shenasname_serial', 'shenasname_seri', 'degree', 'subject'];
+
+/* یکسان‌سازی متن فارسی برای تطبیق نام کلاس/درس */
+function importKey(x) {
+  return String(x == null ? '' : x)
+    .replace(/[ىي]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/\u200c/g, ' ')
+    .replace(/[_\-.:،؛/\\()\[\]{}]/g, ' ')
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 function importUsers(body) {
-  const kind = body.kind === 'staff' ? 'staff' : 'students';
-  const rows = Array.isArray(body.rows) ? body.rows : [];
+  const kind = ['students', 'teachers', 'grades', 'attendance'].indexOf(body && body.kind) > -1
+    ? body.kind : 'students';
+  const rows = Array.isArray(body && body.rows) ? body.rows : [];
   const created = [];
   const errors = [];
-  const existingNid = new Set(store.all('users').map(u => normDigits(u.national_id)).filter(Boolean));
+  let updated = 0, parents = 0, classesMade = 0;
+
+  const classIndex = new Map(store.all('classes').map(c => [importKey(c.name), c]));
+  /* کد ملی‌هایی که در همین درخواست ساخته شده‌اند: تکرارشان در فایل خطاست،
+     نه به‌روزرسانی (به‌روزرسانی فقط برای رکوردهای قبلیِ پایگاه داده است). */
+  const createdNids = new Set();
+  const pickFields = (r, out) => {
+    for (const k of IMP_STORE_FIELDS) {
+      const v = r[k];
+      if (v === undefined || v === null || v === '') continue;
+      out[k] = v;
+    }
+    return out;
+  };
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i] || {};
-    const name = String(r.name || r.full_name || '').trim();
-    const nid = normDigits(r.national_id || r.nid || '');
-    const phone = normDigits(r.phone || r.mobile || '');
-    if (!name) { errors.push({ row: i + 2, error: 'missing_name' }); continue; }
-    if (nid && !validNationalId(nid)) { errors.push({ row: i + 2, error: 'bad_national_id', nid }); continue; }
-    if (nid && existingNid.has(nid)) { errors.push({ row: i + 2, error: 'duplicate_national_id', nid }); continue; }
+    const rowNo = Number(r._row) || (i + 2);
+    try {
+      /* ── نمره و حضور: دانش‌آموز باید از قبل باشد ── */
+      if (kind === 'grades' || kind === 'attendance') {
+        let stu = null;
+        const nid = normDigits(r.national_id || '');
+        if (nid) stu = store.all('users').find(u => u.role === 'student' && normDigits(u.national_id) === nid) || null;
+        if (!stu && r.full_name) {
+          const nm = importKey(r.full_name);
+          let cands = store.all('users').filter(u => u.role === 'student' && importKey(u.name) === nm);
+          if (cands.length > 1 && r.class_name) {
+            const cn = importKey(r.class_name);
+            const inCls = cands.filter(u => importKey((store.get('classes', u.class_id) || {}).name) === cn);
+            if (inCls.length) cands = inCls;
+          }
+          if (cands.length === 1) stu = cands[0];
+          else if (cands.length > 1) { errors.push({ row: rowNo, error: 'student_ambiguous', name: r.full_name }); continue; }
+        }
+        if (!stu) { errors.push({ row: rowNo, error: 'student_not_found', nid: nid || undefined, name: r.full_name }); continue; }
 
-    let classId = null;
-    if (kind === 'students' && r.class_name) {
-      const cls = store.all('classes').find(c => String(c.name).trim() === String(r.class_name).trim());
-      if (cls) classId = cls.id;
-      else errors.push({ row: i + 2, error: 'class_not_found', class_name: r.class_name, warning: true });
-    }
-
-    if (phone && auth.phoneTaken(store, phone, null)) {
-      errors.push({ row: i + 2, error: 'duplicate_phone', phone });
-      continue;
-    }
-    /* نام کاربری = شمارهٔ همراه، رمز اولیه = کد ملی (خودکار) */
-    const u = store.insert('users', auth.applyDefaultCredentials({
-      name, role: kind === 'staff' ? (r.role || 'teacher') : 'student',
-      national_id: nid, phone, class_id: classId,
-      subject: String(r.subject || ''), position: String(r.position || ''),
-      active: true, school_id: 1, created_at: nowISO(),
-    }));
-    if (nid) existingNid.add(nid);
-    created.push(userRow(u));
-
-    /* اگر دانش‌آموز است و نام/تلفن ولی آمده، حساب ولی و پیوند ساخته شود */
-    if (kind === 'students' && (r.parent_name || r.parent_phone)) {
-      const pName = String(r.parent_name || 'ولی ' + name).trim();
-      const pPhone = normDigits(r.parent_phone || '');
-      let parent = store.all('users').find(u2 => u2.role === 'parent' && pPhone && normDigits(u2.phone) === pPhone);
-      if (!parent) {
-        parent = store.insert('users', { name: pName, role: 'parent', phone: pPhone, active: true, school_id: 1, created_at: nowISO() });
+        if (kind === 'grades') {
+          const want = importKey(r.subject_name || r.subject || '');
+          const subs = store.all('subjects');
+          let subj = subs.find(x => importKey(x.name) === want)
+            || (r.subject_id ? store.get('subjects', Number(r.subject_id)) : null);
+          if (!subj && want) subj = subs.find(x => importKey(x.name).indexOf(want) > -1 || want.indexOf(importKey(x.name)) > -1);
+          if (!subj) { errors.push({ row: rowNo, error: 'subject_not_found', subject: r.subject || r.subject_name }); continue; }
+          const score = Number(r.score);
+          if (!Number.isFinite(score) || score < 0 || score > 20) { errors.push({ row: rowNo, error: 'bad_score', score: r.score }); continue; }
+          store.insert('grades', {
+            student_id: stu.id, class_id: stu.class_id || Number(r.class_id) || null,
+            subject_id: subj.id, teacher_id: null,
+            term: r.term || 'نوبت اول', exam_type: r.exam_type || 'کلاسی',
+            score, max_score: 20, date: r.date || null,
+            source: 'import', school_id: 1, created_at: nowISO(),
+          });
+        } else {
+          if (!r.date) { errors.push({ row: rowNo, error: 'bad_date', date: r.date }); continue; }
+          const st = ['present', 'absent', 'late', 'excused'].indexOf(r.status) > -1 ? r.status : null;
+          if (!st) { errors.push({ row: rowNo, error: 'bad_status', status: r.status }); continue; }
+          store.insert('attendance', {
+            student_id: stu.id, class_id: stu.class_id || Number(r.class_id) || null,
+            date: String(r.date).slice(0, 10), status: st, note: r.note || '',
+            source: 'import', school_id: 1, created_at: nowISO(),
+          });
+        }
+        created.push({ id: stu.id });
+        continue;
       }
-      store.insert('parent_links', { parent_id: parent.id, student_id: u.id, relation: r.relation || 'father', created_at: nowISO() });
+
+      /* ── دانش‌آموز / دبیر ── */
+      const name = String(r.full_name || r.name || '').trim();
+      if (!name) { errors.push({ row: rowNo, error: 'missing_name' }); continue; }
+      const nid = normDigits(r.national_id || '');
+      if (nid && !validNationalId(nid)) { errors.push({ row: rowNo, error: 'bad_national_id', nid }); continue; }
+
+      if (nid && createdNids.has(nid)) { errors.push({ row: rowNo, error: 'duplicate_national_id', nid }); continue; }
+
+      /* کد ملیِ موجود ⇒ به‌روزرسانی همان کاربر (قاعدهٔ p2) */
+      let existing = null;
+      if (nid) existing = store.all('users').find(u => normDigits(u.national_id) === nid) || null;
+      if (!existing && Number(r.existing_id)) existing = store.get('users', Number(r.existing_id));
+      const wantRole = kind === 'teachers' ? 'teacher' : 'student';
+      if (existing && existing.role !== wantRole) {
+        errors.push({ row: rowNo, error: 'nid_owner_conflict', nid, name: existing.name });
+        continue;
+      }
+
+      const phone = normDigits(r.phone || '');
+      if (phone && auth.phoneTaken(store, phone, existing ? existing.id : null)) {
+        errors.push({ row: rowNo, error: 'duplicate_phone', phone });
+        continue;
+      }
+
+      /* کلاس: شناسهٔ آماده، یا نامِ موجود، وگرنه ساخت کلاس تازه */
+      let classId = Number(r.class_id) || (existing ? Number(existing.class_id) || null : null);
+      if (kind === 'students') {
+        const wanted = String(r.new_class || r.class_name || '').trim();
+        if (wanted) {
+          let cls = classIndex.get(importKey(wanted));
+          if (!cls && classId && store.get('classes', classId)) cls = store.get('classes', classId);
+          if (!cls) {
+            cls = store.insert('classes', {
+              name: wanted,
+              grade: String(r.new_grade || r.grade || wanted.split(' ')[0] || '')
+                || (String(wanted).split(' ')[0] || ''),
+              branch: String(r.new_branch || r.branch || r.field || wanted.split(' ').slice(1).join(' ') || ''),
+              capacity: 30, school_id: 1, created_at: nowISO(),
+            });
+            classIndex.set(importKey(wanted), cls);
+            classesMade += 1;
+          }
+          classId = cls.id;
+        }
+      }
+
+      const base = {
+        name,
+        role: kind === 'teachers' ? (r.role || 'teacher') : 'student',
+        national_id: nid || '',
+        phone: phone || '',
+        class_id: kind === 'students' ? (classId || null) : (classId || null),
+        active: true, school_id: 1,
+      };
+      pickFields(r, base);
+      if (r.birth_date) base.birth_date = String(r.birth_date).slice(0, 10);
+      if (r.gender) base.gender = r.gender;
+
+      let saved;
+      if (existing) {
+        /* فیلدهای خالیِ فایل، مقدار فعلی را پاک نمی‌کنند */
+        const patch = {};
+        for (const k of Object.keys(base)) {
+          const v = base[k];
+          if (v === '' || v === null || v === undefined) continue;
+          patch[k] = v;
+        }
+        saved = store.update('users', existing.id, patch);
+        updated += 1;
+      } else {
+        saved = store.insert('users', auth.applyDefaultCredentials(Object.assign({ created_at: nowISO() }, base)));
+        if (nid) createdNids.add(nid);
+        created.push(userRow(saved));
+      }
+
+      /* ── حساب پدر و مادر و پیوند ولی ── */
+      if (kind === 'students') {
+        const fName = String(r.father_name || r.parent_name || '').trim();
+        const fPhoneRaw = normDigits(r.father_phone || r.parent_phone || '');
+        const mPhoneRaw = normDigits(r.mother_phone || '');
+        /* اگر هیچ شماره‌ای برای والدین نبود، شمارهٔ خودِ دانش‌آموز به پدر
+           داده می‌شود تا بتواند وارد شود (همان قاعدهٔ p2) — نه به مادر،
+           وگرنه دو حساب روی یک شماره می‌افتند. */
+        const fPhone = fPhoneRaw || (mPhoneRaw ? '' : phone);
+        const pairs = [
+          [normDigits(r.father_nid || (fName ? r.parent_nid : '') || ''), fName, 'پدر', fPhone],
+          [normDigits(r.mother_nid || ''), String(r.mother_name || '').trim(), 'مادر', mPhoneRaw],
+        ];
+        for (const [pnid, pname, rel, pphone] of pairs) {
+          if (!pnid && !pname && !pphone) continue;
+          let parent = null;
+          if (pnid) parent = store.all('users').find(u => u.role === 'parent' && normDigits(u.national_id) === pnid) || null;
+          if (!parent && pphone) parent = store.all('users').find(u => u.role === 'parent' && normDigits(u.phone) === pphone) || null;
+          if (!parent) {
+            /* اگر این شماره از قبل حسابی دارد، همان حساب ولیِ این دانش‌آموز
+               میشود؛ حساب دوم با یک شماره ساخته نمیشود (نام کاربری یکتاست) */
+            const pPhone = pphone || '';
+            const taken = pPhone ? auth.phoneTaken(store, pPhone, null) : null;
+            if (taken && taken.role === 'parent') parent = taken;
+            else if (!taken) {
+              parent = store.insert('users', auth.applyDefaultCredentials({
+                name: pname || (rel + ' ' + name), role: 'parent',
+                national_id: pnid || '', phone: pPhone,
+                active: true, school_id: 1, created_at: nowISO(),
+              }));
+              parents += 1;
+            }
+          }
+          if (!parent) continue;   /* شمارهٔ ولی به کاربر دیگری تعلق داشت */
+          const linked = store.all('parent_links').some(l => Number(l.parent_id) === Number(parent.id) && Number(l.student_id) === Number(saved.id));
+          if (!linked) store.insert('parent_links', { parent_id: parent.id, student_id: saved.id, relation: rel, school_id: 1, created_at: nowISO() });
+        }
+      }
+    } catch (e) {
+      errors.push({ row: rowNo, error: 'write_failed', detail: String((e && e.message) || e).slice(0, 120) });
     }
   }
-  store.audit({ role: 'manager', action: 'import_' + kind, collection: 'users', after: { count: created.length } });
-  return { ok: true, created: created.length, errors, users: created };
+
+  store.audit({ role: 'manager', action: 'import_' + kind, collection: 'users', after: { created: created.length, updated, parents, classes: classesMade } });
+  return { ok: true, kind, created: created.length, updated, parents, classes: classesMade, errors, users: created };
 }
 
 function toCSV(rows) {

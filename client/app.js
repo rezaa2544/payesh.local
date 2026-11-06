@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.14';
+const CLIENT_VERSION = '0.8.15';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -594,51 +594,6 @@ async function deleteUserEverywhere(id) {
   if (S.data && S.data.users) S.data.users.delete(nid);
   return true;
 }
-
-/* ── ساخت کاربران به‌صورت محلی (گوشی، یا وقتی مدرسه پاسخ نمی‌دهد) ─────
-   همان قاعدهٔ سامانه: نام کاربری = شمارهٔ همراه، رمز = کد ملی. */
-async function importApplyLocal(rows, kind) {
-  const created = [];
-  const errors = [];
-  const classMap = new Map(list('classes').map(c => [impNorm(c.name), c]));
-  for (const r of rows) {
-    try {
-      const name = String(r.name || '').trim();
-      if (!name) { errors.push({ row: r._row, error: 'missing_name' }); continue; }
-      let classId = null;
-      if (kind === 'students' && r.class_name) {
-        const key = impNorm(r.class_name);
-        let cls = classMap.get(key);
-        if (!cls) {
-          cls = putLocal('classes', { name: r.class_name, grade: r.grade || '', branch: r.branch || '', capacity: 30, school_id: 1 });
-          classMap.set(key, cls);
-        }
-        classId = cls.id;
-      }
-      const u = putLocal('users', {
-        name,
-        role: kind === 'staff' ? (r.role || 'teacher') : 'student',
-        national_id: r.national_id || '',
-        phone: r.phone || '',
-        class_id: classId,
-        subject: r.subject || '',
-        position: r.position || '',
-        active: 1, school_id: 1,
-      });
-      if (kind === 'students' && (r.parent_phone || r.parent_name)) {
-        const pPhone = digitsOnly(r.parent_phone || '');
-        let parent = pPhone ? list('users').find(x => x.role === 'parent' && digitsOnly(x.phone || '') === pPhone) : null;
-        if (!parent) parent = putLocal('users', { name: r.parent_name || ('ولی ' + name), role: 'parent', phone: pPhone, active: 1, school_id: 1 });
-        putLocal('parent_links', { parent_id: parent.id, student_id: u.id, relation: 'father' });
-      }
-      created.push(u);
-    } catch (e) {
-      errors.push({ row: r._row, error: String((e && e.message) || e) });
-    }
-  }
-  return { created: created.length, errors };
-}
-
 
 /* ارقام فارسی/عربی و فاصله‌ها را به رقم انگلیسی تبدیل می‌کند
    (باگ مهم: PIN با ارقام فارسی ذخیره نمی‌شد و راه‌اندازی تکرار می‌شد) */
@@ -1755,7 +1710,7 @@ document.addEventListener('click', async (e) => {
       if (!S.imp) return;
       const rows = (S.imp.checks || []).filter(c => !c.errors.length).map(c => c.data);
       if (!rows.length) return toast('سطر سالمی برای ثبت نیست', 'err');
-      const kindImp = S.imp.kind === 'staff' ? 'staff' : 'students';
+      const kindImp = ['students', 'teachers', 'grades', 'attendance'].includes(S.imp.kind) ? S.imp.kind : 'students';
       const btn = el; btn.disabled = true;
       try {
         let result;
@@ -1764,7 +1719,11 @@ document.addEventListener('click', async (e) => {
         } else {
           try {
             const r = await api('/api/admin/import', { method: 'POST', body: { kind: kindImp, rows } });
-            result = { created: Number(r.created || 0), errors: r.errors || [] };
+            result = {
+              created: Number(r.created || 0), updated: Number(r.updated || 0),
+              parents: Number(r.parents || 0), classes: Number(r.classes || 0),
+              errors: r.errors || [],
+            };
           } catch (err) {
             /* اگر سیستم مدرسه پاسخ نداد، همان لحظه روی همین دستگاه ساخته
                می‌شوند و در صف می‌مانند تا برسد */
@@ -1776,7 +1735,9 @@ document.addEventListener('click', async (e) => {
         S.imp.result = result;
         S.creds = undefined;   /* رمزهای تازه از سرور خوانده شوند */
         saveCache(); render(); renderImportStep();
-        toast(fa(result.created) + ' کاربر ساخته شد', result.created ? 'ok' : 'err');
+        const unit = kindImp === 'grades' ? 'نمره' : kindImp === 'attendance' ? 'حضور' : 'کاربر';
+        toast(fa(result.created || 0) + ' ' + unit + ' ثبت شد'
+          + (result.updated ? ' · ' + fa(result.updated) + ' به‌روزرسانی' : ''), (result.created || result.updated) ? 'ok' : 'err');
       } catch (err) {
         toast('ثبت نشد: ' + friendlyError(err), 'err');
       } finally {
@@ -2136,23 +2097,34 @@ document.addEventListener('submit', async (e) => {
     const X = window.PayeshXlsx;
     if (!X) return toast('خوانندهٔ فایل بارگذاری نشده — نسخهٔ تازهٔ برنامه را نصب کنید', 'err');
     try {
+      const entity = ['students', 'teachers', 'grades', 'attendance'].indexOf(f.kind && f.kind.value) > -1 ? f.kind.value : 'students';
       const isXlsx = /\.xlsx$/i.test(file.name);
       const book = isXlsx ? await X.read(await file.arrayBuffer()) : X.fromCsv(await file.text());
       const sheet = (book.sheets || []).find(sh => (sh.rows || []).length) || book.sheets[0];
       if (!sheet || !(sheet.rows || []).length) return toast('این فایل هیچ سطری ندارد', 'err');
-      const width = sheet.rows.reduce((m, r) => Math.max(m, r.length), 0);
-      const first = sheet.rows[0] || [];
-      const guess = impAutoMap(first);
-      const hasHeader = guess.some(Boolean);
-      const rows = (hasHeader ? sheet.rows.slice(1) : sheet.rows).filter(r => r.some(c => String(c == null ? '' : c).trim() !== ''));
+      const allRows = (sheet.rows || []).filter(r => (r || []).some(c => String(c == null ? '' : c).trim() !== ''));
+      if (!allRows.length) return toast('در این فایل سطر داده‌ای نیست', 'err');
+      const width = allRows.reduce((m, r) => Math.max(m, (r || []).length), 0);
+      /* ردیف تیتر: پرمحتواترین ردیف میان پنج ردیف نخست (همان قاعدهٔ p2) */
+      let hi = 0, bestCells = 0;
+      allRows.slice(0, 5).forEach((r, i) => {
+        const n = (r || []).filter(c => String(c == null ? '' : c).trim()).length;
+        if (n > bestCells) { bestCells = n; hi = i; }
+      });
+      const first = allRows[hi] || [];
+      const guess = impAutoMap(first, entity);
+      const hasHeader = Object.keys(guess).some(k => guess[k]);
+      const rows = hasHeader ? allRows.slice(hi + 1) : allRows;
       if (!rows.length) return toast('در این فایل سطر داده‌ای نیست', 'err');
       const headers = hasHeader
-        ? first.map((h, i) => String(h || '').trim() || ('ستون ' + fa(i + 1)))
+        ? [...Array(width)].map((_, i) => String(first[i] == null ? '' : first[i]).trim() || ('ستون ' + fa(i + 1)))
         : [...Array(width)].map((_, i) => 'ستون ' + fa(i + 1));
       S.imp = {
-        step: 2, kind: f.kind.value === 'staff' ? 'staff' : 'students',
+        step: 2, kind: entity,
+        headerRow: hasHeader ? hi + 1 : 0,
         fileName: file.name, sheetName: sheet.name,
-        headers, rows, map: hasHeader ? guess.concat([...Array(Math.max(0, width - guess.length))].map(() => '')) : [...Array(width)].map(() => ''),
+        headers, rows,
+        map: [...Array(width)].map((_, i) => guess[i] || ''),
       };
       renderImportStep();
     } catch (err) {
@@ -2214,8 +2186,12 @@ document.addEventListener('submit', async (e) => {
       class_id: f.class_id && f.class_id.value ? Number(f.class_id.value) : null,
       national_id: nid,
       phone,
+      birth_date: impAnyDate((f.birth_date && f.birth_date.value) || ''),
+      gender: String((f.gender && f.gender.value) || '').trim(),
       active: 1, school_id: 1,
     };
+    if (!row.birth_date) delete row.birth_date;
+    if (!row.gender) delete row.gender;
     const created = putLocal('users', row);
     /* ولی: حساب ولی ساخته و به دانش‌آموز وصل می‌شود */
     const pName = String((f.parent_name && f.parent_name.value) || '').trim();
@@ -2290,6 +2266,8 @@ document.addEventListener('submit', async (e) => {
     if (phone && phone.length < 10) return toast('شمارهٔ همراه کامل نیست', 'err');
     const password = String(f.password.value || '');
     const patch = { name: String(f.name.value || '').trim() || u.name, phone, active: f.active.checked };
+    if (f.birth_date) patch.birth_date = impAnyDate(f.birth_date.value || '');
+    if (f.gender) patch.gender = String(f.gender.value || '').trim();
     let savedOnServer = false, passwordOnServer = false;
     if (!PHONE_MODE) {
       /* اگر کارمند تازه و آفلاین ساخته شده، شناسه‌اش محلی است؛ اول با

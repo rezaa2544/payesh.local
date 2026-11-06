@@ -349,11 +349,23 @@ function phoneTaken(store, phone, exceptId) {
   return (store.all('users') || []).find(u => normDigits(u.phone) === p && Number(u.id) !== Number(exceptId || 0)) || null;
 }
 
+/* فیلدهای تکمیلیِ کاربر (تاریخ تولد، جنسیت، پدر و مادر، …) هم برگردانده
+   می‌شوند تا در نسخهٔ گوشی و ویندوز یکسان دیده شوند. */
+const PUBLIC_EXTRA = ['birth_date', 'gender', 'father_name', 'father_nid', 'father_phone',
+  'mother_name', 'mother_nid', 'mother_phone', 'guardian', 'guardian_alive', 'covered',
+  'org_type', 'org_percent', 'talent', 'landline', 'residence', 'village', 'residence_status',
+  'address', 'shenasname_serial', 'shenasname_seri', 'last_gpa', 'failed_count', 'field',
+  'degree', 'subject', 'position'];
+
 function publicUser(u) {
-  return {
+  const out = {
     id: u.id, name: u.name, role: u.role, phone: u.phone, national_id: u.national_id,
     class_id: u.class_id || null, active: u.active !== false,
   };
+  for (const k of PUBLIC_EXTRA) {
+    if (u[k] !== undefined && u[k] !== null && u[k] !== '') out[k] = u[k];
+  }
+  return out;
 }
 
 /* پاک‌سازی نشست‌های منقضی */
