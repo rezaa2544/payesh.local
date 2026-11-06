@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.19';
+const CLIENT_VERSION = '0.8.20';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1040,6 +1040,12 @@ function render() {
   const root = $('#app');
   if (!root) return;
   if (!S.session || !S.user) return;
+  /* گارد مسیر: نقش‌ها فقط صفحه‌های مجاز خودشان را می‌بینند (مثل p2) */
+  if (typeof window.authzCanRoute === 'function' && !window.authzCanRoute(S.route, S.role || (S.user && S.user.role))) {
+    paintApp(shellHtml(window.authzDeniedHtml(S.route)));
+    updateTopChrome();
+    return;
+  }
   const page = (window.PAGES && window.PAGES[S.route]) || null;
   const view = page ? page(S.params) : `<div class="card"><h3>صفحه پیدا نشد</h3><p class="muted">مسیر «${esc(S.route)}» وجود ندارد.</p></div>`;
   paintApp(shellHtml(view));
@@ -1058,6 +1064,13 @@ function render() {
       })
       .catch(() => { S.creds = {}; })
       .then(() => { S._credsLoading = false; render(); });
+  }
+
+  /* وضعیت به‌روزرسانی در صفحهٔ «سیستم» (همان snapshot k3-reval) */
+  if (S.route === 'system' && S.role === 'manager' && S.upd === undefined && !S._updLoading) {
+    S._updLoading = true;
+    loadUpdState().then(() => { S._updLoading = false; if (S.route === 'system') render(); })
+      .catch(() => { S._updLoading = false; });
   }
 
   if (S.route === 'cloud' && S.role === 'manager' && S.cloud === undefined && !S._cloudLoading) {
@@ -1162,6 +1175,160 @@ async function loadRemoteUpdate(force = false) {
   } catch (e) {
     S.remote = Object.assign({}, S.remote || {}, { ok: false, error: e.message });
     return S.remote;
+  } finally { S.remoteBusy = false; }
+}
+
+/* ══════════════ به‌روزرسانی — همان چرخهٔ k3-reval ══════════════════
+   بررسی → (نسخهٔ تازه) → دانلودِ فقط فایل‌های تغییرکرده با درصد پیشرفت
+   → «آمادهٔ نصب» → نصب. دقیقاً همان state machine نسخهٔ k3-reval
+   (src/updater.js) ولی روی موتور دلتای همین برنامه.
+   ═══════════════════════════════════════════════════════════════════ */
+async function loadUpdState() {
+  if (S.role !== 'manager') { S.upd = null; return null; }
+  try {
+    const r = await api('/api/admin/update/state', { noAuthRedirect: true });
+    S.upd = r.state || null;
+  } catch (e) { /* بی‌صدا — آفلاین */ }
+  return S.upd;
+}
+
+let updPollTimer = null;
+function updPoll(on) {
+  if (updPollTimer) { clearInterval(updPollTimer); updPollTimer = null; }
+  if (!on) return;
+  updPollTimer = setInterval(async () => {
+    const st = await loadUpdState();
+    if (!st) return;
+    const busy = st.status === 'downloading' || st.status === 'installing' || st.status === 'checking';
+    updOverlayShow(st);
+    if (!busy) {
+      updPoll(false);
+      if (st.status === 'ready') { hideUpdateOverlay(); render(); }
+    }
+  }, 800);
+}
+
+function updPctBar(st) {
+  const pct = Math.max(0, Math.min(100, Number(st.percent) || 0));
+  return `<div style="height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:12px 0 6px">
+      <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);transition:width .3s"></div>
+    </div>
+    <div class="small muted">${fa(pct)}٪${st.totalKb ? ' · ' + fa(st.receivedKb || 0) + ' از ' + fa(st.totalKb) + ' کیلوبایت' : ''}</div>`;
+}
+
+function updOverlayShow(st) {
+  const el = document.getElementById('upd-overlay') || updateOverlay('', '');
+  let title = 'در حال به‌روزرسانی';
+  let sub = '';
+  if (st.status === 'checking') { title = 'بررسی نسخهٔ تازه'; sub = 'چند لحظه…'; }
+  else if (st.status === 'downloading') { title = 'در حال دانلود تغییرات'; sub = 'فقط فایل‌هایی که عوض شده‌اند'; }
+  else if (st.status === 'installing') { title = 'در حال نصب'; sub = 'فایل‌های تازه جای‌گذاری می‌شوند'; }
+  else if (st.status === 'ready') { title = 'آمادهٔ نصب'; sub = 'دانلود کامل شد'; }
+  else if (st.status === 'error') { title = 'به‌روزرسانی انجام نشد'; sub = st.errorText || st.error || ''; }
+  el.innerHTML = `<div class="card" style="max-width:420px;text-align:center;direction:rtl">
+      <div style="font-size:34px;margin-bottom:6px">${st.status === 'error' ? '⚠️' : '🔄'}</div>
+      <div style="font-weight:700;font-size:1.05rem">${esc(title)}</div>
+      <div class="small muted" style="margin-top:8px">${esc(sub || '')}</div>
+      ${st.status === 'downloading' ? updPctBar(st) : ''}
+      ${st.mode === 'patch' && st.savedMb ? `<div class="small muted" style="margin-top:8px">این روش ${fa(st.savedMb)} مگابایت کم‌تر از نصب‌کنندهٔ کامل دانلود می‌کند</div>` : ''}
+    </div>`;
+  return el;
+}
+
+/* یک کلیک: بررسی → دانلود → نصب */
+async function updOneClick() {
+  if (S.role !== 'manager') { toast('فقط مدیر سیستم می‌تواند به‌روزرسانی کند', 'err'); return; }
+  if (S.remoteBusy) return;
+  S.remoteBusy = true;
+  const prev = (S.server && S.server.version) || '0.0.0';
+  try {
+    await loadRemoteUpdate(true);
+    const st0 = await loadUpdState();
+    if (!st0 || !st0.hasUpdate) { toast('برنامه به‌روز است', 'ok'); S.remoteBusy = false; updPoll(false); hideUpdateOverlay(); render(); return; }
+
+    /* ۱) دانلود با نمایش درصد */
+    updOverlayShow({ status: 'downloading', percent: 0, mode: st0.mode, savedMb: st0.savedMb });
+    updPoll(true);
+    const dl = await api('/api/admin/update/download', { method: 'POST', body: {} });
+    if (!dl.ok) {
+      throw new Error(dl.detail || dl.error || 'download_failed');
+    }
+    if (!dl.available) {
+      updPoll(false); hideUpdateOverlay(); S.remoteBusy = false;
+      toast('برنامه همین حالا به‌روز است', 'ok');
+      await loadRemoteUpdate(true); render(); return;
+    }
+    await loadUpdState();
+    updOverlayShow(S.upd || { status: 'ready' });
+
+    /* ۲) نصب */
+    const r = await api('/api/admin/update/install', { method: 'POST', body: {} });
+    if (!r.ok) throw new Error(r.detail || r.error || 'apply_failed');
+    if (!r.applied) {
+      updPoll(false); hideUpdateOverlay(); S.remoteBusy = false;
+      toast('برنامه همین حالا به‌روز است', 'ok');
+      await loadRemoteUpdate(true); render(); return;
+    }
+    try { localStorage.removeItem('payesh.upd.dismiss'); } catch (e) { /* بی‌صدا */ }
+    const kb = Math.max(1, Math.round((r.bytes || 0) / 1024));
+    toast('نسخهٔ ' + fa(r.version) + ' نصب شد — ' + fa(r.files) + ' فایل، ' + fa(kb) + ' کیلوبایت', 'ok');
+    if (r.restart) {
+      updateOverlay('نسخهٔ ' + fa(r.version) + ' نصب شد', 'برنامهٔ مدرسه دوباره راه می‌افتد؛ چند لحظه…');
+      await waitForRestart(prev, r.version);
+      return;
+    }
+    updPoll(false); hideUpdateOverlay();
+    await refreshClientCache();
+  } catch (e) {
+    updPoll(false);
+    let msg = String(e.message || '');
+    try { await loadUpdState(); } catch (e2) { /* بی‌صدا */ }
+    if (S.upd && S.upd.errorText) msg = S.upd.errorText;
+    else if (/needs_admin/.test(msg)) msg = 'این آپدیت کد سرور را عوض می‌کند و پوشهٔ نصب محافظت‌شده است — یک‌بار نصب‌کنندهٔ تازه را اجرا کنید؛ از آن پس آپدیت‌ها خودکار می‌شوند.';
+    else if (/EACCES|EPERM|apply_failed/.test(msg)) msg = 'اجازهٔ نوشتن در پوشهٔ نصب نبود — یک‌بار نصب‌کنندهٔ تازه را اجرا کنید.';
+    else if (/download_failed|timeout/i.test(msg)) msg = 'دانلود کامل نشد — اتصال اینترنت را بررسی کنید و دوباره بزنید؛ برنامه دست‌نخورده مانده است.';
+    hideUpdateOverlay();
+    toast('به‌روزرسانی ناموفق: ' + msg, 'err');
+    render();
+  } finally {
+    S.remoteBusy = false;
+  }
+}
+
+/* «دانلود» و «نصب» جدا (حالت k3-reval: آمادهٔ نصب) */
+async function updDownload() {
+  if (S.remoteBusy) return;
+  S.remoteBusy = true;
+  updPoll(true);
+  updOverlayShow({ status: 'downloading', percent: 0 });
+  try {
+    const r = await api('/api/admin/update/download', { method: 'POST', body: {} });
+    await loadUpdState();
+    if (!r.ok) toast('دانلود انجام نشد: ' + (r.error === 'download_failed' ? 'اتصال را بررسی کنید' : (r.error || '')), 'err');
+    else if (!r.available) toast('برنامه به‌روز است', 'ok');
+    else toast('دانلود کامل شد — حالا «نصب» را بزنید', 'ok');
+  } catch (e) { toast('دانلود انجام نشد: ' + e.message, 'err'); }
+  finally { S.remoteBusy = false; updPoll(false); hideUpdateOverlay(); render(); }
+}
+
+async function updInstall() {
+  if (S.remoteBusy) return;
+  S.remoteBusy = true;
+  const prev = (S.server && S.server.version) || '0.0.0';
+  try {
+    const r = await api('/api/admin/update/install', { method: 'POST', body: {} });
+    if (!r.ok) throw new Error(r.detail || r.error || 'apply_failed');
+    try { localStorage.removeItem('payesh.upd.dismiss'); } catch (e) { /* بی‌صدا */ }
+    toast('نسخهٔ ' + fa(r.version) + ' نصب شد', 'ok');
+    if (r.restart) {
+      updateOverlay('نسخهٔ ' + fa(r.version) + ' نصب شد', 'برنامه دوباره راه می‌افتد؛ چند لحظه…');
+      await waitForRestart(prev, r.version);
+      return;
+    }
+    await refreshClientCache();
+  } catch (e) {
+    toast('نصب انجام نشد: ' + e.message, 'err');
+    render();
   } finally { S.remoteBusy = false; }
 }
 
@@ -1457,9 +1624,18 @@ document.addEventListener('click', async (e) => {
   if (!el) return;
   const act = el.getAttribute('data-act');
   const id = el.getAttribute('data-id');
+  /* گارد کنش: کنش مدیریتی با نقش دیگر اجرا نمی‌شود (مثل p2) */
+  if (typeof window.authzCanAct === 'function' && !window.authzCanAct(act, S.role || (S.user && S.user.role))) {
+    toast('این کار برای نقش شما مجاز نیست', 'err');
+    return;
+  }
   /* کنش‌های برنامهٔ هفتگی (client/schedule.js) */
   if (window.SCHED_ACTIONS && typeof window.SCHED_ACTIONS[act] === 'function') {
     return window.SCHED_ACTIONS[act](el, id, e);
+  }
+  /* کنش‌های «سلامت داده» (client/diag.js) */
+  if (window.DIAG_ACTIONS && typeof window.DIAG_ACTIONS[act] === 'function') {
+    return window.DIAG_ACTIONS[act](el, id, e);
   }
 
   switch (act) {
@@ -1638,6 +1814,10 @@ document.addEventListener('click', async (e) => {
     case 'goto': go(el.getAttribute('data-route')); return;
     case 'print': window.print(); return;
     case 'update-check': await checkUpdate(false); render(); return;
+    case 'update-now': await updOneClick(); return;
+    case 'update-download': await updDownload(); return;
+    case 'update-install': await updInstall(); return;
+    case 'update-state': await loadUpdState(); render(); return;
     case 'update-apply': await applyUpdate(); return;
     case 'update-fetch': await applyRemoteUpdate(); return;
     case 'upd-retry': {
@@ -2167,6 +2347,67 @@ document.addEventListener('input', (e) => {
   if (v !== el.value) el.value = v;
 });
 
+/* ══════════ تشخیص کامل کاربر تکراری (هم‌قاعده با 42-self-diagnostics) ══════════
+   یک نفر ممکن است به چهار شکل تکرار شود: کد ملی یکسان، شمارهٔ همراه یکسان
+   (که نام کاربری است)، نام یکسان + تاریخ تولد/نام پدر/شمارهٔ همراه، و نام
+   نزدیک با مشخصات یکسان. */
+function userNameKey(n) {
+  return String(n || '').toLowerCase()
+    .replace(/[يىئ]/g, 'ی').replace(/ك/g, 'ک').replace(/[أإآ]/g, 'ا')
+    .replace(/ؤ/g, 'و').replace(/[ةۀ]/g, 'ه')
+    .replace(/[\u064B-\u0652\u0640\u200c]/g, ' ')
+    .replace(/\b(سید|سیده|میر|آقا|خانم|جناب|سرکار)\b/g, ' ')
+    .replace(/[^\p{L}\p{N} ]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function userDobKey(v) {
+  const d = impAnyDate ? impAnyDate(v || '') : String(v || '');
+  return String(d || '').slice(0, 10);
+}
+function findUserDuplicates(row, exceptId) {
+  const nid = digitsOnly(row.national_id || '');
+  const phone = digitsOnly(row.phone || '');
+  const nk = userNameKey(row.name);
+  const dob = userDobKey(row.birth_date);
+  const father = userNameKey(row.father_name || '');
+  const out = { nid: [], phone: [], person: [] };
+  list('users').forEach(u => {
+    if (exceptId && Number(u.id) === Number(exceptId)) return;
+    const un = digitsOnly(u.national_id || '');
+    const up = digitsOnly(u.phone || '');
+    if (nid && un === nid) { out.nid.push(u); return; }
+    if (phone && up === phone) { out.phone.push(u); return; }
+    if (!nk || userNameKey(u.name) !== nk) return;
+    const sameDob = dob && userDobKey(u.birth_date) === dob;
+    const sameFather = father && userNameKey(u.father_name || '') === father;
+    const samePhone = phone && up === phone;
+    if (sameDob || sameFather || samePhone) out.person.push(u);
+  });
+  return out;
+}
+function userDupLabel(u) {
+  const bits = [esc(u.name)];
+  if (u.role && typeof ROLE_FA !== 'undefined' && ROLE_FA[u.role]) bits.push(ROLE_FA[u.role]);
+  if (u.class_id) { try { bits.push(esc(className(u.class_id))); } catch (e) { /* بی‌صدا */ } }
+  if (u.phone) bits.push(esc(u.phone));
+  return bits.join(' · ');
+}
+function userDupBanner(f, matched) {
+  const list_ = matched.slice(0, 4).map(userDupLabel).join(' | ');
+  let box = document.getElementById('user-dup-warn');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'user-dup-warn';
+    box.className = 'banner info';
+    box.style.cssText = 'margin:0 0 10px;display:block';
+    const host = (f && f.parentNode) || document.getElementById('modal-root') || document.body;
+    if (host) host.insertBefore(box, host.firstChild);
+  }
+  box.innerHTML = `<div>⚠️ کاربری با همین مشخصات هست: <b>${list_}</b>.`
+    + ' اگر همان شخص است، همان را ویرایش کنید. اگر مطمئنید شخص دیگری است، دوباره «ثبت» را بزنید.</div>';
+}
+
 document.addEventListener('submit', async (e) => {
   const form = e.target.closest('form[data-form]');
   if (!form) return;
@@ -2339,8 +2580,23 @@ document.addEventListener('submit', async (e) => {
     const phone = digitsOnly(f.phone ? f.phone.value : '');
     if (nid && !impValidNid(nid)) return toast('کد ملی معتبر نیست (۱۰ رقم با رقم کنترلی)', 'err');
     if (phone && !/^09\d{9}$/.test(phone)) return toast('شمارهٔ همراه باید با ۰۹ شروع شود و ۱۱ رقم باشد', 'err');
-    if (nid && list('users').some(u => digitsOnly(u.national_id || '') === nid)) return toast('این کد ملی قبلاً ثبت شده است', 'err');
-    if (phone && list('users').some(u => digitsOnly(u.phone || '') === phone)) return toast('این شمارهٔ همراه قبلاً ثبت شده است', 'err');
+    const dupRow = {
+      name, national_id: nid, phone,
+      birth_date: impAnyDate((f.birth_date && f.birth_date.value) || ''),
+      father_name: String((f.father_name && f.father_name.value) || '').trim(),
+    };
+    const dup = findUserDuplicates(dupRow, 0);
+    if (dup.nid.length) return toast('این کد ملی برای «' + dup.nid[0].name + '» ثبت شده است — همان شخص است؛ به‌جای ساختن کاربر تازه، همان را ویرایش کنید', 'err');
+    if (dup.phone.length) return toast('این شمارهٔ همراه برای «' + dup.phone[0].name + '» ثبت شده است — همان شخص است؛ همان را ویرایش کنید', 'err');
+    const dupKey = userNameKey(name) + '|' + phone + '|' + dupRow.birth_date;
+    if (dup.person.length && S.userDupOk !== dupKey) {
+      S.userDupOk = dupKey;
+      userDupBanner(form, dup.person);
+      return;
+    }
+    S.userDupOk = null;
+    const warnBox = document.getElementById('user-dup-warn');
+    if (warnBox) warnBox.remove();
 
     const role = f.role.value || 'student';
     const row = {
@@ -2438,6 +2694,10 @@ document.addEventListener('submit', async (e) => {
     if (!u) return toast('این کاربر پیدا نشد — صفحه را تازه کنید', 'err');
     const phone = digitsOnly(f.phone.value);
     if (phone && phone.length < 10) return toast('شمارهٔ همراه کامل نیست', 'err');
+    if (phone) {
+      const clash = list('users').find(x => Number(x.id) !== Number(id) && digitsOnly(x.phone || '') === phone);
+      if (clash) return toast('این شمارهٔ همراه برای «' + clash.name + '» ثبت شده است — دو کاربر نمی‌توانند یک نام کاربری داشته باشند', 'err');
+    }
     const password = String(f.password.value || '');
     const patch = { name: String(f.name.value || '').trim() || u.name, phone, active: f.active.checked };
     if (f.birth_date) patch.birth_date = impAnyDate(f.birth_date.value || '');

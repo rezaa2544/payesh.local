@@ -195,7 +195,7 @@ async function plan(store, { force = false } = {}) {
   const bytes = a => a.reduce((s, f) => s + (f.size || 0), 0);
   const restart = server.length > 0 || removed.some(isServerPath);
 
-  return {
+  const result = {
     ok: true,
     available,
     _manifest: remote,
@@ -216,14 +216,98 @@ async function plan(store, { force = false } = {}) {
     cached: !!rm.cached,
     _manifest: remote,
   };
+  lastPlan = result;
+  return result;
 }
 
-/* ── وضعیت اجرا (برای نمایش پیشرفت در پنل) ────────────────────────── */
+/* ── وضعیت اجرا (برای نمایش پیشرفت در پنل) ──────────────────────────
+   همان چرخهٔ به‌روزرسانیِ نسخهٔ k3-reval:
+     idle → checking → available → downloading → ready → installing → done
+   «دانلود» و «نصب» دو مرحلهٔ جدا هستند تا کاربر درصد پیشرفت را ببیند و
+   اگر خواست، بعداً نصب کند. */
 let running = false;
 let progress = { state: 'idle', version: null, done: 0, total: 0, bytes: 0, started_at: null, finished_at: null, error: null };
+let lastPlan = null;
+let staged = null;      /* { plan, stage } — دانلودشده و آمادهٔ نصب */
+let releaseInfo = null; /* اطلاعات انتشار گیت‌هاب: صفحه و حجم نصب‌کنندهٔ کامل */
 
 function status() {
   return { running, progress, last_check: lastCheck };
+}
+
+/* ── حجم نصب‌کنندهٔ کامل از صفحهٔ انتشار (برای نمایش «چقدر صرفه‌جویی شد») ── */
+async function fullInstallerInfo() {
+  if (process.env.PAYESH_RELEASE_INFO === '0') return null;
+  if (releaseInfo && Date.now() - releaseInfo.at < 30 * 60_000) return releaseInfo;
+  try {
+    const txt = await get('https://api.github.com/repos/' + REPO + '/releases/tags/continuous', { timeoutMs: 6000 });
+    const j = JSON.parse(txt);
+    const assets = Array.isArray(j.assets) ? j.assets : [];
+    const pick = /setup.*\.exe$/i;
+    const exe = assets.find(a => pick.test(a.name || '')) || assets.find(a => /\.apk$/i.test(a.name || ''));
+    releaseInfo = {
+      at: Date.now(),
+      pageUrl: j.html_url || ('https://github.com/' + REPO + '/releases/tag/continuous'),
+      exe: exe ? { name: exe.name, size: Number(exe.size) || 0, url: exe.browser_download_url } : null,
+      publishedAt: j.published_at || '',
+      notes: j.body || '',
+    };
+    return releaseInfo;
+  } catch (e) {
+    releaseInfo = { at: Date.now(), error: errText(e), exe: null, pageUrl: 'https://github.com/' + REPO + '/releases' };
+    return releaseInfo;
+  }
+}
+
+/** تصویر وضعیت — دقیقاً همان شکل snapshot در k3-reval/src/updater.js */
+function snapshot(store) {
+  const local = localManifest();
+  const p = lastPlan;
+  const info = releaseInfo || {};
+  const fullSize = (info.exe && info.exe.size) || 0;
+  const patchBytes = p ? Number(p.total_size) || 0 : 0;
+  const st = progress.state === 'done' ? (p && p.available ? 'available' : 'latest') : progress.state;
+  const total = progress.total || (p ? (p.changed || []).length : 0);
+  const percent = progress.state === 'ready' ? 100
+    : total ? Math.round((progress.done / total) * 100) : (progress.state === 'done' ? 100 : 0);
+  return {
+    status: st,
+    current: local.version,
+    latest: (p && p.remote_version) || (store ? (store.getMeta('update:checked', null) || {}).version : null) || null,
+    hasUpdate: !!(p && p.available),
+    notes: (p && p.notes) || [],
+    pageUrl: info.pageUrl || ('https://github.com/' + REPO + '/releases'),
+    files: (p && p.counts) || { changed: 0, client: 0, server: 0, removed: 0 },
+    sizeKb: Math.round(patchBytes / 1024),
+    sizeMb: Math.round((patchBytes / 1048576) * 100) / 100,
+    percent,
+    receivedKb: Math.round((progress.bytes || 0) / 1024),
+    totalKb: Math.round(patchBytes / 1024),
+    error: progress.error || (p && !p.ok ? (p.error || 'source_unreachable') : ''),
+    errorText: progress.error ? errFa(progress.error) : '',
+    checkedAt: lastCheck ? lastCheck.at : null,
+    ready: progress.state === 'ready',
+    mode: p && p.available ? 'patch' : 'full',
+    usedPatch: !!(p && p.available && patchBytes),
+    fullMb: fullSize ? Math.round((fullSize / 1048576) * 10) / 10 : 0,
+    savedMb: fullSize && patchBytes ? Math.max(0, Math.round(((fullSize - patchBytes) / 1048576) * 10) / 10) : 0,
+    needsRestart: !!(p && p.needs_restart),
+    source: p && p.source ? String(p.source).replace(/^https?:\/\//, '') : '',
+    running,
+  };
+}
+
+/* پیام فارسیِ خطاها — هیچ کد خامی به کاربر نشان داده نمی‌شود */
+function errFa(code) {
+  const c = String(code || '');
+  if (/timeout|ETIMEDOUT|abort/i.test(c)) return 'اینترنت کند است یا پاسخ نداد — چند لحظهٔ دیگر دوباره امتحان می‌شود';
+  if (/HTTP 404/.test(c)) return 'نسخه‌ای در مخزن پیدا نشد';
+  if (/HTTP 403|rate/i.test(c)) return 'مخزن موقتاً درخواست‌ها را محدود کرده — چند دقیقهٔ دیگر';
+  if (/HTTP \d+/.test(c)) return 'مخزن پاسخ درست نداد (' + c + ')';
+  if (/hash_mismatch|size_mismatch/.test(c)) return 'فایل دانلودشده سالم نبود و کنار گذاشته شد — دوباره تلاش کنید';
+  if (/EACCES|EPERM|needs_admin|update_not_writable/.test(c)) return 'اجازهٔ نوشتن در پوشهٔ برنامه نبود — یک‌بار نصب‌کنندهٔ تازه را اجرا کنید';
+  if (/source_unreachable/.test(c)) return 'هیچ‌کدام از آدرس‌های به‌روزرسانی در دسترس نبود — اینترنت سیستم را بررسی کنید';
+  return c || 'خطای نامشخص';
 }
 
 /* ── دانلود و بررسی هش ────────────────────────────────────────────── */
@@ -255,14 +339,14 @@ async function downloadAll(base, changed, stageRoot) {
 }
 
 /* ── اعمال ────────────────────────────────────────────────────────── */
-async function apply(store, { force = true, by = 'manager' } = {}) {
+async function apply(store, { force = true, by = 'manager', reuse = null } = {}) {
   if (running) return { ok: false, error: 'busy', progress };
   running = true;
   progress = { state: 'checking', version: null, done: 0, total: 0, bytes: 0, started_at: nowISO(), finished_at: null, error: null };
   const root = appRoot();
   let stage = null;
   try {
-    const p = await plan(store, { force });
+    const p = reuse && reuse.plan ? reuse.plan : await plan(store, { force });
     if (!p.ok) {
       progress = Object.assign({}, progress, { state: 'error', error: 'source_unreachable', finished_at: nowISO() });
       return { ok: false, error: 'source_unreachable', errors: p.errors || [] };
@@ -277,18 +361,24 @@ async function apply(store, { force = true, by = 'manager' } = {}) {
     }
 
     const version = p.remote_version;
-    stage = path.join(updatesDir(), version);
-    fs.rmSync(stage, { recursive: true, force: true });
-    fs.mkdirSync(stage, { recursive: true });
-
-    progress = Object.assign({}, progress, { state: 'downloading', version, total: p.changed.length });
-    try {
-      await downloadAll(p.source, p.changed, stage);
-    } catch (e) {
-      /* هیچ فایلی از برنامه هنوز دست نخورده است */
-      progress = Object.assign({}, progress, { state: 'error', error: errText(e), finished_at: nowISO() });
+    if (reuse && reuse.stage) {
+      /* از قبل دانلود شده (مرحلهٔ «آمادهٔ نصب») */
+      stage = reuse.stage;
+      progress = Object.assign({}, progress, { state: 'installing', version, total: p.changed.length, done: p.changed.length });
+    } else {
+      stage = path.join(updatesDir(), 'stage-' + version);
       fs.rmSync(stage, { recursive: true, force: true });
-      return { ok: false, error: 'download_failed', detail: errText(e), version };
+      fs.mkdirSync(stage, { recursive: true });
+
+      progress = Object.assign({}, progress, { state: 'downloading', version, total: p.changed.length });
+      try {
+        await downloadAll(p.source, p.changed, stage);
+      } catch (e) {
+        /* هیچ فایلی از برنامه هنوز دست نخورده است */
+        progress = Object.assign({}, progress, { state: 'error', error: errText(e), finished_at: nowISO() });
+        fs.rmSync(stage, { recursive: true, force: true });
+        return { ok: false, error: 'download_failed', detail: errText(e), version };
+      }
     }
 
     /* ── نسخهٔ فعلی را کنار بگذار (برای بازگشت) ── */
@@ -391,6 +481,65 @@ function remoteManifestCache() {
   return cache && cache.value && cache.value.manifest ? cache.value.manifest : null;
 }
 
+/* ── مرحلهٔ ۱: دانلود (بدون دست زدن به برنامه) ────────────────────────
+   فایل‌ها در پوشهٔ موقت کنار گذاشته می‌شوند و هش‌شان بررسی می‌شود.
+   تا اینجا هیچ فایلی از برنامه عوض نشده است. */
+async function download(store, { force = true } = {}) {
+  if (running) return { ok: false, error: 'busy', state: snapshot(store) };
+  running = true;
+  progress = { state: 'checking', version: null, done: 0, total: 0, bytes: 0, started_at: nowISO(), finished_at: null, error: null };
+  try {
+    const p = await plan(store, { force });
+    if (!p.ok) {
+      progress = Object.assign({}, progress, { state: 'error', error: p.error || 'source_unreachable', finished_at: nowISO() });
+      return { ok: false, error: p.error || 'source_unreachable', state: snapshot(store) };
+    }
+    if (!p.available || (!p.changed.length && !p.removed.length)) {
+      progress = { state: 'done', version: p.remote_version, done: 0, total: 0, bytes: 0, started_at: progress.started_at, finished_at: nowISO(), error: null };
+      return { ok: true, available: false, up_to_date: true, state: snapshot(store) };
+    }
+    const version = p.remote_version;
+    const stage = path.join(updatesDir(), 'stage-' + version);
+    fs.rmSync(stage, { recursive: true, force: true });
+    fs.mkdirSync(stage, { recursive: true });
+    progress = { state: 'downloading', version, done: 0, total: p.changed.length, bytes: 0, started_at: nowISO(), finished_at: null, error: null };
+    try {
+      await downloadAll(p.source, p.changed, stage);
+    } catch (e) {
+      fs.rmSync(stage, { recursive: true, force: true });
+      progress = Object.assign({}, progress, { state: 'error', error: errText(e), finished_at: nowISO() });
+      return { ok: false, error: 'download_failed', detail: errText(e), state: snapshot(store) };
+    }
+    staged = { plan: p, stage };
+    progress = { state: 'ready', version, done: p.changed.length, total: p.changed.length, bytes: progress.bytes, started_at: progress.started_at, finished_at: null, error: null };
+    return { ok: true, available: true, ready: true, version, files: p.counts, bytes: progress.bytes, state: snapshot(store) };
+  } catch (e) {
+    progress = Object.assign({}, progress, { state: 'error', error: errText(e), finished_at: nowISO() });
+    return { ok: false, error: 'download_failed', detail: errText(e), state: snapshot(store) };
+  } finally {
+    running = false;
+  }
+}
+
+/* ── مرحلهٔ ۲: نصب آنچه دانلود شده (پشتیبان می‌گیرد و جای‌گذاری می‌کند) ── */
+async function install(store, { by = 'manager' } = {}) {
+  if (!staged) {
+    /* اگر چیزی آماده نیست، همان مسیر کامل (دانلود و نصب) انجام می‌شود */
+    return apply(store, { force: true, by });
+  }
+  const reuse = staged;
+  staged = null;
+  const r = await apply(store, { by, reuse });
+  if (r && r.ok) { try { fs.rmSync(reuse.stage, { recursive: true, force: true }); } catch (e) { /* بی‌صدا */ } }
+  return r;
+}
+
+function clearStaged() {
+  try { if (staged && staged.stage) fs.rmSync(staged.stage, { recursive: true, force: true }); } catch (e) { /* بی‌صدا */ }
+  staged = null;
+  if (progress.state === 'ready') progress = { state: 'idle', version: null, done: 0, total: 0, bytes: 0, started_at: null, finished_at: null, error: null };
+}
+
 /* ── بازگشت به نسخهٔ قبلی ─────────────────────────────────────────── */
 function rollback(store) {
   const last = store ? store.getMeta('update:last', null) : null;
@@ -453,7 +602,7 @@ function start(store, { onApply, everyMs = 15 * 60_000 } = {}) {
 function stop() { if (timer) clearInterval(timer); timer = null; }
 
 module.exports = {
-  plan, apply, rollback, status, start, stop, tick,
-  localManifest, remoteManifest, bases, appRoot,
+  plan, apply, download, install, clearStaged, snapshot, rollback, status, start, stop, tick,
+  localManifest, remoteManifest, bases, appRoot, fullInstallerInfo, errFa,
   autoCheckEnabled, autoApplyEnabled, isUpdatable, cmpVersion,
 };
