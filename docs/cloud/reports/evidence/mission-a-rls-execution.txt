@@ -1,0 +1,27 @@
+# آزمون اجرایی RLS روی PostgreSQL واقعی (A-02)
+# تولید: bash docs/cloud/reports/evidence/rls-execution-test.sh
+# زمان: 2026-11-06T19:12:46Z
+# HEAD: 0afa72986e3760c78caea49b7808d396fc23b32a
+# node: v22.22.3 · os: Linux 6.1.158+ x86_64
+# postgres binary: /tmp/pgtest/node_modules/@embedded-postgres/linux-x64/native/bin (خارج از مخزن؛ وابستگی محصول نیست)
+
+postgres: PostgreSQL 18.6
+seed: [{"tenant_id":"11111111-1111-1111-1111-111111111111","n":10},{"tenant_id":"22222222-2222-2222-2222-222222222222","n":10}]
+PASS  N0  مالک جدول ≠ نقش runtime  → owner=payesh_owner
+PASS  N9  نقش runtime بدون SUPERUSER/BYPASSRLS  → rolsuper=false rolbypassrls=false
+PASS  N1  context=A ⇒ فقط ۱۰ ردیف A  → n=10
+PASS  N1b  context=A و پرس‌وجوی صریح B ⇒ صفر ردیف  → n=0
+PASS  N2  UPDATE روی B با context=A ⇒ صفر ردیف  → rowCount=0
+PASS  N3  DELETE روی B با context=A ⇒ صفر ردیف  → rowCount=0
+PASS  N4  INSERT با tenant_id=B در context=A ⇒ رد  → new row violates row-level security policy for table "records"
+PASS  N5  UPDATE که tenant را A→B می‌برد ⇒ رد  → new row violates row-level security policy for table "records"
+PASS  N6  بدون context ⇒ صفر ردیف (fail-closed)  → n=0 ctx=""
+PASS  N6b  cast خام ''::uuid خطا می‌دهد ⇒ الزام nullif() در سیاست  → invalid input syntax for type uuid: ""
+PASS  N7  FORCE RLS: مالک هم فقط ۱۰ ردیف A را می‌بیند  → n=10
+PASS  N8  runtime نمی‌تواند SET ROLE payesh_owner  → permission denied to set role "payesh_owner"
+PASS  N10  دو مستأجر پشت‌سرهم روی یک اتصال ⇒ بدون نشت  → A=10 B=10 ctx_after_commit=""
+PASS  N11  هیچ ردیفی از B تغییر/حذف نشد  → [{"tenant_id":"11111111-1111-1111-1111-111111111111","n":10},{"tenant_id":"22222222-2222-2222-2222-222222222222","n":10}]
+
+TOTAL 14 · FAIL 0
+
+EXIT=0

@@ -1,0 +1,91 @@
+# نقشهٔ شواهد مخزن — مأموریت ۰۵
+# تولید: bash docs/cloud/reports/evidence/gen-mission-05-inventory.sh
+# تاریخ: 2026-11-06T16:51:06Z
+# node: v22.22.3 · npm: 10.9.8 · سکو: Linux 6.1.158+ x86_64
+
+## ۱. SHA تثبیت‌شدهٔ ممیزی
+HEAD            : 04e06364992f1a89313fe3b74b6cb45417cbd604
+branch          : arena/f1efa594-payesh-local
+commit base     : f2fc472c643a52d393b3160405e1581bda64da25
+تعداد commit    : 11
+working tree    : 2 تغییر ثبت‌نشده
+تگ‌های موجود    : 
+
+## ۲. ساختار مخزن (بدون node_modules/.git)
+.
+./client
+./client/icons
+./client/lib
+./deploy
+./desktop
+./docs
+./docs/cloud
+./install
+./install/android
+./install/linux
+./install/windows
+./installer
+./releases
+./releases/history
+./samples
+./scripts
+./server
+./tests
+
+## ۳. فایل‌های حیاتی و اندازه
+server/index.js                1780 خط     94011 بایت
+server/sync.js                  175 خط      8225 بایت
+server/auth.js                  409 خط     21982 بایت
+server/policy.js                212 خط      9629 بایت
+server/db.js                    294 خط     12357 بایت
+server/mirror.js                222 خط     10576 بایت
+server/outbox.js                481 خط     20904 بایت
+server/live.js                  162 خط      7396 بایت
+server/update.js                608 خط     31273 بایت
+server/s3mem.js                  91 خط      4233 بایت
+server/qr.js                    365 خط     13353 بایت
+server/tunnel.js                303 خط     13528 بایت
+client/app.js                  3412 خط    180268 بایت
+client/pages.js                2205 خط    157915 بایت
+client/import.js               1547 خط     94595 بایت
+client/schedule.js              755 خط     42407 بایت
+client/authz.js                 115 خط      8230 بایت
+client/cloud-baked.js            13 خط       620 بایت
+installer/payesh.iss            244 خط     15040 بایت
+scripts/lint-iss.mjs            146 خط      6933 بایت
+
+## ۴. فهرست فایل‌های آزمون و اجرای واقعی
+tests/flow.js             184 خط
+tests/live.js             239 خط
+tests/phone-flow.js       297 خط
+tests/restart.js          118 خط
+tests/run.js             3861 خط
+tests/tunnel.js           252 خط
+tests/ui.js               115 خط
+tests/update.js           356 خط
+
+آزمون اصلی (npm test) — خروجی خام: docs/cloud/reports/evidence/mission-05-tests-run.log
+نتیجه: 88 موفق · 0 ناموفق
+کد خروج: EXIT=0
+
+## ۵. مسیرهای حیاتی (نقشهٔ ممیزی ۰۶–۱۰)
+احراز هویت/نشست   : server/auth.js · server/index.js:157 (actorFrom) · server/index.js:420 (auth gate)
+مجوز/نقش          : server/policy.js · server/index.js:47 (BACKUP_ROLES) · server/index.js:558 (admin gate)
+همگام‌سازی        : server/sync.js (pull/push، idempotency، OCC)
+صف/صندوقچه        : server/outbox.js · client/app.js (flushQueue)
+بکاپ/آینه/بازیابی : server/mirror.js · server/index.js:1023-1090
+زنده (۱ ثانیه)     : server/live.js:24 (INTERVAL_MS=1000)
+ذخیره‌سازی ابری     : server/s3mem.js · client/lib/s3mini.js · client/cloud-baked.js
+به‌روزرسانی        : server/update.js
+
+## ۶. شمارش واقعیت‌های معماری
+school_id (تک‌مدرسه) در سرور: 25 مورد
+tenant_id در سرور           : 0 مورد
+password_plain در سرور/کلاینت: 14 مورد
+crypto (رمزنگاری سکون)       : 0 مورد (۰ = نبود رمزنگاری سکون)
+endpointهای /api             : 62 مسیر یکتا
+
+## ۷. پاک‌بودن درخت کاری پس از ممیزی
+?? docs/cloud/reports/evidence/gen-mission-05-inventory.sh
+?? docs/cloud/reports/evidence/mission-05-inventory.txt
+(خالی = پاک)

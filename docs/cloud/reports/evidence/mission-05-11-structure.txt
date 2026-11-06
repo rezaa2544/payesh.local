@@ -1,0 +1,38 @@
+# شاهد ساختاری ممیزی ۰۵–۱۱
+# تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh
+# تاریخ اجرای آزمون (از لاگ خام): 2026-11-06T23:05:23Z
+# SHA اجرای آزمون (از لاگ خام): 28d6c3a747c343494c50e49cd28e953c5d136ff7
+# اثر انگشت کد محصول (log / HEAD): 634965a39cc37ddb39ecc3eb8dac4e0dc634aa9422037518ea9dd872e89091be / 634965a39cc37ddb39ecc3eb8dac4e0dc634aa9422037518ea9dd872e89091be
+# هش بدنهٔ خام (بازمحاسبه‌شده): 49f64894166cff97b5f9beb9fde2dbdfb439110b7ca5d23441162ea53026f735
+# شمارش بدنه: 88 ✓ / 0 ✗ — SUMMARY: SUMMARY pass=88 fail=0
+# آزمون‌های ثبت‌شده: 88 · گزارش‌شده: 88
+# branch: arena/f1efa594-payesh-local
+
+## آزمون واقعی مخزن (از لاگ خام، بدون دست‌کاری)
+SUMMARY: SUMMARY pass=88 fail=0
+EXIT: 0
+ادعای اسناد: 88 آزمون موفق
+احکام اسناد ۰۶–۱۱: PASS=26 FAIL=40 UNKNOWN=7 BLOCKED=0 TOTAL=73
+
+## پروب‌های اجرایی ۰۶–۱۰ (خروجی خام: mission-06-10-probes.txt)
+تعداد خط شاهد: 30
+        5 F-01
+        5 F-02
+        5 F-03
+        2 F-04
+
+## وضعیت هر سند
+--- docs/cloud/05-audit-sha-freeze.md
+  خطوط: 83
+--- docs/cloud/06-audit-auth-session.md
+  خطوط: 78
+--- docs/cloud/07-audit-roles-tenant.md
+  خطوط: 78
+--- docs/cloud/08-audit-source-of-truth.md
+  خطوط: 86
+--- docs/cloud/09-audit-cache-queue-sync.md
+  خطوط: 81
+--- docs/cloud/10-audit-crypto-backup-restore.md
+  خطوط: 70
+--- docs/cloud/11-gap-report.md
+  خطوط: 119

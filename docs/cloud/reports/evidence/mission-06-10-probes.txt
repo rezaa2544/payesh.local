@@ -1,0 +1,39 @@
+# شاهد خام مأموریت ۰۶–۱۰ — probes
+# تاریخ اجرا: 2026-11-06T16:48:54.140Z
+# node: v22.22.3 · سکو: linux x64
+# دادهٔ موقت: /tmp/payesh-probe-dux2pG (پس از اجرا پاک می‌شود)
+# ⚠ هیچ رمز/کلید واقعی در این فایل نیست؛ اعتبارنامه‌های زیر فقط برای این اجرا ساخته شده‌اند.
+
+[P1] POST /api/setup → 200 ok=true token=YES
+[P2] POST /api/sync (classes) → 200 applied=1
+[P2] POST /api/sync (users/teacher) → 200 applied=1 id=2
+[P3] POST /api/auth/login (teacher) → 200 ok=true role=teacher
+[P4][F-03] GET /api/bootstrap (teacher) → 200 keys_of_user=id,name,role,phone,national_id,class_id,subject,active,position,created_at,password
+[P4][F-03] فیلد password در پاسخ هست؟ YES — مقدار عمداً چاپ نشده
+[P4][F-03] طول مقدار password: 10 کاراکتر (بدون چاپ محتوا)
+[P5][F-01] GET /api/admin/mirror (teacher) → 200 ok=true
+[P5][F-01] POST /api/admin/mirror/refresh (teacher) → 200 ok=true (ساخت/تازه‌سازی آینه با نقش دبیر)
+[P5][F-01] GET /api/admin/mirror/download (teacher) → 200 bytes=3963
+[P5][F-01] در فایل تحویل‌شده: password_plain×2 · password_hash×2
+[P5][F-01] نمونهٔ ساختاری (بدون مقدار): { "format": "payesh-backup", "format_version": 1, "at": "2026-11-06T16:48:54.332Z", "hash": "03199d773e37b82a", "to
+[P6][F-02] پیش از بازیابی: GET /api/admin/stats (teacher) → 403 (انتظار: 403)
+[P6][F-02] POST /api/admin/restore (teacher, replace=false) → 200 ok=true report={"users":1}
+[P6][F-02] پس از بازیابی: GET /api/me → 200 role=manager
+[P6][F-02] پس از بازیابی: GET /api/admin/stats (teacher) → 200 (اگر 200 باشد ارتقای نقش اثبات شد)
+[P7] GET /api/me (teacher) → 200
+[P7] POST /api/auth/logout → 200 ok=true
+[P7] پس از logout: GET /api/me با همان توکن → 401 (انتظار 401)
+[P7] GET /api/me با توکن جعلی → 401 (انتظار 401)
+[P8] GET /api/bootstrap (manager) → 200 school.id=1 (ثابت ۱ = نبود مستأجر)
+[P8] جست‌وجوی tenant_id در سرور: NOT FOUND (شاهد: grep -c tenant_id server/*.js = 0)
+[P9][F-03] کل بایت‌های پوشهٔ داده (SQLite + WAL + آینه + بکاپ): 872412
+[P9][F-03] فایل‌های حاوی رشتهٔ خام هویتی: payesh.sqlite-wal (کد ملی کاربر) · payesh.sqlite-wal (شمارهٔ کاربر) · backups/payesh-2026-11-06T16-48-54-349Z.sqlite (کد ملی کاربر) · backups/payesh-2026-11-06T16-48-54-349Z.sqlite (شمارهٔ کاربر) · mirror/payesh-data.json (کد ملی کاربر) · mirror/payesh-data.json (شمارهٔ کاربر) · backups/daily/payesh-2026-11-06.json (کد ملی کاربر) · backups/daily/payesh-2026-11-06.json (شمارهٔ کاربر)
+[P11] ورود دوبارهٔ همان کاربر پس از F-02 → 200 role=manager (ارتقای نقش ماندگار شد)
+[P11][F-04] GET /api/cloud/config (teacher) → 200 ready=false key_len=36 secret_len=64 prefix=payesh/ (مقادیر چاپ نشده)
+[P11][F-04] GET /api/phone/config (teacher) → 200 ready=false secret_len=64 prefix=payesh/ (مقادیر چاپ نشده)
+
+[P10] فهرست سرور: auth.js cloud-defaults.js config.js db.js index.js live.js mirror.js outbox.js policy.js qr.js s3mem.js seed.js start.js sync.js tunnel.js update.js util.js
+[P10] تعداد خطوط: server/index.js=1781 server/sync.js=176 server/auth.js=410 server/policy.js=213 server/mirror.js=223 server/outbox.js=482 client/app.js=3413
+[P10] کلید S3 در بستهٔ کلاینت (client/cloud-baked.js): accessKey=PRESENT · secret=PRESENT · prefix=payesh/ (بدون tenant)
+
+## پایان پروب — مدت: 2.0 ثانیه

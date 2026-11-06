@@ -48,6 +48,18 @@ jobs:
           fi
           exit $code
 
+      # دروازهٔ شاهد: اثبات می‌کند لاگ آزمون واقعاً از همین درخت آمده است
+      # (شمارش بدنه، هش بدنه، رجیستری آزمون‌ها، اثر انگشت کل درخت منهای docs/)
+      - name: دروازهٔ شاهد آزمون
+        run: |
+          set +e
+          bash docs/cloud/reports/evidence/gen-audit-evidence.sh
+          code=$?
+          if [ $code -ne 0 ]; then
+            echo "::error title=دروازهٔ شاهد::شاهد آزمون معتبر نیست (exit=$code)"
+          fi
+          exit $code
+
       - name: آزمون رابط، جریان کاربری، صندوقچه و به‌روزرسانی
         run: |
           npm run test:ui

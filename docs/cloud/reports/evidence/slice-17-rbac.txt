@@ -1,0 +1,78 @@
+# شاهد نمونهٔ فنی ۱۷ — ورود و مجوزدهی نقش‌محور + جداسازی tenant
+# تولید: bash prototype/slice-17/gen-evidence.sh
+# base_head: 461a5f95f06dfb8cd2824ad7793bf99073258f49
+# generated_at_utc: 2026-11-06T20:26:17Z
+# node: v22.22.3
+# command: node prototype/slice-17/tests/run.js
+# product_diff_vs_f2fc472: 0 فایل (۰ = کد محصول دست‌نخورده)
+# مرجع طراحی: ۰۱ §۳.۲ (ماتریس نقش×داده) · ۱۲ §۱–۲ (Tenant Resolver + DAL) · ۱۲ §۳ (sessions/audit) · D‑24
+
+## خلاصه
+SUMMARY pass=35 fail=0 total=35
+tenant_isolation_cases=5
+claims_passed=35
+explicit_401_403_cases=13
+
+## ماتریس سیاست (از policy.js — همان جدول ۰۱ §۳.۲، زیرمجموعهٔ نمونه)
+users        manager         r:S3 w:S3 d:S3
+users        vice_principal  r:S3 w:S3
+users        teacher         r:S2
+users        counselor       r:S2
+users        parent          r:S1
+users        student         r:S0
+users        guard           r:S0
+grades       manager         r:S3 w:S3 a:S3 d:S3
+grades       vice_principal  r:S3
+grades       teacher         r:S2 w:S2
+grades       counselor       r:S2
+grades       parent          r:S1
+grades       student         r:S0
+attendance   manager         r:S3 w:S3 a:S3 d:S3
+attendance   vice_principal  r:S3 w:S3 a:S3
+attendance   teacher         r:S2 w:S2 a:S2
+attendance   counselor       r:S2
+attendance   parent          r:S1
+attendance   student         r:S0
+audit        manager         r:S3
+tenant_meta  manager         r:S3
+platform_health platform_owner:r:S4 platform_operator:r:S4 platform_support:r:S4
+
+## خروجی خام آزمون
+✓ ورود مدیر مدرسهٔ الف موفق و توکن صادر می‌شود
+✓ گذرواژهٔ غلط ⇒ 401 (بدون افشای وجود کاربر)
+✓ کاربر ناشناس ⇒ همان 401 عمومی
+✓ هینت مستأجر ناهم‌خوان ⇒ 401 (tenant از ورودی تصمیم نمی‌گیرد)
+✓ بدون توکن ⇒ 401
+✓ توکن دست‌کاری‌شده ⇒ 401 bad_signature
+✓ /api/me فقط role/tenant نشست را برمی‌گرداند
+✓ مدیر: خواندن کل مدرسه (۲ نمره)
+✓ دبیر: فقط کلاس خودش (۱ از ۲)
+✓ ولی: فقط فرزند خودش (S1)
+✓ هنرجو: فقط ردیف خودش (S0)
+✓ نگهبان: نمره ممنوع ⇒ 403 default_deny
+✓ دبیر: نوشتن برای هنرجوی کلاس دیگر ⇒ 403 out_of_scope
+✓ دبیر: نوشتن برای هنرجوی کلاس خودش ⇒ 201
+✓ هنرجو: نوشتن نمره ممنوع ⇒ 403 no_permission
+✓ مدیر: نوشتن در هر کلاس مدرسه ⇒ 201
+✓ مدیر مدرسهٔ ب فقط ۲ نمرهٔ خودش را می‌بیند (نه ۳ نمرهٔ الف)
+✓ هیچ شناسهٔ نمره‌ای بین دو مستأجر مشترک نیست
+✓ کوئری tenant_id مستأجر دیگر نادیده گرفته می‌شود (همان ۲ ردیف)
+✓ هدر X-Tenant جعلی اثری ندارد
+✓ نوشتن روی هنرجوی مستأجر دیگر با tenant_id جعلی ⇒ 404 (رد در لایهٔ RLS)
+✓ پس از تلاش متقابل، شمارش مستأجر ب تغییر نکرد
+✓ پشتیبان فنی: ورود مجاز
+✓ پشتیبان فنی: نمرات مدارس ممنوع ⇒ 403
+✓ پشتیبان فنی: فرادادهٔ سلامت مجاز ⇒ 200 metadata_only
+✓ خروج ⇒ توکن ابطال و بعدش 401 revoked
+✓ مدیر: رویدادهای مدرسه + زنجیرهٔ سالم
+✓ دبیر: رویداد مدرسه ممنوع ⇒ 403
+✓ پنل مدیر: منوی «گزارش رویدادها» و «ثبت نمره» دارد
+✓ پنل هنرجو: بدون «ثبت نمره» و بدون «گزارش رویدادها»
+✓ پنل نگهبان: هیچ منوی نمره‌ای ندارد
+✓ انقضا: توکن تازه معتبر است
+✓ انقضا: بی‌کاری بیش از ۳۰ دقیقه ⇒ 401 expired_idle
+✓ انقضا: سقف مطلق ۸ ساعت حتی با استفادهٔ پیوسته ⇒ 401 expired_absolute
+✓ توکن خام ذخیره نمی‌شود (فقط hash)
+
+35 موفق · 0 ناموفق
+SUMMARY pass=35 fail=0 total=35

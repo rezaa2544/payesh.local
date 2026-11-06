@@ -1,0 +1,11 @@
+# اثبات ۲ — commit f2fc472
+
+۱) مدیر: POST /api/admin/mirror/refresh ⇒ HTTP 200 mirror_total=13
+۲) دبیر: GET /api/admin/mirror/download ⇒ HTTP 200 bytes=4404
+   محتوای دریافتی برای دبیر: 25 کالکشن، 3 کاربر، 3 ردیف با رمز
+   نمونهٔ رمزهای خامِ افشاشده برای دبیر: [{"role":"manager","phone":"09120000001","password_plain":"Audit-1234"},{"role":"student","phone":"09127770021","password_plain":"2777000021"},{"role":"teacher","phone":"09127770031","password_plain":"1777000031"}]
+۳) دبیر: GET /api/admin/backups/daily ⇒ HTTP 200 files=[{"file":"payesh-2026-11-06.json","size":4587,"at":"2026-11-06T15:22:51.911Z","total":13,"counts":{"schools":1,"school_years":1,"users":3,"classes":1,"subjects":0,"lookups":7,"schedule":0,"bell_schedules":0,"substitutions":0,"attendance":0,"grades":0,"announcements":0,"leaves":0,"parent_links":0,"internships":0,"staff_attendance":0,"staff_posts":0,"counselor_refs":0,"counselor_notes":0,"discipline":0,"homework":0,"exams":0,"calendar":0,"app_settings":0,"import_issues":0}}]
+۴) دبیر: POST /api/admin/restore با نقش دست‌کاری‌شده ⇒ HTTP 200 {"format":"payesh-backup","at":"2026-11-06T15:22:51.909Z","restored":{"schools":1,"school_years":1,"users":3,"classes":1,"subjects":0,"lookups":7,"schedule":0,"bell_schedules":0,"substitutions":0,"attendance":0,"grades":0,"announcements":0,"leaves":0,"parent_links":0,"internships":0,"staff_attendance":0,"staff_posts":0,"counselor_refs":0,"counselor_notes":0,"discipline":0,"homework":0,"exams":0,"calendar":0,"app_settings":0,"import_issues":0},"skipped":0,"replaced":0}
+   نقش دبیر پس از بازیابی: manager
+۵) دبیرِ بی‌کلاس برای کلاس دیگر حضور ثبت می‌کند ⇒ rejected=[] applied=1
+۶) pull کاربران با نقش دبیر: 3 ردیف (کل کاربران مدرسه: 3)

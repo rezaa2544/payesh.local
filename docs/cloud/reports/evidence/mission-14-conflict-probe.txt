@@ -1,0 +1,59 @@
+# شاهد اجرایی مأموریت ۱۴ — رفتار تعارض در کد امروز
+generated_by: docs/cloud/reports/evidence/gen-mission-14-evidence.sh
+probe: docs/cloud/reports/evidence/probe-14-conflict.mjs
+branch: arena/f1efa594-payesh-local
+head: c65ce83cd69b96937ca350e3a8a00691916d71d3
+node: v22.22.3
+note: دیتابیس موقت و مجزا (mktemp) — هیچ نوشتنی روی data/ مخزن انجام نمی‌شود
+
+## اجرا
+PROBE-14-CONFLICT — رفتار اجرایی کد امروز
+SHA=c65ce83cd69b96937ca350e3a8a00691916d71d3
+TEMP_DB=isolated (not repository data/)
+N2a | جدول تعارض در پایگاه | {"tables_total":9,"conflict_tables":[]}
+N2b | ردیف audit برای grades | {"audit_rows":4}
+N1 | تعارض با base_version کهنه | {"conflicts":1,"server_row_in_response":true,"score_after_fresh_write":19,"version_after_fresh":2}
+N3 | op بدون base_version (LWW واقعی) | {"applied":1,"version_after":3}
+N4 | op با base_version=0 (LWW واقعی) | {"applied":1}
+N5 | نقش بدون حق نوشتن در مسیر تعارض | {"student_token":true,"conflicts":1,"fields_returned_in_server_object":"_updated_at,_version,class_id,id,school_id,score,student_id,subject_id,term"}
+N6 | همان نقش با base_version درست | {"applied":0,"rejected":["role_denied"]}
+N0 | وضعیت نهایی ردیف | {"score":11,"version":4}
+EXPECTATIONS=ALL-MET
+EXIT=0
+exit=0
+
+## جای کد مرجع (بدون تغییر)
+-- server/sync.js:117-124 (بررسی base_version)
+   
+       if (existing) {
+         const base = op.base_version != null ? Number(op.base_version) : null;
+         if (base != null && base !== 0 && base !== existing._version) {
+           conflicts.push({ uid, collection, id, server_version: existing._version, server: existing });
+           continue;
+         }
+       } else if (op.base_version != null && Number(op.base_version) > 0) {
+         conflicts.push({ uid, collection, id, server_version: 0, server: null });
+         continue;
+       }
+-- server/sync.js:151-158 (gate نقش/اسکوپ، بعد از بررسی تعارض)
+       if (!gate.ok) { rejected.push({ uid, error: gate.error }); continue; }
+   
+       let saved;
+       try {
+         if (existing) saved = store.update(collection, existing.id, incoming);
+         else saved = store.insert(collection, incoming, { id: id != null ? id : undefined });
+       } catch (e) {
+         rejected.push({ uid, error: 'write_failed', detail: String(e.message || e).slice(0, 120) });
+-- client/app.js:333-341 (پاسخ تعارض: نسخهٔ سرور جای محلی)
+         if (conflicts.length) {
+           for (const c of conflicts) {
+             if (c.server) {
+               if (!S.data[c.collection]) S.data[c.collection] = new Map();
+               S.data[c.collection].set(Number(c.id), c.server);
+             }
+             S.queue = S.queue.filter(op => op.uid !== c.uid && !(op.collection === c.collection && c.id != null && Number(op.id) === Number(c.id)));
+           }
+           toast('تعارض در ' + fa(conflicts.length) + ' رکورد — نسخهٔ سرور اعمال شد', 'err');
+
+## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)
+0
