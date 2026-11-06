@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.22';
+const CLIENT_VERSION = '0.8.23';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -2528,6 +2528,12 @@ document.addEventListener('submit', async (e) => {
 
   /* ── ورود دسته‌ای: مرحلهٔ ۱ (خواندن فایل) ───────────────────────── */
   if (kind === 'import-file') {
+    /* پایه‌های این فایل (پرسش مرحلهٔ ۱) */
+    try {
+      const boxes = form.querySelectorAll('input[name="imp-grade"]');
+      S.imp = S.imp || {};
+      S.imp.grades = Array.prototype.slice.call(boxes).filter(b => b.checked).map(b => String(b.value));
+    } catch (e) { /* بی‌صدا */ }
     const file = f.file && f.file.files && f.file.files[0];
     if (!file) return toast('فایلی انتخاب نشده', 'err');
     const X = window.PayeshXlsx;

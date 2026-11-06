@@ -289,8 +289,11 @@ function impPlaceOf(o, ctx) {
   const grades = (ctx && ctx.grades) || [];
   const branches = (ctx && ctx.branches) || [];
   const cname = String(o.class_name || '').replace(/\s+/g, ' ').trim();
+  const only = (ctx && ctx.onlyGrades) || [];
   let grade = impGradeCanon(String(o.grade || ''), grades);
   if (!grade && cname) grade = impGradeCanon(cname, grades);
+  /* فایل ستون پایه ندارد ولی مدیر گفته «این فایل فقط دهم است» */
+  if (!grade && only.length === 1) grade = only[0];
 
   let branchTxt = String(o.field || '').trim();
   let bc = impBranchCanon(branchTxt, branches);
@@ -447,6 +450,7 @@ function impCheck() {
   };
   if (!gctx.branches.length) gctx.branches = [...new Set(classes.map(c => String(c.branch || '')).filter(Boolean))];
   if (!gctx.grades.length) gctx.grades = [...new Set(classes.map(c => String(c.grade || '')).filter(Boolean))];
+  gctx.onlyGrades = ((S.imp && S.imp.grades) || []).filter(Boolean);
 
   impMapped().forEach(o => {
     const errors = [], warns = [], data = {};
@@ -746,6 +750,21 @@ function impStepHtml() {
   </div>`;
 
   if (imp.step === 1) {
+    /* پایه‌ها را از مدیر می‌پرسیم: خیلی از فایل‌های مدرسه ستون پایه ندارند
+       (یک فایل برای همهٔ دهم‌ها، یا یک فایل برای کل مدرسه). */
+    const scopeGrades = (typeof IMP_GRADE_WORDS !== 'undefined' ? IMP_GRADE_WORDS : [])
+      .filter(g => impGradeLevel(g)).map(g => (impNorm(g) === 'پیش دانشگاهی' ? 'پیش‌دانشگاهی' : g));
+    const chosen = (S.imp && S.imp.grades) || [];
+    const gradeBox = imp.kind === 'students' ? `
+      <div class="field" style="margin-top:6px">
+        <span>این فایل شامل چه پایه‌هایی است؟ <span class="muted">(اگر ستون پایه در فایل نباشد، همین پایه به همهٔ سطرها داده می‌شود)</span></span>
+        <div class="row" style="flex-wrap:wrap;gap:6px 14px;margin-top:6px">
+          ${scopeGrades.map(g => `<label class="row" style="gap:6px;align-items:center;min-width:96px">
+            <input type="checkbox" name="imp-grade" value="${esc(g)}" ${chosen.indexOf(g) > -1 ? 'checked' : ''}> <span class="small">${esc(g)}</span></label>`).join('')}
+        </div>
+        <div class="small muted" style="margin-top:6px;line-height:2">اگر فقط یک پایه تیک بخورد، همان به همهٔ سطرهای بی‌پایه داده می‌شود.
+        اگر چند پایه تیک بخورد (فایل کل مدرسه)، هر دانش‌آموزی که پایه‌اش در فایل نبود در «نیازمند پیگیری» می‌آید تا پایه‌اش انتخاب شود.</div>
+      </div>` : '';
     return `${bar}<form data-form="import-file">
       <div class="small muted" style="margin-bottom:8px;line-height:2">✅ نیازی به قالب آماده نیست؛ همان فایل موجود مدرسه با هر ترتیب ستونی قابل استفاده است.<br>
       ✅ ردیف تیتر خودکار تشخیص داده می‌شود و ستون‌ها هوشمند نگاشت می‌شوند.<br>
@@ -754,6 +773,7 @@ function impStepHtml() {
         <select class="input" name="kind">
           ${Object.keys(IMP_ENTITY_FA).map(k => `<option value="${k}" ${imp.kind === k ? 'selected' : ''}>${esc(IMP_ENTITY_FA[k])}</option>`).join('')}
         </select></label>
+      ${gradeBox}
       <label class="field"><span>فایل اکسل یا CSV</span>
         <input class="input" type="file" name="file" accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label>
       <button class="btn primary block" style="margin-top:10px">بعدی — نگاشت ستون‌ها</button>
