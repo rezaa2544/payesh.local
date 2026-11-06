@@ -254,7 +254,7 @@ const DIAG_CHECKS = [
     id: 'class-no-grade', cat: 'data', severity: 'warning', safe: false,
     title: 'کلاس بدون پایه',
     desc: 'کلاسی که پایه‌اش خالی یا تعریف‌نشده است (بیشتر از ورود دسته‌ای قدیمی)',
-    guide: 'در صفحهٔ «کلاس‌ها» کارت «کلاس‌هایی که پایه ندارند» را باز کنید و ادغام یا ویرایش کنید.',
+    guide: 'در صفحهٔ «کلاس‌ها» هر کلاسی را که پایه ندارد ویرایش یا حذف کنید؛ کلاس‌ها فقط دستی تعریف می‌شوند.',
     check() {
       const grades = list('lookups').filter(l => String(l.kind) === 'grade').map(l => String(l.name));
       const bad = list('classes').filter(c => {

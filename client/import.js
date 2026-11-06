@@ -253,10 +253,11 @@ function impBranchCanon(txt, known) {
     const d = impLev(gn, t);
     if (d < bestD) { bestD = d; best = g; }
   }
+  /* هیچ‌وقت خودسرانه ادغام نمی‌کنیم: «الکتروتکنیک» با «الکترونیک» دو رشتهٔ
+     جداست. فقط اگر مدیر در همان ورود دسته‌ای تأیید کرد، یکی می‌شوند. */
   if (best) {
     const gn = impNorm(best);
-    if (bestD <= 2 || gn.indexOf(t) > -1 || t.indexOf(gn) > -1) return { name: best, matched: true, near: '' };
-    return { name: raw, matched: false, near: best };
+    if (bestD <= 2 || gn.indexOf(t) > -1 || t.indexOf(gn) > -1) return { name: raw, matched: false, near: best };
   }
   return { name: raw, matched: false, near: '' };
 }
@@ -506,12 +507,13 @@ function impCheck() {
   if (!gctx.grades.length) gctx.grades = [...new Set(classes.map(c => String(c.grade || '')).filter(Boolean))];
   gctx.onlyGrades = ((S.impGrades || (S.imp && S.imp.grades)) || []).filter(Boolean);
 
-  /* ── اصلاح غلط تایپی رشته ───────────────────────────────────────
-     «کرافیک» یک حرف با «گرافیک» فاصله دارد. اول شمارش تکرار در همین فایل،
-     بعد تطبیق با تعاریف موجود، و آخر خوشه‌بندی مقادیر خود فایل: پرتکرارترین
-     نگه داشته می‌شود و بقیه به آن اصلاح می‌شوند. هر اصلاح گزارش می‌شود. */
+  /* ── رشته‌های ناشناخته ────────────────────────────────────────────
+     هیچ رشته‌ای خودسرانه ادغام یا ساخته نمی‌شود. اگر رشته‌ای در تعاریف
+     نباشد و شبیه یکی از آن‌ها باشد، همین‌جا از مدیر سؤال می‌کنیم؛ تصمیمش
+     در S.impBranchAsk می‌ماند و فقط همان اعمال می‌شود. */
   gctx.aliasBranch = Object.create(null);
   gctx.branchFixes = [];
+  gctx.branchAsk = [];
   if (entity === 'students') {
     const rawVals = [];
     try {
@@ -520,31 +522,26 @@ function impCheck() {
         if (v) rawVals.push(v);
       });
     } catch (e) { /* بی‌صدا */ }
-    const freq = new Map();
-    rawVals.forEach(v => { const k = impNorm(v); freq.set(k, (freq.get(k) || 0) + 1); });
     const defsNorm = new Map(gctx.branches.map(b => [impNorm(b), b]));
-    /* مقادیری که دقیقاً در تعاریف هستند، مرجع‌اند */
-    const anchors = [...freq.keys()].filter(k => defsNorm.has(k));
-    const others = [...freq.keys()].filter(k => !defsNorm.has(k));
-    others.sort((a, b) => (freq.get(b) || 0) - (freq.get(a) || 0));
-    for (const k of others) {
+    const seen = Object.create(null);
+    rawVals.forEach(v => {
+      const k = impNorm(v);
+      if (!k || seen[k]) return;
+      seen[k] = true;
+      if (defsNorm.has(k)) return;                 /* در تعاریف هست */
+      /* نزدیک‌ترین تعریفِ موجود — فقط برای پرسیدن، نه ادغام */
       let best = '', bestD = 999;
-      const pool = anchors.concat([...freq.keys()].filter(x => x !== k && !others.includes(x)));
-      for (const a of pool) {
-        if (a === k) continue;
-        const d = impLev(a, k);
-        if (d < bestD) { bestD = d; best = a; }
+      defsNorm.forEach((name, dk) => {
+        const d = impLev(dk, k);
+        if (d < bestD) { bestD = d; best = name; }
+      });
+      const ask = (S.impBranchAsk || {})[v];
+      if (ask === undefined && best && bestD <= 2) gctx.branchAsk.push({ from: v, to: best });
+      if (ask) {
+        gctx.aliasBranch[k] = ask;
+        gctx.branchFixes.push({ from: v, to: ask });
       }
-      if (best && bestD <= 2) {
-        gctx.aliasBranch[k] = defsNorm.get(best) || best;
-        const orig = rawVals.find(v => impNorm(v) === k) || k;
-        const to = (defsNorm.get(best) || rawVals.find(v => impNorm(v) === best) || best);
-        gctx.branchFixes.push({ from: orig, to });
-        anchors.push(best);            /* تا اصلاح‌های بعدی به همین بچسبند */
-      } else {
-        anchors.push(k);
-      }
-    }
+    });
   }
 
   impMapped().forEach(o => {
@@ -594,27 +591,39 @@ function impCheck() {
     }
 
     if (entity === 'students') {
-      /* کلاس = پایه + رشته. رشته به‌تنهایی هرگز کلاس نمی‌شود. */
+      /* پایه و رشته همیشه روی خودِ دانش‌آموز ثبت می‌شوند. کلاس (پایه + رشته)
+         فقط اگر مدیر قبلاً دستی ساخته باشد به دانش‌آموز وصل می‌شود؛ ورود
+         دسته‌ای هیچ کلاسی نمی‌سازد. */
       const place = impPlaceOf(o, gctx);
+      data.grade = place.grade || '';
+      if (place.branch) data.field = place.branch;
+      const fieldMode = Number(place.grade_level) >= 10 || place.mode === 'field';
       const cls = place.name ? clsByName[impNorm(place.name)] : null;
-      if (cls) {
+      if (cls && String(cls.kind || '') !== 'group') {
         data.class_id = cls.id;
+      } else if (fieldMode && place.grade) {
+        /* کلاس در رشته‌محور دستی است — این‌جا ساخته نمی‌شود */
+        data.class_id = null;
+        data.new_class = place.name;
+        data.new_grade = place.grade;
+        data.new_branch = place.branch;
+        if (newClasses.indexOf(place.name) < 0) newClasses.push(place.name);
+        data.followup_reason = 'کلاس «' + place.name + '» هنوز ساخته نشده';
+        warns.push('کلاس «' + place.name + '» ساخته نمی‌شود (کلاس‌ها دستی تعریف می‌شوند) — پایه و رشته روی دانش‌آموز ثبت می‌شود');
       } else if (place.name) {
         data.new_class = place.name;
         data.new_grade = place.grade;
         data.new_branch = place.branch;
         if (newClasses.indexOf(place.name) < 0) newClasses.push(place.name);
         warns.push('کلاس «' + place.name + '» ساخته می‌شود');
-        if (place.branch && !place.matched) {
-          warns.push(place.near
-            ? 'رشتهٔ «' + place.branch + '» شبیه «' + place.near + '» است — اگر اشتباه تایپی است در صفحهٔ کلاس‌ها ادغام کنید'
-            : 'رشتهٔ «' + place.branch + '» تازه تعریف می‌شود');
-        }
       } else if (place.bare) {
         data.class_id = null;
         data.followup_reason = 'پایه در فایل نبود (رشته: ' + place.branch + ')';
         warns.push('کلاس ساخته نشد: ' + data.followup_reason + ' — در «نیازمند پیگیری» کامل کنید');
       } else warns.push('بدون کلاس');
+      if (place.branch && place.near && !(S.impBranchAsk || {})[String(o.field || '').trim()]) {
+        warns.push('رشتهٔ «' + place.branch + '» شبیه «' + place.near + '» است — بالای همین صفحه تأیید یا رد کنید');
+      }
 
       if (o.birth_date) {
         const iso = impAnyDate(o.birth_date);
@@ -664,6 +673,10 @@ function impCheck() {
         const v = String(o[k] || '').trim();
         if (v) data[k] = v;
       });
+      /* رشته‌ای که مدیر تأیید کرده، بر مقدار خامِ فایل اولویت دارد */
+      if (data.field && gctx.aliasBranch && gctx.aliasBranch[impNorm(data.field)]) {
+        data.field = gctx.aliasBranch[impNorm(data.field)];
+      }
 
       /* وضعیت حیات: هر عبارتی که «فوت» داشته باشد یعنی درگذشته */
       ['father_alive', 'mother_alive', 'guardian_alive'].forEach(k => {
@@ -767,6 +780,7 @@ function impCheck() {
 
   S.impNewClasses = newClasses;
   S.impBranchFixes = gctx.branchFixes || [];
+  S.impBranchAskList = gctx.branchAsk || [];
   return out;
 }
 
@@ -925,6 +939,21 @@ function impStepHtml() {
 
     const incomplete = follow.filter(c => !c.errors.length);
     const fixes = S.impBranchFixes || [];
+    const asks = S.impBranchAskList || [];
+    const askBox = asks.length ? `<div class="card tight" style="margin-bottom:10px;border-color:#93c5fd;background:#eff6ff">
+      <b>❓ ${fa(asks.length)} رشته نیاز به تأیید شما دارد</b>
+      <div class="small muted" style="margin:6px 0 10px;line-height:2">
+        این نام‌ها در فهرست رشته‌ها نیستند و فقط <b>شبیه</b> یک رشتهٔ موجود هستند.
+        اگر اشتباه تایپی است «بله» را بزنید تا زیر همان رشته ثبت شوند؛ اگر رشتهٔ جداست «نه» را بزنید —
+        هیچ رشته‌ای خودبه‌خود ادغام نمی‌شود.
+      </div>
+      ${asks.map(a => `<div class="row between" style="gap:8px;flex-wrap:wrap;border-top:1px dashed var(--line);padding:8px 0">
+        <div><b>«${esc(a.from)}»</b> <span class="small muted">شبیه</span> <b>«${esc(a.to)}»</b></div>
+        <span class="row" style="gap:6px">
+          <button class="btn sm primary" data-act="imp-branch-yes" data-from="${esc(a.from)}" data-to="${esc(a.to)}">بله، همان «${esc(a.to)}» است</button>
+          <button class="btn sm ghost" data-act="imp-branch-no" data-from="${esc(a.from)}">نه، رشتهٔ جداست</button>
+        </span></div>`).join('')}
+    </div>` : '';
     const fixesBox = fixes.length ? `<div class="banner info" style="margin-bottom:8px;display:block">
       <b>✍️ غلط تایپی اصلاح شد</b>
       <div class="small muted" style="margin-top:4px;line-height:2">
@@ -933,7 +962,7 @@ function impStepHtml() {
       </div>
     </div>` : '';
 
-    return `${bar}${fixesBox}
+    return `${bar}${askBox}${fixesBox}
       <div class="grid g4" style="margin-bottom:10px">
         ${impStat('📋', checks.length, 'کل ردیف‌ها')}
         ${impStat('✅', ok.length, 'آمادهٔ ثبت', 'green')}
@@ -1034,7 +1063,9 @@ async function importApplyLocal(rows, kind, onProgress) {
   const created = [];
   const errors = [];
   let updated = 0, parents = 0, classes = 0, students = 0, staff = 0, marks = 0;
-  const classMap = new Map(list('classes').map(c => [impNorm(c.name), c]));
+  const classMap = new Map(list('classes')
+    .filter(c => String(c.kind || '') !== 'group')      /* کلاس‌های دستیِ مدیر */
+    .map(c => [impNorm(c.name), c]));
 
   const findStudent = r => {
     if (r.national_id) {
@@ -1078,38 +1109,51 @@ async function importApplyLocal(rows, kind, onProgress) {
       const name = String(r.full_name || r.name || '').trim();
       if (!name) { errors.push({ row: r._row || i + 2, error: 'missing_name' }); continue; }
       let classId = Number(r.class_id) || null;
-      /* گروه ثبت‌نام = پایه + رشته. پایه از ردیف یا از پاسخ «این فایل چه
-         پایه‌هایی است؟» گرفته می‌شود؛ رشته هم از خود فایل. */
+      /* پایه از ردیف یا از پاسخ «این فایل چه پایه‌هایی است؟» گرفته می‌شود؛
+         رشته هم از خود فایل. کلاس (پایه + رشته) فقط اگر مدیر قبلاً دستی
+         ساخته باشد وصل می‌شود — ورود دسته‌ای هیچ کلاسی نمی‌سازد. */
       if (kind === 'students' && !classId) {
         const scopeGrade = (S.impGrades && S.impGrades.length === 1) ? S.impGrades[0] : '';
         const g0 = String(r.new_grade || scopeGrade || '').trim();
         const b0 = String(r.new_branch || '').trim();
-        if (g0) { r.new_grade = g0; r.new_class = (g0 + (b0 ? ' ' + b0 : '')).trim(); r.new_branch = b0; delete r.followup_reason; }
+        if (g0) { r.new_grade = g0; r.new_class = (g0 + (b0 ? ' ' + b0 : '')).trim(); r.new_branch = b0; }
       }
-      if (kind === 'students' && !classId && r.new_class && r.new_grade) {
+      const isFieldMode = kind === 'students' && impGradeLevel(String(r.new_grade || '')) >= 10;
+      if (kind === 'students' && !classId && r.new_class) {
         const key = impNorm(r.new_class);
         let cls = classMap.get(key);
-        if (!cls) {
+        if (!cls && !isFieldMode) {
+          /* کلاس‌محور (ابتدایی و متوسطهٔ اول): مثل قبل ساخته می‌شود */
           impEnsureLookup('grade', r.new_grade);
           if (r.new_branch) impEnsureLookup('branch', r.new_branch);
-          const mode = impGradeLevel(r.new_grade) >= 10 ? 'field' : 'class';
           cls = putLocal('classes', {
-            name: r.new_class, grade: r.new_grade || '',
-            branch: mode === 'field' ? (r.new_branch || '') : '',
-            mode, grade_level: impGradeLevel(r.new_grade), kind: 'group',
-            capacity: 30, school_id: 1,
+            name: r.new_class, grade: r.new_grade || '', branch: '',
+            mode: 'class', grade_level: impGradeLevel(r.new_grade), capacity: 30, school_id: 1,
           });
           classMap.set(key, cls);
           classes += 1;
         }
-        classId = cls.id;
+        if (cls) { classId = cls.id; delete r.followup_reason; }
+      }
+      if (isFieldMode) {
+        /* در رشته‌محور، پایه و رشته روی خودِ دانش‌آموز می‌مانند */
+        impEnsureLookup('grade', r.new_grade);
+        if (r.new_branch) impEnsureLookup('branch', r.new_branch);
       }
       const row = {
         name, role: kind === 'teachers' ? 'teacher' : 'student',
         national_id: r.national_id || '', phone: r.phone || '',
         class_id: classId, active: 1, school_id: 1,
       };
-      if (kind === 'students' && !classId && r.followup_reason) row.followup_reason = r.followup_reason;
+      if (kind === 'students') {
+        /* پایه و رشتهٔ تأییدشدهٔ مدیر بر مقدار خام فایل اولویت دارد */
+        if (r.new_grade) row.grade = r.new_grade;
+        if (r.new_branch) row.field = r.new_branch;
+        if (!classId && r.new_class) {
+          row.followup_reason = 'کلاس «' + r.new_class + '» هنوز ساخته نشده';
+        }
+      }
+      if (kind === 'students' && !classId && !row.followup_reason && r.followup_reason) row.followup_reason = r.followup_reason;
       IMP_EXTRA_FIELDS.forEach(k => { if (r[k] !== undefined && r[k] !== '' && r[k] !== null) row[k] = r[k]; });
       if (r.birth_date) row.birth_date = r.birth_date;
       if (r.father_nid) row.father_nid = r.father_nid;
