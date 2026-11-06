@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.17';
+const CLIENT_VERSION = '0.8.18';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1697,6 +1697,39 @@ document.addEventListener('click', async (e) => {
     case 'pair-code': await actPairCode(id); return;
     case 'user-add': actUserAdd(); return;
     case 'import-open': actImport(); return;
+    case 'issues-open': actImportIssues(); return;
+    case 'issue-done': {
+      const row = byId('import_issues', Number(id));
+      if (!row) return;
+      putLocal('import_issues', Object.assign({}, row, { status: 'done', closed_at: new Date().toISOString() }));
+      saveCache(); render();
+      toast('از فهرست پیگیری برداشته شد', 'ok');
+      actImportIssues();
+      await flushQueue();
+      return;
+    }
+    case 'issue-fix': {
+      const row = byId('import_issues', Number(id));
+      if (!row) return;
+      const d = row.data || {};
+      /* فرم کاربر با همان اطلاعاتِ همان ردیف باز می‌شود */
+      actUserAdd(Object.assign({}, d, {
+        name: d.full_name || row.name || '',
+        national_id: d.national_id || row.national_id || '',
+        phone: d.phone || row.phone || '',
+        role: d.role || 'student',
+      }), Number(id));
+      return;
+    }
+    case 'issues-clear': {
+      const open = list('import_issues').filter(r => r.status !== 'done');
+      if (!open.length) return actImportIssues();
+      open.forEach(r => putLocal('import_issues', Object.assign({}, r, { status: 'done', closed_at: new Date().toISOString() })));
+      saveCache(); render(); actImportIssues();
+      toast(fa(open.length) + ' ردیف حل‌شده شد', 'ok');
+      await flushQueue();
+      return;
+    }
     case 'import-back': {
       if (!S.imp) return;
       S.imp.step = Math.max(1, (S.imp.step || 1) - 1);
@@ -1735,6 +1768,13 @@ document.addEventListener('click', async (e) => {
           }
           await pullAll().catch(() => {});
         }
+        /* ردیف‌هایی که ساخته نشدند یا مشخصاتشان کامل نیست، برای پیگیری
+           بعدی در یک فهرست جدا نگه داشته می‌شوند (صفحهٔ کاربران). */
+        try {
+          const saved = impSaveIssues(S.imp.checks || [], kindImp, S.imp.fileName, result.errors || []);
+          S.impSavedIssues = saved.added;
+        } catch (e) { S.impSavedIssues = 0; }
+
         S.imp.step = 4;
         S.imp.result = result;
         S.creds = undefined;   /* رمزهای تازه از سرور خوانده شوند */
@@ -2211,6 +2251,12 @@ document.addEventListener('submit', async (e) => {
       putLocal('parent_links', { parent_id: parent.id, student_id: created.id, relation: 'father' });
     }
     S.creds = undefined;      /* فهرست رمزها تازه شود */
+    /* اگر از فهرست «نیازمند پیگیری» آمده بودیم، آن ردیف حل‌شده می‌شود */
+    if (S.fixIssueId) {
+      const issue = byId('import_issues', Number(S.fixIssueId));
+      if (issue) putLocal('import_issues', Object.assign({}, issue, { status: 'done', closed_at: new Date().toISOString() }));
+      S.fixIssueId = null;
+    }
     closeModal(); saveCache(); render();
     await flushQueue();
     await pullAll().catch(() => {});
