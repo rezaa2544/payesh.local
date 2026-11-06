@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.21';
+const CLIENT_VERSION = '0.8.22';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -2115,16 +2115,17 @@ document.addEventListener('click', async (e) => {
       /* دانش‌آموز بی‌کلاس: کلاس درست را انتخاب و ثبت می‌کنیم */
       const u = byId('users', Number(id));
       if (!u) return;
-      const sel = document.getElementById('fu-class-' + id);
-      const cls = byId('classes', Number(sel && sel.value));
-      if (!cls) return toast('اول کلاس را انتخاب کنید', 'err');
+      const gSel = document.getElementById('fu-grade-' + id);
+      const bSel = document.getElementById('fu-branch-' + id);
+      const cls = ensureGroup(gSel && gSel.value, bSel && bSel.value);
+      if (!cls) return toast('اول پایه را انتخاب کنید', 'err');
       const patch = Object.assign({}, u, { class_id: cls.id });
       delete patch.followup_reason;
       patch.followup_ack = false;
       putLocal('users', patch);
       saveCache(); render();
       await flushQueue();
-      toast('در کلاس «' + cls.name + '» گذاشته شد', 'ok');
+      toast('در «' + cls.name + '» ثبت شد', 'ok');
       return;
     }
     case 'followup-ack': {
@@ -2406,6 +2407,22 @@ function userDupBanner(f, matched) {
   }
   box.innerHTML = `<div>⚠️ کاربری با همین مشخصات هست: <b>${list_}</b>.`
     + ' اگر همان شخص است، همان را ویرایش کنید. اگر مطمئنید شخص دیگری است، دوباره «ثبت» را بزنید.</div>';
+}
+
+/* گروه ثبت‌نام = پایه + رشته. در متوسطهٔ دوم همین کافی است؛ «کلاس/اتاق»
+   فقط در برنامهٔ هفتگی تعیین می‌شود، نه در بخش کاربران. */
+function ensureGroup(grade, branch) {
+  const g = String(grade || '').trim();
+  const b = String(branch || '').trim();
+  if (!g) return null;
+  const lvl = (typeof impGradeLevel === 'function') ? impGradeLevel(g) : 0;
+  const mode = lvl >= 10 ? 'field' : 'class';
+  const br = mode === 'field' ? b : '';
+  const name = (g + (br ? ' ' + br : '')).trim();
+  const found = list('classes').find(c => String(c.name || '').trim() === name);
+  if (found) return found;
+  if (br && typeof impEnsureLookup === 'function') impEnsureLookup('branch', br);
+  return putLocal('classes', { name, grade: g, branch: br, mode, grade_level: lvl, capacity: 30, school_id: 1 });
 }
 
 document.addEventListener('submit', async (e) => {

@@ -2665,6 +2665,52 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  await test('بخش کاربران فقط پایه و رشته می‌خواهد؛ کلاس/اتاق در برنامهٔ هفتگی تعیین می‌شود', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/authz.js') + '\n;\n'
+      + strip('client/app.js') + '\n;window.__t = { S, list, byId, PAGES, ensureGroup };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'followup'; T.S.queue = []; T.S.online = false;
+    T.S.data = {
+      users: new Map([
+        [1, { id: 1, name: 'مدیر', role: 'manager' }],
+        [50, { id: 50, name: 'آرین رحمانی', role: 'student', national_id: '3840509807', followup_reason: 'پایهٔ کلاس در فایل نبود (رشته: نقشه‌کشی)' }],
+      ]),
+      classes: new Map(),
+      subjects: new Map(),
+      lookups: new Map([
+        [1, { id: 1, kind: 'grade', name: 'دهم' }], [2, { id: 2, kind: 'grade', name: 'یازدهم' }],
+        [3, { id: 3, kind: 'branch', name: 'نقشه‌کشی' }], [4, { id: 4, kind: 'branch', name: 'الکترونیک' }],
+      ]),
+      parent_links: new Map(), import_issues: new Map(),
+    };
+
+    /* ستون «کلاس» حذف شده و جایش پایه + رشته آمده است */
+    const html = T.PAGES.followup();
+    assert.ok(/id="fu-grade-50"/.test(html), 'انتخاب پایه هست');
+    assert.ok(/id="fu-branch-50"/.test(html), 'انتخاب رشته هست');
+    assert.ok(!/fu-class-50/.test(html), 'انتخاب «کلاس» در بخش کاربران حذف شد');
+    assert.ok(!/انتخاب کلاس/.test(html), 'دیگر «انتخاب کلاس» خواسته نمی‌شود');
+    const row = html.slice(html.indexOf('آرین رحمانی'));
+    assert.ok(/نقشه‌کشی<\/option>/.test(row.slice(0, 3000)), 'رشته از توضیح ردیف پیش‌پر شده است');
+
+    /* ساخت گروه از پایه + رشته، بدون تکرار */
+    const g1 = T.ensureGroup('دهم', 'نقشه‌کشی');
+    assert.strictEqual(g1.name, 'دهم نقشه‌کشی', 'نام گروه = پایه + رشته');
+    assert.strictEqual(g1.mode, 'field');
+    assert.strictEqual(Number(g1.grade_level), 10);
+    const g2 = T.ensureGroup('دهم', 'نقشه‌کشی');
+    assert.strictEqual(Number(g2.id), Number(g1.id), 'گروه تکراری ساخته نشد');
+    assert.strictEqual(T.list('classes').length, 1);
+    assert.ok(!('room' in g1) || !g1.room, 'در بخش کاربران اتاقی ثبت نمی‌شود');
+    dom.window.close();
+  });
+
   /* — کلاس‌هایی که قدیمی‌ترها از رشته ساخته بودند: اصلاح و ادغام ─────── */
   await test('کلاس‌های بی‌پایه (ساخته‌شده از رشته) در صفحهٔ کلاس‌ها اصلاح و ادغام می‌شوند', async () => {
     const { JSDOM } = require('jsdom');

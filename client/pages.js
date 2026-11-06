@@ -842,16 +842,30 @@ PAGES.followup = () => {
   const issues = importIssueRows();
   const total = studs.length + issues.length;
 
-  const studRows = studs.map(({ user, reason }) => `<tr>
+  const gradeNames = lookupList('grade').map(l => String(l.name)).filter(g => !(typeof impGradeLevel === 'function') || impGradeLevel(g));
+  const branchNames = lookupList('branch').map(l => String(l.name));
+  const studRows = studs.map(({ user, reason }) => {
+    /* رشته از متن دلیل («رشته: نقشه‌کشی») برداشته می‌شود تا مدیر فقط پایه را بزند */
+    const m = String(reason || '').match(/رشته:\s*([^)\n]+)/);
+    const brGuess = m ? String(m[1]).replace(/\(.*$/, '').trim() : '';
+    const cur = byId('classes', user.class_id) || {};
+    const gSel = String(cur.grade || '');
+    const bSel = String(cur.branch || brGuess || '');
+    return `<tr>
       <td><b>${esc(user.name)}</b>
         <div class="small muted ltr">${esc(user.phone || user.national_id || '')}</div></td>
       <td class="small">⚠️ ${esc(reason)}</td>
-      <td><select class="input" id="fu-class-${user.id}">
-        <option value="">— انتخاب کلاس —</option>${classOptionList(user.class_id)}</select></td>
+      <td class="nowrap">
+        <select class="input" id="fu-grade-${user.id}" style="min-width:104px">
+          <option value="">— پایه —</option>${gradeNames.map(g => `<option value="${esc(g)}" ${g === gSel ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select>
+        <select class="input" id="fu-branch-${user.id}" style="min-width:118px">
+          <option value="">— رشته —</option>${branchNames.map(b => `<option value="${esc(b)}" ${b === bSel ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>
+      </td>
       <td class="nowrap">
         <button class="btn sm primary" data-act="followup-assign" data-id="${user.id}">ذخیره</button>
         <button class="btn sm ghost" data-act="followup-ack" data-id="${user.id}" title="بی‌کلاس بماند">حل شد</button>
-      </td></tr>`).join('');
+      </td></tr>`;
+  }).join('');
 
   const studentsCard = card(
     `<div class="row between" style="margin-bottom:8px"><b>دانش‌آموزان بدون کلاسِ درست</b>
@@ -1800,9 +1814,6 @@ function classFormHtml(c) {
       <label class="field grow"><span>پایه (الزامی)</span>${pick('grade', grades, editing ? c.grade : '')}</label>
       <label class="field grow"><span>رشته (فقط رشته‌محور)</span>${pick('branch', branches, editing ? c.branch : '')}</label>
     </div>
-    <label class="field"><span>اتاق / کارگاه این کلاس (اختیاری)</span>
-      <input class="input" name="room" value="${esc(editing ? (c.room || '') : '')}" placeholder="مثلاً کلاس ۱۰۱">
-      <span class="small muted">در برنامهٔ هفتگی، هر زنگ می‌تواند محل خودش را داشته باشد (کلاس ۱۰۱ یا کارگاه).</span></label>
     <label class="field"><span>ظرفیت</span>
       <input class="input ltr" name="capacity" inputmode="numeric" value="${esc(editing ? (c.capacity || 30) : 30)}"></label>
     <label class="field"><span>دبیر پایه (سرپرست) — اختیاری</span>
