@@ -2,6 +2,7 @@
 # آزمون اجرایی RLS (A-02) روی PostgreSQL واقعی — FAIL-CLOSED
 # اجرا: bash docs/cloud/reports/evidence/rls-execution-test.sh
 # خروجی: docs/cloud/reports/evidence/mission-a-rls-execution.txt
+#         (قابل تغییر با RLS_TEST_OUT — شاهد تاریخی بازنویسی نمی‌شود)
 #
 # محیط لازم (خارج از مخزن، اختیاری):
 #   EMBEDDED_PG_HOME     مسیر بستهٔ باینری PostgreSQL (پیش‌فرض /tmp/pgtest/node_modules/@embedded-postgres/linux-x64)
@@ -16,7 +17,7 @@ BIN="$PGBASE/native/bin"
 LIB="$PGBASE/native/lib"
 NODEMODS=${PG_NODE_MODULES:-/tmp/pgtest/node_modules}
 PORT=${RLS_TEST_PORT:-5599}
-OUT=docs/cloud/reports/evidence/mission-a-rls-execution.txt
+OUT=${RLS_TEST_OUT:-docs/cloud/reports/evidence/mission-a-rls-execution.txt}
 
 if [ ! -x "$BIN/initdb" ] || [ ! -d "$NODEMODS/pg" ]; then
   echo "BLOCKED — ENVIRONMENT UNAVAILABLE (no PostgreSQL binary / no pg client)"
@@ -37,12 +38,18 @@ export LD_LIBRARY_PATH="$LIB"
   echo "BLOCKED — server did not start" >&2; tail -5 "$DATA/pg.log" >&2; exit 3; }
 
 {
-  echo "# آزمون اجرایی RLS روی PostgreSQL واقعی (A-02)"
+  echo "# آزمون اجرایی RLS روی PostgreSQL واقعی (A-02 · شرط CC-12-1 ردیف ۱۲)"
   echo "# تولید: bash docs/cloud/reports/evidence/rls-execution-test.sh"
+  echo "# بازتولید: RLS_TEST_OUT=<file> bash docs/cloud/reports/evidence/rls-execution-test.sh"
   echo "# زمان: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "# HEAD: $(git rev-parse HEAD)"
   echo "# node: $(node -v) · os: $(uname -srm)"
+  echo "# postgres version: $("$BIN/postgres" --version 2>&1 | awk '{print $3}')"
+  echo "# postgres --version: $("$BIN/postgres" --version 2>&1)"
   echo "# postgres binary: $BIN (خارج از مخزن؛ وابستگی محصول نیست)"
+  echo "# sha256(rls-execution-test.sh): $(sha256sum docs/cloud/reports/evidence/rls-execution-test.sh | cut -d' ' -f1)"
+  echo "# sha256(rls-execution-test.cjs): $(sha256sum docs/cloud/reports/evidence/rls-execution-test.cjs | cut -d' ' -f1)"
+  echo "# product_tree_sha256: $(git ls-tree -r HEAD | grep -v $'\tdocs/' | awk '{print $3"\t"$4}' | sha256sum | cut -d' ' -f1)"
   echo
 } > "$OUT"
 
