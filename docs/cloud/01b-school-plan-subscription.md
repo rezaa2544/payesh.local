@@ -69,7 +69,7 @@
 | `plan_code` | TEXT | **FK → plan.code** |
 | `status` | TEXT | CHECK (`draft`,`provisioning`,`active`,`grace`,`suspended`,`expired`,`canceled`) |
 | `starts_at` / `ends_at` | TEXT | NOT NULL |
-| `grace_days` | INTEGER | DEFAULT ۷ |
+| `grace_days` | INTEGER | `NULL` تا تصمیم P‑01b‑۱؛ مقدار مؤثر = `COALESCE(subscription.grace_days, config.grace_days)` |
 | `auto_renew` | INTEGER | ۰/۱ |
 | `canceled_at` | TEXT | — |
 | `renewed_from` | TEXT | ارجاع به اشتراک قبلی |
@@ -129,8 +129,11 @@
 
 قیدها:
 - `CHECK(approved_by <> operator_id)` — تأیید خودی ممنوع.
-- `CHECK(ends_at > starts_at AND ends_at <= datetime(starts_at,'+72 hours'))`.
-- **`UNIQUE(operator_id) WHERE revoked_at IS NULL AND ends_at > now`** — یک مجوز فعال در هر لحظه برای هر اپراتور (partial unique).
+- `CHECK(ends_at > starts_at AND ends_at <= max_ends_at)` — `max_ends_at` را **برنامه** هنگام درج محاسبه و ذخیره می‌کند (`starts_at + 72h`).
+  دلیل: `datetime(...,'+72 hours')` مخصوص SQLite است و `ends_at <= starts_at + interval '72 hours'` مخصوص Postgres؛ یک CHECK مشترک بین هر دو، فقط با ستون محاسبه‌شده ممکن است. اعتبار `max_ends_at` هم در همان تراکنش با `max_ends_at - starts_at <= 72h` بررسی می‌شود.
+- **یک مجوز فعال در هر لحظه برای هر اپراتور** — با ستون `open_slot` (INTEGER، مقدار ۱ تا زمان اعتبار، `NULL` پس از ابطال/انقضا):
+  `UNIQUE(operator_id, open_slot)` + `CHECK(open_slot IS NULL OR open_slot = 1)`.
+  دلیل: `now()` در شرط ایندکس جزئی **مجاز نیست** (نه در Postgres چون immutable نیست، نه در SQLite چون deterministic نیست). متغیر `open_slot` را کار زمان‌بند در لحظهٔ انقضا `NULL` می‌کند و همان تراکنش یک `support_grant_expired` ثبت می‌کند.
 - هر خواندنِ محتوا در `support_access_log` ثبت می‌شود (بلاک ۱۲‑ب).
 - **بدون دانلود انبوه:** هر مسیر «list/export» در محدودهٔ مجوز رد می‌شود.
 
@@ -144,6 +147,15 @@
 | `last_recalc_at` | TEXT | — |
 
 قاعده: این جدول **کش شمارش** است، نه مرجع. تصمیم نهایی سقف با `SELECT COUNT(*) … WHERE tenant_id=?` **داخل همان تراکنش نوشتن** گرفته می‌شود؛ شمارنده فقط برای نمایش/هشدار است.
+
+**مرجع حقیقت وضعیت (رفع تعارض دو ماشین حالت):** دو ستون وضعیت وجود دارد و باید تفکیک شوند:
+
+| ستون | دامنه | مرجع چه چیزی است |
+|---|---|---|
+| `tenant.status` (`provisioning`,`live`,`suspended`,`archived`) | **چرخهٔ عمر مدرسه** روی پلتفرم | فقط برای تأمین/بایگانی/حذف استفاده می‌شود |
+| `subscription.status` | **حق استفادهٔ سرویس** | تنها مرجع gate ورود/نوشتن/سقف |
+
+قاعده: gateها **فقط** `subscription.status` را می‌خوانند. `tenant.status` هرگز gate نمی‌گذارد؛ فقط اگر `tenant.status='archived'` باشد، حتی با اشتراک `active` هم سرویس داده نمی‌شود (استثنای صریح بایگانی).
 
 ---
 
@@ -162,7 +174,7 @@ active ──(owner cancel)──► canceled ──► (پنجرهٔ خروج �
 |---|---|---|---|---|---|---|
 | `draft` | `provisioning` | ایجاد مدرسه | `platform_owner` | فضای اختصاصی + کلید ساخته شود | — | — |
 | `provisioning` | `active` | پایان راه‌اندازی | `platform_owner` | کلید مستأجر فعال + `storage_prefix` یکتا | — | — |
-| `active` | `grace` | `ends_at` گذشت | سیستم (زمان‌بند) | `grace_days > 0` | بدون تغییر | می‌پذیرد (هشدار) |
+| `active` | `grace` | `ends_at` گذشت | سیستم (زمان‌بند) | مقدار مؤثر `grace_days > 0` (وابسته به P‑01b‑۱) | بدون تغییر | می‌پذیرد (هشدار) |
 | `active`/`grace` | `suspended` | پایان دورهٔ ارفاقی یا تصمیم مالک | سیستم / `platform_owner` | — | بدون تغییر | **متوقف، حفظ‌شده** |
 | `suspended` | `active` | تمدید | `platform_owner` | پرداخت/تصمیم ثبت شود | بدون مهاجرت | **تخلیهٔ امن** (§۵) |
 | `grace`/`suspended` | `expired` | تصمیم مالک یا پایان مهلت | `platform_owner` / سیستم | — | حفظ ≥۱۸۰ روز | متوقف، حفظ‌شده |
@@ -183,6 +195,17 @@ active ──(owner cancel)──► canceled ──► (پنجرهٔ خروج �
 | `canceled` | ❌ | ❌ (به‌جز مسیر export مجاز) | ❌ | متوقف | پنجرهٔ خروج، سپس بایگانی |
 
 **نکتهٔ اجرایی:** «فقط مدیر در `suspended`» یعنی پاسخ ورود سایر نقش‌ها پیام `subscription_suspended` با کد ۴۰۳ است؛ **نه** ۴۰۱ (تا کلاینت آن را «رمز اشتباه» تفسیر نکند).
+
+**نگاشت نقش‌ها (الزامی — واژگان سند با واژگان محصول یکی نیست):**
+
+| نقش در این سند | نقش فعلی محصول (`users.role`) | رفتار در `suspended` |
+|---|---|---|
+| `school_admin` | **`manager`** | ورود مجاز، فقط صفحهٔ اشتراک/تمدید |
+| `platform_owner` / `platform_operator` / `platform_support` | نقش پلتفرم (خارج از `users` مدرسه؛ ۱۲‑ب) | مستقل از وضعیت مدرسه |
+| `vice` · `teacher` · `staff` | همان نام‌ها | ۴۰۳ `subscription_suspended` |
+| `student` · `parent` | همان نام‌ها | ۴۰۳ `subscription_suspended` |
+
+اگر نام `school_admin` در پیاده‌سازی به‌کار رود، باید در همان لایه به `manager` نگاشت شود؛ در غیر این صورت gate اشتباه ارزیابی می‌کند.
 
 ---
 
@@ -213,6 +236,12 @@ resolve tenant از نشست  →  load subscription  →  state gate  →  quot
 | صف آفلاین | همان سقف‌ها | سرور، هنگام اعمال op | همان پیام‌ها + ثبت `rejected` در پاسخ sync |
 
 **قاعدهٔ حیاتی:** سقف در **سرور** بررسی می‌شود؛ کلاینت فقط پیش‌نمایش می‌دهد. درخواست دستی/مستقیم API هم باید همان رد را بگیرد.
+
+**هم‌روندی (الزام):** «شمارش + درج» باید اتمیک باشد، وگرنه دو درخواست هم‌زمان هر دو از سقف عبور می‌کنند.
+- SQLite: تراکنش `BEGIN IMMEDIATE` (قفل نوشتن) — همان الگویی که `server/db.js` استفاده می‌کند.
+- Postgres: `SELECT … FROM tenant WHERE id=$1 FOR UPDATE` در ابتدای تراکنش (قفل ردیف مستأجر) و سپس `COUNT(*)` و `INSERT`.
+- ترتیب قفل ثابت: همیشه اول `tenant`، بعد جدول هدف — برای پرهیز از deadlock.
+- آزمون منفی الزامی: دو درخواست هم‌زمان برای آخرین جای خالی ⇒ یکی ۲۰۰، یکی ۴۰۹ `quota_users`.
 
 ---
 
