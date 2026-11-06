@@ -239,6 +239,8 @@ function userRow(u) {
     class_id: u.class_id || null, subject: u.subject || '', active: u.active !== false,
     position: u.position || '', created_at: u.created_at || null,
   };
+  /* دانش‌آموز بی‌کلاس: دلیلش هم برمی‌گردد تا در «نیازمند پیگیری» دیده شود */
+  if (u.followup_reason) row.followup_reason = u.followup_reason;
   /* فیلدهای شناسنامه‌ای/تکمیلی که از اکسل آمده‌اند */
   for (const k of IMP_STORE_FIELDS) {
     if (u[k] !== undefined && u[k] !== null && u[k] !== '') row[k] = u[k];
@@ -1040,6 +1042,108 @@ function importKey(x) {
     .replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
+/* ── کلاس = پایه + رشته ──────────────────────────────────────────────
+   همان قاعدهٔ سمت گوشی/ویندوز: رشته هرگز به‌جای کلاس ساخته نمی‌شود.
+   اگر پایه پیدا نشود، کلاسی ساخته نمی‌شود و دانش‌آموز بی‌کلاس می‌ماند
+   تا در «نیازمند پیگیری» کامل شود. */
+const IMPORT_GRADE_WORDS = ['پیش‌دانشگاهی', 'پیش دانشگاهی',
+  'دوازدهم', 'یازدهم', 'دهم', 'نهم', 'هشتم', 'هفتم', 'ششم', 'پنجم', 'چهارم', 'سوم', 'دوم', 'اول'];
+const IMPORT_GRADE_NUM = { 12: 'دوازدهم', 11: 'یازدهم', 10: 'دهم', 9: 'نهم', 8: 'هشتم', 7: 'هفتم', 6: 'ششم', 5: 'پنجم', 4: 'چهارم', 3: 'سوم', 2: 'دوم', 1: 'اول' };
+
+function importLev(a, b) {
+  a = String(a || ''); b = String(b || '');
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = new Array(n + 1), cur = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    const t = prev; prev = cur; cur = t;
+  }
+  return prev[n];
+}
+
+function importGradeCanon(txt, known) {
+  const t = importKey(txt);
+  if (!t) return '';
+  /* «یازدهم» خودش «دهم» را در خود دارد؛ پس اول واژه‌های بلندتر بررسی
+     می‌شوند تا پایه اشتباه خوانده نشود. */
+  const cands = [];
+  for (const g of (known || [])) cands.push({ src: g, key: importKey(g) });
+  for (const g of IMPORT_GRADE_WORDS) cands.push({ src: importKey(g) === 'پیش دانشگاهی' ? 'پیش‌دانشگاهی' : g, key: importKey(g) });
+  cands.sort((a, b) => b.key.length - a.key.length);
+  const tokens = t.split(' ');
+  for (const c of cands) if (c.key && tokens.indexOf(c.key) > -1) return c.src;
+  for (const c of cands) if (c.key && c.key.length > 2 && t.indexOf(c.key) > -1) return c.src;
+  const m = t.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
+  if (m && IMPORT_GRADE_NUM[Number(m[1])]) return IMPORT_GRADE_NUM[Number(m[1])];
+  return '';
+}
+
+function importBranchCanon(txt, known) {
+  let raw = String(txt == null ? '' : txt).replace(/\s+/g, ' ').trim();
+  if (!raw) return { name: '', matched: false };
+  raw = raw.replace(/(^|\s)رشتهٔ?(\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
+  const t = importKey(raw);
+  if (!t) return { name: '', matched: false };
+  let best = '', bestD = 999;
+  for (const g of (known || [])) {
+    const gn = importKey(g);
+    if (!gn) continue;
+    if (gn === t) return { name: g, matched: true };
+    const d = importLev(gn, t);
+    if (d < bestD) { bestD = d; best = g; }
+  }
+  if (best) {
+    const gn = importKey(best);
+    if (bestD <= 2 || gn.indexOf(t) > -1 || t.indexOf(gn) > -1) return { name: best, matched: true };
+  }
+  return { name: raw, matched: false };
+}
+
+function importStripGrade(name, grade) {
+  const gTokens = importKey(grade).split(' ').filter(Boolean);
+  const out = [];
+  for (const tok of String(name == null ? '' : name).replace(/[()\[\]\-_/\\]/g, ' ').split(/\s+/)) {
+    const t = importKey(tok);
+    if (!t) continue;
+    if (/^\d{1,2}$/.test(t)) continue;
+    if (gTokens.some(g => g === t || g.indexOf(t) > -1 || t.indexOf(g) > -1)) continue;
+    out.push(String(tok).trim());
+  }
+  return out.join(' ').trim();
+}
+
+/** پایه و رشتهٔ یک ردیف فایل؛ name خالی یعنی پایه پیدا نشد (کلاس ساخته نشود) */
+function importPlaceOf(r, ctx) {
+  const grades = (ctx && ctx.grades) || [];
+  const branches = (ctx && ctx.branches) || [];
+  const cname = String(r.new_class || r.class_name || '').replace(/\s+/g, ' ').trim();
+  let grade = importGradeCanon(r.new_grade || r.grade || '', grades);
+  if (!grade && cname) grade = importGradeCanon(cname, grades);
+  let bc = importBranchCanon(r.new_branch || r.branch || r.field || '', branches);
+  if (!bc.name && cname) bc = importBranchCanon(importStripGrade(cname, grade), branches);
+  const branch = bc.name || '';
+  return { grade, branch, name: grade ? (grade + (branch ? ' ' + branch : '')).trim() : '', bare: !grade && !!branch };
+}
+
+function importEnsureLookup(kind, name) {
+  const nm = String(name || '').trim();
+  if (!nm) return null;
+  const all = store.all('lookups');
+  const found = all.find(l => String(l.kind) === String(kind) && importKey(l.name) === importKey(nm));
+  if (found) return found;
+  return store.insert('lookups', {
+    kind, name: nm, order: all.filter(l => String(l.kind) === String(kind)).length + 1,
+    school_id: 1, created_at: new Date().toISOString(),
+  });
+}
+
 function importUsers(body) {
   const kind = ['students', 'teachers', 'grades', 'attendance'].indexOf(body && body.kind) > -1
     ? body.kind : 'students';
@@ -1050,6 +1154,12 @@ function importUsers(body) {
   let updated = 0, parents = 0, classesMade = 0;
 
   const classIndex = new Map(store.all('classes').map(c => [importKey(c.name), c]));
+  /* تعریف‌های پایه/رشته برای تطبیق؛ اشتباه تایپیِ رشته، رشتهٔ تازه نمی‌سازد */
+  const lookupAll = store.all('lookups');
+  const placeCtx = {
+    grades: lookupAll.filter(l => String(l.kind) === 'grade').map(l => l.name),
+    branches: lookupAll.filter(l => String(l.kind) === 'branch').map(l => l.name),
+  };
   /* کد ملی‌هایی که در همین درخواست ساخته شده‌اند: تکرارشان در فایل خطاست،
      نه به‌روزرسانی (به‌روزرسانی فقط برای رکوردهای قبلیِ پایگاه داده است). */
   const createdNids = new Set();
@@ -1138,25 +1248,36 @@ function importUsers(body) {
         continue;
       }
 
-      /* کلاس: شناسهٔ آماده، یا نامِ موجود، وگرنه ساخت کلاس تازه */
+      /* کلاس: شناسهٔ آماده، یا نامِ موجود، وگرنه ساخت کلاس تازه — فقط با پایه */
       let classId = Number(r.class_id) || (existing ? Number(existing.class_id) || null : null);
+      let studentPlace = null;
       if (kind === 'students') {
-        const wanted = String(r.new_class || r.class_name || '').trim();
-        if (wanted) {
-          let cls = classIndex.get(importKey(wanted));
+        const place = importPlaceOf(r, placeCtx);
+        studentPlace = place;
+        if (place.name) {
+          let cls = classIndex.get(importKey(place.name));
           if (!cls && classId && store.get('classes', classId)) cls = store.get('classes', classId);
           if (!cls) {
+            importEnsureLookup('grade', place.grade);
+            if (place.branch) importEnsureLookup('branch', place.branch);
             cls = store.insert('classes', {
-              name: wanted,
-              grade: String(r.new_grade || r.grade || wanted.split(' ')[0] || '')
-                || (String(wanted).split(' ')[0] || ''),
-              branch: String(r.new_branch || r.branch || r.field || wanted.split(' ').slice(1).join(' ') || ''),
+              name: place.name, grade: place.grade, branch: place.branch,
               capacity: 30, school_id: 1, created_at: nowISO(),
             });
-            classIndex.set(importKey(wanted), cls);
+            classIndex.set(importKey(place.name), cls);
             classesMade += 1;
           }
           classId = cls.id;
+        } else {
+          /* رشته به‌تنهایی کلاس نمی‌شود؛ دانش‌آموز بی‌کلاس می‌ماند */
+          classId = null;
+          if (place.bare) {
+            warnings.push({
+              row: rowNo, error: 'class_without_grade', name,
+              reason: 'پایهٔ کلاس در فایل نبود (رشته: ' + place.branch + ')',
+              followup_reason: 'پایهٔ کلاس در فایل نبود (رشته: ' + place.branch + ')',
+            });
+          }
         }
       }
 
@@ -1168,6 +1289,11 @@ function importUsers(body) {
         class_id: kind === 'students' ? (classId || null) : (classId || null),
         active: true, school_id: 1,
       };
+      /* دانش‌آموزِ بی‌کلاس با دلیلش می‌ماند تا در «نیازمند پیگیری» دیده شود */
+      if (kind === 'students' && !classId) {
+        base.followup_reason = String(r.followup_reason || '').trim()
+          || (studentPlace && studentPlace.bare ? 'پایهٔ کلاس در فایل نبود (رشته: ' + studentPlace.branch + ')' : 'کلاس مشخص نیست');
+      }
       pickFields(r, base);
       if (r.birth_date) base.birth_date = String(r.birth_date).slice(0, 10);
       if (r.gender) base.gender = r.gender;

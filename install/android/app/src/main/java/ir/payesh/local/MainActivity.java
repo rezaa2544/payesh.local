@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -565,6 +566,11 @@ public class MainActivity extends Activity {
         s.setUseWideViewPort(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        /* پیشنهادهای خودکارِ کیبورد (autofill) روی کادر نام کاربری/رمز،
+           پنجرهٔ پیشنهاد باز می‌کرد و تمرکز کادر را می‌گرفت؛ خاموشش می‌کنیم. */
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            web.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
+        }
         web.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 

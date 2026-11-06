@@ -406,6 +406,59 @@ async function waitFor(fn, ms = 15000) {
     await req('/api/admin/users/bulk-delete', { method: 'POST', token: managerToken, body: { ids } });
   });
 
+  /* ── رشته هرگز کلاس نمی‌شود: کلاس = پایه + رشته ────────────────────── */
+  await test('ورود دسته‌ای: رشته به‌جای کلاس ساخته نمی‌شود و اشتباه تایپی رشتهٔ تازه نمی‌سازد', async () => {
+    const before = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: managerToken });
+    const classesBefore = ((before.data.collections || {}).classes || []).map(c => c.name);
+
+    const imp = await req('/api/admin/import', { method: 'POST', token: managerToken, body: {
+      kind: 'students',
+      rows: [
+        /* ۱) در فایل فقط رشته آمده — هیچ کلاسی نباید ساخته شود */
+        { _row: 2, name: 'دانش‌آموز رشته‌ای', national_id: '1000000907', field: 'گرافیک' },
+        /* ۲) پایه + رشتهٔ غلط‌تایپی — باید همان رشتهٔ تعریف‌شده دهم شود */
+        { _row: 3, name: 'دانش‌آموز غلط‌تایپی', national_id: '1000000915', grade: 'دهم', field: 'شبکه و نرم‌افزار' },
+        /* ۳) نام کلاس خودش «پایه + رشته» است */
+        { _row: 4, name: 'دانش‌آموز کلاس‌نام', national_id: '1000000923', class_name: 'یازدهم علوم تجربی' },
+      ],
+    } });
+
+    assert.strictEqual(imp.data.ok, true, 'درخواست پذیرفت');
+    assert.strictEqual(imp.data.created, 3, 'هر سه دانش‌آموز ساخته شدند');
+
+    const byName = n => imp.data.users.find(u => u.name === n);
+
+    /* ۱) بی‌کلاس ماند و دلیلش ثبت شد */
+    const noClass = byName('دانش‌آموز رشته‌ای');
+    assert.strictEqual(noClass.class_id, null, 'رشته به کلاس تبدیل نشد');
+    assert.ok(/پایه/.test(String(noClass.followup_reason || '')), 'دلیلِ نبودِ پایه ثبت شد');
+
+    /* ۲و۳) کلاس‌ها با پایه ساخته شدند، نه با رشتهٔ خالی */
+    const after = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: managerToken });
+    const classes = (after.data.collections || {}).classes || [];
+    const names = classes.map(c => String(c.name));
+    assert.ok(!names.includes('گرافیک'), 'کلاسی به نام رشته ساخته نشد');
+    assert.ok(!names.some(n => n === 'شبکه و نرم‌افزار'), 'رشتهٔ بدون پایه کلاس نشد');
+    const d10 = classes.find(c => String(c.name) === 'دهم شبکه و نرم‌افزار');
+    assert.ok(d10, 'کلاس «دهم شبکه و نرم‌افزار» ساخته شد');
+    assert.strictEqual(d10.grade, 'دهم', 'پایه روی کلاس ثبت شد');
+    assert.strictEqual(d10.branch, 'شبکه و نرم‌افزار', 'رشته روی کلاس ثبت شد');
+    const y11 = classes.find(c => String(c.name) === 'یازدهم علوم تجربی');
+    assert.ok(y11, 'نام کلاسِ «پایه + رشته» درست فهمیده شد');
+    assert.strictEqual(y11.grade, 'یازدهم');
+    assert.strictEqual(y11.branch, 'علوم تجربی');
+    assert.strictEqual(classesBefore.filter(n => !names.includes(n)).length, 0, 'کلاس قبلی جابه‌جا نشد');
+
+    /* پایه و رشته‌های تازه در تعریف‌ها هم ثبت شده‌اند (پایه‌ها «بدون استفاده» نمی‌مانند) */
+    const lookups = (after.data.collections || {}).lookups || [];
+    assert.ok(lookups.some(l => l.kind === 'grade' && l.name === 'دهم'), 'پایه در تعریف‌ها هست');
+    assert.ok(lookups.some(l => l.kind === 'branch' && l.name === 'علوم تجربی'), 'رشته در تعریف‌ها هست');
+
+    /* پاک‌سازی */
+    const mine = imp.data.users.map(u => u.id);
+    await req('/api/admin/users/bulk-delete', { method: 'POST', token: managerToken, body: { ids: mine } });
+  });
+
   /* ── نام کاربری گوشی: شمارهٔ همراه، و اگر نبود کد ملی ─────────────── */
   await test('نام کاربری روی گوشی: شمارهٔ همراه، و برای بی‌شماره‌ها کد ملی', () => {
     const auth = require(path.join(ROOT, 'server/auth.js'));
@@ -1445,6 +1498,17 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(again.value, '0912', 'متن تایپ‌شده حفظ می‌شود');
     assert.strictEqual(again.selectionStart, 4, 'جای نشانگر حفظ می‌شود');
 
+    /* کادر جستجو (بدون فرم): با هر حرف صفحه بازسازی می‌شود، ولی فوکوس
+       و متن نباید بپرد — همان شکایت «هر حرف که می‌نویسم باید دوباره
+       با ماوس روی کادر کلیک کنم». */
+    win.eval(`setApp('<div class="card"><input class="input" id="q-search" data-focus-key="q-search" data-search="q" value=""></div>')`);
+    const q = win.document.getElementById('q-search');
+    q.focus(); q.value = 'علی';
+    win.eval(`paintApp('<div class="card"><input class="input" id="q-search" data-focus-key="q-search" data-search="q" value="علی"></div>')`);
+    const q2 = win.document.getElementById('q-search');
+    assert.strictEqual(win.document.activeElement, q2, 'کادر جستجو بعد از بازسازی همان کادر فعال است');
+    assert.strictEqual(q2.value, 'علی', 'متنی که تایپ شده بود سر جایش است');
+
     /* صفحهٔ ورود گوشی اگر همین حالا روی نمایش است، دوباره ساخته نمی‌شود */
     win.eval(`window.PAYESH_CLOUD = { endpoint: 'https://s3.ir-central1.arvanstorage.ir', bucket: 'pb1', accessKey: 'AK', secret: 'SK', prefix: 'payesh/' };`);
     win.eval(`renderPhoneLogin(true)`);
@@ -1458,6 +1522,22 @@ async function waitFor(fn, ms = 15000) {
     win.eval(`renderPhoneLogin()`);
     assert.strictEqual(win.document.querySelector('input[name="phone"]'), first, 'بازسازی بی‌مورد انجام نمی‌شود');
     dom.window.close();
+  });
+
+  /* — گوشی: نوار پیشنهاد/autofill کیبورد نباید حین تایپ باز شود ──────── */
+  await test('صفحهٔ ورود: پیشنهاد خودکارِ کیبورد گوشی روی نام کاربری و رمز خاموش است', async () => {
+    const pages = fs.readFileSync(path.join(ROOT, 'client/pages.js'), 'utf8');
+    const java = fs.readFileSync(path.join(ROOT, 'install/android/app/src/main/java/ir/payesh/local/MainActivity.java'), 'utf8');
+    /* هر سه فرم ورود (سیستم، گوشی، پیوند) نباید autofill را صدا بزنند */
+    const forms = pages.match(/<form data-form="[^"]+" class="card" autocomplete="off">/g) || [];
+    assert.ok(forms.length >= 2, 'فرم‌های ورود autocomplete خاموش دارند (' + forms.length + ')');
+    assert.ok(/name="phone"[^>]*autocomplete="off"/.test(pages), 'کادر نام کاربری پیشنهاد خودکار نمی‌گیرد');
+    assert.ok(/type="password"[^>]*autocomplete="new-password"/.test(pages), 'کادر رمز رمزِ ذخیره‌شده پیشنهاد نمی‌کند');
+    assert.ok(/data-focus-key="phone"/.test(pages) && /data-focus-key="password"/.test(pages), 'کادرهای ورود کلید فوکوس دارند');
+    assert.ok(/autocorrect="off"/.test(pages) && /spellcheck="false"/.test(pages), 'غلط‌گیر و اصلاح خودکار خاموش است');
+    /* خودِ WebView هم autofill را رد می‌کند */
+    assert.ok(/setImportantForAutofill\(View\.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS\)/.test(java),
+      'WebView پیشنهاد خودکار را نمی‌پذیرد');
   });
 
   /* — نگهبان دائمی: هیچ کاربری، در هیچ نقشی، نباید به دیوار
@@ -1704,6 +1784,101 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(made.gender, 'پسر');
     assert.ok([...T.S.data.users.values()].some(u => u.role === 'parent' && u.name === 'حسین رضایی'),
       'حساب پدر از فایل ساخته شد');
+    dom.window.close();
+  });
+
+  /* — رشته هرگز کلاس نمی‌شود (سمت گوشی/ویندوز) ────────────────────── */
+  await test('ورود دسته‌ای روی دستگاه: رشته کلاس نمی‌شود و اشتباه تایپی رشته را دوباره نمی‌سازد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, impCheck, importApplyLocal, list, PAGES, impPlaceOf, impGradeCanon, impBranchCanon };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
+    T.S.data = {
+      users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager' }]]),
+      classes: new Map(), subjects: new Map(), parent_links: new Map(), grades: new Map(), attendance: new Map(),
+      /* تعریف‌ها: رشتهٔ «گرافیک» و پایهٔ «دهم» قبلاً ثبت شده‌اند */
+      lookups: new Map([
+        [20, { id: 20, kind: 'branch', name: 'گرافیک', order: 1 }],
+        [21, { id: 21, kind: 'grade', name: 'دهم', order: 1 }],
+      ]),
+    };
+    T.S.queue = []; T.S.online = false;
+
+    /* پایه هرگز با «یازدهم» به‌جای «دهم» اشتباه نمی‌شود */
+    assert.strictEqual(T.impGradeCanon('یازدهم گرافیک', ['دهم', 'یازدهم']), 'یازدهم', '«یازدهم» با 「دهم» قاطی نمی‌شود');
+    const typo = T.impBranchCanon('کرافیک', ['گرافیک']);
+    assert.strictEqual(typo.name, 'گرافیک', 'اشتباه تایپیِ رشته به همان رشته تبدیل می‌شود');
+
+    /* ۱) فایل فقط ستون «رشته» دارد — هیچ کلاسی نباید ساخته شود */
+    const h1 = ['نام و نام خانوادگی', 'کد ملی', 'رشته'];
+    T.S.imp = {
+      step: 2, kind: 'students', headers: h1, headerRow: 1, map: ['full_name', 'national_id', 'field'],
+      rows: [
+        ['سارا کریمی', '1000000907', 'گرافیک'],
+        ['رضا مرادی', '1000000915', 'گرافیک'],
+      ],
+    };
+    let checks = T.impCheck();
+    assert.strictEqual(checks.length, 2);
+    assert.ok(!checks[0].data.new_class, 'رشته به کلاس تبدیل نشد');
+    assert.ok(checks[0].data.followup_reason && /پایه/.test(checks[0].data.followup_reason), 'دلیل نبودِ پایه ثبت شد');
+    assert.strictEqual(T.S.impNewClasses.length, 0, 'هیچ کلاس تازه‌ای اعلام نشد');
+
+    /* ۲) ستون پایه + رشتهٔ غلط‌تایپی: کلاس «دهم گرافیک» ساخته می‌شود، نه رشتهٔ دوم */
+    const h2 = ['نام و نام خانوادگی', 'کد ملی', 'پایه', 'رشته'];
+    T.S.imp = {
+      step: 2, kind: 'students', headers: h2, headerRow: 1, map: ['full_name', 'national_id', 'grade', 'field'],
+      rows: [['مینا تهرانی', '1000000923', 'دهم', 'کرافیک']],
+    };
+    checks = T.impCheck();
+    assert.strictEqual(checks[0].data.new_class, 'دهم گرافیک', 'کلاس از پایه + رشتهٔ درست ساخته شد');
+    assert.strictEqual(checks[0].data.new_grade, 'دهم');
+    assert.strictEqual(checks[0].data.new_branch, 'گرافیک', 'غلط تایپی اصلاح شد');
+    assert.ok(!checks[0].warns.some(x => /تازه تعریف/.test(x)), 'رشتهٔ تکراری اعلام نشد');
+
+    /* ۳) نام کلاس خودش «پایه + رشته» است */
+    const h3 = ['نام و نام خانوادگی', 'کد ملی', 'کلاس'];
+    T.S.imp = {
+      step: 2, kind: 'students', headers: h3, headerRow: 1, map: ['full_name', 'national_id', 'class_name'],
+      rows: [['حسن نادری', '1000000931', 'یازدهم گرافیک']],
+    };
+    checks = T.impCheck();
+    assert.strictEqual(checks[0].data.new_class, 'یازدهم گرافیک', '«یازدهم گرافیک» درست تجزیه شد');
+    assert.strictEqual(checks[0].data.new_grade, 'یازدهم');
+
+    /* ثبت روی دستگاه: کلاس‌ها فقط با پایه ساخته می‌شوند و تعریف‌ها هم ثبت می‌شوند */
+    const all = [];
+    for (const imp of [
+      { h: h1, map: ['full_name', 'national_id', 'field'], rows: [['سارا کریمی', '1000000907', 'گرافیک']] },
+      { h: h2, map: ['full_name', 'national_id', 'grade', 'field'], rows: [['مینا تهرانی', '1000000923', 'دهم', 'کرافیک']] },
+      { h: h3, map: ['full_name', 'national_id', 'class_name'], rows: [['حسن نادری', '1000000931', 'یازدهم گرافیک']] },
+    ]) {
+      T.S.imp = { step: 2, kind: 'students', headers: imp.h, headerRow: 1, map: imp.map, rows: imp.rows };
+      all.push(...T.impCheck().filter(c => !c.errors.length).map(c => c.data));
+    }
+    const res = await T.importApplyLocal(all, 'students');
+    assert.strictEqual(res.created, 3, 'هر سه دانش‌آموز ساخته شدند');
+    const classNames = T.list('classes').map(c => c.name).sort();
+    assert.ok(!classNames.includes('گرافیک'), 'کلاسی هم‌نام رشته ساخته نشد');
+    assert.ok(classNames.includes('دهم گرافیک') && classNames.includes('یازدهم گرافیک'), 'کلاس‌ها با پایه ساخته شدند');
+    const c10 = T.list('classes').find(c => c.name === 'دهم گرافیک');
+    assert.strictEqual(c10.grade, 'دهم');
+    assert.strictEqual(c10.branch, 'گرافیک');
+    const sara = T.list('users').find(u => u.name === 'سارا کریمی');
+    assert.ok(!sara.class_id, 'دانش‌آموز بی‌کلاس ماند');
+    assert.ok(/پایه/.test(String(sara.followup_reason || '')), 'دلیلش روی کاربر ذخیره شد');
+
+    /* صفحهٔ «نیازمند پیگیری» او را نشان می‌دهد */
+    const page = T.PAGES.followup();
+    assert.ok(page.includes('سارا کریمی'), 'دانش‌آموز بی‌کلاس در صفحهٔ پیگیری هست');
+    assert.ok(/پایه/.test(page), 'دلیل در صفحه نوشته شده');
+    assert.ok(page.includes('ذخیره'), 'دکمهٔ تعیین کلاس هست');
     dom.window.close();
   });
 
@@ -2088,6 +2263,8 @@ async function waitFor(fn, ms = 15000) {
     let html = win.document.querySelector('#modal-root').innerHTML;
     assert.ok(/def-delete-only/.test(html) && /def-delete-cascade/.test(html), 'هر دو گزینه پرسیده شد');
     assert.ok(/دهم شبکه/.test(html), 'کلاس‌های وابسته فهرست شدند');
+    assert.ok(/def-delete-students/.test(html), 'دربارهٔ دانش‌آموزانش هم می‌پرسد');
+    assert.ok(/نیازمند پیگیری/.test(html), 'گزینهٔ نگه‌داشتن دانش‌آموزان به فهرست پیگیری اشاره می‌کند');
     click('def-delete-only'); await tick();
     assert.ok(!T.S.data.lookups.has(3), 'رشته حذف شد');
     assert.ok(T.S.data.classes.has(5), 'کلاس دست‌نخورده ماند');
@@ -2104,7 +2281,88 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(!T.S.data.substitutions.has(7), 'جابه‌جای آن کلاس پاک شد');
     assert.strictEqual(Number(T.S.data.users.get(9).class_id), 0, 'دانش‌آموز حذف نشد، فقط بی‌کلاس شد');
     assert.ok(T.S.data.users.has(9), 'دانش‌آموز باقی ماند');
+    assert.ok(/رشته/.test(String(T.S.data.users.get(9).followup_reason || '')), 'دلیل حذف رشته روی دانش‌آموز ثبت شد');
     assert.ok(T.S.data.lookups.has(4), 'رشتهٔ دیگر دست‌نخورده است');
+
+    /* صفحهٔ «نیازمند پیگیری» او را با دلیل نشان می‌دهد و می‌شود کلاس تازه داد */
+    const fuPage = win.PAGES.followup();
+    assert.ok(fuPage.includes('دانش‌آموز'), 'دانش‌آموز در صفحهٔ پیگیری هست');
+    assert.ok(/رشته/.test(fuPage), 'دلیلش در صفحه نوشته شده');
+
+    /* ۳) رشته + کلاس‌ها + دانش‌آموزان: همه حذف می‌شوند */
+    boot();
+    win.confirm = () => true;
+    click('def-delete');
+    click('def-delete-students'); await tick();
+    assert.ok(!T.S.data.users.has(9), 'با انتخاب صریح، دانش‌آموز هم حذف شد');
+    assert.ok(!T.S.data.classes.has(5), 'کلاسش حذف شد');
+    assert.ok(!T.S.data.lookups.has(3), 'رشته حذف شد');
+
+    /* ۴) «فقط خودش»: کلاس‌ها و دانش‌آموزان دست‌نخورده می‌مانند */
+    boot();
+    click('def-delete');
+    click('def-delete-only'); await tick();
+    assert.ok(T.S.data.classes.has(5), 'کلاس ماند');
+    assert.ok(T.S.data.users.has(9), 'دانش‌آموز ماند');
+    dom.window.close();
+  });
+
+  /* — کلاس‌هایی که قدیمی‌ترها از رشته ساخته بودند: اصلاح و ادغام ─────── */
+  await test('کلاس‌های بی‌پایه (ساخته‌شده از رشته) در صفحهٔ کلاس‌ها اصلاح و ادغام می‌شوند', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js') + '\n;window.__t = { S, list, PAGES };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'classes';
+    T.S.data = {
+      users: new Map([
+        [1, { id: 1, name: 'مدیر', role: 'manager' }],
+        [9, { id: 9, name: 'دانش‌آموز یک', role: 'student', class_id: 5, followup_reason: 'کلاسش پایه ندارد' }],
+      ]),
+      /* کلاس ۵ همان کلاسِ اشتباهی است که از رشته ساخته شده بود */
+      classes: new Map([
+        [5, { id: 5, name: 'گرافیک', grade: '', branch: 'گرافیک' }],
+        [6, { id: 6, name: 'دهم گرافیک', grade: 'دهم', branch: 'گرافیک' }],
+      ]),
+      subjects: new Map([[10, { id: 10, name: 'ریاضی' }]]),
+      lookups: new Map([[21, { id: 21, kind: 'grade', name: 'دهم' }], [20, { id: 20, kind: 'branch', name: 'گرافیک' }]]),
+      schedule: new Map([[100, { id: 100, class_id: 5, subject_id: 10, weekday: 0, bell_order: 1 }]]),
+      grades: new Map([[7, { id: 7, student_id: 9, class_id: 5, subject_id: 10, score: 18 }]]),
+      attendance: new Map([[8, { id: 8, student_id: 9, class_id: 5, date: '2026-11-01', status: 'present' }]]),
+      parent_links: new Map(), substitutions: new Map(), bell_schedules: new Map(),
+    };
+    T.S.queue = []; T.S.online = false;
+
+    const page = T.PAGES.classes();
+    assert.ok(page.includes('کلاس‌هایی که پایه ندارند'), 'کارت اصلاح کلاس‌های بی‌پایه دیده می‌شود');
+    assert.ok(page.includes('merge-into-5'), 'برای کلاس اشتباهی گزینهٔ ادغام هست');
+    assert.ok(!page.includes('merge-into-6'), 'کلاس سالم پیشنهاد ادغام نمی‌شود');
+
+    const sel = win.document.createElement('select');
+    sel.id = 'merge-into-5';
+    const opt = win.document.createElement('option');
+    opt.value = '6'; sel.appendChild(opt);
+    win.document.body.appendChild(sel);
+    win.confirm = () => true;
+
+    const btn = win.document.createElement('button');
+    btn.setAttribute('data-act', 'class-merge');
+    btn.setAttribute('data-id', '5');
+    win.document.body.appendChild(btn);
+    btn.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 30));
+
+    assert.ok(!T.S.data.classes.has(5), 'کلاس اشتباهی حذف شد');
+    assert.ok(T.S.data.classes.has(6), 'کلاس درست ماند');
+    assert.strictEqual(Number(T.S.data.users.get(9).class_id), 6, 'دانش‌آموز به کلاس درست منتقل شد');
+    assert.ok(!T.S.data.users.get(9).followup_reason, 'دلیل پیگیری پاک شد');
+    assert.strictEqual(Number(T.S.data.schedule.get(100).class_id), 6, 'زنگ برنامه منتقل شد');
+    assert.strictEqual(Number(T.S.data.grades.get(7).class_id), 6, 'نمره منتقل شد');
+    assert.strictEqual(Number(T.S.data.attendance.get(8).class_id), 6, 'حضور منتقل شد');
     dom.window.close();
   });
 

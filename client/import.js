@@ -170,6 +170,129 @@ function impNumFa(x) {
   return t === '' ? null : Number(t);
 }
 
+/* ══════════════ پایه و رشته — کلاس هیچ‌وقت از رشته ساخته نمی‌شود ══════
+   قاعدهٔ ثابت سامانه: «کلاس = پایه + رشته».
+   در فایل‌های واقعی مدرسه ستون «رشته» پُر است و ستون «پایه» خالی؛ نسخهٔ
+   قبلی همان رشته را نام کلاس می‌کرد و بعد در صفحهٔ کلاس‌ها رشته‌ها به‌جای
+   کلاس‌ها می‌نشستند و پایه‌ها «بدون استفاده» می‌ماندند. اینجا:
+     • پایه از ستون پایه، و اگر نبود از داخل نام کلاس خوانده می‌شود
+     • رشته با تعریف‌های موجود تطبیق داده می‌شود (اشتباه تایپی ⇒ همان رشته)
+     • اگر پایه پیدا نشود، کلاسی ساخته نمی‌شود؛ دانش‌آموز بی‌کلاس ثبت
+       می‌شود و در «نیازمند پیگیری» می‌آید تا مدیر کاملش کند.
+   ═══════════════════════════════════════════════════════════════════ */
+const IMP_GRADE_WORDS = ['پیش‌دانشگاهی', 'پیش دانشگاهی',
+  'دوازدهم', 'یازدهم', 'دهم', 'نهم', 'هشتم', 'هفتم', 'ششم', 'پنجم', 'چهارم', 'سوم', 'دوم', 'اول'];
+const IMP_GRADE_NUM = { 12: 'دوازدهم', 11: 'یازدهم', 10: 'دهم', 9: 'نهم', 8: 'هشتم', 7: 'هفتم', 6: 'ششم', 5: 'پنجم', 4: 'چهارم', 3: 'سوم', 2: 'دوم', 1: 'اول' };
+
+/** فاصلهٔ ویرایشی (لِوِنشتاین) برای تشخیص اشتباه تایپی در نام رشته */
+function impLev(a, b) {
+  a = String(a || ''); b = String(b || '');
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = new Array(n + 1), cur = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    const t = prev; prev = cur; cur = t;
+  }
+  return prev[n];
+}
+
+/** پایه را از هر متنی بشناس (واژه، عدد ۱۰/۱۱/۱۲، یا تعریف‌های مدیر) */
+function impGradeCanon(txt, known) {
+  const t = impNorm(txt);
+  if (!t) return '';
+  /* «یازدهم» شامل «دهم» است؛ اول بلندترین‌ها بررسی می‌شوند */
+  const cands = [];
+  for (const g of (known || [])) cands.push({ src: g, key: impNorm(g) });
+  for (const g of IMP_GRADE_WORDS) cands.push({ src: impNorm(g) === 'پیش دانشگاهی' ? 'پیش‌دانشگاهی' : g, key: impNorm(g) });
+  cands.sort((a, b) => b.key.length - a.key.length);
+  const tokens = t.split(' ');
+  for (const c of cands) if (c.key && tokens.indexOf(c.key) > -1) return c.src;
+  for (const c of cands) if (c.key && c.key.length > 2 && t.indexOf(c.key) > -1) return c.src;
+  const m = t.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
+  if (m && IMP_GRADE_NUM[Number(m[1])]) return IMP_GRADE_NUM[Number(m[1])];
+  return '';
+}
+
+/** رشته را با تعریف‌های موجود تطبیق بده؛ اشتباه تایپیِ نزدیک ⇒ همان رشته */
+function impBranchCanon(txt, known) {
+  let raw = String(txt || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return { name: '', matched: false, near: '' };
+  raw = raw.replace(/^رشتهٔ?\s*/i, '').replace(/\s*رشتهٔ?$/i, '').trim();
+  const t = impNorm(raw);
+  if (!t) return { name: '', matched: false, near: '' };
+  let best = '', bestD = 999;
+  for (const g of (known || [])) {
+    const gn = impNorm(g);
+    if (!gn) continue;
+    if (gn === t) return { name: g, matched: true, near: '' };
+    const d = impLev(gn, t);
+    if (d < bestD) { bestD = d; best = g; }
+  }
+  if (best) {
+    const gn = impNorm(best);
+    if (bestD <= 2 || gn.indexOf(t) > -1 || t.indexOf(gn) > -1) return { name: best, matched: true, near: '' };
+    return { name: raw, matched: false, near: best };
+  }
+  return { name: raw, matched: false, near: '' };
+}
+
+/** پایه/رشته‌ای که تازه دیده شده را در تعریف‌ها ثبت کن (بدون تکرار) */
+function impEnsureLookup(kind, name) {
+  const nm = String(name || '').trim();
+  if (!nm) return null;
+  const found = list('lookups').find(l => String(l.kind) === String(kind) && impNorm(l.name) === impNorm(nm));
+  if (found) return found;
+  return putLocal('lookups', { kind, name: nm, order: list('lookups').filter(l => String(l.kind) === String(kind)).length + 1, school_id: 1 });
+}
+
+/** نام پایه را از نام کلاس جدا کن و بقیه را برگردان («دهم گرافیک» ⇒ «گرافیک») */
+function impStripGrade(name, grade) {
+  const gTokens = impNorm(grade).split(' ').filter(Boolean);
+  const out = [];
+  for (const tok of String(name).replace(/[()\[\]\-_/\\]/g, ' ').split(/\s+/)) {
+    const t = impNorm(tok);
+    if (!t) continue;
+    if (/^\d{1,2}$/.test(t)) continue;
+    if (gTokens.some(g => g === t || g.indexOf(t) > -1 || t.indexOf(g) > -1)) continue;
+    out.push(String(tok).trim());
+  }
+  return out.join(' ').trim();
+}
+
+/**
+ * از یک ردیف فایل، «پایه»، «رشته» و «نام کلاس» را درمی‌آورد.
+ * خروجی: { grade, branch, name, matched, near, bare }
+ *   name === '' یعنی پایه پیدا نشد ⇒ کلاس ساخته نمی‌شود.
+ *   bare === true یعنی هرچه در ستون کلاس بود، خودش یک رشته است.
+ */
+function impPlaceOf(o, ctx) {
+  const grades = (ctx && ctx.grades) || [];
+  const branches = (ctx && ctx.branches) || [];
+  const cname = String(o.class_name || '').replace(/\s+/g, ' ').trim();
+  let grade = impGradeCanon(String(o.grade || ''), grades);
+  if (!grade && cname) grade = impGradeCanon(cname, grades);
+
+  let branchTxt = String(o.field || '').trim();
+  let bc = impBranchCanon(branchTxt, branches);
+  if (!bc.name && cname) bc = impBranchCanon(impStripGrade(cname, grade), branches);
+
+  const branch = bc.name || '';
+  const name = grade ? (grade + (branch ? ' ' + branch : '')).trim() : '';
+  return {
+    grade, branch, name,
+    matched: !!bc.matched,
+    near: bc.near || '',
+    bare: !grade && !!branch,
+  };
+}
+
 /* ── تاریخ شمسی ← میلادی (همان الگوریتم p2) ───────────────────────── */
 const _impDiv = (a, b) => Math.floor(a / b);
 function impToGregorian(jy, jm, jd) {
@@ -298,6 +421,14 @@ function impCheck() {
   }
   const out = [];
   const newClasses = [];
+  /* تعریف‌های پایه و رشته برای تطبیق — اشتباه تایپی رشته، رشتهٔ تازه نمی‌سازد */
+  const defs = list('lookups');
+  const gctx = {
+    grades: defs.filter(l => String(l.kind) === 'grade').map(l => l.name),
+    branches: defs.filter(l => String(l.kind) === 'branch').map(l => l.name),
+  };
+  if (!gctx.branches.length) gctx.branches = [...new Set(classes.map(c => String(c.branch || '')).filter(Boolean))];
+  if (!gctx.grades.length) gctx.grades = [...new Set(classes.map(c => String(c.grade || '')).filter(Boolean))];
 
   impMapped().forEach(o => {
     const errors = [], warns = [], data = {};
@@ -346,21 +477,26 @@ function impCheck() {
     }
 
     if (entity === 'students') {
-      /* کلاس: ستون کلاس، و اگر نبود ترکیب پایه و رشته */
-      const cname = String(o.class_name || '').trim();
-      const gradeTxt = String(o.grade || '').trim();
-      const fieldTxt = String(o.field || '').trim();
-      const placeTxt = cname || (gradeTxt + ' ' + fieldTxt).trim();
-      if (placeTxt) {
-        const cls = clsByName[impNorm(placeTxt)];
-        if (cls) data.class_id = cls.id;
-        else {
-          data.new_class = placeTxt;
-          data.new_grade = gradeTxt || placeTxt.split(' ')[0] || '';
-          data.new_branch = fieldTxt || placeTxt.split(' ').slice(1).join(' ') || '';
-          if (newClasses.indexOf(placeTxt) < 0) newClasses.push(placeTxt);
-          warns.push('کلاس «' + placeTxt + '» ساخته می‌شود');
+      /* کلاس = پایه + رشته. رشته به‌تنهایی هرگز کلاس نمی‌شود. */
+      const place = impPlaceOf(o, gctx);
+      const cls = place.name ? clsByName[impNorm(place.name)] : null;
+      if (cls) {
+        data.class_id = cls.id;
+      } else if (place.name) {
+        data.new_class = place.name;
+        data.new_grade = place.grade;
+        data.new_branch = place.branch;
+        if (newClasses.indexOf(place.name) < 0) newClasses.push(place.name);
+        warns.push('کلاس «' + place.name + '» ساخته می‌شود');
+        if (place.branch && !place.matched) {
+          warns.push(place.near
+            ? 'رشتهٔ «' + place.branch + '» شبیه «' + place.near + '» است — اگر اشتباه تایپی است در صفحهٔ کلاس‌ها ادغام کنید'
+            : 'رشتهٔ «' + place.branch + '» تازه تعریف می‌شود');
         }
+      } else if (place.bare) {
+        data.class_id = null;
+        data.followup_reason = 'پایهٔ کلاس در فایل نبود (رشته: ' + place.branch + ')';
+        warns.push('کلاس ساخته نشد: ' + data.followup_reason + ' — در «نیازمند پیگیری» کامل کنید');
       } else warns.push('بدون کلاس');
 
       if (o.birth_date) {
@@ -780,10 +916,13 @@ async function importApplyLocal(rows, kind) {
       const name = String(r.full_name || r.name || '').trim();
       if (!name) { errors.push({ row: r._row || i + 2, error: 'missing_name' }); continue; }
       let classId = Number(r.class_id) || null;
-      if (kind === 'students' && !classId && r.new_class) {
+      /* کلاس فقط با پایه ساخته می‌شود؛ رشتهٔ تنها کلاس نمی‌شود. */
+      if (kind === 'students' && !classId && r.new_class && r.new_grade) {
         const key = impNorm(r.new_class);
         let cls = classMap.get(key);
         if (!cls) {
+          impEnsureLookup('grade', r.new_grade);
+          if (r.new_branch) impEnsureLookup('branch', r.new_branch);
           cls = putLocal('classes', { name: r.new_class, grade: r.new_grade || '', branch: r.new_branch || '', capacity: 30, school_id: 1 });
           classMap.set(key, cls);
           classes += 1;
@@ -795,6 +934,7 @@ async function importApplyLocal(rows, kind) {
         national_id: r.national_id || '', phone: r.phone || '',
         class_id: classId, active: 1, school_id: 1,
       };
+      if (kind === 'students' && !classId && r.followup_reason) row.followup_reason = r.followup_reason;
       IMP_EXTRA_FIELDS.forEach(k => { if (r[k] !== undefined && r[k] !== '' && r[k] !== null) row[k] = r[k]; });
       if (r.birth_date) row.birth_date = r.birth_date;
       if (r.father_nid) row.father_nid = r.father_nid;
