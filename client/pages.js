@@ -621,7 +621,7 @@ PAGES.grades = (params) => {
     return `${pageHead('ثبت نمره', subject.name || 'یک درس را انتخاب کنید')}
     <div class="card tight">
       <div class="row">
-        <label class="field grow" style="margin:0"><span>کلاس</span>
+        <label class="field grow" style="margin:0"><span>پایه / رشته</span>
           <select class="input" id="g-class">${classes.map(c => `<option value="${c.id}" ${Number(c.id) === Number(sel.class) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
         <label class="field grow" style="margin:0"><span>درس</span>
           <select class="input" id="g-subject">${subjects.map(s => `<option value="${s.id}" ${Number(s.id) === Number(sel.subject) ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>
@@ -817,12 +817,12 @@ function followupStudentReason(u) {
   if (!u || u.role !== 'student') return '';
   if (u.followup_ack) return '';
   const c = u.class_id ? byId('classes', u.class_id) : null;
-  if (!c) return u.followup_reason || 'کلاس ندارد';
+  if (!c) return u.followup_reason || 'پایه و رشته ندارد';
   const gradeNames = lookupList('grade').map(l => String(l.name));
   const branchNames = lookupList('branch').map(l => String(l.name));
   const g = String(c.grade || '').trim();
   const b = String(c.branch || '').trim();
-  if (!g) return u.followup_reason || 'کلاسش پایه ندارد';
+  if (!g) return u.followup_reason || 'پایه‌اش در فایل نبود';
   if (gradeNames.length && gradeNames.indexOf(g) < 0) return 'پایه‌اش تعریف نشده («' + g + '»)';
   if (b && branchNames.length && branchNames.indexOf(b) < 0) return 'رشته‌اش تعریف نشده («' + b + '»)';
   /* کلاس سالم است: دلیلِ کهنه نباید او را در فهرست نگه دارد */

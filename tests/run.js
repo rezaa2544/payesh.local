@@ -667,6 +667,33 @@ async function waitFor(fn, ms = 15000) {
     }
   });
 
+  await test('حذف دانش‌آموز روی سیستم مدرسه: پیوند ولی و ولیِ بی‌فرزند پاک می‌شود', async () => {
+    const mk = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'cas-s', collection: 'users', type: 'put', data: { name: 'دانش‌آموز آزمایشی', role: 'student', phone: '09125558001', national_id: '1000000941' } },
+      { uid: 'cas-p1', collection: 'users', type: 'put', data: { name: 'پدر آزمایشی', role: 'parent', phone: '09125558002' } },
+      { uid: 'cas-p2', collection: 'users', type: 'put', data: { name: 'مادر آزمایشی', role: 'parent', phone: '09125558003' } },
+      { uid: 'cas-s2', collection: 'users', type: 'put', data: { name: 'خواهر آزمایشی', role: 'student', phone: '09125558004' } },
+    ] } });
+    const ids = mk.data.applied.map(a => Number(a.id));
+    const [sId, p1, p2, s2] = ids;
+    await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'cas-l1', collection: 'parent_links', type: 'put', data: { parent_id: p1, student_id: sId } },
+      { uid: 'cas-l2', collection: 'parent_links', type: 'put', data: { parent_id: p2, student_id: sId } },
+      { uid: 'cas-l3', collection: 'parent_links', type: 'put', data: { parent_id: p1, student_id: s2 } },
+    ] } });
+
+    const del = await req('/api/admin/users/bulk-delete', { method: 'POST', token: managerToken, body: { ids: [sId] } });
+    assert.strictEqual(del.data.ok, true);
+    assert.strictEqual(Number(del.data.parents_deleted), 1, 'فقط مادر که فرزند دیگری ندارد حذف شد');
+
+    const list = await req('/api/admin/users/credentials', { token: managerToken });
+    const have = new Set(list.data.users.map(u => Number(u.id)));
+    assert.strictEqual(have.has(sId), false, 'دانش‌آموز حذف شد');
+    assert.strictEqual(have.has(p2), false, 'مادر حذف شد');
+    assert.strictEqual(have.has(p1), true, 'پدر که فرزند دیگری دارد می‌ماند');
+    assert.strictEqual(have.has(s2), true, 'خواهر دست‌نخورده ماند');
+  });
+
   await test('اپلیکیشن اندروید: آدرس سرویس را خودش پیدا می‌کند (بدون پرسش از کاربر)', () => {
     const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'android-config.json'), 'utf8'));
     assert.strictEqual(cfg.app, 'payesh-local');
@@ -2772,6 +2799,63 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(p.name, 'دهم نقشه‌کشی');
     const p2 = T.impPlaceOf({ field: 'نقشه‌کشی' }, { grades: [], branches: ['نقشه‌کشی'], onlyGrades: ['دهم', 'یازدهم'] });
     assert.strictEqual(p2.name, '', 'با چند پایه، سطر به پیگیری می‌رود');
+    dom.window.close();
+  });
+
+  await test('حذف دانش‌آموز ⇒ حذف ولی‌ها؛ نگاشت درستِ وضعیت حیات پدر و مادر', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/authz.js') + '\n;\n'
+      + strip('client/app.js') + '\n;window.__t = { S, list, byId, deleteStudentWithParents, impAutoMap, IMP_ENTITY_FA };');
+    const T = win.__t;
+
+    /* — نگاشت دو ستون هم‌نام «وضعیت حیات»: اولی پدر، دومی مادر — */
+    const map = T.impAutoMap(['نام', 'نام خانوادگی', 'وضعیت حیات', 'وضعیت حیات', 'نام پدر', 'نام مادر'], 'students');
+    const vals = Object.keys(map).map(k => map[k]).filter(Boolean);
+    assert.strictEqual(map[2], 'father_alive', 'ستون اول حیات = پدر (شد: ' + map[2] + ')');
+    assert.strictEqual(map[3], 'mother_alive', 'ستون دوم حیات = مادر (شد: ' + map[3] + ')');
+    assert.ok(vals.indexOf('guardian_alive') < 0, 'هیچ‌کدام به سرپرست نرفت');
+    /* اگر ستون‌ها نام‌دار باشند، همان‌طور می‌ماند */
+    const map2 = T.impAutoMap(['وضعیت حیات مادر', 'وضعیت حیات پدر'], 'students');
+    assert.strictEqual(map2[0], 'mother_alive');
+    assert.strictEqual(map2[1], 'father_alive');
+    /* واژهٔ «رشته» جای «کلاس» در فهرست ورود دسته‌ای */
+    assert.ok(/رشته/.test(T.IMP_ENTITY_FA.students) && !/کلاس/.test(T.IMP_ENTITY_FA.students), T.IMP_ENTITY_FA.students);
+
+    /* — حذف دانش‌آموز: ولیِ بی‌فرزند حذف، ولیِ بافرزندِ دیگر می‌ماند — */
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users'; T.S.queue = []; T.S.online = false;
+    T.S.data = {
+      users: new Map([
+        [1, { id: 1, name: 'مدیر', role: 'manager' }],
+        [10, { id: 10, name: 'آرین رحمانی', role: 'student' }],
+        [14, { id: 14, name: 'سارا رحمانی', role: 'student' }],
+        [11, { id: 11, name: 'پدر رحمانی', role: 'parent' }],
+        [12, { id: 12, name: 'مادر رحمانی', role: 'parent' }],
+        [13, { id: 13, name: 'ولی مشترک', role: 'parent' }],
+      ]),
+      classes: new Map(), subjects: new Map(), lookups: new Map(),
+      parent_links: new Map([
+        [1, { id: 1, parent_id: 11, student_id: 10 }],
+        [2, { id: 2, parent_id: 12, student_id: 10 }],
+        [3, { id: 3, parent_id: 13, student_id: 10 }],
+        [4, { id: 4, parent_id: 13, student_id: 14 }],
+      ]),
+    };
+    win.deleteUserEverywhere = async (id) => {
+      win.removeLocal ? win.removeLocal('users', id, { sync: false }) : null;
+      T.S.data.users.delete(Number(id));
+    };
+    const removed = await T.deleteStudentWithParents(10);
+    assert.strictEqual(T.S.data.users.has(10), false, 'دانش‌آموز حذف شد');
+    assert.strictEqual([...removed].sort().join('|'), ['مادر رحمانی', 'پدر رحمانی'].sort().join('|'), 'ولی‌های بی‌فرزند حذف شدند: ' + removed.join('، '));
+    assert.strictEqual(T.S.data.users.has(11), false, 'پدر حذف شد');
+    assert.strictEqual(T.S.data.users.has(12), false, 'مادر حذف شد');
+    assert.strictEqual(T.S.data.users.has(13), true, 'ولیِ فرزنددار دیگر می‌ماند');
+    assert.strictEqual(T.S.data.parent_links.size, 1, 'پیوندهای دانش‌آموز حذف‌شده پاک شدند');
     dom.window.close();
   });
 

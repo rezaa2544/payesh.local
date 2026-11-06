@@ -789,20 +789,30 @@ async function api(req, res, url, ip) {
     const body = await readBody(req);
     const ids = (Array.isArray(body.ids) ? body.ids : []).map(Number)
       .filter(n => Number.isFinite(n) && n > 0 && n !== Number(actor.user.id));
-    let deleted = 0;
+    let deleted = 0, parentsDeleted = 0;
     for (const id of ids) {
       const user = store.get('users', id);
       if (!user) continue;
-      store.remove('users', id);
-      /* پیوندهای ولی هم پاک می‌شوند تا «ولیِ بی‌فرزند» نماند */
+      /* دانش‌آموز ⇒ پیوندهای ولی پاک و ولیِ بی‌فرزند هم حذف می‌شود */
       const links = (store.all('parent_links') || [])
         .filter(l => Number(l.parent_id) === id || Number(l.student_id) === id);
+      const parentIds = [...new Set(links.filter(l => Number(l.student_id) === id).map(l => Number(l.parent_id)))];
+      store.remove('users', id);
       for (const l of links) store.remove('parent_links', l.id);
+      for (const pid of parentIds) {
+        if (!pid || ids.indexOf(pid) > -1) continue;
+        const stillLinked = (store.all('parent_links') || []).some(l => Number(l.parent_id) === pid);
+        const pu = store.get('users', pid);
+        if (stillLinked || !pu || pu.role !== 'parent') continue;
+        store.remove('users', pid);
+        store.audit({ user_id: actor.user.id, role: 'manager', action: 'user_delete', collection: 'users', record_id: pid, before: auth.publicUser(pu) });
+        parentsDeleted += 1;
+      }
       store.audit({ user_id: actor.user.id, role: 'manager', action: 'user_delete', collection: 'users', record_id: id, before: auth.publicUser(user) });
       deleted += 1;
     }
     if (deleted) outbox.publishAll(store).catch(() => null);
-    return json({ ok: true, deleted });
+    return json({ ok: true, deleted, parents_deleted: parentsDeleted });
   }
 
   /* ── ویرایش/حذف کاربر توسط مدیر (نام کاربری = شماره، رمز) ─────────── */
