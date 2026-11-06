@@ -47,3 +47,6 @@ $ git diff --stat
  docs/00-PAYESH-CLOUD-CONSTITUTION.md |  22 +--
  docs/cloud/02-scenarios.md           | 261 +++++++++++++++++++++++------------
  2 files changed, 186 insertions(+), 97 deletions(-)
+
+## SHA ثبت شاهد (کامیت محتوا)
+16e3415704d63ac2429d74ee38d6329c1910ae8e
