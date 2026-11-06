@@ -694,6 +694,31 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(have.has(s2), true, 'خواهر دست‌نخورده ماند');
   });
 
+  await test('ورود اکسل روی سیستم مدرسه: رشته پایه نمی‌شود و گروه «پایه + رشته» ساخته می‌شود', async () => {
+    /* ۱) پایهٔ نادرست (رشته در ستون پایه) ⇒ کلاس ساخته نمی‌شود */
+    const bad = await req('/api/admin/import', { method: 'POST', token: managerToken, body: { kind: 'students', rows: [
+      { _row: 2, full_name: 'دانش‌آموز رشته‌ای', national_id: '1000000958', grade: 'الکترونیک', field: 'الکترونیک' },
+    ] } });
+    assert.strictEqual(bad.data.ok, true);
+    assert.strictEqual(Number(bad.data.classes || 0), 0, 'از رشته کلاس ساخته نشد');
+    assert.ok((bad.data.warnings || []).some(w => w.error === 'class_without_grade'), 'هشدار «پایه ندارد» داده شد');
+
+    /* ۲) پایهٔ درست + رشته ⇒ گروه «دهم الکترونیک» و ثبت دانش‌آموز در آن */
+    const ok = await req('/api/admin/import', { method: 'POST', token: managerToken, body: { kind: 'students', rows: [
+      { _row: 2, full_name: 'پیشوا رحمانی', national_id: '1000000966', new_grade: 'دهم', new_branch: 'الکترونیک', new_class: 'دهم الکترونیک' },
+    ] } });
+    assert.strictEqual(ok.data.ok, true);
+    assert.strictEqual(Number(ok.data.classes), 1, 'یک گروه ساخته شد');
+    assert.strictEqual(Number(ok.data.created || 0), 1, 'دانش‌آموز ساخته شد');
+    assert.ok(!(ok.data.warnings || []).some(w => w.error === 'class_without_grade'), 'هشدار «پایه ندارد» ندارد — یعنی در گروه ثبت شد');
+    const again = await req('/api/admin/import', { method: 'POST', token: managerToken, body: { kind: 'students', rows: [
+      { _row: 2, full_name: 'پیشوا رحمانی', national_id: '1000000966', new_grade: 'دهم', new_branch: 'الکترونیک' },
+    ] } });
+    assert.strictEqual(Number(again.data.created || 0), 0, 'بار دوم کاربر تکراری ساخته نشد');
+    assert.strictEqual(Number(again.data.updated || 0), 1, 'ردیف دوم به‌روزرسانی شد');
+    assert.strictEqual(Number(again.data.classes || 0), 0, 'گروه تکراری ساخته نشد');
+  });
+
   await test('اپلیکیشن اندروید: آدرس سرویس را خودش پیدا می‌کند (بدون پرسش از کاربر)', () => {
     const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'android-config.json'), 'utf8'));
     assert.strictEqual(cfg.app, 'payesh-local');
@@ -2856,6 +2881,65 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(T.S.data.users.has(12), false, 'مادر حذف شد');
     assert.strictEqual(T.S.data.users.has(13), true, 'ولیِ فرزنددار دیگر می‌ماند');
     assert.strictEqual(T.S.data.parent_links.size, 1, 'پیوندهای دانش‌آموز حذف‌شده پاک شدند');
+    dom.window.close();
+  });
+
+  await test('ورود اکسل: پایهٔ اعلام‌شده + رشتهٔ فایل ⇒ گروه ساخته می‌شود؛ نشانگر پردازش و شمارش تفکیک‌شده', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/authz.js') + '\n;\n'
+      + strip('client/app.js') + '\n;window.__t = { S, list, byId, importApplyLocal, busyOverlay, busyUpdate, impStepHtml };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users'; T.S.queue = []; T.S.online = false;
+    T.S.data = {
+      users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager' }]]),
+      classes: new Map(), subjects: new Map(), lookups: new Map(), parent_links: new Map(), import_issues: new Map(),
+    };
+    /* پایه‌ای که مدیر در مرحلهٔ ۱ تیک زده است */
+    T.S.impGrades = ['دهم'];
+
+    const rows = [
+      { _row: 2, full_name: 'پیشوا رحمانی', national_id: '1000000907', new_branch: 'الکترونیک', followup_reason: 'پایه در فایل نبود (رشته: الکترونیک)' },
+      { _row: 3, full_name: 'سیبا سهرابی', national_id: '1000000915', new_branch: 'الکترونیک', followup_reason: 'پایه در فایل نبود (رشته: الکترونیک)' },
+    ];
+    const res = await T.importApplyLocal(rows, 'students');
+
+    const cls = T.list('classes');
+    assert.strictEqual(cls.length, 1, 'فقط یک گروه ساخته شد: ' + cls.map(c => c.name).join('، '));
+    assert.strictEqual(cls[0].name, 'دهم الکترونیک', 'نام گروه = پایه (از پرسش) + رشته (از فایل)');
+    assert.strictEqual(cls[0].mode, 'field');
+    const studs = T.list('users').filter(u => u.role === 'student');
+    assert.strictEqual(studs.length, 2, 'هر دو دانش‌آموز ساخته شدند');
+    studs.forEach(u => {
+      assert.strictEqual(Number(u.class_id), Number(cls[0].id), 'دانش‌آموز در گروه قرار گرفت');
+      assert.ok(!u.followup_reason, 'دیگر «نیازمند پیگیری» نیست');
+    });
+
+    /* شمارش تفکیک‌شده */
+    assert.strictEqual(res.students, 2, 'شمارش دانش‌آموزان جداست');
+    assert.strictEqual(res.classes, 1, 'شمارش گروه‌ها جداست');
+
+    /* کارت پایان: دانش‌آموز / اولیا / کادر جدا نوشته می‌شوند */
+    T.S.imp = { step: 4, kind: 'students', checks: [], fileName: 'x.xlsx', result: { students: 129, parents: 228, staff: 0, classes: 6, updated: 0, created: 129, errors: [] } };
+    const summary = T.impStepHtml();
+    assert.ok(/دانش‌آموز وارد شد/.test(summary), 'برچسب دانش‌آموز');
+    assert.ok(/حساب ولی/.test(summary), 'برچسب ولی');
+    assert.ok(/دبیر و کادر/.test(summary), 'برچسب کادر');
+    assert.ok(/گروه ساخته‌شده/.test(summary), 'برچسب گروه');
+    assert.ok(/۱۲۹/.test(summary) && /۲۲۸/.test(summary), 'عددها تفکیک شده‌اند');
+
+    /* نشانگر پردازش: چرخان + درصد */
+    T.busyOverlay('در حال ثبت اطلاعات', 'هنگ نکرده است');
+    const ov = win.document.getElementById('busy-overlay');
+    assert.ok(ov, 'نشانگر ساخته شد');
+    assert.strictEqual(ov.style.display, 'flex', 'نمایش داده شد');
+    assert.ok(ov.querySelector('.spinner'), 'چرخان (spinner) دارد');
+    T.busyUpdate(65, 129);
+    assert.ok(/۶۵ از ۱۲۹/.test(win.document.getElementById('busy-sub').textContent), 'درصد/تعداد نشان داده می‌شود');
     dom.window.close();
   });
 

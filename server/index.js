@@ -1103,13 +1103,25 @@ function importLev(a, b) {
   return prev[n];
 }
 
+/* پایه فقط ۱..۱۲ است؛ «الکترونیک» یا «ریاضی» هرگز پایه نیست. */
+function importGradeLevel(txt) {
+  let t = importKey(txt);
+  if (!t) return 0;
+  t = t.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+       .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const words = { 'اول': 1, 'دوم': 2, 'سوم': 3, 'چهارم': 4, 'پنجم': 5, 'ششم': 6, 'هفتم': 7, 'هشتم': 8, 'نهم': 9, 'دهم': 10, 'یازدهم': 11, 'دوازدهم': 12 };
+  for (const w of Object.keys(words)) if (t === w || t.indexOf(w) > -1) return words[w];
+  const m = t.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
+  return (m && Number(m[1]) >= 1 && Number(m[1]) <= 12) ? Number(m[1]) : 0;
+}
+
 function importGradeCanon(txt, known) {
   const t = importKey(txt);
   if (!t) return '';
   /* «یازدهم» خودش «دهم» را در خود دارد؛ پس اول واژه‌های بلندتر بررسی
-     می‌شوند تا پایه اشتباه خوانده نشود. */
+     می‌شوند تا پایه اشتباه خوانده نشود. از تعریف‌ها فقط پایه‌های واقعی. */
   const cands = [];
-  for (const g of (known || [])) cands.push({ src: g, key: importKey(g) });
+  for (const g of (known || [])) if (importGradeLevel(g)) cands.push({ src: g, key: importKey(g) });
   for (const g of IMPORT_GRADE_WORDS) cands.push({ src: importKey(g) === 'پیش دانشگاهی' ? 'پیش‌دانشگاهی' : g, key: importKey(g) });
   cands.sort((a, b) => b.key.length - a.key.length);
   const tokens = t.split(' ');
@@ -1164,6 +1176,8 @@ function importPlaceOf(r, ctx) {
   let bc = importBranchCanon(r.new_branch || r.branch || r.field || '', branches);
   if (!bc.name && cname) bc = importBranchCanon(importStripGrade(cname, grade), branches);
   const branch = bc.name || '';
+  /* پایه == رشته یعنی فایل رشته را در ستون پایه گذاشته است */
+  if (grade && branch && importKey(grade) === importKey(branch)) grade = '';
   return { grade, branch, name: grade ? (grade + (branch ? ' ' + branch : '')).trim() : '', bare: !grade && !!branch };
 }
 
@@ -1295,8 +1309,12 @@ function importUsers(body) {
           if (!cls) {
             importEnsureLookup('grade', place.grade);
             if (place.branch) importEnsureLookup('branch', place.branch);
+            const lvl = importGradeLevel(place.grade);
+            const mode = lvl >= 10 ? 'field' : 'class';
             cls = store.insert('classes', {
-              name: place.name, grade: place.grade, branch: place.branch,
+              name: place.name, grade: place.grade,
+              branch: mode === 'field' ? place.branch : '',
+              mode, grade_level: lvl,
               capacity: 30, school_id: 1, created_at: nowISO(),
             });
             classIndex.set(importKey(place.name), cls);

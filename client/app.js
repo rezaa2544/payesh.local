@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.24';
+const CLIENT_VERSION = '0.8.25';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -219,6 +219,46 @@ function friendlyError(e) {
   if (st === 403) return map.forbidden;
   if (/Failed to fetch|NetworkError|load failed/i.test(raw)) return map.offline;
   return raw || 'خطای نامشخص';
+}
+
+/* ══════════ نشانگر «در حال پردازش» ══════════
+   برای کارهای چند ثانیه‌ای (مثل ثبت ۱۲۹ ردیف اکسل) تا کاربر فکر نکند
+   برنامه هنگ کرده است. */
+function busyOverlay(text, sub) {
+  let el = document.getElementById('busy-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'busy-overlay';
+    el.className = 'busy-overlay';
+    el.innerHTML = '<div class="busy-box"><div class="spinner"></div>'
+      + '<div class="busy-title" id="busy-title"></div>'
+      + '<div class="busy-sub" id="busy-sub"></div>'
+      + '<div class="busy-bar"><i id="busy-fill"></i></div></div>';
+    document.body.appendChild(el);
+  }
+  el.style.display = 'flex';
+  const t = document.getElementById('busy-title');
+  const u = document.getElementById('busy-sub');
+  if (t) t.textContent = text || 'در حال پردازش…';
+  if (u) u.textContent = sub || 'چند لحظه صبر کنید؛ برنامه هنگ نکرده است.';
+  busyUpdate(0, 0);
+  return el;
+}
+function busyUpdate(done, total, sub) {
+  const fill = document.getElementById('busy-fill');
+  const u = document.getElementById('busy-sub');
+  if (total > 0) {
+    const pct = Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+    if (fill) { fill.style.width = pct + '%'; fill.parentNode.style.display = 'block'; }
+    if (u) u.textContent = 'ثبت ' + fa(done) + ' از ' + fa(total) + ' — ' + fa(pct) + '٪';
+  } else {
+    if (fill) { fill.style.width = '35%'; fill.parentNode.style.display = 'block'; }
+    if (u && sub) u.textContent = sub;
+  }
+}
+function busyHide() {
+  const el = document.getElementById('busy-overlay');
+  if (el) el.style.display = 'none';
 }
 
 function toast(msg, kind = '') {
@@ -1943,22 +1983,28 @@ document.addEventListener('click', async (e) => {
       if (!rows.length) return toast('سطر سالمی برای ثبت نیست', 'err');
       const kindImp = ['students', 'teachers', 'grades', 'attendance'].includes(S.imp.kind) ? S.imp.kind : 'students';
       const btn = el; btn.disabled = true;
+      busyOverlay('در حال ثبت اطلاعات', 'این کار برای ' + fa(rows.length) + ' ردیف چند لحظه طول می‌کشد؛ برنامه هنگ نکرده است.');
       try {
+        await new Promise(r => setTimeout(r, 60));   /* فرصت نمایش نشانگر */
         let result;
         if (PHONE_MODE) {
-          result = await importApplyLocal(rows, kindImp);
+          result = await importApplyLocal(rows, kindImp, (d, t) => busyUpdate(d, t));
         } else {
           try {
             const r = await api('/api/admin/import', { method: 'POST', body: { kind: kindImp, rows } });
+            const cr = Number(r.created || 0), pr = Number(r.parents || 0);
             result = {
-              created: Number(r.created || 0), updated: Number(r.updated || 0),
-              parents: Number(r.parents || 0), classes: Number(r.classes || 0),
+              created: cr, updated: Number(r.updated || 0),
+              parents: pr, classes: Number(r.classes || 0),
+              students: kindImp === 'students' ? Math.max(0, cr - pr) : 0,
+              staff: kindImp === 'students' ? 0 : cr,
+              marks: (kindImp === 'grades' || kindImp === 'attendance') ? cr : 0,
               errors: r.errors || [], warnings: r.warnings || [],
             };
           } catch (err) {
             /* اگر سیستم مدرسه پاسخ نداد، همان لحظه روی همین دستگاه ساخته
                می‌شوند و در صف می‌مانند تا برسد */
-            result = await importApplyLocal(rows, kindImp);
+            result = await importApplyLocal(rows, kindImp, (d, t) => busyUpdate(d, t));
           }
           await pullAll().catch(() => {});
         }
@@ -1974,11 +2020,14 @@ document.addEventListener('click', async (e) => {
         S.creds = undefined;   /* رمزهای تازه از سرور خوانده شوند */
         saveCache(); render(); renderImportStep();
         const unit = kindImp === 'grades' ? 'نمره' : kindImp === 'attendance' ? 'حضور' : 'کاربر';
+        busyHide();
         toast(fa(result.created || 0) + ' ' + unit + ' ثبت شد'
           + (result.updated ? ' · ' + fa(result.updated) + ' به‌روزرسانی' : ''), (result.created || result.updated) ? 'ok' : 'err');
       } catch (err) {
+        busyHide();
         toast('ثبت نشد: ' + friendlyError(err), 'err');
       } finally {
+        busyHide();
         if (btn) btn.disabled = false;
       }
       return;
@@ -2571,8 +2620,11 @@ document.addEventListener('submit', async (e) => {
     /* پایه‌های این فایل (پرسش مرحلهٔ ۱) */
     try {
       const boxes = form.querySelectorAll('input[name="imp-grade"]');
+      const pickedGrades = Array.prototype.slice.call(boxes).filter(b => b.checked).map(b => String(b.value));
       S.imp = S.imp || {};
-      S.imp.grades = Array.prototype.slice.call(boxes).filter(b => b.checked).map(b => String(b.value));
+      S.imp.grades = pickedGrades;
+      /* جدا از S.imp نگه داشته می‌شود تا با رفتن به مرحلهٔ بعد گم نشود */
+      S.impGrades = pickedGrades;
     } catch (e) { /* بی‌صدا */ }
     const file = f.file && f.file.files && f.file.files[0];
     if (!file) return toast('فایلی انتخاب نشده', 'err');
