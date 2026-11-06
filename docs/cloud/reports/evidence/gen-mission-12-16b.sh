@@ -18,13 +18,13 @@ OUT="docs/cloud/reports/evidence/mission-12-16b-structure.txt"
     if [ -f "$p" ]; then
       printf '%-42s lines=%-4s tables=%-3s ac_rows=%s\n' "$f" \
         "$(wc -l < "$p")" "$(grep -c '^|' "$p")" \
-        "$(grep -cE '^\| AC' "$p")"
+        "$(grep -cE '^\| \*{0,2}AC' "$p")"
     else
       printf '%-42s MISSING\n' "$f"
     fi
   done
   echo
-  echo "## حکم‌های ثبت‌شده (باید ۷/۷ در همه)"
+  echo "## حکم‌های ثبت‌شده (هر سند حکم خودش — هیچ سبزی خودکار نیست)"
   grep -h '^\*\*حکم' docs/cloud/1[2-6]*.md 2>/dev/null
   echo
   echo "## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)"
