@@ -131,7 +131,10 @@ function deviceFromToken(store, token) {
   const rec = store.getMeta('device:' + sha256(token));
   if (!rec) return null;
   const d = store.db.prepare('SELECT * FROM devices WHERE id=?').get(rec.device_id);
-  if (!d || d.revoked_at) return null;
+  if (!d) return null;
+  /* ردیف ۴۴: دستگاه ابطال‌شده هم برگردانده می‌شود تا فراخوان بتواند
+     «ابطال» را از «توکن ناشناس» تفکیک کند (کلاینت روی ابطال، داده را
+     پاک می‌کند؛ روی توکن ناشناس فقط دوباره جفت می‌شود). */
   return d;
 }
 
@@ -161,6 +164,9 @@ function verifySession(store, token) {
   const user = store.get('users', s.user_id);
   if (!user || user.active === false) return null;
   const device = s.device_id ? store.db.prepare('SELECT * FROM devices WHERE id=?').get(s.device_id) : null;
+  /* ردیف ۴۴ / W1: ابطال دستگاه بی‌درنگ اثر می‌کند، حتی اگر ردیف نشستی
+     از ابطال جا مانده باشد. دستگاه ابطال‌شده هرگز «کاربر معتبر» نمی‌دهد. */
+  if (device && device.revoked_at) return null;
   return { user, device, session: s };
 }
 
@@ -172,6 +178,7 @@ function refreshWithDevice(store, input = {}) {
   const raw = String(input.device_token || '');
   const device = deviceFromToken(store, raw);
   if (!device) return { ok: false, error: 'bad_device' };
+  if (device.revoked_at) return { ok: false, error: 'device_revoked' };
   const user = store.get('users', device.user_id);
   if (!user || user.active === false) return { ok: false, error: 'user_inactive' };
   /* عمر دستگاه را از نو می‌شماریم (تا وقتی استفاده می‌شود نمی‌سوزد) */

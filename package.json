@@ -1,6 +1,6 @@
 {
   "name": "payesh-local",
-  "version": "0.8.52",
+  "version": "0.8.53",
   "private": true,
   "description": "پایش-لوکال — سامانهٔ مدیریت مدرسه، درون‌مدرسه‌ای و آفلاین (Node + SQLite)",
   "type": "commonjs",
@@ -13,7 +13,7 @@
     "dev": "node server/start.js",
     "seed": "node --experimental-sqlite --disable-warning=ExperimentalWarning server/seed.js --fresh",
     "reset": "node -e \"require('fs').rmSync('data',{recursive:true,force:true})\"",
-    "check": "node --check server/index.js && node --check server/db.js && node --check server/start.js && node --check server/auth.js && node --check server/sync.js && node --check server/policy.js && node --check client/app.js && node --check client/pages.js && node --check client/import.js && node --check client/schedule.js && node --check client/sw.js",
+    "check": "node --check server/index.js && node --check server/db.js && node --check server/start.js && node --check server/auth.js && node --check server/sync.js && node --check server/policy.js && node --check client/app.js && node --check client/pages.js && node --check client/import.js && node --check client/schedule.js && node --check client/secure-web.js && node --check client/engine-web.js && node --check client/sw.js",
     "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/run.js",
     "build:release": "node scripts/build-release.mjs",
     "test:ui": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/ui.js",
@@ -36,6 +36,9 @@
     "test:scope": "bash docs/cloud/reports/evidence/run-38-scope.sh",
     "test:directory": "bash docs/cloud/reports/evidence/run-43-directory.sh",
     "test:engine": "node tests/engine-web.js",
+    "test:secure": "node tests/secure-web.js",
+    "test:revocation": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/revocation-44.js",
+    "test:security44": "bash docs/cloud/reports/evidence/run-44-security.sh",
     "bench:39": "node tools/serve-bench.mjs"
   },
   "license": "MIT",
