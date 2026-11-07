@@ -1,0 +1,66 @@
+# شاهد ردیف ۴۷ — آزمون آشوب همگام‌سازی (قطع شبکه، crash وسط push، replay، خارج از ترتیب، تغییر ساعت)
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/d68cec76-payesh-local
+# head_sha: 86f5b58f3c8d6c937dbb5cfd4e9bb3cdbce84faf
+# version: 0.8.57
+# generated_at: 2026-11-07T21:07:21Z
+# node: v22.22.3
+# os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-47-chaos.sh
+# topology: server/index.js (فرایند جدا، SQLite واقعی) ← پروکسی TCP خطا-تزریق ← client/outbox-web.js (IndexedDB)
+# invariants: data_loss=0 · duplicate=0 · cross_tenant=0 (در همهٔ سناریوها)
+
+## بخش ۱ — ۱۴ سناریوی آشوب + ۳ کنترل منفی (CH-01..CH-17)
+
+پایش-لوکال — آزمون آشوب همگام‌سازی (ردیف ۴۷)
+
+PASS  CH-01  مسیر پایه: دستهٔ ۱۰ عملیاتی از صندوقچه به سرور واقعی، بدون خطا  → applied=10 data_loss=0 duplicate=0 cross_tenant=0 rows=10  (60ms)
+PASS  CH-02  قطع شبکه پیش از ارسال: هیچ op گم نمی‌شود و هیچ نوشتنی رخ نمی‌دهد  → stopped=network pending=10 server_rows=0 cut=1  (10ms)
+PASS  CH-03  بازگشت شبکه و ارسال دوبارهٔ همان صندوقچه: هر op دقیقاً یک‌بار  → replayed_after_restore=10 data_loss=0 duplicate=0 cross_tenant=0 rows=20  (35ms)
+PASS  CH-04  قطع وسط پاسخ پس از اعمال سرور: دستگاه خطا می‌بیند، replay تکرار نمی‌سازد  → server_applied_before_cut=10 queue_kept=10 data_loss=0 duplicate=0 cross_tenant=0 rows=30  (42ms)
+PASS  CH-05  crash سرور درست وسط push: بازگشت فرایند و replay بدون دادهٔ گم‌شده/تکراری  → server_restarts=2 data_loss=0 duplicate=0 cross_tenant=0 rows=40  (284ms)
+PASS  CH-06  تکرار همان دسته با همان idempotency_key: پاسخ replay و صفر نوشتن تازه  → rows_before=45 rows_after=45 replayed=true  (27ms)
+PASS  CH-07  همان uid با کلید تازه (replay بدون idempotency): سرور duplicate می‌دهد نه نوشتن دوم  → duplicate_marked=true version_stable=1  (12ms)
+PASS  CH-08  رخداد خارج از ترتیب: op کهنه مقدار جدیدتر را بازنویسی نمی‌کند  → kept=late stale_op=conflict version=2  (20ms)
+PASS  CH-09  تغییر ساعت دستگاه: برنده با زمان سرور تعیین می‌شود، نه at کلاینت  → winner=last_received clock_ignored=true  (24ms)
+PASS  CH-10  قطع وسط درخواست: دستهٔ نیمه‌رسیده نه گم می‌شود نه دوباره نوشته  → cut_bytes=300 data_loss=0 duplicate=0 cross_tenant=0 rows=58  (33ms)
+PASS  CH-11  blackhole (اتصال بی‌پاسخ): مهلت کلاینت، صف سالم، سپس دقیقاً یک‌بار  → blackholed=1 data_loss=0 duplicate=0 cross_tenant=0 rows=64  (615ms)
+PASS  CH-12  بستن ناگهانی برنامه وسط ارسال: lease بازیابی و ارسال دوباره بدون تکرار  → recovered=8 data_loss=0 duplicate=0 cross_tenant=0 rows=72  (18ms)
+PASS  CH-13  نشت متقاطع مستأجر: school_id/tenant_id کلاینتی پذیرفته نمی‌شود  → client_tenant_fields_stripped=true  (8ms)
+PASS  CH-14  طوفان آشوب: ۵ دور × ۴۰ op با خطای تصادفی واقعی، بدون گم‌شدن/تکرار  → ops=200 data_loss=0 duplicate=0 cross_tenant=0 rows=273  (744ms)
+PASS  CH-15  کنترل منفی ۱: حذف idempotency در سرور ⇒ duplicate>0 و دروازه قرمز می‌شود  → injected duplicate=1 ⇒ gate would be RED  (21ms)
+PASS  CH-16  کنترل منفی ۲: حذف مهر مستأجر ⇒ cross_tenant>0 و دروازه قرمز می‌شود  → injected cross_tenant=1 ⇒ gate would be RED  (15ms)
+PASS  CH-17  کنترل منفی ۳: کلاینت بی‌دوام (دورریختن op در خطا) ⇒ data_loss>0 و دروازه قرمز می‌شود  → injected data_loss=5 ⇒ gate would be RED  (6ms)
+
+CHAOS scenarios=14 data_loss=0 duplicate=0 cross_tenant=0
+CHAOS checks=17 pass=17 fail=0
+CHAOS-47-OK
+
+## بخش ۲ — استخراج سنجه‌های پذیرش از خروجی خام (بدون جمع‌زدن دستی)
+pass_checks        17
+fail_checks        0
+chaos_scenarios    14  (پذیرش: ≥۱۰)
+tally              scenarios=14 data_loss=0 duplicate=0 cross_tenant=0
+negative_controls  3  (پذیرش: ۳)
+negative_ok        true
+invariants_clean   true
+
+## بخش ۳ — سیم‌کشی واقعی (کد محصول، نه نمونه)
+server_spawn_in_test:     2
+tcp_fault_injection:      22
+real_outbox_used:         5
+server_restart_on_crash:  4
+doc_lines:                86
+
+## بخش ۴ — رگرسیون: دروازهٔ موجود دست‌نخورده و سبز
+  ✓ ردیف ۲۹: کلید امضای پشتیبان بیرون از پایگاه‌داده نگه داشته می‌شود (بازیابی پس از از دست رفتن DB)
+
+96 موفق · 0 ناموفق
+
+
+# ===== SUMMARY =====
+# chaos_exit: 0
+# invariant_scan_exit: 0
+# regression_exit: 0
+# EXIT=0
+CHAOS-47-OK
