@@ -38,11 +38,47 @@ const KEEP_DAYS = 400;
    هر پشتیبان با کلید همین نصب امضا می‌شود. فایل ساخته‌شده در نصب دیگر
    (cross-tenant/cross-deployment) یا فایل دست‌کاری‌شده امضایش نمی‌خواند
    و بازیابی fail-closed رد می‌شود. */
+/* کلی امضا باید از «فایل پایگاه‌داده» جان سالم ببرد؛ وگرنه با از دست رفتن
+   فایل DB، پشتیبانِ سالم هم قابل بازیابی نیست (امضا با کلید تازه سنجیده
+   می‌شود و رد می‌شود ⇒ RTO بی‌نهایت). ردیف ۲۹ — تمرین DR این را نشان داد.
+   ترتیب: فایل بیرونی (DATA_DIR/backup-key.json) ← سپس meta ← سپس ساخت. */
+function keyFile() {
+  const dir = process.env.PAYESH_DATA || path.join(__dirname, '..', 'data');
+  return path.join(dir, 'backup-key.json');
+}
+function readKeyFile() {
+  try {
+    const j = JSON.parse(fs.readFileSync(keyFile(), 'utf8'));
+    if (j && j.key) return Buffer.from(String(j.key), 'base64');
+  } catch (e) { /* نیست */ }
+  return null;
+}
+function writeKeyFile(buf) {
+  try {
+    const f = keyFile();
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, JSON.stringify({ key: buf.toString('base64'), created_at: nowISO() }, null, 0), { mode: 0o600 });
+    try { fs.chmodSync(f, 0o600); } catch (e) {}
+  } catch (e) { /* فقط‌خواندنی — کلید در meta می‌ماند */ }
+}
 function signKey(store) {
+  const fromFile = readKeyFile();
+  if (fromFile) {
+    const rec = store.getMeta(SIGN_META, null);
+    if (!rec || !rec.key) {
+      try { store.setMeta(SIGN_META, { key: fromFile.toString('base64'), created_at: nowISO() }); } catch (e) {}
+    }
+    return fromFile;
+  }
   const rec = store.getMeta(SIGN_META, null);
-  if (rec && rec.key) return Buffer.from(String(rec.key), 'base64');
+  if (rec && rec.key) {
+    const buf = Buffer.from(String(rec.key), 'base64');
+    writeKeyFile(buf);
+    return buf;
+  }
   const key = crypto.randomBytes(32);
   store.setMeta(SIGN_META, { key: key.toString('base64'), created_at: nowISO() });
+  writeKeyFile(key);
   return key;
 }
 function canonicalBackup(snap) {

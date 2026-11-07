@@ -1,8 +1,8 @@
 # شاهد CC‑12‑2 — اجرای RLS از مسیر محصول (فاز ۳ · D‑35)
 # تولید: bash docs/cloud/reports/evidence/run-cc12-2-product-rls.sh
 # بازتولید: CC122_OUT=<file> bash docs/cloud/reports/evidence/run-cc12-2-product-rls.sh
-# زمان: 2026-11-07T10:49:54Z
-# HEAD: 034772d4846b5605ff087d3926842627426b1e2d
+# زمان: 2026-11-07T11:06:47Z
+# HEAD: e024ea4e5ce94b040e767e40dd13e6c00148b54a
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 # postgres version: 18.6
 # postgres binary: /tmp/pgtest/node_modules/@embedded-postgres/linux-x64/native/bin (خارج از مخزن؛ وابستگی محصول نیست)
@@ -35,14 +35,14 @@ PASS  P13  زمینهٔ A + پرس‌وجوی صریح ردیف B ⇒ صفر ر�
 PASS  P14  نقش runtime نه superuser است نه BYPASSRLS و نمی‌تواند SET ROLE مالک  → super=false bypass=false set_role=denied
 PASS  P15  FORCE RLS: مالک جدول هم با زمینهٔ A فقط ردیف‌های A را می‌بیند  → rows=4 tenants=1
 PASS  P17  ۴۰ درخواست متناوب A/B روی استخر مشترک ⇒ بدون نشت زمینه  → mixed=40 leaks=0
-PASS  P18  کد مسیر محصول همان فایل‌های مخزن است (هش)  → server/tenancy.js sha256=a9c4a159913c server/index.js sha256=bbdce5770341
+PASS  P18  کد مسیر محصول همان فایل‌های مخزن است (هش)  → server/tenancy.js sha256=a9c4a159913c server/index.js sha256=4ecd57b1096f
 
 TOTAL 20 · FAIL 0
 
 ## آزمون پایهٔ محصول (رگرسیون)
 # command: bash docs/cloud/reports/evidence/run-tests-evidence.sh (npm test)
 # exit: 0
-pass=94 fail=0 registered=94 exit=0
+pass=96 fail=0 registered=96 exit=0
 CC12-2-RLS-PATH-OK (product_path=server/tenancy.js postgres=18.6)
 
 EXIT=0 BASE_EXIT=0

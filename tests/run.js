@@ -4399,6 +4399,27 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  await test('ردیف ۲۹: /api/readyz آماده است، مسیر مطلق لو نمی‌دهد و ۲۰۰ می‌دهد', async () => {
+    const r = await req('/api/readyz');
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.data.ready, true);
+    assert.strictEqual(r.data.checks.db, true);
+    const blob = JSON.stringify(r.data);
+    assert.ok(!blob.includes(TMP), 'پاسخ نباید مسیر پوشهٔ داده را لو بدهد');
+    assert.ok(!/(secret|password|accessKey|token)/i.test(blob), 'پاسخ نباید راز داشته باشد');
+  });
+
+  await test('ردیف ۲۹: کلید امضای پشتیبان بیرون از پایگاه‌داده نگه داشته می‌شود (بازیابی پس از از دست رفتن DB)', async () => {
+    const bk = await req('/api/admin/backup', { method: 'POST', token: managerToken });
+    assert.strictEqual(bk.data.ok, true);
+    const keyFile = path.join(TMP, 'backup-key.json');
+    assert.ok(fs.existsSync(keyFile), 'فایل کلید امضا باید در پوشهٔ داده باشد');
+    const j = JSON.parse(fs.readFileSync(keyFile, 'utf8'));
+    assert.ok(j.key && j.key.length > 20, 'کلید ذخیره شده است');
+    const mode = fs.statSync(keyFile).mode & 0o777;
+    assert.ok(mode === 0o600 || process.platform === 'win32', 'دسترسی فایل کلید محدود است');
+  });
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));
