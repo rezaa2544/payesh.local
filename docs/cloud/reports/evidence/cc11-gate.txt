@@ -1,11 +1,11 @@
 # دروازهٔ CC‑11 — اتصال ادعا→شاهد برای ۷۳ آیتم و بازسنجی روی HEAD
 generated_by: docs/cloud/reports/evidence/gen-cc11-evidence.sh
-head: e8730a29d3efcd2296ce4b430a0d446f47f8c884
+head: 4344f4efe28c3e31aa608402ea9be835eea7edd2
 base: f2fc472
-generated_at_utc: 2026-11-07T07:45:36Z
+generated_at_utc: 2026-11-07T08:24:08Z
 node: v22.22.3
 audit_tree: 04e0636
-product_diff_files: 4
+product_diff_files: 16
 product_diff_outside_allow: 0
 drill_summary: SUMMARY pass=48 fail=0 total=48
 labels_required: 48  labels_verified: 48
@@ -16,9 +16,9 @@ probes: PROBES cited=8 resolved=8
 drift: DRIFT rows=11 corrections=9 accepted=2 (A‑14, B‑1, B‑2, B‑13, C‑2, D‑1, D‑2, D‑13, E‑4, E‑10, E‑11)
 absence: ABSENCE cipher=0 tenant_id=0 tls=0 signature=0 seq=0 queue_cap=0
 doc_ac_rows: 5  verdict: ۵/۵  conformance: ۳۵٫۶٪
-tests_log: pass=88 fail=0
-drill_sha256: 9c0af1b34b57ecc6ba902e7042b4f28ee70e8604e718d03558db925b7412f30c
-manifest_sha256: 871cc6c60bcac5e3c1b5d4d05c701124206ad06d5a0743ea3690ee213d4ec7e1
+tests_log: pass=89 fail=0
+drill_sha256: ba5a383b8bfe449115dc942163de20c3957ab49d888bbbba052383600c5d795f
+manifest_sha256: 0f47fde576242b00964aad5e05165e29cc88e3b9ccf04fccf3073414fb146450
 doc_sha256: 1bea3826ec7010c15311741530054cc208f22115869b6e511af4157e54a71ff3
 
 ## بررسی‌های گذر‌کرده (عین برچسب‌های تمرین)
@@ -65,8 +65,8 @@ doc_sha256: 1bea3826ec7010c15311741530054cc208f22115869b6e511af4157e54a71ff3
 ✓ N7 سقف ۲۰۰۰/۳۰ روز و وضعیت «نیازمند بررسی» پیاده نشده (D‑10/D‑11)  ::  queue_cap_refs=0
 ✓ C1‑11 تصحیح D‑10: هر op فیلد at دارد؛ نبودِ منطق عمر/بررسی، دلیل FAIL می‌ماند  ::  client/app.js:589 (at) · needs_review=0
 ✓ S1 پین SHA ممیزی در اسناد ۰۵ و ۱۱ هست  ::  04e0636
-✓ S2 کد محصول نسبت به پایهٔ ممیزی f2fc472 فقط در فهرست مجاز D‑35 تغییر کرده (بقیهٔ فایل‌ها دست‌نخورده)  ::  product_diff_files=4 outside=0
-✓ S3 ادعای «۸۸ آزمون سبز» با لاگ شاهد خام یکی است  ::  log pass=88 fail=0 doc05 claim=88
+✓ S2 کد محصول نسبت به پایهٔ ممیزی f2fc472 فقط در فهرست مجاز D‑35 + F‑04 تغییر کرده (بقیهٔ فایل‌ها دست‌نخورده)  ::  product_diff_files=16 outside=0
+✓ S3 ادعای «آزمون‌های سبز» با لاگ شاهد خام می‌خواند (لاگ ≥ ادعا، بدون شکست)  ::  log pass=89 fail=0 doc05 claim=88
 ✓ A1 ماتریس پذیرش ۱۱ پنج ردیف دارد  ::  ac_rows=5
 ✓ A2 حکم ثبت‌شدهٔ سند ۵/۵ است  ::  حکم: ۵/۵
 ✓ A3 بند «دور بستن» (§۶) در سند ۱۱ هست  ::  §۶

@@ -181,10 +181,44 @@
     return { url: (opts.scheme || 'https') + '://' + host + canonicalUri + (canonicalQuery ? '?' + canonicalQuery : ''), headers: outHeaders, signature, canonicalRequest, stringToSign };
   }
 
+  /* ── نشانی امضاشدهٔ کوتاه‌عمر (presigned) ─────────────────────────
+     D‑23/F‑04: هیچ کلید دائمی به گوشی/مرورگر نمی‌رود. سرور یک نشانی
+     امضاشده می‌سازد که (۱) خودش بعد از چند دقیقه/ساعت می‌سوزد و
+     (۲) فقط به همان یک کلید و همان یک عمل (GET/PUT) اجازه می‌دهد. */
+  function presign(opts) {
+    const method = (opts.method || 'GET').toUpperCase();
+    const region = opts.region || 'us-east-1';
+    const service = opts.service || 's3';
+    const host = opts.host;
+    const path = opts.path || '/';
+    const amzdate = opts.amzDate || amzDate();
+    const datestamp = amzdate.slice(0, 8);
+    const expires = Math.max(1, Math.min(Number(opts.expires) || 900, 604800));
+    const scope = datestamp + '/' + region + '/' + service + '/aws4_request';
+    const query = Object.assign({}, opts.query || {}, {
+      'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+      'X-Amz-Credential': opts.accessKey + '/' + scope,
+      'X-Amz-Date': amzdate,
+      'X-Amz-Expires': String(expires),
+      'X-Amz-SignedHeaders': 'host',
+    });
+    const canonicalUri = path.split('/').map(p => uriEncode(p, false)).join('/') || '/';
+    const qKeys = Object.keys(query).sort();
+    const canonicalQuery = qKeys.map(k => uriEncode(k) + '=' + uriEncode(query[k])).join('&');
+    const canonicalRequest = [method, canonicalUri, canonicalQuery, 'host:' + host + '\n', 'host', 'UNSIGNED-PAYLOAD'].join('\n');
+    const stringToSign = ['AWS4-HMAC-SHA256', amzdate, scope, sha256hex(canonicalRequest)].join('\n');
+    let k = hmac('AWS4' + opts.secret, datestamp);
+    k = hmac(k, region);
+    k = hmac(k, service);
+    k = hmac(k, 'aws4_request');
+    const signature = hmacHex(k, stringToSign);
+    return (opts.scheme || 'https') + '://' + host + canonicalUri + '?' + canonicalQuery + '&X-Amz-Signature=' + signature;
+  }
+
   function findKey(obj, lower) {
     for (const k of Object.keys(obj)) if (k.toLowerCase() === lower) return k;
     return lower;
   }
 
-  return { sha256, sha256hex, hmac, hmacHex, hex, utf8, uriEncode, amzDate, sign };
+  return { sha256, sha256hex, hmac, hmacHex, hex, utf8, uriEncode, amzDate, sign, presign };
 });

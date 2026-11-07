@@ -1028,14 +1028,17 @@ async function waitFor(fn, ms = 15000) {
       assert.equal(parsed.bucket, 'b1');
       assert.equal(parsed.endpoint, 'https://s3.ir-thr-at1.arvanstorage.ir');
 
-      /* صندوقچهٔ پیش‌فرض داخل برنامه: بدون هیچ تایپی باید آماده باشد */
+      /* D‑23/F‑04: پیش‌فرض‌ها فقط فراداده‌اند؛ اعتبارنامه فقط از محیط سرور می‌آید */
       const mem = new Map();
       const fakeStore = { getMeta: (k, d) => (mem.has(k) ? mem.get(k) : d), setMeta: (k, v) => { mem.set(k, v); } };
       const def = s3.defaults();
-      assert.ok(def.endpoint && def.accessKey && def.secret, 'کلیدهای پیش‌فرض داخل برنامه هست');
+      assert.ok(def.endpoint && !def.accessKey && !def.secret, 'کد/باندل هیچ کلیدی ندارد');
       assert.equal(def.source, 'default');
+      const envKeys = require(path.join(ROOT, 'server/cloud-defaults.js')).envKeys({ PAYESH_S3_ACCESS_KEY: 'AKENV', PAYESH_S3_SECRET: 'SKENV' });
+      assert.equal(envKeys.accessKey, 'AKENV', 'کلید فقط از محیط خوانده می‌شود');
+      assert.equal(envKeys.secret, 'SKENV');
       assert.equal(s3.usingMeta(fakeStore).isDefault(), true, 'هیچ تنظیم دستی ذخیره نشده');
-      assert.equal(s3.usingMeta(fakeStore).get().accessKey, def.accessKey, 'پیش‌فرض برمی‌گردد');
+      assert.equal(s3.usingMeta(fakeStore).get().accessKey || '', '', 'بدون محیط، هیچ کلیدی برنمی‌گردد');
 
       /* نام صندوقچه خودکار از حساب پیدا شود (پیش‌فرضِ ما باکت ندارد) */
       s3.usingMeta(fakeStore).set(Object.assign({}, def, { endpoint: 'http://127.0.0.1:' + port, secret: SECRET, accessKey: 'AK', bucket: '' }));
@@ -1189,13 +1192,127 @@ async function waitFor(fn, ms = 15000) {
   });
 
 
-  await test('صندوقچه برای هر دستگاهِ واردشده آماده است (بدون تایپ کلید)', async () => {
+  await test('F‑04: هیچ کلید صندوقچه‌ای در پاسخ‌ها، باندل و حافظهٔ مرورگر نیست', async () => {
+    /* ── ۱) پاسخ‌های HTTP برای همهٔ نقش‌ها ─────────────────────────── */
+    const deepKeys = (v, out = []) => {
+      if (!v || typeof v !== 'object') return out;
+      for (const k of Object.keys(v)) { out.push(k); deepKeys(v[k], out); }
+      return out;
+    };
+    const teacherPair = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } });
+    const teacherTok2 = (await req('/api/auth/pair', { method: 'POST', body: { code: teacherPair.data.code } })).data.session.token;
+    const parentPair = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 4 } });
+    const parentTok2 = (await req('/api/auth/pair', { method: 'POST', body: { code: parentPair.data.code } })).data.session.token;
+
+    for (const [role, tok] of [['manager', managerToken], ['teacher', teacherTok2], ['parent', parentTok2]]) {
+      for (const qs of ['', '?reveal=1']) {
+        const r = await req('/api/cloud/config' + qs, { token: tok });
+        assert.strictEqual(r.status, 200, role + ': پاسخ ابری');
+        const keys = deepKeys(r.data);
+        assert.ok(!keys.includes('accessKey') && !keys.includes('secret'), role + qs + ': هیچ کلید/رازی در پاسخ نیست: ' + JSON.stringify(r.data).slice(0, 200));
+        assert.strictEqual(r.data.upload, 'server', role + ': نوشتن فقط از سرور');
+        assert.ok(r.data.config && r.data.config.endpoint, role + ': فرادادهٔ لازم برای نمایش هست');
+      }
+    }
+    const cloudAnon = await req('/api/cloud/config');
+    assert.ok(cloudAnon.status >= 400, 'بدون ورود هیچ چیزی داده نمی‌شود');
+
+    /* پنل مدیر: راز همیشه ماسک است، کلید کوتاه‌شده و reveal بی‌اثر */
+    for (const qs of ['', '?reveal=1']) {
+      const adm = await req('/api/admin/cloud' + qs, { token: managerToken });
+      assert.strictEqual(adm.status, 200);
+      const c = adm.data.config;
+      assert.ok(c.secret === '••••••••' || !c.secret, qs + ': راز در پنل مدیر هم نمایش داده نمی‌شود');
+      assert.ok(!c.accessKey || [...String(c.accessKey)].every(ch => '•…'.includes(ch) || /[0-9a-f]/.test(ch)) === false || String(c.accessKey).length <= 12, qs + ': کلید فقط کوتاه‌شده است');
+      assert.strictEqual(adm.data.config.reveal_allowed, false, qs + ': بازخوانی کلید ممنوع است');
+    }
+
+    /* ورود گوشی: فقط تیکت کوتاه‌عمر، هیچ کلیدی */
+    const saveCfg = await req('/api/admin/cloud', { method: 'POST', token: managerToken, body: {
+      endpoint: 'http://127.0.0.1:9', bucket: 'payesh-f04', region: 'ir-central1',
+      accessKey: 'AKIAF04EXAMPLE0001', secret: 'F04-secret-value-0123456789', prefix: 'payesh/',
+    } });
+    assert.strictEqual(saveCfg.data.ok, true, 'پیکربندی آزمون ذخیره شد');
+    const phLogin = await req('/api/phone/login', { method: 'POST', body: { phone: '09120000001', password: 'madrese1404' } });
+    assert.strictEqual(phLogin.data.ok, true, 'ورود گوشی: ' + JSON.stringify(phLogin.data).slice(0, 160));
+    const phKeys = deepKeys(phLogin.data);
+    assert.ok(!phKeys.includes('accessKey') && !phKeys.includes('secret'), 'پاسخ ورود گوشی هیچ کلید/رازی ندارد');
+    const tickets = phLogin.data.tickets || {};
+    assert.ok(tickets.outbox_put && tickets.core_get && tickets.rev_get, 'تیکت خواندن/نوشتن صادر شد');
+    for (const name of Object.keys(tickets)) {
+      const t = tickets[name];
+      assert.deepStrictEqual(Object.keys(t).sort(), ['expires_at', 'key', 'method', 'url'], name + ': ساختار تیکت فقط نشانی/عمل/انقضا');
+      assert.ok(/X-Amz-Signature=/.test(t.url) && /X-Amz-Expires=/.test(t.url), name + ': نشانی امضاشده و زمان‌دار است');
+      const exp = Date.parse(t.expires_at);
+      assert.ok(exp > Date.now() && exp - Date.now() <= 7 * 24 * 3600 * 1000 + 5000, name + ': عمر تیکت محدود است');
+      assert.ok(String(t.key).startsWith('payesh/'), name + ': تیکت به پیشوند همان مدرسه بسته است');
+    }
+    assert.ok(tickets.person_get.key.endsWith('/data/person/1.json'), 'تیکت دادهٔ شخصی فقط برای خودِ همان کاربر است');
+    const crossTenant = await req('/api/phone/ticket', { method: 'POST', token: teacherTok2, body: { device_id: 'dev-f04', key: 'outbox/pending/x.json' } });
+    assert.ok(!crossTenant.data.tickets || !Object.values(crossTenant.data.tickets).some(t => /outbox\/pending\/(?!device-dev-f04)/.test(t.key)), 'گوشی نمی‌تواند کلید دلخواه بگیرد (تیکت به دستگاه خودش بسته است)');
+
+    /* ── ۲) باندل و کد کلاینت ──────────────────────────────────────── */
+    const glob = (dir) => fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })
+      .flatMap(d => d.isDirectory() ? glob(path.join(dir, d.name)) : [path.join(dir, d.name)]);
+    const clientFiles = glob('client').filter(f => /\.(js|html)$/.test(f));
+    /* پیشوندِ کلیدِ افشاشده در گزارش F‑04 — تکه‌تکه ساخته می‌شود تا خودش نشتی نشود */
+    const oldKeyPrefix = '997c' + 'c6ad';
+    const leaked = [oldKeyPrefix, 'AKIA', 'accessKey\\s*:\\s*["\'][A-Za-z0-9/+]{12,}', 'secret\\s*:\\s*["\'][^"\']{16,}'];
+    for (const f of clientFiles) {
+      const text = fs.readFileSync(path.join(ROOT, f), 'utf8');
+      for (const pat of leaked) {
+        assert.ok(!new RegExp(pat).test(text), 'نشت در ' + f + ' → ' + pat);
+      }
+    }
+    const bakedSrc = fs.readFileSync(path.join(ROOT, 'client/cloud-baked.js'), 'utf8');
+    const bakedObj = JSON.parse(bakedSrc.slice(bakedSrc.indexOf('{'), bakedSrc.lastIndexOf('}') + 1));
+    assert.ok(!('accessKey' in bakedObj) && !('secret' in bakedObj), 'باندل پخته‌شده هیچ کلیدی ندارد: ' + JSON.stringify(bakedObj));
+    assert.ok(bakedObj.endpoint && bakedObj.region, 'فرادادهٔ لازم (endpoint/region) در باندل مانده است');
+
+    const defaults = require(path.join(ROOT, 'server/cloud-defaults.js')).DEFAULTS;
+    assert.ok(!defaults.accessKey && !defaults.secret, 'کد سرور هم کلید پیش‌فرض ندارد');
+
+    /* ── ۳) حافظهٔ مرورگر و مسیر قدیمی ─────────────────────────────── */
+    const appSrc = fs.readFileSync(path.join(ROOT, 'client/app.js'), 'utf8');
+    assert.ok(!/localStorage\.setItem\(\s*['"]payesh\.cloudcfg/.test(appSrc), 'پیکربندی صندوقچه در localStorage ذخیره نمی‌شود');
+    assert.ok(appSrc.includes("localStorage.removeItem('payesh.cloudcfg')"), 'مقدار قدیمیِ ذخیره‌شده هم پاک می‌شود');
+    const phoneSrc = fs.readFileSync(path.join(ROOT, 'client/lib/phone.js'), 'utf8');
+    assert.ok(!/accessKey\s*:\s*['"][A-Za-z0-9/+]{8,}/.test(phoneSrc), 'ماژول گوشی هیچ مقدار کلیدی ندارد');
+    assert.ok(!/PAYESH_CLOUD\.(accessKey|secret)/.test(phoneSrc), 'ماژول گوشی از کلیدِ باندل نمی‌خواند');
+    const tkStore = (global.localStorage && global.localStorage.getItem('payesh.phone.tickets')) || '';
+    assert.ok(!/accessKey|secret/i.test(tkStore), 'تیکتِ ذخیره‌شده روی گوشی هیچ کلیدی ندارد');
+
+    /* ── ۴) نگهبانِ ساخت: اگر روزی کلید به پیش‌فرض‌ها برگردد، build می‌ایستد ── */
+    const { spawnSync } = require('child_process');
+    const good = spawnSync(process.execPath, [path.join(ROOT, 'scripts/bake-cloud.mjs'), '--check'], { encoding: 'utf8' });
+    assert.strictEqual(good.status, 0, 'بازرسی پیش‌فرض‌ها سالم است: ' + (good.stdout || good.stderr));
+    const fx = path.join(require('os').tmpdir(), 'f04-fixture-' + process.pid + '.cjs');
+    fs.writeFileSync(fx, 'module.exports = { DEFAULTS: { endpoint: "https://x", region: "r", accessKey: "AKIAEXAMPLE123456", secret: "S3CRET" } };');
+    const bad = spawnSync(process.execPath, [path.join(ROOT, 'scripts/bake-cloud.mjs'), '--check', fx], { encoding: 'utf8' });
+    try { fs.unlinkSync(fx); } catch (e) { /* noop */ }
+    assert.strictEqual(bad.status, 2, 'با کلید در پیش‌فرض‌ها ساخت می‌ایستد (fail-closed)');
+    assert.ok(/D‑23\/F‑04/.test(bad.stderr || ''), 'پیام توقف صریح است');
+
+    /* پیکربندی آزمون پاک می‌شود تا بقیهٔ آزمون‌ها پیش‌فرض خودشان را ببینند */
+    const resetCfg = await req('/api/admin/cloud/reset', { method: 'POST', token: managerToken, body: {} });
+    assert.strictEqual(resetCfg.data.ok, true, 'پیکربندی آزمون پاک شد');
+
+    console.log('   F04-OK checks=34 tickets=' + Object.keys(tickets).length + ' client_files=' + clientFiles.length);
+  });
+
+  await test('صندوقچه از سرور آماده است و هیچ اعتبارنامه‌ای به کلاینت نمی‌رسد (D‑23/F‑04)', async () => {
     const cc = await req('/api/cloud/config', { token: managerToken });
     assert.strictEqual(cc.data.ok, true);
-    assert.ok(/arvanstorage/.test(cc.data.config.endpoint || ''), 'endpoint پیش‌فرض داخل برنامه');
-    assert.ok(cc.data.config.accessKey && cc.data.config.secret, 'کلید پیش‌فرض هست');
+    assert.ok(/arvanstorage/.test(cc.data.config.endpoint || ''), 'endpoint پیش‌فرض سرور');
+    const body = JSON.stringify(cc.data);
+    assert.ok(!/accessKey|secret/i.test(body), 'پاسخ هیچ کلید/رازی ندارد: ' + body.slice(0, 120));
+    assert.strictEqual(cc.data.upload, 'server', 'نوشتن در صندوقچه فقط از سرور');
     const anon = await req('/api/cloud/config');
-    assert.ok(anon.status >= 400 || !(anon.data && anon.data.config), 'بدون ورود، کلید داده نمی‌شود');
+    assert.ok(anon.status >= 400 || !(anon.data && anon.data.config), 'بدون ورود هیچ چیزی داده نمی‌شود');
+    /* حتی مدیر هم با reveal کلید را بازخوانی نمی‌کند */
+    const adm = await req('/api/admin/cloud?reveal=1', { token: managerToken });
+    const admBody = JSON.stringify(adm.data || {});
+    assert.ok(!/"(accessKey|secret)":"(?!•)/.test(admBody.replace(/\\"/g, '"')) || !/[A-Za-z0-9]{16,}/.test((adm.data && adm.data.config && adm.data.config.secret) || ''), 'کلید از پنل مدیر هم برنمی‌گردد: ' + admBody.slice(0, 160));
   });
 
   await test('یک‌بار ورود، همیشه داخل (تمدید بی‌صدای نشست)', async () => {
@@ -1300,7 +1417,9 @@ async function waitFor(fn, ms = 15000) {
       const chunks = [];
       req.on('data', c => chunks.push(c));
       req.on('end', () => {
-        if (!/^AWS4-HMAC-SHA256/.test(req.headers.authorization || '')) {
+        /* D‑23/F‑04: گوشی با «نشانی امضاشده» (query) می‌نویسد، نه با کلید در هدر */
+        const preSigned = (() => { try { return new URL(req.url, 'http://x').searchParams.has('X-Amz-Signature'); } catch (e) { return false; } })();
+        if (!preSigned && !/^AWS4-HMAC-SHA256/.test(req.headers.authorization || '')) {
           res.writeHead(403); return res.end('<Error><Code>AccessDenied</Code></Error>');
         }
         /* صندوقچهٔ واقعی وقتی CORS تنظیم شده باشد، هدر اجازه را در همهٔ پاسخ‌ها می‌گذارد */
@@ -1459,19 +1578,22 @@ async function waitFor(fn, ms = 15000) {
       assert.strictEqual(await PH.verify('Madrese1404', authEnv.verifier), true, 'رمز درست روی گوشی تأیید می‌شود');
       assert.strictEqual(await PH.verify('ramz-eshtebah', authEnv.verifier), false, 'رمز اشتباه رد می‌شود');
 
-      /* ورود کامل گوشی: از صندوقچه، بدون هیچ درخواستی به سرور */
-      PH.saveConfig(require(path.join(ROOT, 'client', 'lib', 's3mini.js')).normalize({
-        endpoint: 'http://127.0.0.1:' + cloudPort, bucket: 'ob1', region: 'ir-central1',
-        accessKey: 'AK', secret: 'SK', prefix: 'payesh/',
-      }));
+      /* D‑23/F‑04: گوشی هیچ کلیدی نمی‌گیرد — تیکت کوتاه‌عمر از سرور می‌گیرد */
+      PH.setBase(BASE);
       const phoneLogin = await PH.login('۰۹۱۲۰۰۰۰۰۰۱', 'Madrese1404');
       assert.strictEqual(phoneLogin.ok, true, 'ورود گوشی با شماره و رمز مدیر: ' + JSON.stringify(phoneLogin));
       assert.strictEqual(phoneLogin.user.role, 'manager', 'نقش از مدرسه می‌آید');
+      const tkRaw = global.localStorage.getItem('payesh.phone.tickets') || '';
+      const tk = JSON.parse(tkRaw || 'null');
+      assert.ok(tk && tk.tickets && tk.tickets.outbox_put && tk.tickets.core_get, 'تیکت خواندن/نوشتن صندوقچه گرفته شد');
+      assert.ok(!/accessKey|secret/i.test(tkRaw), 'تیکت هیچ کلید/رازی ندارد: ' + tkRaw.slice(0, 120));
       const phoneData = await PH.pullData(phoneLogin.user);
       assert.ok(Array.isArray(phoneData.collections.users) && phoneData.collections.users.length > 2, 'گوشی فهرست کاربران را می‌گیرد');
       const sentOp = await PH.send({ uid: 'ob-phone-1', user_id: 1, role: 'manager', op: { collection: 'announcements', type: 'put', data: { title: 'از گوشی', body: 'بدون سرور', date: '2026-05-02' }, base_version: 0 } });
-      assert.strictEqual(sentOp.ok, true, 'ثبت گوشی در صندوقچه گذاشته شد');
-      assert.ok(bucket.has('payesh/outbox/pending/ob-phone-1.json'), 'فایل ثبت گوشی در صندوقچه هست');
+      assert.strictEqual(sentOp.ok, true, 'ثبت گوشی با نشانی امضاشده در صندوقچه گذاشته شد');
+      const devFile = [...bucket.keys()].find(k => /^payesh\/outbox\/pending\/device-[a-z0-9-]+\.json$/.test(k));
+      assert.ok(devFile, 'فایل ثبت گوشی در صندوقچه هست');
+      assert.ok((JSON.parse(bucket.get(devFile)).items || []).some(x => x.uid === 'ob-phone-1'), 'ثبت گوشی داخل فایل دستگاه است');
       const drainedFromPhone = await drainNow();
       const annIn = async () => (await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=announcements', { token: managerToken }))
         .data.collections.announcements.some(a => a.title === 'از گوشی');
@@ -1523,8 +1645,10 @@ async function waitFor(fn, ms = 15000) {
     const html = fs.readFileSync(path.join(ROOT, 'client/index.html'), 'utf8');
     assert.ok(phone.includes('async function login'), 'ورود محلی با شماره+رمز');
     assert.ok(phone.includes("'PBKDF2'"), 'بررسی رمز با WebCrypto روی خود گوشی');
-    assert.ok(phone.includes("'auth/'"), 'پروندهٔ ورود از صندوقچه خوانده می‌شود');
-    assert.ok(phone.includes("'outbox/pending/'"), 'ثبت‌ها مستقیم در صندوقچه گذاشته می‌شوند');
+    /* D‑23/F‑04: مسیر ورود از سرور است و نوشتن در صندوقچه با «نشانی امضاشده» */
+    assert.ok(phone.includes('/api/phone/login'), 'ورود از سیستم مدرسه (شماره+رمز) انجام می‌شود');
+    assert.ok(phone.includes('outbox_put'), 'ثبت‌ها با نشانی امضاشدهٔ کوتاه‌عمر در صندوقچه گذاشته می‌شوند');
+    assert.ok(!/accessKey\s*[:=]/.test(phone) && !/\bsecret\s*[:=]/.test(phone), 'هیچ کلید/رازی در ماژول گوشی نیست');
     assert.ok(html.includes('/lib/phone.js'), 'صفحهٔ گوشی ماژول را بار می‌کند');
     assert.ok(pages.includes('function renderPhoneLogin'), 'صفحهٔ ورود گوشی وجود دارد');
     assert.ok(app.includes("kind === 'phone-login'"), 'فرم ورود گوشی پردازش می‌شود');

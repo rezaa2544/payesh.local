@@ -87,7 +87,8 @@ grep -vE '^\| \*\*D.35\*\*' "$CONST" > "$TMP/const.nod35.md"
 reject N11 "تصمیم D‑35 از قانون اساسی حذف شد" "CONST-D35" CC122_CONST="$TMP/const.nod35.md"
 
 # N12 آزمون پایه با یک شکست
-sed 's/^SUMMARY pass=88 fail=0$/SUMMARY pass=87 fail=1/' "$TESTS" > "$TMP/tests.fail.log"
+# عدد آزمون‌ها با هر ردیف بالا می‌رود؛ همان عددِ واقعی را «یک شکست» می‌کنیم
+sed -E 's/^SUMMARY pass=([0-9]+) fail=0$/SUMMARY pass=\1 fail=1/' "$TESTS" > "$TMP/tests.fail.log"
 reject N12 "آزمون پایه ۸۷/۱ شده" "BASE-TESTS" CC122_TESTS="$TMP/tests.fail.log"
 
 # N13 فهرست مجاز تنگ‌تر از تغییر واقعی

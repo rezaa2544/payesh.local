@@ -80,6 +80,27 @@
     });
   }
 
+  /* نشانی امضاشدهٔ کوتاه‌عمر برای یک کلید مشخص (بدون افشای کلید) */
+  function presign(cfg, opts) {
+    const { host, basePath, scheme } = splitEndpoint(cfg.endpoint);
+    const key = String(opts.key || '').replace(/^\/+/, '');
+    const p = cfg.pathStyle === false
+      ? (key ? '/' + key : '/')
+      : ('/' + cfg.bucket + (key ? '/' + key : ''));
+    return sig.presign({
+      method: opts.method || 'GET',
+      host: cfg.pathStyle === false ? cfg.bucket + '.' + host : host,
+      path: basePath + p,
+      query: opts.query || {},
+      region: regionOf(cfg),
+      service: 's3',
+      scheme,
+      accessKey: cfg.accessKey,
+      secret: cfg.secret,
+      expires: opts.expires,
+    });
+  }
+
   function hint(status, text) {
     if (status === 403) return 'کلیدها یا اجازهٔ دسترسی درست نیست (Access Denied)';
     if (status === 404) return /NoSuchBucket/i.test(text) ? 'صندوقچه با این نام پیدا نشد' : 'فایل یا صندوقچه پیدا نشد';
@@ -345,5 +366,5 @@
     return out;
   }
 
-  return { DEFAULTS, normalize, smartParse, regionOf, buildRequest, call, list, listBuckets, put, get, remove, setCors, getCors, corsProbe, nativeBridge, PHONE_ORIGIN, test };
+  return { DEFAULTS, normalize, smartParse, regionOf, buildRequest, call, list, listBuckets, put, get, remove, setCors, getCors, corsProbe, nativeBridge, PHONE_ORIGIN, test, presign };
 });

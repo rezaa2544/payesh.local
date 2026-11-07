@@ -159,25 +159,32 @@ async function drain(store, { limit = MAX_DRAIN } = {}) {
     const key = row.key;
     if (!/\.json$/.test(key)) continue;
     out.checked++;
-    let item;
+    let doc;
     try {
-      item = JSON.parse(await s3mem.get(cfg, key));
+      doc = JSON.parse(await s3mem.get(cfg, key));
     } catch (e) {
       out.skipped++;
       continue;
     }
-    const uid = String(item && item.uid || '').slice(0, 80);
-    if (!uid || !item.op) { out.skipped++; continue; }
+    /* فایلِ یک گوشی چند ثبت را یک‌جا نگه می‌دارد (D‑23/F‑04: گوشی هیچ
+       کلیدی ندارد، پس همهٔ ثبت‌هایش را با یک نشانیِ امضاشده در یک فایل
+       می‌نویسد). هر ثبت جداگانه و با همان بررسی‌های قبلی اعمال می‌شود. */
+    const entries = Array.isArray(doc && doc.items) ? doc.items : [doc];
 
-    /* یک‌بار اعمال شده؟ */
-    const doneKey = keyOf(cfg, DONE + uid + '.json');
-    let already = false;
-    try {
-      const marker = await s3mem.get(cfg, doneKey);
-      already = !!marker;
-    } catch (e) { already = false; }
+    for (const item of entries) {
+      const uid = String((item && item.uid) || '').slice(0, 80);
+      if (!uid || !item.op) { out.skipped++; continue; }
 
-    if (!already) {
+      /* یک‌بار اعمال شده؟ */
+      const doneKey = keyOf(cfg, DONE + uid + '.json');
+      let already = false;
+      try {
+        const marker = await s3mem.get(cfg, doneKey);
+        already = !!marker;
+      } catch (e) { already = false; }
+
+      if (already) { out.skipped++; continue; }
+
       const user = item.user_id != null ? store.get('users', Number(item.user_id)) : null;
       if (!user || user.active === 0 || user.active === false) {
         out.rejected++;
@@ -193,7 +200,6 @@ async function drain(store, { limit = MAX_DRAIN } = {}) {
         try { store.audit({ user_id: user.id, role: user.role, action: 'password_change_phone', collection: 'users', record_id: Number(item.op.id) }); } catch (e) { /* noop */ }
         out.applied++;
         await markDone(store, cfg, doneKey, uid, 'password');
-        try { await s3mem.remove(cfg, key); } catch (e) { /* */ }
         continue;
       }
 
@@ -205,11 +211,10 @@ async function drain(store, { limit = MAX_DRAIN } = {}) {
       else out.rejected++;
       out.details.push({ uid, applied: okItem, rejected: res.rejected || [] });
       await markDone(store, cfg, doneKey, uid, okItem ? 'applied' : 'rejected');
-      try { await s3mem.remove(cfg, key); } catch (e) { /* */ }
-    } else {
-      out.skipped++;
-      try { await s3mem.remove(cfg, key); } catch (e) { /* */ }
     }
+
+    /* ثبت‌ها اعمال و مُهر شدند؛ خودِ فایل دیگر لازم نیست */
+    try { await s3mem.remove(cfg, key); } catch (e) { /* */ }
   }
 
   const prev = readMeta(store);
@@ -438,13 +443,21 @@ function personData(store, user) {
   return out;
 }
 
-async function publishData(store) {
-  const cfg = await cloud(store);
-  if (!cfg) return { ok: false, error: 'no_cloud', count: 0 };
+/* همان بستهٔ سراسری که گوشی می‌بیند — برای سرو کردن مستقیم از سرور */
+function corePayload(store) {
   const core = { v: 1, school: (store.all('schools') || [])[0] || null, collections: {}, directory: directory(store) };
   for (const c of CORE_COLLECTIONS) {
     try { core.collections[c] = (store.all(c) || []).map(safeRow); } catch (e) { core.collections[c] = []; }
   }
+  core.at = new Date().toISOString();
+  return core;
+}
+
+async function publishData(store) {
+  const cfg = await cloud(store);
+  if (!cfg) return { ok: false, error: 'no_cloud', count: 0 };
+  const core = corePayload(store);
+  delete core.at;
   let count = 0;
   try {
     /* «at» هر ثانیه عوض می‌شود؛ برای مقایسه حذفش می‌کنیم تا هر ثانیه ننویسیم */
@@ -475,6 +488,7 @@ async function publishAll(store) {
 }
 
 module.exports = {
+  corePayload, directory,
   publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop, putIfChanged, forgetPutHashes,
   publishAuth, publishData, publishAll, personData, CORE_COLLECTIONS, PERSON_COLLECTIONS,
   SERVER_ROLES, summary, PENDING, DONE, STATE, loginKey,

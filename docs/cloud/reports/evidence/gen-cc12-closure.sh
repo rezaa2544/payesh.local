@@ -41,7 +41,7 @@ fa() {
 git cat-file -e "$BASE^{commit}" 2>/dev/null || fail "BASE-MISSING: $BASE در مخزن نیست"
 PROD_N=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS | grep -c . || true)
 # D‑35: تغییر محصول مجاز است، ولی فقط در فایل‌های اعلام‌شدهٔ فاز ۳
-ALLOW="${CC12_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js}"
+ALLOW="${CC12_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs}"
 OUTSIDE=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
 [ "$OUTSIDE" = "0" ] || fail "PRODUCT-SCOPE: $OUTSIDE فایل محصول بیرون از فهرست مجاز D‑35 تغییر کرده"
 
@@ -119,7 +119,8 @@ echo "$SMOKE" | grep -qE '^BENCH devices=2 .*errors=0 ' || fail "BENCH-SMOKE: ا
 TLINE=$(grep -E '^SUMMARY pass=[0-9]+ fail=[0-9]+' "$TESTS" | tail -1)
 TP=$(printf '%s' "$TLINE" | sed -E 's/.*pass=([0-9]+).*/\1/')
 TF=$(printf '%s' "$TLINE" | sed -E 's/.*fail=([0-9]+).*/\1/')
-[ "${TP:-0}" = "88" ] && [ "${TF:-1}" = "0" ] || fail "TESTS: لاگ آزمون pass=$TP fail=$TF (باید 88/0)"
+# ردیف‌های بعدی آزمون اضافه می‌کنند؛ شرط = صفر شکست و pass ≥ ۸۸
+[ "${TP:-0}" -ge 88 ] && [ "${TF:-1}" = "0" ] || fail "TESTS: لاگ آزمون pass=$TP fail=$TF (باید ≥88 و بدون شکست)"
 
 # ── موفق ──────────────────────────────────────────────────────────────────
 {

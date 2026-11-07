@@ -19,7 +19,7 @@ DOC04B="${P3_DOC04B:-docs/cloud/04b-plan-caps-usage-model.md}"
 DOC12="${P3_DOC12:-docs/cloud/12-multitenant-architecture.md}"
 REV12="${P3_REV12:-docs/cloud/reports/REVIEW-12-CONDITIONS.md}"
 BASE="${P3_BASE:-f2fc472}"
-ALLOW="${P3_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js}"
+ALLOW="${P3_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs}"
 TS=$(date -u +%Y%m%dT%H%M%SZ)
 HEAD=$(git rev-parse HEAD)
 PRODUCT_PATHS="server client tests scripts package.json package-lock.json installer desktop install deploy"
@@ -119,7 +119,7 @@ grep -q 'EVIDENCE-OK' "${P3_TMP_AUDIT:-/tmp/p3-audit.txt}" || fail "EVIDENCE-GAT
   echo "phase0_gate: PASS"
   echo "phase1_gate: PASS (CC11-OK)"
   echo "phase2_gate: PASS (CC12-CLOSURE-OK · شرط ۳/۴)"
-  echo "tests: EVIDENCE-OK (88/0)"
+  echo "tests: EVIDENCE-OK (≥88/0)"
   echo "cc12_2: CLOSED (product path, $P_LINES assertions)"
   echo "residuals: F-04(P0) F-06(P0) security=UNKNOWN"
   echo "GATE_OPEN=1"

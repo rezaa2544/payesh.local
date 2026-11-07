@@ -1,29 +1,36 @@
 'use strict';
 /* ═══════════════════════════════════════════════════════════════════
-   صندوقچهٔ پیش‌فرض مدرسه — یک‌بار داخل برنامه گذاشته شده تا هیچ‌کس
-   مجبور نباشد Access Key / Secret Key را تایپ کند.
+   پیش‌فرض‌های صندوقچه — **هیچ کلیدی این‌جا نیست** (D‑23 · F‑04)
 
-   قاعده:
-     • اگر مدیری از «حافظهٔ ابری → تغییر تنظیمات» چیزی ذخیره کند،
-       همان مقدار ذخیره‌شده مقدم است و این فایل هیچ نقشی ندارد.
-     • اگر «بازگشت به پیش‌فرض» بزند، دوباره همین مقادیر برمی‌گردند.
+   قاعدهٔ سخت (قانون اساسی §۳ بند ۲۲ و D‑23):
+     • اعتبارنامهٔ فضای ذخیره‌سازی هرگز در بستهٔ کلاینت و در کد پخته نمی‌شود.
+     • کلید فقط از محیط سرور خوانده می‌شود (PAYESH_S3_ACCESS_KEY /
+       PAYESH_S3_SECRET) یا از تنظیمات ذخیره‌شده توسط مدیر در همان سرور.
+     • آنچه به کلاینت می‌رود فقط «فراداده» است: endpoint/bucket/region/prefix.
 
-   برای عوض‌کردن کلیدها: فقط همین فایل را ویرایش کنید و نسخهٔ تازه بسازید،
-   یا (ساده‌تر) در خود برنامه «تغییر تنظیمات» را بزنید.
+   پیش از این، کلیدها همین‌جا base64 شده بودند و اسکریپت bake آن‌ها را
+   داخل client/cloud-baked.js می‌ریخت ⇒ هر دانش‌آموز کلید کامل صندوقچه
+   را داشت. آن مسیر حذف شد.
    ═══════════════════════════════════════════════════════════════════ */
-
-/* کلیدها به‌صورت base64 نگه داشته می‌شوند تا در جست‌وجوی سادهٔ متن پیدا نشوند.
-   برای تغییر: مقدار تازه را با  node -e "console.log(Buffer.from('…').toString('base64'))"  بسازید. */
-const b64 = (s) => Buffer.from(String(s), 'base64').toString('utf8');
 
 const DEFAULTS = {
   endpoint: 'https://s3.ir-central1.arvanstorage.ir',
-  region: b64('aXItY2VudHJhbDE='),                       /* ir-central1 */
-  bucket: '',                                            /* اگر خالی باشد، خودِ برنامه صندوقچه را پیدا می‌کند */
-  accessKey: b64('OTk3Y2M2YWQtZTk3YS00ZTRkLWFiZjEtZGI5MTJhMzYyYzEz'),
-  secret: b64('OWRjNTM2N2Y3OGRiNTNlYTVkM2E3MDk2MTJmOWMwZDRjOWE4ODBkODNmNjZiMGVlNzBhOGZhYTc2MjU1MTA5Mg=='),
+  region: 'ir-central1',
+  bucket: '',                                            /* اگر خالی باشد، خودِ سرور صندوقچه را پیدا می‌کند */
   prefix: 'payesh/',
   pathStyle: true,
 };
 
-module.exports = { DEFAULTS, b64 };
+/* تنها منبع کلید: محیط سرور (نه فایل، نه کد، نه باندل کلاینت) */
+function envKeys(env) {
+  const e = env || process.env;
+  return {
+    accessKey: String(e.PAYESH_S3_ACCESS_KEY || '').trim(),
+    secret: String(e.PAYESH_S3_SECRET || '').trim(),
+  };
+}
+
+/* برای سازگاری با فراخوانی‌های قدیمی؛ فقط فراداده را برمی‌گرداند */
+const b64 = (s) => Buffer.from(String(s), 'base64').toString('utf8');
+
+module.exports = { DEFAULTS, envKeys, b64 };

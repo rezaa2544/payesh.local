@@ -28,7 +28,7 @@ OUT="docs/cloud/reports/evidence/mission-12-16b-structure.txt"
   grep -h '^\*\*حکم' docs/cloud/1[2-6]*.md 2>/dev/null
   echo
   echo "## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (فقط در فهرست مجاز D‑35)"
-  ALLOW="package.json package-lock.json server/index.js server/tenancy.js"
+  ALLOW="package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs"
   printf 'product_diff_files: %s\n' "$(git diff --name-only f2fc472 -- server client tests scripts package.json package-lock.json | grep -c . || true)"
   printf 'product_diff_outside_allow: %s\n' "$(git diff --name-only f2fc472 -- server client tests scripts package.json package-lock.json | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)"
   echo

@@ -1,9 +1,9 @@
 # دروازهٔ بستن صف — D‑30..D‑33 و شرایط CC‑12‑3/CC‑12‑4
 generated_by: docs/cloud/reports/evidence/gen-cc12-closure.sh
-head: e8730a29d3efcd2296ce4b430a0d446f47f8c884
+head: 4344f4efe28c3e31aa608402ea9be835eea7edd2
 base: f2fc472
-generated_at_utc: 2026-11-07T07:45:39Z
-product_diff_files: 4
+generated_at_utc: 2026-11-07T08:24:11Z
+product_diff_files: 16
 bench_cap_devices: 768
 bench_p95_at_384: 486
 bench_p95_knee_repeat: 1572..1628
@@ -12,7 +12,7 @@ harness_sha256: 97562be953f37762fb96e00db7441130ff437784746752c54b348c932b8d36af
 doc04_sha256: 4f165ec204dc4f9cee9e66eae824eb0b1ba353ac30453da27d59d2bf42490d88
 doc12_sha256: 676735a04996abbf060fe378a526e899ec0637d81eb3db4554d997fd0dfdc1ba
 constitution_sha256: db7284016c13a642b181d5ea410c4ab34f1228df944fadeadebccc4610d4ac44
-tests_log: pass=88 fail=0
+tests_log: pass=89 fail=0
 decisions: D-30 O-06 · D-31 O-07 · D-32 O-14 · D-33 O-18
 row12_conditions: CC-12-1 CLOSED · CC-12-2 CLOSED(product-path) · CC-12-3 CLOSED · CC-12-4 CLOSED
 
@@ -25,6 +25,6 @@ row12_conditions: CC-12-1 CLOSED · CC-12-2 CLOSED(product-path) · CC-12-3 CLOS
 ✓ نقشهٔ نهایی مسیرها از ۱۶‑ب در سند ۱۲ نقل شده
 ✓ Decision Log و جدول پرسش‌های باز هم‌خوان
 ✓ smoke ابزار سنجش روی HEAD (۲ دستگاه)
-✓ لاگ آزمون محصول: pass=88 fail=0
+✓ لاگ آزمون محصول: pass=89 fail=0
 
 CC12-CLOSURE-OK

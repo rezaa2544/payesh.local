@@ -15,9 +15,9 @@ const baked = require('./cloud-defaults');
 
 const META_KEY = 'cloud:config';
 
-/* پیش‌فرضِ داخل برنامه — همیشه «فعال» است چون کلیدها از قبل هست */
+/* پیش‌فرض‌ها فقط فراداده‌اند؛ کلید (اگر باشد) از محیط سرور می‌آید — D‑23/F‑04 */
 function defaults() {
-  const c = s3.normalize(baked.DEFAULTS);
+  const c = s3.normalize(Object.assign({}, baked.DEFAULTS, baked.envKeys()));
   c.enabled = !!(c.endpoint && c.accessKey && c.secret);
   c.source = 'default';
   return c;
@@ -29,11 +29,18 @@ function normalize(input) {
   return c;
 }
 
-function saved(store) {
+function rawSaved(store) {
   let raw = {};
   try { raw = JSON.parse(store.getMeta(META_KEY, '{}')) || {}; } catch (e) { raw = {}; }
-  const c = s3.normalize(raw);
-  /* اگر چیزی ذخیره نشده یا ناقص است، پیش‌فرض مدرسه جایش می‌آید */
+  return raw && typeof raw === 'object' ? raw : {};
+}
+
+/* تنظیم ذخیره‌شده روی فرادادهٔ پیش‌فرض و کلیدهای محیط سوار می‌شود؛
+   کلیدِ ذخیره‌شده (اگر مدیر ست کرده باشد) بر محیط اولویت دارد. */
+function saved(store) {
+  const raw = rawSaved(store);
+  const c = s3.normalize(Object.assign({}, baked.DEFAULTS, baked.envKeys(), raw));
+  /* اگر هیچ اعتبارنامه‌ای (نه ذخیره‌شده و نه محیط) نباشد، مدرسه پیکربندی‌نشده است */
   if (!c.endpoint || !c.accessKey || !c.secret) return null;
   c.enabled = !!(c.endpoint && c.bucket && c.accessKey && c.secret);
   c.source = 'saved';
@@ -45,13 +52,12 @@ function usingMeta(store) {
     get() {
       const s = saved(store);
       if (s) return s;
-      const d = defaults();
       /* اگر مدیر روی «پیش‌فرض» نبود، نام صندوقچهٔ ذخیره‌شده را نگه می‌داریم */
-      return d;
+      return defaults();
     },
     set(cfg) { store.setMeta(META_KEY, JSON.stringify(cfg)); return cfg; },
     clear() { store.setMeta(META_KEY, '{}'); return defaults(); },
-    isDefault() { return !saved(store); },
+    isDefault() { return Object.keys(rawSaved(store)).length === 0; },
   };
 }
 
@@ -86,6 +92,6 @@ async function uploadBackup(store, file) {
 }
 
 module.exports = Object.assign({}, s3, {
-  META_KEY, DEFAULTS: baked.DEFAULTS, defaults, normalize, saved, usingMeta, ensureBucket, uploadBackup,
+  META_KEY, DEFAULTS: baked.DEFAULTS, defaults, normalize, saved, rawSaved, usingMeta, ensureBucket, uploadBackup,
   smartParse: s3.smartParse, setCors: s3.setCors, getCors: s3.getCors, corsProbe: s3.corsProbe, listBuckets: s3.listBuckets,
 });
