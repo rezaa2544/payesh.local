@@ -1,0 +1,12 @@
+# دروازهٔ امنیت — ردیف ۲۸ (Security Gate مستقل)
+generated_by: docs/cloud/reports/evidence/gen-security-gate.sh
+head: d304ae240c276c0b7141140958c09c8c3e7db3f9
+generated_at_utc: 2026-11-07T10:49:14Z
+penetration_witness: docs/cloud/reports/evidence/security-penetration.txt (SECURITY-PEN pass=40 fail=0 skip=0)
+threat_model: docs/cloud/12-security-threat-model.md
+fixes_verified: SEC-01 CSV/hashes · SEC-02 bad_json→400 · SEC-03 nosniff/frame · SEC-04 vault no-store
+checks_passed: 17
+security_status: UNKNOWN (evidence-backed — طبق §۱۰.۲ و D‑25)
+row-28: CLOSED
+
+SECURITY-GATE-CLOSED checks=17 pen=40/0/0 status=UNKNOWN
