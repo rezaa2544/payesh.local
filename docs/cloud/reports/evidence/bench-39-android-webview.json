@@ -1,0 +1,64 @@
+{
+  "bench": "bench-39",
+  "label": "android-webview",
+  "rows_requested": 100000,
+  "chunk": 2000,
+  "cpu_throttle_factor_claimed": null,
+  "started_at": "2026-11-07T21:26:19.611Z",
+  "env": {
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Mobile Safari/537.36",
+    "platform": "Linux armv81",
+    "hardware_concurrency": 8,
+    "device_memory_gb": null,
+    "is_secure_context": false,
+    "cross_origin_isolated": false,
+    "has_measure_memory": false
+  },
+  "calibration": {
+    "calib_ms": 428,
+    "sink": 0
+  },
+  "mem_before": {
+    "used_mb": 9.5,
+    "total_mb": 9.5,
+    "limit_mb": 2994.5
+  },
+  "storage_before": null,
+  "open_ms": 36,
+  "load_ms": 21830,
+  "rows_per_sec": 4581,
+  "mem_after_load": {
+    "used_mb": 9.5,
+    "total_mb": 9.5,
+    "limit_mb": 2994.5
+  },
+  "count": 100000,
+  "count_ms": 186,
+  "index_query": {
+    "field": "class_id",
+    "value": 1,
+    "rows": 2500,
+    "ms": 168
+  },
+  "page_query": {
+    "rows": 50,
+    "ms": 8
+  },
+  "since_query": {
+    "rows": 0,
+    "ms": 2
+  },
+  "reopen_ms": 2,
+  "first_get_after_reopen_ms": 1,
+  "first_get_found": true,
+  "stat_after_reopen": 100000,
+  "mem_after_reopen": {
+    "used_mb": 9.5,
+    "total_mb": 9.5,
+    "limit_mb": 2994.5
+  },
+  "storage_after": null,
+  "finished_at": "2026-11-07T21:26:42.583Z",
+  "ok": true,
+  "verdict": "BENCH39-OK"
+}

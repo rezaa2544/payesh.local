@@ -4,67 +4,67 @@
   "rows_requested": 100000,
   "chunk": 2000,
   "cpu_throttle_factor_claimed": null,
-  "started_at": "2026-11-07T20:16:08.229Z",
+  "started_at": "2026-11-07T20:46:14.886Z",
   "env": {
-    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.0.0 Safari/537.36",
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
     "platform": "Win32",
     "hardware_concurrency": 8,
-    "device_memory_gb": 8,
+    "device_memory_gb": 16,
     "is_secure_context": true,
     "cross_origin_isolated": false,
     "has_measure_memory": false
   },
   "calibration": {
-    "calib_ms": 1154,
+    "calib_ms": 908,
     "sink": 0
   },
   "mem_before": {
-    "used_mb": 1.1,
-    "total_mb": 2.3,
+    "used_mb": 1.3,
+    "total_mb": 7,
     "limit_mb": 4192
   },
   "storage_before": {
     "usage_mb": 0,
     "quota_mb": 10240
   },
-  "open_ms": 54,
-  "load_ms": 54079,
-  "rows_per_sec": 1849,
+  "open_ms": 67,
+  "load_ms": 50728,
+  "rows_per_sec": 1971,
   "mem_after_load": {
-    "used_mb": 23.8,
-    "total_mb": 28.2,
+    "used_mb": 26.1,
+    "total_mb": 30.2,
     "limit_mb": 4192
   },
   "count": 100000,
-  "count_ms": 663,
+  "count_ms": 581,
   "index_query": {
     "field": "class_id",
     "value": 1,
     "rows": 2500,
-    "ms": 301
+    "ms": 207
   },
   "page_query": {
     "rows": 50,
-    "ms": 12
+    "ms": 10
   },
   "since_query": {
     "rows": 0,
     "ms": 2
   },
-  "reopen_ms": 1,
+  "reopen_ms": 0,
   "first_get_after_reopen_ms": 1,
   "first_get_found": true,
   "stat_after_reopen": 100000,
   "mem_after_reopen": {
-    "used_mb": 24.4,
-    "total_mb": 28.2,
+    "used_mb": 26.5,
+    "total_mb": 30.4,
     "limit_mb": 4192
   },
   "storage_after": {
-    "usage_mb": 40.6,
-    "quota_mb": 10280.6
+    "usage_mb": 63.6,
+    "quota_mb": 10303.6
   },
-  "finished_at": "2026-11-07T20:17:05.683Z",
+  "finished_at": "2026-11-07T20:47:08.751Z",
   "ok": true,
   "verdict": "BENCH39-OK"
 }
