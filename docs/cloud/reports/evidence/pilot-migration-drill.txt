@@ -1,0 +1,33 @@
+# دروازهٔ پایلوت چند‌مدرسه‌ای — ردیف ۳۰
+# تولید: bash docs/cloud/reports/evidence/gen-pilot-gate.sh
+# زمان: 2026-11-07T11:30:16Z
+# HEAD: 650407d5afd67764bef5610361c05d9af2f4ea71
+# node: v22.22.3 · os: Linux 6.1.158+ x86_64
+# postgres: 18.6 (باینری موقت بیرون از مخزن)
+# tenants: A=aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa (مهاجرت‌شده) · B=bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb (فراهم‌شده)
+
+PILOT-SCHEMA table=tenant_records statements=30
+PASS  PL-00  محصول با /api/readyz آماده اعلام می‌کند (پایش پایه)  → ready
+PASS  PL-01  مدرسهٔ موجود A در SQLite محصول ساخته شد (setup + دادهٔ واقعی)  → students=30 classes=2
+PASS  PL-02  مهاجرت SQLite→PostgreSQL با ابزار محصول انجام شد  → imported=166 source_rows=166
+PILOT-RECON tenant=A source_rows=166 target_rows=166 missing=0 extra=0 differed=0 source_hash=8e8899c35a65c8da556f63530e4e4670 target_hash=8e8899c35a65c8da556f63530e4e4670 match=1
+PASS  PL-03  reconciliation: شمارش + هش محتوا کالکشن‌به‌کالکشن برابر است  → collections=8 rows=166
+PASS  PL-04  tenant پایلوت دوم (B) از مسیر محصول فراهم شد  → rows=6
+PASS  PL-05  جداسازی زنده: A و B فقط دادهٔ خودشان را می‌بینند  → isolated=2
+PASS  PL-06  نوشتن/خواندن بین‌مستأجری دفع می‌شود (هدر جعلی + شناسهٔ دیگری)  → header_ignored=1
+PASS  PL-07  پاک‌کردن ردیف مستأجر دیگر ممکن نیست (حذف بین‌مستأجری)  → cross_delete=blocked
+PILOT-ROLLBACK tenant=A rows_after=0 b_intact=1 source_intact=1
+PASS  PL-08  rollback: ردیف‌های A پاک، B و منبع دست‌نخورده  → tenant_scoped=1
+PILOT-RECON tenant=A phase=reapply match=1 rows=166 hash=8e8899c35a65c8da556f63530e4e4670
+PASS  PL-09  re-apply مهاجرت idempotent است و reconciliation دوباره برابر می‌شود  → rows=166
+PILOT-MON tenant=aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa rows=166 collections=8 age_s=0 cross_tenant_visible=0 rls_enforced=1
+PILOT-MON tenant=bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb rows=6 collections=4 age_s=0 cross_tenant_visible=0 rls_enforced=1
+PASS  PL-10  پایش per-tenant: اسکریپت ops برای هر دو مستأجر سبز است  → tenants=2 green
+PILOT-STOP S1 cross_tenant_leaks value=0 limit=0 verdict=PASS
+PILOT-STOP S2 reconciliation_mismatch value=0 limit=0 verdict=PASS
+PILOT-STOP S3 source_data_loss value=0 limit=0 verdict=PASS
+PILOT-STOP S4 rollback_tenant_scoped value=1 limit=1 verdict=PASS
+PASS  PL-11  stop criteria با اعداد اندازه‌گیری‌شده ارزیابی شد  → criteria=4
+
+PILOT-SUMMARY pass=12 fail=0 tenants=2 collections=n/a
+PILOT-OK checks=12
