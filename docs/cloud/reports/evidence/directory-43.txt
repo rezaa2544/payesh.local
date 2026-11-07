@@ -1,0 +1,54 @@
+# شاهد ردیف ۴۳ — دایرکتوری مرکزی و مسیردهی مدرسه→cell
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/c2a035f9-payesh-local
+# head_sha: 0f999fd54b81a131b3e6f6b813a70e798957482f
+# generated_at: 2026-11-07T17:23:02Z
+# postgres: 18.6 (embedded-postgres — باینری بیرون از مخزن)
+# node: v22.22.3
+# os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-43-directory.sh
+# topology: directory=payesh_dir43 · cell1=payesh_cell1(:5661) · cell2=payesh_cell2(:5662) · legacy(:5663 بدون GW_CELL)
+
+## مهاجرت‌ها: دیتابیس مرکزی + دو cell
+directory migrate: statements=3
+cell1 tenancy migrate: statements=59
+cell2 tenancy migrate: statements=59
+
+## سه Gateway: cell1 مقید، cell2 مقید، و یکی بدون GW_CELL (شروع تک‌cell)
+## اجرای آزمون واقعی (۱۶ بررسی — دایرکتوری، کش TTL، stale، اتصال توکن به cell)
+PASS  DR-01  مهاجرت دیتابیس مرکزی: جدول cell و جدول مسیر  → statements=3 tables=directory_cells,school_routes
+PASS  DR-02  دو cell ثبت می‌شوند و هر مدرسه به یک cell مسیر می‌گیرد  → a=a1 b=a2 misses=2
+PASS  DR-03  کش مسیر با TTL: درخواست دوم بدون کوئری  → ttl=30s hits=1 misses=1 cache=1
+PASS  DR-04  مدرسهٔ ناشناس ⇒ null (ورود ۴۰۴)، کد بدشکل ⇒ خطای ۴۰۰  → unknown=null bad=bad_school_code/400
+PASS  DR-05  ورود برای school-a توکنِ حاوی cell می‌دهد  → cell=a1 tid_ok=yes role=manager
+PASS  DR-06  Gateway cell1 توکن cell1 را می‌پذیرد و cell را در healthz می‌گوید  → healthz_cell=ok pull=200
+PASS  DR-07  توکن cell2 روی Gateway cell1 ⇒ 403 wrong_cell (بدون افشای داده)  → cell1←cell2=wrong_cell cell2←cell1=wrong_cell
+PASS  DR-08  توکن بدون claim cell روی Gateway مقید ⇒ 403 missing_cell  → missing_cell
+PASS  DR-09  شروع تک‌cell بدون تغییر رفتار: Gateway بدون GW_CELL توکن قدیمی را می‌پذیرد  → pull=200 cell=null
+PASS  DR-10  نوشتن/خواندن در cell1 روی دیتابیس خودِ cell است  → cell1=1 cell2=0
+PASS  DR-11  تغییر مسیر پیش از پایان TTL دیده نمی‌شود، بعد از TTL دیده می‌شود  → before_ttl=cell1 after_ttl=cell2
+PASS  DR-12  قطع دایرکتوری: مسیر کش‌شده تا N دقیقه ادامه می‌دهد (stale)  → stale=yes cell2 kept age=1s
+PASS  DR-13  قطع دایرکتوری بدون کش ⇒ 503 directory_unavailable  → directory_unavailable/503
+PASS  DR-14  cell غیرفعال ⇒ ورود رد می‌شود (۴۰۹) و پس از فعال‌سازی برمی‌گردد  → disabled=cell_disabled/409 active=ok
+PASS  DR-15  یکتایی و یکپارچگی جدول مسیر: کد تکراری یک ردیف، حذف cell دارای مسیر ممنوع  → unique=yes fk=23001
+PASS  DR-16  توکن مدرسهٔ دیگر روی cell اشتباه حتی با tenant یکسان رد می‌شود  → wrong_cell
+
+DR checks=16 pass=16 fail=0
+DIRECTORY-43-OK
+
+## اندازه‌گیری مستقیم: جدول مسیردهی در دیتابیس مرکزی
+cell cell-1 aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1 status=active
+cell cell-2 aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2 status=active
+route school-a -> a1
+route school-b -> a2
+
+## عدم رگرسیون ۱: اسکوپ سمت سرور (ردیف ۳۸) — ۱۶ بررسی + رگرسیون‌های خودش
+SCOPE-38-OK
+SCOPE-38-OK
+(sc38_exit=0)
+
+## عدم رگرسیون ۲: Gateway (ردیف ۳۷) — ۱۹ بررسی
+gw_passed=19
+(gw37_exit=0)
+
+DIRECTORY-43-OK
