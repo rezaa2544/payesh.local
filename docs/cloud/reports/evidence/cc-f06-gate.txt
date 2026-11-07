@@ -1,10 +1,10 @@
 # دروازهٔ ردیف F‑06 — حذف هویت client-controlled از Outbox/drain (P0)
 generated_by: docs/cloud/reports/evidence/gen-f06-gate.sh
-head: b2fcbe2b2fb227b293017a3c11501e1264fe5516
-generated_at_utc: 2026-11-07T09:13:01Z
-product_tree_sha256: 51cb0c5db1f7ab2165764782bb8a9b22bac243c3185d155640fcc5ff80519aa9
-tests: 92 0
+head: 5a0a33ae3d0cd36e4e06a7fcd5ea1fffd21e5712
+generated_at_utc: 2026-11-07T09:24:57Z
+product_tree_sha256: b6ecc6a12a1b61aa2dd47f75d3bac472a769aef75c622707978ede32de27ee86
+tests: 93 0
 checks_passed: 19
 F-06: CLOSED
 
-F06-CLOSED checks=19 tests=92 0
+F06-CLOSED checks=19 tests=93 0

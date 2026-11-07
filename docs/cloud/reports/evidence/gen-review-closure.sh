@@ -220,7 +220,7 @@ esac
 if ! git cat-file -e f2fc472^{commit} 2>/dev/null; then
   bad "C7 پایهٔ ممیزی f2fc472 در مخزن نیست (clone کم‌ژرفا؟) — «۰ فایل تغییر» بی‌اعتبار است"
 else
-  ALLOW="${RC_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/policy.js server/live.js server/mirror.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs}"
+  ALLOW="${RC_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/policy.js server/live.js server/mirror.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/restart.js tests/phone-flow.js scripts/bake-cloud.mjs}"
   OUTSIDE=$(git diff --name-only f2fc472 HEAD -- server client tests scripts package.json package-lock.json installer desktop install deploy | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
   PROD=$(git diff --name-only f2fc472 HEAD -- server client tests scripts package.json package-lock.json installer desktop install deploy | wc -l | tr -d ' ')
   if [ "$OUTSIDE" = "0" ]; then

@@ -212,7 +212,7 @@ fi
 # تغییرش ممنوع نیست، چون خود شاهد را در CI بالا می‌آورد.
 # D‑35: از باز شدن دروازهٔ فاز ۳، تغییر کد محصول در فایل‌های اعلام‌شده مجاز است؛
 # هر فایل بیرون از این فهرست ⇒ شکست (بقیهٔ محصول باید نسبت به پایه دست‌نخورده بماند).
-ALLOW="${AUDIT_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/mirror.js server/policy.js server/live.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs}"
+ALLOW="${AUDIT_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/mirror.js server/policy.js server/live.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/restart.js tests/phone-flow.js scripts/bake-cloud.mjs}"
 PROD_DIFF=$(git diff --name-only "$BASE" HEAD -- server client tests installer scripts desktop deploy install package.json package-lock.json 2>/dev/null | wc -l | tr -d ' ')
 OUTSIDE=$(git diff --name-only "$BASE" HEAD -- server client tests installer scripts desktop deploy install package.json package-lock.json 2>/dev/null | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
 [ "$OUTSIDE" = "0" ] || fail "product/CI files outside the D-35 allowlist changed vs audit base $BASE: $OUTSIDE file(s)"
