@@ -1,12 +1,12 @@
 # شاهد ردیف ۲۶ (F‑05) — tenancy/RLS بدنهٔ محصول روی PostgreSQL واقعی
 # تولید: bash docs/cloud/reports/evidence/run-f05-product-tenancy.sh
-# زمان: 2026-11-07T11:07:29Z
-# HEAD: 103b375ffc1ac808df4085934c9e8f9ce8bcb967
+# زمان: 2026-11-07T11:31:00Z
+# HEAD: 3ae340bf2b0bf45132af1d2c56efa279c5cc10c3
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 # postgres version: 18.6 (باینری بیرون از مخزن؛ وابستگی محصول نیست)
 # product_path: server/tenancy.js + server/index.js (/api/cloud/tenancy/product/*)
 # migration: scripts/tenancy-migrate-product.js
-# product_tree_sha256: c2dd8900c7ab43fc220064231d1ffc88d0112848d87a6bf2da16bf7dc5b0bf6d
+# product_tree_sha256: 7afea57ff72fabfc468b5072e1620b0394dec6732d95a805d3a903b724c74716
 
 PASS  F05-01  CRUD: درج کلاس در مستأجر A از مسیر محصول  → version=1
 PASS  F05-02  OCC: نسخهٔ کهنه ⇒ 409 و بدون نوشتن  → version=2

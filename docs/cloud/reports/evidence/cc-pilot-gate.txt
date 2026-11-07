@@ -1,7 +1,7 @@
 # دروازهٔ پایلوت چند‌مدرسه‌ای — ردیف ۳۰
 generated_by: docs/cloud/reports/evidence/gen-pilot-gate.sh
-head: 650407d5afd67764bef5610361c05d9af2f4ea71
-generated_at_utc: 2026-11-07T11:30:21Z
+head: 3ae340bf2b0bf45132af1d2c56efa279c5cc10c3
+generated_at_utc: 2026-11-07T11:32:56Z
 drill_witness: docs/cloud/reports/evidence/pilot-migration-drill.txt
 monitoring_witness: docs/cloud/reports/evidence/pilot-tenant-monitoring.txt
 tenants: aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa,bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb
