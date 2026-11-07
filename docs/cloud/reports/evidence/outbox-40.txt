@@ -1,9 +1,9 @@
 # شاهد ردیف ۴۰ — صف عملیات آفلاین پایدار روی دستگاه
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/dfb59505-payesh-local
-# head_sha: ed85dfbc2d397a3ada6a39c10b027a6333eed47e
+# head_sha: 773f4b292f0fc566bd16d86abc9c7ecc81dc013d
 # version: 0.8.55
-# generated_at: 2026-11-07T19:34:25Z
+# generated_at: 2026-11-07T19:35:11Z
 # node: v22.22.3
 # os: Linux 6.1.158+ x86_64
 # command: bash docs/cloud/reports/evidence/run-40-outbox.sh
@@ -19,7 +19,7 @@ PASS  OB-06  crash وسط ارسال: بعد از restart همان عملیات 
 PASS  OB-07  شکست ارسال: عقب‌نشینی نمایی و پذیرش دوباره در زمان درست  → attempts=1 next_at=+1000ms exponential=true
 PASS  OB-08  پس از سقف تلاش: عملیات blocked می‌شود و **حذف نمی‌شود**  → attempts=3 state=blocked kept=true
 PASS  OB-09  تلاش دستی برای عملیات blocked → دوباره pending و ارسال موفق  → blocked→retry→applied=1 queue=0
-PASS  OB-10  ارسال کامل روی سرور واقعی: ۴۰ عملیات اعمال و صف خالی می‌شود  → batches=1 applied=40 server_rows=+40 send_ms=114
+PASS  OB-10  ارسال کامل روی سرور واقعی: ۴۰ عملیات اعمال و صف خالی می‌شود  → batches=1 applied=40 server_rows=+40 send_ms=132
 PASS  OB-11  اعمال دقیقاً یک‌بار: ارسال دوبارهٔ همان دسته پس از crash، ردیف تکراری نمی‌سازد  → first=5 resent=5 server_rows=+5 duplicates_ignored=5 queue=0
 PASS  OB-12  قطعی شبکه: هیچ عملیاتی گم نمی‌شود و همه برای تلاش بعدی می‌مانند  → enqueued=100 kept=100 failed_batches=1 retry_scheduled=true
 PASS  OB-13  ردی که سرور رد می‌کند: از صف خارج می‌شود ولی در فهرست بررسی ثبت می‌گردد (بدون حذف خاموش)  → rejected=1 review_recorded=1 queue=0
