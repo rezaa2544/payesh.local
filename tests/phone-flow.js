@@ -57,9 +57,10 @@ async function makeWindow() {
   const win = dom.window;
   win.PAYESH_API_BASE = 'http://127.0.0.1:9';      /* سیستم مدرسه در دسترس نیست */
   win.PAYESH_BUNDLED = true;
+  /* D‑23/F‑04: باندل هیچ کلیدی ندارد — فقط فراداده */
   win.PAYESH_CLOUD = {
     endpoint: 'https://s3.ir-central1.arvanstorage.ir', bucket: 'payesh-test',
-    accessKey: 'AKIATEST', secret: 'secret', region: 'ir-central1', prefix: PREFIX,
+    region: 'ir-central1', prefix: PREFIX, pathStyle: true,
   };
   try { win.crypto = require('crypto').webcrypto; } catch (e) { /* noop */ }
   win.matchMedia = win.matchMedia || (() => ({ matches: false, addListener() {}, removeListener() {} }));
@@ -134,7 +135,39 @@ function toastText(win) {
   return [...win.document.querySelectorAll('#toasts .toast')].map(t => t.textContent).join(' | ');
 }
 
+/* ── گوشی‌ای که یک‌بار در مدرسه وارد شده است (D‑23/F‑04) ─────────────
+   هیچ کلیدی روی گوشی نیست؛ فقط تیکت‌های کوتاه‌عمرِ همان دستگاه و
+   «نسخهٔ قابل‌بررسی» رمز برای ورودِ بعدی بدون سرور. */
+function seedDevice(win, who) {
+  const H = win.PayeshHash;
+  const salt = 'a1b2c3d4e5f60718';
+  const verifier = 'pbkdf2$150000$' + salt + '$' + H.hex(H.pbkdf2(password, salt, 150000, 32));
+  const exp = new Date(Date.now() + 3600_000).toISOString();
+  const url = key => 'https://s3.ir-central1.arvanstorage.ir/payesh-test/' + PREFIX + key + '?X-Amz-Signature=seed';
+  const tk = (method, key) => ({ url: url(key), method, key: PREFIX + key, expires_at: exp });
+  win.localStorage.setItem('payesh.phone.user', JSON.stringify({
+    id: who.id, name: who.name, role: who.role, phone: who.phone, class_id: who.class_id || null, active: true,
+  }));
+  win.localStorage.setItem('payesh.phone.verifier', verifier);
+  win.localStorage.setItem('payesh.phone.device', 'devphone1');
+  win.localStorage.setItem('payesh.phone.tickets', JSON.stringify({
+    at: new Date().toISOString(),
+    device_id: 'devphone1',
+    device_file: PREFIX + 'outbox/pending/device-devphone1.json',
+    config: { endpoint: 'https://s3.ir-central1.arvanstorage.ir', bucket: 'payesh-test', region: 'ir-central1', prefix: PREFIX, pathStyle: true },
+    tickets: {
+      rev_get: tk('GET', 'realtime/rev.json'),
+      rev_put: tk('PUT', 'realtime/rev.json'),
+      core_get: tk('GET', 'data/core.json'),
+      person_get: tk('GET', 'data/person/' + who.id + '.json'),
+      outbox_put: tk('PUT', 'outbox/pending/device-devphone1.json'),
+    },
+  }));
+}
+
 async function login(win, phone) {
+  const who = [teacher, student, parent, vice, staff, manager].find(u => u.phone === phone);
+  if (who) seedDevice(win, who);
   const form = win.document.querySelector('form[data-form="phone-login"]');
   if (!form) throw new Error('صفحهٔ ورود گوشی نیامد — متن صفحه: ' + win.document.body.textContent.slice(0, 200));
   form.querySelector('[name="phone"]').value = phone;

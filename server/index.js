@@ -171,6 +171,46 @@ function actorFrom(req) {
   return { user: s.user, role: s.user.role, device: s.device, session: s.session };
 }
 
+/* ── تیکت کوتاه‌عمرِ صندوقچه برای گوشی (D‑23 / F‑04) ──────────────────
+   گوشی هیچ کلیدی نمی‌گیرد: فقط چند نشانی امضاشده که خودشان منقضی می‌شوند
+   و هرکدام فقط به یک فایل و یک عمل اجازه می‌دهند. تیکت‌ها به همان مدرسه
+   (پیشوند صندوقچه) و همان کاربر بسته‌اند؛ کلید قابل‌جا‌به‌جا‌شدن نیست. */
+const PHONE_TICKET_TTL = 7 * 24 * 3600; /* حداکثر عمر مجاز SigV4 */
+
+function phoneDeviceId(raw) {
+  const s = String(raw || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
+  return s.length >= 6 ? s : ('dev-' + require('crypto').randomBytes(6).toString('hex'));
+}
+
+function phoneTickets(store, user, deviceRaw) {
+  const cfg = s3mem.usingMeta(store).get();
+  if (!cfg.endpoint || !cfg.accessKey || !cfg.secret || !cfg.bucket) return { ok: false, error: 'no_cloud' };
+  const device = phoneDeviceId(deviceRaw);
+  const prefix = String(cfg.prefix || 'payesh/');
+  const until = sec => new Date(Date.now() + sec * 1000).toISOString();
+  const mk = (method, key, seconds) => ({
+    url: s3mem.presign(cfg, { method, key, expires: seconds }),
+    method, key, expires_at: until(seconds),
+  });
+  const deviceKey = prefix + 'outbox/pending/device-' + device + '.json';
+  return {
+    ok: true,
+    device_id: device,
+    device_file: deviceKey,
+    config: {
+      endpoint: cfg.endpoint, bucket: cfg.bucket, region: cfg.region,
+      prefix, pathStyle: cfg.pathStyle,
+    },
+    tickets: {
+      rev_get: mk('GET', prefix + 'realtime/rev.json', PHONE_TICKET_TTL),
+      rev_put: mk('PUT', prefix + 'realtime/rev.json', PHONE_TICKET_TTL),
+      core_get: mk('GET', prefix + 'data/core.json', PHONE_TICKET_TTL),
+      person_get: mk('GET', prefix + 'data/person/' + Number(user.id) + '.json', PHONE_TICKET_TTL),
+      outbox_put: mk('PUT', deviceKey, PHONE_TICKET_TTL),
+    },
+  };
+}
+
 /* ── محدودیت ساده نرخ (در حافظه) ───────────────────────────────────── */
 const buckets = new Map();
 function rateLimit(key, max, windowMs) {
@@ -436,6 +476,37 @@ async function api(req, res, url, ip) {
     return json(r);
   }
 
+  /* ── گوشی: ورود و فراداده، بدون هیچ کلیدی (D‑23 / F‑04) ──────────── */
+  if (p === '/api/phone/config' && m === 'GET') {
+    const c = s3mem.usingMeta(store).get();
+    return json({
+      ok: true, mode: 'server', keyless: true,
+      config: {
+        endpoint: c.endpoint, bucket: c.bucket, region: c.region,
+        prefix: c.prefix, pathStyle: c.pathStyle,
+      },
+      ready: !!(c.endpoint && c.bucket && c.accessKey && c.secret),
+    });
+  }
+
+  if (p === '/api/phone/login' && m === 'POST') {
+    const ip = (req.socket && req.socket.remoteAddress) || 'phone';
+    if (!rateLimit('phone-login:' + ip, 40, 10 * 60_000)) return json({ ok: false, error: 'too_many' }, 429);
+    let body = {};
+    try { body = await readBody(req); } catch (e) { return json({ ok: false, error: 'bad_json' }, 400); }
+    const r = auth.login(store, {
+      phone: body.phone, password: body.password,
+      name: body.name || 'گوشی', platform: 'phone',
+    });
+    if (!r.ok) return json(r, 401);
+    const t = phoneTickets(store, r.user, body.device_id);
+    /* تیکت نگرفت (حافظهٔ ابری تنظیم نیست) هم ورود موفق است؛ گوشی در صف محلی می‌نویسد */
+    return json(Object.assign({
+      ok: true, token: r.session, user: auth.publicUser(r.user),
+      expires_hours: auth.SESSION_HOURS, keyless: true,
+    }, t.ok ? t : { tickets: null, error_cloud: t.error }));
+  }
+
   /* از این‌جا به بعد نیاز به نشست */
   const actor = actorFrom(req);
   if (!actor && p.startsWith('/api/')) return json({ ok: false, error: 'unauthorized' }, 401);
@@ -535,15 +606,13 @@ async function api(req, res, url, ip) {
     return json(Object.assign({ ok: !!(r.auth && r.auth.ok) }, r));
   }
 
-  /* آنچه گوشی لازم دارد: نشانی صندوقچه + کلید (فقط برای کاربر واردشده) */
-  if (p === '/api/phone/config' && m === 'GET') {
-    let c = s3mem.usingMeta(store).get();
-    if (!c.bucket && c.accessKey) { try { c = await s3mem.ensureBucket(store); } catch (e) { /* بعداً */ } }
-    return json({
-      ok: true,
-      config: { endpoint: c.endpoint, bucket: c.bucket, region: c.region, prefix: c.prefix, accessKey: c.accessKey, secret: c.secret, pathStyle: c.pathStyle },
-      ready: !!(c.endpoint && c.bucket && c.accessKey && c.secret),
-    });
+  /* تازه‌سازی تیکت گوشی (نشست لازم است) — همچنان بدون هیچ کلیدی */
+  if (p === '/api/phone/ticket' && m === 'POST') {
+    let body = {};
+    try { body = await readBody(req); } catch (e) { body = {}; }
+    const t = phoneTickets(store, actor.user, body.device_id);
+    if (!t.ok) return json(t, 409);
+    return json(t);
   }
 
   if (p === '/api/outbox/snapshot' && m === 'GET') {
@@ -681,14 +750,17 @@ async function api(req, res, url, ip) {
   /* پیکربندی صندوقچه برای «هر دستگاهِ واردشده» — گوشی/تبلت هم بدون تایپ کلید می‌داند
      کجا بنویسد (برای وقتی که سیستم مدرسه خاموش است). کلید فقط به کاربر واردشده داده می‌شود. */
   if (p === '/api/cloud/config' && m === 'GET') {
+    /* D‑23/F‑04: این مسیر فقط «فراداده» می‌دهد — هیچ accessKey/secretی، برای هیچ نقشی.
+       نوشتن در صندوقچه فقط از سرور انجام می‌شود (upload: 'server'). */
     let c = s3mem.usingMeta(store).get();
     if (!c.bucket && c.accessKey) { try { c = await s3mem.ensureBucket(store); } catch (e) { /* بعداً */ } }
     return json({
       ok: true,
       config: {
         endpoint: c.endpoint, bucket: c.bucket, region: c.region, prefix: c.prefix,
-        accessKey: c.accessKey, secret: c.secret, pathStyle: c.pathStyle,
+        pathStyle: c.pathStyle,
       },
+      upload: 'server',
       ready: !!(c.endpoint && c.bucket && c.accessKey && c.secret),
     });
   }
@@ -699,16 +771,22 @@ async function api(req, res, url, ip) {
     if (!view.bucket && view.accessKey && view.secret) {
       try { view = await s3mem.ensureBucket(store); } catch (e) { /* بی‌اینترنت — همان پیش‌فرض */ }
     }
-    const reveal = q.get('reveal') === '1';
+    /* حتی برای مدیر هم کلید بازخوانی نمی‌شود (D‑23): فقط «هست/نیست» و سرنخ چهارنویسه‌ای.
+       نوشتن کلید تازه از همین مسیر مجاز است (write-only)، بازخوانی نه. */
     return json({
       ok: true,
-      config: Object.assign({}, view, {
-        secret: view.secret ? (reveal ? view.secret : '••••••••') : '',
-        accessKey: reveal ? view.accessKey : (view.accessKey ? view.accessKey.slice(0, 4) + '…' : ''),
+      config: {
+        endpoint: view.endpoint, bucket: view.bucket, region: view.region, prefix: view.prefix,
+        pathStyle: view.pathStyle,
+        secret: view.secret ? '••••••••' : '',
+        accessKey: view.accessKey ? view.accessKey.slice(0, 4) + '…' : '',
+        has_secret: !!view.secret,
+        has_access_key: !!view.accessKey,
         configured: !!(view.endpoint && view.bucket && view.accessKey && view.secret),
         source: view.source || (s3mem.usingMeta(store).isDefault() ? 'default' : 'saved'),
         built_in: s3mem.usingMeta(store).isDefault(),
-      }),
+        reveal_allowed: false,
+      },
       region_guess: s3mem.regionOf(view),
     });
   }

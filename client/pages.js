@@ -1612,14 +1612,15 @@ PAGES.cloud = () => {
   const edit = !!S.cloudEdit;
   const row = (id, label, val, ph, type) => `<label class="field" style="margin-top:8px"><span>${label}</span>
     <input class="input" id="${id}" ${type === 'password' ? 'type="password"' : ''} placeholder="${esc(ph || '')}" value="${esc(val || '')}"></label>`;
-  const ready = !!(c && c.endpoint && c.accessKey && c.secret && c.bucket);
+  /* D‑23/F‑04: کلید بازخوانی نمی‌شود؛ آمادگی را سرور با «هست/نیست» می‌گوید */
+  const ready = !!(c && c.configured);
   return `${pageHead('حافظهٔ ابری', 'جایی در اینترنت که همهٔ دستگاه‌ها رویش می‌نویسند', '')}
   ${card(`<div class="small muted" style="line-height:1.9">
     وقتی هیچ سیستمی در مدرسه روشن نیست، پیام‌ها و تکالیف باید جایی بمانند تا اولین دستگاهِ روشن‌شده همه را بردارد.
     اینجا همان «صندوقچه» است.
   </div>`)}
   ${c === null ? card(`<div class="muted small">در حال خواندن تنظیمات…</div>`) : card(`
-    <div class="row between"><b>وضعیت صندوقچه</b>${ready ? badge('آماده', 'green') : (c.accessKey ? badge('در حال آماده‌سازی', 'amber') : badge('تنظیم نشده', 'amber'))}</div>
+    <div class="row between"><b>وضعیت صندوقچه</b>${ready ? badge('آماده', 'green') : (c.has_access_key ? badge('در حال آماده‌سازی', 'amber') : badge('تنظیم نشده', 'amber'))}</div>
     ${c.built_in
       ? `<div class="small muted" style="margin-top:8px;line-height:1.9">✅ <b>از قبل داخل برنامه تنظیم شده است</b> — لازم نیست چیزی وارد کنید.
           ${c.bucket ? `<br>صندوقچه: <span class="ltr">${esc(c.bucket)}</span>` : '<br>نام صندوقچه به‌زودی خودکار پیدا می‌شود (به اینترنت نیاز دارد).'}
@@ -1641,10 +1642,9 @@ PAGES.cloud = () => {
     ${row('cl-region', 'منطقه (اختیاری)', c.region, 'ir-central1')}
     ${row('cl-access', 'کلید عمومی (Access Key)', c.accessKey, '')}
     ${row('cl-secret', 'کلید خصوصی (Secret Key)', '', 'کلید خصوصی فعلی می‌ماند', 'password')}
-    <div class="small muted" style="margin-top:6px">کلید خصوصی ذخیره می‌شود ولی دیگر نمایش داده نمی‌شود؛ برای تغییر، مقدار تازه بگذارید.</div>
+    <div class="small muted" style="margin-top:6px">کلید فقط روی سرور می‌ماند و هرگز به مرورگر/گوشی برنمی‌گردد؛ برای تغییر، مقدار تازه بگذارید. تست اتصال هم فقط از سرور انجام می‌شود.</div>
     <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
       <button class="btn sm" data-act="cloud-save" ${busy ? 'disabled' : ''}>ذخیرهٔ تنظیمات تازه</button>
-      <button class="btn sm ghost" data-act="cloud-test-browser" ${busy ? 'disabled' : ''}>آزمایش از همین دستگاه</button>
     </div>`) : ''}
 
   ${card(`<b>📱 دسترسی گوشی‌ها</b>

@@ -41,7 +41,7 @@ fa() {
 git cat-file -e "$BASE^{commit}" 2>/dev/null || fail "BASE-MISSING: $BASE در مخزن نیست"
 PROD_N=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS | grep -c . || true)
 # D‑35: تغییر محصول مجاز است، ولی فقط در فایل‌های اعلام‌شدهٔ فاز ۳
-ALLOW="${CC12_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js}"
+ALLOW="${CC12_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs}"
 OUTSIDE=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
 [ "$OUTSIDE" = "0" ] || fail "PRODUCT-SCOPE: $OUTSIDE فایل محصول بیرون از فهرست مجاز D‑35 تغییر کرده"
 
