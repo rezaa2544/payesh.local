@@ -1,0 +1,13 @@
+# دروازهٔ ظرفیت / HA / DR — ردیف ۲۹
+generated_by: docs/cloud/reports/evidence/gen-capacity-gate.sh
+head: b7b5b87f87b0e34f4e87fd2cfa91a4570c2bb13e
+generated_at_utc: 2026-11-07T11:17:46Z
+load_witness: docs/cloud/reports/evidence/capacity-mixed-load.txt
+dr_witness: docs/cloud/reports/evidence/capacity-dr-drill.txt
+monitoring_witness: docs/cloud/reports/evidence/capacity-monitoring.txt
+capacity_max_ok_concurrency: 16
+honest_scope: single_host · no_multi_node_ha · no_auto_failover · no_sla · no_network_simulation
+checks_passed: 30
+row-29: CLOSED
+
+CAPACITY-GATE-CLOSED checks=30 max_ok_concurrency=16 dr=OK monitoring=OK

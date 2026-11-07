@@ -65,6 +65,11 @@ jobs:
       - name: دروازهٔ امنیت (Security Gate)
         run: bash docs/cloud/reports/evidence/gen-security-gate.sh
 
+      # دروازهٔ ظرفیت/HA/DR (ردیف ۲۹): بار واقعی، قطعی/بازیابی، RPO/RTO، پروب هشدار.
+      # «سبز» یعنی «این سنجه‌ها روی یک میزبان اندازه‌گیری شد»، نه «SLA/HA دارد».
+      - name: دروازهٔ ظرفیت و DR (Capacity/DR Gate)
+        run: bash docs/cloud/reports/evidence/gen-capacity-gate.sh
+
       - name: آزمون رابط، جریان کاربری، صندوقچه و به‌روزرسانی
         run: |
           npm run test:ui

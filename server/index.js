@@ -373,6 +373,28 @@ async function api(req, res, url, ip) {
   const m = req.method;
 
   /* سلامت — کلاینت با همین حالت سروری را تشخیص می‌دهد */
+  /* ── آمادگی سرویس (readyz) — ردیف ۲۹: پروب واقعی برای مانیتورینگ/هشدار،
+     بدون هیچ مسیر یا راز در پاسخ؛ ۲۰۰ یعنی «آمادهٔ سرویس»، ۵۰۳ یعنی «نه». */
+  if (p === '/api/readyz' && m === 'GET') {
+    const checks = { db: false, data_writable: false, disk_free_pct: null, backup_age_s: null, mirror_age_s: null };
+    try { checks.db = !!(store.get('schools', 1) || true); } catch (e) { checks.db = false; }
+    try { fs.accessSync(DATA_DIR, fs.constants.W_OK); checks.data_writable = true; } catch (e) { checks.data_writable = false; }
+    try {
+      const st = fs.statfsSync ? fs.statfsSync(DATA_DIR) : null;
+      if (st && st.blocks) checks.disk_free_pct = +(((st.bavail / st.blocks) * 100).toFixed(1));
+    } catch (e) { /* پشتیبانی نمی‌شود */ }
+    const ageOf = dir => {
+      try {
+        const files = fs.readdirSync(dir).map(f => { try { return fs.statSync(path.join(dir, f)).mtimeMs; } catch (e) { return 0; } }).filter(Boolean);
+        return files.length ? Math.round((Date.now() - Math.max(...files)) / 1000) : null;
+      } catch (e) { return null; }
+    };
+    checks.backup_age_s = ageOf(BACKUP_DIR);
+    checks.mirror_age_s = ageOf(MIRROR_DIR);
+    const ready = checks.db && checks.data_writable && (checks.disk_free_pct == null || checks.disk_free_pct >= 5);
+    return json({ ok: ready, ready, version: RUNNING_VERSION, uptime_s: Math.round(process.uptime()), checks }, ready ? 200 : 503);
+  }
+
   if (p === '/api/health' && m === 'GET') {
     return json({
       ok: true, name: 'payesh-local', version: RUNNING_VERSION,
@@ -1319,9 +1341,11 @@ async function api(req, res, url, ip) {
   }
 
   if (p === '/api/admin/backups' && m === 'GET') {
+    if (!BACKUP_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     let files = [];
     try { files = fs.readdirSync(BACKUP_DIR).filter(f => f.endsWith('.sqlite')).sort().reverse(); } catch (e) { /* noop */ }
-    return json({ ok: true, files, dir: BACKUP_DIR });
+    /* ردیف ۲۹: مسیر مطلق سرور بیرون نمی‌رود */
+    return json({ ok: true, files, count: files.length });
   }
   const bm = p.match(/^\/api\/admin\/backups\/([A-Za-z0-9._-]+)$/);
   if (bm && m === 'GET') {
@@ -1873,7 +1897,8 @@ async function mirrorTick() {
   }
 }
 if (process.env.PAYESH_MIRROR !== '0') {
-  setInterval(() => { mirrorTick(); }, 60 * 1000).unref();
+  const mirrorMs = Math.max(1000, Number(process.env.PAYESH_MIRROR_MS || 60 * 1000));
+  setInterval(() => { mirrorTick(); }, mirrorMs).unref();
   setTimeout(() => { mirrorTick(); }, 1500).unref();
 }
 

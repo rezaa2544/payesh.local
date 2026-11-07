@@ -1,0 +1,14 @@
+# شاهد خام تمرین DR — ردیف ۲۹
+generated_at: 2026-11-07T11:17:45.434Z
+# DR-DRILL ردیف ۲۹ — outage/restore/RPO/RTO · 2026-11-07T11:17:40.184Z
+# node v22.22.3 linux cpus=2
+DR-OUTAGE users_before=41 killed_at=2026-11-07T11:17:41.275Z down_codes=0,0,0 old_process_alive=0 new_process_up=1 users_after=41 downtime_ms=586 reauth=1
+DR-OUTAGE-NOTE rename/removal of the sqlite file does NOT simulate an outage: the open file handle keeps serving reads. Only a real process/disk failure does.
+DR-RPO mirror_interval_ms=1500 measured_lag_ms=1208 default_interval_ms=60000 rpo_bound_s=60 within_target=1
+DR-RESTORE backup_file=payesh-2026-11-07T11-17-44-755Z.sqlite backup_size=274432 backups_left=2 users_before=41 attendance_post_incident=225 rpo_s=0 rto_ms=377 restored=1 users_after=41 error=-
+DR-FAILOVER auto_failover=0 mirror=async_backup_only note=«تعویض خودکار نمونه در محصول پیاده نشده؛ بازیابی دستی است»
+DR-SCOPE scope=local_single_host no_multi_node_ha=1 no_network_partition_simulation=1
+DR-DRILL-OK failures=0 rpo_target_min=5 rto_target_min=120
+
+NOTE: اعداد روی همین میزبان محلی است؛ HA چند‌سروری و پارتیشن شبکه شبیه‌سازی نشده.
+EXIT=0
