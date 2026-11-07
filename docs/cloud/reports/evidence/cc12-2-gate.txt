@@ -1,10 +1,10 @@
 # دروازهٔ CC‑12‑2 — اجرای RLS از مسیر محصول
 generated_by: docs/cloud/reports/evidence/gen-cc12-2-gate.sh
-head: 74db0b8518049e6ab3d405618d6fe994d9060fd7
+head: 4344f4efe28c3e31aa608402ea9be835eea7edd2
 evidence_head: e8730a29d3efcd2296ce4b430a0d446f47f8c884
-head_product_tree_sha256: 1188a491f99884808a401ba1a7b710fd3c2542970c6bdcd78c76502ecc793cb3
+head_product_tree_sha256: bf23e8b3380c63c908033f61af8d172bfbc392869e34d80ae0e0d922e4755c5f
 base: f2fc472
-generated_at_utc: 2026-11-07T08:21:55Z
+generated_at_utc: 2026-11-07T08:24:04Z
 product_tree_sha256: 946af239795b4f2bca1b9b6a9137984359924289ff2e6f88d3cf5b6220297c89
 evidence: docs/cloud/reports/evidence/cc12-2-product-rls.txt
 postgres: 18.6

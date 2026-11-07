@@ -1,8 +1,8 @@
 # دروازهٔ بستن صف — D‑30..D‑33 و شرایط CC‑12‑3/CC‑12‑4
 generated_by: docs/cloud/reports/evidence/gen-cc12-closure.sh
-head: 74db0b8518049e6ab3d405618d6fe994d9060fd7
+head: 4344f4efe28c3e31aa608402ea9be835eea7edd2
 base: f2fc472
-generated_at_utc: 2026-11-07T08:22:02Z
+generated_at_utc: 2026-11-07T08:24:11Z
 product_diff_files: 16
 bench_cap_devices: 768
 bench_p95_at_384: 486

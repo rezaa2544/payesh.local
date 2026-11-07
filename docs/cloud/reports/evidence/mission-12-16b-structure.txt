@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
 branch: arena/1ddd98b3-payesh-local
-head: 74db0b8518049e6ab3d405618d6fe994d9060fd7
+head: 4344f4efe28c3e31aa608402ea9be835eea7edd2
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=273  tables=87  ac_rows=8
@@ -32,20 +32,13 @@ school_id (files): 8
 api routes (unique /api literals in server/index.js): 65
 
 ## وضعیت درخت کاری
+ M docs/cloud/reports/evidence/cc-f04-gate.txt
  M docs/cloud/reports/evidence/cc11-gate.txt
- M docs/cloud/reports/evidence/cc11-raw-drill.txt
- M docs/cloud/reports/evidence/cc11-required-labels.txt
  M docs/cloud/reports/evidence/cc12-2-gate.txt
  M docs/cloud/reports/evidence/cc12-closure-gate.txt
- M docs/cloud/reports/evidence/drill-11-claims.cjs
- M docs/cloud/reports/evidence/gen-audit-evidence.sh
- M docs/cloud/reports/evidence/gen-cc11-evidence.sh
- M docs/cloud/reports/evidence/gen-cc12-2-gate.sh
- M docs/cloud/reports/evidence/gen-cc12-closure.sh
- M docs/cloud/reports/evidence/gen-phase3-gate.sh
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
  M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
- M docs/cloud/reports/evidence/review-closure-01.txt
-?? docs/cloud/reports/evidence/tests-run-74db0b8-20261107T082018Z.log
+ M docs/cloud/reports/evidence/phase3-gate.txt
+?? docs/cloud/reports/evidence/tests-run-4344f4e-20261107T082303Z.log
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
