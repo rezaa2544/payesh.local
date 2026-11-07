@@ -1,0 +1,70 @@
+{
+  "bench": "bench-39",
+  "label": "chrome-desktop",
+  "rows_requested": 100000,
+  "chunk": 2000,
+  "cpu_throttle_factor_claimed": null,
+  "started_at": "2026-11-07T20:00:59.798Z",
+  "env": {
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.0.0 Safari/537.36",
+    "platform": "Win32",
+    "hardware_concurrency": 8,
+    "device_memory_gb": 8,
+    "is_secure_context": true,
+    "cross_origin_isolated": false,
+    "has_measure_memory": false
+  },
+  "calibration": {
+    "calib_ms": 1240,
+    "sink": 0
+  },
+  "mem_before": {
+    "used_mb": 1.1,
+    "total_mb": 2.3,
+    "limit_mb": 4192
+  },
+  "storage_before": {
+    "usage_mb": 0,
+    "quota_mb": 10240
+  },
+  "open_ms": 371,
+  "load_ms": 53645,
+  "rows_per_sec": 1864,
+  "mem_after_load": {
+    "used_mb": 23,
+    "total_mb": 25.4,
+    "limit_mb": 4192
+  },
+  "count": 100000,
+  "count_ms": 585,
+  "index_query": {
+    "field": "class_id",
+    "value": 1,
+    "rows": 2500,
+    "ms": 260
+  },
+  "page_query": {
+    "rows": 50,
+    "ms": 8
+  },
+  "since_query": {
+    "rows": 0,
+    "ms": 2
+  },
+  "reopen_ms": 1,
+  "first_get_after_reopen_ms": 1,
+  "first_get_found": true,
+  "stat_after_reopen": 100000,
+  "mem_after_reopen": {
+    "used_mb": 24.3,
+    "total_mb": 26.9,
+    "limit_mb": 4192
+  },
+  "storage_after": {
+    "usage_mb": 63.8,
+    "quota_mb": 10303.8
+  },
+  "finished_at": "2026-11-07T20:01:57.027Z",
+  "ok": true,
+  "verdict": "BENCH39-OK"
+}
