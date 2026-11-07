@@ -239,12 +239,13 @@ function phoneTickets(store, user, deviceRaw) {
   if (!cfg.endpoint || !cfg.accessKey || !cfg.secret || !cfg.bucket) return { ok: false, error: 'no_cloud' };
   const device = phoneDeviceId(deviceRaw);
   const prefix = String(cfg.prefix || 'payesh/');
+  /* مسیر فایلِ همین دستگاه — فقط برای نمایش/پشتیبانی؛ نوشتن در آن فقط از سرور */
+  const deviceKey = prefix + 'outbox/pending/device-' + device + '.json';
   const until = sec => new Date(Date.now() + sec * 1000).toISOString();
   const mk = (method, key, seconds) => ({
     url: s3mem.presign(cfg, { method, key, expires: seconds }),
     method, key, expires_at: until(seconds),
   });
-  const deviceKey = prefix + 'outbox/pending/device-' + device + '.json';
   return {
     ok: true,
     device_id: device,
@@ -258,8 +259,10 @@ function phoneTickets(store, user, deviceRaw) {
       rev_put: mk('PUT', prefix + 'realtime/rev.json', PHONE_TICKET_TTL),
       core_get: mk('GET', prefix + 'data/core.json', PHONE_TICKET_TTL),
       person_get: mk('GET', prefix + 'data/person/' + Number(user.id) + '.json', PHONE_TICKET_TTL),
-      outbox_put: mk('PUT', deviceKey, PHONE_TICKET_TTL),
+      /* F‑06: کلاینت اجازهٔ نوشتن مستقیم در صندوقچه را ندارد؛ ثبت‌ها از
+         مسیر /api/outbox/submit با هویتِ امضاشدهٔ سرور می‌آیند. */
     },
+    submit: { url: '/api/outbox/submit', method: 'POST', header: 'X-Phone-Ticket' },
   };
 }
 
@@ -582,6 +585,29 @@ async function api(req, res, url, ip) {
     const t = phoneTickets(store, dt.user, dt.device);
     if (!t.ok) return json(t, 409);
     return json(Object.assign(t, { device_ticket: issueDeviceTicket(store, dt.user, dt.device) }));
+  }
+
+  /* ── F‑06: پذیرش ثبت آفلاین؛ هویت فقط از نشست یا تیکت دستگاه ────────
+     هر user_id/role/tenant_id که کلاینت در بدنه بفرستد نادیده گرفته
+     می‌شود: پاکت با هویتِ همین درخواست امضا و در صندوقچه نوشته می‌شود. */
+  if (p === '/api/outbox/submit' && m === 'POST') {
+    const ip = (req.socket && req.socket.remoteAddress) || 'phone';
+    if (!rateLimit('outbox-submit:' + ip, 240, 10 * 60_000)) return json({ ok: false, error: 'too_many' }, 429);
+    let body = {};
+    try { body = await readBody(req); } catch (e) { return json({ ok: false, error: 'bad_json' }, 400); }
+    const headerTicket = String(req.headers['x-phone-ticket'] || '');
+    const ident = verifyDeviceTicket(store, headerTicket || body.device_ticket);
+    let who = ident && ident.user;
+    let device = ident && ident.device;
+    if (!who) {
+      const s2 = actorFrom(req);
+      if (!s2) return json({ ok: false, error: 'unauthorized' }, 401);
+      who = s2.user;
+      device = (s2.device && s2.device.id) || body.device_id;
+    }
+    const r = await outbox.submit(store, { user: who, device, items: body.items });
+    if (!r.ok) return json(r, r.error === 'no_cloud' ? 409 : 400);
+    return json(r);
   }
 
   /* از این‌جا به بعد نیاز به نشست */

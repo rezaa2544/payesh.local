@@ -453,22 +453,27 @@
   async function flushOutbox() {
     const items = readJSON(LS.outbox, []);
     if (!items.length) return 0;
-    await s3put('outbox_put', JSON.stringify({ v: 1, device_id: localStorage.getItem(LS.device) || '', items }));
-    return items.length;
+    /* F‑06: نوشتن مستقیم در صندوقچه ممنوع شد؛ سرور با تیکت دستگاه
+       هویت را می‌گذارد و پاکت را امضا می‌کند. */
+    const dt = deviceTicket();
+    const j = await api('/api/outbox/submit', {
+      method: 'POST',
+      headers: dt ? { 'X-Phone-Ticket': dt.ticket } : {},
+      body: { items },
+    });
+    /* فقط ثبت‌هایی که سرور تأیید کرد از صف محلی حذف می‌شوند (بدون فقدان داده) */
+    const done = new Set(j && Array.isArray(j.uids) ? j.uids : []);
+    const rest = items.filter(it => !done.has(it.uid));
+    writeJSON(LS.outbox, rest);
+    return items.length - rest.length;
   }
 
   async function send(item) {
     const op = (item && item.op) || null;
     if (!op || !op.collection) return { ok: false, error: 'bad_op' };
     const uid = String(item.uid || '') || ('ob-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7));
-    const entry = {
-      uid,
-      user_id: item.user_id != null ? Number(item.user_id) : null,
-      role: item.role || null,
-      device_id: item.device_id || ('phone-' + (localStorage.getItem(LS.device) || 'local')),
-      op,
-      created_at: new Date().toISOString(),
-    };
+    /* F‑06: هیچ ادعای هویتی از گوشی نمی‌رود؛ سرور هویت را از تیکت می‌گذارد */
+    const entry = { uid, op, created_at: new Date().toISOString() };
     const items = readJSON(LS.outbox, []);
     items.push(entry);
     while (items.length > OUTBOX_MAX) items.shift();
