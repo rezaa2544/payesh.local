@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ CC-14-1..5
 # تولید: bash docs/cloud/reports/evidence/verify-cc14-negative.sh
-# زمان: 2026-11-07T00:23:13Z
-# HEAD: 28e52782b18113e870cd32b0ca388de755051be0
+# زمان: 2026-11-07T00:24:05Z
+# HEAD: 22ac98cbca2239986d109ce0059a85632df4f290
 # manifest: docs/cloud/reports/evidence/cc14-required-labels.txt
 
 PASS  P0  gate accepted clean evidence (control positive)
