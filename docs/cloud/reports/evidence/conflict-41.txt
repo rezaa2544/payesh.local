@@ -1,0 +1,80 @@
+# شاهد ردیف ۴۱ — حل تعارض نسخهٔ ۱ (field-level LWW با زمان سرور + قواعد دامنه)
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/c8a5b522-payesh-local
+# head_sha: 7dabef4218b9852a3321b203bf767a441f78234c
+# version: 0.8.56
+# generated_at: 2026-11-07T20:18:35Z
+# node: v22.22.3
+# os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-41-conflict.sh
+# rules: auto↔ادغام · manual↔تعارض انسانی · نامعلوم=manual · برنده=زمان دریافت سرور
+
+## بخش ۱ — آزمون سیاست تعارض + مسیر push واقعی (CF-01..CF-16)
+PASS  CF-01  سیاست مکتوب: هر کالکشن قاعدهٔ صریح دارد و فیلدهای حساس manual هستند  → collections=26 explicit=10 fail_closed_defaults=16
+PASS  CF-02  ویرایش هم‌زمان همان فیلد حساس (حضور) ⇒ تعارض، بدون بازنویسی، هر دو نسخه حفظ  → conflicts=1 server_kept=absent both_versions=true fields=status
+PASS  CF-03  ویرایش هم‌زمان فیلدهای جدا و غیرحساس ⇒ ادغام خودکار، بدون تعارض کاربری  → merged_fields=note+arrival_time conflicts=0 audit_auto_merge=1 version=3
+PASS  CF-04  وصلهٔ کهنه که فقط فیلد auto را عوض می‌کند ⇒ ادغام با زمان سرور، بدون تعارض  → score_kept=19 note_merged=true version=3
+PASS  CF-05  اختلاف ساعت دستگاه: برنده با ترتیب دریافت سرور تعیین می‌شود، نه ساعت کلاینت  → winner=last_received(از دستگاه با…) clock_ignored=true
+PASS  CF-06  رخداد خارج از ترتیب: op کهنه بعد از نسخهٔ بالاتر نمی‌نویسد و تعارض ثبت می‌شود  → server_kept=late stale_op=conflict
+PASS  CF-07  نوشتن بدون base_version روی فیلد حساس ⇒ تعارض (پایان LWW بی‌توجیه)  → conflict=1 server_kept=present
+PASS  CF-08  حذف در برابر ویرایش: حذف با نسخهٔ کهنه ردیف را نمی‌کشد و هر دو نسخه می‌مانند  → kind=delete_vs_edit row_kept=true server_version=1
+PASS  CF-09  ویرایش روی ردیف حذف‌شده: بی‌صدا زنده نمی‌شود، تعارض ثبت می‌شود  → deleted_then_edit=conflict resurrected=false
+PASS  CF-10  تراز «ورودی = خروجی»: ۱۰۰ ارسال کهنه هم‌زمان ⇒ ۱۰۰ ردیف تعارض، بدون گم‌شدن  → input=100 conflicts=100 applied=0 rejected=0 server_kept=true
+PASS  CF-11  تعارض قابل بازبینی و قابل حل است (هر دو نسخه پس از حل می‌مانند)  → resolved=true applied_local=18 both_versions_kept=true
+PASS  CF-12  حل تعارض با نقش غیرمجاز ⇒ رد + audit  → forbidden=true status=needs_review
+PASS  CF-13  تکرار همان op (همان uid) ⇒ بی‌اثر و بدون تعارض دوباره  → duplicate=true version_stable=2
+PASS  CF-14  قاعدهٔ دامنهٔ نمره: score هم‌زمان ⇒ تعارض، note هم‌زمان ⇒ ادغام  → score=conflict note=merge score_kept=17
+PASS  CF-15  قاعدهٔ دامنهٔ کاربران: role هرگز ادغام نمی‌شود، name ادغام می‌شود  → role_guarded=true name_merged=true
+PASS  CF-16  سیم‌کشی در محصول: sync.js از ماژول قواعد استفاده می‌کند و سند سیاست وجود دارد  → wiring=3/3 doc=ok
+
+CF checks=16 pass=16 fail=0
+CONFLICT-41-OK
+
+## بخش ۲ — شاهد خام: همان جدول تصمیم روی سرور واقعی (بدون بازنویسی، بدون گم‌شدن)
+bump_version              2  (انتظار: 2)
+attendance_conflicts      2  (انتظار: 2)
+attendance_server_value   present  (انتظار: present — بدون بازنویسی)
+attendance_version        2  (انتظار: 2 — با تعارض بالا نمی‌رود)
+conflict_fields_recorded  ["status"]
+conflict_both_versions    local="absent" server="present"
+conflict_policy_clock     server_time_only
+conflict_status           needs_review,needs_review
+merge_conflicts           0  (انتظار: 0)
+merge_applied             2  (انتظار: 2)
+merge_arrival_kept        "08:05"
+merge_excuse_kept         "گواهی پزشکی"
+merge_audit_rows          2  (انتظار: ≥2)
+merge_status_untouched    present  (انتظار: present)
+stale_ops_in              100
+stale_applied             0  (انتظار: 0 — همه باید تعارض شوند)
+stale_conflicts_rows      100  (انتظار: 100)
+stale_balance_ok          true
+stale_server_value_kept   present  (انتظار: present)
+delete_vs_edit_kind       delete_vs_edit
+delete_not_applied        true
+row_still_alive           true
+policy_collections        10
+policy_fail_closed        6  (کالکشن‌های بدون ادغام خودکار)
+## بخش ۳ — سیم‌کشی محصول (کد واقعی، نه نمونهٔ ۱۹)
+convergence_required_in_sync: 1
+decide_calls_in_sync:        2
+conflict_auto_merge_audit:   1
+delete_vs_edit_guard:        1
+policy_doc_lines:            111
+doc_mentions_server_time_only: 1
+doc_mentions_attendance: 1
+doc_mentions_grades: 1
+doc_mentions_delete_vs_edit: 2
+
+## بخش ۴ — رگرسیون: دروازهٔ موجود دست‌نخورده و سبز
+  ✓ ردیف ۲۹: کلید امضای پشتیبان بیرون از پایگاه‌داده نگه داشته می‌شود (بازیابی پس از از دست رفتن DB)
+
+96 موفق · 0 ناموفق
+
+
+# ===== SUMMARY =====
+# checks_exit: 0
+# raw_probe_exit: 0
+# regression_exit: 0
+# EXIT=0
+CONFLICT-41-OK
