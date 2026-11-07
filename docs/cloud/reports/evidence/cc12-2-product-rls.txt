@@ -1,15 +1,15 @@
 # شاهد CC‑12‑2 — اجرای RLS از مسیر محصول (فاز ۳ · D‑35)
 # تولید: bash docs/cloud/reports/evidence/run-cc12-2-product-rls.sh
 # بازتولید: CC122_OUT=<file> bash docs/cloud/reports/evidence/run-cc12-2-product-rls.sh
-# زمان: 2026-11-07T10:32:16Z
-# HEAD: 6d39137df7fc36f8e65c12e8c7d3ab71be3d1cef
+# زمان: 2026-11-07T10:49:54Z
+# HEAD: 034772d4846b5605ff087d3926842627426b1e2d
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 # postgres version: 18.6
 # postgres binary: /tmp/pgtest/node_modules/@embedded-postgres/linux-x64/native/bin (خارج از مخزن؛ وابستگی محصول نیست)
 # product_path: server/tenancy.js + server/index.js (/api/cloud/tenancy/records)
 # sha256(product-rls-path.cjs): 7d2835ec9cebde8bc7f6f2ef300f6c2c46a47ca40210589da133ca1ca298f3eb
 # sha256(run-cc12-2-product-rls.sh): a31ce11a9cd6641287050bfc4db5d0cde1ce585e7a26e1678745959544e66357
-# product_tree_sha256: 07e474cd18c06d12309eafbd8dbfe7d583142cdc344634036d404e7b5741f590
+# product_tree_sha256: f51751720b39f94e5c564f0a813efb05ee97404a462b507dcb4d412a50ff0d19
 
 # migrate: table=tenant_records statements=30 server_version=18.6
 # runtime_role=payesh_runtime owner_role=payesh_owner
@@ -35,7 +35,7 @@ PASS  P13  زمینهٔ A + پرس‌وجوی صریح ردیف B ⇒ صفر ر�
 PASS  P14  نقش runtime نه superuser است نه BYPASSRLS و نمی‌تواند SET ROLE مالک  → super=false bypass=false set_role=denied
 PASS  P15  FORCE RLS: مالک جدول هم با زمینهٔ A فقط ردیف‌های A را می‌بیند  → rows=4 tenants=1
 PASS  P17  ۴۰ درخواست متناوب A/B روی استخر مشترک ⇒ بدون نشت زمینه  → mixed=40 leaks=0
-PASS  P18  کد مسیر محصول همان فایل‌های مخزن است (هش)  → server/tenancy.js sha256=a9c4a159913c server/index.js sha256=5ae4f53f01aa
+PASS  P18  کد مسیر محصول همان فایل‌های مخزن است (هش)  → server/tenancy.js sha256=a9c4a159913c server/index.js sha256=bbdce5770341
 
 TOTAL 20 · FAIL 0
 

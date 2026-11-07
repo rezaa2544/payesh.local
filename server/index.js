@@ -1008,6 +1008,9 @@ async function api(req, res, url, ip) {
   /* ── رمز جاری همهٔ کاربران — فقط مدیر، برای اینکه بتواند رمز را بگوید ── */
   if (p === '/api/admin/users/credentials' && m === 'GET') {
     if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    /* ردیف ۲۸: پاسخ گاوصندوق نباید در هیچ کشی بنشیند */
+    res.setHeader('cache-control', 'no-store, max-age=0');
+    res.setHeader('pragma', 'no-cache');
     const rows = (store.all('users') || []).map(u => ({
       id: u.id, name: u.name, role: u.role,
       phone: u.phone || '', password: auth.passwordOf(store, u),
@@ -1336,8 +1339,13 @@ async function api(req, res, url, ip) {
   if (p === '/api/admin/export' && m === 'GET') {
     const collection = String(q.get('collection') || 'users');
     if (!policy.collectionAllowed(collection)) return json({ ok: false, error: 'bad_collection' }, 400);
-    const rows = store.all(collection);
-    return { status: 200, headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${collection}.csv"` }, body: toCSV(rows) };
+    /* ردیف ۲۸: خروجی هرگز هش/رمز/اعتبارنامه را بیرون نمی‌دهد */
+    const rows = (store.all(collection) || []).map(exportRow);
+    return { status: 200, headers: {
+      'content-type': 'text/csv; charset=utf-8',
+      'content-disposition': `attachment; filename="${collection}.csv"`,
+      'cache-control': 'no-store',
+    }, body: toCSV(rows) };
   }
 
   if (p === '/api/admin/settings' && m === 'POST') {
@@ -1728,6 +1736,17 @@ function importUsers(body) {
   return { ok: true, kind, created: created.length, updated, parents, classes: classesMade, errors, warnings, users: created };
 }
 
+/* ردیف ۲۸: هر میدانی که هش/رمز/راز است از خروجی حذف می‌شود */
+const EXPORT_DENY = /^(password_hash|password_plain|password_cipher|phone_hash|secret|secret_key|token|token_hash|verifier|__password_verifier|accessKey)$/;
+function exportRow(row) {
+  const out = {};
+  for (const [k, v] of Object.entries(row || {})) {
+    if (k.startsWith('_') || EXPORT_DENY.test(k)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
 function toCSV(rows) {
   if (!rows.length) return '\uFEFF';
   const keys = [...new Set(rows.flatMap(r => Object.keys(r).filter(k => !k.startsWith('_'))))];
@@ -1750,6 +1769,9 @@ const server = http.createServer(async (req, res) => {
   /* سرآیندهای امنیتی پایه */
   res.setHeader('referrer-policy', 'no-referrer');
   res.setHeader('permissions-policy', 'geolocation=(), microphone=(), camera=()');
+  /* ردیف ۲۸ — سرآیندهای پایه: جلوگیری از حدس نوع محتوا و قاب‌گرفتن صفحه */
+  res.setHeader('x-content-type-options', 'nosniff');
+  res.setHeader('x-frame-options', 'SAMEORIGIN');
 
   /* ── اجازهٔ دسترسی برنامه‌های دیگر (CORS) ────────────────────────────
      نسخهٔ اندروید فایل‌هایش را از مبدأ محلی باز می‌کند
@@ -1808,10 +1830,12 @@ const server = http.createServer(async (req, res) => {
     if (sendFile(req, res, path.join(CLIENT_DIR, 'index.html'), { noStore: true })) return;
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('not found');
   } catch (e) {
-    const code = String(e.message || e) === 'body_too_large' ? 413 : 500;
+    const msg = String(e.message || e);
+    const code = msg === 'body_too_large' ? 413 : (msg === 'bad_json' ? 400 : 500);
     if (code === 500) console.error('[ERR]', url.pathname, e);
+    const errName = code === 413 ? 'body_too_large' : (code === 400 ? 'bad_json' : 'server_error');
     if (!res.writableEnded) res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' });
-    if (!res.writableEnded) res.end(JSON.stringify({ ok: false, error: code === 413 ? 'body_too_large' : 'server_error' }));
+    if (!res.writableEnded) res.end(JSON.stringify({ ok: false, error: errName }));
   } finally {
     if (process.env.PAYESH_LOG !== '0') {
       const ms = Date.now() - started;

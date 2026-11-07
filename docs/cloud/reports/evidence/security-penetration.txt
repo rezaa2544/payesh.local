@@ -1,0 +1,302 @@
+# Security Gate — آزمون نفوذ مستقل روی مسیرهای محصول (ردیف ۲۸)
+# تولید: node --experimental-sqlite docs/cloud/reports/evidence/security/pen-test.cjs --out <file>
+# دامنه: auth/session · authorization · tenant · storage · outbox · restore · cache · export
+# هشدار: PASS در این فایل یعنی «این حملات مشخص دفع شد»، نه «محصول امن است».
+# وضعیت امنیت طبق §۱۰.۲ قانون اساسی: UNKNOWN (مبتنی بر شاهد).
+
+PASS  S-01  رمز اشتباه ⇒ 401 و بدون نشست  → status=401
+PASS  S-02  ورود درست نشست می‌دهد  → token-length=64
+PASS  S-03  توکن دست‌کاری‌شده ⇒ 401  → status=401
+PASS  S-04  توکن ساختگی ⇒ 401  → status=401
+PASS  S-05  بدون توکن ⇒ 401  → status=401
+PASS  S-06  نشست پس از logout باطل می‌شود  → before=200 logout=200 after=401
+PASS  S-07  revoke-all نشست‌های قبلی را باطل می‌کند  → revoke=200 after=401
+PASS  S-08  نشست منقضی ⇒ 401  → status=401
+PASS  S-09  کاربر غیرفعال‌شده فوراً از دسترسی می‌افتد  → before=200 after=401
+PASS  S-10  حملهٔ حدس رمز محدود می‌شود (429)  → 429 seen
+PASS  S-11  دبیر به تنظیمات مدیریتی دسترسی ندارد  → status=403
+PASS  S-12  دبیر به خروجی CSV کاربران دسترسی ندارد  → status=403
+PASS  S-13  دبیر گاوصندوق رمزها را نمی‌بیند  → status=403
+PASS  S-14  ارتقای نقش با نوشتن مستقیم (privilege escalation) رد می‌شود  → managers 1→1 rejected=[{"uid":"sec-esc-1","error":"role_change_denied","conflict_id":1}]
+PASS  S-15  ولی اجازهٔ drain صندوقچه ندارد  → status=403
+PASS  S-16  IDOR: ولی پروندهٔ دانش‌آموز غیرمرتبط را نمی‌بیند  → status=403
+PASS  S-17  IDOR: خلاصهٔ دانش‌آموز غیرمرتبط ۴۰۳  → status=403
+PASS  S-18  ولی فرزند خودش را می‌بیند (شاهدِ مثبت IDOR)  → own=4 status=200
+PASS  S-19  دانش‌آموز نمی‌تواند نمره بنویسد  → applied=0 rejected=[{"uid":"sec-st-1","error":"role_denied"}]
+PASS  S-20  دانش‌آموز فهرست کامل کارکنان را نمی‌گیرد  → rows=1 roles=["student"]
+PASS  S-21  پیکربندی صندوقچه با مدیر انجام می‌شود  → ok=true
+PASS  S-22  پاسخ پیکربندی ابری هیچ کلید/رمزی برنمی‌گرداند  → leak=none
+PASS  S-23  ورود گوشی بدون هیچ کلید ذخیره‌سازی انجام می‌شود  → leak=none
+PASS  S-24  عمر تیکت دستگاه ≤ ۲۰۰ روز (تصمیم مالک)  → ttl_days=200
+PASS  S-25  تیکت فایل فقط به کلید مشخص و بدون رمز صادر می‌شود  → key=payesh/data/core.json expires=2026-11-14T10:49:14.437Z
+PASS  S-26  باندل کلاینت هیچ اعتبارنامهٔ ذخیره‌سازی ندارد (D‑23)  → leak=none
+PASS  S-27  ثبت در صندوقچه بدون نشست/تیکت ⇒ 401  → status=401
+PASS  S-28  پاکت جعلی صندوقچه اعمال نمی‌شود و قرنطینه می‌گردد  → applied=0 quarantined=true
+PASS  S-29  ادعای هویت/مستأجر کلاینت در پاکت نمی‌نشیند  → env.user=2 env.school=1 ignored=body.user_id,body.role,body.tenant_id,body.school_id
+PASS  S-30  دبیر نمی‌تواند بازیابی کند  → status=403
+PASS  S-31  پیمایش مسیر در دانلود بکاپ بسته است  → status=404
+PASS  S-32  بازیابیِ خراب داده را پاک نمی‌کند (نسخهٔ ایمنی + خطای کنترل‌شده)  → backup=200 restore=400 users 6→6
+PASS  S-33  خروجی CSV مدیر هیچ هش/رمز/کلیدی ندارد  → status=200 bytes=836
+PASS  S-34  خروجی مجموعهٔ ناشناس بسته است  → status=400
+PASS  S-35  پاسخ /api/me هیچ هش/رازی ندارد  → leak=none
+PASS  S-36  کش همگام‌سازی هش رمز/تلفن ندارد  → leak=none
+PASS  S-37  بدنهٔ خراب ⇒ خطای کنترل‌شده بدون ردپای سرور  → status=400
+PASS  S-38  سرآیندهای امنیتی پایه روی پاسخ‌ها هستند  → ref=no-referrer perm=geolocation=(), micropho nosniff=nosniff
+PASS  S-39  CORS با اعتبارنامهٔ وحشی باز نیست  → acao=* creds=none
+PASS  S-40  گاوصندوق رمزها فقط با مدیر و بدون کش شدن  → status=200 cache=no-store, max-age=0
+
+SECURITY-PEN pass=40 fail=0 skip=0 at=2026-11-07T10:49:14.571Z
+# started_utc: 2026-11-07T10:49:13.010Z
+# node: v22.22.3 · os: linux 6.1.158+ x64
+# checks: 40
+EXIT=0
+
+# ---- raw json ----
+{
+  "generated_at": "2026-11-07T10:49:14.571Z",
+  "pass": 40,
+  "fail": 0,
+  "skip": 0,
+  "results": [
+    {
+      "id": "S-01",
+      "title": "رمز اشتباه ⇒ 401 و بدون نشست",
+      "verdict": "PASS",
+      "detail": "status=401"
+    },
+    {
+      "id": "S-02",
+      "title": "ورود درست نشست می‌دهد",
+      "verdict": "PASS",
+      "detail": "token-length=64"
+    },
+    {
+      "id": "S-03",
+      "title": "توکن دست‌کاری‌شده ⇒ 401",
+      "verdict": "PASS",
+      "detail": "status=401"
+    },
+    {
+      "id": "S-04",
+      "title": "توکن ساختگی ⇒ 401",
+      "verdict": "PASS",
+      "detail": "status=401"
+    },
+    {
+      "id": "S-05",
+      "title": "بدون توکن ⇒ 401",
+      "verdict": "PASS",
+      "detail": "status=401"
+    },
+    {
+      "id": "S-06",
+      "title": "نشست پس از logout باطل می‌شود",
+      "verdict": "PASS",
+      "detail": "before=200 logout=200 after=401"
+    },
+    {
+      "id": "S-07",
+      "title": "revoke-all نشست‌های قبلی را باطل می‌کند",
+      "verdict": "PASS",
+      "detail": "revoke=200 after=401"
+    },
+    {
+      "id": "S-08",
+      "title": "نشست منقضی ⇒ 401",
+      "verdict": "PASS",
+      "detail": "status=401"
+    },
+    {
+      "id": "S-09",
+      "title": "کاربر غیرفعال‌شده فوراً از دسترسی می‌افتد",
+      "verdict": "PASS",
+      "detail": "before=200 after=401"
+    },
+    {
+      "id": "S-10",
+      "title": "حملهٔ حدس رمز محدود می‌شود (429)",
+      "verdict": "PASS",
+      "detail": "429 seen"
+    },
+    {
+      "id": "S-11",
+      "title": "دبیر به تنظیمات مدیریتی دسترسی ندارد",
+      "verdict": "PASS",
+      "detail": "status=403"
+    },
+    {
+      "id": "S-12",
+      "title": "دبیر به خروجی CSV کاربران دسترسی ندارد",
+      "verdict": "PASS",
+      "detail": "status=403"
+    },
+    {
+      "id": "S-13",
+      "title": "دبیر گاوصندوق رمزها را نمی‌بیند",
+      "verdict": "PASS",
+      "detail": "status=403"
+    },
+    {
+      "id": "S-14",
+      "title": "ارتقای نقش با نوشتن مستقیم (privilege escalation) رد می‌شود",
+      "verdict": "PASS",
+      "detail": "managers 1→1 rejected=[{\"uid\":\"sec-esc-1\",\"error\":\"role_change_denied\",\"conflict_id\":1}]"
+    },
+    {
+      "id": "S-15",
+      "title": "ولی اجازهٔ drain صندوقچه ندارد",
+      "verdict": "PASS",
+      "detail": "status=403"
+    },
+    {
+      "id": "S-16",
+      "title": "IDOR: ولی پروندهٔ دانش‌آموز غیرمرتبط را نمی‌بیند",
+      "verdict": "PASS",
+      "detail": "status=403"
+    },
+    {
+      "id": "S-17",
+      "title": "IDOR: خلاصهٔ دانش‌آموز غیرمرتبط ۴۰۳",
+      "verdict": "PASS",
+      "detail": "status=403"
+    },
+    {
+      "id": "S-18",
+      "title": "ولی فرزند خودش را می‌بیند (شاهدِ مثبت IDOR)",
+      "verdict": "PASS",
+      "detail": "own=4 status=200"
+    },
+    {
+      "id": "S-19",
+      "title": "دانش‌آموز نمی‌تواند نمره بنویسد",
+      "verdict": "PASS",
+      "detail": "applied=0 rejected=[{\"uid\":\"sec-st-1\",\"error\":\"role_denied\"}]"
+    },
+    {
+      "id": "S-20",
+      "title": "دانش‌آموز فهرست کامل کارکنان را نمی‌گیرد",
+      "verdict": "PASS",
+      "detail": "rows=1 roles=[\"student\"]"
+    },
+    {
+      "id": "S-21",
+      "title": "پیکربندی صندوقچه با مدیر انجام می‌شود",
+      "verdict": "PASS",
+      "detail": "ok=true"
+    },
+    {
+      "id": "S-22",
+      "title": "پاسخ پیکربندی ابری هیچ کلید/رمزی برنمی‌گرداند",
+      "verdict": "PASS",
+      "detail": "leak=none"
+    },
+    {
+      "id": "S-23",
+      "title": "ورود گوشی بدون هیچ کلید ذخیره‌سازی انجام می‌شود",
+      "verdict": "PASS",
+      "detail": "leak=none"
+    },
+    {
+      "id": "S-24",
+      "title": "عمر تیکت دستگاه ≤ ۲۰۰ روز (تصمیم مالک)",
+      "verdict": "PASS",
+      "detail": "ttl_days=200"
+    },
+    {
+      "id": "S-25",
+      "title": "تیکت فایل فقط به کلید مشخص و بدون رمز صادر می‌شود",
+      "verdict": "PASS",
+      "detail": "key=payesh/data/core.json expires=2026-11-14T10:49:14.437Z"
+    },
+    {
+      "id": "S-26",
+      "title": "باندل کلاینت هیچ اعتبارنامهٔ ذخیره‌سازی ندارد (D‑23)",
+      "verdict": "PASS",
+      "detail": "leak=none"
+    },
+    {
+      "id": "S-27",
+      "title": "ثبت در صندوقچه بدون نشست/تیکت ⇒ 401",
+      "verdict": "PASS",
+      "detail": "status=401"
+    },
+    {
+      "id": "S-28",
+      "title": "پاکت جعلی صندوقچه اعمال نمی‌شود و قرنطینه می‌گردد",
+      "verdict": "PASS",
+      "detail": "applied=0 quarantined=true"
+    },
+    {
+      "id": "S-29",
+      "title": "ادعای هویت/مستأجر کلاینت در پاکت نمی‌نشیند",
+      "verdict": "PASS",
+      "detail": "env.user=2 env.school=1 ignored=body.user_id,body.role,body.tenant_id,body.school_id"
+    },
+    {
+      "id": "S-30",
+      "title": "دبیر نمی‌تواند بازیابی کند",
+      "verdict": "PASS",
+      "detail": "status=403"
+    },
+    {
+      "id": "S-31",
+      "title": "پیمایش مسیر در دانلود بکاپ بسته است",
+      "verdict": "PASS",
+      "detail": "status=404"
+    },
+    {
+      "id": "S-32",
+      "title": "بازیابیِ خراب داده را پاک نمی‌کند (نسخهٔ ایمنی + خطای کنترل‌شده)",
+      "verdict": "PASS",
+      "detail": "backup=200 restore=400 users 6→6"
+    },
+    {
+      "id": "S-33",
+      "title": "خروجی CSV مدیر هیچ هش/رمز/کلیدی ندارد",
+      "verdict": "PASS",
+      "detail": "status=200 bytes=836"
+    },
+    {
+      "id": "S-34",
+      "title": "خروجی مجموعهٔ ناشناس بسته است",
+      "verdict": "PASS",
+      "detail": "status=400"
+    },
+    {
+      "id": "S-35",
+      "title": "پاسخ /api/me هیچ هش/رازی ندارد",
+      "verdict": "PASS",
+      "detail": "leak=none"
+    },
+    {
+      "id": "S-36",
+      "title": "کش همگام‌سازی هش رمز/تلفن ندارد",
+      "verdict": "PASS",
+      "detail": "leak=none"
+    },
+    {
+      "id": "S-37",
+      "title": "بدنهٔ خراب ⇒ خطای کنترل‌شده بدون ردپای سرور",
+      "verdict": "PASS",
+      "detail": "status=400"
+    },
+    {
+      "id": "S-38",
+      "title": "سرآیندهای امنیتی پایه روی پاسخ‌ها هستند",
+      "verdict": "PASS",
+      "detail": "ref=no-referrer perm=geolocation=(), micropho nosniff=nosniff"
+    },
+    {
+      "id": "S-39",
+      "title": "CORS با اعتبارنامهٔ وحشی باز نیست",
+      "verdict": "PASS",
+      "detail": "acao=* creds=none"
+    },
+    {
+      "id": "S-40",
+      "title": "گاوصندوق رمزها فقط با مدیر و بدون کش شدن",
+      "verdict": "PASS",
+      "detail": "status=200 cache=no-store, max-age=0"
+    }
+  ]
+}
