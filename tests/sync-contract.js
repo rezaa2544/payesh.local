@@ -311,6 +311,56 @@ function assertSchema(validate, payload, what) {
     assert.ok(!('whatever' in r.data.collections));
   });
 
+  /* ── نام‌های رسمی AC: since_seq و idempotency_key ── */
+  await test('pull با since_seq (نام رسمی AC) عیناً مثل since کار می‌کند', async () => {
+    const a = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&since_id=0&collections=announcements', { token });
+    const b = await req('/api/v1/pull?since_seq=1970-01-01T00:00:00.000Z&since_id=0&collections=announcements', { token });
+    assert.strictEqual(b.status, 200);
+    assertSchema(validatePull, b.data, 'pullResponse(since_seq)');
+    assert.deepStrictEqual(b.data.collections.announcements.map(x => x.id), a.data.collections.announcements.map(x => x.id));
+  });
+
+  await test('pull با since_seq نامعتبر: بی‌خطا از ابتدا (fail-safe، بدون گم‌شدن داده)', async () => {
+    const r = await req('/api/v1/pull?since_seq=not-a-date&since_id=0&collections=announcements', { token });
+    assert.strictEqual(r.status, 200);
+    assertSchema(validatePull, r.data, 'pullResponse(since_seq invalid)');
+    assert.ok((r.data.collections.announcements || []).length > 0);
+  });
+
+  await test('push با idempotency_key: تکرار همان کلید ⇒ replayed=true و بدون اعمال دوباره', async () => {
+    const body = {
+      idempotency_key: 'contract-key-1',
+      ops: [
+        { uid: 'idem-op-1', collection: 'announcements', type: 'put', data: { title: 'کلید یکتا', body: 'متن', date: '2026-10-20' } },
+        { uid: 'idem-op-2', collection: 'classes', type: 'put', data: { name: 'یازدهم ب', grade: '11' } },
+      ],
+    };
+    const first = await req('/api/sync', { token, method: 'POST', body });
+    assert.strictEqual(first.status, 200);
+    assertSchema(validatePush, first.data, 'pushResponse(idempotency first)');
+    assert.strictEqual(first.data.applied.length, 2);
+    assert.ok(!first.data.replayed);
+
+    const again = await req('/api/sync', { token, method: 'POST', body });
+    assert.strictEqual(again.status, 200);
+    assertSchema(validatePush, again.data, 'pushResponse(idempotency replay)');
+    assert.strictEqual(again.data.replayed, true);
+    assert.strictEqual(again.data.idempotency_key, 'contract-key-1');
+    assert.deepStrictEqual(again.data.applied.map(a => a.uid), first.data.applied.map(a => a.uid));
+    /* هیچ ردیف تازه‌ای ساخته نشده است */
+    const cnt = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&since_id=0&collections=classes', { token });
+    assert.strictEqual((cnt.data.collections.classes || []).filter(c => c.name === 'یازدهم ب').length, 1);
+  });
+
+  await test('push با idempotency_key بلندتر از ۱۲۰ نویسه → 400 bad_idempotency_key', async () => {
+    const r = await req('/api/sync', { token, method: 'POST', body: {
+      idempotency_key: 'k'.repeat(121),
+      ops: [{ uid: 'idem-bad', collection: 'announcements', type: 'put', data: { title: 'x', body: 'y', date: '2026-10-20' } }],
+    } });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.data.error, 'bad_idempotency_key');
+  });
+
   try { child.kill('SIGKILL'); } catch (e) { /* already gone */ }
   fs.rmSync(TMP, { recursive: true, force: true });
 
