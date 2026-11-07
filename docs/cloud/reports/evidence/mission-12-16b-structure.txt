@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
-branch: arena/df96d78a-payesh-local
-head: c3f38919526436872905c10d0cc4c6fd256d1f0b
+branch: arena/0bb8dc23-payesh-local
+head: 6d39137df7fc36f8e65c12e8c7d3ab71be3d1cef
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=273  tables=87  ac_rows=8
@@ -27,7 +27,7 @@ product_diff_outside_allow: 9
 
 ## شمارش واقعی مخزن
 tenant_id: 8
-school_id (occurrences, server+client): 68
+school_id (occurrences, server+client): 71
 school_id (files): 12
 api routes (unique /api literals in server/index.js): 67
 
@@ -40,6 +40,7 @@ api routes (unique /api literals in server/index.js): 67
  M docs/cloud/reports/evidence/cc-sync-gate.txt
  M docs/cloud/reports/evidence/cc11-gate.txt
  M docs/cloud/reports/evidence/cc12-2-gate.txt
+ M docs/cloud/reports/evidence/cc12-2-product-rls.txt
  M docs/cloud/reports/evidence/cc12-closure-gate.txt
  M docs/cloud/reports/evidence/f05-product-tenancy.txt
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
@@ -47,6 +48,7 @@ api routes (unique /api literals in server/index.js): 67
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
  M docs/cloud/reports/evidence/phase3-gate.txt
  M docs/cloud/reports/evidence/sync-restart-run.log
-?? docs/cloud/reports/evidence/tests-run-c3f3891-20261107T100243Z.log
-?? docs/cloud/reports/evidence/tests-run-c3f3891-20261107T100301Z.log
+?? docs/cloud/reports/evidence/tests-run-6d39137-20261107T103147Z.log
+?? docs/cloud/reports/evidence/tests-run-6d39137-20261107T103204Z.log
+?? docs/cloud/reports/evidence/tests-run-6d39137-20261107T103217Z.log
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)

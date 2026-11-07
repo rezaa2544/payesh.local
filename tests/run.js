@@ -35,7 +35,7 @@ async function freePort() {
 }
 
 async function req(pathname, opts = {}) {
-  const headers = { 'content-type': 'application/json' };
+  const headers = Object.assign({ 'content-type': 'application/json' }, opts.headers || {});
   if (opts.token) headers.authorization = 'Bearer ' + opts.token;
   const res = await fetch(BASE + pathname, {
     method: opts.method || 'GET', headers,
@@ -1968,7 +1968,71 @@ async function waitFor(fn, ms = 15000) {
       await waitFor(pwOk, 8000);
       assert.ok(await pwOk(), 'تغییر رمز از گوشی اعمال شد: ' + JSON.stringify(pwDrain.data).slice(0, 400));
 
-      console.log('   F06-OK checks=12 spoof=blocked replay=blocked forged=quarantined tenant=bound');
+      /* ── F‑06: ادعای هویت در header و query هم بی‌اثر است ─────────── */
+      const hdrSub = await req('/api/outbox/submit?user_id=1&tenant_id=9&school_id=9&role=manager', {
+        method: 'POST', token: teacherToken,
+        headers: { 'x-user-id': '1', 'x-tenant-id': '9', 'x-school-id': '9' },
+        body: {
+          device_id: 'dev-hdr', user_id: 1, role: 'manager', tenant_id: 9, school_id: 9,
+          items: [{ uid: 'ob-hdr-1', op: { collection: 'homework', type: 'put',
+            data: { class_id: 1, subject_id: 1, title: 'از سرآیند', date: '2026-05-04', school_id: 9, tenant_id: 9 } } }],
+        },
+      });
+      assert.strictEqual(hdrSub.data.ok, true, 'ثبت با ادعای هویت در header/query پذیرفته شد: ' + JSON.stringify(hdrSub.data).slice(0, 200));
+      assert.ok((hdrSub.data.ignored_claims || []).length >= 5, 'ادعاهای نادیده‌گرفته‌شده گزارش شدند: ' + JSON.stringify(hdrSub.data.ignored_claims || []));
+      const hdrFile = [...bucket.keys()].find(k => /^payesh\/outbox\/pending\/device-.*\.json$/.test(k)
+        && String(bucket.get(k)).includes('ob-hdr-1'));
+      assert.ok(hdrFile, 'فایل دستگاه برای ثبت سرآیندی ساخته شد');
+      const hdrEnv = JSON.parse(bucket.get(hdrFile));
+      assert.strictEqual(hdrEnv.user_id, teacherId, 'کاربرِ پاکت از نشست دبیر است، نه از header');
+      assert.strictEqual(hdrEnv.school_id, 1, 'مستأجرِ پاکت از نشست است، نه ۹');
+      const hdrItem = (hdrEnv.items || []).find(i => i.uid === 'ob-hdr-1');
+      assert.ok(hdrItem && hdrItem.op.data.school_id === undefined && hdrItem.op.data.tenant_id === undefined,
+        'میدان‌های مستأجر از دادهٔ کلاینت پاک شدند');
+
+      /* ── F‑06: بازپخش (replay) پاکتِ اعمال‌شده دوباره اعمال نمی‌شود ── */
+      const repSub = await req('/api/outbox/submit', { method: 'POST', token: managerToken, body: {
+        device_id: 'dev-replay',
+        items: [{ uid: 'ob-replay-1', op: { collection: 'leaves', type: 'put',
+          data: { student_id: 3, date: '2026-05-04', reason: 'بازپخش', status: 'pending' } } }],
+      } });
+      assert.strictEqual(repSub.data.ok, true, 'ثبت برای آزمون بازپخش پذیرفته شد');
+      const repFile = [...bucket.keys()].find(k => /^payesh\/outbox\/pending\/device-.*\.json$/.test(k)
+        && String(bucket.get(k)).includes('ob-replay-1'));
+      assert.ok(repFile, 'فایل دستگاه برای ثبت بازپخش ساخته شد');
+      const repBytes = bucket.get(repFile);
+      const firstDrain = await drainNow();
+      assert.ok(firstDrain.data.applied >= 1, 'پاکت معتبر اعمال شد: ' + JSON.stringify(firstDrain.data).slice(0, 240));
+      bucket.set(repFile, repBytes);             /* همان فایل امضاشده برمی‌گردد */
+      const replay = await drainNow();
+      assert.strictEqual(replay.data.applied, 0, 'بازپخش پاکت اعمال‌شده اعمال نشد: ' + JSON.stringify(replay.data).slice(0, 240));
+      assert.ok((replay.data.skipped || 0) >= 1, 'نشان «اعمال شد» جلوی تکرار را گرفت');
+      const noDup = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=leaves', { token: managerToken });
+      const dupRows = (((noDup.data || {}).collections || {}).leaves || []).filter(a => a.reason === 'بازپخش');
+      assert.strictEqual(dupRows.length, 1, 'ثبت بازپخش فقط یک بار در داده نشست: ' + dupRows.length);
+
+      /* ── F‑06: پاکتِ امضاشدهٔ مستأجر دیگر در این نصب اعمال نمی‌شود ── */
+      const outboxMod = require(path.join(ROOT, 'server', 'outbox.js'));
+      const memMeta = new Map();
+      const fakeStore = {
+        getMeta: (k, d = null) => (memMeta.has(k) ? memMeta.get(k) : d),
+        setMeta: (k, v) => { memMeta.set(k, v); },
+      };
+      const foreignEnv = outboxMod.buildEnvelope(fakeStore, {
+        user: { id: 1, role: 'manager', school_id: 2, tenant_id: 2 }, device: 'dev-foreign',
+        items: [{ uid: 'ob-foreign-1', op: { collection: 'announcements', type: 'put', data: { title: 'مستأجر دیگر', date: '2026-05-05' } } }],
+      });
+      const ownEnv = outboxMod.buildEnvelope(fakeStore, {
+        user: { id: 1, role: 'manager', school_id: 1, tenant_id: 1 }, device: 'dev-own',
+        items: [{ uid: 'ob-own-1', op: { collection: 'announcements', type: 'put', data: { title: 'خودمان', date: '2026-05-05' } } }],
+      });
+      assert.strictEqual(outboxMod.acceptEnvelope(fakeStore, ownEnv).ok, true, 'پاکت مستأجر خودی پذیرفته می‌شود');
+      const cross = outboxMod.acceptEnvelope(fakeStore, foreignEnv);
+      assert.strictEqual(cross.ok, false, 'پاکت مستأجر دیگر پذیرفته نشود');
+      assert.strictEqual(cross.reason, 'cross_tenant', 'دلیل رد cross_tenant است');
+      assert.notStrictEqual(outboxMod.signKey(fakeStore, 1), outboxMod.signKey(fakeStore, 2), 'کلید امضای هر مستأجر جداست');
+
+      console.log('   F06-OK checks=22 spoof=blocked header=blocked query=blocked replay=blocked cross_tenant=blocked forged=quarantined tenant=bound');
     } finally {
       await new Promise(r => fake.close(r));
     }

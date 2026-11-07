@@ -19,6 +19,7 @@ const path = require('path');
 const s3mem = require('./s3mem');
 const sync = require('./sync');
 const util = require('./util');
+const tenantCtx = require('./tenant-context');
 
 const META = 'outbox:state';
 /* ── پاکت امضاشده (F‑06) ─────────────────────────────────────────────
@@ -56,12 +57,32 @@ function keyOf(cfg, rel) {
 }
 
 /* ── پاکت امضاشده: تنها شکل قابل‌اعتماد نوشتن در صندوقچه ─────────── */
-function signKey(store) {
-  const rec = store.getMeta(SIGN_KEY, null);
+/* مستأجرِ همین نصب/دستگاه — فقط از پیکربندی سرور، هرگز از درخواست */
+function serverTenant(store) {
+  const meta = Number(store.getMeta('tenant_school_id', null));
+  if (Number.isFinite(meta) && meta > 0) return meta;
+  const env = Number(process.env.PAYESH_SCHOOL_ID);
+  if (Number.isFinite(env) && env > 0) return env;
+  return 1;
+}
+
+/* کلید امضا به ازای هر مستأجر: پاکتِ مستأجر A با کلید مستأجر B معتبر نیست */
+function tenantKeyName(tid) {
+  return SIGN_KEY + ':' + Number(tid);
+}
+function signKey(store, tenantId) {
+  const tid = Number(tenantId);
+  if (!Number.isFinite(tid) || tid <= 0) return null;
+  const rec = store.getMeta(tenantKeyName(tid), null);
   if (rec && rec.secret) return rec.secret;
   const secret = crypto.randomBytes(32).toString('hex');
-  store.setMeta(SIGN_KEY, { secret, created_at: new Date().toISOString() });
+  store.setMeta(tenantKeyName(tid), { secret, created_at: new Date().toISOString(), tenant_id: tid });
   return secret;
+}
+/* فقط خواندن — بررسی امضا هرگز کلید نمی‌سازد (fail-closed) */
+function existingSignKey(store, tenantId) {
+  const rec = store.getMeta(tenantKeyName(tenantId), null);
+  return rec && rec.secret ? rec.secret : null;
 }
 
 /* فقط همین چند میدان امضا می‌شوند؛ ادعاهای هویتی کلاینت در فهرست نیستند */
@@ -79,7 +100,9 @@ function canonicalEnvelope(env) {
 }
 
 function envelopeMac(store, env) {
-  return crypto.createHmac('sha256', signKey(store)).update(canonicalEnvelope(env)).digest('base64url');
+  const key = signKey(store, env.tenant_id);
+  if (!key) return '';
+  return crypto.createHmac('sha256', key).update(canonicalEnvelope(env)).digest('base64url');
 }
 
 /* هر ثبت فقط میدان‌های عملیاتی را نگه می‌دارد؛ user_id/role/tenant از بدنهٔ
@@ -94,7 +117,9 @@ function cleanItems(items) {
       collection: String(raw.op.collection || '').slice(0, 60),
       type: raw.op.type === 'del' ? 'del' : 'put',
       id: raw.op.id == null ? null : Number(raw.op.id),
-      data: raw.op.data && typeof raw.op.data === 'object' ? raw.op.data : {},
+      /* F‑06: هر میدان مستأجر که کلاینت داخل داده گذاشته باشد حذف می‌شود؛
+         مهرِ مستأجر فقط در لایهٔ اعمال (sync/tenant-context) زده می‌شود. */
+      data: tenantCtx.sanitize(raw.op.data && typeof raw.op.data === 'object' ? raw.op.data : {}),
     };
     if (raw.op.base_version != null) op.base_version = Number(raw.op.base_version);
     if (op.type === 'put' && raw.op.base_device) op.base_device = String(raw.op.base_device).slice(0, 60);
@@ -104,12 +129,14 @@ function cleanItems(items) {
 }
 
 function buildEnvelope(store, { user, device, items }) {
+  /* F‑06: مستأجر پاکت فقط از رکورد کاربر در پایگاه‌داده می‌آید */
+  const tenantId = Number(user.tenant_id != null ? user.tenant_id : (user.school_id != null ? user.school_id : 1));
   const env = {
     v: ENVELOPE_V,
     user_id: Number(user.id),
     role: String(user.role || ''),
-    tenant_id: Number(user.tenant_id != null ? user.tenant_id : (user.school_id || 1)),
-    school_id: Number(user.school_id || 1),
+    tenant_id: tenantId,
+    school_id: tenantId,
     device_id: String(device || '').slice(0, 60),
     issued_at: new Date().toISOString(),
     items: cleanItems(items),
@@ -132,14 +159,44 @@ function verifyEnvelope(store, doc) {
     items: Array.isArray(doc.items) ? doc.items : [],
     sig: String(doc.sig),
   };
-  if (!env.user_id || !env.items.length) return null;
-  const a = Buffer.from(env.sig), b = Buffer.from(envelopeMac(store, env));
+  if (!env.user_id || !env.items.length || !env.tenant_id) return null;
+  const key = existingSignKey(store, env.tenant_id);
+  if (!key) return null;
+  const a = Buffer.from(env.sig);
+  const b = Buffer.from(crypto.createHmac('sha256', key).update(canonicalEnvelope(env)).digest('base64url'));
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   return env;
 }
 
+/* ── پذیرش پاکت در drain: امضا + تعلق مستأجر (هر دو لازم) ─────────────
+   پاکتِ امضاشده برای مستأجر دیگر، حتی اگر امضایش درست باشد، در این نصب
+   اعمال نمی‌شود (سناریوی صندوقچهٔ مشترک بین دو استقرار). */
+function acceptEnvelope(store, doc) {
+  const env = verifyEnvelope(store, doc);
+  if (!env) return { ok: false, reason: 'client_identity_untrusted' };
+  const here = serverTenant(store);
+  if (Number(env.tenant_id) !== Number(here) || Number(env.school_id) !== Number(here)) {
+    return { ok: false, reason: 'cross_tenant', env, expected: here };
+  }
+  return { ok: true, env };
+}
+
+/* ادعاهای هویتیِ کلاینت که هرگز به پاکت راه نمی‌یابند (برای گزارش) */
+function ignoredClaims(claims) {
+  const out = [];
+  if (!claims || typeof claims !== 'object') return out;
+  for (const [where, obj] of Object.entries(claims)) {
+    if (!obj || typeof obj !== 'object') continue;
+    for (const f of ['user_id', 'userId', 'role', 'tenant_id', 'tenantId', 'school_id', 'schoolId',
+      'x-user-id', 'x-tenant-id', 'x-school-id']) {
+      if (Object.prototype.hasOwnProperty.call(obj, f)) out.push(where + '.' + f);
+    }
+  }
+  return out;
+}
+
 /* ── پذیرش ثبت از گوشی/کلاینت: هویت از actor (نشست یا تیکت) ──────── */
-async function submit(store, { user, device, items } = {}) {
+async function submit(store, { user, device, items, claims } = {}) {
   if (!user) return { ok: false, error: 'unauthorized' };
   const clean = cleanItems(items);
   if (!clean.length) return { ok: true, accepted: 0, skipped: 'empty' };
@@ -164,7 +221,10 @@ async function submit(store, { user, device, items } = {}) {
     return { ok: false, error: 'submit_failed', accepted: 0 };
   }
   writeMeta(store, { last_publish: new Date().toISOString() });
-  return { ok: true, accepted: clean.length, pending: merged.length, device_file: key, uids: clean.map(i => i.uid) };
+  /* F‑06: هر ادعای هویتی کلاینت گزارش می‌شود تا «نادیده گرفته شد» قابل اثبات باشد */
+  const ignored = ignoredClaims(claims);
+  return { ok: true, accepted: clean.length, pending: merged.length, device_file: key,
+    uids: clean.map(i => i.uid), ignored_claims: ignored };
 }
 
 function readMeta(store) {
@@ -289,13 +349,16 @@ async function drain(store, { limit = MAX_DRAIN } = {}) {
        هویت (کاربر/نقش/مستأجر) از پاکتِ امضاشده می‌آید. هر فایل بدون امضای
        معتبر — از جمله فایل‌های قدیمی v1 که user_id را کلاینت نوشته — قرنطینه
        می‌شود و هرگز اعمال نمی‌گردد (بدون حذف: برای بازرسی نگه داشته می‌شود). */
-    const env = verifyEnvelope(store, doc);
+    const verdict = acceptEnvelope(store, doc);
+    const env = verdict.ok ? verdict.env : null;
     if (!env) {
       out.rejected++;
-      out.untrusted = (out.untrusted || 0) + 1;
+      if (verdict.reason === 'cross_tenant') out.cross_tenant = (out.cross_tenant || 0) + 1;
+      else out.untrusted = (out.untrusted || 0) + 1;
       try {
         await s3mem.put(cfg, keyOf(cfg, 'outbox/quarantine/' + path.basename(key)),
-          JSON.stringify({ reason: 'client_identity_untrusted', quarantined_at: new Date().toISOString(), raw: doc }));
+          JSON.stringify({ reason: verdict.reason, expected_tenant: verdict.expected || null,
+            quarantined_at: new Date().toISOString(), raw: doc }));
         await s3mem.remove(cfg, key);
       } catch (e) { /* اگر قرنطینه نشد، فایل می‌ماند و دفعهٔ بعد هم رد می‌شود */ }
       continue;
@@ -620,7 +683,7 @@ async function publishAll(store) {
 }
 
 module.exports = {
-  submit, verifyEnvelope, buildEnvelope,
+  submit, verifyEnvelope, buildEnvelope, acceptEnvelope, serverTenant, signKey, ignoredClaims,
   corePayload, directory,
   publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop, putIfChanged, forgetPutHashes,
   publishAuth, publishData, publishAll, personData, CORE_COLLECTIONS, PERSON_COLLECTIONS,
