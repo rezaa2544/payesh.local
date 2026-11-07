@@ -4,7 +4,7 @@
 ظرفیت واقعی provider = **OWNER**.
 **شاهد خام:** [`docs/cloud/reports/evidence/conn-budget-45.txt`](reports/evidence/conn-budget-45.txt)
 — بازتولید با `bash docs/cloud/reports/evidence/run-45-conn-budget.sh`
-**Commit:** `9f0c96f` (۰٫۸٫۶۰)
+**Commit:** `9ebddef` (۰٫۸٫۶۰)
 
 ## آنچه ساخته شد
 
