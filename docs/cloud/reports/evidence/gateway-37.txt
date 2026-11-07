@@ -1,0 +1,46 @@
+# شاهد ردیف ۳۷ — Gateway نازک و بی‌حالت (دو نمونهٔ واقعی + PostgreSQL واقعی)
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/7ac102df-payesh-local
+# head_sha: e93d19168e643051697b513d95e9898052bd2671
+# generated_at: 2026-11-07T16:22:51Z
+# postgres: 18.6 (embedded-postgres — باینری بیرون از مخزن)
+# node: v22.22.3
+# os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-37-gateway.sh
+# instances: gw1=:5641 gw2=:5642 quota=:5643 (+ یک نمونهٔ بی‌DB برای تفکیک liveness/readiness)
+
+PASS  GW-01  دو نمونهٔ مستقل: هر دو /healthz ۲۰۰ با شناسهٔ نمونهٔ متفاوت  → gw-5641 & gw-5642
+PASS  GW-02  /readyz واقعی: DB + set_config تراکنشی بدون نشت زمینه  → tenant_scoped=yes leaked=no
+PASS  GW-03  تفکیک liveness/readiness: نمونهٔ بی‌DB ⇒ healthz ۲۰۰ ولی readyz ۵۰۳  → healthz=200 readyz=503 (not_configured)
+PASS  GW-04  احراز: بدون توکن ۴۰۱، توکن دست‌کاری‌شده ۴۰۱  → no-token=401 tampered=401 expired=token_expired
+PASS  GW-05  tenant فقط از نشست: هدر X-Tenant و tenant_id در بدنه بی‌اثرند  → A=1 B=0 tenant=session-only
+PASS  GW-06  push دسته‌ای ۵ عملیات ⇒ applied=5 و pull همان ۵ ردیف را می‌دهد  → applied=5 feed_rows=5
+PASS  GW-07  تکرار همان دسته ⇒ duplicates=5، applied=0 و feed رشد نمی‌کند  → duplicates=5 feed=6
+PASS  GW-08  بی‌حالتی idempotency: تکرار همان عملیات روی نمونهٔ دیگر هم duplicate است  → cross-instance duplicate=yes
+PASS  GW-09  بی‌حالتی صفحه‌بندی: پیمایش با limit=2 بین دو نمونه ⇒ هر ردیف دقیقاً یک‌بار  → pages=2 rows=6 instances=2
+PASS  GW-10  سقف عملیات: ۲۰۱ عملیات ⇒ ۴۱۳ too_many_ops و هیچ نوشتنی  → limit=200 feed=6
+PASS  GW-11  سقف بدنه: درخواست بزرگ‌تر از GW_MAX_BODY ⇒ ۴۱۳ body_too_large  → status=413 body_too_large
+PASS  GW-12  سقف payload هر عملیات: >۶۴KB ⇒ ۴۱۳ op_too_large  → op_too_large limit=65536
+PASS  GW-13  سقف ردیف pull: limit بزرگ‌تر از GW_PULL_MAX کلمپ می‌شود  → clamped=50 rows=6
+PASS  GW-14  سهمیهٔ نرخ: پنجره در دیتابیس است و بین نمونه‌ها مشترک (۶ درخواست ⇒ ۴۲۹ روی هر دو نمونه)  → 429 پس از 5 درخواست · hits_in_db=7 · windows=1 · cross-instance=yes
+PASS  GW-15  تعارض OCC از مسیر Gateway: conflicts=1 و بدون ردیف تازه در feed  → version=1 conflicts=1 feed_stable=7
+PASS  GW-16  اتمی‌بودن دسته: یک عملیات نامعتبر ⇒ کل دسته رد، هیچ ردیفی نوشته نمی‌شود  → rejected=unknown_collection feed_stable=7
+PASS  GW-17  جدایی مستأجرها: push مستأجر B هیچ ردیفی از A را تغییر نمی‌دهد  → A_name=دهم الف B_name=کلاس B
+PASS  GW-18  توان عبوری: ۳۰۰ عملیات در دسته‌های ۵۰تایی  → 300 ops · 384ms ≈781 op/s (دو نمونه)
+PASS  GW-19  مهاجرت Gateway: جدول‌های ops/quota با RLS اجباری ساخته شدند  → statements=59 tables=2
+
+19 موفق · 0 ناموفق
+
+## اندازه‌گیری مستقیم: سهمیه و idempotency در دیتابیس (نه در حافظهٔ نمونه)
+quota_rows=11 tenants=2
+idempotency_keys=309
+feed_rows=308
+table gateway_quota: rls=true force=true
+table product_ops: rls=true force=true
+
+## عدم رگرسیون: change-feed (۳۶) و tenancy/RLS (۲۶) روی همین سرور، پایگاه‌دادهٔ تازه
+F05-PG checks=12 pass=12 fail=0
+F05-PG-OK checks=12
+(f05_exit=0)
+
+GATEWAY-37-OK

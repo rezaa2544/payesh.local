@@ -31,16 +31,23 @@ const FEED_MAX_LIMIT = 1000;
 /* فشرده‌سازی: ردیف‌های قدیمی‌تر از پنجرهٔ «داغ» با gzip ذخیره می‌شوند */
 const FEED_DEFAULT_HOT_DAYS = 7;
 const FEED_MAX_HOT_DAYS = 365;
+/* ردیف ۳۷ — Gateway بی‌حالت */
+const OPS_TABLE = 'product_ops';
+const QUOTA_TABLE = 'gateway_quota';
+const MAX_OPS_PER_REQUEST = 200;        /* سقف عملیات هر push */
+const MAX_OP_BYTES = 64 * 1024;         /* سقف payload هر عملیات */
+const MAX_UID_LEN = 80;
 const OWNER_ROLE = 'payesh_owner';
 const RUNTIME_ROLE = 'payesh_runtime';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BODY_BYTES = 64 * 1024;
 
 class TenancyError extends Error {
-  constructor(code, status = 400) {
+  constructor(code, status = 400, details = null) {
     super(code);
     this.code = code;
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -180,6 +187,44 @@ const SCHEMA_SQL = [
   /* UPDATE لازم است برای فشرده‌سازیِ درجا (فقط همین دو ستون، و همچنان تحت RLS) */
   `GRANT SELECT, INSERT, DELETE, UPDATE ON ${FEED_TABLE} TO ${RUNTIME_ROLE}`,
   `GRANT USAGE, SELECT ON SEQUENCE ${FEED_TABLE}_seq_seq TO ${RUNTIME_ROLE}`,
+
+  /* ── idempotency عملیات (ردیف ۳۷: Gateway بی‌حالت) ─────────────────────
+     کلید (tenant_id, uid): تکرار همان عملیات در هر نمونه‌ای از Gateway
+     دوباره اعمال نمی‌شود — وضعیت در دیتابیس است، نه در حافظهٔ نمونه. */
+  `CREATE TABLE IF NOT EXISTS ${OPS_TABLE} (
+     tenant_id uuid NOT NULL,
+     uid text NOT NULL,
+     at timestamptz NOT NULL DEFAULT now(),
+     PRIMARY KEY (tenant_id, uid)
+   )`,
+  `ALTER TABLE ${OPS_TABLE} OWNER TO ${OWNER_ROLE}`,
+  `ALTER TABLE ${OPS_TABLE} ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE ${OPS_TABLE} FORCE ROW LEVEL SECURITY`,
+  `DROP POLICY IF EXISTS ${OPS_TABLE}_isolation ON ${OPS_TABLE}`,
+  `CREATE POLICY ${OPS_TABLE}_isolation ON ${OPS_TABLE}
+     USING (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)
+     WITH CHECK (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)`,
+  `REVOKE ALL ON ${OPS_TABLE} FROM PUBLIC`,
+  `GRANT SELECT, INSERT, DELETE ON ${OPS_TABLE} TO ${RUNTIME_ROLE}`,
+
+  /* ── سهمیهٔ نرخ (ردیف ۳۷): پنجرهٔ زمانی در دیتابیس ⇒ بین نمونه‌ها مشترک */
+  `CREATE TABLE IF NOT EXISTS ${QUOTA_TABLE} (
+     tenant_id uuid NOT NULL,
+     device_id text NOT NULL,
+     window_start timestamptz NOT NULL,
+     hits integer NOT NULL DEFAULT 0,
+     PRIMARY KEY (tenant_id, device_id, window_start)
+   )`,
+  `CREATE INDEX IF NOT EXISTS ${QUOTA_TABLE}_tenant_idx ON ${QUOTA_TABLE} (tenant_id, window_start)`,
+  `ALTER TABLE ${QUOTA_TABLE} OWNER TO ${OWNER_ROLE}`,
+  `ALTER TABLE ${QUOTA_TABLE} ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE ${QUOTA_TABLE} FORCE ROW LEVEL SECURITY`,
+  `DROP POLICY IF EXISTS ${QUOTA_TABLE}_isolation ON ${QUOTA_TABLE}`,
+  `CREATE POLICY ${QUOTA_TABLE}_isolation ON ${QUOTA_TABLE}
+     USING (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)
+     WITH CHECK (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)`,
+  `REVOKE ALL ON ${QUOTA_TABLE} FROM PUBLIC`,
+  `GRANT SELECT, INSERT, UPDATE, DELETE ON ${QUOTA_TABLE} TO ${RUNTIME_ROLE}`,
 ];
 
 /* اجرای مهاجرت با اتصال مدیر (superuser) — بخشی از محصول است، نه هارنس */
@@ -296,6 +341,8 @@ function init({ connectionString = '', secret = '' } = {}) {
   return status();
 }
 
+function getPool() { return state.pool; }
+
 function status() {
   return { enabled: state.enabled, reason: state.reason, table: TABLE, runtime_role: RUNTIME_ROLE, owner_role: OWNER_ROLE };
 }
@@ -348,6 +395,37 @@ async function getProduct(pool, tenantId, { collection, id }) {
 }
 
 /* درج/به‌روزرسانی با کنترل نسخه (OCC) — tenant از زمینهٔ تراکنش */
+/* نوشتن/حذف در «همان تراکنش» — مشترک بین مسیر تکی و مسیر دسته‌ای Gateway */
+async function upsertInTx(c, col, rid, data, baseVersion, feedOut = true) {
+  const cur = await c.query(`select version from ${PRODUCT_TABLE} where collection = $1 and record_id = $2 for update`, [col, rid]);
+  const exists = cur.rows.length > 0;
+  const version = exists ? Number(cur.rows[0].version) : 0;
+  if (baseVersion != null && Number(baseVersion) !== version) return { conflict: true, version, row: null };
+  const q = await c.query(
+    `insert into ${PRODUCT_TABLE} (tenant_id, collection, record_id, version, data, deleted_at)
+     values (current_setting('app.tenant_id')::uuid, $1, $2, 1, $3::jsonb, null)
+     on conflict (tenant_id, collection, record_id)
+     do update set data = excluded.data, version = ${PRODUCT_TABLE}.version + 1, deleted_at = null, updated_at = now()
+     returning collection, record_id, version, data, deleted_at, updated_at`,
+    [col, rid, JSON.stringify(data)]
+  );
+  const row = productRowOf(q.rows[0]);
+  if (feedOut) await appendFeed(c, { collection: col, recordId: rid, op: 'put', version: row.version, data: row.data });
+  return { conflict: false, version: row.version, row };
+}
+
+async function deleteInTx(c, col, rid, feedOut = true) {
+  const q = await c.query(
+    `update ${PRODUCT_TABLE} set deleted_at = now(), version = version + 1, updated_at = now()
+     where collection = $1 and record_id = $2 returning collection, record_id, version`,
+    [col, rid]
+  );
+  if (!q.rows.length) return null;
+  const version = Number(q.rows[0].version);
+  if (feedOut) await appendFeed(c, { collection: col, recordId: rid, op: 'del', version, data: null });
+  return { collection: col, id: rid, version, deleted: true };
+}
+
 async function upsertProduct(pool, tenantId, { collection, id, data = {}, base_version = null } = {}) {
   const col = assertCollection(collection);
   const rid = Number(id);
@@ -356,42 +434,116 @@ async function upsertProduct(pool, tenantId, { collection, id, data = {}, base_v
   delete clean.tenant_id; delete clean.tenantId; /* ورودی کلاینت هرگز مستأجر را تعیین نمی‌کند */
   delete clean.school_id; delete clean.schoolId;
   return withTenant(pool, tenantId, async (c) => {
-    const cur = await c.query(`select version from ${PRODUCT_TABLE} where collection = $1 and record_id = $2 for update`, [col, rid]);
-    const exists = cur.rows.length > 0;
-    const version = exists ? Number(cur.rows[0].version) : 0;
-    if (base_version != null && Number(base_version) !== version) {
-      return { conflict: true, version, data: null };
-    }
-    const q = await c.query(
-      `insert into ${PRODUCT_TABLE} (tenant_id, collection, record_id, version, data, deleted_at)
-       values (current_setting('app.tenant_id')::uuid, $1, $2, 1, $3::jsonb, null)
-       on conflict (tenant_id, collection, record_id)
-       do update set data = excluded.data, version = ${PRODUCT_TABLE}.version + 1, deleted_at = null, updated_at = now()
-       returning collection, record_id, version, data, deleted_at, updated_at`,
-      [col, rid, JSON.stringify(clean)]
-    );
-    /* ردیف ۳۶: هر نوشتنِ موفق یک ردیف change-feed در همان تراکنش می‌سازد،
-       پس یا هر دو ثبت می‌شوند یا هیچ‌کدام (بدون شکاف بین داده و feed). */
-    const row = productRowOf(q.rows[0]);
-    await appendFeed(c, { collection: col, recordId: rid, op: 'put', version: row.version, data: row.data });
-    return { conflict: false, row };
+    const out = await upsertInTx(c, col, rid, clean, base_version);
+    return out.conflict ? { conflict: true, version: out.version, data: null } : { conflict: false, row: out.row };
   });
 }
 
 async function deleteProduct(pool, tenantId, { collection, id }) {
   const col = assertCollection(collection);
+  return withTenant(pool, tenantId, async (c) => deleteInTx(c, col, Number(id)));
+}
+
+/* ═══════ اعمال دسته‌ای عملیات (ردیف ۳۷ — Gateway) ═══════════════════
+   همهٔ عملیات یک درخواست در «یک تراکنش» و «یک زمینهٔ مستأجر» اجرا می‌شوند:
+   یا همه اعمال می‌شوند یا هیچ‌کدام. idempotency در جدول product_ops است،
+   پس تکرار همان uid روی هر نمونه‌ای از Gateway دوباره اعمال نمی‌شود.
+   ═══════════════════════════════════════════════════════════════════ */
+function cleanData(data) {
+  const clean = Object.assign({}, data || {});
+  delete clean.tenant_id; delete clean.tenantId;
+  delete clean.school_id; delete clean.schoolId;
+  return clean;
+}
+
+async function applyOps(pool, tenantId, { ops = [], device_id = null } = {}) {
+  if (!Array.isArray(ops)) throw new TenancyError('bad_ops', 400);
+  if (ops.length > MAX_OPS_PER_REQUEST) {
+    throw new TenancyError('too_many_ops', 413, { limit: MAX_OPS_PER_REQUEST });
+  }
+  const prepared = ops.map((op, i) => {
+    const uid = String((op && op.uid) || '');
+    if (!uid || uid.length > MAX_UID_LEN) throw new TenancyError('bad_uid', 400, { index: i });
+    const collection = String((op && op.collection) || '');
+    if (!/^[a-z][a-z0-9_]{1,40}$/.test(collection)) throw new TenancyError('unknown_collection', 400, { index: i, uid });
+    const type = op.type === 'del' ? 'del' : 'put';
+    const id = Number(op.id);
+    if (!Number.isInteger(id) || id < 1) throw new TenancyError('bad_id', 400, { index: i, uid });
+    const payload = type === 'del' ? null : cleanData(op.data);
+    if (payload) {
+      const bytes = Buffer.byteLength(JSON.stringify(payload), 'utf8');
+      if (bytes > MAX_OP_BYTES) throw new TenancyError('op_too_large', 413, { index: i, uid, limit: MAX_OP_BYTES });
+    }
+    return { uid, collection, type, id, payload, base_version: op.base_version == null ? null : Number(op.base_version) };
+  });
+
+  return withTenant(pool, tenantId, async (c) => {
+    const applied = [];
+    const duplicates = [];
+    const conflicts = [];
+    for (const p of prepared) {
+      const seen = await c.query(
+        `insert into ${OPS_TABLE} (tenant_id, uid) values (current_setting('app.tenant_id')::uuid, $1)
+         on conflict (tenant_id, uid) do nothing returning uid`, [p.uid]
+      );
+      if (!seen.rows.length) { duplicates.push({ uid: p.uid }); continue; }
+      if (p.type === 'del') {
+        const out = await deleteInTx(c, p.collection, p.id);
+        if (!out) { applied.push({ uid: p.uid, id: p.id, deleted: false, missing: true }); continue; }
+        applied.push({ uid: p.uid, id: p.id, deleted: true, version: out.version });
+        continue;
+      }
+      const out = await upsertInTx(c, p.collection, p.id, p.payload, p.base_version);
+      if (out.conflict) { conflicts.push({ uid: p.uid, id: p.id, version: out.version }); continue; }
+      applied.push({ uid: p.uid, id: p.id, version: out.version, collection: p.collection });
+    }
+    return {
+      applied, duplicates, conflicts,
+      counts: { applied: applied.length, duplicates: duplicates.length, conflicts: conflicts.length },
+      device_id: device_id || null,
+    };
+  });
+}
+
+/* سهمیهٔ نرخ در دیتابیس (نه در حافظهٔ نمونه) — پنجرهٔ ثابت زمانی.
+   هر نمونه‌ای همین جدول را می‌بیند، پس محدودیت بین نمونه‌ها مشترک است. */
+async function takeQuota(pool, tenantId, { deviceId = 'unknown', max = 120, windowSec = 60 } = {}) {
+  if (!Number.isFinite(max) || max < 1) throw new TenancyError('bad_quota', 500);
+  const start = new Date(Math.floor(Date.now() / (windowSec * 1000)) * windowSec * 1000);
   return withTenant(pool, tenantId, async (c) => {
     const q = await c.query(
-      `update ${PRODUCT_TABLE} set deleted_at = now(), version = version + 1, updated_at = now()
-       where collection = $1 and record_id = $2 returning collection, record_id, version`,
-      [col, Number(id)]
+      `insert into ${QUOTA_TABLE} (tenant_id, device_id, window_start, hits)
+       values (current_setting('app.tenant_id')::uuid, $1, $2, 1)
+       on conflict (tenant_id, device_id, window_start)
+       do update set hits = ${QUOTA_TABLE}.hits + 1
+       returning hits`,
+      [String(deviceId).slice(0, 80), start.toISOString()]
     );
-    if (!q.rows.length) return null;
-    const version = Number(q.rows[0].version);
-    /* tombstone در feed: کلاینتِ آفلاین باید «حذف» را هم ببیند، نه فقط نبود ردیف */
-    await appendFeed(c, { collection: col, recordId: Number(q.rows[0].record_id), op: 'del', version, data: null });
-    return { collection: col, id: Number(q.rows[0].record_id), version, deleted: true };
+    const hits = Number(q.rows[0].hits);
+    return {
+      allowed: hits <= max, hits, max,
+      remaining: Math.max(0, max - hits),
+      retry_after_ms: hits <= max ? 0 : Math.max(0, start.getTime() + windowSec * 1000 - Date.now()),
+      window_start: start.toISOString(), window_sec: windowSec,
+    };
   });
+}
+
+/* سلامت آمادگی: اتصال + رفتار درست `set_config(..., true)` (بدون نشت زمینه) */
+async function readiness(pool) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("select set_config('app.tenant_id', '00000000-0000-0000-0000-000000000000', true)");
+    const inside = await client.query("select current_setting('app.tenant_id', true) as v");
+    await client.query('COMMIT');
+    const after = await client.query("select current_setting('app.tenant_id', true) as v");
+    return {
+      ok: true,
+      tenant_scoped: (inside.rows[0].v || '') === '00000000-0000-0000-0000-000000000000',
+      leaked_after_commit: (after.rows[0].v || '') !== '',
+    };
+  } finally { client.release(); }
 }
 
 /* ═══════ change-feed (ردیف ۳۶) ═══════════════════════════════════════
@@ -716,7 +868,7 @@ async function rollbackProduct(client) {
   return { dropped: [JOBS_TABLE, PRODUCT_TABLE], statements: sqls.length };
 }
 
-module.exports = { appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE,
+module.exports = { getPool, applyOps, takeQuota, readiness, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,
