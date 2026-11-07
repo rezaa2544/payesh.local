@@ -1,15 +1,15 @@
 {
-  "version": "0.8.46",
-  "built_at": "2026-11-07T15:33:58.671Z",
+  "version": "0.8.47",
+  "built_at": "2026-11-07T15:51:07.284Z",
   "notes": [],
   "shell": {
-    "android": "0.8.46"
+    "android": "0.8.47"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "8c0499146492ba1d99d57a4a5b99d973d083c92172da04991d356a1c5ea9fe5e",
+      "sha256": "aedbfc104a433ec587bd544134eb5ed37c58b001d23331017fd385e0c25e614c",
       "size": 181798
     },
     {
@@ -165,8 +165,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "79e5dff9516f8eb04aa8a9f1dc917aec9796aa07ea5b70ec4d4f83cb05b9998c",
-      "size": 2301
+      "sha256": "a8f39044dea7af6671bbb1f34f779a0433d0bda6c913c7b38735ac927e3df939",
+      "size": 2440
     },
     {
       "path": "server/auth.js",
@@ -306,6 +306,6 @@
     "server": 24
   },
   "client_size": 1338554,
-  "server_size": 356326,
-  "total_size": 1694880
+  "server_size": 356465,
+  "total_size": 1695019
 }
