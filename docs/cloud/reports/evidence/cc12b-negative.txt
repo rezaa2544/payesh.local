@@ -1,0 +1,15 @@
+# آزمون منفی دروازهٔ ۱۲‑ب
+# تولید: bash docs/cloud/reports/evidence/verify-cc12b-negative.sh
+# زمان: 2026-11-07T00:34:56Z
+# HEAD: 54b7236402db21105e544a28298b729d787df047
+
+PASS  P0  gate accepted clean evidence (control positive)
+PASS  N1  gate rejected: یک برچسب لازم از خروجی ۲۰‑ب حذف شد  → exit=1
+PASS  N2  gate rejected: برچسب لازم با علامت شکست  → exit=1
+PASS  N3  gate rejected: SUMMARY ادعایی با بدنه نمی‌خواند  → exit=1
+PASS  N4  gate rejected: نقش platform_support به ROLES محصول اضافه شد (default-deny شکست)  → exit=1
+PASS  N5  gate rejected: بخش «سلامت فنی» از جدول D-20 حذف شد  → exit=1
+PASS  N6  gate rejected: فایل policy محصول غایب است  → exit=1
+
+TOTAL 7 · pass=7 fail=0
+NEGATIVE-OK
