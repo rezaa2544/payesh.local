@@ -1,16 +1,16 @@
 {
-  "version": "0.8.57",
-  "built_at": "2026-11-07T21:17:45.754Z",
+  "version": "0.8.58",
+  "built_at": "2026-11-07T21:33:58.443Z",
   "notes": [],
   "shell": {
-    "android": "0.8.57"
+    "android": "0.8.58"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "4c812012d2bcec3846cd9ef0e6e261ccdd0c82f8f2b0f4be7fa5bcbce8d3d8fe",
-      "size": 191029
+      "sha256": "73937e2f953e52f0a867e0d89fde7a5ddea73c8f9e5aadc47b2da728ad59f522",
+      "size": 195160
     },
     {
       "path": "client/authz.js",
@@ -87,8 +87,8 @@
     {
       "path": "client/index.html",
       "kind": "client",
-      "sha256": "737420a7d27144a8c5b75c28bde64656622807a497cb37bbf7d0e47259449da2",
-      "size": 1720
+      "sha256": "8db5435ae56ee273a767770a29ca7ba968d254771c694656cc550e2682cfe8ad",
+      "size": 1762
     },
     {
       "path": "client/install.html",
@@ -135,8 +135,8 @@
     {
       "path": "client/outbox-web.js",
       "kind": "client",
-      "sha256": "d3f4cd1fdbe5d941f59b11b8610913b7273ebc850091e61e3c3f8bb3777a9e50",
-      "size": 17711
+      "sha256": "4278742738dc35d3209984039ad1a9b5a46579b983604351ed766bde49458550",
+      "size": 18236
     },
     {
       "path": "client/pages.js",
@@ -175,6 +175,12 @@
       "size": 0
     },
     {
+      "path": "client/sync-schedule.js",
+      "kind": "client",
+      "sha256": "6f2818a5c2c6c3a50c8b4091317551a1c950d23a1565265ab5418641847a7c7a",
+      "size": 4505
+    },
+    {
       "path": "install.bat",
       "kind": "server",
       "sha256": "e7bff8e3fda9a280ced1550fe52d5cb404a3aa9472added6b0825f6d864f2799",
@@ -183,8 +189,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "efb1003486977e01932f82eea58a21ed93e6dd437cb84bbbd014789f3f1d8859",
-      "size": 4174
+      "sha256": "63ac2c0587c92ce1c228f7e27527e56d5d830b4c71549c4aeecf6eb251b15e53",
+      "size": 4461
     },
     {
       "path": "server/archive.js",
@@ -237,8 +243,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "8fadc933a2fb09829f3fbc724088d5b14efaf5228c6992c67f6e2e781b0f5d5b",
-      "size": 110429
+      "sha256": "8072e463c277a5068f6f60698dc349d969d9eb820dddb815e6f8ecd35f4ac98f",
+      "size": 110966
     },
     {
       "path": "server/live.js",
@@ -297,8 +303,8 @@
     {
       "path": "server/sync.js",
       "kind": "server",
-      "sha256": "88be50762f0d38c21e47a2cec80af79760620aa06f17ae5f67df83e1d6367b63",
-      "size": 19204
+      "sha256": "ad01c463871b62a68cc504522c9156b9150cbe0b5ee45fe90a261d852176944c",
+      "size": 19714
     },
     {
       "path": "server/tenancy.js",
@@ -350,10 +356,10 @@
     }
   ],
   "counts": {
-    "client": 28,
+    "client": 29,
     "server": 29
   },
-  "client_size": 1392234,
-  "server_size": 435894,
-  "total_size": 1828128
+  "client_size": 1401437,
+  "server_size": 437228,
+  "total_size": 1838665
 }

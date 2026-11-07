@@ -4,6 +4,7 @@
    Pull : دلتا بر اساس updated_at + tombstone + server_time
    Push : صف عملیات با idempotency، OCC (base_version) و gate نقش/اسکوپ
    ─────────────────────────────────────────────────────────────────── */
+const crypto = require('node:crypto');
 const { nowISO, normalizeMobile } = require('./util');
 const policy = require('./policy');
 const tenantCtx = require('./tenant-context');
@@ -83,10 +84,16 @@ function pull(store, actor, params) {
     }
   }
 
+  /* ردیف ۴۲ — ETag: اثر انگشت پایدارِ همین پاسخ. درخواست تکراری با همان
+     مکان‌نما و همان If-None-Match ⇒ 304 بدون بدنه (صفر بایت داده). */
+  const etagSeed = JSON.stringify({ s: since, i: sinceId, m: more, ns: nextSince, ni: nextId, c: collections, d: deleted });
+  const etag = 'W/"' + crypto.createHash('sha1').update(etagSeed).digest('base64url').slice(0, 22) + '"';
+
   return {
     ok: true,
     schema_version: SCHEMA_VERSION,
     server_time: nowISO(),
+    etag,
     since,
     since_id: sinceId,
     next_since: more ? nextSince : null,

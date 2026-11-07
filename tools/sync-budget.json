@@ -1,0 +1,35 @@
+{
+  "_doc": "ردیف ۴۲ — سقف بودجهٔ همگام‌سازی به‌ازای هر دستگاه/کاربر در روز. اندازه‌گیری واقعی: tests/sync-cost-42.js (SC-11) و ابزار: tools/sync-budget-42.cjs",
+  "_owner": "docs/cloud/42-sync-cost.md",
+  "unit_cost_bytes": {
+    "note": "بایت‌های مرجع؛ ابزار در CI از این‌ها استفاده می‌کند و آزمون، ارقام اندازه‌گیری‌شدهٔ واقعی را تزریق می‌کند.",
+    "etag_304_bytes": 220,
+    "pull_200_bytes": 1400,
+    "push_120ops_bytes": 60000
+  },
+  "device_day": {
+    "idle_visible": {
+      "requests": 900,
+      "bytes": 786432,
+      "note": "دستگاه باز اما بی‌کار: کاوش تطبیقی (۱s→۶۰s→۵m با نردبان بی‌کاری) + جارو؛ ۷۶۸KB سقف روزانه"
+    },
+    "background": {
+      "requests": 200,
+      "bytes": 131072,
+      "note": "تب/برنامه در پس‌زمینه یا آفلاین: صفر کاوش live، فقط جارو"
+    },
+    "active_teacher": {
+      "requests": 1200,
+      "bytes": 8388608,
+      "note": "کاربر فعال با ۶۰ push دسته‌ای ۱۲۰تایی"
+    }
+  },
+  "global": {
+    "max_ops_per_push": 200,
+    "batch_limit_client": 120,
+    "jitter_backoff": 0.5,
+    "jitter_reconnect_ms": 2000,
+    "live_active_ms": 1000,
+    "live_idle_max_ms": 60000
+  }
+}

@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.53';
+const CLIENT_VERSION = '0.8.58';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -323,18 +323,22 @@ async function api(path, opts = {}) {
   if (PHONE_MODE) return phoneApiStub(path, opts);
   const headers = { 'content-type': 'application/json' };
   if (S.session) headers.authorization = 'Bearer ' + S.session;
+  if (opts.etag) headers['if-none-match'] = opts.etag;   /* ردیف ۴۲: delta */
   const res = await fetch(apiUrl(path), {
     method: opts.method || 'GET',
     headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
     cache: 'no-store',
   });
+  /* ۳۰۴ = «هیچ تغییری نیست»؛ بدنه‌ای برای خواندن وجود ندارد */
+  if (res.status === 304) return { ok: true, not_modified: true, etag: res.headers.get('etag') || opts.etag || null };
   let data = null;
   try { data = await res.json(); } catch (e) { data = { ok: false, error: 'bad_response' }; }
   if (res.status === 401 && !opts.noAuthRedirect && !opts._retried && S.deviceToken) {
     /* نشست منقضی شده؟ بی‌صدا تازه‌اش می‌کنیم و همان درخواست را تکرار می‌کنیم */
     if (await silentRefresh()) return api(path, Object.assign({}, opts, { _retried: true }));
   }
+  if (data && typeof data === 'object' && res.ok) data._etag = res.headers.get('etag') || null;
   if (data && data.error === 'device_revoked') {
     await handleDeviceRevoked('device_revoked');
     if (!opts.noAuthRedirect) { lockApp(); toast('این دستگاه از طرف مدیر باطل شده؛ دادهٔ محلی پاک شد', 'err'); }
@@ -440,14 +444,21 @@ async function pullAll() {
      ردیف‌هایی که همان مهر زمانیِ مرز صفحه را دارند گم می‌شوند. */
   let since = S.lastSync || '1970-01-01T00:00:00.000Z';
   let sinceId = Number(localStorage.getItem('payesh.sync_id') || 0) || 0;
-  let guard = 0, serverTime = null, consumed = false;
+  let guard = 0, serverTime = null, consumed = false, lastEtag = null;
+  /* ردیف ۴۲: ETag ذخیره‌شده فقط برای همین مکان‌نما معتبر است */
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('payesh.pull_etag') || 'null'); } catch (e) { saved = null; }
+  const connEtag = saved && saved.since === since && Number(saved.since_id) === sinceId ? saved.etag : null;
   while (guard++ < 60) {
-    const r = await api('/api/v1/pull?since=' + encodeURIComponent(since) + '&since_id=' + sinceId);
+    const r = await api('/api/v1/pull?since=' + encodeURIComponent(since) + '&since_id=' + sinceId,
+      guard === 1 && connEtag ? { etag: connEtag } : {});
+    if (r.not_modified) return false;                    /* چیزی عوض نشده: صفر بایت داده */
     if (r.server_time) {
       serverTime = r.server_time;
       S.clockOffset = new Date(r.server_time).getTime() - Date.now();
     }
     mergeRows(r.collections, r.deleted);
+    if (r._etag) lastEtag = r._etag;
     if (!r.more) { consumed = true; break; }
     since = r.next_since || r.server_time;
     sinceId = Number(r.next_id || 0) || 0;
@@ -457,8 +468,11 @@ async function pullAll() {
     localStorage.setItem('payesh.sync_at', serverTime);
     /* مکان‌نمای مصرف‌شده تا server_time جلو رفت؛ id از صفر شروع می‌شود */
     localStorage.setItem('payesh.sync_id', '0');
+    if (lastEtag) localStorage.setItem('payesh.pull_etag', JSON.stringify({ since: serverTime, since_id: 0, etag: lastEtag }));
+    else localStorage.removeItem('payesh.pull_etag');
   }
   saveCache();
+  return true;
 }
 
 async function flushQueue() {
@@ -652,7 +666,15 @@ async function syncNow(silent = true) {
    • اگر دستگاه مقصد خاموش/آفلاین باشد، داده در حافظه می‌ماند و اولین
      ثانیه‌ای که آنلاین شود تحویلش می‌گیرد.
    ══════════════════════════════════════════════════════════════════ */
+/* ردیف ۴۲ — همگام‌سازی کم‌هزینه: «polling ثابت» نداریم.
+   حالت فعال: ۱ ثانیه (تا وقتی داده واقعاً عوض می‌شود)؛
+   حالت بی‌کار: عقب‌نشینی نمایی تا ۶۰ ثانیه + jitter تصادفی.
+   هر تغییر محلی یا بازگشت شبکه، زمان‌بند را فوراً به حالت فعال برمی‌گرداند. */
 const LIVE_MS = 1000;
+const LIVE_MAX_MS = 60_000;
+const LIVE_BACKOFF = 1.6;
+const LIVE_JITTER = 0.25;
+let liveIdle = 0;
 let liveTimer = null;
 let liveBusy = false;
 let liveServerRev = null;
@@ -764,13 +786,42 @@ async function liveTick() {
   }
 }
 
+/* سیاست در ماژول مشترکِ قابل‌آزمون است (tests/sync-cost-42.js آن را می‌سنجد) */
+function liveDelayMs() {
+  const S2 = globalThis.PayeshSchedule;
+  if (S2) return S2.liveDelay(liveIdle, null, { activeMs: LIVE_MS, maxMs: LIVE_MAX_MS, backoff: LIVE_BACKOFF, jitter: LIVE_JITTER });
+  const base = Math.min(LIVE_MS * Math.pow(LIVE_BACKOFF, liveIdle), LIVE_MAX_MS);
+  return Math.max(250, Math.round(base * (1 + (Math.random() * 2 - 1) * LIVE_JITTER)));
+}
+function scheduleLive(ms) {
+  if (liveTimer) clearTimeout(liveTimer);
+  liveTimer = setTimeout(liveLoop, ms);
+}
+function liveLoop() {
+  const before = liveState.changes;
+  Promise.resolve().then(liveTick).catch(() => {}).then(() => {
+    liveIdle = liveState.changes > before ? 0 : Math.min(liveIdle + 1, 20);
+    scheduleLive(liveDelayMs());
+  });
+}
 function startLive() {
   if (liveTimer) return;
-  liveTimer = setInterval(() => { liveTick().catch(() => {}); }, LIVE_MS);
-  setTimeout(() => { liveTick().catch(() => {}); }, 400);
+  scheduleLive(400);
 }
-function stopLive() { if (liveTimer) clearInterval(liveTimer); liveTimer = null; }
-function liveKick() { setTimeout(() => { liveTick().catch(() => {}); }, 0); }
+function stopLive() { if (liveTimer) clearTimeout(liveTimer); liveTimer = null; }
+function liveKick() { liveIdle = 0; scheduleLive(0); }
+/* ردیف ۴۲ — «۱ ثانیه» جایی که معنا دارد: هر تعامل کاربر نردبان بی‌کاری را صفر
+   می‌کند و زمان‌بند به ۱ ثانیه برمی‌گردد (بدون شلیک درخواست به‌ازای هر کلید). */
+function liveTouch() {
+  if (liveIdle === 0) return;
+  liveIdle = 0;
+  scheduleLive(LIVE_MS);
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev => {
+    document.addEventListener(ev, () => { if (S.session) liveTouch(); }, { passive: true, capture: true });
+  });
+}
 
 /* ── نوشتن محلی + صف ───────────────────────────────────────────── */
 function putLocal(collection, row, { sync = true } = {}) {
@@ -1055,7 +1106,7 @@ async function enterPhone(user) {
   routeFromHash();
   render();
   scheduleSync();
-  startLive();                   /* هر ۱ ثانیه از حافظهٔ مشترک تازه‌سازی */
+  startLive();                   /* تازه‌سازی تطبیقی: ۱ ثانیه در حالت فعال، عقب‌نشینی در بی‌کاری (ردیف ۴۲) */
   toast('خوش آمدید ' + (user.name || ''), 'ok');
 }
 
@@ -1190,7 +1241,7 @@ async function start() {
     routeFromHash();
     render();
     scheduleSync();
-    startLive();                 /* هر ۱ ثانیه با حافظه هم‌گام شو */
+    startLive();                 /* تطبیقی: ۱ ثانیه فعال، عقب‌نشینی بی‌کاری (ردیف ۴۲) */
     checkUpdate(true);
     maybeShowReleaseNotes();
     maybeFixPhoneAccess();
@@ -1202,9 +1253,23 @@ async function start() {
 }
 
 let syncTimer = null, updateTimer = null, remoteTimer = null;
+/* ردیف ۴۲: به‌جای تایمر ثابت ۹۰ ثانیه‌ای، زمان‌بند تطبیقی با jitter؛
+   در پس‌زمینه یا آفلاین کاملاً متوقف است (تلف نشدن داده/باتری). */
+let syncSweepDelay = 90_000;
+function syncSweepTick() {
+  const hidden = typeof document !== 'undefined' && document.hidden;
+  const idleOk = S.online && S.session && !hidden;
+  if (idleOk) syncNow(true);
+  const S2 = globalThis.PayeshSchedule;
+  scheduleSyncSweep(S2 ? S2.sweepDelay(idleOk, null) : (idleOk ? 90_000 : 5 * 60_000));
+}
+function scheduleSyncSweep(ms) {
+  if (syncTimer) clearTimeout(syncTimer);
+  syncSweepDelay = ms;
+  syncTimer = setTimeout(syncSweepTick, ms);
+}
 function scheduleSync() {
-  if (syncTimer) clearInterval(syncTimer);
-  syncTimer = setInterval(() => { if (S.online && S.session) syncNow(true); }, 90_000);
+  scheduleSyncSweep(globalThis.PayeshSchedule ? globalThis.PayeshSchedule.sweepDelay(true, null) : 90_000);
   /* بررسی دوره‌ای آپدیت — سبک و بی‌صدا */
   if (updateTimer) clearInterval(updateTimer);
   updateTimer = setInterval(() => { if (S.online) checkUpdate(true); }, 5 * 60_000);
@@ -1214,7 +1279,14 @@ function scheduleSync() {
     if (S.online && S.role === 'manager' && !S.remoteBusy) loadRemoteUpdate(false).then(() => updateTopChrome());
   }, 20 * 60_000);
 }
-window.addEventListener('online', () => { S.online = true; syncNow(true); if (S.session) checkUpdate(true); render(); });
+window.addEventListener('online', () => {
+  S.online = true;
+  /* ردیف ۴۲ — ضد طوفان: هر دستگاه با تأخیر تصادفی برمی‌گردد */
+  const back = globalThis.PayeshSchedule ? globalThis.PayeshSchedule.reconnectDelay(null) : Math.round(Math.random() * 2000);
+  setTimeout(() => { syncNow(true); liveKick(); }, back);
+  if (S.session) checkUpdate(true);
+  render();
+});
 window.addEventListener('offline', () => { S.online = false; render(); });
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !S.session) return;

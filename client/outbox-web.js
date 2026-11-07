@@ -40,6 +40,7 @@ const DEFAULTS = {
   maxAttempts: 6,          /* بعد از آن → blocked (نیازمند تصمیم/تلاش دستی) */
   baseBackoffMs: 1000,
   maxBackoffMs: 300000,
+  jitter: 0.5,             /* ردیف ۴۲: بازهٔ تصادفی عقب‌نشینی — ضد طوفان بازگشت اینترنت */
   batchLimit: 120,         /* هم‌اندازهٔ MAX_OPS سرور */
 };
 
@@ -256,8 +257,12 @@ class Outbox {
       row.next_at = 0;
     } else {
       const backoff = Math.min(this.cfg.baseBackoffMs * Math.pow(2, row.attempts - 1), this.cfg.maxBackoffMs);
+      /* ردیف ۴۲: jitter — بدون آن، همهٔ دستگاه‌ها پس از قطعی اینترنت در یک
+         لحظه برمی‌گردند (طوفان). بازهٔ [۱−j, ۱] از backoff، تصادفی. */
+      const j = Math.min(Math.max(Number(this.cfg.jitter), 0), 0.9);
+      const factor = 1 - j + Math.random() * j;
       row.state = 'pending';
-      row.next_at = now + backoff;
+      row.next_at = now + Math.max(1, Math.round(backoff * factor));
     }
     store.put(row);
     await txDone(tx);

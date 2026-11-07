@@ -1,0 +1,87 @@
+# شاهد ردیف ۴۲ — هزینهٔ همگام‌سازی: سقف درخواست/بایت به‌ازای کاربر در روز
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/d68cec76-payesh-local
+# head_sha: 508191ef3d0b594f787ba8721c755edf15a2c961
+# version: 0.8.58
+# generated_at: 2026-11-07T21:34:12Z
+# node: v22.22.3
+# os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-42-sync-cost.sh
+# measurement: بایت‌ها روی سوکت خام شمرده می‌شوند (هدر HTTP + بدنه)، agent=false، accept-encoding: identity
+
+## بخش ۱ — ۱۵ کنترل (SC-01..SC-15) روی سرور و کلاینت واقعی
+PASS  SC-01  pull بدون تغییر ⇒ پاسخ خالی (هیچ ردیفی) و ETag دارد  → rows=0 etag=W/"NLjSRmJM_2tH_3PmLGH7HR" bytes=967  (5ms)
+PASS  SC-02  pull تکراری با If-None-Match ⇒ 304 و بدنهٔ صفر بایت  → 304 body=0 bytes=615 vs 200 bytes=967  (7ms)
+PASS  SC-03  تغییر داده ⇒ ETag عوض می‌شود و ۲۰۰ با ردیف جدید برمی‌گردد (۳۰۴ کاذب نداریم)  → etag_changed=true rows=1  (14ms)
+PASS  SC-04  ETag کهنه هرگز دادهٔ تازه را پنهان نمی‌کند (۳۰۴ فقط با مکان‌نمای یکسان)  → cross_cursor_200=true same_cursor_200=200  (15ms)
+PASS  SC-05  push دسته‌ای: ۱۲۰ عملیات در یک درخواست، همه اعمال می‌شوند  → ops=120 requests=1 applied=120 up=19737B  (189ms)
+PASS  SC-06  push بیش از سقف دسته (۲۰۱) رد می‌شود و هیچ نوشتنی انجام نمی‌شود  → rejected=true writes=0  (7ms)
+PASS  SC-07  عقب‌نشینی صندوقچه jitter دارد: داخل بازهٔ [۱−j, ۱] و مقادیر متمایز  → range=501..982ms unique=39/40  (28ms)
+PASS  SC-08  ضد طوفان: ۲۰۰ دستگاه هنگام بازگشت اینترنت به ≥۱۰ سبد زمانی پخش می‌شوند  → buckets=21/200 (mutation=1)  (1ms)
+PASS  SC-09  زمان‌بند تطبیقی: عقب‌نشینی تا سقف ۶۰s می‌رسد و کاوش روزانه زیر سقف است  → active≈1s idle@12≈142931ms idle@16+≈311592ms probes/day=300 ≤ 900  (1ms)
+PASS  SC-10  دستگاه در پس‌زمینه/آفلاین: صفر کاوش live و فقط جاروی دوره‌ای  → live=0 sweep/day=96 ≤ 200  (0ms)
+PASS  SC-11  بودجهٔ روزانهٔ کاربر (idle، دیده‌شده): درخواست و بایت زیر سقف  → requests=588 ≤ 900 · bytes=353.1KB ≤ 768KB  (0ms)
+PASS  SC-12  صرفه‌جویی ۳۰۴: ≥۸۵٪ کمتر از یک pullِ داده‌دار  → 304=615B vs data_pull=17946B (rows=132) ⇒ saving=96.6%  (5ms)
+SYNC-BUDGET-FAILED 1 scenario(s) over budget
+PASS  SC-13  آستانهٔ بودجه در CI: ابزار با سقف واقعی سبز و با سقف تنگ قرمز می‌شود  → gate=green on real caps, red on tight caps (exit=1)  (72ms)
+PASS  SC-14  کلاینت: هیچ polling ثابتِ live/sync نمانده و سیاستِ تطبیقی سیم‌کشی شده  → adaptive_wired=true fixed_polling=0 etag_client=true  (2ms)
+PASS  SC-15  کنترل منفی: برداشتن ETag از لایهٔ pull ⇒ کنترل SC-01/SC-02 قرمز می‌شود  → etag_removed ⇒ 304 impossible ⇒ gate RED  (24ms)
+
+SYNC-COST-JSON {"generated_at":"2026-11-07T21:34:12.729Z","node":"v22.22.3","measured":{"pull_200_empty_bytes":967,"etag_304_bytes":615,"pull_200_bytes":967,"push_120_bytes":19737,"backoff_jitter_range":[501,982],"reconnect_spread_buckets":21,"probes_idle_day":300,"background_requests_day":96,"idle_requests_day":588,"idle_bytes_day":361620,"pull_rows_bytes":17946,"saving_ratio":0.9657},"caps":{"idle_visible":{"requests":900,"bytes":786432,"note":"دستگاه باز اما بی‌کار: کاوش تطبیقی (۱s→۶۰s→۵m با نردبان بی‌کاری) + جارو؛ ۷۶۸KB سقف روزانه"},"background":{"requests":200,"bytes":131072,"note":"تب/برنامه در پس‌زمینه یا آفلاین: صفر کاوش live، فقط جارو"},"active_teacher":{"requests":1200,"bytes":8388608,"note":"کاربر فعال با ۶۰ push دسته‌ای ۱۲۰تایی"}},"checks":{"pass":15,"fail":0,"failed_ids":[]}}
+wrote docs/cloud/reports/evidence/sync-cost-42.json
+
+SC checks=15 pass=15 fail=0
+SYNC-COST-42-OK
+
+## بخش ۲ — استخراج سنجه‌ها از خروجی خام (بدون جمع‌زدن دستی)
+checks_pass         15 / 15
+etag_304_bytes      615 B (هدر+بدنهٔ ۰)
+pull_200_empty_bytes967 B
+pull_200_rows_bytes 17946 B (۱۳۲ ردیف)
+saving_ratio        0.9657 (پذیرش ≥۰٫۸۵)
+push_120ops_up_bytes19737 B (۱ درخواست)
+backoff_jitter_ms   [501,982] (بازهٔ مجاز 500..1000)
+reconnect_buckets   21 /200 دستگاه (جهش=۱)
+probes_idle_day     300 درخواست/روز
+idle_requests_day   588 ≤ 900
+idle_bytes_day      361620 B ≤ 786432
+background_requests 96 ≤ 200
+budget_within_caps true
+
+## بخش ۳ — دروازهٔ مستقل بودجه (همان چیزی که CI اجرا می‌کند)
+scenario            requests / cap        bytes / cap
+idle_visible          589 / 900    ok      127KB / 768KB    ok
+background             96 / 200    ok       21KB / 128KB    ok
+active_teacher        649 / 1200   ok     3642KB / 8192KB   ok
+unit: 304=220B 200=1400B push120=60000B · probes/day=301
+SYNC-BUDGET-OK
+budget_gate_exit: 0
+
+## بخش ۴ — سیم‌کشی واقعی (کد محصول، نه نمونه)
+server_etag_304:        2 (server/index.js)
+pull_etag_in_sync:      1 (server/sync.js)
+client_conditional_get: 1 (client/app.js)
+client_etag_store:      3 (client/app.js)
+outbox_jitter:          1 (client/outbox-web.js)
+adaptive_scheduler:     4 ارجاع در app.js
+scheduler_module:       83 خط
+fixed_live_polling:     0 (انتظار: ۰)
+fixed_sync_polling:     0 (انتظار: ۰)
+doc_lines:              114
+
+## بخش ۵ — رگرسیون: دروازه‌های موجود دست‌نخورده و سبز
+
+96 موفق · 0 ناموفق
+
+
+OB checks=15 pass=15 fail=0
+OUTBOX-40-OK
+
+# ===== SUMMARY =====
+# cost_test_exit: 0
+# metric_scan_exit: 0
+# budget_gate_exit: 0
+# regression_exit: 0
+# outbox_regression_exit: 0
+# EXIT=0
+SYNC-COST-42-OK
