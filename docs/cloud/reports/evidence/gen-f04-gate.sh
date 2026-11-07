@@ -57,7 +57,7 @@ grep -q "PHONE_TICKET_TTL" server/index.js || fail "TICKET-TTL: عمر تیکت 
 
 # ── ۳) شاهد آزمون: F‑04 سبز و آزمون پایه بدون شکست ─────────────────────────
 [ -f "$TESTS" ] || fail "TESTS-MISSING: $TESTS"
-grep -q 'F04-OK checks=34' "$TESTS" || fail "F04-TEST: آزمون F‑04 در شاهد اجرا نیست"; ok
+grep -q 'F04-OK checks=35' "$TESTS" || fail "F04-TEST: آزمون F‑04 در شاهد اجرا نیست"; ok
 TP=$(sed -n 's/^SUMMARY pass=\([0-9]*\) fail=\([0-9]*\)$/\1 \2/p' "$TESTS" | tail -1)
 [ -n "$TP" ] || fail "TESTS-SUMMARY: خط SUMMARY نیست"
 [ "$(echo "$TP" | awk '{print $2}')" = "0" ] || fail "TESTS-FAIL: آزمون پایه شکست دارد ($TP)"; ok

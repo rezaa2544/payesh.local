@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ فاز ۳
 generated_by: docs/cloud/reports/evidence/verify-phase3-gate-negative.sh
-head: 4344f4efe28c3e31aa608402ea9be835eea7edd2
-generated_at_utc: 2026-11-07T08:24:11Z
+head: bf0040ca16bdbc8680416462d3a70cdddd185579
+generated_at_utc: 2026-11-07T08:50:24Z
 
 PASS  P0  شاهد سالم پذیرفته شد (کنترل مثبت)
 PASS  N1  رد شد: صف یک ردیف باز دارد → PHASE3-FAIL: QUEUE-OPEN: صف 1 ردیف باز دارد — دروازه نبای

@@ -28,7 +28,7 @@ fail() {
 }
 
 # ── ۱) drain: هویت فقط از پاکتِ امضاشدهٔ سرور ──────────────────────────────
-grep -q 'verifyEnvelope(store, doc)' "$OUTBOX" || fail "DRAIN-TRUST: drain پاکت را با verifyEnvelope بررسی نمی‌کند"
+grep -qE '= *verifyEnvelope\(store, doc\);' "$OUTBOX" || fail "DRAIN-TRUST: drain پاکت را با verifyEnvelope بررسی نمی‌کند"
 ok
 if grep -qE 'item\.user_id|entries\s*=\s*Array\.isArray\(doc' "$OUTBOX"; then
   fail "IDENTITY: هنوز هویت از item.user_id / فایل کلاینت خوانده می‌شود"

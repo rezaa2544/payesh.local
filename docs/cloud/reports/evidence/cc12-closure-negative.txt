@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ CC‑12‑CLOSURE
 generated_by: docs/cloud/reports/evidence/verify-cc12-closure-negative.sh
-head: 4344f4efe28c3e31aa608402ea9be835eea7edd2
-generated_at_utc: 2026-11-07T08:24:19Z
+head: bf0040ca16bdbc8680416462d3a70cdddd185579
+generated_at_utc: 2026-11-07T08:50:32Z
 
 PASS  P0  شاهد سالم پذیرفته شد (کنترل مثبت)
 PASS  N1  رد شد: تصمیم D‑31 (O‑07) از Decision Log حذف شد → CC12-CLOSURE-FAIL: CONST-DECISION: D‑31 در Decision Log نیست
@@ -16,7 +16,7 @@ PASS  N9  رد شد: یک ردیف AC از سند ۰۴ حذف شد (۱۴→۱۳)
 PASS  N10  رد شد: سند ۱۲ دوباره CC‑12‑2 را PARTIAL می‌داند → CC12-CLOSURE-FAIL: DOC12-CC2: شرط CC‑12‑2 باید با شاهد مسیر م�
 PASS  N11  رد شد: ابزار سنجش خراب است (smoke شکست) → CC12-CLOSURE-FAIL: BENCH-SMOKE: اجرای ۲ دستگاه روی HEAD خطا داد
 PASS  N12  رد شد: پایهٔ ممیزی ناموجود ⇒ تعمیم بی‌اعتبار → CC12-CLOSURE-FAIL: BASE-MISSING: 0000000 در مخزن نیست
-PASS  N13  رد شد: لاگ آزمون محصول ناموفق است (۸۵/۳) → CC12-CLOSURE-FAIL: TESTS: لاگ آزمون pass=89 fail=3 (باید ≥88 و بدو
+PASS  N13  رد شد: لاگ آزمون محصول ناموفق است (۸۵/۳) → CC12-CLOSURE-FAIL: TESTS: لاگ آزمون pass=90 fail=3 (باید ≥88 و بدو
 
 SUMMARY pass=14 fail=0
 NEGATIVE-OK

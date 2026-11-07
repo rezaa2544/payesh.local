@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
-branch: arena/1ddd98b3-payesh-local
-head: 4344f4efe28c3e31aa608402ea9be835eea7edd2
+branch: arena/ef56f560-payesh-local
+head: bf0040ca16bdbc8680416462d3a70cdddd185579
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=273  tables=87  ac_rows=8
@@ -26,19 +26,26 @@ product_diff_files: 16
 product_diff_outside_allow: 0
 
 ## شمارش واقعی مخزن
-tenant_id: 1
-school_id (occurrences, server+client): 48
-school_id (files): 8
-api routes (unique /api literals in server/index.js): 65
+tenant_id: 4
+school_id (occurrences, server+client): 55
+school_id (files): 9
+api routes (unique /api literals in server/index.js): 66
 
 ## وضعیت درخت کاری
  M docs/cloud/reports/evidence/cc-f04-gate.txt
  M docs/cloud/reports/evidence/cc11-gate.txt
+ M docs/cloud/reports/evidence/cc11-raw-drill.txt
  M docs/cloud/reports/evidence/cc12-2-gate.txt
  M docs/cloud/reports/evidence/cc12-closure-gate.txt
+ M docs/cloud/reports/evidence/gen-f04-gate.sh
+ M docs/cloud/reports/evidence/gen-f06-gate.sh
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
  M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
  M docs/cloud/reports/evidence/phase3-gate.txt
-?? docs/cloud/reports/evidence/tests-run-4344f4e-20261107T082303Z.log
+?? docs/cloud/reports/evidence/cc-f06-gate.txt
+?? docs/cloud/reports/evidence/f06-negative.txt
+?? docs/cloud/reports/evidence/tests-run-94232de-20261107T084419Z.log
+?? docs/cloud/reports/evidence/tests-run-bf0040c-20261107T084841Z.log
+?? docs/cloud/reports/evidence/verify-f06-negative.sh
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
