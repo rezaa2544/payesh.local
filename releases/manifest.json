@@ -1,15 +1,15 @@
 {
-  "version": "0.8.37",
-  "built_at": "2026-11-07T09:25:16.346Z",
+  "version": "0.8.38",
+  "built_at": "2026-11-07T09:25:33.558Z",
   "notes": [],
   "shell": {
-    "android": "0.8.37"
+    "android": "0.8.38"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "b2561c3a6c32e54d646be4f94c150110df599c1e99ed6696cb4d94d8a8a0f524",
+      "sha256": "f7defb046cad877dbf88b378781a759cc5a50056fd32260f380843620e61ad12",
       "size": 181207
     },
     {
@@ -165,7 +165,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "d3f57a8374f14d5ae05afe2d270371af8032d79bab8c43abd7f3d77c186233bf",
+      "sha256": "0dfe6f971402a126642010dc0ec5fe9646a3d01d5bf1a5346e2d7c0ea4106447",
       "size": 2041
     },
     {
