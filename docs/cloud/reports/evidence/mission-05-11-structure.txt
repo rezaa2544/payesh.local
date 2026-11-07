@@ -1,12 +1,12 @@
 # شاهد ساختاری ممیزی ۰۵–۱۱
 # تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh
-# تاریخ اجرای آزمون (از لاگ خام): 2026-11-07T01:43:01Z
-# SHA اجرای آزمون (از لاگ خام): 0ad6bed8b202b8d70d1555dba80f54f96abcb1da
-# اثر انگشت کد محصول (log / HEAD): 81252540bca21dacaaf0fb05f9795292e7cd3d7a94d174bf4f6f4ee3ba928b7d / 81252540bca21dacaaf0fb05f9795292e7cd3d7a94d174bf4f6f4ee3ba928b7d
+# تاریخ اجرای آزمون (از لاگ خام): 2026-11-07T02:09:05Z
+# SHA اجرای آزمون (از لاگ خام): 6214cf906bd3f6b5d18e9d13bdc33dee77235ec8
+# اثر انگشت کد محصول (log / HEAD): 2aff2fd937174364512c0abd1ae0308f339bd508d502f6ae563a26ea7fdcbf88 / 2aff2fd937174364512c0abd1ae0308f339bd508d502f6ae563a26ea7fdcbf88
 # هش بدنهٔ خام (بازمحاسبه‌شده): 49f64894166cff97b5f9beb9fde2dbdfb439110b7ca5d23441162ea53026f735
 # شمارش بدنه: 88 ✓ / 0 ✗ — SUMMARY: SUMMARY pass=88 fail=0
 # آزمون‌های ثبت‌شده: 88 · گزارش‌شده: 88
-# branch: arena/5e379309-payesh-local
+# branch: arena/33107407-payesh-local
 
 ## آزمون واقعی مخزن (از لاگ خام، بدون دست‌کاری)
 SUMMARY: SUMMARY pass=88 fail=0
@@ -35,4 +35,4 @@ EXIT: 0
 --- docs/cloud/10-audit-crypto-backup-restore.md
   خطوط: 70
 --- docs/cloud/11-gap-report.md
-  خطوط: 119
+  خطوط: 167

@@ -1,0 +1,22 @@
+# آزمون منفی دروازهٔ CC‑11 — ادعای بی‌شاهد/ارجاع مرده/سند ناسازگار
+generated_by: docs/cloud/reports/evidence/verify-cc11-negative.sh
+head: 6214cf906bd3f6b5d18e9d13bdc33dee77235ec8
+generated_at_utc: 2026-11-07T02:09:24Z
+
+PASS  P0  gate accepted clean evidence (control positive): اجرای سالم: ۷۳ ادعا متصل + سند ۵/۵ + پین ممیزی
+PASS  N1  gate rejected: یک برچسب لازم از بدنهٔ تمرین حذف شد  → CC11-FAIL: LABEL-MISSING: R1 ۷۳ آیتم کنترلی از جدول‌های داور�
+PASS  N2  gate rejected: یک ادعا با علامت شکست (✗)  → CC11-FAIL: DRILL-CROSS: خط ✗ در خروجی تمرین
+PASS  N3  gate rejected: SUMMARY ادعایی با شمارش بدنه نمی‌خواند  → CC11-FAIL: SUMMARY-MISMATCH: pass=47 ولی بدنه 48 ✓
+PASS  N4  gate rejected: یک ادعا اتصال ندارد (۷۳ → ۷۲) ولی گزارش سبز می‌گوید  → CC11-FAIL: CLAIMS: ۷۳ ردیف و ۷۳ اتصال و صفر ارجاع مرده اثب
+PASS  N5  gate rejected: یک ارجاع file:line مرده است  → CC11-FAIL: CLAIMS: ۷۳ ردیف و ۷۳ اتصال و صفر ارجاع مرده اثب
+PASS  N6  gate rejected: درصد تطابق با فرمول PASS÷۷۳ نمی‌خواند  → CC11-FAIL: VERDICTS: توزیع احکام/درصد با اعداد اعلامی نمی�
+PASS  N7  gate rejected: رانش ارجاع ناقص گزارش شده (۱۱ → ۱۰)  → CC11-FAIL: DRIFT: ۱۱ ردیف رانش (۹ تصحیح + ۲ تأیید) ثبت نشد �
+PASS  N8  gate rejected: رمزنگاری سکون پیدا شد ولی ادعای صفر مانده  → CC11-FAIL: ABSENCE: ادعاهای «نبود» با اندازه‌گیری تأیید 
+PASS  N9  gate rejected: پایهٔ ممیزی ناموجود ⇒ تعمیم نتیجه به HEAD بی‌اعتبار  → CC11-FAIL: BASE-MISSING: 0000000 در مخزن نیست (clone کم‌عمق؟) — اد
+PASS  N10  gate rejected: یک ردیف معیار از ماتریس سند حذف شد (۵ ← ۴)  → CC11-FAIL: AC-COUNT: 4 ردیف AC در سند ۱۱ (باید ۵)
+PASS  N11  gate rejected: بند §۶ سند ۱۱ حذف/بی‌عنوان شد  → CC11-FAIL: DOC-CLOSURE: بند §۶ (دور بستن) در سند ۱۱ نیست
+PASS  N12  gate rejected: ثبت تصحیح ادعای نادرست (C‑11‑۱) از سند حذف شد  → CC11-FAIL: CORRECTION-D10: تصحیح ثبت‌شدهٔ ادعای D‑10 (C‑11‑۱) 
+PASS  N13  gate rejected: درصد اعلامی سند با فرمول نمی‌خواند  → CC11-FAIL: CONFORMANCE: درصد ۳۵٫۶٪ در سند نیست
+
+SUMMARY pass=14 fail=0
+NEGATIVE-OK
