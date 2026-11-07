@@ -16,6 +16,7 @@
    ۴) نبود زمینه ⇒ صفر ردیف (fail-closed)، نه «همهٔ ردیف‌ها».
    ═══════════════════════════════════════════════════════════════════ */
 const crypto = require('node:crypto');
+const scopeMod = require('./scope');
 
 const TOKEN_VERSION = 1;
 const TABLE = 'tenant_records';
@@ -369,28 +370,37 @@ function assertCollection(name) {
   return String(name);
 }
 
-async function listProduct(pool, tenantId, { collection, since = null, limit = 200 } = {}) {
+async function listProduct(pool, tenantId, { collection, since = null, limit = 200, claims = null } = {}) {
   const col = assertCollection(collection);
   const lim = Math.max(1, Math.min(1000, Number(limit) || 200));
   return withTenant(pool, tenantId, async (c) => {
+    const scope = claims ? await scopeMod.build(c, claims) : null;
+    if (scope && !scopeMod.canReadCollection(scope, col)) throw new TenancyError('forbidden_collection', 403, { collection: col });
+    const sp = scopeMod.sqlPredicate(scope, since ? 4 : 3);
     const q = since
-      ? await c.query(`select collection, record_id, version, data, deleted_at, updated_at
-                       from ${PRODUCT_TABLE}
-                       where collection = $1 and updated_at > $2
-                       order by record_id asc limit $3`, [col, String(since), lim])
-      : await c.query(`select collection, record_id, version, data, deleted_at, updated_at
-                       from ${PRODUCT_TABLE} where collection = $1
-                       order by record_id asc limit $2`, [col, lim]);
+      ? await c.query(`select r.collection, r.record_id, r.version, r.data, r.deleted_at, r.updated_at
+                       from ${PRODUCT_TABLE} r
+                       where r.collection = $1 and r.updated_at > $2 and ${sp.sql}
+                       order by r.record_id asc limit $3`, [col, String(since), lim, ...sp.params])
+      : await c.query(`select r.collection, r.record_id, r.version, r.data, r.deleted_at, r.updated_at
+                       from ${PRODUCT_TABLE} r where r.collection = $1 and ${sp.sql}
+                       order by r.record_id asc limit $2`, [col, lim, ...sp.params]);
     return q.rows.map(productRowOf);
   });
 }
 
-async function getProduct(pool, tenantId, { collection, id }) {
+async function getProduct(pool, tenantId, { collection, id, claims = null }) {
   const col = assertCollection(collection);
   return withTenant(pool, tenantId, async (c) => {
     const q = await c.query(`select collection, record_id, version, data, deleted_at, updated_at
                              from ${PRODUCT_TABLE} where collection = $1 and record_id = $2`, [col, Number(id)]);
-    return q.rows.length ? productRowOf(q.rows[0]) : null;
+    if (!q.rows.length) return null;
+    if (claims) {
+      const scope = await scopeMod.build(c, claims);
+      if (!scopeMod.canReadCollection(scope, col)) throw new TenancyError('forbidden_collection', 403, { collection: col });
+      if (!scopeMod.rowInScope(scope, col, q.rows[0].data || {})) throw new TenancyError('out_of_scope', 403, { collection: col });
+    }
+    return productRowOf(q.rows[0]);
   });
 }
 
@@ -426,22 +436,34 @@ async function deleteInTx(c, col, rid, feedOut = true) {
   return { collection: col, id: rid, version, deleted: true };
 }
 
-async function upsertProduct(pool, tenantId, { collection, id, data = {}, base_version = null } = {}) {
+async function upsertProduct(pool, tenantId, { collection, id, data = {}, base_version = null, claims = null } = {}) {
   const col = assertCollection(collection);
   const rid = Number(id);
   if (!Number.isInteger(rid) || rid < 1) throw new TenancyError('bad_id', 400);
-  const clean = Object.assign({}, data);
-  delete clean.tenant_id; delete clean.tenantId; /* ورودی کلاینت هرگز مستأجر را تعیین نمی‌کند */
-  delete clean.school_id; delete clean.schoolId;
+  const clean = cleanData(data); /* ورودی کلاینت هرگز مستأجر را تعیین نمی‌کند */
   return withTenant(pool, tenantId, async (c) => {
+    if (claims) {
+      const scope = await scopeMod.build(c, claims);
+      const cur = await c.query(`select data from ${PRODUCT_TABLE} where collection = $1 and record_id = $2`, [col, rid]);
+      const verdict = scopeMod.canWriteRow(scope, col, Object.assign({}, clean, { id: rid }), cur.rows.length ? cur.rows[0].data : null);
+      if (!verdict.ok) throw new TenancyError(verdict.error, 403, { collection: col, id: rid });
+    }
     const out = await upsertInTx(c, col, rid, clean, base_version);
     return out.conflict ? { conflict: true, version: out.version, data: null } : { conflict: false, row: out.row };
   });
 }
 
-async function deleteProduct(pool, tenantId, { collection, id }) {
+async function deleteProduct(pool, tenantId, { collection, id, claims = null }) {
   const col = assertCollection(collection);
-  return withTenant(pool, tenantId, async (c) => deleteInTx(c, col, Number(id)));
+  return withTenant(pool, tenantId, async (c) => {
+    if (claims) {
+      const scope = await scopeMod.build(c, claims);
+      const cur = await c.query(`select data from ${PRODUCT_TABLE} where collection = $1 and record_id = $2`, [col, Number(id)]);
+      const verdict = scopeMod.canWriteRow(scope, col, cur.rows.length ? cur.rows[0].data : {}, null);
+      if (!verdict.ok) throw new TenancyError(verdict.error, 403, { collection: col, id: Number(id) });
+    }
+    return deleteInTx(c, col, Number(id));
+  });
 }
 
 /* ═══════ اعمال دسته‌ای عملیات (ردیف ۳۷ — Gateway) ═══════════════════
@@ -456,7 +478,7 @@ function cleanData(data) {
   return clean;
 }
 
-async function applyOps(pool, tenantId, { ops = [], device_id = null } = {}) {
+async function applyOps(pool, tenantId, { ops = [], device_id = null, claims = null } = {}) {
   if (!Array.isArray(ops)) throw new TenancyError('bad_ops', 400);
   if (ops.length > MAX_OPS_PER_REQUEST) {
     throw new TenancyError('too_many_ops', 413, { limit: MAX_OPS_PER_REQUEST });
@@ -478,6 +500,25 @@ async function applyOps(pool, tenantId, { ops = [], device_id = null } = {}) {
   });
 
   return withTenant(pool, tenantId, async (c) => {
+    /* ── اسکوپ سمت سرور (ردیف ۳۸) ──
+       پیش از هر نوشتنی همهٔ عملیات بررسی می‌شوند؛ اگر یکی بیرون از اسکوپ
+       باشد کل دسته رد می‌شود (اتمی)، پس نه نیمه‌کاره می‌نویسد و نه چیزی لو می‌رود. */
+    let scope = null;
+    if (claims) {
+      scope = await scopeMod.build(c, claims);
+      for (const p of prepared) {
+        if (!scopeMod.canWriteCollection(scope, p.collection)) {
+          throw new TenancyError('role_denied', 403, { uid: p.uid, collection: p.collection });
+        }
+        const cur = p.type === 'del'
+          ? await c.query(`select data from ${PRODUCT_TABLE} where collection = $1 and record_id = $2`, [p.collection, p.id])
+          : null;
+        const existing = cur && cur.rows.length ? cur.rows[0].data : null;
+        const target = p.type === 'del' ? (existing || {}) : Object.assign({}, p.payload, { id: p.id });
+        const verdict = scopeMod.canWriteRow(scope, p.collection, target, existing);
+        if (!verdict.ok) throw new TenancyError(verdict.error, 403, { uid: p.uid, collection: p.collection, id: p.id });
+      }
+    }
     const applied = [];
     const duplicates = [];
     const conflicts = [];
@@ -603,19 +644,27 @@ async function compressFeed(pool, tenantId, { hotDays = FEED_DEFAULT_HOT_DAYS } 
 }
 
 /* خواندن صفحه‌ای feed از مکان‌نمای seq — دقیقاً یک‌بار، بدون تکرار/جاافتادگی */
-async function listFeed(pool, tenantId, { sinceSeq = 0, collection = null, limit = FEED_DEFAULT_LIMIT } = {}) {
+async function listFeed(pool, tenantId, { sinceSeq = 0, collection = null, limit = FEED_DEFAULT_LIMIT, claims = null } = {}) {
   const since = Number(sinceSeq);
   if (!Number.isFinite(since) || since < 0) throw new TenancyError('bad_since_seq', 400);
   const lim = Math.max(1, Math.min(FEED_MAX_LIMIT, Number(limit) || FEED_DEFAULT_LIMIT));
   const col = collection ? assertCollection(collection) : null;
   return withTenant(pool, tenantId, async (c) => {
+    /* اسکوپ فقط از توکن (ردیف ۳۸): هر ردیف feed با ر دیف محصول join می‌شود تا
+       هم payload فشرده‌شده مشکلی نسازد و هم شرط اسکوپ روی دادهٔ زنده اعمال شود. */
+    const scope = claims ? await scopeMod.build(c, claims) : null;
+    if (scope && col && !scopeMod.canReadCollection(scope, col)) {
+      throw new TenancyError('forbidden_collection', 403, { collection: col });
+    }
+    const sp = scopeMod.sqlPredicate(scope, 3);
     const q = await c.query(
-      `select seq, collection, record_id, op, version, data, data_gz, at
-         from ${FEED_TABLE}
-        where seq > $1 and ($2::text is null or collection = $2)
-        order by seq asc
+      `select f.seq, f.collection, f.record_id, f.op, f.version, f.data, f.data_gz, f.at
+         from ${FEED_TABLE} f
+         left join ${PRODUCT_TABLE} r on r.collection = f.collection and r.record_id = f.record_id
+        where f.seq > $1 and ($2::text is null or f.collection = $2) and ${sp.sql}
+        order by f.seq asc
         limit ${lim + 1}`,
-      [since, col]
+      [since, col, ...sp.params]
     );
     const more = q.rows.length > lim;
     const rows = (more ? q.rows.slice(0, lim) : q.rows).map(r => ({
@@ -625,6 +674,7 @@ async function listFeed(pool, tenantId, { sinceSeq = 0, collection = null, limit
     return {
       rows, count: rows.length, more,
       next_seq: rows.length ? rows[rows.length - 1].seq : since,
+      scope: scope ? { role: scope.role, all: scope.all } : { role: 'internal', all: true },
       limits: { max_limit: FEED_MAX_LIMIT, default_keep_days: FEED_DEFAULT_KEEP_DAYS },
     };
   });
@@ -755,7 +805,7 @@ async function route({ method, pathname, search, headers = {}, body = {} }) {
     /* ── change-feed هر مدرسه (ردیف ۳۶) ─────────────────────────────── */
     if (pathname === PBASE + '/feed' && m === 'GET') {
       const out = await listFeed(state.pool, tid, {
-        sinceSeq: search.get('since_seq'), collection: search.get('collection'), limit: search.get('limit'),
+        sinceSeq: search.get('since_seq'), collection: search.get('collection'), limit: search.get('limit'), claims,
       });
       return { status: 200, body: Object.assign({ ok: true }, out) };
     }
@@ -797,12 +847,12 @@ async function route({ method, pathname, search, headers = {}, body = {} }) {
     if (pathname === PBASE) {
       if (m === 'GET') {
         const rows = await listProduct(state.pool, tid, {
-          collection: search.get('collection'), since: search.get('since'), limit: search.get('limit'),
+          collection: search.get('collection'), since: search.get('since'), limit: search.get('limit'), claims,
         });
         return { status: 200, body: { ok: true, rows, count: rows.length } };
       }
       if (m === 'POST' || m === 'PUT') {
-        const out = await upsertProduct(state.pool, tid, body || {});
+        const out = await upsertProduct(state.pool, tid, Object.assign({}, body || {}, { claims }));
         if (out.conflict) return { status: 409, body: { ok: false, error: 'version_conflict', version: out.version } };
         return { status: 201, body: { ok: true, row: out.row } };
       }
@@ -812,11 +862,11 @@ async function route({ method, pathname, search, headers = {}, body = {} }) {
     if (pm) {
       const collection = pm[1]; const rid = Number(pm[2]);
       if (m === 'GET') {
-        const row = await getProduct(state.pool, tid, { collection, id: rid });
+        const row = await getProduct(state.pool, tid, { collection, id: rid, claims });
         return row ? { status: 200, body: { ok: true, row } } : { status: 404, body: { ok: false, error: 'not_found' } };
       }
       if (m === 'DELETE') {
-        const gone = await deleteProduct(state.pool, tid, { collection, id: rid });
+        const gone = await deleteProduct(state.pool, tid, { collection, id: rid, claims });
         return gone ? { status: 200, body: { ok: true, deleted: gone } } : { status: 404, body: { ok: false, error: 'not_found' } };
       }
       return { status: 405, body: { ok: false, error: 'method_not_allowed' } };
@@ -868,7 +918,7 @@ async function rollbackProduct(client) {
   return { dropped: [JOBS_TABLE, PRODUCT_TABLE], statements: sqls.length };
 }
 
-module.exports = { getPool, applyOps, takeQuota, readiness, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
+module.exports = { scopeMod, getPool, applyOps, takeQuota, readiness, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,
