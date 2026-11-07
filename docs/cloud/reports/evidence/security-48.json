@@ -1,7 +1,7 @@
 {
   "tool": "security-scan-48",
   "root": "/home/user/payesh.local",
-  "started_at": "2026-11-07T22:31:05.105Z",
+  "started_at": "2026-11-07T22:42:58.925Z",
   "gates": {
     "G1_deps_prod_clean": true,
     "G2_deps_dev_triaged": true,
@@ -112,7 +112,7 @@
       {
         "rule": "payesh-weak-crypto-for-secret",
         "path": "server/index.js",
-        "line": 327,
+        "line": 328,
         "fingerprint": "868af8a871f4d4fe"
       },
       {
@@ -184,7 +184,7 @@
       {
         "rule": "payesh-sql-string-concat",
         "path": "server/tenancy.js",
-        "line": 660,
+        "line": 685,
         "fingerprint": "15d3cdf601964176"
       }
     ],
@@ -208,5 +208,5 @@
     "secrets": 0
   },
   "ok": true,
-  "finished_at": "2026-11-07T22:31:12.864Z"
+  "finished_at": "2026-11-07T22:43:07.569Z"
 }

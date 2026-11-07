@@ -74,9 +74,31 @@ jobs:
       # اسکن راز، با پنج کنترل منفی که ثابت می‌کنند دروازه واقعاً قرمز می‌شود.
       # توجه: این «پنتست» نیست؛ یافته‌های انسانی همچنان OWNER است.
       - name: دروازهٔ امنیت ایستا (SAST + Dependency Scan — ردیف ۴۸)
+        env:
+          SEMGREP_ENABLE_VERSION_CHECK: '0'
         run: |
-          python3 -m pip install --quiet --disable-pip-version-check semgrep
-          npm run test:security48
+          set +e
+          # نصب در venv اجباری است: رانرهای تازه pip سیستمی را «externally
+          # managed» می‌بینند (PEP 668) و نصب مستقیم semgrep شکست می‌خورد.
+          SG="$RUNNER_TEMP/sg"
+          python3 -m venv "$SG"
+          "$SG/bin/python" -m pip install --quiet --disable-pip-version-check "semgrep==1.184.0"
+          if [ $? -ne 0 ]; then
+            echo "::error title=نصب semgrep::pip install در venv شکست خورد"
+            exit 1
+          fi
+          export SEMGREP_BIN="$SG/bin/semgrep"
+          "$SEMGREP_BIN" --version
+          npm run test:security48 > /tmp/sec48.log 2>&1
+          code=$?
+          tail -20 /tmp/sec48.log
+          if [ $code -ne 0 ]; then
+            # لاگ کامل همیشه در دسترس نیست؛ خط‌های FAIL را «annotation» کن.
+            grep -E "^FAIL|SECURITY-48" /tmp/sec48.log | head -12 | while IFS= read -r l; do
+              echo "::error title=دروازهٔ امنیت::$l"
+            done
+          fi
+          exit $code
 
       - name: دروازهٔ بودجهٔ همگام‌سازی (Sync Budget Gate — ردیف ۴۲)
         run: npm run test:cost42

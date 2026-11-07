@@ -1,9 +1,9 @@
 # شاهد ردیف ۴۸ — اسکن امنیتی ایستا + وابستگی در CI (blocking، نه advisory)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/b780a176-payesh-local
-# head_sha: 3372bb76b0879ca5508dcdd17ad0e32441751291
+# head_sha: 95d793e1c450d6db6c8419ee162debfef7edffbb
 # version: 0.8.58
-# generated_at: 2026-11-07T22:31:04Z
+# generated_at: 2026-11-07T22:42:57Z
 # node: v22.22.3   os: Linux 6.1.158+ x86_64
 # semgrep: 1.184.0
 # command: bash docs/cloud/reports/evidence/run-48-security-scan.sh

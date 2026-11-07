@@ -160,7 +160,11 @@ const cleanup = (dir) => { try { fs.rmSync(dir, { recursive: true, force: true }
   await check('SS-09', 'کنترل منفی: کلید AWS ثابت در کد ⇒ دروازه قرمز می‌شود', async () => {
     const r = makeRoot();
     try {
-      mutate(r, 'server/nc-secret.js', () => `'use strict';\nconst KEY = 'AKIAQWERTYUIOPASDFGH';\nmodule.exports = KEY;\n`);
+      /* کلید نمونه تکه‌تکه ساخته می‌شود تا خودِ این فایل آزمون، رازِ ثابت
+         نداشته باشد (G6 روی فایل‌های ردیابی‌شده اجرا می‌شود، از جمله همین فایل).
+         فایل تزریق‌شده در کپی موقت، کلید کامل را دارد ⇒ دروازه باید قرمز شود. */
+      const FAKE_AWS = 'AKIA' + 'QWERTYUIOPASDFGH';
+      mutate(r, 'server/nc-secret.js', () => `'use strict';\nconst KEY = '${FAKE_AWS}';\nmodule.exports = KEY;\n`);
       const s = runScan(r, ['--skip-deps']);
       assert(s.code !== 0, 'دروازه با راز ثابت قرمز نشد (code=' + s.code + ')');
       const hits = (s.json && s.json.findings.secrets) || [];
