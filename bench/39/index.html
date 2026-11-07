@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bench-39 — موتور دادهٔ مرورگری</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #0f172a; color: #e2e8f0; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  #status { font-size: 14px; margin: 8px 0; color: #93c5fd; }
+  pre { background: #020617; padding: 12px; border-radius: 8px; overflow: auto; font-size: 12px; line-height: 1.6; }
+  button { font: inherit; padding: 6px 12px; margin: 0 6px 8px 0; border-radius: 6px; border: 0; background: #2563eb; color: #fff; }
+  small { color: #94a3b8; }
+</style>
+</head>
+<body>
+<h1>bench-39 · موتور دادهٔ IndexedDB با ۱۰۰هزار ردیف</h1>
+<div id="status">آماده...</div>
+<button id="run">اجرای سنجه</button>
+<button id="copy">کپی JSON</button>
+<button id="dl">دانلود JSON</button>
+<small>پارامترها: <code>?autorun=1&amp;rows=100000&amp;chunk=2000&amp;label=chrome-desktop</code></small>
+<pre id="out">—</pre>
+<script src="../../client/engine-web.js"></script>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const ROWS = Math.max(1000, Number(q.get('rows') || 100000) | 0);
+  const CHUNK = Math.max(200, Number(q.get('chunk') || 2000) | 0);
+  const LABEL = q.get('label') || 'unlabeled';
+  const CPU_FACTOR = Number(q.get('cpu') || 0);
+  const DBNAME = q.get('db') || ('payesh_bench39_' + Date.now().toString(36));
+
+  const out = document.getElementById('out');
+  const statusEl = document.getElementById('status');
+
+  function calib() {
+    /* سنجهٔ کالیبراسیون CPU: روی گوشی میان‌رده این عدد چند برابر دسکتاپ است.
+       برای همین «سرعت» را فقط در کنار این عدد معنا می‌کنیم. */
+    const t0 = performance.now();
+    let x = 0;
+    for (let i = 0; i < 40e6; i++) x = (x + i) % 2147483647;
+    return { calib_ms: Math.round(performance.now() - t0), sink: x % 7 };
+  }
+
+  function mem() {
+    const m = performance.memory ? {
+      used_mb: +(performance.memory.usedJSHeapSize / 1048576).toFixed(1),
+      total_mb: +(performance.memory.totalJSHeapSize / 1048576).toFixed(1),
+      limit_mb: +(performance.memory.jsHeapSizeLimit / 1048576).toFixed(1),
+    } : null;
+    return m;
+  }
+
+  async function estimateStorage() {
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        const e = await navigator.storage.estimate();
+        return { usage_mb: +(e.usage / 1048576).toFixed(1), quota_mb: +(e.quota / 1048576).toFixed(1) };
+      }
+    } catch (e) { /* noop */ }
+    return null;
+  }
+
+  async function run() {
+    statusEl.textContent = 'در حال اجرا...';
+    const result = {
+      bench: 'bench-39', label: LABEL, rows_requested: ROWS, chunk: CHUNK,
+      cpu_throttle_factor_claimed: CPU_FACTOR || null,
+      started_at: new Date().toISOString(),
+      env: {
+        ua: navigator.userAgent,
+        platform: navigator.platform || null,
+        hardware_concurrency: navigator.hardwareConcurrency || null,
+        device_memory_gb: navigator.deviceMemory || null,
+        is_secure_context: window.isSecureContext,
+        cross_origin_isolated: window.crossOriginIsolated || false,
+        has_measure_memory: !!(performance && performance.measureUserAgentSpecificMemory),
+      },
+    };
+
+    result.calibration = calib();
+    result.mem_before = mem();
+    result.storage_before = await estimateStorage();
+
+    const tOpen = performance.now();
+    const db = await PayeshEngine.open(DBNAME);
+    result.open_ms = Math.round(performance.now() - tOpen);
+
+    const rows = PayeshEngine.makeRows(ROWS);
+    const tLoad = performance.now();
+    await db.loadChunked(rows, { chunk: CHUNK });
+    result.load_ms = Math.round(performance.now() - tLoad);
+    result.rows_per_sec = Math.round(ROWS / (result.load_ms / 1000));
+    result.mem_after_load = mem();
+
+    const tCount = performance.now();
+    result.count = await db.count(null);
+    result.count_ms = Math.round(performance.now() - tCount);
+
+    const sample = await db.list('attendance', { limit: 1 });
+    const cls = sample.length ? sample[0].data.class_id : 1;
+    const tIdx = performance.now();
+    const idxRows = await db.byRef('attendance', 'class_id', cls);
+    result.index_query = { field: 'class_id', value: cls, rows: idxRows.length, ms: Math.round(performance.now() - tIdx) };
+
+    const tList = performance.now();
+    const page = await db.list('attendance', { limit: 50 });
+    result.page_query = { rows: page.length, ms: Math.round(performance.now() - tList) };
+
+    const tSince = performance.now();
+    const changed = await db.since('attendance', '2026-11-15T00:00:00.000Z', { limit: 500 });
+    result.since_query = { rows: changed.length, ms: Math.round(performance.now() - tSince) };
+
+    db.close();
+    const tReopen = performance.now();
+    const db2 = await PayeshEngine.open(DBNAME);
+    result.reopen_ms = Math.round(performance.now() - tReopen);
+    const tFirst = performance.now();
+    const first = await db2.get('attendance', 1);
+    result.first_get_after_reopen_ms = Math.round(performance.now() - tFirst);
+    result.first_get_found = !!first;
+    result.stat_after_reopen = await db2.count(null);
+    result.mem_after_reopen = mem();
+    result.storage_after = await estimateStorage();
+    db2.close();
+
+    if (performance && performance.measureUserAgentSpecificMemory) {
+      try {
+        const mm = await performance.measureUserAgentSpecificMemory();
+        result.ua_specific_memory_mb = +(mm.bytes / 1048576).toFixed(1);
+      } catch (e) { result.ua_specific_memory_error = String(e.message || e).slice(0, 120); }
+    }
+
+    result.finished_at = new Date().toISOString();
+    result.ok = result.count === ROWS;
+    result.verdict = result.ok ? 'BENCH39-OK' : 'BENCH39-MISMATCH';
+    window.__BENCH39__ = result;
+    window.__BENCH39_JSON__ = JSON.stringify(result, null, 2);
+    out.textContent = window.__BENCH39_JSON__;
+    document.title = result.verdict;
+    statusEl.textContent = result.verdict + ' — ' + ROWS + ' ردیف در ' + result.load_ms + 'ms (calib ' + result.calibration.calib_ms + 'ms)';
+    try { localStorage.setItem('bench39:' + DBNAME, window.__BENCH39_JSON__); } catch (e) { /* noop */ }
+    return result;
+  }
+
+  function save() {
+    const json = window.__BENCH39_JSON__ || out.textContent;
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'bench-39-' + LABEL + '.json';
+    a.click();
+  }
+
+  document.getElementById('run').onclick = () => run().catch(e => {
+    statusEl.textContent = 'خطا: ' + e.message;
+    out.textContent = JSON.stringify({ ok: false, error: String(e.message || e) }, null, 2);
+    document.title = 'BENCH39-ERROR';
+  });
+  document.getElementById('copy').onclick = async () => {
+    const json = window.__BENCH39_JSON__ || out.textContent;
+    try { await navigator.clipboard.writeText(json); statusEl.textContent = 'JSON در کلیپ‌بورد کپی شد'; }
+    catch (e) { statusEl.textContent = 'کپی نشد؛ دستی از کادر پایین بردارید'; }
+  };
+  document.getElementById('dl').onclick = save;
+
+  if (q.get('autorun') === '1') {
+    run().then(() => { /* نتیجه در title و out */ }).catch(() => { /* خطا در out */ });
+  }
+})();
+</script>
+</body>
+</html>
