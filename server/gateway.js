@@ -28,6 +28,9 @@ const QUOTA_MAX = Number(process.env.GW_QUOTA_MAX || 120);           /* درخو
 const QUOTA_WINDOW = Number(process.env.GW_QUOTA_WINDOW_SEC || 60);
 const PULL_MAX = Number(process.env.GW_PULL_MAX || 1000);
 const INSTANCE = process.env.GW_INSTANCE || ('gw-' + process.pid);
+/* شناسهٔ cell (ردیف ۴۳): اگر تنظیم شود، Gateway فقط توکنِ همین cell را
+   می‌پذیرد. خالی ⇒ رفتار تک‌cell ردیف ۳۷ بدون تغییر. */
+const CELL = String(process.env.GW_CELL || '').trim();
 
 const startedAt = Date.now();
 let pool = null;
@@ -92,7 +95,7 @@ async function handle(req, res, url) {
 
   /* ── زنده‌بودن: هیچ وابستگی‌ای جز خود فرایند ندارد ─────────────────── */
   if (p === '/healthz') {
-    return json(res, 200, { ok: true, instance: INSTANCE, uptime_s: Math.round((Date.now() - startedAt) / 1000), pid: process.pid });
+    return json(res, 200, { ok: true, instance: INSTANCE, cell: CELL || null, uptime_s: Math.round((Date.now() - startedAt) / 1000), pid: process.pid });
   }
 
   /* ── آمادگی واقعی: اتصال DB + رفتار درست set_config(...,true) ─────── */
@@ -101,7 +104,7 @@ async function handle(req, res, url) {
     try {
       const r = await tenancy.readiness(pool);
       const ok = r.ok && r.tenant_scoped && !r.leaked_after_commit;
-      return json(res, ok ? 200 : 503, Object.assign({ instance: INSTANCE }, r, { ok }));
+      return json(res, ok ? 200 : 503, Object.assign({ instance: INSTANCE, cell: CELL || null }, r, { ok }));
     } catch (e) {
       return json(res, 503, { ok: false, instance: INSTANCE, error: 'db_unavailable', detail: String(e.message || e).slice(0, 120) });
     }
@@ -113,6 +116,13 @@ async function handle(req, res, url) {
   let claims;
   try { claims = tenancy.verifyToken(bearer(req.headers), SECRET); }
   catch (e) { return json(res, e.status || 401, { ok: false, error: e.code || 'unauthorized' }); }
+  /* ── اتصال توکن به cell (ردیف ۴۳) ──────────────────────────────────── */
+  if (CELL) {
+    if (!claims.cell) return json(res, 403, { ok: false, error: 'missing_cell', cell: CELL });
+    if (String(claims.cell).toLowerCase() !== CELL.toLowerCase()) {
+      return json(res, 403, { ok: false, error: 'wrong_cell', cell: CELL });
+    }
+  }
   const tenantId = claims.tid;
   const deviceId = deviceOf(req.headers);
   /* نقش/کاربر فقط از توکن — هیچ سرآیند یا فیلدی آن را تعیین نمی‌کند */
