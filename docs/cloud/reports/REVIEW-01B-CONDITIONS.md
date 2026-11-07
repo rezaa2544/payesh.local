@@ -91,7 +91,7 @@ NEGATIVE-OK
 |---|---|---|
 | ۱ | **کار + چرایی** | مدل §۲–§۸ از ادعا به اجرا؛ پیش‌نیاز ۰۴/۰۴‑ب |
 | ۲ | **بازبینی/اصلاح** | ۳ نقص در تمرین در همان دور اصلاح شد: قاعدهٔ `storage_prefix` اعمال نمی‌شد (S2)، مسابقهٔ سقف با تراکنش هم‌پوشان `database is locked` می‌داد (Q6 بازنویسی به read-then-insert روی دو اتصال)، و تمدید از `active` طبق §۳.۱ ممنوع بود (R1 با تعلیق اول اصلاح شد) + بررسی T8 برای ابهام §۳ |
-| ۳ | **فایل + SHA** | `drill-01b-subscription-lifecycle.cjs` · `gen-cc01b-evidence.sh` · `verify-cc01b-negative.sh` · `cc01b-required-labels.txt` · `cc01b-gate.txt` · `cc01b-negative.txt` · سند ۰۱‑ب §۱۱ — همه در `<commit>` روی `main` |
+| ۳ | **فایل + SHA** | `drill-01b-subscription-lifecycle.cjs` · `gen-cc01b-evidence.sh` · `verify-cc01b-negative.sh` · `cc01b-required-labels.txt` · `cc01b-gate.txt` · `cc01b-negative.txt` · سند ۰۱‑ب §۱۱ — کامیت `e56099e` روی شاخه، ادغام `30a33cf` روی `main` |
 | ۴ | **دستور + شاهد خام** | `bash docs/cloud/reports/evidence/gen-cc01b-evidence.sh` ⇒ CC01B-OK ۴۰/۴۰ · `bash …/verify-cc01b-negative.sh` ⇒ NEGATIVE-OK ۱۳/۱۳ |
 | ۵ | **AC** | ۱۲/۱۲ در سطح طراحی؛ اجرا ✅ · محصول ❌ |
 | ۶ | **مانع دقیق** | تصمیم‌های `P‑01b‑۱..۴` (مالک) · `F‑05` (ردیف ۰۲/۰۴) · ابهام نمودار §۳ |
@@ -102,3 +102,17 @@ NEGATIVE-OK
 ## ۶. نتیجه
 
 حکم ردیف ۰۱‑ب: **معیار رسمی ۱۲/۱۲ — بسته.** «بسته» یعنی سند قابل پیاده‌سازی است **و** چرخهٔ وضعیتش اجرا شده و با شاهد خام و کنترل منفی پشتیبانی می‌شود؛ نه اینکه محصول امروز اشتراک دارد. تصمیم‌های `P‑01b‑۱..۴` در Decision Log مالک می‌مانند و هیچ‌کدام بستن این ردیف را معلق نمی‌کند — همان‌طور که خود §۹ گفته است.
+
+---
+
+## ۷. اصلاح شاهد قدیمی‌تر (ثبت صادقانه)
+
+هنگام بررسی CI روی `main` معلوم شد اجرای `0ad6bed` (ادغام ردیف ۱۵) در گام «دروازهٔ شاهد آزمون» **قرمز** بود:
+
+```
+EVIDENCE-FAIL: product code differs from the tested tree:
+  log=1428be66015055dbbe8d93107d33f9ac5c005cbd21fec764e98e773444547e42
+  head=81252540bca21dacaaf0fb05f9795292e7cd3d7a94d174bf4f6f4ee3ba928b7d — rerun run-tests-evidence.sh
+```
+
+یعنی گزارش آزمونِ کامیت‌شده از درخت محصولِ همان کامیت نبود (لاگ کهنه). این دور `run-tests-evidence.sh` را روی درخت فعلی دوباره اجرا کرد (`pass=88 fail=0`, `product_tree_sha256=8125254…`) و لاگ تصحیح‌شده در `e56099e` ثبت شد؛ از این پس `gen-audit-evidence.sh` روی `main` سبز است. درس ثبت‌شده: **لاگ آزمون باید پس از آخرین تغییر درخت محصول بازتولید شود، وگرنه سبزیِ قبلی بی‌اعتبار است.**
