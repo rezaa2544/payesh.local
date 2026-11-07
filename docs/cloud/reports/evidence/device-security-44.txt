@@ -1,9 +1,9 @@
 # شاهد ردیف ۴۴ — امنیت دادهٔ روی دستگاه
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/e40e0837-payesh-local
-# head_sha: 7e4b2a10d987886d556d6e4130deb83796bccee7
-# version: 0.8.52
-# generated_at: 2026-11-07T18:32:20Z
+# head_sha: 3ca85fcd0d13e4debd6097c15ef2480722b17a41
+# version: 0.8.53
+# generated_at: 2026-11-07T18:33:01Z
 # node: v22.22.3
 # os: Linux 6.1.158+ x86_64
 # command: bash docs/cloud/reports/evidence/run-44-security.sh
@@ -27,10 +27,10 @@ SE checks=12 pass=12 fail=0
 DEVICE-SECURE-OK
 
 ## بخش ۲ — ابطال دستگاه سمت سرور، روی لایهٔ ذخیره‌سازی واقعی محصول (RV-01..RV-06)
-PASS  RV-01  ساخت کاربر و دستگاه + نشست معتبر (پیش‌نیاز)  → device=b15eabd6f5f24f2f0876da8f session=valid
+PASS  RV-01  ساخت کاربر و دستگاه + نشست معتبر (پیش‌نیاز)  → device=f6e03107f7425097294578bc session=valid
 PASS  RV-02  نشست و دستگاه پیش از ابطال هر دو معتبرند  → role=manager revoked_at=null
 PASS  RV-03  ابطال سمت سرور بی‌درنگ اثر می‌کند (W1) — بدون نیاز به دستگاه  → session=null refresh=device_revoked
-PASS  RV-04  حتی اگر ردیف نشست از ابطال جا بماند، دستگاه ابطال‌شده نشست نمی‌دهد  → device=193477969ea5d66c7b83f3af live_session=yes verdict=rejected user=1
+PASS  RV-04  حتی اگر ردیف نشست از ابطال جا بماند، دستگاه ابطال‌شده نشست نمی‌دهد  → device=902af5cfd3bd3598b31e5731 live_session=yes verdict=rejected user=1
 PASS  RV-05  دستگاه ابطال‌شده در فهرست دستگاه‌ها با revoked=true دیده می‌شود  → devices=2 revoked=2
 PASS  RV-06  ابطال همهٔ نشست‌های کاربر، ابطال دستگاه را لازم نمی‌کند (تفکیک دو کنترل)  → revoked_sessions=2 device_revoke=independent
 
@@ -40,10 +40,10 @@ REVOCATION-44-OK
 ## شاهد خام: یک رکورد در حالت سکون، همان‌طور که روی دیسک می‌نشیند
 record.key            = attendance:1
 record.collection     = attendance   (روشن، برای پرس‌وجو — ریسک باقی‌ماندهٔ ثبت‌شده)
-record.updated_at     = 2026-11-07T18:32:20.649Z   (روشن، برای since)
-record.iv_bytes       = 12   hex=83a641444b66d54d0e44ed0d
+record.updated_at     = 2026-11-07T18:33:01.766Z   (روشن، برای since)
+record.iv_bytes       = 12   hex=f82eb1c1fa07405cc1b9ba05
 record.ct_bytes       = 130
-record.ct_first16_hex = 47f49423dd0e6e6da25cc693e76c3c86
+record.ct_first16_hex = e2510fb7f64da0611027c08f820ffe12
 plaintext_present     = NO
 AT-REST plaintext=absent ct_bytes=130 iv_bytes=12
 
