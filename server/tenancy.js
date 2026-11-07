@@ -22,6 +22,15 @@ const TABLE = 'tenant_records';
 /* بدنهٔ محصول (همهٔ کالکشن‌ها) در یک جدول چندمستأجری با همان سیاست RLS */
 const PRODUCT_TABLE = 'product_records';
 const JOBS_TABLE = 'product_jobs';
+/* ردیف ۳۶: جدول change-feed هر مدرسه (seq صعودی، ایندکس مکان‌نما، retention) */
+const FEED_TABLE = 'product_change_feed';
+const FEED_DEFAULT_KEEP_DAYS = 30;
+const FEED_MAX_KEEP_DAYS = 365;
+const FEED_DEFAULT_LIMIT = 200;
+const FEED_MAX_LIMIT = 1000;
+/* فشرده‌سازی: ردیف‌های قدیمی‌تر از پنجرهٔ «داغ» با gzip ذخیره می‌شوند */
+const FEED_DEFAULT_HOT_DAYS = 7;
+const FEED_MAX_HOT_DAYS = 365;
 const OWNER_ROLE = 'payesh_owner';
 const RUNTIME_ROLE = 'payesh_runtime';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -139,6 +148,38 @@ const SCHEMA_SQL = [
   `REVOKE ALL ON ${JOBS_TABLE} FROM PUBLIC`,
   `GRANT SELECT, INSERT, UPDATE, DELETE ON ${JOBS_TABLE} TO ${RUNTIME_ROLE}`,
   `GRANT USAGE, SELECT ON SEQUENCE ${JOBS_TABLE}_id_seq TO ${RUNTIME_ROLE}`,
+
+  /* ── change-feed هر مدرسه (ردیف ۳۶) — منبع pull قرارداد Sync v1 ────────
+     seq صعودیِ سراسری: برای هر مستأجر یک زیرتوالی اکیداً صعودی می‌سازد،
+     پس «هم‌مهر بودن» چند تغییر در یک لحظه هرگز باعث گم‌شدن ردیف نمی‌شود.
+     retention با سیاست نگه‌داری روزانه (پیش‌فرض ۳۰ روز) اجرا می‌شود. */
+  `CREATE TABLE IF NOT EXISTS ${FEED_TABLE} (
+     seq bigserial PRIMARY KEY,
+     tenant_id uuid NOT NULL,
+     collection text NOT NULL,
+     record_id bigint NOT NULL,
+     op text NOT NULL,
+     version integer NOT NULL,
+     data jsonb,
+     data_gz bytea,
+     at timestamptz NOT NULL DEFAULT now(),
+     CONSTRAINT ${FEED_TABLE}_op_chk CHECK (op IN ('put', 'del'))
+   )`,
+  /* نصب‌های قدیمی‌تر: ستون فشرده‌سازی به‌صورت افزایشی اضافه می‌شود */
+  `ALTER TABLE ${FEED_TABLE} ADD COLUMN IF NOT EXISTS data_gz bytea`,
+  `CREATE INDEX IF NOT EXISTS ${FEED_TABLE}_cursor_idx ON ${FEED_TABLE} (tenant_id, seq)`,
+  `CREATE INDEX IF NOT EXISTS ${FEED_TABLE}_retention_idx ON ${FEED_TABLE} (tenant_id, at)`,
+  `ALTER TABLE ${FEED_TABLE} OWNER TO ${OWNER_ROLE}`,
+  `ALTER TABLE ${FEED_TABLE} ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE ${FEED_TABLE} FORCE ROW LEVEL SECURITY`,
+  `DROP POLICY IF EXISTS ${FEED_TABLE}_isolation ON ${FEED_TABLE}`,
+  `CREATE POLICY ${FEED_TABLE}_isolation ON ${FEED_TABLE}
+     USING (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)
+     WITH CHECK (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)`,
+  `REVOKE ALL ON ${FEED_TABLE} FROM PUBLIC`,
+  /* UPDATE لازم است برای فشرده‌سازیِ درجا (فقط همین دو ستون، و همچنان تحت RLS) */
+  `GRANT SELECT, INSERT, DELETE, UPDATE ON ${FEED_TABLE} TO ${RUNTIME_ROLE}`,
+  `GRANT USAGE, SELECT ON SEQUENCE ${FEED_TABLE}_seq_seq TO ${RUNTIME_ROLE}`,
 ];
 
 /* اجرای مهاجرت با اتصال مدیر (superuser) — بخشی از محصول است، نه هارنس */
@@ -329,7 +370,11 @@ async function upsertProduct(pool, tenantId, { collection, id, data = {}, base_v
        returning collection, record_id, version, data, deleted_at, updated_at`,
       [col, rid, JSON.stringify(clean)]
     );
-    return { conflict: false, row: productRowOf(q.rows[0]) };
+    /* ردیف ۳۶: هر نوشتنِ موفق یک ردیف change-feed در همان تراکنش می‌سازد،
+       پس یا هر دو ثبت می‌شوند یا هیچ‌کدام (بدون شکاف بین داده و feed). */
+    const row = productRowOf(q.rows[0]);
+    await appendFeed(c, { collection: col, recordId: rid, op: 'put', version: row.version, data: row.data });
+    return { conflict: false, row };
   });
 }
 
@@ -341,7 +386,122 @@ async function deleteProduct(pool, tenantId, { collection, id }) {
        where collection = $1 and record_id = $2 returning collection, record_id, version`,
       [col, Number(id)]
     );
-    return q.rows.length ? { collection: col, id: Number(q.rows[0].record_id), version: Number(q.rows[0].version), deleted: true } : null;
+    if (!q.rows.length) return null;
+    const version = Number(q.rows[0].version);
+    /* tombstone در feed: کلاینتِ آفلاین باید «حذف» را هم ببیند، نه فقط نبود ردیف */
+    await appendFeed(c, { collection: col, recordId: Number(q.rows[0].record_id), op: 'del', version, data: null });
+    return { collection: col, id: Number(q.rows[0].record_id), version, deleted: true };
+  });
+}
+
+/* ═══════ change-feed (ردیف ۳۶) ═══════════════════════════════════════
+   چرا seq و نه updated_at؟ چون دو تغییر در یک میلی‌ثانیه با `updated_at >`
+   از دست می‌روند (همان نقص W‑04 در شبیه‌سازی). seq سراسری، برای هر مستأجر
+   زیرتوالیِ اکیداً صعودی و بی‌هم‌مهر می‌دهد ⇒ صفحه‌بندی «دقیقاً یک‌بار».
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* افزودن یک ردیف feed؛ فقط با کلاینت داخل تراکنشِ دارای زمینهٔ مستأجر */
+async function appendFeed(c, { collection, recordId, op, version, data = null }) {
+  const q = await c.query(
+    `insert into ${FEED_TABLE} (tenant_id, collection, record_id, op, version, data)
+     values (current_setting('app.tenant_id')::uuid, $1, $2, $3, $4, $5::jsonb)
+     returning seq, at`,
+    [collection, Number(recordId), op === 'del' ? 'del' : 'put', Number(version) || 0,
+      data == null ? null : JSON.stringify(data)]
+  );
+  return { seq: Number(q.rows[0].seq), at: q.rows[0].at };
+}
+
+/* payload ردیف feed: اگر فشرده شده باشد، همان شیء اصلی بازگردانده می‌شود
+   (کلاینت هیچ تفاوتی نمی‌بیند؛ فقط فضای دیسک کمتر می‌شود). */
+function feedPayload(r) {
+  if (r.data != null) return r.data;
+  if (r.data_gz == null) return null;
+  try { return JSON.parse(require('node:zlib').gunzipSync(r.data_gz).toString('utf8')); }
+  catch (e) { return null; }
+}
+
+/* فشرده‌سازی (ردیف ۳۶): ردیف‌های قدیمی‌تر از پنجرهٔ داغ ⇒ gzip + خالی‌کردن jsonb.
+   مقدار داده تغییر نمی‌کند؛ فقط نمایش فیزیکی. idempotent است. */
+async function compressFeed(pool, tenantId, { hotDays = FEED_DEFAULT_HOT_DAYS } = {}) {
+  const days = Number(hotDays);
+  if (!Number.isFinite(days) || days < 1 || days > FEED_MAX_HOT_DAYS) throw new TenancyError('bad_hot_days', 400);
+  const zlib = require('node:zlib');
+  return withTenant(pool, tenantId, async (c) => {
+    const q = await c.query(
+      `select seq, data::text as payload, octet_length(data::text) as raw_bytes
+         from ${FEED_TABLE}
+        where data is not null and data_gz is null
+          and at < now() - ($1::int || ' days')::interval
+        order by seq asc`, [Math.floor(days)]
+    );
+    let rawBytes = 0, gzBytes = 0, done = 0;
+    for (const row of q.rows) {
+      const gz = zlib.gzipSync(Buffer.from(String(row.payload), 'utf8'));
+      await c.query(`update ${FEED_TABLE} set data_gz = $2, data = null where seq = $1`, [row.seq, gz]);
+      rawBytes += Number(row.raw_bytes) || 0; gzBytes += gz.length; done++;
+    }
+    return {
+      compressed: done, raw_bytes: rawBytes, gz_bytes: gzBytes,
+      saved_bytes: rawBytes - gzBytes,
+      ratio: rawBytes ? Math.round((gzBytes / rawBytes) * 1000) / 1000 : null,
+      hot_days: Math.floor(days),
+    };
+  });
+}
+
+/* خواندن صفحه‌ای feed از مکان‌نمای seq — دقیقاً یک‌بار، بدون تکرار/جاافتادگی */
+async function listFeed(pool, tenantId, { sinceSeq = 0, collection = null, limit = FEED_DEFAULT_LIMIT } = {}) {
+  const since = Number(sinceSeq);
+  if (!Number.isFinite(since) || since < 0) throw new TenancyError('bad_since_seq', 400);
+  const lim = Math.max(1, Math.min(FEED_MAX_LIMIT, Number(limit) || FEED_DEFAULT_LIMIT));
+  const col = collection ? assertCollection(collection) : null;
+  return withTenant(pool, tenantId, async (c) => {
+    const q = await c.query(
+      `select seq, collection, record_id, op, version, data, data_gz, at
+         from ${FEED_TABLE}
+        where seq > $1 and ($2::text is null or collection = $2)
+        order by seq asc
+        limit ${lim + 1}`,
+      [since, col]
+    );
+    const more = q.rows.length > lim;
+    const rows = (more ? q.rows.slice(0, lim) : q.rows).map(r => ({
+      seq: Number(r.seq), collection: r.collection, id: Number(r.record_id),
+      op: r.op, version: Number(r.version), data: feedPayload(r), at: r.at,
+    }));
+    return {
+      rows, count: rows.length, more,
+      next_seq: rows.length ? rows[rows.length - 1].seq : since,
+      limits: { max_limit: FEED_MAX_LIMIT, default_keep_days: FEED_DEFAULT_KEEP_DAYS },
+    };
+  });
+}
+
+/* retention: حذف ردیف‌های قدیمی‌تر از پنجرهٔ نگه‌داری — فقط همان مستأجر (RLS) */
+async function pruneFeed(pool, tenantId, { keepDays = FEED_DEFAULT_KEEP_DAYS, collection = null } = {}) {
+  const days = Number(keepDays);
+  if (!Number.isFinite(days) || days < 1 || days > FEED_MAX_KEEP_DAYS) throw new TenancyError('bad_keep_days', 400);
+  const col = collection ? assertCollection(collection) : null;
+  return withTenant(pool, tenantId, async (c) => {
+    const q = await c.query(
+      `delete from ${FEED_TABLE}
+        where at < now() - ($1::int || ' days')::interval
+          and ($2::text is null or collection = $2)
+        returning seq`,
+      [Math.floor(days), col]
+    );
+    const left = await c.query(`select count(*)::int as n from ${FEED_TABLE}`);
+    return { deleted: q.rowCount, remaining: Number(left.rows[0].n), keep_days: Math.floor(days) };
+  });
+}
+
+/* آمار feed برای /healthz — بدون افشای دادهٔ ردیف‌ها */
+async function feedStats(pool, tenantId) {
+  return withTenant(pool, tenantId, async (c) => {
+    const q = await c.query(`select count(*)::int as n, coalesce(max(seq), 0)::bigint as max_seq,
+                                    min(at) as oldest_at from ${FEED_TABLE}`);
+    return { count: Number(q.rows[0].n), max_seq: Number(q.rows[0].max_seq), oldest_at: q.rows[0].oldest_at };
   });
 }
 
@@ -440,6 +600,29 @@ async function route({ method, pathname, search, headers = {}, body = {} }) {
 
   try {
     /* ── مسیر محصول: بدنهٔ ۲۶ کالکشن روی PostgreSQL با RLS ─────────── */
+    /* ── change-feed هر مدرسه (ردیف ۳۶) ─────────────────────────────── */
+    if (pathname === PBASE + '/feed' && m === 'GET') {
+      const out = await listFeed(state.pool, tid, {
+        sinceSeq: search.get('since_seq'), collection: search.get('collection'), limit: search.get('limit'),
+      });
+      return { status: 200, body: Object.assign({ ok: true }, out) };
+    }
+    if (pathname === PBASE + '/feed/stats' && m === 'GET') {
+      return { status: 200, body: { ok: true, feed: await feedStats(state.pool, tid) } };
+    }
+    if (pathname === PBASE + '/feed/compress' && m === 'POST') {
+      if (String(claims.role || '') !== 'manager') return { status: 403, body: { ok: false, error: 'forbidden' } };
+      const out = await compressFeed(state.pool, tid, { hotDays: (body && body.hot_days) });
+      return { status: 200, body: Object.assign({ ok: true }, out) };
+    }
+    if (pathname === PBASE + '/feed/prune' && m === 'POST') {
+      /* حذف شاهد/دادهٔ قدیمی فقط با نقش مدیر — نه هر دستگاهی */
+      if (String(claims.role || '') !== 'manager') return { status: 403, body: { ok: false, error: 'forbidden' } };
+      const out = await pruneFeed(state.pool, tid, {
+        keepDays: (body && body.keep_days), collection: (body && body.collection),
+      });
+      return { status: 200, body: Object.assign({ ok: true }, out) };
+    }
     if (pathname === PBASE + '/join' && m === 'POST') {
       const rows = await joinProduct(state.pool, tid, body || {});
       return { status: 200, body: { ok: true, rows, count: rows.length } };
@@ -533,7 +716,7 @@ async function rollbackProduct(client) {
   return { dropped: [JOBS_TABLE, PRODUCT_TABLE], statements: sqls.length };
 }
 
-module.exports = {
+module.exports = { appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,

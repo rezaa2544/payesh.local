@@ -1,0 +1,45 @@
+# شاهد ردیف ۳۶ — change-feed هر مدرسه در PostgreSQL (seq صعودی، ایندکس مکان‌نما، retention)
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/603dfe4a-payesh-local
+# head_sha: 5d47c75109f237e6de33f19271030f6b74171ed3
+# generated_at: 2026-11-07T16:02:36Z
+# postgres: 18.6  (embedded-postgres — باینری بیرون از مخزن)
+# node: v22.22.3
+# os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-36-change-feed.sh
+
+## اجرای آزمون واقعی (۱۵ بررسی، مسیر محصول از HTTP + بررسی مستقیم DB)
+PASS  CF-01  مهاجرت: جدول feed با RLS اجباری، سیاست، دو ایندکس و توالی ساخته شد  → statements=42 indexes=3
+PASS  CF-02  درج از مسیر محصول ⇒ یک ردیف feed با op=put و همان نسخه  → seq=1 version=1
+PASS  CF-03  ۲۵ نوشتن پشت‌سرهم: seq اکیداً صعودی و بی‌هم‌مهر (نقص W‑04 در سطح DB)  → rows=26 unique=26 span=1..26
+PASS  CF-04  حذف ⇒ tombstone با op=del و data=null (کلاینت آفلاین حذف را می‌بیند)  → seq=27 version=2
+PASS  CF-05  صفحه‌بندی با limit=7: هر ردیف دقیقاً یک‌بار (بدون تکرار/جاافتادگی)  → pages=3 rows=27
+PASS  CF-06  next_seq/more: پایان صفحه‌بندی، next_seq = آخرین seq  → last=27
+PASS  CF-07  RLS: feed مستأجر B هیچ ردیفی از A را نشان نمی‌دهد  → A=27 B=1
+PASS  CF-08  fail-closed: نقش runtime بدون زمینهٔ مستأجر ⇒ صفر ردیف (نه همهٔ ردیف‌ها)  → rows=0
+PASS  CF-09  ایندکس مکان‌نما واقعاً استفاده می‌شود (EXPLAIN)  → Limit  (cost=0.15..8.17 rows=1 width=8)
+PASS  CF-10  retention: فقط ردیف‌های قدیمی‌تر از پنجره حذف می‌شوند و مستأجر دیگر دست‌نخورده می‌ماند  → deleted=3 remainingA=27 legacyB=2
+PASS  CF-11  prune فقط با نقش مدیر: دبیر ⇒ 403 (fail-closed)  → status=403
+PASS  CF-12  پنجرهٔ نگه‌داری نامعتبر رد می‌شود (کنترل منفی 0/400)  → both=400
+PASS  CF-13  OCC کهنه ⇒ 409 و هیچ ردیف feed تازه‌ای (داده و feed همیشه هم‌گام)  → feed=28
+PASS  CF-14  ۳۰۰ نوشتن: همه seq یکتا و صعودی + نرخ واقعی نوشتن feed  → writes=300 feed_rows=328 861ms ≈348 write/s
+PASS  CF-15  فشرده‌سازی: ردیف‌های قدیمی gzip می‌شوند، حجم کم می‌شود و مقدار داده دست‌نخورده می‌ماند  → compressed=1 ratio=0.091 saved=2012B idempotent=yes
+PASS  CF-16  فشرده‌سازی فقط با مدیر و پنجرهٔ معتبر (403 / 400)  → teacher=403 hot0=400 hot999=400
+PASS  CF-15b  آمار feed (بدون افشای داده) و مسیر stats سالم است  → count=329 max_seq=335
+
+17 موفق · 0 ناموفق
+
+## اندازه‌گیری مستقیم روی همان پایگاه‌داده
+feed_rows=332 distinct_seq=332
+sequence_last_value=335
+index: product_change_feed_cursor_idx — INDEX product_change_feed_cursor_idx ON public.product_change_feed USING btree (tenant_id, seq)
+index: product_change_feed_pkey — UNIQUE INDEX product_change_feed_pkey ON public.product_change_feed USING btree (seq)
+index: product_change_feed_retention_idx — INDEX product_change_feed_retention_idx ON public.product_change_feed USING btree (tenant_id, at)
+rls=true force=true
+
+## عدم رگرسیون: آزمون tenancy/RLS ردیف ۲۶ روی همان سرور PostgreSQL، پایگاه‌دادهٔ تازه
+F05-PG checks=12 pass=12 fail=0
+F05-PG-OK checks=12
+(exit=0)
+
+CHANGE-FEED-36-OK
