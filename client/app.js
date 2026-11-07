@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.52';
+const CLIENT_VERSION = '0.8.53';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -114,11 +114,73 @@ function idbGet(key) {
   })).catch(() => null);
 }
 
+function idbDelete(key) {
+  if (!HAS_IDB) { try { localStorage.removeItem('payesh.cache.' + key); } catch (e) { /* noop */ } return Promise.resolve(); }
+  return idbOpen().then(db => new Promise((res, rej) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').delete(key);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  })).catch(() => { /* بی‌صدا */ });
+}
+
+/* ══════════ کش رمزشدهٔ دستگاه — ردیف ۴۴ ══════════════════════════
+   دادهٔ مدرسه دیگر به‌صورت متن روشن در IndexedDB/localStorage نمی‌نشیند.
+   کلید از «راز دستگاه» (توکن دستگاه) با PBKDF2 مشتق می‌شود و هیچ‌جا در
+   کد/باندل/دیتابیس نیست؛ لایهٔ آن client/secure-web.js است.
+   اگر محیط WebCrypto یا IndexedDB نداشته باشد (مرورگر بسیار قدیمی)،
+   رفتار قبلی حفظ می‌شود؛ ولی در محیط امن، بدون کلید هیچ متنی نوشته
+   نمی‌شود (حتی پیش از جفت‌سازی). */
+const SECURE_CAPABLE = (() => {
+  try {
+    return typeof indexedDB !== 'undefined' && !!indexedDB.open
+      && !!(globalThis.crypto && globalThis.crypto.subtle)
+      && !!(globalThis.PayeshSecure && globalThis.PayeshSecure.SecureStore);
+  } catch (e) { return false; }
+})();
+let _secure = null, _secureKey = '';
+async function secureCache() {
+  if (!SECURE_CAPABLE) return null;
+  const secret = String(S.deviceToken || '');
+  if (secret.length < 8) return null;
+  if (_secure && _secureKey === secret) return _secure;
+  try {
+    if (_secure) { try { _secure.close(); } catch (e) { /* noop */ } }
+    _secure = await globalThis.PayeshSecure.SecureStore.open({ name: 'payesh_cache_secure', secret });
+    _secureKey = secret;
+    return _secure;
+  } catch (e) { _secure = null; _secureKey = ''; return null; }
+}
+async function cacheRead() {
+  const sc = await secureCache();
+  if (sc) {
+    try {
+      const row = await sc.get('cache', 1);
+      if (row && row.data) return row.data;
+    } catch (e) { /* کلید عوض شده ⇒ مسیر نسخهٔ قدیمی */ }
+  }
+  const legacy = await idbGet('data');
+  /* مهاجرت یک‌باره: کش روشن قدیمی به مخزن رمزشده منتقل و از دیسک پاک می‌شود */
+  if (legacy && sc) {
+    try { await sc.put('cache', 1, legacy); await idbDelete('data'); } catch (e) { /* noop */ }
+  }
+  return legacy;
+}
+async function cacheWrite(plain) {
+  const sc = await secureCache();
+  if (sc) {
+    try { await sc.put('cache', 1, plain); await idbSet('saved_at', new Date().toISOString()); return 'encrypted'; }
+    catch (e) { /* پایین‌تر: اگر محیط امن است، نوشتن روشن ممنوع */ }
+  }
+  if (SECURE_CAPABLE) return 'skipped_no_key';   /* بدون کلید، متنی روی دیسک نمی‌نشیند */
+  await idbSet('data', plain);
+  await idbSet('saved_at', new Date().toISOString());
+  return 'plaintext_legacy';
+}
+
 function saveCache() {
   const plain = {};
   for (const c of Object.keys(S.data)) plain[c] = [...S.data[c].values()];
-  idbSet('data', plain);
-  idbSet('saved_at', new Date().toISOString());
+  return cacheWrite(plain);
 }
 function saveQueue() { localStorage.setItem('payesh.queue', JSON.stringify(S.queue.slice(-500))); }
 function saveReview() { localStorage.setItem('payesh.review', JSON.stringify(S.review.slice(-200))); }
@@ -202,7 +264,10 @@ async function api(path, opts = {}) {
     /* نشست منقضی شده؟ بی‌صدا تازه‌اش می‌کنیم و همان درخواست را تکرار می‌کنیم */
     if (await silentRefresh()) return api(path, Object.assign({}, opts, { _retried: true }));
   }
-  if (res.status === 401 && !opts.noAuthRedirect) { lockApp(); }
+  if (data && data.error === 'device_revoked') {
+    await handleDeviceRevoked('device_revoked');
+    if (!opts.noAuthRedirect) { lockApp(); toast('این دستگاه از طرف مدیر باطل شده؛ دادهٔ محلی پاک شد', 'err'); }
+  } else if (res.status === 401 && !opts.noAuthRedirect) { lockApp(); }
   if (!res.ok || data.ok === false) {
     const err = new Error((data && data.error) || ('HTTP ' + res.status));
     err.data = data; err.status = res.status;
@@ -227,6 +292,7 @@ function friendlyError(e) {
     rate_limited: 'کمی صبر کنید و دوباره بزنید',
     body_too_large: 'حجم اطلاعات زیاد بود',
     offline: 'سیستم مدرسه در دسترس نیست — تغییر ذخیره شد و با اتصال بعدی اعمال می‌شود',
+    device_revoked: 'این دستگاه از طرف مدیر باطل شده و دادهٔ محلی پاک شد — برای ادامه دوباره جفت شوید',
   };
   if (map[raw]) return map[raw];
   if (st === 404) return map.not_found;
@@ -704,8 +770,27 @@ function saveDevice(token) { S.deviceToken = token; localStorage.setItem('payesh
 function lockApp() {
   S.session = ''; localStorage.removeItem('payesh.session');
   S.user = null; S.role = null;
+  /* ردیف ۴۴: با قفل‌شدن، کلید از حافظه می‌رود و کش تا ورود بعدی خواندنی نیست */
+  if (_secure) { try { _secure.lock(); } catch (e) { /* noop */ } }
   stopLive();
   renderLock();
+}
+
+/* ابطال دستگاه از طرف سرور (دستگاه گم‌شده / نشست باطل‌شده) ⇒
+   W2 نابودی کلید + W3 پاک‌سازی محلی، و هیچ ACK کاذبی در کار نیست. */
+async function handleDeviceRevoked(reason = 'device_revoked') {
+  let evidence = null;
+  try {
+    const sc = await secureCache();
+    if (sc) evidence = await sc.handleRevocation({ reason });
+  } catch (e) { evidence = { wiped: false, reason, error: String((e && e.message) || e) }; }
+  S.deviceToken = ''; try { localStorage.removeItem('payesh.device'); } catch (e) { /* noop */ }
+  S.session = ''; try { localStorage.removeItem('payesh.session'); } catch (e) { /* noop */ }
+  try { await idbDelete('data'); } catch (e) { /* noop */ }
+  try { localStorage.removeItem('payesh.cache.data'); } catch (e) { /* noop */ }
+  try { localStorage.removeItem('payesh.lastuser'); } catch (e) { /* noop */ }
+  _secure = null; _secureKey = '';
+  return evidence || { wiped: true, reason, key_destroyed: true };
 }
 
 async function doSetup(form) {
@@ -876,7 +961,7 @@ async function enterPhone(user) {
     S.lastSync = data.at || null;
     saveCache();
   } else {
-    const cached = await idbGet('data');
+    const cached = await cacheRead();
     if (cached) {
       S.data = {};
       for (const c of Object.keys(cached)) S.data[c] = new Map((cached[c] || []).map(r => [Number(r.id), r]));
@@ -1007,7 +1092,7 @@ async function start() {
     });
     S.clockOffset = new Date(boot.server_time).getTime() - Date.now();
     try { localStorage.setItem('payesh.lastuser', JSON.stringify({ user: boot.user, role: boot.role, version: boot.version, school: boot.school })); } catch (e) { /* noop */ }
-    const cached = await idbGet('data');
+    const cached = await cacheRead();
     if (cached) {
       S.data = {};
       for (const c of Object.keys(cached)) S.data[c] = new Map(cached[c].map(r => [Number(r.id), r]));
@@ -1674,7 +1759,7 @@ if ('serviceWorker' in navigator && navigator.serviceWorker) {
    باشد هم کاربر آخرین وضعیت را می‌بیند و کارهایش در صف می‌ماند. */
 async function startOffline() {
   try {
-    const cached = await idbGet('data');
+    const cached = await cacheRead();
     if (!cached) return false;
     const raw = localStorage.getItem('payesh.lastuser');
     if (!raw) return false;

@@ -1,0 +1,81 @@
+# شاهد ردیف ۴۴ — امنیت دادهٔ روی دستگاه
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/e40e0837-payesh-local
+# head_sha: 3ca85fcd0d13e4debd6097c15ef2480722b17a41
+# version: 0.8.53
+# generated_at: 2026-11-07T18:33:01Z
+# node: v22.22.3
+# os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-44-security.sh
+# primitives: PBKDF2-SHA256(210000) → AES-GCM-256 · کلید non-extractable · WebCrypto + IndexedDB استاندارد
+
+## بخش ۱ — لایهٔ امن دادهٔ دستگاه (SE-01..SE-12)
+PASS  SE-01  open با راز دستگاه + put/get رمزگذاری‌شده  → kdf=PBKDF2 iter=210000 version=2
+PASS  SE-02  در حالت سکون هیچ متن روشنی از payload روی دیسک نیست  → records=3 bytes≈2KB iv=12 ct>0 plaintext=absent
+PASS  SE-03  استخراج داده با کلید نادرست = شکست (بدون استثنای بی‌صدا)  → decrypt_failed (GCM auth) rows_readable=0
+PASS  SE-04  کلید مشتق‌شده non-extractable است (بایت خام کلید بیرون نمی‌آید)  → extractable=false export=rejected
+PASS  SE-05  قفل برنامه: کلید از حافظه می‌رود و خواندن تا unlock ناممکن است  → locked → unlock ok locks=1
+PASS  SE-06  list/since/byRef روی دادهٔ رمزشده درست کار می‌کنند  → list=4 byRef=3 since=2
+PASS  SE-07  دستکاری بایت رمزنگاری‌شده تشخیص داده می‌شود (بدون خرابی بی‌صدا)  → decrypt_failed tamper_detected=true restored=ok
+PASS  SE-08  چرخش راز: ردیف‌ها حفظ، راز قدیمی بی‌اثر، راز تازه کارگر  → rotated=6 old=rejected new=ok
+PASS  SE-09  پاک‌سازی یک کالکشن، بقیه را دست نمی‌زند  → cleared=4 remaining=2
+PASS  SE-10  wipe: نابودی کلید و نمک + صفرشدن ردیف‌ها + بازگشایی ناممکن  → rows_deleted=2 meta=0 reopen_rows=0
+PASS  SE-11  ابطال دستگاه ⇒ wipe با شاهد قابل‌حسابرسی (بدون ACK کاذب)  → reason=device_revoked rows_deleted=1 notified=1
+PASS  SE-12  راز دستگاه نه در دیتابیس و نه در متادیتا ذخیره نمی‌شود  → meta=key,kdf,hash,iterations,salt,created_at secret_on_disk=no
+
+SE checks=12 pass=12 fail=0
+DEVICE-SECURE-OK
+
+## بخش ۲ — ابطال دستگاه سمت سرور، روی لایهٔ ذخیره‌سازی واقعی محصول (RV-01..RV-06)
+PASS  RV-01  ساخت کاربر و دستگاه + نشست معتبر (پیش‌نیاز)  → device=f6e03107f7425097294578bc session=valid
+PASS  RV-02  نشست و دستگاه پیش از ابطال هر دو معتبرند  → role=manager revoked_at=null
+PASS  RV-03  ابطال سمت سرور بی‌درنگ اثر می‌کند (W1) — بدون نیاز به دستگاه  → session=null refresh=device_revoked
+PASS  RV-04  حتی اگر ردیف نشست از ابطال جا بماند، دستگاه ابطال‌شده نشست نمی‌دهد  → device=902af5cfd3bd3598b31e5731 live_session=yes verdict=rejected user=1
+PASS  RV-05  دستگاه ابطال‌شده در فهرست دستگاه‌ها با revoked=true دیده می‌شود  → devices=2 revoked=2
+PASS  RV-06  ابطال همهٔ نشست‌های کاربر، ابطال دستگاه را لازم نمی‌کند (تفکیک دو کنترل)  → revoked_sessions=2 device_revoke=independent
+
+RV checks=6 pass=6 fail=0
+REVOCATION-44-OK
+
+## شاهد خام: یک رکورد در حالت سکون، همان‌طور که روی دیسک می‌نشیند
+record.key            = attendance:1
+record.collection     = attendance   (روشن، برای پرس‌وجو — ریسک باقی‌ماندهٔ ثبت‌شده)
+record.updated_at     = 2026-11-07T18:33:01.766Z   (روشن، برای since)
+record.iv_bytes       = 12   hex=f82eb1c1fa07405cc1b9ba05
+record.ct_bytes       = 130
+record.ct_first16_hex = e2510fb7f64da0611027c08f820ffe12
+plaintext_present     = NO
+AT-REST plaintext=absent ct_bytes=130 iv_bytes=12
+
+## کنترل منفی — هر سه محافظ باید واقعاً ببندند
+REFUSED  NEG-1  خواندن با کلید اشتباه  → decrypt_failed
+REFUSED  NEG-2  دستکاری بایت رمز  → decrypt_failed
+REFUSED  NEG-3  خواندن پس از قفل برنامه  → locked
+REFUSED  NEG-4  راز دستگاه کوتاه (۷ نویسه)  → weak_device_secret
+
+NEG checks=4 refused=4 leaked=0
+NEGATIVE-44-OK
+
+## اتصال به مسیر محصول (بررسی سیم‌کشی؛ ثابت ایستا، نه اجرای مرورگر)
+WIRED ✓  async function cacheRead
+WIRED ✓  async function cacheWrite
+WIRED ✓  await handleDeviceRevoked('device_revoked')
+WIRED ✓  await sc.handleRevocation({ reason })
+WIRED ✓  _secure.lock()
+WIRED ✓  index.html بارگذاری secure-web.js
+WIRING-44-OK
+
+## عدم رگرسیون ۱: موتور دادهٔ مرورگری (ردیف ۳۹) — ۱۰ بررسی
+
+EW checks=10 pass=10 fail=0
+ENGINE-WEB-OK
+
+## عدم رگرسیون ۲: آزمون اصلی محصول
+  ✓ ردیف ۲۹: کلید امضای پشتیبان بیرون از پایگاه‌داده نگه داشته می‌شود (بازیابی پس از از دست رفتن DB)
+
+96 موفق · 0 ناموفق
+
+
+خلاصهٔ اجرا: se=0 rv=0 raw=0 neg=0 engine=0 suite=0
+
+DEVICE-SECURITY-44-OK
