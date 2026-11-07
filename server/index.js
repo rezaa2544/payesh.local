@@ -21,6 +21,7 @@ const qr = require('./qr');
 const s3mem = require('./s3mem');
 const outbox = require('./outbox');
 const live = require('./live');
+const tenancy = require('./tenancy');
 
 function normDigitsLocal(v) {
   return String(v == null ? '' : v)
@@ -50,6 +51,14 @@ const MIRROR_DIR = path.join(DATA_DIR, 'mirror');
 const DAILY_BACKUP_DIR = path.join(BACKUP_DIR, 'daily');
 
 const store = openStore(path.join(DATA_DIR, 'payesh.sqlite'));
+
+/* ── لایهٔ چندمستأجری (فاز ۳ · CC‑12‑2) ─────────────────────────────
+   فقط وقتی روشن می‌شود که اتصال PostgreSQL و کلید امضای توکن تنظیم شده
+   باشد؛ در نصب تک‌مدرسه‌ای امروز، مسیرها خاموش می‌مانند و رفتار تغییر نمی‌کند. */
+const TENANCY = tenancy.init({
+  connectionString: process.env.PAYESH_TENANCY_PG || '',
+  secret: process.env.PAYESH_TENANCY_SECRET || '',
+});
 
 /* ── تعریف‌های پایه (پایه‌ها و رشته‌ها) ───────────────────────────────
    اگر مدرسه هنوز چیزی تعریف نکرده باشد، فهرست‌های رایج یک‌بار ساخته
@@ -274,6 +283,17 @@ async function api(req, res, url, ip) {
         catch (e) { return false; }
       })(),
     });
+  }
+
+  /* ── مسیر مستأجرمحور: tenant فقط از توکن، جداسازی با RLS در پایگاه‌داده ── */
+  if (p.startsWith('/api/cloud/tenancy/')) {
+    let payload = {};
+    if (m === 'POST' || m === 'PATCH' || m === 'PUT') {
+      try { payload = await readBody(req); } catch (e) { return json({ ok: false, error: 'bad_request' }, 400); }
+    }
+    if (!TENANCY.enabled) return json({ ok: false, error: 'tenancy_disabled' }, 404);
+    const out = await tenancy.route({ method: m, pathname: p, search: q, headers: req.headers, body: payload });
+    return json(out.body, out.status);
   }
 
   if (p === '/api/version' && m === 'GET') {

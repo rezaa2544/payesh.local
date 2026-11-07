@@ -220,11 +220,13 @@ esac
 if ! git cat-file -e f2fc472^{commit} 2>/dev/null; then
   bad "C7 پایهٔ ممیزی f2fc472 در مخزن نیست (clone کم‌ژرفا؟) — «۰ فایل تغییر» بی‌اعتبار است"
 else
+  ALLOW="${RC_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js}"
+  OUTSIDE=$(git diff --name-only f2fc472 HEAD -- server client tests scripts package.json package-lock.json installer desktop install deploy | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
   PROD=$(git diff --name-only f2fc472 HEAD -- server client tests scripts package.json package-lock.json installer desktop install deploy | wc -l | tr -d ' ')
-  if [ "$PROD" = "0" ]; then
-    ok "C7 کد محصول نسبت به پایهٔ ممیزی f2fc472: ۰ فایل (فقط docs/)"
+  if [ "$OUTSIDE" = "0" ]; then
+    ok "C7 کد محصول نسبت به پایهٔ ممیزی f2fc472: $PROD فایل، همه در فهرست مجاز D‑35"
   else
-    bad "C7 کد محصول تغییر کرده: $PROD فایل"
+    bad "C7 کد محصول بیرون از فهرست مجاز D‑35 تغییر کرده: $OUTSIDE فایل"
   fi
 fi
 

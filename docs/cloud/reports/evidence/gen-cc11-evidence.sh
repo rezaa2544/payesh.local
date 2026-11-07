@@ -46,7 +46,11 @@ RAW_DRILL="$RAW/cc11-raw-drill.txt"
 # ── ۰) پیش‌نیاز ─────────────────────────────────────────────────────────────
 git cat-file -e "$BASE^{commit}" 2>/dev/null || fail "BASE-MISSING: $BASE در مخزن نیست (clone کم‌عمق؟) — ادعای «کد محصول تغییر نکرد» بی‌اعتبار است"
 PROD_N=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS 2>/dev/null | grep -c . || true)
-[ "$PROD_N" = "0" ] || fail "PRODUCT-CHANGED: $PROD_N فایل محصول نسبت به $BASE تغییر کرده — شمارش/جدول‌های ۰۶–۱۰ دیگر به HEAD تعمیم‌پذیر نیست"
+# D‑35: پس از باز شدن دروازهٔ فاز ۳، تغییر کد محصول مجاز است ولی فقط در فایل‌های اعلام‌شده.
+# حکم‌های ممیزی ۰۶–۱۰ به SHA پین‌شدهٔ 04e0636 مربوط‌اند؛ هر تغییر بیرون از این فهرست ⇒ شکست.
+ALLOW="${CC11_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js}"
+OUTSIDE=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS 2>/dev/null | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
+[ "$OUTSIDE" = "0" ] || fail "PRODUCT-SCOPE: $OUTSIDE فایل محصول بیرون از فهرست مجاز D‑35 تغییر کرده — شمارش/جدول‌های ۰۶–۱۰ دیگر به HEAD تعمیم‌پذیر نیست"
 
 # ── ۱) اجرای تمرین ─────────────────────────────────────────────────────────
 bash -c "$DRILL" > "$RAW_DRILL" 2>&1

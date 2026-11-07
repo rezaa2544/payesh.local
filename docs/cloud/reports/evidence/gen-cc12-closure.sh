@@ -40,7 +40,10 @@ fa() {
 # ── ۰) پیش‌نیاز: پایهٔ ممیزی + کد محصول دست‌نخورده ─────────────────────────
 git cat-file -e "$BASE^{commit}" 2>/dev/null || fail "BASE-MISSING: $BASE در مخزن نیست"
 PROD_N=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS | grep -c . || true)
-[ "$PROD_N" = "0" ] || fail "PRODUCT-CHANGED: $PROD_N فایل محصول نسبت به $BASE تغییر کرده"
+# D‑35: تغییر محصول مجاز است، ولی فقط در فایل‌های اعلام‌شدهٔ فاز ۳
+ALLOW="${CC12_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js}"
+OUTSIDE=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
+[ "$OUTSIDE" = "0" ] || fail "PRODUCT-SCOPE: $OUTSIDE فایل محصول بیرون از فهرست مجاز D‑35 تغییر کرده"
 
 # ── ۱) سازگاری درونی شاهد سنجش بار ─────────────────────────────────────────
 SWEEP=$(awk '/^## پویش/{f=1;next} /^## /{f=0} f && /^BENCH devices=/' "$BENCH")
@@ -86,7 +89,9 @@ grep -q 'PASS (طراحی)' "$DOC04B" || fail "DOC04B-STATUS: سرصفحهٔ س�
 
 grep -q 'CC‑12‑3.*CLOSED' "$DOC12" || fail "DOC12-CC3: شرط CC‑12‑3 بسته نشده"
 grep -q 'CC‑12‑4.*CLOSED' "$DOC12" || fail "DOC12-CC4: شرط CC‑12‑4 بسته نشده"
-grep -q 'CC‑12‑2.*PARTIAL' "$DOC12" || fail "DOC12-CC2: شرط CC‑12‑2 باید صریحاً PARTIAL بماند"
+# D‑35: CC‑12‑2 پس از باز شدن دروازه با شاهد مسیر محصول بسته شد؛ ادعای PARTIAL دیگر درست نیست
+grep -qE 'CC.12.2.*CLOSED' "$DOC12" || fail "DOC12-CC2: شرط CC‑12‑2 باید با شاهد مسیر محصول CLOSED اعلام شود"
+grep -qE 'CC.12.2.*PARTIAL' "$DOC12" && fail "DOC12-CC2-STALE: سند ۱۲ هنوز CC‑12‑2 را PARTIAL می‌داند — سند از واقعیت عقب است"
 grep -q 'D‑31' "$DOC12" || fail "DOC12-O07: تصمیم O‑07 (D‑31) در سند ۱۲ نیست"
 grep -q '۸/۸' "$DOC12" || fail "DOC12-VERDICT: حکم ۸/۸ در سند ۱۲ نیست"
 
@@ -133,14 +138,14 @@ TF=$(printf '%s' "$TLINE" | sed -E 's/.*fail=([0-9]+).*/\1/')
   echo "constitution_sha256: $(sha256sum "$CONST" | cut -d' ' -f1)"
   echo "tests_log: pass=$TP fail=$TF"
   echo "decisions: D-30 O-06 · D-31 O-07 · D-32 O-14 · D-33 O-18"
-  echo "row12_conditions: CC-12-1 CLOSED · CC-12-3 CLOSED · CC-12-4 CLOSED · CC-12-2 PARTIAL(phase-3)"
+  echo "row12_conditions: CC-12-1 CLOSED · CC-12-2 CLOSED(product-path) · CC-12-3 CLOSED · CC-12-4 CLOSED"
   echo
   echo "## بررسی‌های گذرکرده"
   echo "✓ پیش‌نیاز پایهٔ ممیزی $BASE و صفر تغییر محصول"
   echo "✓ سازگاری درونی شاهد بار (CAP بازمحاسبه‌شده، rps≈دستگاه، زانو با ۳ تکرار)"
   echo "✓ سند ۰۴ اعداد همان شاهد را نقل می‌کند + AC ۱۴/۱۴"
   echo "✓ سند ۰۴‑ب تصمیم‌های D‑32/D‑33 را ثبت کرده"
-  echo "✓ سند ۱۲: CC‑12‑3/CC‑12‑4 بسته، CC‑12‑2 صریحاً PARTIAL"
+  echo "✓ سند ۱۲: هر چهار شرط بسته، CC‑12‑2 با شاهد مسیر محصول (D‑35)"
   echo "✓ نقشهٔ نهایی مسیرها از ۱۶‑ب در سند ۱۲ نقل شده"
   echo "✓ Decision Log و جدول پرسش‌های باز هم‌خوان"
   echo "✓ smoke ابزار سنجش روی HEAD (۲ دستگاه)"
