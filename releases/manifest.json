@@ -1,15 +1,15 @@
 {
-  "version": "0.8.51",
-  "built_at": "2026-11-07T17:34:49.041Z",
+  "version": "0.8.52",
+  "built_at": "2026-11-07T18:03:53.679Z",
   "notes": [],
   "shell": {
-    "android": "0.8.51"
+    "android": "0.8.52"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "68287b2641e726888735f309a252c611cba97b520b8a74143ec9c9aef7179012",
+      "sha256": "2eeb48e40d4eea9e33c17bc0b2071fe75f2665edbfc4b1e594d8c12351acc972",
       "size": 181798
     },
     {
@@ -29,6 +29,12 @@
       "kind": "client",
       "sha256": "e488e09613a2afdb7ef779576c675348d60854f1365314f175a936430356c704",
       "size": 35196
+    },
+    {
+      "path": "client/engine-web.js",
+      "kind": "client",
+      "sha256": "b82077f4debc51c05b90684743cbc198d8a2595642ec6212670b8b066c144e37",
+      "size": 10020
     },
     {
       "path": "client/icons/apple-touch-icon.png",
@@ -165,8 +171,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "7d5ef4927cd2b6983676c228ecd277b0592b462c799879dbdb062900164a3570",
-      "size": 2737
+      "sha256": "b84b7a1cf1203db980c892fcf6571bbed21948cbee09d5803c78b72c9cb83cea",
+      "size": 2862
     },
     {
       "path": "server/auth.js",
@@ -320,10 +326,10 @@
     }
   ],
   "counts": {
-    "client": 25,
+    "client": 26,
     "server": 27
   },
-  "client_size": 1338554,
-  "server_size": 408778,
-  "total_size": 1747332
+  "client_size": 1348574,
+  "server_size": 408903,
+  "total_size": 1757477
 }
