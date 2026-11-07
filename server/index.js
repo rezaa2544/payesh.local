@@ -45,7 +45,8 @@ const PORT = Number(process.env.PORT || process.env.SERVER_PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = process.env.PAYESH_DATA || path.join(ROOT, 'data');
 /* نقش‌هایی که آینه/پشتیبان را می‌بینند و می‌توانند بازیابی کنند: مدیر و عوامل اجرایی */
-const BACKUP_ROLES = new Set(['manager', 'teacher', 'counselor', 'guard']);
+/* F‑01: فایل کامل داده/بکاپ فقط برای مدیر — هیچ نقش دیگری کل پایگاه را نمی‌گیرد */
+const BACKUP_ROLES = new Set(['manager']);
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const MIRROR_DIR = path.join(DATA_DIR, 'mirror');
 const DAILY_BACKUP_DIR = path.join(BACKUP_DIR, 'daily');
@@ -87,6 +88,14 @@ const TENANCY = tenancy.init({
    ساخته می‌شود (کد ملی، و اگر نبود رمز تصادفی) و در فهرست کاربران برای
    مدیر نمایش داده می‌شود. پس از تعمیر، فایل ورودِ گوشی هم دوباره منتشر
    می‌شود تا همان لحظه روی گوشی کار کند. */
+/* F‑01: پاک‌سازی یک‌بارهٔ رمزهای خام + رمزنگاری در حالت سکون */
+try {
+  const mig = auth.migrateSecrets(store);
+  if (mig.moved) {
+    process.env.PAYESH_LOG !== '0' && console.log('🔐 ' + mig.moved + ' رمز قابل‌بازخوانی رمزنگاری شد (بدون متن خام)');
+  }
+} catch (e) { /* بی‌صدا */ }
+
 (function repairCredentials() {
   try {
     let fixed = 0;
@@ -94,12 +103,13 @@ const TENANCY = tenancy.init({
       if (u.active === false) continue;
       if (!auth.credentialsFor(u)) continue;              /* شماره ندارد؛ نام کاربری ممکن نیست */
       if (u.password_hash && u.phone_hash) continue;       /* سالم است */
-      const patched = auth.applyDefaultCredentials(u);
+      const patched = auth.applyDefaultCredentials(u, store);
       if (patched.password_hash) {
         store.update('users', u.id, {
           password_hash: patched.password_hash,
           phone_hash: patched.phone_hash || patched.password_hash,
-          password_plain: patched.password_plain || u.password_plain || '',
+          password_enc: patched.password_enc || u.password_enc || null,
+          password_plain: undefined,
         });
         fixed += 1;
       }
@@ -175,7 +185,59 @@ function actorFrom(req) {
    گوشی هیچ کلیدی نمی‌گیرد: فقط چند نشانی امضاشده که خودشان منقضی می‌شوند
    و هرکدام فقط به یک فایل و یک عمل اجازه می‌دهند. تیکت‌ها به همان مدرسه
    (پیشوند صندوقچه) و همان کاربر بسته‌اند؛ کلید قابل‌جا‌به‌جا‌شدن نیست. */
-const PHONE_TICKET_TTL = 7 * 24 * 3600; /* حداکثر عمر مجاز SigV4 */
+const PHONE_TICKET_TTL = 7 * 24 * 3600;      /* سقف مطلق SigV4 — قابل افزایش نیست */
+const PHONE_DEVICE_TTL = 200 * 24 * 3600;    /* تصمیم مالک: تیکت دستگاه گوشی ۲۰۰ روز */
+
+/* ── تیکت دستگاه (۲۰۰ روز) ───────────────────────────────────────────
+   امضای خودِ سرور (HMAC) روی «کاربر + دستگاه + انقضا». گوشی بدون نشست و
+   بدون هیچ کلیدی می‌تواند تیکت‌های کوتاه SigV4 را تازه کند. کلید امضا در
+   متادیتای سرور می‌ماند و هرگز به کلاینت نمی‌رود. */
+function deviceTicketKey(store) {
+  const rec = store.getMeta('phone:ticket-key', null);
+  if (rec && rec.secret) return rec.secret;
+  const secret = crypto.randomBytes(32).toString('hex');
+  store.setMeta('phone:ticket-key', { secret, created_at: new Date().toISOString() });
+  return secret;
+}
+
+function deviceTicketMac(store, userId, device, exp) {
+  return crypto.createHmac('sha256', deviceTicketKey(store))
+    .update([Number(userId), device, exp].join('.'))
+    .digest('base64url');
+}
+
+function issueDeviceTicket(store, user, deviceRaw) {
+  const device = phoneDeviceId(deviceRaw);
+  const exp = Date.now() + PHONE_DEVICE_TTL * 1000;
+  return {
+    ticket: [Number(user.id), device, exp].join('.') + '.' + deviceTicketMac(store, user.id, device, exp),
+    device_id: device,
+    issued_at: new Date().toISOString(),
+    expires_at: new Date(exp).toISOString(),
+    ttl_days: Math.round(PHONE_DEVICE_TTL / 86400),
+  };
+}
+
+/* فقط دادهٔ امضاشدهٔ سرور پذیرفته می‌شود؛ هویت هرگز از بدنهٔ کلاینت نمی‌آید */
+function verifyDeviceTicket(store, raw) {
+  const parts = String(raw || '').trim().split('.');
+  if (parts.length !== 4) return null;
+  const [uid, device, exp, mac] = parts;
+  const userId = Number(uid);
+  const expires = Number(exp);
+  if (!userId || !device || !expires) return null;
+  if (!/^[A-Za-z0-9_-]{40,64}$/.test(mac)) return null;
+  const expect = deviceTicketMac(store, userId, device, expires);
+  const a = Buffer.from(mac), b = Buffer.from(expect);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  if (expires < Date.now()) return null;
+  const user = store.all('users').find(u => Number(u.id) === userId);
+  if (!user || user.active === 0 || user.active === false || user.deleted_at) return null;
+  /* ابطال صریح دستگاه (فهرست ابطال سمت سرور) هم تیکت را باطل می‌کند */
+  const revoked = store.getMeta('phone:revoked-devices', null);
+  if (revoked && Array.isArray(revoked.list) && revoked.list.includes(device)) return null;
+  return { user, device, expires_at: new Date(expires).toISOString() };
+}
 
 function phoneDeviceId(raw) {
   const s = String(raw || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
@@ -187,12 +249,13 @@ function phoneTickets(store, user, deviceRaw) {
   if (!cfg.endpoint || !cfg.accessKey || !cfg.secret || !cfg.bucket) return { ok: false, error: 'no_cloud' };
   const device = phoneDeviceId(deviceRaw);
   const prefix = String(cfg.prefix || 'payesh/');
+  /* مسیر فایلِ همین دستگاه — فقط برای نمایش/پشتیبانی؛ نوشتن در آن فقط از سرور */
+  const deviceKey = prefix + 'outbox/pending/device-' + device + '.json';
   const until = sec => new Date(Date.now() + sec * 1000).toISOString();
   const mk = (method, key, seconds) => ({
     url: s3mem.presign(cfg, { method, key, expires: seconds }),
     method, key, expires_at: until(seconds),
   });
-  const deviceKey = prefix + 'outbox/pending/device-' + device + '.json';
   return {
     ok: true,
     device_id: device,
@@ -206,8 +269,10 @@ function phoneTickets(store, user, deviceRaw) {
       rev_put: mk('PUT', prefix + 'realtime/rev.json', PHONE_TICKET_TTL),
       core_get: mk('GET', prefix + 'data/core.json', PHONE_TICKET_TTL),
       person_get: mk('GET', prefix + 'data/person/' + Number(user.id) + '.json', PHONE_TICKET_TTL),
-      outbox_put: mk('PUT', deviceKey, PHONE_TICKET_TTL),
+      /* F‑06: کلاینت اجازهٔ نوشتن مستقیم در صندوقچه را ندارد؛ ثبت‌ها از
+         مسیر /api/outbox/submit با هویتِ امضاشدهٔ سرور می‌آیند. */
     },
+    submit: { url: '/api/outbox/submit', method: 'POST', header: 'X-Phone-Ticket' },
   };
 }
 
@@ -500,11 +565,59 @@ async function api(req, res, url, ip) {
     });
     if (!r.ok) return json(r, 401);
     const t = phoneTickets(store, r.user, body.device_id);
+    /* تیکتی که گوشی نگه می‌دارد ۲۰۰ روز زنده است؛ تیکت‌های فایل کوتاه‌عمرند */
+    const dt = issueDeviceTicket(store, r.user, (t.ok && t.device_id) || body.device_id);
     /* تیکت نگرفت (حافظهٔ ابری تنظیم نیست) هم ورود موفق است؛ گوشی در صف محلی می‌نویسد */
     return json(Object.assign({
       ok: true, token: r.session, user: auth.publicUser(r.user),
       expires_hours: auth.SESSION_HOURS, keyless: true,
+      device_ticket: dt,
     }, t.ok ? t : { tickets: null, error_cloud: t.error }));
+  }
+
+  /* تازه‌سازی تیکت فایل‌ها با تیکت دستگاه (۲۰۰ روز) — بدون نشست، بدون کلید.
+     هویت فقط از تیکت امضاشدهٔ سرور خوانده می‌شود، نه از بدنه/هدر قابل‌دستکاری. */
+  if (p === '/api/phone/ticket' && m === 'POST') {
+    const ip = (req.socket && req.socket.remoteAddress) || 'phone';
+    if (!rateLimit('phone-ticket:' + ip, 120, 10 * 60_000)) return json({ ok: false, error: 'too_many' }, 429);
+    const headerTicket = String(req.headers['x-phone-ticket'] || '');
+    let body = {};
+    try { body = await readBody(req); } catch (e) { body = {}; }
+    const dt = verifyDeviceTicket(store, headerTicket || body.device_ticket);
+    if (!dt) {
+      /* اگر نشست معتبر دارد، همان مسیر قبلی؛ وگرنه fail-closed */
+      const s = actorFrom(req);
+      if (!s) return json({ ok: false, error: 'bad_device_ticket' }, 401);
+      const t2 = phoneTickets(store, s.user, body.device_id);
+      if (!t2.ok) return json(t2, 409);
+      return json(Object.assign(t2, { device_ticket: issueDeviceTicket(store, s.user, t2.device_id) }));
+    }
+    const t = phoneTickets(store, dt.user, dt.device);
+    if (!t.ok) return json(t, 409);
+    return json(Object.assign(t, { device_ticket: issueDeviceTicket(store, dt.user, dt.device) }));
+  }
+
+  /* ── F‑06: پذیرش ثبت آفلاین؛ هویت فقط از نشست یا تیکت دستگاه ────────
+     هر user_id/role/tenant_id که کلاینت در بدنه بفرستد نادیده گرفته
+     می‌شود: پاکت با هویتِ همین درخواست امضا و در صندوقچه نوشته می‌شود. */
+  if (p === '/api/outbox/submit' && m === 'POST') {
+    const ip = (req.socket && req.socket.remoteAddress) || 'phone';
+    if (!rateLimit('outbox-submit:' + ip, 240, 10 * 60_000)) return json({ ok: false, error: 'too_many' }, 429);
+    let body = {};
+    try { body = await readBody(req); } catch (e) { return json({ ok: false, error: 'bad_json' }, 400); }
+    const headerTicket = String(req.headers['x-phone-ticket'] || '');
+    const ident = verifyDeviceTicket(store, headerTicket || body.device_ticket);
+    let who = ident && ident.user;
+    let device = ident && ident.device;
+    if (!who) {
+      const s2 = actorFrom(req);
+      if (!s2) return json({ ok: false, error: 'unauthorized' }, 401);
+      who = s2.user;
+      device = (s2.device && s2.device.id) || body.device_id;
+    }
+    const r = await outbox.submit(store, { user: who, device, items: body.items });
+    if (!r.ok) return json(r, r.error === 'no_cloud' ? 409 : 400);
+    return json(r);
   }
 
   /* از این‌جا به بعد نیاز به نشست */
@@ -520,6 +633,24 @@ async function api(req, res, url, ip) {
     return json({ ok: true });
   }
 
+  /* F‑01: بستن همهٔ نشست‌ها/دستگاه‌های همین کاربر (مثلاً گوشی گم شده) */
+  if (p === '/api/auth/revoke-all' && m === 'POST') {
+    let body = {};
+    try { body = await readBody(req); } catch (e) { body = {}; }
+    const keepCurrent = !!body.keep_current;
+    const r = auth.revokeAll(store, actor.user.id, keepCurrent ? actor.session.token_hash : null);
+    return json(r);
+  }
+
+  /* F‑01: مدیر می‌تواند نشست/دستگاه یک کاربر را باطل کند (کاربر اخراج‌شده) */
+  const rv = p.match(/^\/api\/admin\/users\/(\d+)\/revoke$/);
+  if (rv && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const uid = Number(rv[1]);
+    if (!store.get('users', uid)) return json({ ok: false, error: 'not_found' }, 404);
+    return json(auth.revokeAll(store, uid, null));
+  }
+
   if (p === '/api/auth/transfer' && m === 'POST') {
     const r = auth.createTransfer(store, actor.user.id, actor.device ? actor.device.id : null);
     return json(Object.assign(r, { public_url: cfg.publicUrl(store) || null }));
@@ -532,7 +663,7 @@ async function api(req, res, url, ip) {
       ok: true, server_time: nowISO(),
       school: { id: 1, name: school.name, type: school.type, level: school.level, city: school.city, capabilities: school.capabilities || {} },
       year: { title: year.title || '' },
-      user: Object.assign({}, userRow(actor.user), { password: auth.passwordOf(store, actor.user) }),
+      user: userRow(actor.user),
       role: actor.role,
       counts: {
         users: store.count('users'), classes: store.count('classes'),
@@ -546,6 +677,14 @@ async function api(req, res, url, ip) {
   if (p === '/api/v1/pull' && m === 'GET') {
     const out = sync.pull(store, actor, { since: q.get('since'), collections: q.get('collections') });
     return json(out);
+  }
+
+  const crm = p.match(/^\/api\/conflicts\/(\d+)\/resolve$/);
+  if (crm && m === 'POST') {
+    const body = await readBody(req, 64 * 1024);
+    const ctx = { device_id: actor.device ? actor.device.id : null, ip };
+    const out = sync.resolveConflict(store, actor, Number(crm[1]), String(body && body.decision || ''), ctx);
+    return json(out, out.ok ? 200 : (out.error === 'forbidden' ? 403 : 400));
   }
 
   if (p === '/api/sync' && m === 'POST') {
@@ -604,15 +743,6 @@ async function api(req, res, url, ip) {
     if (!outbox.SERVER_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     const r = await outbox.publishAll(store);
     return json(Object.assign({ ok: !!(r.auth && r.auth.ok) }, r));
-  }
-
-  /* تازه‌سازی تیکت گوشی (نشست لازم است) — همچنان بدون هیچ کلیدی */
-  if (p === '/api/phone/ticket' && m === 'POST') {
-    let body = {};
-    try { body = await readBody(req); } catch (e) { body = {}; }
-    const t = phoneTickets(store, actor.user, body.device_id);
-    if (!t.ok) return json(t, 409);
-    return json(t);
   }
 
   if (p === '/api/outbox/snapshot' && m === 'GET') {
@@ -1174,7 +1304,8 @@ async function api(req, res, url, ip) {
     /* پیش از هر بازیابی، یک نسخهٔ ایمنی از وضعیت فعلی */
     let safety = '';
     try { safety = path.basename(store.backupTo(BACKUP_DIR, 48)); } catch (e) { safety = ''; }
-    const r = mirror.restore(store, body && body.data, { replace: !!(body && body.replace) });
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const r = mirror.restore(store, body && body.data, { replace: !!(body && body.replace), actor });
     if (!r.ok) return json({ ok: false, error: r.error, safety }, 400);
     try { mirror.refreshMirror(store, MIRROR_DIR, { force: true }); mirror.refreshDaily(store, DAILY_BACKUP_DIR); } catch (e) { /* بی‌صدا */ }
     store.audit({ role: actor.role, action: 'restore', collection: 'users', after: { report: r.report, safety } });
@@ -1529,7 +1660,7 @@ function importUsers(body) {
         saved = store.update('users', existing.id, patch);
         updated += 1;
       } else {
-        saved = store.insert('users', auth.applyDefaultCredentials(Object.assign({ created_at: nowISO() }, base)));
+        saved = store.insert('users', auth.applyDefaultCredentials(Object.assign({ created_at: nowISO() }, base), store));
         if (nid) createdNids.add(nid);
         created.push(userRow(saved));
       }
@@ -1572,7 +1703,7 @@ function importUsers(body) {
               name: pname || (rel + ' ' + name), role: 'parent',
               national_id: pnid || '', phone: free,
               active: true, school_id: 1, created_at: nowISO(),
-            }));
+            }, store));
             parents += 1;
             /* نه شماره، نه کد ملی ۱۰ رقمی → راه ورودی ندارد؛ گزارش می‌شود */
             if (!free && !(pnid && pnid.length === 10)) {
@@ -1739,7 +1870,7 @@ try {
     const patch = {};
     if (pwIsPbkdf2 && !phIsPbkdf2) patch.phone_hash = u.password_hash;
     else if (!u.password_hash && !u.phone_hash) {
-      const next = auth.applyDefaultCredentials(u);
+      const next = auth.applyDefaultCredentials(u, store);
       if (next.password_hash) { patch.password_hash = next.password_hash; patch.phone_hash = next.password_hash; }
     }
     if (Object.keys(patch).length) { store.update('users', u.id, patch); fixed++; }

@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ فاز ۳
 generated_by: docs/cloud/reports/evidence/verify-phase3-gate-negative.sh
-head: 4344f4efe28c3e31aa608402ea9be835eea7edd2
-generated_at_utc: 2026-11-07T08:24:11Z
+head: b2fcbe2b2fb227b293017a3c11501e1264fe5516
+generated_at_utc: 2026-11-07T09:13:59Z
 
 PASS  P0  شاهد سالم پذیرفته شد (کنترل مثبت)
 PASS  N1  رد شد: صف یک ردیف باز دارد → PHASE3-FAIL: QUEUE-OPEN: صف 1 ردیف باز دارد — دروازه نبای
@@ -16,7 +16,7 @@ PASS  N9  رد شد: بخش وضعیت اجرایی دروازه حذف شد →
 PASS  N10  رد شد: مانع F‑06 از سند حذف شد → PHASE3-FAIL: CONST-RESIDUAL: مانع F.06 در سند ثبت نشده
 PASS  N11  رد شد: خط وضعیت ادعای آمادگی نمی‌کند → PHASE3-FAIL: CONST-STATUS: خط وضعیت، باز بودن دروازه را ا�
 PASS  N12  رد شد: پایهٔ ممیزی ناموجود → PHASE3-FAIL: BASE-MISSING: 0000000 در مخزن نیست
-PASS  N13  رد شد: فهرست مجاز فقط server/tenancy.js است → PHASE3-FAIL: PRODUCT-SCOPE: 15 فایل محصول بیرون از فهرست مج
+PASS  N13  رد شد: فهرست مجاز فقط server/tenancy.js است → PHASE3-FAIL: PRODUCT-SCOPE: 19 فایل محصول بیرون از فهرست مج
 PASS  N14  رد شد: تصمیم D‑35 از قانون اساسی حذف شد → PHASE3-FAIL: PHASE3-D35: تصمیم باز شدن دروازه (D‑35) ثبت ن�
 PASS  N15  رد شد: شاهد CC‑12‑2 یک ادعا کم دارد → PHASE3-FAIL: PHASE3-CC12-2: دروازهٔ CC‑12‑2 شکست خورد — CC12-
 

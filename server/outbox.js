@@ -15,16 +15,23 @@
      outbox/state/<sid>.json     ← خلاصهٔ هر دانش‌آموز برای اولیا
    ═══════════════════════════════════════════════════════════════════ */
 const crypto = require('crypto');
+const path = require('path');
 const s3mem = require('./s3mem');
 const sync = require('./sync');
 const util = require('./util');
 
 const META = 'outbox:state';
+/* ── پاکت امضاشده (F‑06) ─────────────────────────────────────────────
+   هویت هر ثبت فقط از نشست/تیکت دستگاه و امضای همین سرور می‌آید.
+   هر چیزی که کلاینت دربارهٔ user_id/role/tenant بگوید دور ریخته می‌شود. */
+const ENVELOPE_V = 2;
+const SIGN_KEY = 'outbox:sign-key';
 const PENDING = 'outbox/pending/';
 const DONE = 'outbox/done/';
 const STATE = 'outbox/state/';
 const MAX_ITEM_BYTES = 32 * 1024;
 const MAX_DRAIN = 300;
+const MAX_DEVICE_ITEMS = 200;
 /* نقش‌هایی که اجازه دارند «سرور» شوند و صندوقچه را اعمال کنند */
 const SERVER_ROLES = new Set(['manager', 'vice', 'teacher', 'staff']);
 
@@ -46,6 +53,118 @@ function forgetPutHashes(prefix) {
 
 function keyOf(cfg, rel) {
   return String(cfg.prefix || 'payesh/') + rel;
+}
+
+/* ── پاکت امضاشده: تنها شکل قابل‌اعتماد نوشتن در صندوقچه ─────────── */
+function signKey(store) {
+  const rec = store.getMeta(SIGN_KEY, null);
+  if (rec && rec.secret) return rec.secret;
+  const secret = crypto.randomBytes(32).toString('hex');
+  store.setMeta(SIGN_KEY, { secret, created_at: new Date().toISOString() });
+  return secret;
+}
+
+/* فقط همین چند میدان امضا می‌شوند؛ ادعاهای هویتی کلاینت در فهرست نیستند */
+function canonicalEnvelope(env) {
+  return JSON.stringify({
+    v: ENVELOPE_V,
+    user_id: Number(env.user_id),
+    role: String(env.role || ''),
+    tenant_id: Number(env.tenant_id),
+    school_id: Number(env.school_id),
+    device_id: String(env.device_id || ''),
+    issued_at: String(env.issued_at || ''),
+    items: (env.items || []).map(i => ({ uid: String(i.uid || ''), op: i.op || null })),
+  });
+}
+
+function envelopeMac(store, env) {
+  return crypto.createHmac('sha256', signKey(store)).update(canonicalEnvelope(env)).digest('base64url');
+}
+
+/* هر ثبت فقط میدان‌های عملیاتی را نگه می‌دارد؛ user_id/role/tenant از بدنهٔ
+   کلاینت هرگز در پاکت نمی‌نشیند. */
+function cleanItems(items) {
+  const out = [];
+  for (const raw of (Array.isArray(items) ? items : [])) {
+    if (!raw || !raw.op || !raw.op.collection) continue;
+    const uid = String(raw.uid || '').slice(0, 80);
+    if (!uid) continue;
+    const op = {
+      collection: String(raw.op.collection || '').slice(0, 60),
+      type: raw.op.type === 'del' ? 'del' : 'put',
+      id: raw.op.id == null ? null : Number(raw.op.id),
+      data: raw.op.data && typeof raw.op.data === 'object' ? raw.op.data : {},
+    };
+    if (raw.op.base_version != null) op.base_version = Number(raw.op.base_version);
+    if (op.type === 'put' && raw.op.base_device) op.base_device = String(raw.op.base_device).slice(0, 60);
+    out.push({ uid, op, created_at: raw.created_at || new Date().toISOString() });
+  }
+  return out;
+}
+
+function buildEnvelope(store, { user, device, items }) {
+  const env = {
+    v: ENVELOPE_V,
+    user_id: Number(user.id),
+    role: String(user.role || ''),
+    tenant_id: Number(user.tenant_id != null ? user.tenant_id : (user.school_id || 1)),
+    school_id: Number(user.school_id || 1),
+    device_id: String(device || '').slice(0, 60),
+    issued_at: new Date().toISOString(),
+    items: cleanItems(items),
+  };
+  env.sig = envelopeMac(store, env);
+  return env;
+}
+
+/* بررسی امضا + هویتِ سمت‌سرور. نتیجهٔ نامعتبر ⇒ null (fail-closed) */
+function verifyEnvelope(store, doc) {
+  if (!doc || Number(doc.v) !== ENVELOPE_V || typeof doc.sig !== 'string') return null;
+  const env = {
+    v: ENVELOPE_V,
+    user_id: Number(doc.user_id),
+    role: String(doc.role || ''),
+    tenant_id: Number(doc.tenant_id),
+    school_id: Number(doc.school_id),
+    device_id: String(doc.device_id || ''),
+    issued_at: String(doc.issued_at || ''),
+    items: Array.isArray(doc.items) ? doc.items : [],
+    sig: String(doc.sig),
+  };
+  if (!env.user_id || !env.items.length) return null;
+  const a = Buffer.from(env.sig), b = Buffer.from(envelopeMac(store, env));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  return env;
+}
+
+/* ── پذیرش ثبت از گوشی/کلاینت: هویت از actor (نشست یا تیکت) ──────── */
+async function submit(store, { user, device, items } = {}) {
+  if (!user) return { ok: false, error: 'unauthorized' };
+  const clean = cleanItems(items);
+  if (!clean.length) return { ok: true, accepted: 0, skipped: 'empty' };
+  const cfg = await cloud(store);
+  if (!cfg) return { ok: false, error: 'no_cloud', accepted: 0 };
+  const dev = String(device || 'unknown').slice(0, 60);
+  const key = keyOf(cfg, PENDING + 'device-' + dev + '.json');
+  let existing = [];
+  try {
+    const prev = JSON.parse(await s3mem.get(cfg, key));
+    const env = verifyEnvelope(store, prev);
+    if (env && Number(env.user_id) === Number(user.id)) existing = env.items;
+  } catch (e) { existing = []; }
+  const byUid = new Map();
+  for (const it of existing.concat(clean)) byUid.set(String(it.uid), it);
+  const merged = [...byUid.values()].slice(-MAX_DEVICE_ITEMS);
+  const env = buildEnvelope(store, { user, device: dev, items: merged });
+  try {
+    await s3mem.put(cfg, key, JSON.stringify(env));
+  } catch (e) {
+    writeMeta(store, { last_error: 'submit: ' + String(e.message || e).slice(0, 120) });
+    return { ok: false, error: 'submit_failed', accepted: 0 };
+  }
+  writeMeta(store, { last_publish: new Date().toISOString() });
+  return { ok: true, accepted: clean.length, pending: merged.length, device_file: key, uids: clean.map(i => i.uid) };
 }
 
 function readMeta(store) {
@@ -85,7 +204,9 @@ function newUid(prefix) {
 }
 
 /* ── نوشتن یک ثبت در صندوقچه ─────────────────────────────────────── */
-async function publish(store, items) {
+async function publish(store, items, actor) {
+  /* F‑06: هویت از فراخوانِ سمت‌سرور (نشست یا پاکت امضاشده) می‌آید */
+  if (!actor || !actor.user) return { ok: false, error: 'unauthorized', count: 0 };
   const list = (Array.isArray(items) ? items : [items]).filter(Boolean);
   if (!list.length) return { ok: true, count: 0, skipped: 'empty' };
   const cfg = await cloud(store);
@@ -96,8 +217,8 @@ async function publish(store, items) {
     const body = JSON.stringify({
       v: 1,
       uid,
-      user_id: Number(item.user_id) || null,
-      role: item.role || null,
+      user_id: Number(actor.user.id),
+      role: String(actor.role || actor.user.role || ''),
       device_id: item.device_id || null,
       op: item.op || null,
       created_at: item.created_at || new Date().toISOString(),
@@ -123,11 +244,9 @@ async function mirror(store, actor, ops, ctx) {
   if (!SERVER_ROLES.has(actor.role)) return { ok: true, count: 0, skipped: 'role' };
   return publish(store, ops.map(op => ({
     uid: op && op.uid,
-    user_id: actor.user ? actor.user.id : null,
-    role: actor.role,
     device_id: ctx && ctx.device_id ? ctx.device_id : null,
     op: { collection: op.collection, type: op.type === 'del' ? 'del' : 'put', id: op.id, data: op.data, base_device: ctx && ctx.device_id },
-  })));
+  })), actor);
 }
 
 /* ── خواندن صندوقچه و اعمال آن ───────────────────────────────────── */
@@ -166,12 +285,32 @@ async function drain(store, { limit = MAX_DRAIN } = {}) {
       out.skipped++;
       continue;
     }
-    /* فایلِ یک گوشی چند ثبت را یک‌جا نگه می‌دارد (D‑23/F‑04: گوشی هیچ
-       کلیدی ندارد، پس همهٔ ثبت‌هایش را با یک نشانیِ امضاشده در یک فایل
-       می‌نویسد). هر ثبت جداگانه و با همان بررسی‌های قبلی اعمال می‌شود. */
-    const entries = Array.isArray(doc && doc.items) ? doc.items : [doc];
+    /* ── F‑06: فقط پاکتِ امضاشدهٔ همین سرور پذیرفته می‌شود ────────────
+       هویت (کاربر/نقش/مستأجر) از پاکتِ امضاشده می‌آید. هر فایل بدون امضای
+       معتبر — از جمله فایل‌های قدیمی v1 که user_id را کلاینت نوشته — قرنطینه
+       می‌شود و هرگز اعمال نمی‌گردد (بدون حذف: برای بازرسی نگه داشته می‌شود). */
+    const env = verifyEnvelope(store, doc);
+    if (!env) {
+      out.rejected++;
+      out.untrusted = (out.untrusted || 0) + 1;
+      try {
+        await s3mem.put(cfg, keyOf(cfg, 'outbox/quarantine/' + path.basename(key)),
+          JSON.stringify({ reason: 'client_identity_untrusted', quarantined_at: new Date().toISOString(), raw: doc }));
+        await s3mem.remove(cfg, key);
+      } catch (e) { /* اگر قرنطینه نشد، فایل می‌ماند و دفعهٔ بعد هم رد می‌شود */ }
+      continue;
+    }
 
-    for (const item of entries) {
+    const user = store.get('users', Number(env.user_id));
+    if (!user || user.active === 0 || user.active === false) {
+      out.rejected++;
+      try { await s3mem.remove(cfg, key); } catch (e) { /* */ }
+      continue;
+    }
+    /* نقش و مستأجر از خودِ کاربرِ پایگاه داده خوانده می‌شود، نه از پاکت هم */
+    const actor = { user, role: user.role, device: null };
+
+    for (const item of env.items) {
       const uid = String((item && item.uid) || '').slice(0, 80);
       if (!uid || !item.op) { out.skipped++; continue; }
 
@@ -185,17 +324,11 @@ async function drain(store, { limit = MAX_DRAIN } = {}) {
 
       if (already) { out.skipped++; continue; }
 
-      const user = item.user_id != null ? store.get('users', Number(item.user_id)) : null;
-      if (!user || user.active === 0 || user.active === false) {
-        out.rejected++;
-        await markDone(store, cfg, doneKey, uid, 'no_user');
-        continue;
-      }
-      /* تغییر رمز از روی گوشی: گوشی فقط «نسخهٔ قابل‌بررسی» (PBKDF2) را
-         می‌فرستد و آن هم فقط برای خودِ همان کاربر پذیرفته می‌شود. */
+      /* تغییر رمز از روی گوشی: فقط «نسخهٔ قابل‌بررسی» (PBKDF2) و فقط برای
+         خودِ همان کاربرِ پاکت پذیرفته می‌شود. */
       const opData = (item.op && item.op.data) || {};
       const verifier = opData.__password_verifier;
-      if (item.op.collection === 'users' && verifier && Number(item.op.id) === Number(item.user_id)) {
+      if (item.op.collection === 'users' && verifier && Number(item.op.id) === Number(user.id)) {
         store.update('users', Number(item.op.id), { password_hash: String(verifier), phone_hash: String(verifier) });
         try { store.audit({ user_id: user.id, role: user.role, action: 'password_change_phone', collection: 'users', record_id: Number(item.op.id) }); } catch (e) { /* noop */ }
         out.applied++;
@@ -203,9 +336,8 @@ async function drain(store, { limit = MAX_DRAIN } = {}) {
         continue;
       }
 
-      const actor = { user, role: user.role, device: null };
       const op = Object.assign({}, item.op, { uid });
-      const res = sync.push(store, actor, { ops: [op] }, { device_id: item.device_id || null, outbox: true });
+      const res = sync.push(store, actor, { ops: [op] }, { device_id: env.device_id || null, outbox: true });
       const okItem = (res.applied || []).length > 0;
       if (okItem) out.applied++;
       else out.rejected++;
@@ -488,6 +620,7 @@ async function publishAll(store) {
 }
 
 module.exports = {
+  submit, verifyEnvelope, buildEnvelope,
   corePayload, directory,
   publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop, putIfChanged, forgetPutHashes,
   publishAuth, publishData, publishAll, personData, CORE_COLLECTIONS, PERSON_COLLECTIONS,

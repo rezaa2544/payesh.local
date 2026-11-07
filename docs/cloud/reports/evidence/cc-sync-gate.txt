@@ -1,0 +1,11 @@
+# دروازهٔ ردیف ۲۷ — همگام‌سازی/آفلاین (D‑28، بدون از دست رفتن داده)
+generated_by: docs/cloud/reports/evidence/gen-sync-gate.sh
+head: 6cf50ed6b2b5d0c617bf13164a28976037b85938
+generated_at_utc: 2026-11-07T09:26:01Z
+product_tree_sha256: f273c4a75689764bedfd9d15ae0ac70cc832bd70127792c1fe17822084d7d0b9
+tests: 93 0
+restart_witness: pass=6 fail=0
+checks_passed: 27
+row-27: CLOSED
+
+SYNC-CLOSED checks=27 tests=93 0 restart=6/0 negatives=5

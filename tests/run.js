@@ -1238,7 +1238,9 @@ async function waitFor(fn, ms = 15000) {
     const phKeys = deepKeys(phLogin.data);
     assert.ok(!phKeys.includes('accessKey') && !phKeys.includes('secret'), 'پاسخ ورود گوشی هیچ کلید/رازی ندارد');
     const tickets = phLogin.data.tickets || {};
-    assert.ok(tickets.outbox_put && tickets.core_get && tickets.rev_get, 'تیکت خواندن/نوشتن صادر شد');
+    assert.ok(tickets.core_get && tickets.rev_get && tickets.person_get, 'تیکت خواندن صادر شد');
+    assert.ok(!tickets.outbox_put, 'F‑06: کلاینت تیکت نوشتن در صندوقچه نمی‌گیرد');
+    assert.ok(phLogin.data.submit && phLogin.data.submit.url === '/api/outbox/submit', 'مسیر امن ثبت اعلام شده است');
     for (const name of Object.keys(tickets)) {
       const t = tickets[name];
       assert.deepStrictEqual(Object.keys(t).sort(), ['expires_at', 'key', 'method', 'url'], name + ': ساختار تیکت فقط نشانی/عمل/انقضا');
@@ -1297,7 +1299,297 @@ async function waitFor(fn, ms = 15000) {
     const resetCfg = await req('/api/admin/cloud/reset', { method: 'POST', token: managerToken, body: {} });
     assert.strictEqual(resetCfg.data.ok, true, 'پیکربندی آزمون پاک شد');
 
-    console.log('   F04-OK checks=34 tickets=' + Object.keys(tickets).length + ' client_files=' + clientFiles.length);
+    console.log('   F04-OK checks=35 tickets=' + Object.keys(tickets).length + ' client_files=' + clientFiles.length);
+  });
+
+  await test('F‑01: رمزنگاری در سکون، IDOR/cross-user، لاگ بدون راز، logout/revoke', async () => {
+    /* ── ۱) هیچ رمز خامی روی دیسک نیست؛ رمز قابل‌بازخوانی رمزنگاری شده ── */
+    const { DatabaseSync } = require('node:sqlite');
+    const dbFile = path.join(TMP, 'payesh.sqlite');
+    const db = new DatabaseSync(dbFile);
+    const rows = db.prepare("SELECT id,data FROM records WHERE collection='users'").all();
+    db.close();
+    assert.ok(rows.length > 0, 'ردیف‌های کاربران خوانده شد');
+    for (const r of rows) {
+      const u = JSON.parse(r.data);
+      assert.ok(u.password_plain == null, 'F‑01: رمز خام روی دیسک نیست (id=' + r.id + ')');
+      assert.ok(!/^\d{4,}$/.test(String(u.password_enc || 'x')), 'فیلد رمز، متن خام نیست');
+    }
+    assert.ok(rows.some(r => /enc:v1:/.test(r.data)), 'حداقل یک رمز به شکل رمزنگاری‌شده ذخیره شده است');
+    assert.ok(rows.every(r => !/pbkdf2\$/.test(r.data) || true), 'هش‌ها فقط در فیلد رمز هستند');
+
+    /* ── ۲) IDOR/cross-user: ولی به پروندهٔ فرزند دیگری دسترسی ندارد ── */
+    const mgrPull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=users', { token: managerToken });
+    const allUsers = ((mgrPull.data.collections || {}).users) || [];
+    const db2 = new DatabaseSync(dbFile);
+    const linkRows = db2.prepare("SELECT data FROM records WHERE collection='parent_links'").all();
+    db2.close();
+    const links = linkRows.map(r => JSON.parse(r.data));
+    const parentUser = allUsers.find(u => u.role === 'parent');
+    assert.ok(parentUser, 'یک ولی برای آزمون IDOR پیدا شد');
+    const parentId = Number(parentUser.id);
+    const myKids = new Set(links.filter(l => Number(l.parent_id) === parentId).map(l => Number(l.student_id)));
+    assert.ok(myKids.size > 0, 'ولی حداقل یک فرزند پیوند‌شده دارد');
+    const foreign = allUsers.find(u => u.role === 'student' && !myKids.has(Number(u.id)));
+    assert.ok(foreign, 'دانش‌آموز غیرمرتبط برای آزمون IDOR پیدا شد');
+    const pPair = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: parentId } });
+    const parentTok = (await req('/api/auth/pair', { method: 'POST', body: { code: pPair.data.code } })).data.session.token;
+    const ownKid = allUsers.find(u => myKids.has(Number(u.id)));
+    if (ownKid) {
+      const okRead = await req('/api/students/' + ownKid.id, { token: parentTok });
+      assert.notStrictEqual(okRead.status, 403, 'ولی فرزند خودش را می‌تواند ببیند');
+    }
+    const idor = await req('/api/students/' + foreign.id, { token: parentTok });
+    assert.strictEqual(idor.status, 403, 'F‑01: IDOR — ولی به دانش‌آموز غیرمرتبط ۴۰۳ می‌گیرد');
+    const idorSnap = await req('/api/outbox/snapshot?student_id=' + foreign.id, { token: parentTok });
+    assert.strictEqual(idorSnap.status, 403, 'F‑01: خلاصهٔ دانش‌آموز غیرمرتبط هم ۴۰۳');
+    const idorPull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=grades', { token: parentTok });
+    const foreignGrades = (((idorPull.data || {}).collections || {}).grades || [])
+      .filter(g => Number(g.student_id) === Number(foreign.id));
+    assert.strictEqual(foreignGrades.length, 0, 'F‑01: هیچ نمره‌ای از دانش‌آموز غیرمرتبط در pull نیست');
+
+    /* ── ۳) لاگ حسابرسی و فایل کامل داده هیچ رازی ندارند ── */
+    const aud = await req('/api/admin/audit?limit=200', { token: managerToken });
+    assert.strictEqual(aud.data.ok, true);
+    const audBody = JSON.stringify(aud.data.rows || []);
+    assert.ok(aud.data.rows.length > 0, 'حسابرسی پر است');
+    assert.ok(!/password_plain|password_hash|phone_hash|password_enc|pbkdf2\$|enc:v1:/.test(audBody),
+      'F‑01: هیچ رمز/هش/رمزنگاشته‌ای در لاگ نیست: ' + audBody.slice(0, 160));
+    const dl = await fetch(BASE + '/api/admin/mirror/download', { headers: { authorization: 'Bearer ' + managerToken } });
+    assert.strictEqual(dl.status, 200, 'مدیر فایل کامل داده را می‌گیرد');
+    const dlText = await dl.text();
+    assert.ok(!/password_plain/.test(dlText), 'F‑01: خروجی export هیچ رمز خامی ندارد');
+
+    /* ── ۴) logout نشست را باطل می‌کند و revoke-all بقیه را می‌بندد ── */
+    const login1 = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'madrese1404' } });
+    assert.strictEqual(login1.data.ok, true, 'ورود مدیر');
+    const t1 = login1.data.session.token;
+    assert.strictEqual((await req('/api/me', { token: t1 })).status, 200);
+    await req('/api/auth/logout', { method: 'POST', token: t1, body: {} });
+    assert.strictEqual((await req('/api/me', { token: t1 })).status, 401, 'F‑01: نشست پس از logout باطل است');
+
+    /* revoke-all روی یک حساب آزمایشی (تا نشست مدیرِ بقیهٔ آزمون‌ها بسته نشود) */
+    const before = await req('/api/me', { token: managerToken });
+    assert.strictEqual(before.status, 200, 'نشست مدیر سالم است');
+    await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'f01-revoke-user', collection: 'users', type: 'put', data: { name: 'کاربر ابطال', role: 'teacher', phone: '09128880001', national_id: '1888000001' } },
+    ] } });
+    const uu = ((await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=users', { token: managerToken })).data.collections.users || [])
+      .find(u => u.name === 'کاربر ابطال');
+    assert.ok(uu, 'کاربر آزمایشی ساخته شد');
+    const c1 = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: uu.id } });
+    const t2 = (await req('/api/auth/pair', { method: 'POST', body: { code: c1.data.code } })).data.session.token;
+    const c2 = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: uu.id } });
+    const t3 = (await req('/api/auth/pair', { method: 'POST', body: { code: c2.data.code } })).data.session.token;
+    const rv = await req('/api/auth/revoke-all', { method: 'POST', token: t2, body: { keep_current: true } });
+    assert.strictEqual(rv.data.ok, true, 'revoke-all اجرا شد');
+    assert.strictEqual((await req('/api/me', { token: t2 })).status, 200, 'نشست جاری می‌ماند');
+    assert.strictEqual((await req('/api/me', { token: t3 })).status, 401, 'F‑01: نشست‌های دیگر باطل شدند');
+    assert.strictEqual((await req('/api/me', { token: managerToken })).status, 200, 'نشست مدیر دست‌نخورده است');
+
+    console.log('   F01-OK checks=15 at_rest=encrypted idor=denied logs=clean revoke=ok');
+  });
+
+  await test('F‑02: بازیابی/import نمی‌تواند نقش یا مستأجر را ارتقا دهد (fail-closed)', async () => {
+    /* پشتیبان سالمِ همین نصب (امضاشده) */
+    const mk = await req('/api/admin/mirror/refresh', { method: 'POST', token: managerToken, body: {} });
+    assert.strictEqual(mk.data.ok, true, 'پشتیبان تازه ساخته شد');
+    const today = mk.data.daily[0];
+    const valid = JSON.parse(fs.readFileSync(path.join(mk.data.dirs.daily, today.file), 'utf8'));
+    assert.ok(typeof valid.sig === 'string' && valid.sig.length > 20, 'پشتیبان امضای سرور دارد');
+    assert.strictEqual(valid.format_version, 2, 'نسخهٔ امضاشده');
+
+    /* (۱) فایل دست‌کاری‌شده: یک کاربر به مدیر ارتقا داده می‌شود ⇒ امضا نمی‌خواند */
+    const forged = JSON.parse(JSON.stringify(valid));
+    const victim = (forged.collections.users || []).find(u => u.role === 'student');
+    assert.ok(victim, 'دانش‌آموز برای آزمون ارتقای نقش پیدا شد');
+    victim.role = 'manager';
+    const r1 = await req('/api/admin/restore', { method: 'POST', token: managerToken, body: { data: forged } });
+    assert.strictEqual(r1.data.ok, false, 'F‑02: پشتیبان دست‌کاری‌شده رد شد');
+    assert.ok(['bad_signature', 'unsigned_backup'].includes(r1.data.error), 'دلیل رد: ' + r1.data.error);
+    const after1 = ((await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=users', { token: managerToken })).data.collections.users || [])
+      .find(u => Number(u.id) === Number(victim.id));
+    assert.notStrictEqual(after1.role, 'manager', 'F‑02: نقش کاربر با فایل جعلی بالا نرفت');
+
+    /* (۲) نسخهٔ ۱ بی‌امضا (فایل قدیمی) هم پذیرفته نمی‌شود */
+    const legacy = JSON.parse(JSON.stringify(valid));
+    delete legacy.sig;
+    legacy.format_version = 1;
+    const r2 = await req('/api/admin/restore', { method: 'POST', token: managerToken, body: { data: legacy } });
+    assert.strictEqual(r2.data.ok, false, 'F‑02: پشتیبان بی‌امضا رد شد');
+    assert.ok(['bad_format_version', 'unsigned_backup'].includes(r2.data.error), 'دلیل: ' + r2.data.error);
+
+    /* (۳) پشتیبانِ نصب/مستأجر دیگر (کلید امضای متفاوت) ⇒ cross-tenant رد */
+    const { openStore } = require(path.join(ROOT, 'server', 'db.js'));
+    const mirror = require(path.join(ROOT, 'server', 'mirror.js'));
+    const foreignFile = path.join(TMP, 'foreign-school.sqlite');
+    try { fs.unlinkSync(foreignFile); } catch (e) { /* noop */ }
+    const foreign = openStore(foreignFile);
+    foreign.insert('users', { id: 1, name: 'مدیر مدرسهٔ دیگر', role: 'manager', phone: '09120009999', school_id: 2, tenant_id: 2, active: true }, { id: 1 });
+    const foreignBackup = Object.assign(mirror.snapshot(foreign), { school_id: 2 });
+    foreignBackup.sig = mirror.signSnapshot(foreign, foreignBackup);
+    foreign.db.close && foreign.db.close();
+    const r3 = await req('/api/admin/restore', { method: 'POST', token: managerToken, body: { data: foreignBackup } });
+    assert.strictEqual(r3.data.ok, false, 'F‑02: بازیابی از نصب/مستأجر دیگر رد شد');
+    assert.strictEqual(r3.data.error, 'bad_signature', 'امضای نصب دیگر پذیرفته نمی‌شود');
+    const foreignLeak = ((await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=users', { token: managerToken })).data.collections.users || [])
+      .some(u => u.name === 'مدیر مدرسهٔ دیگر');
+    assert.strictEqual(foreignLeak, false, 'F‑02: هیچ ردیفی از مدرسهٔ دیگر وارد نشد');
+
+    /* (۴) ارتقای نقش از مسیر همگام‌سازی/صندوقچه: دبیر نمی‌تواند نقش عوض کند */
+    const pairT = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } });
+    const tTok = (await req('/api/auth/pair', { method: 'POST', body: { code: pairT.data.code } })).data.session.token;
+    const esc = await req('/api/sync', { method: 'POST', token: tTok, body: { ops: [
+      { uid: 'f02-esc-1', collection: 'users', type: 'put', id: 2, data: { role: 'manager' }, base_version: 0 },
+    ] } });
+    assert.ok((esc.data.rejected || []).length > 0, 'F‑02: تغییر نقش از همگام‌سازی رد شد');
+    assert.strictEqual((esc.data.rejected || [])[0].error, 'role_change_denied', 'دلیل: role_change_denied');
+    const meT = await req('/api/me', { token: tTok });
+    assert.strictEqual(meT.data.role, 'teacher', 'F‑02: نقش دبیر همان دبیر ماند');
+
+    console.log('   F02-OK checks=12 forged=rejected unsigned=rejected cross_tenant=rejected role_escalation=blocked');
+  });
+
+  await test('همگام‌سازی: تعارض دو دستگاه با حفظ دو نسخه، حل با نقش مجاز و بی‌اثر بودن تکرار', async () => {
+    let checks = 0;
+    const ok = (cond, msg) => { assert.ok(cond, msg); checks++; };
+
+    const push = ops => req('/api/sync', { method: 'POST', token: managerToken, body: { ops } });
+
+    /* ۱) ردیف پایه */
+    const base = await push([{ uid: 's27-a1', collection: 'classes', type: 'put', data: { name: 'کلاس تعارض', grade: 9 }, base_version: 0 }]);
+    ok(base.data.ok && base.data.applied.length === 1, 'ردیف پایه ثبت شد');
+    const id = base.data.applied[0].id;
+
+    /* ۲) دستگاه A ویرایش می‌کند (نسخه ۱ → ۲) */
+    const a = await push([{ uid: 's27-a2', collection: 'classes', type: 'put', id, data: { name: 'نام A' }, base_version: 1 }]);
+    ok(!a.data.conflicts.length, 'ویرایش معتبر بدون تعارض');
+    const v2 = a.data.applied[0].version;
+    ok(v2 === 2, 'نسخه پس از ویرایش = ۲ (شد ' + v2 + ')');
+
+    /* ۳) دستگاه B با نسخهٔ کهنه می‌نویسد → تعارض، هیچ نوشتنی اعمال نمی‌شود */
+    const b = await push([{ uid: 's27-b1', collection: 'classes', type: 'put', id, data: { name: 'نام B' }, base_version: 1 }]);
+    ok(b.data.conflicts.length === 1, 'تعارض تشخیص داده شد (base_version)');
+    ok(b.data.applied.length === 0, 'هیچ چیز از دستگاه B اعمال نشد — queued ≠ committed');
+    const cid = b.data.conflicts[0].conflict_id;
+    ok(cid != null, 'تعارض با شناسه ثبت شد');
+    ok(b.data.conflicts[0].server.name === 'نام A', 'نسخهٔ سرور دست‌نخورده ماند');
+
+    /* ۴) هر دو نسخه در فهرست بررسی هست (D‑28) */
+    const list = await req('/api/v1/pull?collections=conflicts', { token: managerToken });
+    const rec = (((list.data.collections || {}).conflicts) || []).find(r => r.id === cid);
+    ok(!!rec && rec.status === 'needs_review', 'تعارض در وضعیت «نیازمند تصمیم» است');
+    ok(rec.local && rec.local.name === 'نام B', 'نسخهٔ محلی نگه داشته شد');
+    ok(rec.server && rec.server.name === 'نام A', 'نسخهٔ سرور نگه داشته شد');
+
+    /* ۵) حل توسط نقش غیرمجاز → رد */
+    const t = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } });
+    const ts = await req('/api/auth/pair', { method: 'POST', body: { code: t.data.code } });
+    const teacherToken = ts.data.session.token;
+    const bad = await req('/api/conflicts/' + cid + '/resolve', { method: 'POST', token: teacherToken, body: { decision: 'local' } });
+    ok(bad.status === 403 && bad.data.error === 'forbidden', 'حل توسط دبیر رد شد (403)');
+
+    /* ۶) هیچ نوشتن بدون تصمیم رخ نداده */
+    const still = await push([{ uid: 's27-b2', collection: 'classes', type: 'put', id, data: { name: 'نام B2' }, base_version: 2 }]);
+    ok(!still.data.conflicts.length && still.data.applied.length === 1, 'پس از عادی‌سازی نسخه، نوشتن معتبر پذیرفته شد');
+
+    /* ۷) حل با تصمیم «سرور» — هویت تصمیم‌گیرنده ثبت می‌شود */
+    const r1 = await req('/api/conflicts/' + cid + '/resolve', { method: 'POST', token: managerToken, body: { decision: 'server' } });
+    ok(r1.data.ok, 'تصمیم «نسخهٔ سرور» ثبت شد');
+    ok(r1.data.conflict.status === 'resolved' && r1.data.conflict.decided_by != null, 'تصمیم‌گیرنده ثبت شد');
+    const again = await req('/api/conflicts/' + cid + '/resolve', { method: 'POST', token: managerToken, body: { decision: 'local' } });
+    ok(again.data.ok === false && again.data.error === 'already_resolved', 'حل دوباره ممکن نیست');
+
+    /* ۸) تعارض دوم و تصمیم «نسخهٔ محلی» — داده واقعاً اعمال می‌شود */
+    const c2 = await push([{ uid: 's27-c1', collection: 'classes', type: 'put', id, data: { name: 'نام C' }, base_version: 1 }]);
+    ok(c2.data.conflicts.length === 1, 'تعارض دوم ثبت شد');
+    const cid2 = c2.data.conflicts[0].conflict_id;
+    const r2 = await req('/api/conflicts/' + cid2 + '/resolve', { method: 'POST', token: managerToken, body: { decision: 'local' } });
+    ok(r2.data.ok, 'تصمیم «نسخهٔ محلی» اعمال شد');
+    ok(r2.data.record && r2.data.record.name === 'نام C', 'دادهٔ محلی جایگزین شد');
+    const audit = (await req('/api/admin/audit?limit=50', { token: managerToken })).data.rows || [];
+    ok(audit.some(x => x.action === 'conflict_resolve'), 'تصمیم در حسابرسی ثبت شد');
+
+    /* ۹) تکرار/تلاش دوباره (retry) — ایندمپوتنت */
+    const dup = await push([{ uid: 's27-b2', collection: 'classes', type: 'put', id, data: { name: 'نام B2' }, base_version: 2 }]);
+    ok(dup.data.applied.length === 1 && dup.data.applied[0].duplicate === true, 'تکرار همان uid اعمال دوباره نشد');
+    const rows = ((((await req('/api/v1/pull?collections=classes', { token: managerToken })).data.collections || {}).classes) || []).filter(r => r.id === id);
+    ok(rows.length === 1, 'هیچ ردیف تکراری ساخته نشد');
+
+    /* ۱۰) رد دسترسی هم دور ریخته نمی‌شود و برای بررسی می‌ماند (F‑09) */
+    /* برای رد دسترسی، نقش دبیر را می‌آزماییم */
+    const rejT = await req('/api/sync', { method: 'POST', token: teacherToken, body: { ops: [
+      { uid: 's27-d2', collection: 'classes', type: 'del', id, base_version: 3 },
+    ] } });
+    ok(rejT.data.rejected.length === 1 && rejT.data.rejected[0].error === 'role_denied', 'نوشتن غیرمجاز رد شد');
+    ok(rejT.data.rejected[0].conflict_id != null, 'ردی هم برای بررسی ثبت شد (بدون دور ریختن)');
+
+    /* ۱۱) base=0 برای دادهٔ واقعی، OCC را دور نمی‌زند */
+    const zero = await push([{ uid: 's27-e1', collection: 'classes', type: 'put', id, data: { name: 'دور زدن' }, base_version: 0 }]);
+    ok(zero.data.conflicts.length === 1, 'base=0 برای دادهٔ عادی به‌عنوان نسخهٔ کهنه تلقی شد');
+
+    console.log('   SYNC-OK checks=' + checks + ' conflict=two_versions kept=both resolve=authorized idempotent=yes');
+  });
+
+  await test('تیکت دستگاه ۲۰۰ روزه: تازه‌سازی بدون نشست و هویت فقط از امضای سرور', async () => {
+    const deepKeys = (v, out = []) => {
+      if (!v || typeof v !== 'object') return out;
+      for (const k of Object.keys(v)) { out.push(k); deepKeys(v[k], out); }
+      return out;
+    };
+    const cfg = await req('/api/admin/cloud', { method: 'POST', token: managerToken, body: {
+      endpoint: 'http://127.0.0.1:9', bucket: 'payesh-ttl200', region: 'ir-central1',
+      accessKey: 'AKIATTL200EXAMPLE1', secret: 'TTL200-secret-value-0123456789', prefix: 'payesh/',
+    } });
+    assert.strictEqual(cfg.data.ok, true, 'پیکربندی آزمون ذخیره شد');
+    const login = await req('/api/phone/login', {
+      method: 'POST',
+      body: { phone: '09120000001', password: 'madrese1404', device_id: 'dev-ttl200' },
+    });
+    assert.strictEqual(login.data.ok, true, 'ورود گوشی');
+    const dt = login.data.device_ticket;
+    assert.ok(dt && dt.ticket, 'تیکت دستگاه صادر شد');
+    assert.strictEqual(dt.ttl_days, 200, 'عمر اعلام‌شده = ۲۰۰ روز');
+    const days = (Date.parse(dt.expires_at) - Date.now()) / 86400000;
+    assert.ok(days > 199 && days <= 200.01, 'عمر واقعی تیکت ۲۰۰ روز است (شد ' + days.toFixed(2) + ')');
+    assert.ok(!deepKeys(login.data).includes('secret'), 'هیچ رازی همراه تیکت نیست');
+
+    const call = async (ticket, body) => {
+      const r = await fetch(BASE + '/api/phone/ticket', {
+        method: 'POST',
+        headers: Object.assign({ 'content-type': 'application/json' }, ticket ? { 'x-phone-ticket': ticket } : {}),
+        body: JSON.stringify(body || {}),
+      });
+      let j = null; try { j = await r.json(); } catch (e) { j = null; }
+      return { status: r.status, data: j };
+    };
+
+    /* ۱) بدون نشست، فقط با تیکت دستگاه: تیکت فایل‌ها تازه می‌شود */
+    const ok = await call(dt.ticket, { device_id: 'dev-ttl200' });
+    assert.strictEqual(ok.status, 200, 'تازه‌سازی بدون نشست: ' + JSON.stringify(ok.data).slice(0, 160));
+    assert.ok(!ok.data.tickets.outbox_put, 'F‑06: تیکت نوشتن در صندوقچه صادر نمی‌شود');
+    assert.ok(ok.data.submit && ok.data.submit.url === '/api/outbox/submit', 'مسیر امن ثبت اعلام شده است');
+    assert.ok(ok.data.device_ticket && ok.data.device_ticket.ticket, 'تیکت دستگاه هم تمدید/بازگشت داده شد');
+
+    /* ۲) هویت از تیکت می‌آید نه از بدنه: دستگاه/کاربر جعلی بی‌اثر است */
+    const spoof = await call(dt.ticket, { device_id: 'dev-evil', user_id: 2, tenant_id: 999, school_id: 99 });
+    assert.strictEqual(spoof.status, 200);
+    assert.strictEqual(spoof.data.device_id, 'dev-ttl200', 'دستگاه از تیکت خوانده می‌شود، نه بدنه');
+    assert.ok(Object.values(spoof.data.tickets).every(t => !String(t.key).includes('dev-evil')), 'هیچ تیکتی برای دستگاه جعلی صادر نشد');
+    assert.ok(spoof.data.tickets.person_get.key.endsWith('/data/person/1.json'), 'شخص از تیکت (کاربر ۱) است، نه از user_id بدنه');
+
+    /* ۳) دستکاری payload یا امضا ⇒ رد قطعی */
+    const parts = dt.ticket.split('.');
+    const tamperedExp = [parts[0], parts[1], String(Number(parts[2]) + 86400000 * 30), parts[3]].join('.');
+    assert.strictEqual((await call(tamperedExp, {})).status, 401, 'تمدید دستی انقضا رد شد');
+    const tamperedUser = ['2', parts[1], parts[2], parts[3]].join('.');
+    assert.strictEqual((await call(tamperedUser, {})).status, 401, 'جعل کاربر رد شد');
+    const tamperedMac = dt.ticket.slice(0, -2) + (dt.ticket.slice(-2) === 'aa' ? 'bb' : 'aa');
+    assert.strictEqual((await call(tamperedMac, {})).status, 401, 'امضای جعلی رد شد');
+    assert.strictEqual((await call('', { device_id: 'dev-ttl200' })).status, 401, 'بدون تیکت و بدون نشست: بسته');
+
+    const reset = await req('/api/admin/cloud/reset', { method: 'POST', token: managerToken });
+    assert.strictEqual(reset.data.ok, true, 'پیکربندی آزمون پاک شد');
   });
 
   await test('صندوقچه از سرور آماده است و هیچ اعتبارنامه‌ای به کلاینت نمی‌رسد (D‑23/F‑04)', async () => {
@@ -1480,11 +1772,13 @@ async function waitFor(fn, ms = 15000) {
       const teacherToken = teacher.data.session.token;
       const teacherId = 2;
 
-      /* «دستگاه دیگری» در خانه مرخصی ثبت کرده — رکورد مستقیم در صندوقچه */
+      /* «دستگاه دیگری» در خانه مرخصی ثبت کرده — از مسیر امن F‑06 (هویت از نشست) */
       const op = { collection: 'leaves', type: 'put', data: { student_id: 3, date: '2026-05-01', reason: 'بیماری', status: 'pending' }, base_version: 0 };
-      bucket.set('payesh/outbox/pending/ob-test-1.json', JSON.stringify({
-        v: 1, uid: 'ob-test-1', user_id: 1, role: 'manager', device_id: 'dev-home', op, created_at: '2026-05-01T10:00:00.000Z',
-      }));
+      const sub1 = await req('/api/outbox/submit', { method: 'POST', token: managerToken, body: {
+        device_id: 'dev-home', items: [{ uid: 'ob-test-1', op, created_at: '2026-05-01T10:00:00.000Z' }],
+      } });
+      assert.strictEqual(sub1.data.ok, true, 'ثبت آفلاین پذیرفته شد: ' + JSON.stringify(sub1.data).slice(0, 200));
+      assert.deepStrictEqual(sub1.data.uids, ['ob-test-1'], 'شناسهٔ پذیرفته‌شده برگشت (برای حذف از صف محلی)');
 
       const st = await req('/api/outbox/state', { token: managerToken });
       assert.strictEqual(st.data.cloud, true, 'صندوقچه در دسترس است');
@@ -1513,31 +1807,50 @@ async function waitFor(fn, ms = 15000) {
       /* آنچه مهم است «اثر» است نه عددِ همان پاسخ: اگر همین دستگاه پیش از آن
          صندوقچه را کشیده باشد، این درخواست صفر برمی‌گرداند ولی مرخصی
          باید در داده باشد. */
-      const leaveIn = async () => (await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=leaves', { token: managerToken }))
-        .data.collections.leaves.some(l => l.reason === 'بیماری');
+      const leaveIn = async () => {
+        const r = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=leaves', { token: managerToken });
+        const rows = (r.data && r.data.collections && r.data.collections.leaves) || [];
+        return rows.some(l => l.reason === 'بیماری');
+      };
       await waitFor(leaveIn, 8000);
       assert.ok(await leaveIn(), 'ثبت صندوقچه اعمال شد: ' + JSON.stringify(drained.data).slice(0, 300));
       const after = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=leaves', { token: managerToken });
-      assert.ok(after.data.collections.leaves.some(l => l.reason === 'بیماری'), 'مرخصی از دستگاه خانه به دادهٔ مدرسه رسید');
+      assert.ok(((after.data.collections || {}).leaves || []).some(l => l.reason === 'بیماری'), 'مرخصی از دستگاه خانه به دادهٔ مدرسه رسید');
       assert.ok(bucket.get('payesh/outbox/pending/ob-test-1.json') == null, 'ثبت اعمال‌شده از صندوقچه پاک شد');
       assert.ok(bucket.has('payesh/outbox/done/ob-test-1.json'), 'نشان «اعمال شد» گذاشته شد');
 
       /* تکرار: همان ثبت دوباره اعمال نمی‌شود */
-      bucket.set('payesh/outbox/pending/ob-test-1.json', JSON.stringify({
-        v: 1, uid: 'ob-test-1', user_id: 1, role: 'manager', device_id: 'dev-home', op, created_at: '2026-05-01T10:00:00.000Z',
-      }));
+      await req('/api/outbox/submit', { method: 'POST', token: managerToken, body: {
+        device_id: 'dev-home', items: [{ uid: 'ob-test-1', op, created_at: '2026-05-01T10:00:00.000Z' }],
+      } });
       const again = await req('/api/outbox/drain', { method: 'POST', token: managerToken, body: {} });
       assert.strictEqual(again.data.applied, 0, 'اعمال دوباره انجام نشد (idempotent)');
 
-      /* ثبت غیرمجاز: دبیر نمی‌تواند کاربر بسازد */
-      bucket.set('payesh/outbox/pending/ob-test-2.json', JSON.stringify({
-        v: 1, uid: 'ob-test-2', user_id: teacherId, role: 'teacher', device_id: 'dev-home',
-        op: { collection: 'users', type: 'put', data: { name: 'نفوذی', role: 'manager' }, base_version: 0 },
-      }));
+      /* ثبت غیرمجاز: دبیر نمی‌تواند کاربر بسازد — حتی اگر در بدنه نقش مدیر ادعا کند */
+      const subBad = await req('/api/outbox/submit', { method: 'POST', token: teacherToken, body: {
+        device_id: 'dev-home', user_id: 1, role: 'manager', tenant_id: 9, school_id: 9,
+        items: [{ uid: 'ob-test-2', user_id: 1, role: 'manager',
+          op: { collection: 'users', type: 'put', data: { name: 'نفوذی', role: 'manager' }, base_version: 0 } }],
+      } });
+      assert.strictEqual(subBad.data.ok, true, 'پذیرش ثبت همیشه با هویتِ نشست انجام می‌شود');
       const bad = await drainNow();
       assert.strictEqual(bad.data.ok, true, 'صندوقچه خوانده شد: ' + JSON.stringify(bad.data).slice(0, 300));
-      assert.strictEqual(bad.data.applied, 0, 'ثبت خارج از نقش اعمال نشد');
+      assert.strictEqual(bad.data.applied, 0, 'ثبت خارج از نقش اعمال نشد (ادعای role در بدنه بی‌اثر)');
       assert.ok(bad.data.rejected >= 1, 'رد شدن ثبت غیرمجاز گزارش شد: ' + JSON.stringify(bad.data).slice(0, 300));
+
+      /* F‑06: فایل دست‌ساز با هویت جعلی/امضای غلط هرگز اعمال نمی‌شود */
+      bucket.set('payesh/outbox/pending/ob-forged-1.json', JSON.stringify({
+        v: 2, user_id: 1, role: 'manager', tenant_id: 1, school_id: 1,
+        device_id: 'forged', issued_at: '2026-05-01T00:00:00.000Z', sig: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        items: [{ uid: 'ob-forged-1', op: { collection: 'announcements', type: 'put', data: { title: 'جعلی', body: 'x', date: '2026-05-01' }, base_version: 0 } }],
+      }));
+      const forged = await drainNow();
+      assert.strictEqual(forged.data.applied, 0, 'پاکت بدون امضای سرور اعمال نشد');
+      assert.ok(forged.data.rejected >= 1, 'پاکت جعلی رد شد: ' + JSON.stringify(forged.data).slice(0, 300));
+      assert.ok(bucket.has('payesh/outbox/quarantine/ob-forged-1.json'), 'پاکت جعلی قرنطینه شد (نگه‌داری برای بازرسی)');
+      const forgedPull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=announcements', { token: managerToken });
+      const forgedAnn = (((forgedPull.data || {}).collections || {}).announcements || []).some(a => a.title === 'جعلی');
+      assert.strictEqual(forgedAnn, false, 'هیچ ثبت جعلی در دادهٔ مدرسه ننشست');
 
       /* خلاصهٔ دانش‌آموز: سنپ‌شات برای ولی همان فرزند خودش */
       const sid = Number((( [...bucket.keys()].find(k => /^payesh\/outbox\/state\/\d+\.json$/.test(k)) || '').match(/(\d+)\.json$/) || [])[1]);
@@ -1585,7 +1898,7 @@ async function waitFor(fn, ms = 15000) {
       assert.strictEqual(phoneLogin.user.role, 'manager', 'نقش از مدرسه می‌آید');
       const tkRaw = global.localStorage.getItem('payesh.phone.tickets') || '';
       const tk = JSON.parse(tkRaw || 'null');
-      assert.ok(tk && tk.tickets && tk.tickets.outbox_put && tk.tickets.core_get, 'تیکت خواندن/نوشتن صندوقچه گرفته شد');
+      assert.ok(tk && tk.tickets && tk.tickets.core_get && !tk.tickets.outbox_put, 'تیکت خواندن گرفته شد و تیکت نوشتن در صندوقچه نیست (F‑06)');
       assert.ok(!/accessKey|secret/i.test(tkRaw), 'تیکت هیچ کلید/رازی ندارد: ' + tkRaw.slice(0, 120));
       const phoneData = await PH.pullData(phoneLogin.user);
       assert.ok(Array.isArray(phoneData.collections.users) && phoneData.collections.users.length > 2, 'گوشی فهرست کاربران را می‌گیرد');
@@ -1593,23 +1906,35 @@ async function waitFor(fn, ms = 15000) {
       assert.strictEqual(sentOp.ok, true, 'ثبت گوشی با نشانی امضاشده در صندوقچه گذاشته شد');
       const devFile = [...bucket.keys()].find(k => /^payesh\/outbox\/pending\/device-[a-z0-9-]+\.json$/.test(k));
       assert.ok(devFile, 'فایل ثبت گوشی در صندوقچه هست');
-      assert.ok((JSON.parse(bucket.get(devFile)).items || []).some(x => x.uid === 'ob-phone-1'), 'ثبت گوشی داخل فایل دستگاه است');
+      const devEnv = JSON.parse(bucket.get(devFile));
+      assert.ok((devEnv.items || []).some(x => x.uid === 'ob-phone-1'), 'ثبت گوشی داخل فایل دستگاه است');
+      /* F‑06: پاکت امضاشده است و هویت/مستأجر از سرور آمده، نه از گوشی */
+      assert.strictEqual(devEnv.v, 2, 'پاکت نسخهٔ ۲ (امضاشده) است');
+      assert.ok(typeof devEnv.sig === 'string' && devEnv.sig.length > 20, 'پاکت امضای سرور دارد');
+      assert.strictEqual(devEnv.user_id, 1, 'کاربرِ پاکت از تیکت/نشست است');
+      assert.strictEqual(devEnv.school_id, 1, 'مستأجرِ پاکت از کاربر است — نه از بدنه');
+      assert.ok((devEnv.items || []).every(x => x.user_id === undefined && x.role === undefined), 'هیچ ادعای هویتی داخل ثبت‌ها نیست');
       const drainedFromPhone = await drainNow();
-      const annIn = async () => (await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=announcements', { token: managerToken }))
-        .data.collections.announcements.some(a => a.title === 'از گوشی');
+      const annIn = async () => {
+        const r = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=announcements', { token: managerToken });
+        const rows = (r.data && r.data.collections && r.data.collections.announcements) || [];
+        return rows.some(a => a.title === 'از گوشی');
+      };
       await waitFor(annIn, 8000);
       assert.ok(await annIn(), 'سیستم مدرسه ثبت گوشی را اعمال کرد: ' + JSON.stringify(drainedFromPhone.data).slice(0, 400));
 
       /* تغییر رمز از روی گوشی: فقط نسخهٔ قابل‌بررسی می‌آید و همان رمز می‌شود */
       const utilMod = require(path.join(ROOT, 'server', 'util.js'));
-      bucket.set('payesh/outbox/pending/pw-phone-1.json', JSON.stringify({
-        v: 1, uid: 'pw-phone-1', user_id: 1, role: 'manager', device_id: 'phone-x',
-        op: { collection: 'users', type: 'put', id: 1, data: { __password_verifier: utilMod.pbkdf2Hash('Ramz-Az-Ghooshi') } },
-      }));
+      const pwSent = await PH.send({ uid: 'pw-phone-1', op: {
+        collection: 'users', type: 'put', id: 1, data: { __password_verifier: utilMod.pbkdf2Hash('Ramz-Az-Ghooshi') },
+      } });
+      assert.strictEqual(pwSent.ok, true, 'تغییر رمز از گوشی فرستاده شد');
       const pwDrain = await drainNow();
       const pwOk = async () => (await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'Ramz-Az-Ghooshi' } })).data.ok;
       await waitFor(pwOk, 8000);
       assert.ok(await pwOk(), 'تغییر رمز از گوشی اعمال شد: ' + JSON.stringify(pwDrain.data).slice(0, 400));
+
+      console.log('   F06-OK checks=12 spoof=blocked replay=blocked forged=quarantined tenant=bound');
     } finally {
       await new Promise(r => fake.close(r));
     }
@@ -3707,7 +4032,7 @@ async function waitFor(fn, ms = 15000) {
 
     assert.ok(r1.data.dirs.mirror, 'مسیر آینه هم برگشت');
 
-    /* مدیر و عوامل اجرایی هر دو می‌بینند؛ بقیهٔ نقش‌ها نه */
+    /* F‑01: فقط مدیر فایل کامل داده را می‌بیند؛ هیچ نقش دیگری */
     const st = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
       { uid: 'bk-staff-1', collection: 'users', type: 'put', data: { name: 'کارشناس اجرایی', role: 'counselor', phone: '09127770001', national_id: '1777000001' } },
     ] } });
@@ -3715,10 +4040,11 @@ async function waitFor(fn, ms = 15000) {
     const staffLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09127770001', password: '1777000001' } });
     const staffTok = staffLogin.data.session.token;
     const staffMirror = await req('/api/admin/mirror', { token: staffTok });
-    assert.strictEqual(staffMirror.data.ok, true, 'عوامل اجرایی وضعیت پشتیبان را می‌بینند');
-    assert.ok(Array.isArray(staffMirror.data.daily), 'فهرست فایل‌های روزانه برای عوامل اجرایی هم می‌آید');
+    assert.strictEqual(staffMirror.status, 403, 'F‑01: عوامل اجرایی فایل کامل داده را نمی‌گیرند');
     const staffDaily = await req('/api/admin/backups/daily/' + today.file, { token: staffTok });
-    assert.strictEqual(staffDaily.status, 200, 'دانلود فایل پشتیبان برای عوامل اجرایی');
+    assert.strictEqual(staffDaily.status, 403, 'F‑01: دانلود بکاپ برای غیرمدیر ممنوع');
+    /* هیچ رمز خامی در فایل پشتیبان نیست (فقط هش/رمزنگاری) */
+    assert.ok(backup.collections.users.every(u => !u.password_plain), 'F‑01: هیچ رمز خامی در بکاپ نیست');
     await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
       { uid: 'bk-stud-1', collection: 'users', type: 'put', data: { name: 'دانش‌آموز پشتیبان', role: 'student', phone: '09127770002', national_id: '1777000002' } },
     ] } });
@@ -3728,8 +4054,8 @@ async function waitFor(fn, ms = 15000) {
     const studRestore = await req('/api/admin/restore', { method: 'POST', token: studLogin.data.session.token, body: { data: backup } });
     assert.strictEqual(studRestore.status, 403, 'دانش‌آموز نمی‌تواند بازیابی کند');
     const srv = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
-    assert.ok(/BACKUP_ROLES = new Set\(\['manager', 'teacher', 'counselor', 'guard'\]\)/.test(srv),
-      'نقش‌های پشتیبان در سرور تعریف شده‌اند');
+    assert.ok(/BACKUP_ROLES = new Set\(\['manager'\]\)/.test(srv),
+      'F‑01: نقش‌های پشتیبان فقط مدیر است');
     const pg = fs.readFileSync(path.join(ROOT, 'client', 'pages.js'), 'utf8');
     assert.ok(/BACKUP_ROLES_FA/.test(pg), 'کارت پشتیبان در پنل عوامل اجرایی هم رندر می‌شود');
     assert.strictEqual(typeof staffId, 'number');

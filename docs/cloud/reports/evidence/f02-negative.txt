@@ -1,0 +1,15 @@
+# آزمون منفی دروازهٔ F‑02
+generated_by: docs/cloud/reports/evidence/verify-f02-negative.sh
+head: b2fcbe2b2fb227b293017a3c11501e1264fe5516
+generated_at_utc: 2026-11-07T09:14:07Z
+passed: 6
+failed: 0
+
+PASS  P0  شاهد سالم پذیرفته شد (کنترل مثبت)
+PASS  N1  رد شد: restore بدون بررسی امضا → F02-FAIL: RESTORE-VERIFY: restore امضا را بررسی نمی‌کند
+PASS  N2  رد شد: پذیرش پشتیبان بی‌امضا → F02-FAIL: UNSIGNED: پشتیبان بی‌امضا رد نمی‌شود
+PASS  N3  رد شد: بازیابی از مستأجر دیگر → F02-FAIL: TENANT: بازیابی از مستأجر دیگر رد نمی‌شود
+PASS  N4  رد شد: ارتقای نقش از sync → F02-FAIL: SYNC-ROLE: تغییر نقش از همگام‌سازی بسته نی�
+PASS  N5  رد شد: شاهد آزمون کمتر از ۹۲ → F02-FAIL: TESTS-COUNT: آزمون پایه کمتر از ۹۲ است (91 0)
+
+F02-NEGATIVE-OK checks=6

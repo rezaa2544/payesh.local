@@ -27,9 +27,39 @@ const { nowISO } = require('./util');
 const { COLLECTIONS } = require('./policy');
 
 const FORMAT = 'payesh-backup';
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 2;   /* F‑02: پشتیبان امضاشده (نسخهٔ ۱ بی‌امضا و رد می‌شود) */
+const SIGN_META = 'secret:backup-key';
+/* نقش‌های مجاز در پشتیبان (شامل معاون/عامل اجرایی که در policy.ROLES نیستند) */
+const ALLOWED_ROLES = ['manager', 'vice', 'teacher', 'staff', 'counselor', 'guard', 'parent', 'student'];
 const DATA_COLLECTIONS = Object.keys(COLLECTIONS);
 const KEEP_DAYS = 400;
+
+/* ── امضای پشتیبان (F‑02) ──────────────────────────────────────────────
+   هر پشتیبان با کلید همین نصب امضا می‌شود. فایل ساخته‌شده در نصب دیگر
+   (cross-tenant/cross-deployment) یا فایل دست‌کاری‌شده امضایش نمی‌خواند
+   و بازیابی fail-closed رد می‌شود. */
+function signKey(store) {
+  const rec = store.getMeta(SIGN_META, null);
+  if (rec && rec.key) return Buffer.from(String(rec.key), 'base64');
+  const key = crypto.randomBytes(32);
+  store.setMeta(SIGN_META, { key: key.toString('base64'), created_at: nowISO() });
+  return key;
+}
+function canonicalBackup(snap) {
+  return JSON.stringify({ format: snap.format, format_version: snap.format_version, at: snap.at || '', collections: snap.collections || {} });
+}
+function signSnapshot(store, snap) {
+  return crypto.createHmac('sha256', signKey(store)).update(canonicalBackup(snap)).digest('base64url');
+}
+function verifySnapshot(store, snap) {
+  if (!snap || snap.format !== FORMAT) return { ok: false, error: 'bad_format' };
+  if (Number(snap.format_version) !== FORMAT_VERSION) return { ok: false, error: 'bad_format_version' };
+  if (typeof snap.sig !== 'string' || !snap.sig) return { ok: false, error: 'unsigned_backup' };
+  const want = signSnapshot(store, snap);
+  const a = Buffer.from(snap.sig), b = Buffer.from(want);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { ok: false, error: 'bad_signature' };
+  return { ok: true };
+}
 
 function fingerprint(text) {
   return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
@@ -80,6 +110,7 @@ function refreshMirror(store, mirrorDir, opts = {}) {
     fs.writeFileSync(file, JSON.stringify({
       format: FORMAT, format_version: FORMAT_VERSION, at: snapshot_at(snap),
       hash, total: snap.total, counts: countsOf(snap), collections: snap.collections,
+      sig: signSnapshot(store, { format: FORMAT, format_version: FORMAT_VERSION, at: snapshot_at(snap), collections: snap.collections }),
     }, null, 1), { mode: 0o600 });
     store.setMeta('mirror', { at: snap.at, hash, total: snap.total, counts: countsOf(snap), file });
   }
@@ -140,6 +171,7 @@ function refreshDaily(store, dailyDir, opts = {}) {
     fs.writeFileSync(file, JSON.stringify({
       format: FORMAT, format_version: FORMAT_VERSION, day, at: snap.at, hash,
       total: snap.total, counts: countsOf(snap), collections: snap.collections,
+      sig: signSnapshot(store, snap),
     }, null, 1), { mode: 0o600 });
   }
   pruneDaily(dailyDir);
@@ -182,8 +214,21 @@ function restore(store, payload, opts = {}) {
     try { data = JSON.parse(data); } catch (e) { return { ok: false, error: 'bad_json' }; }
   }
   if (!data || data.format !== FORMAT || !data.collections) return { ok: false, error: 'bad_format' };
+  /* F‑02: فقط پشتیبانِ امضاشدهٔ همین نصب پذیرفته می‌شود (fail-closed) */
+  const verdict = verifySnapshot(store, data);
+  if (!verdict.ok) return { ok: false, error: verdict.error };
+  if (!opts.actor || opts.actor.role !== 'manager') return { ok: false, error: 'forbidden' };
   const replace = !!opts.replace;
-  const report = { format: data.format, at: data.at || '', restored: {}, skipped: 0, replaced: 0 };
+  const report = { format: data.format, at: data.at || '', restored: {}, skipped: 0, replaced: 0, rejected: 0, rejected_reason: null };
+  /* F‑02: هیچ ردیفی از مدرسه/مستأجر دیگر پذیرفته نمی‌شود */
+  for (const name of Object.keys(data.collections)) {
+    const rows = Array.isArray(data.collections[name]) ? data.collections[name] : [];
+    for (const row of rows) {
+      const sid = row && (row.school_id != null ? Number(row.school_id) : (row.tenant_id != null ? Number(row.tenant_id) : 1));
+      if (sid !== 1) { report.rejected += 1; report.rejected_reason = 'cross_tenant'; }
+    }
+  }
+  if (report.rejected) return { ok: false, error: 'cross_tenant' };
   for (const name of Object.keys(data.collections)) {
     if (DATA_COLLECTIONS.indexOf(name) < 0) { report.skipped += 1; continue; }
     const rows = Array.isArray(data.collections[name]) ? data.collections[name] : [];
@@ -194,6 +239,10 @@ function restore(store, payload, opts = {}) {
       const clean = Object.assign({}, row);
       delete clean._version;
       delete clean._updated_at;
+      /* F‑02: نقش ناشناخته هرگز از پشتیبان وارد نمی‌شود */
+      if (clean.role != null && ALLOWED_ROLES.indexOf(String(clean.role)) < 0) { report.rejected += 1; continue; }
+      /* مالکیت/مستأجر: همهٔ ردیف‌ها به همین مدرسه بسته می‌شوند */
+      clean.school_id = 1;
       /* ردیفی که «حذف‌شده» علامت خورده هم باید برگردد: update آن را
          زنده می‌کند، پس به‌جای insert از همان استفاده می‌کنیم. */
       let rowExists = false;
@@ -219,4 +268,5 @@ function restore(store, payload, opts = {}) {
 module.exports = {
   FORMAT, FORMAT_VERSION, DATA_COLLECTIONS,
   snapshot, countsOf, refreshMirror, compareMirror, refreshDaily, listDaily, restore, dayStamp,
+  signSnapshot, verifySnapshot, signKey,
 };

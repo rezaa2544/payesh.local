@@ -10,8 +10,8 @@ PASS  N8  رد شد: شناسهٔ ادعای الزامی N0b تغییر کرد 
 PASS  N9  رد شد: سند ۱۲ هنوز PARTIAL است → CC12-2-FAIL: DOC12-CLOSED: سند ۱۲ شرط CC‑12‑2 را CLOSED اعلا
 PASS  N10  رد شد: به‌روزرسانی CC‑12‑2 در سند بازبینی نیست → CC12-2-FAIL: REVIEW12: به‌روزرسانی بسته شدن CC‑12‑2 د�
 PASS  N11  رد شد: تصمیم D‑35 از قانون اساسی حذف شد → CC12-2-FAIL: CONST-D35: تصمیم D‑35 ثبت نشده
-PASS  N12  رد شد: آزمون پایه ۸۷/۱ شده → CC12-2-FAIL: BASE-TESTS: شاهد آزمون شکست دارد (89 1)
-PASS  N13  رد شد: فهرست مجاز D‑35 فقط server/tenancy.js است → CC12-2-FAIL: PRODUCT-SCOPE: 15 فایل محصول بیرون از فهرست 
+PASS  N12  رد شد: آزمون پایه ۸۷/۱ شده → CC12-2-FAIL: BASE-TESTS: شاهد آزمون شکست دارد (92 1)
+PASS  N13  رد شد: فهرست مجاز D‑35 فقط server/tenancy.js است → CC12-2-FAIL: PRODUCT-SCOPE: 19 فایل محصول بیرون از فهرست 
 PASS  N14  رد شد: پایهٔ ممیزی در مخزن نیست → CC12-2-FAIL: BASE-MISSING: deadbeefdeadbeef در مخزن نیست
 
 SUMMARY pass=15 fail=0

@@ -1,9 +1,9 @@
 # دروازهٔ فاز ۳ — باز شده با D‑35 (GATE_OPEN=1)
 generated_by: docs/cloud/reports/evidence/gen-phase3-gate.sh
-head: 4344f4efe28c3e31aa608402ea9be835eea7edd2
+head: 6cf50ed6b2b5d0c617bf13164a28976037b85938
 base: f2fc472
-generated_at_utc: 2026-11-07T08:23:21Z
-product_diff_files: 16
+generated_at_utc: 2026-11-07T09:26:09Z
+product_diff_files: 22
 checks_passed: 35
 queue_open_rows: 0
 phase0_gate: PASS

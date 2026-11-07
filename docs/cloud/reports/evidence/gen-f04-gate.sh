@@ -12,7 +12,8 @@ D=docs/cloud/reports/evidence
 OUT="${F04_OUT:-$D/cc-f04-gate.txt}"
 TESTS="${F04_TESTS:-$D/mission-05-tests-run.log}"
 PRODUCT_PATHS="server client tests scripts package.json package-lock.json installer desktop install deploy"
-ALLOW="${F04_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs}"
+# دامنهٔ مجاز محصول به‌روز شد (re-scope، نه حذف): فایل‌های auth/sync/db برای F‑01
+ALLOW="${F04_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/mirror.js server/policy.js server/live.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/restart.js tests/phone-flow.js scripts/bake-cloud.mjs}"
 BASE="${F04_BASE:-f2fc472}"
 HEAD=$(git rev-parse HEAD)
 TS=$(date -u +%Y%m%dT%H%M%SZ)
@@ -57,7 +58,7 @@ grep -q "PHONE_TICKET_TTL" server/index.js || fail "TICKET-TTL: عمر تیکت 
 
 # ── ۳) شاهد آزمون: F‑04 سبز و آزمون پایه بدون شکست ─────────────────────────
 [ -f "$TESTS" ] || fail "TESTS-MISSING: $TESTS"
-grep -q 'F04-OK checks=34' "$TESTS" || fail "F04-TEST: آزمون F‑04 در شاهد اجرا نیست"; ok
+grep -q 'F04-OK checks=35' "$TESTS" || fail "F04-TEST: آزمون F‑04 در شاهد اجرا نیست"; ok
 TP=$(sed -n 's/^SUMMARY pass=\([0-9]*\) fail=\([0-9]*\)$/\1 \2/p' "$TESTS" | tail -1)
 [ -n "$TP" ] || fail "TESTS-SUMMARY: خط SUMMARY نیست"
 [ "$(echo "$TP" | awk '{print $2}')" = "0" ] || fail "TESTS-FAIL: آزمون پایه شکست دارد ($TP)"; ok
