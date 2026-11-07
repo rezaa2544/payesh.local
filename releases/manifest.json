@@ -1,15 +1,15 @@
 {
-  "version": "0.8.40",
-  "built_at": "2026-11-07T10:15:31.503Z",
+  "version": "0.8.41",
+  "built_at": "2026-11-07T10:24:01.844Z",
   "notes": [],
   "shell": {
-    "android": "0.8.40"
+    "android": "0.8.41"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "c815f7eebb523c1d113105ba2d441c34dd4dbacac5aff6e58ddee6e2ee762b85",
+      "sha256": "83ab43c94fb38555604d9332c831b989e7779139133b4ad47c6d02c13a8858d4",
       "size": 181207
     },
     {
@@ -165,7 +165,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "3c021b1d5d2876b766477cff25a0edf9aff001bc6bcc3b48f8b0295279473cec",
+      "sha256": "c0db5801886168edcbf71a542e358b7d0917d785ee2c2049c47217d68ccc88a6",
       "size": 2041
     },
     {
@@ -195,8 +195,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "6845873a3432fb476ba3ffa9b84aea7e83734bd509cfdfce6cd30d822f659f70",
-      "size": 107559
+      "sha256": "5ae4f53f01aa9d5096e77639d96f28430515fdca72cd23e3fec1d99e3578f8aa",
+      "size": 107186
     },
     {
       "path": "server/live.js",
@@ -213,8 +213,8 @@
     {
       "path": "server/outbox.js",
       "kind": "server",
-      "sha256": "2f926a214b98e8f0bf260317329996442930339010888632a7d35d8b8d488c65",
-      "size": 31357
+      "sha256": "ba2b965ec5b6bffcf07e8863b49f8073ea54a2a505bf088b4569eafe01688346",
+      "size": 31406
     },
     {
       "path": "server/policy.js",
@@ -306,6 +306,6 @@
     "server": 24
   },
   "client_size": 1337963,
-  "server_size": 347978,
-  "total_size": 1685941
+  "server_size": 347654,
+  "total_size": 1685617
 }
