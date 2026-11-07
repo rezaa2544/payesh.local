@@ -33,7 +33,14 @@ OUT="docs/cloud/reports/evidence/mission-16b-tenant-probe.txt"
   grep "^HEAD:\|^postgres:\|^TOTAL" docs/cloud/reports/evidence/mission-a-rls-execution.txt
   echo
   echo "## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)"
-  git diff --name-only f2fc472 -- server client tests scripts package.json | wc -l
+  if git cat-file -e f2fc472^{commit} 2>/dev/null; then
+    n=$(git diff --name-only f2fc472 -- server client tests scripts package.json | wc -l | tr -d ' ')
+    echo "product_diff_files=$n"
+    if [ "$n" = "0" ]; then echo "PRODUCT-DIFF=0"; else echo "PRODUCT-DIFF=NONZERO"; fi
+  else
+    echo "BASE-MISSING=f2fc472"
+    echo "PRODUCT-DIFF=UNKNOWN"
+  fi
 } > "$OUT"
 echo "written: $OUT"
 wc -l "$OUT"

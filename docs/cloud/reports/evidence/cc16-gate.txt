@@ -1,12 +1,12 @@
 # دروازهٔ CC‑16 — بازمحاسبهٔ مدل هزینه/ظرفیت و پوشش معیارهای ردیف ۱۶
 generated_by: docs/cloud/reports/evidence/gen-cc16-evidence.sh
-head: e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977
+head: 596e82eabe25e71a59574e7b52d41a321ca16d9e
 base: f2fc472
-generated_at_utc: 2026-11-07T01:00:23Z
+generated_at_utc: 2026-11-07T01:14:25Z
 node: v22.22.3
 product_diff_files: 0
 non_product_changed: 0
-runtime_evidence_head: e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977
+runtime_evidence_head: 596e82eabe25e71a59574e7b52d41a321ca16d9e
 model_probe_summary: SUMMARY pass=40 fail=0 total=40
 labels_required: 40  labels_verified: 40  crossed: 0
 ac_rows: 14  verdict: ۱۴/۱۴
@@ -53,7 +53,7 @@ doc_sha256: 6782c91eef767b899c9235c3166616b180b7d9270603de899a5256f03d0d7370
 ✓ R7 هشدار P0–P3 با مسئول و escalation و runbook  ::  ok
 ✓ X1 ۰۴: C‑1=۳۰۰ms و C‑2=۸۰۰ms موجود است  ::  ok
 ✓ X2 ۱۵: RTO سناریوی ۲ = ≤ ۲ ساعت  ::  ok
-✓ E1 شاهد اجرایی امروز تازه است (head=HEAD) و ALL-MET  ::  evidence_head=e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977 head=e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977
+✓ E1 شاهد اجرایی امروز تازه است (head=HEAD) و ALL-MET  ::  evidence_head=596e82eabe25e71a59574e7b52d41a321ca16d9e head=596e82eabe25e71a59574e7b52d41a321ca16d9e
 ✓ E2 پایهٔ ممیزی f2fc472 موجود است و کد محصول ۰ فایل تغییر  ::  product_diff_files=0
 
 CC16-OK

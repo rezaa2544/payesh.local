@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
-branch: arena/2c33381b-payesh-local
-head: e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977
+branch: arena/16b9ea27-payesh-local
+head: 596e82eabe25e71a59574e7b52d41a321ca16d9e
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=260  tables=81  ac_rows=8
@@ -10,7 +10,7 @@ head: e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977
 14-conflict-convergence                    lines=182  tables=64  ac_rows=11
 15-backup-recovery                         lines=169  tables=78  ac_rows=12
 16-ha-observability-cost                   lines=308  tables=142 ac_rows=14
-16b-tenant-provisioning-migration          lines=262  tables=106 ac_rows=12
+16b-tenant-provisioning-migration          lines=292  tables=116 ac_rows=12
 
 ## حکم‌های ثبت‌شده (هر سند حکم خودش — هیچ سبزی خودکار نیست)
 **حکم: ۸/۸ — REVIEW** (AC‑8: اجرا شده روی پایگاه مستقل؛ یکپارچگی با محصول در ۲۰‑ب).
@@ -31,9 +31,8 @@ school_id (files): 8
 api routes (unique /api literals in server/index.js): 62
 
 ## وضعیت درخت کاری
- M docs/cloud/reports/evidence/gen-cc16-evidence.sh
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
  M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
-?? docs/cloud/reports/evidence/tests-run-e8f526d-20261107T010001Z.log
+?? docs/cloud/reports/evidence/tests-run-596e82e-20261107T011409Z.log
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)

@@ -1,21 +1,21 @@
 # شاهد اجرایی مأموریت ۱۶ — رفتار سلامت/رصدپذیری/بار در کد امروز
 generated_by: docs/cloud/reports/evidence/gen-mission-16-evidence.sh
 probe: docs/cloud/reports/evidence/probe-16-observability.mjs
-branch: arena/2c33381b-payesh-local
-head: e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977
+branch: arena/16b9ea27-payesh-local
+head: 596e82eabe25e71a59574e7b52d41a321ca16d9e
 node: v22.22.3
 note: دیتابیس موقت (mktemp)؛ هیچ نوشتنی روی data/ مخزن انجام نمی‌شود
 
 ## اجرا
 PROBE-16-OBSERVABILITY — رفتار اجرایی کد امروز
-SHA=e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977
+SHA=596e82eabe25e71a59574e7b52d41a321ca16d9e
 TEMP_DB=isolated (not repository data/)
 H1 | نقاط سلامت و متریک | {"/healthz":{"status":200,"spa_html":true},"/readyz":{"status":200,"spa_html":true},"/metrics":{"status":200,"spa_html":true},"/api/metrics":{"status":401},"/api/health":{"status":200}}
 H2 | محتوای /api/health | {"status":200,"dependency_check_keys":[],"cloud_ready_in_body":false,"db_file_is_config_only":true,"keys":"cloud_ready,data_dir,db_file,installed_version,instance,name,ok,public_url,restart_pending,school,server_time,setup_done,time,uptime_s,version","body_bytes":406}
 H3 | بار /api/live/rev | {"status_without_token":401,"status_with_token":200,"every_ms":1000,"body_bytes":107,"assumed_header_bytes":500,"egress":{"conservative":{"devices":500,"tb_per_month":0.79},"mid":{"devices":4000,"tb_per_month":6.29},"growth":{"devices":20000,"tb_per_month":31.47}}}
-H4 | قالب لاگ درخواست | {"lines_seen":7,"sample":"GET /api/health 200 8ms || POST /api/setup 200 61ms || POST /api/sync 200 72ms","structured_json":false,"has_tenant_or_request_id":false}
+H4 | قالب لاگ درخواست | {"lines_seen":7,"sample":"GET /api/health 200 6ms || POST /api/setup 200 53ms || POST /api/sync 200 42ms","structured_json":false,"has_tenant_or_request_id":false}
 H5 | محل نشست‌ها | {"session_tables":["sessions"],"session_rows_after_login":1,"sessions_in_database":true}
-H6 | ۳۰۰ درخواست پشت‌سرهم به /api/live/rev | {"ok":300,"rate_limited":0,"other":0,"burst_ms":974}
+H6 | ۳۰۰ درخواست پشت‌سرهم به /api/live/rev | {"ok":300,"rate_limited":0,"other":0,"burst_ms":623}
 EXPECTATIONS=ALL-MET
 exit=0
 

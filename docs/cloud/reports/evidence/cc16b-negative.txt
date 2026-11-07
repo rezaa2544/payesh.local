@@ -1,0 +1,18 @@
+# آزمون منفی دروازهٔ CC‑16B — شاهد ناقص/جعلی/کهنه
+generated_by: docs/cloud/reports/evidence/verify-cc16b-negative.sh
+head: 596e82eabe25e71a59574e7b52d41a321ca16d9e
+generated_at_utc: 2026-11-07T01:15:29Z
+
+PASS  P0  gate accepted clean evidence (control positive): اجرای سالم: تمرین ۳۸/۳۸ + شاهد رفتار امروز تازه + Manifest کامل
+PASS  N1  gate rejected: یک برچسب لازم از بدنهٔ تمرین حذف شد  → CC16B-FAIL: LABEL-MISSING: P1 راه‌اندازی مستأجر A: هر ۹ گام مو�
+PASS  N2  gate rejected: برچسب با علامت شکست (✗)  → CC16B-FAIL: DRILL-CROSS: خط ✗ در خروجی تمرین
+PASS  N3  gate rejected: SUMMARY ادعایی با شمارش بدنه نمی‌خواند  → CC16B-FAIL: SUMMARY-MISMATCH: pass=37 ولی بدنه 38 ✓
+PASS  N4  gate rejected: گزارش مهاجرت با تعداد رکورد صفر  → CC16B-FAIL: MIGRATION-RECORDS: تعداد رکورد نامعتبر «0»
+PASS  N5  gate rejected: دو مستأجر با شناسهٔ یکسان  → CC16B-FAIL: TENANT-COLLISION: دو مستأجر یک شناسه دارند
+PASS  N6  gate rejected: گزارش مهاجرت بدون زمان اندازه‌گیری‌شده  → CC16B-FAIL: MIGRATION-DURATION: زمان اندازه‌گیری‌شده ثبت نشد�
+PASS  N7  gate rejected: پایهٔ ممیزی ناموجود ⇒ «۰ فایل تغییر» جعلی نباید PASS بگیرد  → CC16B-FAIL: BASE-MISSING: 0000000 در مخزن نیست (clone کم‌عمق؟) — ه�
+PASS  N8  gate rejected: شاهد رفتار امروز کهنه (head=deadbeef)  → CC16B-FAIL: RUNTIME-STALE: head شاهد «deadbeefdeadbeefdeadbeefdeadbeefdeadbeef» �
+PASS  N9  gate rejected: یک ردیف معیار از ماتریس سند حذف شد (۱۲ ← ۱۱)  → CC16B-FAIL: AC-COUNT: 11 ردیف AC در سند ۱۶‑ب (باید ۱۲)
+
+SUMMARY pass=10 fail=0
+NEGATIVE-OK
