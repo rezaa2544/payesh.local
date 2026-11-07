@@ -1,0 +1,23 @@
+# عکس لحظه‌ای صف وظایف Notion — ورودی دروازهٔ فاز ۳
+# DB: 8f88ca09-ed6c-4d65-b037-52d5afb003d3 · data source: b53b83a4-da2f-49bf-b702-e56c998900e5
+snapshot_at_utc: 2026-11-07T07:40:00Z
+snapshot_by: notion query_database (connector)
+
+# کوئری ۱ — هر ردیف با Status ≠ Done
+query_1_filter: Status does_not_equal "Done"
+query_1_rows: 0
+
+# کوئری ۲ — همهٔ وضعیت‌های باز (مستقل از کوئری ۱)
+query_2_filter: Status in {Review, Backlog, Ready, In Progress, Blocked}
+query_2_rows: 0
+
+# کوئری ۳ — ردیف‌های فاز ۳ و ۵ (تنها فازهایی که ممکن بود باز بمانند)
+query_3_filter: Phase in {"3 — نمونه فنی", "5 — مهاجرت و انتشار"}
+query_3_rows: 4
+row ۱۷ 410ba74e-cd98-81d3-a267-ea3ef47e66dc Done
+row ۱۸ 410ba74e-cd98-8183-bf33-ff3788b8b060 Done
+row ۱۹ 410ba74e-cd98-811a-9eb9-d0687142b313 Done
+row ۲۱ 410ba74e-cd98-8144-b232-c46c3431e23e Done
+
+open_rows: 0
+verdict: صف Notion هیچ ردیف بازی ندارد؛ همهٔ مأموریت‌های تعریف‌شده Done هستند.

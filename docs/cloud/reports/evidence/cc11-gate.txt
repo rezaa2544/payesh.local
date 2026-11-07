@@ -1,8 +1,8 @@
 # دروازهٔ CC‑11 — اتصال ادعا→شاهد برای ۷۳ آیتم و بازسنجی روی HEAD
 generated_by: docs/cloud/reports/evidence/gen-cc11-evidence.sh
-head: cf53cab1a25b25d9c074f52a150e994bc26e6650
+head: a97e485503b12069d700f3e24b5cec4d7e2bda89
 base: f2fc472
-generated_at_utc: 2026-11-07T07:04:39Z
+generated_at_utc: 2026-11-07T07:18:58Z
 node: v22.22.3
 product_diff_files: 0
 drill_summary: SUMMARY pass=48 fail=0 total=48
