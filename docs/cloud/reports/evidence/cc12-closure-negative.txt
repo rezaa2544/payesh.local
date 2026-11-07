@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ CC‑12‑CLOSURE
 generated_by: docs/cloud/reports/evidence/verify-cc12-closure-negative.sh
-head: 44ddecbb231cb1222e5ddc1a31e4efe6999f4649
-generated_at_utc: 2026-11-07T07:39:14Z
+head: e8730a29d3efcd2296ce4b430a0d446f47f8c884
+generated_at_utc: 2026-11-07T07:44:52Z
 
 PASS  P0  شاهد سالم پذیرفته شد (کنترل مثبت)
 PASS  N1  رد شد: تصمیم D‑31 (O‑07) از Decision Log حذف شد → CC12-CLOSURE-FAIL: CONST-DECISION: D‑31 در Decision Log نیست
