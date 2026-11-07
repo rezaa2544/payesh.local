@@ -1,16 +1,16 @@
 {
-  "version": "0.8.54",
-  "built_at": "2026-11-07T19:19:05.105Z",
+  "version": "0.8.55",
+  "built_at": "2026-11-07T19:45:35.460Z",
   "notes": [],
   "shell": {
-    "android": "0.8.54"
+    "android": "0.8.55"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "7191e357fef95f570c6d5cb6b5656230b796dc8f600d0c25d615b3c126189f5a",
-      "size": 186526
+      "sha256": "f9da4ca02f108be714a811bc802dac8f2c59833182e5c4428c43995650c90a59",
+      "size": 191029
     },
     {
       "path": "client/authz.js",
@@ -87,8 +87,8 @@
     {
       "path": "client/index.html",
       "kind": "client",
-      "sha256": "d83fc49874ed238f8aef40277ccaefe77573095c7f88034d1fcc139f359916de",
-      "size": 1681
+      "sha256": "737420a7d27144a8c5b75c28bde64656622807a497cb37bbf7d0e47259449da2",
+      "size": 1720
     },
     {
       "path": "client/install.html",
@@ -131,6 +131,12 @@
       "kind": "client",
       "sha256": "175a463c06fd172da665f4850c7d3598b5468a1071c1f3a55463bf307ef10987",
       "size": 960
+    },
+    {
+      "path": "client/outbox-web.js",
+      "kind": "client",
+      "sha256": "d3f4cd1fdbe5d941f59b11b8610913b7273ebc850091e61e3c3f8bb3777a9e50",
+      "size": 17711
     },
     {
       "path": "client/pages.js",
@@ -177,8 +183,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "9373ae18dddd359c64a2c88169f19824d85fb251cdd379def738dbd4f85d2d6f",
-      "size": 3519
+      "sha256": "7316d63a3742072bb788a34eba4172d222d4461592b7f17514fc5f7760bfda85",
+      "size": 3747
     },
     {
       "path": "server/archive.js",
@@ -338,10 +344,10 @@
     }
   ],
   "counts": {
-    "client": 27,
+    "client": 28,
     "server": 28
   },
-  "client_size": 1369981,
-  "server_size": 423846,
-  "total_size": 1793827
+  "client_size": 1392234,
+  "server_size": 424074,
+  "total_size": 1816308
 }
