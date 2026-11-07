@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-07T21:28:09.094Z",
+  "generated_at": "2026-11-07T21:34:12.729Z",
   "node": "v22.22.3",
   "measured": {
     "pull_200_empty_bytes": 967,
@@ -7,8 +7,8 @@
     "pull_200_bytes": 967,
     "push_120_bytes": 19737,
     "backoff_jitter_range": [
-      509,
-      988
+      501,
+      982
     ],
     "reconnect_spread_buckets": 21,
     "probes_idle_day": 300,
