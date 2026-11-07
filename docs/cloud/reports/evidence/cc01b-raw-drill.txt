@@ -1,0 +1,46 @@
+DRILL-01B — تمرین واقعی مدل مدرسه/پلن/اشتراک و چرخهٔ وضعیت
+WORK=/tmp/payesh-01b-drill-WMadhV
+TENANT_A=schdf8109d8 TENANT_B=sch449b03a2
+LIFECYCLE_RUN tenant_a=schdf8109d8 tenant_b=sch449b03a2 transitions_allowed=13 forbidden=3 events=4 quota_cap=300/250/2048msgs=12 duration_ms=989
+SUB_STATE status=active events=4
+✓ S1 پنج موجودیت اصلی ساخته شد (tenant/plan/subscription/event/invoice/support_grant)  ::  tables=app_record,app_user,invoice,plan,subscription,subscription_event,support_grant,tenant
+✓ S2 storage_prefix غیر از t/<tenant>/ ⇒ ساخت مدرسه رد می‌شود  ::  rejected=BAD-STORAGE-PREFIX,BAD-STORAGE-PREFIX good=true
+✓ S3 یکتایی code و storage_prefix در tenant  ::  dup_code=true dup_prefix=true
+✓ S4 پلن حذف نمی‌شود؛ بازنشستگی با is_public=0 + archived_at  ::  archived->is_public=0
+✓ S5 قید «یک اشتراک جاری برای هر مدرسه» واقعاً اعمال می‌شود  ::  second-current-subscription-rejected
+✓ S6 invoice در v1 فقط خواندنی است (هیچ مسیر نوشتنی در مدل)  ::  columns=11
+✓ S7 support_grant ≤۷۲ ساعت و بدون تأیید مالک صادر نمی‌شود  ::  hours=72 good=true
+✓ T1 هر ۱۳ گذار مجاز جدول §۳.۱ پذیرفته می‌شود  ::  allowed_transitions=13
+✓ T2 گذارهای ممنوع رد می‌شوند (expired→grace، canceled→active، draft→active)  ::  expired→grace=FORBIDDEN-TRANSITION canceled→active=FORBIDDEN-TRANSITION
+✓ T3 گذار بدون مجوز نقش رد می‌شود (system نمی‌تواند ساسپند را فعال کند)  ::  FORBIDDEN-ACTOR
+✓ T4 گذار مجاز، ردیف subscription_event می‌نویسد و version را بالا می‌برد  ::  event=1 version=1→2
+✓ T5 کلید idempotency تکراری ⇒ گذار رد و وضعیت بدون تغییر (rollback)  ::  error=DUPLICATE-KEY status=grace
+✓ T6 tenancy مدرسه archived ⇒ حتی با اشتراک active سرویس داده نمی‌شود  ::  code=subscription_canceled
+✓ T7 gate فقط subscription.status را می‌خواند (tenant.status فقط استثنای archived)  ::  live=true suspended=false archived=false
+✓ T8 جدول §۳.۱ منبع واحد است: گذارهایی که فقط در نمودار دیده می‌شوند (grace→active) پذیرفته نمی‌شوند  ::  grace→active=FORBIDDEN (تمدید در grace فقط تمدید ends_at است؛ رفع ابهام نمودار: REVIEW-01B-CONDITIONS)
+✓ L1 active: هر ۷ نقش مدرسه وارد می‌شوند  ::  roles=7
+✓ L2 grace: ورود مجاز است و هشدار ارفاقی به مدیر برمی‌گردد  ::  warning=true
+✓ L3 suspended: فقط مدیر وارد می‌شود و بقیه ۴۰۳ subscription_suspended می‌گیرند  ::  mgr=true others_403=6
+✓ L4 expired: هیچ نقشی (حتی مدیر) وارد نمی‌شود — ۴۰۳ subscription_expired  ::  roles_blocked=7
+✓ L5 canceled: ورود بسته است؛ مسیر export جدا می‌ماند  ::  subscription_canceled
+✓ L6 کد خطای تعلیق ۴۰۳ است نه ۴۰۱ (تا کلاینت «رمز اشتباه» تفسیر نکند)  ::  http=403
+✓ Q1 سقف کاربر: پر بودن سقف ⇒ ۴۰۹ quota_users  ::  used=300/300
+✓ Q2 سقف دانش‌آموز جدا از سقف کاربر شمرده می‌شود  ::  students=1/250
+✓ Q3 سقف فضا: عبور از storage_mb ⇒ quota_storage  ::  2048-2000=48MB
+✓ Q4 سقف قابلیت: قابلیت بیرون از پلن ⇒ quota_features  ::  quota_features
+✓ Q5 پیش‌نمایش import: عبور کل فایل پیش از ثبت گزارش می‌شود  ::  extra=10
+✓ Q6 هم‌روندی: بدون تراکنش، دو درخواست هم‌زمان سقف را می‌شکنند (اثبات ضرورت BEGIN IMMEDIATE)  ::  non-atomic_leak=2 (سقف=۱)
+✓ Q7 هم‌روندی با BEGIN IMMEDIATE: درخواست دوم ۴۰۹ می‌گیرد و هیچ ردیف اضافه‌ای نوشته نمی‌شود  ::  rows=1 second=quota_users
+✓ R1 تمدید idempotent: همان کلید دو بار ⇒ یک event، یک version+۱  ::  events=1 version=3→4
+✓ R2 OCC: نسخهٔ کهنه ⇒ ۴۰۹ و هیچ تمدید دومی  ::  version_unchanged=true
+✓ R3 تمدید داده‌های مدرسه را بازنویسی/مهاجرت نمی‌دهد  ::  records_untouched
+✓ R4 گذار expired→active فقط از مسیر تمدید مجاز است و actor باید platform_owner باشد  ::  system=FORBIDDEN-ACTOR owner=true
+✓ K1 برچسب «قابل حذف از» = ended_at + ۱۸۰ روز محاسبه می‌شود  ::  label=2027-04-06
+✓ K2 هیچ حذف خودکاری نیست: بدون سه شرط، deletable=false حتی پس از ۱۸۰ روز  ::  elapsed=true deletable_without_conditions=false deletable_with=true
+✓ M1 هر ۱۲ کد پیام فارسی §۷ موجود و غیرخالی است  ::  codes=12
+✓ M2 اپراتور بدون دامنهٔ اشتراک نمی‌تواند تمدید/تعلیق کند  ::  scoped=true support=false
+✓ E1 دیتابیس محصول هیچ جدول tenant/plan/subscription ندارد (F‑05)  ::  product_tables=9 subscription_tables=0
+✓ E2 school_id در کد محصول هاردکد/تک‌مقدار است (نقطهٔ شروع)  ::  school_id_refs_in_server=25
+✓ E3 کد محصول نسبت به پایهٔ ممیزی f2fc472 تغییر نکرده است  ::  product_diff_files=0
+✓ O1 مدل بدون تصمیم صریح، عدد خودسر نمی‌سازد (grace/ends_at باید داده شوند)  ::  grace=DECISION-REQUIRED:P-01b-1 ends_at=DECISION-REQUIRED:P-01b-4
+SUMMARY pass=40 fail=0 total=40

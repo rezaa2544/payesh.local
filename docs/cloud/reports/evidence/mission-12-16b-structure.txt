@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
-branch: arena/dd572cf3-payesh-local
-head: 3802e9c87437a690ca3376188082595a3335f14b
+branch: arena/5e379309-payesh-local
+head: 0ad6bed8b202b8d70d1555dba80f54f96abcb1da
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=260  tables=81  ac_rows=8
@@ -31,21 +31,18 @@ school_id (files): 8
 api routes (unique /api literals in server/index.js): 62
 
 ## وضعیت درخت کاری
- M docs/cloud/15-backup-recovery.md
- M docs/cloud/reports/evidence/gen-mission-15-evidence.sh
+ M docs/cloud/01b-school-plan-subscription.md
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
  M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
- M docs/cloud/reports/evidence/mission-15-backup-probe.txt
- M docs/cloud/reports/evidence/review-closure-01.txt
-?? docs/cloud/reports/REVIEW-15-CONDITIONS.md
-?? docs/cloud/reports/evidence/cc15-gate.txt
-?? docs/cloud/reports/evidence/cc15-negative.txt
-?? docs/cloud/reports/evidence/cc15-raw-drill.txt
-?? docs/cloud/reports/evidence/cc15-raw-runtime.txt
-?? docs/cloud/reports/evidence/cc15-required-labels.txt
-?? docs/cloud/reports/evidence/drill-15-recovery.cjs
-?? docs/cloud/reports/evidence/gen-cc15-evidence.sh
-?? docs/cloud/reports/evidence/tests-run-3802e9c-20261107T012611Z.log
-?? docs/cloud/reports/evidence/verify-cc15-negative.sh
+?? docs/cloud/reports/REVIEW-01B-CONDITIONS.md
+?? docs/cloud/reports/evidence/cc01b-gate.txt
+?? docs/cloud/reports/evidence/cc01b-negative.txt
+?? docs/cloud/reports/evidence/cc01b-raw-drill.txt
+?? docs/cloud/reports/evidence/cc01b-raw-probe.txt
+?? docs/cloud/reports/evidence/cc01b-required-labels.txt
+?? docs/cloud/reports/evidence/drill-01b-subscription-lifecycle.cjs
+?? docs/cloud/reports/evidence/gen-cc01b-evidence.sh
+?? docs/cloud/reports/evidence/tests-run-0ad6bed-20261107T014301Z.log
+?? docs/cloud/reports/evidence/verify-cc01b-negative.sh
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)

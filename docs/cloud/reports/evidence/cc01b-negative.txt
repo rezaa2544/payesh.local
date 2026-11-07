@@ -1,0 +1,21 @@
+# آزمون منفی دروازهٔ CC‑01B — شاهد ناقص/جعلی/کهنه/بی‌زمان
+generated_by: docs/cloud/reports/evidence/verify-cc01b-negative.sh
+head: 0ad6bed8b202b8d70d1555dba80f54f96abcb1da
+generated_at_utc: 2026-11-07T01:42:38Z
+
+PASS  P0  gate accepted clean evidence (control positive): اجرای سالم: تمرین ۴۰/۴۰ + پروب قیدها + Manifest کامل + سند ۱۲/۱۲
+PASS  N1  gate rejected: یک برچسب لازم از بدنهٔ تمرین حذف شد  → CC01B-FAIL: LABEL-MISSING: S1 پنج موجودیت اصلی ساخته شد (tenant/pla
+PASS  N2  gate rejected: برچسب با علامت شکست (✗)  → CC01B-FAIL: DRILL-CROSS: خط ✗ در خروجی تمرین
+PASS  N3  gate rejected: SUMMARY ادعایی با شمارش بدنه نمی‌خواند  → CC01B-FAIL: SUMMARY-MISMATCH: pass=39 ولی بدنه 40 ✓
+PASS  N4  gate rejected: کل جدول گذارها آزموده نشده (۱۳ ← ۱۱)  → CC01B-FAIL: TRANSITIONS-ALLOWED: 11 ≠ ۱۳ گذار جدول §۳.۱
+PASS  N5  gate rejected: کاتالوگ پیام‌ها ناقص است (۱۲ ← ۹)  → CC01B-FAIL: MESSAGES: 9 ≠ ۱۲ کد پیام §۷
+PASS  N6  gate rejected: گزارش بدون زمان اندازه‌گیری‌شده (سنجهٔ مرده)  → CC01B-FAIL: DURATION: زمان اندازه‌گیری‌شده ثبت نشده («LIFEC
+PASS  N7  gate rejected: پایهٔ ممیزی ناموجود ⇒ «۰ فایل تغییر» جعلی نباید PASS بگیرد  → CC01B-FAIL: BASE-MISSING: 0000000 در مخزن نیست (clone کم‌عمق؟) — ه�
+PASS  N8  gate rejected: پروب قیدها ردِ «دو اشتراک جاری» را نشان نمی‌دهد  → CC01B-FAIL: PROBE-EXPECTED-REJECT: دو اشتراک جاری باید رد شود (N5b)
+PASS  N9  gate rejected: یک ردیف معیار از ماتریس سند حذف شد (۱۲ ← ۱۱)  → CC01B-FAIL: AC-COUNT: 11 ردیف AC در سند ۰۱‑ب (باید ۱۲)
+PASS  N10  gate rejected: سند دیگر صریح نمی‌گوید تصمیم‌های §۹ مانع بستن نیستند  → CC01B-FAIL: OPEN-DECISIONS: جملهٔ «هیچ‌کدام مانع بستن ۰۱‑ب �
+PASS  N11  gate rejected: هیچ subscription_event در تمرین ثبت نشده  → CC01B-FAIL: SUB-STATE-EVENTS: هیچ رویداد گذاری ثبت نشد — SUB_STATE
+PASS  N12  gate rejected: سقف‌های پلن در تمرین آزموده نشده‌اند  → CC01B-FAIL: QUOTA-CAP: سقف‌های آزموده‌شده در خروجی نیست �
+
+SUMMARY pass=13 fail=0
+NEGATIVE-OK
