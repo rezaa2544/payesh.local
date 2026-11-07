@@ -46,16 +46,27 @@ RAW_DRILL="$RAW/cc11-raw-drill.txt"
 # ── ۰) پیش‌نیاز ─────────────────────────────────────────────────────────────
 git cat-file -e "$BASE^{commit}" 2>/dev/null || fail "BASE-MISSING: $BASE در مخزن نیست (clone کم‌عمق؟) — ادعای «کد محصول تغییر نکرد» بی‌اعتبار است"
 PROD_N=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS 2>/dev/null | grep -c . || true)
-[ "$PROD_N" = "0" ] || fail "PRODUCT-CHANGED: $PROD_N فایل محصول نسبت به $BASE تغییر کرده — شمارش/جدول‌های ۰۶–۱۰ دیگر به HEAD تعمیم‌پذیر نیست"
+# D‑35: پس از باز شدن دروازهٔ فاز ۳، تغییر کد محصول مجاز است ولی فقط در فایل‌های اعلام‌شده.
+# حکم‌های ممیزی ۰۶–۱۰ به SHA پین‌شدهٔ 04e0636 مربوط‌اند؛ هر تغییر بیرون از این فهرست ⇒ شکست.
+ALLOW="${CC11_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js}"
+OUTSIDE=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS 2>/dev/null | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
+[ "$OUTSIDE" = "0" ] || fail "PRODUCT-SCOPE: $OUTSIDE فایل محصول بیرون از فهرست مجاز D‑35 تغییر کرده — شمارش/جدول‌های ۰۶–۱۰ دیگر به HEAD تعمیم‌پذیر نیست"
 
-# ── ۱) اجرای تمرین ─────────────────────────────────────────────────────────
+# ── ۱) اجرای تمرین روی درخت پین‌شدهٔ ممیزی ──────────────────────────────────
+# D‑35: کد محصول از دروازهٔ فاز ۳ به بعد تغییر می‌کند، ولی حکم‌های ممیزی ۰۶–۱۰
+# مربوط به همان SHA پین‌شده‌اند؛ پس اسکن کد از درخت پین انجام می‌شود، نه از HEAD.
+PIN="${CC11_PIN:-04e0636}"
+AUD=$(mktemp -d)
+trap 'rm -rf "$AUD"; rm -f "$LABELS"' EXIT
+git archive "$PIN" 2>/dev/null | tar -x -C "$AUD" || fail "PIN-TREE: استخراج درخت پین $PIN ناموفق بود"
+export CC11_AUDIT_ROOT="$AUD"
 bash -c "$DRILL" > "$RAW_DRILL" 2>&1
 RC=$?
 [ "$RC" = "0" ] || fail "DRILL-EXIT=$RC — جزئیات: $RAW_DRILL"
 grep -q '^✗ ' "$RAW_DRILL" && fail "DRILL-CROSS: خط ✗ در خروجی تمرین"
 
 # ── ۲) Manifest و حساب SUMMARY ─────────────────────────────────────────────
-LABELS=$(mktemp); trap 'rm -f "$LABELS"' EXIT
+LABELS=$(mktemp)
 sed -n 's/^✓ //p' "$RAW_DRILL" | sed 's/  ::  .*$//' > "$LABELS"
 SUMMARY=$(grep -E '^SUMMARY pass=[0-9]+ fail=[0-9]+ total=[0-9]+$' "$RAW_DRILL" | tail -1)
 [ -n "$SUMMARY" ] || fail "SUMMARY-MISSING"
@@ -120,7 +131,9 @@ TF=$(printf '%s' "$TLINE" | sed -E 's/.*fail=([0-9]+).*/\1/')
   echo "base: $BASE"
   echo "generated_at_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "node: $(node -v)"
+  echo "audit_tree: $PIN"
   echo "product_diff_files: $PROD_N"
+  echo "product_diff_outside_allow: $OUTSIDE"
   echo "drill_summary: $SUMMARY"
   echo "labels_required: $(grep -c . "$MAN")  labels_verified: $BODY"
   echo "claims: $CLAIMS"

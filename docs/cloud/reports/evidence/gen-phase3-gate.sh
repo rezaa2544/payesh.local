@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# دروازهٔ فاز ۳ — «آیا پیش‌نیازهای ورود به فاز ۳ کامل و شاهددار است؟»
-# fail-closed · هرگز دروازه را باز نمی‌کند: باز شدن فقط با تصمیم ثبت‌شدهٔ مالک (D‑34)
+# دروازهٔ فاز ۳ — «آیا فازهای ۰–۲ شاهددار بسته‌اند و فاز ۳ در وضعیت درست است؟»
+# fail-closed · وضعیت دروازه را از تصمیم ثبت‌شدهٔ مالک می‌خواند: D‑34 (بسته) → D‑35 (باز)
 #
 # اجرا: bash docs/cloud/reports/evidence/gen-phase3-gate.sh
-# خروجی: docs/cloud/reports/evidence/phase3-gate.txt ⇒ PHASE3-GATE-READY (GATE_OPEN=0)
+# خروجی: docs/cloud/reports/evidence/phase3-gate.txt ⇒ PHASE3-GATE-OPEN (GATE_OPEN=1)
 set -u
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
@@ -19,6 +19,7 @@ DOC04B="${P3_DOC04B:-docs/cloud/04b-plan-caps-usage-model.md}"
 DOC12="${P3_DOC12:-docs/cloud/12-multitenant-architecture.md}"
 REV12="${P3_REV12:-docs/cloud/reports/REVIEW-12-CONDITIONS.md}"
 BASE="${P3_BASE:-f2fc472}"
+ALLOW="${P3_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js}"
 TS=$(date -u +%Y%m%dT%H%M%SZ)
 HEAD=$(git rev-parse HEAD)
 PRODUCT_PATHS="server client tests scripts package.json package-lock.json installer desktop install deploy"
@@ -35,7 +36,9 @@ ok() { CHECKS=$((CHECKS+1)); }
 # ── ۰) پیش‌نیاز: پایهٔ ممیزی و کد محصول دست‌نخورده ──────────────────────────
 git cat-file -e "$BASE^{commit}" 2>/dev/null || fail "BASE-MISSING: $BASE در مخزن نیست"
 PROD_N=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS | grep -c . || true)
-[ "$PROD_N" = "0" ] || fail "PRODUCT-CHANGED: $PROD_N فایل محصول نسبت به $BASE تغییر کرده"; ok
+# D‑35: دروازه باز است، پس تغییر محصول مجاز است — ولی فقط در فایل‌های اعلام‌شده
+OUTSIDE=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
+[ "$OUTSIDE" = "0" ] || fail "PRODUCT-SCOPE: $OUTSIDE فایل محصول بیرون از فهرست مجاز D‑35 تغییر کرده"; ok
 
 # ── ۱) دروازهٔ فاز ۰: اسناد نیازمندی و اعداد ────────────────────────────────
 for f in 01-scope-and-roles-matrix 01b-school-plan-subscription 02-scenarios 03-local-data-and-manager-backup 04-capacity-and-availability 04b-plan-caps-usage-model; do
@@ -68,8 +71,14 @@ done
 bash docs/cloud/reports/evidence/gen-cc12-closure.sh >"${P3_TMP_CC12:-/tmp/p3-cc12.txt}" 2>&1 \
   || fail "PHASE2-CC12: دروازهٔ بستن ردیف ۱۲ شکست خورد — $(tail -2 /tmp/p3-cc12.txt)"
 grep -q 'CC12-CLOSURE-OK' "${P3_TMP_CC12:-/tmp/p3-cc12.txt}" || fail "PHASE2-CC12: خروجی CC12-CLOSURE-OK نبود"; ok
-grep -qE 'CC.12.2.*PARTIAL' "$REV12" || fail "PHASE2-CC12-2: شرط باز CC‑12‑2 صریحاً PARTIAL نیست"; ok
-grep -qE 'CC.12.2.*PARTIAL' "$DOC12" || fail "PHASE2-CC12-2: در سند ۱۲ هم باید PARTIAL بماند"; ok
+# ── ۳‑ب) دروازه باز شده (D‑35) و شرط CC‑12‑2 با شاهد مسیر محصول بسته است ────
+grep -qE '^\| \*\*D.35\*\*' "$CONST" || fail "PHASE3-D35: تصمیم باز شدن دروازه (D‑35) ثبت نشده"; ok
+bash docs/cloud/reports/evidence/gen-cc12-2-gate.sh >"${P3_TMP_CC122:-/tmp/p3-cc122.txt}" 2>&1 \
+  || fail "PHASE3-CC12-2: دروازهٔ CC‑12‑2 شکست خورد — $(tail -1 "${P3_TMP_CC122:-/tmp/p3-cc122.txt}")"
+grep -q 'CC12-2-CLOSED' "${P3_TMP_CC122:-/tmp/p3-cc122.txt}" || fail "PHASE3-CC12-2: خروجی CC12-2-CLOSED نبود"
+P_LINES=$(grep -oE 'assertions=[0-9]+' "${P3_TMP_CC122:-/tmp/p3-cc122.txt}" | tail -1 | cut -d= -f2); ok
+grep -qE 'CC.12.2.*CLOSED' "$DOC12" || fail "DOC12-CC12-2: سند ۱۲ باید CC‑12‑2 را CLOSED اعلام کند"; ok
+grep -qE 'CC.12.2.*CLOSED' "$REV12" || fail "REV12-CC12-2: سند بازبینی باید بسته شدن CC‑12‑2 را ثبت کند"; ok
 
 # ── ۴) صف واقعی: هیچ ردیف باز نمانده ───────────────────────────────────────
 [ -f "$SNAP" ] || fail "QUEUE-SNAPSHOT: فایل عکس صف نیست"
@@ -84,13 +93,13 @@ grep -q 'Status in {Review, Backlog, Ready, In Progress, Blocked}' "$SNAP" || fa
 grep -qE '^\| \*\*D.34\*\*' "$CONST" || fail "CONST-D34: تصمیم هم‌ترازی وضعیت ثبت نشده"; ok
 STALE=$(awk '/^### وضعیت مأموریت‌ها/,/^### دروازهٔ فاز ۳/' "$CONST" | grep -cE '\*\*Review|\*\*Backlog' || true)
 [ "$STALE" = "0" ] || fail "CONST-STALE: $STALE ردیف وضعیت هنوز Review/Backlog است"
-grep -q 'دروازهٔ فاز ۳: پیش‌نیاز کامل' "$CONST" || fail "CONST-STATUS: خط وضعیت، آمادگی دروازه را اعلام نمی‌کند"; ok
+grep -q 'دروازهٔ فاز ۳ باز است (D‑35)' "$CONST" || fail "CONST-STATUS: خط وضعیت، باز بودن دروازه را اعلام نمی‌کند"; ok
 grep -q 'دروازهٔ فاز ۳ — وضعیت اجرایی' "$CONST" || fail "CONST-GATEBLOCK: بخش «وضعیت اجرایی دروازهٔ فاز ۳» نیست"; ok
 for m in 'CC.12.2' 'F.04' 'F.06'; do
   grep -qE "$m" "$CONST" || fail "CONST-RESIDUAL: مانع $m در سند ثبت نشده"
   ok
 done
-grep -q 'GATE_OPEN\|باز نشده' "$CONST" || fail "CONST-GATE-STATE: وضعیت «باز نشده» ثبت نشده"; ok
+grep -q 'باز — D‑35' "$CONST" || fail "CONST-GATE-STATE: وضعیت باز بودن دروازه در بخش اجرایی ثبت نشده"; ok
 
 # ── ۶) شاهد آزمون محصول (۸۸/۰) ────────────────────────────────────────────
 bash docs/cloud/reports/evidence/gen-audit-evidence.sh >"${P3_TMP_AUDIT:-/tmp/p3-audit.txt}" 2>&1 \
@@ -99,7 +108,7 @@ grep -q 'EVIDENCE-OK' "${P3_TMP_AUDIT:-/tmp/p3-audit.txt}" || fail "EVIDENCE-GAT
 
 # ── خروجی: «آماده» ولی بسته ───────────────────────────────────────────────
 {
-  echo "# دروازهٔ فاز ۳ — آمادگی شاهدها (GATE_OPEN=0)"
+  echo "# دروازهٔ فاز ۳ — باز شده با D‑35 (GATE_OPEN=1)"
   echo "generated_by: docs/cloud/reports/evidence/gen-phase3-gate.sh"
   echo "head: $HEAD"
   echo "base: $BASE"
@@ -111,16 +120,16 @@ grep -q 'EVIDENCE-OK' "${P3_TMP_AUDIT:-/tmp/p3-audit.txt}" || fail "EVIDENCE-GAT
   echo "phase1_gate: PASS (CC11-OK)"
   echo "phase2_gate: PASS (CC12-CLOSURE-OK · شرط ۳/۴)"
   echo "tests: EVIDENCE-OK (88/0)"
-  echo "residuals: CC-12-2(PARTIAL) F-04(P0) F-06(P0) security=UNKNOWN"
-  echo "GATE_OPEN=0"
-  echo "OWNER_DECISION_REQUIRED=1"
+  echo "cc12_2: CLOSED (product path, $P_LINES assertions)"
+  echo "residuals: F-04(P0) F-06(P0) security=UNKNOWN"
+  echo "GATE_OPEN=1"
+  echo "OWNER_DECISION=D-35"
   echo
-  echo "## مانع‌های ورود به فاز ۳ (باید به‌ترتیب بسته شوند)"
-  echo "1) CC-12-2 — اجرای RLS از مسیر محصول (نیازمند تغییر server/)"
-  echo "2) F-04 — کلید فضای ذخیره‌سازی در کلاینت (P0)"
-  echo "3) F-06 — مسیر دوم نوشتن / هویت از شیء کلاینت (P0)"
+  echo "## مانع‌های باقی‌ماندهٔ فاز ۳ (به‌ترتیب بسته شدن)"
+  echo "1) F-04 — کلید فضای ذخیره‌سازی در کلاینت (P0)"
+  echo "2) F-06 — مسیر دوم نوشتن / هویت از شیء کلاینت (P0)"
   echo
-  echo "PHASE3-GATE-READY"
+  echo "PHASE3-GATE-OPEN"
 } > "$OUT"
 echo "→ $OUT"
-echo "PHASE3-GATE-READY checks=$CHECKS open_rows=$OPEN gate_open=0"
+echo "PHASE3-GATE-OPEN checks=$CHECKS open_rows=$OPEN gate_open=1 product_diff=$PROD_N outside=$OUTSIDE"

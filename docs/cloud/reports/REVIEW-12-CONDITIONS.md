@@ -138,3 +138,17 @@ bash docs/cloud/reports/evidence/verify-cc12-1-negative.sh        # ⇒ NEGATIVE
 | نمونه‌های ۱۷/۱۸/۱۹/۲۰/۲۰‑ب/۲۱ | `node prototype/slice-<n>/tests/run.js` | `35 / 40 / 44 / 61 / 71 / 58` — همه `fail=0` |
 
 > نکتهٔ محیطی ثبت‌شده: اجرای نخست `npm test` در این نشست ۳۴ خطا داد، چون `node_modules` نصب نبود (`Cannot find module 'jsdom'/'pngjs'/'java-parser'`). پس از `npm ci` همان SHA به `88/0` رسید؛ شاهد ناموفق حذف شد و در سابقهٔ مخزن ثبت نشد. این خطا رگرسیون محصول نبود.
+
+---
+
+## به‌روزرسانی ۱۴۰۴/۰۸/۱۶ — بسته شدن CC‑12‑2 (تصمیم D‑35)
+
+این بخش **حکم تاریخی بالا را بازنویسی نمی‌کند**؛ فقط وضعیت شرط را پس از باز شدن دروازهٔ فاز ۳ ثبت می‌کند.
+
+| شرط | وضعیت پیشین | وضعیت کنونی | شاهد |
+|---|---|---|---|
+| CC‑12‑2 — اجرای RLS از مسیر محصول | PARTIAL | **CLOSED (۲۰/۲۰)** | `docs/cloud/reports/evidence/cc12-2-product-rls.txt` · `gen-cc12-2-gate.sh` · `verify-cc12-2-negative.sh` |
+
+آنچه تغییر کرد: RLS از **مسیر خود محصول** اجرا شد نه از نمونه — `server/tenancy.js` (طرح، سیاست `app.tenant_id`، زمینهٔ تراکنشی) و مسیر
+HTTP `/api/cloud/tenancy/records` در `server/index.js`، روی PostgreSQL واقعی. جداسازی در لایهٔ داده اثبات شد (نه با فیلتر اپلیکیشن).
+`F‑04` و `F‑06` همچنان P0 باز و بیرون از دامنهٔ این دورند.

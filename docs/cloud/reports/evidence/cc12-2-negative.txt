@@ -1,0 +1,18 @@
+PASS  P0  شاهد سالم پذیرفته شد (کنترل مثبت)
+PASS  N1  رد شد: ادعای P13 از شاهد حذف شد → CC12-2-FAIL: TOTAL-MISMATCH: اعلام 20 ولی 19 ادعای PASS
+PASS  N2  رد شد: ادعای P12 به FAIL تبدیل شد → CC12-2-FAIL: FAIL-LINE: بدنهٔ شاهد 1 خط FAIL دارد
+PASS  N3  رد شد: خط TOTAL عدد FAIL را ۱ می‌گوید → CC12-2-FAIL: TOTAL-FAIL: شاهد FAIL=1 اعلام می‌کند
+PASS  N4  رد شد: خط EXIT=0 حذف شد → CC12-2-FAIL: EXIT: خروجی اجرای RLS صفر نیست
+PASS  N5  رد شد: اثر انگشت محصول جعل شد → CC12-2-FAIL: RAW-TREE-MISMATCH: شاهد از درخت دیگری است (raw=
+PASS  N6  رد شد: خط نسخهٔ PostgreSQL حذف شد → CC12-2-FAIL: PG-VERSION: نسخهٔ PostgreSQL در شاهد نیست (شاه�
+PASS  N7  رد شد: هش هارنس دست‌کاری شد → CC12-2-FAIL: HARNESS-HASH: هش product-rls-path.cjs عوض شده (raw=deadbe
+PASS  N8  رد شد: شناسهٔ ادعای الزامی N0b تغییر کرد → CC12-2-FAIL: REQ-ASSERT: ادعای N0b در شاهد نیست
+PASS  N9  رد شد: سند ۱۲ هنوز PARTIAL است → CC12-2-FAIL: DOC12-CLOSED: سند ۱۲ شرط CC‑12‑2 را CLOSED اعلا
+PASS  N10  رد شد: به‌روزرسانی CC‑12‑2 در سند بازبینی نیست → CC12-2-FAIL: REVIEW12: به‌روزرسانی بسته شدن CC‑12‑2 د�
+PASS  N11  رد شد: تصمیم D‑35 از قانون اساسی حذف شد → CC12-2-FAIL: CONST-D35: تصمیم D‑35 ثبت نشده
+PASS  N12  رد شد: آزمون پایه ۸۷/۱ شده → CC12-2-FAIL: BASE-TESTS: آزمون پایه ۸۸/۰ نیست
+PASS  N13  رد شد: فهرست مجاز D‑35 فقط server/tenancy.js است → CC12-2-FAIL: PRODUCT-SCOPE: 3 فایل محصول بیرون از فهرست �
+PASS  N14  رد شد: پایهٔ ممیزی در مخزن نیست → CC12-2-FAIL: BASE-MISSING: deadbeefdeadbeef در مخزن نیست
+
+SUMMARY pass=15 fail=0
+NEGATIVE-OK

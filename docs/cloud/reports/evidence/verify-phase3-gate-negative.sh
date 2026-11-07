@@ -15,6 +15,7 @@ REV12=docs/cloud/reports/REVIEW-12-CONDITIONS.md
 DOC04=docs/cloud/04-capacity-and-availability.md
 DOC04B=docs/cloud/04b-plan-caps-usage-model.md
 DOC12=docs/cloud/12-multitenant-architecture.md
+RAW122=$D/cc12-2-product-rls.txt
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 LOG=$TMP/result.txt; : > "$LOG"
@@ -35,7 +36,7 @@ reject() { # id desc expected-reason env...
 }
 
 # کنترل مثبت
-if P3_OUT="$TMP/pos.txt" P3_FAILDIR="$TMP" bash "$GATE" >/dev/null 2>&1 && grep -qF 'PHASE3-GATE-READY' "$TMP/pos.txt"; then
+if P3_OUT="$TMP/pos.txt" P3_FAILDIR="$TMP" bash "$GATE" >/dev/null 2>&1 && grep -qF 'PHASE3-GATE-OPEN' "$TMP/pos.txt"; then
   pos P0 "شاهد سالم پذیرفته شد (کنترل مثبت)"
 else
   neg P0 "شاهد سالم رد شد — دروازه معیوب است"
@@ -65,16 +66,16 @@ reject N5 "یک AC سند ۰۴ تأییدیه ندارد" "PHASE0-04" P3_DOC04="
 grep -v 'D‑33' "$DOC04B" > "$TMP/doc04b.nod33.md"
 reject N6 "تصمیم D‑33 از سند ۰۴‑ب حذف شد" "PHASE0-04B" P3_DOC04B="$TMP/doc04b.nod33.md"
 
-# N7 CC‑12‑2 به‌دروغ CLOSED در سند ۱۲ (دروازهٔ تودرتو CC12 هم باید بگیرد)
-sed 's/| \*\*CC‑12‑2\*\*.*$/| **CC‑12‑2** | اجرای RLS از مسیر محصول | **CLOSED** | ادعای بی‌شاهد |/' "$DOC12" > "$TMP/doc12.cc2.md"
-reject N7 "شرط باز CC‑12‑2 به‌دروغ CLOSED شد" "PHASE2-CC12" P3_DOC12="$TMP/doc12.cc2.md"
+# N7 سند ۱۲ که شرط بسته‌شده را دوباره PARTIAL اعلام می‌کند (سند از واقعیت عقب)
+sed 's/CLOSED (۲۰\/۲۰)/PARTIAL/' "$DOC12" > "$TMP/doc12.cc2partial.md"
+reject N7 "سند ۱۲ دوباره CC‑12‑2 را PARTIAL می‌داند" "DOC12-CC12-2" P3_DOC12="$TMP/doc12.cc2partial.md"
 
-# N8 سند بازبینی بدون PARTIAL
-sed 's/PARTIAL/CLOSED/g' "$REV12" > "$TMP/rev12.nopartial.md"
-reject N8 "سند بازبینی دیگر PARTIAL ندارد" "PHASE2-CC12-2" P3_REV12="$TMP/rev12.nopartial.md"
+# N8 سند بازبینی بدون ثبت بسته شدن CC‑12‑2
+grep -vE 'CC.12.2.*CLOSED' "$REV12" > "$TMP/rev12.noclosed.md"
+reject N8 "سند بازبینی بسته شدن CC‑12‑2 را ثبت نکرده" "REV12-CC12-2" P3_REV12="$TMP/rev12.noclosed.md"
 
 # N9 بخش «وضعیت اجرایی دروازهٔ فاز ۳» حذف
-sed 's/^### دروازهٔ فاز ۳ — وضعیت اجرایی (D‑34)$/### (حذف‌شده)/' "$CONST" > "$TMP/const.nogate.md"
+sed 's/^### دروازهٔ فاز ۳ — وضعیت اجرایی (D‑34 → باز شده با D‑35)$/### (حذف‌شده)/' "$CONST" > "$TMP/const.nogate.md"
 reject N9 "بخش وضعیت اجرایی دروازه حذف شد" "CONST-GATEBLOCK" P3_CONST="$TMP/const.nogate.md"
 
 # N10 مانع F‑06 از سند حذف
@@ -82,11 +83,22 @@ sed 's/F‑06/F-XX/g' "$CONST" > "$TMP/const.nof06.md"
 reject N10 "مانع F‑06 از سند حذف شد" "CONST-RESIDUAL" P3_CONST="$TMP/const.nof06.md"
 
 # N11 خط وضعیت، آمادگی دروازه را اعلام نمی‌کند
-sed 's/دروازهٔ فاز ۳: پیش‌نیاز کامل/دروازهٔ فاز ۳: نامعلوم/' "$CONST" > "$TMP/const.nostatus.md"
+sed 's/دروازهٔ فاز ۳ باز است (D‑35)/دروازهٔ فاز ۳: نامعلوم/' "$CONST" > "$TMP/const.nostatus.md"
 reject N11 "خط وضعیت ادعای آمادگی نمی‌کند" "CONST-STATUS" P3_CONST="$TMP/const.nostatus.md"
 
 # N12 پایهٔ ممیزی ناموجود
 reject N12 "پایهٔ ممیزی ناموجود" "BASE-MISSING" P3_BASE=0000000
+
+# N13 تغییر محصول بیرون از فهرست مجاز D‑35
+reject N13 "فهرست مجاز فقط server/tenancy.js است" "PRODUCT-SCOPE" P3_ALLOW="server/tenancy.js"
+
+# N14 تصمیم باز شدن دروازه (D‑35) حذف
+grep -vE '^\| \*\*D.35\*\*' "$CONST" > "$TMP/const.nod35.md"
+reject N14 "تصمیم D‑35 از قانون اساسی حذف شد" "PHASE3-D35" P3_CONST="$TMP/const.nod35.md"
+
+# N15 شاهد CC‑12‑2 ناقص ⇒ دروازهٔ تودرتو باید بگیرد
+grep -v '^PASS  P13  ' "$RAW122" > "$TMP/raw122.broken.txt"
+reject N15 "شاهد CC‑12‑2 یک ادعا کم دارد" "PHASE3-CC12-2" CC122_RAW="$TMP/raw122.broken.txt"
 
 {
   echo "# آزمون منفی دروازهٔ فاز ۳"

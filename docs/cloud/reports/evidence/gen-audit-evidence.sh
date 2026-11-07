@@ -205,8 +205,12 @@ fi
 # ---------- ۶) تغییر کد محصول ----------
 # کد محصول = مسیرهایی که رفتار برنامه را تعیین می‌کنند؛ .github (CI) در اثر انگشت هست ولی
 # تغییرش ممنوع نیست، چون خود شاهد را در CI بالا می‌آورد.
-PROD_DIFF=$(git diff --name-only "$BASE" HEAD -- server client tests installer scripts desktop deploy install package.json package-lock.json 2>/dev/null | wc -l)
-[ "$PROD_DIFF" = "0" ] || fail "product/CI files changed vs audit base $BASE: $PROD_DIFF file(s)"
+# D‑35: از باز شدن دروازهٔ فاز ۳، تغییر کد محصول در فایل‌های اعلام‌شده مجاز است؛
+# هر فایل بیرون از این فهرست ⇒ شکست (بقیهٔ محصول باید نسبت به پایه دست‌نخورده بماند).
+ALLOW="${AUDIT_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js}"
+PROD_DIFF=$(git diff --name-only "$BASE" HEAD -- server client tests installer scripts desktop deploy install package.json package-lock.json 2>/dev/null | wc -l | tr -d ' ')
+OUTSIDE=$(git diff --name-only "$BASE" HEAD -- server client tests installer scripts desktop deploy install package.json package-lock.json 2>/dev/null | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
+[ "$OUTSIDE" = "0" ] || fail "product/CI files outside the D-35 allowlist changed vs audit base $BASE: $OUTSIDE file(s)"
 
 # ---------- ۷) تولید شاهد (فقط در صورت موفقیت) ----------
 if [ "$RC" -ne 0 ]; then
