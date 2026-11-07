@@ -37,6 +37,12 @@ function main() {
     check('مقدار بازنده حفظ شده (late)', open[0].local_value === 'late');
     check('مقدار سروری هم حفظ شده (absent)', open[0].server_value === 'absent');
     check('raised_by_op_id برای ردیابی ثبت شده', open[0].raised_by_op_id === b.op_id);
+    check('تلاش بازنده در audit ثبت شد (conflict.open با همان op_id)',
+      s.audit.some((x) => x.action === 'conflict.open' && x.op_id === b.op_id));
+    check('زنجیرهٔ audit پیوسته است (prev_hash هر ردیف = hash ردیف قبل)', (() => {
+      if (!s.audit.length || s.audit[0].prev_hash !== 'GENESIS') return false;
+      return s.audit.every((x, i) => i === 0 || x.prev_hash === s.audit[i - 1].hash);
+    })());
   }
 
   // ---------- ۲) دو نویسندهٔ فیلدهای جدا ⇒ هر دو ذخیره، بدون تعارض کاربری ----------
@@ -66,6 +72,8 @@ function main() {
     const v1 = s.record(T, 'attendance', key).version;
     const r2 = s.resolve(device('manager'), id, { resolution: 'take_local', reason: 'تأیید دبیر' });
     check('حل اول موفق و نسخه یک‌بار بالا رفت', r1.ok && v1 === 3);
+    check('پس از حل هم هر دو نسخه در ردیف حفظ می‌شوند', r1.conflict.local_value === 'absent' && r1.conflict.server_value === 'present');
+    check('ردیف تعارض پس از حل حذف نمی‌شود (status=resolved)', r1.conflict.status === 'resolved' && s.conflicts.length === 1);
     check('حل دوباره idempotent است (بدون افزایش نسخه)', r2.ok === true && r2.idempotent === true && s.record(T, 'attendance', key).version === v1);
     const rowsBefore = s.conflicts.length;
     const replay = s.apply(device('teacher'), { ...c, op_id: c.op_id });
