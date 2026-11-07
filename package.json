@@ -27,7 +27,8 @@
     "test:phone": "node tests/phone-flow.js",
     "test:restart": "node tests/restart.js",
     "test:live": "node tests/live.js",
-    "test:contract": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/sync-contract.js"
+    "test:contract": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/sync-contract.js",
+    "test:contract:client": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/sync-client-contract.js"
   },
   "license": "MIT",
   "devDependencies": {

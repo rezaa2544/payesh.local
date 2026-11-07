@@ -299,19 +299,28 @@ function mergeRows(collections, deleted) {
 async function pullAll() {
   /* روی گوشی هیچ سروری نیست؛ داده از صندوقچه می‌آید (pullData) */
   if (PHONE_MODE) return;
+  /* قرارداد Sync v1 (§۴): مکان‌نمای مرکب (since, since_id). بدون since_id،
+     ردیف‌هایی که همان مهر زمانیِ مرز صفحه را دارند گم می‌شوند. */
   let since = S.lastSync || '1970-01-01T00:00:00.000Z';
-  let guard = 0, serverTime = null;
-  while (guard++ < 25) {
-    const r = await api('/api/v1/pull?since=' + encodeURIComponent(since));
+  let sinceId = Number(localStorage.getItem('payesh.sync_id') || 0) || 0;
+  let guard = 0, serverTime = null, consumed = false;
+  while (guard++ < 60) {
+    const r = await api('/api/v1/pull?since=' + encodeURIComponent(since) + '&since_id=' + sinceId);
     if (r.server_time) {
       serverTime = r.server_time;
       S.clockOffset = new Date(r.server_time).getTime() - Date.now();
     }
     mergeRows(r.collections, r.deleted);
-    if (!r.more) break;
+    if (!r.more) { consumed = true; break; }
     since = r.next_since || r.server_time;
+    sinceId = Number(r.next_id || 0) || 0;
   }
-  if (serverTime) { S.lastSync = serverTime; localStorage.setItem('payesh.sync_at', serverTime); }
+  if (serverTime && consumed) {
+    S.lastSync = serverTime;
+    localStorage.setItem('payesh.sync_at', serverTime);
+    /* مکان‌نمای مصرف‌شده تا server_time جلو رفت؛ id از صفر شروع می‌شود */
+    localStorage.setItem('payesh.sync_id', '0');
+  }
   saveCache();
 }
 

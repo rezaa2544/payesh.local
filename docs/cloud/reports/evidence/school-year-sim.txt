@@ -1,20 +1,20 @@
 # شبیه‌سازی سال تحصیلی چند‌مدرسه‌ای — شاهد خام
 # تولید: node docs/cloud/reports/evidence/sim/school-year-sim.mjs
-# زمان: 2026-11-07T14:41:04.926Z
-# head: aa3f7db
-# harness_sha256: 1a7ac68716d875ca9db902c0cda973960f5d9f0b0e8534d6ab0d79b69ae2acf0
+# زمان: 2026-11-07T15:02:12.598Z
+# head: 9edfeee
+# harness_sha256: e16696fc9ac19c326070a4f3a60656ba97ad12fbe75a2ba6513e820b3cc1d3e3
 # node: v22.22.3 · os: linux · cpus: 2
 # config: {"schools":4,"students":400,"teachers":30,"parents":120,"classes":12,"days":180,"portBase":3810,"root":"/tmp/payesh-sim","batch":200,"subjects":8}
 
-PASS  S-01  همهٔ نمونه‌های مدرسه بالا آمدند و /api/readyz پاسخ داد  → 3810:233ms 3811:290ms 3812:164ms 3813:282ms
-PASS  S-02  راه‌اندازی اولیه (setup) هر مدرسه انجام شد و نشست مدیر صادر شد  → 4 مدرسه · 219ms
-PASS  S-03  ساخت ساختار و کاربران از مسیر sync محصول  → کاربران کل=2212 · دانش‌آموز/مدرسه=400 · 83959ms
-PASS  S-04  ورود همهٔ نقش‌ها (مدیر/دبیر/دانش‌آموز/ولی/مشاور/سرایدار) با دستگاه مستقل  → ورود موفق=144 · 5771ms
+PASS  S-01  همهٔ نمونه‌های مدرسه بالا آمدند و /api/readyz پاسخ داد  → 3810:203ms 3811:170ms 3812:275ms 3813:272ms
+PASS  S-02  راه‌اندازی اولیه (setup) هر مدرسه انجام شد و نشست مدیر صادر شد  → 4 مدرسه · 187ms
+PASS  S-03  ساخت ساختار و کاربران از مسیر sync محصول  → کاربران کل=2212 · دانش‌آموز/مدرسه=400 · 79244ms
+PASS  S-04  ورود همهٔ نقش‌ها (مدیر/دبیر/دانش‌آموز/ولی/مشاور/سرایدار) با دستگاه مستقل  → ورود موفق=144 · 5571ms
 PASS  P-01  سقف ۲۰۰ عملیات در هر push اعمال می‌شود  → error=too_many_ops
-PASS  P-02  تکرار همان بسته (replay) دوباره ثبت نمی‌شود  → first=1 second_duplicate={"uid":"replay-1794062015718","duplicate":true}
-PASS  P-03  دانش‌آموز نمی‌تواند حضور و غیاب بنویسد  → rejected={"uid":"sw-1794062015724","error":"role_denied"}
-PASS  P-04  دبیر در کلاس خارج از اسکوپ نمی‌تواند بنویسد  → کلاس دبیر=1,6,11 کلاس هدف=2 rejected={"uid":"to-1794062015726","error":"out_of_scope"}
-PASS  P-05  تغییر نقش از مسیر sync توسط دبیر رد می‌شود (F-02)  → rejected={"uid":"rc-1794062015727","error":"role_change_denied","conflict_id":1}
+PASS  P-02  تکرار همان بسته (replay) دوباره ثبت نمی‌شود  → first=1 second_duplicate={"uid":"replay-1794063285031","duplicate":true}
+PASS  P-03  دانش‌آموز نمی‌تواند حضور و غیاب بنویسد  → rejected={"uid":"sw-1794063285038","error":"role_denied"}
+PASS  P-04  دبیر در کلاس خارج از اسکوپ نمی‌تواند بنویسد  → کلاس دبیر=1,6,11 کلاس هدف=2 rejected={"uid":"to-1794063285040","error":"out_of_scope"}
+PASS  P-05  تغییر نقش از مسیر sync توسط دبیر رد می‌شود (F-02)  → rejected={"uid":"rc-1794063285041","error":"role_change_denied","conflict_id":1}
 PASS  P-06  ولی نمی‌تواند مرخصی را «تأییدشده» ثبت کند (به pending تبدیل می‌شود)  → status=pending
 PASS  P-07  میدان school_id/tenant_id کلاینتی نادیده گرفته می‌شود (F-05)  → school_id=1 tenant_id=undefined
 PASS  P-08  دانش‌آموز فقط رکورد خودش را می‌بیند (اسکوپ سروری)  → users=1 خارج از اسکوپ=0
@@ -26,57 +26,57 @@ PASS  P-14  مشاور می‌تواند یادداشت مشاوره ثبت کن
 PASS  P-15  دبیر به یادداشت‌های محرمانهٔ مشاوره دسترسی ندارد  → rows=0
 PASS  P-11  پس از خروج، توکن قبلی رد می‌شود (401)  → status=401
 PASS  W-03  مدیر درخواست‌های مرخصی ولی را تأیید کرد (جریان تأیید واقعی)  → approved=361 از 361 درخواست
-FAIL  W-04  خواندن کل مجموعهٔ حضور با صفحه‌بندی، کامل و بدون تکرار بود  → pages=24 rows=71998 unique=71998 bootstrap=72000
-PASS  W-01  سال تحصیلی شبیه‌سازی شد (حضور/نمره/مرخصی/کارکنان/اطلاعیه/تکلیف/انضباط/مشاوره)  → ops=350435 در 402s (871 ops/s)
-PASS  W-02  نمرات جلسهٔ تأیید مدیر را طی کردند و approved شدند  → approved=19199
+PASS  W-04  خواندن کل مجموعهٔ حضور با صفحه‌بندی، کامل و بدون تکرار بود  → pages=24 rows=72000 unique=72000 bootstrap=72000
+PASS  W-01  سال تحصیلی شبیه‌سازی شد (حضور/نمره/مرخصی/کارکنان/اطلاعیه/تکلیف/انضباط/مشاوره)  → ops=350436 در 396s (884 ops/s)
+PASS  W-02  نمرات جلسهٔ تأیید مدیر را طی کردند و approved شدند  → approved=19200
 PASS  W-05  جریان مشاوره فعال بود: یادداشت مشاوره برای دانش‌آموزان ثبت شد  → یادداشت‌های ثبت‌شده=68 (۴ مدرسه)
-PASS  C-01  هم‌زمانی: چند دستگاه هم‌زمان می‌نویسند و همهٔ ردیف‌ها ثبت می‌شوند  → 8 دستگاه · 268/268 ردیف در 327ms (820 ops/s) · ردشده=0 · تعارض=0
-PASS  F-01  قطعی ناگهانی (SIGKILL) و بازگشت: هیچ دادهٔ ثبت‌شده‌ای از دست نرفت  → قبل=72268 بعد=72302 رشد=34/34 downtime=142ms
+PASS  C-01  هم‌زمانی: چند دستگاه هم‌زمان می‌نویسند و همهٔ ردیف‌ها ثبت می‌شوند  → 8 دستگاه · 268/268 ردیف در 334ms (802 ops/s) · ردشده=0 · تعارض=0
+PASS  F-01  قطعی ناگهانی (SIGKILL) و بازگشت: هیچ دادهٔ ثبت‌شده‌ای از دست نرفت  → قبل=72268 بعد=72302 رشد=34/34 downtime=145ms
 PASS  F-02  بازفرست بسته پس از قطعی: ردیف تکراری ساخته نشد (idempotency)  → total_rows=34/34 تکراری‌های علامت‌خورده=17/17
 PASS  F-03  تعارض هم‌زمان (OCC) به‌جای بازنویسی کور، ثبت و برای تصمیم نگه داشته شد  → conflict_id=2
 PASS  F-04  حل تعارض فقط با مدیر مجاز است  → teacher_status=403
-PASS  F-05  بکاپ SQLite و آینهٔ امضاشده ساخته شد  → file=payesh-2026-11-07T14-40-18-504Z.sqlite size=69521408B · snapshot=10149KB
+PASS  F-05  بکاپ SQLite و آینهٔ امضاشده ساخته شد  → file=payesh-2026-11-07T15-01-21-998Z.sqlite size=73523200B · snapshot=10149KB
 PASS  F-06  بازیابی از پشتیبان، وضعیت را به لحظهٔ بکاپ برگرداند (بدون از دست دادن ساختار)  → restore=200 users before=553 after=553
 PASS  F-07  توکن یک مدرسه روی نمونهٔ مدرسهٔ دیگر پذیرفته نمی‌شود  → status=401
 PASS  F-08  محدودیت نرخ ورود (brute-force) فعال است  → اولین 429 در تلاش 21
 PASS  F-09  خروجی CSV هیچ هش/رمز خام/اعتبارنامهٔ قابل‌استفاده ندارد (SEC-01)  → bytes=85732 هش/رمز خام=false
 SKIP  F-10  تیکت دستگاه گوشی ۲۰۰ روزه (نیازمند پیکربندی ابری در این مدرسه)  → در این نمونه ابر پیکربندی نشده: {"ok":false,"error":"no_cloud"}
-PASS  I-01  یکپارچگی دادهٔ مدرسهٔ 1 (SQLite + ارجاع‌ها + نبود رمز خام)  → integrity=ok rows=83895 orphan=0 رمز خام=0 db=69MB
-PASS  I-02  یکپارچگی دادهٔ مدرسهٔ 2 (SQLite + ارجاع‌ها + نبود رمز خام)  → integrity=ok rows=83584 orphan=0 رمز خام=0 db=68MB
-PASS  I-03  یکپارچگی دادهٔ مدرسهٔ 3 (SQLite + ارجاع‌ها + نبود رمز خام)  → integrity=ok rows=83584 orphan=0 رمز خام=0 db=68MB
-PASS  I-04  یکپارچگی دادهٔ مدرسهٔ 4 (SQLite + ارجاع‌ها + نبود رمز خام)  → integrity=ok rows=83584 orphan=0 رمز خام=0 db=68MB
-PASS  I-99  جمع ردیف‌های واقعی ثبت‌شده در همهٔ مدارس  → total_rows=334647 · db_total=274MB
-# پیشرفت سال: روز 1/180 (2026-09-23) · ops=1788 · 882 ops/s · 2s
-# پیشرفت سال: روز 21/180 (2026-10-21) · ops=36452 · 874 ops/s · 42s
-# پیشرفت سال: روز 41/180 (2026-11-18) · ops=71124 · 851 ops/s · 84s
-# پیشرفت سال: روز 61/180 (2026-12-16) · ops=105792 · 854 ops/s · 124s
-# پیشرفت سال: روز 81/180 (2027-01-13) · ops=140464 · 854 ops/s · 164s
-# پیشرفت سال: روز 101/180 (2027-02-10) · ops=175136 · 860 ops/s · 204s
-# پیشرفت سال: روز 121/180 (2027-03-10) · ops=209804 · 856 ops/s · 245s
-# پیشرفت سال: روز 141/180 (2027-04-07) · ops=244472 · 860 ops/s · 284s
-# پیشرفت سال: روز 161/180 (2027-05-05) · ops=279144 · 857 ops/s · 326s
-# پیشرفت سال: روز 180/180 (2027-06-01) · ops=312036 · 857 ops/s · 364s
+PASS  I-01  یکپارچگی دادهٔ مدرسهٔ 1 (SQLite + ارجاع‌ها + نبود رمز خام)  → integrity=ok rows=83895 orphan=0 رمز خام=0 db=73MB
+PASS  I-02  یکپارچگی دادهٔ مدرسهٔ 2 (SQLite + ارجاع‌ها + نبود رمز خام)  → integrity=ok rows=83584 orphan=0 رمز خام=0 db=73MB
+PASS  I-03  یکپارچگی دادهٔ مدرسهٔ 3 (SQLite + ارجاع‌ها + نبود رمز خام)  → integrity=ok rows=83584 orphan=0 رمز خام=0 db=73MB
+PASS  I-04  یکپارچگی دادهٔ مدرسهٔ 4 (SQLite + ارجاع‌ها + نبود رمز خام)  → integrity=ok rows=83584 orphan=0 رمز خام=0 db=73MB
+PASS  I-99  جمع ردیف‌های واقعی ثبت‌شده در همهٔ مدارس  → total_rows=334647 · db_total=291MB
+# پیشرفت سال: روز 1/180 (2026-09-23) · ops=1788 · 807 ops/s · 2s
+# پیشرفت سال: روز 21/180 (2026-10-21) · ops=36452 · 821 ops/s · 44s
+# پیشرفت سال: روز 41/180 (2026-11-18) · ops=71124 · 859 ops/s · 83s
+# پیشرفت سال: روز 61/180 (2026-12-16) · ops=105792 · 891 ops/s · 119s
+# پیشرفت سال: روز 81/180 (2027-01-13) · ops=140464 · 900 ops/s · 156s
+# پیشرفت سال: روز 101/180 (2027-02-10) · ops=175136 · 903 ops/s · 194s
+# پیشرفت سال: روز 121/180 (2027-03-10) · ops=209804 · 893 ops/s · 235s
+# پیشرفت سال: روز 141/180 (2027-04-07) · ops=244472 · 893 ops/s · 274s
+# پیشرفت سال: روز 161/180 (2027-05-05) · ops=279144 · 885 ops/s · 316s
+# پیشرفت سال: روز 180/180 (2027-06-01) · ops=312036 · 875 ops/s · 357s
 # نمرات نوبت اول: 9600 ردیف
 # نمرات نوبت دوم: 19200 ردیف
 # مشاهده: خروجی CSV فیلد password_enc (رمز رمزنگاری‌شده با کلید سرور) را هم بیرون می‌دهد؛ متن خام نیست ولی بهتر است حذف شود (پیشنهاد سخت‌سازی، نه شکست قابلیت).
 # F-10: تیکت گوشی در این شبیه‌سازی قابل صدور نبود (بدون پیکربندی S3). TTL=۲۰۰ روز قبلاً در ردیف ۲۲ اثبات شده است.
 
-year: days=180 schools=4 ops=350435 ops_per_s=871 seconds=402
-faults: {"down_ms":142,"before_attendance":72268,"after_attendance":72302,"growth":34,"expected_rows":34,"duplicates_on_retry":17,"first_applied":17,"retry_applied":34} · conflict={"conflict_id":2,"resolved":true,"by_teacher_status":403} · backup_restore=true
-integrity: school0:ok/rows=83895/orphan=0/db=69MB | school1:ok/rows=83584/orphan=0/db=68MB | school2:ok/rows=83584/orphan=0/db=68MB | school3:ok/rows=83584/orphan=0/db=68MB
-latency: POST /api/setup n=4 p50=54.71ms p95=63.41ms p99=63.41ms
-latency: POST /api/sync n=10067 p50=37.033ms p95=58.005ms p99=190.889ms
-latency: GET /api/v1/pull n=224 p50=19.008ms p95=34.585ms p99=44.527ms
-latency: POST /api/auth/login n=166 p50=37.28ms p95=54.359ms p99=63.063ms
-latency: POST /api/auth/logout n=1 p50=2.144ms p95=2.144ms p99=2.144ms
-latency: GET /api/me n=2 p50=1.941ms p95=1.941ms p99=1.941ms
-latency: GET /api/bootstrap n=6 p50=20.161ms p95=57.58ms p99=57.58ms
-latency: POST /api/conflicts/3/resolve n=1 p50=3.294ms p95=3.294ms p99=3.294ms
-latency: POST /api/conflicts/2/resolve n=1 p50=3.616ms p95=3.616ms p99=3.616ms
-latency: POST /api/admin/backup n=1 p50=185.561ms p95=185.561ms p99=185.561ms
-latency: POST /api/admin/mirror/refresh n=1 p50=3082.276ms p95=3082.276ms p99=3082.276ms
-latency: POST /api/phone/ticket n=1 p50=3.403ms p95=3.403ms p99=3.403ms
+year: days=180 schools=4 ops=350436 ops_per_s=884 seconds=396
+faults: {"down_ms":145,"before_attendance":72268,"after_attendance":72302,"growth":34,"expected_rows":34,"duplicates_on_retry":17,"first_applied":17,"retry_applied":34} · conflict={"conflict_id":2,"resolved":true,"by_teacher_status":403} · backup_restore=true
+integrity: school0:ok/rows=83895/orphan=0/db=73MB | school1:ok/rows=83584/orphan=0/db=73MB | school2:ok/rows=83584/orphan=0/db=73MB | school3:ok/rows=83584/orphan=0/db=73MB
+latency: POST /api/setup n=4 p50=48.208ms p95=48.545ms p99=48.545ms
+latency: POST /api/sync n=10067 p50=36.16ms p95=57.905ms p99=200.434ms
+latency: GET /api/v1/pull n=224 p50=21.344ms p95=36.491ms p99=40.841ms
+latency: POST /api/auth/login n=166 p50=36.831ms p95=45.724ms p99=65.033ms
+latency: POST /api/auth/logout n=1 p50=1.93ms p95=1.93ms p99=1.93ms
+latency: GET /api/me n=2 p50=2.489ms p95=2.489ms p99=2.489ms
+latency: GET /api/bootstrap n=6 p50=22.771ms p95=55.643ms p99=55.643ms
+latency: POST /api/conflicts/3/resolve n=1 p50=2.214ms p95=2.214ms p99=2.214ms
+latency: POST /api/conflicts/2/resolve n=1 p50=2.597ms p95=2.597ms p99=2.597ms
+latency: POST /api/admin/backup n=1 p50=181.906ms p95=181.906ms p99=181.906ms
+latency: POST /api/admin/mirror/refresh n=1 p50=3107.12ms p95=3107.12ms p99=3107.12ms
+latency: POST /api/phone/ticket n=1 p50=2.918ms p95=2.918ms p99=2.918ms
 collections(school0): attendance=72304 staff_attendance=5400 grades=4800 users=553 homework=432 parent_links=120 leaves=91 announcements=78 schedule=72 discipline=20 counselor_notes=18 internships=14 classes=12 subjects=8
-memory: 3810=493MB 3811=132MB 3812=141MB 3813=164MB
-calls=10475 transport_errors=0 http4xx_expected=25 http5xx=0 checks=40 failed=1
-SIM-FAIL checks=40
+memory: 3810=502MB 3811=138MB 3812=139MB 3813=178MB
+calls=10475 transport_errors=0 http4xx_expected=26 http5xx=0 checks=40 failed=0
+SIM-OK checks=40
