@@ -1,8 +1,8 @@
 # شاهد خام نمونهٔ ۲۰‑ب — مجوز اضطراری/مرز اپراتور
 # تولید: bash docs/cloud/reports/evidence/gen-cc12b-evidence.sh
 # فرمان: node prototype/slice-20b/tests/run.js
-# زمان: 2026-11-07T00:34:47Z
-# HEAD: 54b7236402db21105e544a28298b729d787df047
+# زمان: 2026-11-07T00:35:47Z
+# HEAD: 969899561721c0b9175bbbed7c30bc4a87a37beb
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 
 ✓ I1 خواندن ردیف خودی مجاز است

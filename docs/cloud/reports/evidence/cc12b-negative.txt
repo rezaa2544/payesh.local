@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ ۱۲‑ب
 # تولید: bash docs/cloud/reports/evidence/verify-cc12b-negative.sh
-# زمان: 2026-11-07T00:34:56Z
-# HEAD: 54b7236402db21105e544a28298b729d787df047
+# زمان: 2026-11-07T00:35:48Z
+# HEAD: 969899561721c0b9175bbbed7c30bc4a87a37beb
 
 PASS  P0  gate accepted clean evidence (control positive)
 PASS  N1  gate rejected: یک برچسب لازم از خروجی ۲۰‑ب حذف شد  → exit=1

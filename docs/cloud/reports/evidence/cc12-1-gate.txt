@@ -1,7 +1,7 @@
 # دروازهٔ شرط CC-12-1 (ردیف ۱۲) — بازتولیدپذیری نتیجهٔ RLS
 # تولید: bash docs/cloud/reports/evidence/gen-cc12-1-evidence.sh
-# زمان: 2026-11-07T00:34:45Z
-# HEAD: 54b7236402db21105e544a28298b729d787df047
+# زمان: 2026-11-07T00:35:48Z
+# HEAD: 969899561721c0b9175bbbed7c30bc4a87a37beb
 # شاهد خام: docs/cloud/reports/evidence/mission-12-cc1-rls-repro.txt
 
 PASS  EXIT=0
