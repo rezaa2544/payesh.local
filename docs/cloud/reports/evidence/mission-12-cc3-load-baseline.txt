@@ -1,0 +1,36 @@
+# شاهد سنجش بار poll — خط پایهٔ محلی (ردیف ۰۴ AC‑۱۰ · شرط CC‑12‑3 ردیف ۱۲)
+#
+# فرمان بازتولید:
+#   node docs/cloud/reports/evidence/bench-poll-load.cjs --devices=1,8,32,96,192,384,768 --seconds=6
+#   for i in 1 2 3; do node docs/cloud/reports/evidence/bench-poll-load.cjs --devices=768 --seconds=6; done
+#
+# روش: سرور واقعی محصول (server/index.js، بدون تغییر) روی پورت آزاد + پوشهٔ دادهٔ موقت؛
+#       هر «دستگاه» یک poll در ثانیه به /api/v1/pull (الگوی ۰۴: RPS_poll = دستگاه ÷ ۱s).
+#       p95 ≥ ۱۰۰۰ms ⇒ poll بعدی روی poll قبلی می‌افتد ⇒ سقف این میزبان.
+#
+# دامنهٔ ادعا: تک‌میزبان، تک‌مستأجر، دادهٔ کوچک. هیچ ادعای مقیاس تولیدی/SLA نیست.
+node: v22.22.3
+cpus: 2
+kernel: Linux 6.1.158+
+generated_at_utc: 2026-11-07T07:01:39Z
+
+## پویش کامل (۶ ثانیه در هر سطح)
+BENCH devices=1 reqs=6 ok=6 errors=0 p50_ms=5 p95_ms=6 p99_ms=6 max_ms=6 rps=1 cpu_pct=2.2 wall_s=6.01
+BENCH devices=8 reqs=48 ok=48 errors=0 p50_ms=6 p95_ms=12 p99_ms=15 max_ms=15 rps=7.99 cpu_pct=2.7 wall_s=6.01
+BENCH devices=32 reqs=192 ok=192 errors=0 p50_ms=28 p95_ms=51 p99_ms=64 max_ms=66 rps=31.91 cpu_pct=5 wall_s=6.02
+BENCH devices=96 reqs=576 ok=576 errors=0 p50_ms=74 p95_ms=158 p99_ms=188 max_ms=194 rps=95.54 cpu_pct=10.1 wall_s=6.03
+BENCH devices=192 reqs=1152 ok=1152 errors=0 p50_ms=125 p95_ms=244 p99_ms=301 max_ms=316 rps=189.97 cpu_pct=17.3 wall_s=6.06
+BENCH devices=384 reqs=2304 ok=2304 errors=0 p50_ms=183 p95_ms=486 p99_ms=605 max_ms=658 rps=380.07 cpu_pct=28.5 wall_s=6.06
+BENCH devices=768 reqs=4608 ok=4608 errors=0 p50_ms=179 p95_ms=914 p99_ms=1806 max_ms=1917 rps=661.4 cpu_pct=43.8 wall_s=6.97
+BENCH-CAP max_ok_devices=768 threshold_ms=1000 first_fail_devices=none node=v22.22.3 cpus=2 platform=linux
+BENCH-CLAIM scope=local_single_host no_production_scale_claim=1 poll_ms=1000 machines=2
+
+## تکرار ۷۶۸ دستگاه (سه نمونه)
+BENCH devices=768 reqs=4509 ok=4509 errors=0 p50_ms=181 p95_ms=1628 p99_ms=2497 max_ms=2656 rps=644.23 cpu_pct=44.9 wall_s=7
+BENCH devices=768 reqs=4544 ok=4544 errors=0 p50_ms=169 p95_ms=1582 p99_ms=2068 max_ms=2416 rps=649.42 cpu_pct=42.2 wall_s=7
+BENCH devices=768 reqs=4550 ok=4550 errors=0 p50_ms=165 p95_ms=1572 p99_ms=2447 max_ms=2550 rps=651.3 cpu_pct=43.9 wall_s=6.99
+
+## نتیجهٔ قابل نقل
+- ۳۸۴ دستگاه: p95 ≈ ۴۸۶ms · خطا=۰ · CPU ≈ ۲۸٪ ⇒ زیر آستانه
+- ۷۶۸ دستگاه: p95 ≈ ۹۱۴ms در یک اجرا و ۱۵۷۲–۱۶۲۸ms در سه اجرای تکرار ⇒ روی آستانه/بالای آن
+- خط پایهٔ محافظه‌کارانه: ≤ ۳۸۴ poll هم‌زمان روی ۲ vCPU؛ زانو بین ۳۸۴ و ۷۶۸
