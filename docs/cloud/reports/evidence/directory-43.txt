@@ -1,8 +1,8 @@
 # شاهد ردیف ۴۳ — دایرکتوری مرکزی و مسیردهی مدرسه→cell
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/c2a035f9-payesh-local
-# head_sha: 804dbaae4e5cd11857b488958b4c2e7fef506413
-# generated_at: 2026-11-07T17:21:37Z
+# head_sha: 0f999fd54b81a131b3e6f6b813a70e798957482f
+# generated_at: 2026-11-07T17:23:02Z
 # postgres: 18.6 (embedded-postgres — باینری بیرون از مخزن)
 # node: v22.22.3
 # os: Linux 6.1.158+ x86_64
