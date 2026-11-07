@@ -1,9 +1,9 @@
 # شاهد ردیف ۵۳ — آرشیو دادهٔ سرد و سیاست نگه‌داشت
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/7af2b7f0-payesh-local
-# head_sha: 61c514d1ac846521452ec32b2d474400c05d978f
+# head_sha: bdd7f6bc3e17859c0e625d1b5919011edad34f2e
 # version: 0.8.54
-# generated_at: 2026-11-07T19:06:30Z
+# generated_at: 2026-11-07T19:07:40Z
 # node: v22.22.3
 # os: Linux 6.1.158+ x86_64
 # command: bash docs/cloud/reports/evidence/run-53-archive.sh
@@ -15,7 +15,7 @@ PASS  AR-01  سیاست نگه‌داشت مکتوب و منسجم است (پن�
 PASS  AR-02  کاشته‌شدن 120000 ردیف روی سه سال + اندازه‌گیری پنجرهٔ داغ  → rows=120000 bytes=8402550 span=2024-02-01..2026-11-27
 PASS  AR-03  ذخیره‌ساز شیء آماده است و درخواست بدون امضا را رد می‌کند  → unsigned=403 forged=403 rejected=2
 PASS  AR-04  اجرای آزمایشی (dry-run) هیچ فایلی نمی‌سازد و هیچ ردیفی حذف نمی‌کند  → would_archive=74110 objects=0 rows_kept=120000
-PASS  AR-05  بایگانی واقعی با 12 ماه پنجرهٔ داغ  → objects=105 archived=74110 bytes=1488645 ms=3677 cutoff=2025-11-01
+PASS  AR-05  بایگانی واقعی با 12 ماه پنجرهٔ داغ  → objects=105 archived=74110 bytes=1488645 ms=3724 cutoff=2025-11-01
 PASS  AR-06  همهٔ درخواست‌ها امضای SigV4 معتبر داشتند و هش بدنه تطبیق کرد  → verified=210 (put+verify-read) rejected=2 hash_mismatch=0
 PASS  AR-07  هیچ ردیفی گم نشد: داغِ قبل = داغِ بعد + بایگانی‌شده  → before=120000 hot_after=45890 cold=74110
 PASS  AR-08  پایگاه‌داده فقط «پنجرهٔ داغ» را نگه داشته است  → hot=45890 oldest=2025-11-01 >= cutoff 2025-11-01
@@ -52,8 +52,8 @@ db_bytes_after_vacuum  18882560
 signed_url_ttl_sec     300 (max 900)
 cold_keep_years        7
 signed_url_status      200
-restore_probe          key=payesh/archive/attendance/2024-02.json rows=706 ms=14
-restore_largest        key=payesh/archive/announcements/2025-06.json rows=706 bytes=14415 ms=13
+restore_probe          key=payesh/archive/attendance/2024-02.json rows=706 ms=20
+restore_largest        key=payesh/archive/announcements/2025-06.json rows=706 bytes=14415 ms=15
 
 ARCHIVE-53-SIZES-OK
 
