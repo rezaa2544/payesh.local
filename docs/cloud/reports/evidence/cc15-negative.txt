@@ -1,0 +1,20 @@
+# آزمون منفی دروازهٔ CC‑15 — شاهد ناقص/جعلی/کهنه/بی‌زمان
+generated_by: docs/cloud/reports/evidence/verify-cc15-negative.sh
+head: 3802e9c87437a690ca3376188082595a3335f14b
+generated_at_utc: 2026-11-07T01:27:20Z
+
+PASS  P0  gate accepted clean evidence (control positive): اجرای سالم: تمرین ۳۳/۳۳ + شاهد رفتار امروز تازه + Manifest کامل
+PASS  N1  gate rejected: یک برچسب لازم از بدنهٔ تمرین حذف شد  → CC15-FAIL: LABEL-MISSING: A1 محصول بالا آمد و دادهٔ واقعی ساخ�
+PASS  N2  gate rejected: برچسب با علامت شکست (✗)  → CC15-FAIL: DRILL-CROSS: خط ✗ در خروجی تمرین
+PASS  N3  gate rejected: SUMMARY ادعایی با شمارش بدنه نمی‌خواند  → CC15-FAIL: SUMMARY-MISMATCH: pass=32 ولی بدنه 33 ✓
+PASS  N4  gate rejected: گزارش بکاپ با تعداد رکورد صفر  → CC15-FAIL: BACKUP-RECORDS: تعداد رکورد نامعتبر «0»
+PASS  N5  gate rejected: شمارش پس از بازیابی با قبل نمی‌خواند (اختلاف داده)  → CC15-FAIL: COUNTS-DIFF: شمارش قبل «{"announcements":6,"attendance":36,"classes"
+PASS  N6  gate rejected: گزارش بدون زمان اندازه‌گیری‌شده (سنجهٔ مرده)  → CC15-FAIL: BACKUP-DURATION: زمان اندازه‌گیری‌شده ثبت نشده (�
+PASS  N7  gate rejected: پایهٔ ممیزی ناموجود ⇒ «۰ فایل تغییر» جعلی نباید PASS بگیرد  → CC15-FAIL: BASE-MISSING: 0000000 در مخزن نیست (clone کم‌عمق؟) — هر
+PASS  N8  gate rejected: شاهد رفتار امروز کهنه (head=deadbeef)  → CC15-FAIL: RUNTIME-STALE: head شاهد «deadbeefdeadbeefdeadbeefdeadbeefdeadbeef» ≠
+PASS  N9  gate rejected: یک ردیف معیار از ماتریس سند حذف شد (۱۲ ← ۱۱)  → CC15-FAIL: AC-COUNT: 11 ردیف AC در سند ۱۵ (باید ۱۲)
+PASS  N10  gate rejected: مصرف‌کنندهٔ ورود پس از بازیابی موفق نبوده (login≠200)  → CC15-FAIL: CONSUMER-LOGIN: ورود پس از بازیابی ۲۰۰ نیست — {"login
+PASS  N11  gate rejected: امضای مانیفست کامل نیست (۳۲ بایت به‌جای ۶۴)  → CC15-FAIL: MANIFEST-SIG: امضای مانیفست ۶۴ بایت نیست («32»)
+
+SUMMARY pass=12 fail=0
+NEGATIVE-OK

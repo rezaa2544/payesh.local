@@ -1,8 +1,8 @@
 # شاهد خام نمونهٔ ۱۹ — تعارض و هم‌گرایی
 # تولید: bash docs/cloud/reports/evidence/gen-cc14-evidence.sh
 # فرمان: node prototype/slice-19/tests/run.js
-# زمان: 2026-11-07T01:14:43Z
-# HEAD: 596e82eabe25e71a59574e7b52d41a321ca16d9e
+# زمان: 2026-11-07T01:26:27Z
+# HEAD: 3802e9c87437a690ca3376188082595a3335f14b
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 
 ✓ نویسندهٔ دوم با نسخهٔ کهنه ⇒ ۴۰۹ conflict

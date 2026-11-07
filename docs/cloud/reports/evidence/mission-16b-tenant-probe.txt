@@ -1,14 +1,14 @@
 # شاهد اجرایی مأموریت ۱۶‑ب — رفتار tenancy در کد امروز
 generated_by: docs/cloud/reports/evidence/gen-mission-16b-evidence.sh
 probe: docs/cloud/reports/evidence/probe-16b-tenant.mjs
-branch: arena/16b9ea27-payesh-local
-head: 596e82eabe25e71a59574e7b52d41a321ca16d9e
+branch: arena/dd572cf3-payesh-local
+head: 3802e9c87437a690ca3376188082595a3335f14b
 node: v22.22.3
 note: دیتابیس/بکاپ در mktemp؛ هیچ نوشتنی روی data/ مخزن انجام نمی‌شود
 
 ## اجرا
 PROBE-16B-TENANT — رفتار اجرایی کد امروز
-SHA=596e82eabe25e71a59574e7b52d41a321ca16d9e
+SHA=3802e9c87437a690ca3376188082595a3335f14b
 TEMP_DB=isolated (not repository data/)
 T1 | طرح پایگاه | {"tables":["audit","devices","meta","pair_codes","records","seq","sessions","sqlite_sequence","sync_log"],"records_columns":["collection","id","data","version","ref1","ref2","day","created_at","updated_at","deleted_at"],"has_tenant_column_anywhere":false,"has_school_column":false,"tenancy_tables":[]}
 T2 | راه‌اندازی مدرسهٔ دوم | {"status":400,"ok":false,"error":"already_setup"}

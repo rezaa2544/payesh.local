@@ -1,0 +1,56 @@
+# دروازهٔ CC‑15 — تمرین واقعی بکاپ رمزنگاری‌شده/فاجعه/بازیابی/آشتی
+generated_by: docs/cloud/reports/evidence/gen-cc15-evidence.sh
+head: 3802e9c87437a690ca3376188082595a3335f14b
+base: f2fc472
+generated_at_utc: 2026-11-07T01:27:06Z
+node: v22.22.3
+product_diff_files: 0
+runtime_evidence_head: 3802e9c87437a690ca3376188082595a3335f14b
+drill_summary: SUMMARY pass=33 fail=0 total=33
+labels_required: 33  labels_verified: 33
+backup_run: BACKUP_RUN id=bk-85030c43f86a bytes=101967 records=124 total_ms=2049 restore_write_ms=5 swap_ms=0
+counts_before: {"announcements":6,"attendance":36,"classes":4,"grades":48,"homework":12,"leaves":8,"lookups":7,"school_years":1,"schools":1,"users":1}
+counts_after: {"announcements":6,"attendance":36,"classes":4,"grades":48,"homework":12,"leaves":8,"lookups":7,"school_years":1,"schools":1,"users":1}
+consumers: {"login":200,"session_revoked_status":401,"grades":48,"announcements":6}
+backup_sha256: 2c3dcff9830e5fe871ede4b1b0052100c8296b7df60fac9b675519792398880a  manifest_sig_bytes: 64
+ac_rows: 12  verdict: ۱۲/۱۲
+drill_sha256: 074d3d88544aa1be3e4a2fa45571baf660ac90f022f52ee63fdc03553fd66359
+manifest_sha256: 96c047cf41b2af820f320a720440036f0e37354bd46f02018893964beccd543c
+doc_sha256: da4e615e89a4fd9cff3d520f624ac746eae419e0e11c9b422e989eabda4092cb
+
+## بررسی‌های گذر‌کرده (عین برچسب‌های تمرین)
+✓ A1 محصول بالا آمد و دادهٔ واقعی ساخته شد (setup + sync)  ::  records=124 collections=10 mismatch=none
+✓ A2 پایگاه محصول هیچ ستون tenancy ندارد (نقطهٔ شروع بکاپ per-tenant)  ::  records_cols=10 tenancy_tables=0
+✓ B1 بکاپ B1 در t/<tenant>/backups/db/ نوشته شد  ::  bytes=101967 key=bk-85030c43f86a.pbenc
+✓ B2 فایل بکاپ، SQLite خام نیست (پاکت PBENC2 + GCM)  ::  magic=PBENC2
+✓ B3 اعتبارنامه در بکاپ رمزنگاری‌شده خوانا نیست (هیچ ردیف users در متن رمزشده)  ::  password_hash در ciphertext یافت نشد
+✓ B4 مانیفست با Ed25519 امضا شد و امضا معتبر است  ::  sig=ok sha=ok bytes=ok
+✓ B5 مانیفست شمارش هر مجموعه و SHA هر object را دارد  ::  counts_match=true objects=1
+✓ B6 رمزنگاری با AAD مستأجر/بکاپ/سطح گره خورده است  ::  aad=schd78bfffb|bk-85030c43f86a|B1 wrong-aad-rejected=true
+✓ B7 بکاپ مستأجر دوم با کلید مستأجر اول باز نمی‌شود (GCM)  ::  auth-tag-mismatch
+✓ B8 نگهداشت ۱۴ روزانه + ۱ ماهانه (§۵) رعایت می‌شود و کف ۱۴ شکسته نمی‌شود  ::  keep_daily=14 keep_monthly=1 dropped=8
+✓ D1 فاجعه شبیه‌سازی شد: پایگاه زنده حذف شد  ::  live db removed
+✓ S1 تأیید چهارچشمی: یک تأیید کافی نیست، دو تأییدکنندهٔ متمایز لازم است  ::  one=false two=true duplicate=false
+✓ S2 بازیابی فقط با نقش platform_owner و reason ثبت‌شده مجاز است  ::  owner=true teacher=false no-reason=false
+✓ S3 بازرسی پیش از قرنطینه: امضا + SHA + AAD تأیید شد  ::  verified
+✓ S4 بازیابی در قرنطینه: تعداد ردیف و هش هر جدول با مانیفست می‌خواند  ::  records=124 sha_match=true
+✓ S5 بازیابی کل جدول‌ها را برمی‌گرداند (records/sessions/audit/meta)  ::  tables=records,sessions,devices,audit,meta,seq,sync_log
+✓ S6 ابطال همهٔ نشست‌های مستأجر پس از بازیابی (W1)  ::  revoked=1 active_left=0
+✓ S7 ردیف audit بازیابی: هویت عامل + reason + SHA بکاپ ثبت شد  ::  user_id=1 role=platform_owner sha=2c3dcff9830e
+✓ S8 swap اتمی انجام شد و اثر انگشت پایگاه زنده = پیش از فاجعه  ::  records=124 sha_match=true
+✓ S9 مصرف‌کننده ۱ (ورود): ورود مدیر روی دیتابیس بازیابی‌شده موفق است  ::  status=200
+✓ S10 مصرف‌کننده ۲ (نمره): خواندن نمره‌ها پس از بازیابی، همان تعداد قبل است  ::  grades_after=48 grades_before=48
+✓ S11 مصرف‌کننده ۳ (اطلاعیه/پیام): خواندن اطلاعیه‌ها پس از بازیابی کار می‌کند  ::  announcements_after=6 announcements_before=6
+✓ S12 نشست پیش از بازیابی باطل شد: توکن قدیمی ۴۰۱ می‌گیرد  ::  status=401
+✓ S13 گزارش تمرین زمان/حجم/تعداد رکورد دارد (§۳.۱)  ::  total_ms=2049 restore_write_ms=5 bytes=101967 records=124
+✓ S14 اختلاف قبل/بعد دادهٔ مدرسه صفر است (هیچ ردیفی گم یا تکرار نشد)  ::  count_diff=0 data_hash_diff=0 changed_by_design=audit,sessions
+✓ N1 بکاپ تحریف‌شده (یک بایت ciphertext): پیش از قرنطینه رد و صفر ردیف  ::  reason=BAD-SIGNATURE
+✓ N2 مانیفست دست‌کاری‌شده بدون امضای تازه: امضا رد می‌شود و صفر ردیف  ::  reason=BAD-SIGNATURE
+✓ N3 کلید اشتباه مستأجر: رمزگشایی ناموفق و صفر ردیف  ::  reason=DECRYPT-FAIL: Unsupported state or unable to authenticate data
+✓ N4 بکاپ مستأجر دیگر (tenant mismatch) بازیابی نمی‌شود  ::  reason=TENANT-MISMATCH
+✓ N5 replace از payload کلاینت ممنوع است (حذف انبوه فقط از سرویس پلتفرم)  ::  replace-client=false
+✓ N6 import از B4 به users/sessions/audit هیچ ردیفی نمی‌نویسد  ::  accepted=2 of 5
+✓ N7 پس از نابودی کلید مستأجر: بکاپ غیرقابل خواندن، مانیفست سالم  ::  readable=false manifest_ok=true
+✓ E1 کد محصول نسبت به پایهٔ ممیزی f2fc472 تغییر نکرده است  ::  product_diff_files=0
+
+CC15-OK

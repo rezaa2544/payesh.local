@@ -1,14 +1,14 @@
 # شاهد اجرایی مأموریت ۱۵ — رفتار بکاپ/بازیابی در کد امروز
 generated_by: docs/cloud/reports/evidence/gen-mission-15-evidence.sh
 probe: docs/cloud/reports/evidence/probe-15-backup.mjs
-branch: arena/f1efa594-payesh-local
-head: 7b23b2a353bbf9290fa6c0ab6e41a27c50bacb6f
+branch: arena/dd572cf3-payesh-local
+head: 3802e9c87437a690ca3376188082595a3335f14b
 node: v22.22.3
 note: دیتابیس و فایل‌های بکاپ در mktemp — هیچ نوشتنی روی data/ مخزن انجام نمی‌شود
 
 ## اجرا
 PROBE-15-BACKUP — رفتار اجرایی کد امروز
-SHA=7b23b2a353bbf9290fa6c0ab6e41a27c50bacb6f
+SHA=3802e9c87437a690ca3376188082595a3335f14b
 TEMP_DB=isolated (not repository data/)
 N1 | قالب فایل بکاپ | {"backup_ok":true,"files":1,"newest":"payesh-*.sqlite","magic":"SQLite format 3","plaintext_sqlite":true,"encrypted_envelope_in_response":false,"size_bytes":94208}
 N2 | اعتبارنامه در فایل بکاپ | {"user_rows":3,"rows_with_password_hash":3}
@@ -84,4 +84,5 @@ exit=0
    const KEEP_DAYS = 400;
 
 ## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)
-0
+product_diff_files: 0
+PRODUCT-DIFF=0
