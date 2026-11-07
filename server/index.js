@@ -700,7 +700,7 @@ async function api(req, res, url, ip) {
   }
 
   if (p === '/api/v1/pull' && m === 'GET') {
-    const out = sync.pull(store, actor, { since: q.get('since'), since_id: q.get('since_id'), collections: q.get('collections') });
+    const out = sync.pull(store, actor, { since: q.get('since'), since_seq: q.get('since_seq'), since_id: q.get('since_id'), collections: q.get('collections') });
     return json(out);
   }
 

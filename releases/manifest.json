@@ -1,15 +1,15 @@
 {
-  "version": "0.8.45",
-  "built_at": "2026-11-07T15:19:29.791Z",
+  "version": "0.8.46",
+  "built_at": "2026-11-07T15:16:37.517Z",
   "notes": [],
   "shell": {
-    "android": "0.8.45"
+    "android": "0.8.46"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "c22e7d88561e71180ba417f3aff81bb9d8df747ade864ff915f4d8da5599b7af",
+      "sha256": "8c0499146492ba1d99d57a4a5b99d973d083c92172da04991d356a1c5ea9fe5e",
       "size": 181798
     },
     {
@@ -165,7 +165,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "c56db657f820d8f29ab0356a281f03547c36f24b2d3cfee833ccd17d6e83398d",
+      "sha256": "79e5dff9516f8eb04aa8a9f1dc917aec9796aa07ea5b70ec4d4f83cb05b9998c",
       "size": 2301
     },
     {
@@ -195,8 +195,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "e6a7c27e3ac69e7012d9685d8c8e02775ba60919c401a8182a2d79740963d3a4",
-      "size": 110398
+      "sha256": "8fadc933a2fb09829f3fbc724088d5b14efaf5228c6992c67f6e2e781b0f5d5b",
+      "size": 110429
     },
     {
       "path": "server/live.js",
@@ -249,8 +249,8 @@
     {
       "path": "server/sync.js",
       "kind": "server",
-      "sha256": "a19456751efb48be2012a8e528e190c44c3db3bd2e97c470e4806c1de0a48b79",
-      "size": 14186
+      "sha256": "78f776bd88e02a40dfc54375fa420a8babd243a22ac73dafc103e92cf767a500",
+      "size": 16150
     },
     {
       "path": "server/tenancy.js",
@@ -306,6 +306,6 @@
     "server": 24
   },
   "client_size": 1338554,
-  "server_size": 354331,
-  "total_size": 1692885
+  "server_size": 356326,
+  "total_size": 1694880
 }

@@ -97,3 +97,23 @@ SIM-OK checks=40
   مکان‌نمای قدیمی ۳۰۰۰/۳۵۰۰ (۵۰۰ گم).
 
 MD5 این فایل پس از افزودن این بخش در مخزن ثبت می‌شود؛ بخش ۱ تغییر نکرد.
+
+════════════════════════════════════════════════════════════════════
+بخش ۳ — همراستایی کامل با نام‌های AC (since_seq، idempotency_key)
+تاریخ: 2026-11-07 · head_sha: ba0ef8b · version: 0.8.46
+
+$ npm run test:contract
+22 موفق · 0 ناموفق
+  ✓ pull با since_seq (نام رسمی AC) عیناً مثل since کار می‌کند
+  ✓ pull با since_seq نامعتبر: بی‌خطا از ابتدا (fail-safe، بدون گم‌شدن داده)
+  ✓ push با idempotency_key: تکرار همان کلید ⇒ replayed=true و بدون اعمال دوباره
+  ✓ push با idempotency_key بلندتر از ۱۲۰ نویسه → 400 bad_idempotency_key
+
+$ npm run test:contract:client
+8 موفق · 0 ناموفق   (کلاینت واقعی، همان schema)
+
+$ npm test
+96 موفق · 0 ناموفق
+
+یادداشت انطباق: pull(since_seq, scope) و push(ops[], idempotency_key) اکنون
+با همان نام‌های AC پیاده شده‌اند؛ since و uid به‌عنوان نام‌های سازگار باقی می‌مانند.

@@ -4,38 +4,112 @@
   "title": "قرارداد همگام‌سازی پایش — نسخهٔ ۱",
   "description": "شکل پیام‌های pull و push روی HTTP. مقادیر limits از server/sync.js خوانده شده‌اند (ROW_LIMIT، MAX_OPS).",
   "$defs": {
-    "isoTime": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" },
+    "isoTime": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
     "pullRequest": {
       "type": "object",
       "description": "پارامترهای query برای GET /api/v1/pull",
-      "required": ["since"],
+      "required": [],
       "additionalProperties": true,
       "properties": {
-        "since": { "$ref": "#/$defs/isoTime" },
-        "since_id": { "type": ["integer", "null"], "minimum": 0 },
-        "collections": { "type": "string", "description": "فهرست جدا‌شده با کاما؛ خالی = همهٔ کالکشن‌های پیش‌فرض" }
-      }
+        "since": {
+          "$ref": "#/$defs/isoTime"
+        },
+        "since_id": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "collections": {
+          "type": "string",
+          "description": "فهرست جدا‌شده با کاما؛ خالی = همهٔ کالکشن‌های پیش‌فرض"
+        },
+        "since_seq": {
+          "$ref": "#/$defs/isoTime",
+          "description": "نامِ رسمی AC؛ معادل since"
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "since"
+          ]
+        },
+        {
+          "required": [
+            "since_seq"
+          ]
+        }
+      ]
     },
     "pullResponse": {
       "type": "object",
-      "required": ["ok", "schema_version", "server_time", "since", "since_id", "next_since", "next_id", "more", "limits", "collections", "deleted"],
+      "required": [
+        "ok",
+        "schema_version",
+        "server_time",
+        "since",
+        "since_id",
+        "next_since",
+        "next_id",
+        "more",
+        "limits",
+        "collections",
+        "deleted"
+      ],
       "additionalProperties": true,
       "properties": {
-        "ok": { "const": true },
-        "schema_version": { "const": 1 },
-        "server_time": { "$ref": "#/$defs/isoTime" },
-        "since": { "$ref": "#/$defs/isoTime" },
-        "since_id": { "type": ["integer", "null"] },
-        "next_since": { "type": ["string", "null"] },
-        "next_id": { "type": ["integer", "null"] },
-        "more": { "type": "boolean" },
+        "ok": {
+          "const": true
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "server_time": {
+          "$ref": "#/$defs/isoTime"
+        },
+        "since": {
+          "$ref": "#/$defs/isoTime"
+        },
+        "since_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "next_since": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "next_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "more": {
+          "type": "boolean"
+        },
         "limits": {
           "type": "object",
-          "required": ["row_limit", "max_ops"],
+          "required": [
+            "row_limit",
+            "max_ops"
+          ],
           "additionalProperties": false,
           "properties": {
-            "row_limit": { "const": 3000 },
-            "max_ops": { "const": 200 }
+            "row_limit": {
+              "const": 3000
+            },
+            "max_ops": {
+              "const": 200
+            }
           }
         },
         "collections": {
@@ -45,10 +119,18 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["_version", "id"],
+              "required": [
+                "_version",
+                "id"
+              ],
               "properties": {
-                "id": { "type": "integer" },
-                "_version": { "type": "integer", "minimum": 1 }
+                "id": {
+                  "type": "integer"
+                },
+                "_version": {
+                  "type": "integer",
+                  "minimum": 1
+                }
               }
             }
           }
@@ -57,12 +139,22 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["collection", "id", "at"],
+            "required": [
+              "collection",
+              "id",
+              "at"
+            ],
             "additionalProperties": false,
             "properties": {
-              "collection": { "type": "string" },
-              "id": { "type": "integer" },
-              "at": { "$ref": "#/$defs/isoTime" }
+              "collection": {
+                "type": "string"
+              },
+              "id": {
+                "type": "integer"
+              },
+              "at": {
+                "$ref": "#/$defs/isoTime"
+              }
             }
           }
         }
@@ -70,19 +162,58 @@
       "allOf": [
         {
           "description": "اگر more=false باشد، هیچ مکان‌نمای بعدی وجود ندارد.",
-          "if": { "properties": { "more": { "const": false } }, "required": ["more"] },
-          "then": { "properties": { "next_since": { "type": "null" }, "next_id": { "type": "null" } } }
+          "if": {
+            "properties": {
+              "more": {
+                "const": false
+              }
+            },
+            "required": [
+              "more"
+            ]
+          },
+          "then": {
+            "properties": {
+              "next_since": {
+                "type": "null"
+              },
+              "next_id": {
+                "type": "null"
+              }
+            }
+          }
         },
         {
           "description": "اگر since_id داده شده باشد، مکان‌نمای بعدی هم باید id داشته باشد.",
-          "if": { "properties": { "more": { "const": true } }, "required": ["more"] },
-          "then": { "properties": { "next_since": { "type": "string" }, "next_id": { "type": "integer", "minimum": 0 } } }
+          "if": {
+            "properties": {
+              "more": {
+                "const": true
+              }
+            },
+            "required": [
+              "more"
+            ]
+          },
+          "then": {
+            "properties": {
+              "next_since": {
+                "type": "string"
+              },
+              "next_id": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
         }
       ]
     },
     "pushRequest": {
       "type": "object",
-      "required": ["ops"],
+      "required": [
+        "ops"
+      ],
       "additionalProperties": true,
       "properties": {
         "ops": {
@@ -90,95 +221,239 @@
           "maxItems": 200,
           "items": {
             "type": "object",
-            "required": ["uid", "collection", "type", "data"],
+            "required": [
+              "uid",
+              "collection",
+              "type",
+              "data"
+            ],
             "additionalProperties": true,
             "properties": {
-              "uid": { "type": "string", "minLength": 1, "maxLength": 80 },
-              "collection": { "type": "string", "minLength": 1 },
-              "type": { "enum": ["put", "del"] },
-              "id": { "type": ["integer", "null"], "minimum": 1 },
-              "base_version": { "type": ["integer", "null"], "minimum": 0 },
-              "data": { "type": "object" }
+              "uid": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "collection": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "enum": [
+                  "put",
+                  "del"
+                ]
+              },
+              "id": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "base_version": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "data": {
+                "type": "object"
+              }
             }
           }
+        },
+        "idempotency_key": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "کلید یکتای درخواست؛ تکرار همان کلید ⇒ همان پاسخ با replayed=true و بدون اعمال دوباره"
         }
       }
     },
     "appliedOp": {
       "type": "object",
-      "required": ["uid"],
+      "required": [
+        "uid"
+      ],
       "additionalProperties": false,
       "properties": {
-        "uid": { "type": "string" },
-        "id": { "type": "integer" },
-        "version": { "type": "integer" },
-        "deleted": { "const": true },
-        "duplicate": { "const": true }
+        "uid": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "version": {
+          "type": "integer"
+        },
+        "deleted": {
+          "const": true
+        },
+        "duplicate": {
+          "const": true
+        }
       }
     },
     "conflictOp": {
       "type": "object",
-      "required": ["uid", "collection", "conflict_id"],
+      "required": [
+        "uid",
+        "collection",
+        "conflict_id"
+      ],
       "additionalProperties": true,
       "properties": {
-        "uid": { "type": "string" },
-        "collection": { "type": "string" },
-        "id": { "type": ["integer", "null"] },
-        "server_version": { "type": "integer" },
-        "server": { "type": ["object", "null"] },
-        "conflict_id": { "type": "integer" }
+        "uid": {
+          "type": "string"
+        },
+        "collection": {
+          "type": "string"
+        },
+        "id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "server_version": {
+          "type": "integer"
+        },
+        "server": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "conflict_id": {
+          "type": "integer"
+        }
       }
     },
     "rejectedOp": {
       "type": "object",
-      "required": ["uid", "error"],
+      "required": [
+        "uid",
+        "error"
+      ],
       "additionalProperties": true,
       "properties": {
-        "uid": { "type": "string" },
+        "uid": {
+          "type": "string"
+        },
         "error": {
           "enum": [
-            "bad_uid", "unknown_collection", "not_found", "role_denied", "role_change_denied",
-            "duplicate_phone", "out_of_scope", "student_not_in_class", "bad_status",
-            "bad_score", "bad_kind", "write_failed"
+            "bad_uid",
+            "unknown_collection",
+            "not_found",
+            "role_denied",
+            "role_change_denied",
+            "duplicate_phone",
+            "out_of_scope",
+            "student_not_in_class",
+            "bad_status",
+            "bad_score",
+            "bad_kind",
+            "write_failed"
           ]
         },
-        "detail": { "type": "string" },
-        "conflict_id": { "type": "integer" }
+        "detail": {
+          "type": "string"
+        },
+        "conflict_id": {
+          "type": "integer"
+        }
       }
     },
     "pushResponse": {
       "type": "object",
-      "required": ["ok", "schema_version", "server_time", "applied", "conflicts", "rejected"],
+      "required": [
+        "ok",
+        "schema_version",
+        "server_time",
+        "applied",
+        "conflicts",
+        "rejected"
+      ],
       "additionalProperties": true,
       "properties": {
-        "ok": { "const": true },
-        "schema_version": { "const": 1 },
-        "server_time": { "$ref": "#/$defs/isoTime" },
-        "applied": { "type": "array", "items": { "$ref": "#/$defs/appliedOp" } },
-        "conflicts": { "type": "array", "items": { "$ref": "#/$defs/conflictOp" } },
-        "rejected": { "type": "array", "items": { "$ref": "#/$defs/rejectedOp" } }
+        "ok": {
+          "const": true
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "server_time": {
+          "$ref": "#/$defs/isoTime"
+        },
+        "applied": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/appliedOp"
+          }
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/conflictOp"
+          }
+        },
+        "rejected": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rejectedOp"
+          }
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "maxLength": 120
+        }
       }
     },
     "errorResponse": {
       "type": "object",
-      "required": ["ok", "error"],
+      "required": [
+        "ok",
+        "error"
+      ],
       "additionalProperties": true,
       "properties": {
-        "ok": { "const": false },
+        "ok": {
+          "const": false
+        },
         "error": {
           "enum": [
-            "unauthorized", "bad_json", "body_too_large", "too_many_ops", "bad_decision",
-            "forbidden", "not_found", "already_resolved"
+            "unauthorized",
+            "bad_json",
+            "body_too_large",
+            "too_many_ops",
+            "bad_decision",
+            "forbidden",
+            "not_found",
+            "already_resolved"
           ]
         },
-        "limit": { "type": "integer" },
-        "schema_version": { "const": 1 }
+        "limit": {
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": 1
+        }
       }
     }
   },
   "oneOf": [
-    { "$ref": "#/$defs/pullResponse" },
-    { "$ref": "#/$defs/pushResponse" },
-    { "$ref": "#/$defs/errorResponse" }
+    {
+      "$ref": "#/$defs/pullResponse"
+    },
+    {
+      "$ref": "#/$defs/pushResponse"
+    },
+    {
+      "$ref": "#/$defs/errorResponse"
+    }
   ]
 }

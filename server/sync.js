@@ -36,7 +36,10 @@ function normalizePhone(v) {
 }
 
 function pull(store, actor, params) {
-  const since = String(params.since || EPOCH);
+  /* قرارداد Sync v1: نامِ رسمی AC «since_seq» است؛ «since» هم نام قدیمی و
+     سازگار است. مقدار ISO-8601 پذیرفته می‌شود؛ مقدار نامعتبر ⇒ از ابتدا. */
+  const sinceRaw = String(params.since || params.since_seq || EPOCH);
+  const since = Number.isFinite(Date.parse(sinceRaw)) ? sinceRaw : EPOCH;
   const sinceId = cursorId(params.since_id);
   const requested = String(params.collections || '').split(',').map(s => s.trim()).filter(Boolean);
   const list = requested.length ? requested : DEFAULT_COLLECTIONS;
@@ -145,9 +148,39 @@ function noteRejected(store, actor, ctx, info) {
   });
 }
 
+/* درخواست تکراری با همان idempotency_key ⇒ همان پاسخ قبلی برمی‌گردد و هیچ
+   عملیاتی دوباره اعمال نمی‌شود (idempotency در سطح درخواست، قرارداد §۵). */
+const IDEM_MAX = 120;            /* سقف طول کلید */
+const IDEM_KEEP = 500;           /* سقف تعداد کلیدهای نگه‌داری‌شده */
+
+function idemIndex(store) {
+  const l = store.getMeta('idem:index', []);
+  return Array.isArray(l) ? l : [];
+}
+function idemRemember(store, key, response) {
+  store.setMeta('idem:' + key, { at: nowISO(), response });
+  const list = idemIndex(store).filter(e => e && e.k !== key);
+  list.push({ k: key, at: nowISO() });
+  while (list.length > IDEM_KEEP) {
+    const drop = list.shift();
+    try { const raw = store.db.prepare('DELETE FROM meta WHERE key=?').run('idem:' + drop.k); } catch (e) { /* noop */ }
+  }
+  store.setMeta('idem:index', list);
+}
+
 function push(store, actor, body, ctx = {}) {
   const ops = Array.isArray(body && body.ops) ? body.ops : [];
   if (ops.length > MAX_OPS) return { ok: false, schema_version: SCHEMA_VERSION, error: 'too_many_ops', limit: MAX_OPS };
+  const idemKey = body && body.idempotency_key != null ? String(body.idempotency_key).trim() : '';
+  if (idemKey && idemKey.length > IDEM_MAX) {
+    return { ok: false, schema_version: SCHEMA_VERSION, error: 'bad_idempotency_key', limit: IDEM_MAX };
+  }
+  if (idemKey) {
+    const hit = store.getMeta('idem:' + idemKey, null);
+    if (hit && hit.response && hit.response.ok) {
+      return Object.assign({}, hit.response, { replayed: true, idempotency_key: idemKey });
+    }
+  }
 
   const role = actor.role;
   const applied = [];
@@ -268,7 +301,9 @@ function push(store, actor, body, ctx = {}) {
     applied.push({ uid, id: saved.id, version: saved._version });
   }
 
-  return { ok: true, schema_version: SCHEMA_VERSION, server_time: nowISO(), applied, conflicts, rejected };
+  const out = { ok: true, schema_version: SCHEMA_VERSION, server_time: nowISO(), applied, conflicts, rejected };
+  if (idemKey) { out.idempotency_key = idemKey; try { idemRemember(store, idemKey, out); } catch (e) { /* حافظهٔ کلید نباید نوشتن را بشکند */ } }
+  return out;
 }
 
 module.exports = { pull, push, resolveConflict, ROW_LIMIT, MAX_OPS, SCHEMA_VERSION };
