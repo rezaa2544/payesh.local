@@ -1,14 +1,14 @@
 # شاهد اجرایی مأموریت ۱۶‑ب — رفتار tenancy در کد امروز
 generated_by: docs/cloud/reports/evidence/gen-mission-16b-evidence.sh
 probe: docs/cloud/reports/evidence/probe-16b-tenant.mjs
-branch: arena/f1efa594-payesh-local
-head: 0afa72986e3760c78caea49b7808d396fc23b32a
+branch: arena/16b9ea27-payesh-local
+head: d60d237945d99bb781666d0ed2f09854aa1fafbf
 node: v22.22.3
 note: دیتابیس/بکاپ در mktemp؛ هیچ نوشتنی روی data/ مخزن انجام نمی‌شود
 
 ## اجرا
 PROBE-16B-TENANT — رفتار اجرایی کد امروز
-SHA=0afa72986e3760c78caea49b7808d396fc23b32a
+SHA=d60d237945d99bb781666d0ed2f09854aa1fafbf
 TEMP_DB=isolated (not repository data/)
 T1 | طرح پایگاه | {"tables":["audit","devices","meta","pair_codes","records","seq","sessions","sqlite_sequence","sync_log"],"records_columns":["collection","id","data","version","ref1","ref2","day","created_at","updated_at","deleted_at"],"has_tenant_column_anywhere":false,"has_school_column":false,"tenancy_tables":[]}
 T2 | راه‌اندازی مدرسهٔ دوم | {"status":400,"ok":false,"error":"already_setup"}
@@ -65,4 +65,5 @@ postgres: PostgreSQL 18.6
 TOTAL 14 · FAIL 0
 
 ## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)
-0
+product_diff_files=0
+PRODUCT-DIFF=0

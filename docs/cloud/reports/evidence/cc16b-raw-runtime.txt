@@ -1,0 +1,2 @@
+written: docs/cloud/reports/evidence/mission-16b-tenant-probe.txt
+69 docs/cloud/reports/evidence/mission-16b-tenant-probe.txt
