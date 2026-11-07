@@ -1,0 +1,114 @@
+# قواعد هشدار — ردیف ۴۹
+#
+# این فایل هم برای Prometheus واقعی معتبر است و هم با
+# `node tools/alerts-49.mjs --rules deploy/monitoring/alerts-49.yml` ارزیابی می‌شود.
+# پس گرامر عبارت‌ها عمداً محدود است: `<metric> <op> <number>`.
+# هر قاعدهٔ خارج از این گرامر، در آزمون `npm run test:observability49` قرمز می‌شود
+# (تا قاعده‌ای نباشد که Prometheus بخواند و ابزار ما نتواند بسنجد).
+#
+# قاعدهٔ سخت: هیچ قاعده‌ای بدون severity و runbook نیست؛ هشدارِ بی‌مالک = هشدارِ ندیده.
+# آستانه‌ها در docs/cloud/49-observability.md (§۳) با دلیل عددی آمده‌اند.
+groups:
+  - name: payesh-school
+    rules:
+      - alert: PayeshDown
+        expr: payesh_up < 1
+        for: 1m
+        labels:
+          severity: critical
+          owner: oncall
+        annotations:
+          summary: سرور مدرسه هیچ پاسخ سالمی نمی‌دهد
+          runbook: docs/cloud/49-observability.md#payeshdown
+
+      - alert: PayeshNotReady
+        expr: payesh_ready < 1
+        for: 2m
+        labels:
+          severity: critical
+          owner: oncall
+        annotations:
+          summary: سرور زنده است اما آمادهٔ سرویس نیست (DB، نوشتن داده یا فضای دیسک)
+          runbook: docs/cloud/49-observability.md#payeshnotready
+
+      - alert: PayeshSyncLag
+        expr: payesh_sync_lag_seconds > 900
+        for: 10m
+        labels:
+          severity: warning
+          owner: oncall
+        annotations:
+          summary: دستگاهی بیش از ۱۵ دقیقه است با سرور همگام نشده
+          runbook: docs/cloud/49-observability.md#payeshsynclag
+
+      - alert: PayeshQueueBacklog
+        expr: payesh_sync_queue_depth > 200
+        for: 15m
+        labels:
+          severity: warning
+          owner: oncall
+        annotations:
+          summary: صف همگام‌سازی مدرسه بیش از ۲۰۰ ردیف عقب افتاده
+          runbook: docs/cloud/49-observability.md#payeshqueuebacklog
+
+      - alert: PayeshHttpErrors
+        expr: payesh_http_error_ratio > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          owner: oncall
+        annotations:
+          summary: بیش از ۵٪ پاسخ‌ها در پنج دقیقهٔ گذشته خطای سرور بود
+          runbook: docs/cloud/49-observability.md#payeshhttperrors
+
+      - alert: PayeshDbDown
+        expr: payesh_db_up < 1
+        for: 2m
+        labels:
+          severity: critical
+          owner: oncall
+        annotations:
+          summary: پایگاه‌دادهٔ مدرسه خوانده نمی‌شود
+          runbook: docs/cloud/49-observability.md#payeshdbdown
+
+      - alert: PayeshDiskLow
+        expr: payesh_disk_free_pct < 10
+        for: 15m
+        labels:
+          severity: warning
+          owner: oncall
+        annotations:
+          summary: فضای آزاد دیسک دادهٔ مدرسه زیر ۱۰٪ است
+          runbook: docs/cloud/49-observability.md#payeshdisklow
+
+      - alert: PayeshBackupStale
+        expr: payesh_backup_age_seconds > 90000
+        for: 60m
+        labels:
+          severity: warning
+          owner: oncall
+        annotations:
+          summary: بیش از ۲۵ ساعت است نسخهٔ پشتیبان تازه ساخته نشده
+          runbook: docs/cloud/49-observability.md#payeshbackupstale
+
+  - name: payesh-gateway
+    rules:
+      - alert: PayeshPoolWait
+        expr: payesh_pg_pool_wait_seconds > 1
+        for: 5m
+        labels:
+          severity: critical
+          owner: oncall
+        annotations:
+          summary: گرفتن اتصال از pool بیش از یک ثانیه طول می‌کشد
+          runbook: docs/cloud/49-observability.md#payeshpoolwait
+
+      - alert: PayeshDbConnectionsHigh
+        expr: payesh_db_connections > 80
+        for: 5m
+        labels:
+          severity: warning
+          owner: oncall
+        annotations:
+          summary: تعداد اتصال‌های PostgreSQL به سقف مجاز نزدیک شده
+          runbook: docs/cloud/49-observability.md#payeshdbconnectionshigh

@@ -1,0 +1,90 @@
+# شاهد ردیف ۴۹ — پایش و هشدار (probe + metric + alert rules + delivery)
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/b780a176-payesh-local
+# head_sha: bdd034168ed1e6e374bc5001477b7110683831e3
+# version: 0.8.58
+# generated_at: 2026-11-07T22:37:10Z
+# node: v22.22.3   os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-49-observability.sh
+# scope: سرور مدرسه واقعی (فرایند جدا، SQLite واقعی) + ارزیاب قواعد + گیرندهٔ HTTP واقعی
+# NOTE: تحویل به Pager بیرونی تنظیم نشده است (OWNER، ردیف ۵۸) — این شاهد فقط زنجیرهٔ محلی را اثبات می‌کند.
+
+## بخش ۱ — قواعد هشدار: تجزیه و کامل‌بودن (severity/runbook/for)
+ALERT-RULE name=PayeshDown group=payesh-school expr="payesh_up < 1" for=60s severity=critical
+ALERT-RULE name=PayeshNotReady group=payesh-school expr="payesh_ready < 1" for=120s severity=critical
+ALERT-RULE name=PayeshSyncLag group=payesh-school expr="payesh_sync_lag_seconds > 900" for=600s severity=warning
+ALERT-RULE name=PayeshQueueBacklog group=payesh-school expr="payesh_sync_queue_depth > 200" for=900s severity=warning
+ALERT-RULE name=PayeshHttpErrors group=payesh-school expr="payesh_http_error_ratio > 0.05" for=300s severity=warning
+ALERT-RULE name=PayeshDbDown group=payesh-school expr="payesh_db_up < 1" for=120s severity=critical
+ALERT-RULE name=PayeshDiskLow group=payesh-school expr="payesh_disk_free_pct < 10" for=900s severity=warning
+ALERT-RULE name=PayeshBackupStale group=payesh-school expr="payesh_backup_age_seconds > 90000" for=3600s severity=warning
+ALERT-RULE name=PayeshPoolWait group=payesh-gateway expr="payesh_pg_pool_wait_seconds > 1" for=300s severity=critical
+ALERT-RULE name=PayeshDbConnectionsHigh group=payesh-gateway expr="payesh_db_connections > 80" for=300s severity=warning
+ALERTS-49-CHECK rules=10 groups=2
+
+## بخش ۲ — آزمون OB-01..OB-19 (خرابی تزریقی واقعی + کنترل منفی + تحویل HTTP)
+PASS  OB-01  ‏/healthz زنده‌بودن فرایند را بدون وابستگی می‌دهد  → status=200 instance=payesh-local  (2ms)
+PASS  OB-02  ‏/readyz آمادگی واقعی دهنده است (DB + نوشتن + دیسک)  → ready=true disk_free=92.1  (1ms)
+PASS  OB-03  ‏/api/readyz سازگار با /readyz است (یک منبع، دو مسیر)  → both ready=true  (4ms)
+PASS  OB-04  ‏/metrics با قالب متن Prometheus 0.0.4 سرو می‌شود  → text/plain; version=0.0.4; charset=utf-8  (1ms)
+PASS  OB-05  خانواده‌های لازم متریک حاضرند (10 مورد)  → present=10  (2ms)
+PASS  OB-06  هر خط متریک تجزیه‌پذیر است و سری تکراری ندارد  → series=13 families=13  (3ms)
+PASS  OB-07  متریک هیچ راز/شناسه‌ای افشا نمی‌کند  → no-secret-labels  (1ms)
+PASS  OB-08  lag همگام‌سازی عدد واقعیِ دیتابیس است (دستگاه ساکت دیده می‌شود)  → devices=2 lag=7200s  (4ms)
+PASS  OB-09  عمق صف همگام‌سازی از صندوقچهٔ واقعی خوانده می‌شود  → depth 3→0  (3ms)
+PASS  OB-10  نرخ خطا فقط خطای سرور (5xx) است، نه هر پاسخ ناموفق  → 4xx grew, 5xx=0 ratio=0  (9ms)
+PASS  OB-11  ‏payesh_ready در متریک با /readyz یکی است (دو عدد متناقض نداریم)  → ready=true  (1ms)
+PASS  OB-12  همهٔ قواعد هشدار در گرامر محدود تجزیه‌شوند و severity/runbook دارند  → rules=10 runbooks=10  (29ms)
+PASS  OB-13  کنترل منفی: روی وضعیت سالم هیچ هشداری روشن نمی‌شود  → ALERTS-49 rules=10 firing=0 pending=1 resolved=0 suppressed=0 nodata=3  (27ms)
+PASS  OB-14  خرابی واقعی: دایرکتوری داده فقط‌خواندنی ⇒ readyz ۵۰۳ و هشدار روشن می‌شود  → readyz=503 → pending→firing value=0<1  (58ms)
+PASS  OB-15  بازیابی: پس از رفع خرابی، همان قاعده resolve می‌شود  → resolved-recorded  (27ms)
+PASS  OB-16  هشدار تکراری در پنجرهٔ تکرار خفه می‌شود (بدون طوفان هشدار)  → notify=1 suppressed=1 window=600s  (77ms)
+PASS  OB-17  تحویل هشدار روی HTTP واقعی انجام می‌شود (گیرندهٔ محلی به‌جای Pager)  → posted=1 alert=PayeshNotReady severity=critical  (80ms)
+PASS  OB-18  کنترل منفی: قاعدهٔ خارج از گرامر و متریک غایب، دروازه را قرمز می‌کنند  → bad-expr=exit2 missing-metrics=exit2  (44ms)
+PASS  OB-19  Gateway هم /metrics و /healthz می‌دهد (پیش از تنظیم PG)  → gateway metrics ok (configured=0, readyz=503)  (92ms)
+
+OB checks=19 pass=19 fail=0
+OBSERVABILITY-49-OK
+
+## بخش ۳ — scrape واقعی از سرور تازه (نمونهٔ متن Prometheus)
+# GET /healthz → 200
+# GET /readyz  → 200
+# GET /metrics → 200
+# families=13 series=13
+----- (نمونه: ۲۰ خط اول) -----
+# HELP payesh_data_writable دایرکتوری داده قابل نوشتن است
+# TYPE payesh_data_writable gauge
+payesh_data_writable 1
+# HELP payesh_db_up دیتابیس مدرسه قابل خواندن است
+# TYPE payesh_db_up gauge
+payesh_db_up 1
+# HELP payesh_disk_free_pct درصد فضای آزاد دیسک داده
+# TYPE payesh_disk_free_pct gauge
+payesh_disk_free_pct 92
+# HELP payesh_http_error_ratio نرخ پاسخ‌های 5xx در ۵ دقیقهٔ گذشته
+# TYPE payesh_http_error_ratio gauge
+payesh_http_error_ratio 0
+# HELP payesh_http_error_ratio_events تعداد درخواست‌های داخل پنجرهٔ محاسبهٔ نرخ خطا
+# TYPE payesh_http_error_ratio_events gauge
+payesh_http_error_ratio_events 4
+# HELP payesh_http_requests_total شمارش درخواست‌های HTTP بر پایهٔ کلاس پاسخ
+# TYPE payesh_http_requests_total counter
+payesh_http_requests_total{class="2xx"} 4
+# HELP payesh_ready آمادگی واقعی سرویس (DB + نوشتن داده + فضای دیسک)
+# TYPE payesh_ready gauge
+----- (پایان نمونه) -----
+
+## بخش ۴ — رگرسیون: آزمون‌های موجود دست‌نخورده
+  ✓ ردیف ۲۹: کلید امضای پشتیبان بیرون از پایگاه‌داده نگه داشته می‌شود (بازیابی پس از از دست رفتن DB)
+
+96 موفق · 0 ناموفق
+
+
+# ===== SUMMARY =====
+# rules_check_exit:    0
+# observability_exit:  0
+# scrape_exit:         0
+# regression_exit:     0
+# OWNER-REMAINING: تحویل به Pager بیرونی + تعیین on-call — ردیف ۵۸ (OWNER).
+# EXIT=0
+OBSERVABILITY-49-OK

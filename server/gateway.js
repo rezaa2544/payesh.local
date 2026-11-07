@@ -18,6 +18,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 const http = require('node:http');
 const tenancy = require('./tenancy');
+const metrics = require('./metrics');
 
 const PORT = Number(process.env.PORT || 5660);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -51,6 +52,48 @@ function json(res, status, body, extraHeaders = {}) {
   }, extraHeaders));
   res.end(payload);
 }
+
+/* ═══════════ ردیف ۴۹ — متریک نمونهٔ Gateway ═════════════════════════
+   «pool-wait» و «اتصال DB» فقط اینجا معنا دارند: در Gateway است که چند
+   نمونه به یک PostgreSQL وصل می‌شوند. /metrics اینجا همان قالب متن
+   Prometheus را می‌دهد تا یک Prometheus، مدرسه و ابر را با هم scrape کند.
+
+   صداقت عدد: صف انتظار pool از شمارندهٔ واقعی driver خوانده می‌شود و
+   زمان انتظار، اندازه‌گیریِ همان acquire در مسیر quota است — نه تخمین. */
+const mreg = metrics.create();
+
+mreg.onCollect(() => {
+  const out = [];
+  const add = (name, value, help, labels = {}) => out.push({ name, type: 'gauge', help, labels, value });
+  add('payesh_up', 1, 'نمونهٔ Gateway زنده است');
+  add('payesh_gateway_configured', enabled ? 1 : 0, 'Gateway به PostgreSQL و کلید امضا تنظیم شده است');
+  add('payesh_uptime_seconds', Math.round((Date.now() - startedAt) / 1000), 'مدت زنده‌بودن نمونه به ثانیه');
+  if (pool) {
+    add('payesh_pg_pool_total', Number(pool.totalCount) || 0, 'تعداد کل اتصال‌های pool');
+    add('payesh_pg_pool_idle', Number(pool.idleCount) || 0, 'اتصال‌های بی‌کار pool');
+  }
+  return out;
+});
+
+/* اتصال‌های واقعیِ DB و آمادگی، با یک کوئری سبک در هر scrape. */
+mreg.onCollect(() => {
+  const out = [];
+  if (!enabled || !pool) return out;
+  /* این جمع‌بندی وضعیت است، نه دادهٔ مستأجر: RLS روی جدول‌های محصول اعمال
+     می‌شود و pg_stat_activity فقط شمارش اتصال است. */
+  const p = tenancy.poolSnapshot(pool);
+  return p.then(snap => {
+    out.push({ name: 'payesh_db_connections', type: 'gauge', help: 'اتصال‌های فعال به PostgreSQL از دید pg_stat_activity', labels: {}, value: snap.connections });
+    out.push({ name: 'payesh_pg_pool_wait_seconds', type: 'gauge', help: 'مدت گرفتن یک اتصال از pool در همین scrape (ثانیه)', labels: {}, value: snap.wait_ms / 1000 });
+    out.push({ name: 'payesh_db_up', type: 'gauge', help: 'PostgreSQL قابل دسترس است', labels: {}, value: snap.ok ? 1 : 0 });
+    out.push({ name: 'payesh_ready', type: 'gauge', help: 'آمادگی واقعی Gateway (DB + رفتار درست set_config)', labels: {}, value: snap.ready ? 1 : 0 });
+    return out;
+  }).catch(() => {
+    out.push({ name: 'payesh_db_up', type: 'gauge', help: 'PostgreSQL قابل دسترس است', labels: {}, value: 0 });
+    out.push({ name: 'payesh_ready', type: 'gauge', help: 'آمادگی واقعی Gateway (DB + رفتار درست set_config)', labels: {}, value: 0 });
+    return out;
+  });
+});
 
 function readBody(req, limit) {
   return new Promise((resolve, reject) => {
@@ -92,6 +135,14 @@ function deviceOf(headers) {
 async function handle(req, res, url) {
   const m = String(req.method || 'GET').toUpperCase();
   const p = url.pathname;
+
+  /* ── متریک (ردیف ۴۹): همان قالب مدرسه، برای scrape یکسان ───────────── */
+  if (p === '/metrics' && (m === 'GET' || m === 'HEAD')) {
+    const body = await mreg.render();
+    res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8', 'cache-control': 'no-store', 'x-gateway-instance': INSTANCE });
+    res.end(m === 'HEAD' ? '' : body);
+    return;
+  }
 
   /* ── زنده‌بودن: هیچ وابستگی‌ای جز خود فرایند ندارد ─────────────────── */
   if (p === '/healthz') {
@@ -183,6 +234,7 @@ async function handle(req, res, url) {
 }
 
 const server = http.createServer((req, res) => {
+  res.on('finish', () => { try { mreg.observeHttp(res.statusCode); } catch (e) { /* noop */ } });
   const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
   handle(req, res, url).catch((e) => json(res, 500, { ok: false, error: 'gateway_error', detail: String(e.message || e).slice(0, 120) }));
 });
@@ -193,4 +245,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, handle, INSTANCE, PORT };
+module.exports = { server, handle, INSTANCE, PORT, mreg };

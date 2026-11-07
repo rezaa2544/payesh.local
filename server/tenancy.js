@@ -587,6 +587,31 @@ async function readiness(pool) {
   } finally { client.release(); }
 }
 
+/* ═══════════ وضعیت pool/اتصال برای متریک — ردیف ۴۹ ═══════════════════
+   فقط شمارش و بولی برمی‌گرداند؛ هیچ شناسه، tenant یا ردیفی خوانده نمی‌شود.
+   هدف این است که /metrics بتواند «اتصال DB» و «آمادگی» را از یک منبع
+   واقعی بگیرد، نه از حدس. */
+async function poolSnapshot(pool) {
+  let connections = 0, waitMs = 0;
+  /* زمان گرفتن اتصال: همان «pool-wait» واقعی، اندازه‌گیری‌شده در لحظهٔ scrape */
+  try {
+    const t0 = Date.now();
+    const c = await pool.connect();
+    waitMs = Date.now() - t0;
+    c.release();
+  } catch (e) { waitMs = 0; }
+  try {
+    const r = await pool.query("select count(*)::int as n from pg_stat_activity where datname = current_database()");
+    connections = Number(r.rows[0] && r.rows[0].n) || 0;
+  } catch (e) { connections = 0; }
+  let ready = false;
+  try {
+    const r = await readiness(pool);
+    ready = !!(r.ok && r.tenant_scoped && !r.leaked_after_commit);
+  } catch (e) { ready = false; }
+  return { ok: connections > 0, connections, ready, wait_ms: waitMs };
+}
+
 /* ═══════ change-feed (ردیف ۳۶) ═══════════════════════════════════════
    چرا seq و نه updated_at؟ چون دو تغییر در یک میلی‌ثانیه با `updated_at >`
    از دست می‌روند (همان نقص W‑04 در شبیه‌سازی). seq سراسری، برای هر مستأجر
@@ -918,7 +943,7 @@ async function rollbackProduct(client) {
   return { dropped: [JOBS_TABLE, PRODUCT_TABLE], statements: sqls.length };
 }
 
-module.exports = { scopeMod, getPool, applyOps, takeQuota, readiness, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
+module.exports = { scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,

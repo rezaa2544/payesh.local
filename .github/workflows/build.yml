@@ -98,6 +98,15 @@ jobs:
           fi
           exit $code
 
+      # دروازهٔ پایش/هشدار (ردیف ۴۹): readyz/healthz واقعی، متریک Prometheus،
+      # ارزیاب قواعد با `for:` و تکرار، و تحویل هشدار روی HTTP. خرابی، تزریقی
+      # است (دایرکتوری داده فقط‌خواندنی) نه شبیه‌سازی.
+      # توجه: این «Pager واقعی» نیست؛ اتصال بیرونی و on-call مالک انسانی دارد (ردیف ۵۸).
+      - name: دروازهٔ پایش و هشدار (Observability Gate — ردیف ۴۹)
+        run: |
+          node tools/alerts-49.mjs --check-rules
+          npm run test:observability49
+
       - name: آزمون رابط، جریان کاربری، صندوقچه و به‌روزرسانی
         run: |
           npm run test:ui
