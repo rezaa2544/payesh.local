@@ -615,7 +615,15 @@ async function api(req, res, url, ip) {
       who = s2.user;
       device = (s2.device && s2.device.id) || body.device_id;
     }
-    const r = await outbox.submit(store, { user: who, device, items: body.items });
+    /* F‑06: ادعاهای هویتی در body/header/query فقط گزارش می‌شوند و هرگز
+       به پاکت راه نمی‌یابند؛ هویت از نشست/تیکت است. */
+    const claims = {
+      body: { user_id: body.user_id, tenant_id: body.tenant_id, school_id: body.school_id, role: body.role },
+      header: { user_id: req.headers['x-user-id'], tenant_id: req.headers['x-tenant-id'], school_id: req.headers['x-school-id'] },
+      query: Object.fromEntries(['user_id', 'userId', 'tenant_id', 'tenantId', 'school_id', 'schoolId', 'role']
+        .filter(k => url.searchParams.has(k)).map(k => [k, url.searchParams.get(k)])),
+    };
+    const r = await outbox.submit(store, { user: who, device, items: body.items, claims });
     if (!r.ok) return json(r, r.error === 'no_cloud' ? 409 : 400);
     return json(r);
   }
