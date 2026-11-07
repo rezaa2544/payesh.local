@@ -1,0 +1,74 @@
+{
+  "_readme": "دفترچهٔ فرض‌های مدل هزینه/بار (ردیف ۳۳). هر عدد «برچسب» دارد: [M] اندازه‌گیری‌شده در همین مخزن، [A] فرض مهندسی، [E] برآورد، [?] نامعلوم. قیمت‌ها [E] هستند و باید پیش از خرید با ارائه‌دهنده تأیید شوند.",
+  "assumptions": {
+    "syncs_per_device_per_day": {
+      "value": 40,
+      "label": "[A]",
+      "why": "دستگاه هر ۵ دقیقه در ساعات کاری (۸ ساعت) یک pull/push می‌کند + مرور اداری"
+    },
+    "device_ratio": {
+      "value": 0.35,
+      "label": "[A]",
+      "why": "نسبت دستگاهِ فعال از کل کاربران ثبت‌شده"
+    },
+    "row_bytes": {
+      "value": 420,
+      "label": "[M]",
+      "why": "۲۹۱MB / ۳۳۴٬۶۴۷ ردیف در شبیه‌سازی سال تحصیلی (school-year-sim) ⇒ ≈۹۱۰ بایت با ایندکس؛ ۴۲۰ بایت دادهٔ خالص"
+    },
+    "index_overhead": {
+      "value": 1.18,
+      "label": "[M]",
+      "why": "DB=۲۹۱MB برای ۳۳۴٬۶۴۷ ردیف ⇒ ≈۹۱۰B/row؛ ۹۱۰/۴۲۰ ≈ ۲.۱۷ کل (داده+ایندکس+صفحه‌های آزاد) ⇒ سهم ایندکس ۱.۱۸× داده"
+    },
+    "rows_per_school_per_year": {
+      "value": 83700,
+      "label": "[M]",
+      "why": "۸۳٬۵۸۴ تا ۸۳٬۸۹۵ ردیف در هر مدرسه پس از ۱۸۰ روز شبیه‌سازی"
+    },
+    "peak_factor": {
+      "value": 4.0,
+      "label": "[A]",
+      "why": "اوج شروع روز/ساعت اول (۸–۹ صبح) نسبت به میانگین ۲۴ساعته"
+    },
+    "avg_latency_ms": {
+      "value": 120,
+      "label": "[M]",
+      "why": "p95 خواندن در بار ترکیبی: ۱۲ms (کانکارنسی ۱) تا ۲۰۷ms (کانکارنسی ۱۶)"
+    },
+    "rps_per_vcpu": {
+      "value": 75,
+      "label": "[M]",
+      "why": "۱۵۰ RPS پایدار روی ۲ vCPU/۴GB در بنچ بار ترکیبی (max_ok_concurrency=16) ⇒ ۷۵ RPS بر vCPU"
+    },
+    "safety_headroom": {
+      "value": 1.5,
+      "label": "[A]",
+      "why": "حاشیهٔ امن برای اوج‌های پیش‌بینی‌نشده و پنجرهٔ بکاپ"
+    },
+    "backup_retention_days": {
+      "value": 30,
+      "label": "[A]",
+      "why": "PITR ۷ روز + آرشیو روزانه ۳۰ روز"
+    },
+    "read_replica": {
+      "value": false,
+      "label": "[A]",
+      "why": "تا وقتی اوج RPS از سقف یک نمونه رد نشود، replica لازم نیست"
+    }
+  },
+  "prices": {
+    "eur_per_vcpu_hour": { "value": 0.026, "label": "[E]", "source": "مبنای همان سنجش ظرفیت (capacity-mixed-load.txt) — قیمت بازار، نیازمند تأیید ارائه‌دهنده" },
+    "eur_per_gb_ram_hour": { "value": 0.0044, "label": "[E]", "source": "همان مبنای سنجش ظرفیت" },
+    "eur_per_gb_month_storage": { "value": 0.10, "label": "[E]", "source": "دیسک SSD ابری (بازهٔ ۰.۰۸–۰.۱۲) — نیازمند تأیید" },
+    "eur_per_gb_month_backup": { "value": 0.03, "label": "[E]", "source": "ذخیره‌سازی سرد بکاپ" },
+    "managed_db_small_month": { "value": 25, "label": "[E]", "source": "پلن کوچک Postgres مدیریت‌شده (۱ vCPU/۲GB) — نمونهٔ بازار" },
+    "managed_db_medium_month": { "value": 70, "label": "[E]", "source": "پلن متوسط (۲ vCPU/۴–۸GB)" },
+    "managed_db_large_month": { "value": 180, "label": "[E]", "source": "پلن بزرگ (۴ vCPU/۱۶GB + replica)" }
+  },
+  "tiers": [
+    { "name": "T1 — پایلوت", "schools": 10, "users_per_school": 120 },
+    { "name": "T2 — شهر", "schools": 100, "users_per_school": 200 },
+    { "name": "T3 — استان", "schools": 1000, "users_per_school": 250 }
+  ]
+}
