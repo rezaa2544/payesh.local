@@ -1,23 +1,16 @@
 {
-  "version": "0.8.35",
-  "built_at": "2026-11-07T07:12:22.380Z",
-  "notes": [
-    "برنامه دیگر هیچ‌جا مرورگر باز نمی‌کند: پنجرهٔ ویندوز همان پنجرهٔ مستقل «پایش» است و اگر سامانه دیر بالا بیاید، به‌جای صفحهٔ انگلیسیِ «Hmmm… can't reach this page» پیام فارسی با «تلاش دوباره» می‌آید. سرور هم نگهبان دارد: اگر وسط کار بخوابد، خودش دوباره بالا می‌آید و همان صفحه برمی‌گردد. اگر پورت ۸۰۸۰ اشغال باشد، برنامه خودش پورت آزاد را برمی‌دارد. در اندروید هم هیچ صفحهٔ اینترنتی داخل قاب برنامه باز نمی‌شود و خطای بارگذاری با پیام فارسی و تلاش دوباره مدیریت می‌شود.",
-    "اکسل: ستون «موبایل دانش‌آموز» حالا خودکار تشخیص داده می‌شود (قبلاً «— دیده نشد —» می‌ماند). هر عنوانی که موبایل/همراه دانش‌آموز باشد همان‌جا نگاشت می‌شود.",
-    "همهٔ شماره‌های همراه با صفر شروع می‌شوند: صفرِ خورده‌شدهٔ اکسل خودکار برمی‌گردد (۱۰ رقمی، ‎.0‎، نماد علمی، +۹۸). اگر شماره‌ای هنوز یک رقم کم داشته باشد، همان عددِ صفرگذاشته‌شده در کادر ویرایش نشان داده می‌شود تا فقط رقمِ کم را اضافه کنید.",
-    "پیام کد ملی تکراری کامل شد: می‌گوید همان کد در کدام سطر برای چه کسی (نام، پایه و رشته) آمده است. پیام شمارهٔ تکراری هم نام و نقش و پایه/رشتهٔ صاحب شماره را می‌گوید.",
-    "ردیف‌هایی که باید اصلاح شوند از «آمادهٔ ثبت» جدا شدند: هر ایراد (کد ملی ناقص، موبایل نامعتبر، …) ردیف را به بخش «نیازمند اصلاح» می‌برد و همان‌جا فرم ویرایشش باز است؛ با «ذخیره و بررسی دوباره» ردیف به «آمادهٔ ثبت» می‌آید. هیچ دادهٔ مشکوکی بی‌صدا ثبت نمی‌شود.",
-    "پنجرهٔ ورود اطلاعات بزرگ‌تر شد و دیگر با کلیک بیرونِ آن (یا Esc) بسته نمی‌شود — فقط با ✕ یا دکمهٔ خودش. فرم‌های «کاربر جدید» و «مشخصات کامل» هم همین‌طور."
-  ],
+  "version": "0.8.37",
+  "built_at": "2026-11-07T08:34:15.047Z",
+  "notes": [],
   "shell": {
-    "android": "0.8.35"
+    "android": "0.8.37"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "64c374b1befd74ca8cb09e63d6c1fad9148e7cae3f733f2ac80a82b2c513207f",
-      "size": 180268
+      "sha256": "7d078db41f2816faada23ae172592f54890914193930fbe34745b0df99e291e7",
+      "size": 179079
     },
     {
       "path": "client/authz.js",
@@ -28,8 +21,8 @@
     {
       "path": "client/cloud-baked.js",
       "kind": "client",
-      "sha256": "ac52983a820bc461c34f35f65b7c35e59899605bd5684200c4bb571e3906ed38",
-      "size": 620
+      "sha256": "3d624b4dd843aea06c768523ab5b39862a23c48efcfd3785d7f70b4ba2939e26",
+      "size": 599
     },
     {
       "path": "client/diag.js",
@@ -106,20 +99,20 @@
     {
       "path": "client/lib/phone.js",
       "kind": "client",
-      "sha256": "7aa8521e3ecf0c8ecf417180fc95e7b9159aaefbad180bd7fdf446854fd9abfe",
-      "size": 18692
+      "sha256": "162a15e7bf3bd2c20a273377f8707f69d6e87d1638f10765dc835753ebcea9b7",
+      "size": 21960
     },
     {
       "path": "client/lib/s3mini.js",
       "kind": "client",
-      "sha256": "ed7705f3850e7387b9d5b507c1fcb7613f0683ffc7701c45a3fbdaf4ad25fd71",
-      "size": 16778
+      "sha256": "53bb94feca47f90aa2edca3a15525776a26bb2b9fa842cd8efeadd4a0cce9b53",
+      "size": 17541
     },
     {
       "path": "client/lib/sigv4.js",
       "kind": "client",
-      "sha256": "6039b7f7f1d824f6d492a4a4e33b624863b10a802f0afaebfacfd0bf9b65678a",
-      "size": 9444
+      "sha256": "29379ac85eefa3fc14d0c4461ec7ff39c0d68e4e499a432ee4b94bf948292551",
+      "size": 11468
     },
     {
       "path": "client/lib/xlsx.js",
@@ -136,8 +129,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "40b65dc5762307ae2b37e373f9736ae38b35775c7de878b6e7b7275003f4ac0b",
-      "size": 157915
+      "sha256": "b741a82af6782148d8b55604c960196a7b916cbf688a97101ead478b5348b802",
+      "size": 157960
     },
     {
       "path": "client/scan.js",
@@ -172,8 +165,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "0bbb23906c12ea4c540725d1edb9cde63aa6e07b98cd5bc6b47fdcb7d2cc2142",
-      "size": 1996
+      "sha256": "d3f57a8374f14d5ae05afe2d270371af8032d79bab8c43abd7f3d77c186233bf",
+      "size": 2041
     },
     {
       "path": "server/auth.js",
@@ -184,8 +177,8 @@
     {
       "path": "server/cloud-defaults.js",
       "kind": "server",
-      "sha256": "09a4e869ee46555cbbf215653e2e019298fcfec78af703be4cbe228baee381ba",
-      "size": 2129
+      "sha256": "4a98f7fe559ad35f9d544e64f48f9316423352701a14402a9525a3b75b59accb",
+      "size": 2190
     },
     {
       "path": "server/config.js",
@@ -202,8 +195,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "5735faed638cfe28937103f784afb4f7d89974cda80b5bf33dc60a78b9b39e0b",
-      "size": 94011
+      "sha256": "08cb914f3f0cb23e15f112259c6d29b7140b9b43f32c35dad041b73c3ba2a664",
+      "size": 99158
     },
     {
       "path": "server/live.js",
@@ -220,8 +213,8 @@
     {
       "path": "server/outbox.js",
       "kind": "server",
-      "sha256": "5af065210d9607f27fed2d87e93a71bd74de9cc571cc85b688a1abebe65d2177",
-      "size": 20904
+      "sha256": "c1ac6b28edf38b99ca11cfcd2c5bd98e6ae587446f48225b0e3884ce85385b2e",
+      "size": 21659
     },
     {
       "path": "server/policy.js",
@@ -238,8 +231,8 @@
     {
       "path": "server/s3mem.js",
       "kind": "server",
-      "sha256": "f2ddb2bacd45e99b3b1f2b242a2fcceb5f7d8d8d9c64474f978468691d0b075f",
-      "size": 4233
+      "sha256": "bf846dbcae6590b4e3d84ec9cf7b36a930af4e1c0d10b2256044a4012e4167c2",
+      "size": 4754
     },
     {
       "path": "server/seed.js",
@@ -258,6 +251,12 @@
       "kind": "server",
       "sha256": "4ef9a7b2d1784f689579efc66b6e789e86889ae694494138ca26ec7007acc041",
       "size": 8225
+    },
+    {
+      "path": "server/tenancy.js",
+      "kind": "server",
+      "sha256": "a84d56d33b47939749044e083c5e4b2dd1b41828d594c747cac7d0025ad66e90",
+      "size": 13990
     },
     {
       "path": "server/tunnel.js",
@@ -298,9 +297,9 @@
   ],
   "counts": {
     "client": 25,
-    "server": 22
+    "server": 23
   },
-  "client_size": 1328469,
-  "server_size": 278362,
-  "total_size": 1606831
+  "client_size": 1333359,
+  "server_size": 298881,
+  "total_size": 1632240
 }
