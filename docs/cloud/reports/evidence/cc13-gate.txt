@@ -1,8 +1,8 @@
 # دروازهٔ شرط‌های CC-13-1..4 (ردیف ۱۳ — کش امن و صف آفلاین)
 # تولید: bash docs/cloud/reports/evidence/gen-cc13-evidence.sh
-# زمان: 2026-11-06T23:59:52Z
-# HEAD: ef2859d91ec0e605585ad6d6a8f382d4a6c17c5c
-# product_tree_sha256: fe1f8972c483a2cdf94590262dfa0e2fe7257424dc07655e902343f34389dd0f
+# زمان: 2026-11-07T00:00:26Z
+# HEAD: 613804dcf5d263559458136810618d0ae61bcfcc
+# product_tree_sha256: 329af432d31dcacaa6c023df8ada1792f6e8b22eeb203146c34663fc7e2bd832
 # شاهد خام: docs/cloud/reports/evidence/cc13-raw-slice18.txt · docs/cloud/reports/evidence/cc13-raw-slice20b.txt
 # کد آزمون‌شده:
 #   prototype/slice-18/tests/run.js = 69e15106c09f8ed614000ee0a98e9e74f88557f17615dd50e078dae3c49647c9
