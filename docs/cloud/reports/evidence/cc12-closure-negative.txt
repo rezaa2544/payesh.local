@@ -1,0 +1,22 @@
+# آزمون منفی دروازهٔ CC‑12‑CLOSURE
+generated_by: docs/cloud/reports/evidence/verify-cc12-closure-negative.sh
+head: cf53cab1a25b25d9c074f52a150e994bc26e6650
+generated_at_utc: 2026-11-07T07:04:39Z
+
+PASS  P0  شاهد سالم پذیرفته شد (کنترل مثبت)
+PASS  N1  رد شد: تصمیم D‑31 (O‑07) از Decision Log حذف شد → CC12-CLOSURE-FAIL: CONST-DECISION: D‑31 در Decision Log نیست
+PASS  N2  رد شد: پاسخ O‑14 به «خیر» برگشت (تصمیم مالک نادیده) → CC12-CLOSURE-FAIL: CONST-O14: پاسخ O‑14 ثبت نشده
+PASS  N3  رد شد: بخش «خط پایهٔ اندازه‌گیری‌شده» از سند ۰۴ حذف شد → CC12-CLOSURE-FAIL: DOC04-SECTION: بخش «خط پایهٔ اندازه‌گیری�
+PASS  N4  رد شد: p95 سطح ۳۸۴ در سند جابه‌جا شد (۴۸۶→۵۸۶) → CC12-CLOSURE-FAIL: DOC04-P95: p95 سطح ۳۸۴ (486) در سند ۰۴ نیامده
+PASS  N5  رد شد: خط CAP با بازمحاسبهٔ ردیف‌ها نمی‌خواند (۷۶۸→۳۸۴) → CC12-CLOSURE-FAIL: BENCH-CAP-MISMATCH: بازمحاسبه=768 ولی خط CAP چیز
+PASS  N6  رد شد: یک نمونهٔ زانو زیر آستانه جا‌زده شد (ادعای زانو بی‌شاهد) → CC12-CLOSURE-FAIL: BENCH-KNEE: 1 تکرار در سطح زانو زیر آستانه
+PASS  N7  رد شد: شرط CC‑12‑4 از حالت CLOSED خارج شد → CC12-CLOSURE-FAIL: DOC12-CC4: شرط CC‑12‑4 بسته نشده
+PASS  N8  رد شد: مسیر exports از نقشهٔ ۱۶‑ب حذف شد → CC12-CLOSURE-FAIL: DOC16B-MAP: مسیر «t/<tenant>/exports/» در ۱۶‑ب نی�
+PASS  N9  رد شد: یک ردیف AC از سند ۰۴ حذف شد (۱۴→۱۳) → CC12-CLOSURE-FAIL: DOC04-AC: تعداد ردیف AC=13 (باید ≥۱۴)
+PASS  N10  رد شد: شرط باز CC‑12‑2 به‌دروغ CLOSED شد → CC12-CLOSURE-FAIL: DOC12-CC2: شرط CC‑12‑2 باید صریحاً PARTIAL بم�
+PASS  N11  رد شد: ابزار سنجش خراب است (smoke شکست) → CC12-CLOSURE-FAIL: BENCH-SMOKE: اجرای ۲ دستگاه روی HEAD خطا داد
+PASS  N12  رد شد: پایهٔ ممیزی ناموجود ⇒ تعمیم بی‌اعتبار → CC12-CLOSURE-FAIL: BASE-MISSING: 0000000 در مخزن نیست
+PASS  N13  رد شد: لاگ آزمون محصول ناموفق است (۸۵/۳) → CC12-CLOSURE-FAIL: TESTS: لاگ آزمون pass=85 fail=3 (باید 88/0)
+
+SUMMARY pass=14 fail=0
+NEGATIVE-OK

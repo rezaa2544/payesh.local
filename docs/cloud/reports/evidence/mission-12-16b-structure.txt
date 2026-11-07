@@ -1,10 +1,10 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
-branch: arena/33107407-payesh-local
-head: 6214cf906bd3f6b5d18e9d13bdc33dee77235ec8
+branch: arena/f12b8953-payesh-local
+head: cf53cab1a25b25d9c074f52a150e994bc26e6650
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
-12-multitenant-architecture                lines=260  tables=81  ac_rows=8
+12-multitenant-architecture                lines=273  tables=87  ac_rows=8
 12b-owner-panel-boundaries                 lines=153  tables=60  ac_rows=7
 13-secure-cache-offline-queue              lines=193  tables=76  ac_rows=9
 14-conflict-convergence                    lines=182  tables=64  ac_rows=11
@@ -13,7 +13,7 @@ head: 6214cf906bd3f6b5d18e9d13bdc33dee77235ec8
 16b-tenant-provisioning-migration          lines=292  tables=116 ac_rows=12
 
 ## حکم‌های ثبت‌شده (هر سند حکم خودش — هیچ سبزی خودکار نیست)
-**حکم: ۸/۸ — REVIEW** (AC‑8: اجرا شده روی پایگاه مستقل؛ یکپارچگی با محصول در ۲۰‑ب).
+**حکم: ۸/۸ — `PASS` در سطح طراحی/لایهٔ داده.** AC‑8 روی پایگاه مستقل واقعی اجرا شده است؛ یکپارچگی با محصول (CC‑12‑2) عمداً باز می‌ماند چون به تغییر خط محصول نیاز دارد و Gate فاز ۳ بسته است.
 **حکم: ۷/۷ — REVIEW.** (پس از رفع تعارض تأییدکننده/مدت و هم‌سان‌سازی جدول با ۰۱‑ب.)
 **حکم: ۹/۹ — REVIEW.** (طراحی کامل است؛ پیاده‌سازی و آزمون در ۱۸/۲۰‑ب.)
 **حکم: ۱۱/۱۱ — REVIEW.** (طراحی کامل؛ اجرا در ۱۸ و شاهد در ۲۰‑ب. سه شکاف امروز با پروب باز هستند، نه «رفع‌شده».)
@@ -31,17 +31,20 @@ school_id (files): 8
 api routes (unique /api literals in server/index.js): 62
 
 ## وضعیت درخت کاری
- M docs/cloud/11-gap-report.md
+ M docs/00-PAYESH-CLOUD-CONSTITUTION.md
+ M docs/cloud/04-capacity-and-availability.md
+ M docs/cloud/04b-plan-caps-usage-model.md
+ M docs/cloud/12-multitenant-architecture.md
+ M docs/cloud/reports/evidence/cc11-gate.txt
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
  M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
-?? docs/cloud/reports/REVIEW-11-CONDITIONS.md
-?? docs/cloud/reports/evidence/cc11-gate.txt
-?? docs/cloud/reports/evidence/cc11-negative.txt
-?? docs/cloud/reports/evidence/cc11-raw-drill.txt
-?? docs/cloud/reports/evidence/cc11-required-labels.txt
-?? docs/cloud/reports/evidence/drill-11-claims.cjs
-?? docs/cloud/reports/evidence/gen-cc11-evidence.sh
-?? docs/cloud/reports/evidence/tests-run-6214cf9-20261107T020905Z.log
-?? docs/cloud/reports/evidence/verify-cc11-negative.sh
+?? docs/cloud/reports/REVIEW-QUEUE-CLOSURE-04-04B-12.md
+?? docs/cloud/reports/evidence/bench-poll-load.cjs
+?? docs/cloud/reports/evidence/cc12-closure-gate.txt
+?? docs/cloud/reports/evidence/cc12-closure-negative.txt
+?? docs/cloud/reports/evidence/gen-cc12-closure.sh
+?? docs/cloud/reports/evidence/mission-12-cc3-load-baseline.txt
+?? docs/cloud/reports/evidence/tests-run-cf53cab-20261107T070407Z.log
+?? docs/cloud/reports/evidence/verify-cc12-closure-negative.sh
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
