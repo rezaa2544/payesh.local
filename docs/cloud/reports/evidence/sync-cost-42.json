@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-11-07T21:28:09.094Z",
+  "node": "v22.22.3",
+  "measured": {
+    "pull_200_empty_bytes": 967,
+    "etag_304_bytes": 615,
+    "pull_200_bytes": 967,
+    "push_120_bytes": 19737,
+    "backoff_jitter_range": [
+      509,
+      988
+    ],
+    "reconnect_spread_buckets": 21,
+    "probes_idle_day": 300,
+    "background_requests_day": 96,
+    "idle_requests_day": 588,
+    "idle_bytes_day": 361620,
+    "pull_rows_bytes": 17946,
+    "saving_ratio": 0.9657
+  },
+  "caps": {
+    "idle_visible": {
+      "requests": 900,
+      "bytes": 786432,
+      "note": "دستگاه باز اما بی‌کار: کاوش تطبیقی (۱s→۶۰s→۵m با نردبان بی‌کاری) + جارو؛ ۷۶۸KB سقف روزانه"
+    },
+    "background": {
+      "requests": 200,
+      "bytes": 131072,
+      "note": "تب/برنامه در پس‌زمینه یا آفلاین: صفر کاوش live، فقط جارو"
+    },
+    "active_teacher": {
+      "requests": 1200,
+      "bytes": 8388608,
+      "note": "کاربر فعال با ۶۰ push دسته‌ای ۱۲۰تایی"
+    }
+  },
+  "checks": {
+    "pass": 15,
+    "fail": 0,
+    "failed_ids": []
+  }
+}
