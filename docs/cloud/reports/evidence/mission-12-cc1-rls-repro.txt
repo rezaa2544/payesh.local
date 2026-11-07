@@ -1,15 +1,15 @@
 # آزمون اجرایی RLS روی PostgreSQL واقعی (A-02 · شرط CC-12-1 ردیف ۱۲)
 # تولید: bash docs/cloud/reports/evidence/rls-execution-test.sh
 # بازتولید: RLS_TEST_OUT=<file> bash docs/cloud/reports/evidence/rls-execution-test.sh
-# زمان: 2026-11-06T23:47:26Z
-# HEAD: 66984432e2566ba2cef400f8db1b6230debc6887
+# زمان: 2026-11-07T00:34:45Z
+# HEAD: 54b7236402db21105e544a28298b729d787df047
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 # postgres version: 16.2
 # postgres --version: postgres (PostgreSQL) 16.2
 # postgres binary: /tmp/pgtest/node_modules/@embedded-postgres/linux-x64/native/bin (خارج از مخزن؛ وابستگی محصول نیست)
 # sha256(rls-execution-test.sh): e3760f120eb06b7a1b916a72fde954f93a58b25e0e1a2b26b2dad6a882b671f1
 # sha256(rls-execution-test.cjs): ff515cb5c4652afad9a16bdd5b71d03642ded26488561fbad5c010778b4e1b35
-# product_tree_sha256: 6270f8a8ecff7874ec6b24cb7fc24fcce9b62915041d28c97aeeff4851560309
+# product_tree_sha256: 3351ca7eb366e8d984bb71b1050d55d4291707fb31d912a11e85ee95d04e8b24
 
 postgres: PostgreSQL 16.2
 seed: [{"tenant_id":"11111111-1111-1111-1111-111111111111","n":10},{"tenant_id":"22222222-2222-2222-2222-222222222222","n":10}]

@@ -1,0 +1,37 @@
+# دروازهٔ معیارهای ۱۲‑ب — پنل مالک، مرز اپراتور، support_grant
+# تولید: bash docs/cloud/reports/evidence/gen-cc12b-evidence.sh
+# زمان: 2026-11-07T00:35:47Z
+# HEAD: 969899561721c0b9175bbbed7c30bc4a87a37beb
+# product_tree_sha256: 3351ca7eb366e8d984bb71b1050d55d4291707fb31d912a11e85ee95d04e8b24
+# شاهد خام: docs/cloud/reports/evidence/cc12b-raw-slice20b.txt · docs/cloud/reports/evidence/cc12b-raw-boundary.txt
+# کد/سند آزمون‌شده:
+#   server/policy.js = 53fb9bbe0a16ac9339deefe205c1c39c1475a393c95b8be42086ce8630246593
+#   prototype/slice-20b/platform.js = d8cc3f7f674bb34aaae39f3d38df80af435699b6c3228514db017b08f5af3c4c
+#   prototype/slice-20b/tests/run.js = 371a641e4f1898bad755449bf04613ebd271010ff5cea934e2b2288b8092977c
+#   docs/cloud/12b-owner-panel-boundaries.md = d79966232f73a5b7993066d653601672599a5707cf95aaf9a5f15304906c2dac
+#   docs/cloud/01b-school-plan-subscription.md = 4aeac758b8b673b9e44ffe3cc30984cdb869be8ddf635c5a61c278674b1710b0
+#   docs/cloud/reports/evidence/probe-12b-boundary.cjs = 3363518bf94d8b2d1e35ffeb0b68de8feba3ee9c6eae1162f8e56da35ea6ef7e
+
+PASS  slice-20b exited 0
+PASS  slice-20b: SUMMARY pass=71 fail=0
+PASS  slice-20b: declared pass matches body (71)
+PASS  AC-2: 4/4 required negative/positive assertions seen as ✓
+PASS  AC-3: 5/5 required negative/positive assertions seen as ✓
+PASS  AC-4: 7/7 required negative/positive assertions seen as ✓
+PASS  boundary probe: pass=22 fail=0 (product policy + docs)
+PASS  prereq CC-12-1 (reproducible RLS proof) is green
+PASS  AC-1: 2/2 evidence checks ✓
+PASS  AC-6: 2/2 evidence checks ✓
+PASS  AC-7: 2/2 evidence checks ✓
+
+AC-1 (بخش‌های D-20): verified=2/2
+AC-2 (آزمون ۲۰‑ب): 4/4
+AC-3 (آزمون ۲۰‑ب): 5/5
+AC-4 (آزمون ۲۰‑ب): 7/7
+AC-5 (آزمون‌های منفی): 16/16 برچسب اجرایی ۲۰‑ب
+AC-6 (پیش‌نیاز ۰۱+۱۲): verified=2/2 · CC-12-1=OK
+AC-7 (بدون تصمیم مالی): verified=2/2
+
+slice-20b: pass=71 fail=0 · boundary probe: pass=22 fail=0
+
+CC12B-OK

@@ -1,0 +1,32 @@
+# پروب مرز پنل مالک/اپراتور — ردیف ۱۲‑ب
+# تولید: bash docs/cloud/reports/evidence/gen-cc12b-evidence.sh
+# فرمان: node docs/cloud/reports/evidence/probe-12b-boundary.cjs
+# زمان: 2026-11-07T00:35:47Z
+# HEAD: 969899561721c0b9175bbbed7c30bc4a87a37beb
+# policy: server/policy.js · doc: docs/cloud/12b-owner-panel-boundaries.md
+
+✓ فایل policy محصول خوانده شد
+✓ ROLES از server/policy.js قابل استخراج است
+✓ هیچ نقش پلتفرمی (owner/operator/support) در ROLES محصول نیست (default-deny)
+✓ همهٔ نقش‌های محصول پس از نگاشت مستند (manager→school_admin) زیرمجموعهٔ D-24 هستند
+✓ نگاشت manager→school_admin در سند ۰۱‑ب مستند شده است
+✓ نقش خارج از D-24 («office»/«staff»/«vice») در محصول صادر نمی‌شود
+✓ سند ۱۲‑ب خوانده شد
+✓ هشت بخش درون‌دامنهٔ D-20 در جدول نگاشت §۲.۱ آمده است
+✓ بخش ۸ (مالی) در جدول نگاشت صریحاً ❌ و خارج از v1 است
+✓ ناحیهٔ مالی صریحاً خارج از نسخهٔ اول علامت خورده (D-20/O-15)
+✓ سند ۱۲‑ب تصمیم باز پنل را فهرست می‌کند (بدون انتخاب یک‌طرفه)
+✓ سند ۰۱‑ب (پیش‌نیاز ۱۲‑ب) خوانده شد
+✓ approved_by اجباری و ≠ درخواست‌دهنده (چهارچشمی)
+✓ school_notified_at اجباری پیش از شروع (D-21)
+✓ scope فقط metadata/content_read — content_write هرگز
+✓ reason اجباری با حداقل طول
+✓ سقف سخت ۷۲ ساعت (ends_at ≤ starts_at + 72h)
+✓ ابطال فوری یک‌طرفهٔ مدیر مدرسه (revoked_at)
+✓ هر خواندن محتوا در support_access_log ثبت می‌شود
+✓ جدول یکتا و هم‌سان با ۰۱‑ب §۲.۶ (approved_by + school_notified_at در هر دو)
+✓ ماتریس پذیرش ۱۲‑ب هفت ردیف دارد
+✓ همهٔ هفت معیار در سند PASS علامت خورده‌اند
+
+SUMMARY pass=22 fail=0
+EXIT=0
