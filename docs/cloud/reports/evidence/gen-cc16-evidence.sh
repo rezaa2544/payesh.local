@@ -54,12 +54,7 @@ PROD_N=$(printf '%s\n' "$PROD_DIFF" | grep -c . || true)
 NON_PROD=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS | grep -c . || true)
 [ "$NON_PROD" = "0" ] || fail "PRODUCT-STILL-CHANGED: $NON_PROD"
 
-# ── ۱) اجرای پروب مدل ──────────────────────────────────────────────────────
-bash -c "$PROBE" > "$RAW_MODEL" 2>&1
-PROBE_RC=$?
-[ "$PROBE_RC" = "0" ] || fail "MODEL-PROBE-EXIT=$PROBE_RC — جزئیات: $RAW_MODEL"
-
-# ── ۲) بازتولید شاهد رفتار امروز ──────────────────────────────────────────
+# ── ۱) بازتولید شاهد رفتار امروز (اول، چون پروب تازگی همان شاهد را می‌سنجد) ──
 bash -c "$RUNTIME" > "$RAW_RUNTIME" 2>&1
 RT_RC=$?
 [ "$RT_RC" = "0" ] || fail "RUNTIME-EVIDENCE-EXIT=$RT_RC — جزئیات: $RAW_RUNTIME"
@@ -67,8 +62,13 @@ EV="$D/mission-16-observability-probe.txt"
 [ -f "$EV" ] || fail "RUNTIME-EVIDENCE-MISSING: $EV"
 EV_HEAD=$(sed -n 's/^head: *//p' "$EV" | head -1)
 [ "$EV_HEAD" = "$HEAD" ] || fail "RUNTIME-STALE: head شاهد «$EV_HEAD» ≠ HEAD «$HEAD»"
-grep -q '^EXPECTATIONS=ALL-MET$' "$EV" || fail "RUNTIME-EXPECTATIONS: shاهد رفتار امروز ALL-MET نیست"
+grep -q '^EXPECTATIONS=ALL-MET$' "$EV" || fail "RUNTIME-EXPECTATIONS: شاهد رفتار امروز ALL-MET نیست"
 grep -q '^exit=0$' "$EV" || fail "RUNTIME-EXIT: خط exit=0 در شاهد نیست"
+
+# ── ۲) اجرای پروب مدل (پس از تازه‌سازی شاهد رفتاری) ───────────────────────
+bash -c "$PROBE" > "$RAW_MODEL" 2>&1
+PROBE_RC=$?
+[ "$PROBE_RC" = "0" ] || fail "MODEL-PROBE-EXIT=$PROBE_RC — جزئیات: $RAW_MODEL"
 
 # ── ۳) SUMMARY بدنه: شمارش واقعی ───────────────────────────────────────────
 SUM=$(grep -E '^SUMMARY pass=[0-9]+ fail=[0-9]+ total=[0-9]+$' "$RAW_MODEL" | tail -1)
