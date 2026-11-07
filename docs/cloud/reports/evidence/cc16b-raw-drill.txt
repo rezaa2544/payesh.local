@@ -1,13 +1,13 @@
 DRILL-16B — تمرین واقعی راه‌اندازی/مهاجرت/کلید/آرشیو
-LEGACY_DB=/tmp/payesh-16b-drill-KrYN26/legacy-school/payesh.sqlite
-TENANT_A=c37e9d3c794a437c9ca5 TENANT_B=6b7086fffdf34b59b691
-MIGRATION_RUN duration_ms=116 bytes_copied=209379 records=106 legacy_db_bytes=180224 collections=8
-MIGRATION_REPORT_SHA256=22a31cd88117ec5b1fc60bf9ebe96a604b7bfad447fa27effcc58effe908bf88
+LEGACY_DB=/tmp/payesh-16b-drill-LaW2OS/legacy-school/payesh.sqlite
+TENANT_A=699d5a7b4f794603a3bd TENANT_B=35efe2a06fd44096bc73
+MIGRATION_RUN duration_ms=150 bytes_copied=209379 records=106 legacy_db_bytes=180224 collections=8
+MIGRATION_REPORT_SHA256=a909cbc701c4dca0688357834f2caa53a07a06e8b6abb70f931068f31134ca19
 COUNTS_BEFORE={"attendance":36,"classes":4,"grades":48,"leaves":8,"lookups":7,"school_years":1,"schools":1,"users":1}
 COUNTS_AFTER={"attendance":36,"classes":4,"grades":48,"leaves":8,"lookups":7,"school_years":1,"schools":1,"users":1}
-✓ P1 راه‌اندازی مستأجر A: هر ۹ گام موفق  ::  steps=9/9 tenant=c37e9d3c794a437c9ca5
-✓ P2 شناسهٔ مستأجر غیرقابل حدس و پیشوند مجاز (latina کوچک/رقم > ۳ نویسه)  ::  tenant_id=c37e9d3c794a437c9ca5
-✓ P3 چهار ریشهٔ پیشوند ساخته شد  ::  t/c37e9d3c794a437c9ca5/
+✓ P1 راه‌اندازی مستأجر A: هر ۹ گام موفق  ::  steps=9/9 tenant=699d5a7b4f794603a3bd
+✓ P2 شناسهٔ مستأجر غیرقابل حدس و پیشوند مجاز (latina کوچک/رقم > ۳ نویسه)  ::  tenant_id=699d5a7b4f794603a3bd
+✓ P3 چهار ریشهٔ پیشوند ساخته شد  ::  t/699d5a7b4f794603a3bd/
 ✓ P4 کلید DEK مستأجر در vault بسته‌بندی‌شده است (خروجی خام ندارد)  ::  wrapped_bytes=60
 ✓ P5 اشتراک active و مستأجر live است  ::  sub=active tenant=live
 ✓ P6 اجرای دوبارهٔ همان provision_op_id ⇒ همان مستأجر و صفر شیء تکراری  ::  tenants=1
@@ -17,12 +17,12 @@ COUNTS_AFTER={"attendance":36,"classes":4,"grades":48,"leaves":8,"lookups":7,"sc
 ✓ P10 tenant.status و subscription.status مستقل‌اند: archived + active ⇒ سرویس نه  ::  tenant=live sub=active served=true
 ✓ M1 هر ۹ گام مهاجرت موفق  ::  steps=9/9 verdict=matched dbg={}
 ✓ M2 تطبیق ۱۰۰٪ شمارش و هش هر مجموعه  ::  records=106 collections=8
-✓ M3 گزارش مهاجرت زمان/حجم/تعداد رکورد دارد (§۳.۳)  ::  duration_ms=116 bytes=209379 records=106 legacy_bytes=180224
-✓ M4 ردیف migration_run با verdict=matched ثبت شد  ::  22a31cd88117
-✓ M5 کپی امضاشدهٔ گزارش در t/<tenant>/exports/ رمزنگاری‌شده است  ::  mig-c37e9d3c.report.json
+✓ M3 گزارش مهاجرت زمان/حجم/تعداد رکورد دارد (§۳.۳)  ::  duration_ms=150 bytes=209379 records=106 legacy_bytes=180224
+✓ M4 ردیف migration_run با verdict=matched ثبت شد  ::  a909cbc701c4
+✓ M5 کپی امضاشدهٔ گزارش در t/<tenant>/exports/ رمزنگاری‌شده است  ::  mig-699d5a7b.report.json
 ✓ M6 بکاپ پایگاه با DEK مستأجر رمزنگاری شده (SQLite خام نیست)  ::  enc_bytes=180258
 ✓ M7 اجرای دوبارهٔ مهاجرت چیزی را تکرار نمی‌کند (idempotent)  ::  records_copied=0
-✓ I1 دو مستأجر، دو پیشوند و دو کلید مستقل  ::  A=c37e9d3c B=6b7086ff
+✓ I1 دو مستأجر، دو پیشوند و دو کلید مستقل  ::  A=699d5a7b B=35efe2a0
 ✓ I2 خواندن عرضی در لایهٔ داده رد می‌شود (403/denied)  ::  cross-tenant-denied
 ✓ I3 دادهٔ A با کلید B قابل رمزگشایی نیست (GCM auth fail)  ::  auth-tag-mismatch
 ✓ I4 نوشتن با tenant_id جعلی/پیشوند بیگانه رد می‌شود  ::  no-tenant-key/root-not-allowed

@@ -4,6 +4,7 @@
 set -u
 cd "$(dirname "$0")/../../../.." || exit 1   # ریشهٔ مخزن
 OUT="docs/cloud/reports/evidence/mission-15-backup-probe.txt"
+BASE="${PAYESH_AUDIT_BASE:-f2fc472}"
 {
   echo "# شاهد اجرایی مأموریت ۱۵ — رفتار بکاپ/بازیابی در کد امروز"
   echo "generated_by: docs/cloud/reports/evidence/gen-mission-15-evidence.sh"
@@ -35,7 +36,14 @@ OUT="docs/cloud/reports/evidence/mission-15-backup-probe.txt"
   sed -n '32p' server/mirror.js | sed 's/^/   /'
   echo
   echo "## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)"
-  git diff --name-only f2fc472 -- server client tests scripts package.json | wc -l
+  if git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+    PROD_N=$(git diff --name-only "$BASE" -- server client tests scripts package.json package-lock.json installer desktop install deploy | wc -l | tr -d ' ')
+    echo "product_diff_files: $PROD_N"
+    echo "PRODUCT-DIFF=$PROD_N"
+  else
+    echo "BASE-MISSING: $BASE در مخزن نیست (clone کم‌عمق؟) — «۰ فایل تغییر» بی‌اعتبار است"
+    echo "PRODUCT-DIFF=UNKNOWN"
+  fi
 } > "$OUT"
 echo "written: $OUT"
 wc -l "$OUT"
