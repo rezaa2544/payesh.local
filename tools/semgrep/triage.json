@@ -1,0 +1,33 @@
+{
+  "_doc": "ردیف ۴۸ — تریاژ هشدارهای SAST بر پایهٔ سقف تعداد هر قاعده. هشدار تازه یا رشد تعداد = دروازهٔ قرمز. تولید: node tools/security-scan-48.mjs --update-triage",
+  "rules": {
+    "payesh-innerhtml-dynamic": {
+      "max": 15,
+      "reason": "قالب‌ساز UI: رشته‌های HTML ثابت یا مقادیرِ عبورکرده از esc()؛ ۱۵ نقطه دستی بازبینی شد. گیت‌نشده چون taint دامنهٔ DOM در این پیکربندی نویز بالا دارد؛ ریسک XSS به‌عنوان «باز» در سند ۴۸ ثبت شده.",
+      "owner": "code",
+      "reviewed_at": "2026-11-08",
+      "sites": 15
+    },
+    "payesh-plaintext-http-client": {
+      "max": 1,
+      "reason": "نمایش آدرس محلی همین دستگاه (http://<host>) در راهنمای نصب؛ داده‌ای روی آن منتقل نمی‌شود و مقدار با esc() می‌رود.",
+      "owner": "code",
+      "reviewed_at": "2026-11-08",
+      "sites": 1
+    },
+    "payesh-weak-crypto-for-secret": {
+      "max": 4,
+      "reason": "sha1 فقط برای اثرانگشت کش/ETag/dedup (sendFile، live.hashOf، outbox PUT_HASH، ETag pull)، نه راز یا رمز عبور.",
+      "owner": "code",
+      "reviewed_at": "2026-11-08",
+      "sites": 4
+    },
+    "payesh-sql-string-concat": {
+      "max": 9,
+      "reason": "رشتهٔ قالبی فقط برای نام ستون/جدول از ثابت‌های داخلی (BIG()/T()/sqlPredicate)؛ مقادیر با $n پارامتر می‌شوند و قاعدهٔ taint برای همین کد صفر یافته داد.",
+      "owner": "code",
+      "reviewed_at": "2026-11-08",
+      "sites": 9
+    }
+  }
+}

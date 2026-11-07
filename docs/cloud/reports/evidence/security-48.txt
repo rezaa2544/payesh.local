@@ -1,0 +1,72 @@
+# شاهد ردیف ۴۸ — اسکن امنیتی ایستا + وابستگی در CI (blocking، نه advisory)
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/b780a176-payesh-local
+# head_sha: 3372bb76b0879ca5508dcdd17ad0e32441751291
+# version: 0.8.58
+# generated_at: 2026-11-07T22:31:04Z
+# node: v22.22.3   os: Linux 6.1.158+ x86_64
+# semgrep: 1.184.0
+# command: bash docs/cloud/reports/evidence/run-48-security-scan.sh
+# tools: npm audit (ادوایزری واقعی) · semgrep الگویی + taint · اسکن راز روی git ls-files
+# NOTE: این سند pentest انسانی نیست؛ وضعیت امنیت همچنان UNKNOWN است.
+
+## بخش ۱ — دروازهٔ اصلی روی مخزن واقعی (G1..G6)
+security-scan-48 — gates:
+  ok   G1_deps_prod_clean
+  ok   G2_deps_dev_triaged
+  ok   G3_sast_no_errors
+  ok   G4_sast_taint_no_errors
+  ok   G5_warnings_triaged
+  ok   G6_no_hardcoded_secrets
+  counts: {"deps_prod_high":0,"deps_dev_high":7,"semgrep_error":0,"semgrep_warning":29,"untriaged":0,"secrets":0}
+
+SECURITY-SCAN-48-OK
+
+## بخش ۲ — شمارش‌های پذیرش از خروجی JSON (بدون جمع‌زدن دستی)
+PASS  deps_prod_high      0  =0 إطلاقاً (هیچ استثنا)
+PASS  deps_dev_high       7  همه در allowlist با دلیل+انقضا
+PASS  semgrep_error       0  =0 (الگویی + taint)
+PASS  semgrep_warning    29  زیر سقفِ هر قاعده
+PASS  untriaged           0  =0 (قاعدهٔ تازه ممنوع)
+PASS  secrets             0  =0 (روی فایل‌های ردیابی‌شده)
+gate  G1_deps_prod_clean ok
+gate  G2_deps_dev_triaged ok
+gate  G3_sast_no_errors ok
+gate  G4_sast_taint_no_errors ok
+gate  G5_warnings_triaged ok
+gate  G6_no_hardcoded_secrets ok
+
+## بخش ۳ — آزمون ۱۲گانه شامل ۵ کنترل منفی (دروازه باید قرمز شود)
+test:security48 exit=0  (0 = هر ۵ کنترل منفی قرمز شدند و ۷ بررسی دیگر سبز)
+
+## بخش ۴ — سیاست استثناها و تریاژ (متن، نه ادعا)
+allowlist_entries:   7
+triage_rules:        4
+all_have_reason:     true
+all_have_expiry:     true
+
+## بخش ۵ — سیم‌کشی CI (مسدودکننده، نه advisory)
+ci_step_present:     1
+sec_step_advisory:   NO
+npm_script_gate:     true
+
+## بخش ۶ — دامنهٔ اسکن (مسیرهای محصول واقعاً پوشش داده می‌شوند)
+rule_ids_pattern:    9
+rule_ids_taint:      2
+include_roots_in_scan:client/** server/** 
+doc_lines:           121
+
+## بخش ۷ — رگرسیون: بقیهٔ آزمون‌ها دست‌نخورده
+  ✓ ردیف ۲۹: کلید امضای پشتیبان بیرون از پایگاه‌داده نگه داشته می‌شود (بازیابی پس از از دست رفتن DB)
+
+96 موفق · 0 ناموفق
+
+
+# ===== SUMMARY =====
+# gate_exit:            0
+# json_counts_exit:     0
+# security48_test_exit: 0
+# regression_exit:      0
+# OWNER-REMAINING: pentest مستقل انسانی روی مسیر ابری — وضعیت امنیت همچنان UNKNOWN.
+# EXIT=0
+SECURITY-48-OK

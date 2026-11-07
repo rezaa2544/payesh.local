@@ -1,0 +1,212 @@
+{
+  "tool": "security-scan-48",
+  "root": "/home/user/payesh.local",
+  "started_at": "2026-11-07T22:31:05.105Z",
+  "gates": {
+    "G1_deps_prod_clean": true,
+    "G2_deps_dev_triaged": true,
+    "G3_sast_no_errors": true,
+    "G4_sast_taint_no_errors": true,
+    "G5_warnings_triaged": true,
+    "G6_no_hardcoded_secrets": true
+  },
+  "findings": {
+    "semgrep_error": [],
+    "semgrep_warning": [
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/app.js",
+        "line": 1478,
+        "fingerprint": "fd53b9293463c388"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/app.js",
+        "line": 1676,
+        "fingerprint": "fd53b9293463c388"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/app.js",
+        "line": 1791,
+        "fingerprint": "fd53b9293463c388"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/app.js",
+        "line": 2081,
+        "fingerprint": "fd53b9293463c388"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/app.js",
+        "line": 2258,
+        "fingerprint": "fd53b9293463c388"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/app.js",
+        "line": 2993,
+        "fingerprint": "fd53b9293463c388"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/app.js",
+        "line": 3000,
+        "fingerprint": "fd53b9293463c388"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/app.js",
+        "line": 3008,
+        "fingerprint": "fd53b9293463c388"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/app.js",
+        "line": 3084,
+        "fingerprint": "fd53b9293463c388"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/pages.js",
+        "line": 205,
+        "fingerprint": "7e4f1ddf225d36b3"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/pages.js",
+        "line": 216,
+        "fingerprint": "7e4f1ddf225d36b3"
+      },
+      {
+        "rule": "payesh-plaintext-http-client",
+        "path": "client/pages.js",
+        "line": 1489,
+        "fingerprint": "35b04f003008d6ee"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/pages.js",
+        "line": 1717,
+        "fingerprint": "7e4f1ddf225d36b3"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/pages.js",
+        "line": 2180,
+        "fingerprint": "7e4f1ddf225d36b3"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/scan.js",
+        "line": 42,
+        "fingerprint": "c77bb28a35a75004"
+      },
+      {
+        "rule": "payesh-innerhtml-dynamic",
+        "path": "client/scan.js",
+        "line": 224,
+        "fingerprint": "c77bb28a35a75004"
+      },
+      {
+        "rule": "payesh-weak-crypto-for-secret",
+        "path": "server/index.js",
+        "line": 327,
+        "fingerprint": "868af8a871f4d4fe"
+      },
+      {
+        "rule": "payesh-weak-crypto-for-secret",
+        "path": "server/live.js",
+        "line": 85,
+        "fingerprint": "0c983507f94d4bed"
+      },
+      {
+        "rule": "payesh-weak-crypto-for-secret",
+        "path": "server/outbox.js",
+        "line": 45,
+        "fingerprint": "e25837b995996ab1"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/scope.js",
+        "line": 46,
+        "fingerprint": "2bbbfeaec04cacb3"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/scope.js",
+        "line": 53,
+        "fingerprint": "2bbbfeaec04cacb3"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/scope.js",
+        "line": 60,
+        "fingerprint": "2bbbfeaec04cacb3"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/scope.js",
+        "line": 68,
+        "fingerprint": "2bbbfeaec04cacb3"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/scope.js",
+        "line": 78,
+        "fingerprint": "2bbbfeaec04cacb3"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/scope.js",
+        "line": 87,
+        "fingerprint": "2bbbfeaec04cacb3"
+      },
+      {
+        "rule": "payesh-weak-crypto-for-secret",
+        "path": "server/sync.js",
+        "line": 90,
+        "fingerprint": "dacb11c634b850dc"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/tenancy.js",
+        "line": 381,
+        "fingerprint": "15d3cdf601964176"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/tenancy.js",
+        "line": 385,
+        "fingerprint": "15d3cdf601964176"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/tenancy.js",
+        "line": 660,
+        "fingerprint": "15d3cdf601964176"
+      }
+    ],
+    "untriaged": [],
+    "deps_prod": [],
+    "deps_dev_unlisted": [],
+    "secrets": [],
+    "warnings_by_rule": {
+      "payesh-innerhtml-dynamic": 15,
+      "payesh-plaintext-http-client": 1,
+      "payesh-weak-crypto-for-secret": 4,
+      "payesh-sql-string-concat": 9
+    }
+  },
+  "counts": {
+    "deps_prod_high": 0,
+    "deps_dev_high": 7,
+    "semgrep_error": 0,
+    "semgrep_warning": 29,
+    "untriaged": 0,
+    "secrets": 0
+  },
+  "ok": true,
+  "finished_at": "2026-11-07T22:31:12.864Z"
+}

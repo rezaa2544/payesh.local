@@ -1,0 +1,55 @@
+# ردیف ۴۸ — قواعد taint (پرهزینه)؛ فقط روی server/ اجرا می‌شوند.
+# تشخیص تزریق SQL/فرمان از ورودی HTTP تا sink. یافته = ERROR = دروازه قرمز.
+rules:
+  - id: payesh-sql-taint
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      ورودی HTTP بدون پارامترسازی به SQL می‌رسد (تزریق SQL). باید placeholder
+      ($n) و پارامتر جدا باشد.
+    pattern-sources:
+      - pattern-either:
+          - pattern: req.body
+          - pattern: req.query
+          - pattern: req.params
+          - pattern: req.headers
+          - pattern: $P.get(...)
+          - pattern: $URL.searchParams
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $C.query(...)
+              - pattern: $C.query($Q, ...)
+              - pattern: $C.execute(...)
+          - pattern-not: $C.query("...", ...)
+          - pattern-not: $C.query('...', ...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Number(...)
+          - pattern: parseInt(...)
+          - pattern: JSON.stringify(...)
+          - pattern: encodeURIComponent(...)
+
+  - id: payesh-cmd-taint
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      ورودی HTTP به اجرای فرمان سیستمی می‌رسد (تزریق فرمان).
+    pattern-sources:
+      - pattern-either:
+          - pattern: req.body
+          - pattern: req.query
+          - pattern: req.params
+          - pattern: req.headers
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $CP.exec(...)
+          - pattern: $CP.execSync(...)
+          - pattern: $CP.spawn(...)
+          - pattern: $CP.spawnSync(...)
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Number(...)
+          - pattern: encodeURIComponent(...)
