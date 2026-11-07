@@ -1,9 +1,9 @@
 # دروازهٔ F‑04 — حذف افشای کلید S3 از کلاینت/API (P0 · D‑23)
 generated_by: docs/cloud/reports/evidence/gen-f04-gate.sh
-head: c3f38919526436872905c10d0cc4c6fd256d1f0b
+head: 7af3657e44386d74eed5e6258705ca7c28432f3a
 base: f2fc472
-generated_at_utc: 2026-11-07T10:03:16Z
-product_tree_sha256: cec2b3b403d0996dc04b2fb0b2a630f3f7cb9b00d47170088e0150e19ff282f1
+generated_at_utc: 2026-11-07T10:16:36Z
+product_tree_sha256: 7a45310005182d0dd046ecf9002cb16aca6ee04426c20dd64dd777591f6d5133
 tests: 94 0
 product_diff_files: 25
 product_scope_outside: 0
