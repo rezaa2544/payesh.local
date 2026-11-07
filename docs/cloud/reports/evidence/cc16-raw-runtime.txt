@@ -1,0 +1,2 @@
+written: docs/cloud/reports/evidence/mission-16-observability-probe.txt
+72 docs/cloud/reports/evidence/mission-16-observability-probe.txt

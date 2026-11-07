@@ -1,8 +1,8 @@
 # شاهد خام نمونه — s18
 # تولید: bash docs/cloud/reports/evidence/gen-cc13-evidence.sh
 # فرمان: node prototype/slice-18/tests/run.js
-# زمان: 2026-11-07T00:24:05Z
-# HEAD: 22ac98cbca2239986d109ce0059a85632df4f290
+# زمان: 2026-11-07T00:51:09Z
+# HEAD: 2edf277ab63fb8666d1a74aa248da678dcc6ffa0
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 
 ✓ پیش از sync، حالت محافظه‌کارانه فعال است

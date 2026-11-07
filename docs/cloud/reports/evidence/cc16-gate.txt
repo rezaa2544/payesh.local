@@ -1,0 +1,59 @@
+# دروازهٔ CC‑16 — بازمحاسبهٔ مدل هزینه/ظرفیت و پوشش معیارهای ردیف ۱۶
+generated_by: docs/cloud/reports/evidence/gen-cc16-evidence.sh
+head: 2edf277ab63fb8666d1a74aa248da678dcc6ffa0
+base: f2fc472
+generated_at_utc: 2026-11-07T00:50:51Z
+node: v22.22.3
+product_diff_files: 0
+non_product_changed: 0
+runtime_evidence_head: 2edf277ab63fb8666d1a74aa248da678dcc6ffa0
+model_probe_summary: SUMMARY pass=40 fail=0 total=40
+labels_required: 40  labels_verified: 40  crossed: 0
+ac_rows: 14  verdict: ۱۴/۱۴
+probe_sha256: 2cd4ce704eed0877af049ef194abfac18247479ccaf6b9a56a6d7cd9fdbe556d
+manifest_sha256: b27f4ead051da71650f72338080892f67ba98f8ba051928c9104cb7d6224bd36
+doc_sha256: 6782c91eef767b899c9235c3166616b180b7d9270603de899a5256f03d0d7370
+
+## بررسی‌های گذر‌کرده (عین برچسب‌های پروب)
+✓ M1 اندازهٔ پاسخ poll اندازه‌گیری‌شده = عدد فرمول سند  ::  measured=107 doc_formula=107 doc_row=107 anon=401
+✓ M2 سناریوهای دستگاه ۵۰۰/۴٬۰۰۰/۲۰٬۰۰۰  ::  devices=[500,4000,20000]
+✓ M3 پهنای باند خروجی محافظه‌کارانه = 0.79 TB  ::  model=0.787 doc=0.79 rel=0.42%
+✓ M4 پهنای باند خروجی میانه = 6.29 TB  ::  model=6.293 doc=6.29 rel=0.05%
+✓ M5 پهنای باند خروجی رشد = 31.47 TB  ::  model=31.467 doc=31.5 rel=0.11%
+✓ M6 حجم لاگ محافظه‌کارانه = 103.7 GB/ماه  ::  model=103.68 doc=104 rel=0.31%
+✓ M7 حجم لاگ میانه = 829.4 GB/ماه  ::  model=829.44 doc=829 rel=0.05%
+✓ M8 حجم لاگ رشد = 4147.2 GB/ماه  ::  model=4147.20 doc=4147 rel=0.00%
+✓ M9 هزینهٔ خروجی محافظه‌کارانه = €6–9  ::  model=€6.3–9.4 doc=€6–9 tol=0.50
+✓ M10 هزینهٔ خروجی میانه = €50–76  ::  model=€50.3–75.5 doc=€50–76 tol=0.76
+✓ M11 هزینهٔ خروجی رشد = €252–378  ::  model=€251.7–377.6 doc=€250–380 tol=3.78
+✓ M12 جمع شناخته‌شده = مجموع سه قلم جدول سند (سه سناریو)  ::  ALL-SUMS-MATCH
+✓ M13 قیمت vCPU/پایگاه «?» و عنوان §۷.۲ «نامعلوم» است  ::  p_vcpu=? p_db=? heading=### ۷.۲ قیمت واحدها — **نامعلوم تا انتخاب میزبان**
+✓ M14 هیچ ردیف جدولی «جمع» با عدد خودساختهٔ ۷۴ نیست  ::  no-self-made-total
+✓ M15 واژهٔ SLA فقط در بافت نفی/بازآمده به‌کار رفته (جدول SLO بدون SLA)  ::  only-negated
+✓ A1 معیار ۱ HA و failover  ::  ok
+✓ A2 معیار ۲ رصدپذیری با آستانه و اقدام  ::  ok
+✓ A3 معیار ۳ RPO/RTO صریح و برچسب‌دار  ::  ok
+✓ A4 معیار ۴ هزینه سه‌سناریویی برچسب‌دار  ::  ok
+✓ A5 معیار ۵ رشد و شکست هزینه  ::  ok
+✓ A6 معیار ۶ بدون Cloudflare  ::  ok
+✓ A7 معیار ۷ بدون تصمیم مالی خودسرانه  ::  ok
+✓ A8 معیار ۸ جدول نه‌گانهٔ نقاط شکست  ::  ok
+✓ A9 معیار ۹ شرط فعال‌سازی و ضد split‑brain  ::  ok
+✓ A10 معیار ۱۰ هشدار با شدت/مسئول/escalation  ::  ok
+✓ A11 معیار ۱۱ متریک/لاگ/trace/health با نگهداشت  ::  ok
+✓ A12 معیار ۱۲ فرمول/واحد و برچسب [M]/[A]/[E]  ::  ok
+✓ A13 معیار ۱۳ هم‌ترازی با ۰۴ و ۱۵  ::  ok
+✓ A14 معیار ۱۴ سازگاری با ۱۵ و ۱۶‑ب  ::  ok
+✓ R1 نشست در پایگاه است (ادعای «نشست در حافظه» برگشته نیست)  ::  ok
+✓ R2 جدول SLO: p95 نوشتن ۸۰۰ms و RTO ۲ ساعت (بدون ۴۰۰ms/۴h)  ::  ok
+✓ R3 قیمت واحد نامعلوم + فرمول باز، بدون جمع €۷۴  ::  ok
+✓ R4 نه نقطهٔ شکست SP‑1..SP‑9  ::  ok
+✓ R5 fencing + epoch + تمرین فصلی  ::  ok
+✓ R6 سه نقطهٔ سلامت + متریک + لاگ JSON + نگهداشت  ::  ok
+✓ R7 هشدار P0–P3 با مسئول و escalation و runbook  ::  ok
+✓ X1 ۰۴: C‑1=۳۰۰ms و C‑2=۸۰۰ms موجود است  ::  ok
+✓ X2 ۱۵: RTO سناریوی ۲ = ≤ ۲ ساعت  ::  ok
+✓ E1 شاهد اجرایی امروز تازه است (head=HEAD) و ALL-MET  ::  evidence_head=2edf277ab63fb8666d1a74aa248da678dcc6ffa0 head=2edf277ab63fb8666d1a74aa248da678dcc6ffa0
+✓ E2 پایهٔ ممیزی f2fc472 موجود است و کد محصول ۰ فایل تغییر  ::  product_diff_files=0
+
+CC16-OK
