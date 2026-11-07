@@ -1,7 +1,7 @@
 # دروازهٔ ظرفیت / HA / DR — ردیف ۲۹
 generated_by: docs/cloud/reports/evidence/gen-capacity-gate.sh
-head: e024ea4e5ce94b040e767e40dd13e6c00148b54a
-generated_at_utc: 2026-11-07T11:06:13Z
+head: 103b375ffc1ac808df4085934c9e8f9ce8bcb967
+generated_at_utc: 2026-11-07T11:09:24Z
 load_witness: docs/cloud/reports/evidence/capacity-mixed-load.txt
 dr_witness: docs/cloud/reports/evidence/capacity-dr-drill.txt
 monitoring_witness: docs/cloud/reports/evidence/capacity-monitoring.txt
