@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ CC‑16B — شاهد ناقص/جعلی/کهنه
 generated_by: docs/cloud/reports/evidence/verify-cc16b-negative.sh
-head: d60d237945d99bb781666d0ed2f09854aa1fafbf
-generated_at_utc: 2026-11-07T01:13:22Z
+head: 596e82eabe25e71a59574e7b52d41a321ca16d9e
+generated_at_utc: 2026-11-07T01:15:29Z
 
 PASS  P0  gate accepted clean evidence (control positive): اجرای سالم: تمرین ۳۸/۳۸ + شاهد رفتار امروز تازه + Manifest کامل
 PASS  N1  gate rejected: یک برچسب لازم از بدنهٔ تمرین حذف شد  → CC16B-FAIL: LABEL-MISSING: P1 راه‌اندازی مستأجر A: هر ۹ گام مو�

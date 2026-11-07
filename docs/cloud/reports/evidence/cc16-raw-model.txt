@@ -1,5 +1,5 @@
 PROBE-16-MODEL — بازمحاسبهٔ مدل هزینه/ظرفیت و پوشش معیارهای ۱۶
-SHA=e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977
+SHA=596e82eabe25e71a59574e7b52d41a321ca16d9e
 DOC=docs/cloud/16-ha-observability-cost.md
 MEASURED_PAYLOAD_BYTES=107
 ✓ M1 اندازهٔ پاسخ poll اندازه‌گیری‌شده = عدد فرمول سند  ::  measured=107 doc_formula=107 doc_row=107 anon=401
@@ -40,6 +40,6 @@ MEASURED_PAYLOAD_BYTES=107
 ✓ R7 هشدار P0–P3 با مسئول و escalation و runbook  ::  ok
 ✓ X1 ۰۴: C‑1=۳۰۰ms و C‑2=۸۰۰ms موجود است  ::  ok
 ✓ X2 ۱۵: RTO سناریوی ۲ = ≤ ۲ ساعت  ::  ok
-✓ E1 شاهد اجرایی امروز تازه است (head=HEAD) و ALL-MET  ::  evidence_head=e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977 head=e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977
+✓ E1 شاهد اجرایی امروز تازه است (head=HEAD) و ALL-MET  ::  evidence_head=596e82eabe25e71a59574e7b52d41a321ca16d9e head=596e82eabe25e71a59574e7b52d41a321ca16d9e
 ✓ E2 پایهٔ ممیزی f2fc472 موجود است و کد محصول ۰ فایل تغییر  ::  product_diff_files=0
 SUMMARY pass=40 fail=0 total=40

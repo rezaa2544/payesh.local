@@ -1,8 +1,8 @@
 # دروازهٔ شرط‌های CC-14-1..5 (ردیف ۱۴ — تعارض و هم‌گرایی چنددستگاهی)
 # تولید: bash docs/cloud/reports/evidence/gen-cc14-evidence.sh
-# زمان: 2026-11-07T00:51:09Z
-# HEAD: 2edf277ab63fb8666d1a74aa248da678dcc6ffa0
-# product_tree_sha256: 080c8ccf1338f1dfe3f6b46bcbbfe1884b75de2ee31309d8076130c5b67ce043
+# زمان: 2026-11-07T01:14:43Z
+# HEAD: 596e82eabe25e71a59574e7b52d41a321ca16d9e
+# product_tree_sha256: 1428be66015055dbbe8d93107d33f9ac5c005cbd21fec764e98e773444547e42
 # شاهد خام: docs/cloud/reports/evidence/cc14-raw-slice19.txt
 # کد آزمون‌شده:
 #   prototype/slice-19/tests/run.js = e29d90c1248d2dbac2509544dadfe797c4dfa05c831aa3cdbf5049ff99ca8656

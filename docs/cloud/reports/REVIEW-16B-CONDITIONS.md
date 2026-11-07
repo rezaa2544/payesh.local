@@ -47,7 +47,7 @@ product_diff_files: 0
 runtime_evidence_head: d60d237945d99bb781666d0ed2f09854aa1fafbf
 drill_summary: SUMMARY pass=38 fail=0 total=38
 labels_required: 38  labels_verified: 38
-migration_run: MIGRATION_RUN duration_ms=111 bytes_copied=209379 records=106 legacy_db_bytes=180224 collections=8
+migration_run: MIGRATION_RUN duration_ms=116 bytes_copied=209379 records=106 legacy_db_bytes=180224 collections=8
 tenant_a: 7c568acc9d8c4f41b620  tenant_b: 420c6fa0868249c78a52
 ac_rows: 12  verdict: ۱۲/۱۲
 CC16B-OK
@@ -57,7 +57,7 @@ CC16B-OK
 |---|---|---|
 | **تعداد رکورد** | **۱۰۶** رکورد در **۸** مجموعه | `COUNTS_BEFORE={"attendance":36,"classes":4,"grades":48,"leaves":8,"lookups":7,"school_years":1,"schools":1,"users":1}` |
 | **حجم** | پایگاه مدرسهٔ موجود **۱۸۰٬۲۲۴ B** · منتقل‌شده **۲۰۹٬۳۷۹ B** (ردیف‌ها + بکاپ رمزنگاری‌شده) | `MIGRATION_RUN` |
-| **زمان** | **۱۱۱ ms** برای هر ۹ گام؛ `step_results[]` با زمان هر گام | `migration_runs.duration_ms` |
+| **زمان** | **۱۰۷–۱۱۶ ms** در پنج اجرای این دور (ثبت‌شده: ۱۱۶ ms)؛ عدد دقیق هر اجرا در `step_results[]` و `cc16b-gate.txt` | `migration_runs.duration_ms` |
 | تطبیق | هش SHA‑256 هر ۸ مجموعه + شمارش، ۱۰۰٪ برابر · گزارش امضاشده با `report_sha256=3171a85b…` | `verdict=matched` |
 | کلید | `DEK` بسته‌بندی‌شده **۶۰ بایت** در vault؛ بکاپ رمزنگاری‌شده با هدر `PBENC1`؛ دادهٔ A با کلید B رمزگشایی **نشد** | `P4`, `M6`, `I3` |
 
