@@ -182,7 +182,78 @@ function saveCache() {
   for (const c of Object.keys(S.data)) plain[c] = [...S.data[c].values()];
   return cacheWrite(plain);
 }
-function saveQueue() { localStorage.setItem('payesh.queue', JSON.stringify(S.queue.slice(-500))); }
+/* ── صف عملیات: ماندگار روی دستگاه (ردیف ۴۰) ────────────────────────
+   قبلاً این‌جا صف به ۵۰۰ عملیات آخر بریده و ذخیره می‌شد؛ صفِ بزرگ‌تر،
+   کهنه‌ترین عملیاتش را **بی‌صدا** دور می‌ریخت (ریسک E‑14‑2). حالا:
+     • منبع حقیقت، صندوقچهٔ ماندگار IndexedDB است (client/outbox-web.js)؛
+     • localStorage فقط آینهٔ کشِ سازگاری است و اگر جا نشد، کش می‌رود،
+       نه عملیات؛
+     • سقف صف صریح است (QUEUE_CAP) و پر شدنش به کاربر نشان داده می‌شود. */
+const QUEUE_CAP = 5000;
+let _ob = null, _obPromise = null;
+
+function outboxInstance() {
+  if (_obPromise) return _obPromise;
+  _obPromise = (async () => {
+    try {
+      const api = (typeof window !== 'undefined' && window.PayeshOutbox) || null;
+      if (!api || !api.open) return null;
+      _ob = await api.open(undefined, { capacity: QUEUE_CAP });
+      /* پس از crash/restart: اجاره‌های رهاشده برمی‌گردند و عملیاتِ
+         ارسال‌نشده دوباره در نمای صف قرار می‌گیرند — هیچ‌کدام گم نمی‌شود */
+      await _ob.recover();
+      const left = await _ob.list();
+      for (const r of left) {
+        if (r.state === 'blocked') continue;
+        if (S.queue.some(q => q.uid === r.k)) continue;
+        S.queue.push({
+          uid: r.k, collection: r.collection, type: r.type,
+          id: r.id == null || r.id < 0 ? undefined : r.id,
+          localId: r.localId == null ? undefined : r.localId,
+          data: r.payload || {}, base_version: r.base_version || 0, at: r.at,
+        });
+      }
+      S.outbox = await _ob.stats();
+      return _ob;
+    } catch (e) { return null; }
+  })();
+  return _obPromise;
+}
+
+function mirrorQueue() {
+  /* آینهٔ کش؛ هرگز جای عملیات را نمی‌گیرد */
+  try { localStorage.setItem('payesh.queue', JSON.stringify(S.queue)); }
+  catch (e) { try { localStorage.removeItem('payesh.queue'); } catch (e2) { /* noop */ } }
+}
+
+function saveQueue() {
+  const pending = persistQueue();
+  mirrorQueue();
+  return pending;
+}
+
+async function persistQueue() {
+  const ob = await outboxInstance();
+  if (!ob) return;                        /* محیط بدون IndexedDB: آینه کافی است */
+  for (const op of S.queue) {
+    try { await ob.enqueue(op); } catch (e) { /* نوشتن نباید UI را بشکند */ }
+  }
+  try { S.outbox = await ob.stats(); } catch (e) { /* noop */ }
+}
+
+/* افزودن یک عملیات با سقف صریح — پر بودن صف، عملیات تازه را می‌پذیرد
+   ولی **هیچ عملیات قبلی را حذف نمی‌کند** و به کاربر خبر می‌دهد. */
+function enqueueOp(op) {
+  if (S.queue.length >= QUEUE_CAP) {
+    S.queueFull = true;
+    if (typeof toast === 'function') toast('صف ارسال پر است — تا همگام‌سازی بعدی تغییر تازه ثبت نمی‌شود', 'err');
+    return false;
+  }
+  S.queue.push(op);
+  saveQueue();
+  if (typeof liveKick === 'function') liveKick();
+  return true;
+}
 function saveReview() { localStorage.setItem('payesh.review', JSON.stringify(S.review.slice(-200))); }
 
 /* F‑01: پاک‌سازی یک‌بارهٔ رمزهای خامِ کش‌شده از نسخه‌های قبلی */
@@ -400,9 +471,17 @@ async function flushQueue() {
   }
   S.syncing = true;
   let pushed = 0;
+  /* ردیف ۴۰: صندوقچهٔ ماندگار، پیش از هر ارسال، اجاره‌های رهاشده را
+     برمی‌گرداند و دستهٔ جاری را «در حال ارسال» علامت می‌زند؛ پس اگر
+     برنامه وسط درخواست بسته شود، همان عملیات با همان uid برمی‌گردد. */
+  const ob = await outboxInstance();
+  if (ob) { try { await ob.recover(); } catch (e) { /* noop */ } }
+  let lastBatch = [];
   try {
     while (S.queue.length) {
       const batch = S.queue.slice(0, 120);
+      lastBatch = batch;
+      if (ob) { try { await ob.markInflight(batch.map(o => o.uid)); } catch (e) { /* noop */ } }
       const r = await api('/api/sync', { method: 'POST', body: { ops: batch }, noAuthRedirect: false });
       const appliedIds = new Map((r.applied || []).map(a => [a.uid, a]));
       for (const op of batch) {
@@ -450,10 +529,19 @@ async function flushQueue() {
         saveReview();
         toast('تعارض در ' + fa(conflicts.length) + ' رکورد — هر دو نسخه نگه داشته شد؛ نیازمند تصمیم', 'err');
       }
+      /* فقط عملیاتی که سرور دربارهٔ آن تصمیم داده از صندوقچه حذف می‌شود */
+      if (ob) {
+        const remain = new Set(S.queue.map(o => o.uid));
+        const settled = batch.map(o => o.uid).filter(u => !remain.has(u));
+        if (settled.length) { try { await ob.ackMany(settled); } catch (e) { /* noop */ } }
+      }
       saveQueue();
     }
     saveCache();
   } catch (e) {
+    /* در دسترس نبودن شبکه: دستهٔ ارسال‌شده با backoff برمی‌گردد و
+       عملیات‌ها در صندوقچه می‌مانند (هیچ‌کدام دور ریخته نمی‌شود). */
+    if (ob) { try { await ob.failMany(lastBatch.map(o => o.uid), (e && e.message) || 'network'); } catch (e2) { /* noop */ } }
     /* سرور در دسترس نیست: اگر روی گوشی هستیم، ثبت‌ها را مستقیم در
        صندوقچهٔ ابری می‌گذاریم تا اولین دستگاهِ روشن اعمالشان کند. */
     if (PHONE_MODE || BUNDLED) pushed += await pushQueueToOutbox();
@@ -695,13 +783,11 @@ function putLocal(collection, row, { sync = true } = {}) {
   row._version = existing ? existing._version : (row._version || 0);
   S.data[collection].set(id, row);
   if (sync) {
-    S.queue.push({
+    enqueueOp({
       uid: uid(), collection, type: 'put', id: id > 0 ? id : undefined,
       localId: id < 0 ? id : undefined, data: Object.assign({}, row), base_version: row._version || 0,
       at: new Date().toISOString(),
     });
-    saveQueue();
-    liveKick();
   }
   return row;
 }
@@ -719,9 +805,7 @@ function removeLocal(collection, id, { sync = true } = {}) {
     }
   } catch (e) { /* بی‌صدا */ }
   if (sync && numId > 0) {
-    S.queue.push({ uid: uid(), collection, type: 'del', id: numId, at: new Date().toISOString() });
-    saveQueue();
-    liveKick();
+    enqueueOp({ uid: uid(), collection, type: 'del', id: numId, at: new Date().toISOString() });
   }
   return true;
 }

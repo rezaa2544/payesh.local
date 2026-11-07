@@ -1,0 +1,52 @@
+# شاهد ردیف ۴۰ — صف عملیات آفلاین پایدار روی دستگاه
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/dfb59505-payesh-local
+# head_sha: ed85dfbc2d397a3ada6a39c10b027a6333eed47e
+# version: 0.8.55
+# generated_at: 2026-11-07T19:34:25Z
+# node: v22.22.3
+# os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-40-outbox.sh
+# rules: capacity=5000 · lease=30s · maxAttempts=6 · backoff=1s×2^n (سقف 5m) · حذف فقط بعد از تصمیم سرور
+
+## بخش ۱ — آزمون صندوقچه + سرور واقعی (OB-01..OB-15)
+PASS  OB-01  باز شدن صندوقچه با object store عملیات و ایندکس‌های state/seq  → stores=meta,ops indexes=state,seq capacity=5000
+PASS  OB-02  ماندگاری: عملیات پس از بستن/بازکردن (restart برنامه) با همان کلید می‌ماند  → ops_after_restart=1 key=fixed-key-ob…
+PASS  OB-03  افزودن تکراری با همان کلید، عملیات دوم نمی‌سازد (idempotent enqueue)  → count=1 duplicate=true
+PASS  OB-04  سقف صف: عملیات اضافه صریحاً رد می‌شود و هیچ عملیات قبلی حذف نمی‌شود  → capacity=5 used=5 rejected=queue_full oldest_kept=true
+PASS  OB-05  برداشت دسته با اجاره: دو برداشت هم‌زمان یک عملیات را دوباره نمی‌دهد  → claimed=3 second_tab=0 lease_ms=60000
+PASS  OB-06  crash وسط ارسال: بعد از restart همان عملیات با همان کلید دوباره قابل برداشت است  → lease_blocked=true recovered=1 same_key=true
+PASS  OB-07  شکست ارسال: عقب‌نشینی نمایی و پذیرش دوباره در زمان درست  → attempts=1 next_at=+1000ms exponential=true
+PASS  OB-08  پس از سقف تلاش: عملیات blocked می‌شود و **حذف نمی‌شود**  → attempts=3 state=blocked kept=true
+PASS  OB-09  تلاش دستی برای عملیات blocked → دوباره pending و ارسال موفق  → blocked→retry→applied=1 queue=0
+PASS  OB-10  ارسال کامل روی سرور واقعی: ۴۰ عملیات اعمال و صف خالی می‌شود  → batches=1 applied=40 server_rows=+40 send_ms=114
+PASS  OB-11  اعمال دقیقاً یک‌بار: ارسال دوبارهٔ همان دسته پس از crash، ردیف تکراری نمی‌سازد  → first=5 resent=5 server_rows=+5 duplicates_ignored=5 queue=0
+PASS  OB-12  قطعی شبکه: هیچ عملیاتی گم نمی‌شود و همه برای تلاش بعدی می‌مانند  → enqueued=100 kept=100 failed_batches=1 retry_scheduled=true
+PASS  OB-13  ردی که سرور رد می‌کند: از صف خارج می‌شود ولی در فهرست بررسی ثبت می‌گردد (بدون حذف خاموش)  → rejected=1 review_recorded=1 queue=0
+PASS  OB-14  تعارض: عملیات از صف خارج و در فهرست تصمیم‌گیری ثبت می‌شود  → conflicts=1 review=1 queue=0
+PASS  OB-15  سیم‌کشی واقعی در برنامه: صندوقچه در app.js و index.html وصل است و حذف خاموش حذف شده  → no_silent_truncation=true wiring=6/6 script_tag=true
+
+OB checks=15 pass=15 fail=0
+OUTBOX-40-OK
+
+## بخش ۲ — شاهد خام: چرخهٔ واقعی crash → restart → ارسال دوباره روی سرور تولیدی
+ops_enqueued          3
+claimed_before_crash  3 (state=inflight, lease_until=6000)
+first_push_applied    3 (duplicate=false)
+after_restart_list    ["raw-op-1","raw-op-2","raw-op-3"]
+recovered_after_lease 3
+resend_applied        3
+server_rows_total     3  (انتظار: ۳ — بدون اعمال دوباره)
+queue_after_drain     total=0 pending=0 blocked=0
+queue_capacity        5000 full=false
+
+## بخش ۳ — هیچ حذف خاموشی در کد برنامه نمانده است
+no_silent_truncation  client/app.js: هیچ برشِ صف نیست
+outbox_script_tag: 1 در client/index.html
+
+# ===== SUMMARY =====
+# checks_exit: 0
+# raw_probe_exit: 0
+# truncation_scan_exit: 0
+# EXIT=0
+OUTBOX-40-OK
