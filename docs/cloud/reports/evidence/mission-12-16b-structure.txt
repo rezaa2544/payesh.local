@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
 branch: arena/0bb8dc23-payesh-local
-head: cade20b54946d1ce7bb31c6647d9365a2c16b842
+head: de9bfae2fe8514433c4df3421504080299a0d251
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=273  tables=87  ac_rows=8
@@ -48,7 +48,8 @@ api routes (unique /api literals in server/index.js): 67
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
  M docs/cloud/reports/evidence/phase3-gate.txt
  M docs/cloud/reports/evidence/sync-restart-run.log
-?? docs/cloud/reports/evidence/tests-run-cade20b-20261107T101705Z.log
-?? docs/cloud/reports/evidence/tests-run-cade20b-20261107T101731Z.log
-?? docs/cloud/reports/evidence/tests-run-cade20b-20261107T101744Z.log
+ M releases/history/0.8.41.json
+ M releases/manifest.json
+ M releases/payesh-local-src-0.8.41.tar.gz
+ M releases/payesh-local-windows-0.8.41.zip
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
