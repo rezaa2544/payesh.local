@@ -812,14 +812,16 @@ async function counts(s) {
 
 /* ── خواندن کامل با صفحه‌بندی واقعی (سقف ۳۰۰۰ ردیف در هر pull) ────────── */
 async function pullAll(s, token, collections) {
-  const out = {}; const deleted = []; let since = '1970-01-01T00:00:00.000Z'; let pages = 0; let more = true;
+  const out = {}; const deleted = []; let since = '1970-01-01T00:00:00.000Z'; let sinceId = 0; let pages = 0; let more = true;
   while (more && pages < 40) {
-    const r = await api(s, '/api/v1/pull?collections=' + collections + '&since=' + encodeURIComponent(since), { headers: auth(token) });
+    /* قرارداد Sync v1: مکان‌نمای مرکب (since, since_id) — بدون آن ردیف‌های
+       هم‌مهرزمان با مرز صفحه گم می‌شوند (باگ W-04). */
+    const r = await api(s, '/api/v1/pull?collections=' + collections + '&since=' + encodeURIComponent(since) + '&since_id=' + sinceId, { headers: auth(token) });
     pages++;
     for (const [k, rows] of Object.entries(r.body.collections || {})) { if (!out[k]) out[k] = []; out[k].push(...rows); }
     deleted.push(...(r.body.deleted || []));
     more = !!r.body.more;
-    if (more && r.body.next_since) since = r.body.next_since; else more = false;
+    if (more && r.body.next_since) { since = r.body.next_since; sinceId = Number(r.body.next_id || 0); } else more = false;
   }
   return { collections: out, deleted, pages };
 }

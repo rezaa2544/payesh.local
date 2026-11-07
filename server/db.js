@@ -64,6 +64,8 @@ class Store {
         PRIMARY KEY (collection, id)
       );
       CREATE INDEX IF NOT EXISTS ix_records_sync ON records(collection, updated_at);
+      /* قرارداد Sync v1: مکان‌نمای مرکب (updated_at, id) */
+      CREATE INDEX IF NOT EXISTS ix_records_sync_id ON records(collection, updated_at, id);
       CREATE INDEX IF NOT EXISTS ix_records_ref1 ON records(collection, ref1, updated_at);
       CREATE INDEX IF NOT EXISTS ix_records_ref2 ON records(collection, ref2, updated_at);
       CREATE INDEX IF NOT EXISTS ix_records_day  ON records(collection, day);
@@ -175,7 +177,16 @@ class Store {
     return Object.assign(JSON.parse(r.data), { _version: r.version, _updated_at: r.updated_at });
   }
   /* همهٔ ردیف‌ها (شامل حذف‌شده‌ها برای sync) */
-  changedSince(collection, sinceISO, limit = 5000) {
+  /* پیمایش افزایشی. اگر since_id داده شود، مکان‌نما «مرکب» است:
+     (updated_at, id) — تا ردیف‌هایی که همان میلی‌ثانیهٔ مرز صفحه را دارند
+     گم نشوند (قرارداد Sync v1، §۴). بدون since_id رفتار قدیمی حفظ می‌شود. */
+  changedSince(collection, sinceISO, limit = 5000, sinceId = null) {
+    if (sinceId != null && Number.isFinite(Number(sinceId))) {
+      return this.db.prepare(
+        `SELECT * FROM records WHERE collection=? AND (updated_at > ? OR (updated_at = ? AND id > ?))
+         ORDER BY updated_at ASC, id ASC LIMIT ?`
+      ).all(collection, sinceISO, sinceISO, Number(sinceId), limit);
+    }
     return this.db.prepare(
       `SELECT * FROM records WHERE collection=? AND updated_at > ? ORDER BY updated_at ASC, id ASC LIMIT ?`
     ).all(collection, sinceISO, limit);

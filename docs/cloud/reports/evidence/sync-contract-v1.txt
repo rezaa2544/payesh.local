@@ -1,0 +1,46 @@
+# قرارداد Sync v1 — شاهد خام اجرا
+# repository: rezaa2544/payesh.local (https://github.com/rezaa2544/payesh.local)
+# branch: arena/c80a3b17-payesh-local
+# head_sha: 9edfeeea09bacff7e1e4ce8233f1f4b554a4de0a
+# version: 0.8.44
+# node: v22.22.3 · os: Linux 6.1.158+ x86_64
+# time: 2026-11-07T14:52:58Z
+# contract: docs/cloud/contracts/sync-v1.md · schema: docs/cloud/contracts/sync-v1.schema.json
+# command: npm run test:contract
+
+
+> payesh-local@0.8.44 test:contract
+> node --experimental-sqlite --disable-warning=ExperimentalWarning tests/sync-contract.js
+
+
+قرارداد Sync v1 — آزمون
+
+  ✓ مکان‌نمای مرکب: 3500 ردیف با مهر زمانی یکسان، کامل خوانده می‌شود
+      → مسیر قدیمی 500 ردیف از 3500 را جا گذاشت
+  ✓ مکان‌نمای قدیمی (فقط since) روی همان داده ردیف گم می‌کند — رگرسیون مستند
+  ✓ پاسخ pull با طرح رسمی قرارداد می‌خواند (و شامل next_id/limits/schema_version)
+  ✓ pull بدون تغییر: collections خالی، more=false، مکان‌نمای بعدی null
+  ✓ setup واقعی و صدور نشست مدیر
+  ✓ بدون نشست: 401 unauthorized و شکل خطا مطابق طرح
+  ✓ pull از مسیر HTTP: پاسخ معتبر، schema_version=1، next_id کلید دارد
+  ✓ pull با since_id نامعتبر: به رفتار پیش‌فرض برمی‌گردد (بدون خطا)
+  ✓ push: ۲۰۰ عملیات پذیرفته و پاسخ مطابق طرح است
+  ✓ push: ۲۰۱ عملیات رد می‌شود (too_many_ops) — سقف قرارداد
+  ✓ push: uid تکراری دوباره اعمال نمی‌شود (idempotency)
+  ✓ push: uid خالی و کالکشن ناشناس با کد مشخص رد می‌شوند
+  ✓ push: بدنهٔ خراب JSON → 400 bad_json مطابق طرح
+  ✓ اسکوپ: دانش‌آموز نمی‌تواند حضور بنویسد (role_denied) و پاسخ معتبر است
+  ✓ pull اسکوپ‌دار: دبیر ردیفی خارج از کلاس‌هایش نمی‌بیند
+  ✓ pull: tombstone حذف‌شده در deleted می‌آید
+  ✓ pull: ردیف‌ها به ترتیب (updated_at, id) صعودی می‌آیند
+  ✓ کالکشن ناشناس در pull: بی‌صدا حذف می‌شود، خطا نمی‌دهد
+
+18 موفق · 0 ناموفق
+
+
+# ---- regression of the whole product suite ----
+# command: npm test
+  ✓ ردیف ۲۹: کلید امضای پشتیبان بیرون از پایگاه‌داده نگه داشته می‌شود (بازیابی پس از از دست رفتن DB)
+
+96 موفق · 0 ناموفق
+
