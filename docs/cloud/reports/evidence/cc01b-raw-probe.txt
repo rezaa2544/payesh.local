@@ -1,0 +1,10 @@
+[ERR]  N1 partial unique با now() در predicate → non-deterministic functions prohibited in partial index WHERE clauses
+[OK]   N2 partial unique با تابع deterministic (datetime) در predicate
+[OK]   N3 راه‌حل open_slot (UNIQUE + CHECK)
+[ERR]  N3b درج دو مجوز باز برای یک اپراتور (باید رد شود) → UNIQUE constraint failed: g3.operator_id, g3.open_slot
+[OK]   N3c درج سومی پس از بستن اولی (باید موفق شود)
+[OK]   N4 CHECK حل‌شده با max_ends_at
+[ERR]  N4b نقض سقف ۷۲ ساعت (باید رد شود) → CHECK constraint failed: ends_at > starts_at AND ends_at <= max_ends_at
+[OK]   N5 partial unique روی ستون status برای subscription
+[ERR]  N5b دو اشتراک جاری برای یک مدرسه (باید رد شود) → UNIQUE constraint failed: s.tenant_id
+[OK]   N5c اشتراک تازه پس از expired (باید موفق شود)
