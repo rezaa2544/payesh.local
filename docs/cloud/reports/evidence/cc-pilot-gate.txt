@@ -1,0 +1,15 @@
+# دروازهٔ پایلوت چند‌مدرسه‌ای — ردیف ۳۰
+generated_by: docs/cloud/reports/evidence/gen-pilot-gate.sh
+head: f561d8fb046342c46d585b27d10203e5936dfe56
+generated_at_utc: 2026-11-07T11:41:47Z
+drill_witness: docs/cloud/reports/evidence/pilot-migration-drill.txt
+monitoring_witness: docs/cloud/reports/evidence/pilot-tenant-monitoring.txt
+tenants: aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa,bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb
+reconciliation: match=1 (post-migration و post-reapply)
+rollback: tenant_scoped=1 source_intact=1
+negative_tests: tamper_detected=1 threshold_alert=1
+checks_passed: 20
+honest_scope: single_host · embedded_postgres · no_production_cluster · no_real_school_traffic
+row-30: CLOSED
+
+PILOT-GATE-CLOSED checks=20 tenants=2 recon=ok rollback=ok monitor=ok

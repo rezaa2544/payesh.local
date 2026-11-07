@@ -70,6 +70,20 @@ jobs:
       - name: دروازهٔ ظرفیت و DR (Capacity/DR Gate)
         run: bash docs/cloud/reports/evidence/gen-capacity-gate.sh
 
+      # دروازهٔ پایلوت چند‌مدرسه‌ای (ردیف ۳۰): مهاجرت + reconciliation + rollback + پایش.
+      # اگر رانر باینری PostgreSQL نداشته باشد، گام با کد ۳ «BLOCKED» اعلام می‌شود
+      # (نه PASS). شاهد محلی کامل در docs/cloud/reports/evidence/cc-pilot-gate.txt است.
+      - name: دروازهٔ پایلوت چند‌مدرسه‌ای (Pilot Gate)
+        run: |
+          set +e
+          bash docs/cloud/reports/evidence/gen-pilot-gate.sh
+          code=$?
+          if [ $code -eq 3 ]; then
+            echo "::warning title=دروازهٔ پایلوت::PostgreSQL روی رانر نیست — BLOCKED (نه PASS)"
+            exit 0
+          fi
+          exit $code
+
       - name: آزمون رابط، جریان کاربری، صندوقچه و به‌روزرسانی
         run: |
           npm run test:ui

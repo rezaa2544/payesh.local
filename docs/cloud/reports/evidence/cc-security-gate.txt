@@ -1,7 +1,7 @@
 # دروازهٔ امنیت — ردیف ۲۸ (Security Gate مستقل)
 generated_by: docs/cloud/reports/evidence/gen-security-gate.sh
-head: b7b5b87f87b0e34f4e87fd2cfa91a4570c2bb13e
-generated_at_utc: 2026-11-07T11:16:24Z
+head: f561d8fb046342c46d585b27d10203e5936dfe56
+generated_at_utc: 2026-11-07T11:40:20Z
 penetration_witness: docs/cloud/reports/evidence/security-penetration.txt (SECURITY-PEN pass=40 fail=0 skip=0)
 threat_model: docs/cloud/12-security-threat-model.md
 fixes_verified: SEC-01 CSV/hashes · SEC-02 bad_json→400 · SEC-03 nosniff/frame · SEC-04 vault no-store

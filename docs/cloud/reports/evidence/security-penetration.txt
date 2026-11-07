@@ -28,7 +28,7 @@ PASS  S-21  پیکربندی صندوقچه با مدیر انجام می‌شو
 PASS  S-22  پاسخ پیکربندی ابری هیچ کلید/رمزی برنمی‌گرداند  → leak=none
 PASS  S-23  ورود گوشی بدون هیچ کلید ذخیره‌سازی انجام می‌شود  → leak=none
 PASS  S-24  عمر تیکت دستگاه ≤ ۲۰۰ روز (تصمیم مالک)  → ttl_days=200
-PASS  S-25  تیکت فایل فقط به کلید مشخص و بدون رمز صادر می‌شود  → key=payesh/data/core.json expires=2026-11-14T11:16:22.256Z
+PASS  S-25  تیکت فایل فقط به کلید مشخص و بدون رمز صادر می‌شود  → key=payesh/data/core.json expires=2026-11-14T11:40:19.224Z
 PASS  S-26  باندل کلاینت هیچ اعتبارنامهٔ ذخیره‌سازی ندارد (D‑23)  → leak=none
 PASS  S-27  ثبت در صندوقچه بدون نشست/تیکت ⇒ 401  → status=401
 PASS  S-28  پاکت جعلی صندوقچه اعمال نمی‌شود و قرنطینه می‌گردد  → applied=0 quarantined=true
@@ -45,15 +45,15 @@ PASS  S-38  سرآیندهای امنیتی پایه روی پاسخ‌ها هس
 PASS  S-39  CORS با اعتبارنامهٔ وحشی باز نیست  → acao=* creds=none
 PASS  S-40  گاوصندوق رمزها فقط با مدیر و بدون کش شدن  → status=200 cache=no-store, max-age=0
 
-SECURITY-PEN pass=40 fail=0 skip=0 at=2026-11-07T11:16:22.412Z
-# started_utc: 2026-11-07T11:16:20.857Z
+SECURITY-PEN pass=40 fail=0 skip=0 at=2026-11-07T11:40:19.354Z
+# started_utc: 2026-11-07T11:40:17.972Z
 # node: v22.22.3 · os: linux 6.1.158+ x64
 # checks: 40
 EXIT=0
 
 # ---- raw json ----
 {
-  "generated_at": "2026-11-07T11:16:22.412Z",
+  "generated_at": "2026-11-07T11:40:19.354Z",
   "pass": 40,
   "fail": 0,
   "skip": 0,
@@ -206,7 +206,7 @@ EXIT=0
       "id": "S-25",
       "title": "تیکت فایل فقط به کلید مشخص و بدون رمز صادر می‌شود",
       "verdict": "PASS",
-      "detail": "key=payesh/data/core.json expires=2026-11-14T11:16:22.256Z"
+      "detail": "key=payesh/data/core.json expires=2026-11-14T11:40:19.224Z"
     },
     {
       "id": "S-26",
