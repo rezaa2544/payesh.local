@@ -1,5 +1,5 @@
 # شاهد خام سنجش بار ترکیبی — ردیف ۲۹ (Capacity/HA/DR)
-generated_at: 2026-11-07T11:31:30.384Z
+generated_at: 2026-11-07T11:40:20.934Z
 host: cpus=2 mem_gb=4.1 node=v22.22.3 linux
 mix: read_share=0.7 write_share=0.30 seconds=5
 thresholds: p95_read<=300ms p95_write<=800ms err_rate<=1%
@@ -8,10 +8,10 @@ thresholds: p95_read<=300ms p95_write<=800ms err_rate<=1%
 درخواست می‌فرستد؛ این با «دستگاه واقعی که هر ۱ ثانیه poll می‌کند» یکی نیست (برای آن: بنچ poll).
 
 level  read_n  write_n  read_p50  read_p95  read_p99  write_p50  write_p95  write_p99  rps   err%  cpu%  rss_max_mb
-LOAD level=1 reqs=631 read_n=434 write_n=197 read_p50=9 read_p95=14 read_p99=18 write_p50=3 write_p95=6 write_p99=11 rps=126.1 err_rate=0% cpu_pct=75.5 rss_max_mb=130.2
-LOAD level=8 reqs=752 read_n=544 write_n=208 read_p50=45 read_p95=99 read_p99=119 write_p50=39 write_p95=95 write_p99=108 rps=149 err_rate=0% cpu_pct=90.2 rss_max_mb=142.3
-LOAD level=16 reqs=835 read_n=566 write_n=269 read_p50=88 read_p95=180 read_p99=218 write_p50=81 write_p95=193 write_p99=543 rps=163.8 err_rate=0% cpu_pct=90.2 rss_max_mb=150.8
-LOAD level=32 reqs=832 read_n=565 write_n=267 read_p50=161 read_p95=356 read_p99=962 write_p50=161 write_p95=390 write_p99=2620 rps=160.4 err_rate=0% cpu_pct=90 rss_max_mb=148.4
+LOAD level=1 reqs=646 read_n=445 write_n=201 read_p50=9 read_p95=12 read_p99=17 write_p50=3 write_p95=5 write_p99=11 rps=129.1 err_rate=0% cpu_pct=74.8 rss_max_mb=131
+LOAD level=8 reqs=746 read_n=529 write_n=217 read_p50=47 read_p95=103 read_p99=120 write_p50=41 write_p95=92 write_p99=100 rps=147.8 err_rate=0% cpu_pct=89.8 rss_max_mb=137.5
+LOAD level=16 reqs=770 read_n=542 write_n=228 read_p50=96 read_p95=207 read_p99=257 write_p50=86 write_p95=173 write_p99=638 rps=151.7 err_rate=0% cpu_pct=90.4 rss_max_mb=147
+LOAD level=32 reqs=762 read_n=541 write_n=221 read_p50=172 read_p95=359 read_p99=877 write_p50=162 write_p95=1448 write_p99=2785 rps=144.8 err_rate=0% cpu_pct=89.7 rss_max_mb=144.5
 
 LOAD-CAP max_ok_concurrency=16 first_fail=32
 LOAD-COST vcpu=1 ram_gb=1 eur_month_host=22.19 eur_month_per_100_closed_loop_workers=138.70 max_closed_loop_workers=16

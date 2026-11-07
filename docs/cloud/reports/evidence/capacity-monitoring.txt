@@ -1,10 +1,10 @@
 # شاهد خام مانیتورینگ/هشدار — ردیف ۲۹
-generated_at: 2026-11-07T11:32:50.852Z
+generated_at: 2026-11-07T11:41:42.011Z
 node v22.22.3 linux
 MON-READYZ status=200 db=true writable=true disk_free_pct=93.9 backup_age_s=0
-MON-HEALTHY exit=0 out={"ok":true,"severity":"ok","target":"http://127.0.0.1:44843","at":"2026-11-07T11:32:50.300Z","alerts":[],"checks":{"health_status":200,"health_latency_ms":41,"version":"0.8.44","uptime_s":0,"setup_done":true,"readyz_stat
-MON-STRICT exit=2 out={"ok":false,"severity":"P1","target":"http://127.0.0.1:44843","at":"2026-11-07T11:32:50.427Z","alerts":[{"severity":"P1","code":"disk_low","message":"فقط 93.9% دیسک آزاد است (آستانه 100%)"}],"checks":{"health_status":200
-MON-DOWN exit=2 out={"ok":false,"severity":"P1","target":"http://127.0.0.1:44843","at":"2026-11-07T11:32:50.846Z","alerts":[{"severity":"P0","code":"probe_error","message":"fetch f
+MON-HEALTHY exit=0 out={"ok":true,"severity":"ok","target":"http://127.0.0.1:37729","at":"2026-11-07T11:41:41.443Z","alerts":[],"checks":{"health_status":200,"health_latency_ms":42,"version":"0.8.44","uptime_s":0,"setup_done":true,"readyz_stat
+MON-STRICT exit=2 out={"ok":false,"severity":"P1","target":"http://127.0.0.1:37729","at":"2026-11-07T11:41:41.570Z","alerts":[{"severity":"P1","code":"disk_low","message":"فقط 93.9% دیسک آزاد است (آستانه 100%)"}],"checks":{"health_status":200
+MON-DOWN exit=2 out={"ok":false,"severity":"P1","target":"http://127.0.0.1:37729","at":"2026-11-07T11:41:42.005Z","alerts":[{"severity":"P0","code":"probe_error","message":"fetch f
 MON-ALERTS scope=external_probe thresholds=doc16_section6 no_pager_integration=1
 MON-PROBE-OK failures=0
 
