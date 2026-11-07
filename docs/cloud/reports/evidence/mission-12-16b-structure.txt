@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
-branch: arena/ef56f560-payesh-local
-head: 238855f531959376c77ef8fecdbb1c4acc7ebe8d
+branch: arena/df96d78a-payesh-local
+head: 4b737f5ab7461ed2f0fdce56f30d0a561733e18b
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=273  tables=87  ac_rows=8
@@ -22,15 +22,34 @@ head: 238855f531959376c77ef8fecdbb1c4acc7ebe8d
 **حکم: ۱۲/۱۲ — REVIEW.** (AC‑1..AC‑12 در سطح طراحی؛ E‑16B‑۱..۵ امروز FAIL، E‑16B‑۶/۷ ابتدایی‌ترین پیش‌نیازها را نشان می‌دهند.)
 
 ## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (فقط در فهرست مجاز D‑35)
-product_diff_files: 22
-product_diff_outside_allow: 6
+product_diff_files: 25
+product_diff_outside_allow: 9
 
 ## شمارش واقعی مخزن
-tenant_id: 5
-school_id (occurrences, server+client): 58
-school_id (files): 10
+tenant_id: 8
+school_id (occurrences, server+client): 68
+school_id (files): 12
 api routes (unique /api literals in server/index.js): 67
 
 ## وضعیت درخت کاری
+ M docs/cloud/reports/evidence/cc-f01-gate.txt
+ M docs/cloud/reports/evidence/cc-f02-gate.txt
+ M docs/cloud/reports/evidence/cc-f04-gate.txt
+ M docs/cloud/reports/evidence/cc-f06-gate.txt
+ M docs/cloud/reports/evidence/cc-sync-gate.txt
+ M docs/cloud/reports/evidence/cc11-gate.txt
+ M docs/cloud/reports/evidence/cc11-raw-drill.txt
+ M docs/cloud/reports/evidence/cc12-2-gate.txt
+ M docs/cloud/reports/evidence/cc12-2-product-rls.txt
+ M docs/cloud/reports/evidence/cc12-closure-gate.txt
+ M docs/cloud/reports/evidence/drill-11-claims.cjs
+ M docs/cloud/reports/evidence/f05-product-tenancy.txt
+ M docs/cloud/reports/evidence/gen-f04-gate.sh
+ M docs/cloud/reports/evidence/mission-05-11-structure.txt
+ M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
+ M docs/cloud/reports/evidence/phase3-gate.txt
+ M docs/cloud/reports/evidence/sync-restart-run.log
+?? docs/cloud/reports/evidence/cc-f05-gate.txt
+?? docs/cloud/reports/evidence/tests-run-4b737f5-20261107T095328Z.log
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)

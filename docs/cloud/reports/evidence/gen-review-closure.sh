@@ -174,7 +174,7 @@ for ln in open('docs/cloud/01b-school-plan-subscription.md', encoding='utf-8'):
         map_rows[cells[0].strip('`')] = cells[1]
     elif in_map and ln.startswith('**قاعدهٔ نگاشت'):
         break
-prod_src = open('server/policy.js server/tenant-context.js', encoding='utf-8').read()
+prod_src = open('server/policy.js', encoding='utf-8').read()
 proles = [x.strip().strip("'") for x in re.search(r"const ROLES = \[(.*?)\]", prod_src).group(1).split(',')]
 allowed_product = set(d24) | {'manager'}          # manager = نگاشت صریح school_admin
 errs = []

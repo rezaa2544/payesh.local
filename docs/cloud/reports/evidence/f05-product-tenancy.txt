@@ -1,12 +1,12 @@
 # شاهد ردیف ۲۶ (F‑05) — tenancy/RLS بدنهٔ محصول روی PostgreSQL واقعی
 # تولید: bash docs/cloud/reports/evidence/run-f05-product-tenancy.sh
-# زمان: 2026-11-07T09:52:48Z
-# HEAD: 61cd2637eff30d7ec38be4aa69de66aef5502381
+# زمان: 2026-11-07T09:53:45Z
+# HEAD: 4b737f5ab7461ed2f0fdce56f30d0a561733e18b
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 # postgres version: 18.6 (باینری بیرون از مخزن؛ وابستگی محصول نیست)
 # product_path: server/tenancy.js + server/index.js (/api/cloud/tenancy/product/*)
 # migration: scripts/tenancy-migrate-product.js
-# product_tree_sha256: f273c4a75689764bedfd9d15ae0ac70cc832bd70127792c1fe17822084d7d0b9
+# product_tree_sha256: 63210fd8a0b6e331ed87c0b8d7d4b2b60be472dd3d8850da5ade1ff3fda58b1f
 
 PASS  F05-01  CRUD: درج کلاس در مستأجر A از مسیر محصول  → version=1
 PASS  F05-02  OCC: نسخهٔ کهنه ⇒ 409 و بدون نوشتن  → version=2
@@ -17,16 +17,15 @@ PASS  F05-06  export مستأجر A کامل است و حذف‌شده‌ها ر
 PASS  F05-07  job: صف کار مستأجرمحور (enqueue/claim/complete)  → job=1
 PASS  F05-08  RLS حتی بیرون از اپلیکیشن: نقش runtime بدون زمینه ⇒ صفر ردیف  → rls=enforced
 PASS  F05-09  migration SQLite→PostgreSQL (مستأجر A)  → imported=7
-FAIL  F05-10  rollback مهاجرت فقط ردیف‌های همان مستأجر را برمی‌گرداند  → rollback شکست خورد: migrate-product failed: bind message supplies 1 parameters, but prepared statement "" requires 0
-
+PASS  F05-10  rollback مهاجرت فقط ردیف‌های همان مستأجر را برمی‌گرداند  → rollback=tenant-scoped
 PASS  F05-11  بدون توکن ⇒ 401 (دسترسی به بدنهٔ محصول ممکن نیست)  → unauthorized
 PASS  F05-12  توکن دست‌کاری‌شده رد می‌شود (امضا)  → bad_signature
 
-F05-PG checks=12 pass=11 fail=1
-F05-PG-FAIL
+F05-PG checks=12 pass=12 fail=0
+F05-PG-OK checks=12
 
 ## آزمون پایهٔ محصول (رگرسیون)
 # command: bash docs/cloud/reports/evidence/run-tests-evidence.sh (npm test)
 # exit: 0
-F05-RLS-FAIL (pg_exit=1 base_exit=0)
-EXIT=1 BASE_EXIT=0
+F05-RLS-OK (product_body=26_collections postgres=18.6)
+EXIT=0 BASE_EXIT=0

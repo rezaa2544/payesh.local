@@ -27,7 +27,7 @@ fail() {
 }
 
 # ── ۱) کد و باندل ───────────────────────────────────────────────────────────
-node scripts/bake-cloud.mjs scripts/tenancy-migrate-product.js --check >/dev/null 2>&1 || fail "DEFAULTS-KEYS: کلید در server/cloud-defaults.js هست"; ok
+node scripts/bake-cloud.mjs --check >/dev/null 2>&1 || fail "DEFAULTS-KEYS: کلید در server/cloud-defaults.js هست"; ok
 
 for f in client/cloud-baked.js client/lib/phone.js client/app.js client/pages.js; do
   [ -f "$f" ] || fail "MISSING: $f"
@@ -70,7 +70,7 @@ HEADFP=$(git ls-tree -r HEAD | grep -v $'\tdocs/' | awk '{print $3"\t"$4}' | sha
 # ── ۴) آزمون منفی: اگر کلید به پیش‌فرض‌ها برگردد، ساخت می‌ایستد ──────────────
 FX=$(mktemp /tmp/f04-gate-XXXXXX.cjs)
 printf 'module.exports = { DEFAULTS: { endpoint: "https://x", region: "r", accessKey: "AKIAEXAMPLE123456", secret: "S3CRET" } };\n' > "$FX"
-node scripts/bake-cloud.mjs scripts/tenancy-migrate-product.js --check "$FX" >/dev/null 2>&1
+node scripts/bake-cloud.mjs --check "$FX" >/dev/null 2>&1
 RC=$?
 rm -f "$FX"
 [ "$RC" = "2" ] || fail "NEGATIVE: کلید در پیش‌فرض‌ها ساخت را متوقف نکرد (exit=$RC)"; ok

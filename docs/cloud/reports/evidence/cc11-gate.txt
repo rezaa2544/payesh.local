@@ -1,11 +1,11 @@
 # دروازهٔ CC‑11 — اتصال ادعا→شاهد برای ۷۳ آیتم و بازسنجی روی HEAD
 generated_by: docs/cloud/reports/evidence/gen-cc11-evidence.sh
-head: 6cf50ed6b2b5d0c617bf13164a28976037b85938
+head: 4b737f5ab7461ed2f0fdce56f30d0a561733e18b
 base: f2fc472
-generated_at_utc: 2026-11-07T09:26:06Z
+generated_at_utc: 2026-11-07T09:54:52Z
 node: v22.22.3
 audit_tree: 04e0636
-product_diff_files: 22
+product_diff_files: 25
 product_diff_outside_allow: 0
 drill_summary: SUMMARY pass=48 fail=0 total=48
 labels_required: 48  labels_verified: 48
@@ -16,8 +16,8 @@ probes: PROBES cited=8 resolved=8
 drift: DRIFT rows=11 corrections=9 accepted=2 (A‑14, B‑1, B‑2, B‑13, C‑2, D‑1, D‑2, D‑13, E‑4, E‑10, E‑11)
 absence: ABSENCE cipher=0 tenant_id=0 tls=0 signature=0 seq=0 queue_cap=0
 doc_ac_rows: 5  verdict: ۵/۵  conformance: ۳۵٫۶٪
-tests_log: pass=93 fail=0
-drill_sha256: 7776b7ecacb6cc84311975c3f3ef2ae893a30a0f1c09d159e27a7b0605a8fae2
+tests_log: pass=94 fail=0
+drill_sha256: dc21f1d14a03d6187e81389331f67a3d56e66a02622460ebe6b7f461c214d02f
 manifest_sha256: 0f47fde576242b00964aad5e05165e29cc88e3b9ccf04fccf3073414fb146450
 doc_sha256: 1bea3826ec7010c15311741530054cc208f22115869b6e511af4157e54a71ff3
 
@@ -65,8 +65,8 @@ doc_sha256: 1bea3826ec7010c15311741530054cc208f22115869b6e511af4157e54a71ff3
 ✓ N7 سقف ۲۰۰۰/۳۰ روز و وضعیت «نیازمند بررسی» پیاده نشده (D‑10/D‑11)  ::  queue_cap_refs=0
 ✓ C1‑11 تصحیح D‑10: هر op فیلد at دارد؛ نبودِ منطق عمر/بررسی، دلیل FAIL می‌ماند  ::  client/app.js:589 (at) · needs_review=0
 ✓ S1 پین SHA ممیزی در اسناد ۰۵ و ۱۱ هست  ::  04e0636
-✓ S2 کد محصول نسبت به پایهٔ ممیزی f2fc472 فقط در فهرست مجاز D‑35 + F‑04 تغییر کرده (بقیهٔ فایل‌ها دست‌نخورده)  ::  product_diff_files=22 outside=0
-✓ S3 ادعای «آزمون‌های سبز» با لاگ شاهد خام می‌خواند (لاگ ≥ ادعا، بدون شکست)  ::  log pass=93 fail=0 doc05 claim=88
+✓ S2 کد محصول نسبت به پایهٔ ممیزی f2fc472 فقط در فهرست مجاز D‑35 + F‑04 تغییر کرده (بقیهٔ فایل‌ها دست‌نخورده)  ::  product_diff_files=25 outside=0
+✓ S3 ادعای «آزمون‌های سبز» با لاگ شاهد خام می‌خواند (لاگ ≥ ادعا، بدون شکست)  ::  log pass=94 fail=0 doc05 claim=88
 ✓ A1 ماتریس پذیرش ۱۱ پنج ردیف دارد  ::  ac_rows=5
 ✓ A2 حکم ثبت‌شدهٔ سند ۵/۵ است  ::  حکم: ۵/۵
 ✓ A3 بند «دور بستن» (§۶) در سند ۱۱ هست  ::  §۶
