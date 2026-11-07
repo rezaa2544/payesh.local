@@ -217,11 +217,15 @@ case "$C6" in
 esac
 
 # ---------------- C7) کد محصول دست‌نخورده ----------------
-PROD=$(git diff --name-only f2fc472 HEAD -- server client tests scripts package.json package-lock.json installer desktop install deploy | wc -l | tr -d ' ')
-if [ "$PROD" = "0" ]; then
-  ok "C7 کد محصول نسبت به پایهٔ ممیزی f2fc472: ۰ فایل (فقط docs/)"
+if ! git cat-file -e f2fc472^{commit} 2>/dev/null; then
+  bad "C7 پایهٔ ممیزی f2fc472 در مخزن نیست (clone کم‌ژرفا؟) — «۰ فایل تغییر» بی‌اعتبار است"
 else
-  bad "C7 کد محصول تغییر کرده: $PROD فایل"
+  PROD=$(git diff --name-only f2fc472 HEAD -- server client tests scripts package.json package-lock.json installer desktop install deploy | wc -l | tr -d ' ')
+  if [ "$PROD" = "0" ]; then
+    ok "C7 کد محصول نسبت به پایهٔ ممیزی f2fc472: ۰ فایل (فقط docs/)"
+  else
+    bad "C7 کد محصول تغییر کرده: $PROD فایل"
+  fi
 fi
 
 # ---------------- C8) AC و حکم هر سند فاز ۲ ----------------
