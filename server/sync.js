@@ -12,6 +12,13 @@ const auth = require('./auth');
 const ROW_LIMIT = 3000;          /* سقف ردیف هر کالکشن در هر درخواست */
 const MAX_OPS = 200;             /* سقف عملیات هر push (هم‌راستا با کلاینت) */
 const EPOCH = '1970-01-01T00:00:00.000Z';
+const SCHEMA_VERSION = 1;        /* نسخهٔ قرارداد Sync v1 */
+
+function cursorId(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
 
 const DEFAULT_COLLECTIONS = [
   'schools', 'school_years', 'users', 'classes', 'subjects', 'lookups', 'schedule', 'bell_schedules',
@@ -30,6 +37,7 @@ function normalizePhone(v) {
 
 function pull(store, actor, params) {
   const since = String(params.since || EPOCH);
+  const sinceId = cursorId(params.since_id);
   const requested = String(params.collections || '').split(',').map(s => s.trim()).filter(Boolean);
   const list = requested.length ? requested : DEFAULT_COLLECTIONS;
   const scope = policy.buildScope(store, actor.user);
@@ -37,10 +45,11 @@ function pull(store, actor, params) {
   const deleted = [];
   let more = false;
   let nextSince = null;
+  let nextId = null;
 
   for (const name of list) {
     if (!policy.collectionAllowed(name) || !policy.canRead(actor.role, name)) continue;
-    const rows = store.changedSince(name, since, ROW_LIMIT + 1);
+    const rows = store.changedSince(name, since, ROW_LIMIT + 1, sinceId);
     const truncated = rows.length > ROW_LIMIT;
     const slice = truncated ? rows.slice(0, ROW_LIMIT) : rows;
     const out = [];
@@ -62,17 +71,24 @@ function pull(store, actor, params) {
     if (out.length || truncated) collections[name] = out;
     if (truncated) {
       more = true;
-      const last = slice[slice.length - 1].updated_at;
-      if (!nextSince || last < nextSince) nextSince = last;
+      /* مکان‌نمای مشترک: کوچک‌ترین جفت (updated_at, id) بین کالکشن‌های بریده‌شده */
+      const last = slice[slice.length - 1];
+      const at = last.updated_at;
+      const atId = Number(last.id);
+      if (nextSince == null || at < nextSince || (at === nextSince && atId < nextId)) { nextSince = at; nextId = atId; }
     }
   }
 
   return {
     ok: true,
+    schema_version: SCHEMA_VERSION,
     server_time: nowISO(),
     since,
+    since_id: sinceId,
     next_since: more ? nextSince : null,
+    next_id: more ? nextId : null,
     more,
+    limits: { row_limit: ROW_LIMIT, max_ops: MAX_OPS },
     collections,
     deleted,
   };
@@ -131,7 +147,7 @@ function noteRejected(store, actor, ctx, info) {
 
 function push(store, actor, body, ctx = {}) {
   const ops = Array.isArray(body && body.ops) ? body.ops : [];
-  if (ops.length > MAX_OPS) return { ok: false, error: 'too_many_ops', limit: MAX_OPS };
+  if (ops.length > MAX_OPS) return { ok: false, schema_version: SCHEMA_VERSION, error: 'too_many_ops', limit: MAX_OPS };
 
   const role = actor.role;
   const applied = [];
@@ -252,7 +268,7 @@ function push(store, actor, body, ctx = {}) {
     applied.push({ uid, id: saved.id, version: saved._version });
   }
 
-  return { ok: true, server_time: nowISO(), applied, conflicts, rejected };
+  return { ok: true, schema_version: SCHEMA_VERSION, server_time: nowISO(), applied, conflicts, rejected };
 }
 
-module.exports = { pull, push, resolveConflict, ROW_LIMIT, MAX_OPS };
+module.exports = { pull, push, resolveConflict, ROW_LIMIT, MAX_OPS, SCHEMA_VERSION };

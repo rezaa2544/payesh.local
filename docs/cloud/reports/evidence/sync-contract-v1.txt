@@ -1,0 +1,99 @@
+# قرارداد Sync v1 — شاهد خام اجرا
+# repository: rezaa2544/payesh.local (https://github.com/rezaa2544/payesh.local)
+# branch: arena/c80a3b17-payesh-local
+# head_sha: 9edfeeea09bacff7e1e4ce8233f1f4b554a4de0a
+# version: 0.8.44
+# node: v22.22.3 · os: Linux 6.1.158+ x86_64
+# time: 2026-11-07T14:52:58Z
+# contract: docs/cloud/contracts/sync-v1.md · schema: docs/cloud/contracts/sync-v1.schema.json
+# command: npm run test:contract
+
+
+> payesh-local@0.8.44 test:contract
+> node --experimental-sqlite --disable-warning=ExperimentalWarning tests/sync-contract.js
+
+
+قرارداد Sync v1 — آزمون
+
+  ✓ مکان‌نمای مرکب: 3500 ردیف با مهر زمانی یکسان، کامل خوانده می‌شود
+      → مسیر قدیمی 500 ردیف از 3500 را جا گذاشت
+  ✓ مکان‌نمای قدیمی (فقط since) روی همان داده ردیف گم می‌کند — رگرسیون مستند
+  ✓ پاسخ pull با طرح رسمی قرارداد می‌خواند (و شامل next_id/limits/schema_version)
+  ✓ pull بدون تغییر: collections خالی، more=false، مکان‌نمای بعدی null
+  ✓ setup واقعی و صدور نشست مدیر
+  ✓ بدون نشست: 401 unauthorized و شکل خطا مطابق طرح
+  ✓ pull از مسیر HTTP: پاسخ معتبر، schema_version=1، next_id کلید دارد
+  ✓ pull با since_id نامعتبر: به رفتار پیش‌فرض برمی‌گردد (بدون خطا)
+  ✓ push: ۲۰۰ عملیات پذیرفته و پاسخ مطابق طرح است
+  ✓ push: ۲۰۱ عملیات رد می‌شود (too_many_ops) — سقف قرارداد
+  ✓ push: uid تکراری دوباره اعمال نمی‌شود (idempotency)
+  ✓ push: uid خالی و کالکشن ناشناس با کد مشخص رد می‌شوند
+  ✓ push: بدنهٔ خراب JSON → 400 bad_json مطابق طرح
+  ✓ اسکوپ: دانش‌آموز نمی‌تواند حضور بنویسد (role_denied) و پاسخ معتبر است
+  ✓ pull اسکوپ‌دار: دبیر ردیفی خارج از کلاس‌هایش نمی‌بیند
+  ✓ pull: tombstone حذف‌شده در deleted می‌آید
+  ✓ pull: ردیف‌ها به ترتیب (updated_at, id) صعودی می‌آیند
+  ✓ کالکشن ناشناس در pull: بی‌صدا حذف می‌شود، خطا نمی‌دهد
+
+18 موفق · 0 ناموفق
+
+
+# ---- regression of the whole product suite ----
+# command: npm test
+  ✓ ردیف ۲۹: کلید امضای پشتیبان بیرون از پایگاه‌داده نگه داشته می‌شود (بازیابی پس از از دست رفتن DB)
+
+96 موفق · 0 ناموفق
+
+
+════════════════════════════════════════════════════════════════════
+بخش ۲ — سمت کلاینت و بستن نقص اندازه‌گیری‌شده (W-04)
+تاریخ: 2026-11-07 · شاخه: arena/c80a3b17-payesh-local · head_sha: f8db060
+وابستگی: این بخش به همان طرح docs/cloud/contracts/sync-v1.schema.json
+اعتبارسنجی می‌شود (همان schema برای کلاینت و سرور).
+
+$ npm run test:contract:client
+> payesh@0.8.44 test:contract:client
+> node --experimental-sqlite --disable-warning=ExperimentalWarning tests/sync-client-contract.js
+
+قرارداد Sync v1 — سمت کلاینت (jsdom)
+
+  ✓ setup سرور واقعی + نشست مدیر
+  ✓ دادهٔ نمونه از مسیر push ثبت می‌شود
+  ✓ کلاینت بالا آمد و پوسته رندر شد
+  ✓ کلاینت pull را با مکان‌نمای مرکب (since + since_id) می‌فرستد
+  ✓ همهٔ پاسخ‌های pull با طرح قرارداد معتبرند
+  ✓ pull واقعاً داده را در رابط کلاینت نشانده است
+  ✓ بدنهٔ push کلاینت (اگر فرستاده شد) با طرح قرارداد می‌خواند
+  ✓ دور دوم pull از مکان‌نمای ذخیره‌شده ادامه می‌دهد (بدون تکرار/بدون گم‌شدن)
+
+pull‌های دیده‌شده: 2 · پاسخ‌های معتبرسنجی‌شده: 2 · push دیده‌شده: 0
+8 موفق · 0 ناموفق
+
+$ npm run test:contract
+18 موفق · 0 ناموفق
+
+$ npm test
+96 موفق · 0 ناموفق
+
+$ npm run test:ui
+✅ همهٔ صفحه‌ها رندر شدند.   (بدون خطای اجرایی — بدون رگرسیون پس از تغییر pullAll)
+
+────────────────────────────────────────────────────────────────────
+اثبات بستن نقص: شبیه‌سازی سال تحصیلی کامل با اصل قرارداد بازاجرا شد
+(۳۶۰ روز/۱۸۰ روز مدرسه، ۴ مدرسه، ۳۵۰٬۴۳۶ عملیات).
+
+$ node docs/cloud/reports/evidence/sim/school-year-sim.mjs
+PASS  W-04  خواندن کل مجموعهٔ حضور با صفحه‌بندی، کامل و بدون تکرار بود
+      → pages=24 rows=72000 unique=72000 bootstrap=72000
+PASS  I-99  جمع ردیف‌های واقعی ثبت‌شده در همهٔ مدارس → total_rows=334647
+year: days=180 schools=4 ops=350436 ops_per_s=884 seconds=396
+calls=10475 transport_errors=0 http4xx_expected=26 http5xx=0 checks=40 failed=0
+SIM-OK checks=40
+
+مقایسه پیش/پس (همان هارنس، همان داده):
+  پیش:  W-04 شکست — با مکان‌نمای only-since ردیف‌های هم‌مهر گم می‌شدند (۳۵۰۰/۳۰۰۰ → ۵۰۰ گم).
+  پس:   W-04 PASS — pages=24، rows=72000، unique=72000، بدون تکرار.
+  آزمون واحد In-process نیز همین را مستقل نشان می‌دهد: مکان‌نمای مرکب ۳۵۰۰/۳۵۰۰،
+  مکان‌نمای قدیمی ۳۰۰۰/۳۵۰۰ (۵۰۰ گم).
+
+MD5 این فایل پس از افزودن این بخش در مخزن ثبت می‌شود؛ بخش ۱ تغییر نکرد.

@@ -700,7 +700,7 @@ async function api(req, res, url, ip) {
   }
 
   if (p === '/api/v1/pull' && m === 'GET') {
-    const out = sync.pull(store, actor, { since: q.get('since'), collections: q.get('collections') });
+    const out = sync.pull(store, actor, { since: q.get('since'), since_id: q.get('since_id'), collections: q.get('collections') });
     return json(out);
   }
 
@@ -716,6 +716,8 @@ async function api(req, res, url, ip) {
     const body = await readBody(req, 8 * 1024 * 1024);
     const ctx = { device_id: actor.device ? actor.device.id : null, ip };
     const out = sync.push(store, actor, body, ctx);
+    /* قرارداد Sync v1: خطای سطح درخواست همیشه 4xx است، نه 200 با ok:false */
+    if (!out || !out.ok) return json(out || { ok: false, error: 'write_failed' }, 400);
     /* ثبت‌های تازه در صندوقچهٔ ابری آینه می‌شوند تا اگر «مدرسه» دستگاهی
        دیگر باشد، همان‌ها را هم ببیند. خطای ابر هرگز جلوی ثبت را نمی‌گیرد. */
     if (out && out.ok && (out.applied || []).length) {

@@ -1,16 +1,16 @@
 {
-  "version": "0.8.44",
-  "built_at": "2026-11-07T11:52:57.729Z",
+  "version": "0.8.45",
+  "built_at": "2026-11-07T15:08:42.939Z",
   "notes": [],
   "shell": {
-    "android": "0.8.44"
+    "android": "0.8.45"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "a674909b07446b52cc2eb471cf1f91fc8f5f7aca0558c5b3e628ad55912563e2",
-      "size": 181207
+      "sha256": "c22e7d88561e71180ba417f3aff81bb9d8df747ade864ff915f4d8da5599b7af",
+      "size": 181798
     },
     {
       "path": "client/authz.js",
@@ -165,8 +165,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "ab6a0b94bd269ed04896d8ecc414177c1f6eb302bafff7db05c9cfa47bb8aca7",
-      "size": 2041
+      "sha256": "c56db657f820d8f29ab0356a281f03547c36f24b2d3cfee833ccd17d6e83398d",
+      "size": 2301
     },
     {
       "path": "server/auth.js",
@@ -189,14 +189,14 @@
     {
       "path": "server/db.js",
       "kind": "server",
-      "sha256": "16853b7bb6b96a1e438603605a715cd90f002962a61a4052795f62f10610c456",
-      "size": 12854
+      "sha256": "9e2f56177b06c0da5ad6d1cd10a2b2b3e49a7cc7743d5608aca22df28254b4ac",
+      "size": 13711
     },
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "4ecd57b1096f44d5ca160129684c30261448449ece15159339f8b0a1289f5c24",
-      "size": 110169
+      "sha256": "e6a7c27e3ac69e7012d9685d8c8e02775ba60919c401a8182a2d79740963d3a4",
+      "size": 110398
     },
     {
       "path": "server/live.js",
@@ -249,8 +249,8 @@
     {
       "path": "server/sync.js",
       "kind": "server",
-      "sha256": "ea3cf97434c3bbe3b2ab59347ee68fc99b636580c3e0fe1de9b179ca1f4d0b13",
-      "size": 13410
+      "sha256": "a19456751efb48be2012a8e528e190c44c3db3bd2e97c470e4806c1de0a48b79",
+      "size": 14186
     },
     {
       "path": "server/tenancy.js",
@@ -305,7 +305,7 @@
     "client": 25,
     "server": 24
   },
-  "client_size": 1337963,
-  "server_size": 352209,
-  "total_size": 1690172
+  "client_size": 1338554,
+  "server_size": 354331,
+  "total_size": 1692885
 }
