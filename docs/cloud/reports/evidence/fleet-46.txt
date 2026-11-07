@@ -1,0 +1,47 @@
+# شاهد ردیف ۴۶ — تست بار ناگهانی ناوگان کلاینت (pull دوره‌ای + push دسته‌ای)
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/b780a176-payesh-local
+# head_sha: 62db0244c2eba734c8e11e1cf3d5ad5b41425e66
+# generated_at: 2026-11-07T22:50:49Z
+# node: v22.22.3   os: Linux 6.1.158+ x86_64   cpu: 2 هسته
+# postgres: 18.6 (بانک جدا: payesh_fleet؛ کاربر برنامه: payesh_runtime)
+# gateway: http://127.0.0.1:5651 (فرایند جدا از تست)
+# params: stages=100,300,600,1200 seconds=10 batch=10 pull_limit=200
+# topology: DB و Gateway دو فرایند جدا روی همین میزبان هستند؛ تفکیک PHYSICAL میزبان در محیط مالک سنجیده می‌شود.
+# تعریف سقف سالم: p99 pull/push < 2000ms و نرخ خطا < 1٪
+
+## بخش ۱ — پله‌های بار (هر پله با کلاینت‌های تازه و توکن خودشان)
+… پلهٔ 1/4: 100 کلاینت × 10s
+… پلهٔ 2/4: 300 کلاینت × 10s
+… پلهٔ 3/4: 600 کلاینت × 10s
+… پلهٔ 4/4: 1200 کلاینت × 10s
+| کلاینت | RPS کل | RPS pull | RPS push | pull p95/p99 (ms) | push p95/p99 (ms) | خطا | CPU% | RSS MB | سالم |
+|---|---|---|---|---|---|---|---|---|---|
+| 100 | 289.2 | 144.6 | 144.6 | 334.59/462.99 | 396.42/649.06 | 0.00% | 59.3 | 98 | ✓ |
+| 300 | 268.2 | 134.1 | 134.1 | 1323.25/1424.19 | 1405.88/1457.68 | 0.00% | 49.7 | 102 | ✓ |
+| 600 | 244.2 | 122.1 | 122.1 | 3437.17/3508.37 | 3483.86/3577.51 | 0.00% | 44.7 | 109.7 | ✗ |
+| 1200 | 274 | 137 | 137 | 8900.53/9304.35 | 8029.46/8162.99 | 0.00% | 50.9 | 123.5 | ✗ |
+# db_connections=4 pool_waiting=null pool_total=4 pool_wait_s=0
+FLEET healthy_ceiling_clients=300 first_failure=600 (p99 pull=3508.37ms push=3577.51ms ≥ 2000ms)
+FLEET-46-OK
+
+## بخش ۲ — سلامت سرویس پس از بار (نباید پس از فشار مرده باشد)
+# /healthz → 200
+# /readyz  → 200
+# metric: payesh_db_connections 4
+# metric: payesh_pg_pool_idle 4
+# metric: payesh_pg_pool_total 4
+# metric: payesh_ready 1
+# gateway_log_lines=1
+
+## بخش ۳ — رگرسیون: آزمون‌های موجود دست‌نخورده
+
+96 موفق · 0 ناموفق
+
+
+# ===== SUMMARY =====
+# fleet_exit:      0
+# regression_exit: 0
+# NOTE: این عددها روی یک میزبان مشترک اندازه‌گیری شده‌اند؛ سقف تولید با تفکیک میزبان‌ها بازآزمایی شود.
+# EXIT=0
+FLEET-46-OK
