@@ -1,0 +1,81 @@
+# شاهد ردیف ۵۳ — آرشیو دادهٔ سرد و سیاست نگه‌داشت
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/7af2b7f0-payesh-local
+# head_sha: 61c514d1ac846521452ec32b2d474400c05d978f
+# version: 0.8.54
+# generated_at: 2026-11-07T19:06:30Z
+# node: v22.22.3
+# os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-53-archive.sh
+# policy_source: server/archive.js → POLICY (hot_months=12, cold_keep_years=7, signed_url_ttl=300s, max=900s)
+# storage: tests/lib/s3-stub.js — صندوقچهٔ S3 محلی که امضای SigV4 و هش بدنه را بازمحاسبه و مقایسه می‌کند
+
+## بخش ۱ — آزمون‌های آرشیو/نگه‌داشت روی لایهٔ ذخیره‌سازی واقعی محصول (AR-01..AR-15)
+PASS  AR-01  سیاست نگه‌داشت مکتوب و منسجم است (پنجرهٔ داغ، عمر بایگانی، عمر URL)  → hot=12mo keep=7y url=300s(max 900)
+PASS  AR-02  کاشته‌شدن 120000 ردیف روی سه سال + اندازه‌گیری پنجرهٔ داغ  → rows=120000 bytes=8402550 span=2024-02-01..2026-11-27
+PASS  AR-03  ذخیره‌ساز شیء آماده است و درخواست بدون امضا را رد می‌کند  → unsigned=403 forged=403 rejected=2
+PASS  AR-04  اجرای آزمایشی (dry-run) هیچ فایلی نمی‌سازد و هیچ ردیفی حذف نمی‌کند  → would_archive=74110 objects=0 rows_kept=120000
+PASS  AR-05  بایگانی واقعی با 12 ماه پنجرهٔ داغ  → objects=105 archived=74110 bytes=1488645 ms=3677 cutoff=2025-11-01
+PASS  AR-06  همهٔ درخواست‌ها امضای SigV4 معتبر داشتند و هش بدنه تطبیق کرد  → verified=210 (put+verify-read) rejected=2 hash_mismatch=0
+PASS  AR-07  هیچ ردیفی گم نشد: داغِ قبل = داغِ بعد + بایگانی‌شده  → before=120000 hot_after=45890 cold=74110
+PASS  AR-08  پایگاه‌داده فقط «پنجرهٔ داغ» را نگه داشته است  → hot=45890 oldest=2025-11-01 >= cutoff 2025-11-01
+PASS  AR-09  فایل بایگانی خودبسنده و سالم است (gzip + sha256 + تعداد ردیف)  → key=payesh/archive/attendance/2024-02.json rows=706 sha=b6026b355113…
+PASS  AR-10  بازیابی: فایل بایگانی دقیقاً به همان شناسه‌ها برمی‌گردد  → restored=706 col=attendance month=2024-02
+PASS  AR-11  بازیابی دوباره داده را تکثیر نمی‌کند (idempotent)  → rows=9884 unchanged=true
+PASS  AR-12  فایل دستکاری‌شده بازیابی نمی‌شود (شکست هش، بدون نوشتن ناقص)  → checksum_mismatch + row_count_mismatch refused=both
+PASS  AR-13  نشانی امضاشدهٔ کوتاه‌عمر: معتبر، منقضی، و سقف عمر  → valid=200 expired=403 ttl_cap=ttl_too_long presigned_ok=1
+PASS  AR-14  پایان عمر بایگانی: فایل قدیمی‌تر از سیاست نگه‌داشت حذف می‌شود  → keep=7y removed=1
+PASS  AR-15  اندازهٔ جدول داغ زیر آستانهٔ 60000 ردیف در مقیاس شبیه‌سازی‌شده  → total_before=120000 hot_after=46596 (38.8%) threshold=60000
+
+AR checks=15 pass=15 fail=0
+ARCHIVE-53-OK
+
+## بخش ۲ — اندازهٔ جدول‌ها پیش/پس از آرشیو و بازبینی آستانه (شبیه‌سازی ۱۲۰٬۰۰۰ ردیف)
+collection          rows_before  bytes_before   rows_after  bytes_after   archived
+announcements       24000       1645 KiB       9178        629 KiB       14822
+attendance          24000       1640 KiB       9178        627 KiB       14822
+grades              24000       1640 KiB       9178        627 KiB       14822
+leaves              24000       1640 KiB       9178        627 KiB       14822
+staff_attendance    24000       1640 KiB       9178        627 KiB       14822
+
+hot_window_months      12
+cutoff                 2025-11-01
+rows_total_before      120000
+rows_hot_after         45890
+rows_archived          74110
+cold_ratio             61.8%
+objects                105
+archive_bytes          1488645 (1454 KiB)
+db_bytes_before        51953664
+db_bytes_after_archive 51965952
+db_bytes_after_vacuum  18882560
+signed_url_ttl_sec     300 (max 900)
+cold_keep_years        7
+signed_url_status      200
+restore_probe          key=payesh/archive/attendance/2024-02.json rows=706 ms=14
+restore_largest        key=payesh/archive/announcements/2025-06.json rows=706 bytes=14415 ms=13
+
+ARCHIVE-53-SIZES-OK
+
+## بخش ۳ — شاهد خام: یک فایل بایگانی همان‌طور که در ذخیره‌ساز می‌نشیند
+object_key            payesh/archive/attendance/2024-03.json
+object_bytes          2790
+envelope_fields       v,kind,collection,month,rows,bytes_raw,sha256,encoding,created_at,data
+rows_in_file          88
+sha256_of_ndjson      6d646c32f43910cc196a54dc585174121422e7c7bd829dbb41a44b083e3d1c71
+ndjson_first_row      {"collection":"attendance","id":17,"version":1,"data":{"student_id":33,"class_id":3,"status":"present","note":"ردیف 17"},"ref1":3,"ref2":33,"day":"2024-03-06","created_at":"2024-03-06T00:00:00.000Z","updated_at":"2024-03-06T00:00:00.000Z"}
+ndjson_last_row       {"collection":"attendance","id":1496,"version":1,"data":{"student_id":491,"class_id":21,"status":"present","note":"ردیف 1496"},"ref1":21,"ref2":491,"day":"2024-03-21","created_at":"2024-03-21T00:00:00.000Z","updated_at":"2024-03-21T00:00:00.000Z"}
+manifest_rows         [{"k":"payesh/archive/attendance/2024-03.json","rows":88,"sha256":"6d646c32f43910cc…"},{"k":"payesh/archive/attendance/2024-05.json","rows":88,"sha256":"e622259f64955945…"},{"k":"payesh/archive/attendance/2024-07.json","rows":88,"sha256":"f5031842b1a806aa…"},{"k":"payesh/archive/attendance/2024-09.json","rows":88,"sha256":"e20e039c914f73c8…"}]
+sigv4_verified        42
+sigv4_rejected        0
+body_hash_mismatch    0
+signed_url_valid      200
+signed_url_tampered   403
+restore_rows          88
+
+# ===== SUMMARY =====
+# checks_ar_exit: 0
+# sizes_exit: 0
+# raw_probe_exit: 0
+# EXIT=0
+ARCHIVE-53-OK
