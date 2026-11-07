@@ -311,8 +311,12 @@ async function login(win, phone) {
           if (form.elements.reason) form.elements.reason.value = 'آزمون';
           form.dispatchEvent(new win.Event('submit', { bubbles: true, cancelable: true }));
           await new Promise(r => setTimeout(r, 400));
-          const keys = Object.keys(win.__objects);
-          check(keys.some(k => /outbox/.test(k)), 'درخواست مرخصی در صف ماند (بدون مدرسه هم ثبت می‌شود)');
+          /* F‑06: ثبت از مسیر سرور می‌رود؛ بدون سرور، در «صف محلی گوشی» می‌ماند
+             و با اولین اتصال فرستاده می‌شود (بدون فقدان داده). */
+          const queued = JSON.parse(win.localStorage.getItem('payesh.phone.queue') || '[]');
+          const keys = Object.keys(win.__objects || {});
+          check((queued && queued.length > 0) || keys.some(k => /outbox/.test(k)),
+            'درخواست مرخصی در صف محلی ماند (بدون مدرسه هم ثبت می‌شود)');
           check(!win.document.querySelector('form[data-form="leave"]'), 'فرم پس از ثبت بسته شد');
         }
       }
