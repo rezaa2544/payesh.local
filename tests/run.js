@@ -1255,7 +1255,9 @@ async function waitFor(fn, ms = 15000) {
     const glob = (dir) => fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })
       .flatMap(d => d.isDirectory() ? glob(path.join(dir, d.name)) : [path.join(dir, d.name)]);
     const clientFiles = glob('client').filter(f => /\.(js|html)$/.test(f));
-    const leaked = ['997cc6ad', 'AKIA', 'accessKey\s*:\s*["\'][A-Za-z0-9/+]{12,}', 'secret\s*:\s*["\'][^"\']{16,}'];
+    /* پیشوندِ کلیدِ افشاشده در گزارش F‑04 — تکه‌تکه ساخته می‌شود تا خودش نشتی نشود */
+    const oldKeyPrefix = '997c' + 'c6ad';
+    const leaked = [oldKeyPrefix, 'AKIA', 'accessKey\\s*:\\s*["\'][A-Za-z0-9/+]{12,}', 'secret\\s*:\\s*["\'][^"\']{16,}'];
     for (const f of clientFiles) {
       const text = fs.readFileSync(path.join(ROOT, f), 'utf8');
       for (const pat of leaked) {

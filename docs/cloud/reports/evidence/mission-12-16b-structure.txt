@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
-branch: arena/70f5f314-payesh-local
-head: e8730a29d3efcd2296ce4b430a0d446f47f8c884
+branch: arena/1ddd98b3-payesh-local
+head: 74db0b8518049e6ab3d405618d6fe994d9060fd7
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=273  tables=87  ac_rows=8
@@ -22,26 +22,30 @@ head: e8730a29d3efcd2296ce4b430a0d446f47f8c884
 **حکم: ۱۲/۱۲ — REVIEW.** (AC‑1..AC‑12 در سطح طراحی؛ E‑16B‑۱..۵ امروز FAIL، E‑16B‑۶/۷ ابتدایی‌ترین پیش‌نیازها را نشان می‌دهند.)
 
 ## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (فقط در فهرست مجاز D‑35)
-product_diff_files: 4
+product_diff_files: 16
 product_diff_outside_allow: 0
 
 ## شمارش واقعی مخزن
 tenant_id: 1
 school_id (occurrences, server+client): 48
 school_id (files): 8
-api routes (unique /api literals in server/index.js): 63
+api routes (unique /api literals in server/index.js): 65
 
 ## وضعیت درخت کاری
  M docs/cloud/reports/evidence/cc11-gate.txt
- M docs/cloud/reports/evidence/cc11-negative.txt
+ M docs/cloud/reports/evidence/cc11-raw-drill.txt
+ M docs/cloud/reports/evidence/cc11-required-labels.txt
  M docs/cloud/reports/evidence/cc12-2-gate.txt
- M docs/cloud/reports/evidence/cc12-2-product-rls.txt
  M docs/cloud/reports/evidence/cc12-closure-gate.txt
- M docs/cloud/reports/evidence/cc12-closure-negative.txt
+ M docs/cloud/reports/evidence/drill-11-claims.cjs
+ M docs/cloud/reports/evidence/gen-audit-evidence.sh
+ M docs/cloud/reports/evidence/gen-cc11-evidence.sh
+ M docs/cloud/reports/evidence/gen-cc12-2-gate.sh
+ M docs/cloud/reports/evidence/gen-cc12-closure.sh
+ M docs/cloud/reports/evidence/gen-phase3-gate.sh
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
  M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
- M docs/cloud/reports/evidence/phase3-gate-negative.txt
-?? docs/cloud/reports/evidence/tests-run-7f7cef6-20261107T074301Z.log
-?? docs/cloud/reports/evidence/tests-run-e8730a2-20261107T074424Z.log
+ M docs/cloud/reports/evidence/review-closure-01.txt
+?? docs/cloud/reports/evidence/tests-run-74db0b8-20261107T082018Z.log
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)

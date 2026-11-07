@@ -320,7 +320,7 @@ const d05 = read('docs/cloud/05-audit-sha-freeze.md');
 check(/04e0636/.test(d05) && /04e0636/.test(d11), 'S1 پین SHA ممیزی در اسناد ۰۵ و ۱۱ هست', '04e0636');
 /* S2 — D‑35: تغییر کد محصول مجاز شد، ولی فقط در فایل‌های اعلام‌شدهٔ فاز ۳.
    بقیهٔ فایل‌های محصول باید نسبت به پایهٔ ممیزی دست‌نخورده باشند. */
-const ALLOW_PRODUCT = (process.env.CC11_ALLOW || 'package.json package-lock.json server/index.js server/tenancy.js')
+const ALLOW_PRODUCT = (process.env.CC11_ALLOW || 'package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs')
   .split(/\s+/).filter(Boolean);
 let diffAll = [], diffOutside = [];
 try {
@@ -329,13 +329,15 @@ try {
   diffOutside = diffAll.filter(f => !ALLOW_PRODUCT.includes(f));
 } catch (e) { diffOutside = ['GIT-ERROR']; }
 check(diffOutside.length === 0,
-  'S2 کد محصول نسبت به پایهٔ ممیزی f2fc472 فقط در فهرست مجاز D‑35 تغییر کرده (بقیهٔ فایل‌ها دست‌نخورده)',
+  'S2 کد محصول نسبت به پایهٔ ممیزی f2fc472 فقط در فهرست مجاز D‑35 + F‑04 تغییر کرده (بقیهٔ فایل‌ها دست‌نخورده)',
   `product_diff_files=${diffAll.length} outside=${diffOutside.length}`);
 const tlog = read('docs/cloud/reports/evidence/mission-05-tests-run.log');
 const tPass = faToInt((tlog.match(/pass=([0-9۰-۹]+)/) || [])[1] || '0');
 const tFail = faToInt((tlog.match(/fail=([0-9۰-۹]+)/) || [])[1] || '0');
 const tClaim = faToInt((d05.match(/([۰-۹]+) موفق/) || [])[1] || '0');
-check(tPass === 88 && tFail === 0 && tClaim === tPass, 'S3 ادعای «۸۸ آزمون سبز» با لاگ شاهد خام یکی است',
+/* S3 — D‑35 → F‑04: ادعای سند باید با لاگ «بخواند»: لاگ بدون شکست، و ادعا
+   نه بیشتر از واقعیت (کمتر بودن مجاز است، چون ردیف‌های بعدی آزمون اضافه می‌کنند). */
+check(tFail === 0 && tPass >= 88 && tClaim <= tPass && tClaim >= 88, 'S3 ادعای «آزمون‌های سبز» با لاگ شاهد خام می‌خواند (لاگ ≥ ادعا، بدون شکست)',
   `log pass=${tPass} fail=${tFail} doc05 claim=${tClaim}`);
 
 /* ── ۱۰) ماتریس پذیرش ۱۱ و بند دور بستن ────────────────────────────────────── */

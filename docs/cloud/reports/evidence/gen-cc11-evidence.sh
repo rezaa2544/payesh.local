@@ -121,7 +121,8 @@ TLOG=$D/mission-05-tests-run.log
 TLINE=$(grep -E '^SUMMARY pass=[0-9]+ fail=[0-9]+' "$TLOG" | tail -1)
 TP=$(printf '%s' "$TLINE" | sed -E 's/.*pass=([0-9]+).*/\1/')
 TF=$(printf '%s' "$TLINE" | sed -E 's/.*fail=([0-9]+).*/\1/')
-[ "${TP:-0}" = "88" ] && [ "${TF:-1}" = "0" ] || fail "TESTS-EVIDENCE: لاگ آزمون pass=$TP fail=$TF (باید 88/0) — اول run-tests-evidence.sh"
+# بازتنظیم (D‑35 → F‑04): ردیف‌های بعدی آزمون اضافه می‌کنند؛ شرط = صفر شکست و pass ≥ ۸۸
+[ "${TP:-0}" -ge 88 ] && [ "${TF:-1}" = "0" ] || fail "TESTS-EVIDENCE: لاگ آزمون pass=$TP fail=$TF (باید ≥88 و بدون شکست) — اول run-tests-evidence.sh"
 
 # ── موفق ───────────────────────────────────────────────────────────────────
 {

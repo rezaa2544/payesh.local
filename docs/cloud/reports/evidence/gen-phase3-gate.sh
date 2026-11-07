@@ -119,7 +119,7 @@ grep -q 'EVIDENCE-OK' "${P3_TMP_AUDIT:-/tmp/p3-audit.txt}" || fail "EVIDENCE-GAT
   echo "phase0_gate: PASS"
   echo "phase1_gate: PASS (CC11-OK)"
   echo "phase2_gate: PASS (CC12-CLOSURE-OK · شرط ۳/۴)"
-  echo "tests: EVIDENCE-OK (88/0)"
+  echo "tests: EVIDENCE-OK (≥88/0)"
   echo "cc12_2: CLOSED (product path, $P_LINES assertions)"
   echo "residuals: F-04(P0) F-06(P0) security=UNKNOWN"
   echo "GATE_OPEN=1"

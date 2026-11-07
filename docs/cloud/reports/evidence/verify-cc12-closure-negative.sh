@@ -96,7 +96,7 @@ reject N11 "ابزار سنجش خراب است (smoke شکست)" "BENCH-SMOKE" 
 reject N12 "پایهٔ ممیزی ناموجود ⇒ تعمیم بی‌اعتبار" "BASE-MISSING" CC12_BASE=0000000
 
 # ── N13: لاگ آزمون ناموفق ────────────────────────────────────────────────
-sed 's/^SUMMARY pass=88 fail=0/SUMMARY pass=85 fail=3/' "$TESTS" > "$TMP/tests.fail.log"
+sed -E 's/^SUMMARY pass=([0-9]+) fail=0$/SUMMARY pass=\1 fail=3/' "$TESTS" > "$TMP/tests.fail.log"
 reject N13 "لاگ آزمون محصول ناموفق است (۸۵/۳)" "TESTS" CC12_TESTS="$TMP/tests.fail.log"
 
 {

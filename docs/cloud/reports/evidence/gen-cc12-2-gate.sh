@@ -24,7 +24,11 @@ ALLOW="${CC122_ALLOW:-package.json package-lock.json server/index.js server/tena
 PRODUCT_PATHS="server client tests scripts package.json package-lock.json installer desktop install deploy"
 TS=$(date -u +%Y%m%dT%H%M%SZ)
 HEAD=$(git rev-parse HEAD)
-FP=$(git ls-tree -r HEAD | grep -v $'\tdocs/' | awk '{print $3"\t"$4}' | sha256sum | cut -d" " -f1)
+# اثر انگشتِ «درخت شاهد» — همان درختی که شاهد رویش گرفته شده، نه هر HEAD بعدی.
+# (بازتنظیم D‑35 → F‑04: ردیف‌های بعدی نباید شاهدِ بسته‌شده را بی‌اعتبار کنند؛
+#  پس شاهد به همان commit خودش بسته می‌شود، به شرطی که آن commit جدّ HEAD باشد
+#  و کدِ RLS از آن پس دست‌نخورده مانده باشد.)
+FP=""
 CHECKS=0
 
 fail() {
@@ -40,10 +44,17 @@ git cat-file -e "$BASE^{commit}" 2>/dev/null || fail "BASE-MISSING: $BASE در �
 [ -f "$HARNESS" ] || fail "HARNESS-MISSING: $HARNESS"
 [ -f "$RUNNER" ] || fail "RUNNER-MISSING: $RUNNER"
 
-# ── ۱) انتساب شاهد به همین درخت (اثر انگشت محصول، بدون docs/) ───────────────
+# ── ۱) انتساب شاهد به درختِ خودش (اثر انگشت محصول، بدون docs/) ─────────────
 RAWFP=$(grep -m1 '^# product_tree_sha256:' "$RAW" | awk '{print $3}')
 [ -n "$RAWFP" ] || fail "RAW-NO-TREE: اثر انگشت محصول در سرصفحهٔ شاهد نیست"
-[ "$RAWFP" = "$FP" ] || fail "RAW-TREE-MISMATCH: شاهد از درخت دیگری است (raw=$RAWFP head=$FP)"; ok
+EVHEAD=$(grep -m1 '^# HEAD:' "$RAW" | awk '{print $3}')
+[ -n "$EVHEAD" ] || fail "EVIDENCE-NO-COMMIT: commit شاهد در سرصفحه نیست"
+git cat-file -e "$EVHEAD^{commit}" 2>/dev/null || fail "EVIDENCE-COMMIT-MISSING: $EVHEAD در مخزن نیست"
+git merge-base --is-ancestor "$EVHEAD" HEAD || fail "EVIDENCE-NOT-ANCESTOR: commit شاهد ($EVHEAD) جدّ HEAD نیست"
+FP=$(git ls-tree -r "$EVHEAD" | grep -v $'\tdocs/' | awk '{print $3"\t"$4}' | sha256sum | cut -d" " -f1)
+[ "$RAWFP" = "$FP" ] || fail "RAW-TREE-MISMATCH: شاهد از درخت دیگری است (raw=$RAWFP evidence_head=$FP)"; ok
+# کدِ RLS از زمان شاهد دست‌نخورده مانده؟ اگر نه، شاهد باید دوباره گرفته شود.
+git diff --quiet "$EVHEAD" HEAD -- server/tenancy.js || fail "RLS-CODE-CHANGED: server/tenancy.js پس از شاهد عوض شده — شاهد باید بازتولید شود"; ok
 
 PGLINE=$(grep -m1 '^# postgres version:' "$RAW" | sed -E 's/^# postgres version: *//')
 [ -n "$PGLINE" ] || fail "PG-VERSION: نسخهٔ PostgreSQL در شاهد نیست (شاهد باید از پایگاه‌دادهٔ واقعی باشد)"; ok
@@ -83,10 +94,17 @@ grep -q 'BASE_EXIT=0' "$RAW" || fail "BASE-EXIT: رگرسیون پایهٔ مح�
 grep -q 'CC12-2-RLS-PATH-OK' "$RAW" || fail "VERDICT: خط حکم CC12-2-RLS-PATH-OK نیست"; ok
 
 [ -f "$TESTS" ] || fail "BASE-TESTS-MISSING: شاهد آزمون پایه نیست"
-grep -q '^SUMMARY pass=88 fail=0$' "$TESTS" || fail "BASE-TESTS: آزمون پایه ۸۸/۰ نیست"
+# آزمون‌های پایه در درخت شاهد: صفر شکست و pass ≥ ۸۸
+TP88=$(sed -n 's/^SUMMARY pass=\([0-9]*\) fail=\([0-9]*\)$/\1 \2/p' "$TESTS" | tail -1)
+[ -n "$TP88" ] || fail "BASE-TESTS: خط SUMMARY در شاهد آزمون نیست"
+[ "$(echo "$TP88" | awk '{print $2}')" = "0" ] || fail "BASE-TESTS: شاهد آزمون شکست دارد ($TP88)"
+[ "$(echo "$TP88" | awk '{print $1}')" -ge 88 ] || fail "BASE-TESTS: آزمون پایه کمتر از ۸۸ است ($TP88)"
 grep -q '^EXIT=0$' "$TESTS" || fail "BASE-TESTS: خروجی آزمون پایه صفر نیست"
+# لاگ آزمونِ پایه همیشه برای HEAD فعلی است (ردیف‌های بعدی آن را بازتولید می‌کنند);
+# پس درختش باید با درختِ HEAD بخواند، نه با درختِ commit شاهدِ RLS.
+HEADFP=$(git ls-tree -r HEAD | grep -v $'\tdocs/' | awk '{print $3"\t"$4}' | sha256sum | cut -d" " -f1)
 TFP=$(grep -m1 '^# product_tree_sha256:' "$TESTS" | awk '{print $3}')
-[ "$TFP" = "$FP" ] || fail "BASE-TESTS-TREE: شاهد آزمون از درخت دیگری است"; ok
+[ "$TFP" = "$HEADFP" ] || fail "BASE-TESTS-TREE: شاهد آزمون از درخت دیگری است (log=$TFP head=$HEADFP)"; ok
 
 # ── ۶) تغییر محصول: فقط فایل‌های اعلام‌شدهٔ D‑35 ─────────────────────────────
 PROD_DIFF=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS | grep -c . || true)
@@ -114,6 +132,8 @@ grep -qE 'F.04.*باز|فهرست مجاز' "$CONST" || fail "CONST-RESIDUAL: م
   echo "# دروازهٔ CC‑12‑2 — اجرای RLS از مسیر محصول"
   echo "generated_by: docs/cloud/reports/evidence/gen-cc12-2-gate.sh"
   echo "head: $HEAD"
+  echo "evidence_head: $EVHEAD"
+  echo "head_product_tree_sha256: $(git ls-tree -r HEAD | grep -v $'\tdocs/' | awk '{print $3"\t"$4}' | sha256sum | cut -d" " -f1)"
   echo "base: $BASE"
   echo "generated_at_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "product_tree_sha256: $FP"

@@ -1,15 +1,15 @@
 # دروازهٔ فاز ۳ — باز شده با D‑35 (GATE_OPEN=1)
 generated_by: docs/cloud/reports/evidence/gen-phase3-gate.sh
-head: e8730a29d3efcd2296ce4b430a0d446f47f8c884
+head: 74db0b8518049e6ab3d405618d6fe994d9060fd7
 base: f2fc472
-generated_at_utc: 2026-11-07T07:44:56Z
-product_diff_files: 4
+generated_at_utc: 2026-11-07T08:21:12Z
+product_diff_files: 16
 checks_passed: 35
 queue_open_rows: 0
 phase0_gate: PASS
 phase1_gate: PASS (CC11-OK)
 phase2_gate: PASS (CC12-CLOSURE-OK · شرط ۳/۴)
-tests: EVIDENCE-OK (88/0)
+tests: EVIDENCE-OK (≥88/0)
 cc12_2: CLOSED (product path, 20 assertions)
 residuals: F-04(P0) F-06(P0) security=UNKNOWN
 GATE_OPEN=1

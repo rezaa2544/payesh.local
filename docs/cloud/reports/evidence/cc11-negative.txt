@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ CC‑11 — ادعای بی‌شاهد/ارجاع مرده/سند ناسازگار
 generated_by: docs/cloud/reports/evidence/verify-cc11-negative.sh
-head: e8730a29d3efcd2296ce4b430a0d446f47f8c884
-generated_at_utc: 2026-11-07T07:44:42Z
+head: 74db0b8518049e6ab3d405618d6fe994d9060fd7
+generated_at_utc: 2026-11-07T08:21:18Z
 
 PASS  P0  gate accepted clean evidence (control positive): اجرای سالم: ۷۳ ادعا متصل + سند ۵/۵ + پین ممیزی
 PASS  N1  gate rejected: یک برچسب لازم از بدنهٔ تمرین حذف شد  → CC11-FAIL: LABEL-MISSING: R1 ۷۳ آیتم کنترلی از جدول‌های داور�
