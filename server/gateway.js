@@ -71,6 +71,12 @@ mreg.onCollect(() => {
   if (pool) {
     add('payesh_pg_pool_total', Number(pool.totalCount) || 0, 'تعداد کل اتصال‌های pool');
     add('payesh_pg_pool_idle', Number(pool.idleCount) || 0, 'اتصال‌های بی‌کار pool');
+    /* ردیف ۴۵: انتظار واقعی pool روی همهٔ گرفتن‌های اتصال (نه فقط لحظهٔ scrape) */
+    const w = tenancy.poolWaitSnapshot();
+    add('payesh_pg_pool_acquire_events_total', w.events, 'تعداد گرفتن اتصال از pool');
+    add('payesh_pg_pool_acquire_mean_ms', w.mean_ms, 'میانگین انتظار pool (میلی‌ثانیه)');
+    add('payesh_pg_pool_acquire_max_ms', w.max_ms, 'بیشینهٔ انتظار pool (میلی‌ثانیه)');
+    add('payesh_pg_pool_acquire_over_1s_total', w.over_1000ms, 'گرفتن اتصال با انتظار بیش از ۱ ثانیه');
   }
   return out;
 });

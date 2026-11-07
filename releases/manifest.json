@@ -1,15 +1,15 @@
 {
-  "version": "0.8.59",
-  "built_at": "2026-11-07T22:52:14.101Z",
+  "version": "0.8.60",
+  "built_at": "2026-11-07T22:57:31.008Z",
   "notes": [],
   "shell": {
-    "android": "0.8.59"
+    "android": "0.8.60"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "84bac8f35e84b8a07bd74245834aaf3375e39d8b30399bce17b04543f4c28c05",
+      "sha256": "7e52ffeb0e44b1af09161aa65a0d18e6801e97d0317f7dbb2644c400a2d7f1b5",
       "size": 195160
     },
     {
@@ -189,8 +189,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "d3d9bad9743f7bd810667ef159995a50c2c816e7a396db666fda58374fd00328",
-      "size": 4930
+      "sha256": "7c123635f58d9d0f9e404f85314d3b0bb63041efed7f07134f250a4b45f6ac39",
+      "size": 4982
     },
     {
       "path": "server/archive.js",
@@ -237,8 +237,8 @@
     {
       "path": "server/gateway.js",
       "kind": "server",
-      "sha256": "24d3187e7e96c99e040e57de3ea19e8e4513a049cc0e34d415cff5d9090398d6",
-      "size": 13641
+      "sha256": "02d450468b250866504b55c9df3d7b0231752813d693f0ca51581a3fd8da2a64",
+      "size": 14279
     },
     {
       "path": "server/index.js",
@@ -315,8 +315,8 @@
     {
       "path": "server/tenancy.js",
       "kind": "server",
-      "sha256": "a362675b8b3e8ececb6b17a7ae1c99b5bfd3b26ced41540a4e36e29144f17c62",
-      "size": 52090
+      "sha256": "c07298242699dd3ce9dac293a72cf1de085d13376576fa98597bb25cd1a57f49",
+      "size": 53925
     },
     {
       "path": "server/tenant-context.js",
@@ -366,6 +366,6 @@
     "server": 30
   },
   "client_size": 1401437,
-  "server_size": 456348,
-  "total_size": 1857785
+  "server_size": 458873,
+  "total_size": 1860310
 }

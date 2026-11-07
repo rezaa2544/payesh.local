@@ -1,0 +1,65 @@
+# شاهد ردیف ۴۵ — بودجهٔ اتصال و pooling (transaction pooling، pool-wait اندازه‌گیری‌شده)
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/b780a176-payesh-local
+# head_sha: 0638df3cc177c02f3271e3667b3a267f614ab44c
+# generated_at: 2026-11-07T22:56:32Z
+# node: v22.22.3   os: Linux 6.1.158+ x86_64   cpu: 2 هسته
+# postgres: 18.6 (بانک: payesh_cb؛ کاربر برنامه: payesh_runtime؛ max_connections=400)
+# gateway: http://127.0.0.1:5661 (فرایند جدا، pool از PAYESH_PG_POOL_MAX)
+# آستانهٔ انتظار pool در بار هدف: میانگین ≤ 200ms و بیشینه ≤ 1000ms و صفر مورد > ۱s
+#   (انتظار روی *همهٔ* گرفتن‌های اتصال اندازه‌گیری می‌شود، نه فقط لحظهٔ scrape)
+
+## بخش ۱ — فرمول بودجه، ممیزی حالت نشستی، انطباق PgBouncer
+# نمونه‌ها × (pool + ذخیره) = 2 × (4 + 2) = 12
+# با 20٪ سربار پیک/rollout = 14 · ظرفیت provider=100 ⇒ PASS (باقی‌مانده 86)
+# بیشترین نمونهٔ مجاز با این pool = 13
+BUDGET instances=2 pool=4 required=12 headroom=14 cap=100 fits=true
+# ممیزی حالت نشستی روی 25 فایل server/**: 0 یافته
+# PgBouncer: سازگار 
+PGBOUNCER {"pool_mode":"transaction","default_pool_size":4,"max_client_conn":400,"reserve_pool_size":2}
+CONN-BUDGET-45-OK
+
+## بخش ۱b — آزمون‌های بودجه (اعتبارسنجی، کنترل منفی ممیزی، انطباق ini)
+PASS  CB-01  فرمول بودجه: نمونه‌ها × (pool + ذخیره) با سربار ۲۰٪  → required=12 headroom=14 spare=86
+PASS  CB-02  نقض بودجه واقعاً تشخیص داده می‌شود (نمونه‌های زیاد)  → required=504 cap=100 fits=false
+PASS  CB-03  پیکربندی نامعتبر رد می‌شود: NaN/صفر/منفی/اعشاری/خارج از سقف  → 9/9 rejected with exit=2
+PASS  CB-04  poolMax: پیش‌فرض ۴، سقف سخت ۵۰، ورودی نامعتبر ⇒ پیش‌فرض  → default=4 hardCap=50
+PASS  CB-05  کد واقعی server/** هیچ حالت نشستی ندارد (سازگار با transaction pooling)  → files=25 hits=0
+PASS  CB-06  کنترل منفی: تزریق pg_advisory_lock / LISTEN / SET SESSION باید دیده شود  → 5/5 patterns detected
+PASS  CB-07  pgbouncer.ini با بودجه سازگار است (transaction + pool ≤ بودجه)  → pool_mode=transaction pool=4 ≤ 4
+PASS  CB-08  کنترل منفی: pool_mode=session یا pool بزرگ‌تر از بودجه باید رد شود  → session-mode=rejected big-pool=rejected
+PASS  CB-09  کلیدهای [databases] با تنظیمات pooling قاطی نمی‌شوند  → sections=databases,pgbouncer
+PASS  CB-10  دروازهٔ ابزار روی مخزن سبز است و با پیکربندی خراب قرمز می‌شود  → gate=OK bad-config=exit2
+
+CB checks=10 pass=10 fail=0
+CONN-BUDGET-45-TEST-OK
+
+## بخش ۲ — انتظار pool زیر بار هدف (100 کلاینت، 10 ثانیه، 2 فرایند)
+# دو اندازهٔ pool تا اثر بودجه دیده شود؛ همان سخت‌افزار، همان بار.
+POOL max=4 rps=264.8 pull_p95=407ms pull_p99=437ms push_p99=547ms err=0.00% acquire_mean_max=158.2ms acquire_max=489ms over_1s=0 events=4872 db_conn_max=4 samples=15
+# POOL max=4 خارج از بودجه: در آستانه
+POOL max=12 rps=325.4 pull_p95=402ms pull_p99=518ms push_p99=499ms err=0.00% acquire_mean_max=121.3ms acquire_max=389ms over_1s=0 events=5957 db_conn_max=12 samples=17
+
+## بخش ۳ — سلامت سرویس و اتصال‌ها پس از بار
+# /healthz → 200
+# /readyz  → 200
+# metric: payesh_db_connections 12
+# metric: payesh_pg_pool_total 12
+# metric: payesh_pg_pool_wait_seconds 0
+# metric: payesh_ready 1
+
+## بخش ۴ — رگرسیون: آزمون‌های موجود دست‌نخورده
+
+96 موفق · 0 ناموفق
+
+
+# ===== SUMMARY =====
+# budget_exit:     0
+# budget_test_exit: 0
+# pool_load_exit:  0
+# regression_exit: 0
+# NOTE: PgBouncer واقعی در این محیط اجرا نشده است (باینری موجود نیست)؛
+#       آنچه سنجیده شد: transaction بودنِ کد (ممیزی خودکار)، انطباق ini با بودجه،
+#       و pool-wait واقعی زیر بار هدف. اجرای pgbouncer فرایند جدا = OWNER.
+# EXIT=0
+CONN-BUDGET-45-OK

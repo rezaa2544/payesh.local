@@ -129,6 +129,14 @@ jobs:
           node tools/alerts-49.mjs --check-rules
           npm run test:observability49
 
+      # دروازهٔ بودجهٔ اتصال (ردیف ۴۵): فرمول نمونه‌ها × pool، اعتبارسنجی
+      # پیکربندی (NaN/خارج از سقف)، ممیزی حالت نشستی برای transaction pooling،
+      # و انطباق deploy/pgbouncer/pgbouncer.ini با بودجه.
+      - name: دروازهٔ بودجهٔ اتصال و pooling (Connection Budget — ردیف ۴۵)
+        run: |
+          node tools/conn-budget-45.mjs
+          npm run test:connb45
+
       - name: آزمون رابط، جریان کاربری، صندوقچه و به‌روزرسانی
         run: |
           npm run test:ui

@@ -236,7 +236,16 @@ async function migrate(client) {
 }
 
 /* ── اتصال runtime ─────────────────────────────────────────────────── */
-function createPool({ connectionString, max = 4 }) {
+/* ردیف ۴۵ — اندازهٔ pool از محیط قابل تنظیم است تا «بودجهٔ اتصال» یک عدد
+   قابل اجرا باشد، نه یک آرزو. سقف سخت ۵۰ است تا یک نمونه نتواند همهٔ
+   اتصال‌های مجاز provider را ببلعد (doc: 45-connection-budget.md). */
+function poolMax(env = process.env) {
+  const raw = Number(env.PAYESH_PG_POOL_MAX || 0);
+  if (!Number.isFinite(raw) || raw <= 0) return 4;
+  return Math.max(1, Math.min(50, Math.floor(raw)));
+}
+
+function createPool({ connectionString, max = poolMax() }) {
   let Pool;
   try { ({ Pool } = require('pg')); }
   catch (e) { throw new TenancyError('pg_driver_missing', 500); }
@@ -244,9 +253,37 @@ function createPool({ connectionString, max = 4 }) {
 }
 
 /* هر عملیات در یک تراکنش با زمینهٔ مستأجر اجرا می‌شود */
+/* ── ردیف ۴۵: اندازه‌گیری واقعی انتظار pool ────────────────────────
+   هر بار گرفتن اتصال از pool زمان‌سنجی می‌شود (نه فقط لحظهٔ scrape).
+   اگر این عدد بالا برود یعنی اندازهٔ pool به سقف خورده و کلاینت‌ها در
+   صف ایستاده‌اند؛ همان چیزی که فرمول بودجه باید از آن جلوگیری کند. */
+const poolWait = { events: 0, total_ms: 0, max_ms: 0, over_1000ms: 0 };
+
+function poolWaitReset() { poolWait.events = 0; poolWait.total_ms = 0; poolWait.max_ms = 0; poolWait.over_1000ms = 0; }
+
+function poolWaitSnapshot() {
+  return {
+    events: poolWait.events,
+    mean_ms: poolWait.events ? Math.round((poolWait.total_ms / poolWait.events) * 10) / 10 : 0,
+    max_ms: poolWait.max_ms,
+    over_1000ms: poolWait.over_1000ms,
+  };
+}
+
+async function acquire(pool) {
+  const t0 = Date.now();
+  const client = await pool.connect();
+  const wait = Date.now() - t0;
+  poolWait.events++;
+  poolWait.total_ms += wait;
+  if (wait > poolWait.max_ms) poolWait.max_ms = wait;
+  if (wait > 1000) poolWait.over_1000ms++;
+  return client;
+}
+
 async function withTenant(pool, tenantId, fn) {
   if (!UUID_RE.test(String(tenantId || ''))) throw new TenancyError('bad_tenant', 400);
-  const client = await pool.connect();
+  const client = await acquire(pool);
   try {
     await client.query('BEGIN');
     await client.query("select set_config('app.tenant_id', $1, true)", [String(tenantId)]);
@@ -943,7 +980,7 @@ async function rollbackProduct(client) {
   return { dropped: [JOBS_TABLE, PRODUCT_TABLE], statements: sqls.length };
 }
 
-module.exports = { scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
+module.exports = { scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,
