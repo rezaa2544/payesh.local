@@ -1,8 +1,8 @@
 # دروازهٔ ردیف ۲۶ — tenancy/RLS بدنهٔ محصول (F‑05)
 generated_by: docs/cloud/reports/evidence/gen-f05-gate.sh
-head: 7af3657e44386d74eed5e6258705ca7c28432f3a
-generated_at_utc: 2026-11-07T10:16:37Z
-product_tree_sha256: 7a45310005182d0dd046ecf9002cb16aca6ee04426c20dd64dd777591f6d5133
+head: cade20b54946d1ce7bb31c6647d9365a2c16b842
+generated_at_utc: 2026-11-07T10:17:59Z
+product_tree_sha256: 6d15ead10b3dc5f3b5d283950651a386ad5c4e596f58a7d0663da9b8eb96d72b
 tests: 94 0
 postgres_witness: PASS F05-01..F05-12 (F05-PG checks=12 pass=12 fail=0)
 negatives: 5
