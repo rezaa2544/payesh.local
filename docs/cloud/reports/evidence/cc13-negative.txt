@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ CC-13-1..4
 # تولید: bash docs/cloud/reports/evidence/verify-cc13-negative.sh
-# زمان: 2026-11-07T00:00:28Z
-# HEAD: 613804dcf5d263559458136810618d0ae61bcfcc
+# زمان: 2026-11-07T00:06:43Z
+# HEAD: 4901c94858e8f3243f3e3a698af9687ddd42b47a
 # manifest: docs/cloud/reports/evidence/cc13-required-labels.txt
 
 PASS  P0  gate accepted clean evidence (control positive): خروجی واقعی هر دو نمونه

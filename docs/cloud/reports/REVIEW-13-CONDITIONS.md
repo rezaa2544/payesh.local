@@ -72,6 +72,8 @@ CC13-OK
 | AC‑8 | `review` پس از ۳۰ روز با حفظ payload و تصمیم ثبت‌شده | PASS | PASS (۳۱ روز ⇒ review، `queue_decision`) |
 | AC‑9 | ابطال دستگاه: تعیین تکلیف صف پیش از W2، بدون ACK کاذب | PASS | PASS (آنلاین/آفلاین، `orphaned` + متادیتا) |
 
+**واژگان AC ردیف در Notion:** `pending/sent/acknowledged/conflict/failed`. نگاشت این واژگان به وضعیت‌های دقیق طرح در §۹.۱ سند ۱۳ اضافه شد (sent→`sending`، acknowledged→`applied`، failed→`rejected`/`quarantined`) تا «هم‌معنایی» ادعای نانوشته نماند.
+
 **۹/۹ — طرح + شاهد اجرایی.** «F‑07/F‑09 رفع شد» در محصول **ادعا نمی‌شود**.
 
 ---
