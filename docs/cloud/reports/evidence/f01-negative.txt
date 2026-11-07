@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ F‑01
 generated_by: docs/cloud/reports/evidence/verify-f01-negative.sh
-head: c6c7c8752d7c0a065007257f19721a884eb7f041
-generated_at_utc: 2026-11-07T08:55:19Z
+head: b2fcbe2b2fb227b293017a3c11501e1264fe5516
+generated_at_utc: 2026-11-07T09:14:12Z
 passed: 6
 failed: 0
 
@@ -10,6 +10,6 @@ PASS  N1  رد شد: ذخیرهٔ رمز خام → F01-FAIL: PLAINTEXT: رمز 
 PASS  N2  رد شد: بکاپ برای غیرمدیر → F01-FAIL: BACKUP-SCOPE: پشتیبان برای غیرمدیر باز است
 PASS  N3  رد شد: لاگ رازدار → F01-FAIL: AUDIT-SANITIZE: پاک‌سازی راز در audit نیست
 PASS  N4  رد شد: نبود revoke-all → F01-FAIL: REVOKE: تابع باطل‌سازی همهٔ نشست‌ها نیست
-PASS  N5  رد شد: شاهد آزمون کمتر از ۹۱ → F01-FAIL: TESTS-COUNT: آزمون پایه کمتر از ۹۱ است (90 0)
+PASS  N5  رد شد: شاهد آزمون کمتر از ۹۱ → F01-FAIL: TESTS-COUNT: آزمون پایه کمتر از ۹۱ است (1 0)
 
 F01-NEGATIVE-OK checks=6

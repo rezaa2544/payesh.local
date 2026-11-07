@@ -57,7 +57,7 @@ sed -i 's/^function revokeAll(store/function revokeAllDisabled(store/' "$TMP/n4.
 reject N4 "نبود revoke-all" "REVOKE" "F01_AUTH=$TMP/n4.js"
 
 # N5 — شاهد آزمون ناکافی
-sed -e 's/^SUMMARY pass=91 fail=0$/SUMMARY pass=90 fail=0/' "$TESTS" > "$TMP/tests.txt"
+sed -E 's/^SUMMARY pass=[0-9]+ fail=0$/SUMMARY pass=1 fail=0/' "$TESTS" > "$TMP/tests.txt"
 reject N5 "شاهد آزمون کمتر از ۹۱" "TESTS-COUNT" "F01_TESTS=$TMP/tests.txt"
 
 {

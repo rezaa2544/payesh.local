@@ -1,15 +1,15 @@
 # آزمون منفی دروازهٔ شاهد (C-01..C-04)
 # تولید: bash docs/cloud/reports/evidence/verify-evidence-gate-negative.sh
-# تاریخ: 2026-11-07T08:56:36Z
-# SHA: c6c7c8752d7c0a065007257f19721a884eb7f041
+# تاریخ: 2026-11-07T09:13:59Z
+# SHA: b2fcbe2b2fb227b293017a3c11501e1264fe5516
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 
 === [N1] بدنهٔ ۱✓ جعلی + SUMMARY pass=88 (حملهٔ B-01)
     EVIDENCE-FAIL: raw output body is empty or truncated (55 bytes)
     EVIDENCE-FAIL: SUMMARY claims pass=88 but the raw body contains 1 ✓ (forged or truncated log)
-    EVIDENCE-FAIL: raw body hash mismatch: log=75b88f71ecaa28f9876c3cff267406a1d50850daab88f8a7adc85d408b582d79 computed=61b006a8df05c9392efa59ae1dd4768824ff9aca78d1ffe0a5892d39287ebe63 (body was edited)
-    EVIDENCE-FAIL: pass count (88) does not match registered tests (91)
-    EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-20261107T085636Z.txt
+    EVIDENCE-FAIL: raw body hash mismatch: log=055658f4c51f3cc85ac11c5339063ee4f8995ff49720be1edd2c3391acda2e33 computed=61b006a8df05c9392efa59ae1dd4768824ff9aca78d1ffe0a5892d39287ebe63 (body was edited)
+    EVIDENCE-FAIL: pass count (88) does not match registered tests (92)
+    EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-20261107T091359Z.txt
     body_sha256=61b006a8df05c9392efa59ae1dd4768824ff9aca78d1ffe0a5892d39287ebe63
     EXIT=1
     RESULT=OK (رد شد)
@@ -17,47 +17,47 @@
 === [N2] بدنهٔ خالی + SUMMARY pass=88
     EVIDENCE-FAIL: raw output body is empty or truncated (1 bytes)
     EVIDENCE-FAIL: SUMMARY claims pass=88 but the raw body contains 0 ✓ (forged or truncated log)
-    EVIDENCE-FAIL: raw body hash mismatch: log=75b88f71ecaa28f9876c3cff267406a1d50850daab88f8a7adc85d408b582d79 computed=01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b (body was edited)
-    EVIDENCE-FAIL: pass count (88) does not match registered tests (91)
-    EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-20261107T085636Z.txt
+    EVIDENCE-FAIL: raw body hash mismatch: log=055658f4c51f3cc85ac11c5339063ee4f8995ff49720be1edd2c3391acda2e33 computed=01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b (body was edited)
+    EVIDENCE-FAIL: pass count (88) does not match registered tests (92)
+    EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-20261107T091359Z.txt
     body_sha256=01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
     EXIT=1
     RESULT=OK (رد شد)
 
 === [N3] یک بایت تغییر در بدنه (raw_output_sha256 نمی‌خواند)
-    EVIDENCE-FAIL: raw body hash mismatch: log=75b88f71ecaa28f9876c3cff267406a1d50850daab88f8a7adc85d408b582d79 computed=5428754e30de48ec36dd29905a74539f65404d76ed9278e10d8bccbc56a9fa0e (body was edited)
-    note: docs claim 88 green tests; log shows 91 (ادعای سند کمتر از واقعیت — مجاز)
-    EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-20261107T085636Z.txt
-    body_sha256=5428754e30de48ec36dd29905a74539f65404d76ed9278e10d8bccbc56a9fa0e
+    EVIDENCE-FAIL: raw body hash mismatch: log=055658f4c51f3cc85ac11c5339063ee4f8995ff49720be1edd2c3391acda2e33 computed=b5a455a1bca13b7b0d87e30734b3cac18031909270a214da3021c984a154d112 (body was edited)
+    note: docs claim 88 green tests; log shows 92 (ادعای سند کمتر از واقعیت — مجاز)
+    EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-20261107T091359Z.txt
+    body_sha256=b5a455a1bca13b7b0d87e30734b3cac18031909270a214da3021c984a154d112
     EXIT=1
     RESULT=OK (رد شد)
 
 === [N4] SUMMARY/بدنه ۸۷ ولی رجیستری tests/run.js = ۸۸ (و tests_registered=87)
-    EVIDENCE-FAIL: SUMMARY claims pass=87 but the raw body contains 90 ✓ (forged or truncated log)
-    EVIDENCE-FAIL: raw body hash mismatch: log=75b88f71ecaa28f9876c3cff267406a1d50850daab88f8a7adc85d408b582d79 computed=ca01d2b6f74c5b1bfbba1066d074d60fab4266e02138dd7cf21e7d76a5854dee (body was edited)
-    EVIDENCE-FAIL: pass count (87) does not match registered tests (91)
+    EVIDENCE-FAIL: SUMMARY claims pass=87 but the raw body contains 91 ✓ (forged or truncated log)
+    EVIDENCE-FAIL: raw body hash mismatch: log=055658f4c51f3cc85ac11c5339063ee4f8995ff49720be1edd2c3391acda2e33 computed=f2e273102f830a6f05ef48b4b5be2419d39fe67f743b4dfaa227767b68630e1e (body was edited)
+    EVIDENCE-FAIL: pass count (87) does not match registered tests (92)
     EVIDENCE-FAIL: docs claim 88 passing tests but raw log shows only 87
-    EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-20261107T085636Z.txt
-    body_sha256=ca01d2b6f74c5b1bfbba1066d074d60fab4266e02138dd7cf21e7d76a5854dee
+    EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-20261107T091400Z.txt
+    body_sha256=f2e273102f830a6f05ef48b4b5be2419d39fe67f743b4dfaa227767b68630e1e
     EXIT=1
     RESULT=OK (رد شد)
 
 === [N5] تغییر یک فایل محصول پس از اجرای آزمون (اثر انگشت C-03)
     EVIDENCE-FAIL: working tree has 1 uncommitted change(s) in product/CI paths — evidence cannot be attributed to HEAD
-    note: docs claim 88 green tests; log shows 91 (ادعای سند کمتر از واقعیت — مجاز)
-    EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-20261107T085636Z.txt
-    body_sha256=75b88f71ecaa28f9876c3cff267406a1d50850daab88f8a7adc85d408b582d79
+    note: docs claim 88 green tests; log shows 92 (ادعای سند کمتر از واقعیت — مجاز)
+    EVIDENCE-FAIL: دروازه رد شد؛ جزئیات بالا. شاهد ناموفق: docs/cloud/reports/evidence/mission-05-11-structure.FAILED-20261107T091400Z.txt
+    body_sha256=055658f4c51f3cc85ac11c5339063ee4f8995ff49720be1edd2c3391acda2e33
     EXIT=1
     RESULT=OK (رد شد)
 
 === [N6] اجرای ناموفق آزمون — شاهد سالم باید دست‌نخورده بماند (C-04)
     FAIL-CLOSED: npm test exited 1
     FAIL-CLOSED: 1 failing test(s)
-    FAIL-CLOSED: 1 passing but 91 registered tests
-    → docs/cloud/reports/evidence/tests-run-FAILED-20261107T085637Z.log (شاهد ناموفق؛ فایل شاهد سالم دست‌نخورده ماند)
+    FAIL-CLOSED: 1 passing but 92 registered tests
+    → docs/cloud/reports/evidence/tests-run-FAILED-20261107T091400Z.log (شاهد ناموفق؛ فایل شاهد سالم دست‌نخورده ماند)
     EXIT=1
-    canonical_before=97a3d65b1c1436df0830e806ef89c3057c7ef78fe9d0e0e20ea92971c20101d7
-    canonical_after =97a3d65b1c1436df0830e806ef89c3057c7ef78fe9d0e0e20ea92971c20101d7
+    canonical_before=7fbc419692c6555207b70af51eb8c9730ab170b75b0e0194fede3a02bb0fb5c8
+    canonical_after =7fbc419692c6555207b70af51eb8c9730ab170b75b0e0194fede3a02bb0fb5c8
     RESULT=OK (شاهد سالم دست‌نخورده)
 
 === SUMMARY

@@ -63,7 +63,7 @@ printf '\n// s3put(%s, body)\n' "'outbox_put'" >> "$TMP/n5.js"
 reject N5 "نوشتن مستقیم کلاینت در صندوقچه" "CLIENT-DIRECT" "F06_CLIENT=$TMP/n5.js"
 
 # N6 — شاهد آزمون ناکافی/شکست‌دار
-sed -e 's/^SUMMARY pass=90 fail=0$/SUMMARY pass=89 fail=0/' "$TESTS" > "$TMP/tests.txt"
+sed -E 's/^SUMMARY pass=[0-9]+ fail=0$/SUMMARY pass=1 fail=0/' "$TESTS" > "$TMP/tests.txt"
 reject N6 "شاهد آزمون کمتر از ۹۰" "TESTS-COUNT" "F06_TESTS=$TMP/tests.txt"
 
 {

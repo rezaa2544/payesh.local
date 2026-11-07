@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ F‑06
 generated_by: docs/cloud/reports/evidence/verify-f06-negative.sh
-head: bf0040ca16bdbc8680416462d3a70cdddd185579
-generated_at_utc: 2026-11-07T08:50:32Z
+head: b2fcbe2b2fb227b293017a3c11501e1264fe5516
+generated_at_utc: 2026-11-07T09:14:13Z
 passed: 7
 failed: 0
 
@@ -11,6 +11,6 @@ PASS  N2  رد شد: هویت از item.user_id → F06-FAIL: IDENTITY: هنوز
 PASS  N3  رد شد: پاکت بی‌امضا قرنطینه نشود → F06-FAIL: QUARANTINE: پاکت بی‌امضا قرنطینه نمی‌شود
 PASS  N4  رد شد: بازگشت تیکت نوشتن صندوقچه → F06-FAIL: WRITE-TICKET: سرور هنوز تیکت نوشتن در صندوقچ�
 PASS  N5  رد شد: نوشتن مستقیم کلاینت در صندوقچه → F06-FAIL: CLIENT-DIRECT: کلاینت مستقیم در صندوقچه می‌ن
-PASS  N6  رد شد: شاهد آزمون کمتر از ۹۰ → F06-FAIL: TESTS-COUNT: آزمون پایه کمتر از ۹۰ است (89 0)
+PASS  N6  رد شد: شاهد آزمون کمتر از ۹۰ → F06-FAIL: TESTS-COUNT: آزمون پایه کمتر از ۹۰ است (1 0)
 
 F06-NEGATIVE-OK checks=7
