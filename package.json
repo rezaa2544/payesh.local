@@ -47,6 +47,7 @@
     "test:chaos47:evidence": "bash docs/cloud/reports/evidence/run-47-chaos.sh",
     "test:cost42": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/sync-cost-42.js",
     "test:cost42:evidence": "bash docs/cloud/reports/evidence/run-42-sync-cost.sh",
+    "test:alerts": "node tests/alerts.js",
     "test:budget42": "node tools/sync-budget-42.cjs",
     "test:archive53": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/archive-53.js",
     "archive:sizes": "node --experimental-sqlite --disable-warning=ExperimentalWarning tools/archive-53-sizes.js",
