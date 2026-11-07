@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
 branch: arena/ef56f560-payesh-local
-head: 6cf50ed6b2b5d0c617bf13164a28976037b85938
+head: 238855f531959376c77ef8fecdbb1c4acc7ebe8d
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=273  tables=87  ac_rows=8
@@ -32,19 +32,5 @@ school_id (files): 10
 api routes (unique /api literals in server/index.js): 67
 
 ## وضعیت درخت کاری
- M docs/cloud/reports/evidence/cc-f01-gate.txt
- M docs/cloud/reports/evidence/cc-f02-gate.txt
- M docs/cloud/reports/evidence/cc-f04-gate.txt
- M docs/cloud/reports/evidence/cc-f06-gate.txt
- M docs/cloud/reports/evidence/cc-sync-gate.txt
- M docs/cloud/reports/evidence/cc11-gate.txt
- M docs/cloud/reports/evidence/cc11-raw-drill.txt
- M docs/cloud/reports/evidence/cc12-2-gate.txt
- M docs/cloud/reports/evidence/cc12-closure-gate.txt
- M docs/cloud/reports/evidence/mission-05-11-structure.txt
- M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
- M docs/cloud/reports/evidence/phase3-gate.txt
- M docs/cloud/reports/evidence/sync-restart-run.log
-?? docs/cloud/reports/evidence/tests-run-6cf50ed-20261107T092547Z.log
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
