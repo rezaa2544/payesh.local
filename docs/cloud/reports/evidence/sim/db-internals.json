@@ -1,0 +1,231 @@
+{
+  "root": "/tmp/payesh-sim",
+  "generated_at": "2026-11-07T14:41:33.407Z",
+  "schools": [
+    {
+      "school": 0,
+      "db_bytes": 72445952,
+      "tables": [
+        "audit",
+        "devices",
+        "meta",
+        "pair_codes",
+        "records",
+        "seq",
+        "sessions",
+        "sqlite_sequence",
+        "sync_log"
+      ],
+      "integrity": "ok",
+      "audit_rows": 82714,
+      "sync_log_rows": 88814,
+      "sessions": 38,
+      "devices": 38,
+      "conflicts": 3,
+      "deleted_rows": 40,
+      "audit_by_action": {
+        "create": 77781,
+        "update": 4892,
+        "login": 37,
+        "setup": 1,
+        "restore": 1,
+        "mirror_refresh": 1,
+        "conflict_resolve": 1
+      },
+      "users_by_role": {
+        "counselor": 1,
+        "guard": 1,
+        "manager": 1,
+        "parent": 120,
+        "student": 400,
+        "teacher": 30
+      },
+      "collections": {
+        "attendance": 72304,
+        "staff_attendance": 5400,
+        "grades": 4800,
+        "users": 553,
+        "homework": 432,
+        "parent_links": 120,
+        "leaves": 91,
+        "schedule": 72,
+        "announcements": 38,
+        "discipline": 20,
+        "counselor_notes": 18,
+        "internships": 14,
+        "classes": 12,
+        "subjects": 8,
+        "lookups": 7,
+        "conflicts": 3,
+        "school_years": 2,
+        "schools": 1
+      }
+    },
+    {
+      "school": 1,
+      "db_bytes": 71688192,
+      "tables": [
+        "audit",
+        "devices",
+        "meta",
+        "pair_codes",
+        "records",
+        "seq",
+        "sessions",
+        "sqlite_sequence",
+        "sync_log"
+      ],
+      "integrity": "ok",
+      "audit_rows": 82403,
+      "sync_log_rows": 88464,
+      "sessions": 37,
+      "devices": 37,
+      "conflicts": 0,
+      "deleted_rows": 0,
+      "audit_by_action": {
+        "create": 77476,
+        "update": 4890,
+        "login": 36,
+        "setup": 1
+      },
+      "users_by_role": {
+        "counselor": 1,
+        "guard": 1,
+        "manager": 1,
+        "parent": 120,
+        "student": 400,
+        "teacher": 30
+      },
+      "collections": {
+        "attendance": 72000,
+        "staff_attendance": 5400,
+        "grades": 4800,
+        "users": 553,
+        "homework": 432,
+        "parent_links": 120,
+        "leaves": 90,
+        "schedule": 72,
+        "announcements": 36,
+        "discipline": 20,
+        "counselor_notes": 17,
+        "internships": 14,
+        "classes": 12,
+        "subjects": 8,
+        "lookups": 7,
+        "school_years": 2,
+        "schools": 1
+      }
+    },
+    {
+      "school": 2,
+      "db_bytes": 71675904,
+      "tables": [
+        "audit",
+        "devices",
+        "meta",
+        "pair_codes",
+        "records",
+        "seq",
+        "sessions",
+        "sqlite_sequence",
+        "sync_log"
+      ],
+      "integrity": "ok",
+      "audit_rows": 82423,
+      "sync_log_rows": 88464,
+      "sessions": 37,
+      "devices": 37,
+      "conflicts": 0,
+      "deleted_rows": 0,
+      "audit_by_action": {
+        "create": 77476,
+        "update": 4890,
+        "login": 36,
+        "login_failed": 20,
+        "setup": 1
+      },
+      "users_by_role": {
+        "counselor": 1,
+        "guard": 1,
+        "manager": 1,
+        "parent": 120,
+        "student": 400,
+        "teacher": 30
+      },
+      "collections": {
+        "attendance": 72000,
+        "staff_attendance": 5400,
+        "grades": 4800,
+        "users": 553,
+        "homework": 432,
+        "parent_links": 120,
+        "leaves": 90,
+        "schedule": 72,
+        "announcements": 36,
+        "discipline": 20,
+        "counselor_notes": 17,
+        "internships": 14,
+        "classes": 12,
+        "subjects": 8,
+        "lookups": 7,
+        "school_years": 2,
+        "schools": 1
+      }
+    },
+    {
+      "school": 3,
+      "db_bytes": 71700480,
+      "tables": [
+        "audit",
+        "devices",
+        "meta",
+        "pair_codes",
+        "records",
+        "seq",
+        "sessions",
+        "sqlite_sequence",
+        "sync_log"
+      ],
+      "integrity": "ok",
+      "audit_rows": 82403,
+      "sync_log_rows": 88464,
+      "sessions": 37,
+      "devices": 37,
+      "conflicts": 0,
+      "deleted_rows": 0,
+      "audit_by_action": {
+        "create": 77476,
+        "update": 4890,
+        "login": 36,
+        "setup": 1
+      },
+      "users_by_role": {
+        "counselor": 1,
+        "guard": 1,
+        "manager": 1,
+        "parent": 120,
+        "student": 400,
+        "teacher": 30
+      },
+      "collections": {
+        "attendance": 72000,
+        "staff_attendance": 5400,
+        "grades": 4800,
+        "users": 553,
+        "homework": 432,
+        "parent_links": 120,
+        "leaves": 90,
+        "schedule": 72,
+        "announcements": 36,
+        "discipline": 20,
+        "counselor_notes": 17,
+        "internships": 14,
+        "classes": 12,
+        "subjects": 8,
+        "lookups": 7,
+        "school_years": 2,
+        "schools": 1
+      }
+    }
+  ]
+}

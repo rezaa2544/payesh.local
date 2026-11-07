@@ -1,0 +1,626 @@
+{
+  "config": {
+    "schools": 4,
+    "students": 400,
+    "teachers": 30,
+    "parents": 120,
+    "classes": 12,
+    "days": 180,
+    "portBase": 3810,
+    "root": "/tmp/payesh-sim",
+    "batch": 200,
+    "subjects": 8
+  },
+  "phases": {
+    "boot": {
+      "ms": 357,
+      "each": [
+        233,
+        290,
+        164,
+        282
+      ]
+    },
+    "setup": {
+      "ms": 219
+    },
+    "structure": {
+      "ms": 83959
+    },
+    "logins": {
+      "ms": 5771,
+      "count": 144
+    }
+  },
+  "year": {
+    "days": 180,
+    "schools": 4,
+    "ops_total": 350435,
+    "ops_business": 331236,
+    "grades_approved": 19199,
+    "seconds": 402,
+    "ops_per_s": 871,
+    "extras": {
+      "announcements": 144,
+      "homework": 1728,
+      "leaves": 360,
+      "grades": 19200,
+      "discipline": 80,
+      "counselor": 68,
+      "staff": 21600,
+      "internships": 56
+    },
+    "day_ms_avg": 2022,
+    "requests_est": 10104,
+    "leaves_approved": 361,
+    "pull_pages": 24
+  },
+  "faults": {
+    "crash": {
+      "down_ms": 142,
+      "before_attendance": 72268,
+      "after_attendance": 72302,
+      "growth": 34,
+      "expected_rows": 34,
+      "duplicates_on_retry": 17,
+      "first_applied": 17,
+      "retry_applied": 34
+    },
+    "conflict": {
+      "conflict_id": 2,
+      "resolved": true,
+      "by_teacher_status": 403
+    },
+    "backup": {
+      "backup_file": "payesh-2026-11-07T14-40-18-504Z.sqlite",
+      "backup_size": 69521408,
+      "mirror_ok": true,
+      "snapshot_bytes": 10392361,
+      "before": {
+        "users": 553,
+        "classes": 12,
+        "attendance": 72304,
+        "grades": 4800
+      },
+      "after_extra": {
+        "users": 553,
+        "classes": 12,
+        "attendance": 72304,
+        "grades": 4800
+      },
+      "after_restore": {
+        "users": 553,
+        "classes": 12,
+        "attendance": 72304,
+        "grades": 4800
+      },
+      "restore_status": 200,
+      "restore_ok": true
+    }
+  },
+  "integrity": {
+    "school0": {
+      "db_bytes": 72445952,
+      "total_rows": 83895,
+      "by_collection": {
+        "attendance": 72304,
+        "staff_attendance": 5400,
+        "grades": 4800,
+        "users": 553,
+        "homework": 432,
+        "parent_links": 120,
+        "leaves": 91,
+        "announcements": 78,
+        "schedule": 72,
+        "discipline": 20,
+        "counselor_notes": 18,
+        "internships": 14,
+        "classes": 12,
+        "subjects": 8,
+        "lookups": 7,
+        "conflicts": 3,
+        "school_years": 2,
+        "schools": 1
+      },
+      "audit_rows": 0,
+      "integrity": "ok",
+      "attendance_orphans": 0,
+      "leaked_password_rows": 0,
+      "sample_week_rows": 170,
+      "sample_hash": "0fe4c05dc0abc13d"
+    },
+    "school1": {
+      "db_bytes": 71614464,
+      "total_rows": 83584,
+      "by_collection": {
+        "attendance": 72000,
+        "staff_attendance": 5400,
+        "grades": 4800,
+        "users": 553,
+        "homework": 432,
+        "parent_links": 120,
+        "leaves": 90,
+        "schedule": 72,
+        "announcements": 36,
+        "discipline": 20,
+        "counselor_notes": 17,
+        "internships": 14,
+        "classes": 12,
+        "subjects": 8,
+        "lookups": 7,
+        "school_years": 2,
+        "schools": 1
+      },
+      "audit_rows": 0,
+      "integrity": "ok",
+      "attendance_orphans": 0,
+      "leaked_password_rows": 0,
+      "sample_week_rows": 170,
+      "sample_hash": "a8269aad6f9c3194"
+    },
+    "school2": {
+      "db_bytes": 71618560,
+      "total_rows": 83584,
+      "by_collection": {
+        "attendance": 72000,
+        "staff_attendance": 5400,
+        "grades": 4800,
+        "users": 553,
+        "homework": 432,
+        "parent_links": 120,
+        "leaves": 90,
+        "schedule": 72,
+        "announcements": 36,
+        "discipline": 20,
+        "counselor_notes": 17,
+        "internships": 14,
+        "classes": 12,
+        "subjects": 8,
+        "lookups": 7,
+        "school_years": 2,
+        "schools": 1
+      },
+      "audit_rows": 0,
+      "integrity": "ok",
+      "attendance_orphans": 0,
+      "leaked_password_rows": 0,
+      "sample_week_rows": 170,
+      "sample_hash": "0369a1bd3a4ddbc4"
+    },
+    "school3": {
+      "db_bytes": 71700480,
+      "total_rows": 83584,
+      "by_collection": {
+        "attendance": 72000,
+        "staff_attendance": 5400,
+        "grades": 4800,
+        "users": 553,
+        "homework": 432,
+        "parent_links": 120,
+        "leaves": 90,
+        "schedule": 72,
+        "announcements": 36,
+        "discipline": 20,
+        "counselor_notes": 17,
+        "internships": 14,
+        "classes": 12,
+        "subjects": 8,
+        "lookups": 7,
+        "school_years": 2,
+        "schools": 1
+      },
+      "audit_rows": 0,
+      "integrity": "ok",
+      "attendance_orphans": 0,
+      "leaked_password_rows": 0,
+      "sample_week_rows": 170,
+      "sample_hash": "7f02544b1d72854b"
+    }
+  },
+  "isolation": {},
+  "performance": {
+    "latency": {
+      "POST /api/setup": {
+        "n": 4,
+        "p50": 54.71,
+        "p95": 63.41,
+        "p99": 63.41,
+        "max": 63.41
+      },
+      "POST /api/sync": {
+        "n": 10067,
+        "p50": 37.033,
+        "p95": 58.005,
+        "p99": 190.889,
+        "max": 7766.906
+      },
+      "GET /api/v1/pull": {
+        "n": 224,
+        "p50": 19.008,
+        "p95": 34.585,
+        "p99": 44.527,
+        "max": 52.124
+      },
+      "POST /api/auth/login": {
+        "n": 166,
+        "p50": 37.28,
+        "p95": 54.359,
+        "p99": 63.063,
+        "max": 79.921
+      },
+      "POST /api/auth/logout": {
+        "n": 1,
+        "p50": 2.144,
+        "p95": 2.144,
+        "p99": 2.144,
+        "max": 2.144
+      },
+      "GET /api/me": {
+        "n": 2,
+        "p50": 1.941,
+        "p95": 1.941,
+        "p99": 1.941,
+        "max": 1.941
+      },
+      "GET /api/bootstrap": {
+        "n": 6,
+        "p50": 20.161,
+        "p95": 57.58,
+        "p99": 57.58,
+        "max": 57.58
+      },
+      "POST /api/conflicts/3/resolve": {
+        "n": 1,
+        "p50": 3.294,
+        "p95": 3.294,
+        "p99": 3.294,
+        "max": 3.294
+      },
+      "POST /api/conflicts/2/resolve": {
+        "n": 1,
+        "p50": 3.616,
+        "p95": 3.616,
+        "p99": 3.616,
+        "max": 3.616
+      },
+      "POST /api/admin/backup": {
+        "n": 1,
+        "p50": 185.561,
+        "p95": 185.561,
+        "p99": 185.561,
+        "max": 185.561
+      },
+      "POST /api/admin/mirror/refresh": {
+        "n": 1,
+        "p50": 3082.276,
+        "p95": 3082.276,
+        "p99": 3082.276,
+        "max": 3082.276
+      },
+      "POST /api/phone/ticket": {
+        "n": 1,
+        "p50": 3.403,
+        "p95": 3.403,
+        "p99": 3.403,
+        "max": 3.403
+      }
+    },
+    "calls": 10475,
+    "errors": 0,
+    "memory": [
+      {
+        "port": 3810,
+        "rss_mb": 493,
+        "boot_ms": 134
+      },
+      {
+        "port": 3811,
+        "rss_mb": 132,
+        "boot_ms": 290
+      },
+      {
+        "port": 3812,
+        "rss_mb": 141,
+        "boot_ms": 164
+      },
+      {
+        "port": 3813,
+        "rss_mb": 164,
+        "boot_ms": 282
+      }
+    ]
+  },
+  "concurrency": {
+    "devices": 8,
+    "rows": 268,
+    "expected": 268,
+    "rejected": 0,
+    "ms": 327,
+    "ops_per_s": 820,
+    "conflicts": 0
+  },
+  "checks": [
+    {
+      "id": "S-01",
+      "name": "همهٔ نمونه‌های مدرسه بالا آمدند و /api/readyz پاسخ داد",
+      "ok": true,
+      "state": "PASS",
+      "detail": "3810:233ms 3811:290ms 3812:164ms 3813:282ms"
+    },
+    {
+      "id": "S-02",
+      "name": "راه‌اندازی اولیه (setup) هر مدرسه انجام شد و نشست مدیر صادر شد",
+      "ok": true,
+      "state": "PASS",
+      "detail": "4 مدرسه · 219ms"
+    },
+    {
+      "id": "S-03",
+      "name": "ساخت ساختار و کاربران از مسیر sync محصول",
+      "ok": true,
+      "state": "PASS",
+      "detail": "کاربران کل=2212 · دانش‌آموز/مدرسه=400 · 83959ms"
+    },
+    {
+      "id": "S-04",
+      "name": "ورود همهٔ نقش‌ها (مدیر/دبیر/دانش‌آموز/ولی/مشاور/سرایدار) با دستگاه مستقل",
+      "ok": true,
+      "state": "PASS",
+      "detail": "ورود موفق=144 · 5771ms"
+    },
+    {
+      "id": "P-01",
+      "name": "سقف ۲۰۰ عملیات در هر push اعمال می‌شود",
+      "ok": true,
+      "state": "PASS",
+      "detail": "error=too_many_ops"
+    },
+    {
+      "id": "P-02",
+      "name": "تکرار همان بسته (replay) دوباره ثبت نمی‌شود",
+      "ok": true,
+      "state": "PASS",
+      "detail": "first=1 second_duplicate={\"uid\":\"replay-1794062015718\",\"duplicate\":true}"
+    },
+    {
+      "id": "P-03",
+      "name": "دانش‌آموز نمی‌تواند حضور و غیاب بنویسد",
+      "ok": true,
+      "state": "PASS",
+      "detail": "rejected={\"uid\":\"sw-1794062015724\",\"error\":\"role_denied\"}"
+    },
+    {
+      "id": "P-04",
+      "name": "دبیر در کلاس خارج از اسکوپ نمی‌تواند بنویسد",
+      "ok": true,
+      "state": "PASS",
+      "detail": "کلاس دبیر=1,6,11 کلاس هدف=2 rejected={\"uid\":\"to-1794062015726\",\"error\":\"out_of_scope\"}"
+    },
+    {
+      "id": "P-05",
+      "name": "تغییر نقش از مسیر sync توسط دبیر رد می‌شود (F-02)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "rejected={\"uid\":\"rc-1794062015727\",\"error\":\"role_change_denied\",\"conflict_id\":1}"
+    },
+    {
+      "id": "P-06",
+      "name": "ولی نمی‌تواند مرخصی را «تأییدشده» ثبت کند (به pending تبدیل می‌شود)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "status=pending"
+    },
+    {
+      "id": "P-07",
+      "name": "میدان school_id/tenant_id کلاینتی نادیده گرفته می‌شود (F-05)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "school_id=1 tenant_id=undefined"
+    },
+    {
+      "id": "P-08",
+      "name": "دانش‌آموز فقط رکورد خودش را می‌بیند (اسکوپ سروری)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "users=1 خارج از اسکوپ=0"
+    },
+    {
+      "id": "P-09",
+      "name": "ولی فقط دادهٔ فرزند خودش را می‌بیند",
+      "ok": true,
+      "state": "PASS",
+      "detail": "attendance=0 خارج=0"
+    },
+    {
+      "id": "P-10",
+      "name": "دبیر فقط حضور کلاس‌های خودش را می‌بیند",
+      "ok": true,
+      "state": "PASS",
+      "detail": "attendance=0 خارج=0"
+    },
+    {
+      "id": "P-12",
+      "name": "سرایدار هیچ اجازهٔ نوشتنی ندارد (fail-closed)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "rejected=\"role_denied\""
+    },
+    {
+      "id": "P-13",
+      "name": "سرایدار دادهٔ حضور/نمرهٔ دانش‌آموزان را نمی‌بیند (اسکوپ خالی)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "attendance=0 users=1"
+    },
+    {
+      "id": "P-14",
+      "name": "مشاور می‌تواند یادداشت مشاوره ثبت کند",
+      "ok": true,
+      "state": "PASS",
+      "detail": "applied=1 rejected=null"
+    },
+    {
+      "id": "P-15",
+      "name": "دبیر به یادداشت‌های محرمانهٔ مشاوره دسترسی ندارد",
+      "ok": true,
+      "state": "PASS",
+      "detail": "rows=0"
+    },
+    {
+      "id": "P-11",
+      "name": "پس از خروج، توکن قبلی رد می‌شود (401)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "status=401"
+    },
+    {
+      "id": "W-03",
+      "name": "مدیر درخواست‌های مرخصی ولی را تأیید کرد (جریان تأیید واقعی)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "approved=361 از 361 درخواست"
+    },
+    {
+      "id": "W-04",
+      "name": "خواندن کل مجموعهٔ حضور با صفحه‌بندی، کامل و بدون تکرار بود",
+      "ok": false,
+      "state": "FAIL",
+      "detail": "pages=24 rows=71998 unique=71998 bootstrap=72000"
+    },
+    {
+      "id": "W-01",
+      "name": "سال تحصیلی شبیه‌سازی شد (حضور/نمره/مرخصی/کارکنان/اطلاعیه/تکلیف/انضباط/مشاوره)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "ops=350435 در 402s (871 ops/s)"
+    },
+    {
+      "id": "W-02",
+      "name": "نمرات جلسهٔ تأیید مدیر را طی کردند و approved شدند",
+      "ok": true,
+      "state": "PASS",
+      "detail": "approved=19199"
+    },
+    {
+      "id": "W-05",
+      "name": "جریان مشاوره فعال بود: یادداشت مشاوره برای دانش‌آموزان ثبت شد",
+      "ok": true,
+      "state": "PASS",
+      "detail": "یادداشت‌های ثبت‌شده=68 (۴ مدرسه)"
+    },
+    {
+      "id": "C-01",
+      "name": "هم‌زمانی: چند دستگاه هم‌زمان می‌نویسند و همهٔ ردیف‌ها ثبت می‌شوند",
+      "ok": true,
+      "state": "PASS",
+      "detail": "8 دستگاه · 268/268 ردیف در 327ms (820 ops/s) · ردشده=0 · تعارض=0"
+    },
+    {
+      "id": "F-01",
+      "name": "قطعی ناگهانی (SIGKILL) و بازگشت: هیچ دادهٔ ثبت‌شده‌ای از دست نرفت",
+      "ok": true,
+      "state": "PASS",
+      "detail": "قبل=72268 بعد=72302 رشد=34/34 downtime=142ms"
+    },
+    {
+      "id": "F-02",
+      "name": "بازفرست بسته پس از قطعی: ردیف تکراری ساخته نشد (idempotency)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "total_rows=34/34 تکراری‌های علامت‌خورده=17/17"
+    },
+    {
+      "id": "F-03",
+      "name": "تعارض هم‌زمان (OCC) به‌جای بازنویسی کور، ثبت و برای تصمیم نگه داشته شد",
+      "ok": true,
+      "state": "PASS",
+      "detail": "conflict_id=2"
+    },
+    {
+      "id": "F-04",
+      "name": "حل تعارض فقط با مدیر مجاز است",
+      "ok": true,
+      "state": "PASS",
+      "detail": "teacher_status=403"
+    },
+    {
+      "id": "F-05",
+      "name": "بکاپ SQLite و آینهٔ امضاشده ساخته شد",
+      "ok": true,
+      "state": "PASS",
+      "detail": "file=payesh-2026-11-07T14-40-18-504Z.sqlite size=69521408B · snapshot=10149KB"
+    },
+    {
+      "id": "F-06",
+      "name": "بازیابی از پشتیبان، وضعیت را به لحظهٔ بکاپ برگرداند (بدون از دست دادن ساختار)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "restore=200 users before=553 after=553"
+    },
+    {
+      "id": "F-07",
+      "name": "توکن یک مدرسه روی نمونهٔ مدرسهٔ دیگر پذیرفته نمی‌شود",
+      "ok": true,
+      "state": "PASS",
+      "detail": "status=401"
+    },
+    {
+      "id": "F-08",
+      "name": "محدودیت نرخ ورود (brute-force) فعال است",
+      "ok": true,
+      "state": "PASS",
+      "detail": "اولین 429 در تلاش 21"
+    },
+    {
+      "id": "F-09",
+      "name": "خروجی CSV هیچ هش/رمز خام/اعتبارنامهٔ قابل‌استفاده ندارد (SEC-01)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "bytes=85732 هش/رمز خام=false"
+    },
+    {
+      "id": "F-10",
+      "name": "تیکت دستگاه گوشی ۲۰۰ روزه (نیازمند پیکربندی ابری در این مدرسه)",
+      "ok": true,
+      "state": "SKIP",
+      "detail": "در این نمونه ابر پیکربندی نشده: {\"ok\":false,\"error\":\"no_cloud\"}"
+    },
+    {
+      "id": "I-01",
+      "name": "یکپارچگی دادهٔ مدرسهٔ 1 (SQLite + ارجاع‌ها + نبود رمز خام)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "integrity=ok rows=83895 orphan=0 رمز خام=0 db=69MB"
+    },
+    {
+      "id": "I-02",
+      "name": "یکپارچگی دادهٔ مدرسهٔ 2 (SQLite + ارجاع‌ها + نبود رمز خام)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "integrity=ok rows=83584 orphan=0 رمز خام=0 db=68MB"
+    },
+    {
+      "id": "I-03",
+      "name": "یکپارچگی دادهٔ مدرسهٔ 3 (SQLite + ارجاع‌ها + نبود رمز خام)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "integrity=ok rows=83584 orphan=0 رمز خام=0 db=68MB"
+    },
+    {
+      "id": "I-04",
+      "name": "یکپارچگی دادهٔ مدرسهٔ 4 (SQLite + ارجاع‌ها + نبود رمز خام)",
+      "ok": true,
+      "state": "PASS",
+      "detail": "integrity=ok rows=83584 orphan=0 رمز خام=0 db=68MB"
+    },
+    {
+      "id": "I-99",
+      "name": "جمع ردیف‌های واقعی ثبت‌شده در همهٔ مدارس",
+      "ok": true,
+      "state": "PASS",
+      "detail": "total_rows=334647 · db_total=274MB"
+    }
+  ],
+  "elapsed_s": 540,
+  "verdict": "SIM-FAIL"
+}

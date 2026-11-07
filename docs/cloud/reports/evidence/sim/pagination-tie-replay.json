@@ -1,0 +1,97 @@
+{
+  "db": "/tmp/payesh-sim/school-0/payesh.sqlite",
+  "collection": "attendance",
+  "row_limit": 3000,
+  "total_rows": 72304,
+  "pages": 25,
+  "pulled_unique": 72287,
+  "missing": 17,
+  "missing_pct": 0.0235,
+  "missing_rows": [
+    {
+      "id": 3001,
+      "updated_at": "2026-11-07T14:40:24.052Z",
+      "rows_sharing_timestamp": 2
+    },
+    {
+      "id": 6002,
+      "updated_at": "2026-11-07T14:40:25.289Z",
+      "rows_sharing_timestamp": 4
+    },
+    {
+      "id": 9003,
+      "updated_at": "2026-11-07T14:40:26.463Z",
+      "rows_sharing_timestamp": 3
+    },
+    {
+      "id": 9004,
+      "updated_at": "2026-11-07T14:40:26.463Z",
+      "rows_sharing_timestamp": 3
+    },
+    {
+      "id": 21005,
+      "updated_at": "2026-11-07T14:40:31.762Z",
+      "rows_sharing_timestamp": 2
+    },
+    {
+      "id": 24006,
+      "updated_at": "2026-11-07T14:40:33.036Z",
+      "rows_sharing_timestamp": 2
+    },
+    {
+      "id": 27007,
+      "updated_at": "2026-11-07T14:40:34.171Z",
+      "rows_sharing_timestamp": 4
+    },
+    {
+      "id": 30008,
+      "updated_at": "2026-11-07T14:40:35.400Z",
+      "rows_sharing_timestamp": 2
+    },
+    {
+      "id": 36009,
+      "updated_at": "2026-11-07T14:40:37.777Z",
+      "rows_sharing_timestamp": 2
+    },
+    {
+      "id": 42010,
+      "updated_at": "2026-11-07T14:40:40.221Z",
+      "rows_sharing_timestamp": 3
+    },
+    {
+      "id": 45011,
+      "updated_at": "2026-11-07T14:40:41.360Z",
+      "rows_sharing_timestamp": 2
+    },
+    {
+      "id": 57012,
+      "updated_at": "2026-11-07T14:40:46.217Z",
+      "rows_sharing_timestamp": 3
+    },
+    {
+      "id": 60013,
+      "updated_at": "2026-11-07T14:40:47.513Z",
+      "rows_sharing_timestamp": 4
+    },
+    {
+      "id": 60014,
+      "updated_at": "2026-11-07T14:40:47.513Z",
+      "rows_sharing_timestamp": 4
+    },
+    {
+      "id": 60015,
+      "updated_at": "2026-11-07T14:40:47.513Z",
+      "rows_sharing_timestamp": 4
+    },
+    {
+      "id": 69016,
+      "updated_at": "2026-11-07T14:40:51.210Z",
+      "rows_sharing_timestamp": 3
+    },
+    {
+      "id": 72017,
+      "updated_at": "2026-11-07T14:40:52.475Z",
+      "rows_sharing_timestamp": 3
+    }
+  ]
+}
