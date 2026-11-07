@@ -18,15 +18,38 @@ const session = (over = {}) => ({ user_id: 'u-1', tenant_id: 'tenant-a', role: '
 const TENANT_B = 'tenant-b';
 
 async function main() {
+  // ---------- ۰) قرارداد زمان: server_time در هر پاسخ + offset کلاینت (CC‑13‑۱) ----------
+  {
+    const LOCAL = 1_700_000_000_000;
+    let mono = 0;
+    const clock = new Clock({ localNow: () => LOCAL, monoNow: () => mono });
+    const SERVER_NOW = LOCAL + 42_000;                 // ساعت سرور ۴۲ ثانیه جلوتر
+    const server = new QueueServer({ now: () => SERVER_NOW });
+    const q = new OpQueue({ clock, cache: new SecureCache({ clock }).open('tenant-a') });
+    check('پیش از sync، حالت محافظه‌کارانه فعال است', clock.conservative === true);
+    q.enqueue({ collection: 'records', record_id: 'r1', payload: { n: 1 }, base_version: 0 });
+    const ok = await q.flush(server, session());
+    check('پاسخ ۲۰۰ سرور server_time برمی‌گرداند', ok.server_time === SERVER_NOW);
+    check('کلاینت offset = server_time − local_now را نگه می‌دارد', clock.offset === SERVER_NOW - LOCAL);
+    mono += 5_000;
+    check('پس از sync، ساعت کلاینت با ساعت یکنوا جلو می‌رود', clock.now() === SERVER_NOW + 5_000 && clock.conservative === false);
+    q.enqueue({ collection: 'records', record_id: 'r2', payload: { n: 2 }, base_version: 0 });
+    const denied = await q.flush(server, session({ revoked: true }));
+    check('پاسخ ردشده (۴۰۱) هم server_time برمی‌گرداند', denied.server_time === SERVER_NOW);
+    check('op ردشده «موفق» فرض نمی‌شود (applied فقط ۱)', q.byStatus('applied').length === 1 && q.byStatus('ack_unknown').length === 1);
+  }
+
   // ---------- ۱) سقف ۲۰۰۰ و بدون حذف (D‑27 / F‑07) ----------
   {
     const clock = new Clock();
     const q = new OpQueue({ clock, cache: new SecureCache({ clock }).open('tenant-a') });
     for (let i = 0; i < 1800; i++) q.enqueue({ collection: 'records', record_id: 'r1', payload: { i } });
     check('۱۸۰۰ op ⇒ هشدار نرم ۹۰٪ فعال', q.pressure.warn === true && q.pressure.full === false);
+    check('۱۸۰۰ op ⇒ بنر فشار صف (queue_pressure) فعال است', q.banner === 'queue_pressure' && q.needsReview === 0);
     const firstId = [...q.rows.keys()][0];
     for (let i = 0; i < 200; i++) q.enqueue({ collection: 'records', record_id: 'r1', payload: { i: 1800 + i } });
     check('۲۰۰۰ op ⇒ پذیرش متوقف (full)', q.pressure.full === true && q.size === MAX_OPS);
+    check('۲۰۰۰ op ⇒ بنر queue_full (بدون نیازمند‑بررسی)', q.banner === 'queue_full' && q.needsReview === 0);
     const overflow = q.enqueue({ collection: 'records', record_id: 'r1', payload: { x: 1 } });
     check('op ۲۰۰۱ رد می‌شود (queue_full)، نه حذف قدیمی', overflow.ok === false && overflow.reason === 'queue_full' && q.size === MAX_OPS);
     check('قدیمی‌ترین op هنوز در صف است (هیچ slice(-500))', q.rows.has(firstId));
@@ -101,6 +124,7 @@ async function main() {
     const op2 = q.rows.get(op2Id);
     check('۳۱ روز ⇒ op باز به review می‌رود (نه حذف، نه موفق)', swept.includes(op2Id) && op2.status === 'review');
     check('op اعمال‌شده با کهنگی جابه‌جا نمی‌شود', q.byStatus('applied').length === 1);
+    check('بنر «نیازمند بررسی» با وجود op در review فعال است', q.needsReview === 1 && q.banner === 'needs_review');
     check('payload در review کامل حفظ شده', op2.payload && op2.payload.text === 'دوم' && /^[0-9a-f]{64}$/.test(op2.payload_hash));
     const before = q.byStatus('review').length;
     await q.flush(server, session());

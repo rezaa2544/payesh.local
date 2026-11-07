@@ -1,0 +1,16 @@
+# آزمون منفی دروازهٔ CC-13-1..4
+# تولید: bash docs/cloud/reports/evidence/verify-cc13-negative.sh
+# زمان: 2026-11-07T00:00:28Z
+# HEAD: 613804dcf5d263559458136810618d0ae61bcfcc
+# manifest: docs/cloud/reports/evidence/cc13-required-labels.txt
+
+PASS  P0  gate accepted clean evidence (control positive): خروجی واقعی هر دو نمونه
+PASS  N1  gate rejected: یک برچسب لازم از خروجی حذف شد  → exit=1
+PASS  N2  gate rejected: برچسب لازم با علامت شکست  → exit=1
+PASS  N3  gate rejected: SUMMARY ادعایی با بدنه نمی‌خواند  → exit=1
+PASS  N4  gate rejected: نمونه با کد خروج ۱ تمام شد  → exit=1
+PASS  N5  gate rejected: manifest برچسب ناموجود طلب می‌کند  → exit=1
+PASS  N6  gate rejected: manifest وجود ندارد  → exit=3
+
+TOTAL 7 · pass=7 fail=0
+NEGATIVE-OK

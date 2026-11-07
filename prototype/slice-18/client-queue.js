@@ -127,6 +127,19 @@ class OpQueue {
     return { size: this.rows.size, ratio, warn: ratio >= WARN_RATIO, full: this.rows.size >= MAX_OPS };
   }
 
+  // opهایی که تصمیم انسان لازم دارند (review = کهنه‌شده، conflict = نیازمند حل) — منبع بنر §۴ (CC‑13‑۴)
+  get needsReview() {
+    return [...this.rows.values()].filter((o) => o.status === 'review' || o.status === 'conflict').length;
+  }
+
+  // بنر وضعیت صف: «نیازمند بررسی» بر فشار صف اولویت دارد
+  get banner() {
+    if (this.needsReview > 0) return 'needs_review';
+    if (this.pressure.full) return 'queue_full';
+    if (this.pressure.warn) return 'queue_pressure';
+    return null;
+  }
+
   enqueue({ collection, record_id, payload, base_version = 0, op_id = crypto.randomUUID() }) {
     const p = this.pressure;
     if (p.full) return { ok: false, reason: 'queue_full', size: this.rows.size };
