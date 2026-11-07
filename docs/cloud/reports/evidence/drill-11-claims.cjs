@@ -320,7 +320,7 @@ const d05 = read('docs/cloud/05-audit-sha-freeze.md');
 check(/04e0636/.test(d05) && /04e0636/.test(d11), 'S1 پین SHA ممیزی در اسناد ۰۵ و ۱۱ هست', '04e0636');
 /* S2 — D‑35: تغییر کد محصول مجاز شد، ولی فقط در فایل‌های اعلام‌شدهٔ فاز ۳.
    بقیهٔ فایل‌های محصول باید نسبت به پایهٔ ممیزی دست‌نخورده باشند. */
-const ALLOW_PRODUCT = (process.env.CC11_ALLOW || 'package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/policy.js server/live.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs')
+const ALLOW_PRODUCT = (process.env.CC11_ALLOW || 'package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/policy.js server/live.js server/mirror.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs')
   .split(/\s+/).filter(Boolean);
 let diffAll = [], diffOutside = [];
 try {

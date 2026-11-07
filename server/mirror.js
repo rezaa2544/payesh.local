@@ -29,7 +29,8 @@ const { COLLECTIONS } = require('./policy');
 const FORMAT = 'payesh-backup';
 const FORMAT_VERSION = 2;   /* F‑02: پشتیبان امضاشده (نسخهٔ ۱ بی‌امضا و رد می‌شود) */
 const SIGN_META = 'secret:backup-key';
-const ROLES = ['manager', 'vice', 'teacher', 'staff', 'counselor', 'guard', 'parent', 'student'];
+/* نقش‌های مجاز در پشتیبان (شامل معاون/عامل اجرایی که در policy.ROLES نیستند) */
+const ALLOWED_ROLES = ['manager', 'vice', 'teacher', 'staff', 'counselor', 'guard', 'parent', 'student'];
 const DATA_COLLECTIONS = Object.keys(COLLECTIONS);
 const KEEP_DAYS = 400;
 
@@ -239,7 +240,7 @@ function restore(store, payload, opts = {}) {
       delete clean._version;
       delete clean._updated_at;
       /* F‑02: نقش ناشناخته هرگز از پشتیبان وارد نمی‌شود */
-      if (clean.role != null && ROLES.indexOf(String(clean.role)) < 0) { report.rejected += 1; continue; }
+      if (clean.role != null && ALLOWED_ROLES.indexOf(String(clean.role)) < 0) { report.rejected += 1; continue; }
       /* مالکیت/مستأجر: همهٔ ردیف‌ها به همین مدرسه بسته می‌شوند */
       clean.school_id = 1;
       /* ردیفی که «حذف‌شده» علامت خورده هم باید برگردد: update آن را

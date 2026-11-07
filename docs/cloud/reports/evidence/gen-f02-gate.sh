@@ -37,7 +37,7 @@ grep -q 'timingSafeEqual' "$MIRROR" || fail "SIGN-CMP: مقایسهٔ امضا �
 
 # ── ۲) مرز مستأجر و نقش ────────────────────────────────────────────────────
 grep -q "error: 'cross_tenant'" "$MIRROR" || fail "TENANT: بازیابی از مستأجر دیگر رد نمی‌شود"; ok
-grep -q 'ROLES' "$MIRROR" || fail "ROLE-WHITELIST: نقش‌های مجاز تعریف نشده‌اند"; ok
+grep -q 'ALLOWED_ROLES' "$MIRROR" || fail "ROLE-WHITELIST: نقش‌های مجاز تعریف نشده‌اند"; ok
 grep -q "role_change_denied" "$SYNC" || fail "SYNC-ROLE: تغییر نقش از همگام‌سازی بسته نیست"; ok
 grep -q "actor.role !== 'manager'" "$INDEX" || fail "RESTORE-ACTOR: بازیابی فقط برای مدیر نیست"; ok
 grep -q 'mirror.restore(store, body && body.data, { replace: !!(body && body.replace), actor })' "$INDEX" \

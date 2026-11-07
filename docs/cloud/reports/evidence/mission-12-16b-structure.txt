@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
 branch: arena/ef56f560-payesh-local
-head: c6c7c8752d7c0a065007257f19721a884eb7f041
+head: 8760ee79ee71125be169bf12848735530f4c29ff
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=273  tables=87  ac_rows=8
@@ -22,16 +22,18 @@ head: c6c7c8752d7c0a065007257f19721a884eb7f041
 **حکم: ۱۲/۱۲ — REVIEW.** (AC‑1..AC‑12 در سطح طراحی؛ E‑16B‑۱..۵ امروز FAIL، E‑16B‑۶/۷ ابتدایی‌ترین پیش‌نیازها را نشان می‌دهند.)
 
 ## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (فقط در فهرست مجاز D‑35)
-product_diff_files: 19
-product_diff_outside_allow: 3
+product_diff_files: 20
+product_diff_outside_allow: 4
 
 ## شمارش واقعی مخزن
-tenant_id: 4
-school_id (occurrences, server+client): 55
-school_id (files): 9
+tenant_id: 5
+school_id (occurrences, server+client): 58
+school_id (files): 10
 api routes (unique /api literals in server/index.js): 67
 
 ## وضعیت درخت کاری
+ M docs/cloud/reports/evidence/cc-f01-gate.txt
+ M docs/cloud/reports/evidence/cc-f02-gate.txt
  M docs/cloud/reports/evidence/cc-f04-gate.txt
  M docs/cloud/reports/evidence/cc-f06-gate.txt
  M docs/cloud/reports/evidence/cc11-gate.txt
@@ -39,17 +41,9 @@ api routes (unique /api literals in server/index.js): 67
  M docs/cloud/reports/evidence/cc12-2-gate.txt
  M docs/cloud/reports/evidence/cc12-closure-gate.txt
  M docs/cloud/reports/evidence/drill-11-claims.cjs
- M docs/cloud/reports/evidence/gen-audit-evidence.sh
- M docs/cloud/reports/evidence/gen-cc11-evidence.sh
- M docs/cloud/reports/evidence/gen-cc12-2-gate.sh
- M docs/cloud/reports/evidence/gen-cc12-closure.sh
- M docs/cloud/reports/evidence/gen-phase3-gate.sh
- M docs/cloud/reports/evidence/gen-review-closure.sh
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
  M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
  M docs/cloud/reports/evidence/phase3-gate.txt
-?? docs/cloud/reports/evidence/cc-f01-gate.txt
-?? docs/cloud/reports/evidence/f01-negative.txt
-?? docs/cloud/reports/evidence/gen-f01-gate.sh
+?? docs/cloud/reports/evidence/tests-run-8760ee7-20261107T091202Z.log
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)
