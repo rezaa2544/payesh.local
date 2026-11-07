@@ -1,0 +1,72 @@
+# دروازهٔ CC‑11 — اتصال ادعا→شاهد برای ۷۳ آیتم و بازسنجی روی HEAD
+generated_by: docs/cloud/reports/evidence/gen-cc11-evidence.sh
+head: 6214cf906bd3f6b5d18e9d13bdc33dee77235ec8
+base: f2fc472
+generated_at_utc: 2026-11-07T02:09:20Z
+node: v22.22.3
+product_diff_files: 0
+drill_summary: SUMMARY pass=48 fail=0 total=48
+labels_required: 48  labels_verified: 48
+claims: CLAIMS rows=73 attached=73 citations=61 resolved=61 broken=0
+verdicts: VERDICTS pass=26 fail=40 unknown=7 blocked=0 conformance=35.6%
+attach: ATTACH refs=53 probe=6 predicate=9 unknown_list=4 symbol=1
+probes: PROBES cited=8 resolved=8
+drift: DRIFT rows=11 corrections=9 accepted=2 (A‑14, B‑1, B‑2, B‑13, C‑2, D‑1, D‑2, D‑13, E‑4, E‑10, E‑11)
+absence: ABSENCE cipher=0 tenant_id=0 tls=0 signature=0 seq=0 queue_cap=0
+doc_ac_rows: 5  verdict: ۵/۵  conformance: ۳۵٫۶٪
+tests_log: pass=88 fail=0
+drill_sha256: fbf7e54097bcb61b418b794f2af707fe310b4328b8a7fe418226a574ea41f1e5
+manifest_sha256: b65b540145133e8743f99facb8e0436755a02e3391d22f6d5f5f6f881009c7f4
+doc_sha256: 1bea3826ec7010c15311741530054cc208f22115869b6e511af4157e54a71ff3
+
+## بررسی‌های گذر‌کرده (عین برچسب‌های تمرین)
+✓ R1 ۷۳ آیتم کنترلی از جدول‌های داوری ۰۶–۱۰ خوانده شد  ::  rows=73
+✓ R2 هیچ شناسهٔ تکراری در ۷۳ آیتم نیست  ::  dups=none
+✓ R3 توزیع احکام بازشماری‌شده = ۲۶ PASS / ۴۰ FAIL / ۷ UNKNOWN / ۰ BLOCKED  ::  P=26 F=40 U=7 B=0
+✓ R4 اعداد جدول سند ۱۱ با بازشماری ردیف‌محور می‌خواند  ::  doc=26/40/7 recount=26/40/7
+✓ R5 درصدها فقط از روش اعلام‌شده (PASS÷۷۳، بدون وزن) بازمحاسبه و مطابقت شد  ::  PASS=35.6% FAIL=54.8% UNKNOWN=9.6%
+✓ R6 فهرست UNKNOWN سند ۱۱ (§۲.۳) دقیقاً همان ۷ ردیف UNKNOWN جدول‌ها است  ::  computed=7 doc=7
+✓ R7 همهٔ ارجاع‌های file:line به فایل و خط موجود اشاره می‌کنند (هیچ ارجاع مرده)  ::  citations=61 resolved=61 broken=0
+✓ R8 رانش ارجاع دقیقاً ۱۱ ردیف است: ۹ ارجاع با لنگر تصحیح‌شده و ۲ ارجاع تأییدشده؛ همهٔ لنگرها روی HEAD بازبینی شد  ::  drift=11 corrections=9 accepted=2 anchors_ok=12
+✓ R9 هر پروب ارجاع‌داده‌شده در شاهد خام پروب‌ها موجود است  ::  probes=8 missing=0
+✓ R10 هر ۷۳ ادعا حداقل یک اتصال دارد (ارجاع/پروب/نماد/گزارهٔ سنجیده/فهرست UNKNOWN)  ::  attached=73/73 refs=53 probe=6 predicate=9 unknown=4 symbol=1
+✓ M A‑1 PBKDF2 ۱۵۰٬۰۰۰ تکرار + timingSafeEqual  ::  server/util.js
+✓ M A‑2 توکن نشست در سکون هش می‌شود  ::  server/auth.js
+✓ M A‑8 عمر نشست ۲۴ ساعت  ::  server/auth.js:11
+✓ M A‑10 توکن دستگاه ۳۶۵ روز  ::  server/auth.js:10
+✓ M A‑11 حداقل طول رمز فقط ۴  ::  server/auth.js:177
+✓ M B‑1 مجوز نوشتن از نگاشت نقش×کالکشن  ::  server/policy.js:52-54
+✓ M B‑2 اعمال اسکوپ ردیف در pull  ::  server/sync.js:50,53
+✓ M B‑5 تأیید نمره توسط دبیر ممکن نیست  ::  server/policy.js:174-177
+✓ M B‑12 سد مدیر، با استثنای آینه/بازیابی برای چهار نقش  ::  server/index.js:558-561
+✓ M C‑5 کلاینت role و user_id خودش را به صندوقچه می‌فرستد  ::  client/app.js:364
+✓ M C‑6 هویت drain از شیء کلاینت  ::  server/outbox.js:181
+✓ M C‑7 نشان «اعمال شد» در همان صندوقچه  ::  server/outbox.js:14,24
+✓ M C‑10 پیشوند ثابت و بی‌مستأجر  ::  server/outbox.js:48
+✓ M D‑6 صف با slice(-500) بریده می‌شود (F‑07)  ::  client/app.js:121
+✓ M D‑7 تعارض = نسخهٔ سرور، کار محلی حذف (F‑08)  ::  client/app.js:333-340
+✓ M D‑14 همگام‌سازی زنده هر ۱ ثانیه  ::  server/live.js:24
+✓ M E‑5 رمز خام در ردیف کاربر  ::  server/auth.js:183
+✓ M E‑7 بازیابی + نسخهٔ ایمنی پیش از بازیابی  ::  server/index.js:1078
+✓ M E‑9 بازیابی همهٔ فیلدهای ردیف را می‌نویسد (شامل role)  ::  server/mirror.js:194-203
+✓ M E‑13 کلید فضای ذخیره‌سازی در بستهٔ کلاینت (F‑04)  ::  client/cloud-baked.js
+✓ M E‑14 برگشت کلید از /api/cloud/config  ::  server/index.js:672
+✓ P0‑1 F‑04 در HEAD: مسیر تحویل کلید + ذخیره در localStorage (۴ خط با محتوا بررسی شد)  ::  server/index.js:663,672 · client/app.js:971,972
+✓ P0‑2 F‑06 در HEAD: هویت drain از شیء کلاینت و بررسی صرفاً active  ::  server/outbox.js:181,182
+✓ P0‑3 چهار نقش (شامل guard) به آینه/بازیابی دسترسی دارند  ::  server/index.js:47
+✓ N1 هیچ رمزنگاری سکونی در کد وجود ندارد (E‑2: ۰ مورد)  ::  cipher_calls=0
+✓ N2 school_id در سرور ۲۵ نقطه است (F‑05/C‑8)  ::  school_id_refs=25
+✓ N3 ستون/فیلد tenant_id در کد محصول صفر است (F‑05)  ::  tenant_id_refs=0
+✓ N4 هیچ سرور TLS در کد نیست (E‑1: TLS از استقرار می‌آید)  ::  https_servers=0
+✓ N5 بازیابی هیچ امضا/هش اعتبارسنجی نمی‌کند (E‑17)  ::  mirror_signature_refs=0
+✓ N6 ترتیب ارسال وابستگی‌محور نیست و seq محلی وجود ندارد (D‑9)  ::  seq_refs=0
+✓ N7 سقف ۲۰۰۰/۳۰ روز و وضعیت «نیازمند بررسی» پیاده نشده (D‑10/D‑11)  ::  queue_cap_refs=0
+✓ C1‑11 تصحیح D‑10: هر op فیلد at دارد؛ نبودِ منطق عمر/بررسی، دلیل FAIL می‌ماند  ::  client/app.js:589 (at) · needs_review=0
+✓ S1 پین SHA ممیزی در اسناد ۰۵ و ۱۱ هست  ::  04e0636
+✓ S2 کد محصول نسبت به پایهٔ ممیزی f2fc472 تغییر نکرده (حکم ممیزی روی HEAD معتبر است)  ::  product_diff_files=0
+✓ S3 ادعای «۸۸ آزمون سبز» با لاگ شاهد خام یکی است  ::  log pass=88 fail=0 doc05 claim=88
+✓ A1 ماتریس پذیرش ۱۱ پنج ردیف دارد  ::  ac_rows=5
+✓ A2 حکم ثبت‌شدهٔ سند ۵/۵ است  ::  حکم: ۵/۵
+✓ A3 بند «دور بستن» (§۶) در سند ۱۱ هست  ::  §۶
+
+CC11-OK
