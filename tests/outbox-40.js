@@ -135,11 +135,15 @@ function opAtt(id, extra = {}) {
     await ob.claim(10, 1000);
     const f = await ob.fail(k, { error: 'network', now: 1000 });
     assert(f.state === 'pending' && f.attempts === 1, JSON.stringify(f));
-    assert(f.next_at === 1000 + outbox.DEFAULTS.baseBackoffMs, 'next_at=' + f.next_at);
+    /* ردیف ۴۲: عقب‌نشینی حالا jitter دارد؛ بازهٔ مجاز [۱−j, ۱] از backoff */
+    const jit = outbox.DEFAULTS.jitter;
+    const lo = 1000 + Math.round(outbox.DEFAULTS.baseBackoffMs * (1 - jit));
+    const hi = 1000 + outbox.DEFAULTS.baseBackoffMs;
+    assert(f.next_at >= lo && f.next_at <= hi, 'next_at=' + f.next_at + ' خارج از بازهٔ [' + lo + ',' + hi + ']');
     assert((await ob.claim(10, 1500)).length === 0, 'early re-claim not prevented');
     assert((await ob.claim(10, f.next_at)).length === 1, 'not claimable at next_at');
     ob.close();
-    return `attempts=1 next_at=+${outbox.DEFAULTS.baseBackoffMs}ms exponential=true`;
+    return `attempts=1 next_at=+${f.next_at - 1000}ms (بازهٔ jitter ${lo - 1000}..${hi - 1000})`;
   });
 
   await check('OB-08', 'پس از سقف تلاش: عملیات blocked می‌شود و **حذف نمی‌شود**', async () => {

@@ -701,6 +701,18 @@ async function api(req, res, url, ip) {
 
   if (p === '/api/v1/pull' && m === 'GET') {
     const out = sync.pull(store, actor, { since: q.get('since'), since_seq: q.get('since_seq'), since_id: q.get('since_id'), collections: q.get('collections') });
+    /* ردیف ۴۲: درخواست بدون تغییر ⇒ ۳۰۴ با بدنهٔ خالی. مکان‌نمای مرکب
+       (since, since_id) بخشی از ETag است، پس ۳۰۴ هرگز دادهٔ جامانده را
+       پنهان نمی‌کند. */
+    if (out && out.etag) {
+      res.setHeader('etag', out.etag);
+      res.setHeader('cache-control', 'private, no-cache');
+      if (String(req.headers['if-none-match'] || '') === out.etag) {
+        res.writeHead(304);
+        res.end();
+        return;
+      }
+    }
     return json(out);
   }
 
