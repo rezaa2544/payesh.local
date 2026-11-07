@@ -1,15 +1,15 @@
 # آزمون منفی دروازهٔ CC‑16 — شاهد ناقص/جعلی/کهنه
 generated_by: docs/cloud/reports/evidence/verify-cc16-negative.sh
-head: 2edf277ab63fb8666d1a74aa248da678dcc6ffa0
-generated_at_utc: 2026-11-07T00:51:07Z
+head: e8f526d0d36a7e41dbf78e5f6e9670c3c37ad977
+generated_at_utc: 2026-11-07T01:00:47Z
 
 PASS  P0  gate accepted clean evidence (control positive): اجرای سالم: پروب ۴۰/۴۰ + شاهد رفتار امروز تازه + Manifest کامل
 PASS  N1  gate rejected: یک برچسب لازم از بدنهٔ پروب حذف شد  → exit=1  CC16-FAIL: LABEL-MISSING: M1 اندازهٔ پاسخ poll اندازه‌گیری‌شده
 PASS  N2  gate rejected: برچسب لازم با علامت شکست (✗)  → exit=1  CC16-FAIL: BODY-CROSS: 1 خط ✗ در بدنه
 PASS  N3  gate rejected: SUMMARY ادعایی با شمارش بدنه نمی‌خواند  → exit=1  CC16-FAIL: SUMMARY-MISMATCH: SUMMARY pass=39 ولی بدنه 40 ✓
-PASS  N4  gate rejected: عدد پهنای باند سند با بازمحاسبهٔ مدل نمی‌خواند (۶٫۲۹→۴٫۰۰)  → exit=1  CC16-FAIL: MODEL-PROBE-EXIT=1 — جزئیات: /tmp/tmp.hMEvZlyO9z/cc16-raw-model.txt
-PASS  N5  gate rejected: یک ردیف معیار از ماتریس سند حذف شد (۱۴ ← ۱۳)  → exit=1  CC16-FAIL: MODEL-PROBE-EXIT=1 — جزئیات: /tmp/tmp.hMEvZlyO9z/cc16-raw-model.txt
-PASS  N6  gate rejected: جمع هزینهٔ خودساخته (€۷۴) به جدول برگشت  → exit=1  CC16-FAIL: MODEL-PROBE-EXIT=1 — جزئیات: /tmp/tmp.hMEvZlyO9z/cc16-raw-model.txt
+PASS  N4  gate rejected: عدد پهنای باند سند با بازمحاسبهٔ مدل نمی‌خواند (۶٫۲۹→۴٫۰۰)  → exit=1  CC16-FAIL: MODEL-PROBE-EXIT=1 — جزئیات: /tmp/tmp.CglqZY0dwf/cc16-raw-model.txt
+PASS  N5  gate rejected: یک ردیف معیار از ماتریس سند حذف شد (۱۴ ← ۱۳)  → exit=1  CC16-FAIL: MODEL-PROBE-EXIT=1 — جزئیات: /tmp/tmp.CglqZY0dwf/cc16-raw-model.txt
+PASS  N6  gate rejected: جمع هزینهٔ خودساخته (€۷۴) به جدول برگشت  → exit=1  CC16-FAIL: MODEL-PROBE-EXIT=1 — جزئیات: /tmp/tmp.CglqZY0dwf/cc16-raw-model.txt
 PASS  N7  gate rejected: پایهٔ ممیزی ناموجود ⇒ «۰ فایل تغییر» جعلی نباید PASS بگیرد  → exit=1  CC16-FAIL: BASE-MISSING: 0000000 در مخزن نیست (clone کم‌عمق؟) — هر �
 PASS  N8  gate rejected: شاهد رفتار امروز کهنه (head=deadbeef) نباید PASS بگیرد  → exit=1  CC16-FAIL: RUNTIME-STALE: head شاهد «deadbeefdeadbeefdeadbeefdeadbeefdeadbeef» ≠ H
 
