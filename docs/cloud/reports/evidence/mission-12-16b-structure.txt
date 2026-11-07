@@ -1,7 +1,7 @@
 # شاهد ساختاری فاز ۲ (۱۲، ۱۲‑ب، ۱۳، ۱۴، ۱۵، ۱۶، ۱۶‑ب)
 generated_by: docs/cloud/reports/evidence/gen-mission-12-16b.sh
-branch: arena/f12b8953-payesh-local
-head: cf53cab1a25b25d9c074f52a150e994bc26e6650
+branch: arena/70f5f314-payesh-local
+head: 44ddecbb231cb1222e5ddc1a31e4efe6999f4649
 
 ## فایل‌های طراحی و تعداد خط/جدول/AC
 12-multitenant-architecture                lines=273  tables=87  ac_rows=8
@@ -21,30 +21,35 @@ head: cf53cab1a25b25d9c074f52a150e994bc26e6650
 **حکم: ۱۴/۱۴ — REVIEW.** (همهٔ AC در سطح طراحی؛ E‑16‑۱..۶ رفتار امروز را نشان می‌دهد و «رفع‌شده» نیست.)
 **حکم: ۱۲/۱۲ — REVIEW.** (AC‑1..AC‑12 در سطح طراحی؛ E‑16B‑۱..۵ امروز FAIL، E‑16B‑۶/۷ ابتدایی‌ترین پیش‌نیازها را نشان می‌دهند.)
 
-## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)
-0
+## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (فقط در فهرست مجاز D‑35)
+product_diff_files: 4
+product_diff_outside_allow: 0
 
-## شمارش واقعی مخزن (بدون تغییر از ممیزی)
-tenant_id: 0
+## شمارش واقعی مخزن
+tenant_id: 1
 school_id (occurrences, server+client): 48
 school_id (files): 8
-api routes (unique /api literals in server/index.js): 62
+api routes (unique /api literals in server/index.js): 63
 
 ## وضعیت درخت کاری
- M docs/00-PAYESH-CLOUD-CONSTITUTION.md
- M docs/cloud/04-capacity-and-availability.md
- M docs/cloud/04b-plan-caps-usage-model.md
  M docs/cloud/12-multitenant-architecture.md
  M docs/cloud/reports/evidence/cc11-gate.txt
+ M docs/cloud/reports/evidence/cc11-negative.txt
+ M docs/cloud/reports/evidence/cc11-raw-drill.txt
+ M docs/cloud/reports/evidence/cc11-required-labels.txt
+ M docs/cloud/reports/evidence/cc12-2-product-rls.txt
+ M docs/cloud/reports/evidence/cc12-closure-gate.txt
+ M docs/cloud/reports/evidence/cc12-closure-negative.txt
+ M docs/cloud/reports/evidence/drill-11-claims.cjs
+ M docs/cloud/reports/evidence/gen-audit-evidence.sh
+ M docs/cloud/reports/evidence/gen-cc11-evidence.sh
+ M docs/cloud/reports/evidence/gen-cc12-closure.sh
+ M docs/cloud/reports/evidence/gen-mission-12-16b.sh
  M docs/cloud/reports/evidence/mission-05-11-structure.txt
  M docs/cloud/reports/evidence/mission-05-tests-run.log
  M docs/cloud/reports/evidence/mission-12-16b-structure.txt
-?? docs/cloud/reports/REVIEW-QUEUE-CLOSURE-04-04B-12.md
-?? docs/cloud/reports/evidence/bench-poll-load.cjs
-?? docs/cloud/reports/evidence/cc12-closure-gate.txt
-?? docs/cloud/reports/evidence/cc12-closure-negative.txt
-?? docs/cloud/reports/evidence/gen-cc12-closure.sh
-?? docs/cloud/reports/evidence/mission-12-cc3-load-baseline.txt
-?? docs/cloud/reports/evidence/tests-run-cf53cab-20261107T070407Z.log
-?? docs/cloud/reports/evidence/verify-cc12-closure-negative.sh
+ M docs/cloud/reports/evidence/phase3-gate-negative.txt
+ M docs/cloud/reports/evidence/phase3-gate.txt
+ M docs/cloud/reports/evidence/review-closure-01.txt
+ M docs/cloud/reports/evidence/verify-cc11-negative.sh
 (اگر خط بالا خالی است، درخت پاک بوده پیش از تولید این فایل)

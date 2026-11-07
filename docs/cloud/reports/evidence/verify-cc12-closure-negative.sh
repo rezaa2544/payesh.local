@@ -83,9 +83,10 @@ reject N8 "مسیر exports از نقشهٔ ۱۶‑ب حذف شد" "DOC16B-MAP" 
 grep -v '^| AC‑14 |' "$DOC4" > "$TMP/doc4.ac13.md"
 reject N9 "یک ردیف AC از سند ۰۴ حذف شد (۱۴→۱۳)" "DOC04-AC" CC12_DOC4="$TMP/doc4.ac13.md"
 
-# ── N10: CC‑12‑2 به‌دروغ CLOSED شود ───────────────────────────────────────
-sed 's/| \*\*CC‑12‑2\*\*.*$/| **CC‑12‑2** | اجرای RLS از مسیر محصول | **CLOSED** | ادعای بی‌شاهد |/' "$DOC12" > "$TMP/doc12.cc2.md"
-reject N10 "شرط باز CC‑12‑2 به‌دروغ CLOSED شد" "DOC12-CC2" CC12_DOC12="$TMP/doc12.cc2.md"
+# ── N10: سند ۱۲ (پس از D‑35) دوباره CC‑12‑2 را باز اعلام کند ───────────────
+# دیگر ادعای «به‌دروغ CLOSED» معنا ندارد؛ خطر واقعی، عقب ماندن سند از واقعیت است.
+sed 's/CLOSED (۲۰\/۲۰)/PARTIAL/' "$DOC12" > "$TMP/doc12.cc2.md"
+reject N10 "سند ۱۲ دوباره CC‑12‑2 را PARTIAL می‌داند" "DOC12-CC2" CC12_DOC12="$TMP/doc12.cc2.md"
 
 # ── N11: ابزار سنجش معیوب ─────────────────────────────────────────────────
 printf '#!/usr/bin/env node\nconsole.error("BENCH-ERROR simulated");process.exit(1);\n' > "$TMP/broken.cjs"

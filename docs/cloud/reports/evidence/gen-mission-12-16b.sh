@@ -27,10 +27,12 @@ OUT="docs/cloud/reports/evidence/mission-12-16b-structure.txt"
   echo "## حکم‌های ثبت‌شده (هر سند حکم خودش — هیچ سبزی خودکار نیست)"
   grep -h '^\*\*حکم' docs/cloud/1[2-6]*.md 2>/dev/null
   echo
-  echo "## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (باید ۰ باشد)"
-  git diff --name-only f2fc472 -- server client tests scripts package.json | wc -l
+  echo "## تغییر کد محصول نسبت به پایهٔ ممیزی f2fc472 (فقط در فهرست مجاز D‑35)"
+  ALLOW="package.json package-lock.json server/index.js server/tenancy.js"
+  printf 'product_diff_files: %s\n' "$(git diff --name-only f2fc472 -- server client tests scripts package.json package-lock.json | grep -c . || true)"
+  printf 'product_diff_outside_allow: %s\n' "$(git diff --name-only f2fc472 -- server client tests scripts package.json package-lock.json | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)"
   echo
-  echo "## شمارش واقعی مخزن (بدون تغییر از ممیزی)"
+  echo "## شمارش واقعی مخزن"
   printf 'tenant_id: %s\n' "$(grep -rIl --exclude-dir=node_modules --exclude-dir=.git 'tenant_id' server client tests 2>/dev/null | wc -l)"
   printf 'school_id (occurrences, server+client): %s\n' "$(grep -rIo --exclude-dir=node_modules --exclude-dir=.git 'school_id' server client 2>/dev/null | wc -l)"
   printf 'school_id (files): %s\n' "$(grep -rIl --exclude-dir=node_modules --exclude-dir=.git 'school_id' server client 2>/dev/null | wc -l)"

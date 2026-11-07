@@ -1,15 +1,15 @@
 # شاهد CC‑12‑2 — اجرای RLS از مسیر محصول (فاز ۳ · D‑35)
 # تولید: bash docs/cloud/reports/evidence/run-cc12-2-product-rls.sh
 # بازتولید: CC122_OUT=<file> bash docs/cloud/reports/evidence/run-cc12-2-product-rls.sh
-# زمان: 2026-11-07T07:32:03Z
-# HEAD: 48d14ef0e457ddacfa5bb094de904273b7f20dea
+# زمان: 2026-11-07T07:38:46Z
+# HEAD: 44ddecbb231cb1222e5ddc1a31e4efe6999f4649
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 # postgres version: 18.6
 # postgres binary: /tmp/pgtest/node_modules/@embedded-postgres/linux-x64/native/bin (خارج از مخزن؛ وابستگی محصول نیست)
 # product_path: server/tenancy.js + server/index.js (/api/cloud/tenancy/records)
 # sha256(product-rls-path.cjs): 7d2835ec9cebde8bc7f6f2ef300f6c2c46a47ca40210589da133ca1ca298f3eb
 # sha256(run-cc12-2-product-rls.sh): a31ce11a9cd6641287050bfc4db5d0cde1ce585e7a26e1678745959544e66357
-# product_tree_sha256: 9bcb03521bd167c95019fdf40595ea2cd588094ebea188f982f4650f9246236b
+# product_tree_sha256: bb08edf43da68c3648750861d65b133fad5637d53d0fd227b73fe755f964ae46
 
 # migrate: table=tenant_records statements=11 server_version=18.6
 # runtime_role=payesh_runtime owner_role=payesh_owner

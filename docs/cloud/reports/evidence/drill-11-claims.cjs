@@ -21,6 +21,10 @@ const path = require('path');
 const cp = require('child_process');
 
 const ROOT = path.resolve(__dirname, '../../../..');
+/* D‑35: پس از باز شدن دروازهٔ فاز ۳، کد محصول تغییر می‌کند. حکم‌های ممیزی ۰۶–۱۰
+   به درخت پین‌شدهٔ 04e0636 مربوط‌اند، پس اسکن کد محصول از همان درخت خوانده می‌شود
+   (CC11_AUDIT_ROOT). اسناد و گیت همان مخزن جاری می‌مانند. */
+const AUDIT_ROOT = process.env.CC11_AUDIT_ROOT ? path.resolve(process.env.CC11_AUDIT_ROOT) : ROOT;
 process.chdir(ROOT);
 
 let PASS = 0, FAIL = 0;
@@ -29,7 +33,8 @@ const ok = (label, detail) => { PASS++; out.push(`✓ ${label}  ::  ${detail}`);
 const bad = (label, detail) => { FAIL++; out.push(`✗ ${label}  ::  ${detail}`); };
 const check = (cond, label, detail) => (cond ? ok(label, detail) : bad(label, detail));
 
-const read = f => fs.readFileSync(f, 'utf8');
+const at = f => path.join(f.startsWith('docs/') ? ROOT : AUDIT_ROOT, f);
+const read = f => fs.readFileSync(at(f), 'utf8');
 const lines = f => read(f).split('\n');
 const faToInt = s => Number(s.replace(/[۰-۹]/g, c => String(c.charCodeAt(0) - 0x6f0)).replace(/[^\d]/g, ''));
 const PRODUCT_DIRS = ['server', 'client', 'tests', 'scripts'];
@@ -42,8 +47,11 @@ const productFiles = () => {
       else if (/\.(js|mjs|cjs)$/.test(e.name)) acc.push(p);
     }
   };
-  for (const d of PRODUCT_DIRS) if (fs.existsSync(d)) walk(d);
-  return acc;
+  for (const d of PRODUCT_DIRS) {
+    const full = path.join(AUDIT_ROOT, d);
+    if (fs.existsSync(full)) walk(full);
+  }
+  return acc.map(f => path.relative(AUDIT_ROOT, f));
 };
 const PROD = productFiles();
 const PROD_TEXT = new Map(PROD.map(f => [f, read(f)]));
@@ -120,7 +128,7 @@ check(unkMissing.length === 0 && unkExtra.length === 0,
 const resolveFile = f => {
   for (const c of [f, 'server/' + f, 'client/' + f, 'tests/' + f, 'scripts/' + f,
     'docs/cloud/reports/evidence/' + f, 'docs/cloud/' + f, 'docs/' + f])
-    if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
+    if (fs.existsSync(at(c)) && fs.statSync(at(c)).isFile()) return c;
   return null;
 };
 const PROBE_FILE = 'docs/cloud/reports/evidence/mission-06-10-probes.txt';
@@ -204,7 +212,7 @@ for (const [id, cited, anchors] of CORRECTIONS) {
 const covered = [...CORRECTIONS, ...ACCEPTED].map(x => x[0]);
 const uncovered = driftRows.filter(id => !covered.includes(id));
 check(corrBad.length === 0 && uncovered.length === 0 && driftRows.length === CORRECTIONS.length + ACCEPTED.length,
-  'R8 رانش ارجاع دقیقاً ۱۱ ردیف است: ۹ ارجاع با لنگر تصحیح‌شده و ۲ ارجاع تأییدشده؛ همهٔ لنگرها روی HEAD بازبینی شد',
+  'R8 رانش ارجاع دقیقاً ۱۱ ردیف است: ۹ ارجاع با لنگر تصحیح‌شده و ۲ ارجاع تأییدشده؛ همهٔ لنگرها روی درخت پین‌شدهٔ 04e0636 بازبینی شد',
   `drift=${driftRows.length} corrections=${CORRECTIONS.length} accepted=${ACCEPTED.length} anchors_ok=${corrOk}` +
   (corrBad.length ? ` bad=${corrBad.join(' , ')}` : '') + (uncovered.length ? ` uncovered=${uncovered.join(' , ')}` : ''));
 
@@ -281,10 +289,10 @@ for (const [label, fn, where] of M) check(!!fn(), 'M ' + label, where);
 const lineHas = (f, n, needle) => (lines(f)[n - 1] || '').includes(needle);
 check(lineHas('server/index.js', 663, '/api/cloud/config') && lineHas('server/index.js', 672, 'accessKey') &&
   lineHas('client/app.js', 971, '/api/cloud/config') && lineHas('client/app.js', 972, 'localStorage.setItem'),
-  'P0‑1 F‑04 در HEAD: مسیر تحویل کلید + ذخیره در localStorage (۴ خط با محتوا بررسی شد)',
+  'P0‑1 F‑04 در درخت پین‌شدهٔ 04e0636: مسیر تحویل کلید + ذخیره در localStorage (۴ خط با محتوا بررسی شد)',
   'server/index.js:663,672 · client/app.js:971,972');
 check(lineHas('server/outbox.js', 181, 'item.user_id') && lineHas('server/outbox.js', 182, 'user.active'),
-  'P0‑2 F‑06 در HEAD: هویت drain از شیء کلاینت و بررسی صرفاً active',
+  'P0‑2 F‑06 در درخت پین‌شدهٔ 04e0636: هویت drain از شیء کلاینت و بررسی صرفاً active',
   'server/outbox.js:181,182');
 check(/BACKUP_ROLES = new Set\(\[[^\]]*'guard'/.test(read('server/index.js')) === true &&
   /'guard'/.test(read('server/index.js').split('BACKUP_ROLES')[1].split('\n')[0]),
@@ -310,13 +318,19 @@ check(opAt && !/needs_review/.test(read('client/app.js')),
 /* ── ۹) متادیتای شاهد: پین ممیزی، دلتای محصول، لاگ آزمون ───────────────────── */
 const d05 = read('docs/cloud/05-audit-sha-freeze.md');
 check(/04e0636/.test(d05) && /04e0636/.test(d11), 'S1 پین SHA ممیزی در اسناد ۰۵ و ۱۱ هست', '04e0636');
-let diffN = -1;
+/* S2 — D‑35: تغییر کد محصول مجاز شد، ولی فقط در فایل‌های اعلام‌شدهٔ فاز ۳.
+   بقیهٔ فایل‌های محصول باید نسبت به پایهٔ ممیزی دست‌نخورده باشند. */
+const ALLOW_PRODUCT = (process.env.CC11_ALLOW || 'package.json package-lock.json server/index.js server/tenancy.js')
+  .split(/\s+/).filter(Boolean);
+let diffAll = [], diffOutside = [];
 try {
-  diffN = cp.execSync('git diff --name-only f2fc472 HEAD -- server client tests scripts package.json package-lock.json installer desktop install deploy',
-    { encoding: 'utf8' }).split('\n').filter(Boolean).length;
-} catch (e) { diffN = -2; }
-check(diffN === 0, 'S2 کد محصول نسبت به پایهٔ ممیزی f2fc472 تغییر نکرده (حکم ممیزی روی HEAD معتبر است)',
-  `product_diff_files=${diffN}`);
+  diffAll = cp.execSync('git diff --name-only f2fc472 HEAD -- server client tests scripts package.json package-lock.json installer desktop install deploy',
+    { encoding: 'utf8' }).split('\n').filter(Boolean);
+  diffOutside = diffAll.filter(f => !ALLOW_PRODUCT.includes(f));
+} catch (e) { diffOutside = ['GIT-ERROR']; }
+check(diffOutside.length === 0,
+  'S2 کد محصول نسبت به پایهٔ ممیزی f2fc472 فقط در فهرست مجاز D‑35 تغییر کرده (بقیهٔ فایل‌ها دست‌نخورده)',
+  `product_diff_files=${diffAll.length} outside=${diffOutside.length}`);
 const tlog = read('docs/cloud/reports/evidence/mission-05-tests-run.log');
 const tPass = faToInt((tlog.match(/pass=([0-9۰-۹]+)/) || [])[1] || '0');
 const tFail = faToInt((tlog.match(/fail=([0-9۰-۹]+)/) || [])[1] || '0');

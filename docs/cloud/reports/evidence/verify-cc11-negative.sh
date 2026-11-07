@@ -13,7 +13,13 @@ DOC=docs/cloud/11-gap-report.md
 OUT=$D/cc11-negative.txt
 
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+AUD=$(mktemp -d)
+trap 'rm -rf "$TMP" "$AUD"' EXIT
+# D‑35: تمرین، کد محصول را از درخت پین‌شدهٔ ممیزی می‌خواند؛ کنترل منفی هم باید
+# همین درخت را ببیند، وگرنه خروجی پایه ✗ دارد و همهٔ کنترل‌ها به DRILL-CROSS می‌خورند.
+PIN=${CC11_PIN:-04e0636}
+git archive "$PIN" 2>/dev/null | tar -x -C "$AUD" || { echo "FATAL: pin tree $PIN" >&2; exit 2; }
+export CC11_AUDIT_ROOT="$AUD"
 LOG=$TMP/result.txt
 : > "$LOG"
 PASS=0

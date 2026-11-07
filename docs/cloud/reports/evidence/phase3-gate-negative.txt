@@ -1,7 +1,7 @@
 # آزمون منفی دروازهٔ فاز ۳
 generated_by: docs/cloud/reports/evidence/verify-phase3-gate-negative.sh
-head: a97e485503b12069d700f3e24b5cec4d7e2bda89
-generated_at_utc: 2026-11-07T07:19:01Z
+head: 44ddecbb231cb1222e5ddc1a31e4efe6999f4649
+generated_at_utc: 2026-11-07T07:40:01Z
 
 PASS  P0  شاهد سالم پذیرفته شد (کنترل مثبت)
 PASS  N1  رد شد: صف یک ردیف باز دارد → PHASE3-FAIL: QUEUE-OPEN: صف 1 ردیف باز دارد — دروازه نبای
@@ -10,12 +10,15 @@ PASS  N3  رد شد: وضعیت ۰۴‑ب به Review برگشت (سند کهن�
 PASS  N4  رد شد: تصمیم D‑34 (هم‌ترازی) حذف شد → PHASE3-FAIL: CONST-D34: تصمیم هم‌ترازی وضعیت ثبت نشده
 PASS  N5  رد شد: یک AC سند ۰۴ تأییدیه ندارد → PHASE3-FAIL: PHASE0-04: ردیف AC بدون ✅ در سند ۰۴
 PASS  N6  رد شد: تصمیم D‑33 از سند ۰۴‑ب حذف شد → PHASE3-FAIL: PHASE0-04B: تصمیم O‑18 (D‑33) ثبت نشده
-PASS  N7  رد شد: شرط باز CC‑12‑2 به‌دروغ CLOSED شد → PHASE3-FAIL: PHASE2-CC12-2: در سند ۱۲ هم باید PARTIAL بماند
-PASS  N8  رد شد: سند بازبینی دیگر PARTIAL ندارد → PHASE3-FAIL: PHASE2-CC12-2: شرط باز CC‑12‑2 صریحاً PARTIAL نیس�
+PASS  N7  رد شد: سند ۱۲ دوباره CC‑12‑2 را PARTIAL می‌داند → PHASE3-FAIL: DOC12-CC12-2: سند ۱۲ باید CC‑12‑2 را CLOSED اعلام
+PASS  N8  رد شد: سند بازبینی بسته شدن CC‑12‑2 را ثبت نکرده → PHASE3-FAIL: REV12-CC12-2: سند بازبینی باید بسته شدن CC‑12�
 PASS  N9  رد شد: بخش وضعیت اجرایی دروازه حذف شد → PHASE3-FAIL: CONST-GATEBLOCK: بخش «وضعیت اجرایی دروازهٔ فا
 PASS  N10  رد شد: مانع F‑06 از سند حذف شد → PHASE3-FAIL: CONST-RESIDUAL: مانع F.06 در سند ثبت نشده
-PASS  N11  رد شد: خط وضعیت ادعای آمادگی نمی‌کند → PHASE3-FAIL: CONST-STATUS: خط وضعیت، آمادگی دروازه را اعل
+PASS  N11  رد شد: خط وضعیت ادعای آمادگی نمی‌کند → PHASE3-FAIL: CONST-STATUS: خط وضعیت، باز بودن دروازه را ا�
 PASS  N12  رد شد: پایهٔ ممیزی ناموجود → PHASE3-FAIL: BASE-MISSING: 0000000 در مخزن نیست
+PASS  N13  رد شد: فهرست مجاز فقط server/tenancy.js است → PHASE3-FAIL: PRODUCT-SCOPE: 3 فایل محصول بیرون از فهرست مج�
+PASS  N14  رد شد: تصمیم D‑35 از قانون اساسی حذف شد → PHASE3-FAIL: PHASE3-D35: تصمیم باز شدن دروازه (D‑35) ثبت ن�
+PASS  N15  رد شد: شاهد CC‑12‑2 یک ادعا کم دارد → PHASE3-FAIL: PHASE3-CC12-2: دروازهٔ CC‑12‑2 شکست خورد — CC12-
 
-SUMMARY pass=13 fail=0
+SUMMARY pass=16 fail=0
 NEGATIVE-OK

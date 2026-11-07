@@ -1,22 +1,22 @@
-# دروازهٔ فاز ۳ — آمادگی شاهدها (GATE_OPEN=0)
+# دروازهٔ فاز ۳ — باز شده با D‑35 (GATE_OPEN=1)
 generated_by: docs/cloud/reports/evidence/gen-phase3-gate.sh
-head: a97e485503b12069d700f3e24b5cec4d7e2bda89
+head: 44ddecbb231cb1222e5ddc1a31e4efe6999f4649
 base: f2fc472
-generated_at_utc: 2026-11-07T07:18:27Z
-product_diff_files: 0
-checks_passed: 33
+generated_at_utc: 2026-11-07T07:39:18Z
+product_diff_files: 4
+checks_passed: 35
 queue_open_rows: 0
 phase0_gate: PASS
 phase1_gate: PASS (CC11-OK)
 phase2_gate: PASS (CC12-CLOSURE-OK · شرط ۳/۴)
 tests: EVIDENCE-OK (88/0)
-residuals: CC-12-2(PARTIAL) F-04(P0) F-06(P0) security=UNKNOWN
-GATE_OPEN=0
-OWNER_DECISION_REQUIRED=1
+cc12_2: CLOSED (product path, 20 assertions)
+residuals: F-04(P0) F-06(P0) security=UNKNOWN
+GATE_OPEN=1
+OWNER_DECISION=D-35
 
-## مانع‌های ورود به فاز ۳ (باید به‌ترتیب بسته شوند)
-1) CC-12-2 — اجرای RLS از مسیر محصول (نیازمند تغییر server/)
-2) F-04 — کلید فضای ذخیره‌سازی در کلاینت (P0)
-3) F-06 — مسیر دوم نوشتن / هویت از شیء کلاینت (P0)
+## مانع‌های باقی‌ماندهٔ فاز ۳ (به‌ترتیب بسته شدن)
+1) F-04 — کلید فضای ذخیره‌سازی در کلاینت (P0)
+2) F-06 — مسیر دوم نوشتن / هویت از شیء کلاینت (P0)
 
-PHASE3-GATE-READY
+PHASE3-GATE-OPEN

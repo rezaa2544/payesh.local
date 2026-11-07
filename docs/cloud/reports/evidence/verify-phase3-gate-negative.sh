@@ -36,7 +36,7 @@ reject() { # id desc expected-reason env...
 }
 
 # کنترل مثبت
-if P3_OUT="$TMP/pos.txt" P3_FAILDIR="$TMP" bash "$GATE" >/dev/null 2>&1 && grep -qF 'PHASE3-GATE-READY' "$TMP/pos.txt"; then
+if P3_OUT="$TMP/pos.txt" P3_FAILDIR="$TMP" bash "$GATE" >/dev/null 2>&1 && grep -qF 'PHASE3-GATE-OPEN' "$TMP/pos.txt"; then
   pos P0 "شاهد سالم پذیرفته شد (کنترل مثبت)"
 else
   neg P0 "شاهد سالم رد شد — دروازه معیوب است"

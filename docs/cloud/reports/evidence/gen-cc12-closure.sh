@@ -90,8 +90,9 @@ grep -q 'PASS (طراحی)' "$DOC04B" || fail "DOC04B-STATUS: سرصفحهٔ س�
 grep -q 'CC‑12‑3.*CLOSED' "$DOC12" || fail "DOC12-CC3: شرط CC‑12‑3 بسته نشده"
 grep -q 'CC‑12‑4.*CLOSED' "$DOC12" || fail "DOC12-CC4: شرط CC‑12‑4 بسته نشده"
 # D‑35: CC‑12‑2 پس از باز شدن دروازه با شاهد مسیر محصول بسته شد؛ ادعای PARTIAL دیگر درست نیست
-grep -qE 'CC.12.2.*CLOSED' "$DOC12" || fail "DOC12-CC2: شرط CC‑12‑2 باید با شاهد مسیر محصول CLOSED اعلام شود"
-grep -qE 'CC.12.2.*PARTIAL' "$DOC12" && fail "DOC12-CC2-STALE: سند ۱۲ هنوز CC‑12‑2 را PARTIAL می‌داند — سند از واقعیت عقب است"
+# (الگوی دوخطی: کاراکتر «‑» U+2011 چندبایتی است و '.' در locale ساده فقط یک بایت می‌گیرد)
+grep 'CC‑12‑2' "$DOC12" | grep -q 'CLOSED' || fail "DOC12-CC2: شرط CC‑12‑2 باید با شاهد مسیر محصول CLOSED اعلام شود"
+grep 'CC‑12‑2' "$DOC12" | grep -q 'PARTIAL' && fail "DOC12-CC2-STALE: سند ۱۲ هنوز CC‑12‑2 را PARTIAL می‌داند — سند از واقعیت عقب است"
 grep -q 'D‑31' "$DOC12" || fail "DOC12-O07: تصمیم O‑07 (D‑31) در سند ۱۲ نیست"
 grep -q '۸/۸' "$DOC12" || fail "DOC12-VERDICT: حکم ۸/۸ در سند ۱۲ نیست"
 
