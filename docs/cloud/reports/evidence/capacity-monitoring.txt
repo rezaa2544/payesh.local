@@ -1,10 +1,10 @@
 # شاهد خام مانیتورینگ/هشدار — ردیف ۲۹
-generated_at: 2026-11-07T11:09:24.245Z
+generated_at: 2026-11-07T11:17:46.348Z
 node v22.22.3 linux
-MON-READYZ status=200 db=true writable=true disk_free_pct=93.8 backup_age_s=0
-MON-HEALTHY exit=0 out={"ok":true,"severity":"ok","target":"http://127.0.0.1:37271","at":"2026-11-07T11:09:23.697Z","alerts":[],"checks":{"health_status":200,"health_latency_ms":42,"version":"0.8.43","uptime_s":0,"setup_done":true,"readyz_stat
-MON-STRICT exit=2 out={"ok":false,"severity":"P1","target":"http://127.0.0.1:37271","at":"2026-11-07T11:09:23.820Z","alerts":[{"severity":"P1","code":"disk_low","message":"فقط 93.8% دیسک آزاد است (آستانه 100%)"}],"checks":{"health_status":200
-MON-DOWN exit=2 out={"ok":false,"severity":"P1","target":"http://127.0.0.1:37271","at":"2026-11-07T11:09:24.239Z","alerts":[{"severity":"P0","code":"probe_error","message":"fetch f
+MON-READYZ status=200 db=true writable=true disk_free_pct=93.7 backup_age_s=0
+MON-HEALTHY exit=0 out={"ok":true,"severity":"ok","target":"http://127.0.0.1:44961","at":"2026-11-07T11:17:45.786Z","alerts":[],"checks":{"health_status":200,"health_latency_ms":41,"version":"0.8.43","uptime_s":0,"setup_done":true,"readyz_stat
+MON-STRICT exit=2 out={"ok":false,"severity":"P1","target":"http://127.0.0.1:44961","at":"2026-11-07T11:17:45.916Z","alerts":[{"severity":"P1","code":"disk_low","message":"فقط 93.7% دیسک آزاد است (آستانه 100%)"}],"checks":{"health_status":200
+MON-DOWN exit=2 out={"ok":false,"severity":"P1","target":"http://127.0.0.1:44961","at":"2026-11-07T11:17:46.342Z","alerts":[{"severity":"P0","code":"probe_error","message":"fetch f
 MON-ALERTS scope=external_probe thresholds=doc16_section6 no_pager_integration=1
 MON-PROBE-OK failures=0
 

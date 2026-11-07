@@ -1,5 +1,5 @@
 # شاهد خام سنجش بار ترکیبی — ردیف ۲۹ (Capacity/HA/DR)
-generated_at: 2026-11-07T11:08:01.399Z
+generated_at: 2026-11-07T11:16:24.101Z
 host: cpus=2 mem_gb=4.1 node=v22.22.3 linux
 mix: read_share=0.7 write_share=0.30 seconds=5
 thresholds: p95_read<=300ms p95_write<=800ms err_rate<=1%
@@ -8,10 +8,10 @@ thresholds: p95_read<=300ms p95_write<=800ms err_rate<=1%
 درخواست می‌فرستد؛ این با «دستگاه واقعی که هر ۱ ثانیه poll می‌کند» یکی نیست (برای آن: بنچ poll).
 
 level  read_n  write_n  read_p50  read_p95  read_p99  write_p50  write_p95  write_p99  rps   err%  cpu%  rss_max_mb
-LOAD level=1 reqs=627 read_n=430 write_n=197 read_p50=10 read_p95=14 read_p99=17 write_p50=3 write_p95=5 write_p99=11 rps=125.4 err_rate=0% cpu_pct=75.6 rss_max_mb=128.8
-LOAD level=8 reqs=688 read_n=498 write_n=190 read_p50=50 read_p95=110 read_p99=127 write_p50=45 write_p95=104 write_p99=187 rps=136.4 err_rate=0% cpu_pct=90.4 rss_max_mb=144.8
-LOAD level=16 reqs=708 read_n=505 write_n=203 read_p50=101 read_p95=214 read_p99=261 write_p50=92 write_p95=211 write_p99=773 rps=138.9 err_rate=0% cpu_pct=90.4 rss_max_mb=142.8
-LOAD level=32 reqs=763 read_n=535 write_n=228 read_p50=166 read_p95=407 read_p99=1495 write_p50=159 write_p95=324 write_p99=2792 rps=146 err_rate=0% cpu_pct=89.7 rss_max_mb=135.8
+LOAD level=1 reqs=569 read_n=394 write_n=175 read_p50=10 read_p95=15 read_p99=18 write_p50=4 write_p95=6 write_p99=14 rps=113.6 err_rate=0% cpu_pct=73.5 rss_max_mb=127.6
+LOAD level=8 reqs=677 read_n=454 write_n=223 read_p50=52 read_p95=121 read_p99=147 write_p50=45 write_p95=110 write_p99=136 rps=134.3 err_rate=0% cpu_pct=89.5 rss_max_mb=142.5
+LOAD level=16 reqs=735 read_n=531 write_n=204 read_p50=99 read_p95=207 read_p99=287 write_p50=91 write_p95=194 write_p99=736 rps=144.1 err_rate=0% cpu_pct=89 rss_max_mb=136.6
+LOAD level=32 reqs=743 read_n=520 write_n=223 read_p50=172 read_p95=385 read_p99=1530 write_p50=159 write_p95=328 write_p99=3119 rps=142.9 err_rate=0% cpu_pct=90 rss_max_mb=147.6
 
 LOAD-CAP max_ok_concurrency=16 first_fail=32
 LOAD-COST vcpu=1 ram_gb=1 eur_month_host=22.19 eur_month_per_100_closed_loop_workers=138.70 max_closed_loop_workers=16
