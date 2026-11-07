@@ -1390,6 +1390,66 @@ async function waitFor(fn, ms = 15000) {
     console.log('   F01-OK checks=15 at_rest=encrypted idor=denied logs=clean revoke=ok');
   });
 
+  await test('F‑02: بازیابی/import نمی‌تواند نقش یا مستأجر را ارتقا دهد (fail-closed)', async () => {
+    /* پشتیبان سالمِ همین نصب (امضاشده) */
+    const mk = await req('/api/admin/mirror/refresh', { method: 'POST', token: managerToken, body: {} });
+    assert.strictEqual(mk.data.ok, true, 'پشتیبان تازه ساخته شد');
+    const today = mk.data.daily[0];
+    const valid = JSON.parse(fs.readFileSync(path.join(mk.data.dirs.daily, today.file), 'utf8'));
+    assert.ok(typeof valid.sig === 'string' && valid.sig.length > 20, 'پشتیبان امضای سرور دارد');
+    assert.strictEqual(valid.format_version, 2, 'نسخهٔ امضاشده');
+
+    /* (۱) فایل دست‌کاری‌شده: یک کاربر به مدیر ارتقا داده می‌شود ⇒ امضا نمی‌خواند */
+    const forged = JSON.parse(JSON.stringify(valid));
+    const victim = (forged.collections.users || []).find(u => u.role === 'student');
+    assert.ok(victim, 'دانش‌آموز برای آزمون ارتقای نقش پیدا شد');
+    victim.role = 'manager';
+    const r1 = await req('/api/admin/restore', { method: 'POST', token: managerToken, body: { data: forged } });
+    assert.strictEqual(r1.data.ok, false, 'F‑02: پشتیبان دست‌کاری‌شده رد شد');
+    assert.ok(['bad_signature', 'unsigned_backup'].includes(r1.data.error), 'دلیل رد: ' + r1.data.error);
+    const after1 = ((await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=users', { token: managerToken })).data.collections.users || [])
+      .find(u => Number(u.id) === Number(victim.id));
+    assert.notStrictEqual(after1.role, 'manager', 'F‑02: نقش کاربر با فایل جعلی بالا نرفت');
+
+    /* (۲) نسخهٔ ۱ بی‌امضا (فایل قدیمی) هم پذیرفته نمی‌شود */
+    const legacy = JSON.parse(JSON.stringify(valid));
+    delete legacy.sig;
+    legacy.format_version = 1;
+    const r2 = await req('/api/admin/restore', { method: 'POST', token: managerToken, body: { data: legacy } });
+    assert.strictEqual(r2.data.ok, false, 'F‑02: پشتیبان بی‌امضا رد شد');
+    assert.ok(['bad_format_version', 'unsigned_backup'].includes(r2.data.error), 'دلیل: ' + r2.data.error);
+
+    /* (۳) پشتیبانِ نصب/مستأجر دیگر (کلید امضای متفاوت) ⇒ cross-tenant رد */
+    const { openStore } = require(path.join(ROOT, 'server', 'db.js'));
+    const mirror = require(path.join(ROOT, 'server', 'mirror.js'));
+    const foreignFile = path.join(TMP, 'foreign-school.sqlite');
+    try { fs.unlinkSync(foreignFile); } catch (e) { /* noop */ }
+    const foreign = openStore(foreignFile);
+    foreign.insert('users', { id: 1, name: 'مدیر مدرسهٔ دیگر', role: 'manager', phone: '09120009999', school_id: 2, tenant_id: 2, active: true }, { id: 1 });
+    const foreignBackup = Object.assign(mirror.snapshot(foreign), { school_id: 2 });
+    foreignBackup.sig = mirror.signSnapshot(foreign, foreignBackup);
+    foreign.db.close && foreign.db.close();
+    const r3 = await req('/api/admin/restore', { method: 'POST', token: managerToken, body: { data: foreignBackup } });
+    assert.strictEqual(r3.data.ok, false, 'F‑02: بازیابی از نصب/مستأجر دیگر رد شد');
+    assert.strictEqual(r3.data.error, 'bad_signature', 'امضای نصب دیگر پذیرفته نمی‌شود');
+    const foreignLeak = ((await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=users', { token: managerToken })).data.collections.users || [])
+      .some(u => u.name === 'مدیر مدرسهٔ دیگر');
+    assert.strictEqual(foreignLeak, false, 'F‑02: هیچ ردیفی از مدرسهٔ دیگر وارد نشد');
+
+    /* (۴) ارتقای نقش از مسیر همگام‌سازی/صندوقچه: دبیر نمی‌تواند نقش عوض کند */
+    const pairT = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } });
+    const tTok = (await req('/api/auth/pair', { method: 'POST', body: { code: pairT.data.code } })).data.session.token;
+    const esc = await req('/api/sync', { method: 'POST', token: tTok, body: { ops: [
+      { uid: 'f02-esc-1', collection: 'users', type: 'put', id: 2, data: { role: 'manager' }, base_version: 0 },
+    ] } });
+    assert.ok((esc.data.rejected || []).length > 0, 'F‑02: تغییر نقش از همگام‌سازی رد شد');
+    assert.strictEqual((esc.data.rejected || [])[0].error, 'role_change_denied', 'دلیل: role_change_denied');
+    const meT = await req('/api/me', { token: tTok });
+    assert.strictEqual(meT.data.role, 'teacher', 'F‑02: نقش دبیر همان دبیر ماند');
+
+    console.log('   F02-OK checks=12 forged=rejected unsigned=rejected cross_tenant=rejected role_escalation=blocked');
+  });
+
   await test('تیکت دستگاه ۲۰۰ روزه: تازه‌سازی بدون نشست و هویت فقط از امضای سرور', async () => {
     const deepKeys = (v, out = []) => {
       if (!v || typeof v !== 'object') return out;

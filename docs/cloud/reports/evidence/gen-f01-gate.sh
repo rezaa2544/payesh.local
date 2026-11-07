@@ -69,13 +69,15 @@ HEADFP=$(git ls-tree -r HEAD | grep -v $'\tdocs/' | awk '{print $3"\t"$4}' | sha
 [ "$TFP" = "$HEADFP" ] || fail "TESTS-TREE: شاهد آزمون از درخت دیگری است (log=$TFP head=$HEADFP)"; ok
 
 # ── ۷) آزمون منفیِ درون‌دروازه: اگر رمز خام برگردد، دروازه باید بایستد ─────
+if [ -z "${F01_NOSELFCHECK:-}" ]; then
 FX=$(mktemp /tmp/f01-gate-XXXXXX.js)
 cp "$AUTH" "$FX"
 printf '\n// password_plain: leak\n' >> "$FX"
-F01_AUTH="$FX" F01_OUT="$FAILDIR/f01-selfcheck.txt" F01_FAILDIR="$FAILDIR" F01_TESTS="$TESTS" \
+F01_NOSELFCHECK=1 F01_AUTH="$FX" F01_OUT="$FAILDIR/f01-selfcheck.txt" F01_FAILDIR="$FAILDIR" F01_TESTS="$TESTS" \
   F01_INDEX="$INDEX" F01_DB="$DB" F01_CLIENT_APP="$CLIENT_APP" bash "$0" >/dev/null 2>&1 \
   && { rm -f "$FX" "$FAILDIR/f01-selfcheck.txt"; fail "NEGATIVE-SELF: بازگشت رمز خام دروازه را رد نکرد"; }
 rm -f "$FX" "$FAILDIR/f01-selfcheck.txt"; ok
+fi
 
 {
   echo "# دروازهٔ ردیف F‑01 — رمزنگاری دادهٔ حساس و بستن نشت‌ها (P0)"

@@ -1296,7 +1296,8 @@ async function api(req, res, url, ip) {
     /* پیش از هر بازیابی، یک نسخهٔ ایمنی از وضعیت فعلی */
     let safety = '';
     try { safety = path.basename(store.backupTo(BACKUP_DIR, 48)); } catch (e) { safety = ''; }
-    const r = mirror.restore(store, body && body.data, { replace: !!(body && body.replace) });
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const r = mirror.restore(store, body && body.data, { replace: !!(body && body.replace), actor });
     if (!r.ok) return json({ ok: false, error: r.error, safety }, 400);
     try { mirror.refreshMirror(store, MIRROR_DIR, { force: true }); mirror.refreshDaily(store, DAILY_BACKUP_DIR); } catch (e) { /* بی‌صدا */ }
     store.audit({ role: actor.role, action: 'restore', collection: 'users', after: { report: r.report, safety } });

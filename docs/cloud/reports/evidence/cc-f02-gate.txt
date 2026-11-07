@@ -1,0 +1,10 @@
+# دروازهٔ ردیف F‑02 — بازیابی امن و بدون ارتقای نقش/مستأجر (P0)
+generated_by: docs/cloud/reports/evidence/gen-f02-gate.sh
+head: d46321e6ca1c128021b31df7144d66043e99fa8e
+generated_at_utc: 2026-11-07T09:11:50Z
+product_tree_sha256: f44065917288c2d4e3bf9a9cf59ba0c86f95e0668f3524269f693196a4aa9733
+tests: 92 0
+checks_passed: 16
+F-02: CLOSED
+
+F02-CLOSED checks=16 tests=92 0

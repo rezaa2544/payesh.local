@@ -137,6 +137,15 @@ function push(store, actor, body, ctx = {}) {
       /* F‑01: هیچ رمز خام/رمزنگاری‌شده‌ای از کلاینت پذیرفته نمی‌شود */
       delete incoming.password_plain;
       delete incoming.password_enc;
+      /* F‑02: تغییر نقش فقط با مدیر — نه از همگام‌سازی/مسیرهای جانبی */
+      if (incoming.role !== undefined && existing && String(incoming.role) !== String(existing.role) && role !== 'manager') {
+        rejected.push({ uid, error: 'role_change_denied' });
+        continue;
+      }
+      if (!existing && incoming.role !== undefined && role !== 'manager') {
+        rejected.push({ uid, error: 'role_change_denied' });
+        continue;
+      }
       if (!existing) {
         incoming = auth.applyDefaultCredentials(incoming, store);
       } else {

@@ -69,16 +69,19 @@ HEADFP=$(git ls-tree -r HEAD | grep -v $'\tdocs/' | awk '{print $3"\t"$4}' | sha
 [ "$TFP" = "$HEADFP" ] || fail "TESTS-TREE: شاهد آزمون از درخت دیگری است (log=$TFP head=$HEADFP)"; ok
 
 # ── ۵) آزمون منفیِ درون‌دروازه: پاکت جعلی نباید اعتبار بگیرد ───────────────
+if [ -z "${F06_NOSELFCHECK:-}" ]; then
 FX=$(mktemp /tmp/f06-gate-XXXXXX.js)
 cp "$OUTBOX" "$FX"
 sed -i "s/if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;/if (false) return null;/" "$FX"
 if grep -q 'if (false) return null;' "$FX"; then
-  F06_OUTBOX="$FX" F06_OUT="$FAILDIR/f06-selfcheck.txt" F06_FAILDIR="$FAILDIR" \
+  F06_NOSELFCHECK=1 F06_OUTBOX="$FX" F06_OUT="$FAILDIR/f06-selfcheck.txt" F06_FAILDIR="$FAILDIR" \
     F06_TESTS="$TESTS" F06_INDEX="$INDEX" F06_CLIENT="$CLIENT" bash "$0" >/dev/null 2>&1 \
     && { rm -f "$FX" "$FAILDIR/f06-selfcheck.txt"; fail "NEGATIVE-SELF: امضای جعلی دروازه را رد نکرد"; }
   rm -f "$FAILDIR/f06-selfcheck.txt"
 fi
-rm -f "$FX"; ok
+rm -f "$FX"
+fi
+ok
 
 {
   echo "# دروازهٔ ردیف F‑06 — حذف هویت client-controlled از Outbox/drain (P0)"

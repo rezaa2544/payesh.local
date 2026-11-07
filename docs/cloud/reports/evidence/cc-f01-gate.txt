@@ -1,10 +1,10 @@
 # دروازهٔ ردیف F‑01 — رمزنگاری دادهٔ حساس و بستن نشت‌ها (P0)
 generated_by: docs/cloud/reports/evidence/gen-f01-gate.sh
-head: c6c7c8752d7c0a065007257f19721a884eb7f041
-generated_at_utc: 2026-11-07T08:55:19Z
-product_tree_sha256: 9d991f7204f2dab18a734e05d698c926d840a298b573f42521482b3ce6df9e70
-tests: 91 0
+head: d46321e6ca1c128021b31df7144d66043e99fa8e
+generated_at_utc: 2026-11-07T09:11:50Z
+product_tree_sha256: f44065917288c2d4e3bf9a9cf59ba0c86f95e0668f3524269f693196a4aa9733
+tests: 92 0
 checks_passed: 20
 F-01: CLOSED
 
-F01-CLOSED checks=20 tests=91 0
+F01-CLOSED checks=20 tests=92 0

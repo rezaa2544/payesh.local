@@ -48,7 +48,7 @@ git cat-file -e "$BASE^{commit}" 2>/dev/null || fail "BASE-MISSING: $BASE در �
 PROD_N=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS 2>/dev/null | grep -c . || true)
 # D‑35: پس از باز شدن دروازهٔ فاز ۳، تغییر کد محصول مجاز است ولی فقط در فایل‌های اعلام‌شده.
 # حکم‌های ممیزی ۰۶–۱۰ به SHA پین‌شدهٔ 04e0636 مربوط‌اند؛ هر تغییر بیرون از این فهرست ⇒ شکست.
-ALLOW="${CC11_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/policy.js server/live.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs}"
+ALLOW="${CC11_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/mirror.js server/policy.js server/live.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs}"
 OUTSIDE=$(git diff --name-only "$BASE" HEAD -- $PRODUCT_PATHS 2>/dev/null | grep -vxF -f <(printf '%s\n' $ALLOW) | grep -c . || true)
 [ "$OUTSIDE" = "0" ] || fail "PRODUCT-SCOPE: $OUTSIDE فایل محصول بیرون از فهرست مجاز D‑35 تغییر کرده — شمارش/جدول‌های ۰۶–۱۰ دیگر به HEAD تعمیم‌پذیر نیست"
 
