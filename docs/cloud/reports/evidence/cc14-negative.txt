@@ -1,0 +1,16 @@
+# آزمون منفی دروازهٔ CC-14-1..5
+# تولید: bash docs/cloud/reports/evidence/verify-cc14-negative.sh
+# زمان: 2026-11-07T00:24:05Z
+# HEAD: 22ac98cbca2239986d109ce0059a85632df4f290
+# manifest: docs/cloud/reports/evidence/cc14-required-labels.txt
+
+PASS  P0  gate accepted clean evidence (control positive)
+PASS  N1  gate rejected: یک برچسب لازم از خروجی حذف شد  → exit=1
+PASS  N2  gate rejected: برچسب لازم با علامت شکست  → exit=1
+PASS  N3  gate rejected: SUMMARY ادعایی با بدنه نمی‌خواند  → exit=1
+PASS  N4  gate rejected: نمونه با کد خروج ۱ تمام شد  → exit=1
+PASS  N5  gate rejected: manifest برچسب ناموجود طلب می‌کند  → exit=1
+PASS  N6  gate rejected: manifest وجود ندارد  → exit=3
+
+TOTAL 7 · pass=7 fail=0
+NEGATIVE-OK

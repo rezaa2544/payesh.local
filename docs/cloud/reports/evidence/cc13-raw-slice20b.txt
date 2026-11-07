@@ -1,8 +1,8 @@
 # شاهد خام نمونه — s20b
 # تولید: bash docs/cloud/reports/evidence/gen-cc13-evidence.sh
 # فرمان: node prototype/slice-20b/tests/run.js
-# زمان: 2026-11-07T00:06:42Z
-# HEAD: 4901c94858e8f3243f3e3a698af9687ddd42b47a
+# زمان: 2026-11-07T00:24:05Z
+# HEAD: 22ac98cbca2239986d109ce0059a85632df4f290
 # node: v22.22.3 · os: Linux 6.1.158+ x86_64
 
 ✓ I1 خواندن ردیف خودی مجاز است

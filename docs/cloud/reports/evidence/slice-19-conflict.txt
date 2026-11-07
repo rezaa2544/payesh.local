@@ -1,7 +1,7 @@
 # شاهد نمونهٔ فنی ۱۹ — تعارض و هم‌گرایی («نیازمند تصمیم»)
 # تولید: bash prototype/slice-19/gen-evidence.sh
-# base_head: 26b31f46e1d5dde948d9422199fa4aadf554f98f
-# generated_at_utc: 2026-11-06T20:47:07Z
+# base_head: 28e52782b18113e870cd32b0ca388de755051be0
+# generated_at_utc: 2026-11-07T00:23:15Z
 # node: v22.22.3
 # command: node prototype/slice-19/tests/run.js
 # product_diff_vs_f2fc472: 0 فایل (۰ = کد محصول دست‌نخورده)
@@ -21,10 +21,10 @@
 ۱۱ parity per-entity (مثبت/منفی)
 
 ## خلاصه
-SUMMARY pass=44 fail=0 total=44
-claims_passed=44
-conflict_cases=9
-silent_loss_guards=3
+SUMMARY pass=48 fail=0 total=48
+claims_passed=48
+conflict_cases=10
+silent_loss_guards=4
 
 ## خروجی خام آزمون
 ✓ نویسندهٔ دوم با نسخهٔ کهنه ⇒ ۴۰۹ conflict
@@ -32,12 +32,16 @@ silent_loss_guards=3
 ✓ مقدار بازنده حفظ شده (late)
 ✓ مقدار سروری هم حفظ شده (absent)
 ✓ raised_by_op_id برای ردیابی ثبت شده
+✓ تلاش بازنده در audit ثبت شد (conflict.open با همان op_id)
+✓ زنجیرهٔ audit پیوسته است (prev_hash هر ردیف = hash ردیف قبل)
 ✓ ادغام فیلد‌به‌فیلد: هر دو اعمال می‌شوند
 ✓ نتیجهٔ نهایی هر دو فیلد را دارد
 ✓ هیچ تعارض کاربری ساخته نشد
 ✓ op با یک فیلد متعارض: فیلد مستقل ادغام، فیلد متعارض به تصمیم
 ✓ مقدار ادغام‌شده واقعاً ذخیره شد
 ✓ حل اول موفق و نسخه یک‌بار بالا رفت
+✓ پس از حل هم هر دو نسخه در ردیف حفظ می‌شوند
+✓ ردیف تعارض پس از حل حذف نمی‌شود (status=resolved)
 ✓ حل دوباره idempotent است (بدون افزایش نسخه)
 ✓ بازپخش همان op تعارض‌ساز بی‌اثر است
 ✓ ولی نمی‌تواند تعارض نمره را حل کند ⇒ ۴۰۳
@@ -72,5 +76,5 @@ silent_loss_guards=3
 ✓ parity per-entity: 10/10 مطابق ماتریس §۲.۱
 ✓ ترتیب فیلدها در op نتیجه را تغییر نمی‌دهد (determinism)
 
-44 موفق · 0 ناموفق
-SUMMARY pass=44 fail=0 total=44
+48 موفق · 0 ناموفق
+SUMMARY pass=48 fail=0 total=48

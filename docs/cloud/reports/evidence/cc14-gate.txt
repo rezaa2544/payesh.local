@@ -1,0 +1,28 @@
+# دروازهٔ شرط‌های CC-14-1..5 (ردیف ۱۴ — تعارض و هم‌گرایی چنددستگاهی)
+# تولید: bash docs/cloud/reports/evidence/gen-cc14-evidence.sh
+# زمان: 2026-11-07T00:24:04Z
+# HEAD: 22ac98cbca2239986d109ce0059a85632df4f290
+# product_tree_sha256: 37415c5a1cca30b2709998d582854d9794308265d764c917e39e1a54cd16e29a
+# شاهد خام: docs/cloud/reports/evidence/cc14-raw-slice19.txt
+# کد آزمون‌شده:
+#   prototype/slice-19/tests/run.js = e29d90c1248d2dbac2509544dadfe797c4dfa05c831aa3cdbf5049ff99ca8656
+#   prototype/slice-19/conflict-server.js = a2733b4bf0820e2ec68aabf7c963f7e4476d97d2fd2552941e3d08e4a54268b3
+
+PASS  slice-19 exited 0
+PASS  slice-19: SUMMARY pass=48 fail=0
+PASS  slice-19: declared pass matches body (48)
+PASS  CC-14-1: 6/6 required assertions seen as ✓
+PASS  CC-14-2: 5/5 required assertions seen as ✓
+PASS  CC-14-3: 4/4 required assertions seen as ✓
+PASS  CC-14-4: 8/8 required assertions seen as ✓
+PASS  CC-14-5: 6/6 required assertions seen as ✓
+
+CC-14-1  required=6  verified=6
+CC-14-2  required=5  verified=5
+CC-14-3  required=4  verified=4
+CC-14-4  required=8  verified=8
+CC-14-5  required=6  verified=6
+
+slice-19: pass=48 fail=0
+
+CC14-OK
