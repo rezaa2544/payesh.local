@@ -1,15 +1,15 @@
 {
-  "version": "0.8.53",
-  "built_at": "2026-11-07T18:50:12.551Z",
+  "version": "0.8.54",
+  "built_at": "2026-11-07T19:19:05.105Z",
   "notes": [],
   "shell": {
-    "android": "0.8.53"
+    "android": "0.8.54"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "1ea768cc741b849281af5a39045407f5fe69d10ee147343a5e3d461d6cac6edd",
+      "sha256": "7191e357fef95f570c6d5cb6b5656230b796dc8f600d0c25d615b3c126189f5a",
       "size": 186526
     },
     {
@@ -177,8 +177,14 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "e92a6c24e93c9e49c9dcd4d5cce558f0aaaf6b1bb3c1d661a07d452efc532f2c",
-      "size": 3175
+      "sha256": "9373ae18dddd359c64a2c88169f19824d85fb251cdd379def738dbd4f85d2d6f",
+      "size": 3519
+    },
+    {
+      "path": "server/archive.js",
+      "kind": "server",
+      "sha256": "f1d33a03674c23a7d4ca9fe3a7b1a6c2871e988f5da021b8024112a02372b405",
+      "size": 13576
     },
     {
       "path": "server/auth.js",
@@ -333,9 +339,9 @@
   ],
   "counts": {
     "client": 27,
-    "server": 27
+    "server": 28
   },
   "client_size": 1369981,
-  "server_size": 409926,
-  "total_size": 1779907
+  "server_size": 423846,
+  "total_size": 1793827
 }
