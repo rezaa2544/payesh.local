@@ -1,15 +1,15 @@
 {
-  "version": "0.8.38",
-  "built_at": "2026-11-07T09:25:33.558Z",
+  "version": "0.8.39",
+  "built_at": "2026-11-07T09:53:14.702Z",
   "notes": [],
   "shell": {
-    "android": "0.8.38"
+    "android": "0.8.39"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "f7defb046cad877dbf88b378781a759cc5a50056fd32260f380843620e61ad12",
+      "sha256": "b4d2f652ecd892dc27825db4226cd8e550e5522ea7e9eb517de253be5853f87b",
       "size": 181207
     },
     {
@@ -165,7 +165,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "0dfe6f971402a126642010dc0ec5fe9646a3d01d5bf1a5346e2d7c0ea4106447",
+      "sha256": "a208d9f1a44a8ebe5bdb246acd2fe847559fb6da54264a850ae43c75e5bc2a2b",
       "size": 2041
     },
     {
@@ -249,14 +249,20 @@
     {
       "path": "server/sync.js",
       "kind": "server",
-      "sha256": "26f9775d8d352c94e762197972e44f6e6f4632e25925a6ef89dddae88eed4b2e",
-      "size": 13228
+      "sha256": "ea3cf97434c3bbe3b2ab59347ee68fc99b636580c3e0fe1de9b179ca1f4d0b13",
+      "size": 13410
     },
     {
       "path": "server/tenancy.js",
       "kind": "server",
-      "sha256": "a84d56d33b47939749044e083c5e4b2dd1b41828d594c747cac7d0025ad66e90",
-      "size": 13990
+      "sha256": "a9c4a159913c045c7733bed9705e7643498bcf6f8112c3fb774a60e476e681e6",
+      "size": 28202
+    },
+    {
+      "path": "server/tenant-context.js",
+      "kind": "server",
+      "sha256": "b256e4744cb92daea75c2bf6a63188226d2553c7e4f3d85f36ebd9cecf545ea0",
+      "size": 4006
     },
     {
       "path": "server/tunnel.js",
@@ -297,9 +303,9 @@
   ],
   "counts": {
     "client": 25,
-    "server": 23
+    "server": 24
   },
   "client_size": 1337963,
-  "server_size": 325467,
-  "total_size": 1663430
+  "server_size": 343867,
+  "total_size": 1681830
 }

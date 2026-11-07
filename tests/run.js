@@ -1450,6 +1450,40 @@ async function waitFor(fn, ms = 15000) {
     console.log('   F02-OK checks=12 forged=rejected unsigned=rejected cross_tenant=rejected role_escalation=blocked');
   });
 
+  await test('F‑05: زمینهٔ مستأجر فقط از سرور — جعل school_id/tenant_id بی‌اثر است', async () => {
+    let checks = 0;
+    const ok = (c, m) => { assert.ok(c, m); checks++; };
+    const tenantCtx = require(ROOT + '/server/tenant-context');
+
+    /* ۱) شکل و پایداری شناسهٔ مستأجر */
+    const t1 = tenantCtx.tenantFor(1);
+    ok(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(t1), 'tenant_id قالب UUID دارد');
+    ok(tenantCtx.tenantFor(1) === t1, 'tenant_id پایدار است');
+    ok(tenantCtx.tenantFor(2) !== t1, 'مدرسهٔ دیگر ⇒ مستأجر دیگر');
+    ok(tenantCtx.tenantOf({ user: { school_id: 1 } }) === t1, 'مستأجر از نشست گرفته می‌شود');
+    ok(tenantCtx.owns({ school_id: 1 }, { user: { school_id: 1 } }) === true, 'ردیف همان مستأجر پذیرفته می‌شود');
+    ok(tenantCtx.owns({ school_id: 2 }, { user: { school_id: 1 } }) === false, 'ردیف مستأجر دیگر رد می‌شود');
+    ok(tenantCtx.owns({ tenant_id: '22222222-2222-2222-2222-222222222222' }, { user: { school_id: 1 } }) === false,
+      'tenant_id بیگانه رد می‌شود');
+
+    /* ۲) جعل از مسیر همگام‌سازی: school_id/tenant_id داخل داده نادیده گرفته می‌شود */
+    const spoof = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [{
+      uid: 'f05-spoof-1', collection: 'classes', type: 'put', base_version: 0,
+      data: { name: 'کلاس جعلی', school_id: 999, tenant_id: '22222222-2222-2222-2222-222222222222' },
+    }] } });
+    ok(spoof.data.ok && spoof.data.applied.length === 1, 'ثبت انجام شد');
+    const id = spoof.data.applied[0].id;
+    const pull = await req('/api/v1/pull?collections=classes', { token: managerToken });
+    const row = ((pull.data.collections || {}).classes || []).find(r => r.id === id);
+    ok(!!row, 'ردیف در خواندن سرور هست');
+    ok(Number(row.school_id) === 1, 'school_id به ۱ مهر شد (نه ۹۹۹)');
+    ok(!Object.prototype.hasOwnProperty.call(row, 'tenant_id'), 'tenant_id کلاینتی ذخیره نشد');
+    ok(tenantCtx.carriesTenantField({ school_id: 999 }) === true, 'تشخیص میدان مستأجر کار می‌کند');
+    ok(tenantCtx.carriesTenantField({ name: 'x' }) === false, 'دادهٔ بی‌میدان مستأجر تشخیص داده نمی‌شود');
+
+    console.log('   F05-OK checks=' + checks + ' tenant=session-only spoof=neutralized');
+  });
+
   await test('همگام‌سازی: تعارض دو دستگاه با حفظ دو نسخه، حل با نقش مجاز و بی‌اثر بودن تکرار', async () => {
     let checks = 0;
     const ok = (cond, msg) => { assert.ok(cond, msg); checks++; };

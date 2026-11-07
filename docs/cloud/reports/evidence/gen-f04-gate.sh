@@ -13,7 +13,7 @@ OUT="${F04_OUT:-$D/cc-f04-gate.txt}"
 TESTS="${F04_TESTS:-$D/mission-05-tests-run.log}"
 PRODUCT_PATHS="server client tests scripts package.json package-lock.json installer desktop install deploy"
 # دامنهٔ مجاز محصول به‌روز شد (re-scope، نه حذف): فایل‌های auth/sync/db برای F‑01
-ALLOW="${F04_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/mirror.js server/policy.js server/live.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/restart.js tests/phone-flow.js scripts/bake-cloud.mjs}"
+ALLOW="${F04_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/mirror.js server/policy.js server/tenant-context.js server/live.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/restart.js tests/tenancy-pg.js tests/phone-flow.js scripts/bake-cloud.mjs scripts/tenancy-migrate-product.js}"
 BASE="${F04_BASE:-f2fc472}"
 HEAD=$(git rev-parse HEAD)
 TS=$(date -u +%Y%m%dT%H%M%SZ)
@@ -27,7 +27,7 @@ fail() {
 }
 
 # ── ۱) کد و باندل ───────────────────────────────────────────────────────────
-node scripts/bake-cloud.mjs --check >/dev/null 2>&1 || fail "DEFAULTS-KEYS: کلید در server/cloud-defaults.js هست"; ok
+node scripts/bake-cloud.mjs scripts/tenancy-migrate-product.js --check >/dev/null 2>&1 || fail "DEFAULTS-KEYS: کلید در server/cloud-defaults.js هست"; ok
 
 for f in client/cloud-baked.js client/lib/phone.js client/app.js client/pages.js; do
   [ -f "$f" ] || fail "MISSING: $f"
@@ -70,7 +70,7 @@ HEADFP=$(git ls-tree -r HEAD | grep -v $'\tdocs/' | awk '{print $3"\t"$4}' | sha
 # ── ۴) آزمون منفی: اگر کلید به پیش‌فرض‌ها برگردد، ساخت می‌ایستد ──────────────
 FX=$(mktemp /tmp/f04-gate-XXXXXX.cjs)
 printf 'module.exports = { DEFAULTS: { endpoint: "https://x", region: "r", accessKey: "AKIAEXAMPLE123456", secret: "S3CRET" } };\n' > "$FX"
-node scripts/bake-cloud.mjs --check "$FX" >/dev/null 2>&1
+node scripts/bake-cloud.mjs scripts/tenancy-migrate-product.js --check "$FX" >/dev/null 2>&1
 RC=$?
 rm -f "$FX"
 [ "$RC" = "2" ] || fail "NEGATIVE: کلید در پیش‌فرض‌ها ساخت را متوقف نکرد (exit=$RC)"; ok

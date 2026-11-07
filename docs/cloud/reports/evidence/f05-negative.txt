@@ -1,0 +1,7 @@
+# آزمون‌های منفیِ ردیف ۲۶ — tenancy/RLS بدنهٔ محصول
+generated_by: docs/cloud/reports/evidence/verify-f05-negative.sh
+head: 61cd2637eff30d7ec38be4aa69de66aef5502381
+generated_at_utc: 2026-11-07T09:53:00Z
+mutations: N1 rls-off, N2 accept-client-tenant, N3 tenant-from-body, N4 ignore-tenant-context, N5 unscoped-rollback
+
+F05-NEGATIVE-OK checks=5
