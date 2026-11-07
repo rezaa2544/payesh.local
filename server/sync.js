@@ -8,6 +8,7 @@ const { nowISO, normalizeMobile } = require('./util');
 const policy = require('./policy');
 const tenantCtx = require('./tenant-context');
 const auth = require('./auth');
+const convergence = require('./convergence');
 
 const ROW_LIMIT = 3000;          /* سقف ردیف هر کالکشن در هر درخواست */
 const MAX_OPS = 200;             /* سقف عملیات هر push (هم‌راستا با کلاینت) */
@@ -97,11 +98,21 @@ function pull(store, actor, params) {
   };
 }
 
+/* D‑28 + ردیف ۴۱: هر تعارض با «فیلدهای متعارض» و قاعدهٔ دامنه‌ای که
+   تصمیم را گرفته ثبت می‌شود تا تصمیم‌گیرنده دقیقاً بداند چه چیزی
+   متعارض است — و هر دو نسخه در همان ردیف می‌مانند. */
 function openConflict(store, actor, ctx, info) {
+  const meta = convergence.describe({
+    collection: info.collection,
+    kind: info.kind,
+    fields: info.fields,
+    rule: convergence.ruleOf(info.collection),
+  });
   return store.insert('conflicts', {
-    kind: 'conflict', status: 'needs_review', decided_by: null, decided_at: null,
+    kind: meta.kind, status: 'needs_review', decided_by: null, decided_at: null,
     collection: info.collection, record_id: info.record_id,
     local: info.local || {}, server: info.server || null,
+    fields: meta.fields, policy: meta.policy,
     base_version: info.base_version == null ? null : Number(info.base_version),
     reported_by: actor && actor.user ? actor.user.id : null,
     device_id: ctx.device_id || null, created_at: nowISO(),
@@ -206,6 +217,23 @@ function push(store, actor, body, ctx = {}) {
         const c = noteRejected(store, actor, ctx, { collection, record_id: op.id, local: incoming, server: existing, reason: 'role_denied' });
         rejected.push({ uid, error: 'role_denied', conflict_id: c.id }); continue;
       }
+      /* ردیف ۴۱ — حذف در برابر ویرایش: اگر نسخهٔ سرور بعد از نسخه‌ای که
+         حذف‌کننده می‌شناخت عوض شده باشد، حذف خودکار مجاز نیست؛ ردیف
+         می‌ماند و هر دو نسخه برای تصمیم انسانی ثبت می‌شوند. */
+      const delDecision = convergence.decide({
+        collection, type: 'del', incoming, existing,
+        base_version: op.base_version != null ? Number(op.base_version) : null,
+        now: nowISO(),
+      });
+      if (delDecision.action === 'conflict') {
+        const rec = openConflict(store, actor, ctx, {
+          collection, record_id: Number(op.id), local: incoming, server: existing,
+          base_version: op.base_version != null ? Number(op.base_version) : null,
+          kind: 'delete_vs_edit', fields: delDecision.fields,
+        });
+        conflicts.push({ uid, collection, id: op.id, server_version: existing._version, server: existing, conflict_id: rec.id });
+        continue;
+      }
       store.remove(collection, op.id);
       store.audit({ user_id: actor.user.id, role, device_id: ctx.device_id, collection, record_id: op.id, action: 'delete', before: existing, ip: ctx.ip });
       store.syncMark(uid, actor.user.id, 'deleted');
@@ -232,11 +260,40 @@ function push(store, actor, body, ctx = {}) {
       /* base=0 تنها برای به‌روزرسانی «اثر انگشت رمز» مجاز است؛ هر دادهٔ دیگر
          با base=0 قدیمی تلقی می‌شود تا OCC دور زده نشود (D‑28). */
       const verifierOnly = Object.keys(incoming).length > 0 && Object.keys(incoming).every(k => k === '__password_verifier');
-      if (base != null && (base !== existing._version) && !(base === 0 && verifierOnly)) {
-        /* D‑28: هر دو نسخه نگه داشته می‌شوند و برای تصمیم مجاز ثبت می‌گردند */
-        const rec = openConflict(store, actor, ctx, { collection, record_id: Number(id), local: incoming, server: existing, base_version: base });
-        conflicts.push({ uid, collection, id, server_version: existing._version, server: existing, conflict_id: rec.id });
-        continue;
+      const stale = base == null || (base !== existing._version && !(base === 0 && verifierOnly));
+      if (stale) {
+        /* ردیف ۴۱: تصمیم طبقه‌بندی‌شده بر اساس قواعد دامنه.
+           فقط فیلدهای «auto» ادغام می‌شوند؛ هر فیلد حساس ⇒ تعارض. */
+        const d = convergence.decide({
+          collection, type: 'put', incoming, existing, base_version: base, now: nowISO(),
+        });
+        if (d.action === 'merge') {
+          const merged = convergence.mergedDoc(existing, incoming, d.fields);
+          const saved = store.update(collection, existing.id, merged);
+          store.audit({
+            user_id: actor.user.id, role, device_id: ctx.device_id, collection,
+            record_id: saved.id, action: 'conflict_auto_merge', before: existing, after: saved,
+            ip: ctx.ip,
+          });
+          store.syncMark(uid, actor.user.id, 'merged');
+          applied.push({ uid, id: saved.id, version: saved._version });
+          continue;
+        }
+        if (d.action === 'noop') {
+          store.syncMark(uid, actor.user.id, 'noop');
+          applied.push({ uid, id: Number(id), version: existing._version });
+          continue;
+        }
+        if (d.action === 'conflict') {
+          /* D‑28: هر دو نسخه نگه داشته می‌شوند و برای تصمیم مجاز ثبت می‌گردند */
+          const rec = openConflict(store, actor, ctx, {
+            collection, record_id: Number(id), local: incoming, server: existing, base_version: base,
+            kind: 'edit_vs_edit', fields: d.fields,
+          });
+          conflicts.push({ uid, collection, id, server_version: existing._version, server: existing, conflict_id: rec.id });
+          continue;
+        }
+        /* action === 'apply' فقط برای استثنای مستندِ verifier است */
       }
     } else if (op.base_version != null && Number(op.base_version) > 0) {
       const rec = openConflict(store, actor, ctx, { collection, record_id: id != null ? Number(id) : null, local: incoming, server: null, base_version: Number(op.base_version) });
@@ -306,4 +363,4 @@ function push(store, actor, body, ctx = {}) {
   return out;
 }
 
-module.exports = { pull, push, resolveConflict, ROW_LIMIT, MAX_OPS, SCHEMA_VERSION };
+module.exports = { pull, push, resolveConflict, ROW_LIMIT, MAX_OPS, SCHEMA_VERSION, convergence };
