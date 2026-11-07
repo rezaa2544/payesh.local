@@ -1450,6 +1450,87 @@ async function waitFor(fn, ms = 15000) {
     console.log('   F02-OK checks=12 forged=rejected unsigned=rejected cross_tenant=rejected role_escalation=blocked');
   });
 
+  await test('همگام‌سازی: تعارض دو دستگاه با حفظ دو نسخه، حل با نقش مجاز و بی‌اثر بودن تکرار', async () => {
+    let checks = 0;
+    const ok = (cond, msg) => { assert.ok(cond, msg); checks++; };
+
+    const push = ops => req('/api/sync', { method: 'POST', token: managerToken, body: { ops } });
+
+    /* ۱) ردیف پایه */
+    const base = await push([{ uid: 's27-a1', collection: 'classes', type: 'put', data: { name: 'کلاس تعارض', grade: 9 }, base_version: 0 }]);
+    ok(base.data.ok && base.data.applied.length === 1, 'ردیف پایه ثبت شد');
+    const id = base.data.applied[0].id;
+
+    /* ۲) دستگاه A ویرایش می‌کند (نسخه ۱ → ۲) */
+    const a = await push([{ uid: 's27-a2', collection: 'classes', type: 'put', id, data: { name: 'نام A' }, base_version: 1 }]);
+    ok(!a.data.conflicts.length, 'ویرایش معتبر بدون تعارض');
+    const v2 = a.data.applied[0].version;
+    ok(v2 === 2, 'نسخه پس از ویرایش = ۲ (شد ' + v2 + ')');
+
+    /* ۳) دستگاه B با نسخهٔ کهنه می‌نویسد → تعارض، هیچ نوشتنی اعمال نمی‌شود */
+    const b = await push([{ uid: 's27-b1', collection: 'classes', type: 'put', id, data: { name: 'نام B' }, base_version: 1 }]);
+    ok(b.data.conflicts.length === 1, 'تعارض تشخیص داده شد (base_version)');
+    ok(b.data.applied.length === 0, 'هیچ چیز از دستگاه B اعمال نشد — queued ≠ committed');
+    const cid = b.data.conflicts[0].conflict_id;
+    ok(cid != null, 'تعارض با شناسه ثبت شد');
+    ok(b.data.conflicts[0].server.name === 'نام A', 'نسخهٔ سرور دست‌نخورده ماند');
+
+    /* ۴) هر دو نسخه در فهرست بررسی هست (D‑28) */
+    const list = await req('/api/v1/pull?collections=conflicts', { token: managerToken });
+    const rec = (((list.data.collections || {}).conflicts) || []).find(r => r.id === cid);
+    ok(!!rec && rec.status === 'needs_review', 'تعارض در وضعیت «نیازمند تصمیم» است');
+    ok(rec.local && rec.local.name === 'نام B', 'نسخهٔ محلی نگه داشته شد');
+    ok(rec.server && rec.server.name === 'نام A', 'نسخهٔ سرور نگه داشته شد');
+
+    /* ۵) حل توسط نقش غیرمجاز → رد */
+    const t = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: 2 } });
+    const ts = await req('/api/auth/pair', { method: 'POST', body: { code: t.data.code } });
+    const teacherToken = ts.data.session.token;
+    const bad = await req('/api/conflicts/' + cid + '/resolve', { method: 'POST', token: teacherToken, body: { decision: 'local' } });
+    ok(bad.status === 403 && bad.data.error === 'forbidden', 'حل توسط دبیر رد شد (403)');
+
+    /* ۶) هیچ نوشتن بدون تصمیم رخ نداده */
+    const still = await push([{ uid: 's27-b2', collection: 'classes', type: 'put', id, data: { name: 'نام B2' }, base_version: 2 }]);
+    ok(!still.data.conflicts.length && still.data.applied.length === 1, 'پس از عادی‌سازی نسخه، نوشتن معتبر پذیرفته شد');
+
+    /* ۷) حل با تصمیم «سرور» — هویت تصمیم‌گیرنده ثبت می‌شود */
+    const r1 = await req('/api/conflicts/' + cid + '/resolve', { method: 'POST', token: managerToken, body: { decision: 'server' } });
+    ok(r1.data.ok, 'تصمیم «نسخهٔ سرور» ثبت شد');
+    ok(r1.data.conflict.status === 'resolved' && r1.data.conflict.decided_by != null, 'تصمیم‌گیرنده ثبت شد');
+    const again = await req('/api/conflicts/' + cid + '/resolve', { method: 'POST', token: managerToken, body: { decision: 'local' } });
+    ok(again.data.ok === false && again.data.error === 'already_resolved', 'حل دوباره ممکن نیست');
+
+    /* ۸) تعارض دوم و تصمیم «نسخهٔ محلی» — داده واقعاً اعمال می‌شود */
+    const c2 = await push([{ uid: 's27-c1', collection: 'classes', type: 'put', id, data: { name: 'نام C' }, base_version: 1 }]);
+    ok(c2.data.conflicts.length === 1, 'تعارض دوم ثبت شد');
+    const cid2 = c2.data.conflicts[0].conflict_id;
+    const r2 = await req('/api/conflicts/' + cid2 + '/resolve', { method: 'POST', token: managerToken, body: { decision: 'local' } });
+    ok(r2.data.ok, 'تصمیم «نسخهٔ محلی» اعمال شد');
+    ok(r2.data.record && r2.data.record.name === 'نام C', 'دادهٔ محلی جایگزین شد');
+    const audit = (await req('/api/admin/audit?limit=50', { token: managerToken })).data.rows || [];
+    ok(audit.some(x => x.action === 'conflict_resolve'), 'تصمیم در حسابرسی ثبت شد');
+
+    /* ۹) تکرار/تلاش دوباره (retry) — ایندمپوتنت */
+    const dup = await push([{ uid: 's27-b2', collection: 'classes', type: 'put', id, data: { name: 'نام B2' }, base_version: 2 }]);
+    ok(dup.data.applied.length === 1 && dup.data.applied[0].duplicate === true, 'تکرار همان uid اعمال دوباره نشد');
+    const rows = ((((await req('/api/v1/pull?collections=classes', { token: managerToken })).data.collections || {}).classes) || []).filter(r => r.id === id);
+    ok(rows.length === 1, 'هیچ ردیف تکراری ساخته نشد');
+
+    /* ۱۰) رد دسترسی هم دور ریخته نمی‌شود و برای بررسی می‌ماند (F‑09) */
+    /* برای رد دسترسی، نقش دبیر را می‌آزماییم */
+    const rejT = await req('/api/sync', { method: 'POST', token: teacherToken, body: { ops: [
+      { uid: 's27-d2', collection: 'classes', type: 'del', id, base_version: 3 },
+    ] } });
+    ok(rejT.data.rejected.length === 1 && rejT.data.rejected[0].error === 'role_denied', 'نوشتن غیرمجاز رد شد');
+    ok(rejT.data.rejected[0].conflict_id != null, 'ردی هم برای بررسی ثبت شد (بدون دور ریختن)');
+
+    /* ۱۱) base=0 برای دادهٔ واقعی، OCC را دور نمی‌زند */
+    const zero = await push([{ uid: 's27-e1', collection: 'classes', type: 'put', id, data: { name: 'دور زدن' }, base_version: 0 }]);
+    ok(zero.data.conflicts.length === 1, 'base=0 برای دادهٔ عادی به‌عنوان نسخهٔ کهنه تلقی شد');
+
+    console.log('   SYNC-OK checks=' + checks + ' conflict=two_versions kept=both resolve=authorized idempotent=yes');
+  });
+
   await test('تیکت دستگاه ۲۰۰ روزه: تازه‌سازی بدون نشست و هویت فقط از امضای سرور', async () => {
     const deepKeys = (v, out = []) => {
       if (!v || typeof v !== 'object') return out;

@@ -40,6 +40,8 @@ const COLLECTIONS = {
   app_settings:     { write: ['manager'], read: ['manager'] },
   /* ردیف‌هایی از ورود دسته‌ای که کامل نشدند — برای پیگیری بعدی مدیر */
   import_issues:    { write: ['manager'], read: ['manager'] },
+  /* D‑28: تعارض‌ها فقط از سمت سرور ساخته/حل می‌شوند؛ کلاینت هیچ‌گاه نمی‌نویسد */
+  conflicts:        { write: [], read: ['manager'] },
 };
 
 const PROTECTED = new Set(['audit', 'devices', 'sessions', 'pair_codes', 'sync_log']);

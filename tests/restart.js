@@ -77,6 +77,22 @@ async function main() {
     const before = await health();
     assert.ok(before.uptime_s >= 2, 'قبل از ری‌استارت سرور مدتی روشن بوده');
 
+    /* ── دوام صف و ایندمپوتنسی در برابر ری‌استارت (ردیف ۲۷) ── */
+    const post = (pathname, body) => fetch(BASE + pathname, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+      body: JSON.stringify(body || {}),
+    }).then(r => r.json().then(j => ({ status: r.status, data: j })));
+
+    let classId = null;
+    await test('پیش از ری‌استارت: ردیف و uid ثبت می‌شوند', async () => {
+      const r = await post('/api/sync', { ops: [
+        { uid: 'rs-1', collection: 'classes', type: 'put', data: { name: 'کلاس دوام' }, base_version: 0 },
+      ] });
+      assert.ok(r.data.ok && r.data.applied.length === 1, 'ردیف ثبت شد: ' + JSON.stringify(r.data).slice(0, 160));
+      classId = r.data.applied[0].id;
+    });
+
     await test('راه‌اندازی مجدد (همان کاری که آپدیت می‌کند)', async () => {
       const r = await fetch(BASE + '/api/admin/update/restart', {
         method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
@@ -101,6 +117,28 @@ async function main() {
       assert.ok(again.ok && again.session && again.session.token, 'ورود پس از ری‌استارت');
       const me = await (await fetch(BASE + '/api/me', { headers: { authorization: 'Bearer ' + again.session.token } })).json();
       assert.strictEqual(me.role, 'manager');
+    });
+
+    await test('پس از ری‌استارت: داده ماند و تکرار همان uid دوباره اعمال نمی‌شود', async () => {
+      const relog = await (await fetch(BASE + '/api/auth/login', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ phone: '09120000009', password: '123456' }),
+      })).json();
+      const t2 = relog.session.token;
+      const post2 = (pathname, body) => fetch(BASE + pathname, {
+        method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t2 },
+        body: JSON.stringify(body || {}),
+      }).then(r => r.json());
+      const pull = await (await fetch(BASE + '/api/v1/pull?collections=classes', { headers: { authorization: 'Bearer ' + t2 } })).json();
+      const rows = ((pull.collections || {}).classes || []).filter(r => r.id === classId);
+      assert.strictEqual(rows.length, 1, 'ردیف پس از ری‌استارت هست');
+      assert.strictEqual(rows[0].name, 'کلاس دوام', 'محتوا دست‌نخورده');
+      const replay = await post2('/api/sync', { ops: [
+        { uid: 'rs-1', collection: 'classes', type: 'put', data: { name: 'کلاس دوام' }, base_version: 0 },
+      ] });
+      assert.ok(replay.applied.length === 1 && replay.applied[0].duplicate === true, 'تکرار پس از ری‌استارت ایندمپوتنت است');
+      const rows2 = ((await (await fetch(BASE + '/api/v1/pull?collections=classes', { headers: { authorization: 'Bearer ' + t2 } })).json()).collections.classes || []).filter(r => r.name === 'کلاس دوام');
+      assert.strictEqual(rows2.length, 1, 'هیچ ردیف تکراری ساخته نشد');
     });
 
     await test('آدرس را از دست نمی‌دهد (EADDRINUSE رخ نمی‌دهد)', async () => {

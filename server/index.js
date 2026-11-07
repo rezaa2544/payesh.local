@@ -679,6 +679,14 @@ async function api(req, res, url, ip) {
     return json(out);
   }
 
+  const crm = p.match(/^\/api\/conflicts\/(\d+)\/resolve$/);
+  if (crm && m === 'POST') {
+    const body = await readBody(req, 64 * 1024);
+    const ctx = { device_id: actor.device ? actor.device.id : null, ip };
+    const out = sync.resolveConflict(store, actor, Number(crm[1]), String(body && body.decision || ''), ctx);
+    return json(out, out.ok ? 200 : (out.error === 'forbidden' ? 403 : 400));
+  }
+
   if (p === '/api/sync' && m === 'POST') {
     const body = await readBody(req, 8 * 1024 * 1024);
     const ctx = { device_id: actor.device ? actor.device.id : null, ip };

@@ -26,6 +26,8 @@ const S = {
   user: null, role: null, boot: null,
   data: {},                 /* collection -> Map(id -> row) */
   queue: JSON.parse(localStorage.getItem('payesh.queue') || '[]'),
+  /* D‑28: تعارض/ردی که باید تصمیم‌گیری شود — هرگز خاموش دور ریخته نمی‌شود */
+  review: JSON.parse(localStorage.getItem('payesh.review') || '[]'),
   lastSync: localStorage.getItem('payesh.sync_at') || '',
   route: 'home', params: {},
   modal: null, busy: false,
@@ -119,6 +121,7 @@ function saveCache() {
   idbSet('saved_at', new Date().toISOString());
 }
 function saveQueue() { localStorage.setItem('payesh.queue', JSON.stringify(S.queue.slice(-500))); }
+function saveReview() { localStorage.setItem('payesh.review', JSON.stringify(S.review.slice(-200))); }
 
 /* F‑01: پاک‌سازی یک‌بارهٔ رمزهای خامِ کش‌شده از نسخه‌های قبلی */
 (function purgeCachedPasswords() {
@@ -336,21 +339,41 @@ async function flushQueue() {
       const conflicts = r.conflicts || [];
       if (rejected.length) {
         const dead = new Set(rejected.map(x => x.uid));
+        for (const r of rejected) {
+          S.review.push({
+            kind: 'rejected', uid: r.uid, error: r.error || 'rejected',
+            conflict_id: r.conflict_id == null ? null : r.conflict_id,
+            at: new Date().toISOString(), status: 'needs_review',
+          });
+        }
+        saveReview();
         S.queue = S.queue.filter(op => !dead.has(op.uid));
-        toast(fa(rejected.length) + ' تغییر رد شد (دسترسی یا اعتبار)', 'err');
+        toast(fa(rejected.length) + ' تغییر رد شد — نیازمند بررسی مدیر', 'err');
       } else {
         const done = new Set(batch.map(o => o.uid));
         S.queue = S.queue.filter(op => !done.has(op.uid));
       }
       if (conflicts.length) {
         for (const c of conflicts) {
+          /* D‑28: هر دو نسخه می‌مانند. نسخهٔ سرور نمایش داده می‌شود، ولی
+             نسخهٔ محلی در فهرست «نیازمند بررسی» برای تصمیم مجاز نگه داشته
+             می‌شود و هیچ‌گاه خودکار «حل‌شده» به حساب نمی‌آید. */
+          const local = S.queue.find(op => op.uid === c.uid) || null;
+          S.review.push({
+            kind: 'conflict', uid: c.uid, conflict_id: c.conflict_id == null ? null : c.conflict_id,
+            collection: c.collection, id: c.id,
+            server_version: c.server_version,
+            local: local ? local.data : null, server: c.server || null,
+            at: new Date().toISOString(), status: 'needs_review',
+          });
           if (c.server) {
             if (!S.data[c.collection]) S.data[c.collection] = new Map();
             S.data[c.collection].set(Number(c.id), c.server);
           }
           S.queue = S.queue.filter(op => op.uid !== c.uid && !(op.collection === c.collection && c.id != null && Number(op.id) === Number(c.id)));
         }
-        toast('تعارض در ' + fa(conflicts.length) + ' رکورد — نسخهٔ سرور اعمال شد', 'err');
+        saveReview();
+        toast('تعارض در ' + fa(conflicts.length) + ' رکورد — هر دو نسخه نگه داشته شد؛ نیازمند تصمیم', 'err');
       }
       saveQueue();
     }

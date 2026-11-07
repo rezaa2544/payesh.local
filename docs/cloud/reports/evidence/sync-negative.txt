@@ -1,0 +1,7 @@
+# آزمون‌های منفیِ ردیف ۲۷ — همگام‌سازی/آفلاین
+generated_by: docs/cloud/reports/evidence/verify-sync-negative.sh
+head: 5556b8264d0509972cd34a19d1a75e729730e89d
+generated_at_utc: 2026-11-07T09:24:31Z
+mutations: N1 conflict-record, N2 resolve-role, N3 idempotency, N4 base=0-OCC, N5 restart-durability
+
+SYNC-NEGATIVE-OK checks=5
