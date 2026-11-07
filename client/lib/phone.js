@@ -23,6 +23,7 @@
     device: 'payesh.phone.device',
     verifier: 'payesh.phone.verifier',
     tickets: 'payesh.phone.tickets',
+    dticket: 'payesh.phone.dticket',
     data: 'payesh.phone.data',
     rev: 'payesh.phone.rev',
     outbox: 'payesh.phone.outbox',
@@ -75,6 +76,29 @@
     try { return localStorage.getItem(LS.token) || ''; } catch (e) { return ''; }
   }
 
+  /* تیکت دستگاه ۲۰۰ روزه (تصمیم مالک). امضای سرور؛ روی گوشی فقط نگه‌داری می‌شود */
+  function deviceTicket() {
+    try {
+      const v = JSON.parse(localStorage.getItem(LS.dticket) || 'null');
+      if (!v || !v.ticket) return null;
+      const at = Date.parse(v.expires_at || '');
+      if (isFinite(at) && at < Date.now() + 86400_000) return null; /* یک روز پیش از انقضا تازه شود */
+      return v;
+    } catch (e) { return null; }
+  }
+
+  function saveDeviceTicket(dt) {
+    if (!dt || !dt.ticket) return null;
+    const cur = {
+      ticket: String(dt.ticket), device_id: dt.device_id || '',
+      issued_at: dt.issued_at || new Date().toISOString(),
+      expires_at: dt.expires_at || '', ttl_days: dt.ttl_days || 200,
+    };
+    try { localStorage.setItem(LS.dticket, JSON.stringify(cur)); } catch (e) { /* noop */ }
+    if (cur.device_id) { try { localStorage.setItem(LS.device, cur.device_id); } catch (e) { /* noop */ } }
+    return cur;
+  }
+
   async function api(path, opts) {
     opts = opts || {};
     const base = apiBase();
@@ -125,13 +149,20 @@
       tickets: j.tickets,
     };
     if (cur.device_id) { try { localStorage.setItem(LS.device, cur.device_id); } catch (e) { /* noop */ } }
+    if (j.device_ticket) saveDeviceTicket(j.device_ticket);
     writeJSON(LS.tickets, cur);
     return cur;
   }
 
   async function refreshTickets() {
-    if (!token()) return null;
-    const j = await api('/api/phone/ticket', { method: 'POST', body: { device_id: localStorage.getItem(LS.device) || '' } });
+    const dt = deviceTicket();
+    if (!token() && !dt) return null;
+    const headers = dt ? { 'X-Phone-Ticket': dt.ticket } : {};
+    const j = await api('/api/phone/ticket', {
+      method: 'POST',
+      headers,
+      body: { device_id: localStorage.getItem(LS.device) || '' },
+    });
     return saveTickets(j);
   }
 
@@ -332,6 +363,7 @@
       try { localStorage.setItem(LS.token, j.token || ''); } catch (e) { /* noop */ }
       writeJSON(LS.user, j.user || null);
       saveTickets(j);
+      saveDeviceTicket(j.device_ticket);
       const v = localVerifier(password);
       if (v) { try { localStorage.setItem(LS.verifier, v); } catch (e) { /* noop */ } }
       return { ok: true, user: j.user || null, online: true };
@@ -516,6 +548,14 @@
       text: t ? (fresh ? 'این گوشی تیکت معتبر دارد (بدون هیچ کلیدی)' : 'تیکت این گوشی منقضی شده — یک‌بار به مدرسه وصل شوید') : 'این گوشی هنوز تیکت ندارد — یک‌بار با شماره و رمز وارد شوید',
       detail: t && t.tickets && t.tickets.outbox_put ? String(t.tickets.outbox_put.expires_at || '') : '',
     });
+    const dt = deviceTicket();
+    steps.push({
+      ok: !!dt || !!t,
+      text: dt
+        ? 'تیکت دستگاه تا ' + faDigits(String(dt.expires_at || '').slice(0, 10)) + ' معتبر است (۲۰۰ روز)'
+        : 'تیکت دستگاه ۲۰۰ روزه هنوز روی گوشی نیست — یک‌بار وارد شوید',
+      detail: dt ? String(dt.expires_at || '') : '',
+    });
     const user = lastUser();
     if (user) {
       steps.push({ ok: true, text: 'حساب این گوشی: ' + String(user.name || ''), detail: String(user.role || '') });
@@ -540,6 +580,6 @@
   root.PayeshPhone = {
     ready, adopt, learnFromServer, diagnose, login, verify, pullData, send, pendingCount,
     readRev, bumpRev, lastUser, normPhone, saveConfig, storedConfig, bakedConfig,
-    drainQueue, hasKeys, apiBase, setBase,
+    drainQueue, hasKeys, apiBase, setBase, deviceTicket, saveDeviceTicket,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -175,7 +175,59 @@ function actorFrom(req) {
    گوشی هیچ کلیدی نمی‌گیرد: فقط چند نشانی امضاشده که خودشان منقضی می‌شوند
    و هرکدام فقط به یک فایل و یک عمل اجازه می‌دهند. تیکت‌ها به همان مدرسه
    (پیشوند صندوقچه) و همان کاربر بسته‌اند؛ کلید قابل‌جا‌به‌جا‌شدن نیست. */
-const PHONE_TICKET_TTL = 7 * 24 * 3600; /* حداکثر عمر مجاز SigV4 */
+const PHONE_TICKET_TTL = 7 * 24 * 3600;      /* سقف مطلق SigV4 — قابل افزایش نیست */
+const PHONE_DEVICE_TTL = 200 * 24 * 3600;    /* تصمیم مالک: تیکت دستگاه گوشی ۲۰۰ روز */
+
+/* ── تیکت دستگاه (۲۰۰ روز) ───────────────────────────────────────────
+   امضای خودِ سرور (HMAC) روی «کاربر + دستگاه + انقضا». گوشی بدون نشست و
+   بدون هیچ کلیدی می‌تواند تیکت‌های کوتاه SigV4 را تازه کند. کلید امضا در
+   متادیتای سرور می‌ماند و هرگز به کلاینت نمی‌رود. */
+function deviceTicketKey(store) {
+  const rec = store.getMeta('phone:ticket-key', null);
+  if (rec && rec.secret) return rec.secret;
+  const secret = crypto.randomBytes(32).toString('hex');
+  store.setMeta('phone:ticket-key', { secret, created_at: new Date().toISOString() });
+  return secret;
+}
+
+function deviceTicketMac(store, userId, device, exp) {
+  return crypto.createHmac('sha256', deviceTicketKey(store))
+    .update([Number(userId), device, exp].join('.'))
+    .digest('base64url');
+}
+
+function issueDeviceTicket(store, user, deviceRaw) {
+  const device = phoneDeviceId(deviceRaw);
+  const exp = Date.now() + PHONE_DEVICE_TTL * 1000;
+  return {
+    ticket: [Number(user.id), device, exp].join('.') + '.' + deviceTicketMac(store, user.id, device, exp),
+    device_id: device,
+    issued_at: new Date().toISOString(),
+    expires_at: new Date(exp).toISOString(),
+    ttl_days: Math.round(PHONE_DEVICE_TTL / 86400),
+  };
+}
+
+/* فقط دادهٔ امضاشدهٔ سرور پذیرفته می‌شود؛ هویت هرگز از بدنهٔ کلاینت نمی‌آید */
+function verifyDeviceTicket(store, raw) {
+  const parts = String(raw || '').trim().split('.');
+  if (parts.length !== 4) return null;
+  const [uid, device, exp, mac] = parts;
+  const userId = Number(uid);
+  const expires = Number(exp);
+  if (!userId || !device || !expires) return null;
+  if (!/^[A-Za-z0-9_-]{40,64}$/.test(mac)) return null;
+  const expect = deviceTicketMac(store, userId, device, expires);
+  const a = Buffer.from(mac), b = Buffer.from(expect);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  if (expires < Date.now()) return null;
+  const user = store.all('users').find(u => Number(u.id) === userId);
+  if (!user || user.active === 0 || user.active === false || user.deleted_at) return null;
+  /* ابطال صریح دستگاه (فهرست ابطال سمت سرور) هم تیکت را باطل می‌کند */
+  const revoked = store.getMeta('phone:revoked-devices', null);
+  if (revoked && Array.isArray(revoked.list) && revoked.list.includes(device)) return null;
+  return { user, device, expires_at: new Date(expires).toISOString() };
+}
 
 function phoneDeviceId(raw) {
   const s = String(raw || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
@@ -500,11 +552,36 @@ async function api(req, res, url, ip) {
     });
     if (!r.ok) return json(r, 401);
     const t = phoneTickets(store, r.user, body.device_id);
+    /* تیکتی که گوشی نگه می‌دارد ۲۰۰ روز زنده است؛ تیکت‌های فایل کوتاه‌عمرند */
+    const dt = issueDeviceTicket(store, r.user, (t.ok && t.device_id) || body.device_id);
     /* تیکت نگرفت (حافظهٔ ابری تنظیم نیست) هم ورود موفق است؛ گوشی در صف محلی می‌نویسد */
     return json(Object.assign({
       ok: true, token: r.session, user: auth.publicUser(r.user),
       expires_hours: auth.SESSION_HOURS, keyless: true,
+      device_ticket: dt,
     }, t.ok ? t : { tickets: null, error_cloud: t.error }));
+  }
+
+  /* تازه‌سازی تیکت فایل‌ها با تیکت دستگاه (۲۰۰ روز) — بدون نشست، بدون کلید.
+     هویت فقط از تیکت امضاشدهٔ سرور خوانده می‌شود، نه از بدنه/هدر قابل‌دستکاری. */
+  if (p === '/api/phone/ticket' && m === 'POST') {
+    const ip = (req.socket && req.socket.remoteAddress) || 'phone';
+    if (!rateLimit('phone-ticket:' + ip, 120, 10 * 60_000)) return json({ ok: false, error: 'too_many' }, 429);
+    const headerTicket = String(req.headers['x-phone-ticket'] || '');
+    let body = {};
+    try { body = await readBody(req); } catch (e) { body = {}; }
+    const dt = verifyDeviceTicket(store, headerTicket || body.device_ticket);
+    if (!dt) {
+      /* اگر نشست معتبر دارد، همان مسیر قبلی؛ وگرنه fail-closed */
+      const s = actorFrom(req);
+      if (!s) return json({ ok: false, error: 'bad_device_ticket' }, 401);
+      const t2 = phoneTickets(store, s.user, body.device_id);
+      if (!t2.ok) return json(t2, 409);
+      return json(Object.assign(t2, { device_ticket: issueDeviceTicket(store, s.user, t2.device_id) }));
+    }
+    const t = phoneTickets(store, dt.user, dt.device);
+    if (!t.ok) return json(t, 409);
+    return json(Object.assign(t, { device_ticket: issueDeviceTicket(store, dt.user, dt.device) }));
   }
 
   /* از این‌جا به بعد نیاز به نشست */
@@ -604,15 +681,6 @@ async function api(req, res, url, ip) {
     if (!outbox.SERVER_ROLES.has(actor.role)) return json({ ok: false, error: 'forbidden' }, 403);
     const r = await outbox.publishAll(store);
     return json(Object.assign({ ok: !!(r.auth && r.auth.ok) }, r));
-  }
-
-  /* تازه‌سازی تیکت گوشی (نشست لازم است) — همچنان بدون هیچ کلیدی */
-  if (p === '/api/phone/ticket' && m === 'POST') {
-    let body = {};
-    try { body = await readBody(req); } catch (e) { body = {}; }
-    const t = phoneTickets(store, actor.user, body.device_id);
-    if (!t.ok) return json(t, 409);
-    return json(t);
   }
 
   if (p === '/api/outbox/snapshot' && m === 'GET') {

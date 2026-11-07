@@ -1300,6 +1300,66 @@ async function waitFor(fn, ms = 15000) {
     console.log('   F04-OK checks=34 tickets=' + Object.keys(tickets).length + ' client_files=' + clientFiles.length);
   });
 
+  await test('تیکت دستگاه ۲۰۰ روزه: تازه‌سازی بدون نشست و هویت فقط از امضای سرور', async () => {
+    const deepKeys = (v, out = []) => {
+      if (!v || typeof v !== 'object') return out;
+      for (const k of Object.keys(v)) { out.push(k); deepKeys(v[k], out); }
+      return out;
+    };
+    const cfg = await req('/api/admin/cloud', { method: 'POST', token: managerToken, body: {
+      endpoint: 'http://127.0.0.1:9', bucket: 'payesh-ttl200', region: 'ir-central1',
+      accessKey: 'AKIATTL200EXAMPLE1', secret: 'TTL200-secret-value-0123456789', prefix: 'payesh/',
+    } });
+    assert.strictEqual(cfg.data.ok, true, 'پیکربندی آزمون ذخیره شد');
+    const login = await req('/api/phone/login', {
+      method: 'POST',
+      body: { phone: '09120000001', password: 'madrese1404', device_id: 'dev-ttl200' },
+    });
+    assert.strictEqual(login.data.ok, true, 'ورود گوشی');
+    const dt = login.data.device_ticket;
+    assert.ok(dt && dt.ticket, 'تیکت دستگاه صادر شد');
+    assert.strictEqual(dt.ttl_days, 200, 'عمر اعلام‌شده = ۲۰۰ روز');
+    const days = (Date.parse(dt.expires_at) - Date.now()) / 86400000;
+    assert.ok(days > 199 && days <= 200.01, 'عمر واقعی تیکت ۲۰۰ روز است (شد ' + days.toFixed(2) + ')');
+    assert.ok(!deepKeys(login.data).includes('secret'), 'هیچ رازی همراه تیکت نیست');
+
+    const call = async (ticket, body) => {
+      const r = await fetch(BASE + '/api/phone/ticket', {
+        method: 'POST',
+        headers: Object.assign({ 'content-type': 'application/json' }, ticket ? { 'x-phone-ticket': ticket } : {}),
+        body: JSON.stringify(body || {}),
+      });
+      let j = null; try { j = await r.json(); } catch (e) { j = null; }
+      return { status: r.status, data: j };
+    };
+
+    /* ۱) بدون نشست، فقط با تیکت دستگاه: تیکت فایل‌ها تازه می‌شود */
+    const ok = await call(dt.ticket, { device_id: 'dev-ttl200' });
+    assert.strictEqual(ok.status, 200, 'تازه‌سازی بدون نشست: ' + JSON.stringify(ok.data).slice(0, 160));
+    assert.ok(ok.data.tickets && ok.data.tickets.outbox_put, 'تیکت نوشتن صادر شد');
+    assert.ok(ok.data.device_ticket && ok.data.device_ticket.ticket, 'تیکت دستگاه هم تمدید/بازگشت داده شد');
+
+    /* ۲) هویت از تیکت می‌آید نه از بدنه: دستگاه/کاربر جعلی بی‌اثر است */
+    const spoof = await call(dt.ticket, { device_id: 'dev-evil', user_id: 2, tenant_id: 999, school_id: 99 });
+    assert.strictEqual(spoof.status, 200);
+    assert.strictEqual(spoof.data.device_id, 'dev-ttl200', 'دستگاه از تیکت خوانده می‌شود، نه بدنه');
+    assert.ok(Object.values(spoof.data.tickets).every(t => !String(t.key).includes('dev-evil')), 'هیچ تیکتی برای دستگاه جعلی صادر نشد');
+    assert.ok(spoof.data.tickets.person_get.key.endsWith('/data/person/1.json'), 'شخص از تیکت (کاربر ۱) است، نه از user_id بدنه');
+
+    /* ۳) دستکاری payload یا امضا ⇒ رد قطعی */
+    const parts = dt.ticket.split('.');
+    const tamperedExp = [parts[0], parts[1], String(Number(parts[2]) + 86400000 * 30), parts[3]].join('.');
+    assert.strictEqual((await call(tamperedExp, {})).status, 401, 'تمدید دستی انقضا رد شد');
+    const tamperedUser = ['2', parts[1], parts[2], parts[3]].join('.');
+    assert.strictEqual((await call(tamperedUser, {})).status, 401, 'جعل کاربر رد شد');
+    const tamperedMac = dt.ticket.slice(0, -2) + (dt.ticket.slice(-2) === 'aa' ? 'bb' : 'aa');
+    assert.strictEqual((await call(tamperedMac, {})).status, 401, 'امضای جعلی رد شد');
+    assert.strictEqual((await call('', { device_id: 'dev-ttl200' })).status, 401, 'بدون تیکت و بدون نشست: بسته');
+
+    const reset = await req('/api/admin/cloud/reset', { method: 'POST', token: managerToken });
+    assert.strictEqual(reset.data.ok, true, 'پیکربندی آزمون پاک شد');
+  });
+
   await test('صندوقچه از سرور آماده است و هیچ اعتبارنامه‌ای به کلاینت نمی‌رسد (D‑23/F‑04)', async () => {
     const cc = await req('/api/cloud/config', { token: managerToken });
     assert.strictEqual(cc.data.ok, true);
