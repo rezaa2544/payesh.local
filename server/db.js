@@ -243,6 +243,14 @@ class Store {
 
   /* ── audit ── */
   audit(entry) {
+    /* F‑01: هیچ رمز/هش/وریفایری در لاگ حسابرسی نمی‌نشیند */
+    const clean = (v) => {
+      if (v == null || typeof v !== 'object') return v;
+      const out = Object.assign({}, v);
+      for (const k of ['password_hash', 'phone_hash', 'password_plain', 'password_enc', '__password_verifier', 'secret', 'accessKey']) delete out[k];
+      return out;
+    };
+    entry = Object.assign({}, entry, { before: clean(entry.before), after: clean(entry.after) });
     this.db.prepare(
       `INSERT INTO audit(at,user_id,role,device_id,collection,record_id,action,before,after,ip)
        VALUES(?,?,?,?,?,?,?,?,?,?)`

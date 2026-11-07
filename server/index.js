@@ -45,7 +45,8 @@ const PORT = Number(process.env.PORT || process.env.SERVER_PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = process.env.PAYESH_DATA || path.join(ROOT, 'data');
 /* نقش‌هایی که آینه/پشتیبان را می‌بینند و می‌توانند بازیابی کنند: مدیر و عوامل اجرایی */
-const BACKUP_ROLES = new Set(['manager', 'teacher', 'counselor', 'guard']);
+/* F‑01: فایل کامل داده/بکاپ فقط برای مدیر — هیچ نقش دیگری کل پایگاه را نمی‌گیرد */
+const BACKUP_ROLES = new Set(['manager']);
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const MIRROR_DIR = path.join(DATA_DIR, 'mirror');
 const DAILY_BACKUP_DIR = path.join(BACKUP_DIR, 'daily');
@@ -87,6 +88,14 @@ const TENANCY = tenancy.init({
    ساخته می‌شود (کد ملی، و اگر نبود رمز تصادفی) و در فهرست کاربران برای
    مدیر نمایش داده می‌شود. پس از تعمیر، فایل ورودِ گوشی هم دوباره منتشر
    می‌شود تا همان لحظه روی گوشی کار کند. */
+/* F‑01: پاک‌سازی یک‌بارهٔ رمزهای خام + رمزنگاری در حالت سکون */
+try {
+  const mig = auth.migrateSecrets(store);
+  if (mig.moved) {
+    process.env.PAYESH_LOG !== '0' && console.log('🔐 ' + mig.moved + ' رمز قابل‌بازخوانی رمزنگاری شد (بدون متن خام)');
+  }
+} catch (e) { /* بی‌صدا */ }
+
 (function repairCredentials() {
   try {
     let fixed = 0;
@@ -94,12 +103,13 @@ const TENANCY = tenancy.init({
       if (u.active === false) continue;
       if (!auth.credentialsFor(u)) continue;              /* شماره ندارد؛ نام کاربری ممکن نیست */
       if (u.password_hash && u.phone_hash) continue;       /* سالم است */
-      const patched = auth.applyDefaultCredentials(u);
+      const patched = auth.applyDefaultCredentials(u, store);
       if (patched.password_hash) {
         store.update('users', u.id, {
           password_hash: patched.password_hash,
           phone_hash: patched.phone_hash || patched.password_hash,
-          password_plain: patched.password_plain || u.password_plain || '',
+          password_enc: patched.password_enc || u.password_enc || null,
+          password_plain: undefined,
         });
         fixed += 1;
       }
@@ -623,6 +633,24 @@ async function api(req, res, url, ip) {
     return json({ ok: true });
   }
 
+  /* F‑01: بستن همهٔ نشست‌ها/دستگاه‌های همین کاربر (مثلاً گوشی گم شده) */
+  if (p === '/api/auth/revoke-all' && m === 'POST') {
+    let body = {};
+    try { body = await readBody(req); } catch (e) { body = {}; }
+    const keepCurrent = !!body.keep_current;
+    const r = auth.revokeAll(store, actor.user.id, keepCurrent ? actor.session.token_hash : null);
+    return json(r);
+  }
+
+  /* F‑01: مدیر می‌تواند نشست/دستگاه یک کاربر را باطل کند (کاربر اخراج‌شده) */
+  const rv = p.match(/^\/api\/admin\/users\/(\d+)\/revoke$/);
+  if (rv && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const uid = Number(rv[1]);
+    if (!store.get('users', uid)) return json({ ok: false, error: 'not_found' }, 404);
+    return json(auth.revokeAll(store, uid, null));
+  }
+
   if (p === '/api/auth/transfer' && m === 'POST') {
     const r = auth.createTransfer(store, actor.user.id, actor.device ? actor.device.id : null);
     return json(Object.assign(r, { public_url: cfg.publicUrl(store) || null }));
@@ -635,7 +663,7 @@ async function api(req, res, url, ip) {
       ok: true, server_time: nowISO(),
       school: { id: 1, name: school.name, type: school.type, level: school.level, city: school.city, capabilities: school.capabilities || {} },
       year: { title: year.title || '' },
-      user: Object.assign({}, userRow(actor.user), { password: auth.passwordOf(store, actor.user) }),
+      user: userRow(actor.user),
       role: actor.role,
       counts: {
         users: store.count('users'), classes: store.count('classes'),
@@ -1623,7 +1651,7 @@ function importUsers(body) {
         saved = store.update('users', existing.id, patch);
         updated += 1;
       } else {
-        saved = store.insert('users', auth.applyDefaultCredentials(Object.assign({ created_at: nowISO() }, base)));
+        saved = store.insert('users', auth.applyDefaultCredentials(Object.assign({ created_at: nowISO() }, base), store));
         if (nid) createdNids.add(nid);
         created.push(userRow(saved));
       }
@@ -1666,7 +1694,7 @@ function importUsers(body) {
               name: pname || (rel + ' ' + name), role: 'parent',
               national_id: pnid || '', phone: free,
               active: true, school_id: 1, created_at: nowISO(),
-            }));
+            }, store));
             parents += 1;
             /* نه شماره، نه کد ملی ۱۰ رقمی → راه ورودی ندارد؛ گزارش می‌شود */
             if (!free && !(pnid && pnid.length === 10)) {
@@ -1833,7 +1861,7 @@ try {
     const patch = {};
     if (pwIsPbkdf2 && !phIsPbkdf2) patch.phone_hash = u.password_hash;
     else if (!u.password_hash && !u.phone_hash) {
-      const next = auth.applyDefaultCredentials(u);
+      const next = auth.applyDefaultCredentials(u, store);
       if (next.password_hash) { patch.password_hash = next.password_hash; patch.phone_hash = next.password_hash; }
     }
     if (Object.keys(patch).length) { store.update('users', u.id, patch); fixed++; }

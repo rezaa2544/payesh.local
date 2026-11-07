@@ -1502,7 +1502,8 @@ function mbSize(n) {
   return fa(b) + ' بایت';
 }
 /* نقش‌هایی که پشتیبان و بازیابی را می‌بینند: مدیر و عوامل اجرایی */
-const BACKUP_ROLES_FA = ['manager', 'teacher', 'counselor', 'guard'];
+/* F‑01: کارت پشتیبان/فایل کامل داده فقط برای مدیر — بقیهٔ نقش‌ها کل پایگاه را نمی‌گیرند */
+const BACKUP_ROLES_FA = ['manager'];
 
 function mirrorCard() {
   const m = S.mirror;
@@ -1920,7 +1921,8 @@ function actUserCreds(id) {
   if (!u) return toast('این کاربر پیدا نشد — صفحه را تازه کنید', 'err');
   const c = (S.creds && S.creds[u.id]) || null;
   const username = String((c && c.phone) || u.phone || u.national_id || '');
-  const password = (c && c.password) || u.password_plain || u.password || '';
+  /* F‑01: رمز فقط از پاسخ مدیر (رمزنگاری‌شده در سرور) می‌آید، نه از دادهٔ محلی */
+  const password = (c && c.password) || '';
   S.modalTitle = 'کاربری — ' + fullName(u);
   modal(`<form data-form="user-creds">
     <input type="hidden" name="id" value="${esc(u.id)}">

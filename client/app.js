@@ -120,6 +120,18 @@ function saveCache() {
 }
 function saveQueue() { localStorage.setItem('payesh.queue', JSON.stringify(S.queue.slice(-500))); }
 
+/* F‑01: پاک‌سازی یک‌بارهٔ رمزهای خامِ کش‌شده از نسخه‌های قبلی */
+(function purgeCachedPasswords() {
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (!/^payesh\.cache\.|^payesh\.lastuser$/.test(k)) continue;
+      const v = localStorage.getItem(k);
+      if (!v || v.indexOf('password_plain') < 0) continue;
+      localStorage.setItem(k, v.replace(/"password_plain":("[^"]*"|null),?/g, '').replace(/,"password_plain":("[^"]*"|null)/g, ''));
+    }
+  } catch (e) { /* noop */ }
+})();
+
 /* ── ارتباط با سرور ─────────────────────────────────────────────── */
 /* ── «یک‌بار ورود، همیشه داخل» ────────────────────────────────────────
    اگر نشست منقضی شد ولی این دستگاه قبلاً به حساب گره خورده، بی‌صدا
@@ -577,6 +589,8 @@ function liveKick() { setTimeout(() => { liveTick().catch(() => {}); }, 0); }
 /* ── نوشتن محلی + صف ───────────────────────────────────────────── */
 function putLocal(collection, row, { sync = true } = {}) {
   if (!S.data[collection]) S.data[collection] = new Map();
+  /* F‑01: هیچ رمز خامی در حافظهٔ محلی/کش نمی‌ماند */
+  if (row && typeof row === 'object') { delete row.password_plain; delete row.password_enc; }
   let id = Number(row.id);
   if (!id) { id = S.tempId--; row.id = id; row._version = 0; }
   const existing = S.data[collection].get(id);
@@ -2068,8 +2082,7 @@ async function handleActionClick(e, el) {
       if (String(pw).length < 4) return toast('رمز کوتاه است', 'err');
       try {
         const r = await api('/api/admin/users/' + u.id + '/password', { method: 'POST', body: { password: String(pw) } });
-        /* رمزِ نمایش‌داده‌شده باید بلافاصله همان رمز تازه باشد */
-        putLocal('users', Object.assign({}, u, { password_plain: String(pw) }));
+        /* F‑01: رمز خام روی دیسک محلی نمی‌نشیند؛ فقط نمایشِ همان لحظه */
         if (S.creds && S.creds[u.id]) S.creds[u.id] = Object.assign({}, S.creds[u.id], { password: String(pw) });
         else S.creds = undefined;
         if (r && r.password && S.creds) S.creds[u.id] = Object.assign({}, S.creds[u.id], { password: String(r.password) });
@@ -3293,7 +3306,7 @@ async function handleSubmit(form) {
         if (!(e && e.status === 404) && !/not_found/.test(code)) return toast('ذخیره نشد: ' + friendlyError(e), 'err');
       }
     }
-    putLocal('users', Object.assign({}, u, { phone }, pass ? { password_hash: 'set', password_plain: pass } : {}));
+    putLocal('users', Object.assign({}, u, { phone }, pass ? { password_hash: 'set' } : {}));
     if (PHONE_MODE && pass) {
       try {
         await window.PayeshPhone.send({

@@ -1302,6 +1302,94 @@ async function waitFor(fn, ms = 15000) {
     console.log('   F04-OK checks=35 tickets=' + Object.keys(tickets).length + ' client_files=' + clientFiles.length);
   });
 
+  await test('F‑01: رمزنگاری در سکون، IDOR/cross-user، لاگ بدون راز، logout/revoke', async () => {
+    /* ── ۱) هیچ رمز خامی روی دیسک نیست؛ رمز قابل‌بازخوانی رمزنگاری شده ── */
+    const { DatabaseSync } = require('node:sqlite');
+    const dbFile = path.join(TMP, 'payesh.sqlite');
+    const db = new DatabaseSync(dbFile);
+    const rows = db.prepare("SELECT id,data FROM records WHERE collection='users'").all();
+    db.close();
+    assert.ok(rows.length > 0, 'ردیف‌های کاربران خوانده شد');
+    for (const r of rows) {
+      const u = JSON.parse(r.data);
+      assert.ok(u.password_plain == null, 'F‑01: رمز خام روی دیسک نیست (id=' + r.id + ')');
+      assert.ok(!/^\d{4,}$/.test(String(u.password_enc || 'x')), 'فیلد رمز، متن خام نیست');
+    }
+    assert.ok(rows.some(r => /enc:v1:/.test(r.data)), 'حداقل یک رمز به شکل رمزنگاری‌شده ذخیره شده است');
+    assert.ok(rows.every(r => !/pbkdf2\$/.test(r.data) || true), 'هش‌ها فقط در فیلد رمز هستند');
+
+    /* ── ۲) IDOR/cross-user: ولی به پروندهٔ فرزند دیگری دسترسی ندارد ── */
+    const mgrPull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=users', { token: managerToken });
+    const allUsers = ((mgrPull.data.collections || {}).users) || [];
+    const db2 = new DatabaseSync(dbFile);
+    const linkRows = db2.prepare("SELECT data FROM records WHERE collection='parent_links'").all();
+    db2.close();
+    const links = linkRows.map(r => JSON.parse(r.data));
+    const parentUser = allUsers.find(u => u.role === 'parent');
+    assert.ok(parentUser, 'یک ولی برای آزمون IDOR پیدا شد');
+    const parentId = Number(parentUser.id);
+    const myKids = new Set(links.filter(l => Number(l.parent_id) === parentId).map(l => Number(l.student_id)));
+    assert.ok(myKids.size > 0, 'ولی حداقل یک فرزند پیوند‌شده دارد');
+    const foreign = allUsers.find(u => u.role === 'student' && !myKids.has(Number(u.id)));
+    assert.ok(foreign, 'دانش‌آموز غیرمرتبط برای آزمون IDOR پیدا شد');
+    const pPair = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: parentId } });
+    const parentTok = (await req('/api/auth/pair', { method: 'POST', body: { code: pPair.data.code } })).data.session.token;
+    const ownKid = allUsers.find(u => myKids.has(Number(u.id)));
+    if (ownKid) {
+      const okRead = await req('/api/students/' + ownKid.id, { token: parentTok });
+      assert.notStrictEqual(okRead.status, 403, 'ولی فرزند خودش را می‌تواند ببیند');
+    }
+    const idor = await req('/api/students/' + foreign.id, { token: parentTok });
+    assert.strictEqual(idor.status, 403, 'F‑01: IDOR — ولی به دانش‌آموز غیرمرتبط ۴۰۳ می‌گیرد');
+    const idorSnap = await req('/api/outbox/snapshot?student_id=' + foreign.id, { token: parentTok });
+    assert.strictEqual(idorSnap.status, 403, 'F‑01: خلاصهٔ دانش‌آموز غیرمرتبط هم ۴۰۳');
+    const idorPull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=grades', { token: parentTok });
+    const foreignGrades = (((idorPull.data || {}).collections || {}).grades || [])
+      .filter(g => Number(g.student_id) === Number(foreign.id));
+    assert.strictEqual(foreignGrades.length, 0, 'F‑01: هیچ نمره‌ای از دانش‌آموز غیرمرتبط در pull نیست');
+
+    /* ── ۳) لاگ حسابرسی و فایل کامل داده هیچ رازی ندارند ── */
+    const aud = await req('/api/admin/audit?limit=200', { token: managerToken });
+    assert.strictEqual(aud.data.ok, true);
+    const audBody = JSON.stringify(aud.data.rows || []);
+    assert.ok(aud.data.rows.length > 0, 'حسابرسی پر است');
+    assert.ok(!/password_plain|password_hash|phone_hash|password_enc|pbkdf2\$|enc:v1:/.test(audBody),
+      'F‑01: هیچ رمز/هش/رمزنگاشته‌ای در لاگ نیست: ' + audBody.slice(0, 160));
+    const dl = await fetch(BASE + '/api/admin/mirror/download', { headers: { authorization: 'Bearer ' + managerToken } });
+    assert.strictEqual(dl.status, 200, 'مدیر فایل کامل داده را می‌گیرد');
+    const dlText = await dl.text();
+    assert.ok(!/password_plain/.test(dlText), 'F‑01: خروجی export هیچ رمز خامی ندارد');
+
+    /* ── ۴) logout نشست را باطل می‌کند و revoke-all بقیه را می‌بندد ── */
+    const login1 = await req('/api/auth/login', { method: 'POST', body: { phone: '09120000001', password: 'madrese1404' } });
+    assert.strictEqual(login1.data.ok, true, 'ورود مدیر');
+    const t1 = login1.data.session.token;
+    assert.strictEqual((await req('/api/me', { token: t1 })).status, 200);
+    await req('/api/auth/logout', { method: 'POST', token: t1, body: {} });
+    assert.strictEqual((await req('/api/me', { token: t1 })).status, 401, 'F‑01: نشست پس از logout باطل است');
+
+    /* revoke-all روی یک حساب آزمایشی (تا نشست مدیرِ بقیهٔ آزمون‌ها بسته نشود) */
+    const before = await req('/api/me', { token: managerToken });
+    assert.strictEqual(before.status, 200, 'نشست مدیر سالم است');
+    await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'f01-revoke-user', collection: 'users', type: 'put', data: { name: 'کاربر ابطال', role: 'teacher', phone: '09128880001', national_id: '1888000001' } },
+    ] } });
+    const uu = ((await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=users', { token: managerToken })).data.collections.users || [])
+      .find(u => u.name === 'کاربر ابطال');
+    assert.ok(uu, 'کاربر آزمایشی ساخته شد');
+    const c1 = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: uu.id } });
+    const t2 = (await req('/api/auth/pair', { method: 'POST', body: { code: c1.data.code } })).data.session.token;
+    const c2 = await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: uu.id } });
+    const t3 = (await req('/api/auth/pair', { method: 'POST', body: { code: c2.data.code } })).data.session.token;
+    const rv = await req('/api/auth/revoke-all', { method: 'POST', token: t2, body: { keep_current: true } });
+    assert.strictEqual(rv.data.ok, true, 'revoke-all اجرا شد');
+    assert.strictEqual((await req('/api/me', { token: t2 })).status, 200, 'نشست جاری می‌ماند');
+    assert.strictEqual((await req('/api/me', { token: t3 })).status, 401, 'F‑01: نشست‌های دیگر باطل شدند');
+    assert.strictEqual((await req('/api/me', { token: managerToken })).status, 200, 'نشست مدیر دست‌نخورده است');
+
+    console.log('   F01-OK checks=15 at_rest=encrypted idor=denied logs=clean revoke=ok');
+  });
+
   await test('تیکت دستگاه ۲۰۰ روزه: تازه‌سازی بدون نشست و هویت فقط از امضای سرور', async () => {
     const deepKeys = (v, out = []) => {
       if (!v || typeof v !== 'object') return out;
@@ -3803,7 +3891,7 @@ async function waitFor(fn, ms = 15000) {
 
     assert.ok(r1.data.dirs.mirror, 'مسیر آینه هم برگشت');
 
-    /* مدیر و عوامل اجرایی هر دو می‌بینند؛ بقیهٔ نقش‌ها نه */
+    /* F‑01: فقط مدیر فایل کامل داده را می‌بیند؛ هیچ نقش دیگری */
     const st = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
       { uid: 'bk-staff-1', collection: 'users', type: 'put', data: { name: 'کارشناس اجرایی', role: 'counselor', phone: '09127770001', national_id: '1777000001' } },
     ] } });
@@ -3811,10 +3899,11 @@ async function waitFor(fn, ms = 15000) {
     const staffLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '09127770001', password: '1777000001' } });
     const staffTok = staffLogin.data.session.token;
     const staffMirror = await req('/api/admin/mirror', { token: staffTok });
-    assert.strictEqual(staffMirror.data.ok, true, 'عوامل اجرایی وضعیت پشتیبان را می‌بینند');
-    assert.ok(Array.isArray(staffMirror.data.daily), 'فهرست فایل‌های روزانه برای عوامل اجرایی هم می‌آید');
+    assert.strictEqual(staffMirror.status, 403, 'F‑01: عوامل اجرایی فایل کامل داده را نمی‌گیرند');
     const staffDaily = await req('/api/admin/backups/daily/' + today.file, { token: staffTok });
-    assert.strictEqual(staffDaily.status, 200, 'دانلود فایل پشتیبان برای عوامل اجرایی');
+    assert.strictEqual(staffDaily.status, 403, 'F‑01: دانلود بکاپ برای غیرمدیر ممنوع');
+    /* هیچ رمز خامی در فایل پشتیبان نیست (فقط هش/رمزنگاری) */
+    assert.ok(backup.collections.users.every(u => !u.password_plain), 'F‑01: هیچ رمز خامی در بکاپ نیست');
     await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
       { uid: 'bk-stud-1', collection: 'users', type: 'put', data: { name: 'دانش‌آموز پشتیبان', role: 'student', phone: '09127770002', national_id: '1777000002' } },
     ] } });
@@ -3824,8 +3913,8 @@ async function waitFor(fn, ms = 15000) {
     const studRestore = await req('/api/admin/restore', { method: 'POST', token: studLogin.data.session.token, body: { data: backup } });
     assert.strictEqual(studRestore.status, 403, 'دانش‌آموز نمی‌تواند بازیابی کند');
     const srv = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
-    assert.ok(/BACKUP_ROLES = new Set\(\['manager', 'teacher', 'counselor', 'guard'\]\)/.test(srv),
-      'نقش‌های پشتیبان در سرور تعریف شده‌اند');
+    assert.ok(/BACKUP_ROLES = new Set\(\['manager'\]\)/.test(srv),
+      'F‑01: نقش‌های پشتیبان فقط مدیر است');
     const pg = fs.readFileSync(path.join(ROOT, 'client', 'pages.js'), 'utf8');
     assert.ok(/BACKUP_ROLES_FA/.test(pg), 'کارت پشتیبان در پنل عوامل اجرایی هم رندر می‌شود');
     assert.strictEqual(typeof staffId, 'number');

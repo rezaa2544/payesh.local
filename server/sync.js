@@ -134,12 +134,15 @@ function push(store, actor, body, ctx = {}) {
         const dup = auth.phoneTaken(store, incoming.phone, id != null ? id : null);
         if (dup) { rejected.push({ uid, error: 'duplicate_phone', detail: 'این شماره قبلاً برای ' + dup.name + ' ثبت شده' }); continue; }
       }
+      /* F‑01: هیچ رمز خام/رمزنگاری‌شده‌ای از کلاینت پذیرفته نمی‌شود */
+      delete incoming.password_plain;
+      delete incoming.password_enc;
       if (!existing) {
-        incoming = auth.applyDefaultCredentials(incoming);
+        incoming = auth.applyDefaultCredentials(incoming, store);
       } else {
         /* ویرایش نام/کلاس نباید رمز را پاک کند: هر فیلد رمزی که از دستگاه
            نیامده باشد، از همان رکورد سرور نگه داشته می‌شود. */
-        for (const f of ['password_hash', 'phone_hash', 'phone', 'national_id']) {
+        for (const f of ['password_hash', 'phone_hash', 'password_enc', 'phone', 'national_id']) {
           if (incoming[f] === undefined && existing[f] !== undefined) incoming[f] = existing[f];
         }
       }

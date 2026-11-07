@@ -12,7 +12,8 @@ D=docs/cloud/reports/evidence
 OUT="${F04_OUT:-$D/cc-f04-gate.txt}"
 TESTS="${F04_TESTS:-$D/mission-05-tests-run.log}"
 PRODUCT_PATHS="server client tests scripts package.json package-lock.json installer desktop install deploy"
-ALLOW="${F04_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs}"
+# دامنهٔ مجاز محصول به‌روز شد (re-scope، نه حذف): فایل‌های auth/sync/db برای F‑01
+ALLOW="${F04_ALLOW:-package.json package-lock.json server/index.js server/tenancy.js server/outbox.js server/cloud-defaults.js server/s3mem.js server/auth.js server/sync.js server/db.js server/policy.js server/live.js client/app.js client/pages.js client/lib/phone.js client/lib/s3mini.js client/lib/sigv4.js client/cloud-baked.js tests/run.js tests/phone-flow.js scripts/bake-cloud.mjs}"
 BASE="${F04_BASE:-f2fc472}"
 HEAD=$(git rev-parse HEAD)
 TS=$(date -u +%Y%m%dT%H%M%SZ)

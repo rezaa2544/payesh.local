@@ -5,7 +5,54 @@
    ۲) کاربر با کد + PIN دستگاهش را به حساب گره می‌زند ⇒ توکن دستگاه (۹۰ روز)
    ۳) هر بار باز کردن برنامه: PIN ⇒ نشست کوتاه (۱۲ ساعت)
    ─────────────────────────────────────────────────────────────────── */
+const crypto = require('crypto');
 const { nowISO, sha256, randomId, randomCode, pbkdf2Hash, verifySecret, normDigits } = require('./util');
+
+/* ── رمزنگاری دادهٔ حساس در حالت سکون (F‑01) ─────────────────────────
+   رمز قابل‌بازخوانی هرگز خام روی دیسک/بکاپ نمی‌ماند: AES‑256‑GCM با کلیدی
+   که فقط در متادیتای همین سرور است. کلید هرگز در API/باندل/صندوقچه نمی‌رود. */
+const AT_REST_META = 'secret:at-rest-key';
+function atRestKey(store) {
+  const rec = store.getMeta(AT_REST_META, null);
+  if (rec && rec.key) return Buffer.from(String(rec.key), 'base64');
+  const key = crypto.randomBytes(32);
+  store.setMeta(AT_REST_META, { key: key.toString('base64'), created_at: nowISO() });
+  return key;
+}
+function sealSecret(store, plain) {
+  if (plain == null || plain === '') return null;
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv('aes-256-gcm', atRestKey(store), iv);
+  const ct = Buffer.concat([c.update(String(plain), 'utf8'), c.final()]);
+  return 'enc:v1:' + iv.toString('base64url') + ':' + c.getAuthTag().toString('base64url') + ':' + ct.toString('base64url');
+}
+function openSecret(store, sealed) {
+  const parts = String(sealed || '').split(':');
+  if (parts.length !== 5 || parts[0] !== 'enc' || parts[1] !== 'v1') return null;
+  try {
+    const d = crypto.createDecipheriv('aes-256-gcm', atRestKey(store), Buffer.from(parts[2], 'base64url'));
+    d.setAuthTag(Buffer.from(parts[3], 'base64url'));
+    return Buffer.concat([d.update(Buffer.from(parts[4], 'base64url')), d.final()]).toString('utf8');
+  } catch (e) { return null; }
+}
+/* هیچ رمز خامی در ردیف کاربر نمی‌ماند؛ هر ردیف قدیمی همین‌جا پاک‌سازی می‌شود */
+function migrateSecrets(store) {
+  let moved = 0, purged = 0;
+  for (const u of (store.all('users') || [])) {
+    const patch = {};
+    if (u.password_plain) {
+      if (!u.password_enc) patch.password_enc = sealSecret(store, u.password_plain);
+      patch.password_plain = undefined;   /* undefined ⇒ کلید از JSON حذف می‌شود */
+      moved++;
+    } else if (Object.prototype.hasOwnProperty.call(u, 'password_plain')) {
+      patch.password_plain = undefined; purged++;
+    }
+    if (Object.keys(patch).length) {
+      try { store.update('users', u.id, patch); } catch (e) { /* noop */ }
+    }
+  }
+  return { moved, purged };
+}
 
 const DEVICE_DAYS = 365;          /* دستگاهِ مورد اعتماد یک سال می‌ماند */
 const SESSION_HOURS = 24;         /* نشست ۲۴ ساعت، ولی بی‌صدا تمدید می‌شود */
@@ -57,7 +104,7 @@ function setup(store, input) {
     school_id: 1, created_at: nowISO(),
     password_hash: pw ? verifier : null,
     phone_hash: pw ? verifier : null,
-    password_plain: pw ? String(pw) : null,   /* فقط برای اینکه مدیر بتواند رمز را بگوید */
+    password_enc: pw ? sealSecret(store, pw) : null,   /* رمز قابل‌بازخوانی: رمزنگاری‌شده */
   });
 
   const device = createDevice(store, manager.id, { name: 'سیستم مدیر', platform: 'server' });
@@ -180,7 +227,8 @@ function setPassword(store, userId, nextPw) {
   const verifier = pbkdf2Hash(pw);
   const saved = store.update('users', user.id, {
     password_hash: verifier, phone_hash: verifier,
-    password_plain: pw,     /* مدیر باید بتواند رمز فعلی را ببیند و به کاربر بگوید */
+    password_enc: sealSecret(store, pw),   /* قابل‌بازخوانی فقط برای مدیر، رمزنگاری‌شده */
+    password_plain: undefined,
   });
   return { ok: true, user: publicUser(saved) };
 }
@@ -190,12 +238,13 @@ function setPassword(store, userId, nextPw) {
    هنوز همان کد ملی باشد آن را برمی‌گردانیم و در پایگاه داده ثبت می‌کنیم. */
 function passwordOf(store, user) {
   if (!user) return null;
-  if (user.password_plain) return String(user.password_plain);
-  const nid = normDigits(user.national_id);
-  if (nid.length >= 4 && user.password_hash && verifySecret(nid, user.password_hash)) {
-    try { store.update('users', user.id, { password_plain: nid }); } catch (e) { /* noop */ }
-    return nid;
+  if (user.password_enc) {
+    const plain = openSecret(store, user.password_enc);
+    if (plain) return plain;
   }
+  /* رمز پیش‌فرض (کد ملی) فقط در لحظه بررسی خوانده می‌شود؛ ذخیرهٔ خام ندارد */
+  const nid = normDigits(user.national_id);
+  if (nid.length >= 4 && user.password_hash && verifySecret(nid, user.password_hash)) return nid;
   return null;
 }
 
@@ -319,6 +368,18 @@ function revokeDevice(store, deviceId) {
   return { ok: true };
 }
 
+function revokeAll(store, userId, exceptTokenHash) {
+  const now = nowISO();
+  if (exceptTokenHash) {
+    store.db.prepare('UPDATE sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL AND token_hash<>?').run(now, Number(userId), exceptTokenHash);
+  } else {
+    store.db.prepare('UPDATE sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL').run(now, Number(userId));
+  }
+  const n = store.db.prepare('SELECT COUNT(*) n FROM sessions WHERE user_id=? AND revoked_at=?').get(Number(userId), now);
+  try { store.audit({ user_id: Number(userId), role: 'system', action: 'revoke_all_sessions', collection: 'users', record_id: Number(userId) }); } catch (e) { /* noop */ }
+  return { ok: true, revoked: n ? n.n : 0 };
+}
+
 function logout(store, session) {
   if (!session) return { ok: true };
   store.db.prepare('UPDATE sessions SET revoked_at=? WHERE token_hash=?').run(nowISO(), session.token_hash);
@@ -358,12 +419,12 @@ function randomDigits(n) {
 }
 
 /* اگر کاربر رمز ندارد، از کد ملی ساخته می‌شود (فقط هنگام ساخت) */
-function applyDefaultCredentials(row) {
+function applyDefaultCredentials(row, store) {
   const c = credentialsFor(row);
   if (!c) return row;
   if (row.password_hash) return row;
   const verifier = pbkdf2Hash(c.password);
-  return Object.assign({}, row, { password_hash: verifier, phone_hash: verifier, password_plain: c.password });
+  return Object.assign({}, row, { password_hash: verifier, phone_hash: verifier, password_enc: store ? sealSecret(store, c.password) : null });
 }
 
 function phoneTaken(store, phone, exceptId) {
@@ -406,4 +467,5 @@ module.exports = {
   createTransfer, redeemTransfer,
   verifySession, listDevices, revokeDevice, logout, publicUser, prune, findUserByPhone,
   SESSION_HOURS,
+  sealSecret, openSecret, migrateSecrets, revokeAll,
 };
