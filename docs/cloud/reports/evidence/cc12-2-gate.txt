@@ -1,16 +1,16 @@
 # دروازهٔ CC‑12‑2 — اجرای RLS از مسیر محصول
 generated_by: docs/cloud/reports/evidence/gen-cc12-2-gate.sh
-head: bf0040ca16bdbc8680416462d3a70cdddd185579
+head: c6c7c8752d7c0a065007257f19721a884eb7f041
 evidence_head: e8730a29d3efcd2296ce4b430a0d446f47f8c884
-head_product_tree_sha256: 8868e99b4f9df65bb634ff62acb907d8502ba35738d830ab5f6f993097177b04
+head_product_tree_sha256: 9d991f7204f2dab18a734e05d698c926d840a298b573f42521482b3ce6df9e70
 base: f2fc472
-generated_at_utc: 2026-11-07T08:50:18Z
+generated_at_utc: 2026-11-07T08:56:29Z
 product_tree_sha256: 946af239795b4f2bca1b9b6a9137984359924289ff2e6f88d3cf5b6220297c89
 evidence: docs/cloud/reports/evidence/cc12-2-product-rls.txt
 postgres: 18.6
 assertions: 20
 assertions_failed: 0
-product_diff_files: 16
+product_diff_files: 19
 product_scope_outside: 0
 product_path: server/tenancy.js + server/index.js (/api/cloud/tenancy/records)
 base_tests: 88/0
