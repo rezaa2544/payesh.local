@@ -187,7 +187,8 @@ function ignoredClaims(claims) {
   if (!claims || typeof claims !== 'object') return out;
   for (const [where, obj] of Object.entries(claims)) {
     if (!obj || typeof obj !== 'object') continue;
-    for (const f of ['user_id', 'userId', 'role', 'tenant_id', 'tenantId', 'school_id', 'schoolId']) {
+    for (const f of ['user_id', 'userId', 'role', 'tenant_id', 'tenantId', 'school_id', 'schoolId',
+      'x-user-id', 'x-tenant-id', 'x-school-id']) {
       if (Object.prototype.hasOwnProperty.call(obj, f)) out.push(where + '.' + f);
     }
   }
