@@ -1,9 +1,9 @@
 # شاهد ردیف ۴۱ — حل تعارض نسخهٔ ۱ (field-level LWW با زمان سرور + قواعد دامنه)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/c8a5b522-payesh-local
-# head_sha: 7dabef4218b9852a3321b203bf767a441f78234c
+# head_sha: a547977c1c489460d0075339d806091c0cc86e9f
 # version: 0.8.56
-# generated_at: 2026-11-07T20:18:35Z
+# generated_at: 2026-11-07T20:21:46Z
 # node: v22.22.3
 # os: Linux 6.1.158+ x86_64
 # command: bash docs/cloud/reports/evidence/run-41-conflict.sh
