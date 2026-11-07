@@ -1,0 +1,57 @@
+# شاهد ردیف ۳۸ — اسکوپ سمت سرور بر اساس نقش (نه فیلتر کلاینت)
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/7ac102df-payesh-local
+# head_sha: 7a02d2150328b3a08f05fdc43b3a330a6971488f
+# generated_at: 2026-11-07T16:47:22Z
+# postgres: 18.6 (embedded-postgres — باینری بیرون از مخزن)
+# node: v22.22.3
+# os: Linux 6.1.158+ x86_64
+# command: bash docs/cloud/reports/evidence/run-38-scope.sh
+# gateway: :5651 (یک نمونه، PostgreSQL واقعی)
+
+## اجرای آزمون واقعی (۱۶ بررسی — Gateway HTTP + لایهٔ tenancy بدون HTTP)
+# migrate: statements=59 server=18.6
+PASS  SC-01  مدیر همهٔ ردیف‌های seed را از Gateway می‌بیند (پایه)  → rows=14
+PASS  SC-02  معلم فقط کلاس‌های خودش را pull می‌کند (حضور/نمره/برنامه/کاربران)  → rows=7 scope={"role":"teacher","all":false}
+PASS  SC-03  ولی فقط فرزند خودش را می‌بیند  → rows=8
+PASS  SC-04  دانش‌آموز فقط ردیف خودش (و کلاس خودش) را می‌بیند  → rows=6
+PASS  SC-05  معلم می‌تواند برای کلاس خودش حضور بنویسد (مثبت)  → applied=1
+PASS  SC-06  نوشتن معلم برای کلاس دیگر رد می‌شود و هیچ ردیفی نمی‌نویسد  → feed_before=15 feed_after=15 rejected=out_of_scope
+PASS  SC-07  معلم نمی‌تواند کالکشن غیرمجاز (users) بنویسد  → role_denied
+PASS  SC-08  ولی نمی‌تواند نمره بنویسد (role_denied)  → role_denied
+PASS  SC-09  ولی می‌تواند برای فرزند خودش درخواست مرخصی بدهد (مثبت)  → applied=1
+PASS  SC-10  ولی نمی‌تواند برای دانش‌آموز دیگر مرخصی بدهد (out_of_scope)  → out_of_scope
+PASS  SC-11  scope داخل درخواست (هدر و بدنه و query) بی‌اثر است  → push=403 pull_rows=9
+PASS  SC-12  کالکشن ناخوانا برای نقش ⇒ 403 forbidden_collection  → forbidden_collection / counselor=200
+PASS  SC-13  صفحه‌بندی درون اسکوپ: بدون تکرار و بدون جاافتادگی  → pages_rows=9 unique=yes
+PASS  SC-14  اسکوپ در لایهٔ tenancy هم اعمال می‌شود (نه فقط Gateway)  → applyOps=out_of_scope feed_rows=9
+PASS  SC-15  tombstone هم در اسکوپ می‌ماند (حذف ردیف بیرون از اسکوپ دیده نمی‌شود)  → teacher=hidden manager=visible
+PASS  SC-16  توکن بدون نقش معتبر ⇒ 403 و بدون افشای داده  → bad_role
+
+SC checks=16 pass=16 fail=0
+SCOPE-38-OK
+
+## اندازه‌گیری مستقیم روی همان پایگاه‌داده (اسکوپ = شرط SQL سمت سرور)
+product attendance=2
+product classes=2
+product grades=2
+product leaves=2
+product parent_links=1
+product schedule=2
+product users=4
+feed_rows=17
+
+## تأیید منفی: ردیف‌های بیرون از اسکوپ در DB هستند ولی از مسیر نقش دیده نمی‌شوند
+attendance_ids_in_db=200,210
+
+## عدم رگرسیون ۱: Gateway ردیف ۳۷ (۱۹ بررسی) روی PostgreSQL تازه
+PASS  GW-18  توان عبوری: ۳۰۰ عملیات در دسته‌های ۵۰تایی  → 300 ops · 378ms ≈794 op/s (دو نمونه)
+PASS  GW-19  مهاجرت Gateway: جدول‌های ops/quota با RLS اجباری ساخته شدند  → statements=59 tables=2
+gw_passed=19
+(gw37_exit=0)
+
+## عدم رگرسیون ۲: change-feed ردیف ۳۶ (۱۷ بررسی) روی PostgreSQL تازه
+CHANGE-FEED-36-OK
+(cf36_exit=0)
+
+SCOPE-38-OK

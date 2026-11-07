@@ -115,6 +115,7 @@ async function handle(req, res, url) {
   catch (e) { return json(res, e.status || 401, { ok: false, error: e.code || 'unauthorized' }); }
   const tenantId = claims.tid;
   const deviceId = deviceOf(req.headers);
+  /* نقش/کاربر فقط از توکن — هیچ سرآیند یا فیلدی آن را تعیین نمی‌کند */
 
   /* ── سهمیهٔ نرخ (مشترک بین نمونه‌ها، در دیتابیس) ───────────────────── */
   let quota;
@@ -135,8 +136,10 @@ async function handle(req, res, url) {
     const wantLimit = Number(url.searchParams.get('limit') || 200);
     const limit = Math.max(1, Math.min(PULL_MAX, Number.isFinite(wantLimit) ? wantLimit : 200));
     try {
+      /* اسکوپ نقش سمت سرور (ردیف ۳۸): scope فقط از claims توکن؛
+         هر مقدار scope در query/هدر/بدنه نادیده گرفته می‌شود. */
       const out = await tenancy.listFeed(pool, tenantId, {
-        sinceSeq, collection: url.searchParams.get('collection'), limit,
+        sinceSeq, collection: url.searchParams.get('collection'), limit, claims,
       });
       return json(res, 200, Object.assign({ ok: true, schema_version: 1, instance: INSTANCE, clamped_limit: limit }, out,
         { limits: { max_limit: PULL_MAX, default_limit: 200 } }), quotaHeaders);
@@ -159,7 +162,7 @@ async function handle(req, res, url) {
       return json(res, 413, { ok: false, error: 'too_many_ops', limit: tenancy.MAX_OPS_PER_REQUEST }, quotaHeaders);
     }
     try {
-      const out = await tenancy.applyOps(pool, tenantId, { ops, device_id: deviceId });
+      const out = await tenancy.applyOps(pool, tenantId, { ops, device_id: deviceId, claims });
       return json(res, 200, Object.assign({ ok: true, schema_version: 1, instance: INSTANCE }, out), quotaHeaders);
     } catch (e) {
       return json(res, e.status || 500, { ok: false, error: e.code || 'push_failed', detail: e.details || null }, quotaHeaders);
