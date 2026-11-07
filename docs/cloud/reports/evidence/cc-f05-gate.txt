@@ -1,0 +1,12 @@
+# دروازهٔ ردیف ۲۶ — tenancy/RLS بدنهٔ محصول (F‑05)
+generated_by: docs/cloud/reports/evidence/gen-f05-gate.sh
+head: c3f38919526436872905c10d0cc4c6fd256d1f0b
+generated_at_utc: 2026-11-07T10:03:16Z
+product_tree_sha256: cec2b3b403d0996dc04b2fb0b2a630f3f7cb9b00d47170088e0150e19ff282f1
+tests: 94 0
+postgres_witness: PASS F05-01..F05-12 (F05-PG checks=12 pass=12 fail=0)
+negatives: 5
+checks_passed: 32
+row-26: CLOSED
+
+F05-CLOSED checks=32 tests=94 0 pg=12/12 negatives=5

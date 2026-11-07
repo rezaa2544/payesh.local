@@ -6,6 +6,7 @@
    ─────────────────────────────────────────────────────────────────── */
 const { nowISO, normalizeMobile } = require('./util');
 const policy = require('./policy');
+const tenantCtx = require('./tenant-context');
 const auth = require('./auth');
 
 const ROW_LIMIT = 3000;          /* سقف ردیف هر کالکشن در هر درخواست */
@@ -227,8 +228,8 @@ function push(store, actor, body, ctx = {}) {
       }
     }
 
-    /* gate نقش + مالکیت */
-    incoming.school_id = 1;
+    /* F‑05: زمینهٔ مستأجر فقط از سرور/نشست — هیچ school_id/tenant_id کلاینتی پذیرفته نمی‌شود */
+    incoming = tenantCtx.stamp(incoming, actor);
     const gate = policy.canWriteRow(store, actor.user, role, collection, incoming, existing);
     if (!gate.ok) { rejected.push({ uid, error: gate.error }); continue; }
 

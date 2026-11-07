@@ -1,0 +1,31 @@
+# شاهد ردیف ۲۶ (F‑05) — tenancy/RLS بدنهٔ محصول روی PostgreSQL واقعی
+# تولید: bash docs/cloud/reports/evidence/run-f05-product-tenancy.sh
+# زمان: 2026-11-07T10:03:00Z
+# HEAD: c3f38919526436872905c10d0cc4c6fd256d1f0b
+# node: v22.22.3 · os: Linux 6.1.158+ x86_64
+# postgres version: 18.6 (باینری بیرون از مخزن؛ وابستگی محصول نیست)
+# product_path: server/tenancy.js + server/index.js (/api/cloud/tenancy/product/*)
+# migration: scripts/tenancy-migrate-product.js
+# product_tree_sha256: cec2b3b403d0996dc04b2fb0b2a630f3f7cb9b00d47170088e0150e19ff282f1
+
+PASS  F05-01  CRUD: درج کلاس در مستأجر A از مسیر محصول  → version=1
+PASS  F05-02  OCC: نسخهٔ کهنه ⇒ 409 و بدون نوشتن  → version=2
+PASS  F05-03  scope: ورودی کلاینت نمی‌تواند tenant/school را تعیین کند  → tenant=session-only
+PASS  F05-04  cross-tenant: خواندن/حذف/بروزرسانی دادهٔ A توسط B رد می‌شود  → deny=read,delete,export
+PASS  F05-05  join دو کالکشن در همان مستأجر  → rows=1
+PASS  F05-06  export مستأجر A کامل است و حذف‌شده‌ها را ندارد  → count=2
+PASS  F05-07  job: صف کار مستأجرمحور (enqueue/claim/complete)  → job=1
+PASS  F05-08  RLS حتی بیرون از اپلیکیشن: نقش runtime بدون زمینه ⇒ صفر ردیف  → rls=enforced
+PASS  F05-09  migration SQLite→PostgreSQL (مستأجر A)  → imported=7
+PASS  F05-10  rollback مهاجرت فقط ردیف‌های همان مستأجر را برمی‌گرداند  → rollback=tenant-scoped
+PASS  F05-11  بدون توکن ⇒ 401 (دسترسی به بدنهٔ محصول ممکن نیست)  → unauthorized
+PASS  F05-12  توکن دست‌کاری‌شده رد می‌شود (امضا)  → bad_signature
+
+F05-PG checks=12 pass=12 fail=0
+F05-PG-OK checks=12
+
+## آزمون پایهٔ محصول (رگرسیون)
+# command: bash docs/cloud/reports/evidence/run-tests-evidence.sh (npm test)
+# exit: 0
+F05-RLS-OK (product_body=26_collections postgres=18.6)
+EXIT=0 BASE_EXIT=0
