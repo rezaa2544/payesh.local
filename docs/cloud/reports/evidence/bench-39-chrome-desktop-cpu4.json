@@ -4,67 +4,67 @@
   "rows_requested": 100000,
   "chunk": 2000,
   "cpu_throttle_factor_claimed": 4,
-  "started_at": "2026-11-07T20:07:54.186Z",
+  "started_at": "2026-11-07T20:42:57.042Z",
   "env": {
-    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.0.0 Safari/537.36",
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
     "platform": "Win32",
     "hardware_concurrency": 8,
-    "device_memory_gb": 8,
+    "device_memory_gb": 16,
     "is_secure_context": true,
     "cross_origin_isolated": false,
     "has_measure_memory": false
   },
   "calibration": {
-    "calib_ms": 5826,
+    "calib_ms": 4063,
     "sink": 0
   },
   "mem_before": {
-    "used_mb": 1,
-    "total_mb": 2.8,
+    "used_mb": 30.2,
+    "total_mb": 33.4,
     "limit_mb": 4192
   },
   "storage_before": {
-    "usage_mb": 0,
-    "quota_mb": 10240
+    "usage_mb": 17.2,
+    "quota_mb": 10257.2
   },
-  "open_ms": 154,
-  "load_ms": 111127,
-  "rows_per_sec": 900,
+  "open_ms": 41,
+  "load_ms": 136563,
+  "rows_per_sec": 732,
   "mem_after_load": {
-    "used_mb": 26.6,
-    "total_mb": 32.7,
+    "used_mb": 52.5,
+    "total_mb": 54.4,
     "limit_mb": 4192
   },
   "count": 100000,
-  "count_ms": 760,
+  "count_ms": 532,
   "index_query": {
     "field": "class_id",
     "value": 1,
     "rows": 2500,
-    "ms": 1234
+    "ms": 888
   },
   "page_query": {
     "rows": 50,
-    "ms": 37
+    "ms": 18
   },
   "since_query": {
     "rows": 0,
-    "ms": 8
+    "ms": 6
   },
-  "reopen_ms": 2,
+  "reopen_ms": 1,
   "first_get_after_reopen_ms": 4,
   "first_get_found": true,
   "stat_after_reopen": 100000,
   "mem_after_reopen": {
-    "used_mb": 24.5,
-    "total_mb": 32.7,
+    "used_mb": 33.7,
+    "total_mb": 41.9,
     "limit_mb": 4192
   },
   "storage_after": {
-    "usage_mb": 45,
-    "quota_mb": 10285
+    "usage_mb": 76,
+    "quota_mb": 10316
   },
-  "finished_at": "2026-11-07T20:09:56.518Z",
+  "finished_at": "2026-11-07T20:45:23.103Z",
   "ok": true,
   "verdict": "BENCH39-OK"
 }
