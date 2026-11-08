@@ -1,6 +1,6 @@
 'use strict';
 /* ═══════════════════════════════════════════════════════════════════
-   آزمون سیاست شاخهٔ قفل‌شده (D-38) — ردیف ۵۹   (BP-01 .. BP-11)
+   آزمون سیاست شاخهٔ قفل‌شده (D-38) — ردیف ۵۹   (BP-01 .. BP-12)
 
    هر قاعده با یک مخزن git واقعیِ موقت سنجیده می‌شود (بدون شبکه):
      B1 کار روی main ممنوع · B2 عقب‌بودن از origin/main ·
@@ -178,6 +178,15 @@ check('BP-11', 'B5: عدد لخت در عنوان («تست ۶۰ روزه») ب�
   assert(r2.ok === false && r2.problems[0].prs.length === 2,
     'باید فقط دو PR صریح شمرده شود: ' + JSON.stringify(r2.problems));
   return 'explicit-only matching ok';
+});
+
+check('BP-12', 'B5: PR باز (mergedAt=null) هم «یک PR» حساب می‌شود', () => {
+  const list = [{ number: 116, title: 'feat(cloud): سیاست شاخه (ردیف ۵۹)', mergedAt: null, state: 'OPEN' }];
+  const r = mod.auditPrsPerRow(list, ['59']);
+  assert(r.ok === true, 'PR باز باید ردیف را سبز کند: ' + JSON.stringify(r.problems));
+  const r2 = mod.auditPrsPerRow(list.concat([{ number: 117, title: 'fix: ردیف ۵۹', mergedAt: null }]), ['59']);
+  assert(r2.ok === false, 'دو PR باز باید قرمز شود');
+  return 'open PR counted once';
 });
 
 console.log(`\nBP checks=${passed + failed} pass=${passed} fail=${failed}`);

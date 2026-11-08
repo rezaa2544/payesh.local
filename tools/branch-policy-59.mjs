@@ -165,7 +165,9 @@ export function evaluate({ cwd = REPO, prAudit = false, rows = [] } = {}) {
   if (prAudit && rows.length) {
     let list = [];
     try {
-      list = JSON.parse(execFileSync('gh', ['pr', 'list', '--state', 'merged', '--limit', '200', '--json', 'number,title,mergedAt'], { encoding: 'utf8', cwd }));
+      /* --state all: PR باز هم «یک PR برای این ردیف» است؛ وگرنه B5 تا لحظهٔ merge
+         همیشه قرمز می‌ماند و شاهدِ پیش از merge هرگز سبز نمی‌شود. */
+      list = JSON.parse(execFileSync('gh', ['pr', 'list', '--state', 'all', '--limit', '300', '--json', 'number,title,mergedAt,state'], { encoding: 'utf8', cwd }));
     } catch (e) { list = null; }
     if (list) {
       prCheck = auditPrsPerRow(list, rows);

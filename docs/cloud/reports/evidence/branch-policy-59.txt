@@ -1,5 +1,5 @@
 # شاهد ردیف ۵۹ — سیاست اجرا روی شاخهٔ قفل‌شده (B1..B5)
-# branch: arena/5124e3a6-payesh-local   head: 6dbd56b   at: 2026-11-08T04:39:12Z
+# branch: arena/5124e3a6-payesh-local   head: 1d4b035   at: 2026-11-08T04:39:45Z
 # POLICY_SINCE=2026-11-08T02:00:00Z
 
 ## بخش ۱ — سنجش قواعد روی همین مخزن
@@ -9,7 +9,7 @@
 # B4 سلامت main: همه merge/انتشار
 BRANCH-POLICY-59-OK
 
-## بخش ۲ — آزمون BP-01..BP-10 (مخزن‌های موقت، با کنترل منفی)
+## بخش ۲ — آزمون BP-01..BP-11 (مخزن‌های موقت، با کنترل منفی)
 PASS  BP-02  B1: کار روی main ⇒ قرمز  → B1 red
 PASS  BP-03  B2: شاخهٔ عقب‌مانده از origin/main ⇒ قرمز با تعداد کامیت  → شاخه از origin/main عقب است (1 کامیت)
 PASS  BP-04  B3: بازنویسی تاریخ شاخه (force-push) ⇒ قرمز  → B3 red
