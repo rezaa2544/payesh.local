@@ -22,6 +22,8 @@ BIN="$PGBASE/native/bin"
 LIB="$PGBASE/native/lib"
 PGPORT_=${CB_PGPORT:-5660}
 GWPORT=${CB_GWPORT:-5661}
+PGBPORT=${CB_PGBPORT:-5662}
+PGB_BIN=${PGBOUNCER_BIN:-$(command -v pgbouncer 2>/dev/null || true)}
 OUT=${CB_OUT:-$D/conn-budget-45.txt}
 JSON=${CB_JSON:-$D/conn-budget-45.json}
 CLIENTS=${CB_CLIENTS:-100}
@@ -52,9 +54,12 @@ GWLOG=$(mktemp)
 SAMPLER=$(mktemp --suffix=.mjs)
 STEPJSON=$(mktemp --suffix=.json)
 GWPID=""
+PGBPID=""
 
 cleanup() {
   [ -n "$GWPID" ] && kill "$GWPID" 2>/dev/null
+  [ -n "$PGBPID" ] && kill "$PGBPID" 2>/dev/null
+  [ -f "$DATA/pgbouncer.pid" ] && kill "$(cat "$DATA/pgbouncer.pid")" 2>/dev/null || true
   "$BIN/pg_ctl" -D "$DATA" stop -m immediate >/dev/null 2>&1
   rm -rf "$DATA" "$GWLOG" "$SAMPLER" "$STEPJSON"
 }
@@ -106,11 +111,16 @@ const { Client } = require("pg");
 ADMIN_URL="postgres://postgres@127.0.0.1:$PGPORT_/payesh_cb"
 RUNTIME_URL="postgres://payesh_runtime@127.0.0.1:$PGPORT_/payesh_cb"
 GATEWAY="http://127.0.0.1:$GWPORT"
+node -e '
+const { Client } = require("pg"); const tenancy = require("./server/tenancy.js");
+(async () => { const c = new Client({ connectionString: process.argv[1] }); await c.connect(); await tenancy.migrate(c); await c.end(); })()
+  .catch(e => { console.error(e.message); process.exit(1); });
+' "$ADMIN_URL" || { echo "BLOCKED — schema migration failed"; exit 3; }
 
-start_gateway() { # $1 = pool max
+start_gateway() { # $1 = pool max; $2 = optional PGURL
   [ -n "$GWPID" ] && { kill "$GWPID" 2>/dev/null; wait "$GWPID" 2>/dev/null; sleep 0.7; }
   : > "$GWLOG"
-  PORT=$GWPORT HOST=127.0.0.1 PGURL="$RUNTIME_URL" GW_SECRET="$SECRET" \
+  PORT=$GWPORT HOST=127.0.0.1 PGURL="${2:-$RUNTIME_URL}" GW_SECRET="$SECRET" \
     PAYESH_PG_POOL_MAX="$1" GW_QUOTA_MAX=100000000 GW_QUOTA_WINDOW_SEC=60 GW_PULL_MAX=1000 \
     GW_INSTANCE=cb-gw PAYESH_LOG=0 node server/gateway.js >> "$GWLOG" 2>&1 &
   GWPID=$!
@@ -121,6 +131,32 @@ start_gateway() { # $1 = pool max
 start_gateway 4 || {
   echo "BLOCKED — gateway did not start" >&2; tail -5 "$GWLOG" >&2
   { echo "BLOCKED — gateway did not start"; tail -5 "$GWLOG"; } > "$OUT"; exit 3; }
+
+PGB_RUNTIME_URL=""
+if [ -n "$PGB_BIN" ] && [ -x "$PGB_BIN" ]; then
+  printf '"payesh_runtime" ""\n"postgres" ""\n' > "$DATA/userlist.txt"
+  sed \
+    -e "s|^payesh = host=|payesh_cb = host=|" \
+    -e "s|host=db.internal port=5432 dbname=payesh user=payesh_runtime|host=127.0.0.1 port=$PGPORT_ dbname=payesh_cb user=payesh_runtime|" \
+    -e "s|listen_addr = 0.0.0.0|listen_addr = 127.0.0.1|" \
+    -e "s|listen_port = 6432|listen_port = $PGBPORT|" \
+    -e "s|auth_type = scram-sha-256|auth_type = trust|" \
+    -e "s|auth_file = /etc/pgbouncer/userlist.txt|auth_file = $DATA/userlist.txt|" \
+    deploy/pgbouncer/pgbouncer.ini > "$DATA/pgbouncer.ini"
+  cat >> "$DATA/pgbouncer.ini" <<EOF
+logfile = $DATA/pgbouncer.log
+pidfile = $DATA/pgbouncer.pid
+unix_socket_dir = $DATA
+admin_users = postgres
+stats_users = postgres
+EOF
+  "$PGB_BIN" --version | head -n 2
+  "$PGB_BIN" -d "$DATA/pgbouncer.ini" || { echo "BLOCKED — PgBouncer did not start"; exit 3; }
+  for _ in $(seq 1 50); do [ -f "$DATA/pgbouncer.pid" ] && break; sleep 0.1; done
+  PGBPID=$(cat "$DATA/pgbouncer.pid" 2>/dev/null || true)
+  PGB_RUNTIME_URL="postgres://payesh_runtime@127.0.0.1:$PGBPORT/payesh_cb"
+  node -e 'const {Client}=require("pg"); (async()=>{const c=new Client({connectionString:process.argv[1],connectionTimeoutMillis:2000}); await c.connect(); await c.query("select 1"); await c.end();})().catch(e=>{console.error(e.message);process.exit(1)})' "$PGB_RUNTIME_URL" || { echo "BLOCKED — PgBouncer not accepting PostgreSQL traffic"; exit 3; }
+fi
 
 {
   echo "# شاهد ردیف ۴۵ — بودجهٔ اتصال و pooling (transaction pooling، pool-wait اندازه‌گیری‌شده)"
@@ -136,7 +172,7 @@ start_gateway 4 || {
   echo
 
   echo "## بخش ۱ — فرمول بودجه، ممیزی حالت نشستی، انطباق PgBouncer"
-  node tools/conn-budget-45.mjs --instances 2 --pool 4 --cap 100
+  node tools/conn-budget-45.mjs --instances 2 --pool "$ENFORCE_POOL" --cap 100
   A1=$?
   echo
   echo "## بخش ۱b — آزمون‌های بودجه (اعتبارسنجی، کنترل منفی ممیزی، انطباق ini)"
@@ -184,6 +220,41 @@ start_gateway 4 || {
       if (bad.length) { console.error("POOL-WAIT-SLO-BREACH " + bad.join(" ")); process.exit(1); }
     ' "$SAMP" "$WAIT_MEAN_MS" "$WAIT_MAX_MS" "$PM" "$ENFORCE_POOL" || B=1
   done
+  PGB_EXIT=0
+  if [ -n "$PGB_RUNTIME_URL" ]; then
+    echo
+    echo "## بخش ۲b — PgBouncer واقعی (transaction pooling) زیر بار + read-your-writes"
+    start_gateway "$ENFORCE_POOL" "$PGB_RUNTIME_URL" || { echo "# gateway via PgBouncer did not start"; PGB_EXIT=1; }
+    if [ "$PGB_EXIT" -eq 0 ]; then
+      node "$SAMPLER" "$GATEWAY" "$((SECONDS_ * 1000))" > "$STEPJSON" & SPID=$!
+      PAYESH_PG_ADMIN_URL="$ADMIN_URL" PAYESH_PG_APP_URL="$PGB_RUNTIME_URL" PAYESH_TENANCY_SECRET="$SECRET" \
+        PAYESH_GW_URL="$GATEWAY" node tools/fleet-load-46.mjs \
+          --clients "$CLIENTS" --seconds "$SECONDS_" --procs "$PROCS" --json-out "$D/cb-pgbouncer.json" >/dev/null 2>&1
+      PR=$?; wait "$SPID" 2>/dev/null; SAMP=$(cat "$STEPJSON" 2>/dev/null)
+      [ "$PR" -ne 0 ] && PGB_EXIT=1
+      node -e '
+        const fs=require("fs"), j=JSON.parse(fs.readFileSync(process.argv[1],"utf8")), st=(j.stages||[])[0]||{};
+        const p=st.pull||{}, w=st.push||{};
+        console.log(`PGBOUNCER-LOAD clients=${process.argv[3]} rps=${st.rps_total} pull_p99=${p.p99}ms push_p99=${w.p99}ms errors=${((st.error_rate||0)*100).toFixed(2)}%`);
+      ' "$D/cb-pgbouncer.json" "$SAMP" "$CLIENTS" || PGB_EXIT=1
+      rm -f "$D/cb-pgbouncer.json"
+      PAYESH_GW_URL="$GATEWAY" PAYESH_PG_ADMIN_URL="$ADMIN_URL" PAYESH_TENANCY_SECRET="$SECRET" \
+        node tools/read-policy-52.mjs --devices 40 --rounds 2 || PGB_EXIT=1
+      node -e '
+        const {Client}=require("pg"); (async()=>{const c=new Client({connectionString:process.argv[1]}); await c.connect();
+          const r=await c.query("select count(*)::int n from pg_stat_activity where usename=$1",["payesh_runtime"]);
+          console.log(`PGBOUNCER-DB-CONNECTIONS active_or_idle=${r.rows[0].n} cap=12`);
+          await c.end(); if(r.rows[0].n>12) process.exit(1);
+        })().catch(e=>{console.error(e.message);process.exit(1)})
+      ' "$ADMIN_URL" || PGB_EXIT=1
+      [ "$PGB_EXIT" -eq 0 ] && echo "PGBOUNCER-TRANSACTION-POOL-OK"
+    fi
+    [ "$PGB_EXIT" -ne 0 ] && B=1
+  else
+    echo
+    echo "BLOCKED — PgBouncer executable missing; pass PGBOUNCER_BIN to run real-pooler evidence."
+    PGB_EXIT=3; B=1
+  fi
   : > "$STEPJSON"
 
   echo
@@ -202,11 +273,11 @@ start_gateway 4 || {
   echo "# budget_exit:     $A1"
   echo "# budget_test_exit: $A2"
   echo "# pool_load_exit:  $B"
+  echo "# pgbouncer_exit:  $PGB_EXIT"
   echo "# regression_exit: $R3"
-  echo "# NOTE: PgBouncer واقعی در این محیط اجرا نشده است (باینری موجود نیست)؛"
-  echo "#       آنچه سنجیده شد: transaction بودنِ کد (ممیزی خودکار)، انطباق ini با بودجه،"
-  echo "#       و pool-wait واقعی زیر بار هدف. اجرای pgbouncer فرایند جدا = OWNER."
-  if [ "$A1" -eq 0 ] && [ "$A2" -eq 0 ] && [ "$B" -eq 0 ] && [ "$R3" -eq 0 ]; then
+  echo "# PgBouncer واقعی از deploy/pgbouncer/pgbouncer.ini با DB محلی اجرا شد؛ auth موقت trust است و production نیست."
+  echo "# شاهد PgBouncer = [S]؛ ظرفیت واقعی provider و توپولوژی دو میزبان همچنان OWNER هستند."
+  if [ "$A1" -eq 0 ] && [ "$A2" -eq 0 ] && [ "$B" -eq 0 ] && [ "$PGB_EXIT" -eq 0 ] && [ "$R3" -eq 0 ]; then
     echo "# EXIT=0"; echo "CONN-BUDGET-45-OK"
   else
     echo "# EXIT=1"; echo "CONN-BUDGET-45-FAILED"

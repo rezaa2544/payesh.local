@@ -1,10 +1,11 @@
 # ردیف ۴۵ — بودجهٔ اتصال و pooling (transaction pooling، بدون lock نشست، pool-wait اندازه‌گیری‌شده)
 
-**وضعیت:** Review (کد + ابزار + شاهد اندازه‌گیری‌شده). اجرای PgBouncer به‌عنوان فرایند جدا و
-ظرفیت واقعی provider = **OWNER**.
+**وضعیت:** Review (کد + آزمون + شاهد PgBouncer واقعی روی PostgreSQL محلی). اجرای PgBouncer
+واقعی با `pool_mode=transaction` در این سشن انجام شد؛ تعیین ظرفیت واقعی provider، اعتبارسنجی
+TLS/auth تولیدی و توپولوژی دو میزبان فیزیکی همچنان **OWNER** است.
 **شاهد خام:** [`docs/cloud/reports/evidence/conn-budget-45.txt`](reports/evidence/conn-budget-45.txt)
-— بازتولید با `bash docs/cloud/reports/evidence/run-45-conn-budget.sh`
-**Commit:** `9ebddef` (۰٫۸٫۶۰)
+— بازتولید با `PGBOUNCER_BIN=/path/to/pgbouncer EMBEDDED_PG_HOME=/path/to/postgres bash docs/cloud/reports/evidence/run-45-conn-budget.sh`
+**نسخهٔ اجراشده:** PgBouncer 1.23.1 + PostgreSQL 18.6 محلی (`[S]`)
 
 ## آنچه ساخته شد
 
@@ -57,10 +58,12 @@
 
 ## آنچه ادعا نمی‌شود
 
-- **PgBouncer واقعی اجرا نشده است** (باینری در این محیط نیست). سنجیده شد: transaction بودنِ
-  کد، انطباق `pgbouncer.ini` با بودجه، و انتظار pool در سطح pool برنامه. اجرای pooler
-  به‌عنوان فرایند جدا + TLS/auth واقعی = OWNER.
-- **ظرفیت provider** عدد فرضی ۱۰۰ است؛ عدد واقعی سرویس ابری باید در `--cap` گذاشته شود.
+- **PgBouncer واقعی اجرا شد** به‌عنوان فرایند جدا (نسخهٔ 1.23.1) با تنظیمات فایل مخزن و
+  `pool_mode=transaction`؛ ورودی آن با ۱۰۰ کلاینت بار گرفت، `RLS/read-your-writes` در
+  ۸۰ چرخه بدون دادهٔ کهنه اجرا شد و اتصال‌های backend در اوج ۱۲ بود. چون محیط آزمایش محلی
+  است، این شاهد `[S]` است؛ `auth_type=trust` فقط برای دیتابیس موقت بود و قابل تعمیم به تولید نیست.
+- **ظرفیت provider** هنوز اندازه‌گیری نشده است؛ عدد ۱۰۰ فقط ورودی صریح ابزار بود، نه سقف ادعایی
+  سرویس ابری. ظرفیت پلن واقعی باید در `--cap` قرار گیرد.
 - عددهای بالا روی **یک میزبان مشترک** با مولد بار گرفته شده‌اند؛ DB و Gateway روی دو میزبان
   فیزیکی ⇒ بازآزمایی با همان قرارداد `PAYESH_GW_URL` / `PAYESH_PG_ADMIN_URL` (ردیف ۴۶).
 - انتظار pool تابع بار DB است؛ کاهش ۳ برابری pool فقط ۲۳٪ RPS و ۳۳٪ انتظار را بهتر کرد ⇒
@@ -69,6 +72,7 @@
 ## گام بعدی (مالک)
 
 1. `PAYESH_PG_POOL_MAX=12` در استقرار؛ `--cap` با ظرفیت واقعی provider بازمحاسبه.
-2. اجرای PgBouncer با `deploy/pgbouncer/pgbouncer.ini` و آزمون `pgbouncer` واقعی (همان شاهد، با
-   `PGURL` روی ۶۴۳۲) — اثبات اینکه transaction pooling چیزی را نمی‌شکند.
+2. برای تولید، تنظیم `auth_type`/TLS/secret واقعی و سقف `max_db_connections` متناسب با پلن
+   provider را اعمال و با `--cap` واقعی دوباره اندازه‌گیری کنید؛ شاهد محلی فعلی، احراز هویت
+   `trust` دارد و فقط رفتار transaction pooling را ثابت می‌کند.
 3. دو میزبان فیزیکی DB/Gateway (ردیف ۴۶) و تکرار همین اندازه‌گیری.
