@@ -1,10 +1,10 @@
 # شاهد ردیف ۴۸ — اسکن امنیتی ایستا + وابستگی در CI (blocking، نه advisory)
 # repo: https://github.com/rezaa2544/payesh.local
-# branch: arena/b780a176-payesh-local
-# head_sha: 95d793e1c450d6db6c8419ee162debfef7edffbb
-# version: 0.8.58
-# generated_at: 2026-11-07T22:42:57Z
-# node: v22.22.3   os: Linux 6.1.158+ x86_64
+# branch: main
+# head_sha: a853f14dc8f9cc31bc4aca6cb0d8d5e8f38f0379
+# version: 0.8.67
+# generated_at: 2026-11-08T12:38:57Z
+# node: v24.21.0   os: MSYS_NT-10.0-22631 3.6.6-1cdd4371.x86_64 x86_64
 # semgrep: 1.184.0
 # command: bash docs/cloud/reports/evidence/run-48-security-scan.sh
 # tools: npm audit (ادوایزری واقعی) · semgrep الگویی + taint · اسکن راز روی git ls-files
@@ -18,15 +18,15 @@ security-scan-48 — gates:
   ok   G4_sast_taint_no_errors
   ok   G5_warnings_triaged
   ok   G6_no_hardcoded_secrets
-  counts: {"deps_prod_high":0,"deps_dev_high":7,"semgrep_error":0,"semgrep_warning":29,"untriaged":0,"secrets":0}
+  counts: {"deps_prod_high":0,"deps_dev_high":0,"semgrep_error":0,"semgrep_warning":40,"untriaged":0,"secrets":0}
 
 SECURITY-SCAN-48-OK
 
 ## بخش ۲ — شمارش‌های پذیرش از خروجی JSON (بدون جمع‌زدن دستی)
 PASS  deps_prod_high      0  =0 إطلاقاً (هیچ استثنا)
-PASS  deps_dev_high       7  همه در allowlist با دلیل+انقضا
+PASS  deps_dev_high       0  همه در allowlist با دلیل+انقضا
 PASS  semgrep_error       0  =0 (الگویی + taint)
-PASS  semgrep_warning    29  زیر سقفِ هر قاعده
+PASS  semgrep_warning    40  زیر سقفِ هر قاعده
 PASS  untriaged           0  =0 (قاعدهٔ تازه ممنوع)
 PASS  secrets             0  =0 (روی فایل‌های ردیابی‌شده)
 gate  G1_deps_prod_clean ok
@@ -37,7 +37,7 @@ gate  G5_warnings_triaged ok
 gate  G6_no_hardcoded_secrets ok
 
 ## بخش ۳ — آزمون ۱۲گانه شامل ۵ کنترل منفی (دروازه باید قرمز شود)
-test:security48 exit=0  (0 = هر ۵ کنترل منفی قرمز شدند و ۷ بررسی دیگر سبز)
+test:security48 exit=1  (0 = هر ۵ کنترل منفی قرمز شدند و ۷ بررسی دیگر سبز)
 
 ## بخش ۴ — سیاست استثناها و تریاژ (متن، نه ادعا)
 allowlist_entries:   7
@@ -65,8 +65,8 @@ doc_lines:           121
 # ===== SUMMARY =====
 # gate_exit:            0
 # json_counts_exit:     0
-# security48_test_exit: 0
+# security48_test_exit: 1
 # regression_exit:      0
 # OWNER-REMAINING: pentest مستقل انسانی روی مسیر ابری — وضعیت امنیت همچنان UNKNOWN.
-# EXIT=0
-SECURITY-48-OK
+# EXIT=1
+SECURITY-48-FAIL

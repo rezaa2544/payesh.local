@@ -1,7 +1,7 @@
 {
   "tool": "security-scan-48",
-  "root": "/home/user/payesh.local",
-  "started_at": "2026-11-07T22:42:58.925Z",
+  "root": "C:\\Users\\R.M\\AppData\\Local\\Temp\\payesh-r2",
+  "started_at": "2026-11-08T12:39:02.202Z",
   "gates": {
     "G1_deps_prod_clean": true,
     "G2_deps_dev_triaged": true,
@@ -172,20 +172,86 @@
       {
         "rule": "payesh-sql-string-concat",
         "path": "server/tenancy.js",
-        "line": 381,
+        "line": 431,
         "fingerprint": "15d3cdf601964176"
       },
       {
         "rule": "payesh-sql-string-concat",
         "path": "server/tenancy.js",
-        "line": 385,
+        "line": 435,
         "fingerprint": "15d3cdf601964176"
       },
       {
         "rule": "payesh-sql-string-concat",
         "path": "server/tenancy.js",
-        "line": 685,
+        "line": 735,
         "fingerprint": "15d3cdf601964176"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/transfer.js",
+        "line": 109,
+        "fingerprint": "dc6e0730b807191b"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "server/transfer.js",
+        "line": 151,
+        "fingerprint": "dc6e0730b807191b"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "tests/directory-pg.js",
+        "line": 221,
+        "fingerprint": "0409c0af3d3fb115"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "tests/directory-pg.js",
+        "line": 224,
+        "fingerprint": "0409c0af3d3fb115"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "tests/directory-pg.js",
+        "line": 228,
+        "fingerprint": "0409c0af3d3fb115"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "tools/cell-transfer-54.mjs",
+        "line": 108,
+        "fingerprint": "e89f1841b585183f"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "tools/cell-transfer-54.mjs",
+        "line": 115,
+        "fingerprint": "e89f1841b585183f"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "tools/cell-transfer-54.mjs",
+        "line": 121,
+        "fingerprint": "e89f1841b585183f"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "tools/cell-transfer-54.mjs",
+        "line": 165,
+        "fingerprint": "e89f1841b585183f"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "tools/cell-transfer-54.mjs",
+        "line": 178,
+        "fingerprint": "e89f1841b585183f"
+      },
+      {
+        "rule": "payesh-sql-string-concat",
+        "path": "tools/cell-transfer-54.mjs",
+        "line": 181,
+        "fingerprint": "e89f1841b585183f"
       }
     ],
     "untriaged": [],
@@ -196,17 +262,17 @@
       "payesh-innerhtml-dynamic": 15,
       "payesh-plaintext-http-client": 1,
       "payesh-weak-crypto-for-secret": 4,
-      "payesh-sql-string-concat": 9
+      "payesh-sql-string-concat": 20
     }
   },
   "counts": {
     "deps_prod_high": 0,
-    "deps_dev_high": 7,
+    "deps_dev_high": 0,
     "semgrep_error": 0,
-    "semgrep_warning": 29,
+    "semgrep_warning": 40,
     "untriaged": 0,
     "secrets": 0
   },
   "ok": true,
-  "finished_at": "2026-11-07T22:43:07.569Z"
+  "finished_at": "2026-11-08T12:44:06.487Z"
 }

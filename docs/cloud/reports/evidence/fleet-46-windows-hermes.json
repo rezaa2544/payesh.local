@@ -1,0 +1,198 @@
+{
+  "row": 46,
+  "started_at": "2026-11-08T11:47:17.242Z",
+  "finished_at": "2026-11-08T11:48:24.639Z",
+  "topology": {
+    "database": "postgresql://postgres:***@127.0.0.1:65300/postgres",
+    "gateway": "http://127.0.0.1:5661",
+    "note": "DB و Gateway فرایندهای جدا روی همین میزبان‌اند؛ تفکیک فیزیکی میزبان در محیط مالک سنجیده می‌شود."
+  },
+  "params": {
+    "stages": [
+      100,
+      300,
+      600,
+      900
+    ],
+    "stage_seconds": 8,
+    "push_batch": 10,
+    "pull_limit": 200,
+    "p99_limit_ms": 2000,
+    "error_limit": 0.01
+  },
+  "db_setup": {
+    "migrate_statements": null
+  },
+  "warmup": {
+    "push_status": 200,
+    "pull_status": 200,
+    "pull_rows": 200
+  },
+  "stages": [
+    {
+      "clients": 100,
+      "seconds": 8,
+      "procs": 2,
+      "rps_total": 100,
+      "rps_pull": 50,
+      "rps_push": 50,
+      "pull": {
+        "n": 400,
+        "p50": 1027.43,
+        "p95": 1642.72,
+        "p99": 1804.72,
+        "errors": 0,
+        "rows": 80000
+      },
+      "push": {
+        "n": 400,
+        "p50": 1050.74,
+        "p95": 1493.24,
+        "p99": 1582,
+        "errors": 0,
+        "applied": 0
+      },
+      "error_rate": 0,
+      "statuses": {
+        "200": 800
+      },
+      "gateway_cpu_pct": null,
+      "gateway_rss_mb_max": null,
+      "gateway_rss_mb_avg": null,
+      "db": {
+        "db_connections": 12,
+        "pool_waiting": null,
+        "pool_total": 12,
+        "pool_wait_seconds": 0.522,
+        "http_5xx_ratio": 0
+      },
+      "healthy": true
+    },
+    {
+      "clients": 300,
+      "seconds": 8,
+      "procs": 6,
+      "rps_total": 116.5,
+      "rps_pull": 58.3,
+      "rps_push": 58.3,
+      "pull": {
+        "n": 466,
+        "p50": 3185.15,
+        "p95": 6177.87,
+        "p99": 6431.7,
+        "errors": 0,
+        "rows": 93200
+      },
+      "push": {
+        "n": 466,
+        "p50": 2889.05,
+        "p95": 5855.14,
+        "p99": 5985.31,
+        "errors": 0,
+        "applied": 0
+      },
+      "error_rate": 0,
+      "statuses": {
+        "200": 932
+      },
+      "gateway_cpu_pct": null,
+      "gateway_rss_mb_max": null,
+      "gateway_rss_mb_avg": null,
+      "db": {
+        "db_connections": 12,
+        "pool_waiting": null,
+        "pool_total": 12,
+        "pool_wait_seconds": 1.529,
+        "http_5xx_ratio": 0
+      },
+      "healthy": false
+    },
+    {
+      "clients": 600,
+      "seconds": 8,
+      "procs": 6,
+      "rps_total": 150,
+      "rps_pull": 75,
+      "rps_push": 75,
+      "pull": {
+        "n": 600,
+        "p50": 6683.89,
+        "p95": 12669.72,
+        "p99": 13222.22,
+        "errors": 0,
+        "rows": 120000
+      },
+      "push": {
+        "n": 600,
+        "p50": 8516.66,
+        "p95": 12610.7,
+        "p99": 13007.25,
+        "errors": 0,
+        "applied": 0
+      },
+      "error_rate": 0,
+      "statuses": {
+        "200": 1200
+      },
+      "gateway_cpu_pct": null,
+      "gateway_rss_mb_max": null,
+      "gateway_rss_mb_avg": null,
+      "db": {
+        "db_connections": 12,
+        "pool_waiting": null,
+        "pool_total": 12,
+        "pool_wait_seconds": 0,
+        "http_5xx_ratio": 0
+      },
+      "healthy": false
+    },
+    {
+      "clients": 900,
+      "seconds": 8,
+      "procs": 6,
+      "rps_total": 272.5,
+      "rps_pull": 136.3,
+      "rps_push": 136.3,
+      "pull": {
+        "n": 1090,
+        "p50": 9777.55,
+        "p95": 18841.06,
+        "p99": 19456.98,
+        "errors": 245,
+        "rows": 169000
+      },
+      "push": {
+        "n": 1090,
+        "p50": 9346.29,
+        "p95": 18197.86,
+        "p99": 19113.73,
+        "errors": 190,
+        "applied": 1710
+      },
+      "error_rate": 0.1995,
+      "statuses": {
+        "200": 1745,
+        "net_error": 435
+      },
+      "gateway_cpu_pct": null,
+      "gateway_rss_mb_max": null,
+      "gateway_rss_mb_avg": null,
+      "db": {
+        "db_connections": 12,
+        "pool_waiting": null,
+        "pool_total": 12,
+        "pool_wait_seconds": 0,
+        "http_5xx_ratio": 0
+      },
+      "healthy": false
+    }
+  ],
+  "healthy_ceiling_clients": 100,
+  "first_failure": {
+    "clients": 300,
+    "reason": "p99 pull=6431.7ms push=5985.31ms ≥ 2000ms",
+    "statuses": {
+      "200": 932
+    }
+  }
+}
