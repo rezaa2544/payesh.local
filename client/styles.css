@@ -73,6 +73,9 @@ small,.small{font-size:12.5px}
 .btn.ghost{background:transparent}
 .btn.danger{color:var(--red);border-color:#f0b4ae}
 .btn.sm{min-height:34px;padding:.3rem .7rem;font-size:13px;border-radius:9px}
+/* دکمه‌های تنظیمات برنامه کوچک می‌مانند، اما با تأکید آبی و پررنگ دیده می‌شوند. */
+.btn.sched-top-action{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:800}
+.btn.sched-top-action:hover{background:var(--primary-2);border-color:var(--primary-2)}
 .btn.block{width:100%}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 

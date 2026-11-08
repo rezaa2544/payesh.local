@@ -3841,11 +3841,14 @@ async function waitFor(fn, ms = 15000) {
     const alpha = T.alphaSort(['دبیر ب', 'دبیر آ', 'دبیر الف']);
     assert.ok(alpha.every((name, i) => i === 0 || T.alphaCompare(alpha[i - 1], name) <= 0), 'مرتب‌سازی فارسی در کل فهرست‌ها الفبایی است');
     assert.ok(/name="room_id"/.test(modalHtml), 'محل از فهرست محل‌های تعریف‌شده انتخاب می‌شود');
-    assert.ok(/data-act="sched-subject-add"/.test(modalHtml) && /data-act="sched-teacher-add"/.test(modalHtml) && /data-act="sched-room-add"/.test(modalHtml), 'درس، دبیر و محل از همان پنجره قابل تعریف‌اند');
+    assert.ok(/value="__add_subject__"[^>]*>＋ تعریف درس تازه/.test(modalHtml) && /value="__add_teacher__"[^>]*>＋ ثبت دبیر تازه/.test(modalHtml) && /value="__add_room__"[^>]*>＋ افزودن محل تازه/.test(modalHtml), 'گزینه‌های افزودن درس، دبیر و محل انتهای فهرست انتخاب‌اند');
+    assert.ok(!/data-act="sched-(subject|teacher|room)-add"/.test(modalHtml), 'دکمه‌های جداگانهٔ افزودن از بیرون فهرست حذف شده‌اند');
 
     /* تعریف درس از همان پنجره ثبت می‌شود و بلافاصله در زنگ انتخاب شده است. */
     T.schedSlotModal({ grade: 'دهم', branch: '', weekday: 0, bell_order: 2 });
-    T.SCHED_ACTIONS['sched-subject-add'](win.document.querySelector('#modal-root [data-act="sched-subject-add"]'));
+    const addSubjectChoice = win.document.querySelector('#modal-root select[name="subject"]');
+    addSubjectChoice.value = '__add_subject__';
+    addSubjectChoice.dispatchEvent(new win.Event('change', { bubbles: true }));
     const subjectForm = win.document.querySelector('#modal-root form[data-form="subject"]');
     subjectForm.elements.name.value = 'درس تازه';
     subjectForm.elements.workshop.value = '';
@@ -3860,15 +3863,23 @@ async function waitFor(fn, ms = 15000) {
     assert.deepStrictEqual(Array.from(T.S.data.schools.get(1).workdays), [1, 4]);
     assert.deepStrictEqual(Array.from(T.schedWorkDays()), [1, 4]);
 
-    /* تعریف درجا دبیر، کاربرِ نقش teacher می‌سازد و فرمِ زنگ را ادامه می‌دهد. */
-    T.S.schedPendingSlot = { grade: 'دهم', branch: '', weekday: 1, bell_order: 2, subject_id: 10 };
+    /* گزینهٔ انتهاییِ دبیر، فرم درجا را باز می‌کند و بعد به فرم زنگ برمی‌گردد. */
+    T.schedSlotModal({ grade: 'دهم', branch: '', weekday: 1, bell_order: 2, subject_id: createdSubject.id });
+    const addTeacherChoice = win.document.querySelector('#modal-root select[name="teacher"]');
+    addTeacherChoice.value = '__add_teacher__';
+    addTeacherChoice.dispatchEvent(new win.Event('change', { bubbles: true }));
+    assert.ok(win.document.querySelector('#modal-root form[data-form="sched-teacher"]'), 'انتخاب افزودن دبیر، فرم ساخت را باز کرد');
     T.SCHED_FORMS['sched-teacher']({ name: { value: 'دبیر تازه' } });
     const createdTeacher = Array.from(T.S.data.users.values()).find(u => u.name === 'دبیر تازه');
     assert.ok(createdTeacher && createdTeacher.role === 'teacher', 'کاربر دبیر ساخته شد');
     assert.ok(/data-form="slot"/.test(win.document.querySelector('#modal-root').innerHTML), 'پس از تعریف دبیر به فرم زنگ برگشت');
 
-    /* محل در همان کالکشن کلاس‌ها ثبت می‌شود و در برنامه قابل‌انتخاب است. */
-    T.S.schedPendingSlot = { grade: 'دهم', branch: '', weekday: 1, bell_order: 3, subject_id: 10 };
+    /* گزینهٔ انتهاییِ محل نیز همان مسیر تعریف درجا را باز می‌کند. */
+    T.schedSlotModal({ grade: 'دهم', branch: '', weekday: 1, bell_order: 3, subject_id: createdSubject.id });
+    const addRoomChoice = win.document.querySelector('#modal-root select[name="room_id"]');
+    addRoomChoice.value = '__add_room__';
+    addRoomChoice.dispatchEvent(new win.Event('change', { bubbles: true }));
+    assert.ok(win.document.querySelector('#modal-root form[data-form="sched-room"]'), 'انتخاب افزودن محل، فرم ساخت را باز کرد');
     T.SCHED_FORMS['sched-room']({ name: { value: 'آزمایشگاه تازه' } });
     const createdRoom = Array.from(T.S.data.classes.values()).find(c => c.name === 'آزمایشگاه تازه');
     assert.ok(createdRoom && createdRoom.kind === 'room', 'محل تازه ذخیره شد');
@@ -3886,12 +3897,12 @@ async function waitFor(fn, ms = 15000) {
     T.SCHED_ACTIONS['bell-edit']();
     const bellHtml = win.document.querySelector('#modal-root').innerHTML;
     assert.ok(/شروع/.test(bellHtml) && /پایان/.test(bellHtml) && /زنگ درس/.test(bellHtml) && /زنگ تفریح/.test(bellHtml), 'تنظیم زنگ شروع/پایان و تفریح را روشن نمایش می‌دهد');
-    assert.ok(/data-type="lesson"/.test(bellHtml) && /data-type="break"/.test(bellHtml), 'افزودن زنگ درس و تفریح جداست');
+    assert.ok(/data-act="bell-add"/.test(bellHtml) && !/data-type="(lesson|break)"/.test(bellHtml), 'افزودن زنگ فقط یک گزینهٔ عمومی دارد');
     assert.ok(/clock-24h[^>]*type="text"/.test(bellHtml) && !/type="time"/.test(bellHtml), 'ساعت‌ها به‌صورت ورودی متنی ۲۴ساعته‌اند');
     const bellsForm = win.document.querySelector('#modal-root form[data-form="bells"]');
     const existingBellIds = Array.from(T.S.data.bell_schedules.values()).map(b => Number(b.id)).sort((a, b) => a - b);
     bellsForm.elements.s_0.value = '07:30'; bellsForm.elements.e_0.value = '08:15';
-    T.SCHED_ACTIONS['bell-add'](win.document.querySelector('#modal-root [data-act="bell-add"][data-type="lesson"]'));
+    T.SCHED_ACTIONS['bell-add'](win.document.querySelector('#modal-root [data-act="bell-add"]'));
     assert.deepStrictEqual(Array.from(T.S.bellDraft).slice(0, 6).map(b => Number(b.id)), existingBellIds, 'افزودن زنگ، شناسهٔ زنگ‌های ذخیره‌شده را نگه می‌دارد');
     assert.strictEqual(T.S.bellDraft[0].start, '07:30', 'مقدار ویرایش‌شده پیش از افزودن زنگ حفظ می‌شود');
     let expandedBellForm = win.document.querySelector('#modal-root form[data-form="bells"]');
@@ -3926,13 +3937,26 @@ async function waitFor(fn, ms = 15000) {
     });
     assert.strictEqual(T.S.data.bell_schedules.size, 2, 'ساعت‌های معتبر ثبت شدند');
     assert.ok(Array.from(T.S.data.bell_schedules.values()).some(b => b.type === 'break'), 'تفریح جداگانه ذخیره شد');
+
+    /* پیش‌فرض خالی، چهار درس و سه تفریح میان آن‌هاست؛ حذف ردیف هم پیمایش را حفظ می‌کند. */
+    const savedBells = T.S.data.bell_schedules;
+    T.S.data.bell_schedules = new Map();
+    T.SCHED_ACTIONS['bell-edit']();
+    assert.deepStrictEqual(Array.from(T.S.bellDraft, b => b.type), ['lesson', 'break', 'lesson', 'break', 'lesson', 'break', 'lesson']);
+    const defaultBellForm = win.document.querySelector('#modal-root form[data-form="bells"]');
+    assert.ok(/زنگ ۱ \(درس\)/.test(defaultBellForm.textContent) && /تفریح اول/.test(defaultBellForm.textContent) && /زنگ ۴ \(درس\)/.test(defaultBellForm.textContent), 'نام‌های پیش‌فرض درس و تفریح با ترتیب درست نمایش داده می‌شوند');
+    win.document.querySelector('#modal-root .modal').scrollTop = 180;
+    T.SCHED_ACTIONS['bell-del'](win.document.querySelector('#modal-root [data-act="bell-del"][data-i="6"]'));
+    assert.strictEqual(win.document.querySelector('#modal-root .modal').scrollTop, 180, 'حذف ردیف، پیمایش دیالوگ زنگ را حفظ می‌کند');
+    assert.strictEqual(T.S.bellDraft.length, 6, 'ردیف انتخاب‌شده حذف شد');
+    T.S.data.bell_schedules = savedBells;
     T.closeModal();
     dom.window.close();
   });
 
   /* — دکمهٔ ✕ و بستن پنجره‌ها (ایراد گزارش‌شدهٔ کاربر) ───────────────
      ریشه: هندلر درون‌خطی stopPropagation روی خودِ پنجره، کلیک ✕ را می‌بلعید. */
-  await test('دکمهٔ ✕ و Esc و پس‌زمینه، پنجره را می‌بندند', async () => {
+  await test('فقط دکمهٔ ✕ پنجره را می‌بندد و بازسازی محتوا پیمایش را حفظ می‌کند', async () => {
     const { JSDOM } = require('jsdom');
     const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
       { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
@@ -3959,14 +3983,15 @@ async function waitFor(fn, ms = 15000) {
     click(win.document.querySelector('#inside'));
     assert.ok(win.document.querySelector('#modal-root .modal'), 'کلیک داخل پنجره، آن را نمی‌بندد');
 
-    /* ۳) کلیک روی پس‌زمینهٔ تیره */
+    /* ۳) بیرون و Esc نباید ببندند؛ بازسازی هم باید scrollTop را نگه دارد. */
+    const current = openModal();
+    current.scrollTop = 240;
     click(win.document.querySelector('#modal-root [data-act="modal-bg"]'));
-    assert.strictEqual(win.document.querySelector('#modal-root').innerHTML, '', 'کلیک روی پس‌زمینه پنجره را بست');
-
-    /* ۴) کلید Esc */
-    openModal();
+    assert.ok(win.document.querySelector('#modal-root .modal'), 'کلیک روی پس‌زمینه پنجره را باز نگه می‌دارد');
     win.document.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    assert.strictEqual(win.document.querySelector('#modal-root').innerHTML, '', 'کلید Esc پنجره را بست');
+    assert.ok(win.document.querySelector('#modal-root .modal'), 'کلید Esc پنجره را باز نگه می‌دارد');
+    T.modal('<div id="updated">به‌روزرسانی</div>');
+    assert.strictEqual(win.document.querySelector('#modal-root .modal').scrollTop, 240, 'پس از جایگزینی محتوا پیمایش دیالوگ حفظ شد');
     dom.window.close();
   });
 

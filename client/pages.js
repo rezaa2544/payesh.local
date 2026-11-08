@@ -1689,8 +1689,7 @@ function layerRoot(id) {
    خودِ پنجره، کلیک دکمهٔ ✕ را هم می‌بلعید و دکمه هیچ‌جا کار نمی‌کرد.
    حالا:
      • دکمهٔ ✕ → data-act="modal-close" → بستن
-     • کلیک روی پس‌زمینهٔ تیره → بستن (فقط اگر مستقیم روی خودش بزنند)
-     • کلید Esc → بستن
+     • کلیک روی پس‌زمینه یا کلید Esc → هیچ اثری ندارد
    ─────────────────────────────────────────────────────────────────── */
 /* فرم‌های بزرگ (کاربر جدید، مشخصات کامل، ویرایش کاربر): پنجرهٔ بزرگ‌تر و
   «قفل» — کلیکِ بیرونِ کادر نباید داده‌های نیمه‌کاره را پاک کند. */
@@ -1698,14 +1697,22 @@ const FORM_MODAL_OPTS = { wide: true, lock: true };
 
 function modal(html, opts) {
   const o = opts || {};
+  const root = layerRoot('modal-root');
+  /* بازسازی محتوای یک دیالوگ نباید موقع حذف/ویرایش، پیمایش آن را به بالا ببرد. */
+  const previous = root.querySelector('.modal');
+  const previousTitle = previous && previous.querySelector('.row b');
+  const sameDialog = previous && previousTitle && previousTitle.textContent === String(S.modalTitle || '');
+  const scrollTop = previous && (o.preserveScroll || sameDialog) ? previous.scrollTop : 0;
   S.modal = html;
   S.modalOpts = o;
-  layerRoot('modal-root').innerHTML = `<div class="modal-bg${o.lock ? ' locked' : ''}" data-act="modal-bg"${o.lock ? ' data-lock="1"' : ''}><div class="modal${o.wide ? ' wide' : ''}" role="dialog" aria-modal="true"${o.title ? ' data-title="' + esc(o.title) + '"' : ''}>
+  root.innerHTML = `<div class="modal-bg${o.lock ? ' locked' : ''}" data-act="modal-bg"${o.lock ? ' data-lock="1"' : ''}><div class="modal${o.wide ? ' wide' : ''}" role="dialog" aria-modal="true"${o.title ? ' data-title="' + esc(o.title) + '"' : ''}>
     <div class="row between" style="margin-bottom:8px">
       <b>${esc(S.modalTitle || '')}</b>
       <button type="button" class="btn sm ghost" data-act="modal-close" aria-label="بستن" title="بستن">✕</button>
     </div>
     ${html}</div></div>`;
+  const current = root.querySelector('.modal');
+  if (current && scrollTop) current.scrollTop = scrollTop;
 }
 function closeModal() { S.modal = null; S.modalOpts = null; layerRoot('modal-root').innerHTML = ''; }
 

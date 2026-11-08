@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.75';
+const CLIENT_VERSION = '0.8.76';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -2212,13 +2212,7 @@ document.addEventListener('change', (e) => {
   if (hint) hint.style.display = any ? 'none' : 'block';
 });
 
-/* Esc = بستن پنجره (استاندارد همهٔ برنامه‌ها) */
-document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape') return;
-  const bg = document.querySelector('#modal-root .modal-bg');
-  if (bg && bg.getAttribute('data-lock') === '1') return;   /* پنجرهٔ قفل‌دار با Esc بسته نمی‌شود */
-  if (document.querySelector('#modal-root [data-act="modal-close"]')) closeModal();
-});
+/* دیالوگ‌ها فقط با ✕ یا تکمیل فرم بسته می‌شوند؛ Escape عمداً آن‌ها را نمی‌بندد. */
 /* ══════════════ «زنده» بودن همهٔ کنش‌ها ══════════════════════════════
    شکایت کاربر: «وقتی گزینه‌ای را می‌زنیم هیچ واکنشی نشان نمی‌دهد».
    راه‌حل: هر کلیک بی‌درنگ نشانه می‌گیرد — دکمه فشرده می‌شود، نشانگر
@@ -2337,10 +2331,8 @@ async function handleActionClick(e, el) {
 
   switch (act) {
     case 'modal-close': S.schedPendingSlot = null; closeModal(); return;
-    /* کلیک روی پس‌زمینهٔ تیره؛ اگر روی خودِ پنجره بزنند، بسته نمی‌شود */
-    /* «قفل»: پنجره‌های حساس (مثل ورود اطلاعات) فقط با ✕ یا دکمهٔ خودشان
-       بسته می‌شوند — کلیکِ accidentally بیرونِ کادر نباید همهٔ کار را پاک کند. */
-    case 'modal-bg': if (e.target === el && el.getAttribute('data-lock') !== '1') { S.schedPendingSlot = null; closeModal(); } return;
+    /* کلیک بیرون از کادر هیچ‌وقت دیالوگ را نمی‌بندد؛ فقط ✕ یا تکمیل فرم. */
+    case 'modal-bg': return;
     case 'retry': boot(); return;
     case 'cloud-phone-check': {
       if (PHONE_MODE) { toast('این بررسی روی رایانهٔ مدرسه انجام می‌شود — روی گوشی لازم نیست', 'ok'); return; }
