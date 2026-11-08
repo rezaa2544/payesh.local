@@ -30,9 +30,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
+const requireCjs = createRequire(import.meta.url);
+const SEVERITY_TO_LEVEL = { critical: 'S1', high: 'S2', warning: 'S3', info: 'S4' };
 
 /* ─────────────────────────── آرگومان‌ها ─────────────────────────── */
 function parseArgs(argv) {
@@ -165,18 +168,38 @@ function appendSink(records) {
 }
 
 async function deliver(record) {
-  if (!WEBHOOK) return { delivered: false, sink: SINK_PATH ? 'file' : 'none', reason: 'no_webhook_configured' };
-  try {
-    const res = await fetch(WEBHOOK, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(record),
-      signal: AbortSignal.timeout(5000),
-    });
-    return { delivered: res.ok, status: res.status, sink: 'webhook' };
-  } catch (e) {
-    return { delivered: false, sink: 'webhook', reason: String((e && e.message) || e).slice(0, 160) };
+  if (WEBHOOK) {
+    try {
+      const res = await fetch(WEBHOOK, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(record),
+        signal: AbortSignal.timeout(5000),
+      });
+      return { delivered: res.ok, status: res.status, sink: 'webhook' };
+    } catch (e) {
+      return { delivered: false, sink: 'webhook', reason: String((e && e.message) || e).slice(0, 160) };
+    }
   }
+  if (process.env.PAYESH_ALERT_TELEGRAM_TOKEN && process.env.PAYESH_ALERT_CHAT) {
+    try {
+      const { notify } = requireCjs('../server/alerts.js');
+      const level = SEVERITY_TO_LEVEL[String(record.severity || '').toLowerCase()] || 'S3';
+      const title = `${record.alert} (${record.metric} ${record.op} ${record.threshold})`;
+      const body = `${record.summary || ''}\nvalue=${record.value} runbook=${record.runbook || '-'}`.trim();
+      const r = await notify({ level, key: 'alert49:' + record.alert, title, body });
+      return {
+        delivered: !!r.sent,
+        status: r.sent ? 200 : 502,
+        sink: 'telegram',
+        message_id: r.message_id || null,
+        reason: r.reason || r.error || null,
+      };
+    } catch (e) {
+      return { delivered: false, sink: 'telegram', reason: String((e && e.message) || e).slice(0, 160) };
+    }
+  }
+  return { delivered: false, sink: SINK_PATH ? 'file' : 'none', reason: 'no_webhook_configured' };
 }
 
 /* ─────────────────────────── main ─────────────────────────── */

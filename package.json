@@ -63,7 +63,9 @@
     "test:replica52": "node tests/replica-52.js",
     "test:cell54": "node tests/cell-transfer-54.js",
     "test:adr60": "node tests/adr-ids-60.js",
-    "test:branch59": "node tests/branch-policy-59.js"
+    "test:branch59": "node tests/branch-policy-59.js",
+    "test:pitr50": "node tests/pitr-50.js",
+    "test:pitr50:evidence": "bash docs/cloud/reports/evidence/run-50-pitr.sh"
   },
   "license": "MIT",
   "devDependencies": {

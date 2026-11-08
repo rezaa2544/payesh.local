@@ -35,6 +35,7 @@ const EMOJI = { S1: '🔴', S2: '🟠', S3: '🟡', S4: '🔵' };
 const token = () => process.env.PAYESH_ALERT_TELEGRAM_TOKEN || '';
 const chat = () => process.env.PAYESH_ALERT_CHAT || '';
 const proxy = () => process.env.PAYESH_ALERT_PROXY || '';
+const apiBase = () => (process.env.PAYESH_ALERT_API_BASE || 'https://api.telegram.org').replace(/\/+$/, '');
 
 /* دفتر حسابرسی: همهٔ رویدادها حتی ارسال‌نشده — این «ثبت»ِ AC است */
 function auditDir() {
@@ -66,7 +67,7 @@ function sendViaCurl(url, payload) {
 
 async function sendViaTelegram(level, title, body) {
   if (!token() || !chat()) return { sent: false, reason: 'not-configured' };
-  const url = `https://api.telegram.org/bot${token()}/sendMessage`;
+  const url = `${apiBase()}/bot${token()}/sendMessage`;
   const payload = { chat_id: chat(), text: format(level, title, body), parse_mode: 'Markdown' };
   let lastErr = null, attempts = 0;
   for (let i = 1; i <= RETRIES + 1; i++) {

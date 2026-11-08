@@ -3,7 +3,7 @@ name: build-and-release
 on:
   push:
     tags: ['v*']
-    branches: [main, 'arena/**']
+    branches: [main, 'arena/**', 'hermes/**']
   workflow_dispatch:
 
 permissions:
@@ -127,6 +127,12 @@ jobs:
 
       - name: دروازهٔ بودجهٔ همگام‌سازی (Sync Budget Gate — ردیف ۴۲)
         run: npm run test:cost42
+
+      - name: دروازهٔ موتور مرورگری، PITR و کانال هشدار (ردیف‌های ۳۹، ۵۰، ۵۸)
+        run: |
+          npm run test:engine
+          npm run test:pitr50
+          npm run test:alerts
 
       - name: دروازهٔ ظرفیت و DR (Capacity/DR Gate)
         run: bash docs/cloud/reports/evidence/gen-capacity-gate.sh

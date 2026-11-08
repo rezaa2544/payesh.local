@@ -1,0 +1,93 @@
+# شاهد ردیف ۵۰ — پشتیبان‌گیری PITR، تطبیق چک‌سام سه‌لایه و ران‌بوک Failover دستی
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: arena/e7396a69-payesh-local
+# head_sha: 803b2a7706507f4ca9babd79ec67621dcb8ca680
+# generated_at: 2026-11-08T06:24:36Z
+# node: v22.22.3
+# command: bash docs/cloud/reports/evidence/run-50-pitr.sh
+
+=== [1] اجرای تمرین محلی PITR (basebackup + WAL replay تا نقطهٔ هدف + تطبیق چک‌سام) ===
+{
+  "mode": "local-drill",
+  "basebackup_sha256": "f3a1aa5c462a288670c96290b5970a3eafabb0095533e2351c76cc8adeb5f263",
+  "target_iso": "2026-11-08T08:04:30.000Z",
+  "replayed_wal_entries": 2,
+  "skipped_post_target_entries": 2,
+  "reconciliation": {
+    "ok": true,
+    "layer1": [
+      {
+        "table": "product_change_feed",
+        "source": 2,
+        "target": 2,
+        "ok": true
+      },
+      {
+        "table": "product_records",
+        "source": 2,
+        "target": 2,
+        "ok": true
+      }
+    ],
+    "layer2": [
+      {
+        "table": "product_change_feed",
+        "source": "40d1da29039ff284ecfe40cd22540fb1a4b6c786205c213ca8121e2ac565a864",
+        "target": "40d1da29039ff284ecfe40cd22540fb1a4b6c786205c213ca8121e2ac565a864",
+        "ok": true
+      },
+      {
+        "table": "product_records",
+        "source": "32dfa7c5d1ba8bc83935d534f3a01179d13f9055fd76cef47ccb3461b4784022",
+        "target": "32dfa7c5d1ba8bc83935d534f3a01179d13f9055fd76cef47ccb3461b4784022",
+        "ok": true
+      }
+    ],
+    "layer3": {
+      "compared": 4,
+      "mismatched": [],
+      "mismatch_count": 0,
+      "ok": true
+    },
+    "tables": 2
+  },
+  "evaluation": {
+    "ok": true,
+    "production_valid": false,
+    "tag": "[S]",
+    "environment_kind": "local-sqlite",
+    "rpo_ms": 10000,
+    "rpo_target_ms": 300000,
+    "rpo_ok": true,
+    "rto_ms": 1,
+    "rto_target_ms": 7200000,
+    "rto_ok": true,
+    "reconciliation_ok": true,
+    "post_target_excluded": true,
+    "verdict": "PITR-50-SIMULATED-OK"
+  }
+}
+PITR-50-SIMULATED-OK
+EXIT=0
+
+=== [2] کنترل منفی (--require-managed روی محیط غیرمدیریت‌شده باید با کد ۳ رد شود) ===
+PITR-50-NOT-MANAGED-PG host=local-file kind=local-sqlite
+EXIT=3
+
+=== [3] آزمون خودکار PT-01..PT-10 ===
+PASS  PT-01  آستانه‌های RPO (<= ۵ دقیقه) و RTO (<= ۲ ساعت) و کنترل منفی نقض آن‌ها  → RPO<=300000ms · RTO<=7200000ms
+PASS  PT-02  تفکیک [S] و [M]: میزبان محلی در حالت --require-managed با exit=3 رد می‌شود  → 127.0.0.1→[S] (exit=3) · neon.tech→[M]
+PASS  PT-03  بازیابی به نقطهٔ زمانی (t <= target_iso): حذف کامل تراکنش‌های مخرب پس از نقطهٔ هدف  → replayed=1 skipped=1 rpo=60000ms
+PASS  PT-04  تطبیق سه‌لایهٔ چک‌سام SHA-256 پس از بازیابی (counts + checksums + seqs)  → tables=2 seqs=2
+PASS  PT-05  کنترل منفی لایهٔ ۲: تغییر ۱ بایت در دادهٔ بازیابی‌شده چک‌سام را قرمز می‌کند  → 1-byte tamper → PITR-50-FAILED
+PASS  PT-06  کنترل منفی دستکاری فایل پشتیبان یا WAL: تشخیص فساد CRC با SHA-256  → wal_crc_mismatch caught
+PASS  PT-07  کنترل منفی لایهٔ ۳: کسری آخرین seq در change-feed بازیابی‌شده تشخیص داده می‌شود  → seq 10≠9 detected
+PASS  PT-08  ایزولاسیون مستأجر در محاسبهٔ چک‌سام بازیابی (Tenant A از Tenant B جداست)  → tenant-isolated checksums
+PASS  PT-09  اجرای CLI تمرین محلی (--local-drill) و ثبت صادقانهٔ برچسب [S]  → verdict=PITR-50-SIMULATED-OK tag=[S]
+PASS  PT-10  مستندسازی کامل رویهٔ Failover دستی در docs/cloud/50-pitr-recovery.md  → 5-step manual failover runbook verified
+
+PT checks=10 pass=10 fail=0
+PITR-50-TEST-OK
+EXIT=0
+
+PITR-50-EVIDENCE-OK

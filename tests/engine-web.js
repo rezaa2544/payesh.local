@@ -8,7 +8,32 @@
    واقعی با bench/39 انجام شود.
    ═══════════════════════════════════════════════════════════════════ */
 require('fake-indexeddb/auto');
+const fs = require('fs');
+const path = require('path');
 const engine = require('../client/engine-web');
+
+const EVIDENCE_DIR = path.join(__dirname, '..', 'docs', 'cloud', 'reports', 'evidence');
+
+function validateBenchEvidence(doc, { kind = 'desktop', baselineCalibMs = null } = {}) {
+  if (!doc || typeof doc !== 'object') throw new Error('missing_json');
+  if (doc.bench !== 'bench-39') throw new Error(`bad_bench:${doc.bench}`);
+  if (doc.ok !== true || doc.verdict !== 'BENCH39-OK') throw new Error(`bad_verdict:${doc.verdict}`);
+  if (doc.count !== 100000 || doc.stat_after_reopen !== 100000) throw new Error(`bad_count:${doc.count}/${doc.stat_after_reopen}`);
+  if (!doc.first_get_found) throw new Error('first_get_after_reopen_failed');
+  const ua = String((doc.env && doc.env.ua) || '');
+  if (!ua || /HeadlessChrome|PhantomJS|Electron/i.test(ua)) throw new Error(`headless_or_invalid_ua:${ua}`);
+  if (!doc.index_query || doc.index_query.rows !== 2500 || !(doc.index_query.ms > 0)) throw new Error('bad_index_query');
+  if (!doc.page_query || doc.page_query.rows !== 50 || !(doc.page_query.ms >= 0)) throw new Error('bad_page_query');
+  if (!doc.mem_after_load || !(doc.mem_after_load.used_mb > 0 && doc.mem_after_load.used_mb < 200)) throw new Error('bad_mem_after_load');
+  if (kind === 'android' && !/Android/i.test(ua)) throw new Error(`not_android_ua:${ua}`);
+  if (kind === 'cpu4') {
+    const calib = doc.calibration && doc.calibration.calib_ms;
+    if (!(calib > 0) || (baselineCalibMs && calib < baselineCalibMs * 2.5)) {
+      throw new Error(`cpu4_throttle_not_reflected:${calib}vs${baselineCalibMs}`);
+    }
+  }
+  return true;
+}
 
 let passed = 0, failed = 0; const failures = [];
 async function check(id, desc, fn) {
@@ -117,6 +142,47 @@ function assert(c, m) { if (!c) throw new Error(m); }
   });
 
   db.close();
+
+  const readBench = (name) => JSON.parse(fs.readFileSync(path.join(EVIDENCE_DIR, name), 'utf8'));
+  let desktop1 = null;
+
+  await check('EW-11', 'شاهد واقعی Chrome Desktop (۱۰۰هزار ردیف، ۲ اجرای مستقل)', async () => {
+    desktop1 = readBench('bench-39-chrome-desktop.json');
+    const desktop2 = readBench('bench-39-chrome-desktop-run2.json');
+    validateBenchEvidence(desktop1, { kind: 'desktop' });
+    validateBenchEvidence(desktop2, { kind: 'desktop' });
+    return `run1=${desktop1.load_ms}ms(${desktop1.rows_per_sec}/s,mem=${desktop1.mem_after_load.used_mb}MB) run2=${desktop2.load_ms}ms(${desktop2.rows_per_sec}/s,mem=${desktop2.mem_after_load.used_mb}MB)`;
+  });
+
+  await check('EW-12', 'شاهد واقعی Chrome Desktop با CPU throttling 4x', async () => {
+    const cpu4 = readBench('bench-39-chrome-desktop-cpu4.json');
+    validateBenchEvidence(cpu4, { kind: 'cpu4', baselineCalibMs: desktop1.calibration.calib_ms });
+    return `calib=${cpu4.calibration.calib_ms}ms(vs ${desktop1.calibration.calib_ms}ms) load=${cpu4.load_ms}ms(${cpu4.rows_per_sec}/s) mem=${cpu4.mem_after_load.used_mb}MB`;
+  });
+
+  await check('EW-13', 'شاهد واقعی گوشی میان‌ردهٔ اندروید (Android 16 / POCO X7 Pro)', async () => {
+    const android = readBench('bench-39-android-webview.json');
+    validateBenchEvidence(android, { kind: 'android' });
+    return `load=${android.load_ms}ms(${android.rows_per_sec}/s) idx=${android.index_query.ms}ms page=${android.page_query.ms}ms mem=${android.mem_after_load.used_mb}MB`;
+  });
+
+  await check('EW-14', 'کنترل منفی شاهد بنچمارک: رد شدن HeadlessChrome، شمارش ناقص و throttle صوری', async () => {
+    const base = readBench('bench-39-chrome-desktop.json');
+    let rejected = 0;
+    for (const bad of [
+      { ...base, count: 99999 },
+      { ...base, verdict: 'BENCH39-FAIL' },
+      { ...base, env: { ...base.env, ua: 'Mozilla/5.0 HeadlessChrome/157.0.0.0' } },
+      { ...base, calibration: { calib_ms: 1100 } },
+    ]) {
+      try {
+        validateBenchEvidence(bad, { kind: bad.calibration.calib_ms === 1100 ? 'cpu4' : 'desktop', baselineCalibMs: 1000 });
+      } catch (e) { rejected++; }
+    }
+    assert(rejected === 4, `rejected=${rejected}/4`);
+    return `rejected=${rejected}/4`;
+  });
+
   console.log('');
   console.log(`EW checks=${passed + failed} pass=${passed} fail=${failed}`);
   if (failed === 0) console.log('ENGINE-WEB-OK');

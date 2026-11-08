@@ -115,6 +115,36 @@ function startBot({ failMode, port }) {
   const raw = fs.readFileSync(path.join(AUDIT, 'alerts.jsonl'), 'utf8');
   ok('AL-07 توکن در حسابرسی نیست', !raw.includes('t:fake'));
 
+  /* AL-08: سیم‌کشی قواعد ردیف ۴۹ (tools/alerts-49.mjs) به notify() در server/alerts.js */
+  const fake4 = await startBot({ port: 18765 });
+  const mFile = path.join(AUDIT, 'breach.prom');
+  const stFile = path.join(AUDIT, 'state-49.json');
+  fs.writeFileSync(mFile, 'payesh_up 0\npayesh_ready 0\npayesh_http_error_ratio 0.25\n', 'utf8');
+  const { execFile } = require('child_process');
+  const runChild = (args, env) => new Promise((res, rej) => {
+    execFile(process.execPath, args, { env, encoding: 'utf8' }, (err, stdout, stderr) => {
+      if (err) return rej(new Error(stderr || stdout || err.message));
+      res(stdout);
+    });
+  });
+  const env49 = {
+    ...process.env,
+    PAYESH_ALERT_TELEGRAM_TOKEN: 't:fake49',
+    PAYESH_ALERT_CHAT: '222000222',
+    PAYESH_ALERT_API_BASE: 'http://127.0.0.1:18765',
+    PAYESH_ALERT_DIR: AUDIT,
+  };
+  await runChild([
+    path.join(__dirname, '..', 'tools', 'alerts-49.mjs'),
+    '--metrics-file', mFile, '--state', stFile, '--now', '2026-11-08T10:00:00Z',
+  ], env49);
+  const out49 = await runChild([
+    path.join(__dirname, '..', 'tools', 'alerts-49.mjs'),
+    '--metrics-file', mFile, '--state', stFile, '--now', '2026-11-08T10:05:00Z',
+  ], env49);
+  fake4.srv.close();
+  ok('AL-08 سیم‌کشی قواعد ردیف ۴۹ → ارسال تلگرام واقعی', out49.includes('delivered=true') && fake4.received.length >= 1, out49.trim());
+
   console.log(`\nAL checks=${pass + fail} pass=${pass} fail=${fail}`);
   if (fail === 0) console.log('ALERTS-58-OK');
   process.exit(fail === 0 ? 0 : 1);
