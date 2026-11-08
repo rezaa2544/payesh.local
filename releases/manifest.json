@@ -1,18 +1,20 @@
 {
-  "version": "0.8.73",
-  "built_at": "2026-11-08T20:03:27.106Z",
+  "version": "0.8.74",
+  "built_at": "2026-11-08T20:20:48.662Z",
   "notes": [
-    "صفحهٔ کلاس‌ها ساده شد: بخش «کلاس‌های ثبت‌نام (پایه + رشته)» حذف شد و دکمهٔ تکراری افزودن کلاس/کارگاه برداشته شد. تعریف پایه و رشته و فهرست محل‌های برگزاری باقی است."
+    "برنامهٔ هفتگی حالا بر اساس پایه و رشته چیده می‌شود؛ مدیر روزهای فعال مدرسه را انتخاب می‌کند و جدول فقط همان روزها را نشان می‌دهد.",
+    "در فرم زنگ می‌توان همان‌جا درس، دبیر و محل تازه تعریف کرد؛ درس‌ها و محل‌ها در فهرست خودشان ثبت می‌شوند و دبیر با نقش دبیر به کاربران افزوده می‌شود.",
+    "تنظیم زنگ‌ها روشن‌تر شد: ساعت شروع/پایان، زنگ درس یا تفریح، افزودن جداگانه و جلوگیری از ساعت‌های هم‌پوشان."
   ],
   "shell": {
-    "android": "0.8.73"
+    "android": "0.8.74"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "c55fa20f7aacd319bbdd28c575aebaeea045b1af52248230c4491016e03fb722",
-      "size": 195160
+      "sha256": "be590df438c0a70408ad351b18846b3606e7f5a123931aa6077c0a71d5226b20",
+      "size": 195444
     },
     {
       "path": "client/authz.js",
@@ -143,8 +145,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "28c9274a6a0b1820b052597c092fb6aa5fb91b34e7c8be2b0538d15d0c71e170",
-      "size": 156378
+      "sha256": "9302207292301a1a964b01bcb5bd91e22ed1ed29d9a9db3ee443458777bcdc90",
+      "size": 156932
     },
     {
       "path": "client/scan.js",
@@ -155,8 +157,8 @@
     {
       "path": "client/schedule.js",
       "kind": "client",
-      "sha256": "de9ff91aae0c415b7d3546eb0dff442c058f8d14a1801406d6c96aac05557643",
-      "size": 42407
+      "sha256": "bb73cca3abdbdbb956cd9bc2973f7d67e615b746d6795603f2b6bdfb2f3bf3e2",
+      "size": 55813
     },
     {
       "path": "client/secure-web.js",
@@ -191,7 +193,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "2ceaf5affc83832e8bab6ee62b46ef625d391e0fed370ac3374963147cba4281",
+      "sha256": "cc914ac3ac0d04b34faf47a8e35686afaf93975e2738a3c21e628fb0be2e70d0",
       "size": 5297
     },
     {
@@ -287,8 +289,8 @@
     {
       "path": "server/policy.js",
       "kind": "server",
-      "sha256": "c862b13c42835846d86ac98df4623f3e389521be6b336fc4d74333b966939766",
-      "size": 9828
+      "sha256": "f4e6795326b1d4966c83878c072afcf50d804057bbec1d5ae47a51d20957946c",
+      "size": 10195
     },
     {
       "path": "server/qr.js",
@@ -311,8 +313,8 @@
     {
       "path": "server/scope.js",
       "kind": "server",
-      "sha256": "6554331cbf932e8da889f9f58160f6a668dee9c624f023ef1659006fce5eb453",
-      "size": 11515
+      "sha256": "8a6559fd0f7bc6d81a59f08e6da27ef942f81553c0cf5816e468440cef2ab218",
+      "size": 12466
     },
     {
       "path": "server/seed.js",
@@ -391,7 +393,7 @@
     "client": 29,
     "server": 34
   },
-  "client_size": 1400013,
-  "server_size": 496379,
-  "total_size": 1896392
+  "client_size": 1414257,
+  "server_size": 497697,
+  "total_size": 1911954
 }

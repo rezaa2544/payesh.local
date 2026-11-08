@@ -70,6 +70,7 @@ function buildScope(store, user) {
     selfId: Number(user.id),
     classIds: new Set(),
     studentIds: new Set(),
+    cohorts: new Set(),
   };
   if (user.role === 'manager') {
     scope.all = true;
@@ -91,12 +92,14 @@ function buildScope(store, user) {
     scope.studentIds.forEach(sid => {
       const st = store.get('users', sid);
       if (st && st.class_id != null) scope.classIds.add(Number(st.class_id));
+      if (st && st.grade) scope.cohorts.add(String(st.grade).trim() + '|' + String(st.branch || '').trim());
     });
     return scope;
   }
   if (user.role === 'student') {
     scope.studentIds.add(Number(user.id));
     if (user.class_id != null) scope.classIds.add(Number(user.class_id));
+    if (user.grade) scope.cohorts.add(String(user.grade).trim() + '|' + String(user.branch || '').trim());
     return scope;
   }
   return scope;
@@ -120,6 +123,7 @@ function rowInScope(scope, collection, row) {
       return Number(row.parent_id) === uid;
     case 'schedule':
       return scope.classIds.has(Number(row.class_id)) ||
+        (row.grade && scope.cohorts && scope.cohorts.has(String(row.grade).trim() + '|' + String(row.branch || '').trim())) ||
         (scope.role === 'teacher' && Number(row.teacher_id) === uid);
     case 'classes':
       return scope.classIds.has(Number(row.id));

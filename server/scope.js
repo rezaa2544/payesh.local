@@ -28,7 +28,7 @@ const OPEN_COLLECTIONS = [
 const STUDENT_COLLECTIONS = ['attendance', 'grades', 'internships', 'discipline'];
 
 function emptyScope(role, uid) {
-  return { role, uid, all: false, classIds: [], studentIds: [] };
+  return { role, uid, all: false, classIds: [], studentIds: [], cohorts: [] };
 }
 
 /* ── ساخت اسکوپ از دادهٔ خودِ مستأجر (داخل همان تراکنش/زمینهٔ RLS) ── */
@@ -36,7 +36,7 @@ async function build(c, claims) {
   const role = String((claims && claims.role) || '');
   if (!policy.ROLES.includes(role)) throw outOfScopeError('bad_role');
   const uid = Number((claims && claims.uid) || 0);
-  if (role === 'manager') return { role, uid, all: true, classIds: [], studentIds: [] };
+  if (role === 'manager') return { role, uid, all: true, classIds: [], studentIds: [], cohorts: [] };
   if (!Number.isInteger(uid) || uid < 1) throw outOfScopeError('bad_uid_in_token');
 
   const scope = emptyScope(role, uid);
@@ -66,10 +66,13 @@ async function build(c, claims) {
   } else if (role === 'student') {
     scope.studentIds = [uid];
     const own = await c.query(
-      `select ${BIG('class_id')} as class_id from ${T()} r
-        where collection = 'users' and record_id = $1`, [uid]
+      `select ${BIG('class_id')} as class_id, data->>'grade' as grade, data->>'branch' as branch
+         from ${T()} r where collection = 'users' and record_id = $1`, [uid]
     );
-    if (own.rows.length && own.rows[0].class_id != null) scope.classIds.push(Number(own.rows[0].class_id));
+    if (own.rows.length) {
+      if (own.rows[0].class_id != null) scope.classIds.push(Number(own.rows[0].class_id));
+      if (own.rows[0].grade) scope.cohorts.push({ grade: String(own.rows[0].grade).trim(), branch: String(own.rows[0].branch || '').trim() });
+    }
   }
 
   if (role !== 'student' && (role === 'teacher' || role === 'parent') && scope.studentIds.length === 0) {
@@ -85,11 +88,12 @@ async function build(c, claims) {
   }
   if (role === 'parent' && scope.studentIds.length) {
     const st = await c.query(
-      `select ${BIG('class_id')} as class_id from ${T()} r
-        where collection = 'users' and deleted_at is null and record_id = any($1::bigint[])`,
+      `select ${BIG('class_id')} as class_id, data->>'grade' as grade, data->>'branch' as branch
+         from ${T()} r where collection = 'users' and deleted_at is null and record_id = any($1::bigint[])`,
       [scope.studentIds]
     );
     scope.classIds = [...new Set(nums(st.rows, 'class_id'))];
+    scope.cohorts = st.rows.filter(x => x.grade).map(x => ({ grade: String(x.grade).trim(), branch: String(x.branch || '').trim() }));
   }
   return scope;
 }
@@ -133,6 +137,7 @@ function rowInScope(scope, collection, row) {
       return Number(data.parent_id) === uid;
     case 'schedule':
       return has(scope.classIds, data.class_id) ||
+        (data.grade && (scope.cohorts || []).some(c => String(c.grade).trim() === String(data.grade).trim() && String(c.branch || '').trim() === String(data.branch || '').trim())) ||
         (scope.role === 'teacher' && Number(data.teacher_id) === uid);
     case 'classes':
       return has(scope.classIds, row && row.id);
@@ -218,8 +223,12 @@ function sqlPredicate(scope, startIndex = 1) {
     pieces.push(`(r.collection = 'parent_links' and ${BIG('parent_id')} = ${ph(scope.uid)})`);
   }
   if (readable.includes('schedule')) {
-    const inner = `${BIG('class_id')} = any(${ph(scope.classIds)}::bigint[])` +
-      (role === 'teacher' ? ` or ${BIG('teacher_id')} = ${ph(scope.uid)}` : '');
+    let inner = `${BIG('class_id')} = any(${ph(scope.classIds)}::bigint[])`;
+    if (scope.cohorts && scope.cohorts.length) {
+      const cohorts = ph(JSON.stringify(scope.cohorts));
+      inner += ` or exists (select 1 from jsonb_array_elements(${cohorts}::jsonb) as cohort(value) where (r.data->>'grade') = (cohort.value->>'grade') and coalesce(r.data->>'branch', '') = coalesce(cohort.value->>'branch', ''))`;
+    }
+    if (role === 'teacher') inner += ` or ${BIG('teacher_id')} = ${ph(scope.uid)}`;
     pieces.push(`(r.collection = 'schedule' and (${inner}))`);
   }
   if (readable.includes('classes')) {
