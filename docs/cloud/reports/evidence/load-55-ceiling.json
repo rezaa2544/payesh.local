@@ -1,0 +1,79 @@
+{
+  "row": 55,
+  "purpose": "سقف همزمانی سالم روی مسیر خواندن همگام‌سازی (GET /api/v1/pull) در یک نمونهٔ محلی",
+  "machine": {
+    "platform": "win32",
+    "cpus": 8,
+    "model": "AMD Ryzen 7 PRO 3700U w/ Radeon Vega Mobile Gfx",
+    "mem_gb": 13.9,
+    "node": "v26.7.0"
+  },
+  "data_dir": "C:\\Users\\R.M\\AppData\\Local\\Temp\\payesh-load55-vWqf3b",
+  "method": "سرور واقعی + دادهٔ کاشته‌شده؛ نشست واقعی مدیر؛ هر سطح HOLD ثانیه؛ سقف سالم: p95<=300ms و خطا<=1%",
+  "baseline_health_p50_ms": 3,
+  "levels": [
+    {
+      "concurrent": 10,
+      "requests": 13016,
+      "rps": 1627,
+      "errors": 0,
+      "err_pct": 0,
+      "p50_ms": 6,
+      "p95_ms": 10,
+      "max_ms": 79
+    },
+    {
+      "concurrent": 25,
+      "requests": 13973,
+      "rps": 1746.6,
+      "errors": 0,
+      "err_pct": 0,
+      "p50_ms": 14,
+      "p95_ms": 19,
+      "max_ms": 97
+    },
+    {
+      "concurrent": 50,
+      "requests": 15020,
+      "rps": 1877.5,
+      "errors": 0,
+      "err_pct": 0,
+      "p50_ms": 26,
+      "p95_ms": 34,
+      "max_ms": 138
+    },
+    {
+      "concurrent": 100,
+      "requests": 15826,
+      "rps": 1978.3,
+      "errors": 0,
+      "err_pct": 0,
+      "p50_ms": 51,
+      "p95_ms": 62,
+      "max_ms": 107
+    },
+    {
+      "concurrent": 200,
+      "requests": 15650,
+      "rps": 1956.3,
+      "errors": 0,
+      "err_pct": 0,
+      "p50_ms": 103,
+      "p95_ms": 125,
+      "max_ms": 204
+    },
+    {
+      "concurrent": 400,
+      "requests": 15577,
+      "rps": 1947.1,
+      "errors": 0,
+      "err_pct": 0,
+      "p50_ms": 210,
+      "p95_ms": 232,
+      "max_ms": 361
+    }
+  ],
+  "healthy_ceiling": 400,
+  "measured_at": "2026-11-08T01:47:05.949Z",
+  "note": "این عدد سقف این ماشین توسعه روی مسیر خواندن است؛ سقف تولیدی هر مدرسه روی سخت‌افزارش باید با همین ابزار سنجیده شود ([[S] نه [M])."
+}

@@ -1,0 +1,17 @@
+{
+  "row": 58,
+  "kind": "pager-real-alert-receipt",
+  "claim": "یک هشدار آزمایشی واقعاً از کانال تلگرام سامانه ارسال و دریافت شد",
+  "sent_at_local": "2026-11-07T22:59:14.631Z",
+  "channel": "telegram",
+  "bot": "@payesh_school_bot",
+  "bot_id": 8855395245,
+  "receiver": "مالک (chat_id از TELEGRAM_ALLOWED_USERS؛ مقدار عمداً ثبت نشده)",
+  "api_response": { "ok": true, "sent": true, "attempt": 1, "message_id": 92, "date_epoch": 1794092352, "date_iso": "2026-11-07T22:59:12+00:00" },
+  "audit_log": "docs/cloud/reports/evidence/alerts-audit/alerts.jsonl (یک‌خط: ts=2026-11-07T22:59:14.631Z, level=S4, key=manual-test, sent=true, message_id=92)",
+  "token_in_repo": false,
+  "token_source": "PAYESH_ALERT_TELEGRAM_TOKEN از محیط (هرمس)، هرگز در مخزن نیست — AL-07 این را به‌عنوان کنترل منفی آزمون می‌کند",
+  "unit_tests": "tests/alerts.js → AL checks=17 pass=17 fail=0, ALERTS-58-OK",
+  "verdict": "DELIVERED_REAL",
+  "remaining_owner_action": "یک نفر on-call مشخص شود (نام/شیفت) و در docs/cloud/58-pager.md ثبت شود"
+}
