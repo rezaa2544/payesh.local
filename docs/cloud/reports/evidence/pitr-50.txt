@@ -1,8 +1,8 @@
 # شاهد ردیف ۵۰ — پشتیبان‌گیری PITR، تطبیق چک‌سام سه‌لایه و ران‌بوک Failover دستی
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/e7396a69-payesh-local
-# head_sha: 803b2a7706507f4ca9babd79ec67621dcb8ca680
-# generated_at: 2026-11-08T06:24:36Z
+# head_sha: c93342ae64b41f62ab1096d4a225c457b7f4acee
+# generated_at: 2026-11-08T06:39:06Z
 # node: v22.22.3
 # command: bash docs/cloud/reports/evidence/run-50-pitr.sh
 
