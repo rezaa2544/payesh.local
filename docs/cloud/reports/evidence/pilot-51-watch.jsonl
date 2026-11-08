@@ -1,0 +1,17 @@
+{"ts":"2026-11-08T01:21:21.983Z","target":"http://127.0.0.1:18099","up":false,"down_since":"2026-11-08T01:21:21.983Z","down_s":20}
+{"ts":"2026-11-08T01:21:42.068Z","target":"http://127.0.0.1:18099","up":true,"uptime_s":18,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T01:22:02.075Z","target":"http://127.0.0.1:18099","up":true,"uptime_s":18,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T01:22:22.085Z","target":"http://127.0.0.1:18099","up":true,"uptime_s":38,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T01:22:42.091Z","target":"http://127.0.0.1:18099","up":true,"uptime_s":58,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T01:23:02.106Z","target":"http://127.0.0.1:18099","up":true,"uptime_s":78,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T01:23:22.112Z","target":"http://127.0.0.1:18099","up":true,"uptime_s":98,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T01:23:42.124Z","target":"http://127.0.0.1:18099","up":true,"uptime_s":118,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T01:24:02.125Z","target":"http://127.0.0.1:18099","up":true,"uptime_s":138,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T01:24:22.137Z","target":"http://127.0.0.1:18099","up":false,"down_since":"2026-11-08T01:24:22.137Z","down_s":40}
+{"ts":"2026-11-08T01:24:42.144Z","target":"http://127.0.0.1:18099","up":false,"down_since":"2026-11-08T01:24:22.137Z","down_s":60}
+{"ts":"2026-11-08T01:25:02.150Z","target":"http://127.0.0.1:18099","up":false,"down_since":"2026-11-08T01:24:22.137Z","down_s":80}
+{"ts":"2026-11-08T01:25:22.156Z","target":"http://127.0.0.1:18099","up":false,"down_since":"2026-11-08T01:24:22.137Z","down_s":100}
+{"ts":"2026-11-08T01:25:42.157Z","target":"http://127.0.0.1:18099","up":false,"down_since":"2026-11-08T01:24:22.137Z","down_s":120}
+{"ts":"2026-11-08T01:26:02.167Z","target":"http://127.0.0.1:18099","up":false,"down_since":"2026-11-08T01:24:22.137Z","down_s":140}
+{"ts":"2026-11-08T01:26:22.170Z","target":"http://127.0.0.1:18099","up":false,"down_since":"2026-11-08T01:24:22.137Z","down_s":160}
+{"ts":"2026-11-08T01:26:42.171Z","target":"http://127.0.0.1:18099","up":false,"down_since":"2026-11-08T01:24:22.137Z","down_s":180}
