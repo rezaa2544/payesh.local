@@ -1,6 +1,6 @@
 {
   "name": "payesh-local",
-  "version": "0.8.60",
+  "version": "0.8.61",
   "private": true,
   "description": "پایش-لوکال — سامانهٔ مدیریت مدرسه، درون‌مدرسه‌ای و آفلاین (Node + SQLite)",
   "type": "commonjs",
@@ -58,7 +58,8 @@
     "archive:sizes": "node --experimental-sqlite --disable-warning=ExperimentalWarning tools/archive-53-sizes.js",
     "test:archive53:evidence": "bash docs/cloud/reports/evidence/run-53-archive.sh",
     "bench:39": "node tools/serve-bench.mjs",
-    "test:connb45": "node tests/conn-budget-45.js"
+    "test:connb45": "node tests/conn-budget-45.js",
+    "test:replica52": "node tests/replica-52.js"
   },
   "license": "MIT",
   "devDependencies": {

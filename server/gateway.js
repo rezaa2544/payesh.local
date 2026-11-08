@@ -33,14 +33,60 @@ const INSTANCE = process.env.GW_INSTANCE || ('gw-' + process.pid);
    می‌پذیرد. خالی ⇒ رفتار تک‌cell ردیف ۳۷ بدون تغییر. */
 const CELL = String(process.env.GW_CELL || '').trim();
 
+/* ردیف ۵۲: replica فقط‌خواندنی اختیاری. اگر تنظیم نشود (پیش‌فرض)، همهٔ
+   خواندن‌ها روی primary می‌مانند — همان تصمیمی که شاهد ردیف ۴۶ پشتیبانی کرد. */
+const REPLICA_URL = String(process.env.PAYESH_PG_REPLICA_URL || '').trim();
 const startedAt = Date.now();
 let pool = null;
 let enabled = false;
+let replicaPool = null;
+/* آخرین seq نوشته‌شده توسط هر دستگاه (در حافظهٔ همین نمونه) — پایهٔ ناوردای
+   read-your-writes: دستگاه نوشته‌های خودش را همیشه می‌بیند. */
+const ownWriteSeq = new Map();
+const OWN_WRITE_CAP = 5000;
+
+function noteOwnWrite(deviceId, seq) {
+  const id = String(deviceId || '').slice(0, 64);
+  const s = Number(seq);
+  if (!id || !Number.isFinite(s) || s <= 0) return;
+  const prev = ownWriteSeq.get(id) || 0;
+  if (s > prev) ownWriteSeq.set(id, s);
+  if (ownWriteSeq.size > OWN_WRITE_CAP) {
+    /* ساده و قابل پیش‌بینی: قدیمی‌ترین کلیدها حذف می‌شوند */
+    const it = ownWriteSeq.keys();
+    for (let i = 0; i < 500 && ownWriteSeq.size > OWN_WRITE_CAP; i++) ownWriteSeq.delete(it.next().value);
+  }
+}
 
 if (PGURL && SECRET.length >= 16) {
   tenancy.init({ connectionString: PGURL, secret: SECRET });
   pool = tenancy.getPool();
   enabled = !!pool;
+}
+if (REPLICA_URL) {
+  const { Pool } = require('pg');
+  replicaPool = new Pool({
+    connectionString: REPLICA_URL, max: 2,
+    application_name: 'payesh-gateway-replica', statement_timeout: 5000,
+  });
+  replicaPool.on('error', () => { /* اتصال مردهٔ replica سرویس را نمی‌کشد */ });
+}
+
+/* تصمیم مقصد خواندن (ردیف ۵۲). replica فقط اگر واقعاً تازه باشد استفاده
+   می‌شود؛ و اگر دستگاه نوشته‌ای دارد که replica ندیده ⇒ primary. */
+async function readSource(deviceId, tenantId) {
+  if (!replicaPool || !enabled) return { pool, decision: { target: 'primary', reason: replicaPool ? 'disabled' : 'no_replica_configured', fallback: false } };
+  const ownSeq = ownWriteSeq.get(String(deviceId || '').slice(0, 64)) || 0;
+  let lagMs = null, replicaSeq = null;
+  try {
+    lagMs = await tenancy.replicaPolicy.measureLagMs({
+      primaryQuery: q => pool.query(q), replicaQuery: q => replicaPool.query(q),
+    });
+    const rs = await replicaPool.query('select max(seq)::bigint as seq from product_change_feed');
+    replicaSeq = rs.rows[0] && rs.rows[0].seq !== null ? Number(rs.rows[0].seq) : null;
+  } catch (e) { lagMs = null; replicaSeq = null; }
+  const decision = tenancy.replicaPolicy.chooseReadTarget({ replica_url: REPLICA_URL, lag_ms: lagMs, own_write_seq: ownSeq, replica_seq: replicaSeq });
+  return { pool: decision.target === 'replica' ? replicaPool : pool, decision };
 }
 
 function json(res, status, body, extraHeaders = {}) {
@@ -205,11 +251,13 @@ async function handle(req, res, url) {
     try {
       /* اسکوپ نقش سمت سرور (ردیف ۳۸): scope فقط از claims توکن؛
          هر مقدار scope در query/هدر/بدنه نادیده گرفته می‌شود. */
-      const out = await tenancy.listFeed(pool, tenantId, {
+      const src = await readSource(deviceId, tenantId);
+      const out = await tenancy.listFeed(src.pool, tenantId, {
         sinceSeq, collection: url.searchParams.get('collection'), limit, claims,
       });
       return json(res, 200, Object.assign({ ok: true, schema_version: 1, instance: INSTANCE, clamped_limit: limit }, out,
-        { limits: { max_limit: PULL_MAX, default_limit: 200 } }), quotaHeaders);
+        { limits: { max_limit: PULL_MAX, default_limit: 200 }, read_from: src.decision.target, read_reason: src.decision.reason }),
+        quotaHeaders);
     } catch (e) {
       return json(res, e.status || 500, { ok: false, error: e.code || 'pull_failed', detail: e.details || null }, quotaHeaders);
     }
@@ -230,6 +278,11 @@ async function handle(req, res, url) {
     }
     try {
       const out = await tenancy.applyOps(pool, tenantId, { ops, device_id: deviceId, claims });
+      /* ناوردای read-your-writes: بزرگ‌ترین seq این دستگاه ثبت می‌شود.
+         فقط وقتی replica وجود دارد لازم است (بدون replica همه‌چیز primary است). */
+      if (REPLICA_URL) {
+        try { noteOwnWrite(deviceId, await tenancy.maxFeedSeq(pool, tenantId)); } catch (e) { /* ثبت نشد = بدبینانه: خواندن از primary */ }
+      }
       return json(res, 200, Object.assign({ ok: true, schema_version: 1, instance: INSTANCE }, out), quotaHeaders);
     } catch (e) {
       return json(res, e.status || 500, { ok: false, error: e.code || 'push_failed', detail: e.details || null }, quotaHeaders);

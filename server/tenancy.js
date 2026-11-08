@@ -1,4 +1,6 @@
 'use strict';
+
+const replicaPolicy = require('./replica-policy');
 /* ═══════════════════════════════════════════════════════════════════
    لایهٔ دادهٔ چندمستأجری — مسیر محصول (Gate فاز ۳ · D‑35 · شرط CC‑12‑2)
 
@@ -339,6 +341,16 @@ async function createRecord(pool, tenantId, { kind, body = {} } = {}) {
       [kind, JSON.stringify(body || {})]
     );
     return rowOf(q.rows[0]);
+  });
+}
+
+/* بزرگ‌ترین seq قابل مشاهده در change-feed این مستأجر (همان چیزی که pull
+   با آن همگام می‌شود). برای ناوردای read-your-writes ردیف ۵۲ لازم است. */
+async function maxFeedSeq(pool, tenantId) {
+  if (!UUID_RE.test(String(tenantId || ''))) throw new TenancyError('bad_tenant', 400);
+  return withTenant(pool, tenantId, async (c) => {
+    const q = await c.query(`select coalesce(max(seq), 0)::bigint as seq from ${FEED_TABLE} where tenant_id = current_setting('app.tenant_id')::uuid`);
+    return Number(q.rows[0] && q.rows[0].seq) || 0;
   });
 }
 
@@ -980,7 +992,7 @@ async function rollbackProduct(client) {
   return { dropped: [JOBS_TABLE, PRODUCT_TABLE], statements: sqls.length };
 }
 
-module.exports = { scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
+module.exports = { replicaPolicy, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,

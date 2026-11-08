@@ -137,6 +137,11 @@ jobs:
           node tools/conn-budget-45.mjs
           npm run test:connb45
 
+      # سیاست خواندن (ردیف ۵۲): بدون replica همه‌چیز primary، و ناوردای
+      # read-your-writes در همهٔ حالت‌های خطرناک برقرار است.
+      - name: آزمون سیاست خواندن (Read Policy — ردیف ۵۲)
+        run: npm run test:replica52
+
       - name: آزمون رابط، جریان کاربری، صندوقچه و به‌روزرسانی
         run: |
           npm run test:ui
