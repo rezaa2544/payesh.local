@@ -116,6 +116,7 @@ namespace Payesh
         private bool _reallyExit;
         private bool _trayMode;
         private int _connectToken;
+        private ulong _activeNavigationId;
         private volatile bool _pageHealthy;
         /* نگهبان سرور و صفحه: اگر سامانه وسط کار بخوابد، دوباره بالا می‌آید
            و پنجره هرگز صفحهٔ خطای مرورگر را نشان نمی‌دهد. */
@@ -504,7 +505,9 @@ namespace Payesh
                         if (!localReady)
                         {
                             SetStatus("راه‌اندازی سامانه…");
-                            PickLocalPort();
+                            int ownedPort = ActiveSupervisorPort();
+                            if (ownedPort > 0) UseLocalPort(ownedPort, "existing supervisor");
+                            else PickLocalPort();
                             StartServer();
                             for (int i = 0; i < 90 && token == _connectToken; i++)
                             {
@@ -607,11 +610,14 @@ namespace Payesh
                         ShowEngineMissing();
                         return;
                     }
-                    _splash.Visible = false;
+                    /* تا وقتی ناوبری واقعاً موفق نشده، WebView پنهان می‌ماند؛
+                       وگرنه موتور Edge صفحهٔ خام ERR_CONNECTION_REFUSED را نشان می‌دهد. */
+                    _splash.Visible = true;
+                    _splash.BringToFront();
                     _error.Visible = false;
                     if (_offlineBar != null) _offlineBar.Visible = false;
-                    _view.Visible = true;
-                    _view.BringToFront();
+                    _view.Visible = false;
+                    SetStatus("در حال اتصال به سامانه…");
                     try { _tray.Text = "پایش — " + new Uri(url).Host; } catch { }
                     _view.Source = new Uri(url);
                 }
@@ -634,11 +640,50 @@ namespace Payesh
                 ⇒ حالا نگهبان هر ۶ ثانیه چک و سرور را دوباره بالا می‌آورد.
            هیچ‌جای این مسیرها مرورگر باز نمی‌شود. */
 
+        /// <summary>
+        /// در شروع سرد، health ممکن است چند ثانیه دیرتر از listener آماده شود.
+        /// اگر supervisor زنده است، همان پورتی را که خودش برای child سرور نگه می‌دارد
+        /// هدف می‌گیریم؛ انتخاب یک پورت آزاد دیگر در این فاصله باعث انتظار روی پورت غلط می‌شود.
+        /// </summary>
+        private int ActiveSupervisorPort()
+        {
+            try
+            {
+                string lockFile = Path.Combine(_dataDir, ".payesh-supervisor.lock");
+                if (!File.Exists(lockFile)) return 0;
+                string json = File.ReadAllText(lockFile, Encoding.UTF8);
+                Match pidMatch = Regex.Match(json, "\"pid\"\\s*:\\s*(\\d+)");
+                int pid;
+                if (!pidMatch.Success || !int.TryParse(pidMatch.Groups[1].Value, out pid) || pid <= 0) return 0;
+                using (Process owner = Process.GetProcessById(pid))
+                {
+                    if (owner.HasExited || !string.Equals(owner.ProcessName, "node", StringComparison.OrdinalIgnoreCase)) return 0;
+                }
+                Match portMatch = Regex.Match(json, "\"port\"\\s*:\\s*(\\d+)");
+                int port = 0;
+                if (!portMatch.Success || !int.TryParse(portMatch.Groups[1].Value, out port) || port <= 0 || port > 65535)
+                    int.TryParse(ReadIni(_settingsFile, "port"), out port); // قفل supervisor نسخهٔ قدیمی
+                return port > 0 && port <= 65535 ? port : 0;
+            }
+            catch { return 0; }
+        }
+
+        private void UseLocalPort(int port, string reason)
+        {
+            if (port <= 0 || port > 65535) return;
+            _localPort = port;
+            LocalUrl = "http://127.0.0.1:" + port;
+            SaveIni(_settingsFile, "port", port.ToString());
+            Log("local port = " + port + " (" + reason + ")");
+        }
+
         /// <summary>اتصال به سرور محلیِ موجود پیش از راه‌اندازی نمونهٔ تازه.</summary>
         private async Task<bool> FindLocalServer()
         {
             var ports = new List<int>();
-            if (_localPort > 0) ports.Add(_localPort);
+            int supervisorPort = ActiveSupervisorPort();
+            if (supervisorPort > 0) ports.Add(supervisorPort);
+            if (_localPort > 0 && !ports.Contains(_localPort)) ports.Add(_localPort);
             foreach (int p in PORT_CANDIDATES) if (!ports.Contains(p)) ports.Add(p);
             foreach (int p in ports)
             {
@@ -725,7 +770,9 @@ namespace Payesh
                    نمونه را دوباره بالا می‌آورد. هنگام بالا آمدن آن، فرایند دوم نساز. */
                 if (!SupervisorRunning() && !await FindLocalServer())
                 {
-                    PickLocalPort();
+                    int ownedPort = ActiveSupervisorPort();
+                    if (ownedPort > 0) UseLocalPort(ownedPort, "existing supervisor");
+                    else PickLocalPort();
                     StartServer();
                 }
                 for (int i = 0; i < 90 && !_closing; i++)
@@ -749,12 +796,13 @@ namespace Payesh
             {
                 try
                 {
-                    _splash.Visible = false;
+                    _splash.Visible = true;
+                    _splash.BringToFront();
                     _error.Visible = false;
                     if (_offlineBar != null) _offlineBar.Visible = false;
                     if (_view == null) { ShowApp(url); return; }
-                    _view.Visible = true;
-                    _view.BringToFront();
+                    _view.Visible = false;
+                    SetStatus("در حال بازیابی اتصال…");
                     if (_view.CoreWebView2 != null) _view.CoreWebView2.Navigate(url);
                     else _view.Source = new Uri(url);
                 }
@@ -769,7 +817,12 @@ namespace Payesh
             {
                 _pageHealthy = true;
                 _navFails = 0;
-                OnUi(() => { _splash.Visible = false; _error.Visible = false; });
+                OnUi(() =>
+                {
+                    if (_view != null) { _view.Visible = true; _view.BringToFront(); }
+                    _splash.Visible = false;
+                    _error.Visible = false;
+                });
                 return;
             }
             _pageHealthy = false;
@@ -1053,10 +1106,15 @@ namespace Payesh
                             }
                             catch { }
                         };
-                        /* هیچ‌وقت صفحهٔ خطای «Hmmm… can't reach this page» دیده نشود:
-                           اگر بارگذاری موفق نبود، خودمان صفحهٔ فارسی می‌دهیم و
-                           چند بار بی‌صدا دوباره تلاش می‌کنیم. */
-                        _view.CoreWebView2.NavigationCompleted += (s2, e2) => OnNavigated(e2.IsSuccess, e2.WebErrorStatus.ToString());
+                        /* completion قدیمی نباید نتیجهٔ navigation تازه‌تر را overwrite کند. */
+                        _view.CoreWebView2.NavigationStarting += (s2, e2) => _activeNavigationId = e2.NavigationId;
+                        /* WebView فقط پس از تکمیل ناوبریِ جاری نمایش داده می‌شود؛ اگر شکست بخورد
+                           صفحهٔ داخلی Edge پشت صفحهٔ بازیابی می‌ماند و هرگز به کاربر چشمک نمی‌زند. */
+                        _view.CoreWebView2.NavigationCompleted += (s2, e2) =>
+                        {
+                            if (e2.NavigationId != _activeNavigationId) return;
+                            OnNavigated(e2.IsSuccess, e2.WebErrorStatus.ToString());
+                        };
                         _view.CoreWebView2.ProcessFailed += (s2, e2) =>
                         {
                             Log("renderer process failed: " + e2.ProcessFailedKind);
