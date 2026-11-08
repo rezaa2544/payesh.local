@@ -27,7 +27,7 @@ Write-Host "`n▶ توقف سامانه…" -ForegroundColor Cyan
 schtasks /Delete /TN $TaskName /F *> $null
 try {
   Get-CimInstance Win32_Process |
-    Where-Object { $_.CommandLine -like '*server\index.js*' -and $_.CommandLine -like '*Payesh*' } |
+    Where-Object { ($_.CommandLine -like '*server\index.js*' -or $_.CommandLine -like '*server\start.js*') -and $_.CommandLine -like '*Payesh*' } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 } catch { }
 

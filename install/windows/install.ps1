@@ -139,7 +139,7 @@ if (Test-Path $shippedVbs) {
   $logFile = Join-Path $TargetDir 'data\server.log'
   $vbs = "Set sh = CreateObject(""WScript.Shell"")" + "`r`n" +
          "sh.CurrentDirectory = ""$TargetDir""" + "`r`n" +
-         "sh.Run """"""$NodeExe"""""" --experimental-sqlite --disable-warning=ExperimentalWarning """"""$TargetDir\server\index.js"""""" >> """"""$logFile"""""" 2>&1"", 0, False" + "`r`n"
+         "sh.Run """"""$NodeExe"""""" --experimental-sqlite --disable-warning=ExperimentalWarning """"""$TargetDir\server\start.js"""""" >> """"""$logFile"""""" 2>&1"", 0, False" + "`r`n"
   Set-Content -Path $startHidden -Value $vbs -Encoding UTF8
 }
 

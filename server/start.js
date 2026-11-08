@@ -12,6 +12,7 @@
       پنجرهٔ برنامه بالا نمی‌آمد تا کاربر همه‌چیز را ببندد و باز کند.
    ─────────────────────────────────────────────────────────────────── */
 const { spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const ENTRY = path.join(__dirname, 'index.js');
@@ -37,6 +38,56 @@ const FLAGS = sqliteReady() ? [] : ['--experimental-sqlite', '--disable-warning=
 const ARGS = (process.env.PAYESH_ARGS || '').trim() ? process.env.PAYESH_ARGS.trim().split(/\s+/) : process.argv.slice(2);
 const EXIT_RESTART = 75;
 
+/* حتی اگر پنجرهٔ دسکتاپ بسته و دوباره باز شود، فقط یک ناظر می‌تواند
+   برای یک پوشهٔ داده سرور اجرا کند. قفل فایل با PID است؛ قفلِ باقی‌مانده
+   از crash سخت، وقتی PID دیگر زنده نیست، خودکار پاک می‌شود. */
+const dataDir = path.resolve(process.env.PAYESH_DATA || path.join(process.cwd(), 'data'));
+const lockPath = path.join(dataDir, '.payesh-supervisor.lock');
+let lockFd = null;
+
+function pidIsAlive(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; }
+  catch (e) { return e && e.code === 'EPERM'; }
+}
+
+function acquireSupervisorLock() {
+  fs.mkdirSync(dataDir, { recursive: true });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const fd = fs.openSync(lockPath, 'wx');
+      fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() }));
+      return fd;
+    } catch (e) {
+      if (!e || e.code !== 'EEXIST') throw e;
+      let ownerPid = 0;
+      try { ownerPid = Number(JSON.parse(fs.readFileSync(lockPath, 'utf8')).pid); } catch (_) { }
+      if (pidIsAlive(ownerPid)) return null;
+      /* ممکن است نمونهٔ دیگر همین لحظه فایل را ساخته ولی هنوز PID را ننوشته باشد. */
+      if (!ownerPid) {
+        try {
+          if (Date.now() - fs.statSync(lockPath).mtimeMs < 2000) return null;
+        } catch (_) { }
+      }
+      try { fs.unlinkSync(lockPath); } catch (unlinkError) {
+        if (!unlinkError || unlinkError.code !== 'ENOENT') return null;
+      }
+    }
+  }
+  return null;
+}
+
+function releaseSupervisorLock() {
+  if (lockFd !== null) {
+    try { fs.closeSync(lockFd); } catch (_) { }
+    lockFd = null;
+  }
+  try {
+    const owner = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    if (Number(owner.pid) === process.pid) fs.unlinkSync(lockPath);
+  } catch (_) { }
+}
+
 let child = null;
 let stopping = false;
 let crashes = 0;
@@ -45,6 +96,7 @@ function startServer() {
   child = spawn(process.execPath, [...FLAGS, ENTRY, ...ARGS], {
     stdio: 'inherit',
     cwd: process.cwd(),
+    windowsHide: true,
     env: Object.assign({}, process.env, { PAYESH_SUPERVISED: '1' }),
   });
   const startedAt = Date.now();
@@ -84,6 +136,17 @@ function shutdown(sig) {
   try { if (child) child.kill(sig); } catch (e) { /* noop */ }
   setTimeout(() => process.exit(0), 1500).unref();
 }
+
+try { lockFd = acquireSupervisorLock(); }
+catch (e) {
+  console.error('[راه‌انداز] گرفتن قفل یکتایی ناموفق بود:', e.message);
+  process.exit(1);
+}
+if (lockFd === null) {
+  console.log('[راه‌انداز] نمونه‌ای برای این پوشهٔ داده از قبل فعال است؛ اجرای تکراری نادیده گرفته شد.');
+  process.exit(0);
+}
+process.on('exit', releaseSupervisorLock);
 
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.on(sig, () => shutdown(sig));

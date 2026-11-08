@@ -228,11 +228,10 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""P
 Filename: "{cmd}"; Parameters: "/c winget install --id Tailscale.Tailscale -e --silent --accept-package-agreements --accept-source-agreements"; Flags: runhidden waituntilterminated; Tasks: tailscale; StatusMsg: "نصب Tailscale برای دسترسی از هر اینترنتی…"; Check: IsAdminInstallMode
 ; موتور نمایش برنامه (پنجرهٔ واقعی) — نصب رسمی و بی‌صدا، بدون باز کردن مرورگر
 Filename: "{app}\runtime\MicrosoftEdgeWebView2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "نصب موتور نمایش برنامه…"; Flags: runhidden waituntilterminated skipifdoesntexist; Check: not WebView2Installed
-Filename: "{sys}\wscript.exe"; Parameters: """{app}\start-hidden.vbs"""; Flags: nowait runhidden; StatusMsg: "راه‌اندازی سامانه…"
 Filename: "{app}\desktop\Payesh.exe"; Description: "باز کردن برنامهٔ پایش"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Get-CimInstance Win32_Process | Where-Object {{ $_.CommandLine -like '*server\index.js*' }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}"""; Flags: runhidden; RunOnceId: "StopPayesh"
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Get-CimInstance Win32_Process | Where-Object {{ $_.CommandLine -like '*server\index.js*' -or $_.CommandLine -like '*server\start.js*' }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}"""; Flags: runhidden; RunOnceId: "StopPayesh"
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Payesh Local"""; Flags: runhidden; RunOnceId: "FirewallRule"
 
 [UninstallDelete]
