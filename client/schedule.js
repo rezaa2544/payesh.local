@@ -29,9 +29,8 @@ function schedLessons() {
     seen.add(order); return true;
   });
   if (bells.length) return bells;
-  /* اگر مدرسه هنوز زنگی تعریف نکرده، شش زنگِ پیش‌فرض نشان داده می‌شود
-     تا برنامه‌ریزی از همان روز اول ممکن باشد (با «تنظیم زنگ‌ها» قابل تغییر). */
-  return [1, 2, 3, 4, 5, 6].map(n => ({ order: n, start: '', end: '', type: 'lesson', label: 'زنگ ' + n }));
+  /* چهار زنگِ درس پیش‌فرض‌اند؛ تفریح‌ها در تنظیم زنگ‌ها میان آن‌ها قرار می‌گیرند. */
+  return [1, 2, 3, 4].map(n => ({ order: n, start: '', end: '', type: 'lesson', label: 'زنگ ' + fa(n) + ' (درس)' }));
 }
 function schedPeriods() { return schedLessons().map(b => Number(b.order)); }
 function schedBellOf(period) {
@@ -233,7 +232,7 @@ function schedPage() {
   const cellOf = (d, p) => rows.find(r => Number(r.weekday) === d && Number(r.bell_order) === Number(p));
   const periods = schedPeriods();
   const head = pageHead(title, cObj ? [cObj.grade, cObj.branch].filter(Boolean).join(' · ') : (isTeacher ? 'همهٔ برنامه‌های شما' : ''),
-    `${isMgr ? `<button class="btn sm ghost" data-act="workdays-edit">📅 روزهای فعال</button><button class="btn sm ghost" data-act="bell-edit">⏱️ تنظیم زنگ‌ها</button>` : ''}
+    `${isMgr ? `<button class="btn sm sched-top-action" data-act="workdays-edit">📅 روزهای فعال</button><button class="btn sm sched-top-action" data-act="bell-edit">⏱️ تنظیم زنگ‌ها</button>` : ''}
      ${canEdit ? `<button class="btn sm" data-act="schedgen-open">⚙️ تولید خودکار</button>` : ''}`);
 
   const cohortPicker = isMgr ? `<div class="card tight"><div class="row" style="gap:10px;flex-wrap:wrap;align-items:end">
@@ -318,17 +317,14 @@ function schedSlotModal(s) {
     <div class="small muted" style="margin-bottom:7px">پایه و رشته: <b>${esc(grade + (branch ? ' · ' + branch : ''))}</b></div>
     <div class="row"><label class="field grow"><span>روز فعال مدرسه</span>${sel('day', shownDays.map(d => [d, SCHED_DAY_FA[d]]), day)}</label>
       <label class="field grow"><span>زنگ</span>${sel('period', schedPeriods().map(p => [p, schedBellLabel(p)]), period)}</label></div>
-    <label class="field"><span>درس</span><div class="row" style="gap:6px">${sel('subject', [['', '— انتخاب درس —']].concat(subs.map(x => [x.id, x.name])), s.subject_id)}
-      <button type="button" class="btn sm" data-act="sched-subject-add" title="تعریف درس تازه">+ درس</button></div></label>
-    <label class="field"><span>دبیر</span><div class="row" style="gap:6px">${sel('teacher', [['', '— بدون دبیر —']].concat(teachers.map(t => [t.id, t.name])), s.teacher_id)}
-      <button type="button" class="btn sm" data-act="sched-teacher-add" title="ثبت دبیر تازه">+ دبیر</button></div></label>
-    <label class="field"><span>محل برگزاری</span><div class="row" style="gap:6px">${sel('room_id', [['', legacyRoomOption.length ? legacyRoomOption[0][1] : '— انتخاب محل —']].concat(rooms.map(r => [r.id, r.name])), s.room_id)}
-      <button type="button" class="btn sm" data-act="sched-room-add" title="افزودن محل تازه">+ محل</button></div>
-      <span class="small muted">از محل‌های تعریف‌شده در بخش کلاس‌ها انتخاب کنید، یا همین‌جا محل تازه بسازید.</span></label>
+    <label class="field"><span>درس</span><div class="row" style="gap:6px">${sel('subject', [['', '— انتخاب درس —']].concat(subs.map(x => [x.id, x.name]), [['__add_subject__', '＋ تعریف درس تازه…']]), s.subject_id)}</div></label>
+    <label class="field"><span>دبیر</span><div class="row" style="gap:6px">${sel('teacher', [['', '— بدون دبیر —']].concat(teachers.map(t => [t.id, t.name]), [['__add_teacher__', '＋ ثبت دبیر تازه…']]), s.teacher_id)}</div></label>
+    <label class="field"><span>محل برگزاری</span><div class="row" style="gap:6px">${sel('room_id', [['', legacyRoomOption.length ? legacyRoomOption[0][1] : '— انتخاب محل —']].concat(rooms.map(r => [r.id, r.name]), [['__add_room__', '＋ افزودن محل تازه…']]), s.room_id)}</div>
+      <span class="small muted">از فهرست محل‌های تعریف‌شده انتخاب کنید یا گزینهٔ پایانی را برای افزودن محل تازه بزنید.</span></label>
     <div class="small muted" style="margin-top:8px;line-height:2">🟢 دبیر آزاد · 🔴 دبیر مشغول در همان ساعت — ثبت زنگِ دارای تداخل ممکن نیست.</div>
     <button class="btn primary block" style="margin-top:10px">ذخیرهٔ زنگ</button>
     ${editing ? '<button type="button" class="btn danger block" style="margin-top:8px" data-act="slot-del" data-id="' + esc(s.id) + '">حذف این زنگ</button>' : ''}${subBlock}
-  </form>`);
+  </form>`, { preserveScroll: true });
 }
 
 /* وضعیتِ فعلیِ فرم (برای اینکه با تغییر روز/زنگ، فهرست دبیران تازه شود) */
@@ -560,11 +556,25 @@ function schedgenApply() {
     + (g.res.unplaced.length ? '؛ ' + fa(g.res.unplaced.length) + ' زنگ تعیین‌نشده ماند' : ''), 'ok');
 }
 
+/* نام‌های کوتاهِ ردیف‌های تفریح، مستقل از شمارهٔ زنگ‌ها. */
+function schedOrdinal(n) {
+  const ordinals = ['اول', 'دوم', 'سوم', 'چهارم', 'پنجم', 'ششم', 'هفتم', 'هشتم', 'نهم', 'دهم'];
+  return ordinals[n - 1] || fa(n);
+}
+
 /* ══════════════ تنظیم زنگ‌ها ══════════════ */
 function schedBellModal() {
   const bells = list('bell_schedules').sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
   const draft = bells.length ? bells.map(b => ({ id: b.id, order: Number(b.order || 0), start: b.start || '', end: b.end || '', type: b.type || 'lesson', label: b.label || '' }))
-    : [1, 2, 3, 4, 5, 6].map(n => ({ id: 0, order: n, start: '', end: '', type: 'lesson', label: 'زنگ ' + n }));
+    : [
+      { id: 0, order: 1, start: '', end: '', type: 'lesson', label: 'زنگ ۱ (درس)' },
+      { id: 0, order: 1.5, start: '', end: '', type: 'break', label: 'تفریح اول' },
+      { id: 0, order: 2, start: '', end: '', type: 'lesson', label: 'زنگ ۲ (درس)' },
+      { id: 0, order: 2.5, start: '', end: '', type: 'break', label: 'تفریح دوم' },
+      { id: 0, order: 3, start: '', end: '', type: 'lesson', label: 'زنگ ۳ (درس)' },
+      { id: 0, order: 3.5, start: '', end: '', type: 'break', label: 'تفریح سوم' },
+      { id: 0, order: 4, start: '', end: '', type: 'lesson', label: 'زنگ ۴ (درس)' },
+    ];
   S.bellDraft = draft;
   schedBellModalHtml();
 }
@@ -584,10 +594,14 @@ function schedBellCaptureDraft(form) {
 function schedBellModalHtml() {
   const d = S.bellDraft || [];
   S.modalTitle = '⏱️ تنظیم زنگ‌ها';
+  let lessonNumber = 0, breakNumber = 0;
   modal(`<form data-form="bells">
     <div class="small muted" style="margin-bottom:10px;line-height:1.9">برای هر ردیف زمان شروع و پایان را وارد کنید. نوع «درس» به‌صورت زنگ در جدول می‌آید؛ «تفریح» فاصلهٔ بین زنگ‌هاست و خانهٔ درسی ایجاد نمی‌کند. ترتیب ردیف‌ها از بالا به پایین است.</div>
-    ${d.map((b, i) => `<div class="card tight" style="margin-bottom:8px;padding:8px 10px">
-      <div class="row between" style="margin-bottom:6px"><b class="small">${b.type === 'break' ? 'تفریح' : 'زنگ درسی'} ${fa(i + 1)}</b>
+    ${d.map((b, i) => {
+      if (b.type === 'break') breakNumber++; else lessonNumber++;
+      const rowLabel = b.type === 'break' ? 'تفریح ' + schedOrdinal(breakNumber) : 'زنگ ' + fa(lessonNumber) + ' (درس)';
+      return `<div class="card tight" style="margin-bottom:8px;padding:8px 10px">
+      <div class="row between" style="margin-bottom:6px"><b class="small">${rowLabel}</b>
         <button type="button" class="btn ghost sm" data-act="bell-del" data-i="${i}" title="حذف این ردیف" style="color:var(--red)">حذف</button></div>
       <div class="row" style="gap:8px;align-items:end;flex-wrap:wrap">
         <label class="field grow" style="min-width:110px"><span>شروع</span><input class="input ltr clock-24h" type="text" data-clock-24h name="s_${i}" inputmode="numeric" maxlength="5" placeholder="۰۷:۴۵" autocomplete="off" value="${esc(schedTime(b.start))}" required></label>
@@ -595,13 +609,13 @@ function schedBellModalHtml() {
         <label class="field grow" style="min-width:110px"><span>این ردیف</span><select class="input" name="t_${i}">
           <option value="lesson" ${b.type !== 'break' ? 'selected' : ''}>زنگ درس</option>
           <option value="break" ${b.type === 'break' ? 'selected' : ''}>زنگ تفریح</option></select></label>
-      </div></div>`).join('')}
+      </div></div>`;
+    }).join('')}
     <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
-      <button type="button" class="btn sm ghost" data-act="bell-add" data-type="lesson">+ زنگ درس</button>
-      <button type="button" class="btn sm ghost" data-act="bell-add" data-type="break">+ زنگ تفریح</button>
+      <button type="button" class="btn sm ghost" data-act="bell-add">+ افزودن زنگ</button>
       <button class="btn sm primary" style="flex:1;min-width:150px">ذخیرهٔ ساعت‌ها</button>
     </div>
-  </form>`);
+  </form>`, { preserveScroll: true });
 }
 /* ساعت‌ها ممکن است با ارقام فارسی ذخیره شده باشند؛ input time فقط لاتین می‌پذیرد */
 function schedTime(v) {
@@ -626,16 +640,17 @@ function schedSaveBells(f) {
     previousEnd = mins(end);
   }
   if (!d.some((_, i) => f['t_' + i].value !== 'break')) return toast('دست‌کم یک زنگ درسی لازم است', 'err');
-  let lessonOrder = 0;
+  let lessonOrder = 0, breakOrder = 0;
   d.forEach((b, i) => {
     const start = schedTime(f['s_' + i].value);
     const end = schedTime(f['e_' + i].value);
     const type = f['t_' + i].value === 'break' ? 'break' : 'lesson';
-    if (type === 'lesson') lessonOrder += 1;
+    if (type === 'lesson') { lessonOrder += 1; breakOrder = 0; }
+    else breakOrder += 1;
     const row = {
-      order: type === 'lesson' ? lessonOrder : (lessonOrder + 0.5),
+      order: type === 'lesson' ? lessonOrder : (lessonOrder + breakOrder / (breakOrder + 1)),
       start, end, type,
-      label: type === 'break' ? 'زنگ تفریح' : ('زنگ ' + lessonOrder),
+      label: type === 'break' ? 'تفریح ' + schedOrdinal(breakOrder) : ('زنگ ' + fa(lessonOrder) + ' (درس)'),
       school_id: 1,
     };
     const id = Number(b.id) || 0;
@@ -827,8 +842,7 @@ const SCHED_ACTIONS = {
     if (!Array.isArray(S.bellDraft)) return;
     schedBellCaptureDraft(el && el.closest('form[data-form="bells"]'));
     const last = S.bellDraft[S.bellDraft.length - 1] || {};
-    const type = el && el.getAttribute('data-type') === 'break' ? 'break' : 'lesson';
-    S.bellDraft.push({ id: 0, order: S.bellDraft.length + 1, start: last.end || '', end: '', type, label: type === 'break' ? 'زنگ تفریح' : '' });
+    S.bellDraft.push({ id: 0, order: S.bellDraft.length + 1, start: last.end || '', end: '', type: 'lesson', label: '' });
     schedBellModalHtml();
   },
   'bell-del': (el) => {
@@ -868,6 +882,14 @@ const SCHED_FORMS = {
 document.addEventListener('change', (e) => {
   const form = e.target.closest && e.target.closest('form[data-form="slot"]');
   if (!form) return;
+  const addActions = { subject: ['__add_subject__', 'sched-subject-add'], teacher: ['__add_teacher__', 'sched-teacher-add'], room_id: ['__add_room__', 'sched-room-add'] };
+  const add = addActions[e.target.name];
+  if (add && e.target.value === add[0]) {
+    e.target.value = '';
+    const action = SCHED_ACTIONS[add[1]];
+    if (action) action(e.target);
+    return;
+  }
   if (!e.target.matches('[name="day"],[name="period"]')) return;
   schedSlotModal(schedSlotState(form));
 });
