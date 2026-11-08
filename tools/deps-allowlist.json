@@ -1,0 +1,54 @@
+{
+  "_doc": "ردیف ۴۸ — استثناهای وابستگی‌های توسعه (dev-only). هر استثنا باید دلیل و تاریخ انقضا داشته باشد؛ انقضا یا یافتهٔ تازه = دروازهٔ قرمز (tools/security-scan-48.mjs). وابستگی‌های تولیدی هیچ استثنایی ندارند.",
+  "entries": [
+    {
+      "package": "lodash",
+      "advisory": "",
+      "severity": "high",
+      "reason": "زنجیرهٔ dev-only: jsdom→…/java-parser→chevrotain→lodash-es→lodash؛ در بستهٔ محصول/APK عرضه نمی‌شود و ورودی کاربر به آن نمی‌رسد. ارتقای اجباری نیاز به major bump دارد.",
+      "expires": "2026-12-31"
+    },
+    {
+      "package": "lodash-es",
+      "advisory": "",
+      "severity": "high",
+      "reason": "همان زنجیرهٔ dev-only (chevrotain). در run-time محصول استفاده نمی‌شود.",
+      "expires": "2026-12-31"
+    },
+    {
+      "package": "chevrotain",
+      "advisory": "",
+      "severity": "high",
+      "reason": "وابستگی dev ابزار تجزیه (java-parser)؛ فقط در آزمون/CI بار می‌شود.",
+      "expires": "2026-12-31"
+    },
+    {
+      "package": "chevrotain-allstar",
+      "advisory": "",
+      "severity": "high",
+      "reason": "زنجیرهٔ chevrotain، dev-only.",
+      "expires": "2026-12-31"
+    },
+    {
+      "package": "@chevrotain/cst-dts-gen",
+      "advisory": "",
+      "severity": "high",
+      "reason": "زنجیرهٔ chevrotain، dev-only.",
+      "expires": "2026-12-31"
+    },
+    {
+      "package": "@chevrotain/gast",
+      "advisory": "",
+      "severity": "high",
+      "reason": "زنجیرهٔ chevrotain، dev-only.",
+      "expires": "2026-12-31"
+    },
+    {
+      "package": "java-parser",
+      "advisory": "",
+      "severity": "high",
+      "reason": "ابزار dev برای بررسی فایل‌های Java در CI؛ شipped نمی‌شود.",
+      "expires": "2026-12-31"
+    }
+  ]
+}

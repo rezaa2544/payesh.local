@@ -1,0 +1,131 @@
+# ───────────────────────────────────────────────────────────────────
+# ردیف ۴۸ — قواعد SAST اختصاصیِ همین مخزن (بدون وابستگی به رجیستری بیرونی)
+# اجرا: semgrep --config tools/semgrep/rules.yml --json
+# هر قاعده یا باید «صفر یافته» بدهد یا در tools/semgrep/allowlist.json با
+# دلیلِ مکتوب و تاریخ انقضا مستثنی شود. یافتهٔ بدون مجوز = دروازهٔ قرمز.
+# ───────────────────────────────────────────────────────────────────
+rules:
+  - id: payesh-eval-dynamic
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      اجرای کد از رشتهٔ پویا (eval / new Function). در این محصول هیچ مسیری نباید
+      کدِ ورودی کاربر را اجرا کند.
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: new Function(...)
+      - pattern-not: eval("...")
+      - pattern-not: new Function("...")
+
+  - id: payesh-child-process-dynamic
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      اجرای فرمان سیستمی با ورودی غیرثابت (exec/spawn/execSync با متغیر).
+      مسیر بحرانی: نشت فرمان. فقط با آرگومان‌های ثابت یا allowlist صریح مجاز است.
+    patterns:
+      - pattern-either:
+          - pattern: $CP.exec($CMD, ...)
+          - pattern: $CP.execSync($CMD, ...)
+          - pattern: $CP.execFile($CMD, ...)
+      - metavariable-pattern:
+          metavariable: $CMD
+          patterns:
+            - pattern-not: '"..."'
+            - pattern-not: '`...`'
+            - pattern-not: $LIT
+      - pattern-inside: |
+          function $F(...) { ... }
+
+  # ── تشخیص واقعی تزریق SQL: تحلیل taint از ورودی HTTP تا موتور پایگاه‌داده ──
+  # شناسه‌های داخلی (نام ستون/جدول) هم در رشته می‌آیند؛ این فقط هشدار است و
+  # دروازه آن را نمی‌بندد، چون مقادیر از ثابت‌های داخلی می‌آیند.
+  - id: payesh-sql-string-concat
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      پرس‌وجو با رشتهٔ قالبی ساخته شده (معمولاً نام ستون/جدول داخلی). اگر مقدار
+      کاربر داخلش برود، قاعدهٔ taint آن را می‌گیرد.
+    patterns:
+      - pattern-either:
+          - pattern: $DB.query($A + $B, ...)
+          - pattern: $DB.query(`...${$X}...`, ...)
+          - pattern: $DB.exec($A + $B, ...)
+      - pattern-not: $DB.query("...", ...)
+
+  - id: payesh-innerhtml-dynamic
+    languages: [javascript]
+    severity: WARNING
+    message: >-
+      نوشتن HTML از دادهٔ پویا (innerHTML/insertAdjacentHTML). مسیر XSS؛ باید
+      escapeHTML/textContent باشد.
+    patterns:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $X
+          - pattern: $EL.insertAdjacentHTML($P, $X)
+      - pattern-not: $EL.innerHTML = "..."
+      - pattern-not: $EL.innerHTML = ""
+      - pattern-not: $EL.innerHTML = $EL.innerHTML
+      - pattern-not: $EL.innerHTML = escapeHTML(...)
+      - pattern-not: $EL.innerHTML = $F(...)   # تابعی که خودش escape می‌کند
+
+  - id: payesh-hardcoded-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      رازِ ثابت در کد. مقدارهای واقعی باید از محیط/فایل امن بیایند.
+    patterns:
+      - pattern-either:
+          - pattern: $K = "AKIA..."
+          - pattern: $K = "-----BEGIN ... PRIVATE KEY-----..."
+      - pattern-not-inside: |
+          // ...
+
+  - id: payesh-weak-crypto-for-secret
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      هش ضعیف (md5/sha1) در مسیر امنیتی. برای ETag/چک‌سام مجاز است ولی نه برای
+      رمز/توکن.
+    pattern-either:
+      - pattern: crypto.createHash("md5")
+      - pattern: crypto.createHash('md5')
+      - pattern: crypto.createHash("sha1")
+      - pattern: crypto.createHash('sha1')
+
+  - id: payesh-math-random-secret
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      Math.random در تولید توکن/شناسهٔ امنیتی. باید crypto.randomUUID/randomBytes.
+    patterns:
+      - pattern: $X = Math.random()
+      - pattern-inside: |
+          function $F(...) {
+            ...
+          }
+      - metavariable-regex:
+          metavariable: $X
+          regex: (?i).*(token|secret|session|nonce|otp|code|uuid|key).*
+
+  - id: payesh-client-process-env
+    languages: [javascript]
+    severity: ERROR
+    message: >-
+      دسترسی به process.env در کد کلاینت (مرورگر). یا لو می‌رود یا خطا می‌دهد.
+    paths:
+      include:
+        - client/*
+    pattern: process.env.$K
+
+  - id: payesh-plaintext-http-client
+    languages: [javascript]
+    severity: WARNING
+    message: >-
+      آدرس http:// در کد کلاینت. جز localhost باید TLS باشد.
+    paths:
+      include:
+        - client/*
+    patterns:
+      - pattern-regex: 'http://(?!127\.0\.0\.1|localhost)'

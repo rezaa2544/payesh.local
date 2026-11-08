@@ -18,6 +18,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 const http = require('node:http');
 const tenancy = require('./tenancy');
+const metrics = require('./metrics');
 
 const PORT = Number(process.env.PORT || 5660);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -32,14 +33,60 @@ const INSTANCE = process.env.GW_INSTANCE || ('gw-' + process.pid);
    می‌پذیرد. خالی ⇒ رفتار تک‌cell ردیف ۳۷ بدون تغییر. */
 const CELL = String(process.env.GW_CELL || '').trim();
 
+/* ردیف ۵۲: replica فقط‌خواندنی اختیاری. اگر تنظیم نشود (پیش‌فرض)، همهٔ
+   خواندن‌ها روی primary می‌مانند — همان تصمیمی که شاهد ردیف ۴۶ پشتیبانی کرد. */
+const REPLICA_URL = String(process.env.PAYESH_PG_REPLICA_URL || '').trim();
 const startedAt = Date.now();
 let pool = null;
 let enabled = false;
+let replicaPool = null;
+/* آخرین seq نوشته‌شده توسط هر دستگاه (در حافظهٔ همین نمونه) — پایهٔ ناوردای
+   read-your-writes: دستگاه نوشته‌های خودش را همیشه می‌بیند. */
+const ownWriteSeq = new Map();
+const OWN_WRITE_CAP = 5000;
+
+function noteOwnWrite(deviceId, seq) {
+  const id = String(deviceId || '').slice(0, 64);
+  const s = Number(seq);
+  if (!id || !Number.isFinite(s) || s <= 0) return;
+  const prev = ownWriteSeq.get(id) || 0;
+  if (s > prev) ownWriteSeq.set(id, s);
+  if (ownWriteSeq.size > OWN_WRITE_CAP) {
+    /* ساده و قابل پیش‌بینی: قدیمی‌ترین کلیدها حذف می‌شوند */
+    const it = ownWriteSeq.keys();
+    for (let i = 0; i < 500 && ownWriteSeq.size > OWN_WRITE_CAP; i++) ownWriteSeq.delete(it.next().value);
+  }
+}
 
 if (PGURL && SECRET.length >= 16) {
   tenancy.init({ connectionString: PGURL, secret: SECRET });
   pool = tenancy.getPool();
   enabled = !!pool;
+}
+if (REPLICA_URL) {
+  const { Pool } = require('pg');
+  replicaPool = new Pool({
+    connectionString: REPLICA_URL, max: 2,
+    application_name: 'payesh-gateway-replica', statement_timeout: 5000,
+  });
+  replicaPool.on('error', () => { /* اتصال مردهٔ replica سرویس را نمی‌کشد */ });
+}
+
+/* تصمیم مقصد خواندن (ردیف ۵۲). replica فقط اگر واقعاً تازه باشد استفاده
+   می‌شود؛ و اگر دستگاه نوشته‌ای دارد که replica ندیده ⇒ primary. */
+async function readSource(deviceId, tenantId) {
+  if (!replicaPool || !enabled) return { pool, decision: { target: 'primary', reason: replicaPool ? 'disabled' : 'no_replica_configured', fallback: false } };
+  const ownSeq = ownWriteSeq.get(String(deviceId || '').slice(0, 64)) || 0;
+  let lagMs = null, replicaSeq = null;
+  try {
+    lagMs = await tenancy.replicaPolicy.measureLagMs({
+      primaryQuery: q => pool.query(q), replicaQuery: q => replicaPool.query(q),
+    });
+    const rs = await replicaPool.query('select max(seq)::bigint as seq from product_change_feed');
+    replicaSeq = rs.rows[0] && rs.rows[0].seq !== null ? Number(rs.rows[0].seq) : null;
+  } catch (e) { lagMs = null; replicaSeq = null; }
+  const decision = tenancy.replicaPolicy.chooseReadTarget({ replica_url: REPLICA_URL, lag_ms: lagMs, own_write_seq: ownSeq, replica_seq: replicaSeq });
+  return { pool: decision.target === 'replica' ? replicaPool : pool, decision };
 }
 
 function json(res, status, body, extraHeaders = {}) {
@@ -51,6 +98,54 @@ function json(res, status, body, extraHeaders = {}) {
   }, extraHeaders));
   res.end(payload);
 }
+
+/* ═══════════ ردیف ۴۹ — متریک نمونهٔ Gateway ═════════════════════════
+   «pool-wait» و «اتصال DB» فقط اینجا معنا دارند: در Gateway است که چند
+   نمونه به یک PostgreSQL وصل می‌شوند. /metrics اینجا همان قالب متن
+   Prometheus را می‌دهد تا یک Prometheus، مدرسه و ابر را با هم scrape کند.
+
+   صداقت عدد: صف انتظار pool از شمارندهٔ واقعی driver خوانده می‌شود و
+   زمان انتظار، اندازه‌گیریِ همان acquire در مسیر quota است — نه تخمین. */
+const mreg = metrics.create();
+
+mreg.onCollect(() => {
+  const out = [];
+  const add = (name, value, help, labels = {}) => out.push({ name, type: 'gauge', help, labels, value });
+  add('payesh_up', 1, 'نمونهٔ Gateway زنده است');
+  add('payesh_gateway_configured', enabled ? 1 : 0, 'Gateway به PostgreSQL و کلید امضا تنظیم شده است');
+  add('payesh_uptime_seconds', Math.round((Date.now() - startedAt) / 1000), 'مدت زنده‌بودن نمونه به ثانیه');
+  if (pool) {
+    add('payesh_pg_pool_total', Number(pool.totalCount) || 0, 'تعداد کل اتصال‌های pool');
+    add('payesh_pg_pool_idle', Number(pool.idleCount) || 0, 'اتصال‌های بی‌کار pool');
+    /* ردیف ۴۵: انتظار واقعی pool روی همهٔ گرفتن‌های اتصال (نه فقط لحظهٔ scrape) */
+    const w = tenancy.poolWaitSnapshot();
+    add('payesh_pg_pool_acquire_events_total', w.events, 'تعداد گرفتن اتصال از pool');
+    add('payesh_pg_pool_acquire_mean_ms', w.mean_ms, 'میانگین انتظار pool (میلی‌ثانیه)');
+    add('payesh_pg_pool_acquire_max_ms', w.max_ms, 'بیشینهٔ انتظار pool (میلی‌ثانیه)');
+    add('payesh_pg_pool_acquire_over_1s_total', w.over_1000ms, 'گرفتن اتصال با انتظار بیش از ۱ ثانیه');
+  }
+  return out;
+});
+
+/* اتصال‌های واقعیِ DB و آمادگی، با یک کوئری سبک در هر scrape. */
+mreg.onCollect(() => {
+  const out = [];
+  if (!enabled || !pool) return out;
+  /* این جمع‌بندی وضعیت است، نه دادهٔ مستأجر: RLS روی جدول‌های محصول اعمال
+     می‌شود و pg_stat_activity فقط شمارش اتصال است. */
+  const p = tenancy.poolSnapshot(pool);
+  return p.then(snap => {
+    out.push({ name: 'payesh_db_connections', type: 'gauge', help: 'اتصال‌های فعال به PostgreSQL از دید pg_stat_activity', labels: {}, value: snap.connections });
+    out.push({ name: 'payesh_pg_pool_wait_seconds', type: 'gauge', help: 'مدت گرفتن یک اتصال از pool در همین scrape (ثانیه)', labels: {}, value: snap.wait_ms / 1000 });
+    out.push({ name: 'payesh_db_up', type: 'gauge', help: 'PostgreSQL قابل دسترس است', labels: {}, value: snap.ok ? 1 : 0 });
+    out.push({ name: 'payesh_ready', type: 'gauge', help: 'آمادگی واقعی Gateway (DB + رفتار درست set_config)', labels: {}, value: snap.ready ? 1 : 0 });
+    return out;
+  }).catch(() => {
+    out.push({ name: 'payesh_db_up', type: 'gauge', help: 'PostgreSQL قابل دسترس است', labels: {}, value: 0 });
+    out.push({ name: 'payesh_ready', type: 'gauge', help: 'آمادگی واقعی Gateway (DB + رفتار درست set_config)', labels: {}, value: 0 });
+    return out;
+  });
+});
 
 function readBody(req, limit) {
   return new Promise((resolve, reject) => {
@@ -92,6 +187,14 @@ function deviceOf(headers) {
 async function handle(req, res, url) {
   const m = String(req.method || 'GET').toUpperCase();
   const p = url.pathname;
+
+  /* ── متریک (ردیف ۴۹): همان قالب مدرسه، برای scrape یکسان ───────────── */
+  if (p === '/metrics' && (m === 'GET' || m === 'HEAD')) {
+    const body = await mreg.render();
+    res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8', 'cache-control': 'no-store', 'x-gateway-instance': INSTANCE });
+    res.end(m === 'HEAD' ? '' : body);
+    return;
+  }
 
   /* ── زنده‌بودن: هیچ وابستگی‌ای جز خود فرایند ندارد ─────────────────── */
   if (p === '/healthz') {
@@ -148,11 +251,13 @@ async function handle(req, res, url) {
     try {
       /* اسکوپ نقش سمت سرور (ردیف ۳۸): scope فقط از claims توکن؛
          هر مقدار scope در query/هدر/بدنه نادیده گرفته می‌شود. */
-      const out = await tenancy.listFeed(pool, tenantId, {
+      const src = await readSource(deviceId, tenantId);
+      const out = await tenancy.listFeed(src.pool, tenantId, {
         sinceSeq, collection: url.searchParams.get('collection'), limit, claims,
       });
       return json(res, 200, Object.assign({ ok: true, schema_version: 1, instance: INSTANCE, clamped_limit: limit }, out,
-        { limits: { max_limit: PULL_MAX, default_limit: 200 } }), quotaHeaders);
+        { limits: { max_limit: PULL_MAX, default_limit: 200 }, read_from: src.decision.target, read_reason: src.decision.reason }),
+        quotaHeaders);
     } catch (e) {
       return json(res, e.status || 500, { ok: false, error: e.code || 'pull_failed', detail: e.details || null }, quotaHeaders);
     }
@@ -173,6 +278,11 @@ async function handle(req, res, url) {
     }
     try {
       const out = await tenancy.applyOps(pool, tenantId, { ops, device_id: deviceId, claims });
+      /* ناوردای read-your-writes: بزرگ‌ترین seq این دستگاه ثبت می‌شود.
+         فقط وقتی replica وجود دارد لازم است (بدون replica همه‌چیز primary است). */
+      if (REPLICA_URL) {
+        try { noteOwnWrite(deviceId, await tenancy.maxFeedSeq(pool, tenantId)); } catch (e) { /* ثبت نشد = بدبینانه: خواندن از primary */ }
+      }
       return json(res, 200, Object.assign({ ok: true, schema_version: 1, instance: INSTANCE }, out), quotaHeaders);
     } catch (e) {
       return json(res, e.status || 500, { ok: false, error: e.code || 'push_failed', detail: e.details || null }, quotaHeaders);
@@ -183,6 +293,7 @@ async function handle(req, res, url) {
 }
 
 const server = http.createServer((req, res) => {
+  res.on('finish', () => { try { mreg.observeHttp(res.statusCode); } catch (e) { /* noop */ } });
   const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
   handle(req, res, url).catch((e) => json(res, 500, { ok: false, error: 'gateway_error', detail: String(e.message || e).slice(0, 120) }));
 });
@@ -193,4 +304,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, handle, INSTANCE, PORT };
+module.exports = { server, handle, INSTANCE, PORT, mreg };

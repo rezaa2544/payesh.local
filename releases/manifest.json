@@ -1,15 +1,15 @@
 {
-  "version": "0.8.58",
-  "built_at": "2026-11-07T21:45:17.636Z",
+  "version": "0.8.61",
+  "built_at": "2026-11-08T01:14:32.420Z",
   "notes": [],
   "shell": {
-    "android": "0.8.58"
+    "android": "0.8.61"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "73937e2f953e52f0a867e0d89fde7a5ddea73c8f9e5aadc47b2da728ad59f522",
+      "sha256": "06f152b9a4f14814b1d23773703f93048aa11d8aed36cfb805a6553a0954314c",
       "size": 195160
     },
     {
@@ -189,8 +189,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "63ac2c0587c92ce1c228f7e27527e56d5d830b4c71549c4aeecf6eb251b15e53",
-      "size": 4461
+      "sha256": "5d0729a69f9fdd317b559289aeaab95dd744403693d7c42b6b382345238a005e",
+      "size": 5032
     },
     {
       "path": "server/archive.js",
@@ -237,20 +237,26 @@
     {
       "path": "server/gateway.js",
       "kind": "server",
-      "sha256": "326b6f46d78d95b610c89b50e531993f9db94aa26f744e63c1b2dace9d1fa18a",
-      "size": 10093
+      "sha256": "6736533d765c33b0bade088cb339672c8da172b5f890588ef647fc489cce4fe3",
+      "size": 17524
     },
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "8072e463c277a5068f6f60698dc349d969d9eb820dddb815e6f8ecd35f4ac98f",
-      "size": 110966
+      "sha256": "adb745641ea0e8882fcccc61a608c50e626eaf01c6b84d21c7bee289be63dfc1",
+      "size": 117978
     },
     {
       "path": "server/live.js",
       "kind": "server",
       "sha256": "521156bfbe8ea5b1bc78108bbfdfac2b4874faddb9a77ebf675b02fdad7ea615",
       "size": 7396
+    },
+    {
+      "path": "server/metrics.js",
+      "kind": "server",
+      "sha256": "96ed5decad8dc9cff6b6180ccd7feeba359aacec063a30dcaa605995377a4e67",
+      "size": 6815
     },
     {
       "path": "server/mirror.js",
@@ -275,6 +281,12 @@
       "kind": "server",
       "sha256": "5a3540a4e33af3acf3261a5a66c9d4547521203b7f71cedf45d91300268f6a65",
       "size": 13353
+    },
+    {
+      "path": "server/replica-policy.js",
+      "kind": "server",
+      "sha256": "9fe4502090fc7030282af36d6d16a691b69a04017f8c1d1794d0bae383609122",
+      "size": 5119
     },
     {
       "path": "server/s3mem.js",
@@ -309,8 +321,8 @@
     {
       "path": "server/tenancy.js",
       "kind": "server",
-      "sha256": "5f54c52068e89cddd048b4f67d6a388c5c2c5d62c0290e0295a881a79068fea9",
-      "size": 50814
+      "sha256": "780a4a7d37c4d943f5f1d1a909f5879bc625847a7348b3bf678d9e338961854a",
+      "size": 54630
     },
     {
       "path": "server/tenant-context.js",
@@ -357,9 +369,9 @@
   ],
   "counts": {
     "client": 29,
-    "server": 29
+    "server": 31
   },
   "client_size": 1401437,
-  "server_size": 437228,
-  "total_size": 1838665
+  "server_size": 467992,
+  "total_size": 1869429
 }

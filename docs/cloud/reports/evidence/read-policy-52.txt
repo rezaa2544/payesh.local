@@ -1,0 +1,42 @@
+# شاهد ردیف ۵۲ — replica فقط‌خواندنی و سیاست read-your-writes
+# branch: arena/b780a176-payesh-local   head: aa919be   at: 2026-11-08T01:14:02Z
+# postgres: 18.6 (بانک جدا: payesh_read)   node: v22.22.3
+# gateway: http://127.0.0.1:5671 (replica تنظیم نشده — پیش‌فرض تصمیم ردیف ۵۲)
+# بار: 40 دستگاه × 5 دور؛ هر دور push و بلافاصله pull همان دستگاه
+
+## بخش ۱ — آزمون سیاست (RP-01..RP-09)
+PASS  RP-01  بدون replica ⇒ خواندن از primary (تصمیم پیش‌فرض، بدون وابستگی به تأخیر)  → no_replica_configured
+PASS  RP-02  replica تازه ⇒ خواندن از replica (تنها حالت مجاز)  → lag=120ms target=replica
+PASS  RP-03  read-your-writes: دستگاه نوشته‌ای دارد که replica ندیده ⇒ primary  → own=42 replica=41 → primary
+PASS  RP-04  تأخیر نامعلوم (replica پاسخ نمی‌دهد) ⇒ محافظه‌کارانه primary  → null/undefined/NaN/str → primary
+PASS  RP-05  تأخیر بیش از سقف (۲۰۰۰ms) ⇒ primary؛ مرز دقیق بررسی می‌شود  → edge=2000ms accepted
+PASS  RP-06  ورودی نامعتبر سیاست را نمی‌شکند (own_write_seq متنی/منفی)  → invalid/empty handled
+PASS  RP-07  Gateway واقعاً از سیاست استفاده می‌کند و مقصد را در پاسخ می‌گوید  → wired: readSource + read_from + noteOwnWrite
+PASS  RP-08  ناوردا در مسیر push واقعاً ثبت می‌شود (maxFeedSeq در tenancy)  → push → maxFeedSeq → noteOwnWrite
+PASS  RP-09  شرط بازبینی تصمیم «بدون replica» عدد دارد (بر پایهٔ شاهد ردیف ۴۶)  → {"pull_p99_over_push_p99_ratio":1.3,"primary_read_cpu_pct":60,"sustained_clients":300}
+
+RP checks=9 pass=9 fail=0
+READ-POLICY-52-TEST-OK
+
+## بخش ۲ — ناوردا روی Gateway واقعی: دستگاه نوشته‌های خودش را می‌بیند
+{"at":"2026-11-08T01:14:05.038Z","gateway":"http://127.0.0.1:5671","devices":40,"rounds":5,"pushes":200,"pulls":200,"stale_reads":0,"errors":0,"duration_ms":2145,"read_targets":{"primary":200},"next_seq_max":200,"replica_configured":false}
+READ-POLICY-52-OK
+
+## بخش ۳ — سلامت سرویس پس از بار
+# /healthz → 200
+# /readyz  → 200
+
+## بخش ۴ — رگرسیون
+
+96 موفق · 0 ناموفق
+
+
+# ===== SUMMARY =====
+# policy_test_exit: 0
+# invariant_exit:   0
+# regression_exit:  0
+# NOTE: replica واقعی در این محیط وجود ندارد (provider/OWNER — ردیف ۵۶).
+#       آنچه سنجیده شد: مسیر تصمیم، برگشت کامل به primary، و ناوردای
+#       read-your-writes روی Gateway واقعی با PostgreSQL واقعی.
+# EXIT=0
+READ-POLICY-52-EVIDENCE-OK

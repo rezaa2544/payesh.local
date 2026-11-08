@@ -1,4 +1,6 @@
 'use strict';
+
+const replicaPolicy = require('./replica-policy');
 /* ═══════════════════════════════════════════════════════════════════
    لایهٔ دادهٔ چندمستأجری — مسیر محصول (Gate فاز ۳ · D‑35 · شرط CC‑12‑2)
 
@@ -236,7 +238,16 @@ async function migrate(client) {
 }
 
 /* ── اتصال runtime ─────────────────────────────────────────────────── */
-function createPool({ connectionString, max = 4 }) {
+/* ردیف ۴۵ — اندازهٔ pool از محیط قابل تنظیم است تا «بودجهٔ اتصال» یک عدد
+   قابل اجرا باشد، نه یک آرزو. سقف سخت ۵۰ است تا یک نمونه نتواند همهٔ
+   اتصال‌های مجاز provider را ببلعد (doc: 45-connection-budget.md). */
+function poolMax(env = process.env) {
+  const raw = Number(env.PAYESH_PG_POOL_MAX || 0);
+  if (!Number.isFinite(raw) || raw <= 0) return 4;
+  return Math.max(1, Math.min(50, Math.floor(raw)));
+}
+
+function createPool({ connectionString, max = poolMax() }) {
   let Pool;
   try { ({ Pool } = require('pg')); }
   catch (e) { throw new TenancyError('pg_driver_missing', 500); }
@@ -244,9 +255,37 @@ function createPool({ connectionString, max = 4 }) {
 }
 
 /* هر عملیات در یک تراکنش با زمینهٔ مستأجر اجرا می‌شود */
+/* ── ردیف ۴۵: اندازه‌گیری واقعی انتظار pool ────────────────────────
+   هر بار گرفتن اتصال از pool زمان‌سنجی می‌شود (نه فقط لحظهٔ scrape).
+   اگر این عدد بالا برود یعنی اندازهٔ pool به سقف خورده و کلاینت‌ها در
+   صف ایستاده‌اند؛ همان چیزی که فرمول بودجه باید از آن جلوگیری کند. */
+const poolWait = { events: 0, total_ms: 0, max_ms: 0, over_1000ms: 0 };
+
+function poolWaitReset() { poolWait.events = 0; poolWait.total_ms = 0; poolWait.max_ms = 0; poolWait.over_1000ms = 0; }
+
+function poolWaitSnapshot() {
+  return {
+    events: poolWait.events,
+    mean_ms: poolWait.events ? Math.round((poolWait.total_ms / poolWait.events) * 10) / 10 : 0,
+    max_ms: poolWait.max_ms,
+    over_1000ms: poolWait.over_1000ms,
+  };
+}
+
+async function acquire(pool) {
+  const t0 = Date.now();
+  const client = await pool.connect();
+  const wait = Date.now() - t0;
+  poolWait.events++;
+  poolWait.total_ms += wait;
+  if (wait > poolWait.max_ms) poolWait.max_ms = wait;
+  if (wait > 1000) poolWait.over_1000ms++;
+  return client;
+}
+
 async function withTenant(pool, tenantId, fn) {
   if (!UUID_RE.test(String(tenantId || ''))) throw new TenancyError('bad_tenant', 400);
-  const client = await pool.connect();
+  const client = await acquire(pool);
   try {
     await client.query('BEGIN');
     await client.query("select set_config('app.tenant_id', $1, true)", [String(tenantId)]);
@@ -302,6 +341,16 @@ async function createRecord(pool, tenantId, { kind, body = {} } = {}) {
       [kind, JSON.stringify(body || {})]
     );
     return rowOf(q.rows[0]);
+  });
+}
+
+/* بزرگ‌ترین seq قابل مشاهده در change-feed این مستأجر (همان چیزی که pull
+   با آن همگام می‌شود). برای ناوردای read-your-writes ردیف ۵۲ لازم است. */
+async function maxFeedSeq(pool, tenantId) {
+  if (!UUID_RE.test(String(tenantId || ''))) throw new TenancyError('bad_tenant', 400);
+  return withTenant(pool, tenantId, async (c) => {
+    const q = await c.query(`select coalesce(max(seq), 0)::bigint as seq from ${FEED_TABLE} where tenant_id = current_setting('app.tenant_id')::uuid`);
+    return Number(q.rows[0] && q.rows[0].seq) || 0;
   });
 }
 
@@ -585,6 +634,31 @@ async function readiness(pool) {
       leaked_after_commit: (after.rows[0].v || '') !== '',
     };
   } finally { client.release(); }
+}
+
+/* ═══════════ وضعیت pool/اتصال برای متریک — ردیف ۴۹ ═══════════════════
+   فقط شمارش و بولی برمی‌گرداند؛ هیچ شناسه، tenant یا ردیفی خوانده نمی‌شود.
+   هدف این است که /metrics بتواند «اتصال DB» و «آمادگی» را از یک منبع
+   واقعی بگیرد، نه از حدس. */
+async function poolSnapshot(pool) {
+  let connections = 0, waitMs = 0;
+  /* زمان گرفتن اتصال: همان «pool-wait» واقعی، اندازه‌گیری‌شده در لحظهٔ scrape */
+  try {
+    const t0 = Date.now();
+    const c = await pool.connect();
+    waitMs = Date.now() - t0;
+    c.release();
+  } catch (e) { waitMs = 0; }
+  try {
+    const r = await pool.query("select count(*)::int as n from pg_stat_activity where datname = current_database()");
+    connections = Number(r.rows[0] && r.rows[0].n) || 0;
+  } catch (e) { connections = 0; }
+  let ready = false;
+  try {
+    const r = await readiness(pool);
+    ready = !!(r.ok && r.tenant_scoped && !r.leaked_after_commit);
+  } catch (e) { ready = false; }
+  return { ok: connections > 0, connections, ready, wait_ms: waitMs };
 }
 
 /* ═══════ change-feed (ردیف ۳۶) ═══════════════════════════════════════
@@ -918,7 +992,7 @@ async function rollbackProduct(client) {
   return { dropped: [JOBS_TABLE, PRODUCT_TABLE], statements: sqls.length };
 }
 
-module.exports = { scopeMod, getPool, applyOps, takeQuota, readiness, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
+module.exports = { replicaPolicy, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,

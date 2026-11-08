@@ -22,6 +22,7 @@ const s3mem = require('./s3mem');
 const outbox = require('./outbox');
 const live = require('./live');
 const tenancy = require('./tenancy');
+const metrics = require('./metrics');
 
 function normDigitsLocal(v) {
   return String(v == null ? '' : v)
@@ -366,6 +367,93 @@ function userRow(u) {
   }
   return row;
 }
+/* ═══════════════ ردیف ۴۹ — آمادگی و متریک ═══════════════════════════
+   یک تابع، سه مصرف‌کننده: /api/readyz (پروب)، /metrics (scrape) و آزمون
+   هشدار. قبلاً محاسبهٔ آمادگی فقط داخل مسیر readyz بود؛ اگر متریک عدد
+   دیگری می‌گفت، هیچ‌کس نمی‌فهمید. حالا همه از همین یک منبع می‌خوانند. */
+function readinessChecks() {
+  const checks = { db: false, data_writable: false, disk_free_pct: null, backup_age_s: null, mirror_age_s: null };
+  try { checks.db = !!(store.get('schools', 1) || true); } catch (e) { checks.db = false; }
+  try { fs.accessSync(DATA_DIR, fs.constants.W_OK); checks.data_writable = true; } catch (e) { checks.data_writable = false; }
+  try {
+    const st = fs.statfsSync ? fs.statfsSync(DATA_DIR) : null;
+    if (st && st.blocks) checks.disk_free_pct = +(((st.bavail / st.blocks) * 100).toFixed(1));
+  } catch (e) { /* پشتیبانی نمی‌شود */ }
+  const ageOf = dir => {
+    try {
+      const files = fs.readdirSync(dir).map(f => { try { return fs.statSync(path.join(dir, f)).mtimeMs; } catch (e) { return 0; } }).filter(Boolean);
+      return files.length ? Math.round((Date.now() - Math.max(...files)) / 1000) : null;
+    } catch (e) { return null; }
+  };
+  checks.backup_age_s = ageOf(BACKUP_DIR);
+  checks.mirror_age_s = ageOf(MIRROR_DIR);
+  const ready = checks.db && checks.data_writable && (checks.disk_free_pct == null || checks.disk_free_pct >= 5);
+  return { checks, ready };
+}
+
+const mreg = metrics.create();
+
+/* سنجه‌هایی که در هر scrape از وضعیت واقعی خوانده می‌شوند. */
+mreg.onCollect(() => {
+  const out = [];
+  const add = (name, value, helpText, labels = {}) => out.push({ name, type: 'gauge', help: helpText, labels, value });
+  add('payesh_up', 1, 'سرور مدرسه زنده است (همیشه ۱ در پاسخ موفق)');
+  add('payesh_uptime_seconds', Math.round(process.uptime()), 'مدت زنده‌بودن فرایند به ثانیه');
+
+  const { checks, ready } = readinessChecks();
+  add('payesh_ready', ready ? 1 : 0, 'آمادگی واقعی سرویس (DB + نوشتن داده + فضای دیسک)');
+  add('payesh_db_up', checks.db ? 1 : 0, 'دیتابیس مدرسه قابل خواندن است');
+  add('payesh_data_writable', checks.data_writable ? 1 : 0, 'دایرکتوری داده قابل نوشتن است');
+  if (checks.disk_free_pct != null) add('payesh_disk_free_pct', checks.disk_free_pct, 'درصد فضای آزاد دیسک داده');
+  if (checks.backup_age_s != null) add('payesh_backup_age_seconds', checks.backup_age_s, 'عمر جدیدترین نسخهٔ پشتیبان به ثانیه');
+  if (checks.mirror_age_s != null) add('payesh_mirror_age_seconds', checks.mirror_age_s, 'عمر جدیدترین آینهٔ داده به ثانیه');
+
+  /* ── lag همگام‌سازی: فاصلهٔ «آخرین تماس هر دستگاه» با الان ──────────
+     lag یعنی دستگاه از دید سرور عقب افتاده؛ حداکثر بر همهٔ دستگاه‌های
+     فعال گرفته می‌شود تا یک دستگاهِ ساکت زیر میانگین گم نشود. */
+  let devices = 0, lagMax = 0;
+  try {
+    const rows = store.db.prepare("SELECT last_seen_at FROM devices WHERE revoked_at IS NULL").all();
+    devices = rows.length;
+    const now = Date.now();
+    for (const r of rows) {
+      if (!r.last_seen_at) continue;
+      const t = Date.parse(r.last_seen_at);
+      if (!Number.isFinite(t)) continue;
+      lagMax = Math.max(lagMax, (now - t) / 1000);
+    }
+  } catch (e) { /* پایگاه قدیمی/سطح‌دسترسی: صفر گزارش می‌شود */ }
+  add('payesh_sync_devices_total', devices, 'تعداد دستگاه‌های فعال (بدون ابطال)');
+  add('payesh_sync_lag_seconds', Math.round(lagMax), 'بیشترین فاصلهٔ آخرین تماس دستگاه‌ها تا الان (ثانیه)');
+
+  /* ── عمق صف همگام‌سازی: ردیف‌هایی که هنوز به فضای ابری نرسیده‌اند ── */
+  let depth = 0;
+  try {
+    depth = fs.readdirSync(path.join(DATA_DIR, 'outbox', 'pending')).filter(f => f.endsWith('.json')).length;
+  } catch (e) { depth = 0; }
+  add('payesh_sync_queue_depth', depth, 'تعداد ردیف در انتظار در صندوقچهٔ ماندگار');
+
+  /* ── حجم داده (بدون هیچ برچسب هویتی) ─────────────────────────────── */
+  try {
+    const n = store.db.prepare('SELECT COUNT(*) AS n FROM records WHERE deleted_at IS NULL').get();
+    add('payesh_records_total', Number(n && n.n) || 0, 'تعداد ردیف‌های زندهٔ پایگاه داده');
+  } catch (e) { /* noop */ }
+
+  /* نرخ خطا از شمارندهٔ واقعی درخواست‌ها (پنجرهٔ ۵ دقیقه) */
+  add('payesh_http_error_ratio_events', mreg.httpEvents.length, 'تعداد درخواست‌های داخل پنجرهٔ محاسبهٔ نرخ خطا');
+  return out;
+});
+
+/* انتشار /metrics فقط برای شبکهٔ داخلی/ناظر است؛ اگر توکن تنظیم شود،
+   scrape بدون توکن رد می‌شود (پیش‌فرض: باز، چون فقط شمارشِ بی‌هویت است). */
+const METRICS_TOKEN = String(process.env.PAYESH_METRICS_TOKEN || '');
+function metricsAllowed(req, url) {
+  if (!METRICS_TOKEN) return true;
+  const h = String(req.headers.authorization || '');
+  if (h === 'Bearer ' + METRICS_TOKEN) return true;
+  return url.searchParams.get('token') === METRICS_TOKEN;
+}
+
 /* ── مسیرهای API ──────────────────────────────────────────────────── */
 async function api(req, res, url, ip) {
   const p = url.pathname;
@@ -376,22 +464,7 @@ async function api(req, res, url, ip) {
   /* ── آمادگی سرویس (readyz) — ردیف ۲۹: پروب واقعی برای مانیتورینگ/هشدار،
      بدون هیچ مسیر یا راز در پاسخ؛ ۲۰۰ یعنی «آمادهٔ سرویس»، ۵۰۳ یعنی «نه». */
   if (p === '/api/readyz' && m === 'GET') {
-    const checks = { db: false, data_writable: false, disk_free_pct: null, backup_age_s: null, mirror_age_s: null };
-    try { checks.db = !!(store.get('schools', 1) || true); } catch (e) { checks.db = false; }
-    try { fs.accessSync(DATA_DIR, fs.constants.W_OK); checks.data_writable = true; } catch (e) { checks.data_writable = false; }
-    try {
-      const st = fs.statfsSync ? fs.statfsSync(DATA_DIR) : null;
-      if (st && st.blocks) checks.disk_free_pct = +(((st.bavail / st.blocks) * 100).toFixed(1));
-    } catch (e) { /* پشتیبانی نمی‌شود */ }
-    const ageOf = dir => {
-      try {
-        const files = fs.readdirSync(dir).map(f => { try { return fs.statSync(path.join(dir, f)).mtimeMs; } catch (e) { return 0; } }).filter(Boolean);
-        return files.length ? Math.round((Date.now() - Math.max(...files)) / 1000) : null;
-      } catch (e) { return null; }
-    };
-    checks.backup_age_s = ageOf(BACKUP_DIR);
-    checks.mirror_age_s = ageOf(MIRROR_DIR);
-    const ready = checks.db && checks.data_writable && (checks.disk_free_pct == null || checks.disk_free_pct >= 5);
+    const { checks, ready } = readinessChecks();
     return json({ ok: ready, ready, version: RUNNING_VERSION, uptime_s: Math.round(process.uptime()), checks }, ready ? 200 : 503);
   }
 
@@ -1824,8 +1897,43 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('access-control-expose-headers', 'content-length, etag');
   res.setHeader('access-control-max-age', '86400');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+  /* شمارش واقعی هر پاسخ (کلاس ۲xx..۵xx) برای نرخ خطا — ردیف ۴۹.
+     بعد از پایان پاسخ ثبت می‌شود تا کد وضعیت نهایی همان چیزی باشد که
+     کلاینت دید، نه آنچه در میانهٔ مسیر ساخته شده بود. */
+  res.on('finish', () => { try { mreg.observeHttp(res.statusCode); } catch (e) { /* noop */ } });
 
   try {
+    /* ── ردیف ۴۹: متریک و پروب‌های هم‌نام با Gateway ──────────────────
+       /healthz = زنده‌بودن فرایند (بدون وابستگی) · /readyz = آمادگی واقعی
+       (/api/readyz هم برای سازگاری می‌ماند) · /metrics = scrape استاندارد. */
+    if (url.pathname === '/healthz') {
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(JSON.stringify({ ok: true, instance: 'payesh-local', version: RUNNING_VERSION, uptime_s: Math.round(process.uptime()) }));
+      return;
+    }
+    if (url.pathname === '/readyz') {
+      const { checks, ready } = readinessChecks();
+      res.writeHead(ready ? 200 : 503, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(JSON.stringify({ ok: ready, ready, version: RUNNING_VERSION, uptime_s: Math.round(process.uptime()), checks }));
+      return;
+    }
+    if (url.pathname === '/metrics' || url.pathname === '/api/metrics') {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.writeHead(405, { allow: 'GET, HEAD', 'content-type': 'text/plain; charset=utf-8' });
+        res.end('method not allowed\n');
+        return;
+      }
+      if (!metricsAllowed(req, url)) {
+        res.writeHead(401, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+        res.end('unauthorized\n');
+        return;
+      }
+      const body = await mreg.render();
+      res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(req.method === 'HEAD' ? '' : body);
+      return;
+    }
+
     if (url.pathname.startsWith('/api/')) {
       const out = await api(req, res, url, ip);
       if (out && !res.writableEnded) {
