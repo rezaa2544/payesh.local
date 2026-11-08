@@ -79,7 +79,8 @@ async function migrateCells(urls) {
   return { ok, cells: out, uniform_fingerprint: fps.size === 1, fingerprint: out[0] && out[0].fingerprint };
 }
 
-async function primaryKeyOf(client, table) {
+async function primaryKeyOf(client, rawTable) {
+  const table = transfer.table(rawTable);
   const q = await client.query(`
     select a.attname as col
     from pg_index i
@@ -96,7 +97,8 @@ async function copyTenant(src, dst, tenantId) {
   const batchId = crypto.randomUUID();
   const inserted = {};
   const cols = {};
-  for (const t of TABLES) {
+  for (const raw of TABLES) {
+    const t = transfer.table(raw);
     const c = await src.query(
       `select column_name from information_schema.columns where table_name = $1 order by ordinal_position`, [t]);
     if (!c.rowCount) { inserted[t] = []; continue; }
@@ -164,9 +166,10 @@ async function rollbackBatch(target, batchId) {
   if (!q.rowCount) return { ok: false, removed: 0, reason: 'batch_not_found' };
   const tables = q.rows[0].tables || {};
   let removed = 0;
-  for (const [t, meta] of Object.entries(tables)) {
+  for (const [raw, meta] of Object.entries(tables)) {
     if (!meta || !Array.isArray(meta.rows) || !meta.rows.length || !Array.isArray(meta.pk) || !meta.pk.length) continue;
-    const cols = meta.pk.join(', ');
+    const t = transfer.table(raw);
+    const cols = meta.pk.map(c => transfer.ident(c)).join(', ');
     const params = [];
     const tuples = meta.rows.map(pkRow => {
       const ph = pkRow.map(v => { params.push(v); return '$' + params.length; });

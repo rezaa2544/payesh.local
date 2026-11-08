@@ -1,5 +1,5 @@
 # شاهد ردیف ۵۴ — مهاجرت یکسان چند cell + انتقال مدرسه با توقف نوشتن، تطبیق سه‌لایه و rollback
-# branch: arena/b780a176-payesh-local   head: 655fd35   at: 2026-11-08T01:17:48Z
+# branch: arena/b780a176-payesh-local   head: b5143ac   at: 2026-11-08T01:30:22Z
 # postgres: 18.6 — دو دیتابیس مستقل: cell_a / cell_b (کاربر اجرایی: payesh_runtime)
 # فعال‌سازی: PAYESH_CELL_TRANSFER_ENABLED=1 (شرط ردیف ۵۴)
 
@@ -83,7 +83,7 @@ push_while_frozen status=409 body={"ok":false,"error":"write_frozen","detail":"t
       "ok": true
     }
   ],
-  "batch_id": "6b31a3bf-b294-40f9-9b9d-4aed49440e08",
+  "batch_id": "4a534d9b-f3f5-40f0-976a-477caee08943",
   "reconciliation": {
     "ok": true,
     "layer1": [
@@ -115,26 +115,26 @@ push_while_frozen status=409 body={"ok":false,"error":"write_frozen","detail":"t
     "layer2": [
       {
         "table": "gateway_quota",
-        "source": "9112dc27b54b274f6d97c9c58c7765fd",
-        "target": "9112dc27b54b274f6d97c9c58c7765fd",
+        "source": "0b25a68125ddc60445d2c9d9a1534f470580f9de880a808f86922ffb262cdc31",
+        "target": "0b25a68125ddc60445d2c9d9a1534f470580f9de880a808f86922ffb262cdc31",
         "ok": true
       },
       {
         "table": "product_change_feed",
-        "source": "b658f6cab9cb538f73cf14b5f2aa1264",
-        "target": "b658f6cab9cb538f73cf14b5f2aa1264",
+        "source": "a48d8684377e4e271bf51dabc92790b9e8a77073a8370e5b7d2c1dfae806a9ee",
+        "target": "a48d8684377e4e271bf51dabc92790b9e8a77073a8370e5b7d2c1dfae806a9ee",
         "ok": true
       },
       {
         "table": "product_ops",
-        "source": "8e89aec57cfa51ea307dc3d5c9bd52a8",
-        "target": "8e89aec57cfa51ea307dc3d5c9bd52a8",
+        "source": "f8f40831c12250e06bb34a90f24b9ce58f44eef9a944794d4a1980fcbec3ee1e",
+        "target": "f8f40831c12250e06bb34a90f24b9ce58f44eef9a944794d4a1980fcbec3ee1e",
         "ok": true
       },
       {
         "table": "product_records",
-        "source": "0d986f2ee536d9a1b1016ef161efe3fe",
-        "target": "0d986f2ee536d9a1b1016ef161efe3fe",
+        "source": "692e0f33b544f955e5775f1552a935cb4b1fdcc23652994f32c175423715ee84",
+        "target": "692e0f33b544f955e5775f1552a935cb4b1fdcc23652994f32c175423715ee84",
         "ok": true
       }
     ],
