@@ -1,6 +1,6 @@
 {
   "name": "payesh-local",
-  "version": "0.8.64",
+  "version": "0.8.65",
   "private": true,
   "description": "پایش-لوکال — سامانهٔ مدیریت مدرسه، درون‌مدرسه‌ای و آفلاین (Node + SQLite)",
   "type": "commonjs",
@@ -61,7 +61,8 @@
     "test:connb45": "node tests/conn-budget-45.js",
     "test:replica52": "node tests/replica-52.js",
     "test:cell54": "node tests/cell-transfer-54.js",
-    "test:adr60": "node tests/adr-ids-60.js"
+    "test:adr60": "node tests/adr-ids-60.js",
+    "test:branch59": "node tests/branch-policy-59.js"
   },
   "license": "MIT",
   "devDependencies": {
