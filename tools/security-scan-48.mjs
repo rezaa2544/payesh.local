@@ -59,9 +59,17 @@ function readJson(relPath, fallback) {
 function auditArgs(kind) {
   return kind === 'prod' ? ['audit', '--omit=dev', '--json'] : ['audit', '--json'];
 }
+/* یافتن فایل اجرایی npm: در ویندوز npm یک .cmd است و execFileSync بدون
+   shell با ENOENT/EINVAL شکست می‌خورد؛ پس در ویندوز از cmd.exe استفاده
+   می‌کنیم. آرگومان‌ها ثابت‌اند (بدون ورودی کاربر) پس shell امن است. */
+function npmCmd(kind) {
+  return process.platform === 'win32'
+    ? ['cmd', '/c', 'npm', ...auditArgs(kind)]
+    : ['npm', ...auditArgs(kind)];
+}
 function runNpmAudit(kind) {
   try {
-    const out = execFileSync('npm', auditArgs(kind), { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const out = execFileSync(npmCmd(kind)[0], npmCmd(kind).slice(1), { cwd: ROOT, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] });
     return JSON.parse(out || '{}');
   } catch (e) {
     /* npm audit با کد ۱ خارج می‌شود ولی JSON معتبر می‌دهد */

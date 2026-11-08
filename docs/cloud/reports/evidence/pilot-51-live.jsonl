@@ -14,3 +14,8 @@
 {"ts":"2026-11-08T13:59:15.266Z","target":"http://127.0.0.1:8080","up":true,"uptime_s":11435,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
 {"ts":"2026-11-08T14:04:15.269Z","target":"http://127.0.0.1:8080","up":true,"uptime_s":11735,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
 {"ts":"2026-11-08T14:09:15.273Z","target":"http://127.0.0.1:8080","up":true,"uptime_s":12035,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T14:14:15.286Z","target":"http://127.0.0.1:8080","up":true,"uptime_s":12335,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T14:19:15.286Z","target":"http://127.0.0.1:8080","up":true,"uptime_s":12635,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T14:24:15.296Z","target":"http://127.0.0.1:8080","up":true,"uptime_s":12935,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T14:29:15.309Z","target":"http://127.0.0.1:8080","up":true,"uptime_s":13235,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
+{"ts":"2026-11-08T14:34:15.322Z","target":"http://127.0.0.1:8080","up":true,"uptime_s":13535,"stats":{"data_loss":-1,"cross_tenant":-1,"mismatch":-1,"pending":-1}}
