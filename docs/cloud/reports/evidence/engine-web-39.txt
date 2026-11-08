@@ -1,8 +1,8 @@
 # شاهد ردیف ۳۹ — موتور دادهٔ مرورگری (IndexedDB): درستی + بنچمارک واقعی Chrome و Android
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/e7396a69-payesh-local
-# head_sha: c93342ae64b41f62ab1096d4a225c457b7f4acee
-# generated_at: 2026-11-08T06:38:36Z
+# head_sha: baafd5775e740168d697876c9f7c8a10c58d9c80
+# generated_at: 2026-11-08T06:49:37Z
 # node: v22.22.3
 # os: Linux 6.1.158+ x86_64
 # command: bash docs/cloud/reports/evidence/run-39-engine.sh
@@ -14,8 +14,8 @@ PASS  EW-03  byRef روی کلیدهای *_id (ایندکس multiEntry)  → cla
 PASS  EW-04  list با limit/offset و ترتیب پایدار  → rows=200/201/202
 PASS  EW-05  since برای همگام‌سازی (ردیف‌های تغییریافته بعد از مهر زمانی)  → changed=1
 PASS  EW-06  حذف ردیف و اثرش روی count  → remaining=1
-PASS  EW-07  بارگذاری دسته‌ای ۱۲٬۰۰۰ ردیف در چانک‌ها  → rows=12000 ms=878 total=12005
-PASS  EW-08  پرس‌وجوی ایندکسی روی حجم بالا (بدون اسکن کامل)  → class=1 rows=302 ms=149
+PASS  EW-07  بارگذاری دسته‌ای ۱۲٬۰۰۰ ردیف در چانک‌ها  → rows=12000 ms=820 total=12005
+PASS  EW-08  پرس‌وجوی ایندکسی روی حجم بالا (بدون اسکن کامل)  → class=1 rows=302 ms=170
 PASS  EW-09  ماندگاری بین دو باز/بسته: داده بعد از باز شدن مجدد هست  → rows=12005
 PASS  EW-10  stats: شمارش به‌تفکیک کالکشن  → total=12005 collections=5
 PASS  EW-11  شاهد واقعی Chrome Desktop (۱۰۰هزار ردیف، ۲ اجرای مستقل)  → run1=72086ms(1387/s,mem=24.9MB) run2=50728ms(1971/s,mem=26.1MB)
