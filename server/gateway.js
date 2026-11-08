@@ -36,6 +36,9 @@ const CELL = String(process.env.GW_CELL || '').trim();
 /* ردیف ۵۲: replica فقط‌خواندنی اختیاری. اگر تنظیم نشود (پیش‌فرض)، همهٔ
    خواندن‌ها روی primary می‌مانند — همان تصمیمی که شاهد ردیف ۴۶ پشتیبانی کرد. */
 const REPLICA_URL = String(process.env.PAYESH_PG_REPLICA_URL || '').trim();
+/* ردیف ۵۴: توقف نوشتن هنگام انتقال مدرسه بین دیتابیس‌ها. تا وقتی ابزار
+   انتقال فعال نشده، هیچ کوئری اضافه‌ای زده نمی‌شود. */
+const TRANSFER_ON = String(process.env.PAYESH_CELL_TRANSFER_ENABLED || '') === '1';
 const startedAt = Date.now();
 let pool = null;
 let enabled = false;
@@ -277,6 +280,9 @@ async function handle(req, res, url) {
       return json(res, 413, { ok: false, error: 'too_many_ops', limit: tenancy.MAX_OPS_PER_REQUEST }, quotaHeaders);
     }
     try {
+      if (TRANSFER_ON && await tenancy.transfer.isFrozen(pool, tenantId)) {
+        return json(res, 409, { ok: false, error: 'write_frozen', detail: 'tenant is being transferred' }, quotaHeaders);
+      }
       const out = await tenancy.applyOps(pool, tenantId, { ops, device_id: deviceId, claims });
       /* ناوردای read-your-writes: بزرگ‌ترین seq این دستگاه ثبت می‌شود.
          فقط وقتی replica وجود دارد لازم است (بدون replica همه‌چیز primary است). */

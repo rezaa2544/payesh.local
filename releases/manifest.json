@@ -1,15 +1,15 @@
 {
-  "version": "0.8.61",
-  "built_at": "2026-11-08T01:14:32.420Z",
+  "version": "0.8.62",
+  "built_at": "2026-11-08T01:18:21.505Z",
   "notes": [],
   "shell": {
-    "android": "0.8.61"
+    "android": "0.8.62"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "06f152b9a4f14814b1d23773703f93048aa11d8aed36cfb805a6553a0954314c",
+      "sha256": "dddacc500b75778c7907fe8929fbbfbe65f03764366be0f83d046f356403b51f",
       "size": 195160
     },
     {
@@ -189,8 +189,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "5d0729a69f9fdd317b559289aeaab95dd744403693d7c42b6b382345238a005e",
-      "size": 5032
+      "sha256": "01bf3e733fe05498b7477eb891beee515dee2975b74e4b50986fd0eeabcca5b8",
+      "size": 5085
     },
     {
       "path": "server/archive.js",
@@ -237,8 +237,8 @@
     {
       "path": "server/gateway.js",
       "kind": "server",
-      "sha256": "6736533d765c33b0bade088cb339672c8da172b5f890588ef647fc489cce4fe3",
-      "size": 17524
+      "sha256": "6c3a9f099c434977d0d3c00e1d2b91115399b3b268bbb82cecce2181ff1b346e",
+      "size": 18041
     },
     {
       "path": "server/index.js",
@@ -321,14 +321,20 @@
     {
       "path": "server/tenancy.js",
       "kind": "server",
-      "sha256": "780a4a7d37c4d943f5f1d1a909f5879bc625847a7348b3bf678d9e338961854a",
-      "size": 54630
+      "sha256": "97132d66fb13d2c11d0a60436213713db22513727f1a351578aaa4fe59f8b1e9",
+      "size": 54680
     },
     {
       "path": "server/tenant-context.js",
       "kind": "server",
       "sha256": "b256e4744cb92daea75c2bf6a63188226d2553c7e4f3d85f36ebd9cecf545ea0",
       "size": 4006
+    },
+    {
+      "path": "server/transfer.js",
+      "kind": "server",
+      "sha256": "ef7032060aeda4e48175942a121b4c855463e56c0dc328a6eadbcb6e142a8dba",
+      "size": 7726
     },
     {
       "path": "server/tunnel.js",
@@ -369,9 +375,9 @@
   ],
   "counts": {
     "client": 29,
-    "server": 31
+    "server": 32
   },
   "client_size": 1401437,
-  "server_size": 467992,
-  "total_size": 1869429
+  "server_size": 476338,
+  "total_size": 1877775
 }

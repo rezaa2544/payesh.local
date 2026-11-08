@@ -1,0 +1,175 @@
+# شاهد ردیف ۵۴ — مهاجرت یکسان چند cell + انتقال مدرسه با توقف نوشتن، تطبیق سه‌لایه و rollback
+# branch: arena/b780a176-payesh-local   head: 655fd35   at: 2026-11-08T01:17:48Z
+# postgres: 18.6 — دو دیتابیس مستقل: cell_a / cell_b (کاربر اجرایی: payesh_runtime)
+# فعال‌سازی: PAYESH_CELL_TRANSFER_ENABLED=1 (شرط ردیف ۵۴)
+
+## بخش ۱ — آزمون منطق (بدون دیتابیس): CT-01..CT-10
+PASS  CT-02  checksum محتوایی پایدار است (ترتیب ردیف‌ها اثر ندارد)  → order-independent
+PASS  CT-03  لایهٔ ۱ (تعداد) اختلاف را می‌گیرد  → count mismatch detected
+PASS  CT-04  لایهٔ ۲ (checksum) اختلاف محتوا با تعداد برابر را می‌گیرد  → checksum mismatch detected
+PASS  CT-05  لایهٔ ۳ (seq) رکورد به‌رکورد را مقایسه می‌کند  → a:1 ok · b:2≠9 گرفته شد
+PASS  CT-06  تطبیق کامل ⇒ ok (کنترل مثبت)  → ok=true · tables=2
+PASS  CT-07  Gateway توقف نوشتن را اجرا می‌کند و ۴۰۹ می‌دهد  → push → 409 write_frozen
+PASS  CT-08  انتقال از lock نشستی استفاده نمی‌کند (سازگار با transaction pooling)  → freeze row, no session lock
+PASS  CT-09  اعتبارسنجی ورودی: tenant نامعتبر، مبدأ=مقصد، فهرست خالی  → 4/4 rejected with exit=2
+PASS  CT-10  رویداد batch برای rollback ثبت می‌شود (اثر انگشت انتقال)  → batch → rollback مسیر کامل
+
+CT checks=10 pass=10 fail=0
+CELL-TRANSFER-54-TEST-OK
+
+## بخش ۲ — migration یکسان روی هر دو cell (و تکرارپذیر بودن)
+{
+  "ok": true,
+  "cells": [
+    {
+      "url": "postgres://***@127.0.0.1:5680/cell_a",
+      "statements": 59,
+      "fingerprint": "32cfe5e4adf2d80f9bd385315643dc566c2cff99435f46fd8cf3d30360e31046",
+      "idempotent": true,
+      "columns": 24,
+      "policies": 4,
+      "changed_from_empty": true
+    },
+    {
+      "url": "postgres://***@127.0.0.1:5680/cell_b",
+      "statements": 59,
+      "fingerprint": "32cfe5e4adf2d80f9bd385315643dc566c2cff99435f46fd8cf3d30360e31046",
+      "idempotent": true,
+      "columns": 24,
+      "policies": 4,
+      "changed_from_empty": true
+    }
+  ],
+  "uniform_fingerprint": true,
+  "fingerprint": "32cfe5e4adf2d80f9bd385315643dc566c2cff99435f46fd8cf3d30360e31046"
+}
+CELL-MIGRATE-54-OK
+
+## بخش ۳ — Gateway روی cell_a؛ نوشتن قبل از توقف
+push_before_freeze status=200 body={"ok":true,"schema_version":1,"instance":"ct-gw","applied":[{"uid":"ct-1","id":900001,"version":1,"collection":"attendance"},{"uid":"ct-2","id":900002,"version"
+cell_a (قبل) records=5 feed=5
+
+## بخش ۴ — توقف نوشتن و اثبات ۴۰۹ روی همان Gateway
+{"frozen":true,"tenant_id":"11111111-2222-4333-8444-555555555555"}
+{"tenant_id":"11111111-2222-4333-8444-555555555555","frozen":true}
+push_while_frozen status=409 body={"ok":false,"error":"write_frozen","detail":"tenant is being transferred"}
+
+## بخش ۵ — انتقال مدرسه cell_a → cell_b با تطبیق سه‌لایه
+{
+  "tenant_id": "11111111-2222-4333-8444-555555555555",
+  "steps": [
+    {
+      "step": "schema",
+      "ok": true,
+      "from": "32cfe5e4adf2d80f9bd385315643dc566c2cff99435f46fd8cf3d30360e31046",
+      "to": "32cfe5e4adf2d80f9bd385315643dc566c2cff99435f46fd8cf3d30360e31046"
+    },
+    {
+      "step": "freeze",
+      "ok": true
+    },
+    {
+      "step": "copy",
+      "ok": true,
+      "inserted": {
+        "product_records": 5,
+        "product_change_feed": 5,
+        "product_ops": 5,
+        "gateway_quota": 1
+      }
+    },
+    {
+      "step": "reconcile",
+      "ok": true
+    }
+  ],
+  "batch_id": "6b31a3bf-b294-40f9-9b9d-4aed49440e08",
+  "reconciliation": {
+    "ok": true,
+    "layer1": [
+      {
+        "table": "gateway_quota",
+        "source": 1,
+        "target": 1,
+        "ok": true
+      },
+      {
+        "table": "product_change_feed",
+        "source": 5,
+        "target": 5,
+        "ok": true
+      },
+      {
+        "table": "product_ops",
+        "source": 5,
+        "target": 5,
+        "ok": true
+      },
+      {
+        "table": "product_records",
+        "source": 5,
+        "target": 5,
+        "ok": true
+      }
+    ],
+    "layer2": [
+      {
+        "table": "gateway_quota",
+        "source": "9112dc27b54b274f6d97c9c58c7765fd",
+        "target": "9112dc27b54b274f6d97c9c58c7765fd",
+        "ok": true
+      },
+      {
+        "table": "product_change_feed",
+        "source": "b658f6cab9cb538f73cf14b5f2aa1264",
+        "target": "b658f6cab9cb538f73cf14b5f2aa1264",
+        "ok": true
+      },
+      {
+        "table": "product_ops",
+        "source": "8e89aec57cfa51ea307dc3d5c9bd52a8",
+        "target": "8e89aec57cfa51ea307dc3d5c9bd52a8",
+        "ok": true
+      },
+      {
+        "table": "product_records",
+        "source": "0d986f2ee536d9a1b1016ef161efe3fe",
+        "target": "0d986f2ee536d9a1b1016ef161efe3fe",
+        "ok": true
+      }
+    ],
+    "layer3": {
+      "compared": 1,
+      "mismatched": [],
+      "mismatch_count": 0,
+      "ok": true
+    },
+    "tables": 4
+  },
+  "ok": true,
+  "still_frozen": true
+}
+CELL-TRANSFER-54-OK
+cell_b (پس از انتقال) records=5 feed=5
+
+## بخش ۶ — rollback همان batch
+{"ok":true,"removed":16}
+cell_b (پس از rollback) records=0 feed=0
+
+## بخش ۷ — رگرسیون
+
+96 موفق · 0 ناموفق
+
+
+# ===== SUMMARY =====
+# unit_exit:      0
+# migrate_exit:   0
+# freeze_exit:    0
+# frozen_push_exit: 0   (۰ = پاسخ ۴۰۹ همان‌طور که باید)
+# transfer_exit:  0
+# rollback_exit:  0
+# regression_exit: 0
+# NOTE: دو cell روی یک PostgreSQL محلی‌اند؛ «cell» در این ردیف یعنی دیتابیس مستقل.
+#       اجرای چند میزبان/provider واقعی + بار = OWNER (ردیف ۴۶/۵۶).
+# EXIT=0
+CELL-TRANSFER-54-EVIDENCE-OK
