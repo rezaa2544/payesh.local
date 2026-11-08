@@ -1,12 +1,12 @@
 # شاهد ساختاری ممیزی ۰۵–۱۱
 # تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh
-# تاریخ اجرای آزمون (از لاگ خام): 2026-11-08T15:18:02Z
-# SHA اجرای آزمون (از لاگ خام): 05c20041d901308b2003d6ed7de84be34f7473a5
-# اثر انگشت کد محصول (log / HEAD): 56dc291783456cc8c2f2c262cef8ca5ed1c5a37e7bd23e5d225582c116548ff0 / 56dc291783456cc8c2f2c262cef8ca5ed1c5a37e7bd23e5d225582c116548ff0
-# هش بدنهٔ خام (بازمحاسبه‌شده): e93f65f659e9159a8cb5c0ad3add40af1922fab9bd90f2543f6e7cc4ef38c8be
+# تاریخ اجرای آزمون (از لاگ خام): 2026-11-08T16:47:20Z
+# SHA اجرای آزمون (از لاگ خام): f18cb68a9d1e6cea0884ddd95081f16422cb7cba
+# اثر انگشت کد محصول (log / HEAD): 8e0f573e7138dcb6f9d1d629b396daa64b34922815388fc1891b7d3badae8e5c / 8e0f573e7138dcb6f9d1d629b396daa64b34922815388fc1891b7d3badae8e5c
+# هش بدنهٔ خام (بازمحاسبه‌شده): 688905a94c7f55e29ebb5ce091b3c49512e53f5529d9082d5939b69adb45b6f2
 # شمارش بدنه: 96 ✓ / 0 ✗ — SUMMARY: SUMMARY pass=96 fail=0
 # آزمون‌های ثبت‌شده: 96 · گزارش‌شده: 96
-# branch: main
+# branch: arena/aab566df-payesh-local
 
 ## آزمون واقعی مخزن (از لاگ خام، بدون دست‌کاری)
 SUMMARY: SUMMARY pass=96 fail=0
