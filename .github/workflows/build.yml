@@ -52,7 +52,10 @@ jobs:
           exit $code
 
       # سیاست شاخهٔ قفل‌شده (ردیف ۵۹): B1..B4 روی git واقعی؛ B5 (PR) نیاز به gh.
+      # روی main اجرا نمی‌شود: B1 («کار روی main ممنوع») ذاتیِ شاخه‌های کاری است و
+      # کامیت‌های main همان merge و انتشار خودکارند (B4 از سمت شاخه سنجیده می‌شود).
       - name: دروازهٔ سیاست شاخه (Branch Policy — ردیف ۵۹)
+        if: github.ref != 'refs/heads/main'
         run: |
           set +e
           OUT=$(node tools/branch-policy-59.mjs 2>&1); a=$?
