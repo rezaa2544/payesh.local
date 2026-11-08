@@ -513,8 +513,9 @@ function managerHome() {
     ${statCard('📝', fa(pending), 'نمرهٔ در انتظار تأیید', 'purple')}
   </div>
 
+  <div class="dashboard-coverage-grid">
   <section id="dashboard-attendance-coverage">${card(`<div class="row between" style="margin-bottom:10px"><div><b class="dashboard-card-title">پوشش حضور امروز · پایه و رشته</b><div class="small muted">تعداد دانش‌آموزانی که حضورشان برای امروز ثبت شده است.</div></div><span class="badge ${doneCount ? 'green' : 'amber'}">${fa(doneCount)} از ${fa(coverage.length)} گروه دارای ثبت</span></div>
-    ${coverage.length ? `<div class="table-wrap dashboard-table-wrap"><table class="dashboard-table"><thead><tr><th>پایه</th><th>رشته</th><th>دانش‌آموزان</th><th>ثبت‌شده</th><th>حاضر / غایب / تأخیر</th><th>پوشش</th></tr></thead><tbody>
+    ${coverage.length ? `<div class="table-wrap dashboard-table-wrap"><table class="dashboard-table dashboard-attendance-table"><thead><tr><th>پایه</th><th>رشته</th><th>دانش‌آموزان</th><th>ثبت‌شده</th><th>حاضر / غایب / تأخیر</th><th>پوشش</th></tr></thead><tbody>
       ${coverage.map(({ group, records, checked, roster, ratio, tone, present: p, absent: a, late: l }) => `<tr data-dashboard-cohort="${esc(group.key)}">
         <td><strong>${esc(group.grade || '—')}</strong></td><td><strong>${esc(group.branch || (group.grade ? '—' : group.fallbackName || '—'))}</strong></td>
         <td>${fa(roster)}</td><td><strong>${fa(checked)} / ${fa(roster)}</strong></td>
@@ -543,6 +544,7 @@ function managerHome() {
           <td>${esc(subject)}</td><td>${esc(teacher)}</td></tr>`;
       }).join('')}
       </tbody></table></div>` : '<div class="dashboard-empty">هنوز کلاس یا محل برگزاری تعریف نشده است.</div>'}`)}</section>
+  </div>
 
   <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
     <a class="card" href="#/users"><b>👥 کاربران</b><div class="small muted">افزودن، کارت پیوند، ورود دسته‌ای</div></a>

@@ -143,9 +143,29 @@ th{color:var(--ink);font-weight:800;font-size:12px;background:var(--soft)}
 tr:last-child td{border-bottom:0}
 .table-wrap{overflow:auto;border-radius:12px}
 .dashboard-card-title{display:block;color:var(--primary);font-size:16px;font-weight:800}
+.dashboard-coverage-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start;direction:rtl}
+.dashboard-coverage-grid>section{min-width:0}
+#dashboard-attendance-coverage{grid-column:1}
+#dashboard-room-coverage{grid-column:2}
+.dashboard-coverage-grid .card{height:100%;padding:12px}
 .dashboard-table-wrap{border:1px solid var(--line);background:var(--card)}
 .dashboard-table{min-width:680px}
 .dashboard-room-table{min-width:600px}
+.dashboard-coverage-grid .dashboard-table,.dashboard-coverage-grid .dashboard-room-table{min-width:0;font-size:12px;table-layout:fixed}
+.dashboard-coverage-grid .dashboard-table th,.dashboard-coverage-grid .dashboard-table td{padding:.4rem .3rem;overflow-wrap:anywhere}
+.dashboard-attendance-table th:nth-child(1){width:12%}
+.dashboard-attendance-table th:nth-child(2){width:18%}
+.dashboard-attendance-table th:nth-child(3){width:12%}
+.dashboard-attendance-table th:nth-child(4){width:14%}
+.dashboard-attendance-table th:nth-child(5){width:30%}
+.dashboard-attendance-table th:nth-child(6){width:14%}
+.dashboard-room-table th:nth-child(1){width:18%}
+.dashboard-room-table th:nth-child(2){width:20%}
+.dashboard-room-table th:nth-child(3){width:26%}
+.dashboard-room-table th:nth-child(4){width:18%}
+.dashboard-room-table th:nth-child(5){width:18%}
+.dashboard-coverage-grid .dashboard-table .badge{font-size:10px;padding:2px 5px}
+@media (max-width:1200px){.dashboard-coverage-grid{grid-template-columns:minmax(0,1fr)}#dashboard-attendance-coverage,#dashboard-room-coverage{grid-column:1}}
 .dashboard-table tbody td:first-child strong,.dashboard-table tbody td:nth-child(2) strong{font-weight:800}
 .dash-status-counts{display:flex;gap:4px;flex-wrap:wrap}
 .dashboard-room-row.is-occupied td{background:var(--green-bg);border-bottom-color:rgba(15,118,110,.22)}
