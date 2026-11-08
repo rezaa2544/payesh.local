@@ -1,5 +1,5 @@
 # شاهد ردیف ۵۹ — سیاست اجرا روی شاخهٔ قفل‌شده (B1..B5)
-# branch: arena/5124e3a6-payesh-local   head: 923bbd7   at: 2026-11-08T04:40:36Z
+# branch: arena/5124e3a6-payesh-local   head: e880741   at: 2026-11-08T04:53:27Z
 # POLICY_SINCE=2026-11-08T02:00:00Z
 
 ## بخش ۱ — سنجش قواعد روی همین مخزن
