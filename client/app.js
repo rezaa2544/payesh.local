@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.73';
+const CLIENT_VERSION = '0.8.74';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -2223,11 +2223,11 @@ async function handleActionClick(e, el) {
   }
 
   switch (act) {
-    case 'modal-close': closeModal(); return;
+    case 'modal-close': S.schedPendingSlot = null; closeModal(); return;
     /* کلیک روی پس‌زمینهٔ تیره؛ اگر روی خودِ پنجره بزنند، بسته نمی‌شود */
     /* «قفل»: پنجره‌های حساس (مثل ورود اطلاعات) فقط با ✕ یا دکمهٔ خودشان
        بسته می‌شوند — کلیکِ accidentally بیرونِ کادر نباید همهٔ کار را پاک کند. */
-    case 'modal-bg': if (e.target === el && el.getAttribute('data-lock') !== '1') closeModal(); return;
+    case 'modal-bg': if (e.target === el && el.getAttribute('data-lock') !== '1') { S.schedPendingSlot = null; closeModal(); } return;
     case 'retry': boot(); return;
     case 'cloud-phone-check': {
       if (PHONE_MODE) { toast('این بررسی روی رایانهٔ مدرسه انجام می‌شود — روی گوشی لازم نیست', 'ok'); return; }
@@ -3277,6 +3277,10 @@ async function handleSubmit(form) {
     closeModal(); saveCache(); render();
     await flushQueue();
     toast(id ? 'درس ویرایش شد' : 'درس ثبت شد', 'ok');
+    if (!id && S.schedPendingSlot && typeof window.schedSlotModal === 'function') {
+      const pending = S.schedPendingSlot; S.schedPendingSlot = null;
+      pending.subject_id = row.id; window.schedSlotModal(pending);
+    }
     return;
   }
 

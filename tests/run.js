@@ -66,6 +66,25 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(policy.canWrite('teacher', 'users'), false);
     assert.strictEqual(policy.canWrite('manager', 'users'), true);
   });
+  await test('برنامهٔ پایه و رشته برای دانش‌آموز و ولی در اسکوپ امن می‌ماند', () => {
+    const store = {
+      all: () => [{ id: 40, role: 'student', class_id: null, grade: 'دهم', branch: 'الکترونیک' }],
+      get: (_collection, id) => Number(id) === 40 ? { id: 40, role: 'student', class_id: null, grade: 'دهم', branch: 'الکترونیک' } : null,
+      byRef: () => [],
+    };
+    const studentScope = policy.buildScope(store, { id: 40, role: 'student', class_id: null, grade: 'دهم', branch: 'الکترونیک' });
+    assert.strictEqual(policy.rowInScope(studentScope, 'schedule', { grade: 'دهم', branch: 'الکترونیک' }), true);
+    assert.strictEqual(policy.rowInScope(studentScope, 'schedule', { grade: 'دهم', branch: 'گرافیک' }), false);
+    const parent = { id: 50, role: 'parent' };
+    const parentStore = Object.assign({}, store, { all: name => name === 'parent_links' ? [{ parent_id: 50, student_id: 40 }] : store.all() });
+    const parentScope = policy.buildScope(parentStore, parent);
+    assert.strictEqual(policy.rowInScope(parentScope, 'schedule', { grade: 'دهم', branch: 'الکترونیک' }), true);
+    assert.strictEqual(policy.rowInScope(parentScope, 'schedule', { grade: 'یازدهم', branch: 'الکترونیک' }), false);
+    const syncScope = require('../server/scope');
+    const predicate = syncScope.sqlPredicate({ role: 'student', uid: 40, classIds: [], studentIds: [40], cohorts: [{ grade: 'دهم', branch: 'الکترونیک' }] });
+    assert.ok(predicate.sql.includes('jsonb_array_elements'), 'اسکوپ SQL هم برنامهٔ همین پایه و رشته را می‌خواند');
+    assert.ok(predicate.params.includes(JSON.stringify([{ grade: 'دهم', branch: 'الکترونیک' }])), 'پایه و رشته با پارامتر امن به SQL می‌روند');
+  });
   await test('کد ملی: فقط ده رقم — بدون الگوریتم رقم کنترل', () => {
     const { validNationalId } = require('../server/util');
     assert.strictEqual(validNationalId('1000000001'), true, 'ده رقم قابل قبول است');
@@ -3729,7 +3748,7 @@ async function waitFor(fn, ms = 15000) {
     const win = dom.window;
     const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
     win.eval(strip('client/pages.js') + '\n;\n' + strip('client/schedule.js') + '\n;\n' + strip('client/app.js')
-      + '\n;window.__t = { S, schedPage, schedGenerate, schedConflicts, schedTeacherBusyAt, schedSuggestSlots, schedSlotModal, closeModal };');
+      + '\n;window.__t = { S, schedPage, schedGenerate, schedConflicts, schedTeacherBusyAt, schedSuggestSlots, schedSlotModal, schedWorkDays, SCHED_FORMS, SCHED_ACTIONS, handleSubmit, closeModal };');
     const T = win.__t;
     T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
     T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'schedule';
@@ -3747,6 +3766,7 @@ async function waitFor(fn, ms = 15000) {
         [101, { id: 101, class_id: 2, subject_id: 10, teacher_id: 2, weekday: 0, bell_order: 1 }],   /* تداخل: یک دبیر دو کلاس */
       ]),
       substitutions: new Map(),
+      schools: new Map([[1, { id: 1, workdays: [0, 2] }]]),
     };
     T.S.queue = []; T.S.online = false;
 
@@ -3791,6 +3811,10 @@ async function waitFor(fn, ms = 15000) {
     const html = T.schedPage();
     assert.ok(/data-act="sched-slot"/.test(html), 'خانه‌های جدول قابلِ کلیک‌اند');
     assert.ok(/data-act="schedgen-open"/.test(html), 'دکمهٔ تولید خودکار هست');
+    assert.ok(/data-set="schedGrade"/.test(html) && /data-set="schedBranch"/.test(html), 'انتخاب‌گر پایه و رشته جای انتخاب کلاس را گرفته است');
+    assert.ok(!/<b class="small">کلاس<\/b>/.test(html), 'عنوان انتخاب کلاس حذف شده است');
+    assert.ok(/روزهای فعال/.test(html), 'کنترل روزهای فعال در صفحه قابل‌دسترسی است');
+    assert.ok(!/data-act="sched-slot" data-day="1"/.test(html), 'روز غیرفعال از جدول حذف شده است');
     assert.ok(/تداخل/.test(html), 'هشدار تداخل نمایش داده شد');
     assert.ok(/data-act="sched-slot" data-day="0" data-period="1" data-id="100"/.test(html), 'خانهٔ پر با شناسهٔ زنگ');
 
@@ -3802,6 +3826,66 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/🔴/.test(modalHtml), 'دبیرِ مشغول با نشان سرخ دیده می‌شود');
     assert.ok(/sub_date/.test(modalHtml), 'بخش جابه‌جای موقت هست');
     assert.ok(/data-act="modal-close"/.test(modalHtml), 'دکمهٔ ✕ در پنجره هست');
+    assert.ok(/name="room_id"/.test(modalHtml), 'محل از فهرست محل‌های تعریف‌شده انتخاب می‌شود');
+    assert.ok(/data-act="sched-subject-add"/.test(modalHtml) && /data-act="sched-teacher-add"/.test(modalHtml) && /data-act="sched-room-add"/.test(modalHtml), 'درس، دبیر و محل از همان پنجره قابل تعریف‌اند');
+
+    /* تعریف درس از همان پنجره ثبت می‌شود و بلافاصله در زنگ انتخاب شده است. */
+    T.schedSlotModal({ grade: 'دهم', branch: '', weekday: 0, bell_order: 2 });
+    T.SCHED_ACTIONS['sched-subject-add'](win.document.querySelector('#modal-root [data-act="sched-subject-add"]'));
+    const subjectForm = win.document.querySelector('#modal-root form[data-form="subject"]');
+    subjectForm.elements.name.value = 'درس تازه';
+    subjectForm.elements.workshop.value = '';
+    await T.handleSubmit(subjectForm);
+    const createdSubject = Array.from(T.S.data.subjects.values()).find(x => x.name === 'درس تازه');
+    assert.ok(createdSubject, 'درس تازه در فهرست درس‌ها ذخیره شد');
+    const reopenedSlot = win.document.querySelector('#modal-root form[data-form="slot"]');
+    assert.ok(reopenedSlot && Number(reopenedSlot.elements.subject.value) === Number(createdSubject.id), 'درس تازه در فرم زنگ انتخاب شد');
+
+    /* تنظیم روزهای فعال در مدرسه ذخیره می‌شود و مبنای جدول بعدی است. */
+    T.SCHED_FORMS.workdays({ day_1: { checked: true }, day_4: { checked: true } });
+    assert.deepStrictEqual(Array.from(T.S.data.schools.get(1).workdays), [1, 4]);
+    assert.deepStrictEqual(Array.from(T.schedWorkDays()), [1, 4]);
+
+    /* تعریف درجا دبیر، کاربرِ نقش teacher می‌سازد و فرمِ زنگ را ادامه می‌دهد. */
+    T.S.schedPendingSlot = { grade: 'دهم', branch: '', weekday: 1, bell_order: 2, subject_id: 10 };
+    T.SCHED_FORMS['sched-teacher']({ name: { value: 'دبیر تازه' } });
+    const createdTeacher = Array.from(T.S.data.users.values()).find(u => u.name === 'دبیر تازه');
+    assert.ok(createdTeacher && createdTeacher.role === 'teacher', 'کاربر دبیر ساخته شد');
+    assert.ok(/data-form="slot"/.test(win.document.querySelector('#modal-root').innerHTML), 'پس از تعریف دبیر به فرم زنگ برگشت');
+
+    /* محل در همان کالکشن کلاس‌ها ثبت می‌شود و در برنامه قابل‌انتخاب است. */
+    T.S.schedPendingSlot = { grade: 'دهم', branch: '', weekday: 1, bell_order: 3, subject_id: 10 };
+    T.SCHED_FORMS['sched-room']({ name: { value: 'آزمایشگاه تازه' } });
+    const createdRoom = Array.from(T.S.data.classes.values()).find(c => c.name === 'آزمایشگاه تازه');
+    assert.ok(createdRoom && createdRoom.kind === 'room', 'محل تازه ذخیره شد');
+    assert.ok(/آزمایشگاه تازه/.test(win.document.querySelector('#modal-root').innerHTML), 'محل تازه به فرم برگشتی اضافه شد');
+    T.SCHED_FORMS.slot({
+      id: { value: '' }, grade: { value: 'دهم' }, branch: { value: '' }, class_id: { value: '1' },
+      day: { value: '1' }, period: { value: '3' }, subject: { value: String(createdSubject.id) },
+      teacher: { value: String(createdTeacher.id) }, room_id: { value: String(createdRoom.id) }, legacy_room: { value: '' },
+    });
+    const savedSlot = Array.from(T.S.data.schedule.values()).find(x => Number(x.weekday) === 1 && Number(x.bell_order) === 3);
+    assert.ok(savedSlot && savedSlot.grade === 'دهم' && savedSlot.branch === '', 'برنامه برای پایه و رشته ذخیره شد');
+    assert.strictEqual(Number(savedSlot.room_id), Number(createdRoom.id), 'محل انتخاب‌شده به برنامه پیوند خورد');
+    assert.strictEqual(savedSlot.room, 'آزمایشگاه تازه', 'نام محل برای نمایش ذخیره شد');
+
+    T.SCHED_ACTIONS['bell-edit']();
+    const bellHtml = win.document.querySelector('#modal-root').innerHTML;
+    assert.ok(/شروع/.test(bellHtml) && /پایان/.test(bellHtml) && /زنگ درس/.test(bellHtml) && /زنگ تفریح/.test(bellHtml), 'تنظیم زنگ شروع/پایان و تفریح را روشن نمایش می‌دهد');
+    assert.ok(/data-type="lesson"/.test(bellHtml) && /data-type="break"/.test(bellHtml), 'افزودن زنگ درس و تفریح جداست');
+    T.S.bellDraft = [{ id: 0 }, { id: 0 }];
+    T.SCHED_FORMS.bells({
+      s_0: { value: '07:30' }, e_0: { value: '08:30' }, t_0: { value: 'lesson' },
+      s_1: { value: '08:15' }, e_1: { value: '08:45' }, t_1: { value: 'break' },
+    });
+    assert.strictEqual(T.S.data.bell_schedules.size, 6, 'زمان‌های هم‌پوشان ذخیره نمی‌شوند');
+    T.S.bellDraft = [{ id: 0 }, { id: 0 }];
+    T.SCHED_FORMS.bells({
+      s_0: { value: '07:30' }, e_0: { value: '08:15' }, t_0: { value: 'lesson' },
+      s_1: { value: '08:15' }, e_1: { value: '08:30' }, t_1: { value: 'break' },
+    });
+    assert.strictEqual(T.S.data.bell_schedules.size, 2, 'ساعت‌های معتبر ثبت شدند');
+    assert.ok(Array.from(T.S.data.bell_schedules.values()).some(b => b.type === 'break'), 'تفریح جداگانه ذخیره شد');
     T.closeModal();
     dom.window.close();
   });

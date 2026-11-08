@@ -495,6 +495,8 @@ function statCard(ico, num, label, tone = '') {
 
 /* ══════════════ خانهٔ دبیر ══════════════ */
 function teacherScheduleFor(day) {
+  const active = typeof schedWorkDays === 'function' ? schedWorkDays() : [0, 1, 2, 3, 4, 5];
+  if (!active.includes(Number(day))) return [];
   return list('schedule').filter(s => Number(s.teacher_id) === Number(S.user.id) && Number(s.weekday) === Number(day));
 }
 function currentBell() {
@@ -980,7 +982,7 @@ PAGES.classes = () => {
   const lvl = String((S.server.school && S.server.school.level) || '');
   const isFieldSchool = /متوسطهٔ? ?دوم/.test(lvl) || all.some(c => String(c.mode || '') === 'field');
 
-  const roomsCard = isFieldSchool ? card(
+  const roomsCard = card(
     `<div class="row between" style="margin-bottom:8px"><b>🏫 کلاس‌ها و کارگاه‌ها (محل برگزاری)</b>
        <span class="row" style="gap:6px">
          <span class="small muted">${fa(rooms.length)} مورد</span>
@@ -990,7 +992,7 @@ PAGES.classes = () => {
        ${rooms.map(c => `<tr><td><b>${esc(c.name)}</b></td><td>${fa(countOf(c.id))}</td>
          <td class="nowrap"><button class="btn sm ghost" data-act="room-edit" data-id="${esc(c.id)}">ویرایش</button>
          <button class="btn sm ghost" data-act="class-delete" data-id="${esc(c.id)}" style="color:#b91c1c">حذف</button></td></tr>`).join('')}
-     </tbody></table></div>` : '<div class="small muted">هنوز کلاس یا کارگاهی تعریف نشده است.</div>'}`) : '';
+     </tbody></table></div>` : '<div class="small muted">هنوز کلاس یا کارگاهی تعریف نشده است.</div>'}`);
 
   const headerAction = isFieldSchool
     ? ''
@@ -1248,8 +1250,14 @@ function studentHome() {
 }
 function studentHomeCard() {
   const day = weekdayIndex();
-  const cls = S.user.class_id;
-  const rows = list('schedule').filter(s => Number(s.class_id) === Number(cls) && Number(s.weekday) === day);
+  const cls = byId('classes', S.user.class_id) || {};
+  const grade = String(S.user.grade || cls.grade || '').trim();
+  const branch = String(S.user.branch || cls.branch || '').trim();
+  const activeDays = typeof schedWorkDays === 'function' ? schedWorkDays() : [0, 1, 2, 3, 4, 5];
+  const rows = list('schedule').filter(s => activeDays.includes(Number(day)) && Number(s.weekday) === day && (
+    (Number(s.class_id) && Number(s.class_id) === Number(S.user.class_id)) ||
+    (grade && String(s.grade || '').trim() === grade && String(s.branch || '').trim() === branch)
+  ));
   const bells = new Map(list('bell_schedules').map(b => [Number(b.order), b]));
   const cur = currentBell();
   return `${pageHead('امروز', J_DAYS[day] + ' · ' + jdate(todayISO()), `<button class="btn sm" data-act="sync">🔄</button>`)}
