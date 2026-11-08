@@ -19,9 +19,15 @@ const SCHED_DAY_FA = ['شنبه', 'یک‌شنبه', 'دوشنبه', 'سه‌ش�
 
 /* ── زنگ‌ها ──────────────────────────────────────────────────────── */
 function schedLessons() {
-  const bells = list('bell_schedules')
+  const sorted = list('bell_schedules')
     .filter(b => String(b.type || 'lesson') === 'lesson')
     .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+  const seen = new Set();
+  const bells = sorted.filter(b => {
+    const order = Number(b.order || 0);
+    if (seen.has(order)) return false;
+    seen.add(order); return true;
+  });
   if (bells.length) return bells;
   /* اگر مدرسه هنوز زنگی تعریف نکرده، شش زنگِ پیش‌فرض نشان داده می‌شود
      تا برنامه‌ریزی از همان روز اول ممکن باشد (با «تنظیم زنگ‌ها» قابل تغییر). */
@@ -33,9 +39,8 @@ function schedBellOf(period) {
 }
 function schedBellLabel(period) {
   const b = schedBellOf(period);
-  if (!b) return 'زنگ ' + fa(period);
-  const t = [b.start, b.end].filter(Boolean).join(' – ');
-  return 'زنگ ' + fa(period) + (t ? ' · ' + t : '');
+  const label = b && String(b.label || '').trim();
+  return label || ('زنگ ' + fa(period));
 }
 
 /* ── تداخل‌ها ────────────────────────────────────────────────────── */
@@ -153,18 +158,18 @@ function schedPage() {
   const classes = sortBy(list('classes').filter(c => c.kind !== 'room'), 'name');
   const grades = typeof lookupList === 'function' ? lookupList('grade') : [];
   const branches = typeof lookupList === 'function' ? lookupList('branch') : [];
-  const gradeNames = [...new Set(grades.map(x => String(x.name)).concat(classes.map(c => String(c.grade || ''))).filter(Boolean))];
-  const branchNames = [...new Set(branches.map(x => String(x.name)).concat(classes.map(c => String(c.branch || ''))).filter(Boolean))];
+  const gradeNames = alphaSort([...new Set(grades.map(x => String(x.name)).concat(classes.map(c => String(c.grade || ''))).filter(Boolean))]);
+  const branchNames = alphaSort([...new Set(branches.map(x => String(x.name)).concat(classes.map(c => String(c.branch || '')).filter(Boolean)))]);
   const selectedGrade = isMgr ? String(S.schedGrade || gradeNames[0] || '') : '';
   let matchingGroups = classes.filter(c => String(c.grade || '') === selectedGrade);
-  const availableBranches = [...new Set(matchingGroups.map(c => String(c.branch || '')).concat(branchNames))];
+  const availableBranches = alphaSort([...new Set(matchingGroups.map(c => String(c.branch || '')).concat(branchNames))]);
   const selectedBranch = isMgr ? String(S.schedBranch != null ? S.schedBranch : ((matchingGroups[0] && matchingGroups[0].branch) || '')) : '';
   const cohort = { grade: selectedGrade, branch: selectedBranch };
   const group = isMgr ? schedGroupFor(selectedGrade, selectedBranch, false) : null;
   const cid = group ? Number(group.id) : 0;
 
   /* دبیر پایه: این انتخاب برای «سرپرستی» باقی می‌ماند، نه برای ساخت برنامه. */
-  const homeCls = isTeacher ? classes.filter(c => Number(c.teacher_id) === myId) : [];
+  const homeCls = isTeacher ? sortBy(classes.filter(c => Number(c.teacher_id) === myId), 'name') : [];
   const homePick = Number(S.homepick || 0);
   const inHome = !!(homePick && homeCls.some(c => Number(c.id) === homePick));
   let readOnly = false;
@@ -241,7 +246,7 @@ function schedPage() {
 
   const grid = `<div class="card"><div class="table-wrap"><div class="timetable" style="grid-template-columns:74px repeat(${displayedDays.length},minmax(112px,1fr))">
     <div class="tt-head"></div>${displayedDays.map(d => `<div class="tt-head"><b>${SCHED_DAY_FA[d]}</b></div>`).join('')}
-    ${periods.map(p => `<div class="tt-head tt-period"><span class="badge purple">زنگ ${fa(p)}</span>${(schedBellOf(p) && schedBellOf(p).start) ? `<span class="small muted ltr">${esc(schedBellOf(p).start)}${schedBellOf(p).end ? ' – ' + esc(schedBellOf(p).end) : ''}</span>` : ''}</div>
+    ${periods.map(p => `<div class="tt-head tt-period"><span class="badge purple">زنگ ${fa(p)}</span>${(schedBellOf(p) && schedBellOf(p).start) ? `<span class="small muted ltr">${esc(schedTime(schedBellOf(p).start) || schedBellOf(p).start)}${schedBellOf(p).end ? ' – ' + esc(schedTime(schedBellOf(p).end) || schedBellOf(p).end) : ''}</span>` : ''}</div>
       ${displayedDays.map(d => { const r = cellOf(d, p); if (r) {
         const sub = subsToday[Number(r.id)]; const room = r.room || schedName('classes', r.room_id);
         return `<div class="tt-cell" ${canEdit ? `role="button" tabindex="0" data-act="sched-slot" data-day="${d}" data-period="${p}" data-id="${r.id}"` : ''}>
@@ -271,8 +276,7 @@ function schedSubsList(rows) {
 
 /* ══════════════ پنجرهٔ زنگ (تعریف/ویرایش) ══════════════ */
 function schedTeachers() {
-  return list('users').filter(u => u.role === 'teacher' && u.active !== false)
-    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  return sortBy(list('users').filter(u => u.role === 'teacher' && u.active !== false), 'name');
 }
 function schedSubjects() {
   return sortBy(list('subjects'), 'name');
@@ -293,14 +297,14 @@ function schedSlotModal(s) {
   });
   const rooms = schedRooms();
   const legacyRoomOption = s.room && !Number(s.room_id) ? [[ '', 'مکان قبلی: ' + s.room ]] : [];
-  const sel = (name, opts, val) => `<select class="input" name="${name}">${opts.map(o => `<option value="${esc(o[0])}" ${String(o[0]) === String(val == null ? '' : val) ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
+  const sel = (name, opts, val) => `<select class="input" name="${name}"${name === 'subject' ? ' required aria-required="true"' : ''}>${opts.map(o => `<option value="${esc(o[0])}" ${String(o[0]) === String(val == null ? '' : val) ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
   let subBlock = '';
   if (editing) {
     const exSub = schedSubs(s.id)[0];
     subBlock = `<div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)"><b class="small">🔁 جابه‌جای موقت</b>
       <div class="small muted" style="margin:4px 0 8px">اگر دبیر در روز خاصی غایب است، برای همان تاریخ دبیر جایگزین تعیین کنید.</div>
       ${exSub ? `<div class="small" style="margin-bottom:8px">جابه‌جای فعلی: <b>${esc(schedTeacherName(exSub.sub_teacher_id))}</b> در ${esc(jdate(exSub.date))}</div>` : ''}
-      <div class="row"><label class="field grow"><span>تاریخ</span><input class="input ltr" type="date" name="sub_date" value="${esc(exSub ? String(exSub.date || '').slice(0, 10) : '')}"></label>
+      <div class="row"><label class="field grow"><span>تاریخ شمسی</span>${jalaliDateControl('sub_date', exSub ? String(exSub.date || '').slice(0, 10) : '', { className: 'grow' })}</label>
         <label class="field grow"><span>دبیر جایگزین</span>${sel('sub_teacher', [['', '— انتخاب دبیر —']].concat(schedTeachers().map(t => [t.id, t.name])), exSub ? exSub.sub_teacher_id : '')}</label></div>
       <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn sm" data-act="sub-save" data-id="${esc(s.id)}">ثبت جابه‌جای</button>
         ${exSub ? `<button type="button" class="btn ghost sm" data-act="sub-del" data-id="${esc(s.id)}">حذف جابه‌جای</button>` : ''}</div></div>`;
@@ -564,6 +568,19 @@ function schedBellModal() {
   S.bellDraft = draft;
   schedBellModalHtml();
 }
+function schedBellCaptureDraft(form) {
+  const d = S.bellDraft || [];
+  if (!form || !form.elements) return d;
+  d.forEach((b, i) => {
+    const start = form.elements['s_' + i];
+    const end = form.elements['e_' + i];
+    const type = form.elements['t_' + i];
+    if (start) b.start = String(start.value || '').trim();
+    if (end) b.end = String(end.value || '').trim();
+    if (type) b.type = type.value === 'break' ? 'break' : 'lesson';
+  });
+  return d;
+}
 function schedBellModalHtml() {
   const d = S.bellDraft || [];
   S.modalTitle = '⏱️ تنظیم زنگ‌ها';
@@ -573,8 +590,8 @@ function schedBellModalHtml() {
       <div class="row between" style="margin-bottom:6px"><b class="small">${b.type === 'break' ? 'تفریح' : 'زنگ درسی'} ${fa(i + 1)}</b>
         <button type="button" class="btn ghost sm" data-act="bell-del" data-i="${i}" title="حذف این ردیف" style="color:var(--red)">حذف</button></div>
       <div class="row" style="gap:8px;align-items:end;flex-wrap:wrap">
-        <label class="field grow" style="min-width:110px"><span>شروع</span><input class="input ltr" type="time" name="s_${i}" value="${esc(schedTime(b.start))}" required></label>
-        <label class="field grow" style="min-width:110px"><span>پایان</span><input class="input ltr" type="time" name="e_${i}" value="${esc(schedTime(b.end))}" required></label>
+        <label class="field grow" style="min-width:110px"><span>شروع</span><input class="input ltr clock-24h" type="text" data-clock-24h name="s_${i}" inputmode="numeric" maxlength="5" placeholder="۰۷:۴۵" autocomplete="off" value="${esc(schedTime(b.start))}" required></label>
+        <label class="field grow" style="min-width:110px"><span>پایان</span><input class="input ltr clock-24h" type="text" data-clock-24h name="e_${i}" inputmode="numeric" maxlength="5" placeholder="۰۸:۳۰" autocomplete="off" value="${esc(schedTime(b.end))}" required></label>
         <label class="field grow" style="min-width:110px"><span>این ردیف</span><select class="input" name="t_${i}">
           <option value="lesson" ${b.type !== 'break' ? 'selected' : ''}>زنگ درس</option>
           <option value="break" ${b.type === 'break' ? 'selected' : ''}>زنگ تفریح</option></select></label>
@@ -588,10 +605,12 @@ function schedBellModalHtml() {
 }
 /* ساعت‌ها ممکن است با ارقام فارسی ذخیره شده باشند؛ input time فقط لاتین می‌پذیرد */
 function schedTime(v) {
-  const s = norm(String(v || '')).replace(/[^\d:]/g, '');
-  const m = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  const s = norm(String(v || '')).replace(/\s/g, '');
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
   if (!m) return '';
-  return String(m[1]).padStart(2, '0') + ':' + String(m[2]).padStart(2, '0');
+  const h = Number(m[1]), min = Number(m[2]);
+  if (h < 0 || h > 23 || min < 0 || min > 59) return '';
+  return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
 }
 function schedSaveBells(f) {
   const d = S.bellDraft || [];
@@ -619,12 +638,13 @@ function schedSaveBells(f) {
       label: type === 'break' ? 'زنگ تفریح' : ('زنگ ' + lessonOrder),
       school_id: 1,
     };
-    if (Number(b.id) > 0) putLocal('bell_schedules', Object.assign({}, byId('bell_schedules', b.id) || {}, row, { id: Number(b.id) }));
-    else putLocal('bell_schedules', row);
+    const id = Number(b.id) || 0;
+    if (id) putLocal('bell_schedules', Object.assign({}, byId('bell_schedules', id) || {}, row, { id }));
+    else b.id = putLocal('bell_schedules', row).id;
   });
-  /* زنگ‌هایی که در فرم حذف شده‌اند */
-  const keep = new Set(d.filter(x => Number(x.id) > 0).map(x => Number(x.id)));
-  list('bell_schedules').filter(b => Number(b.id) > 0 && !keep.has(Number(b.id))).forEach(b => removeLocal('bell_schedules', b.id));
+  /* زنگ‌هایی که در فرم حذف شده‌اند؛ شناسه‌های آفلاینِ منفی هم حفظ/حذف شوند. */
+  const keep = new Set(d.map(x => Number(x.id)).filter(Boolean));
+  list('bell_schedules').filter(b => !keep.has(Number(b.id))).forEach(b => removeLocal('bell_schedules', b.id));
   S.bellDraft = null;
   closeModal(); saveCache(); render();
   flushQueue().catch(() => {});
@@ -751,10 +771,17 @@ const SCHED_ACTIONS = {
     const slot = byId('schedule', id);
     if (!slot) return toast('اول زنگ را ذخیره کنید', 'err');
     const form = el.closest('form');
+    const dateInput = form.querySelector('[data-jalali-date="sub_date"]');
     const date = String((form.elements.sub_date.value || '')).slice(0, 10);
     const tid = Number(form.elements.sub_teacher.value) || 0;
-    if (!date) return toast('تاریخ جابه‌جای را انتخاب کنید', 'err');
-    if (!tid) return toast('دبیر جایگزین را انتخاب کنید', 'err');
+    if (!date || !dateInput || !parseJalaliIso(dateInput.value)) {
+      if (dateInput && typeof markControlInvalid === 'function') markControlInvalid(dateInput);
+      return toast('تاریخ شمسی معتبر را وارد کنید', 'err');
+    }
+    if (!tid) {
+      if (typeof markControlInvalid === 'function') markControlInvalid(form.elements.sub_teacher);
+      return toast('دبیر جایگزین را انتخاب کنید', 'err');
+    }
     if (Number(tid) === Number(slot.teacher_id)) return toast('دبیر جایگزین نمی‌تواند همان دبیرِ این زنگ باشد', 'err');
     const dow = (new Date(date + 'T12:00:00').getDay() + 1) % 7;
     if (dow !== Number(slot.weekday)) return toast('تاریخ باید روز «' + SCHED_DAY_FA[Number(slot.weekday)] + '» باشد', 'err');
@@ -798,6 +825,7 @@ const SCHED_ACTIONS = {
   'sched-room-add': (el) => { S.schedPendingSlot = schedPendingState(el); schedInlineRoomForm(); },
   'bell-add': (el) => {
     if (!Array.isArray(S.bellDraft)) return;
+    schedBellCaptureDraft(el && el.closest('form[data-form="bells"]'));
     const last = S.bellDraft[S.bellDraft.length - 1] || {};
     const type = el && el.getAttribute('data-type') === 'break' ? 'break' : 'lesson';
     S.bellDraft.push({ id: 0, order: S.bellDraft.length + 1, start: last.end || '', end: '', type, label: type === 'break' ? 'زنگ تفریح' : '' });
@@ -805,6 +833,7 @@ const SCHED_ACTIONS = {
   },
   'bell-del': (el) => {
     if (!Array.isArray(S.bellDraft)) return;
+    schedBellCaptureDraft(el && el.closest('form[data-form="bells"]'));
     const i = Number(el.getAttribute('data-i'));
     if (!Number.isFinite(i) || i < 0 || i >= S.bellDraft.length) return;
     if (S.bellDraft.length <= 1) return toast('دست‌کم یک زنگ لازم است', 'err');

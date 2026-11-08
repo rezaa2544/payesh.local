@@ -47,7 +47,7 @@ async function openAs(token, device) {
   win.localStorage.setItem('payesh.session', token);
   win.localStorage.setItem('payesh.device', device);
   const strip = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
-  win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js'));
+  win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/schedule.js') + '\n;\n' + strip('client/app.js'));
   win.document.dispatchEvent(new win.Event('DOMContentLoaded'));
   await sleep(300);
   win.eval('start()');

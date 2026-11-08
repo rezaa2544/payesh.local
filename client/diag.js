@@ -618,7 +618,7 @@ function diagPageHtml() {
       <div><b>${bad.length ? '🔎' : '✅'} ${bad.length ? fa(bad.length) + ' آزمون ایراد پیدا کرد' : 'همهٔ آزمون‌ها سالم‌اند'}</b>
         <div class="small muted" style="margin-top:4px">
           ${crit ? fa(crit) + ' بحرانی' : 'بدون بحرانی'} · ${warn ? fa(warn) + ' هشدار' : 'بدون هشدار'}
-          ${run.at ? ' · آخرین بررسی: ' + diagEsc(new Date(run.at).toLocaleTimeString('fa-IR')) : ''}
+          ${run.at ? ' · آخرین بررسی: ' + diagEsc(time24(new Date(run.at))) : ''}
         </div></div>
       <span class="small muted">${fa(run.rows.length)} آزمون</span>
     </div>
