@@ -439,6 +439,11 @@ function renderOffline() {
   renderPhoneLogin();
 }
 
+/* تشخیص محل فیزیکی، مطابق مدل کلاس/محل مورد استفاده در برنامهٔ هفتگی. */
+function dashboardIsRoom(c) {
+  return !!c && (String(c.kind || '') === 'room' || (!c.kind && !c.grade && !c.branch));
+}
+
 /* ══════════════ داشبورد مدیر ══════════════ */
 function managerHome() {
   const students = sortBy(list('users').filter(u => u.role === 'student' && u.active !== false), 'name');
@@ -450,11 +455,48 @@ function managerHome() {
   const absent = attToday.filter(a => a.status === 'absent').length;
   const late = attToday.filter(a => a.status === 'late').length;
   const pending = list('grades').filter(g => g.status === 'pending').length;
-  const coverage = classes.map(c => {
-    const n = attToday.filter(a => Number(a.class_id) === Number(c.id)).length;
-    return { c, n };
+  /* پوشش حضور مدرسه بر مبنای پایه/رشته است، نه نام محل برگزاری. */
+  const cohortClasses = classes.filter(c => !dashboardIsRoom(c));
+  const coverageByKey = new Map();
+  const cohortKey = (grade, branch, classId) => (grade || branch)
+    ? 'cohort|' + grade + '\u001f' + branch
+    : 'class|' + (Number(classId) || 'unknown');
+  const ensureCoverage = (grade, branch, classId, name) => {
+    const g = String(grade || '').trim(), b = String(branch || '').trim();
+    const key = cohortKey(g, b, classId);
+    if (!coverageByKey.has(key)) coverageByKey.set(key, { key, grade: g, branch: b, classIds: new Set(), students: new Map(), fallbackName: String(name || '').trim() });
+    const group = coverageByKey.get(key);
+    if (Number(classId)) group.classIds.add(Number(classId));
+    if (!group.fallbackName && name) group.fallbackName = String(name).trim();
+    return group;
+  };
+  cohortClasses.forEach(c => {
+    if (String(c.grade || '').trim() || String(c.branch || '').trim()) ensureCoverage(c.grade, c.branch, c.id, c.name);
   });
-  const doneCount = coverage.filter(x => x.n > 0).length;
+  students.forEach(student => {
+    const cls = byId('classes', student.class_id) || {};
+    const grade = String(student.grade || cls.grade || '').trim();
+    const branch = String(student.branch || cls.branch || '').trim();
+    const group = ensureCoverage(grade, branch, student.class_id, cls.name || student.name);
+    group.students.set(Number(student.id), student);
+  });
+  const coverage = [...coverageByKey.values()].map(group => {
+    const records = attToday.filter(a => group.classIds.has(Number(a.class_id)) || group.students.has(Number(a.student_id)));
+    const checked = new Set(records.map(a => Number(a.student_id)).filter(Boolean)).size || records.length;
+    const roster = group.students.size;
+    const ratio = roster ? Math.min(100, Math.round(checked * 100 / roster)) : 0;
+    const tone = !roster ? (checked ? 'amber' : '') : checked >= roster ? 'green' : checked ? 'amber' : 'red';
+    return { group, records, checked, roster, ratio, tone,
+      present: records.filter(a => a.status === 'present').length,
+      absent: records.filter(a => a.status === 'absent').length,
+      late: records.filter(a => a.status === 'late').length };
+  }).sort((a, b) => alphaCompare(a.group.grade, b.group.grade) || alphaCompare(a.group.branch, b.group.branch) || alphaCompare(a.group.fallbackName, b.group.fallbackName));
+  const doneCount = coverage.filter(x => x.checked > 0).length;
+
+  /* پوشش کلاس‌ها: محل‌هایی که همین زنگ در آن‌ها واقعاً برنامه در حال اجراست سبزند. */
+  const rooms = classes.filter(dashboardIsRoom);
+  const bellNow = currentBell();
+  const todaySlots = bellNow ? list('schedule').filter(s => Number(s.weekday) === weekdayIndex() && Number(s.bell_order) === Number(bellNow.order)) : [];
   const recentAnn = sortBy(list('announcements'), 'date').reverse().slice(0, 3);
 
   return `
@@ -471,9 +513,36 @@ function managerHome() {
     ${statCard('📝', fa(pending), 'نمرهٔ در انتظار تأیید', 'purple')}
   </div>
 
-  ${card(`<div class="row between" style="margin-bottom:8px"><b>پوشش حضور امروز</b><span class="small muted">${fa(doneCount)} از ${fa(coverage.length)} کلاس</span></div>
-    <div class="row">${coverage.map(({ c, n }) => `<span class="badge ${n ? 'green' : 'red'}">${esc(c.name)} ${n ? '✓' : '—'}</span>`).join(' ')}</div>
-    ${doneCount < coverage.length ? `<div class="small muted" style="margin-top:8px">کلاس‌هایی که امروز حضور ثبت نکرده‌اند با رنگ قرمز مشخص‌اند.</div>` : ''}`)}
+  <section id="dashboard-attendance-coverage">${card(`<div class="row between" style="margin-bottom:10px"><div><b class="dashboard-card-title">پوشش حضور امروز · پایه و رشته</b><div class="small muted">تعداد دانش‌آموزانی که حضورشان برای امروز ثبت شده است.</div></div><span class="badge ${doneCount ? 'green' : 'amber'}">${fa(doneCount)} از ${fa(coverage.length)} گروه دارای ثبت</span></div>
+    ${coverage.length ? `<div class="table-wrap dashboard-table-wrap"><table class="dashboard-table"><thead><tr><th>پایه</th><th>رشته</th><th>دانش‌آموزان</th><th>ثبت‌شده</th><th>حاضر / غایب / تأخیر</th><th>پوشش</th></tr></thead><tbody>
+      ${coverage.map(({ group, records, checked, roster, ratio, tone, present: p, absent: a, late: l }) => `<tr data-dashboard-cohort="${esc(group.key)}">
+        <td><strong>${esc(group.grade || '—')}</strong></td><td><strong>${esc(group.branch || (group.grade ? '—' : group.fallbackName || '—'))}</strong></td>
+        <td>${fa(roster)}</td><td><strong>${fa(checked)} / ${fa(roster)}</strong></td>
+        <td><span class="dash-status-counts"><span class="badge green">${fa(p)} حاضر</span><span class="badge red">${fa(a)} غایب</span><span class="badge amber">${fa(l)} تأخیر</span></span></td>
+        <td><span class="badge ${tone}">${roster ? fa(ratio) + '٪' : records.length ? 'ثبت دارد' : 'بدون دانش‌آموز'}</span></td></tr>`).join('')}
+      </tbody></table></div>` : '<div class="dashboard-empty">هنوز پایه یا رشته‌ای برای پوشش حضور تعریف نشده است.</div>'}`)}</section>
+
+  <section id="dashboard-room-coverage">${card(`<div class="row between" style="margin-bottom:10px"><div><b class="dashboard-card-title">پوشش کلاس‌ها</b><div class="small muted">${bellNow ? 'وضعیت محل‌ها در زنگ ' + esc(bellNow.label || fa(bellNow.order)) + ' · ' + esc(clock24(bellNow.start) || bellNow.start || '') : 'در حال حاضر زنگ درسی فعالی نیست.'}</div></div><span class="badge ${todaySlots.some(s => Number(s.room_id) > 0) ? 'green' : ''}">${fa(rooms.length)} کلاس / محل</span></div>
+    ${rooms.length ? `<div class="table-wrap dashboard-table-wrap"><table class="dashboard-table dashboard-room-table"><thead><tr><th>کلاس / محل</th><th>وضعیت</th><th>پایه و رشته</th><th>درس</th><th>دبیر</th></tr></thead><tbody>
+      ${rooms.map(room => {
+        const active = todaySlots.filter(s => {
+          const scheduledClass = byId('classes', s.class_id) || {};
+          const roomId = Number(s.room_id) || (scheduledClass.kind === 'room' ? Number(s.class_id) : 0);
+          return roomId === Number(room.id);
+        });
+        const slot = active[0] || null;
+        const cohort = slot ? (byId('classes', slot.class_id) || {}) : {};
+        const grade = String((slot && slot.grade) || cohort.grade || '').trim();
+        const branch = String((slot && slot.branch) || cohort.branch || '').trim();
+        const subject = slot ? (byId('subjects', slot.subject_id) || {}).name || '—' : '—';
+        const teacher = slot ? (byId('users', slot.teacher_id) || {}).name || '—' : '—';
+        const status = slot ? 'در حال برگزاری' : bellNow ? 'خالی در این زنگ' : 'خالی اکنون';
+        return `<tr class="dashboard-room-row ${slot ? 'is-occupied' : ''}" data-room-id="${esc(room.id)}">
+          <td><strong>${esc(room.name || '—')}</strong></td><td><span class="badge ${slot ? 'green' : ''}">${status}</span></td>
+          <td>${slot ? `<strong>${esc(grade || '—')}${branch ? ' · ' + esc(branch) : ''}</strong>` : '<span class="muted">—</span>'}</td>
+          <td>${esc(subject)}</td><td>${esc(teacher)}</td></tr>`;
+      }).join('')}
+      </tbody></table></div>` : '<div class="dashboard-empty">هنوز کلاس یا محل برگزاری تعریف نشده است.</div>'}`)}</section>
 
   <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
     <a class="card" href="#/users"><b>👥 کاربران</b><div class="small muted">افزودن، کارت پیوند، ورود دسته‌ای</div></a>
@@ -500,12 +569,12 @@ function teacherScheduleFor(day) {
   return list('schedule').filter(s => Number(s.teacher_id) === Number(S.user.id) && Number(s.weekday) === Number(day));
 }
 function currentBell() {
-  const bells = sortBy(list('bell_schedules').filter(b => b.type === 'lesson'), 'order');
+  const bells = sortBy(list('bell_schedules').filter(b => String(b.type || 'lesson') === 'lesson'), 'order');
   const m = nowMin();
   return bells.find(b => m >= toMin(b.start) && m <= toMin(b.end)) || null;
 }
 function nextBell() {
-  const bells = sortBy(list('bell_schedules').filter(b => b.type === 'lesson'), 'order');
+  const bells = sortBy(list('bell_schedules').filter(b => String(b.type || 'lesson') === 'lesson'), 'order');
   const m = nowMin();
   return bells.find(b => toMin(b.start) > m) || null;
 }
