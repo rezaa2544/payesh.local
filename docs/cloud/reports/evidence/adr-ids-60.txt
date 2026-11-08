@@ -1,0 +1,48 @@
+# شاهد ردیف ۶۰ — شناسهٔ تصمیم اسناد ۳۱/۳۲/۳۴
+# branch: arena/5124e3a6-payesh-local   head: 39a3e15   at: 2026-11-08T04:09:17Z
+
+## بخش ۱ — شناسه‌ها در سه سند
+DOC docs/cloud/31-adr-local-engine.md → ADR-31 (header=true bareD=false)
+DOC docs/cloud/32-repo-boundary.md → ADR-32 (header=true bareD=false)
+DOC docs/cloud/34-provider-selection.md → ADR-34 (header=true bareD=false)
+# ارجاع‌های ADR در tests/ و evidence: 2
+ADR-IDS-60-OK
+
+## بخش ۲ — آزمون AD-01..AD-09 (با کنترل منفی)
+PASS  AD-01  مخزن واقعی سالم است (هر سه سند با ADR‑<n>)  → ADR-31 · ADR-32 · ADR-34
+PASS  AD-02  شناسهٔ ADR در سرصفحهٔ هر سه سند هست  → 3/3
+PASS  AD-03  هیچ سند شناسهٔ خودش را با D‑<n> نمی‌نویسد  → bare D = 0
+PASS  AD-04  کنترل منفی: برگرداندن D‑31 در سند ۳۱ ⇒ قرمز  → red: R2
+PASS  AD-05  کنترل منفی: D‑32 به‌جای ADR‑32 در متن ⇒ قرمز (R2)  → R2 red
+PASS  AD-06  کنترل منفی: ارجاع tests/ با D‑34 به‌جای ADR‑34 ⇒ قرمز (R3)  → R3 red
+PASS  AD-07  ارقام فارسی هم تشخیص داده می‌شوند (ردیف ۳۱ + D‑31)  → fa digits detected
+PASS  AD-08  CLI: کد خروج و خروجی JSON درست است  → exit 0/1 + JSON
+PASS  AD-09  دامنهٔ بررسی فقط سند/آزمون/شاهد است (منطق محصول دست‌نخورده)  → docs=3 refs=2
+
+AD checks=9 pass=9 fail=0
+ADR-IDS-60-TEST-OK
+
+## بخش ۳ — کنترل منفی زنده: برگرداندن D‑31 در یک کپی ⇒ باید قرمز شود
+PROBLEM R0 docs/cloud/32-repo-boundary.md — سند نیست
+PROBLEM R0 docs/cloud/34-provider-selection.md — سند نیست
+ADR-IDS-60-FAILED
+# exit کنترل منفی: 1 (غیرصفر = درست)
+
+## بخش ۴ — گیت‌های ذی‌ربط
+6 موفق · 0 ناموفق
+
+
+## بخش ۵ — رگرسیون کامل
+
+96 موفق · 0 ناموفق
+
+
+# ===== SUMMARY =====
+# adr_tool_exit:  0
+# adr_test_exit:  0
+# negative_exit:  1
+# boundary_exit:  0
+# regression_exit: 0
+# NOTE: این ردیف فقط سند/آزمون/شاهد است؛ صفر تغییر منطق محصول.
+# EXIT=0
+ADR-IDS-60-EVIDENCE-OK

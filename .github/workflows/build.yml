@@ -23,6 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # تاریخ کامل لازم است: سیاست شاخه (ردیف ۵۹) parentها و origin/main را می‌سنجد.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -146,6 +149,12 @@ jobs:
       # سه‌لایه، و این‌که Gateway واقعاً نوشتن را در حین انتقال متوقف می‌کند.
       - name: آزمون مهاجرت چند-cell (Cell Transfer — ردیف ۵۴)
         run: npm run test:cell54
+
+      # شناسهٔ تصمیم (ردیف ۶۰): ADR‑31/32/34 نه D‑31/32/34؛ با کنترل منفی.
+      - name: دروازهٔ شناسهٔ تصمیم (ADR IDs — ردیف ۶۰)
+        run: |
+          node tools/adr-ids-60.mjs
+          npm run test:adr60
 
       - name: آزمون رابط، جریان کاربری، صندوقچه و به‌روزرسانی
         run: |
