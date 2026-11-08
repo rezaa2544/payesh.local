@@ -195,7 +195,7 @@ jobs:
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add releases/manifest.json releases/history
+          git add client/app.js releases/manifest.json releases/history
           if git diff --cached --quiet; then
             echo "مانیفست تغییری نکرد"
             exit 0
