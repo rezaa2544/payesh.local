@@ -67,7 +67,7 @@ async function makeWindow() {
   win.scrollTo = () => {};
 
   /* همهٔ فایل‌ها مثل مرورگر در یک دامنهٔ مشترک اجرا می‌شوند */
-  const code = ['lib/sigv4.js', 'lib/s3mini.js', 'lib/hash.js', 'lib/phone.js', 'lib/xlsx.js', 'pages.js', 'app.js']
+  const code = ['lib/sigv4.js', 'lib/s3mini.js', 'lib/hash.js', 'lib/phone.js', 'lib/xlsx.js', 'pages.js', 'import.js', 'schedule.js', 'app.js']
     .map(f => fs.readFileSync(path.join(ROOT, 'client', f), 'utf8'))
     .join('\n;\n');
   win.eval(code);

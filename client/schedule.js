@@ -256,7 +256,7 @@ function schedPage() {
       return `<div class="tt-cell tt-empty" ${canEdit ? `role="button" tabindex="0" data-act="sched-slot" data-grade="${esc(cohort.grade)}" data-branch="${esc(cohort.branch)}" data-class-id="${cid}" data-day="${d}" data-period="${p}"` : ''}><span class="small muted">${canEdit ? '+ افزودن' : '—'}</span></div>`;
       }).join('')}`).join('')}
   </div></div>${canEdit ? '<div class="small muted" style="margin-top:10px;line-height:2">💡 روی خانه بزنید تا درس، دبیر و محل برگزاری را مشخص کنید. روزهای غیرفعال از جدول حذف شده‌اند.</div>' : ''}${canEdit ? schedSubsList(rows) : ''}</div>`;
-  return head + cohortPicker + homePicker + confBlock + grid + (rows.length || canEdit ? '' : card(emptyNote));
+  return head + cohortPicker + homePicker + confBlock + grid + (rows.length || canEdit ? '' : card('<div class="muted small">برنامهٔ هفتگی برای این پایه یا کاربر هنوز ثبت نشده است.</div>'));
 }
 
 /* فهرستِ جابه‌جای‌های موقتِ همین کلاس */
