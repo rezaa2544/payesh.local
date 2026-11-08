@@ -3738,6 +3738,7 @@ async function waitFor(fn, ms = 15000) {
     const html = T.managerHome();
     const attendance = html.match(/<section id="dashboard-attendance-coverage">([\s\S]*?)<\/section>/);
     const rooms = html.match(/<section id="dashboard-room-coverage">([\s\S]*?)<\/section>/);
+    assert.ok(html.includes('class="dashboard-coverage-grid"') && html.indexOf('id="dashboard-attendance-coverage"') < html.indexOf('id="dashboard-room-coverage"'), 'دو پوشش در یک چیدمان مشترک با حضور در ستون راست هستند');
     assert.ok(attendance && attendance[1].includes('دهم') && attendance[1].includes('الکترونیک'), 'پوشش حضور با پایه و رشته جدول‌بندی شد');
     assert.ok(attendance[1].includes('۲ / ۲') && attendance[1].includes('حاضر') && attendance[1].includes('غایب'), 'تعداد ثبت‌شده و تفکیک حاضر/غایب دیده می‌شود');
     assert.ok(!attendance[1].includes('کلاس ۱۰۱'), 'محل فیزیکی به‌جای پایه/رشته در جدول حضور نمایش داده نمی‌شود');
@@ -3746,6 +3747,7 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/data-room-id="8"/.test(rooms[1]) && /خالی در این زنگ/.test(rooms[1]), 'کلاس بدون برنامهٔ جاری خالی نشان داده می‌شود');
     const styles = fs.readFileSync(path.join(ROOT, 'client/styles.css'), 'utf8');
     assert.ok(/\.input,select\.input,textarea\.input\{[^}]*border:2px solid/.test(styles), 'فیلدهای قابل‌تکمیل حاشیهٔ برجسته دارند');
+    assert.ok(/dashboard-coverage-grid\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);[^}]*direction:rtl/.test(styles), 'دو پنل در نمایشگر عریض کنار هم و با ترتیب راست‌به‌چپ می‌آیند');
     assert.ok(/dashboard-room-row\.is-occupied td\{background:var\(--green-bg\)/.test(styles), 'کلاس در حال تدریس با زمینهٔ سبز برجسته می‌شود');
     dom.window.close();
   });
