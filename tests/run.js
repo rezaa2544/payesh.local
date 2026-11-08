@@ -3698,6 +3698,58 @@ async function waitFor(fn, ms = 15000) {
   });
 
   /* — کلاس‌هایی که قدیمی‌ترها از رشته ساخته بودند: اصلاح و ادغام ─────── */
+  await test('داشبورد: پوشش حضور به تفکیک پایه/رشته و کلاسِ در حال تدریس سبز است', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/app.js') + '\n;window.__t = { S, managerHome, todayISO, weekdayIndex, nowMin };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.clockOffset = 0;
+    const now = T.nowMin();
+    const start = Math.max(0, now - 2), end = Math.min(1439, Math.max(now + 2, start + 1));
+    const fmt = n => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+    T.S.data = {
+      users: new Map([
+        [1, { id: 1, role: 'manager', name: 'مدیر' }],
+        [10, { id: 10, role: 'student', name: 'دانش‌آموز یک', class_id: 5, active: true }],
+        [11, { id: 11, role: 'student', name: 'دانش‌آموز دو', class_id: 6, active: true }],
+        [12, { id: 12, role: 'student', name: 'دانش‌آموز سه', class_id: 9, active: true }],
+        [20, { id: 20, role: 'teacher', name: 'دبیر آزمون' }],
+      ]),
+      classes: new Map([
+        [5, { id: 5, name: 'دهم الکترونیک', kind: 'group', grade: 'دهم', branch: 'الکترونیک' }],
+        [6, { id: 6, name: 'دهم الکترونیک — گروه ب', kind: 'group', grade: 'دهم', branch: 'الکترونیک' }],
+        [7, { id: 7, name: 'کلاس ۱۰۱', kind: 'room' }],
+        [8, { id: 8, name: 'کلاس ۱۰۲', kind: 'room' }],
+        [9, { id: 9, name: 'یازدهم ریاضی', kind: 'group', grade: 'یازدهم', branch: 'ریاضی' }],
+      ]),
+      subjects: new Map([[30, { id: 30, name: 'فیزیک' }]]),
+      attendance: new Map([
+        [1, { id: 1, student_id: 10, class_id: 5, date: T.todayISO(), status: 'present' }],
+        [2, { id: 2, student_id: 11, class_id: 6, date: T.todayISO(), status: 'absent' }],
+      ]),
+      schedule: new Map([[1, { id: 1, class_id: 5, room_id: 7, subject_id: 30, teacher_id: 20, weekday: T.weekdayIndex(), bell_order: 1, grade: 'دهم', branch: 'الکترونیک' }]]),
+      bell_schedules: new Map([[1, { id: 1, order: 1, start: fmt(start), end: fmt(end), type: 'lesson', label: 'زنگ اول' }]]),
+      grades: new Map(), announcements: new Map(),
+    };
+    const html = T.managerHome();
+    const attendance = html.match(/<section id="dashboard-attendance-coverage">([\s\S]*?)<\/section>/);
+    const rooms = html.match(/<section id="dashboard-room-coverage">([\s\S]*?)<\/section>/);
+    assert.ok(attendance && attendance[1].includes('دهم') && attendance[1].includes('الکترونیک'), 'پوشش حضور با پایه و رشته جدول‌بندی شد');
+    assert.ok(attendance[1].includes('۲ / ۲') && attendance[1].includes('حاضر') && attendance[1].includes('غایب'), 'تعداد ثبت‌شده و تفکیک حاضر/غایب دیده می‌شود');
+    assert.ok(!attendance[1].includes('کلاس ۱۰۱'), 'محل فیزیکی به‌جای پایه/رشته در جدول حضور نمایش داده نمی‌شود');
+    assert.ok(rooms && /dashboard-room-row is-occupied[^>]*data-room-id="7"/.test(rooms[1]), 'کلاس ۱۰۱ هنگام وجود زنگ جاری در وضعیت سبز است');
+    assert.ok(rooms[1].includes('دهم · الکترونیک') && rooms[1].includes('فیزیک') && rooms[1].includes('دبیر آزمون'), 'وضعیت کلاس، پایه/رشته و درس/دبیر را مشخص می‌کند');
+    assert.ok(/data-room-id="8"/.test(rooms[1]) && /خالی در این زنگ/.test(rooms[1]), 'کلاس بدون برنامهٔ جاری خالی نشان داده می‌شود');
+    const styles = fs.readFileSync(path.join(ROOT, 'client/styles.css'), 'utf8');
+    assert.ok(/\.input,select\.input,textarea\.input\{[^}]*border:2px solid/.test(styles), 'فیلدهای قابل‌تکمیل حاشیهٔ برجسته دارند');
+    assert.ok(/dashboard-room-row\.is-occupied td\{background:var\(--green-bg\)/.test(styles), 'کلاس در حال تدریس با زمینهٔ سبز برجسته می‌شود');
+    dom.window.close();
+  });
+
   await test('صفحهٔ کلاس‌ها بخش ثبت‌نام را ندارد و فقط محل برگزاری و تعریف‌ها را نشان می‌دهد', async () => {
     const { JSDOM } = require('jsdom');
     const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
