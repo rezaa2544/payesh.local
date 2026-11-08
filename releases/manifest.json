@@ -1,15 +1,15 @@
 {
-  "version": "0.8.65",
-  "built_at": "2026-11-08T05:24:11.000Z",
+  "version": "0.8.66",
+  "built_at": "2026-11-08T06:48:39.191Z",
   "notes": [],
   "shell": {
-    "android": "0.8.65"
+    "android": "0.8.66"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "a61efc4632f94ac37167dbcb3f369985fc1ae15e92c78e94a58d7c55cac46000",
+      "sha256": "eb8e418d65462fe7132efad8177ac2cc84bc140368578dcdbb86a92dd0262c06",
       "size": 195160
     },
     {
@@ -189,8 +189,14 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "cd79cf008bb5003f2448d6ac29ef8a3602c96bdafd15b8a6ade95175f234ceba",
-      "size": 5186
+      "sha256": "d66b309a36102b520c75dc86e627fbb318eb513dd0889fb920d167ce5b0afbee",
+      "size": 5352
+    },
+    {
+      "path": "server/alerts.js",
+      "kind": "server",
+      "sha256": "bae9be2e87df3ab6c7d6240ca4701bc786db32a178628645ec0901c876ba7016",
+      "size": 7485
     },
     {
       "path": "server/archive.js",
@@ -269,6 +275,12 @@
       "kind": "server",
       "sha256": "ba2b965ec5b6bffcf07e8863b49f8073ea54a2a505bf088b4569eafe01688346",
       "size": 31406
+    },
+    {
+      "path": "server/pitr.js",
+      "kind": "server",
+      "sha256": "f775f0792434145dd336a6bc54b08286b8b0a7fbdac0333bf290b4da01c071e7",
+      "size": 8691
     },
     {
       "path": "server/policy.js",
@@ -375,9 +387,9 @@
   ],
   "counts": {
     "client": 29,
-    "server": 32
+    "server": 34
   },
   "client_size": 1401437,
-  "server_size": 477363,
-  "total_size": 1878800
+  "server_size": 493705,
+  "total_size": 1895142
 }
