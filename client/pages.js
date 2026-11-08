@@ -441,9 +441,9 @@ function renderOffline() {
 
 /* ══════════════ داشبورد مدیر ══════════════ */
 function managerHome() {
-  const students = list('users').filter(u => u.role === 'student' && u.active !== false);
-  const teachers = list('users').filter(u => u.role === 'teacher');
-  const classes = list('classes');
+  const students = sortBy(list('users').filter(u => u.role === 'student' && u.active !== false), 'name');
+  const teachers = sortBy(list('users').filter(u => u.role === 'teacher'), 'name');
+  const classes = sortBy(list('classes'), 'name');
   const today = todayISO();
   const attToday = list('attendance').filter(a => a.date === today);
   const present = attToday.filter(a => a.status === 'present').length;
@@ -528,8 +528,8 @@ function teacherHome() {
     const done = attendanceFor(s.class_id, today).length > 0;
     return `<div class="item" style="${highlight ? 'border-color:var(--primary);background:var(--soft)' : ''}">
       <div style="width:64px;text-align:center">
-        <div style="font-weight:800">${esc(b.start || '')}</div>
-        <div class="small muted">${esc(b.end || '')}</div>
+        <div style="font-weight:800">${esc((clock24(b.start) || b.start) || '')}</div>
+        <div class="small muted">${esc((clock24(b.end) || b.end) || '')}</div>
       </div>
       <div class="grow">
         <div class="t">${esc(cls.name || '—')}</div>
@@ -542,9 +542,9 @@ function teacherHome() {
 
   return `
   ${pageHead('امروز من', J_DAYS[day] + ' · ' + jdate(today), `<button class="btn sm" data-act="sync">🔄</button>`)}
-  ${cur ? card(`<div class="row between"><div><div class="small muted">زنگ جاری</div><b style="font-size:17px">${esc(cur.start)} – ${esc(cur.end)}</b></div>
+  ${cur ? card(`<div class="row between"><div><div class="small muted">زنگ جاری</div><b style="font-size:17px">${esc(clock24(cur.start) || cur.start)} – ${esc(clock24(cur.end) || cur.end)}</b></div>
       <div class="badge purple">${esc(cur.label || '')}</div></div>`) :
-    card(`<div class="row between"><div><div class="small muted">زنگ جاری</div><b>${nxt ? 'زنگ بعدی: ' + esc(nxt.start) : 'زنگ درسی در جریان نیست'}</b></div></div>`)}
+    card(`<div class="row between"><div><div class="small muted">زنگ جاری</div><b>${nxt ? 'زنگ بعدی: ' + esc(clock24(nxt.start) || nxt.start) : 'زنگ درسی در جریان نیست'}</b></div></div>`)}
   ${card(`<div class="row between" style="margin-bottom:8px"><b>برنامهٔ امروز</b><span class="small muted">${fa(rows.length)} زنگ</span></div>
     ${rows.length ? `<div class="list">${rows.map(s => slotCard(s, cur && Number(s.bell_order) === Number(cur.order))).join('')}</div>` : '<div class="muted small">امروز کلاسی در برنامه ندارید.</div>'}`)}
   ${card(`<div class="row"><a class="btn grow" href="#/grades">📝 ثبت نمره</a><a class="btn grow" href="#/students">👥 دانش‌آموزان</a></div>`)}`;
@@ -559,7 +559,7 @@ PAGES.attendance = (params) => {
   const date = todayISO();
   if (!clsId) {
     const mine = new Set(list('schedule').filter(x => Number(x.teacher_id) === Number(S.user.id)).map(x => Number(x.class_id)));
-    const classes = list('classes').filter(c => S.role !== 'teacher' || mine.has(Number(c.id)));
+    const classes = sortBy(list('classes').filter(c => S.role !== 'teacher' || mine.has(Number(c.id))), 'name');
     return pageHead('حضور و غیاب', 'کلاس را انتخاب کنید') + card(classes.length
       ? `<div class="list">${classes.map(c => {
           const n = list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(c.id)).length;
@@ -571,7 +571,7 @@ PAGES.attendance = (params) => {
       : empty('کلاسی به شما تخصیص نیافته است.'));
   }
 
-  const roster = list('users').filter(u => u.role === 'student' && Number(u.class_id) === clsId && u.active !== false);
+  const roster = sortBy(list('users').filter(u => u.role === 'student' && Number(u.class_id) === clsId && u.active !== false), 'name');
   const existing = new Map(attendanceFor(clsId, date).map(a => [Number(a.student_id), a]));
   const cls = byId('classes', clsId) || {};
   const draft = S.attDraft && S.attDraft.key === clsId + ':' + date ? S.attDraft : (S.attDraft = { key: clsId + ':' + date, map: new Map() });
@@ -620,16 +620,16 @@ PAGES.attendance = (params) => {
 /* ══════════════ نمرات ══════════════ */
 PAGES.grades = (params) => {
   if (S.role === 'teacher' || S.role === 'manager') {
-    const classes = S.role === 'manager' ? list('classes') :
-      list('classes').filter(c => teacherScheduleFor(0).concat(teacherScheduleFor(1), teacherScheduleFor(2), teacherScheduleFor(3), teacherScheduleFor(4)).some(s => Number(s.class_id) === Number(c.id)));
+    const classes = sortBy(S.role === 'manager' ? list('classes') :
+      list('classes').filter(c => teacherScheduleFor(0).concat(teacherScheduleFor(1), teacherScheduleFor(2), teacherScheduleFor(3), teacherScheduleFor(4)).some(s => Number(s.class_id) === Number(c.id))), 'name');
     if (!classes.length) return pageHead('ثبت نمره') + empty('کلاسی به شما تخصیص نیافته است.');
     const sel = S.gradeSel || (S.gradeSel = { class: classes[0].id, subject: '', term: 'نوبت اول' });
-    const subjects = list('subjects');
+    const subjects = sortBy(list('subjects'), 'name');
     if (!sel.subject) {
       const sc = list('schedule').find(s => Number(s.class_id) === Number(sel.class));
       sel.subject = sc ? sc.subject_id : (subjects[0] && subjects[0].id);
     }
-    const roster = list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(sel.class) && u.active !== false);
+    const roster = sortBy(list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(sel.class) && u.active !== false), 'name');
     const subject = byId('subjects', sel.subject) || {};
     const existing = new Map(list('grades')
       .filter(g => Number(g.class_id) === Number(sel.class) && Number(g.subject_id) === Number(sel.subject) && String(g.term) === String(sel.term))
@@ -676,7 +676,7 @@ PAGES.grades = (params) => {
 PAGES.students = () => {
   const myClasses = new Set(list('schedule').filter(s => Number(s.teacher_id) === Number(S.user.id)).map(s => Number(s.class_id)));
   const all = ['manager', 'vice', 'counselor', 'office'].includes(S.role);
-  const students = list('users').filter(u => u.role === 'student' && (all || myClasses.has(Number(u.class_id))));
+  const students = sortBy(list('users').filter(u => u.role === 'student' && (all || myClasses.has(Number(u.class_id)))), 'name');
   const q = (S.q || '').trim();
   const rows = students.filter(s => !q || String(s.name).includes(q));
   return `${pageHead(all ? 'دانش‌آموزان مدرسه' : 'دانش‌آموزان من', fa(students.length) + ' نفر', '')}
@@ -712,7 +712,7 @@ PAGES.users = () => {
   let users = list('users');
   if (role) users = users.filter(u => u.role === role);
   if (q) users = users.filter(u => String(u.name).includes(q) || String(u.phone || '').includes(q) || String(u.national_id || '').includes(q));
-  users = users.sort((a, b) => String(a.name).localeCompare(String(b.name))).slice(0, 300);
+  users = sortBy(users, 'name').slice(0, 300);
 
   const picked = S.picked instanceof Set ? S.picked : new Set();
   const pickedVisible = users.filter(u => picked.has(Number(u.id)));
@@ -839,8 +839,7 @@ function actImportIssues() {
    بی‌کلاس شود بی‌درنگ همین‌جا ظاهر می‌شود.
    ═══════════════════════════════════════════════════════════════════ */
 function importIssueRows() {
-  return list('import_issues').filter(r => r.status !== 'done')
-    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  return sortBy(list('import_issues').filter(r => r.status !== 'done'), 'name');
 }
 
 /** چرا این دانش‌آموز کلاس درست ندارد؟ رشتهٔ خالی برچسب نمی‌خورد. */
@@ -867,7 +866,7 @@ function followupStudents() {
     const r = followupStudentReason(u);
     if (r) out.push({ user: u, reason: r });
   }
-  out.sort((a, b) => String(a.user.name).localeCompare(String(b.user.name)));
+  out.sort((a, b) => alphaCompare(a.user.name, b.user.name));
   return out;
 }
 
@@ -876,7 +875,7 @@ function followupCount() {
 }
 
 function classOptionList(selectedId) {
-  const classes = list('classes').sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const classes = sortBy(list('classes'), 'name');
   return classes.map(c => `<option value="${c.id}" ${Number(selectedId) === Number(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
 }
 
@@ -886,8 +885,8 @@ PAGES.followup = () => {
   const issues = importIssueRows();
   const total = studs.length + issues.length;
 
-  const gradeNames = lookupList('grade').map(l => String(l.name)).filter(g => !(typeof impGradeLevel === 'function') || impGradeLevel(g));
-  const baseBranchNames = lookupList('branch').map(l => String(l.name));
+  const gradeNames = alphaSort(lookupList('grade').map(l => String(l.name)).filter(g => !(typeof impGradeLevel === 'function') || impGradeLevel(g)));
+  const baseBranchNames = alphaSort(lookupList('branch').map(l => String(l.name)));
   const studRows = studs.map(({ user, reason }) => {
     /* رشته از متن دلیل («رشته: نقشه‌کشی») برداشته می‌شود تا مدیر فقط پایه را بزند */
     const m = String(reason || '').match(/رشته:\s*([^)\n]+)/);
@@ -953,9 +952,7 @@ const LOOKUP_FA = { grade: 'پایه', branch: 'رشته' };
 /* فقط چیزی که واقعاً تعریف شده برمی‌گردد. فهرست پیش‌فرضی در کار نیست،
    وگرنه رشته‌ای که مدیر حذف کرده دوباره پایین صفحه ظاهر می‌شد. */
 function lookupList(kind) {
-  return list('lookups')
-    .filter(l => String(l.kind) === String(kind))
-    .sort((a, b) => (Number(a.order || 0) - Number(b.order || 0)) || String(a.name).localeCompare(String(b.name)));
+  return sortBy(list('lookups').filter(l => String(l.kind) === String(kind)), 'name');
 }
 
 /* یک ردیف تعریف با دکمه‌های ویرایش و حذف */
@@ -973,12 +970,12 @@ function lookupRowHtml(row, kind) {
 /* ══════════════ مدیر: کلاس‌ها و تعریف‌ها ══════════════ */
 PAGES.classes = () => {
   if (S.role !== 'manager') return pageHead('کلاس‌ها') + empty('دسترسی ندارید.');
-  const all = list('classes');
-  const subjects = list('subjects');
+  const all = sortBy(list('classes'), 'name');
+  const subjects = sortBy(list('subjects'), 'name');
   const countOf = id => list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(id)).length;
   /* گروه‌های خودکارِ ورود دسته‌ایِ قدیمی (kind='group') دیگر کلاس نیستند؛
      کلاس فقط چیزی است که مدیر خودش ساخته است. */
-  const rooms = all.filter(c => String(c.kind || '') === 'room');
+  const rooms = sortBy(all.filter(c => String(c.kind || '') === 'room'), 'name');
   const lvl = String((S.server.school && S.server.school.level) || '');
   const isFieldSchool = /متوسطهٔ? ?دوم/.test(lvl) || all.some(c => String(c.mode || '') === 'field');
 
@@ -1026,7 +1023,7 @@ PAGES.schedule = () => (typeof window.schedPage === 'function' ? window.schedPag
 PAGES.reports = () => {
   if (S.role !== 'manager') return pageHead('گزارش‌ها') + empty('دسترسی ندارید.');
   const today = todayISO();
-  const classes = list('classes');
+  const classes = sortBy(list('classes'), 'name');
   const att = list('attendance');
   const week = [...Array(7)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().slice(0, 10); });
   const rows = classes.map(c => {
@@ -1052,8 +1049,9 @@ PAGES.reports = () => {
 };
 
 function classReportTable(classId) {
-  const roster = list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(classId));
-  const subs = [...new Set(list('grades').filter(g => Number(g.class_id) === Number(classId)).map(g => g.subject_id))];
+  const roster = sortBy(list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(classId)), 'name');
+  const subs = [...new Set(list('grades').filter(g => Number(g.class_id) === Number(classId)).map(g => g.subject_id))]
+    .sort((a, b) => alphaCompare((byId('subjects', a) || {}).name, (byId('subjects', b) || {}).name));
   const att = list('attendance').filter(a => Number(a.class_id) === Number(classId));
   if (!roster.length) return '<div class="muted small">دانش‌آموزی نیست.</div>';
   return `<table><thead><tr><th>دانش‌آموز</th>${subs.map(id => `<th>${esc((byId('subjects', id) || {}).name || '')}</th>`).join('')}<th>معدل</th><th>حضور</th></tr></thead><tbody>
@@ -1073,8 +1071,8 @@ PAGES['attendance-report'] = () => {
   if (S.role !== 'manager') return pageHead('حضور') + empty('دسترسی ندارید.');
   const date = S.attDate || todayISO();
   const all = list('attendance').filter(a => a.date === date);
-  const byClass = list('classes').map(c => ({ c, rows: all.filter(a => Number(a.class_id) === Number(c.id)) }));
-  return `${pageHead('حضور و غیاب', jdate(date), `<input type="date" class="input" style="max-width:180px" id="att-date" data-focus-key="att-date" data-set="attDate" value="${date}">`)}
+  const byClass = sortBy(list('classes'), 'name').map(c => ({ c, rows: all.filter(a => Number(a.class_id) === Number(c.id)) }));
+  return `${pageHead('حضور و غیاب', jdate(date), jalaliDateControl('', date, { id: 'att-date', target: 'attDate', bindState: true, maxWidth: '180px', focusKey: 'att-date' }))}
   ${byClass.map(({ c, rows }) => card(`<div class="row between"><b>${esc(c.name)}</b>
       <span class="small muted">${rows.length ? fa(rows.filter(r => r.status === 'present').length) + ' حاضر از ' + fa(rows.length) : 'ثبت نشده'}</span></div>
     ${rows.length ? `<div class="row" style="margin-top:6px">${rows.filter(r => r.status !== 'present').map(r => `<span class="badge red">${esc((byId('users', r.student_id) || {}).name || '')} · ${ATT_LABEL[r.status] || r.status}</span>`).join(' ') || '<span class="small muted">همه حاضر</span>'}</div>` : ''}`)).join('')}`;
@@ -1458,7 +1456,7 @@ PAGES.system = () => {
   ${card(`<div class="row between"><b>وضعیت</b>${S.online ? badge('متصل', 'green') : badge('آفلاین', 'amber')}</div>
     <div class="small muted" style="margin-top:6px">
       کاربر: ${esc(S.user.name)} · نقش: ${esc(ROLE_FA[S.role] || S.role)}<br>
-      آخرین همگام‌سازی: ${S.lastSync ? esc(jdate(S.lastSync) + ' ' + new Date(S.lastSync).toLocaleTimeString('fa-IR')) : '—'}<br>
+      آخرین همگام‌سازی: ${S.lastSync ? esc(jdate(S.lastSync) + ' ' + time24(new Date(S.lastSync))) : '—'}<br>
       تغییرات در صف: ${fa(S.queue.length)}
     </div>
     <div class="row" style="margin-top:10px">
@@ -1531,7 +1529,7 @@ function mirrorCard() {
 function liveCard() {
   const last = (typeof S !== 'undefined' && S.lastSync) ? S.lastSync : '';
   const stamp = last
-    ? new Date(last).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    ? time24(new Date(last), true)
     : '—';
   return card(`<div class="row between" style="margin-bottom:6px">
       <b>⚡ همگام‌سازی زنده</b>${badge('هر ۱ ثانیه', 'green')}</div>
@@ -1819,7 +1817,7 @@ function actLeaveAdd() {
     <label class="field"><span>دانش‌آموز</span><select class="input" name="student_id">
       ${kids.map(k => `<option value="${k.id}">${esc(k.name)}</option>`).join('')}
     </select></label>
-    <label class="field"><span>تاریخ</span><input class="input ltr" type="date" name="date" value="${todayISO()}"></label>
+    <label class="field"><span>تاریخ شمسی</span>${jalaliDateControl('date', todayISO(), { required: true })}</label>
     <label class="field"><span>علت</span><textarea class="input" name="reason" placeholder="مثلاً مراجعه به پزشک"></textarea></label>
     <button class="btn primary block">ثبت درخواست</button>
   </form>`);
@@ -1853,7 +1851,7 @@ function actUserFull(id) {
     inp('name', 'نام', u.name, 'required'),
     inp('last_name', 'نام خانوادگی', u.last_name || ''),
     inp('national_id', 'کد ملی', u.national_id || '', 'inputmode="numeric" maxlength="10" class="input ltr"'),
-    inp('birth_date', 'تاریخ تولد', u.birth_date ? (window.impIsoToJalali ? impIsoToJalali(u.birth_date) : u.birth_date) : '', 'placeholder="1390/05/12" class="input ltr"'),
+    `<label class="field"><span>تاریخ تولد (شمسی)</span>${jalaliDateControl('birth_date', u.birth_date || '')}</label>`,
     inp('gender', 'جنسیت', u.gender || ''),
   ].join('');
   /* شمارهٔ همراه‌ها — همان ستون‌های اکسل، همگی اینجا و همه قابل ویرایش.
@@ -1947,8 +1945,7 @@ function actUserEdit(id) {
     <label class="field"><span>نام کاربری (شمارهٔ همراه)</span>
       <input class="input ltr" name="phone" inputmode="numeric" maxlength="11" value="${esc(u.phone || '')}" placeholder="09xxxxxxxxx"></label>
     <div class="row">
-      <label class="field grow"><span>تاریخ تولد (شمسی)</span>
-        <input class="input ltr" name="birth_date" value="${esc(window.impIsoToJalali ? impIsoToJalali(u.birth_date) : '')}" placeholder="1390/05/12"></label>
+      <label class="field grow"><span>تاریخ تولد (شمسی)</span>${jalaliDateControl('birth_date', u.birth_date || '')}</label>
       <label class="field grow"><span>جنسیت</span>
         <select class="input" name="gender">
           <option value="">—</option>
@@ -1978,13 +1975,13 @@ function classFormHtml(c) {
   const editing = c && c.id;
   const pick = (kind, listArr, val) => {
     if (!listArr.length) {
-      return `<input class="input" name="${kind}" value="${esc(val || '')}" placeholder="در بخش ${LOOKUP_FA[kind]}ها تعریف کنید">`;
+      return `<input class="input" name="${kind}" value="${esc(val || '')}" placeholder="در بخش ${LOOKUP_FA[kind]}ها تعریف کنید"${kind === 'grade' ? ' required aria-required="true"' : ''}>`;
     }
     /* مقدار فعلی اگر در فهرست تعریف‌ها نباشد هم نمایش داده شود، وگرنه
        ویرایشِ یک کلاس قدیمی بی‌خبر، پایه‌اش را عوض می‌کند. */
     const known = val && listArr.some(r => String(r.name) === String(val));
     const extra = val && !known ? `<option value="${esc(val)}" selected>${esc(val)} (تعریف نشده)</option>` : '';
-    return `<select class="input" name="${kind}">${extra}${opts(listArr, val)}</select>`;
+    return `<select class="input" name="${kind}"${kind === 'grade' ? ' required aria-required="true"' : ''}>${extra}${opts(listArr, val)}</select>`;
   };
   const lvlOf = t => (typeof impGradeLevel === 'function' ? impGradeLevel(t) : 0);
   const gl = editing ? (Number(c.grade_level) || lvlOf(c.grade || c.name) || 0) : 0;
@@ -2122,7 +2119,7 @@ function actUserAdd(prefill, issueId) {
       <label class="field grow"><span>نقش</span><select class="input" name="role">
         ${roles.map(([v, t]) => `<option value="${v}" ${(P.role || 'student') === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <label class="field grow"><span>کلاس (دانش‌آموز)</span><select class="input" name="class_id">
-        <option value="">—</option>${list('classes').map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
+        <option value="">—</option>${sortBy(list('classes'), 'name').map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
     </div>
     <div class="row">
       <label class="field grow"><span>کد ملی</span><input class="input ltr" name="national_id" inputmode="numeric" maxlength="10" value="${pv('national_id')}"></label>
@@ -2133,8 +2130,7 @@ function actUserAdd(prefill, issueId) {
       <label class="field grow"><span>همراه ولی (اختیاری)</span><input class="input ltr" name="parent_phone" inputmode="numeric" maxlength="11" placeholder="09…" value="${pv('father_phone')}"></label>
     </div>
     <div class="row">
-      <label class="field grow"><span>تاریخ تولد (شمسی)</span>
-        <input class="input ltr" name="birth_date" placeholder="1390/05/12" value="${esc(P.birth_date && typeof impIsoToJalali === 'function' ? impIsoToJalali(P.birth_date) : '')}"></label>
+      <label class="field grow"><span>تاریخ تولد (شمسی)</span>${jalaliDateControl('birth_date', P.birth_date || '')}</label>
       <label class="field grow"><span>جنسیت</span>
         <select class="input" name="gender">
           <option value="">—</option>
@@ -2188,7 +2184,7 @@ async function actAudit() {
     const r = await api('/api/admin/audit?limit=60');
     S.modalTitle = 'سابقهٔ تغییرات';
     modal(`<div class="table-wrap"><table><thead><tr><th>زمان</th><th>کاربر</th><th>عملیات</th><th>مجموعه</th></tr></thead><tbody>
-      ${r.rows.map(a => `<tr><td class="small">${esc(jdate(a.at) + ' ' + new Date(a.at).toLocaleTimeString('fa-IR'))}</td>
+      ${r.rows.map(a => `<tr><td class="small">${esc(jdate(a.at) + ' ' + time24(new Date(a.at)))}</td>
       <td class="small">${esc(a.user_id || '—')}</td><td class="small">${esc(a.action || '')}</td><td class="small">${esc(a.collection || '')}</td></tr>`).join('')}
     </tbody></table></div>`);
   } catch (e) { toast(e.message, 'err'); }

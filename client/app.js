@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.8.74';
+const CLIENT_VERSION = '0.8.75';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -47,12 +47,17 @@ const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fa = n => String(n == null ? '' : n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const norm = s => String(s == null ? '' : s).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+const alphaKey = s => String(s == null ? '' : s).normalize('NFKC')
+  .replace(/[يىئ]/g, 'ی').replace(/ك/g, 'ک').replace(/[أإآ]/g, 'ا').replace(/[ؤ]/g, 'و').replace(/[ةۀ]/g, 'ه')
+  .replace(/[\u064B-\u065F\u0670\u0640]/g, '').replace(/[\u200c\u200f\u200e]/g, ' ').replace(/\s+/g, ' ').trim();
+const alphaCompare = (a, b) => alphaKey(a).localeCompare(alphaKey(b), 'fa', { sensitivity: 'base', numeric: true });
+const alphaSort = (arr, f) => arr.slice().sort((a, b) => alphaCompare(f ? a[f] : a, f ? b[f] : b));
 const now = () => new Date(Date.now() + S.clockOffset);
 const todayISO = () => now().toISOString().slice(0, 10);
 const uid = () => (Date.now().toString(36) + Math.random().toString(36).slice(2, 9));
 const byId = (c, id) => (S.data[c] && S.data[c].get(Number(id))) || null;
 const list = c => (S.data[c] ? [...S.data[c].values()] : []);
-const sortBy = (arr, f) => arr.slice().sort((a, b) => String(a[f] || '').localeCompare(String(b[f] || '')));
+const sortBy = (arr, f) => alphaSort(arr, f);
 
 /* ── تاریخ شمسی ─────────────────────────────────────────────────── */
 function toJalali(gy, gm, gd) {
@@ -84,6 +89,114 @@ function toMin(t) {
   return (Number(s[0]) || 0) * 60 + (Number(s[1]) || 0);
 }
 function nowMin() { const d = now(); return d.getHours() * 60 + d.getMinutes(); }
+function time24(value, withSeconds) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d)) return '—';
+  const pad = n => String(n).padStart(2, '0');
+  return fa(pad(d.getHours()) + ':' + pad(d.getMinutes()) + (withSeconds ? ':' + pad(d.getSeconds()) : ''));
+}
+function clock24(value) {
+  const raw = norm(String(value || '')).trim();
+  const m = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return String(value || '');
+  const h = Number(m[1]), min = Number(m[2]);
+  return h <= 23 && min <= 59 ? String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0') : String(value || '');
+}
+function parseJalaliIso(value) {
+  if (typeof impJalaliToIso !== 'function' || typeof impIsoToJalali !== 'function') return '';
+  const raw = norm(String(value || '').trim());
+  const match = raw.match(/^(\d{4})\D(\d{1,2})\D(\d{1,2})$/);
+  if (!match) return '';
+  const iso = impJalaliToIso(raw);
+  if (!iso) return '';
+  const back = norm(impIsoToJalali(iso)).match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (!back || Number(match[1]) !== Number(back[1]) || Number(match[2]) !== Number(back[2]) || Number(match[3]) !== Number(back[3])) return '';
+  return iso;
+}
+function jalaliDateControl(name, isoValue, options) {
+  const o = options || {};
+  const target = String(o.target || name || '');
+  const rawValue = String(isoValue || '').trim().slice(0, 10);
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(rawValue) ? rawValue : parseJalaliIso(rawValue);
+  const jalali = typeof impIsoToJalali === 'function' && iso ? fa(impIsoToJalali(iso)) : '';
+  const required = o.required ? ' required aria-required="true"' : '';
+  const displayId = o.id ? String(o.id) + '-jalali' : '';
+  const focusKey = o.focusKey ? `data-focus-key="${esc(o.focusKey)}"` : '';
+  const hiddenId = o.id ? String(o.id) : '';
+  const maxWidth = o.maxWidth ? `max-width:${esc(o.maxWidth)};` : '';
+  const extraClass = o.className ? ' ' + esc(o.className) : '';
+  const hiddenName = name ? `name="${esc(name)}"` : '';
+  const bindState = o.bindState ? `data-set="${esc(target)}"` : '';
+  return `<span class="jalali-date-control" style="${maxWidth}">
+    <input ${displayId ? `id="${esc(displayId)}"` : ''} ${focusKey} class="input ltr jalali-date${extraClass}" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="۱۴۰۵/۰۱/۰۱" data-jalali-date="${esc(target)}" value="${esc(jalali)}"${required}>
+    <input type="hidden" ${hiddenName} ${hiddenId ? `id="${esc(hiddenId)}"` : ''} data-jalali-value="${esc(target)}" ${bindState} value="${esc(iso)}">
+  </span>`;
+}
+function markControlInvalid(control) {
+  if (!control || !control.classList) return;
+  control.classList.add('input-invalid'); control.setAttribute('aria-invalid', 'true');
+  const field = control.closest && control.closest('.field');
+  if (field) field.classList.add('field-invalid');
+  const form = control.closest && control.closest('form');
+  if (form) form.classList.add('was-validated');
+}
+function clearControlInvalid(control) {
+  if (!control || !control.classList) return;
+  control.classList.remove('input-invalid'); control.removeAttribute('aria-invalid');
+  const field = control.closest && control.closest('.field');
+  if (field && !field.querySelector('.input-invalid')) field.classList.remove('field-invalid');
+}
+function controlIsMissing(control) {
+  if (!control) return false;
+  if (control.hasAttribute('data-jalali-date')) {
+    const raw = String(control.value || '').trim();
+    if (!raw && !control.required && !control.hasAttribute('data-required')) return false;
+    return !raw || !parseJalaliIso(raw);
+  }
+  if (control.hasAttribute('data-clock-24h')) return !(typeof schedTime === 'function' && schedTime(control.value));
+  if (!(control.required || control.hasAttribute('data-required'))) return false;
+  if (control.type === 'checkbox' || control.type === 'radio') return !control.checked;
+  return !String(control.value == null ? '' : control.value).trim();
+}
+function validateRequiredForm(form) {
+  if (!form) return true;
+  form.classList.add('was-validated');
+  const controls = [...form.querySelectorAll('input,select,textarea')].filter(el => el.required || el.hasAttribute('data-required') || el.hasAttribute('data-jalali-date') || el.hasAttribute('data-clock-24h'));
+  const invalid = controls.filter(controlIsMissing);
+  invalid.forEach(markControlInvalid);
+  if (!invalid.length) return true;
+  try { invalid[0].focus({ preventScroll: false }); invalid[0].scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* older webview */ }
+  toast('موارد مشخص‌شده را تکمیل یا اصلاح کنید', 'err');
+  return false;
+}
+function syncJalaliDateControl(input, commit) {
+  const target = String(input.getAttribute('data-jalali-date') || '');
+  const raw = String(input.value || '').trim();
+  const iso = raw ? parseJalaliIso(raw) : '';
+  const form = input.closest('form');
+  let hidden = form && form.querySelector(`[data-jalali-value="${target.replace(/["\\]/g, '')}"]`);
+  if (!hidden) hidden = document.querySelector(`[data-jalali-value="${target.replace(/["\\]/g, '')}"]`);
+  if (hidden) hidden.value = iso;
+  if ((raw && !iso) || ((input.required || input.hasAttribute('data-required')) && !iso && form && form.classList.contains('was-validated'))) markControlInvalid(input);
+  else clearControlInvalid(input);
+  if (commit && target && hidden && hidden.hasAttribute('data-set')) {
+    S[target] = iso;
+    render();
+  }
+  return iso;
+}
+
+document.addEventListener('invalid', e => markControlInvalid(e.target), true);
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el && el.hasAttribute && el.hasAttribute('data-jalali-date')) { syncJalaliDateControl(el, false); return; }
+  if (el && el.classList && el.classList.contains('input-invalid') && !controlIsMissing(el)) clearControlInvalid(el);
+});
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el && el.hasAttribute && el.hasAttribute('data-jalali-date')) { syncJalaliDateControl(el, true); return; }
+  if (el && el.classList && el.classList.contains('input-invalid') && !controlIsMissing(el)) clearControlInvalid(el);
+});
 
 /* ── ذخیره‌سازی IndexedDB ───────────────────────────────────────── */
 let _idb = null;
@@ -3129,6 +3242,7 @@ document.addEventListener('submit', (e) => {
   const form = e.target.closest('form[data-form]');
   if (!form) return;
   e.preventDefault();
+  if (!validateRequiredForm(form)) return;
   const btn = form.querySelector('button[type="submit"], button:not([type])');
   const done = liveBegin(btn || form);
   let running;

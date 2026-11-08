@@ -3747,8 +3747,8 @@ async function waitFor(fn, ms = 15000) {
       { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
     const win = dom.window;
     const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
-    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/schedule.js') + '\n;\n' + strip('client/app.js')
-      + '\n;window.__t = { S, schedPage, schedGenerate, schedConflicts, schedTeacherBusyAt, schedSuggestSlots, schedSlotModal, schedWorkDays, SCHED_FORMS, SCHED_ACTIONS, handleSubmit, closeModal };');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/schedule.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, schedPage, schedGenerate, schedConflicts, schedTeacherBusyAt, schedSuggestSlots, schedSlotModal, schedWorkDays, schedPeriods, schedBellLabel, schedLessons, SCHED_FORMS, SCHED_ACTIONS, handleSubmit, closeModal, parseJalaliIso, time24, norm, alphaCompare, alphaSort, markControlInvalid, validateRequiredForm };');
     const T = win.__t;
     T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
     T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'schedule';
@@ -3825,7 +3825,21 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/data-form="slot"/.test(modalHtml), 'فرم زنگ باز شد');
     assert.ok(/🔴/.test(modalHtml), 'دبیرِ مشغول با نشان سرخ دیده می‌شود');
     assert.ok(/sub_date/.test(modalHtml), 'بخش جابه‌جای موقت هست');
+    assert.ok(/تاریخ شمسی/.test(modalHtml) && /data-jalali-date="sub_date"/.test(modalHtml), 'تاریخ جایگزین با ورودی شمسی است');
+    assert.ok(!/type="date"|type="time"/.test(modalHtml), 'ورودی بومی میلادی یا ساعت ۱۲/۲۴‌ساعته باقی نمانده است');
     assert.ok(/data-act="modal-close"/.test(modalHtml), 'دکمهٔ ✕ در پنجره هست');
+    const subjectControl = win.document.querySelector('#modal-root form[data-form="slot"] [name="subject"]');
+    assert.ok(subjectControl.required, 'درسِ لازم در فرم زنگ required است');
+    subjectControl.dispatchEvent(new win.Event('invalid', { cancelable: true }));
+    assert.ok(subjectControl.classList.contains('input-invalid'), 'فیلد ناقص با رویداد اعتبارسنجی قرمز می‌شود');
+    subjectControl.value = '10';
+    subjectControl.dispatchEvent(new win.Event('input', { bubbles: true }));
+    assert.ok(!subjectControl.classList.contains('input-invalid'), 'پس از تکمیل فیلد، نشانهٔ خطا پاک می‌شود');
+    assert.ok(T.parseJalaliIso('۱۴۰۵/۰۸/۱۷'), 'تاریخ شمسی به تاریخ ذخیره‌سازی تبدیل می‌شود');
+    assert.strictEqual(T.parseJalaliIso('۱۴۰۵/۱۳/۱۷'), '', 'ماه نامعتبر رد می‌شود');
+    assert.strictEqual(T.norm(T.time24(new Date(2026, 0, 1, 0, 5))), '00:05', 'ساعت نیمه‌شب با قالب ۲۴ساعته نمایش داده می‌شود');
+    const alpha = T.alphaSort(['دبیر ب', 'دبیر آ', 'دبیر الف']);
+    assert.ok(alpha.every((name, i) => i === 0 || T.alphaCompare(alpha[i - 1], name) <= 0), 'مرتب‌سازی فارسی در کل فهرست‌ها الفبایی است');
     assert.ok(/name="room_id"/.test(modalHtml), 'محل از فهرست محل‌های تعریف‌شده انتخاب می‌شود');
     assert.ok(/data-act="sched-subject-add"/.test(modalHtml) && /data-act="sched-teacher-add"/.test(modalHtml) && /data-act="sched-room-add"/.test(modalHtml), 'درس، دبیر و محل از همان پنجره قابل تعریف‌اند');
 
@@ -3873,12 +3887,38 @@ async function waitFor(fn, ms = 15000) {
     const bellHtml = win.document.querySelector('#modal-root').innerHTML;
     assert.ok(/شروع/.test(bellHtml) && /پایان/.test(bellHtml) && /زنگ درس/.test(bellHtml) && /زنگ تفریح/.test(bellHtml), 'تنظیم زنگ شروع/پایان و تفریح را روشن نمایش می‌دهد');
     assert.ok(/data-type="lesson"/.test(bellHtml) && /data-type="break"/.test(bellHtml), 'افزودن زنگ درس و تفریح جداست');
+    assert.ok(/clock-24h[^>]*type="text"/.test(bellHtml) && !/type="time"/.test(bellHtml), 'ساعت‌ها به‌صورت ورودی متنی ۲۴ساعته‌اند');
+    const bellsForm = win.document.querySelector('#modal-root form[data-form="bells"]');
+    const existingBellIds = Array.from(T.S.data.bell_schedules.values()).map(b => Number(b.id)).sort((a, b) => a - b);
+    bellsForm.elements.s_0.value = '07:30'; bellsForm.elements.e_0.value = '08:15';
+    T.SCHED_ACTIONS['bell-add'](win.document.querySelector('#modal-root [data-act="bell-add"][data-type="lesson"]'));
+    assert.deepStrictEqual(Array.from(T.S.bellDraft).slice(0, 6).map(b => Number(b.id)), existingBellIds, 'افزودن زنگ، شناسهٔ زنگ‌های ذخیره‌شده را نگه می‌دارد');
+    assert.strictEqual(T.S.bellDraft[0].start, '07:30', 'مقدار ویرایش‌شده پیش از افزودن زنگ حفظ می‌شود');
+    let expandedBellForm = win.document.querySelector('#modal-root form[data-form="bells"]');
+    assert.strictEqual(expandedBellForm.elements.s_0.value, '07:30', 'فرم دوباره‌ساخته‌شده ساعت قبلی را حفظ می‌کند');
+    for (let i = 0; i < 6; i++) {
+      const start = 7 * 60 + 30 + i * 30, end = start + 30;
+      const fmt = n => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+      expandedBellForm.elements['s_' + i].value = fmt(start);
+      expandedBellForm.elements['e_' + i].value = fmt(end);
+    }
+    expandedBellForm.elements.s_6.value = '10:30'; expandedBellForm.elements.e_6.value = '11:00';
+    T.SCHED_FORMS.bells(expandedBellForm.elements);
+    assert.strictEqual(T.S.data.bell_schedules.size, 7, 'ذخیره پس از افزودن، شش زنگ قبلی را نگه می‌دارد و زنگ تازه را اضافه می‌کند');
+    assert.ok(existingBellIds.every(id => T.S.data.bell_schedules.has(id)), 'شناسه‌های زنگ‌های قبلی پس از ذخیره باقی می‌مانند');
+    T.S.data.bell_schedules.set(99, { id: 99, order: 1.5, start: '08:15', end: '08:30', type: 'break', label: 'زنگ تفریح' });
+    T.schedSlotModal({ grade: 'دهم', weekday: 0, bell_order: 1 });
+    const periodOptions = Array.from(win.document.querySelectorAll('#modal-root select[name="period"] option')).map(o => o.textContent.trim());
+    assert.strictEqual(periodOptions.length, 7, 'فقط زنگ‌های درس در انتخاب برنامه دیده می‌شوند');
+    assert.ok(periodOptions.every(o => o.startsWith('زنگ ') && !o.includes('تفریح') && !o.includes(':')), 'فهرست انتخاب فقط نام زنگ را بدون ساعت نشان می‌دهد');
+    T.S.data.bell_schedules.delete(99);
+    T.SCHED_ACTIONS['bell-edit']();
     T.S.bellDraft = [{ id: 0 }, { id: 0 }];
     T.SCHED_FORMS.bells({
       s_0: { value: '07:30' }, e_0: { value: '08:30' }, t_0: { value: 'lesson' },
       s_1: { value: '08:15' }, e_1: { value: '08:45' }, t_1: { value: 'break' },
     });
-    assert.strictEqual(T.S.data.bell_schedules.size, 6, 'زمان‌های هم‌پوشان ذخیره نمی‌شوند');
+    assert.strictEqual(T.S.data.bell_schedules.size, 7, 'زمان‌های هم‌پوشان ذخیره نمی‌شوند');
     T.S.bellDraft = [{ id: 0 }, { id: 0 }];
     T.SCHED_FORMS.bells({
       s_0: { value: '07:30' }, e_0: { value: '08:15' }, t_0: { value: 'lesson' },
