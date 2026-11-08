@@ -43,6 +43,9 @@ const EXIT_RESTART = 75;
    از crash سخت، وقتی PID دیگر زنده نیست، خودکار پاک می‌شود. */
 const dataDir = path.resolve(process.env.PAYESH_DATA || path.join(process.cwd(), 'data'));
 const lockPath = path.join(dataDir, '.payesh-supervisor.lock');
+const requestedPort = Number(process.env.PORT || process.env.SERVER_PORT || 8080);
+const supervisorPort = Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort <= 65535
+  ? requestedPort : 8080;
 let lockFd = null;
 
 function pidIsAlive(pid) {
@@ -56,7 +59,7 @@ function acquireSupervisorLock() {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const fd = fs.openSync(lockPath, 'wx');
-      fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() }));
+      fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, port: supervisorPort, started_at: new Date().toISOString() }));
       return fd;
     } catch (e) {
       if (!e || e.code !== 'EEXIST') throw e;

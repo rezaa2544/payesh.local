@@ -4263,6 +4263,10 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/void StartWatchdog/.test(cs) && /WatchTick/.test(cs), 'نگهبان سرور هست');
     assert.ok(/CheckConnectionOnRestore/.test(cs) && /bool needsCheck = wasHidden/.test(cs), 'پس از بازشدن دوبارهٔ پنجره، سلامت اتصال دوباره سنجیده می‌شود');
     assert.ok(/BringToFrontFromSecond\(\) \{ RevealWindow\(\); \}/.test(cs) && /DoubleClick \+= .*RevealWindow/.test(cs), 'لانچ دوباره و آیکون سینی از مسیر بازیابی استفاده می‌کنند');
+    assert.ok(/ActiveSupervisorPort\(\)/.test(cs) && /Process\.GetProcessById/.test(cs) && /payesh-supervisor\.lock/.test(cs), 'در شروع کند همان پورت supervisor زنده حفظ می‌شود');
+    assert.ok(/e2\.NavigationId != _activeNavigationId/.test(cs), 'اتمام navigation قدیمی وضعیت صفحهٔ تازه را خراب نمی‌کند');
+    const showApp = cs.slice(cs.indexOf('private void ShowApp'), cs.indexOf('/* ══ پایداری'));
+    assert.ok(showApp.indexOf('_view.Visible = false') >= 0 && showApp.indexOf('_view.Visible = false') < showApp.indexOf('_view.Source = new Uri(url)'), 'WebView تا نتیجهٔ بارگذاری پنهان می‌ماند');
     assert.ok(/SupervisorRunning\(\)/.test(cs) && /Interlocked\.CompareExchange/.test(cs), 'watchdog قبل از راه‌اندازی، ناظر موجود را بررسی می‌کند');
     assert.ok(/server\\\\start\.js/.test(cs), 'برنامه از ناظر پایدار start.js استفاده می‌کند');
     assert.ok(/void PickLocalPort/.test(cs) && /PORT_CANDIDATES/.test(cs), 'پورت آزاد انتخاب می‌شود');
@@ -4273,6 +4277,7 @@ async function waitFor(fn, ms = 15000) {
     const supervisor = read('server/start.js');
     assert.ok(/\.payesh-supervisor\.lock/.test(supervisor) && /acquireSupervisorLock/.test(supervisor), 'ناظر Node با قفل بین‌پردازه‌ای یکتا است');
     assert.ok(/PAYESH_DATA/.test(supervisor) && /pidIsAlive/.test(supervisor), 'قفل ناظر در دادهٔ پایدار است و قفل stale پاک می‌شود');
+    assert.ok(/port:\s*supervisorPort/.test(supervisor), 'قفل ناظر پورت bind شده را برای پوستهٔ ویندوز نگه می‌دارد');
     assert.ok(/windowsHide:\s*true/.test(supervisor), 'فرایند Node در ویندوز پنجرهٔ کنسول اضافه باز نمی‌کند');
     const startBat = read('install/windows/start.bat');
     const startVbs = read('install/windows/start-hidden.vbs');

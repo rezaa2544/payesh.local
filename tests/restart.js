@@ -62,6 +62,8 @@ async function main() {
     const up = await waitFor(async () => { const h = await health(); return h && h.ok ? h : null; }, 25000);
     assert.ok(up, 'سرور بالا آمد — لاگ: ' + log.slice(-400));
     await sleep(2500);
+    const supervisorLock = JSON.parse(fs.readFileSync(path.join(DATA, '.payesh-supervisor.lock'), 'utf8'));
+    assert.strictEqual(supervisorLock.port, port, 'قفل ناظر پورت واقعی سرور را ثبت می‌کند');
 
     await test('اجرای دوبارهٔ start.js ناظر دوم یا سرور دوم نمی‌سازد', async () => {
       const duplicate = spawn(process.execPath, [path.join(ROOT, 'server', 'start.js')], {
