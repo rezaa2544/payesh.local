@@ -4254,13 +4254,15 @@ async function waitFor(fn, ms = 15000) {
 
     /* ۲) صفحهٔ خطای موتور نمایش هرگز دیده نمی‌شود */
     assert.ok(/NavigationCompleted/.test(cs), 'نتیجهٔ بارگذاری گرفته می‌شود');
-    assert.ok(/OnNavigated\(/.test(cs) && /about:blank/.test(cs), 'صفحهٔ خطای موتور پنهان و جایگزین می‌شود');
+    assert.ok(/OnNavigated\(/.test(cs) && /_view\.Visible = false/.test(cs), 'صفحهٔ خطای خام پنهان می‌شود و با صفحهٔ خود برنامه جایگزین می‌شود');
     assert.ok(/ShowLoadFail|ShowEngineMissing/.test(cs), 'پیام فارسی خودمان هست');
     assert.ok(/void ShowEngineMissing/.test(cs) && /MicrosoftEdgeWebView2Setup\.exe/.test(cs),
       'اگر موتور نمایش نباشد، نصبش می‌کند (نه باز کردن مرورگر)');
 
     /* ۳) ناظر یکتا، بازیابی و پورت آزاد */
     assert.ok(/void StartWatchdog/.test(cs) && /WatchTick/.test(cs), 'نگهبان سرور هست');
+    assert.ok(/CheckConnectionOnRestore/.test(cs) && /bool needsCheck = wasHidden/.test(cs), 'پس از بازشدن دوبارهٔ پنجره، سلامت اتصال دوباره سنجیده می‌شود');
+    assert.ok(/BringToFrontFromSecond\(\) \{ RevealWindow\(\); \}/.test(cs) && /DoubleClick \+= .*RevealWindow/.test(cs), 'لانچ دوباره و آیکون سینی از مسیر بازیابی استفاده می‌کنند');
     assert.ok(/SupervisorRunning\(\)/.test(cs) && /Interlocked\.CompareExchange/.test(cs), 'watchdog قبل از راه‌اندازی، ناظر موجود را بررسی می‌کند');
     assert.ok(/server\\\\start\.js/.test(cs), 'برنامه از ناظر پایدار start.js استفاده می‌کند');
     assert.ok(/void PickLocalPort/.test(cs) && /PORT_CANDIDATES/.test(cs), 'پورت آزاد انتخاب می‌شود');

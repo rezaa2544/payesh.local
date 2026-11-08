@@ -116,6 +116,7 @@ namespace Payesh
         private bool _reallyExit;
         private bool _trayMode;
         private int _connectToken;
+        private volatile bool _pageHealthy;
         /* نگهبان سرور و صفحه: اگر سامانه وسط کار بخوابد، دوباره بالا می‌آید
            و پنجره هرگز صفحهٔ خطای مرورگر را نشان نمی‌دهد. */
         private System.Windows.Forms.Timer _watch;
@@ -344,12 +345,12 @@ namespace Payesh
                     Icon = Icon ?? SystemIcons.Application,
                 };
                 var menu = new ContextMenuStrip { RightToLeft = RightToLeft.Yes };
-                menu.Items.Add("باز کردن پایش", null, (s, e) => { Show(); WindowState = FormWindowState.Normal; Activate(); });
+                menu.Items.Add("باز کردن پایش", null, (s, e) => RevealWindow());
                 menu.Items.Add("تشخیص و گزارش", null, (s, e) => ShowError(null));
                 menu.Items.Add(new ToolStripSeparator());
                 menu.Items.Add("خروج", null, (s, e) => { _reallyExit = true; Close(); });
                 _tray.ContextMenuStrip = menu;
-                _tray.DoubleClick += (s, e) => { Show(); WindowState = FormWindowState.Normal; Activate(); };
+                _tray.DoubleClick += (s, e) => RevealWindow();
             }
             catch { }
         }
@@ -474,6 +475,7 @@ namespace Payesh
         private void StartConnect()
         {
             int token = Interlocked.Increment(ref _connectToken);
+            _pageHealthy = false;
             SetStatus("در حال آماده‌سازی…");
             _splash.Visible = true;
             _splash.BringToFront();
@@ -592,6 +594,7 @@ namespace Payesh
 
         private void ShowApp(string url)
         {
+            _pageHealthy = false;
             _currentUrl = url;
             SaveIni(_settingsFile, "last_url", url);
             OnUi(() =>
@@ -740,6 +743,7 @@ namespace Payesh
         /// <summary>برگشتن بی‌صدا به برنامه بعد از قطعی موقت.</summary>
         private void RecoverTo(string url)
         {
+            _pageHealthy = false;
             _navFails = 0;
             OnUi(() =>
             {
@@ -763,10 +767,12 @@ namespace Payesh
         {
             if (ok)
             {
+                _pageHealthy = true;
                 _navFails = 0;
                 OnUi(() => { _splash.Visible = false; _error.Visible = false; });
                 return;
             }
+            _pageHealthy = false;
             _navFails++;
             Log("navigation failed (" + status + ") for " + _currentUrl + " — attempt " + _navFails);
             /* صفحهٔ خطای موتور نمایش پنهان می‌شود؛ کاربر هیچ صفحهٔ انگلیسی نمی‌بیند */
@@ -774,11 +780,9 @@ namespace Payesh
             {
                 try
                 {
-                    if (_view != null)
-                    {
-                        _view.Visible = false;
-                        if (_view.CoreWebView2 != null) _view.CoreWebView2.Navigate("about:blank");
-                    }
+                    if (_view != null) _view.Visible = false;
+                    _splash.Visible = true;
+                    _splash.BringToFront();
                 }
                 catch { }
             });
@@ -918,11 +922,14 @@ namespace Payesh
             catch { }
         }
 
-        /// <summary>وقتی کاربر دوباره روی آیکون برنامه کلیک می‌کند: پنجرهٔ موجود را نشان بده.</summary>
-        internal void BringToFrontFromSecond()
+        /// <summary>نمایش مجدد پنجره و اعتبارسنجی اتصال پس از برگشت از سینی/اجرای دوم.</summary>
+        internal void BringToFrontFromSecond() { RevealWindow(); }
+
+        private void RevealWindow()
         {
             OnUi(() =>
             {
+                bool wasHidden = !Visible;
                 try
                 {
                     ShowInTaskbar = true;
@@ -932,6 +939,43 @@ namespace Payesh
                     BringToFront();
                 }
                 catch { }
+
+                /* بستن با X فقط پنجره را مخفی می‌کند؛ ممکن است در این فاصله آدرس
+                   localhost از کار افتاده باشد. نمایش دوباره نباید همان صفحهٔ خطا
+                   را زنده کند: اول health را می‌سنجیم و در صورت نیاز reconnect می‌کنیم. */
+                bool needsCheck = wasHidden || !_pageHealthy || (_error != null && _error.Visible);
+                if (needsCheck)
+                    Task.Run(async () => { await Task.Delay(120); await CheckConnectionOnRestore(); });
+            });
+        }
+
+        private async Task CheckConnectionOnRestore()
+        {
+            if (_closing) return;
+            string target = _serverMode ? LocalUrl : _currentUrl;
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                OnUi(() => { if (!_closing) StartConnect(); });
+                return;
+            }
+
+            bool ready = await Up(target);
+            if (_closing) return;
+            OnUi(() =>
+            {
+                if (_closing) return;
+                if (!ready)
+                {
+                    Log("restore health-check failed for " + target + " — reconnecting");
+                    StartConnect();
+                    return;
+                }
+                if (!_pageHealthy || (_error != null && _error.Visible))
+                {
+                    string resume = _serverMode ? LocalUrl : target;
+                    Log("restore health-check succeeded — reloading " + resume);
+                    RecoverTo(resume);
+                }
             });
         }
 
