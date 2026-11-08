@@ -47,6 +47,7 @@
     "test:chaos47:evidence": "bash docs/cloud/reports/evidence/run-47-chaos.sh",
     "test:cost42": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/sync-cost-42.js",
     "test:cost42:evidence": "bash docs/cloud/reports/evidence/run-42-sync-cost.sh",
+    "test:alerts": "node tests/alerts.js",
     "test:budget42": "node tools/sync-budget-42.cjs",
     "security:scan": "node tools/security-scan-48.mjs",
     "test:security48": "node tests/security-scan-48.js",
@@ -62,7 +63,9 @@
     "test:replica52": "node tests/replica-52.js",
     "test:cell54": "node tests/cell-transfer-54.js",
     "test:adr60": "node tests/adr-ids-60.js",
-    "test:branch59": "node tests/branch-policy-59.js"
+    "test:branch59": "node tests/branch-policy-59.js",
+    "test:pitr50": "node tests/pitr-50.js",
+    "test:pitr50:evidence": "bash docs/cloud/reports/evidence/run-50-pitr.sh"
   },
   "license": "MIT",
   "devDependencies": {
