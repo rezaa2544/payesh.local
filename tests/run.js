@@ -647,6 +647,22 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(buf.subarray(0, 15).toString(), 'SQLite format 3');
   });
 
+  await test('مانیفست انتشار: هش و اندازهٔ همهٔ فایل‌ها با منبع واقعی یکی است', () => {
+    const crypto = require('crypto');
+    const manifest = require('../releases/manifest.json');
+    for (const file of manifest.files) {
+      const full = path.join(ROOT, file.path);
+      assert.ok(fs.existsSync(full), 'فایل مانیفست وجود دارد: ' + file.path);
+      const bytes = fs.readFileSync(full);
+      assert.strictEqual(bytes.length, file.size, 'اندازهٔ فایل با مانیفست می‌خواند: ' + file.path);
+      assert.strictEqual(crypto.createHash('sha256').update(bytes).digest('hex'), file.sha256,
+        'هش فایل با مانیفست می‌خواند: ' + file.path);
+    }
+    const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/build.yml'), 'utf8');
+    assert.ok(/git add client\/app\.js releases\/manifest\.json releases\/history/.test(workflow),
+      'نسخهٔ هم‌تراز شدهٔ کلاینت هم همراه مانیفست در main ثبت می‌شود');
+  });
+
   await test('آپدیت: دلتا فقط فایل‌های تغییرکرده را برمی‌گرداند', async () => {
     const manifest = require('../releases/manifest.json');
     const r = await req('/api/update/check?current=' + encodeURIComponent(manifest.version));
