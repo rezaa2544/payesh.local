@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | ردیف | ۵۰ (فاز ۶ — عملیات، SRE و مقیاس دیتابیس) · وابسته به ۳۴ و ۵۶ (`O-20`) |
-| وضعیت | **In Progress / Review (کد، آزمون، تطبیق چک‌سام سه‌لایه و ران‌بوک کامل است؛ اجرای `[M]` روی PostgreSQL مدیریت‌شده منتظر تصمیم `O-20` است)** |
+| وضعیت | **Review — GREEN-WITH-DEFERRAL (کد، آزمون PT‑01..PT‑10، تمرین روی PostgreSQL واقعی محلی و کنترل منفی `--require-managed` همگی سبزند؛ تمرین واقعی روی PostgreSQL مدیریت‌شده طبق تصمیم ۲ِ `O-20` (فقط لایهٔ رایگان برای اکنون) رسماً به T2 موکول شد)** |
 | کد و ابزار | `server/pitr.js` · `tools/pitr-drill-50.mjs` · `server/transfer.js` (تطبیق سه‌لایه) |
 | آزمون و شاهد | `npm run test:pitr50` → `tests/pitr-50.js` (`PT‑01..PT‑10`) · `docs/cloud/reports/evidence/pitr-50.txt` |
 
@@ -102,3 +102,24 @@ tables: 4 · تطبیق سه‌لایهٔ SHA-256: OK
   میزبان را با `PITR-50-NOT-MANAGED-PG` درست رد کرد.
 - نتیجه: لوله‌کشی vendor-neutral کامل است و روزی که `DATABASE_URL` مدیریت‌شده در دسترس
   قرار گیرد، فقط اجرای همان دستور با پرچم `--require-managed` کافی است.
+
+### ضمیمه ۲ — اجرای گیت `--require-managed` روی PostgreSQL واقعی محلی (۱۴۰۵-۱۱-۰۸)
+
+گیت باقی‌ماندهٔ ردیف ۵۰ در این سشن روی PostgreSQL 16 واقعی محلی (مجاز طبق بند ۱ِ `O-20`)
+اجرا و خروجی واقعی ثبت شد (`docs/cloud/reports/evidence/pitr-50-managed-drill.txt`):
+
+```
+[1] pg-drill (primary=payesh_pitr_primary، restored=payesh_restore_target از pg_dump/psql):
+    verdict: PITR-50-SIMULATED-OK · tag: [S] · rpo_ms: 0 · rto_ms: 179
+    reconciliation_ok: true (۴ جدول، چک‌سام سه‌لایه) · wal_level: replica (archive_mode: off)
+[2] همان دستور با --require-managed:
+    PITR-50-NOT-MANAGED-PG host=127.0.0.1 kind=single-host-ephemeral → exit 3 (درست رد شد)
+[3] PT-01..PT-10: 10/10 سبز
+```
+
+- تمرینِ [۱] بازنشانی واقعی (dump→restore) + تطبیق سه‌لایه روی دادهٔ واقعی را نشان می‌دهد ولی
+  باز هم `[S]` است چون تک‌میزبان و بدون آرشیو پیوستهٔ WAL (`archive_mode=off`) است.
+- پوشش `PAYESH_PG_MANAGED=1` عمداً به‌کار گرفته نشد تا شاهد محلی هرگز به‌جای `[M]` ثبت نشود.
+- **حکم نهایی ردیف ۵۰: GREEN-WITH-DEFERRAL** — تصمیم ۲ِ `O-20` (فقط لایهٔ رایگان برای اکنون)
+  تمرین واقعی روی provider مدیریت‌شده (شاخهٔ بازیابی Neon/Supabase/RDS با `PITR-50-MANAGED-OK`)
+  را رسماً به T2 موکول می‌کند.

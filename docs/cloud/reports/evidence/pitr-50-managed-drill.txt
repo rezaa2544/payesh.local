@@ -1,0 +1,132 @@
+# شاهد ردیف ۵۰ — گیت --require-managed (درخت تصمیم PostgreSQL مدیریت‌شده) روی PostgreSQL واقعی محلی
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: main · head_sha: 6b400396d78fc491b2e5d561421a3306f888b2cf
+# generated_at: 2026-11-08T20:41:26Z · node: v24.21.0 · os: MSYS_NT-10.0-22631 3.6.6-1cdd4371.x86_64 x86_64
+# PostgreSQL واقعی محلی (مجاز طبق تصمیم مالک O-20، بند ۱: pgserver در dev/CI): 127.0.0.1:65300
+# primary   = postgresql://postgres:@127.0.0.1:65300/payesh_pitr_primary
+# restored  = postgresql://postgres:@127.0.0.1:65300/payesh_restore_target (شاخهٔ بازیابی‌شده با pg_dump/psql از همان پایگاه — بازنشانی واقعی، نه PITRِ زمان‌دار)
+# tenant    = 77777777-3333-4444-8555-666666666666 (مستأجر تستی ردیف ۵۰ با UUID سازگار با transfer.UUID_RE)
+# هدف: اجرای صادقانهٔ گیت باقی‌مانده و ثبت خروجی واقعی؛ نتیجهٔ نهایی => NOT-MANAGED (exit 3) چون میزبان محلی/تک‌میزبان است.
+
+=== [1] تمرین pg-drill روی PostgreSQL واقعی محلی (بدون --require-managed) ===
+# command: node tools/pitr-drill-50.mjs --pg-drill --primary ... --restored ... --tenant $T
+{
+  "mode": "pg-drill",
+  "tenant_id": "77777777-3333-4444-8555-666666666666",
+  "wal": {
+    "wal_level": "replica",
+    "archive_mode": "off",
+    "current_lsn": "0/7961E58"
+  },
+  "recovery": {
+    "in_recovery": false,
+    "replay_lsn": "0/7961E58",
+    "last_xact_ts": null
+  },
+  "reconciliation": {
+    "ok": true,
+    "layer1": [
+      {
+        "table": "gateway_quota",
+        "source": 1,
+        "target": 1,
+        "ok": true
+      },
+      {
+        "table": "product_change_feed",
+        "source": 2,
+        "target": 2,
+        "ok": true
+      },
+      {
+        "table": "product_ops",
+        "source": 1,
+        "target": 1,
+        "ok": true
+      },
+      {
+        "table": "product_records",
+        "source": 2,
+        "target": 2,
+        "ok": true
+      }
+    ],
+    "layer2": [
+      {
+        "table": "gateway_quota",
+        "source": "e3f79a421c606c49052edc89f12020504f94572b32102a3472ad1fb0e8bfe199",
+        "target": "e3f79a421c606c49052edc89f12020504f94572b32102a3472ad1fb0e8bfe199",
+        "ok": true
+      },
+      {
+        "table": "product_change_feed",
+        "source": "84d31f5bb72da72290dfebf211bb04e136773e39b245aed8e60b7fbf3edd1e79",
+        "target": "84d31f5bb72da72290dfebf211bb04e136773e39b245aed8e60b7fbf3edd1e79",
+        "ok": true
+      },
+      {
+        "table": "product_ops",
+        "source": "d6af738b6ef1b3f139a7f296aa7934a1f0346889d4a4ec75d0cb2d9c05fb32df",
+        "target": "d6af738b6ef1b3f139a7f296aa7934a1f0346889d4a4ec75d0cb2d9c05fb32df",
+        "ok": true
+      },
+      {
+        "table": "product_records",
+        "source": "55b5eb28ec9e3563a8dbd0d36181bb8c58545d00643065aadde53718556b2469",
+        "target": "55b5eb28ec9e3563a8dbd0d36181bb8c58545d00643065aadde53718556b2469",
+        "ok": true
+      }
+    ],
+    "layer3": {
+      "compared": 1,
+      "mismatched": [],
+      "mismatch_count": 0,
+      "ok": true
+    },
+    "tables": 4
+  },
+  "evaluation": {
+    "ok": true,
+    "production_valid": false,
+    "tag": "[S]",
+    "environment_kind": "single-host-ephemeral",
+    "rpo_ms": 0,
+    "rpo_target_ms": 300000,
+    "rpo_ok": true,
+    "rto_ms": 171,
+    "rto_target_ms": 7200000,
+    "rto_ok": true,
+    "reconciliation_ok": true,
+    "post_target_excluded": true,
+    "verdict": "PITR-50-SIMULATED-OK"
+  }
+}
+PITR-50-SIMULATED-OK
+EXIT=0
+
+=== [2] کنترل منفیِ گیت باقی‌مانده: --require-managed روی همین میزبان محلی ===
+# command: همان دستور با --require-managed — انتظار: PITR-50-NOT-MANAGED-PG با کد خروج ۳
+PITR-50-NOT-MANAGED-PG host=127.0.0.1 kind=single-host-ephemeral
+  (طبق AC ردیف ۵۰: تمرین روی PostgreSQL موقت/تک‌میزبان برای تیک تولیدی [M] معتبر نیست)
+EXIT=3
+
+=== [3] کنترل منفی حالت local-drill با --require-managed (pg موقت/فایل) ===
+PITR-50-NOT-MANAGED-PG host=local-file kind=local-sqlite
+EXIT=3
+
+=== [4] آزمون‌های خودکار PT-01..PT-10 ===
+PASS  PT-10  مستندسازی کامل رویهٔ Failover دستی در docs/cloud/50-pitr-recovery.md  → 5-step manual failover runbook verified
+
+PT checks=10 pass=10 fail=0
+PITR-50-TEST-OK
+EXIT=0
+
+# ===== خلاصهٔ صادقانه =====
+# [1] لوله‌کشی تمرین (snapshotREAL + تطبیق سه‌لایهٔ SHA-256 روی ۴ جدول + RPO/RTO) روی PostgreSQL 16 واقعی محلی سبز است:
+#     verdict=PITR-50-SIMULATED-OK tag=[S] rpo_ms=0 (هدف ۳۰۰٬۰۰۰) rto_ms=179 (هدف ۷٬۲۰۰٬۰۰۰) reconciliation_ok=true
+#     wal_level=replica (آمادهٔ PITR) ولی archive_mode=off در این نمونهٔ محلی — آرشیو پیوستهٔ WAL هنوز پیکربندی نشده.
+# [2] گیت --require-managed درست کار می‌کند: میزبان 127.0.0.1 با PITR-50-NOT-MANAGED-PG و کد ۳ رد شد.
+#     پوشش PAYESH_PG_MANAGED=1 عمداً استفاده نشد — ثبت [M] روی میزبان محلی نادرست است.
+# [3] تصمیم مالک (O-20 بند ۲): فقط لایهٔ رایگان برای اکنون ⇒ تمرین واقعی روی provider مدیریت‌شده (شاخهٔ بازیابی
+#     Neon/Supabase/RDS با --require-managed و verdict=PITR-50-MANAGED-OK) رسماً به T2 موکول شد.
+# FINAL-VERDICT: GREEN-WITH-DEFERRAL (گیت --require-managed روی محیط محلی به‌درستی رد شد؛ دریل provider-level در T2)

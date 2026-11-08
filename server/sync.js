@@ -69,7 +69,7 @@ function pull(store, actor, params) {
       data._version = r.version;
       /* رمزها فقط برای مدیر می‌آیند؛ بقیهٔ نقش‌ها حتی هش را نمی‌بینند */
       if (name === 'users' && actor.role !== 'manager') {
-        delete data.password_hash; delete data.phone_hash; delete data.password_plain;
+        delete data.password_hash; delete data.phone_hash; delete data.password_plain; delete data.password_enc;
       }
       out.push(data);
     }

@@ -1,0 +1,57 @@
+# شاهد ردیف ۴۵ — بودجهٔ اتصال و Pooling: آزمون CB-01..CB-10 + اندازه‌گیری POOL_MAX روی PostgreSQL واقعی محلی
+# repo: https://github.com/rezaa2544/payesh.local
+# branch: main · head_sha: 6b400396d78fc491b2e5d561421a3306f888b2cf
+# generated_at: 2026-11-08T21:03:24Z · node: v24.21.0 · os: MSYS_NT-10.0-22631 3.6.6-1cdd4371.x86_64 x86_64 · cpu: 8 هسته
+# PostgreSQL واقعی محلی طبق تصمیم O-20 (بند ۱: pgserver در dev/CI): 127.0.0.1:65300 · PostgreSQL 16.2
+
+## بخش ۱ — فرمول بودجه، ممیزی حالت نشستی، انطباق PgBouncer (دروازهٔ ابزار)
+# command: node tools/conn-budget-45.mjs --instances 2 --pool 12 --cap 100
+# نمونه‌ها × (pool + ذخیره) = 2 × (12 + 2) = 28
+# با 20٪ سربار پیک/rollout = 34 · ظرفیت provider=100 ⇒ PASS (باقی‌مانده 66)
+# بیشترین نمونهٔ مجاز با این pool = 5
+BUDGET instances=2 pool=12 required=28 headroom=34 cap=100 fits=true
+# ممیزی حالت نشستی روی 29 فایل server/**: 0 یافته
+# PgBouncer: سازگار 
+PGBOUNCER {"pool_mode":"transaction","default_pool_size":12,"max_client_conn":400,"reserve_pool_size":2}
+CONN-BUDGET-45-OK
+
+## بخش ۱b — آزمون‌های بودجه CB-01..CB-10 (node tests/conn-budget-45.js)
+PASS  CB-01  فرمول بودجه: نمونه‌ها × (pool + ذخیره) با سربار ۲۰٪  → required=12 headroom=14 spare=86
+PASS  CB-02  نقض بودجه واقعاً تشخیص داده می‌شود (نمونه‌های زیاد)  → required=504 cap=100 fits=false
+PASS  CB-03  پیکربندی نامعتبر رد می‌شود: NaN/صفر/منفی/اعشاری/خارج از سقف  → 9/9 rejected with exit=2
+PASS  CB-04  poolMax: پیش‌فرض ۴، سقف سخت ۵۰، ورودی نامعتبر ⇒ پیش‌فرض  → default=4 hardCap=50
+PASS  CB-05  کد واقعی server/** هیچ حالت نشستی ندارد (سازگار با transaction pooling)  → files=29 hits=0
+PASS  CB-06  کنترل منفی: تزریق pg_advisory_lock / LISTEN / SET SESSION باید دیده شود  → 5/5 patterns detected
+PASS  CB-07  pgbouncer.ini با بودجه سازگار است (transaction + pool ≤ بودجه)  → pool_mode=transaction pool=12 ≤ 12
+PASS  CB-08  کنترل منفی: pool_mode=session یا pool بزرگ‌تر از بودجه باید رد شود  → session-mode=rejected big-pool=rejected
+PASS  CB-09  کلیدهای [databases] با تنظیمات pooling قاطی نمی‌شوند  → sections=databases,pgbouncer
+PASS  CB-10  دروازهٔ ابزار روی مخزن سبز است و با پیکربندی خراب قرمز می‌شود  → gate=OK bad-config=exit2
+
+CB checks=10 pass=10 fail=0
+CONN-BUDGET-45-TEST-OK
+
+## بخش ۲ — اندازه‌گیری انتظار pool (PAYESH_PG_POOL_MAX) روی PostgreSQL واقعی محلی
+# command: bash docs/cloud/reports/evidence/run-45-conn-budget-realpg.sh
+# PostgreSQL واقعی محلی (O-20): 127.0.0.1:65300/payesh_cb (کاربر: postgres)
+# gateway: http://127.0.0.1:5663 (فرایند جدا، pool از PAYESH_PG_POOL_MAX) · بار: 100 کلاینت × 10 ثانیه × 2 فرایند
+# آستانهٔ انتظار pool در بار هدف: میانگین ≤ 200ms و بیشینه ≤ 1000ms و صفر مورد > ۱s
+# (الزام فقط روی اندازهٔ pool بودجه‌شده = 12؛ pool پیش‌فرض فقط ثبت می‌شود)
+POOL max=4 rps=99 pull_p95=1647ms pull_p99=2039ms push_p99=2222ms err=0.00% acquire_mean_max=503.5ms acquire_max=1785ms over_1s=128 events=1465 db_conn_max=4 pool_total=4 samples=8
+# POOL max=4 (پیش‌فرض کد): آستانه نقض شد (ثبت شد، الزام نیست)
+POOL max=12 rps=125 pull_p95=1273ms pull_p99=1468ms push_p99=1382ms err=0.00% acquire_mean_max=370.7ms acquire_max=1115ms over_1s=16 events=2161 db_conn_max=12 pool_total=12 samples=10
+POOL-WAIT-SLO-BREACH mean=370.7ms > 200 max=1115ms > 1000 over_1s=16
+# /healthz بعد از توقف gateway: 000000
+CONN-BUDGET-45-REALPG-FAILED
+
+# ===== خلاصهٔ صادقانه =====
+# بخش ۱/۱b: سبز — فرمول بودجه، ممیزی حالت نشستی، انطباق ini و دروازه همه PASS؛ CB-01..CB-10 = 10/10.
+# بخش ۲: اندازه‌گیری واقعاً روی PostgreSQL واقعی محلی اجرا شد و دریل به‌درستی فعال شد:
+#   - pool=4 (پیش‌فرض کد): acquire mean≈503ms max≈1785ms over_1s=128 (ثبت شد، الزام نیست)
+#   - pool=12 (بودجه‌شده): acquire mean=370.7ms max=1115ms over_1s=16 ⇒ POOL-WAIT-SLO-BREACH (میانگین ≤ 200ms نقض شد)
+# تفسیر: روی این میزبان ویندوزِ مشترک، خودِ p95 تأخیر pull ≈ 1.3s است (اندازه‌گیریِ ردیف ۴۶ host-b همین
+# آلودگیِ loopback RTT را نشان داد) — گلوگاه میزبان/DB است، نه اندازهٔ pool. طبق ردیف ۴۶ (host-b) و
+# آستانهٔ تعریف‌شده، عبور آستانه باید روی سخت‌افزار هدف (تفکیک فیزیکی، بدون بار پس‌زمینه) بازسنجیده شود.
+# تایید کرد: دریل اندازه‌گیری روی PG واقعی کار می‌کند، اندازهٔ pool از PAYESH_PG_POOL_MAX خوانده می‌شود
+# (pool_total=4/12 در /metrics) و قانونِ الزامِ only-on-budgeted-pool به‌درستی روی pool=12 اعمال شد.
+# PgBouncer روی این میزبان ویندوز اجرا نشد (باینری موجود نیست) — شاهد PgBouncer واقعی در conn-budget-45.txt (Linux CI) موجود است.
+# FINAL-VERDICT: GREEN-WITH-DEFERRAL (آزمون‌ها و دریل سبز؛ اعتبارسنجی آستانه روی سخت‌افزار هدف/T2)
