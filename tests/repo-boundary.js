@@ -1,5 +1,5 @@
 'use strict';
-/* آزمون مرز مخزن — ردیف ۳۲ (D-32)
+/* آزمون مرز مخزن — ردیف ۳۲ (ADR-32)
    قاعده: تنها مخزن مرجع `rezaa2544/payesh.local` است؛ `rezaa2544/p2` فقط بایگانی/خواندنی.
    هر ارجاع تازه به مخزن دیگر (یا مسیر بیرون از این مخزن) باید صریحاً در ALLOW ثبت شود،
    وگرنه آزمون fail-closed قرمز می‌شود.
@@ -21,7 +21,7 @@ function test(name, fn) {
    موارد موجود، سابقهٔ مشروع و فقط-خواندنی‌اند (بازبینی تاریخی + دریافت مقایسه‌ای)؛
    هر ارجاع تازه باید صریحاً همین‌جا با دلیل اضافه شود، وگرنه آزمون قرمز می‌شود. */
 const ALLOW = new Map([
-  ['docs/cloud/32-repo-boundary.md', 'سند مرز D‑32 (خودِ تصمیم)'],
+  ['docs/cloud/32-repo-boundary.md', 'سند مرز ADR‑32 (خودِ تصمیم)'],
   ['tests/repo-boundary.js', 'همین آزمون'],
   ['docs/01-payesh-upstream-audit.md', 'سابقهٔ بازبینی تاریخی مخزن بایگانی (فقط خواندن)'],
   ['scripts/fetch-upstream.sh', 'اسکریپت دریافت فقط-خواندنی برای مقایسه؛ هیچ push/نوشتنی ندارد'],
@@ -99,11 +99,11 @@ test('اسکریپت دریافت مخزن بایگانی فقط-خواندنی 
   if (!/git clone/.test(text)) throw new Error('اسکریپت دریافت، clone ندارد');
 });
 
-test('سند مرز وجود دارد و تصمیم D‑32 را ثبت کرده است', () => {
+test('سند مرز وجود دارد و تصمیم ADR‑32 را ثبت کرده است', () => {
   const p = path.join(ROOT, 'docs/cloud/32-repo-boundary.md');
   if (!fs.existsSync(p)) throw new Error('سند ۳۲ نیست');
   const text = fs.readFileSync(p, 'utf8');
-  for (const needle of ['D‑32', 'payesh.local', 'فقط-خواندنی']) {
+  for (const needle of ['ADR‑32', 'payesh.local', 'فقط-خواندنی']) {
     if (!text.includes(needle)) throw new Error('عبارت «' + needle + '» در سند نیست');
   }
 });

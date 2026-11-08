@@ -23,6 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # تاریخ کامل لازم است: سیاست شاخه (ردیف ۵۹) parentها و origin/main را می‌سنجد.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -53,10 +56,14 @@ jobs:
       - name: دروازهٔ شاهد آزمون
         run: |
           set +e
-          bash docs/cloud/reports/evidence/gen-audit-evidence.sh
+          OUT=$(bash docs/cloud/reports/evidence/gen-audit-evidence.sh 2>&1)
           code=$?
+          printf '%s\n' "$OUT" | tail -40
           if [ $code -ne 0 ]; then
             echo "::error title=دروازهٔ شاهد::شاهد آزمون معتبر نیست (exit=$code)"
+            # لاگ کامل در دسترس نیست؛ خط‌های شکست را به‌صورت annotation بیرون بده
+            printf '%s\n' "$OUT" | grep -E 'EVIDENCE-FAIL|FATAL' | head -20 \
+              | while IFS= read -r line; do echo "::error title=شاهد::${line}"; done
           fi
           exit $code
 
@@ -146,6 +153,12 @@ jobs:
       # سه‌لایه، و این‌که Gateway واقعاً نوشتن را در حین انتقال متوقف می‌کند.
       - name: آزمون مهاجرت چند-cell (Cell Transfer — ردیف ۵۴)
         run: npm run test:cell54
+
+      # شناسهٔ تصمیم (ردیف ۶۰): ADR‑31/32/34 نه D‑31/32/34؛ با کنترل منفی.
+      - name: دروازهٔ شناسهٔ تصمیم (ADR IDs — ردیف ۶۰)
+        run: |
+          node tools/adr-ids-60.mjs
+          npm run test:adr60
 
       - name: آزمون رابط، جریان کاربری، صندوقچه و به‌روزرسانی
         run: |
