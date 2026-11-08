@@ -85,3 +85,20 @@ node tools/pitr-drill-50.mjs --pg-drill \
   - ۱۰ آزمون خودکار (`PT-01..PT-10`) شامل کنترل‌های منفی فساد ۱ بایت چک‌سام، نشت تراکنش پس از `target_iso`، کسری رکورد WAL، نقض RPO/RTO، و رد شدن میزبان غیرمدیریت‌شده در حالت `--require-managed`.
 - **باقی‌مانده برای بستن نهایی ردیف ۵۰ (`[M]`):**
   - پس از اعلام تصمیم مالک در ردیف ۵۶ (`O-20`) و دریافت `$PRIMARY_DATABASE_URL` و `$RESTORED_DATABASE_URL` روی پلن مدیریت‌شده، اجرای دستور گام ۳ توسط هرمس و ثبت خروجی `PITR-50-MANAGED-OK`.
+
+### ضمیمه — اعتبارسنجی لوله‌کشی روی PostgreSQL واقعی محلی (pgserver، ۱۴۰۵-۱۱-۰۸)
+
+پس از ثبت تصمیم O-20 (مجوز pgserver در dev/CI)، تمرین در حالت `--pg-drill` روی دو نمونهٔ
+واقعی PostgreSQL محلی اجرا شد:
+
+```
+verdict: PITR-50-SIMULATED-OK · tag: [S] · environment_kind: single-host-ephemeral
+rpo_ms: 0 (هدف ۳۰۰٬۰۰۰) · rto_ms: 177 (هدف ۷٬۲۰۰٬۰۰۰) · reconciliation_ok: true · post_target_excluded: true
+tables: 4 · تطبیق سه‌لایهٔ SHA-256: OK
+```
+
+- این اجرا فقط **اعتبارسنجی ماشینِ تمرین** روی PostgreSQL واقعی است (basebackup + replay +
+  تطبیق) و به‌عنوان شاهد تولیدی `[M]` حساب نمی‌شود؛ کنترل منفی `--require-managed` نیز همین
+  میزبان را با `PITR-50-NOT-MANAGED-PG` درست رد کرد.
+- نتیجه: لوله‌کشی vendor-neutral کامل است و روزی که `DATABASE_URL` مدیریت‌شده در دسترس
+  قرار گیرد، فقط اجرای همان دستور با پرچم `--require-managed` کافی است.
