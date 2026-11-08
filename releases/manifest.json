@@ -1,17 +1,17 @@
 {
-  "version": "0.8.70",
-  "built_at": "2026-11-08T17:59:56.463Z",
+  "version": "0.8.71",
+  "built_at": "2026-11-08T18:42:12.954Z",
   "notes": [
-    "بازکردن دوبارهٔ پنجره پس از بستن با × یا اجرای دوبارهٔ میان‌بر، حالا سلامت سرور را دوباره بررسی می‌کند؛ اگر localhost قطع شده باشد، اتصال را از داخل برنامه بازیابی می‌کند و صفحهٔ خام ERR_CONNECTION_REFUSED باقی نمی‌ماند."
+    "پایداری اجرای برنامه در ویندوز: اتصال به همان پورتی که ناظر سرور نگه می‌دارد، و نمایش WebView فقط پس از بارگذاری موفق."
   ],
   "shell": {
-    "android": "0.8.70"
+    "android": "0.8.71"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "a9e209526a21b6e6c61d9aa2b8bf15208694aa19de3a7e40c4e9f8f0e8a61997",
+      "sha256": "a47adec9e5a009e0e9f6197050e007bcacad52adb0e0b40d8b9c46fb81ff5dd8",
       "size": 195160
     },
     {
@@ -191,7 +191,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "a30a607ae1a76f38bcd009b2d2f6061068193f7fb9036036c828b6c5e0c16850",
+      "sha256": "e96f4fb6df0eea762d81474efac0aa6c787f8d1c20e90808efebb3656da55b9c",
       "size": 5297
     },
     {
@@ -323,8 +323,8 @@
     {
       "path": "server/start.js",
       "kind": "server",
-      "sha256": "a4a857a19109ca38d73f35d5a26255897d633f4aaa59d5584c70c221e63bb3f7",
-      "size": 6548
+      "sha256": "ff18a82ec7fbeac0b863768d10b09ba40de0d08ea383a57ea97b7ad32f91d9a7",
+      "size": 6781
     },
     {
       "path": "server/sync.js",
@@ -392,6 +392,6 @@
     "server": 34
   },
   "client_size": 1401831,
-  "server_size": 496146,
-  "total_size": 1897977
+  "server_size": 496379,
+  "total_size": 1898210
 }
