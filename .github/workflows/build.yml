@@ -142,6 +142,11 @@ jobs:
       - name: آزمون سیاست خواندن (Read Policy — ردیف ۵۲)
         run: npm run test:replica52
 
+      # مهاجرت چند-cell و انتقال مدرسه (ردیف ۵۴): دروازهٔ فعال‌سازی، منطق
+      # سه‌لایه، و این‌که Gateway واقعاً نوشتن را در حین انتقال متوقف می‌کند.
+      - name: آزمون مهاجرت چند-cell (Cell Transfer — ردیف ۵۴)
+        run: npm run test:cell54
+
       - name: آزمون رابط، جریان کاربری، صندوقچه و به‌روزرسانی
         run: |
           npm run test:ui

@@ -1,6 +1,7 @@
 'use strict';
 
 const replicaPolicy = require('./replica-policy');
+const transfer = require('./transfer');
 /* ═══════════════════════════════════════════════════════════════════
    لایهٔ دادهٔ چندمستأجری — مسیر محصول (Gate فاز ۳ · D‑35 · شرط CC‑12‑2)
 
@@ -992,7 +993,7 @@ async function rollbackProduct(client) {
   return { dropped: [JOBS_TABLE, PRODUCT_TABLE], statements: sqls.length };
 }
 
-module.exports = { replicaPolicy, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
+module.exports = { replicaPolicy, transfer, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,
