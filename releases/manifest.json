@@ -1,17 +1,17 @@
 {
-  "version": "0.8.72",
-  "built_at": "2026-11-08T19:05:45.563Z",
+  "version": "0.8.73",
+  "built_at": "2026-11-08T19:49:16.426Z",
   "notes": [
-    "رفع خطای دریافت به‌روزرسانی: مانیفست انتشار و فایل‌های منتشرشده اکنون از نظر نسخه و هش یکسان‌اند."
+    "صفحهٔ کلاس‌ها ساده شد: بخش «کلاس‌های ثبت‌نام (پایه + رشته)» حذف شد و دکمهٔ تکراری افزودن کلاس/کارگاه برداشته شد. تعریف پایه و رشته و فهرست محل‌های برگزاری باقی است."
   ],
   "shell": {
-    "android": "0.8.72"
+    "android": "0.8.73"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "7ca83ef49df3db3f2be9d2282dc401ef7325fc52956dc0972f3f9bc61e04f846",
+      "sha256": "c55fa20f7aacd319bbdd28c575aebaeea045b1af52248230c4491016e03fb722",
       "size": 195160
     },
     {
@@ -143,8 +143,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "ccb5081a5329a416087ae3933a5dabce25841f1c31e8e70b9cd9258cda53d0fe",
-      "size": 158196
+      "sha256": "28c9274a6a0b1820b052597c092fb6aa5fb91b34e7c8be2b0538d15d0c71e170",
+      "size": 156378
     },
     {
       "path": "client/scan.js",
@@ -191,7 +191,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "983966b672972c3620f3cb08696e86e90c0d2e7b6d896c7c25f8b39dd6c4862a",
+      "sha256": "2ceaf5affc83832e8bab6ee62b46ef625d391e0fed370ac3374963147cba4281",
       "size": 5297
     },
     {
@@ -391,7 +391,7 @@
     "client": 29,
     "server": 34
   },
-  "client_size": 1401831,
+  "client_size": 1400013,
   "server_size": 496379,
-  "total_size": 1898210
+  "total_size": 1896392
 }

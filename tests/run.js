@@ -3656,9 +3656,10 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/name="grade"/.test(groupForm) && /name="branch"/.test(groupForm), 'فرم گروه پایه و رشته دارد');
     assert.ok(!/name="capacity"/.test(groupForm), 'ظرفیت حذف شد');
     const pageHtml = T.PAGES.classes();
-    assert.ok(/کلاس‌ها و کارگاه‌ها/.test(pageHtml), 'کارت کلاس/کارگاه‌ها');
-    assert.ok(/کلاس‌های ثبت‌نام/.test(pageHtml), 'کارت کلاس‌های ثبت‌نام (دستی)');
-    assert.ok(!/گروه‌های ثبت‌نام/.test(pageHtml), 'کارت «گروه‌های ثبت‌نام» حذف شده است');
+    assert.ok(/کلاس‌ها و کارگاه‌ها/.test(pageHtml), 'کارت محل برگزاری باقی است');
+    assert.ok(!/کلاس‌های ثبت‌نام/.test(pageHtml), 'بخش کلاس‌های ثبت‌نام حذف شده است');
+    assert.ok(!/گروه‌های ثبت‌نام/.test(pageHtml), 'کارت «گروه‌های ثبت‌نام» وجود ندارد');
+    assert.strictEqual((pageHtml.match(/data-act="room-add"/g) || []).length, 1, 'دکمهٔ افزودن کلاس/کارگاه فقط یک‌بار، داخل کارت محل برگزاری می‌آید');
 
     /* ── ۳) مشخصات کامل: ویرایش شمارهٔ پدر روی حساب ولی هم می‌نشیند ── */
     T.actUserFull(10);
@@ -3678,7 +3679,7 @@ async function waitFor(fn, ms = 15000) {
   });
 
   /* — کلاس‌هایی که قدیمی‌ترها از رشته ساخته بودند: اصلاح و ادغام ─────── */
-  await test('صفحهٔ کلاس‌ها فقط کلاس‌های دستیِ مدیر را نشان می‌دهد (هیچ کارت ادغام خودکاری نیست)', async () => {
+  await test('صفحهٔ کلاس‌ها بخش ثبت‌نام را ندارد و فقط محل برگزاری و تعریف‌ها را نشان می‌دهد', async () => {
     const { JSDOM } = require('jsdom');
     const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
       { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
@@ -3709,10 +3710,12 @@ async function waitFor(fn, ms = 15000) {
     T.S.queue = []; T.S.online = false;
 
     const page = T.PAGES.classes();
-    assert.ok(page.includes('کلاس‌های ثبت‌نام'), 'کلاس دستیِ مدیر دیده می‌شود');
-    assert.ok(page.includes('دهم گرافیک'), 'کلاس دستی در فهرست هست');
-    assert.ok(!page.includes('دهم الکترونیک'), 'گروهِ ساختهٔ اکسل (kind=group) در فهرست کلاس‌ها نیست');
+    assert.ok(!page.includes('کلاس‌های ثبت‌نام'), 'کارت ثبت‌نام پایه + رشته دیگر نمایش داده نمی‌شود');
+    assert.ok(!page.includes('دهم گرافیک'), 'فهرست کلاس‌های ثبت‌نام از این صفحه برداشته شده است');
+    assert.ok(!page.includes('دهم الکترونیک'), 'گروهِ ساختهٔ اکسل (kind=group) در این صفحه نیست');
     assert.ok(page.includes('کارگاه الکترونیک'), 'کلاس/کارگاه (محل برگزاری) دیده می‌شود');
+    assert.strictEqual((page.match(/data-act="room-add"/g) || []).length, 1, 'دکمهٔ افزودن محل برگزاری تکرار نشده است');
+    assert.ok(page.includes('پایه‌ها') && page.includes('رشته‌ها'), 'تعریف جداگانهٔ پایه‌ها و رشته‌ها باقی است');
     assert.ok(!page.includes('کلاس‌هایی که پایه ندارند'), 'کارت اصلاح کلاس‌های بی‌پایه حذف شد');
     assert.ok(!page.includes('رشته‌های شبیه هم'), 'کارت «رشته‌های شبیه هم» حذف شد');
     assert.ok(!page.includes('data-act="def-merge"'), 'دکمهٔ ادغام رشته حذف شد');

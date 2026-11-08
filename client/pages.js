@@ -976,9 +976,7 @@ PAGES.classes = () => {
   const countOf = id => list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(id)).length;
   /* گروه‌های خودکارِ ورود دسته‌ایِ قدیمی (kind='group') دیگر کلاس نیستند؛
      کلاس فقط چیزی است که مدیر خودش ساخته است. */
-  const classes = all.filter(c => String(c.kind || '') !== 'group');
-  const rooms = classes.filter(c => String(c.kind || '') === 'room');
-  const manual = classes.filter(c => String(c.kind || '') !== 'room');
+  const rooms = all.filter(c => String(c.kind || '') === 'room');
   const lvl = String((S.server.school && S.server.school.level) || '');
   const isFieldSchool = /متوسطهٔ? ?دوم/.test(lvl) || all.some(c => String(c.mode || '') === 'field');
 
@@ -994,30 +992,12 @@ PAGES.classes = () => {
          <button class="btn sm ghost" data-act="class-delete" data-id="${esc(c.id)}" style="color:#b91c1c">حذف</button></td></tr>`).join('')}
      </tbody></table></div>` : '<div class="small muted">هنوز کلاس یا کارگاهی تعریف نشده است.</div>'}`) : '';
 
-  return `${pageHead('کلاس‌ها و تعریف‌ها', fa(classes.length) + ' مورد',
-      `<button class="btn sm primary" data-act="${isFieldSchool ? 'room-add' : 'class-add'}">+ ${isFieldSchool ? 'کلاس/کارگاه' : 'کلاس جدید'}</button>`)}
+  const headerAction = isFieldSchool
+    ? ''
+    : `<button class="btn sm primary" data-act="class-add">+ کلاس جدید</button>`;
+  return `${pageHead('کلاس‌ها و تعریف‌ها', '', headerAction)}
 
   ${roomsCard}
-
-  ${card(`<div class="row between" style="margin-bottom:8px"><b>کلاس‌های ثبت‌نام (پایه + رشته)</b>
-      <span class="row" style="gap:6px"><span class="small muted">${fa(manual.length)} کلاس</span>
-      <button class="btn sm" data-act="class-add">+ کلاس جدید</button></span></div>
-    <div class="small muted" style="margin-bottom:8px;line-height:2">
-      این کلاس‌ها فقط دستی ساخته می‌شوند — ورود دسته‌ای از اکسل هیچ کلاسی نمی‌سازد.
-      دانش‌آموزانِ اکسل با پایه و رشتهٔ خودشان ثبت می‌شوند و به کلاسی که نامِ «پایه + رشته»‌اش یکی باشد وصل می‌شوند.
-    </div>
-    ${manual.length ? `<div class="table-wrap"><table><thead><tr>
-        <th>کلاس</th><th>پایه</th><th>رشته</th><th>دانش‌آموز</th><th>عملیات</th></tr></thead><tbody>
-      ${manual.map(c => `<tr>
-        <td><b>${esc(c.name)}</b></td>
-        <td class="small">${esc(c.grade || '—')}</td>
-        <td class="small">${esc(c.branch || '—')}</td>
-        <td>${fa(countOf(c.id))}</td>
-        <td class="nowrap">
-          <button class="btn sm ghost" data-act="class-edit" data-id="${c.id}">ویرایش</button>
-          <button class="btn sm ghost" style="color:#b91c1c" data-act="class-delete" data-id="${c.id}">حذف</button>
-        </td></tr>`).join('')}
-      </tbody></table></div>` : `<div class="small muted">هنوز کلاسی ساخته نشده — با دکمهٔ «+ کلاس جدید» بسازید.</div>`}`)}
 
   ${card(`<div class="row between" style="margin-bottom:8px"><b>پایه‌ها</b>
       <button class="btn sm" data-act="def-add" data-kind="grade">+ پایه</button></div>
