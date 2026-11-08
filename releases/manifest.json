@@ -1,15 +1,17 @@
 {
-  "version": "0.8.67",
-  "built_at": "2026-11-08T15:26:11.487Z",
-  "notes": [],
+  "version": "0.8.68",
+  "built_at": "2026-11-08T16:46:16.449Z",
+  "notes": [
+    "با کلیک روی گزینه‌های داخل پنجره‌ها، دیگر کل کادر کوچک نمی‌شود؛ فقط خودِ دکمه بازخورد فشردن می‌دهد. خانه‌های قابل انتخاب برنامه هم بازخورد رنگی دارند."
+  ],
   "shell": {
-    "android": "0.8.67"
+    "android": "0.8.68"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "f21f7691bb37361d4a19e5d383613a8f4b8451afe59b75f50642dc395ee012e3",
+      "sha256": "01bd379a9e4cf801e070613a07ce9a369a6bb68731991f173c25f0a0c40e5b1d",
       "size": 195160
     },
     {
@@ -165,8 +167,8 @@
     {
       "path": "client/styles.css",
       "kind": "client",
-      "sha256": "e4ba80f2cb4eff02676b1005217301e49b1a7a02e37acc5e57b83b1c3e2ea657",
-      "size": 15424
+      "sha256": "8c21c5f713d666e09fe3c711e214500377145c9238f53ce76a41842ce3ba4415",
+      "size": 15818
     },
     {
       "path": "client/sw.js",
@@ -189,8 +191,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "3727ea61c0e2b161b1c49f2578e9db80b16c002795964c5cb819a4308d93bbe7",
-      "size": 5352
+      "sha256": "e78bd944999905217df88c5336e85c01bf153ba5d1bbc30bdb8f8448d5205c22",
+      "size": 5297
     },
     {
       "path": "server/alerts.js",
@@ -389,7 +391,7 @@
     "client": 29,
     "server": 34
   },
-  "client_size": 1401437,
-  "server_size": 493705,
-  "total_size": 1895142
+  "client_size": 1401831,
+  "server_size": 493650,
+  "total_size": 1895481
 }

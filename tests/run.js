@@ -4344,6 +4344,12 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/@keyframes payesh-spin/.test(css), 'چرخش تعریف شده');
     assert.ok(/#live-bar/.test(css), 'نوار باریک بالای صفحه');
     assert.ok(/\.btn:active/.test(css), 'فشرده‌شدن دکمه هنگام کلیک');
+    const activeRules = [...css.matchAll(/([^{}]+):active\s*\{([^{}]*)\}/g)];
+    assert.ok(!activeRules.some(([, selectors, body]) =>
+      /(?:^|,)\s*\[data-act\]\s*:active/.test(selectors) && /\btransform\s*:/.test(body)),
+    'کادر مودال با data-act نباید هنگام کلیک کوچک شود');
+    assert.ok(/<div class="modal-bg[^>]*data-act="modal-bg"/.test(fs.readFileSync(path.join(ROOT, 'client/pages.js'), 'utf8')),
+      'پس‌زمینهٔ مودال نباید هدف قانون transform عمومی باشد');
 
     const app = fs.readFileSync(path.join(ROOT, 'client/app.js'), 'utf8');
     assert.ok(/function liveBegin/.test(app), 'همهٔ کنش‌ها از مسیر زنده عبور می‌کنند');
