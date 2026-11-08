@@ -21,7 +21,7 @@ git fetch -q origin main 2>/dev/null || true
   A=${PIPESTATUS[0]}
 
   echo
-  echo "## بخش ۲ — آزمون BP-01..BP-10 (مخزن‌های موقت، با کنترل منفی)"
+  echo "## بخش ۲ — آزمون BP-01..BP-11 (مخزن‌های موقت، با کنترل منفی)"
   node tests/branch-policy-59.js 2>&1 | tail -13
   T=${PIPESTATUS[0]}
 

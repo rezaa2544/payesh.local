@@ -1,5 +1,5 @@
 # شاهد ردیف ۵۹ — سیاست اجرا روی شاخهٔ قفل‌شده (B1..B5)
-# branch: arena/5124e3a6-payesh-local   head: dcb6d6e   at: 2026-11-08T04:37:32Z
+# branch: arena/5124e3a6-payesh-local   head: 6dbd56b   at: 2026-11-08T04:39:12Z
 # POLICY_SINCE=2026-11-08T02:00:00Z
 
 ## بخش ۱ — سنجش قواعد روی همین مخزن
@@ -10,7 +10,6 @@
 BRANCH-POLICY-59-OK
 
 ## بخش ۲ — آزمون BP-01..BP-10 (مخزن‌های موقت، با کنترل منفی)
-PASS  BP-01  مخزن واقعی سالم است (شاخهٔ غیر main، همگام با origin/main)  → branch=arena/5124e3a6-payesh-local B4=true
 PASS  BP-02  B1: کار روی main ⇒ قرمز  → B1 red
 PASS  BP-03  B2: شاخهٔ عقب‌مانده از origin/main ⇒ قرمز با تعداد کامیت  → شاخه از origin/main عقب است (1 کامیت)
 PASS  BP-04  B3: بازنویسی تاریخ شاخه (force-push) ⇒ قرمز  → B3 red
@@ -20,8 +19,9 @@ PASS  BP-07  B5: هر ردیف دقیقاً یک PR (بدون PR و دو PR ⇒ 
 PASS  BP-08  مرز ردیف: «۴۵» با «۴۵۰» یا «۱۴۵» قاطی نمی‌شود  → boundary ok
 PASS  BP-09  CLI: کد خروج و خروجی JSON  → exit 0/1 + JSON
 PASS  BP-10  قاعده‌ها برای همهٔ ردیف‌های صف قابل اجراست (فهرست صریح، نه حدس)  → rows=60,59,54,52,45 branch=arena/5124e3a6-payesh-local
+PASS  BP-11  B5: عدد لخت در عنوان («تست ۶۰ روزه») با «ردیف ۶۰» قاطی نمی‌شود  → explicit-only matching ok
 
-BP checks=10 pass=10 fail=0
+BP checks=11 pass=11 fail=0
 BRANCH-POLICY-59-TEST-OK
 
 ## بخش ۳ — B5: یک PR برای هر ردیف (gh)
@@ -29,7 +29,6 @@ BRANCH-POLICY-59-TEST-OK
 # B2 origin/main: شامل شده
 # B3 force-push: سالم
 # B4 سلامت main: همه merge/انتشار
-# تاریخی (قبل از سیاست، فقط ثبت): ردیف 60 → PR 17
 PROBLEM B5 — ردیف 59: بدون PR
 BRANCH-POLICY-59-FAILED
 
