@@ -63,6 +63,61 @@ async function main() {
     assert.ok(up, 'سرور بالا آمد — لاگ: ' + log.slice(-400));
     await sleep(2500);
 
+    await test('اجرای دوبارهٔ start.js ناظر دوم یا سرور دوم نمی‌سازد', async () => {
+      const duplicate = spawn(process.execPath, [path.join(ROOT, 'server', 'start.js')], {
+        cwd: ROOT,
+        env: Object.assign({}, process.env, {
+          PORT: String(port), HOST: '127.0.0.1', PAYESH_DATA: DATA, PAYESH_LOG: '0',
+          PAYESH_CLOUD_AUTO: '0', PAYESH_OUTBOX_AUTO: '0', PAYESH_UPDATE_AUTO: '0',
+          PAYESH_AUTO_BACKUP: '0',
+        }),
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let duplicateLog = '';
+      duplicate.stdout.on('data', d => { duplicateLog += String(d); });
+      duplicate.stderr.on('data', d => { duplicateLog += String(d); });
+      const code = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => { try { duplicate.kill('SIGKILL'); } catch (_) { }
+          reject(new Error('ناظر دوم سریع خارج نشد: ' + duplicateLog.slice(-200))); }, 8000);
+        duplicate.once('error', e => { clearTimeout(timeout); reject(e); });
+        duplicate.once('exit', c => { clearTimeout(timeout); resolve(c); });
+      });
+      assert.strictEqual(code, 0, 'اجرای تکراری باید بی‌خطر نادیده گرفته شود: ' + duplicateLog);
+      const stillUp = await health();
+      assert.ok(stillUp && stillUp.ok, 'سرور اصلی بعد از اجرای دوم سالم است');
+      assert.match(duplicateLog, /از قبل فعال است/);
+    });
+
+    await test('قفلِ باقی‌مانده از پردازهٔ مرده خودکار پاک می‌شود', async () => {
+      const staleData = fs.mkdtempSync(path.join(os.tmpdir(), 'payesh-stale-lock-'));
+      const stalePort = await freePort();
+      const staleBase = 'http://127.0.0.1:' + stalePort;
+      fs.writeFileSync(path.join(staleData, '.payesh-supervisor.lock'), JSON.stringify({ pid: 2147483647 }));
+      const staleChild = spawn(process.execPath, [path.join(ROOT, 'server', 'start.js')], {
+        cwd: ROOT,
+        env: Object.assign({}, process.env, {
+          PORT: String(stalePort), HOST: '127.0.0.1', PAYESH_DATA: staleData, PAYESH_LOG: '0',
+          PAYESH_CLOUD_AUTO: '0', PAYESH_OUTBOX_AUTO: '0', PAYESH_UPDATE_AUTO: '0',
+          PAYESH_AUTO_BACKUP: '0',
+        }),
+        stdio: 'ignore',
+      });
+      const exited = new Promise(resolve => staleChild.once('exit', resolve));
+      try {
+        const ready = await waitFor(async () => {
+          try { const r = await fetch(staleBase + '/api/health'); return r.ok ? r.json() : null; }
+          catch (_) { return null; }
+        }, 25000);
+        assert.ok(ready && ready.ok, 'ناظر پس از قفلِ یتیم شروع شد');
+        const lock = JSON.parse(fs.readFileSync(path.join(staleData, '.payesh-supervisor.lock'), 'utf8'));
+        assert.strictEqual(lock.pid, staleChild.pid, 'הנעילה היתומה הוחלפה ב-PID החי');
+      } finally {
+        try { staleChild.kill('SIGTERM'); } catch (_) { }
+        await Promise.race([exited, sleep(2500)]);
+        try { fs.rmSync(staleData, { recursive: true, force: true }); } catch (_) { }
+      }
+    });
+
     const setup = await (await fetch(BASE + '/api/setup', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ school_name: 'مدرسهٔ آزمون', manager_name: 'مدیر آزمون', phone: '09120000009', password: '123456' }),

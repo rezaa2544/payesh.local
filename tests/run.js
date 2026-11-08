@@ -4259,11 +4259,24 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/void ShowEngineMissing/.test(cs) && /MicrosoftEdgeWebView2Setup\.exe/.test(cs),
       'اگر موتور نمایش نباشد، نصبش می‌کند (نه باز کردن مرورگر)');
 
-    /* ۳) نگهبان سرور و پورت آزاد */
+    /* ۳) ناظر یکتا، بازیابی و پورت آزاد */
     assert.ok(/void StartWatchdog/.test(cs) && /WatchTick/.test(cs), 'نگهبان سرور هست');
+    assert.ok(/SupervisorRunning\(\)/.test(cs) && /Interlocked\.CompareExchange/.test(cs), 'watchdog قبل از راه‌اندازی، ناظر موجود را بررسی می‌کند');
+    assert.ok(/server\\\\start\.js/.test(cs), 'برنامه از ناظر پایدار start.js استفاده می‌کند');
     assert.ok(/void PickLocalPort/.test(cs) && /PORT_CANDIDATES/.test(cs), 'پورت آزاد انتخاب می‌شود');
-    assert.ok(/EnvironmentVariables\["PORT"\]/.test(cs), 'پورت به سرور داده می‌شود');
+    assert.ok(/EnvironmentVariables\["PORT"\]/.test(cs), 'پورت به ناظر داده می‌شود');
     assert.ok(/TcpListener/.test(cs), 'آزادبودن پورت بررسی می‌شود');
+    assert.ok(/target\.IsLoopback/.test(cs) && /CoreWebView2\.Navigate\(target\.AbsoluteUri\)/.test(cs), 'پنجرهٔ محلی داخل برنامه می‌ماند، به Edge فرستاده نمی‌شود');
+    assert.ok(!/Process\.Start\(e2\.Uri\)/.test(cs), 'URI محلی خام به مرورگر سیستم واگذار نمی‌شود');
+    const supervisor = read('server/start.js');
+    assert.ok(/\.payesh-supervisor\.lock/.test(supervisor) && /acquireSupervisorLock/.test(supervisor), 'ناظر Node با قفل بین‌پردازه‌ای یکتا است');
+    assert.ok(/PAYESH_DATA/.test(supervisor) && /pidIsAlive/.test(supervisor), 'قفل ناظر در دادهٔ پایدار است و قفل stale پاک می‌شود');
+    assert.ok(/windowsHide:\s*true/.test(supervisor), 'فرایند Node در ویندوز پنجرهٔ کنسول اضافه باز نمی‌کند');
+    const startBat = read('install/windows/start.bat');
+    const startVbs = read('install/windows/start-hidden.vbs');
+    assert.ok(/server\\start\.js/.test(startBat) && /server\\start\.js/.test(startVbs), 'launcherهای ویندوز ناظر را اجرا می‌کنند');
+    assert.ok(!/server\\index\.js/.test(startBat) && !/server\\index\.js/.test(startVbs), 'launcherها دیگر سرور را مستقیم اجرا نمی‌کنند');
+    assert.ok(/server\\start\.js/.test(read('install/windows/install.ps1')), 'نصب‌کنندهٔ zip ناظر را اجرا می‌کند');
 
     /* ۴) میان‌بر ویندوز: برنامهٔ پنجره‌ای، نه Edge */
     const vbs = read('install/windows/payesh-app.vbs');
@@ -4280,6 +4293,8 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/MicrosoftEdgeWebView2Setup\.exe/.test(iss), 'نصب‌کننده موتور نمایش را همراه دارد');
     assert.ok(/WebView2Installed/.test(iss), 'نصب‌بودنش را بررسی می‌کند');
     assert.ok(/localport=8080,8090-8093/.test(iss), 'پورت‌های جایگزین در فایروال باز می‌شوند');
+    assert.ok(/server.{0,3}start\.js/.test(iss), 'حذف نصب ناظر را هم متوقف می‌کند');
+    assert.ok(!/Filename:.*start-hidden\.vbs/.test(iss), 'نصب‌کننده دو مالک جدا برای سرور راه نمی‌اندازد');
     const wf = read('.github/workflows/build.yml');
     assert.ok(/desktop\/Payesh\.exe/.test(wf) && /payesh-local-windows\.zip/.test(wf),
       'بستهٔ ویندوز همراه برنامهٔ پنجره‌ای منتشر می‌شود');

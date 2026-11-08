@@ -1,4 +1,4 @@
-﻿// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
 //  پایش — برنامهٔ ویندوز (پنجرهٔ واقعی، بدون مرورگر)
 //  ───────────────────────────────────────────────────────────────────
 //  • اگر روی «سیستم مدرسه» نصب شده باشد: خودش سرور را بالا می‌آورد،
@@ -97,6 +97,9 @@ namespace Payesh
         private readonly string _appDir;
         private bool _serverMode;
         private readonly string _settingsFile;
+        private readonly object _serverLock = new object();
+        private Process _serverSupervisor;
+        private volatile bool _closing;
 
         private WebView2 _view;
         private Panel _splash;
@@ -130,6 +133,16 @@ namespace Payesh
             MigrateDataIfNeeded();
             _settingsFile = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Payesh", "settings.ini");
+            /* همان پورت ذخیره‌شده را از ابتدا هدف می‌گیریم؛ در غیر این صورت هر اجرای
+               دوباره ممکن بود 8080 را خالی ببیند، ولی سرورِ قبلی روی 8090 بماند و
+               یک نمونهٔ دوم بسازد. */
+            int savedPort;
+            if (int.TryParse(ReadIni(_settingsFile, "port"), out savedPort)
+                && Array.IndexOf(PORT_CANDIDATES, savedPort) >= 0)
+            {
+                _localPort = savedPort;
+                LocalUrl = "http://127.0.0.1:" + savedPort;
+            }
 
             bool forceClient = Array.IndexOf(args, "--client") >= 0;
             bool forceServer = Array.IndexOf(args, "--server") >= 0;
@@ -479,24 +492,31 @@ namespace Payesh
                     }
                     if (_serverMode)
                     {
-                        if (!await Up(LocalUrl))
+                        /* پایش را از ابتدای راه‌اندازی فعال می‌کنیم تا شکست موقتِ شروع
+                           یا restart پس از آپدیت هم بدون بستن پنجره بازیابی شود. */
+                        StartWatchdog();
+                        /* اگر سرور قبلی روی پورت ثبت‌شده هنوز زنده است، همان را می‌گیریم؛
+                           اگر پورت جابه‌جا شده باشد، پورت‌های شناخته‌شده را قبل از ساخت
+                           نمونهٔ جدید می‌گردیم تا دو سرور برای یک مدرسه بالا نیایند. */
+                        bool localReady = await FindLocalServer();
+                        if (!localReady)
                         {
                             SetStatus("راه‌اندازی سامانه…");
                             PickLocalPort();
                             StartServer();
-                            for (int i = 0; i < 60 && token == _connectToken; i++)
+                            for (int i = 0; i < 90 && token == _connectToken; i++)
                             {
-                                if (await Up(LocalUrl)) break;
+                                if (await Up(LocalUrl)) { localReady = true; break; }
                                 await Task.Delay(500);
                             }
                         }
-                        if (await Up(LocalUrl))
+                        if (localReady || await Up(LocalUrl))
                         {
                             StartWatchdog();
                             ShowApp(LocalUrl);
                             return;
                         }
-                        SetStatus("سرور بالا نیامد — تلاش برای اتصال به سامانهٔ دیگر…");
+                        SetStatus("سرور هنوز آماده نشده — تلاش خودکار ادامه دارد…");
                     }
 
                     foreach (string candidate in Candidates())
@@ -611,7 +631,26 @@ namespace Payesh
                 ⇒ حالا نگهبان هر ۶ ثانیه چک و سرور را دوباره بالا می‌آورد.
            هیچ‌جای این مسیرها مرورگر باز نمی‌شود. */
 
-        /// <summary>پورت آزاد برای سرور محلی (ترجیح: ۸۰۸۰، وگرنه ۸۰۹۰ به بعد).</summary>
+        /// <summary>اتصال به سرور محلیِ موجود پیش از راه‌اندازی نمونهٔ تازه.</summary>
+        private async Task<bool> FindLocalServer()
+        {
+            var ports = new List<int>();
+            if (_localPort > 0) ports.Add(_localPort);
+            foreach (int p in PORT_CANDIDATES) if (!ports.Contains(p)) ports.Add(p);
+            foreach (int p in ports)
+            {
+                string candidate = "http://127.0.0.1:" + p;
+                if (!await Up(candidate)) continue;
+                _localPort = p;
+                LocalUrl = candidate;
+                SaveIni(_settingsFile, "port", p.ToString());
+                Log("attached to existing local Payesh server on port " + p);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>پورت آزاد برای سرور محلی (ترجیح: پورت ثبت‌شده، سپس ۸۰۸۰ و جایگزین‌ها).</summary>
         private void PickLocalPort()
         {
             int stored = 0;
@@ -666,7 +705,7 @@ namespace Payesh
 
         private async Task WatchTick()
         {
-            if (!_serverMode || _restarting != 0 || _connectToken == 0) return;
+            if (!_serverMode || _restarting != 0 || _connectToken == 0 || _closing) return;
             if (await Up(LocalUrl))
             {
                 if (_error != null && _error.Visible && _currentUrl.Length > 0) RecoverTo(LocalUrl);
@@ -675,18 +714,24 @@ namespace Payesh
             if (Interlocked.CompareExchange(ref _restarting, 1, 0) != 0) return;
             try
             {
-                Log("watchdog: server is down — restarting");
-                SetStatus("سامانه پاسخ نمی‌دهد — راه‌اندازی دوباره…");
+                Log("watchdog: local server is not ready — checking the single supervisor");
+                SetStatus("سامانه پاسخ نمی‌دهد — بازیابی خودکار…");
                 OnUi(() => { _splash.Visible = true; _splash.BringToFront(); _error.Visible = false; });
-                PickLocalPort();
-                StartServer();
-                for (int i = 0; i < 40; i++)
+
+                /* start.js تنها مالک فرایند سرور است و خودش پس از آپدیت/خروج ۷۵
+                   نمونه را دوباره بالا می‌آورد. هنگام بالا آمدن آن، فرایند دوم نساز. */
+                if (!SupervisorRunning() && !await FindLocalServer())
                 {
-                    if (await Up(LocalUrl)) break;
+                    PickLocalPort();
+                    StartServer();
+                }
+                for (int i = 0; i < 90 && !_closing; i++)
+                {
+                    if (await Up(LocalUrl)) { RecoverTo(LocalUrl); return; }
                     await Task.Delay(500);
                 }
                 if (await Up(LocalUrl)) RecoverTo(LocalUrl);
-                else ShowError("سامانه دوباره بالا نیامد. یک بار برنامه را ببندید و باز کنید.");
+                else ShowError("سرور هنوز آماده نشده است؛ پایش هر چند ثانیه خودکار دوباره تلاش می‌کند. برنامه را نبندید.");
             }
             catch (Exception ex) { Log("watchdog error: " + ex.Message); }
             finally { Interlocked.Exchange(ref _restarting, 0); }
@@ -945,8 +990,24 @@ namespace Payesh
                         st.AreBrowserAcceleratorKeysEnabled = false;
                         _view.CoreWebView2.NewWindowRequested += (s2, e2) =>
                         {
+                            /* صفحهٔ محلی هرگز به Edge بیرونی فرستاده نشود؛ هنگام restart
+                               آن کاربر را به ERR_CONNECTION_REFUSED می‌برد و پنجرهٔ برنامه را
+                               از ناظر بازیابی جدا می‌کند. محلی را در همان WebView باز می‌کنیم. */
                             e2.Handled = true;
-                            try { Process.Start(e2.Uri); } catch { }
+                            try
+                            {
+                                Uri target;
+                                if (!Uri.TryCreate(e2.Uri, UriKind.Absolute, out target)) return;
+                                if (target.IsLoopback)
+                                {
+                                    if (_view != null && _view.CoreWebView2 != null)
+                                        _view.CoreWebView2.Navigate(target.AbsoluteUri);
+                                    return;
+                                }
+                                if (target.Scheme == Uri.UriSchemeHttp || target.Scheme == Uri.UriSchemeHttps)
+                                    Process.Start(new ProcessStartInfo(target.AbsoluteUri) { UseShellExecute = true });
+                            }
+                            catch { }
                         };
                         /* هیچ‌وقت صفحهٔ خطای «Hmmm… can't reach this page» دیده نشود:
                            اگر بارگذاری موفق نبود، خودمان صفحهٔ فارسی می‌دهیم و
@@ -970,60 +1031,100 @@ namespace Payesh
             }
         }
 
-        /* ── سرور ───────────────────────────────────────────────────── */
+        /* ── سرور: یک ناظر واحد برای restart، crash و آپدیت ─────────── */
+        private bool SupervisorRunning()
+        {
+            lock (_serverLock)
+            {
+                try { return _serverSupervisor != null && !_serverSupervisor.HasExited; }
+                catch { _serverSupervisor = null; return false; }
+            }
+        }
+
         private void StartServer()
         {
-            try
+            lock (_serverLock)
             {
-                string node = NodePath();
-                if (node == null)
+                if (_closing) return;
+                try
                 {
-                    Log("error: node.exe پیدا نشد (نه همراه بسته، نه نصب‌شده)");
-                    SetStatus("Node.js پیدا نشد — سرور بالا نمی‌آید");
-                    return;
+                    if (_serverSupervisor != null && !_serverSupervisor.HasExited)
+                    {
+                        Log("supervisor already running pid=" + _serverSupervisor.Id + " — duplicate start ignored");
+                        return;
+                    }
                 }
+                catch { }
+                try { if (_serverSupervisor != null) _serverSupervisor.Dispose(); } catch { }
+                _serverSupervisor = null;
 
-                string serverJs = Path.Combine(_appDir, "server", "index.js");
-                if (!File.Exists(serverJs))
+                try
                 {
-                    Log("error: server/index.js پیدا نشد در " + _appDir);
-                    return;
+                    string node = NodePath();
+                    if (node == null)
+                    {
+                        Log("error: node.exe پیدا نشد (نه همراه بسته، نه نصب‌شده)");
+                        SetStatus("Node.js پیدا نشد — سرور بالا نمی‌آید");
+                        return;
+                    }
+
+                    string supervisorJs = Path.Combine(_appDir, "server", "start.js");
+                    if (!File.Exists(supervisorJs))
+                    {
+                        Log("error: server/start.js پیدا نشد در " + _appDir);
+                        SetStatus("راه‌انداز پایدار سرور پیدا نشد");
+                        return;
+                    }
+
+                    Directory.CreateDirectory(_dataDir);
+                    var psi = new ProcessStartInfo(node, "\"server\\start.js\"")
+                    {
+                        WorkingDirectory = _appDir,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                    };
+                    psi.EnvironmentVariables["PAYESH_TUNNEL_AUTO"] = "1";
+                    psi.EnvironmentVariables["PORT"] = _localPort.ToString();
+                    psi.EnvironmentVariables["PAYESH_DATA"] = _dataDir;
+
+                    var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+                    string logPath = Path.Combine(_dataDir, "server.log");
+                    DataReceivedEventHandler sink = (s2, e) =>
+                    {
+                        if (e.Data == null) return;
+                        try { File.AppendAllText(logPath, e.Data + Environment.NewLine, Encoding.UTF8); } catch { }
+                    };
+                    proc.OutputDataReceived += sink;
+                    proc.ErrorDataReceived += sink;
+                    proc.Exited += (s2, e) =>
+                    {
+                        string exit = "?";
+                        try { exit = proc.ExitCode.ToString(); } catch { }
+                        lock (_serverLock)
+                        {
+                            if (Object.ReferenceEquals(_serverSupervisor, proc)) _serverSupervisor = null;
+                        }
+                        Log("server supervisor exited code=" + exit);
+                        /* Dispose را به فراخواننده نسپاریم: فرآیند تکراری ممکن است
+                           پیش از BeginOutputReadLine خارج شود. */
+                    };
+
+                    /* ثبت پیش از Start تا watchdog هم‌زمان ناظر دومی نسازد. */
+                    _serverSupervisor = proc;
+                    if (!proc.Start()) throw new InvalidOperationException("start.js شروع نشد");
+                    proc.BeginOutputReadLine();
+                    proc.BeginErrorReadLine();
+                    Log("server supervisor started pid=" + proc.Id + " node=" + node + " port=" + _localPort);
                 }
-
-                Directory.CreateDirectory(_dataDir);
-                var psi = new ProcessStartInfo(node,
-                    "--experimental-sqlite --disable-warning=ExperimentalWarning \"server\\index.js\"")
+                catch (Exception ex)
                 {
-                    WorkingDirectory = _appDir,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                };
-                psi.EnvironmentVariables["PAYESH_TUNNEL_AUTO"] = "1";
-                /* پورت انتخابی به سرور داده می‌شود (اگر ۸۰۸۰ اشغال باشد) */
-                psi.EnvironmentVariables["PORT"] = _localPort.ToString();
-                /* داده بیرون از پوشهٔ نصب می‌ماند تا با آپدیت یا نصب دوباره از بین نرود */
-                psi.EnvironmentVariables["PAYESH_DATA"] = _dataDir;
-
-                var proc = new Process { StartInfo = psi };
-                string logPath = Path.Combine(_dataDir, "server.log");
-                DataReceivedEventHandler sink = (s2, e) =>
-                {
-                    if (e.Data == null) return;
-                    try { File.AppendAllText(logPath, e.Data + Environment.NewLine, Encoding.UTF8); } catch { }
-                };
-                proc.OutputDataReceived += sink;
-                proc.ErrorDataReceived += sink;
-                proc.Start();
-                proc.BeginOutputReadLine();
-                proc.BeginErrorReadLine();
-                Log("server started pid=" + proc.Id + " node=" + node);
-            }
-            catch (Exception ex)
-            {
-                Log("error: راه‌اندازی سرور ناموفق — " + ex.Message);
-                SetStatus("راه‌اندازی سرور ناموفق");
+                    try { if (_serverSupervisor != null) _serverSupervisor.Dispose(); } catch { }
+                    _serverSupervisor = null;
+                    Log("error: راه‌اندازی ناظر سرور ناموفق — " + ex.Message);
+                    SetStatus("راه‌اندازی سرور ناموفق — تلاش خودکار ادامه دارد");
+                }
             }
         }
 
@@ -1251,6 +1352,8 @@ namespace Payesh
                 _tray.ShowBalloonTip(2000, "پایش", "برنامه در سینی سیستم فعال است.", ToolTipIcon.Info);
                 return;
             }
+            _closing = true;
+            try { if (_watch != null) _watch.Stop(); } catch { }
             try { if (_tray != null) _tray.Visible = false; } catch { }
             base.OnFormClosing(e);
         }

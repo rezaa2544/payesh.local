@@ -6,4 +6,4 @@ sh.CurrentDirectory = dir
 node = dir & "\runtime\node.exe"
 If Not fso.FileExists(node) Then node = "node"
 If Not fso.FolderExists(dir & "\data") Then fso.CreateFolder(dir & "\data")
-sh.Run """" & node & """ --experimental-sqlite --disable-warning=ExperimentalWarning """ & dir & "\server\index.js"" >> """ & dir & "\data\server.log"" 2>&1", 0, False
+sh.Run """" & node & """ --experimental-sqlite --disable-warning=ExperimentalWarning """ & dir & "\server\start.js"" >> """ & dir & "\data\server.log"" 2>&1", 0, False
