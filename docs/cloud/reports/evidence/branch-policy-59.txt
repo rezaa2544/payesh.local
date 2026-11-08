@@ -1,11 +1,11 @@
 # شاهد ردیف ۵۹ — سیاست اجرا روی شاخهٔ قفل‌شده (B1..B5)
-# branch: arena/5124e3a6-payesh-local   head: 39a3e15   at: 2026-11-08T04:09:44Z
+# branch: arena/5124e3a6-payesh-local   head: dcb6d6e   at: 2026-11-08T04:37:32Z
 # POLICY_SINCE=2026-11-08T02:00:00Z
 
 ## بخش ۱ — سنجش قواعد روی همین مخزن
 # شاخه: arena/5124e3a6-payesh-local
 # B2 origin/main: شامل شده
-# B3 force-push: معاف (شاخه روی origin نیست)
+# B3 force-push: سالم
 # B4 سلامت main: همه merge/انتشار
 BRANCH-POLICY-59-OK
 
@@ -27,7 +27,7 @@ BRANCH-POLICY-59-TEST-OK
 ## بخش ۳ — B5: یک PR برای هر ردیف (gh)
 # شاخه: arena/5124e3a6-payesh-local
 # B2 origin/main: شامل شده
-# B3 force-push: معاف (شاخه روی origin نیست)
+# B3 force-push: سالم
 # B4 سلامت main: همه merge/انتشار
 # تاریخی (قبل از سیاست، فقط ثبت): ردیف 60 → PR 17
 PROBLEM B5 — ردیف 59: بدون PR

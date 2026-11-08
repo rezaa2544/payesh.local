@@ -1,6 +1,6 @@
 'use strict';
 /* ═══════════════════════════════════════════════════════════════════
-   آزمون سیاست شاخهٔ قفل‌شده (D-38) — ردیف ۵۹   (BP-01 .. BP-10)
+   آزمون سیاست شاخهٔ قفل‌شده (D-38) — ردیف ۵۹   (BP-01 .. BP-11)
 
    هر قاعده با یک مخزن git واقعیِ موقت سنجیده می‌شود (بدون شبکه):
      B1 کار روی main ممنوع · B2 عقب‌بودن از origin/main ·
@@ -161,6 +161,23 @@ check('BP-10', 'قاعده‌ها برای همهٔ ردیف‌های صف قا�
   const list = rows.map((row, i) => ({ number: i + 1, title: `ردیف ${row} — نمونه` }));
   assert(mod.auditPrsPerRow(list, rows).ok === true, 'صف نمونه نباید نقض بدهد');
   return `rows=${rows.join(',')} branch=${r.branch}`;
+});
+
+check('BP-11', 'B5: عدد لخت در عنوان («تست ۶۰ روزه») با «ردیف ۶۰» قاطی نمی‌شود', () => {
+  const fresh = '2026-11-08T10:00:00Z';
+  const list = [
+    { number: 17, title: 'بستهٔ استقرار ابری برای تست ۶۰ روزه', mergedAt: '2026-11-05T09:36:19Z' },
+    { number: 115, title: 'docs(cloud): شناسهٔ تصمیم (ردیف ۶۰)', mergedAt: fresh },
+  ];
+  const r = mod.auditPrsPerRow(list, ['60']);
+  assert(r.ok === true, 'یک PR صریح برای ردیف ۶۰ باید کافی باشد');
+  assert(r.historical.length === 0, 'عنوان «۶۰ روزه» نباید تاریخی حساب شود');
+  // دو PR صریح + یک عنوان فریبنده ⇒ باید قرمز شود (نه سه)
+  const two = list.concat([{ number: 116, title: 'fix: ردیف ۶۰ — اصلاح', mergedAt: fresh }]);
+  const r2 = mod.auditPrsPerRow(two, ['60']);
+  assert(r2.ok === false && r2.problems[0].prs.length === 2,
+    'باید فقط دو PR صریح شمرده شود: ' + JSON.stringify(r2.problems));
+  return 'explicit-only matching ok';
 });
 
 console.log(`\nBP checks=${passed + failed} pass=${passed} fail=${failed}`);

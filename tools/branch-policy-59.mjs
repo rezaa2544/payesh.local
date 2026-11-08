@@ -115,8 +115,13 @@ export function auditPrsPerRow(prList, rows, since = POLICY_SINCE) {
   const problems = [], historical = [];
   for (const raw of rows) {
     const row = normalizeDigits(raw);
-    const re = new RegExp('(^|[^0-9])' + row + '([^0-9]|$)');
-    const hits = prList.filter(p => re.test(normalizeDigits(p.title || '')));
+    const reRow = new RegExp('ردیف\\s*' + row + '([^0-9]|$)');
+    const reBare = new RegExp('(^|[^0-9])' + row + '([^0-9]|$)');
+    const titles = prList.map(p => ({ p, t: normalizeDigits(p.title || '') }));
+    /* «ردیف ۶۰» صریح است؛ عددِ لخت می‌تواند چیز دیگری باشد («تست ۶۰ روزه»).
+       پس اگر عنوان صریحی هست، فقط همان شمرده می‌شود. */
+    const explicit = titles.filter(x => reRow.test(x.t));
+    const hits = (explicit.length ? explicit : titles.filter(x => reBare.test(x.t))).map(x => x.p);
     const fresh = hits.filter(p => !p.mergedAt || p.mergedAt >= since);
     const old = hits.filter(p => p.mergedAt && p.mergedAt < since);
     if (old.length) historical.push({ row, prs: old.map(h => h.number) });
