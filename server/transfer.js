@@ -24,20 +24,40 @@ const BATCH_TABLE = 'payesh_transfer_batch';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/* ردیف ۵۴: نام جدول/ستون تنها از این فهرست بسته می‌آید. هر جای دیگری که
+   نامی در SQL گذاشته می‌شود، اول از این تابع می‌گذرد؛ پس «رشتهٔ قالبی»
+   هرگز ورودی بیرونی نیست (مکمل تریاژ ردیف ۴۸، نه جایگزین آن). */
+const IDENT_RE = /^[a-z_][a-z0-9_]{0,62}$/;
+function ident(name) {
+  const n = String(name || '');
+  if (!IDENT_RE.test(n)) throw new Error('شناسهٔ نامعتبر برای SQL: ' + n);
+  return n;
+}
+
+const ALLOWED_TABLES = new Set([
+  'product_records', 'product_change_feed', 'product_ops', 'gateway_quota',
+  FREEZE_TABLE, BATCH_TABLE,
+]);
+function table(name) {
+  const n = ident(name);
+  if (!ALLOWED_TABLES.has(n)) throw new Error('جدول مجاز نیست: ' + n);
+  return n;
+}
+
 function enabled(env = process.env) {
   return String(env.PAYESH_CELL_TRANSFER_ENABLED || '') === '1';
 }
 
 /* ── لایه‌های تطبیق: توابع خالص، قابل آزمون بدون دیتابیس ─────────── */
 
-/* checksum محتوایی: ردیف‌ها به شکل پایدار مرتب و سپس md5 می‌شوند تا
+/* checksum محتوایی: ردیف‌ها به شکل پایدار مرتب و سپس sha256 می‌شوند تا
    ترتیب فیزیکی/زمان درج روی نتیجه اثر نگذارد. */
 function stableChecksum(rows) {
   const crypto = require('crypto');
   const canon = (Array.isArray(rows) ? rows : [])
     .map(r => JSON.stringify(r, Object.keys(r || {}).sort()))
     .sort();
-  return crypto.createHash('md5').update(canon.join('\n')).digest('hex');
+  return crypto.createHash('sha256').update(canon.join('\n')).digest('hex');
 }
 
 /* مقایسهٔ سه‌لایه. ورودی‌ها شکل { counts: {t:n}, checksums: {t:h}, seqs: {id:seq} } */
@@ -119,7 +139,8 @@ async function isFrozen(client, tenantId) {
 /* عکس‌برداری یک مستأجر: تعداد، checksum و seq — همان ورودی سه لایه */
 async function snapshot(client, tenantId, tables) {
   const counts = {}, checksums = {}, seqs = {};
-  for (const t of tables) {
+  for (const raw of tables) {
+    const t = table(raw);
     const cols = await client.query(
       `select column_name from information_schema.columns where table_name = $1 order by ordinal_position`, [t]
     );
@@ -144,6 +165,6 @@ async function snapshot(client, tenantId, tables) {
 }
 
 module.exports = {
-  FREEZE_TABLE, BATCH_TABLE, UUID_RE,
+  FREEZE_TABLE, BATCH_TABLE, UUID_RE, ident, table, ALLOWED_TABLES,
   enabled, stableChecksum, reconcile, ensureTables, freeze, unfreeze, isFrozen, snapshot,
 };
