@@ -51,6 +51,21 @@ jobs:
           fi
           exit $code
 
+      # سیاست شاخهٔ قفل‌شده (ردیف ۵۹): B1..B4 روی git واقعی؛ B5 (PR) نیاز به gh.
+      - name: دروازهٔ سیاست شاخه (Branch Policy — ردیف ۵۹)
+        run: |
+          set +e
+          OUT=$(node tools/branch-policy-59.mjs 2>&1); a=$?
+          printf '%s\n' "$OUT"
+          OUT2=$(npm run test:branch59 2>&1); b=$?
+          printf '%s\n' "$OUT2" | tail -20
+          if [ $a -ne 0 ] || [ $b -ne 0 ]; then
+            echo "::error title=سیاست شاخه::B=$a tests=$b"
+            printf '%s\n%s\n' "$OUT" "$OUT2" | grep -E 'PROBLEM|FAIL ' | head -15 \
+              | while IFS= read -r line; do echo "::error title=سیاست شاخه::${line}"; done
+          fi
+          [ $a -eq 0 ] && [ $b -eq 0 ]
+
       # دروازهٔ شاهد: اثبات می‌کند لاگ آزمون واقعاً از همین درخت آمده است
       # (شمارش بدنه، هش بدنه، رجیستری آزمون‌ها، اثر انگشت کل درخت منهای docs/)
       - name: دروازهٔ شاهد آزمون

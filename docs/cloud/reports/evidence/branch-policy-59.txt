@@ -1,0 +1,47 @@
+# شاهد ردیف ۵۹ — سیاست اجرا روی شاخهٔ قفل‌شده (B1..B5)
+# branch: arena/5124e3a6-payesh-local   head: e880741   at: 2026-11-08T04:53:27Z
+# POLICY_SINCE=2026-11-08T02:00:00Z
+
+## بخش ۱ — سنجش قواعد روی همین مخزن
+# شاخه: arena/5124e3a6-payesh-local
+# B2 origin/main: شامل شده
+# B3 force-push: سالم
+# B4 سلامت main: همه merge/انتشار
+BRANCH-POLICY-59-OK
+
+## بخش ۲ — آزمون BP-01..BP-12 (مخزن‌های موقت، با کنترل منفی)
+PASS  BP-03  B2: شاخهٔ عقب‌مانده از origin/main ⇒ قرمز با تعداد کامیت  → شاخه از origin/main عقب است (1 کامیت)
+PASS  BP-04  B3: بازنویسی تاریخ شاخه (force-push) ⇒ قرمز  → B3 red
+PASS  BP-05  B4: کامیت مستقیم (غیر merge) روی main ⇒ قرمز  → B4 red: 2
+PASS  BP-06  B4: merge و کامیت خودکار انتشار روی main مجازند  → commits=5 all merge/bot
+PASS  BP-07  B5: هر ردیف دقیقاً یک PR (بدون PR و دو PR ⇒ قرمز)  → duplicate/missing detected
+PASS  BP-08  مرز ردیف: «۴۵» با «۴۵۰» یا «۱۴۵» قاطی نمی‌شود  → boundary ok
+PASS  BP-09  CLI: کد خروج و خروجی JSON  → exit 0/1 + JSON
+PASS  BP-10  قاعده‌ها برای همهٔ ردیف‌های صف قابل اجراست (فهرست صریح، نه حدس)  → rows=60,59,54,52,45 branch=arena/5124e3a6-payesh-local
+PASS  BP-11  B5: عدد لخت در عنوان («تست ۶۰ روزه») با «ردیف ۶۰» قاطی نمی‌شود  → explicit-only matching ok
+PASS  BP-12  B5: PR باز (mergedAt=null) هم «یک PR» حساب می‌شود  → open PR counted once
+
+BP checks=12 pass=12 fail=0
+BRANCH-POLICY-59-TEST-OK
+
+## بخش ۳ — B5: یک PR برای هر ردیف (gh)
+# شاخه: arena/5124e3a6-payesh-local
+# B2 origin/main: شامل شده
+# B3 force-push: سالم
+# B4 سلامت main: همه merge/انتشار
+BRANCH-POLICY-59-OK
+
+## بخش ۴ — رگرسیون کامل
+
+96 موفق · 0 ناموفق
+
+
+# ===== SUMMARY =====
+# policy_exit:     0
+# policy_test_exit: 0
+# pr_audit_exit:   0
+# regression_exit: 0
+# NOTE: B5 به gh/شبکه نیاز دارد و در CI اجرا نمی‌شود؛ قفل سخت سمت GitHub = OWNER.
+#       خروجی non-zero در B5 تا زمانی طبیعی است که PR این ردیف هنوز ثبت نشده باشد.
+# EXIT=0
+BRANCH-POLICY-59-EVIDENCE-OK
