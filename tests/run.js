@@ -802,12 +802,19 @@ async function waitFor(fn, ms = 15000) {
     const asksOnStart = onCreate.split('\n').some(l => l.trim() === 'askServer();');
     assert.ok(!asksOnStart, 'در اولین اجرا آدرس پرسیده نمی‌شود (فقط دکمهٔ اضطراری)');
 
-    /* ── امضای ثابت: بدون آن، گوشی نسخهٔ تازه را روی قبلی نصب نمی‌کند ── */
+    /* ── انتشار فقط با کلید Owner؛ هیچ کلید یا fallback ثابت در مخزن نیست ── */
     const gradleTxt = fs.readFileSync(path.join(ROOT, 'install/android/app/build.gradle'), 'utf8');
-    assert.ok(/payesh-signing\.p12/.test(gradleTxt), 'کلید امضای ثابت در ساخت استفاده می‌شود');
-    assert.ok(/buildTypes\s*\{[\s\S]*debug\s*\{[\s\S]*signingConfig signingConfigs\.stable/.test(gradleTxt),
-      'نسخهٔ debug هم با همان کلید ثابت امضا می‌شود (وگرنه نصب روی نسخهٔ قبلی رد می‌شود)');
-    assert.ok(fs.existsSync(path.join(ROOT, 'install/android/payesh-signing.p12')), 'فایل کلید امضا در مخزن هست');
+    for (const variable of ['PAYESH_KEYSTORE', 'PAYESH_KEYSTORE_PASS', 'PAYESH_KEY_ALIAS', 'PAYESH_KEY_PASS']) {
+      assert.ok(gradleTxt.includes(variable), `release signing receives ${variable} from the environment`);
+    }
+    assert.ok(/Release signing credentials are missing/.test(gradleTxt), 'نسخهٔ release بدون credential fail-closed است');
+    assert.ok(/Owner approval for the signing-key migration path is missing/.test(gradleTxt),
+      'نسخهٔ release بدون تأیید مسیر مهاجرت fail-closed است');
+    assert.ok(/if \(releaseSigningReady\) signingConfig signingConfigs\.release/.test(gradleTxt),
+      'فقط build نوع release به signing config امن وصل است');
+    assert.ok(!/payesh-signing\.p12|payesh1404|signingConfigs\.stable/.test(gradleTxt),
+      'هیچ کلید ثابت یا رمز hardcoded در Gradle نیست');
+    assert.ok(!fs.existsSync(path.join(ROOT, 'install/android/payesh-signing.p12')), 'فایل کلید از درخت کاری حذف شده است');
 
     /* نحو جاوا هم بررسی می‌شود تا خطای کامپایل به CI نرسد */
     const { parse } = require('java-parser');
