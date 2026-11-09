@@ -8,7 +8,11 @@
 
    اجرا:  node tools/cost-model.cjs [--schools N] [--users N] [--syncs N] [--row-bytes N]
                                     [--peak N] [--json] [--book path]
-   هیچ عددی بدون برچسب [M]/[A]/[E]/[?] چاپ نمی‌شود. «ظرفیت اثبات‌شده» یا «SLA» ادعا نمی‌شود.
+   هیچ عددی بدون برچسب [S]/[M]/[A]/[E]/[?] چاپ نمی‌شود. «ظرفیت اثبات‌شده» یا «SLA» ادعا نمی‌شود.
+   قانون برچسب‌گذاری (قانون اساسی بازنگری ۱.۱۲): [M] = سنجیده‌شده روی هدف واقعی ·
+   [S] = شبیه‌سازی/ماشین توسعه (loopback، SQLite) · [A] = فرض مهندسی · [E] = برآورد ·
+   [?] = ناشناخته. ورودی‌های این مدل از شبیه‌سازی‌ها و بنچ‌های ماشین توسعه گرفته شده‌اند
+   ⇒ برچسب آن‌ها [S] است.
    ─────────────────────────────────────────────────────────────────── */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -67,9 +71,9 @@ function computeTier(tier, book, override = {}) {
   const requestsPerDay = devices * syncs;                                    /* pull+push */
   const rpsAvg = requestsPerDay / SECONDS_PER_DAY;
   const rpsPeak = rpsAvg * peakFactor;                                       /* [A] */
-  const concurrent = rpsPeak * (A.avg_latency_ms.value / 1000);              /* Little's law [M]+[A] */
+  const concurrent = rpsPeak * (A.avg_latency_ms.value / 1000);              /* Little's law [S]+[A] */
 
-  const rowsYear1 = schools * A.rows_per_school_per_year.value;              /* [M] */
+  const rowsYear1 = schools * A.rows_per_school_per_year.value;              /* [S] */
   const bytesPerRow = rowBytes * A.index_overhead.value;
   const storageGbYear1 = (rowsYear1 * bytesPerRow) / 1e9;
   /* رشد ۴ ساله: ۳۰٪ ردیف بیشتر در هر سال (کلاس‌های تازه + آرشیو) — [A] */
@@ -103,7 +107,7 @@ function computeTier(tier, book, override = {}) {
       managed_plan: managed.replace('managed_db_', '').replace('_month', ''),
       breakdown_self_hosted: { vcpu: round2(vcpuMonth), ram: round2(ramMonth), disk: round2(diskMonth), backup: round2(backupMonth) },
     },
-    labels: { rps: '[M]+[A]', storage: '[M]+[A]', cost: '[E]' },
+    labels: { rps: '[S]+[A]', storage: '[S]+[A]', cost: '[E]' },
   };
 }
 
@@ -112,7 +116,7 @@ function round2(n) { return Math.round(n * 100) / 100; }
 function render(report) {
   const lines = [];
   lines.push('مدل بار و هزینهٔ دیتابیس — ردیف ۳۳  (هیچ عددی بدون برچسب نیست)');
-  lines.push('برچسب‌ها: [M] اندازه‌گیری‌شده در مخزن · [A] فرض مهندسی · [E] برآورد قیمت · [?] نامعلوم');
+  lines.push('برچسب‌ها: [S] شبیه‌سازی/ماشین توسعه (loopback، SQLite) · [M] اندازه‌گیری‌شده روی هدف واقعی · [A] فرض مهندسی · [E] برآورد قیمت · [?] نامعلوم');
   lines.push('');
   lines.push('پله            مدرسه  کاربر  دستگاه  RPS میانگین  RPS اوج  اتصال هم‌زمان  ذخیره‌سازی(GB سال۱/سال۴)  vCPU/RAM  خودمیزبان €/ماه  مدیریت‌شده €/ماه');
   for (const t of report.tiers) {

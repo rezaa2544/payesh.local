@@ -7,13 +7,19 @@ TLS/auth تولیدی و توپولوژی دو میزبان فیزیکی همچ�
 — بازتولید با `PGBOUNCER_BIN=/path/to/pgbouncer EMBEDDED_PG_HOME=/path/to/postgres bash docs/cloud/reports/evidence/run-45-conn-budget.sh`
 **نسخهٔ اجراشده:** PgBouncer 1.23.1 + PostgreSQL 18.6 محلی (`[S]`)
 
-**وضعیت نهایی (این سشن): GREEN-WITH-DEFERRAL** — آزمون‌های CB-01..CB-10 (۱۰/۱۰) و دریل اندازه‌گیریِ
+> **قانون برچسب‌گذاری (قانون اساسی بازنگری ۱٫۱۲):** `[M]` = سنجیده‌شده روی **هدف واقعی** ·
+> `[S]` = شبیه‌سازی/ماشین توسعه (loopback، SQLite) · `[E]` = برآورد · `[A]` = فرض ·
+> `[?]` = ناشناخته. شواهد این سند روی ماشین توسعه گرفته شده‌اند ⇒ `[S]`؛ سقف ظرفیت
+> provider واقعی تا سنجش روی هدف `[?]` است.
+
+**وضعیت نهایی (این سشن): GREEN-WITH-DEFERRAL [S]** — آزمون‌های CB-01..CB-10 (۱۰/۱۰) و دریل اندازه‌گیریِ
 `PAYESH_PG_POOL_MAX` روی **PostgreSQL واقعی محلی** (مجاز طبق `O-20` بند ۱) اجرا شد. آستانهٔ انتظار pool
 (میانگین ≤ ۲۰۰ms) روی این میزبان ویندوزِ مشترک نقض شد (۳۷۱ms با pool=۱۲) — نه به‌خاطر اندازهٔ pool بلکه
 چون خودِ p95 تأخیر pull ≈ ۱٫۳s است (همان آلودگیِ loopback RTT که ردیف ۴۶ host-b اندازه گرفت). بازسنجی آستانه
 روی سخت‌افزار هدف (دو میزبان فیزیکی، بدون بار پس‌زمینه) طبق `O-20` به T2 موکول است.
 **شاهد PostgreSQL واقعی محلی:** [`docs/cloud/reports/evidence/conn-budget-45-20261108.txt`](reports/evidence/conn-budget-45-20261108.txt)
 — بازتولید با `bash docs/cloud/reports/evidence/run-45-conn-budget-realpg.sh` (پیش‌فرض: `127.0.0.1:65300`)
+
 
 ## آنچه ساخته شد
 
