@@ -87,6 +87,7 @@ jobs:
         run: |
           set -e
           node tests/evidence-base-check.js
+          node tools/check-evidence-base-selftest.cjs
           BASE="${{ github.event.before }}"
           if [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             git diff --name-only "$BASE" "$GITHUB_SHA" -- docs/cloud/reports/evidence/ > /tmp/evidence-files.txt
@@ -94,7 +95,7 @@ jobs:
             git fetch origin main
             git diff --name-only origin/main...HEAD -- docs/cloud/reports/evidence/ > /tmp/evidence-files.txt
           fi
-          node tools/check-evidence-base.cjs --files-from /tmp/evidence-files.txt
+          node tools/check-evidence-base.cjs --strict --files-from /tmp/evidence-files.txt
 
       # دروازهٔ شاهد: اثبات می‌کند لاگ آزمون واقعاً از همین درخت آمده است
       # (شمارش بدنه، هش بدنه، رجیستری آزمون‌ها، اثر انگشت کل درخت منهای docs/)
