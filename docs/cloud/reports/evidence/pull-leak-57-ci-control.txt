@@ -1,0 +1,53 @@
+base_sha=7d43d31cea6165a743b8d1b18eda5250c555769d
+date_utc=2026-11-09T15:58:15Z
+command=node --experimental-sqlite --disable-warning=ExperimentalWarning tests/pull-leak-57.js; then node tests/pull-leak-57-negative.js
+
+PASS  PL-00  راه‌اندازی اولیه و نشست مدیر  → manager session ok  (44ms)
+PASS  PL-01  ساخت کلاس/معلم/دانش‌آموز/والد + پیوندها  → teacher=2 student=3 parent=4 class=1  (89ms)
+PASS  PL-02  ورود هر سه نقش غیرمدیر (رمز پیش‌فرض = کد ملی)  → 3 sessions  (72ms)
+PASS  PL-10  pull users برای نقش teacher: هیچ فیلد رمزی نیست  → 2 ردیف، همه پاک‌سازی‌شده  (4ms)
+PASS  PL-11  pull users برای نقش parent: هیچ فیلد رمزی نیست  → 2 ردیف، همه پاک‌سازی‌شده  (2ms)
+PASS  PL-12  pull users برای نقش student: هیچ فیلد رمزی نیست  → 1 ردیف، همه پاک‌سازی‌شده  (2ms)
+PASS  PL-13  والد ردیف فرزند را می‌بیند و بدون فیلد رمزی/هویتی است  → child visible, no secrets, no identity fields  (2ms)
+PASS  PL-14  دبیرِ کلاس ردیف دانش‌آموز را می‌بیند، فیلد هویتی ندارد  → student in scope, identity scrubbed  (1ms)
+PASS  PL-15  /api/students/:id برای دبیر: فیلد هویتی نیست  → identity scrubbed on student endpoint  (1ms)
+PASS  PL-16  outbox.personData: me هویتیِ خودش را دارد، children مینیمال  → me=self identity, children minimal  (6ms)
+PASS  PL-20  کنترل مثبت: مدیر password_hash، password_enc و national_id را می‌بیند  → manager keeps full user rows  (2ms)
+PASS  PL-30  خروجی CSV: نقش غیرمدیر ۴۰۳ است  → 403 for teacher  (2ms)
+PASS  PL-31  خروجی CSV مدیر: هیچ(password_enc|password_hash|phone_hash) در متن نیست  → csv clean, identity fields kept  (3ms)
+PASS  PL-40  S4: /api/health بدون data_dir/db_file و بدون مسیر مطلق  → health clean  (2ms)
+PASS  PL-50  S4: /metrics بدون توکن ۴۰۱ می‌گیرد (سرور محصول)  → 401  (1ms)
+PASS  PL-51  S4: /metrics با توکن (هدر و کوئری) ۲۰۰ می‌دهد  → 200 header+query  (3ms)
+PASS  PL-60  S4: Gateway /metrics با توکن ۴۰۱/۲۰۰ می‌دهد  → gateway 401/200  (369ms)
+PASS  PL-61  Gateway /metrics بدون تنظیم توکن باز می‌ماند (بدون رگرسیون)  → 200 as before  (364ms)
+PASS  PL-70  policy.scrubUser: فقط فیلدهای مجاز می‌مانند  → _version,father_name,id,name  (0ms)
+
+PL checks=19 pass=19 fail=0
+PULL-LEAK-57-OK
+
+command=node tests/pull-leak-57-negative.js
+
+PASS  PL-00  راه‌اندازی اولیه و نشست مدیر  → manager session ok  (41ms)
+PASS  PL-01  ساخت کلاس/معلم/دانش‌آموز/والد + پیوندها  → teacher=2 student=3 parent=4 class=1  (78ms)
+PASS  PL-02  ورود هر سه نقش غیرمدیر (رمز پیش‌فرض = کد ملی)  → 3 sessions  (72ms)
+FAIL  PL-10  pull users برای نقش teacher: هیچ فیلد رمزی نیست  → نشت به teacher: 2.password_hash, 2.phone_hash, 2.password_enc, 3.password_hash, 3.phone_hash, 3.password_enc
+FAIL  PL-11  pull users برای نقش parent: هیچ فیلد رمزی نیست  → نشت به parent: 3.password_hash, 3.phone_hash, 3.password_enc, 4.password_hash, 4.phone_hash, 4.password_enc
+FAIL  PL-12  pull users برای نقش student: هیچ فیلد رمزی نیست  → نشت به student: 3.password_hash, 3.phone_hash, 3.password_enc
+FAIL  PL-13  والد ردیف فرزند را می‌بیند و بدون فیلد رمزی/هویتی است  →  در ردیف فرزند فیلد راز هست: password_hash, phone_hash, password_enc
+FAIL  PL-14  دبیرِ کلاس ردیف دانش‌آموز را می‌بیند، فیلد هویتی ندارد  → دبیر فیلدهای هویتی دانش‌آموز را می‌بیند: phone, national_id, father_nid, mother_nid, shenasname_serial, shenasname_seri, father_phone, mother_phone, landline, address, residence, village, residence_status
+FAIL  PL-15  /api/students/:id برای دبیر: فیلد هویتی نیست  → دبیر از مسیر /api/students/:id فیلدهای هویتی می‌بیند: phone, national_id, father_nid, mother_nid, father_phone, mother_phone, landline, residence, residence_status, address, shenasname_serial, shenasname_seri
+PASS  PL-16  outbox.personData: me هویتیِ خودش را دارد، children مینیمال  → me=self identity, children minimal  (7ms)
+PASS  PL-20  کنترل مثبت: مدیر password_hash، password_enc و national_id را می‌بیند  → manager keeps full user rows  (2ms)
+PASS  PL-30  خروجی CSV: نقش غیرمدیر ۴۰۳ است  → 403 for teacher  (2ms)
+PASS  PL-31  خروجی CSV مدیر: هیچ(password_enc|password_hash|phone_hash) در متن نیست  → csv clean, identity fields kept  (2ms)
+PASS  PL-40  S4: /api/health بدون data_dir/db_file و بدون مسیر مطلق  → health clean  (2ms)
+PASS  PL-50  S4: /metrics بدون توکن ۴۰۱ می‌گیرد (سرور محصول)  → 401  (1ms)
+PASS  PL-51  S4: /metrics با توکن (هدر و کوئری) ۲۰۰ می‌دهد  → 200 header+query  (4ms)
+PASS  PL-60  S4: Gateway /metrics با توکن ۴۰۱/۲۰۰ می‌دهد  → gateway 401/200  (370ms)
+PASS  PL-61  Gateway /metrics بدون تنظیم توکن باز می‌ماند (بدون رگرسیون)  → 200 as before  (365ms)
+PASS  PL-70  policy.scrubUser: فقط فیلدهای مجاز می‌مانند  → _version,father_name,id,name  (0ms)
+
+PL checks=19 pass=13 fail=6
+failures: PL-10, PL-11, PL-12, PL-13, PL-14, PL-15
+PULL-LEAK-57-FAILED
+NEGATIVE-LEAK-CONTROL-OK expected_exit_nonzero=1 leak_assertion=detected
