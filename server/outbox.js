@@ -18,6 +18,7 @@ const crypto = require('crypto');
 const path = require('path');
 const s3mem = require('./s3mem');
 const sync = require('./sync');
+const policy = require('./policy');
 const util = require('./util');
 const tenantCtx = require('./tenant-context');
 
@@ -572,12 +573,13 @@ function loginKey(u) {
   return nid.length === 10 ? nid : '';
 }
 
+/* ردیف ۵۷: فیلد رازگونه حذف می‌شود — password_enc (رمز پلمپ‌شده) هم،
+   نه فقط هش‌ها. فهرست از policy می‌آید تا همهٔ مسیرها یکی باشند. */
 function safeRow(row) {
   const out = Object.assign({}, row);
-  delete out.password_hash;
-  delete out.phone_hash;
-  delete out.password_plain;
-  delete out.pin_hash;
+  for (const k of Object.keys(out)) {
+    if (policy.isSecretField(k)) delete out[k];
+  }
   return out;
 }
 

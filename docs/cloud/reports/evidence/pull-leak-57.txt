@@ -1,0 +1,74 @@
+گزارش شاهد — ردیف ۵۷: نشت فیلدهای حساس کاربران به نقش غیرمدیر
+تاریخ: ۲۰۲۶-۱۱-۰۹ · شاخه: hermes/fix-57-leak · آزمون: tests/pull-leak-57.js
+دستور اجرا: npm run test:pull57
+
+═══ ۱) خروجی خام آزمون رگرسیون — کد اصلاح‌شده (سبز) ═══
+
+> payesh-local@0.8.77 test:pull57
+> node --experimental-sqlite --disable-warning=ExperimentalWarning tests/pull-leak-57.js
+
+PASS  PL-00  راه‌اندازی اولیه و نشست مدیر  → manager session ok  (147ms)
+PASS  PL-01  ساخت معلم/دانش‌آموز/والد + پیوند والد  → teacher=2 student=3 parent=4  (235ms)
+PASS  PL-02  ورود هر سه نقش غیرمدیر (رمز پیش‌فرض = کد ملی)  → 3 sessions  (202ms)
+PASS  PL-10  pull users برای نقش teacher: هیچ فیلد رمزی نیست  → 1 ردیف، همه پاک‌سازی‌شده  (11ms)
+PASS  PL-11  pull users برای نقش parent: هیچ فیلد رمزی نیست  → 2 ردیف، همه پاک‌سازی‌شده  (7ms)
+PASS  PL-12  pull users برای نقش student: هیچ فیلد رمزی نیست  → 1 ردیف، همه پاک‌سازی‌شده  (8ms)
+PASS  PL-13  والد ردیف فرزند را می‌بیند و هیچ رمزی در آن نیست  → child visible, no secrets  (7ms)
+PASS  PL-20  کنترل مثبت: مدیر password_hash و password_enc را می‌بیند  → manager keeps full user rows  (6ms)
+PASS  PL-30  خروجی CSV: نقش غیرمدیر ۴۰۳ است  → 403 for teacher  (6ms)
+PASS  PL-31  خروجی CSV مدیر: هیچ(password_enc|password_hash|phone_hash) در متن نیست  → csv clean, identity fields kept  (8ms)
+PASS  PL-40  S4: /api/health بدون data_dir/db_file و بدون مسیر مطلق  → health clean  (5ms)
+PASS  PL-50  S4: /metrics بدون توکن ۴۰۱ می‌گیرد (سرور محصول)  → 401  (3ms)
+PASS  PL-51  S4: /metrics با توکن (هدر و کوئری) ۲۰۰ می‌دهد  → 200 header+query  (11ms)
+PASS  PL-60  S4: Gateway /metrics با توکن ۴۰۱/۲۰۰ می‌دهد  → gateway 401/200  (591ms)
+PASS  PL-61  Gateway /metrics بدون تنظیم توکن باز می‌ماند (بدون رگرسیون)  → 200 as before  (605ms)
+PASS  PL-70  policy.scrubUser: فقط فیلدهای مجاز می‌مانند  → _version,father_name,id,name,national_id  (0ms)
+
+PL checks=16 pass=16 fail=0
+PULL-LEAK-57-OK
+
+═══ ۲) آزمون منفی — برگرداندن موقت باگ (blacklist سه‌فیلدی قدیمی) ═══
+
+در server/sync.js مسیر pull، اصلاح allowlist موقتاً با کد قدیمی جایگزین شد:
+
+  if (name === 'users' && actor.role !== 'manager') {
+    delete data.password_hash; delete data.phone_hash; delete data.password_plain;
+  }
+
+سپس `npm run test:pull57` دوباره اجرا شد — همان آزمون باید قرمز شود:
+
+> payesh-local@0.8.77 test:pull57
+> node --experimental-sqlite --disable-warning=ExperimentalWarning tests/pull-leak-57.js
+
+PASS  PL-00  راه‌اندازی اولیه و نشست مدیر  → manager session ok  (145ms)
+PASS  PL-01  ساخت معلم/دانش‌آموز/والد + پیوند والد  → teacher=2 student=3 parent=4  (248ms)
+PASS  PL-02  ورود هر سه نقش غیرمدیر (رمز پیش‌فرض = کد ملی)  → 3 sessions  (243ms)
+FAIL  PL-10  pull users برای نقش teacher: هیچ فیلد رمزی نیست  → نشت به teacher: 2.password_enc
+FAIL  PL-11  pull users برای نقش parent: هیچ فیلد رمزی نیست  → نشت به parent: 3.password_enc, 4.password_enc
+FAIL  PL-12  pull users برای نقش student: هیچ فیلد رمزی نیست  → نشت به student: 3.password_enc
+FAIL  PL-13  والد ردیف فرزند را می‌بیند و هیچ رمزی در آن نیست  →  در ردیف فرزند فیلد راز هست: password_enc
+PASS  PL-20  کنترل مثبت: مدیر password_hash و password_enc را می‌بیند  → manager keeps full user rows  (6ms)
+PASS  PL-30  خروجی CSV: نقش غیرمدیر ۴۰۳ است  → 403 for teacher  (6ms)
+PASS  PL-31  خروجی CSV مدیر: هیچ(password_enc|password_hash|phone_hash) در متن نیست  → csv clean, identity fields kept  (7ms)
+PASS  PL-40  S4: /api/health بدون data_dir/db_file و بدون مسیر مطلق  → health clean  (5ms)
+PASS  PL-50  S4: /metrics بدون توکن ۴۰۱ می‌گیرد (سرور محصول)  → 401  (3ms)
+PASS  PL-51  S4: /metrics با توکن (هدر و کوئری) ۲۰۰ می‌دهد  → 200 header+query  (11ms)
+PASS  PL-60  S4: Gateway /metrics با توکن ۴۰۱/۲۰۰ می‌دهد  → gateway 401/200  (597ms)
+PASS  PL-61  Gateway /metrics بدون تنظیم توکن باز می‌ماند (بدون رگرسیون)  → 200 as before  (576ms)
+PASS  PL-70  policy.scrubUser: فقط فیلدهای مجاز می‌مانند  → _version,father_name,id,name,national_id  (1ms)
+
+PL checks=16 pass=12 fail=4
+failures: PL-10, PL-11, PL-12, PL-13
+PULL-LEAK-57-FAILED
+
+نتیجه آزمون منفی: باگِ بازگردانده‌شده دقیقاً همین نشت password_enc را برای
+معلم/والد/دانش‌آموز قرمز می‌کند (۴ آزمون PL-10..PL-13) — یعنی آزمون واقعاً
+این باگ را می‌گیرد، نه اینکه سبزِ کاذب باشد. سپس کد اصلاح‌شده بازگردانده شد
+و آزمون دوباره سبز شد (بخش ۱).
+
+═══ ۳) نتیجه npm test کامل (بدون رگرسیون) ═══
+
+98 موفق · 1 ناموفق — تنها مورد ناموفق از قبل روی origin/main موجود است:
+«مانیفست انتشار: هش و اندازهٔ همهٔ فایل‌ها با منبع واقعی یکی است —
+اندازهٔ فایل با مانیفست می‌خواند: client/app.js 205244 !== 201455»
+(این فایل توسط این شاخه تغییری نکرده است).

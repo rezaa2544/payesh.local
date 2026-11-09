@@ -475,7 +475,8 @@ async function api(req, res, url, ip) {
       restart_pending: readManifest().version !== RUNNING_VERSION,
       time: nowISO(), server_time: nowISO(), uptime_s: Math.round(process.uptime()),
       setup_done: !auth.needsSetup(store), school: (store.get('schools', 1) || {}).name || null,
-      data_dir: DATA_DIR, db_file: path.join(DATA_DIR, 'payesh.sqlite'),
+      /* ردیف ۵۷ (S4): مسیر مطلق سرور (data_dir/db_file) در یک مسیر بدون
+         احراز هویت فاش نمی‌شود — کلاینت آن را از /api/setup/state می‌گیرد. */
       public_url: cfg.publicUrl(store) || null,
       instance: cfg.instanceId(store),
       cloud_ready: (() => {
@@ -1847,8 +1848,10 @@ function importUsers(body) {
   return { ok: true, kind, created: created.length, updated, parents, classes: classesMade, errors, warnings, users: created };
 }
 
-/* ردیف ۲۸: هر میدانی که هش/رمز/راز است از خروجی حذف می‌شود */
-const EXPORT_DENY = /^(password_hash|password_plain|password_cipher|phone_hash|secret|secret_key|token|token_hash|verifier|__password_verifier|accessKey)$/;
+/* ردیف ۲۸/۵۷: هر میدانی که هش/رمز/راز است از خروجی حذف می‌شود.
+   فهرست از policy می‌آید تا مسیر export هم دقیقاً مثل pull بسته باشد —
+   password_enc (رمز پلمپ‌شدهٔ قابل‌بازخوانی) هم شامل می‌شود. */
+const EXPORT_DENY = policy.SECRET_FIELD_RE;
 function exportRow(row) {
   const out = {};
   for (const [k, v] of Object.entries(row || {})) {

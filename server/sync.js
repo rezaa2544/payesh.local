@@ -67,9 +67,11 @@ function pull(store, actor, params) {
       }
       if (!policy.rowInScope(scope, name, data)) continue;
       data._version = r.version;
-      /* رمزها فقط برای مدیر می‌آیند؛ بقیهٔ نقش‌ها حتی هش را نمی‌بینند */
+      /* ردیف ۵۷: رمزها فقط برای مدیر می‌آیند؛ برای بقیهٔ نقش‌ها فقط
+         فیلدهای مجاز (allowlist) می‌آیند — نه «حذفِ فهرست سیاه».
+         password_enc (رمز پلمپ‌شدهٔ قابل‌بازخوانی) هم همین‌جا بسته شد. */
       if (name === 'users' && actor.role !== 'manager') {
-        delete data.password_hash; delete data.phone_hash; delete data.password_plain; delete data.password_enc;
+        data = policy.scrubUser(data);
       }
       out.push(data);
     }

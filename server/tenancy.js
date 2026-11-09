@@ -20,6 +20,7 @@ const transfer = require('./transfer');
    ═══════════════════════════════════════════════════════════════════ */
 const crypto = require('node:crypto');
 const scopeMod = require('./scope');
+const policy = require('./policy');
 
 const TOKEN_VERSION = 1;
 const TABLE = 'tenant_records';
@@ -415,6 +416,22 @@ function productRowOf(r) {
   };
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   ردیف ۵۷ —	users در مسیرهای ابری هم همان allowlist را می‌بینند.
+
+   change-feed (listFeed)، listProduct، getProduct و joinProduct برای نقش
+   غیرمدیر، فیلدهای رازگونهٔ users (password_hash، password_enc،
+   phone_hash، __password_verifier، secret*…) را حذف می‌کنند. مدیر همه
+   را می‌بیند (رفتار کنونی). exportProduct کل users فقط برای مدیر است.
+   ═════════════════════════════════════════════════════════════════ */
+function scrubUsersRow(scope, row) {
+  if (!row || row.collection !== 'users') return row;
+  if (!scope || scope.role === 'manager' || scope.all) return row;
+  const data = (row.data && typeof row.data === 'object') ? row.data : null;
+  if (!data) return row;
+  return Object.assign({}, row, { data: policy.scrubUser(data) });
+}
+
 function assertCollection(name) {
   if (!COLLECTION_RE.test(String(name || ''))) throw new TenancyError('bad_collection', 400);
   return String(name);
@@ -435,7 +452,7 @@ async function listProduct(pool, tenantId, { collection, since = null, limit = 2
       : await c.query(`select r.collection, r.record_id, r.version, r.data, r.deleted_at, r.updated_at
                        from ${PRODUCT_TABLE} r where r.collection = $1 and ${sp.sql}
                        order by r.record_id asc limit $2`, [col, lim, ...sp.params]);
-    return q.rows.map(productRowOf);
+    return q.rows.map(productRowOf).map(r => scrubUsersRow(scope, r));
   });
 }
 
@@ -450,7 +467,7 @@ async function getProduct(pool, tenantId, { collection, id, claims = null }) {
       if (!scopeMod.canReadCollection(scope, col)) throw new TenancyError('forbidden_collection', 403, { collection: col });
       if (!scopeMod.rowInScope(scope, col, q.rows[0].data || {})) throw new TenancyError('out_of_scope', 403, { collection: col });
     }
-    return productRowOf(q.rows[0]);
+    return scrubUsersRow(claims ? { role: String((claims && claims.role) || '') } : null, productRowOf(q.rows[0]));
   });
 }
 
@@ -746,8 +763,10 @@ async function listFeed(pool, tenantId, { sinceSeq = 0, collection = null, limit
       seq: Number(r.seq), collection: r.collection, id: Number(r.record_id),
       op: r.op, version: Number(r.version), data: feedPayload(r), at: r.at,
     }));
+    /* ردیف ۵۷: فیلدهای رازگونهٔ users فقط برای مدیر در feed می‌آیند */
+    const feedRows = scope ? rows.map(r => scrubUsersRow(scope, r)) : rows;
     return {
-      rows, count: rows.length, more,
+      rows: feedRows, count: feedRows.length, more,
       next_seq: rows.length ? rows[rows.length - 1].seq : since,
       scope: scope ? { role: scope.role, all: scope.all } : { role: 'internal', all: true },
       limits: { max_limit: FEED_MAX_LIMIT, default_keep_days: FEED_DEFAULT_KEEP_DAYS },
@@ -783,10 +802,11 @@ async function feedStats(pool, tenantId) {
 }
 
 /* join دو کالکشن روی یک کلید در jsonb — همچنان داخل زمینهٔ مستأجر */
-async function joinProduct(pool, tenantId, { left, right, on, limit = 200 } = {}) {
+async function joinProduct(pool, tenantId, { left, right, on, limit = 200, claims = null } = {}) {
   const l = assertCollection(left); const r = assertCollection(right);
   if (!/^[a-z][a-z0-9_]{1,40}$/.test(String(on || ''))) throw new TenancyError('bad_join_key', 400);
   const lim = Math.max(1, Math.min(1000, Number(limit) || 200));
+  const claimsScope = claims ? { role: String(claims.role || '') } : null;
   return withTenant(pool, tenantId, async (c) => {
     const q = await c.query(
       `select l.collection as left_collection, l.record_id as left_id, l.data as left_data,
@@ -802,17 +822,25 @@ async function joinProduct(pool, tenantId, { left, right, on, limit = 200 } = {}
     return q.rows.map((x) => ({
       left: { collection: x.left_collection, id: Number(x.left_id), data: x.left_data },
       right: { collection: x.right_collection, id: Number(x.right_id), data: x.right_data },
+    })).map(pair => ({
+      left: scrubUsersRow(claimsScope, pair.left),
+      right: scrubUsersRow(claimsScope, pair.right),
     }));
   });
 }
 
-async function exportProduct(pool, tenantId, { collection }) {
+async function exportProduct(pool, tenantId, { collection, claims = null }) {
   const col = assertCollection(collection);
+  /* ردیف ۵۷: خروجیِ کاملِ users (با password_enc/هش‌ها) فقط مدیر است */
+  if (col === 'users' && claims && String(claims.role || '') !== 'manager') {
+    throw new TenancyError('forbidden', 403, { collection: col });
+  }
   return withTenant(pool, tenantId, async (c) => {
     const q = await c.query(`select collection, record_id, version, data, deleted_at, updated_at
                              from ${PRODUCT_TABLE} where collection = $1 and deleted_at is null
                              order by record_id asc`, [col]);
-    return { collection: col, count: q.rows.length, rows: q.rows.map(productRowOf) };
+    const role = claims ? { role: String(claims.role || '') } : null;
+    return { collection: col, count: q.rows.length, rows: q.rows.map(productRowOf).map(r => scrubUsersRow(role, r)) };
   });
 }
 
@@ -901,11 +929,11 @@ async function route({ method, pathname, search, headers = {}, body = {} }) {
       return { status: 200, body: Object.assign({ ok: true }, out) };
     }
     if (pathname === PBASE + '/join' && m === 'POST') {
-      const rows = await joinProduct(state.pool, tid, body || {});
+      const rows = await joinProduct(state.pool, tid, Object.assign({}, body || {}, { claims }));
       return { status: 200, body: { ok: true, rows, count: rows.length } };
     }
     if (pathname === PBASE + '/export' && m === 'POST') {
-      const out = await exportProduct(state.pool, tid, body || {});
+      const out = await exportProduct(state.pool, tid, Object.assign({}, body || {}, { claims }));
       return { status: 200, body: Object.assign({ ok: true }, out) };
     }
     if (pathname === PBASE + '/jobs' && m === 'POST') {
