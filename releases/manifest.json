@@ -1,19 +1,16 @@
 {
-  "version": "0.8.81",
-  "built_at": "2026-11-09T16:56:34.794Z",
-  "notes": [
-    "بررسی و نصب خودکار به‌روزرسانی به‌طور پیش‌فرض خاموش است و فقط با انتخاب صریح مدیر فعال می‌شود.",
-    "بسته‌شدن امن تایمر به‌روزرسانی و ثبت صریح ریسک بازیابی نقطه‌ای زمانی (PITR) در مستندات."
-  ],
+  "version": "0.9.0",
+  "built_at": "2026-11-09T17:12:47.146Z",
+  "notes": [],
   "shell": {
-    "android": "0.8.81"
+    "android": "0.9.0"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "09d73576533a3d68527b090d1a00f4cde94858d96537cee2437ad413eb326165",
-      "size": 201455
+      "sha256": "87eb8d932057bb89586aa409cb4074c6e51ca59473c6b2a66eaa47e27d6ff940",
+      "size": 201454
     },
     {
       "path": "client/authz.js",
@@ -90,8 +87,8 @@
     {
       "path": "client/index.html",
       "kind": "client",
-      "sha256": "8db5435ae56ee273a767770a29ca7ba968d254771c694656cc550e2682cfe8ad",
-      "size": 1762
+      "sha256": "37b3377285ee897e3e656e46ea46d582e37012752d278036d4f75a33c2fa805a",
+      "size": 1844
     },
     {
       "path": "client/install.html",
@@ -148,6 +145,18 @@
       "size": 164532
     },
     {
+      "path": "client/pulse.css",
+      "kind": "client",
+      "sha256": "61a956c12c2a7b807c28cf17a7e3518e42a2a68fc434a7860fdff5830909626c",
+      "size": 10199
+    },
+    {
+      "path": "client/pulse.js",
+      "kind": "client",
+      "sha256": "eef1592d4b44551b13617d5a38ec27b0acccda2848ba15a95163a79f38eba140",
+      "size": 10569
+    },
+    {
       "path": "client/scan.js",
       "kind": "client",
       "sha256": "df61043a4da903383229b37e812ab54eef79ebf4b11998bf5964ed2eb7fae5e3",
@@ -192,8 +201,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "b3d2ab2a397c7bc605bcd2ba1b47ce210123f6d81a4f153b6ff05fe19f00627c",
-      "size": 5526
+      "sha256": "eaa5d270cbd983ecc8ddc6dfa878b43e6b0c35e95e0ac84051a4cb5f868a120e",
+      "size": 5525
     },
     {
       "path": "server/alerts.js",
@@ -389,10 +398,10 @@
     }
   ],
   "counts": {
-    "client": 29,
+    "client": 31,
     "server": 34
   },
-  "client_size": 1434694,
-  "server_size": 513249,
-  "total_size": 1947943
+  "client_size": 1455543,
+  "server_size": 513248,
+  "total_size": 1968791
 }
