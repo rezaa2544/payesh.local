@@ -1,6 +1,6 @@
 {
   "version": "0.8.80",
-  "built_at": "2026-11-09T06:36:04.196Z",
+  "built_at": "2026-11-09T06:45:51.138Z",
   "notes": [],
   "shell": {
     "android": "0.8.80"
@@ -39,44 +39,44 @@
     {
       "path": "client/icons/apple-touch-icon.png",
       "kind": "client",
-      "sha256": "2e5e34b3bc06a85a573cdb4fd8bef2f9486e9b4ef958807f3027fcb50454c408",
-      "size": 32185
+      "sha256": "aff311c44167f09dafa73e4501221445b7df7bb114b8fc399ae0a030cbec59cf",
+      "size": 32187
     },
     {
       "path": "client/icons/favicon-32.png",
       "kind": "client",
-      "sha256": "6961c6e785de4f794afcf6b12589b483736c02c218cc2fd2a30c9c582aae8207",
-      "size": 2094
+      "sha256": "327de29f936779ac81af3cdd01526513b41c81f1a9b8b4baca59f26bc0000ff4",
+      "size": 2095
     },
     {
       "path": "client/icons/favicon-64.png",
       "kind": "client",
-      "sha256": "0f8e26816b3465b44e1073bbb71964ceab60e695ea16f5e7d9fcdb7d56119d1f",
-      "size": 5960
+      "sha256": "f912dac91cf9953822da32452cbeee8e2bf8212121861ee25b74cac7cc5b05f9",
+      "size": 5961
     },
     {
       "path": "client/icons/icon-192.png",
       "kind": "client",
-      "sha256": "a32875352487646749666c0a7c37f76f1b6da0f3ff05ef8fc003371e846462a2",
-      "size": 35803
+      "sha256": "c3837f64806a1f92b9b0379eb76c0218917893c96934d0c7bf5752cc8d16e443",
+      "size": 35805
     },
     {
       "path": "client/icons/icon-512.png",
       "kind": "client",
-      "sha256": "4817137a5a7920f02e41c1a5c443305cd64143eaa9d00a3282778d796c5f558f",
-      "size": 182583
+      "sha256": "eec91028667f5b96d0301c4f90fbfb005c2d2c6796e95b9958d0d343094deab3",
+      "size": 182588
     },
     {
       "path": "client/icons/logo-mark.png",
       "kind": "client",
-      "sha256": "283c50b9098522c3262d38fa999e582690781634aee382cc7d9df81db14dde1a",
-      "size": 83500
+      "sha256": "36e76c29b4f35226d4f09ae60ae25721d12f62c3a21fbf921e213ad88eddfe50",
+      "size": 83504
     },
     {
       "path": "client/icons/logo.png",
       "kind": "client",
-      "sha256": "8e124a467b902ec6175604d4808ec98f785d3875f41ee4eac8fc8b82e02f4f85",
-      "size": 364140
+      "sha256": "ff2e6746aa44e186e5c01e0bf6f8c1b83ca6d3017e89059b8c42812018ebd3fd",
+      "size": 364145
     },
     {
       "path": "client/import.js",
@@ -389,7 +389,7 @@
     "client": 29,
     "server": 34
   },
-  "client_size": 1433341,
+  "client_size": 1433361,
   "server_size": 509631,
-  "total_size": 1942972
+  "total_size": 1942992
 }
