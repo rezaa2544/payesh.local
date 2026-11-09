@@ -54,3 +54,4 @@ $ current relevant PR states and merge SHAs (REST fields)
 141	closed	21283f5eea9c29caa88b9bb98a045259b99a610c	3bc8b90727852ca7f3a70df8d8c5a5a17b5deb5b
 142	closed	7dcd76369bdb57da29c83bde79a8e245e47f3e1a	afca62a5cfc4ef5c86e6abe86c120bcd9670382e
 143	closed	e5a79fa49aa4c5a248c6d02056fa2df67af2b827	15d2ab758ea0bc3df4bc1301f979f0d738c7d400
+144	open	0ab24111649e0fecb634317e4637a0250ad835e7
