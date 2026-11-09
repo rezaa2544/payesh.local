@@ -1,6 +1,6 @@
 {
   "version": "0.8.80",
-  "built_at": "2026-11-09T06:45:51.138Z",
+  "built_at": "2026-11-09T07:11:29.808Z",
   "notes": [],
   "shell": {
     "android": "0.8.80"
@@ -249,8 +249,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "f1022b3ff7675df73b8b528e9d1cfa562e30232301c396aa584e74747512cba8",
-      "size": 118721
+      "sha256": "0d204e55b52a2de2ccd07140850b4ce402495e628513a235515db482e7206238",
+      "size": 119238
     },
     {
       "path": "server/live.js",
@@ -390,6 +390,6 @@
     "server": 34
   },
   "client_size": 1433361,
-  "server_size": 509631,
-  "total_size": 1942992
+  "server_size": 510148,
+  "total_size": 1943509
 }

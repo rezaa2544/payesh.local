@@ -1857,10 +1857,14 @@ function importUsers(body) {
    فهرست از policy می‌آید تا مسیر export هم دقیقاً مثل pull بسته باشد —
    password_enc (رمز پلمپ‌شدهٔ قابل‌بازخوانی) هم شامل می‌شود. */
 const EXPORT_DENY = policy.SECRET_FIELD_RE;
+/* FIX-SEC01b: لایهٔ دفاعی صریح و ثابت در مرز خروجی (علاوه بر allowlist policy):
+   رمزها و فیلدهای هویتی حساس هرگز حتی اگر policy روزی عریان شود هم
+   در CSV/JSON export نمی‌روند. */
+const EXPORT_IDENTITY_DENY = /^(password_hash|password_plain|password_enc|pin_hash|phone_hash|__password_verifier|national_id|father_nid|mother_nid|shenasname_serial|shenasname_seri|token|secret|accessKey)/;
 function exportRow(row) {
   const out = {};
   for (const [k, v] of Object.entries(row || {})) {
-    if (k.startsWith('_') || EXPORT_DENY.test(k)) continue;
+    if (k.startsWith('_') || EXPORT_DENY.test(k) || EXPORT_IDENTITY_DENY.test(k)) continue;
     out[k] = v;
   }
   return out;
