@@ -1,0 +1,38 @@
+D1 NATIONAL_ID SERVER SEARCH
+source_commit=e6c9439d9d5f18068206a336c6cc46fe814ab58c
+branch=arena/d8dd156c-payesh-local
+session_date=2026-10-30 UTC
+command: grep -RIn --exclude='*.db' --exclude='*.sqlite*' --exclude-dir=node_modules --exclude-dir=.git -E 'national_id|nationalId|national-id' server
+
+server/auth.js:103:    national_id: normDigits(input.national_id || ''), active: true,
+server/auth.js:253:  const nid = normDigits(user.national_id);
+server/auth.js:401:  const nid = normDigits(row && row.national_id);
+server/auth.js:418:  if (key.length === 10) return users.find(u => normDigits(u.national_id) === key) || null;
+server/auth.js:453:    id: u.id, name: u.name, role: u.role, phone: u.phone, national_id: u.national_id,
+server/convergence.js:52:    manual: ['role', 'national_id', 'class_id', 'active', 'password_hash', 'phone_hash', 'password_enc'],
+server/index.js:358:    id: u.id, name: u.name, role: u.role, phone: u.phone, national_id: u.national_id || '',
+server/index.js:1185:    if (body.national_id != null) {
+server/index.js:1186:      const nid = normDigits(body.national_id);
+server/index.js:1187:      if (nid && !validNationalId(nid)) return json({ ok: false, error: 'bad_national_id' }, 400);
+server/index.js:1188:      patch.national_id = nid;
+server/index.js:1460:       ردیف ۵۷ (تصمیم D1): مدیر فیلدهای شناسنامه‌ای (national_id و زیرگروه‌ها) را
+server/index.js:1495:const IMP_STORE_FIELDS = ['first_name', 'last_name', 'national_id', 'phone', 'birth_date', 'gender',
+server/index.js:1663:        const nid = normDigits(r.national_id || '');
+server/index.js:1664:        if (nid) stu = store.all('users').find(u => u.role === 'student' && normDigits(u.national_id) === nid) || null;
+server/index.js:1711:      const nid = normDigits(r.national_id || '');
+server/index.js:1712:      if (nid && !validNationalId(nid)) { errors.push({ row: rowNo, error: 'bad_national_id', nid }); continue; }
+server/index.js:1714:      if (nid && createdNids.has(nid)) { errors.push({ row: rowNo, error: 'duplicate_national_id', nid }); continue; }
+server/index.js:1718:      if (nid) existing = store.all('users').find(u => normDigits(u.national_id) === nid) || null;
+server/index.js:1761:        national_id: nid || '',
+server/index.js:1815:          if (pnid) parent = store.all('users').find(u => u.role === 'parent' && normDigits(u.national_id) === pnid) || null;
+server/index.js:1822:              && (!pnid || !normDigits(cand.national_id) || normDigits(cand.national_id) === pnid)) parent = cand;
+server/index.js:1827:              && !normDigits(u.national_id) && !normDigits(u.phone)) || null;
+server/index.js:1834:              national_id: pnid || '', phone: free,
+server/index.js:1867:/* فیلدهای شناسنامه‌ای (national_id و زیرگروه‌ها) فقط برای غیرمدیر حذف می‌شوند. */
+server/index.js:1868:const EXPORT_IDENTITY_DENY = /^(national_id|father_nid|mother_nid|shenasname_serial|shenasname_seri)/;
+server/outbox.js:572:  const nid = util.normDigits(u && u.national_id);
+server/policy.js:231:     • هیچ الگوی کلایتی برای نقش غیرمدیر از national_id/شمارۀ ولی
+server/policy.js:243:  'national_id', 'father_nid', 'mother_nid',
+server/seed.js:38:    name: 'رضا مدیر', role: 'manager', phone: '09120000000', national_id: '0012345678', active: true, school_id: 1, created_at: nowISO(),
+server/seed.js:130:        national_id: '00' + String(10000000 + ri(89999999)),
+server/sync.js:343:        for (const f of ['password_hash', 'phone_hash', 'password_enc', 'phone', 'national_id']) {

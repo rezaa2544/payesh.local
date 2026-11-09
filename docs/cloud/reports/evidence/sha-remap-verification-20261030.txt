@@ -1,5 +1,5 @@
 snapshot_date=2026-10-30 UTC
-snapshot_origin_main=afca62a5cfc4ef5c86e6abe86c120bcd9670382e
+snapshot_origin_main=15d2ab758ea0bc3df4bc1301f979f0d738c7d400
 $ git ls-remote origin refs/heads/hermes/*
 fbf1f461fe7cdb51d49776ffe1d9f89d6f9efdd4	refs/heads/hermes/fix-57-leak
 5f505e410d223e2bffccde5d6879de662f2efaa7	refs/heads/hermes/historical-gates
@@ -49,7 +49,9 @@ $ current relevant PR states and merge SHAs (REST fields)
 135	closed	fbf1f461fe7cdb51d49776ffe1d9f89d6f9efdd4	38934721a1ddd6f790407515f7e45859e8867fef
 136	closed	ce02a962508c1dcb9b44e5350467798260dbd8de	1c0c4f52f7a2163797e83e5602fd9942bdbadd6c
 137	open	ecd67a6277ffe585e29942a536284241b693843a
-138	open	254af5f5028a102775cdbec27259ba7b0150a648
+138	closed	254af5f5028a102775cdbec27259ba7b0150a648
 140	closed	5f505e410d223e2bffccde5d6879de662f2efaa7
 141	closed	21283f5eea9c29caa88b9bb98a045259b99a610c	3bc8b90727852ca7f3a70df8d8c5a5a17b5deb5b
 142	closed	7dcd76369bdb57da29c83bde79a8e245e47f3e1a	afca62a5cfc4ef5c86e6abe86c120bcd9670382e
+143	closed	e5a79fa49aa4c5a248c6d02056fa2df67af2b827	15d2ab758ea0bc3df4bc1301f979f0d738c7d400
+144	open	0ab24111649e0fecb634317e4637a0250ad835e7

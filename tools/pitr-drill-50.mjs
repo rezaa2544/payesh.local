@@ -156,6 +156,12 @@ async function runPgDrill({ primaryUrl, restoredUrl, tenantId, targetIso, requir
               current_setting('archive_mode') as archive_mode,
               pg_current_wal_lsn()::text as current_lsn`
     );
+    /* ریسک صریح RPO: بدون آرشیو WAL (archive_mode=off) «بازیابی به نقطهٔ زمانی»
+       معنای تولیدی ندارد — حتی اگر خود تمرین سبز باشد. هشدار داده می‌شود، نه پنهان. */
+    const walSettings = walQ.rows[0] || {};
+    if (String(walSettings.archive_mode || '').toLowerCase() === 'off') {
+      console.error(`PITR-50-RPO-RISK host=${hostInfo.host} archive_mode=off — WAL archived نمی‌شود؛ RPO تولید پشتیبانی‌نشده (docs/cloud/50-pitr-recovery.md §۵)`);
+    }
     const recQ = await restored.query(
       `select pg_is_in_recovery() as in_recovery,
               coalesce(pg_last_wal_replay_lsn()::text, pg_current_wal_lsn()::text) as replay_lsn,

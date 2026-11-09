@@ -42,6 +42,7 @@ class Store {
     this.file = file;
     fs.mkdirSync(path.dirname(file), { recursive: true });
     this.db = new DatabaseSync(file);
+    this.closed = false;
     this.db.exec(`
       PRAGMA journal_mode = WAL;
       PRAGMA synchronous = FULL;
@@ -144,14 +145,23 @@ class Store {
   }
 
   /* ── meta ── */
+  /* پس از close() این متدها نرم برمی‌گردند (fail-soft) تا تایمرهای زنده —
+     مثلاً حلقهٔ به‌روزرسانیِ server/update.js — با «database is not open»
+     فرآیند را نیندازند. نوشتن نادیده گرفته می‌شود؛ خواندن fallback می‌دهد. */
   getMeta(key, fallback = null) {
-    const r = this.db.prepare('SELECT value FROM meta WHERE key=?').get(key);
-    if (!r) return fallback;
-    try { return JSON.parse(r.value); } catch (e) { return fallback; }
+    if (this.closed) return fallback;
+    try {
+      const r = this.db.prepare('SELECT value FROM meta WHERE key=?').get(key);
+      if (!r) return fallback;
+      try { return JSON.parse(r.value); } catch (e) { return fallback; }
+    } catch (e) { return fallback; }
   }
   setMeta(key, value) {
-    this.db.prepare('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
-      .run(key, JSON.stringify(value));
+    if (this.closed) return;
+    try {
+      this.db.prepare('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
+        .run(key, JSON.stringify(value));
+    } catch (e) { /* دیتابیس بسته: نادیده می‌گیریم */ }
   }
 
   /* ── شناسه‌های یکتا به ازای هر مجموعه ── */
@@ -305,7 +315,7 @@ class Store {
     };
   }
 
-  close() { try { this.db.close(); } catch (e) { /* noop */ } }
+  close() { this.closed = true; try { this.db.close(); } catch (e) { /* noop */ } }
 }
 
 function openStore(file) { return new Store(file); }

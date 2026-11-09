@@ -1704,11 +1704,13 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(list.data.ok, true);
   });
 
-  await test('به‌روزرسانی: پیش‌فرض خودکار + گزارش تغییرات یک‌بار', async () => {
+  await test('به‌روزرسانی: پیش‌فرض ایمن (opt-in صریح) + گزارش تغییرات یک‌بار', async () => {
     const upd = require(path.join(ROOT, 'server', 'update.js'));
     const store = { getMeta: () => null };
-    assert.strictEqual(upd.autoApplyEnabled(store), true, 'نصب خودکار پیش‌فرض روشن است');
-    assert.strictEqual(upd.autoCheckEnabled(store), true, 'بررسی خودکار پیش‌فرض روشن است');
+    /* پروفایل پیش‌فرض = تولید/پایلوت: بررسی و نصب خودکار خاموش؛
+       روشن‌شدن فقط با اذن صریح (env یا پنل مدیر) — risk R-50/51 */
+    assert.strictEqual(upd.autoApplyEnabled(store), false, 'نصب خودکار هرگز پیش‌فرض نیست (تأیید دستی)');
+    assert.strictEqual(upd.autoCheckEnabled(store), false, 'بررسی خودکار پیش‌فرض خاموش است');
 
     /* مانیفست منتشرشده باید یادداشت تغییرات داشته باشد */
     const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'releases/manifest.json'), 'utf8'));

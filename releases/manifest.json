@@ -1,17 +1,18 @@
 {
-  "version": "0.8.79",
-  "built_at": "2026-11-09T12:44:28.518Z",
+  "version": "0.8.81",
+  "built_at": "2026-11-09T12:54:55.727Z",
   "notes": [
-    "داشبورد مدیر در بالای سمت چپ، زنگ جاری را نشان می‌دهد و روز هفته و تاریخ شمسی را با اندازهٔ کوچک زیر آن می‌آورد."
+    "بررسی و نصب خودکار به‌روزرسانی به‌طور پیش‌فرض خاموش است و فقط با انتخاب صریح مدیر فعال می‌شود.",
+    "بسته‌شدن امن تایمر به‌روزرسانی و ثبت صریح ریسک بازیابی نقطه‌ای زمانی (PITR) در مستندات."
   ],
   "shell": {
-    "android": "0.8.79"
+    "android": "0.8.81"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "2e7331045e4f662d30f9ff9e397da50d775edfb856de8ca2866503c542c2f92b",
+      "sha256": "09d73576533a3d68527b090d1a00f4cde94858d96537cee2437ad413eb326165",
       "size": 201455
     },
     {
@@ -191,7 +192,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "69a38d256f9f53b689106ebb3b0733f3cb6253112498e7978e50cbbdab198601",
+      "sha256": "b3d2ab2a397c7bc605bcd2ba1b47ce210123f6d81a4f153b6ff05fe19f00627c",
       "size": 5526
     },
     {
@@ -233,8 +234,8 @@
     {
       "path": "server/db.js",
       "kind": "server",
-      "sha256": "9e2f56177b06c0da5ad6d1cd10a2b2b3e49a7cc7743d5608aca22df28254b4ac",
-      "size": 13711
+      "sha256": "7a4bac5501a85acc740bbc848e387b0f69716d408a6552fb1dcb10191bd241da",
+      "size": 14325
     },
     {
       "path": "server/directory.js",
@@ -251,8 +252,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "3ab10175a3390162299818077d5ffb089af652f5eb44d07f509cc4e29ac6e1d7",
-      "size": 119896
+      "sha256": "2f2386705bfa04d42959dbb651b2fe3b3d2d45e9a188735b0c4ae355ef8ce653",
+      "size": 120273
     },
     {
       "path": "server/live.js",
@@ -359,8 +360,8 @@
     {
       "path": "server/update.js",
       "kind": "server",
-      "sha256": "7fdb397a738f03d9c962a43db0ae5e4f4df7ba052dcaa20c50aa48982f2b9009",
-      "size": 31273
+      "sha256": "73c34f6606060059ad998fcb714c8d27e7f55290b7012c0f3ebfb94b48a78b45",
+      "size": 32724
     },
     {
       "path": "server/util.js",
@@ -392,6 +393,6 @@
     "server": 34
   },
   "client_size": 1434694,
-  "server_size": 510807,
-  "total_size": 1945501
+  "server_size": 513249,
+  "total_size": 1947943
 }
