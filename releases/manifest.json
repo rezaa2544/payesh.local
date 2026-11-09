@@ -1,6 +1,6 @@
 {
   "version": "0.8.79",
-  "built_at": "2026-11-09T06:39:24.702Z",
+  "built_at": "2026-11-09T10:32:47.699Z",
   "notes": [
     "داشبورد مدیر در بالای سمت چپ، زنگ جاری را نشان می‌دهد و روز هفته و تاریخ شمسی را با اندازهٔ کوچک زیر آن می‌آورد."
   ],
@@ -191,8 +191,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "005c6fc4c3145a70999f4e75cc2b5e6f9d4e3a480aa9b61ed8f830e53726569d",
-      "size": 5297
+      "sha256": "69a38d256f9f53b689106ebb3b0733f3cb6253112498e7978e50cbbdab198601",
+      "size": 5526
     },
     {
       "path": "server/alerts.js",
@@ -245,14 +245,14 @@
     {
       "path": "server/gateway.js",
       "kind": "server",
-      "sha256": "6c3a9f099c434977d0d3c00e1d2b91115399b3b268bbb82cecce2181ff1b346e",
-      "size": 18041
+      "sha256": "72399d9f75a4edfe50e1bee6c28324117a63e7349123769de262fd8f315a95c8",
+      "size": 18871
     },
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "adb745641ea0e8882fcccc61a608c50e626eaf01c6b84d21c7bee289be63dfc1",
-      "size": 117978
+      "sha256": "f1022b3ff7675df73b8b528e9d1cfa562e30232301c396aa584e74747512cba8",
+      "size": 118721
     },
     {
       "path": "server/live.js",
@@ -275,8 +275,8 @@
     {
       "path": "server/outbox.js",
       "kind": "server",
-      "sha256": "ba2b965ec5b6bffcf07e8863b49f8073ea54a2a505bf088b4569eafe01688346",
-      "size": 31406
+      "sha256": "5c992669dc66f8f01b88bb9713bb7dca617c51d71e1f7503026936d522f042d0",
+      "size": 32231
     },
     {
       "path": "server/pitr.js",
@@ -287,8 +287,8 @@
     {
       "path": "server/policy.js",
       "kind": "server",
-      "sha256": "f4e6795326b1d4966c83878c072afcf50d804057bbec1d5ae47a51d20957946c",
-      "size": 10195
+      "sha256": "2dbfeacfe7fb9baa1bd42a67057272caea914fe923a3963f5103a9cba20895c8",
+      "size": 16008
     },
     {
       "path": "server/qr.js",
@@ -329,14 +329,14 @@
     {
       "path": "server/sync.js",
       "kind": "server",
-      "sha256": "3a92ba27295dbe2237ca5b06be45edfa6d8d63ce9d7e68cbfa84ba8493a2f317",
-      "size": 19740
+      "sha256": "3d304e9e610d9d5fa22d20b7299577eb63284da0ef25505a8dd8531a1834bba9",
+      "size": 20219
     },
     {
       "path": "server/tenancy.js",
       "kind": "server",
-      "sha256": "97132d66fb13d2c11d0a60436213713db22513727f1a351578aaa4fe59f8b1e9",
-      "size": 54680
+      "sha256": "6ddaea0560c361bb6c6ff8354fb715bc4ea89dfd8357e6a6dffd76a1218ff5ed",
+      "size": 57670
     },
     {
       "path": "server/tenant-context.js",
@@ -392,6 +392,6 @@
     "server": 34
   },
   "client_size": 1434694,
-  "server_size": 497723,
-  "total_size": 1932417
+  "server_size": 509632,
+  "total_size": 1944326
 }
