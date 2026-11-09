@@ -73,15 +73,28 @@ function sourceLabel(store) {
   return custom ? 'دستی' : 'پیش‌فرض';
 }
 
-function autoCheckEnabled(store) {
-  if (process.env.PAYESH_UPDATE_AUTO === '0') return false;
-  const v = store ? cfg.getMeta(store, 'update_auto') : null;
-  return v === null || v === undefined ? true : !!v;
+/* خواندن امن تنظیم از دیتابیس: اگر store بسته شده باشد (پس از close()
+   یا در پنجرهٔ راه‌اندازی مجدد) نباید استثنا پرتاب کند و تایمر را بیندازد. */
+function safeMeta(store, key) {
+  try { return store ? cfg.getMeta(store, key) : null; } catch (e) { return null; }
 }
+
+/* پیش‌فرض = پروفایل ایمن (تولید/پایلوت): بررسی خودکار **خاموش** است مگر اینکه
+   صریح روشن شده باشد. dev می‌تواند با `PAYESH_UPDATE_AUTO=1` یا `update_auto=true`
+   (پنل مدیر) آن را فعال کند — یعنی همیشه opt-in صریح، نه یک فرض پنهان. */
+function autoCheckEnabled(store) {
+  const env = String(process.env.PAYESH_UPDATE_AUTO || '').trim();
+  if (env === '1') return true;
+  if (env === '0') return false;
+  return safeMeta(store, 'update_auto') === true;
+}
+/* پیش‌فرض = تأیید دستی: نصب بدون پرسش هرگز پیش‌فرض نیست، چون هر نصب
+   می‌تواند سرور مدرسه را بی‌هشدار راه‌اندازی مجدد کند. */
 function autoApplyEnabled(store) {
-  /* پیش‌فرض روشن: کاربر می‌خواهد نسخهٔ تازه بی‌صدا نصب شود و فقط گزارش تغییرات را ببیند */
-  const v = store ? cfg.getMeta(store, 'update_auto_apply') : null;
-  return v === null || v === undefined ? true : !!v;
+  const env = String(process.env.PAYESH_UPDATE_AUTO_APPLY || '').trim();
+  if (env === '1') return true;
+  if (env === '0') return false;
+  return safeMeta(store, 'update_auto_apply') === true;
 }
 
 /* ── شبکه ─────────────────────────────────────────────────────────── */
@@ -576,6 +589,9 @@ let lastCheck = null;
 
 async function tick(store, { onApply } = {}) {
   try {
+    /* دیتابیس بسته‌شده: هیچ کاری نکنیم (نه crash). این حالت واقعی است:
+       پنجرهٔ راه‌اندازی مجدد، بین closeServerForRestart و خروج فرآیند. */
+    if (store && store.closed) return { ok: false, available: false, error: 'store_closed' };
     const p = await plan(store, { force: true });
     lastCheck = { at: nowISO(), available: !!p.available, version: p.remote_version || null, error: p.ok ? null : p.error };
     if (store) store.setMeta('update:checked', lastCheck);
@@ -590,12 +606,19 @@ async function tick(store, { onApply } = {}) {
 
 function start(store, { onApply, everyMs = 15 * 60_000 } = {}) {
   if (timer) clearInterval(timer);
+  const safeTick = () => {
+    try {
+      if (store && store.closed) return;
+      if (!autoCheckEnabled(store)) return;
+      tick(store, { onApply }).catch(() => {});
+    } catch (e) {
+      /* خطای «database is not open» و هر خطای مشابه: این تایمر هرگز
+         نباید فرآیند را بیاندازد — سرور در حال خاموش‌شدن است. */
+    }
+  };
   /* اولین بررسی کمی بعد از بالا آمدن سرور (تا راه‌اندازی کند نشود) */
-  setTimeout(() => { if (autoCheckEnabled(store)) tick(store, { onApply }).catch(() => {}); }, 12_000).unref?.();
-  timer = setInterval(() => {
-    if (!autoCheckEnabled(store)) return;
-    tick(store, { onApply }).catch(() => {});
-  }, everyMs);
+  setTimeout(safeTick, 12_000).unref?.();
+  timer = setInterval(safeTick, everyMs);
   timer.unref?.();
   return timer;
 }

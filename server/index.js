@@ -2090,6 +2090,9 @@ if (process.env.PAYESH_OUTBOX_AUTO !== '0') {
 function autoRestartEnabled() { return process.env.PAYESH_NO_RESTART !== '1'; }
 let restarting = false;
 function closeServerForRestart() {
+  /* تایمر به‌روزرسانی را اول متوقف کنیم: وگرنه ممکن است در پنجرهٔ بین
+     close() و خروج فرآیند شلیک کند و با «database is not open» بیندازد. */
+  try { update.stop(); } catch (e) { /* noop */ }
   try { server.close(); } catch (e) { /* noop */ }
   try { if (server.closeAllConnections) server.closeAllConnections(); } catch (e) { /* noop */ }
   try { store.close(); } catch (e) { /* noop */ }
@@ -2179,5 +2182,5 @@ server.listen(PORT, HOST, () => {
   } catch (e) { console.error('update start failed', e.message); }
 });
 
-process.on('SIGINT', () => { store.close(); process.exit(0); });
-process.on('SIGTERM', () => { store.close(); process.exit(0); });
+process.on('SIGINT', () => { try { update.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });
+process.on('SIGTERM', () => { try { update.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });
