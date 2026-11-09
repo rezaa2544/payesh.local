@@ -30,6 +30,11 @@ jobs:
         with:
           node-version: '22'
 
+      - name: دروازهٔ fail-closed کلید امضای Android
+        run: |
+          node tools/check-android-signing-safety.cjs --self-test
+          node tools/check-android-signing-safety.cjs
+
       - name: نصب وابستگی‌های آزمون
         run: npm install --no-audit --no-fund
 
@@ -273,8 +278,43 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: آماده‌سازی امن کلید امضای release (بدون fallback)
+        env:
+          PAYESH_KEYSTORE_B64: ${{ secrets.PAYESH_KEYSTORE_B64 }}
+          PAYESH_KEYSTORE_PASS: ${{ secrets.PAYESH_KEYSTORE_PASS }}
+          PAYESH_KEY_ALIAS: ${{ secrets.PAYESH_KEY_ALIAS }}
+          PAYESH_KEY_PASS: ${{ secrets.PAYESH_KEY_PASS }}
+          PAYESH_SIGNING_ROTATION_APPROVED: ${{ vars.PAYESH_SIGNING_ROTATION_APPROVED }}
+        run: |
+          set -euo pipefail
+          for name in PAYESH_KEYSTORE_B64 PAYESH_KEYSTORE_PASS PAYESH_KEY_ALIAS PAYESH_KEY_PASS; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Required Android signing secret is missing: $name"
+              exit 1
+            fi
+          done
+          if [ "$PAYESH_SIGNING_ROTATION_APPROVED" != "true" ]; then
+            echo "::error::Owner approval for the signing-key migration path is missing; release stopped"
+            exit 1
+          fi
+          KEYSTORE_FILE="$RUNNER_TEMP/payesh-release-signing.p12"
+          printf '%s' "$PAYESH_KEYSTORE_B64" | base64 --decode > "$KEYSTORE_FILE"
+          chmod 600 "$KEYSTORE_FILE"
+          test -s "$KEYSTORE_FILE"
+          if ! keytool -list -keystore "$KEYSTORE_FILE" -storepass:env PAYESH_KEYSTORE_PASS -alias "$PAYESH_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::Keystore یا alias ارائه‌شده قابل اعتبارسنجی نیست؛ انتشار متوقف شد"
+            exit 1
+          fi
+          printf 'PAYESH_KEYSTORE=%s\n' "$KEYSTORE_FILE" >> "$GITHUB_ENV"
+          echo "Release signing material prepared in runner temp storage."
+
       - name: ساخت APK اندروید
         env:
+          PAYESH_KEYSTORE: ${{ runner.temp }}/payesh-release-signing.p12
+          PAYESH_KEYSTORE_PASS: ${{ secrets.PAYESH_KEYSTORE_PASS }}
+          PAYESH_KEY_ALIAS: ${{ secrets.PAYESH_KEY_ALIAS }}
+          PAYESH_KEY_PASS: ${{ secrets.PAYESH_KEY_PASS }}
+          PAYESH_SIGNING_ROTATION_APPROVED: ${{ vars.PAYESH_SIGNING_ROTATION_APPROVED }}
           # آدرس سامانه که داخل APK پخته می‌شود (تنظیم با gh variable set PAYESH_PUBLIC_URL)
           PAYESH_APP_URL: ${{ vars.PAYESH_PUBLIC_URL }}
           # نام صندوقچهٔ ابری که داخل APK پخته می‌شود (اختیاری — gh variable set CLOUD_BUCKET)
@@ -288,7 +328,7 @@ jobs:
           grep -E "versionName|versionCode" install/android/app/build.gradle
           # نسخهٔ «انتشار» ساخته می‌شود، نه debug:
           #  • debuggable=false → گوگل برنامه را «آزمایشی» نمی‌بیند
-          #  • امضای v1+v2+v3 با کلید ثابت → نصب و به‌روزرسانی بی‌هشدار
+          #  • کلید خصوصی فقط از Secrets Owner تأمین می‌شود؛ fallback مخزنی وجود ندارد.
           set +e
           gradle assembleRelease --no-daemon -p install/android > /tmp/gradle.log 2>&1
           code=$?
@@ -320,42 +360,34 @@ jobs:
             fi
             echo "✓ تراز بایت درست است (zipalign)"
           fi
-          # ── ۲) امضای v1/v2/v3 با کلید ثابت ─────────────────────────────
-          SIGNED=no
-          if [ -n "$BT" ] && [ -x "$BT/apksigner" ]; then
-            "$BT/apksigner" verify --verbose --print-certs "$APK" > /tmp/sig.txt 2>&1
-            echo "apksigner exit=$?"
-            head -14 /tmp/sig.txt
-            for v in 2 3; do
-              if ! grep -Eq "Verified using v$v scheme.*: true" /tmp/sig.txt; then
-                echo "::error::امضای v$v نیست — اندروید برنامه را قبول نمی‌کند"
-                grep -i "verified using" /tmp/sig.txt | sed 's/^/::error::/' | head -8
-                exit 1
-              fi
-              echo "✓ امضای v$v درست است"
-            done
-            echo "✓ امضای v2 و v3 هر دو درست است"
-            if grep -q "Signer #1 certificate SHA-256 digest" /tmp/sig.txt; then
-              SIGNED=yes
-              FP=$(grep "Signer #1 certificate SHA-256 digest" /tmp/sig.txt | tr -d ' ' | cut -d: -f2 | tr 'A-F' 'a-f')
-              echo "اثر انگشت امضا: $FP"
-              # کلید باید همان کلید ثابت مخزن باشد؛ وگرنه نصب روی نسخهٔ قبلی رد می‌شود
-              if [ "$FP" != "d646302bdfae9495c8726c3d582f5816dca5401e2cfb77b137c845cff6b2e36e" ]; then
-                echo "::error::کلید امضا با کلید ثابت مخزن یکی نیست ($FP) — به‌روزرسانی روی گوشی‌ها نصب نخواهد شد"
-                exit 1
-              fi
-            fi
-          fi
-          if [ "$SIGNED" = no ]; then
-            # بررسی ساده و بدون ابزار: آیا بلوک امضا داخل فایل هست؟
-            if unzip -l "$APK" | grep -Eq "META-INF/[^/]+\.(RSA|DSA|EC)$"; then SIGNED=yes; fi
-            if grep -qa "APK Sig Block 42" "$APK"; then SIGNED=yes; fi
-            echo "بررسی بدون ابزار: امضا=$SIGNED"
-          fi
-          if [ "$SIGNED" != yes ]; then
-            echo "::error::APK امضا نشده — روی گوشی نصب نمی‌شود"
+          # ── ۲) امضای release با کلید Owner ────────────────────────────
+          if [ -z "$BT" ] || [ ! -x "$BT/apksigner" ]; then
+            echo "::error::Android apksigner در SDK پیدا نشد؛ امضا قابل تأیید نیست"
             exit 1
           fi
+          if ! "$BT/apksigner" verify --verbose --print-certs "$APK" > /tmp/sig.txt 2>&1; then
+            echo "::error::apksigner failed to verify the release APK"
+            exit 1
+          fi
+          echo "apksigner verification passed"
+          head -14 /tmp/sig.txt
+          for v in 2 3; do
+            if ! grep -Eq "Verified using v$v scheme.*: true" /tmp/sig.txt; then
+              echo "::error::امضای v$v نیست — انتشار fail-closed شد"
+              grep -i "verified using" /tmp/sig.txt | sed 's/^/::error::/' | head -8
+              exit 1
+            fi
+            echo "✓ امضای v$v درست است"
+          done
+          if ! grep -q "Signer #1 certificate SHA-256 digest" /tmp/sig.txt; then
+            echo "::error::گواهی امضای APK پیدا نشد"
+            exit 1
+          fi
+          SIGNED=yes
+          FP=$(grep "Signer #1 certificate SHA-256 digest" /tmp/sig.txt | tr -d ' ' | cut -d: -f2 | tr 'A-F' 'a-f')
+          echo "اثر انگشت گواهی (غیرمحرمانه): $FP"
+          echo "اثر انگشت با fingerprint ثبت‌شدهٔ قبلی مقایسه نمی‌شود؛ مسیر انتقال v3 باید توسط Owner تأیید شود."
+          [ "$SIGNED" = yes ] || { echo "::error::APK امضا نشده — انتشار fail-closed شد"; exit 1; }
           echo "APK امضا شده است."
 
       - name: بررسی سلامت APK
@@ -438,6 +470,10 @@ jobs:
             - اندروید: `payesh-local.apk` (نصب از منابع ناشناس را اجازه دهید)
             - آیفون: از Safari باز کنید و «افزودن به صفحهٔ اصلی»
             - به‌روزرسانی برنامه‌ها یک‌کلیکی و فقط با فایل‌های تغییرکرده انجام می‌شود.
+
+      - name: پاکسازی کلید امضای موقت
+        if: always()
+        run: rm -f "$RUNNER_TEMP/payesh-release-signing.p12"
 
   windows-installer:
     concurrency:

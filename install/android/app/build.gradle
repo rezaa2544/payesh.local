@@ -27,6 +27,25 @@ if (System.getenv("PAYESH_CLOUD_BUCKET")) {
     payeshBucket = System.getenv("PAYESH_CLOUD_BUCKET").trim()
 }
 
+def signingEnv = [
+    keystore: System.getenv('PAYESH_KEYSTORE'),
+    storePassword: System.getenv('PAYESH_KEYSTORE_PASS'),
+    alias: System.getenv('PAYESH_KEY_ALIAS'),
+    keyPassword: System.getenv('PAYESH_KEY_PASS'),
+]
+def releaseSigningReady = signingEnv.values().every { it != null && !it.trim().isEmpty() }
+def signingRotationApproved = 'true'.equalsIgnoreCase(System.getenv('PAYESH_SIGNING_ROTATION_APPROVED')?.trim())
+
+gradle.taskGraph.whenReady { taskGraph ->
+    def isReleaseBuild = taskGraph.allTasks.any { it.name.toLowerCase(Locale.ROOT).contains('release') }
+    if (isReleaseBuild && !releaseSigningReady) {
+        throw new GradleException('Release signing credentials are missing; release builds fail closed.')
+    }
+    if (isReleaseBuild && !signingRotationApproved) {
+        throw new GradleException('Owner approval for the signing-key migration path is missing; release builds fail closed.')
+    }
+}
+
 android {
     namespace 'ir.payesh.local'
     compileSdk 34
@@ -47,50 +66,28 @@ android {
     buildFeatures { buildConfig true }
 
     signingConfigs {
-        /* ── کلید ثابتِ خودِ برنامه ────────────────────────────────────────
-           چرا لازم است: اگر هر ساخت با کلید تازه امضا شود (کلید debug روی
-           هر ماشین و هر اجرای CI از نو ساخته می‌شود)، اندروید نصب نسخهٔ
-           تازه را روی نسخهٔ قبلی قبول نمی‌کند و می‌گوید «برنامه نصب نشد»
-           یا «بستهٔ برنامه مشکل دارد». با یک کلید ثابت، هر نسخهٔ بعدی
-           روی قبلی نصب می‌شود و داده‌ها سر جایشان می‌مانند.
-
-           اگر در CI کلید خصوصی جدا گذاشته شود (PAYESH_KEYSTORE و …)
-           همان مقدم است. */
-        stable {
-            /* امضا در هر سه قالب استاندارد گوگل: v1 (قدیمی)، v2 (اندروید ۷+)
-               و v3 (اندروید ۹+). بدون این‌ها بعضی گوشی‌ها هنگام نصب
-               «بستهٔ برنامه مشکل دارد» یا «برنامه تأیید نشد» می‌گویند. */
-            enableV1Signing true
-            enableV2Signing true
-            enableV3Signing true
-            if (System.getenv("PAYESH_KEYSTORE")) {
-                storeFile file(System.getenv("PAYESH_KEYSTORE"))
-                storePassword System.getenv("PAYESH_KEYSTORE_PASS")
-                keyAlias System.getenv("PAYESH_KEY_ALIAS")
-                keyPassword System.getenv("PAYESH_KEY_PASS")
-            } else {
-                storeFile file("../payesh-signing.p12")
-                storeType "PKCS12"
-                storePassword "payesh1404"
-                keyAlias "payesh"
-                keyPassword "payesh1404"
+        release {
+            if (releaseSigningReady) {
+                storeFile file(signingEnv.keystore)
+                storeType 'PKCS12'
+                storePassword signingEnv.storePassword
+                keyAlias signingEnv.alias
+                keyPassword signingEnv.keyPassword
             }
         }
     }
 
     buildTypes {
         debug {
-            /* همین نسخهٔ داخل مخزن هم با کلید ثابت امضا می‌شود */
-            signingConfig signingConfigs.stable
+            // Local debug builds use Android's standard machine-local debug key.
         }
         release {
-            /* نسخهٔ انتشار: بدون قابلیت اشکال‌زدایی — همان چیزی که برای
-               نصب روی گوشی کاربران استاندارد است (نسخهٔ debug را گوگل
-               «برنامهٔ آزمایشی» می‌شناسد و ممکن است هشدار بدهد). */
+            /* انتشار فقط با کلید خصوصی تأمین‌شده از محیط امن CI؛ هیچ fallback
+               به کلید عمومی/ثابت داخل مخزن وجود ندارد. */
             debuggable false
             minifyEnabled false
             shrinkResources false
-            signingConfig signingConfigs.stable
+            if (releaseSigningReady) signingConfig signingConfigs.release
         }
     }
 
