@@ -1,4 +1,6 @@
-# T2 Independent Security Assessment — Readiness Only
+# Independent security-assessment readiness — not the T2 database tier
+
+> **Terminology clarification:** This document is a readiness-only artifact for a possible independent security assessment. Its historical `T2` filename/title is separate from the project's operational **T2 managed-PostgreSQL tier** described in [`../T2-runbook.md`](../T2-runbook.md). The naming overlap caused the database-measurement request to be misread as a security-assessment request. This document does not define, measure, or change the database tier, and its existence does not mean an assessment has run.
 
 `base_sha=17212f5c5e73a90578227e32fb7f81a82187f3cb`
 `date_utc=2026-11-09T16:37:58Z`
