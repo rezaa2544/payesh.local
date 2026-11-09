@@ -1,0 +1,33 @@
+D4 NEGATIVE CONTROL — PL-31 CSV SECRET REDACTION
+source_commit=e6c9439d9d5f18068206a336c6cc46fe814ab58c
+branch=arena/d8dd156c-payesh-local
+session_date=2026-10-30 UTC
+Mutation: in an isolated temporary worktree, both EXPORT_DENY and EXPORT_SECRET_DENY were replaced with never-match regexes; tracked source was not changed.
+Command: npm run test:pull57
+
+> payesh-local@0.8.81 test:pull57
+> node --experimental-sqlite --disable-warning=ExperimentalWarning tests/pull-leak-57.js
+
+PASS  PL-00  راه‌اندازی اولیه و نشست مدیر  → manager session ok  (42ms)
+PASS  PL-01  ساخت کلاس/معلم/دانش‌آموز/والد + پیوندها  → teacher=2 student=3 parent=4 class=1  (91ms)
+PASS  PL-02  ورود هر سه نقش غیرمدیر (رمز پیش‌فرض = کد ملی)  → 3 sessions  (77ms)
+PASS  PL-10  pull users برای نقش teacher: هیچ فیلد رمزی نیست  → 2 ردیف، همه پاک‌سازی‌شده  (4ms)
+PASS  PL-11  pull users برای نقش parent: هیچ فیلد رمزی نیست  → 2 ردیف، همه پاک‌سازی‌شده  (2ms)
+PASS  PL-12  pull users برای نقش student: هیچ فیلد رمزی نیست  → 1 ردیف، همه پاک‌سازی‌شده  (3ms)
+PASS  PL-13  والد ردیف فرزند را می‌بیند و بدون فیلد رمزی/هویتی است  → child visible, no secrets, no identity fields  (2ms)
+PASS  PL-14  دبیرِ کلاس ردیف دانش‌آموز را می‌بیند، فیلد هویتی ندارد  → student in scope, identity scrubbed  (3ms)
+PASS  PL-15  /api/students/:id برای دبیر: فیلد هویتی نیست  → identity scrubbed on student endpoint  (2ms)
+PASS  PL-16  outbox.personData: me هویتیِ خودش را دارد، children مینیمال  → me=self identity, children minimal  (9ms)
+PASS  PL-20  کنترل مثبت: مدیر password_hash، password_enc و national_id را می‌بیند  → manager keeps full user rows  (4ms)
+PASS  PL-30  خروجی CSV: نقش غیرمدیر ۴۰۳ است  → 403 for teacher  (2ms)
+FAIL  PL-31  خروجی CSV مدیر: هیچ(password_enc|password_hash|phone_hash) در متن نیست  → رمز در CSV هست: ﻿name,role,phone,national_id,active,school_id,created_at,password_hash,phone_hash,password_enc,id,class_id,father_nid,mother_nid,shenasname_serial,shenasname_seri,father_phone,mother_phone,landline,address,residence,village,residence_status
+PASS  PL-40  S4: /api/health بدون data_dir/db_file و بدون مسیر مطلق  → health clean  (1ms)
+PASS  PL-50  S4: /metrics بدون توکن ۴۰۱ می‌گیرد (سرور محصول)  → 401  (0ms)
+PASS  PL-51  S4: /metrics با توکن (هدر و کوئری) ۲۰۰ می‌دهد  → 200 header+query  (5ms)
+PASS  PL-60  S4: Gateway /metrics با توکن ۴۰۱/۲۰۰ می‌دهد  → gateway 401/200  (370ms)
+PASS  PL-61  Gateway /metrics بدون تنظیم توکن باز می‌ماند (بدون رگرسیون)  → 200 as before  (368ms)
+PASS  PL-70  policy.scrubUser: فقط فیلدهای مجاز می‌مانند  → _version,father_name,id,name  (1ms)
+
+PL checks=19 pass=18 fail=1
+failures: PL-31
+PULL-LEAK-57-FAILED
