@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# دروازهٔ فاز ۳ — «آیا فازهای ۰–۲ شاهددار بسته‌اند و فاز ۳ در وضعیت درست است؟»
+# [شاهد تاریخی/منسوخ] — پایهٔ فاز ۳؛ خروجی فقط جنبهٔ تاریخی دارد (docs/cloud/reports/evidence/README-gates.md)
 # fail-closed · وضعیت دروازه را از تصمیم ثبت‌شدهٔ مالک می‌خواند: D‑34 (بسته) → D‑35 (باز)
 #
 # اجرا: bash docs/cloud/reports/evidence/gen-phase3-gate.sh
