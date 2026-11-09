@@ -22,7 +22,9 @@ cd "$(dirname "$0")/../../../.." || { echo "FATAL: repo root not found" >&2; exi
 EVID=docs/cloud/reports/evidence
 LOG="$EVID/mission-05-tests-run.log"
 OUT="$EVID/mission-05-11-structure.txt"
-TSFILE=$(date -u +%Y-%m-%dT%H:%M:%SZ | tr -d ':-')
+DATE_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+TSFILE=$(echo "$DATE_UTC" | tr -d ':-')
+BASE_SHA=$(git rev-parse HEAD)
 DOCS="docs/cloud/05-audit-sha-freeze.md docs/cloud/06-audit-auth-session.md docs/cloud/07-audit-roles-tenant.md docs/cloud/08-audit-source-of-truth.md docs/cloud/09-audit-cache-queue-sync.md docs/cloud/10-audit-crypto-backup-restore.md docs/cloud/11-gap-report.md"
 FA=docs/cloud/0[6-9]*.md
 FB=docs/cloud/10*.md
@@ -229,6 +231,9 @@ OUTSIDE=$(git diff --name-only "$BASE" HEAD -- server client tests installer scr
 if [ "$RC" -ne 0 ]; then
   BAD="$EVID/mission-05-11-structure.FAILED-$TSFILE.txt"
   {
+    echo "base_sha=$BASE_SHA"
+    echo "date_utc=$DATE_UTC"
+    echo "command=bash docs/cloud/reports/evidence/gen-audit-evidence.sh"
     echo "# شاهد ساختاری ممیزی ۰۵–۱۱ — ناموفق"
     echo "# تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh"
       echo "# نتیجه: EVIDENCE-FAIL (کد خروج غیرصفر)"
@@ -240,6 +245,9 @@ if [ "$RC" -ne 0 ]; then
 fi
 
 {
+  echo "base_sha=$BASE_SHA"
+  echo "date_utc=$DATE_UTC"
+  echo "command=bash docs/cloud/reports/evidence/gen-audit-evidence.sh"
   echo "# شاهد ساختاری ممیزی ۰۵–۱۱"
   echo "# تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh"
   echo "# تاریخ اجرای آزمون (از لاگ خام): ${LOGTIME:-?}"
