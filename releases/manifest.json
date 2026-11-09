@@ -1,15 +1,17 @@
 {
-  "version": "0.8.80",
-  "built_at": "2026-11-09T10:17:30.887Z",
-  "notes": [],
+  "version": "0.8.79",
+  "built_at": "2026-11-09T10:44:40.552Z",
+  "notes": [
+    "داشبورد مدیر در بالای سمت چپ، زنگ جاری را نشان می‌دهد و روز هفته و تاریخ شمسی را با اندازهٔ کوچک زیر آن می‌آورد."
+  ],
   "shell": {
-    "android": "0.8.80"
+    "android": "0.8.79"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "96192dd97e70f0b69737c4a0fbe44614415c7a5ff908b17a36e4ae063e0381fa",
+      "sha256": "2e7331045e4f662d30f9ff9e397da50d775edfb856de8ca2866503c542c2f92b",
       "size": 201455
     },
     {
@@ -141,8 +143,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "110c7b931b6280fc1673625f1d22e7bb05b9ccd0aa2de4a560e180237434eb49",
-      "size": 163927
+      "sha256": "79fcee446cad2570b1bccc962fd104308e8fe2c9d4ca52654f868fde9b5f7835",
+      "size": 164532
     },
     {
       "path": "client/scan.js",
@@ -165,8 +167,8 @@
     {
       "path": "client/styles.css",
       "kind": "client",
-      "sha256": "bd7bbd9055120ca36045ac5b722f5ca6869247a2a608fe1be297523c039e4bdb",
-      "size": 19178
+      "sha256": "abfe5b3991fb620777ec55d01e50a0963ab421e0600b0108956a422686d0ebc4",
+      "size": 19906
     },
     {
       "path": "client/sw.js",
@@ -189,8 +191,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "da5972ba3eeb7e3947c85e55a4a85e0687a1ded041e8e7f4c44877ad0ed0010f",
-      "size": 5525
+      "sha256": "69a38d256f9f53b689106ebb3b0733f3cb6253112498e7978e50cbbdab198601",
+      "size": 5526
     },
     {
       "path": "server/alerts.js",
@@ -389,7 +391,7 @@
     "client": 29,
     "server": 34
   },
-  "client_size": 1433361,
-  "server_size": 510806,
-  "total_size": 1944167
+  "client_size": 1434694,
+  "server_size": 510807,
+  "total_size": 1945501
 }
