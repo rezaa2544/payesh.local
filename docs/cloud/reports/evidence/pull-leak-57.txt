@@ -1,118 +1,31 @@
-گزارش شاهد — ردیف ۵۷ (مرحلهٔ دوم): بستن نشت فیلدهای هویتی به نقش غیرمدیر
-تاریخ: ۲۰۲۶-۱۱-۰۹ · شاخه: hermes/fix-57-leak · آزمون‌ها: tests/pull-leak-57.js + tests/pentest-57-sync-leak.js
-دستورها: npm run test:pull57 · npm run test:pentest57 · npm test
 
-═══ ۰) خلاصهٔ کار ═══
-
-پیش‌فرض اجرا شد: فیلدهای هویتی/حریم‌خصوصی از allowlist عمومی (USER_PUBLIC_FIELDS
-در server/policy.js) حذف شدند و در USER_IDENTITY_FIELDS گرد آمدند:
-
-  national_id, father_nid, mother_nid, shenasname_serial, shenasname_seri,
-  phone, father_phone, mother_phone, landline,
-  address, residence, village, residence_status
-
-تصمیم طراحی (مستند در کامنت policy.js): بررسی مسیرهای کلاینت نشان داد
-معلم/والد برای کار روزمره به کد ملی نیاز ندارند —
-  • دبیر در PAGES.students فقط نام/کلاس/معدل می‌بیند؛
-  • ولی در PAGES.child فقط نمره/حضور/مرخصی می‌بیند؛
-  • همهٔ کاربردهای national_id در کلاینت manager-only هستند (مدیریت کاربران،
-    ورود دسته‌ای، یابندهٔ موارد تکراری).
-بنابراین «حذف» انتخاب شد به‌جز یک استثنای صریح و سخت‌گیرانه: ردیفِ خودِ
-کاربر (self) — «دادهٔ خودش» نشت نیست (/api/me، /api/bootstrap، صفحهٔ
-«پرونده»، بستهٔ گوشی me). مدیر همه‌چیز را می‌بیند (کنترل مثبت).
-
-مسیرهای بسته‌شده با همان allowlist:
-  • server/sync.js — pull (policy.scrubUserFor: هویتی فقط روی ردیف self)
-  • server/index.js — /api/students/:id (policy.scrubUserIdentity برای غیرمدیر/غیرself)
-  • server/tenancy.js — listFeed/listProduct/getProduct/joinProduct (scrubUsersRow
-    با self-exception بر اساس scope.uid؛ exportProductِ users فقط مدیر)
-  • server/outbox.js — بستهٔ گوشی: me از allowlist (keepIdentity)، children
-    از قبل مینیمال (id/name/class_id/role)
-
-مسیرهای بازرسی‌شده و بدون نشتی (بدون تغییر):
-  • /api/admin/export و /api/admin/users/safe — فقط مدیر (۴۰۳ برای غیرمدیر، PL-30)
-  • snapshot (outbox.summary) — فقط id/name/شمارش‌ها
-  • mirror/backup/daily — فقط مدیر (BACKUP_ROLES = manager) و فایل‌ها ۰۶۰۰
-  • server/scope.js — فقط ساختار اسکوپ برمی‌گرداند (ردیف users نمی‌فرستد)
-  • server/convergence.js:۵۲ — فهرست فیلدهای سیاستِ ادغام (نوشتن؛ خواندنِ
-    conflicts فقط مدیر)
-  • server/auth.js publicUser — پاسخ ورود/نشست = ردیفِ خودِ کاربر (self)
-  • server/sync.js:۳۴۳ — حفظ فیلد هنگام ویرایش (ادغامِ سمت-سرور، مسیر خواندن نیست)
-  • server/seed.js — دادهٔ کاشته‌شدهٔ نمونه
-
-═══ ۱) خروجی خام grep national_id در server/ (دستور: grep -rn "national_id" server/) ═══
-
-server/auth.js:103:    national_id: normDigits(input.national_id || ''), active: true,
-server/auth.js:253:  const nid = normDigits(user.national_id);
-server/auth.js:401:  const nid = normDigits(row && row.national_id);
-server/auth.js:418:  if (key.length === 10) return users.find(u => normDigits(u.national_id) === key) || null;
-server/auth.js:453:    id: u.id, name: u.name, role: u.role, phone: u.phone, national_id: u.national_id,
-server/convergence.js:52:    manual: ['role', 'national_id', 'class_id', 'active', 'password_hash', 'phone_hash', 'password_enc'],
-server/index.js:358:    id: u.id, name: u.name, role: u.role, phone: u.phone, national_id: u.national_id || '',
-server/index.js:1185:    if (body.national_id != null) {
-server/index.js:1186:      const nid = normDigits(body.national_id);
-server/index.js:1187:      if (nid && !validNationalId(nid)) return json({ ok: false, error: 'bad_national_id' }, 400);
-server/index.js:1188:      patch.national_id = nid;
-server/index.js:1493:const IMP_STORE_FIELDS = ['first_name', 'last_name', 'national_id', 'phone', 'birth_date', 'gender',
-server/index.js:1661:        const nid = normDigits(r.national_id || '');
-server/index.js:1662:        if (nid) stu = store.all('users').find(u => u.role === 'student' && normDigits(u.national_id) === nid) || null;
-server/index.js:1709:      const nid = normDigits(r.national_id || '');
-server/index.js:1710:      if (nid && !validNationalId(nid)) { errors.push({ row: rowNo, error: 'bad_national_id', nid }); continue; }
-server/index.js:1712:      if (nid && createdNids.has(nid)) { errors.push({ row: rowNo, error: 'duplicate_national_id', nid }); continue; }
-server/index.js:1716:      if (nid) existing = store.all('users').find(u => normDigits(u.national_id) === nid) || null;
-server/index.js:1759:        national_id: nid || '',
-server/index.js:1813:          if (pnid) parent = store.all('users').find(u => u.role === 'parent' && normDigits(u.national_id) === pnid) || null;
-server/index.js:1820:              && (!pnid || !normDigits(cand.national_id) || normDigits(cand.national_id) === pnid)) parent = cand;
-server/index.js:1825:              && !normDigits(u.national_id) && !normDigits(u.phone)) || null;
-server/index.js:1832:              national_id: pnid || '', phone: free,
-server/outbox.js:572:  const nid = util.normDigits(u && u.national_id);
-server/policy.js:231:     • هیچ الگوی کلایتی برای نقش غیرمدیر از national_id/شمارۀ ولی
-server/policy.js:243:  'national_id', 'father_nid', 'mother_nid',
-server/seed.js:38:    name: 'رضا مدیر', role: 'manager', phone: '09120000000', national_id: '0012345678', active: true, school_id: 1, created_at: nowISO(),
-server/seed.js:130:        national_id: '00' + String(10000000 + ri(89999999)),
-server/sync.js:343:        for (const f of ['password_hash', 'phone_hash', 'password_enc', 'phone', 'national_id']) {
-
-هر خط متعلق به یکی از این دسته‌هاست: جستجوی سمت-سرور اعتبارنامه (auth.js)،
-سیاستِ ادغام (convergence.js)، مسیرهای فقط-مدیر (index.js: import و
-مدیریت کاربران)، پاسخ self (auth.js:453 و index.js:358 در /api/me)،
-ساختار allowlist (policy.js)، دادهٔ کاشته‌شده (seed.js)، یا ادغامِ
-سمت-سرور هنگام نوشتن (sync.js:343). هیچ مسیر خواندنِ جدیدی برای نقش
-غیرمدیر باز نمانده است.
-
-═══ ۲) خروجی خام npm run test:pull57 — کد اصلاح‌شده (سبز) ═══
-
-> payesh-local@0.8.77 test:pull57
+> payesh-local@0.8.80 test:pull57
 > node --experimental-sqlite --disable-warning=ExperimentalWarning tests/pull-leak-57.js
 
-PASS  PL-00  راه‌اندازی اولیه و نشست مدیر  → manager session ok  (113ms)
-PASS  PL-01  ساخت کلاس/معلم/دانش‌آموز/والد + پیوندها  → teacher=2 student=3 parent=4 class=1  (238ms)
+PASS  PL-00  راه‌اندازی اولیه و نشست مدیر  → manager session ok  (168ms)
+PASS  PL-01  ساخت کلاس/معلم/دانش‌آموز/والد + پیوندها  → teacher=2 student=3 parent=4 class=1  (282ms)
 PASS  PL-02  ورود هر سه نقش غیرمدیر (رمز پیش‌فرض = کد ملی)  → 3 sessions  (215ms)
 PASS  PL-10  pull users برای نقش teacher: هیچ فیلد رمزی نیست  → 2 ردیف، همه پاک‌سازی‌شده  (13ms)
 PASS  PL-11  pull users برای نقش parent: هیچ فیلد رمزی نیست  → 2 ردیف، همه پاک‌سازی‌شده  (9ms)
-PASS  PL-12  pull users برای نقش student: هیچ فیلد رمزی نیست  → 1 ردیف، همه پاک‌سازی‌شده  (8ms)
+PASS  PL-12  pull users برای نقش student: هیچ فیلد رمزی نیست  → 1 ردیف، همه پاک‌سازی‌شده  (7ms)
 PASS  PL-13  والد ردیف فرزند را می‌بیند و بدون فیلد رمزی/هویتی است  → child visible, no secrets, no identity fields  (8ms)
-PASS  PL-14  دبیرِ کلاس ردیف دانش‌آموز را می‌بیند، فیلد هویتی ندارد  → student in scope, identity scrubbed  (9ms)
-PASS  PL-15  /api/students/:id برای دبیر: فیلد هویتی نیست  → identity scrubbed on student endpoint  (8ms)
-PASS  PL-16  outbox.personData: me هویتیِ خودش را دارد، children مینیمال  → me=self identity, children minimal  (30ms)
+PASS  PL-14  دبیرِ کلاس ردیف دانش‌آموز را می‌بیند، فیلد هویتی ندارد  → student in scope, identity scrubbed  (8ms)
+PASS  PL-15  /api/students/:id برای دبیر: فیلد هویتی نیست  → identity scrubbed on student endpoint  (9ms)
+PASS  PL-16  outbox.personData: me هویتیِ خودش را دارد، children مینیمال  → me=self identity, children minimal  (31ms)
 PASS  PL-20  کنترل مثبت: مدیر password_hash، password_enc و national_id را می‌بیند  → manager keeps full user rows  (8ms)
 PASS  PL-30  خروجی CSV: نقش غیرمدیر ۴۰۳ است  → 403 for teacher  (7ms)
-PASS  PL-31  خروجی CSV مدیر: هیچ(password_enc|password_hash|phone_hash) در متن نیست  → csv clean, identity fields kept  (9ms)
-PASS  PL-40  S4: /api/health بدون data_dir/db_file و بدون مسیر مطلق  → health clean  (4ms)
-PASS  PL-50  S4: /metrics بدون توکن ۴۰۱ می‌گیرد (سرور محصول)  → 401  (2ms)
-PASS  PL-51  S4: /metrics با توکن (هدر و کوئری) ۲۰۰ می‌دهد  → 200 header+query  (10ms)
-PASS  PL-60  S4: Gateway /metrics با توکن ۴۰۱/۲۰۰ می‌دهد  → gateway 401/200  (419ms)
-PASS  PL-61  Gateway /metrics بدون تنظیم توکن باز می‌ماند (بدون رگرسیون)  → 200 as before  (426ms)
+PASS  PL-31  خروجی CSV مدیر: هیچ(password_enc|password_hash|phone_hash) در متن نیست  → csv clean, identity fields kept  (8ms)
+PASS  PL-40  S4: /api/health بدون data_dir/db_file و بدون مسیر مطلق  → health clean  (5ms)
+PASS  PL-50  S4: /metrics بدون توکن ۴۰۱ می‌گیرد (سرور محصول)  → 401  (3ms)
+PASS  PL-51  S4: /metrics با توکن (هدر و کوئری) ۲۰۰ می‌دهد  → 200 header+query  (12ms)
+PASS  PL-60  S4: Gateway /metrics با توکن ۴۰۱/۲۰۰ می‌دهد  → gateway 401/200  (586ms)
+PASS  PL-61  Gateway /metrics بدون تنظیم توکن باز می‌ماند (بدون رگرسیون)  → 200 as before  (435ms)
 PASS  PL-70  policy.scrubUser: فقط فیلدهای مجاز می‌مانند  → _version,father_name,id,name  (1ms)
 
 PL checks=19 pass=19 fail=0
 PULL-LEAK-57-OK
 
-نکته: PL-12 (دانش‌آموز) سبز می‌ماند حتی در حالت نشت (بخش ۴) — دانش‌آموز فقط
-ردیفِ خودش را می‌بیند و «دادهٔ خودش» نشت نیست. این رفتار موردنظر است.
-
-═══ ۳) خروجی خام npm run test:pentest57 — کد اصلاح‌شده (سبز) ═══
-
-> payesh-local@0.8.77 test:pentest57
+> payesh-local@0.8.80 test:pentest57
 > node --experimental-sqlite --disable-warning=ExperimentalWarning tests/pentest-57-sync-leak.js
 
 
@@ -129,81 +42,3 @@ PULL-LEAK-57-OK
 
 8 موفق · 0 ناموفق
 
-═══ ۴) آزمون منفی — برگرداندن موقت باگ (P0) ═══
-
-در server/policy.js تابع scrubUser موقتاً به حالت پیش‌از‌اصلاح برگردانده شد:
-
-  const keepIdentity = true; /* SIMULATE-LEAK: هویتی همیشه visible */
-
-(همان رفتار allowlist قدیمی که national_id/father_nid/mother_nid/
-shenasname_*/phone/address را به هر نقش غیرمدیر می‌داد) و در server/index.js
-مسیر /api/students/:id موقتاً userRow کامل برگرداند. سپس هر دو آزمون
-دوباره اجرا شدند — باید قرمز شوند:
-
-— ۴-۱) npm run test:pull57 (بازگردانده‌شده):
-
-FAIL  PL-10  pull users برای نقش teacher: هیچ فیلد رمزی نیست  → نشت هویتی به teacher:
-  3.phone, 3.national_id, 3.father_nid, 3.mother_nid, 3.shenasname_serial,
-  3.shenasname_seri, 3.father_phone, 3.mother_phone, 3.landline, 3.address,
-  3.residence, 3.village, 3.residence_status
-FAIL  PL-11  pull users برای نقش parent: هیچ فیلد رمزی نیست  → نشت هویتی به parent:
-  (همان ۱۳ فیلد روی ردیف دانش‌آموز)
-PASS  PL-12  pull users برای نقش student: هیچ فیلد رمزی نیست  → 1 ردیف (فقط خودش)
-FAIL  PL-13  والد ردیف فرزند را می‌بیند و بدون فیلد رمزی/هویتی است  → ولی فیلدهای
-  هویتی فرزند را می‌بیند: phone, national_id, father_nid, mother_nid, …
-FAIL  PL-14  دبیرِ کلاس ردیف دانش‌آموز را می‌بیند، فیلد هویتی ندارد  → دبیر فیلدهای
-  هویتی دانش‌آموز را می‌بیند: phone, national_id, father_nid, …
-FAIL  PL-15  /api/students/:id برای دبیر: فیلد هویتی نیست  → دبیر از مسیر
-  /api/students/:id فیلدهای هویتی می‌بیند: phone, national_id, father_nid, …
-PASS  PL-16  outbox.personData: me هویتیِ خودش را دارد، children مینیمال
-PASS  PL-20  کنترل مثبت: مدیر password_hash، password_enc و national_id را می‌بیند
-FAIL  PL-70  policy.scrubUser: فقط فیلدهای مجاز می‌مانند  → فیلد هویتی در حالت
-  پیش‌فرض باقی ماند: _version,address,father_name,id,name,national_id,phone
-
-PL checks=19 pass=13 fail=6
-failures: PL-10, PL-11, PL-13, PL-14, PL-15, PL-70
-PULL-LEAK-57-FAILED
-
-— ۴-۲) npm run test:pentest57 (بازگردانده‌شده):
-
-  ✗ pull به‌عنوان teacher: هیچ رمز/هشی در ردیف‌های users نیست — teacher: فیلد
-    هویتی national_id در ردیف users id=3 نشت کرده
-  ✓ pull به‌عنوان student: هیچ رمز/هشی در ردیف‌های users نیست (فقط ردیف خودش)
-  ✗ pull به‌عنوان parent: هیچ رمز/هشی در ردیف‌های users نیست — parent: فیلد
-    هویتی national_id در ردیف users id=3 نشت کرده
-  ✓ شاهد مثبت: pull مدیر national_id و father_nid دانش‌آموز را می‌بیند
-  ✗ GET /api/students/:id به‌عنوان دبیر: فیلدهای هویتی نیست — دبیر: فیلد
-    هویتی national_id در /api/students/:id نشت کرده
-
-5 موفق · 3 ناموفق
-
-نتیجه آزمون منفی: همان باگی که بازبینی مستقل (P0) گزارش کرد، دقیقاً
-۶ بررسی از pull-leak-57 و ۳ بررسی از pentest-57 را قرمز می‌کند — یعنی
-آزمون‌ها این نشت را واقعاً می‌گیرند و سبزِ کاذب نیستند. سپس کد
-اصلاح‌شده بازگردانده شد (بدون هیچ ردِ SIMULATE-LEAK:
-grep -c "SIMULATE-LEAK" server/*.js = 0) و هر دو آزمون دوباره سبز
-شدند (بخش‌های ۲ و ۳).
-
-═══ ۵) نتیجه npm test کامل (بدون رگرسیون) ═══
-
-98 موفق · 1 ناموفق — تنها مورد ناموفق از قبل روی origin/main موجود است:
-«مانیفست انتشار: هش و اندازهٔ همهٔ فایل‌ها با منبع واقعی یکی است —
-اندازهٔ فایل با مانیفست می‌خواند: client/app.js 205244 !== 201455»
-(این فایل توسط این شاخه تغییری نکرده است — client/ دست‌نخورده است.)
-
-یک آزمونِ tests/run.js عمداً به‌روز شد (تغییر رفتارِ امنیتی، نه رگرسیون):
-«ورود دسته‌ای … پدر فرزندش را در فهرست می‌بیند» دیگر با national_idِ فرزند
-چک نمی‌کند (ولی دیگر national_id فرزند را نمی‌بیند) — با name/role چک
-می‌شود و یک ادعای امنیتی جدید اضافه شد که ولی نباید فیلدهای هویتی فرزند
-را ببیند.
-
-═══ ۶) NOT-RUNها ═══
-
-• مسیرهای ابری (server/tenancy.js listFeed/listProduct/getProduct/
-  joinProduct، server/gateway.js): نیاز به PostgreSQL واقعی دارند و در
-  این محیط اجرا نمی‌شوند — اما همان allowlist یکسان (policy.scrubUser با
-  self-exception بر scope.uid) روی scrubUsersRow اعمال شده است تا در
-  صورت استقرار، مسیر ابری هم بسته باشد. آزمون ابری = NOT-RUN (همانند
-  مرحلهٔ اول).
-• پنتست انسانی (O-22): طبق تصمیم مالک (ردیف ۵۷ در وضعیت Review)،
-  اجرا نشده — امنیت تا اجرای پنتست انسانی UNKNOWN باقی می‌ماند.
