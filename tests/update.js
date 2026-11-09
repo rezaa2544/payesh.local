@@ -22,6 +22,8 @@ const path = require('path');
 const crypto = require('crypto');
 const assert = require('assert');
 
+const update = require('../server/update');
+
 const ROOT = path.resolve(__dirname, '..');
 const sha = b => crypto.createHash('sha256').update(b).digest('hex');
 
@@ -345,6 +347,85 @@ const exists = rel => fs.existsSync(path.join(APP, rel));
     assert.strictEqual(isUpdatable('/etc/passwd'), false);
     assert.strictEqual(isUpdatable('client/../../x.js'), false);
     assert.strictEqual(isUpdatable('C:/windows/system32/x.dll'), false);
+  });
+
+  /* ── ۱۱. پیش‌فرض ایمن (ریسک گزارش‌شده) ── */
+  await test('پیش‌فرض ایمن: بررسی/نصب خودکار فقط با opt-in صریح روشن می‌شود', async () => {
+    const { openStore } = require('../server/db');
+    const cfg = require('../server/config');
+    const tmpdb = path.join(tmp, 'secure-defaults', 'payesh.sqlite');
+    fs.mkdirSync(path.dirname(tmpdb), { recursive: true });
+    const st = openStore(tmpdb);
+    const savedAuto = process.env.PAYESH_UPDATE_AUTO;
+    const savedApply = process.env.PAYESH_UPDATE_AUTO_APPLY;
+    try {
+      /* پروفایل پایلوت/تولید: هیچ env و هیچ تنظیمی → خاموش */
+      delete process.env.PAYESH_UPDATE_AUTO;
+      delete process.env.PAYESH_UPDATE_AUTO_APPLY;
+      assert.strictEqual(update.autoCheckEnabled(st), false, 'بررسی خودکار پیش‌فرض خاموش است');
+      assert.strictEqual(update.autoApplyEnabled(st), false, 'نصب خودکار پیش‌فرض خاموش است (تأیید دستی)');
+
+      /* dev می‌تواند صریح روشن کند */
+      process.env.PAYESH_UPDATE_AUTO = '1';
+      assert.strictEqual(update.autoCheckEnabled(st), true, 'PAYESH_UPDATE_AUTO=1 → بررسی خودکار روشن');
+      process.env.PAYESH_UPDATE_AUTO = '0';
+      assert.strictEqual(update.autoCheckEnabled(st), false, 'PAYESH_UPDATE_AUTO=0 → قطعاً خاموش');
+
+      /* مدیر هم می‌تواند صریح روشن کند (پنل) */
+      delete process.env.PAYESH_UPDATE_AUTO;
+      cfg.setMeta(st, 'update_auto', true);
+      cfg.setMeta(st, 'update_auto_apply', true);
+      assert.strictEqual(update.autoCheckEnabled(st), true, 'update_auto=true کار می‌کند');
+      assert.strictEqual(update.autoApplyEnabled(st), true, 'update_auto_apply=true کار می‌کند');
+      cfg.setMeta(st, 'update_auto', false);
+      cfg.setMeta(st, 'update_auto_apply', false);
+      assert.strictEqual(update.autoCheckEnabled(st), false, 'false همان خاموش است');
+      assert.strictEqual(update.autoApplyEnabled(st), false);
+    } finally {
+      if (savedAuto === undefined) delete process.env.PAYESH_UPDATE_AUTO; else process.env.PAYESH_UPDATE_AUTO = savedAuto;
+      if (savedApply === undefined) delete process.env.PAYESH_UPDATE_AUTO_APPLY; else process.env.PAYESH_UPDATE_AUTO_APPLY = savedApply;
+      st.close();
+    }
+  });
+
+  /* ── ۱۲. تایمر پس از بسته‌شدن دیتابیس (negative test) ──
+     باگ گزارش‌شده: تایمرِ به‌روزرسانی می‌تواند پس از store.close() شلیک کند
+     و با خطای «database is not open» کل فرآیند را بیندازد. این آزمون باید
+     قرمز شود اگر محافظت‌ها (db.js fail-soft یا update.js safeTick) حذف شوند. */
+  await test('تایمر به‌روزرسانی پس از store.close() فرآیند را نمی‌اندازد (negative)', async () => {
+    const { openStore } = require('../server/db');
+    const cfg = require('../server/config');
+    const tmpdb = path.join(tmp, 'timer-after-close', 'payesh.sqlite');
+    fs.mkdirSync(path.dirname(tmpdb), { recursive: true });
+    const st = openStore(tmpdb);
+    cfg.setMeta(st, 'update_auto', true);              /* صریح روشن تا تایمر واقعاً اجرا شود */
+    const savedBase = process.env.PAYESH_UPDATE_BASE;
+    process.env.PAYESH_UPDATE_BASE = 'http://127.0.0.1:1/';  /* بدون دسترسی به شبکهٔ واقعی */
+
+    const crashes = [];
+    const onCrash = (e) => crashes.push(String((e && (e.message || e)) || e));
+    let applied = 0;
+    process.on('uncaughtException', onCrash);
+    try {
+      update.start(st, { everyMs: 25, onApply: async () => { applied++; } });
+      st.close();                                      /* ← حالت خرابی: تایمر هنوز زنده است */
+      await sleep(500);                                /* چندین چرخهٔ تایمر بعد از close */
+      update.stop();
+
+      assert.deepStrictEqual(crashes, [], 'هیچ استثنای مهارنشده‌ای نباید رخ دهد (database is not open)');
+      assert.strictEqual(applied, 0, 'پس از close نباید چیزی اعمال شود');
+
+      /* tick مستقیم هم باید نرم برگردد، نه پرتاب */
+      const t = await update.tick(st);
+      assert.ok(t && t.ok === false, 'tick پس از close باید نرم برگردد');
+      assert.strictEqual(st.closed, true);
+      /* getMeta/setMeta روی store بسته fail-soft هستند */
+      assert.strictEqual(st.getMeta('update:checked', null), null, 'getMeta روی دیتابیس بسته fallback می‌دهد');
+      assert.doesNotThrow(() => st.setMeta('x', 1), 'setMeta روی دیتابیس بسته نباید پرتاب کند');
+    } finally {
+      process.removeListener('uncaughtException', onCrash);
+      if (savedBase === undefined) delete process.env.PAYESH_UPDATE_BASE; else process.env.PAYESH_UPDATE_BASE = savedBase;
+    }
   });
 
   child.kill('SIGKILL');
