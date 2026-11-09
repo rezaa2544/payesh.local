@@ -11,7 +11,7 @@
 
 T2 may be scheduled only after all items below are provided or confirmed by the owner:
 
-- [ ] Exact target base URL and environment identity; the owner confirms it is an authorized non-production target.
+- [ ] Exact target base URL (including any path prefix) and environment identity; the owner confirms it is an authorized non-production target. Redirects to any unlisted host are out of scope and must not be followed.
 - [ ] Written authorization, scope, prohibited actions, testing window, and stop conditions.
 - [ ] Named independent tester or firm and confirmation that the tester did not implement the code under review.
 - [ ] Securely provisioned synthetic accounts for the roles under test; do not put passwords, tokens, or real personal data in Git or this report.

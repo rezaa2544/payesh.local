@@ -1,5 +1,5 @@
-base_sha=17212f5c5e73a90578227e32fb7f81a82187f3cb
-date_utc=2026-11-09T16:38:38Z
+base_sha=fabd025006c9451e6f1ac40bf0dffaced82fbc91
+date_utc=2026-11-09T16:40:26Z
 command=inline readiness validation (relative links, no target, no execution)
 
 PASS readiness holds T2; local links=5; external target URLs=0
