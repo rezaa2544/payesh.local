@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# [شاهد تاریخی/منسوخ] — خروجی این دروازه فقط در بستر پایهٔ کهنهٔ PR-73 معنا دارد (docs/cloud/reports/evidence/README-gates.md).
 # بازبینی یکپارچگی PR #73 — FAIL-CLOSED
 # اجرا: bash docs/cloud/reports/evidence/review-pr73-integrity.sh
 # خروجی: docs/cloud/reports/evidence/mission-a-pr73-integrity.txt

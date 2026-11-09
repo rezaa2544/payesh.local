@@ -1,0 +1,9 @@
+tested_source_sha=1c0c4f52f7a2163797e83e5602fd9942bdbadd6c
+command: bash docs/cloud/reports/evidence/review-pr73-integrity.sh
+INTEGRITY-FAIL: product code changed: 77 file(s)
+→ docs/cloud/reports/evidence/mission-a-pr73-integrity.txt (added=651 modified=40 deleted=2 prod=77)
+INTEGRITY-FAIL: see messages above
+exit=1
+command: bash docs/cloud/reports/evidence/gen-phase3-gate.sh
+PHASE3-FAIL: PRODUCT-SCOPE: 60 فایل محصول بیرون از فهرست مجاز D‑35 تغییر کرده
+exit=1
