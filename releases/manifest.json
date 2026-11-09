@@ -1,15 +1,18 @@
 {
-  "version": "0.9.0",
-  "built_at": "2026-11-09T19:11:08.396Z",
-  "notes": [],
+  "version": "0.9.1",
+  "built_at": "2026-11-09T19:25:44.339Z",
+  "notes": [
+    "تم نبض به دیزاین‌سیستم پایش ارتقا یافت: کارت قهرمان تمام‌عرض، لایه‌های شیشه‌ای، کنتراست روشن/تیره و نوار کپسولی موبایل.",
+    "ایموجی‌ها حذف شدند، سلسله‌مراتب بصری اصلاح شد؛ آیکون‌های ناوبری و شاخص‌ها اکنون SVG یکپارچه‌اند."
+  ],
   "shell": {
-    "android": "0.9.0"
+    "android": "0.9.1"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "87eb8d932057bb89586aa409cb4074c6e51ca59473c6b2a66eaa47e27d6ff940",
+      "sha256": "635ebabfde157b1bba7e3a2d049515bea13e8c365246a64a56ae3e11b954e5b0",
       "size": 201454
     },
     {
@@ -87,7 +90,7 @@
     {
       "path": "client/index.html",
       "kind": "client",
-      "sha256": "37b3377285ee897e3e656e46ea46d582e37012752d278036d4f75a33c2fa805a",
+      "sha256": "8dee6de44d3d39842a16f71e44ce30a3dc5b625e94e9e7a6c854edc23fe834c2",
       "size": 1844
     },
     {
@@ -147,14 +150,14 @@
     {
       "path": "client/pulse.css",
       "kind": "client",
-      "sha256": "61a956c12c2a7b807c28cf17a7e3518e42a2a68fc434a7860fdff5830909626c",
-      "size": 10199
+      "sha256": "ab718e54899ba7c296dd031355bf30064061646df0f8b33143b31b81818792f9",
+      "size": 11820
     },
     {
       "path": "client/pulse.js",
       "kind": "client",
-      "sha256": "eef1592d4b44551b13617d5a38ec27b0acccda2848ba15a95163a79f38eba140",
-      "size": 10569
+      "sha256": "595d40278deaff83c27dd2e0a454f4f36779e66ba65fc4ea63c1fe6e5e6ab94b",
+      "size": 15828
     },
     {
       "path": "client/scan.js",
@@ -201,7 +204,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "eaa5d270cbd983ecc8ddc6dfa878b43e6b0c35e95e0ac84051a4cb5f868a120e",
+      "sha256": "d83cc469a1c6a38766fbe703b2094e0be8b4ed2b68c0c26c06c1f07a6723c2a7",
       "size": 5525
     },
     {
@@ -401,7 +404,7 @@
     "client": 31,
     "server": 34
   },
-  "client_size": 1455543,
+  "client_size": 1462423,
   "server_size": 513248,
-  "total_size": 1968791
+  "total_size": 1975671
 }

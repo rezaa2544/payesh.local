@@ -1,173 +1,328 @@
-/* ═══════════════════════════════════════════════════════════════════
-   پایش-لوکال × مسیر «نبض» — نسخهٔ ۰٫۴٫۰-pulse
-   فایل افزودنی: بعد از styles.css بارگذاری شود تا در آبشار برنده شود.
-   بازگشت: حذف یک خط <link> در index.html کافی است.
-   ═══════════════════════════════════════════════════════════════════ */
-/* ── ۱) توکن‌های مسیر نبض ──────────────────────────────────────── */
-:root{
-  --bg:#eef7f5;        --card:#ffffff;     --ink:#0f2b27;    --muted:#5d7d76;
-  --line:#d7ebe6;      --soft:#dcf4ee;
-  --primary:#0d9488;   --primary-2:#0f766e;
-  --acc:#f59e0b;       --acc-bg:#fef3e2;
-  --green:#0f766e;     --green-bg:#e2f6f1;
-  --red:#b42318;       --red-bg:#fee4e2;
-  --amber:#b45309;     --amber-bg:#fef3e2;
-  --purple:#6d28d9;    --purple-bg:#f3ecff;
-  --radius:16px;
-  --shadow:0 1px 2px rgba(13,76,68,.05), 0 6px 18px rgba(13,76,68,.06);
-  --ring:0 0 0 3px rgba(13,148,136,.18);
+/* Pulse design system — layered surfaces, clear data hierarchy, responsive navigation. */
+:root {
+  --primary: #0d9488;
+  --primary-2: #0f766e;
+  --bg: #eef7f5;
+  --card: #ffffff;
+  --ink: #0f2b27;
+  --muted: #5d7d76;
+  --line: #d7ebe6;
+  --soft: #dcf4ee;
+  --radius: 18px;
+  --accent: #f59e0b;
+  --green: #0f766e;
+  --green-bg: #e2f6f1;
+  --red: #b42318;
+  --red-bg: #fee4e2;
+  --amber: #b45309;
+  --amber-bg: #fef3e2;
+  --purple: #6d28d9;
+  --purple-bg: #f3ecff;
+  --shadow: 0 10px 25px -5px rgba(13, 148, 136, .10), 0 8px 10px -6px rgba(13, 148, 136, .10);
+  --ring: 0 0 0 3px rgba(13, 148, 136, .2);
 }
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#07110f;      --card:#0e1d1a;     --ink:#e6f5f0;    --muted:#7fa39a;
-    --line:#16302b;    --soft:#122724;
-    --primary:#14b8a6; --primary-2:#0d9488;
-    --green-bg:#0c2b25;--red-bg:#3a1715;   --amber-bg:#3a2a12;--purple-bg:#241a3d;
-    --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28);
-    --ring:0 0 0 3px rgba(94,234,212,.16);
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #07110f;
+    --card: #0e1d1a;
+    --ink: #e6f5f0;
+    --muted: #91b1a8;
+    --line: #203b35;
+    --soft: #122724;
+    --primary: #14b8a6;
+    --primary-2: #2dd4bf;
+    --green-bg: #0c2b25;
+    --red-bg: #3a1715;
+    --amber-bg: #3a2a12;
+    --purple-bg: #241a3d;
+    --shadow: 0 12px 30px rgba(0, 0, 0, .28);
+    --ring: 0 0 0 3px rgba(45, 212, 191, .2);
   }
 }
-html.dark,body.dark,[data-theme="dark"]{
-  --bg:#07110f;      --card:#0e1d1a;     --ink:#e6f5f0;    --muted:#7fa39a;
-  --line:#16302b;    --soft:#122724;
-  --primary:#14b8a6; --primary-2:#0d9488;
-  --green-bg:#0c2b25;--red-bg:#3a1715;   --amber-bg:#3a2a12;--purple-bg:#241a3d;
-  --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28);
-  --ring:0 0 0 3px rgba(94,234,212,.16);
+
+html.dark, body.dark, [data-theme="dark"] {
+  --bg: #07110f;
+  --card: #0e1d1a;
+  --ink: #e6f5f0;
+  --muted: #91b1a8;
+  --line: #203b35;
+  --soft: #122724;
+  --primary: #14b8a6;
+  --primary-2: #2dd4bf;
+  --green-bg: #0c2b25;
+  --red-bg: #3a1715;
+  --amber-bg: #3a2a12;
+  --purple-bg: #241a3d;
+  --shadow: 0 12px 30px rgba(0, 0, 0, .28);
+  --ring: 0 0 0 3px rgba(45, 212, 191, .2);
 }
-/* ── ۲) زمینه و تایپوگرافی ─────────────────────────────────────── */
-body{
+
+body {
   background:
-    radial-gradient(900px 420px at 85% -10%, rgba(20,184,166,.08), transparent 60%),
-    radial-gradient(700px 380px at -10% 110%, rgba(245,158,11,.05), transparent 55%),
-    var(--bg);
+    radial-gradient(at 0% 0%, rgba(20, 184, 166, .08) 0, transparent 48%),
+    radial-gradient(at 100% 100%, rgba(245, 158, 11, .06) 0, transparent 45%),
+    var(--bg) !important;
+  color: var(--ink);
 }
-h1,h2,h3{letter-spacing:-.2px}
-/* ارقام فارسیِ جدولی: ستون نمره‌ها و آمار دیگر نمی‌پرد */
-.stat .num,.num,td,th,.badge,.nabd-num,.att-count,.updbar b{
-  font-feature-settings:"tnum","ss01";
-  font-variant-numeric:tabular-nums;
+
+h1, h2, h3 { letter-spacing: -.2px; }
+.stat .num, .num, td, th, .badge, .nabd-num, .att-count, .updbar b {
+  font-feature-settings: "tnum", "ss01";
+  font-variant-numeric: tabular-nums;
 }
-/* ── ۳) کارت‌ها: ریتم و عمق ────────────────────────────────────── */
-.card{
-  border-radius:var(--radius);
-  box-shadow:var(--shadow);
-  transition:transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease, border-color .25s ease;
+
+/* Shared elevation and interaction language. */
+.card {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: transform .22s cubic-bezier(.22, 1, .36, 1), box-shadow .22s ease, border-color .22s ease;
 }
-@media (hover:hover){
-  .card:hover{border-color:rgba(13,148,136,.28);box-shadow:0 2px 4px rgba(13,76,68,.06),0 12px 28px rgba(13,76,68,.09)}
-}
-/* ── ۴) دکمه‌ها ─────────────────────────────────────────────────── */
-.btn.primary,.btn.sched-top-action{
-  background:linear-gradient(135deg,#14b8a6,#0d9488);
-  border-color:#0d9488;color:#fff;
-  box-shadow:0 6px 16px -6px rgba(13,148,136,.5);
-}
-.btn.primary:hover,.btn.sched-top-action:hover{background:linear-gradient(135deg,#0f766e,#115e59);border-color:#0f766e}
-.btn:focus-visible,button:focus-visible,.navitem:focus-visible{outline:0;box-shadow:var(--ring)}
-.input:focus,select.input:focus,textarea.input:focus{border-color:var(--primary);box-shadow:var(--ring)}
-a{color:var(--primary)}
-@media (prefers-color-scheme: dark){a{color:#5eead4}}
-html.dark a,body.dark a,[data-theme="dark"] a{color:#5eead4}
-/* ── ۵) نوار کناری دسکتاپ ───────────────────────────────────────── */
-.sidebar .brand{color:var(--primary)}
-.navitem{border-radius:12px}
-.navitem.on{
-  background:linear-gradient(135deg,#14b8a6,#0d9488);color:#fff;
-  box-shadow:0 6px 14px -5px rgba(13,148,136,.45);
-}
-.navitem.on .pjs-ic{color:#fff!important}
-/* ── ۶) نوار پایین موبایل → کپسول شناور ─────────────────────────── */
-@media (max-width:899.98px){
-  .bottomnav{
-    inset-inline:14px;
-    bottom:calc(10px + env(safe-area-inset-bottom,0px));
-    border:1px solid var(--line);
-    border-radius:26px;
-    box-shadow:0 12px 32px -8px rgba(13,76,68,.22), 0 2px 6px rgba(13,76,68,.08);
-    padding:7px 6px;
+@media (hover: hover) {
+  .card:hover {
+    border-color: color-mix(in srgb, var(--primary) 32%, var(--line));
+    box-shadow: 0 14px 34px rgba(13, 76, 68, .12);
   }
-  @supports (backdrop-filter:blur(12px)){
-    .bottomnav{background:color-mix(in srgb,var(--card) 86%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+}
+
+.btn.primary, .btn.sched-top-action {
+  color: #fff;
+  border-color: var(--primary);
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 7px 18px -7px rgba(13, 148, 136, .58);
+}
+.btn.primary:hover, .btn.sched-top-action:hover {
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary-2), #115e59);
+}
+.btn:focus-visible, button:focus-visible, a:focus-visible, .navitem:focus-visible {
+  outline: 0;
+  box-shadow: var(--ring);
+}
+.input:focus, select.input:focus, textarea.input:focus {
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+a { color: var(--primary); }
+@media (prefers-color-scheme: dark) { a { color: #5eead4; } }
+html.dark a, body.dark a, [data-theme="dark"] a { color: #5eead4; }
+
+/* Desktop navigation and icon system. */
+.sidebar .brand { color: var(--primary); }
+.navitem { border-radius: 13px; }
+.navitem.on {
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 7px 16px -7px rgba(13, 148, 136, .55);
+}
+.navitem.on .pjs-ic { color: #fff !important; }
+.pjs-ic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  color: inherit;
+  line-height: 1;
+}
+.pjs-ic svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.navitem > .pjs-ic { width: 21px; height: 21px; }
+.bn > .pjs-ic { width: 22px; height: 22px; }
+.ico.pjs-ic { width: 40px; height: 40px; border-radius: 13px; }
+.banner .pjs-ic, .btn .pjs-ic, .nowchip .pjs-ic { width: 17px; height: 17px; }
+
+/* Monitoring-oriented dashboard hierarchy and metric tiles. */
+.dashboard-topbar {
+  align-items: stretch;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(120deg, var(--card), var(--card));
+  background: linear-gradient(120deg, color-mix(in srgb, var(--card) 94%, var(--primary)), var(--card));
+  box-shadow: var(--shadow);
+}
+.dashboard-topbar h2 { color: var(--ink); font-size: clamp(20px, 2.2vw, 27px); font-weight: 900; }
+.dashboard-now {
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--soft) 75%, transparent);
+  padding: 9px 13px;
+}
+.stat.card, .card.tight.stat { min-height: 80px; align-items: center; }
+.stat .ico {
+  border: 1px solid color-mix(in srgb, var(--primary) 15%, var(--line));
+  background: linear-gradient(145deg, var(--soft), color-mix(in srgb, var(--card) 72%, var(--primary)));
+  color: var(--primary);
+}
+.dashboard-coverage-grid { gap: 16px; }
+.dashboard-coverage-grid > section > .card { border-radius: var(--radius); }
+.dashboard-card-title { font-size: 15px; font-weight: 900; }
+.dashboard-table-wrap { border-radius: 13px; }
+.dashboard-room-row.is-occupied { background: color-mix(in srgb, var(--green-bg) 55%, var(--card)); }
+
+/* Floating glass capsule on phones, with safe-area support. */
+@media (max-width: 899px) {
+  .bottomnav {
+    inset-inline: 15px !important;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    border: 1px solid color-mix(in srgb, var(--line) 80%, transparent) !important;
+    border-radius: 30px !important;
+    background: rgba(255, 255, 255, .88) !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .16) !important;
+    padding: 7px 6px calc(7px + env(safe-area-inset-bottom, 0px));
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
   }
-  .bn{border-radius:16px;padding:5px 8px}
-  .bn.on{background:var(--soft);color:var(--primary)}
-  .main{padding-bottom:96px}
+  .bn { min-width: 48px; border-radius: 18px; padding: 6px 9px; }
+  .bn.on { color: var(--primary); background: var(--soft); }
+  .main { padding-bottom: 104px; }
 }
-@supports not (background:color-mix(in srgb,red 50%,blue)){
-  .bottomnav{background:var(--card)}
+@media (prefers-color-scheme: dark) and (max-width: 899px) {
+  .bottomnav { background: rgba(14, 29, 26, .9) !important; }
 }
-/* ── ۷) نوار وضعیت و بنرها ──────────────────────────────────────── */
-#live-bar.on{
-  background:linear-gradient(90deg,transparent,#14b8a6,#5eead4,#14b8a6,transparent);
-  background-size:220% 100%;
+@supports (background: color-mix(in srgb, var(--card) 82%, transparent)) {
+  @media (max-width: 899px) {
+    .bottomnav { background: color-mix(in srgb, var(--card) 82%, transparent) !important; }
+  }
 }
-.updbar,.banner{border-radius:14px;border:1px solid var(--line)}
-.upd-dot{box-shadow:0 0 0 3px rgba(0,0,0,.04),0 0 10px currentColor}
-.badge{border-radius:99px;letter-spacing:.1px}
-/* ── ۸) آیکون‌های SVG تزریق‌شده توسط pulse.js ───────────────────── */
-.pjs-ic{width:20px;height:20px;display:inline-flex;flex:none;color:inherit}
-.pjs-ic svg{width:100%;height:100%;display:block}
-.bn .pjs-ic{width:19px;height:19px}
-.navitem .pjs-ic{width:19px;height:19px}
-.btn .pjs-ic,.banner .pjs-ic{width:16px;height:16px;vertical-align:-3px}
-/* ── ۹) حضور و غیاب ۴حالته (pulse.js به‌صورت خودکار رنگ می‌دهد) ─── */
-.btn.pjs-att,.pjs-att{
-  border-radius:14px;font-weight:800;min-height:52px;
-  transition:transform .1s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+@media (min-width: 900px) {
+  .bottomnav { backdrop-filter: none; }
 }
-.pjs-att-p{color:#0d9488;border-color:rgba(13,148,136,.4)!important;background:rgba(20,184,166,.1)!important}
-.pjs-att-a{color:#e11d48;border-color:rgba(225,29,72,.35)!important;background:rgba(244,63,94,.09)!important}
-.pjs-att-l{color:#b45309;border-color:rgba(245,158,11,.4)!important;background:rgba(245,158,11,.1)!important}
-.pjs-att-e{color:#0284c7;border-color:rgba(14,165,233,.35)!important;background:rgba(14,165,233,.09)!important}
-.pjs-att.on,.pjs-att[aria-pressed="true"]{box-shadow:inset 0 0 0 2px currentColor}
-/* ── ۱۰) کارت «نبض امروز» ───────────────────────────────────────── */
-.nabd-card{
-  position:relative;overflow:hidden;
-  border-radius:calc(var(--radius) + 4px);
-  background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);
-  padding:16px;margin-bottom:12px;
+
+/* Four-state attendance controls remain legible and distinct. */
+.btn.pjs-att, .pjs-att {
+  min-height: 48px;
+  border-radius: 14px;
+  font-weight: 800;
+  transition: transform .12s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
 }
-.nabd-card::before{
-  content:"";position:absolute;top:-46px;inset-inline-start:-46px;
-  width:150px;height:150px;border-radius:50%;
-  background:radial-gradient(circle,rgba(20,184,166,.22),transparent 70%);
-  pointer-events:none;
+.pjs-att-p { color: #0d9488; border-color: rgba(13, 148, 136, .4) !important; background: rgba(20, 184, 166, .1) !important; }
+.pjs-att-a { color: #e11d48; border-color: rgba(225, 29, 72, .35) !important; background: rgba(244, 63, 94, .09) !important; }
+.pjs-att-l { color: #b45309; border-color: rgba(245, 158, 11, .4) !important; background: rgba(245, 158, 11, .1) !important; }
+.pjs-att-e { color: #0284c7; border-color: rgba(14, 165, 233, .35) !important; background: rgba(14, 165, 233, .09) !important; }
+.pjs-att.on, .pjs-att[aria-pressed="true"] { box-shadow: inset 0 0 0 2px currentColor; }
+
+/* Full-width hero metric card, inserted as the first item in the dashboard grid. */
+.nabd-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 180px;
+  margin: 0 0 4px;
+  padding: 24px 28px;
+  border: 2px solid color-mix(in srgb, var(--primary) 78%, var(--line));
+  border-radius: 24px;
+  background: linear-gradient(125deg, var(--card) 8%, var(--soft) 100%);
+  box-shadow: 0 20px 34px -18px rgba(13, 148, 136, .36), var(--shadow);
 }
-.nabd-head{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--muted)}
-.nabd-head .pjs-ic{width:15px;height:15px;color:#14b8a6}
-.nabd-body{display:flex;align-items:center;justify-content:space-between;gap:14px;position:relative;margin-top:4px}
-.nabd-num{font-size:26px;font-weight:900;line-height:1.25}
-.nabd-num small{font-size:11px;font-weight:800;color:var(--muted)}
-.nabd-legend{display:flex;gap:12px;margin-top:8px;font-size:10.5px;font-weight:800;color:var(--muted);flex-wrap:wrap}
-.nabd-legend em{font-style:normal}
-.nabd-legend i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-inline-end:4px;flex:none}
-.nabd-ringwrap{position:relative;width:76px;height:76px;flex:none}
-.nabd-ringwrap svg{width:100%;height:100%;display:block;transform:rotate(-90deg)}
-.nabd-ringval{position:absolute;inset:0;display:grid;place-items:center;font-size:15px;font-weight:900}
-.nabd-ring{transition:stroke-dashoffset 1.1s cubic-bezier(.22,1,.36,1)}
-.nabd-spark{margin-top:10px}
-.nabd-spark svg{width:100%;height:34px;display:block}
-/* ── ۱۱) چیپ «الان» ─────────────────────────────────────────────── */
-.nowchip{
-  display:inline-flex;align-items:center;gap:7px;
-  font-size:11px;font-weight:800;color:var(--muted);
-  padding:6px 13px;border-radius:99px;border:1px solid var(--line);background:var(--card);
+.nabd-card::before, .nabd-card::after {
+  position: absolute;
+  z-index: 0;
+  content: "";
+  border-radius: 50%;
+  pointer-events: none;
 }
-.nowchip .pjs-ic{width:13px;height:13px;color:var(--primary)}
-.nowchip .live{width:7px;height:7px;border-radius:50%;background:#10b981;animation:pjs-blink 1.8s ease-in-out infinite}
-@keyframes pjs-blink{50%{opacity:.3}}
-/* ── ۱۲) چاپ: کارنامهٔ A4 و کارت پیوند ─────────────────────────── */
-@media print{
-  body{background:#fff!important;color:#000!important}
-  .sidebar,.bottomnav,.updbar,#live-bar,[data-act].btn,.no-print,.nabd-spark{display:none!important}
-  .card{box-shadow:none!important;border:1px solid #cbd5e1!important;border-radius:10px;break-inside:avoid}
-  .main{padding:0!important}
-  @page{size:A4;margin:14mm}
+.nabd-card::before {
+  width: 230px;
+  height: 230px;
+  inset-inline-start: -90px;
+  top: -125px;
+  background: radial-gradient(circle, rgba(20, 184, 166, .22), transparent 70%);
 }
-/* ── ۱۳) دسترس‌پذیری حرکت ───────────────────────────────────────── */
-@media (prefers-reduced-motion: reduce){
-  .card{transition:none}
-  .nabd-ring{transition:none}
-  .nowchip .live{animation:none}
+.nabd-card::after {
+  width: 170px;
+  height: 170px;
+  inset-inline-end: 22%;
+  bottom: -125px;
+  background: radial-gradient(circle, rgba(245, 158, 11, .15), transparent 72%);
+}
+.nabd-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex: 1 1 auto;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 900;
+}
+.nabd-head .pjs-ic {
+  width: 42px;
+  height: 42px;
+  padding: 9px;
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--card));
+  color: var(--primary);
+}
+.nabd-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  flex: 0 1 520px;
+}
+.nabd-num { color: var(--primary); font-size: clamp(34px, 4.5vw, 48px); font-weight: 900; line-height: 1.15; }
+.nabd-num small { display: block; margin-top: 5px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.nabd-legend { display: flex; flex-wrap: wrap; gap: 9px 15px; margin-top: 14px; color: var(--muted); font-size: 12px; font-weight: 800; }
+.nabd-legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.nabd-legend-item em { color: var(--ink); font-style: normal; font-weight: 900; }
+.nabd-legend-item i { width: 9px; height: 9px; border-radius: 50%; background: var(--legend-color, var(--primary)); }
+.nabd-ringwrap { position: relative; width: 104px; height: 104px; flex: 0 0 auto; }
+.nabd-ringwrap svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+.nabd-ring-track { fill: none; stroke: var(--line); stroke-width: 7; }
+.nabd-ring { fill: none; stroke: var(--primary); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 1s cubic-bezier(.22, 1, .36, 1); }
+.nabd-ringval { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink); font-size: 19px; font-weight: 900; }
+
+.nowchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--card) 76%, transparent);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+.nowchip .pjs-ic { color: var(--primary); }
+.nowchip .live { width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: pjs-blink 1.8s ease-in-out infinite; }
+@keyframes pjs-blink { 50% { opacity: .3; } }
+
+.updbar, .banner { border-radius: 14px; border-color: var(--line); }
+.badge { border-radius: 999px; letter-spacing: .1px; }
+#live-bar.on { background: linear-gradient(90deg, transparent, #14b8a6, #5eead4, #14b8a6, transparent); background-size: 220% 100%; }
+
+@media (max-width: 600px) {
+  .dashboard-topbar { align-items: flex-start; flex-direction: column; padding: 14px; }
+  .nabd-card { align-items: stretch; flex-direction: column; gap: 16px; min-height: 0; padding: 19px; }
+  .nabd-head { font-size: 16px; }
+  .nabd-body { flex: auto; gap: 14px; }
+  .nabd-ringwrap { width: 84px; height: 84px; }
+  .nabd-num { font-size: 36px; }
+  .nabd-legend { gap: 8px 11px; font-size: 11px; }
+}
+
+@media print {
+  body { background: #fff !important; color: #000 !important; }
+  .sidebar, .bottomnav, .updbar, #live-bar, [data-act].btn, .no-print, .nabd-card { display: none !important; }
+  .card { box-shadow: none !important; border: 1px solid #cbd5e1 !important; border-radius: 10px; break-inside: avoid; }
+  .main { padding: 0 !important; }
+  @page { size: A4; margin: 14mm; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
