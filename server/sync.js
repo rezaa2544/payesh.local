@@ -69,9 +69,12 @@ function pull(store, actor, params) {
       data._version = r.version;
       /* ردیف ۵۷: رمزها فقط برای مدیر می‌آیند؛ برای بقیهٔ نقش‌ها فقط
          فیلدهای مجاز (allowlist) می‌آیند — نه «حذفِ فهرست سیاه».
-         password_enc (رمز پلمپ‌شدهٔ قابل‌بازخوانی) هم همین‌جا بسته شد. */
+         password_enc (رمز پلمپ‌شدهٔ قابل‌بازخوانی) هم همین‌جا بسته شد.
+         مرحلهٔ دوم (P0): فیلدهای هویتی (کد ملی، شناسنامه، شماره،
+         نشانی) در ردیفِ دیگران حذف می‌شوند؛ فقط ردیفِ خودِ کاربر
+         (self) آنها را نگه می‌دارد — دادهٔ خودش نشت نیست. */
       if (name === 'users' && actor.role !== 'manager') {
-        data = policy.scrubUser(data);
+        data = policy.scrubUserFor({ id: scope.selfId }, data);
       }
       out.push(data);
     }

@@ -213,25 +213,49 @@ function canWriteRow(store, user, role, collection, row, existing) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   ردیف ۵۷ — allowlist فیلدهای کاربر
+   ردیف ۵۷ (مرحلهٔ دوم — بازبینی مستقل P0) — allowlist فیلدهای کاربر
 
    قاعده: هر چیزی بیرون از این فهرست، هرگز به نقش غیرمدیر داده نمی‌شود
    (blacklist سابق فقط password_hash/phone_hash/password_plain را پاک
    می‌کرد و password_enc — رمزِ پلمپ‌شدهٔ قابل‌بازخوانی — نشت می‌کرد).
-   فیلدهای شناسنامه‌ای (کد ملی، شماره، مشخصات اولیا) که برنامه و کلاینت
-   به آن‌ها نیاز دارند می‌مانند؛ هرچیزِ رازگونه (password_*، phone_hash،
-   __password_verifier، secret*، token*، pin_hash) هرگز.
+
+   فیلدهای هویتی/حریم‌خصوصی (USER_IDENTITY_FIELDS) از allowlist عمومی
+   حذف شدند: در بازبینی مستقل (P0) کد ملیِ هر کاربر برای هر نقش
+   غیرمدیر قابل‌مشاهده بود.
+
+   تصمیم طراحی — آیا معلم/والد برای کار روزمره به کد ملی نیاز دارد؟
+   بررسی مسیرهای کلاینت: خیر.
+     • دبیر در «دانش‌آموزان من»/حضور و غیاب فقط نام، کلاس و نمره می‌بیند
+       (PAGES.students در client/pages.js)؛
+     • ولی در صفحهٔ «فرزند» فقط نمره، حضور و مرخصی می‌بیند (PAGES.child)؛
+     • هیچ الگوی کلایتی برای نقش غیرمدیر از national_id/شمارۀ ولی
+       استفاده نمی‌کند (کاربردها همه-manager: مدیریت کاربران، ورود
+       دسته‌ای، یابندۀ موارد تکراری).
+   بنابراین: فیلدهای هویتی فقط در ردیفِ خودِ کاربر (self) می‌مانند
+   («دادهٔ خودش» نشت نیست — /api/me و صفحهٔ «پرونده») و در ردیفِ دیگران
+   — حتی درون اسکوپ (دبیرِ کلاسِ خودش، ولیِ فرزندِ خودش) — حذف می‌شوند.
+   هرچیزِ رازگونه (password_*، phone_hash، __password_verifier،
+   secret*، token*، pin_hash) هرگز.
    ═════════════════════════════════════════════════════════════════ */
+
+/* فیلدهای هویتی/حریم‌خصوصی — خارج از allowlist عمومی؛ فقط روی ردیف self */
+const USER_IDENTITY_FIELDS = new Set([
+  'national_id', 'father_nid', 'mother_nid',
+  'shenasname_serial', 'shenasname_seri',
+  'phone', 'father_phone', 'mother_phone', 'landline',
+  'address', 'residence', 'village', 'residence_status',
+]);
+
 const USER_PUBLIC_FIELDS = new Set([
-  'id', 'name', 'role', 'phone', 'national_id', 'class_id', 'subject', 'active',
+  'id', 'name', 'role', 'class_id', 'subject', 'active',
   'position', 'created_at', 'updated_at', 'followup_reason', '_version',
-  /* فیلدهای تکمیلیِ ورود دسته‌ای (IMP_STORE_FIELDS در server/index.js) */
+  /* فیلدهای تکمیلیِ ورود دسته‌ای (IMP_STORE_FIELDS در server/index.js) —
+     به جز فیلدهای هویتی که به USER_IDENTITY_FIELDS منتقل شدند */
   'first_name', 'last_name', 'birth_date', 'gender', 'grade', 'mode',
-  'father_nid', 'mother_nid', 'father_name', 'mother_name', 'father_phone', 'mother_phone',
+  'father_name', 'mother_name',
   'field', 'last_gpa', 'failed_count', 'father_edu', 'father_alive', 'father_job',
   'mother_edu', 'mother_alive', 'mother_job', 'guardian', 'guardian_alive', 'sisters', 'brothers',
-  'covered', 'org_type', 'org_percent', 'talent', 'landline', 'residence', 'village',
-  'residence_status', 'address', 'shenasname_serial', 'shenasname_seri', 'degree',
+  'covered', 'org_type', 'org_percent', 'talent', 'degree',
 ]);
 
 /* الگوی فیلد رازگونه — برای بازرسی و پاکسازی در هر مسیری که users می‌رود */
@@ -242,11 +266,38 @@ function isSecretField(key) {
   return SECRET_FIELD_RE.test(k) || k === 'phone_hash' || k === '__password_verifier' || k === 'accessKey';
 }
 
-/* کپیِAllowlist‌شدهٔ یک ردیف users — فقط فیلدهای مجاز؛ بقیه حذف می‌شوند */
-function scrubUser(data) {
+/* کپیِAllowlist‌شدهٔ یک ردیف users — فقط فیلدهای مجاز؛ بقیه حذف می‌شوند.
+   { keepIdentity: true } فیلدهای هویتی را هم نگه می‌دارد — فقط برای
+   ردیفِ خودِ کاربر (self) به‌کار برده می‌شود (scrubUserFor). */
+function scrubUser(data, opts) {
+  const keepIdentity = !!(opts && opts.keepIdentity);
   const out = {};
   for (const k of Object.keys(data || {})) {
+    if (isSecretField(k)) continue;                       /* رازها هرگز */
+    if (USER_IDENTITY_FIELDS.has(k)) {                    /* هویتی: فقط self */
+      if (keepIdentity) out[k] = data[k];
+      continue;
+    }
     if (USER_PUBLIC_FIELDS.has(k)) out[k] = data[k];
+  }
+  return out;
+}
+
+/* پاک‌سازیِ ردیف users برای یک دیدگر غیرمدیر: فیلدهای هویتی فقط در
+   ردیفِ خودِ دیدگر باقی می‌مانند (دادهٔ خودش نشت نیست)؛ در ردیفِ دیگران
+   — حتی داخل اسکوپ (دانش‌آموزِ کلاسِ دبیر، فرزندِ ولی) — حذف می‌شوند.
+   viewer = { id } (شناسهٔ کاربرِ دیدگر)؛ manager‌ها اصلاً اینجا نمی‌رسند. */
+function scrubUserFor(viewer, data) {
+  const self = !!(viewer && data && Number(viewer.id) === Number(data.id));
+  return scrubUser(data, { keepIdentity: self });
+}
+
+/* حذفِ صرفِ فیلدهای هویتی از یک ردیفِ ازپیش‌ساخته (مانند userRow در
+   server/index.js) — برای مسیرهایی که خودشان فیلدها را چیده‌اند. */
+function scrubUserIdentity(data) {
+  const out = Object.assign({}, data);
+  for (const k of Object.keys(out)) {
+    if (USER_IDENTITY_FIELDS.has(k)) delete out[k];
   }
   return out;
 }
@@ -254,5 +305,6 @@ function scrubUser(data) {
 module.exports = {
   ROLES, ATT_STATUS, GRADE_KINDS, COLLECTIONS,
   collectionAllowed, canRead, canWrite, buildScope, rowInScope, canWriteRow,
-  USER_PUBLIC_FIELDS, SECRET_FIELD_RE, isSecretField, scrubUser,
+  USER_PUBLIC_FIELDS, USER_IDENTITY_FIELDS, SECRET_FIELD_RE, isSecretField,
+  scrubUser, scrubUserFor, scrubUserIdentity,
 };

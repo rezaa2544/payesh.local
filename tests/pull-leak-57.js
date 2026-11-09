@@ -1,5 +1,5 @@
 'use strict';
-/* ═══════════════════════════════════════════════════════════════════
+/* ═════════════════════════════════════════════════════════════════
    آزمون رگرسیون ردیف ۵۷ — نشت فیلدهای حساس کاربران به نقش غیرمدیر
 
    چه چیزی واقعی است؟
@@ -7,8 +7,15 @@
        واقعی و دایرکتوری دادهٔ موقت — همان باینری تولید.
      • نقش‌های معلم/والد/دانش‌آموز واقعاً از طریق /api/v1/pull می‌کشند
        و هر فیلدی که می‌بینند بازرسی می‌شود.
-     • کنترل مثبت: مدیر باید password_hash/password_enc را ببیند
+     • کنترل مثبت: مدیر باید password_hash/password_enc و کد ملی را ببیند
        (در غیر این صورت «پاکسازی» همه‌چیز را خراب کرده ایم).
+
+   مرحلهٔ دوم (P0 بازبینی مستقل): علاوه بر فیلدهای رازگونه،
+     فیلدهای هویتی/حریم‌خصوصی (national_id، father_nid/mother_nid،
+     shenasname_serial/seri، phone، landline، address و فیلدهای تماس
+     اصلی) نباید به نقش غیرمدیر برسند — مگر در ردیفِ خودِ کاربر
+     (دادهٔ خودش نشت نیست). مسیر /api/students/:id و بستهٔ گوشی
+     (outbox.personData) هم همین‌طور.
 
    چه چیزی ادعا نمی‌شود: مسیرهای ابری نیاز به PostgreSQL واقعی دارند
    و در اینجا اجرا نمی‌شوند (NOT-RUN؛ پاکسازی change-feed در
@@ -121,6 +128,14 @@ function leakedKeys(row) {
   return bad;
 }
 
+/* فیلدهای هویتی/حریم‌خصوصی (P0 مرحلهٔ دوم) — در ردیفِ دیگران ممنوع */
+const IDENTITY_FIELDS = ['national_id', 'father_nid', 'mother_nid', 'shenasname_serial',
+  'shenasname_seri', 'phone', 'father_phone', 'mother_phone', 'landline', 'address',
+  'residence', 'village', 'residence_status'];
+function leakedIdentityKeys(row) {
+  return Object.keys(row || {}).filter(k => IDENTITY_FIELDS.includes(k));
+}
+
 (async () => {
   const dataDir = path.join(WORK, 'data');
   fs.mkdirSync(dataDir, { recursive: true });
@@ -140,10 +155,28 @@ function leakedKeys(row) {
     });
 
     const ids = {};
-    await check('PL-01', 'ساخت معلم/دانش‌آموز/والد + پیوند والد', async () => {
+    await check('PL-01', 'ساخت کلاس/معلم/دانش‌آموز/والد + پیوندها', async () => {
+      /* کلاس اول ساخته می‌شود تا دانش‌آموز class_id بگیرد — دبیرِ کلاس
+         از طریق schedule ردیف دانش‌آموز را در اسکوپ می‌بیند */
+      const cls = await srv.http('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+        { uid: 'c57', collection: 'classes', type: 'put', data: { name: 'دهم ۵۷', grade: 'دهم' } },
+      ] } });
+      assert((cls.data.applied || []).length === 1, 'کلاس ساخته نشد');
+      ids.class = Number(cls.data.applied[0].id);
+
       const mk = await srv.http('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
         { uid: 't57', collection: 'users', type: 'put', data: { name: 'دبیر ۵۷', role: 'teacher', phone: '09120000057', national_id: '1000000057' } },
-        { uid: 's57', collection: 'users', type: 'put', data: { name: 'دانش‌آموز ۵۷', role: 'student', phone: '09120000058', national_id: '1000000058' } },
+        /* دانش‌آموز با فیلدهای هویتی کامل (کد ملی پدر/مادر، شناسنامه، نشانی)
+           — تا نشتِ آن‌ها به دبیر/ولی سنجیده شود */
+        { uid: 's57', collection: 'users', type: 'put', data: {
+          name: 'دانش‌آموز ۵۷', role: 'student', phone: '09120000058', national_id: '1000000058',
+          class_id: ids.class,
+          father_nid: '2000000058', mother_nid: '2000000059',
+          shenasname_serial: '۵۶۷۸۹', shenasname_seri: 'ب۱۲',
+          father_phone: '09120000061', mother_phone: '09120000062',
+          landline: '0215550000', address: 'خیابان آزمون ۵۷',
+          residence: 'تهران', village: '', residence_status: 'با والدین',
+        } },
         { uid: 'p57', collection: 'users', type: 'put', data: { name: 'والد ۵۷', role: 'parent', phone: '09120000059', national_id: '1000000059' } },
       ] } });
       assert((mk.data.applied || []).length === 3, 'سه کاربر ساخته نشد: ' + JSON.stringify(mk.data));
@@ -152,9 +185,10 @@ function leakedKeys(row) {
       ids.teacher = byUid.t57; ids.student = byUid.s57; ids.parent = byUid.p57;
       const link = await srv.http('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
         { uid: 'l57', collection: 'parent_links', type: 'put', data: { parent_id: ids.parent, student_id: ids.student } },
+        { uid: 'sc57', collection: 'schedule', type: 'put', data: { class_id: ids.class, teacher_id: ids.teacher, weekday: 'sat', lesson: 'ریاضی' } },
       ] } });
-      assert((link.data.applied || []).length === 1, 'پیوند والد ساخته نشد');
-      return `teacher=${ids.teacher} student=${ids.student} parent=${ids.parent}`;
+      assert((link.data.applied || []).length === 2, 'پیوندها ساخته نشد');
+      return `teacher=${ids.teacher} student=${ids.student} parent=${ids.parent} class=${ids.class}`;
     });
 
     const loginAs = async (phone, pw) => {
@@ -185,29 +219,91 @@ function leakedKeys(row) {
         /* سالم بودن داده: فیلدهای شناسنامه‌ای هنوز هستند */
         const me = rows.find(u => Number(u.id) === Number(role === 'teacher' ? ids.teacher : role === 'parent' ? ids.parent : ids.student));
         assert(me && me.name && me.role === role, role + ': ردیف خودش ناقص است: ' + JSON.stringify(me));
-        assert(me && me.national_id, role + ': کد ملیِ خودش دیده نمی‌شود (الگوهای کلاینت شکسته)');
+        assert(me && me.national_id, role + ': کد ملیِ خودش دیده نمی‌شود (دادهٔ self)');
+        /* P0 مرحلهٔ دوم: فیلدهای هویتیِ دیگران نباید دیده شوند —
+           حتی درون اسکوپ (دانش‌آموزِ کلاسِ دبیر، فرزندِ ولی). */
+        const idLeaks = [];
+        rows.forEach(u => {
+          if (Number(u.id) === Number(me.id)) return;
+          leakedIdentityKeys(u).forEach(k => idLeaks.push(u.id + '.' + k));
+        });
+        assert(idLeaks.length === 0, 'نشت هویتی به ' + role + ': ' + idLeaks.join(', '));
         return `${rows.length} ردیف، همه پاک‌سازی‌شده`;
       });
     }
 
-    /* ── والد فرزندش را می‌بیند — و بدون هیچ فیلد رمزی ───────────── */
-    await check('PL-13', 'والد ردیف فرزند را می‌بیند و هیچ رمزی در آن نیست', async () => {
+    /* ── والد فرزندش را می‌بیند — و بدون هیچ فیلد رمزی/هویتی ─────── */
+    await check('PL-13', 'والد ردیف فرزند را می‌بیند و بدون فیلد رمزی/هویتی است', async () => {
       const r = await srv.http('/api/v1/pull?since=' + encodeURIComponent(SINCE) + '&collections=users', { token: parentTok });
       const rows = ((r.data && r.data.collections) || {}).users || [];
       const kid = rows.find(u => Number(u.id) === Number(ids.student));
       assert(kid, 'والد فرزندش را در pull نمی‌بیند');
       assert(leakedKeys(kid).length === 0, ' در ردیف فرزند فیلد راز هست: ' + leakedKeys(kid).join(', '));
-      return 'child visible, no secrets';
+      const idLeaks = leakedIdentityKeys(kid);
+      assert(idLeaks.length === 0, 'ولی فیلدهای هویتی فرزند را می‌بیند: ' + idLeaks.join(', '));
+      return 'child visible, no secrets, no identity fields';
     });
 
-    /* ── کنترل مثبت: مدیر همچنان رمزها را می‌بیند ───────────────── */
-    await check('PL-20', 'کنترل مثبت: مدیر password_hash و password_enc را می‌بیند', async () => {
+    /* ── دبیرِ کلاس ردیف دانش‌آموز را می‌بیند — بدون فیلدهای هویتی ── */
+    await check('PL-14', 'دبیرِ کلاس ردیف دانش‌آموز را می‌بیند، فیلد هویتی ندارد', async () => {
+      const r = await srv.http('/api/v1/pull?since=' + encodeURIComponent(SINCE) + '&collections=users', { token: teacherTok });
+      const rows = ((r.data && r.data.collections) || {}).users || [];
+      const stu = rows.find(u => Number(u.id) === Number(ids.student));
+      assert(stu, 'دبیر دانش‌آموزِ کلاس خودش را در pull نمی‌بیند (اسکوپ)');
+      assert(leakedIdentityKeys(stu).length === 0,
+        'دبیر فیلدهای هویتی دانش‌آموز را می‌بیند: ' + leakedIdentityKeys(stu).join(', '));
+      assert(stu.name && Number(stu.class_id) === Number(ids.class), 'ردیف دانش‌آموز ناقص است');
+      return 'student in scope, identity scrubbed';
+    });
+
+    /* ── مسیر پروندهٔ دانش‌آموز: دبیر می‌بیند ولی بدون هویتی‌ها ──── */
+    await check('PL-15', '/api/students/:id برای دبیر: فیلد هویتی نیست', async () => {
+      const r = await srv.http('/api/students/' + ids.student, { token: teacherTok });
+      assert(r.status === 200, 'دبیر به پروندهٔ دانش‌آموز دسترسی ندارد: status=' + r.status);
+      const stu = (r.data && r.data.student) || {};
+      assert(stu.name, 'پروندهٔ دانش‌آموز خالی است');
+      const idLeaks = leakedIdentityKeys(stu);
+      assert(idLeaks.length === 0, 'دبیر از مسیر /api/students/:id فیلدهای هویتی می‌بیند: ' + idLeaks.join(', '));
+      return 'identity scrubbed on student endpoint';
+    });
+
+    /* ── بستهٔ گوشی (outbox.personData): خودش کامل، فرزند مینیمال ─── */
+    await check('PL-16', 'outbox.personData: me هویتیِ خودش را دارد، children مینیمال', async () => {
+      const outbox = require(path.join(ROOT, 'server', 'outbox.js'));
+      /* بدون پایگاه داده: روی یک سناریوی فرضی بررسی می‌کنیم */
+      const fakeStore = {
+        all: (c) => c === 'parent_links' ? [{ parent_id: 5, student_id: 7 }] : [],
+        get: (c, id) => {
+          if (c !== 'users') return null;
+          if (Number(id) === 5) return { id: 5, name: 'ولی', role: 'parent', phone: '0912', national_id: 'NID5', address: 'ADR' };
+          if (Number(id) === 7) return { id: 7, name: 'فرزند', role: 'student', national_id: 'NID7', phone: '0913' };
+          return null;
+        },
+      };
+      const pd = outbox.personData(fakeStore, { id: 5, role: 'parent', active: true });
+      assert(pd.me && pd.me.national_id === 'NID5', 'me: هویتیِ خودش باید بماند');
+      assert(pd.me && pd.me.address === 'ADR', 'me: نشانیِ خودش باید بماند');
+      assert(!leakedKeys(pd.me).length, 'me: فیلد راز دارد: ' + leakedKeys(pd.me).join(','));
+      assert(Array.isArray(pd.children) && pd.children.length === 1, 'children: فرزند نیست');
+      const kid = pd.children[0];
+      assert(!('national_id' in kid) && !('phone' in kid) && !('address' in kid),
+        'children: فیلد هویتی دارد: ' + Object.keys(kid).join(','));
+      return 'me=self identity, children minimal';
+    });
+
+    /* ── کنترل مثبت: مدیر همچنان رمزها و هویتی‌ها را می‌بیند ──────── */
+    await check('PL-20', 'کنترل مثبت: مدیر password_hash، password_enc و national_id را می‌بیند', async () => {
       const r = await srv.http('/api/v1/pull?since=' + encodeURIComponent(SINCE) + '&collections=users', { token: managerToken });
       const rows = ((r.data && r.data.collections) || {}).users || [];
       const mgr = rows.find(u => Number(u.id) === 1);
       assert(mgr, 'ردیف مدیر در pull نیست');
       assert(mgr.password_hash, 'مدیر password_hash را نمی‌بیند (کنترل مثبت شکست خورد)');
       assert(mgr.password_enc, 'مدیر password_enc را نمی‌بیند (کنترل مثبت شکست خورد)');
+      /* کنترل مثبتِ هویتی: پاک‌سازی فقط نقش‌محور است، نه حذفِ کلی */
+      const stu = rows.find(u => Number(u.id) === Number(ids.student));
+      assert(stu && stu.national_id === '1000000058', 'مدیر national_id دانش‌آموز را نمی‌بیند');
+      assert(stu && stu.father_nid === '2000000058', 'مدیر father_nid دانش‌آموز را نمی‌بیند');
+      assert(stu && stu.shenasname_serial === '۵۶۷۸۹', 'مدیر shenasname_serial را نمی‌بیند');
       return 'manager keeps full user rows';
     });
 
@@ -288,12 +384,23 @@ function leakedKeys(row) {
         id: 1, name: 'x', national_id: '1', password_hash: 'h', password_enc: 'enc:v1:x',
         phone_hash: 'h', password_plain: 'p', __password_verifier: 'v', secret: 's',
         token: 't', pin_hash: 'p', school_id: 1,
-        _version: 3, father_name: 'اکبر',
+        _version: 3, father_name: 'اکبر', phone: '0912', address: 'نشانی',
       });
       const keys = Object.keys(out).sort().join(',');
       assert(!/password|phone_hash|verifier|secret|token|pin/.test(keys), 'فیلد رازگونه باقی ماند: ' + keys);
       assert(out._version === 3, '_version حفظ نشد');
       assert(out.father_name === 'اکبر', 'فیلد تکمیلی حذف شد');
+      /* مرحلهٔ دوم (P0): هویتی‌ها در حالت پیش‌فرض حذف می‌شوند */
+      assert(!('national_id' in out) && !('phone' in out) && !('address' in out),
+        'فیلد هویتی در حالت پیش‌فرض باقی ماند: ' + keys);
+      /* keepIdentity فقط برای ردیف خودِ کاربر */
+      const self = policy.scrubUser({ id: 1, national_id: '1', phone: '0912', address: 'ن' }, { keepIdentity: true });
+      assert(self.national_id === '1' && self.phone === '0912', 'keepIdentity کار نمی‌کند');
+      /* scrubUserFor: ردیف خودش vs ردیف دیگران */
+      const forSelf = policy.scrubUserFor({ id: 1 }, { id: 1, national_id: '1', phone: '0912' });
+      const forOther = policy.scrubUserFor({ id: 1 }, { id: 2, national_id: '2', phone: '0913' });
+      assert(forSelf.national_id === '1', 'scrubUserFor: ردیف خودش باید هویتی داشته باشد');
+      assert(!('national_id' in forOther) && !('phone' in forOther), 'scrubUserFor: ردیف دیگران هویتی دارد');
       return keys;
     });
   } finally {

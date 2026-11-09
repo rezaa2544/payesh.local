@@ -877,8 +877,13 @@ async function api(req, res, url, ip) {
     if (!scope.all && !scope.studentIds.has(id)) return json({ ok: false, error: 'out_of_scope' }, 403);
     const u = store.get('users', id);
     if (!u || u.role !== 'student') return json({ ok: false, error: 'not_found' }, 404);
+    /* ردیف ۵۷ (مرحلهٔ دوم): دبیر/ولی پروندهٔ دانش‌آموز را می‌بینند اما
+       فیلدهای هویتی او (کد ملی، شناسنامه، شماره، نشانی) خیر — فقط مدیر
+       و خودِ آن کاربر (درگاهِ پروندۀ شخصی). */
+    const selfRow = Number(u.id) === Number(actor.user.id);
+    const student = (actor.role === 'manager' || selfRow) ? userRow(u) : policy.scrubUserIdentity(userRow(u));
     return json({
-      ok: true, student: userRow(u),
+      ok: true, student,
       attendance: store.byRef('attendance', 'ref2', id),
       grades: store.byRef('grades', 'ref2', id),
       internships: store.byRef('internships', 'ref2', id),

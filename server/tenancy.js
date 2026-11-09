@@ -417,19 +417,26 @@ function productRowOf(r) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   ردیف ۵۷ —	users در مسیرهای ابری هم همان allowlist را می‌بینند.
+   ردیف ۵۷ — users در مسیرهای ابری هم همان allowlist را می‌بینند.
 
    change-feed (listFeed)، listProduct، getProduct و joinProduct برای نقش
    غیرمدیر، فیلدهای رازگونهٔ users (password_hash، password_enc،
    phone_hash، __password_verifier، secret*…) را حذف می‌کنند. مدیر همه
    را می‌بیند (رفتار کنونی). exportProduct کل users فقط برای مدیر است.
+
+   مرحلهٔ دوم (P0): فیلدهای هویتی (کد ملی، کد ملی پدر/مادر، شناسنامه،
+   شماره، نشانی) هم از allowlist عمومی خارج شدند — فقط در ردیفِ خودِ
+   کاربر (scope.uid) می‌مانند. اسکوپ («ولی: فقط فرزند خودش»، «دبیر:
+   فقط کلاس‌های خودش») همچنان برمی‌دارد که کدام ردیف‌ها دیده می‌شوند،
+   اما دیگر کدام فیلدهای هویتیِ آن ردیف‌ها را نه.
    ═════════════════════════════════════════════════════════════════ */
 function scrubUsersRow(scope, row) {
   if (!row || row.collection !== 'users') return row;
   if (!scope || scope.role === 'manager' || scope.all) return row;
   const data = (row.data && typeof row.data === 'object') ? row.data : null;
   if (!data) return row;
-  return Object.assign({}, row, { data: policy.scrubUser(data) });
+  const self = Number.isFinite(Number(scope.uid)) && Number(row.record_id) === Number(scope.uid);
+  return Object.assign({}, row, { data: policy.scrubUser(data, { keepIdentity: self }) });
 }
 
 function assertCollection(name) {
@@ -467,7 +474,7 @@ async function getProduct(pool, tenantId, { collection, id, claims = null }) {
       if (!scopeMod.canReadCollection(scope, col)) throw new TenancyError('forbidden_collection', 403, { collection: col });
       if (!scopeMod.rowInScope(scope, col, q.rows[0].data || {})) throw new TenancyError('out_of_scope', 403, { collection: col });
     }
-    return scrubUsersRow(claims ? { role: String((claims && claims.role) || '') } : null, productRowOf(q.rows[0]));
+    return scrubUsersRow(claims ? { role: String((claims && claims.role) || ''), uid: Number((claims && claims.uid) || 0) } : null, productRowOf(q.rows[0]));
   });
 }
 
@@ -806,7 +813,7 @@ async function joinProduct(pool, tenantId, { left, right, on, limit = 200, claim
   const l = assertCollection(left); const r = assertCollection(right);
   if (!/^[a-z][a-z0-9_]{1,40}$/.test(String(on || ''))) throw new TenancyError('bad_join_key', 400);
   const lim = Math.max(1, Math.min(1000, Number(limit) || 200));
-  const claimsScope = claims ? { role: String(claims.role || '') } : null;
+  const claimsScope = claims ? { role: String(claims.role || ''), uid: Number((claims && claims.uid) || 0) } : null;
   return withTenant(pool, tenantId, async (c) => {
     const q = await c.query(
       `select l.collection as left_collection, l.record_id as left_id, l.data as left_data,
