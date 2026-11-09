@@ -63,7 +63,7 @@ jobs:
           code=$?
           grep -E "PL checks|failures" /tmp/pull57.log | head -5 | sed 's/^/::error::/' || true
           if [ $code -ne 0 ]; then exit $code; fi
-          npm run test:pull57:negative > /tmp/pull57-negative.log 2>&1
+          node tests/pull-leak-57-negative.js > /tmp/pull57-negative.log 2>&1
           code=$?
           grep -E 'FAIL  PL-|PL checks|PULL-LEAK-57-FAILED|NEGATIVE-LEAK-CONTROL' /tmp/pull57-negative.log | tail -20 || true
           if [ $code -ne 0 ]; then exit $code; fi
