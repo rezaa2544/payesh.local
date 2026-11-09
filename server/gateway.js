@@ -187,12 +187,27 @@ function deviceOf(headers) {
   return d ? d.slice(0, 80) : 'unknown';
 }
 
+/* ── متریک (ردیف ۴۹): همان قالب مدرسه، برای scrape یکسان ─────────────
+   ردیف ۵۷ (S4): اگر PAYESH_METRICS_TOKEN تنظیم شود، scrape بدون توکن
+   ۴۰۱ می‌گیرد — درست مثل سرور محصول. (پیش‌فرض: باز، چون فقط شمارشِ
+   بی‌هویت است؛ ابزارهای بار/پایش داخلی بدون توکن کار می‌کنند.) */
+const METRICS_TOKEN = String(process.env.PAYESH_METRICS_TOKEN || '');
+function metricsAllowed(req, url) {
+  if (!METRICS_TOKEN) return true;
+  const h = String(req.headers.authorization || '');
+  if (h === 'Bearer ' + METRICS_TOKEN) return true;
+  return url.searchParams.get('token') === METRICS_TOKEN;
+}
 async function handle(req, res, url) {
   const m = String(req.method || 'GET').toUpperCase();
   const p = url.pathname;
 
-  /* ── متریک (ردیف ۴۹): همان قالب مدرسه، برای scrape یکسان ───────────── */
   if (p === '/metrics' && (m === 'GET' || m === 'HEAD')) {
+    if (!metricsAllowed(req, url)) {
+      res.writeHead(401, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+      res.end('unauthorized\n');
+      return;
+    }
     const body = await mreg.render();
     res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8', 'cache-control': 'no-store', 'x-gateway-instance': INSTANCE });
     res.end(m === 'HEAD' ? '' : body);

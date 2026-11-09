@@ -18,6 +18,7 @@ const crypto = require('crypto');
 const path = require('path');
 const s3mem = require('./s3mem');
 const sync = require('./sync');
+const policy = require('./policy');
 const util = require('./util');
 const tenantCtx = require('./tenant-context');
 
@@ -572,13 +573,22 @@ function loginKey(u) {
   return nid.length === 10 ? nid : '';
 }
 
+/* ردیف ۵۷: فیلد رازگونه حذف می‌شود — password_enc (رمز پلمپ‌شده) هم،
+   نه فقط هش‌ها. فهرست از policy می‌آید تا همهٔ مسیرها یکی باشند.
+   مرحلهٔ دوم (P0): بستهٔ person فقط دادهٔ خودِ کاربر (me) و فرزندانش
+   را دارد؛ me از همان allowlist می‌گذرد — هویتی‌ها فقط برای خودش
+   (keepIdentity) می‌مانند و children فقط شناسه/نام/کلاس دارد. */
 function safeRow(row) {
   const out = Object.assign({}, row);
-  delete out.password_hash;
-  delete out.phone_hash;
-  delete out.password_plain;
-  delete out.pin_hash;
+  for (const k of Object.keys(out)) {
+    if (policy.isSecretField(k)) delete out[k];
+  }
   return out;
+}
+/* me (ردیف خود کاربر) — allowlist + هویتی‌های خودش؛ یعنی ردیف users
+   برای شخص خودش، بدون هیچ فیلد رازگونه. */
+function meRow(row) {
+  return policy.scrubUser(row, { keepIdentity: true });
 }
 
 function directory(store) {
@@ -626,7 +636,7 @@ function personData(store, user) {
       .map(safeRow);
   }
   /* کاربر فقط خودش را در فهرست می‌بیند (بدون دادهٔ دیگران) */
-  out.me = safeRow(store.get('users', user.id) || {});
+  out.me = meRow(store.get('users', user.id) || {});
   if (user.role === 'parent') {
     out.children = [];
     for (const sid of ids) {
@@ -686,6 +696,6 @@ module.exports = {
   submit, verifyEnvelope, buildEnvelope, acceptEnvelope, serverTenant, signKey, ignoredClaims,
   corePayload, directory,
   publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop, putIfChanged, forgetPutHashes,
-  publishAuth, publishData, publishAll, personData, CORE_COLLECTIONS, PERSON_COLLECTIONS,
+  publishAuth, publishData, publishAll, personData, meRow, CORE_COLLECTIONS, PERSON_COLLECTIONS,
   SERVER_ROLES, summary, PENDING, DONE, STATE, loginKey,
 };

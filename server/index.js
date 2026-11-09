@@ -475,7 +475,8 @@ async function api(req, res, url, ip) {
       restart_pending: readManifest().version !== RUNNING_VERSION,
       time: nowISO(), server_time: nowISO(), uptime_s: Math.round(process.uptime()),
       setup_done: !auth.needsSetup(store), school: (store.get('schools', 1) || {}).name || null,
-      data_dir: DATA_DIR, db_file: path.join(DATA_DIR, 'payesh.sqlite'),
+      /* ردیف ۵۷ (S4): مسیر مطلق سرور (data_dir/db_file) در یک مسیر بدون
+         احراز هویت فاش نمی‌شود — کلاینت آن را از /api/setup/state می‌گیرد. */
       public_url: cfg.publicUrl(store) || null,
       instance: cfg.instanceId(store),
       cloud_ready: (() => {
@@ -876,8 +877,13 @@ async function api(req, res, url, ip) {
     if (!scope.all && !scope.studentIds.has(id)) return json({ ok: false, error: 'out_of_scope' }, 403);
     const u = store.get('users', id);
     if (!u || u.role !== 'student') return json({ ok: false, error: 'not_found' }, 404);
+    /* ردیف ۵۷ (مرحلهٔ دوم): دبیر/ولی پروندهٔ دانش‌آموز را می‌بینند اما
+       فیلدهای هویتی او (کد ملی، شناسنامه، شماره، نشانی) خیر — فقط مدیر
+       و خودِ آن کاربر (درگاهِ پروندۀ شخصی). */
+    const selfRow = Number(u.id) === Number(actor.user.id);
+    const student = (actor.role === 'manager' || selfRow) ? userRow(u) : policy.scrubUserIdentity(userRow(u));
     return json({
-      ok: true, student: userRow(u),
+      ok: true, student,
       attendance: store.byRef('attendance', 'ref2', id),
       grades: store.byRef('grades', 'ref2', id),
       internships: store.byRef('internships', 'ref2', id),
@@ -1450,8 +1456,10 @@ async function api(req, res, url, ip) {
   if (p === '/api/admin/export' && m === 'GET') {
     const collection = String(q.get('collection') || 'users');
     if (!policy.collectionAllowed(collection)) return json({ ok: false, error: 'bad_collection' }, 400);
-    /* ردیف ۲۸: خروجی هرگز هش/رمز/اعتبارنامه را بیرون نمی‌دهد */
-    const rows = (store.all(collection) || []).map(exportRow);
+    /* ردیف ۲۸: خروجی هرگز هش/رمز/اعتبارنامه را بیرون نمی‌دهد.
+       ردیف ۵۷ (تصمیم D1): مدیر فیلدهای شناسنامه‌ای (national_id و زیرگروه‌ها) را
+       برای امور اداری مدرسه می‌بیند؛ رمز/هش/توکن برای همه نقش‌ها حذف می‌شود. */
+    const rows = (store.all(collection) || []).map((row) => exportRow(row, actor.role));
     return { status: 200, headers: {
       'content-type': 'text/csv; charset=utf-8',
       'content-disposition': `attachment; filename="${collection}.csv"`,
@@ -1847,12 +1855,22 @@ function importUsers(body) {
   return { ok: true, kind, created: created.length, updated, parents, classes: classesMade, errors, warnings, users: created };
 }
 
-/* ردیف ۲۸: هر میدانی که هش/رمز/راز است از خروجی حذف می‌شود */
-const EXPORT_DENY = /^(password_hash|password_plain|password_cipher|phone_hash|secret|secret_key|token|token_hash|verifier|__password_verifier|accessKey)$/;
-function exportRow(row) {
+/* ردیف ۲۸/۵۷: هر میدانی که هش/رمز/راز است از خروجی حذف می‌شود.
+   فهرست از policy می‌آید تا مسیر export هم دقیقاً مثل pull بسته باشد —
+   password_enc (رمز پلمپ‌شدهٔ قابل‌بازخوانی) هم شامل می‌شود. */
+const EXPORT_DENY = policy.SECRET_FIELD_RE;
+/* FIX-SEC01b: لایهٔ دفاعی صریح و ثابت در مرز خروجی (علاوه بر allowlist policy):
+   رمز/هش/توکن برای همه نقش‌ها حذف می‌شود (حتی اگر policy روزی عریان شود).
+   فهرست صریح رمزها (password_hash|password_plain|password_enc و سایر رازها) —
+   مرز دوم، مستقل از policy. */
+const EXPORT_SECRET_DENY = /^(password_hash|password_plain|password_enc|pin_hash|phone_hash|__password_verifier|token|secret|accessKey)/;
+/* فیلدهای شناسنامه‌ای (national_id و زیرگروه‌ها) فقط برای غیرمدیر حذف می‌شوند. */
+const EXPORT_IDENTITY_DENY = /^(national_id|father_nid|mother_nid|shenasname_serial|shenasname_seri)/;
+function exportRow(row, role) {
   const out = {};
   for (const [k, v] of Object.entries(row || {})) {
-    if (k.startsWith('_') || EXPORT_DENY.test(k)) continue;
+    if (k.startsWith('_') || EXPORT_DENY.test(k) || EXPORT_SECRET_DENY.test(k)) continue;
+    if (role !== 'manager' && EXPORT_IDENTITY_DENY.test(k)) continue;
     out[k] = v;
   }
   return out;

@@ -63,6 +63,8 @@
     "test:replica52": "node tests/replica-52.js",
     "test:cell54": "node tests/cell-transfer-54.js",
     "test:adr60": "node tests/adr-ids-60.js",
+    "test:pull57": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/pull-leak-57.js",
+    "test:pentest57": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/pentest-57-sync-leak.js",
     "test:pitr50": "node tests/pitr-50.js",
     "test:pitr50:evidence": "bash docs/cloud/reports/evidence/run-50-pitr.sh"
   },

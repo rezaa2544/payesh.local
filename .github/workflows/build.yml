@@ -52,6 +52,20 @@ jobs:
       - name: بازیابی سرور پس از آپدیت (Supervisor restart)
         run: npm run test:restart
 
+      # دروازهٔ P0 ردیف ۵۷: نشت فیلدهای حساس/هویتی کاربران (نقش غیرمدیر) +
+      # کنترل مثبت مدیر + (با رد شدن) آزمون منفی داخلی.
+      - name: دروازهٔ نشت کاربران (ردیف ۵۷)
+        run: |
+          set +e
+          npm run test:pull57 > /tmp/pull57.log 2>&1
+          code=$?
+          grep -E "PL checks|failures" /tmp/pull57.log | head -5 | sed 's/^/::error::/' || true
+          if [ $code -ne 0 ]; then exit $code; fi
+          npm run test:pentest57 > /tmp/pentest57.log 2>&1
+          code=$?
+          tail -5 /tmp/pentest57.log
+          exit $code
+
       # دروازهٔ شاهد: اثبات می‌کند لاگ آزمون واقعاً از همین درخت آمده است
       # (شمارش بدنه، هش بدنه، رجیستری آزمون‌ها، اثر انگشت کل درخت منهای docs/)
       - name: دروازهٔ شاهد آزمون

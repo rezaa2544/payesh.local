@@ -399,8 +399,13 @@ async function waitFor(fn, ms = 15000) {
     const pull = await req('/api/v1/pull?since=1970-01-01T00:00:00.000Z', { token: login.data.session.token });
     const cols = pull.data.collections || {};
     assert.strictEqual((cols.parent_links || []).length, 1, 'پیوند فرزند برای پدر ثبت شد');
-    assert.ok((cols.users || []).some(u => u.role === 'student' && u.national_id === '1000000052'),
+    assert.ok((cols.users || []).some(u => u.role === 'student' && u.name === 'سارا احمدی'),
       'پدر فرزندش را در فهرست می‌بیند');
+    /* ردیف ۵۷ (مرحلهٔ دوم): پدر فرزندش را می‌بیند ولی کد ملی و فیلدهای
+       هویتیِ او را نه (بررسی امنیتی — NOT a regression). */
+    const kid = (cols.users || []).find(u => u.role === 'student');
+    assert.ok(kid && !('national_id' in kid) && !('father_nid' in kid) && !('address' in kid),
+      'ولی نباید فیلدهای هویتی فرزند را ببیند');
 
     /* مادر شمارهٔ همراه ندارد: نام کاربری‌اش کد ملی است و باید وارد شود */
     const mLogin = await req('/api/auth/login', { method: 'POST', body: { phone: '1000000079', password: '1000000079' } });
