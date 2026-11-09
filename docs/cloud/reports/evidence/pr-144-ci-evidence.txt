@@ -1,0 +1,16 @@
+PR #144 CI STATUS SNAPSHOT
+
+PR: https://github.com/rezaa2544/payesh.local/pull/144
+Current source branch: arena/d8dd156c-payesh-local
+Current head at capture: f95cb6a8234e81cbbf408b55b8801b949dfed214
+Base: origin/main @ 15d2ab758ea0bc3df4bc1301f979f0d738c7d400
+
+GitHub Actions run 42621678136 (head 0ab24111649e0fecb634317e4637a0250ad835e7): SUCCESS.
+- Main build/test job: success (6m56s).
+- Windows installer job: success (1m21s).
+- Main job steps all passed: npm tests, restart, pull57, repo boundary, audit evidence, security/SAST, sync budget, PITR/alerts, capacity/DR, pilot, observability, row-45 connection budget, read policy, cell-transfer, ADR IDs, labels, UI/flow/update, phone, release manifest, APK, cloud bundle.
+- Windows installer build and artifact upload passed.
+
+GitHub Actions run 42621756448 (head f95cb6a8234e81cbbf408b55b8801b949dfed214): CANCELLED before any job step (GitHub API job steps array was empty). `gh pr checks` renders this canceled check as `fail`; it is not a test failure.
+- The only commits after the successful run's head are documentation snapshot changes (D7 branch/PR status); no product, package, release, test, or CI files changed.
+- A fresh push after this snapshot is intended to produce the final-head CI run; do not treat the cancelled run as a green check.
