@@ -1861,12 +1861,15 @@ function importUsers(body) {
 const EXPORT_DENY = policy.SECRET_FIELD_RE;
 /* FIX-SEC01b: لایهٔ دفاعی صریح و ثابت در مرز خروجی (علاوه بر allowlist policy):
    رمز/هش/توکن برای همه نقش‌ها حذف می‌شود (حتی اگر policy روزی عریان شود).
-   فیلدهای شناسنامه‌ای (national_id و زیرگروه‌ها) فقط برای غیرمدیر حذف می‌شوند. */
+   فهرست صریح رمزها (password_hash|password_plain|password_enc و سایر رازها) —
+   مرز دوم، مستقل از policy. */
+const EXPORT_SECRET_DENY = /^(password_hash|password_plain|password_enc|pin_hash|phone_hash|__password_verifier|token|secret|accessKey)/;
+/* فیلدهای شناسنامه‌ای (national_id و زیرگروه‌ها) فقط برای غیرمدیر حذف می‌شوند. */
 const EXPORT_IDENTITY_DENY = /^(national_id|father_nid|mother_nid|shenasname_serial|shenasname_seri)/;
 function exportRow(row, role) {
   const out = {};
   for (const [k, v] of Object.entries(row || {})) {
-    if (k.startsWith('_') || EXPORT_DENY.test(k)) continue;
+    if (k.startsWith('_') || EXPORT_DENY.test(k) || EXPORT_SECRET_DENY.test(k)) continue;
     if (role !== 'manager' && EXPORT_IDENTITY_DENY.test(k)) continue;
     out[k] = v;
   }
