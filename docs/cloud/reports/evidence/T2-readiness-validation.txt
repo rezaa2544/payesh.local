@@ -1,0 +1,7 @@
+base_sha=ab7b1de35d95f419dc081f0f9deb88e87f177418
+date_utc=2026-11-09T16:42:37Z
+command=inline readiness validation (relative links, no target, no execution)
+
+PASS readiness holds T2; local links=5; external target URLs=0
+PASS negative control rejects a document mutated to contain a target URL
+T2-READINESS-CHECK-OK links=5 run=0
