@@ -1,0 +1,55 @@
+snapshot_date=2026-10-30 UTC
+snapshot_origin_main=afca62a5cfc4ef5c86e6abe86c120bcd9670382e
+$ git ls-remote origin refs/heads/hermes/*
+fbf1f461fe7cdb51d49776ffe1d9f89d6f9efdd4	refs/heads/hermes/fix-57-leak
+5f505e410d223e2bffccde5d6879de662f2efaa7	refs/heads/hermes/historical-gates
+ce02a962508c1dcb9b44e5350467798260dbd8de	refs/heads/hermes/labels-55-docs
+934b2919db1db71294420fd2e8300180eb4362c9	refs/heads/hermes/owner-rows-51-58
+338f2a44931dd5343cdbd7910ac22c2b437cc668	refs/heads/hermes/recover-rows-45-58
+ecd67a6277ffe585e29942a536284241b693843a	refs/heads/hermes/risks-50-51
+254af5f5028a102775cdbec27259ba7b0150a648	refs/heads/hermes/sha-remap
+$ verify replacement SHAs are ancestors of origin/main
+ae79f99 ON_ORIGIN_MAIN exit=0
+4915222 ON_ORIGIN_MAIN exit=0
+8a8a6da ON_ORIGIN_MAIN exit=0
+6952442 ON_ORIGIN_MAIN exit=0
+39f7aa8 ON_ORIGIN_MAIN exit=0
+ce12a6a ON_ORIGIN_MAIN exit=0
+338f2a4 ON_ORIGIN_MAIN exit=0
+$ query old SHAs through GitHub REST (status line and response body)
+--- 91614a0 ---
+HTTP/2.0 422 Unprocessable Entity
+{"message":"No commit found for SHA: 91614a0","documentation_url":"https://docs.github.com/rest/commits/commits#get-a-commit","status":"422"}gh: No commit found for SHA: 91614a0 (HTTP 422)
+gh_exit=1
+--- 6b40039 ---
+HTTP/2.0 422 Unprocessable Entity
+{"message":"No commit found for SHA: 6b40039","documentation_url":"https://docs.github.com/rest/commits/commits#get-a-commit","status":"422"}gh: No commit found for SHA: 6b40039 (HTTP 422)
+gh_exit=1
+--- 498a6cf ---
+HTTP/2.0 422 Unprocessable Entity
+{"message":"No commit found for SHA: 498a6cf","documentation_url":"https://docs.github.com/rest/commits/commits#get-a-commit","status":"422"}gh: No commit found for SHA: 498a6cf (HTTP 422)
+gh_exit=1
+--- 3c9fca0 ---
+HTTP/2.0 422 Unprocessable Entity
+{"message":"No commit found for SHA: 3c9fca0","documentation_url":"https://docs.github.com/rest/commits/commits#get-a-commit","status":"422"}gh: No commit found for SHA: 3c9fca0 (HTTP 422)
+gh_exit=1
+--- 4e54e8e ---
+HTTP/2.0 422 Unprocessable Entity
+{"message":"No commit found for SHA: 4e54e8e","documentation_url":"https://docs.github.com/rest/commits/commits#get-a-commit","status":"422"}gh: No commit found for SHA: 4e54e8e (HTTP 422)
+gh_exit=1
+--- e16d93f ---
+HTTP/2.0 422 Unprocessable Entity
+{"message":"No commit found for SHA: e16d93f","documentation_url":"https://docs.github.com/rest/commits/commits#get-a-commit","status":"422"}gh: No commit found for SHA: e16d93f (HTTP 422)
+gh_exit=1
+--- 8a0e940 ---
+HTTP/2.0 422 Unprocessable Entity
+{"message":"No commit found for SHA: 8a0e940","documentation_url":"https://docs.github.com/rest/commits/commits#get-a-commit","status":"422"}gh: No commit found for SHA: 8a0e940 (HTTP 422)
+gh_exit=1
+$ current relevant PR states and merge SHAs (REST fields)
+135	closed	fbf1f461fe7cdb51d49776ffe1d9f89d6f9efdd4	38934721a1ddd6f790407515f7e45859e8867fef
+136	closed	ce02a962508c1dcb9b44e5350467798260dbd8de	1c0c4f52f7a2163797e83e5602fd9942bdbadd6c
+137	open	ecd67a6277ffe585e29942a536284241b693843a
+138	open	254af5f5028a102775cdbec27259ba7b0150a648
+140	closed	5f505e410d223e2bffccde5d6879de662f2efaa7
+141	closed	21283f5eea9c29caa88b9bb98a045259b99a610c	3bc8b90727852ca7f3a70df8d8c5a5a17b5deb5b
+142	closed	7dcd76369bdb57da29c83bde79a8e245e47f3e1a	afca62a5cfc4ef5c86e6abe86c120bcd9670382e
