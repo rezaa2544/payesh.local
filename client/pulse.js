@@ -106,13 +106,17 @@
   /* کلیدها با حذف variation selector نرمال می‌شوند تا شکل‌های emoji یکسان شوند. */
   var EMOJI_TO_ICON = {
     '🏠': 'home', '🏡': 'home', '👥': 'users', '👤': 'users', '👨‍🏫': 'teacher',
-    '⚠': 'alert', '🏛': 'school', '🏫': 'school',
-    '🗓': 'calendar', '📅': 'calendar', '✅': 'check', '✔': 'check', '❌': 'cross',
-    '📑': 'report', '📊': 'chart', '📄': 'report', '📢': 'megaphone', '📣': 'megaphone',
-    '🩺': 'health', '🌐': 'globe', '☁': 'cloud', '⚙': 'gear', '📝': 'pen', '✏': 'pen',
-    '📨': 'mail', '✉': 'mail', '📁': 'folder', '🗂': 'folder',
+    '⚠': 'alert', '⚠\uFE0F': 'alert',
+    '🏛': 'school', '🏛\uFE0F': 'school', '🏫': 'school',
+    '🗓': 'calendar', '🗓\uFE0F': 'calendar', '📅': 'calendar',
+    '✅': 'check', '✅\uFE0F': 'check', '✔': 'check', '✔\uFE0F': 'check', '❌': 'cross',
+    '📑': 'report', '📊': 'chart', '📄': 'report',
+    '📢': 'megaphone', '📢\uFE0F': 'megaphone', '📣': 'megaphone',
+    '🩺': 'health', '🌐': 'globe', '☁': 'cloud', '☁\uFE0F': 'cloud',
+    '⚙': 'gear', '⚙\uFE0F': 'gear', '📝': 'pen', '✏': 'pen', '✏\uFE0F': 'pen',
+    '📨': 'mail', '✉': 'mail', '✉\uFE0F': 'mail', '📁': 'folder', '🗂': 'folder', '🗂\uFE0F': 'folder',
     '👨‍👩‍👦': 'family', '👨‍👩‍👧': 'family', '🕐': 'clock', '⏰': 'clock',
-    '⬇': 'down', '📥': 'down'
+    '⬇': 'down', '⬇\uFE0F': 'down', '📥': 'down'
   };
 
   function makeSvgElement(tag, attrs) {

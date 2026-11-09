@@ -1,18 +1,18 @@
 {
-  "version": "0.9.1",
-  "built_at": "2026-11-09T19:53:58.486Z",
+  "version": "0.9.2",
+  "built_at": "2026-11-09T19:59:28.085Z",
   "notes": [
-    "تم نبض به دیزاین‌سیستم پایش ارتقا یافت: کارت قهرمان تمام‌عرض، لایه‌های شیشه‌ای، کنتراست روشن/تیره و نوار کپسولی موبایل.",
-    "ایموجی‌ها حذف شدند، سلسله‌مراتب بصری اصلاح شد؛ آیکون‌های ناوبری و شاخص‌ها اکنون SVG یکپارچه‌اند."
+    "نگاشت آیکون‌های نبض هر دو شکل ایموجی با و بدون variation selector را به SVG یکسان می‌برد.",
+    "بسته‌های نصب و مانیفست برای نگاشت آیکون‌های اصلاح‌شده به نسخهٔ 0.9.2 ارتقا یافتند."
   ],
   "shell": {
-    "android": "0.9.1"
+    "android": "0.9.2"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "635ebabfde157b1bba7e3a2d049515bea13e8c365246a64a56ae3e11b954e5b0",
+      "sha256": "acd0e8d4cf8794dac9373cfb4b9f6bef26451795d44a5dc90c1bf83a92c38a0f",
       "size": 201454
     },
     {
@@ -156,8 +156,8 @@
     {
       "path": "client/pulse.js",
       "kind": "client",
-      "sha256": "595d40278deaff83c27dd2e0a454f4f36779e66ba65fc4ea63c1fe6e5e6ab94b",
-      "size": 15828
+      "sha256": "11b6c5cdbb4e58df14dd4d16419ce8886f351162f12184dcecc03eb77389d363",
+      "size": 16116
     },
     {
       "path": "client/scan.js",
@@ -204,7 +204,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "d83cc469a1c6a38766fbe703b2094e0be8b4ed2b68c0c26c06c1f07a6723c2a7",
+      "sha256": "b128e503864c57645d05996a96478a1d13e09c50e272544e21467e782674fd92",
       "size": 5525
     },
     {
@@ -404,7 +404,7 @@
     "client": 31,
     "server": 34
   },
-  "client_size": 1462423,
+  "client_size": 1462711,
   "server_size": 513248,
-  "total_size": 1975671
+  "total_size": 1975959
 }
