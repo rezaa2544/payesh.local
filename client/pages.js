@@ -499,10 +499,23 @@ function managerHome() {
   const todaySlots = bellNow ? list('schedule').filter(s => Number(s.weekday) === weekdayIndex() && Number(s.bell_order) === Number(bellNow.order)) : [];
   const recentAnn = sortBy(list('announcements'), 'date').reverse().slice(0, 3);
 
+  const dashboardDay = weekdayIndex();
+  const currentBellLabel = bellNow ? (bellNow.label || 'زنگ ' + fa(bellNow.order)) : 'بین زنگ‌های درسی';
+
   return `
-  ${pageHead('داشبورد مدرسه', J_DAYS[weekdayIndex()] + ' · ' + jdate(today),
-    `<button class="btn sm" data-act="sync">🔄 همگام‌سازی</button>
-     <button class="btn sm primary" data-act="goto" data-route="announcements">اطلاعیهٔ جدید</button>`)}
+  <div class="topbar dashboard-topbar">
+    <div><h2>داشبورد مدرسه</h2></div>
+    <div class="dashboard-topbar-left">
+      <div class="row no-print">
+        <button class="btn sm" data-act="sync">🔄 همگام‌سازی</button>
+        <button class="btn sm primary" data-act="goto" data-route="announcements">اطلاعیهٔ جدید</button>
+      </div>
+      <div class="dashboard-now" aria-label="وضعیت زنگ جاری">
+        <div class="dashboard-now-line"><span class="dashboard-now-kicker">الان در</span><strong>${esc(currentBellLabel)}</strong></div>
+        <div class="dashboard-now-date">${esc(J_DAYS[dashboardDay] + ' · ' + fa(jdate(today)))}</div>
+      </div>
+    </div>
+  </div>
   <div class="grid">
     ${statCard('👥', fa(students.length), 'دانش‌آموز')}
     ${statCard('👨‍🏫', fa(teachers.length), 'دبیر')}

@@ -3743,11 +3743,17 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(attendance[1].includes('۲ / ۲') && attendance[1].includes('حاضر') && attendance[1].includes('غایب'), 'تعداد ثبت‌شده و تفکیک حاضر/غایب دیده می‌شود');
     assert.ok(!attendance[1].includes('کلاس ۱۰۱'), 'محل فیزیکی به‌جای پایه/رشته در جدول حضور نمایش داده نمی‌شود');
     assert.ok(rooms && /dashboard-room-row is-occupied[^>]*data-room-id="7"/.test(rooms[1]), 'کلاس ۱۰۱ هنگام وجود زنگ جاری در وضعیت سبز است');
+    assert.ok(html.includes('dashboard-now') && html.includes('<span class="dashboard-now-kicker">الان در</span><strong>زنگ اول</strong>'), 'زنگ جاری در گوشهٔ بالای داشبورد نمایش داده می‌شود');
+    assert.ok(/class="dashboard-now-date">(?:شنبه|یک‌شنبه|دوشنبه|سه‌شنبه|چهارشنبه|پنج‌شنبه|جمعه) · /.test(html), 'روز هفته و تاریخ شمسی با اندازهٔ کوچک زیر زنگ می‌آیند');
     assert.ok(rooms[1].includes('دهم · الکترونیک') && rooms[1].includes('فیزیک') && rooms[1].includes('دبیر آزمون'), 'وضعیت کلاس، پایه/رشته و درس/دبیر را مشخص می‌کند');
     assert.ok(/data-room-id="8"/.test(rooms[1]) && /خالی در این زنگ/.test(rooms[1]), 'کلاس بدون برنامهٔ جاری خالی نشان داده می‌شود');
+    T.S.data.bell_schedules.get(1).type = 'break';
+    assert.ok(T.managerHome().includes('<span class="dashboard-now-kicker">الان در</span><strong>بین زنگ‌های درسی</strong>'), 'وقتی زنگ فعالی نیست، وضعیت خالی به‌روشنی نمایش داده می‌شود');
     const styles = fs.readFileSync(path.join(ROOT, 'client/styles.css'), 'utf8');
     assert.ok(/\.input,select\.input,textarea\.input\{[^}]*border:2px solid/.test(styles), 'فیلدهای قابل‌تکمیل حاشیهٔ برجسته دارند');
     assert.ok(/dashboard-coverage-grid\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);[^}]*direction:rtl/.test(styles), 'دو پنل در نمایشگر عریض کنار هم و با ترتیب راست‌به‌چپ می‌آیند');
+    assert.ok(/dashboard-topbar-left\{display:flex;align-items:center;gap:14px\}/.test(styles) && /\.dashboard-now-date\{font-size:11px/.test(styles), 'اطلاعات زنگ در گوشهٔ چپ و تاریخ/روز در اندازهٔ کوچک چیده می‌شود');
+    assert.ok(/@media \(max-width:700px\)\{\.dashboard-topbar\{align-items:flex-start;flex-direction:column\}/.test(styles), 'سربرگ داشبورد در نمایشگر باریک زیر هم چیده می‌شود');
     assert.ok(/dashboard-room-row\.is-occupied td\{background:var\(--green-bg\)/.test(styles), 'کلاس در حال تدریس با زمینهٔ سبز برجسته می‌شود');
     dom.window.close();
   });
