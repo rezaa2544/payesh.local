@@ -1,0 +1,53 @@
+pipeline:
+  id: pipeline_rezaa2544_payesh_local_build_43d5
+  name: pipeline_rezaa2544_payesh_local_build_43d5
+  stages:
+    - id: build
+      name: Build and Test
+      runtime: cloud
+      clone:
+        enabled: true
+      cache:
+        enabled: true
+      steps:
+        - id: setup_node
+          name: Setup Node
+          run:
+            shell: bash
+            script: |-
+              # Install Node.js 22 using nvm
+              export NVM_DIR="$HOME/.nvm"
+              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+              nvm install 22
+              nvm use 22
+              node --version
+              npm --version
+        - id: install_dependencies
+          name: Install Dependencies
+          run:
+            shell: bash
+            script: |-
+              export NVM_DIR="$HOME/.nvm"
+              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+              nvm use 22
+              npm ci
+        - id: syntax_check
+          name: Syntax Check
+          run:
+            shell: bash
+            script: |-
+              export NVM_DIR="$HOME/.nvm"
+              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+              nvm use 22
+              npm run check
+        - id: run_tests
+          name: Run Tests
+          run:
+            shell: bash
+            script: |-
+              export NVM_DIR="$HOME/.nvm"
+              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+              nvm use 22
+              npm test
+  tags:
+    onboarding: "true"
