@@ -23,7 +23,7 @@ node tests/evidence-base-check.js
 
 ## دروازه‌های زنده
 
-- `gen-audit-evidence.sh` دروازهٔ زندهٔ CI است. فهرست مجاز D‑35 هم‌تراز شده و شاهد خام بازتولیدشدهٔ روی درخت محصول فعلی در `mission-05-tests-run.log` و `tests-run-fd03749-20261109T123038Z.log` ثبت شده است: ۹۹ آزمون، ۰ شکست؛ اجرای گیت `EVIDENCE-OK`.
+- `gen-audit-evidence.sh` دروازهٔ زندهٔ CI است. آخرین شاهد خامِ درخت محصول در `mission-05-tests-run.log` و `tests-run-e3dc9f4-20261110T120211Z.log` ثبت شده است: ۱۰۰ آزمون، ۰ شکست؛ اجرای گیت `EVIDENCE-OK`. آرشیو `tests-run-fd03749-20261109T123038Z.log` نتیجهٔ تاریخی ۹۹/۰ را نگه می‌دارد.
 - `run-tests-evidence.sh` شاهد آزمون را از خروجی خام می‌سازد و fail-closed است.
 - `tests/labels-gate-55.js` گیت زندهٔ برچسب‌های قانون اساسی است.
 
