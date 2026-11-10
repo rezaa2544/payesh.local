@@ -1,0 +1,53 @@
+# Row 72 — raw CI excerpts (PR #172, native-client.yml)
+base_sha=f6ec6685a001064b565838c205aa225ddc671444
+date_utc=2026-11-10T21:09:57Z
+jobs: windows 130127581293, android 130127581319, dart 130126500632, native-gate 130130982290
+excerpts: timestamps/ANSI stripped, ##[ lines dropped
+
+== windows-latest: REAL DPAPI (crypt32.dll) + encrypted SQLite on Windows ==
+00:00 +0: loading test/dpapi_windows_test.dart
+00:00 +0: DPAPI roundtrip of a Persian/Unicode value and persistence across instances
+00:00 +1: sealed file contains no plaintext and is a real DPAPI blob
+00:00 +2: tampered blob and swapped files are refused
+00:00 +3: wrong entropy is refused at the cipher level; delete works
+00:00 +4: DatabaseKeyManager on real DPAPI
+00:00 +5: All tests passed!
+00:00 +0: the linked SQLite is SQLite3 Multiple Ciphers (encryption available)
+00:00 +1: data at rest is encrypted: no plaintext header, no plaintext values on disk
+00:00 +2: wrong key and missing key cannot read the file
+00:00 +3: tampering with ciphertext is detected (page MAC)
+00:00 +4: key rotation: old key stops working, new key opens, data intact
+00:00 +5: one-time migration of an existing plaintext database
+00:00 +6: keys must be 256-bit lowercase hex (no SQL injection through the key)
+00:00 +7: exception messages are descriptive
+00:00 +8: All tests passed!
+DPAPI-WINDOWS-OK
+
+== cipher library inside the real builds ==
+sqlite3mc.dll sha256=6289acda05ea848c59d228f4f63a52d1880e6313f2fa63a7f07440de03feaa7f SQLite3 Multiple Ciphers 2.6.1
+SQLITE-CIPHER-WINDOWS-OK
+lib/armeabi-v7a/libsqlite3mc.so sha256=3915ef7f61942e78a569c8719feba675baee04ec31f41848daeed1e1c88f8569 SQLite3 Multiple Ciphers 2.6.1
+lib/arm64-v8a/libsqlite3mc.so sha256=f128edae7e2756e0fc6eb4e9f4ae10ff895c5f2e83ae37a8f9ec5b7b54d0d3af SQLite3 Multiple Ciphers 2.6.1
+lib/x86_64/libsqlite3mc.so sha256=e76a1cedaafa839056190f75aff0f3f89030f7d2a1164a56d8771648b36c6d71 SQLite3 Multiple Ciphers 2.6.1
+SQLITE-CIPHER-ANDROID-OK
+
+== native gate (still clean) ==
+PASS android native-out/payesh-native.apk sha256=191cc87a1a7a0e396b8008d82bdd1897871f213042da21a3ba5cbe6f7aa54f7c
+PASS android native-out/payesh-native.aab sha256=e922b74be74e18e2a7953f31039eb9b7f41ba4c61bdea5b15c7a1f766547ff56
+NATIVE-GATE-OK
+PASS windows apps/payesh/app/build/windows/x64/runner/Release
+NATIVE-GATE-OK
+PASS windows native-out/payesh-native-windows.zip sha256=8174e9c7668688984f907b85a4addeb3466ef36281005720625325ee964edff8
+NATIVE-GATE-OK
+
+== dart job ==
+NATIVE-DEPS-OK
+COVERAGE-OK app/coverage/lcov.info lines=64/71 90.1% (min 80.0%)
+COVERAGE-OK packages/payesh_core/coverage/lcov.info lines=31/31 100.0% (min 80.0%)
+COVERAGE-OK packages/payesh_data/coverage/lcov.info lines=203/207 98.1% (min 80.0%)
+COVERAGE-OK packages/payesh_secure/coverage/lcov.info lines=91/91 100.0% (min 80.0%)
+COVERAGE-OK packages/payesh_sync/coverage/lcov.info lines=409/417 98.1% (min 80.0%)
+
+== summary ==
+gate-controls=success engine-web=success sync-real-server=success dart=success android=success windows=success
+NATIVE-CLIENT-CI-OK

@@ -1,0 +1,26 @@
+name: payesh_ui
+description: Payesh native design system (row 73) — tokens, light/dark Material 3 themes, full RTL, Jalali display over ISO storage, Persian digits, bundled Vazirmatn (OFL-1.1), accessible adaptive widgets for Android and Windows.
+publish_to: none
+version: 0.1.0
+resolution: workspace
+environment:
+  sdk: ^3.13.0
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+dev_dependencies:
+  crypto: ^3.0.6
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  fonts:
+    - family: Vazirmatn
+      fonts:
+        - asset: fonts/Vazirmatn-Regular.ttf
+        - asset: fonts/Vazirmatn-Medium.ttf
+          weight: 500
+        - asset: fonts/Vazirmatn-Bold.ttf
+          weight: 700

@@ -1,40 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:payesh_core/payesh_core.dart';
+import 'package:payesh_ui/payesh_ui.dart';
 
 import 'secure/local_storage.dart';
 
-/// Root widget of the native Payesh client (ADR-43). Persian, right-to-left, Material 3.
-/// The full design system (tokens, Jalali, bundled font, dark theme) arrives with row 73.
+/// Root widget of the native Payesh client (ADR-43). Persian, right-to-left, Material 3, built on
+/// the payesh_ui design system (row 73): tokens, light/dark themes, bundled Vazirmatn, Jalali.
 class PayeshApp extends StatelessWidget {
-  const PayeshApp({super.key, this.storage});
+  const PayeshApp({super.key, this.storage, this.today});
 
   /// Encrypted local database being opened (row 72); null in widget previews.
   final Future<LocalStorage>? storage;
 
-  static const Locale fa = Locale('fa', 'IR');
+  static const Locale fa = PayeshUi.locale;
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'پایش',
-      debugShowCheckedModeBanner: false,
-      locale: fa,
-      supportedLocales: const [fa],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F766E)),
-        useMaterial3: true,
-      ),
-      home: HomeScreen(storage: storage),
-    );
-  }
+  Widget build(BuildContext context) => PayeshMaterialApp(
+    home: HomeScreen(storage: storage, today: today),
+  );
+
+  /// Injected clock for tests; defaults to the device date (displayed as Jalali).
+  final DateTime Function()? today;
 }
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, this.storage});
+  const HomeScreen({super.key, this.storage, this.today});
 
   final Future<LocalStorage>? storage;
+  final DateTime Function()? today;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +38,11 @@ class HomeScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('نسخهٔ بومی پایش', key: Key('home-title')),
+            const SizedBox(height: 8),
+            JalaliDateText(
+              (today ?? DateTime.now)().toIso8601String().substring(0, 10),
+              key: const Key('home-today'),
+            ),
             const SizedBox(height: 8),
             const Text(PayeshApi.syncContract, key: Key('home-contract')),
             if (storage != null) ...[
