@@ -1,0 +1,43 @@
+base_sha=e87c059ddf745d15f933df148f2b2cb71afc1894
+date_utc=2026-11-10T12:17:37Z
+command=npm test && npm run test:restart && npm run test:boundary && node docs/cloud/reports/evidence/probe-12b-boundary.cjs && bash docs/cloud/reports/evidence/gen-audit-evidence.sh
+# خودبازبینی PR-1 — پنل مالک پلتفرم (مدل داده، RLS، migration برگشتپذیر)
+# برچسبها: [M] ماشینی/کد، [S] شاهد خام، [E] محیط/اجرا، [A] ادعا، [?] نامشخص
+# مبنای main: e87c059ddf745d15f933df148f2b2cb71afc1894 (گزارش شده پیش از آغاز کار)
+
+PASS  پنج Pass مستقل، همگی روی درخت کاری تمیز و اثر انگشت محصول 03396a52bd2b0ae9bf897de86e18aaffcdc36bdcb4a9f425e2962d65300dc9ba (docs/ مشمول اثر انگشت نیست):
+[M] 1) run-tests-evidence.sh → npm test: pass=100 fail=0 registered=100 EXIT=0؛ شاهد خام: mission-05-tests-run.log و tests-run-4673b4c-20261110T121637Z.log
+[M] 2) npm run test:restart → 8 موفق / 0 ناموفق (ناظر دوم، قفل یتیم، ریاستارت، idempotency)
+[M] 3) npm run test:boundary → 6 موفق / 0 ناموفق (ADR-32، بدون ارجاع بیرونی)
+[M] 4) probe-12b-boundary.cjs → SUMMARY pass=22 fail=0 (نقشهای پلتفرم وارد ROLES مدرسه نشدهاند)
+[M] 5) check-android-signing-safety.cjs --self-test → injected=5 fail=0؛
+      و gen-audit-evidence.sh → EVIDENCE-OK، BASE-SHA و اثر انگشت درخت محصول همخوان است.
+[S] خروجی خام فرمانهای بالا در /tmp/owner-panel-five-passes.log در محیط اجرا و در شاهدهای بالا ثبت شده است.
+
+PASS  آزمون منفی / ضد دروغ:
+[M] 45/45 قید CHECK نامگذاریشده با یک ورودی نامعتبر اختصاصی رد شد؛ فهرست قیدها از pg_constraint خوانده و با ماتریس آزمون مقایسه شد (دریفت ⇒ شکست).
+[M] content_write، دلیل <10 نویسه، >72h، تأیید خودی، اطلاع پس از شروع، grant منقضی/ابطالشده/آینده،
+      مستأجر دیگر، اپراتور دیگر، سقف اقدام و تمدید grant همگی در لایه داده رد شدند (E1..E16).
+[M] نشت بینمدرسهای: نقش tenant A فقط ردیف A میبیند؛ INSERT/UPDATE با tenant دیگر 42501؛ نبود context ⇒ 0 ردیف.
+[M] پیشفرض رد محتوا: runtime اجازه SELECT روی public.product_records و invoice و INSERT/UPDATE/DELETE روی subscriptions ندارد.
+[M] زنجیره هش audit: previous_hash نادرست رد شد؛ UPDATE/DELETE ممیزی 42501.
+[M] migration up → down → up → down موفق؛ فقط اسکما و نقشهای ساختهشده توسط migration حذف شدند.
+
+## جدول «ادعا ← شاهد ← وضعیت واقعی روی main»
+| ادعا | شاهد | وضعیت واقعی روی main |
+| --- | --- | --- |
+| جداول platform_users/plans/subscriptions/subscription_event/tenant_limits/tenant_usage/support_grant/support_access_log/platform_audit/invoice موجودند | db/migrations/owner-panel/001_owner_panel.up.sql + tests/run.js | [A] فقط روی شاخه PR-1؛ main تغییری نکرده است |
+| migration نسخهدار و برگشتپذیر است | up.sql/down.sql + آزمون up/down/up | [M] PASS روی شاخه؛ [?] اجرا روی PostgreSQL مستقر: NOT-RUN |
+| RLS اجباری و جداسازی مستأجر | FORCE RLS روی 10 جدول + آزمون نشت | [M] PASS در PGlite (PostgreSQL 17.5/WASM)؛ PostgreSQL 16 سروری NOT-RUN |
+| support_grant مضیق، غیرقابلتمدید، با ثبت هر خواندن | قیود SQL، تریگرها، آزمون E1..E16 | [M] PASS در لایه داده؛ مسیر HTTP/توکن PR-2 است |
+| invoice فقط ساختاری، بدون UI/پرداخت | جدول بدون GRANT runtime، بدون کد پرداخت | [M] PASS روی شاخه |
+| client/pages.js دستنخورده | git diff --name-only origin/main..HEAD | [M] PASS: هیچ تغییری نیست |
+| شواهد تازه و همتراز درخت محصول | run-tests-evidence.sh + gen-audit-evidence.sh | [S] PASS: product_tree_sha256=03396a52bd2b0ae9bf897de86e18aaffcdc36bdcb4a9f425e2962d65300dc9ba |
+| CI سبز | اجرای workflow روی همین کامیت | [?] در انتظار اجرای CI؛ اجراهای پیشین به دلایل محیطی/امضا قرمز بودند |
+| امضای APK / نصب روی دستگاه واقعی | Secrets چهارگانه و تأیید Owner | [?] NOT-RUN؛ بدون Secret هیچ APK امضاشدهای ساخته/منتشر نشد |
+| وضعیت امنیت | پنتست انسانی/دستگاه واقعی | UNKNOWN |
+
+## محدودیتهای صریح
+- لاگ خام GitHub Actions برای اجراهای 42805196202، 42808675733، 42812479263 و 42813555967 با خطای EOF از results-receiver/productionresultssa قابل دریافت نبود؛ علت شکستها فقط از annotation و بازتولید محلی استنتاج شد، نه متن لاگ خام.
+- PGlite موتور PostgreSQL توکار است، نه اتصال به سرور PostgreSQL مستقر؛ سازگاری نسخه 16 و استقرار واقعی [?] باقی میماند.
+- هیچ Secret، کلید، keystore یا گواهی ساخته نشد؛ هیچ عملیات مالی/پرداختی پیادهمسازی نشد؛ امنیت UNKNOWN است.
