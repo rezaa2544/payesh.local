@@ -1,10 +1,12 @@
-# خودبازبینی PR-2 — API مستقل پنل مالک پشت Gateway (ردیف ۹۷)
-
 base_sha=1947d3ede9cbc6655426771f6e3bb8eecc3e49eb
-branch=arena/1f959b4a-payesh-local
-scope=/api/platform/v1 + migration 002 + آزمونهای منفی
-policy=D-39 (خودبازبینی پیش از ادغام) · Rule 15 (هیچ ادعایی بدون شاهد اجرایی)
-security_status=UNKNOWN (تا پنتست انسانی مالک)
+date_utc=2026-11-10T13:06:01Z
+command=npm test && npm run test:restart && npm run test:boundary && node docs/cloud/reports/evidence/probe-12b-boundary.cjs && bash docs/cloud/reports/evidence/gen-audit-evidence.sh
+# خودبازبینی PR-2 — API مستقل پنل مالک پشت Gateway (ردیف ۹۷)
+# برچسبها: [M] ماشینی/کد، [S] شاهد خام، [E] محیط/اجرا، [A] ادعا، [?] نامشخص
+# مبنای main: 1947d3ede9cbc6655426771f6e3bb8eecc3e49eb (پس از ادغام PR-1)
+# branch=arena/1f959b4a-payesh-local · scope=/api/platform/v1 + migration 002
+# policy=D-39 (خودبازبینی پیش از ادغام) · Rule 15 (هیچ ادعایی بدون شاهد اجرایی)
+# security_status=UNKNOWN (تا پنتست انسانی مالک)
 
 ## محدودهٔ واقعی تغییر
 - `apps/owner-panel/server/platform-api.js` — router مستقل، توکن `platform.v1`، request-id، rate-limit دیتابیسی، allowlist خروجی، زنجیرهٔ هش حسابرسی.
