@@ -278,7 +278,12 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      # دروازهٔ امضا: بدون Secret یا بدون تأیید مالک، «امضا در دسترس نیست» ثبت می‌شود
+      # و ساخت APK منتشرشدنی متوقف می‌شود، اما کل CI قرمز نمی‌شود (نصب‌کنندهٔ
+      # ویندوز، آزمون‌ها و شواهد باید اجرا شوند). انتشار APK امضانشده هرگز رخ نمی‌دهد.
+      # اگر Secretها موجود و کلید نامعتبر باشد، همچنان fail-closed است.
       - name: آماده‌سازی امن کلید امضای release (بدون fallback)
+        id: signing
         env:
           PAYESH_KEYSTORE_B64: ${{ secrets.PAYESH_KEYSTORE_B64 }}
           PAYESH_KEYSTORE_PASS: ${{ secrets.PAYESH_KEYSTORE_PASS }}
@@ -287,15 +292,18 @@ jobs:
           PAYESH_SIGNING_ROTATION_APPROVED: ${{ vars.PAYESH_SIGNING_ROTATION_APPROVED }}
         run: |
           set -euo pipefail
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+          MISSING=""
           for name in PAYESH_KEYSTORE_B64 PAYESH_KEYSTORE_PASS PAYESH_KEY_ALIAS PAYESH_KEY_PASS; do
-            if [ -z "${!name:-}" ]; then
-              echo "::error::Required Android signing secret is missing: $name"
-              exit 1
-            fi
+            if [ -z "${!name:-}" ]; then MISSING="$MISSING $name"; fi
           done
+          if [ -n "$MISSING" ]; then
+            echo "::warning title=امضای Android در دسترس نیست::Secretهای زیر تنظیم نشده‌اند:$MISSING — APK امضاشده ساخته و منتشر نمی‌شود (نصب‌کنندهٔ ویندوز ادامه دارد)."
+            exit 0
+          fi
           if [ "$PAYESH_SIGNING_ROTATION_APPROVED" != "true" ]; then
-            echo "::error::Owner approval for the signing-key migration path is missing; release stopped"
-            exit 1
+            echo "::warning title=امضای Android در دسترس نیست::تأیید مالک برای مسیر انتقال کلید ثبت نشده (vars.PAYESH_SIGNING_ROTATION_APPROVED) — APK منتشرشدنی ساخته نمی‌شود."
+            exit 0
           fi
           KEYSTORE_FILE="$RUNNER_TEMP/payesh-release-signing.p12"
           printf '%s' "$PAYESH_KEYSTORE_B64" | base64 --decode > "$KEYSTORE_FILE"
@@ -306,6 +314,7 @@ jobs:
             exit 1
           fi
           printf 'PAYESH_KEYSTORE=%s\n' "$KEYSTORE_FILE" >> "$GITHUB_ENV"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
           echo "Release signing material prepared in runner temp storage."
 
       - name: ساخت APK اندروید
@@ -320,6 +329,10 @@ jobs:
           # نام صندوقچهٔ ابری که داخل APK پخته می‌شود (اختیاری — gh variable set CLOUD_BUCKET)
           PAYESH_CLOUD_BUCKET: ${{ vars.CLOUD_BUCKET }}
         run: |
+          if [ "${{ steps.signing.outputs.ready }}" != "true" ]; then
+            echo "APK امضاشده ساخته نشد (امضا در دسترس نیست) — مرحلهٔ APK رد شد؛ نصب‌کنندهٔ ویندوز ادامه دارد."
+            exit 0
+          fi
           VERSION=$(node -p "require('./package.json').version")
           echo "ساخت APK نسخهٔ $VERSION"
           node scripts/bake-cloud.mjs
@@ -392,6 +405,10 @@ jobs:
 
       - name: بررسی سلامت APK
         run: |
+          if [ "${{ steps.signing.outputs.ready }}" != "true" ]; then
+            echo "بررسی APK رد شد: APK امضاشده وجود ندارد (امضا در دسترس نیست)."
+            exit 0
+          fi
           APK=install/android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK" || { echo "APK ساخته نشد"; exit 1; }
           # نسخهٔ منتشرشده نباید «اشکال‌زدایی‌شدنی» باشد؛ وگرنه گوگل آن را
@@ -425,7 +442,12 @@ jobs:
       - name: آماده‌سازی فایل‌های انتشار
         run: |
           mkdir -p out
-          cp install/android/app/build/outputs/apk/release/app-release.apk out/payesh-local.apk
+          # APK فقط وقتی امضای معتبر دارد منتشر می‌شود؛ وگرنه اصلاً فایلی تولید نمی‌شود
+          if [ "${{ steps.signing.outputs.ready }}" = "true" ]; then
+            cp install/android/app/build/outputs/apk/release/app-release.apk out/payesh-local.apk
+          else
+            echo "APK منتشر نمی‌شود: امضا در دسترس نیست."
+          fi
           # نام ثابت برای لینک‌های همیشه‌درست در README
           cp releases/payesh-local-windows-*.zip out/payesh-local-windows.zip
           cp releases/*.zip releases/*.tar.gz out/ 2>/dev/null || true
@@ -449,8 +471,13 @@ jobs:
               --title "آخرین نسخهٔ ساخته‌شده" \
               --notes "این نسخه با هر push روی main به‌روز می‌شود. لینک‌های ثابت: payesh-local-windows.zip و payesh-local.apk"
           fi
+          # فقط فایل‌های واقعاً ساخته‌شده؛ APK امضانشده هرگز منتشر نمی‌شود
+          FILES=""
+          for f in out/payesh-local.apk out/payesh-local-windows.zip out/payesh-cloud.zip out/manifest.json; do
+            if [ -f "$f" ]; then FILES="$FILES $f"; else echo "رد شد (موجود نیست): $f"; fi
+          done
           for i in 1 2 3; do
-            gh release upload continuous out/payesh-local.apk out/payesh-local-windows.zip out/payesh-cloud.zip out/manifest.json --clobber && break
+            gh release upload continuous $FILES --clobber && break
             echo "تلاش $i ناموفق بود؛ ۱۵ ثانیه بعد دوباره"; sleep 15
           done
 
