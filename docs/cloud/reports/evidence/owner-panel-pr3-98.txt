@@ -1,0 +1,74 @@
+base_sha=6361e13ba6887c9df7a1c68356a7f410ba370958
+code_sha=23f96c0a732c7719d12755ccda72efdb27cac46c
+date_utc=2026-11-10T15:25:19Z
+branch=arena/owner-panel-pr3-98
+env=Linux 6.1.189+ x86_64 · node v22.23.4 (npx --package=node@22)
+command=npx --yes --package=node@22 -c 'bash docs/cloud/reports/evidence/run-tests-evidence.sh && bash docs/cloud/reports/evidence/gen-audit-evidence.sh'
+# خودبازبینی PR-3 — SPA فارسی/RTL پنل مالک با پوستهٔ نبض (ردیف ۹۸)
+# برچسب‌ها: [M] ماشینی/کد، [S] شاهد خام، [E] محیط/اجرا، [A] ادعا، [?] نامشخص
+# security_status=UNKNOWN (تا پنتست انسانی مالک) · وضعیت ردیف: In Progress (نه Done)
+
+## یادداشت بازسازی
+گزارش پیشین Notion (HEAD محلی c9a41e9 / SHA آزموده 04da21e) هرگز به GitHub push نشده بود و آن
+sandbox از دست رفته است؛ هیچ‌یک از آن دو SHA روی origin وجود ندارد (`upload-pack: not our ref`).
+این PR از نو روی main=6361e13 ساخته شد. اعداد آن گزارش (104 / checks=15) به این PR منتقل نمی‌شوند.
+
+## محدودهٔ واقعی تغییر
+- `apps/owner-panel/web/` — index.html، app.js، app.css، theme.css (تولیدشده)، manifest، icons (کپی بایت‌به‌بایت)، README.
+- `apps/owner-panel/scripts/gen-theme.js` — تولید theme.css از client/pulse.css؛ `--check` برای drift؛ جدول TOKEN_DISCREPANCIES.
+- `apps/owner-panel/server/static-server.js` — سرور ایستا روی مبدأ جدا + پروکسی same-origin به Gateway.
+- `apps/owner-panel/tests/owner-spa.test.js` — سه گروه: assets / proxy / ui؛ 117 کنترل شمارش‌شده.
+- `tests/run.js` — 3 آزمون جدید (مجموع 106).
+دست‌نخورده: client/pages.js، client/*، server/*، platform-api.js، openapi.json، migrations، package.json،
+package-lock.json، releases/*، workflows، Secrets.
+
+## Passهای اجرا‌شده روی code_sha
+1. `npm test` (از طریق run-tests-evidence.sh) → SUMMARY pass=106 fail=0 · EXIT=0 · REGISTERED=106
+   raw_output_sha256=7a81565fb6de1c0c20410ea96752ad3332652a4796a071fc2cd87866de261205
+   product_tree_sha256=514b038984e97b30f7af54310b9c01d1769d4612dfe8e449b20ad104e61bc484
+   لاگ: mission-05-tests-run.log و نسخهٔ append-only tests-run-23f96c0-20261110T152519Z.log
+2. `gen-audit-evidence.sh` → EVIDENCE-OK
+3. `npm run test:boundary` → 6 موفق / 0 ناموفق
+4. `node docs/cloud/reports/evidence/probe-12b-boundary.cjs` → SUMMARY pass=22 fail=0
+5. `npm run test:restart` → 8 موفق / 0 ناموفق
+6. پایهٔ main پیش از تغییر: `npm test` → 103 موفق / 0 ناموفق
+7. پایداری روی code_sha (درخت کد = HEAD): `node apps/owner-panel/tests/owner-spa.test.js` هشت بار پیاپی → 8× checks=117 failures=0
+   (یک خطای آزمون — انتخاب دکمهٔ حذف بر اساس ترتیب UUID — پیدا و رفع شد؛ ربطی به کد محصول نداشت)
+
+## کنترل‌های منفی (هر کنترل باید ورودی خراب را رد کند)
+N1  ویرایش دستی theme.css / نشت مقدار prompt / تغییر pulse.css بدون بازتولید → رد
+N2  اسکریپت CDN در index.html / فونت خارجی در CSS → رد
+N3  innerHTML در app.js / ذخیرهٔ توکن در localStorage → رد
+N4  وابستگی به client/pages.js → رد
+N5  رنگ مستقیم در app.css → رد
+N6  شکستن حالت «روشن» زیر سیستم‌عامل تاریک / اسکریپت inline / رنگ manifest / کپی آیکون → رد
+N7  gate نقش UI عمداً برای operator باز شد: دکمهٔ تمدید ظاهر شد ولی API همچنان 403 role_forbidden داد
+پروکسی: cookie به upstream نرفت، set-cookie حذف شد، redirect upstream ⇒ 502، پاسخ غیر JSON ⇒ 502،
+JSON نامعتبر ⇒ 400 پیش از upstream، content-type غیر JSON ⇒ 415، بدنهٔ >32KB ⇒ 413، PUT ⇒ 405،
+traversal (خام و کدشده) ⇒ 404، بدون upstream ⇒ 503 upstream_not_configured، upstream با credential ⇒ رد.
+آزمون جهش دستی (خارج از مجموعه، برگردانده شد): باز کردن CAPS اپراتور در app.js، حذف حالت loading
+داشبورد، حذف credentials:'omit'، و افزودن cookie به allowlist پروکسی — هر چهار، آزمون را قرمز کردند.
+
+## جدول «ادعا ← شاهد ← وضعیت»
+| ادعا | شاهد | وضعیت |
+| --- | --- | --- |
+| [M] اپ ایستا مستقل از client/pages.js، بدون CDN/فونت/اسکریپت خارجی | ASSET_CHECKS.independence/noExternal/html + N2/N4 | [E] آزمون شد |
+| [M] تم از client/pulse.css خوانده می‌شود، نه کپی دستی | gen-theme.js + themeDrift + N1/N1c | [E] آزمون شد |
+| [M] اختلاف radius/muted/line/primary-2 ثبت شده | TOKEN_DISCREPANCIES + tokenDiscrepancies + N1b | [E] آزمون شد؛ انتخاب نهایی با مالک |
+| [M] صفحه‌ها: ورود+TOTP، داشبورد، مدارس، پلن، سقف، سلامت، اپراتور/grant، گزارش، ممیزی | ui(): هشت صفحه روی API واقعی PR-2 + PGlite بدون error | [E] آزمون شد (jsdom) |
+| [M] حالت loading/empty/error | ui(): پاسخ معلق، upstream خالی، upstream پیکربندی‌نشده برای همهٔ صفحه‌ها | [E] آزمون شد |
+| [M] operator دکمهٔ تمدید/حذف ندارد و API رد می‌کند | ui() + N7 + درخواست مستقیم از پروکسی ⇒ 403 | [E] آزمون شد |
+| [M] دکمهٔ حذف: دلیل ≥10، تایپ دوباره، متن چهارچشمی + ۲۴ساعت | ui(): دلیل کوتاه/تایپ اشتباه بدون شبکه رد؛ DELETE ⇒ 403 و DB دست‌نخورده | [E] آزمون شد |
+| [M] تم روشن/تیره + کنترل منفی | ui() چرخهٔ سیستم/روشن/تاریک + themeModes + N6 | [E] آزمون شد (بدون رندر پیکسلی) |
+| [M] پروکسی same-origin با CSP و رد cookie/redirect/بدنهٔ نامعتبر | proxy() | [E] آزمون شد |
+| [A] گردش واقعی حذف چهارچشمی، مهلت ۲۴ساعته، نگهداری ۱۸۰روزه در سرور | API همیشه 403 tenant_deletion_disabled | NOT-DONE (خارج از PR-3) |
+| [A] ورود انسانی رمز + TOTP | صادرکننده در API وجود ندارد؛ O-17/O-27 باز | BLOCKED — فرم fail-closed است |
+| [A] فونت محلی Vazirmatn + THIRD_PARTY_LICENSES | فایل فونت در مخزن نیست | NOT-DONE |
+| [A] رندر در مرورگر واقعی / Playwright / Windows WebView2 | فقط jsdom | NOT-RUN |
+| [S] CI سبز روی head نهایی | push/PR هنوز انجام نشده | [?] |
+| [A] استقرار TLS، پنتست انسانی | — | NOT-RUN · security=UNKNOWN |
+
+## چرا Done نیست
+معیار پذیرش «صفحهٔ ورود+TOTP» و «حذف مدرسه چهارچشمی+۲۴ساعت» فقط در سطح UI و با رفتار fail-closed
+پوشش داده شده است؛ پشتیبان سروری هیچ‌یک وجود ندارد و تصمیم مالک (O-17/O-27) باز است. تا آن زمان
+وضعیت ردیف ۹۸ «In Progress» می‌ماند و ادعای PASSED/Done مجاز نیست.
