@@ -50,7 +50,7 @@
 ## 5. امضا و انتشار
 
 - نام Secretها (فقط نام؛ مقدار هرگز در مخزن/گزارش نمی‌آید): Android `PAYESH_OWNER_KEYSTORE_B64`, `PAYESH_OWNER_KEYSTORE_PASS`, `PAYESH_OWNER_KEY_ALIAS`, `PAYESH_OWNER_KEY_PASS`؛ ویندوز `PAYESH_OWNER_WIN_PFX_B64`, `PAYESH_OWNER_WIN_PFX_PASS`. این‌ها عمداً با Secretهای اپ مدرسه (`PAYESH_KEYSTORE_*`) مشترک نیستند.
-- **بدون Secret:** exe و APK ساخته می‌شوند ولی «امضانشده / فقط آزمایشی» برچسب می‌خورند؛ CI ثابت می‌کند واقعاً امضا ندارند (`apksigner verify` باید شکست بخورد؛ Authenticode باید `NotSigned` باشد) و **هرگز منتشر نمی‌شوند**.
+- **بدون Secret:** exe و APK ساخته می‌شوند ولی «امضانشده / فقط آزمایشی» برچسب می‌خورند؛ CI ثابت می‌کند واقعاً امضا ندارند (`apksigner verify` باید شکست بخورد؛ Authenticode باید `NotSigned` باشد) و **هرگز منتشر نمی‌شوند** — اصلاح‌شده در §9: APK همچنان منتشر نمی‌شود؛ exe امضانشده با برچسب، SHA256 و توضیح SmartScreen منتشر می‌شود.
 - **Secret موجود ولی نامعتبر ⇒ قرمز.** امضاشده یعنی: APK با v2+v3 و اثر انگشت گواهی؛ exe با `Get-AuthenticodeSignature = Valid`. گیت هر ادعای «signed» بدون این شاهد را رد می‌کند.
 - انتشار فقط روی `main` و فقط در prerelease `owner-continuous` با عنوان «انتشار رسمی نیست»: بستهٔ وب و `SHA256SUMS` همیشه؛ exe/APK فقط اگر امضای تأییدشده دارند (وگرنه asset قبلی حذف می‌شود). همهٔ خروجی‌ها، امضاشده یا نه، در artifact آزمایشی `payesh-owner-test-only` می‌مانند.
 
@@ -82,3 +82,17 @@
 | آزمون | `apps/owner-panel/tests/owner-login.test.js` (بردارهای RFC، ≥۳۰ کنترل منفی، جهش‌های تکرار/سقف/قفل) + ورود سرتاسری در `owner-spa.test.js` |
 
 باقی‌مانده: راز TOTP در دیتابیس رمزنگاری جداگانه ندارد (دسترسی فقط نقش مالک migration)؛ امنیت **UNKNOWN** تا پنتست انسانی مستقل (D‑41).
+
+## 9. افزودهٔ مالک بر D‑44 — انتشار exe امضانشده و لینک‌های README (ردیف ۱۰۰، ۱۴۰۵/۰۸/۱۹)
+
+تصمیم صریح مالک: کلید امضای Android روی PC مالک ساخته و فقط از مسیر امن در GitHub Secrets گذاشته می‌شود؛ **APK فقط پس از امضای معتبر** منتشر می‌شود؛ **exe بدون امضا با SHA256 و توضیح محدودیت SmartScreen** منتشر می‌شود؛ بستهٔ وب هم ساخته می‌شود؛ هیچ خروجی ناموفق یا امضانشده‌ای «انتشار معتبر» معرفی نمی‌شود.
+
+| جزء | پیاده‌سازی |
+|---|---|
+| گیت | `check-owner-artifacts.js`: `release_eligible` = وب همیشه؛ exe همیشه، با `signing=unsigned-smartscreen-warning` اگر امضا نشده؛ APK فقط `signed-verified`. `owner-artifacts-status.json` فهرست `published_unsigned` را دارد |
+| انتشار | `owner-panel.yml` فقط روی main و فقط prerelease `owner-continuous`؛ یادداشت انتشار هر بار به‌روز می‌شود (هشدار مالک، SmartScreen، روش مقایسهٔ SHA256) |
+| README | بلوک بالای صفحه با چهار لینک مستقیم `releases/download/owner-continuous/{payesh-owner-setup.exe,payesh-owner.apk,payesh-owner-web.zip,SHA256SUMS}` و هشدار «نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]» |
+| گیت هم‌ترازی | قاعدهٔ `P6_readme_links` در `apps/owner-panel/tests/packaging.test.js` (در `npm test` و workflow): نام لینک‌ها = نام خروجی‌های حلقهٔ انتشار + `SHA256SUMS`؛ جدول دانلود مدرسه دست‌نخورده؛ ۶ جهش منفی |
+
+ردیف ۶۳ و الزام بومی‌بودن اپ مدرسه تغییر نمی‌کند. امضای Authenticode exe تا تنظیم `PAYESH_OWNER_WIN_PFX_*` توسط مالک وجود ندارد.
+

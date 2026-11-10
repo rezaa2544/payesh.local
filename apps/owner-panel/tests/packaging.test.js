@@ -37,6 +37,7 @@ const F = {
   schoolWinManifest: 'desktop/app.manifest',
   schoolBuildYml: '.github/workflows/build.yml',
   schoolBuildPs1: 'desktop/build.ps1',
+  readme: 'README.md',
 };
 
 function load() {
@@ -166,6 +167,28 @@ const RULES = {
     assert.match(w, /\$s\.Status -ne 'NotSigned'/, 'unsigned exe must be proven unsigned');
     assert.match(w, /\$s\.Status -ne 'Valid'/, 'signed exe must verify as Valid');
   },
+  /* ردیف ۱۰۰ — لینک‌های README باید دقیقاً همان نام‌های خروجی workflow باشند */
+  P6_readme_links(f) {
+    const BASE = 'https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/';
+    const block = one(/(<!-- owner-panel-downloads:start[\s\S]*?<!-- owner-panel-downloads:end -->)/, f.readme, 'README owner block');
+    const head = f.readme.slice(0, f.readme.indexOf('<!-- owner-panel-downloads:start'));
+    assert.ok(head.split('\n').length < 12, 'owner download block must be at the top of README');
+    const links = [...block.matchAll(/\]\((https:\/\/[^)\s]+)\)/g)].map(m => m[1]);
+    assert.ok(links.length > 0 && links.every(u => u.startsWith(BASE)), 'every owner link must use the owner-continuous download base');
+    const readmeNames = links.map(u => u.slice(BASE.length));
+    const pub = one(/(- name: انتشار آزمایشی[\s\S]*)$/, f.workflow, 'publish step');
+    const loop = one(/for name in ([^;]+); do/, pub, 'publish loop').trim().split(/\s+/);
+    const workflowNames = ['SHA256SUMS', ...loop];
+    assert.ok(/cp dist\/SHA256SUMS\.release pub\/SHA256SUMS/.test(pub) && /FILES="pub\/SHA256SUMS"/.test(pub), 'workflow publishes SHA256SUMS');
+    assert.deepEqual([...readmeNames].sort(), [...workflowNames].sort(), 'README link names must equal workflow asset names');
+    assert.equal(new Set(readmeNames).size, readmeNames.length, 'no duplicate README links');
+    for (const n of readmeNames) assert.ok(block.includes('[`' + n + '`](' + BASE + n + ')'), 'link text must equal asset name: ' + n);
+    assert.ok(block.includes('نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]'), 'explicit owner-only warning');
+    assert.match(block, /SmartScreen/, 'unsigned exe must carry the SmartScreen note');
+    /* جدول دانلود مدرسه دست‌نخورده */
+    assert.ok(f.readme.includes('(https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-setup.exe)'), 'school exe row intact');
+    assert.ok(f.readme.includes('(https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local.apk)'), 'school apk row intact');
+  },
   P5_adr_and_boundary(f) {
     assert.match(f.adr, /^# ADR‑62 /m, 'ADR header must carry ADR‑62');
     assert.ok(!/^#.*\bD[‑-]62\b/m.test(f.adr), 'ADR must not call itself D‑62');
@@ -200,6 +223,12 @@ const MUTATIONS = [
   ['P4_workflow', 'workflow', s => s.replace(/if-no-files-found: error/, 'if-no-files-found: warn')],
   ['P5_adr_and_boundary', 'adr', s => s.replace('ردیف ۶۳ و دروازهٔ استقلال بومی کلاینت مدرسه تغییر نمی‌کند و تضعیف نمی‌شود', 'ردیف ۶۳ برای پنل مالک بازنگری می‌شود')],
   ['P5_adr_and_boundary', 'schoolBuildYml', s => s + '\n# payesh-owner-setup.exe\n'],
+  ['P6_readme_links', 'readme', s => s.replace('owner-continuous/payesh-owner-setup.exe)', 'owner-continuous/payesh-owner-installer.exe)')],
+  ['P6_readme_links', 'readme', s => s.replace(/\| چک‌سام \|[^\n]*\n/, '')],
+  ['P6_readme_links', 'readme', s => s.replace('نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]', 'نصب آزمایشی')],
+  ['P6_readme_links', 'readme', s => s.replace('owner-continuous/payesh-owner.apk)', 'continuous/payesh-owner.apk)')],
+  ['P6_readme_links', 'readme', s => s.replace('(https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local.apk)', '(#)')],
+  ['P6_readme_links', 'workflow', s => s.replace('for name in payesh-owner-web.zip payesh-owner.apk payesh-owner-setup.exe; do', 'for name in payesh-owner-web.zip payesh-owner.apk payesh-owner-setup.exe payesh-owner-portable.zip; do')],
 ];
 
 let CHECKS = 0;

@@ -5,6 +5,21 @@
 > [`docs/00-PAYESH-CLOUD-CONSTITUTION.md`](docs/00-PAYESH-CLOUD-CONSTITUTION.md) را بخوانید.
 > این مخزن در پروژهٔ «پایش ابری مستقل» نقش **منبع بررسی و مقایسه** دارد، نه معماری مقصد.
 
+<!-- owner-panel-downloads:start — نام‌ها باید با خروجی‌های owner-panel.yml برابر باشند (گیت P6 در apps/owner-panel/tests/packaging.test.js) -->
+### 🔑 پنل مالک پلتفرم — دانلود مستقیم
+
+> ⚠️ **نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]**
+
+| خروجی | لینک مستقیم | توضیح |
+|---|---|---|
+| ویندوز | [`payesh-owner-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-setup.exe) | بدون امضای کد — SmartScreen هشدار می‌دهد؛ پیش از اجرا SHA256 را با `SHA256SUMS` مقایسه کنید، سپس More info ← Run anyway |
+| اندروید | [`payesh-owner.apk`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner.apk) | فقط با امضای تأییدشدهٔ کلید مالک منتشر می‌شود |
+| وب | [`payesh-owner-web.zip`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-web.zip) | بستهٔ وب پنل مالک (`START-HERE.txt` داخل بسته) |
+| چک‌سام | [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/SHA256SUMS) | SHA-256 همهٔ فایل‌های منتشرشدهٔ همین انتشار |
+
+این‌ها پنل مالک‌اند (ADR‑62)، نه برنامهٔ مدرسه؛ دانلود برنامهٔ مدرسه در جدول پایین است.
+<!-- owner-panel-downloads:end -->
+
 سامانهٔ مدیریت مدرسه، **درون‌مدرسه‌ای و بدون هزینهٔ ماهانه**: روی یک سیستم ویندوزی در دفتر مدرسه اجرا می‌شود، و از **هر اینترنتی** — خانهٔ دبیر، گوشی ولی، هر جای دیگر — به همان سیستم وصل می‌شود؛ داخل مدرسه حتی بدون اینترنت هم کار می‌کند.
 
 <p align="center"><b>۴۵۰ دانش‌آموز · ۴۰ دبیر · کاردانش با کلاس‌های کارگاهی · اندروید + آیفون</b></p>
