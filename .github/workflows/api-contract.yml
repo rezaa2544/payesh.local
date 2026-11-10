@@ -23,6 +23,7 @@ on:
       - 'tests/native-contract-64.js'
       - 'tests/directory-66.js'
       - 'tests/cell-transfer-54.js'
+      - 'tests/gateway-67.js'
   pull_request:
     paths:
       - 'server/**'
@@ -37,6 +38,7 @@ on:
       - 'tests/native-contract-64.js'
       - 'tests/directory-66.js'
       - 'tests/cell-transfer-54.js'
+      - 'tests/gateway-67.js'
   workflow_dispatch:
 
 permissions:
@@ -74,7 +76,7 @@ jobs:
           PY
 
   native-contract:
-    name: Native API v1 conformance + Directory re-route (rows 64, 66)
+    name: Native API v1 conformance + Directory re-route + Gateway hardening (rows 64, 66, 67)
     runs-on: ubuntu-latest
     services:
       # Throwaway CI database; trust auth so tenancy.migrate can create the password-less
@@ -111,8 +113,18 @@ jobs:
           node tests/directory-66.js | tee -a native-contract.txt
       - name: Row 54 transfer tool unit checks (sequence fix must not regress)
         run: node tests/cell-transfer-54.js | tee -a native-contract.txt
+      - name: Row 67 Gateway hardening — SIGTERM drain, request-id, 429 Retry-After, kill-switches, short load test
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+          GW67_LOAD_OUT: gateway-67-load.json
+        run: |
+          set -o pipefail
+          node tests/gateway-67.js | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: native-contract
-          path: native-contract.txt
+          path: |
+            native-contract.txt
+            gateway-67-load.json

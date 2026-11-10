@@ -110,3 +110,17 @@ The vectors are written as expectations, not generated from the code. The runner
 - Implementation: `server/api-version.js`, applied before authentication and before any database access in `server/index.js` (every `/api/*`) and `server/gateway.js` (gateway and directory).
 
 Changing the contract: additive response fields are allowed within a major. Removing or renaming a field, tightening a request, or changing semantics needs a new major N+1. Majors N‑1 and N‑2 must keep working until N+3 ships.
+
+## 6. Gateway operational behaviour (row 67)
+
+These rules apply to `server/gateway.js` (cloud Gateway and Directory). They are additive within major 1: no request changed, no response field was removed.
+
+| Concern | Behaviour | Client rule |
+|---|---|---|
+| Request id | Every response carries `X-Request-Id`. A caller-supplied `X-Request-Id` matching `^[A-Za-z0-9._:-]{8,64}$` is echoed; anything else is replaced with a fresh UUID v4. One JSON access-log line per request (`event:"http"`, `request_id`, `method`, path without query string, `status`, `ms`). `GW_ACCESS_LOG=0` turns the log off. | Send a UUID per logical attempt and show the returned id in error/support screens. |
+| Rate limit | Per (tenant, device) bucket `GW_QUOTA_MAX`/`GW_QUOTA_WINDOW_SEC`, plus an optional tenant-wide ceiling `GW_TENANT_QUOTA_MAX` (0 = off). Over the limit: `429 {error:"rate_limited", scope:"device"\|"tenant", retry_after_ms, limit}` with a `Retry-After` header in whole seconds (≥ 1). The tenant bucket key cannot be claimed through `X-Device-Id`. | Wait at least `Retry-After` seconds; do not retry sooner. |
+| Feature kill-switch | `PAYESH_FEATURE_KILL` = comma list of `feature`, `feature@<semver>` or `feature@<<semver>`; features: `pull`, `push`, `directory`, `platform`. A hit answers `503 {error:"feature_disabled", feature, retry_after_s}` + `Retry-After` (`PAYESH_FEATURE_KILL_RETRY_SEC`, default 300), before authentication and database access. Version-scoped entries bind native clients only. Invalid entries match nothing and are listed in `/healthz` → `kill_switch.invalid`. | Keep the work queued (outbox), back off for `Retry-After`, do not log the user out. |
+| Version kill-switch | `PAYESH_CLIENT_KILL` → `426 upgrade_required`, `reason: client_disabled` (§5). | Show the upgrade message. |
+| Graceful drain | On `SIGTERM`/`SIGINT` the instance stops accepting connections, `/readyz` answers `503 draining`, in-flight requests finish (responses carry `Connection: close`), pools close, exit code 0. After `GW_DRAIN_TIMEOUT_MS` (default 25000) the remaining sockets are cut and the exit code is 2. Requests arriving on a kept-alive socket during drain get `503 draining` + `Retry-After: 1`. | Treat a connection reset or `503 draining` as retryable; pushes are idempotent by `uid` (§4). |
+
+Tests: `tests/gateway-67.js` (real Gateway processes + PostgreSQL): GW67‑RID‑01..04, RL‑01..04, VER‑01..02, KS‑01..04, DR‑01..03 and a short load test LOAD‑01 (baseline vs hardened instance: zero errors on both, one unique request id and one access-log line per response, p95 budget).

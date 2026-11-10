@@ -84,6 +84,14 @@ PGURL=postgres://… GW_SECRET=<≥۱۶ کاراکتر> PORT=5660 node server/ga
 
 `GW_SECRET` (یا `PAYESH_TENANCY_SECRET`)، `GW_MAX_BODY`، `GW_QUOTA_MAX`، `GW_QUOTA_WINDOW_SEC`، `GW_PULL_MAX`، `GW_INSTANCE`، `HOST` قابل تنظیم‌اند. بدون `PGURL` یا با راز کوتاه، نمونه بالا می‌آید ولی `not_configured` است — عمداً: `healthz` سبز می‌ماند تا probe‌ها فرایند را نکشند، اما `readyz` و مسیرهای داده ۵۰۳ می‌دهند.
 
+### ۶٫۱ سخت‌سازی عملیاتی (ردیف ۶۷)
+
+- **تخلیهٔ نرم با SIGTERM**: پذیرش اتصال تازه قطع، `readyz` ← `503 draining`، درخواست‌های در جریان کامل و commit می‌شوند، سپس poolها بسته و خروج با کد ۰. پس از `GW_DRAIN_TIMEOUT_MS` (پیش‌فرض ۲۵۰۰۰) سوکت‌های باقی‌مانده قطع و خروج با کد ۲.
+- **شناسهٔ درخواست**: هر پاسخ `X-Request-Id` دارد (شناسهٔ خوش‌فرم فراخوان بازتاب می‌شود، وگرنه UUID تازه). لاگ دسترسی JSON یک خط برای هر درخواست، بدون query string و بدون توکن؛ `GW_ACCESS_LOG=0` آن را خاموش می‌کند.
+- **۴۲۹ با Retry-After**: سهمیهٔ هر (مستأجر، دستگاه) و سقف اختیاری کل مستأجر `GW_TENANT_QUOTA_MAX`؛ بدنه `scope: device|tenant` دارد.
+- **کلید قطع ویژگی**: `PAYESH_FEATURE_KILL` (مثلاً `push` یا `pull@<0.2.0`) ← `503 feature_disabled` + `Retry-After` پیش از احراز و دیتابیس؛ کلید قطع نسخهٔ کلاینت همان `PAYESH_CLIENT_KILL` است (۴۲۶).
+- قرارداد کامل: `docs/cloud/contracts/native-api-v1.md` §۶ · آزمون: `tests/gateway-67.js`.
+
 ## ۷. آنچه در این ردیف اثبات نشد
 
 - مقیاس چند ماشینی واقعی، load-balancer و TLS — در محیط محلی قابل سنجش نیست (ردیف ۴۹).
