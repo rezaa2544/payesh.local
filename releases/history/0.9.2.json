@@ -258,8 +258,8 @@
     {
       "path": "server/gateway.js",
       "kind": "server",
-      "sha256": "72399d9f75a4edfe50e1bee6c28324117a63e7349123769de262fd8f315a95c8",
-      "size": 18871
+      "sha256": "d5d75171173adcfe55a893f1327e8feae2b415a52308479a855de2ff203ac362",
+      "size": 21148
     },
     {
       "path": "server/index.js",
@@ -405,6 +405,6 @@
     "server": 34
   },
   "client_size": 1462711,
-  "server_size": 513286,
-  "total_size": 1975997
+  "server_size": 515563,
+  "total_size": 1978274
 }

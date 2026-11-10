@@ -23,7 +23,7 @@ node tests/evidence-base-check.js
 
 ## دروازه‌های زنده
 
-- `gen-audit-evidence.sh` دروازهٔ زندهٔ CI است. آخرین شاهد خامِ درخت محصول در `mission-05-tests-run.log` و `tests-run-4673b4c-20261110T121637Z.log` ثبت شده است: ۱۰۰ آزمون، ۰ شکست؛ اجرای گیت `EVIDENCE-OK`. آرشیوهای پیشین حفظ شده‌اند. خودبازبینی PR‑1 و جدول «ادعا ← شاهد ← وضعیت روی main» در `owner-panel-pr1-self-review.txt` است.
+- `gen-audit-evidence.sh` دروازهٔ زندهٔ CI است. آخرین شاهد خامِ درخت محصول در `mission-05-tests-run.log` و `tests-run-a370951-20261110T131835Z.log` ثبت شده است: ۱۰۳ آزمون، ۰ شکست؛ اجرای گیت `EVIDENCE-OK`، اثر انگشت محصول `7cd7028ec2842451b354e99f884f198108ddfbac85cf75a4c70396e1f6e73c9f`. آرشیوهای پیشین (از جمله `tests-run-4673b4c-20261110T121637Z.log` متعلق به PR‑1 و `tests-run-f45bcd8-20261110T130525Z.log`) حفظ شده‌اند. خودبازبینی و جدول «ادعا ← شاهد ← وضعیت» در `owner-panel-pr1-self-review.txt` و `owner-panel-pr2-self-review.txt` است.
 - `run-tests-evidence.sh` شاهد آزمون را از خروجی خام می‌سازد و fail-closed است.
 - `tests/labels-gate-55.js` گیت زندهٔ برچسب‌های قانون اساسی است.
 

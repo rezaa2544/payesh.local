@@ -4942,6 +4942,15 @@ async function waitFor(fn, ms = 15000) {
     }
   });
 
+  /* ── ردیف ۹۷ / PR-2: API مستقل پلتفرم ─────────────────────────────── */
+  const ownerPanelApi = require('../apps/owner-panel/tests/platform-api.test.js');
+  await test('PR‑2: توکن و نقش پلتفرم از مدرسه جداست و توکن مدرسه دوطرفه رد میشود',
+    () => ownerPanelApi.auth());
+  await test('PR‑2: قرارداد OpenAPI با router همتراز است و allowlist خروجی رازها را حذف میکند',
+    () => ownerPanelApi.contract());
+  await test('PR‑2: API پشت Gateway، deny محتوا، grant، request-id، rate-limit و آزمون منفی هر کنترل',
+    () => ownerPanelApi.integration());
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));

@@ -1,0 +1,102 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Payesh Owner Panel Platform API",
+    "version": "1.0.0",
+    "description": "API مستقل پنل مالک. احراز و نقش کاملاً جدا از API مدرسه است؛ محتوا بهطور پیشفرض رد است و تنها با grant فعال content_read، یک رکورد و ثبت log خوانده میشود. وضعیت امنیتی سامانه UNKNOWN است تا پنتست انسانی مالک انجام شود."
+  },
+  "servers": [{ "url": "/api/platform/v1" }],
+  "security": [{ "PlatformToken": [] }],
+  "x-default-deny": true,
+  "x-output-allowlist": "فیلدهای national_id، password_*، token/secret/authorization/cookie در هیچ پاسخی مجاز نیستند.",
+  "components": {
+    "securitySchemes": {
+      "PlatformToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "platform.v1.<body>.<HMAC-SHA256>; separate secret from school tokens"
+      }
+    },
+    "parameters": {
+      "TenantId": { "name": "tenant_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+      "RequestId": { "name": "X-Request-Id", "in": "header", "required": false, "schema": { "type": "string", "maxLength": 80 } }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "enum": [false] },
+          "error": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health/summary": {
+      "get": { "summary": "وضعیت پیکربندی namespace (بدون داده)", "security": [], "responses": { "200": { "description": "ok" } } }
+    },
+    "/openapi.json": {
+      "get": { "summary": "همین قرارداد", "security": [], "responses": { "200": { "description": "OpenAPI document" } } }
+    },
+    "/dashboard": {
+      "get": { "summary": "شمارش فراداده (بدون محتوای مدرسه)", "responses": { "200": { "description": "ok" }, "401": { "description": "unauthorized" }, "429": { "description": "rate_limited" } } }
+    },
+    "/tenants": {
+      "get": { "summary": "فهرست فرادادهٔ اشتراک مدارس", "responses": { "200": { "description": "ok" }, "401": { "description": "unauthorized" } } }
+    },
+    "/tenants/{tenant_id}": {
+      "get": { "summary": "فرادادهٔ یک مدرسه", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "200": { "description": "ok" }, "404": { "description": "tenant_not_found" } } },
+      "delete": { "summary": "همیشه رد میشود؛ حذف مدرسه از API مجاز نیست", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "403": { "description": "tenant_deletion_disabled" } } }
+    },
+    "/tenants/{tenant_id}/limits": {
+      "get": { "summary": "سقفهای مدرسه", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "200": { "description": "ok" } } }
+    },
+    "/tenants/{tenant_id}/usage": {
+      "get": { "summary": "مصرف مدرسه", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "200": { "description": "ok" } } }
+    },
+    "/tenants/{tenant_id}/content": {
+      "get": { "summary": "همیشه رد میشود؛ فهرست/خروجیگیری انبوه محتوا تعریف نشده است", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "403": { "description": "bulk_content_forbidden" } } }
+    },
+    "/tenants/{tenant_id}/content/{collection}/{record_ref}": {
+      "get": {
+        "summary": "خواندن دقیقاً یک رکورد محتوا، فقط با grant فعال content_read؛ هر خواندن یک support_access_log میسازد",
+        "parameters": [
+          { "$ref": "#/components/parameters/TenantId" },
+          { "name": "collection", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^[a-z0-9_]{1,40}$" } },
+          { "name": "record_ref", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^[0-9]{1,18}$" } }
+        ],
+        "responses": { "200": { "description": "ok" }, "400": { "description": "invalid_record_reference" }, "403": { "description": "grant_required / forbidden" } }
+      }
+    },
+    "/plans": {
+      "get": { "summary": "فهرست طرحها", "responses": { "200": { "description": "ok" } } },
+      "post": { "summary": "ساخت طرح؛ فقط platform_owner", "responses": { "201": { "description": "created" }, "400": { "description": "invalid_input" }, "403": { "description": "role_forbidden" } } }
+    },
+    "/subscriptions": {
+      "get": { "summary": "فهرست اشتراکها", "responses": { "200": { "description": "ok" } } }
+    },
+    "/subscriptions/{subscription_id}/renew": {
+      "post": { "summary": "تمدید/فعالسازی؛ فقط platform_owner. اپراتور ۴۰۳ میگیرد.", "parameters": [{ "name": "subscription_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "ok" }, "403": { "description": "role_forbidden" } } }
+    },
+    "/tenants/{tenant_id}/suspend": {
+      "post": { "summary": "تعلیق با دلیل ≥۱۰ نویسه؛ مالک یا اپراتور", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "200": { "description": "ok" }, "400": { "description": "reason_too_short" } } }
+    },
+    "/platform-users": {
+      "get": { "summary": "فهرست هویتهای پلتفرم (بدون رمز/توکن)", "responses": { "200": { "description": "ok" } } },
+      "post": { "summary": "ثبت هویت پلتفرم؛ فقط platform_owner", "responses": { "201": { "description": "created" }, "403": { "description": "role_forbidden" } } }
+    },
+    "/support-grants": {
+      "get": { "summary": "فهرست grantها", "responses": { "200": { "description": "ok" } } },
+      "post": { "summary": "درخواست grant؛ فقط اپراتور/پشتیبانی، scope=metadata|content_read، دلیل ≥۱۰ نویسه، ≤۷۲ ساعت، اطلاع مدرسه پیش از شروع", "responses": { "201": { "description": "pending" }, "400": { "description": "invalid_scope / invalid_input" }, "403": { "description": "role_forbidden" } } }
+    },
+    "/support-grants/{request_id}/approve": {
+      "post": { "summary": "تأیید توسط مالک فعال غیر از درخواستکننده (چهارچشم)", "parameters": [{ "name": "request_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "ok" }, "403": { "description": "role_forbidden / forbidden" } } }
+    },
+    "/support-grants/{grant_id}/revoke": {
+      "post": { "summary": "ابطال grant؛ فقط مالک؛ غیرقابلتمدید", "parameters": [{ "name": "grant_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "ok" }, "403": { "description": "role_forbidden" } } }
+    },
+    "/audit": {
+      "get": { "summary": "فرادادهٔ زنجیرهٔ هش حسابرسی", "responses": { "200": { "description": "ok" } } }
+    }
+  }
+}
