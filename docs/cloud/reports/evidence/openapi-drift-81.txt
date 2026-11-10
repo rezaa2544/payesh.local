@@ -1,0 +1,35 @@
+# row 81 — OpenAPI drift gate raw output
+base_sha=65501b0fbbcbd6e1d4f4648c940b72bb8d1a6b67
+date_utc=2026-11-10T20:07:47Z
+command= node tools/openapi-drift-81.mjs && node tests/openapi-drift-81.js
+scope: [S] on-system (CI repeats it in .github/workflows/api-contract.yml)
+----
+# openapi-drift-81 spec=openapi.yaml code_routes=105 spec_operations=105 delegated=/api/platform/v1
+OPENAPI-DRIFT-81-OK
+exit=0
+PASS  OA-01 regexToPath numeric id
+PASS  OA-02 regexToPath collection + id
+PASS  OA-03 regexToPath file
+PASS  OA-04 unsupported regex is an error, not a silent pass
+PASS  OA-10 real tree in sync  → code=105 spec=105
+PASS  OA-11 route inventory is not trivially small  → 105
+PASS  OA-12 native-client operation documented /api/auth/login
+PASS  OA-12 native-client operation documented /api/auth/refresh
+PASS  OA-12 native-client operation documented /api/v1/pull
+PASS  OA-12 native-client operation documented /api/sync
+PASS  OA-12 native-client operation documented /api/live/rev
+PASS  OA-12 native-client operation documented /api/gw/v1/pull
+PASS  OA-12 native-client operation documented /api/gw/v1/push
+PASS  OA-13 owner platform API delegated, not duplicated
+PASS  OA-20 new route in code without spec ⇒ FAIL
+PASS  OA-21 method change in code ⇒ FAIL (missing PUT + stale POST)
+PASS  OA-22 new regex route ⇒ FAIL
+PASS  OA-23 spec operation with no code route ⇒ FAIL (stale)
+PASS  OA-24 route removed from spec ⇒ FAIL
+PASS  OA-25 tenancy route rename ⇒ FAIL
+PASS  OA-26 non-OpenAPI-3 document ⇒ input error (exit 2)
+PASS  OA-27 operation without operationId ⇒ FAIL
+
+OA checks=22 pass=22 fail=0
+OPENAPI-DRIFT-81-TEST-OK
+exit=0
