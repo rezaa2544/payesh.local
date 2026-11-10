@@ -1,0 +1,62 @@
+plugins { id 'com.android.application' }
+
+/* ═══════════════════════════════════════════════════════════════════
+   پوستهٔ Android پنل مالک — ADR‑62 (استثنای WebView فقط برای پنل مالک)
+   · شناسهٔ جدا از اپ مدرسه: ir.payesh.owner (جدول ADR‑62 §۴)
+   · هیچ آدرس سرور، توکن یا کلیدی داخل APK پخته نمی‌شود؛ آدرس در اولین
+     اجرا از کاربر پرسیده می‌شود.
+   · امضا فقط از Secretهای Owner (PAYESH_OWNER_*) که CI در RUNNER_TEMP
+     می‌نویسد. بدون آن‌ها خروجی release «امضانشده» است و منتشر نمی‌شود.
+   ═══════════════════════════════════════════════════════════════════ */
+def ownerSigning = [
+    keystore: System.getenv('PAYESH_OWNER_KEYSTORE'),
+    storePassword: System.getenv('PAYESH_OWNER_KEYSTORE_PASS'),
+    alias: System.getenv('PAYESH_OWNER_KEY_ALIAS'),
+    keyPassword: System.getenv('PAYESH_OWNER_KEY_PASS'),
+]
+def ownerSigningReady = ownerSigning.values().every { it != null && !it.trim().isEmpty() }
+def ownerVersionCode = (System.getenv('PAYESH_OWNER_VERSION_CODE') ?: '1').toInteger()
+def ownerVersionName = (System.getenv('PAYESH_OWNER_VERSION_NAME') ?: '0.0.0').trim()
+
+android {
+    namespace 'ir.payesh.owner'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "ir.payesh.owner"
+        minSdk 24
+        targetSdk 34
+        versionCode ownerVersionCode
+        versionName ownerVersionName
+        resConfigs "fa", "en"
+    }
+
+    signingConfigs {
+        release {
+            if (ownerSigningReady) {
+                storeFile file(ownerSigning.keystore)
+                storeType 'PKCS12'
+                storePassword ownerSigning.storePassword
+                keyAlias ownerSigning.alias
+                keyPassword ownerSigning.keyPassword
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            debuggable false
+            minifyEnabled false
+            shrinkResources false
+            if (ownerSigningReady) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

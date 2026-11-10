@@ -1,0 +1,446 @@
+name: owner-panel-packaging
+
+# ═══════════════════════════════════════════════════════════════════
+#  بسته‌بندی پنل مالک — PR‑4 · ردیف ۹۹ · ADR‑62 (docs/cloud/62-adr-owner-panel-packaging.md)
+#  الگو: build.yml اپ مدرسه؛ اما workflow، شناسه‌ها، Secretها و انتشار جدا.
+#  خروجی‌های ثابت: payesh-owner-setup.exe · payesh-owner.apk · payesh-owner-web.zip · SHA256SUMS
+#  قواعد:
+#   · نبودن هر خروجی یا شکست هر ساخت ⇒ گیت قرمز (owner-gate)
+#   · بدون Secret مالک: exe و APK «امضانشده/فقط آزمایشی» هستند و هرگز منتشر نمی‌شوند
+#   · Secret موجود ولی نامعتبر ⇒ قرمز (fail-closed)
+#   · انتشار فقط روی main، فقط در prerelease «owner-continuous»؛ ادعای انتشار رسمی نیست
+#   · ردیف ۶۳ و استقلال بومی اپ مدرسه دست نمی‌خورد؛ این فایل هیچ مسیر اپ مدرسه را نمی‌سازد
+# ═══════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main, 'arena/**', 'hermes/**']
+    paths:
+      - 'apps/owner-panel/**'
+      - '.github/workflows/owner-panel.yml'
+      - 'docs/cloud/62-adr-owner-panel-packaging.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: payesh-owner-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  owner-web:
+    name: پنل مالک — بستهٔ وب (payesh-owner-web.zip)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: آزمون ایستای بسته‌بندی + خودآزمایی گیت
+        run: |
+          set -euo pipefail
+          node apps/owner-panel/tests/packaging.test.js
+          node apps/owner-panel/scripts/check-owner-artifacts.js --self-test
+          node apps/owner-panel/scripts/gen-theme.js --check
+
+      - name: ساخت قطعی بستهٔ وب (دو بار، باید یکسان باشد)
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node apps/owner-panel/scripts/package-web.js --out out/payesh-owner-web.zip --commit "$GITHUB_SHA"
+          node apps/owner-panel/scripts/package-web.js --out "$RUNNER_TEMP/again.zip" --commit "$GITHUB_SHA"
+          cmp out/payesh-owner-web.zip "$RUNNER_TEMP/again.zip"
+          echo "✓ بستهٔ وب قطعی است"
+          unzip -t out/payesh-owner-web.zip | tail -1
+          node apps/owner-panel/scripts/check-owner-artifacts.js meta --file out/payesh-owner-web.zip --signed false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owner-web
+          path: |
+            out/payesh-owner-web.zip
+            out/payesh-owner-web.zip.meta.json
+          if-no-files-found: error
+
+  owner-android:
+    name: پنل مالک — APK (payesh-owner.apk)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: آزمون قفل مبدأ (Java)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/op"
+          javac -encoding UTF-8 -d "$RUNNER_TEMP/op" \
+            apps/owner-panel/android/app/src/main/java/ir/payesh/owner/OriginPolicy.java \
+            apps/owner-panel/android/test/OriginPolicyCheck.java
+          java -cp "$RUNNER_TEMP/op" OriginPolicyCheck
+
+      # بدون Secret: ready=false و APK امضانشده (فقط آزمایشی). Secret نامعتبر ⇒ قرمز.
+      - name: آماده‌سازی امن کلید امضای APK مالک (بدون fallback)
+        id: signing
+        env:
+          PAYESH_OWNER_KEYSTORE_B64: ${{ secrets.PAYESH_OWNER_KEYSTORE_B64 }}
+          PAYESH_OWNER_KEYSTORE_PASS: ${{ secrets.PAYESH_OWNER_KEYSTORE_PASS }}
+          PAYESH_OWNER_KEY_ALIAS: ${{ secrets.PAYESH_OWNER_KEY_ALIAS }}
+          PAYESH_OWNER_KEY_PASS: ${{ secrets.PAYESH_OWNER_KEY_PASS }}
+        run: |
+          set -euo pipefail
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+          MISSING=""
+          for name in PAYESH_OWNER_KEYSTORE_B64 PAYESH_OWNER_KEYSTORE_PASS PAYESH_OWNER_KEY_ALIAS PAYESH_OWNER_KEY_PASS; do
+            if [ -z "${!name:-}" ]; then MISSING="$MISSING $name"; fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::warning title=امضای APK مالک در دسترس نیست::Secretهای تنظیم‌نشده:$MISSING — APK امضانشده و فقط آزمایشی است و منتشر نمی‌شود."
+            exit 0
+          fi
+          KS="$RUNNER_TEMP/payesh-owner-signing.p12"
+          printf '%s' "$PAYESH_OWNER_KEYSTORE_B64" | base64 --decode > "$KS"
+          chmod 600 "$KS"
+          test -s "$KS"
+          if ! keytool -list -keystore "$KS" -storetype PKCS12 -storepass:env PAYESH_OWNER_KEYSTORE_PASS -alias "$PAYESH_OWNER_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::Keystore یا alias مالک قابل اعتبارسنجی نیست؛ fail-closed"
+            exit 1
+          fi
+          printf 'PAYESH_OWNER_KEYSTORE=%s\n' "$KS" >> "$GITHUB_ENV"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: ساخت APK release پنل مالک
+        env:
+          PAYESH_OWNER_KEYSTORE_PASS: ${{ secrets.PAYESH_OWNER_KEYSTORE_PASS }}
+          PAYESH_OWNER_KEY_ALIAS: ${{ secrets.PAYESH_OWNER_KEY_ALIAS }}
+          PAYESH_OWNER_KEY_PASS: ${{ secrets.PAYESH_OWNER_KEY_PASS }}
+          PAYESH_OWNER_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          export PAYESH_OWNER_VERSION_NAME=$(node -p "require('./package.json').version")
+          if [ "${{ steps.signing.outputs.ready }}" != "true" ]; then unset PAYESH_OWNER_KEYSTORE || true; fi
+          set +e
+          gradle assembleRelease --no-daemon -p apps/owner-panel/android > "$RUNNER_TEMP/gradle.log" 2>&1
+          code=$?
+          set -e
+          if [ $code -ne 0 ]; then
+            grep -E "What went wrong|FAILURE:|error:|Caused by:|Could not|Execution failed" -A4 "$RUNNER_TEMP/gradle.log" | head -60 | while IFS= read -r l; do echo "::error title=Gradle::$l"; done
+            tail -40 "$RUNNER_TEMP/gradle.log"
+            exit $code
+          fi
+          tail -4 "$RUNNER_TEMP/gradle.log"
+          mkdir -p out
+          D=apps/owner-panel/android/app/build/outputs/apk/release
+          ls -l "$D"
+          if [ "${{ steps.signing.outputs.ready }}" = "true" ]; then
+            cp "$D/app-release.apk" out/payesh-owner.apk
+          else
+            cp "$D/app-release-unsigned.apk" out/payesh-owner.apk
+          fi
+
+      - name: بررسی محتوای APK (شناسه، debuggable، مجوز، بدون آدرس پخته‌شده)
+        run: |
+          set -euo pipefail
+          APK=out/payesh-owner.apk
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BT=$(ls -d "$SDK"/build-tools/* | sort -V | tail -1)
+          "$BT/aapt" dump badging "$APK" > "$RUNNER_TEMP/badging.txt"
+          grep -E "^(package|sdkVersion|targetSdkVersion|application-label|uses-permission)" "$RUNNER_TEMP/badging.txt"
+          grep -q "^package: name='ir.payesh.owner'" "$RUNNER_TEMP/badging.txt" || { echo "::error::applicationId باید ir.payesh.owner باشد"; exit 1; }
+          if grep -q "ir.payesh.local" "$RUNNER_TEMP/badging.txt"; then echo "::error::شناسهٔ اپ مدرسه در APK مالک"; exit 1; fi
+          if grep -q "application-debuggable" "$RUNNER_TEMP/badging.txt"; then echo "::error::APK مالک debuggable است"; exit 1; fi
+          PERMS=$(grep "^uses-permission:" "$RUNNER_TEMP/badging.txt" | sed -E "s/.*name='([^']+)'.*/\1/" | sort -u | tr '\n' ' ')
+          echo "permissions: $PERMS"
+          for p in $PERMS; do
+            case "$p" in android.permission.INTERNET|ir.payesh.owner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION) ;; *) echo "::error::مجوز غیرمجاز: $p"; exit 1 ;; esac
+          done
+          mkdir -p "$RUNNER_TEMP/apkx"
+          unzip -q -o "$APK" 'classes*.dex' resources.arsc -d "$RUNNER_TEMP/apkx"
+          if strings -a "$RUNNER_TEMP"/apkx/* | grep -E "https?://[A-Za-z0-9.-]+\.[A-Za-z]{2,}" | grep -v -E "schemas\.android\.com|www\.w3\.org" ; then
+            echo "::error::آدرس پخته‌شده در APK مالک پیدا شد"; exit 1
+          fi
+          if strings -a "$RUNNER_TEMP"/apkx/classes*.dex | grep -q "addJavascriptInterface"; then echo "::error::پل JS در APK مالک"; exit 1; fi
+          echo "✓ APK مالک: ir.payesh.owner، release، فقط INTERNET، بدون آدرس/پل JS"
+
+      - name: بررسی امضا (فقط با Secret) یا اثبات امضانشده‌بودن
+        env:
+          READY: ${{ steps.signing.outputs.ready }}
+        run: |
+          set -euo pipefail
+          APK=out/payesh-owner.apk
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BT=$(ls -d "$SDK"/build-tools/* | sort -V | tail -1)
+          if [ "$READY" = "true" ]; then
+            "$BT/zipalign" -c 4 "$APK"
+            "$BT/apksigner" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/sig.txt"
+            grep -Eq "Verified using v2 scheme.*: true" "$RUNNER_TEMP/sig.txt"
+            grep -Eq "Verified using v3 scheme.*: true" "$RUNNER_TEMP/sig.txt"
+            FP=$(grep "Signer #1 certificate SHA-256 digest" "$RUNNER_TEMP/sig.txt" | tr -d ' ' | cut -d: -f2 | tr 'A-F' 'a-f')
+            [ ${#FP} -eq 64 ]
+            node apps/owner-panel/scripts/check-owner-artifacts.js meta --file "$APK" --signed true \
+              --signature "{\"scheme_v2\":true,\"scheme_v3\":true,\"cert_sha256\":\"$FP\"}"
+          else
+            if "$BT/apksigner" verify "$APK" >/dev/null 2>&1; then
+              echo "::error::APK بدون Secret نباید امضای معتبر داشته باشد"; exit 1
+            fi
+            echo "APK امضانشده است (انتظار می‌رفت) — فقط آزمایشی، منتشر نمی‌شود."
+            node apps/owner-panel/scripts/check-owner-artifacts.js meta --file "$APK" --signed false
+          fi
+
+      - name: پاک‌کردن کلید موقت
+        if: always()
+        run: rm -f "$RUNNER_TEMP/payesh-owner-signing.p12"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owner-android
+          path: |
+            out/payesh-owner.apk
+            out/payesh-owner.apk.meta.json
+          if-no-files-found: error
+
+  owner-windows:
+    name: پنل مالک — نصب‌کنندهٔ ویندوز (payesh-owner-setup.exe)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: ساخت PayeshOwner.exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          powershell -ExecutionPolicy Bypass -File apps\owner-panel\desktop\build.ps1 -Out .build\owner\desktop
+          if ($LASTEXITCODE -ne 0) { throw "build.ps1 ناموفق ($LASTEXITCODE)" }
+          $exe = '.build\owner\desktop\PayeshOwner.exe'
+          $vi = (Get-Item $exe).VersionInfo
+          "ProductName=$($vi.ProductName) FileVersion=$($vi.FileVersion)"
+          if ($vi.ProductName -ne 'Payesh Owner Panel') { throw 'شناسنامهٔ PayeshOwner.exe نادرست است' }
+
+      - name: خودآزمایی قفل مبدأ روی همان exe ساخته‌شده
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'selftest.txt'
+          $p = Start-Process -FilePath '.build\owner\desktop\PayeshOwner.exe' -ArgumentList '--self-test' -NoNewWindow -Wait -PassThru -RedirectStandardOutput $out
+          $txt = Get-Content $out -Raw
+          $txt
+          if ($p.ExitCode -ne 0 -or $txt -notmatch 'ORIGIN-POLICY-CS checks=21 failures=0') { throw "self-test ناموفق (exit $($p.ExitCode))" }
+
+      - name: آماده‌سازی گواهی امضای ویندوز مالک (فقط با Secret)
+        id: wsign
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.PAYESH_OWNER_WIN_PFX_B64 }}
+          PFX_PASS: ${{ secrets.PAYESH_OWNER_WIN_PFX_PASS }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          "ready=false" >> $env:GITHUB_OUTPUT
+          if (-not $env:PFX_B64 -or -not $env:PFX_PASS) {
+            "::warning title=امضای ویندوز مالک در دسترس نیست::PAYESH_OWNER_WIN_PFX_B64/PASS تنظیم نشده — نصب‌کننده امضانشده و فقط آزمایشی است و منتشر نمی‌شود."
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'payesh-owner-sign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_B64))
+          $st = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1
+          if (-not $st) { throw 'signtool.exe پیدا نشد' }
+          "SIGNTOOL=$($st.FullName)" >> $env:GITHUB_ENV
+          "OWNER_PFX=$pfx" >> $env:GITHUB_ENV
+          "ready=true" >> $env:GITHUB_OUTPUT
+
+      - name: امضای PayeshOwner.exe (فقط با Secret)
+        if: steps.wsign.outputs.ready == 'true'
+        shell: pwsh
+        env:
+          PFX_PASS: ${{ secrets.PAYESH_OWNER_WIN_PFX_PASS }}
+        run: |
+          & $env:SIGNTOOL sign /f $env:OWNER_PFX /p $env:PFX_PASS /fd sha256 /tr http://timestamp.digicert.com /td sha256 '.build\owner\desktop\PayeshOwner.exe'
+          if ($LASTEXITCODE -ne 0) { throw 'signtool ناموفق — fail-closed' }
+
+      - name: نصب Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw 'ISCC پیدا نشد' }
+          "ISCC=$iscc" >> $env:GITHUB_ENV
+
+      - name: ساخت payesh-owner-setup.exe
+        shell: pwsh
+        run: |
+          $v = node -p "require('./package.json').version"
+          & $env:ISCC "/DAppVersion=$v" "apps\owner-panel\installer\payesh-owner.iss" 2>&1 | Tee-Object -FilePath iscc-owner.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content iscc-owner.log -Tail 15 | ForEach-Object { "::error::ISCC: $_" }
+            throw "ISCC ناموفق ($LASTEXITCODE)"
+          }
+          $exe = 'releases\owner\payesh-owner-setup.exe'
+          if (-not (Test-Path $exe)) { throw 'payesh-owner-setup.exe ساخته نشد' }
+          "✓ {0:N1} MB — نسخهٔ {1}" -f ((Get-Item $exe).Length/1MB), $v
+
+      - name: امضای نصب‌کننده (فقط با Secret)
+        if: steps.wsign.outputs.ready == 'true'
+        shell: pwsh
+        env:
+          PFX_PASS: ${{ secrets.PAYESH_OWNER_WIN_PFX_PASS }}
+        run: |
+          & $env:SIGNTOOL sign /f $env:OWNER_PFX /p $env:PFX_PASS /fd sha256 /tr http://timestamp.digicert.com /td sha256 'releases\owner\payesh-owner-setup.exe'
+          if ($LASTEXITCODE -ne 0) { throw 'signtool ناموفق — fail-closed' }
+
+      - name: نصب و حذف بی‌صدا روی runner (شناسه/مسیر جدا از اپ مدرسه)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Resolve-Path 'releases\owner\payesh-owner-setup.exe'
+          $p = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "نصب بی‌صدا ناموفق ($($p.ExitCode))" }
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\PayeshOwner'
+          foreach ($f in 'PayeshOwner.exe','WebView2Loader.dll','Microsoft.Web.WebView2.Core.dll','Microsoft.Web.WebView2.WinForms.dll','unins000.exe') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "پس از نصب نیست: $f" }
+          }
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{20AE76FD-560D-41ED-B6F5-7F66F3308129}_is1'
+          if (-not (Test-Path $key)) { throw 'کلید حذف برنامه با AppId مالک پیدا نشد' }
+          if (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{7C4E2A51-9F3B-4E7A-9C21-5B8A1D3E6F02}_is1') { throw 'AppId اپ مدرسه ثبت شد!' }
+          if (Test-Path (Join-Path $env:ProgramFiles 'Payesh')) { throw 'پوشهٔ اپ مدرسه ساخته شد!' }
+          "✓ نصب در $dir با AppId مالک"
+          $u = Start-Process -FilePath (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "حذف بی‌صدا ناموفق ($($u.ExitCode))" }
+          Start-Sleep -Seconds 3
+          if (Test-Path (Join-Path $dir 'PayeshOwner.exe')) { throw 'پس از حذف، PayeshOwner.exe باقی ماند' }
+          "✓ حذف کامل شد"
+
+      - name: بررسی Authenticode و ثبت meta
+        shell: pwsh
+        env:
+          READY: ${{ steps.wsign.outputs.ready }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item 'releases\owner\payesh-owner-setup.exe' 'out\payesh-owner-setup.exe' -Force
+          $files = @('out\payesh-owner-setup.exe', '.build\owner\desktop\PayeshOwner.exe')
+          if ($env:READY -eq 'true') {
+            foreach ($f in $files) {
+              $s = Get-AuthenticodeSignature $f
+              "$f — $($s.Status)"
+              if ($s.Status -ne 'Valid') { throw "امضای $f معتبر نیست ($($s.Status)) — fail-closed" }
+            }
+            $thumb = (Get-AuthenticodeSignature 'out\payesh-owner-setup.exe').SignerCertificate.Thumbprint.ToLower()
+            $sig = '{"authenticode":"Valid","thumbprint":"' + $thumb + '"}'
+            node apps/owner-panel/scripts/check-owner-artifacts.js meta --file out/payesh-owner-setup.exe --signed true --signature $sig
+          } else {
+            foreach ($f in $files) {
+              $s = Get-AuthenticodeSignature $f
+              "$f — $($s.Status)"
+              if ($s.Status -ne 'NotSigned') { throw "بدون Secret، $f نباید امضا داشته باشد ($($s.Status))" }
+            }
+            node apps/owner-panel/scripts/check-owner-artifacts.js meta --file out/payesh-owner-setup.exe --signed false
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'meta ناموفق' }
+
+      - name: پاک‌کردن گواهی موقت
+        if: always()
+        shell: pwsh
+        run: Remove-Item (Join-Path $env:RUNNER_TEMP 'payesh-owner-sign.pfx') -Force -ErrorAction SilentlyContinue
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owner-windows
+          path: |
+            out/payesh-owner-setup.exe
+            out/payesh-owner-setup.exe.meta.json
+          if-no-files-found: error
+
+  owner-gate:
+    name: پنل مالک — گیت خروجی‌ها، SHA256SUMS و انتشار
+    runs-on: ubuntu-latest
+    needs: [owner-web, owner-android, owner-windows]
+    if: always()
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: همهٔ jobهای ساخت باید موفق باشند
+        env:
+          WEB: ${{ needs.owner-web.result }}
+          ANDROID: ${{ needs.owner-android.result }}
+          WINDOWS: ${{ needs.owner-windows.result }}
+        run: |
+          echo "owner-web=$WEB owner-android=$ANDROID owner-windows=$WINDOWS"
+          for r in "$WEB" "$ANDROID" "$WINDOWS"; do
+            if [ "$r" != "success" ]; then echo "::error::یک ساخت پنل مالک ناموفق است ⇒ گیت قرمز"; exit 1; fi
+          done
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: owner-*
+          path: dist
+          merge-multiple: true
+
+      - name: گیت خروجی‌ها (fail-closed)
+        run: |
+          set -euo pipefail
+          node apps/owner-panel/scripts/check-owner-artifacts.js --self-test
+          ls -l dist
+          node apps/owner-panel/scripts/check-owner-artifacts.js verify --dir dist --commit "$GITHUB_SHA"
+          (cd dist && sha256sum -c SHA256SUMS)
+          echo "── SHA256SUMS ──"; cat dist/SHA256SUMS
+          echo "── status ──"; cat dist/owner-artifacts-status.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: payesh-owner-test-only
+          path: |
+            dist/payesh-owner-setup.exe
+            dist/payesh-owner.apk
+            dist/payesh-owner-web.zip
+            dist/SHA256SUMS
+            dist/owner-artifacts-status.json
+          if-no-files-found: error
+
+      - name: انتشار آزمایشی (فقط main؛ exe/apk فقط اگر امضای تأییدشده دارند)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG=owner-continuous
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
+              --title "پنل مالک — ساخت آزمایشی (انتشار رسمی نیست)" \
+              --notes "فقط برای مالک پلتفرم. ADR‑62. exe/APK فقط وقتی اینجا هستند که با Secret مالک امضا و تأیید شده باشند. نصب روی دستگاه واقعی هنوز تأیید نشده است [?]."
+          fi
+          mkdir -p pub
+          cp dist/SHA256SUMS.release pub/SHA256SUMS
+          FILES="pub/SHA256SUMS"
+          for name in payesh-owner-web.zip payesh-owner.apk payesh-owner-setup.exe; do
+            if grep -q "  $name\$" dist/SHA256SUMS.release; then
+              FILES="$FILES dist/$name"
+            else
+              echo "منتشر نمی‌شود (امضای تأییدشده ندارد): $name"
+              gh release delete-asset "$TAG" "$name" -y >/dev/null 2>&1 || true
+            fi
+          done
+          gh release upload "$TAG" $FILES --clobber
+          gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) — \(.size)"'

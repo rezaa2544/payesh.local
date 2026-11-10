@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">پنل مالک پایش</string>
+    <string name="origin_title">آدرس سرور پنل مالک</string>
+    <string name="origin_hint">https://دامنهٔ-سرور</string>
+    <string name="origin_help">فقط آدرس HTTPS (بدون مسیر). برنامه فقط همین مبدأ را باز می‌کند.</string>
+    <string name="origin_invalid">آدرس نامعتبر است؛ فقط https://دامنه[:درگاه] پذیرفته می‌شود.</string>
+    <string name="save">ذخیره</string>
+    <string name="cancel">انصراف</string>
+    <string name="change_origin">تغییر آدرس سرور</string>
+    <string name="reload">بارگذاری دوباره</string>
+    <string name="blocked">پیوند خارج از مبدأ پنل مسدود شد.</string>
+    <string name="tls_error">گواهی امنیتی سرور معتبر نیست؛ اتصال قطع شد.</string>
+</resources>

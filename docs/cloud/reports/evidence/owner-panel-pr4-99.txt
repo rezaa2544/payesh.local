@@ -1,0 +1,59 @@
+base_sha=a3f0be8884500410b8b3e655a7ab912e33f972e3
+code_sha=9d1d84f04b17a41b77bbd12a2db6ef63c00a8272
+date_utc=2026-11-10T17:10:00Z
+branch=arena/owner-panel-pr4-99
+env=CI: GitHub Actions ubuntu-latest + windows-latest · local: Linux 6.1.189+ x86_64, node v22.23.4 (npx --package=node@22)
+ci_run=owner-panel-packaging #42860414635 (head 9d1d84f) — owner-web/owner-android/owner-windows/owner-gate = success
+command=npx --yes --package=node@22 -c 'bash docs/cloud/reports/evidence/run-tests-evidence.sh && bash docs/cloud/reports/evidence/gen-audit-evidence.sh'
+# خودبازبینی PR-4 — workflow بسته‌بندی پنل مالک (ردیف ۹۹) · ADR‑62 · D‑44/O‑27
+# برچسب‌ها: [M] ماشینی/کد، [S] شاهد خام، [E] محیط/اجرا، [A] ادعا، [?] نامشخص
+# security_status=UNKNOWN (تا پنتست انسانی مستقل) · official_release=false · signed=false
+
+## تصمیم مالک (O‑27 = گزینهٔ A)
+- استثنای WebView فقط برای پنل مالک؛ ADR صریح: docs/cloud/62-adr-owner-panel-packaging.md (سرصفحهٔ ADR‑62).
+- قانون اساسی ۱٫۱۲ ⇒ ۱٫۱۳: ردیف D‑44 (O‑27)، ردیف رزرو D‑43 برای O‑25/ADR‑43 (بدون تصمیم؛ معیار ردیف ۹۰ همین شماره را نام می‌برد)، ردیف O‑27 در §۱۱.
+- ردیف ۶۳ و استقلال بومی اپ مدرسه: بدون تغییر. O‑09 و O‑25 باز. فایل‌های اپ مدرسه (desktop/, install/android/,
+  installer/payesh.iss, .github/workflows/build.yml) در این PR تغییر نکرده‌اند [M]: `git diff --stat a3f0be8 9d1d84f -- desktop install installer .github/workflows/build.yml` خالی.
+
+## محدودهٔ تغییر
+- .github/workflows/owner-panel.yml — چهار job: owner-web، owner-android، owner-windows، owner-gate (if: always()).
+- apps/owner-panel/android/ — پروژهٔ Gradle جدا (ir.payesh.owner)، OriginPolicy.java، MainActivity.java، test/OriginPolicyCheck.java.
+- apps/owner-panel/desktop/ — PayeshOwner.cs (WebView2، C# 5)، build.ps1، app.manifest (Payesh.Owner.Desktop)، payesh-owner.ico.
+- apps/owner-panel/installer/payesh-owner.iss — AppId {20AE76FD-560D-41ED-B6F5-7F66F3308129}، {localappdata}\Programs\PayeshOwner، بدون UAC.
+- apps/owner-panel/scripts/ — zip-lite.js، package-web.js (قطعی)، check-owner-artifacts.js (گیت G1..G6).
+- apps/owner-panel/tests/packaging.test.js + ۲ آزمون در tests/run.js (مجموع 109).
+
+## نتیجهٔ آزمون محلی [S]
+PASS npm test: pass=109 fail=0 registered=109 exit=0
+  raw_output_sha256=05526074b12ba4ce8d23ff8d9895139c2b294ff9a4f4d39131841adcd2a976a3
+  product_tree_sha256=6b7bce926468e3bd1752b9d9d08451b391e323e00aa22342b60ab932d69b20f4
+  log=docs/cloud/reports/evidence/tests-run-9d1d84f-20261110T170358Z.log · gen-audit-evidence.sh ⇒ EVIDENCE-OK
+PASS OWNER-PACKAGING rules=7 mutations_caught=22 failures=0
+PASS OWNER-ARTIFACTS-SELFTEST negative_controls=15 positives=2 failures=0
+PASS ORIGIN-POLICY-JAVA checks=21 failures=0
+PASS adr-ids-60 · test:adr60 · labels-gate-55 · check-android-signing-safety (scanned=686)
+PASS بستهٔ وب قطعی: بازسازی محلی از 9d1d84f ⇒ sha256 برابر با خروجی CI (801ba267…)
+NOTE security-scan-48 محلی: deps_dev_high=7 — روی main=a3f0be8 هم همین؛ از پیش موجود، مربوط به این PR نیست؛ G6 (راز) ok.
+
+## نتیجهٔ CI روی 9d1d84f [E] (run 42860414635)
+PASS owner-android: ORIGIN-POLICY-JAVA 21/0؛ aapt: package=ir.payesh.owner versionName=0.9.2، فقط android.permission.INTERNET،
+     غیر debuggable، بدون URL پخته‌شده در dex/arsc، بدون addJavascriptInterface؛ Secret نبود ⇒ apksigner verify شکست خورد (اثبات امضانشده).
+PASS owner-windows: WebView2 SDK 1.0.2903.40 sha256=ef128016dd1e51c59178c827ed5b8aa3322c57afa8675d930f8109505542ad74؛
+     PayeshOwner.exe ProductName=Payesh Owner Panel 0.9.2.0؛ ORIGIN-POLICY-CS checks=21 failures=0 (روی همان exe)؛
+     ISCC ⇒ payesh-owner-setup.exe 2.4MB؛ نصب/حذف بی‌صدا روی runner در LocalAppData\Programs\PayeshOwner با AppId مالک،
+     بدون ثبت AppId مدرسه و بدون پوشهٔ Program Files\Payesh؛ Authenticode: setup و PayeshOwner.exe هر دو NotSigned (Secret نبود).
+PASS owner-web: بستهٔ وب دو بار ساخته شد و cmp برابر بود.
+PASS owner-gate: owner-web=success owner-android=success owner-windows=success؛ OWNER-ARTIFACTS-GATE GREEN artifacts=3؛ sha256sum -c ⇒ OK×3.
+
+## خروجی‌ها (artifact «payesh-owner-test-only»، دانلود و بازبینی محلی با sha256sum -c) [S]
+fb060b6f39ccab3138c7d489fddd5e622f37e8142795f460ca0dae253f5001c1  payesh-owner-setup.exe  2524920B  unsigned-test-only  release=false
+bb31d20aac5a73eef5d3fdf0dc3a9bc1fc11697cec78f577efd8bc5edcfecb59  payesh-owner.apk        68692B    unsigned-test-only  release=false
+801ba267e032afb621fc7dbe3cd44372629529c6e0ae38c171f60b3ba1a672dc  payesh-owner-web.zip    329251B   n/a                 release=true
+- اینها خروجی شاخهٔ PR هستند؛ اجرای main پس از ادغام SHAهای خودش را دارد (commit درون BUILD-INFO متفاوت است) و در
+  گزارش Notion جداگانه ثبت می‌شود.
+
+## آنچه ثابت نشده
+- امضای واقعی exe/APK: وجود ندارد — Secretهای PAYESH_OWNER_* تنظیم نشده‌اند (OWNER). هیچ ادعای امضا یا انتشار رسمی نیست.
+- نصب و اجرای واقعی روی دستگاه مالک (Windows/Android) و نمایش بصری: NOT-RUN [?] (OWNER).
+- اجرای منفی زندهٔ CI (حذف عمدی یک artifact در runner): NOT-RUN؛ پوشش آن با ۱۵ کنترل منفی خودآزمایی گیت در همان CI است.
+- ورود واقعی (O‑17): همچنان fail-closed (login_unavailable). امنیت: UNKNOWN.
