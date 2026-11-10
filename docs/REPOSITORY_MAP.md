@@ -67,3 +67,13 @@
 | نصب و آزمون روی دستگاه واقعی (ویندوز/اندروید) | — | `[?]` |
 | وضعیت امنیتی | پنتست انسانی انجام نشده (§۱۰.۲) | `UNKNOWN` |
 | اپ مدرسه، ردیف ۶۳ و `build.yml` از پنل مالک مستقل‌اند | `P5_adr_and_boundary` | `[M]` |
+
+## ۵. کلاینت بومی مدرسه (D‑43) و تحویل میدانی (D‑47)
+
+| مسیر | چیست | ردیف |
+|---|---|---|
+| [`cloud/43-adr-native-clients.md`](cloud/43-adr-native-clients.md) | ADR‑43: Flutter/Dart برای Android و Windows؛ بدون WebView و بدون Node.js در بستهٔ کلاینت | ۶۲ |
+| [`cloud/43-native-independence.json`](cloud/43-native-independence.json) | معیار ماشین‌خوان استقلال بومی که گیت ردیف ۶۳ می‌خواند | ۶۲، ۶۳ |
+| [`cloud/79-adr-notification-channel.md`](cloud/79-adr-notification-channel.md) | ADR‑79: Polling هوشمند برای اعلان (D‑46 / O‑26) | ۷۹ |
+| [`cloud/reports/owner-handover-real-world.md`](cloud/reports/owner-handover-real-world.md) | گام‌های میدانی ردیف‌های ۴۶/۵۰/۵۱/۵۵/۵۷ که به مالک تحویل شد (D‑47) | ۴۶، ۵۰، ۵۱، ۵۵، ۵۷ |
+| [`cloud/reports/evidence/run-onsystem-46-57.sh`](cloud/reports/evidence/run-onsystem-46-57.sh) | اجرای دوبارهٔ بخش روی‌سیستم این ردیف‌ها (شاهد: `onsystem-46-57.txt`) | ۴۶، ۵۰، ۵۱، ۵۵، ۵۷ |
