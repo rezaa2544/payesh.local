@@ -45,6 +45,7 @@
 | `server/` | API و منطق سرور: `index.js` (مسیرها)، `policy.js` (نقش/مجوز/اسکوپ)، `auth.js` (نشست/رمز)، `sync.js` (pull/push)، `outbox.js` + `live.js` (صندوقچهٔ ابری)، `mirror.js` (آینه/بکاپ) |
 | `client/` | کلاینت بدون build: `app.js` (هسته، کش IndexedDB، صف آفلاین)، `pages.js`، `import.js` (اکسل)، `authz.js` (لایهٔ مجوز UI) |
 | `desktop/`, `installer/`, `install/` | پوستهٔ ویندوز (WinForms + WebView2)، نصب‌کنندهٔ Inno Setup، اندروید (WebView) |
+| `apps/owner-panel/` | پنل مالک پلتفرم — اپ مستقل (API، SPA، پوستهٔ ویندوز/اندروید، آزمون‌ها)؛ نقشهٔ کامل: [`docs/REPOSITORY_MAP.md`](docs/REPOSITORY_MAP.md) |
 | `tests/` | آزمون‌های اجرایی (`npm test` = ۸۸ آزمون) |
 | `docs/` | `00` قانون اساسی · `cloud/` اسناد پروژهٔ ابری · `01..05` اسناد تاریخی نسخهٔ قدیمی |
 | `scripts/`, `.github/workflows/` | ساخت نسخه و CI |

@@ -9,7 +9,10 @@
      P4  workflow: نام‌های ثابت، گیت، شرط انتشار، Secretهای جدا، بدون continue-on-error
      P5  ADR‑62 موجود و صریحاً «ردیف ۶۳ تغییر نمی‌کند»؛ فایل‌های اپ مدرسه
          به پنل مالک ارجاع نمی‌دهند
-     P6  قطعیت بستهٔ وب + خودآزمایی گیت خروجی‌ها
+     P6  قطعیت بستهٔ وب + خودآزمایی گیت خروجی‌ها؛ لینک‌های README = نام خروجی‌ها (ردیف ۱۰۰)
+     P7  نقشهٔ مخزن (ردیف ۱۰۱): apps/owner-panel و همهٔ زیرپوشه‌هایش در docs/REPOSITORY_MAP.md؛
+         همهٔ پیوندهای نسبی معتبر؛ هر شاهد owner-panel-*.txt با base_sha= و پیوندشده از نقشه؛
+         سند ۶۱ §۶ به نقشهٔ راه همان نقشه ارجاع می‌دهد
    اجرا: node apps/owner-panel/tests/packaging.test.js
    ═══════════════════════════════════════════════════════════════════ */
 const fs = require('node:fs');
@@ -38,11 +41,18 @@ const F = {
   schoolBuildYml: '.github/workflows/build.yml',
   schoolBuildPs1: 'desktop/build.ps1',
   readme: 'README.md',
+  repoMap: 'docs/REPOSITORY_MAP.md',
+  proposal61: 'docs/cloud/61-owner-panel-app-proposal.md',
 };
+const EVIDENCE_DIR = 'docs/cloud/reports/evidence';
 
 function load() {
   const files = {};
   for (const [k, rel] of Object.entries(F)) files[k] = fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/^\uFEFF/, '');
+  /* همهٔ شاهدهای پنل مالک در یک رشته تا جهش درون حافظه ممکن باشد */
+  files.ownerEvidence = fs.readdirSync(path.join(ROOT, EVIDENCE_DIR))
+    .filter(n => /^owner-panel-.*\.txt$/.test(n)).sort()
+    .map(n => '=== ' + n + '\n' + fs.readFileSync(path.join(ROOT, EVIDENCE_DIR, n), 'utf8')).join('\n');
   return files;
 }
 
@@ -189,6 +199,29 @@ const RULES = {
     assert.ok(f.readme.includes('(https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-setup.exe)'), 'school exe row intact');
     assert.ok(f.readme.includes('(https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local.apk)'), 'school apk row intact');
   },
+  /* ردیف ۱۰۱ — نقشهٔ مخزن، نقشهٔ راه و شاهدها هم‌تراز و پیوندها معتبر */
+  P7_repo_map(f) {
+    const m = f.repoMap;
+    assert.ok(m.includes('[`apps/owner-panel/`](../apps/owner-panel/)'), 'map lists apps/owner-panel at top level');
+    for (const d of fs.readdirSync(path.join(ROOT, 'apps/owner-panel'))) {
+      if (fs.statSync(path.join(ROOT, 'apps/owner-panel', d)).isDirectory()) {
+        assert.ok(m.includes('](../apps/owner-panel/' + d + '/)'), 'map must list apps/owner-panel/' + d + '/');
+      }
+    }
+    const links = [...m.matchAll(/\]\(([^)\s]+)\)/g)].map(x => x[1]).filter(u => !/^(https?:|#|mailto:)/.test(u));
+    assert.ok(links.length >= 20, 'map must carry its relative links');
+    for (const u of links) {
+      const target = path.resolve(ROOT, 'docs', u.split('#')[0]);
+      assert.ok(target.startsWith(ROOT) && fs.existsSync(target), 'broken link in REPOSITORY_MAP.md: ' + u);
+    }
+    const ev = [...f.ownerEvidence.matchAll(/^=== (\S+)\n([^\n]*)/gm)];
+    assert.ok(ev.length >= 6, 'owner-panel evidence files present');
+    for (const [, name, first] of ev) {
+      assert.match(first, /^base_sha=[0-9a-f]{40}$/, name + ' must start with base_sha=<40 hex>');
+      assert.ok(m.includes('](cloud/reports/evidence/' + name + ')'), 'map must link evidence ' + name);
+    }
+    assert.ok(f.proposal61.includes('](../REPOSITORY_MAP.md)'), 'proposal 61 §6 must point to the roadmap in REPOSITORY_MAP.md');
+  },
   P5_adr_and_boundary(f) {
     assert.match(f.adr, /^# ADR‑62 /m, 'ADR header must carry ADR‑62');
     assert.ok(!/^#.*\bD[‑-]62\b/m.test(f.adr), 'ADR must not call itself D‑62');
@@ -229,6 +262,12 @@ const MUTATIONS = [
   ['P6_readme_links', 'readme', s => s.replace('owner-continuous/payesh-owner.apk)', 'continuous/payesh-owner.apk)')],
   ['P6_readme_links', 'readme', s => s.replace('(https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local.apk)', '(#)')],
   ['P6_readme_links', 'workflow', s => s.replace('for name in payesh-owner-web.zip payesh-owner.apk payesh-owner-setup.exe; do', 'for name in payesh-owner-web.zip payesh-owner.apk payesh-owner-setup.exe payesh-owner-portable.zip; do')],
+  ['P7_repo_map', 'repoMap', s => s.replace('[`apps/owner-panel/`](../apps/owner-panel/)', '`apps/owner-panel/`')],
+  ['P7_repo_map', 'repoMap', s => s.replace('](../apps/owner-panel/android/)', '](../apps/owner-panel/)')],
+  ['P7_repo_map', 'repoMap', s => s.replace('(cloud/reports/evidence/owner-panel-pr4-99.txt)', '(cloud/reports/evidence/owner-panel-pr4-99-missing.txt)')],
+  ['P7_repo_map', 'repoMap', s => s.split('](cloud/reports/evidence/owner-panel-pr2-self-review.txt)').join('](cloud/reports/evidence/)')],
+  ['P7_repo_map', 'ownerEvidence', s => s.replace(/\nbase_sha=/, '\nsha=')],
+  ['P7_repo_map', 'proposal61', s => s.split('](../REPOSITORY_MAP.md)').join(']()')],
 ];
 
 let CHECKS = 0;
