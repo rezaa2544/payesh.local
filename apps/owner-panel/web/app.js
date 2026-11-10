@@ -56,15 +56,18 @@
     reason_too_short: 'دلیل باید دست‌کم ۱۰ نویسه باشد.',
     grant_required: 'برای خواندن محتوا مجوز فعال لازم است.',
     bulk_content_forbidden: 'دریافت انبوه محتوای مدرسه مجاز نیست.',
-    tenant_deletion_disabled: 'حذف مدرسه از API پلتفرم غیرفعال است.',
+    tenant_deletion_disabled: 'حذف فوری مدرسه مجاز نیست؛ فقط درخواست حذف با تأیید مالک دوم و مهلت ۲۴ ساعت.',
+    four_eyes_required: 'درخواست‌دهندهٔ حذف نمی‌تواند خودش آن را تأیید کند؛ مالک دیگری باید تأیید کند.',
+    deletion_delay_pending: 'مهلت ۲۴ ساعتهٔ پس از تأیید هنوز تمام نشده است.',
+    confirm_mismatch: 'شناسهٔ تکرارشدهٔ مدرسه با مدرسهٔ انتخاب‌شده یکسان نیست.',
     tenant_not_found: 'مدرسه پیدا نشد.',
     subscription_not_found: 'اشتراک پیدا نشد.',
-    request_not_found: 'درخواست مجوز پیدا نشد.',
+    request_not_found: 'درخواست پیدا نشد.',
     grant_not_found: 'مجوز پیدا نشد.',
     invalid_scope: 'دامنهٔ مجوز نامعتبر است.',
     invalid_tenant_id: 'شناسهٔ مدرسه نامعتبر است.',
     invalid_input: 'ورودی با قیدهای داده سازگار نیست.',
-    conflict: 'این رکورد قبلاً ثبت شده است.',
+    conflict: 'این رکورد قبلاً ثبت شده است (برای این مدرسه درخواست باز دیگری وجود دارد).',
     body_too_large: 'حجم درخواست بیش از حد مجاز است.',
     bad_json: 'بدنهٔ درخواست JSON معتبر نیست.',
     login_unavailable: 'صادرکنندهٔ ورود انسانی (رمز + TOTP) هنوز روی سرور وجود ندارد؛ تصمیم O‑17/O‑27 باز است. ورود ممکن نیست.',
@@ -133,6 +136,7 @@
     active: ['فعال', 'ok'], trialing: ['آزمایشی', 'info'], suspended: ['تعلیق', 'bad'],
     past_due: ['معوق', 'warn'], grace: ['مهلت', 'warn'], canceled: ['لغوشده', 'bad'], expired: ['منقضی', 'bad'],
     disabled: ['غیرفعال', 'bad'], locked: ['قفل', 'bad'],
+    pending: ['منتظر تأیید', 'warn'], approved: ['تأییدشده، در مهلت', 'warn'], executed: ['اجراشده (داده نگه‌داری می‌شود)', 'bad'],
   };
 
   function createApp(opts) {
@@ -392,20 +396,50 @@
 
       schools: function (body, caps) {
         var box = h('div'); body.appendChild(card('فهرست مدارس', [box]));
+        var delBox = caps.deleteRequest ? h('div') : null;
+        if (delBox) body.appendChild(card('درخواست‌های حذف مدرسه (چهارچشمی + ۲۴ ساعت)', [delBox]));
         setState(box, 'loading', 'در حال دریافت مدارس…');
-        return api('GET', '/tenants').then(function (r) {
-          if (!r.ok) return setState(box, 'error', errText(r));
-          var rows = r.body.tenants || [];
-          if (!rows.length) return setState(box, 'empty', 'هنوز مدرسه‌ای ثبت نشده است.');
-          clear(box).appendChild(table(['مدرسه', 'پلن', 'وضعیت', 'پایان اشتراک', 'عملیات'], rows, function (t) {
+        if (delBox) setState(delBox, 'loading', 'در حال دریافت درخواست‌های حذف…');
+        var calls = [api('GET', '/tenants')];
+        if (delBox) calls.push(api('GET', '/tenant-deletions'));
+        return Promise.all(calls).then(function (rs) {
+          var r = rs[0], d = rs[1];
+          var open = {};
+          var dels = d && d.ok ? (d.body.requests || []) : [];
+          dels.forEach(function (x) { if (x.status === 'pending' || x.status === 'approved') open[x.tenant_id] = x; });
+          if (!r.ok) setState(box, 'error', errText(r));
+          else if (!(r.body.tenants || []).length) setState(box, 'empty', 'هنوز مدرسه‌ای ثبت نشده است.');
+          else clear(box).appendChild(table(['مدرسه', 'پلن', 'وضعیت', 'پایان اشتراک', 'عملیات'], r.body.tenants, function (t) {
             var acts = [];
-            if (caps.suspend && t.status !== 'suspended') acts.push(h('button', { type: 'button', class: 'btn', 'data-action': 'suspend', 'data-tenant': t.tenant_id, text: 'تعلیق',
+            if (caps.suspend && t.status !== 'suspended' && t.status !== 'canceled') acts.push(h('button', { type: 'button', class: 'btn', 'data-action': 'suspend', 'data-tenant': t.tenant_id, text: 'تعلیق',
               onclick: function () { suspendTenant(t); } }));
-            if (caps.deleteRequest) acts.push(h('button', { type: 'button', class: 'btn danger', 'data-action': 'delete-request', 'data-tenant': t.tenant_id, text: 'درخواست حذف',
+            if (caps.deleteRequest && open[t.tenant_id]) acts.push(h('span', { class: 'badge warn', 'data-deletion': open[t.tenant_id].status, text: 'درخواست حذف باز' }));
+            else if (caps.deleteRequest && t.status !== 'canceled') acts.push(h('button', { type: 'button', class: 'btn danger', 'data-action': 'delete-request', 'data-tenant': t.tenant_id, text: 'درخواست حذف',
               onclick: function () { deleteTenant(t); } }));
             return [h('code', { title: t.tenant_id, text: shortId(t.tenant_id) }), t.plan_code || '—', badge(t.status), faDate(t.ends_at),
               acts.length ? h('div', { class: 'actions' }, acts) : h('span', { class: 'badge', text: 'فقط مشاهده' })];
           }));
+          if (!delBox) return;
+          if (!d.ok) return setState(delBox, 'error', errText(d));
+          if (!dels.length) return setState(delBox, 'empty', 'درخواست حذفی ثبت نشده است.');
+          clear(delBox).appendChild(table(['مدرسه', 'وضعیت', 'درخواست', 'تأیید', 'اجرا از', 'نگهداری داده تا', 'عملیات'], dels, function (x) {
+            var acts = [];
+            var mine = session && x.requested_by === session.sub;
+            if (x.status === 'pending' && !mine) acts.push(h('button', { type: 'button', class: 'btn primary', 'data-action': 'deletion-approve', 'data-request': x.id, text: 'تأیید (مالک دوم)',
+              onclick: function () { approveDeletion(x); } }));
+            if (x.status === 'pending' && mine) acts.push(h('span', { class: 'badge', 'data-wait': 'second-owner', text: 'منتظر تأیید مالک دیگر' }));
+            if (x.status === 'approved') {
+              var due = new Date(x.not_before).getTime() <= Date.now();
+              if (due) acts.push(h('button', { type: 'button', class: 'btn danger', 'data-action': 'deletion-execute', 'data-request': x.id, text: 'اجرا',
+                onclick: function () { executeDeletion(x); } }));
+              else acts.push(h('span', { class: 'badge', 'data-wait': 'delay', text: 'مهلت ۲۴ ساعته در جریان است' }));
+            }
+            if (x.status === 'pending' || x.status === 'approved') acts.push(h('button', { type: 'button', class: 'btn', 'data-action': 'deletion-cancel', 'data-request': x.id, text: 'لغو',
+              onclick: function () { cancelDeletion(x); } }));
+            return [h('code', { title: x.tenant_id, text: shortId(x.tenant_id) }), badge(x.status), faDate(x.created_at), faDate(x.approved_at),
+              faDate(x.not_before), faDate(x.retain_until), acts.length ? h('div', { class: 'actions' }, acts) : h('span', { text: '—' })];
+          }));
+          delBox.appendChild(h('p', { class: 'notice', text: 'اجرا یعنی توقف سرویس و لغو اشتراک؛ داده دست‌کم ۱۸۰ روز نگه داشته می‌شود و هیچ داده‌ای از این پنل نابود نمی‌شود.' }));
         });
       },
 
@@ -584,12 +618,39 @@
         lines: [
           'حذف مدرسه چهارچشمی است: درخواست شما باید توسط مالک دیگری تأیید شود.',
           'اجرا دست‌کم ۲۴ ساعت پس از تأیید انجام می‌شود تا مدرسه مطلع شود و امکان بازگشت باشد.',
-          'در نسخهٔ فعلی، سرور حذف را کاملاً غیرفعال کرده است؛ این درخواست رد خواهد شد و هیچ داده‌ای حذف نمی‌شود.',
+          'اجرا سرویس را متوقف و اشتراک را لغو می‌کند؛ داده دست‌کم ۱۸۰ روز نگه داشته می‌شود.',
         ] }).then(function (d) {
         if (!d) return null;
-        return (pending = api('DELETE', '/tenants/' + encodeURIComponent(t.tenant_id))
-          .then(function (r) { return afterMutation(r, 'درخواست حذف ثبت شد.'); }));
+        return (pending = api('POST', '/tenants/' + encodeURIComponent(t.tenant_id) + '/deletion-request', { reason: d.reason, confirm_tenant_id: t.tenant_id })
+          .then(function (r) { return afterMutation(r, 'درخواست حذف ثبت شد؛ منتظر تأیید مالک دیگر.'); }));
       });
+    }
+    function approveDeletion(x) {
+      return confirmDialog({ title: 'تأیید حذف مدرسه (مالک دوم)', danger: true, submit: 'تأیید', retype: x.tenant_id,
+        lines: ['با تأیید شما، اجرای حذف مدرسهٔ ' + shortId(x.tenant_id) + ' زودتر از ۲۴ ساعت بعد ممکن نیست.', 'دلیل درخواست: ' + (x.reason || '—')] })
+        .then(function (d) {
+          if (!d) return null;
+          return (pending = api('POST', '/tenant-deletions/' + encodeURIComponent(x.id) + '/approve', { reason: d.reason })
+            .then(function (r) { return afterMutation(r, 'حذف تأیید شد؛ اجرا پس از ۲۴ ساعت ممکن است.'); }));
+        });
+    }
+    function cancelDeletion(x) {
+      return confirmDialog({ title: 'لغو درخواست حذف', submit: 'لغو درخواست',
+        lines: ['درخواست حذف مدرسهٔ ' + shortId(x.tenant_id) + ' بسته می‌شود و اشتراک دست‌نخورده می‌ماند.'] })
+        .then(function (d) {
+          if (!d) return null;
+          return (pending = api('POST', '/tenant-deletions/' + encodeURIComponent(x.id) + '/cancel', { reason: d.reason })
+            .then(function (r) { return afterMutation(r, 'درخواست حذف لغو شد.'); }));
+        });
+    }
+    function executeDeletion(x) {
+      return confirmDialog({ title: 'اجرای حذف مدرسه', danger: true, submit: 'اجرا', retype: x.tenant_id,
+        lines: ['سرویس مدرسهٔ ' + shortId(x.tenant_id) + ' متوقف و اشتراک‌هایش لغو می‌شود.', 'داده دست‌کم ۱۸۰ روز نگه داشته می‌شود؛ نابودی نهایی خارج از این پنل و با تأیید مالک است.'] })
+        .then(function (d) {
+          if (!d) return null;
+          return (pending = api('POST', '/tenant-deletions/' + encodeURIComponent(x.id) + '/execute', { reason: d.reason })
+            .then(function (r) { return afterMutation(r, 'حذف اجرا شد؛ سرویس متوقف و داده نگه داشته شد.'); }));
+        });
     }
     function renew(s) {
       var days = h('input', { class: 'input', id: 'dlg-days', inputmode: 'numeric', value: '30', dir: 'ltr' });

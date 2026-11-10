@@ -123,6 +123,12 @@ const PLATFORM_ROUTES = [
   { method: 'POST',   path: '/support-grants/{request_id}/approve',        auth: true,  handler: 'supportGrantApprove' },
   { method: 'POST',   path: '/support-grants/{grant_id}/revoke',           auth: true,  handler: 'supportGrantRevoke' },
   { method: 'GET',    path: '/audit',                                      auth: true,  handler: 'audit' },
+  /* ردیف ۹۸ — حذف دومرحله‌ای: owner درخواست، owner دیگر تأیید، اجرا ≥۲۴ساعت پس از تأیید (12b §100، D-22) */
+  { method: 'GET',    path: '/tenant-deletions',                           auth: true,  handler: 'tenantDeletions' },
+  { method: 'POST',   path: '/tenants/{tenant_id}/deletion-request',       auth: true,  handler: 'tenantDeletionRequest' },
+  { method: 'POST',   path: '/tenant-deletions/{request_id}/approve',      auth: true,  handler: 'tenantDeletionApprove' },
+  { method: 'POST',   path: '/tenant-deletions/{request_id}/cancel',       auth: true,  handler: 'tenantDeletionCancel' },
+  { method: 'POST',   path: '/tenant-deletions/{request_id}/execute',      auth: true,  handler: 'tenantDeletionExecute' },
 ];
 
 function compile(route) {
@@ -141,6 +147,9 @@ const FIELDS = {
   user: ['id', 'login_id', 'role', 'status', 'created_at', 'updated_at'],
   grant: ['id', 'tenant_id', 'operator_id', 'approved_by', 'case_ref', 'scope', 'reason', 'starts_at', 'ends_at', 'school_notified_at', 'revoked_at', 'used_reads', 'max_actions', 'open_slot', 'created_at'],
   request: ['id', 'tenant_id', 'operator_id', 'case_ref', 'scope', 'reason', 'starts_at', 'ends_at', 'school_notified_at', 'max_actions', 'status', 'approved_by', 'created_at'],
+  deletion: ['id', 'tenant_id', 'requested_by', 'reason', 'status', 'approved_by', 'approved_at', 'not_before',
+    'canceled_by', 'canceled_at', 'cancel_reason', 'executed_by', 'executed_at', 'retain_until', 'created_at',
+    'subscriptions_canceled', 'data_destroyed'],
   audit: ['sequence_id', 'event_id', 'actor_id', 'actor_ref', 'action', 'subject_type', 'subject_ref', 'tenant_id', 'reason', 'details', 'created_at'],
 };
 
@@ -247,8 +256,10 @@ const HANDLERS = {
     return ok({ ok: true, tenant: project(r.rows[0], FIELDS.subscription) });
   },
   deleteTenant() {
+    /* حذف فوری هرگز؛ فقط گردش دومرحله‌ای زیر با مهلت ۲۴ ساعت. */
     return err(403, 'tenant_deletion_disabled',
-      { detail: 'حذف مدرسه از API پلتفرم مجاز نیست؛ فرایند آفلاین با تأیید مالک لازم است.' });
+      { detail: 'حذف فوری مدرسه مجاز نیست؛ از درخواست حذف + تأیید مالک دوم + مهلت ۲۴ ساعت استفاده کنید.',
+        flow: 'POST /tenants/{tenant_id}/deletion-request' });
   },
   async limits(q, ctx) {
     const t = needTenant(ctx.params);
@@ -412,6 +423,75 @@ const HANDLERS = {
       subject_ref: gid, tenant_id: t, reason, details: {} });
     return ok({ ok: true, revocation: r.rows[0].result });
   },
+  async tenantDeletions(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner']);
+    if (denied) return denied;
+    const r = await q(`SELECT * FROM owner_platform.tenant_deletion_request
+      ORDER BY created_at DESC LIMIT 200`);
+    return ok({ ok: true, requests: projectRows(r.rows, FIELDS.deletion), count: r.rows.length });
+  },
+  async tenantDeletionRequest(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner']);
+    if (denied) return denied;
+    const t = needTenant(ctx.params);
+    if (!t) return err(400, 'invalid_tenant_id');
+    const reason = needReason(ctx.body);
+    if (!reason) return err(400, 'reason_too_short');
+    /* تأیید دوباره: شناسهٔ مدرسه باید عیناً در بدنه تکرار شود */
+    if (String((ctx.body && ctx.body.confirm_tenant_id) || '') !== t) return err(400, 'confirm_mismatch');
+    const r = await q('SELECT owner_platform.request_tenant_deletion($1,$2) AS result', [t, reason]);
+    const row = r.rows[0].result;
+    await appendAudit(q, ctx, { action: 'tenant.deletion.request', subject_type: 'tenant_deletion_request',
+      subject_ref: row.id, tenant_id: t, reason, details: {} });
+    return ok({ ok: true, request: project(row, FIELDS.deletion) }, 201);
+  },
+  async tenantDeletionApprove(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner']);
+    if (denied) return denied;
+    const found = await deletionTenant(q, ctx);
+    if (found.error) return found.error;
+    if (found.row.requested_by === ctx.claims.sub) return err(403, 'four_eyes_required');
+    const r = await q('SELECT owner_platform.approve_tenant_deletion($1,$2) AS result', [found.row.id, found.row.tenant_id]);
+    const row = r.rows[0].result;
+    await appendAudit(q, ctx, { action: 'tenant.deletion.approve', subject_type: 'tenant_deletion_request',
+      subject_ref: row.id, tenant_id: row.tenant_id,
+      reason: String((ctx.body || {}).reason || 'deletion approved by second platform owner'),
+      details: { not_before: row.not_before } });
+    return ok({ ok: true, request: project(row, FIELDS.deletion) });
+  },
+  async tenantDeletionCancel(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner']);
+    if (denied) return denied;
+    const found = await deletionTenant(q, ctx);
+    if (found.error) return found.error;
+    const reason = needReason(ctx.body);
+    if (!reason) return err(400, 'reason_too_short');
+    const r = await q('SELECT owner_platform.cancel_tenant_deletion($1,$2,$3) AS result',
+      [found.row.id, found.row.tenant_id, reason]);
+    const row = r.rows[0].result;
+    await appendAudit(q, ctx, { action: 'tenant.deletion.cancel', subject_type: 'tenant_deletion_request',
+      subject_ref: row.id, tenant_id: row.tenant_id, reason, details: {} });
+    return ok({ ok: true, request: project(row, FIELDS.deletion) });
+  },
+  async tenantDeletionExecute(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner']);
+    if (denied) return denied;
+    const found = await deletionTenant(q, ctx);
+    if (found.error) return found.error;
+    const row0 = found.row;
+    if (row0.status === 'approved') {
+      const due = await q('SELECT clock_timestamp() >= $1::timestamptz AS due', [row0.not_before]);
+      /* پیام روشن برای UI؛ مرجع نهایی همان بررسی داخل execute_tenant_deletion است */
+      if (!due.rows[0].due) return err(409, 'deletion_delay_pending', { not_before: row0.not_before });
+    }
+    const r = await q('SELECT owner_platform.execute_tenant_deletion($1,$2) AS result', [row0.id, row0.tenant_id]);
+    const row = r.rows[0].result;
+    await appendAudit(q, ctx, { action: 'tenant.deletion.execute', subject_type: 'tenant_deletion_request',
+      subject_ref: row.id, tenant_id: row.tenant_id,
+      reason: String((ctx.body || {}).reason || 'deletion executed after four-eyes approval and 24h delay'),
+      details: { retain_until: row.retain_until, subscriptions_canceled: row.subscriptions_canceled, data_destroyed: false } });
+    return ok({ ok: true, request: project(row, FIELDS.deletion) });
+  },
   async audit(q) {
     const r = await q(`SELECT sequence_id, event_id, actor_id, actor_ref, action, subject_type,
       subject_ref, tenant_id, reason, details, created_at,
@@ -421,6 +501,14 @@ const HANDLERS = {
       FIELDS.audit.concat(['previous_hash', 'event_hash'])), count: r.rows.length });
   },
 };
+
+async function deletionTenant(q, ctx) {
+  const rid = String(ctx.params.request_id || '');
+  if (!UUID_RE.test(rid)) return { error: err(400, 'invalid_request_id') };
+  const r = await q('SELECT * FROM owner_platform.tenant_deletion_request WHERE id=$1', [rid]);
+  if (!r.rows.length) return { error: err(404, 'request_not_found') };
+  return { row: r.rows[0] };
+}
 
 function mapError(e) {
   const code = e && e.code;

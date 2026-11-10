@@ -9,7 +9,7 @@
    • ui():      jsdom ← پروکسی ← API واقعی PR-2 ← PGlite + migrations:
                 ورود fail-closed، هشت صفحه، حالت loading/empty/error،
                 نقش operator (بدون دکمهٔ تمدید/حذف + ردّ 403 در API)،
-                حذف چهارچشمی/۲۴ساعت (سرور 403)، تم روشن/تیره
+                حذف دومرحله‌ای: درخواست ⇒ تأیید مالک دوم ⇒ مهلت ۲۴ساعت ⇒ اجرا (003)، تم روشن/تیره
    ═══════════════════════════════════════════════════════════════════ */
 const assert = require('node:assert');
 const crypto = require('node:crypto');
@@ -298,6 +298,7 @@ async function seedDb() {
       WITH CHECK (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)`);
   await db.exec(read(MIG, '001_owner_panel.up.sql'));
   await db.exec(read(MIG, '002_owner_panel_api.up.sql'));
+  await db.exec(read(MIG, '003_tenant_deletion.up.sql'));
   const ids = { owner: crypto.randomUUID(), owner2: crypto.randomUUID(), operator: crypto.randomUUID(), support: crypto.randomUUID(),
     A: crypto.randomUUID(), B: crypto.randomUUID() };
   for (const [id, login, role] of [[ids.owner, 'owner-1', 'platform_owner'], [ids.owner2, 'owner-2', 'platform_owner'],
@@ -368,7 +369,8 @@ async function ui() {
     const body = { '/dashboard': { ok: true, dashboard: { subscriptions: 0, plans: 0, active_users: 0, open_grants: 0 } },
       '/tenants': { ok: true, tenants: [], count: 0 }, '/plans': { ok: true, plans: [], count: 0 },
       '/subscriptions': { ok: true, subscriptions: [], count: 0 }, '/platform-users': { ok: true, users: [], count: 0 },
-      '/support-grants': { ok: true, grants: [], count: 0 }, '/audit': { ok: true, events: [], count: 0 } }[p] || { ok: false, error: 'not_found' };
+      '/support-grants': { ok: true, grants: [], count: 0 }, '/audit': { ok: true, events: [], count: 0 },
+      '/tenant-deletions': { ok: true, requests: [], count: 0 } }[p] || { ok: false, error: 'not_found' };
     res.end(JSON.stringify(body));
   });
   const emptyPort = await listen(emptyUp);
@@ -421,22 +423,68 @@ async function ui() {
       check('owner sees delete-request and suspend', $$(doc, '[data-action="delete-request"]').length === 2 && $$(doc, '[data-action="suspend"]').length === 2);
       check('dates rendered in Jalali', /۱۴[۰-۹]{2}/.test($(doc, '#page table').textContent));
 
-      /* حذف: چهارچشمی + ۲۴ ساعت، دلیل و تایپ دوباره؛ سرور 403 */
-      $(doc, `[data-action="delete-request"][data-tenant="${ids.A}"]`).click();
+      /* حذف دومرحله‌ای روی مدرسهٔ سوم C: درخواست owner ⇒ تأیید owner2 ⇒ مهلت ۲۴ساعت ⇒ اجرا */
+      ids.C = crypto.randomUUID();
+      await db.query(`INSERT INTO owner_platform.subscriptions (tenant_id,plan_code,status,starts_at,ends_at)
+        VALUES ($1,'basic','active',now()-interval '1 day',now()+interval '30 days')`, [ids.C]);
+      await app.show('dashboard'); await settle(app, win);
+      await app.show('schools'); await settle(app, win);
+      check('owner sees deletion-requests card (empty)', states(doc).includes('empty') && /چهارچشمی/.test($(doc, '#page').textContent));
+      $(doc, `[data-action="delete-request"][data-tenant="${ids.C}"]`).click();
       const dlgText = $(doc, '#dialog').textContent;
-      check('delete dialog states four-eyes and 24h delay', /چهارچشمی/.test(dlgText) && /۲۴ ساعت/.test(dlgText));
+      check('delete dialog states four-eyes, 24h delay and 180-day retention', /چهارچشمی/.test(dlgText) && /۲۴ ساعت/.test(dlgText) && /۱۸۰ روز/.test(dlgText));
       const before = calls.length;
       await submitDialog(doc, win, app, (f) => { f.querySelector('#dlg-reason').value = 'کوتاه'; });
       check('delete: short reason blocked client-side', calls.length === before && /۱۰ نویسه/.test($(doc, '#dlg-error').textContent));
       await submitDialog(doc, win, app, (f) => { f.querySelector('#dlg-reason').value = 'پایان قرارداد مدرسه به درخواست مدیر'; f.querySelector('#dlg-retype').value = 'wrong'; });
       check('delete: retype mismatch blocked', calls.length === before && !!$(doc, '#dialog'));
-      await submitDialog(doc, win, app, (f) => { f.querySelector('#dlg-reason').value = 'پایان قرارداد مدرسه به درخواست مدیر'; f.querySelector('#dlg-retype').value = ids.A; });
-      const delCall = calls.slice(before).find(c => c.init.method === 'DELETE');
-      const fl = $(doc, '.flash[data-kind="error"]');
-      check('delete reaches server and is refused (tenant_deletion_disabled) — UI shows it, claims nothing',
-        !!delCall && delCall.url === `${P}/tenants/${ids.A}` && fl && /غیرفعال/.test(fl.textContent) && !$(doc, '.flash[data-kind="ok"]'));
-      const stillThere = await db.query('SELECT count(*)::int AS n FROM owner_platform.subscriptions WHERE tenant_id=$1', [ids.A]);
-      check('nothing deleted in DB', stillThere.rows[0].n === 1);
+      await submitDialog(doc, win, app, (f) => { f.querySelector('#dlg-reason').value = 'پایان قرارداد مدرسه به درخواست مدیر'; f.querySelector('#dlg-retype').value = ids.C; });
+      const reqCall = calls.slice(before).find(c => c.init.method === 'POST');
+      check('delete request posted to deletion-request with retyped id (not DELETE)',
+        !!reqCall && reqCall.url === `${P}/tenants/${ids.C}/deletion-request` && JSON.parse(reqCall.init.body).confirm_tenant_id === ids.C
+        && !calls.slice(before).some(c => c.init.method === 'DELETE'));
+      check('request accepted; UI says waiting for second owner', /منتظر تأیید مالک دیگر/.test(($(doc, '.flash[data-kind="ok"]') || {}).textContent || ''));
+      const dr = await db.query('SELECT id, status, requested_by FROM owner_platform.tenant_deletion_request WHERE tenant_id=$1', [ids.C]);
+      check('DB: one pending request by owner', dr.rows.length === 1 && dr.rows[0].status === 'pending' && dr.rows[0].requested_by === ids.owner);
+      const RQ = dr.rows[0].id;
+      check('C row no longer offers a second request', !$(doc, `[data-action="delete-request"][data-tenant="${ids.C}"]`) && !!$(doc, '[data-deletion="pending"]'));
+      check('requester sees no approve button for own request', !$(doc, `[data-action="deletion-approve"][data-request="${RQ}"]`) && !!$(doc, '[data-wait="second-owner"]'));
+      const selfApprove = await raw(port, 'POST', `${P}/tenant-deletions/${RQ}/approve`, { 'content-type': 'application/json', authorization: 'Bearer ' + T.owner }, '{}');
+      check('N8 self-approval via proxy ⇒ 403 four_eyes_required', selfApprove.status === 403 && selfApprove.json.error === 'four_eyes_required');
+      const subC0 = await db.query('SELECT status FROM owner_platform.subscriptions WHERE tenant_id=$1', [ids.C]);
+      check('subscription untouched while pending', subC0.rows[0].status === 'active');
+
+      {
+        const o2 = makeDom(port);
+        const app2 = o2.win.OwnerPanel.createApp({ document: o2.doc, window: o2.win, fetch: o2.fetchImpl, session: T.owner2 });
+        await app2.start(); await app2.show('schools'); await settle(app2, o2.win);
+        const ab = $(o2.doc, `[data-action="deletion-approve"][data-request="${RQ}"]`);
+        check('second owner sees approve button', !!ab);
+        ab.click();
+        await submitDialog(o2.doc, o2.win, app2, (f) => { f.querySelector('#dlg-reason').value = 'تأیید پس از تماس با مدیر مدرسه'; f.querySelector('#dlg-retype').value = ids.C; });
+        check('second-owner approval succeeds end-to-end', !!$(o2.doc, '.flash[data-kind="ok"]'));
+        check('UI shows 24h delay running, no execute button', !!$(o2.doc, '[data-wait="delay"]') && !$(o2.doc, '[data-action="deletion-execute"]'));
+      }
+      const ap = await db.query(`SELECT status, approved_by, extract(epoch from (not_before - approved_at))::int AS delay FROM owner_platform.tenant_deletion_request WHERE id=$1`, [RQ]);
+      check('DB: approved by owner2 with not_before = approved_at + 24h', ap.rows[0].status === 'approved' && ap.rows[0].approved_by === ids.owner2 && ap.rows[0].delay === 86400);
+      const early = await raw(port, 'POST', `${P}/tenant-deletions/${RQ}/execute`, { 'content-type': 'application/json', authorization: 'Bearer ' + T.owner }, '{}');
+      check('N9 execute before 24h via proxy ⇒ 409 deletion_delay_pending', early.status === 409 && early.json.error === 'deletion_delay_pending');
+
+      /* گذر زمان (superuser، بیرون از نقش runtime): هر دو ستون با هم عقب می‌روند */
+      await db.query(`UPDATE owner_platform.tenant_deletion_request SET approved_at = approved_at - interval '25 hours',
+        not_before = not_before - interval '25 hours' WHERE id=$1`, [RQ]);
+      await app.show('dashboard'); await settle(app, win);
+      await app.show('schools'); await settle(app, win);
+      const eb = $(doc, `[data-action="deletion-execute"][data-request="${RQ}"]`);
+      check('after delay the execute button appears', !!eb);
+      eb.click();
+      await submitDialog(doc, win, app, (f) => { f.querySelector('#dlg-reason').value = 'اجرای حذف پس از پایان مهلت قانونی'; f.querySelector('#dlg-retype').value = ids.C; });
+      check('execute succeeds end-to-end', /داده نگه داشته شد/.test(($(doc, '.flash[data-kind="ok"]') || {}).textContent || ''));
+      const ex = await db.query(`SELECT r.status, extract(epoch from (r.retain_until - r.executed_at))::bigint AS keep, s.status AS sub
+        FROM owner_platform.tenant_deletion_request r JOIN owner_platform.subscriptions s ON s.tenant_id = r.tenant_id WHERE r.id=$1`, [RQ]);
+      check('DB: executed, subscription canceled, retention ≥ 180 days', ex.rows[0].status === 'executed' && ex.rows[0].sub === 'canceled' && Number(ex.rows[0].keep) >= 180 * 86400);
+      const otherSubs = await db.query(`SELECT count(*)::int AS n FROM owner_platform.subscriptions WHERE tenant_id = ANY($1::uuid[]) AND status='active'`, [[ids.A, ids.B]]);
+      check('other tenants untouched', otherSubs.rows[0].n === 2);
 
       /* تمدید واقعی + ممیزی */
       await app.show('plans'); await settle(app, win);
@@ -493,7 +541,8 @@ async function ui() {
       win.OwnerPanel.CAPS.platform_operator.deleteRequest = true;
       const app = win.OwnerPanel.createApp({ document: doc, window: win, fetch: fetchImpl, session: T.operator });
       await app.start(); await app.show('plans'); await settle(app, win);
-      check('N7 tampered UI exposes renew button (control is real)', $$(doc, '[data-action="renew"]').length === 2);
+      const subCount = (await db.query('SELECT count(*)::int AS n FROM owner_platform.subscriptions')).rows[0].n;
+      check('N7 tampered UI exposes renew button (control is real)', $$(doc, '[data-action="renew"]').length === subCount && subCount >= 2);
       $(doc, '[data-action="renew"]').click();
       await submitDialog(doc, win, app, (f) => { f.querySelector('#dlg-reason').value = 'تلاش اپراتور برای تمدید بدون اختیار'; });
       check('N7 server still refuses operator renew (role_forbidden)', /اجازهٔ این کار را ندارد/.test($(doc, '.flash[data-kind="error"]').textContent));
@@ -502,7 +551,13 @@ async function ui() {
       const del = await raw(port, 'DELETE', `${P}/tenants/${ids.A}`, { authorization: 'Bearer ' + T.operator });
       check('operator delete via proxy ⇒ 403', del.status === 403);
       const delOwner = await raw(port, 'DELETE', `${P}/tenants/${ids.A}`, { authorization: 'Bearer ' + T.owner });
-      check('even owner delete ⇒ 403 tenant_deletion_disabled', delOwner.status === 403 && delOwner.json.error === 'tenant_deletion_disabled');
+      check('even owner immediate DELETE ⇒ 403 tenant_deletion_disabled', delOwner.status === 403 && delOwner.json.error === 'tenant_deletion_disabled');
+      const opReq = await raw(port, 'POST', `${P}/tenants/${ids.A}/deletion-request`, { 'content-type': 'application/json', authorization: 'Bearer ' + T.operator },
+        JSON.stringify({ reason: 'تلاش اپراتور برای حذف بدون اختیار', confirm_tenant_id: ids.A }));
+      check('operator deletion-request via proxy ⇒ 403 role_forbidden', opReq.status === 403 && opReq.json.error === 'role_forbidden');
+      await app.show('schools'); await settle(app, win);
+      check('N7 tampered UI exposes delete button but deletion list is server-refused', $$(doc, '[data-action="delete-request"]').length >= 1
+        && $$(doc, '#page .state[data-state="error"]').length === 1);
     }
 
     /* ── owner2 تأیید درخواست اپراتور (چهارچشمی) ──────────────────── */
