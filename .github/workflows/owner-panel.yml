@@ -6,7 +6,9 @@ name: owner-panel-packaging
 #  خروجی‌های ثابت: payesh-owner-setup.exe · payesh-owner.apk · payesh-owner-web.zip · SHA256SUMS
 #  قواعد:
 #   · نبودن هر خروجی یا شکست هر ساخت ⇒ گیت قرمز (owner-gate)
-#   · بدون Secret مالک: exe و APK «امضانشده/فقط آزمایشی» هستند و هرگز منتشر نمی‌شوند
+#   · APK فقط با امضای تأییدشدهٔ مالک منتشر می‌شود؛ بدون Secret ⇒ «فقط آزمایشی»، منتشر نمی‌شود
+#   · exe بدون Secret امضای کد، امضانشده با SHA256 و توضیح SmartScreen منتشر می‌شود
+#     (افزودهٔ مالک بر D‑44، ۱۴۰۵/۰۸/۱۹؛ README ردیف ۱۰۰)
 #   · Secret موجود ولی نامعتبر ⇒ قرمز (fail-closed)
 #   · انتشار فقط روی main، فقط در prerelease «owner-continuous»؛ ادعای انتشار رسمی نیست
 #   · ردیف ۶۳ و استقلال بومی اپ مدرسه دست نمی‌خورد؛ این فایل هیچ مسیر اپ مدرسه را نمی‌سازد
@@ -432,17 +434,23 @@ jobs:
             dist/owner-artifacts-status.json
           if-no-files-found: error
 
-      - name: انتشار آزمایشی (فقط main؛ exe/apk فقط اگر امضای تأییدشده دارند)
+      - name: انتشار آزمایشی (فقط main؛ APK فقط با امضای تأییدشده؛ exe امضانشده با برچسب SmartScreen)
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           TAG=owner-continuous
+          NOTES="نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]. ADR‑62 / D‑44 (+ افزودهٔ ۱۴۰۵/۰۸/۱۹). انتشار رسمی نیست.
+          payesh-owner-setup.exe: اگر امضای کد (Authenticode) مالک نباشد، امضانشده منتشر می‌شود؛ Windows SmartScreen هشدار «Windows protected your PC» می‌دهد. پیش از اجرا SHA256 فایل را با SHA256SUMS مقایسه کنید (PowerShell: Get-FileHash payesh-owner-setup.exe) و سپس More info ← Run anyway.
+          payesh-owner.apk: فقط وقتی اینجاست که با کلید مالک امضا و با apksigner (v2+v3) تأیید شده باشد.
+          payesh-owner-web.zip: بستهٔ وب پنل مالک. SHA256SUMS فقط فایل‌های همین انتشار را پوشش می‌دهد.
+          commit: $GITHUB_SHA"
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
-              --title "پنل مالک — ساخت آزمایشی (انتشار رسمی نیست)" \
-              --notes "فقط برای مالک پلتفرم. ADR‑62. exe/APK فقط وقتی اینجا هستند که با Secret مالک امضا و تأیید شده باشند. نصب روی دستگاه واقعی هنوز تأیید نشده است [?]."
+              --title "پنل مالک — ساخت آزمایشی (انتشار رسمی نیست)" --notes "$NOTES"
+          else
+            gh release edit "$TAG" --prerelease --notes "$NOTES"
           fi
           mkdir -p pub
           cp dist/SHA256SUMS.release pub/SHA256SUMS
@@ -450,8 +458,10 @@ jobs:
           for name in payesh-owner-web.zip payesh-owner.apk payesh-owner-setup.exe; do
             if grep -q "  $name\$" dist/SHA256SUMS.release; then
               FILES="$FILES dist/$name"
+              SIGNING=$(node -e "const s=require('./dist/owner-artifacts-status.json');const a=s.artifacts.find(x=>x.name===process.argv[1]);console.log(a?a.signing:'?')" "$name")
+              echo "منتشر می‌شود: $name ($SIGNING)"
             else
-              echo "منتشر نمی‌شود (امضای تأییدشده ندارد): $name"
+              echo "منتشر نمی‌شود (APK بدون امضای تأییدشده): $name"
               gh release delete-asset "$TAG" "$name" -y >/dev/null 2>&1 || true
             fi
           done

@@ -16,7 +16,9 @@
      G6  نام خروجی‌ها با نام‌های ثابت یکی نباشد یا فایل ناشناخته‌ای کنار آن‌ها باشد
    خروجی:
      SHA256SUMS            همهٔ خروجی‌های ساخته‌شده (قالب sha256sum)
-     SHA256SUMS.release    فقط خروجی‌های مجاز انتشار (وب؛ و exe/apk فقط اگر امضاشده)
+     SHA256SUMS.release    فقط خروجی‌های مجاز انتشار: وب؛ exe (امضاشده، یا امضانشده با برچسب
+                           «unsigned-smartscreen-warning» — افزودهٔ مالک بر D‑44، ۱۴۰۵/۰۸/۱۹)؛
+                           apk فقط اگر امضای تأییدشده دارد
      owner-artifacts-status.json
    اجرا:
      node check-owner-artifacts.js meta  --file <f> --signed false|true [--signature '<json>']
@@ -107,9 +109,12 @@ function verify(dir, { commit = '' } = {}) {
     }
     const signed = meta.signed === true && !sp;
     artifacts.push({
-      name: a.name, size: buf.length, sha256: digest,
-      signed, signing: a.kind === 'web' ? 'n/a' : signed ? 'signed-verified' : 'unsigned-test-only',
-      release_eligible: a.kind === 'web' ? true : signed,
+      name: a.name, kind: a.kind, size: buf.length, sha256: digest,
+      signed,
+      signing: a.kind === 'web' ? 'n/a' : signed ? 'signed-verified'
+        : a.kind === 'exe' ? 'unsigned-smartscreen-warning' : 'unsigned-test-only',
+      /* وب همیشه؛ exe حتی امضانشده (با برچسب و SHA256)؛ APK فقط با امضای تأییدشده */
+      release_eligible: a.kind === 'apk' ? signed : true,
       signature: signed ? meta.signature : undefined,
     });
   }
@@ -127,7 +132,8 @@ function writeOutputs(outDir, result, commit) {
   fs.writeFileSync(path.join(outDir, 'owner-artifacts-status.json'), JSON.stringify({
     gate: 'GREEN', commit, adr: 'ADR-62',
     official_release: false,
-    note: 'unsigned exe/apk are test-only and are never published; device install not verified [?]',
+    note: 'apk is published only with a verified signature; exe may be published unsigned (labelled, SmartScreen warning, verify SHA256); device install not verified [?]',
+    published_unsigned: result.artifacts.filter(a => a.release_eligible && a.kind !== 'web' && !a.signed).map(a => a.name),
     artifacts: result.artifacts,
   }, null, 2) + '\n');
 }
@@ -167,8 +173,11 @@ function selfTest() {
   }
   const good = verify(fixture(path.join(base, 'good')), { commit: COMMIT });
   if (!good.ok) throw new Error('self-test: positive fixture must be green: ' + good.errors.join('; '));
-  if (good.artifacts.some(a => a.name !== 'payesh-owner-web.zip' && a.release_eligible)) {
-    throw new Error('self-test: unsigned exe/apk must never be release-eligible');
+  const gApk = good.artifacts.find(a => a.name === 'payesh-owner.apk');
+  const gExe = good.artifacts.find(a => a.name === 'payesh-owner-setup.exe');
+  if (gApk.release_eligible) throw new Error('self-test: unsigned apk must never be release-eligible');
+  if (!gExe.release_eligible || gExe.signed || gExe.signing !== 'unsigned-smartscreen-warning') {
+    throw new Error('self-test: unsigned exe must be release-eligible only with the unsigned-smartscreen-warning label');
   }
   const p = (d, n) => path.join(d, n);
   const CASES = [
