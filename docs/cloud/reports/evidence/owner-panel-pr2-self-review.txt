@@ -1,0 +1,64 @@
+# خودبازبینی PR-2 — API مستقل پنل مالک پشت Gateway (ردیف ۹۷)
+
+base_sha=1947d3ede9cbc6655426771f6e3bb8eecc3e49eb
+branch=arena/1f959b4a-payesh-local
+scope=/api/platform/v1 + migration 002 + آزمونهای منفی
+policy=D-39 (خودبازبینی پیش از ادغام) · Rule 15 (هیچ ادعایی بدون شاهد اجرایی)
+security_status=UNKNOWN (تا پنتست انسانی مالک)
+
+## محدودهٔ واقعی تغییر
+- `apps/owner-panel/server/platform-api.js` — router مستقل، توکن `platform.v1`، request-id، rate-limit دیتابیسی، allowlist خروجی، زنجیرهٔ هش حسابرسی.
+- `apps/owner-panel/server/openapi.json` — قرارداد ۳.۰.۳ با ۱۸ مسیر / ۲۲ عملیات.
+- `apps/owner-panel/tests/platform-api.test.js` — ۳ گروه آزمون، ۳۲ کنترل منفی شمارششده.
+- `db/migrations/owner-panel/002_owner_panel_api.{up,down}.sql` — جدول rate-limit، جدول درخواست grant، ۹ تابع SECURITY DEFINER، policy مالک برای plans، grant SELECT باریک روی product_records فقط برای صاحب تابع.
+- `server/gateway.js` — mount namespace پیش از احراز مدرسه؛ pool و راز جدا از env؛ بدون URL/توکن hard-code.
+- `tests/run.js` — ۳ آزمون جدید (مجموع ۱۰۳).
+- `releases/manifest.json`, `releases/history/0.9.2.json` — هش/اندازهٔ `server/gateway.js` و جمعهای همتراز.
+
+خارج از محدوده و دستنخورده: `client/pages.js`، `server/index.js`، `server/auth.js`، `server/tenancy.js`،
+`.github/workflows/build.yml`، `package.json`، `package-lock.json`، نصبکنندهها، Secrets.
+
+## پنج Pass مستقل (خروجی خام: /tmp/owner-panel-pr2-five-passes.log)
+1. `npm test` → ۱۰۳ موفق / ۰ ناموفق
+2. `npm run test:restart` → ۸ موفق / ۰ ناموفق
+3. `npm run test:boundary` → ۶ موفق / ۰ ناموفق
+4. `node docs/cloud/reports/evidence/probe-12b-boundary.cjs` → `SUMMARY pass=22 fail=0`
+5. `node tools/check-android-signing-safety.cjs --self-test` → `injected=5 fail=0`
+دروازهٔ شاهد: `run-tests-evidence.sh` و `gen-audit-evidence.sh` روی head نهایی → `EVIDENCE-OK`.
+
+## آزمونهای منفی (۳۲ کنترل شمارششده در یکپارچگی PGlite)
+- namespace بیرون/مسیر ناشناخته، بدون توکن، توکن مدرسه روی پلتفرم، توکن پلتفرم روی مدرسه،
+  امضای دستکاریشده، انقضا، نقش نامعتبر، تغییر claim نقش بدون امضا، راز ضعیف.
+- request-id نامعتبر ⇒ جایگزینی؛ سقف نرخ ⇒ ۴۲۹؛ پاسخ واقعی فاقد national_id/password_*/token/secret.
+- محتوا: فهرست انبوه ۴۰۳، بدون grant ۴۰۳، grant مستأجر دیگر/منقضی/ابطالشده ۴۰۳،
+  مسیرگریزی ۴۰۳/۴۰۴، عبور از سقف اقدام ۴۰۳؛ هر خواندن مجاز دقیقاً یک `support_access_log`
+  و RLS فقط رکورد همان مستأجر را برمیگرداند.
+- grant: `content_write` ۴۰۰، دلیل <۱۰ نویسه ۴۰۰، پنجره >۷۲ساعت ۴۰۰، اطلاع مدرسه پس از شروع ۴۰۰،
+  درخواست توسط مالک ۴۰۳، تأیید توسط اپراتور ۴۰۳، چهارچشم در دیتابیس.
+- نقش: تمدید توسط اپراتور ۴۰۳، حذف مدرسه ۴۰۳، ساخت طرح/کاربر توسط اپراتور ۴۰۳،
+  تعلیق بدون دلیل ۴۰۰؛ تمدید توسط مالک و idempotency موفق.
+- حسابرسی: `previous_hash` و `event_hash` از روی ردیف ذخیرهشده بازتولید و برابر شدند؛
+  بدون پیکربندی ⇒ ۵۰۳، `/health/summary` صادقانه `configured=false` میدهد.
+- عدم تسریع grantها: runtime همچنان فاقد SELECT روی `product_records`، INSERT/UPDATE روی
+  subscriptions و SELECT روی invoice است؛ SELECT محتوا فقط برای صاحب تابع SECURITY DEFINER.
+- migration: `002 down` فقط اشیای خودش را حذف میکند، `001` دستنخورده میماند، `001 down` پس از آن schema را برمیدارد.
+
+## جدول «ادعا ← شاهد ← وضعیت»
+| ادعا | شاهد | وضعیت |
+| --- | --- | --- |
+| [M] namespace و احراز کاملاً جدا از مدرسه | `platform-api.js` + آزمون `auth()` دوطرفه + gateway mount پیش از verifyToken مدرسه | [E] آزمون شد |
+| [M] grant و access-log در لایهٔ داده اجباریاند | `002 ... read_school_record` + triggerهای ۰۰۱ + ۱۲ کنترل منفی محتوا | [E] آزمون شد (PGlite) |
+| [M] اپراتور مجاز به تمدید/حذف نیست | `require_actor` در SQL + `needRole` در API + آزمون منفی | [E] آزمون شد |
+| [M] allowlist خروجی و request-id/rate-limit/OpenAPI | `project()`، `api_rate_limit`، `openapi.json` + آزمون drift | [E] آزمون شد |
+| [M] migration برگشتپذیر | down 002 → up 002 → down 002 → down 001 | [E] آزمون شد |
+| [S] CI سبز روی head نهایی | شمارهٔ run در توضیح PR ثبت میشود | [?] پیش از ادغام تأیید میشود |
+| [A] PostgreSQL 16 مستقر / PgBouncer / TLS / Load balancer | هیچ اجرای واقعی انجام نشد | NOT-RUN |
+| [A] نصب و تست روی دستگاه واقعی، APK امضاشده | هیچ Secret/keystore/دستگاهی در اختیار نبود | NOT-RUN |
+| [A] پنتست انسانی مالک | خارج از اختیار Arena | NOT-RUN |
+| [?] وضعیت امنیتی سامانه | تا پنتست انسانی | UNKNOWN |
+
+## صراحت
+PGlite معادل PostgreSQL 16 مستقر، pooling، شبکه یا امضای APK نیست. هیچ کلید، رمز، keystore،
+گواهی، توکن واقعی، پرداخت/مالی UI یا مسیر مستقیم کلاینت→PostgreSQL ساخته نشد. توکنهای
+آزمایشی در حافظه و تصادفیاند. D-44 و O-27 همچنان پیشنهادیاند و مانع این PR نشدند؛ ورود/TOTP
+و store نشست انسانی در PR-2 پیادهسازی نشدهاند (فقط تأیید توکن).

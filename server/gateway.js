@@ -19,6 +19,10 @@
 const http = require('node:http');
 const tenancy = require('./tenancy');
 const metrics = require('./metrics');
+/* ردیف ۹۷ (PR-2): API پلتفرم پشت همین Gateway سرو می‌شود، ولی احراز،
+   توکن، نقش و pool آن کاملاً جدا از احراز مدرسه است. هیچ URL/توکن/رازی
+   در کد hard-code نشده؛ نبود تنظیم ⇒ 503 not_configured (fail-closed). */
+const platformApiModule = require('../apps/owner-panel/server/platform-api');
 
 const PORT = Number(process.env.PORT || 5660);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -39,6 +43,11 @@ const REPLICA_URL = String(process.env.PAYESH_PG_REPLICA_URL || '').trim();
 /* ردیف ۵۴: توقف نوشتن هنگام انتقال مدرسه بین دیتابیس‌ها. تا وقتی ابزار
    انتقال فعال نشده، هیچ کوئری اضافه‌ای زده نمی‌شود. */
 const TRANSFER_ON = String(process.env.PAYESH_CELL_TRANSFER_ENABLED || '') === '1';
+/* اتصال و راز اختصاصی پنل مالک؛ اشتراک pool مدرسه با پلتفرم ممنوع است. */
+const PLATFORM_PGURL = String(process.env.PAYESH_PLATFORM_PGURL || '').trim();
+const PLATFORM_SECRET = String(process.env.PAYESH_PLATFORM_TOKEN_SECRET || '').trim();
+const PLATFORM_RATE_MAX = Number(process.env.PAYESH_PLATFORM_RATE_MAX || 120);
+const PLATFORM_RATE_WINDOW = Number(process.env.PAYESH_PLATFORM_RATE_WINDOW_SEC || 60);
 const startedAt = Date.now();
 let pool = null;
 let enabled = false;
@@ -74,6 +83,26 @@ if (REPLICA_URL) {
   });
   replicaPool.on('error', () => { /* اتصال مردهٔ replica سرویس را نمی‌کشد */ });
 }
+
+/* pool جداگانهٔ پلتفرم. انتظار میرود لاگین آن payesh_platform_runtime باشد
+   (یا عضو آن)؛ هیچ grant مستقیمی از سوی نقش مدرسه به جداول پلتفرم داده
+   نمیشود. بدون PAYESH_PLATFORM_PGURL، مسیرهای پلتفرم پیکربندینشدهاند. */
+let platformPool = null;
+if (PLATFORM_PGURL) {
+  const { Pool } = require('pg');
+  platformPool = new Pool({
+    connectionString: PLATFORM_PGURL, max: 4,
+    application_name: 'payesh-owner-platform', statement_timeout: 5000,
+  });
+  platformPool.on('error', () => { /* خرابی pool پلتفرم، Gateway مدرسه را نمیکشد */ });
+}
+const platformApi = platformApiModule.createPlatformApi({
+  db: platformApiModule.createPgAdapter(platformPool),
+  secret: PLATFORM_SECRET,
+  rateLimitMax: PLATFORM_RATE_MAX,
+  rateLimitWindowSec: PLATFORM_RATE_WINDOW,
+  instance: INSTANCE,
+});
 
 /* تصمیم مقصد خواندن (ردیف ۵۲). replica فقط اگر واقعاً تازه باشد استفاده
    می‌شود؛ و اگر دستگاه نوشته‌ای دارد که replica ندیده ⇒ primary. */
@@ -231,6 +260,13 @@ async function handle(req, res, url) {
     }
   }
 
+  /* ── ردیف ۹۷: namespace مستقل پلتفرم، پیش از احراز مدرسه ─────────────
+     مسیرهای /api/platform/v1 هرگز وارد زنجیرهٔ verifyToken مدرسه نمیشوند و
+     توکن مدرسه هم توسط verifyPlatformToken ساختاراً رد میشود. */
+  if (p === '/api/platform/v1' || p.startsWith('/api/platform/v1/')) {
+    return platformApi.handle(req, res, url);
+  }
+
   if (!enabled) return json(res, 503, { ok: false, error: 'not_configured' });
 
   /* ── احراز: توکن امضاشده؛ tenant فقط از نشست ───────────────────────── */
@@ -325,4 +361,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, handle, INSTANCE, PORT, mreg };
+module.exports = { server, handle, INSTANCE, PORT, mreg, platformApi };
