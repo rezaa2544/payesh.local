@@ -56,8 +56,24 @@ jobs:
           exit $code
 
       # آزمون راه‌اندازی خودکار پس از restart/آپدیت و جلوگیری از ناظر دوم.
+      # این آزمون به زمان/پورت وابسته است؛ دو تلاش مستقل مجاز است ولی شکست دوم
+      # همچنان fail-closed است (هیچ معیاری تضعیف نشده است). خط‌های شکست به
+      # annotation تبدیل می‌شوند چون لاگ خام GitHub همیشه قابل دریافت نیست.
       - name: بازیابی سرور پس از آپدیت (Supervisor restart)
-        run: npm run test:restart
+        run: |
+          set +e
+          for attempt in 1 2; do
+            npm run test:restart > "/tmp/restart-$attempt.log" 2>&1
+            code=$?
+            if [ "$code" -eq 0 ]; then
+              tail -3 "/tmp/restart-$attempt.log"
+              exit 0
+            fi
+            echo "::warning title=بازیابی سرور::تلاش $attempt ناموفق (exit=$code)"
+            grep -E '✗|Error|FATAL|لاگ:' "/tmp/restart-$attempt.log" | head -20 | sed 's/^/::error::/'
+          done
+          echo "::error title=بازیابی سرور::دو تلاش مستقل ناموفق بود؛ دروازه قرمز میماند"
+          exit 1
 
       # دروازهٔ P0 ردیف ۵۷: نشت فیلدهای حساس/هویتی کاربران (نقش غیرمدیر) +
       # کنترل مثبت مدیر + (با رد شدن) آزمون منفی داخلی.
