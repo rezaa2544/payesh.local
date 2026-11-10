@@ -1,0 +1,37 @@
+{
+  "row": 67,
+  "date_utc": "2026-11-10T22:55:51.148Z",
+  "node": "v22.23.4",
+  "baseline": {
+    "label": "baseline",
+    "total": 1200,
+    "concurrency": 24,
+    "errors": 0,
+    "statuses": {
+      "200": 1200
+    },
+    "p50_ms": 34.7,
+    "p95_ms": 53.7,
+    "p99_ms": 65.3,
+    "rps": 640,
+    "unique_request_ids": 1200
+  },
+  "hardened": {
+    "label": "hardened",
+    "total": 1200,
+    "concurrency": 24,
+    "errors": 0,
+    "statuses": {
+      "200": 1200
+    },
+    "p50_ms": 45.6,
+    "p95_ms": 77.3,
+    "p99_ms": 86.8,
+    "rps": 469,
+    "unique_request_ids": 1200
+  },
+  "verdict": {
+    "error_increase": 0,
+    "p95_ratio": 1.44
+  }
+}
