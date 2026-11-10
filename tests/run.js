@@ -4963,6 +4963,13 @@ async function waitFor(fn, ms = 15000) {
   await test('PR‑3: UI سرتاسری روی API واقعی — ورود fail-closed، هشت صفحه، loading/empty/error، نقش operator، حذف دومرحله‌ای، تم',
     async () => { await ownerSpa.ui(); console.log('    OWNER-SPA checks=' + ownerSpa.checks() + ' failures=0'); });
 
+  /* ── ردیف ۹۹ / PR-4: بسته‌بندی پنل مالک (ADR‑62) ───────────────────── */
+  const ownerPackaging = require('../apps/owner-panel/tests/packaging.test.js');
+  await test('PR‑4: شناسه‌ها/پوسته/workflow پنل مالک جدا از اپ مدرسه، بدون آدرس/کلید سخت‌کد، با کنترل منفی جهش',
+    () => { const r = ownerPackaging.staticChecks(); console.log('    OWNER-PACKAGING rules=' + r.rules + ' mutations_caught=' + r.mutations + ' failures=0'); });
+  await test('PR‑4: بستهٔ وب قطعی و گیت خروجی‌ها (نبود/خالی/checksum/ادعای امضای بی‌شاهد ⇒ قرمز)',
+    () => { const r = ownerPackaging.scriptChecks(); console.log('    OWNER-ARTIFACTS gate_negative_controls=' + r.negative_controls + ' failures=0'); });
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));
