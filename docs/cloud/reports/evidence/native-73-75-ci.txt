@@ -1,0 +1,114 @@
+# Rows 73 + 75 — raw CI excerpts (PR #173, native-client.yml, run 42908794637)
+base_sha=ac1dd61a1a0bbe9d15db076c0caf79779892dec4
+date_utc=2026-11-10T21:59:15Z
+jobs: gateway-real 130153777392, dart 130153777182, web-parity 130153776771, android 130155145505, windows 130155145481, native-gate 130157792588
+excerpts: timestamps/ANSI stripped, ##[ lines dropped
+
+== gateway-real: payesh_sync ⇄ REAL server/gateway.js + PostgreSQL 16 via pinned TLS (row 75) ==
+✓ test/gateway_it_test.dart: push through pinned TLS → real Gateway applies once; same uid → duplicate
+✓ test/gateway_it_test.dart: version header, request id and device id reach the Gateway (seen at the TLS front)
+✓ test/gateway_it_test.dart: pull from the real change feed into the local SQLite engine; second pull empty
+✓ test/gateway_it_test.dart: tenant isolation: tenant B sees none of tenant A rows
+✓ test/gateway_it_test.dart: stale base_version → real conflict verdict, op leaves the queue, server keeps v1
+✓ test/gateway_it_test.dart: MITM front with a trusted-CA but UNPINNED key → refused, zero bytes reach the Gateway
+✓ test/gateway_it_test.dart: invalid token → 401 unauthorized from the real Gateway
+00:01 +26: All tests passed!
+(26 = 7 gateway_it_test + 15 pinning_test (mock TLS: primary/backup/MITM=0 requests/untrusted/http+proxy/config/mapping) + 4 data_path_test; the concurrent expanded reporter prints only the active suite's names; job fails on any skip '~N')
+GATEWAY-REAL-OK
+
+== dart: payesh_ui goldens + RTL/Jalali/a11y (row 73), real Vazirmatn ==
+✅ payesh_ui/test/a11y_contrast_test.dart: contrast math matches WCAG reference values
+✅ payesh_ui/test/a11y_contrast_test.dart: dark tokens meet WCAG 2.x AA body text and secondary text on every surface ≥ 4.5:1
+✅ payesh_ui/test/a11y_contrast_test.dart: dark tokens meet WCAG 2.x AA every status tone: text on its own background ≥ 4.5:1
+✅ payesh_ui/test/a11y_contrast_test.dart: dark tokens meet WCAG 2.x AA filled buttons and field borders
+✅ payesh_ui/test/a11y_contrast_test.dart: light tokens meet WCAG 2.x AA body text and secondary text on every surface ≥ 4.5:1
+✅ payesh_ui/test/a11y_contrast_test.dart: light tokens meet WCAG 2.x AA every status tone: text on its own background ≥ 4.5:1
+✅ payesh_ui/test/a11y_contrast_test.dart: light tokens meet WCAG 2.x AA filled buttons and field borders
+✅ payesh_ui/test/a11y_contrast_test.dart: platform sizing: Windows compact density, Android standard, 48dp targets kept
+✅ payesh_ui/test/a11y_contrast_test.dart: token lerp / copyWith keep the extension usable for theme animation
+✅ payesh_ui/test/font_license_test.dart: bundled Vazirmatn is unmodified (SHA256SUMS) and ships with its OFL-1.1 licence
+✅ payesh_ui/test/golden_test.dart: golden android_dark
+✅ payesh_ui/test/golden_test.dart: golden android_light
+✅ payesh_ui/test/golden_test.dart: golden android_light_text2x
+✅ payesh_ui/test/golden_test.dart: golden windows_dark
+✅ payesh_ui/test/golden_test.dart: golden windows_light
+✅ payesh_ui/test/jalali_conformance_test.dart: ISO → Jalali, jdate text, slash form and weekday match the web for every vector
+✅ payesh_ui/test/jalali_conformance_test.dart: Jalali input → ISO matches the web import rules (incl. rejections)
+✅ payesh_ui/test/jalali_conformance_test.dart: digits: Persian rendering and normalisation match fa()/norm()
+✅ payesh_ui/test/jalali_conformance_test.dart: schema + names identical to the web client
+✅ payesh_ui/test/jalali_conformance_test.dart: unreadable dates render as — like the web jdate
+✅ payesh_ui/test/jalali_test.dart: digits helpers
+✅ payesh_ui/test/jalali_test.dart: exhaustive: every day 1900-01-01 … 2150-12-31 round-trips and is contiguous
+✅ payesh_ui/test/jalali_test.dart: known dates incl. the Nowruz regression fixed in the web client
+✅ payesh_ui/test/jalali_test.dart: leap years and month lengths
+✅ payesh_ui/test/jalali_test.dart: ordering, equality, toString
+✅ payesh_ui/test/jalali_test.dart: validation and parsing
+✅ payesh_ui/test/widgets_test.dart: Android phone: bottom navigation; selecting a tab works
+✅ payesh_ui/test/widgets_test.dart: Jalali display over ISO data + Persian digits + screen-reader labels
+✅ payesh_ui/test/widgets_test.dart: Windows window: extended navigation rail on the RIGHT, compact density
+✅ payesh_ui/test/widgets_test.dart: accessibility guidelines (ThemeMode.dark): tap targets, labels, text contrast
+✅ payesh_ui/test/widgets_test.dart: accessibility guidelines (ThemeMode.light): tap targets, labels, text contrast
+✅ payesh_ui/test/widgets_test.dart: dark theme really switches surfaces and keeps tokens reachable
+✅ payesh_ui/test/widgets_test.dart: full RTL: fa locale, rtl Directionality, start edge is on the right
+✅ payesh_ui/test/widgets_test.dart: tablet width: rail with labels (not extended)
+✅ payesh_ui/test/widgets_test.dart: text scale ×1.3: no overflow on a phone or a Windows window
+✅ payesh_ui/test/widgets_test.dart: text scale ×2.0: no overflow on a phone or a Windows window
+✅ payesh_ui/test/widgets_test.dart: tokens fallback outside a Payesh theme
+✅ payesh_ui/test/widgets_test.dart: unknown date is announced, not silent
+d016e35978c71801d1bd6cbeeb3f94910325dd2bb9490ae2970472634ae3e143  test/goldens/android_dark.png
+3807c33d8cc36df8e15357d27b64d5cb02086928c614e76a5505b7d28cca460a  test/goldens/android_light.png
+5dc14756d2b468a69c59de38ea092f1430a91f0b06084856cdf39c4bf065abca  test/goldens/android_light_text2x.png
+7cf09a5450b52e697fc47074988632133a1a73382b6477902dc2127c7a2eca77  test/goldens/windows_dark.png
+53e059490efeac5df81e5dd66a2c044696c0dba6809302c9797c26c958f6f541  test/goldens/windows_light.png
+f635fdbea28f265de395ba83b4b1570dcf2f58d13c65469e61903b1c2d2ae723  fonts/Vazirmatn-Bold.ttf
+b986623e4ddef10755e04be39f8ea7bcb1dc08bfe8dd0aa6af395736f256ad4a  fonts/Vazirmatn-Medium.ttf
+b69fd4c680b8f3f225feabcc655a2c585d97627b8f5f5c0f9985e894069f3a56  fonts/Vazirmatn-Regular.ttf
+UI-73-OK
+
+== dart: coverage (min 80%) + dependency graph ==
+COVERAGE-OK app/coverage/lcov.info lines=64/71 90.1% (min 80.0%)
+COVERAGE-OK packages/payesh_core/coverage/lcov.info lines=31/31 100.0% (min 80.0%)
+COVERAGE-OK packages/payesh_data/coverage/lcov.info lines=203/207 98.1% (min 80.0%)
+COVERAGE-OK packages/payesh_secure/coverage/lcov.info lines=91/91 100.0% (min 80.0%)
+COVERAGE-OK packages/payesh_sync/coverage/lcov.info lines=562/569 98.8% (min 80.0%)
+COVERAGE-OK packages/payesh_ui/coverage/lcov.info lines=338/343 98.5% (min 80.0%)
+NATIVE-DEPS-OK
+
+== web parity: same vectors on the web client (rows 70/71/73) ==
+CONFORMANCE-ENGINE-WEB-OK
+CONFORMANCE-OUTBOX-WEB-OK
+JALALI-WEB-CONFORMANCE-OK roundtrip_days=91312 dates=3650 jalali_to_iso=1015 digits=6
+
+== android: release APK/AAB + native gate ==
+NATIVE-GATE-OK
+PASS android native-out/payesh-native.aab sha256=20cb9748cd6b926f004ba58058cf7a7941324d1262dbbacb6945ebeef33e7c14
+PASS android native-out/payesh-native.apk sha256=403226ecf42e99f26918e5bfffbff8a7fd9b80394be331b86059aaa393e4af7c
+SQLITE-CIPHER-ANDROID-OK
+lib/arm64-v8a/libsqlite3mc.so sha256=f128edae7e2756e0fc6eb4e9f4ae10ff895c5f2e83ae37a8f9ec5b7b54d0d3af SQLite3 Multiple Ciphers 2.6.1
+lib/armeabi-v7a/libsqlite3mc.so sha256=3915ef7f61942e78a569c8719feba675baee04ec31f41848daeed1e1c88f8569 SQLite3 Multiple Ciphers 2.6.1
+lib/x86_64/libsqlite3mc.so sha256=e76a1cedaafa839056190f75aff0f3f89030f7d2a1164a56d8771648b36c6d71 SQLite3 Multiple Ciphers 2.6.1
+
+== windows: release bundle + native gate ==
+DPAPI-WINDOWS-OK
+NATIVE-GATE-OK
+PASS windows apps/payesh/app/build/windows/x64/runner/Release
+PASS windows native-out/payesh-native-windows.zip sha256=7d671e2d83babb253173cd1999a322955784f44eb5f08545ee7475501ba9891c
+SQLITE-CIPHER-WINDOWS-OK
+sqlite3mc.dll sha256=6289acda05ea848c59d228f4f63a52d1880e6313f2fa63a7f07440de03feaa7f SQLite3 Multiple Ciphers 2.6.1
+
+== native-gate ==
+gate-controls=success engine-web=success sync-real-server=success gateway-real=success dart=success android=success windows=success
+NATIVE-CLIENT-CI-OK
+
+== artifact inspection (downloaded run artifacts native-android 13807720170 / native-windows 13807240482) ==
+APK sha256=403226ecf42e99f26918e5bfffbff8a7fd9b80394be331b86059aaa393e4af7c contains:
+  123036  assets/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Bold.ttf
+  122656  assets/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Medium.ttf
+  122752  assets/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Regular.ttf
+  assets/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Regular.ttf sha256=b69fd4c680b8f3f225feabcc655a2c585d97627b8f5f5c0f9985e894069f3a56 (= fonts/SHA256SUMS)
+  FontManifest.json: [{"family":"MaterialIcons","fonts":[{"asset":"fonts/MaterialIcons-Regular.otf"}]},{"family":"packages/payesh_ui/Vazirmatn","fonts":[{"asset":"packages/payesh_ui/fonts/Vazirmatn-Regular.ttf"},{"weight":500,"asset":"packages/payesh_ui/fonts/Vazirmatn-Medium.ttf"},{"weight":700,"asset":"packages/payesh_ui/fonts/Vazirmatn-Bold.ttf"}]}]
+Windows zip sha256=7d671e2d83babb253173cd1999a322955784f44eb5f08545ee7475501ba9891c contains:
+  123036  data/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Bold.ttf
+  122656  data/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Medium.ttf
+  122752  data/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Regular.ttf
+TTF name table (licence travels in the binary, OFL §2): id0='Copyright 2015 The Vazirmatn Project Authors', id13='This Font Software is licensed under the SIL Open Font License, Version 1.1. …', id14='https://scripts.sil.org/OFL'
