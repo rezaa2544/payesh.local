@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:payesh_core/payesh_core.dart';
 
 import 'outbox.dart';
+import 'pinning.dart';
 import 'transport.dart';
 
 /// Sync v1 over HTTPS with `dart:io` — no WebView, no browser stack.
@@ -62,6 +63,10 @@ final class HttpSyncTransport implements SyncTransport {
     return PushVerdicts.fromJson(j);
   }
 
+  /// Sends one JSON request with the standard Payesh headers (shared with GatewayTransport).
+  Future<Map<String, Object?>> send(String method, Uri uri, Object? body) =>
+      _send(method, uri, body);
+
   Future<Map<String, Object?>> _send(
     String method,
     Uri uri,
@@ -93,6 +98,11 @@ final class HttpSyncTransport implements SyncTransport {
       throw SyncFailure('network: ${e.message}');
     } on HttpException catch (e) {
       throw SyncFailure('network: ${e.message}');
+    } on PinningException catch (e) {
+      // TLS key of the server is not one of the pinned keys: nothing was sent.
+      throw SyncFailure('certificate_pin_mismatch: ${e.host}');
+    } on HandshakeException catch (e) {
+      throw SyncFailure('tls: ${e.message}');
     }
     Map<String, Object?> j = const {};
     try {

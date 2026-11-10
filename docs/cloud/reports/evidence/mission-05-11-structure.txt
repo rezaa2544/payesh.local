@@ -1,15 +1,15 @@
-base_sha=9fff7395703095030739f613a48f345455851da1
-date_utc=2026-11-10T21:01:19Z
+base_sha=ac1dd61a1a0bbe9d15db076c0caf79779892dec4
+date_utc=2026-11-10T22:01:41Z
 command=bash docs/cloud/reports/evidence/gen-audit-evidence.sh
 # شاهد ساختاری ممیزی ۰۵–۱۱
 # تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh
-# تاریخ اجرای آزمون (از لاگ خام): 2026-11-10T21:00:46Z
-# SHA اجرای آزمون (از لاگ خام): 9fff7395703095030739f613a48f345455851da1
-# اثر انگشت کد محصول (log / HEAD): 59e314fef6e262eee5265914ea9b62be13e999e19a1cf9c75cb61e3b61a3a5dd / 59e314fef6e262eee5265914ea9b62be13e999e19a1cf9c75cb61e3b61a3a5dd
+# تاریخ اجرای آزمون (از لاگ خام): 2026-11-10T22:01:03Z
+# SHA اجرای آزمون (از لاگ خام): ac1dd61a1a0bbe9d15db076c0caf79779892dec4
+# اثر انگشت کد محصول (log / HEAD): d85b599731fe7cd00cb3b16132da3ba8d90fef16988d28c71523cea9b138d4d6 / d85b599731fe7cd00cb3b16132da3ba8d90fef16988d28c71523cea9b138d4d6
 # هش بدنهٔ خام (بازمحاسبه‌شده): 8cbb02e92891a9caa31dc800c0be8e339612a81fbb57fbd06d34b6c60d1e8b7d
 # شمارش بدنه: 110 ✓ / 0 ✗ — SUMMARY: SUMMARY pass=110 fail=0
 # آزمون‌های ثبت‌شده: 110 · گزارش‌شده: 110
-# branch: arena/native-72
+# branch: arena/native-73-75
 
 ## آزمون واقعی مخزن (از لاگ خام، بدون دست‌کاری)
 SUMMARY: SUMMARY pass=110 fail=0

@@ -6,6 +6,7 @@ resolution: workspace
 environment:
   sdk: ^3.13.0
 dependencies:
+  crypto: ^3.0.6
   payesh_core: any
   payesh_data: any
   sqlite3: ^3.9.1

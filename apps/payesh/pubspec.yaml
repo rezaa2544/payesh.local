@@ -10,6 +10,7 @@ workspace:
   - packages/payesh_data
   - packages/payesh_sync
   - packages/payesh_secure
+  - packages/payesh_ui
 hooks:
   user_defines:
     sqlite3:

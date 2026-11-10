@@ -7,7 +7,9 @@
 ///   `DataEngine` from `payesh_data`.
 library;
 
+export 'src/gateway_transport.dart';
 export 'src/http_transport.dart';
 export 'src/outbox.dart';
+export 'src/pinning.dart';
 export 'src/sync_client.dart';
 export 'src/transport.dart';
