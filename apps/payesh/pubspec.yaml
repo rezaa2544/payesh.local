@@ -8,3 +8,4 @@ workspace:
   - app
   - packages/payesh_core
   - packages/payesh_data
+  - packages/payesh_sync

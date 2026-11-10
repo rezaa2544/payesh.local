@@ -1,0 +1,866 @@
+{
+ "id": "outbox-v1",
+ "version": 1,
+ "description": "Shared conformance vectors for the device outbox. Runs against client/outbox-web.js (tests/conformance-outbox-71.js) and apps/payesh/packages/payesh_sync (Dart, test/outbox_conformance_test.dart). jitter=0 makes backoff deterministic; 'now' is epoch milliseconds. drain.script lists the server answer per batch ({applied,rejected,conflicts} uid lists, or {throw:<message>}).",
+ "cases": [
+  {
+   "name": "enqueue is idempotent on k and the queue is FIFO by seq",
+   "config": {
+    "capacity": 3,
+    "leaseMs": 30000,
+    "maxAttempts": 3,
+    "baseBackoffMs": 1000,
+    "maxBackoffMs": 5000,
+    "jitter": 0,
+    "batchLimit": 2
+   },
+   "steps": [
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "a",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {
+       "student_id": 1,
+       "status": "present"
+      }
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "b",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {
+       "student_id": 2
+      }
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "a",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {
+       "student_id": 99
+      }
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": true
+     }
+    },
+    {
+     "op": "list",
+     "expect_keys": [
+      "a",
+      "b"
+     ]
+    },
+    {
+     "op": "claim",
+     "limit": 10,
+     "now": 1000,
+     "expect_keys": [
+      "a",
+      "b"
+     ]
+    },
+    {
+     "op": "stats",
+     "expect": {
+      "total": 2,
+      "pending": 0,
+      "inflight": 2,
+      "blocked": 0,
+      "active": 2,
+      "full": false
+     }
+    }
+   ]
+  },
+  {
+   "name": "full queue refuses the new op and never evicts an old one",
+   "config": {
+    "capacity": 3,
+    "leaseMs": 30000,
+    "maxAttempts": 3,
+    "baseBackoffMs": 1000,
+    "maxBackoffMs": 5000,
+    "jitter": 0,
+    "batchLimit": 2
+   },
+   "steps": [
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "a",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "b",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "c",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "d",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": false,
+      "error": "queue_full"
+     }
+    },
+    {
+     "op": "list",
+     "expect_keys": [
+      "a",
+      "b",
+      "c"
+     ]
+    },
+    {
+     "op": "ack",
+     "k": "a"
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "d",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "list",
+     "expect_keys": [
+      "b",
+      "c",
+      "d"
+     ]
+    },
+    {
+     "op": "stats",
+     "expect": {
+      "total": 3,
+      "pending": 3,
+      "inflight": 0,
+      "blocked": 0,
+      "active": 3,
+      "full": true
+     }
+    }
+   ]
+  },
+  {
+   "name": "claim respects batch limit, lease and backoff windows",
+   "config": {
+    "capacity": 3,
+    "leaseMs": 30000,
+    "maxAttempts": 3,
+    "baseBackoffMs": 1000,
+    "maxBackoffMs": 5000,
+    "jitter": 0,
+    "batchLimit": 2
+   },
+   "steps": [
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "a",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "b",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "c",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "claim",
+     "limit": 2,
+     "now": 1000,
+     "expect_keys": [
+      "a",
+      "b"
+     ]
+    },
+    {
+     "op": "claim",
+     "limit": 2,
+     "now": 1000,
+     "expect_keys": [
+      "c"
+     ]
+    },
+    {
+     "op": "claim",
+     "limit": 2,
+     "now": 30999,
+     "expect_keys": []
+    },
+    {
+     "op": "claim",
+     "limit": 5,
+     "now": 31000,
+     "expect_keys": [
+      "a",
+      "b",
+      "c"
+     ]
+    },
+    {
+     "op": "fail",
+     "k": "c",
+     "now": 31000,
+     "error": "timeout",
+     "expect": {
+      "state": "pending",
+      "attempts": 1,
+      "next_at": 32000
+     }
+    },
+    {
+     "op": "claim",
+     "limit": 5,
+     "now": 31999,
+     "expect_keys": []
+    },
+    {
+     "op": "claim",
+     "limit": 5,
+     "now": 32000,
+     "expect_keys": [
+      "c"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "exponential backoff capped at maxBackoff; maxAttempts → blocked; retry resets",
+   "config": {
+    "capacity": 3,
+    "leaseMs": 30000,
+    "maxAttempts": 5,
+    "baseBackoffMs": 1000,
+    "maxBackoffMs": 3000,
+    "jitter": 0,
+    "batchLimit": 2
+   },
+   "steps": [
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "a",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "e1",
+     "expect": {
+      "state": "pending",
+      "attempts": 1,
+      "next_at": 1000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "e2",
+     "expect": {
+      "state": "pending",
+      "attempts": 2,
+      "next_at": 2000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "e3",
+     "expect": {
+      "state": "pending",
+      "attempts": 3,
+      "next_at": 3000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "e4",
+     "expect": {
+      "state": "pending",
+      "attempts": 4,
+      "next_at": 3000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "e5",
+     "expect": {
+      "state": "blocked",
+      "attempts": 5,
+      "next_at": 0
+     }
+    },
+    {
+     "op": "claim",
+     "limit": 5,
+     "now": 999999,
+     "expect_keys": []
+    },
+    {
+     "op": "stats",
+     "expect": {
+      "total": 1,
+      "pending": 0,
+      "inflight": 0,
+      "blocked": 1,
+      "active": 0,
+      "full": false
+     }
+    },
+    {
+     "op": "retry",
+     "k": "a"
+    },
+    {
+     "op": "claim",
+     "limit": 5,
+     "now": 0,
+     "expect_keys": [
+      "a"
+     ]
+    },
+    {
+     "op": "fail",
+     "k": "zzz",
+     "now": 0,
+     "error": "x",
+     "expect": {
+      "ok": false
+     }
+    }
+   ]
+  },
+  {
+   "name": "recover returns expired leases to pending (crash/restart)",
+   "config": {
+    "capacity": 3,
+    "leaseMs": 30000,
+    "maxAttempts": 3,
+    "baseBackoffMs": 1000,
+    "maxBackoffMs": 5000,
+    "jitter": 0,
+    "batchLimit": 2
+   },
+   "steps": [
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "a",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "b",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "claim",
+     "limit": 1,
+     "now": 1000,
+     "expect_keys": [
+      "a"
+     ]
+    },
+    {
+     "op": "recover",
+     "now": 1000,
+     "expect": {
+      "recovered": 0
+     }
+    },
+    {
+     "op": "recover",
+     "now": 31000,
+     "expect": {
+      "recovered": 1
+     }
+    },
+    {
+     "op": "stats",
+     "expect": {
+      "total": 2,
+      "pending": 2,
+      "inflight": 0,
+      "blocked": 0,
+      "active": 2,
+      "full": false
+     }
+    }
+   ]
+  },
+  {
+   "name": "drain routes verdicts by uid; no verdict keeps the op queued",
+   "config": {
+    "capacity": 3,
+    "leaseMs": 30000,
+    "maxAttempts": 3,
+    "baseBackoffMs": 1000,
+    "maxBackoffMs": 5000,
+    "jitter": 0,
+    "batchLimit": 2
+   },
+   "steps": [
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "a",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "b",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "c",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "drain",
+     "now": 1000,
+     "script": [
+      {
+       "applied": [
+        "a"
+       ],
+       "rejected": [
+        "b"
+       ]
+      },
+      {
+       "conflicts": []
+      }
+     ],
+     "expect": {
+      "batches": 2,
+      "claimed": 3,
+      "applied": 1,
+      "rejected": 1,
+      "conflicts": 0,
+      "failed": 1,
+      "stopped": null
+     },
+     "expect_sent": [
+      [
+       "a",
+       "b"
+      ],
+      [
+       "c"
+      ]
+     ]
+    },
+    {
+     "op": "list",
+     "expect_keys": [
+      "c"
+     ]
+    },
+    {
+     "op": "get",
+     "k": "c",
+     "expect": {
+      "state": "pending",
+      "attempts": 1,
+      "last_error": "no_verdict",
+      "next_at": 2000
+     }
+    }
+   ]
+  },
+  {
+   "name": "drain: conflict acks; network error fails the whole batch and stops",
+   "config": {
+    "capacity": 3,
+    "leaseMs": 30000,
+    "maxAttempts": 3,
+    "baseBackoffMs": 1000,
+    "maxBackoffMs": 5000,
+    "jitter": 0,
+    "batchLimit": 2
+   },
+   "steps": [
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "a",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "b",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "c",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "drain",
+     "now": 5000,
+     "script": [
+      {
+       "conflicts": [
+        "a"
+       ],
+       "applied": [
+        "b"
+       ]
+      },
+      {
+       "throw": "offline"
+      }
+     ],
+     "expect": {
+      "batches": 2,
+      "claimed": 3,
+      "applied": 1,
+      "rejected": 0,
+      "conflicts": 1,
+      "failed": 1,
+      "stopped": "network"
+     },
+     "expect_sent": [
+      [
+       "a",
+       "b"
+      ],
+      [
+       "c"
+      ]
+     ]
+    },
+    {
+     "op": "get",
+     "k": "c",
+     "expect": {
+      "state": "pending",
+      "attempts": 1,
+      "last_error": "offline",
+      "next_at": 6000
+     }
+    }
+   ]
+  },
+  {
+   "name": "wire format matches Sync v1 push op",
+   "config": {
+    "capacity": 10,
+    "leaseMs": 30000,
+    "maxAttempts": 3,
+    "baseBackoffMs": 1000,
+    "maxBackoffMs": 5000,
+    "jitter": 0,
+    "batchLimit": 2
+   },
+   "steps": [
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "p1",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "id": 6001,
+      "data": {
+       "student_id": 3,
+       "status": "late"
+      },
+      "base_version": 2
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "p2",
+      "collection": "announcements",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "data": {
+       "title": "اطلاعیه"
+      }
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "d1",
+      "collection": "leaves",
+      "type": "del",
+      "at": "2026-11-01T08:00:00.000Z",
+      "id": 7
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "l1",
+      "collection": "attendance",
+      "type": "put",
+      "at": "2026-11-01T08:00:00.000Z",
+      "localId": -5,
+      "data": {
+       "x": 1
+      }
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "wire",
+     "k": "p1",
+     "expect": {
+      "uid": "p1",
+      "collection": "attendance",
+      "type": "put",
+      "id": 6001,
+      "data": {
+       "student_id": 3,
+       "status": "late"
+      },
+      "base_version": 2,
+      "at": "2026-11-01T08:00:00.000Z"
+     }
+    },
+    {
+     "op": "wire",
+     "k": "p2",
+     "expect": {
+      "uid": "p2",
+      "collection": "announcements",
+      "type": "put",
+      "data": {
+       "title": "اطلاعیه"
+      },
+      "base_version": 0,
+      "at": "2026-11-01T08:00:00.000Z"
+     }
+    },
+    {
+     "op": "wire",
+     "k": "d1",
+     "expect": {
+      "uid": "d1",
+      "collection": "leaves",
+      "type": "del",
+      "id": 7,
+      "at": "2026-11-01T08:00:00.000Z"
+     }
+    },
+    {
+     "op": "wire",
+     "k": "l1",
+     "expect": {
+      "uid": "l1",
+      "collection": "attendance",
+      "type": "put",
+      "localId": -5,
+      "data": {
+       "x": 1
+      },
+      "base_version": 0,
+      "at": "2026-11-01T08:00:00.000Z"
+     }
+    }
+   ]
+  }
+ ]
+}
