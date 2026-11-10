@@ -794,6 +794,13 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(main.includes('CONFIG_URLS'), 'پیکربندی مرکزی مخزن');
     assert.ok(/void scanLan\(/.test(main), 'جستجوی خودکار در شبکه');
     assert.ok(/verifyThenOpen\(/.test(main), 'بررسی سریع آدرس‌ها و رفتن به بعدی');
+    /* اگر همهٔ آدرس‌های ذخیره‌شده شکست خوردند، پیش از آفلاین جست‌وجوی Wi-Fi انجام شود (منفی: باز کردن مستقیم آفلاین) */
+    const vto = main.slice(main.indexOf('private void verifyThenOpen('), main.indexOf('private java.util.List<String> candidates('));
+    const lastElse = vto.slice(vto.lastIndexOf('} else {'));
+    assert.ok(/scanLan\(\);/.test(lastElse), 'شکست همهٔ آدرس‌ها ⇒ scanLan');
+    assert.ok(!/openApp\(prefs\.getString\(KEY_URL/.test(lastElse), 'نه باز کردن آفلاین بدون جست‌وجو');
+    assert.ok(!/payesh-XXXX|tail1234\.ts\.net/i.test(cfg.url), 'آدرس نمونهٔ placeholder در پیکربندی مرکزی نیست');
+    assert.ok(/low\.contains\("tail1234"\)/.test(main) && /low\.contains\("xxxx"\)/.test(main), 'میزبان placeholder نرمال نمی‌شود');
     assert.ok(main.includes('appassets.androidplatform.net'), 'دارایی‌های برنامه از داخل APK');
 
     /* شروع برنامه نباید مستقیم آدرس بپرسد — همان شکایتی که کاربر داشت */

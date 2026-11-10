@@ -426,8 +426,11 @@ public class MainActivity extends Activity {
                     queueIndex++;
                     verifyThenOpen(queue.get(queueIndex));
                 } else {
-                    /* هیچ سروری نبود → همان برنامه، ولی آفلاین (دادهٔ ذخیره‌شده) */
-                    openApp(prefs.getString(KEY_URL, ""));
+                    /* هیچ آدرس ذخیره‌شده‌ای جواب نداد (مثلاً IP سرور عوض شده) →
+                       پیش از حالت آفلاین، Wi-Fi همین شبکه جست‌وجو شود؛ scanLan خودش
+                       در صورت نیافتن، برنامه را آفلاین باز می‌کند. */
+                    showSplash(R.string.searching);
+                    scanLan();
                 }
             });
         }).start();
@@ -820,7 +823,7 @@ public class MainActivity extends Activity {
         String u = raw == null ? "" : raw.trim();
         if (u.isEmpty()) return "";
         String low = u.toLowerCase();
-        if (low.contains("xxxx") || low.contains("example") || low.contains("<") || low.contains(">") || low.contains("myschool")) return "";
+        if (low.contains("xxxx") || low.contains("tail1234") || low.contains("example") || low.contains("<") || low.contains(">") || low.contains("myschool")) return "";
         if (!u.startsWith("http://") && !u.startsWith("https://")) {
             boolean local = u.matches("^(localhost|[0-9.]+)(:.*)?$") || u.startsWith("192.168.") || u.startsWith("10.");
             u = (local ? "http://" : "https://") + u;
