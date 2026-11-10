@@ -1,0 +1,60 @@
+name: api-contract
+
+# Row 81: openapi.yaml must match the real server routes.
+# A route added, removed or re-methoded in server/* without updating openapi.yaml (or the reverse)
+# turns this workflow red. It also validates the document as OpenAPI 3 and runs the gate's
+# negative controls, which prove the gate really fails.
+# Complements row 64 (sync contract tests); the owner platform API keeps its own
+# apps/owner-panel/server/openapi.json.
+
+on:
+  push:
+    branches: [main, 'arena/**', 'hermes/**']
+    paths:
+      - 'server/**'
+      - 'openapi.yaml'
+      - 'tools/openapi-drift-81.mjs'
+      - 'tests/openapi-drift-81.js'
+      - '.github/workflows/api-contract.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'openapi.yaml'
+      - 'tools/openapi-drift-81.mjs'
+      - 'tests/openapi-drift-81.js'
+      - '.github/workflows/api-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  openapi-drift:
+    name: OpenAPI drift gate (row 81)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Drift gate (code routes == openapi.yaml)
+        run: node tools/openapi-drift-81.mjs
+
+      - name: Gate negative controls
+        run: node tests/openapi-drift-81.js
+
+      - name: Validate OpenAPI 3 document
+        run: |
+          python3 -m venv "$RUNNER_TEMP/oa"
+          "$RUNNER_TEMP/oa/bin/pip" install --quiet --disable-pip-version-check "openapi-spec-validator==0.9.0" "PyYAML==6.0.3"
+          "$RUNNER_TEMP/oa/bin/python" - <<'PY'
+          import yaml
+          from openapi_spec_validator import validate
+          d = yaml.safe_load(open('openapi.yaml', encoding='utf-8'))
+          validate(d)
+          ids = [op['operationId'] for p in d['paths'].values() for op in p.values()]
+          assert len(ids) == len(set(ids)), 'duplicate operationId'
+          print('OPENAPI-VALID paths=%d operations=%d' % (len(d['paths']), len(ids)))
+          PY

@@ -1,0 +1,2616 @@
+openapi: 3.0.3
+info:
+  title: Payesh school server, data gateway and tenancy API
+  version: "1"
+  description: |
+    Contract of the real HTTP surface of server/index.js, server/gateway.js and server/tenancy.js.
+    Row 81. The drift gate `node tools/openapi-drift-81.mjs` fails CI when a route is added, removed
+    or changes method in code without this file being updated (and vice versa).
+    The owner platform API (/api/platform/v1/*) has its own contract: apps/owner-panel/server/openapi.json.
+    Sync semantics (cursors, idempotency, OCC, scope) are normative in docs/cloud/contracts/sync-v1.md.
+    Native clients (D-43) use only the operations tagged auth, sync, live and gateway.
+servers:
+  - url: /
+    description: Same origin. School server (default port 8080) or gateway; addresses come from the Directory, never hard-coded in clients.
+tags:
+  - name: auth
+  - name: sync
+  - name: live
+  - name: gateway
+  - name: phone
+  - name: outbox
+  - name: setup
+  - name: admin
+    description: Manager-only (403 forbidden for other roles; backups also allow BACKUP_ROLES).
+  - name: cloud-tenancy
+    description: Tenant-scoped cloud slice; tenant comes only from the signed token (RLS). 404 tenancy_disabled when off.
+  - name: ops
+security:
+  - session: []
+paths:
+  /api/admin/audit:
+    get:
+      operationId: getApiAdminAudit
+      tags: [admin]
+      summary: "admin: GET admin/audit"
+      x-source: server/index.js:1282
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/backup:
+    post:
+      operationId: postApiAdminBackup
+      tags: [admin]
+      summary: "admin: POST admin/backup"
+      x-source: server/index.js:1372
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/backups:
+    get:
+      operationId: getApiAdminBackups
+      tags: [admin]
+      summary: "admin: GET admin/backups"
+      x-source: server/index.js:1436
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/backups/daily:
+    get:
+      operationId: getApiAdminBackupsDaily
+      tags: [admin]
+      summary: "admin: GET admin/backups/daily"
+      x-source: server/index.js:1410
+      responses:
+        '200':
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/admin/backups/daily/{file}:
+    get:
+      operationId: getApiAdminBackupsDailyFile
+      tags: [admin]
+      summary: "admin: GET admin/backups/daily/file"
+      x-source: server/index.js:1414
+      parameters:
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/admin/backups/{name}:
+    get:
+      operationId: getApiAdminBackupsName
+      tags: [admin]
+      summary: "admin: GET admin/backups/name"
+      x-source: server/index.js:1443
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/admin/cloud:
+    get:
+      operationId: getApiAdminCloud
+      tags: [admin]
+      summary: "admin: GET admin/cloud"
+      x-source: server/index.js:1016
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: postApiAdminCloud
+      tags: [admin]
+      summary: "admin: POST admin/cloud"
+      x-source: server/index.js:1042
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/cloud/cors:
+    post:
+      operationId: postApiAdminCloudCors
+      tags: [admin]
+      summary: "admin: POST admin/cloud/cors"
+      x-source: server/index.js:1107
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/cloud/phone-check:
+    post:
+      operationId: postApiAdminCloudPhoneCheck
+      tags: [admin]
+      summary: "admin: POST admin/cloud/phone-check"
+      x-source: server/index.js:1059
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/cloud/reset:
+    post:
+      operationId: postApiAdminCloudReset
+      tags: [admin]
+      summary: "admin: POST admin/cloud/reset"
+      x-source: server/index.js:1085
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/cloud/test:
+    post:
+      operationId: postApiAdminCloudTest
+      tags: [admin]
+      summary: "admin: POST admin/cloud/test"
+      x-source: server/index.js:1096
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/devices:
+    get:
+      operationId: getApiAdminDevices
+      tags: [admin]
+      summary: "admin: GET admin/devices"
+      x-source: server/index.js:1273
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/devices/{id}:
+    delete:
+      operationId: deleteApiAdminDevicesId
+      tags: [admin]
+      summary: "admin: DELETE admin/devices/id"
+      x-source: server/index.js:1275
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/admin/export:
+    get:
+      operationId: getApiAdminExport
+      tags: [admin]
+      summary: "admin: GET admin/export"
+      x-source: server/index.js:1456
+      responses:
+        '200':
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/admin/import:
+    post:
+      operationId: postApiAdminImport
+      tags: [admin]
+      summary: "admin: POST admin/import"
+      x-source: server/index.js:1451
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/mirror:
+    get:
+      operationId: getApiAdminMirror
+      tags: [admin]
+      summary: "admin: GET admin/mirror"
+      x-source: server/index.js:1380
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/mirror/download:
+    get:
+      operationId: getApiAdminMirrorDownload
+      tags: [admin]
+      summary: "admin: GET admin/mirror/download"
+      x-source: server/index.js:1404
+      responses:
+        '200':
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/admin/mirror/refresh:
+    post:
+      operationId: postApiAdminMirrorRefresh
+      tags: [admin]
+      summary: "admin: POST admin/mirror/refresh"
+      x-source: server/index.js:1390
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/network:
+    get:
+      operationId: getApiAdminNetwork
+      tags: [admin]
+      summary: "admin: GET admin/network"
+      x-source: server/index.js:927
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: postApiAdminNetwork
+      tags: [admin]
+      summary: "admin: POST admin/network"
+      x-source: server/index.js:940
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/pair-code:
+    post:
+      operationId: postApiAdminPairCode
+      tags: [admin]
+      summary: "admin: POST admin/pair-code"
+      x-source: server/index.js:920
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/restore:
+    post:
+      operationId: postApiAdminRestore
+      tags: [admin]
+      summary: "admin: POST admin/restore"
+      x-source: server/index.js:1422
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/settings:
+    post:
+      operationId: postApiAdminSettings
+      tags: [admin]
+      summary: "admin: POST admin/settings"
+      x-source: server/index.js:1470
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/stats:
+    get:
+      operationId: getApiAdminStats
+      tags: [admin]
+      summary: "admin: GET admin/stats"
+      x-source: server/index.js:901
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/tunnel:
+    get:
+      operationId: getApiAdminTunnel
+      tags: [admin]
+      summary: "admin: GET admin/tunnel"
+      x-source: server/index.js:959
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: postApiAdminTunnel
+      tags: [admin]
+      summary: "admin: POST admin/tunnel"
+      x-source: server/index.js:966
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/update:
+    get:
+      operationId: getApiAdminUpdate
+      tags: [admin]
+      summary: "admin: GET admin/update"
+      x-source: server/index.js:1287
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/update/apply:
+    post:
+      operationId: postApiAdminUpdateApply
+      tags: [admin]
+      summary: "admin: POST admin/update/apply"
+      x-source: server/index.js:1337
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/update/check:
+    post:
+      operationId: postApiAdminUpdateCheck
+      tags: [admin]
+      summary: "admin: POST admin/update/check"
+      x-source: server/index.js:1330
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/update/download:
+    post:
+      operationId: postApiAdminUpdateDownload
+      tags: [admin]
+      summary: "admin: POST admin/update/download"
+      x-source: server/index.js:1313
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/update/install:
+    post:
+      operationId: postApiAdminUpdateInstall
+      tags: [admin]
+      summary: "admin: POST admin/update/install"
+      x-source: server/index.js:1320
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/update/restart:
+    post:
+      operationId: postApiAdminUpdateRestart
+      tags: [admin]
+      summary: "admin: POST admin/update/restart"
+      x-source: server/index.js:1367
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/update/rollback:
+    post:
+      operationId: postApiAdminUpdateRollback
+      tags: [admin]
+      summary: "admin: POST admin/update/rollback"
+      x-source: server/index.js:1349
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/update/settings:
+    post:
+      operationId: postApiAdminUpdateSettings
+      tags: [admin]
+      summary: "admin: POST admin/update/settings"
+      x-source: server/index.js:1355
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/update/state:
+    get:
+      operationId: getApiAdminUpdateState
+      tags: [admin]
+      summary: "admin: GET admin/update/state"
+      x-source: server/index.js:1307
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/users/bulk-delete:
+    post:
+      operationId: postApiAdminUsersBulkDelete
+      tags: [admin]
+      summary: "admin: POST admin/users/bulk-delete"
+      x-source: server/index.js:1137
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/users/credentials:
+    get:
+      operationId: getApiAdminUsersCredentials
+      tags: [admin]
+      summary: "admin: GET admin/users/credentials"
+      x-source: server/index.js:1124
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/users/{id}:
+    delete:
+      operationId: deleteApiAdminUsersId
+      tags: [admin]
+      summary: "admin: DELETE admin/users/id"
+      x-source: server/index.js:1169
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    patch:
+      operationId: patchApiAdminUsersId
+      tags: [admin]
+      summary: "admin: PATCH admin/users/id"
+      x-source: server/index.js:1169
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: putApiAdminUsersId
+      tags: [admin]
+      summary: "admin: PUT admin/users/id"
+      x-source: server/index.js:1169
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/admin/users/{id}/password:
+    post:
+      operationId: postApiAdminUsersIdPassword
+      tags: [admin]
+      summary: "admin: POST admin/users/id/password"
+      x-source: server/index.js:1262
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/admin/users/{id}/revoke:
+    post:
+      operationId: postApiAdminUsersIdRevoke
+      tags: [admin]
+      summary: "admin: POST admin/users/id/revoke"
+      x-source: server/index.js:745
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/auth/claim:
+    post:
+      operationId: postApiAuthClaim
+      tags: [auth]
+      summary: "Manager rescue: set password (loopback only)"
+      x-source: server/index.js:576
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/auth/login:
+    post:
+      operationId: postAuthLogin
+      tags: [auth]
+      summary: "Password login; registers the device and returns a session plus a long-lived device token"
+      x-source: server/index.js:598
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        '401':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/auth/logout:
+    post:
+      operationId: postAuthLogout
+      tags: [auth]
+      summary: "End the current session"
+      x-source: server/index.js:730
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/auth/pair:
+    post:
+      operationId: postAuthPair
+      tags: [auth]
+      summary: "Pair a device with a one-time pair code issued by the manager"
+      x-source: server/index.js:548
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                platform:
+                  type: string
+      responses:
+        '200':
+          description: Paired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/auth/password:
+    post:
+      operationId: postApiAuthPassword
+      tags: [auth]
+      summary: "Change own password"
+      x-source: server/index.js:1254
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/auth/refresh:
+    post:
+      operationId: postAuthRefresh
+      tags: [auth]
+      summary: "Silent session renewal with the device token (no password)"
+      x-source: server/index.js:566
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_token]
+              properties:
+                device_token:
+                  type: string
+      responses:
+        '200':
+          description: New session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        '401':
+          description: bad_device, device_revoked, user_inactive or no_password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/auth/revoke-all:
+    post:
+      operationId: postApiAuthRevokeAll
+      tags: [auth]
+      summary: "Revoke all sessions/devices of the current user"
+      x-source: server/index.js:736
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/auth/transfer:
+    post:
+      operationId: postApiAuthTransfer
+      tags: [auth]
+      summary: "Create a device-transfer code"
+      x-source: server/index.js:753
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/auth/transfer/redeem:
+    post:
+      operationId: postApiAuthTransferRedeem
+      tags: [auth]
+      summary: "Redeem a device-transfer code"
+      x-source: server/index.js:556
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/auth/unlock:
+    post:
+      operationId: postApiAuthUnlock
+      tags: [auth]
+      summary: "Unlock a trusted device with the password (lockout after 8 failures)"
+      x-source: server/index.js:616
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/bootstrap:
+    get:
+      operationId: getBootstrap
+      tags: [sync]
+      summary: "School, active year, current user and counts for the first screen"
+      x-source: server/index.js:758
+      responses:
+        '200':
+          description: Bootstrap payload
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, server_time, school, user, role]
+                properties:
+                  ok:
+                    type: boolean
+                  server_time:
+                    type: string
+                    format: date-time
+                  school:
+                    type: object
+                    additionalProperties: true
+                  year:
+                    type: object
+                    properties:
+                      title:
+                        type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+                  role:
+                    $ref: '#/components/schemas/Role'
+                  counts:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  version:
+                    type: string
+                  update:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/cloud/config:
+    get:
+      operationId: getApiCloudConfig
+      tags: [ops]
+      summary: "Public cloud config for clients (no secrets)"
+      x-source: server/index.js:1000
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product:
+    get:
+      operationId: getApiCloudTenancyProduct
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: GET cloud/tenancy/product"
+      x-source: server/tenancy.js:957
+      security:
+        - tenancy: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: postApiCloudTenancyProduct
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/product"
+      x-source: server/tenancy.js:957
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '201':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: putApiCloudTenancyProduct
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: PUT cloud/tenancy/product"
+      x-source: server/tenancy.js:957
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/export:
+    post:
+      operationId: postApiCloudTenancyProductExport
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/product/export"
+      x-source: server/tenancy.js:942
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/feed:
+    get:
+      operationId: getApiCloudTenancyProductFeed
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: GET cloud/tenancy/product/feed"
+      x-source: server/tenancy.js:916
+      security:
+        - tenancy: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/feed/compress:
+    post:
+      operationId: postApiCloudTenancyProductFeedCompress
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/product/feed/compress"
+      x-source: server/tenancy.js:925
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/feed/prune:
+    post:
+      operationId: postApiCloudTenancyProductFeedPrune
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/product/feed/prune"
+      x-source: server/tenancy.js:930
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/feed/stats:
+    get:
+      operationId: getApiCloudTenancyProductFeedStats
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: GET cloud/tenancy/product/feed/stats"
+      x-source: server/tenancy.js:922
+      security:
+        - tenancy: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/jobs:
+    post:
+      operationId: postApiCloudTenancyProductJobs
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/product/jobs"
+      x-source: server/tenancy.js:946
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/jobs/claim:
+    post:
+      operationId: postApiCloudTenancyProductJobsClaim
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/product/jobs/claim"
+      x-source: server/tenancy.js:949
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/jobs/{id}/complete:
+    post:
+      operationId: postApiCloudTenancyProductJobsIdComplete
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/product/jobs/id/complete"
+      x-source: server/tenancy.js:953
+      security:
+        - tenancy: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/join:
+    post:
+      operationId: postApiCloudTenancyProductJoin
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/product/join"
+      x-source: server/tenancy.js:938
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/{collection}/{id}:
+    delete:
+      operationId: deleteApiCloudTenancyProductCollectionId
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: DELETE cloud/tenancy/product/collection/id"
+      x-source: server/tenancy.js:971
+      security:
+        - tenancy: []
+      parameters:
+        - name: collection
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    get:
+      operationId: getApiCloudTenancyProductCollectionId
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: GET cloud/tenancy/product/collection/id"
+      x-source: server/tenancy.js:971
+      security:
+        - tenancy: []
+      parameters:
+        - name: collection
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/records:
+    get:
+      operationId: getApiCloudTenancyRecords
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: GET cloud/tenancy/records"
+      x-source: server/tenancy.js:984
+      security:
+        - tenancy: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: postApiCloudTenancyRecords
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/records"
+      x-source: server/tenancy.js:984
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '201':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/records/{id}:
+    delete:
+      operationId: deleteApiCloudTenancyRecordsId
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: DELETE cloud/tenancy/records/id"
+      x-source: server/tenancy.js:992
+      security:
+        - tenancy: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    get:
+      operationId: getApiCloudTenancyRecordsId
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: GET cloud/tenancy/records/id"
+      x-source: server/tenancy.js:992
+      security:
+        - tenancy: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    patch:
+      operationId: patchApiCloudTenancyRecordsId
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: PATCH cloud/tenancy/records/id"
+      x-source: server/tenancy.js:992
+      security:
+        - tenancy: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: putApiCloudTenancyRecordsId
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: PUT cloud/tenancy/records/id"
+      x-source: server/tenancy.js:992
+      security:
+        - tenancy: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/conflicts/{id}/resolve:
+    post:
+      operationId: postConflictsResolve
+      tags: [sync]
+      summary: "Manager resolves a recorded conflict (decision local or server)"
+      x-source: server/index.js:793
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [local, server]
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/gw/v1/pull:
+    get:
+      operationId: getGwV1Pull
+      tags: [gateway]
+      summary: "Gateway pull from the tenant change-feed (scope from token claims only)"
+      x-source: server/gateway.js:301
+      security:
+        - gateway: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+        - name: since_seq
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        - name: collection
+          in: query
+          schema:
+            type: string
+            pattern: '^[a-z][a-z0-9_]{1,40}$'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 200
+      responses:
+        '200':
+          description: Feed rows after since_seq
+          headers:
+            x-ratelimit-limit:
+              schema:
+                type: integer
+            x-ratelimit-remaining:
+              schema:
+                type: integer
+            x-ratelimit-window-sec:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GwPullResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          description: missing_cell, wrong_cell or role_denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/gw/v1/push:
+    post:
+      operationId: postGwV1Push
+      tags: [gateway]
+      summary: "Gateway push: atomic, idempotent batch (max 200 ops, 1 MiB body)"
+      x-source: server/gateway.js:321
+      security:
+        - gateway: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GwPushRequest'
+      responses:
+        '200':
+          description: Applied, duplicates and conflicts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GwPushResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '409':
+          description: write_frozen while the tenant is being transferred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/health:
+    get:
+      operationId: getApiHealth
+      tags: [ops]
+      summary: "Liveness and basic server info"
+      x-source: server/index.js:471
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /api/live/rev:
+    get:
+      operationId: getLiveRev
+      tags: [live]
+      summary: "Cheap change revision; smart-polling probe for notifications (D-46 / ADR-79)"
+      x-source: server/index.js:827
+      responses:
+        '200':
+          description: Current local revision
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, rev, at]
+                properties:
+                  ok:
+                    type: boolean
+                  rev:
+                    oneOf:
+                      - type: integer
+                      - type: string
+                  at:
+                    type: string
+                    format: date-time
+                  every_ms:
+                    type: integer
+                  cloud:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/live/state:
+    get:
+      operationId: getApiLiveState
+      tags: [live]
+      summary: "Live sync status"
+      x-source: server/index.js:834
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: "Current user, role and device"
+      x-source: server/index.js:726
+      responses:
+        '200':
+          description: Current identity
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, user, role]
+                properties:
+                  ok:
+                    type: boolean
+                  user:
+                    $ref: '#/components/schemas/User'
+                  role:
+                    $ref: '#/components/schemas/Role'
+                  device_id:
+                    type: string
+                    nullable: true
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/metrics:
+    get:
+      operationId: getApiMetrics
+      tags: [ops]
+      summary: "Prometheus metrics (token-protected when configured)"
+      x-source: server/index.js:1938
+      security:
+        - {}
+        - metrics: []
+      responses:
+        '200':
+          description: Prometheus text format
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/network:
+    get:
+      operationId: getApiNetwork
+      tags: [ops]
+      summary: "LAN addresses for pairing"
+      x-source: server/index.js:510
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /api/outbox/drain:
+    post:
+      operationId: postApiOutboxDrain
+      tags: [outbox]
+      summary: "Apply pending cloud outbox items"
+      x-source: server/index.js:845
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/outbox/publish:
+    post:
+      operationId: postApiOutboxPublish
+      tags: [outbox]
+      summary: "Publish a snapshot to the cloud outbox"
+      x-source: server/index.js:855
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/outbox/snapshot:
+    get:
+      operationId: getApiOutboxSnapshot
+      tags: [outbox]
+      summary: "Student summary snapshot"
+      x-source: server/index.js:861
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/outbox/state:
+    get:
+      operationId: getApiOutboxState
+      tags: [outbox]
+      summary: "Cloud outbox state"
+      x-source: server/index.js:822
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/outbox/submit:
+    post:
+      operationId: postApiOutboxSubmit
+      tags: [outbox]
+      summary: "Phone submits outbox items (X-Phone-Ticket or session)"
+      x-source: server/index.js:699
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/phone/config:
+    get:
+      operationId: getApiPhoneConfig
+      tags: [phone]
+      summary: "Phone app metadata (no keys)"
+      x-source: server/index.js:641
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /api/phone/login:
+    post:
+      operationId: postApiPhoneLogin
+      tags: [phone]
+      summary: "Phone login via cloud outbox"
+      x-source: server/index.js:653
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/phone/ticket:
+    post:
+      operationId: postApiPhoneTicket
+      tags: [phone]
+      summary: "Issue a device ticket for the phone outbox"
+      x-source: server/index.js:676
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/qr:
+    get:
+      operationId: getApiQr
+      tags: [ops]
+      summary: "QR code (SVG) for a join URL"
+      x-source: server/index.js:521
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /api/readyz:
+    get:
+      operationId: getApiReadyz
+      tags: [ops]
+      summary: "Readiness of the school server (DB writable)"
+      x-source: server/index.js:466
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /api/setup:
+    post:
+      operationId: postApiSetup
+      tags: [setup]
+      summary: "First-run setup (only while unconfigured)"
+      x-source: server/index.js:540
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+  /api/setup/state:
+    get:
+      operationId: getApiSetupState
+      tags: [setup]
+      summary: "First-run setup state"
+      x-source: server/index.js:533
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /api/students/{id}:
+    get:
+      operationId: getApiStudentsId
+      tags: [ops]
+      summary: "Student profile (scoped by role)"
+      x-source: server/index.js:873
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/sync:
+    post:
+      operationId: postSync
+      tags: [sync]
+      summary: "Sync v1 push: ordered ops, per-op uid idempotency, optional request idempotency_key, OCC by base_version"
+      x-source: server/index.js:801
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushRequest'
+      responses:
+        '200':
+          description: Result buckets applied / conflicts / rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushResponse'
+        '400':
+          description: bad_json, too_many_ops (limit 200), bad_idempotency_key (limit 120) or write_failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '413':
+          $ref: '#/components/responses/Error'
+  /api/update/check:
+    get:
+      operationId: getApiUpdateCheck
+      tags: [ops]
+      summary: "Public update check"
+      x-source: server/index.js:505
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /api/v1/pull:
+    get:
+      operationId: getV1Pull
+      tags: [sync]
+      summary: "Sync v1 pull with composite cursor (since, since_id) and ETag/304"
+      x-source: server/index.js:776
+      parameters:
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: since_seq
+          in: query
+          description: Official AC name; same meaning as since (since wins if both are sent).
+          schema:
+            type: string
+            format: date-time
+        - name: since_id
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        - name: collections
+          in: query
+          description: CSV; empty means all default collections. Unknown or out-of-scope names are dropped silently.
+          schema:
+            type: string
+        - name: If-None-Match
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Changes since the cursor
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullResponse'
+        '304':
+          description: Nothing changed for this cursor (empty body)
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/version:
+    get:
+      operationId: getApiVersion
+      tags: [ops]
+      summary: "Running version (release manifest)"
+      x-source: server/index.js:500
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /healthz:
+    get:
+      operationId: getHealthz
+      tags: [ops]
+      summary: "Liveness (gateway and school server)"
+      x-source: server/gateway.js:247
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /install:
+    get:
+      operationId: getInstall
+      tags: [ops]
+      summary: "Installer landing page (HTML)"
+      x-source: server/index.js:1977
+      security: []
+      responses:
+        '200':
+          description: HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+  /metrics:
+    get:
+      operationId: getMetrics
+      tags: [ops]
+      summary: "Prometheus metrics (token-protected when configured)"
+      x-source: server/gateway.js:234
+      security:
+        - {}
+        - metrics: []
+      responses:
+        '200':
+          description: Prometheus text format
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Error'
+  /readyz:
+    get:
+      operationId: getReadyz
+      tags: [ops]
+      summary: "Readiness: DB reachable and tenant scoping behaves (gateway); 503 when not ready"
+      x-source: server/gateway.js:252
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '503':
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    session:
+      type: http
+      scheme: bearer
+      description: School server session token (opaque, 64 hex chars), from /api/auth/login, /api/auth/refresh or /api/auth/pair.
+    gateway:
+      type: http
+      scheme: bearer
+      bearerFormat: v1.<b64url claims>.<b64url hmac-sha256>
+      description: Signed gateway token issued by the Directory (claims v, tid, cell, role, uid, did, iat, exp). The tenant comes only from the token.
+    tenancy:
+      type: http
+      scheme: bearer
+      description: Signed tenancy token (same format as gateway).
+    metrics:
+      type: http
+      scheme: bearer
+      description: Optional metrics token; when not configured, metrics stay open (backwards compatible).
+  parameters:
+    DeviceId:
+      name: X-Device-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        maxLength: 80
+  responses:
+    Ok:
+      description: Success envelope
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [ok]
+            properties:
+              ok:
+                type: boolean
+            additionalProperties: true
+    Error:
+      description: Error envelope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: rate_limited (respect Retry-After / retry_after_ms)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+        limit:
+          type: integer
+        retry_after_ms:
+          type: integer
+        detail:
+          nullable: true
+      additionalProperties: true
+    Role:
+      type: string
+      enum: [manager, teacher, parent, student, counselor, guard, support]
+    User:
+      type: object
+      required: [id, role]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        phone:
+          type: string
+        class_id:
+          type: integer
+          nullable: true
+        active:
+          type: boolean
+      additionalProperties: true
+    LoginRequest:
+      type: object
+      required: [phone, password]
+      properties:
+        phone:
+          type: string
+          description: Mobile number (Persian or Latin digits), at least 10 digits.
+        password:
+          type: string
+          minLength: 4
+        name:
+          type: string
+          description: Device display name
+        platform:
+          type: string
+          enum: [android, windows, web, server, ios]
+    Session:
+      type: object
+      required: [token, expires_at]
+      properties:
+        token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+    AuthResult:
+      type: object
+      required: [ok, user, session]
+      properties:
+        ok:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/User'
+        session:
+          $ref: '#/components/schemas/Session'
+        device_token:
+          type: string
+          description: Long-lived device credential; store only in platform secure storage (Keystore / DPAPI).
+        auth:
+          type: string
+          enum: [password, device, pair]
+      additionalProperties: true
+    Tombstone:
+      type: object
+      required: [collection, id, at]
+      properties:
+        collection:
+          type: string
+        id:
+          type: integer
+        at:
+          type: string
+          format: date-time
+    PullResponse:
+      type: object
+      required: [ok, schema_version, server_time, since, more, collections, deleted]
+      properties:
+        ok:
+          type: boolean
+        schema_version:
+          type: integer
+          enum: [1]
+        server_time:
+          type: string
+          format: date-time
+        etag:
+          type: string
+        since:
+          type: string
+          format: date-time
+        since_id:
+          type: integer
+        next_since:
+          type: string
+          format: date-time
+          nullable: true
+        next_id:
+          type: integer
+          nullable: true
+        more:
+          type: boolean
+        limits:
+          type: object
+          properties:
+            row_limit:
+              type: integer
+            max_ops:
+              type: integer
+        collections:
+          type: object
+          description: Absent collection means no change. Rows carry _version for base_version.
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              additionalProperties: true
+        deleted:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tombstone'
+    PushOp:
+      type: object
+      required: [uid, collection, data]
+      properties:
+        uid:
+          type: string
+          minLength: 1
+          maxLength: 80
+        collection:
+          type: string
+        type:
+          type: string
+          enum: [put, del]
+          default: put
+        id:
+          type: integer
+        base_version:
+          type: integer
+        data:
+          type: object
+          additionalProperties: true
+    PushRequest:
+      type: object
+      required: [ops]
+      properties:
+        idempotency_key:
+          type: string
+          maxLength: 120
+        ops:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/PushOp'
+    PushResponse:
+      type: object
+      required: [ok, schema_version, applied, conflicts, rejected]
+      properties:
+        ok:
+          type: boolean
+        schema_version:
+          type: integer
+          enum: [1]
+        server_time:
+          type: string
+          format: date-time
+        replayed:
+          type: boolean
+        idempotency_key:
+          type: string
+        applied:
+          type: array
+          items:
+            type: object
+            required: [uid]
+            properties:
+              uid:
+                type: string
+              id:
+                type: integer
+              version:
+                type: integer
+              duplicate:
+                type: boolean
+              deleted:
+                type: boolean
+        conflicts:
+          type: array
+          items:
+            type: object
+            required: [uid, collection, id, server_version]
+            properties:
+              uid:
+                type: string
+              collection:
+                type: string
+              id:
+                type: integer
+              server_version:
+                type: integer
+              server:
+                type: object
+                additionalProperties: true
+              conflict_id:
+                type: integer
+        rejected:
+          type: array
+          items:
+            type: object
+            required: [uid, error]
+            properties:
+              uid:
+                type: string
+              error:
+                type: string
+              conflict_id:
+                type: integer
+    GwFeedRow:
+      type: object
+      required: [seq, collection, id, op]
+      properties:
+        seq:
+          type: integer
+        collection:
+          type: string
+        id:
+          type: integer
+        op:
+          type: string
+          enum: [put, del]
+        version:
+          type: integer
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+        at:
+          type: string
+          format: date-time
+    GwPullResponse:
+      type: object
+      required: [ok, schema_version, rows, more]
+      properties:
+        ok:
+          type: boolean
+        schema_version:
+          type: integer
+          enum: [1]
+        instance:
+          type: string
+        clamped_limit:
+          type: integer
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/GwFeedRow'
+        more:
+          type: boolean
+        next_seq:
+          type: integer
+        scope:
+          type: object
+          additionalProperties: true
+        limits:
+          type: object
+          additionalProperties: true
+        read_from:
+          type: string
+        read_reason:
+          type: string
+      additionalProperties: true
+    GwPushOp:
+      type: object
+      required: [uid, collection, type, id]
+      properties:
+        uid:
+          type: string
+          maxLength: 80
+        collection:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{1,40}$'
+        type:
+          type: string
+          enum: [put, del]
+        id:
+          type: integer
+          minimum: 1
+        data:
+          type: object
+          additionalProperties: true
+          description: At most 64 KiB serialized.
+        base_version:
+          type: integer
+          nullable: true
+    GwPushRequest:
+      type: object
+      required: [ops]
+      properties:
+        ops:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/GwPushOp'
+    GwPushResponse:
+      type: object
+      required: [ok, schema_version]
+      properties:
+        ok:
+          type: boolean
+        schema_version:
+          type: integer
+          enum: [1]
+        instance:
+          type: string
+        applied:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        duplicates:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        conflicts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+      additionalProperties: true
