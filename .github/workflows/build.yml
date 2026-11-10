@@ -10,6 +10,36 @@ permissions:
   contents: write
 
 jobs:
+  owner-panel-schema:
+    name: مدل داده و RLS پنل مالک
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: نصب وابستگی آزمون PostgreSQL
+        run: npm ci --no-audit --no-fund
+      - name: آزمون واقعی migration / CHECK / RLS / rollback
+        env:
+          OWNER_PANEL_TEST_ADMIN_URL: postgres://postgres@127.0.0.1:5432/postgres
+        run: node tests/owner-panel-schema-pg.js
+
   build:
     # کار ساخت بسته و کار نصب‌کننده هر دو روی ریلیز «continuous» می‌نویسند؛
     # اگر هم‌زمان اجرا شوند، یکی فایل دیگری را نصفه می‌گذارد.
