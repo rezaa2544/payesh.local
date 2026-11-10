@@ -1,0 +1,55 @@
+# Row 71 — raw CI excerpts (PR #171, native-client.yml)
+base_sha=fb35bb69a022c72a6901ecd28a5771ee2ba50513
+date_utc=2026-11-10T20:58:41Z
+merged=a1d4c5d0522745b53c77fac2f928eb57a6f587d2
+jobs: sync-real-server 130119124795, engine-web 130119124711, dart 130119124299, android 130120195312, windows 130120195436, native-gate 130122745674
+excerpts: timestamps/ANSI stripped, ##[ lines dropped
+
+== sync-real-server (real server/index.js, Node 22) ==
+00:00 +0: (setUpAll)
+00:00 +0: push: offline-created ops are applied once by the real server
+00:00 +1: idempotency: re-sending the same uid is marked duplicate, no second row
+00:00 +2: pull: real rows land in the local SQLite engine; second pull is empty
+00:00 +3: fault: bad token → unauthorized, ops stay queued and are sent after re-login
+00:00 +4: fault: server killed (offline) → op kept; after restart it is applied exactly once
+00:00 +5: server rejects an unknown collection per op (rejected, not 500)
+00:00 +6: convergence: stale edit vs another device → real server conflict; both versions kept
+00:00 +7: request headers reach the server (version + request id)
+00:00 +8: (tearDownAll)
+00:00 +8: All tests passed!
+SYNC-REAL-SERVER-OK
+
+== web parity ==
+  8 passed, 0 failed (cases=8)
+CONFORMANCE-ENGINE-WEB-OK
+  8 passed, 0 failed (cases=8)
+CONFORMANCE-OUTBOX-WEB-OK
+
+== dart job: analyze + coverage ==
+Analyzing app...                                                
+No issues found! (ran in 6.6s)
+Analyzing payesh_core...
+No issues found!
+Analyzing payesh_data...
+No issues found!
+Analyzing payesh_sync...
+No issues found!
+Analyzing tool...
+No issues found!
+COVERAGE-OK app/coverage/lcov.info lines=9/9 100.0% (min 80.0%)
+COVERAGE-OK packages/payesh_core/coverage/lcov.info lines=31/31 100.0% (min 80.0%)
+COVERAGE-OK packages/payesh_data/coverage/lcov.info lines=161/163 98.8% (min 80.0%)
+COVERAGE-OK packages/payesh_sync/coverage/lcov.info lines=409/417 98.1% (min 80.0%)
+
+== native gate on the real builds (still clean after adding payesh_sync) ==
+PASS android native-out/payesh-native.apk sha256=2a733b651ebc6f733e8012c6845e6cbc139ec8060402adc915b587ff8825b891
+PASS android native-out/payesh-native.aab sha256=2236d9893f16171ddec674ad82919d1878b9cbfa4f8de6872897992185c9cda3
+NATIVE-GATE-OK
+PASS windows apps/payesh/app/build/windows/x64/runner/Release
+NATIVE-GATE-OK
+PASS windows native-out/payesh-native-windows.zip sha256=259736067c92484f2515064934f6dcaedaab1254851360a780ffc8c28186cd94
+NATIVE-GATE-OK
+
+== summary ==
+gate-controls=success engine-web=success sync-real-server=success dart=success android=success windows=success
+NATIVE-CLIENT-CI-OK

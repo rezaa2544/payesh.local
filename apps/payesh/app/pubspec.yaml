@@ -11,6 +11,8 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   payesh_core:
+  payesh_data:
+  payesh_secure:
 dev_dependencies:
   flutter_test:
     sdk: flutter

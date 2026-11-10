@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:payesh_core/payesh_core.dart';
 
+import 'secure/local_storage.dart';
+
 /// Root widget of the native Payesh client (ADR-43). Persian, right-to-left, Material 3.
 /// The full design system (tokens, Jalali, bundled font, dark theme) arrives with row 73.
 class PayeshApp extends StatelessWidget {
-  const PayeshApp({super.key});
+  const PayeshApp({super.key, this.storage});
+
+  /// Encrypted local database being opened (row 72); null in widget previews.
+  final Future<LocalStorage>? storage;
 
   static const Locale fa = Locale('fa', 'IR');
 
@@ -21,28 +26,66 @@ class PayeshApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F766E)),
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: HomeScreen(storage: storage),
     );
   }
 }
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.storage});
+
+  final Future<LocalStorage>? storage;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('پایش')),
-      body: const Center(
+      body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('نسخهٔ بومی پایش', key: Key('home-title')),
-            SizedBox(height: 8),
-            Text(PayeshApi.syncContract, key: Key('home-contract')),
+            const Text('نسخهٔ بومی پایش', key: Key('home-title')),
+            const SizedBox(height: 8),
+            const Text(PayeshApi.syncContract, key: Key('home-contract')),
+            if (storage != null) ...[
+              const SizedBox(height: 8),
+              StorageStatus(storage: storage!),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Shows whether the encrypted local database opened (owner device check, row 72).
+class StorageStatus extends StatelessWidget {
+  const StorageStatus({super.key, required this.storage});
+
+  final Future<LocalStorage> storage;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<LocalStorage>(
+      future: storage,
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return const Text(
+            'خطای ذخیره‌سازی امن — داده‌ای باز نشد',
+            key: Key('storage-error'),
+          );
+        }
+        if (!snap.hasData) {
+          return const Text('در حال باز کردن پایگاه محلی…');
+        }
+        final s = snap.data!;
+        return Text(
+          s.quarantined == null
+              ? 'پایگاه محلی رمزنگاری‌شده فعال است'
+              : 'پایگاه محلی قبلی قابل رمزگشایی نبود؛ پایگاه تازه ساخته شد',
+          key: const Key('storage-ok'),
+        );
+      },
     );
   }
 }

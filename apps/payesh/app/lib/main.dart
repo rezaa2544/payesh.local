@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'src/app.dart';
+import 'src/secure/local_storage.dart';
 
 void main() {
-  runApp(const PayeshApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(PayeshApp(storage: openPlatformStorage()));
 }
