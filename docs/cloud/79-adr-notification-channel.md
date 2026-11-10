@@ -56,5 +56,5 @@
 
 ## ۴. وضعیت
 
-- تصمیم ثبت شد (D‑46). سیاست بازه‌ها در `apps/school-native/packages/payesh_sync/lib/src/adaptive_poller.dart` پیاده شده و آزمون واحد دارد (ردیف ۷۱).
+- تصمیم ثبت شد (D‑46). سیاست بازه‌ها در `apps/payesh/packages/payesh_sync/lib/src/adaptive_poller.dart` پیاده شده و آزمون واحد دارد (ردیف ۷۱).
 - سنجش تأخیر و باتری روی دستگاه واقعی جزو کارهای میدانی مالک است: `docs/cloud/reports/owner-handover-real-world.md`.

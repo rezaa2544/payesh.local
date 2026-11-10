@@ -7,7 +7,7 @@
 | ردیف Notion | ۶۲. همین سند پیش‌شرط ردیف‌های ۶۳ و ۶۹ تا ۷۵ است. ردیف ۸۱ مکمل آن است. |
 | مجری | ARENA سند را نوشت و OWNER امضا کرد (O‑25). |
 | مبنا | قانون اساسی: بند ۴ «یک هستهٔ کلاینت، چند سکو»، بند ۲۵ «مسیر داده فقط از Gateway»، §۴.۵.۱، §۱۴. همچنین ADR‑31 (موتور محلی) و ADR‑62 (استثنای WebView فقط برای پنل مالک). |
-| پیاده‌سازی | `apps/school-native/` و `tools/native-independence-gate.mjs`، با معیار ماشین‌خوان `docs/cloud/43-native-independence.json` و workflow `.github/workflows/native-client.yml`. |
+| پیاده‌سازی | `apps/payesh/` و `tools/native-independence-gate.mjs`، با معیار ماشین‌خوان `docs/cloud/43-native-independence.json` و workflow `.github/workflows/native-client.yml`. |
 
 ## ۱. متن تصمیم مالک (D‑43)
 
@@ -54,7 +54,7 @@
 - پنل مالک و استثنای WebView آن (ADR‑62 و D‑44). این ADR آن را عوض نمی‌کند.
 - اپ وب و پوسته‌های فعلی تا پایان مهاجرت (ردیف ۷۴) **کار می‌کنند و حذف نمی‌شوند**. پوستهٔ قدیمی تنها پس از عبور کلاینت بومی از گیت ۶۳ و پایلوت کنار می‌رود و این کار تصمیم جداگانهٔ مالک است.
 
-**بازنویسی می‌شود (در `apps/school-native/`):**
+**بازنویسی می‌شود (در `apps/payesh/`):**
 
 | بسته | نقش | ردیف |
 |---|---|---|
