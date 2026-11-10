@@ -1,0 +1,11 @@
+name: payesh_core
+description: Pure-Dart core of the Payesh native client (ids, clock, API constants, error codes). No Flutter dependency.
+publish_to: none
+version: 0.1.0
+resolution: workspace
+environment:
+  sdk: ^3.13.0
+dev_dependencies:
+  coverage: ^1.15.0
+  lints: ^6.0.0
+  test: ^1.26.0

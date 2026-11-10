@@ -1,0 +1,100 @@
+# rows 63 / 69 / 70 — raw CI output of native-client.yml on the REAL release build
+base_sha=3020c53e150ad9d7f17d8cba78d5067693e7f105
+date_utc=2026-11-10T20:36:23Z
+command= .github/workflows/native-client.yml (PR #170, run on 3020c53; jobs gate-controls, engine-web-conformance, dart, android, windows, native-gate)
+scope: [CI] GitHub-hosted runners (ubuntu-latest / windows-latest). Excerpts below are copied verbatim from the job logs (timestamps/ANSI stripped).
+source_jobs: engine-web=130107545547 android=130108571025 windows=130108570981 gate-controls=130107545048 dart=130107545439 native-gate=130111342002
+----
+## row 63 — gate self-test + negative controls (gate-controls job)
+  23 passed, 0 failed
+NATIVE-GATE-63-TEST-OK
+# native-independence-gate criterion=ADR-43/native-independence@v1 mode=expect-fail (negative control)
+FAIL android neg/payesh-local.apk sha256=eec12b7a08924693ee269e835984e09545395b969704ba527ccc386c89856aa3
+  stats {"dex":1,"methods":3831,"classes":434}
+  - entry assets/www/ (bundled web UI; 31 file(s), e.g. assets/www/app.js)
+  - classes.dex: method ref Landroid/webkit/WebView;-><init>
+  - classes.dex: method ref Landroid/webkit/WebView;->addJavascriptInterface
+  - classes.dex: method ref Landroid/webkit/WebView;->evaluateJavascript
+  - classes.dex: method ref Landroid/webkit/WebView;->loadUrl
+  - classes.dex: method ref Landroid/webkit/WebViewClient;-><init>
+  - classes.dex: method ref Landroid/webkit/WebChromeClient;-><init>
+  - classes.dex: string "addJavascriptInterface"
+FAIL android neg/payesh-owner.apk sha256=8d7e3721261c016716658d6b82f8e08276e2e76a41cca9ea013518bd272b4347
+  stats {"dex":1,"methods":141,"classes":11}
+  - classes.dex: method ref Landroid/webkit/WebView;-><init>
+  - classes.dex: method ref Landroid/webkit/WebView;->loadUrl
+  - classes.dex: method ref Landroid/webkit/WebViewClient;-><init>
+FAIL windows neg/payesh-local-windows.zip sha256=d9129128288f10f55c539b21433b8a989cf2f767c8aae56cbcb1a1bda905deff
+  stats {"files":779,"exes":["desktop/MicrosoftEdgeWebView2Setup.exe","desktop/Payesh.exe","runtime/MicrosoftEdgeWebView2Setup.exe","runtime/node.exe"]}
+  - entry client/index.html (web UI / Node server)
+  - file desktop/Microsoft.Web.WebView2.Core.dll
+  - file desktop/Microsoft.Web.WebView2.WinForms.dll
+  - file desktop/WebView2Loader.dll
+  - dir runtime/ (runtime/MicrosoftEdgeWebView2Setup.exe)
+  - file runtime/node.exe
+  - entry server/index.js (web UI / Node server)
+  - binary desktop/Microsoft.Web.WebView2.Core.dll contains "WebView2Loader.dll"
+  - binary desktop/WebView2Loader.dll contains "WebView2Loader.dll"
+FAIL windows releases/payesh-local-windows-0.9.2.zip sha256=b4c3d4ed143b5d33057eddaebd24d8aa396829de909c01caae9f355d706d6e7e
+  stats {"files":629,"exes":[]}
+  - no .exe in bundle (not a standalone Windows app)
+  - entry server/index.js (web UI / Node server)
+  - entry client/index.html (web UI / Node server)
+NATIVE-GATE-NEGATIVE-CONTROL-OK (every input was rejected)
+
+## rows 63 + 69 — Android release build gated (android job)
+✓ Built build/app/outputs/flutter-apk/app-release.apk (44.4MB)
+✓ Built build/app/outputs/bundle/release/app-release.aab (44.4MB)
+# native-independence-gate criterion=ADR-43/native-independence@v1 mode=enforce
+PASS android native-out/payesh-native.apk sha256=c047a4ba614e0fe69603e149b833a921d05da9d01931ba2799605f5ae1a87636
+  stats {"dex":1,"methods":3921,"classes":576}
+PASS android native-out/payesh-native.aab sha256=7b9e57c8baf0b96bb551d32903d7b3131898a2f8f7b46058389052de534904d6
+  stats {"dex":1,"methods":3921,"classes":576}
+NATIVE-GATE-OK
+
+## rows 63 + 69 — Windows release build gated (windows job)
+√ Built build\windows\x64\runner\Release\payesh_app.exe
+# native-independence-gate criterion=ADR-43/native-independence@v1 mode=enforce
+PASS windows apps/payesh/app/build/windows/x64/runner/Release
+  stats {"files":11,"exes":["payesh_app.exe"]}
+NATIVE-GATE-OK
+# native-independence-gate criterion=ADR-43/native-independence@v1 mode=enforce
+PASS windows native-out/payesh-native-windows.zip sha256=0fd56d99a3e04c7098716b6f68ba4cbd2f36b32519d52cf313f5140f0b73174a
+  stats {"files":11,"exes":["payesh_app.exe"]}
+NATIVE-GATE-OK
+
+## row 69 — pinned toolchain, deps, analyze, tests, coverage (dart job)
+/home/runner/work/_temp/flutter_linux_3.47.9-stable.tar.xz: OK
+  "frameworkRevision": "c197ca5199e9ee5661e865596c9c07294dfab51c",
+NATIVE-DEPS-OK
+No issues found! (ran in 7.0s)
+No issues found!
+No issues found!
+No issues found!
+🎉 9 tests passed.
+🎉 20 tests passed.
+COVERAGE-OK app/coverage/lcov.info lines=9/9 100.0% (min 80.0%)
+COVERAGE-OK packages/payesh_core/coverage/lcov.info lines=31/31 100.0% (min 80.0%)
+COVERAGE-OK packages/payesh_data/coverage/lcov.info lines=161/163 98.8% (min 80.0%)
+
+## row 70 — engine-v1 shared vectors on the web engine (engine-web-conformance job 130107545547)
+engine conformance engine-v1 v1 — web engine (IndexedDB)
+
+  ✓ put then get returns the stored row with derived k/refKeys
+  ✓ put overwrites by k (collection/id) and keeps one row
+  ✓ refKeys skip null and object values; explicit refFields override
+  ✓ putMany + list orders by key string within collection (IndexedDB primary-key order)
+  ✓ byRef returns only the requested collection, ordered by key
+  ✓ since is inclusive, ordered by updated_at then key, and honours limit
+  ✓ del removes one row; clear removes all
+  ✓ Persian text, numbers and nested JSON round-trip unchanged
+
+  8 passed, 0 failed (cases=8)
+CONFORMANCE-ENGINE-WEB-OK
+(the same vectors run against the Dart SQLite engine: "20 tests passed" for payesh_data above, incl. 8 conformance cases)
+
+## summary (native-gate job)
+echo "gate-controls=success engine-web=success dart=success android=success windows=success"
+echo NATIVE-CLIENT-CI-OK
+gate-controls=success engine-web=success dart=success android=success windows=success
+NATIVE-CLIENT-CI-OK

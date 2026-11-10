@@ -1,0 +1,993 @@
+{
+ "id": "engine-v1",
+ "version": 1,
+ "description": "Shared conformance vectors for the client data engine. The same file runs against client/engine-web.js (IndexedDB, tests/conformance-engine.js) and apps/payesh/packages/payesh_data (SQLite, Dart). Each case starts from an empty store. 'expect' compares the full row (refKeys compared as a sorted set); 'expect_ids' compares the ordered id list.",
+ "row_shape": [
+  "k",
+  "collection",
+  "id",
+  "data",
+  "version",
+  "refKeys",
+  "updated_at"
+ ],
+ "cases": [
+  {
+   "name": "put then get returns the stored row with derived k/refKeys",
+   "steps": [
+    {
+     "op": "put",
+     "collection": "attendance",
+     "id": 7,
+     "data": {
+      "id": 7,
+      "class_id": 3,
+      "student_id": 12,
+      "status": "present"
+     },
+     "updated_at": "2026-11-01T08:00:00.000Z"
+    },
+    {
+     "op": "get",
+     "collection": "attendance",
+     "id": 7,
+     "expect": {
+      "k": "attendance/7",
+      "collection": "attendance",
+      "id": 7,
+      "data": {
+       "id": 7,
+       "class_id": 3,
+       "student_id": 12,
+       "status": "present"
+      },
+      "version": 1,
+      "updated_at": "2026-11-01T08:00:00.000Z",
+      "refKeys": [
+       "class_id:3",
+       "id:7",
+       "student_id:12"
+      ]
+     }
+    },
+    {
+     "op": "get",
+     "collection": "attendance",
+     "id": 8,
+     "expect": null
+    },
+    {
+     "op": "count",
+     "collection": "attendance",
+     "expect": 1
+    },
+    {
+     "op": "count",
+     "collection": null,
+     "expect": 1
+    }
+   ]
+  },
+  {
+   "name": "put overwrites by k (collection/id) and keeps one row",
+   "steps": [
+    {
+     "op": "put",
+     "collection": "grades",
+     "id": 1,
+     "data": {
+      "score": 10
+     },
+     "version": 1,
+     "updated_at": "2026-11-01T08:00:00.000Z"
+    },
+    {
+     "op": "put",
+     "collection": "grades",
+     "id": 1,
+     "data": {
+      "score": 19.5
+     },
+     "version": 2,
+     "updated_at": "2026-11-01T09:00:00.000Z"
+    },
+    {
+     "op": "get",
+     "collection": "grades",
+     "id": 1,
+     "expect": {
+      "k": "grades/1",
+      "collection": "grades",
+      "id": 1,
+      "data": {
+       "score": 19.5
+      },
+      "version": 2,
+      "updated_at": "2026-11-01T09:00:00.000Z",
+      "refKeys": []
+     }
+    },
+    {
+     "op": "count",
+     "collection": "grades",
+     "expect": 1
+    }
+   ]
+  },
+  {
+   "name": "refKeys skip null and object values; explicit refFields override",
+   "steps": [
+    {
+     "op": "put",
+     "collection": "users",
+     "id": 2,
+     "data": {
+      "id": 2,
+      "school_id": null,
+      "meta_id": {
+       "x": 1
+      },
+      "role": "teacher",
+      "class_id": "9a"
+     },
+     "updated_at": "2026-11-01T08:00:00.000Z"
+    },
+    {
+     "op": "get",
+     "collection": "users",
+     "id": 2,
+     "expect": {
+      "k": "users/2",
+      "collection": "users",
+      "id": 2,
+      "data": {
+       "id": 2,
+       "school_id": null,
+       "meta_id": {
+        "x": 1
+       },
+       "role": "teacher",
+       "class_id": "9a"
+      },
+      "version": 1,
+      "updated_at": "2026-11-01T08:00:00.000Z",
+      "refKeys": [
+       "class_id:9a",
+       "id:2"
+      ]
+     }
+    },
+    {
+     "op": "put",
+     "collection": "users",
+     "id": 3,
+     "data": {
+      "id": 3,
+      "class_id": 4,
+      "role": "admin"
+     },
+     "refFields": [
+      "role"
+     ],
+     "updated_at": "2026-11-01T08:00:00.000Z"
+    },
+    {
+     "op": "get",
+     "collection": "users",
+     "id": 3,
+     "expect": {
+      "k": "users/3",
+      "collection": "users",
+      "id": 3,
+      "data": {
+       "id": 3,
+       "class_id": 4,
+       "role": "admin"
+      },
+      "version": 1,
+      "updated_at": "2026-11-01T08:00:00.000Z",
+      "refKeys": [
+       "role:admin"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "putMany + list orders by key string within collection (IndexedDB primary-key order)",
+   "steps": [
+    {
+     "op": "putMany",
+     "rows": [
+      {
+       "collection": "attendance",
+       "id": 1,
+       "data": {
+        "id": 1,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:01.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 2,
+       "data": {
+        "id": 2,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:02.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 3,
+       "data": {
+        "id": 3,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:03.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 4,
+       "data": {
+        "id": 4,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:04.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 5,
+       "data": {
+        "id": 5,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:05.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 6,
+       "data": {
+        "id": 6,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:06.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 7,
+       "data": {
+        "id": 7,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:07.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 8,
+       "data": {
+        "id": 8,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:08.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 9,
+       "data": {
+        "id": 9,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:09.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 10,
+       "data": {
+        "id": 10,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:10.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 11,
+       "data": {
+        "id": 11,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:11.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 12,
+       "data": {
+        "id": 12,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:12.000Z"
+      },
+      {
+       "collection": "grades",
+       "id": 1,
+       "data": {
+        "id": 1,
+        "class_id": 1
+       },
+       "updated_at": "2026-11-01T08:00:30.000Z"
+      }
+     ],
+     "expect": 13
+    },
+    {
+     "op": "count",
+     "collection": "attendance",
+     "expect": 12
+    },
+    {
+     "op": "list",
+     "collection": "attendance",
+     "limit": 5,
+     "offset": 0,
+     "expect_ids": [
+      1,
+      10,
+      11,
+      12,
+      2
+     ]
+    },
+    {
+     "op": "list",
+     "collection": "attendance",
+     "limit": 3,
+     "offset": 5,
+     "expect_ids": [
+      3,
+      4,
+      5
+     ]
+    },
+    {
+     "op": "list",
+     "collection": "attendance",
+     "limit": 100,
+     "offset": 11,
+     "expect_ids": [
+      9
+     ]
+    },
+    {
+     "op": "list",
+     "collection": "nothing",
+     "limit": 10,
+     "offset": 0,
+     "expect_ids": []
+    }
+   ]
+  },
+  {
+   "name": "byRef returns only the requested collection, ordered by key",
+   "steps": [
+    {
+     "op": "putMany",
+     "rows": [
+      {
+       "collection": "attendance",
+       "id": 1,
+       "data": {
+        "id": 1,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:01.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 2,
+       "data": {
+        "id": 2,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:02.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 3,
+       "data": {
+        "id": 3,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:03.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 4,
+       "data": {
+        "id": 4,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:04.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 5,
+       "data": {
+        "id": 5,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:05.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 6,
+       "data": {
+        "id": 6,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:06.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 7,
+       "data": {
+        "id": 7,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:07.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 8,
+       "data": {
+        "id": 8,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:08.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 9,
+       "data": {
+        "id": 9,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:09.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 10,
+       "data": {
+        "id": 10,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:10.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 11,
+       "data": {
+        "id": 11,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:11.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 12,
+       "data": {
+        "id": 12,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:12.000Z"
+      },
+      {
+       "collection": "grades",
+       "id": 1,
+       "data": {
+        "id": 1,
+        "class_id": 1
+       },
+       "updated_at": "2026-11-01T08:00:30.000Z"
+      }
+     ],
+     "expect": 13
+    },
+    {
+     "op": "byRef",
+     "collection": "attendance",
+     "field": "class_id",
+     "value": 1,
+     "expect_ids": [
+      12,
+      3,
+      6,
+      9
+     ]
+    },
+    {
+     "op": "byRef",
+     "collection": "grades",
+     "field": "class_id",
+     "value": 1,
+     "expect_ids": [
+      1
+     ]
+    },
+    {
+     "op": "byRef",
+     "collection": "attendance",
+     "field": "class_id",
+     "value": "2",
+     "expect_ids": [
+      1,
+      10,
+      4,
+      7
+     ]
+    },
+    {
+     "op": "byRef",
+     "collection": "attendance",
+     "field": "teacher_id",
+     "value": 1,
+     "expect_ids": []
+    }
+   ]
+  },
+  {
+   "name": "since is inclusive, ordered by updated_at then key, and honours limit",
+   "steps": [
+    {
+     "op": "putMany",
+     "rows": [
+      {
+       "collection": "attendance",
+       "id": 1,
+       "data": {
+        "id": 1,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:01.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 2,
+       "data": {
+        "id": 2,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:02.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 3,
+       "data": {
+        "id": 3,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:03.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 4,
+       "data": {
+        "id": 4,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:04.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 5,
+       "data": {
+        "id": 5,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:05.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 6,
+       "data": {
+        "id": 6,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:06.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 7,
+       "data": {
+        "id": 7,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:07.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 8,
+       "data": {
+        "id": 8,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:08.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 9,
+       "data": {
+        "id": 9,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:09.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 10,
+       "data": {
+        "id": 10,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:10.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 11,
+       "data": {
+        "id": 11,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:11.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 12,
+       "data": {
+        "id": 12,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:12.000Z"
+      },
+      {
+       "collection": "grades",
+       "id": 1,
+       "data": {
+        "id": 1,
+        "class_id": 1
+       },
+       "updated_at": "2026-11-01T08:00:30.000Z"
+      }
+     ],
+     "expect": 13
+    },
+    {
+     "op": "since",
+     "collection": "attendance",
+     "iso": "2026-11-01T08:00:10.000Z",
+     "limit": 1000,
+     "expect_ids": [
+      10,
+      11,
+      12
+     ]
+    },
+    {
+     "op": "since",
+     "collection": "attendance",
+     "iso": "2026-11-01T08:00:00.000Z",
+     "limit": 2,
+     "expect_ids": [
+      1,
+      2
+     ]
+    },
+    {
+     "op": "since",
+     "collection": "attendance",
+     "iso": "2026-11-02T00:00:00.000Z",
+     "limit": 10,
+     "expect_ids": []
+    },
+    {
+     "op": "since",
+     "collection": "grades",
+     "iso": "2026-01-01T00:00:00.000Z",
+     "limit": 10,
+     "expect_ids": [
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "name": "del removes one row; clear removes all",
+   "steps": [
+    {
+     "op": "putMany",
+     "rows": [
+      {
+       "collection": "attendance",
+       "id": 1,
+       "data": {
+        "id": 1,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:01.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 2,
+       "data": {
+        "id": 2,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:02.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 3,
+       "data": {
+        "id": 3,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:03.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 4,
+       "data": {
+        "id": 4,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:04.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 5,
+       "data": {
+        "id": 5,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:05.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 6,
+       "data": {
+        "id": 6,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:06.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 7,
+       "data": {
+        "id": 7,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:07.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 8,
+       "data": {
+        "id": 8,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:08.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 9,
+       "data": {
+        "id": 9,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:09.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 10,
+       "data": {
+        "id": 10,
+        "class_id": 2,
+        "status": "absent"
+       },
+       "updated_at": "2026-11-01T08:00:10.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 11,
+       "data": {
+        "id": 11,
+        "class_id": 3,
+        "status": "late"
+       },
+       "updated_at": "2026-11-01T08:00:11.000Z"
+      },
+      {
+       "collection": "attendance",
+       "id": 12,
+       "data": {
+        "id": 12,
+        "class_id": 1,
+        "status": "present"
+       },
+       "updated_at": "2026-11-01T08:00:12.000Z"
+      },
+      {
+       "collection": "grades",
+       "id": 1,
+       "data": {
+        "id": 1,
+        "class_id": 1
+       },
+       "updated_at": "2026-11-01T08:00:30.000Z"
+      }
+     ],
+     "expect": 13
+    },
+    {
+     "op": "del",
+     "collection": "attendance",
+     "id": 3
+    },
+    {
+     "op": "get",
+     "collection": "attendance",
+     "id": 3,
+     "expect": null
+    },
+    {
+     "op": "byRef",
+     "collection": "attendance",
+     "field": "class_id",
+     "value": 1,
+     "expect_ids": [
+      12,
+      6,
+      9
+     ]
+    },
+    {
+     "op": "del",
+     "collection": "attendance",
+     "id": 999
+    },
+    {
+     "op": "count",
+     "collection": null,
+     "expect": 12
+    },
+    {
+     "op": "stats",
+     "expect": {
+      "total": 12,
+      "collections": {
+       "attendance": 11,
+       "grades": 1
+      }
+     }
+    },
+    {
+     "op": "clear"
+    },
+    {
+     "op": "count",
+     "collection": null,
+     "expect": 0
+    }
+   ]
+  },
+  {
+   "name": "Persian text, numbers and nested JSON round-trip unchanged",
+   "steps": [
+    {
+     "op": "put",
+     "collection": "notes",
+     "id": 1,
+     "data": {
+      "id": 1,
+      "title": "یادداشت کلاس ۷",
+      "score": 17.25,
+      "tags": [
+       "ریاضی",
+       "آزمون"
+      ],
+      "nested": {
+       "a": [
+        1,
+        2,
+        {
+         "b": null
+        }
+       ]
+      },
+      "flag": true
+     },
+     "updated_at": "2026-11-01T08:00:00.000Z"
+    },
+    {
+     "op": "get",
+     "collection": "notes",
+     "id": 1,
+     "expect": {
+      "k": "notes/1",
+      "collection": "notes",
+      "id": 1,
+      "data": {
+       "id": 1,
+       "title": "یادداشت کلاس ۷",
+       "score": 17.25,
+       "tags": [
+        "ریاضی",
+        "آزمون"
+       ],
+       "nested": {
+        "a": [
+         1,
+         2,
+         {
+          "b": null
+         }
+        ]
+       },
+       "flag": true
+      },
+      "version": 1,
+      "updated_at": "2026-11-01T08:00:00.000Z",
+      "refKeys": [
+       "id:1"
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}
