@@ -1,6 +1,6 @@
 {
   "app": "payesh-local",
-  "url": "https://payesh-XXXX.tail1234.ts.net",
+  "url": "",
   "urls": [],
   "note": "این فایل دیگر لازم نیست: نسخهٔ اندروید داده را خودش از صندوقچهٔ ابری می‌گیرد و با شماره+رمزِ تعریف‌شده در مدرسه وارد می‌شود. اگر آدرس ثابتی دارید (Tailscale/دامنهٔ خودتان) می‌توانید در «urls» بگذارید تا گوشی در شبکهٔ مدرسه مستقیم به همان سرور وصل شود.",
   "note_en": "Optional. The Android app works on its own (local login + cloud outbox) and needs no server address.",
