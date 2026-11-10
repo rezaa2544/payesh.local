@@ -1,0 +1,13 @@
+name: payesh_secure
+description: Device secret storage of the Payesh native app (row 72) — SecureStore contract, Windows DPAPI implementation, test fake, and the database-key manager.
+publish_to: none
+version: 0.1.0
+resolution: workspace
+environment:
+  sdk: ^3.13.0
+dependencies:
+  ffi: ^2.1.4
+dev_dependencies:
+  coverage: ^1.15.0
+  lints: ^6.0.0
+  test: ^1.26.0

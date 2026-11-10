@@ -9,3 +9,8 @@ workspace:
   - packages/payesh_core
   - packages/payesh_data
   - packages/payesh_sync
+  - packages/payesh_secure
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc

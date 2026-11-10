@@ -5,6 +5,7 @@
 /// `docs/cloud/contracts/conformance/engine-v1.json`.
 library;
 
+export 'src/encrypted_database.dart';
 export 'src/engine.dart';
 export 'src/migrations.dart';
 export 'src/sqlite_engine.dart';

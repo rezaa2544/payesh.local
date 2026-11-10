@@ -1,7 +1,7 @@
 name: native-client
 
 # ═══════════════════════════════════════════════════════════════════
-#  Native Payesh client — ADR-43 / D-43 · rows 63 + 69 + 70 + 71 (72–75 add packages here)
+#  Native Payesh client — ADR-43 / D-43 · rows 63 + 69 + 70 + 71 + 72 (73–75 add packages here)
 #  One Flutter/Dart codebase → standalone Android APK/AAB + Windows EXE.
 #  No WebView, no browser wrapper, no Node.js in the client bundle.
 #
@@ -254,6 +254,21 @@ jobs:
           node tools/native-independence-gate.mjs --android native-out/payesh-native.apk native-out/payesh-native.aab | tee native-out/native-gate-android.txt
           grep -q '^NATIVE-GATE-OK' native-out/native-gate-android.txt
           (cd native-out && sha256sum payesh-native.apk payesh-native.aab | tee SHA256SUMS-android)
+      # Row 72: the APK must carry the encrypting SQLite build (SQLite3 Multiple Ciphers) for
+      # every ABI — never plain SQLite (the app refuses to open its database without it).
+      - name: Encrypted SQLite is bundled in the APK (row 72)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/apkx && unzip -q -o native-out/payesh-native.apk 'lib/*' -d /tmp/apkx
+          found=0
+          for so in $(find /tmp/apkx/lib -name '*sqlite3*.so'); do
+            v=$(grep -a -o -m1 'SQLite3 Multiple Ciphers [0-9.]*' "$so" | head -1 || true)
+            echo "$(echo "$so" | sed 's#/tmp/apkx/##') sha256=$(sha256sum "$so" | cut -c1-64) ${v:-NO-CIPHER}"
+            test -n "$v"
+            found=$((found+1))
+          done | tee native-out/sqlite-cipher-android.txt
+          test "$(grep -c 'Multiple Ciphers' native-out/sqlite-cipher-android.txt)" -ge 1
+          echo SQLITE-CIPHER-ANDROID-OK | tee -a native-out/sqlite-cipher-android.txt
       - uses: actions/upload-artifact@v4
         with:
           name: native-android
@@ -290,6 +305,37 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'pub get failed' }
           flutter build windows --release
           if ($LASTEXITCODE -ne 0) { throw 'flutter build windows failed' }
+      # Row 72: real DPAPI (crypt32.dll) + encrypted SQLite on Windows — not a fake.
+      - name: payesh_secure (REAL DPAPI) + payesh_data (SQLite3MC) tests on Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Push-Location apps/payesh/packages/payesh_secure
+          dart test --reporter expanded test/dpapi_windows_test.dart | Tee-Object -FilePath "$env:GITHUB_WORKSPACE/dpapi-windows.txt"
+          if ($LASTEXITCODE -ne 0) { throw 'DPAPI tests failed' }
+          Pop-Location
+          $t = Get-Content "$env:GITHUB_WORKSPACE/dpapi-windows.txt" -Raw
+          if ($t -notmatch '\+5: All tests passed') { throw 'expected exactly 5 DPAPI tests to pass' }
+          if ($t -match '~[0-9]+') { throw 'DPAPI tests were skipped' }
+          Push-Location apps/payesh/packages/payesh_data
+          dart test --reporter expanded test/encrypted_database_test.dart | Tee-Object -FilePath "$env:GITHUB_WORKSPACE/sqlcipher-windows.txt"
+          if ($LASTEXITCODE -ne 0) { throw 'encrypted database tests failed on Windows' }
+          Pop-Location
+          'DPAPI-WINDOWS-OK' | Tee-Object -FilePath "$env:GITHUB_WORKSPACE/dpapi-windows.txt" -Append
+      - name: Encrypted SQLite is bundled in the Windows build (row 72)
+        shell: bash
+        run: |
+          set -euo pipefail
+          REL=apps/payesh/app/build/windows/x64/runner/Release
+          mkdir -p native-out
+          for d in $(find "$REL" -iname '*sqlite3*.dll'); do
+            v=$(grep -a -o -m1 'SQLite3 Multiple Ciphers [0-9.]*' "$d" | head -1 || true)
+            echo "$(basename "$d") sha256=$(sha256sum "$d" | cut -c1-64) ${v:-NO-CIPHER}"
+            test -n "$v"
+          done | tee native-out/sqlite-cipher-windows.txt
+          grep -q 'Multiple Ciphers' native-out/sqlite-cipher-windows.txt
+          cp dpapi-windows.txt sqlcipher-windows.txt native-out/
+          echo SQLITE-CIPHER-WINDOWS-OK | tee -a native-out/sqlite-cipher-windows.txt
       - name: Native gate on the REAL Windows bundle
         shell: bash
         run: |
