@@ -1,0 +1,26 @@
+{
+  "id": "ADR-43/native-independence",
+  "version": 1,
+  "decision": "D-43",
+  "android": {
+    "forbidden_method_refs": [
+      { "class": "Landroid/webkit/WebView;", "names": ["<init>", "loadUrl", "loadData", "loadDataWithBaseURL", "addJavascriptInterface", "evaluateJavascript", "postUrl"] },
+      { "class": "Landroid/webkit/WebViewClient;", "names": ["<init>"] },
+      { "class": "Landroid/webkit/WebChromeClient;", "names": ["<init>"] }
+    ],
+    "forbidden_class_prefixes": [
+      "Landroidx/webkit/",
+      "Lcom/getcapacitor/",
+      "Lorg/apache/cordova/",
+      "Lio/ionic/"
+    ],
+    "forbidden_strings": ["addJavascriptInterface"],
+    "forbidden_entries": ["assets/www/", "assets/public/index.html", "assets/index.html"]
+  },
+  "windows": {
+    "require_exe": true,
+    "forbidden_files": ["node.exe", "webview2loader.dll", "microsoft.web.webview2.core.dll", "microsoft.web.webview2.winforms.dll", "microsoft.web.webview2.wpf.dll"],
+    "forbidden_dirs": ["runtime/", "node_modules/"],
+    "forbidden_binary_strings": ["WebView2Loader.dll", "CreateCoreWebView2Environment"]
+  }
+}
