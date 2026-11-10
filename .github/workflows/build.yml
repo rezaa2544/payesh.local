@@ -355,7 +355,10 @@ jobs:
           tail -4 /tmp/gradle.log
           echo "آدرس پخته‌شده در APK: ${PAYESH_APP_URL:-خالی (برنامه از android-config.json یا شبکه پیدا می‌کند)}"
 
+      # بدون امضای مجاز، گام ساخت قبلاً به‌صورت صریح رد شده است؛ هیچ APK برای بررسی نیست.
+      # وقتی آماده‌سازی Secret موفق شد، هر دو بررسی همچنان اجباری و fail-closed هستند.
       - name: بررسی امضا و استانداردهای APK (گوگل)
+        if: steps.signing.outputs.ready == 'true'
         run: |
           set +e
           APK=install/android/app/build/outputs/apk/release/app-release.apk
@@ -404,6 +407,7 @@ jobs:
           echo "APK امضا شده است."
 
       - name: بررسی سلامت APK
+        if: steps.signing.outputs.ready == 'true'
         run: |
           if [ "${{ steps.signing.outputs.ready }}" != "true" ]; then
             echo "بررسی APK رد شد: APK امضاشده وجود ندارد (امضا در دسترس نیست)."
