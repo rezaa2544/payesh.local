@@ -1,0 +1,46 @@
+{
+  "vector": "pagination-v1",
+  "contract": "native-api-v1",
+  "endpoint": "GET /api/gw/v1/pull",
+  "description": "Cursor pagination over the change-feed. A client keeps next_seq and repeats while more=true. No row is skipped or repeated across pages; an empty page keeps the cursor. limit is clamped server-side.",
+  "seed_rows": 25,
+  "gateway_pull_max": 50,
+  "walk": {
+    "limit": 10,
+    "expect_pages": [
+      10,
+      10,
+      5
+    ],
+    "expect_more": [
+      true,
+      true,
+      false
+    ],
+    "expect_unique_total": 25,
+    "expect_cursor_strictly_increasing": true,
+    "expect_final_empty_page": {
+      "count": 0,
+      "more": false,
+      "cursor_unchanged": true
+    }
+  },
+  "clamp": [
+    {
+      "limit": "0",
+      "expect_clamped_limit": 1
+    },
+    {
+      "limit": "5000",
+      "expect_clamped_limit": 50
+    },
+    {
+      "limit": "abc",
+      "expect_clamped_limit": 50
+    },
+    {
+      "limit": "7",
+      "expect_clamped_limit": 7
+    }
+  ]
+}

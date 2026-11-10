@@ -1658,6 +1658,73 @@ paths:
           $ref: '#/components/responses/Error'
         '403':
           $ref: '#/components/responses/Error'
+  /api/dir/v1/resolve:
+    get:
+      operationId: getDirV1Resolve
+      tags: [gateway]
+      summary: "Public Directory bootstrap: school code to cell URL (row 66, no token, rate-limited)"
+      x-source: server/gateway.js
+      security: []
+      parameters:
+        - name: school_code
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 40
+      responses:
+        '200':
+          description: Route of exactly the asked school (never a list). Normative schema in docs/cloud/contracts/native-api-v1.schema.json#/$defs/directoryResolveResponse
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, schema_version, school_code, cell_id, cell_url, version, ttl, migration_state]
+                properties:
+                  ok:
+                    type: boolean
+                  schema_version:
+                    type: integer
+                  school_code:
+                    type: string
+                  cell_id:
+                    type: string
+                    format: uuid
+                  cell_url:
+                    type: string
+                  version:
+                    type: integer
+                    minimum: 1
+                  ttl:
+                    type: integer
+                    minimum: 1
+                  migration_state:
+                    type: string
+                    enum: [stable, migrating, moved]
+                  stale:
+                    type: boolean
+        '400':
+          description: bad_client_header or api_version_unsupported (native clients only)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: not_found for an unknown OR malformed code (identical body, no enumeration oracle)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '426':
+          description: upgrade_required (native client outside the supported version window)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/gw/v1/pull:
     get:
       operationId: getGwV1Pull

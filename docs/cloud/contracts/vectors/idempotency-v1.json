@@ -1,0 +1,169 @@
+{
+  "vector": "idempotency-v1",
+  "contract": "native-api-v1",
+  "endpoint": "POST /api/gw/v1/push",
+  "description": "Each op carries a client-generated uid (idempotency key). Re-sending an op (retry, crash, reconnect, cell move) never applies it twice: it comes back under duplicates. Steps run in order against one fresh tenant; expect = counts in the response.",
+  "steps": [
+    {
+      "name": "first send applies",
+      "ops": [
+        {
+          "uid": "v64-u1",
+          "collection": "attendance",
+          "id": 1,
+          "type": "put",
+          "data": {
+            "status": "present",
+            "class_id": 10,
+            "student_id": 1
+          }
+        }
+      ],
+      "expect": {
+        "applied": 1,
+        "duplicates": 0,
+        "conflicts": 0
+      }
+    },
+    {
+      "name": "exact retry is a duplicate",
+      "ops": [
+        {
+          "uid": "v64-u1",
+          "collection": "attendance",
+          "id": 1,
+          "type": "put",
+          "data": {
+            "status": "present",
+            "class_id": 10,
+            "student_id": 1
+          }
+        }
+      ],
+      "expect": {
+        "applied": 0,
+        "duplicates": 1,
+        "conflicts": 0
+      }
+    },
+    {
+      "name": "retry with a changed body is still a duplicate (uid wins)",
+      "ops": [
+        {
+          "uid": "v64-u1",
+          "collection": "attendance",
+          "id": 1,
+          "type": "put",
+          "data": {
+            "status": "absent",
+            "class_id": 10,
+            "student_id": 1
+          }
+        }
+      ],
+      "expect": {
+        "applied": 0,
+        "duplicates": 1,
+        "conflicts": 0
+      }
+    },
+    {
+      "name": "mixed batch: old uid duplicate, new uid applied",
+      "ops": [
+        {
+          "uid": "v64-u1",
+          "collection": "attendance",
+          "id": 1,
+          "type": "put",
+          "data": {
+            "status": "present"
+          }
+        },
+        {
+          "uid": "v64-u2",
+          "collection": "attendance",
+          "id": 2,
+          "type": "put",
+          "data": {
+            "status": "present",
+            "class_id": 10,
+            "student_id": 2
+          }
+        }
+      ],
+      "expect": {
+        "applied": 1,
+        "duplicates": 1,
+        "conflicts": 0
+      }
+    },
+    {
+      "name": "same uid twice in one batch → second is a duplicate",
+      "ops": [
+        {
+          "uid": "v64-u3",
+          "collection": "homework",
+          "id": 3,
+          "type": "put",
+          "data": {
+            "title": "a"
+          }
+        },
+        {
+          "uid": "v64-u3",
+          "collection": "homework",
+          "id": 3,
+          "type": "put",
+          "data": {
+            "title": "a"
+          }
+        }
+      ],
+      "expect": {
+        "applied": 1,
+        "duplicates": 1,
+        "conflicts": 0
+      }
+    },
+    {
+      "name": "stale base_version → conflict, not overwrite",
+      "ops": [
+        {
+          "uid": "v64-u4",
+          "collection": "attendance",
+          "id": 1,
+          "type": "put",
+          "base_version": 0,
+          "data": {
+            "status": "late"
+          }
+        }
+      ],
+      "expect": {
+        "applied": 0,
+        "duplicates": 0,
+        "conflicts": 1
+      }
+    },
+    {
+      "name": "conflict retry is a duplicate (verdict is final)",
+      "ops": [
+        {
+          "uid": "v64-u4",
+          "collection": "attendance",
+          "id": 1,
+          "type": "put",
+          "base_version": 0,
+          "data": {
+            "status": "late"
+          }
+        }
+      ],
+      "expect": {
+        "applied": 0,
+        "duplicates": 1,
+        "conflicts": 0
+      }
+    }
+  ]
+}

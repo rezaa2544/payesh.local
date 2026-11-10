@@ -14,6 +14,7 @@ const crypto = require('crypto');
 
 const { openStore } = require('./db');
 const auth = require('./auth');
+const apiVersion = require('./api-version');
 const sync = require('./sync');
 const policy = require('./policy');
 const cfg = require('./config');
@@ -1953,6 +1954,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname.startsWith('/api/')) {
+      /* row 64: native API version policy (web clients send no X-Payesh-Client → untouched) */
+      const verdict = apiVersion.check(url.pathname, req.headers);
+      if (verdict) {
+        res.writeHead(verdict.status, Object.assign({ 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }, verdict.headers));
+        res.end(JSON.stringify(verdict.body));
+        return;
+      }
+      if (req.headers['x-payesh-client']) {
+        for (const [k, v] of Object.entries(apiVersion.responseHeaders())) res.setHeader(k, v);
+      }
       const out = await api(req, res, url, ip);
       if (out && !res.writableEnded) {
         const body = out.body !== undefined ? out.body : JSON.stringify(out);

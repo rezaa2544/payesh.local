@@ -1,6 +1,6 @@
 {
   "version": "0.9.2",
-  "built_at": "2026-11-10T22:16:22.205Z",
+  "built_at": "2026-11-10T22:32:15.515Z",
   "notes": [
     "نگاشت آیکون‌های نبض هر دو شکل ایموجی با و بدون variation selector را به SVG یکسان می‌برد.",
     "بسته‌های نصب و مانیفست برای نگاشت آیکون‌های اصلاح‌شده به نسخهٔ 0.9.2 ارتقا یافتند."
@@ -214,6 +214,12 @@
       "size": 7485
     },
     {
+      "path": "server/api-version.js",
+      "kind": "server",
+      "sha256": "c311a64eee4e8cd011539acd4c8019f9c09b8e9ea91ab1f3439a2374b7f50d7f",
+      "size": 5265
+    },
+    {
       "path": "server/archive.js",
       "kind": "server",
       "sha256": "f1d33a03674c23a7d4ca9fe3a7b1a6c2871e988f5da021b8024112a02372b405",
@@ -250,22 +256,28 @@
       "size": 14325
     },
     {
+      "path": "server/directory-api.js",
+      "kind": "server",
+      "sha256": "0702e8bc66be105a6634683311c254dc8d9bd663c4775a820496a83b12c03650",
+      "size": 4937
+    },
+    {
       "path": "server/directory.js",
       "kind": "server",
-      "sha256": "7bbba19a357ed708e01668993c5b08c6ad01ce3e14fadad65110eafde318bc5b",
-      "size": 7796
+      "sha256": "314d58df4152827a4f6d146c9ee339a696188d310f672c8b30fe94c931f67c57",
+      "size": 10377
     },
     {
       "path": "server/gateway.js",
       "kind": "server",
-      "sha256": "d5d75171173adcfe55a893f1327e8feae2b415a52308479a855de2ff203ac362",
-      "size": 21148
+      "sha256": "bc08ddc4ac1a0af1dfc9ecc4464d7e0b06ead913e8ab4c30e4f841d2d91c02a0",
+      "size": 22758
     },
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "2f2386705bfa04d42959dbb651b2fe3b3d2d45e9a188735b0c4ae355ef8ce653",
-      "size": 120273
+      "sha256": "bf012ee5736567793e074d89444547f6c4867c9f4104da8ce7f3b2f42e129042",
+      "size": 120878
     },
     {
       "path": "server/live.js",
@@ -402,9 +414,9 @@
   ],
   "counts": {
     "client": 31,
-    "server": 34
+    "server": 36
   },
   "client_size": 1462810,
-  "server_size": 515563,
-  "total_size": 1978373
+  "server_size": 530561,
+  "total_size": 1993371
 }

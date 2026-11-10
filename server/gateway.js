@@ -23,6 +23,11 @@ const metrics = require('./metrics');
    توکن، نقش و pool آن کاملاً جدا از احراز مدرسه است. هیچ URL/توکن/رازی
    در کد hard-code نشده؛ نبود تنظیم ⇒ 503 not_configured (fail-closed). */
 const platformApiModule = require('../apps/owner-panel/server/platform-api');
+/* row 64: native API version policy (N-1/N-2 window, 426 upgrade_required) */
+const apiVersion = require('./api-version');
+/* row 66: public Directory bootstrap (school code → cell URL), central DB only */
+const directory = require('./directory');
+const directoryApiModule = require('./directory-api');
 
 const PORT = Number(process.env.PORT || 5660);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -96,6 +101,21 @@ if (PLATFORM_PGURL) {
   });
   platformPool.on('error', () => { /* خرابی pool پلتفرم، Gateway مدرسه را نمیکشد */ });
 }
+/* row 66: the Directory lives in the central database (never a cell's tenant DB).
+   Without PAYESH_DIRECTORY_PGURL the resolve endpoint answers 503 not_configured. */
+const DIRECTORY_PGURL = String(process.env.PAYESH_DIRECTORY_PGURL || '').trim();
+let directoryResolver = null;
+if (DIRECTORY_PGURL) {
+  const { Pool } = require('pg');
+  const directoryPool = new Pool({
+    connectionString: DIRECTORY_PGURL, max: 2,
+    application_name: 'payesh-directory', statement_timeout: 3000,
+  });
+  directoryPool.on('error', () => { /* a dead directory connection must not kill the gateway */ });
+  directoryResolver = directory.createResolver(directoryPool);
+}
+const directoryApi = directoryApiModule.createDirectoryApi({ resolver: directoryResolver });
+
 const platformApi = platformApiModule.createPlatformApi({
   db: platformApiModule.createPgAdapter(platformPool),
   secret: PLATFORM_SECRET,
@@ -265,6 +285,18 @@ async function handle(req, res, url) {
      توکن مدرسه هم توسط verifyPlatformToken ساختاراً رد میشود. */
   if (p === '/api/platform/v1' || p.startsWith('/api/platform/v1/')) {
     return platformApi.handle(req, res, url);
+  }
+
+  /* ── row 64: version policy for native clients, before auth and DB ─── */
+  const verdict = apiVersion.check(p, req.headers);
+  if (verdict) return json(res, verdict.status, verdict.body, verdict.headers);
+  if (req.headers['x-payesh-client']) {
+    for (const [k, v] of Object.entries(apiVersion.responseHeaders())) res.setHeader(k, v);
+  }
+
+  /* ── row 66: public Directory resolve (no token, no tenant data) ────── */
+  if (p === '/api/dir/v1/resolve' && m === 'GET') {
+    return directoryApi(req, res, url, json);
   }
 
   if (!enabled) return json(res, 503, { ok: false, error: 'not_configured' });

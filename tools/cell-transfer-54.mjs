@@ -93,6 +93,23 @@ async function primaryKeyOf(client, rawTable) {
   return hasId.rowCount ? ['id'] : null;
 }
 
+/* Row 66 fix: copied rows keep their source serial values (e.g. change-feed seq).
+   Without this, the target's sequence still starts at 1 and the first new write
+   after a school transfer collides with a copied row (23505 unique_violation).
+   Each serial/identity column's sequence is moved to at least max(column). */
+async function advanceSequences(dst, t, names) {
+  for (const raw of names) {
+    const col = transfer.ident(raw);
+    const s = await dst.query('select pg_get_serial_sequence($1, $2) as seq', [t, col]);
+    const seq = s.rows[0] && s.rows[0].seq;
+    if (!seq) continue;
+    const m = await dst.query(`select coalesce(max(${col}), 0)::bigint as mx, pg_sequence_last_value($1::regclass) as lv from ${t}`, [seq]);
+    const mx = Number(m.rows[0].mx || 0);
+    const lv = m.rows[0].lv == null ? 0 : Number(m.rows[0].lv);
+    if (mx > lv) await dst.query('select setval($1::regclass, $2::bigint, true)', [seq, mx]);
+  }
+}
+
 async function copyTenant(src, dst, tenantId) {
   const batchId = crypto.randomUUID();
   const inserted = {};
@@ -116,6 +133,7 @@ async function copyTenant(src, dst, tenantId) {
         `insert into ${t} (${names.join(',')}) values (${ph}) on conflict do nothing returning 1`, vals);
       if (r.rowCount > 0 && pk) inserted[t].rows.push(pk.map(c => row[c]));
     }
+    await advanceSequences(dst, t, names);
   }
   await transfer.ensureTables(dst);
   await dst.query(

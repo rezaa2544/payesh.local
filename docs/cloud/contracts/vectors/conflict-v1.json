@@ -1,0 +1,425 @@
+{
+  "vector": "conflict-v1",
+  "contract": "native-api-v1",
+  "source_of_truth": "server/convergence.js decide() (docs/cloud/14-conflict-convergence.md, D-28)",
+  "description": "Field-level conflict verdicts. A client implementation must reach the same action/reason/fields for each case. Server time only; client clocks never decide.",
+  "cases": [
+    {
+      "name": "new row is never a conflict",
+      "input": {
+        "collection": "attendance",
+        "type": "put",
+        "existing": null,
+        "incoming": {
+          "status": "present"
+        },
+        "base_version": 0
+      },
+      "expect": {
+        "action": "apply",
+        "reason": "new_row",
+        "fields": [],
+        "auto": [],
+        "manual": []
+      }
+    },
+    {
+      "name": "attendance note only → auto merge",
+      "input": {
+        "collection": "attendance",
+        "type": "put",
+        "existing": {
+          "id": 1,
+          "_version": 3,
+          "status": "present",
+          "note": "a"
+        },
+        "incoming": {
+          "note": "b"
+        },
+        "base_version": 2
+      },
+      "expect": {
+        "action": "merge",
+        "reason": "auto_merge_fields",
+        "fields": [
+          "note"
+        ],
+        "auto": [
+          "note"
+        ],
+        "manual": []
+      }
+    },
+    {
+      "name": "attendance status is sensitive → conflict",
+      "input": {
+        "collection": "attendance",
+        "type": "put",
+        "existing": {
+          "id": 1,
+          "_version": 3,
+          "status": "present"
+        },
+        "incoming": {
+          "status": "absent"
+        },
+        "base_version": 2
+      },
+      "expect": {
+        "action": "conflict",
+        "reason": "sensitive_field_conflict",
+        "fields": [
+          "status"
+        ],
+        "auto": [],
+        "manual": [
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "mixed auto+manual → conflict, fields sorted",
+      "input": {
+        "collection": "attendance",
+        "type": "put",
+        "existing": {
+          "id": 1,
+          "_version": 3,
+          "status": "present",
+          "note": "a"
+        },
+        "incoming": {
+          "status": "late",
+          "note": "b"
+        },
+        "base_version": 2
+      },
+      "expect": {
+        "action": "conflict",
+        "reason": "sensitive_field_conflict",
+        "fields": [
+          "note",
+          "status"
+        ],
+        "auto": [
+          "note"
+        ],
+        "manual": [
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "grade score never auto-merges",
+      "input": {
+        "collection": "grades",
+        "type": "put",
+        "existing": {
+          "id": 5,
+          "_version": 1,
+          "score": 15
+        },
+        "incoming": {
+          "score": 17
+        },
+        "base_version": 0
+      },
+      "expect": {
+        "action": "conflict",
+        "reason": "sensitive_field_conflict",
+        "fields": [
+          "score"
+        ],
+        "auto": [],
+        "manual": [
+          "score"
+        ]
+      }
+    },
+    {
+      "name": "grade teacher_note merges",
+      "input": {
+        "collection": "grades",
+        "type": "put",
+        "existing": {
+          "id": 5,
+          "_version": 1,
+          "score": 15,
+          "teacher_note": "x"
+        },
+        "incoming": {
+          "teacher_note": "y"
+        },
+        "base_version": 0
+      },
+      "expect": {
+        "action": "merge",
+        "reason": "auto_merge_fields",
+        "fields": [
+          "teacher_note"
+        ],
+        "auto": [
+          "teacher_note"
+        ],
+        "manual": []
+      }
+    },
+    {
+      "name": "leaves: no field merge at all",
+      "input": {
+        "collection": "leaves",
+        "type": "put",
+        "existing": {
+          "id": 2,
+          "_version": 1,
+          "status": "pending"
+        },
+        "incoming": {
+          "status": "approved"
+        },
+        "base_version": 0
+      },
+      "expect": {
+        "action": "conflict",
+        "reason": "sensitive_field_conflict",
+        "fields": [
+          "status"
+        ],
+        "auto": [],
+        "manual": [
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "unknown collection is fail-closed (manual)",
+      "input": {
+        "collection": "zz_unknown",
+        "type": "put",
+        "existing": {
+          "id": 1,
+          "_version": 1,
+          "x": 1
+        },
+        "incoming": {
+          "x": 2
+        },
+        "base_version": 0
+      },
+      "expect": {
+        "action": "conflict",
+        "reason": "sensitive_field_conflict",
+        "fields": [
+          "x"
+        ],
+        "auto": [],
+        "manual": [
+          "x"
+        ]
+      }
+    },
+    {
+      "name": "identical values → noop",
+      "input": {
+        "collection": "attendance",
+        "type": "put",
+        "existing": {
+          "id": 1,
+          "_version": 3,
+          "status": "present"
+        },
+        "incoming": {
+          "status": "present"
+        },
+        "base_version": 1
+      },
+      "expect": {
+        "action": "noop",
+        "reason": "no_change",
+        "fields": [],
+        "auto": [],
+        "manual": []
+      }
+    },
+    {
+      "name": "meta fields only → noop",
+      "input": {
+        "collection": "attendance",
+        "type": "put",
+        "existing": {
+          "id": 1,
+          "_version": 3,
+          "status": "present"
+        },
+        "incoming": {
+          "updated_at": "2026-11-10T00:00:00Z",
+          "_version": 9,
+          "device_id": "d"
+        },
+        "base_version": 1
+      },
+      "expect": {
+        "action": "noop",
+        "reason": "no_change",
+        "fields": [],
+        "auto": [],
+        "manual": []
+      }
+    },
+    {
+      "name": "delete at current version → apply",
+      "input": {
+        "collection": "homework",
+        "type": "del",
+        "existing": {
+          "id": 4,
+          "_version": 2
+        },
+        "incoming": null,
+        "base_version": 2
+      },
+      "expect": {
+        "action": "apply",
+        "reason": "delete_ok",
+        "fields": [],
+        "auto": [],
+        "manual": []
+      }
+    },
+    {
+      "name": "delete vs later edit → conflict, row kept",
+      "input": {
+        "collection": "homework",
+        "type": "del",
+        "existing": {
+          "id": 4,
+          "_version": 3
+        },
+        "incoming": null,
+        "base_version": 2
+      },
+      "expect": {
+        "action": "conflict",
+        "reason": "delete_vs_edit",
+        "fields": [
+          "*"
+        ],
+        "auto": [],
+        "manual": [
+          "*"
+        ]
+      }
+    },
+    {
+      "name": "users phone merges (field unit)",
+      "input": {
+        "collection": "users",
+        "type": "put",
+        "existing": {
+          "id": 9,
+          "_version": 1,
+          "role": "teacher",
+          "phone": "09120000000"
+        },
+        "incoming": {
+          "phone": "09121111111"
+        },
+        "base_version": 0
+      },
+      "expect": {
+        "action": "merge",
+        "reason": "auto_merge_fields",
+        "fields": [
+          "phone"
+        ],
+        "auto": [
+          "phone"
+        ],
+        "manual": []
+      }
+    },
+    {
+      "name": "users role never auto-merges",
+      "input": {
+        "collection": "users",
+        "type": "put",
+        "existing": {
+          "id": 9,
+          "_version": 1,
+          "role": "teacher"
+        },
+        "incoming": {
+          "role": "manager"
+        },
+        "base_version": 0
+      },
+      "expect": {
+        "action": "conflict",
+        "reason": "sensitive_field_conflict",
+        "fields": [
+          "role"
+        ],
+        "auto": [],
+        "manual": [
+          "role"
+        ]
+      }
+    },
+    {
+      "name": "announcements: merge none",
+      "input": {
+        "collection": "announcements",
+        "type": "put",
+        "existing": {
+          "id": 3,
+          "_version": 1,
+          "title": "a"
+        },
+        "incoming": {
+          "title": "b"
+        },
+        "base_version": 0
+      },
+      "expect": {
+        "action": "conflict",
+        "reason": "sensitive_field_conflict",
+        "fields": [
+          "title"
+        ],
+        "auto": [],
+        "manual": [
+          "title"
+        ]
+      }
+    },
+    {
+      "name": "explicit null is a real change",
+      "input": {
+        "collection": "attendance",
+        "type": "put",
+        "existing": {
+          "id": 1,
+          "_version": 3,
+          "status": "present",
+          "note": "a"
+        },
+        "incoming": {
+          "note": null
+        },
+        "base_version": 2
+      },
+      "expect": {
+        "action": "merge",
+        "reason": "auto_merge_fields",
+        "fields": [
+          "note"
+        ],
+        "auto": [
+          "note"
+        ],
+        "manual": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,290 @@
+{
+  "vector": "scope-v1",
+  "contract": "native-api-v1",
+  "source_of_truth": "server/scope.js rowInScope()/canWriteRow() over server/policy.js",
+  "description": "Role scope. The server is the security authority; a client may use these vectors to hide what it would not receive anyway, never to grant access. Scope objects are what the server derives from the signed token (role, uid) plus tenant data.",
+  "scopes": {
+    "teacher": {
+      "role": "teacher",
+      "uid": 5,
+      "all": false,
+      "classIds": [
+        10
+      ],
+      "studentIds": [],
+      "cohorts": []
+    },
+    "parent": {
+      "role": "parent",
+      "uid": 7,
+      "all": false,
+      "classIds": [],
+      "studentIds": [
+        100
+      ],
+      "cohorts": []
+    },
+    "counselor": {
+      "role": "counselor",
+      "uid": 8,
+      "all": false,
+      "classIds": [],
+      "studentIds": [],
+      "cohorts": []
+    },
+    "manager": {
+      "role": "manager",
+      "uid": 1,
+      "all": true,
+      "classIds": [],
+      "studentIds": [],
+      "cohorts": []
+    }
+  },
+  "read": [
+    {
+      "scope": "teacher",
+      "collection": "attendance",
+      "row": {
+        "student_id": 1,
+        "class_id": 10
+      },
+      "expect": true
+    },
+    {
+      "scope": "teacher",
+      "collection": "attendance",
+      "row": {
+        "student_id": 1,
+        "class_id": 11
+      },
+      "expect": false
+    },
+    {
+      "scope": "teacher",
+      "collection": "counselor_notes",
+      "row": {
+        "student_id": 1
+      },
+      "expect": false
+    },
+    {
+      "scope": "teacher",
+      "collection": "announcements",
+      "row": {
+        "title": "x"
+      },
+      "expect": true
+    },
+    {
+      "scope": "teacher",
+      "collection": "app_settings",
+      "row": {},
+      "expect": false
+    },
+    {
+      "scope": "parent",
+      "collection": "grades",
+      "row": {
+        "student_id": 100
+      },
+      "expect": true
+    },
+    {
+      "scope": "parent",
+      "collection": "grades",
+      "row": {
+        "student_id": 101
+      },
+      "expect": false
+    },
+    {
+      "scope": "parent",
+      "collection": "users",
+      "row": {
+        "id": 7
+      },
+      "expect": true
+    },
+    {
+      "scope": "parent",
+      "collection": "users",
+      "row": {
+        "id": 100
+      },
+      "expect": true
+    },
+    {
+      "scope": "parent",
+      "collection": "users",
+      "row": {
+        "id": 101
+      },
+      "expect": false
+    },
+    {
+      "scope": "parent",
+      "collection": "leaves",
+      "row": {
+        "student_id": 100
+      },
+      "expect": true
+    },
+    {
+      "scope": "counselor",
+      "collection": "counselor_notes",
+      "row": {
+        "student_id": 3
+      },
+      "expect": true
+    },
+    {
+      "scope": "parent",
+      "collection": "counselor_notes",
+      "row": {
+        "student_id": 100
+      },
+      "expect": false
+    },
+    {
+      "scope": "teacher",
+      "collection": "zz_unknown",
+      "row": {},
+      "expect": false
+    },
+    {
+      "scope": "manager",
+      "collection": "zz_unknown",
+      "row": {},
+      "expect": true
+    },
+    {
+      "scope": "manager",
+      "collection": "conflicts",
+      "row": {},
+      "expect": true
+    }
+  ],
+  "write": [
+    {
+      "scope": "teacher",
+      "collection": "grades",
+      "row": {
+        "student_id": 1,
+        "class_id": 10,
+        "score": 15,
+        "kind": "midterm"
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "grades",
+      "row": {
+        "student_id": 1,
+        "class_id": 10,
+        "score": 25
+      },
+      "expect": {
+        "ok": false,
+        "error": "bad_score"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "grades",
+      "row": {
+        "student_id": 1,
+        "class_id": 10,
+        "score": 12,
+        "kind": "written"
+      },
+      "expect": {
+        "ok": false,
+        "error": "bad_kind"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "grades",
+      "row": {
+        "student_id": 1,
+        "class_id": 11,
+        "score": 15
+      },
+      "expect": {
+        "ok": false,
+        "error": "out_of_scope"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "attendance",
+      "row": {
+        "student_id": 1,
+        "class_id": 10,
+        "status": "teleported"
+      },
+      "expect": {
+        "ok": false,
+        "error": "bad_status"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "app_settings",
+      "row": {},
+      "expect": {
+        "ok": false,
+        "error": "role_denied"
+      }
+    },
+    {
+      "scope": "parent",
+      "collection": "leaves",
+      "row": {
+        "student_id": 100
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "parent",
+      "collection": "leaves",
+      "row": {
+        "student_id": 101
+      },
+      "expect": {
+        "ok": false,
+        "error": "out_of_scope"
+      }
+    },
+    {
+      "scope": "parent",
+      "collection": "grades",
+      "row": {
+        "student_id": 100,
+        "score": 20
+      },
+      "expect": {
+        "ok": false,
+        "error": "role_denied"
+      }
+    },
+    {
+      "scope": "manager",
+      "collection": "grades",
+      "row": {
+        "student_id": 1,
+        "class_id": 99,
+        "score": 19
+      },
+      "expect": {
+        "ok": true
+      }
+    }
+  ]
+}
