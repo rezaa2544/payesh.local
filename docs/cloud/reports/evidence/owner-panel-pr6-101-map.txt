@@ -1,0 +1,61 @@
+base_sha=4ae208c20318fa7815b9b998ee20da5fbfd2b837
+code_sha=facf777da5d7063bec9cd002f515fbb227fae2d9
+date_utc=2026-11-10T18:50:08Z
+branch=arena/owner-repo-map-101
+env=Linux x86_64 · node v22 (npx --package=node@22) · curl
+command=npx --yes --package=node@22 -c 'npm test && bash docs/cloud/reports/evidence/run-tests-evidence.sh && bash docs/cloud/reports/evidence/gen-audit-evidence.sh'
+# ردیف ۱۰۱ — پنل مالک PR‑6: نقشهٔ مخزن، نقشهٔ راه، Ground Truth، base_sha و اعتبار پیوندها
+# برچسب‌ها: [M] ماشینی/کد، [S] شاهد خام، [E] محیط/اجرا، [A] ادعا، [?] نامشخص · security_status=UNKNOWN
+
+## محدودهٔ تغییر
+- docs/REPOSITORY_MAP.md (جدید؛ پیش از این در مخزن وجود نداشت): §۱ پوشه‌های سطح بالا با apps/owner-panel/ ·
+  §۲ زیرپوشه‌های apps/owner-panel (server، web، scripts، tests، android، desktop، installer) + migrations + workflow ·
+  §۳ نقشهٔ راه PR‑0…PR‑6 ← ردیف Notion ← PR/ادغام ← شاهد · §۴ Ground Truth (ادعا ← شاهد ← برچسب).
+- docs/cloud/61-owner-panel-app-proposal.md §۶ — یک بند «وضعیت اجرا» که به نقشهٔ راه همان نقشه ارجاع می‌دهد (متن پیشنهاد تغییر نکرد).
+- AGENTS.md — ردیف apps/owner-panel/ در «نقشهٔ سریع مخزن» با پیوند به REPOSITORY_MAP.md.
+- apps/owner-panel/tests/packaging.test.js — قانون P7_repo_map + ۶ جهش (همه گرفته شد):
+  apps/owner-panel و همهٔ زیرپوشه‌هایش در نقشه · همهٔ پیوندهای نسبی نقشه به فایل/پوشهٔ موجود ·
+  هر docs/cloud/reports/evidence/owner-panel-*.txt با base_sha=<40 hex> آغاز و از نقشه پیوند شده · سند ۶۱ به نقشه ارجاع می‌دهد.
+قانون اساسی تغییر نکرد (پیوست الف عمداً عکس فوری f2fc472 است؛ §۱۴: تغییر فقط با تصمیم صریح).
+دست‌نخورده: build.yml، desktop/*، installer/payesh.iss، امضای اندروید مدرسه، ردیف ۶۳، کد محصول.
+
+## نتایج اجرا روی code_sha
+pass=110 fail=0 registered=110 (mission-05-tests-run.log) · EVIDENCE-OK
+OWNER-PACKAGING rules=9 mutations_caught=34 gate_negative_controls=15 failures=0
+
+## base_sha در شاهدهای پنل مالک [M] (P7)
+owner-panel-pr1-self-review.txt  base_sha=e87c059ddf745d15f933df148f2b2cb71afc1894
+owner-panel-pr2-self-review.txt  base_sha=1947d3ede9cbc6655426771f6e3bb8eecc3e49eb
+owner-panel-pr3-98-login.txt  base_sha=58190ffe4a4a7e1920422f358817fcf1cfba1f50
+owner-panel-pr3-98.txt  base_sha=6361e13ba6887c9df7a1c68356a7f410ba370958
+owner-panel-pr4-99.txt  base_sha=a3f0be8884500410b8b3e655a7ab912e33f972e3
+owner-panel-pr5-100-readme.txt  base_sha=c91aa49a7e2ca78c7c3e482685e10eb4e2a2a25e
+owner-panel-pr6-101-map.txt  base_sha=4ae208c20318fa7815b9b998ee20da5fbfd2b837
+
+## بررسی لینک‌های انتشار پس از ادغام #166 (3696837) [S]
+payesh-owner-setup.exe http=200 bytes=2524924
+payesh-owner.apk http=200 bytes=80158
+payesh-owner-web.zip http=200 bytes=329314
+SHA256SUMS http=200 bytes=259
+SHA256SUMS (منتشرشده):
+5a138b40e2760a9ff75e84dd764527db1c0e2b93848607241d23523108b7bb77  payesh-owner-setup.exe
+baebb738ef595b311bef7cc5fc18beae60211749508deb0b5c27b63e3d6214be  payesh-owner-web.zip
+d3dfe7689b0b7ae0f4ddcc155798d92ba616290c8bbc50b1fcb22dd44ce2920e  payesh-owner.apk
+sha256sum فایل‌های دانلودشده:
+5a138b40e2760a9ff75e84dd764527db1c0e2b93848607241d23523108b7bb77  payesh-owner-setup.exe
+d3dfe7689b0b7ae0f4ddcc155798d92ba616290c8bbc50b1fcb22dd44ce2920e  payesh-owner.apk
+baebb738ef595b311bef7cc5fc18beae60211749508deb0b5c27b63e3d6214be  payesh-owner-web.zip
+گواهی APK منتشرشده (openssl روی META-INF/CERT.RSA):
+sha256 Fingerprint=D3:5A:FB:A3:FD:EE:E0:9C:2F:F1:81:A3:BB:3A:48:CF:E5:07:61:A7:42:B0:F9:D1:CA:73:DB:CE:0B:13:83:21
+subject=C=IR, O=Payesh, CN=Payesh Owner Panel
+
+## جدول «ادعا ← شاهد ← وضعیت»
+| ادعا | شاهد | وضعیت |
+|---|---|---|
+| REPOSITORY_MAP.md شامل apps/owner-panel و زیرپوشه‌ها | P7_repo_map + جهش‌های ۱ و ۲ | [M] |
+| ROADMAP (سند ۶۱ §۶ ↔ نقشه §۳ ↔ Notion) سازگار | P7 (ارجاع ۶۱) + جدول §۳ با PR/ادغام واقعی | [M] |
+| همهٔ شاهدهای جدید base_sha= دارند | P7 + فهرست بالا | [M] |
+| پیوندهای نسبی نقشه معتبرند | P7 (fs.existsSync روی هر پیوند) | [M] |
+| لینک‌های دانلود README معتبرند | curl بالا: ۴×200 و SHA منطبق | [S] |
+| ردیف‌های Notion ۹۸/۱۰۰/۱۰۱ با لینک شاهد | به‌روزرسانی Notion پس از ادغام | [A] تا ثبت |
+| تست روی دستگاه واقعی | انجام نشده | [?] |
