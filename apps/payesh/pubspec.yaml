@@ -1,0 +1,10 @@
+# Payesh native client — pub workspace root (ADR-43 / D-43, row 69).
+# One Flutter/Dart codebase for Android (APK/AAB) and Windows (EXE). No WebView, no Node.js.
+name: payesh_workspace
+publish_to: none
+environment:
+  sdk: ^3.13.0
+workspace:
+  - app
+  - packages/payesh_core
+  - packages/payesh_data
