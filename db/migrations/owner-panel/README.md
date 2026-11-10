@@ -49,3 +49,17 @@ Rollback removes only 003's table and functions. Subscriptions already canceled 
 `npm test` also runs the owner-platform migration suite against PGlite, an embedded PostgreSQL engine. It checks every named SQL `CHECK`, forced-RLS isolation, support-grant/access-log invariants, audit-chain behavior, content-table privilege denial, and reversible migration up/down/up. The test uses an in-memory database and creates no production resources or credentials.
 
 PGlite exercises PostgreSQL SQL semantics inside the test runner; it is **not** a connection test against a separately deployed PostgreSQL server. Server-version, deployment, and operational validation remain `[?]` until run against the intended PostgreSQL environment.
+
+## 004 — owner login issuer (D-45)
+
+`004_owner_login.up.sql` implements decision D-45 (O-17 = option A): password + TOTP for every owner-panel operator, no IP allowlist, at most 3 login accounts. It adds `platform_credentials` (scrypt hash + TOTP secret; forced RLS; **no** table privilege for `payesh_platform_runtime`), the append-only `login_event` table (hashed login/IP references only), a cap trigger (max 3 rows, under a table lock), `login_lookup(login_id)` (exact match, one row) and `record_login_attempt(...)` (the final authority for TOTP replay — accepted step must exceed the last one — and for lockout: 5 consecutive failures ⇒ 15 minutes).
+
+Create the first operator on the server (password is prompted without echo; only an `otpauth://` URI is printed once):
+
+```sh
+psql "$PAYESH_PLATFORM_MIGRATION_URL" -v ON_ERROR_STOP=1 -f db/migrations/owner-panel/004_owner_login.up.sql
+PAYESH_PLATFORM_MIGRATION_URL=… node apps/owner-panel/scripts/create-operator.js --login-id <id> --role platform_owner
+```
+
+Rollback (`004_owner_login.down.sql`) removes only 004's objects; afterwards `POST /auth/login` answers `501 login_not_installed` and nobody can log in. Roll back 004 before 003.
+

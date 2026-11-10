@@ -4970,6 +4970,11 @@ async function waitFor(fn, ms = 15000) {
   await test('PR‑3: UI سرتاسری روی API واقعی — ورود fail-closed، هشت صفحه، loading/empty/error، نقش operator، حذف دومرحله‌ای، تم',
     async () => { await ownerSpa.ui(); console.log('    OWNER-SPA checks=' + ownerSpa.checks() + ' failures=0'); });
 
+  /* ── ردیف ۹۸ / D‑45: صادرکنندهٔ ورود انسانی (رمز + TOTP، حداکثر ۳ حساب) ── */
+  const ownerLogin = require('../apps/owner-panel/tests/owner-login.test.js');
+  await test('D‑45: ورود رمز + TOTP — بردارهای RFC 6238/4226/4648، scrypt، تکرار کد، قفل، سهمیه، سقف ۳ حساب، مرز دیتابیس، rollback',
+    async () => { const u = await ownerLogin.unitAsync(); const r = await ownerLogin.flow(); console.log('    OWNER-LOGIN unit_checks=' + u + ' negative_controls=' + r.negative_controls + ' failures=0'); });
+
   /* ── ردیف ۹۹ / PR-4: بسته‌بندی پنل مالک (ADR‑62) ───────────────────── */
   const ownerPackaging = require('../apps/owner-panel/tests/packaging.test.js');
   await test('PR‑4: شناسه‌ها/پوسته/workflow پنل مالک جدا از اپ مدرسه، بدون آدرس/کلید سخت‌کد، با کنترل منفی جهش',

@@ -400,9 +400,29 @@ async function ui() {
       $(doc, '#login-form').requestSubmit(); await settle(app, win);
       check('login posts Persian-digit TOTP normalised', calls.length === 1 && JSON.parse(calls[0].init.body).totp === '123456');
       check('login request omits cookies and refuses redirects', calls[0].init.credentials === 'omit' && calls[0].init.redirect === 'error');
-      check('missing issuer ⇒ fail-closed message, no session', app.session === null && /O‑17\/O‑27/.test($(doc, '#login-msg').textContent) && !$(doc, '.shell'));
+      check('missing issuer (no migration 004) ⇒ 501 ⇒ fail-closed message, no session', app.session === null && /D‑45/.test($(doc, '#login-msg').textContent) && !$(doc, '.shell'));
       check('forged/unsigned token cannot even set UI session', app.setSession('platform.v1.e30.AAAA') === false && app.session === null);
       check('expired token rejected by UI', app.setSession(tok(ids.owner, 'platform_owner', { exp: Date.now() - 1000 })) === false);
+    }
+
+    /* ── ورود واقعی با صادرکنندهٔ D‑45 (migration 004 + اسکریپت ساخت اپراتور) ── */
+    {
+      await db.exec(read(MIG, '004_owner_login.up.sql'));
+      const ownerAuth = require('../server/owner-auth');
+      const { createOperator } = require('../scripts/create-operator');
+      await db.exec('BEGIN'); await db.exec('SET LOCAL ROLE payesh_platform_owner');
+      const op = await createOperator((sql, p = []) => db.query(sql, p), { loginId: 'owner-1', role: 'platform_owner', password: 'spa-owner-pass-01' });
+      await db.exec('COMMIT');
+      const { doc, win, fetchImpl } = makeDom(port);
+      const app = win.OwnerPanel.createApp({ document: doc, window: win, fetch: fetchImpl });
+      await app.start();
+      $(doc, '#login_id').value = 'owner-1'; $(doc, '#password').value = 'wrong-password-xx'; $(doc, '#totp').value = ownerAuth.totpAt(op.totpSecret, Date.now());
+      $(doc, '#login-form').requestSubmit(); await settle(app, win);
+      check('wrong password via real issuer ⇒ 401 message, no session', app.session === null && /نادرست/.test($(doc, '#login-msg').textContent) && !$(doc, '.shell'));
+      $(doc, '#login_id').value = 'owner-1'; $(doc, '#password').value = 'spa-owner-pass-01'; $(doc, '#totp').value = ownerAuth.totpAt(op.totpSecret, Date.now());
+      $(doc, '#login-form').requestSubmit(); await settle(app, win);
+      check('password + TOTP via real issuer ⇒ session + dashboard', app.session && app.session.sub === op.userId && app.session.role === 'platform_owner' && !!$(doc, '.shell'));
+      await db.exec(read(MIG, '004_owner_login.down.sql'));
     }
 
     /* ── owner: هر هشت صفحه از API واقعی ─────────────────────────── */
