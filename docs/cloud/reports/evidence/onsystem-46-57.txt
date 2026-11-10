@@ -1,0 +1,73 @@
+base_sha=1adf241781e52fbcabfd4d3666e6905b71fa2f79
+code_sha=39849d2292a6d6b6bf851122005b688397b918c4
+date_utc=2026-11-10T19:38:02Z
+branch=arena/adr-43-native
+env=sandbox linux x64, node v22.23.4, embedded-postgres (@embedded-postgres/linux-x64), single host — all numbers [S]
+command=bash docs/cloud/reports/evidence/run-onsystem-46-57.sh
+# Rows 46/50/51/55/57 — on-system part (D-47). Real-world part handed to owner: docs/cloud/reports/owner-handover-real-world.md
+# Not [M] on a real target, not SLA, not Go, not a human pentest. Security status stays UNKNOWN (D-41).
+
+PASS row=46 fleet-load-46 [S] gateway + PostgreSQL, stages 50,100 x5s (single host) (exit=0, 34s)
+    | # ===== SUMMARY =====
+    | # fleet_exit:      0
+    | # regression_exit: 0
+    | # NOTE: این عددها روی یک میزبان مشترک اندازه‌گیری شده‌اند؛ سقف تولید با تفکیک میزبان‌ها بازآزمایی شود.
+    | # EXIT=0
+    | FLEET-46-OK
+PASS row=46 connection budget formula + pgbouncer (row 45 input to 46) (exit=0, 0s)
+    | # بیشترین نمونهٔ مجاز با این pool = 5
+    | BUDGET instances=2 pool=12 required=28 headroom=34 cap=100 fits=true
+    | # ممیزی حالت نشستی روی 29 فایل server/**: 0 یافته
+    | # PgBouncer: سازگار 
+    | PGBOUNCER {"pool_mode":"transaction","default_pool_size":12,"max_client_conn":400,"reserve_pool_size":2}
+    | CONN-BUDGET-45-OK
+PASS row=50 tests/pitr-50.js (PT-01..PT-10) (exit=0, 0s)
+    | PASS  PT-08  ایزولاسیون مستأجر در محاسبهٔ چک‌سام بازیابی (Tenant A از Tenant B جداست)  → tenant-isolated checksums
+    | PASS  PT-09  اجرای CLI تمرین محلی (--local-drill) و ثبت صادقانهٔ برچسب [S]  → verdict=PITR-50-SIMULATED-OK tag=[S]
+    | PASS  PT-10  مستندسازی کامل رویهٔ Failover دستی در docs/cloud/50-pitr-recovery.md  → 5-step manual failover runbook verified
+    | 
+    | PT checks=10 pass=10 fail=0
+    | PITR-50-TEST-OK
+PASS row=50 pitr-drill-50 --local-drill [S] (exit=0, 0s)
+    |     "reconciliation_ok": true,
+    |     "post_target_excluded": true,
+    |     "verdict": "PITR-50-SIMULATED-OK"
+    |   }
+    | }
+    | PITR-50-SIMULATED-OK
+PASS row=51 pilot-watch live cycles up=3 · negative control down=3
+PASS row=55 load-ceiling-55 [S] levels 10,25,50 (exit=0, 15s)
+    | ورود موفق — توکن نشست گرفته شد
+    | سطح 10: rps=11343.3 p95=2ms خطا=0%
+    | سطح 25: rps=17769.3 p95=3ms خطا=0%
+    | سطح 50: rps=15558.8 p95=6ms خطا=0%
+    | ✓ خروجی: /home/user/repo/docs/cloud/reports/evidence/load-55-ceiling.json
+    | سقف سالم (p95<=300ms): 50 هم‌زمان
+PASS row=55 labels-gate-55 ([M] never next to local numbers) (exit=0, 0s)
+    |   ✓ کنترل منفی: «۱۵۶۰ RPS [M] روی ماشین توسعه» شناسایی می‌شود
+    |   ✓ کنترل منفی: «۱۵۶۰ RPS [S] روی ماشین توسعه» شناسایی نمی‌شود (مثبت کاذب نیست)
+    | 
+    | کنترل منفی: هر دو تخطی شناسایی شد (تعریف اشتباه + [M] کنار عدد محلی) و ردیفِ [S] سبز ماند
+    | 
+    | LABELS-GATE-55-OK
+PASS row=57 pentest-sweep-57 automated (WSTG classes) (exit=0, 1s)
+    | (node:4920) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+    | (Use `node --trace-warnings ...` to show where the warning was created)
+    | ✓ خروجی نوشته شد: /tmp/tmp.mfXTqPqc5C/57.txt
+    | sweep: PENTEST-57-AUTOMATED pass=64 fail=0 info=8 at=2026-11-10T19:39:13.750Z
+PASS row=57 pull-leak-57 regression (exit=0, 2s)
+    | PASS  PL-60  S4: Gateway /metrics با توکن ۴۰۱/۲۰۰ می‌دهد  → gateway 401/200  (375ms)
+    | PASS  PL-61  Gateway /metrics بدون تنظیم توکن باز می‌ماند (بدون رگرسیون)  → 200 as before  (370ms)
+    | PASS  PL-70  policy.scrubUser: فقط فیلدهای مجاز می‌مانند  → _version,father_name,id,name  (0ms)
+    | 
+    | PL checks=19 pass=19 fail=0
+    | PULL-LEAK-57-OK
+PASS row=57 leak-matrix-57 role x collection x field (exit=0, 0s)
+    | FIELDS role=counselor target=other secret_fields=9 identity_fields=7 public=preserved
+    | FIELDS role=guard target=self secret_fields=9 identity_fields=7 public=preserved
+    | FIELDS role=guard target=other secret_fields=9 identity_fields=7 public=preserved
+    | NEGATIVE-CONTROL-OK unauthorized role/collection read expansion detected
+    | NEGATIVE-CONTROL-OK disabled user-field scrub detected
+    | LEAK-MATRIX-57-OK roles=6 collections=26 role_collection_checks=156 field_checks=176 fail=0
+SUMMARY pass=10 fail=0 blocked=0
+ONSYSTEM-46-57-OK
