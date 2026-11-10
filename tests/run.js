@@ -4690,6 +4690,258 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(mode === 0o600 || process.platform === 'win32', 'دسترسی فایل کلید محدود است');
   });
 
+  await test('PR‑1 مدل پنل مالک: همهٔ CHECKها، RLS، grant، audit و rollback', async () => {
+    const { PGlite } = require('@electric-sql/pglite');
+    const crypto = require('node:crypto');
+    const hadWindow = Object.prototype.hasOwnProperty.call(global, 'window');
+    const previousWindow = global.window;
+    let db;
+    const A = '11111111-1111-4111-8111-111111111111';
+    const B = '22222222-2222-4222-8222-222222222222';
+    const OWNER = '00000000-0000-4000-8000-000000000001';
+    const SUPPORT = '00000000-0000-4000-8000-000000000002';
+    const AUDITOR = '00000000-0000-4000-8000-000000000003';
+    const SUPPORT2 = '00000000-0000-4000-8000-000000000004';
+    const SUB_A = '00000000-0000-4000-8000-000000000010';
+    const SUB_B = '00000000-0000-4000-8000-000000000011';
+    const ZERO_HASH = Buffer.alloc(32);
+    let savepointNo = 0;
+
+    async function mustReject(label, sql, params = [], expected = null) {
+      const savepoint = `owner_panel_case_${++savepointNo}`;
+      await db.query(`SAVEPOINT ${savepoint}`);
+      let thrown;
+      try { await db.query(sql, params); } catch (err) { thrown = err; }
+      await db.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      await db.query(`RELEASE SAVEPOINT ${savepoint}`);
+      assert.ok(thrown, `${label}: expected database rejection`);
+      if (expected) assert.ok(thrown.constraint === expected || thrown.code === expected,
+        `${label}: expected ${expected}, got code=${thrown.code} constraint=${thrown.constraint}`);
+      return thrown;
+    }
+    function grantInput(overrides = {}) {
+      return Object.assign({
+        id: require('node:crypto').randomUUID(), tenant_id: A, operator_id: SUPPORT, approved_by: OWNER,
+        case_ref: 'case-pr1', scope: 'metadata', reason: 'approved support case',
+        starts_at: new Date(Date.now() - 60_000).toISOString(),
+        ends_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+        school_notified_at: new Date(Date.now() - 120_000).toISOString(),
+        revoked_at: null, used_reads: 0, max_actions: 5, open_slot: 1,
+      }, overrides);
+    }
+    async function insertGrant(g) {
+      await db.query(`INSERT INTO owner_platform.support_grant
+        (id,tenant_id,operator_id,approved_by,case_ref,scope,reason,starts_at,ends_at,
+         school_notified_at,revoked_at,used_reads,max_actions,open_slot)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [g.id,g.tenant_id,g.operator_id,g.approved_by,g.case_ref,g.scope,g.reason,
+        g.starts_at,g.ends_at,g.school_notified_at,g.revoked_at,g.used_reads,g.max_actions,g.open_slot]);
+    }
+    async function insertLog(grantId, tenantId, recordRef) {
+      await db.query('INSERT INTO owner_platform.support_access_log(grant_id,tenant_id,record_ref) VALUES ($1,$2,$3)',
+        [grantId,tenantId,recordRef]);
+    }
+
+    const up = fs.readFileSync(path.join(ROOT, 'db/migrations/owner-panel/001_owner_panel.up.sql'), 'utf8');
+    const down = fs.readFileSync(path.join(ROOT, 'db/migrations/owner-panel/001_owner_panel.down.sql'), 'utf8');
+    try {
+      delete global.window;
+      db = new PGlite();
+      await db.exec(up);
+      await db.query(`INSERT INTO owner_platform.platform_users(id,login_id,role,status) VALUES
+        ($1,'owner@example.invalid','platform_owner','active'),
+        ($2,'support@example.invalid','platform_support','active'),
+        ($3,'owner2@example.invalid','platform_owner','active'),
+        ($4,'support2@example.invalid','platform_support','active')`, [OWNER,SUPPORT,AUDITOR,SUPPORT2]);
+      await db.query(`INSERT INTO owner_platform.plans(code,name,max_users,max_students,storage_mb,features,price_amount,price_cycle)
+        VALUES ('basic','Basic',10,8,512,'{}'::jsonb,0,'none')`);
+      await db.query(`INSERT INTO owner_platform.subscriptions(id,tenant_id,plan_code,status,starts_at,ends_at)
+        VALUES ($1,$2,'basic','active',now()-interval '1 day',now()+interval '30 days'),
+               ($3,$4,'basic','active',now()-interval '1 day',now()+interval '30 days')`, [SUB_A,A,SUB_B,B]);
+      await db.query('INSERT INTO owner_platform.tenant_limits(tenant_id,max_users,storage_bytes) VALUES ($1,10,0)', [A]);
+
+
+    const cases = {
+      platform_users_login_id_check: [`INSERT INTO owner_platform.platform_users(login_id,role) VALUES ('   ','platform_support')`, []],
+      platform_users_role_check: [`INSERT INTO owner_platform.platform_users(login_id,role) VALUES ('bad-role','school_admin')`, []],
+      platform_users_status_check: [`INSERT INTO owner_platform.platform_users(login_id,role,status) VALUES ('bad-status','platform_support','deleted')`, []],
+      plans_code_check: [`INSERT INTO owner_platform.plans(code,name,storage_mb) VALUES ('A','Bad code',0)`, []],
+      plans_name_check: [`INSERT INTO owner_platform.plans(code,name,storage_mb) VALUES ('bad_name','  ',0)`, []],
+      plans_max_users_check: [`INSERT INTO owner_platform.plans(code,name,max_users,storage_mb) VALUES ('bad_name', 'x', -1, 0)`, []],
+      plans_max_students_check: [`INSERT INTO owner_platform.plans(code,name,max_students,storage_mb) VALUES ('bad_name', 'x', -1, 0)`, []],
+      plans_storage_mb_check: [`INSERT INTO owner_platform.plans(code,name,storage_mb) VALUES ('bad_name','x',-1)`, []],
+      plans_features_object_check: [`INSERT INTO owner_platform.plans(code,name,storage_mb,features) VALUES ('bad_name','x',0,'[]'::jsonb)`, []],
+      plans_price_amount_check: [`INSERT INTO owner_platform.plans(code,name,storage_mb,price_amount) VALUES ('bad_name','x',0,-1)`, []],
+      plans_price_cycle_check: [`INSERT INTO owner_platform.plans(code,name,storage_mb,price_cycle) VALUES ('bad_name','x',0,'daily')`, []],
+      subscriptions_status_check: [`INSERT INTO owner_platform.subscriptions(tenant_id,plan_code,status,starts_at,ends_at) VALUES ($1,'basic','trialing',now(),now()+interval '1 day')`, [crypto.randomUUID()]],
+      subscriptions_dates_check: [`INSERT INTO owner_platform.subscriptions(tenant_id,plan_code,status,starts_at,ends_at) VALUES ($1,'basic','expired',now(),now())`, [crypto.randomUUID()]],
+      subscriptions_grace_days_check: [`INSERT INTO owner_platform.subscriptions(tenant_id,plan_code,status,starts_at,ends_at,grace_days) VALUES ($1,'basic','expired',now(),now()+interval '1 day',366)`, [crypto.randomUUID()]],
+      subscriptions_version_check: [`INSERT INTO owner_platform.subscriptions(tenant_id,plan_code,status,starts_at,ends_at,version) VALUES ($1,'basic','expired',now(),now()+interval '1 day',0)`, [crypto.randomUUID()]],
+      subscription_event_from_status_check: [`INSERT INTO owner_platform.subscription_event(tenant_id,subscription_id,from_status,to_status,reason,actor_ref,idempotency_key) VALUES ($1,$2,'unknown','active','system','test','c-from')`, [A, SUB_A]],
+      subscription_event_to_status_check: [`INSERT INTO owner_platform.subscription_event(tenant_id,subscription_id,to_status,reason,actor_ref,idempotency_key) VALUES ($1,$2,'unknown','system','test','c-to')`, [A, SUB_A]],
+      subscription_event_reason_check: [`INSERT INTO owner_platform.subscription_event(tenant_id,subscription_id,to_status,reason,actor_ref,idempotency_key) VALUES ($1,$2,'active','other','test','c-reason')`, [A, SUB_A]],
+      subscription_event_idempotency_key_check: [`INSERT INTO owner_platform.subscription_event(tenant_id,subscription_id,to_status,reason,actor_ref,idempotency_key) VALUES ($1,$2,'active','system','test','  ')`, [A, SUB_A]],
+      tenant_limits_max_users_check: [`INSERT INTO owner_platform.tenant_limits(tenant_id,max_users,storage_bytes) VALUES ($1,-1,0)`, [crypto.randomUUID()]],
+      tenant_limits_max_students_check: [`INSERT INTO owner_platform.tenant_limits(tenant_id,max_students,storage_bytes) VALUES ($1,-1,0)`, [crypto.randomUUID()]],
+      tenant_limits_storage_bytes_check: [`INSERT INTO owner_platform.tenant_limits(tenant_id,storage_bytes) VALUES ($1,-1)`, [crypto.randomUUID()]],
+      tenant_usage_users_count_check: [`INSERT INTO owner_platform.tenant_usage(tenant_id,users_count) VALUES ($1,-1)`, [crypto.randomUUID()]],
+      tenant_usage_students_count_check: [`INSERT INTO owner_platform.tenant_usage(tenant_id,students_count) VALUES ($1,-1)`, [crypto.randomUUID()]],
+      tenant_usage_storage_bytes_check: [`INSERT INTO owner_platform.tenant_usage(tenant_id,storage_bytes) VALUES ($1,-1)`, [crypto.randomUUID()]],
+      support_grant_scope_check: [`INSERT INTO owner_platform.support_grant(id,tenant_id,operator_id,approved_by,scope,reason,starts_at,ends_at,school_notified_at) VALUES ($1,$2,$3,$4,'content_write','valid enough reason',now(),now()+interval '1 hour',now()-interval '1 minute')`, [crypto.randomUUID(), A, SUPPORT, OWNER]],
+      support_grant_reason_check: [`INSERT INTO owner_platform.support_grant(id,tenant_id,operator_id,approved_by,scope,reason,starts_at,ends_at,school_notified_at) VALUES ($1,$2,$3,$4,'metadata','short',now(),now()+interval '1 hour',now()-interval '1 minute')`, [crypto.randomUUID(), A, SUPPORT, OWNER]],
+      support_grant_window_check: [`INSERT INTO owner_platform.support_grant(id,tenant_id,operator_id,approved_by,scope,reason,starts_at,ends_at,school_notified_at) VALUES ($1,$2,$3,$4,'metadata','valid enough reason',now(),now(),now()-interval '1 minute')`, [crypto.randomUUID(), A, SUPPORT, OWNER]],
+      support_grant_max_72h_check: [`INSERT INTO owner_platform.support_grant(id,tenant_id,operator_id,approved_by,scope,reason,starts_at,ends_at,school_notified_at) VALUES ($1,$2,$3,$4,'metadata','valid enough reason',now(),now()+interval '73 hours',now()-interval '1 minute')`, [crypto.randomUUID(), A, SUPPORT, OWNER]],
+      support_grant_approver_check: [`INSERT INTO owner_platform.support_grant(id,tenant_id,operator_id,approved_by,scope,reason,starts_at,ends_at,school_notified_at) VALUES ($1,$2,$3,$3,'metadata','valid enough reason',now(),now()+interval '1 hour',now()-interval '1 minute')`, [crypto.randomUUID(), A, OWNER]],
+      support_grant_school_notified_check: [`INSERT INTO owner_platform.support_grant(id,tenant_id,operator_id,approved_by,scope,reason,starts_at,ends_at,school_notified_at) VALUES ($1,$2,$3,$4,'metadata','valid enough reason',now(),now()+interval '1 hour',now()+interval '1 minute')`, [crypto.randomUUID(), A, SUPPORT, OWNER]],
+      support_grant_used_reads_check: [`INSERT INTO owner_platform.support_grant(id,tenant_id,operator_id,approved_by,scope,reason,starts_at,ends_at,school_notified_at,used_reads) VALUES ($1,$2,$3,$4,'metadata','valid enough reason',now(),now()+interval '1 hour',now()-interval '1 minute',-1)`, [crypto.randomUUID(), A, SUPPORT, OWNER]],
+      support_grant_max_actions_check: [`INSERT INTO owner_platform.support_grant(id,tenant_id,operator_id,approved_by,scope,reason,starts_at,ends_at,school_notified_at,max_actions) VALUES ($1,$2,$3,$4,'metadata','valid enough reason',now(),now()+interval '1 hour',now()-interval '1 minute',0)`, [crypto.randomUUID(), A, SUPPORT, OWNER]],
+      support_grant_reads_within_cap_check: [`INSERT INTO owner_platform.support_grant(id,tenant_id,operator_id,approved_by,scope,reason,starts_at,ends_at,school_notified_at,used_reads,max_actions) VALUES ($1,$2,$3,$4,'metadata','valid enough reason',now(),now()+interval '1 hour',now()-interval '1 minute',2,1)`, [crypto.randomUUID(), A, SUPPORT, OWNER]],
+      support_grant_open_slot_check: [`INSERT INTO owner_platform.support_grant(id,tenant_id,operator_id,approved_by,scope,reason,starts_at,ends_at,school_notified_at,open_slot) VALUES ($1,$2,$3,$4,'metadata','valid enough reason',now(),now()+interval '1 hour',now()-interval '1 minute',2)`, [crypto.randomUUID(), A, SUPPORT, OWNER]],
+      support_access_log_record_ref_check: [`INSERT INTO owner_platform.support_access_log(grant_id,tenant_id,record_ref) VALUES ($1,$2,'  ')`, [null, A]],
+      platform_audit_action_check: [`INSERT INTO owner_platform.platform_audit(actor_ref,action,subject_type,previous_hash,event_hash) VALUES ('test',' ','tenant',$1,$2)`, [ZERO_HASH, Buffer.alloc(32, 1)]],
+      platform_audit_subject_type_check: [`INSERT INTO owner_platform.platform_audit(actor_ref,action,subject_type,previous_hash,event_hash) VALUES ('test','change',' ',$1,$2)`, [ZERO_HASH, Buffer.alloc(32, 1)]],
+      platform_audit_previous_hash_len_check: [`INSERT INTO owner_platform.platform_audit(actor_ref,action,subject_type,previous_hash,event_hash) VALUES ('test','change','tenant',$1,$2)`, [Buffer.from([1]), Buffer.alloc(32, 1)]],
+      platform_audit_event_hash_len_check: [`INSERT INTO owner_platform.platform_audit(actor_ref,action,subject_type,previous_hash,event_hash) VALUES ('test','change','tenant',$1,$2)`, [ZERO_HASH, Buffer.from([1])]],
+      platform_audit_details_object_check: [`INSERT INTO owner_platform.platform_audit(actor_ref,action,subject_type,details,previous_hash,event_hash) VALUES ('test','change','tenant','[]'::jsonb,$1,$2)`, [ZERO_HASH, Buffer.alloc(32, 1)]],
+      invoice_period_check: [`INSERT INTO owner_platform.invoice(tenant_id,period_start,period_end,amount) VALUES ($1,'2026-01-02','2026-01-01',0)`, [crypto.randomUUID()]],
+      invoice_amount_check: [`INSERT INTO owner_platform.invoice(tenant_id,period_start,period_end,amount) VALUES ($1,'2026-01-01','2026-02-01',-1)`, [crypto.randomUUID()]],
+      invoice_currency_check: [`INSERT INTO owner_platform.invoice(tenant_id,period_start,period_end,amount,currency) VALUES ($1,'2026-01-01','2026-02-01',0,'USD')`, [crypto.randomUUID()]],
+      invoice_status_check: [`INSERT INTO owner_platform.invoice(tenant_id,period_start,period_end,amount,status) VALUES ($1,'2026-01-01','2026-02-01',0,'processing')`, [crypto.randomUUID()]],
+    };
+      const catalog = await db.query(`SELECT conname FROM pg_constraint
+        WHERE contype='c' AND connamespace='owner_platform'::regnamespace ORDER BY conname`);
+      const actualChecks = catalog.rows.map((r) => r.conname);
+      assert.deepStrictEqual(actualChecks, Object.keys(cases).sort(), 'every named SQL CHECK has a negative case and vice versa');
+      cases.support_access_log_record_ref_check[1][0] = require('node:crypto').randomUUID();
+      await db.query('BEGIN');
+      for (const [name, [sql, params]] of Object.entries(cases)) await mustReject(`CHECK ${name}`, sql, params, name);
+      await db.query('COMMIT');
+
+      await db.query('CREATE TABLE public.product_records(tenant_id uuid NOT NULL, body jsonb NOT NULL)');
+      const roleFlags = await db.query(`SELECT rolname,rolsuper,rolbypassrls FROM pg_roles
+        WHERE rolname IN ('payesh_platform_owner','payesh_platform_runtime') ORDER BY rolname`);
+      assert.strictEqual(roleFlags.rows.length, 2);
+      assert.ok(roleFlags.rows.every((r) => !r.rolsuper && !r.rolbypassrls), 'platform roles are not superuser/BYPASSRLS');
+      const privileges = await db.query(`SELECT
+        has_table_privilege('payesh_platform_runtime','owner_platform.invoice','SELECT') AS invoice_read,
+        has_table_privilege('payesh_platform_runtime','public.product_records','SELECT') AS content_read,
+        has_table_privilege('payesh_platform_runtime','owner_platform.subscriptions','INSERT') AS subscription_insert,
+        has_table_privilege('payesh_platform_runtime','owner_platform.subscriptions','UPDATE') AS subscription_update,
+        has_table_privilege('payesh_platform_runtime','owner_platform.subscriptions','DELETE') AS subscription_delete`);
+      assert.ok(Object.values(privileges.rows[0]).every((v) => v === false), 'invoice/content/subscription mutation grants are absent');
+      const rlsTables = await db.query(`SELECT relname,relrowsecurity,relforcerowsecurity FROM pg_class c
+        JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='owner_platform' AND c.relkind='r'`);
+      assert.strictEqual(rlsTables.rows.length, 10);
+      assert.ok(rlsTables.rows.every((r) => r.relrowsecurity && r.relforcerowsecurity), 'all owner-platform tables ENABLE and FORCE RLS');
+
+      await db.query('BEGIN');
+      await mustReject('subscription event cannot reference another tenant', `INSERT INTO owner_platform.subscription_event
+        (tenant_id,subscription_id,to_status,reason,actor_ref,idempotency_key)
+        VALUES ($1,$2,'active','system','test','cross-event')`, [A,SUB_B], '23503');
+      await mustReject('invoice cannot reference another tenant', `INSERT INTO owner_platform.invoice
+        (tenant_id,subscription_id,period_start,period_end,amount) VALUES ($1,$2,'2026-01-01','2026-02-01',0)`, [A,SUB_B], '23503');
+      await db.query('COMMIT');
+
+      await db.query('CREATE ROLE owner_panel_tenant_test NOLOGIN NOSUPERUSER NOBYPASSRLS');
+      await db.query('GRANT USAGE ON SCHEMA owner_platform TO owner_panel_tenant_test');
+      await db.query('GRANT SELECT,INSERT,UPDATE,DELETE ON owner_platform.subscriptions,owner_platform.tenant_limits,owner_platform.tenant_usage TO owner_panel_tenant_test');
+      await db.query('GRANT SELECT ON owner_platform.platform_users TO owner_panel_tenant_test');
+      await db.query('BEGIN');
+      await db.query('SET LOCAL ROLE owner_panel_tenant_test');
+      await db.query("SELECT set_config('app.tenant_id',$1,true)", [A]);
+      const visible = await db.query('SELECT tenant_id FROM owner_platform.subscriptions ORDER BY tenant_id');
+      assert.strictEqual(visible.rows.length, 1);
+      assert.strictEqual(visible.rows[0].tenant_id, A, 'tenant A sees only its subscription');
+      const cross = await db.query('SELECT count(*)::int AS n FROM owner_platform.subscriptions WHERE tenant_id=$1', [B]);
+      assert.strictEqual(cross.rows[0].n, 0, 'cross-tenant SELECT is empty');
+      await mustReject('RLS blocks INSERT for tenant B', 'INSERT INTO owner_platform.tenant_usage(tenant_id) VALUES ($1)', [B], '42501');
+      await mustReject('RLS blocks tenant reassignment', 'UPDATE owner_platform.tenant_limits SET tenant_id=$1 WHERE tenant_id=$2', [B,A], '42501');
+      await db.query('COMMIT');
+      await db.query('BEGIN');
+      await db.query('SET LOCAL ROLE owner_panel_tenant_test');
+      const noContext = await db.query('SELECT count(*)::int AS n FROM owner_platform.subscriptions');
+      assert.strictEqual(noContext.rows[0].n, 0, 'missing tenant context fails closed');
+      await db.query('COMMIT');
+
+      await db.query('BEGIN');
+      await db.query('SET LOCAL ROLE payesh_platform_runtime');
+      const metadata = await db.query('SELECT count(*)::int AS n FROM owner_platform.subscriptions');
+      assert.strictEqual(metadata.rows[0].n, 2, 'platform runtime may read cross-tenant metadata');
+      await mustReject('runtime cannot read school content', 'SELECT * FROM public.product_records', [], '42501');
+      await mustReject('runtime cannot read invoice', 'SELECT * FROM owner_platform.invoice', [], '42501');
+      await mustReject('runtime cannot create subscription', `INSERT INTO owner_platform.subscriptions(tenant_id,plan_code,status,starts_at,ends_at)
+        VALUES ($1,'basic','active',now(),now()+interval '1 day')`, [require('node:crypto').randomUUID()], '42501');
+      await mustReject('runtime cannot renew subscription', `UPDATE owner_platform.subscriptions SET ends_at=ends_at+interval '1 day' WHERE tenant_id=$1`, [A], '42501');
+      await db.query('COMMIT');
+
+      // E1–E16 at the data boundary: grant presence, four-eyes, notice, tenant binding,
+      // future/expired/revoked grants, no content_write, action cap, operator context, and per-read log.
+      const active = grantInput({ scope:'content_read', max_actions:2 });
+      await insertGrant(active);
+      await db.query('BEGIN');
+      const wrongApprover = grantInput({ operator_id:SUPPORT, approved_by:SUPPORT2, case_ref:'wrong-approver' });
+      await mustReject('E2 requires an active owner approver', `INSERT INTO owner_platform.support_grant
+        (id,tenant_id,operator_id,approved_by,case_ref,scope,reason,starts_at,ends_at,school_notified_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [wrongApprover.id,wrongApprover.tenant_id,wrongApprover.operator_id,
+        wrongApprover.approved_by,wrongApprover.case_ref,wrongApprover.scope,wrongApprover.reason,wrongApprover.starts_at,
+        wrongApprover.ends_at,wrongApprover.school_notified_at], '42501');
+      await db.query("SELECT set_config('app.tenant_id',$1,true),set_config('app.platform_user_id',$2,true)", [A,SUPPORT]);
+      await mustReject('E1 no grant means no content read', 'INSERT INTO owner_platform.support_access_log(grant_id,tenant_id,record_ref) VALUES ($1,$2,$3)', [require('node:crypto').randomUUID(),A,'record-1'], '42501');
+      await mustReject('E5 grant cannot cross tenants', 'INSERT INTO owner_platform.support_access_log(grant_id,tenant_id,record_ref) VALUES ($1,$2,$3)', [active.id,B,'record-2'], '42501');
+      const future = grantInput({ operator_id:SUPPORT2, starts_at:new Date(Date.now()+60_000).toISOString(),
+        ends_at:new Date(Date.now()+90*60_000).toISOString(), school_notified_at:new Date().toISOString(), case_ref:'future' });
+      await insertGrant(future);
+      await db.query("SELECT set_config('app.platform_user_id',$1,true)", [SUPPORT2]);
+      await mustReject('E3 future grant is not active', 'INSERT INTO owner_platform.support_access_log(grant_id,tenant_id,record_ref) VALUES ($1,$2,$3)', [future.id,A,'future'], '42501');
+      await db.query('UPDATE owner_platform.support_grant SET revoked_at=clock_timestamp() WHERE id=$1', [future.id]);
+      await db.query("SELECT set_config('app.platform_user_id',$1,true)", [SUPPORT2]);
+      await mustReject('E15 another operator context is rejected', 'INSERT INTO owner_platform.support_access_log(grant_id,tenant_id,record_ref) VALUES ($1,$2,$3)', [active.id,A,'wrong-operator'], '42501');
+      await db.query("SELECT set_config('app.platform_user_id',$1,true)", [SUPPORT]);
+      await insertLog(active.id,A,'record-a');
+      await insertLog(active.id,A,'record-b');
+      const used = await db.query('SELECT used_reads FROM owner_platform.support_grant WHERE id=$1', [active.id]);
+      assert.strictEqual(used.rows[0].used_reads, 2, 'each allowed read consumes a counted action');
+      const logs = await db.query('SELECT count(*)::int AS n FROM owner_platform.support_access_log WHERE grant_id=$1', [active.id]);
+      assert.strictEqual(logs.rows[0].n, 2, 'E16 each successful content-read log is a separate row');
+      await mustReject('E14 action cap denies the next read', 'INSERT INTO owner_platform.support_access_log(grant_id,tenant_id,record_ref) VALUES ($1,$2,$3)', [active.id,A,'record-c'], '42501');
+      await db.query('UPDATE owner_platform.support_grant SET revoked_at=clock_timestamp() WHERE id=$1', [active.id]);
+      await mustReject('E11/E13 revocation is immediate', 'INSERT INTO owner_platform.support_access_log(grant_id,tenant_id,record_ref) VALUES ($1,$2,$3)', [active.id,A,'after-revoke'], '42501');
+      await mustReject('grant cannot be extended', `UPDATE owner_platform.support_grant SET ends_at=ends_at+interval '1 minute' WHERE id=$1`, [active.id], '42501');
+      const expired = grantInput({ operator_id:SUPPORT2, starts_at:new Date(Date.now()-4*60*60_000).toISOString(),
+        ends_at:new Date(Date.now()-3*60*60_000).toISOString(), school_notified_at:new Date(Date.now()-5*60*60_000).toISOString(), case_ref:'expired' });
+      await insertGrant(expired);
+      await db.query("SELECT set_config('app.platform_user_id',$1,true)", [SUPPORT2]);
+      await mustReject('E12 expired grant is denied', 'INSERT INTO owner_platform.support_access_log(grant_id,tenant_id,record_ref) VALUES ($1,$2,$3)', [expired.id,A,'after-expiry'], '42501');
+      await db.query('COMMIT');
+
+      const eventHash = require('node:crypto').createHash('sha256').update('first-audit-event').digest();
+      await db.query('BEGIN');
+      await db.query(`INSERT INTO owner_platform.platform_audit(actor_id,actor_ref,action,subject_type,previous_hash,event_hash)
+        VALUES ($1,'owner','grant.create','support_grant',$2,$3)`, [OWNER,ZERO_HASH,eventHash]);
+      await mustReject('audit chain rejects stale previous hash', `INSERT INTO owner_platform.platform_audit(actor_ref,action,subject_type,previous_hash,event_hash)
+        VALUES ('owner','grant.revoke','support_grant',$1,$2)`, [ZERO_HASH,require('node:crypto').createHash('sha256').update('bad-chain').digest()], '23514');
+      await db.query('COMMIT');
+      await db.query('BEGIN');
+      await db.query('SET LOCAL ROLE payesh_platform_owner');
+      await mustReject('audit is append-only (UPDATE)', 'UPDATE owner_platform.platform_audit SET action=action', [], '42501');
+      await mustReject('audit is append-only (DELETE)', 'DELETE FROM owner_platform.platform_audit', [], '42501');
+      await db.query('COMMIT');
+
+      await db.exec(down);
+      await db.query('DROP ROLE owner_panel_tenant_test');
+      const gone = await db.query("SELECT to_regnamespace('owner_platform') IS NOT NULL AS present");
+      assert.strictEqual(gone.rows[0].present, false, 'down removes its schema');
+      const rolesGone = await db.query("SELECT count(*)::int AS n FROM pg_roles WHERE rolname IN ('payesh_platform_owner','payesh_platform_runtime')");
+      assert.strictEqual(rolesGone.rows[0].n, 0, 'down removes only migration-owned roles');
+      await db.exec(up);
+      await db.exec(down);
+    } finally {
+      if (db) await db.close();
+      if (hadWindow) global.window = previousWindow;
+      else delete global.window;
+    }
+  });
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));

@@ -22,10 +22,6 @@ The runtime group role is `NOLOGIN`, `NOSUPERUSER`, and `NOBYPASSRLS`. A future 
 
 ## Test
 
-The PostgreSQL integration test creates and drops an isolated temporary database, exercises every named SQL `CHECK`, RLS isolation, support-grant/log invariants, audit-chain behavior, content-table privilege denial, and up/down/up migration reversibility:
+`npm test` also runs the owner-platform migration suite against PGlite, an embedded PostgreSQL engine. It checks every named SQL `CHECK`, forced-RLS isolation, support-grant/access-log invariants, audit-chain behavior, content-table privilege denial, and reversible migration up/down/up. The test uses an in-memory database and creates no production resources or credentials.
 
-```sh
-OWNER_PANEL_TEST_ADMIN_URL="$OWNER_PANEL_TEST_ADMIN_URL" node tests/owner-panel-schema-pg.js
-```
-
-This test requires a disposable PostgreSQL administrator connection with `CREATEDB` and role-management privileges. It does not use production credentials or a signing key. CI supplies an ephemeral PostgreSQL service. Local execution without PostgreSQL is `NOT-RUN`, not a pass.
+PGlite exercises PostgreSQL SQL semantics inside the test runner; it is **not** a connection test against a separately deployed PostgreSQL server. Server-version, deployment, and operational validation remain `[?]` until run against the intended PostgreSQL environment.

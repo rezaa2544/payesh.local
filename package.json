@@ -70,6 +70,7 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "ajv": "^8.20.0",
     "fake-indexeddb": "^6.2.7",
     "java-parser": "^3.0.0",

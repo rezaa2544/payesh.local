@@ -204,8 +204,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "b128e503864c57645d05996a96478a1d13e09c50e272544e21467e782674fd92",
-      "size": 5525
+      "sha256": "d1002c2f257a03397be9104ab7cefeabca696b01c375556092699c0cbb41e35b",
+      "size": 5563
     },
     {
       "path": "server/alerts.js",
