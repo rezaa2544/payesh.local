@@ -4951,6 +4951,18 @@ async function waitFor(fn, ms = 15000) {
   await test('PR‑2: API پشت Gateway، deny محتوا، grant، request-id، rate-limit و آزمون منفی هر کنترل',
     () => ownerPanelApi.integration());
 
+  /* ── ردیف ۹۸ / PR-3: SPA فارسی/RTL پنل مالک با پوستهٔ نبض ─────────── */
+  const tenantDeletion = require('../apps/owner-panel/tests/tenant-deletion.test.js');
+  await test('PR‑3: حذف دومرحله‌ای مدرسه (migration 003) — owner دوم، مهلت ۲۴ساعت، نگهداری ۱۸۰روز، بدون نابودی داده',
+    async () => { const r = await tenantDeletion.flow(); console.log('    TENANT-DELETION negative_controls=' + r.negative_controls + ' failures=0'); });
+  const ownerSpa = require('../apps/owner-panel/tests/owner-spa.test.js');
+  await test('PR‑3: پوستهٔ نبض از client/pulse.css تولید و drift/اختلاف توکن آزموده میشود؛ بدون CDN و مستقل از pages.js',
+    () => ownerSpa.assets());
+  await test('PR‑3: پروکسی same-origin با CSP، allowlist هدر و رد cookie/redirect/بدنهٔ نامعتبر',
+    () => ownerSpa.proxy());
+  await test('PR‑3: UI سرتاسری روی API واقعی — ورود fail-closed، هشت صفحه، loading/empty/error، نقش operator، حذف دومرحله‌ای، تم',
+    async () => { await ownerSpa.ui(); console.log('    OWNER-SPA checks=' + ownerSpa.checks() + ' failures=0'); });
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));

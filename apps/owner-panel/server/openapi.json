@@ -46,7 +46,7 @@
     },
     "/tenants/{tenant_id}": {
       "get": { "summary": "فرادادهٔ یک مدرسه", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "200": { "description": "ok" }, "404": { "description": "tenant_not_found" } } },
-      "delete": { "summary": "همیشه رد میشود؛ حذف مدرسه از API مجاز نیست", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "403": { "description": "tenant_deletion_disabled" } } }
+      "delete": { "summary": "همیشه رد میشود؛ حذف فوری مجاز نیست — گردش دومرحلهای deletion-request را ببینید", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "403": { "description": "tenant_deletion_disabled" } } }
     },
     "/tenants/{tenant_id}/limits": {
       "get": { "summary": "سقفهای مدرسه", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "200": { "description": "ok" } } }
@@ -97,6 +97,21 @@
     },
     "/audit": {
       "get": { "summary": "فرادادهٔ زنجیرهٔ هش حسابرسی", "responses": { "200": { "description": "ok" } } }
+    },
+    "/tenant-deletions": {
+      "get": { "summary": "فهرست درخواستهای حذف مدرسه؛ فقط owner", "responses": { "200": { "description": "ok" }, "403": { "description": "role_forbidden" } } }
+    },
+    "/tenants/{tenant_id}/deletion-request": {
+      "post": { "summary": "درخواست حذف توسط owner؛ دلیل ≥۱۰ نویسه و تکرار شناسهٔ مدرسه", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["reason", "confirm_tenant_id"], "properties": { "reason": { "type": "string", "minLength": 10 }, "confirm_tenant_id": { "type": "string", "format": "uuid" } } } } } }, "responses": { "201": { "description": "pending" }, "400": { "description": "reason_too_short / confirm_mismatch" }, "403": { "description": "role_forbidden / forbidden" }, "409": { "description": "conflict — درخواست باز دیگری برای همین مدرسه هست" } } }
+    },
+    "/tenant-deletions/{request_id}/approve": {
+      "post": { "summary": "تأیید توسط owner دوم (≠ درخواستکننده)؛ not_before = زمان تأیید + ۲۴ ساعت", "parameters": [{ "name": "request_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "approved" }, "403": { "description": "role_forbidden / four_eyes_required / forbidden" }, "404": { "description": "request_not_found" } } }
+    },
+    "/tenant-deletions/{request_id}/cancel": {
+      "post": { "summary": "لغو درخواست باز توسط هر owner با دلیل", "parameters": [{ "name": "request_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["reason"], "properties": { "reason": { "type": "string", "minLength": 10 } } } } } }, "responses": { "200": { "description": "canceled" }, "400": { "description": "reason_too_short" }, "403": { "description": "role_forbidden / forbidden" }, "404": { "description": "request_not_found" } } }
+    },
+    "/tenant-deletions/{request_id}/execute": {
+      "post": { "summary": "پس از تأیید و پایان ۲۴ ساعت: لغو اشتراکها + retain_until ≥ ۱۸۰ روز؛ هیچ دادهای نابود نمیشود (D-22)", "parameters": [{ "name": "request_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "executed, data_destroyed=false" }, "403": { "description": "role_forbidden / forbidden" }, "404": { "description": "request_not_found" }, "409": { "description": "deletion_delay_pending" } } }
     }
   }
 }
