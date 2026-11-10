@@ -1,7 +1,7 @@
 name: native-client
 
 # ═══════════════════════════════════════════════════════════════════
-#  Native Payesh client — ADR-43 / D-43 · rows 63 + 69 + 70 (71–75 add packages here)
+#  Native Payesh client — ADR-43 / D-43 · rows 63 + 69 + 70 + 71 (72–75 add packages here)
 #  One Flutter/Dart codebase → standalone Android APK/AAB + Windows EXE.
 #  No WebView, no browser wrapper, no Node.js in the client bundle.
 #
@@ -29,7 +29,10 @@ on:
       - 'tools/native-independence-gate.mjs'
       - 'tests/native-gate-63.js'
       - 'tests/conformance-engine-70.js'
+      - 'tests/conformance-outbox-71.js'
       - 'client/engine-web.js'
+      - 'client/outbox-web.js'
+      - 'server/sync.js'
       - 'docs/cloud/43-native-independence.json'
       - 'docs/cloud/contracts/conformance/**'
       - '.github/workflows/native-client.yml'
@@ -39,7 +42,10 @@ on:
       - 'tools/native-independence-gate.mjs'
       - 'tests/native-gate-63.js'
       - 'tests/conformance-engine-70.js'
+      - 'tests/conformance-outbox-71.js'
       - 'client/engine-web.js'
+      - 'client/outbox-web.js'
+      - 'server/sync.js'
       - 'docs/cloud/43-native-independence.json'
       - 'docs/cloud/contracts/conformance/**'
       - '.github/workflows/native-client.yml'
@@ -94,7 +100,7 @@ jobs:
           path: native-gate-negative.txt
 
   engine-web-conformance:
-    name: Engine parity — shared vectors on the web engine (row 70)
+    name: Web parity — shared engine + outbox vectors on the web client (rows 70/71)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -107,6 +113,51 @@ jobs:
       # (apps/payesh/packages/payesh_data/test/conformance_test.dart).
       - name: engine-v1 vectors on client/engine-web.js (IndexedDB)
         run: node tests/conformance-engine-70.js
+      # Same outbox vectors run against the Dart outbox (payesh_sync/test/outbox_conformance_test.dart).
+      - name: outbox-v1 vectors on client/outbox-web.js (IndexedDB)
+        run: node tests/conformance-outbox-71.js
+
+  sync-real-server:
+    name: Dart sync client against the REAL Node server (row 71)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Flutter ${{ env.FLUTTER_VERSION }} (pinned, sha256-verified)
+        run: |
+          set -euo pipefail
+          F="flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$F" "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/$F"
+          echo "${FLUTTER_LINUX_SHA256}  $RUNNER_TEMP/$F" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/$F" -C "$RUNNER_TEMP"
+          git config --global --add safe.directory "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: pub get (lockfile enforced)
+        working-directory: apps/payesh
+        run: flutter pub get --enforce-lockfile
+      # server_it_test.dart spawns `node server/index.js` (fresh data dir), then:
+      # offline push applied once, duplicate uid, pull into SQLite, bad token → queued,
+      # server killed → op kept → restart → applied exactly once, per-op rejection.
+      - name: payesh_sync ⇄ server/index.js
+        working-directory: apps/payesh/packages/payesh_sync
+        env:
+          PAYESH_SERVER_IT: '1'
+        run: |
+          set -euo pipefail
+          dart test --reporter expanded test/server_it_test.dart | tee "$GITHUB_WORKSPACE/sync-real-server.txt"
+          # exactly 8 executed, none skipped (a skipped run prints "~N")
+          grep -qE '\+8: All tests passed' "$GITHUB_WORKSPACE/sync-real-server.txt"
+          if grep -qE '~[0-9]+' "$GITHUB_WORKSPACE/sync-real-server.txt"; then echo 'SYNC-IT-SKIPPED'; exit 1; fi
+          echo SYNC-REAL-SERVER-OK
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sync-real-server
+          path: sync-real-server.txt
 
   dart:
     name: Flutter — pub get, format, analyze, test, coverage (row 69)
@@ -258,15 +309,16 @@ jobs:
 
   native-gate:
     name: native-gate (all must pass)
-    needs: [gate-controls, engine-web-conformance, dart, android, windows]
+    needs: [gate-controls, engine-web-conformance, sync-real-server, dart, android, windows]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Verdict
         run: |
-          echo "gate-controls=${{ needs.gate-controls.result }} engine-web=${{ needs.engine-web-conformance.result }} dart=${{ needs.dart.result }} android=${{ needs.android.result }} windows=${{ needs.windows.result }}"
+          echo "gate-controls=${{ needs.gate-controls.result }} engine-web=${{ needs.engine-web-conformance.result }} sync-real-server=${{ needs.sync-real-server.result }} dart=${{ needs.dart.result }} android=${{ needs.android.result }} windows=${{ needs.windows.result }}"
           test "${{ needs.gate-controls.result }}" = success
           test "${{ needs.engine-web-conformance.result }}" = success
+          test "${{ needs.sync-real-server.result }}" = success
           test "${{ needs.dart.result }}" = success
           test "${{ needs.android.result }}" = success
           test "${{ needs.windows.result }}" = success

@@ -1,0 +1,4 @@
+tags:
+  server:
+    # Real Node server integration (test/server_it_test.dart); enabled by PAYESH_SERVER_IT=1.
+    timeout: 3x
