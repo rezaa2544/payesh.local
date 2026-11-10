@@ -1,6 +1,6 @@
 base_sha=58190ffe4a4a7e1920422f358817fcf1cfba1f50
-code_sha=8e3dcdd23fc361d50bdb9b01b8b6d70f288a552d
-date_utc=2026-11-10T18:07:54Z
+code_sha=bd2cb5304d9f824b88513bc51a311c442962c561
+date_utc=2026-11-10T18:15:35Z
 branch=arena/owner-login-98
 env=Linux x86_64 · node v22 (npx --package=node@22)
 command=npx --yes --package=node@22 -c 'bash docs/cloud/reports/evidence/run-tests-evidence.sh && bash docs/cloud/reports/evidence/gen-audit-evidence.sh'
@@ -19,9 +19,13 @@ command=npx --yes --package=node@22 -c 'bash docs/cloud/reports/evidence/run-tes
 - `apps/owner-panel/scripts/create-operator.js` — ساخت حساب روی سرور؛ رمز بدون نمایش؛ فقط URI otpauth یک‌بار چاپ می‌شود.
 - `apps/owner-panel/web/app.js` — متن login_unavailable/login_failed (D‑45، قفل ۵ شکست).
 - آزمون‌ها: `apps/owner-panel/tests/owner-login.test.js` (جدید)، ورود سرتاسری در `owner-spa.test.js`، ثبت در `tests/run.js`.
-دست‌نخورده: client/*، server/* (Gateway)، migrations 001–003، package*.json، workflows، install/android، ردیف ۶۳.
+- `.github/workflows/owner-panel.yml` — تأیید APK امضاشده با قالب خروجی apksigner در build-tools 37 («V3.0 Signer: certificate SHA-256 digest»)؛
+  قبلاً grep روی «Signer #1» با pipefail شکست می‌خورد. چاپ تشخیص در شکست؛ دقیقاً یک امضاکننده و یک گواهی.
+  اجرای تشخیصی (شاخهٔ موقت حذف‌شده) روی runner: v2=true، v3=true، Number of signers: 1،
+  CN=Payesh Owner Panel, O=Payesh, C=IR، cert SHA-256 d35afba3fdeee09c2ff181a3bb3a48cfe50761a742b0f9d1ca73dbce0b138321 (= کلید مالک روی PC).
+دست‌نخورده: client/*، server/* (Gateway)، migrations 001–003، package*.json، build.yml، install/android، ردیف ۶۳.
 
-## نتایج اجرا روی code_sha
+## نتایج اجرا روی code_sha (بازاجرا پس از اصلاح workflow: pass=110 fail=0 · EVIDENCE-OK)
 pass=110 fail=0 registered=110 (mission-05-tests-run.log) · EVIDENCE-OK
 OWNER-LOGIN unit_checks=26 negative_controls=32 failures=0
 OWNER-SPA checks=136 failures=0 (افزوده: رمز نادرست ⇒ 401، رمز + TOTP ⇒ نشست + داشبورد؛ بدون 004 ⇒ پیام fail-closed D‑45)
