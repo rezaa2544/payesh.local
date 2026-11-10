@@ -1,6 +1,7 @@
 base_sha=6361e13ba6887c9df7a1c68356a7f410ba370958
-code_sha=23f96c0a732c7719d12755ccda72efdb27cac46c
-date_utc=2026-11-10T15:25:19Z
+code_sha=94725675b969b5d318a49b76cdf121506411eb7a
+code_sha_first=23f96c0a732c7719d12755ccda72efdb27cac46c (SPA؛ شاهد اولیه 4272cc3)
+date_utc=2026-11-10T15:36:33Z
 branch=arena/owner-panel-pr3-98
 env=Linux 6.1.189+ x86_64 · node v22.23.4 (npx --package=node@22)
 command=npx --yes --package=node@22 -c 'bash docs/cloud/reports/evidence/run-tests-evidence.sh && bash docs/cloud/reports/evidence/gen-audit-evidence.sh'
@@ -18,21 +19,27 @@ sandbox از دست رفته است؛ هیچ‌یک از آن دو SHA روی or
 - `apps/owner-panel/scripts/gen-theme.js` — تولید theme.css از client/pulse.css؛ `--check` برای drift؛ جدول TOKEN_DISCREPANCIES.
 - `apps/owner-panel/server/static-server.js` — سرور ایستا روی مبدأ جدا + پروکسی same-origin به Gateway.
 - `apps/owner-panel/tests/owner-spa.test.js` — سه گروه: assets / proxy / ui؛ 117 کنترل شمارش‌شده.
-- `tests/run.js` — 3 آزمون جدید (مجموع 106).
-دست‌نخورده: client/pages.js، client/*، server/*، platform-api.js، openapi.json، migrations، package.json،
+- `tests/run.js` — 4 آزمون جدید (مجموع 107).
+- کامیت دوم 9472567 — حذف دومرحله‌ای سمت سرور (قاعدهٔ مصوب 12b §100 + D-22):
+  `db/migrations/owner-panel/003_tenant_deletion.{up,down}.sql`، ۵ مسیر تازه در `platform-api.js` و
+  `openapi.json`، صفحهٔ مدارس در `web/app.js`، `tests/tenant-deletion.test.js` (35 کنترل منفی) و
+  گردش سرتاسری UI در `owner-spa.test.js` (134 کنترل). READMEهای server/migrations/web به‌روز شد.
+دست‌نخورده: client/pages.js، client/*، server/* (Gateway)، migrations 001/002، package.json،
 package-lock.json، releases/*، workflows، Secrets.
 
 ## Passهای اجرا‌شده روی code_sha
-1. `npm test` (از طریق run-tests-evidence.sh) → SUMMARY pass=106 fail=0 · EXIT=0 · REGISTERED=106
-   raw_output_sha256=7a81565fb6de1c0c20410ea96752ad3332652a4796a071fc2cd87866de261205
-   product_tree_sha256=514b038984e97b30f7af54310b9c01d1769d4612dfe8e449b20ad104e61bc484
-   لاگ: mission-05-tests-run.log و نسخهٔ append-only tests-run-23f96c0-20261110T152519Z.log
+1. `npm test` (از طریق run-tests-evidence.sh) روی 9472567 → SUMMARY pass=107 fail=0 · EXIT=0 · REGISTERED=107
+   raw_output_sha256=e6acf4bab37ec1d4f1a3fc12db0a3268736f950dd8264ace8c6d83778469ab46
+   product_tree_sha256=0e627d5ac2784948e498c0b10a18dc0f5bc31d5014ef209e882b6b48c168c781
+   لاگ: mission-05-tests-run.log و append-only tests-run-9472567-20261110T153633Z.log
+   (اجرای قبلی روی 23f96c0: pass=106، لاگ tests-run-23f96c0-20261110T152519Z.log حفظ شده)
 2. `gen-audit-evidence.sh` → EVIDENCE-OK
 3. `npm run test:boundary` → 6 موفق / 0 ناموفق
 4. `node docs/cloud/reports/evidence/probe-12b-boundary.cjs` → SUMMARY pass=22 fail=0
 5. `npm run test:restart` → 8 موفق / 0 ناموفق
 6. پایهٔ main پیش از تغییر: `npm test` → 103 موفق / 0 ناموفق
-7. پایداری روی code_sha (درخت کد = HEAD): `node apps/owner-panel/tests/owner-spa.test.js` هشت بار پیاپی → 8× checks=117 failures=0
+7. پایداری روی 9472567: owner-spa ×5 → checks=134 failures=0 · tenant-deletion ×5 → negative_controls=35 failures=0
+   (روی 23f96c0: owner-spa ×8 → checks=117 failures=0)
    (یک خطای آزمون — انتخاب دکمهٔ حذف بر اساس ترتیب UUID — پیدا و رفع شد؛ ربطی به کد محصول نداشت)
 
 ## کنترل‌های منفی (هر کنترل باید ورودی خراب را رد کند)
@@ -49,6 +56,19 @@ traversal (خام و کدشده) ⇒ 404، بدون upstream ⇒ 503 upstream_no
 آزمون جهش دستی (خارج از مجموعه، برگردانده شد): باز کردن CAPS اپراتور در app.js، حذف حالت loading
 داشبورد، حذف credentials:'omit'، و افزودن cookie به allowlist پروکسی — هر چهار، آزمون را قرمز کردند.
 
+## کنترل‌های منفی حذف دومرحله‌ای (tenant-deletion.test.js، 35 مورد)
+DELETE فوری ⇒ 403 · operator/support/owner غیرفعال ⇒ 403 · operator با claim امضاشدهٔ owner ⇒ 403 از require_actor
+دلیل کوتاه / بدون تکرار شناسه / تکرار شناسهٔ مدرسهٔ دیگر ⇒ 400 · مدرسهٔ ناموجود ⇒ 403 · درخواست باز دوم ⇒ 409
+INSERT مستقیم runtime روی جدول حذف و UPDATE مستقیم اشتراک ⇒ رد · اجرا در حالت pending ⇒ 403
+تأیید توسط خود درخواست‌دهنده: API ⇒ four_eyes_required، تابع SQL ⇒ 42501، UPDATE مستقیم superuser ⇒ CHECK
+اجرا پیش از ۲۴ساعت: API ⇒ 409، تابع SQL مستقیم ⇒ 42501 · کوتاه‌کردن مهلت / اجرای عقب‌تاریخ / کاهش نگهداری
+به زیر ۱۸۰ روز با UPDATE superuser ⇒ CHECK · اجرای دوباره، اجرای درخواست لغوشده ⇒ 403 · مدرسهٔ دیگر دست‌نخورده
+· migration 003 down فقط اشیای خودش را برمی‌دارد و down 003→002→001 کامل است.
+گذر زمان: approved_at و not_before با هم ۲۵ ساعت عقب برده می‌شوند (superuser، فقط در آزمون).
+آزمون جهش (برگردانده شد): حذف بررسی مهلت در SQL، حذف چهارچشم در SQL+CHECK، مهلت ۱ ساعت، نگهداری ۳۰ روز،
+دادن INSERT به runtime، اجازهٔ operator در SQL؛ و در UI: دکمهٔ تأیید برای درخواست‌دهنده، دکمهٔ اجرا پیش از مهلت،
+بازگشت به DELETE — هر نُه مورد آزمون را قرمز کرد.
+
 ## جدول «ادعا ← شاهد ← وضعیت»
 | ادعا | شاهد | وضعیت |
 | --- | --- | --- |
@@ -61,7 +81,8 @@ traversal (خام و کدشده) ⇒ 404، بدون upstream ⇒ 503 upstream_no
 | [M] دکمهٔ حذف: دلیل ≥10، تایپ دوباره، متن چهارچشمی + ۲۴ساعت | ui(): دلیل کوتاه/تایپ اشتباه بدون شبکه رد؛ DELETE ⇒ 403 و DB دست‌نخورده | [E] آزمون شد |
 | [M] تم روشن/تیره + کنترل منفی | ui() چرخهٔ سیستم/روشن/تاریک + themeModes + N6 | [E] آزمون شد (بدون رندر پیکسلی) |
 | [M] پروکسی same-origin با CSP و رد cookie/redirect/بدنهٔ نامعتبر | proxy() | [E] آزمون شد |
-| [A] گردش واقعی حذف چهارچشمی، مهلت ۲۴ساعته، نگهداری ۱۸۰روزه در سرور | API همیشه 403 tenant_deletion_disabled | NOT-DONE (خارج از PR-3) |
+| [M] حذف چهارچشمی + مهلت ۲۴ساعت + نگهداری ≥۱۸۰ روز در سرور | migration 003 (تابع + CHECK) + API + tenant-deletion.test.js + گردش UI | [E] آزمون شد (PGlite) |
+| [A] اطلاع خودکار به مدرسه پیش از اجرای حذف / نابودی کلید پس از ۱۸۰ روز | خارج از این PR؛ 16b §1.3 آفلاین با تأیید مالک | NOT-DONE |
 | [A] ورود انسانی رمز + TOTP | صادرکننده در API وجود ندارد؛ O-17/O-27 باز | BLOCKED — فرم fail-closed است |
 | [A] فونت محلی Vazirmatn + THIRD_PARTY_LICENSES | فایل فونت در مخزن نیست | NOT-DONE |
 | [A] رندر در مرورگر واقعی / Playwright / Windows WebView2 | فقط jsdom | NOT-RUN |
@@ -69,6 +90,6 @@ traversal (خام و کدشده) ⇒ 404، بدون upstream ⇒ 503 upstream_no
 | [A] استقرار TLS، پنتست انسانی | — | NOT-RUN · security=UNKNOWN |
 
 ## چرا Done نیست
-معیار پذیرش «صفحهٔ ورود+TOTP» و «حذف مدرسه چهارچشمی+۲۴ساعت» فقط در سطح UI و با رفتار fail-closed
-پوشش داده شده است؛ پشتیبان سروری هیچ‌یک وجود ندارد و تصمیم مالک (O-17/O-27) باز است. تا آن زمان
-وضعیت ردیف ۹۸ «In Progress» می‌ماند و ادعای PASSED/Done مجاز نیست.
+حذف چهارچشمی+۲۴ساعت اکنون سمت سرور پیاده و آزموده شده است. ولی معیار «صفحهٔ ورود+TOTP» فقط در سطح UI
+و با رفتار fail-closed پوشش دارد؛ صادرکنندهٔ توکن انسانی وجود ندارد و تصمیم مالک (O-17/O-27) باز است.
+همچنین push/CI انجام نشده. تا آن زمان وضعیت ردیف ۹۸ «In Progress» می‌ماند و ادعای Done مجاز نیست.
