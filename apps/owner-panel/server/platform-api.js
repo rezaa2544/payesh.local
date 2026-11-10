@@ -18,6 +18,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const auth = require('./owner-auth');
 
 const PREFIX = '/api/platform/v1';
 const TOKEN_PREFIX = 'platform.v1';
@@ -30,7 +31,7 @@ const FORBIDDEN_KEY_RE = /^(national_id|password.*|.*token.*|.*secret.*|authoriz
 
 function b64url(buf) { return Buffer.from(buf).toString('base64url'); }
 
-/** Issue a platform token. Used by tests and by the Owner's future token issuer. */
+/** Issue a platform token. Used by tests and by the login issuer (POST /auth/login, D‑45). */
 function signPlatformToken(claims, secret) {
   if (!secret || String(secret).length < 16) throw new Error('platform token secret must be at least 16 characters');
   const body = b64url(JSON.stringify(Object.assign({ typ: 'platform', v: 1 }, claims)));
@@ -103,6 +104,8 @@ function err(status, error, extra = {}) {
 const PLATFORM_ROUTES = [
   { method: 'GET',    path: '/health/summary',                              auth: false, handler: 'healthSummary' },
   { method: 'GET',    path: '/openapi.json',                               auth: false, handler: 'openapi' },
+  /* ردیف ۹۸ / D‑45 — ورود انسانی: رمز + TOTP، بدون توکن قبلی */
+  { method: 'POST',   path: '/auth/login',                                 auth: false, handler: 'authLogin' },
   { method: 'GET',    path: '/dashboard',                                  auth: true,  handler: 'dashboard' },
   { method: 'GET',    path: '/tenants',                                    auth: true,  handler: 'tenants' },
   { method: 'GET',    path: '/tenants/{tenant_id}',                         auth: true,  handler: 'tenant' },
@@ -527,6 +530,9 @@ function createPlatformApi(options = {}) {
   const windowSec = Number(options.rateLimitWindowSec || 60);
   const instance = String(options.instance || ('platform-' + process.pid));
   const configured = !!db && secret.length >= 16;
+  const loginMax = Number(options.loginRateMax || 10);
+  const loginWindowSec = Number(options.loginRateWindowSec || 300);
+  const tokenTtlMs = Number(options.tokenTtlMs || 8 * 3600 * 1000);
   const openapi = JSON.parse(fs.readFileSync(path.join(__dirname, 'openapi.json'), 'utf8'));
 
   function match(method, sub) {
@@ -548,6 +554,81 @@ function createPlatformApi(options = {}) {
       'x-request-id': rid,
       'x-platform-instance': instance,
     }, rateHeaders || {}), body: Object.assign({ ok: false, error }, extra || {}) };
+  }
+
+  /* ── POST /auth/login — D‑45: رمز + TOTP اجباری، حداکثر ۳ حساب، بدون محدودیت IP ──
+     ترتیب: اعتبارسنجی شکل → سهمیه (شناسه و IP، در دیتابیس) → login_lookup →
+     scrypt + TOTP → record_login_attempt (تکرار/قفل/ممیزی، مرجع نهایی) → توکن.
+     هر شکست یک پاسخ یکسان 401 دارد تا وجود حساب، قفل یا غیرفعال بودن لو نرود. */
+  async function login(input, rid, reply) {
+    if (!configured) return reply(503, { ok: false, error: 'not_configured' });
+    const b = input.body && typeof input.body === 'object' ? input.body : {};
+    const loginId = typeof b.login_id === 'string' ? b.login_id.trim() : '';
+    const password = typeof b.password === 'string' ? b.password : '';
+    const code = typeof b.totp === 'string' ? b.totp.trim() : '';
+    if (!loginId || loginId.length > 120 || !password || password.length > 256 || !/^[0-9]{6}$/.test(code)) {
+      return reply(400, { ok: false, error: 'invalid_login_request' });
+    }
+    const loginRef = auth.ref('login', loginId);
+    const ipRef = auth.ref('ip', input.remote || 'unknown');
+    const bucket = Math.floor(now() / 1000 / loginWindowSec) * loginWindowSec;
+    let hits;
+    try {
+      hits = await db.withTransaction(async (q) => {
+        let max = 0;
+        for (const subject of ['login-id:' + loginRef, 'login-ip:' + ipRef]) {
+          const r = await q(`INSERT INTO owner_platform.api_rate_limit (subject, window_start, hits)
+            VALUES ($1,$2,1)
+            ON CONFLICT (subject, window_start)
+            DO UPDATE SET hits = owner_platform.api_rate_limit.hits + 1
+            RETURNING hits`, [subject, bucket]);
+          max = Math.max(max, Number(r.rows[0].hits));
+        }
+        return max;
+      });
+    } catch (e) {
+      return reply(503, { ok: false, error: 'rate_limit_unavailable' });
+    }
+    if (hits > loginMax) {
+      return reply(429, { ok: false, error: 'rate_limited',
+        retry_after_ms: Math.max(1, (bucket + loginWindowSec) * 1000 - now()) });
+    }
+    let row;
+    try {
+      row = await db.withTransaction(async (q) =>
+        (await q('SELECT * FROM owner_platform.login_lookup($1)', [loginId])).rows[0] || null);
+    } catch (e) {
+      if (e && (e.code === '42883' || e.code === '42P01')) return reply(501, { ok: false, error: 'login_not_installed' });
+      return reply(503, { ok: false, error: 'login_unavailable' });
+    }
+    const pwOk = await auth.verifyPassword(password, row && row.password_hash);
+    const step = row && pwOk ? auth.verifyTotp(row.totp_secret, code, now()) : null;
+    const measured = !row ? 'unknown_login' : (pwOk && step !== null ? 'ok' : 'bad_credentials');
+    let outcome;
+    try {
+      outcome = await db.withTransaction(async (q) => {
+        const r = await q('SELECT owner_platform.record_login_attempt($1,$2,$3,$4,$5,$6) AS outcome',
+          [row ? row.user_id : null, loginRef, ipRef, measured, step, rid]);
+        const o = r.rows[0].outcome;
+        if (o === 'ok') {
+          await q("SELECT set_config('app.platform_user_id', $1, true)", [row.user_id]);
+          await appendAudit(q, { requestId: rid, claims: { sub: row.user_id } }, {
+            action: 'auth.login', subject_type: 'platform_user', subject_ref: row.user_id,
+            details: { amr: ['pwd', 'otp'] } });
+        }
+        return o;
+      });
+    } catch (e) {
+      if (process.env.PLATFORM_API_DEBUG) console.error('PLATFORM_LOGIN_ERROR', e);
+      return reply(503, { ok: false, error: 'login_unavailable' });
+    }
+    if (outcome !== 'ok') return reply(401, { ok: false, error: 'invalid_credentials' });
+    const iat = now();
+    const exp = iat + tokenTtlMs;
+    const token = signPlatformToken({ sub: row.user_id, role: row.role, iat, exp,
+      jti: crypto.randomUUID(), amr: ['pwd', 'otp'] }, secret);
+    return reply(200, { ok: true, token, expires_at: new Date(exp).toISOString(),
+      user: { id: row.user_id, role: row.role } });
   }
 
   async function dispatch(input) {
@@ -575,6 +656,7 @@ function createPlatformApi(options = {}) {
     const { route, params } = found;
 
     if (!route.auth) {
+      if (route.handler === 'authLogin') return login(input, rid, reply);
       if (route.handler === 'healthSummary') {
         return reply(200, { ok: true, namespace: PREFIX, instance,
           configured, auth: configured ? 'platform.v1 HMAC token (separate from school auth)' : 'not_configured',
@@ -648,7 +730,8 @@ function createPlatformApi(options = {}) {
     try { url.searchParams.forEach((v, k) => { query[k] = v; }); } catch (_) { /* noop */ }
     let out;
     try {
-      out = await dispatch({ method, path: url.pathname, headers: req.headers, body, query });
+      out = await dispatch({ method, path: url.pathname, headers: req.headers, body, query,
+        remote: (req.socket && req.socket.remoteAddress) || '' });
     } catch (e) {
       out = { status: 500, headers: { 'content-type': 'application/json; charset=utf-8' },
         body: { ok: false, error: 'internal_error' } };

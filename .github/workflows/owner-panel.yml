@@ -184,13 +184,26 @@ jobs:
           APK=out/payesh-owner.apk
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           BT=$(ls -d "$SDK"/build-tools/* | sort -V | tail -1)
+          echo "build-tools=$BT · java=$(java -version 2>&1 | head -1)"
           if [ "$READY" = "true" ]; then
-            "$BT/zipalign" -c 4 "$APK"
-            "$BT/apksigner" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/sig.txt"
-            grep -Eq "Verified using v2 scheme.*: true" "$RUNNER_TEMP/sig.txt"
-            grep -Eq "Verified using v3 scheme.*: true" "$RUNNER_TEMP/sig.txt"
-            FP=$(grep "Signer #1 certificate SHA-256 digest" "$RUNNER_TEMP/sig.txt" | tr -d ' ' | cut -d: -f2 | tr 'A-F' 'a-f')
-            [ ${#FP} -eq 64 ]
+            if ! "$BT/zipalign" -c -v 4 "$APK" > "$RUNNER_TEMP/align.txt" 2>&1; then
+              echo "::error::APK مالک تراز (zipalign) نیست"; grep -v "(OK" "$RUNNER_TEMP/align.txt" | tail -20; exit 1
+            fi
+            if ! "$BT/apksigner" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/sig.txt" 2>&1; then
+              echo "::error::apksigner verify روی APK امضاشدهٔ مالک شکست خورد"; head -40 "$RUNNER_TEMP/sig.txt"; exit 1
+            fi
+            grep -E "^Verified using|^Number of signers|certificate (DN|SHA-256 digest):" "$RUNNER_TEMP/sig.txt" || true
+            [ "$(grep -E '^Number of signers:' "$RUNNER_TEMP/sig.txt" | awk '{print $NF}')" = "1" ] || { echo "::error::APK مالک باید دقیقاً یک امضاکننده داشته باشد"; exit 1; }
+            grep -Eq "Verified using v2 scheme.*: true" "$RUNNER_TEMP/sig.txt" || { echo "::error::امضای v2 تأیید نشد"; exit 1; }
+            grep -Eq "Verified using v3 scheme.*: true" "$RUNNER_TEMP/sig.txt" || { echo "::error::امضای v3 تأیید نشد"; exit 1; }
+            # قالب خروجی apksigner بین نسخه‌های build-tools فرق دارد
+            # («Signer #1 certificate SHA-256 digest: …» تا 36؛ «V3.0 Signer: certificate SHA-256 digest: …» در 37)
+            FP=$( (grep -m1 -E "certificate SHA-256 digest:" "$RUNNER_TEMP/sig.txt" || true) | awk -F': ' '{print $NF}' | tr -d ' :' | tr 'A-F' 'a-f')
+            [ ${#FP} -eq 64 ] || { echo "::error::اثر انگشت گواهی خوانده نشد"; sed -n '1,40p' "$RUNNER_TEMP/sig.txt"; exit 1; }
+            if [ "$(grep -E 'certificate SHA-256 digest:' "$RUNNER_TEMP/sig.txt" | awk -F': ' '{print $NF}' | tr -d ' :' | tr 'A-F' 'a-f' | sort -u | wc -l)" != "1" ]; then
+              echo "::error::گواهی‌های امضای APK مالک یکسان نیستند"; exit 1
+            fi
+            echo "✓ APK مالک امضاشده و تأییدشده · cert_sha256=$FP"
             node apps/owner-panel/scripts/check-owner-artifacts.js meta --file "$APK" --signed true \
               --signature "{\"scheme_v2\":true,\"scheme_v3\":true,\"cert_sha256\":\"$FP\"}"
           else

@@ -1,0 +1,55 @@
+base_sha=58190ffe4a4a7e1920422f358817fcf1cfba1f50
+code_sha=bd2cb5304d9f824b88513bc51a311c442962c561
+date_utc=2026-11-10T18:15:35Z
+branch=arena/owner-login-98
+env=Linux x86_64 · node v22 (npx --package=node@22)
+command=npx --yes --package=node@22 -c 'bash docs/cloud/reports/evidence/run-tests-evidence.sh && bash docs/cloud/reports/evidence/gen-audit-evidence.sh'
+# ردیف ۹۸ — صادرکنندهٔ ورود انسانی پنل مالک (D‑45 = O‑17 گزینهٔ A، تصمیم صریح مالک ۱۴۰۵/۰۸/۱۹)
+# برچسب‌ها: [M] ماشینی/کد، [S] شاهد خام، [E] محیط/اجرا، [A] ادعا، [?] نامشخص · security_status=UNKNOWN
+
+## تصمیم
+رمز + TOTP برای همهٔ اپراتورها اجباری؛ بدون محدودیت IP؛ حداکثر ۳ اپراتور؛ حساب نخست با اسکریپت روی سرور.
+ثبت: قانون اساسی D‑45 (نسخهٔ ۱٫۱۴، O‑17 = ✅)، ADR‑62 §8.
+
+## محدودهٔ تغییر
+- `apps/owner-panel/server/owner-auth.js` — scrypt (N=2^15,r=8,p=1)، TOTP RFC 6238، base32 RFC 4648، otpauth URI، مرجع هش‌شده.
+- `apps/owner-panel/server/platform-api.js` + `openapi.json` — `POST /auth/login` (auth:false)؛ سهمیهٔ شناسه/IP؛ 401 یکسان؛ 501 بدون migration 004.
+- `db/migrations/owner-panel/004_owner_login.{up,down}.sql` — platform_credentials (بدون grant جدولی به runtime)، login_event (append-only)،
+  login_lookup (تطبیق دقیق)، record_login_attempt (تکرار/قفل/رویداد)، trigger سقف ۳ با قفل جدول.
+- `apps/owner-panel/scripts/create-operator.js` — ساخت حساب روی سرور؛ رمز بدون نمایش؛ فقط URI otpauth یک‌بار چاپ می‌شود.
+- `apps/owner-panel/web/app.js` — متن login_unavailable/login_failed (D‑45، قفل ۵ شکست).
+- آزمون‌ها: `apps/owner-panel/tests/owner-login.test.js` (جدید)، ورود سرتاسری در `owner-spa.test.js`، ثبت در `tests/run.js`.
+- `.github/workflows/owner-panel.yml` — تأیید APK امضاشده با قالب خروجی apksigner در build-tools 37 («V3.0 Signer: certificate SHA-256 digest»)؛
+  قبلاً grep روی «Signer #1» با pipefail شکست می‌خورد. چاپ تشخیص در شکست؛ دقیقاً یک امضاکننده و یک گواهی.
+  اجرای تشخیصی (شاخهٔ موقت حذف‌شده) روی runner: v2=true، v3=true، Number of signers: 1،
+  CN=Payesh Owner Panel, O=Payesh, C=IR، cert SHA-256 d35afba3fdeee09c2ff181a3bb3a48cfe50761a742b0f9d1ca73dbce0b138321 (= کلید مالک روی PC).
+دست‌نخورده: client/*، server/* (Gateway)، migrations 001–003، package*.json، build.yml، install/android، ردیف ۶۳.
+
+## نتایج اجرا روی code_sha (بازاجرا پس از اصلاح workflow: pass=110 fail=0 · EVIDENCE-OK)
+pass=110 fail=0 registered=110 (mission-05-tests-run.log) · EVIDENCE-OK
+OWNER-LOGIN unit_checks=26 negative_controls=32 failures=0
+OWNER-SPA checks=136 failures=0 (افزوده: رمز نادرست ⇒ 401، رمز + TOTP ⇒ نشست + داشبورد؛ بدون 004 ⇒ پیام fail-closed D‑45)
+بردارها: RFC 6238 Appendix B (۶ زمان)، RFC 4226 Appendix D، RFC 4648 «foobar».
+کنترل‌های منفی (نمونه): کد تکراری ⇒ 401 · کد گام قدیمی‌تر ⇒ 401 · رمز/کد/شناسهٔ نادرست و کاربر بدون رمز ⇒ بدنهٔ یکسان 401 ·
+۵ شکست ⇒ قفل (حتی با رمز درست) · کاربر غیرفعال ⇒ 401 · ۴ تلاش از یک IP یا یک شناسه از IPهای مختلف ⇒ 429 ·
+حساب چهارم ⇒ 23514 و rollback · رمز ساده ⇒ CHECK · runtime: SELECT/INSERT/UPDATE مستقیم credentials و SELECT login_event ⇒ 42501 ·
+login_lookup('%') ⇒ ۰ ردیف · ثبت outcome جعلی ⇒ 22023 · DELETE روی login_event حتی superuser ⇒ رد ·
+operator واردشده با صادرکننده همچنان renew ⇒ 403 · بدون migration 004 ⇒ 501 بدون توکن.
+آزمون جهش (برگردانده شد): حذف شرط تکرار در SQL، سقف ۴، آستانهٔ قفل ۵۰ — هر سه آزمون را قرمز کرد.
+
+## جدول «ادعا ← شاهد ← وضعیت»
+| ادعا | شاهد | وضعیت |
+| --- | --- | --- |
+| [M] ورود رمز + TOTP اجباری، توکن platform.v1 با نقش از جدول | owner-login.test.js flow() + owner-spa ui() | [E] آزمون شد (PGlite) |
+| [M] تکرار کد TOTP رد، قفل ۵ شکست/۱۵ دقیقه، سهمیهٔ شناسه/IP | flow() + جهش | [E] آزمون شد |
+| [M] حداکثر ۳ حساب ورود | trigger + کنترل منفی + جهش | [E] آزمون شد |
+| [M] حساب نخست فقط با اسکریپت روی سرور | create-operator.js (createOperator در آزمون) | [E] آزمون شد؛ اجرای روی سرور تولیدی OWNER [?] |
+| [M] بدون محدودیت IP | مسیر ورود allowlist IP ندارد (فقط سهمیه) | [E] |
+| [A] اجرای migration 004 و ساخت حساب روی سرور مالک | — | OWNER / NOT-RUN |
+| [A] اطلاع خودکار به مدرسه پیش از حذف / نابودی کلید ۱۸۰ روزه | 16b §1.3 آفلاین با تأیید مالک؛ معیار ردیف ۹۸ نیست | NOT-DONE (خارج از معیار) |
+| [A] فونت محلی Vazirmatn | فونت خارجی ممنوع؛ فایل فونت در مخزن نیست؛ معیار ردیف ۹۸ نیست | NOT-DONE (خارج از معیار) |
+| [A] پنتست انسانی / TLS | — | NOT-RUN · security=UNKNOWN |
+
+## وضعیت معیارهای ردیف ۹۸
+همهٔ معیارهای پذیرش ردیف ۹۸ اکنون شاهد ماشینی دارند؛ مانع قبلی («ورود+TOTP» فقط fail-closed) با D‑45 برطرف شد.
+شاهد قبلی ردیف: owner-panel-pr3-98.txt (SPA، حذف چهارچشمی، تم، نقش operator).

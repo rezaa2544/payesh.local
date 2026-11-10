@@ -38,6 +38,9 @@
     "/openapi.json": {
       "get": { "summary": "همین قرارداد", "security": [], "responses": { "200": { "description": "OpenAPI document" } } }
     },
+    "/auth/login": {
+      "post": { "summary": "ورود انسانی پنل مالک (D-45): رمز + TOTP اجباری؛ حداکثر ۳ حساب؛ تکرار کد TOTP رد؛ ۵ شکست ⇒ قفل ۱۵ دقیقه؛ سهمیه بر اساس شناسه و IP", "security": [], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["login_id", "password", "totp"], "properties": { "login_id": { "type": "string", "maxLength": 120 }, "password": { "type": "string", "maxLength": 256 }, "totp": { "type": "string", "pattern": "^[0-9]{6}$" } } } } } }, "responses": { "200": { "description": "platform.v1 token (8h), expires_at, user {id, role}" }, "400": { "description": "invalid_login_request" }, "401": { "description": "invalid_credentials (یکسان برای حساب ناموجود/رمز/کد/تکرار/قفل/غیرفعال)" }, "429": { "description": "rate_limited" }, "501": { "description": "login_not_installed (migration 004 اجرا نشده)" }, "503": { "description": "not_configured / rate_limit_unavailable / login_unavailable" } } }
+    },
     "/dashboard": {
       "get": { "summary": "شمارش فراداده (بدون محتوای مدرسه)", "responses": { "200": { "description": "ok" }, "401": { "description": "unauthorized" }, "429": { "description": "rate_limited" } } }
     },
