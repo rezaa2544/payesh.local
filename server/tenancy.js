@@ -21,6 +21,7 @@ const transfer = require('./transfer');
 const crypto = require('node:crypto');
 const scopeMod = require('./scope');
 const policy = require('./policy');
+const privacy = require('./privacy'); /* row 88: export role allowlist, tombstone retention, cross-school refusal */
 const fc = require('./field-crypto'); /* ردیف ۸۷: فیلدهای حساس در jsonb مهرشده‌اند */
 
 const TOKEN_VERSION = 1;
@@ -843,16 +844,84 @@ async function joinProduct(pool, tenantId, { left, right, on, limit = 200, claim
 
 async function exportProduct(pool, tenantId, { collection, claims = null }) {
   const col = assertCollection(collection);
-  /* ردیف ۵۷: خروجیِ کاملِ users (با password_enc/هش‌ها) فقط مدیر است */
-  if (col === 'users' && claims && String(claims.role || '') !== 'manager') {
+  /* row 88: closed role allowlist (server/privacy.js). Unknown/guard roles never export. */
+  const mode = claims ? privacy.exportMode(claims.role) : 'school';
+  if (!mode) throw new TenancyError('export_role_denied', 403, { role: String((claims && claims.role) || '') });
+  /* ردیف ۵۷: خروجیِ کاملِ users فقط مدیر است */
+  if (col === 'users' && mode !== 'school') {
     throw new TenancyError('forbidden', 403, { collection: col });
   }
   return withTenant(pool, tenantId, async (c) => {
-    const q = await c.query(`select collection, record_id, version, data, deleted_at, updated_at
-                             from ${PRODUCT_TABLE} where collection = $1 and deleted_at is null
-                             order by record_id asc`, [col]);
-    const role = claims ? { role: String(claims.role || '') } : null;
-    return { collection: col, count: q.rows.length, rows: q.rows.map(productRowOf).map(r => scrubUsersRow(role, r)) };
+    /* row 88: a non-manager export is limited to the caller's server-side scope (row 38).
+       Constant SQL + the same rowInScope() the push path uses (no dynamic SQL; export is rare). */
+    const scope = (claims && mode !== 'school') ? await scopeMod.build(c, claims) : null;
+    if (scope && !scopeMod.canReadCollection(scope, col)) throw new TenancyError('forbidden_collection', 403, { collection: col });
+    const q = await c.query(`select r.collection, r.record_id, r.version, r.data, r.deleted_at, r.updated_at
+                             from ${PRODUCT_TABLE} r where r.collection = $1 and r.deleted_at is null
+                             order by r.record_id asc`, [col]);
+    const who = { role: claims ? String(claims.role || '') : 'manager', uid: claims ? claims.uid : null };
+    const rows = q.rows.map(productRowOf)
+      .filter(r => !scope || scopeMod.rowInScope(scope, col, Object.assign({}, r.data, { id: r.id })))
+      .map(r => privacy.scrubExportRow(who, r));
+    return { collection: col, count: rows.length, scope: mode, rows };
+  });
+}
+
+/* row 88: "my data" export — every collection the caller may read, inside their scope.
+   The caller's own users row keeps its identity fields; nobody else's does. */
+const SUBJECT_EXPORT_MAX = 5000;
+async function exportSubject(pool, tenantId, { claims }) {
+  const mode = claims ? privacy.exportMode(claims.role) : null;
+  if (!mode) throw new TenancyError('export_role_denied', 403, { role: String((claims && claims.role) || '') });
+  return withTenant(pool, tenantId, async (c) => {
+    const scope = await scopeMod.build(c, claims);
+    const cols = Object.keys(policy.COLLECTIONS).filter(n => policy.collectionAllowed(n) && scopeMod.canReadCollection(scope, n));
+    const q = await c.query(`select r.collection, r.record_id, r.version, r.data, r.deleted_at, r.updated_at
+                             from ${PRODUCT_TABLE} r
+                             where r.collection = any($1::text[]) and r.deleted_at is null
+                             order by r.collection asc, r.record_id asc`, [cols]);
+    /* a manager's own data is their users row (the school export is /export) */
+    const mine = (r) => (scope.all
+      ? (r.collection === 'users' && r.id === Number(scope.uid))
+      : scopeMod.rowInScope(scope, r.collection, Object.assign({}, r.data, { id: r.id })));
+    const all = q.rows.map(productRowOf).filter(mine);
+    const truncated = all.length > SUBJECT_EXPORT_MAX;
+    const rows = all.slice(0, SUBJECT_EXPORT_MAX).map(r => privacy.scrubExportRow({ role: scope.role, uid: scope.uid }, r, { subject: true }));
+    const byCollection = {};
+    for (const r of rows) byCollection[r.collection] = (byCollection[r.collection] || 0) + 1;
+    return { subject: { role: scope.role, uid: scope.uid }, count: rows.length, truncated, by_collection: byCollection, rows };
+  });
+}
+
+/* row 88: tombstone view (metadata only — never the body) and retention purge. Manager only. */
+async function listTombstones(pool, tenantId, { collection = null, limit = 200 } = {}) {
+  const col = collection ? assertCollection(collection) : null;
+  const lim = Math.max(1, Math.min(1000, Number(limit) || 200));
+  return withTenant(pool, tenantId, async (c) => {
+    const q = await c.query(`select collection, record_id, version, deleted_at
+                               from ${PRODUCT_TABLE}
+                              where deleted_at is not null and ($1::text is null or collection = $1)
+                              order by deleted_at desc, collection asc, record_id asc limit $2`, [col, lim]);
+    return q.rows.map(r => ({
+      collection: r.collection, id: Number(r.record_id), version: Number(r.version),
+      deleted_at: r.deleted_at instanceof Date ? r.deleted_at.toISOString() : r.deleted_at,
+    }));
+  });
+}
+
+async function purgeTombstones(pool, tenantId, { retain_days: retainDays } = {}) {
+  const days = privacy.checkRetainDays(retainDays);
+  if (days === null) {
+    throw new TenancyError('bad_retain_days', 400, { min: privacy.TOMBSTONE_MIN_DAYS, max: privacy.TOMBSTONE_MAX_DAYS });
+  }
+  return withTenant(pool, tenantId, async (c) => {
+    const q = await c.query(`delete from ${PRODUCT_TABLE}
+                              where deleted_at is not null and deleted_at < now() - ($1::int || ' days')::interval
+                              returning collection`, [days]);
+    const byCollection = {};
+    for (const r of q.rows) byCollection[r.collection] = (byCollection[r.collection] || 0) + 1;
+    const left = await c.query(`select count(*)::int as n from ${PRODUCT_TABLE} where deleted_at is not null`);
+    return { purged: q.rowCount, by_collection: byCollection, tombstones_left: Number(left.rows[0].n), retain_days: days };
   });
 }
 
@@ -908,6 +977,9 @@ async function route({ method, pathname, search, headers = {}, body = {} }) {
 
   /* مستأجر فقط از توکن — هیچ کلید دیگری در درخواست اثر ندارد */
   const tid = claims.tid;
+  /* row 88: a request naming another school is refused, not silently re-scoped */
+  const xt = privacy.crossTenant(tid, body, search);
+  if (xt) return { status: 403, body: { ok: false, error: 'cross_tenant', key: xt.key } };
   const base = '/api/cloud/tenancy/records';
   const m = String(method || 'GET').toUpperCase();
   const kind = search && typeof search.get === 'function' ? search.get('kind') : null;
@@ -947,6 +1019,18 @@ async function route({ method, pathname, search, headers = {}, body = {} }) {
     if (pathname === PBASE + '/export' && m === 'POST') {
       const out = await exportProduct(state.pool, tid, Object.assign({}, body || {}, { claims }));
       return { status: 200, body: Object.assign({ ok: true }, out) };
+    }
+    if (pathname === PBASE + '/export/me' && m === 'POST') {
+      return { status: 200, body: Object.assign({ ok: true }, await exportSubject(state.pool, tid, { claims })) };
+    }
+    if (pathname === PBASE + '/tombstones' && m === 'GET') {
+      if (String(claims.role || '') !== 'manager') return { status: 403, body: { ok: false, error: 'forbidden' } };
+      const rows = await listTombstones(state.pool, tid, { collection: search.get('collection'), limit: search.get('limit') });
+      return { status: 200, body: { ok: true, rows, count: rows.length, retain_days: privacy.tombstoneRetainDays() } };
+    }
+    if (pathname === PBASE + '/tombstones/purge' && m === 'POST') {
+      if (String(claims.role || '') !== 'manager') return { status: 403, body: { ok: false, error: 'forbidden' } };
+      return { status: 200, body: Object.assign({ ok: true }, await purgeTombstones(state.pool, tid, body || {})) };
     }
     if (pathname === PBASE + '/jobs' && m === 'POST') {
       return { status: 201, body: { ok: true, job: await enqueueJob(state.pool, tid, body || {}) } };
@@ -1071,7 +1155,7 @@ module.exports = { rekeyFields, replicaPolicy, transfer, maxFeedSeq, scopeMod, g
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,
-  listProduct, getProduct, upsertProduct, deleteProduct, joinProduct, exportProduct,
+  listProduct, getProduct, upsertProduct, deleteProduct, joinProduct, exportProduct, exportSubject, listTombstones, purgeTombstones,
   enqueueJob, claimJob, completeJob,
   init, status, route, close,
 };
