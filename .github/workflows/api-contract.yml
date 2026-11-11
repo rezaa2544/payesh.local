@@ -16,6 +16,14 @@ on:
       - 'tools/openapi-drift-81.mjs'
       - 'tests/openapi-drift-81.js'
       - '.github/workflows/api-contract.yml'
+      - 'docs/cloud/contracts/**'
+      - 'tools/directory-client-66.mjs'
+      - 'tools/cell-transfer-54.mjs'
+      - 'tests/contract-vectors-64.js'
+      - 'tests/native-contract-64.js'
+      - 'tests/directory-66.js'
+      - 'tests/cell-transfer-54.js'
+      - 'tests/gateway-67.js'
   pull_request:
     paths:
       - 'server/**'
@@ -23,6 +31,14 @@ on:
       - 'tools/openapi-drift-81.mjs'
       - 'tests/openapi-drift-81.js'
       - '.github/workflows/api-contract.yml'
+      - 'docs/cloud/contracts/**'
+      - 'tools/directory-client-66.mjs'
+      - 'tools/cell-transfer-54.mjs'
+      - 'tests/contract-vectors-64.js'
+      - 'tests/native-contract-64.js'
+      - 'tests/directory-66.js'
+      - 'tests/cell-transfer-54.js'
+      - 'tests/gateway-67.js'
   workflow_dispatch:
 
 permissions:
@@ -58,3 +74,57 @@ jobs:
           assert len(ids) == len(set(ids)), 'duplicate operationId'
           print('OPENAPI-VALID paths=%d operations=%d' % (len(d['paths']), len(ids)))
           PY
+
+  native-contract:
+    name: Native API v1 conformance + Directory re-route + Gateway hardening (rows 64, 66, 67)
+    runs-on: ubuntu-latest
+    services:
+      # Throwaway CI database; trust auth so tenancy.migrate can create the password-less
+      # payesh_runtime LOGIN role exactly like tests/gateway-pg.js.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: payesh_c64
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Shared conformance vectors (conflict, scope, version)
+        run: node tests/contract-vectors-64.js | tee native-contract.txt
+      - name: Every native endpoint vs JSON Schema (school server + Gateway/Directory on PostgreSQL)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+        run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/native-contract-64.js | tee -a native-contract.txt
+      - name: Directory bootstrap — school moved between two cells while the client writes
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/postgres
+        run: |
+          set -o pipefail
+          node tests/directory-66.js | tee -a native-contract.txt
+      - name: Row 54 transfer tool unit checks (sequence fix must not regress)
+        run: node tests/cell-transfer-54.js | tee -a native-contract.txt
+      - name: Row 67 Gateway hardening — SIGTERM drain, request-id, 429 Retry-After, kill-switches, short load test
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+          GW67_LOAD_OUT: gateway-67-load.json
+        run: |
+          set -o pipefail
+          node tests/gateway-67.js | tee -a native-contract.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-contract
+          path: |
+            native-contract.txt
+            gateway-67-load.json

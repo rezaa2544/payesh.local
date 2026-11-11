@@ -1,0 +1,50 @@
+row=65
+base_sha=c4b39222c5e016a9ae41cbcebf43b255baad5e0d
+date_utc=2026-11-11T04:28:50Z
+node=v22 sqlite=node:sqlite postgres=16.9 (embedded, local)
+command=node tests/identity-65.js
+
+── identity suite on the real tree ──
+PASS  ID65-01  login → short-lived access token (≤ 15 min) + refresh token  → ttl=900s
+PASS  ID65-02  expiry: expired access token → 401; refresh gives a working new one
+PASS  ID65-03  no sliding extension: using the access token does not push its expiry
+PASS  ID65-04  rotation: every refresh returns a NEW refresh token; the new one keeps working  → generation=3
+PASS  ID65-05  grace: the previous token within the grace window returns the SAME successor (multi-tab / lost response)
+PASS  ID65-06  replay after grace ⇒ reuse detected: whole chain revoked (old, current, sessions) + wipe
+PASS  ID65-07  forgery: unknown, truncated and bit-flipped refresh tokens → 401 bad_device (no session)
+PASS  ID65-08  key-bound device (P-256): refresh needs a valid proof; wrong key / no proof / stale ts are refused
+PASS  ID65-09  proof replay: a captured {token, proof} pair replayed later is refused (proof_replayed) — no successor leaks
+PASS  ID65-10  a stolen SPENT token without the private key cannot even revoke the bound device (no DoS)
+PASS  ID65-11  Ed25519 keys work; malformed / RSA / oversized public keys → 400 bad_device_pubkey
+PASS  ID65-12  per-user device cap (6): next login 409 device_limit; revoking or a stale device frees a slot  → active=6
+PASS  ID65-13  manager revoke ⇒ the device's session gets 401 device_revoked + wipe:true; refresh too
+PASS  ID65-14  revoke-all(keep_current) kills the OTHER devices' refresh tokens too; current device survives
+PASS  ID65-15  /api/setup/state: no data_dir/db_file for a LAN caller; the school PC (loopback) still sees them  → lan=169.254.0.21
+PASS  ID65-16  admin password set: the raw password is NOT echoed; credentials table still has it
+PASS  ID65-17  pre-row-65 device tokens (meta "device:<hash>") still refresh once and are migrated + rotated
+PASS  ID65-18  pair_codes compat: one reusable code pairs two devices with independent chains
+PASS  ID65-19  audit trail has every identity event and never a raw token  → 14 distinct actions, 50 tokens checked
+PASS  ID65-20  refresh-token expiry: a token older than 365 days → 401 device_expired
+ID checks=20 pass=20 fail=0
+
+── negative controls: each fix reverted ⇒ its check must go red ──
+PASS  MUT-reuse  revert in server/identity.js ⇒ ID65-06 red  → red=[ID65-05,ID65-06,ID65-18,ID65-19]
+PASS  MUT-proof  revert in server/identity.js ⇒ ID65-08 red  → red=[ID65-08,ID65-09,ID65-10,ID65-19]
+PASS  MUT-proof-replay  revert in server/identity.js ⇒ ID65-09 red  → red=[ID65-09]
+PASS  MUT-cap  revert in server/identity.js ⇒ ID65-12 red  → red=[ID65-12,ID65-19]
+PASS  MUT-ttl  revert in server/auth.js ⇒ ID65-01 red  → red=[ID65-01]
+PASS  MUT-rotation  revert in server/auth.js ⇒ ID65-04 red  → red=[ID65-04,ID65-05,ID65-06,ID65-10,ID65-17]
+PASS  MUT-revoke-all  revert in server/auth.js ⇒ ID65-14 red  → red=[ID65-14]
+PASS  MUT-wipe  revert in server/index.js ⇒ ID65-13 red  → red=[ID65-06,ID65-13,ID65-14]
+PASS  MUT-setup-leak  revert in server/index.js ⇒ ID65-15 red  → red=[ID65-15]
+PASS  MUT-echo  revert in server/index.js ⇒ ID65-16 red  → red=[ID65-16]
+MUTANTS total=10 killed=10
+
+IDENTITY-65-OK checks=20 mutants_killed=10/10
+
+── addendum (commit afd17db, 2026-11-11T04:40Z) ──
+/api/phone/login: expires_hours = accessTtlMs()/3600000 (+ expires_at) instead of SESSION_HOURS=24.
+npm test on afd17db: pass=110 fail=0 (tests-run-afd17db-20261111T044042Z.log); gen-audit-evidence: EVIDENCE-OK
+negative control: revert to auth.SESSION_HOURS ⇒ tests/run.js F‑04 red:
+  ✗ … expires_hours با expires_at نشست گوشی می‌خواند: 24 / 2026-11-11T04:55:05.217Z
+identity-65 (IDENTITY65_NO_MUTANTS=1) on afd17db: IDENTITY-65-OK checks=20

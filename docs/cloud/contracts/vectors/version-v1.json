@@ -1,0 +1,155 @@
+{
+  "vector": "version-v1",
+  "contract": "native-api-v1",
+  "source_of_truth": "server/api-version.js check()",
+  "description": "Version policy (native-api-v1.md §5): the server supports contract majors N, N-1 and N-2. Outside the window, or below the minimum client version, the answer is 426 upgrade_required with an explicit message. Requests without X-Payesh-Client are web clients and are never affected. expect_status 200 = allowed.",
+  "cases": [
+    {
+      "name": "web client (no header) is untouched",
+      "path": "/api/me",
+      "headers": {},
+      "env": {},
+      "expect_status": 200
+    },
+    {
+      "name": "current native client",
+      "path": "/api/me",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.1.0"
+      },
+      "env": {},
+      "expect_status": 200
+    },
+    {
+      "name": "prerelease suffix is accepted",
+      "path": "/api/me",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.1.0-beta.1"
+      },
+      "env": {},
+      "expect_status": 200
+    },
+    {
+      "name": "api newer than the server",
+      "path": "/api/me",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.1.0",
+        "x-payesh-api": "2"
+      },
+      "env": {},
+      "expect_status": 400,
+      "expect_error": "api_version_unsupported"
+    },
+    {
+      "name": "N-1 still served",
+      "path": "/api/me",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.1.0",
+        "x-payesh-api": "2"
+      },
+      "env": {
+        "PAYESH_NATIVE_API_CURRENT": "3"
+      },
+      "expect_status": 200
+    },
+    {
+      "name": "N-2 still served",
+      "path": "/api/me",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.1.0",
+        "x-payesh-api": "1"
+      },
+      "env": {
+        "PAYESH_NATIVE_API_CURRENT": "3"
+      },
+      "expect_status": 200
+    },
+    {
+      "name": "N-3 → upgrade_required",
+      "path": "/api/me",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.1.0",
+        "x-payesh-api": "1"
+      },
+      "env": {
+        "PAYESH_NATIVE_API_CURRENT": "4"
+      },
+      "expect_status": 426,
+      "expect_error": "upgrade_required",
+      "expect_reason": "api_too_old",
+      "expect_supported_api": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "below minimum client → upgrade_required",
+      "path": "/api/gw/v1/pull",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.1.9"
+      },
+      "env": {
+        "PAYESH_MIN_NATIVE_CLIENT": "0.2.0"
+      },
+      "expect_status": 426,
+      "expect_error": "upgrade_required",
+      "expect_reason": "client_too_old"
+    },
+    {
+      "name": "kill-switched build → upgrade_required",
+      "path": "/api/sync",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.1.0"
+      },
+      "env": {
+        "PAYESH_CLIENT_KILL": "0.1.0"
+      },
+      "expect_status": 426,
+      "expect_error": "upgrade_required",
+      "expect_reason": "client_disabled"
+    },
+    {
+      "name": "foreign product name is malformed",
+      "path": "/api/me",
+      "headers": {
+        "x-payesh-client": "payesh-web/1.0.0"
+      },
+      "env": {},
+      "expect_status": 400,
+      "expect_error": "bad_client_header"
+    },
+    {
+      "name": "two-part version is malformed",
+      "path": "/api/me",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.1"
+      },
+      "env": {},
+      "expect_status": 400,
+      "expect_error": "bad_client_header"
+    },
+    {
+      "name": "non-numeric api is malformed",
+      "path": "/api/me",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.1.0",
+        "x-payesh-api": "x"
+      },
+      "env": {},
+      "expect_status": 400,
+      "expect_error": "bad_client_header"
+    },
+    {
+      "name": "health is exempt even for a dead client",
+      "path": "/api/health",
+      "headers": {
+        "x-payesh-client": "payesh-native/0.0.1"
+      },
+      "env": {
+        "PAYESH_MIN_NATIVE_CLIENT": "9.0.0"
+      },
+      "expect_status": 200
+    }
+  ]
+}

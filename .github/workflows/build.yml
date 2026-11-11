@@ -97,6 +97,14 @@ jobs:
       - name: ماتریس نشت نقش × مجموعه × فیلد (ردیف ۵۷)
         run: node tests/leak-matrix-57.js
 
+      # ردیف ۶۵: هویت دستگاه — access کوتاه‌عمر، refresh چرخشی با تشخیص reuse،
+      # کلید عمومی دستگاه، سقف دستگاه، ابطال/پاک‌سازی از راه دور، و ۱۰ کنترل منفی
+      # جهشی (برگرداندن هر رفع ⇒ آزمون هدفش باید قرمز شود).
+      - name: هویت دستگاه + کنترل‌های منفی جهشی (ردیف ۶۵)
+        run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/identity-65.js | tee /tmp/identity-65.log
+
       # مرز مخزن (ADR-32 / ردیف ۳۲): هر ارجاع به مخزن بایگانی یا مخزن بیرون
       # باید صریح در ALLOW ثبت شده باشد؛ وگرنه آزمون fail-closed قرمز می‌شود.
       - name: مرز مخزن (Repo Boundary — ردیف ۳۲)

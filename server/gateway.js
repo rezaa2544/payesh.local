@@ -23,6 +23,14 @@ const metrics = require('./metrics');
    توکن، نقش و pool آن کاملاً جدا از احراز مدرسه است. هیچ URL/توکن/رازی
    در کد hard-code نشده؛ نبود تنظیم ⇒ 503 not_configured (fail-closed). */
 const platformApiModule = require('../apps/owner-panel/server/platform-api');
+/* row 64: native API version policy (N-1/N-2 window, 426 upgrade_required) */
+const apiVersion = require('./api-version');
+/* row 66: public Directory bootstrap (school code → cell URL), central DB only */
+const directory = require('./directory');
+const directoryApiModule = require('./directory-api');
+/* row 67: per-feature kill-switch (per-version one is in api-version.js) */
+const killSwitch = require('./kill-switch');
+const crypto = require('node:crypto');
 
 const PORT = Number(process.env.PORT || 5660);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -48,6 +56,14 @@ const PLATFORM_PGURL = String(process.env.PAYESH_PLATFORM_PGURL || '').trim();
 const PLATFORM_SECRET = String(process.env.PAYESH_PLATFORM_TOKEN_SECRET || '').trim();
 const PLATFORM_RATE_MAX = Number(process.env.PAYESH_PLATFORM_RATE_MAX || 120);
 const PLATFORM_RATE_WINDOW = Number(process.env.PAYESH_PLATFORM_RATE_WINDOW_SEC || 60);
+/* row 67: graceful drain, request-id, access log, tenant-wide quota */
+const DRAIN_TIMEOUT_MS = Math.max(100, Number(process.env.GW_DRAIN_TIMEOUT_MS || 25000));
+const ACCESS_LOG = String(process.env.GW_ACCESS_LOG || '1') !== '0';
+const TENANT_QUOTA_MAX = Number(process.env.GW_TENANT_QUOTA_MAX || 0);   /* 0 = off */
+const TENANT_BUCKET = '__tenant__';
+const REQUEST_ID_RE = /^[A-Za-z0-9._:-]{8,64}$/;
+let draining = false;
+const inflight = new Set();
 const startedAt = Date.now();
 let pool = null;
 let enabled = false;
@@ -96,6 +112,21 @@ if (PLATFORM_PGURL) {
   });
   platformPool.on('error', () => { /* خرابی pool پلتفرم، Gateway مدرسه را نمیکشد */ });
 }
+/* row 66: the Directory lives in the central database (never a cell's tenant DB).
+   Without PAYESH_DIRECTORY_PGURL the resolve endpoint answers 503 not_configured. */
+const DIRECTORY_PGURL = String(process.env.PAYESH_DIRECTORY_PGURL || '').trim();
+let directoryResolver = null;
+if (DIRECTORY_PGURL) {
+  const { Pool } = require('pg');
+  const directoryPool = new Pool({
+    connectionString: DIRECTORY_PGURL, max: 2,
+    application_name: 'payesh-directory', statement_timeout: 3000,
+  });
+  directoryPool.on('error', () => { /* a dead directory connection must not kill the gateway */ });
+  directoryResolver = directory.createResolver(directoryPool);
+}
+const directoryApi = directoryApiModule.createDirectoryApi({ resolver: directoryResolver });
+
 const platformApi = platformApiModule.createPlatformApi({
   db: platformApiModule.createPgAdapter(platformPool),
   secret: PLATFORM_SECRET,
@@ -122,6 +153,10 @@ async function readSource(deviceId, tenantId) {
 }
 
 function json(res, status, body, extraHeaders = {}) {
+  /* row 67: the request id travels in the X-Request-Id header of EVERY response
+     (set in the server callback); bodies stay unchanged so contract schemas and
+     the uniform-404 rule (identical bodies) keep holding. */
+  if (draining && !res.headersSent) extraHeaders = Object.assign({ connection: 'close' }, extraHeaders);
   const payload = JSON.stringify(body);
   res.writeHead(status, Object.assign({
     'content-type': 'application/json; charset=utf-8',
@@ -212,9 +247,19 @@ function bearer(headers) {
 }
 
 function deviceOf(headers) {
-  const d = String(headers['x-device-id'] || '').trim();
+  let d = String(headers['x-device-id'] || '').trim();
+  /* the tenant-wide quota bucket name can never be claimed by a device */
+  if (d.startsWith('__')) d = 'x' + d;
   return d ? d.slice(0, 80) : 'unknown';
 }
+
+/* row 67: accept a well-formed caller id (end-to-end tracing), else mint one */
+function requestIdOf(headers) {
+  const h = String(headers['x-request-id'] || '').trim();
+  return REQUEST_ID_RE.test(h) ? h : crypto.randomUUID();
+}
+
+function retryAfterSec(ms) { return String(Math.max(1, Math.ceil(Number(ms || 0) / 1000))); }
 
 /* ── متریک (ردیف ۴۹): همان قالب مدرسه، برای scrape یکسان ─────────────
    ردیف ۵۷ (S4): اگر PAYESH_METRICS_TOKEN تنظیم شود، scrape بدون توکن
@@ -245,11 +290,15 @@ async function handle(req, res, url) {
 
   /* ── زنده‌بودن: هیچ وابستگی‌ای جز خود فرایند ندارد ─────────────────── */
   if (p === '/healthz') {
-    return json(res, 200, { ok: true, instance: INSTANCE, cell: CELL || null, uptime_s: Math.round((Date.now() - startedAt) / 1000), pid: process.pid });
+    const ks = killSwitch.config();
+    return json(res, 200, { ok: true, instance: INSTANCE, cell: CELL || null, uptime_s: Math.round((Date.now() - startedAt) / 1000), pid: process.pid,
+      draining, kill_switch: { features: ks.rules.map(r => r.feature + (r.version ? '@' + (r.op === 'lt' ? '<' : '') + r.version.join('.') : '')), invalid: ks.invalid } });
   }
 
   /* ── آمادگی واقعی: اتصال DB + رفتار درست set_config(...,true) ─────── */
   if (p === '/readyz') {
+    /* row 67: a draining instance must leave the load balancer at once */
+    if (draining) return json(res, 503, { ok: false, instance: INSTANCE, error: 'draining' }, { 'retry-after': '1' });
     if (!enabled) return json(res, 503, { ok: false, instance: INSTANCE, error: 'not_configured' });
     try {
       const r = await tenancy.readiness(pool);
@@ -264,7 +313,24 @@ async function handle(req, res, url) {
      مسیرهای /api/platform/v1 هرگز وارد زنجیرهٔ verifyToken مدرسه نمیشوند و
      توکن مدرسه هم توسط verifyPlatformToken ساختاراً رد میشود. */
   if (p === '/api/platform/v1' || p.startsWith('/api/platform/v1/')) {
+    const killedPlatform = killSwitch.check(p, req.headers);
+    if (killedPlatform) return json(res, killedPlatform.status, killedPlatform.body, killedPlatform.headers);
     return platformApi.handle(req, res, url);
+  }
+
+  /* ── row 64: version policy for native clients, before auth and DB ─── */
+  const verdict = apiVersion.check(p, req.headers);
+  if (verdict) return json(res, verdict.status, verdict.body, verdict.headers);
+  if (req.headers['x-payesh-client']) {
+    for (const [k, v] of Object.entries(apiVersion.responseHeaders())) res.setHeader(k, v);
+  }
+  /* ── row 67: per-feature kill-switch, before auth and DB ───────────── */
+  const killed = killSwitch.check(p, req.headers);
+  if (killed) return json(res, killed.status, killed.body, killed.headers);
+
+  /* ── row 66: public Directory resolve (no token, no tenant data) ────── */
+  if (p === '/api/dir/v1/resolve' && m === 'GET') {
+    return directoryApi(req, res, url, json);
   }
 
   if (!enabled) return json(res, 503, { ok: false, error: 'not_configured' });
@@ -294,7 +360,19 @@ async function handle(req, res, url) {
     'x-ratelimit-window-sec': String(quota.window_sec),
   };
   if (!quota.allowed) {
-    return json(res, 429, { ok: false, error: 'rate_limited', retry_after_ms: quota.retry_after_ms, limit: quota.max }, quotaHeaders);
+    return json(res, 429, { ok: false, error: 'rate_limited', scope: 'device', retry_after_ms: quota.retry_after_ms, limit: quota.max },
+      Object.assign({ 'retry-after': retryAfterSec(quota.retry_after_ms) }, quotaHeaders));
+  }
+  /* row 67: optional tenant-wide ceiling on top of the per-device bucket, so many
+     devices of one school cannot starve the shared pool. Same DB table, reserved key. */
+  if (TENANT_QUOTA_MAX > 0) {
+    let tq;
+    try { tq = await tenancy.takeQuota(pool, tenantId, { deviceId: TENANT_BUCKET, max: TENANT_QUOTA_MAX, windowSec: QUOTA_WINDOW }); }
+    catch (e) { return json(res, 503, { ok: false, error: 'quota_unavailable' }); }
+    if (!tq.allowed) {
+      return json(res, 429, { ok: false, error: 'rate_limited', scope: 'tenant', retry_after_ms: tq.retry_after_ms, limit: tq.max },
+        Object.assign({ 'retry-after': retryAfterSec(tq.retry_after_ms) }, quotaHeaders));
+    }
   }
 
   /* ── pull: یک کوئری ایندکس‌دار روی change-feed ─────────────────────── */
@@ -349,16 +427,73 @@ async function handle(req, res, url) {
   return json(res, 404, { ok: false, error: 'not_found' });
 }
 
+function logLine(obj) {
+  try { process.stdout.write(JSON.stringify(Object.assign({ ts: new Date().toISOString(), instance: INSTANCE }, obj)) + '\n'); } catch (e) { /* noop */ }
+}
+
 const server = http.createServer((req, res) => {
-  res.on('finish', () => { try { mreg.observeHttp(res.statusCode); } catch (e) { /* noop */ } });
+  const t0 = process.hrtime.bigint();
+  const rid = requestIdOf(req.headers);
+  res.__rid = rid;
+  res.setHeader('x-request-id', rid);
+  inflight.add(res);
+  res.on('close', () => inflight.delete(res));
+  res.on('finish', () => {
+    inflight.delete(res);
+    try { mreg.observeHttp(res.statusCode); } catch (e) { /* noop */ }
+    /* access log: path only (never the query string — /metrics?token=…) and no body */
+    if (ACCESS_LOG) {
+      const pathOnly = String(req.url || '').split('?')[0].slice(0, 120);
+      logLine({ event: 'http', request_id: rid, method: req.method, path: pathOnly, status: res.statusCode,
+        ms: Math.round(Number(process.hrtime.bigint() - t0) / 1e5) / 10 });
+    }
+    if (draining) server.closeIdleConnections();
+  });
+  /* row 67: requests that reach a draining instance on a kept-alive socket */
+  if (draining) {
+    return json(res, 503, { ok: false, error: 'draining' }, { 'retry-after': '1' });
+  }
   const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
   handle(req, res, url).catch((e) => json(res, 500, { ok: false, error: 'gateway_error', detail: String(e.message || e).slice(0, 120) }));
 });
 
-if (require.main === module) {
-  server.listen(PORT, HOST, () => {
-    console.log(JSON.stringify({ event: 'gateway_listening', instance: INSTANCE, port: PORT, host: HOST, configured: enabled }));
-  });
+/* ═══════════ row 67 — graceful drain on SIGTERM/SIGINT ══════════════
+   1) stop accepting (server.close) and fail /readyz so the balancer stops routing;
+   2) let in-flight requests finish (their responses carry connection: close);
+   3) close DB pools and exit 0 — or, after GW_DRAIN_TIMEOUT_MS, cut the remaining
+      sockets and exit 2 so the orchestrator can tell a forced stop apart. */
+let drainDone = false;
+function drain(signal) {
+  if (draining) return;
+  draining = true;
+  logLine({ event: 'drain_start', signal, inflight: inflight.size, timeout_ms: DRAIN_TIMEOUT_MS });
+  const finish = async (reason) => {
+    if (drainDone) return;
+    drainDone = true;
+    clearTimeout(timer);
+    const closers = [];
+    try { closers.push(Promise.resolve(tenancy.close && tenancy.close())); } catch (e) { /* noop */ }
+    for (const pl of [replicaPool, platformPool]) { if (pl) closers.push(pl.end().catch(() => {})); }
+    await Promise.race([Promise.allSettled(closers), new Promise(r => setTimeout(r, 2000))]);
+    logLine({ event: 'drain_done', reason, inflight: inflight.size });
+    process.exit(reason === 'drained' ? 0 : 2);
+  };
+  const timer = setTimeout(() => {
+    logLine({ event: 'drain_timeout', inflight: inflight.size });
+    try { server.closeAllConnections(); } catch (e) { /* noop */ }
+    finish('timeout');
+  }, DRAIN_TIMEOUT_MS);
+  for (const r of inflight) { if (!r.headersSent) { try { r.setHeader('connection', 'close'); } catch (e) { /* noop */ } } }
+  server.close(() => finish('drained'));
+  server.closeIdleConnections();
 }
 
-module.exports = { server, handle, INSTANCE, PORT, mreg, platformApi };
+if (require.main === module) {
+  server.listen(PORT, HOST, () => {
+    logLine({ event: 'gateway_listening', port: PORT, host: HOST, configured: enabled });
+  });
+  process.on('SIGTERM', () => drain('SIGTERM'));
+  process.on('SIGINT', () => drain('SIGINT'));
+}
+
+module.exports = { server, handle, drain, requestIdOf, INSTANCE, PORT, mreg, platformApi };

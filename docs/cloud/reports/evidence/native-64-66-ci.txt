@@ -1,0 +1,111 @@
+# Rows 64 + 65 + 66 + 67 — raw CI excerpts (PR #174, head 5fb2144)
+base_sha=5fb21445c419ffb7e2401cc96f77e53c37aa407d
+date_utc=2026-11-11T04:51:31Z
+runs: api-contract 42960870278 (pull_request) + 42960853383 (push), native-client 42960870338, build-and-release 42960853331
+jobs: native-contract 130326827738, build 130326771180, native-gate 130329550914 (all success; every check on 5fb2144 green)
+excerpts: timestamps/ANSI stripped, ##[ lines dropped
+
+== native-contract (api-contract.yml, job 130326827738): rows 64, 66, 67 ==
+PASS  VEC-VER-01  version: web client (no header) is untouched
+PASS  VEC-VER-02  version: current native client
+PASS  VEC-VER-03  version: prerelease suffix is accepted
+PASS  VEC-VER-04  version: api newer than the server
+PASS  VEC-VER-05  version: N-1 still served
+PASS  VEC-VER-06  version: N-2 still served
+PASS  VEC-VER-07  version: N-3 → upgrade_required
+PASS  VEC-VER-08  version: below minimum client → upgrade_required
+PASS  VEC-VER-09  version: kill-switched build → upgrade_required
+PASS  VEC-VER-10  version: foreign product name is malformed
+PASS  VEC-VER-11  version: two-part version is malformed
+PASS  VEC-VER-12  version: non-numeric api is malformed
+PASS  VEC-VER-13  version: health is exempt even for a dead client
+PASS  VEC-VER-WINDOW  window is exactly N, N-1, N-2 (BACK_VERSIONS=2) for every N in 1..6
+PASS  VEC-NEG-01  negative control: a flipped conflict expectation is detected
+PASS  VEC-NEG-02  negative control: a widened scope expectation is detected
+PASS  VEC-NEG-03  negative control: an old client is NOT silently allowed
+
+VEC checks=61 pass=61 fail=0
+CONTRACT-VECTORS-64-OK
+── invalid-structure controls (schema must reject) ──
+PASS  NC-S01  mutated responses are rejected by the schema (12 mutations)  → 12 mutations rejected
+PASS  NC-COVER  every response $def was exercised against a real server response  → 22 defs covered
+
+NC checks=37 pass=37 fail=0
+NATIVE-CONTRACT-64-OK
+  PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/postgres
+PASS  DIR-01  resolve returns exactly the contract fields of the asked school, nothing about others  → {"ok":true,"schema_version":1,"school_code":"school-66","cell_id":"66666666-aaaa-4aaa-8aaa-000000000066","cell_url":"http://127.0.0.1:42707","version":1,"ttl":2,"migration_state":"stable","stale":false}
+PASS  DIR-02  no enumeration oracle: unknown, malformed, empty and injection codes → same 404 body  → {"ok":false,"error":"not_found"}
+PASS  DIR-03  rate limit per client address: 6th call → 429 + Retry-After, body has retry_after_ms  → 200,200,200,200,200,429
+PASS  DIR-04  reference client honours TTL: inside TTL no network, after TTL exactly one call  → network=2 hits=3
+PASS  DIR-05  before the move: 20 ops land in cell A
+PASS  DIR-06  transfer starts (freeze A + migrating): client writes are HELD, never dropped  → write_frozen → migrating, outbox=11
+PASS  DIR-07  real transfer tool copies A → B with 3-layer reconciliation; route flips to B (moved, version+)  → version 2 → 3
+PASS  DIR-08  after the move: client re-routes to B; held ops applied once, retry is a duplicate; A token refused by B  → {"applied":10,"duplicates":1,"conflicts":0}
+PASS  DIR-09  B holds every op exactly once (30 records, no duplicate seq); A received nothing after the freeze  → B rows=30 distinct=30; A ops=20
+PASS  DIR-10  route back to stable bumps version again; disabled cell → 503 cell_unavailable (no data)  → version=4
+
+DIR checks=10 pass=10 fail=0
+DIRECTORY-66-OK
+  GW67_LOAD_OUT: gateway-67-load.json
+PASS  GW67-RID-01  every response carries a minted X-Request-Id (200, 401, 404, 426)  → statuses 200/401/404/426, 4 distinct uuids
+PASS  GW67-RID-02  a well-formed caller id is echoed; malformed/oversized ones are replaced  → echo=lb-bd1ae4ac2c420b97
+PASS  GW67-RID-03  JSON access log line per request with request_id/status/ms; no query string, no token  → 12 http log lines
+PASS  GW67-RID-04  negative: GW_ACCESS_LOG=0 silences the access log but keeps the header
+PASS  GW67-RL-01  device bucket: 3 × 200 then 429 rate_limited scope=device with Retry-After seconds  → statuses 200,200,200,429 retry-after=1086s
+PASS  GW67-RL-02  tenant bucket: a 2nd device of the same tenant is cut at the tenant ceiling (5) with scope=tenant  → d2 statuses 200,200,429
+PASS  GW67-RL-03  isolation: another tenant is unaffected; 200 responses carry no Retry-After
+PASS  GW67-RL-04  negative: X-Device-Id "__tenant__" cannot spend or read the reserved tenant bucket  → {"__tenant__":3,"x__tenant__":4}
+PASS  GW67-VER-01  X-Payesh-Client too old → 426 upgrade_required(client_too_old); killed version → client_disabled
+PASS  GW67-VER-02  negative: supported versions and web callers pass
+PASS  GW67-KS-01  killed feature → 503 feature_disabled + Retry-After, before auth (no token still 503)
+PASS  GW67-KS-02  version-scoped entry pull@<0.2.0 binds only older native clients
+PASS  GW67-KS-03  /healthz lists active switches and the invalid entries (typos are visible)
+PASS  GW67-KS-04  negative: without PAYESH_FEATURE_KILL the same push is applied
+PASS  GW67-DR-01  SIGTERM: in-flight push completes + commits, new conns refused, response has connection: close, exit 0  → exit=0, ops committed=1, events=drain_start>drain_done
+PASS  GW67-DR-02  kept-alive socket during drain is closed or answered 503 draining + Retry-After — never served normally  → idle socket closed by drain
+PASS  GW67-DR-03  negative: a hung request beyond GW_DRAIN_TIMEOUT_MS is cut and the process exits 2  → exit=2 after 804ms
+      load {"error_increase":0,"p95_ratio":1.55} base={"label":"baseline","total":1200,"concurrency":24,"errors":0,"statuses":{"200":1200},"p50_ms":20.3,"p95_ms":33.7,"p99_ms":41.5,"rps":1064,"unique_request_ids":1200} hard={"label":"hardened","total":1200,"concurrency":24,"errors":0,"statuses":{"200":1200},"p50_ms":25.6,"p95_ms":52.2,"p99_ms":59.4,"rps":798,"unique_request_ids":1200}
+PASS  GW67-LOAD-01  short load: hardened gateway has no error increase vs baseline; every response has a unique request id  → errors 0→0, p95 33.7→52.2ms, rps 1064→798
+
+GATEWAY-67-OK pass=18 fail=0
+
+== build (build.yml, job 130326771180): row 65 identity + mutation controls, npm test, leak matrix ==
+110 موفق · 0 ناموفق
+LEAK-MATRIX-57-OK roles=6 collections=26 role_collection_checks=156 field_checks=176 fail=0
+PASS  ID65-01  login → short-lived access token (≤ 15 min) + refresh token  → ttl=900s
+PASS  ID65-02  expiry: expired access token → 401; refresh gives a working new one
+PASS  ID65-03  no sliding extension: using the access token does not push its expiry
+PASS  ID65-04  rotation: every refresh returns a NEW refresh token; the new one keeps working  → generation=3
+PASS  ID65-05  grace: the previous token within the grace window returns the SAME successor (multi-tab / lost response)
+PASS  ID65-06  replay after grace ⇒ reuse detected: whole chain revoked (old, current, sessions) + wipe
+PASS  ID65-07  forgery: unknown, truncated and bit-flipped refresh tokens → 401 bad_device (no session)
+PASS  ID65-08  key-bound device (P-256): refresh needs a valid proof; wrong key / no proof / stale ts are refused
+PASS  ID65-09  proof replay: a captured {token, proof} pair replayed later is refused (proof_replayed) — no successor leaks
+PASS  ID65-10  a stolen SPENT token without the private key cannot even revoke the bound device (no DoS)
+PASS  ID65-11  Ed25519 keys work; malformed / RSA / oversized public keys → 400 bad_device_pubkey
+PASS  ID65-12  per-user device cap (6): next login 409 device_limit; revoking or a stale device frees a slot  → active=6
+PASS  ID65-13  manager revoke ⇒ the device's session gets 401 device_revoked + wipe:true; refresh too
+PASS  ID65-14  revoke-all(keep_current) kills the OTHER devices' refresh tokens too; current device survives
+PASS  ID65-15  /api/setup/state: no data_dir/db_file for a LAN caller; the school PC (loopback) still sees them  → lan=10.1.0.161
+PASS  ID65-16  admin password set: the raw password is NOT echoed; credentials table still has it
+PASS  ID65-17  pre-row-65 device tokens (meta "device:<hash>") still refresh once and are migrated + rotated
+PASS  ID65-18  pair_codes compat: one reusable code pairs two devices with independent chains
+PASS  ID65-19  audit trail has every identity event and never a raw token  → 14 distinct actions, 50 tokens checked
+PASS  ID65-20  refresh-token expiry: a token older than 365 days → 401 device_expired
+ID checks=20 pass=20 fail=0
+
+── negative controls: each fix reverted ⇒ its check must go red ──
+PASS  MUT-reuse  revert in server/identity.js ⇒ ID65-06 red  → red=[ID65-05,ID65-06,ID65-18,ID65-19]
+PASS  MUT-proof  revert in server/identity.js ⇒ ID65-08 red  → red=[ID65-08,ID65-09,ID65-10,ID65-19]
+PASS  MUT-proof-replay  revert in server/identity.js ⇒ ID65-09 red  → red=[ID65-09]
+PASS  MUT-cap  revert in server/identity.js ⇒ ID65-12 red  → red=[ID65-12,ID65-19]
+PASS  MUT-ttl  revert in server/auth.js ⇒ ID65-01 red  → red=[ID65-01]
+PASS  MUT-rotation  revert in server/auth.js ⇒ ID65-04 red  → red=[ID65-04,ID65-05,ID65-06,ID65-10,ID65-17]
+PASS  MUT-revoke-all  revert in server/auth.js ⇒ ID65-14 red  → red=[ID65-14]
+PASS  MUT-wipe  revert in server/index.js ⇒ ID65-13 red  → red=[ID65-06,ID65-13,ID65-14]
+PASS  MUT-setup-leak  revert in server/index.js ⇒ ID65-15 red  → red=[ID65-15]
+PASS  MUT-echo  revert in server/index.js ⇒ ID65-16 red  → red=[ID65-16]
+MUTANTS total=10 killed=10
+
+IDENTITY-65-OK checks=20 mutants_killed=10/10
+SS checks=12 pass=12 fail=0

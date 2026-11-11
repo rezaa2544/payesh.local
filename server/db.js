@@ -35,6 +35,11 @@ const INDEXERS = {
 const ADDED_COLUMNS = [
   ['pair_codes', 'code_plain', 'TEXT'],
   ['pair_codes', 'revoked_at', 'TEXT'],
+  /* row 65: device public key (proof of possession), replay guard, revoke reason */
+  ['devices', 'pubkey', 'TEXT'],
+  ['devices', 'pubkey_alg', 'TEXT'],
+  ['devices', 'proof_ts', 'INTEGER'],
+  ['devices', 'revoke_reason', 'TEXT'],
 ];
 
 class Store {
@@ -93,6 +98,18 @@ class Store {
         expires_at TEXT NOT NULL,
         revoked_at TEXT
       );
+
+      /* row 65: rotating refresh tokens — hash only; one row per generation */
+      CREATE TABLE IF NOT EXISTS device_tokens (
+        token_hash TEXT PRIMARY KEY,
+        device_id TEXT NOT NULL,
+        generation INTEGER NOT NULL,
+        issued_at TEXT NOT NULL,
+        rotated_at TEXT,
+        successor_enc TEXT,
+        reused_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS ix_device_tokens_device ON device_tokens(device_id);
 
       CREATE TABLE IF NOT EXISTS pair_codes (
         code_hash TEXT PRIMARY KEY,
