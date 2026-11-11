@@ -10,6 +10,7 @@ DROP FUNCTION IF EXISTS payesh_direct.sync_conflict_guard();
 DROP FUNCTION IF EXISTS payesh_direct.record_guard();
 DROP FUNCTION IF EXISTS payesh_direct.take_push_quota(integer);
 DROP FUNCTION IF EXISTS payesh_direct.my_plan();
+DROP FUNCTION IF EXISTS payesh_direct.collection_known(text);
 DROP FUNCTION IF EXISTS payesh_direct.plan_for(uuid);
 DROP TABLE IF EXISTS payesh_direct.sync_conflict;
 DROP TABLE IF EXISTS payesh_direct.sync_batch;

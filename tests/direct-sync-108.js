@@ -92,7 +92,12 @@ const pickOf = (rnd, arr) => arr[Math.floor(rnd() * arr.length)];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* ── row-83 spec oracle (copied from tests/convergence-fuzz-83.js: written
-      from docs/cloud/41-conflict-policy.md, independent of convergence.js) ── */
+      from docs/cloud/41-conflict-policy.md, independent of convergence.js).
+      One deliberate change, three `seen.add` on conflict: the contract vector
+      idempotency-v1 ("conflict retry is a duplicate (verdict is final)") — the
+      behaviour of the cloud Gateway the direct path replaces — makes a conflict
+      verdict final. server/sync.js (the LAN server) re-evaluates such a retry;
+      SY-03 pins that single known difference. ── */
 const SPEC = {
   attendance: { auto: ['note', 'arrival_time', 'leave_time', 'excuse_note'] },
   grades: { auto: ['note', 'teacher_note'] },
@@ -122,11 +127,11 @@ function makeOracle() {
     const live = r && !r.deleted;
     if (o.type === 'del') {
       if (!live) return 'rejected';
-      if (o.base_version != null && o.base_version !== r.version) { conflicts.push({ collection: o.collection, record_id: o.id, local: {} }); return 'conflict'; }
+      if (o.base_version != null && o.base_version !== r.version) { conflicts.push({ collection: o.collection, record_id: o.id, local: {} }); seen.add(o.uid); return 'conflict'; }
       r.deleted = true; r.version++; seen.add(o.uid); return 'deleted';
     }
     if (!live) {
-      if (o.base_version > 0) { conflicts.push({ collection: o.collection, record_id: o.id, local: o.data }); return 'conflict'; }
+      if (o.base_version > 0) { conflicts.push({ collection: o.collection, record_id: o.id, local: o.data }); seen.add(o.uid); return 'conflict'; }
       if (r) return 'rejected';
       rows.set(k, { doc: Object.assign({}, o.data, { id: o.id }), version: 1, deleted: false });
       seen.add(o.uid); return 'applied';
@@ -134,7 +139,7 @@ function makeOracle() {
     if (o.base_version === r.version) { Object.assign(r.doc, o.data); r.version++; seen.add(o.uid); return 'applied'; }
     const changed = Object.keys(o.data).filter(f => !META.has(f) && !same(r.doc[f], o.data[f]));
     if (!changed.length) { seen.add(o.uid); return 'noop'; }
-    if (changed.some(f => specClass(o.collection, f) === 'manual')) { conflicts.push({ collection: o.collection, record_id: o.id, local: o.data }); return 'conflict'; }
+    if (changed.some(f => specClass(o.collection, f) === 'manual')) { conflicts.push({ collection: o.collection, record_id: o.id, local: o.data }); seen.add(o.uid); return 'conflict'; }
     for (const f of changed) r.doc[f] = o.data[f];
     r.version++; seen.add(o.uid); return 'merged';
   }
@@ -249,6 +254,24 @@ async function main() {
         ring.addGrant(keys.smk.kid, e2e.openGrant(g.sealed, dev.kp.priv, t, dev.device, keys.smk.kid));
         return ring;
       };
+      S.publish = async sc => {     /* a manager publishes a scope key (row 107) */
+        if (keys[sc]) return keys[sc];
+        const k = e2e.deriveScopeKey(smk, t, sc, 1, 0);
+        await q(mgr, 'SELECT payesh_direct.publish_scope_key($1, 1, 0, $2)', [sc, e2e.b64u(k.pub)]);
+        keys[sc] = k; directory.set(sc, { kid: k.kid, pub: k.pub });
+        return k;
+      };
+      S.grantScopes = async (dev, scopes) => {
+        const ring = new e2e.Keyring(t);
+        for (const sc of scopes) {
+          const k = await S.publish(sc);
+          const priv = sc === 'smk' ? smk : k.priv;
+          await q(mgr, 'SELECT payesh_direct.put_key_grant($1, $2, 1, 0, $3)', [dev.device, sc, e2e.sealGrant(dev.kp.pub, t, dev.device, k.kid, priv)]);
+          const g = (await q(dev, `SELECT sealed FROM payesh_direct.key_grant WHERE device_id = $1 AND scope = $2`, [dev.device, sc]))[0];
+          ring.addGrant(k.kid, e2e.openGrant(g.sealed, dev.kp.priv, t, dev.device, k.kid));
+        }
+        return ring;
+      };
       S.device = async (user, label) => {     /* another device of an existing user */
         const id = (await q(mgr, 'SELECT payesh_direct.enroll_device($1, $2) AS id', [user.id, label]))[0].id;
         const dev = { id: user.id, device: id, sub: user.sub, tenant: t, kp: e2e.generateKeyPair() };
@@ -261,8 +284,8 @@ async function main() {
         return S.device({ id, sub }, code + ' phone');
       };
       S.cap = (u, action, kind, sid, coll) => q(mgr, 'SELECT payesh_direct.grant_capability($1, $2, $3, $4, $5) AS id', [u.id, action, kind, sid, coll]);
-      S.sync = async dev => {
-        const ring = await S.grantSmk(dev);
+      S.sync = async (dev, scopes) => {
+        const ring = scopes ? await S.grantScopes(dev, scopes) : await S.grantSmk(dev);
         return new DirectSync({ tenant: t, call: caller(dev), keyring: ring, directory: directory });
       };
       S.seal = (collection, id, version, doc) => e2e.sealRecord({ tenant_id: t, collection, record_id: id, version, class_id: doc.class_id == null ? null : Number(doc.class_id), student_id: doc.student_id == null ? null : Number(doc.student_id) }, doc, directory);
@@ -320,19 +343,24 @@ async function main() {
       const S = await school();
       const dev = await S.sync(S.mgr);
       const ref = refStore('idem');
-      const out = [];
+      const out = []; let knownDiff = 0;
       for (const st of v.steps) {
         const r = await dev.push(st.ops.map(o => Object.assign({}, o, { data: o.data || {} })), null);
         const got = { applied: r.applied.filter(a => !a.duplicate).length, duplicates: r.applied.filter(a => a.duplicate).length, conflicts: r.conflicts.length };
         eq(got, st.expect, 'direct: ' + st.name);
         const rr = sync.push(ref.store, ref.actor, { ops: st.ops });
-        eq(counts(rr), st.expect, 'sync.js: ' + st.name);
+        if (/verdict is final/.test(st.name)) {
+          /* the one known difference: sync.js re-evaluates a retried conflict (the Gateway and the vector do not) */
+          eq(counts(rr), { applied: 0, duplicates: 0, conflicts: 1 }, 'sync.js known difference: ' + st.name);
+          knownDiff++;
+        } else eq(counts(rr), st.expect, 'sync.js: ' + st.name);
         out.push(`${got.applied}/${got.duplicates}/${got.conflicts}`);
         await dev.pull();
       }
       const n = (await q(S.mgr, 'SELECT count(*)::int AS n FROM payesh_direct.sync_conflict'))[0].n;
       eq(n, 1, 'one conflict recorded (both versions kept)');
-      return `${v.steps.length} steps equal (a/d/c ${out.join(' ')}); sync.js equal`;
+      eq(knownDiff, 1, 'exactly one step differs from sync.js');
+      return `${v.steps.length} steps equal to the vector (a/d/c ${out.join(' ')}); sync.js equal except the conflict-retry step (known, vector = Gateway)`;
     });
 
     await check('SY-04', 'pagination-v1 vector: 25 rows walk 10/10/5 with more t/t/f, no row skipped or repeated, cursor strictly increasing, empty last page keeps the cursor; limit clamped 0→1, 5000→50, abc→50, 7→7', async () => {
@@ -364,6 +392,12 @@ async function main() {
     await check('SY-05', 'scope-v1 vectors through RLS: roles become capability rows (row 106); every read case and every scope write case equals the vector; field checks (bad_score/bad_kind/bad_status) run on the device, before sealing', async () => {
       const v = vec('scope-v1.json');
       const S = await school();
+      /* the SQL allow-list equals policy.collectionAllowed */
+      const names = [...Object.keys(policy.COLLECTIONS), 'audit', 'devices', 'sessions', 'pair_codes', 'sync_log', 'zz_unknown', 'record', 'sync_op'];
+      for (const nm of names) {
+        const sqlOk = (await admin.query('SELECT payesh_direct.collection_known($1) AS ok', [nm])).rows[0].ok;
+        eq(sqlOk, policy.collectionAllowed(nm), 'collection_known(' + nm + ')');
+      }
       /* the role → capability mapping (what a manager grants), from server/scope.js */
       const OPEN = ['schools', 'school_years', 'subjects', 'bell_schedules', 'announcements', 'calendar', 'exams', 'homework'];
       const STUDENT_COLS = ['attendance', 'grades', 'internships', 'discipline'];
@@ -404,6 +438,14 @@ async function main() {
         const doc = Object.assign({}, row);
         if (rc.collection === 'users') doc.student_id = Number(row.id);     /* routing: a student's users row */
         const w = await S.rawPut(S.mgr, [{ uid: 'sr-' + rid, collection: rc.collection, id: rid, doc }]);
+        if (!policy.collectionAllowed(rc.collection)) {
+          /* fail-closed like sync.js: such a row is never stored; the read predicate
+             itself (the RLS function, = rowInScope) still equals the vector */
+          eq([w.counts.applied, w.rejected[0] && w.rejected[0].error], [0, 'unknown_collection'], 'unknown collection refused');
+          const pred = (await q(users[rc.scope], 'SELECT payesh_direct.can_access($1, $2, $3, $4, $5) AS ok',
+            ['read', S.tenant, rc.collection, doc.class_id == null ? null : Number(doc.class_id), doc.student_id == null ? null : Number(doc.student_id)]))[0].ok;
+          eq(pred, rc.expect, `read predicate ${rc.scope} ${rc.collection}`); readOut.push(pred ? 'Y' : 'N'); continue;
+        }
         eq(w.counts.applied, 1, 'seed ' + rc.collection);
         const seen = (await caller(users[rc.scope])('sync_pull', [0, '50', [rc.collection]])).rows.some(r => Number(r.id) === rid);
         eq(seen, rc.expect, `read ${rc.scope} ${rc.collection} ${JSON.stringify(rc.row)}`);
@@ -424,7 +466,7 @@ async function main() {
         if (wc.expect.ok) { eq((await p).counts.applied, 1, 'write ' + JSON.stringify(wc)); ok++; }
         else { await refuses(p, '42501', `write ${wc.scope} ${wc.collection} ${JSON.stringify(wc.row)} (${wc.expect.error})`); dbRefused++; }
       }
-      return `read ${v.read.length} equal (${readOut.join('')}, own row via app_user ×${selfRows}); write ${ok} ok, ${dbRefused} refused by RLS, ${deviceRefused} field checks on device`;
+      return `collection list = policy.js (${names.length} names); read ${v.read.length} equal (${readOut.join('')}, own row via app_user ×${selfRows}); write ${ok} ok, ${dbRefused} refused by RLS, ${deviceRefused} field checks on device`;
     });
 
     await check('SY-06', 'conflict-v1 vectors end to end: stale ops come back to the device, its verdict equals the vector (action/reason/fields), and the database result (row, version, conflict kept) equals server/sync.js on SQLite', async () => {
@@ -440,10 +482,11 @@ async function main() {
         if (i.existing) {
           const base = Object.assign({}, i.existing); delete base._version; delete base.id;
           for (let ver = 0; ver < i.existing._version; ver++) {
-            const r1 = await dev.push([{ uid: `cv${n}-s${ver}`, collection: col, id: rid, type: 'put', base_version: ver, data: base }], null);
-            assert(r1.applied.length === 1 && !r1.applied[0].duplicate, 'seed direct ' + c.name);
+            const sop = { uid: `cv${n}-s${ver}`, collection: col, id: rid, type: 'put', base_version: ver, data: base };
+            const r1 = await dev.push([sop], null);
             await dev.pull();
-            sync.push(ref.store, ref.actor, { ops: [{ uid: `cv${n}-s${ver}`, collection: col, id: rid, type: 'put', base_version: ver, data: base }] });
+            const r1r = sync.push(ref.store, ref.actor, { ops: [sop] });
+            eq(outcomeOf(r1, sop.uid), outcomeOf(r1r, sop.uid), 'seed vs sync.js ' + c.name);
           }
         }
         const local = convergence.decide({ collection: col, type: i.type, incoming: i.incoming, existing: i.existing, base_version: i.base_version });
@@ -737,6 +780,7 @@ async function main() {
       const tA = await A.user('t-rls', 'teacher');
       await A.cap(tA, 'read', 'class', 1, 'attendance'); await A.cap(tA, 'write', 'class', 1, 'attendance');
       const pA = await A.user('p-rls', 'parent'); await A.cap(pA, 'read', 'student', 10, null);
+      await A.publish('class:1:attendance');     /* before any write: the teacher's device can read its class */
       const mk = (uid, id, cls, st) => ({ uid, collection: 'attendance', id, doc: { class_id: cls, student_id: st, status: 'present' } });
       eq((await A.rawPut(tA, [mk('r1', 1, 1, 10), mk('r2', 2, 1, 11)])).counts.applied, 2, 'teacher in scope');
       await refuses(A.rawPut(tA, [mk('r3', 3, 1, 10), mk('r4', 4, 2, 12)]), '42501', 'one op out of scope');
@@ -748,7 +792,7 @@ async function main() {
       eq((await A.rawPut(A.mgr, [mk('r6', 6, 9, 99)])).counts.applied, 1, 'manager row in class 9');
       await refuses(A.rawPut(tA, [mk('r7', 6, 1, 10)]), '42501', 'claim an out-of-scope id', /out_of_scope/);
       /* conflicts */
-      const dT = await A.sync(tA);
+      const dT = await A.sync(tA, ['class:1:attendance']);
       await dT.pull();
       await A.rawPut(A.mgr, [{ uid: 'r8', collection: 'attendance', id: 1, base_version: 1, doc: { class_id: 1, student_id: 10, status: 'absent' } }]);
       const cr = await dT.push([{ uid: 'r9', collection: 'attendance', id: 1, type: 'put', base_version: 1, data: { status: 'late' } }], null);
@@ -820,22 +864,17 @@ async function main() {
         return (await cur(c, 1)) - v;
       });
       eq(m1, 1, 'M1 not caught'); out.push('M1 replayed uid re-applied');
-      // M2: OCC removed ⇒ a stale op overwrites the newer row
-      const m2 = await underMutant(mutate(fn, 'IF coalesce(cur.version, 0) <> v_base OR (v_type = \'del\' AND cur.deleted) THEN', 'IF false THEN'), tok(S.mgr), async c => {
+      // M2: OCC removed ⇒ a stale op overwrites the newer row (the version trigger
+      //     cannot see it: sync_push always writes cur+1, so OCC is the only guard)
+      const occ = "IF coalesce(cur.version, 0) <> v_base OR (v_type = 'del' AND cur.deleted) THEN";
+      const staleOp = async (c, tag) => {
         const v = await cur(c, 1);
-        try { await push(c, [{ uid: 'stale-m2', collection: 'homework', id: 1, type: 'put', base_version: v - 1, sealed: S.seal('homework', 1, v, { title: 'stale' }) }]); }
-        catch (e) { return e.code === '40001' ? 'trigger' : e.message; }
-        return 'overwrote';
-      });
-      /* the version trigger is a second line of defence: with OCC gone in sync_push the
-         write still fails (version must be cur+1), so M2 also drops that check */
-      const m2b = await underMutant(mutate(fn, 'IF coalesce(cur.version, 0) <> v_base OR (v_type = \'del\' AND cur.deleted) THEN', 'IF false THEN') + ';\n' +
-        mutate(guard, 'IF NEW.version IS DISTINCT FROM OLD.version + 1 THEN', 'IF false THEN'), tok(S.mgr), async c => {
-        const v = await cur(c, 1);
-        const r = await push(c, [{ uid: 'stale-m2b', collection: 'homework', id: 1, type: 'put', base_version: v - 1, sealed: S.seal('homework', 1, v, { title: 'stale' }) }]);
-        return r.counts.applied;
-      });
-      eq(m2, 'trigger', 'M2 (OCC off) must still hit the version trigger'); eq(m2b, 1, 'M2 not caught'); out.push('M2 stale overwrite (OCC + trigger off)');
+        return push(c, [{ uid: 'stale-' + tag, collection: 'homework', id: 1, type: 'put', base_version: v - 1, sealed: S.seal('homework', 1, v, { title: 'stale' }) }]);
+      };
+      const real = await underMutant('SELECT 1', tok(S.mgr), c => staleOp(c, 'real'));
+      eq([real.counts.applied, real.counts.stale], [0, 1], 'without the mutant the op comes back stale');
+      const m2 = await underMutant(mutate(fn, occ, 'IF false THEN'), tok(S.mgr), async c => (await staleOp(c, 'm2')).counts.applied);
+      eq(m2, 1, 'M2 not caught'); out.push('M2 stale overwrite');
       // M3: plan cap check removed ⇒ over-cap insert accepted
       await admin.query(`INSERT INTO payesh_direct.tenant_plan (tenant_id, max_records) VALUES ($1, 1) ON CONFLICT (tenant_id) DO UPDATE SET max_records = 1`, [S.tenant]);
       const m3 = await underMutant(mutate(guard, 'IF d_rec > 0 AND u.records + d_rec > p.max_records THEN', 'IF false THEN'), tok(S.mgr), async c =>

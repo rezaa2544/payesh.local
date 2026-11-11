@@ -135,6 +135,20 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
     LEFT JOIN payesh_direct.tenant_plan t ON t.tenant_id = p_tenant
 $$;
 
+-- the collections a device may sync — the same list as server/policy.js
+-- collectionAllowed() (COLLECTIONS minus PROTECTED); test SY-05 keeps them equal.
+-- An unknown collection is rejected per op (`unknown_collection`, not final),
+-- exactly like server/sync.js.
+CREATE OR REPLACE FUNCTION payesh_direct.collection_known(p_collection text) RETURNS boolean
+LANGUAGE sql IMMUTABLE SET search_path = pg_catalog, pg_temp AS $$
+  SELECT p_collection = ANY (ARRAY[
+    'schools', 'school_years', 'users', 'classes', 'subjects', 'lookups', 'schedule',
+    'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves',
+    'parent_links', 'internships', 'staff_attendance', 'staff_posts', 'counselor_refs',
+    'counselor_notes', 'discipline', 'homework', 'exams', 'calendar', 'app_settings',
+    'import_issues', 'conflicts'])
+$$;
+
 -- the caller's own plan (clients may see their limits, nobody else's)
 CREATE OR REPLACE FUNCTION payesh_direct.my_plan() RETURNS payesh_direct.tenant_plan
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
@@ -361,6 +375,11 @@ BEGIN
       RAISE EXCEPTION 'op_too_large' USING ERRCODE = '54000', DETAIL = 'op ' || i || ', limit ' || p.max_op_bytes;
     END IF;
 
+    IF NOT payesh_direct.collection_known(v_col) THEN   -- well-formed but unknown: per op, not final
+      rejected := rejected || jsonb_build_object('uid', v_uid, 'id', v_id, 'error', 'unknown_collection');
+      CONTINUE;
+    END IF;
+
     -- idempotency: a uid is consumed exactly once (a concurrent twin waits here)
     INSERT INTO payesh_direct.sync_op (tenant_id, uid, user_id, device_id, collection, record_id, outcome)
     VALUES (t, v_uid, me, dev, v_col, v_id, 'pending')
@@ -519,6 +538,7 @@ END $$;
 
 -- ── ownership and EXECUTE ──────────────────────────────────────────────────
 ALTER FUNCTION payesh_direct.plan_for(uuid) OWNER TO payesh_direct_owner;
+ALTER FUNCTION payesh_direct.collection_known(text) OWNER TO payesh_direct_owner;
 ALTER FUNCTION payesh_direct.my_plan() OWNER TO payesh_direct_owner;
 ALTER FUNCTION payesh_direct.take_push_quota(integer) OWNER TO payesh_direct_owner;
 ALTER FUNCTION payesh_direct.record_guard() OWNER TO payesh_direct_owner;
@@ -529,12 +549,12 @@ ALTER FUNCTION payesh_direct.sync_resolve_conflict(bigint, text) OWNER TO payesh
 
 REVOKE ALL ON FUNCTION
   payesh_direct.plan_for(uuid), payesh_direct.my_plan(), payesh_direct.take_push_quota(integer),
-  payesh_direct.record_guard(), payesh_direct.sync_conflict_guard(),
+  payesh_direct.collection_known(text), payesh_direct.record_guard(), payesh_direct.sync_conflict_guard(),
   payesh_direct.sync_push(jsonb, text), payesh_direct.sync_pull(bigint, text, text[]),
   payesh_direct.sync_resolve_conflict(bigint, text)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
-  payesh_direct.my_plan(), payesh_direct.take_push_quota(integer),
+  payesh_direct.my_plan(), payesh_direct.take_push_quota(integer), payesh_direct.collection_known(text),
   payesh_direct.sync_push(jsonb, text), payesh_direct.sync_pull(bigint, text, text[]),
   payesh_direct.sync_resolve_conflict(bigint, text)
 TO payesh_direct_client;

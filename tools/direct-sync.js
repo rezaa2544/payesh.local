@@ -77,9 +77,11 @@ class DirectSync {
     return { sealed: e2e.sealRecord(meta, plainDoc(doc), await this.dir()), routing: r };
   }
 
+  /* a feed row ({version}) or a stale answer ({server_version}) */
   openRow(row) {
-    const doc = this.keyring.openRecord({ tenant_id: this.tenant, collection: row.collection, record_id: Number(row.id), version: Number(row.version), sealed: row.sealed });
-    return Object.assign(doc, { id: Number(row.id), _version: Number(row.version) });
+    const version = Number(row.version != null ? row.version : row.server_version);
+    const doc = this.keyring.openRecord({ tenant_id: this.tenant, collection: row.collection, record_id: Number(row.id), version, sealed: row.sealed });
+    return Object.assign(doc, { id: Number(row.id), _version: version });
   }
 
   async sealConflict(collection, id, uid, patch) {
