@@ -128,7 +128,8 @@ const MUTANTS = [
   ['M7 [M] without [M] evidence', d => rcLabels(parse(setStatus(d, 'R04', 'PASS [M]')), d)],
   ['M8 unlimited claim', d => rcLabels(parse(d), d + '\nاین سامانه کاربر نامحدود را پشتیبانی می‌کند.\n')],
   ['M9 blocked row without next step', d => rcRules(parse(d.split('\n').map(l => { if (!l.startsWith('| R07 |')) return l; const c = l.split(' | '); c[9] = '— |'; return c.join(' | '); }).join('\n')))],
-  ['M10 provider layer present but report stale', d => rcTruth(parse(d), Object.assign({}, TRUTH, { providerLayer: () => true }))],
+  // M10: report must track the infra migration both ways (absent → NOT IMPLEMENTED; present → anything else)
+  ['M10 provider layer status disagrees with code', d => TRUTH.providerLayer() ? rcTruth(parse(setStatus(d, 'R08', 'NOT IMPLEMENTED'))) : rcTruth(parse(d), Object.assign({}, TRUTH, { providerLayer: () => true }))],
 ];
 
 async function main(opts) {

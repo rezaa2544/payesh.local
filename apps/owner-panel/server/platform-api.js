@@ -19,6 +19,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const auth = require('./owner-auth');
+const infra = require('./infra');
 
 const PREFIX = '/api/platform/v1';
 const TOKEN_PREFIX = 'platform.v1';
@@ -134,6 +135,17 @@ const PLATFORM_ROUTES = [
   { method: 'POST',   path: '/tenant-deletions/{request_id}/approve',      auth: true,  handler: 'tenantDeletionApprove' },
   { method: 'POST',   path: '/tenant-deletions/{request_id}/cancel',       auth: true,  handler: 'tenantDeletionCancel' },
   { method: 'POST',   path: '/tenant-deletions/{request_id}/execute',      auth: true,  handler: 'tenantDeletionExecute' },
+  /* row 122 — provider-agnostic infrastructure layer: manual registry, limited health check,
+     labelled metrics ("unknown" when absent), risky changes = request + owner approval + audit */
+  { method: 'GET',    path: '/infra',                                      auth: true,  handler: 'infraSummary' },
+  { method: 'POST',   path: '/infra/providers',                            auth: true,  handler: 'infraProviderCreate' },
+  { method: 'POST',   path: '/infra/services',                             auth: true,  handler: 'infraServiceCreate' },
+  { method: 'POST',   path: '/infra/endpoints',                            auth: true,  handler: 'infraEndpointCreate' },
+  { method: 'POST',   path: '/infra/endpoints/{endpoint_id}/check',        auth: true,  handler: 'infraEndpointCheck' },
+  { method: 'POST',   path: '/infra/metrics',                              auth: true,  handler: 'infraMetricRecord' },
+  { method: 'GET',    path: '/infra/changes',                              auth: true,  handler: 'infraChanges' },
+  { method: 'POST',   path: '/infra/changes',                              auth: true,  handler: 'infraChangeRequest' },
+  { method: 'POST',   path: '/infra/changes/{request_id}/approve',         auth: true,  handler: 'infraChangeApprove' },
 ];
 
 function compile(route) {
@@ -155,6 +167,11 @@ const FIELDS = {
   deletion: ['id', 'tenant_id', 'requested_by', 'reason', 'status', 'approved_by', 'approved_at', 'not_before',
     'canceled_by', 'canceled_at', 'cancel_reason', 'executed_by', 'executed_at', 'retain_until', 'created_at',
     'subscriptions_canceled', 'data_destroyed'],
+  infraProvider: ['id', 'code', 'display_name', 'kind', 'api_mode', 'status', 'notes', 'created_at', 'updated_at'],
+  infraService: ['id', 'provider_id', 'name', 'kind', 'region', 'status', 'created_at'],
+  infraEndpoint: ['id', 'service_id', 'url', 'check_kind', 'expected_status', 'enabled', 'created_at'],
+  infraAlert: ['id', 'endpoint_id', 'kind', 'severity', 'opened_at', 'closed_at', 'detail'],
+  infraChange: ['id', 'action', 'target_id', 'payload', 'reason', 'requested_by', 'status', 'approved_by', 'decided_at', 'created_at'],
   audit: ['sequence_id', 'event_id', 'actor_id', 'actor_ref', 'action', 'subject_type', 'subject_ref', 'tenant_id', 'reason', 'details', 'created_at'],
 };
 
@@ -507,6 +524,197 @@ const HANDLERS = {
   },
 };
 
+/* ── row 122: infrastructure layer ─────────────────────────────────────
+   Registration is manual (api_mode 'manual' only). A raw credential is never accepted: the body
+   may carry only `credential_ref: "secret:NAME"`, and responses say only whether one is set. */
+const INFRA_METRICS = ['capacity_cpu', 'capacity_memory', 'capacity_disk', 'capacity_connections',
+  'usage_cpu', 'usage_memory', 'usage_disk', 'usage_connections', 'error_rate', 'latency_p95'];
+const RAW_CREDENTIAL_KEY_RE = /^(password|passwd|pass|api_key|apikey|token|access_token|secret|secret_key|private_key|credential|credentials|connection_string|dsn)$/i;
+function rawCredentialKey(body) {
+  return Object.keys(body || {}).find(k => RAW_CREDENTIAL_KEY_RE.test(k)) || null;
+}
+function adapterView(mode) {
+  try { return infra.getAdapter(mode).describe(); } catch (_) { return { mode, automated: false, installed: false }; }
+}
+function infraProviderView(row) {
+  return Object.assign(project(row, FIELDS.infraProvider), infra.credentialView(row.credential_ref),
+    { adapter: adapterView(row.api_mode) });
+}
+function needUuid(v) { const s = String(v || ''); return UUID_RE.test(s) ? s : null; }
+
+Object.assign(HANDLERS, {
+  async infraSummary(q) {
+    const providers = await q('SELECT * FROM owner_platform.infra_provider ORDER BY code LIMIT 200');
+    const services = await q('SELECT * FROM owner_platform.infra_service ORDER BY provider_id, name LIMIT 500');
+    const endpoints = await q('SELECT * FROM owner_platform.infra_endpoint ORDER BY service_id, url LIMIT 500');
+    const health = await q(`SELECT DISTINCT ON (endpoint_id) endpoint_id, ok, latency_ms, status_code, error_code, checked_at
+      FROM owner_platform.infra_health_check ORDER BY endpoint_id, id DESC`);
+    const metrics = await q(`SELECT DISTINCT ON (service_id, metric) service_id, metric, value, unit, label, source, observed_at
+      FROM owner_platform.infra_metric ORDER BY service_id, metric, id DESC`);
+    const alerts = await q('SELECT * FROM owner_platform.infra_alert WHERE closed_at IS NULL ORDER BY opened_at DESC LIMIT 200');
+    const lastHealth = new Map(health.rows.map(r => [r.endpoint_id, r]));
+    const metricBy = new Map(metrics.rows.map(r => [r.service_id + '|' + r.metric, r]));
+    return ok({ ok: true,
+      provisioning: { automated: false, detail: 'manual registry only; no provider API adapter is installed (row 124)' },
+      providers: providers.rows.map(infraProviderView),
+      services: services.rows.map(r => Object.assign(project(r, FIELDS.infraService), {
+        metrics: Object.fromEntries(INFRA_METRICS.map(m => [m, infra.metricView(metricBy.get(r.id + '|' + m) || null)])) })),
+      endpoints: endpoints.rows.map(r => Object.assign(project(r, FIELDS.infraEndpoint),
+        { health: infra.healthView(lastHealth.get(r.id) || null) })),
+      open_alerts: projectRows(alerts.rows, FIELDS.infraAlert) });
+  },
+  async infraProviderCreate(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner', 'platform_operator']);
+    if (denied) return denied;
+    const b = ctx.body || {};
+    const raw = rawCredentialKey(b);
+    if (raw) return err(400, 'credentials_not_accepted', { field: raw, detail: 'only credential_ref "secret:NAME" is accepted' });
+    if ((b.api_mode || 'manual') !== 'manual') return err(501, 'provider_api_not_implemented', { detail: 'row 124' });
+    const ref = b.credential_ref == null || b.credential_ref === '' ? null : String(b.credential_ref);
+    if (ref !== null && !infra.isCredentialRef(ref)) return err(400, 'credential_must_be_reference');
+    const r = await q('SELECT owner_platform.infra_register_provider($1,$2,$3,$4,$5) AS result',
+      [String(b.code || ''), String(b.display_name || ''), String(b.kind || ''), ref, b.notes == null ? null : String(b.notes)]);
+    const row = r.rows[0].result;
+    await appendAudit(q, ctx, { action: 'infra.provider.register', subject_type: 'infra_provider', subject_ref: row.id,
+      reason: String(b.reason || 'manual provider registration'),
+      details: { code: row.code, kind: row.kind, api_mode: 'manual', credential_ref_set: ref !== null } });
+    return ok({ ok: true, provider: infraProviderView(row) }, 201);
+  },
+  async infraServiceCreate(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner', 'platform_operator']);
+    if (denied) return denied;
+    const b = ctx.body || {};
+    const pid = needUuid(b.provider_id);
+    if (!pid) return err(400, 'invalid_provider_id');
+    const r = await q('SELECT owner_platform.infra_register_service($1,$2,$3,$4) AS result',
+      [pid, String(b.name || ''), String(b.kind || ''), b.region == null ? null : String(b.region)]);
+    const row = r.rows[0].result;
+    await appendAudit(q, ctx, { action: 'infra.service.register', subject_type: 'infra_service', subject_ref: row.id,
+      reason: String(b.reason || 'manual service registration'), details: { provider_id: pid, kind: row.kind } });
+    return ok({ ok: true, service: project(row, FIELDS.infraService) }, 201);
+  },
+  async infraEndpointCreate(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner', 'platform_operator']);
+    if (denied) return denied;
+    const b = ctx.body || {};
+    const sid = needUuid(b.service_id);
+    if (!sid) return err(400, 'invalid_service_id');
+    const kind = String(b.check_kind || '');
+    if (!infra.parseEndpoint(b.url, kind)) return err(400, 'invalid_endpoint', { detail: 'http(s)/tcp URL without user:password' });
+    const expected = b.expected_status == null ? null : Number(b.expected_status);
+    const r = await q('SELECT owner_platform.infra_register_endpoint($1,$2,$3,$4) AS result', [sid, String(b.url), kind, expected]);
+    const row = r.rows[0].result;
+    await appendAudit(q, ctx, { action: 'infra.endpoint.register', subject_type: 'infra_endpoint', subject_ref: row.id,
+      reason: String(b.reason || 'manual endpoint registration'), details: { service_id: sid, check_kind: kind } });
+    return ok({ ok: true, endpoint: project(row, FIELDS.infraEndpoint) }, 201);
+  },
+  async infraMetricRecord(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner', 'platform_operator']);
+    if (denied) return denied;
+    const b = ctx.body || {};
+    const sid = needUuid(b.service_id);
+    if (!sid) return err(400, 'invalid_service_id');
+    if (b.source === 'provider_api') return err(501, 'provider_api_not_implemented', { detail: 'row 124' });
+    const unknown = b.value == null || b.value === '';
+    const label = unknown ? '?' : String(b.label || '');
+    if (!unknown && !['M', 'E'].includes(label)) return err(400, 'label_required', { detail: 'a number needs label M (measured) or E (estimate)' });
+    const r = await q('SELECT owner_platform.infra_record_metric($1,$2,$3,$4,$5,$6) AS result',
+      [sid, String(b.metric || ''), unknown ? null : Number(b.value), String(b.unit || ''), label, String(b.source || 'manual')]);
+    const row = r.rows[0].result;
+    await appendAudit(q, ctx, { action: 'infra.metric.record', subject_type: 'infra_service', subject_ref: sid,
+      reason: String(b.reason || 'manual metric entry'), details: { metric: row.metric, label: row.label, source: row.source } });
+    return ok({ ok: true, metric: infra.metricView(row) }, 201);
+  },
+  async infraChanges(q) {
+    const r = await q('SELECT * FROM owner_platform.infra_change_request ORDER BY created_at DESC LIMIT 200');
+    return ok({ ok: true, changes: projectRows(r.rows, FIELDS.infraChange), count: r.rows.length });
+  },
+  async infraChangeRequest(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner', 'platform_operator']);
+    if (denied) return denied;
+    const b = ctx.body || {};
+    const action = String(b.action || '');
+    if (!['disable_provider', 'enable_provider', 'set_credential_ref', 'disable_endpoint'].includes(action)) {
+      return err(400, 'invalid_action');
+    }
+    const target = needUuid(b.target_id);
+    if (!target) return err(400, 'invalid_target_id');
+    const reason = needReason(b);
+    if (!reason) return err(400, 'reason_too_short');
+    const p = b.payload && typeof b.payload === 'object' && !Array.isArray(b.payload) ? b.payload : {};
+    const raw = rawCredentialKey(p);
+    if (raw) return err(400, 'credentials_not_accepted', { field: raw });
+    let payload = {};
+    if (action === 'set_credential_ref') {
+      const ref = p.credential_ref == null ? '' : String(p.credential_ref);
+      if (ref !== '' && !infra.isCredentialRef(ref)) return err(400, 'credential_must_be_reference');
+      payload = { credential_ref: ref };
+    }
+    const r = await q('SELECT owner_platform.infra_request_change($1,$2,$3::jsonb,$4) AS result',
+      [action, target, canonical(payload), reason]);
+    const row = r.rows[0].result;
+    await appendAudit(q, ctx, { action: 'infra.change.request', subject_type: 'infra_change_request', subject_ref: row.id,
+      reason, details: { change: action, target_id: target, credential_ref_set: !!payload.credential_ref } });
+    return ok({ ok: true, change: project(row, FIELDS.infraChange), approval: 'pending: platform_owner must approve' }, 201);
+  },
+  async infraChangeApprove(q, ctx) {
+    const denied = needRole(ctx, ['platform_owner']);
+    if (denied) return denied;
+    const id = needUuid(ctx.params.request_id);
+    if (!id) return err(400, 'invalid_request_id');
+    const r = await q('SELECT owner_platform.infra_approve_change($1) AS result', [id]);
+    const row = r.rows[0].result;
+    await appendAudit(q, ctx, { action: 'infra.change.approve', subject_type: 'infra_change_request', subject_ref: row.id,
+      reason: String((ctx.body || {}).reason || row.reason),
+      details: { change: row.action, target_id: row.target_id, requested_by: row.requested_by } });
+    return ok({ ok: true, change: project(row, FIELDS.infraChange) });
+  },
+});
+
+/* Health check: the network call happens OUTSIDE any DB transaction. tx1 validates the actor,
+   the endpoint and a per-endpoint cooldown (no check storm); tx2 records the result, keeps the
+   alert state and audits alert transitions. */
+const CHECK_COOLDOWN_SEC = 30;
+async function infraCheckFlow(db, ctx, checker, cooldownSec = CHECK_COOLDOWN_SEC) {
+  const denied = needRole(ctx, ['platform_owner', 'platform_operator']);
+  if (denied) return denied;
+  const eid = needUuid(ctx.params.endpoint_id);
+  if (!eid) return err(400, 'invalid_endpoint_id');
+  const asActor = (fn) => db.withTransaction(async (q) => {
+    await q("SELECT set_config('app.platform_user_id', $1, true), set_config('app.tenant_id', '', true)", [ctx.claims.sub]);
+    return fn(q);
+  });
+  const pre = await asActor(async (q) => {
+    const e = await q('SELECT * FROM owner_platform.infra_endpoint WHERE id=$1', [eid]);
+    if (!e.rows.length) return { out: err(404, 'endpoint_not_found') };
+    if (!e.rows[0].enabled) return { out: err(409, 'endpoint_disabled') };
+    const last = await q(`SELECT extract(epoch FROM (clock_timestamp() - checked_at))::float8 AS age
+      FROM owner_platform.infra_health_check WHERE endpoint_id=$1 ORDER BY id DESC LIMIT 1`, [eid]);
+    if (last.rows.length && Number(last.rows[0].age) < cooldownSec) {
+      return { out: err(429, 'check_cooldown', { retry_after_ms: Math.ceil((cooldownSec - Number(last.rows[0].age)) * 1000) }) };
+    }
+    return { endpoint: e.rows[0] };
+  });
+  if (pre.out) return pre.out;
+  const result = await checker(pre.endpoint);
+  return asActor(async (q) => {
+    const r = await q('SELECT owner_platform.infra_record_check($1,$2,$3,$4,$5) AS result',
+      [eid, !!result.ok, result.latency_ms, result.status_code, result.ok ? null : (result.error_code || 'check_failed')]);
+    const rec = r.rows[0].result;
+    if (rec.alert_opened) {
+      await appendAudit(q, ctx, { action: 'infra.alert.open', subject_type: 'infra_alert', subject_ref: rec.alert_opened,
+        reason: 'endpoint down: 3 consecutive failed checks', details: { endpoint_id: eid, error_code: result.error_code || null } });
+    }
+    if (rec.alert_closed) {
+      await appendAudit(q, ctx, { action: 'infra.alert.close', subject_type: 'infra_alert', subject_ref: rec.alert_closed,
+        reason: 'endpoint recovered: check succeeded', details: { endpoint_id: eid } });
+    }
+    return ok({ ok: true, check: { endpoint_id: eid, ok: !!result.ok, latency_ms: result.latency_ms,
+      status_code: result.status_code, error_code: result.ok ? null : (result.error_code || 'check_failed') },
+    alert: { opened: rec.alert_opened || null, closed: rec.alert_closed || null } });
+  });
+}
+
 async function deletionTenant(q, ctx) {
   const rid = String(ctx.params.request_id || '');
   if (!UUID_RE.test(rid)) return { error: err(400, 'invalid_request_id') };
@@ -598,6 +806,11 @@ function createPlatformApi(options = {}) {
   const loginMax = Number(options.loginRateMax || 10);
   const loginWindowSec = Number(options.loginRateWindowSec || 300);
   const tokenTtlMs = Number(options.tokenTtlMs || 8 * 3600 * 1000);
+  /* row 122: injectable for tests; default = limited real check (private targets refused
+     unless PAYESH_INFRA_ALLOW_PRIVATE=1 on the operator's host) */
+  const healthChecker = options.healthChecker || ((endpoint) => infra.checkEndpoint(endpoint,
+    { allowPrivate: process.env.PAYESH_INFRA_ALLOW_PRIVATE === '1' }));
+  const checkCooldownSec = options.checkCooldownSec == null ? CHECK_COOLDOWN_SEC : Number(options.checkCooldownSec);
   /* row 121: school-side provisioning hook (Gateway injects school-access.provisionSchool) */
   const schoolProvisioner = typeof options.schoolProvisioner === 'function' ? options.schoolProvisioner : null;
   const openapi = JSON.parse(fs.readFileSync(path.join(__dirname, 'openapi.json'), 'utf8'));
@@ -769,6 +982,10 @@ function createPlatformApi(options = {}) {
     try {
       if (route.handler === 'tenantsCreate') {
         const out = await createTenantSaga(db, schoolProvisioner, ctx);
+        return reply(out.status, out.body, Object.assign({}, rateHeaders, out.headers || {}));
+      }
+      if (route.handler === 'infraEndpointCheck') {
+        const out = await infraCheckFlow(db, ctx, healthChecker, checkCooldownSec);
         return reply(out.status, out.body, Object.assign({}, rateHeaders, out.headers || {}));
       }
       const out = await db.withTransaction(async (q) => {

@@ -5026,6 +5026,11 @@ async function waitFor(fn, ms = 15000) {
       console.log('    SCHOOL-ACCESS-121 unit=4 (PG e2e: tests/tenant-121.js in api-contract)');
     });
 
+  /* ── ردیف ۱۲۲: لایهٔ زیرساخت مستقل از provider (migration 006 + /infra) ─── */
+  const infraRegistry = require('../apps/owner-panel/tests/infra-registry.test.js');
+  await test('ردیف ۱۲۲: لایهٔ زیرساخت — ProviderAdapter دستی (بدون provisioning خودکار)، credential فقط secret:NAME، Health Check محدود (SSRF/timeout/cooldown)، «نامعلوم» بهجای عدد ساختگی، تغییر پرخطر = درخواست + تأیید owner + audit، کنترل منفی',
+    async () => { const r = await infraRegistry.all(); console.log('    INFRA-122 negative_controls=' + r.negative_controls + ' unit_controls=' + r.unit_controls + ' failures=0'); });
+
   /* ── ردیف ۱۰۲: پنل مالک · اجرای محلی با یک فرمان (local-up) ─────────── */
   const ownerLocalUp = require('../apps/owner-panel/tests/local-up.test.js');
   await test('ردیف ۱۰۲: local-up — فقط loopback، DATABASE_URL محلی، migration idempotent، رازها خارج از Git، ورود TOTP، خاموشی تمیز، بدون 004 ⇒ 501',

@@ -116,6 +116,31 @@
     },
     "/tenant-deletions/{request_id}/execute": {
       "post": { "summary": "پس از تأیید و پایان ۲۴ ساعت: لغو اشتراکها + retain_until ≥ ۱۸۰ روز؛ هیچ دادهای نابود نمیشود (D-22)", "parameters": [{ "name": "request_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "executed, data_destroyed=false" }, "403": { "description": "role_forbidden / forbidden" }, "404": { "description": "request_not_found" }, "409": { "description": "deletion_delay_pending" } } }
+    },
+    "/infra": {
+      "get": { "summary": "ردیف ۱۲۲ — نمای زیرساخت: providerها (فقط مرجع credential، هرگز مقدار)، سرویس‌ها با معیارهای برچسب‌دار (بدون داده = unknown/?)، endpointها با آخرین Health Check، هشدارهای باز", "responses": { "200": { "description": "ok (provisioning.automated=false)" }, "401": { "description": "unauthorized" } } }
+    },
+    "/infra/providers": {
+      "post": { "summary": "ثبت دستی provider (host/vps/vpc/db/storage/other)؛ api_mode فقط manual؛ credential فقط به‌صورت secret:NAME", "responses": { "201": { "description": "registered" }, "400": { "description": "credentials_not_accepted / credential_must_be_reference / invalid_input" }, "403": { "description": "role_forbidden / forbidden" }, "409": { "description": "conflict (code)" }, "501": { "description": "provider_api_not_implemented" } } }
+    },
+    "/infra/services": {
+      "post": { "summary": "ثبت دستی سرویس زیر یک provider فعال", "responses": { "201": { "description": "registered" }, "400": { "description": "invalid_provider_id / invalid_input" }, "403": { "description": "role_forbidden / forbidden" }, "409": { "description": "conflict" } } }
+    },
+    "/infra/endpoints": {
+      "post": { "summary": "ثبت endpoint برای Health Check محدود (http(s) یا tcp، بدون user:password)", "responses": { "201": { "description": "registered" }, "400": { "description": "invalid_endpoint / invalid_service_id" }, "403": { "description": "role_forbidden / forbidden" }, "409": { "description": "conflict" } } }
+    },
+    "/infra/endpoints/{endpoint_id}/check": {
+      "post": { "summary": "یک Health Check دستی (timeout، بدون redirect، بدون بدنه، آدرس خصوصی رد)؛ ۳ شکست پیاپی = هشدار + audit", "parameters": [{ "name": "endpoint_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "checked (ok true/false)" }, "404": { "description": "endpoint_not_found" }, "409": { "description": "endpoint_disabled" }, "429": { "description": "check_cooldown / rate_limited" } } }
+    },
+    "/infra/metrics": {
+      "post": { "summary": "ثبت معیار ظرفیت/مصرف/خطا با برچسب M یا E؛ بدون مقدار = ?؛ provider_api تا ردیف ۱۲۴ رد", "responses": { "201": { "description": "recorded" }, "400": { "description": "label_required / invalid_input" }, "403": { "description": "role_forbidden / forbidden" }, "501": { "description": "provider_api_not_implemented" } } }
+    },
+    "/infra/changes": {
+      "get": { "summary": "درخواست‌های تغییر پرخطر زیرساخت", "responses": { "200": { "description": "ok" }, "401": { "description": "unauthorized" } } },
+      "post": { "summary": "درخواست تغییر پرخطر (غیرفعال/فعال‌سازی provider، تغییر مرجع credential، غیرفعال‌سازی endpoint)؛ اجرا فقط پس از تأیید owner", "responses": { "201": { "description": "pending" }, "400": { "description": "invalid_action / reason_too_short / credential_must_be_reference / credentials_not_accepted" }, "403": { "description": "role_forbidden / forbidden" } } }
+    },
+    "/infra/changes/{request_id}/approve": {
+      "post": { "summary": "تأیید و اجرای یک‌بارهٔ تغییر پرخطر؛ فقط platform_owner؛ audit", "parameters": [{ "name": "request_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "executed" }, "403": { "description": "role_forbidden / forbidden (not pending, not owner)" } } }
     }
   }
 }

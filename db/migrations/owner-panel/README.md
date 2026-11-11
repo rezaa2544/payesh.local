@@ -78,3 +78,29 @@ psql "$PAYESH_PLATFORM_MIGRATION_URL" -v ON_ERROR_STOP=1 -f db/migrations/owner-
 ```
 
 Rollback (`005_tenant_provisioning.down.sql`) removes only the registry and the two functions. Subscriptions, limits and audit rows created through it stay, and so do the school-side rows. Roll back 005 before 004.
+
+## 006 — provider-agnostic infrastructure layer (row 122)
+
+`006_infra_registry.up.sql` adds the Control Plane's infrastructure metadata. It records only what the owner registers **by hand** and the result of a limited health check. It provisions nothing and calls no provider API.
+
+- **Tables** (all have forced RLS; the runtime role gets `SELECT` only):
+  - `infra_provider`: `kind` is one of host/vps/vpc/db/storage/other. `api_mode` is `manual`; `api` is declared but refused.
+  - `infra_service`.
+  - `infra_endpoint`: `http(s)` or `tcp`. A CHECK forbids `user:password@`.
+  - `infra_health_check`: append-only. It stores short error codes only, never bodies or headers.
+  - `infra_metric`: append-only. A value is either a number labelled `M`/`E` or `NULL` labelled `?`, enforced by a CHECK.
+  - `infra_alert`: at most one open alert per endpoint.
+  - `infra_change_request`.
+- **Credentials:** a provider stores only `credential_ref = 'secret:NAME'`, enforced by a CHECK. The value lives in the operator host's environment and never in the database, repository, API responses, logs or audit.
+- **Write functions:** there are seven `SECURITY DEFINER` functions, each gated by `require_actor`:
+  - `infra_register_provider`, `infra_register_service`, `infra_register_endpoint`;
+  - `infra_record_check`: 3 consecutive failures open an alert and the next success closes it;
+  - `infra_record_metric`: refuses `source = 'provider_api'` until a real adapter exists (row 124);
+  - `infra_request_change`;
+  - `infra_approve_change`: `platform_owner` only, single use. It is the only way a provider is disabled or enabled, its credential reference changed, or an endpoint disabled.
+
+```sh
+psql "$PAYESH_PLATFORM_MIGRATION_URL" -v ON_ERROR_STOP=1 -f db/migrations/owner-panel/006_infra_registry.up.sql
+```
+
+Rollback (`006_infra_registry.down.sql`) removes only 006's tables and functions. Because the layer is metadata only, no provider resource depends on it. Audit rows written through it stay. Roll back 006 before 005.
