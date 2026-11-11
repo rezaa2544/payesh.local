@@ -37,6 +37,9 @@ on:
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - 'tests/direct-sync-108.js'
       - 'tests/rls-pentest-109.js'
+      - 'tests/transport-110.js'
+      - 'client/transport.js'
+      - 'client/provider-postgrest.js'
       - 'tools/direct-sync.js'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
@@ -68,6 +71,9 @@ on:
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - 'tests/direct-sync-108.js'
       - 'tests/rls-pentest-109.js'
+      - 'tests/transport-110.js'
+      - 'client/transport.js'
+      - 'client/provider-postgrest.js'
       - 'tools/direct-sync.js'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
@@ -231,6 +237,18 @@ jobs:
           set -o pipefail
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/rls-pentest-109.js | tee -a native-contract.txt
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/direct-sync-108.js | tee -a native-contract.txt
+      # Row 110 (ADR-105, Proposed): direct transport of the JS client behind
+      # PAYESH_TRANSPORT=direct (default off) — transport ↔ provider split, no service
+      # key in client code (static scan, JS + Dart), offline outbox unchanged; real
+      # postgres:16 behind a PostgREST-compatible emulator. The Dart side runs in
+      # native-client (payesh_sync test/direct_transport_test.dart).
+      - name: Direct transport (row 110, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          TR110_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/transport-110.js | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
