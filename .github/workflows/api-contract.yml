@@ -28,6 +28,8 @@ on:
       - 'tools/field-rekey-87.mjs'
       - 'tests/migrations-86.js'
       - 'tools/migrate-86.mjs'
+      - 'db/migrations/direct/**'
+      - 'tests/direct-identity-106.js'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
   pull_request:
@@ -49,6 +51,8 @@ on:
       - 'tools/field-rekey-87.mjs'
       - 'tests/migrations-86.js'
       - 'tools/migrate-86.mjs'
+      - 'db/migrations/direct/**'
+      - 'tests/direct-identity-106.js'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
   workflow_dispatch:
@@ -157,6 +161,19 @@ jobs:
           set -o pipefail
           node tools/migrate-86.mjs lint
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/migrations-86.js | tee -a native-contract.txt
+      # Row 106 (ADR-105 §3.1, Proposed): direct path without a Gateway — identity,
+      # capabilities, user/device revocation and RLS inside PostgreSQL (standard SQL,
+      # no provider extension). Revoked/disabled user, revoked/foreign device, other
+      # role, other school ⇒ 0 rows; capabilities only via SECURITY DEFINER by the
+      # school's manager; spoofed role/tenant claims ignored; 5 mutants caught.
+      - name: Direct-path identity + RLS (row 106, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          DI106_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node tools/migrate-86.mjs lint --dir db/migrations/direct
+          node tests/direct-identity-106.js | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

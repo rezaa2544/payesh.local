@@ -1,0 +1,28 @@
+base_sha=9c42982fab5d9c5e12077bd2abcbe7f17c9a3f44
+date_utc=2026-11-11T11:19:13Z
+command=PAYESH_PG_ADMIN=postgres://postgres@127.0.0.1:5432/payesh_c64 node tests/direct-identity-106.js
+# Row 106 — direct path (ADR-105 §3.1, Proposed): identity, capabilities, revocation, RLS — label [S]
+# engine: postgres (PostgreSQL) 16.9 (embedded, loopback, D-40); node v22.23.4
+# migration: db/migrations/direct/0001_direct_identity.up.sql via tools/migrate-86.mjs (track direct)
+# npm test on this sha: pass=110 fail=0 registered=110 (tests-run-9c42982-*.log); CI: api-contract native-contract job on postgres:16
+#
+
+Row 106: direct path — identity, capabilities, revocation, RLS (no Gateway)
+
+PASS  DI-01  migration: lint clean, applied once by the row-86 migrator, re-run applies nothing  → ledger 0001_direct_identity (expand), second up = no-op  (259ms)
+PASS  DI-02  catalog: RLS on every table (FORCE on record), client has no INSERT/UPDATE/DELETE on identity, definer fns pin search_path, nothing for PUBLIC, roles NOBYPASSRLS, no provider objects  → 5 tables RLS, 14 SECURITY DEFINER fns pinned, client exec=13 (no bootstrap/helpers)  (18ms)
+PASS  DI-03  manager sees every row of the own school and nothing of the other  → A=6 B=3  (11ms)
+PASS  DI-04  teacher with "attendance, class 1" sees exactly that scope  → attendance#1,attendance#2  (6ms)
+PASS  DI-05  parent with "student 10" sees only that child (any collection)  → attendance#1,grades#4  (5ms)
+PASS  DI-06  NEGATIVE disabled user ⇒ 0 rows everywhere; re-enabled ⇒ back; revoked user ⇒ 0 for good  → disabled 0/0/0/0, enabled 6, revoked 0/0/0/0 (permanent)  (64ms)
+PASS  DI-07  NEGATIVE revoked device / someone else's device / unknown or missing device ⇒ 0 rows; the user's other device keeps working  → revoked 0, foreign 0, unknown 0, missing 0, malformed 0; tablet 2  (40ms)
+PASS  DI-08  NEGATIVE role without capability ⇒ 0 rows; role/tenant claims in the token are ignored  → guard 0, counselor 0, spoofed manager/tenant claim ⇒ unchanged 2 rows of A  (14ms)
+PASS  DI-09  NEGATIVE other school ⇒ 0 rows (same class/record ids in both schools)  → B→A records 0, users 0, capabilities 0; teacher B own scope 2  (19ms)
+PASS  DI-10  NEGATIVE capabilities only via SECURITY DEFINER by a manager of the same school  → 11 refusals; grant ⇒ 2→3, revoke ⇒ 2; audit 24 rows (manager only)  (34ms)
+PASS  DI-11  NEGATIVE writes: only inside the write capability; moving a row out of scope, other school, delete ⇒ refused  → in-scope insert+update ok; class 2 / grades / school B / move-out / delete refused; parent & manager B touch 0 rows  (22ms)
+PASS  DI-12  NEGATIVE no token, unknown subject ⇒ 0 rows and no identity  → no token 0 everywhere; unknown subject 0  (20ms)
+PASS  DI-13  mutation controls: 5 broken variants of the migration, each caught by the negative checks above  → M1 disabled-user leak 2; M2 cross-school leak 7; M3 role leak 10; M4 self-grant succeeded; M5 parent revoked a teacher device — all 5 caught, schema restored  (55ms)
+PASS  DI-14  rollback through the migrator removes the schema; re-apply is clean  → down ⇒ schema gone; up ⇒ 16 functions  (209ms)
+
+# passed=14 failed=0 negative_controls=57 mutants_killed=5
+DIRECT-IDENTITY-106-OK
