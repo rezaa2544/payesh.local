@@ -45,7 +45,8 @@
       "get": { "summary": "شمارش فراداده (بدون محتوای مدرسه)", "responses": { "200": { "description": "ok" }, "401": { "description": "unauthorized" }, "429": { "description": "rate_limited" } } }
     },
     "/tenants": {
-      "get": { "summary": "فهرست فرادادهٔ اشتراک مدارس", "responses": { "200": { "description": "ok" }, "401": { "description": "unauthorized" } } }
+      "get": { "summary": "فهرست فرادادهٔ اشتراک مدارس", "responses": { "200": { "description": "ok" }, "401": { "description": "unauthorized" } } },
+      "post": { "summary": "ساخت مدرسه (ردیف ۱۲۱)؛ فقط platform_owner با reason و provision_op_id؛ tenant اختصاصی + مدیر اولیه + کد فعال‌سازی یک‌بارمصرف", "responses": { "201": { "description": "created" }, "200": { "description": "idempotent replay (same provision_op_id)" }, "400": { "description": "invalid_input / reason_too_short" }, "403": { "description": "role_forbidden / forbidden" }, "409": { "description": "conflict (slug or op reused)" }, "502": { "description": "school_provisioning_failed (retry with the same provision_op_id)" }, "503": { "description": "school_provisioning_not_configured" } } }
     },
     "/tenants/{tenant_id}": {
       "get": { "summary": "فرادادهٔ یک مدرسه", "parameters": [{ "$ref": "#/components/parameters/TenantId" }], "responses": { "200": { "description": "ok" }, "404": { "description": "tenant_not_found" } } },

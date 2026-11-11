@@ -11,7 +11,7 @@
      RC-04  [M] only with evidence that itself says [M]; no "unlimited" capacity claim
      RC-05  security row is UNKNOWN (D-41) — never PASS without a human pentest
      RC-06  truth checks against the repo: the status of R07 (Gateway host deploy),
-            R08 (provider layer / migration 005), R09 (create school → tenant),
+            R08 (provider layer / infra migration), R09 (create school → tenant),
             R10 (native polling) and R23 (native feature pages) must match what the
             code actually contains — a stale report turns red
      RC-07  mutants: each forbidden edit turns its check red
@@ -90,7 +90,8 @@ function rcSecurity(rows) {
 /* ── repo truth probes (each returns true when the feature is present) ── */
 const TRUTH = {
   gatewayHostDeploy: () => fs.readdirSync(path.join(ROOT, 'deploy')).some(f => /gateway/i.test(f)) || /server\/gateway\.js/.test(fs.readFileSync(path.join(ROOT, 'deploy/README.md'), 'utf8')),
-  providerLayer: () => fs.readdirSync(path.join(ROOT, 'db/migrations/owner-panel')).some(f => /^005/.test(f)),
+  // provider layer = an infra-registry migration (row 122); 005 went to tenant provisioning (row 121)
+  providerLayer: () => fs.readdirSync(path.join(ROOT, 'db/migrations/owner-panel')).some(f => /^\d{3}_infra_.*\.up\.sql$/.test(f)),
   createSchool: () => /method:\s*'POST',\s*path:\s*'\/tenants'\s*,/.test(fs.readFileSync(path.join(ROOT, 'apps/owner-panel/server/platform-api.js'), 'utf8')),
   nativePolling: () => { const d = path.join(ROOT, 'apps/payesh/packages/payesh_sync/lib/src'); return fs.readdirSync(d).some(f => /poll/i.test(fs.readFileSync(path.join(d, f), 'utf8'))); },
   nativePages: () => { const out = []; (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else out.push(p); } })(path.join(ROOT, 'apps/payesh/app/lib')); return out.some(p => /(attendance|grades|notices|login|parents)/i.test(p)); },
@@ -101,8 +102,8 @@ function rcTruth(rows, truth) {
   const t = truth || TRUTH;
   if (!t.gatewayHostDeploy()) assert(['BLOCKED', 'NOT IMPLEMENTED'].includes(st('R07')), 'R07: no Gateway deploy package in deploy/ yet status=' + st('R07'));
   else assert(st('R07') !== 'NOT IMPLEMENTED', 'R07: Gateway deploy exists — update the report');
-  if (!t.providerLayer()) assert(st('R08') === 'NOT IMPLEMENTED', 'R08: no migration 005 yet status=' + st('R08'));
-  else assert(st('R08') !== 'NOT IMPLEMENTED', 'R08: migration 005 exists — update the report');
+  if (!t.providerLayer()) assert(st('R08') === 'NOT IMPLEMENTED', 'R08: no infra migration yet status=' + st('R08'));
+  else assert(st('R08') !== 'NOT IMPLEMENTED', 'R08: infra migration exists — update the report');
   if (!t.createSchool()) assert(st('R09') === 'NOT IMPLEMENTED', 'R09: no POST /tenants yet status=' + st('R09'));
   else assert(st('R09') !== 'NOT IMPLEMENTED', 'R09: POST /tenants exists — update the report');
   if (!t.nativePolling()) assert(['PARTIAL', 'NOT IMPLEMENTED'].includes(st('R10')), 'R10: native client has no polling yet status=' + st('R10'));
@@ -116,7 +117,9 @@ const setStatus = (doc, id, s) => doc.split('\n').map(l => {
   const c = l.split(' | '); c[2] = s; return c.join(' | ');
 }).join('\n');
 const MUTANTS = [
-  ['M1 create-school claimed PASS', d => rcTruth(parse(setStatus(d, 'R09', 'PASS [S]')))],
+  // M1: with POST /tenants present (row 121) a report that still says NOT IMPLEMENTED must go red;
+  // with it absent, a PASS claim must go red.
+  ['M1 create-school status disagrees with code', d => rcTruth(parse(setStatus(d, 'R09', TRUTH.createSchool() ? 'NOT IMPLEMENTED' : 'PASS [S]')))],
   ['M2 security claimed PASS', d => rcSecurity(parse(setStatus(d, 'R15', 'PASS [S]')))],
   ['M3 native pages claimed PASS', d => rcTruth(parse(setStatus(d, 'R23', 'PASS [S]')))],
   ['M4 evidence path that does not exist', d => rcPaths(parse(d.replace('`docs/cloud/reports/evidence/gateway-67.txt`', '`docs/cloud/reports/evidence/gateway-67-missing.txt`')))],

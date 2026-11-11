@@ -5009,6 +5009,23 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ADR-117-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
     });
 
+  /* ── ردیف ۱۲۱: ساخت مدرسه از پنل مالک (migration 005 + POST /tenants) ─── */
+  const tenantProvisioning = require('../apps/owner-panel/tests/tenant-provisioning.test.js');
+  await test('ردیف ۱۲۱: ساخت مدرسه از پنل مالک — فقط owner، reason، provision_op_id idempotent، saga (provisioning→active)، کد یک‌بارمصرف بیرون از audit، کنترل منفی',
+    async () => { const r = await tenantProvisioning.flow(); console.log('    TENANT-PROVISIONING-121 negative_controls=' + r.negative_controls + ' failures=0'); });
+  await test('ردیف ۱۲۱: school-access بدون PostgreSQL — بدون راز ⇒ 503، معلم ⇒ 403، کد ۱۶۰بیتی و هش وابسته به tenant',
+    async () => {
+      const sa = require('../server/school-access.js');
+      const c1 = sa.randomCode(), c2 = sa.randomCode();
+      assert.ok(/^[A-Z2-7]{32}$/.test(c1) && c1 !== c2, 'code shape/entropy');
+      assert.notStrictEqual(sa.hashSecret('t1', c1), sa.hashSecret('t2', c1), 'hash bound to tenant');
+      let e1 = null; try { await sa.activate(null, { school: 'x-school', code: c1, deviceId: 'dev-1', secret: '' }); } catch (e) { e1 = e; }
+      assert.ok(e1 && e1.status === 503, 'no secret ⇒ 503');
+      let e2 = null; try { await sa.issueActivation(null, { role: 'teacher', tid: 'x' }, { uid: 2 }); } catch (e) { e2 = e; }
+      assert.ok(e2 && e2.status === 403 && e2.code === 'manager_only', 'teacher ⇒ 403');
+      console.log('    SCHOOL-ACCESS-121 unit=4 (PG e2e: tests/tenant-121.js in api-contract)');
+    });
+
   /* ── ردیف ۱۰۲: پنل مالک · اجرای محلی با یک فرمان (local-up) ─────────── */
   const ownerLocalUp = require('../apps/owner-panel/tests/local-up.test.js');
   await test('ردیف ۱۰۲: local-up — فقط loopback، DATABASE_URL محلی، migration idempotent، رازها خارج از Git، ورود TOTP، خاموشی تمیز، بدون 004 ⇒ 501',

@@ -54,6 +54,8 @@ on:
       - 'tools/direct-sync.js'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
+      - 'tests/tenant-121.js'
+      - 'apps/owner-panel/server/**'
   pull_request:
     paths:
       - 'server/**'
@@ -99,6 +101,8 @@ on:
       - 'tools/direct-sync.js'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
+      - 'tests/tenant-121.js'
+      - 'apps/owner-panel/server/**'
   workflow_dispatch:
   # Row 95: called by release-gate.yml on the release commit (path filters do not apply).
   workflow_call:
@@ -348,6 +352,18 @@ jobs:
           test -x "$PGB/initdb" || { echo "no initdb on the runner"; exit 1; }
           pg_dump --version; psql --version
           PAYESH_PG_BIN="$PGB" node tools/backup-111.mjs drill --fresh-cluster | tee -a native-contract.txt
+      # Row 121: owner panel creates a school → dedicated tenant → initial manager activates →
+      # manager creates users in the same school → another school sees 0 rows (real Gateway,
+      # fresh database, owner-panel migrations 001..005). Negative controls inline; the 8
+      # mutants are recorded in docs/cloud/121-tenant-provisioning.md. Label [S].
+      - name: Row 121 school creation → tenant → initial manager, cross-school 0 rows (real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+          T121_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node tests/tenant-121.js | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

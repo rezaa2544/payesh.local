@@ -63,3 +63,18 @@ PAYESH_PLATFORM_MIGRATION_URL=… node apps/owner-panel/scripts/create-operator.
 
 Rollback (`004_owner_login.down.sql`) removes only 004's objects; afterwards `POST /auth/login` answers `501 login_not_installed` and nobody can log in. Roll back 004 before 003.
 
+
+## 005 — create a school from the owner panel (row 121)
+
+`005_tenant_provisioning.up.sql` adds `tenant_registry` (slug → tenant_id, display name, plan, `provision_op_id`, status `provisioning|active`; forced RLS; runtime role gets `SELECT` only) and two `SECURITY DEFINER` functions, both gated by `require_actor(ARRAY['platform_owner'])`:
+
+- `provision_tenant(op_id, slug, name, plan_code)` creates the registry row with a fresh `gen_random_uuid()` tenant id, the subscription in `provisioning` (with its `subscription_event`), and `tenant_limits` copied from the plan. It is idempotent by `provision_op_id` (`UNIQUE`, 16b §1.4). The same op used for another slug gives `23505`. A slug belongs to one tenant forever (`UNIQUE`).
+- `activate_tenant(tenant_id)` moves `provisioning → active`, also idempotently. The API calls it only **after** the school side succeeded, so a half-provisioned school is never shown as active.
+
+The school side (slug mapping, `users#1` = initial manager, one-time activation code) is **not** written by this migration or by the platform role. The Gateway writes it with the school runtime role under the new tenant's forced RLS (`server/school-access.js`, tables `gw_school` / `gw_credential` in `server/tenancy.js`). Migration numbering: row 121 took `005`, so the provider-agnostic infrastructure layer of row 122 becomes `006`.
+
+```sh
+psql "$PAYESH_PLATFORM_MIGRATION_URL" -v ON_ERROR_STOP=1 -f db/migrations/owner-panel/005_tenant_provisioning.up.sql
+```
+
+Rollback (`005_tenant_provisioning.down.sql`) removes only the registry and the two functions. Subscriptions, limits and audit rows created through it stay, and so do the school-side rows. Roll back 005 before 004.

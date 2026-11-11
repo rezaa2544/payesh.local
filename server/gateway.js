@@ -28,6 +28,8 @@ const apiVersion = require('./api-version');
 /* row 66: public Directory bootstrap (school code → cell URL), central DB only */
 const directory = require('./directory');
 const directoryApiModule = require('./directory-api');
+/* row 121: school access — initial manager activation, device refresh, manager-issued codes */
+const schoolAccess = require('./school-access');
 /* row 67: per-feature kill-switch (per-version one is in api-version.js) */
 const killSwitch = require('./kill-switch');
 const crypto = require('node:crypto');
@@ -57,6 +59,7 @@ const PLATFORM_PGURL = String(process.env.PAYESH_PLATFORM_PGURL || '').trim();
 const PLATFORM_SECRET = String(process.env.PAYESH_PLATFORM_TOKEN_SECRET || '').trim();
 const PLATFORM_RATE_MAX = Number(process.env.PAYESH_PLATFORM_RATE_MAX || 120);
 const PLATFORM_RATE_WINDOW = Number(process.env.PAYESH_PLATFORM_RATE_WINDOW_SEC || 60);
+const SESSION_TTL_MS = Math.max(300000, Number(process.env.GW_SESSION_TTL_SEC || 12 * 3600) * 1000);
 /* row 67: graceful drain, request-id, access log, tenant-wide quota */
 const DRAIN_TIMEOUT_MS = Math.max(100, Number(process.env.GW_DRAIN_TIMEOUT_MS || 25000));
 const ACCESS_LOG = String(process.env.GW_ACCESS_LOG || '1') !== '0';
@@ -128,12 +131,20 @@ if (DIRECTORY_PGURL) {
 }
 const directoryApi = directoryApiModule.createDirectoryApi({ resolver: directoryResolver });
 
+/* row 121: the owner panel's POST /tenants writes the school side through THIS gateway's school
+   runtime pool (forced RLS of the new tenant); without PGURL it answers 502 and stays retryable. */
+function schoolProvisioner(args) {
+  if (!pool) throw Object.assign(new Error('school db not configured'), { status: 503 });
+  return schoolAccess.provisionSchool(pool, args);
+}
+
 let platformApi = platformApiModule.createPlatformApi({
   db: platformApiModule.createPgAdapter(platformPool),
   secret: PLATFORM_SECRET,
   rateLimitMax: PLATFORM_RATE_MAX,
   rateLimitWindowSec: PLATFORM_RATE_WINDOW,
   instance: INSTANCE,
+  schoolProvisioner,
 });
 
 /* row 102: apps/owner-panel/scripts/local-up.js runs this Gateway in-process on
@@ -152,6 +163,7 @@ function usePlatformDb(db) {
     rateLimitMax: PLATFORM_RATE_MAX,
     rateLimitWindowSec: PLATFORM_RATE_WINDOW,
     instance: INSTANCE,
+    schoolProvisioner,
   });
   module.exports.platformApi = platformApi;
   return platformApi;
@@ -358,6 +370,25 @@ async function handle(req, res, url) {
 
   if (!enabled) return json(res, 503, { ok: false, error: 'not_configured' });
 
+  /* ── row 121: session bootstrap (no token yet). Role/uid come from the school's users row,
+     tenant from the slug registry; a wrong slug and a wrong code give the same 401. ─────── */
+  if ((p === '/api/gw/v1/session/activate' || p === '/api/gw/v1/session/refresh') && m === 'POST') {
+    let body;
+    try { body = await readBody(req, 4096); }
+    catch (e) { return json(res, e.status || 400, { ok: false, error: e.code || 'bad_request' }); }
+    try {
+      const args = { school: body && body.school, deviceId: body && body.device_id, secret: SECRET, cell: CELL || null,
+        tokenTtlMs: SESSION_TTL_MS };
+      const out = p.endsWith('/activate')
+        ? await schoolAccess.activate(pool, Object.assign(args, { code: body && body.code }))
+        : await schoolAccess.refresh(pool, Object.assign(args, { deviceSecret: body && body.device_secret }));
+      res.__school = out.tenant_id;
+      return json(res, 200, Object.assign({ ok: true }, out));
+    } catch (e) {
+      return json(res, e.status || 500, { ok: false, error: e.status ? e.code : 'session_failed' });
+    }
+  }
+
   /* ── احراز: توکن امضاشده؛ tenant فقط از نشست ───────────────────────── */
   let claims;
   try { claims = tenancy.verifyToken(bearer(req.headers), SECRET); }
@@ -397,6 +428,19 @@ async function handle(req, res, url) {
     if (!tq.allowed) {
       return json(res, 429, { ok: false, error: 'rate_limited', scope: 'tenant', retry_after_ms: tq.retry_after_ms, limit: tq.max },
         Object.assign({ 'retry-after': retryAfterSec(tq.retry_after_ms) }, quotaHeaders));
+    }
+  }
+
+  /* ── row 121: manager issues a one-time activation code for a user of the SAME school ───── */
+  if (p === '/api/gw/v1/admin/activation-codes' && m === 'POST') {
+    let body;
+    try { body = await readBody(req, 4096); }
+    catch (e) { return json(res, e.status || 400, { ok: false, error: e.code || 'bad_request' }, quotaHeaders); }
+    try {
+      const out = await schoolAccess.issueActivation(pool, claims, { uid: body && body.uid });
+      return json(res, 201, Object.assign({ ok: true }, out), quotaHeaders);
+    } catch (e) {
+      return json(res, e.status || 500, { ok: false, error: e.status ? e.code : 'activation_issue_failed' }, quotaHeaders);
     }
   }
 

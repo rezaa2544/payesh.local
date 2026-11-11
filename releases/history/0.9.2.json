@@ -1,6 +1,6 @@
 {
   "version": "0.9.2",
-  "built_at": "2026-11-11T23:15:46.844Z",
+  "built_at": "2026-11-11T23:19:34.653Z",
   "notes": [
     "نگاشت آیکون‌های نبض هر دو شکل ایموجی با و بدون variation selector را به SVG یکسان می‌برد.",
     "بسته‌های نصب و مانیفست برای نگاشت آیکون‌های اصلاح‌شده به نسخهٔ 0.9.2 ارتقا یافتند."
@@ -294,8 +294,8 @@
     {
       "path": "server/gateway.js",
       "kind": "server",
-      "sha256": "015f052f9b44bd00e94a4817beb2f2d405d91e2a2b2e890659c51561d6627082",
-      "size": 29985
+      "sha256": "24f3116d0e2f79fc0b2f4cdf29dd5278d3ea42204808ce701ba89ea0dea7c1cf",
+      "size": 32455
     },
     {
       "path": "server/identity.js",
@@ -388,6 +388,12 @@
       "size": 4754
     },
     {
+      "path": "server/school-access.js",
+      "kind": "server",
+      "sha256": "3f3d68c21d1db3230122b1bccbbba35ddb2b07e2e2ba859e45322e308cd7e3f9",
+      "size": 10460
+    },
+    {
       "path": "server/scope.js",
       "kind": "server",
       "sha256": "8a6559fd0f7bc6d81a59f08e6da27ef942f81553c0cf5816e468440cef2ab218",
@@ -420,8 +426,8 @@
     {
       "path": "server/tenancy.js",
       "kind": "server",
-      "sha256": "c692daa37d9123e9c83ee1b69d8d41898ecdb97ad54aa759739b8b0f5c555900",
-      "size": 66748
+      "sha256": "c355fca22a63a12f9f081374561b89ff404591bd7eaa9a1c4e663642430a05f6",
+      "size": 70086
     },
     {
       "path": "server/tenant-context.js",
@@ -474,9 +480,9 @@
   ],
   "counts": {
     "client": 34,
-    "server": 43
+    "server": 44
   },
   "client_size": 1487212,
-  "server_size": 628245,
-  "total_size": 2115457
+  "server_size": 644513,
+  "total_size": 2131725
 }
