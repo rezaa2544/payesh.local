@@ -328,19 +328,33 @@ final class SqliteOutbox {
     });
   }
 
-  /// Leases up to [limit] ready ops (pending past backoff, or inflight with an expired lease).
+  /// Leases up to [limit] ready ops (pending past backoff, or inflight with an expired lease),
+  /// strictly in `seq` order.
+  ///
+  /// Row 119 — FIFO barrier: the scan stops at the first *pending* op that is still in its
+  /// backoff window, so a later op (e.g. a student row that references a class created by an
+  /// earlier op) can never overtake an earlier one. Inflight ops with a live lease are already
+  /// on the wire ahead of the rest and do not stop the scan; blocked ops wait for a user
+  /// decision (visible in [stats]) and do not stall the queue.
   List<OutboxOp> claim([int? limit, int? now]) {
     final t = now ?? _nowMs();
     final n = max(1, limit ?? config.batchLimit);
     return _tx(() {
-      final rows = _db
+      final rows = <OutboxOp>[];
+      final scan = _db
           .select(
-            "SELECT * FROM outbox WHERE (state = 'pending' AND next_at <= ?) "
-            "OR (state = 'inflight' AND lease_until <= ?) ORDER BY seq LIMIT ?",
-            [t, t, n],
+            "SELECT * FROM outbox WHERE state IN ('pending','inflight') ORDER BY seq",
           )
-          .map(_op)
-          .toList();
+          .map(_op);
+      for (final r in scan) {
+        if (rows.length >= n) break;
+        if (r.state == OpState.pending) {
+          if (r.nextAt > t) break; // FIFO barrier
+          rows.add(r);
+        } else if (r.leaseUntil <= t) {
+          rows.add(r); // abandoned lease (crash/restart)
+        }
+      }
       for (final r in rows) {
         _db.execute(
           "UPDATE outbox SET state = 'inflight', lease_until = ?, updated_at = ? WHERE k = ?",
@@ -356,7 +370,17 @@ final class SqliteOutbox {
 
   /// Send failed: exponential backoff with jitter; after maxAttempts → blocked.
   /// [retryAfterMs] (HTTP 429 / Retry-After) overrides the computed delay when larger.
-  FailResult fail(String k, {String? error, int? now, int? retryAfterMs}) {
+  ///
+  /// Row 119: a [transient] failure (no network, timeout, 429, 5xx, draining) never blocks
+  /// the op — an outage of any length must not park the whole queue; the delay stays capped at
+  /// `maxBackoffMs` (with jitter, so devices do not return in lockstep).
+  FailResult fail(
+    String k, {
+    String? error,
+    int? now,
+    int? retryAfterMs,
+    bool transient = false,
+  }) {
     final t = now ?? _nowMs();
     return _tx(() {
       final rs = _db.select('SELECT attempts FROM outbox WHERE k = ?', [k]);
@@ -366,12 +390,12 @@ final class SqliteOutbox {
       final lastError = msg.length > 200 ? msg.substring(0, 200) : msg;
       OpState state;
       int nextAt;
-      if (attempts >= config.maxAttempts) {
+      if (attempts >= config.maxAttempts && !transient) {
         state = OpState.blocked;
         nextAt = 0;
       } else {
         final backoff = min(
-          config.baseBackoffMs * pow(2, attempts - 1),
+          config.baseBackoffMs * pow(2, min(attempts - 1, 30)),
           config.maxBackoffMs,
         ).toDouble();
         final j = config.jitter.clamp(0.0, 0.9);
@@ -413,6 +437,17 @@ final class SqliteOutbox {
     _db.execute(
       "UPDATE outbox SET state = 'pending', lease_until = 0, updated_at = ? "
       "WHERE state = 'inflight' AND lease_until <= ?",
+      [_iso(t), t],
+    );
+    return _db.updatedRows;
+  }
+
+  /// Connectivity is back (row 119): pending ops become due now. Attempts are kept, so a
+  /// failing server still sees exponential backoff — only the waiting time is cut short.
+  int wake([int? now]) {
+    final t = now ?? _nowMs();
+    _db.execute(
+      "UPDATE outbox SET next_at = 0, updated_at = ? WHERE state = 'pending' AND next_at > ?",
       [_iso(t), t],
     );
     return _db.updatedRows;
@@ -492,12 +527,14 @@ final class SqliteOutbox {
         }
         final reason = e.code != null && e.code != PayeshErrorCode.unknown
             ? e.code!.wire
-            : (e.status != null ? e.message : 'network');
-        _failAll(batch, reason, t, res, e.retryAfterMs);
+            : (e.status != null
+                  ? e.message
+                  : (e.message == 'timeout' ? 'timeout' : 'network'));
+        _failAll(batch, reason, t, res, e.retryAfterMs, isTransient(e));
         res.stopped = reason;
         break;
       } catch (e) {
-        _failAll(batch, _msg(e), t, res, null);
+        _failAll(batch, _msg(e), t, res, null, true);
         res.stopped = 'network';
         break;
       }
@@ -532,12 +569,29 @@ final class SqliteOutbox {
     int t,
     DrainResult res,
     int? retryAfterMs,
+    bool transient,
   ) {
     for (final op in batch) {
-      final f = fail(op.k, error: error, now: t, retryAfterMs: retryAfterMs);
+      final f = fail(
+        op.k,
+        error: error,
+        now: t,
+        retryAfterMs: retryAfterMs,
+        transient: transient,
+      );
       res.failed++;
       if (f.nextAt > 0) res.retryAt = max(res.retryAt ?? 0, f.nextAt);
     }
+  }
+
+  /// Request-level failures that say nothing about the ops themselves (row 119): no response
+  /// at all, timeout, 408, 429, any 5xx, a draining instance or a tenant write-freeze.
+  static bool isTransient(SyncFailure e) {
+    final st = e.status;
+    if (st == null) return true;
+    if (st == 408 || st == 429 || st >= 500) return true;
+    final m = e.message;
+    return m == 'write_frozen' || m == 'draining';
   }
 
   static String _msg(Object e) {

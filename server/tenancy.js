@@ -255,8 +255,16 @@ function createPool({ connectionString, max = poolMax() }) {
   let Pool;
   try { ({ Pool } = require('pg')); }
   catch (e) { throw new TenancyError('pg_driver_missing', 500); }
-  return new Pool({ connectionString, max, application_name: 'payesh-tenancy' });
+  const pool = new Pool({ connectionString, max, application_name: 'payesh-tenancy' });
+  /* row 119: an idle connection dropped by the database (restart, failover, network cut) makes
+     pg.Pool emit 'error'. Unhandled, that event crashed the whole Gateway — every school offline
+     until a supervisor restarted it. The dead client is already discarded by the pool; the next
+     query opens a fresh connection and /readyz reports db_unavailable meanwhile. */
+  pool.on('error', () => { poolErrors++; });
+  return pool;
 }
+let poolErrors = 0;
+function poolErrorCount() { return poolErrors; }
 
 /* هر عملیات در یک تراکنش با زمینهٔ مستأجر اجرا می‌شود */
 /* ── ردیف ۴۵: اندازه‌گیری واقعی انتظار pool ────────────────────────
@@ -1151,7 +1159,7 @@ async function rekeyFields(pool, tenantId) {
   });
 }
 
-module.exports = { rekeyFields, replicaPolicy, transfer, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
+module.exports = { poolErrorCount, rekeyFields, replicaPolicy, transfer, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,
