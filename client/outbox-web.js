@@ -178,11 +178,24 @@ class Outbox {
     const tx = this.db.transaction([STORE], 'readwrite');
     const store = tx.objectStore(STORE);
     const all = await promisify(store.getAll());
-    const ready = all
-      .filter(r => (r.state === 'pending' && Number(r.next_at || 0) <= now) ||
-                   (r.state === 'inflight' && Number(r.lease_until || 0) <= now))
-      .sort((a, b) => Number(a.seq) - Number(b.seq))
-      .slice(0, Math.max(1, limit));
+    /* ردیف ۱۱۹ — سد FIFO: پیمایش به ترتیب seq در نخستین عملیات pending که هنوز در
+       پنجرهٔ backoff است می‌ایستد؛ عملیات بعدی (مثلاً دانش‌آموزی که به کلاسِ عملیات
+       قبلی ارجاع دارد) هرگز از عملیات قبلی جلو نمی‌زند. inflight با اجارهٔ زنده
+       پیش‌تر ارسال شده و سد نیست؛ blocked منتظر تصمیم کاربر است و صف را نگه نمی‌دارد. */
+    const active = all
+      .filter(r => r.state === 'pending' || r.state === 'inflight')
+      .sort((a, b) => Number(a.seq) - Number(b.seq));
+    const ready = [];
+    const max = Math.max(1, limit);
+    for (const r of active) {
+      if (ready.length >= max) break;
+      if (r.state === 'pending') {
+        if (Number(r.next_at || 0) > now) break;
+        ready.push(r);
+      } else if (Number(r.lease_until || 0) <= now) {
+        ready.push(r);
+      }
+    }
     for (const r of ready) {
       r.state = 'inflight';
       r.lease_until = now + this.cfg.leaseMs;
@@ -252,11 +265,13 @@ class Outbox {
     row.last_error = String(info.error || 'send_failed').slice(0, 200);
     row.updated_at = new Date(now).toISOString();
     row.lease_until = 0;
-    if (row.attempts >= this.cfg.maxAttempts) {
+    /* ردیف ۱۱۹: خطای گذرا (قطع شبکه، timeout، 429، 5xx) هیچ‌وقت عملیات را blocked
+       نمی‌کند — قطعی طولانی نباید کل صف را متوقف کند؛ تأخیر با سقف maxBackoff می‌ماند. */
+    if (row.attempts >= this.cfg.maxAttempts && !info.transient) {
       row.state = 'blocked';
       row.next_at = 0;
     } else {
-      const backoff = Math.min(this.cfg.baseBackoffMs * Math.pow(2, row.attempts - 1), this.cfg.maxBackoffMs);
+      const backoff = Math.min(this.cfg.baseBackoffMs * Math.pow(2, Math.min(row.attempts - 1, 30)), this.cfg.maxBackoffMs);
       /* ردیف ۴۲: jitter — بدون آن، همهٔ دستگاه‌ها پس از قطعی اینترنت در یک
          لحظه برمی‌گردند (طوفان). بازهٔ [۱−j, ۱] از backoff، تصادفی. */
       const j = Math.min(Math.max(Number(this.cfg.jitter), 0), 0.9);
@@ -364,7 +379,7 @@ class Outbox {
         /* شبکه قطع/برنامه بسته شد: همهٔ دسته با backoff برمی‌گردند و
            op ها می‌مانند؛ همان k دوباره فرستاده می‌شود. */
         for (const r of batch) {
-          const f = await this.fail(r.k, { error: (e && e.message) || 'send_failed', now: (o.now == null ? Date.now() : Number(o.now)) });
+          const f = await this.fail(r.k, { error: (e && e.message) || 'send_failed', now: (o.now == null ? Date.now() : Number(o.now)), transient: true });
           res.failed++;
           if (f.next_at) res.retry_at = Math.max(res.retry_at || 0, f.next_at);
         }

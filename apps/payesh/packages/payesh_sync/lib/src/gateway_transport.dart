@@ -5,7 +5,14 @@ import 'package:payesh_data/payesh_data.dart';
 import 'http_transport.dart';
 import 'outbox.dart';
 import 'pinning.dart';
-import 'sync_client.dart' show PullResult, SyncProtocolException;
+import 'sync_client.dart'
+    show
+        PullResult,
+        ReviewItem,
+        SyncProtocolException,
+        addReview,
+        ensureReviewTable,
+        readReview;
 
 /// One row of the Gateway change feed (`GET /api/gw/v1/pull`).
 final class GatewayRow {
@@ -164,6 +171,83 @@ final class GatewaySync {
     'ON CONFLICT (key) DO UPDATE SET value = excluded.value',
     [cursorKey, '$seq'],
   );
+
+  /// Pushes [outbox] through the Gateway with a durable review log (row 119, D‑28):
+  /// * `rejected` → review item, op leaves the queue;
+  /// * `conflict` → our version is kept in the review list (never auto-resolved; the server
+  ///   version arrives with the next pull) and later queued edits of the same record move to
+  ///   review as `superseded` instead of being sent blind.
+  Future<DrainResult> push(
+    SqliteOutbox outbox, {
+    int? now,
+    VerdictHook? onApplied,
+  }) async {
+    final db = engine.database;
+    ensureReviewTable(db);
+    String iso() => DateTime.now().toUtc().toIso8601String();
+    final conflicts = <(OutboxOp, Map<String, Object?>)>[];
+    final res = await outbox.drain(
+      transport.push,
+      now: now,
+      onApplied: onApplied,
+      onRejected: (op, v) => addReview(
+        db,
+        ReviewItem(
+          kind: 'rejected',
+          uid: op.k,
+          at: iso(),
+          collection: op.collection,
+          id: op.id,
+          local: op.payload,
+          error: (v['error'] as String?) ?? 'rejected',
+        ),
+      ),
+      onConflict: (op, v) => conflicts.add((op, v)),
+    );
+    // one decision per record: the oldest conflicting edit is the `conflict`; later edits of the
+    // same record (in the same batch or still queued) are `superseded`
+    final decided = <String>{};
+    for (final (op, v) in conflicts) {
+      final id = (v['id'] as num?)?.toInt() ?? op.id;
+      final first = decided.add('${op.collection}/$id');
+      addReview(
+        db,
+        ReviewItem(
+          kind: first ? 'conflict' : 'superseded',
+          uid: op.k,
+          at: iso(),
+          collection: op.collection,
+          id: id,
+          serverVersion: (v['version'] as num?)?.toInt(),
+          local: op.payload,
+        ),
+      );
+      if (id == null || !first) continue;
+      for (final later in outbox.list()) {
+        if (later.collection == op.collection && later.id == id) {
+          addReview(
+            db,
+            ReviewItem(
+              kind: 'superseded',
+              uid: later.k,
+              at: iso(),
+              collection: op.collection,
+              id: id,
+              local: later.payload,
+            ),
+          );
+          outbox.ack(later.k);
+        }
+      }
+    }
+    return res;
+  }
+
+  /// Local edits waiting for an authorised human decision, oldest first.
+  List<ReviewItem> review({String status = 'needs_review'}) {
+    ensureReviewTable(engine.database);
+    return readReview(engine.database, status: status);
+  }
 
   Future<PullResult> pull() async {
     final res = PullResult();

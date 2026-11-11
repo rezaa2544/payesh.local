@@ -30,7 +30,7 @@ async function runCase(c, idx) {
           assert.deepStrictEqual((await ob.claim(s.limit, s.now)).map(r => r.k), s.expect_keys, at);
           break;
         case 'fail': {
-          const r = await ob.fail(s.k, { error: s.error, now: s.now });
+          const r = await ob.fail(s.k, { error: s.error, now: s.now, transient: !!s.transient });
           assert.deepStrictEqual(pick(r, Object.keys(s.expect)), s.expect, at);
           break;
         }

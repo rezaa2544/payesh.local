@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:payesh_data/payesh_data.dart';
+import 'package:sqlite3/sqlite3.dart' show Database;
 
 import 'outbox.dart';
 import 'transport.dart';
@@ -76,13 +77,7 @@ final class SyncClient {
     this.maxPages = 10000,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
-    engine.database.execute(
-      'CREATE TABLE IF NOT EXISTS sync_review ('
-      'seq INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, uid TEXT NOT NULL, '
-      'collection TEXT, record_id INTEGER, conflict_id INTEGER, server_version INTEGER, '
-      'local TEXT, server TEXT, error TEXT, at TEXT NOT NULL, '
-      "status TEXT NOT NULL DEFAULT 'needs_review')",
-    );
+    ensureReviewTable(engine.database);
   }
 
   final DateTime Function() _now;
@@ -205,51 +200,11 @@ final class SyncClient {
 
   String _iso() => _now().toUtc().toIso8601String();
 
-  void _addReview(ReviewItem r) => engine.database.execute(
-    'INSERT INTO sync_review (kind, uid, collection, record_id, conflict_id, '
-    'server_version, local, server, error, at, status) '
-    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [
-      r.kind,
-      r.uid,
-      r.collection,
-      r.id,
-      r.conflictId,
-      r.serverVersion,
-      r.local == null ? null : jsonEncode(r.local),
-      r.server == null ? null : jsonEncode(r.server),
-      r.error,
-      r.at,
-      r.status,
-    ],
-  );
+  void _addReview(ReviewItem r) => addReview(engine.database, r);
 
   /// Items still waiting for an authorised human decision, oldest first.
-  List<ReviewItem> review({String status = 'needs_review'}) {
-    Map<String, Object?>? dec(Object? s) => s == null
-        ? null
-        : (jsonDecode(s as String) as Map).cast<String, Object?>();
-    return engine.database
-        .select('SELECT * FROM sync_review WHERE status = ? ORDER BY seq', [
-          status,
-        ])
-        .map(
-          (r) => ReviewItem(
-            kind: r['kind'] as String,
-            uid: r['uid'] as String,
-            at: r['at'] as String,
-            collection: r['collection'] as String?,
-            id: r['record_id'] as int?,
-            conflictId: r['conflict_id'] as int?,
-            serverVersion: r['server_version'] as int?,
-            local: dec(r['local']),
-            server: dec(r['server']),
-            error: r['error'] as String?,
-            status: r['status'] as String,
-          ),
-        )
-        .toList();
-  }
+  List<ReviewItem> review({String status = 'needs_review'}) =>
+      readReview(engine.database, status: status);
 
   Future<PullResult> pull({List<String>? collections}) async {
     final res = PullResult();
@@ -341,4 +296,60 @@ final class SyncClient {
     if (p.stopped != null) return SyncReport(p, null);
     return SyncReport(p, await pull(collections: collections));
   }
+}
+
+/// Durable review log shared by [SyncClient] and the Gateway path (`GatewaySync.push`, row 119):
+/// a rejected, conflicting or superseded local edit leaves the outbox only after it has been
+/// written here, so it is never lost silently and stays visible until a human decides.
+void ensureReviewTable(Database db) => db.execute(
+  'CREATE TABLE IF NOT EXISTS sync_review ('
+  'seq INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, uid TEXT NOT NULL, '
+  'collection TEXT, record_id INTEGER, conflict_id INTEGER, server_version INTEGER, '
+  'local TEXT, server TEXT, error TEXT, at TEXT NOT NULL, '
+  "status TEXT NOT NULL DEFAULT 'needs_review')",
+);
+
+void addReview(Database db, ReviewItem r) => db.execute(
+  'INSERT INTO sync_review (kind, uid, collection, record_id, conflict_id, '
+  'server_version, local, server, error, at, status) '
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  [
+    r.kind,
+    r.uid,
+    r.collection,
+    r.id,
+    r.conflictId,
+    r.serverVersion,
+    r.local == null ? null : jsonEncode(r.local),
+    r.server == null ? null : jsonEncode(r.server),
+    r.error,
+    r.at,
+    r.status,
+  ],
+);
+
+List<ReviewItem> readReview(Database db, {String status = 'needs_review'}) {
+  Map<String, Object?>? dec(Object? s) => s == null
+      ? null
+      : (jsonDecode(s as String) as Map).cast<String, Object?>();
+  return db
+      .select('SELECT * FROM sync_review WHERE status = ? ORDER BY seq', [
+        status,
+      ])
+      .map(
+        (r) => ReviewItem(
+          kind: r['kind'] as String,
+          uid: r['uid'] as String,
+          at: r['at'] as String,
+          collection: r['collection'] as String?,
+          id: r['record_id'] as int?,
+          conflictId: r['conflict_id'] as int?,
+          serverVersion: r['server_version'] as int?,
+          local: dec(r['local']),
+          server: dec(r['server']),
+          error: r['error'] as String?,
+          status: r['status'] as String,
+        ),
+      )
+      .toList();
 }

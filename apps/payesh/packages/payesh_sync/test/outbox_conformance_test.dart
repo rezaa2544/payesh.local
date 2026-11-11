@@ -71,6 +71,7 @@ void main() {
               s['k']! as String,
               error: s['error'] as String?,
               now: (s['now']! as num).toInt(),
+              transient: s['transient'] == true,
             );
             final got = {
               'ok': r.ok,
