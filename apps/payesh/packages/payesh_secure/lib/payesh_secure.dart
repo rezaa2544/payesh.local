@@ -6,10 +6,12 @@
 /// * [FakeSecureStore] — in-memory, for tests only.
 /// * [DatabaseKeyManager] — per-device random 256-bit key for the encrypted local database.
 /// * `e2e1` — device-side end-to-end encryption of the direct path (row 107, ADR-105).
+/// * [UpdateVerifier] / [ArtifactStager] / [UpdateState] — signed native auto-update (row 78).
 library;
 
 export 'src/database_key.dart';
 export 'src/e2e1.dart';
 export 'src/dpapi_secure_store.dart';
 export 'src/fake_secure_store.dart';
+export 'src/native_update.dart';
 export 'src/secure_store.dart';
