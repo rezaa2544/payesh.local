@@ -386,19 +386,28 @@ function saveReview() { localStorage.setItem('payesh.review', JSON.stringify(S.r
    اگر نشست منقضی شد ولی این دستگاه قبلاً به حساب گره خورده، بی‌صدا
    نشست تازه می‌گیریم؛ کاربر دوباره رمز نمی‌زند. */
 let refreshing = null;
+/* ردیف ۶۵: توکن دستگاه با هر refresh می‌چرخد. چند زبانه سهم مشترکی از localStorage
+   دارند؛ پس همیشه تازه‌ترین توکن را از آن‌جا می‌خوانیم تا زبانه‌ای با توکن کهنهٔ
+   درون حافظه، «استفادهٔ دوباره» حساب نشود و دستگاه باطل نشود. */
+function currentDeviceToken() {
+  try { const t = localStorage.getItem('payesh.device'); if (t) S.deviceToken = t; } catch (e) { /* noop */ }
+  return S.deviceToken;
+}
 async function silentRefresh() {
-  if (!S.deviceToken) return false;
+  if (!currentDeviceToken()) return false;
   if (refreshing) return refreshing;
   refreshing = (async () => {
     try {
       const res = await fetch(apiUrl('/api/auth/refresh'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ device_token: S.deviceToken }),
+        body: JSON.stringify({ device_token: currentDeviceToken() }),
         cache: 'no-store',
       });
       const data = await res.json().catch(() => null);
+      if (data && data.error === 'device_revoked') { await handleDeviceRevoked(data.reason || 'device_revoked'); return false; }
       if (!res.ok || !data || !data.ok || !data.session) return false;
+      if (data.device_token) saveDevice(data.device_token);   /* ردیف ۶۵: refresh چرخشی */
       saveSession(data.session.token);
       S.session = data.session.token;
       if (data.user) {
@@ -481,6 +490,7 @@ function friendlyError(e) {
     body_too_large: 'حجم اطلاعات زیاد بود',
     offline: 'سیستم مدرسه در دسترس نیست — تغییر ذخیره شد و با اتصال بعدی اعمال می‌شود',
     device_revoked: 'این دستگاه از طرف مدیر باطل شده و دادهٔ محلی پاک شد — برای ادامه دوباره جفت شوید',
+    device_limit: 'تعداد دستگاه‌های این حساب به سقف رسیده — از «دستگاه‌ها» یک دستگاه قدیمی را باطل کنید یا از مدیر بخواهید',
   };
   if (map[raw]) return map[raw];
   if (st === 404) return map.not_found;
@@ -1260,7 +1270,7 @@ async function doTransfer(form) {
 
 async function doUnlock(form) {
   const field = form.password || form.querySelector('input[type="password"]');
-  const body = { device_token: S.deviceToken, password: String((field && field.value) || '') };
+  const body = { device_token: currentDeviceToken(), password: String((field && field.value) || '') };
   try {
     const r = await api('/api/auth/unlock', { method: 'POST', body });
     saveSession(r.session.token);

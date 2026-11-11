@@ -124,3 +124,16 @@ These rules apply to `server/gateway.js` (cloud Gateway and Directory). They are
 | Graceful drain | On `SIGTERM`/`SIGINT` the instance stops accepting connections, `/readyz` answers `503 draining`, in-flight requests finish (responses carry `Connection: close`), pools close, exit code 0. After `GW_DRAIN_TIMEOUT_MS` (default 25000) the remaining sockets are cut and the exit code is 2. Requests arriving on a kept-alive socket during drain get `503 draining` + `Retry-After: 1`. | Treat a connection reset or `503 draining` as retryable; pushes are idempotent by `uid` (§4). |
 
 Tests: `tests/gateway-67.js` (real Gateway processes + PostgreSQL): GW67‑RID‑01..04, RL‑01..04, VER‑01..02, KS‑01..04, DR‑01..03 and a short load test LOAD‑01 (baseline vs hardened instance: zero errors on both, one unique request id and one access-log line per response, p95 budget).
+
+## 7. Device identity (row 65)
+
+Design and rationale: `docs/cloud/65-device-identity.md`.
+
+- `session.token` is an access token. It lives `PAYESH_ACCESS_TTL_MIN` (default 15 min) and is never extended. On `401 unauthorized`, call refresh once and retry.
+- `POST /api/auth/refresh {device_token[, proof]}` returns a **new** `device_token` every time, together with `rotated`, `generation` and `device_id`. The client must store the new token atomically before using the session.
+  - Presenting the previous token again within the grace window (default 30 s) returns the same successor, with `rotated:false`.
+  - Presenting it later is reuse: `401 {error:"device_revoked", reason:"refresh_reuse", wipe:true}`, and the whole device chain is revoked.
+- Login, pair and transfer accept an optional `device_pubkey` (SPKI DER base64, P‑256 or Ed25519). A bound device must send `proof:{ts, sig}` on refresh, as described in the design doc §3. Errors (`401`): `proof_required`, `bad_proof`, `proof_expired`, `proof_replayed`. A bad key gets `400 bad_device_pubkey`.
+- Any request made with a session of a revoked device, and any refresh of a revoked device, gets `401 {error:"device_revoked", reason, wipe:true}`. The client must destroy its keys and local data (row 44).
+- New devices beyond the per-user cap get `409 {error:"device_limit", limit, active}`.
+- An expired refresh token gets `401 device_expired`; the client must log in or pair again.

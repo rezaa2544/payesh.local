@@ -397,7 +397,10 @@ async function waitFor(fn, ms = 10000) {
     assert.strictEqual(h.errors, 0, 'hardened errors');
     assert.strictEqual(h.unique_request_ids, h.total, 'one unique id per response');
     assert.ok(h.p95_ms <= b.p95_ms * 2.5 + 50, `p95 budget: hardened ${h.p95_ms}ms vs baseline ${b.p95_ms}ms`);
-    const logged = logLines(hard).filter(l => l.event === 'http' && l.path.startsWith('/api/gw/v1/')).length;
+    /* the access log is written asynchronously to a pipe: give the last lines time to arrive */
+    const countLogged = () => logLines(hard).filter(l => l.event === 'http' && l.path.startsWith('/api/gw/v1/')).length;
+    await waitFor(async () => countLogged() >= h.total, 3000);
+    const logged = countLogged();
     assert.strictEqual(logged, h.total, 'one access-log line per request');
     base.kill('SIGKILL'); hard.kill('SIGKILL');
     return `errors ${b.errors}→${h.errors}, p95 ${b.p95_ms}→${h.p95_ms}ms, rps ${b.rps}→${h.rps}`;

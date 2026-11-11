@@ -105,6 +105,9 @@ async function waitFor(fn, ms = 15000) {
          صندوقچه) در test:live و test:restart آزموده می‌شوند و این‌جا خاموش‌اند
          تا با درخواست‌های دستی آزمون مسابقه ندهند (روی ماشین کند، ۴۰ ثانیه). */
       PAYESH_LIVE_MS: '0', PAYESH_OUTBOX_AUTO: '0', PAYESH_CLOUD_AUTO: '0',
+      /* ردیف ۶۵: این فایل ده‌ها بار با مدیر وارد می‌شود (هر ورود = یک دستگاه)؛
+         سقف دستگاه هر کاربر و پیامدهایش در tests/identity-65.js آزموده می‌شود. */
+      PAYESH_DEVICE_CAP: '1000',
     }),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -649,7 +652,7 @@ async function waitFor(fn, ms = 15000) {
     const uid = mk.data.applied[0].id;
     const set = await req('/api/admin/users/' + uid + '/password', { method: 'POST', token: managerToken, body: { password: 'newpass1234' } });
     assert.strictEqual(set.data.ok, true);
-    assert.strictEqual(set.data.password, 'newpass1234', 'پاسخ، رمز تازه را برمی‌گرداند');
+    assert.strictEqual(set.data.password, undefined, 'ردیف ۶۵: رمز خام در پاسخ بازتاب نمی‌شود');
 
     const creds = await req('/api/admin/users/credentials', { token: managerToken });
     const row = creds.data.users.find(u => Number(u.id) === Number(uid));

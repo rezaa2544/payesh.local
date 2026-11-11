@@ -532,8 +532,12 @@ async function api(req, res, url, ip) {
   }
 
   if (p === '/api/setup/state' && m === 'GET') {
+    /* ردیف ۶۵: این مسیر بی‌نشست است؛ مسیر دیسک فقط به مرورگرِ خودِ رایانهٔ مدرسه
+       (loopback) گفته می‌شود — نه به هر کسی در شبکه (نقشه‌برداری مهاجم). */
+    const remote = String((req.socket && req.socket.remoteAddress) || '').replace('::ffff:', '');
+    const loopback = remote === '::1' || remote.startsWith('127.');
     return json({ ok: true, needs_setup: auth.needsSetup(store), version: readManifest().version,
-      data_dir: DATA_DIR, db_file: path.join(DATA_DIR, 'payesh.sqlite'),
+      ...(loopback ? { data_dir: DATA_DIR, db_file: path.join(DATA_DIR, 'payesh.sqlite') } : {}),
       school: (store.get('schools', 1) || {}).name || null,
       has_password: !auth.needsSetup(store) ? auth.hasPassword((store.all('users').find(u => u.role === 'manager')) || null) : false });
   }
@@ -549,16 +553,18 @@ async function api(req, res, url, ip) {
   if (p === '/api/auth/pair' && m === 'POST') {
     if (!rateLimit('pair:' + ip, 20, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const body = await readBody(req);
+    body.__ip = ip;   /* row 65: audit only; always overwritten, never trusted from the client */
     const r = auth.pair(store, body);
-    if (!r.ok) return json(r, 400);
+    if (!r.ok) return json(r, r.error === 'device_limit' ? 409 : 400);
     return json(r);
   }
 
   if (p === '/api/auth/transfer/redeem' && m === 'POST') {
     if (!rateLimit('transfer:' + ip, 20, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const body = await readBody(req);
+    body.__ip = ip;
     const r = auth.redeemTransfer(store, body.code, body);
-    return json(r, r.ok ? 200 : 400);
+    return json(r, r.ok ? 200 : (r.error === 'device_limit' ? 409 : 400));
   }
 
 
@@ -567,6 +573,7 @@ async function api(req, res, url, ip) {
   if (p === '/api/auth/refresh' && m === 'POST') {
     if (!rateLimit('refresh:' + ip, 60, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const body = await readBody(req);
+    body.__ip = ip;
     const r = auth.refreshWithDevice(store, body);
     if (!r.ok) return json(r, 401);
     return json(r);
@@ -592,7 +599,7 @@ async function api(req, res, url, ip) {
       store.audit({ user_id: mgr.id, role: 'manager', action: 'phone_reset', collection: 'users' });
     }
     store.audit({ user_id: mgr.id, role: 'manager', action: 'password_claim', collection: 'users' });
-    const dev = auth.login(store, { phone, password: body.password, name: 'رایانهٔ مدرسه', platform: 'server' });
+    const dev = auth.login(store, { phone, password: body.password, name: 'رایانهٔ مدرسه', platform: 'server', __capExempt: true, __ip: ip });
     return json(dev.ok ? Object.assign({ ok: true }, dev) : { ok: true, need_login: true });
   }
 
@@ -605,8 +612,11 @@ async function api(req, res, url, ip) {
     const who = normDigitsLocal(body.phone || '');
     if (!rateLimit('login-ip:' + ip, 240, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     if (who && !rateLimit('login-user:' + who, 20, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    body.__ip = ip;
     const r = auth.login(store, body);
     if (!r.ok) {
+      if (r.error === 'device_limit') return json(r, 409);
+      if (r.error === 'bad_device_pubkey') return json(r, 400);
       store.audit({ action: 'login_failed', role: 'system', collection: 'users', after: { ip } });
       return json(r, 401);
     }
@@ -658,7 +668,7 @@ async function api(req, res, url, ip) {
     try { body = await readBody(req); } catch (e) { return json({ ok: false, error: 'bad_json' }, 400); }
     const r = auth.login(store, {
       phone: body.phone, password: body.password,
-      name: body.name || 'گوشی', platform: 'phone',
+      name: body.name || 'گوشی', platform: 'phone', __sessionOnly: true, __ip: ip,
     });
     if (!r.ok) return json(r, 401);
     const t = phoneTickets(store, r.user, body.device_id);
@@ -722,7 +732,13 @@ async function api(req, res, url, ip) {
 
   /* از این‌جا به بعد نیاز به نشست */
   const actor = actorFrom(req);
-  if (!actor && p.startsWith('/api/')) return json({ ok: false, error: 'unauthorized' }, 401);
+  if (!actor && p.startsWith('/api/')) {
+    /* ردیف ۶۵ / ۴۴: نشستِ دستگاهِ باطل‌شده ⇒ سیگنال صریح پاک‌سازی از راه دور */
+    const h = String(req.headers.authorization || '');
+    const gone = h.startsWith('Bearer ') ? auth.sessionDeviceRevoked(store, h.slice(7).trim()) : null;
+    if (gone) return json({ ok: false, error: 'device_revoked', reason: gone.reason, wipe: true }, 401);
+    return json({ ok: false, error: 'unauthorized' }, 401);
+  }
 
   if (p === '/api/me' && m === 'GET') {
     return json({ ok: true, user: userRow(actor.user), role: actor.role, device_id: actor.device ? actor.device.id : null });
@@ -1267,16 +1283,17 @@ async function api(req, res, url, ip) {
     const r = auth.setPassword(store, Number(pwUser[1]), body.password);
     if (!r.ok) return json(r, 400);
     store.audit({ user_id: actor.user.id, role: 'manager', action: 'password_set', collection: 'users', record_id: Number(pwUser[1]) });
-    /* رمزِ تازه را برمی‌گردانیم تا همان لحظه در جدول دیده شود */
-    return json({ ok: true, password: String(body.password) });
+    /* ردیف ۶۵: رمز خام دیگر در پاسخ بازتاب نمی‌شود (لاگ پراکسی/کش/ابزار توسعه).
+       مدیر همان رمزی را که تایپ کرده در دست دارد؛ جدول رمزها از /api/admin/users/credentials می‌خواند. */
+    return json({ ok: true });
   }
 
   if (p === '/api/admin/devices' && m === 'GET') return json({ ok: true, devices: auth.listDevices(store) });
 
   const dm = p.match(/^\/api\/admin\/devices\/([a-f0-9]+)$/);
   if (dm && m === 'DELETE') {
-    auth.revokeDevice(store, dm[1]);
-    store.audit({ user_id: actor.user.id, role: 'manager', action: 'device_revoke', collection: 'devices' });
+    auth.revokeDevice(store, dm[1], 'manager');
+    store.audit({ user_id: actor.user.id, role: 'manager', device_id: dm[1], action: 'device_revoke', collection: 'devices', after: { wipe: true } });
     return json({ ok: true });
   }
 

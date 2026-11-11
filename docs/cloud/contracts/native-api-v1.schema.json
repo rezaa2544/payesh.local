@@ -218,6 +218,11 @@
         "platform": {
           "type": "string",
           "maxLength": 20
+        },
+        "device_pubkey": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "row 65: optional device public key, SPKI DER base64 (P-256 or Ed25519). Binds the device; every later refresh needs a proof."
         }
       },
       "additionalProperties": true
@@ -240,6 +245,11 @@
         "platform": {
           "type": "string",
           "maxLength": 20
+        },
+        "device_pubkey": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "row 65: optional device public key, SPKI DER base64 (P-256 or Ed25519). Binds the device; every later refresh needs a proof."
         }
       },
       "additionalProperties": true
@@ -252,6 +262,26 @@
       "properties": {
         "device_token": {
           "$ref": "#/$defs/hexToken"
+        },
+        "proof": {
+          "type": "object",
+          "required": [
+            "ts",
+            "sig"
+          ],
+          "properties": {
+            "ts": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "ms since epoch; strictly increasing per device"
+            },
+            "sig": {
+              "type": "string",
+              "maxLength": 300,
+              "description": "base64 signature over 'payesh-refresh-v1\\n<device_id>\\n<ts>\\n<sha256(device_token)>' (P-256: IEEE-P1363 r||s, SHA-256; Ed25519: raw)"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": true
@@ -279,6 +309,18 @@
         },
         "auth": {
           "type": "string"
+        },
+        "device_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8,64}$"
+        },
+        "rotated": {
+          "type": "boolean",
+          "description": "row 65: refresh only — false when the grace window replayed the same successor"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
         }
       },
       "additionalProperties": true
@@ -349,6 +391,19 @@
         },
         "revoked": {
           "type": "boolean"
+        },
+        "key_bound": {
+          "type": "boolean"
+        },
+        "revoke_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": true

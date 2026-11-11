@@ -1,6 +1,6 @@
 {
   "version": "0.9.2",
-  "built_at": "2026-11-10T22:54:56.354Z",
+  "built_at": "2026-11-10T23:08:40.610Z",
   "notes": [
     "نگاشت آیکون‌های نبض هر دو شکل ایموجی با و بدون variation selector را به SVG یکسان می‌برد.",
     "بسته‌های نصب و مانیفست برای نگاشت آیکون‌های اصلاح‌شده به نسخهٔ 0.9.2 ارتقا یافتند."
@@ -12,8 +12,8 @@
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "bcec57368f05a678f5b01ce4de1c32c1a9b138da0c610b77f93f767a871c9508",
-      "size": 201553
+      "sha256": "ac91159fdc689f818ef8f3395398f57d8cf69ad3b232339ad43d36504a088ebf",
+      "size": 202582
     },
     {
       "path": "client/authz.js",
@@ -228,8 +228,8 @@
     {
       "path": "server/auth.js",
       "kind": "server",
-      "sha256": "830006dc4f761602f576d91248c596eb234db7951f6df819b6049a6628c05a49",
-      "size": 26089
+      "sha256": "d91ff7eb043ec8203fd29de57b14629327815e957961ca1e255170f6f0c97317",
+      "size": 30507
     },
     {
       "path": "server/cloud-defaults.js",
@@ -252,8 +252,8 @@
     {
       "path": "server/db.js",
       "kind": "server",
-      "sha256": "7a4bac5501a85acc740bbc848e387b0f69716d408a6552fb1dcb10191bd241da",
-      "size": 14325
+      "sha256": "cd11a96c86163af26d7ec346eca76fa07ca0c6ce6997d56e1c03620ac7d38cb0",
+      "size": 15001
     },
     {
       "path": "server/directory-api.js",
@@ -274,10 +274,16 @@
       "size": 28450
     },
     {
+      "path": "server/identity.js",
+      "kind": "server",
+      "sha256": "0de7c29ef682177f46d2e259634cd0a4ca09a17811fa243a27328b22ad9903dc",
+      "size": 12555
+    },
+    {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "bf012ee5736567793e074d89444547f6c4867c9f4104da8ce7f3b2f42e129042",
-      "size": 120878
+      "sha256": "594d31d5adaee06844b41dd4bed42615f3ae8c6b681d2ff994b548e99704ad63",
+      "size": 122365
     },
     {
       "path": "server/kill-switch.js",
@@ -420,9 +426,9 @@
   ],
   "counts": {
     "client": 31,
-    "server": 37
+    "server": 38
   },
-  "client_size": 1462810,
-  "server_size": 539998,
-  "total_size": 2002808
+  "client_size": 1463839,
+  "server_size": 559134,
+  "total_size": 2022973
 }
