@@ -1,0 +1,8 @@
+{
+  "_doc": "Row 76 — release policy for the native Android build, checked on the REAL APK/AAB by tools/android-release-check-76.mjs in .github/workflows/native-client.yml. min_target_sdk follows Google Play (API 36 for new apps and updates since 2026-08-31). Raise it when Play raises the bar; never lower it.",
+  "application_id": "ir.payesh.school.payesh_app",
+  "min_target_sdk": 36,
+  "min_sdk": 24,
+  "required_permissions": ["android.permission.INTERNET"],
+  "allowed_permissions": ["android.permission.INTERNET"]
+}
