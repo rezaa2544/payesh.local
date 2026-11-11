@@ -1,4 +1,5 @@
 {
+  "provenance": "base_sha=0afd5c7e1f31840ff988157553bb0e12160801df date_utc=2026-11-11T15:22:09Z (local sandbox run of tests/load-82-direct.js LDD-02; embedded PostgreSQL 16, shared_buffers=16MB, 2 vCPU shared with the load generator) [S]",
   "row": 82,
   "variant": "direct",
   "label": "[S]",
