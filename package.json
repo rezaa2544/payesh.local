@@ -53,6 +53,7 @@
     "test:security48": "node tests/security-scan-48.js",
     "test:security48:evidence": "bash docs/cloud/reports/evidence/run-48-security-scan.sh",
     "test:observability49": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/observability-49.js",
+    "test:observability85": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/observability-85.js",
     "test:migrations86": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/migrations-86.js",
     "migrate:central": "node tools/migrate-86.mjs up",
     "alerts:49": "node tools/alerts-49.mjs",

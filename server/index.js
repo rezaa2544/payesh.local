@@ -24,6 +24,8 @@ const outbox = require('./outbox');
 const live = require('./live');
 const tenancy = require('./tenancy');
 const metrics = require('./metrics');
+/* row 85: structured JSON logs (request_id + school_id, no PII) */
+const logger = require('./logger');
 
 function normDigitsLocal(v) {
   return String(v == null ? '' : v)
@@ -180,6 +182,9 @@ function actorFrom(req) {
   const token = h.startsWith('Bearer ') ? h.slice(7).trim() : '';
   const s = auth.verifySession(store, token);
   if (!s) return null;
+  /* row 85: the access log carries the school of the authenticated actor
+     (an opaque number, never the user's name or id) */
+  try { req.__payeshLog = { school_id: s.user.school_id != null ? s.user.school_id : null, role: s.user.role }; } catch (e) { /* noop */ }
   return { user: s.user, role: s.user.role, device: s.device, session: s.session };
 }
 
@@ -1911,6 +1916,9 @@ function toCSV(rows) {
 const server = http.createServer(async (req, res) => {
   const started = Date.now();
   const ip = cfg.clientIp(req);
+  /* row 85: every response carries X-Request-Id (honoured if opaque, else minted) */
+  const rid = logger.requestId(req.headers);
+  res.setHeader('x-request-id', rid);
   let url;
   try { url = new URL(req.url, 'http://' + (req.headers.host || 'localhost')); }
   catch (e) { res.writeHead(400).end(); return; }
@@ -1931,14 +1939,14 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('access-control-allow-origin', origin || '*');
   res.setHeader('vary', 'Origin');
   res.setHeader('access-control-allow-methods', 'GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS');
-  res.setHeader('access-control-allow-headers', 'authorization, content-type, accept, x-requested-with, x-payesh-device');
-  res.setHeader('access-control-expose-headers', 'content-length, etag');
+  res.setHeader('access-control-allow-headers', 'authorization, content-type, accept, x-requested-with, x-payesh-device, x-request-id');
+  res.setHeader('access-control-expose-headers', 'content-length, etag, x-request-id');
   res.setHeader('access-control-max-age', '86400');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   /* شمارش واقعی هر پاسخ (کلاس ۲xx..۵xx) برای نرخ خطا — ردیف ۴۹.
      بعد از پایان پاسخ ثبت می‌شود تا کد وضعیت نهایی همان چیزی باشد که
      کلاینت دید، نه آنچه در میانهٔ مسیر ساخته شده بود. */
-  res.on('finish', () => { try { mreg.observeHttp(res.statusCode); } catch (e) { /* noop */ } });
+  res.on('finish', () => { try { mreg.observeHttp(res.statusCode, Date.now(), Date.now() - started); } catch (e) { /* noop */ } });
 
   try {
     /* ── ردیف ۴۹: متریک و پروب‌های هم‌نام با Gateway ──────────────────
@@ -2026,7 +2034,9 @@ const server = http.createServer(async (req, res) => {
   } catch (e) {
     const msg = String(e.message || e);
     const code = msg === 'body_too_large' ? 413 : (msg === 'bad_json' ? 400 : 500);
-    if (code === 500) console.error('[ERR]', url.pathname, e);
+    /* row 85: error log is JSON too; the message is redacted, the stack and
+       the request body are never written (they can carry user data) */
+    if (code === 500) logger.error('http_error', { request_id: rid, path: url.pathname, error: 'server_error', detail: msg, component: 'router' });
     const errName = code === 413 ? 'body_too_large' : (code === 400 ? 'bad_json' : 'server_error');
     if (!res.writableEnded) res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' });
     if (!res.writableEnded) res.end(JSON.stringify({ ok: false, error: errName }));
@@ -2034,7 +2044,11 @@ const server = http.createServer(async (req, res) => {
     if (process.env.PAYESH_LOG !== '0') {
       const ms = Date.now() - started;
       if (ms > 300 || url.pathname.startsWith('/api/')) {
-        console.log(`${req.method} ${url.pathname} ${res.statusCode} ${ms}ms`);
+        const who = req.__payeshLog || {};
+        logger.info('http', {
+          request_id: rid, school_id: who.school_id != null ? who.school_id : null, auth: !!req.__payeshLog,
+          role: who.role || null, method: req.method, path: url.pathname, status: res.statusCode, ms,
+        });
       }
     }
   }
@@ -2044,7 +2058,7 @@ const server = http.createServer(async (req, res) => {
 setInterval(() => { try { auth.prune(store); } catch (e) { /* noop */ } }, 60 * 60 * 1000).unref();
 if (process.env.PAYESH_AUTO_BACKUP !== '0') {
   setInterval(() => {
-    try { store.backupTo(BACKUP_DIR, 48); } catch (e) { console.error('[backup]', e.message); }
+    try { store.backupTo(BACKUP_DIR, 48); } catch (e) { logger.error('backup_failed', { component: 'backup', detail: e.message }); }
   }, 60 * 60 * 1000).unref();
   try { store.backupTo(BACKUP_DIR, 48); } catch (e) { /* noop */ }
 }
@@ -2099,7 +2113,7 @@ try {
   }
   if (fixed) console.log('[auth] رمز گوشی برای ' + fixed + ' حساب تنظیم شد');
 } catch (e) {
-  console.log('[auth] بررسی رمز گوشی ناموفق:', e.message);
+  logger.warn('phone_password_check_failed', { component: 'auth', detail: e.message });
 }
 
 /* ── صندوقچهٔ پیش‌فرض: در شروع نام صندوقچه را پیدا می‌کنیم و اجازهٔ CORS را
@@ -2165,10 +2179,10 @@ function scheduleRestart(reason) {
         const child = spawn(process.execPath, [entry].concat(process.argv.slice(2)), {
           cwd: process.cwd(), env: process.env, stdio: 'inherit', detached: true,
         });
-        child.on('error', err => console.error('[update] اجرای مجدد ناموفق:', err.message));
+        child.on('error', err => logger.error('restart_failed', { component: 'update', detail: err.message }));
         child.unref();
       } catch (e) {
-        console.error('[update] اجرای مجدد ناموفق:', e.message);
+        logger.error('restart_failed', { component: 'update', detail: e.message });
       }
       setTimeout(() => process.exit(0), 250);
     }, 600);
@@ -2194,7 +2208,7 @@ server.on('error', err => {
     setTimeout(() => server.listen(PORT, HOST), 500);
     return;
   }
-  console.error('[server]', err && err.message);
+  logger.error('server_error', { component: 'server', detail: err && err.message });
 });
 
 server.listen(PORT, HOST, () => {
@@ -2212,11 +2226,11 @@ server.listen(PORT, HOST, () => {
   console.log('  آدرس عمومی (همه)   : ' + (pub || 'تنظیم نشده — پنل مدیر ← شبکه'));
   console.log('');
   /* تونل عمومی: اگر Tailscale Funnel روشن باشد، آدرس را برمی‌داریم */
-  try { tunnel.start(store, { port: PORT }); } catch (e) { console.error('tunnel start failed', e.message); }
+  try { tunnel.start(store, { port: PORT }); } catch (e) { logger.error('start_failed', { component: 'tunnel', detail: e.message }); }
 
   /* همگام‌سازی زنده: هر ۱ ثانیه — تغییرها به حافظهٔ مشترک می‌روند و
      تغییرهای گوشی‌ها همان‌جا برداشته می‌شوند. */
-  try { live.start(store, { everyMs: Number(process.env.PAYESH_LIVE_MS || live.INTERVAL_MS) }); } catch (e) { console.error('live start failed', e.message); }
+  try { live.start(store, { everyMs: Number(process.env.PAYESH_LIVE_MS || live.INTERVAL_MS) }); } catch (e) { logger.error('start_failed', { component: 'live', detail: e.message }); }
 
   /* بررسی خودکار نسخهٔ منتشرشده (اگر «نصب خودکار» روشن باشد، خودش اعمال می‌کند) */
   try {
@@ -2227,7 +2241,7 @@ server.listen(PORT, HOST, () => {
         return r;
       },
     });
-  } catch (e) { console.error('update start failed', e.message); }
+  } catch (e) { logger.error('start_failed', { component: 'update', detail: e.message }); }
 });
 
 process.on('SIGINT', () => { try { update.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });

@@ -31,6 +31,7 @@ const directoryApiModule = require('./directory-api');
 /* row 67: per-feature kill-switch (per-version one is in api-version.js) */
 const killSwitch = require('./kill-switch');
 const crypto = require('node:crypto');
+const logger = require('./logger'); /* row 85: PII detector for caller-supplied request ids */
 
 const PORT = Number(process.env.PORT || 5660);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -256,7 +257,8 @@ function deviceOf(headers) {
 /* row 67: accept a well-formed caller id (end-to-end tracing), else mint one */
 function requestIdOf(headers) {
   const h = String(headers['x-request-id'] || '').trim();
-  return REQUEST_ID_RE.test(h) ? h : crypto.randomUUID();
+  /* row 85: an id that looks like PII (phone, national code…) is replaced too */
+  return REQUEST_ID_RE.test(h) && logger.scanPii(h).length === 0 ? h : crypto.randomUUID();
 }
 
 function retryAfterSec(ms) { return String(Math.max(1, Math.ceil(Number(ms || 0) / 1000))); }
@@ -347,6 +349,8 @@ async function handle(req, res, url) {
     }
   }
   const tenantId = claims.tid;
+  /* row 85: the access log names the school (tenant id from the signed token) */
+  res.__school = tenantId || null;
   const deviceId = deviceOf(req.headers);
   /* نقش/کاربر فقط از توکن — هیچ سرآیند یا فیلدی آن را تعیین نمی‌کند */
 
@@ -440,11 +444,11 @@ const server = http.createServer((req, res) => {
   res.on('close', () => inflight.delete(res));
   res.on('finish', () => {
     inflight.delete(res);
-    try { mreg.observeHttp(res.statusCode); } catch (e) { /* noop */ }
+    try { mreg.observeHttp(res.statusCode, Date.now(), Number(process.hrtime.bigint() - t0) / 1e6); } catch (e) { /* noop */ }
     /* access log: path only (never the query string — /metrics?token=…) and no body */
     if (ACCESS_LOG) {
       const pathOnly = String(req.url || '').split('?')[0].slice(0, 120);
-      logLine({ event: 'http', request_id: rid, method: req.method, path: pathOnly, status: res.statusCode,
+      logLine({ event: 'http', request_id: rid, school_id: res.__school || null, method: req.method, path: pathOnly, status: res.statusCode,
         ms: Math.round(Number(process.hrtime.bigint() - t0) / 1e5) / 10 });
     }
     if (draining) server.closeIdleConnections();
