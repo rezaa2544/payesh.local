@@ -1,0 +1,20 @@
+base_sha=0f810b7c29928c50e5c114bb9adda6a6d5e817b5
+date_utc=2026-11-11T10:57:39Z
+command=LOCALUP_PG_URL=postgres://postgres@127.0.0.1:5432/payesh_owner_local node apps/owner-panel/tests/local-up.test.js
+# Row 102 — owner panel local-up (LOCAL TESTING ONLY — NOT PRODUCTION)
+# node v22.23.4, PostgreSQL 16.9 (embedded, loopback) for LU-10; PGlite for LU-04..08
+# mutation controls (each run of the suite went red): loopback check removed -> LU-01 red; DATABASE_URL ignored -> LU-02 red; checksum check off -> LU-07 red
+# npm test: pass=111 fail=0 registered=111 (tests-run-0f810b7-*.log)
+#
+PASS  LU-01  non-loopback bind refused  → exit 2 ×2, nothing created
+PASS  LU-02  non-local DATABASE_URL refused  → unit 6 refusals + CLI exit 2; loopback/socket accepted
+PASS  LU-03  configured platform DB / data dir in Git refused  → exit 2 ×2
+PASS  LU-04  --smoke: banner, 4 migrations, TOTP login, dashboard, SPA, clean shutdown  → {"wrong_totp":401,"login":200,"dashboard":200,"spa":200,"dashboard_no_token":401}
+PASS  LU-05  first run: hidden password, otpauth once, TOTP login from the panel origin, secrets 0600  → otpauth×1, wrong TOTP 401, login 200, dashboard 200
+PASS  LU-06  second run idempotent: migrations skipped, owner kept, no otpauth, same secret  → applied=[] already=4, token from run 1 ⇒ 200
+PASS  LU-07  checksum mismatch refused  → exit 2
+PASS  LU-08  without migration 004 ⇒ 501, smoke red  → exit 1
+PASS  LU-09  Windows wrapper start-owner-local.cmd (CRLF) in the web bundle  → 974 bytes
+PASS  LU-10  smoke on a real local PostgreSQL (DATABASE_URL loopback)  → {"wrong_totp":401,"login":200,"dashboard":200,"spa":200,"dashboard_no_token":401}
+# passed=10 negative_controls=30 failures=0
+LOCAL-UP-102-OK
