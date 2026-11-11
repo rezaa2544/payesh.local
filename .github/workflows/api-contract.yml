@@ -24,6 +24,7 @@ on:
       - 'tests/directory-66.js'
       - 'tests/cell-transfer-54.js'
       - 'tests/gateway-67.js'
+      - 'tests/offline-119.js'
       - 'tests/field-crypto-87.js'
       - 'tools/field-rekey-87.mjs'
       - 'tests/load-82.js'
@@ -68,6 +69,7 @@ on:
       - 'tests/directory-66.js'
       - 'tests/cell-transfer-54.js'
       - 'tests/gateway-67.js'
+      - 'tests/offline-119.js'
       - 'tests/field-crypto-87.js'
       - 'tools/field-rekey-87.mjs'
       - 'tests/load-82.js'
@@ -181,6 +183,17 @@ jobs:
         run: |
           set -o pipefail
           node tests/gateway-67.js | tee -a native-contract.txt
+      # Row 119: the Gateway must survive PostgreSQL dropping its connections (unhandled pg.Pool
+      # 'error' used to kill the process); web outbox transient/FIFO/exactly-once on the real Gateway.
+      # Negative control: same Gateway with the pool 'error' handler stripped must crash.
+      - name: Row 119 offline — Gateway survives DB drop, outbox transient/FIFO/exactly-once, mutants
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+          OFF119_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node tests/offline-119.js | tee -a native-contract.txt
       - name: Row 87 field encryption — AEAD at rest, env key, rotation, DB-dump negative test (SQLite + PostgreSQL), mutation controls
         env:
           PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64

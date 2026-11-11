@@ -256,11 +256,30 @@ jobs:
           if grep -qE '~[0-9]+' "$GITHUB_WORKSPACE/gateway-real.txt"; then echo 'GATEWAY-IT-SKIPPED'; exit 1; fi
           grep -qE '\+[0-9]+: All tests passed' "$GITHUB_WORKSPACE/gateway-real.txt"
           echo GATEWAY-REAL-OK
+      # Row 119: 20 offline scenarios on the default data path (SqliteOutbox/AutoSync/GatewaySync
+      # → real server/gateway.js → postgres:16). Real TCP faults in front of the Gateway AND of
+      # PostgreSQL, Gateway SIGKILL/restart, app process SIGKILLed mid-request. Gate: no skip,
+      # 20 PASS lines, data_loss=0 duplicate=0 order_violations=0 cross_tenant=0.
+      - name: payesh_sync offline scenarios (row 119, real gateway + postgres)
+        working-directory: apps/payesh/packages/payesh_sync
+        env:
+          PAYESH_OFFLINE_IT: '1'
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_gw75
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_gw75
+        run: |
+          set -euo pipefail
+          dart test --reporter expanded test/offline_119_test.dart test/auto_sync_test.dart | tee "$GITHUB_WORKSPACE/offline-119.txt"
+          if grep -qE '~[0-9]+' "$GITHUB_WORKSPACE/offline-119.txt"; then echo 'OFFLINE-119-SKIPPED'; exit 1; fi
+          test "$(grep -cE '^PASS  O119-S[0-9]{2} ' "$GITHUB_WORKSPACE/offline-119.txt")" = 20
+          grep -qE '^OFFLINE-119 scenarios=20 data_loss=0 duplicate=0 order_violations=0 cross_tenant=0$' "$GITHUB_WORKSPACE/offline-119.txt"
+          echo OFFLINE-119-OK
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: gateway-real
-          path: gateway-real.txt
+          path: |
+            gateway-real.txt
+            offline-119.txt
 
   dart:
     name: Flutter — pub get, format, analyze, test, coverage (row 69)

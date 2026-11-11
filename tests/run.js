@@ -5004,6 +5004,30 @@ async function waitFor(fn, ms = 15000) {
       console.log('    E2E1-107-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
     });
 
+  /* ── ردیف ۱۱۹: آفلاین — Gateway با قطع اتصال PostgreSQL نمی‌میرد ───────── */
+  await test('ردیف ۱۱۹: pool مستأجر شنوندهٔ error دارد (قطع اتصال DB، Gateway را نمی‌کشد) + کنترل منفی؛ آزمون PG بدون PG ⇒ BLOCKED نه PASS',
+    async () => {
+      const ten = require(path.join(ROOT, 'server/tenancy.js'));
+      const pool = ten.createPool({ connectionString: 'postgres://nobody@127.0.0.1:1/none' });
+      assert.ok(pool.listenerCount('error') >= 1, 'tenancy pool has no error listener (row 119 regression)');
+      const before = ten.poolErrorCount();
+      pool.emit('error', new Error('Connection terminated unexpectedly'));
+      assert.strictEqual(ten.poolErrorCount(), before + 1);
+      await pool.end();
+      /* negative control: a pool WITHOUT the handler throws on the same event (= process crash) */
+      const { Pool } = require('pg');
+      const bare = new Pool({ connectionString: 'postgres://nobody@127.0.0.1:1/none' });
+      assert.throws(() => bare.emit('error', new Error('Connection terminated unexpectedly')), /terminated/);
+      await bare.end();
+      const { spawnSync } = require('child_process');
+      const env = Object.assign({}, process.env);
+      delete env.PAYESH_PG_ADMIN; delete env.PAYESH_PG_RUNTIME; delete env.OFF119_REQUIRE_PG;
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/offline-119.js')], { encoding: 'utf8', env });
+      assert.strictEqual(r.status, 3, 'offline-119 without PG must be BLOCKED (exit 3): ' + r.stdout);
+      assert.ok(/BLOCKED/.test(r.stdout) && !/^PASS/m.test(r.stdout));
+      console.log('    OFFLINE-119 pool_error_listener=1 negative_controls=1 pg_suite=BLOCKED-here (CI api-contract runs it)');
+    });
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));
