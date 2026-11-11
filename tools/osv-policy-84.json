@@ -1,0 +1,7 @@
+{
+  "_doc": "Row 84 — vulnerability gate policy (tools/osv-scan-84.mjs, docs/security/84-sbom-vuln-scan.md). Shipped components fail at HIGH, dev/CI-only at CRITICAL, unknown severity counts as HIGH. Every exception names one advisory id for one package, with reason (>= 20 chars), owner and an expiry at most max_exception_days ahead; expired exceptions stop suppressing. No secrets here.",
+  "fail_at": { "shipped": "high", "dev": "critical" },
+  "unknown_severity": "high",
+  "max_exception_days": 90,
+  "exceptions": []
+}
