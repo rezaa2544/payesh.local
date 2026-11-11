@@ -90,7 +90,7 @@ function stopGw(c) { try { c.kill('SIGKILL'); } catch (e) { /* gone */ } }
     return `flat=ok grow=leak(${L.leakVerdict(grow, 2).slope_mb_per_min}MB/min) noise=ok`;
   });
 
-  await check('LD-02', 'claims gate: "unlimited"/"نامحدود" claim ⇒ refused; missing label ⇒ refused; [M] without managed DB ⇒ refused; CLI --label M without PAYESH_T2_MANAGED_DB ⇒ exit 2', async () => {
+  await check('LD-02', 'claims gate: "unlimited"/"نامحدود" claim ⇒ refused; missing label ⇒ refused; target-DB label without managed DB ⇒ refused; CLI --label M without PAYESH_T2_MANAGED_DB ⇒ exit 2', async () => {
     const ok = { label: '[S]', environment: { managed_db_attested: false }, latency_ms: { label: '[S]' }, errors: { label: '[S]' }, throughput: { label: '[S]' }, memory: { label: '[S]' } };
     assert(L.claimsGate(ok).length === 0, 'clean report refused: ' + L.claimsGate(ok));
     const r1 = L.claimsGate(Object.assign({}, ok, { claim_scope: 'supports unlimited devices' }));
@@ -102,8 +102,8 @@ function stopGw(c) { try { c.kill('SIGKILL'); } catch (e) { /* gone */ } }
     assert(r3.includes('missing_label') && r4.includes('label_M_without_managed_db') && r5.includes('unlabelled:errors'), 'label gate');
     const env = Object.assign({}, process.env); delete env.PAYESH_T2_MANAGED_DB;
     const cli = spawnSync(process.execPath, ['tools/load-82.mjs', '--base', 'http://127.0.0.1:9', '--secret', 'x', '--label', 'M', '--duration', '1'], { cwd: ROOT, env, encoding: 'utf8' });
-    assert(cli.status === 2 && /OWNER-only/.test(cli.stderr), 'CLI [M] not refused: ' + cli.status + ' ' + cli.stderr.slice(0, 120));
-    return 'unlimited⇒red · نامحدود⇒red · no label⇒red · [M] unattested⇒red · CLI [M]⇒exit 2';
+    assert(cli.status === 2 && /OWNER-only/.test(cli.stderr), 'CLI --label M not refused: ' + cli.status + ' ' + cli.stderr.slice(0, 120));
+    return 'unlimited⇒red · نامحدود⇒red · no label⇒red · target label unattested⇒red · CLI --label M⇒exit 2';
   });
 
   if (!ADMIN || !RUNTIME) {
