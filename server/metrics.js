@@ -16,6 +16,19 @@
    (نرخ کل عمر، خرابیِ تازه را در نویز میانگین گم می‌کند). */
 const ERROR_WINDOW_MS = 5 * 60_000;
 
+/* row 85: SLO objectives live in server/slo.js; this module only measures. */
+const slo = require('./slo');
+const LATENCY_SLO = slo.byId('latency');
+const AVAIL_SLO = slo.byId('availability');
+/* histogram buckets (seconds) — fixed, so the series set is bounded */
+const DURATION_BUCKETS = [0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
+
+function percentile(sorted, q) {
+  if (!sorted.length) return 0;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(q * sorted.length) - 1));
+  return sorted[idx];
+}
+
 function fmtNum(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return '0';
@@ -75,11 +88,24 @@ class Registry {
   onCollect(fn) { this.collectors.push(fn); return this; }
 
   /* ── هر درخواست، پس از پایان پاسخ ─────────────────────────────── */
-  observeHttp(statusCode, at = Date.now()) {
+  observeHttp(statusCode, at = Date.now(), durationMs = null) {
     const code = Number(statusCode) || 0;
     const cls = code >= 500 ? '5xx' : code >= 400 ? '4xx' : code >= 300 ? '3xx' : '2xx';
     this.inc('payesh_http_requests_total', { class: cls }, 1, { help: 'شمارش درخواست‌های HTTP بر پایهٔ کلاس پاسخ' });
-    this.httpEvents.push({ t: at, err: code >= 500 });
+    /* row 85: real duration of the same response (null when the caller has none) */
+    const ms = durationMs == null ? null : Math.max(0, Number(durationMs) || 0);
+    if (ms != null) {
+      const sec = ms / 1000;
+      const help = 'مدت پاسخ HTTP (ثانیه) — ردیف ۸۵';
+      for (const le of DURATION_BUCKETS) {
+        if (sec <= le) this.inc('payesh_http_request_duration_seconds_bucket', { le: String(le) }, 1, { type: 'counter', help });
+        else this.inc('payesh_http_request_duration_seconds_bucket', { le: String(le) }, 0, { type: 'counter', help });
+      }
+      this.inc('payesh_http_request_duration_seconds_bucket', { le: '+Inf' }, 1, { type: 'counter', help });
+      this.inc('payesh_http_request_duration_seconds_sum', {}, sec, { type: 'counter', help });
+      this.inc('payesh_http_request_duration_seconds_count', {}, 1, { type: 'counter', help });
+    }
+    this.httpEvents.push({ t: at, err: code >= 500, ms });
     this._trim(at);
   }
 
@@ -97,6 +123,15 @@ class Registry {
     if (!total) return 0;
     const errs = this.httpEvents.filter(e => e.err).length;
     return errs / total;
+  }
+
+  /* row 85: latency SLI over the same window — only events with a duration count */
+  latencyStats(now = Date.now()) {
+    this._trim(now);
+    const ds = this.httpEvents.filter(e => e.ms != null).map(e => e.ms).sort((a, b) => a - b);
+    if (!ds.length) return { n: 0, slowRatio: 0, p95s: 0 };
+    const slow = ds.filter(ms => ms > LATENCY_SLO.threshold_ms).length;
+    return { n: ds.length, slowRatio: slow / ds.length, p95s: percentile(ds, 0.95) / 1000 };
   }
 
   /* async است چون بعضی collectorها (مثل وضعیت pool در Gateway) کوئری DB
@@ -124,6 +159,21 @@ class Registry {
     if (!this.meta.has('payesh_http_error_ratio')) this._def('payesh_http_error_ratio', 'gauge', 'نرخ پاسخ‌های 5xx در ۵ دقیقهٔ گذشته');
     live.set('payesh_http_error_ratio|', { name: 'payesh_http_error_ratio', labels: {}, value: ratio });
 
+    /* row 85: SLI / burn-rate gauges derived from server/slo.js */
+    const lat = this.latencyStats(now);
+    const derived = [
+      ['payesh_slo_availability_burn_rate', slo.burnRate(ratio, AVAIL_SLO), 'نرخ مصرف بودجهٔ خطای SLO دسترس‌پذیری (۱ = مصرف دقیق بودجه در دوره)'],
+      ['payesh_slo_latency_burn_rate', slo.burnRate(lat.slowRatio, LATENCY_SLO), 'نرخ مصرف بودجهٔ SLO تأخیر (پاسخ کندتر از آستانه)'],
+      ['payesh_slo_latency_good_ratio', lat.n ? 1 - lat.slowRatio : 1, 'سهم پاسخ‌های زیر آستانهٔ تأخیر در پنجره'],
+      ['payesh_http_latency_p95_seconds', lat.p95s, 'صدک ۹۵ مدت پاسخ در پنجرهٔ ۵ دقیقه'],
+      ['payesh_slo_objective_availability', AVAIL_SLO.objective, 'هدف SLO دسترس‌پذیری (از server/slo.js)'],
+      ['payesh_slo_objective_latency', LATENCY_SLO.objective, 'هدف SLO تأخیر (از server/slo.js)'],
+    ];
+    for (const [name, value, help] of derived) {
+      if (!this.meta.has(name)) this._def(name, 'gauge', help);
+      live.set(name + '|', { name, labels: {}, value });
+    }
+
     const byName = new Map();
     for (const s of live.values()) {
       if (!byName.has(s.name)) byName.set(s.name, []);
@@ -146,4 +196,4 @@ class Registry {
 
 function create() { return new Registry(); }
 
-module.exports = { create, Registry, labelText, fmtNum };
+module.exports = { create, Registry, labelText, fmtNum, DURATION_BUCKETS };
