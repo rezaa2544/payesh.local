@@ -26,6 +26,10 @@ on:
       - 'tests/gateway-67.js'
       - 'tests/field-crypto-87.js'
       - 'tools/field-rekey-87.mjs'
+      - 'tests/migrations-86.js'
+      - 'tools/migrate-86.mjs'
+      - 'db/migrations/**'
+      - 'db/fixtures/migrations-86/**'
   pull_request:
     paths:
       - 'server/**'
@@ -43,6 +47,10 @@ on:
       - 'tests/gateway-67.js'
       - 'tests/field-crypto-87.js'
       - 'tools/field-rekey-87.mjs'
+      - 'tests/migrations-86.js'
+      - 'tools/migrate-86.mjs'
+      - 'db/migrations/**'
+      - 'db/fixtures/migrations-86/**'
   workflow_dispatch:
   # Row 95: called by release-gate.yml on the release commit (path filters do not apply).
   workflow_call:
@@ -135,6 +143,20 @@ jobs:
         run: |
           set -o pipefail
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/field-crypto-87.js | tee -a native-contract.txt
+      # Row 86: versioned zero-downtime migrations on the real postgres:16 service.
+      # A fresh DB per run: product baseline adopts live data, the phone→mobile
+      # drill runs expand/migrate under a concurrent N-1 writer (0 errors),
+      # destructive SQL / contract without client floor / checksum drift /
+      # second migrator / lock contention are all refused, 3 mutants killed.
+      - name: Migrations gate (row 86, expand → migrate → contract on PG)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+          MG86_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node tools/migrate-86.mjs lint
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/migrations-86.js | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
