@@ -1,3 +1,6 @@
+base_sha=f10e053c41af4b9db7e78b7b071f54dd16cf2af9
+date_utc=2026-11-06T17:48:34Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # آزمون منفی دروازهٔ شاهد (C-01..C-04)
 # تولید: bash docs/cloud/reports/evidence/verify-evidence-gate-negative.sh
 # تاریخ: 2026-11-07T09:13:59Z

@@ -1,3 +1,6 @@
+base_sha=3ae340bf2b0bf45132af1d2c56efa279c5cc10c3
+date_utc=2026-11-07T11:30:42Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد خام پایش per-tenant — ردیف ۳۰
 # HEAD: f561d8fb046342c46d585b27d10203e5936dfe56 · 2026-11-07T11:41:47Z
 {"ok":true,"severity":"ok","total_rows_all_tenants":null,"tenants":[{"tid":"aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa","rows":166,"collections":8,"per_collection":{"attendance":120,"classes":2,"grades":2,"lookups":7,"parent_links":1,"school_years":1,"schools":1,"users":32},"last_write_age_s":0,"cross_tenant_visible":0,"rls_enforced":true}],"tables":[{"name":"product_records","rls":true,"force":true},{"name":"tenant_records","rls":true,"force":true}],"alerts":[],"exit":0}

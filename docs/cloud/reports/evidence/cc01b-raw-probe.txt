@@ -1,3 +1,6 @@
+base_sha=e56099ee9919efd0acef7e8b29de24fb52ba87d6
+date_utc=2026-11-07T01:43:20Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 [ERR]  N1 partial unique با now() در predicate → non-deterministic functions prohibited in partial index WHERE clauses
 [OK]   N2 partial unique با تابع deterministic (datetime) در predicate
 [OK]   N3 راه‌حل open_slot (UNIQUE + CHECK)

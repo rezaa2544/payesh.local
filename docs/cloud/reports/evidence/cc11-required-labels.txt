@@ -1,3 +1,6 @@
+base_sha=ade99748bd1a66f8d1f0b37731f240b8cc91e7c8
+date_utc=2026-11-07T02:09:30Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 R1 ۷۳ آیتم کنترلی از جدول‌های داوری ۰۶–۱۰ خوانده شد
 R2 هیچ شناسهٔ تکراری در ۷۳ آیتم نیست
 R3 توزیع احکام بازشماری‌شده = ۲۶ PASS / ۴۰ FAIL / ۷ UNKNOWN / ۰ BLOCKED

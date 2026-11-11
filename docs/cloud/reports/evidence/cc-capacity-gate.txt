@@ -1,3 +1,6 @@
+base_sha=103b375ffc1ac808df4085934c9e8f9ce8bcb967
+date_utc=2026-11-07T11:07:12Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ ظرفیت / HA / DR — ردیف ۲۹
 generated_by: docs/cloud/reports/evidence/gen-capacity-gate.sh
 head: f561d8fb046342c46d585b27d10203e5936dfe56

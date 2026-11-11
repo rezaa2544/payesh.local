@@ -1,3 +1,6 @@
+base_sha=969899561721c0b9175bbbed7c30bc4a87a37beb
+date_utc=2026-11-07T00:35:46Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # آزمون منفی دروازهٔ ۱۲‑ب
 # تولید: bash docs/cloud/reports/evidence/verify-cc12b-negative.sh
 # زمان: 2026-11-07T00:35:48Z

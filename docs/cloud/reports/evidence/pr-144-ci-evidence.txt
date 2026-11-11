@@ -1,3 +1,6 @@
+base_sha=05e7bd44f799bc06e6ea9d7792809a805fa36095
+date_utc=2026-11-09T13:09:30Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 PR #144 CI STATUS SNAPSHOT
 
 PR: https://github.com/rezaa2544/payesh.local/pull/144

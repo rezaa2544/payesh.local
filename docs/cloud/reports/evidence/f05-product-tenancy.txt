@@ -1,3 +1,6 @@
+base_sha=4b737f5ab7461ed2f0fdce56f30d0a561733e18b
+date_utc=2026-11-07T09:53:28Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۲۶ (F‑05) — tenancy/RLS بدنهٔ محصول روی PostgreSQL واقعی
 # تولید: bash docs/cloud/reports/evidence/run-f05-product-tenancy.sh
 # زمان: 2026-11-07T11:31:00Z

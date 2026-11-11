@@ -1,3 +1,6 @@
+base_sha=613804dcf5d263559458136810618d0ae61bcfcc
+date_utc=2026-11-07T00:00:26Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ شرط‌های CC-13-1..4 (ردیف ۱۳ — کش امن و صف آفلاین)
 # تولید: bash docs/cloud/reports/evidence/gen-cc13-evidence.sh
 # زمان: 2026-11-07T01:26:27Z

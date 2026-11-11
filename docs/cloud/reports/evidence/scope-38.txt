@@ -1,3 +1,6 @@
+base_sha=aeaecdbd6540d6548370fcd48da02890f6aba8a9
+date_utc=2026-11-07T17:10:22Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۳۸ — اسکوپ سمت سرور بر اساس نقش (نه فیلتر کلاینت)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/7ac102df-payesh-local

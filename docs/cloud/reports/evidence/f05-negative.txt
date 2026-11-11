@@ -1,3 +1,6 @@
+base_sha=4b737f5ab7461ed2f0fdce56f30d0a561733e18b
+date_utc=2026-11-07T09:53:28Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # آزمون‌های منفیِ ردیف ۲۶ — tenancy/RLS بدنهٔ محصول
 generated_by: docs/cloud/reports/evidence/verify-f05-negative.sh
 head: 61cd2637eff30d7ec38be4aa69de66aef5502381

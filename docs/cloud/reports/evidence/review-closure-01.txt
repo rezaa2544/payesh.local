@@ -1,3 +1,6 @@
+base_sha=997ea92bab047ce929350b092393456587e50310
+date_utc=2026-11-06T19:54:50Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد بستن بازبینی — بررسی تقابلی ۰۱‑ب / ۰۴ / ۰۴‑ب / ۱۱ / ۱۲…۱۶‑ب
 # تولید: bash docs/cloud/reports/evidence/gen-review-closure.sh
 # base_head: 6d39137df7fc36f8e65c12e8c7d3ab71be3d1cef

@@ -1,3 +1,6 @@
+base_sha=695244270768eda858c929a3231a2247f78dff2e
+date_utc=2026-11-08T22:43:50Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۴۵ — بودجهٔ اتصال و Pooling: آزمون CB-01..CB-10 + اندازه‌گیری POOL_MAX روی PostgreSQL واقعی محلی
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: main · head_sha: 6b400396d78fc491b2e5d561421a3306f888b2cf

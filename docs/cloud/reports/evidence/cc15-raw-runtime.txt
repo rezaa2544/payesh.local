@@ -1,2 +1,5 @@
+base_sha=776e2308eacef11cfb2312a60740cacbe1343b61
+date_utc=2026-11-07T01:27:32Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 written: docs/cloud/reports/evidence/mission-15-backup-probe.txt
 88 docs/cloud/reports/evidence/mission-15-backup-probe.txt

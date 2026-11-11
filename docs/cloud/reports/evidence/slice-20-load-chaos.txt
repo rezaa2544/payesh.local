@@ -1,3 +1,6 @@
+base_sha=cad3984fe5a75a1d7fb63ede203d6373e9cdc5ff
+date_utc=2026-11-06T22:55:06Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد نمونهٔ فنی ۲۰ — آزمون امنیت، بار و قطعی سراسری
 # تولید: bash prototype/slice-20/gen-evidence.sh
 # base_head: cad3984fe5a75a1d7fb63ede203d6373e9cdc5ff

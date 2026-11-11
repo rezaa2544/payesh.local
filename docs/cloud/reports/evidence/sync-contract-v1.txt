@@ -1,3 +1,6 @@
+base_sha=8e7dfd575d67ad2b0dc95b2bdb3ab9cc9d707017
+date_utc=2026-11-07T14:53:24Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # قرارداد Sync v1 — شاهد خام اجرا
 # repository: rezaa2544/payesh.local (https://github.com/rezaa2544/payesh.local)
 # branch: arena/c80a3b17-payesh-local

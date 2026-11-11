@@ -1,3 +1,6 @@
+base_sha=471520acb42de42b89b94244b735bb508f418517
+date_utc=2026-11-07T00:51:16Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 PROBE-16-MODEL — بازمحاسبهٔ مدل هزینه/ظرفیت و پوشش معیارهای ۱۶
 SHA=3802e9c87437a690ca3376188082595a3335f14b
 DOC=docs/cloud/16-ha-observability-cost.md

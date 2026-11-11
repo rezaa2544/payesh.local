@@ -1,3 +1,6 @@
+base_sha=e947e6e018e7cb01eaef85545f97068a17347d02
+date_utc=2026-11-08T14:09:49Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 … پلهٔ 1/4: 100 کلاینت × 8s
 … پلهٔ 2/4: 300 کلاینت × 8s
 … پلهٔ 3/4: 600 کلاینت × 8s

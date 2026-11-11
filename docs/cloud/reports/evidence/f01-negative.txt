@@ -1,3 +1,6 @@
+base_sha=6dd1615d2a415291977e3c66ef1622f3b29a6efd
+date_utc=2026-11-07T08:56:50Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # آزمون منفی دروازهٔ F‑01
 generated_by: docs/cloud/reports/evidence/verify-f01-negative.sh
 head: b2fcbe2b2fb227b293017a3c11501e1264fe5516

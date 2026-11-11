@@ -1,3 +1,6 @@
+base_sha=034772d4846b5605ff087d3926842627426b1e2d
+date_utc=2026-11-07T10:49:16Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # Security Gate — آزمون نفوذ مستقل روی مسیرهای محصول (ردیف ۲۸)
 # تولید: node --experimental-sqlite docs/cloud/reports/evidence/security/pen-test.cjs --out <file>
 # دامنه: auth/session · authorization · tenant · storage · outbox · restore · cache · export

@@ -1,3 +1,6 @@
+base_sha=8e34f677b239798ce20aaed9bffef6e298c24eea
+date_utc=2026-11-06T20:47:17Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد نمونهٔ فنی ۱۹ — تعارض و هم‌گرایی («نیازمند تصمیم»)
 # تولید: bash prototype/slice-19/gen-evidence.sh
 # base_head: 28e52782b18113e870cd32b0ca388de755051be0

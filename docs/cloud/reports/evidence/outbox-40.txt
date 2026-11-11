@@ -1,3 +1,6 @@
+base_sha=56996c4a040597986025f4908b0a1854fbc795ac
+date_utc=2026-11-07T19:41:16Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۴۰ — صف عملیات آفلاین پایدار روی دستگاه
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/dfb59505-payesh-local

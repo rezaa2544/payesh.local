@@ -1,3 +1,6 @@
+base_sha=df8d14aa8e1ff99128e56318caa9968e51b32bce
+date_utc=2026-11-08T04:11:08Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۶۰ — شناسهٔ تصمیم اسناد ۳۱/۳۲/۳۴
 # branch: arena/5124e3a6-payesh-local   head: 39a3e15   at: 2026-11-08T04:09:17Z
 

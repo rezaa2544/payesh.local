@@ -1,3 +1,6 @@
+base_sha=a28c3974bba02a59e5cedd9386045ac74045c427
+date_utc=2026-11-07T07:04:47Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد سنجش بار poll — خط پایهٔ محلی (ردیف ۰۴ AC‑۱۰ · شرط CC‑12‑3 ردیف ۱۲)
 #
 # فرمان بازتولید:

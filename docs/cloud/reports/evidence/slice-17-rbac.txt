@@ -1,3 +1,6 @@
+base_sha=54820d8e60648bf95ccfd6765bcdb2fd0e958be1
+date_utc=2026-11-06T20:26:40Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد نمونهٔ فنی ۱۷ — ورود و مجوزدهی نقش‌محور + جداسازی tenant
 # تولید: bash prototype/slice-17/gen-evidence.sh
 # base_head: 461a5f95f06dfb8cd2824ad7793bf99073258f49

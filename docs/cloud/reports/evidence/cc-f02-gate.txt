@@ -1,3 +1,6 @@
+base_sha=8760ee79ee71125be169bf12848735530f4c29ff
+date_utc=2026-11-07T09:12:00Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ ردیف F‑02 — بازیابی امن و بدون ارتقای نقش/مستأجر (P0)
 generated_by: docs/cloud/reports/evidence/gen-f02-gate.sh
 head: 6d39137df7fc36f8e65c12e8c7d3ab71be3d1cef

@@ -1,3 +1,6 @@
+base_sha=31833193a0751b121e2505c2d91f8e08f3c39ba6
+date_utc=2026-11-07T07:19:05Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # آزمون منفی دروازهٔ فاز ۳
 generated_by: docs/cloud/reports/evidence/verify-phase3-gate-negative.sh
 head: b2fcbe2b2fb227b293017a3c11501e1264fe5516

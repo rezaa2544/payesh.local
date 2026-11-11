@@ -1,3 +1,6 @@
+base_sha=e01f401d099df8c6527a8cb8055dbab6c29f1533
+date_utc=2026-11-07T08:50:34Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ ردیف F‑06 — حذف هویت client-controlled از Outbox/drain (P0)
 generated_by: docs/cloud/reports/evidence/gen-f06-gate.sh
 head: 6d39137df7fc36f8e65c12e8c7d3ab71be3d1cef

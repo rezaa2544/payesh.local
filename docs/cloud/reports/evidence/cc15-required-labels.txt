@@ -1,3 +1,6 @@
+base_sha=776e2308eacef11cfb2312a60740cacbe1343b61
+date_utc=2026-11-07T01:27:32Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 A1 محصول بالا آمد و دادهٔ واقعی ساخته شد (setup + sync)
 A2 پایگاه محصول هیچ ستون tenancy ندارد (نقطهٔ شروع بکاپ per-tenant)
 B1 بکاپ B1 در t/<tenant>/backups/db/ نوشته شد

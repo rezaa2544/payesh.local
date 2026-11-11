@@ -1,3 +1,6 @@
+base_sha=0ab24111649e0fecb634317e4637a0250ad835e7
+date_utc=2026-11-09T13:00:05Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 D4 FINAL POSITIVE TESTS
 source_commit=e6c9439d9d5f18068206a336c6cc46fe814ab58c
 branch=arena/d8dd156c-payesh-local

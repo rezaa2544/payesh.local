@@ -1,3 +1,6 @@
+base_sha=ade99748bd1a66f8d1f0b37731f240b8cc91e7c8
+date_utc=2026-11-07T02:09:30Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ CC‑11 — اتصال ادعا→شاهد برای ۷۳ آیتم و بازسنجی روی HEAD
 generated_by: docs/cloud/reports/evidence/gen-cc11-evidence.sh
 head: 6d39137df7fc36f8e65c12e8c7d3ab71be3d1cef

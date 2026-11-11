@@ -1,3 +1,6 @@
+base_sha=034772d4846b5605ff087d3926842627426b1e2d
+date_utc=2026-11-07T10:49:16Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ امنیت — ردیف ۲۸ (Security Gate مستقل)
 generated_by: docs/cloud/reports/evidence/gen-security-gate.sh
 head: f561d8fb046342c46d585b27d10203e5936dfe56

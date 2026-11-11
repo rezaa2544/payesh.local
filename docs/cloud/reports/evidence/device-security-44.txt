@@ -1,3 +1,6 @@
+base_sha=9ed2459b517323e11b34037c7ce9c45dc8dd0f50
+date_utc=2026-11-07T18:46:12Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۴۴ — امنیت دادهٔ روی دستگاه
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/e40e0837-payesh-local

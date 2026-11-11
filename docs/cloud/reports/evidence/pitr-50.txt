@@ -1,3 +1,6 @@
+base_sha=c93342ae64b41f62ab1096d4a225c457b7f4acee
+date_utc=2026-11-08T06:38:36Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۵۰ — پشتیبان‌گیری PITR، تطبیق چک‌سام سه‌لایه و ران‌بوک Failover دستی
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/e7396a69-payesh-local

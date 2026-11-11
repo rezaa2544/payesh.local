@@ -1,3 +1,6 @@
+base_sha=db8115101445c20348aefa27919f55d335b280bd
+date_utc=2026-11-07T22:37:41Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۴۹ — پایش و هشدار (probe + metric + alert rules + delivery)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/b780a176-payesh-local

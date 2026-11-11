@@ -1,3 +1,6 @@
+base_sha=618202a02cfc0c5e3b5661f12e2b573c1d29c30d
+date_utc=2026-11-06T17:10:48Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # بازبینی یکپارچگی PR #73
 # تولید: bash docs/cloud/reports/evidence/review-pr73-integrity.sh
 # زمان: 2026-11-06T17:10:50Z

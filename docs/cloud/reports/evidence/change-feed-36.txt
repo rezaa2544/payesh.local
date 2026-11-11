@@ -1,3 +1,6 @@
+base_sha=ffcb06c97f9c1babae60711c36c8a6081787eca0
+date_utc=2026-11-07T16:03:34Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۳۶ — change-feed هر مدرسه در PostgreSQL (seq صعودی، ایندکس مکان‌نما، retention)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/603dfe4a-payesh-local

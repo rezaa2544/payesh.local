@@ -1,3 +1,6 @@
+base_sha=a4ab3449f18029549d8d9dfaf9f87b42801ddea5
+date_utc=2026-11-06T15:28:47Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # اثبات ۲ — commit f2fc472
 
 ۱) مدیر: POST /api/admin/mirror/refresh ⇒ HTTP 200 mirror_total=13

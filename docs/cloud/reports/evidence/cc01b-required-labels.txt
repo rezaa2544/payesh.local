@@ -1,3 +1,6 @@
+base_sha=e56099ee9919efd0acef7e8b29de24fb52ba87d6
+date_utc=2026-11-07T01:43:20Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 S1 پنج موجودیت اصلی ساخته شد (tenant/plan/subscription/event/invoice/support_grant)
 S2 storage_prefix غیر از t/<tenant>/ ⇒ ساخت مدرسه رد می‌شود
 S3 یکتایی code و storage_prefix در tenant

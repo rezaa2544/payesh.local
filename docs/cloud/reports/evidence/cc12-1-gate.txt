@@ -1,3 +1,6 @@
+base_sha=ff202075068cd25a0f225ad6914eb2eadd608509
+date_utc=2026-11-06T23:48:24Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ شرط CC-12-1 (ردیف ۱۲) — بازتولیدپذیری نتیجهٔ RLS
 # تولید: bash docs/cloud/reports/evidence/gen-cc12-1-evidence.sh
 # زمان: 2026-11-07T00:35:48Z

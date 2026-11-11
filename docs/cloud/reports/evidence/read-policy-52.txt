@@ -1,3 +1,6 @@
+base_sha=12aae0024270ce306c156ad235ee8c2f275392b5
+date_utc=2026-11-08T01:14:36Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۵۲ — replica فقط‌خواندنی و سیاست read-your-writes
 # branch: arena/b780a176-payesh-local   head: aa919be   at: 2026-11-08T01:14:02Z
 # postgres: 18.6 (بانک جدا: payesh_read)   node: v22.22.3

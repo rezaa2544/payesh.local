@@ -1,3 +1,6 @@
+base_sha=9edfeeea09bacff7e1e4ce8233f1f4b554a4de0a
+date_utc=2026-11-07T14:42:11Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شبیه‌سازی سال تحصیلی چند‌مدرسه‌ای — شاهد خام
 # تولید: node docs/cloud/reports/evidence/sim/school-year-sim.mjs
 # زمان: 2026-11-07T15:02:12.598Z

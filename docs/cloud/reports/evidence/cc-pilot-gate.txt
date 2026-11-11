@@ -1,3 +1,6 @@
+base_sha=3ae340bf2b0bf45132af1d2c56efa279c5cc10c3
+date_utc=2026-11-07T11:30:42Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ پایلوت چند‌مدرسه‌ای — ردیف ۳۰
 generated_by: docs/cloud/reports/evidence/gen-pilot-gate.sh
 head: f561d8fb046342c46d585b27d10203e5936dfe56
