@@ -1,0 +1,39 @@
+# Row 82 — load test + measurement on Gateway + PostgreSQL — every number is [S] (simulated)
+base_sha=90ab463557cba77b64eafb5f02328de0c4b0b346
+date_utc=2026-11-11T10:33:16Z
+branch=arena/load-82
+runner=local sandbox (loopback), node 22, real server/gateway.js child process, embedded PostgreSQL 16 (shared_buffers=16MB, max_connections=60)
+label=[S] simulation / dev machine; measurement on the owner's managed database (T2) is OWNER and is not claimed here
+
+## AC mapping
+- load script + raw report p50/p95/p99, error rate, memory leak: tools/load-82.mjs; raw JSON load-82-report.json (latency per route, statuses, rps, RSS every second, leak verdict)
+- all labelled [S]: LD-04 (6/6 sections + every summary line); claims gate rejects missing labels (LD-02)
+- no 'unlimited' claim: claimsGate refuses unlimited/infinite/no limit and the Persian equivalents (LD-02)
+- target-DB numbers only by the owner (T2): --label M refused without PAYESH_T2_MANAGED_DB=1 (LD-02, CLI exit 2); CI never sets it
+- thousands of devices on Gateway+PG in CI: LD-03 2000 devices / 20 tenants, api-contract.yml step on postgres:16 (LOAD82_REQUIRE_PG=1, artifact load-82-report.json)
+- gates red when they should be: LD-05 leak, LD-06 errors (503), LD-07 p95; LD-08 control green
+
+## tests/load-82.js @90ab463 (main run written to load-82-report.json)
+PASS  LD-01  measurement math: quantiles, least-squares slope, leak verdict (flat RSS ⇒ no leak; +120 MB/min ⇒ leak; noise only ⇒ no leak)  → flat=ok grow=leak(120MB/min) noise=ok
+PASS  LD-02  claims gate: "unlimited"/"نامحدود" claim ⇒ refused; missing label ⇒ refused; target-DB label without managed DB ⇒ refused; CLI --label M without PAYESH_T2_MANAGED_DB ⇒ exit 2  → unlimited⇒red · نامحدود⇒red · no label⇒red · target label unattested⇒red · CLI --label M⇒exit 2
+      [S] row 82 load: devices=2000 tenants=20 concurrency=64 duration=30s (+5s warmup)
+      [S] requests=18739 rps=623
+      [S] latency ms all p50=100.7 p95=126.1 p99=142 max=198.2
+      [S] latency ms pull p50=99.6 p95=124.5 p99=140.3 · push p50=104.7 p95=129.8 p99=144.8
+      [S] errors=0 rate=0 statuses={"200":18739}
+      [S] memory rss start=83.8MB end=88.6MB peak=88.6MB growth=3.5MB slope=9.6MB/min leak_suspected=false
+      [S] scope: simulated: synthetic devices against one gateway process + PostgreSQL on a CI runner or dev machine (loopback); describes this run only, not production capacity
+PASS  LD-03  main run [S]: 2000 devices / 20 tenants, 64 concurrent, 30s on Gateway+PG ⇒ error rate ≤ 0.5%, p95 ≤ 1000 ms, no RSS leak  → [S] req=18739 rps=623 p50/p95/p99=100.7/126.1/142ms err=0 rss 83.8→88.6MB slope=9.6MB/min
+PASS  LD-04  every number is labelled [S]: report sections + summary lines; no capacity claim; raw RSS samples and per-route latency present  → sections labelled=6/6 · summary lines=7 all [S] · rss samples=36
+PASS  LD-05  negative: memory leak injected into the gateway (64 KB kept per request) ⇒ leak gate red  → red: slope=2026.6MB/min growth=328.8MB
+PASS  LD-06  negative: push killed at the gateway (PAYESH_FEATURE_KILL=push ⇒ 503) ⇒ error-rate gate red  → red: error_rate=0.20548 statuses={"200":2989,"503":773}
+PASS  LD-07  negative: 1.2 s delay injected before every gateway request ⇒ p95 gate red  → red: p95=1255.1ms
+PASS  LD-08  control: the same short profile on an unmodified gateway is green (the negatives are caused by the injection, not the profile)  → green: p95=68.7ms err=0 slope=6.8MB/min growth=1.4MB
+# passed=8 failed=0 skipped=0
+LOAD-82-TEST-OK
+
+## full suite
+run-tests-evidence.sh @90ab463557cba77b64eafb5f02328de0c4b0b346: pass=110 fail=0 registered=110 -> tests-run-90ab463-20261111T103238Z.log
+gen-audit-evidence.sh @90ab463557cba77b64eafb5f02328de0c4b0b346: EVIDENCE-OK
+tests/security-scan-48.js (semgrep): SECURITY-48-OK
+tests/labels-gate-55.js (row-82 files included): LABELS-GATE-55-OK
