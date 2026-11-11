@@ -38,6 +38,8 @@ on:
       - 'tests/direct-sync-108.js'
       - 'tests/rls-pentest-109.js'
       - 'tests/transport-110.js'
+      - 'tools/backup-111.mjs'
+      - 'tools/backup-drill-111.mjs'
       - 'client/transport.js'
       - 'client/provider-postgrest.js'
       - 'tools/direct-sync.js'
@@ -72,6 +74,8 @@ on:
       - 'tests/direct-sync-108.js'
       - 'tests/rls-pentest-109.js'
       - 'tests/transport-110.js'
+      - 'tools/backup-111.mjs'
+      - 'tools/backup-drill-111.mjs'
       - 'client/transport.js'
       - 'client/provider-postgrest.js'
       - 'tools/direct-sync.js'
@@ -249,6 +253,20 @@ jobs:
         run: |
           set -o pipefail
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/transport-110.js | tee -a native-contract.txt
+      # Row 111 (ADR-105, Proposed): encrypted, timestamped pg_dump of the direct path
+      # (X25519 + AES-256-GCM, streamed — no clear dump on disk) and the restore drill:
+      # tamper/truncate/wrong-key refusals, restore into a BRAND-NEW cluster (initdb of
+      # the runner's PostgreSQL, no roles), a device pulls + decrypts the restored copy,
+      # RLS / idempotency / sequence intact, retention + freshness monitor. Label [S].
+      - name: Backup + restore drill (row 111, real postgres:16 + fresh cluster)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+        run: |
+          set -o pipefail
+          PGB=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)
+          test -x "$PGB/initdb" || { echo "no initdb on the runner"; exit 1; }
+          pg_dump --version; psql --version
+          PAYESH_PG_BIN="$PGB" node tools/backup-111.mjs drill --fresh-cluster | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
