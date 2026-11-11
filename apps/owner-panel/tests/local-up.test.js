@@ -190,10 +190,16 @@ async function main() {
     ok('LU-06', 'second run idempotent: migrations skipped, owner kept, no otpauth, same secret', 'applied=[] already=4, token from run 1 ⇒ 200');
 
     /* LU-07: دفتر را دست‌کاری کن */
-    const { PGlite } = require('@electric-sql/pglite');
-    const db = new PGlite(path.join(dir, 'pglite'));
-    await db.query(`UPDATE ${L.LEDGER} SET sha256 = repeat('0', 64) WHERE name = '002_owner_panel_api.up.sql'`);
-    await db.close();
+    /* tests/run.js defines a jsdom global.window; PGlite must see Node, not a browser */
+    const hadWindow = Object.prototype.hasOwnProperty.call(global, 'window');
+    const prevWindow = global.window;
+    if (hadWindow) delete global.window;
+    try {
+      const { PGlite } = require('@electric-sql/pglite');
+      const db = new PGlite(path.join(dir, 'pglite'));
+      await db.query(`UPDATE ${L.LEDGER} SET sha256 = repeat('0', 64) WHERE name = '002_owner_panel_api.up.sql'`);
+      await db.close();
+    } finally { if (hadWindow) global.window = prevWindow; }
     const r = await runCli(['--data-dir', dir, '--port', '0', '--gateway-port', '0'], cleanEnv());
     neg('changed migration ⇒ exit 2', r.code === 2 && /002_owner_panel_api\.up\.sql changed after it was applied/.test(r.err));
     ok('LU-07', 'checksum mismatch refused', 'exit 2');
