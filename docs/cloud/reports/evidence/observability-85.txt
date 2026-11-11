@@ -51,3 +51,8 @@ OBSERVABILITY-49-OK
 ## full suite
 run-tests-evidence.sh @c77bb9db4c0bda60b8d817c0d94a1be5a1f6ad1f: pass=110 fail=0 registered=110 → tests-run-c77bb9d-20261111T092054Z.log
 gen-audit-evidence.sh @c77bb9db4c0bda60b8d817c0d94a1be5a1f6ad1f: EVIDENCE-OK
+
+## CI @465c1ec — all green
+- build-and-release push run 42994556945: job 130435275367 success (OBSERVABILITY-85-OK; OB85-06 LOG-PII-85-OK findings=0; OB85-07 pii/unknown_key/missing_school_id all red; ALERTS-49-CHECK rules=5; EVIDENCE-SHA-89-OK files=395 failures=0), setup.exe job 130438896857 success
+- api-contract push run 42994556868: job 130435274437 success (GW67-RID-03 with school_id + PII scan PASS on real PG; GATEWAY-67-OK pass=18)
+- native-client push run 42994556933 success
