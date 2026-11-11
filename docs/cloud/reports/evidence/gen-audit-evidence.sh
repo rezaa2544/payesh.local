@@ -229,12 +229,9 @@ fi
 # row 95 (2026-11-11): tests/release-gate-95.js (release gate negative tests: any single gate failing => blocked; owner [M] signoff; SBOM; 5 mutation controls).
 # row 86 (2026-11-11): server/migrator.js (versioned expand/migrate/contract migrations, lint, client-floor gate, checksum, advisory lock, lock_timeout), tests/migrations-86.js (16 checks on real PG incl. 3 mutants).
 # row 85 (2026-11-11): server/logger.js (JSON logs, PII allowlist + redaction), server/slo.js (SLO as code), tests/observability-85.js (real-server PII negative, 3 logger mutants), tools/log-pii-scan-85.mjs, deploy/monitoring/slo-85.yml.
-<<<<<<< HEAD
 # row 102 (2026-11-11): server/gateway.js usePlatformDb() (in-process only, refused with PAYESH_PLATFORM_PGURL or after listen) for apps/owner-panel/scripts/local-up.js; tests/run.js registers apps/owner-panel/tests/local-up.test.js.
-=======
 # row 82 (2026-11-11): tools/load-82.mjs (zero-dep load script, [S]/[M] label + claims gate), tests/load-82.js (2000 devices on gateway+PG, 3 injected negatives), tests/fixtures/load-82-inject.cjs (test-only leak/delay preload), tests/labels-gate-55.js (row-82 files added).
 # row 82 direct path (2026-11-11): tools/load-82-direct.mjs (direct RPC + RLS load, PostgREST transaction semantics), tests/load-82-direct.js (2000 devices / 20 schools, 4 injected negatives, plan + defence-in-depth checks); migration db/migrations/direct/0006 (RLS InitPlan + tenant predicate); tests/rls-pentest-109.js (RLS109_TO, two-layer record mutant).
->>>>>>> origin/main
 # row 83 (2026-11-11): tests/convergence-fuzz-83.js (seeded multi-device convergence property test on real sync code, spec oracle, 4 negative controls).
 # row 89 (2026-11-11): tests/evidence-sha-89.js (evidence-without-SHA gate negative controls, T2 tool smoke, ci-negative-proof-57).
 # row 87 (2026-11-11): server/field-crypto.js (AEAD field encryption, env keyring), tests/field-crypto-87.js (rotation, DB-dump negative, PG, 6 mutants), deploy/.env.example (PAYESH_FIELD_KEYS placeholder, no value).
