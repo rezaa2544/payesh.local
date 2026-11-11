@@ -1,0 +1,36 @@
+{
+  "provenance": {
+    "base_sha": "0afd5c7e1f31840ff988157553bb0e12160801df",
+    "date_utc": "2026-11-11T15:44:14Z",
+    "branch": "arena/vuln-84",
+    "label": "[S]",
+    "note": "live OSV scan of the repository SBOM (tools/osv-scan-84.mjs)"
+  },
+  "tool": "osv-scan-84",
+  "source": "https://api.osv.dev",
+  "date_utc": "2026-11-11T15:42:33.166Z",
+  "ok": true,
+  "policy": {
+    "fail_at": {
+      "shipped": "high",
+      "dev": "critical"
+    },
+    "unknown_severity": "high",
+    "max_exception_days": 90,
+    "exceptions": 0
+  },
+  "counts": {
+    "components": 194,
+    "queried": 190,
+    "not_in_osv": 4,
+    "advisories": 0,
+    "blocking": 0,
+    "shipped_findings": 0,
+    "dev_findings": 0,
+    "accepted_exceptions": 0,
+    "stale_exceptions": 0
+  },
+  "findings": [],
+  "stale": [],
+  "violations": []
+}

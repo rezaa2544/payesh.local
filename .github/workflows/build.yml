@@ -38,6 +38,22 @@ jobs:
       - name: نصب وابستگی‌های آزمون
         run: npm install --no-audit --no-fund
 
+      # ردیف ۸۴: هر build یک SBOM (CycloneDX) از قفل‌فایل‌های npm و pub می‌سازد و
+      # آن را در برابر OSV می‌سنجد؛ آسیب‌پذیری HIGH در وابستگی عرضه‌شده (یا CRITICAL
+      # در dev) بدون استثنای مستند در tools/osv-policy-84.json ⇒ build قرمز.
+      - name: SBOM + اسکن آسیب‌پذیری (ردیف ۸۴)
+        run: |
+          set -o pipefail
+          mkdir -p sbom-84
+          node tools/sbom-95.mjs --out sbom-84/payesh-sbom.cdx.json | tee sbom-84/sbom.txt
+          node tools/osv-scan-84.mjs --sbom sbom-84/payesh-sbom.cdx.json --out sbom-84/osv-84-report.json | tee sbom-84/osv-84.txt
+          (cd sbom-84 && sha256sum payesh-sbom.cdx.json osv-84-report.json | tee SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom-84
+          path: sbom-84/
+
       - name: آزمون‌های سرور
         run: |
           set +e
