@@ -1292,6 +1292,11 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(saveCfg.data.ok, true, 'پیکربندی آزمون ذخیره شد');
     const phLogin = await req('/api/phone/login', { method: 'POST', body: { phone: '09120000001', password: 'madrese1404' } });
     assert.strictEqual(phLogin.data.ok, true, 'ورود گوشی: ' + JSON.stringify(phLogin.data).slice(0, 160));
+    /* ردیف ۶۵: عمر اعلام‌شده با عمر واقعی نشست (access TTL کوتاه) یکی است */
+    const phLeft = Date.parse(phLogin.data.expires_at) - Date.now();
+    assert.ok(phLeft > 0 && Math.abs(phLeft - phLogin.data.expires_hours * 3600000) < 120000,
+      'expires_hours با expires_at نشست گوشی می‌خواند: ' + phLogin.data.expires_hours + ' / ' + phLogin.data.expires_at);
+    assert.ok(phLogin.data.expires_hours < 24, 'نشست گوشی دیگر ۲۴ ساعته اعلام نمی‌شود');
     const phKeys = deepKeys(phLogin.data);
     assert.ok(!phKeys.includes('accessKey') && !phKeys.includes('secret'), 'پاسخ ورود گوشی هیچ کلید/رازی ندارد');
     const tickets = phLogin.data.tickets || {};

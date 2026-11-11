@@ -677,7 +677,9 @@ async function api(req, res, url, ip) {
     /* تیکت نگرفت (حافظهٔ ابری تنظیم نیست) هم ورود موفق است؛ گوشی در صف محلی می‌نویسد */
     return json(Object.assign({
       ok: true, token: r.session, user: auth.publicUser(r.user),
-      expires_hours: auth.SESSION_HOURS, keyless: true,
+      /* ردیف ۶۵: عمر واقعیِ access token (PAYESH_ACCESS_TTL_MIN)، نه ۲۴ ساعتِ قدیمی؛
+         هویت ماندگار گوشی تیکت ۲۰۰ روزهٔ دستگاه است، نه این نشست. */
+      expires_hours: auth.accessTtlMs() / 3600000, expires_at: r.session.expires_at, keyless: true,
       device_ticket: dt,
     }, t.ok ? t : { tickets: null, error_cloud: t.error }));
   }
