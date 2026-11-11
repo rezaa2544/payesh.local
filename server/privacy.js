@@ -64,10 +64,12 @@ function scrubExportData(data, { role, self = false } = {}) {
   return out;
 }
 
-/** Product-row shape ({collection,id,data,…}) → scrubbed copy for `scope` (role + uid). */
-function scrubExportRow(scope, row) {
+/** Product-row shape ({collection,id,data,…}) → scrubbed copy for `scope` (role + uid).
+    opts.subject = a "my data" export: secrets go even for a manager. */
+function scrubExportRow(scope, row, opts = {}) {
   if (!row) return row;
   const role = String((scope && scope.role) || '');
+  if (role === 'manager' && !opts.subject) return row;
   const self = row.collection === 'users' && scope && Number.isFinite(Number(scope.uid)) && Number(row.id) === Number(scope.uid);
   return Object.assign({}, row, { data: scrubExportData(row.data, { role, self }) });
 }

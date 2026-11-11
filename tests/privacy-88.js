@@ -40,11 +40,14 @@ async function pure() {
     assert(Object.isFrozen(privacy.EXPORT_ROLES), 'allowlist frozen');
     return 'guard,admin,"",MANAGER → refused';
   });
-  await check('PV-02', 'scrub: non-manager loses identity fields in ANY collection (not only users) except own users row; secrets go for everyone', () => {
+  await check('PV-02', 'scrub: non-manager loses identity + secret fields in ANY collection except own users row (own row: secrets still go); manager school export untouched; "my data" drops secrets for all', () => {
     const data = { name: 'x', national_id: NID.s3, father_nid: '1', phone: '0912', password_hash: 'h', token_x: 't', score: 19 };
     eq(Object.keys(privacy.scrubExportData(data, { role: 'teacher' })), ['name', 'score'], 'teacher, other row');
     eq(Object.keys(privacy.scrubExportData(data, { role: 'teacher', self: true })), ['name', 'national_id', 'father_nid', 'phone', 'score'], 'self row');
-    eq(Object.keys(privacy.scrubExportData(data, { role: 'manager' })), ['name', 'national_id', 'father_nid', 'phone', 'score'], 'manager');
+    eq(Object.keys(privacy.scrubExportData(data, { role: 'manager' })), ['name', 'national_id', 'father_nid', 'phone', 'score'], 'manager data-level');
+    const mrow = { collection: 'users', id: 7, data };
+    eq(privacy.scrubExportRow({ role: 'manager', uid: 1 }, mrow), mrow, 'manager school export row is returned as stored');
+    assert(!('password_hash' in privacy.scrubExportRow({ role: 'manager', uid: 7 }, mrow, { subject: true }).data), 'my-data export drops secrets even for a manager');
     const att = privacy.scrubExportRow({ role: 'parent', uid: 5 }, { collection: 'attendance', id: 9, data: { student_id: 3, national_id: NID.stray } });
     assert(!('national_id' in att.data), 'attendance row with a stray national_id is scrubbed');
     const selfRow = privacy.scrubExportRow({ role: 'parent', uid: 5 }, { collection: 'users', id: 5, data: { national_id: NID.parent } });
@@ -157,15 +160,15 @@ async function cloud() {
     });
     const others = (json, keep) => Object.entries(NID).filter(([k]) => !keep.includes(k)).filter(([, v]) => json.includes(v)).map(([k]) => k);
 
-    await check('PV-10', 'manager exports the whole school with identity fields; secrets removed; no other school', async () => {
+    await check('PV-10', 'manager exports the whole school as stored (identity fields; backup/migration-grade — pilot reconciliation hashes it); no other school', async () => {
       const r = await call('POST', '/export', T.mgr, { collection: 'users' });
       eq(r.status, 200, 'status');
       const j = JSON.stringify(r.body);
       eq([r.body.count, r.body.scope], [5, 'school'], 'count/scope');
       assert(j.includes(NID.s3) && j.includes(NID.s4), 'manager sees national_id (D1)');
-      assert(!j.includes('secret-hash') && !j.includes('password_hash'), 'password_hash never exported');
+      assert(j.includes('secret-hash'), 'manager export is byte-identical to the stored row (pilot PL-03/PL-09)');
       assert(!j.includes(NID.b9), 'school B absent');
-      return 'users=5 identity=yes secrets=no';
+      return 'users=5 identity=yes as_stored=yes';
     });
     await check('PV-11', 'teacher export of grades/attendance = own classes only, and no one\'s national_id (also not a stray one inside attendance)', async () => {
       const g = await call('POST', '/export', T.tch, { collection: 'grades' });
@@ -202,6 +205,7 @@ async function cloud() {
       eq(others(j, ['s3']), [], 'other national_ids');
       const m = await call('POST', '/export/me', T.mgr);
       eq(m.body.rows.map(x => `${x.collection}/${x.id}`), ['users/1'], 'manager own data');
+      assert(!JSON.stringify(m.body).includes('secret-hash'), 'manager "my data" carries no password hash');
       return `student rows=${r.body.count}`;
     });
     await check('PV-15', 'guard (not on the allowlist) cannot export anything, not even "my data"', async () => {

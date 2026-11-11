@@ -886,7 +886,7 @@ async function exportSubject(pool, tenantId, { claims }) {
       : scopeMod.rowInScope(scope, r.collection, Object.assign({}, r.data, { id: r.id })));
     const all = q.rows.map(productRowOf).filter(mine);
     const truncated = all.length > SUBJECT_EXPORT_MAX;
-    const rows = all.slice(0, SUBJECT_EXPORT_MAX).map(r => privacy.scrubExportRow({ role: scope.role, uid: scope.uid }, r));
+    const rows = all.slice(0, SUBJECT_EXPORT_MAX).map(r => privacy.scrubExportRow({ role: scope.role, uid: scope.uid }, r, { subject: true }));
     const byCollection = {};
     for (const r of rows) byCollection[r.collection] = (byCollection[r.collection] || 0) + 1;
     return { subject: { role: scope.role, uid: scope.uid }, count: rows.length, truncated, by_collection: byCollection, rows };

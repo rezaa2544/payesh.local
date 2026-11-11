@@ -1,17 +1,17 @@
 base_sha=2e5652079ddbe11a63c6fbcfd5d89201d1bb8492
-date_utc=2026-11-11T16:05:48Z
+date_utc=2026-11-11T16:13:11Z
 row=88
 cmd=PAYESH_PG_ADMIN=postgres://postgres@127.0.0.1:5432/payesh_c64 node --experimental-sqlite tests/privacy-88.js  (PostgreSQL 16.9)
 
 Row 88: privacy — export role allowlist, no foreign national_id, tombstone retention, cross-school refusal
 
 PASS  PV-01  export role allowlist is closed: manager=school; teacher/counselor/parent/student=scoped; guard/unknown refused  → guard,admin,"",MANAGER → refused
-PASS  PV-02  scrub: non-manager loses identity fields in ANY collection (not only users) except own users row; secrets go for everyone  → ok
+PASS  PV-02  scrub: non-manager loses identity + secret fields in ANY collection except own users row (own row: secrets still go); manager school export untouched; "my data" drops secrets for all  → ok
 PASS  PV-03  tombstone retention: default 90 days, minimum 31 (> device stale 30 / feed keep 30), maximum 3650; invalid → null  → min=31 default=90 max=3650
 PASS  PV-04  cross-school: tenant_id/tenantId/tid in body or query must equal the token tenant (case-insensitive)  → ok
 PASS  PV-05  local school server (SQLite): tombstone view has no body; purge removes only tombstones older than retention  → purged=2 left=1
 PASS  PV-06  local endpoints sit behind the manager-only /api/admin gate and validate retain_days  → ok
-PASS  PV-10  manager exports the whole school with identity fields; secrets removed; no other school  → users=5 identity=yes secrets=no
+PASS  PV-10  manager exports the whole school as stored (identity fields; backup/migration-grade — pilot reconciliation hashes it); no other school  → users=5 identity=yes as_stored=yes
 PASS  PV-11  teacher export of grades/attendance = own classes only, and no one's national_id (also not a stray one inside attendance)  → grades=1 attendance=1 scope=scoped
 PASS  PV-12  non-manager full users export stays refused (row 57)  → ok
 PASS  PV-13  parent "my data": own row with own national_id, the linked child without national_id, child's grades only  → {"attendance":1,"grades":1,"parent_links":1,"schedule":1,"users":2}
@@ -25,3 +25,4 @@ PASS  PV-19  negative control: the same fixture DOES leak without the row-88 sco
 checks=16 pass=16 fail=0
 PRIVACY-88-OK checks=16
 --- mutants (manual, reverted): scope removed from exportProduct ⇒ PV-11 FAIL (grades [3,4]); identity scrub removed ⇒ PV-02/11/13/14 FAIL
+--- pilot gate (gen-pilot-gate.sh, embedded PG): PILOT-OK checks=12 · PILOT-GATE-CLOSED checks=20 (manager export as stored)
