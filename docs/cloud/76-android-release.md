@@ -41,7 +41,7 @@
 خط آخر: `ANDROID-RELEASE-76-OK … distributable=true|false` یا `ANDROID-RELEASE-76-FAIL`؛ آرگومان بد ⇒ exit 2. دروازهٔ ۶۳ (`native-gate-63`) روی همان خروجی اجرا می‌شود.
 
 ## ۵. آزمون
-`node tests/android-release-76.js` — ۲۲ بررسی: AR-OK-1/2، **۱۴ منفی** (AR-N1..N14: targetSdk قدیمی، debuggable، گواهی debug در release، فقط v1، مجوز اضافه، پین نادرست، AAB امضانشده، آرگومان بد…) و W-1..W-6 (سیم‌کشی workflow/Gradle: هیچ کدی پیش از `plugins {}`، رمز لیترال نیست، keystore در مخزن نیست، پاک‌کردن p12). `tools/check-android-signing-safety.cjs` هم سبز است.
+`node tests/android-release-76.js` — ۲۵ بررسی: AR-OK-1/2/3، **۱۶ منفی** (AR-N1..N16: targetSdk قدیمی، debuggable، گواهی debug در release، فقط v1، مجوز اضافه، پین نادرست، AAB امضانشده، آرگومان بد، دو گواهی یا پین نادرست در قالب خروجی apksigner 37…) و W-1..W-6 (سیم‌کشی workflow/Gradle: هیچ کدی پیش از `plugins {}`، رمز لیترال نیست، keystore در مخزن نیست، پاک‌کردن p12). `tools/check-android-signing-safety.cjs` هم سبز است.
 
 ## ۶. OWNER
 1. ساخت/نگهداری keystore انتشار و تنظیم Secrets بالا (ردیف ۶۱ — کلید هرگز به ARENA داده نمی‌شود).

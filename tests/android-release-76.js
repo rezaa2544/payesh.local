@@ -108,6 +108,23 @@ check('AR-N14', 'NEGATIVE: missing inputs / unknown flag ⇒ exit 2', () => {
   return 'exit 2';
 });
 
+/* build-tools 37 changed `apksigner verify --print-certs`: "V2 Signer: certificate DN: …" instead of "Signer #1 …".
+   The fixtures are REAL apksigner 37.0 output (throwaway test key, CN=Test) — CI failed AR-06 on this format. */
+const FIX37 = f => fs.readFileSync(path.join(ROOT, 'tests/fixtures/apksigner-37', f), 'utf8');
+const SHA37 = '3e97c784c7d7f0c7b8733ac64fce3b1591342201795253651cd03f41b45390eb';
+check('AR-OK-3', 'real apksigner 37 output (v2-only and v2+v3): exactly one signer, pinned digest matches', () => {
+  for (const f of ['v2-only.txt', 'v2-v3.txt']) {
+    const r = run(badging(), FIX37(f), jar(), ['--mode', 'release', '--expect-cert-sha256', SHA37]);
+    assert(r.code === 0 && r.last.includes(`signer_sha256=${SHA37}`), `${f}: ${r.code}: ${r.last}`);
+  }
+  return 'v2-only, v2+v3';
+});
+neg('AR-N15', 'apksigner 37 format with two different certificates', badging(),
+  FIX37('v2-only.txt') + 'V3.1 Signer: certificate DN: CN=Other\nV3.1 Signer: certificate SHA-256 digest: ' + 'f6'.repeat(32) + '\n',
+  jar(), ['--mode', 'release'], 'AR-06');
+neg('AR-N16', 'apksigner 37 format, signer differs from the owner pin', badging(), FIX37('v2-v3.txt'), jar(),
+  ['--mode', 'release', '--expect-cert-sha256', OWNER_SHA], 'pinned');
+
 check('W-1', 'build.gradle.kts: signing only from env, fail-closed flag, v2/v3, not debuggable', () => {
   const g = read('apps/payesh/app/android/app/build.gradle.kts');
   for (const n of ['PAYESH_KEYSTORE', 'PAYESH_KEYSTORE_PASS', 'PAYESH_KEY_ALIAS', 'PAYESH_KEY_PASS']) assert(g.includes(`System.getenv("${n}")`) || g.includes(`"${n}"`), `${n} not read from env`);

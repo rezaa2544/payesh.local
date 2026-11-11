@@ -52,11 +52,19 @@ export function parseBadging(text) {
 export function parseApksigner(text) {
   const t = String(text || '');
   const scheme = v => { const m = new RegExp(`^Verified using ${v} scheme[^:]*:\\s*(true|false)`, 'm').exec(t); return m ? m[1] === 'true' : false; };
-  const signers = [...t.matchAll(/^Signer #(\d+) certificate DN:\s*(.+)$/gm)].map(m => ({ n: Number(m[1]), dn: m[2].trim() }));
-  for (const s of signers) {
-    const m = new RegExp(`^Signer #${s.n} certificate SHA-256 digest:\\s*([0-9a-fA-F:]+)`, 'm').exec(t);
-    s.sha256 = m ? m[1].replace(/:/g, '').toLowerCase() : null;
+  /* apksigner <= 36 prints "Signer #1 certificate DN: …"; build-tools 37 prints the scheme instead:
+     "V2 Signer: certificate DN: …", "V3.0 Signer: …", "V3.1 Signer: …", "V3.2 Hybrid Classical Signer: …".
+     A key that signs several schemes is ONE signer, so signers are de-duplicated by certificate digest. */
+  const LABEL = /^((?:Signer #\d+)|(?:V\d+(?:\.\d+)?(?: [A-Za-z]+)* Signer(?: #\d+)?(?: \([^)\n]*\))?)):? certificate DN:\s*(.+)$/gm;
+  const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const byKey = new Map();
+  for (const m of t.matchAll(LABEL)) {
+    const d = new RegExp(`^${esc(m[1])}:? certificate SHA-256 digest:\\s*([0-9a-fA-F:]+)`, 'm').exec(t);
+    const s = { label: m[1], dn: m[2].trim(), sha256: d ? d[1].replace(/:/g, '').toLowerCase() : null };
+    const key = s.sha256 || s.dn;
+    if (!byKey.has(key)) byKey.set(key, s);
   }
+  const signers = [...byKey.values()].map((s, i) => ({ n: i + 1, ...s }));
   const count = /^Number of signers:\s*(\d+)/m.exec(t);
   return {
     verifies: /^Verifies\s*$/m.test(t) && !/^DOES NOT VERIFY/m.test(t),

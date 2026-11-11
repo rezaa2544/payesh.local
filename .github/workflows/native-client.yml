@@ -443,6 +443,7 @@ jobs:
           echo "build-tools: $BT"
           "$BT/aapt2" dump badging native-out/payesh-native.apk > native-out/aapt2-badging.txt
           "$BT/apksigner" verify --verbose --print-certs native-out/payesh-native.apk > native-out/apksigner.txt 2>&1
+          grep -E "^(Verif|Number of signers|.*certificate (DN|SHA-256))" native-out/apksigner.txt || true
           jarsigner -verify -certs native-out/payesh-native.aab > native-out/jarsigner-aab.txt 2>&1 || true
           MODE=rehearsal; [ "$READY" = "true" ] && MODE=release
           if [[ "$GITHUB_REF" == refs/tags/native-v* ]] && [ "$MODE" != release ]; then
