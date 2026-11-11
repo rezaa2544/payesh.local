@@ -41,3 +41,10 @@ PASS  MUT-echo  revert in server/index.js ⇒ ID65-16 red  → red=[ID65-16]
 MUTANTS total=10 killed=10
 
 IDENTITY-65-OK checks=20 mutants_killed=10/10
+
+── addendum (commit afd17db, 2026-11-11T04:40Z) ──
+/api/phone/login: expires_hours = accessTtlMs()/3600000 (+ expires_at) instead of SESSION_HOURS=24.
+npm test on afd17db: pass=110 fail=0 (tests-run-afd17db-20261111T044042Z.log); gen-audit-evidence: EVIDENCE-OK
+negative control: revert to auth.SESSION_HOURS ⇒ tests/run.js F‑04 red:
+  ✗ … expires_hours با expires_at نشست گوشی می‌خواند: 24 / 2026-11-11T04:55:05.217Z
+identity-65 (IDENTITY65_NO_MUTANTS=1) on afd17db: IDENTITY-65-OK checks=20
