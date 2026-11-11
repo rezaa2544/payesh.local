@@ -7,6 +7,7 @@
 ///   `DataEngine` from `payesh_data`.
 library;
 
+export 'src/auto_sync.dart';
 export 'src/direct_transport.dart';
 export 'src/gateway_transport.dart';
 export 'src/http_transport.dart';

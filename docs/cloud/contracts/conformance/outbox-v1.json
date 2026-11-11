@@ -861,6 +861,225 @@
      }
     }
    ]
+  },
+  {
+   "name": "row 119: FIFO barrier — a later op never overtakes an earlier op in backoff",
+   "config": {
+    "capacity": 10,
+    "leaseMs": 30000,
+    "maxAttempts": 3,
+    "baseBackoffMs": 1000,
+    "maxBackoffMs": 4000,
+    "jitter": 0,
+    "batchLimit": 5
+   },
+   "steps": [
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "cls",
+      "collection": "classes",
+      "type": "put",
+      "at": "2026-11-11T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "claim",
+     "limit": 5,
+     "now": 0,
+     "expect_keys": [
+      "cls"
+     ]
+    },
+    {
+     "op": "fail",
+     "k": "cls",
+     "now": 0,
+     "error": "offline",
+     "transient": true,
+     "expect": {
+      "state": "pending",
+      "attempts": 1,
+      "next_at": 1000
+     }
+    },
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "stu",
+      "collection": "students",
+      "type": "put",
+      "at": "2026-11-11T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "claim",
+     "limit": 5,
+     "now": 500,
+     "expect_keys": []
+    },
+    {
+     "op": "claim",
+     "limit": 5,
+     "now": 1000,
+     "expect_keys": [
+      "cls",
+      "stu"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "row 119: transient failures (offline, timeout, 429, 5xx) never block; capped backoff; a non-transient failure past maxAttempts still blocks",
+   "config": {
+    "capacity": 10,
+    "leaseMs": 30000,
+    "maxAttempts": 3,
+    "baseBackoffMs": 1000,
+    "maxBackoffMs": 4000,
+    "jitter": 0,
+    "batchLimit": 5
+   },
+   "steps": [
+    {
+     "op": "enqueue",
+     "input": {
+      "k": "a",
+      "collection": "students",
+      "type": "put",
+      "at": "2026-11-11T08:00:00.000Z",
+      "data": {}
+     },
+     "expect": {
+      "ok": true,
+      "duplicate": false
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "offline",
+     "transient": true,
+     "expect": {
+      "state": "pending",
+      "attempts": 1,
+      "next_at": 1000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "offline",
+     "transient": true,
+     "expect": {
+      "state": "pending",
+      "attempts": 2,
+      "next_at": 2000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "offline",
+     "transient": true,
+     "expect": {
+      "state": "pending",
+      "attempts": 3,
+      "next_at": 4000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "offline",
+     "transient": true,
+     "expect": {
+      "state": "pending",
+      "attempts": 4,
+      "next_at": 4000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "offline",
+     "transient": true,
+     "expect": {
+      "state": "pending",
+      "attempts": 5,
+      "next_at": 4000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "offline",
+     "transient": true,
+     "expect": {
+      "state": "pending",
+      "attempts": 6,
+      "next_at": 4000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "offline",
+     "transient": true,
+     "expect": {
+      "state": "pending",
+      "attempts": 7,
+      "next_at": 4000
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "offline",
+     "transient": true,
+     "expect": {
+      "state": "pending",
+      "attempts": 8,
+      "next_at": 4000
+     }
+    },
+    {
+     "op": "stats",
+     "expect": {
+      "pending": 1,
+      "blocked": 0
+     }
+    },
+    {
+     "op": "fail",
+     "k": "a",
+     "now": 0,
+     "error": "bad_ops",
+     "expect": {
+      "state": "blocked",
+      "attempts": 9,
+      "next_at": 0
+     }
+    }
+   ]
   }
  ]
 }
