@@ -4981,6 +4981,14 @@ async function waitFor(fn, ms = 15000) {
   await test('PR‑3: UI سرتاسری روی API واقعی — ورود fail-closed، هشت صفحه، loading/empty/error، نقش operator، حذف دومرحله‌ای، تم',
     async () => { await ownerSpa.ui(); console.log('    OWNER-SPA checks=' + ownerSpa.checks() + ' failures=0'); });
 
+  /* ── ردیف ۱۱۸: تطبیق Done در Notion با حقیقت مخزن (جدول PASS/PARTIAL/BLOCKED/…) ── */
+  await test('ردیف ۱۱۸: جدول تطبیق — مسیرها موجود، برچسب/آزمون برای PASS، امنیت UNKNOWN، وضعیت ساخت مدرسه/صفحه‌های بومی/لایهٔ زیرساخت مطابق کد، کنترل منفی جهش',
+    async () => {
+      const r = await require('./reconcile-118.js').main({ quiet: true });
+      if (r.failed) throw new Error('RECONCILE-118 failures: ' + r.failures.join(','));
+      console.log('    RECONCILE-118-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
+    });
+
   /* ── ردیف ۹۸ / D‑45: صادرکنندهٔ ورود انسانی (رمز + TOTP، حداکثر ۳ حساب) ── */
   const ownerLogin = require('../apps/owner-panel/tests/owner-login.test.js');
   await test('D‑45: ورود رمز + TOTP — بردارهای RFC 6238/4226/4648، scrypt، تکرار کد، قفل، سهمیه، سقف ۳ حساب، مرز دیتابیس، rollback',
@@ -4993,6 +5001,14 @@ async function waitFor(fn, ms = 15000) {
   await test('PR‑4: بستهٔ وب قطعی و گیت خروجی‌ها (نبود/خالی/checksum/ادعای امضای بی‌شاهد ⇒ قرمز)',
     () => { const r = ownerPackaging.scriptChecks(); console.log('    OWNER-ARTIFACTS gate_negative_controls=' + r.negative_controls + ' failures=0'); });
 
+  /* ── ردیف ۱۱۷: ADR مرحله‌ای کم‌هزینه + همگام‌سازی قانون اساسی + ADR‑105 (Parked) ── */
+  await test('ردیف ۱۱۷: ADR‑117 مراحل A→D با دروازه/برچسب، D‑48، بند ۲۵ بی‌تغییر، ADR‑105 Parked از a532393، ترابری پیش‌فرض Gateway، کنترل منفی جهش',
+    async () => {
+      const r = await require('./adr-117.js').main({ quiet: true });
+      if (r.failed) throw new Error('ADR-117 failures: ' + r.failures.join(','));
+      console.log('    ADR-117-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
+    });
+
   /* ── ردیف ۱۰۲: پنل مالک · اجرای محلی با یک فرمان (local-up) ─────────── */
   const ownerLocalUp = require('../apps/owner-panel/tests/local-up.test.js');
   await test('ردیف ۱۰۲: local-up — فقط loopback، DATABASE_URL محلی، migration idempotent، رازها خارج از Git، ورود TOTP، خاموشی تمیز، بدون 004 ⇒ 501',
@@ -5002,6 +5018,12 @@ async function waitFor(fn, ms = 15000) {
       const r = await require('./e2e1-107.js').main({ quiet: true });
       if (r.failed) throw new Error('E2E1-107 failures: ' + r.failures.join(','));
       console.log('    E2E1-107-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
+    });
+  await test('ردیف ۱۱۵: پروب هاست — Node≥22.5/sqlite، ماندگاری دیسک، همیشه‌روشن، TLS خروجی PG بدون اعتبارنامه، redaction، فرم مالک، کنترل منفی جهش',
+    async () => {
+      const r = await require('./host-probe-115.js').main({ quiet: true });
+      if (r.failed) throw new Error('HOST-PROBE-115 failures: ' + r.failures.join(','));
+      console.log('    HOST-PROBE-115-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
     });
 
   /* ── ردیف ۱۱۹: آفلاین — Gateway با قطع اتصال PostgreSQL نمی‌میرد ───────── */

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>فرم پروب هاست پایش (ردیف ۱۱۵)</title>
+<style>
+body{font-family:Tahoma,sans-serif;margin:16px;line-height:1.8;max-width:900px}
+fieldset{margin:10px 0;border:1px solid #ccc;padding:8px 12px}
+label{display:block;margin:6px 0}
+input[type=text],input[type=number],select,textarea{font:inherit;padding:4px;min-width:200px}
+textarea{width:100%;min-height:90px}
+pre{direction:ltr;text-align:left;background:#f4f4f4;padding:8px;white-space:pre-wrap;word-break:break-all}
+.hint{color:#555;font-size:90%}
+button{font:inherit;padding:4px 14px;margin:4px 0}
+</style>
+</head>
+<body>
+<h1>فرم پروب هاست پایش</h1>
+<p>اگر نمی‌توانید ابزار <code>host-probe.mjs</code> را روی هاست اجرا کنید، این فرم را با آنچه <b>پنل هاست</b> نشان می‌دهد پر کنید.
+این صفحه به اینترنت وصل نمی‌شود و چیزی نمی‌فرستد. <b>هیچ رمز یا نام کاربری وارد نکنید</b>؛ اگر اشتباهاً در متن چسبانده‌شده باشد، در خروجی نمی‌آید.</p>
+<p class="hint">هر چیزی را نمی‌دانید «نمی‌دانم» بگذارید — «نامعلوم» صادقانه‌تر از حدس است.</p>
+
+<fieldset><legend>۱) متن صفحهٔ پنل را اینجا بچسبانید (اختیاری)</legend>
+<textarea id="paste" placeholder="مثلاً: Node.js version 22.11.0 — RAM 1 GB — Disk 10 GB — CPU 2 cores"></textarea>
+<button type="button" id="extract">استخراج خودکار عددها</button>
+<div class="hint">فقط عددهای نسخهٔ Node، حافظه، دیسک و هسته برداشته می‌شود؛ خود متن در خروجی نمی‌آید.</div>
+</fieldset>
+
+<fieldset><legend>۲) مقادیر</legend>
+<label>نوع/نام پنل هاست: <input type="text" id="panel" placeholder="مثلاً cPanel / DirectAdmin / پنل اختصاصی RadCloud"></label>
+<label>نسخهٔ Node.js قابل انتخاب (بالاترین): <input type="text" id="node" placeholder="22.11.0"></label>
+<label>حافظه (مگابایت): <input type="number" id="mem" min="0"></label>
+<label>تعداد هستهٔ پردازنده: <input type="number" id="cpu" min="0" step="0.25"></label>
+<label>فضای دیسک (گیگابایت): <input type="number" id="disk" min="0" step="0.5"></label>
+<label>پوشهٔ ماندگار (پس از ری‌استارت پاک نمی‌شود): <select id="persist"></select></label>
+<label>همیشه روشن (بدون خواب بعد از بی‌کاری): <select id="always"></select></label>
+<label>گواهی SSL / HTTPS: <select id="https"></select></label>
+<label>PostgreSQL روی همین هاست: <select id="pglocal"></select></label>
+<label>اتصال خروجی به پورت 5432 (PostgreSQL بیرونی) مجاز است: <select id="pgout"></select></label>
+<label>لاگ برنامهٔ Node در پنل دیده می‌شود: <select id="logs"></select></label>
+<label>بکاپ خودکار پنل: <select id="backup"></select></label>
+<label>توضیح (بدون رمز): <input type="text" id="notes" style="width:100%"></label>
+</fieldset>
+
+<button type="button" id="build">ساخت گزارش</button>
+<h2>این متن را کامل کپی کنید و بفرستید</h2>
+<pre id="out">(هنوز ساخته نشده)</pre>
+
+<script>
+'use strict';
+/* ── منطق خالص (در tests/host-probe-115.js بدون DOM آزموده می‌شود) ── */
+var SCHEMA = 'payesh-host-probe/1';
+var REQUIRED_FOR_GATEWAY = ['node_version', 'node_sqlite', 'disk_persistence', 'always_on', 'https'];
+var TRI = { yes: 'بله', no: 'خیر', unknown: 'نمی‌دانم' };
+
+function parseVersion(v) {
+  var m = String(v || '').replace(/^v/, '').match(/^(\d+)\.(\d+)(?:\.(\d+))?/);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3] || 0)] : null;
+}
+function versionOk(v) { return v[0] > 22 || (v[0] === 22 && v[1] >= 5); }
+
+function redactText(s) {
+  return String(s || '')
+    .replace(/([a-z][a-z0-9+.-]*:\/\/)([^\s\/@:"]+):([^\s\/@"]+)@/gi, '$1***:***@')
+    .replace(/\b(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|رمز|گذرواژه)(\s*[=:]\s*)([^\s&",]+)/gi, '$1$2***')
+    .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, '***')
+    .replace(/\b(ghp|gho|ghs|github_pat|sk|pk|xox[bpa])_[A-Za-z0-9_]{12,}\b/g, '***')
+    .slice(0, 500);
+}
+
+function toEnDigits(s) {
+  return String(s || '').replace(/[۰-۹]/g, function (d) { return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)); })
+    .replace(/[٠-٩]/g, function (d) { return String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)); });
+}
+function sizeToMb(n, unit) {
+  var u = String(unit || '').toLowerCase();
+  var x = Number(n);
+  if (/^(t|tb|tib|ترابایت)/.test(u)) return Math.round(x * 1024 * 1024);
+  if (/^(g|gb|gib|گیگ)/.test(u)) return Math.round(x * 1024);
+  return Math.round(x);
+}
+/* متن آزاد پنل → مقادیر عددی. فقط عددها؛ هیچ متنی نگه داشته نمی‌شود. */
+function parsePanelText(text) {
+  var t = toEnDigits(text);
+  var out = {};
+  var m = t.match(/node(?:\.?js)?[^0-9\n]{0,30}v?(\d{1,2}\.\d{1,3}(?:\.\d{1,3})?)/i);
+  if (m) out.node = m[1];
+  var SZ = '(\\d+(?:\\.\\d+)?)\\s*(tb|tib|gb|gib|mb|mib|g|m|گیگابایت|گیگ|مگابایت|مگ|ترابایت)';
+  m = t.match(new RegExp('(?:ram|memory|mem|حافظه|رم)[^0-9\\n]{0,20}' + SZ, 'i'));
+  if (m) out.mem = sizeToMb(m[1], m[2]);
+  m = t.match(new RegExp('(?:disk|storage|space|ssd|nvme|hdd|دیسک|فضا)[^0-9\\n]{0,20}' + SZ, 'i'));
+  if (m) out.disk = Math.round(sizeToMb(m[1], m[2]) / 1024 * 10) / 10;
+  m = t.match(/(\d+(?:\.\d+)?)\s*(?:v?cpu|vcores?|cores?|هسته)/i) || t.match(/(?:v?cpu|cores?|هسته)[^0-9\n]{0,20}(\d+(?:\.\d+)?)/i);
+  if (m) out.cpu = Number(m[1]);
+  return out;
+}
+
+function chk(id, title, label, status, value, detail) {
+  return { id: id, title_fa: title, label: label, status: status, value: value === undefined ? null : value, detail_fa: detail || '' };
+}
+function tri(id, title, v, passWhenYes, failDetail) {
+  if (v === 'yes') return chk(id, title, 'M', passWhenYes ? 'pass' : 'fail', 'yes', 'طبق پنل: بله.');
+  if (v === 'no') return chk(id, title, 'M', passWhenYes ? 'fail' : 'pass', 'no', failDetail || 'طبق پنل: خیر.');
+  return chk(id, title, '?', 'unknown', null, 'مالک نمی‌داند / وارد نشده.');
+}
+function num(x) { var n = Number(toEnDigits(x)); return x === '' || x === null || x === undefined || !isFinite(n) || n <= 0 ? null : n; }
+
+function verdict(checks) {
+  var by = {}; checks.forEach(function (c) { by[c.id] = c; });
+  var blockers = [], unknown = [];
+  REQUIRED_FOR_GATEWAY.forEach(function (id) {
+    var c = by[id]; if (!c) { unknown.push(id); return; }
+    if (c.status === 'fail') blockers.push(id); else if (c.status !== 'pass') unknown.push(id);
+  });
+  var pg = [by.outbound_tls_pg, by.local_postgres].filter(Boolean);
+  if (pg.some(function (c) { return c.status === 'pass'; })) { /* یکی کافی است */ }
+  else if (pg.length && pg.every(function (c) { return c.status === 'fail'; })) blockers.push('postgres_reachable');
+  else unknown.push('postgres_reachable');
+  return { gateway_on_this_host: blockers.length ? 'not_ready' : unknown.length ? 'incomplete' : 'ready', blockers: blockers, unknown: unknown,
+    note_fa: 'این حکم فقط آمادگی فنی مرحلهٔ A را خلاصه می‌کند؛ تصمیم معماری با ردیف‌های ۱۱۶/۱۱۷/۱۲۰ و مالک است.' };
+}
+
+function buildFormReport(f, nowIso) {
+  var checks = [];
+  var v = parseVersion(toEnDigits(f.node));
+  if (!v) checks.push(chk('node_version', 'نسخهٔ Node', '?', 'unknown', null, 'وارد نشده.'));
+  else checks.push(chk('node_version', 'نسخهٔ Node', 'M', versionOk(v) ? 'pass' : 'fail', v.join('.'), versionOk(v) ? 'طبق پنل ≥ 22.5.' : 'کمتر از 22.5؛ node:sqlite ندارد.'));
+  if (!v) checks.push(chk('node_sqlite', 'ماژول node:sqlite', '?', 'unknown', null, 'وابسته به نسخهٔ Node.'));
+  else checks.push(chk('node_sqlite', 'ماژول node:sqlite', versionOk(v) ? '?' : 'M', versionOk(v) ? 'unknown' : 'fail', null,
+    versionOk(v) ? 'از روی نسخه انتظار می‌رود؛ فقط اجرای ابزار آن را [M] می‌کند.' : 'با این نسخه وجود ندارد.'));
+  var panel = redactText(f.panel).slice(0, 80);
+  checks.push(chk('runtime', 'محیط اجرا', panel ? 'M' : '?', panel ? 'pass' : 'unknown', panel ? { panel: panel } : null, panel ? 'طبق گفتهٔ مالک.' : 'وارد نشده.'));
+  var cpu = num(f.cpu); checks.push(cpu ? chk('cpu', 'پردازنده', 'M', cpu >= 1 ? 'pass' : 'warn', { effective: cpu }, 'طبق پنل.') : chk('cpu', 'پردازنده', '?', 'unknown', null, 'وارد نشده.'));
+  var mem = num(f.mem); checks.push(mem ? chk('memory', 'حافظه', 'M', mem >= 512 ? 'pass' : mem >= 256 ? 'warn' : 'fail', { effective_mb: Math.round(mem) }, 'طبق پنل.') : chk('memory', 'حافظه', '?', 'unknown', null, 'وارد نشده.'));
+  var disk = num(f.disk); checks.push(disk ? chk('disk_free', 'فضای دیسک', 'M', disk >= 1 ? 'pass' : disk >= 0.2 ? 'warn' : 'fail', { total_gb: disk }, 'ظرفیت کل طبق پنل (نه فضای آزاد).') : chk('disk_free', 'فضای دیسک', '?', 'unknown', null, 'وارد نشده.'));
+  checks.push(tri('disk_persistence', 'ماندگاری دیسک پس از ری‌استارت', f.persist, true, 'پوشه با ری‌استارت پاک می‌شود؛ داده نمی‌ماند.'));
+  checks.push(tri('always_on', 'همیشه‌روشن (خواب پس از بی‌کاری)', f.always, true, 'اپ پس از بی‌کاری می‌خوابد.'));
+  checks.push(chk('port', 'پورت ورودی', '?', 'unknown', null, 'از فرم قابل سنجش نیست.'));
+  checks.push(tri('https', 'HTTPS عمومی', f.https, true, 'SSL ندارد.'));
+  checks.push(tri('outbound_tls_pg', 'دسترسی خروجی TLS به PostgreSQL بیرونی', f.pgout, true, 'پورت خروجی 5432 بسته است.'));
+  checks.push(chk('outbound_https', 'دسترسی خروجی HTTPS (کانال به‌روزرسانی)', '?', 'unknown', null, 'از فرم قابل سنجش نیست.'));
+  checks.push(tri('local_postgres', 'PostgreSQL روی خود هاست', f.pglocal, true, 'فقط MySQL/هیچ.'));
+  checks.push(tri('logs', 'لاگ', f.logs, true));
+  var b = tri('backup', 'بکاپ', f.backup, true); if (b.label === 'M') { b.status = b.status === 'pass' ? 'warn' : 'fail'; b.detail_fa += ' بازیابی آزمایش‌نشده = هنوز بکاپ نیست (بند ۱۶).'; }
+  checks.push(b);
+  var notes = redactText(f.notes);
+  return {
+    schema: SCHEMA, tool_version: 'form-1.0.0', source: 'owner_panel', generated_at: nowIso || new Date().toISOString(), mode: 'form',
+    labels_legend_fa: { M: 'خوانده‌شده از پنل هاست توسط مالک (نه سنجش ابزار)', '?': 'نامعلوم یا اجرانشده (NOT-RUN)' },
+    checks: checks, verdict: verdict(checks), notes_fa: notes,
+    redaction: { applied: true, raw_paste_included: false }
+  };
+}
+
+/* ── اتصال به صفحه ── */
+if (typeof document !== 'undefined') {
+  ['persist', 'always', 'https', 'pglocal', 'pgout', 'logs', 'backup'].forEach(function (id) {
+    var sel = document.getElementById(id);
+    ['unknown', 'yes', 'no'].forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = TRI[k]; sel.appendChild(o); });
+  });
+  document.getElementById('extract').addEventListener('click', function () {
+    var p = parsePanelText(document.getElementById('paste').value);
+    ['node', 'mem', 'cpu', 'disk'].forEach(function (k) { if (p[k] !== undefined) document.getElementById(k).value = p[k]; });
+  });
+  document.getElementById('build').addEventListener('click', function () {
+    var f = {}; ['panel', 'node', 'mem', 'cpu', 'disk', 'persist', 'always', 'https', 'pglocal', 'pgout', 'logs', 'backup', 'notes'].forEach(function (k) { f[k] = document.getElementById(k).value; });
+    document.getElementById('out').textContent = JSON.stringify(buildFormReport(f), null, 1);
+  });
+}
+</script>
+</body>
+</html>
