@@ -1,0 +1,49 @@
+{
+  "id": "row-95/release-gate",
+  "version": 1,
+  "workflow": ".github/workflows/release-gate.yml",
+  "verdict_job": "verdict",
+  "tag_prefix": "native-v",
+  "owner_checklist": "docs/release/95-owner-checklist.md",
+  "signoff_dir": "docs/release/signoff",
+  "signoff_allowed_diff": ["docs/release/"],
+  "gates": [
+    {
+      "id": "G1-native-63",
+      "title": "No WebView / Node.js in the shipped APK, AAB and Windows bundle (row 63, D-43)",
+      "jobs": ["native"],
+      "sub": { "native": ["gate-controls", "android", "windows"] }
+    },
+    {
+      "id": "G2-leak-matrix-57",
+      "title": "Role x collection x field leak matrix + pull-leak negative controls (row 57)",
+      "jobs": ["leak-matrix"]
+    },
+    {
+      "id": "G3-conformance",
+      "title": "Shared vectors: web parity, Dart client vs real server/Gateway, Native API v1 contract (rows 64, 70, 71, 73, 75, 81)",
+      "jobs": ["native", "api-contract"],
+      "sub": { "native": ["engine-web-conformance", "sync-real-server", "gateway-real", "dart"] }
+    },
+    {
+      "id": "G4-sbom",
+      "title": "CycloneDX SBOM from every shipped lockfile: pinned, hashed, no forbidden packages",
+      "jobs": ["sbom"]
+    },
+    {
+      "id": "G5-labels-55",
+      "title": "Constitution evidence labels ([M]/[S]/[E]/[A]/[?]) gate (row 55)",
+      "jobs": ["labels"]
+    },
+    {
+      "id": "G6-identity-65",
+      "title": "Device identity: rotating refresh, reuse detection, device key proof, 10 mutation controls (row 65)",
+      "jobs": ["identity"]
+    },
+    {
+      "id": "G7-gate-selftest",
+      "title": "The release gate's own negative tests (any single gate failing => blocked)",
+      "jobs": ["selftest"]
+    }
+  ]
+}

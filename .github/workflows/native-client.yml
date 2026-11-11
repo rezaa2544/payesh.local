@@ -60,12 +60,22 @@ on:
       - 'docs/cloud/contracts/conformance/**'
       - '.github/workflows/native-client.yml'
   workflow_dispatch:
+  # Row 95: the release gate (release-gate.yml) calls this workflow on the exact
+  # release commit. Path filters do not apply under workflow_call, so a tag can
+  # never skip the native build; every inner job result is exported below.
+  workflow_call:
+    outputs:
+      results:
+        description: 'inner job results, e.g. gate-controls=success,android=success,…'
+        value: ${{ jobs.native-gate.outputs.results }}
 
 permissions:
   contents: read
 
 concurrency:
-  group: payesh-native-${{ github.ref }}
+  # github.workflow is the CALLER under workflow_call — the release gate never cancels
+  # (or is cancelled by) the ordinary push/PR run of the same ref.
+  group: payesh-native-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -452,9 +462,13 @@ jobs:
     needs: [gate-controls, engine-web-conformance, sync-real-server, gateway-real, dart, android, windows]
     if: always()
     runs-on: ubuntu-latest
+    outputs:
+      results: ${{ steps.verdict.outputs.results }}
     steps:
       - name: Verdict
+        id: verdict
         run: |
+          echo "results=gate-controls=${{ needs.gate-controls.result }},engine-web-conformance=${{ needs.engine-web-conformance.result }},sync-real-server=${{ needs.sync-real-server.result }},gateway-real=${{ needs.gateway-real.result }},dart=${{ needs.dart.result }},android=${{ needs.android.result }},windows=${{ needs.windows.result }}" >> "$GITHUB_OUTPUT"
           echo "gate-controls=${{ needs.gate-controls.result }} engine-web=${{ needs.engine-web-conformance.result }} sync-real-server=${{ needs.sync-real-server.result }} gateway-real=${{ needs.gateway-real.result }} dart=${{ needs.dart.result }} android=${{ needs.android.result }} windows=${{ needs.windows.result }}"
           test "${{ needs.gate-controls.result }}" = success
           test "${{ needs.engine-web-conformance.result }}" = success

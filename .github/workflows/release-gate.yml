@@ -1,0 +1,171 @@
+name: release-gate
+
+# ── Row 95: native release gate ─────────────────────────────────────────────
+# One workflow that runs EVERY gate a native release depends on, on the exact
+# commit being released, and prints one raw summary (tools/release-gate-95.mjs).
+#   · native-v* tag      → mode=release: all CI gates + the owner's signed [M]
+#                          checklist (docs/release/signoff/<tag>.md); publishes
+#                          the GitHub release ONLY if the verdict is green.
+#   · workflow_dispatch  → mode=rehearsal: builds the release candidate the owner
+#                          tests on a real device; nothing is published.
+#   · pull_request       → mode=rehearsal, only when the gate itself changes.
+# The called workflows ignore their own path filters under workflow_call, so a
+# tag can never skip the native build or the contract suite.
+# Fail-closed: failure, cancelled, skipped or a missing result of ANY gate ⇒
+# RELEASE-GATE-BLOCKED and the publish job does not run.
+
+on:
+  push:
+    tags: ['native-v*']
+  pull_request:
+    paths:
+      - '.github/workflows/release-gate.yml'
+      - 'tools/release-gate-95.mjs'
+      - 'tools/sbom-95.mjs'
+      - 'tests/release-gate-95.js'
+      - 'docs/release/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: payesh-release-gate-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  native:
+    name: G1+G3 native client (row 63 gate, conformance, APK/AAB/EXE)
+    uses: ./.github/workflows/native-client.yml
+    permissions:
+      contents: read
+
+  api-contract:
+    name: G3 Native API v1 contract + OpenAPI drift
+    uses: ./.github/workflows/api-contract.yml
+    permissions:
+      contents: read
+
+  leak-matrix:
+    name: G2 leak matrix (row 57)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: role × collection × field leak matrix + pull-leak negative controls
+        run: |
+          set -o pipefail
+          node tests/leak-matrix-57.js | tee leak-matrix.txt
+          node tests/pull-leak-57.js | tee -a leak-matrix.txt
+          node tests/pull-leak-57-negative.js | tee -a leak-matrix.txt
+
+  labels:
+    name: G5 evidence labels (row 55)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/labels-gate-55.js
+
+  identity:
+    name: G6 device identity + mutation controls (row 65)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/identity-65.js | tee identity-65.txt
+
+  sbom:
+    name: G4 SBOM (CycloneDX from every shipped lockfile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate + validate
+        run: |
+          set -o pipefail
+          mkdir -p sbom
+          node tools/sbom-95.mjs --out sbom/payesh-sbom.cdx.json | tee sbom/sbom-95.txt
+          (cd sbom && sha256sum payesh-sbom.cdx.json | tee payesh-sbom.cdx.json.sha256)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom/
+
+  selftest:
+    name: G7 release-gate negative tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/release-gate-95.js
+
+  verdict:
+    name: release-gate verdict (all must pass)
+    needs: [native, api-contract, leak-matrix, labels, identity, sbom, selftest]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Aggregate every gate (raw summary)
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          MODE: ${{ startsWith(github.ref, 'refs/tags/native-v') && 'release' || 'rehearsal' }}
+          TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+        run: |
+          set -o pipefail
+          mkdir -p gate
+          node tools/release-gate-95.mjs --mode "$MODE" --tag "$TAG" --sha "$GITHUB_SHA" \
+            --out gate/release-gate-summary.txt --json gate/release-gate-summary.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-gate-summary
+          path: gate/
+
+  publish:
+    name: publish native release (only after a green verdict)
+    needs: [verdict]
+    if: startsWith(github.ref, 'refs/tags/native-v') && needs.verdict.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dl
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p pub
+          cp dl/native-android/payesh-native.apk dl/native-android/payesh-native.aab dl/native-windows/payesh-native-windows.zip pub/
+          cp dl/sbom/payesh-sbom.cdx.json dl/release-gate-summary/release-gate-summary.txt pub/
+          (cd pub && sha256sum * > SHA256SUMS)
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" \
+            --notes-file pub/release-gate-summary.txt pub/*
