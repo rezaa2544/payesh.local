@@ -1,0 +1,77 @@
+# Row 86 — versioned zero-downtime migrations of the central DB (expand → migrate → contract)
+base_sha=253521c1b6b7425a9555f3228babb34b6e1b05ba
+date_utc=2026-11-11T10:15:19Z
+branch=arena/migrations-86
+runner=local sandbox, node 22, pgserver (D-40) = embedded PostgreSQL 16.9 on 127.0.0.1:5432, fresh database per run
+owner_scope=running up on production + set-client-floor decision — NOT claimed
+
+## AC mapping
+- versioned migrations with expand→migrate→contract: server/migrator.js, tools/migrate-86.mjs, db/migrations/central (baseline), db/fixtures/migrations-86 (phone→mobile drill) → MG-01, MG-05..MG-09, MG-13
+- test on pgserver (D-40) with sample data: 50 records via tenancy.applyOps (MG-04) + 5,000 student rows / 3 tenants (MG-05); CI on postgres:16 (MG86_REQUIRE_PG=1)
+- N-1 client compatibility: N-1 server code (applyOps/listFeed) after baseline (MG-04); N-1 SQL writer concurrent with expand and backfill, errors=0 (MG-06/07); after rollback (MG-09); contract only after client floor (MG-08/13)
+- rollback test: MG-09 (3 migrations rolled back, data intact, re-forward), MG-14 (contract irreversible)
+- negative: destructive migration ⇒ refused: MG-02 (13 statements × expand/migrate), MG-03 (CLI exit 1, DB untouched), MG-10..12, mutants MG-16
+
+## lint
+MIGRATE-86-OK lint migrations=1 errors=0
+MIGRATE-86-OK lint migrations=5 errors=0
+
+## tests/migrations-86.js
+
+Row 86: versioned migrations, expand → migrate → contract
+
+PASS  MG-01  lint: product dir (baseline) and drill chain are clean; phases parsed  → product=1 drill=5 (expand,expand,expand,migrate,contract)  (102ms)
+PASS  MG-02  negative lint matrix: 13 destructive/blocking statements in expand/migrate each refused with its rule; 5 safe forms pass  → 13×2 refused · 6 safe pass  (4ms)
+PASS  MG-03  negative end-to-end: chain + one destructive expand (DROP COLUMN) ⇒ CLI exit 1 lint_failed, DB untouched  → refused before connect-side effects (no tables created)  (81ms)
+PASS  MG-04  product baseline adopts a DB built by the previous release with live data: no loss, idempotent, N-1 server code (applyOps/listFeed) still works  → records 50→50, feed seq 50 kept, N-1 write+read ok, RLS ok  (160ms)
+PASS  MG-05  sample data on the N-1 schema: drill 0100 applied, 5,000 student rows across 3 tenants  → rows=5000  (35ms)
+PASS  MG-06  expand (0101 column+sync trigger, 0102 CONCURRENTLY index) while an N-1 writer runs ⇒ writer errors 0; both directions sync  → n1 ops=103 errors=0 · sync n1→n, n→n1 ok · index valid  (327ms)
+PASS  MG-07  migrate (0103 batched backfill, 500/batch, one tx each) with a concurrent N-1 writer ⇒ writer errors 0, every row backfilled, short batches  → rows=4997 batches=11 max_batch_ms=18 n1 ops=74 errors=0  (251ms)
+PASS  MG-08  contract gate: no --allow-contract ⇒ refused; floor unset / 0.9.2 < 0.10.0 ⇒ refused; floor downgrade refused; nothing applied  → refused ×3 + downgrade refused · phone still present  (15ms)
+PASS  MG-09  rollback to 0100 ⇒ trigger, index, mobile gone; N-1 reads every phone incl. rows written by the N client; then forward again to 0103  → rolled back 3 · N-1 ok (errors 0) · re-forward 3 · rows consistent  (243ms)
+PASS  MG-10  negative: checksum drift on an applied file ⇒ refused; DB ahead of code (unknown applied id) ⇒ refused  → checksum_mismatch · unknown_applied  (5ms)
+PASS  MG-11  negative: a second migrator while one holds the advisory lock ⇒ refused (locked)  → locked  (4ms)
+PASS  MG-12  lock_timeout: a migration that cannot get its lock gives up fast (no queue of traffic behind it), records nothing; succeeds once the lock is free  → gave up after 405ms (lock_timeout 400ms) · applied after release · rolled back  (416ms)
+PASS  MG-13  contract after the owner raises the client floor to 0.10.0 ⇒ applied; N client works; N-1 SQL now fails (that is why the floor exists)  → columns=full_name,id,mobile,tenant_id,updated_at · rows=5112 all with mobile · N-1 refused by schema  (155ms)
+PASS  MG-14  negative: rollback through a contract migration ⇒ refused (irreversible), schema unchanged  → irreversible  (3ms)
+PASS  MG-15  CLI status: state ok, all drill migrations applied, client_floor 0.10.0; schema_migrations rows carry checksum + duration  → central/0001_baseline:expand:12ms:0 migrations-86/0100_m86_students:expand:5ms:0 migrations-86/0101_m86_mobile_expand:expand:1ms:0 migrations-86/0102_m86_mobile_index:expand:8ms:0 migrations-86/0103_m86_mobile_backfill:migrate:99ms:5111 migrations-86/0104_m86_mobile_contract:contract:2ms:0  (72ms)
+PASS  MG-16  negative (mutants of server/migrator.js): destructive-lint off / contract floor gate off / checksum check off ⇒ each caught; unmodified copy passes  → lint-off:killed(lint) floor-gate-off:killed(floor) checksum-off:killed(checksum) baseline:clean  (45ms)
+
+# passed=16 failed=0 skipped=0
+MIGRATIONS-86-OK
+rc=0
+
+## full suite
+run-tests-evidence.sh (first run) @882401a000f1e041fcbfa910bc273b008926c8c3: pass=110 fail=0 registered=110 → tests-run-882401a-20261111T094534Z.log
+gen-audit-evidence.sh @882401a000f1e041fcbfa910bc273b008926c8c3: EVIDENCE-OK
+
+## re-run after merging origin/main (row 85) + semgrep fix
+HEAD=48dd30417cb76d0c584f7201b3c4b13a21ccb18c: tests/migrations-86.js 16/16 MIGRATIONS-86-OK; run-tests-evidence.sh pass=110 fail=0 registered=110 -> tests-run-48dd304-20261111T100400Z.log; gen-audit-evidence.sh EVIDENCE-OK; tests/security-scan-48.js with semgrep: SS-03/SS-04 PASS, SECURITY-48-OK (CI run 42997993748 had flagged a Map#get lookup -> fixed)
+
+## re-run 3: leased migration lock (CI 43000568208 row-45 audit flagged pg_try_advisory_lock in server/**) + fix: up --to <already applied id> no longer runs later migrations
+HEAD=253521c1b6b7425a9555f3228babb34b6e1b05ba
+node tools/conn-budget-45.mjs: CONN-BUDGET-45-OK (0 session-state findings); npm run test:connb45: CB 10/10
+tests/migrations-86.js:
+
+Row 86: versioned migrations, expand → migrate → contract
+
+PASS  MG-01  lint: product dir (baseline) and drill chain are clean; phases parsed  → product=1 drill=5 (expand,expand,expand,migrate,contract)  (94ms)
+PASS  MG-02  negative lint matrix: 13 destructive/blocking statements in expand/migrate each refused with its rule; 5 safe forms pass  → 13×2 refused · 6 safe pass  (4ms)
+PASS  MG-03  negative end-to-end: chain + one destructive expand (DROP COLUMN) ⇒ CLI exit 1 lint_failed, DB untouched  → refused before connect-side effects (no tables created)  (70ms)
+PASS  MG-04  product baseline adopts a DB built by the previous release with live data: no loss, idempotent, N-1 server code (applyOps/listFeed) still works  → records 50→50, feed seq 50 kept, N-1 write+read ok, RLS ok  (148ms)
+PASS  MG-05  sample data on the N-1 schema: drill 0100 applied, 5,000 student rows across 3 tenants  → rows=5000  (36ms)
+PASS  MG-06  expand (0101 column+sync trigger, 0102 CONCURRENTLY index) while an N-1 writer runs ⇒ writer errors 0; both directions sync  → n1 ops=101 errors=0 · sync n1→n, n→n1 ok · index valid  (326ms)
+PASS  MG-07  migrate (0103 batched backfill, 500/batch, one tx each) with a concurrent N-1 writer ⇒ writer errors 0, every row backfilled, short batches  → rows=4997 batches=11 max_batch_ms=18 n1 ops=74 errors=0  (262ms)
+PASS  MG-08  contract gate: no --allow-contract ⇒ refused; floor unset / 0.9.2 < 0.10.0 ⇒ refused; floor downgrade refused; nothing applied  → refused ×3 + downgrade refused · phone still present  (19ms)
+PASS  MG-09  rollback to 0100 ⇒ trigger, index, mobile gone; N-1 reads every phone incl. rows written by the N client; then forward again to 0103  → rolled back 3 · N-1 ok (errors 0) · re-forward 3 · rows consistent  (242ms)
+PASS  MG-10  negative: checksum drift on an applied file ⇒ refused; DB ahead of code (unknown applied id) ⇒ refused  → checksum_mismatch · unknown_applied  (6ms)
+PASS  MG-11  negative: a second migrator while one holds the migration lease ⇒ refused (locked); an expired lease (crashed migrator) is taken over; lease released after the run  → live lease ⇒ locked · expired lease taken over (applied=0) · released  (11ms)
+PASS  MG-12  lock_timeout: a migration that cannot get its lock gives up fast (no queue of traffic behind it), records nothing; succeeds once the lock is free  → gave up after 404ms (lock_timeout 400ms) · applied after release · rolled back  (419ms)
+PASS  MG-13  contract after the owner raises the client floor to 0.10.0 ⇒ applied; N client works; N-1 SQL now fails (that is why the floor exists)  → columns=full_name,id,mobile,tenant_id,updated_at · rows=5112 all with mobile · N-1 refused by schema  (167ms)
+PASS  MG-14  negative: rollback through a contract migration ⇒ refused (irreversible), schema unchanged  → irreversible  (4ms)
+PASS  MG-15  CLI status: state ok, all drill migrations applied, client_floor 0.10.0; schema_migrations rows carry checksum + duration  → central/0001_baseline:expand:12ms:0 migrations-86/0100_m86_students:expand:4ms:0 migrations-86/0101_m86_mobile_expand:expand:1ms:0 migrations-86/0102_m86_mobile_index:expand:7ms:0 migrations-86/0103_m86_mobile_backfill:migrate:94ms:5111 migrations-86/0104_m86_mobile_contract:contract:2ms:0  (76ms)
+PASS  MG-16  negative (mutants of server/migrator.js): destructive-lint off / contract floor gate off / checksum check off ⇒ each caught; unmodified copy passes  → lint-off:killed(lint) floor-gate-off:killed(floor) checksum-off:killed(checksum) baseline:clean  (64ms)
+
+# passed=16 failed=0 skipped=0
+MIGRATIONS-86-OK
+run-tests-evidence.sh pass=110 fail=0 registered=110 -> tests-run-253521c-20261111T101447Z.log; gen-audit-evidence.sh EVIDENCE-OK

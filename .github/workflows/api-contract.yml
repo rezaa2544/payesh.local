@@ -29,6 +29,25 @@ on:
       - 'tests/load-82.js'
       - 'tools/load-82.mjs'
       - 'tests/fixtures/load-82-inject.cjs'
+      - 'tests/migrations-86.js'
+      - 'tools/migrate-86.mjs'
+      - 'db/migrations/direct/**'
+      - 'tests/direct-identity-106.js'
+      - 'tests/e2e-keys-107.js'
+      - 'tests/e2e1-107.js'
+      - 'tools/e2e1.js'
+      - 'tools/e2e1-vectors-107.mjs'
+      - 'docs/cloud/contracts/e2e1-vectors-107.json'
+      - 'tests/direct-sync-108.js'
+      - 'tests/rls-pentest-109.js'
+      - 'tests/transport-110.js'
+      - 'tools/backup-111.mjs'
+      - 'tools/backup-drill-111.mjs'
+      - 'client/transport.js'
+      - 'client/provider-postgrest.js'
+      - 'tools/direct-sync.js'
+      - 'db/migrations/**'
+      - 'db/fixtures/migrations-86/**'
   pull_request:
     paths:
       - 'server/**'
@@ -49,6 +68,25 @@ on:
       - 'tests/load-82.js'
       - 'tools/load-82.mjs'
       - 'tests/fixtures/load-82-inject.cjs'
+      - 'tests/migrations-86.js'
+      - 'tools/migrate-86.mjs'
+      - 'db/migrations/direct/**'
+      - 'tests/direct-identity-106.js'
+      - 'tests/e2e-keys-107.js'
+      - 'tests/e2e1-107.js'
+      - 'tools/e2e1.js'
+      - 'tools/e2e1-vectors-107.mjs'
+      - 'docs/cloud/contracts/e2e1-vectors-107.json'
+      - 'tests/direct-sync-108.js'
+      - 'tests/rls-pentest-109.js'
+      - 'tests/transport-110.js'
+      - 'tools/backup-111.mjs'
+      - 'tools/backup-drill-111.mjs'
+      - 'client/transport.js'
+      - 'client/provider-postgrest.js'
+      - 'tools/direct-sync.js'
+      - 'db/migrations/**'
+      - 'db/fixtures/migrations-86/**'
   workflow_dispatch:
   # Row 95: called by release-gate.yml on the release commit (path filters do not apply).
   workflow_call:
@@ -154,6 +192,100 @@ jobs:
         run: |
           set -o pipefail
           node tests/load-82.js | tee -a native-contract.txt
+      # Row 86: versioned zero-downtime migrations on the real postgres:16 service.
+      # A fresh DB per run: product baseline adopts live data, the phone→mobile
+      # drill runs expand/migrate under a concurrent N-1 writer (0 errors),
+      # destructive SQL / contract without client floor / checksum drift /
+      # second migrator / lock contention are all refused, 3 mutants killed.
+      - name: Migrations gate (row 86, expand → migrate → contract on PG)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+          MG86_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node tools/migrate-86.mjs lint
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/migrations-86.js | tee -a native-contract.txt
+      # Row 106 (ADR-105 §3.1, Proposed): direct path without a Gateway — identity,
+      # capabilities, user/device revocation and RLS inside PostgreSQL (standard SQL,
+      # no provider extension). Revoked/disabled user, revoked/foreign device, other
+      # role, other school ⇒ 0 rows; capabilities only via SECURITY DEFINER by the
+      # school's manager; spoofed role/tenant claims ignored; 5 mutants caught.
+      - name: Direct-path identity + RLS (row 106, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          DI106_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node tools/migrate-86.mjs lint --dir db/migrations/direct
+          node tests/direct-identity-106.js | tee -a native-contract.txt
+      # Row 107 (ADR-105 §3.2, Proposed): device-side end-to-end encryption on the direct
+      # path. Library vs shared vectors (JS; Dart runs in native-client), then the database
+      # half on postgres:16: no clear text in pg_dump/COPY (canary + positive control),
+      # AAD swap detection, revocation ⇒ scope key rotation + re-encryption, 4 mutants.
+      - name: Device-side encryption, key grants, rotation (row 107, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          E2E107_REQUIRE_PG: '1'
+          E2E107_REQUIRE_PGDUMP: '1'
+        run: |
+          set -o pipefail
+          node tools/e2e1-vectors-107.mjs --check
+          node tests/e2e1-107.js | tee -a native-contract.txt
+          node tests/e2e-keys-107.js | tee -a native-contract.txt
+      # Row 108 (ADR-105 §3.3, Proposed): the Gateway's sync logic in SQL (sync_push /
+      # sync_pull, change-feed, idempotency, plan quota by trigger, conflicts) on
+      # postgres:16 — row-64 vectors + row-83 convergence (12 seeds), INVOKER + RLS,
+      # repeat push = no effect, over-cap refused, 4 mutants, rollback to 0002.
+      - name: Direct sync in SQL (row 108, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          DS108_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/direct-sync-108.js | tee -a native-contract.txt
+      # Row 109 (ADR-105, Proposed): RLS / privilege attack suite on postgres:16 — other
+      # tenant read/write, role escalation, capability tampering, internal functions,
+      # no token, quota bypass F1..F5 (fixed by migration 0005); every control is
+      # reverted by a mutant and its attack must then succeed. Row 108 is re-run on
+      # top of 0005 (write tickets must not break the protocol).
+      - name: RLS pentest (row 109, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          RP109_REQUIRE_PG: '1'
+          DS108_REQUIRE_PG: '1'
+          DS108_TO: 0005_direct_write_tickets
+          DS108_RUNS: '4'
+        run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/rls-pentest-109.js | tee -a native-contract.txt
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/direct-sync-108.js | tee -a native-contract.txt
+      # Row 110 (ADR-105, Proposed): direct transport of the JS client behind
+      # PAYESH_TRANSPORT=direct (default off) — transport ↔ provider split, no service
+      # key in client code (static scan, JS + Dart), offline outbox unchanged; real
+      # postgres:16 behind a PostgREST-compatible emulator. The Dart side runs in
+      # native-client (payesh_sync test/direct_transport_test.dart).
+      - name: Direct transport (row 110, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          TR110_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/transport-110.js | tee -a native-contract.txt
+      # Row 111 (ADR-105, Proposed): encrypted, timestamped pg_dump of the direct path
+      # (X25519 + AES-256-GCM, streamed — no clear dump on disk) and the restore drill:
+      # tamper/truncate/wrong-key refusals, restore into a BRAND-NEW cluster (initdb of
+      # the runner's PostgreSQL, no roles), a device pulls + decrypts the restored copy,
+      # RLS / idempotency / sequence intact, retention + freshness monitor. Label [S].
+      - name: Backup + restore drill (row 111, real postgres:16 + fresh cluster)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+        run: |
+          set -o pipefail
+          PGB=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)
+          test -x "$PGB/initdb" || { echo "no initdb on the runner"; exit 1; }
+          pg_dump --version; psql --version
+          PAYESH_PG_BIN="$PGB" node tools/backup-111.mjs drill --fresh-cluster | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

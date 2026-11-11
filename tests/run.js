@@ -4993,6 +4993,13 @@ async function waitFor(fn, ms = 15000) {
   await test('PR‑4: بستهٔ وب قطعی و گیت خروجی‌ها (نبود/خالی/checksum/ادعای امضای بی‌شاهد ⇒ قرمز)',
     () => { const r = ownerPackaging.scriptChecks(); console.log('    OWNER-ARTIFACTS gate_negative_controls=' + r.negative_controls + ' failures=0'); });
 
+  await test('ردیف ۱۰۷: e2e1 — رمزنگاری سمت دستگاه (X25519/HKDF/AES-GCM)، بردارهای مشترک JS↔Dart، AAD ردیف، چرخش کلید، کنترل منفی',
+    async () => {
+      const r = await require('./e2e1-107.js').main({ quiet: true });
+      if (r.failed) throw new Error('E2E1-107 failures: ' + r.failures.join(','));
+      console.log('    E2E1-107-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
+    });
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));
