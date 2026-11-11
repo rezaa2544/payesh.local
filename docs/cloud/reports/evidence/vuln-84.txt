@@ -1,0 +1,81 @@
+# Row 84 — SBOM per build + OSV vulnerability scan with failure threshold, documented exceptions, negative test with a deliberately vulnerable dependency — [S] (sandbox run; OSV answers are live from api.osv.dev)
+base_sha=0afd5c7e1f31840ff988157553bb0e12160801df
+date_utc=2026-11-11T15:44:14Z
+branch=arena/vuln-84
+runner=local sandbox, node 22, semgrep (row 48), live https://api.osv.dev
+label=[S]
+
+## AC mapping
+- SBOM (CycloneDX) in every build: build.yml step 'SBOM + vuln scan (row 84)' -> artifact sbom-84; release-gate job sbom
+- npm audit / osv-scanner in CI with failure threshold: tools/osv-scan-84.mjs (OSV = osv-scanner's database; npm + pub) shipped>=HIGH, dev>=CRITICAL, unknown=HIGH; npm audit stays in row 48 (G1/G2)
+- documented exceptions: tools/osv-policy-84.json (id+package+reason+owner+expires<=90d; expired/malformed => red); docs/security/84-sbom-vuln-scan.md
+- negative test with deliberately vulnerable dependency: tests/fixtures/vuln-84 (lodash 4.17.15 npm, dio 4.0.0 pub, minimist 1.2.5 dev) => VS-02/VS-13 red; SS-11/SS-11b inject lodash 4.17.15 into npm audit
+- fix: lodash + lodash-es forced to 4.18.1 (package.json overrides) => npm audit 0 vulnerabilities; the 7 row-48 allowlist entries removed
+
+## 1. tests/vuln-scan-84.js (VULN84_REQUIRE_LIVE=1) — raw output
+# row 84 vulnerability gate — node v22.23.4 — now=2026-11-11 — require_live=true
+PASS  VS-01  CVSS v3.1 base score matches FIRST reference vectors  → 8 vectors
+PASS  VS-02  NEGATIVE: deliberately vulnerable npm + pub dependencies ⇒ gate red  → blocking=5 advisories=7
+PASS  VS-03  clean fixture (lodash 4.18.1) ⇒ gate green  → OSV-84-OK components=1 queried=1 advisories=0 blocking=0 accepted=0
+PASS  VS-04  valid exception suppresses exactly its advisory  → accepted=1 remaining_blocking=4
+PASS  VS-05  NEGATIVE: expired exception ⇒ finding blocks again  → state=expired, blocking
+PASS  VS-06  NEGATIVE: malformed exceptions ⇒ OSV-04, gate red  → 5 malformed policies rejected
+PASS  VS-07  exception matched through an alias (CVE-2021-31402)  → alias ok; wrong package ignored
+PASS  VS-08  NEGATIVE: unknown severity ⇒ treated as HIGH (OSV-03); withdrawn ignored  → unknown→high blocks; withdrawn skipped
+PASS  VS-09  dev-only HIGH is reported but does not block (threshold CRITICAL)  → dev HIGH: note at critical threshold, blocks at high
+PASS  VS-10  NEGATIVE: OSV unreachable ⇒ exit 2 (fail closed)  → OSV-84-ERROR fetch failed
+PASS  VS-11  stale exception is reported  → STALE line printed
+PASS  VS-12  --expect-fail: 0 on vulnerable fixture, 1 on clean fixture  → ok
+PASS  VS-13  LIVE: api.osv.dev rejects the deliberately vulnerable fixture  → OSV-84-FAIL violations=5 blocking=5
+PASS  VS-14  LIVE: the real repository SBOM (npm + pub) passes the policy  → OSV-84-OK components=194 queried=190 advisories=0 blocking=0 accepted=0
+PASS  VS-15  wiring: CI runs SBOM + OSV + negative control; policy sane; doc present  → exceptions=0 allowlist48=0
+checks=15 pass=15 fail=0 skipped=0
+VULN-84-OK checks=15
+
+## 2. SBOM of this tree + live OSV scan — raw CLI output
+lock npm package-lock.json components=122
+lock pub apps/payesh/pubspec.lock components=72
+SBOM-95-OK components=194 shipped=86 format=CycloneDX-1.5 out=/work/scratch/sbom84.json
+policy fail_at shipped>=high dev>=critical unknown=high exceptions=0
+components=194 queried=190 not_in_osv=4 advisories=0
+OSV-84-OK components=194 queried=190 advisories=0 blocking=0 accepted=0
+sbom_sha256=6fea7e5d44b2f22f1adb230467661c780e7729801fba0d6d3822a6bb500f8269
+
+## 3. Negative control, live OSV (--expect-fail) — raw CLI output
+policy fail_at shipped>=high dev>=critical unknown=high exceptions=0
+components=4 queried=4 not_in_osv=0 advisories=7
+note  pkg:npm/lodash@4.17.15 GHSA-29mw-wpgm-hmr9 medium (database_specific) scope=shipped
+BLOCK pkg:npm/lodash@4.17.15 GHSA-35jh-r3h4-6jhm high (database_specific) scope=shipped
+BLOCK pkg:npm/lodash@4.17.15 GHSA-p6mc-m468-83gw high (database_specific) scope=shipped
+BLOCK pkg:npm/lodash@4.17.15 GHSA-r5fr-rjxr-66jc high (database_specific) scope=shipped
+note  pkg:npm/lodash@4.17.15 GHSA-xxjr-mmjv-4gpg medium (database_specific) scope=shipped
+BLOCK pkg:npm/minimist@1.2.5 GHSA-xvch-5gv4-984h critical (database_specific) scope=dev
+BLOCK pkg:pub/dio@4.0.0 GHSA-9324-jv53-9cc8 high (database_specific) scope=shipped
+FAIL  OSV-01 pkg:npm/lodash@4.17.15 GHSA-35jh-r3h4-6jhm severity=high scope=shipped — Command Injection in lodash
+FAIL  OSV-01 pkg:npm/lodash@4.17.15 GHSA-p6mc-m468-83gw severity=high scope=shipped — Prototype Pollution in lodash
+FAIL  OSV-01 pkg:npm/lodash@4.17.15 GHSA-r5fr-rjxr-66jc severity=high scope=shipped — lodash vulnerable to Code Injection via `_.template` imports key names
+FAIL  OSV-02 pkg:npm/minimist@1.2.5 GHSA-xvch-5gv4-984h severity=critical scope=dev — Prototype Pollution in minimist
+FAIL  OSV-01 pkg:pub/dio@4.0.0 GHSA-9324-jv53-9cc8 severity=high scope=shipped — dio vulnerable to CRLF injection with HTTP method string
+OSV-84-FAIL violations=5 blocking=5
+OSV-84-NEGATIVE-CONTROL-OK (gate rejected the deliberately vulnerable dependency)
+
+## 4. npm audit (full, then --omit=dev) after the overrides
+found 0 vulnerabilities
+found 0 vulnerabilities
+
+## 5. tests/security-scan-48.js (SS-11/SS-11b inject the vulnerable dependency) — raw output
+PASS  SS-01  وابستگی‌های تولیدی: صفر high/critical (بدون استثنا)  → prod_high=0  (1ms)
+PASS  SS-02  وابستگی‌های dev: هر یافته با دلیل و تاریخ انقضا در allowlist  → dev_high=0 همه تریاژ‌شده  (1ms)
+PASS  SS-03  SAST الگویی: صفر یافتهٔ ERROR (eval/راز/client env)  → errors=0  (0ms)
+PASS  SS-04  SAST taint روی server/: صفر تزریق SQL/فرمان  → taint_errors=0  (0ms)
+PASS  SS-05  هشدارها تریاژ‌شده و زیر سقفِ ثبت‌شده (رشد خاموش ممنوع)  → warnings=40 · rules=4 تریاژ‌شده  (0ms)
+PASS  SS-06  اسکن راز: صفر رازِ ثابت در فایل‌های ردیابی‌شده (نمونهٔ AWS مستثنا)  → secrets=0  (0ms)
+PASS  SS-07  کنترل منفی: eval روی ورودی HTTP ⇒ دروازه قرمز می‌شود  → gate=RED (eval, 1 error)  (11641ms)
+PASS  SS-08  کنترل منفی: SQL ساخته‌شده از req.body ⇒ دروازه قرمز می‌شود  → gate=RED (sql-taint)  (11978ms)
+PASS  SS-09  کنترل منفی: کلید AWS ثابت در کد ⇒ دروازه قرمز می‌شود  → gate=RED (aws_access_key)  (11584ms)
+PASS  SS-10  کنترل منفی: هشدار تازه بدون تریاژ ⇒ دروازه قرمز می‌شود  → gate=RED (untriaged warnings)  (12425ms)
+PASS  SS-11  کنترل منفی: وابستگی dev عمداً آسیب‌پذیر + allowlist منقضی ⇒ دروازه قرمز می‌شود  → gate=RED (injected lodash 4.17.15, expired allowlist)  (12300ms)
+PASS  SS-11b  کنترل منفی: وابستگی dev عمداً آسیب‌پذیر بدون مدخل allowlist ⇒ قرمز؛ با مدخل معتبر ⇒ G2 سبز  → unlisted=RED, listed=G2 green (dev_high=1)  (25190ms)
+PASS  SS-12  پوشش واقعی: قواعد و مسیرهای محصول اسکن می‌شوند و CI/سند وصل است  → rules=9 taint=2 ci=true doc=true  (1ms)
+SS checks=13 pass=13 fail=0
+SECURITY-48-OK
