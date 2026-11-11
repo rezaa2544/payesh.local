@@ -48,6 +48,9 @@ on:
       - 'docs/cloud/43-native-independence.json'
       - 'docs/cloud/contracts/conformance/**'
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
+      - 'docs/cloud/contracts/native-update-vectors-78.json'
+      - 'tools/native-update-78.mjs'
+      - 'tests/native-update-78.js'
       - '.github/workflows/native-client.yml'
   pull_request:
     paths:
@@ -70,6 +73,9 @@ on:
       - 'docs/cloud/43-native-independence.json'
       - 'docs/cloud/contracts/conformance/**'
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
+      - 'docs/cloud/contracts/native-update-vectors-78.json'
+      - 'tools/native-update-78.mjs'
+      - 'tests/native-update-78.js'
       - '.github/workflows/native-client.yml'
   workflow_dispatch:
   # Row 95: the release gate (release-gate.yml) calls this workflow on the exact
@@ -153,6 +159,10 @@ jobs:
       # Same Jalali vectors run against the Dart port (payesh_ui/test/jalali_conformance_test.dart).
       - name: jalali-v1 vectors regenerated from client/app.js + client/import.js must equal the committed file
         run: node tests/conformance-jalali-73.js
+      # Row 78: signed native auto-update — JS reference + publisher tool on the same
+      # vectors the Dart verifier runs (payesh_secure/test/native_update_test.dart).
+      - name: native-update-78 — signed manifest, bad hash, downgrade, kill-switch vectors + mutants
+        run: node tests/native-update-78.js
 
   sync-real-server:
     name: Dart sync client against the REAL Node server (row 71)

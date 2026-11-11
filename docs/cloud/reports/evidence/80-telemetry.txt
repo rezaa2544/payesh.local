@@ -1,0 +1,43 @@
+base_sha=64191e15d95ea2e77cfb412d1f49665110b1be4a
+date_utc=2026-11-11T16:35:15Z
+row=80
+cmd=PAYESH_PG_ADMIN=postgres://postgres@127.0.0.1:5432/payesh_c64 node tests/telemetry-80.js  (PostgreSQL 16.9)
+
+Row 80: telemetry — closed field allowlist, no PII, opt-in, direct-path ingest with rate limit
+
+PASS  TM-01  one closed field allowlist: schema (additionalProperties:false) = SQL telemetry_ingest = client/telemetry.js  → app_version,code,count,duration_ms,platform,type,v,where
+PASS  TM-02  no national_id / name / phone (or any PII-like) field, and the stored table has no free-form column  → fields=8 columns=12
+PASS  TM-03  NEGATIVE: adding a PII field to any layer turns the gate red (6 mutants)  → 6/6 red
+PASS  TM-04  client: no consent ⇒ nothing recorded or sent (default OFF); revoking consent drops the queue  → ok
+PASS  TM-05  client: events are REBUILT from allowlisted fields — message, stack, name, national_id, phone never copied; PII-shaped values dropped  → ok
+PASS  TM-06  client: sent ONLY through the direct provider (rpc telemetry_ingest, consent=true); no direct provider ⇒ nothing; ≤20 per batch, ≤60 per hour  → sent=20/20/20/0/0
+PASS  TM-07  PostgREST provider allowlists telemetry_ingest(p_events, p_consent) and sends events as JSON (not text)  → ok
+PASS  TM-08  ingest: valid events stored in typed columns; tenant + device come from the token, not the event  → stored=2
+PASS  TM-09  NEGATIVE ingest: a PII field (national_id / name / phone / tenant_id / message) refuses the WHOLE batch; PII-shaped values refused  → 11 refusals, 0 rows
+PASS  TM-10  consent + identity: p_consent=false refused; no token / unknown device refused  → ok
+PASS  TM-11  rate limit: ≤20 per call; per device 60/hour (61st refused, batch atomic); another device / school unaffected; window reset  → device cap 60/h; school cap 2000/h
+PASS  TM-12  clients cannot read or write telemetry tables directly; the only client RPC added is telemetry_ingest  → ok
+PASS  TM-13  end to end: client/telemetry.js → provider.rpc → telemetry_ingest; an Error with a national id in its message stores only the code  → ok
+PASS  TM-14  mutant: without the allowlist check in telemetry_ingest a national_id event is ACCEPTED (control is load-bearing); down migration removes everything  → mutant red, rollback clean
+
+checks=14 pass=14 fail=0
+TELEMETRY-80-OK checks=14
+--- RLS109_TO=0007_direct_telemetry node tests/rls-pentest-109.js
+PASS  PT-01  migrations 0001..0007 through the row-86 migrator (lint clean, all expand); authenticator = LOGIN NOINHERIT, member of the client and anon roles only  → ledger 0001,0002,0003,0004,0005,0006,0007  (250ms)
+PASS  PT-02  other tenant — read: B's manager sees 0 rows of A in all 12 tables, through the feed, can_access and resolve  → 15 attacks refused  (55ms)
+PASS  PT-03  other tenant — write: record insert/update/delete, push with a tenant field, every manager RPC on A's users/devices/capabilities, key grants, conflicts, uids  → 14 attacks refused  (52ms)
+PASS  PT-04  role escalation: teacher → manager (RPCs, claims, direct UPDATE), parent writes, disabled / revoked users, revoked and foreign devices  → 13 attacks refused  (35ms)
+PASS  PT-05  capability and identity tampering by direct DML (capability, app_user, device, audit, key_grant, record identity, plan, usage, decided_by)  → 14 attacks refused  (35ms)
+PASS  PT-06  quota bypass through direct table writes — findings F1..F5 refused after migration 0005  → 8 attacks refused  (31ms)
+PASS  PT-07  internal functions: the client may execute exactly the listed public RPCs (22 through 0006, + telemetry_ingest from 0007); every other function of the schema is refused (catalog-checked, so a new function cannot slip through)  → 23 RPCs, 9 internal; 9 attacks refused  (10ms)
+PASS  PT-08  no token / forged token: every table reads 0 rows, every RPC refuses, garbage / partial / foreign claims identify nobody, the anon role has no access at all  → 27 attacks refused  (44ms)
+PASS  PT-09  every control turns RED when its fix is reverted: 25 mutants, each makes every attack that relies on it alone succeed; schema restored  → C-RLS-USER×1 C-RLS-RECORD×2 C-RLS-KEYGRANT×1 C-RLS-CONFLICT×1 C-RLS-USAGE×1 C-DEVICE-OWNER×1 C-REQUIRE-MANAGER×3 C-CONFLICT-POLICY×1 C-AUTH-DISABLED×1 C-AUTH-DEVICE×2 C-NOGRANT-CAP×1 C-NOGRANT-USER×1 C-NOGRANT-USAGE×1 C-IDENTITY-IMMUTABLE×1 C-CONFLICT-COLS×1 C-CONFLICT-STAMP×1 C-TICKET×2 C-BORN-LIVE×1 C-RECORD-SIZE×1 C-CONFLICT-SIZE×1 C-BATCH-SIZE×1 C-QUOTA-BADOPS×1 C-INTERNAL-EXEC×5 C-NULL-SAFE×1 C-ANON×1  (166ms)
+PASS  PT-10  regression: the real protocol still works under 0005 (push → stale → merge, conflict + resolve, request replay) and spends exactly its own quota  → push/stale/merge/conflict/resolve/replay ok; 7 tickets, none overspent; tickets invisible to clients  (91ms)
+RLS-PENTEST-109-OK
+--- DS108_TO=0007 direct-sync-108
+# passed=13 failed=0 negative_controls=31 mutants_killed=4
+DIRECT-SYNC-108-OK
+--- transport-110
+TRANSPORT-110-OK
+--- backup drill 111 (fresh cluster)
+BACKUP-DRILL-111-OK
