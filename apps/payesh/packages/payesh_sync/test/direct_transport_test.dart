@@ -194,6 +194,33 @@ void main() {
     );
 
     test(
+      'pinned constructor keeps the https + two-pin rule of the Gateway',
+      () {
+        final pin = base64.encode(List<int>.filled(32, 7));
+        final pin2 = base64.encode(List<int>.filled(32, 9));
+        final cfg = GatewayConfig(
+          baseUri: Uri.parse('https://proj.example.co'),
+          pins: [pin, pin2],
+        );
+        final p = PostgrestProvider.pinned(
+          cfg,
+          clientKey: 'sb_publishable_x',
+          token: () => jwt({'role': 'authenticated'}),
+        );
+        expect(p.base.host, 'proj.example.co');
+        p.close();
+        expect(
+          () => PostgrestProvider.pinned(
+            cfg,
+            clientKey: 'sb_secret_x',
+            token: () => '',
+          ),
+          throwsA(isA<DirectException>()),
+        );
+      },
+    );
+
+    test(
       'provider url: https only (http on loopback), no credentials or query',
       () {
         for (final u in [
