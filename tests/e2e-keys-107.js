@@ -34,6 +34,8 @@ const ROOT = path.resolve(__dirname, '..');
 const CLI = path.join(ROOT, 'tools', 'migrate-86.mjs');
 const DIR = 'db/migrations/direct';
 const API_ROLE = 'payesh_d107_api';
+/* pinned: later migrations of the direct track belong to later rows and their own tests */
+const OWN = '0002_key_grants';
 
 let passed = 0, failed = 0, negatives = 0, mutantsKilled = 0;
 const failures = [];
@@ -103,9 +105,9 @@ async function main() {
   try {
     await check('EK-01', 'migrations 0001 + 0002 through the row-86 migrator (lint clean, both expand, re-run applies nothing)', async () => {
       const l = cli(['lint', '--dir', DIR]);
-      assert(l.code === 0 && /MIGRATE-86-OK lint migrations=2 errors=0/.test(l.out), 'lint: ' + l.out);
-      const u1 = cli(['up', '--dir', DIR], DB_URL); assert(u1.code === 0, 'up: ' + u1.out);
-      const u2 = cli(['up', '--dir', DIR], DB_URL); assert(u2.code === 0, 'up again: ' + u2.out);
+      assert(l.code === 0 && /MIGRATE-86-OK lint migrations=\d+ errors=0/.test(l.out), 'lint: ' + l.out);
+      const u1 = cli(['up', '--dir', DIR, '--to', OWN], DB_URL); assert(u1.code === 0, 'up: ' + u1.out);
+      const u2 = cli(['up', '--dir', DIR, '--to', OWN], DB_URL); assert(u2.code === 0, 'up again: ' + u2.out);
       admin = new Pool({ connectionString: DB_URL, max: 3 });
       admin.on('error', () => {});
       const led = await admin.query(`SELECT id, phase FROM payesh_schema_migrations WHERE track = 'direct' ORDER BY id`);
@@ -434,7 +436,7 @@ async function main() {
         const n = async sql => (await c.query(sql)).rows[0].n;
         eq(await n(`SELECT count(*)::int AS n FROM pg_class c JOIN pg_namespace s ON s.oid = c.relnamespace WHERE s.nspname = 'payesh_direct' AND c.relname IN ('scope_key','key_grant')`), 0, 'key tables after rollback');
         eq(await n(`SELECT count(*)::int AS n FROM payesh_direct.app_user`), 7, 'row-106 data intact');
-        const u = cli(['up', '--dir', DIR], DB_URL); assert(u.code === 0, 're-up: ' + u.out);
+        const u = cli(['up', '--dir', DIR, '--to', OWN], DB_URL); assert(u.code === 0, 're-up: ' + u.out);
         eq(await n(`SELECT count(*)::int AS n FROM pg_class c JOIN pg_namespace s ON s.oid = c.relnamespace WHERE s.nspname = 'payesh_direct' AND c.relname IN ('scope_key','key_grant')`), 2, 'key tables after re-up');
       } finally { await c.end(); }
       return 'down ⇒ key tables gone, 7 users kept; up ⇒ back';
