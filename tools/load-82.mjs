@@ -186,7 +186,7 @@ export async function run(opts) {
   const report = {
     row: 82, label: L,
     claim_scope: label === 'S'
-      ? 'simulated: synthetic devices against one gateway process + PostgreSQL on a CI runner; describes this run only, not production capacity'
+      ? 'simulated: synthetic devices against one gateway process + PostgreSQL on a CI runner or dev machine (loopback); describes this run only, not production capacity'
       : 'measured on the owner-managed database (T2)',
     date_utc: new Date().toISOString(), node: process.version,
     environment: { base: o.base, gw_pid: o.gwPid || null, managed_db_attested: label === 'M' },
