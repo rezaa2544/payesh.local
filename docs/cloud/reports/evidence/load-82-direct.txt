@@ -1,0 +1,88 @@
+# Row 82, direct path (ADR-105 Proposed) — load test + measurement on the sync RPCs + RLS of PostgreSQL — every number is [S] (simulated)
+base_sha=0afd5c7e1f31840ff988157553bb0e12160801df
+date_utc=2026-11-11T15:22:47Z
+branch=arena/load-82
+runner=local sandbox (2 vCPU shared by the load generator and the database, loopback), node 22, embedded PostgreSQL 16 (shared_buffers=16MB); role payesh_ld82_api = member of payesh_direct_client only, NOBYPASSRLS; PostgREST transaction semantics, pool 32
+label=[S] simulation / dev machine; the run on the owner's managed database (T2, through the provider's HTTP API) is OWNER and is not claimed here
+
+## AC mapping
+- main path = direct (RPC + RLS on PG), not the Gateway: tools/load-82-direct.mjs calls payesh_direct.sync_pull / sync_push exactly as PostgREST does (BEGIN; SET LOCAL ROLE payesh_direct_client; request.jwt.claims; RPC; COMMIT)
+- p50/p95/p99, error rate, leak: raw JSON load-82-direct-report.json; leak gate on the direct path = DB sessions (no idle-in-transaction left, peak <= pool) since there is no app process
+- all [S]: LDD-03; the target-DB label is refused without PAYESH_T2_MANAGED_DB=1 (LDD-01, CLI exit 2); no 'unlimited' claim (claimsGate)
+- finding: RLS evaluated can_access() per scanned row across ALL schools -> fixed by db/migrations/direct/0006_direct_rls_initplan (InitPlan + tenant predicate); same meaning: rls-pentest-109 (100 attacks, 25 mutants) and direct-sync-108 green on top of 0006
+
+## 1. tests/load-82-direct.js (head = 0006) — raw output
+PASS  LDD-01  gates on synthetic reports: green baseline; stale op / record mismatch / idle-in-transaction / peak over pool / foreign row / "unlimited" each ⇒ red; CLI --label M without PAYESH_T2_MANAGED_DB ⇒ exit 2  → baseline green; red: stale,records,idle,peak,foreign,claim,label,p95,err; CLI label M without the owner flag: exit 2
+      setup [S]: 2000 devices / 20 schools enrolled + keys registered in 7872 ms (MIGRATE-86-OK up)
+      [S] row 82 direct-path load: devices=2000 tenants=20 concurrency=64 pool=32 duration=30s (+5s warmup)
+      [S] rpc calls=9323 rps=309 applied_ops/s=124
+      [S] latency ms all p50=195.7 p95=312.6 p99=384.2 max=687.1
+      [S] latency ms sync_pull p50=186.6 p95=252.4 p99=286.9 · sync_push p50=265.9 p95=384 p99=454.9
+      [S] errors=0 rate=0 sqlstates={}
+      [S] ops sent=4367 applied=4367 stale=0 conflicts=0 rejected=0 duplicates=0 records db=4367/4367
+      [S] sessions pool=32 peak=32 idle_in_tx_after=0 · isolation schools=5 foreign_rows=0 mismatched=0
+      [S] scope: simulated: synthetic devices calling the direct-path RPCs (PostgREST transaction semantics, no HTTP hop) on PostgreSQL on a CI runner or dev machine (loopback); describes this run only, not production capacity
+PASS  LDD-02  main run [S]: 2000 devices / 20 schools, 64 concurrent, pool 32, 30s on the direct RPCs + RLS ⇒ error rate ≤ 0.5%, p95 ≤ 1000 ms, op integrity, no session leak, isolation  → [S] calls=9323 rps=309 p50/p95/p99=195.7/312.6/384.2ms err=0 ops=4367 records=4367/4367 sessions peak=32/32
+PASS  LDD-03  every number is labelled [S]: report sections + summary lines; no capacity claim; per-RPC latency and session samples present  → sections labelled=9/9 · summary lines=8 all [S] · session samples=34
+PASS  LDD-04  negative: plan cut to 5 ops per minute per school ⇒ sync_push refuses ⇒ error-rate gate red  → red: error_rate=0.50325 sqlstates={"54000":2092}
+PASS  LDD-05  negative: 1.2 s sleep trigger on payesh_direct.record ⇒ p95 gate red  → red: p95=4774.4ms
+PASS  LDD-06  negative: a transaction left open by the API role during the run ⇒ session-leak gate red  → red: idle_in_tx_after=1 peak=17/32
+PASS  LDD-07  negative: RLS mutant record_read USING (true) ⇒ isolation gate red (devices see other schools)  → red: foreign_rows=30970 mismatched=5/5
+PASS  LDD-08  control: the same short profile with every injection undone is green (the negatives come from the injections)  → green: p95=206.9ms err=0 isolation foreign=0 sessions idle_tx=0
+PASS  LDD-09  finding of this row (migration 0006): as a device, the feed walk uses record_feed_idx with tenant_id = InitPlan; with 0006 rolled back it filters can_access() row by row and has no tenant index condition  → head: tenant_id = $InitPlan index condition · without 0006: per-row can_access filter · re-applied: tenant condition back
+PASS  LDD-10  defence in depth from 0006: with can_access() forced to true, a device of school B still sees zero records of school A (the policy tenant predicate holds on its own); restored after  → can_access→true: B sees 0/379 of A's records · can_access restored
+# passed=10 failed=0 skipped=0
+LOAD-82-DIRECT-TEST-OK
+
+## 2. Before / after the fix, same profile (2000 devices / 20 schools / 64 concurrent / pool 32 / 30 s + 5 s warmup) — raw CLI output
+### 2a. migrations up to 0005_direct_write_tickets (before this row)
+[S] row 82 direct-path load: devices=2000 tenants=20 concurrency=64 pool=32 duration=30s (+5s warmup)
+[S] rpc calls=889 rps=27 applied_ops/s=14
+[S] latency ms all p50=2181.8 p95=3796.9 p99=4080 max=4256.1
+[S] latency ms sync_pull p50=2410.6 p95=3852 p99=4081.8 · sync_push p50=1400 p95=2099.9 p99=2231
+[S] errors=0 rate=0 sqlstates={}
+[S] ops sent=543 applied=543 stale=0 conflicts=0 rejected=0 duplicates=0 records db=543/543
+[S] sessions pool=32 peak=32 idle_in_tx_after=0 · isolation schools=5 foreign_rows=0 mismatched=0
+[S] scope: simulated: synthetic devices calling the direct-path RPCs (PostgREST transaction semantics, no HTTP hop) on PostgreSQL on a CI runner or dev machine (loopback); describes this run only, not production capacity
+LOAD-82-DIRECT-FAILED p95 3796.9ms > 1000ms
+### 2b. head (0006_direct_rls_initplan)
+[S] row 82 direct-path load: devices=2000 tenants=20 concurrency=64 pool=32 duration=30s (+5s warmup)
+[S] rpc calls=9455 rps=313 applied_ops/s=128
+[S] latency ms all p50=195.4 p95=305 p99=374.5 max=603.6
+[S] latency ms sync_pull p50=185.4 p95=252.1 p99=280.9 · sync_push p50=262.4 p95=373.7 p99=446.3
+[S] errors=0 rate=0 sqlstates={}
+[S] ops sent=4486 applied=4486 stale=0 conflicts=0 rejected=0 duplicates=0 records db=4486/4486
+[S] sessions pool=32 peak=32 idle_in_tx_after=0 · isolation schools=5 foreign_rows=0 mismatched=0
+[S] scope: simulated: synthetic devices calling the direct-path RPCs (PostgREST transaction semantics, no HTTP hop) on PostgreSQL on a CI runner or dev machine (loopback); describes this run only, not production capacity
+LOAD-82-DIRECT-OK
+
+## 3. Security unchanged on top of 0006
+### rls-pentest-109 with RLS109_TO=0006_direct_rls_initplan (tail)
+PASS  PT-01  migrations 0001..0005 through the row-86 migrator (lint clean, all expand); authenticator = LOGIN NOINHERIT, member of the client and anon roles only  → ledger 0001,0002,0003,0004,0005,0006  (234ms)
+PASS  PT-02  other tenant — read: B's manager sees 0 rows of A in all 12 tables, through the feed, can_access and resolve  → 15 attacks refused  (49ms)
+PASS  PT-03  other tenant — write: record insert/update/delete, push with a tenant field, every manager RPC on A's users/devices/capabilities, key grants, conflicts, uids  → 14 attacks refused  (60ms)
+PASS  PT-04  role escalation: teacher → manager (RPCs, claims, direct UPDATE), parent writes, disabled / revoked users, revoked and foreign devices  → 13 attacks refused  (45ms)
+PASS  PT-05  capability and identity tampering by direct DML (capability, app_user, device, audit, key_grant, record identity, plan, usage, decided_by)  → 14 attacks refused  (40ms)
+PASS  PT-06  quota bypass through direct table writes — findings F1..F5 refused after migration 0005  → 8 attacks refused  (31ms)
+PASS  PT-07  internal functions: the client may execute exactly the 22 public RPCs; every other function of the schema is refused (catalog-checked, so a new function cannot slip through)  → 22 RPCs, 9 internal; 9 attacks refused  (11ms)
+PASS  PT-08  no token / forged token: every table reads 0 rows, every RPC refuses, garbage / partial / foreign claims identify nobody, the anon role has no access at all  → 27 attacks refused  (52ms)
+PASS  PT-09  every control turns RED when its fix is reverted: 25 mutants, each makes every attack that relies on it alone succeed; schema restored  → C-RLS-USER×1 C-RLS-RECORD×2 C-RLS-KEYGRANT×1 C-RLS-CONFLICT×1 C-RLS-USAGE×1 C-DEVICE-OWNER×1 C-REQUIRE-MANAGER×3 C-CONFLICT-POLICY×1 C-AUTH-DISABLED×1 C-AUTH-DEVICE×2 C-NOGRANT-CAP×1 C-NOGRANT-USER×1 C-NOGRANT-USAGE×1 C-IDENTITY-IMMUT
+PASS  PT-10  regression: the real protocol still works under 0005 (push → stale → merge, conflict + resolve, request replay) and spends exactly its own quota  → push/stale/merge/conflict/resolve/replay ok; 7 tickets, none overspent; tickets invisible to clients  (84ms)
+# passed=10 failed=0 attacks_refused=100 controls_red_when_reverted=25
+RLS-PENTEST-109-OK
+### direct-sync-108 with DS108_TO=0006_direct_rls_initplan (tail)
+PASS  SY-01  migrations 0001..0004 through the row-86 migrator (lint clean, all expand, feed index CONCURRENTLY outside a transaction, re-run applies nothing)  → ledger 0001..0006 (expand); feed index valid; second up = no-op  (316ms)
+PASS  SY-02  catalog: sync_push / sync_pull / sync_resolve_conflict are SECURITY INVOKER (RLS applies), pinned search_path, not PUBLIC; new tables RLS; client cannot write plan/usage or run plan_for; record trigger present  → 3 RPCs INVOKER + pinned; 5 tables RLS; plan/usage read-only; plan_for internal  (10ms)
+PASS  SY-03  idempotency-v1 vectors: every step gives the expected applied / duplicates / conflicts, and the same counts as server/sync.js on SQLite  → 7 steps equal to the vector (a/d/c 1/0/0 0/1/0 0/1/0 1/1/0 1/1/0 0/0/1 0/1/0); sync.js equal except the conflict-retry step (known, vector = Gateway)  (200ms)
+PASS  SY-04  pagination-v1 vector: 25 rows walk 10/10/5 with more t/t/f, no row skipped or repeated, cursor strictly increasing, empty last page keeps the cursor; limit clamped 0→1, 5000→50, abc→50, 7→7  → pages 10/10/5, 25 unique, clamps 0→1 5000→50 abc→50 7→7  (249ms)
+PASS  SY-05  scope-v1 vectors through RLS: roles become capability rows (row 106); every read case and every scope write case equals the vector; field checks (bad_score/bad_kind/bad_status) run on the device, before sealing  → collection list = policy.js (34 names); read 16 equal (ynnynynselfynyynNYy, own row via app_user ×1); write 3 ok, 4 refused by RLS, 3 field checks on device  (512ms)
+PASS  SY-06  conflict-v1 vectors end to end: stale ops come back to the device, its verdict equals the vector (action/reason/fields), and the database result (row, version, conflict kept) equals server/sync.js on SQLite  → 16 cases: verdicts equal; outcomes ok=7 conflict=7 rejected=1 deleted=1; rows/versions equal to sync.js  (1064ms)
+PASS  SY-07  row-83 convergence on the direct path: 4 seeded scenarios × 3–5 devices (offline/online, lost responses + retries, deletes, chained offline edits, human resolutions); P1 replicas = server, P2 every op and every final row = the spec oracle; a device-side domain-rule mutation and a device ignoring tombstones are caught  → ops=269 applied=119 merged=65 noop=29 conflicts=51 deleted=2
+PASS  SY-08  a repeated push has no second effect: same uid again (also with a changed body), same request key (replay of the merged multi-round answer), and two connections racing with the same batch ⇒ each op applied once  → uid duplicate, request replay (2-round answer whole), race ⇒ once each (v=1)  (193ms)
+PASS  SY-09  plan caps refused atomically: records, bytes, ops per push, ops per window, op size (54000); a tombstone frees a slot; usage exact; plan/usage not writable by clients; usage visible to the manager only  → records/bytes/ops-per-push/window/op-size refused; usage 5 rows 1490 B exact; plan+usage read-only  (238ms)
+PASS  SY-10  RLS through the RPCs: another school pulls 0; a push with one out-of-scope op is refused whole (nothing written); read-only role cannot push; revoked device ⇒ not_authenticated; conflicts visible to reporter + manager only; resolve: manager only, once  → cross-school 0; atomic scope refusal; read-only, revoked, unknown refused; conflict visibility + manager-only single resolution 
+PASS  SY-11  feed order under concurrent writers: a second writer of the same school waits for the first; a pull taken while the first is in flight skips nothing later; seq follows commit order  → B waited for A; mid-flight pull empty; then ids 1,2 with seq 704<705  (368ms)
+PASS  SY-12  mutation controls: 4 broken variants of migration 0003, each caught (uid idempotency, OCC, plan cap, feed position)  → M1 replayed uid re-applied; M2 stale overwrite; M3 over-cap accepted; M4 row missing from the feed — all 4 caught, schema restored  (125ms)
+PASS  SY-13  rollback of 0004 + 0003 through the migrator leaves rows 106/107 intact (identity, key tables, ciphertext rows); re-apply is clean and re-numbers the feed  → down ⇒ sync objects gone, 235 records + 62 grants kept; up ⇒ feed re-numbered  (248ms)
+# passed=13 failed=0 negative_controls=31 mutants_killed=4
+DIRECT-SYNC-108-OK

@@ -47,6 +47,8 @@ const FILES = [
   'docs/cloud/82-load-test.md',
   'docs/cloud/reports/evidence/load-82.txt',
   'docs/cloud/reports/evidence/load-82-report.json',
+  'docs/cloud/reports/evidence/load-82-direct.txt',
+  'docs/cloud/reports/evidence/load-82-direct-report.json',
 ];
 
 /* تعریفِ اشتباه (قدیم): [M] «اندازه‌گیری‌شده در مخزن/همین مخزن» */

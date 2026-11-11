@@ -1,0 +1,378 @@
+{
+  "row": 82,
+  "variant": "direct",
+  "label": "[S]",
+  "claim_scope": "simulated: synthetic devices calling the direct-path RPCs (PostgREST transaction semantics, no HTTP hop) on PostgreSQL on a CI runner or dev machine (loopback); describes this run only, not production capacity",
+  "date_utc": "2026-11-11T15:22:09.564Z",
+  "node": "v22.23.4",
+  "environment": {
+    "database": "fresh, direct migrations (MIGRATE-86-OK up)",
+    "api_role": "payesh_ld82_api (member of payesh_direct_client only, NOBYPASSRLS)",
+    "pool": 32,
+    "managed_db_attested": false,
+    "setup_ms": 7872
+  },
+  "config": {
+    "devices": 2000,
+    "tenants": 20,
+    "duration_s": 30,
+    "warmup_s": 5,
+    "concurrency": 64,
+    "pool": 32,
+    "push_ratio": 0.2
+  },
+  "requests": {
+    "label": "[S]",
+    "total": 10921,
+    "measured": 9323
+  },
+  "latency_ms": {
+    "label": "[S]",
+    "all": {
+      "label": "[S]",
+      "n": 9323,
+      "p50": 195.7,
+      "p95": 312.6,
+      "p99": 384.2,
+      "max": 687.1
+    },
+    "pull": {
+      "label": "[S]",
+      "n": 7440,
+      "p50": 186.6,
+      "p95": 252.4,
+      "p99": 286.9,
+      "max": 369.2
+    },
+    "push": {
+      "label": "[S]",
+      "n": 1883,
+      "p50": 265.9,
+      "p95": 384,
+      "p99": 454.9,
+      "max": 687.1
+    }
+  },
+  "errors": {
+    "label": "[S]",
+    "count": 0,
+    "rate": 0,
+    "sqlstates": {}
+  },
+  "throughput": {
+    "label": "[S]",
+    "rps": 309,
+    "ops_per_s": 124
+  },
+  "op_integrity": {
+    "label": "[S]",
+    "records_expected": 4367,
+    "records_db": 4367,
+    "ops_sent": 4367,
+    "applied": 4367,
+    "stale": 0,
+    "conflicts": 0,
+    "rejected": 0,
+    "duplicates": 0
+  },
+  "sessions": {
+    "label": "[S]",
+    "pool": 32,
+    "peak": 32,
+    "after": 32,
+    "idle_in_tx_after": 0
+  },
+  "isolation": {
+    "label": "[S]",
+    "schools_checked": 5,
+    "foreign_rows": 0,
+    "mismatched": 0,
+    "detail": [
+      {
+        "tenant": "7e3c2c0f",
+        "visible": 226,
+        "foreign": 0,
+        "truth": 226
+      },
+      {
+        "tenant": "ace57f8f",
+        "visible": 218,
+        "foreign": 0,
+        "truth": 218
+      },
+      {
+        "tenant": "4a206a63",
+        "visible": 259,
+        "foreign": 0,
+        "truth": 259
+      },
+      {
+        "tenant": "8a28c491",
+        "visible": 226,
+        "foreign": 0,
+        "truth": 226
+      },
+      {
+        "tenant": "7587c6da",
+        "visible": 241,
+        "foreign": 0,
+        "truth": 241
+      }
+    ]
+  },
+  "memory": {
+    "label": "[S]",
+    "measured": false,
+    "reason": "direct path: no application process between device and database; leak gate = database sessions (sessions section)",
+    "leak_suspected": false
+  },
+  "session_samples": [
+    {
+      "t_s": 1,
+      "api_sessions": 32,
+      "idle_in_tx": 17,
+      "total": 258,
+      "errors": 0
+    },
+    {
+      "t_s": 2,
+      "api_sessions": 32,
+      "idle_in_tx": 24,
+      "total": 573,
+      "errors": 0
+    },
+    {
+      "t_s": 3,
+      "api_sessions": 32,
+      "idle_in_tx": 25,
+      "total": 954,
+      "errors": 0
+    },
+    {
+      "t_s": 4,
+      "api_sessions": 32,
+      "idle_in_tx": 23,
+      "total": 1309,
+      "errors": 0
+    },
+    {
+      "t_s": 5,
+      "api_sessions": 32,
+      "idle_in_tx": 24,
+      "total": 1611,
+      "errors": 0
+    },
+    {
+      "t_s": 6.1,
+      "api_sessions": 32,
+      "idle_in_tx": 24,
+      "total": 1927,
+      "errors": 0
+    },
+    {
+      "t_s": 7.1,
+      "api_sessions": 32,
+      "idle_in_tx": 24,
+      "total": 2268,
+      "errors": 0
+    },
+    {
+      "t_s": 8,
+      "api_sessions": 32,
+      "idle_in_tx": 19,
+      "total": 2617,
+      "errors": 0
+    },
+    {
+      "t_s": 9.1,
+      "api_sessions": 32,
+      "idle_in_tx": 25,
+      "total": 2932,
+      "errors": 0
+    },
+    {
+      "t_s": 10.1,
+      "api_sessions": 32,
+      "idle_in_tx": 25,
+      "total": 3286,
+      "errors": 0
+    },
+    {
+      "t_s": 11.1,
+      "api_sessions": 32,
+      "idle_in_tx": 18,
+      "total": 3618,
+      "errors": 0
+    },
+    {
+      "t_s": 12.1,
+      "api_sessions": 32,
+      "idle_in_tx": 18,
+      "total": 3961,
+      "errors": 0
+    },
+    {
+      "t_s": 13.1,
+      "api_sessions": 32,
+      "idle_in_tx": 18,
+      "total": 4293,
+      "errors": 0
+    },
+    {
+      "t_s": 14.1,
+      "api_sessions": 32,
+      "idle_in_tx": 19,
+      "total": 4600,
+      "errors": 0
+    },
+    {
+      "t_s": 15.1,
+      "api_sessions": 32,
+      "idle_in_tx": 19,
+      "total": 4880,
+      "errors": 0
+    },
+    {
+      "t_s": 16.1,
+      "api_sessions": 32,
+      "idle_in_tx": 20,
+      "total": 5223,
+      "errors": 0
+    },
+    {
+      "t_s": 17.1,
+      "api_sessions": 32,
+      "idle_in_tx": 20,
+      "total": 5552,
+      "errors": 0
+    },
+    {
+      "t_s": 18.2,
+      "api_sessions": 32,
+      "idle_in_tx": 22,
+      "total": 5843,
+      "errors": 0
+    },
+    {
+      "t_s": 19.2,
+      "api_sessions": 32,
+      "idle_in_tx": 24,
+      "total": 6147,
+      "errors": 0
+    },
+    {
+      "t_s": 20.2,
+      "api_sessions": 32,
+      "idle_in_tx": 19,
+      "total": 6441,
+      "errors": 0
+    },
+    {
+      "t_s": 21.2,
+      "api_sessions": 32,
+      "idle_in_tx": 19,
+      "total": 6706,
+      "errors": 0
+    },
+    {
+      "t_s": 22.2,
+      "api_sessions": 32,
+      "idle_in_tx": 24,
+      "total": 6974,
+      "errors": 0
+    },
+    {
+      "t_s": 23.2,
+      "api_sessions": 32,
+      "idle_in_tx": 25,
+      "total": 7294,
+      "errors": 0
+    },
+    {
+      "t_s": 24.2,
+      "api_sessions": 32,
+      "idle_in_tx": 25,
+      "total": 7603,
+      "errors": 0
+    },
+    {
+      "t_s": 25.2,
+      "api_sessions": 32,
+      "idle_in_tx": 20,
+      "total": 7924,
+      "errors": 0
+    },
+    {
+      "t_s": 26.2,
+      "api_sessions": 32,
+      "idle_in_tx": 23,
+      "total": 8248,
+      "errors": 0
+    },
+    {
+      "t_s": 27.2,
+      "api_sessions": 32,
+      "idle_in_tx": 23,
+      "total": 8518,
+      "errors": 0
+    },
+    {
+      "t_s": 28.2,
+      "api_sessions": 32,
+      "idle_in_tx": 15,
+      "total": 8792,
+      "errors": 0
+    },
+    {
+      "t_s": 29.3,
+      "api_sessions": 32,
+      "idle_in_tx": 23,
+      "total": 9052,
+      "errors": 0
+    },
+    {
+      "t_s": 30.3,
+      "api_sessions": 32,
+      "idle_in_tx": 23,
+      "total": 9356,
+      "errors": 0
+    },
+    {
+      "t_s": 31.3,
+      "api_sessions": 32,
+      "idle_in_tx": 15,
+      "total": 9680,
+      "errors": 0
+    },
+    {
+      "t_s": 32.3,
+      "api_sessions": 32,
+      "idle_in_tx": 26,
+      "total": 9980,
+      "errors": 0
+    },
+    {
+      "t_s": 33.3,
+      "api_sessions": 32,
+      "idle_in_tx": 22,
+      "total": 10326,
+      "errors": 0
+    },
+    {
+      "t_s": 34.3,
+      "api_sessions": 32,
+      "idle_in_tx": 24,
+      "total": 10651,
+      "errors": 0
+    }
+  ],
+  "gates": {
+    "label": "[S]",
+    "thresholds": {
+      "max_error_rate": 0.005,
+      "max_p95_ms": 1000
+    },
+    "red": []
+  },
+  "verdict": "OK"
+}
