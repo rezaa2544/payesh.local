@@ -1,14 +1,14 @@
 row=67
-base_sha=8f649db5d9b2ec40eaaa34505fe5ffc4175ce440
-date_utc=2026-11-10T22:55:51Z
-node=v22 postgres=16.9 (embedded, local)
+base_sha=c4b39222c5e016a9ae41cbcebf43b255baad5e0d
+date_utc=2026-11-11T04:28:50Z
+node=v22 sqlite=node:sqlite postgres=16.9 (embedded, local)
 command=node tests/gateway-67.js
 
 PASS  GW67-RID-01  every response carries a minted X-Request-Id (200, 401, 404, 426)  → statuses 200/401/404/426, 4 distinct uuids
-PASS  GW67-RID-02  a well-formed caller id is echoed; malformed/oversized ones are replaced  → echo=lb-728b44322b7346c7
+PASS  GW67-RID-02  a well-formed caller id is echoed; malformed/oversized ones are replaced  → echo=lb-c93bc6545c01a774
 PASS  GW67-RID-03  JSON access log line per request with request_id/status/ms; no query string, no token  → 12 http log lines
 PASS  GW67-RID-04  negative: GW_ACCESS_LOG=0 silences the access log but keeps the header
-PASS  GW67-RL-01  device bucket: 3 × 200 then 429 rate_limited scope=device with Retry-After seconds  → statuses 200,200,200,429 retry-after=257s
+PASS  GW67-RL-01  device bucket: 3 × 200 then 429 rate_limited scope=device with Retry-After seconds  → statuses 200,200,200,429 retry-after=1878s
 PASS  GW67-RL-02  tenant bucket: a 2nd device of the same tenant is cut at the tenant ceiling (5) with scope=tenant  → d2 statuses 200,200,429
 PASS  GW67-RL-03  isolation: another tenant is unaffected; 200 responses carry no Retry-After
 PASS  GW67-RL-04  negative: X-Device-Id "__tenant__" cannot spend or read the reserved tenant bucket  → {"__tenant__":3,"x__tenant__":4}
@@ -20,8 +20,8 @@ PASS  GW67-KS-03  /healthz lists active switches and the invalid entries (typos 
 PASS  GW67-KS-04  negative: without PAYESH_FEATURE_KILL the same push is applied
 PASS  GW67-DR-01  SIGTERM: in-flight push completes + commits, new conns refused, response has connection: close, exit 0  → exit=0, ops committed=1, events=drain_start>drain_done
 PASS  GW67-DR-02  kept-alive socket during drain is closed or answered 503 draining + Retry-After — never served normally  → idle socket closed by drain
-PASS  GW67-DR-03  negative: a hung request beyond GW_DRAIN_TIMEOUT_MS is cut and the process exits 2  → exit=2 after 805ms
-      load {"error_increase":0,"p95_ratio":1.44} base={"label":"baseline","total":1200,"concurrency":24,"errors":0,"statuses":{"200":1200},"p50_ms":34.7,"p95_ms":53.7,"p99_ms":65.3,"rps":640,"unique_request_ids":1200} hard={"label":"hardened","total":1200,"concurrency":24,"errors":0,"statuses":{"200":1200},"p50_ms":45.6,"p95_ms":77.3,"p99_ms":86.8,"rps":469,"unique_request_ids":1200}
-PASS  GW67-LOAD-01  short load: hardened gateway has no error increase vs baseline; every response has a unique request id  → errors 0→0, p95 53.7→77.3ms, rps 640→469
+PASS  GW67-DR-03  negative: a hung request beyond GW_DRAIN_TIMEOUT_MS is cut and the process exits 2  → exit=2 after 806ms
+      load {"error_increase":0,"p95_ratio":1.46} base={"label":"baseline","total":1200,"concurrency":24,"errors":0,"statuses":{"200":1200},"p50_ms":39,"p95_ms":57.5,"p99_ms":67.6,"rps":583,"unique_request_ids":1200} hard={"label":"hardened","total":1200,"concurrency":24,"errors":0,"statuses":{"200":1200},"p50_ms":47.4,"p95_ms":84,"p99_ms":130.7,"rps":439,"unique_request_ids":1200}
+PASS  GW67-LOAD-01  short load: hardened gateway has no error increase vs baseline; every response has a unique request id  → errors 0→0, p95 57.5→84ms, rps 583→439
 
 GATEWAY-67-OK pass=18 fail=0
