@@ -4993,6 +4993,10 @@ async function waitFor(fn, ms = 15000) {
   await test('PR‑4: بستهٔ وب قطعی و گیت خروجی‌ها (نبود/خالی/checksum/ادعای امضای بی‌شاهد ⇒ قرمز)',
     () => { const r = ownerPackaging.scriptChecks(); console.log('    OWNER-ARTIFACTS gate_negative_controls=' + r.negative_controls + ' failures=0'); });
 
+  /* ── ردیف ۱۰۲: پنل مالک · اجرای محلی با یک فرمان (local-up) ─────────── */
+  const ownerLocalUp = require('../apps/owner-panel/tests/local-up.test.js');
+  await test('ردیف ۱۰۲: local-up — فقط loopback، DATABASE_URL محلی، migration idempotent، رازها خارج از Git، ورود TOTP، خاموشی تمیز، بدون 004 ⇒ 501',
+    async () => { const r = await ownerLocalUp.main(); console.log('    LOCAL-UP-102 passed=' + r.passed + ' negative_controls=' + r.negative_controls + ' failures=0'); });
   await test('ردیف ۱۰۷: e2e1 — رمزنگاری سمت دستگاه (X25519/HKDF/AES-GCM)، بردارهای مشترک JS↔Dart، AAD ردیف، چرخش کلید، کنترل منفی',
     async () => {
       const r = await require('./e2e1-107.js').main({ quiet: true });

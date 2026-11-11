@@ -6,6 +6,7 @@
      web/**                    SPA ایستا (همان apps/owner-panel/web)
      server/static-server.js   سرور ایستا + پروکسی same-origin (بدون وابستگی)
      START-HERE.txt            راه‌اندازی
+     start-owner-local.cmd     اجرای محلی با یک فرمان (ردیف ۱۰۲؛ فقط loopback)
      BUILD-INFO.json           commit، نسخه و sha256 هر فایل
    بدون آدرس/توکن/کلید؛ upstream فقط از PAYESH_PLATFORM_UPSTREAM خوانده می‌شود.
    قطعی: commit یکسان ⇒ zip بایت‌به‌بایت یکسان.
@@ -41,6 +42,8 @@ function collect({ commit = '', version } = {}) {
     files.push({ name: 'web/' + rel, data: fs.readFileSync(path.join(APP, 'web', rel)) });
   }
   files.push({ name: 'server/static-server.js', data: fs.readFileSync(path.join(APP, 'server', 'static-server.js')) });
+  /* row 102: Windows wrapper for the one-command local run (needs a repo checkout: PAYESH_REPO) */
+  files.push({ name: 'start-owner-local.cmd', data: fs.readFileSync(path.join(APP, 'scripts', 'start-owner-local.cmd')) });
   const v = version || JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
   files.push({ name: 'START-HERE.txt', data: Buffer.from([
     'پنل مالک پایش — بستهٔ وب (فقط برای مالک پلتفرم)',
@@ -54,6 +57,10 @@ function collect({ commit = '', version } = {}) {
     'سپس همان مبدأ را در مرورگر یا در اپ ویندوز/Android پنل مالک وارد کنید.',
     'بدون PAYESH_PLATFORM_UPSTREAM، API با 503 upstream_not_configured بسته می‌ماند.',
     'برای دسترسی از بیرون، این سرور را پشت HTTPS قرار دهید؛ اپ‌ها فقط https می‌پذیرند.',
+    '',
+    'آزمایش محلی با یک فرمان (فقط loopback؛ نه تولید): در یک checkout مخزن پس از npm ci،',
+    '  node apps/owner-panel/scripts/local-up.js      یا در ویندوز: start-owner-local.cmd',
+    '  (برای اجرای start-owner-local.cmd از همین بسته، PAYESH_REPO را مسیر آن checkout بگذارید)',
     '',
     'این بسته امضای دیجیتال ندارد؛ صحت را با SHA256SUMS همان انتشار بسنجید.',
     'نصب/اجرای واقعی روی دستگاه مالک هنوز تأیید نشده است [?].',

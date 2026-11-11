@@ -191,18 +191,49 @@ const cleanup = (dir) => { try { fs.rmSync(dir, { recursive: true, force: true }
   });
 
   /* ── کنترل منفی ۵: allowlist منقضی ──────────────────────────────── */
-  await check('SS-11', 'کنترل منفی: allowlist وابستگیِ منقضی ⇒ دروازه قرمز می‌شود', async () => {
+  /* ردیف ۸۴: درخت واقعی دیگر یافتهٔ dev ندارد (lodash با overrides به 4.18.1
+     رسید)، پس کنترل منفی یک وابستگیِ عمداً آسیب‌پذیر (lodash 4.17.15، dev) را
+     در کپی موقت package-lock تزریق می‌کند و audit واقعی npm را اجرا می‌کند. */
+  const injectVulnLodash = (r) => mutate(r, 'package-lock.json', (t) => {
+    const j = JSON.parse(t);
+    const e = j.packages['node_modules/lodash'];
+    assert(e, 'lodash در package-lock نیست؛ کنترل منفی قابل اجرا نیست');
+    e.version = '4.17.15';
+    e.resolved = 'https://registry.npmjs.org/lodash/-/lodash-4.17.15.tgz';
+    e.integrity = 'sha512-8xOcRHvCjnocdS5cpwXQXVzmmh5e5+saE2QGoeQmbKmRS6J3VQppPOIt0MnmE+4xlZoumy0GPG0D0MVIQbNA1A==';
+    e.dev = true;
+    return JSON.stringify(j, null, 2);
+  });
+  const setAllow = (r, entries) => mutate(r, 'tools/deps-allowlist.json', (t) => {
+    const j = JSON.parse(t); j.entries = entries; return JSON.stringify(j, null, 2);
+  });
+  const lodashEntry = (expires) => ({ package: 'lodash', advisory: '', severity: 'high', reason: 'کنترل منفی آزمون ۴۸/۸۴ — وابستگی عمداً آسیب‌پذیر', expires });
+
+  await check('SS-11', 'کنترل منفی: وابستگی dev عمداً آسیب‌پذیر + allowlist منقضی ⇒ دروازه قرمز می‌شود', async () => {
     const r = makeRoot();
     try {
-      mutate(r, 'tools/deps-allowlist.json', (t) => {
-        const j = JSON.parse(t);
-        for (const e of j.entries) e.expires = '2020-01-01';
-        return JSON.stringify(j, null, 2);
-      });
+      injectVulnLodash(r);
+      setAllow(r, [lodashEntry('2020-01-01')]);
       const s = runScan(r);   /* بدون --skip-deps: audit واقعی */
       assert(s.code !== 0, 'دروازه با allowlist منقضی قرمز نشد (code=' + s.code + ')');
       assert(s.json && s.json.gates.G2_deps_dev_triaged === false, 'گیت G2 قرمز نشد');
-      return 'gate=RED (expired allowlist)';
+      assert(JSON.stringify(s.json.findings.deps_dev_unlisted).includes('expired'), 'دلیل «منقضی» ثبت نشد');
+      return 'gate=RED (injected lodash 4.17.15, expired allowlist)';
+    } finally { cleanup(r); }
+  });
+
+  await check('SS-11b', 'کنترل منفی: وابستگی dev عمداً آسیب‌پذیر بدون مدخل allowlist ⇒ قرمز؛ با مدخل معتبر ⇒ G2 سبز', async () => {
+    const r = makeRoot();
+    try {
+      injectVulnLodash(r);
+      setAllow(r, []);
+      const s = runScan(r);
+      assert(s.code !== 0 && s.json && s.json.gates.G2_deps_dev_triaged === false, 'یافتهٔ تریاژنشده دروازه را قرمز نکرد');
+      setAllow(r, [lodashEntry('2099-12-31')]);
+      const s2 = runScan(r);
+      assert(s2.json && s2.json.gates.G2_deps_dev_triaged === true, 'مدخل معتبر G2 را سبز نکرد: ' + JSON.stringify(s2.json && s2.json.findings.deps_dev_unlisted).slice(0, 160));
+      assert(s2.json.counts.deps_dev_high >= 1, 'audit یافتهٔ تزریقی را ندید');
+      return `unlisted=RED, listed=G2 green (dev_high=${s2.json.counts.deps_dev_high})`;
     } finally { cleanup(r); }
   });
 
