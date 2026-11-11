@@ -42,7 +42,9 @@ const policy = require('../server/policy.js');
 const ROOT = path.resolve(__dirname, '..');
 const CLI = path.join(ROOT, 'tools', 'migrate-86.mjs');
 const DIR = 'db/migrations/direct';
-const OWN = '0004_direct_sync_feed_index';
+/* DS108_TO lets later rows re-run this suite on top of their own migrations
+   (row 109 runs it with 0005_direct_write_tickets); default: this row's own */
+const OWN = process.env.DS108_TO || '0004_direct_sync_feed_index';
 const API_ROLE = 'payesh_d108_api';
 const VEC = path.join(ROOT, 'docs/cloud/contracts/vectors');
 const vec = n => JSON.parse(fs.readFileSync(path.join(VEC, n), 'utf8'));
@@ -198,11 +200,13 @@ async function main() {
       admin = new Pool({ connectionString: DB_URL, max: 4 });
       admin.on('error', () => {});
       const led = await admin.query(`SELECT id, phase FROM payesh_schema_migrations WHERE track = 'direct' ORDER BY id`);
-      eq(led.rows.map(r => r.id).join(','), '0001_direct_identity,0002_key_grants,0003_direct_sync,0004_direct_sync_feed_index', 'ledger');
+      const want = fs.readdirSync(path.join(ROOT, DIR)).filter(f => f.endsWith('.up.sql')).map(f => f.replace(/\.up\.sql$/, '')).sort().filter(id => id <= OWN);
+      eq(led.rows.map(r => r.id).join(','), want.join(','), 'ledger');
+      assert(want.includes('0004_direct_sync_feed_index'), 'pin below row 108');
       assert(led.rows.every(r => r.phase === 'expand'), 'all expand');
       const ix = await admin.query(`SELECT indisvalid FROM pg_index WHERE indexrelid = 'payesh_direct.record_feed_idx'::regclass`);
       assert(ix.rows.length && ix.rows[0].indisvalid, 'feed index valid');
-      return 'ledger 0001..0004 (expand); feed index valid; second up = no-op';
+      return `ledger ${want[0].slice(0, 4)}..${want[want.length - 1].slice(0, 4)} (expand); feed index valid; second up = no-op`;
     });
     if (!admin) throw new Error('migration failed; aborting');
     await admin.query(`GRANT payesh_direct_client TO ${API_ROLE}`);

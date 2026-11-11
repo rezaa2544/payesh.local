@@ -36,6 +36,7 @@ on:
       - 'tools/e2e1-vectors-107.mjs'
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - 'tests/direct-sync-108.js'
+      - 'tests/rls-pentest-109.js'
       - 'tools/direct-sync.js'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
@@ -66,6 +67,7 @@ on:
       - 'tools/e2e1-vectors-107.mjs'
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - 'tests/direct-sync-108.js'
+      - 'tests/rls-pentest-109.js'
       - 'tools/direct-sync.js'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
@@ -212,6 +214,22 @@ jobs:
           DS108_REQUIRE_PG: '1'
         run: |
           set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/direct-sync-108.js | tee -a native-contract.txt
+      # Row 109 (ADR-105, Proposed): RLS / privilege attack suite on postgres:16 — other
+      # tenant read/write, role escalation, capability tampering, internal functions,
+      # no token, quota bypass F1..F5 (fixed by migration 0005); every control is
+      # reverted by a mutant and its attack must then succeed. Row 108 is re-run on
+      # top of 0005 (write tickets must not break the protocol).
+      - name: RLS pentest (row 109, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          RP109_REQUIRE_PG: '1'
+          DS108_REQUIRE_PG: '1'
+          DS108_TO: 0005_direct_write_tickets
+          DS108_RUNS: '4'
+        run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/rls-pentest-109.js | tee -a native-contract.txt
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/direct-sync-108.js | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
