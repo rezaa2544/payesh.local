@@ -16,6 +16,7 @@
 | PRهای باز همین دور | #196 (ردیف ۱۱۵، پروب هاست) و #197 (ردیف ۱۱۷، ADR‑117 + D‑48 + ADR‑105 Parked) |
 | آزمون‌ها روی main | `npm test` ۱۱۲/۱۱۲ [S] |
 | CI | در لحظهٔ نوشتن این سند، GitHub Actions دچار **قطعی گسترده (major outage)** است. CI این PRها هنوز تمام نشده (**NOT RUN**) و ادغام منتظر CI سبز می‌ماند (D‑39). |
+| به‌روزرسانی پس از ادغام | #196، #197 و #198 با CI سبز ادغام شدند. R10 و R12 همراه ردیف ۱۱۹ (#199) و R26 پس از ادغام #196 به‌روز شدند. |
 
 ## ۲. سنجش «شواهد اولیهٔ کاربر»
 
@@ -50,9 +51,9 @@
 | R07 | مرحلهٔ A روی هاست فعلی (Gateway چندمستأجری) | BLOCKED | ۱۲۰: Blocked | `deploy/README.md` | — | — | راه ۱ تک‌مدرسه‌ای است؛ بستهٔ استقرار Gateway نیست | هاست ممکن است همیشه‌روشن نباشد یا دیسکش نماند | ۱۱۶ (OWNER) و سپس ۱۲۰ |
 | R08 | پنل مالک به‌عنوان Control Plane (ارائه‌دهنده، سلامت، ظرفیت، هشدار) | NOT IMPLEMENTED | ۱۲۲، ۱۲۳: Backlog | `apps/owner-panel/server/platform-api.js` | — | — | migration 005 و صفحهٔ «زیرساخت» نیست | — | ردیف‌های ۱۲۲ و ۱۲۳ |
 | R09 | ساخت مدرسه از پنل ← tenant + مدیر اولیه | NOT IMPLEMENTED | ۱۲۱: Ready | `apps/owner-panel/server/platform-api.js` | — | — | فقط `GET /tenants` هست؛ مسیر ساخت مدرسه و مدیر نیست | — | ردیف ۱۲۱ |
-| R10 | اعلان با Polling هوشمند (D‑46) | PARTIAL [S] | ۷۹: Done | `docs/cloud/79-adr-notification-channel.md` | `tests/sync-cost-42.js` | `docs/cloud/reports/evidence/change-feed-36.txt` | کلاینت وب poll تطبیقی دارد؛ کلاینت بومی Dart ندارد | — | ردیف ۷۴ |
+| R10 | اعلان با Polling هوشمند (D‑46) | PARTIAL [S] | ۷۹: Done، ۱۱۹: Done | `apps/payesh/packages/payesh_sync/lib/src/auto_sync.dart` | `tests/sync-cost-42.js` `apps/payesh/packages/payesh_sync/test/auto_sync_test.dart` | `docs/cloud/119-offline.md` | کلاینت وب poll تطبیقی دارد و کلاینت بومی AutoSync (polling با backoff) دارد (۱۱۹)؛ هنوز هیچ صفحهٔ بومی اعلان را نشان نمی‌دهد | — | ردیف ۷۴ |
 | R11 | ورود و ممیزی پنل مالک (D‑45) | PASS [S] | ۹۸: Done | `apps/owner-panel/server/owner-auth.js` | `apps/owner-panel/tests/owner-login.test.js` | `docs/cloud/reports/evidence/owner-panel-pr3-98-login.txt` | — | امنیت UNKNOWN | ردیف ۹۲ |
-| R12 | ۲۰ سناریوی آفلاین (قطعی، 429/5xx، ری‌استارت، تعارض…) | NOT RUN | ۱۱۹: Ready | `client/outbox-web.js` | `tests/chaos-47.js` | `docs/cloud/reports/evidence/chaos-47.txt` | ۱۴ سناریوی ردیف ۴۷ روی سرور تک‌مدرسه‌ای است، نه Gateway | ادعای «آفلاین» بدون ۱۱۹ مجاز نیست | ردیف ۱۱۹ |
+| R12 | ۲۰ سناریوی آفلاین (قطعی، 429/5xx، ری‌استارت، تعارض…) | PASS [S] | ۱۱۹: Done | `client/outbox-web.js` | `tests/offline-119.js` `apps/payesh/packages/payesh_sync/test/offline_119_test.dart` | `docs/cloud/119-offline.md` | روی دستگاه واقعی و هاست واقعی اجرا نشده | رفتار شبکهٔ واقعی موبایل [?] | دستگاه واقعی = OWNER [M] |
 | R13 | تعارض و هم‌گرایی | PASS [S] | ۴۱، ۸۳: Done | `server/convergence.js` | `tests/convergence-fuzz-83.js` | `docs/cloud/reports/evidence/convergence-fuzz-83.txt` | — | — | — |
 | R14 | انتشار امضاشدهٔ اندروید و ویندوز | PARTIAL [S] | ۷۶، ۷۷: Done | `tests/android-release-76.js` | `tests/android-release-76.js` | `docs/cloud/reports/evidence/76-android-release.txt` | امضاکنندهٔ آزمایشی | APK امضانشده منتشر نمی‌شود (D‑44) | ۶۱ و ۹۱ (OWNER) |
 | R15 | امنیت | UNKNOWN | ۴۸، ۵۷، ۱۰۹: Done · ۹۲: باز | `tests/security-scan-48.js` | `tests/rls-pentest-109.js` | `docs/cloud/reports/evidence/rls-pentest-109.txt` | پنتست انسانی انجام نشده | — | ۹۲ (OWNER) |
@@ -66,7 +67,7 @@
 | R23 | صفحه‌های بومی (ورود و مدرسه ← حضور ← نمره ← اطلاعیه ← والدین) | NOT IMPLEMENTED | ۷۴: باز | `apps/payesh/app/lib/src/app.dart` | — | — | فقط صفحهٔ خانه هست | — | ردیف ۷۴ (موج‌به‌موج) |
 | R24 | RTL، تقویم جلالی، تم روشن و تیره | PASS [S] | ۷۳: Done | `apps/payesh/packages/payesh_ui/lib/src/jalali.dart` | `tests/conformance-jalali-73.js` | `docs/cloud/reports/evidence/native-73-75-ci.txt` | فقط در سطح بسته؛ در صفحه به کار نرفته | — | ردیف ۷۴ |
 | R25 | بدون Cloudflare (D‑09) | PASS [S] | ۱۱۴: Done | `site/index.html` | `tests/landing-114.js` | `docs/cloud/reports/evidence/114-landing.txt` | پروب هاست هم آن را می‌سنجد (PR #196) | — | — |
-| R26 | پروب هاست (۱۱۵) و اجرای آن روی هاست واقعی (۱۱۶) | NOT RUN | ۱۱۵: Review · ۱۱۶: Backlog | `deploy/selfcheck.mjs` | — | — | ابزار در PR #196 است و هنوز در main نیست؛ اجرای واقعی با OWNER است | — | ادغام #196 و سپس ۱۱۶ |
+| R26 | پروب هاست (۱۱۵) و اجرای آن روی هاست واقعی (۱۱۶) | NOT RUN | ۱۱۵: Done · ۱۱۶: Backlog | `deploy/selfcheck.mjs` | — | — | ابزار با #196 در main است؛ اجرای واقعی روی هاست با OWNER است | — | ۱۱۶ (OWNER) |
 | R27 | سند نصب و راه‌اندازی | BLOCKED | ۹۴: Blocked | `docs/05-install-and-updates.md` | — | — | وابسته به ۱۲۰ و ۷۴ | — | ردیف ۹۴ |
 <!-- RECONCILIATION-TABLE:END -->
 
@@ -82,10 +83,10 @@
 | صندوقچهٔ ماندگار با lease، backoff+jitter، ack پس از تصمیم سرور (وب و Dart) | PASS [S] | `tests/outbox-40.js`، `tests/conformance-outbox-71.js` |
 | ۱۴ سناریوی آشوب: قطع پیش از ارسال، وسط درخواست، وسط پاسخ، blackhole، کشتن سرور | PASS [S] روی `server/index.js`، تک‌مدرسه | `docs/cloud/reports/evidence/chaos-47.txt` (`data_loss=0 duplicate=0 cross_tenant=0`) |
 | هم‌گرایی تعارض (fuzz) | PASS [S] | `docs/cloud/reports/evidence/convergence-fuzz-83.txt` |
-| **۲۰ سناریوی ردیف ۱۱۹ روی مسیر پیش‌فرض Gateway + PostgreSQL** (قطعی پیش، حین و پس از ارسال؛ Backend، DB یا Gateway پایین؛ 429؛ 5xx؛ timeout؛ ازدحام؛ ری‌استارت اپ یا دستگاه؛ برگشت شبکه؛ اجرای خودکار صف؛ تکرار عملیاتِ اجراشده؛ ترتیب وابسته؛ تعارض دو دستگاه؛ مجوز دادهٔ حساس؛ قطعی دوباره وسط همگام‌سازی) | **NOT RUN** | ردیف ۱۱۹ |
+| **۲۰ سناریوی ردیف ۱۱۹ روی مسیر پیش‌فرض Gateway + PostgreSQL** (قطعی پیش، حین و پس از ارسال؛ Backend، DB یا Gateway پایین؛ 429؛ 5xx؛ timeout؛ ازدحام؛ ری‌استارت اپ یا دستگاه؛ برگشت شبکه؛ اجرای خودکار صف؛ تکرار عملیاتِ اجراشده؛ ترتیب وابسته؛ تعارض دو دستگاه؛ مجوز دادهٔ حساس؛ قطعی دوباره وسط همگام‌سازی) | PASS [S] (Gateway + PostgreSQL، کلاینت Dart و وب) | `docs/cloud/119-offline.md` (`OFFLINE-119 scenarios=20 data_loss=0 duplicate=0 order_violations=0 cross_tenant=0`) |
 | آزمون روی دستگاه واقعی | **NOT RUN** (OWNER [M]) | — |
 
-**حکم:** ادعای «آفلاین کامل» تا اجرای ردیف ۱۱۹ و آزمون دستگاه واقعی **مجاز نیست**.
+**حکم:** ۲۰ سناریوی ردیف ۱۱۹ روی مسیر پیش‌فرض PASS [S] است. ادعای «آفلاین کامل» تا آزمون دستگاه واقعی [M] **مجاز نیست**.
 
 ## ۵. معماری نهایی (ADR‑117، D‑48)
 
