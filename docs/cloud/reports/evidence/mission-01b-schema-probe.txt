@@ -1,3 +1,6 @@
+base_sha=04fc45d2710d786ea62f4363600f6a4d0ef74136
+date_utc=2026-11-06T17:50:10Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # پروب طرح ۰۱‑ب — قیدها و ایندکس‌ها روی SQLite واقعی
 # تولید: node --experimental-sqlite --disable-warning=ExperimentalWarning <script>
 # تاریخ: 2026-11-06T17:49:57Z

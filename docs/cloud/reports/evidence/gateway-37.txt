@@ -1,3 +1,6 @@
+base_sha=d5a4a1ae9c3022488f844b312ecb3e7f6cc7d808
+date_utc=2026-11-07T16:43:23Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۳۷ — Gateway نازک و بی‌حالت (دو نمونهٔ واقعی + PostgreSQL واقعی)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/7ac102df-payesh-local

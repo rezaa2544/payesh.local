@@ -1,3 +1,6 @@
+base_sha=e56099ee9919efd0acef7e8b29de24fb52ba87d6
+date_utc=2026-11-07T01:43:20Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ CC‑01B — تمرین واقعی مدل مدرسه/پلن/اشتراک و چرخهٔ وضعیت
 generated_by: docs/cloud/reports/evidence/gen-cc01b-evidence.sh
 head: 0ad6bed8b202b8d70d1555dba80f54f96abcb1da

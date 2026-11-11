@@ -1,3 +1,6 @@
+base_sha=31833193a0751b121e2505c2d91f8e08f3c39ba6
+date_utc=2026-11-07T07:19:05Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # عکس لحظه‌ای صف وظایف Notion — ورودی دروازهٔ فاز ۳
 # DB: 8f88ca09-ed6c-4d65-b037-52d5afb003d3 · data source: b53b83a4-da2f-49bf-b702-e56c998900e5
 snapshot_at_utc: 2026-11-07T07:40:00Z

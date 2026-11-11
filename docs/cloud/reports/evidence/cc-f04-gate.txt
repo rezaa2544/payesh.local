@@ -1,3 +1,6 @@
+base_sha=4344f4efe28c3e31aa608402ea9be835eea7edd2
+date_utc=2026-11-07T08:23:01Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ F‑04 — حذف افشای کلید S3 از کلاینت/API (P0 · D‑23)
 generated_by: docs/cloud/reports/evidence/gen-f04-gate.sh
 head: 6d39137df7fc36f8e65c12e8c7d3ab71be3d1cef

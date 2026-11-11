@@ -1,3 +1,6 @@
+base_sha=d798e5848095144542dd88181b84be0abc485c87
+date_utc=2026-11-07T20:28:40Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۴۱ — حل تعارض نسخهٔ ۱ (field-level LWW با زمان سرور + قواعد دامنه)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/c8a5b522-payesh-local

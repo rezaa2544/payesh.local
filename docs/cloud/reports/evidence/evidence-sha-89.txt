@@ -1,0 +1,64 @@
+row=89
+base_sha=2277a4d16a8402472067f8f8d316b61a0a1849a0
+date_utc=2026-11-11T08:34:55Z
+command=node tests/evidence-sha-89.js ; node tools/evidence-sha-89.mjs --check
+label=[S] local dev machine (node v22, embedded PostgreSQL 16 for ES-14)
+
+── before (origin/main ece72ae) ──
+txt evidence with valid base_sha header: 23/154 ; logs citing commits absent from the repo: 9 ; CI gate scope: changed .txt only
+
+── backfill byte check: every backfilled file = 3 header lines + the exact original bytes ──
+backfilled_files=132 body_changed=0
+
+── gate + negative controls ──
+PASS  ES-01  real repository: every evidence file carries a resolvable base SHA (txt header / log commit_sha / index / sha-map)  → EVIDENCE-SHA-89-OK files=387 txt=155 log=204 other_embedded=1 indexed=27 mapped_refs=9 failures=0
+PASS  ES-02  healthy temp repo with one valid txt is green  → EVIDENCE-SHA-89-OK files=1 txt=1 log=0 other_embedded=0 indexed=0 mapped_refs=0 failures=0
+PASS  ES-03  NEGATIVE: txt without base_sha= is rejected  → red: expected exactly one base_sha
+PASS  ES-04  NEGATIVE: short base_sha is rejected  → red: 40-character
+PASS  ES-05  NEGATIVE: well-formed SHA that is not a commit here (rebased/local) and not mapped is rejected  → red: is not a commit in this repository and is not mapped
+PASS  ES-06  sha-map old→new (new = real ancestor commit) makes the ghost SHA acceptable  → EVIDENCE-SHA-89-OK files=2 txt=2 log=0 other_embedded=0 indexed=0 mapped_refs=1 failures=0
+PASS  ES-07  NEGATIVE: sha-map whose new SHA is not a commit is rejected  → red: is not a commit in this repository
+PASS  ES-08  NEGATIVE: .log without a 40-hex commit SHA is rejected  → red: no 40-hex commit SHA
+PASS  ES-09  NEGATIVE: .json without base_sha and without an index row is rejected; --index fixes it  → red: no row in
+PASS  ES-10  NEGATIVE: stale index row for a deleted file is rejected  → red: stale row
+PASS  ES-11  NEGATIVE: a shallow clone fails closed (SHA resolution needs full history) unless --allow-shallow  → red: repository is shallow
+PASS  ES-12  backfill: header = commit that first added the file; body byte-identical (incl. a truncated UTF-8 sequence)  → EVIDENCE-SHA-89-OK files=1 txt=1 log=0 other_embedded=0 indexed=0 mapped_refs=0 failures=0
+PASS  ES-13  T2 tool + runbook exist; local target refused without --allow-local, tagged [S] with it; remote without owner confirmation is [?], never [M]  → local=[S] remote=[?] dry-run never contacts
+PASS  ES-14  T2 tool really measures a local PostgreSQL as [S] (skipped without PAYESH_PG_ADMIN)  → tag=[S] db_bytes=9105891 relations=8
+PASS  ES-15  ci-negative-proof-57.txt: header OK, cites a CI run, shows PULL-LEAK-57-FAILED + NEGATIVE-LEAK-CONTROL-OK  → ok
+
+# passed=15 failed=0
+EVIDENCE-SHA-89-TESTS-OK
+exit=0
+
+EVIDENCE-SHA-89-OK files=387 txt=155 log=204 other_embedded=1 indexed=27 mapped_refs=9 failures=0
+
+── sha-map.json (old → new) ──
+91614a0 -> ae79f990f7ef9559d50d32e4ab38bb25c9da6aeb hermes-remap ردیف ۵۵: سقف نمونهٔ مرکزی PostgreSQL
+6b40039 -> 491522203bf66a326441b0a2152ca142057c8a4a hermes-remap ردیف ۵۵: نهایی‌سازی Go/No-Go
+498a6cf -> 8a8a6dacab6f065d006eb1962908489030e7ba6c hermes-remap ردیف ۵۱: ریشه‌یابی راه‌اندازی دوبارهٔ پایلوت
+3c9fca0 -> 695244270768eda858c929a3231a2247f78dff2e hermes-remap ردیف‌های ۴۵/۴۶/۵۰: دروازه‌های PostgreSQL
+4e54e8e -> 39f7aa847f7f9674ab8f66d46a542dc67d2d7e39 hermes-remap ردیف ۵۷: آزمون خودکار
+e16d93f -> ce12a6afd846511579a5c4f9ebeaca53bdb5dcd1 hermes-remap ردیف ۵۷: رفع نشت `password_enc`
+8a0e940 -> 338f2a44931dd5343cdbd7910ac22c2b437cc668 hermes-remap ردیف‌های ۵۱/۵۷: تصمیم مالک
+00b28dd5ffad52b723faede73d1b5b4eac7635af -> 2d7b7f2e5640cf15ac04d42dc6285b8d25158b0f rebased-or-local tests-run-00b28dd-20261109T071134Z.log
+04fa61d35978f85fe602a86eabbe0cb2253aaa05 -> e90160cce82a573d3b7cc218ba8a68a705729a4f rebased-or-local tests-run-04fa61d-20261109T044757Z.log
+0de690a37a4b0358cd1c93f86959e1a748ed136b -> 53397eb326b4a9b96ba97b965d61c835d2c8c71e rebased-or-local tests-run-0de690a-20261109T062122Z.log
+4779584e31d6b1a89d5c9a02adceafa4b0f1a8af -> 613804dcf5d263559458136810618d0ae61bcfcc rebased-or-local tests-run-4779584-20261107T000009Z.log
+56c94ce153677f34327d8170fb1de104c9a825c8 -> 3fa593cd5d8c915604982281f75b57a0a4424066 rebased-or-local tests-run-56c94ce-20261109T063726Z.log
+6c09e15cad36324c6b878cefd970330f18f69fe7 -> c0b26c1d096b75f8a29b90b4fae6f4bb93ac7e93 rebased-or-local tests-run-6c09e15-20261109T100500Z.log
+a160a1fd4eb8ef695e12562bfec37058305fcda9 -> e490b71f609587f3301d5e907a2f2c569eaf767b rebased-or-local tests-run-a160a1f-20261109T065154Z.log
+c1440aeed0b47b587bb9562f8a8ae3e682f8735b -> 861a7caa8ae1a80bc7b45782b8bd7fb706d9f0e2 rebased-or-local tests-run-c1440ae-20261109T200026Z.log
+f244c32c4ce1ea8be95cfe03bcb7ebeaa36221ed -> e73eb64e76591bb1f6dfbab6cfe567323bfd6e32 rebased-or-local tests-run-f244c32-20261109T101736Z.log
+
+## merge origin/main (row 87 #176, 761fa79) → 2718f6a
+- conflicts: gen-audit-evidence.sh ALLOW (union: row 87 + tests/evidence-sha-89.js), mission-05 generated files (regenerated).
+- run-tests-evidence.sh @2718f6a: pass=110 fail=0 → tests-run-2718f6a-20261111T085722Z.log
+- gen-audit-evidence.sh @2718f6a: EVIDENCE-OK
+- tools/evidence-sha-89.mjs --check: EVIDENCE-SHA-89-OK files=392 failures=0 (row-87 files field-crypto-87.txt + tests-run logs covered)
+- tests/evidence-sha-89.js: passed=15 failed=0
+
+## CI @328c725 (merge of main + re-run evidence) — all green
+- build-and-release push run 42991226423: job 130424332762 success (evidence step: EVIDENCE-SHA-89-OK files=393 failures=0; tests/evidence-sha-89.js passed=15 failed=0; EVIDENCE-BASE-OK strict), setup.exe job 130427150182 success
+- api-contract push run 42991226201 success
+- native-client push run 42991226387 success

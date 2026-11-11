@@ -1,3 +1,6 @@
+base_sha=776e2308eacef11cfb2312a60740cacbe1343b61
+date_utc=2026-11-07T01:27:32Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # آزمون منفی دروازهٔ CC‑15 — شاهد ناقص/جعلی/کهنه/بی‌زمان
 generated_by: docs/cloud/reports/evidence/verify-cc15-negative.sh
 head: 3802e9c87437a690ca3376188082595a3335f14b

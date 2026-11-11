@@ -1,3 +1,6 @@
+base_sha=7080f09fdd7946f66a744dd21ce6a0e494b71a13
+date_utc=2026-11-07T15:52:24Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد اجرایی فاز ۲ — ردیف ۳۱ (ADR)، ۳۲ (مرز مخزن)، ۳۳ (مدل بار/هزینه)، ۳۴ (انتخاب ارائه‌دهنده)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/aff3b370-payesh-local

@@ -1,3 +1,6 @@
+base_sha=bc5876648db4aa3358eeb28b392780f206aca390
+date_utc=2026-11-07T17:30:58Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۴۳ — دایرکتوری مرکزی و مسیردهی مدرسه→cell
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/c2a035f9-payesh-local

@@ -125,6 +125,10 @@ jobs:
             git diff --name-only origin/main...HEAD -- docs/cloud/reports/evidence/ > /tmp/evidence-files.txt
           fi
           node tools/check-evidence-base.cjs --strict --files-from /tmp/evidence-files.txt
+          # ردیف ۸۹: نه فقط فایل‌های تغییرکرده — «همهٔ» شواهد باید SHA قابل‌حل داشته باشند
+          # (txt: سرآیند؛ log: commit_sha؛ بقیه: base_sha= یا EVIDENCE-SHA-INDEX.tsv؛ SHA ناموجود ⇒ sha-map.json).
+          node tests/evidence-sha-89.js
+          node tools/evidence-sha-89.mjs --check
 
       # دروازهٔ شاهد: اثبات می‌کند لاگ آزمون واقعاً از همین درخت آمده است
       # (شمارش بدنه، هش بدنه، رجیستری آزمون‌ها، اثر انگشت کل درخت منهای docs/)

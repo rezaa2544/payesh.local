@@ -1,3 +1,6 @@
+base_sha=0f8ba946dabff8d8a0553f72b1713191ee5acb0c
+date_utc=2026-11-07T18:14:20Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۳۹ — موتور دادهٔ مرورگری (IndexedDB): درستی + بنچمارک واقعی Chrome و Android
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/e7396a69-payesh-local

@@ -1,3 +1,6 @@
+base_sha=a6ffec859abc0d1d259f9c0af679046d97536cbd
+date_utc=2026-11-07T21:14:18Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۴۷ — آزمون آشوب همگام‌سازی (قطع شبکه، crash وسط push، replay، خارج از ترتیب، تغییر ساعت)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/d68cec76-payesh-local

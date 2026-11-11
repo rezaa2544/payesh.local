@@ -1,3 +1,6 @@
+base_sha=7b23b2a353bbf9290fa6c0ab6e41a27c50bacb6f
+date_utc=2026-11-06T18:41:35Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد اجرایی مأموریت ۱۴ — رفتار تعارض در کد امروز
 generated_by: docs/cloud/reports/evidence/gen-mission-14-evidence.sh
 probe: docs/cloud/reports/evidence/probe-14-conflict.mjs

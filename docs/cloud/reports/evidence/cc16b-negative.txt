@@ -1,3 +1,6 @@
+base_sha=596e82eabe25e71a59574e7b52d41a321ca16d9e
+date_utc=2026-11-07T01:14:07Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # آزمون منفی دروازهٔ CC‑16B — شاهد ناقص/جعلی/کهنه
 generated_by: docs/cloud/reports/evidence/verify-cc16b-negative.sh
 head: 3802e9c87437a690ca3376188082595a3335f14b

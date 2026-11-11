@@ -1,3 +1,6 @@
+base_sha=9ebddefcfb71cdfc3c530a5220ee30a74f25b7ef
+date_utc=2026-11-07T22:57:31Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۴۵ — بودجهٔ اتصال و pooling (transaction pooling، pool-wait اندازه‌گیری‌شده)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/0093ff4e-payesh-local

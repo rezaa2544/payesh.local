@@ -1,0 +1,23 @@
+base_sha=a1128220d6744da33e16f68244a3cd4185e57589
+date_utc=2026-11-11T08:00:25Z
+command=GitHub Actions build.yml job «آزمون، بستهٔ ویندوز و APK» step «نشت pull ردیف ۵۷»: node tests/pull-leak-57-negative.js
+run_id=42983626224 job_id=130399571564 event=push branch=arena/release-gate-95 conclusion=success
+source=https://github.com/rezaa2544/payesh.local/actions/runs/42983626224/job/130399571564
+label=[S] CI runner (ubuntu-latest), not a production measurement
+
+# Meaning: the negative control preloads a hook into an isolated server child that disables the row-57
+# scrubbers (policy.scrubUser / scrubUserFor / scrubUserIdentity) and requires the ordinary
+# tests/pull-leak-57.js to go red against it. The CI step only stays green if the leak test FAILS on the
+# leaky child (expected_exit_nonzero=1, leak_assertion=detected) — i.e. the leak test is not blind.
+
+── raw lines from the CI job log (timestamps/ANSI stripped) ──
+##[error]PL checks=19 pass=19 fail=0
+FAIL  PL-10  pull users برای نقش teacher: هیچ فیلد رمزی نیست  → نشت به teacher: 2.password_hash, 2.phone_hash, 2.password_enc, 3.password_hash, 3.phone_hash, 3.password_enc
+FAIL  PL-11  pull users برای نقش parent: هیچ فیلد رمزی نیست  → نشت به parent: 3.password_hash, 3.phone_hash, 3.password_enc, 4.password_hash, 4.phone_hash, 4.password_enc
+FAIL  PL-12  pull users برای نقش student: هیچ فیلد رمزی نیست  → نشت به student: 3.password_hash, 3.phone_hash, 3.password_enc
+FAIL  PL-13  والد ردیف فرزند را می‌بیند و بدون فیلد رمزی/هویتی است  →  در ردیف فرزند فیلد راز هست: password_hash, phone_hash, password_enc
+FAIL  PL-14  دبیرِ کلاس ردیف دانش‌آموز را می‌بیند، فیلد هویتی ندارد  → دبیر فیلدهای هویتی دانش‌آموز را می‌بیند: phone, national_id, father_nid, mother_nid, shenasname_serial, shenasname_seri, father_phone, mother_phone, landline, address, residence, village, residence_status
+FAIL  PL-15  /api/students/:id برای دبیر: فیلد هویتی نیست  → دبیر از مسیر /api/students/:id فیلدهای هویتی می‌بیند: phone, national_id, father_nid, mother_nid, father_phone, mother_phone, landline, residence, residence_status, address, shenasname_serial, shenasname_seri
+PL checks=19 pass=13 fail=6
+PULL-LEAK-57-FAILED
+NEGATIVE-LEAK-CONTROL-OK expected_exit_nonzero=1 leak_assertion=detected

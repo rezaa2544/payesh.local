@@ -1,3 +1,6 @@
+base_sha=587c2429cc9cce51bdf2f07a0f4ea099a882855e
+date_utc=2026-11-08T01:18:26Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۵۴ — مهاجرت یکسان چند cell + انتقال مدرسه با توقف نوشتن، تطبیق سه‌لایه و rollback
 # branch: arena/b780a176-payesh-local   head: b5143ac   at: 2026-11-08T01:30:22Z
 # postgres: 18.6 — دو دیتابیس مستقل: cell_a / cell_b (کاربر اجرایی: payesh_runtime)

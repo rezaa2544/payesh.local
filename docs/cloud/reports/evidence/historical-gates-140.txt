@@ -1,3 +1,6 @@
+base_sha=fd037496ffb71552cfea4b5788d75927618e6108
+date_utc=2026-11-09T12:29:48Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 tested_source_sha=fd037496ffb71552cfea4b5788d75927618e6108
 command: bash docs/cloud/reports/evidence/review-pr73-integrity.sh
 INTEGRITY-FAIL: product code changed: 77 file(s)

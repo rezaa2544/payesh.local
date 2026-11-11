@@ -1,3 +1,6 @@
+base_sha=b08c39f5af59d9e133b12d04392b08bac5b22a06
+date_utc=2026-11-06T18:44:02Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد اجرایی مأموریت ۱۵ — رفتار بکاپ/بازیابی در کد امروز
 generated_by: docs/cloud/reports/evidence/gen-mission-15-evidence.sh
 probe: docs/cloud/reports/evidence/probe-15-backup.mjs

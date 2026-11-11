@@ -1,3 +1,6 @@
+base_sha=2a37662fd8d1e534d2f566d4131266fdc60239d3
+date_utc=2026-11-07T19:14:50Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۵۳ — آرشیو دادهٔ سرد و سیاست نگه‌داشت
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/7af2b7f0-payesh-local

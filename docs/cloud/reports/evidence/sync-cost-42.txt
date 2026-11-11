@@ -1,3 +1,6 @@
+base_sha=9ee28618bf33dc0cc61d0722f3060a581a3f1d8c
+date_utc=2026-11-07T21:41:18Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۴۲ — هزینهٔ همگام‌سازی: سقف درخواست/بایت به‌ازای کاربر در روز
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/d68cec76-payesh-local

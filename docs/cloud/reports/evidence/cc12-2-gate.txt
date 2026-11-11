@@ -1,3 +1,6 @@
+base_sha=7f7cef61de68216343a86958b8bcdb804efd146f
+date_utc=2026-11-07T07:40:05Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # دروازهٔ CC‑12‑2 — اجرای RLS از مسیر محصول
 generated_by: docs/cloud/reports/evidence/gen-cc12-2-gate.sh
 head: 6d39137df7fc36f8e65c12e8c7d3ab71be3d1cef

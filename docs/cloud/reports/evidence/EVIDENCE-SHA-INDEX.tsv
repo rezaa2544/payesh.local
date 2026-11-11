@@ -1,0 +1,30 @@
+# row 89 — base SHA for historical evidence files that do not embed one.
+# columns: path<TAB>base_sha<TAB>date_utc<TAB>source ; source=git-first-add means: the commit that first added the file.
+# New evidence must embed its own SHA (txt: base_sha= header; log: commit_sha; others: base_sha=). Regenerate: node tools/evidence-sha-89.mjs --index
+docs/cloud/reports/evidence/51-restart-rootcause.md	8a8a6dacab6f065d006eb1962908489030e7ba6c	2026-11-08T22:43:50Z	git-first-add
+docs/cloud/reports/evidence/57-pentest-automated-run.md	39f7aa847f7f9674ab8f66d46a542dc67d2d7e39	2026-11-08T22:43:50Z	git-first-add
+docs/cloud/reports/evidence/README-gates.md	fd037496ffb71552cfea4b5788d75927618e6108	2026-11-09T12:29:48Z	git-first-add
+docs/cloud/reports/evidence/alerts-audit/alerts.jsonl	f91d49d2be7f8b034176baaa3016ec7418e03b42	2026-11-07T23:05:42Z	git-first-add
+docs/cloud/reports/evidence/bench-39-android-webview.json	805c47abe7484d97b7c54723cc924c7422e0d850	2026-11-07T21:27:46Z	git-first-add
+docs/cloud/reports/evidence/bench-39-chrome-desktop-cpu4.json	121b929dbd40c52719156ed32f7a1b521dd59d41	2026-11-07T20:19:11Z	git-first-add
+docs/cloud/reports/evidence/bench-39-chrome-desktop-run2.json	121b929dbd40c52719156ed32f7a1b521dd59d41	2026-11-07T20:19:11Z	git-first-add
+docs/cloud/reports/evidence/bench-39-chrome-desktop.json	121b929dbd40c52719156ed32f7a1b521dd59d41	2026-11-07T20:19:11Z	git-first-add
+docs/cloud/reports/evidence/d4-negative-timer-e6c9439.md	0ab24111649e0fecb634317e4637a0250ad835e7	2026-11-09T13:00:05Z	git-first-add
+docs/cloud/reports/evidence/d4-negative-timer-e6c9439.raw.b64	0ab24111649e0fecb634317e4637a0250ad835e7	2026-11-09T13:00:05Z	git-first-add
+docs/cloud/reports/evidence/f05-tenant-status.md	1b8a0a4d864e36f5944405d76098a1afa0d33093	2026-11-07T09:28:00Z	git-first-add
+docs/cloud/reports/evidence/fleet-46-hostb-m.json	ae79f990f7ef9559d50d32e4ab38bb25c9da6aeb	2026-11-08T22:43:50Z	git-first-add
+docs/cloud/reports/evidence/fleet-46-windows-hermes.json	e947e6e018e7cb01eaef85545f97068a17347d02	2026-11-08T14:09:49Z	git-first-add
+docs/cloud/reports/evidence/fleet-46.json	58e4f2d4f2960e5ed8972287319260abd0affd95	2026-11-07T22:52:20Z	git-first-add
+docs/cloud/reports/evidence/gateway-67-load.json	f16dcccb87c5acef2374bc2c8e4cade381bcccb6	2026-11-10T22:57:32Z	git-first-add
+docs/cloud/reports/evidence/load-55-ceiling-central-pg.json	ae79f990f7ef9559d50d32e4ab38bb25c9da6aeb	2026-11-08T22:43:50Z	git-first-add
+docs/cloud/reports/evidence/load-55-ceiling-run2.json	4a1c6cb501ed6e3f16a187a7249743fa4b5f43e1	2026-11-08T15:21:19Z	git-first-add
+docs/cloud/reports/evidence/load-55-ceiling.json	bed1309a6b4eb8a76ecadfc192229b018159e003	2026-11-08T01:53:40Z	git-first-add
+docs/cloud/reports/evidence/pager-58-real-alert.json	f91d49d2be7f8b034176baaa3016ec7418e03b42	2026-11-07T23:05:42Z	git-first-add
+docs/cloud/reports/evidence/pentest-57-env.json	b0cbd490ff92dafff96f7850aa3903b17a9924a2	2026-11-08T01:14:40Z	git-first-add
+docs/cloud/reports/evidence/pilot-51-live.jsonl	e947e6e018e7cb01eaef85545f97068a17347d02	2026-11-08T14:09:49Z	git-first-add
+docs/cloud/reports/evidence/pilot-51-watch.jsonl	a9932bec8568552fb74db79cbcddfd02e191b601	2026-11-08T01:33:40Z	git-first-add
+docs/cloud/reports/evidence/security-48.json	9d05c289e6b3c30a07baf03520cd55009e475376	2026-11-07T22:32:17Z	git-first-add
+docs/cloud/reports/evidence/sim/db-internals.json	9edfeeea09bacff7e1e4ce8233f1f4b554a4de0a	2026-11-07T14:42:11Z	git-first-add
+docs/cloud/reports/evidence/sim/pagination-tie-replay.json	9edfeeea09bacff7e1e4ce8233f1f4b554a4de0a	2026-11-07T14:42:11Z	git-first-add
+docs/cloud/reports/evidence/sim/sim-summary.json	9edfeeea09bacff7e1e4ce8233f1f4b554a4de0a	2026-11-07T14:42:11Z	git-first-add
+docs/cloud/reports/evidence/sync-cost-42.json	9ee28618bf33dc0cc61d0722f3060a581a3f1d8c	2026-11-07T21:41:18Z	git-first-add

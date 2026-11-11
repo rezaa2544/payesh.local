@@ -1,3 +1,6 @@
+base_sha=103b375ffc1ac808df4085934c9e8f9ce8bcb967
+date_utc=2026-11-07T11:07:12Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد خام تمرین DR — ردیف ۲۹
 generated_at: 2026-11-07T11:41:41.093Z
 # DR-DRILL ردیف ۲۹ — outage/restore/RPO/RTO · 2026-11-07T11:41:35.813Z

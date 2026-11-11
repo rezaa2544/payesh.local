@@ -1,3 +1,6 @@
+base_sha=1babdcfa1ef3a25a5965347c98c37755c9fb5f44
+date_utc=2026-11-06T19:14:28Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد اجرایی مأموریت ۱۶‑ب — رفتار tenancy در کد امروز
 generated_by: docs/cloud/reports/evidence/gen-mission-16b-evidence.sh
 probe: docs/cloud/reports/evidence/probe-16b-tenant.mjs

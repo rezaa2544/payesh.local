@@ -1,3 +1,6 @@
+base_sha=8bd01ea13b9472381483df782781e00e9a5796e5
+date_utc=2026-11-06T16:53:13Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # نقشهٔ شواهد مخزن — مأموریت ۰۵
 # تولید: bash docs/cloud/reports/evidence/gen-mission-05-inventory.sh
 # تاریخ: 2026-11-06T16:51:06Z

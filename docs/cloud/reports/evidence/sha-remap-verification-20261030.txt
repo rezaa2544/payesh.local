@@ -1,3 +1,6 @@
+base_sha=e5a79fa49aa4c5a248c6d02056fa2df67af2b827
+date_utc=2026-11-09T12:42:49Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 snapshot_date=2026-10-30 UTC
 snapshot_origin_main=15d2ab758ea0bc3df4bc1301f979f0d738c7d400
 $ git ls-remote origin refs/heads/hermes/*

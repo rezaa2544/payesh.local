@@ -1,3 +1,6 @@
+base_sha=44ddecbb231cb1222e5ddc1a31e4efe6999f4649
+date_utc=2026-11-07T07:34:13Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد CC‑12‑2 — اجرای RLS از مسیر محصول (فاز ۳ · D‑35)
 # تولید: bash docs/cloud/reports/evidence/run-cc12-2-product-rls.sh
 # بازتولید: CC122_OUT=<file> bash docs/cloud/reports/evidence/run-cc12-2-product-rls.sh

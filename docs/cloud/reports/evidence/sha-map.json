@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "generated_by": "tools/evidence-sha-89.mjs --index",
+  "rule": "every SHA cited by evidence must be a commit in this repository; if it is not (rebased/squashed/local), it must appear here as old -> new where new is a commit that is an ancestor of main",
+  "entries": [
+    {
+      "old": "91614a0",
+      "new": "ae79f990f7ef9559d50d32e4ab38bb25c9da6aeb",
+      "kind": "hermes-remap",
+      "source": "sha-remap-hermes-30-60.md",
+      "subject": "ردیف ۵۵: سقف نمونهٔ مرکزی PostgreSQL",
+      "files": []
+    },
+    {
+      "old": "6b40039",
+      "new": "491522203bf66a326441b0a2152ca142057c8a4a",
+      "kind": "hermes-remap",
+      "source": "sha-remap-hermes-30-60.md",
+      "subject": "ردیف ۵۵: نهایی‌سازی Go/No-Go",
+      "files": []
+    },
+    {
+      "old": "498a6cf",
+      "new": "8a8a6dacab6f065d006eb1962908489030e7ba6c",
+      "kind": "hermes-remap",
+      "source": "sha-remap-hermes-30-60.md",
+      "subject": "ردیف ۵۱: ریشه‌یابی راه‌اندازی دوبارهٔ پایلوت",
+      "files": []
+    },
+    {
+      "old": "3c9fca0",
+      "new": "695244270768eda858c929a3231a2247f78dff2e",
+      "kind": "hermes-remap",
+      "source": "sha-remap-hermes-30-60.md",
+      "subject": "ردیف‌های ۴۵/۴۶/۵۰: دروازه‌های PostgreSQL",
+      "files": []
+    },
+    {
+      "old": "4e54e8e",
+      "new": "39f7aa847f7f9674ab8f66d46a542dc67d2d7e39",
+      "kind": "hermes-remap",
+      "source": "sha-remap-hermes-30-60.md",
+      "subject": "ردیف ۵۷: آزمون خودکار",
+      "files": []
+    },
+    {
+      "old": "e16d93f",
+      "new": "ce12a6afd846511579a5c4f9ebeaca53bdb5dcd1",
+      "kind": "hermes-remap",
+      "source": "sha-remap-hermes-30-60.md",
+      "subject": "ردیف ۵۷: رفع نشت `password_enc`",
+      "files": []
+    },
+    {
+      "old": "8a0e940",
+      "new": "338f2a44931dd5343cdbd7910ac22c2b437cc668",
+      "kind": "hermes-remap",
+      "source": "sha-remap-hermes-30-60.md",
+      "subject": "ردیف‌های ۵۱/۵۷: تصمیم مالک",
+      "files": []
+    },
+    {
+      "old": "00b28dd5ffad52b723faede73d1b5b4eac7635af",
+      "new": "2d7b7f2e5640cf15ac04d42dc6285b8d25158b0f",
+      "kind": "rebased-or-local",
+      "source": "commit that first added the evidence file citing the old SHA",
+      "files": [
+        "docs/cloud/reports/evidence/tests-run-00b28dd-20261109T071134Z.log"
+      ]
+    },
+    {
+      "old": "04fa61d35978f85fe602a86eabbe0cb2253aaa05",
+      "new": "e90160cce82a573d3b7cc218ba8a68a705729a4f",
+      "kind": "rebased-or-local",
+      "source": "commit that first added the evidence file citing the old SHA",
+      "files": [
+        "docs/cloud/reports/evidence/tests-run-04fa61d-20261109T044757Z.log"
+      ]
+    },
+    {
+      "old": "0de690a37a4b0358cd1c93f86959e1a748ed136b",
+      "new": "53397eb326b4a9b96ba97b965d61c835d2c8c71e",
+      "kind": "rebased-or-local",
+      "source": "commit that first added the evidence file citing the old SHA",
+      "files": [
+        "docs/cloud/reports/evidence/tests-run-0de690a-20261109T062122Z.log"
+      ]
+    },
+    {
+      "old": "4779584e31d6b1a89d5c9a02adceafa4b0f1a8af",
+      "new": "613804dcf5d263559458136810618d0ae61bcfcc",
+      "kind": "rebased-or-local",
+      "source": "commit that first added the evidence file citing the old SHA",
+      "files": [
+        "docs/cloud/reports/evidence/tests-run-4779584-20261107T000009Z.log"
+      ]
+    },
+    {
+      "old": "56c94ce153677f34327d8170fb1de104c9a825c8",
+      "new": "3fa593cd5d8c915604982281f75b57a0a4424066",
+      "kind": "rebased-or-local",
+      "source": "commit that first added the evidence file citing the old SHA",
+      "files": [
+        "docs/cloud/reports/evidence/tests-run-56c94ce-20261109T063726Z.log"
+      ]
+    },
+    {
+      "old": "6c09e15cad36324c6b878cefd970330f18f69fe7",
+      "new": "c0b26c1d096b75f8a29b90b4fae6f4bb93ac7e93",
+      "kind": "rebased-or-local",
+      "source": "commit that first added the evidence file citing the old SHA",
+      "files": [
+        "docs/cloud/reports/evidence/tests-run-6c09e15-20261109T100500Z.log"
+      ]
+    },
+    {
+      "old": "a160a1fd4eb8ef695e12562bfec37058305fcda9",
+      "new": "e490b71f609587f3301d5e907a2f2c569eaf767b",
+      "kind": "rebased-or-local",
+      "source": "commit that first added the evidence file citing the old SHA",
+      "files": [
+        "docs/cloud/reports/evidence/tests-run-a160a1f-20261109T065154Z.log"
+      ]
+    },
+    {
+      "old": "c1440aeed0b47b587bb9562f8a8ae3e682f8735b",
+      "new": "861a7caa8ae1a80bc7b45782b8bd7fb706d9f0e2",
+      "kind": "rebased-or-local",
+      "source": "commit that first added the evidence file citing the old SHA",
+      "files": [
+        "docs/cloud/reports/evidence/tests-run-c1440ae-20261109T200026Z.log"
+      ]
+    },
+    {
+      "old": "f244c32c4ce1ea8be95cfe03bcb7ebeaa36221ed",
+      "new": "e73eb64e76591bb1f6dfbab6cfe567323bfd6e32",
+      "kind": "rebased-or-local",
+      "source": "commit that first added the evidence file citing the old SHA",
+      "files": [
+        "docs/cloud/reports/evidence/tests-run-f244c32-20261109T101736Z.log"
+      ]
+    }
+  ]
+}

@@ -1,3 +1,6 @@
+base_sha=58e4f2d4f2960e5ed8972287319260abd0affd95
+date_utc=2026-11-07T22:52:20Z
+provenance=backfill-89: base_sha/date_utc = the commit that first added this file (the original run SHA was not recorded); the body below is unchanged
 # شاهد ردیف ۴۶ — تست بار ناگهانی ناوگان کلاینت (pull دوره‌ای + push دسته‌ای)
 # repo: https://github.com/rezaa2544/payesh.local
 # branch: arena/b780a176-payesh-local
