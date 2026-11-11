@@ -1,16 +1,16 @@
-base_sha=446532537f2ebe20beb3411e33042dc21327b162
-date_utc=2026-11-11T17:00:46Z
+base_sha=789327f7bab4d1864be13cd5f93215d830dd0919
+date_utc=2026-11-11T19:11:43Z
 row=93
 cmd=RM93_REQUIRE_GIT=1 node tests/repo-map-93.js
 
 
 Row 93: repository map — coverage, links, roadmap and Ground Truth consistency
 
-PASS  RM-01  every tracked top-level directory is linked from the map  → 16 directories
+PASS  RM-01  every tracked top-level directory is linked from the map  → 17 directories
 PASS  RM-02  apps/payesh (app, runners, every package, tool) is covered  → 9 paths
-PASS  RM-03  every relative link resolves (map, docs/README, README, apps/payesh/README)  → 122 relative links
-PASS  RM-04  ROADMAP: every "#PR → sha" is an ancestor of HEAD; no stale "همین PR"  → 28 merges verified
-PASS  RM-05  Ground Truth npm test claim ≤ the raw log  → claim=111 log=112
+PASS  RM-03  every relative link resolves (map, docs/README, README, apps/payesh/README)  → 133 relative links
+PASS  RM-04  ROADMAP: every "#PR → sha" is an ancestor of HEAD; no stale "همین PR"  → 35 merges verified
+PASS  RM-05  Ground Truth npm test claim ≤ the raw log  → claim=112 log=112
 PASS  RM-06  apps/payesh/README lists exactly the existing packages  → payesh_core,payesh_data,payesh_secure,payesh_sync,payesh_ui
 PASS  RM-07  negative controls: each mutant turns exactly its rule red  → 8/8 caught
 

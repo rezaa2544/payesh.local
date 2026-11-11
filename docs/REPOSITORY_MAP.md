@@ -13,16 +13,17 @@
 | [`desktop/`](../desktop/) · [`installer/`](../installer/) · [`install/`](../install/) | پوستهٔ ویندوز مدرسه، Inno Setup مدرسه، اپ اندروید بومی مدرسه | اپ مدرسه — ردیف ۶۳ |
 | [`apps/payesh/`](../apps/payesh/) | **اپ بومی مدرسه** (Flutter/Dart، Android + Windows، بدون WebView و Node) — بخش ۶ | اپ مدرسه — ADR‑43 / D‑43 |
 | [`apps/owner-panel/`](../apps/owner-panel/) | **پنل مالک پلتفرم** — اپ مستقل (بخش ۲) | پنل مالک — ADR‑62 |
-| [`db/migrations/`](../db/migrations/) | مهاجرت‌های PostgreSQL مقصد: `owner-panel/` (001–004)، [`direct/`](../db/migrations/direct/) (مسیر مستقیم ADR‑105، 0001–0006، ردیف‌های ۸۲/۸۶/۱۰۶–۱۰۹) و `slice-*` نمونه‌ها · [`db/fixtures/`](../db/fixtures/) | لایهٔ مقصد |
+| [`db/migrations/`](../db/migrations/) | مهاجرت‌های PostgreSQL مقصد: `owner-panel/` (001–004)، [`direct/`](../db/migrations/direct/) (مسیر مستقیم ADR‑105، 0001–0007، ردیف‌های ۸۰/۸۲/۸۶/۱۰۶–۱۰۹) و `slice-*` نمونه‌ها · [`db/fixtures/`](../db/fixtures/) | لایهٔ مقصد |
 | [`prototype/`](../prototype/) | نمونه‌های عمودی مأموریت‌های ۱۷–۲۱ (نه محصول) | نمونه |
 | [`tests/`](../tests/) | آزمون‌های اجرایی؛ `npm test` = [`tests/run.js`](../tests/run.js) | همه |
 | [`tools/`](../tools/) · [`scripts/`](../scripts/) · [`bench/`](../bench/) | ابزار شاهد/اندازه‌گیری، ساخت نسخه، بنچمارک | همه |
 | [`deploy/`](../deploy/) | استقرار سرور مقصد (env نمونه، بکاپ، پایش) | لایهٔ مقصد |
+| [`site/`](../site/) | صفحهٔ ایستای دانلود/به‌روزرسانی `payeshschool.ir` روی GitHub Pages (بدون سرور، بدون Cloudflare)؛ ساخت با `tools/landing-114.mjs` — [سند ۱۱۴](cloud/114-landing-pages-dns.md) | انتشار — ردیف ۱۱۴ |
 | [`releases/`](../releases/) | مانیفست نسخه‌ها (commit ربات پس از هر ادغام در main) | اپ مدرسه |
 | [`samples/`](../samples/) · `data/` (git-ignored، در زمان اجرا ساخته می‌شود) | نمونهٔ CSV ورود دسته‌ای · دادهٔ محلی اجرا، مثل کلید عمومی پشتیبان (`backup-key.json`، بدون راز) | اپ مدرسه |
 | [`openapi.yaml`](../openapi.yaml) | قرارداد API؛ هم‌خوانی با کد را `tests/openapi-drift-81.js` می‌سنجد (ردیف ۸۱) | قرارداد |
 | [`docs/`](./) | `00` قانون اساسی · [`cloud/`](cloud/) اسناد ابری و ADRها · [`cloud/contracts/`](cloud/contracts/) قراردادهای ماشین‌خوان · [`security/`](security/) · [`release/`](release/) · [`cloud/reports/evidence/`](cloud/reports/evidence/) شواهد خام · `01..05` تاریخی | مستند |
-| [`.github/workflows/`](../.github/workflows/) | [`build.yml`](../.github/workflows/build.yml) (مدرسه) · [`native-client.yml`](../.github/workflows/native-client.yml) (اپ بومی) · [`api-contract.yml`](../.github/workflows/api-contract.yml) (قرارداد + PostgreSQL واقعی) · [`release-gate.yml`](../.github/workflows/release-gate.yml) (دروازهٔ انتشار، ردیف ۹۵) · [`owner-panel.yml`](../.github/workflows/owner-panel.yml) (پنل مالک) | CI |
+| [`.github/workflows/`](../.github/workflows/) | [`build.yml`](../.github/workflows/build.yml) (مدرسه) · [`native-client.yml`](../.github/workflows/native-client.yml) (اپ بومی) · [`api-contract.yml`](../.github/workflows/api-contract.yml) (قرارداد + PostgreSQL واقعی) · [`release-gate.yml`](../.github/workflows/release-gate.yml) (دروازهٔ انتشار، ردیف ۹۵) · [`owner-panel.yml`](../.github/workflows/owner-panel.yml) (پنل مالک) · [`pages.yml`](../.github/workflows/pages.yml) (صفحهٔ ایستا، استقرار دستی با دروازهٔ مالک، ردیف ۱۱۴) | CI |
 
 ## ۲. `apps/owner-panel/` — پنل مالک پلتفرم
 
@@ -59,7 +60,7 @@
 
 | ادعا | شاهد | برچسب |
 |---|---|---|
-| `npm test` سبز: pass=111 fail=0 (عدد زندهٔ هر commit در همین لاگ است؛ این سند هرگز بیش از لاگ ادعا نمی‌کند — `tests/repo-map-93.js` RM-05) | [mission-05-tests-run.log](cloud/reports/evidence/mission-05-tests-run.log) | `[M]` |
+| `npm test` سبز: pass=112 fail=0 (عدد زندهٔ هر commit در همین لاگ است؛ این سند هرگز بیش از لاگ ادعا نمی‌کند — `tests/repo-map-93.js` RM-05) | [mission-05-tests-run.log](cloud/reports/evidence/mission-05-tests-run.log) | `[M]` |
 | SPA مستقل، هشت صفحه، loading/empty/error، آزمون منفی نقش operator، تم روشن/تیره | [owner-panel-pr3-98.txt](cloud/reports/evidence/owner-panel-pr3-98.txt) | `[M]` |
 | اختلاف توکن‌ها (radius/muted/line/primary-2) با آزمون ثبت شده | همان | `[M]` |
 | ورود رمز + TOTP، قفل پس از ۵ شکست، سقف ۳ اپراتور در DB | [owner-panel-pr3-98-login.txt](cloud/reports/evidence/owner-panel-pr3-98-login.txt) | `[M]` |
@@ -125,5 +126,12 @@
 | ۱۰۹ | پنتست RLS | #186 → `38bb14a` | [`cloud/109-rls-pentest.md`](cloud/109-rls-pentest.md) |
 | ۱۱۰ | ترابری مستقیم | #187 → `5e577f5` | [`cloud/110-direct-transport.md`](cloud/110-direct-transport.md) |
 | ۱۱۱ | پشتیبان + مانور بازیابی | #188 → `0afd5c7` | [`cloud/111-backup-restore.md`](cloud/111-backup-restore.md) |
+| ۸۴ | SBOM + اسکن آسیب‌پذیری | #189 → `64191e1` | [`security/84-sbom-vuln-scan.md`](security/84-sbom-vuln-scan.md) |
+| ۱۰۲ | اجرای محلی پنل مالک | #182 → `2849ed3` | [`cloud/102-owner-local-up.md`](cloud/102-owner-local-up.md) |
+| ۸۸ | حذف/خروجی داده (حریم خصوصی) | #191 → `2cc75d8` | [`security/88-privacy-delete-export.md`](security/88-privacy-delete-export.md) |
+| ۸۰ | تله‌متری با رضایت (ترابری مستقیم، بدون PII) | #193 → `863e9ce` | [`security/80-telemetry.md`](security/80-telemetry.md) |
+| ۷۸ | به‌روزرسانی خودکار امضاشده (Ed25519) | #194 → `3bb3ef9` | [`cloud/78-native-auto-update.md`](cloud/78-native-auto-update.md) |
+| ۷۶، ۷۷ | انتشار امضاشدهٔ APK/AAB اندروید و نصب‌کنندهٔ ویندوز | #190 → `d1df3a3` | [`cloud/76-android-release.md`](cloud/76-android-release.md) · [`cloud/77-windows-installer.md`](cloud/77-windows-installer.md) |
+| ۱۱۴ | صفحهٔ ایستای دانلود + سند DNS | #195 → `4044d16` | [`cloud/114-landing-pages-dns.md`](cloud/114-landing-pages-dns.md) |
 
-ردیف‌های باز (۸۴، ۸۸، ۷۶/۷۷، ۱۰۲، ۷۴، ۷۸، ۸۰، ۹۴، ۱۱۲، ۱۱۴ و ردیف‌های OWNER) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.
+ردیف‌های باز (۷۴، ۹۳ — همین نقشه، ۹۴، ۱۱۲ و ردیف‌های OWNER/Z: ۹۱، ۹۲، ۱۰۵، ۱۱۳، ۶۱؛ ۱۰۳ و ۱۰۴ منسوخ‌شده با ADR‑105) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.
