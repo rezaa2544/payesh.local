@@ -39,6 +39,7 @@ const RPC_PARAMS = Object.freeze({
   put_key_grant: ['p_device', 'p_scope', 'p_smk_gen', 'p_gen', 'p_sealed'],
   current_user_id: [],
   current_tenant_id: [],
+  telemetry_ingest: ['p_events', 'p_consent'],   /* row 80: opt-in, PII-free (client/telemetry.js) */
 });
 
 class DirectError extends Error {
@@ -118,7 +119,7 @@ function namedArgs(fn, args) {
     if (i >= a.length || a[i] === undefined) return;
     let v = a[i];
     /* sync_push takes jsonb: DirectSync passes the JSON text */
-    if (n === 'p_ops' && typeof v === 'string') v = JSON.parse(v);
+    if ((n === 'p_ops' || n === 'p_events') && typeof v === 'string') v = JSON.parse(v);
     body[n] = v;
   });
   return body;
