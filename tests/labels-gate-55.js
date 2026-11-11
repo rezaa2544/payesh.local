@@ -43,6 +43,10 @@ const FILES = [
   'docs/cloud/reports/evidence/pitr-50.txt',
   'docs/cloud/reports/evidence/pentest-57-env.json',
   'docs/cloud/reports/evidence/phase2-decisions.txt',
+  /* row 82: load test doc + raw evidence (every number [S]) */
+  'docs/cloud/82-load-test.md',
+  'docs/cloud/reports/evidence/load-82.txt',
+  'docs/cloud/reports/evidence/load-82-report.json',
 ];
 
 /* تعریفِ اشتباه (قدیم): [M] «اندازه‌گیری‌شده در مخزن/همین مخزن» */
