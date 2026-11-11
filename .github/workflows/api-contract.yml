@@ -40,6 +40,8 @@ on:
       - 'tests/cell-transfer-54.js'
       - 'tests/gateway-67.js'
   workflow_dispatch:
+  # Row 95: called by release-gate.yml on the release commit (path filters do not apply).
+  workflow_call:
 
 permissions:
   contents: read

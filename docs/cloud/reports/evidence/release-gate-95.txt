@@ -1,0 +1,68 @@
+row=95
+base_sha=78bdce91ac372a35a4c55ed56a82fa3282661f7e
+date_utc=2026-11-11T08:00:13Z
+node=v22 (local)
+command=node tests/release-gate-95.js ; node tools/sbom-95.mjs --out /tmp/payesh-sbom.cdx.json ; node tools/release-gate-95.mjs (synthetic needs)
+
+── release gate negative tests ──
+PASS  RG-01  every gate success (rehearsal) ⇒ RELEASE-GATE-OK; manual [M] checklist PENDING  → gates=7
+PASS  RG-02  ANY single gate job failure / cancelled / skipped / missing ⇒ BLOCKED and the gate is named  → 32 single-failure cases blocked
+PASS  RG-03  ANY single native sub-job (row 63 gate, android, windows, conformance) not success or absent ⇒ BLOCKED  → 22 sub-job cases blocked
+PASS  RG-04  empty / null / garbage needs ⇒ every gate BLOCKED
+PASS  RG-05  a config with no gates (or a gate with no jobs) ⇒ BLOCKED
+PASS  RG-08  release mode: missing / incomplete / stale signoff ⇒ BLOCKED; complete docs-only signoff ⇒ OK  → 10 blocked, 1 allowed
+PASS  RG-06  workflow wiring: verdict needs = configured jobs, if: always(), publish only on green verdict, native-client exports every sub-result  → 7 jobs wired
+PASS  RG-07  CLI: exit 0 + RELEASE-GATE-OK on green; exit 1 + RELEASE-GATE-BLOCKED on one red gate  → exit 0 / 1 / 1
+PASS  RG-09  owner checklist lists M1…M6, each tagged [M]; the signoff template lists every item  → M1,M2,M3,M4,M5,M6
+PASS  SB-01  real tree: CycloneDX 1.5 from package-lock.json + apps/payesh/pubspec.lock, no violations, byte-deterministic  → package-lock.json=122 apps/payesh/pubspec.lock=71 total=193
+PASS  SB-02  SBOM negative: ^SB-07 npm electron
+PASS  SB-03  SBOM negative: ^SB-07 pub webview_flutter
+PASS  SB-04  SBOM negative: ^SB-03 npm b@1.0.0: no sha512 integrity
+PASS  SB-05  SBOM negative: ^SB-03 npm c@1.0.0: resolved is not the npm registry
+PASS  SB-06  SBOM negative: ^SB-04 pub collection@1.0.0: no sha256
+PASS  SB-07  SBOM negative: ^SB-05 pub g: git dependency not pinned
+PASS  SB-08  SBOM negative: ^SB-06 pub p: path dependency outside the repository
+PASS  SB-09  SBOM negative: ^SB-01 package-lock.json|^SB-02 app/pubspec.lock: zero components
+PASS  SB-10  SBOM CLI: exit 1 + SBOM-95-FAIL on a forbidden package; exit 0 + SBOM-95-OK on the real tree  → SBOM-95-OK components=193 shipped=85 format=CycloneDX-1.5 out=/tmp/payesh-sb95-RTXqGu/cli-ppZlk7/sbom.json
+PASS  MUT-job-result  revert in tools/release-gate-95.mjs ⇒ RG-02 red  → red=[RG-02,RG-04,RG-08]
+PASS  MUT-sub-result  revert in tools/release-gate-95.mjs ⇒ RG-03 red  → red=[RG-03]
+PASS  MUT-missing-is-success  revert in tools/release-gate-95.mjs ⇒ RG-02 red  → red=[RG-02,RG-04]
+PASS  MUT-signoff-ticks  revert in tools/release-gate-95.mjs ⇒ RG-08 red  → red=[RG-08]
+PASS  MUT-product-diff  revert in tools/release-gate-95.mjs ⇒ RG-08 red  → red=[RG-08]
+mutants_killed=5/5
+
+RG checks=24 pass=24 fail=0
+RELEASE-GATE-95-OK
+
+── SBOM on the real tree ──
+lock npm package-lock.json components=122
+lock pub apps/payesh/pubspec.lock components=71
+SBOM-95-OK components=193 shipped=85 format=CycloneDX-1.5 out=/tmp/payesh-sbom.cdx.json
+sbom_sha256=1614bfbfbe5325151515041f214772bcd1353c0ece0f5625ae18a5957f683040
+
+── aggregator: one red gate (G4 sbom=failure), rehearsal ──
+# release gate (row 95) — raw summary
+sha=local
+mode=rehearsal
+date_utc=2026-11-11T08:00:17Z
+config=docs/release/95-release-gate.json gates=7
+
+GATE G1-native-63       PASS   native=success native/gate-controls=success native/android=success native/windows=success  — No WebView / Node.js in the shipped APK, AAB and Windows bundle (row 63, D-43)
+GATE G2-leak-matrix-57  PASS   leak-matrix=success  — Role x collection x field leak matrix + pull-leak negative controls (row 57)
+GATE G3-conformance     PASS   native=success native/engine-web-conformance=success native/sync-real-server=success native/gateway-real=success native/dart=success api-contract=success  — Shared vectors: web parity, Dart client vs real server/Gateway, Native API v1 contract (rows 64, 70, 71, 73, 75, 81)
+GATE G4-sbom            BLOCK  sbom=failure  — CycloneDX SBOM from every shipped lockfile: pinned, hashed, no forbidden packages
+GATE G5-labels-55       PASS   labels=success  — Constitution evidence labels ([M]/[S]/[E]/[A]/[?]) gate (row 55)
+GATE G6-identity-65     PASS   identity=success  — Device identity: rotating refresh, reuse detection, device key proof, 10 mutation controls (row 65)
+GATE G7-gate-selftest   PASS   selftest=success  — The release gate's own negative tests (any single gate failing => blocked)
+MANUAL [M] owner          PENDING docs/release/95-owner-checklist.md items=M1,M2,M3,M4,M5,M6 (rehearsal: not published; a native-v* tag needs docs/release/signoff/<tag>.md)
+
+RELEASE-GATE-BLOCKED gates_pass=6/7 reasons=1
+  ✗ G4-sbom: sbom=failure
+exit=1
+
+── CI (PR #175, head a112822, merge-ref sha 30ae736) ──
+workflow runs: release-gate 42983632804 (pull_request) success · native-client 42983632806 success · api-contract 42983632814 success · build-and-release 42983626224 (push) success
+release-gate jobs: G1+G3 native (workflow_call) success · G2 leak-matrix 130399709515 success · G3 api-contract success · G4 sbom 130399709389 success · G5 labels 130399709310 success · G6 identity 130399709241 success · G7 selftest 130399709329 success
+verdict job 130401989577: RELEASE-GATE-OK gates_pass=7/7 manual=PENDING (rehearsal — publish disabled)
+publish job 130402055352: skipped (not a native-v* tag) — expected
+[M] owner checklist docs/release/95-owner-checklist.md M1–M6: OWNER work; M2 (release signing) and M4 (Windows code signing) are blocked until signing lands (row 61).
