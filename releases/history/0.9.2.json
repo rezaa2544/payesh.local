@@ -1,6 +1,6 @@
 {
   "version": "0.9.2",
-  "built_at": "2026-11-11T14:57:34.242Z",
+  "built_at": "2026-11-11T15:23:07.617Z",
   "notes": [
     "نگاشت آیکون‌های نبض هر دو شکل ایموجی با و بدون variation selector را به SVG یکسان می‌برد.",
     "بسته‌های نصب و مانیفست برای نگاشت آیکون‌های اصلاح‌شده به نسخهٔ 0.9.2 ارتقا یافتند."
@@ -216,8 +216,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "1249534c6b55429d9510327a997f2995789733c49eadf85946af299b9bbb190c",
-      "size": 6057
+      "sha256": "4a9ce04c423d0f66377340d172ab722af9cc44f1394c4260caea9111852fdaa3",
+      "size": 6114
     },
     {
       "path": "server/alerts.js",
@@ -465,6 +465,6 @@
     "server": 42
   },
   "client_size": 1479577,
-  "server_size": 612575,
-  "total_size": 2092152
+  "server_size": 612632,
+  "total_size": 2092209
 }
