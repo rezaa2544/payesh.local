@@ -32,6 +32,8 @@ const ROOT = path.resolve(__dirname, '..');
 const CLI = path.join(ROOT, 'tools', 'migrate-86.mjs');
 const DIR = 'db/migrations/direct';
 const API_ROLE = 'payesh_d106_api';
+/* later rows add migrations to the same track; this test pins its own */
+const OWN = '0001_direct_identity';
 
 let passed = 0, failed = 0, negatives = 0, mutantsKilled = 0;
 const failures = [];
@@ -97,10 +99,10 @@ async function main() {
     /* ── DI-01 migration through the row-86 migrator ─────────────────── */
     await check('DI-01', 'migration: lint clean, applied once by the row-86 migrator, re-run applies nothing', async () => {
       const l = cli(['lint', '--dir', DIR]);
-      assert(l.code === 0 && /MIGRATE-86-OK lint migrations=1 errors=0/.test(l.out), 'lint: ' + l.out);
-      const u1 = cli(['up', '--dir', DIR], DB_URL);
+      assert(l.code === 0 && /MIGRATE-86-OK lint migrations=\d+ errors=0/.test(l.out), 'lint: ' + l.out);
+      const u1 = cli(['up', '--dir', DIR, '--to', OWN], DB_URL);
       assert(u1.code === 0, 'up: ' + u1.out);
-      const u2 = cli(['up', '--dir', DIR], DB_URL);
+      const u2 = cli(['up', '--dir', DIR, '--to', OWN], DB_URL);
       assert(u2.code === 0, 'up again: ' + u2.out);
       admin = new Pool({ connectionString: DB_URL, max: 2 });
       admin.on('error', () => {});
@@ -398,7 +400,7 @@ async function main() {
       const c = new Client({ connectionString: DB_URL }); c.on('error', () => {}); await c.connect();
       try {
         eq((await c.query(`SELECT count(*)::int AS n FROM pg_namespace WHERE nspname = 'payesh_direct'`)).rows[0].n, 0, 'schema after rollback');
-        const u = cli(['up', '--dir', DIR], DB_URL);
+        const u = cli(['up', '--dir', DIR, '--to', OWN], DB_URL);
         assert(u.code === 0, 're-up: ' + u.out);
         eq((await c.query(`SELECT count(*)::int AS n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'payesh_direct'`)).rows[0].n, 16, 'functions after re-up');
       } finally { await c.end(); }
