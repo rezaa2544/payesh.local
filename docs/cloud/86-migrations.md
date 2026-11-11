@@ -46,7 +46,8 @@ NNNN_slug.js         مهاجرت JS: { phase, up(client), down?(client) }
 - checksum فایلِ اعمال‌شده عوض شده باشد ⇒ رد.
 - شناسهٔ اعمال‌شده‌ای که در این نسخه نیست (DB جلوتر از کد است) ⇒ رد.
 - ترتیب با حفره ⇒ رد.
-- قفل advisory: مهاجر دوم ⇒ `locked`.
+- قفل تک‌مهاجر به‌صورت ردیف اجاره‌ای (`payesh_migration_lock`، اجارهٔ ۱۵ دقیقه که پس از هر مهاجرت تمدید می‌شود): مهاجر دوم ⇒ `locked`. اجارهٔ مهاجرِ ازکارافتاده منقضی و تصاحب می‌شود. این قفل حالت نشستی ندارد و با ممیزی ردیف ۴۵ (transaction pooling) سازگار است.
+- مهاجر باید با **اتصال مستقیم** به PostgreSQL اجرا شود (`PAYESH_MIGRATE_URL` روی پورت پایگاه، نه PgBouncer)، چون `CREATE INDEX CONCURRENTLY` و `SET lock_timeout` در حالت transaction pooling معنا ندارند.
 - `lock_timeout` (پیش‌فرض ۳ ثانیه) و `statement_timeout`: مهاجرتی که قفل نگیرد زود کنار می‌کشد و صف درخواست‌ها پشت آن نمی‌ماند.
 
 ## ۴. روال انتشار بدون downtime (با Gateway ردیف ۶۷)

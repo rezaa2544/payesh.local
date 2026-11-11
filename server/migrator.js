@@ -23,7 +23,7 @@
        DROP INDEX). Rejection happens before the database is touched.
      • checksum: an applied migration whose file changed ⇒ abort.
      • unknown applied id (DB is ahead of this binary) ⇒ abort.
-     • a single migrator at a time (pg_try_advisory_lock) ⇒ second one aborts.
+     • a single migrator at a time (leased row in payesh_migration_lock) ⇒ second one aborts.
      • lock_timeout / statement_timeout on every migration session, so a
        migration that cannot get its lock gives up instead of queueing every
        request behind it.
@@ -47,7 +47,7 @@ const crypto = require('crypto');
 const PHASES = ['expand', 'migrate', 'contract'];
 const TABLE = 'payesh_schema_migrations';
 const FLOOR_TABLE = 'payesh_client_floor';
-const LOCK_KEY = 860086; /* advisory lock id for "payesh migrator" */
+const LOCK_TABLE = 'payesh_migration_lock'; /* leased single-migrator lock (pooling-safe) */
 
 class MigrationError extends Error {
   constructor(code, detail) { super(code + (detail ? ': ' + detail : '')); this.code = code; this.detail = detail || ''; }
@@ -193,6 +193,9 @@ async function ensureMeta(c) {
     PRIMARY KEY (track, id))`);
   await c.query(`CREATE TABLE IF NOT EXISTS ${FLOOR_TABLE} (
     id integer PRIMARY KEY CHECK (id = 1), min_version text NOT NULL, set_at timestamptz NOT NULL DEFAULT now())`);
+  await c.query(`CREATE TABLE IF NOT EXISTS ${LOCK_TABLE} (
+    id integer PRIMARY KEY CHECK (id = 1), holder text NOT NULL,
+    acquired_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL)`);
 }
 
 function trackOf(dir, o) { return String((o && o.track) || path.basename(path.resolve(dir))); }
@@ -217,10 +220,28 @@ async function setClientFloor(c, version) {
   return { min_version: String(version) };
 }
 
-async function withLock(c, fn) {
-  const r = await c.query('select pg_try_advisory_lock($1) as ok', [LOCK_KEY]);
-  if (!r.rows[0].ok) throw new MigrationError('locked', 'another migrator holds the lock');
-  try { return await fn(); } finally { await c.query('select pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {}); }
+/* Single-migrator lock as a leased row, not a session advisory lock: it
+   survives transaction pooling (row 45 audit: no session state in server/**),
+   and a crashed migrator's lease simply expires. The lease is renewed
+   after every migration. */
+const LEASE_MS = 15 * 60 * 1000;
+async function takeLease(c, holder, ms) {
+  const r = await c.query(`insert into ${LOCK_TABLE} (id, holder, expires_at) values (1, $1, now() + ($2::int * interval '1 millisecond'))
+    on conflict (id) do update set holder = excluded.holder, acquired_at = now(), expires_at = excluded.expires_at
+    where ${LOCK_TABLE}.expires_at < now() or ${LOCK_TABLE}.holder = excluded.holder
+    returning holder`, [holder, ms]);
+  return r.rowCount === 1;
+}
+async function withLock(c, fn, o = {}) {
+  const holder = 'migrator-' + process.pid + '-' + crypto.randomBytes(6).toString('hex');
+  const ms = Number(o.leaseMs) > 0 ? Number(o.leaseMs) : LEASE_MS;
+  if (!(await takeLease(c, holder, ms))) {
+    const cur = await c.query(`select holder, expires_at from ${LOCK_TABLE} where id = 1`);
+    const h = cur.rows[0] || {};
+    throw new MigrationError('locked', `another migrator holds the lock (${h.holder || '?'} until ${h.expires_at ? new Date(h.expires_at).toISOString() : '?'})`);
+  }
+  const renew = async () => { if (!(await takeLease(c, holder, ms))) throw new MigrationError('lock_lost', 'migration lease was taken over'); };
+  try { return await fn(renew); } finally { await c.query(`delete from ${LOCK_TABLE} where id = 1 and holder = $1`, [holder]).catch(() => {}); }
 }
 
 async function setTimeouts(c, o) {
@@ -313,15 +334,14 @@ async function up(c, dir, opts = {}) {
   if (lint.length) throw Object.assign(new MigrationError('lint_failed', lint.map(e => `${e.id}:${e.rule}`).join(',')), { lint });
   await ensureMeta(c);
   const track = trackOf(dir, o);
-  return withLock(c, async () => {
+  return withLock(c, async (renew) => {
     const rows = await applied(c, track);
     verifyState(list, rows);
     const done = new Set(rows.map(r => r.id));
     const pending = [];
     for (const m of list) {
-      if (done.has(m.id)) continue;
-      pending.push(m);
-      if (o.to && m.id === o.to) break;
+      if (!done.has(m.id)) pending.push(m);
+      if (o.to && m.id === o.to) break;   /* target already applied ⇒ nothing beyond it runs */
     }
     if (o.to && !list.some(m => m.id === o.to)) throw new MigrationError('unknown_target', o.to);
     /* gate contracts BEFORE running anything, so a run never stops half-way at the gate */
@@ -334,7 +354,7 @@ async function up(c, dir, opts = {}) {
       }
     }
     const results = [];
-    for (const m of pending) results.push(await runOne(c, m, o, o.log, track));
+    for (const m of pending) { results.push(await runOne(c, m, o, o.log, track)); await renew(); }
     return { applied: results, pending_after: list.filter(m => !done.has(m.id) && !results.some(r => r.id === m.id)).map(m => m.id) };
   });
 }
@@ -345,7 +365,7 @@ async function rollback(c, dir, opts = {}) {
   const list = loadDir(dir);
   await ensureMeta(c);
   const track = trackOf(dir, o);
-  return withLock(c, async () => {
+  return withLock(c, async (renew) => {
     const rows = await applied(c, track);
     verifyState(list, rows);
     /* plain lookup (not Map#get): migration SQL comes from files in the repo, never from HTTP */
@@ -370,6 +390,7 @@ async function rollback(c, dir, opts = {}) {
         if (tx) await c.query('COMMIT');
       } catch (e) { if (tx) await c.query('ROLLBACK').catch(() => {}); throw e; }
       undone.push(id);
+      await renew();
       o.log && o.log({ event: 'rolled_back', id });
     }
     return { rolled_back: undone };

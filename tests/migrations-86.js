@@ -325,14 +325,23 @@ function cli(args, url) {
       return 'checksum_mismatch · unknown_applied';
     });
 
-    await check('MG-11', 'negative: a second migrator while one holds the advisory lock ⇒ refused (locked)', async () => {
+    await check('MG-11', 'negative: a second migrator while one holds the migration lease ⇒ refused (locked); an expired lease (crashed migrator) is taken over; lease released after the run', async () => {
       const other = new pg.Client({ connectionString: dbUrl.toString() });
       other.on('error', () => {});
       await other.connect(); extra.push(other);
-      await other.query('select pg_advisory_lock(860086)');
+      /* another migrator (other connection) holds a live lease */
+      await other.query("insert into payesh_migration_lock (id, holder, expires_at) values (1, 'other-migrator', now() + interval '10 minutes')");
+      let msg = '';
       try { await refuses(migrator.up(c, DRILL_DIR, {}), 'locked'); }
-      finally { await other.query('select pg_advisory_unlock(860086)'); }
-      return 'locked';
+      finally { await other.query("delete from payesh_migration_lock where holder = 'other-migrator'"); }
+      /* a crashed migrator's lease that expired does not block forever */
+      await other.query("insert into payesh_migration_lock (id, holder, expires_at) values (1, 'crashed-migrator', now() - interval '1 second')");
+      const st = await migrator.up(c, DRILL_DIR, { to: '0103_m86_mobile_backfill' });
+      assert(st.applied.length === 0, 'up --to an already-applied id ran later migrations');
+      const left = (await other.query('select count(*)::int n from payesh_migration_lock')).rows[0].n;
+      assert(left === 0, 'lease not released after up: ' + left);
+      msg = 'live lease ⇒ locked · expired lease taken over (applied=' + st.applied.length + ') · released';
+      return msg;
     });
 
     await check('MG-12', 'lock_timeout: a migration that cannot get its lock gives up fast (no queue of traffic behind it), records nothing; succeeds once the lock is free', async () => {
