@@ -348,16 +348,17 @@ async function rollback(c, dir, opts = {}) {
   return withLock(c, async () => {
     const rows = await applied(c, track);
     verifyState(list, rows);
-    const byId = new Map(list.map(m => [m.id, m]));
+    /* plain lookup (not Map#get): migration SQL comes from files in the repo, never from HTTP */
+    const pick = (id) => list.find(x => x.id === id);
     const targets = rows.map(r => r.id).filter(id => !o.to || id > o.to).sort().reverse();
     for (const id of targets) {
-      const m = byId.get(id);
+      const m = pick(id);
       if (m.phase === 'contract') throw new MigrationError('irreversible', `${id} is a contract migration`);
       if (m.kind === 'js' ? typeof m.mod.down !== 'function' : !m.downSql) throw new MigrationError('missing_down', id);
     }
     const undone = [];
     for (const id of targets) {
-      const m = byId.get(id);
+      const m = pick(id);
       await setTimeouts(c, o);
       const tx = m.header.transaction !== 'false';
       if (tx) await c.query('BEGIN');
