@@ -160,7 +160,7 @@ const RULES = {
     }
     assert.ok(!/continue-on-error:\s*true/.test(w), 'P4 continue-on-error is forbidden');
     assert.match(w, /group: payesh-owner-\$\{\{ github\.ref \}\}/);
-    assert.match(w, /needs: \[owner-web, owner-android, owner-windows\]\n\s+if: always\(\)/, 'gate must run even when a build fails');
+    assert.match(w, /needs: \[owner-web, owner-android, owner-windows, owner-local-smoke\]\n\s+if: always\(\)/, 'gate must run even when a build fails (row 102: local-up smoke included)');
     assert.match(w, /if \[ "\$r" != "success" \]; then echo "::error::[^"]*"; exit 1; fi/, 'any failed build must turn the gate red');
     assert.match(w, /check-owner-artifacts\.js verify --dir dist --commit "\$GITHUB_SHA"/);
     assert.match(w, /check-owner-artifacts\.js --self-test/);
@@ -299,7 +299,7 @@ function scriptChecks() {
   const c = build({ commit: 'e'.repeat(40) });
   assert.notEqual(sha(a), sha(c), 'commit must be embedded (negative control)');
   const m = readZip(a);
-  for (const need of ['web/index.html', 'web/app.js', 'web/theme.css', 'server/static-server.js', 'BUILD-INFO.json', 'START-HERE.txt']) {
+  for (const need of ['web/index.html', 'web/app.js', 'web/theme.css', 'server/static-server.js', 'start-owner-local.cmd', 'BUILD-INFO.json', 'START-HERE.txt']) {
     assert.ok(m.has('payesh-owner-web/' + need), 'web zip missing ' + need);
   }
   assert.ok(![...m.keys()].some(k => /client\/|pages\.js|node_modules|\.env/.test(k)), 'web zip must contain only owner-panel files');

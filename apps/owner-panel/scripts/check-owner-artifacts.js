@@ -90,7 +90,7 @@ function verify(dir, { commit = '' } = {}) {
         }
       }
       if (entries && a.kind === 'web') {
-        for (const need of ['web/index.html', 'web/app.js', 'web/theme.css', 'server/static-server.js', 'BUILD-INFO.json']) {
+        for (const need of ['web/index.html', 'web/app.js', 'web/theme.css', 'server/static-server.js', 'start-owner-local.cmd', 'BUILD-INFO.json']) {
           if (!entries.has('payesh-owner-web/' + need)) errors.push(`G4 ${a.name}: missing ${need}`);
         }
         const info = entries.get('payesh-owner-web/BUILD-INFO.json');
@@ -158,7 +158,7 @@ function selfTest() {
       { name: 'AndroidManifest.xml', data: pad(2000) }, { name: 'classes.dex', data: pad(9000) },
       { name: 'resources.arsc', data: pad(1000) },
     ]);
-    const webFiles = ['web/index.html', 'web/app.js', 'web/theme.css', 'server/static-server.js']
+    const webFiles = ['web/index.html', 'web/app.js', 'web/theme.css', 'server/static-server.js', 'start-owner-local.cmd']
       .map(n => ({ name: n, data: pad(3000) }));
     const info = { name: 'payesh-owner-web', commit: COMMIT, files: webFiles.map(f => ({ path: f.name, sha256: sha256(f.data) })) };
     const web = buildZip([...webFiles, { name: 'BUILD-INFO.json', data: Buffer.from(JSON.stringify(info)) }]
