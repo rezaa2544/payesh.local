@@ -1,0 +1,28 @@
+base_sha=d179228c504c025ab5e45e108b81accaa561edc3
+date_utc=2026-11-11T17:59:32Z
+row=114
+cmd=node tests/landing-114.js ; node tools/landing-114.mjs build --out _site
+
+PASS  LP-01  site files exist; fa/RTL; strict CSP on every page  → 7 directives / 404: 4 directives
+PASS  LP-02  no external resource is loaded (scripts, styles, fonts, images, fetch)  → index, 404, version.js clean
+PASS  LP-03  no Cloudflare in the page, build tool or workflow (D-09)  → 5 files
+PASS  LP-04  download links point at assets build.yml uploads to "continuous"  → payesh-local.apk, payesh-setup.exe, payesh-local-windows.zip
+PASS  LP-05  build output is exactly the expected files; version.json = version + built_at  → 6 files, version 0.9.2
+PASS  LP-06  workflow: manual + OWNER-gated deploy, main only, first-party actions  → triggers=pull_request+workflow_dispatch uses=4
+PASS  LP-07  DNS doc: GitHub Pages records only, verification TXT, HTTPS; no CNAME committed  → A=4 AAAA=4 CNAME+TXT
+PASS  LP-08  mutants: each forbidden change turns its check red  → 16/16 mutants red
+LANDING-114-OK checks=8
+
+--- build
+LANDING-114-BUILD-OK files=.nojekyll,404.html,index.html,logo-mark.png,version.js,version.json
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  .nojekyll
+70f73c247855aee723b327253bc2cfe010a82260a45664628763b54fcd13d5ce  404.html
+cd6456cd980388d7015b8437af601d0b90c164bacc07b1eb51197e10867d55d5  index.html
+36e76c29b4f35226d4f09ae60ae25721d12f62c3a21fbf921e213ad88eddfe50  logo-mark.png
+2b93e7754f16ad5c1d5ddbf19029753aaf88ddc3de08abc5faf9dd10f8850cf3  version.js
+0709a6fc4d81528a03a56f415c99afa048bfc109a3371d52e3dbfb1af76a114e  version.json
+version.json: {"version":"0.9.2","built_at":"2026-11-11T17:52:32.797Z"}
+
+--- repository visibility (GitHub API, 2026-11-11)
+visibility=public private=False has_pages=False
+--- not done here (OWNER): domain activation, DNS records, Verify, Enforce HTTPS, PAYESH_PAGES_ENABLED, reachability test from Iranian ISPs

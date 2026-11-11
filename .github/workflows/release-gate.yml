@@ -41,6 +41,8 @@ jobs:
   native:
     name: G1+G3 native client (row 63 gate, conformance, APK/AAB/EXE)
     uses: ./.github/workflows/native-client.yml
+    # rows 76/77: the release build needs the owner signing secrets (APK key, optional Authenticode)
+    secrets: inherit
     permissions:
       contents: read
 

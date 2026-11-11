@@ -538,6 +538,43 @@ paths:
           $ref: '#/components/responses/Error'
         '403':
           $ref: '#/components/responses/Error'
+  /api/admin/tombstones:
+    get:
+      operationId: getApiAdminTombstones
+      tags: [admin]
+      summary: "admin: GET admin/tombstones (row 88)"
+      x-source: server/index.js:1309
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/tombstones/purge:
+    post:
+      operationId: postApiAdminTombstonesPurge
+      tags: [admin]
+      summary: "admin: POST admin/tombstones/purge (row 88)"
+      x-source: server/index.js:1315
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
   /api/admin/update:
     get:
       operationId: getApiAdminUpdate
@@ -1256,6 +1293,32 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/export/me:
+    post:
+      operationId: postApiCloudTenancyProductExportMe
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/product/export/me (row 88)"
+      x-source: server/tenancy.js:1023
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /api/cloud/tenancy/product/feed:
     get:
       operationId: getApiCloudTenancyProductFeed
@@ -1484,6 +1547,51 @@ paths:
         '200':
           $ref: '#/components/responses/Ok'
         '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/tombstones:
+    get:
+      operationId: getApiCloudTenancyProductTombstones
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: GET cloud/tenancy/product/tombstones (row 88)"
+      x-source: server/tenancy.js:1026
+      security:
+        - tenancy: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/cloud/tenancy/product/tombstones/purge:
+    post:
+      operationId: postApiCloudTenancyProductTombstonesPurge
+      tags: [cloud-tenancy]
+      summary: "cloud-tenancy: POST cloud/tenancy/product/tombstones/purge (row 88)"
+      x-source: server/tenancy.js:1031
+      security:
+        - tenancy: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
