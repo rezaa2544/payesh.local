@@ -40,6 +40,7 @@ on:
       - 'server/tenancy.js'
       - 'docs/cloud/43-native-independence.json'
       - 'docs/cloud/contracts/conformance/**'
+      - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - '.github/workflows/native-client.yml'
   pull_request:
     paths:
@@ -58,6 +59,7 @@ on:
       - 'server/tenancy.js'
       - 'docs/cloud/43-native-independence.json'
       - 'docs/cloud/contracts/conformance/**'
+      - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - '.github/workflows/native-client.yml'
   workflow_dispatch:
   # Row 95: the release gate (release-gate.yml) calls this workflow on the exact

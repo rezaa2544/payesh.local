@@ -30,6 +30,11 @@ on:
       - 'tools/migrate-86.mjs'
       - 'db/migrations/direct/**'
       - 'tests/direct-identity-106.js'
+      - 'tests/e2e-keys-107.js'
+      - 'tests/e2e1-107.js'
+      - 'tools/e2e1.js'
+      - 'tools/e2e1-vectors-107.mjs'
+      - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
   pull_request:
@@ -53,6 +58,11 @@ on:
       - 'tools/migrate-86.mjs'
       - 'db/migrations/direct/**'
       - 'tests/direct-identity-106.js'
+      - 'tests/e2e-keys-107.js'
+      - 'tests/e2e1-107.js'
+      - 'tools/e2e1.js'
+      - 'tools/e2e1-vectors-107.mjs'
+      - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
   workflow_dispatch:
@@ -174,6 +184,20 @@ jobs:
           set -o pipefail
           node tools/migrate-86.mjs lint --dir db/migrations/direct
           node tests/direct-identity-106.js | tee -a native-contract.txt
+      # Row 107 (ADR-105 §3.2, Proposed): device-side end-to-end encryption on the direct
+      # path. Library vs shared vectors (JS; Dart runs in native-client), then the database
+      # half on postgres:16: no clear text in pg_dump/COPY (canary + positive control),
+      # AAD swap detection, revocation ⇒ scope key rotation + re-encryption, 4 mutants.
+      - name: Device-side encryption, key grants, rotation (row 107, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          E2E107_REQUIRE_PG: '1'
+          E2E107_REQUIRE_PGDUMP: '1'
+        run: |
+          set -o pipefail
+          node tools/e2e1-vectors-107.mjs --check
+          node tests/e2e1-107.js | tee -a native-contract.txt
+          node tests/e2e-keys-107.js | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
