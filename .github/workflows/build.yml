@@ -105,6 +105,15 @@ jobs:
           set -o pipefail
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/identity-65.js | tee /tmp/identity-65.log
 
+      # Row 83: randomized multi-device convergence (property/fuzz) on the real
+      # sync/convergence code. Fixed seeds, so it is reproducible. Every device
+      # replica must equal the server, and every op outcome must equal an
+      # independent spec oracle. Removing a domain rule must be detected (FZ-05..08).
+      - name: Multi-device convergence fuzz (row 83)
+        run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/convergence-fuzz-83.js | tee /tmp/fuzz-83.log
+
       # مرز مخزن (ADR-32 / ردیف ۳۲): هر ارجاع به مخزن بایگانی یا مخزن بیرون
       # باید صریح در ALLOW ثبت شده باشد؛ وگرنه آزمون fail-closed قرمز می‌شود.
       - name: مرز مخزن (Repo Boundary — ردیف ۳۲)
