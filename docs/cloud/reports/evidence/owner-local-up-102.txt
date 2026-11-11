@@ -1,4 +1,4 @@
-base_sha=0f810b7
+base_sha=0f810b7c29928c50e5c114bb9adda6a6d5e817b5
 date_utc=2026-11-11T10:57:39Z
 command=LOCALUP_PG_URL=postgres://postgres@127.0.0.1:5432/payesh_owner_local node apps/owner-panel/tests/local-up.test.js
 # Row 102 — owner panel local-up (LOCAL TESTING ONLY — NOT PRODUCTION)
