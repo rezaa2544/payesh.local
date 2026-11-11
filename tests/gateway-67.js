@@ -168,6 +168,11 @@ async function waitFor(fn, ms = 10000) {
     assert.ok(typeof m.ms === 'number' && m.instance === 'gw67-main');
     const p = lines.find(l => l.request_id === rid + '-b');
     assert.ok(p && p.status === 200 && p.path === '/api/gw/v1/pull', JSON.stringify(p));
+    /* row 85: the school (tenant from the signed token) is on the line; unauthenticated lines carry null */
+    assert.strictEqual(p.school_id, tid(1), 'school_id on the authenticated access line');
+    assert.strictEqual(m.school_id, null, 'unauthenticated line has school_id null');
+    const piiHits = require('../server/logger').scanPii(g1.out);
+    assert.strictEqual(piiHits.length, 0, 'PII-shaped values in the gateway log: ' + JSON.stringify(piiHits.slice(0, 5)));
     assert.ok(!g1.out.includes('SUPERSECRET67'), 'query string leaked into the log');
     assert.ok(!g1.out.includes('Bearer '), 'authorization leaked into the log');
     return lines.filter(l => l.event === 'http').length + ' http log lines';

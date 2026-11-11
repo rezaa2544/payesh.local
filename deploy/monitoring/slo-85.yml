@@ -1,0 +1,68 @@
+# SLO alert rules — row 85
+#
+# The objectives are defined in code (server/slo.js): availability 99.5% and
+# latency 95% <= 1000 ms, both over 30 days. Each rule below alerts on the burn
+# rate of the error budget, which /metrics computes from real requests.
+#   burn = bad fraction (5-minute window) / (1 - objective)
+#   14.4x = 2% of the 30-day budget in 1 hour  -> page (critical)
+#   6x    = 5% of the 30-day budget in 6 hours -> ticket (warning)
+# tests/observability-85.js fails if a threshold here differs from server/slo.js.
+# Grammar matches alerts-49.yml (`<metric> <op> <number>`), so the same
+# evaluator (tools/alerts-49.mjs) runs these rules against a real scrape.
+# Runbook: docs/cloud/85-observability-slo.md
+groups:
+  - name: payesh-slo
+    rules:
+      - alert: PayeshSloAvailabilityFastBurn
+        expr: payesh_slo_availability_burn_rate > 14.4
+        for: 2m
+        labels:
+          severity: critical
+          owner: oncall
+          slo: availability
+        annotations:
+          summary: خطای ۵xx بودجهٔ ماهانهٔ دسترس‌پذیری را ۱۴٫۴ برابر سریع‌تر از مجاز مصرف می‌کند
+          runbook: docs/cloud/85-observability-slo.md#fast-burn
+
+      - alert: PayeshSloAvailabilitySlowBurn
+        expr: payesh_slo_availability_burn_rate > 6
+        for: 30m
+        labels:
+          severity: warning
+          owner: oncall
+          slo: availability
+        annotations:
+          summary: مصرف پایدار بودجهٔ دسترس‌پذیری (۶ برابر) — پیش از تمام‌شدن بودجه رسیدگی شود
+          runbook: docs/cloud/85-observability-slo.md#slow-burn
+
+      - alert: PayeshSloLatencyFastBurn
+        expr: payesh_slo_latency_burn_rate > 14.4
+        for: 2m
+        labels:
+          severity: critical
+          owner: oncall
+          slo: latency
+        annotations:
+          summary: سهم پاسخ‌های کندتر از ۱ ثانیه بودجهٔ تأخیر را ۱۴٫۴ برابر سریع‌تر مصرف می‌کند
+          runbook: docs/cloud/85-observability-slo.md#fast-burn
+
+      - alert: PayeshSloLatencySlowBurn
+        expr: payesh_slo_latency_burn_rate > 6
+        for: 30m
+        labels:
+          severity: warning
+          owner: oncall
+          slo: latency
+        annotations:
+          summary: مصرف پایدار بودجهٔ تأخیر (۶ برابر)
+          runbook: docs/cloud/85-observability-slo.md#slow-burn
+
+      - alert: PayeshLatencyP95High
+        expr: payesh_http_latency_p95_seconds > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          owner: oncall
+        annotations:
+          summary: صدک ۹۵ مدت پاسخ بیش از ۱٫۵ ثانیه
+          runbook: docs/cloud/85-observability-slo.md#p95

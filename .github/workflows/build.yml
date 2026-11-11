@@ -221,6 +221,16 @@ jobs:
           node tools/alerts-49.mjs --check-rules
           npm run test:observability49
 
+      # Row 85 gate: JSON logs with request_id + school_id and no PII (real
+      # server, PII planted in path/query/header/body), the log PII gate turns
+      # red on a planted line, logger mutants are caught, /metrics SLO gauges,
+      # and slo-85.yml thresholds equal server/slo.js. Not covered: delivery to
+      # the real pager/on-call (D-42, OWNER).
+      - name: Observability gate (row 85, SLO + PII-free logs)
+        run: |
+          node tools/alerts-49.mjs --rules deploy/monitoring/slo-85.yml --check-rules
+          npm run test:observability85
+
       # دروازهٔ بودجهٔ اتصال (ردیف ۴۵): فرمول نمونه‌ها × pool، اعتبارسنجی
       # پیکربندی (NaN/خارج از سقف)، ممیزی حالت نشستی برای transaction pooling،
       # و انطباق deploy/pgbouncer/pgbouncer.ini با بودجه.
