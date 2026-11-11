@@ -19,7 +19,7 @@
 | [`tools/`](../tools/) · [`scripts/`](../scripts/) · [`bench/`](../bench/) | ابزار شاهد/اندازه‌گیری، ساخت نسخه، بنچمارک | همه |
 | [`deploy/`](../deploy/) | استقرار سرور مقصد (env نمونه، بکاپ، پایش) | لایهٔ مقصد |
 | [`releases/`](../releases/) | مانیفست نسخه‌ها (commit ربات پس از هر ادغام در main) | اپ مدرسه |
-| [`samples/`](../samples/) · [`data/`](../data/) | نمونهٔ CSV ورود دسته‌ای · کلید عمومی پشتیبان (`backup-key.json`، بدون راز) | اپ مدرسه |
+| [`samples/`](../samples/) · `data/` (git-ignored، در زمان اجرا ساخته می‌شود) | نمونهٔ CSV ورود دسته‌ای · دادهٔ محلی اجرا، مثل کلید عمومی پشتیبان (`backup-key.json`، بدون راز) | اپ مدرسه |
 | [`openapi.yaml`](../openapi.yaml) | قرارداد API؛ هم‌خوانی با کد را `tests/openapi-drift-81.js` می‌سنجد (ردیف ۸۱) | قرارداد |
 | [`docs/`](./) | `00` قانون اساسی · [`cloud/`](cloud/) اسناد ابری و ADRها · [`cloud/contracts/`](cloud/contracts/) قراردادهای ماشین‌خوان · [`security/`](security/) · [`release/`](release/) · [`cloud/reports/evidence/`](cloud/reports/evidence/) شواهد خام · `01..05` تاریخی | مستند |
 | [`.github/workflows/`](../.github/workflows/) | [`build.yml`](../.github/workflows/build.yml) (مدرسه) · [`native-client.yml`](../.github/workflows/native-client.yml) (اپ بومی) · [`api-contract.yml`](../.github/workflows/api-contract.yml) (قرارداد + PostgreSQL واقعی) · [`release-gate.yml`](../.github/workflows/release-gate.yml) (دروازهٔ انتشار، ردیف ۹۵) · [`owner-panel.yml`](../.github/workflows/owner-panel.yml) (پنل مالک) | CI |

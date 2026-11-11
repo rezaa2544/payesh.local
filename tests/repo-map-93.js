@@ -43,6 +43,16 @@ function topLevel() {
     .filter(d => !d.startsWith('.')).sort();
 }
 
+const TRACKED = (() => {
+  const set = new Set();
+  for (const f of git(['ls-files']).stdout.split('\n').filter(Boolean)) {
+    set.add(f);
+    const parts = f.split('/');
+    for (let i = 1; i < parts.length; i++) set.add(parts.slice(0, i).join('/'));
+  }
+  return set;
+})();
+
 const RULES = {
   coverTop(f) {
     const miss = f.top.filter(d => !(f.map.includes('](../' + d + '/') || (d === 'docs' && f.map.includes('](./)'))));
@@ -68,6 +78,9 @@ const RULES = {
         if (/^(https?:|#|mailto:)/.test(u)) continue;
         const t = path.resolve(base, decodeURI(u.split('#')[0]));
         if (!t.startsWith(ROOT) || !fs.existsSync(t)) throw new Error(`broken link in ${doc}: ${u}`);
+        /* must also exist in a fresh checkout: a git-ignored local dir (e.g. data/) is a broken link in CI */
+        const rel = path.relative(ROOT, t).split(path.sep).join('/');
+        if (rel && !TRACKED.has(rel)) throw new Error(`link to an untracked/ignored path in ${doc}: ${u}`);
         n++;
       }
     }
@@ -133,6 +146,7 @@ const MUTANTS = [
   ['coverTop', 'map', s => s.split('](../tools/').join('](../')],
   ['coverPayesh', 'map', s => s.split('](../apps/payesh/packages/payesh_ui/)').join('](../apps/payesh/)')],
   ['links', 'map', s => s.replace('](cloud/82-load-test.md)', '](cloud/82-load-test-missing.md)')],
+  ['links', 'map', s => s.replace('](cloud/82-load-test.md)', '](../.git/HEAD)')],   /* exists on disk but is not tracked (like the git-ignored data/) */
   ['roadmap', 'map', s => s.replace('#181 → `9b06ff4`', '#181 → `deadbee`')],
   ['roadmap', 'map', s => s.replace('| در صف ادغام |', '| همین PR |')],
   ['groundTruth', 'map', s => s.replace(/`npm test` سبز: pass=\d+/, '`npm test` سبز: pass=9999')],
