@@ -128,13 +128,34 @@ if (DIRECTORY_PGURL) {
 }
 const directoryApi = directoryApiModule.createDirectoryApi({ resolver: directoryResolver });
 
-const platformApi = platformApiModule.createPlatformApi({
+let platformApi = platformApiModule.createPlatformApi({
   db: platformApiModule.createPgAdapter(platformPool),
   secret: PLATFORM_SECRET,
   rateLimitMax: PLATFORM_RATE_MAX,
   rateLimitWindowSec: PLATFORM_RATE_WINDOW,
   instance: INSTANCE,
 });
+
+/* row 102: apps/owner-panel/scripts/local-up.js runs this Gateway in-process on
+   loopback with an embedded local database (PGlite) that has no connection URL.
+   This in-process call is the only way to attach such a platform DB: nothing reads
+   it from the environment or from HTTP. Refused when PAYESH_PLATFORM_PGURL is set
+   or once the server is listening. The adapter must run each transaction as
+   payesh_platform_runtime (SET LOCAL ROLE), like createPgAdapter({ setRole: true }). */
+function usePlatformDb(db) {
+  if (PLATFORM_PGURL) throw new Error('platform DB already configured by PAYESH_PLATFORM_PGURL');
+  if (server.listening) throw new Error('usePlatformDb must run before listen');
+  if (!db || typeof db.withTransaction !== 'function') throw new Error('platform db adapter with withTransaction() required');
+  platformApi = platformApiModule.createPlatformApi({
+    db,
+    secret: PLATFORM_SECRET,
+    rateLimitMax: PLATFORM_RATE_MAX,
+    rateLimitWindowSec: PLATFORM_RATE_WINDOW,
+    instance: INSTANCE,
+  });
+  module.exports.platformApi = platformApi;
+  return platformApi;
+}
 
 /* تصمیم مقصد خواندن (ردیف ۵۲). replica فقط اگر واقعاً تازه باشد استفاده
    می‌شود؛ و اگر دستگاه نوشته‌ای دارد که replica ندیده ⇒ primary. */
@@ -500,4 +521,4 @@ if (require.main === module) {
   process.on('SIGINT', () => drain('SIGINT'));
 }
 
-module.exports = { server, handle, drain, requestIdOf, INSTANCE, PORT, mreg, platformApi };
+module.exports = { server, handle, drain, requestIdOf, INSTANCE, PORT, mreg, platformApi, usePlatformDb };

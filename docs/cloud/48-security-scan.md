@@ -5,7 +5,7 @@
 | ردیف | ۴۸ (P0، فاز ۳ — Security) |
 | وضعیت | **بخش ماشینی: اجراشده و مسدودکننده (blocking)** · **بخش انسانی (pentest مستقل): باز — OWNER** |
 | دروازه | `tools/security-scan-48.mjs` ⇒ `SECURITY-SCAN-48-OK` / `SECURITY-SCAN-48-FAILED` (exit 1) |
-| آزمون | `npm run test:security48` ⇒ `SS checks=12 pass=12 fail=0` |
+| آزمون | `npm run test:security48` ⇒ `SS checks=13 pass=13 fail=0` (از ردیف ۸۴) |
 | شاهد خام | `docs/cloud/reports/evidence/security-48.txt` + `security-48.json` |
 | بازتولید | `bash docs/cloud/reports/evidence/run-48-security-scan.sh` |
 | گام CI | `.github/workflows/build.yml` → «دروازهٔ امنیت ایستا (SAST + Dependency Scan — ردیف ۴۸)» |
@@ -78,9 +78,10 @@
 | SS-08 | SQL ساخته‌شده از `req.body` | `gate=RED` با `sql-taint` |
 | SS-09 | کلید ثابت با پیشوند `AKIA…` در سورس | `gate=RED` با `aws_access_key` |
 | SS-10 | کم‌کردن سقف تریاژ یک قاعده | `gate=RED` با `untriaged warnings` |
-| SS-11 | تاریخ انقضای یک ردیف allowlist به گذشته | `gate=RED` با `expired allowlist` |
+| SS-11 | تزریق وابستگی dev عمداً آسیب‌پذیر (lodash 4.17.15) در کپی package-lock + allowlist منقضی | `gate=RED` با `expired allowlist` |
+| SS-11b | همان وابستگی بدون مدخل allowlist (قرمز)، سپس با مدخل معتبر (G2 سبز) | `unlisted=RED, listed=G2 green` |
 
-اگر هر یک از این پنج مورد سبز شود، دروازه **شکست‌خورده** است — حتی اگر مخزن واقعی
+اگر هر یک از این کنترل‌های منفی سبز شود، دروازه **شکست‌خورده** است — حتی اگر مخزن واقعی
 پاک باشد.
 
 ## ۵) شاهد خام
@@ -93,6 +94,11 @@ SECURITY-SCAN-48-OK
 
 $ npm run test:security48
 SS checks=12 pass=12 fail=0
+SECURITY-48-OK
+
+# از ردیف ۸۴ (2026-11-11): lodash/lodash-es با overrides به 4.18.1 رسیدند، deps_dev_high=0،
+# allowlist خالی است و SS-11 وابستگی آسیب‌پذیر را خودش تزریق می‌کند:
+SS checks=13 pass=13 fail=0
 SECURITY-48-OK
 ```
 

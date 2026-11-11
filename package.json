@@ -55,6 +55,8 @@
     "test:budget42": "node tools/sync-budget-42.cjs",
     "security:scan": "node tools/security-scan-48.mjs",
     "test:security48": "node tests/security-scan-48.js",
+    "test:vuln84": "node tests/vuln-scan-84.js",
+    "vuln:scan": "node tools/osv-scan-84.mjs",
     "test:security48:evidence": "bash docs/cloud/reports/evidence/run-48-security-scan.sh",
     "test:observability49": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/observability-49.js",
     "test:observability85": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/observability-85.js",
@@ -88,5 +90,9 @@
   },
   "dependencies": {
     "pg": "^8.23.1"
+  },
+  "overrides": {
+    "lodash": "4.18.1",
+    "lodash-es": "4.18.1"
   }
 }
