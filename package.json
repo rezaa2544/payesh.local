@@ -42,6 +42,7 @@
     "test:outbox40": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/outbox-40.js",
     "test:outbox40:evidence": "bash docs/cloud/reports/evidence/run-40-outbox.sh",
     "test:conflict41": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/convergence-41.js",
+    "test:fuzz83": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/convergence-fuzz-83.js",
     "test:conflict41:evidence": "bash docs/cloud/reports/evidence/run-41-conflict.sh",
     "test:chaos47": "node --experimental-sqlite --disable-warning=ExperimentalWarning tests/chaos-47.js",
     "test:chaos47:evidence": "bash docs/cloud/reports/evidence/run-47-chaos.sh",
