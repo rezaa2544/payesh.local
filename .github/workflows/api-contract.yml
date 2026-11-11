@@ -42,6 +42,7 @@ on:
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - 'tests/direct-sync-108.js'
       - 'tests/rls-pentest-109.js'
+      - 'tests/privacy-88.js'
       - 'tests/transport-110.js'
       - 'tools/backup-111.mjs'
       - 'tools/backup-drill-111.mjs'
@@ -83,6 +84,7 @@ on:
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - 'tests/direct-sync-108.js'
       - 'tests/rls-pentest-109.js'
+      - 'tests/privacy-88.js'
       - 'tests/transport-110.js'
       - 'tools/backup-111.mjs'
       - 'tools/backup-drill-111.mjs'
@@ -280,6 +282,18 @@ jobs:
           set -o pipefail
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/rls-pentest-109.js | tee -a native-contract.txt
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/direct-sync-108.js | tee -a native-contract.txt
+      # Row 88: privacy — export role allowlist (closed; guard refused), non-manager
+      # exports scoped (row 38) and carrying no one else's national_id in ANY
+      # collection, "my data" export, tombstone view (metadata only) + retention purge
+      # (default 90 d, min 31), cross-school request refused (cross_tenant). Real
+      # postgres:16 for the cloud product path; SQLite for the local school server.
+      - name: Privacy delete/export (row 88, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PV88_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/privacy-88.js | tee -a native-contract.txt
       # Row 110 (ADR-105, Proposed): direct transport of the JS client behind
       # PAYESH_TRANSPORT=direct (default off) — transport ↔ provider split, no service
       # key in client code (static scan, JS + Dart), offline outbox unchanged; real
