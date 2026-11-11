@@ -41,6 +41,9 @@ const FEED_MAX_HOT_DAYS = 365;
 /* ردیف ۳۷ — Gateway بی‌حالت */
 const OPS_TABLE = 'product_ops';
 const QUOTA_TABLE = 'gateway_quota';
+/* row 121: school access — slug → tenant, and hashed one-time activation codes / device credentials */
+const SCHOOL_TABLE = 'gw_school';
+const CRED_TABLE = 'gw_credential';
 const MAX_OPS_PER_REQUEST = 200;        /* سقف عملیات هر push */
 const MAX_OP_BYTES = 64 * 1024;         /* سقف payload هر عملیات */
 const MAX_UID_LEN = 80;
@@ -232,6 +235,58 @@ const SCHEMA_SQL = [
      WITH CHECK (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)`,
   `REVOKE ALL ON ${QUOTA_TABLE} FROM PUBLIC`,
   `GRANT SELECT, INSERT, UPDATE, DELETE ON ${QUOTA_TABLE} TO ${RUNTIME_ROLE}`,
+
+  /* ── row 121: school access (owner panel creates a school → initial manager) ──────────────
+     gw_school maps the public school slug to its tenant. Forced RLS: the runtime role can only
+     insert/see its own tenant's mapping; resolving a slug BEFORE the tenant is known goes through
+     gw_resolve_school() (SECURITY DEFINER, returns one uuid, no listing). */
+  `CREATE TABLE IF NOT EXISTS ${SCHOOL_TABLE} (
+     slug text PRIMARY KEY CHECK (slug ~ '^[a-z0-9][a-z0-9-]{2,39}$'),
+     tenant_id uuid NOT NULL UNIQUE,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `ALTER TABLE ${SCHOOL_TABLE} OWNER TO ${OWNER_ROLE}`,
+  `ALTER TABLE ${SCHOOL_TABLE} ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE ${SCHOOL_TABLE} FORCE ROW LEVEL SECURITY`,
+  `DROP POLICY IF EXISTS ${SCHOOL_TABLE}_isolation ON ${SCHOOL_TABLE}`,
+  `CREATE POLICY ${SCHOOL_TABLE}_isolation ON ${SCHOOL_TABLE}
+     USING (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)
+     WITH CHECK (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)`,
+  `DROP POLICY IF EXISTS ${SCHOOL_TABLE}_resolve ON ${SCHOOL_TABLE}`,
+  `CREATE POLICY ${SCHOOL_TABLE}_resolve ON ${SCHOOL_TABLE} FOR SELECT TO ${OWNER_ROLE} USING (true)`,
+  `REVOKE ALL ON ${SCHOOL_TABLE} FROM PUBLIC`,
+  `GRANT SELECT, INSERT ON ${SCHOOL_TABLE} TO ${RUNTIME_ROLE}`,
+  `CREATE OR REPLACE FUNCTION gw_resolve_school(p_slug text) RETURNS uuid
+     LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_catalog
+     AS $fn$ SELECT tenant_id FROM ${SCHOOL_TABLE} WHERE slug = lower(btrim(p_slug)) $fn$`,
+  `ALTER FUNCTION gw_resolve_school(text) OWNER TO ${OWNER_ROLE}`,
+  `REVOKE ALL ON FUNCTION gw_resolve_school(text) FROM PUBLIC`,
+  `GRANT EXECUTE ON FUNCTION gw_resolve_school(text) TO ${RUNTIME_ROLE}`,
+  /* hashed secrets only (sha256 over tenant + secret); the raw code/secret is returned once */
+  `CREATE TABLE IF NOT EXISTS ${CRED_TABLE} (
+     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+     tenant_id uuid NOT NULL,
+     kind text NOT NULL CHECK (kind IN ('activation', 'device')),
+     uid bigint NOT NULL CHECK (uid > 0),
+     device_id text,
+     secret_hash text NOT NULL UNIQUE,
+     expires_at timestamptz,
+     used_at timestamptz,
+     revoked_at timestamptz,
+     issued_by bigint,
+     created_at timestamptz NOT NULL DEFAULT now(),
+     CHECK (kind <> 'device' OR device_id IS NOT NULL)
+   )`,
+  `CREATE INDEX IF NOT EXISTS ${CRED_TABLE}_tenant_uid_idx ON ${CRED_TABLE} (tenant_id, uid, kind)`,
+  `ALTER TABLE ${CRED_TABLE} OWNER TO ${OWNER_ROLE}`,
+  `ALTER TABLE ${CRED_TABLE} ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE ${CRED_TABLE} FORCE ROW LEVEL SECURITY`,
+  `DROP POLICY IF EXISTS ${CRED_TABLE}_isolation ON ${CRED_TABLE}`,
+  `CREATE POLICY ${CRED_TABLE}_isolation ON ${CRED_TABLE}
+     USING (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)
+     WITH CHECK (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)`,
+  `REVOKE ALL ON ${CRED_TABLE} FROM PUBLIC`,
+  `GRANT SELECT, INSERT, UPDATE ON ${CRED_TABLE} TO ${RUNTIME_ROLE}`,
 ];
 
 /* اجرای مهاجرت با اتصال مدیر (superuser) — بخشی از محصول است، نه هارنس */
@@ -1151,7 +1206,7 @@ async function rekeyFields(pool, tenantId) {
   });
 }
 
-module.exports = { rekeyFields, replicaPolicy, transfer, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
+module.exports = { SCHOOL_TABLE, CRED_TABLE, upsertInTx, rekeyFields, replicaPolicy, transfer, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,

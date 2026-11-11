@@ -108,6 +108,8 @@ const PLATFORM_ROUTES = [
   { method: 'POST',   path: '/auth/login',                                 auth: false, handler: 'authLogin' },
   { method: 'GET',    path: '/dashboard',                                  auth: true,  handler: 'dashboard' },
   { method: 'GET',    path: '/tenants',                                    auth: true,  handler: 'tenants' },
+  /* row 121 — create a school: owner only, reason, provision_op_id (16b §1.4 saga) */
+  { method: 'POST',   path: '/tenants',                                    auth: true,  handler: 'tenantsCreate' },
   { method: 'GET',    path: '/tenants/{tenant_id}',                         auth: true,  handler: 'tenant' },
   { method: 'DELETE', path: '/tenants/{tenant_id}',                         auth: true,  handler: 'deleteTenant' },
   { method: 'GET',    path: '/tenants/{tenant_id}/limits',                  auth: true,  handler: 'limits' },
@@ -513,6 +515,69 @@ async function deletionTenant(q, ctx) {
   return { row: r.rows[0] };
 }
 
+/* ── row 121: POST /tenants — create a school (16b §1 steps 1,2,5,8,9; §1.4 saga) ──────────
+   Three steps, each idempotent under the same provision_op_id, so a retry after any failure
+   converges instead of forking a second school:
+     1) platform tx: provision_tenant() (registry + subscription 'provisioning' + limits) + audit
+     2) school side (injected hook, school runtime role, forced RLS of the new tenant):
+        slug → tenant mapping, users#1 = initial manager, one-time activation code
+     3) platform tx: activate_tenant() (subscription → active) + audit
+   The activation code is returned once to the owner (no-store) and is never written to audit. */
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{2,39}$/;
+async function createTenantSaga(db, provisioner, ctx) {
+  const denied = needRole(ctx, ['platform_owner']);
+  if (denied) return denied;
+  if (typeof provisioner !== 'function') return err(503, 'school_provisioning_not_configured');
+  const b = ctx.body || {};
+  const opId = String(b.provision_op_id || '');
+  if (!UUID_RE.test(opId)) return err(400, 'invalid_provision_op_id');
+  const slug = String(b.slug || '').trim();
+  if (!SLUG_RE.test(slug)) return err(400, 'invalid_slug');
+  const name = String(b.display_name || '').trim();
+  if (name.length < 2 || name.length > 120) return err(400, 'invalid_display_name');
+  const managerName = String(b.manager_name || '').trim();
+  if (managerName.length < 2 || managerName.length > 120) return err(400, 'invalid_manager_name');
+  const plan = String(b.plan_code || '');
+  const reason = needReason(b);
+  if (!reason) return err(400, 'reason_too_short');
+  const asActor = (fn) => db.withTransaction(async (q) => {
+    await q("SELECT set_config('app.platform_user_id', $1, true), set_config('app.tenant_id', '', true)", [ctx.claims.sub]);
+    return fn(q);
+  });
+  const reg = await asActor(async (q) => {
+    const r = await q('SELECT owner_platform.provision_tenant($1,$2,$3,$4) AS result', [opId, slug, name, plan]);
+    const out = r.rows[0].result;
+    if (!out.idempotent) {
+      await appendAudit(q, ctx, { action: 'tenant.provision', subject_type: 'tenant', subject_ref: out.tenant_id,
+        tenant_id: out.tenant_id, reason, details: { slug, plan_code: plan, provision_op_id: opId } });
+    }
+    return out;
+  });
+  let school;
+  try {
+    school = await provisioner({ tenantId: reg.tenant_id, slug, managerName, opId });
+  } catch (e) {
+    /* the registry row stays 'provisioning'; the same request is safe to retry */
+    return err(e && e.status === 409 ? 409 : 502, e && e.status === 409 ? 'slug_taken_in_school_db' : 'school_provisioning_failed',
+      { tenant_id: reg.tenant_id, status: 'provisioning', retry: 'same provision_op_id' });
+  }
+  const act = await asActor(async (q) => {
+    const r = await q('SELECT owner_platform.activate_tenant($1) AS result', [reg.tenant_id]);
+    const out = r.rows[0].result;
+    if (!out.idempotent) {
+      await appendAudit(q, ctx, { action: 'tenant.activate', subject_type: 'tenant', subject_ref: reg.tenant_id,
+        tenant_id: reg.tenant_id, reason, details: { slug, provision_op_id: opId, manager_uid: school.manager_uid } });
+    }
+    return out;
+  });
+  return ok({ ok: true,
+    tenant: { tenant_id: act.tenant_id, slug: act.slug, display_name: act.display_name, plan_code: act.plan_code,
+      status: act.status },
+    manager: { uid: school.manager_uid, school: slug, activated: !!school.manager_activated,
+      activation_code: school.activation_code || null },
+    idempotent: !!reg.idempotent }, reg.idempotent ? 200 : 201);
+}
+
 function mapError(e) {
   const code = e && e.code;
   if (code === '42501') return err(403, 'forbidden', { data_layer: '42501' });
@@ -533,6 +598,8 @@ function createPlatformApi(options = {}) {
   const loginMax = Number(options.loginRateMax || 10);
   const loginWindowSec = Number(options.loginRateWindowSec || 300);
   const tokenTtlMs = Number(options.tokenTtlMs || 8 * 3600 * 1000);
+  /* row 121: school-side provisioning hook (Gateway injects school-access.provisionSchool) */
+  const schoolProvisioner = typeof options.schoolProvisioner === 'function' ? options.schoolProvisioner : null;
   const openapi = JSON.parse(fs.readFileSync(path.join(__dirname, 'openapi.json'), 'utf8'));
 
   function match(method, sub) {
@@ -700,6 +767,10 @@ function createPlatformApi(options = {}) {
       requestId: rid, instance, openapi, now,
     };
     try {
+      if (route.handler === 'tenantsCreate') {
+        const out = await createTenantSaga(db, schoolProvisioner, ctx);
+        return reply(out.status, out.body, Object.assign({}, rateHeaders, out.headers || {}));
+      }
       const out = await db.withTransaction(async (q) => {
         await q("SELECT set_config('app.platform_user_id', $1, true), set_config('app.tenant_id', $2, true)",
           [claims.sub, params.tenant_id || (input.body && input.body.tenant_id) || '']);

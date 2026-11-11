@@ -1833,6 +1833,45 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Error'
+  /api/gw/v1/admin/activation-codes:
+    post:
+      operationId: postGwV1AdminActivationCodes
+      tags: [gateway]
+      summary: "Row 121: manager issues a one-time activation code for a user of the SAME school (tenant from the token; user must exist under RLS)"
+      x-source: server/gateway.js:435
+      security:
+        - gateway: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uid]
+              properties:
+                uid: { type: integer, minimum: 1 }
+      responses:
+        '201':
+          description: One-time code (returned once, stored only as a tenant-bound hash)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  uid: { type: integer }
+                  role: { type: string }
+                  activation_code: { type: string, pattern: '^[A-Z2-7]{32}$' }
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
   /api/gw/v1/pull:
     get:
       operationId: getGwV1Pull
@@ -1928,6 +1967,83 @@ paths:
           $ref: '#/components/responses/Error'
         '429':
           $ref: '#/components/responses/RateLimited'
+  /api/gw/v1/session/activate:
+    post:
+      operationId: postGwV1SessionActivate
+      tags: [gateway]
+      summary: "Row 121: school slug + one-time activation code + device id → school token. Wrong slug and wrong code give the same 401."
+      x-source: server/gateway.js:375
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [school, code, device_id]
+              properties:
+                school: { type: string, pattern: '^[a-z0-9][a-z0-9-]{2,39}$' }
+                device_id: { type: string, pattern: '^[A-Za-z0-9._:-]{4,64}$' }
+                code: { type: string }
+      responses:
+        '200':
+          description: School token (role and uid read from the school's users row) and a device secret returned once
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  tenant_id: { type: string, format: uuid }
+                  token: { type: string }
+                  expires_at: { type: integer, description: epoch milliseconds }
+                  role: { type: string }
+                  uid: { type: integer }
+                  device_secret: { type: string }
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/gw/v1/session/refresh:
+    post:
+      operationId: postGwV1SessionRefresh
+      tags: [gateway]
+      summary: "Row 121: device id + device secret → fresh school token; role re-read, deactivated users are refused."
+      x-source: server/gateway.js:375
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [school, device_id, device_secret]
+              properties:
+                school: { type: string, pattern: '^[a-z0-9][a-z0-9-]{2,39}$' }
+                device_id: { type: string, pattern: '^[A-Za-z0-9._:-]{4,64}$' }
+                device_secret: { type: string }
+      responses:
+        '200':
+          description: School token (role and uid read from the school's users row) 
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  tenant_id: { type: string, format: uuid }
+                  token: { type: string }
+                  expires_at: { type: integer, description: epoch milliseconds }
+                  role: { type: string }
+                  uid: { type: integer }
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/health:
     get:
       operationId: getApiHealth

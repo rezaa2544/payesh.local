@@ -6,7 +6,7 @@
      LU-01  bind غیر loopback ⇒ رد (کد 2)، هیچ پوشه/پورتی ساخته نمی‌شود
      LU-02  DATABASE_URL غیرمحلی ⇒ رد (کد 2)؛ loopback/سوکت پذیرفته
      LU-03  PAYESH_PLATFORM_PGURL تنظیم‌شده ⇒ رد؛ پوشهٔ داده درون مخزن Git ⇒ رد
-     LU-04  --smoke روی پوشهٔ تازه: بنر، migration 001..004، ورود TOTP (غلط ⇒ 401، درست ⇒ 200)،
+     LU-04  --smoke روی پوشهٔ تازه: بنر، migration 001..005، ورود TOTP (غلط ⇒ 401، درست ⇒ 200)،
             داشبورد 200، SPA با CSP، خاموشی تمیز؛ هیچ راز/رمز/otpauth در خروجی نیست
      LU-05  اجرای عادی بار اول: رمز بدون نمایش (env)، otpauth فقط یک‌بار، ورود واقعی با TOTP
             همان otpauth از مبدأ پنل، رازها 0600 خارج از Git؛ توقف با سیگنال
@@ -137,7 +137,7 @@ async function main() {
     const r = await runCli(['--smoke', '--data-dir', dir, '--keep-data'], cleanEnv());
     assert.strictEqual(r.code, 0, 'smoke exit: ' + r.out + r.err);
     assert.ok(r.out.includes('فقط آزمایش محلی؛ نه تولید') && r.out.includes('LOCAL TESTING ONLY — NOT PRODUCTION'), 'banner');
-    assert.ok(/applied=\[001_owner_panel\.up\.sql, 002_owner_panel_api\.up\.sql, 003_tenant_deletion\.up\.sql, 004_owner_login\.up\.sql\]/.test(r.out), 'migrations 001..004');
+    assert.ok(/applied=\[001_owner_panel\.up\.sql, 002_owner_panel_api\.up\.sql, 003_tenant_deletion\.up\.sql, 004_owner_login\.up\.sql, 005_tenant_provisioning\.up\.sql\]/.test(r.out), 'migrations 001..005');
     assert.ok(/wrong TOTP ⇒ 401/.test(r.out) && /login \(password \+ TOTP\) via panel origin ⇒ 200/.test(r.out) && /GET \/dashboard ⇒ 200/.test(r.out), 'smoke steps');
     assert.ok(/clean shutdown/.test(r.out) && /LOCAL-UP-SMOKE-OK/.test(r.out), 'clean shutdown');
     const secret = JSON.parse(fs.readFileSync(path.join(dir, 'secrets.json'), 'utf8')).platform_token_secret;
@@ -146,7 +146,7 @@ async function main() {
     if (process.platform !== 'win32') neg('secrets.json mode 0600', (fs.statSync(path.join(dir, 'secrets.json')).mode & 0o777) === 0o600);
     const again = await runCli(['--smoke', '--data-dir', dir], cleanEnv());
     neg('smoke on a used data dir ⇒ refused (needs fresh data)', again.code === 2 && /fresh data dir/.test(again.err));
-    ok('LU-04', '--smoke: banner, 4 migrations, TOTP login, dashboard, SPA, clean shutdown', (r.out.match(/LOCAL-UP-SMOKE-OK (.*)/) || [])[1]);
+    ok('LU-04', '--smoke: banner, 5 migrations, TOTP login, dashboard, SPA, clean shutdown', (r.out.match(/LOCAL-UP-SMOKE-OK (.*)/) || [])[1]);
     fs.rmSync(path.dirname(dir), { recursive: true, force: true });
   }
 
@@ -181,13 +181,13 @@ async function main() {
     const b = startCli(['--data-dir', dir, '--port', '0', '--gateway-port', '0'], cleanEnv());
     const port2 = await b.ready;
     neg('second run: no otpauth', !/otpauth:\/\//.test(b.out));
-    assert.ok(/already=\[001_owner_panel\.up\.sql, 002_owner_panel_api\.up\.sql, 003_tenant_deletion\.up\.sql, 004_owner_login\.up\.sql\]/.test(b.out) && /applied=\[\]/.test(b.out), 'idempotent migrations: ' + b.out);
+    assert.ok(/already=\[001_owner_panel\.up\.sql, 002_owner_panel_api\.up\.sql, 003_tenant_deletion\.up\.sql, 004_owner_login\.up\.sql, 005_tenant_provisioning\.up\.sql\]/.test(b.out) && /applied=\[\]/.test(b.out), 'idempotent migrations: ' + b.out);
     assert.ok(/owner account: already exists/.test(b.out) && /secrets: reused/.test(b.out), 'owner/secret reused');
     assert.strictEqual(fs.readFileSync(path.join(dir, 'secrets.json'), 'utf8'), secretBefore, 'secret file unchanged');
     const dash2 = await req(port2, 'GET', P + '/dashboard', undefined, { authorization: 'Bearer ' + good.json.token });
     assert.strictEqual(dash2.status, 200, 'token from run 1 still valid ⇒ same secret');
     await b.stop();
-    ok('LU-06', 'second run idempotent: migrations skipped, owner kept, no otpauth, same secret', 'applied=[] already=4, token from run 1 ⇒ 200');
+    ok('LU-06', 'second run idempotent: migrations skipped, owner kept, no otpauth, same secret', 'applied=[] already=5, token from run 1 ⇒ 200');
 
     /* LU-07: دفتر را دست‌کاری کن */
     /* tests/run.js defines a jsdom global.window; PGlite must see Node, not a browser */
