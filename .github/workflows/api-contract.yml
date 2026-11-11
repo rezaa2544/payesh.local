@@ -42,6 +42,8 @@ on:
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - 'tests/direct-sync-108.js'
       - 'tests/rls-pentest-109.js'
+      - 'tests/telemetry-80.js'
+      - 'client/telemetry.js'
       - 'tests/transport-110.js'
       - 'tools/backup-111.mjs'
       - 'tools/backup-drill-111.mjs'
@@ -83,6 +85,8 @@ on:
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
       - 'tests/direct-sync-108.js'
       - 'tests/rls-pentest-109.js'
+      - 'tests/telemetry-80.js'
+      - 'client/telemetry.js'
       - 'tests/transport-110.js'
       - 'tools/backup-111.mjs'
       - 'tools/backup-drill-111.mjs'
@@ -267,19 +271,30 @@ jobs:
       # no token, quota bypass F1..F5 (fixed by migration 0005); every control is
       # reverted by a mutant and its attack must then succeed. Row 108 is re-run on
       # top of 0005 (write tickets must not break the protocol). Both run on the
-      # head migration 0006 (row 82: RLS InitPlan rewrite must change nothing).
+      # head migration (0007 since row 80: RLS InitPlan rewrite and telemetry change nothing).
       - name: RLS pentest (row 109, real postgres:16)
         env:
           PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
           RP109_REQUIRE_PG: '1'
           DS108_REQUIRE_PG: '1'
-          DS108_TO: 0006_direct_rls_initplan
-          RLS109_TO: 0006_direct_rls_initplan
+          DS108_TO: 0007_direct_telemetry
+          RLS109_TO: 0007_direct_telemetry
           DS108_RUNS: '4'
         run: |
           set -o pipefail
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/rls-pentest-109.js | tee -a native-contract.txt
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/direct-sync-108.js | tee -a native-contract.txt
+      # Row 80: opt-in telemetry without PII on the direct path — one closed field
+      # allowlist (schema = SQL = client), a PII field added anywhere ⇒ red (6 mutants),
+      # consent + token identity, per-device / per-school rate limit, no direct table
+      # access, end to end from client/telemetry.js, allowlist mutant, clean rollback.
+      - name: Telemetry without PII (row 80, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          TM80_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node tests/telemetry-80.js | tee -a native-contract.txt
       # Row 110 (ADR-105, Proposed): direct transport of the JS client behind
       # PAYESH_TRANSPORT=direct (default off) — transport ↔ provider split, no service
       # key in client code (static scan, JS + Dart), offline outbox unchanged; real

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://payesh.local/contracts/telemetry-v1.schema.json",
+  "title": "Payesh telemetry event v1 (row 80) — opt-in, no PII",
+  "description": "One error/telemetry event. CLOSED field allowlist: additionalProperties is false and no field can hold a name, national id, phone, e-mail, user/student id or free text. The same allowlist is enforced by client/telemetry.js (drops anything else) and by payesh_direct.telemetry_ingest (refuses the batch). tests/telemetry-80.js keeps the three in sync and turns red when a PII-like field is added.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "type", "code", "platform"],
+  "properties": {
+    "v": { "const": 1 },
+    "type": { "enum": ["error", "crash", "sync_failure", "perf"] },
+    "code": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{0,63}$", "description": "machine error code (payesh_core error codes / DirectError.code), never a message" },
+    "where": { "type": "string", "pattern": "^[a-z][a-z0-9_./-]{0,63}$", "description": "screen or component id, e.g. sync.push" },
+    "platform": { "enum": ["android", "windows", "web"] },
+    "app_version": { "type": "string", "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,4}([+-][0-9A-Za-z.]{1,20})?$" },
+    "count": { "type": "integer", "minimum": 0, "maximum": 999999 },
+    "duration_ms": { "type": "integer", "minimum": 0, "maximum": 99999999 }
+  },
+  "x-pii-guard": "no string value may contain 7+ consecutive digits, '@' or whitespace",
+  "x-transport": "direct path only (row 110): rpc telemetry_ingest(p_events jsonb, p_consent boolean); never through the Gateway",
+  "x-limits": { "max_batch": 20, "per_device_per_hour": 60, "per_school_per_hour": 2000 }
+}
