@@ -50,3 +50,10 @@ e16d93f -> ce12a6afd846511579a5c4f9ebeaca53bdb5dcd1 hermes-remap ردیف ۵۷: 
 a160a1fd4eb8ef695e12562bfec37058305fcda9 -> e490b71f609587f3301d5e907a2f2c569eaf767b rebased-or-local tests-run-a160a1f-20261109T065154Z.log
 c1440aeed0b47b587bb9562f8a8ae3e682f8735b -> 861a7caa8ae1a80bc7b45782b8bd7fb706d9f0e2 rebased-or-local tests-run-c1440ae-20261109T200026Z.log
 f244c32c4ce1ea8be95cfe03bcb7ebeaa36221ed -> e73eb64e76591bb1f6dfbab6cfe567323bfd6e32 rebased-or-local tests-run-f244c32-20261109T101736Z.log
+
+## merge origin/main (row 87 #176, 761fa79) → 2718f6a
+- conflicts: gen-audit-evidence.sh ALLOW (union: row 87 + tests/evidence-sha-89.js), mission-05 generated files (regenerated).
+- run-tests-evidence.sh @2718f6a: pass=110 fail=0 → tests-run-2718f6a-20261111T085722Z.log
+- gen-audit-evidence.sh @2718f6a: EVIDENCE-OK
+- tools/evidence-sha-89.mjs --check: EVIDENCE-SHA-89-OK files=392 failures=0 (row-87 files field-crypto-87.txt + tests-run logs covered)
+- tests/evidence-sha-89.js: passed=15 failed=0
