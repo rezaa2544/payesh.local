@@ -133,5 +133,10 @@
 | ۷۸ | به‌روزرسانی خودکار امضاشده (Ed25519) | #194 → `3bb3ef9` | [`cloud/78-native-auto-update.md`](cloud/78-native-auto-update.md) |
 | ۷۶، ۷۷ | انتشار امضاشدهٔ APK/AAB اندروید و نصب‌کنندهٔ ویندوز | #190 → `d1df3a3` | [`cloud/76-android-release.md`](cloud/76-android-release.md) · [`cloud/77-windows-installer.md`](cloud/77-windows-installer.md) |
 | ۱۱۴ | صفحهٔ ایستای دانلود + سند DNS | #195 → `4044d16` | [`cloud/114-landing-pages-dns.md`](cloud/114-landing-pages-dns.md) |
+| ۱۱۵ | پروب هاست (`tools/host-probe.mjs`) | #196 → `09e2ab4` | [`cloud/115-host-probe.md`](cloud/115-host-probe.md) |
+| ۱۱۷ | ADR مرحله‌ای کم‌هزینه + D‑48 | #197 → `4cc72fe` | [`cloud/117-adr-staged-low-cost.md`](cloud/117-adr-staged-low-cost.md) |
+| ۱۱۸ | تطبیق Done با Repo Truth | #198 → `62fb129` | [`cloud/118-reconciliation.md`](cloud/118-reconciliation.md) |
+| ۱۱۹ | ۲۰ سناریوی آفلاین روی مسیر Gateway | #199 → `1e2cdcf` | [`cloud/119-offline.md`](cloud/119-offline.md) |
+| ۱۲۱ | ساخت مدرسه ← tenant اختصاصی + مدیر اولیه | #200 → `832ecff` | [`cloud/121-tenant-provisioning.md`](cloud/121-tenant-provisioning.md) |
 
 ردیف‌های باز (۷۴، ۹۳ — همین نقشه، ۹۴، ۱۱۲ و ردیف‌های OWNER/Z: ۹۱، ۹۲، ۱۰۵، ۱۱۳، ۶۱؛ ۱۰۳ و ۱۰۴ منسوخ‌شده با ADR‑105) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.

@@ -16,7 +16,7 @@
 | PRهای باز همین دور | #196 (ردیف ۱۱۵، پروب هاست) و #197 (ردیف ۱۱۷، ADR‑117 + D‑48 + ADR‑105 Parked) |
 | آزمون‌ها روی main | `npm test` ۱۱۲/۱۱۲ [S] |
 | CI | در لحظهٔ نوشتن این سند، GitHub Actions دچار **قطعی گسترده (major outage)** است. CI این PRها هنوز تمام نشده (**NOT RUN**) و ادغام منتظر CI سبز می‌ماند (D‑39). |
-| به‌روزرسانی پس از ادغام | #196، #197 و #198 با CI سبز ادغام شدند. R10 و R12 همراه ردیف ۱۱۹ (#199)، R26 پس از ادغام #196، و R09 همراه ردیف ۱۲۱ (#200) به‌روز شدند. |
+| به‌روزرسانی پس از ادغام | #196، #197 و #198 با CI سبز ادغام شدند. R10 و R12 همراه ردیف ۱۱۹ (#199)، R26 پس از ادغام #196، ، R09 همراه ردیف ۱۲۱ (#200) و R08 همراه ردیف ۱۲۲ به‌روز شدند. |
 
 ## ۲. سنجش «شواهد اولیهٔ کاربر»
 
@@ -49,7 +49,7 @@
 | R05 | مسیر مستقیم فقط پشت `PAYESH_TRANSPORT=direct`، پیش‌فرض خاموش | PASS [S] | ۱۱۰: Done | `client/transport.js` | `tests/transport-110.js` | `docs/cloud/reports/evidence/direct-transport-110.txt` | — | فعال‌سازی ناخواسته؛ کنترل با ADR‑05 در PR #197 | امضای ADR‑105 = OWNER |
 | R06 | PostgreSQL مرکزی با RLS، هر مدرسه یک tenant | PASS [S] | ۱۲، CC‑12‑2: Done | `server/tenancy.js` | `tests/tenancy-pg.js` | `docs/cloud/reports/evidence/cc12-2-product-rls.txt` | روی PG واقعی هاست یا مدیریت‌شده اجرا نشده | امنیت UNKNOWN | ردیف‌های ۱۲۰ و ۹۲ |
 | R07 | مرحلهٔ A روی هاست فعلی (Gateway چندمستأجری) | BLOCKED | ۱۲۰: Blocked | `deploy/README.md` | — | — | راه ۱ تک‌مدرسه‌ای است؛ بستهٔ استقرار Gateway نیست | هاست ممکن است همیشه‌روشن نباشد یا دیسکش نماند | ۱۱۶ (OWNER) و سپس ۱۲۰ |
-| R08 | پنل مالک به‌عنوان Control Plane (ارائه‌دهنده، سلامت، ظرفیت، هشدار) | NOT IMPLEMENTED | ۱۲۲، ۱۲۳: Backlog | `apps/owner-panel/server/platform-api.js` | — | — | migration لایهٔ زیرساخت (`*_infra_*`) و صفحهٔ «زیرساخت» نیست؛ migration 005 به ساخت مدرسه (۱۲۱) رسید | — | ردیف‌های ۱۲۲ و ۱۲۳ |
+| R08 | پنل مالک به‌عنوان Control Plane (ارائه‌دهنده، سلامت، ظرفیت، هشدار) | PARTIAL [S] | ۱۲۲: Review، ۱۲۳: Backlog | `apps/owner-panel/server/infra.js` | `apps/owner-panel/tests/infra-registry.test.js` | `docs/cloud/122-infra-layer.md` | لایهٔ API و migration 006 (ثبت دستی، Health Check محدود، هشدار، تأیید مالک) هست؛ صفحهٔ «زیرساخت» در SPA نیست و API واقعی هیچ provider وصل نیست | عدد ساختگی ممنوع؛ ظرفیت تا ثبت دستی «نامعلوم» | ردیف‌های ۱۲۳ و ۱۲۴ |
 | R09 | ساخت مدرسه از پنل ← tenant + مدیر اولیه | PARTIAL [S] | ۱۲۱: Done | `apps/owner-panel/server/platform-api.js` | `apps/owner-panel/tests/tenant-provisioning.test.js` `tests/tenant-121.js` | `docs/cloud/121-tenant-provisioning.md` | API و saga (`POST /tenants`، فقط مالک، idempotent، کد فعال‌سازی یک‌بار) با PostgreSQL واقعی آزموده شده؛ فرم «ساخت مدرسه» در SPA پنل نیست | — | ردیف ۱۲۳ |
 | R10 | اعلان با Polling هوشمند (D‑46) | PARTIAL [S] | ۷۹: Done، ۱۱۹: Done | `apps/payesh/packages/payesh_sync/lib/src/auto_sync.dart` | `tests/sync-cost-42.js` `apps/payesh/packages/payesh_sync/test/auto_sync_test.dart` | `docs/cloud/119-offline.md` | کلاینت وب poll تطبیقی دارد و کلاینت بومی AutoSync (polling با backoff) دارد (۱۱۹)؛ هنوز هیچ صفحهٔ بومی اعلان را نشان نمی‌دهد | — | ردیف ۷۴ |
 | R11 | ورود و ممیزی پنل مالک (D‑45) | PASS [S] | ۹۸: Done | `apps/owner-panel/server/owner-auth.js` | `apps/owner-panel/tests/owner-login.test.js` | `docs/cloud/reports/evidence/owner-panel-pr3-98-login.txt` | — | امنیت UNKNOWN | ردیف ۹۲ |
