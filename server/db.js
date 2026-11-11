@@ -16,6 +16,7 @@ try {
   process.exit(1);
 }
 const { nowISO } = require('./util');
+const fc = require('./field-crypto'); /* ردیف ۸۷: رمزنگاری فیلدی (AEAD، کلید از محیط) */
 
 /* ستون‌های ایندکس برای کوئری‌های داغ (scope و تاریخ) */
 const INDEXERS = {
@@ -151,6 +152,54 @@ class Store {
         if (cols.length && cols.indexOf(col) < 0) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
       } catch (e) { /* جدول هنوز ساخته نشده یا ستون هست */ }
     }
+    /* ردیف ۸۷: بدون کلید در حالت required بالا نمی‌آید؛ با کلید، متن سادهٔ
+       قدیمی و مقادیرِ kid قدیمی همین‌جا دوباره مهر می‌شوند (مهاجرت خودکار). */
+    fc.assertConfigured();
+    if (fc.enabled()) this.rekeyFields();
+  }
+
+  /* ── ردیف ۸۷: باز/مهر کردن فیلدهای حساس ── */
+  _open(collection, r) {
+    const d = JSON.parse(r.data);
+    return r.data.indexOf(fc.PREFIX) < 0 ? d : fc.openRecord(collection, r.id, d);
+  }
+  /* مهرِ دوبارهٔ همه چیز با کلید فعال (چرخش کلید / مهاجرت متن ساده).
+     نسخه و updated_at عوض نمی‌شوند: داده از دید کلاینت همان است. */
+  rekeyFields() {
+    const out = { records: 0, audit: 0 };
+    if (!fc.enabled()) return out;
+    const cols = fc.sealedCollections();
+    const up = this.db.prepare('UPDATE records SET data=? WHERE collection=? AND id=?');
+    const upA = this.db.prepare('UPDATE audit SET before=?, after=? WHERE id=?');
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const c of cols) {
+        for (const r of this.db.prepare('SELECT id, data FROM records WHERE collection=?').all(c)) {
+          let d; try { d = JSON.parse(r.data); } catch (e) { continue; }
+          if (!fc.needsReseal(c, d)) continue;
+          up.run(JSON.stringify(fc.sealRecord(c, r.id, fc.openRecord(c, r.id, d))), c, r.id);
+          out.records++;
+        }
+      }
+      const ph = cols.map(() => '?').join(',');
+      for (const a of this.db.prepare(`SELECT id, collection, record_id, before, after FROM audit WHERE collection IN (${ph})`).all(...cols)) {
+        let changed = false;
+        const fix = (txt) => {
+          if (txt == null) return txt;
+          let v; try { v = JSON.parse(txt); } catch (e) { return txt; }
+          if (!fc.needsReseal(a.collection, v)) return txt;
+          changed = true;
+          return JSON.stringify(fc.sealRecord(a.collection, a.record_id || 0, fc.openRecord(a.collection, a.record_id || 0, v))).slice(0, 4000);
+        };
+        const b = fix(a.before); const f = fix(a.after);
+        if (changed) { upA.run(b, f, a.id); out.audit++; }
+      }
+      this.db.exec('COMMIT');
+    } catch (e) {
+      try { this.db.exec('ROLLBACK'); } catch (e2) { /* */ }
+      throw e;
+    }
+    return out;
   }
 
   /* آخرین زمان تغییر در همهٔ داده‌ها — برای «همگام‌سازی زندهٔ» هر ثانیه */
@@ -201,13 +250,18 @@ class Store {
   get(collection, id) {
     const r = this.getRow(collection, id);
     if (!r || r.deleted_at) return null;
-    return Object.assign(JSON.parse(r.data), { _version: r.version, _updated_at: r.updated_at });
+    return Object.assign(this._open(collection, r), { _version: r.version, _updated_at: r.updated_at });
   }
   /* همهٔ ردیف‌ها (شامل حذف‌شده‌ها برای sync) */
   /* پیمایش افزایشی. اگر since_id داده شود، مکان‌نما «مرکب» است:
      (updated_at, id) — تا ردیف‌هایی که همان میلی‌ثانیهٔ مرز صفحه را دارند
      گم نشوند (قرارداد Sync v1، §۴). بدون since_id رفتار قدیمی حفظ می‌شود. */
   changedSince(collection, sinceISO, limit = 5000, sinceId = null) {
+    /* ردیف ۸۷: ستون data برای فراخوان (sync) باز‌شده برمی‌گردد */
+    return this._changedSinceRaw(collection, sinceISO, limit, sinceId).map(r =>
+      (r.data && r.data.indexOf(fc.PREFIX) >= 0) ? Object.assign({}, r, { data: JSON.stringify(this._open(collection, r)) }) : r);
+  }
+  _changedSinceRaw(collection, sinceISO, limit, sinceId) {
     if (sinceId != null && Number.isFinite(Number(sinceId))) {
       return this.db.prepare(
         `SELECT * FROM records WHERE collection=? AND (updated_at > ? OR (updated_at = ? AND id > ?))
@@ -220,13 +274,13 @@ class Store {
   }
   all(collection) {
     return this.db.prepare('SELECT * FROM records WHERE collection=? AND deleted_at IS NULL ORDER BY id').all(collection)
-      .map(r => Object.assign(JSON.parse(r.data), { _version: r.version }));
+      .map(r => Object.assign(this._open(collection, r), { _version: r.version }));
   }
   byRef(collection, column, value) {
     if (column !== 'ref1' && column !== 'ref2') throw new Error('bad column');
     return this.db.prepare(`SELECT * FROM records WHERE collection=? AND ${column}=? AND deleted_at IS NULL ORDER BY id`)
       .all(collection, Number(value))
-      .map(r => Object.assign(JSON.parse(r.data), { _version: r.version }));
+      .map(r => Object.assign(this._open(collection, r), { _version: r.version }));
   }
   count(collection, where = '', params = []) {
     const r = this.db.prepare(
@@ -243,7 +297,7 @@ class Store {
     this.db.prepare(
       `INSERT INTO records(collection,id,data,version,ref1,ref2,day,created_at,updated_at)
        VALUES(?,?,?,1,?,?,?,?,?)`
-    ).run(collection, id, JSON.stringify(Object.assign({}, data, { id })),
+    ).run(collection, id, JSON.stringify(fc.sealRecord(collection, id, Object.assign({}, data, { id }))),
       idx.ref1 == null ? null : Number(idx.ref1),
       idx.ref2 == null ? null : Number(idx.ref2),
       idx.day == null ? null : String(idx.day), ts, ts);
@@ -253,13 +307,13 @@ class Store {
   update(collection, id, patch) {
     const row = this.getRow(collection, id);
     if (!row) return null;
-    const merged = Object.assign(JSON.parse(row.data), patch, { id: Number(id) });
+    const merged = Object.assign(this._open(collection, row), patch, { id: Number(id) });
     const idx = (INDEXERS[collection] || (() => ({})))(merged);
     const ts = nowISO();
     this.db.prepare(
       `UPDATE records SET data=?, version=version+1, ref1=?, ref2=?, day=?, updated_at=?, deleted_at=NULL
        WHERE collection=? AND id=?`
-    ).run(JSON.stringify(merged),
+    ).run(JSON.stringify(fc.sealRecord(collection, Number(id), merged)),
       idx.ref1 == null ? null : Number(idx.ref1),
       idx.ref2 == null ? null : Number(idx.ref2),
       idx.day == null ? null : String(idx.day),
@@ -288,7 +342,9 @@ class Store {
       for (const k of ['password_hash', 'phone_hash', 'password_plain', 'password_enc', '__password_verifier', 'secret', 'accessKey']) delete out[k];
       return out;
     };
-    entry = Object.assign({}, entry, { before: clean(entry.before), after: clean(entry.after) });
+    /* ردیف ۸۷: فیلدهای حساس در لاگ حسابرسی هم مهر می‌شوند (نه متن ساده) */
+    const seal = (v) => (v && typeof v === 'object' && entry.collection) ? fc.sealRecord(entry.collection, entry.record_id || 0, v) : v;
+    entry = Object.assign({}, entry, { before: seal(clean(entry.before)), after: seal(clean(entry.after)) });
     this.db.prepare(
       `INSERT INTO audit(at,user_id,role,device_id,collection,record_id,action,before,after,ip)
        VALUES(?,?,?,?,?,?,?,?,?,?)`
