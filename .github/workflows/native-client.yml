@@ -17,8 +17,12 @@ name: native-client
 #   · Negative controls: the same gate must REJECT the shipped WebView/Node bundles
 #     (continuous payesh-local.apk / payesh-local-windows.zip, owner-continuous payesh-owner.apk)
 #     and the committed releases/payesh-local-windows-0.9.2.zip. If a control passes, the gate is broken → red.
-#   · Release APK/AAB here are CI evidence builds (debug-signed by the Flutter template), never
-#     published; school signing and build.yml are untouched.
+#   · Rows 76/77: the APK/AAB are release-signed ONLY from GitHub Secrets (owner key, row 61);
+#     without them they are debug-signed REHEARSAL builds, labelled NOT FOR DISTRIBUTION by
+#     tools/android-release-check-76.mjs (targetSdk >= policy, not debuggable, v2/v3, permissions).
+#     Windows: standard Inno Setup installer (apps/payesh/app/windows/installer/payesh-native.iss),
+#     app-local MSVC runtime, silent install → row-63 gate on the INSTALLED app → uninstall;
+#     Authenticode only with the optional PAYESH_WIN_PFX_* secrets. build.yml is untouched.
 # ═══════════════════════════════════════════════════════════════════
 
 on:
@@ -27,6 +31,9 @@ on:
     paths:
       - 'apps/payesh/**'
       - 'tools/native-independence-gate.mjs'
+      - 'tools/android-release-check-76.mjs'
+      - 'tests/android-release-76.js'
+      - 'docs/cloud/76-android-release.json'
       - 'tests/native-gate-63.js'
       - 'tests/conformance-engine-70.js'
       - 'tests/conformance-outbox-71.js'
@@ -46,6 +53,9 @@ on:
     paths:
       - 'apps/payesh/**'
       - 'tools/native-independence-gate.mjs'
+      - 'tools/android-release-check-76.mjs'
+      - 'tests/android-release-76.js'
+      - 'docs/cloud/76-android-release.json'
       - 'tests/native-gate-63.js'
       - 'tests/conformance-engine-70.js'
       - 'tests/conformance-outbox-71.js'
@@ -99,6 +109,8 @@ jobs:
           node-version: '22'
       - name: Gate unit tests (synthetic clean/dirty APK, AAB, Windows bundles)
         run: node tests/native-gate-63.js
+      - name: Android release check + installer wiring unit tests (rows 76/77)
+        run: node tests/android-release-76.js
       - name: Download shipped WebView/Node bundles (negative controls)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -342,14 +354,71 @@ jobs:
           tar -xJf "$RUNNER_TEMP/$F" -C "$RUNNER_TEMP"
           git config --global --add safe.directory "$RUNNER_TEMP/flutter"
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      # Row 76: release signing ONLY from GitHub Secrets (same owner key as row 61),
+      # decoded into runner temp storage. Missing secrets ⇒ debug-signed REHEARSAL
+      # build (labelled NOT FOR DISTRIBUTION); secrets present but invalid ⇒ red.
+      - name: Release signing material from Secrets (row 76, no repo fallback)
+        id: signing
+        env:
+          PAYESH_KEYSTORE_B64: ${{ secrets.PAYESH_KEYSTORE_B64 }}
+          PAYESH_KEYSTORE_PASS: ${{ secrets.PAYESH_KEYSTORE_PASS }}
+          PAYESH_KEY_ALIAS: ${{ secrets.PAYESH_KEY_ALIAS }}
+          PAYESH_KEY_PASS: ${{ secrets.PAYESH_KEY_PASS }}
+          PAYESH_SIGNING_ROTATION_APPROVED: ${{ vars.PAYESH_SIGNING_ROTATION_APPROVED }}
+        run: |
+          set -euo pipefail
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+          MISSING=""
+          for name in PAYESH_KEYSTORE_B64 PAYESH_KEYSTORE_PASS PAYESH_KEY_ALIAS PAYESH_KEY_PASS; do
+            if [ -z "${!name:-}" ]; then MISSING="$MISSING $name"; fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::warning title=Native APK not release-signed::missing secrets:$MISSING — debug-signed rehearsal build, NOT FOR DISTRIBUTION (owner key: row 61)"
+            exit 0
+          fi
+          if [ "${PAYESH_SIGNING_ROTATION_APPROVED:-}" != "true" ]; then
+            echo "::warning title=Native APK not release-signed::vars.PAYESH_SIGNING_ROTATION_APPROVED is not true — rehearsal build only"
+            exit 0
+          fi
+          KS="$RUNNER_TEMP/payesh-native-signing.p12"
+          printf '%s' "$PAYESH_KEYSTORE_B64" | base64 --decode > "$KS"
+          chmod 600 "$KS"
+          test -s "$KS"
+          if ! keytool -list -keystore "$KS" -storetype PKCS12 -storepass:env PAYESH_KEYSTORE_PASS -alias "$PAYESH_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::keystore/alias from Secrets cannot be validated — fail-closed"
+            exit 1
+          fi
+          printf 'PAYESH_KEYSTORE=%s\n' "$KS" >> "$GITHUB_ENV"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Fail-closed control — required release signing without a key must stop Gradle (row 76)
+        working-directory: apps/payesh/app
+        run: |
+          set -uo pipefail
+          flutter config --no-analytics >/dev/null
+          flutter pub get --enforce-lockfile
+          env -u PAYESH_KEYSTORE -u PAYESH_KEYSTORE_PASS -u PAYESH_KEY_ALIAS -u PAYESH_KEY_PASS \
+            PAYESH_NATIVE_REQUIRE_RELEASE_SIGNING=true flutter build apk --release > "$RUNNER_TEMP/require-signing.log" 2>&1
+          code=$?
+          grep -m1 'PAYESH-SIGNING-REQUIRED' "$RUNNER_TEMP/require-signing.log" || true
+          if [ $code -eq 0 ] || ! grep -q 'PAYESH-SIGNING-REQUIRED' "$RUNNER_TEMP/require-signing.log"; then
+            tail -30 "$RUNNER_TEMP/require-signing.log"
+            echo "::error::Gradle built a release APK although signing was required and no key was given"
+            exit 1
+          fi
+          echo "SIGNING-REQUIRED-CONTROL-OK (exit $code)"
       - name: Build APK + AAB (release)
         working-directory: apps/payesh/app
+        env:
+          PAYESH_KEYSTORE_PASS: ${{ steps.signing.outputs.ready == 'true' && secrets.PAYESH_KEYSTORE_PASS || '' }}
+          PAYESH_KEY_ALIAS: ${{ steps.signing.outputs.ready == 'true' && secrets.PAYESH_KEY_ALIAS || '' }}
+          PAYESH_KEY_PASS: ${{ steps.signing.outputs.ready == 'true' && secrets.PAYESH_KEY_PASS || '' }}
+          PAYESH_NATIVE_REQUIRE_RELEASE_SIGNING: ${{ steps.signing.outputs.ready == 'true' && 'true' || 'false' }}
         run: |
           set -euo pipefail
           flutter config --no-analytics >/dev/null
           flutter pub get --enforce-lockfile
-          flutter build apk --release
-          flutter build appbundle --release
+          flutter build apk --release --build-number=${{ github.run_number }}
+          flutter build appbundle --release --build-number=${{ github.run_number }}
       - name: Native gate on the REAL APK/AAB
         run: |
           set -euo pipefail
@@ -360,6 +429,31 @@ jobs:
           node tools/native-independence-gate.mjs --android native-out/payesh-native.apk native-out/payesh-native.aab | tee native-out/native-gate-android.txt
           grep -q '^NATIVE-GATE-OK' native-out/native-gate-android.txt
           (cd native-out && sha256sum payesh-native.apk payesh-native.aab | tee SHA256SUMS-android)
+      # Row 76: targetSdk (Google Play), not debuggable, v2/v3 signature, permission
+      # allowlist, owner certificate in release mode — read from the REAL APK/AAB.
+      - name: Release check on the REAL APK/AAB (row 76)
+        env:
+          READY: ${{ steps.signing.outputs.ready }}
+          PIN: ${{ vars.PAYESH_ANDROID_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BT=$(ls -d "$SDK"/build-tools/* | sort -V | tail -1)
+          echo "build-tools: $BT"
+          "$BT/aapt2" dump badging native-out/payesh-native.apk > native-out/aapt2-badging.txt
+          "$BT/apksigner" verify --verbose --print-certs native-out/payesh-native.apk > native-out/apksigner.txt 2>&1
+          jarsigner -verify -certs native-out/payesh-native.aab > native-out/jarsigner-aab.txt 2>&1 || true
+          MODE=rehearsal; [ "$READY" = "true" ] && MODE=release
+          if [[ "$GITHUB_REF" == refs/tags/native-v* ]] && [ "$MODE" != release ]; then
+            echo "::error::native release tag but no owner signing key (row 61) — a debug-signed APK is never released"
+            exit 1
+          fi
+          node tools/android-release-check-76.mjs --badging native-out/aapt2-badging.txt --certs native-out/apksigner.txt \
+            --aab-jarsigner native-out/jarsigner-aab.txt --mode "$MODE" ${PIN:+--expect-cert-sha256 "$PIN"} | tee native-out/android-release-76.txt
+          grep -q '^ANDROID-RELEASE-76-OK' native-out/android-release-76.txt
+      - name: Remove signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/payesh-native-signing.p12"
       # Row 72: the APK must carry the encrypting SQLite build (SQLite3 Multiple Ciphers) for
       # every ABI — never plain SQLite (the app refuses to open its database without it).
       - name: Encrypted SQLite is bundled in the APK (row 72)
@@ -411,6 +505,22 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'pub get failed' }
           flutter build windows --release
           if ($LASTEXITCODE -ne 0) { throw 'flutter build windows failed' }
+      # Row 77: the installer must run on a clean Windows without the VC++ redistributable,
+      # so the MSVC runtime DLLs the binaries import are deployed app-locally (allowed by
+      # the Visual Studio redistribution terms). Checked below with dumpbin on the INSTALLED app.
+      - name: App-local MSVC runtime (row 77)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $crt = Get-ChildItem (Join-Path $vs 'VC\Redist\MSVC') -Directory | Sort-Object Name | Select-Object -Last 1
+          $src = Join-Path $crt.FullName 'x64\Microsoft.VC143.CRT'
+          if (-not (Test-Path $src)) { throw "MSVC CRT redist not found under $($crt.FullName)" }
+          $rel = 'apps\payesh\app\build\windows\x64\runner\Release'
+          foreach ($d in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') {
+            Copy-Item (Join-Path $src $d) $rel -Force
+            "{0} <- {1}" -f $d, $src
+          }
       # Row 72: real DPAPI (crypt32.dll) + encrypted SQLite on Windows — not a fake.
       - name: payesh_secure (REAL DPAPI) + payesh_data (SQLite3MC) tests on Windows
         shell: pwsh
@@ -454,6 +564,113 @@ jobs:
           (cd "$REL" && 7z a -tzip -r "$GITHUB_WORKSPACE/native-out/payesh-native-windows.zip" . >/dev/null)
           node tools/native-independence-gate.mjs --windows native-out/payesh-native-windows.zip | tee -a native-out/native-gate-windows.txt
           (cd native-out && sha256sum payesh-native-windows.zip | tee SHA256SUMS-windows)
+      # ── Row 77: standard installer (Inno Setup) + optional Authenticode ─────────
+      - name: Authenticode material (optional, only with Secrets)
+        id: wsign
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.PAYESH_WIN_PFX_B64 }}
+          PFX_PASS: ${{ secrets.PAYESH_WIN_PFX_PASS }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          "ready=false" >> $env:GITHUB_OUTPUT
+          if (-not $env:PFX_B64 -or -not $env:PFX_PASS) {
+            "::warning title=Native installer unsigned::PAYESH_WIN_PFX_B64/PASS not set — unsigned installer with SHA-256 (SmartScreen will warn)"
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'payesh-native-sign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_B64))
+          $st = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1
+          if (-not $st) { throw 'signtool.exe not found' }
+          "SIGNTOOL=$($st.FullName)" >> $env:GITHUB_ENV
+          "NATIVE_PFX=$pfx" >> $env:GITHUB_ENV
+          "ready=true" >> $env:GITHUB_OUTPUT
+      - name: Sign payesh_app.exe (only with Secrets)
+        if: steps.wsign.outputs.ready == 'true'
+        shell: pwsh
+        env:
+          PFX_PASS: ${{ secrets.PAYESH_WIN_PFX_PASS }}
+        run: |
+          & $env:SIGNTOOL sign /f $env:NATIVE_PFX /p $env:PFX_PASS /fd sha256 /tr http://timestamp.digicert.com /td sha256 'apps\payesh\app\build\windows\x64\runner\Release\payesh_app.exe'
+          if ($LASTEXITCODE -ne 0) { throw 'signtool failed — fail-closed' }
+      - name: Build payesh-native-setup.exe (Inno Setup)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install innosetup --no-progress -y | Out-Null
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw 'ISCC not found' }
+          $v = (Select-String -Path 'apps\payesh\app\pubspec.yaml' -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          & $iscc "/DAppVersion=$v" 'apps\payesh\app\windows\installer\payesh-native.iss' 2>&1 | Tee-Object -FilePath native-out\iscc-native.log
+          if ($LASTEXITCODE -ne 0) { Get-Content native-out\iscc-native.log -Tail 15; throw "ISCC failed ($LASTEXITCODE)" }
+          $exe = 'native-out\payesh-native-setup.exe'
+          if (-not (Test-Path $exe)) { throw 'payesh-native-setup.exe was not built' }
+          "{0:N1} MB — version {1}" -f ((Get-Item $exe).Length/1MB), $v
+      - name: Sign the installer (only with Secrets)
+        if: steps.wsign.outputs.ready == 'true'
+        shell: pwsh
+        env:
+          PFX_PASS: ${{ secrets.PAYESH_WIN_PFX_PASS }}
+        run: |
+          & $env:SIGNTOOL sign /f $env:NATIVE_PFX /p $env:PFX_PASS /fd sha256 /tr http://timestamp.digicert.com /td sha256 'native-out\payesh-native-setup.exe'
+          if ($LASTEXITCODE -ne 0) { throw 'signtool failed — fail-closed' }
+      - name: Silent install → native gate + MSVC imports on the INSTALLED app → silent uninstall (row 77)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Resolve-Path 'native-out\payesh-native-setup.exe'
+          $p = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "silent install failed ($($p.ExitCode))" }
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\PayeshNative'
+          foreach ($f in 'payesh_app.exe','flutter_windows.dll','data\icudtl.dat','data\app.so','msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll','unins000.exe') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing after install: $f" }
+          }
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{F022A94A-885F-4620-9730-3E5EF0086EBE}_is1'
+          if (-not (Test-Path $key)) { throw 'uninstall key with the native AppId not found' }
+          foreach ($other in '{7C4E2A51-9F3B-4E7A-9C21-5B8A1D3E6F02}','{20AE76FD-560D-41ED-B6F5-7F66F3308129}') {
+            if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\${other}_is1") { throw "foreign AppId $other registered" }
+          }
+          "installed: $dir" | Tee-Object -FilePath native-out\installer-77.txt
+          Get-ChildItem $dir -Recurse -File | ForEach-Object { "{0}`t{1}" -f $_.FullName.Substring($dir.Length+1), $_.Length } | Tee-Object -FilePath native-out\installer-77.txt -Append
+          node tools/native-independence-gate.mjs --windows "$dir" | Tee-Object -FilePath native-out\installer-77.txt -Append
+          if ($LASTEXITCODE -ne 0) { throw 'native gate (row 63) failed on the INSTALLED app' }
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem (Join-Path $vs 'VC\Tools\MSVC') -Recurse -Filter dumpbin.exe | Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
+          if (-not $dumpbin) { throw 'dumpbin.exe not found' }
+          $missing = @()
+          foreach ($bin in Get-ChildItem $dir -Recurse -Include *.exe,*.dll | Where-Object { $_.Name -ne 'unins000.exe' }) {
+            $deps = & $dumpbin.FullName /nologo /dependents $bin.FullName | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() }
+            "$($bin.Name) imports: $($deps -join ', ')" | Tee-Object -FilePath native-out\installer-77.txt -Append
+            foreach ($d in $deps) {
+              if ($d -match '^(msvcp|vcruntime|concrt|vccorlib)\d' -and -not (Test-Path (Join-Path $bin.DirectoryName $d))) { $missing += "$($bin.Name) -> $d" }
+            }
+          }
+          if ($missing.Count) { throw "MSVC runtime not deployed app-locally: $($missing -join '; ')" }
+          'MSVC-APP-LOCAL-OK' | Tee-Object -FilePath native-out\installer-77.txt -Append
+          $u = Start-Process -FilePath (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "silent uninstall failed ($($u.ExitCode))" }
+          Start-Sleep -Seconds 3
+          if (Test-Path (Join-Path $dir 'payesh_app.exe')) { throw 'payesh_app.exe left behind after uninstall' }
+          if (Test-Path $key) { throw 'uninstall key left behind' }
+          'INSTALLER-77-OK install+gate+uninstall' | Tee-Object -FilePath native-out\installer-77.txt -Append
+      - name: Authenticode state + SHA-256 (row 77)
+        shell: pwsh
+        env:
+          READY: ${{ steps.wsign.outputs.ready }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($f in 'native-out\payesh-native-setup.exe','apps\payesh\app\build\windows\x64\runner\Release\payesh_app.exe') {
+            $s = Get-AuthenticodeSignature $f
+            "$f — $($s.Status)" | Tee-Object -FilePath native-out\installer-77.txt -Append
+            if ($env:READY -eq 'true' -and $s.Status -ne 'Valid') { throw "signature of $f is not valid ($($s.Status)) — fail-closed" }
+            if ($env:READY -ne 'true' -and $s.Status -ne 'NotSigned') { throw "without Secrets $f must be unsigned ($($s.Status))" }
+          }
+          $h = (Get-FileHash 'native-out\payesh-native-setup.exe' -Algorithm SHA256).Hash.ToLower()
+          "$h  payesh-native-setup.exe" | Tee-Object -FilePath native-out\SHA256SUMS-installer
+      - name: Remove signing material
+        if: always()
+        shell: pwsh
+        run: Remove-Item (Join-Path $env:RUNNER_TEMP 'payesh-native-sign.pfx') -Force -ErrorAction SilentlyContinue
       - uses: actions/upload-artifact@v4
         with:
           name: native-windows
