@@ -26,6 +26,11 @@ on:
       - 'tests/gateway-67.js'
       - 'tests/field-crypto-87.js'
       - 'tools/field-rekey-87.mjs'
+      - 'tests/load-82.js'
+      - 'tools/load-82.mjs'
+      - 'tests/fixtures/load-82-inject.cjs'
+      - 'tests/load-82-direct.js'
+      - 'tools/load-82-direct.mjs'
       - 'tests/migrations-86.js'
       - 'tools/migrate-86.mjs'
       - 'db/migrations/direct/**'
@@ -62,6 +67,11 @@ on:
       - 'tests/gateway-67.js'
       - 'tests/field-crypto-87.js'
       - 'tools/field-rekey-87.mjs'
+      - 'tests/load-82.js'
+      - 'tools/load-82.mjs'
+      - 'tests/fixtures/load-82-inject.cjs'
+      - 'tests/load-82-direct.js'
+      - 'tools/load-82-direct.mjs'
       - 'tests/migrations-86.js'
       - 'tools/migrate-86.mjs'
       - 'db/migrations/direct/**'
@@ -173,6 +183,33 @@ jobs:
         run: |
           set -o pipefail
           node --experimental-sqlite --disable-warning=ExperimentalWarning tests/field-crypto-87.js | tee -a native-contract.txt
+      # Row 82: load + measurement [S]. 2,000 virtual devices / 20 tenants on the
+      # real gateway + postgres:16. Gates: error rate <= 0.5%, p95 <= 1000 ms
+      # (SLO 85), no RSS leak, every number labelled [S], no "unlimited" claim.
+      # Negatives: injected leak / killed push / 1.2 s delay must turn the gates red.
+      - name: Load test (row 82, [S] simulated)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+          LOAD82_REQUIRE_PG: '1'
+          LOAD82_OUT: load-82-report.json
+        run: |
+          set -o pipefail
+          node tests/load-82.js | tee -a native-contract.txt
+      # Row 82, direct path (ADR-105 Proposed): 2,000 devices / 20 schools call
+      # sync_pull / sync_push with PostgREST transaction semantics (role without
+      # BYPASSRLS) on postgres:16. Gates: error rate, p95, op integrity, session
+      # leak, tenant isolation under load, labels. Negatives: tiny plan / sleep
+      # trigger / open transaction / RLS mutant must turn the gates red. Plus the
+      # finding of this row (migration 0006: InitPlan + tenant index condition).
+      - name: Load test, direct path (row 82, [S] simulated)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          LOAD82D_REQUIRE_PG: '1'
+          LOAD82D_OUT: load-82-direct-report.json
+        run: |
+          set -o pipefail
+          node tests/load-82-direct.js | tee -a native-contract.txt
       # Row 86: versioned zero-downtime migrations on the real postgres:16 service.
       # A fresh DB per run: product baseline adopts live data, the phone→mobile
       # drill runs expand/migrate under a concurrent N-1 writer (0 errors),
@@ -229,13 +266,15 @@ jobs:
       # tenant read/write, role escalation, capability tampering, internal functions,
       # no token, quota bypass F1..F5 (fixed by migration 0005); every control is
       # reverted by a mutant and its attack must then succeed. Row 108 is re-run on
-      # top of 0005 (write tickets must not break the protocol).
+      # top of 0005 (write tickets must not break the protocol). Both run on the
+      # head migration 0006 (row 82: RLS InitPlan rewrite must change nothing).
       - name: RLS pentest (row 109, real postgres:16)
         env:
           PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
           RP109_REQUIRE_PG: '1'
           DS108_REQUIRE_PG: '1'
-          DS108_TO: 0005_direct_write_tickets
+          DS108_TO: 0006_direct_rls_initplan
+          RLS109_TO: 0006_direct_rls_initplan
           DS108_RUNS: '4'
         run: |
           set -o pipefail
@@ -274,3 +313,5 @@ jobs:
           path: |
             native-contract.txt
             gateway-67-load.json
+            load-82-report.json
+            load-82-direct-report.json
