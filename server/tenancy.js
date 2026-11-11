@@ -21,6 +21,7 @@ const transfer = require('./transfer');
 const crypto = require('node:crypto');
 const scopeMod = require('./scope');
 const policy = require('./policy');
+const fc = require('./field-crypto'); /* ردیف ۸۷: فیلدهای حساس در jsonb مهرشده‌اند */
 
 const TOKEN_VERSION = 1;
 const TABLE = 'tenant_records';
@@ -410,7 +411,7 @@ function productRowOf(r) {
     collection: r.collection,
     id: Number(r.record_id),
     version: Number(r.version),
-    data: r.data,
+    data: fc.openRecord(r.collection, r.record_id, r.data),
     deleted: !!r.deleted_at,
     updated_at: r.updated_at instanceof Date ? r.updated_at.toISOString() : r.updated_at,
   };
@@ -491,7 +492,7 @@ async function upsertInTx(c, col, rid, data, baseVersion, feedOut = true) {
      on conflict (tenant_id, collection, record_id)
      do update set data = excluded.data, version = ${PRODUCT_TABLE}.version + 1, deleted_at = null, updated_at = now()
      returning collection, record_id, version, data, deleted_at, updated_at`,
-    [col, rid, JSON.stringify(data)]
+    [col, rid, JSON.stringify(fc.sealRecord(col, rid, data))]
   );
   const row = productRowOf(q.rows[0]);
   if (feedOut) await appendFeed(c, { collection: col, recordId: rid, op: 'put', version: row.version, data: row.data });
@@ -699,7 +700,7 @@ async function appendFeed(c, { collection, recordId, op, version, data = null })
      values (current_setting('app.tenant_id')::uuid, $1, $2, $3, $4, $5::jsonb)
      returning seq, at`,
     [collection, Number(recordId), op === 'del' ? 'del' : 'put', Number(version) || 0,
-      data == null ? null : JSON.stringify(data)]
+      data == null ? null : JSON.stringify(fc.sealRecord(collection, recordId, data))]
   );
   return { seq: Number(q.rows[0].seq), at: q.rows[0].at };
 }
@@ -707,10 +708,12 @@ async function appendFeed(c, { collection, recordId, op, version, data = null })
 /* payload ردیف feed: اگر فشرده شده باشد، همان شیء اصلی بازگردانده می‌شود
    (کلاینت هیچ تفاوتی نمی‌بیند؛ فقط فضای دیسک کمتر می‌شود). */
 function feedPayload(r) {
-  if (r.data != null) return r.data;
+  if (r.data != null) return fc.openRecord(r.collection, r.record_id, r.data);
   if (r.data_gz == null) return null;
-  try { return JSON.parse(require('node:zlib').gunzipSync(r.data_gz).toString('utf8')); }
+  let d;
+  try { d = JSON.parse(require('node:zlib').gunzipSync(r.data_gz).toString('utf8')); }
   catch (e) { return null; }
+  return fc.openRecord(r.collection, r.record_id, d);
 }
 
 /* فشرده‌سازی (ردیف ۳۶): ردیف‌های قدیمی‌تر از پنجرهٔ داغ ⇒ gzip + خالی‌کردن jsonb.
@@ -814,6 +817,8 @@ async function joinProduct(pool, tenantId, { left, right, on, limit = 200, claim
   if (!/^[a-z][a-z0-9_]{1,40}$/.test(String(on || ''))) throw new TenancyError('bad_join_key', 400);
   const lim = Math.max(1, Math.min(1000, Number(limit) || 200));
   const claimsScope = claims ? { role: String(claims.role || ''), uid: Number((claims && claims.uid) || 0) } : null;
+  /* ردیف ۸۷: روی فیلدِ مهرشده (IV تصادفی) join معنا ندارد ⇒ صریح رد می‌شود */
+  if (fc.isSensitiveField(l, String(on)) || fc.isSensitiveField(r, String(on))) throw new TenancyError('sealed_join_key', 400, { on: String(on) });
   return withTenant(pool, tenantId, async (c) => {
     const q = await c.query(
       `select l.collection as left_collection, l.record_id as left_id, l.data as left_data,
@@ -827,8 +832,8 @@ async function joinProduct(pool, tenantId, { left, right, on, limit = 200, claim
       [l, r, String(on), lim]
     );
     return q.rows.map((x) => ({
-      left: { collection: x.left_collection, id: Number(x.left_id), data: x.left_data },
-      right: { collection: x.right_collection, id: Number(x.right_id), data: x.right_data },
+      left: { collection: x.left_collection, id: Number(x.left_id), data: fc.openRecord(x.left_collection, x.left_id, x.left_data) },
+      right: { collection: x.right_collection, id: Number(x.right_id), data: fc.openRecord(x.right_collection, x.right_id, x.right_data) },
     })).map(pair => ({
       left: scrubUsersRow(claimsScope, pair.left),
       right: scrubUsersRow(claimsScope, pair.right),
@@ -1028,7 +1033,41 @@ async function rollbackProduct(client) {
   return { dropped: [JOBS_TABLE, PRODUCT_TABLE], statements: sqls.length };
 }
 
-module.exports = { replicaPolicy, transfer, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
+/* ردیف ۸۷: مهرِ دوبارهٔ همهٔ فیلدهای حساسِ یک مستأجر با کلید فعال
+   (چرخش کلید / مهاجرت متن سادهٔ قدیمی). نسخه و feed seq عوض نمی‌شوند. */
+async function rekeyFields(pool, tenantId) {
+  const out = { records: 0, feed: 0 };
+  if (!fc.enabled()) return out;
+  const zlib = require('node:zlib');
+  const cols = fc.sealedCollections();
+  return withTenant(pool, tenantId, async (c) => {
+    const q = await c.query(`select collection, record_id, data from ${PRODUCT_TABLE} where collection = any($1::text[])`, [cols]);
+    for (const r of q.rows) {
+      if (!fc.needsReseal(r.collection, r.data)) continue;
+      const next = fc.sealRecord(r.collection, r.record_id, fc.openRecord(r.collection, r.record_id, r.data));
+      await c.query(`update ${PRODUCT_TABLE} set data = $3::jsonb where collection = $1 and record_id = $2`, [r.collection, r.record_id, JSON.stringify(next)]);
+      out.records++;
+    }
+    const f = await c.query(`select seq, collection, record_id, data, data_gz from ${FEED_TABLE} where collection = any($1::text[])`, [cols]);
+    for (const r of f.rows) {
+      if (r.data != null) {
+        if (!fc.needsReseal(r.collection, r.data)) continue;
+        const next = fc.sealRecord(r.collection, r.record_id, fc.openRecord(r.collection, r.record_id, r.data));
+        await c.query(`update ${FEED_TABLE} set data = $2::jsonb where seq = $1`, [r.seq, JSON.stringify(next)]);
+        out.feed++;
+      } else if (r.data_gz != null) {
+        let d; try { d = JSON.parse(zlib.gunzipSync(r.data_gz).toString('utf8')); } catch (e) { continue; }
+        if (!fc.needsReseal(r.collection, d)) continue;
+        const next = fc.sealRecord(r.collection, r.record_id, fc.openRecord(r.collection, r.record_id, d));
+        await c.query(`update ${FEED_TABLE} set data_gz = $2 where seq = $1`, [r.seq, zlib.gzipSync(Buffer.from(JSON.stringify(next), 'utf8'))]);
+        out.feed++;
+      }
+    }
+    return out;
+  });
+}
+
+module.exports = { rekeyFields, replicaPolicy, transfer, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,

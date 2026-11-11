@@ -101,6 +101,9 @@ async function waitFor(fn, ms = 15000) {
     cwd: ROOT, env: Object.assign({}, process.env, {
       PORT: String(PORT), HOST: '127.0.0.1', PAYESH_DATA: TMP, PAYESH_LOG: '0',
       PAYESH_AUTO_BACKUP: '0', PAYESH_UPDATE_AUTO: '0',
+      /* ردیف ۸۷: کل این مجموعه با رمزنگاری فیلدی روشن اجرا می‌شود؛ کلید در
+         زمان اجرا تصادفی است (هیچ کلیدی در مخزن نیست). */
+      PAYESH_FIELD_KEYS: 'run:' + require('crypto').randomBytes(32).toString('base64'),
       /* آزمون‌های این فایل قطعی و دستی‌اند؛ حلقه‌های خودکار (۱ ثانیه‌ای و
          صندوقچه) در test:live و test:restart آزموده می‌شوند و این‌جا خاموش‌اند
          تا با درخواست‌های دستی آزمون مسابقه ندهند (روی ماشین کند، ۴۰ ثانیه). */
