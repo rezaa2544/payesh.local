@@ -1,6 +1,6 @@
 {
   "version": "0.9.2",
-  "built_at": "2026-11-11T17:32:54.130Z",
+  "built_at": "2026-11-11T17:44:36.150Z",
   "notes": [
     "نگاشت آیکون‌های نبض هر دو شکل ایموجی با و بدون variation selector را به SVG یکسان می‌برد.",
     "بسته‌های نصب و مانیفست برای نگاشت آیکون‌های اصلاح‌شده به نسخهٔ 0.9.2 ارتقا یافتند."
@@ -150,8 +150,8 @@
     {
       "path": "client/provider-postgrest.js",
       "kind": "client",
-      "sha256": "65ae70d2b0ca1c3f3f99229369ab01526e6e20c45455f4550b0b441ab6bd055a",
-      "size": 9997
+      "sha256": "a70ae3c157f57c728ddacbba3a5c7596da85db5e332c533f03f8a29736bd0c0b",
+      "size": 10121
     },
     {
       "path": "client/pulse.css",
@@ -200,6 +200,12 @@
       "kind": "client",
       "sha256": "6f2818a5c2c6c3a50c8b4091317551a1c950d23a1565265ab5418641847a7c7a",
       "size": 4505
+    },
+    {
+      "path": "client/telemetry.js",
+      "kind": "client",
+      "sha256": "d0f033b129adaa0f421d420bd18dbdf7d3e85c024f185ff889bc6f503413f6c0",
+      "size": 6437
     },
     {
       "path": "client/transport.js",
@@ -467,10 +473,10 @@
     }
   ],
   "counts": {
-    "client": 33,
+    "client": 34,
     "server": 43
   },
-  "client_size": 1479577,
+  "client_size": 1486138,
   "server_size": 627704,
-  "total_size": 2107281
+  "total_size": 2113842
 }
