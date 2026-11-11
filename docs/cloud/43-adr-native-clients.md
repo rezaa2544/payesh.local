@@ -63,7 +63,7 @@
 | `packages/payesh_sync` | کلاینت Sync v1: صندوقچهٔ ماندگار، idempotency، backoff و همگرایی LWW | ۷۱ |
 | `packages/payesh_secure` | ذخیرهٔ امن توکن و کلید رمزنگاری پایگاه محلی (Android Keystore و Windows DPAPI) | ۷۲ |
 | `packages/payesh_ui` | سیستم طراحی: RTL، تقویم جلالی، فونت، تم روشن/تیره، دسترس‌پذیری | ۷۳ |
-| `packages/payesh_net` | کلاینت API نسخه‌دار، retry/timeout و پین‌کردن گواهی با پین پشتیبان | ۷۵ |
+| `packages/payesh_net` | کلاینت API نسخه‌دار، retry/timeout و پین‌کردن گواهی با پین پشتیبان — **در اجرا (ردیف ۷۵) داخل `payesh_sync` ساخته شد** (`gateway_transport.dart`، `pinning.dart`)؛ بستهٔ جداگانه‌ای وجود ندارد (ردیف ۹۳) | ۷۵ |
 | `app/` | اپ Flutter (Android و Windows) با صفحات به ترتیب ارزش | ۶۹، ۷۴ |
 
 **بازبینی ADR‑31 (ثبت صریح تعارض، بدون لغو بی‌صدا):** ADR‑31 گزینهٔ A (SQLite‑WASM در مرورگر) را برای کلاینت مرورگری آینده نگه داشته بود. ADR‑43 برای **کلاینت بومی** گزینهٔ C همان سند را اجرا می‌کند: SQLite بومی داخل بستهٔ Android و Windows، با همان قرارداد موتور. گزینهٔ A برای کلاینت مرورگری بدون نصب همچنان در وضعیت ADR‑31 باقی است و این سند آن را لغو نمی‌کند.
