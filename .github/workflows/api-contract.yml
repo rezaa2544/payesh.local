@@ -35,6 +35,8 @@ on:
       - 'tools/e2e1.js'
       - 'tools/e2e1-vectors-107.mjs'
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
+      - 'tests/direct-sync-108.js'
+      - 'tools/direct-sync.js'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
   pull_request:
@@ -63,6 +65,8 @@ on:
       - 'tools/e2e1.js'
       - 'tools/e2e1-vectors-107.mjs'
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
+      - 'tests/direct-sync-108.js'
+      - 'tools/direct-sync.js'
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
   workflow_dispatch:
@@ -198,6 +202,17 @@ jobs:
           node tools/e2e1-vectors-107.mjs --check
           node tests/e2e1-107.js | tee -a native-contract.txt
           node tests/e2e-keys-107.js | tee -a native-contract.txt
+      # Row 108 (ADR-105 §3.3, Proposed): the Gateway's sync logic in SQL (sync_push /
+      # sync_pull, change-feed, idempotency, plan quota by trigger, conflicts) on
+      # postgres:16 — row-64 vectors + row-83 convergence (12 seeds), INVOKER + RLS,
+      # repeat push = no effect, over-cap refused, 4 mutants, rollback to 0002.
+      - name: Direct sync in SQL (row 108, real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          DS108_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node --experimental-sqlite --disable-warning=ExperimentalWarning tests/direct-sync-108.js | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

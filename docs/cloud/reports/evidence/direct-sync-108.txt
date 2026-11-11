@@ -1,0 +1,27 @@
+base_sha=42d8a2d5aae0854a8aac224184f8478bcc45bfb0
+date_utc=2026-11-11T13:37:06Z
+command=PAYESH_PG_ADMIN=postgres://postgres@127.0.0.1:5432/payesh_c64 DS108_REQUIRE_PG=1 node --experimental-sqlite tests/direct-sync-108.js
+# Row 108 — direct path (ADR-105 §3.3, Proposed): Gateway sync logic in SQL (sync_push/sync_pull, change-feed, idempotency, plan quota, conflicts) — label [S]
+# engine: postgres (PostgreSQL) 16.9 (embedded, loopback, D-40); node v22.23.4
+# migrations: db/migrations/direct/0001..0004 via tools/migrate-86.mjs (track direct); feed index CONCURRENTLY in 0004
+# npm test on this sha: pass=111 fail=0 registered=111 (tests-run-42d8a2d-*.log); CI: api-contract native-contract (postgres:16)
+#
+
+Row 108: direct path — sync_push / sync_pull in SQL, change-feed, idempotency, plan quota, conflicts (real PostgreSQL)
+
+PASS  SY-01  migrations 0001..0004 through the row-86 migrator (lint clean, all expand, feed index CONCURRENTLY outside a transaction, re-run applies nothing)  → ledger 0001..0004 (expand); feed index valid; second up = no-op  (288ms)
+PASS  SY-02  catalog: sync_push / sync_pull / sync_resolve_conflict are SECURITY INVOKER (RLS applies), pinned search_path, not PUBLIC; new tables RLS; client cannot write plan/usage or run plan_for; record trigger present  → 3 RPCs INVOKER + pinned; 5 tables RLS; plan/usage read-only; plan_for internal  (10ms)
+PASS  SY-03  idempotency-v1 vectors: every step gives the expected applied / duplicates / conflicts, and the same counts as server/sync.js on SQLite  → 7 steps equal to the vector (a/d/c 1/0/0 0/1/0 0/1/0 1/1/0 1/1/0 0/0/1 0/1/0); sync.js equal except the conflict-retry step (known, vector = Gateway)  (175ms)
+PASS  SY-04  pagination-v1 vector: 25 rows walk 10/10/5 with more t/t/f, no row skipped or repeated, cursor strictly increasing, empty last page keeps the cursor; limit clamped 0→1, 5000→50, abc→50, 7→7  → pages 10/10/5, 25 unique, clamps 0→1 5000→50 abc→50 7→7  (241ms)
+PASS  SY-05  scope-v1 vectors through RLS: roles become capability rows (row 106); every read case and every scope write case equals the vector; field checks (bad_score/bad_kind/bad_status) run on the device, before sealing  → collection list = policy.js (34 names); read 16 equal (ynnynynselfynyynNYy, own row via app_user ×1); write 3 ok, 4 refused by RLS, 3 field checks on device  (399ms)
+PASS  SY-06  conflict-v1 vectors end to end: stale ops come back to the device, its verdict equals the vector (action/reason/fields), and the database result (row, version, conflict kept) equals server/sync.js on SQLite  → 16 cases: verdicts equal; outcomes ok=7 conflict=7 rejected=1 deleted=1; rows/versions equal to sync.js  (904ms)
+PASS  SY-07  row-83 convergence on the direct path: 12 seeded scenarios × 3–5 devices (offline/online, lost responses + retries, deletes, chained offline edits, human resolutions); P1 replicas = server, P2 every op and every final row = the spec oracle; a device-side domain-rule mutation and a device ignoring tombstones are caught  → ops=856 applied=368 merged=203 noop=92 conflicts=161 deleted=6 rejected=0 dup=26 replayed=36 lost=47 resolved=22 stale_round_trips=479; 0 divergences; score→auto and ignore-tombstones caught  (34134ms)
+PASS  SY-08  a repeated push has no second effect: same uid again (also with a changed body), same request key (replay of the merged multi-round answer), and two connections racing with the same batch ⇒ each op applied once  → uid duplicate, request replay (2-round answer whole), race ⇒ once each (v=1)  (338ms)
+PASS  SY-09  plan caps refused atomically: records, bytes, ops per push, ops per window, op size (54000); a tombstone frees a slot; usage exact; plan/usage not writable by clients; usage visible to the manager only  → records/bytes/ops-per-push/window/op-size refused; usage 5 rows 1490 B exact; plan+usage read-only  (247ms)
+PASS  SY-10  RLS through the RPCs: another school pulls 0; a push with one out-of-scope op is refused whole (nothing written); read-only role cannot push; revoked device ⇒ not_authenticated; conflicts visible to reporter + manager only; resolve: manager only, once  → cross-school 0; atomic scope refusal; read-only, revoked, unknown refused; conflict visibility + manager-only single resolution  (799ms)
+PASS  SY-11  feed order under concurrent writers: a second writer of the same school waits for the first; a pull taken while the first is in flight skips nothing later; seq follows commit order  → B waited for A; mid-flight pull empty; then ids 1,2 with seq 1103<1104  (684ms)
+PASS  SY-12  mutation controls: 4 broken variants of migration 0003, each caught (uid idempotency, OCC, plan cap, feed position)  → M1 replayed uid re-applied; M2 stale overwrite; M3 over-cap accepted; M4 row missing from the feed — all 4 caught, schema restored  (331ms)
+PASS  SY-13  rollback of 0004 + 0003 through the migrator leaves rows 106/107 intact (identity, key tables, ciphertext rows); re-apply is clean and re-numbers the feed  → down ⇒ sync objects gone, 348 records + 103 grants kept; up ⇒ feed re-numbered  (225ms)
+
+# passed=13 failed=0 negative_controls=31 mutants_killed=4
+DIRECT-SYNC-108-OK
