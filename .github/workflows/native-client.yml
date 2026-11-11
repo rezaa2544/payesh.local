@@ -396,9 +396,10 @@ jobs:
           set -uo pipefail
           flutter config --no-analytics >/dev/null
           flutter pub get --enforce-lockfile
+          # the build MUST fail here; the runner shell is `bash -e`, so capture the exit code explicitly
+          code=0
           env -u PAYESH_KEYSTORE -u PAYESH_KEYSTORE_PASS -u PAYESH_KEY_ALIAS -u PAYESH_KEY_PASS \
-            PAYESH_NATIVE_REQUIRE_RELEASE_SIGNING=true flutter build apk --release > "$RUNNER_TEMP/require-signing.log" 2>&1
-          code=$?
+            PAYESH_NATIVE_REQUIRE_RELEASE_SIGNING=true flutter build apk --release > "$RUNNER_TEMP/require-signing.log" 2>&1 || code=$?
           grep -m1 'PAYESH-SIGNING-REQUIRED' "$RUNNER_TEMP/require-signing.log" || true
           if [ $code -eq 0 ] || ! grep -q 'PAYESH-SIGNING-REQUIRED' "$RUNNER_TEMP/require-signing.log"; then
             tail -30 "$RUNNER_TEMP/require-signing.log"
@@ -513,9 +514,15 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          $crt = Get-ChildItem (Join-Path $vs 'VC\Redist\MSVC') -Directory | Sort-Object Name | Select-Object -Last 1
-          $src = Join-Path $crt.FullName 'x64\Microsoft.VC143.CRT'
-          if (-not (Test-Path $src)) { throw "MSVC CRT redist not found under $($crt.FullName)" }
+          # VS 2022 ships x64\Microsoft.VC143.CRT, VS 2026 (\18\) Microsoft.VC145.CRT; the folder list
+          # also holds non-version names (e.g. v145) — take the newest numeric version that has a CRT.
+          $redist = Join-Path $vs 'VC\Redist\MSVC'
+          $src = $null
+          foreach ($v in (Get-ChildItem $redist -Directory | Where-Object { $_.Name -match '^\d+(\.\d+)+$' } | Sort-Object { [version]$_.Name } -Descending)) {
+            $c = Get-ChildItem (Join-Path $v.FullName 'x64') -Directory -Filter 'Microsoft.VC14*.CRT' -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+            if ($c -and (Test-Path (Join-Path $c.FullName 'vcruntime140_1.dll'))) { $src = $c.FullName; break }
+          }
+          if (-not $src) { Get-ChildItem $redist | Format-Table Name | Out-String | Write-Host; throw "MSVC CRT redist (Microsoft.VC143.CRT / VC145) not found under $redist" }
           $rel = 'apps\payesh\app\build\windows\x64\runner\Release'
           foreach ($d in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') {
             Copy-Item (Join-Path $src $d) $rel -Force
@@ -598,8 +605,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           choco install innosetup --no-progress -y | Out-Null
-          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (-not (Test-Path $iscc)) { throw 'ISCC not found' }
+          $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          if (-not $iscc) { throw 'ISCC not found' }
+          "ISCC: $iscc"
           $v = (Select-String -Path 'apps\payesh\app\pubspec.yaml' -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
           & $iscc "/DAppVersion=$v" 'apps\payesh\app\windows\installer\payesh-native.iss' 2>&1 | Tee-Object -FilePath native-out\iscc-native.log
           if ($LASTEXITCODE -ne 0) { Get-Content native-out\iscc-native.log -Tail 15; throw "ISCC failed ($LASTEXITCODE)" }
