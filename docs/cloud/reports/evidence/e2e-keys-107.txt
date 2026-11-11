@@ -1,10 +1,10 @@
-base_sha=897f2a6e6883d29b8e41c47429244ccdb76df621
-date_utc=2026-11-11T11:45:28Z
+base_sha=a4135ba990f8142ea2738a8a7297f8324ebc2cd4
+date_utc=2026-11-11T11:49:14Z
 command=PAYESH_PG_ADMIN=postgres://postgres@127.0.0.1:5432/payesh_c64 PAYESH_PGDATA=<pgdata> E2E107_REQUIRE_PGDUMP=1 node tests/e2e-keys-107.js; node tests/e2e1-107.js; node tools/e2e1-vectors-107.mjs --check; dart test (payesh_secure)
 # Row 107 — direct path (ADR-105 §3.2, Proposed): device-side end-to-end encryption e2e1, key grants, rotation — label [S]
 # engine: postgres (PostgreSQL) 16.9 (embedded, loopback, D-40); pg_dump 17.11; node v22.23.4
 # migrations: db/migrations/direct/0001 + 0002_key_grants via tools/migrate-86.mjs (track direct)
-# npm test on this sha: pass=111 fail=0 registered=111 (tests-run-897f2a6-*.log); CI: api-contract native-contract (postgres:16) + native-client
+# npm test on this sha: pass=111 fail=0 registered=111 (tests-run-a4135ba-*.log); CI: api-contract native-contract (postgres:16) + native-client
 #
 
 Row 107: direct path — device-side encryption, key grants, rotation (real PostgreSQL)
