@@ -1,0 +1,53 @@
+# Row 85 — server-side observability: JSON logs without PII, /metrics, SLO + alert rules as code
+base_sha=c77bb9db4c0bda60b8d817c0d94a1be5a1f6ad1f
+date_utc=2026-11-11T09:21:31Z
+branch=arena/observability-85
+runner=local sandbox, node 22 (npx node@22), embedded PostgreSQL 127.0.0.1:5432 for gateway-67
+owner_scope=pager/on-call destination (D-42) — NOT claimed
+
+## AC mapping
+- JSON log with request-id + school-id, no PII: server/logger.js (allowlist SAFE_KEYS + value redaction), server/index.js access/error log, server/gateway.js access log (school_id = token tid) → OB85-03/04/05/06, GW67-RID-03
+- /metrics endpoint: existing (row 49) + row 85 histogram payesh_http_request_duration_seconds and SLO gauges → OB85-08/09
+- SLO definition + alert rules as code: server/slo.js + deploy/monitoring/slo-85.yml (thresholds asserted equal to code) → OB85-10/11
+- negative test: PII in log ⇒ red: tools/log-pii-scan-85.mjs on planted line exit 1 (OB85-07); 3 logger mutants killed (OB85-02)
+
+## tests/observability-85.js
+
+Row 85: server observability (JSON logs without PII, /metrics, SLO, alerts)
+
+PASS  OB85-01  logger: allowlist drops non-allowlisted keys, values redacted (incl. Persian digits), reserved keys unforgeable, request id sanitised  → clean  (13ms)
+PASS  OB85-02  negative (mutants): redaction off / allowlist off / request-id check off ⇒ each caught by OB85-01 checks  → redaction-off:killed allowlist-off:killed request-id-check-off:killed baseline:clean  (6ms)
+PASS  OB85-03  every /api response carries X-Request-Id; an opaque caller id is echoed, a PII-shaped one is replaced  → echo ok · minted 0135efb7…  (9ms)
+PASS  OB85-04  authenticated request: JSON access line with request_id + school_id (from session) + auth/role; no query string  → school_id=1 role=manager pull_bytes=223379  (170ms)
+PASS  OB85-05  PII in path/header/body/query and a bad-JSON body ⇒ responses served, nothing PII-shaped written  → statuses 404,404,400,400,200 · path redacted  (261ms)
+PASS  OB85-06  gate on the real server log: tools/log-pii-scan-85.mjs --require-json ⇒ OK (0 findings, every access line has request_id + school_id, no unknown keys)  → LOG-PII-85-OK lines=18 json=9 http=9 findings=0  (72ms)
+PASS  OB85-07  negative: the same gate on a log with ONE planted PII line ⇒ red (exit 1), value not echoed in the report  → pii:red unknown_key:red missing_school_id:red  (146ms)
+PASS  OB85-08  /metrics on the real server: request-duration histogram + SLO burn/p95 gauges + objectives equal server/slo.js  → count=10 p95=0.012s avail_burn=0  (16ms)
+PASS  OB85-09  burn-rate math on the real Registry: 2% 5xx ⇒ availability burn 4; 10% slow ⇒ latency burn 2; p95 from durations  → avail_burn=4 latency_burn=2 p95=1.504  (13ms)
+PASS  OB85-10  rules as code: slo-85.yml parses with the row-49 grammar and every rule equals server/slo.js expectedRules(); runbook anchors exist  → 5 rules match code  (45ms)
+PASS  OB85-11  alerts fire on a real scrape: 10% 5xx sustained past for: ⇒ PayeshSloAvailabilityFastBurn FIRING; healthy scrape ⇒ nothing fires  → burn=20 fired · healthy firing=0  (143ms)
+PASS  OB85-12  no plain-text access log left in server/index.js (old `METHOD path status ms` console.log removed)  → ok  (1ms)
+
+# passed=12 failed=0
+OBSERVABILITY-85-OK
+rc=0
+
+## slo-85.yml --check-rules
+ALERT-RULE name=PayeshSloAvailabilityFastBurn group=payesh-slo expr="payesh_slo_availability_burn_rate > 14.4" for=120s severity=critical
+ALERT-RULE name=PayeshSloAvailabilitySlowBurn group=payesh-slo expr="payesh_slo_availability_burn_rate > 6" for=1800s severity=warning
+ALERT-RULE name=PayeshSloLatencyFastBurn group=payesh-slo expr="payesh_slo_latency_burn_rate > 14.4" for=120s severity=critical
+ALERT-RULE name=PayeshSloLatencySlowBurn group=payesh-slo expr="payesh_slo_latency_burn_rate > 6" for=1800s severity=warning
+ALERT-RULE name=PayeshLatencyP95High group=payesh-slo expr="payesh_http_latency_p95_seconds > 1.5" for=600s severity=warning
+ALERTS-49-CHECK rules=5 groups=1
+
+## tests/gateway-67.js (real PG) — school_id + PII scan on gateway log
+PASS  GW67-RID-03  JSON access log line per request with request_id/status/ms; no query string, no token  → 12 http log lines
+GATEWAY-67-OK pass=18 fail=0
+
+## tests/observability-49.js (regression)
+OB checks=19 pass=19 fail=0
+OBSERVABILITY-49-OK
+
+## full suite
+run-tests-evidence.sh @c77bb9db4c0bda60b8d817c0d94a1be5a1f6ad1f: pass=110 fail=0 registered=110 → tests-run-c77bb9d-20261111T092054Z.log
+gen-audit-evidence.sh @c77bb9db4c0bda60b8d817c0d94a1be5a1f6ad1f: EVIDENCE-OK
