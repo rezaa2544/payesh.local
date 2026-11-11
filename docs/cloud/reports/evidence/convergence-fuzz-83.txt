@@ -1,0 +1,44 @@
+# Row 83 — randomized multi-device convergence test (property / fuzz)
+base_sha=a3486bd56947067ae7727df8c149944d10fe0253
+date_utc=2026-11-11T10:06:09Z
+branch=arena/convergence-fuzz-83
+runner=local sandbox, node 22, real server/sync.js + server/convergence.js + server/db.js (SQLite); devices simulated per shipped client contract
+reproduce=FUZZ83_SEEDS=<seed> node --experimental-sqlite tests/convergence-fuzz-83.js   (default seeds: 8300 + i*7919, i<40)
+
+## AC mapping
+- property-based test with fixed, reproducible seed: mulberry32 PRNG; FZ-04 same seed twice => identical trace+state digest
+- final view converges with the domain rules: FZ-02 (P1 every replica == server), FZ-03 (P2 every op outcome + final value/version == independent spec oracle)
+- 3-5 simulated clients, random disconnect/reconnect: 3-5 devices per scenario, offline toggles, lost responses + idempotent retries, deletes, human resolutions
+- negative: removing a domain rule => divergence detected: FZ-05 (grades.score auto), FZ-06 (attendance rule deleted), FZ-07 (blind LWW); FZ-08 tombstone-ignoring device => P1 red
+
+## default run (40 scenarios, CI)
+PASS  FZ-01  property run: 40 seeded scenarios × 3–5 devices, random offline/online, lost responses, retries, deletes, human resolutions  → scenarios=40 devices=157 pushes=1220 ops=3654 applied=1432 merged=903 noop=494 conflicts=738 deleted=33 rejected=3 duplicates=51 lost_responses=154 replayed=127 resolved=179 pulls=1016
+PASS  FZ-02  P1 convergence: after reconnect + drain every device replica deep-equals the server (no row missing, extra or different)  → replica rows compared=2262 mismatches=0
+PASS  FZ-03  P2 domain law: per-op outcome and final value+version of every row equal the spec oracle (sensitive fields never auto-merged; auto fields LWW by server receipt; idempotent retries)  → ops checked=3654 · sensitive conflicts kept for review=738 · same-device chains that conflicted=346
+PASS  FZ-04  reproducible: the same seed yields the same trace + final state digest; a different seed differs  → seed=8300 digest=88aee3f8affe9853 (twice) · seed=8301 digest=fbcadf27af557235
+PASS  FZ-05  negative: domain rule removed: grades.score made auto-mergeable ⇒ divergence detected (seed/step reported)  → detected: seed=8300 step=24 op d1-5 grades#102 put base=1 data={"score":20}: server=ok spec=conflict
+PASS  FZ-06  negative: attendance rule deleted (falls back to manual-only) ⇒ divergence detected  → detected: seed=8300 step=24 op d1-4 attendance#102 put base=1 data={"note":"n2"}: server=conflict spec=merged
+PASS  FZ-07  negative: domain law replaced by blind last-writer-wins on every field ⇒ divergence detected  → detected: seed=8300 step=24 op d1-5 grades#102 put base=1 data={"score":20}: server=ok spec=conflict
+PASS  FZ-08  negative (P1 is live): a device that ignores tombstones ⇒ replica divergence detected; unmodified run of the same seeds is clean  → detected seed=8300: device 1: missing=0 extra=1 differing=0 · baseline clean
+# passed=8 failed=0
+CONVERGENCE-FUZZ-83-OK
+
+## extended run (FUZZ83_RUNS=300, local)
+PASS  FZ-01  property run: 300 seeded scenarios × 3–5 devices, random offline/online, lost responses, retries, deletes, human resolutions  → scenarios=300 devices=1197 pushes=9228 ops=27815 applied=10793 merged=6993 noop=3814 conflicts=5349 deleted=196 rejected=12 duplicates=658 lost_responses=1108 replayed=838 resolved=1213 pulls=7572
+PASS  FZ-02  P1 convergence: after reconnect + drain every device replica deep-equals the server (no row missing, extra or different)  → replica rows compared=16970 mismatches=0
+PASS  FZ-03  P2 domain law: per-op outcome and final value+version of every row equal the spec oracle (sensitive fields never auto-merged; auto fields LWW by server receipt; idempotent retries)  → ops checked=27815 · sensitive conflicts kept for review=5349 · same-device chains that conflicted=2491
+PASS  FZ-04  reproducible: the same seed yields the same trace + final state digest; a different seed differs  → seed=8300 digest=88aee3f8affe9853 (twice) · seed=8301 digest=fbcadf27af557235
+PASS  FZ-05  negative: domain rule removed: grades.score made auto-mergeable ⇒ divergence detected (seed/step reported)  → detected: seed=8300 step=24 op d1-5 grades#102 put base=1 data={"score":20}: server=ok spec=conflict
+PASS  FZ-06  negative: attendance rule deleted (falls back to manual-only) ⇒ divergence detected  → detected: seed=8300 step=24 op d1-4 attendance#102 put base=1 data={"note":"n2"}: server=conflict spec=merged
+PASS  FZ-07  negative: domain law replaced by blind last-writer-wins on every field ⇒ divergence detected  → detected: seed=8300 step=24 op d1-5 grades#102 put base=1 data={"score":20}: server=ok spec=conflict
+PASS  FZ-08  negative (P1 is live): a device that ignores tombstones ⇒ replica divergence detected; unmodified run of the same seeds is clean  → detected seed=8300: device 1: missing=0 extra=1 differing=0 · baseline clean
+# passed=8 failed=0
+CONVERGENCE-FUZZ-83-OK
+
+## observation (no change in this row)
+same-device chains: ops queued behind another pending op of the same device on the same row reuse the old base_version (outbox has no rebase);
+they account for ~47% of sensitive conflicts (347/738 default; 2491/5349 extended). No data loss (both versions kept, P2 verified); costs human review. Proposal in docs/cloud/83-convergence-fuzz.md section 6.
+
+## full suite
+run-tests-evidence.sh @a3486bd56947067ae7727df8c149944d10fe0253: pass=110 fail=0 registered=110 -> tests-run-a3486bd-20261111T100529Z.log
+gen-audit-evidence.sh @a3486bd56947067ae7727df8c149944d10fe0253: EVIDENCE-OK
