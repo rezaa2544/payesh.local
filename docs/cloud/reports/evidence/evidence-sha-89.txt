@@ -57,3 +57,8 @@ f244c32c4ce1ea8be95cfe03bcb7ebeaa36221ed -> e73eb64e76591bb1f6dfbab6cfe567323bfd
 - gen-audit-evidence.sh @2718f6a: EVIDENCE-OK
 - tools/evidence-sha-89.mjs --check: EVIDENCE-SHA-89-OK files=392 failures=0 (row-87 files field-crypto-87.txt + tests-run logs covered)
 - tests/evidence-sha-89.js: passed=15 failed=0
+
+## CI @328c725 (merge of main + re-run evidence) — all green
+- build-and-release push run 42991226423: job 130424332762 success (evidence step: EVIDENCE-SHA-89-OK files=393 failures=0; tests/evidence-sha-89.js passed=15 failed=0; EVIDENCE-BASE-OK strict), setup.exe job 130427150182 success
+- api-contract push run 42991226201 success
+- native-client push run 42991226387 success
