@@ -45,3 +45,9 @@ SUMMARY pass=110 fail=0
 sync-contract outbox-40 archive-53 convergence-41 pull-leak-57 leak-matrix-57 pentest-57-sync-leak revocation-44 identity-65 native-contract-64: all rc=0 (local, with a random PAYESH_FIELD_KEYS)
 same set + sync-cost-42 gateway-67 contract-vectors-64 conformance-outbox-71 secure-negative without keys: rc=0
 restart.js / live.js: same 1/2 failures on origin/main without this change (pre-existing local env issue, not row 87)
+
+── CI (PR #176, head 018eda3) ──
+api-contract push run 42985733285: native-contract job 130406320649 success (incl. step «Row 87 field encryption», FC87_REQUIRE_PG=1, postgres:16); openapi-drift 130406321011 success
+api-contract pull_request run 42985736594: native-contract job 130413671915 success after one rerun (first attempt 130406332591 failed only GW67-LOAD-01 p95 budget 304ms vs 86.6ms baseline — runner load flake in row 67's load test; rerun 75.5 vs 46.8ms PASS; the push run passed it first time)
+CI FC-PG-2: rows_bytes=673 found=0; pg_dump bytes=159001 found=0 (real pg_dump on the runner) · mutants_killed=6/6 · FIELD-CRYPTO-87-OK
+native-client 42985733288 / 42985736568 success · build-and-release 42985733240 (job 130406321177, npm test with field key ON) success
