@@ -4981,6 +4981,14 @@ async function waitFor(fn, ms = 15000) {
   await test('PR‑3: UI سرتاسری روی API واقعی — ورود fail-closed، هشت صفحه، loading/empty/error، نقش operator، حذف دومرحله‌ای، تم',
     async () => { await ownerSpa.ui(); console.log('    OWNER-SPA checks=' + ownerSpa.checks() + ' failures=0'); });
 
+  /* ── ردیف ۱۱۸: تطبیق Done در Notion با حقیقت مخزن (جدول PASS/PARTIAL/BLOCKED/…) ── */
+  await test('ردیف ۱۱۸: جدول تطبیق — مسیرها موجود، برچسب/آزمون برای PASS، امنیت UNKNOWN، وضعیت ساخت مدرسه/صفحه‌های بومی/لایهٔ زیرساخت مطابق کد، کنترل منفی جهش',
+    async () => {
+      const r = await require('./reconcile-118.js').main({ quiet: true });
+      if (r.failed) throw new Error('RECONCILE-118 failures: ' + r.failures.join(','));
+      console.log('    RECONCILE-118-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
+    });
+
   /* ── ردیف ۹۸ / D‑45: صادرکنندهٔ ورود انسانی (رمز + TOTP، حداکثر ۳ حساب) ── */
   const ownerLogin = require('../apps/owner-panel/tests/owner-login.test.js');
   await test('D‑45: ورود رمز + TOTP — بردارهای RFC 6238/4226/4648، scrypt، تکرار کد، قفل، سهمیه، سقف ۳ حساب، مرز دیتابیس، rollback',
