@@ -1,0 +1,1 @@
+DROP INDEX CONCURRENTLY IF EXISTS m86_students_mobile_idx;

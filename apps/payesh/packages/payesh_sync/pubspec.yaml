@@ -9,6 +9,7 @@ dependencies:
   crypto: ^3.0.6
   payesh_core: any
   payesh_data: any
+  payesh_secure: any
   sqlite3: ^3.9.1
 dev_dependencies:
   coverage: ^1.15.0
