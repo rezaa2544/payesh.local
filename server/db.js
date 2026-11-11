@@ -328,6 +328,26 @@ class Store {
     return true;
   }
 
+  /* row 88: tombstone view (metadata only, never the body) and retention purge */
+  tombstones(limit = 200, collection = null) {
+    const lim = Math.max(1, Math.min(1000, Number(limit) || 200));
+    const rows = collection
+      ? this.db.prepare('SELECT collection, id, version, deleted_at FROM records WHERE deleted_at IS NOT NULL AND collection=? ORDER BY deleted_at DESC, id LIMIT ?').all(String(collection), lim)
+      : this.db.prepare('SELECT collection, id, version, deleted_at FROM records WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC, collection, id LIMIT ?').all(lim);
+    return rows.map(r => ({ collection: r.collection, id: Number(r.id), version: Number(r.version), deleted_at: r.deleted_at }));
+  }
+
+  purgeTombstones(retainDays) {
+    const cutoff = new Date(Date.now() - Number(retainDays) * 86400000).toISOString();
+    const byCollection = {};
+    for (const r of this.db.prepare('SELECT collection, COUNT(*) AS n FROM records WHERE deleted_at IS NOT NULL AND deleted_at < ? GROUP BY collection').all(cutoff)) {
+      byCollection[r.collection] = Number(r.n);
+    }
+    const info = this.db.prepare('DELETE FROM records WHERE deleted_at IS NOT NULL AND deleted_at < ?').run(cutoff);
+    const left = this.db.prepare('SELECT COUNT(*) AS n FROM records WHERE deleted_at IS NOT NULL').get();
+    return { purged: Number(info.changes), by_collection: byCollection, tombstones_left: Number(left.n), retain_days: Number(retainDays), cutoff };
+  }
+
   versionOf(collection, id) {
     const r = this.getRow(collection, id);
     return r ? r.version : 0;

@@ -1,6 +1,6 @@
 {
   "version": "0.9.2",
-  "built_at": "2026-11-11T17:02:03.934Z",
+  "built_at": "2026-11-11T17:05:25.801Z",
   "notes": [
     "نگاشت آیکون‌های نبض هر دو شکل ایموجی با و بدون variation selector را به SVG یکسان می‌برد.",
     "بسته‌های نصب و مانیفست برای نگاشت آیکون‌های اصلاح‌شده به نسخهٔ 0.9.2 ارتقا یافتند."
@@ -264,8 +264,8 @@
     {
       "path": "server/db.js",
       "kind": "server",
-      "sha256": "996642058641018a3fbe3928046d7a9cdba96bf2835a2cd214821898d053e7c4",
-      "size": 18280
+      "sha256": "e9ffb57be4fb665c5f49a9043ee455eaaf26a4678637c848084aa57eb3cbfa4f",
+      "size": 19752
     },
     {
       "path": "server/directory-api.js",
@@ -300,8 +300,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "2d6b0718088317005921acdf6f261dc5e0b40f832bc10cf19c6a252e97710f71",
-      "size": 123863
+      "sha256": "4465be8d2f0773aed4b98c7febaf1e86de5c6de7965efbbe0ab23cfefbf5daf8",
+      "size": 124986
     },
     {
       "path": "server/kill-switch.js",
@@ -358,6 +358,12 @@
       "size": 16008
     },
     {
+      "path": "server/privacy.js",
+      "kind": "server",
+      "sha256": "8831c9b24d432af4d21fd13ab9213af814b9eada06ecff3f9406bea440b9da0b",
+      "size": 5384
+    },
+    {
       "path": "server/qr.js",
       "kind": "server",
       "sha256": "5a3540a4e33af3acf3261a5a66c9d4547521203b7f71cedf45d91300268f6a65",
@@ -408,8 +414,8 @@
     {
       "path": "server/tenancy.js",
       "kind": "server",
-      "sha256": "321db6f9b8214893562697f14738bdc62b4fbc415fb432af1b14ab949ebc31ba",
-      "size": 60398
+      "sha256": "73bfe2baa9f46764353b873f76f70f9d9a2e16a698a0d23a0b877ae389ca1233",
+      "size": 66207
     },
     {
       "path": "server/tenant-context.js",
@@ -462,9 +468,9 @@
   ],
   "counts": {
     "client": 33,
-    "server": 42
+    "server": 43
   },
   "client_size": 1479577,
-  "server_size": 613916,
-  "total_size": 2093493
+  "server_size": 627704,
+  "total_size": 2107281
 }

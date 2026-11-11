@@ -17,6 +17,7 @@ const auth = require('./auth');
 const apiVersion = require('./api-version');
 const sync = require('./sync');
 const policy = require('./policy');
+const privacy = require('./privacy'); /* row 88 */
 const cfg = require('./config');
 const qr = require('./qr');
 const s3mem = require('./s3mem');
@@ -1302,6 +1303,22 @@ async function api(req, res, url, ip) {
     auth.revokeDevice(store, dm[1], 'manager');
     store.audit({ user_id: actor.user.id, role: 'manager', device_id: dm[1], action: 'device_revoke', collection: 'devices', after: { wipe: true } });
     return json({ ok: true });
+  }
+
+  /* row 88: deleted-records view (metadata only) and tombstone retention purge — manager only (admin gate) */
+  if (p === '/api/admin/tombstones' && m === 'GET') {
+    const col = q.get('collection');
+    if (col && !policy.collectionAllowed(col)) return json({ ok: false, error: 'bad_collection' }, 400);
+    const rows = store.tombstones(Number(q.get('limit') || 200), col || null);
+    return json({ ok: true, rows, count: rows.length, retain_days: privacy.tombstoneRetainDays() });
+  }
+  if (p === '/api/admin/tombstones/purge' && m === 'POST') {
+    const body = await readBody(req);
+    const days = privacy.checkRetainDays(body && body.retain_days);
+    if (days === null) return json({ ok: false, error: 'bad_retain_days', min: privacy.TOMBSTONE_MIN_DAYS, max: privacy.TOMBSTONE_MAX_DAYS }, 400);
+    const out = store.purgeTombstones(days);
+    store.audit({ user_id: actor.user.id, role: 'manager', action: 'tombstones_purge', collection: 'records', after: { purged: out.purged, retain_days: days } });
+    return json(Object.assign({ ok: true }, out));
   }
 
   if (p === '/api/admin/audit' && m === 'GET') {
