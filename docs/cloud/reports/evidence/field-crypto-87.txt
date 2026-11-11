@@ -1,0 +1,47 @@
+row=87
+base_sha=b4d4d8048ec6d48f343f56559fd2000bb341d632
+date_utc=2026-11-11T08:16:05Z
+node=v22 (local) postgres=embedded 5432
+command=FC87_REQUIRE_PG=1 node --experimental-sqlite tests/field-crypto-87.js
+keys=random per run (crypto.randomBytes); no key material in repo
+
+# row 87 field crypto — node v22.23.4
+PASS  FC-01  keyring: kid:base64(32B); first = active; bad/short/duplicate keys are rejected  → ok
+PASS  FC-02  seal/open round-trip keeps type; random IV ⇒ two seals differ; no plaintext in ciphertext  → enc:f1:k1:tr77MOhFAUVWjI…
+PASS  FC-03  AAD binds collection|id|field|kid: moving a sealed value to another row/field/collection fails  → 3/3 refused
+PASS  FC-04  tampering (one flipped ciphertext byte / truncated tag) ⇒ field_auth_failed / field_corrupt  → ok
+PASS  FC-05  spoof: a client-sent "enc:f1:…" string in a non-sensitive field is dropped (cannot break reads)  → ok
+PASS  FC-06  Store with key: get/all/byRef/changedSince return plaintext; records.data holds only ciphertext  → users.national_id=enc:f1:k1:_Fh4s5cK…
+PASS  FC-07  NEGATIVE — DB dump (SQL rows of records/audit/meta + raw file/WAL bytes) has no plaintext national id or note  → sql_bytes=1673 file_bytes=354138 needles=3 found=0
+PASS  FC-08  rotation: k2 first + k1 behind ⇒ reads OK; rekey re-seals records+audit under k2 without bumping version; then k1 can be removed  → version=2 kid=k2
+PASS  FC-09  fail-closed: a row still sealed under a key that is no longer configured ⇒ field_key_unavailable (never ciphertext or plaintext out)  → no key ⇒ refused; wrong key ⇒ refused
+PASS  FC-10  migration: a legacy plaintext DB is sealed on first open with a key; PAYESH_FIELD_CRYPTO=required without key refuses to start  → ok
+PASS  FC-11  HTTP: setup → create student with national id → login with national id as username/password → sync pull returns it  → applied=2 login=ok
+PASS  FC-12  NEGATIVE — after the HTTP flow the live server DB file (+WAL) contains no plaintext national id / father nid  → bytes=790858 found=0
+PASS  FC-13  no field key committed: tracked files contain no PAYESH_FIELD_KEYS=<kid>:<32-byte base64>  → files=1161 hits=0
+PASS  FC-14  rotation tool: tools/field-rekey-87.mjs re-seals a k1 DB under k2 (remaining_old_kid=0); --new-key prints a fresh 32-byte key  → FIELD-REKEY-87 sqlite active_kid=k2 second_pass={"records":0,"audit":0} remaining_old_kid=0
+PASS  FC-PG-1  Gateway path: upsertProduct ⇒ product_records.data + change feed hold ciphertext; getProduct/listProduct/listFeed return plaintext  → ok
+PASS  FC-PG-2  NEGATIVE — PostgreSQL dump of the tenant (product_records + change feed, as superuser, RLS bypassed) has no plaintext  → rows_bytes=673 found=0; pg_dump: n/a
+PASS  FC-PG-3  rotation on PostgreSQL: rekeyFields re-seals records + feed under k2 (k1 behind); then k1 removed and data still reads  → {"records":2,"feed":2}
+PASS  FC-PG-4  fail-closed on PostgreSQL: without the key, reading a sealed row throws field_key_unavailable  → field_key_unavailable
+PASS  FC-PG-5  joinProduct on a sealed field (national_id) is refused: sealed_join_key  → sealed_join_key
+PASS  MUT-0 baseline (no change) must stay green  green
+PASS  MUT-1 sealRecord never seals  killed
+PASS  MUT-2 AAD ignores record id  killed
+PASS  MUT-3 audit not sealed  killed
+PASS  MUT-4 rekey skips audit  killed
+PASS  MUT-5 unknown kid falls back to active key  killed
+PASS  MUT-6 PG feed stored unsealed  killed
+mutants_killed=6/6
+
+# passed=19 failed=0
+FIELD-CRYPTO-87-OK
+exit=0
+
+── npm test with field encryption ON (tests/run.js sets a random PAYESH_FIELD_KEYS) ──
+SUMMARY pass=110 fail=0
+
+── regression with PAYESH_FIELD_KEYS set (child servers inherit) ──
+sync-contract outbox-40 archive-53 convergence-41 pull-leak-57 leak-matrix-57 pentest-57-sync-leak revocation-44 identity-65 native-contract-64: all rc=0 (local, with a random PAYESH_FIELD_KEYS)
+same set + sync-cost-42 gateway-67 contract-vectors-64 conformance-outbox-71 secure-negative without keys: rc=0
+restart.js / live.js: same 1/2 failures on origin/main without this change (pre-existing local env issue, not row 87)
