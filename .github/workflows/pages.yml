@@ -1,0 +1,58 @@
+name: landing-page
+
+# Row 114 — static download/update page for payeshschool.ir on GitHub Pages.
+# · Manual only (workflow_dispatch). Nothing deploys until the OWNER turns on
+#   Pages (Source: GitHub Actions) and sets the repository variable
+#   PAYESH_PAGES_ENABLED=true after the domain is active.
+# · No Cloudflare (D-09), no self-hosted server, no third-party actions.
+# · On pull requests only the checks run (no deploy).
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'tools/landing-114.mjs'
+      - 'tests/landing-114.js'
+      - 'docs/cloud/114-landing-pages-dns.md'
+      - '.github/workflows/pages.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Landing page checks (row 114)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static page — no external assets, no Cloudflare, links match release assets
+        run: node tests/landing-114.js
+      - name: Build
+        run: node tools/landing-114.mjs build --out _site
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'workflow_dispatch' && vars.PAYESH_PAGES_ENABLED == 'true'
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages (OWNER-enabled)
+    needs: check
+    if: github.event_name == 'workflow_dispatch' && vars.PAYESH_PAGES_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
