@@ -8,8 +8,14 @@ API/Gateway (`openapi.yaml`, `docs/cloud/contracts/sync-v1.md`).
 |---|---|---|
 | `app/` | Flutter application (Android + Windows runners) | 69 |
 | `packages/payesh_core` | pure Dart: ids, clock, API constants, error codes | 69 |
+| `packages/payesh_data` | local SQLite engine (encrypted) with the `client/engine-web.js` contract | 70, 72 |
+| `packages/payesh_sync` | offline outbox + Sync v1 client; HTTP / Gateway / direct transports and certificate pinning (the row-75 Gateway client lives here — no separate `payesh_net` package was created) | 71, 75, 110 |
+| `packages/payesh_secure` | SecureStore (Android Keystore / Windows DPAPI), database-key manager, e2e1 device-side encryption | 72, 107 |
+| `packages/payesh_ui` | design system: tokens, light/dark, RTL, Jalali, Vazirmatn | 73 |
+| `tool/coverage_check.dart` | coverage gate used by CI | 69 |
+| `app/windows/installer/payesh-native.iss` | per-user Inno Setup installer (row 77) | 77 |
 
-Later rows add `payesh_data` (70), `payesh_sync` (71), `payesh_secure` (72), `payesh_ui` (73) and `payesh_net` (75).
+Repository map: [`docs/REPOSITORY_MAP.md`](../../docs/REPOSITORY_MAP.md) §6.
 
 CI: `.github/workflows/native-client.yml` — pinned Flutter, `pub get`, `dart format`, `flutter analyze --fatal-infos`,
 tests with coverage, release builds, and the independent native gate (`tools/native-independence-gate.mjs`, row 63)
