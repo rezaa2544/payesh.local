@@ -59,3 +59,10 @@ MANUAL [M] owner          PENDING docs/release/95-owner-checklist.md items=M1,M2
 RELEASE-GATE-BLOCKED gates_pass=6/7 reasons=1
   ✗ G4-sbom: sbom=failure
 exit=1
+
+── CI (PR #175, head a112822, merge-ref sha 30ae736) ──
+workflow runs: release-gate 42983632804 (pull_request) success · native-client 42983632806 success · api-contract 42983632814 success · build-and-release 42983626224 (push) success
+release-gate jobs: G1+G3 native (workflow_call) success · G2 leak-matrix 130399709515 success · G3 api-contract success · G4 sbom 130399709389 success · G5 labels 130399709310 success · G6 identity 130399709241 success · G7 selftest 130399709329 success
+verdict job 130401989577: RELEASE-GATE-OK gates_pass=7/7 manual=PENDING (rehearsal — publish disabled)
+publish job 130402055352: skipped (not a native-v* tag) — expected
+[M] owner checklist docs/release/95-owner-checklist.md M1–M6: OWNER work; M2 (release signing) and M4 (Windows code signing) are blocked until signing lands (row 61).
