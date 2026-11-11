@@ -5003,6 +5003,12 @@ async function waitFor(fn, ms = 15000) {
       if (r.failed) throw new Error('E2E1-107 failures: ' + r.failures.join(','));
       console.log('    E2E1-107-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
     });
+  await test('ردیف ۱۱۵: پروب هاست — Node≥22.5/sqlite، ماندگاری دیسک، همیشه‌روشن، TLS خروجی PG بدون اعتبارنامه، redaction، فرم مالک، کنترل منفی جهش',
+    async () => {
+      const r = await require('./host-probe-115.js').main({ quiet: true });
+      if (r.failed) throw new Error('HOST-PROBE-115 failures: ' + r.failures.join(','));
+      console.log('    HOST-PROBE-115-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
+    });
 
   childExited = true;
   child.kill('SIGTERM');
