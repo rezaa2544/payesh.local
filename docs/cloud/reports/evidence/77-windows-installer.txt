@@ -1,0 +1,8 @@
+base_sha=9b06ff4b
+date_utc=2026-11-11T15:57:54Z
+row=77
+local=tests/android-release-76.js W-3..W-6 (see 76 evidence); real install runs on windows-latest in native-client.yml (INSTALLER-77-OK in native-out/installer-77.txt artifact)
+PASS  W-3  native-client.yml android: secrets → temp keystore, fail-closed control, real-APK check, tag ⇒ release only  → ok
+PASS  W-4  Inno Setup script: own AppId, per-user, bundle only, refuses node/WebView2  → ok
+PASS  W-5  windows job: MSVC app-local, ISCC, silent install → gate 63 + dumpbin on installed app → uninstall, Authenticode only with Secrets  → ok
+PASS  W-6  release-gate passes secrets to the native workflow; policy = Google Play 2026  → min_target_sdk=36
