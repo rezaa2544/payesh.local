@@ -4997,6 +4997,12 @@ async function waitFor(fn, ms = 15000) {
   const ownerLocalUp = require('../apps/owner-panel/tests/local-up.test.js');
   await test('ردیف ۱۰۲: local-up — فقط loopback، DATABASE_URL محلی، migration idempotent، رازها خارج از Git، ورود TOTP، خاموشی تمیز، بدون 004 ⇒ 501',
     async () => { const r = await ownerLocalUp.main(); console.log('    LOCAL-UP-102 passed=' + r.passed + ' negative_controls=' + r.negative_controls + ' failures=0'); });
+  await test('ردیف ۱۰۷: e2e1 — رمزنگاری سمت دستگاه (X25519/HKDF/AES-GCM)، بردارهای مشترک JS↔Dart، AAD ردیف، چرخش کلید، کنترل منفی',
+    async () => {
+      const r = await require('./e2e1-107.js').main({ quiet: true });
+      if (r.failed) throw new Error('E2E1-107 failures: ' + r.failures.join(','));
+      console.log('    E2E1-107-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
+    });
 
   childExited = true;
   child.kill('SIGTERM');

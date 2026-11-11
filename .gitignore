@@ -56,3 +56,8 @@ install/android/app/src/main/assets/www/
 # شاهدهای ناموفق، append-only و موقتی‌اند؛ شاهد سالم هرگز بازنویسی نمی‌شود
 docs/cloud/reports/evidence/*FAILED-*.txt
 docs/cloud/reports/evidence/*FAILED-*.log
+
+# row 111: encrypted backups and their keys never go into the repo
+*.e2b
+*.e2b.partial
+payesh-backup.private.key

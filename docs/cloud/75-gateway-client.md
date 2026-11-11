@@ -36,3 +36,13 @@ path is the stateless Gateway). Evidence: CI `native-client` job `gateway-real` 
 | `pinning_test.dart` (mock TLS Gateway) | pin = openssl pin; primary pin OK; backup‑only OK; trusted‑CA but unpinned key → refused and the server saw **0 requests**; untrusted chain still refused; http/proxy refused; bad configs rejected; outbox keeps ops on pin failure; pull/push mapping and protocol guards |
 | `gateway_it_test.dart` (REAL `server/gateway.js` + PostgreSQL with RLS, TLS front) | push applied once + duplicate; version/request‑id/device headers observed on the wire; paged pull into SQLite; tenant B cannot see tenant A rows; real conflict verdict; MITM front → **0 bytes** reached the Gateway; forged token → 401 |
 | `data_path_test.dart` | no DB driver / object‑storage SDK / DB URL in any native `lib/`, cloud endpoints are only `/api/gw/v1/*`, no DB/cloud package in `pubspec.lock` |
+
+## Update — row 110 (ADR‑105, Proposed): optional direct transport, default OFF
+
+`payesh_sync` now also exports `DirectTransport` / `PostgrestProvider`
+(`lib/src/direct_transport.dart`), selected only with `PAYESH_TRANSPORT=direct`
+(`selectTransport`). Without that flag nothing in this document changes: the Gateway stays the
+only cloud data path (clause 25 / D‑36) until the owner signs ADR‑105. The direct provider
+reuses the pinning of this row (`PostgrestProvider.pinned(GatewayConfig …)`), holds only the
+public client key + the user's JWT (service keys refused, static scan in
+`tests/transport-110.js`). Details: `docs/cloud/110-direct-transport.md`.

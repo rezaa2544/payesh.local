@@ -1,0 +1,39 @@
+base_sha=1503094829bf4e7b799fd2b9fe0524a1cef2a46e
+date_utc=2026-11-11T14:42:39Z
+command=PAYESH_PG_ADMIN=postgres://postgres@127.0.0.1:5432/payesh_c64 PAYESH_PG_BIN=<embedded PostgreSQL 16.9 bin> node tools/backup-111.mjs drill --fresh-cluster ; node tools/backup-111.mjs drill
+# Row 111 — encrypted backup outside the provider + restore drill — label [S] (raw drill output, local PostgreSQL only; no managed provider touched)
+# source server PostgreSQL 16.9 (embedded, loopback, D-40); client tools: pg_dump (PostgreSQL) 17.11 (Debian 17.11-0+deb13u1) / psql (PostgreSQL) 17.11 (Debian 17.11-0+deb13u1); node v22.23.4
+# security UNKNOWN (D-41). Backup location = OWNER decision (not chosen here). No Cloudflare (D-09).
+# CI: api-contract step 'Backup + restore drill (row 111)' (postgres:16 + fresh cluster via the runner's initdb)
+#
+# ── run 1: restore into a BRAND-NEW cluster (initdb, other port, no payesh roles) ──
+DRILL {"step":"seed-source","pass":true,"db":"payesh_b111_src_15602_mwc8a5qi","server_version":"16.9","records":53,"visible_to_device_A1":50,"conflicts":1,"tenants":2}
+DRILL {"step":"keygen","pass":true,"kid":"pb111:b9e074bc5e4d9883","private_key_mode":"0600","overwrite_refused":true}
+DRILL {"step":"dump-encrypted","pass":true,"file":"payesh-backup-20261111T144230Z.e2b","bytes":138744,"sha256":"4d757daefc65056c…","dump_ms":207,"mode":"600","no_partial_left":true}
+DRILL {"step":"ciphertext-only-on-disk","pass":true,"scanned_needles":6,"positive_control":"PGDMP + schema found after decryption","canary_in_decrypted_dump":false,"note":"records are e2e1 ciphertext even inside the dump (row 107); the backup adds a second layer"}
+DRILL {"step":"status-monitor","pass":true,"fresh":"ok","after_40h_without_dump":"backup_too_old","empty_dir":"no_backup"}
+DRILL {"step":"verify","pass":true,"checksum_only":true,"checksum":true,"decrypted":true,"records":3,"parts":["schema","ledger"],"created_at":"2026-11-11T14:42:30.840Z"}
+DRILL {"step":"refuse-tampered-truncated-wrong-key","pass":true,"bit_flip":"auth_failed","truncated_mid_record":"truncated","end_marker_removed":"truncated","header_edited":"auth_failed","wrong_key":"wrong_key","sidecar_checksum":"checksum_mismatch"}
+DRILL {"step":"restore-target","pass":true,"kind":"fresh cluster (initdb), different port, no payesh roles","port":40481,"payesh_roles_before":0,"server_version":"16.9"}
+DRILL {"step":"restore","pass":true,"restore_ms":272,"via":"psql script (pg_restore 17 > server 16)","counts":{"app_user":2,"capability":0,"device":4,"identity_audit":22,"key_grant":4,"record":53,"scope_key":10,"sync_batch":1,"sync_conflict":2,"sync_op":56,"tenant_plan":0,"tenant_usage":2,"write_ticket":7},"ledger":"5 direct migrations","snapshot_equal":true,"plaintext_temp_removed":true,"roles_refusal_first":true}
+DRILL {"step":"refuse-non-empty-target","pass":true,"refused":"target_not_empty"}
+DRILL {"step":"device-uses-restored-copy","pass":true,"records_pulled_and_decrypted":50,"identical_to_original":true,"canary_decrypts_on_device":true,"school_B_sees":3,"no_claims_sees":0,"rls_forced":true,"replay_is_duplicate":true,"new_write_applied":true,"seq_continues":true,"conflict_rows_for_manager":2,"conflict_rows_before_backup":2}
+DRILL {"step":"retention","pass":true,"backups":67,"kept":11,"deleted":56,"months_covered":6,"newest_kept":"payesh-backup-20261115T000000Z.e2b"}
+DRILL {"step":"summary","label":"[S]","env":{"node":"v22.23.4","pg_dump":"pg_dump (PostgreSQL) 17.11 (Debian 17.11-0+deb13u1)"},"fresh_cluster":true,"steps":12,"failed":[]}
+BACKUP-DRILL-111-OK
+#
+# ── run 2: restore into an empty database on the same server ──
+DRILL {"step":"seed-source","pass":true,"db":"payesh_b111_src_15705_mwc8abwn","server_version":"16.9","records":53,"visible_to_device_A1":50,"conflicts":1,"tenants":2}
+DRILL {"step":"keygen","pass":true,"kid":"pb111:28516ec24961a702","private_key_mode":"0600","overwrite_refused":true}
+DRILL {"step":"dump-encrypted","pass":true,"file":"payesh-backup-20261111T144238Z.e2b","bytes":138736,"sha256":"307f0f8711779485…","dump_ms":190,"mode":"600","no_partial_left":true}
+DRILL {"step":"ciphertext-only-on-disk","pass":true,"scanned_needles":6,"positive_control":"PGDMP + schema found after decryption","canary_in_decrypted_dump":false,"note":"records are e2e1 ciphertext even inside the dump (row 107); the backup adds a second layer"}
+DRILL {"step":"status-monitor","pass":true,"fresh":"ok","after_40h_without_dump":"backup_too_old","empty_dir":"no_backup"}
+DRILL {"step":"verify","pass":true,"checksum_only":true,"checksum":true,"decrypted":true,"records":3,"parts":["schema","ledger"],"created_at":"2026-11-11T14:42:38.861Z"}
+DRILL {"step":"refuse-tampered-truncated-wrong-key","pass":true,"bit_flip":"auth_failed","truncated_mid_record":"truncated","end_marker_removed":"truncated","header_edited":"auth_failed","wrong_key":"wrong_key","sidecar_checksum":"checksum_mismatch"}
+DRILL {"step":"restore-target","pass":true,"kind":"empty database on the same server (roles are cluster-wide)","db":"payesh_b111_dst_15705_mwc8abwn"}
+DRILL {"step":"restore","pass":true,"restore_ms":322,"via":"psql script (pg_restore 17 > server 16)","counts":{"app_user":2,"capability":0,"device":4,"identity_audit":22,"key_grant":4,"record":53,"scope_key":10,"sync_batch":1,"sync_conflict":2,"sync_op":56,"tenant_plan":0,"tenant_usage":2,"write_ticket":7},"ledger":"5 direct migrations","snapshot_equal":true,"plaintext_temp_removed":true}
+DRILL {"step":"refuse-non-empty-target","pass":true,"refused":"target_not_empty"}
+DRILL {"step":"device-uses-restored-copy","pass":true,"records_pulled_and_decrypted":50,"identical_to_original":true,"canary_decrypts_on_device":true,"school_B_sees":3,"no_claims_sees":0,"rls_forced":true,"replay_is_duplicate":true,"new_write_applied":true,"seq_continues":true,"conflict_rows_for_manager":2,"conflict_rows_before_backup":2}
+DRILL {"step":"retention","pass":true,"backups":67,"kept":11,"deleted":56,"months_covered":6,"newest_kept":"payesh-backup-20261115T000000Z.e2b"}
+DRILL {"step":"summary","label":"[S]","env":{"node":"v22.23.4","pg_dump":"pg_dump (PostgreSQL) 17.11 (Debian 17.11-0+deb13u1)"},"fresh_cluster":false,"steps":12,"failed":[]}
+BACKUP-DRILL-111-OK

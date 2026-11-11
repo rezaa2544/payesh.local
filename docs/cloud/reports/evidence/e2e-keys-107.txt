@@ -1,0 +1,54 @@
+base_sha=a4135ba990f8142ea2738a8a7297f8324ebc2cd4
+date_utc=2026-11-11T11:49:14Z
+command=PAYESH_PG_ADMIN=postgres://postgres@127.0.0.1:5432/payesh_c64 PAYESH_PGDATA=<pgdata> E2E107_REQUIRE_PGDUMP=1 node tests/e2e-keys-107.js; node tests/e2e1-107.js; node tools/e2e1-vectors-107.mjs --check; dart test (payesh_secure)
+# Row 107 — direct path (ADR-105 §3.2, Proposed): device-side end-to-end encryption e2e1, key grants, rotation — label [S]
+# engine: postgres (PostgreSQL) 16.9 (embedded, loopback, D-40); pg_dump 17.11; node v22.23.4
+# migrations: db/migrations/direct/0001 + 0002_key_grants via tools/migrate-86.mjs (track direct)
+# npm test on this sha: pass=111 fail=0 registered=111 (tests-run-a4135ba-*.log); CI: api-contract native-contract (postgres:16) + native-client
+#
+
+Row 107: direct path — device-side encryption, key grants, rotation (real PostgreSQL)
+
+PASS  EK-01  migrations 0001 + 0002 through the row-86 migrator (lint clean, both expand, re-run applies nothing)  → ledger 0001, 0002 (expand); second up = no-op  (273ms)
+PASS  EK-02  catalog: RLS on scope_key/key_grant, client SELECT-only, definer fns pinned + not PUBLIC, helper not executable by clients, no provider objects  → 7 tables RLS; 3 RPCs for clients, scope_covered internal; no extension  (5ms)
+PASS  EK-03  device keys: each device registers its own public key once; replacement, bad format, revoked device, no token ⇒ refused  → 6 devices registered; 4 refusals  (24ms)
+PASS  EK-04  scope keys: only a manager publishes; every publication strictly newer (no downgrade, no older SMK generation); other school sees none  → A: 5 public keys; 4 refusals; B sees 0 of A  (29ms)
+PASS  EK-05  key grants: manager only, same school, active device with a key, published generation, scope covered by a capability; reads limited to own device  → 4 grants; 8 refusals; teacher 1, guard 0, other school 0  (71ms)
+PASS  EK-06  end to end: a teacher writes ciphertext; the other class teacher, the parent and the manager decrypt; clear text, missing or malformed ciphertext refused by the database  → teacher2 3/3, parent 2/2, manager 3/3; 4 clear-text refusals  (51ms)
+PASS  EK-07  CANARY on dump: pg_dump + COPY of every table (and heap/WAL bytes when PAYESH_PGDATA is readable) contain no clear text; each scanner finds a planted control canary  → pg_dump 19 KiB clean (pg_dump (PostgreSQL) 17.11 (Debian 17.11-0+deb13u1)); 7 tables 16 KiB clean; raw heap+WAL 360 files 72 MiB clean  (388ms)
+PASS  EK-08  NEGATIVE swap by a database operator: ciphertext moved to another row, or the version bumped without re-encryption ⇒ the reader detects it (AAD)  → moved row + version bump refused; rows rewritten honestly  (30ms)
+PASS  EK-09  revocation ⇒ rotation: user revoked, class key gen 1+1 published, re-granted to remaining holders, rows re-encrypted; the revoked user's cached key opens nothing new  → 3 rows re-encrypted to class:1:attendance@1+1; revoked teacher 0/3  (85ms)
+PASS  EK-10  mutation controls: 4 broken variants of migration 0002, each caught by the checks above  → M1 parent got the class key; M2 guard sees 5 grants; M3 clear text stored; M4 downgrade published — all 4 caught, schema restored  (17ms)
+PASS  EK-11  rollback of 0002 through the migrator leaves row 106 intact; re-apply is clean  → down ⇒ key tables gone, 7 users kept; up ⇒ back  (181ms)
+
+# passed=11 failed=0 negative_controls=35 mutants_killed=4
+E2E-KEYS-107-OK
+
+
+Row 107: e2e1 — device-side encryption library (JS reference) vs shared vectors
+
+PASS  E1-01  vector file is exactly what the generator produces (no hand edits, no drift)  → 7 scope keys, 1 record × 4 readers, 10 negative vectors
+PASS  E1-02  X25519 matches RFC 7748 §6.1 (both directions)  → shared 4a5d9d5b…
+PASS  E1-03  scope keys: derivation matches vectors; different tenant / scope / generation ⇒ different key  → 7 keys equal, 4 variants distinct
+PASS  E1-04  record envelope: deterministic seal equals the vector; manager, school reader, class teacher and parent each open it  → 651 chars, recipients smk@1+0 school:attendance@1+0 class:7:attendance@1+1 student:42:attendance@1+0
+PASS  E1-05  NEGATIVE record vectors: moved row / other version / other school / other collection / tampered / rotated-out key / wrong key / truncated  → moved_row, other_version, other_school, other_collection, tampered_body, rotated_out, wrong_key_same_kid, bad_format
+PASS  E1-06  key grants: sealed to the device, bound to tenant+device+kid; an SMK grant lets a manager keyring derive every scope key  → grant + smk grant equal vectors; 3 grant negatives; keyrings open
+PASS  E1-07  random sealing: fresh DEK/IV/ephemeral key every time, round-trips 1 B … 256 KiB and Persian text  → nondeterministic, sizes 1/1000/262144 ok
+PASS  E1-08  NEGATIVE malformed input fails closed: low-order key, non-canonical base64url, short wrap, duplicate recipient, bad routing, bad kid  → 12 refusals; unpublished optional scopes skipped
+PASS  E1-09  rotation: after class key gen+1 and re-seal, the revoked holder (old generation) cannot open; current holders and the manager can  → v2 sealed to class:7:attendance@1+1; gen 1+0 refused
+PASS  E1-10  mutation control: an envelope sealed WITHOUT binding the row (empty AAD) is caught by the moved-row check  → unbound envelope refused under a real row AAD
+
+# passed=10 failed=0 negative_controls=31
+E2E1-107-OK
+E2E1-VECTORS-107-OK docs/cloud/contracts/e2e1-vectors-107.json
+
+# Dart port (apps/payesh/packages/payesh_secure, dart test test/e2e1_test.dart):
++0: E1D-01 X25519 matches RFC 7748 §6.1
++1: E1D-02 scope key derivation equals the JS vectors
++2: E1D-03 record envelope: deterministic seal equals the JS vector; 4 readers open it
++3: E1D-04 NEGATIVE record vectors refused with the same codes as JS
++4: E1D-05 grants equal the JS vectors; SMK keyring and scope keyring open the record
++5: E1D-06 random sealing round-trips (Persian text, 64 KiB) and is non-deterministic
++6: E1D-07 NEGATIVE malformed input fails closed
++7: E1D-08 rotation: the old class generation cannot open a row re-sealed to gen+1
++8: All tests passed!
