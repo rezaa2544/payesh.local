@@ -138,5 +138,6 @@
 | ۱۱۸ | تطبیق Done با Repo Truth | #198 → `62fb129` | [`cloud/118-reconciliation.md`](cloud/118-reconciliation.md) |
 | ۱۱۹ | ۲۰ سناریوی آفلاین روی مسیر Gateway | #199 → `1e2cdcf` | [`cloud/119-offline.md`](cloud/119-offline.md) |
 | ۱۲۱ | ساخت مدرسه ← tenant اختصاصی + مدیر اولیه | #200 → `832ecff` | [`cloud/121-tenant-provisioning.md`](cloud/121-tenant-provisioning.md) |
+| ۱۲۲ | لایهٔ زیرساخت مستقل از provider | #201 → `e1ef50a` | [`cloud/122-infra-layer.md`](cloud/122-infra-layer.md) |
 
 ردیف‌های باز (۷۴، ۹۳ — همین نقشه، ۹۴، ۱۱۲ و ردیف‌های OWNER/Z: ۹۱، ۹۲، ۱۰۵، ۱۱۳، ۶۱؛ ۱۰۳ و ۱۰۴ منسوخ‌شده با ADR‑105) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.
