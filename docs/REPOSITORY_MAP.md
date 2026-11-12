@@ -139,5 +139,6 @@
 | ۱۱۹ | ۲۰ سناریوی آفلاین روی مسیر Gateway | #199 → `1e2cdcf` | [`cloud/119-offline.md`](cloud/119-offline.md) |
 | ۱۲۱ | ساخت مدرسه ← tenant اختصاصی + مدیر اولیه | #200 → `832ecff` | [`cloud/121-tenant-provisioning.md`](cloud/121-tenant-provisioning.md) |
 | ۱۲۲ | لایهٔ زیرساخت مستقل از provider | #201 → `e1ef50a` | [`cloud/122-infra-layer.md`](cloud/122-infra-layer.md) |
+| ۱۲۳ | صفحهٔ «زیرساخت» و فرم «ساخت مدرسه» در پنل مالک | #203 → `8c83a13` | [`cloud/123-owner-infra-ui.md`](cloud/123-owner-infra-ui.md) |
 
 ردیف‌های باز (۷۴، ۹۳ — همین نقشه، ۹۴، ۱۱۲ و ردیف‌های OWNER/Z: ۹۱، ۹۲، ۱۰۵، ۱۱۳، ۶۱؛ ۱۰۳ و ۱۰۴ منسوخ‌شده با ADR‑105) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.
