@@ -157,8 +157,11 @@ jobs:
     services:
       # Throwaway CI database; trust auth so tenancy.migrate can create the password-less
       # payesh_runtime LOGIN role exactly like tests/gateway-pg.js.
+      # Pinned to 16.15: with postgres:16 = 16.16 (image of 2026-11-12) the row-111 drill's
+      # pg_dump 18.6 → fresh 18.6 cluster restore fails with `unrecognized parameter
+      # "pg_attver"` on CREATE TABLE (same runner, same code passed on 16.15 in run 43301996173).
       postgres:
-        image: postgres:16
+        image: postgres:16.15
         env:
           POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: payesh_c64
