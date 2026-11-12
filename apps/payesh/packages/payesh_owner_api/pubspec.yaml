@@ -1,0 +1,17 @@
+# Owner-panel API client of the NATIVE owner app (row 126). Pure Dart (dart:io only):
+# the same /api/platform/v1 contract the retired WebView panel (apps/owner-panel/web/app.js)
+# used — no WebView, no HTML, no JavaScript engine.
+name: payesh_owner_api
+description: "Typed client for /api/platform/v1 (owner panel) — native Payesh owner app."
+publish_to: none
+version: 0.1.0
+resolution: workspace
+environment:
+  sdk: ^3.13.0
+dependencies:
+  payesh_core: any
+dev_dependencies:
+  crypto: ^3.0.6
+  coverage: ^1.15.0
+  lints: ^6.0.0
+  test: ^1.26.0

@@ -1,0 +1,236 @@
+import 'package:flutter/material.dart';
+import 'package:payesh_owner_api/payesh_owner_api.dart';
+import 'package:payesh_ui/payesh_ui.dart';
+
+import 'pages/audit_page.dart';
+import 'pages/dashboard_page.dart';
+import 'pages/health_page.dart';
+import 'pages/infra_page.dart';
+import 'pages/limits_page.dart';
+import 'pages/operators_page.dart';
+import 'pages/plans_page.dart';
+import 'pages/reports_page.dart';
+import 'pages/schools_page.dart';
+import 'widgets.dart';
+
+const Map<String, IconData> _icons = {
+  'dashboard': Icons.dashboard_outlined,
+  'schools': Icons.school_outlined,
+  'plans': Icons.credit_card_outlined,
+  'limits': Icons.bar_chart_outlined,
+  'health': Icons.monitor_heart_outlined,
+  'infra': Icons.dns_outlined,
+  'operators': Icons.admin_panel_settings_outlined,
+  'reports': Icons.description_outlined,
+  'audit': Icons.verified_user_outlined,
+};
+
+Widget pageFor(String id) => switch (id) {
+  'dashboard' => const DashboardPage(),
+  'schools' => const SchoolsPage(),
+  'plans' => const PlansPage(),
+  'limits' => const LimitsPage(),
+  'health' => const HealthPage(),
+  'infra' => const InfraPage(),
+  'operators' => const OperatorsPage(),
+  'reports' => const ReportsPage(),
+  'audit' => const AuditPage(),
+  _ => const DashboardPage(),
+};
+
+/// Signed-in shell: the nine pages of the web panel. Drawer on a phone, navigation rail on a
+/// tablet / Windows window (on the right in RTL).
+class OwnerShell extends StatefulWidget {
+  const OwnerShell({
+    super.key,
+    required this.api,
+    required this.now,
+    required this.themeButton,
+    required this.onSignOut,
+  });
+  final OwnerApi api;
+  final DateTime Function() now;
+  final Widget themeButton;
+  final VoidCallback onSignOut;
+
+  @override
+  State<OwnerShell> createState() => _OwnerShellState();
+}
+
+class _OwnerShellState extends State<OwnerShell> {
+  int _index = 0;
+  ({bool ok, String text, int n})? _flash;
+  int _seq = 0;
+
+  void _show(bool ok, String text) {
+    if (!mounted) return;
+    setState(() => _flash = (ok: ok, text: text, n: ++_seq));
+  }
+
+  void _select(int i) => setState(() {
+    _index = i;
+    _flash = null;
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.api.session;
+    final (id, title) = ownerPages[_index];
+    final size = sizeClassOf(MediaQuery.sizeOf(context).width);
+    final tk = context.tokens;
+    final flash = _flash;
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (flash != null)
+          Material(
+            key: ValueKey('flash-${flash.n}'),
+            color: flash.ok ? tk.successBg : tk.dangerBg,
+            child: Semantics(
+              liveRegion: true,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        flash.text,
+                        key: const Key('flash'),
+                        style: TextStyle(
+                          color: flash.ok ? tk.success : tk.danger,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'بستن',
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () => setState(() => _flash = null),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        Expanded(
+          child: OwnerScope(
+            api: widget.api,
+            flash: _show,
+            now: widget.now,
+            child: KeyedSubtree(key: ValueKey('page-$id'), child: pageFor(id)),
+          ),
+        ),
+      ],
+    );
+    final actions = <Widget>[
+      if (s != null)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Center(
+            child: Pill(
+              s.role.label,
+              key: Key('role-${s.role.wire}'),
+              tone: PayeshTone.info,
+            ),
+          ),
+        ),
+      widget.themeButton,
+      TextButton(
+        key: const Key('logout'),
+        onPressed: widget.onSignOut,
+        child: const Text('خروج'),
+      ),
+    ];
+    if (size == SizeClass.compact) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(title),
+          actions: [
+            IconButton(
+              key: const Key('account-menu'),
+              tooltip: 'حساب و پوسته',
+              icon: const Icon(Icons.account_circle_outlined),
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                builder: (ctx) => SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(PayeshTokens.space4),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: actions,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        drawer: NavigationDrawer(
+          key: const Key('nav-drawer'),
+          selectedIndex: _index,
+          onDestinationSelected: (i) {
+            Navigator.of(context).pop();
+            _select(i);
+          },
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(28, 16, 16, 10),
+              child: Text(
+                'پنل مالک پایش',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            for (final (pid, ptitle) in ownerPages)
+              NavigationDrawerDestination(
+                key: Key('nav-$pid'),
+                icon: Icon(_icons[pid]),
+                label: Text(ptitle),
+              ),
+          ],
+        ),
+        body: SafeArea(child: body),
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(title: Text(title), actions: actions),
+      body: SafeArea(
+        child: Row(
+          children: [
+            SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight:
+                      MediaQuery.sizeOf(context).height - kToolbarHeight - 24,
+                ),
+                child: IntrinsicHeight(
+                  child: NavigationRail(
+                    key: const Key('nav-rail'),
+                    extended: size == SizeClass.expanded,
+                    labelType: size == SizeClass.expanded
+                        ? NavigationRailLabelType.none
+                        : NavigationRailLabelType.all,
+                    selectedIndex: _index,
+                    onDestinationSelected: _select,
+                    destinations: [
+                      for (final (pid, ptitle) in ownerPages)
+                        NavigationRailDestination(
+                          icon: Icon(_icons[pid], key: Key('nav-$pid')),
+                          label: Text(ptitle),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            VerticalDivider(width: 1, color: tk.line),
+            Expanded(child: body),
+          ],
+        ),
+      ),
+    );
+  }
+}

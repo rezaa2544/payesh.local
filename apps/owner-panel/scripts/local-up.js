@@ -489,6 +489,7 @@ async function run(opts, io = {}) {
 module.exports = {
   parseArgs, isLoopbackHost, assertLoopbackBind, assertLocalDatabaseUrl, assertOutsideGit, assertEnvClean,
   defaultDataDir, loadOrCreateSecrets, openDb, migrate, migrationFiles, ensureOwner, run, Refusal, BANNER, LEDGER,
+  startServers, closeServer,
 };
 
 if (require.main === module) {

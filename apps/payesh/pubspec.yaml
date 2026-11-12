@@ -6,11 +6,13 @@ environment:
   sdk: ^3.13.0
 workspace:
   - app
+  - owner
   - packages/payesh_core
   - packages/payesh_data
   - packages/payesh_sync
   - packages/payesh_secure
   - packages/payesh_ui
+  - packages/payesh_owner_api
 hooks:
   user_defines:
     sqlite3:

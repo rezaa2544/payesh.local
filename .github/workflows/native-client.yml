@@ -29,6 +29,9 @@ on:
   push:
     branches: [main, 'arena/**', 'hermes/**']
     paths:
+      - 'apps/owner-panel/**'
+      - 'db/migrations/owner-panel/**'
+      - 'tools/owner-native-texts.mjs'
       - 'apps/payesh/**'
       - 'tools/native-independence-gate.mjs'
       - 'tools/android-release-check-76.mjs'
@@ -54,6 +57,9 @@ on:
       - '.github/workflows/native-client.yml'
   pull_request:
     paths:
+      - 'apps/owner-panel/**'
+      - 'db/migrations/owner-panel/**'
+      - 'tools/owner-native-texts.mjs'
       - 'apps/payesh/**'
       - 'tools/native-independence-gate.mjs'
       - 'tools/android-release-check-76.mjs'
@@ -325,11 +331,12 @@ jobs:
           fi
           echo 'NATIVE-DEPS-OK'
       - name: dart format (no diff)
-        run: dart format --output=none --set-exit-if-changed app/lib app/test packages tool
+        run: dart format --output=none --set-exit-if-changed app/lib app/test owner/lib owner/test packages tool
       - name: analyze (0 errors, 0 warnings, 0 infos)
         run: |
           set -euo pipefail
           (cd app && flutter analyze --fatal-infos --fatal-warnings)
+          (cd owner && flutter analyze --fatal-infos --fatal-warnings)
           for p in packages/*/; do
             if grep -q 'sdk: flutter' "$p/pubspec.yaml"; then (cd "$p" && flutter analyze --fatal-infos --fatal-warnings)
             else (cd "$p" && dart analyze --fatal-infos --fatal-warnings); fi
@@ -339,12 +346,13 @@ jobs:
         run: |
           set -euo pipefail
           (cd app && flutter test --coverage)
+          (cd owner && flutter test --coverage)
           # Flutter packages (payesh_ui: widgets + goldens with the bundled font) → flutter test
           for p in packages/*/; do
             if grep -q 'sdk: flutter' "$p/pubspec.yaml"; then (cd "$p" && flutter test --concurrency=1 --coverage)
             else (cd "$p" && dart run coverage:test_with_coverage); fi
           done
-          dart tool/coverage_check.dart "$COVERAGE_MIN" app/coverage/lcov.info packages/*/coverage/lcov.info | tee coverage-summary.txt
+          dart tool/coverage_check.dart "$COVERAGE_MIN" app/coverage/lcov.info owner/coverage/lcov.info packages/*/coverage/lcov.info | tee coverage-summary.txt
       # Row 73: goldens rendered with the REAL Vazirmatn (light/dark × Android/Windows × text 2x),
       # RTL / Jalali / a11y widget tests and the web-generated Jalali vectors — must all execute.
       - name: payesh_ui goldens + RTL/Jalali/a11y (row 73, none skipped)
@@ -368,6 +376,7 @@ jobs:
           path: |
             apps/payesh/coverage-summary.txt
             apps/payesh/app/coverage/lcov.info
+            apps/payesh/owner/coverage/lcov.info
             apps/payesh/packages/*/coverage/lcov.info
             ui-73.txt
 
@@ -724,9 +733,287 @@ jobs:
           name: native-windows
           path: native-out/
 
+  # ── Row 126: NATIVE owner panel (apps/payesh/owner) ──────────────────────────
+  # The Dart owner client against the REAL owner stack: Gateway + platform API +
+  # owner-panel server + migrations 001..006 on PGlite (apps/owner-panel/scripts/
+  # native-it-harness.js), password + real TOTP, every page's endpoints, four-eyes
+  # deletion, operator 403s, grants, infra two-step changes, audit hash chain.
+  # Parity: the Persian error texts / pages / roles / CAPS equal web/app.js.
+  owner-native-it:
+    name: Native owner client against the REAL owner stack (row 126)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: npm ci
+        run: npm ci --no-audit --no-fund
+      - name: Flutter ${{ env.FLUTTER_VERSION }} (pinned, sha256-verified)
+        run: |
+          set -euo pipefail
+          F="flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$F" "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/$F"
+          echo "${FLUTTER_LINUX_SHA256}  $RUNNER_TEMP/$F" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/$F" -C "$RUNNER_TEMP"
+          git config --global --add safe.directory "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: pub get (lockfile enforced)
+        working-directory: apps/payesh
+        run: |
+          flutter config --no-analytics >/dev/null
+          flutter pub get --enforce-lockfile
+      - name: payesh_owner_api ⇄ real Gateway + platform API (PGlite) + parity with web/app.js
+        working-directory: apps/payesh/packages/payesh_owner_api
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/owner-out"
+          PAYESH_OWNER_IT=1 dart test --reporter expanded test/real_server_it_test.dart test/parity_test.dart 2>&1 | tee "$GITHUB_WORKSPACE/owner-out/owner-native-it.txt"
+          grep -q '^OWNER-NATIVE-IT-OK' "$GITHUB_WORKSPACE/owner-out/owner-native-it.txt"
+          if grep -qE '~[0-9]+' "$GITHUB_WORKSPACE/owner-out/owner-native-it.txt"; then echo 'OWNER-IT-SKIPPED'; exit 1; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owner-native-it
+          path: owner-out/
+
+  owner-android:
+    name: Native owner panel — Android APK (ir.payesh.owner) + native gate
+    needs: dart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Flutter ${{ env.FLUTTER_VERSION }} (pinned, sha256-verified)
+        run: |
+          set -euo pipefail
+          F="flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$F" "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/$F"
+          echo "${FLUTTER_LINUX_SHA256}  $RUNNER_TEMP/$F" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/$F" -C "$RUNNER_TEMP"
+          git config --global --add safe.directory "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      # Same owner key as the retired WebView APK (ADR-62, GitHub Secrets PAYESH_OWNER_*):
+      # the native APK upgrades an installed WebView panel in place. Missing ⇒ debug-signed
+      # rehearsal (never published); present but invalid ⇒ red.
+      - name: Owner signing material from Secrets
+        id: signing
+        env:
+          KS_B64: ${{ secrets.PAYESH_OWNER_KEYSTORE_B64 }}
+          PAYESH_OWNER_KEYSTORE_PASS: ${{ secrets.PAYESH_OWNER_KEYSTORE_PASS }}
+          PAYESH_OWNER_KEY_ALIAS: ${{ secrets.PAYESH_OWNER_KEY_ALIAS }}
+          PAYESH_OWNER_KEY_PASS: ${{ secrets.PAYESH_OWNER_KEY_PASS }}
+        run: |
+          set -euo pipefail
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+          if [ -z "${KS_B64:-}" ] || [ -z "${PAYESH_OWNER_KEYSTORE_PASS:-}" ] || [ -z "${PAYESH_OWNER_KEY_ALIAS:-}" ] || [ -z "${PAYESH_OWNER_KEY_PASS:-}" ]; then
+            echo "::warning title=Owner APK not release-signed::PAYESH_OWNER_* secrets missing — debug-signed rehearsal, NOT FOR DISTRIBUTION"
+            exit 0
+          fi
+          KS="$RUNNER_TEMP/payesh-owner-native.p12"
+          printf '%s' "$KS_B64" | base64 --decode > "$KS"
+          chmod 600 "$KS"
+          if ! keytool -list -keystore "$KS" -storetype PKCS12 -storepass:env PAYESH_OWNER_KEYSTORE_PASS -alias "$PAYESH_OWNER_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::owner keystore/alias from Secrets cannot be validated — fail-closed"; exit 1
+          fi
+          printf 'PAYESH_OWNER_KEYSTORE=%s\n' "$KS" >> "$GITHUB_ENV"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Fail-closed control — required owner signing without a key must stop Gradle
+        working-directory: apps/payesh/owner
+        run: |
+          set -uo pipefail
+          flutter config --no-analytics >/dev/null
+          flutter pub get --enforce-lockfile
+          code=0
+          env -u PAYESH_OWNER_KEYSTORE -u PAYESH_OWNER_KEYSTORE_PASS -u PAYESH_OWNER_KEY_ALIAS -u PAYESH_OWNER_KEY_PASS \
+            PAYESH_OWNER_REQUIRE_RELEASE_SIGNING=true flutter build apk --release > "$RUNNER_TEMP/owner-require.log" 2>&1 || code=$?
+          if [ $code -eq 0 ] || ! grep -q 'PAYESH-OWNER-SIGNING-REQUIRED' "$RUNNER_TEMP/owner-require.log"; then
+            tail -30 "$RUNNER_TEMP/owner-require.log"; echo "::error::owner APK built without the required key"; exit 1
+          fi
+          echo "OWNER-SIGNING-REQUIRED-CONTROL-OK (exit $code)"
+      - name: Build owner APK + AAB (release)
+        working-directory: apps/payesh/owner
+        env:
+          PAYESH_OWNER_KEYSTORE_PASS: ${{ steps.signing.outputs.ready == 'true' && secrets.PAYESH_OWNER_KEYSTORE_PASS || '' }}
+          PAYESH_OWNER_KEY_ALIAS: ${{ steps.signing.outputs.ready == 'true' && secrets.PAYESH_OWNER_KEY_ALIAS || '' }}
+          PAYESH_OWNER_KEY_PASS: ${{ steps.signing.outputs.ready == 'true' && secrets.PAYESH_OWNER_KEY_PASS || '' }}
+          PAYESH_OWNER_REQUIRE_RELEASE_SIGNING: ${{ steps.signing.outputs.ready == 'true' && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          # 100000+run: always above every WebView owner build (versionCode = run_number)
+          BN=$((100000 + ${{ github.run_number }}))
+          flutter build apk --release --build-number=$BN
+          flutter build appbundle --release --build-number=$BN
+      - name: Native gate + identity + signature on the REAL owner APK/AAB
+        env:
+          READY: ${{ steps.signing.outputs.ready }}
+        run: |
+          set -euo pipefail
+          OUT=apps/payesh/owner/build/app/outputs
+          mkdir -p owner-out
+          cp "$OUT/flutter-apk/app-release.apk" owner-out/payesh-owner.apk
+          cp "$OUT/bundle/release/app-release.aab" owner-out/payesh-owner.aab
+          node tools/native-independence-gate.mjs --android owner-out/payesh-owner.apk owner-out/payesh-owner.aab | tee owner-out/native-gate-owner-android.txt
+          grep -q '^NATIVE-GATE-OK' owner-out/native-gate-owner-android.txt
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BT=$(ls -d "$SDK"/build-tools/* | sort -V | tail -1)
+          "$BT/aapt2" dump badging owner-out/payesh-owner.apk > owner-out/aapt2-badging.txt
+          grep -q "^package: name='ir.payesh.owner'" owner-out/aapt2-badging.txt
+          if grep -q 'application-debuggable' owner-out/aapt2-badging.txt; then echo '::error::debuggable owner APK'; exit 1; fi
+          grep -E "^(package|sdkVersion|targetSdkVersion|uses-permission|application-label)" owner-out/aapt2-badging.txt
+          if grep -E "uses-permission: name='" owner-out/aapt2-badging.txt | grep -vE "android.permission.INTERNET|DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"; then
+            echo '::error::unexpected permission in the owner APK'; exit 1
+          fi
+          "$BT/apksigner" verify --verbose --print-certs owner-out/payesh-owner.apk > owner-out/apksigner.txt 2>&1
+          grep -E "^(Verif|Number of signers|.*certificate (DN|SHA-256))" owner-out/apksigner.txt
+          if [ "$READY" = true ] && grep -q 'CN=Android Debug' owner-out/apksigner.txt; then echo '::error::owner key ready but APK debug-signed'; exit 1; fi
+          if [ "$READY" != true ]; then echo 'REHEARSAL (debug-signed) — NOT FOR DISTRIBUTION' | tee owner-out/NOT-FOR-DISTRIBUTION.txt; fi
+          (cd owner-out && sha256sum payesh-owner.apk payesh-owner.aab | tee SHA256SUMS-owner-android)
+      - name: Remove signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/payesh-owner-native.p12"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owner-native-android
+          path: owner-out/
+
+  owner-windows:
+    name: Native owner panel — Windows EXE + installer (upgrade over the WebView shell) + native gate
+    needs: dart
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Flutter ${{ env.FLUTTER_VERSION }} (pinned, sha256-verified)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $F = "flutter_windows_$($env:FLUTTER_VERSION)-stable.zip"
+          $Z = Join-Path $env:RUNNER_TEMP $F
+          Invoke-WebRequest -Uri "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/$F" -OutFile $Z
+          $h = (Get-FileHash $Z -Algorithm SHA256).Hash.ToLower()
+          if ($h -ne $env:FLUTTER_WINDOWS_SHA256) { throw "flutter archive sha256 mismatch: $h" }
+          tar -xf $Z -C $env:RUNNER_TEMP
+          git config --global --add safe.directory '*'
+          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $env:RUNNER_TEMP 'flutter\bin')
+      - name: Build owner Windows (release) + app-local MSVC runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Push-Location apps/payesh/owner
+          flutter config --no-analytics | Out-Null
+          flutter pub get --enforce-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'pub get failed' }
+          flutter build windows --release
+          if ($LASTEXITCODE -ne 0) { throw 'flutter build windows failed' }
+          Pop-Location
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $redist = Join-Path $vs 'VC\Redist\MSVC'
+          $src = $null
+          foreach ($v in (Get-ChildItem $redist -Directory | Where-Object { $_.Name -match '^\d+(\.\d+)+$' } | Sort-Object { [version]$_.Name } -Descending)) {
+            $c = Get-ChildItem (Join-Path $v.FullName 'x64') -Directory -Filter 'Microsoft.VC14*.CRT' -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+            if ($c -and (Test-Path (Join-Path $c.FullName 'vcruntime140_1.dll'))) { $src = $c.FullName; break }
+          }
+          if (-not $src) { throw "MSVC CRT redist not found under $redist" }
+          foreach ($d in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') { Copy-Item (Join-Path $src $d) 'apps\payesh\owner\build\windows\x64\runner\Release' -Force }
+      - name: Native gate on the REAL owner Windows bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          REL=apps/payesh/owner/build/windows/x64/runner/Release
+          mkdir -p owner-out
+          ls -la "$REL"
+          node tools/native-independence-gate.mjs --windows "$REL" | tee owner-out/native-gate-owner-windows.txt
+          grep -q '^NATIVE-GATE-OK' owner-out/native-gate-owner-windows.txt
+          (cd "$REL" && 7z a -tzip -r "$GITHUB_WORKSPACE/owner-out/payesh-owner-windows.zip" . >/dev/null)
+          node tools/native-independence-gate.mjs --windows owner-out/payesh-owner-windows.zip | tee -a owner-out/native-gate-owner-windows.txt
+      - name: Build payesh-owner-setup.exe (Inno Setup)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install innosetup --no-progress -y | Out-Null
+          $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          if (-not $iscc) { throw 'ISCC not found' }
+          $v = (Select-String -Path 'apps\payesh\owner\pubspec.yaml' -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          New-Item -ItemType Directory -Force native-out | Out-Null
+          & $iscc "/DAppVersion=$v" 'apps\payesh\owner\windows\installer\payesh-owner-native.iss' 2>&1 | Tee-Object -FilePath owner-out\iscc-owner.log
+          if ($LASTEXITCODE -ne 0) { Get-Content owner-out\iscc-owner.log -Tail 15; throw "ISCC failed ($LASTEXITCODE)" }
+          Move-Item native-out\payesh-owner-setup.exe owner-out\payesh-owner-setup.exe -Force
+          "{0:N1} MB — version {1}" -f ((Get-Item owner-out\payesh-owner-setup.exe).Length/1MB), $v
+      # Upgrade path: install the published owner WebView2 shell first (if the release still
+      # carries it), then the native installer over it. The WebView2 files must be gone, the
+      # remembered server address kept, and the native gate must pass on the INSTALLED folder.
+      - name: Upgrade over the WebView shell → native gate on the INSTALLED app → run → uninstall
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = 'owner-out\installer-owner.txt'
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\PayeshOwner'
+          $data = Join-Path $env:LOCALAPPDATA 'PayeshOwner'
+          $legacy = $false
+          gh release download owner-continuous -R $env:GITHUB_REPOSITORY -p payesh-owner-setup.exe -D legacy 2>$null
+          if ($LASTEXITCODE -eq 0 -and (Test-Path legacy\payesh-owner-setup.exe)) {
+            $p = Start-Process legacy\payesh-owner-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "legacy install failed ($($p.ExitCode))" }
+            $legacy = Test-Path (Join-Path $dir 'WebView2Loader.dll')
+            "published owner setup installed first; WebView2 shell present: $legacy" | Tee-Object -FilePath $log -Append
+          } else { 'no published owner setup to upgrade from' | Tee-Object -FilePath $log -Append }
+          New-Item -ItemType Directory -Force $data | Out-Null
+          Set-Content -Path (Join-Path $data 'origin.txt') -Value 'https://owner.example.ir' -NoNewline -Encoding ascii
+          $p = Start-Process owner-out\payesh-owner-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "native owner install failed ($($p.ExitCode))" }
+          foreach ($f in 'payesh_owner.exe','flutter_windows.dll','data\icudtl.dat','data\app.so','msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll','unins000.exe') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing after install: $f" }
+          }
+          foreach ($f in 'PayeshOwner.exe','WebView2Loader.dll','Microsoft.Web.WebView2.Core.dll','Microsoft.Web.WebView2.WinForms.dll') {
+            if (Test-Path (Join-Path $dir $f)) { throw "WebView shell file left after the native install: $f" }
+          }
+          if ((Get-Content (Join-Path $data 'origin.txt') -Raw) -ne 'https://owner.example.ir') { throw 'remembered server address lost' }
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{20AE76FD-560D-41ED-B6F5-7F66F3308129}_is1'
+          if (-not (Test-Path $key)) { throw 'owner uninstall key not found' }
+          if ((Get-ItemProperty $key).DisplayIcon -notmatch 'payesh_owner\.exe') { throw 'uninstall entry does not point at the native exe' }
+          Get-ChildItem $dir -Recurse -File | ForEach-Object { "{0}`t{1}" -f $_.FullName.Substring($dir.Length+1), $_.Length } | Tee-Object -FilePath $log -Append
+          node tools/native-independence-gate.mjs --windows "$dir" | Tee-Object -FilePath $log -Append
+          if ($LASTEXITCODE -ne 0) { throw 'native gate failed on the INSTALLED owner app' }
+          # run: the native window must come up and stay alive (no browser engine, no server)
+          $app = Start-Process (Join-Path $dir 'payesh_owner.exe') -PassThru
+          Start-Sleep -Seconds 12
+          $app.Refresh()
+          if ($app.HasExited) { throw "payesh_owner.exe exited early ($($app.ExitCode))" }
+          $mods = (Get-Process -Id $app.Id).Modules | ForEach-Object { $_.ModuleName }
+          "loaded modules: $($mods -join ', ')" | Tee-Object -FilePath $log -Append
+          foreach ($bad in 'WebView2Loader.dll','EmbeddedBrowserWebView.dll','msedgewebview2.exe','node.exe') {
+            if ($mods -contains $bad) { throw "browser/runtime module loaded: $bad" }
+          }
+          if (Get-Process -Name msedgewebview2 -ErrorAction SilentlyContinue | Where-Object { $_.Parent.Id -eq $app.Id }) { throw 'WebView2 child process' }
+          if ($mods -notcontains 'flutter_windows.dll') { throw 'flutter engine not loaded' }
+          "RUN-OK pid=$($app.Id) title=$($app.MainWindowTitle)" | Tee-Object -FilePath $log -Append
+          Stop-Process -Id $app.Id -Force
+          $u = Start-Process (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "silent uninstall failed ($($u.ExitCode))" }
+          Start-Sleep -Seconds 3
+          if (Test-Path (Join-Path $dir 'payesh_owner.exe')) { throw 'payesh_owner.exe left after uninstall' }
+          "OWNER-INSTALLER-OK upgrade-from-webview=$legacy install+gate+run+uninstall" | Tee-Object -FilePath $log -Append
+          $h = (Get-FileHash 'owner-out\payesh-owner-setup.exe' -Algorithm SHA256).Hash.ToLower()
+          "$h  payesh-owner-setup.exe" | Tee-Object -FilePath owner-out\SHA256SUMS-owner-installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owner-native-windows
+          path: owner-out/
+
   native-gate:
     name: native-gate (all must pass)
-    needs: [gate-controls, engine-web-conformance, sync-real-server, gateway-real, dart, android, windows]
+    needs: [gate-controls, engine-web-conformance, sync-real-server, gateway-real, dart, android, windows, owner-native-it, owner-android, owner-windows]
     if: always()
     runs-on: ubuntu-latest
     outputs:
@@ -735,7 +1022,7 @@ jobs:
       - name: Verdict
         id: verdict
         run: |
-          echo "results=gate-controls=${{ needs.gate-controls.result }},engine-web-conformance=${{ needs.engine-web-conformance.result }},sync-real-server=${{ needs.sync-real-server.result }},gateway-real=${{ needs.gateway-real.result }},dart=${{ needs.dart.result }},android=${{ needs.android.result }},windows=${{ needs.windows.result }}" >> "$GITHUB_OUTPUT"
+          echo "results=gate-controls=${{ needs.gate-controls.result }},engine-web-conformance=${{ needs.engine-web-conformance.result }},sync-real-server=${{ needs.sync-real-server.result }},gateway-real=${{ needs.gateway-real.result }},dart=${{ needs.dart.result }},android=${{ needs.android.result }},windows=${{ needs.windows.result }},owner-native-it=${{ needs.owner-native-it.result }},owner-android=${{ needs.owner-android.result }},owner-windows=${{ needs.owner-windows.result }}" >> "$GITHUB_OUTPUT"
           echo "gate-controls=${{ needs.gate-controls.result }} engine-web=${{ needs.engine-web-conformance.result }} sync-real-server=${{ needs.sync-real-server.result }} gateway-real=${{ needs.gateway-real.result }} dart=${{ needs.dart.result }} android=${{ needs.android.result }} windows=${{ needs.windows.result }}"
           test "${{ needs.gate-controls.result }}" = success
           test "${{ needs.engine-web-conformance.result }}" = success
@@ -744,4 +1031,7 @@ jobs:
           test "${{ needs.dart.result }}" = success
           test "${{ needs.android.result }}" = success
           test "${{ needs.windows.result }}" = success
+          test "${{ needs.owner-native-it.result }}" = success
+          test "${{ needs.owner-android.result }}" = success
+          test "${{ needs.owner-windows.result }}" = success
           echo NATIVE-CLIENT-CI-OK

@@ -15,15 +15,20 @@ class PayeshMaterialApp extends StatelessWidget {
     this.title = 'پایش',
     this.themeMode = ThemeMode.system,
     this.platform,
+    this.navigatorKey,
   });
 
   final Widget home;
+
+  /// Lets the app close dialogs/sheets when the session ends (owner app, row 126).
+  final GlobalKey<NavigatorState>? navigatorKey;
   final String title;
   final ThemeMode themeMode;
   final TargetPlatform? platform;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: navigatorKey,
     title: title,
     debugShowCheckedModeBanner: false,
     locale: PayeshUi.locale,
