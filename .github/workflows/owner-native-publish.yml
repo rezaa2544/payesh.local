@@ -1,0 +1,149 @@
+name: owner-native-publish
+
+# ═══════════════════════════════════════════════════════════════════
+#  Row 126 · native owner panel — the ONLY writer of the owner-continuous prerelease.
+#  ADR-62's WebView exception is revoked: owner-panel.yml no longer publishes anything; its
+#  WebView builds are CI-only negative controls.
+#
+#  Fail-closed rules:
+#   · Runs only after a SUCCESSFUL native-client run for a push to main (native-gate green:
+#     owner IT on the real stack, owner APK/AAB + Windows EXE/installer gated, WebView→native
+#     upgrade proven on Windows, same signer + higher versionCode proven on Android).
+#   · Publishes only the artifacts of THAT run, after re-checking: release-signed APK (never a
+#     debug-signed rehearsal), upgrade markers, artifact checksums, and the native-independence
+#     gate on the APK and the Windows zip.
+#   · The release ends with exactly the native asset set; any other asset (e.g. the old
+#     payesh-owner-web.zip or a WebView build) is deleted, and a mismatch turns this job red.
+#   · Published files are downloaded back, checksum-verified and gated again.
+#   · An older run never overwrites a newer one (run_number in owner-native-status.json).
+#   · Lives in its own workflow because release-gate.yml calls native-client.yml with
+#     contents: read — a nested write job there would break the release gate.
+# ═══════════════════════════════════════════════════════════════════
+
+on:
+  workflow_run:
+    workflows: [native-client]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner-continuous-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish the NATIVE owner app to owner-continuous (gated, release-signed only)
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: owner-native-android
+          path: in/android
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: owner-native-windows
+          path: in/windows
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Re-verify the native artifacts of that run (fail-closed)
+        run: |
+          set -euo pipefail
+          A=in/android; W=in/windows
+          ls -la "$A" "$W"
+          if [ -e "$A/NOT-FOR-DISTRIBUTION.txt" ]; then echo '::error::debug-signed rehearsal APK — never published'; exit 1; fi
+          if grep -q 'CN=Android Debug' "$A/apksigner.txt"; then echo '::error::debug-signed APK'; exit 1; fi
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' "$A/apksigner.txt"
+          grep -q '^OWNER-ANDROID-UPGRADE-OK same-signer' "$A/upgrade-android.txt"
+          grep -q '^OWNER-INSTALLER-OK upgrade-from-webview=True ' "$W/installer-owner.txt"
+          (cd "$A" && sha256sum -c SHA256SUMS-owner-android)
+          (cd "$W" && tr -d '\r' < SHA256SUMS-owner-installer | sha256sum -c -)
+          node tools/native-independence-gate.mjs --android "$A/payesh-owner.apk" --windows "$W/payesh-owner-windows.zip" | tee gate-publish.txt
+          grep -q '^NATIVE-GATE-OK' gate-publish.txt
+          mkdir -p pub
+          cp "$A/payesh-owner.apk" "$W/payesh-owner-setup.exe" "$W/payesh-owner-windows.zip" pub/
+          (cd pub && sha256sum payesh-owner-setup.exe payesh-owner.apk payesh-owner-windows.zip > SHA256SUMS && cat SHA256SUMS)
+      - name: Publish — replace every WebView asset with the native set
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SRC_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          TAG=owner-continuous
+          R="$GITHUB_REPOSITORY"
+          prev=0
+          if gh release download "$TAG" -R "$R" -p owner-native-status.json -D prev 2>/dev/null; then
+            prev=$(node -p "Number(require('./prev/owner-native-status.json').run_number)||0")
+          fi
+          if [ "$prev" -ge "$RUN_NUMBER" ]; then echo "native-client run #$prev is already published (>= #$RUN_NUMBER) — nothing to do"; exit 0; fi
+          node -e '
+            const fs = require("fs");
+            const files = {};
+            for (const l of fs.readFileSync("pub/SHA256SUMS", "utf8").trim().split("\n")) { const [h, n] = l.split(/\s+/); files[n] = h; }
+            fs.writeFileSync("pub/owner-native-status.json", JSON.stringify({
+              kind: "native-flutter", webview: false, row: 126,
+              run_number: Number(process.env.RUN_NUMBER), run_url: process.env.RUN_URL, commit: process.env.SRC_SHA,
+              gate: "NATIVE-GATE-OK (tools/native-independence-gate.mjs, docs/cloud/43-native-independence.json)",
+              android: "ir.payesh.owner, owner key (same signer as the retired WebView APK → in-place upgrade)",
+              windows: "payesh_owner.exe + Inno Setup (same AppId as the retired WebView2 shell → in-place upgrade); Authenticode: BLOCKED (no PAYESH_WIN_PFX_*)",
+              files
+            }, null, 2) + "\n");'
+          NOTES="پنل مالک **بومی** (Flutter) — بدون WebView، بدون WebView2، بدون مرورگر پنهان و بدون Node.js. ردیف ۱۲۶.
+          نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]. انتشار رسمی نیست.
+          payesh-owner-setup.exe: نصب‌کنندهٔ ویندوز؛ پنل WebView قبلی را درجا جایگزین می‌کند و آدرس سرور ذخیره‌شده را نگه می‌دارد. امضای کد (Authenticode) هنوز نیست، پس Windows SmartScreen هشدار می‌دهد: پیش از اجرا SHA256 را با SHA256SUMS مقایسه کنید (Get-FileHash payesh-owner-setup.exe)، سپس More info ← Run anyway.
+          payesh-owner.apk: امضاشده با کلید مالک (همان امضای APK قبلی)؛ روی اپ قبلی درجا ارتقا می‌یابد.
+          payesh-owner-windows.zip: همان برنامهٔ ویندوز به‌صورت قابل‌حمل.
+          هر فایل در CI از دروازهٔ استقلال بومی گذشته است: $RUN_URL
+          commit: $SRC_SHA"
+          TITLE="پنل مالک بومی (Flutter) — ساخت پیوسته؛ انتشار رسمی نیست"
+          if ! gh release view "$TAG" -R "$R" >/dev/null 2>&1; then
+            gh release create "$TAG" -R "$R" --prerelease --target "$SRC_SHA" --title "$TITLE" --notes "$NOTES"
+          else
+            gh release edit "$TAG" -R "$R" --prerelease --title "$TITLE" --notes "$NOTES"
+          fi
+          ALLOWED="SHA256SUMS owner-native-status.json payesh-owner-setup.exe payesh-owner-windows.zip payesh-owner.apk"
+          for a in $(gh release view "$TAG" -R "$R" --json assets --jq '.assets[].name'); do
+            case " $ALLOWED " in
+              *" $a "*) ;;
+              *) echo "removing non-native asset: $a"; gh release delete-asset "$TAG" "$a" -R "$R" -y ;;
+            esac
+          done
+          gh release upload "$TAG" -R "$R" pub/SHA256SUMS pub/owner-native-status.json pub/payesh-owner-setup.exe pub/payesh-owner-windows.zip pub/payesh-owner.apk --clobber
+          got=$(gh release view "$TAG" -R "$R" --json assets --jq '[.assets[].name] | sort | join(" ")')
+          if [ "$got" != "$ALLOWED" ]; then echo "::error::owner-continuous assets [$got] != native set [$ALLOWED]"; exit 1; fi
+      - name: Download back → checksums + native gate on the PUBLISHED files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p back
+          gh release download owner-continuous -R "$GITHUB_REPOSITORY" -D back
+          ls -la back
+          (cd back && sha256sum -c SHA256SUMS)
+          node tools/native-independence-gate.mjs --android back/payesh-owner.apk --windows back/payesh-owner-windows.zip | tee -a gate-publish.txt
+          grep -q "\"webview\": false" back/owner-native-status.json
+          echo "OWNER-NATIVE-PUBLISH-OK $(node -p "require('./back/owner-native-status.json').run_number")" | tee -a gate-publish.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owner-native-publish
+          path: gate-publish.txt
+          if-no-files-found: ignore

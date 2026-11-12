@@ -6,10 +6,12 @@
      P1  شناسه‌ها جدا از اپ مدرسه (applicationId، AppId، پوشه، میان‌بر، exe، مانیفست)
      P2  بدون آدرس/توکن/کلید سخت‌کد در پوسته‌ها
      P3  قیود امنیتی پوسته (پل JS، TLS، cleartext، backup، debuggable، مجوز)
-     P4  workflow: نام‌های ثابت، گیت، شرط انتشار، Secretهای جدا، بدون continue-on-error
+     P4  workflow: نام‌های ثابت، گیت، Secretهای جدا، بدون continue-on-error؛ ردیف ۱۲۶: workflow پنل WebView
+         هرگز منتشر نمی‌کند (بدون gh release، بدون contents: write) و دروازهٔ بومی باید APK آن را رد کند
      P5  ADR‑62 موجود و صریحاً «ردیف ۶۳ تغییر نمی‌کند»؛ فایل‌های اپ مدرسه
          به پنل مالک ارجاع نمی‌دهند
-     P6  قطعیت بستهٔ وب + خودآزمایی گیت خروجی‌ها؛ لینک‌های README = نام خروجی‌ها (ردیف ۱۰۰)
+     P6  قطعیت بستهٔ وب + خودآزمایی گیت خروجی‌ها؛ لینک‌های README = مجموعهٔ انتشار بومی
+         owner-native-publish.yml (ردیف ۱۰۰ → ۱۲۶)؛ هیچ لینک دانلود WebView/وب پنل مالک
      P7  نقشهٔ مخزن (ردیف ۱۰۱): apps/owner-panel و همهٔ زیرپوشه‌هایش در docs/REPOSITORY_MAP.md؛
          همهٔ پیوندهای نسبی معتبر؛ هر شاهد owner-panel-*.txt با base_sha= و پیوندشده از نقشه؛
          سند ۶۱ §۶ به نقشهٔ راه همان نقشه ارجاع می‌دهد
@@ -34,6 +36,7 @@ const F = {
   ownerBuildPs1: 'apps/owner-panel/desktop/build.ps1',
   ownerIss: 'apps/owner-panel/installer/payesh-owner.iss',
   workflow: '.github/workflows/owner-panel.yml',
+  nativePublish: '.github/workflows/owner-native-publish.yml',
   adr: 'docs/cloud/62-adr-owner-panel-packaging.md',
   schoolGradle: 'install/android/app/build.gradle',
   schoolIss: 'installer/payesh.iss',
@@ -165,11 +168,12 @@ const RULES = {
     assert.match(w, /check-owner-artifacts\.js verify --dir dist --commit "\$GITHUB_SHA"/);
     assert.match(w, /check-owner-artifacts\.js --self-test/);
     for (const m of w.matchAll(/if-no-files-found:\s*(\w+)/g)) assert.equal(m[1], 'error', 'missing upload must fail');
-    const pub = one(/(- name: انتشار آزمایشی[\s\S]*)$/, w, 'publish step');
-    assert.match(pub, /^- name: [^\n]*\n\s+if: github\.ref == 'refs\/heads\/main'\n/, 'publish only on main');
-    assert.match(pub, /cp dist\/SHA256SUMS\.release pub\/SHA256SUMS/, 'published SHA256SUMS must cover only eligible files');
-    assert.match(pub, /grep -q "  \$name\\\$" dist\/SHA256SUMS\.release/, 'exe/apk published only if release-eligible');
-    assert.match(pub, /--prerelease/);
+    /* ردیف ۱۲۶: استثنای WebView لغو شد — این workflow فقط ساخت آزمایشی و کنترل منفی است */
+    assert.ok(!/\bgh release\b|releases\/(assets|tags)|softprops\/action-gh-release/.test(w), 'P4 the WebView owner workflow must never publish (row 126)');
+    assert.ok(!/contents:\s*write/.test(w), 'P4 the WebView owner workflow must not hold contents: write');
+    const neg = one(/(- name: کنترل منفی[\s\S]*)$/, w, 'negative-control step');
+    assert.match(neg, /native-independence-gate\.mjs --expect-fail --android dist\/payesh-owner\.apk/, 'P4 native gate must reject the WebView APK');
+    assert.match(neg, /grep -q 'NATIVE-GATE-NEGATIVE-CONTROL-OK'/, 'P4 negative control must be asserted');
     assert.ok(!/gh release (create|upload) continuous\b/.test(w), 'must not write to the school continuous release');
     assert.ok(!/secrets\.PAYESH_(KEYSTORE|KEY_)/.test(w), 'school signing secrets must not be used');
     assert.ok(!/install\/android|installer\/payesh\.iss|desktop\\build\.ps1|desktop\/build\.ps1(?!\S)/.test(w.replace(/apps\\owner-panel\\desktop\\build\.ps1/g, '')), 'workflow must not build school paths');
@@ -186,10 +190,16 @@ const RULES = {
     const links = [...block.matchAll(/\]\((https:\/\/[^)\s]+)\)/g)].map(m => m[1]);
     assert.ok(links.length > 0 && links.every(u => u.startsWith(BASE)), 'every owner link must use the owner-continuous download base');
     const readmeNames = links.map(u => u.slice(BASE.length));
-    const pub = one(/(- name: انتشار آزمایشی[\s\S]*)$/, f.workflow, 'publish step');
-    const loop = one(/for name in ([^;]+); do/, pub, 'publish loop').trim().split(/\s+/);
-    const workflowNames = ['SHA256SUMS', ...loop];
-    assert.ok(/cp dist\/SHA256SUMS\.release pub\/SHA256SUMS/.test(pub) && /FILES="pub\/SHA256SUMS"/.test(pub), 'workflow publishes SHA256SUMS');
+    const allowed = one(/^\s*ALLOWED="([^"]+)"$/m, f.nativePublish, 'native publish asset set').trim().split(/\s+/);
+    const workflowNames = allowed.filter(n => n !== 'owner-native-status.json');
+    assert.ok(workflowNames.includes('SHA256SUMS'), 'native publish carries SHA256SUMS');
+    assert.ok(!allowed.some(n => /web\.zip$/.test(n)), 'no owner web bundle in the native release');
+    assert.match(f.nativePublish, /if \[ "\$got" != "\$ALLOWED" \]; then echo "::error::/, 'the release must end with exactly the native set');
+    assert.match(f.nativePublish, /NOT-FOR-DISTRIBUTION\.txt" \]; then echo '::error::/, 'a debug-signed rehearsal APK is never published');
+    assert.match(f.nativePublish, /native-independence-gate\.mjs --android "\$A\/payesh-owner\.apk" --windows "\$W\/payesh-owner-windows\.zip"/, 'native gate before publishing');
+    assert.match(f.nativePublish, /native-independence-gate\.mjs --android back\/payesh-owner\.apk --windows back\/payesh-owner-windows\.zip/, 'native gate on the published files');
+    assert.ok(!/payesh-owner-web\.zip|WebView[^\n]*\]\(/.test(block), 'README offers no WebView/web owner download');
+    assert.match(block, /بومی/, 'README block names the app native');
     assert.deepEqual([...readmeNames].sort(), [...workflowNames].sort(), 'README link names must equal workflow asset names');
     assert.equal(new Set(readmeNames).size, readmeNames.length, 'no duplicate README links');
     for (const n of readmeNames) assert.ok(block.includes('[`' + n + '`](' + BASE + n + ')'), 'link text must equal asset name: ' + n);
@@ -249,9 +259,10 @@ const MUTATIONS = [
   ['P3_windows_hardening', 'ownerCs', s => s.replace('s.AreHostObjectsAllowed = false;', 's.AreHostObjectsAllowed = true;')],
   ['P3_windows_hardening', 'ownerCs', s => s.replace('if (!OriginPolicy.SameOrigin(a.Uri, origin)) a.Cancel = true;', 'if (false) a.Cancel = true;')],
   ['P3_windows_hardening', 'ownerCs', s => s.split('if (!OriginPolicy.SameOrigin(a.Uri, origin)) a.Cancel = true;').join('#X#').replace('#X#', 'if (!OriginPolicy.SameOrigin(a.Uri, origin)) a.Cancel = true;').replace('#X#', '{ }')],
-  ['P4_workflow', 'workflow', s => s.replace("        if: github.ref == 'refs/heads/main'\n        env:\n          GH_TOKEN", '        env:\n          GH_TOKEN')],
+  ['P4_workflow', 'workflow', s => s + '\n      - name: x\n        run: gh release upload owner-continuous dist/payesh-owner.apk --clobber\n'],
   ['P4_workflow', 'workflow', s => s.replace('      - name: گیت خروجی‌ها (fail-closed)\n', '      - name: گیت خروجی‌ها (fail-closed)\n        continue-on-error: true\n')],
-  ['P4_workflow', 'workflow', s => s.replace('cp dist/SHA256SUMS.release pub/SHA256SUMS', 'cp dist/SHA256SUMS pub/SHA256SUMS')],
+  ['P4_workflow', 'workflow', s => s.replace('--expect-fail --android dist/payesh-owner.apk', '--android dist/payesh-owner.apk')],
+  ['P4_workflow', 'workflow', s => s.replace('    permissions:\n      contents: read\n    steps:\n      - uses: actions/checkout@v4\n\n      - uses: actions/setup-node@v4', '    permissions:\n      contents: write\n    steps:\n      - uses: actions/checkout@v4\n\n      - uses: actions/setup-node@v4')],
   ['P4_workflow', 'workflow', s => s.replace('    if: always()\n    permissions:', '    permissions:')],
   ['P4_workflow', 'workflow', s => s.replace(/if-no-files-found: error/, 'if-no-files-found: warn')],
   ['P5_adr_and_boundary', 'adr', s => s.replace('ردیف ۶۳ و دروازهٔ استقلال بومی کلاینت مدرسه تغییر نمی‌کند و تضعیف نمی‌شود', 'ردیف ۶۳ برای پنل مالک بازنگری می‌شود')],
@@ -261,7 +272,11 @@ const MUTATIONS = [
   ['P6_readme_links', 'readme', s => s.replace('نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]', 'نصب آزمایشی')],
   ['P6_readme_links', 'readme', s => s.replace('owner-continuous/payesh-owner.apk)', 'continuous/payesh-owner.apk)')],
   ['P6_readme_links', 'readme', s => s.replace('(https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local.apk)', '(#)')],
-  ['P6_readme_links', 'workflow', s => s.replace('for name in payesh-owner-web.zip payesh-owner.apk payesh-owner-setup.exe; do', 'for name in payesh-owner-web.zip payesh-owner.apk payesh-owner-setup.exe payesh-owner-portable.zip; do')],
+  ['P6_readme_links', 'nativePublish', s => s.replace('ALLOWED="SHA256SUMS ', 'ALLOWED="SHA256SUMS payesh-owner-portable.zip ')],
+  ['P6_readme_links', 'nativePublish', s => s.replace('ALLOWED="SHA256SUMS ', 'ALLOWED="SHA256SUMS payesh-owner-web.zip ')],
+  ['P6_readme_links', 'nativePublish', s => s.replace('if [ -e "$A/NOT-FOR-DISTRIBUTION.txt" ]; then', 'if false; then')],
+  ['P6_readme_links', 'nativePublish', s => s.replace('--android back/payesh-owner.apk', '--android back/other.apk')],
+  ['P6_readme_links', 'readme', s => s.replace('| چک‌سام |', '| وب | [`payesh-owner-web.zip`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-web.zip) | x |\n| چک‌سام |')],
   ['P7_repo_map', 'repoMap', s => s.replace('[`apps/owner-panel/`](../apps/owner-panel/)', '`apps/owner-panel/`')],
   ['P7_repo_map', 'repoMap', s => s.replace('](../apps/owner-panel/android/)', '](../apps/owner-panel/)')],
   ['P7_repo_map', 'repoMap', s => s.replace('(cloud/reports/evidence/owner-panel-pr4-99.txt)', '(cloud/reports/evidence/owner-panel-pr4-99-missing.txt)')],

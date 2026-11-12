@@ -3,14 +3,17 @@ name: owner-panel-packaging
 # ═══════════════════════════════════════════════════════════════════
 #  بسته‌بندی پنل مالک — PR‑4 · ردیف ۹۹ · ADR‑62 (docs/cloud/62-adr-owner-panel-packaging.md)
 #  الگو: build.yml اپ مدرسه؛ اما workflow، شناسه‌ها، Secretها و انتشار جدا.
-#  خروجی‌های ثابت: payesh-owner-setup.exe · payesh-owner.apk · payesh-owner-web.zip · SHA256SUMS
+#  خروجی‌های ثابت (فقط artifact آزمایشی CI، منتشر نمی‌شوند): payesh-owner-setup.exe · payesh-owner.apk · payesh-owner-web.zip · SHA256SUMS
 #  قواعد:
 #   · نبودن هر خروجی یا شکست هر ساخت ⇒ گیت قرمز (owner-gate)
 #   · APK فقط با امضای تأییدشدهٔ مالک منتشر می‌شود؛ بدون Secret ⇒ «فقط آزمایشی»، منتشر نمی‌شود
 #   · exe بدون Secret امضای کد، امضانشده با SHA256 و توضیح SmartScreen منتشر می‌شود
 #     (افزودهٔ مالک بر D‑44، ۱۴۰۵/۰۸/۱۹؛ README ردیف ۱۰۰)
 #   · Secret موجود ولی نامعتبر ⇒ قرمز (fail-closed)
-#   · انتشار فقط روی main، فقط در prerelease «owner-continuous»؛ ادعای انتشار رسمی نیست
+#   · ردیف ۱۲۶ (ADR‑126): استثنای WebView در ADR‑62 لغو شد. این workflow دیگر هیچ چیز منتشر نمی‌کند
+#     و مجوز نوشتن ندارد. ساخت‌های WebView آن فقط «کنترل منفی» در CI هستند: دروازهٔ استقلال بومی
+#     با --expect-fail باید APK آن را رد کند. «owner-continuous» فقط از owner-native-publish.yml
+#     (اپ بومی Flutter، apps/payesh/owner) منتشر می‌شود.
 #   · ردیف ۶۳ و استقلال بومی اپ مدرسه دست نمی‌خورد؛ این فایل هیچ مسیر اپ مدرسه را نمی‌سازد
 # ═══════════════════════════════════════════════════════════════════
 
@@ -25,6 +28,8 @@ on:
       - 'server/gateway.js'
       - 'db/migrations/owner-panel/**'
       - 'docs/cloud/102-owner-local-up.md'
+      - 'tools/native-independence-gate.mjs'
+      - 'docs/cloud/43-native-independence.json'
   workflow_dispatch:
 
 permissions:
@@ -439,12 +444,12 @@ jobs:
           if-no-files-found: error
 
   owner-gate:
-    name: پنل مالک — گیت خروجی‌ها، SHA256SUMS و انتشار
+    name: پنل مالک (WebView قدیمی) — گیت خروجی‌ها + کنترل منفی بومی؛ بدون انتشار
     runs-on: ubuntu-latest
     needs: [owner-web, owner-android, owner-windows, owner-local-smoke]
     if: always()
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -491,36 +496,11 @@ jobs:
             dist/owner-artifacts-status.json
           if-no-files-found: error
 
-      - name: انتشار آزمایشی (فقط main؛ APK فقط با امضای تأییدشده؛ exe امضانشده با برچسب SmartScreen)
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # ردیف ۱۲۶: این ساخت‌ها WebView هستند و هرگز منتشر یا «بومی» نامیده نمی‌شوند.
+      # دروازهٔ استقلال بومی باید APK همین اجرا را رد کند؛ اگر بپذیرد، دروازه خراب است ⇒ قرمز.
+      - name: کنترل منفی — دروازهٔ بومی باید APK WebView را رد کند (بدون انتشار)
         run: |
           set -euo pipefail
-          TAG=owner-continuous
-          NOTES="نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]. ADR‑62 / D‑44 (+ افزودهٔ ۱۴۰۵/۰۸/۱۹). انتشار رسمی نیست.
-          payesh-owner-setup.exe: اگر امضای کد (Authenticode) مالک نباشد، امضانشده منتشر می‌شود؛ Windows SmartScreen هشدار «Windows protected your PC» می‌دهد. پیش از اجرا SHA256 فایل را با SHA256SUMS مقایسه کنید (PowerShell: Get-FileHash payesh-owner-setup.exe) و سپس More info ← Run anyway.
-          payesh-owner.apk: فقط وقتی اینجاست که با کلید مالک امضا و با apksigner (v2+v3) تأیید شده باشد.
-          payesh-owner-web.zip: بستهٔ وب پنل مالک. SHA256SUMS فقط فایل‌های همین انتشار را پوشش می‌دهد.
-          commit: $GITHUB_SHA"
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
-              --title "پنل مالک — ساخت آزمایشی (انتشار رسمی نیست)" --notes "$NOTES"
-          else
-            gh release edit "$TAG" --prerelease --notes "$NOTES"
-          fi
-          mkdir -p pub
-          cp dist/SHA256SUMS.release pub/SHA256SUMS
-          FILES="pub/SHA256SUMS"
-          for name in payesh-owner-web.zip payesh-owner.apk payesh-owner-setup.exe; do
-            if grep -q "  $name\$" dist/SHA256SUMS.release; then
-              FILES="$FILES dist/$name"
-              SIGNING=$(node -e "const s=require('./dist/owner-artifacts-status.json');const a=s.artifacts.find(x=>x.name===process.argv[1]);console.log(a?a.signing:'?')" "$name")
-              echo "منتشر می‌شود: $name ($SIGNING)"
-            else
-              echo "منتشر نمی‌شود (APK بدون امضای تأییدشده): $name"
-              gh release delete-asset "$TAG" "$name" -y >/dev/null 2>&1 || true
-            fi
-          done
-          gh release upload "$TAG" $FILES --clobber
-          gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) — \(.size)"'
+          node tools/native-independence-gate.mjs --expect-fail --android dist/payesh-owner.apk | tee native-gate-owner-webview.txt
+          grep -q 'NATIVE-GATE-NEGATIVE-CONTROL-OK' native-gate-owner-webview.txt
+          echo "OWNER-WEBVIEW-NOT-PUBLISHED: owner-continuous is written only by owner-native-publish.yml"

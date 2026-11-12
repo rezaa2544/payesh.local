@@ -15,7 +15,8 @@ name: native-client
 #     app-release.apk, app-release.aab and the Windows Release folder. A "native" claim is
 #     accepted only when this gate passes on these artifacts.
 #   · Negative controls: the same gate must REJECT the shipped WebView/Node bundles
-#     (continuous payesh-local.apk / payesh-local-windows.zip, owner-continuous payesh-owner.apk)
+#     (continuous payesh-local.apk / payesh-local-windows.zip, the retired WebView owner APK +
+#     setup frozen in apps/owner-panel/legacy-webview-fixtures/, sha256-pinned)
 #     and the committed releases/payesh-local-windows-0.9.2.zip. If a control passes, the gate is broken → red.
 #   · Rows 76/77: the APK/AAB are release-signed ONLY from GitHub Secrets (owner key, row 61);
 #     without them they are debug-signed REHEARSAL builds, labelled NOT FOR DISTRIBUTION by
@@ -130,7 +131,10 @@ jobs:
           set -euo pipefail
           mkdir -p neg
           gh release download continuous --repo "$GITHUB_REPOSITORY" --dir neg --pattern payesh-local.apk --pattern payesh-local-windows.zip
-          gh release download owner-continuous --repo "$GITHUB_REPOSITORY" --dir neg --pattern payesh-owner.apk
+          # row 126: owner-continuous now carries the NATIVE owner app; the retired WebView
+          # owner APK is a committed, sha256-pinned fixture (never published).
+          (cd apps/owner-panel/legacy-webview-fixtures && sha256sum -c SHA256SUMS)
+          cp apps/owner-panel/legacy-webview-fixtures/payesh-owner.apk neg/payesh-owner.apk
           ls -la neg
           sha256sum neg/* releases/payesh-local-windows-0.9.2.zip
       - name: Gate must REJECT every control (expect-fail)
@@ -875,6 +879,35 @@ jobs:
           if [ "$READY" = true ] && grep -q 'CN=Android Debug' owner-out/apksigner.txt; then echo '::error::owner key ready but APK debug-signed'; exit 1; fi
           if [ "$READY" != true ]; then echo 'REHEARSAL (debug-signed) — NOT FOR DISTRIBUTION' | tee owner-out/NOT-FOR-DISTRIBUTION.txt; fi
           (cd owner-out && sha256sum payesh-owner.apk payesh-owner.aab | tee SHA256SUMS-owner-android)
+      # Row 126: owners already have the WebView APK installed. Android upgrades in place only
+      # with the SAME signer certificate and a HIGHER versionCode — proven against the frozen
+      # WebView APK (apps/owner-panel/legacy-webview-fixtures, sha256-pinned).
+      - name: In-place upgrade over the retired WebView APK — same signer, higher versionCode
+        env:
+          READY: ${{ steps.signing.outputs.ready }}
+        run: |
+          set -euo pipefail
+          FX=apps/owner-panel/legacy-webview-fixtures
+          (cd "$FX" && sha256sum -c SHA256SUMS)
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BT=$(ls -d "$SDK"/build-tools/* | sort -V | tail -1)
+          "$BT/aapt2" dump badging "$FX/payesh-owner.apk" | grep '^package:' | tee owner-out/legacy-badging.txt
+          grep -q "^package: name='ir.payesh.owner'" owner-out/legacy-badging.txt
+          OLD=$(sed -n "s/^package: .* versionCode='\([0-9]*\)'.*/\1/p" owner-out/legacy-badging.txt)
+          NEW=$(sed -n "s/^package: .* versionCode='\([0-9]*\)'.*/\1/p" owner-out/aapt2-badging.txt)
+          echo "versionCode webview=$OLD native=$NEW"
+          if [ -z "$OLD" ] || [ -z "$NEW" ] || [ "$NEW" -le "$OLD" ]; then echo '::error::native versionCode must be above the WebView APK'; exit 1; fi
+          digest() { grep -E 'certificate SHA-256 digest:' | sed 's/.*digest: //' | sort -u; }
+          OLDC=$("$BT/apksigner" verify --verbose --print-certs "$FX/payesh-owner.apk" 2>&1 | digest)
+          NEWC=$(digest < owner-out/apksigner.txt)
+          echo "signer webview=$OLDC"; echo "signer native=$NEWC"
+          if [ -z "$OLDC" ] || [ "$(printf '%s\n' "$OLDC" | wc -l)" -ne 1 ]; then echo '::error::cannot read a single signer from the WebView APK'; exit 1; fi
+          if [ "$READY" = true ]; then
+            if [ "$OLDC" != "$NEWC" ]; then echo '::error::native APK signer differs from the WebView APK — Android would refuse the in-place upgrade'; exit 1; fi
+            echo "OWNER-ANDROID-UPGRADE-OK same-signer versionCode $OLD->$NEW" | tee owner-out/upgrade-android.txt
+          else
+            echo 'REHEARSAL: debug-signed, signer check not applicable, never published' | tee owner-out/upgrade-android.txt
+          fi
       - name: Remove signing material
         if: always()
         run: rm -f "$RUNNER_TEMP/payesh-owner-native.p12"
@@ -948,26 +981,29 @@ jobs:
           if ($LASTEXITCODE -ne 0) { Get-Content owner-out\iscc-owner.log -Tail 15; throw "ISCC failed ($LASTEXITCODE)" }
           Move-Item native-out\payesh-owner-setup.exe owner-out\payesh-owner-setup.exe -Force
           "{0:N1} MB — version {1}" -f ((Get-Item owner-out\payesh-owner-setup.exe).Length/1MB), $v
-      # Upgrade path: install the published owner WebView2 shell first (if the release still
-      # carries it), then the native installer over it. The WebView2 files must be gone, the
-      # remembered server address kept, and the native gate must pass on the INSTALLED folder.
+      # Upgrade path (row 126, fail-closed): install the frozen WebView2 owner shell first
+      # (apps/owner-panel/legacy-webview-fixtures, sha256-pinned — owner-continuous now carries the
+      # native app). The native gate must REJECT that installed WebView folder; then the native
+      # installer upgrades it in place: WebView2 files gone, remembered server address kept, and
+      # the native gate must PASS on the INSTALLED folder.
       - name: Upgrade over the WebView shell → native gate on the INSTALLED app → run → uninstall
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
           $log = 'owner-out\installer-owner.txt'
           $dir = Join-Path $env:LOCALAPPDATA 'Programs\PayeshOwner'
           $data = Join-Path $env:LOCALAPPDATA 'PayeshOwner'
-          $legacy = $false
-          gh release download owner-continuous -R $env:GITHUB_REPOSITORY -p payesh-owner-setup.exe -D legacy 2>$null
-          if ($LASTEXITCODE -eq 0 -and (Test-Path legacy\payesh-owner-setup.exe)) {
-            $p = Start-Process legacy\payesh-owner-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
-            if ($p.ExitCode -ne 0) { throw "legacy install failed ($($p.ExitCode))" }
-            $legacy = Test-Path (Join-Path $dir 'WebView2Loader.dll')
-            "published owner setup installed first; WebView2 shell present: $legacy" | Tee-Object -FilePath $log -Append
-          } else { 'no published owner setup to upgrade from' | Tee-Object -FilePath $log -Append }
+          $fx = 'apps\owner-panel\legacy-webview-fixtures'
+          $want = ((Get-Content (Join-Path $fx 'SHA256SUMS')) | Where-Object { $_ -match '  payesh-owner-setup\.exe$' }) -replace '  .*$',''
+          $got = (Get-FileHash (Join-Path $fx 'payesh-owner-setup.exe') -Algorithm SHA256).Hash.ToLower()
+          if (-not $want -or $got -ne $want) { throw "WebView fixture sha256 mismatch: $got" }
+          $p = Start-Process (Join-Path $fx 'payesh-owner-setup.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "WebView owner install failed ($($p.ExitCode))" }
+          $legacy = Test-Path (Join-Path $dir 'WebView2Loader.dll')
+          if (-not $legacy) { throw 'the WebView owner shell did not install — the upgrade path is not exercised' }
+          "WebView owner shell installed first (fixture sha256 $got)" | Tee-Object -FilePath $log -Append
+          node tools/native-independence-gate.mjs --expect-fail --windows "$dir" | Tee-Object -FilePath $log -Append
+          if ($LASTEXITCODE -ne 0) { throw 'native gate did NOT reject the installed WebView owner shell' }
           New-Item -ItemType Directory -Force $data | Out-Null
           Set-Content -Path (Join-Path $data 'origin.txt') -Value 'https://owner.example.ir' -NoNewline -Encoding ascii
           $p = Start-Process owner-out\payesh-owner-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru

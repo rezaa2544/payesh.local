@@ -38,7 +38,9 @@
 | [`apps/owner-panel/android/`](../apps/owner-panel/android/) | پوستهٔ اندروید مالک (`ir.payesh.owner`، فقط INTERNET، same-origin) — خروجی `payesh-owner.apk` فقط امضاشده | PR‑4 · ۹۹ |
 | [`apps/owner-panel/desktop/`](../apps/owner-panel/desktop/) · [`apps/owner-panel/installer/`](../apps/owner-panel/installer/) | پوستهٔ ویندوز (WebView2) و Inno Setup مالک — خروجی `payesh-owner-setup.exe` (بدون امضای کد) | PR‑4 · ۹۹ |
 | [`db/migrations/owner-panel/`](../db/migrations/owner-panel/) | 001 مدل داده/RLS · 002 API · 003 حذف چهارچشمی + ۲۴ ساعت · 004 ورود (رمز + TOTP، سقف ۳ اپراتور) | PR‑1/2/3 |
-| [`.github/workflows/owner-panel.yml`](../.github/workflows/owner-panel.yml) | ساخت exe/APK/وب، گیت fail-closed، SHA256SUMS، انتشار در `owner-continuous` | PR‑4/5 |
+| [`.github/workflows/owner-panel.yml`](../.github/workflows/owner-panel.yml) | ساخت exe/APK/وب **قدیمی WebView** فقط به‌عنوان آزمون CI + گیت fail-closed + کنترل منفی دروازهٔ بومی؛ **از ردیف ۱۲۶ هیچ چیز منتشر نمی‌کند** | PR‑4/5 · ۱۲۶ |
+| [`.github/workflows/owner-native-publish.yml`](../.github/workflows/owner-native-publish.yml) | تنها نویسندهٔ `owner-continuous`: پس از سبزشدن `native-client` روی main، فقط APK امضاشده و exe/zip بومی پنل مالک را دوباره می‌سنجد و منتشر می‌کند؛ هر فایل دیگری حذف می‌شود | ۱۲۶ |
+| [`apps/owner-panel/legacy-webview-fixtures/`](../apps/owner-panel/legacy-webview-fixtures/) | آخرین APK و setup.exe پنل WebView، قفل‌شده با SHA‑256 — **فقط کنترل منفی CI، برای توزیع نیست** (رد دروازه، آزمون ارتقای درجا به اپ بومی) | ۱۲۶ |
 
 ## ۳. نقشهٔ راه پنل مالک (هم‌تراز با [سند ۶۱ §۶](cloud/61-owner-panel-app-proposal.md) و صف Notion)
 

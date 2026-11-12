@@ -7,8 +7,8 @@
              (sha256 of the body without the row-117 import note) and says Parked
      ADR-02  constitution clause 25 (data path only through the Gateway) is
              byte-identical to before (sha256 of the line)
-     ADR-03  constitution 1.17 + D-48: Parked, PAYESH_TRANSPORT=direct, clause 25
-             unchanged, ADR-117 linked; decision ids D-01..D-48 unique, no gaps, D-48 last
+     ADR-03  constitution 1.18 (rev 1.17 kept) + D-48: Parked, PAYESH_TRANSPORT=direct, clause 25
+             unchanged, ADR-117 linked; decision ids D-01..D-49 unique, no gaps, D-49 last (row 126)
      ADR-04  ADR-117: stages A..D each with cost/capacity/gate; every € figure is [E];
              no [M] measured number; no "unlimited" claim; zero-cost stage A
      ADR-05  client/transport.js: Gateway is the default; only an explicit
@@ -59,15 +59,19 @@ function suiteAdr105(t) {
 function clause25(con) { return con.split('\n').find(l => l.startsWith('25. ')) || ''; }
 function suiteClause25(con) { assert(sha(clause25(con)) === CLAUSE25_SHA256, 'clause 25 changed'); }
 function suiteConstitution(con) {
-  assert(/\| نسخهٔ سند \| \*\*۱٫۱۷\*\*/.test(con), 'version must be 1.17');
+  /* row 126 (D-49) bumped the constitution to 1.18; the 1.17 revision row (D-48) must stay */
+  assert(/\| نسخهٔ سند \| \*\*۱٫۱۸\*\*/.test(con), 'version must be 1.18');
   assert(/\| بازنگری ۱٫۱۷ \|/.test(con), 'revision row 1.17 missing');
+  assert(/\| بازنگری ۱٫۱۸ \| [^\n]*D‑49/.test(con), 'revision row 1.18 (D-49) missing');
   const d48 = con.split('\n').find(l => l.startsWith('| **D‑48** |')) || '';
   assert(d48, 'D-48 missing');
   for (const k of ['Parked', 'PAYESH_TRANSPORT=direct', 'بند ۲۵ و D‑36 بی‌تغییر', '117-adr-staged-low-cost.md', 'تأیید کتبی', 'D‑09']) assert(d48.includes(k), 'D-48 missing: ' + k);
   const ids = [...con.matchAll(/^\| \*\*D‑(\d+)\*\* \|/gm)].map(m => Number(m[1]));
   assert(new Set(ids).size === ids.length, 'duplicate decision id');
-  assert(ids[ids.length - 1] === 48 && Math.max(...ids) === 48, 'D-48 must be the newest (last, highest) decision');
-  for (let n = 1; n <= 48; n++) assert(ids.includes(n), 'decision log gap at D-' + n);
+  assert(ids[ids.length - 1] === 49 && Math.max(...ids) === 49, 'D-49 must be the newest (last, highest) decision');
+  for (let n = 1; n <= 49; n++) assert(ids.includes(n), 'decision log gap at D-' + n);
+  const d49 = con.split('\n').find(l => l.startsWith('| **D‑49** |')) || '';
+  for (const k of ['ADR‑62', 'لغو', 'native-independence-gate', 'آفلاین‌محوری', '126']) assert(d49.includes(k), 'D-49 missing: ' + k);
   assert(/`docs\/cloud\/105-adr-direct-managed-db\.md` \| ADR‑105 [^|]*Parked/.test(con), 'appendix B must list ADR-105 as Parked');
 }
 function stageRows(t) {
@@ -138,6 +142,7 @@ const MUTANTS = [
   ['M2 ADR-105 body edited', () => suiteAdr105(read(P.adr105).replace('## ۸. وضعیت امنیت', '## ۸. امنیت'))],
   ['M3 clause 25 rewritten (direct allowed)', () => suiteClause25(read(P.con).replace('هیچ کلاینتی مستقیم به دیتابیس وصل نمی‌شود', 'کلاینت می‌تواند با RLS مستقیم وصل شود'))],
   ['M4 D-48 dropped', () => suiteConstitution(read(P.con).split('\n').filter(l => !l.startsWith('| **D‑48** |')).join('\n'))],
+  ['M4b D-49 dropped (row 126)', () => suiteConstitution(read(P.con).split('\n').filter(l => !l.startsWith('| **D‑49** |')).join('\n'))],
   ['M5 stage D gate removed', () => suiteAdr117(read(P.adr117).split('\n').filter(l => !l.startsWith('| D |')).join('\n'))],
   ['M6 € figure without [E]', () => suiteAdr117(read(P.adr117).replace('T3 حدود ۸۹ تا ۳۰۰ €/ماه [E]', 'T3 حدود ۸۹ تا ۳۰۰ €/ماه'))],
   ['M7 unlimited claim', () => suiteAdr117(read(P.adr117) + '\nاین معماری کاربر نامحدود را پشتیبانی می‌کند.\n')],
@@ -150,7 +155,7 @@ async function main(opts) {
   passed = 0; failed = 0; negatives = 0; failures.length = 0;
   await check('ADR-01', 'ADR-105 on main verbatim from a532393 + Parked', () => suiteAdr105(read(P.adr105)));
   await check('ADR-02', 'constitution clause 25 unchanged', () => suiteClause25(read(P.con)));
-  await check('ADR-03', 'constitution 1.17 + D-48 + decision ids', () => suiteConstitution(read(P.con)));
+  await check('ADR-03', 'constitution 1.18 + D-48 + D-49 + decision ids', () => suiteConstitution(read(P.con)));
   await check('ADR-04', 'ADR-117 stages/gates/labels, no unlimited, € → [E]', () => suiteAdr117(read(P.adr117)));
   await check('ADR-05', 'transport: Gateway default, direct only explicit', () => suiteTransport(require(path.join(ROOT, P.transport))));
   await check('ADR-06', 'ADR-105 references resolve; ADR-117 links exist', () => suiteLinks(read(P.adr117)));

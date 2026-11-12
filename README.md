@@ -5,19 +5,21 @@
 > [`docs/00-PAYESH-CLOUD-CONSTITUTION.md`](docs/00-PAYESH-CLOUD-CONSTITUTION.md) را بخوانید.
 > این مخزن در پروژهٔ «پایش ابری مستقل» نقش **منبع بررسی و مقایسه** دارد، نه معماری مقصد.
 
-<!-- owner-panel-downloads:start — نام‌ها باید با خروجی‌های owner-panel.yml برابر باشند (گیت P6 در apps/owner-panel/tests/packaging.test.js) -->
-### 🔑 پنل مالک پلتفرم — دانلود مستقیم
+<!-- owner-panel-downloads:start — نام‌ها باید با مجموعهٔ انتشار owner-native-publish.yml برابر باشند (گیت P6 در apps/owner-panel/tests/packaging.test.js) -->
+### 🔑 پنل مالک پلتفرم — اپ بومی (Flutter)، دانلود مستقیم
 
 > ⚠️ **نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]**
 
+این برنامه‌ها **بومی** هستند و WebView، مرورگر پنهان یا Node.js ندارند (ردیف ۱۲۶). هر فایل پیش از انتشار در CI از دروازهٔ استقلال بومی گذشته است.
+
 | خروجی | لینک مستقیم | توضیح |
 |---|---|---|
-| ویندوز | [`payesh-owner-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-setup.exe) | بدون امضای کد — SmartScreen هشدار می‌دهد؛ پیش از اجرا SHA256 را با `SHA256SUMS` مقایسه کنید، سپس More info ← Run anyway |
-| اندروید | [`payesh-owner.apk`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner.apk) | فقط با امضای تأییدشدهٔ کلید مالک منتشر می‌شود |
-| وب | [`payesh-owner-web.zip`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-web.zip) | بستهٔ وب پنل مالک (`START-HERE.txt` داخل بسته) |
+| ویندوز | [`payesh-owner-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-setup.exe) | نصب‌کنندهٔ بومی؛ پنل WebView قبلی را درجا جایگزین می‌کند و آدرس سرور را نگه می‌دارد. امضای کد ندارد، پس SmartScreen هشدار می‌دهد: پیش از اجرا SHA256 را با `SHA256SUMS` مقایسه کنید، سپس More info ← Run anyway |
+| اندروید | [`payesh-owner.apk`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner.apk) | امضاشده با کلید مالک؛ روی اپ قبلی درجا ارتقا می‌یابد |
+| ویندوز (قابل‌حمل) | [`payesh-owner-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-windows.zip) | همان برنامهٔ بومی بدون نصب |
 | چک‌سام | [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/SHA256SUMS) | SHA-256 همهٔ فایل‌های منتشرشدهٔ همین انتشار |
 
-این‌ها پنل مالک‌اند (ADR‑62)، نه برنامهٔ مدرسه؛ دانلود برنامهٔ مدرسه در جدول پایین است.
+این‌ها پنل مالک‌اند، نه برنامهٔ مدرسه؛ دانلود برنامهٔ مدرسه در جدول پایین است.
 <!-- owner-panel-downloads:end -->
 
 سامانهٔ مدیریت مدرسه، **درون‌مدرسه‌ای و بدون هزینهٔ ماهانه**: روی یک سیستم ویندوزی در دفتر مدرسه اجرا می‌شود، و از **هر اینترنتی** — خانهٔ دبیر، گوشی ولی، هر جای دیگر — به همان سیستم وصل می‌شود؛ داخل مدرسه حتی بدون اینترنت هم کار می‌کند.

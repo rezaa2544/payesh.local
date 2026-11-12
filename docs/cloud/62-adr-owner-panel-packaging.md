@@ -1,9 +1,11 @@
 # ADR‑62 — بسته‌بندی پنل مالک: استثنای WebView فقط برای پنل مالک
 
+> ⛔ **این ADR لغو شده است** (ADR‑126 = [`126-adr-native-owner-panel.md`](126-adr-native-owner-panel.md)، D‑49). پنل مالک اکنون اپ بومی Flutter است (`apps/payesh/owner`). ساخت‌های WebView این سند فقط کنترل منفی CI هستند و منتشر نمی‌شوند. متن زیر سابقهٔ تاریخی است.
+
 | مورد | مقدار |
 |---|---|
 | شناسه | **ADR‑62** (نام سند؛ ثبت تصمیم در Decision Log = **D‑44** / **O‑27**) |
-| وضعیت | **پذیرفته — تصمیم صریح مالک (O‑27 = گزینهٔ A)** · ۱۴۰۵/۰۸/۱۹ |
+| وضعیت | **لغوشده (Superseded) با ADR‑126 / D‑49** · ۱۴۰۵/۰۸/۲۲ — دستور مالک: پنل مالک هم باید بومی باشد. پیشین: پذیرفته — تصمیم صریح مالک (O‑27 = گزینهٔ A) · ۱۴۰۵/۰۸/۱۹ |
 | ردیف Notion | ۹۹ — پنل مالک · PR‑4 (workflow بسته‌بندی) |
 | مبنا | `docs/cloud/61-owner-panel-app-proposal.md` §۴ (O‑27 پیشنهادی، بند ۲، ۳ و ۵)؛ قانون اساسی §۴.۸ و §۱۴ |
 | پیاده‌سازی | `.github/workflows/owner-panel.yml` · `apps/owner-panel/{android,desktop,installer,scripts}` · `apps/owner-panel/tests/packaging.test.js` |
