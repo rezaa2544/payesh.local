@@ -4978,7 +4978,7 @@ async function waitFor(fn, ms = 15000) {
     () => ownerSpa.assets());
   await test('PR‑3: پروکسی same-origin با CSP، allowlist هدر و رد cookie/redirect/بدنهٔ نامعتبر',
     () => ownerSpa.proxy());
-  await test('PR‑3: UI سرتاسری روی API واقعی — ورود fail-closed، هشت صفحه، loading/empty/error، نقش operator، حذف دومرحله‌ای، تم',
+  await test('PR‑3: UI سرتاسری روی API واقعی — ورود fail-closed، نُه صفحه، loading/empty/error، نقش operator، حذف دومرحله‌ای، تم',
     async () => { await ownerSpa.ui(); console.log('    OWNER-SPA checks=' + ownerSpa.checks() + ' failures=0'); });
 
   /* ── ردیف ۱۱۸: تطبیق Done در Notion با حقیقت مخزن (جدول PASS/PARTIAL/BLOCKED/…) ── */
@@ -5030,6 +5030,10 @@ async function waitFor(fn, ms = 15000) {
   const infraRegistry = require('../apps/owner-panel/tests/infra-registry.test.js');
   await test('ردیف ۱۲۲: لایهٔ زیرساخت — ProviderAdapter دستی (بدون provisioning خودکار)، credential فقط secret:NAME، Health Check محدود (SSRF/timeout/cooldown)، «نامعلوم» بهجای عدد ساختگی، تغییر پرخطر = درخواست + تأیید owner + audit، کنترل منفی',
     async () => { const r = await infraRegistry.all(); console.log('    INFRA-122 negative_controls=' + r.negative_controls + ' unit_controls=' + r.unit_controls + ' failures=0'); });
+
+  /* ── ردیف ۱۲۳: صفحهٔ «زیرساخت» و فرم «ساخت مدرسه» در SPA پنل مالک ───── */
+  await test('ردیف ۱۲۳: UI زیرساخت روی API واقعی — «نامعلوم» بهجای عدد ساختگی، credential فقط secret:NAME (بدون فیلد رمز)، Health Check دستی با cooldown، تغییر پرخطر دومرحله‌ای (درخواست ⇒ تأیید فقط owner)، ساخت مدرسه با کد فعال‌سازی یک‌باره، کنترل منفی',
+    async () => { const r = await require('../apps/owner-panel/tests/owner-spa-infra.test.js').run(); console.log('    OWNER-SPA-INFRA-123 checks=' + r.checks + ' negative_controls=' + r.negative + ' failures=0'); });
 
   /* ── ردیف ۱۰۲: پنل مالک · اجرای محلی با یک فرمان (local-up) ─────────── */
   const ownerLocalUp = require('../apps/owner-panel/tests/local-up.test.js');

@@ -11,7 +11,7 @@
      RC-04  [M] only with evidence that itself says [M]; no "unlimited" capacity claim
      RC-05  security row is UNKNOWN (D-41) — never PASS without a human pentest
      RC-06  truth checks against the repo: the status of R07 (Gateway host deploy),
-            R08 (provider layer / infra migration), R09 (create school → tenant),
+            R08 (provider layer / infra migration / SPA page / real adapter), R09 (create school → tenant + SPA form),
             R10 (native polling) and R23 (native feature pages) must match what the
             code actually contains — a stale report turns red
      RC-07  mutants: each forbidden edit turns its check red
@@ -93,6 +93,11 @@ const TRUTH = {
   // provider layer = an infra-registry migration (row 122); 005 went to tenant provisioning (row 121)
   providerLayer: () => fs.readdirSync(path.join(ROOT, 'db/migrations/owner-panel')).some(f => /^\d{3}_infra_.*\.up\.sql$/.test(f)),
   createSchool: () => /method:\s*'POST',\s*path:\s*'\/tenants'\s*,/.test(fs.readFileSync(path.join(ROOT, 'apps/owner-panel/server/platform-api.js'), 'utf8')),
+  // row 123: the owner SPA has an «زیرساخت» page and a «ساخت مدرسه» form
+  infraUi: () => /id:\s*'infra'/.test(fs.readFileSync(path.join(ROOT, 'apps/owner-panel/web/app.js'), 'utf8')),
+  createSchoolUi: () => /api\('POST',\s*'\/tenants'/.test(fs.readFileSync(path.join(ROOT, 'apps/owner-panel/web/app.js'), 'utf8')),
+  // a real provider adapter (row 124) = any ADAPTERS key other than `manual`
+  providerApi: () => { const m = /const ADAPTERS = \{([^}]*)\}/.exec(fs.readFileSync(path.join(ROOT, 'apps/owner-panel/server/infra.js'), 'utf8')); return !!m && m[1].split(',').map(x => x.split(':')[0].trim()).some(k => k && k !== 'manual'); },
   nativePolling: () => { const d = path.join(ROOT, 'apps/payesh/packages/payesh_sync/lib/src'); return fs.readdirSync(d).some(f => /poll/i.test(fs.readFileSync(path.join(d, f), 'utf8'))); },
   nativePages: () => { const out = []; (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else out.push(p); } })(path.join(ROOT, 'apps/payesh/app/lib')); return out.some(p => /(attendance|grades|notices|login|parents)/i.test(p)); },
 };
@@ -106,6 +111,8 @@ function rcTruth(rows, truth) {
   else assert(st('R08') !== 'NOT IMPLEMENTED', 'R08: infra migration exists — update the report');
   if (!t.createSchool()) assert(st('R09') === 'NOT IMPLEMENTED', 'R09: no POST /tenants yet status=' + st('R09'));
   else assert(st('R09') !== 'NOT IMPLEMENTED', 'R09: POST /tenants exists — update the report');
+  if (st('R09') === 'PASS') assert(t.createSchool() && t.createSchoolUi(), 'R09: PASS needs both POST /tenants and the SPA form');
+  if (st('R08') === 'PASS') assert(t.providerLayer() && t.infraUi() && t.providerApi(), 'R08: PASS needs migration, SPA page and a real provider adapter (row 124)');
   if (!t.nativePolling()) assert(['PARTIAL', 'NOT IMPLEMENTED'].includes(st('R10')), 'R10: native client has no polling yet status=' + st('R10'));
   if (!t.nativePages()) assert(st('R23') === 'NOT IMPLEMENTED', 'R23: no native feature pages yet status=' + st('R23'));
   else assert(st('R23') !== 'NOT IMPLEMENTED', 'R23: native pages exist — update the report');
@@ -128,6 +135,9 @@ const MUTANTS = [
   ['M7 [M] without [M] evidence', d => rcLabels(parse(setStatus(d, 'R04', 'PASS [M]')), d)],
   ['M8 unlimited claim', d => rcLabels(parse(d), d + '\nاین سامانه کاربر نامحدود را پشتیبانی می‌کند.\n')],
   ['M9 blocked row without next step', d => rcRules(parse(d.split('\n').map(l => { if (!l.startsWith('| R07 |')) return l; const c = l.split(' | '); c[9] = '— |'; return c.join(' | '); }).join('\n')))],
+  // M11/M12 (row 123): PASS claims must be backed by UI and (for R08) a real provider adapter
+  ['M11 create-school PASS without the SPA form', d => rcTruth(parse(setStatus(d, 'R09', 'PASS [S]')), Object.assign({}, TRUTH, { createSchoolUi: () => false }))],
+  ['M12 control plane PASS while only the manual adapter exists', d => rcTruth(parse(setStatus(d, 'R08', 'PASS [S]')), Object.assign({}, TRUTH, { providerApi: () => false }))],
   // M10: report must track the infra migration both ways (absent → NOT IMPLEMENTED; present → anything else)
   ['M10 provider layer status disagrees with code', d => TRUTH.providerLayer() ? rcTruth(parse(setStatus(d, 'R08', 'NOT IMPLEMENTED'))) : rcTruth(parse(d), Object.assign({}, TRUTH, { providerLayer: () => true }))],
 ];
