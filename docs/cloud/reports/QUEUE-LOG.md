@@ -23,3 +23,4 @@
 | ۱۲۰ ([S]؛ [M] منتظر ۱۱۶) | [`QUEUE-120-REPORT.md`](QUEUE-120-REPORT.md) | #218 | ادغام‌شده |
 | ۱۲۶ (پنل مالک بومی؛ [M] دستگاه منتظر ۹۱) | [`QUEUE-126-REPORT.md`](QUEUE-126-REPORT.md) | main `8d15f1d` · `3a3b8ad` · `c1e414c` (بدون PR، به دستور مأموریت) | روی main |
 | ۱۲۵ (رجیستری برنامه‌های نصبی + Gate «فقط بومی») | [`QUEUE-125-REPORT.md`](QUEUE-125-REPORT.md) | main `f33a12f` (بدون PR، به دستور مأموریت) | روی main |
+| ۱۲۷ (حالت LAN اپ بومی + سرویس دادهٔ بی‌رابط؛ [M] دستگاه منتظر ۹۱) | [`QUEUE-127-REPORT.md`](QUEUE-127-REPORT.md) | main `f3c0f3c` (بدون PR، به دستور مأموریت) | روی main |
