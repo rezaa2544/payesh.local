@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
+import 'trust_bundle.dart';
+
 /// تنظیمات دیتابیس (فضای ابری سازگار با S3، مثل آروان‌کلاد) که مالک داخل برنامه وارد می‌کند.
 /// کل رکورد (از جمله Secret Key) فقط در انبار امن سیستم‌عامل نگه داشته می‌شود.
 abstract final class S3Keys {
@@ -177,10 +179,30 @@ abstract interface class S3Transport {
   void close();
 }
 
+/// ریشه‌های سیستم + زنجیر رسمی Let's Encrypt (trust_bundle.dart). گواهی‌ای که از قبل در انبار
+/// باشد خطای «تکراری» می‌دهد و نادیده گرفته می‌شود؛ هیچ بررسی‌ای خاموش نمی‌شود.
+SecurityContext ownerTrustContext({
+  bool withTrustedRoots = true,
+  List<String> pems = letsEncryptChainPems,
+}) {
+  final c = SecurityContext(withTrustedRoots: withTrustedRoots);
+  for (final p in pems) {
+    try {
+      c.setTrustedCertificatesBytes(utf8.encode(p));
+    } on TlsException {
+      // از قبل در انبار هست
+    }
+  }
+  return c;
+}
+
 final class IoS3Transport implements S3Transport {
-  IoS3Transport({Duration timeout = const Duration(seconds: 20)})
-    : _timeout = timeout,
-      _client = HttpClient()..connectionTimeout = timeout;
+  IoS3Transport({
+    Duration timeout = const Duration(seconds: 20),
+    SecurityContext? context,
+  }) : _timeout = timeout,
+       _client = HttpClient(context: context ?? ownerTrustContext())
+         ..connectionTimeout = timeout;
   final Duration _timeout;
   final HttpClient _client;
 
@@ -253,9 +275,10 @@ Future<S3TestResult> testS3Connection(
       return const S3TestResult.fail(
         'ارتباط با سرور دیتابیس برقرار نشد. اتصال اینترنت یا آدرس را بررسی کنید.',
       );
-    } on HandshakeException {
-      return const S3TestResult.fail(
-        'گواهی امنیتی (TLS) سرور دیتابیس پذیرفته نشد.',
+    } on HandshakeException catch (e) {
+      final why = (e.osError?.message ?? e.message).trim();
+      return S3TestResult.fail(
+        'گواهی امنیتی (TLS) سرور دیتابیس پذیرفته نشد${why.isEmpty ? '.' : ': $why'}',
       );
     } on HttpException {
       return const S3TestResult.fail(

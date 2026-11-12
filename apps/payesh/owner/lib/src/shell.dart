@@ -23,6 +23,7 @@ const Map<String, IconData> _icons = {
   'operators': Icons.admin_panel_settings_outlined,
   'reports': Icons.description_outlined,
   'audit': Icons.verified_user_outlined,
+  'settings': Icons.settings_outlined,
 };
 
 Widget pageFor(String id) => switch (id) {
@@ -47,11 +48,17 @@ class OwnerShell extends StatefulWidget {
     required this.now,
     required this.themeButton,
     required this.onSignOut,
+    this.settings,
   });
-  final OwnerApi api;
+
+  /// null یا بدون نشست ⇒ بخش‌های سروری راهنمای «اتصال در تنظیمات» را نشان می‌دهند.
+  final OwnerApi? api;
   final DateTime Function() now;
   final Widget themeButton;
   final VoidCallback onSignOut;
+
+  /// صفحهٔ «تنظیمات» برنامهٔ نصب‌شده (دیتابیس + سرور)؛ null در حالت فقط-سرور.
+  final Widget? settings;
 
   @override
   State<OwnerShell> createState() => _OwnerShellState();
@@ -72,10 +79,35 @@ class _OwnerShellState extends State<OwnerShell> {
     _flash = null;
   });
 
+  List<(String, String)> get _pages => [
+    ...ownerPages,
+    if (widget.settings != null) ('settings', 'تنظیمات'),
+  ];
+
+  Widget _page(String id) {
+    if (id == 'settings') return widget.settings!;
+    final api = widget.api;
+    if (api == null || api.session == null) {
+      return _ServerNeeded(
+        onOpenSettings: widget.settings == null
+            ? null
+            : () => _select(_pages.length - 1),
+      );
+    }
+    return OwnerScope(
+      api: api,
+      flash: _show,
+      now: widget.now,
+      child: KeyedSubtree(key: ValueKey('page-$id'), child: pageFor(id)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final s = widget.api.session;
-    final (id, title) = ownerPages[_index];
+    final s = widget.api?.session;
+    final pages = _pages;
+    if (_index >= pages.length) _index = 0;
+    final (id, title) = pages[_index];
     final size = sizeClassOf(MediaQuery.sizeOf(context).width);
     final tk = context.tokens;
     final flash = _flash;
@@ -114,14 +146,7 @@ class _OwnerShellState extends State<OwnerShell> {
               ),
             ),
           ),
-        Expanded(
-          child: OwnerScope(
-            api: widget.api,
-            flash: _show,
-            now: widget.now,
-            child: KeyedSubtree(key: ValueKey('page-$id'), child: pageFor(id)),
-          ),
-        ),
+        Expanded(child: _page(id)),
       ],
     );
     final actions = <Widget>[
@@ -184,7 +209,7 @@ class _OwnerShellState extends State<OwnerShell> {
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-            for (final (pid, ptitle) in ownerPages)
+            for (final (pid, ptitle) in pages)
               NavigationDrawerDestination(
                 key: Key('nav-$pid'),
                 icon: Icon(_icons[pid]),
@@ -216,7 +241,7 @@ class _OwnerShellState extends State<OwnerShell> {
                     selectedIndex: _index,
                     onDestinationSelected: _select,
                     destinations: [
-                      for (final (pid, ptitle) in ownerPages)
+                      for (final (pid, ptitle) in pages)
                         NavigationRailDestination(
                           icon: Icon(_icons[pid], key: Key('nav-$pid')),
                           label: Text(ptitle),
@@ -233,4 +258,37 @@ class _OwnerShellState extends State<OwnerShell> {
       ),
     );
   }
+}
+
+/// بخش سروری بدون اتصال به سرور پلتفرم.
+class _ServerNeeded extends StatelessWidget {
+  const _ServerNeeded({this.onOpenSettings});
+  final VoidCallback? onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(PayeshTokens.space4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.cloud_off_outlined, size: 40, color: context.tokens.muted),
+          const SizedBox(height: 12),
+          const Text(
+            'این بخش از سرور پلتفرم خوانده می‌شود و هنوز به سرور وصل نیستید.',
+            key: Key('server-needed'),
+            textAlign: TextAlign.center,
+          ),
+          if (onOpenSettings != null) ...[
+            const SizedBox(height: 12),
+            FilledButton(
+              key: const Key('open-settings'),
+              onPressed: onOpenSettings,
+              child: const Text('رفتن به تنظیمات'),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
 }

@@ -12,6 +12,12 @@ import 'package:payesh_secure/payesh_secure.dart';
 /// انبار امن سیستم‌عامل (ویندوز: DPAPI، اندروید: Keystore) نگه داشته می‌شود.
 abstract final class LocalAccountKeys {
   static const String account = 'owner.local.account';
+
+  /// نشست ورود محلی: تا وقتی مالک خودش «خروج» نزند، برنامه بدون ورود دوباره باز می‌شود.
+  static const String session = 'owner.local.session';
+
+  /// توکن نشست سرور پلتفرم (اختیاری) تا انقضای خودش.
+  static const String serverSession = 'owner.server.session';
 }
 
 final RegExp _loginRe = RegExp(r'^[A-Za-z0-9._@-]{3,120}$');
@@ -31,7 +37,6 @@ const Duration lockDuration = Duration(seconds: 30);
 String? validateNewAccount({
   required String loginId,
   required String password,
-  required String repeat,
   required String code,
 }) {
   if (!_loginRe.hasMatch(loginId.trim())) {
@@ -40,7 +45,6 @@ String? validateNewAccount({
   if (password.length < minLocalPassword) {
     return 'رمز عبور باید دست‌کم $minLocalPassword نویسه باشد.';
   }
-  if (password != repeat) return 'رمز عبور و تکرار آن یکی نیستند.';
   if (!_codeRe.hasMatch(code)) return 'کد دومرحله‌ای باید دقیقاً ۶ رقم باشد.';
   return null;
 }
@@ -229,6 +233,38 @@ final class LocalAuth {
     );
   }
 
-  /// حذف حساب محلی (تنظیمات دیتابیس را فراخواننده جدا پاک می‌کند).
-  Future<void> reset() => store.delete(LocalAccountKeys.account);
+  /// نشست ذخیره‌شده برای همین حساب هست؟ (رکورد نشست فقط شناسه را دارد، نه رمز.)
+  Future<bool> hasSession(LocalAccountRecord rec) async {
+    final s = await store.read(LocalAccountKeys.session);
+    if (s == null) return false;
+    try {
+      final Object? j = jsonDecode(s);
+      return j is Map<String, Object?> &&
+          j['v'] == 1 &&
+          j['login'] == rec.loginId;
+    } on FormatException {
+      return false;
+    }
+  }
+
+  Future<void> saveSession(LocalAccountRecord rec) => store.write(
+    LocalAccountKeys.session,
+    jsonEncode({
+      'v': 1,
+      'login': rec.loginId,
+      'since': _now().toUtc().toIso8601String(),
+    }),
+  );
+
+  /// «خروج»: نشست محلی و نشست سرور هر دو پاک می‌شوند.
+  Future<void> clearSession() async {
+    await store.delete(LocalAccountKeys.session);
+    await store.delete(LocalAccountKeys.serverSession);
+  }
+
+  /// حذف حساب محلی و نشست‌ها (تنظیمات دیتابیس را فراخواننده جدا پاک می‌کند).
+  Future<void> reset() async {
+    await clearSession();
+    await store.delete(LocalAccountKeys.account);
+  }
 }

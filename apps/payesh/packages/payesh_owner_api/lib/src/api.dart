@@ -88,9 +88,15 @@ class OwnerApi {
 
   /// Tests only: install a token as if it came from `/auth/login` (still decoded and
   /// validated; an invalid token leaves no session).
-  void debugSetSession(String token) {
+  void debugSetSession(String token) => restoreSession(token);
+
+  /// برنامهٔ نصب‌شده: توکنی که در انبار امن دستگاه (DPAPI/Keystore) نگه داشته شده بود را
+  /// برمی‌گرداند تا مالک بعد از باز کردن دوبارهٔ برنامه دوباره وارد نشود. توکن نامعتبر یا
+  /// منقضی ⇒ بدون نشست (false). سرور در هر درخواست دوباره آن را بررسی می‌کند.
+  bool restoreSession(String token) {
     final c = OwnerClaims.decode(token, now: _now());
     _session = c == null ? null : OwnerSession(token, c);
+    return _session != null;
   }
 
   Uri _url(String path) => origin.replace(path: '$prefix$path');

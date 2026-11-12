@@ -93,7 +93,7 @@ Future<void> _setup(WidgetTester tester) async {
   await _enter(tester, {
     'setup-id': 'rezaa-test',
     'setup-pw': 'pass-word-123',
-    'setup-pw2': 'pass-word-123',
+    'setup-code': '123456',
   });
   await _tap(tester, 'setup-submit');
 }
@@ -161,31 +161,14 @@ void main() {
     );
 
     test('form validation (Persian messages)', () {
-      String? v(String id, String pw, String rep, String code) =>
-          validateNewAccount(
-            loginId: id,
-            password: pw,
-            repeat: rep,
-            code: code,
-          );
-      expect(
-        v('ab', 'pass-word-1', 'pass-word-1', '123456'),
-        contains('شناسه'),
-      );
-      expect(v('rezaa', 'short', 'short', '123456'), contains('دست‌کم'));
-      expect(
-        v('rezaa', 'pass-word-1', 'pass-word-2', '123456'),
-        contains('تکرار'),
-      );
-      expect(
-        v('rezaa', 'pass-word-1', 'pass-word-1', '12345'),
-        contains('۶ رقم'),
-      );
-      expect(v('rezaa', 'pass-word-1', 'pass-word-1', '12a456'), isNotNull);
-      expect(
-        v('rezaa254', '@Example-Pass1', '@Example-Pass1', '123456'),
-        isNull,
-      );
+      String? v(String id, String pw, String code) =>
+          validateNewAccount(loginId: id, password: pw, code: code);
+      expect(v('ab', 'pass-word-1', '123456'), contains('شناسه'));
+      expect(v('rezaa', 'short', '123456'), contains('دست‌کم'));
+      expect(v('rezaa', 'pass-word-1', ''), contains('۶ رقم'));
+      expect(v('rezaa', 'pass-word-1', '12345'), contains('۶ رقم'));
+      expect(v('rezaa', 'pass-word-1', '12a456'), isNotNull);
+      expect(v('rezaa254', '@Example-Pass1', '123456'), isNull);
     });
 
     test(
@@ -218,6 +201,16 @@ void main() {
         expect(locked.error, contains('موقتاً بسته'));
         now = now.add(const Duration(seconds: 31));
         expect(go('123456').ok, isTrue);
+        expect(await auth.hasSession(rec), isFalse);
+        await auth.saveSession(rec);
+        expect(await auth.hasSession(rec), isTrue);
+        store.values[LocalAccountKeys.session] = '{"v":1,"login":"other"}';
+        expect(await auth.hasSession(rec), isFalse);
+        store.values[LocalAccountKeys.session] = 'not json';
+        expect(await auth.hasSession(rec), isFalse);
+        store.values[LocalAccountKeys.serverSession] = 'tok';
+        await auth.clearSession();
+        expect(store.values.keys, [LocalAccountKeys.account]);
         await auth.reset();
         expect(await auth.load(), isNull);
       },
@@ -486,253 +479,315 @@ void main() {
     });
   });
 
-  group('app: offline login + database screen', () {
-    testWidgets(
-      'first run: define the account (code pre-filled 123456) ⇒ database screen',
-      (tester) async {
+  group(
+    'app: offline login ⇒ whole app; settings inside; session until «خروج»',
+    () {
+      Future<void> openSettings(WidgetTester tester) =>
+          _tap(tester, 'nav-settings');
+
+      testWidgets(
+        'first run: one password field, empty code ⇒ whole app opens',
+        (tester) async {
+          final secure = FakeSecureStore();
+          await _pump(tester, secure: secure);
+          expect(find.text('تعریف حساب مالک'), findsOneWidget);
+          expect(find.byKey(const Key('setup-pw2')), findsNothing);
+          final code = tester.widget<TextField>(
+            find.byKey(const Key('setup-code')),
+          );
+          expect(code.controller!.text, isEmpty);
+          await _enter(tester, {'setup-id': 'ab'});
+          await _tap(tester, 'setup-submit');
+          expect(_text(tester, 'local-msg'), contains('شناسه'));
+          await _enter(tester, {
+            'setup-id': 'rezaa-test',
+            'setup-pw': 'pass-word-123',
+          });
+          await _tap(tester, 'setup-submit');
+          expect(_text(tester, 'local-msg'), contains('۶ رقم'));
+          await _setup(tester);
+          // کل برنامه: منوی همهٔ بخش‌ها + تنظیمات
+          expect(find.byKey(const Key('local-shell')), findsOneWidget);
+          for (final id in [
+            'dashboard',
+            'schools',
+            'plans',
+            'operators',
+            'settings',
+          ]) {
+            expect(find.byKey(Key('nav-$id')), findsOneWidget, reason: id);
+          }
+          expect(find.byKey(const Key('server-needed')), findsOneWidget);
+          expect(
+            secure.values[LocalAccountKeys.account],
+            isNot(contains('pass-word-123')),
+          );
+          expect(secure.values.keys, contains(LocalAccountKeys.session));
+          await _tap(tester, 'open-settings');
+          expect(find.byKey(const Key('db-endpoint')), findsOneWidget);
+          expect(find.byKey(const Key('srv-origin')), findsOneWidget);
+        },
+      );
+
+      testWidgets('stays signed in after restart until «خروج»', (tester) async {
         final secure = FakeSecureStore();
         await _pump(tester, secure: secure);
-        expect(find.text('تعریف حساب مالک'), findsOneWidget);
-        final code = tester.widget<TextField>(
-          find.byKey(const Key('setup-code')),
-        );
-        expect(code.controller!.text, '123456');
-        await _enter(tester, {'setup-id': 'ab'});
-        await _tap(tester, 'setup-submit');
-        expect(_text(tester, 'local-msg'), contains('شناسه'));
         await _setup(tester);
-        expect(find.text('تنظیم دیتابیس'), findsOneWidget);
-        expect(secure.values.keys, contains(LocalAccountKeys.account));
-        expect(
-          secure.values[LocalAccountKeys.account],
-          isNot(contains('pass-word-123')),
-        );
-        expect(
-          find.byKey(const Key('origin')),
-          findsNothing,
-        ); // no server needed
-      },
-    );
+        // بستن و باز کردن برنامه: ویجت تازه با همان انبار امن
+        await tester.pumpWidget(const SizedBox());
+        await _pump(tester, secure: secure);
+        expect(find.byKey(const Key('local-shell')), findsOneWidget);
+        expect(find.text('ورود به پنل مالک'), findsNothing);
+        await _tap(tester, 'logout');
+        expect(_text(tester, 'local-msg'), 'از پنل خارج شدید.');
+        expect(secure.values.keys, isNot(contains(LocalAccountKeys.session)));
+        await tester.pumpWidget(const SizedBox());
+        await _pump(tester, secure: secure);
+        expect(find.text('ورود به پنل مالک'), findsOneWidget);
+        await _login(tester, code: '654321');
+        expect(_text(tester, 'local-msg'), contains('نادرست'));
+        await _login(tester);
+        expect(find.byKey(const Key('local-shell')), findsOneWidget);
+      });
 
-    testWidgets('offline login: wrong ⇒ error, right ⇒ in; sign out ⇒ notice', (
-      tester,
-    ) async {
-      final secure = FakeSecureStore();
-      await LocalAuth(secure, iterations: 50).create(
-        loginId: 'rezaa-test',
-        password: 'pass-word-123',
-        code: '123456',
+      testWidgets(
+        'settings: database validate, test+save (buckets), reload, clear',
+        (tester) async {
+          final secure = FakeSecureStore();
+          final s3 = FakeS3([
+            const S3Response(200, _bucketsXml),
+            S3Response(403, _err('SignatureDoesNotMatch')),
+          ]);
+          await _pump(tester, secure: secure, s3: s3);
+          await _setup(tester);
+          await openSettings(tester);
+          await _tap(tester, 'db-save');
+          expect(_text(tester, 'db-msg'), contains('آدرس'));
+          await _enter(tester, {
+            'db-endpoint': 's3.ir-central1.arvanstorage.ir',
+            'db-access': '997cc6ad-e97a-4e4d-abf1-test',
+            'db-secret': 'secret-test-value',
+          });
+          TextField secretField() =>
+              tester.widget<TextField>(find.byKey(const Key('db-secret')));
+          expect(secretField().obscureText, isTrue);
+          await _tap(tester, 'db-secret-toggle');
+          expect(secretField().obscureText, isFalse);
+          await _tap(tester, 'db-save');
+          expect(_text(tester, 'db-msg'), contains('ذخیره شد'));
+          expect(find.text('payesh-main'), findsOneWidget);
+          expect(_text(tester, 'db-buckets-title'), contains('2'));
+          expect(
+            (await S3Settings.load(secure))!.secretKey,
+            'secret-test-value',
+          );
+          expect(s3.closed, 1);
+          await _tap(tester, 'db-test');
+          expect(_text(tester, 'db-msg'), contains('Secret Key نادرست'));
+
+          await tester.pumpWidget(const SizedBox());
+          await _pump(tester, secure: secure, s3: s3);
+          await openSettings(tester);
+          expect(_text(tester, 'db-msg'), contains('بارگذاری شد'));
+          expect(
+            tester
+                .widget<TextField>(find.byKey(const Key('db-endpoint')))
+                .controller!
+                .text,
+            'https://s3.ir-central1.arvanstorage.ir',
+          );
+          await _tap(tester, 'db-clear');
+          expect(_text(tester, 'db-msg'), contains('پاک شد'));
+          expect(await S3Settings.load(secure), isNull);
+        },
       );
-      await _pump(tester, secure: secure);
-      expect(find.text('ورود به پنل مالک'), findsOneWidget);
-      await _login(tester, code: '654321');
-      expect(_text(tester, 'local-msg'), contains('نادرست'));
-      await _login(tester);
-      expect(find.text('تنظیم دیتابیس'), findsOneWidget);
-      await _tap(tester, 'local-signout');
-      expect(_text(tester, 'local-msg'), 'از پنل خارج شدید.');
-    });
 
-    testWidgets(
-      'database: validate, test+save (buckets shown), reload, clear',
-      (tester) async {
+      testWidgets('settings: test only (no save), empty bucket list', (
+        tester,
+      ) async {
         final secure = FakeSecureStore();
         final s3 = FakeS3([
-          const S3Response(200, _bucketsXml),
-          S3Response(403, _err('SignatureDoesNotMatch')),
+          const S3Response(
+            200,
+            '<ListAllMyBucketsResult><Buckets></Buckets></ListAllMyBucketsResult>',
+          ),
         ]);
         await _pump(tester, secure: secure, s3: s3);
         await _setup(tester);
-        await _tap(tester, 'db-save');
-        expect(_text(tester, 'db-msg'), contains('آدرس'));
+        await openSettings(tester);
         await _enter(tester, {
           'db-endpoint': 's3.ir-central1.arvanstorage.ir',
-          'db-access': '997cc6ad-e97a-4e4d-abf1-test',
-          'db-secret': 'secret-test-value',
+          'db-access': 'AKID',
+          'db-secret': 'SECRET',
         });
-        expect(
-          tester
-              .widget<TextField>(find.byKey(const Key('db-secret')))
-              .obscureText,
-          isTrue,
-        );
-        await _tap(tester, 'db-secret-toggle');
-        expect(
-          tester
-              .widget<TextField>(find.byKey(const Key('db-secret')))
-              .obscureText,
-          isFalse,
-        );
-        await _tap(tester, 'db-save');
-        expect(_text(tester, 'db-msg'), contains('ذخیره شد'));
-        expect(find.text('payesh-main'), findsOneWidget);
-        expect(_text(tester, 'db-buckets-title'), contains('2'));
-        final saved = (await S3Settings.load(secure))!;
-        expect(saved.secretKey, 'secret-test-value');
-        expect(s3.closed, 1);
-
         await _tap(tester, 'db-test');
-        expect(_text(tester, 'db-msg'), contains('Secret Key نادرست'));
-
-        // خروج و ورود دوباره ⇒ فرم از انبار امن پر می‌شود
-        await _tap(tester, 'local-signout');
-        await _login(tester);
-        expect(_text(tester, 'db-msg'), contains('بارگذاری شد'));
-        expect(
-          tester
-              .widget<TextField>(find.byKey(const Key('db-endpoint')))
-              .controller!
-              .text,
-          'https://s3.ir-central1.arvanstorage.ir',
-        );
-        await _tap(tester, 'db-clear');
-        expect(_text(tester, 'db-msg'), contains('پاک شد'));
+        expect(_text(tester, 'db-msg'), 'اتصال برقرار است.');
+        expect(_text(tester, 'db-buckets-title'), contains('هنوز'));
         expect(await S3Settings.load(secure), isNull);
-      },
-    );
-
-    testWidgets('test only (no save) and empty bucket list', (tester) async {
-      final secure = FakeSecureStore();
-      final s3 = FakeS3([
-        const S3Response(
-          200,
-          '<ListAllMyBucketsResult><Buckets></Buckets></ListAllMyBucketsResult>',
-        ),
-      ]);
-      await _pump(tester, secure: secure, s3: s3);
-      await _setup(tester);
-      await _enter(tester, {
-        'db-endpoint': 's3.ir-central1.arvanstorage.ir',
-        'db-access': 'AKID',
-        'db-secret': 'SECRET',
       });
-      await _tap(tester, 'db-test');
-      expect(_text(tester, 'db-msg'), 'اتصال برقرار است.');
-      expect(_text(tester, 'db-buckets-title'), contains('هنوز'));
-      expect(await S3Settings.load(secure), isNull);
-    });
 
-    testWidgets(
-      'lockout after 5 wrong attempts, reset wipes account + database',
-      (tester) async {
-        var now = _t0;
-        final secure = FakeSecureStore();
-        await LocalAuth(secure, iterations: 50).create(
-          loginId: 'rezaa-test',
-          password: 'pass-word-123',
-          code: '123456',
-        );
-        secure.values[S3Keys.settings] = S3Settings(
-          endpoint: normalizeS3Endpoint('s3.ir-central1.arvanstorage.ir')!,
-          accessKey: 'A',
-          secretKey: 'B',
-        ).encode();
-        await _pump(tester, secure: secure, now: () => now);
-        for (var i = 0; i < 5; i++) {
-          await _login(tester, pw: 'wrong-pass-1');
-        }
-        await _login(tester);
-        expect(_text(tester, 'local-msg'), contains('موقتاً بسته'));
-        now = now.add(const Duration(seconds: 31));
-        await _login(tester);
-        expect(find.text('تنظیم دیتابیس'), findsOneWidget);
-        await _tap(tester, 'local-signout');
+      testWidgets(
+        'settings: platform server origin + server login, kept after restart',
+        (tester) async {
+          final secure = FakeSecureStore();
+          final backend = FakeBackend();
+          final store = MemorySettingsStore();
+          Future<void> pumpWith() async {
+            tester.view.physicalSize = const Size(1400, 1100);
+            tester.view.devicePixelRatio = 1;
+            addTearDown(tester.view.reset);
+            await tester.pumpWidget(
+              OwnerApp(
+                store: store,
+                httpFactory: () => backend,
+                secure: secure,
+                pbkdf2Iterations: 50,
+              ),
+            );
+            await tester.pumpAndSettle();
+          }
 
-        await _tap(tester, 'local-reset');
-        await tester.tap(find.text('انصراف'));
-        await tester.pumpAndSettle();
-        expect(find.text('ورود به پنل مالک'), findsOneWidget);
-        await _tap(tester, 'local-reset');
-        await _tap(tester, 'reset-confirm');
-        expect(find.text('تعریف حساب مالک'), findsOneWidget);
-        expect(secure.values, isEmpty);
-      },
-    );
+          await pumpWith();
+          await _setup(tester);
+          await openSettings(tester);
+          await _enter(tester, {'srv-origin': 'ftp://x'});
+          await _tap(tester, 'srv-origin-save');
+          expect(_text(tester, 'srv-msg'), contains('معتبر نیست'));
+          await _enter(tester, {'srv-origin': 'https://owner.example.ir'});
+          await _tap(tester, 'srv-origin-save');
+          await _enter(tester, {
+            'srv-id': 'owner',
+            'srv-pw': 'wrong',
+            'srv-totp': '123456',
+          });
+          await _tap(tester, 'srv-login');
+          expect(find.byKey(const Key('srv-status')), findsNothing);
+          await _enter(tester, {
+            'srv-id': 'owner',
+            'srv-pw': 'pw-owner-1',
+            'srv-totp': '123456',
+          });
+          await _tap(tester, 'srv-login');
+          expect(find.byKey(const Key('srv-status')), findsOneWidget);
+          expect(secure.values.keys, contains(LocalAccountKeys.serverSession));
+          await _tap(tester, 'nav-dashboard');
+          expect(find.byKey(const Key('server-needed')), findsNothing);
 
-    testWidgets(
-      'secure store failure / corrupted record ⇒ fail closed with a message',
-      (tester) async {
+          await tester.pumpWidget(const SizedBox());
+          await pumpWith();
+          await _tap(tester, 'nav-dashboard');
+          expect(find.byKey(const Key('server-needed')), findsNothing);
+          await openSettings(tester);
+          await _tap(tester, 'srv-disconnect');
+          expect(
+            secure.values.keys,
+            isNot(contains(LocalAccountKeys.serverSession)),
+          );
+          await _tap(tester, 'nav-dashboard');
+          expect(find.byKey(const Key('server-needed')), findsOneWidget);
+        },
+      );
+
+      testWidgets(
+        'lockout after 5 wrong attempts; reset wipes account + database',
+        (tester) async {
+          var now = _t0;
+          final secure = FakeSecureStore();
+          await LocalAuth(secure, iterations: 50).create(
+            loginId: 'rezaa-test',
+            password: 'pass-word-123',
+            code: '123456',
+          );
+          secure.values[S3Keys.settings] = S3Settings(
+            endpoint: normalizeS3Endpoint('s3.ir-central1.arvanstorage.ir')!,
+            accessKey: 'A',
+            secretKey: 'B',
+          ).encode();
+          await _pump(tester, secure: secure, now: () => now);
+          for (var i = 0; i < 5; i++) {
+            await _login(tester, pw: 'wrong-pass-1');
+          }
+          await _login(tester);
+          expect(_text(tester, 'local-msg'), contains('موقتاً بسته'));
+          now = now.add(const Duration(seconds: 31));
+          await _login(tester);
+          expect(find.byKey(const Key('local-shell')), findsOneWidget);
+          await _tap(tester, 'logout');
+          await _tap(tester, 'local-reset');
+          await tester.tap(find.text('انصراف'));
+          await tester.pumpAndSettle();
+          expect(find.text('ورود به پنل مالک'), findsOneWidget);
+          await _tap(tester, 'local-reset');
+          await _tap(tester, 'reset-confirm');
+          expect(find.text('تعریف حساب مالک'), findsOneWidget);
+          expect(secure.values, isEmpty);
+        },
+      );
+
+      testWidgets('corrupted account record ⇒ fail closed', (tester) async {
         final broken = FakeSecureStore()
           ..values[LocalAccountKeys.account] = '{"v":9}';
         await _pump(tester, secure: broken);
         expect(_text(tester, 'local-msg'), contains('خراب'));
         await _login(tester);
-        expect(find.text('تنظیم دیتابیس'), findsNothing);
-      },
-    );
-
-    testWidgets(
-      'unreachable secure store ⇒ fail closed; reset failure reported',
-      (tester) async {
-        final failing = FakeSecureStore()
-          ..failWith = const SecureStoreException('os');
-        await _pump(tester, secure: failing);
-        expect(_text(tester, 'local-msg'), contains('انبار امن'));
-        await _tap(tester, 'local-reset');
-        await _tap(tester, 'reset-confirm');
-        expect(_text(tester, 'local-msg'), contains('ممکن نشد'));
-      },
-    );
-
-    testWidgets('setup / save failures of the secure store are reported', (
-      tester,
-    ) async {
-      final secure = FakeSecureStore();
-      final s3 = FakeS3([const S3Response(200, _bucketsXml)]);
-      await _pump(tester, secure: secure, s3: s3);
-      secure.failWith = const SecureStoreException('os');
-      await _setup(tester);
-      expect(_text(tester, 'local-msg'), contains('ممکن نشد'));
-      secure.failWith = null;
-      await _setup(tester);
-      secure.failWith = const SecureStoreException('os');
-      await _enter(tester, {
-        'db-endpoint': 's3.ir-central1.arvanstorage.ir',
-        'db-access': 'AKID',
-        'db-secret': 'SECRET',
+        expect(find.byKey(const Key('local-shell')), findsNothing);
       });
-      await _tap(tester, 'db-save');
-      expect(_text(tester, 'db-msg'), contains('ذخیرهٔ امن'));
-      await _tap(tester, 'db-clear'); // delete fails ⇒ form unchanged
-      expect(_text(tester, 'db-msg'), contains('ذخیرهٔ امن'));
-    });
 
-    testWidgets(
-      'database screen: unreadable saved settings ⇒ asks to re-enter',
-      (tester) async {
+      testWidgets(
+        'unreachable secure store ⇒ fail closed; reset failure reported',
+        (tester) async {
+          final failing = FakeSecureStore()
+            ..failWith = const SecureStoreException('os');
+          await _pump(tester, secure: failing);
+          expect(_text(tester, 'local-msg'), contains('انبار امن'));
+          await _tap(tester, 'local-reset');
+          await _tap(tester, 'reset-confirm');
+          expect(_text(tester, 'local-msg'), contains('ممکن نشد'));
+        },
+      );
+
+      testWidgets('secure store failures on setup / save / clear / sign-out', (
+        tester,
+      ) async {
         final secure = FakeSecureStore();
-        await LocalAuth(secure, iterations: 50).create(
+        final s3 = FakeS3([const S3Response(200, _bucketsXml)]);
+        await _pump(tester, secure: secure, s3: s3);
+        secure.failWith = const SecureStoreException('os');
+        await _setup(tester);
+        expect(_text(tester, 'local-msg'), contains('ممکن نشد'));
+        secure.failWith = null;
+        await _setup(tester);
+        await openSettings(tester);
+        secure.failWith = const SecureStoreException('os');
+        await _enter(tester, {
+          'db-endpoint': 's3.ir-central1.arvanstorage.ir',
+          'db-access': 'AKID',
+          'db-secret': 'SECRET',
+        });
+        await _tap(tester, 'db-save');
+        expect(_text(tester, 'db-msg'), contains('ذخیرهٔ امن'));
+        await _tap(tester, 'db-clear');
+        expect(_text(tester, 'db-msg'), contains('ذخیرهٔ امن'));
+        await _tap(tester, 'logout');
+        expect(find.text('ورود به پنل مالک'), findsOneWidget);
+      });
+
+      testWidgets('unreadable saved database settings ⇒ asks to re-enter', (
+        tester,
+      ) async {
+        final secure = FakeSecureStore();
+        final auth = LocalAuth(secure, iterations: 50);
+        final rec = await auth.create(
           loginId: 'rezaa-test',
           password: 'pass-word-123',
           code: '123456',
         );
+        await auth.saveSession(rec);
         secure.values[S3Keys.settings] = 'not json';
         await _pump(tester, secure: secure);
-        await _login(tester);
+        await openSettings(tester);
         expect(_text(tester, 'db-msg'), contains('خراب'));
-      },
-    );
-
-    testWidgets(
-      'optional platform server: origin screen and server login have «بازگشت»',
-      (tester) async {
-        await _pump(tester, secure: FakeSecureStore());
-        await _setup(tester);
-        await _tap(tester, 'open-server');
-        expect(find.byKey(const Key('origin')), findsOneWidget);
-        await tester.tap(find.text('انصراف'));
-        await tester.pumpAndSettle();
-        expect(find.text('تنظیم دیتابیس'), findsOneWidget);
-        await _tap(tester, 'open-server');
-        await tester.enterText(
-          find.byKey(const Key('origin')),
-          'https://owner.example.ir',
-        );
-        await _tap(tester, 'origin-save');
-        expect(find.byKey(const Key('login-submit')), findsOneWidget);
-        await _tap(tester, 'server-back');
-        expect(find.text('تنظیم دیتابیس'), findsOneWidget);
-      },
-    );
-  });
+      });
+    },
+  );
 }

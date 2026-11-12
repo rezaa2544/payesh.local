@@ -6,6 +6,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 import 'local/local_account.dart';
 import 'local/local_screens.dart';
 import 'local/s3_client.dart';
+import 'local/settings_page.dart';
 import 'platform.dart';
 import 'shell.dart';
 
@@ -31,8 +32,8 @@ class OwnerApp extends StatefulWidget {
   final OwnerHttp Function() httpFactory;
   final DateTime Function()? now;
 
-  /// انبار امن دستگاه. اگر داده شود (برنامهٔ نصب‌شده)، اول ورود محلی بدون اینترنت و
-  /// صفحهٔ تنظیم دیتابیس می‌آید؛ اتصال به سرور پلتفرم اختیاری است. بدون آن: فقط حالت سرور.
+  /// انبار امن دستگاه. اگر داده شود (برنامهٔ نصب‌شده): ورود محلی بدون اینترنت ⇒ کل برنامه با
+  /// صفحهٔ «تنظیمات» (دیتابیس + سرور پلتفرم). نشست تا «خروج» می‌ماند. بدون آن: فقط حالت سرور.
   final SecureStore? secure;
   final S3Transport Function()? s3Factory;
   final int pbkdf2Iterations;
@@ -53,7 +54,6 @@ class _OwnerAppState extends State<OwnerApp> {
   String? _localError;
   String? _localNotice;
   bool _localSignedIn = false;
-  bool _serverMode = false;
   final _nav = GlobalKey<NavigatorState>();
 
   /// Session over: close every dialog / sheet above the home screen.
@@ -79,7 +79,12 @@ class _OwnerAppState extends State<OwnerApp> {
       );
       _localAuth = auth;
       try {
-        _account = await auth.load();
+        final rec = await auth.load();
+        _account = rec;
+        if (rec != null && await auth.hasSession(rec)) {
+          _localSignedIn = true;
+          _savedServerToken = await secure.read(LocalAccountKeys.serverSession);
+        }
       } on SecureStoreException {
         _localError = 'حساب محلی خوانده نشد (انبار امن سیستم پاسخ نداد). برنامه را دوباره باز کنید یا حساب را از نو تعریف کنید.';
       } on FormatException {
@@ -95,8 +100,15 @@ class _OwnerAppState extends State<OwnerApp> {
       };
       _loading = false;
       if (o != null) _connect(o);
+      final tok = _savedServerToken;
+      if (tok != null && _api != null) _api!.restoreSession(tok);
+      _savedServerToken = null;
     });
   }
+
+  String? _savedServerToken;
+
+  bool get _localMode => widget.secure != null;
 
   void _connect(Uri origin) {
     _api?.close();
@@ -108,13 +120,23 @@ class _OwnerAppState extends State<OwnerApp> {
       onUnauthorized: () {
         if (!mounted) return;
         _closeRoutes();
+        if (_localMode) {
+          _forgetServerToken();
+          setState(() {});
+          return;
+        }
         setState(() => _loginNotice = ownerErrors['unauthorized']);
       },
     );
   }
 
+  void _forgetServerToken() {
+    widget.secure?.delete(LocalAccountKeys.serverSession).ignore();
+  }
+
   Future<void> _saveOrigin(Uri origin) async {
     await widget.store.write('origin', originText(origin));
+    if (_localMode) _forgetServerToken();
     if (!mounted) return;
     setState(() {
       _connect(origin);
@@ -143,12 +165,10 @@ class _OwnerAppState extends State<OwnerApp> {
   }
 
   Future<String?> _createLocal(String id, String pw, String code) async {
+    final auth = _localAuth!;
     try {
-      final rec = await _localAuth!.create(
-        loginId: id,
-        password: pw,
-        code: code,
-      );
+      final rec = await auth.create(loginId: id, password: pw, code: code);
+      await auth.saveSession(rec);
       if (!mounted) return null;
       setState(() {
         _account = rec;
@@ -162,13 +182,11 @@ class _OwnerAppState extends State<OwnerApp> {
   }
 
   String? _loginLocal(String id, String pw, String code) {
-    final r = _localAuth!.login(
-      _account!,
-      loginId: id,
-      password: pw,
-      code: code,
-    );
+    final rec = _account;
+    if (rec == null) return _localError;
+    final r = _localAuth!.login(rec, loginId: id, password: pw, code: code);
     if (r.ok) {
+      _localAuth!.saveSession(rec).ignore();
       setState(() {
         _localSignedIn = true;
         _localNotice = null;
@@ -178,10 +196,9 @@ class _OwnerAppState extends State<OwnerApp> {
   }
 
   Future<void> _resetLocal() async {
-    final secure = widget.secure!;
     try {
       await _localAuth!.reset();
-      await S3Settings.clear(secure);
+      await S3Settings.clear(widget.secure!);
     } on SecureStoreException {
       if (!mounted) return;
       setState(() => _localError = 'پاک کردن حساب محلی ممکن نشد.');
@@ -195,26 +212,45 @@ class _OwnerAppState extends State<OwnerApp> {
     });
   }
 
-  void _signOutLocal() {
+  /// «خروج»: نشست محلی و نشست سرور پاک می‌شوند؛ دفعهٔ بعد ورود لازم است.
+  Future<void> _signOutLocal() async {
     _closeRoutes();
     _api?.signOut();
+    try {
+      await _localAuth!.clearSession();
+    } on SecureStoreException {
+      // نشست در حافظه بسته شد؛ پاک نشدن فایل فقط یعنی دفعهٔ بعد باز می‌ماند
+    }
+    if (!mounted) return;
     setState(() {
       _localSignedIn = false;
-      _serverMode = false;
       _localNotice = 'از پنل خارج شدید.';
     });
   }
 
-  void _backToLocal() {
-    _closeRoutes();
-    setState(() {
-      _serverMode = false;
-      _changingServer = false;
-    });
+  Future<String?> _serverLogin(String id, String pw, String totp) async {
+    final api = _api;
+    if (api == null) return 'اول نشانی سرور را ذخیره کنید.';
+    final r = await api.login(loginId: id, password: pw, totp: totp);
+    final tok = r.session?.token;
+    if (tok != null) {
+      try {
+        await widget.secure!.write(LocalAccountKeys.serverSession, tok);
+      } on SecureStoreException {
+        // نشست سرور فقط تا بستن برنامه می‌ماند
+      }
+    }
+    if (mounted) setState(() {});
+    return r.ok ? null : r.error;
   }
 
-  Widget? _localHome() {
-    if (widget.secure == null || _serverMode) return null;
+  void _serverDisconnect() {
+    _api?.signOut();
+    _forgetServerToken();
+    setState(() {});
+  }
+
+  Widget _localHome() {
     if (_account == null && _localError == null) {
       return LocalSetupScreen(
         onCreate: _createLocal,
@@ -223,20 +259,34 @@ class _OwnerAppState extends State<OwnerApp> {
     }
     if (!_localSignedIn) {
       return LocalLoginScreen(
-        onLogin: (id, pw, code) =>
-            _account == null ? _localError : _loginLocal(id, pw, code),
+        onLogin: _loginLocal,
         onReset: _resetLocal,
         themeButton: _themeButton,
         notice: _localError ?? _localNotice,
       );
     }
-    return DatabaseSettingsScreen(
-      secure: widget.secure!,
-      transportFactory: widget.s3Factory ?? IoS3Transport.new,
+    final api = _api;
+    return OwnerShell(
+      key: const Key('local-shell'),
+      api: api,
+      now: _now,
       themeButton: _themeButton,
       onSignOut: _signOutLocal,
-      onOpenServer: () => setState(() => _serverMode = true),
-      now: widget.now,
+      settings: OwnerSettingsPage(
+        database: DatabaseSettingsPanel(
+          secure: widget.secure!,
+          transportFactory: widget.s3Factory ?? IoS3Transport.new,
+          now: widget.now,
+        ),
+        server: ServerSettingsPanel(
+          key: ValueKey('srv-${_origin ?? ''}'),
+          origin: _origin,
+          session: api?.session,
+          onSaveOrigin: _saveOrigin,
+          onLogin: _serverLogin,
+          onDisconnect: _serverDisconnect,
+        ),
+      ),
     );
   }
 
@@ -256,21 +306,17 @@ class _OwnerAppState extends State<OwnerApp> {
   Widget build(BuildContext context) {
     final Widget home;
     final api = _api;
-    final local = _loading ? null : _localHome();
-    final inLocalMode = widget.secure != null;
     if (_loading) {
       home = const Scaffold(body: Center(child: CircularProgressIndicator()));
-    } else if (local != null) {
-      home = local;
+    } else if (_localMode) {
+      home = _localHome();
     } else if (api == null || _changingServer) {
       home = OriginScreen(
         initial: _origin == null ? '' : originText(_origin!),
         onSave: _saveOrigin,
-        onCancel: api != null
-            ? () => setState(() => _changingServer = false)
-            : inLocalMode
-            ? _backToLocal
-            : null,
+        onCancel: api == null
+            ? null
+            : () => setState(() => _changingServer = false),
       );
     } else if (api.session == null) {
       home = LoginScreen(
@@ -279,7 +325,6 @@ class _OwnerAppState extends State<OwnerApp> {
         themeButton: _themeButton,
         onSignedIn: () => setState(() => _loginNotice = null),
         onChangeServer: () => setState(() => _changingServer = true),
-        onBack: inLocalMode ? _backToLocal : null,
       );
     } else {
       home = OwnerShell(
@@ -403,16 +448,12 @@ class LoginScreen extends StatefulWidget {
     required this.onChangeServer,
     required this.themeButton,
     this.notice,
-    this.onBack,
   });
   final OwnerApi api;
   final VoidCallback onSignedIn;
   final VoidCallback onChangeServer;
   final Widget themeButton;
   final String? notice;
-
-  /// بازگشت به پنل محلی (فقط در برنامهٔ نصب‌شده با ورود محلی).
-  final VoidCallback? onBack;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -550,12 +591,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             : const Text('ورود'),
                       ),
                       const Spacer(),
-                      if (widget.onBack != null)
-                        TextButton(
-                          key: const Key('server-back'),
-                          onPressed: widget.onBack,
-                          child: const Text('بازگشت'),
-                        ),
                       TextButton(
                         key: const Key('change-server'),
                         onPressed: widget.onChangeServer,
