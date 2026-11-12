@@ -917,4 +917,149 @@ void main() {
     negatives += 3;
     passed++;
   }, skip: skip);
+
+  // ───────────────────────────── W9 weekly schedule ─────────────────────────────
+  var w9Slot = 0, w9Class = 0, w9Sub = 0, w9Teacher = 0;
+
+  test('W9-IT-01 offline: work days + bells + a slot for a new cohort → queued → all on the server', () async {
+    await manager.pull();
+    final t = Timetable(manager.db);
+    final subj = (await ClassBook(
+      manager.db,
+    ).saveSubject(name: 'برنامه‌سازی', workshop: false)).id!;
+    await t.saveWorkdays(const [0, 1, 2, 3, 4]);
+    await t.saveBells(const [
+      BellDraft(start: '07:30', end: '08:15'),
+      BellDraft(start: '08:15', end: '08:30', type: 'break'),
+      BellDraft(start: '08:30', end: '09:15'),
+    ]);
+    final w = await t.saveSlot(
+      SlotDraft(
+        grade: 'دوازدهم',
+        branch: 'شبکه',
+        day: 2,
+        period: 1,
+        subjectId: subj,
+        teacherId: teacherId,
+      ),
+    );
+    w9Slot = w.id!;
+    w9Class =
+        (await manager.engine.get('schedule', w9Slot))!.data['class_id']!
+            as int;
+    final dead = Uri.parse('http://127.0.0.1:${await freePort()}');
+    final queued = (await manager.sync(dead)).waiting;
+    expect(queued, 7, reason: 'subject, schools, 3 bells, class, slot');
+    expect(await serverRow('schedule', w9Slot), isNull);
+    negatives++;
+    expect((await manager.sync()).waiting, 0);
+    final sg = await serverRow('schedule', w9Slot);
+    expect(sg!['class_id'], w9Class);
+    expect(sg['teacher_id'], teacherId);
+    expect(sg['weekday'], 2);
+    expect((await serverRow('classes', w9Class))!['name'], 'دوازدهم شبکه');
+    expect((await serverRow('schools', 1))!['workdays'], [0, 1, 2, 3, 4]);
+    final bells = await serverRows('bell_schedules');
+    expect(
+      bells.map((b) => b['order']).toList()
+        ..sort((a, b) => (a! as num).compareTo(b! as num)),
+      [1, 1.5, 2],
+    );
+    passed++;
+  }, skip: skip);
+
+  test('W9-IT-02 the teacher pulls it: own teaching view shows the slot (read-only)', () async {
+    await teacher.pull();
+    final v = await Timetable(teacher.db).view();
+    expect(v.canEdit, isFalse);
+    final s = v.slots.firstWhere((x) => x.id == w9Slot);
+    expect(s.subject, 'برنامه‌سازی');
+    expect(v.periods.map((b) => b.order), [
+      1,
+      2,
+    ], reason: 'bells from the server');
+    passed++;
+  }, skip: skip);
+
+  test('W9-IT-03 substitution by a teacher created offline → both reach the server', () async {
+    final t = Timetable(manager.db);
+    w9Teacher = (await t.addTeacher('دبیر جایگزین')).id!;
+    w9Sub = (await t.saveSub(w9Slot, '2026-11-16', w9Teacher)).id!;
+    expect((await manager.sync()).waiting, 0);
+    final u = await serverRow('users', w9Teacher);
+    expect(u!['role'], 'teacher');
+    final sub = await serverRow('substitutions', w9Sub);
+    expect(sub!['schedule_id'], w9Slot);
+    expect(sub['sub_teacher_id'], w9Teacher);
+    expect(sub['date'], '2026-11-16');
+    passed++;
+  }, skip: skip);
+
+  test('W9-IT-04 NEG clash refused on the device; a teacher cannot write the schedule (device AND server)', () async {
+    final m = Timetable(manager.db);
+    await expectLater(
+      m.saveSlot(
+        SlotDraft(
+          grade: 'دهم',
+          branch: 'x',
+          day: 2,
+          period: 1,
+          subjectId: 41,
+          teacherId: teacherId,
+        ),
+      ),
+      throwsA(isA<RecordFailure>().having((f) => f.code, 'code', 'duplicate')),
+    );
+    expect(manager.outbox.list(), isEmpty);
+    await expectLater(
+      Timetable(teacher.db).move(w9Slot, 3, 1),
+      throwsA(
+        isA<RecordFailure>().having((f) => f.code, 'code', 'not_allowed'),
+      ),
+    );
+    expect(teacher.outbox.list(), isEmpty);
+    final r = await push(teacherLogin.token, [
+      {
+        'uid': 'evil-w9',
+        'collection': 'schedule',
+        'type': 'put',
+        'id': w9Slot,
+        'data': {'weekday': 4, 'bell_order': 2},
+        'base_version': 1,
+      },
+      {
+        'uid': 'evil-w9-bells',
+        'collection': 'bell_schedules',
+        'type': 'put',
+        'id': SchoolRecords.idBaseOf('bell_schedules') + 77,
+        'data': {'order': 9, 'type': 'lesson'},
+        'base_version': 0,
+      },
+    ]);
+    expect(r['applied'], isEmpty, reason: '$r');
+    expect((await serverRow('schedule', w9Slot))!['weekday'], 2);
+    expect(
+      await serverRow(
+        'bell_schedules',
+        SchoolRecords.idBaseOf('bell_schedules') + 77,
+      ),
+      isNull,
+    );
+    negatives += 4;
+    passed++;
+  }, skip: skip);
+
+  test(
+    'W9-IT-05 delete the slot → its substitution is gone on the server too',
+    () async {
+      await manager.pull();
+      final w = await Timetable(manager.db).deleteSlot(w9Slot);
+      expect(w.keys, hasLength(2));
+      expect((await manager.sync()).waiting, 0);
+      expect(await serverRow('schedule', w9Slot), isNull);
+      expect(await serverRow('substitutions', w9Sub), isNull);
+      passed++;
+    },
+    skip: skip,
+  );
 }

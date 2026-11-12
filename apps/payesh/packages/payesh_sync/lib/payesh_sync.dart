@@ -10,6 +10,7 @@ library;
 export 'src/accounts.dart';
 export 'src/attendance.dart';
 export 'src/classes.dart';
+export 'src/timetable.dart';
 export 'src/device_owner.dart';
 export 'src/auto_sync.dart';
 export 'src/direct_transport.dart';

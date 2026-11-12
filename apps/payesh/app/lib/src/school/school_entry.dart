@@ -6,6 +6,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 import '../accounts/accounts_screen.dart';
 import '../classes/classes_screen.dart';
 import '../flags.dart';
+import '../schedule/schedule_screen.dart';
 import '../users/users_controller.dart';
 import '../users/users_screen.dart';
 import 'school_source.dart';
@@ -111,6 +112,22 @@ final List<SchoolPageSpec> schoolPages = [
           ClassesController(source: a.source, role: a.role, uid: a.uid),
       page: (c) => ClassesScreen(
         controller: c as ClassesController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
+  SchoolPageSpec(
+    id: 'schedule',
+    wave: SchoolWave.schedule,
+    label: 'برنامهٔ هفتگی',
+    icon: Icons.calendar_view_week_outlined,
+    roles: const {'manager', 'teacher', 'parent', 'student'},
+    build: (a) => SchoolOwned(
+      create: () =>
+          ScheduleController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => ScheduleScreen(
+        controller: c as ScheduleController,
         sync: a.sync,
         onRetry: a.onRetry,
       ),

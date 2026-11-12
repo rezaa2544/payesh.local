@@ -278,7 +278,12 @@ void main() {
   testWidgets(
     'W6-W11 NEG wave off or no data path → no entry (never a dead button)',
     (tester) async {
-      await bootSchool(tester, role: 'manager', seed: seed, school: 'schedule');
+      await bootSchool(
+        tester,
+        role: 'manager',
+        seed: seed,
+        school: 'no-such-wave',
+      );
       expect(find.byKey(const Key('adm-users')), findsNothing);
       expect(find.byKey(const Key('adm-entry-none')), findsOneWidget);
       await bootSchool(tester, role: 'manager', seed: seed, wire: false);
