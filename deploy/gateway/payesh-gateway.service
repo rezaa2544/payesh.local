@@ -1,0 +1,35 @@
+# Payesh multi-tenant Gateway (row 120) — systemd unit for a VPS.
+# Install:  sudo cp deploy/gateway/payesh-gateway.service /etc/systemd/system/
+#           sudo install -m 600 -o root -g root /dev/null /etc/payesh/gateway.env   (then fill it)
+#           sudo systemctl daemon-reload && sudo systemctl enable --now payesh-gateway
+# Secrets live ONLY in /etc/payesh/gateway.env (chmod 600), never in this file or the app folder.
+# ExecStartPre runs the same preflight as the panel start file: a SUPERUSER/BYPASSRLS
+# database role, a weak/missing secret or a missing schema stops the start (exit 2/3).
+[Unit]
+Description=Payesh multi-tenant Gateway (row 120)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=payesh
+Group=payesh
+WorkingDirectory=/opt/payesh-gateway
+EnvironmentFile=/etc/payesh/gateway.env
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+ExecStartPre=/usr/bin/node gateway-start.cjs --check
+ExecStart=/usr/bin/node gateway-start.cjs
+Restart=always
+RestartSec=3
+# SIGTERM → the Gateway drains in-flight requests (GW_DRAIN_TIMEOUT_MS, default 25 s)
+KillSignal=SIGTERM
+TimeoutStopSec=35
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/payesh-gateway
+
+[Install]
+WantedBy=multi-user.target

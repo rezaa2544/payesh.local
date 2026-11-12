@@ -84,6 +84,8 @@ PGURL=postgres://… GW_SECRET=<≥۱۶ کاراکتر> PORT=5660 node server/ga
 
 `GW_SECRET` (یا `PAYESH_TENANCY_SECRET`)، `GW_MAX_BODY`، `GW_QUOTA_MAX`، `GW_QUOTA_WINDOW_SEC`، `GW_PULL_MAX`، `GW_INSTANCE`، `HOST` قابل تنظیم‌اند. بدون `PGURL` یا با راز کوتاه، نمونه بالا می‌آید ولی `not_configured` است — عمداً: `healthz` سبز می‌ماند تا probe‌ها فرایند را نکشند، اما `readyz` و مسیرهای داده ۵۰۳ می‌دهند.
 
+> **استقرار روی میزبان (ردیف ۱۲۰):** بستهٔ آماده (`node scripts/build-gateway-bundle.mjs`)، پیش‌بررسی شروع (`gateway-start.cjs --check`؛ نقش SUPERUSER/BYPASSRLS رد می‌شود)، ابزار مدیر (`deploy/gateway/admin.cjs migrate|logins|create-owner|check`)، selfcheck سرتاسری (`deploy/gateway/selfcheck.mjs`) و unit systemd — گام‌به‌گام در [`120-gateway-bundle.md`](120-gateway-bundle.md). فهرست متغیرها: `deploy/gateway/env-catalog.json`.
+
 ### ۶٫۱ سخت‌سازی عملیاتی (ردیف ۶۷)
 
 - **تخلیهٔ نرم با SIGTERM**: پذیرش اتصال تازه قطع، `readyz` ← `503 draining`، درخواست‌های در جریان کامل و commit می‌شوند، سپس poolها بسته و خروج با کد ۰. پس از `GW_DRAIN_TIMEOUT_MS` (پیش‌فرض ۲۵۰۰۰) سوکت‌های باقی‌مانده قطع و خروج با کد ۲.

@@ -55,6 +55,10 @@ on:
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
       - 'tests/tenant-121.js'
+      - 'tests/gateway-bundle-120.js'
+      - 'scripts/build-gateway-bundle.mjs'
+      - 'deploy/gateway/**'
+      - 'docs/cloud/120-gateway-bundle.md'
       - 'apps/owner-panel/server/**'
   pull_request:
     paths:
@@ -102,6 +106,10 @@ on:
       - 'db/migrations/**'
       - 'db/fixtures/migrations-86/**'
       - 'tests/tenant-121.js'
+      - 'tests/gateway-bundle-120.js'
+      - 'scripts/build-gateway-bundle.mjs'
+      - 'deploy/gateway/**'
+      - 'docs/cloud/120-gateway-bundle.md'
       - 'apps/owner-panel/server/**'
   workflow_dispatch:
   # Row 95: called by release-gate.yml on the release commit (path filters do not apply).
@@ -364,6 +372,18 @@ jobs:
         run: |
           set -o pipefail
           node tests/tenant-121.js | tee -a native-contract.txt
+      # Row 120: multi-tenant Gateway bundle built, extracted OUTSIDE the repo and run against a
+      # fresh postgres:16 database: admin migrate/logins/check, superuser refused (exit 3),
+      # create-owner → TOTP login → plan → two schools → bundled selfcheck S01..S12 (isolation),
+      # SIGTERM drain. 11 mutants inline. Label [S]; the real host is [M] (row 116).
+      - name: Row 120 Gateway bundle → extracted → selfcheck on two schools (real postgres:16)
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+          T120_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node tests/gateway-bundle-120.js | tee -a native-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

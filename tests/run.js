@@ -5080,6 +5080,14 @@ async function waitFor(fn, ms = 15000) {
       console.log('    HOST-PROBE-115-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
     });
 
+  /* ── ردیف ۱۲۰: بستهٔ استقرار Gateway چندمستأجری (بخش ایستا؛ بخش PostgreSQL در CI api-contract) ── */
+  await test('ردیف ۱۲۰: بستهٔ Gateway — closure فقط فایل‌های Gateway (بدون سرور تک‌مدرسه‌ای)، pg بدون pg-cloudflare (D‑09)، متغیرهای محیطی از خود کد = env-catalog، پویش راز، پیش‌بررسی و رد محیط خالی، هش SCRAM، selfcheck در برابر سرور معیوب، سند مالک، ۱۱ جهش؛ بخش PG اینجا BLOCKED نه PASS',
+    async () => {
+      const r = await require('./gateway-bundle-120.js').main({ quiet: true, pg: false });
+      if (r.failed) throw new Error('GATEWAY-BUNDLE-120 failures: ' + r.failures.join(','));
+      console.log('    GATEWAY-BUNDLE-120-OK passed=' + r.passed + ' negative_controls=' + r.negatives + ' pg_suite=' + (r.blocked ? 'BLOCKED-here (CI api-contract runs it)' : 'ran'));
+    });
+
   /* ── ردیف ۱۱۹: آفلاین — Gateway با قطع اتصال PostgreSQL نمی‌میرد ───────── */
   await test('ردیف ۱۱۹: pool مستأجر شنوندهٔ error دارد (قطع اتصال DB، Gateway را نمی‌کشد) + کنترل منفی؛ آزمون PG بدون PG ⇒ BLOCKED نه PASS',
     async () => {
