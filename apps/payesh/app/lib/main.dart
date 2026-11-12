@@ -35,6 +35,8 @@ void main() {
       grades: flags.ships(NativeWave.grades) ? attendance : null,
       // Wave 4: notices on the same data path (every role reads, the manager writes).
       notices: flags.ships(NativeWave.notices) ? attendance : null,
+      // Wave 5: parents pages on the same data path (children, child page, leave requests).
+      family: flags.ships(NativeWave.parents) ? attendance : null,
       onRetrySync: attendance?.retry,
     ),
   );
