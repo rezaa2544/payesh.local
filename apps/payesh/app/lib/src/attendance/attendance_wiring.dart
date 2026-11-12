@@ -66,6 +66,20 @@ final class GatewayAttendanceSource
     );
   }
 
+  @override
+  ServerAdminApi? get admin {
+    final server = session.cellUrl;
+    if (!session.onLan || server == null) return null;
+    return LanServerAdmin(
+      client: _lanAccess ??= LanAccessClient(
+        client: lanClient,
+        platform: Platform.operatingSystem,
+      ),
+      server: server,
+      token: session.validToken,
+    );
+  }
+
   SqliteEngine? _engine;
   SqliteOutbox? _outbox;
   AutoSync? _auto;

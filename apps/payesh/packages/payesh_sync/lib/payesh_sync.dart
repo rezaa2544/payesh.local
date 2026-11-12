@@ -15,6 +15,8 @@ export 'src/followup.dart';
 export 'src/school_import.dart';
 export 'src/sheet_reader.dart';
 export 'src/reports.dart';
+export 'src/data_health.dart';
+export 'src/server_admin.dart';
 export 'src/device_owner.dart';
 export 'src/auto_sync.dart';
 export 'src/direct_transport.dart';

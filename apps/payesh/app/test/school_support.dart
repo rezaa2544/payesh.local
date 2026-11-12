@@ -87,6 +87,10 @@ final class MemorySchool implements SchoolSource {
   @override
   AccountsApi? accounts;
 
+  /// W12: the school server's management endpoints (null = not on a school server).
+  @override
+  ServerAdminApi? admin;
+
   Future<void> put(String c, int id, Map<String, Object?> d, [int v = 1]) =>
       engine.put(c, id, {...d, 'id': id}, version: v);
 }
@@ -157,6 +161,9 @@ Future<void> reveal(WidgetTester tester, String key) async {
     await tester.scrollUntilVisible(f, 200, scrollable: list);
   }
   await tester.ensureVisible(f);
+  // ensureVisible only jumps the scroll position, and a text field that was just typed into
+  // may still be animating its own reveal (pointers are ignored meanwhile): settle first
+  await tester.pumpAndSettle();
 }
 
 Future<void> tapKey(WidgetTester tester, String key) async {

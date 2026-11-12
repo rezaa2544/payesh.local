@@ -141,18 +141,90 @@
   },
   {
    "id": "act:audit-list",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('sys-audit')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> listAudit()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<List<AuditEntry>> audit({int limit = 60}"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-02"
+    }
+   ]
   },
   {
    "id": "act:backup-list",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('sys-backups')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> listBackups()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<List<String>> backups("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-01"
+    }
+   ]
   },
   {
    "id": "act:backup-now",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('sys-backup-now')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> backupNow()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<String> backupNow("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-01"
+    }
+   ]
   },
   {
    "id": "act:bell-add",
@@ -328,33 +400,177 @@
   },
   {
    "id": "act:cloud-cors",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('cld-cors')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> cors()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<CloudOutcome> cloudCors("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-03"
+    }
+   ]
   },
   {
    "id": "act:cloud-edit",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('cld-edit')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('cld-form')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "class CloudForm"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U05"
+    }
+   ]
   },
   {
    "id": "act:cloud-phone-check",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('cld-phone')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> phoneCheck()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<CloudOutcome> phoneCheck("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-03"
+    }
+   ]
   },
   {
    "id": "act:cloud-reset",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('cld-reset')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> reset()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<String> cloudReset("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-03"
+    }
+   ]
   },
   {
    "id": "act:cloud-save",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('cld-save')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<bool> save(CloudForm form)"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<bool> cloudSave(CloudForm form"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-03"
+    }
+   ]
   },
   {
    "id": "act:cloud-test",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('cld-test')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> test()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<CloudOutcome> cloudTest("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-03"
+    }
+   ]
   },
   {
    "id": "act:copy-url",
@@ -535,33 +751,181 @@
   },
   {
    "id": "act:devices-list",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('sys-devices')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> listDevices()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<List<DeviceInfo>> devices("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-02"
+    }
+   ]
   },
   {
    "id": "act:diag-fix",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('hlt-fix-${r.check.id}')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<RecordWrite?> fix(String id)"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/data_health.dart",
+     "has": "Future<RecordWrite> fix(String id"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-04"
+    }
+   ]
   },
   {
    "id": "act:diag-merge-do",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('hlm-do')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<bool> merge(int keep, List<int> drops)"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/data_health.dart",
+     "has": "Future<MergeResult> merge(int keepId, List<int> dropIds"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U03"
+    }
+   ]
   },
   {
    "id": "act:diag-merge-open",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('hld-merge-$i')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/data_health.dart",
+     "has": "Future<List<HealthMember>> mergeGroup(String key"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U03"
+    }
+   ]
   },
   {
    "id": "act:diag-open",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('hlt-open-${r.check.id}')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<HealthResult?> open(String id)"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/data_health.dart",
+     "has": "Future<HealthResult> check(String id"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U01"
+    }
+   ]
   },
   {
    "id": "act:diag-rerun",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('hlt-rerun')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> rerun()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/data_health.dart",
+     "has": "Future<HealthRun> run("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U01"
+    }
+   ]
   },
   {
    "id": "act:followup-ack",
@@ -1082,13 +1446,65 @@
   },
   {
    "id": "act:mirror-refresh",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('sys-mirror-refresh')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> mirrorRefresh()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<MirrorState> mirrorRefresh("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-01"
+    }
+   ]
   },
   {
    "id": "act:mirror-restore",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('sys-restore')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<bool> restore(String path)"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<RestoreReport> restore(Map<String, Object?> data"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-01"
+    }
+   ]
   },
   {
    "id": "act:modal-bg",
@@ -1148,8 +1564,36 @@
   },
   {
    "id": "act:phone-diagnose",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('sys-diagnose')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> diagnose()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<List<ConnectionStep>> diagnoseConnection("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W01"
+    },
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U06"
+    }
+   ]
   },
   {
    "id": "act:pick-clear",
@@ -1204,8 +1648,32 @@
   },
   {
    "id": "act:revoke-device",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('sys-revoke-${d.id}')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> revoke(String id)"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<void> revokeDevice(String id"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-02"
+    }
+   ]
   },
   {
    "id": "act:role-filter",
@@ -1517,8 +1985,32 @@
   },
   {
    "id": "act:settings-save",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Key('sys-settings-save')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "Future<void> saveSettings(String name)"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<void> saveSettings({required String name}"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-02"
+    }
+   ]
   },
   {
    "id": "act:slot-del",
@@ -2761,8 +3253,40 @@
   },
   {
    "id": "page:cloud",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "class CloudScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'cloud'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "class CloudForm"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W04"
+    },
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-03"
+    }
+   ]
   },
   {
    "id": "page:followup",
@@ -2819,8 +3343,40 @@
   },
   {
    "id": "page:health",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "class HealthScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'health'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/data_health.dart",
+     "has": "Future<HealthRun> run("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W05"
+    },
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W12-IT-04"
+    }
+   ]
   },
   {
    "id": "page:home",
@@ -3029,8 +3585,44 @@
   },
   {
    "id": "page:system",
-   "status": "planned",
-   "wave": "W12"
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "class SystemScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'system'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/server_admin.dart",
+     "has": "Future<List<ConnectionStep>> diagnoseConnection("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W01"
+    },
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W02"
+    },
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W03"
+    },
+    {
+     "file": "apps/payesh/app/test/system_wave12_test.dart",
+     "has": "'W12-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/server_admin_test.dart",
+     "has": "'W12-U06"
+    }
+   ]
   },
   {
    "id": "page:users",

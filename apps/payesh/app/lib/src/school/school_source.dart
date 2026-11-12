@@ -21,6 +21,10 @@ abstract interface class SchoolSource {
   /// W7: credential actions on the school's own server; null when this device is not on one
   /// (cloud Gateway) — passwords are online-only by design (F‑01, see accounts.dart).
   AccountsApi? get accounts;
+
+  /// W12: managing the school server itself (backups, devices, audit, cloud settings);
+  /// null when this device is not on the school's own server — online by design.
+  ServerAdminApi? get admin;
 }
 
 /// Shared state of a row-128 page: loading, busy, page error, confirmation, form error. Every

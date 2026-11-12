@@ -1340,4 +1340,267 @@ void main() {
     negatives++;
     passed++;
   }, skip: skip);
+
+  // ───────────────────── W12 school-server management ─────────────────────
+  // Online by design: each action works on the school server's own disk / device table /
+  // audit log / cloud settings, so LanServerAdmin calls the server directly.
+  late LanSession extra;
+  LanServerAdmin adminOf(LanSession who) =>
+      LanServerAdmin(client: lan, server: server, token: () async => who.token);
+
+  test(
+    'W12-IT-01 backup now, backup list, mirror refresh and restore from the mirror file; '
+    'NEG a teacher can do none of it, a non-backup file is refused',
+    () async {
+      final m = adminOf(managerLogin);
+      // a second manager device, revoked in W12-IT-02 (signed in before the restore below)
+      extra = await lan.login(
+        server: server,
+        phone: '09120000128',
+        password: 'modir-new', // changed in W7-IT
+        deviceName: 'it-w12-extra',
+      );
+      final h = await m.health();
+      expect(h.school, 'هنرستان آزمون ۱۲۸');
+      expect(h.version, isNotEmpty);
+      final file = await m.backupNow();
+      expect(file, endsWith('.sqlite'));
+      expect(await m.backups(), contains(file));
+      final mir = await m.mirrorRefresh();
+      expect(mir.total, greaterThan(0));
+      expect(
+        mir.ok,
+        isTrue,
+        reason: 'mirror equals the database right after a refresh',
+      );
+      expect(mir.daily, isNotEmpty);
+      expect((await m.mirror()).total, mir.total);
+      final (st, data) = await raw(
+        'GET',
+        svc.base.resolve('/api/admin/mirror/download'),
+        token: managerLogin.token,
+      );
+      expect(st, 200);
+      final parsed = BackupFile.parse(utf8.encode(jsonEncode(data)));
+      final rep = await m.restore(parsed);
+      expect(rep.restored, greaterThan(0));
+      expect(rep.safety, endsWith('.sqlite'));
+      await expectLater(
+        m.restore({'format': 'other', 'collections': <String, Object?>{}}),
+        throwsA(
+          isA<AdminFailure>().having(
+            (f) => f.kind,
+            'kind',
+            AdminError.notBackup,
+          ),
+        ),
+      );
+      negatives++;
+      final t = adminOf(teacherLogin);
+      for (final call in <Future<Object?> Function()>[
+        t.backupNow,
+        t.backups,
+        t.mirrorRefresh,
+        () => t.restore(parsed),
+      ]) {
+        await expectLater(
+          call(),
+          throwsA(
+            isA<AdminFailure>().having(
+              (f) => f.kind,
+              'kind',
+              AdminError.notManager,
+            ),
+          ),
+        );
+        negatives++;
+      }
+      passed++;
+    },
+    skip: skip,
+  );
+
+  test(
+    'W12-IT-02 devices list, revoke a device (its token stops working), audit shows it, '
+    'school name saved; NEG a teacher cannot list devices or read the audit',
+    () async {
+      final m = adminOf(managerLogin);
+      final before = await m.devices();
+      final d = before.firstWhere(
+        (x) => x.name == 'it-w12-extra' && !x.revoked,
+      );
+      expect(d.userId, managerLogin.uid);
+      await m.revokeDevice(d.id);
+      expect(
+        (await m.devices()).firstWhere((x) => x.id == d.id).revoked,
+        isTrue,
+      );
+      final (st, _) = await raw(
+        'GET',
+        svc.base.resolve('/api/v1/pull?collections=users'),
+        token: extra.token,
+      );
+      expect(st, isNot(200), reason: 'a revoked device is refused');
+      negatives++;
+      final log = await m.audit(limit: 50);
+      expect(log.map((a) => a.action), contains('device_revoke'));
+      await m.saveSettings(name: 'هنرستان آزمون ۱۲۸ ب');
+      expect((await serverRow('schools', 1))!['name'], 'هنرستان آزمون ۱۲۸ ب');
+      expect((await m.health()).school, 'هنرستان آزمون ۱۲۸ ب');
+      await m.saveSettings(name: 'هنرستان آزمون ۱۲۸');
+      await expectLater(
+        m.revokeDevice('../x'),
+        throwsA(
+          isA<AdminFailure>().having(
+            (f) => f.kind,
+            'kind',
+            AdminError.notFound,
+          ),
+        ),
+      );
+      negatives++;
+      final t = adminOf(teacherLogin);
+      for (final call in <Future<Object?> Function()>[
+        t.devices,
+        () => t.audit(),
+        () => t.saveSettings(name: 'x'),
+      ]) {
+        await expectLater(
+          call(),
+          throwsA(
+            isA<AdminFailure>().having(
+              (f) => f.kind,
+              'kind',
+              AdminError.notManager,
+            ),
+          ),
+        );
+        negatives++;
+      }
+      passed++;
+    },
+    skip: skip,
+  );
+
+  test('W12-IT-03 cloud settings: save (key write-only), test / CORS / phone check report '
+      'their steps, reset to the built-in default; NEG the key never comes back, a teacher '
+      'cannot read the settings', () async {
+    final m = adminOf(managerLogin);
+    const secret = 'it-secret-never-returned-128';
+    final ok = await m.cloudSave(
+      const CloudForm(
+        endpoint: 'http://127.0.0.1:1',
+        bucket: 'it-bucket',
+        region: 'it-1',
+        accessKey: 'AKITW12KEY',
+        secret: secret,
+      ),
+    );
+    expect(ok, isTrue);
+    final c = await m.cloud();
+    expect(c.configured, isTrue);
+    expect(c.builtIn, isFalse);
+    expect(c.bucket, 'it-bucket');
+    expect(c.accessHint, 'AKIT…');
+    expect(c.stateFa, 'آماده');
+    final (st, j) = await raw(
+      'GET',
+      svc.base.resolve('/api/admin/cloud'),
+      token: managerLogin.token,
+    );
+    expect(st, 200);
+    expect(jsonEncode(j), isNot(contains(secret)));
+    expect(jsonEncode(j), isNot(contains('AKITW12KEY')));
+    negatives++;
+    final test = await m.cloudTest();
+    expect(test.ok, isFalse, reason: 'nothing listens on 127.0.0.1:1');
+    expect(test.headlineFa, startsWith('وصل نشد'));
+    final cors = await m.cloudCors();
+    expect(cors.ok, isFalse);
+    expect(cors.headlineFa, 'تنظیم خودکار نشد');
+    final phone = await m.phoneCheck();
+    expect(phone.ok, isFalse);
+    expect(phone.steps.first.name, 'پیدا کردن صندوقچه');
+    expect(phone.steps.first.ok, isTrue);
+    await m.cloudReset();
+    final back = await m.cloud();
+    expect(back.builtIn, isTrue);
+    expect(back.bucket, isNot('it-bucket'));
+    final log = await m.audit(limit: 50);
+    expect(
+      log.map((a) => a.action),
+      containsAll([
+        'cloud_config',
+        'cloud_test',
+        'cloud_phone_check',
+        'cloud_reset',
+      ]),
+    );
+    await expectLater(
+      adminOf(teacherLogin).cloud(),
+      throwsA(
+        isA<AdminFailure>().having(
+          (f) => f.kind,
+          'kind',
+          AdminError.notManager,
+        ),
+      ),
+    );
+    negatives++;
+    final steps = await diagnoseConnection(
+      server: server,
+      admin: m,
+      signedIn: true,
+      queued: 0,
+    );
+    expect(steps[1].textFa, 'سرور مدرسه جواب می‌دهد');
+    expect(steps[1].detail, contains('هنرستان آزمون ۱۲۸'));
+    final down = await diagnoseConnection(
+      server: Uri.parse('http://127.0.0.1:1'),
+      admin: LanServerAdmin(
+        client: lan,
+        server: Uri.parse('http://127.0.0.1:1'),
+        token: () async => managerLogin.token,
+      ),
+      signedIn: true,
+      queued: 0,
+    );
+    expect(down[1].ok, isFalse);
+    expect(down[1].textFa, 'به سرور مدرسه دسترسی نداریم (شبکه/نشانی)');
+    negatives++;
+    passed++;
+  }, skip: skip);
+
+  test('W12-IT-04 data health on the pulled copy: a safe fix is queued and reaches the '
+      'server; NEG a teacher cannot run the checks', () async {
+    final other = Device(server, managerLogin, seed: 13);
+    const orphanId = 3700000000000001;
+    await push(managerLogin.token, [
+      {
+        'uid': 'w12-orphan',
+        'collection': 'parent_links',
+        'type': 'put',
+        'id': orphanId,
+        'data': {'parent_id': 987654, 'student_id': 987655},
+      },
+    ]);
+    await other.pull();
+    final h = DataHealth(other.db);
+    final link = await h.check('orphan-link');
+    expect(link.ok, isFalse);
+    expect(link.items.map((i) => i.id), contains(orphanId));
+    final fix = await h.fix('orphan-link');
+    expect(fix.queued, isTrue);
+    expect((await other.sync()).waiting, 0);
+    expect(await serverRow('parent_links', orphanId), isNull);
+    expect((await h.check('orphan-link')).ok, isTrue);
+    await expectLater(
+      DataHealth(teacher.db).run(),
+      throwsA(
+        isA<RecordFailure>().having((f) => f.code, 'code', 'not_allowed'),
+      ),
+    );
+    negatives++;
+    passed++;
+  }, skip: skip);
 }

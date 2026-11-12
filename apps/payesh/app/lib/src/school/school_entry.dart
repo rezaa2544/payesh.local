@@ -8,6 +8,7 @@ import '../classes/classes_screen.dart';
 import '../flags.dart';
 import '../followup/followup_screen.dart';
 import '../reports/reports_screen.dart';
+import '../system/system_screen.dart';
 import '../schedule/schedule_screen.dart';
 import '../users/users_controller.dart';
 import '../users/users_screen.dart';
@@ -235,6 +236,55 @@ final List<SchoolPageSpec> schoolPages = [
       ),
     ),
   ),
+  SchoolPageSpec(
+    id: 'health',
+    wave: SchoolWave.server,
+    label: 'سلامت داده',
+    icon: Icons.health_and_safety_outlined,
+    roles: const {'manager'},
+    build: _health,
+  ),
+  SchoolPageSpec(
+    id: 'cloud',
+    wave: SchoolWave.server,
+    label: 'حافظهٔ ابری',
+    icon: Icons.cloud_outlined,
+    roles: const {'manager'},
+    build: _cloud,
+  ),
+  SchoolPageSpec(
+    id: 'system',
+    wave: SchoolWave.server,
+    label: 'سیستم',
+    icon: Icons.settings_outlined,
+    roles: const {
+      'manager',
+      'vice',
+      'teacher',
+      'counselor',
+      'staff',
+      'office',
+      'parent',
+      'student',
+    },
+    build: (a) => Builder(
+      builder: (context) => SchoolOwned(
+        create: () =>
+            SystemController(source: a.source, role: a.role, uid: a.uid),
+        page: (c) => SystemScreen(
+          controller: c as SystemController,
+          sync: a.sync,
+          onRetry: a.onRetry,
+          openCloud: () =>
+              Navigator.of(context)
+                  .push(MaterialPageRoute<void>(builder: (_) => _cloud(a))),
+          openHealth: () =>
+              Navigator.of(context)
+                  .push(MaterialPageRoute<void>(builder: (_) => _health(a))),
+        ),
+      ),
+    ),
+  ),
 ];
 
 /// Entry buttons of the row-128 pages on the signed-in home. A page shows only when the build
@@ -301,3 +351,21 @@ class SchoolEntry extends StatelessWidget {
     );
   }
 }
+
+Widget _health(SchoolRouteArgs a) => SchoolOwned(
+  create: () => HealthController(source: a.source, role: a.role, uid: a.uid),
+  page: (c) => HealthScreen(
+    controller: c as HealthController,
+    sync: a.sync,
+    onRetry: a.onRetry,
+  ),
+);
+
+Widget _cloud(SchoolRouteArgs a) => SchoolOwned(
+  create: () => CloudController(source: a.source, role: a.role, uid: a.uid),
+  page: (c) => CloudScreen(
+    controller: c as CloudController,
+    sync: a.sync,
+    onRetry: a.onRetry,
+  ),
+);
