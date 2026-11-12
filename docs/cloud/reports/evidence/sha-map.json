@@ -139,6 +139,17 @@
       "files": [
         "docs/cloud/reports/evidence/tests-run-f244c32-20261109T101736Z.log"
       ]
+    },
+    {
+      "old": "ebe271a44b4bd5f0b3e9a99ebd5461b92695217e",
+      "new": "70ef216e112939eb32827ad763c3f481ffedf2eb",
+      "kind": "rebased-or-local",
+      "source": "row 126: release-manifest commit rebased over the CI bot manifest commit 88a231a before push (same tree change)",
+      "files": [
+        "docs/cloud/reports/evidence/mission-05-11-structure.txt",
+        "docs/cloud/reports/evidence/mission-05-tests-run.log",
+        "docs/cloud/reports/evidence/tests-run-ebe271a-20261112T130402Z.log"
+      ]
     }
   ]
 }
