@@ -5129,13 +5129,26 @@ async function waitFor(fn, ms = 15000) {
         && at('pg_advisory_xact_lock') < at('for (const sql of SCHEMA_SQL)') && at('for (const sql of SCHEMA_SQL)') < at("client.query('COMMIT')"),
         'migrate must be BEGIN → advisory lock → schema → COMMIT (row 126)');
       assert.ok(/ROLLBACK/.test(body) && /40P01/.test(body), 'migrate must roll back and retry deadlocks');
+      /* row 129 (CI finding: gateway-real W2-IT-03 / W3-IT-03 "applied 0"): steady-state migrate is DDL-free,
+         a real migration locks every tenancy table up front (no lock upgrade ⇒ no deadlock with a live push),
+         and withTenant re-runs a live transaction that was picked as the deadlock victim */
+      assert.ok(at('schemaCurrent(client)') > at('pg_advisory_xact_lock') && at('if (!skipped)') > at('schemaCurrent(client)')
+        && at('lock table') > at('if (!skipped)') && at('lock table') < at('for (const sql of SCHEMA_SQL)'),
+        'row 129: advisory lock → fingerprint check → (only if needed) lock all tables → schema');
+      const wt = src.slice(src.indexOf('async function withTenant('), src.indexOf('let txRetries'));
+      assert.ok(/RETRYABLE_TX\.has\(e\.code\)/.test(wt) && /attempt >= attempts/.test(wt) && /ROLLBACK/.test(wt),
+        'row 129: withTenant must roll back and re-run 40P01/40001 a bounded number of times');
+      const tn = require(path.join(ROOT, 'server/tenancy.js'));
+      assert.strictEqual(tn.txAttempts({}), 4); assert.strictEqual(tn.txAttempts({ PAYESH_PG_TX_ATTEMPTS: '1' }), 1);
+      assert.strictEqual(tn.txAttempts({ PAYESH_PG_TX_ATTEMPTS: '99' }), 10); assert.strictEqual(tn.txAttempts({ PAYESH_PG_TX_ATTEMPTS: 'x' }), 4);
+      assert.ok(/^[0-9a-f]{64}$/.test(tn.SCHEMA_FINGERPRINT));
       const { spawnSync } = require('child_process');
       const env = Object.assign({}, process.env);
       delete env.PAYESH_PG_ADMIN; delete env.PAYESH_PG_RUNTIME; delete env.MIG126_REQUIRE_PG;
       const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/migrate-atomic-126.js')], { encoding: 'utf8', env });
       assert.strictEqual(r.status, 3, 'migrate-atomic-126 without PG must be BLOCKED (exit 3): ' + r.stdout);
       assert.ok(/BLOCKED/.test(r.stdout) && !/^PASS/m.test(r.stdout));
-      console.log('    MIGRATE-ATOMIC-126 static=1 pg_suite=BLOCKED-here (CI api-contract runs it)');
+      console.log('    MIGRATE-ATOMIC-126 static=1 row129_tx_rerun=1 row129_ddl_free_steady_state=1 pg_suite=BLOCKED-here (CI api-contract runs it)');
     });
 
   /* ── ردیف ۱۲۵: رجیستری برنامه‌های نصبی — «فقط بومی» (D‑49) ── */

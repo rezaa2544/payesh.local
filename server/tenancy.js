@@ -299,22 +299,71 @@ const SCHEMA_SQL = [
    هرگز جدول بی‌سیاست نمی‌بینند (تا COMMIT پشت قفل جدول می‌ایستند). مهاجرت هم‌زمان با یک
    تراکنش چندجدولی زنده ممکن است بن‌بست Postgres بدهد (40P01)؛ کل مهاجرت دوباره اجرا می‌شود. */
 const MIGRATE_LOCK_KEY = 7061796573680126; // "payesh" + row 126 — one key for every tenancy migrator
-async function migrate(client, { attempts = 5 } = {}) {
+/* ردیف ۱۲۹ (یافتهٔ CI): هر نمونهٔ Gateway و هر هارنس IT هنگام شروع migrate() را صدا می‌زند. اجرای
+   دوبارهٔ ALTER/DROP/CREATE POLICY روی پایگاهی که از قبل به‌روز است قفل‌های سنگین جدول می‌گیرد و
+   با درخواست‌های زنده بن‌بست می‌سازد — بی‌هیچ سودی. اکنون پشت همان قفل مشورتی اثرانگشت SCHEMA_SQL
+   با مقدار ثبت‌شده مقایسه می‌شود؛ اگر برابر باشد، هر ۸ جدول مستأجر هنوز FORCE RLS و سیاست داشته
+   باشند و هر دو نقش موجود باشند، مهاجرت بدون هیچ DDL (بدون قفل جدول) تمام می‌شود. هر انحرافی ⇒
+   اجرای کامل. { force: true } همیشه کامل اجرا می‌کند (آزمون بار ۱۲۶/۱۲۹). */
+const SCHEMA_META_TABLE = 'payesh_tenancy_schema';
+const SCHEMA_FINGERPRINT = crypto.createHash('sha256').update(SCHEMA_SQL.join('\n;\n')).digest('hex');
+const RLS_TABLES = [TABLE, PRODUCT_TABLE, JOBS_TABLE, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, SCHOOL_TABLE, CRED_TABLE];
+/* ترتیب قفل همان ترتیبی است که تراکنش‌های زنده جدول‌ها را لمس می‌کنند (سهمیه → دفتر ops → مدرسه →
+   رکورد → فید → اعتبار → کار → رکورد قدیمی) تا چرخه کمتر شکل بگیرد. */
+const MIGRATE_LOCK_ORDER = [QUOTA_TABLE, OPS_TABLE, SCHOOL_TABLE, PRODUCT_TABLE, FEED_TABLE, CRED_TABLE, JOBS_TABLE, TABLE];
+async function schemaCurrent(client) {
+  const r = await client.query(
+    `select (select sha from ${SCHEMA_META_TABLE} where id = 1) as sha,
+            (select count(*)::int from unnest($1::text[]) t(name)
+               join pg_class c on c.oid = to_regclass(t.name)
+              where c.relrowsecurity and c.relforcerowsecurity
+                and exists (select 1 from pg_policy p where p.polrelid = c.oid)) as guarded,
+            (select count(*)::int from pg_roles where rolname = any($2::text[])) as roles`,
+    [RLS_TABLES, [OWNER_ROLE, RUNTIME_ROLE]]);
+  const row = r.rows[0] || {};
+  return row.sha === SCHEMA_FINGERPRINT && row.guarded === RLS_TABLES.length && row.roles === 2;
+}
+async function migrate(client, { attempts = 8, force = false } = {}) {
+  let skipped = false;
   for (let attempt = 1; ; attempt++) {
     try {
       await client.query('BEGIN');
       await client.query('select pg_advisory_xact_lock($1::bigint)', [String(MIGRATE_LOCK_KEY)]);
-      for (const sql of SCHEMA_SQL) await client.query(sql);
+      await client.query(`create table if not exists ${SCHEMA_META_TABLE} (
+        id smallint primary key check (id = 1), sha text not null, applied_at timestamptz not null default now())`);
+      await client.query(`revoke all on ${SCHEMA_META_TABLE} from public`);
+      skipped = !force && await schemaCurrent(client);
+      if (!skipped) {
+        /* بن‌بست با یک تراکنش زنده: آن تراکنش پس از deadlock_timeout خودش (پیش‌فرض ۱s) چرخه را
+           می‌بیند و قربانی می‌شود و withTenant آن را کامل دوباره اجرا می‌کند؛ مهاجرت ادامه می‌دهد.
+           (فقط superuser؛ وگرنه بی‌صدا رد می‌شود و تکرار خود مهاجرت باقی است.) */
+        await client.query('SAVEPOINT payesh_dl');
+        try { await client.query("select set_config('deadlock_timeout', '10s', true)"); await client.query('RELEASE SAVEPOINT payesh_dl'); }
+        catch (_) { await client.query('ROLLBACK TO SAVEPOINT payesh_dl'); }
+        /* بدون ارتقای قفل: DDL پشت سر هم روی یک جدول اول قفل ضعیف می‌گیرد و بعد ACCESS EXCLUSIVE
+           می‌خواهد؛ هم‌زمان یک push با ACCESS SHARE در صف ROW EXCLUSIVE می‌ماند ⇒ بن‌بست روی همان
+           جدول (یافتهٔ ۱۲۹). پس همهٔ جدول‌های موجود از ابتدا، به یک ترتیب ثابت، یک‌جا قفل می‌شوند. */
+        const present = await client.query(
+          'select t.name from unnest($1::text[]) with ordinality t(name, i) where to_regclass(t.name) is not null order by t.i',
+          [MIGRATE_LOCK_ORDER]);
+        if (present.rows.length) {
+          await client.query(`lock table ${present.rows.map(x => x.name).join(', ')} in access exclusive mode`);
+        }
+        for (const sql of SCHEMA_SQL) await client.query(sql);
+        await client.query(`insert into ${SCHEMA_META_TABLE} (id, sha) values (1, $1)
+                            on conflict (id) do update set sha = excluded.sha, applied_at = now()`, [SCHEMA_FINGERPRINT]);
+      }
       await client.query('COMMIT');
       break;
     } catch (e) {
       try { await client.query('ROLLBACK'); } catch (_) { /* noop */ }
       if (!(e && (e.code === '40P01' || e.code === '40001')) || attempt >= attempts) throw e;
-      await new Promise(r => setTimeout(r, 25 * attempt));
+      await new Promise(r => setTimeout(r, 25 * attempt + Math.floor(Math.random() * 40)));
     }
   }
   const v = await client.query('select current_setting($1, true) as v', ['server_version']);
-  return { table: TABLE, statements: SCHEMA_SQL.length, server_version: v.rows[0] && v.rows[0].v };
+  return { table: TABLE, statements: SCHEMA_SQL.length, skipped, fingerprint: SCHEMA_FINGERPRINT,
+    server_version: v.rows[0] && v.rows[0].v };
 }
 
 /* ── اتصال runtime ─────────────────────────────────────────────────── */
@@ -371,22 +420,43 @@ async function acquire(pool) {
   return client;
 }
 
+/* ردیف ۱۲۹ (یافتهٔ CI، ادامهٔ ۱۲۶): مهاجرت هم‌زمان با یک تراکنش چندجدولی زنده (applyOps،
+   فعال‌سازی، …) ممکن است بن‌بست Postgres بدهد و Postgres گاهی **درخواست زنده** را قربانی کند
+   (40P01) — نه مهاجرت را. پیش از این فقط مهاجرت دوباره اجرا می‌شد و درخواست زنده 503 می‌گرفت
+   (gateway-real: W2-IT-03/W3-IT-03 «applied 0»). Postgres کل تراکنش قربانی را برگردانده است،
+   پس اجرای دوبارهٔ کامل fn امن است؛ هر fn فقط با همین client کار می‌کند و وضعیتش را درون خود
+   می‌سازد. فقط 40P01 (deadlock) و 40001 (serialization) دوباره اجرا می‌شوند، حداکثر
+   PAYESH_PG_TX_ATTEMPTS بار (پیش‌فرض ۴؛ ۱ = بدون تکرار، فقط برای کنترل منفی آزمون). */
+function txAttempts(env = process.env) {
+  const n = Number(env.PAYESH_PG_TX_ATTEMPTS || 4);
+  return Number.isInteger(n) && n >= 1 ? Math.min(n, 10) : 4;
+}
+const RETRYABLE_TX = new Set(['40P01', '40001']);
 async function withTenant(pool, tenantId, fn) {
   if (!UUID_RE.test(String(tenantId || ''))) throw new TenancyError('bad_tenant', 400);
+  const attempts = txAttempts();
   const client = await acquire(pool);
   try {
-    await client.query('BEGIN');
-    await client.query("select set_config('app.tenant_id', $1, true)", [String(tenantId)]);
-    const out = await fn(client, tenantId);
-    await client.query('COMMIT');
-    return out;
-  } catch (e) {
-    try { await client.query('ROLLBACK'); } catch (_) { /* noop */ }
-    throw e;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await client.query('BEGIN');
+        await client.query("select set_config('app.tenant_id', $1, true)", [String(tenantId)]);
+        const out = await fn(client, tenantId);
+        await client.query('COMMIT');
+        return out;
+      } catch (e) {
+        try { await client.query('ROLLBACK'); } catch (_) { /* noop */ }
+        if (!(e && RETRYABLE_TX.has(e.code)) || attempt >= attempts) throw e;
+        txRetries++;
+        await new Promise(r => setTimeout(r, 10 * attempt + Math.floor(Math.random() * 15)));
+      }
+    }
   } finally {
     client.release();
   }
 }
+let txRetries = 0;
+const txRetryCount = () => txRetries;
 
 function rowOf(r) {
   return {
@@ -1209,6 +1279,7 @@ async function rekeyFields(pool, tenantId) {
   const zlib = require('node:zlib');
   const cols = fc.sealedCollections();
   return withTenant(pool, tenantId, async (c) => {
+    out.records = 0; out.feed = 0; // row 129: withTenant may re-run this closure after a deadlock
     const q = await c.query(`select collection, record_id, data from ${PRODUCT_TABLE} where collection = any($1::text[])`, [cols]);
     for (const r of q.rows) {
       if (!fc.needsReseal(r.collection, r.data)) continue;
@@ -1237,7 +1308,7 @@ async function rekeyFields(pool, tenantId) {
 
 module.exports = { SCHOOL_TABLE, CRED_TABLE, upsertInTx, createPool, poolErrorCount, rekeyFields, replicaPolicy, transfer, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
-  TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant,
+  TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant, txAttempts, txRetryCount, SCHEMA_FINGERPRINT, SCHEMA_META_TABLE,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,
   listProduct, getProduct, upsertProduct, deleteProduct, joinProduct, exportProduct, exportSubject, listTombstones, purgeTombstones,
   enqueueJob, claimJob, completeJob,

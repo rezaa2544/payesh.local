@@ -25,6 +25,7 @@
     { "name": "GW_ACCESS_LOG", "need": "optional", "secret": false, "default": "1", "fa": "0 = خاموش کردن لاگ دسترسی." },
     { "name": "GW_CELL", "need": "optional", "secret": false, "default": "", "fa": "شناسهٔ cell (فقط در استقرار چند-cell؛ تک‌سرور: خالی)." },
     { "name": "PAYESH_PG_POOL_MAX", "need": "optional", "secret": false, "default": "4", "fa": "اندازهٔ pool اتصال هر نمونه (سقف سخت ۵۰؛ بودجهٔ اتصال: 45-connection-budget.md)." },
+    { "name": "PAYESH_PG_TX_ATTEMPTS", "need": "optional", "secret": false, "default": "4", "fa": "حداکثر دفعات اجرای دوبارهٔ یک تراکنش مستأجر پس از بن‌بست/تعارض سریال‌سازی Postgres (40P01/40001؛ سقف ۱۰؛ ۱ = بدون تکرار — فقط برای آزمون؛ ردیف ۱۲۹)." },
     { "name": "PAYESH_PG_REPLICA_URL", "need": "optional", "secret": true, "default": "", "fa": "replica فقط‌خواندنی (اختیاری)." },
     { "name": "PAYESH_CELL_TRANSFER_ENABLED", "need": "optional", "secret": false, "default": "", "fa": "1 = فعال بودن انجماد نوشتن هنگام انتقال مدرسه بین cellها." },
     { "name": "PAYESH_DIRECTORY_PGURL", "need": "optional", "secret": true, "default": "", "fa": "دیتابیس Directory (کد مدرسه ← نشانی cell). تک‌سرور: لازم نیست." },
