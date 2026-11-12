@@ -106,3 +106,5 @@ infra_* tables = 7 · rowsecurity=true برای هر ۷ جدول
 - امنیت تا pentest انسانی (۹۲) **UNKNOWN** است.
 
 **کار مالک:** تعریف Secretهای ارجاع‌شده (`secret:NAME`) روی هاست با OWNER است و در مخزن انجام نمی‌شود.
+
+> پژوهش API واقعی Providerها (ردیف ۱۲۴): [`124-provider-api-research.md`](124-provider-api-research.md) — سه سطح L1/L2/L3، L3 ممنوع، آداپتور `manual` پیش‌فرض می‌ماند.

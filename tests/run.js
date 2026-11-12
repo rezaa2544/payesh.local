@@ -5035,6 +5035,10 @@ async function waitFor(fn, ms = 15000) {
   await test('ردیف ۱۲۳: UI زیرساخت روی API واقعی — «نامعلوم» بهجای عدد ساختگی، credential فقط secret:NAME (بدون فیلد رمز)، Health Check دستی با cooldown، تغییر پرخطر دومرحله‌ای (درخواست ⇒ تأیید فقط owner)، ساخت مدرسه با کد فعال‌سازی یک‌باره، کنترل منفی',
     async () => { const r = await require('../apps/owner-panel/tests/owner-spa-infra.test.js').run(); console.log('    OWNER-SPA-INFRA-123 checks=' + r.checks + ' negative_controls=' + r.negative + ' failures=0'); });
 
+  /* ── ردیف ۱۲۴: پژوهش API واقعی Providerها (سند + اعتبارسنج) ───────── */
+  await test('ردیف ۱۲۴: پژوهش Providerها — هر قابلیت یکی از سه سطح (ثبت دستی/پایش سلامت/Provisioning)، ادعا فقط با منبع https، بی‌منبع ⇒ L1 [?]، L3 ممنوع، هزینه فقط با منبع، هم‌خوان با آداپتور manual، کنترل منفی جهش',
+    async () => { const r = await require('./provider-research-124.js').main({ quiet: true }); if (r.failed) throw new Error('PROVIDER-RESEARCH-124 failures: ' + r.failures.join(',')); console.log('    PROVIDER-RESEARCH-124-OK passed=' + r.passed + ' negative_controls=' + r.negatives); });
+
   /* ── ردیف ۱۰۲: پنل مالک · اجرای محلی با یک فرمان (local-up) ─────────── */
   const ownerLocalUp = require('../apps/owner-panel/tests/local-up.test.js');
   await test('ردیف ۱۰۲: local-up — فقط loopback، DATABASE_URL محلی، migration idempotent، رازها خارج از Git، ورود TOTP، خاموشی تمیز، بدون 004 ⇒ 501',
