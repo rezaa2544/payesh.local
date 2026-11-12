@@ -142,5 +142,6 @@
 | ۱۲۳ | صفحهٔ «زیرساخت» و فرم «ساخت مدرسه» در پنل مالک | #203 → `8c83a13` | [`cloud/123-owner-infra-ui.md`](cloud/123-owner-infra-ui.md) |
 | ۱۲۴ | پژوهش API واقعی Providerها | #205 → `c103039` | [`cloud/124-provider-api-research.md`](cloud/124-provider-api-research.md) |
 | ۷۴ (موج ۱) | ورود و انتخاب مدرسه در کلاینت بومی | #207 → `19c2627` | [`cloud/74-native-wave1-login.md`](cloud/74-native-wave1-login.md) |
+| ۷۴ (موج ۲) | حضور و غیاب در کلاینت بومی | #209 → `d4983d8` | [`cloud/74-native-wave2-attendance.md`](cloud/74-native-wave2-attendance.md) |
 
 ردیف‌های باز (۷۴، ۹۳ — همین نقشه، ۹۴، ۱۱۲ و ردیف‌های OWNER/Z: ۹۱، ۹۲، ۱۰۵، ۱۱۳، ۶۱؛ ۱۰۳ و ۱۰۴ منسوخ‌شده با ADR‑105) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.
