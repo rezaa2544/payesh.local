@@ -540,8 +540,20 @@
   },
   {
    "id": "act:pick-clear",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "Key('usr-pick-clear')"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W08"
+    }
+   ]
   },
   {
    "id": "act:print",
@@ -560,8 +572,20 @@
   },
   {
    "id": "act:role-filter",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "Key('usr-role-"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W01"
+    }
+   ]
   },
   {
    "id": "act:room-add",
@@ -808,8 +832,28 @@
   },
   {
    "id": "act:user-add",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "class UserFormPage"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/users.dart",
+     "has": "Future<RecordWrite> add("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W6-IT-01"
+    }
+   ]
   },
   {
    "id": "act:user-auto-pw",
@@ -823,18 +867,78 @@
   },
   {
    "id": "act:user-delete",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "Key('usr-delete-"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/users.dart",
+     "has": "Future<RecordWrite> delete("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W07"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W6-IT-06"
+    }
+   ]
   },
   {
    "id": "act:user-edit",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "class UserEditPage"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/users.dart",
+     "has": "Future<RecordWrite> edit("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W6-IT-02"
+    }
+   ]
   },
   {
    "id": "act:user-full",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "class UserProfilePage"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/users.dart",
+     "has": "Future<RecordWrite> saveFull("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W6-IT-03"
+    }
+   ]
   },
   {
    "id": "act:user-password",
@@ -848,8 +952,28 @@
   },
   {
    "id": "act:users-bulk-delete",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "Key('usr-bulk-delete')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/users.dart",
+     "has": "Future<RecordWrite> bulkDelete("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W08"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/users_test.dart",
+     "has": "'W6-U11"
+    }
+   ]
   },
   {
    "id": "act:workdays-edit",
@@ -1048,8 +1172,32 @@
   },
   {
    "id": "form:user",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "class UserFormPage"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/users.dart",
+     "has": "class SamePersonFailure"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W04"
+    },
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W6-IT-05"
+    }
+   ]
   },
   {
    "id": "form:user-creds",
@@ -1058,13 +1206,45 @@
   },
   {
    "id": "form:user-edit",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "class UserEditPage"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/users_test.dart",
+     "has": "'W6-U08"
+    }
+   ]
   },
   {
    "id": "form:user-full",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "class UserProfilePage"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/users_test.dart",
+     "has": "'W6-U09"
+    }
+   ]
   },
   {
    "id": "form:workdays",
@@ -1209,8 +1389,28 @@
   },
   {
    "id": "page:record",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "class RecordScreen"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/users.dart",
+     "has": "Future<StudentRecord> myRecord("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W10"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/users_test.dart",
+     "has": "'W6-U03"
+    }
+   ]
   },
   {
    "id": "page:reports",
@@ -1230,8 +1430,28 @@
   },
   {
    "id": "page:students",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "class StudentsScreen"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/users.dart",
+     "has": "Future<List<StudentRow>> students("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W09"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W6-IT-06"
+    }
+   ]
   },
   {
    "id": "page:system",
@@ -1240,8 +1460,24 @@
   },
   {
    "id": "page:users",
-   "status": "planned",
-   "wave": "W6"
+   "status": "native",
+   "wave": "W6",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "class UsersScreen"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/users_wave6_test.dart",
+     "has": "'W6-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W6-IT-04"
+    }
+   ]
   }
  ]
 }

@@ -12,6 +12,8 @@ import 'grades/grades_screen.dart';
 import 'login/login_screens.dart';
 import 'notices/notices_controller.dart';
 import 'notices/notices_screen.dart';
+import 'school/school_entry.dart';
+import 'school/school_source.dart';
 import 'login/session_controller.dart';
 import 'secure/local_storage.dart';
 
@@ -27,6 +29,7 @@ class PayeshApp extends StatelessWidget {
     this.grades,
     this.notices,
     this.family,
+    this.school,
     this.onRetrySync,
   });
 
@@ -48,6 +51,10 @@ class PayeshApp extends StatelessWidget {
 
   /// Wave 5 data (same local database + outbox + Gateway); null = parents pages stay on the web.
   final FamilySource? family;
+
+  /// Row 128 school-management pages (same local database + outbox); null = they stay on the
+  /// web client. Each page also needs its wave in `flags.school`.
+  final SchoolSource? school;
 
   /// Badge tap on native pages: run a sync cycle now.
   final VoidCallback? onRetrySync;
@@ -144,6 +151,15 @@ class PayeshApp extends StatelessWidget {
               ),
             );
           },
+        ),
+        const SizedBox(height: 8),
+        SchoolEntry(
+          flags: s.flags,
+          source: school,
+          role: role,
+          uid: uid,
+          sync: s.sync,
+          onRetry: onRetrySync,
         ),
       ],
     );

@@ -169,7 +169,7 @@ function nw5Gateway(s) {
 
 function nw5DataPath(s) {
   const b = code(s.book), w = code(s.wiring), m = code(s.main);
-  assert(/implements AttendanceSource, GradeSource, NoticeSource, FamilySource \{/.test(w), 'the Gateway source must also serve the parents pages');
+  assert(/implements\s+AttendanceSource,\s*GradeSource,\s*NoticeSource,\s*FamilySource\b[\s,A-Za-z]*\{/.test(w), 'the Gateway source must also serve the parents pages');
   const fb = block(w, 'Future<FamilyBook?> familyBookFor({', '\n  }\n');
   assert(/return FamilyBook\(engine: e, outbox: ob, role: role, uid: uid\);/.test(fb) && /if \(e == null \|\| ob == null \|\| _auto == null\) return null;/.test(fb), 'familyBookFor must reuse the shared engine/outbox and need AutoSync');
   assert(/family: flags\.ships\(NativeWave\.parents\) \? attendance : null,/.test(m), 'main must wire the parents pages only when the wave ships');

@@ -233,6 +233,21 @@ jobs:
           if grep -qE '~[0-9]+' "$GITHUB_WORKSPACE/lan-real-server.txt"; then echo 'LAN-IT-SKIPPED'; exit 1; fi
           grep -qE '^NATIVE-LAN-IT passed=7 negative_controls=12$' "$GITHUB_WORKSPACE/lan-real-server.txt"
           echo LAN-REAL-SERVER-OK
+      # Row 128 — the school-management pages (W6..W12: users, accounts, classes, schedule,
+      # follow-up/import, reports, server admin) on the app's LAN path against the headless data
+      # service: offline write → queued → applied; server-side refusals as negative controls.
+      - name: payesh_sync school admin ⇄ server/index.js headless (row 128)
+        working-directory: apps/payesh/packages/payesh_sync
+        env:
+          PAYESH_SERVER_IT: '1'
+        run: |
+          set -euo pipefail
+          dart test --reporter expanded test/school_admin_it_test.dart | tee "$GITHUB_WORKSPACE/admin-real-server.txt"
+          if grep -qE '~[0-9]+' "$GITHUB_WORKSPACE/admin-real-server.txt"; then echo 'ADMIN-IT-SKIPPED'; exit 1; fi
+          ran=$(grep -oE '\+[0-9]+: All tests passed' "$GITHUB_WORKSPACE/admin-real-server.txt" | grep -oE '[0-9]+')
+          # every test counted itself (passed=N equals the executed count) and negatives ran
+          grep -qE "^NATIVE-ADMIN-IT passed=${ran} negative_controls=[1-9][0-9]*$" "$GITHUB_WORKSPACE/admin-real-server.txt"
+          echo "ADMIN-REAL-SERVER-OK tests=${ran}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -240,6 +255,7 @@ jobs:
           path: |
             sync-real-server.txt
             lan-real-server.txt
+            admin-real-server.txt
 
   gateway-real:
     name: Dart Gateway client — pinned TLS against the REAL Gateway + PostgreSQL (row 75)

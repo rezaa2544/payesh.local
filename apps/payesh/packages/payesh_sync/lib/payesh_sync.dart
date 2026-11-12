@@ -19,6 +19,8 @@ export 'src/lan_access.dart';
 export 'src/notices.dart';
 export 'src/outbox.dart';
 export 'src/pinning.dart';
+export 'src/records.dart';
 export 'src/school_access.dart';
 export 'src/sync_client.dart';
 export 'src/transport.dart';
+export 'src/users.dart';

@@ -174,7 +174,7 @@ function nw4Ids(s) {
 
 function nw4DataPath(s) {
   const w = code(s.wiring);
-  assert(/implements AttendanceSource, GradeSource, NoticeSource/.test(w), 'the Gateway source must serve notices too (one data path)');
+  assert(/implements\s+AttendanceSource,\s*GradeSource,\s*NoticeSource\b/.test(w), 'the Gateway source must serve notices too (one data path)');
   assert(/return NoticeBoard\(engine: e, outbox: ob, role: role, uid: uid\);/.test(w), 'notice board must use the same engine and outbox');
   assert(/notices: flags\.ships\(NativeWave\.notices\) \? attendance : null,/.test(s.main), 'main: notices only when the wave ships, on the shared data path');
   const b = code(s.board);

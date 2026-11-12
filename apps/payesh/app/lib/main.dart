@@ -46,6 +46,8 @@ void main() {
       notices: flags.ships(NativeWave.notices) ? attendance : null,
       // Wave 5: parents pages on the same data path (children, child page, leave requests).
       family: flags.ships(NativeWave.parents) ? attendance : null,
+      // Row 128: school-management pages on the same data path (each gated by its wave).
+      school: flags.school.isEmpty ? null : attendance,
       onRetrySync: attendance?.retry,
     ),
   );

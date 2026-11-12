@@ -152,7 +152,7 @@ function nw3Ids(s) {
 
 function nw3DataPath(s) {
   const w = code(s.wiring);
-  assert(/implements AttendanceSource, GradeSource/.test(w), 'the Gateway source must serve grades too (one data path)');
+  assert(/implements\s+AttendanceSource,\s*GradeSource\b/.test(w), 'the Gateway source must serve grades too (one data path)');
   assert(/return GradeBook\(engine: e, outbox: ob, role: role, uid: uid\);/.test(w), 'grade book must use the same engine and outbox');
   assert(/grades: flags\.ships\(NativeWave\.grades\) \? attendance : null,/.test(s.main), 'main: grades only when the wave ships, on the attendance data path');
   const b = code(s.book);

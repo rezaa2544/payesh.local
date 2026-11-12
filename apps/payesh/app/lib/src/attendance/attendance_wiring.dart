@@ -9,6 +9,7 @@ import '../family/family_controller.dart';
 import '../login/session_controller.dart';
 import '../grades/grades_controller.dart';
 import '../notices/notices_controller.dart';
+import '../school/school_source.dart';
 import 'attendance_controller.dart';
 
 /// Default data path of wave 2 (row 74): the encrypted local database of row 72 + the durable
@@ -24,7 +25,12 @@ import 'attendance_controller.dart';
 /// grades and attendance share the queue, the owner claim and the badge. Wave 4 (notices) and
 /// wave 5 (parents) join the same path.
 final class GatewayAttendanceSource
-    implements AttendanceSource, GradeSource, NoticeSource, FamilySource {
+    implements
+        AttendanceSource,
+        GradeSource,
+        NoticeSource,
+        FamilySource,
+        SchoolSource {
   GatewayAttendanceSource({
     required this.storage,
     required this.session,
@@ -205,6 +211,18 @@ final class GatewayAttendanceSource
     final e = _engine, ob = _outbox;
     if (e == null || ob == null || _auto == null) return null;
     return FamilyBook(engine: e, outbox: ob, role: role, uid: uid);
+  }
+
+  /// Row 128: the school-management pages share the same database and outbox.
+  @override
+  Future<SchoolRecords?> recordsFor({
+    required String role,
+    required int uid,
+  }) async {
+    await _starting;
+    final e = _engine, ob = _outbox;
+    if (e == null || ob == null || _auto == null) return null;
+    return SchoolRecords(engine: e, outbox: ob, role: role, uid: uid);
   }
 
   @override
