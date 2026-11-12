@@ -1,11 +1,11 @@
-base_sha=4abe3259239a819f81cb41e355ee7d878ec85acc
-date_utc=2026-11-12T04:36:46Z
+base_sha=ddd739bdd309aad77bd3c9ebda415be1c05d4cc4
+date_utc=2026-11-12T04:52:10Z
 command=bash docs/cloud/reports/evidence/gen-audit-evidence.sh
 # شاهد ساختاری ممیزی ۰۵–۱۱
 # تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh
-# تاریخ اجرای آزمون (از لاگ خام): 2026-11-12T04:36:11Z
-# SHA اجرای آزمون (از لاگ خام): 4abe3259239a819f81cb41e355ee7d878ec85acc
-# اثر انگشت کد محصول (log / HEAD): 9c3e0f65612fbbaf39dbd49ee3578f8b35d294b10204528809b6546d8b3d20ba / 9c3e0f65612fbbaf39dbd49ee3578f8b35d294b10204528809b6546d8b3d20ba
+# تاریخ اجرای آزمون (از لاگ خام): 2026-11-12T04:51:34Z
+# SHA اجرای آزمون (از لاگ خام): ddd739bdd309aad77bd3c9ebda415be1c05d4cc4
+# اثر انگشت کد محصول (log / HEAD): 722d1ea817eb499c8cde6af13aab6bf5cd610466be59ec7dde3906e848992ea0 / 722d1ea817eb499c8cde6af13aab6bf5cd610466be59ec7dde3906e848992ea0
 # هش بدنهٔ خام (بازمحاسبه‌شده): c9d8390fe15d4eec421737446fc7a67c8a8a6ad5826d9aaf1d8dcb9a47288a5c
 # شمارش بدنه: 123 ✓ / 0 ✗ — SUMMARY: SUMMARY pass=123 fail=0
 # آزمون‌های ثبت‌شده: 123 · گزارش‌شده: 123
