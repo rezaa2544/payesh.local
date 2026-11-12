@@ -189,6 +189,10 @@ function canWriteRow(scope, collection, row, existing) {
   if (scope.role === 'parent' || scope.role === 'student') {
     if (collection !== 'leaves') return { ok: false, error: 'role_denied' };
     if (!rowInScope(scope, collection, row || existing || {})) return { ok: false, error: 'out_of_scope' };
+    /* ولی و دانش‌آموز فقط درخواست می‌دهند؛ تأیید با مدرسه است (همان قاعدهٔ server/policy.js که آنجا
+       بی‌صدا به pending برمی‌گرداند). Gateway ردیف موجود را برای put نمی‌خواند، پس صریح رد می‌کند (ردیف ۷۴، موج ۵). */
+    if (row && row.status != null &&
+        !policy.LEAVE_REQUEST_STATUSES.includes(String(row.status))) return { ok: false, error: 'approval_denied' };
     return { ok: true };
   }
   if (scope.role === 'counselor') {

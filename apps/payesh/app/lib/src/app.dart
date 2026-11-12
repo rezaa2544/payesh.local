@@ -4,6 +4,8 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import 'attendance/attendance_controller.dart';
 import 'attendance/attendance_screen.dart';
+import 'family/family_controller.dart';
+import 'family/family_screen.dart';
 import 'flags.dart';
 import 'grades/grades_controller.dart';
 import 'grades/grades_screen.dart';
@@ -24,6 +26,7 @@ class PayeshApp extends StatelessWidget {
     this.attendance,
     this.grades,
     this.notices,
+    this.family,
     this.onRetrySync,
   });
 
@@ -43,6 +46,9 @@ class PayeshApp extends StatelessWidget {
   /// Wave 4 data (same local database + outbox + Gateway); null = notices stay on the web client.
   final NoticeSource? notices;
 
+  /// Wave 5 data (same local database + outbox + Gateway); null = parents pages stay on the web.
+  final FamilySource? family;
+
   /// Badge tap on native pages: run a sync cycle now.
   final VoidCallback? onRetrySync;
 
@@ -52,12 +58,33 @@ class PayeshApp extends StatelessWidget {
     final src = attendance;
     final gsrc = grades;
     final nsrc = notices;
+    final fsrc = family;
     final role = state.currentRole;
     final uid = state.currentUid;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        FamilyEntry(
+          enabled: fsrc != null && s.flags.uses(NativeWave.parents),
+          role: role,
+          uid: uid,
+          open: () {
+            if (fsrc == null || role == null || uid == null) return;
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => FamilyRoute(
+                  source: fsrc,
+                  role: role,
+                  uid: uid,
+                  sync: s.sync,
+                  onRetry: onRetrySync,
+                ),
+              ),
+            );
+          },
+        ),
+        if (role == 'parent') const SizedBox(height: 8),
         AttendanceEntry(
           enabled: src != null && s.flags.uses(NativeWave.attendance),
           role: role,

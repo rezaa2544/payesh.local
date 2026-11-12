@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:payesh_data/payesh_data.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 
+import '../family/family_controller.dart';
 import '../login/session_controller.dart';
 import '../grades/grades_controller.dart';
 import '../notices/notices_controller.dart';
@@ -20,10 +21,10 @@ import 'attendance_controller.dart';
 /// * The outbox state is published into the session's badge (queued / offline / attention).
 ///
 /// Wave 3 (grades) uses the same database, outbox and AutoSync: one data path per device, so
-/// grades and attendance share the queue, the owner claim and the badge. Wave 4 (notices) joins
-/// the same path.
+/// grades and attendance share the queue, the owner claim and the badge. Wave 4 (notices) and
+/// wave 5 (parents) join the same path.
 final class GatewayAttendanceSource
-    implements AttendanceSource, GradeSource, NoticeSource {
+    implements AttendanceSource, GradeSource, NoticeSource, FamilySource {
   GatewayAttendanceSource({
     required this.storage,
     required this.session,
@@ -158,6 +159,17 @@ final class GatewayAttendanceSource
     final e = _engine, ob = _outbox;
     if (e == null || ob == null || _auto == null) return null;
     return NoticeBoard(engine: e, outbox: ob, role: role, uid: uid);
+  }
+
+  @override
+  Future<FamilyBook?> familyBookFor({
+    required String role,
+    required int uid,
+  }) async {
+    await _starting;
+    final e = _engine, ob = _outbox;
+    if (e == null || ob == null || _auto == null) return null;
+    return FamilyBook(engine: e, outbox: ob, role: role, uid: uid);
   }
 
   @override
