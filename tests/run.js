@@ -5142,6 +5142,17 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + a.stdout.trim().split('\n').pop() + ' · ' + b.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۲۸: ماتریس برابری قابلیت‌های اپ بومی با کلاینت وب ── */
+  await test('ردیف ۱۲۸: هر صفحه/عمل/فرم کلاینت وب در ماتریس برابری است (بومی، موج برنامه‌ریزی‌شده، یا حذف با جایگزین) و ۱۵ جهش قرمز',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const a = spawnSync(process.execPath, [path.join(ROOT, 'tools/parity-128.mjs')], { encoding: 'utf8', cwd: ROOT });
+      assert.strictEqual(a.status, 0, 'parity matrix: ' + a.stdout.split('\n').filter(l => /^FAIL|PARITY/.test(l)).join('\n'));
+      const b = spawnSync(process.execPath, [path.join(ROOT, 'tests/parity-128.js')], { encoding: 'utf8', cwd: ROOT });
+      assert.strictEqual(b.status, 0, 'parity mutations: ' + b.stdout.split('\n').filter(l => /^FAIL/.test(l)).join('\n'));
+      console.log('    ' + a.stdout.trim().split('\n').pop() + ' · ' + b.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۲۷: حالت شبکهٔ محلی اپ بومی + سرویس دادهٔ بی‌رابط مدرسه ── */
   await test('ردیف ۱۲۷: سرور بی‌رابط هیچ صفحهٔ وبی نمی‌دهد، راه‌اندازی فقط از خود سرور، نصب‌کننده‌ها بی‌رابط وب، ۲۰ جهش قرمز',
     async () => {

@@ -1,0 +1,1247 @@
+{
+ "row": 128,
+ "title_fa": "ماتریس برابری قابلیت‌های اپ بومی مدرسه با کلاینت وب",
+ "source": [
+  "client/pages.js",
+  "client/app.js",
+  "client/schedule.js",
+  "client/import.js",
+  "client/diag.js",
+  "client/scan.js"
+ ],
+ "waves": {
+  "W6": "پرونده و کاربران",
+  "W7": "حساب‌ها و رمزها (سرور مدرسه)",
+  "W8": "کلاس‌ها، تعریف‌ها و دروس",
+  "W9": "برنامهٔ هفتگی، زنگ‌ها و جانشینی",
+  "W10": "پیگیری و ورود دسته‌ای",
+  "W11": "داشبورد، گزارش‌ها و مدیریت مرخصی",
+  "W12": "مدیریت سرور مدرسه (پشتیبان، دستگاه‌ها، رخدادنگار، سلامت داده، حافظهٔ ابری)"
+ },
+ "items": [
+  {
+   "id": "act:ann-add",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('ntc-add"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/notices_wave4_test.dart",
+     "has": "'W4-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/notices_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "act:ann-delete",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('ntc-delete-"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/notices_wave4_test.dart",
+     "has": "'W4-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/notices_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "act:ann-edit",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('ntc-edit-"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/notices_wave4_test.dart",
+     "has": "'W4-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/notices_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "act:att-all",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/attendance/attendance_screen.dart",
+     "has": "Key('att-save"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/attendance_wave2_test.dart",
+     "has": "'W2-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/attendance_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "act:att-save",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/attendance/attendance_screen.dart",
+     "has": "Key('att-save"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/attendance_wave2_test.dart",
+     "has": "'W2-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/attendance_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "act:att-set",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/attendance/attendance_screen.dart",
+     "has": "Key('att-save"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/attendance_wave2_test.dart",
+     "has": "'W2-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/attendance_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "act:audit-list",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:backup-list",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:backup-now",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:bell-add",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:bell-del",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:bell-edit",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:claim-open",
+   "status": "ui",
+   "reason_fa": "جابه‌جایی بین دو حالتِ همان فرم ورود وب"
+  },
+  {
+   "id": "act:class-add",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:class-delete",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:class-edit",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:class-merge",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:cloud-cors",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:cloud-edit",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:cloud-phone-check",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:cloud-reset",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:cloud-save",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:cloud-test",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:copy-url",
+   "status": "retired",
+   "reason_fa": "تونل/آدرس عمومی برای رسیدن مرورگرها از اینترنت به رایانهٔ مدرسه بود",
+   "replacement": "حالت Gateway ابری اپ بومی (ردیف‌های ۷۵ و ۱۲۱) برای بیرون از مدرسه + حالت شبکهٔ محلی (ردیف ۱۲۷) داخل مدرسه"
+  },
+  {
+   "id": "act:creds-delete",
+   "status": "planned",
+   "wave": "W7"
+  },
+  {
+   "id": "act:def-add",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:def-delete",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:def-delete-cascade",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:def-delete-only",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:def-delete-students",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:def-edit",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:devices-list",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:diag-fix",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:diag-merge-do",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:diag-merge-open",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:diag-open",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:diag-rerun",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:followup-ack",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:followup-assign",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:forget-device",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/login/login_screens.dart",
+     "has": "Key('sign-out-confirm"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/login_wave1_test.dart",
+     "has": "sign-out is two-step"
+    }
+   ]
+  },
+  {
+   "id": "act:goto",
+   "status": "ui",
+   "reason_fa": "پیوند ناوبری بین صفحه‌های وب — در اپ بومی Navigator"
+  },
+  {
+   "id": "act:goto-network",
+   "status": "retired",
+   "reason_fa": "تونل/آدرس عمومی برای رسیدن مرورگرها از اینترنت به رایانهٔ مدرسه بود",
+   "replacement": "حالت Gateway ابری اپ بومی (ردیف‌های ۷۵ و ۱۲۱) برای بیرون از مدرسه + حالت شبکهٔ محلی (ردیف ۱۲۷) داخل مدرسه"
+  },
+  {
+   "id": "act:grade-reload",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/grades/grades_screen.dart",
+     "has": "Key('grd-save"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/grades_wave3_test.dart",
+     "has": "'W3-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/grades_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "act:grade-save",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/grades/grades_screen.dart",
+     "has": "Key('grd-save"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/grades_wave3_test.dart",
+     "has": "'W3-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/grades_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "act:imp-branch-no",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:imp-branch-yes",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:imp-recheck",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:import-apply",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:import-back",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:import-check",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:import-open",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:issue-done",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:issue-fix",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:issues-clear",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:issues-open",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "act:leave-add",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/family/family_screen.dart",
+     "has": "Key('lvf-submit"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_wave5_test.dart",
+     "has": "'W5-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/family_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "act:leave-delete",
+   "status": "planned",
+   "wave": "W11"
+  },
+  {
+   "id": "act:leave-set",
+   "status": "planned",
+   "wave": "W11"
+  },
+  {
+   "id": "act:lock",
+   "status": "planned",
+   "wave": "W7"
+  },
+  {
+   "id": "act:login-mode",
+   "status": "ui",
+   "reason_fa": "جابه‌جایی بین دو حالتِ همان فرم ورود وب"
+  },
+  {
+   "id": "act:mirror-refresh",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:mirror-restore",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:modal-bg",
+   "status": "ui",
+   "reason_fa": "بستن پنجرهٔ مودال وب — در اپ بومی دکمهٔ بازگشت/بستنِ هر صفحه"
+  },
+  {
+   "id": "act:modal-close",
+   "status": "ui",
+   "reason_fa": "بستن پنجرهٔ مودال وب — در اپ بومی دکمهٔ بازگشت/بستنِ هر صفحه"
+  },
+  {
+   "id": "act:net-refresh",
+   "status": "retired",
+   "reason_fa": "تونل/آدرس عمومی برای رسیدن مرورگرها از اینترنت به رایانهٔ مدرسه بود",
+   "replacement": "حالت Gateway ابری اپ بومی (ردیف‌های ۷۵ و ۱۲۱) برای بیرون از مدرسه + حالت شبکهٔ محلی (ردیف ۱۲۷) داخل مدرسه"
+  },
+  {
+   "id": "act:originbar-off",
+   "status": "retired",
+   "reason_fa": "ویژهٔ مرورگر (نشانی/origin صفحه)؛ اپ بومی origin ندارد",
+   "replacement": "اپ بومی نشانی سرور را خودش نگه می‌دارد و «تغییر سرور» دارد (ردیف ۱۲۷، lan-change-server)"
+  },
+  {
+   "id": "act:outbox-sync",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/sync_badge.dart",
+     "has": "sync-badge"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/login_wave1_test.dart",
+     "has": "tap the badge retries"
+    }
+   ]
+  },
+  {
+   "id": "act:pair-code",
+   "status": "retired",
+   "reason_fa": "کارت پیوند/QR برای ورودِ مرورگر یا WebView بدون رمز بود",
+   "replacement": "ورود با شمارهٔ همراه + رمز روی سرور مدرسه (ردیف ۱۲۷، رمز اولیه = کد ملی، مدیریت رمز در موج W7) و کد فعال‌سازی در حالت Gateway (ردیف ۱۲۱)"
+  },
+  {
+   "id": "act:pair-here",
+   "status": "retired",
+   "reason_fa": "کارت پیوند/QR برای ورودِ مرورگر یا WebView بدون رمز بود",
+   "replacement": "ورود با شمارهٔ همراه + رمز روی سرور مدرسه (ردیف ۱۲۷، رمز اولیه = کد ملی، مدیریت رمز در موج W7) و کد فعال‌سازی در حالت Gateway (ردیف ۱۲۱)"
+  },
+  {
+   "id": "act:pair-refresh",
+   "status": "retired",
+   "reason_fa": "کارت پیوند/QR برای ورودِ مرورگر یا WebView بدون رمز بود",
+   "replacement": "ورود با شمارهٔ همراه + رمز روی سرور مدرسه (ردیف ۱۲۷، رمز اولیه = کد ملی، مدیریت رمز در موج W7) و کد فعال‌سازی در حالت Gateway (ردیف ۱۲۱)"
+  },
+  {
+   "id": "act:phone-diagnose",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:pick-clear",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "act:print",
+   "status": "planned",
+   "wave": "W11"
+  },
+  {
+   "id": "act:retry",
+   "status": "ui",
+   "reason_fa": "بارگذاری دوبارهٔ صفحهٔ وب پس از خطای راه‌اندازی — در اپ بومی هر صفحه دکمهٔ «تلاش دوباره» خودش را دارد"
+  },
+  {
+   "id": "act:revoke-device",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:role-filter",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "act:room-add",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:room-edit",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:scan-camera",
+   "status": "retired",
+   "reason_fa": "کارت پیوند/QR برای ورودِ مرورگر یا WebView بدون رمز بود",
+   "replacement": "ورود با شمارهٔ همراه + رمز روی سرور مدرسه (ردیف ۱۲۷، رمز اولیه = کد ملی، مدیریت رمز در موج W7) و کد فعال‌سازی در حالت Gateway (ردیف ۱۲۱)"
+  },
+  {
+   "id": "act:scan-gallery",
+   "status": "retired",
+   "reason_fa": "کارت پیوند/QR برای ورودِ مرورگر یا WebView بدون رمز بود",
+   "replacement": "ورود با شمارهٔ همراه + رمز روی سرور مدرسه (ردیف ۱۲۷، رمز اولیه = کد ملی، مدیریت رمز در موج W7) و کد فعال‌سازی در حالت Gateway (ردیف ۱۲۱)"
+  },
+  {
+   "id": "act:scan-open",
+   "status": "retired",
+   "reason_fa": "کارت پیوند/QR برای ورودِ مرورگر یا WebView بدون رمز بود",
+   "replacement": "ورود با شمارهٔ همراه + رمز روی سرور مدرسه (ردیف ۱۲۷، رمز اولیه = کد ملی، مدیریت رمز در موج W7) و کد فعال‌سازی در حالت Gateway (ردیف ۱۲۱)"
+  },
+  {
+   "id": "act:scan-stop",
+   "status": "retired",
+   "reason_fa": "کارت پیوند/QR برای ورودِ مرورگر یا WebView بدون رمز بود",
+   "replacement": "ورود با شمارهٔ همراه + رمز روی سرور مدرسه (ردیف ۱۲۷، رمز اولیه = کد ملی، مدیریت رمز در موج W7) و کد فعال‌سازی در حالت Gateway (ردیف ۱۲۱)"
+  },
+  {
+   "id": "act:sched-class",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:sched-conf-move",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:sched-conf-sug",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:sched-room-add",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:sched-slot",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:sched-subject-add",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:sched-teacher-add",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:schedgen-apply",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:schedgen-open",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:settings-save",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "act:slot-del",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:sub-del",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:sub-del-route",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:sub-save",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "act:subject-add",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:subject-delete",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:subject-edit",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "act:sync",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/sync_badge.dart",
+     "has": "sync-badge"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/login_wave1_test.dart",
+     "has": "tap the badge retries"
+    }
+   ]
+  },
+  {
+   "id": "act:transfer",
+   "status": "retired",
+   "reason_fa": "ویژهٔ مرورگر (نشانی/origin صفحه)؛ اپ بومی origin ندارد",
+   "replacement": "اپ بومی نشانی سرور را خودش نگه می‌دارد و «تغییر سرور» دارد (ردیف ۱۲۷، lan-change-server)"
+  },
+  {
+   "id": "act:tunnel-enable",
+   "status": "retired",
+   "reason_fa": "تونل/آدرس عمومی برای رسیدن مرورگرها از اینترنت به رایانهٔ مدرسه بود",
+   "replacement": "حالت Gateway ابری اپ بومی (ردیف‌های ۷۵ و ۱۲۱) برای بیرون از مدرسه + حالت شبکهٔ محلی (ردیف ۱۲۷) داخل مدرسه"
+  },
+  {
+   "id": "act:tunnel-login",
+   "status": "retired",
+   "reason_fa": "تونل/آدرس عمومی برای رسیدن مرورگرها از اینترنت به رایانهٔ مدرسه بود",
+   "replacement": "حالت Gateway ابری اپ بومی (ردیف‌های ۷۵ و ۱۲۱) برای بیرون از مدرسه + حالت شبکهٔ محلی (ردیف ۱۲۷) داخل مدرسه"
+  },
+  {
+   "id": "act:tunnel-off",
+   "status": "retired",
+   "reason_fa": "تونل/آدرس عمومی برای رسیدن مرورگرها از اینترنت به رایانهٔ مدرسه بود",
+   "replacement": "حالت Gateway ابری اپ بومی (ردیف‌های ۷۵ و ۱۲۱) برای بیرون از مدرسه + حالت شبکهٔ محلی (ردیف ۱۲۷) داخل مدرسه"
+  },
+  {
+   "id": "act:tunnel-refresh",
+   "status": "retired",
+   "reason_fa": "تونل/آدرس عمومی برای رسیدن مرورگرها از اینترنت به رایانهٔ مدرسه بود",
+   "replacement": "حالت Gateway ابری اپ بومی (ردیف‌های ۷۵ و ۱۲۱) برای بیرون از مدرسه + حالت شبکهٔ محلی (ردیف ۱۲۷) داخل مدرسه"
+  },
+  {
+   "id": "act:upd-retry",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-apply",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-auto",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-autoapply",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-check",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-download",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-fetch",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-install",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-later",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-now",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-recheck",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-rollback",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:update-state",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "act:user-add",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "act:user-auto-pw",
+   "status": "planned",
+   "wave": "W7"
+  },
+  {
+   "id": "act:user-creds",
+   "status": "planned",
+   "wave": "W7"
+  },
+  {
+   "id": "act:user-delete",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "act:user-edit",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "act:user-full",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "act:user-password",
+   "status": "planned",
+   "wave": "W7"
+  },
+  {
+   "id": "act:user-pick-pw",
+   "status": "planned",
+   "wave": "W7"
+  },
+  {
+   "id": "act:users-bulk-delete",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "act:workdays-edit",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "form:ann",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('ntc-add"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/notices_wave4_test.dart",
+     "has": "'W4-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/notices_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "form:bells",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "form:claim",
+   "status": "planned",
+   "wave": "W7"
+  },
+  {
+   "id": "form:class",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "form:def",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "form:imp-fix",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "form:import-file",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "form:leave",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/family/family_screen.dart",
+     "has": "Key('lvf-submit"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_wave5_test.dart",
+     "has": "'W5-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/family_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "form:login",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/login/login_screens.dart",
+     "has": "Key('lan-login"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/lan_mode_127_test.dart",
+     "has": "'L127-W0"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/lan_server_it_test.dart",
+     "has": "LAN-IT-03"
+    }
+   ]
+  },
+  {
+   "id": "form:network",
+   "status": "retired",
+   "reason_fa": "تونل/آدرس عمومی برای رسیدن مرورگرها از اینترنت به رایانهٔ مدرسه بود",
+   "replacement": "حالت Gateway ابری اپ بومی (ردیف‌های ۷۵ و ۱۲۱) برای بیرون از مدرسه + حالت شبکهٔ محلی (ردیف ۱۲۷) داخل مدرسه"
+  },
+  {
+   "id": "form:own-password",
+   "status": "planned",
+   "wave": "W7"
+  },
+  {
+   "id": "form:pair",
+   "status": "retired",
+   "reason_fa": "کارت پیوند/QR برای ورودِ مرورگر یا WebView بدون رمز بود",
+   "replacement": "ورود با شمارهٔ همراه + رمز روی سرور مدرسه (ردیف ۱۲۷، رمز اولیه = کد ملی، مدیریت رمز در موج W7) و کد فعال‌سازی در حالت Gateway (ردیف ۱۲۱)"
+  },
+  {
+   "id": "form:phone-login",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/login/login_screens.dart",
+     "has": "Key('lan-login"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/lan_mode_127_test.dart",
+     "has": "'L127-W0"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/lan_server_it_test.dart",
+     "has": "LAN-IT-03"
+    }
+   ]
+  },
+  {
+   "id": "form:scan-code",
+   "status": "retired",
+   "reason_fa": "کارت پیوند/QR برای ورودِ مرورگر یا WebView بدون رمز بود",
+   "replacement": "ورود با شمارهٔ همراه + رمز روی سرور مدرسه (ردیف ۱۲۷، رمز اولیه = کد ملی، مدیریت رمز در موج W7) و کد فعال‌سازی در حالت Gateway (ردیف ۱۲۱)"
+  },
+  {
+   "id": "form:sched-room",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "form:sched-teacher",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "form:setup",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/login/login_screens.dart",
+     "has": "Key('lan-setup-submit"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/lan_mode_127_test.dart",
+     "has": "'L127-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/lan_server_it_test.dart",
+     "has": "LAN-IT-02"
+    }
+   ]
+  },
+  {
+   "id": "form:slot",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "form:subject",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "form:transfer",
+   "status": "retired",
+   "reason_fa": "ویژهٔ مرورگر (نشانی/origin صفحه)؛ اپ بومی origin ندارد",
+   "replacement": "اپ بومی نشانی سرور را خودش نگه می‌دارد و «تغییر سرور» دارد (ردیف ۱۲۷، lan-change-server)"
+  },
+  {
+   "id": "form:unlock",
+   "status": "planned",
+   "wave": "W7"
+  },
+  {
+   "id": "form:update",
+   "status": "retired",
+   "reason_fa": "به‌روزرسانی سرور از داخل مرورگر بود؛ سرور مدرسه دیگر رابط وب ندارد (ردیف ۱۲۷)",
+   "replacement": "ارتقای سرویس داده با نصب‌کنندهٔ payesh-data-service-setup.exe (ردیف ۱۲۷/۱۲۹) + به‌روزرسانی اپ بومی (ردیف ۷۸، tests/native-update-78.js)"
+  },
+  {
+   "id": "form:user",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "form:user-creds",
+   "status": "planned",
+   "wave": "W7"
+  },
+  {
+   "id": "form:user-edit",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "form:user-full",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "form:workdays",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "page:announcements",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('ntc-add"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/notices_wave4_test.dart",
+     "has": "'W4-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/notices_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "page:attendance",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/attendance/attendance_screen.dart",
+     "has": "Key('att-save"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/attendance_wave2_test.dart",
+     "has": "'W2-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/attendance_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "page:attendance-report",
+   "status": "planned",
+   "wave": "W11"
+  },
+  {
+   "id": "page:child",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/family/family_screen.dart",
+     "has": "Key('fam-card-"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_wave5_test.dart",
+     "has": "'W5-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/family_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "page:classes",
+   "status": "planned",
+   "wave": "W8"
+  },
+  {
+   "id": "page:cloud",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "page:followup",
+   "status": "planned",
+   "wave": "W10"
+  },
+  {
+   "id": "page:grades",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/grades/grades_screen.dart",
+     "has": "Key('grd-save"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/grades_wave3_test.dart",
+     "has": "'W3-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/grades_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "page:health",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "page:home",
+   "status": "planned",
+   "wave": "W11"
+  },
+  {
+   "id": "page:leaves",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/family/family_screen.dart",
+     "has": "Key('lvf-submit"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_wave5_test.dart",
+     "has": "'W5-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/family_it_test.dart",
+     "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "page:network",
+   "status": "retired",
+   "reason_fa": "تونل/آدرس عمومی برای رسیدن مرورگرها از اینترنت به رایانهٔ مدرسه بود",
+   "replacement": "حالت Gateway ابری اپ بومی (ردیف‌های ۷۵ و ۱۲۱) برای بیرون از مدرسه + حالت شبکهٔ محلی (ردیف ۱۲۷) داخل مدرسه"
+  },
+  {
+   "id": "page:record",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "page:reports",
+   "status": "planned",
+   "wave": "W11"
+  },
+  {
+   "id": "page:scan",
+   "status": "retired",
+   "reason_fa": "کارت پیوند/QR برای ورودِ مرورگر یا WebView بدون رمز بود",
+   "replacement": "ورود با شمارهٔ همراه + رمز روی سرور مدرسه (ردیف ۱۲۷، رمز اولیه = کد ملی، مدیریت رمز در موج W7) و کد فعال‌سازی در حالت Gateway (ردیف ۱۲۱)"
+  },
+  {
+   "id": "page:schedule",
+   "status": "planned",
+   "wave": "W9"
+  },
+  {
+   "id": "page:students",
+   "status": "planned",
+   "wave": "W6"
+  },
+  {
+   "id": "page:system",
+   "status": "planned",
+   "wave": "W12"
+  },
+  {
+   "id": "page:users",
+   "status": "planned",
+   "wave": "W6"
+  }
+ ]
+}
