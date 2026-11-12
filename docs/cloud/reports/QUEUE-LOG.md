@@ -14,3 +14,4 @@
 | ۱۱۸، ۱۱۹، ۱۲۱، ۱۲۲ | [`QUEUE-118-122-REPORT.md`](QUEUE-118-122-REPORT.md) | #198، #199، #200، #201 | ادغام‌شده |
 | ۱۲۳ | [`QUEUE-123-REPORT.md`](QUEUE-123-REPORT.md) | #203 | ادغام‌شده |
 | ۱۲۴ | [`QUEUE-124-REPORT.md`](QUEUE-124-REPORT.md) | #205 | ادغام‌شده |
+| ۷۴ (موج ۱) | [`QUEUE-74-W1-REPORT.md`](QUEUE-74-W1-REPORT.md) | #207 | ادغام‌شده |
