@@ -393,7 +393,7 @@ async function main() {
       return `pages ${pages.join('/')}, ${ids.size} unique, clamps ${v.clamp.map(c => c.limit + '→' + c.expect_clamped_limit).join(' ')}`;
     });
 
-    await check('SY-05', 'scope-v1 vectors through RLS: roles become capability rows (row 106); every read case and every scope write case equals the vector; field checks (bad_score/bad_kind/bad_status) run on the device, before sealing', async () => {
+    await check('SY-05', 'scope-v1 vectors through RLS: roles become capability rows (row 106); every read case and every scope write case equals the vector; field checks (bad_score/bad_kind/bad_status/approval_denied) run on the device, before sealing', async () => {
       const v = vec('scope-v1.json');
       const S = await school();
       /* the SQL allow-list equals policy.collectionAllowed */
@@ -456,7 +456,7 @@ async function main() {
         readOut.push(seen ? 'y' : 'n');
       }
       /* writes */
-      const FIELD_ERRORS = new Set(['bad_score', 'bad_kind', 'bad_status']);
+      const FIELD_ERRORS = new Set(['bad_score', 'bad_kind', 'bad_status', 'approval_denied']);
       let dbRefused = 0, deviceRefused = 0, ok = 0;
       for (const wc of v.write) {
         const rid = 9500 + (++id);

@@ -221,6 +221,49 @@
     },
     {
       "scope": "teacher",
+      "collection": "grades",
+      "row": {
+        "student_id": 1,
+        "class_id": 10,
+        "score": 15,
+        "kind": "midterm",
+        "status": "pending"
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "grades",
+      "row": {
+        "student_id": 1,
+        "class_id": 10,
+        "score": 15,
+        "kind": "midterm",
+        "status": "approved"
+      },
+      "expect": {
+        "ok": false,
+        "error": "approval_denied"
+      }
+    },
+    {
+      "scope": "manager",
+      "collection": "grades",
+      "row": {
+        "student_id": 1,
+        "class_id": 10,
+        "score": 15,
+        "kind": "midterm",
+        "status": "approved"
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "teacher",
       "collection": "attendance",
       "row": {
         "student_id": 1,

@@ -89,7 +89,7 @@ This test exposed a defect in row 54: target sequences were not advanced after t
 | File | What it pins | Server runner |
 |---|---|---|
 | `vectors/conflict-v1.json` | `server/convergence.js` verdicts: merge / conflict / noop / delete-vs-edit, plus the fail-closed default for unknown collections | `tests/contract-vectors-64.js` |
-| `vectors/scope-v1.json` | role scope for reads (`rowInScope`) and writes (`canWriteRow`), including `bad_score` / `bad_kind` / `bad_status` | `tests/contract-vectors-64.js` |
+| `vectors/scope-v1.json` | role scope for reads (`rowInScope`) and writes (`canWriteRow`), including `bad_score` / `bad_kind` / `bad_status` / `approval_denied` (a teacher may only send grade status `pending` — row 74 wave 3) | `tests/contract-vectors-64.js` |
 | `vectors/version-v1.json` | the version window and `upgrade_required` reasons | `tests/contract-vectors-64.js` |
 | `vectors/idempotency-v1.json` | push retries, changed-body retries, same-uid-in-batch, and conflict finality | `tests/native-contract-64.js` (real Gateway + PG) |
 | `vectors/pagination-v1.json` | cursor walk with no skip or repeat, empty-page cursor, and limit clamping | `tests/native-contract-64.js` (real Gateway + PG) |

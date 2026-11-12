@@ -244,7 +244,7 @@ const MUTANTS = [
   ['M7 Authorization header on school access', s => nwSecurity(mut(s, 'dart', '        ..set(PayeshApi.versionHeader, clientVersion)', "        ..set(HttpHeaders.authorizationHeader, 'Bearer x')\n        ..set(PayeshApi.versionHeader, clientVersion)"))],
   ['M8 plaintext http cell allowed', s => nwSecurity(mut(s, 'dart', "if (u.scheme == 'https') return true;", "if (u.scheme == 'https' || u.scheme == 'http') return true;"))],
   ['M9 unknown client value falls to native', s => nwFlags(mut(s, 'flags', "'native' => ClientChoice.native,\n      _ => ClientChoice.legacy,", "'legacy' => ClientChoice.legacy,\n      _ => ClientChoice.native,"))],
-  ['M10 wave-1 IT removed from CI', s => nwTests(mut(s, 'ci', ' test/school_access_it_test.dart test/attendance_it_test.dart | tee', ' test/attendance_it_test.dart | tee'))],
+  ['M10 wave-1 IT removed from CI', s => nwTests(mut(s, 'ci', ' test/school_access_it_test.dart', ''))],
   ['M11 sync badge removed from the signed-in screen', s => nwTests(mut(s, 'screens', 'SyncBadge(\n                status: controller.sync,', 'StatusBadge(\n                controller.sync.value.labelFa,'))],
   ['M12 unpinned client in the app wiring', s => nwSecurity(mut(s, 'wiring', 'client: createPinnedHttpClient(gw)', 'client: HttpClient()'))],
   ['M13 doc claims a real-device PASS', s => nwDoc(mut(s, 'doc', 'NOT RUN [M]', 'PASS [M]'))],

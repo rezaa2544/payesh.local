@@ -128,9 +128,11 @@ void main() {
       final d = ClientFlags.parse();
       expect(d.client, ClientChoice.native);
       expect(d.uses(NativeWave.login), isTrue);
-      // wave 2 (attendance) ships by default since row 74 wave 2; later waves do not
+      // waves 2–3 (attendance, grades) ship by default since row 74 wave 3; later waves do not
       expect(d.uses(NativeWave.attendance), isTrue);
-      expect(d.uses(NativeWave.grades), isFalse);
+      expect(d.uses(NativeWave.grades), isTrue);
+      expect(d.uses(NativeWave.notices), isFalse);
+      expect(d.uses(NativeWave.parents), isFalse);
       expect(
         ClientFlags.parse(client: 'legacy').uses(NativeWave.login),
         isFalse,
@@ -143,6 +145,12 @@ void main() {
       expect(ClientFlags.parse(waves: 'login,grades').waves, {
         NativeWave.login,
       });
+      // grades without attendance stays off (waves are strictly in order)
+      expect(
+        ClientFlags.parse(waves: 'login,grades,notices')
+            .uses(NativeWave.grades),
+        isFalse,
+      );
       expect(ClientFlags.parse(waves: ' LOGIN , attendance ,x').waves, {
         NativeWave.login,
         NativeWave.attendance,

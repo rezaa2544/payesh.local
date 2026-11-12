@@ -252,13 +252,15 @@ jobs:
         run: |
           set -euo pipefail
           command -v openssl
-          dart test --reporter expanded test/gateway_it_test.dart test/pinning_test.dart test/data_path_test.dart test/school_access_it_test.dart test/attendance_it_test.dart | tee "$GITHUB_WORKSPACE/gateway-real.txt"
+          dart test --reporter expanded test/gateway_it_test.dart test/pinning_test.dart test/data_path_test.dart test/school_access_it_test.dart test/attendance_it_test.dart test/grades_it_test.dart | tee "$GITHUB_WORKSPACE/gateway-real.txt"
           if grep -qE '~[0-9]+' "$GITHUB_WORKSPACE/gateway-real.txt"; then echo 'GATEWAY-IT-SKIPPED'; exit 1; fi
           grep -qE '\+[0-9]+: All tests passed' "$GITHUB_WORKSPACE/gateway-real.txt"
           # row 74 wave 1: native school login against the real Directory + Gateway (7 scenarios)
           grep -qE 'NATIVE-WAVE1-IT passed=7 negative_controls=11' "$GITHUB_WORKSPACE/gateway-real.txt"
           # row 74 wave 2: native attendance — pull → local write → outbox → real Gateway (8 scenarios)
           grep -qE 'NATIVE-WAVE2-IT passed=8 negative_controls=9' "$GITHUB_WORKSPACE/gateway-real.txt"
+          # row 74 wave 3: native grades — pull → local write → outbox → real Gateway, approval_denied (8 scenarios)
+          grep -qE 'NATIVE-WAVE3-IT passed=8 negative_controls=10' "$GITHUB_WORKSPACE/gateway-real.txt"
           echo GATEWAY-REAL-OK
       # Row 119: 20 offline scenarios on the default data path (SqliteOutbox/AutoSync/GatewaySync
       # → real server/gateway.js → postgres:16). Real TCP faults in front of the Gateway AND of
