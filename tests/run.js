@@ -5059,6 +5059,10 @@ async function waitFor(fn, ms = 15000) {
   await test('ردیف ۷۴ موج ۵: والدین بومی — نشان‌های معدل، حضور و مرخصی برابر وب، فرزندان فقط از پیوند خود ولی، معدل فقط نمرهٔ تأییدشده و درصد گرد، ۱۲ حضور آخر، درخواست مرخصی با شکل ردیف وب و وضعیت pending فقط برای فرزند متصل، Gateway وضعیت جعلی ولی را با approval_denied رد می‌کند و بردار scope-v1 همین را می‌گوید، شناسه جدا و زیر 2^53 با base 0، صف پیش از نوشتن محلی، پرچم موج، تاریخ شمسی رفت‌وبرگشتی، IT واقعی در CI، کنترل منفی جهش',
     async () => { const r = await require('./native-wave5-74.js').main({ quiet: true }); if (r.failed) throw new Error('NATIVE-WAVE5-74 failures: ' + r.failures.join(',')); console.log('    NATIVE-WAVE5-74-OK passed=' + r.passed + ' negative_controls=' + r.negatives); });
 
+  /* ── ردیف ۹۴: سند طراحی نصب و آنبوردینگ (نمودار جریان + سه مورد خطا، هم‌خوان با کد) ── */
+  await test('ردیف ۹۴: سند آنبوردینگ — نمودار جریان mermaid و متنی، کد اشتباه / قطع اینترنت / مدرسهٔ مهاجرت‌شده، پیام‌ها عیناً همان messageFa کلاینت، مسیرها و وضعیت‌ها و TTLهای Directory برابر سرور، فاصله‌های G1/G2/G4/G5 هنوز در کد، نقش از ردیف users و صدور کد فقط با مدیر، کنترل منفی جهش',
+    async () => { const r = await require('./onboarding-94.js').main({ quiet: true }); if (r.failed) throw new Error('ONBOARDING-94 failures: ' + r.failures.join(',')); console.log('    ONBOARDING-94-OK passed=' + r.passed + ' negative_controls=' + r.negatives); });
+
   /* ── ردیف ۱۰۲: پنل مالک · اجرای محلی با یک فرمان (local-up) ─────────── */
   const ownerLocalUp = require('../apps/owner-panel/tests/local-up.test.js');
   await test('ردیف ۱۰۲: local-up — فقط loopback، DATABASE_URL محلی، migration idempotent، رازها خارج از Git، ورود TOTP، خاموشی تمیز، بدون 004 ⇒ 501',
