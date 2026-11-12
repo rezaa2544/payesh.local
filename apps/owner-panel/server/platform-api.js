@@ -813,6 +813,11 @@ function createPlatformApi(options = {}) {
   const checkCooldownSec = options.checkCooldownSec == null ? CHECK_COOLDOWN_SEC : Number(options.checkCooldownSec);
   /* row 121: school-side provisioning hook (Gateway injects school-access.provisionSchool) */
   const schoolProvisioner = typeof options.schoolProvisioner === 'function' ? options.schoolProvisioner : null;
+  /* کد دومرحله‌ای ثابت — فقط برای سرور آزمایشی محلی (local-up، فقط loopback) به درخواست مالک.
+     فقط از راه همین گزینه در کد داده می‌شود (هیچ متغیر محیطی ندارد)؛ Gateway تولید
+     (PAYESH_PLATFORM_PGURL) هرگز آن را نمی‌دهد و آنجا TOTP واقعی اجباری می‌ماند. */
+  const localFixedTotp = options.localFixedTotp == null ? null : String(options.localFixedTotp);
+  if (localFixedTotp !== null && !/^[0-9]{6}$/.test(localFixedTotp)) throw new Error('localFixedTotp must be exactly 6 digits');
   const openapi = JSON.parse(fs.readFileSync(path.join(__dirname, 'openapi.json'), 'utf8'));
 
   function match(method, sub) {
@@ -882,7 +887,12 @@ function createPlatformApi(options = {}) {
       return reply(503, { ok: false, error: 'login_unavailable' });
     }
     const pwOk = await auth.verifyPassword(password, row && row.password_hash);
-    const step = row && pwOk ? auth.verifyTotp(row.totp_secret, code, now()) : null;
+    /* با کد ثابت محلی، گام زمانیِ جاری ثبت می‌شود تا قانون ضد تکرار (گام باید بزرگ‌تر از ورود قبلی
+       باشد) همچنان برقرار بماند: دو ورود پشت سر هم دست‌کم ۳۰ ثانیه فاصله لازم دارند. */
+    const step = !(row && pwOk) ? null
+      : localFixedTotp !== null
+        ? (crypto.timingSafeEqual(Buffer.from(code), Buffer.from(localFixedTotp)) ? auth.totpStep(now()) : null)
+        : auth.verifyTotp(row.totp_secret, code, now());
     const measured = !row ? 'unknown_login' : (pwOk && step !== null ? 'ok' : 'bad_credentials');
     let outcome;
     try {
@@ -894,7 +904,7 @@ function createPlatformApi(options = {}) {
           await q("SELECT set_config('app.platform_user_id', $1, true)", [row.user_id]);
           await appendAudit(q, { requestId: rid, claims: { sub: row.user_id } }, {
             action: 'auth.login', subject_type: 'platform_user', subject_ref: row.user_id,
-            details: { amr: ['pwd', 'otp'] } });
+            details: { amr: localFixedTotp !== null ? ['pwd', 'otp-fixed-local'] : ['pwd', 'otp'] } });
         }
         return o;
       });

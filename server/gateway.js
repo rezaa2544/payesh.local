@@ -153,7 +153,7 @@ let platformApi = platformApiModule.createPlatformApi({
    it from the environment or from HTTP. Refused when PAYESH_PLATFORM_PGURL is set
    or once the server is listening. The adapter must run each transaction as
    payesh_platform_runtime (SET LOCAL ROLE), like createPgAdapter({ setRole: true }). */
-function usePlatformDb(db) {
+function usePlatformDb(db, { localFixedTotp = null } = {}) {
   if (PLATFORM_PGURL) throw new Error('platform DB already configured by PAYESH_PLATFORM_PGURL');
   if (server.listening) throw new Error('usePlatformDb must run before listen');
   if (!db || typeof db.withTransaction !== 'function') throw new Error('platform db adapter with withTransaction() required');
@@ -164,6 +164,7 @@ function usePlatformDb(db) {
     rateLimitWindowSec: PLATFORM_RATE_WINDOW,
     instance: INSTANCE,
     schoolProvisioner,
+    localFixedTotp, // فقط local-up (loopback) آن را می‌دهد؛ مسیر PAYESH_PLATFORM_PGURL هرگز
   });
   module.exports.platformApi = platformApi;
   return platformApi;

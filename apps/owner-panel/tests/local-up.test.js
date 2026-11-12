@@ -16,6 +16,10 @@
      LU-08  بدون migration 004 ⇒ ورود 501 و smoke قرمز
      LU-09  پوشهٔ ویندوزی start-owner-local.cmd (CRLF، فقط local-up.js) و حضور در بستهٔ وب
      LU-10  (اختیاری) همان smoke روی PostgreSQL محلی واقعی با DATABASE_URL=LOCALUP_PG_URL
+     LU-11  --fixed-totp 123456 (درخواست مالک، فقط loopback): smoke سبز؛ اجرای عادی با شناسهٔ دلخواه:
+            کد غلط ⇒ 401، کد ثابت ⇒ 200 و داشبورد، ورود فوری دوباره ⇒ 401 (ضد تکرار)؛
+            کنترل منفی: همان پوشه بدون گزینه ⇒ 123456 رد می‌شود؛ مقدار نادرست ⇒ کد 2؛
+            مسیر تولید (PAYESH_PLATFORM_PGURL) هیچ راهی برای فعال کردن آن ندارد
    ═══════════════════════════════════════════════════════════════════ */
 const assert = require('node:assert');
 const { spawn } = require('node:child_process');
@@ -242,6 +246,49 @@ async function main() {
     ok('LU-10', 'smoke on a real local PostgreSQL (DATABASE_URL loopback)', v);
   } else {
     console.log('NOTE  LU-10  not run: LOCALUP_PG_URL not set (PGlite path covered by LU-04..08)');
+  }
+
+  /* LU-11: کد دومرحله‌ای ثابت محلی */
+  {
+    const bad = await runCli(['--fixed-totp', '12345', '--smoke'], cleanEnv());
+    neg('--fixed-totp with 5 digits ⇒ exit 2', bad.code === 2);
+    const sm = await runCli(['--smoke', '--fixed-totp', '123456'], cleanEnv());
+    assert.strictEqual(sm.code, 0, 'fixed-totp smoke: ' + sm.out + sm.err);
+    assert.ok(/fixed local code/.test(sm.out) && /LOCAL-UP-SMOKE-OK/.test(sm.out), 'smoke used the fixed code');
+
+    const base = tmp('fixed');
+    const dir = path.join(base, 'data');
+    const PW = 'fixed-owner-pass-' + crypto.randomBytes(4).toString('hex');
+    const a = startCli(['--data-dir', dir, '--port', '0', '--gateway-port', '0', '--login-id', 'rezaa-it', '--fixed-totp', '123456'],
+      cleanEnv({ PAYESH_OPERATOR_PASSWORD: PW }));
+    const port = await a.ready;
+    assert.ok(/کد دومرحله‌ای ثابت فعال است/.test(a.out), 'Persian warning printed');
+    const wrong = await req(port, 'POST', P + '/auth/login', { login_id: 'rezaa-it', password: PW, totp: '654321' });
+    neg('fixed mode: wrong code ⇒ 401', wrong.status === 401);
+    const wrongPw = await req(port, 'POST', P + '/auth/login', { login_id: 'rezaa-it', password: PW + 'x', totp: '123456' });
+    neg('fixed mode: wrong password ⇒ 401', wrongPw.status === 401);
+    const good = await req(port, 'POST', P + '/auth/login', { login_id: 'rezaa-it', password: PW, totp: '123456' });
+    assert.strictEqual(good.status, 200, 'fixed code login: ' + good.text);
+    const dash = await req(port, 'GET', P + '/dashboard', undefined, { authorization: 'Bearer ' + good.json.token });
+    assert.strictEqual(dash.status, 200, 'dashboard with the fixed-code token');
+    const again = await req(port, 'POST', P + '/auth/login', { login_id: 'rezaa-it', password: PW, totp: '123456' });
+    neg('fixed mode: immediate second login (same 30 s step) ⇒ 401 replay', again.status === 401);
+    await a.stop();
+
+    const b = startCli(['--data-dir', dir, '--port', '0', '--gateway-port', '0'], cleanEnv());
+    const port2 = await b.ready;
+    await new Promise(r => setTimeout(r, 31000)); // next TOTP step, so a refusal cannot be the replay rule
+    const off = await req(port2, 'POST', P + '/auth/login', { login_id: 'rezaa-it', password: PW, totp: '123456' });
+    neg('NEGATIVE: same account without --fixed-totp ⇒ 123456 refused', off.status === 401);
+    await b.stop();
+    fs.rmSync(base, { recursive: true, force: true });
+
+    const gwSrc = fs.readFileSync(path.join(ROOT, 'server', 'gateway.js'), 'utf8');
+    const prodCall = gwSrc.slice(gwSrc.indexOf('let platformApi = platformApiModule.createPlatformApi('), gwSrc.indexOf('function usePlatformDb('));
+    neg('production platform API (PAYESH_PLATFORM_PGURL) never receives localFixedTotp', prodCall.length > 50 && !/localFixedTotp/.test(prodCall));
+    const apiSrc = fs.readFileSync(path.join(ROOT, 'apps', 'owner-panel', 'server', 'platform-api.js'), 'utf8');
+    neg('no environment variable can enable the fixed code', !/process\.env\.[A-Z_]*FIXED/.test(apiSrc + gwSrc));
+    ok('LU-11', 'owner-requested fixed local 2FA code (loopback only): smoke, login, replay rule, negative control', 'wrong 401 · fixed 200 · replay 401 · without flag 401');
   }
 
   console.log(`# passed=${results.length} negative_controls=${negatives} failures=0`);

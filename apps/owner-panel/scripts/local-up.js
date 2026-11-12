@@ -17,6 +17,10 @@
      5) Gateway واقعی (server/gateway.js) و سرور پنل (static-server.js) را روی
         127.0.0.1 بالا می‌آورد و http://127.0.0.1:8095 را چاپ می‌کند.
 
+   --fixed-totp 123456 (به درخواست مالک، فقط همین سرور آزمایشی loopback): به‌جای کد برنامهٔ
+   Authenticator، همین کد ۶ رقمی ثابت پذیرفته می‌شود. رمز عبور همچنان لازم است. Gateway تولید
+   هرگز این گزینه را ندارد و آنجا TOTP واقعی اجباری است. دو ورود پشت سر هم ≥ ۳۰ ثانیه فاصله.
+
    --smoke (CI روی ubuntu و windows-latest): پوشهٔ دادهٔ تازه، ورود سرتاسری از مبدأ
    پنل با TOTP (کد غلط ⇒ 401، کد درست ⇒ 200)، یک GET داشبورد، صفحهٔ SPA و خاموشی
    تمیز (پورت‌ها بسته، دیتابیس بسته). موفق ⇒ «LOCAL-UP-SMOKE-OK» و کد خروج 0.
@@ -52,7 +56,7 @@ class Refusal extends Error {
 /* ───────────────────────── ورودی و ردها ───────────────────────── */
 function parseArgs(argv) {
   const out = { host: '127.0.0.1', port: null, gatewayPort: null, dataDir: null, smoke: false,
-    loginId: 'owner', migrationsThrough: null, keepData: false };
+    loginId: 'owner', migrationsThrough: null, keepData: false, fixedTotp: null };
   const need = (i) => { if (i >= argv.length) throw new Refusal('bad_args', 'missing value for ' + argv[i - 1]); return argv[i]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -62,6 +66,7 @@ function parseArgs(argv) {
     else if (a === '--data-dir') out.dataDir = need(++i);
     else if (a === '--login-id') out.loginId = need(++i);
     else if (a === '--smoke') out.smoke = true;
+    else if (a === '--fixed-totp') out.fixedTotp = need(++i);
     else if (a === '--keep-data') out.keepData = true;
     /* فقط برای کنترل منفی «بدون migration 004 ⇒ 501» */
     else if (a === '--migrations-through') out.migrationsThrough = need(++i);
@@ -73,6 +78,7 @@ function parseArgs(argv) {
   }
   if (out.migrationsThrough !== null && !/^\d{3}$/.test(out.migrationsThrough)) throw new Refusal('bad_args', '--migrations-through NNN');
   if (!LOGIN_RE.test(out.loginId)) throw new Refusal('bad_args', 'login id: 3–120 chars of A-Z a-z 0-9 . _ @ -');
+  if (out.fixedTotp !== null && !/^[0-9]{6}$/.test(out.fixedTotp)) throw new Refusal('bad_args', '--fixed-totp: دقیقاً ۶ رقم (مثلاً 123456)');
   return out;
 }
 
@@ -278,14 +284,15 @@ function listen(server, port, host) {
   });
 }
 
-async function startServers({ db, secret, host, gatewayPort, panelPort }) {
+async function startServers({ db, secret, host, gatewayPort, panelPort, fixedTotp = null }) {
+  if (fixedTotp !== null && !isLoopbackHost(host)) throw new Refusal('fixed_totp_not_loopback', 'refused: --fixed-totp only on loopback');
   /* Gateway در همین فرایند و فقط با مسیرهای پلتفرم: هیچ اتصال دیتابیس مدرسه/replica/Directory */
   for (const k of ['PGURL', 'PAYESH_PG_REPLICA_URL', 'PAYESH_DIRECTORY_PGURL', 'PAYESH_PLATFORM_PGURL']) delete process.env[k];
   process.env.PAYESH_PLATFORM_TOKEN_SECRET = secret;
   if (!process.env.GW_ACCESS_LOG) process.env.GW_ACCESS_LOG = '0';
   if (!process.env.GW_INSTANCE) process.env.GW_INSTANCE = 'local-up';
   const gw = require('../../../server/gateway.js');
-  gw.usePlatformDb(runtimeAdapter(db));
+  gw.usePlatformDb(runtimeAdapter(db), { localFixedTotp: fixedTotp });
   const gwPort = await listen(gw.server, gatewayPort, host);
   const { createOwnerPanelServer } = require('../server/static-server');
   const panel = createOwnerPanelServer({ upstream: `http://${host.includes(':') ? `[${host}]` : host}:${gwPort}` });
@@ -360,9 +367,9 @@ async function obtainPassword() {
 }
 
 /* ───────────────────────── اجرا ───────────────────────── */
-async function smokeChecks({ port, host, loginId, password, totpSecret, log }) {
+async function smokeChecks({ port, host, loginId, password, totpSecret, fixedTotp = null, log }) {
   const results = {};
-  const totp = auth.totpAt(totpSecret, Date.now());
+  const totp = fixedTotp !== null ? fixedTotp : auth.totpAt(totpSecret, Date.now());
   const wrong = String((Number(totp) + 1) % 1e6).padStart(6, '0');
   const bad = await request(port, host, 'POST', PREFIX + '/auth/login', { login_id: loginId, password, totp: wrong });
   results.wrong_totp = bad.status;
@@ -372,7 +379,7 @@ async function smokeChecks({ port, host, loginId, password, totpSecret, log }) {
   const good = await request(port, host, 'POST', PREFIX + '/auth/login', { login_id: loginId, password, totp });
   results.login = good.status;
   if (good.status !== 200 || !good.json || !good.json.token) throw Object.assign(new Error('login failed: ' + good.status + ' ' + good.text.slice(0, 120)), { results });
-  log(`smoke: login (password + TOTP) via panel origin ⇒ ${good.status}`);
+  log(`smoke: login (password + ${fixedTotp !== null ? 'fixed local code' : 'TOTP'}) via panel origin ⇒ ${good.status}`);
   const dash = await request(port, host, 'GET', PREFIX + '/dashboard', undefined, { authorization: 'Bearer ' + good.json.token });
   results.dashboard = dash.status;
   if (dash.status !== 200 || !dash.json || dash.json.ok === false) throw Object.assign(new Error('dashboard GET failed: ' + dash.status), { results });
@@ -444,7 +451,11 @@ async function run(opts, io = {}) {
 
     servers = await startServers({ db, secret: secrets.secret, host: opts.host,
       gatewayPort: opts.gatewayPort !== null ? opts.gatewayPort : (opts.smoke ? 0 : 8090),
-      panelPort: opts.port !== null ? opts.port : (opts.smoke ? 0 : 8095) });
+      panelPort: opts.port !== null ? opts.port : (opts.smoke ? 0 : 8095), fixedTotp: opts.fixedTotp });
+    if (opts.fixedTotp !== null) {
+      log('هشدار: کد دومرحله‌ای ثابت فعال است (--fixed-totp) — فقط برای همین سرور آزمایشی روی 127.0.0.1؛');
+      log('        برنامهٔ Authenticator لازم نیست. Gateway تولید همچنان TOTP واقعی می‌خواهد.');
+    }
     const shown = opts.host.includes(':') ? `[${opts.host}]` : opts.host;
     state.url = `http://${shown}:${servers.port}`;
     log(`gateway: http://${shown}:${servers.gwPort} (platform routes only)`);
@@ -470,7 +481,7 @@ async function run(opts, io = {}) {
       throw Object.assign(new Error(r.status === 501 ? 'login_not_installed (501): migration 004 is missing'
         : 'owner login unavailable: ' + r.status), { results: { login: r.status } });
     }
-    results = await smokeChecks({ port: servers.port, host: opts.host, loginId, password, totpSecret: owner.totpSecret, log });
+    results = await smokeChecks({ port: servers.port, host: opts.host, loginId, password, totpSecret: owner.totpSecret, fixedTotp: opts.fixedTotp, log });
     const ports = [servers.port, servers.gwPort];
     await shutdown();
     servers = null;
@@ -496,7 +507,7 @@ if (require.main === module) {
   let opts;
   try { opts = parseArgs(process.argv.slice(2)); } catch (e) { process.stderr.write('local-up: ' + e.message + '\n'); process.exit(2); }
   if (opts.help) {
-    process.stdout.write('usage: node apps/owner-panel/scripts/local-up.js [--port 8095] [--gateway-port 8090] [--data-dir DIR] [--login-id owner] [--smoke]\n' +
+    process.stdout.write('usage: node apps/owner-panel/scripts/local-up.js [--port 8095] [--gateway-port 8090] [--data-dir DIR] [--login-id owner] [--fixed-totp 123456] [--smoke]\n' +
       '       DATABASE_URL=postgres://postgres@127.0.0.1:5432/payesh_owner (optional, local only)\n');
     process.exit(0);
   }
