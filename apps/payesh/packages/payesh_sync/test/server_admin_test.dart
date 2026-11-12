@@ -242,6 +242,13 @@ void main() {
       });
       expect(c.stateFa, 'در حال آماده‌سازی');
       expect(c.accessHint, 'AKIA…');
+      expect(c.fromOwner, isFalse);
+      expect(
+        CloudConfig.fromJson(const {
+          'config': {'source': 'owner', 'configured': true},
+        }).fromOwner,
+        isTrue,
+      );
       expect(CloudConfig.fromJson(const {}).stateFa, 'تنظیم نشده');
       expect(const CloudForm(endpoint: ' https://x ', secret: '').toJson(), {
         'endpoint': 'https://x',

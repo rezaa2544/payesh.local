@@ -13,6 +13,11 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (sig) {
   'use strict';
 
+  /* روی سرور، s3mem یک fetch با زنجیر رسمی Let's Encrypt می‌گذارد (server/s3-https.js) */
+  let fetchImpl = null;
+  function setFetch(fn) { fetchImpl = typeof fn === 'function' ? fn : null; }
+  const doFetch = (url, opts) => (fetchImpl || fetch)(url, opts);
+
   const DEFAULTS = { endpoint: '', bucket: '', accessKey: '', secret: '', region: '', prefix: 'payesh/', pathStyle: true };
 
   function normalize(input) {
@@ -30,7 +35,10 @@
 
   function regionOf(cfg) {
     if (cfg.region) return cfg.region;
-    const m = String(cfg.endpoint).match(/ir-[a-z]{3}-[a-z0-9]{2}/i);
+    /* نام‌های تازهٔ آروان (s3.ir-central1.arvanstorage.ir) و قدیمی (s3.ir-thr-at1…) */
+    const h = String(cfg.endpoint).match(/^(?:https?:\/\/)?s3\.([a-z0-9-]+)\.arvanstorage\.(?:ir|com)(?:[:/]|$)/i);
+    if (h) return h[1].toLowerCase();
+    const m = String(cfg.endpoint).match(/ir-[a-z]{3}-[a-z0-9]{2,3}/i);
     return m ? m[0] : 'us-east-1';
   }
 
@@ -182,7 +190,7 @@
       let res = null;
       let text = null;
       try {
-        res = await fetch(signed.url, {
+        res = await doFetch(signed.url, {
           method,
           headers: signed.headers,
           body,
@@ -321,7 +329,7 @@
       const headers = Object.assign({}, signed.headers, { origin: out.origin });
       let res;
       try {
-        res = await fetch(signed.url, { method: 'GET', headers });
+        res = await doFetch(signed.url, { method: 'GET', headers });
       } catch (e) {
         out.error = 'network';
         out.detail = String(e && e.message || e).slice(0, 160);
@@ -366,5 +374,5 @@
     return out;
   }
 
-  return { DEFAULTS, normalize, smartParse, regionOf, buildRequest, call, list, listBuckets, put, get, remove, setCors, getCors, corsProbe, nativeBridge, PHONE_ORIGIN, test, presign };
+  return { DEFAULTS, setFetch, normalize, smartParse, regionOf, buildRequest, call, list, listBuckets, put, get, remove, setCors, getCors, corsProbe, nativeBridge, PHONE_ORIGIN, test, presign };
 });

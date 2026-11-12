@@ -262,9 +262,10 @@ Future<(MemorySchool, FakeAdmin)> open(
   String page, {
   String role = 'manager',
   bool server = true,
+  FakeAdmin? admin,
 }) async {
   final src = MemorySchool();
-  final admin = FakeAdmin();
+  admin ??= FakeAdmin();
   if (server) src.admin = admin;
   await bootSchool(
     tester,
@@ -472,6 +473,30 @@ void main() {
         startsWith('این تنظیمات روی سرور مدرسه است'),
       );
       expect(find.byKey(const Key('cld-test')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'W12-W04b cloud set by the owner panel: says so, shows bucket, no manual/built-in text',
+    (tester) async {
+      final admin = FakeAdmin()
+        ..cloudCfg = CloudConfig.fromJson(const {
+          'config': {
+            'endpoint': 'https://s3.ir-central1.arvanstorage.ir',
+            'bucket': 'payesh-madrese',
+            'has_access_key': true,
+            'has_secret': true,
+            'configured': true,
+            'built_in': false,
+            'source': 'owner',
+          },
+        });
+      await open(tester, 'cloud', admin: admin);
+      expect(badgeOf(tester, 'cld-state'), 'آماده');
+      expect(textOf(tester, 'cld-owner'), contains('پنل مدیریت'));
+      expect(textOf(tester, 'cld-owner'), contains('payesh-madrese'));
+      expect(find.byKey(const Key('cld-manual')), findsNothing);
+      expect(find.byKey(const Key('cld-builtin')), findsNothing);
     },
   );
 

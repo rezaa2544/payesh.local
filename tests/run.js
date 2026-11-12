@@ -978,6 +978,106 @@ async function waitFor(fn, ms = 15000) {
 
   const corsRulesOk = xml => ['GET', 'PUT', 'DELETE', 'HEAD'].every(m => String(xml).includes('<AllowedMethod>' + m + '</AllowedMethod>'));
 
+  await test('پیروی از پنل مالک: بردار مشترک رمزنگاری فرمان (Node = Dart)', async () => {
+    const cc = require(path.join(ROOT, 'server', 'cloud-control.js'));
+    const V = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'cloud', 'contracts', 'cloud-control-vectors.json'), 'utf8'));
+    assert.equal(cc.keyFor(V.secret).toString('hex'), V.key_hex, 'کلید HKDF');
+    const env = cc.sealText(V.secret, V.rev, V.plaintext, Buffer.from(V.nonce_hex, 'hex'));
+    assert.deepEqual(env, V.envelope, 'پاکت بایت‌به‌بایت');
+    const opened = cc.open(V.secret, V.envelope);
+    assert.equal(opened.config.bucket, 'payesh-madrese');
+    assert.equal(opened.config.region, 'ir-central1');
+    for (const f of V.must_fail) {
+      assert.throws(() => cc.open(f.secret || V.secret, f.envelope), e => e.code === 'open_failed', f.why);
+    }
+    assert.throws(() => cc.open(V.secret, Object.assign({}, V.envelope, { nonce: 'AA' })), e => e.code === 'bad_format');
+    /* محتوای نامعتبر هرگز اعمال نمی‌شود: http غیرمحلی، صندوقچهٔ بدنام، کلید خالی */
+    for (const bad of [
+      { endpoint: 'http://s3.ir-central1.arvanstorage.ir', bucket: 'payesh-madrese', accessKey: 'abc', secret: 'abcdef' },
+      { endpoint: 'https://s3.ir-central1.arvanstorage.ir', bucket: 'Bad_Bucket', accessKey: 'abc', secret: 'abcdef' },
+      { endpoint: 'https://s3.ir-central1.arvanstorage.ir', bucket: 'payesh-madrese', accessKey: '', secret: 'abcdef' },
+      { endpoint: 'https://u:p@s3.ir-central1.arvanstorage.ir', bucket: 'payesh-madrese', accessKey: 'abc', secret: 'abcdef' },
+    ]) {
+      assert.throws(() => cc.open('k', cc.seal('k', 5, bad)), e => e.code === 'bad_config', JSON.stringify(bad));
+    }
+  });
+
+  await test('پیروی از پنل مالک: سرور مدرسه خودکار به صندوقچهٔ تازه می‌رود و رسید می‌گذارد', async () => {
+    const cc = require(path.join(ROOT, 'server', 'cloud-control.js'));
+    const s3mem = require(path.join(ROOT, 'server', 's3mem.js'));
+    const { startStub } = require('./lib/s3-stub');
+    const { memStore, publish } = require('./lib/cloud-control-helpers');
+    const A = await startStub({ accessKey: 'ak-old', secret: 'sk-old-1', bucket: 'payesh-old' });
+    const B = await startStub({ accessKey: 'ak-new', secret: 'sk-new-2', bucket: 'payesh-madrese' });
+    const C = await startStub({ accessKey: 'ak-c', secret: 'sk-c-3', bucket: 'payesh-c' });
+    try {
+      cc._resetForTests();
+      const store = memStore();
+      s3mem.usingMeta(store).set(s3mem.normalize(A.cfg));
+      assert.equal((await cc.poll(store)).state, 'none', 'بدون فرمان: کاری نمی‌کند');
+
+      await publish(cc, s3mem, A.cfg, B.cfg, 1000);
+      const r1 = await cc.poll(store);
+      assert.equal(r1.state, 'applied', JSON.stringify(r1));
+      const now = s3mem.usingMeta(store).get();
+      assert.equal(now.bucket, 'payesh-madrese');
+      assert.equal(now.endpoint, B.endpoint);
+      assert.equal(now.accessKey, 'ak-new');
+      assert.equal(now.source, 'owner');
+      const id = store.getMeta('cloud:server_id');
+      const ack = JSON.parse(B.objects.get('payesh/control/ack/' + id + '.json'));
+      assert.equal(ack.ok, true); assert.equal(ack.rev, 1000); assert.equal(ack.bucket, 'payesh-madrese');
+      assert.ok(!JSON.stringify(ack).includes('sk-new-2'), 'رسید هیچ کلیدی ندارد');
+      assert.ok(store.audits.some(a => a.action === 'cloud_control_apply'));
+
+      /* دور بعد: در صندوقچهٔ تازه همان نسخه ⇒ «به‌روز» */
+      await publish(cc, s3mem, B.cfg, B.cfg, 1000);
+      assert.equal((await cc.poll(store)).state, 'current');
+
+      /* مقصد خراب (Secret نادرست) ⇒ روی همان قبلی می‌ماند و رسید خطا */
+      await publish(cc, s3mem, B.cfg, Object.assign({}, C.cfg, { secret: 'wrong-secret' }), 2000);
+      const r2 = await cc.poll(store);
+      assert.equal(r2.state, 'rejected', JSON.stringify(r2));
+      assert.equal(s3mem.usingMeta(store).get().bucket, 'payesh-madrese');
+      assert.equal(JSON.parse(B.objects.get('payesh/control/ack/' + id + '.json')).ok, false);
+
+      /* فرمان دستکاری‌شده یا نسخهٔ قدیمی‌تر هرگز اعمال نمی‌شود */
+      B.poke('payesh/control/cloud.json', '{"v":1,"kind":"payesh-cloud-control","rev":9999,"alg":"HKDF-SHA256/A256GCM","nonce":"AAECAwQFBgcICQoL","ct":"AAAAAAAAAAAAAAAAAAAAAAAA"}');
+      assert.equal((await cc.poll(store)).state, 'invalid');
+      await publish(cc, s3mem, B.cfg, C.cfg, 900);
+      assert.equal((await cc.poll(store)).state, 'current', 'نسخهٔ قدیمی‌تر نادیده');
+      assert.equal(s3mem.usingMeta(store).get().bucket, 'payesh-madrese');
+
+      /* فرمانی که با کلید دیگری مهر شده باز نمی‌شود */
+      const foreign = cc.seal('someone-else', 3000, C.cfg);
+      B.poke('payesh/control/cloud.json', JSON.stringify(foreign));
+      assert.equal((await cc.poll(store)).state, 'invalid');
+
+      /* حالا مقصد سالم ⇒ می‌رود */
+      await publish(cc, s3mem, B.cfg, C.cfg, 4000);
+      assert.equal((await cc.poll(store)).state, 'applied');
+      assert.equal(s3mem.usingMeta(store).get().bucket, 'payesh-c');
+    } finally {
+      await A.close(); await B.close(); await C.close();
+    }
+  });
+
+  await test('صندوقچه روی سرور: ناحیهٔ نام‌های تازهٔ آروان و زنجیر Let\'s Encrypt همسان با پنل مالک', async () => {
+    const s3mem = require(path.join(ROOT, 'server', 's3mem.js'));
+    assert.equal(s3mem.regionOf({ endpoint: 'https://s3.ir-central1.arvanstorage.ir' }), 'ir-central1');
+    assert.equal(s3mem.regionOf({ endpoint: 's3.ir-northwest1.arvanstorage.ir' }), 'ir-northwest1');
+    assert.equal(s3mem.regionOf({ endpoint: 'https://s3.ir-thr-at1.arvanstorage.ir' }), 'ir-thr-at1');
+    assert.equal(s3mem.regionOf({ endpoint: 'http://127.0.0.1:9000' }), 'us-east-1');
+    const trust = require(path.join(ROOT, 'server', 'le-trust.js'));
+    const dart = fs.readFileSync(path.join(ROOT, 'apps', 'payesh', 'owner', 'lib', 'src', 'local', 'trust_bundle.dart'), 'utf8');
+    const dartPems = dart.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g).map(x => x.trim());
+    assert.deepEqual(trust.PEMS.map(x => x.trim()), dartPems, 'همان ۲۱ گواهی پنل مالک');
+    const crypto = require('crypto');
+    const subj = trust.PEMS.map(p => new crypto.X509Certificate(p).subject.split('\n').pop());
+    for (const cn of ['CN=ISRG Root X1', 'CN=YR1', 'CN=Root YR', 'CN=YE1']) assert.ok(subj.includes(cn), cn);
+    assert.ok(trust.caList().length > trust.PEMS.length, 'ریشه‌های Node هم هستند');
+  });
+
   await test('حافظهٔ ابری: امضای S3 درست و چرخهٔ نوشتن/خواندن سالم', async () => {
     const sig = require(path.join(ROOT, 'client', 'lib', 'sigv4.js'));
     const s3 = require(path.join(ROOT, 'server', 's3mem.js'));

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_owner/src/app.dart';
+import 'package:payesh_owner/src/local/cloud_control.dart';
 import 'package:payesh_owner/src/local/local_account.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
 import 'package:payesh_owner/src/platform.dart';
@@ -31,11 +32,20 @@ final class FakeS3 implements S3Transport {
   FakeS3(this.replies);
   final List<Object> replies; // S3Response یا Exception
   final List<(Uri, Map<String, String>)> calls = [];
+  final List<String> methods = [];
+  final List<String?> bodies = [];
   int closed = 0;
 
   @override
-  Future<S3Response> get(Uri url, Map<String, String> headers) async {
+  Future<S3Response> send(
+    String method,
+    Uri url,
+    Map<String, String> headers, [
+    List<int>? body,
+  ]) async {
     calls.add((url, Map.of(headers)));
+    methods.add(method);
+    bodies.add(body == null ? null : utf8.decode(body));
     final r = replies.isEmpty ? const S3Response(500, '') : replies.removeAt(0);
     if (r is S3Response) return r;
     throw r;
@@ -556,6 +566,7 @@ void main() {
           final secure = FakeSecureStore();
           final s3 = FakeS3([
             const S3Response(200, _bucketsXml),
+            const S3Response(200, ''), // PUT control/cloud.json
             S3Response(403, _err('SignatureDoesNotMatch')),
           ]);
           await _pump(tester, secure: secure, s3: s3);
@@ -575,7 +586,30 @@ void main() {
           expect(secretField().obscureText, isFalse);
           await _tap(tester, 'db-save');
           expect(_text(tester, 'db-msg'), contains('ذخیره شد'));
-          expect(find.text('payesh-main'), findsOneWidget);
+          expect(_text(tester, 'db-msg'), contains('سرورهای مدرسه'));
+          expect(_text(tester, 'db-msg'), contains('payesh-main'));
+          // خالی بود ⇒ همان قاعدهٔ سرور مدرسه: اولین صندوقچهٔ «payesh»
+          expect(
+            tester
+                .widget<TextField>(find.byKey(const Key('db-bucket')))
+                .controller!
+                .text,
+            'payesh-main',
+          );
+          expect(s3.methods, ['GET', 'PUT']);
+          expect(
+            s3.calls[1].$1.toString(),
+            'https://s3.ir-central1.arvanstorage.ir/payesh-main/payesh/control/cloud.json',
+          );
+          final env = jsonDecode(s3.bodies[1]!) as Map<String, Object?>;
+          expect(s3.bodies[1], isNot(contains('secret-test-value')));
+          final inner = jsonDecode(
+            await openControlText('secret-test-value', env),
+          ) as Map<String, Object?>;
+          expect(inner['bucket'], 'payesh-main');
+          expect(inner['secret'], 'secret-test-value');
+          expect(await loadPublishedRev(secure), _t0.millisecondsSinceEpoch);
+          expect((await S3Settings.load(secure))!.bucket, 'payesh-main');
           expect(_text(tester, 'db-buckets-title'), contains('2'));
           expect(
             (await S3Settings.load(secure))!.secretKey,
@@ -601,6 +635,159 @@ void main() {
           expect(await S3Settings.load(secure), isNull);
         },
       );
+
+      testWidgets('settings: pasted bucket URL, change of database tells the old bucket too, '
+          'followers list; NEG publish failure and no bucket', (tester) async {
+        final secure = FakeSecureStore();
+        String ack(String id, String host, int rev, bool ok, String at) =>
+            jsonEncode({
+              'v': 1,
+              'server_id': id,
+              'host': host,
+              'rev': rev,
+              'ok': ok,
+              'at': at,
+              if (!ok) 'error': 'NoSuchBucket',
+            });
+        final rev1 = _t0.millisecondsSinceEpoch;
+        final s3 = FakeS3([
+          const S3Response(200, _bucketsXml), // test (old)
+          const S3Response(200, ''), // PUT old
+          const S3Response(200, _bucketsXml), // test (new)
+          const S3Response(200, ''), // PUT new
+          const S3Response(200, ''), // PUT old (اعلام در قبلی)
+          const S3Response(
+            200,
+            '<ListBucketResult><Contents><Key>payesh/control/ack/a1.json</Key></Contents>'
+            '<Contents><Key>payesh/control/ack/b2.json</Key></Contents></ListBucketResult>',
+          ),
+          S3Response(
+            200,
+            ack('a1', 'PC-DAFTAR', rev1, true, '2026-11-12T09:01:00Z'),
+          ),
+          S3Response(
+            200,
+            ack('b2', 'PC-OLD', 5, false, '2026-11-12T08:00:00Z'),
+          ),
+        ]);
+        await _pump(tester, secure: secure, s3: s3);
+        await _setup(tester);
+        await openSettings(tester);
+        await _enter(tester, {
+          'db-endpoint': 's3.ir-central1.arvanstorage.ir',
+          'db-bucket': 'payesh-backup',
+          'db-access': 'AK-OLD',
+          'db-secret': 'SK-OLD',
+        });
+        await _tap(tester, 'db-save');
+        expect(_text(tester, 'db-msg'), contains('payesh-backup'));
+        // مالک آدرس خود صندوقچه را می‌چسباند (مثل پنل آروان) و کلید تازه می‌دهد
+        await _enter(tester, {
+          'db-endpoint':
+              'https://payesh-madrese.s3.ir-central1.arvanstorage.ir',
+          'db-bucket': '',
+          'db-access': 'AK-NEW',
+          'db-secret': 'SK-NEW',
+        });
+        await _tap(tester, 'db-save');
+        expect(_text(tester, 'db-msg'), contains('payesh-madrese'));
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const Key('db-endpoint')))
+              .controller!
+              .text,
+          'https://s3.ir-central1.arvanstorage.ir',
+        );
+        expect(s3.methods, ['GET', 'PUT', 'GET', 'PUT', 'PUT']);
+        expect(
+          s3.calls[3].$1.path,
+          '/payesh-madrese/payesh/control/cloud.json',
+        );
+        expect(s3.calls[4].$1.path, '/payesh-backup/payesh/control/cloud.json');
+        expect(s3.calls[4].$2['authorization'], contains('Credential=AK-OLD/'));
+        // پاکتِ صندوقچهٔ قبلی با کلید قبلی باز می‌شود و مقصد تازه را می‌گوید
+        final old = jsonDecode(s3.bodies[4]!) as Map<String, Object?>;
+        final inner = jsonDecode(
+          await openControlText('SK-OLD', old),
+        ) as Map<String, Object?>;
+        expect(inner['bucket'], 'payesh-madrese');
+        expect(inner['accessKey'], 'AK-NEW');
+        await expectLater(
+          openControlText('SK-NEW', old),
+          throwsA(isA<Object>()),
+        );
+
+        await _tap(tester, 'db-followers');
+        expect(_text(tester, 'db-followers-title'), contains('2'));
+        expect(
+          find.textContaining('PC-DAFTAR · پیرو و به‌روز ✅'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('PC-OLD · خطا: NoSuchBucket'),
+          findsOneWidget,
+        );
+        expect(
+          s3.calls[5].$1.query,
+          contains('prefix=payesh%2Fcontrol%2Fack%2F'),
+        );
+
+        // NEG: نوشتن فرمان رد شد ⇒ ذخیره هست ولی خطا گفته می‌شود
+        s3.replies.addAll([
+          const S3Response(200, _bucketsXml),
+          S3Response(403, _err('AccessDenied')),
+        ]);
+        await _tap(tester, 'db-save');
+        expect(
+          _text(tester, 'db-msg'),
+          contains('اعلام به سرورهای مدرسه ممکن نشد'),
+        );
+        expect(_text(tester, 'db-msg'), contains('AccessDenied'));
+        // NEG: هیچ صندوقچه‌ای در حساب نیست
+        await _enter(tester, {'db-bucket': ''});
+        s3.replies.add(
+          const S3Response(
+            200,
+            '<ListAllMyBucketsResult><Buckets></Buckets></ListAllMyBucketsResult>',
+          ),
+        );
+        await _tap(tester, 'db-save');
+        expect(
+          _text(tester, 'db-msg'),
+          contains('صندوقچه‌ای (Bucket) در این حساب نیست'),
+        );
+        // NEG: نام صندوقچهٔ نامعتبر
+        await _enter(tester, {'db-bucket': 'Bad_Name'});
+        await _tap(tester, 'db-save');
+        expect(_text(tester, 'db-msg'), contains('نام صندوقچه'));
+        await _tap(tester, 'db-followers');
+        await _enter(tester, {'db-bucket': ''});
+        await _tap(tester, 'db-followers');
+        expect(_text(tester, 'db-followers-error'), contains('آزمایش اتصال'));
+      });
+
+      testWidgets('settings: followers — none yet; listing error', (
+        tester,
+      ) async {
+        final secure = FakeSecureStore();
+        final s3 = FakeS3([
+          const S3Response(200, '<ListBucketResult></ListBucketResult>'),
+          S3Response(403, _err('SignatureDoesNotMatch')),
+        ]);
+        await _pump(tester, secure: secure, s3: s3);
+        await _setup(tester);
+        await openSettings(tester);
+        await _enter(tester, {
+          'db-endpoint': 's3.ir-central1.arvanstorage.ir',
+          'db-bucket': 'payesh-madrese',
+          'db-access': 'AKID',
+          'db-secret': 'SECRET',
+        });
+        await _tap(tester, 'db-followers');
+        expect(_text(tester, 'db-followers-title'), contains('هنوز هیچ سرور'));
+        await _tap(tester, 'db-followers');
+        expect(_text(tester, 'db-followers-error'), contains('Secret Key'));
+      });
 
       testWidgets('settings: test only (no save), empty bucket list', (
         tester,

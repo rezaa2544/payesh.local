@@ -187,6 +187,7 @@ final class CloudConfig {
     required this.hasSecret,
     required this.configured,
     required this.builtIn,
+    this.fromOwner = false,
   });
   factory CloudConfig.fromJson(Map<String, Object?> j) {
     final c = _map(j['config']);
@@ -199,6 +200,7 @@ final class CloudConfig {
       hasSecret: c['has_secret'] == true,
       configured: c['configured'] == true,
       builtIn: c['built_in'] == true,
+      fromOwner: c['source'] == 'owner',
     );
   }
   final String endpoint;
@@ -209,6 +211,10 @@ final class CloudConfig {
   final bool hasSecret;
   final bool configured;
   final bool builtIn;
+
+  /// The owner panel set this (server/cloud-control.js follows `control/cloud.json` in the
+  /// bucket); it updates by itself whenever the owner changes the database.
+  final bool fromOwner;
 
   /// Web badge: آماده / در حال آماده‌سازی / تنظیم نشده.
   String get stateFa => configured

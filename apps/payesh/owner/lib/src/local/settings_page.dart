@@ -3,6 +3,7 @@ import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import 'cloud_control.dart';
 import 's3_client.dart';
 
 /// صفحهٔ «تنظیمات» داخل برنامه: دیتابیس (فضای ابری S3) و سرور پلتفرم.
@@ -126,6 +127,7 @@ class DatabaseSettingsPanel extends StatefulWidget {
 
 class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
   final _endpoint = TextEditingController();
+  final _bucket = TextEditingController();
   final _access = TextEditingController();
   final _secret = TextEditingController();
   bool _loading = true;
@@ -135,6 +137,9 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
   String? _message;
   bool _messageOk = false;
   List<String> _buckets = const [];
+  List<Follower>? _followers;
+  int? _publishedRev;
+  String? _followersError;
 
   @override
   void initState() {
@@ -145,8 +150,10 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
   Future<void> _load() async {
     S3Settings? s;
     String? err;
+    int? rev;
     try {
       s = await S3Settings.load(widget.secure);
+      rev = await loadPublishedRev(widget.secure);
     } on SecureStoreException {
       err = 'تنظیمات ذخیره‌شدهٔ دیتابیس خوانده نشد. لطفاً دوباره وارد کنید.';
     } on FormatException {
@@ -156,8 +163,10 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
     setState(() {
       _loading = false;
       _message = err;
+      _publishedRev = rev;
       if (s != null) {
         _endpoint.text = endpointText(s.endpoint);
+        _bucket.text = s.bucket;
         _access.text = s.accessKey;
         _secret.text = s.secretKey;
         _message = 'تنظیمات ذخیره‌شده بارگذاری شد.';
@@ -168,17 +177,24 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
 
   @override
   void dispose() {
-    for (final c in [_endpoint, _access, _secret]) {
+    for (final c in [_endpoint, _bucket, _access, _secret]) {
       c.dispose();
     }
     super.dispose();
   }
 
   S3Settings? _form() {
+    // آدرس خود صندوقچه چسبانده شده؟ (https://payesh-madrese.s3.ir-central1.arvanstorage.ir)
+    final split = splitBucketHost(_endpoint.text);
+    if (split != null) {
+      _endpoint.text = split.$1;
+      if (_bucket.text.trim().isEmpty) _bucket.text = split.$2;
+    }
     final err = validateS3Form(
       endpoint: _endpoint.text,
       accessKey: _access.text,
       secretKey: _secret.text,
+      bucket: _bucket.text,
     );
     if (err != null) {
       setState(() {
@@ -191,6 +207,7 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
       endpoint: normalizeS3Endpoint(_endpoint.text)!,
       accessKey: _access.text.trim(),
       secretKey: _secret.text.trim(),
+      bucket: _bucket.text.trim(),
     );
   }
 
@@ -204,35 +221,136 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
       _messageOk = true;
     });
     final t = widget.transportFactory();
-    final S3TestResult r;
+    String msg;
+    var ok = false;
+    S3TestResult? r;
     try {
       r = await testS3Connection(s, t, now: widget.now);
+      ok = r.ok;
+      if (!r.ok) {
+        msg = r.error!;
+      } else if (!save) {
+        msg = 'اتصال برقرار است.';
+      } else {
+        (msg, ok) = await _saveAndPublish(s, r.buckets, t);
+      }
     } finally {
       t.close();
-    }
-    String msg;
-    var ok = r.ok;
-    if (r.ok && save) {
-      try {
-        await s.save(widget.secure);
-        msg = 'اتصال برقرار شد و تنظیمات دیتابیس ذخیره شد.';
-      } on SecureStoreException {
-        msg = 'اتصال برقرار شد، ولی ذخیرهٔ امن تنظیمات ممکن نشد.';
-        ok = false;
-      }
-    } else if (r.ok) {
-      msg = 'اتصال برقرار است.';
-    } else {
-      msg = r.error!;
     }
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _connected = r.ok;
-      _buckets = r.buckets;
+      _connected = r?.ok ?? false;
+      _buckets = r?.buckets ?? const [];
       _message = msg;
       _messageOk = ok;
     });
+  }
+
+  /// ذخیرهٔ امن + اعلام به سرورهای مدرسه (control/cloud.json در صندوقچه).
+  Future<(String, bool)> _saveAndPublish(
+    S3Settings form,
+    List<String> buckets,
+    S3Transport t,
+  ) async {
+    final bucket = form.bucket.isNotEmpty ? form.bucket : pickBucket(buckets);
+    final s = form.withBucket(bucket ?? '');
+    S3Settings? previous;
+    try {
+      previous = await S3Settings.load(widget.secure);
+    } on Object {
+      previous = null; // تنظیم قبلی خوانا نیست؛ فقط مقصد تازه اعلام می‌شود
+    }
+    try {
+      await s.save(widget.secure);
+    } on SecureStoreException {
+      return ('اتصال برقرار شد، ولی ذخیرهٔ امن تنظیمات ممکن نشد.', false);
+    }
+    if (mounted) setState(() => _bucket.text = s.bucket);
+    if (bucket == null) {
+      return (
+        'اتصال برقرار شد و تنظیمات ذخیره شد. هنوز صندوقچه‌ای (Bucket) در این حساب نیست؛ '
+            'یکی در پنل آروان بسازید و دوباره «آزمایش اتصال و ذخیره» را بزنید تا سرورهای مدرسه هم به آن وصل شوند.',
+        false,
+      );
+    }
+    if (previous != null && previous.bucket.isEmpty) {
+      previous = previous.sameTarget(s.withBucket(''))
+          ? previous.withBucket(bucket)
+          : null; // صندوقچهٔ قبلی نامعلوم: فقط مقصد تازه
+    }
+    final rev = (widget.now ?? DateTime.now)().millisecondsSinceEpoch;
+    try {
+      final (res, warning) = await publishControl(
+        target: s,
+        previous: previous,
+        transport: t,
+        rev: rev,
+        now: widget.now,
+      );
+      try {
+        await widget.secure.write(ControlKeys.rev, '${res.rev}');
+      } on SecureStoreException {
+        // فقط برای نمایش «به‌روز/قدیمی» است
+      }
+      if (mounted) setState(() => _publishedRev = res.rev);
+      final base =
+          'اتصال برقرار شد و تنظیمات دیتابیس ذخیره شد (صندوقچه: ${s.bucket}). '
+          'به سرورهای مدرسه هم اعلام شد؛ هر سرور حداکثر تا یک دقیقهٔ دیگر خودکار به همین دیتابیس وصل می‌شود.';
+      return (warning == null ? base : '$base\n$warning', warning == null);
+    } on S3Failure catch (e) {
+      return (
+        'اتصال برقرار شد و تنظیمات ذخیره شد، ولی اعلام به سرورهای مدرسه ممکن نشد: ${e.messageFa}',
+        false,
+      );
+    }
+  }
+
+  Future<void> _loadFollowers() async {
+    if (_busy) return;
+    final s = _form();
+    if (s == null) return;
+    final bucket = s.bucket;
+    if (bucket.isEmpty) {
+      setState(() {
+        _followers = null;
+        _followersError =
+            'اول «آزمایش اتصال و ذخیره» را بزنید تا صندوقچه معلوم شود.';
+      });
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _followersError = null;
+    });
+    final t = widget.transportFactory();
+    List<Follower>? list;
+    String? err;
+    try {
+      list = await readFollowers(s, t, now: widget.now);
+    } on S3Failure catch (e) {
+      err = e.messageFa;
+    } finally {
+      t.close();
+    }
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _followers = list;
+      _followersError = err;
+    });
+  }
+
+  String _followerLine(Follower f) {
+    final state = !f.ok
+        ? 'خطا: ${f.error ?? 'نامعلوم'}'
+        : (_publishedRev == null || f.rev >= _publishedRev!)
+        ? 'پیرو و به‌روز ✅'
+        : 'هنوز روی تنظیم قبلی';
+    final at = f.at.length >= 16
+        ? f.at.substring(0, 16).replaceFirst('T', ' ')
+        : f.at;
+    return '${f.host} · $state · آخرین گزارش: $at (UTC)';
   }
 
   Future<void> _clear() async {
@@ -244,6 +362,7 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
     if (!mounted) return;
     setState(() {
       _endpoint.clear();
+      _bucket.clear();
       _access.clear();
       _secret.clear();
       _connected = false;
@@ -266,7 +385,7 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
     }
     return _Section(
       title: 'دیتابیس (فضای ابری)',
-      subtitle: 'آدرس فضای ابری (مثلاً آروان‌کلاد) و کلیدهای دسترسی را وارد کنید. کلیدها فقط روی همین دستگاه و به‌صورت رمزنگاری‌شده نگه داشته می‌شوند.',
+      subtitle: 'آدرس فضای ابری (مثلاً آروان‌کلاد)، نام صندوقچه و کلیدهای دسترسی را وارد کنید. کلیدها روی همین دستگاه رمزنگاری‌شده می‌مانند و به برنامهٔ کاربران داده نمی‌شوند؛ سرورهای مدرسه با پیام رمزنگاری‌شده‌ای که در خود صندوقچه گذاشته می‌شود خودکار به همین دیتابیس وصل می‌شوند و هر تغییر را دنبال می‌کنند.',
       children: [
         _msg(context, 'db-msg', _message, _messageOk),
         _input(
@@ -274,6 +393,12 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
           _endpoint,
           'آدرس دیتابیس',
           hint: 's3.ir-central1.arvanstorage.ir',
+        ),
+        _input(
+          'db-bucket',
+          _bucket,
+          'نام صندوقچه (Bucket)',
+          hint: 'payesh-madrese — خالی = خودکار',
         ),
         _input('db-access', _access, 'Access Key'),
         _input(
@@ -307,6 +432,11 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
               onPressed: _busy ? null : () => _run(save: false),
               child: const Text('فقط آزمایش اتصال'),
             ),
+            OutlinedButton(
+              key: const Key('db-followers'),
+              onPressed: _busy ? null : _loadFollowers,
+              child: const Text('وضعیت سرورهای مدرسه'),
+            ),
             TextButton(
               key: const Key('db-clear'),
               onPressed: _busy ? null : _clear,
@@ -332,6 +462,29 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
               dense: true,
               leading: const Icon(Icons.inventory_2_outlined),
               title: Text(b, textDirection: TextDirection.ltr),
+            ),
+        ],
+        if (_followersError != null) ...[
+          const SizedBox(height: 12),
+          _msg(context, 'db-followers-error', _followersError, false),
+        ],
+        if (_followers != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            _followers!.isEmpty
+                ? 'هنوز هیچ سرور مدرسه‌ای به این صندوقچه گزارش نداده است. سرور مدرسه باید یک بار با همین کلیدها تنظیم شده باشد؛ از آن به بعد خودش تغییرات را دنبال می‌کند.'
+                : 'سرورهای مدرسه (${_followers!.length}):',
+            key: const Key('db-followers-title'),
+          ),
+          for (final (i, f) in _followers!.indexed)
+            ListTile(
+              key: Key('db-follower-$i'),
+              dense: true,
+              leading: Icon(
+                f.ok ? Icons.dns_outlined : Icons.error_outline,
+                color: f.ok ? context.tokens.success : context.tokens.danger,
+              ),
+              title: Text(_followerLine(f)),
             ),
         ],
       ],

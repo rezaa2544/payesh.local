@@ -823,7 +823,13 @@ class _CloudScreenState extends State<CloudScreen> {
                   tone: ready ? PayeshTone.success : PayeshTone.warning,
                 ),
                 [
-                  if (cfg.builtIn)
+                  if (cfg.fromOwner)
+                    _small(
+                      context,
+                      '✅ همان دیتابیسی که مالک در پنل مدیریت تعریف کرده است؛ اگر مالک آن را عوض کند، این سرور خودش به‌روز می‌شود. صندوقچه: ${cfg.bucket.isEmpty ? '—' : cfg.bucket} · سرور: ${cfg.endpoint}',
+                      key: const Key('cld-owner'),
+                    )
+                  else if (cfg.builtIn)
                     _small(
                       context,
                       '✅ از قبل داخل برنامه تنظیم شده است — لازم نیست چیزی وارد کنید.${cfg.bucket.isEmpty ? '' : ' صندوقچه: ${cfg.bucket}'} · سرور: ${cfg.endpoint}',

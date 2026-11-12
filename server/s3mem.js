@@ -12,6 +12,10 @@
 const path = require('path');
 const s3 = require(path.join(__dirname, '..', 'client', 'lib', 's3mini.js'));
 const baked = require('./cloud-defaults');
+const { trustFetch } = require('./s3-https');
+
+/* سرور: گواهی نسل Y آروان با زنجیر رسمی Let's Encrypt (fetch داخلی Node ریشهٔ YR را ندارد) */
+s3.setFetch(trustFetch);
 
 const META_KEY = 'cloud:config';
 
@@ -43,7 +47,8 @@ function saved(store) {
   /* اگر هیچ اعتبارنامه‌ای (نه ذخیره‌شده و نه محیط) نباشد، مدرسه پیکربندی‌نشده است */
   if (!c.endpoint || !c.accessKey || !c.secret) return null;
   c.enabled = !!(c.endpoint && c.bucket && c.accessKey && c.secret);
-  c.source = 'saved';
+  /* «owner» = پنل مالک از راه control/cloud.json تعیین کرده (server/cloud-control.js) */
+  c.source = raw.source === 'owner' ? 'owner' : 'saved';
   return c;
 }
 

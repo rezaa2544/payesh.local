@@ -1,0 +1,41 @@
+{
+  "description": "Payesh cloud-control v1 (owner panel → school servers). key = HKDF-SHA256(ikm=utf8(secret of the bucket holding the object), salt=utf8(\"payesh/cloud-control\"), info=utf8(\"v1\"), L=32); AES-256-GCM, 12-byte nonce, AAD = utf8(\"payesh-cloud-control/v1/\" + rev), ct = ciphertext || 16-byte tag, base64url without padding. Test-only values; no real keys.",
+  "secret": "9f8e7d6c5b4a39281706f5e4d3c2b1a0-test-only",
+  "rev": 1762984800000,
+  "plaintext": "{\"v\":1,\"rev\":1762984800000,\"endpoint\":\"https://s3.ir-central1.arvanstorage.ir\",\"region\":\"ir-central1\",\"bucket\":\"payesh-madrese\",\"prefix\":\"payesh/\",\"accessKey\":\"00000000-1111-2222-3333-444444444444\",\"secret\":\"test-only-new-secret-not-real\"}",
+  "nonce_hex": "000102030405060708090a0b",
+  "key_hex": "403f52576cc1d1f094e545490ac0e8b9ffb1a5f9ec3e7820a9f91e9ad7b0849f",
+  "envelope": {
+    "v": 1,
+    "kind": "payesh-cloud-control",
+    "rev": 1762984800000,
+    "alg": "HKDF-SHA256/A256GCM",
+    "nonce": "AAECAwQFBgcICQoL",
+    "ct": "txP6MlXUGCsJAQFFNqU17If3Mh0tGyiBL3QQt6mAt14ip8031X3xOUZGH1ND-abrw3F_vrugrTHUG_fojI3GvBa4K5kqENld_itwdN1qqzxKgUcx_8_FRR2mz-epUHtf1AVBmyYOMnYS81bWXjHRNUcL36Z7a5bKaxwEZ43xOIgUdhyVnInyYr2rbLz_1wEL0-6h28chNANipRoabGsT-cd9nw5QKEuiqZwgUWFZXpYQHu4hJNcZd8Hi02326zXFkONe62zFr1OoM8NvH_pFcT2d89ygr0nXu7aVLppCVUCKjWbTjApvNtiwsermc_pB0kFg_0v3dl3UH4M20edX"
+  },
+  "must_fail": [
+    {
+      "why": "rev changed (AAD)",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-cloud-control",
+        "rev": 1762984800001,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "AAECAwQFBgcICQoL",
+        "ct": "txP6MlXUGCsJAQFFNqU17If3Mh0tGyiBL3QQt6mAt14ip8031X3xOUZGH1ND-abrw3F_vrugrTHUG_fojI3GvBa4K5kqENld_itwdN1qqzxKgUcx_8_FRR2mz-epUHtf1AVBmyYOMnYS81bWXjHRNUcL36Z7a5bKaxwEZ43xOIgUdhyVnInyYr2rbLz_1wEL0-6h28chNANipRoabGsT-cd9nw5QKEuiqZwgUWFZXpYQHu4hJNcZd8Hi02326zXFkONe62zFr1OoM8NvH_pFcT2d89ygr0nXu7aVLppCVUCKjWbTjApvNtiwsermc_pB0kFg_0v3dl3UH4M20edX"
+      }
+    },
+    {
+      "why": "wrong secret",
+      "secret": "other-secret",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-cloud-control",
+        "rev": 1762984800000,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "AAECAwQFBgcICQoL",
+        "ct": "txP6MlXUGCsJAQFFNqU17If3Mh0tGyiBL3QQt6mAt14ip8031X3xOUZGH1ND-abrw3F_vrugrTHUG_fojI3GvBa4K5kqENld_itwdN1qqzxKgUcx_8_FRR2mz-epUHtf1AVBmyYOMnYS81bWXjHRNUcL36Z7a5bKaxwEZ43xOIgUdhyVnInyYr2rbLz_1wEL0-6h28chNANipRoabGsT-cd9nw5QKEuiqZwgUWFZXpYQHu4hJNcZd8Hi02326zXFkONe62zFr1OoM8NvH_pFcT2d89ygr0nXu7aVLppCVUCKjWbTjApvNtiwsermc_pB0kFg_0v3dl3UH4M20edX"
+      }
+    }
+  ]
+}

@@ -157,8 +157,21 @@ function startStub({ accessKey = 'test-ak', secret = 'test-sk', region = 'us-eas
         res.writeHead(200, { etag: '"' + sha256hex(body).slice(0, 16) + '"' });
         return res.end();
       }
+      if (req.method === 'GET' && !key && url.searchParams.get('list-type') === '2') {
+        /* ListObjectsV2 (برای آزمون پیروی از پنل مالک) */
+        const prefix = url.searchParams.get('prefix') || '';
+        const max = Number(url.searchParams.get('max-keys') || 1000);
+        const keys = [...objects.keys()].filter(k => k.startsWith(prefix)).sort().slice(0, max);
+        res.writeHead(200, { 'content-type': 'application/xml' });
+        return res.end('<?xml version="1.0"?><ListBucketResult><IsTruncated>false</IsTruncated>' +
+          keys.map(k => '<Contents><Key>' + k + '</Key><Size>' + objects.get(k).length + '</Size></Contents>').join('') +
+          '</ListBucketResult>');
+      }
       if (req.method === 'GET') {
-        if (!objects.has(key)) { res.writeHead(404); return res.end('no key'); }
+        if (!objects.has(key)) {
+          res.writeHead(404, { 'content-type': 'application/xml' });
+          return res.end('<?xml version="1.0"?><Error><Code>NoSuchKey</Code></Error>');
+        }
         res.writeHead(200, { 'content-type': 'application/json' });
         return res.end(objects.get(key));
       }
