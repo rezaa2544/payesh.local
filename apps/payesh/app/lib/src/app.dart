@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import 'attendance/attendance_controller.dart';
+import 'attendance/attendance_screen.dart';
+import 'flags.dart';
 import 'login/login_screens.dart';
 import 'login/session_controller.dart';
 import 'secure/local_storage.dart';
@@ -9,7 +12,14 @@ import 'secure/local_storage.dart';
 /// Root widget of the native Payesh client (ADR-43). Persian, right-to-left, Material 3, built on
 /// the payesh_ui design system (row 73): tokens, light/dark themes, bundled Vazirmatn, Jalali.
 class PayeshApp extends StatelessWidget {
-  const PayeshApp({super.key, this.storage, this.today, this.session});
+  const PayeshApp({
+    super.key,
+    this.storage,
+    this.today,
+    this.session,
+    this.attendance,
+    this.onRetrySync,
+  });
 
   /// Encrypted local database being opened (row 72); null in widget previews.
   final Future<LocalStorage>? storage;
@@ -18,7 +28,39 @@ class PayeshApp extends StatelessWidget {
   /// widget previews (the home screen is shown directly).
   final SessionController? session;
 
+  /// Wave 2 data (local database + outbox + Gateway); null = attendance stays on the web client.
+  final AttendanceSource? attendance;
+
+  /// Badge tap on native pages: run a sync cycle now.
+  final VoidCallback? onRetrySync;
+
   static const Locale fa = PayeshUi.locale;
+
+  Widget _pages(BuildContext context, SessionController s, SignedIn state) {
+    final src = attendance;
+    final role = state.currentRole;
+    final uid = state.currentUid;
+    return AttendanceEntry(
+      enabled: src != null && s.flags.uses(NativeWave.attendance),
+      role: role,
+      uid: uid,
+      open: () {
+        if (src == null || role == null || uid == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AttendanceRoute(
+              source: src,
+              role: role,
+              uid: uid,
+              sync: s.sync,
+              onRetry: onRetrySync,
+              now: today,
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +71,7 @@ class PayeshApp extends StatelessWidget {
           : SessionGate(
               controller: s,
               home: HomeBody(storage: storage, today: today),
+              pages: (context, state) => _pages(context, s, state),
             ),
     );
   }

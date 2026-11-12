@@ -35,10 +35,19 @@ final class NeedCode extends SessionState {
 /// Signed in. [session] is null while offline before the first refresh of this run: the app
 /// still opens (offline-first) and shows what it has.
 final class SignedIn extends SessionState {
-  const SignedIn({required this.school, this.role, this.session});
+  const SignedIn({required this.school, this.role, this.session, this.uid});
   final String school;
   final String? role;
   final SchoolSession? session;
+
+  /// Last known user id (saved on the device) — used offline before the first refresh.
+  final int? uid;
+
+  /// Current role: the fresh session's, else the saved one.
+  String? get currentRole => session?.role ?? role;
+
+  /// Current user id: the fresh session's, else the saved one.
+  int? get currentUid => session?.uid ?? uid;
 
   String? get roleFa {
     final r = session?.role ?? role;
@@ -79,6 +88,9 @@ class SessionController extends ChangeNotifier {
   );
 
   SessionState get state => _state;
+
+  /// Cell (Gateway) of the saved school — the data path of wave 2 talks to it.
+  Uri? get cellUrl => _saved?.cellUrl;
   bool get busy => _busy;
   ClientFlags get flags => _active;
 
@@ -107,6 +119,10 @@ class SessionController extends ChangeNotifier {
       lastError: error,
     );
   }
+
+  /// Wave 2: the outbox engine (AutoSync) publishes into the same badge — the queued / offline /
+  /// needs-review counts come from the durable outbox on the device, never from a guess.
+  void publishOutbox(SyncStatus s) => sync.value = s;
 
   /// While a 429 cooldown runs, no request is sent; the message says how long to wait.
   String? _coolingDown() {
@@ -139,7 +155,7 @@ class SessionController extends ChangeNotifier {
       final saved = await accounts.load();
       _saved = saved;
       if (saved == null) return _set(const NeedSchool());
-      _set(SignedIn(school: saved.school, role: saved.role));
+      _set(SignedIn(school: saved.school, role: saved.role, uid: saved.uid));
       await refresh();
     } on Object {
       _set(
@@ -184,6 +200,7 @@ class SessionController extends ChangeNotifier {
         cellUrl: s.route.cellUrl,
         deviceSecret: a.deviceSecret,
         role: a.session.role,
+        uid: a.session.uid,
       );
       await accounts.save(saved);
       _saved = saved;
@@ -220,12 +237,13 @@ class SessionController extends ChangeNotifier {
         deviceId: await accounts.deviceId(),
         deviceSecret: saved.deviceSecret,
       );
-      if (fresh.role != saved.role) {
+      if (fresh.role != saved.role || fresh.uid != saved.uid) {
         final updated = SavedSchool(
           school: saved.school,
           cellUrl: saved.cellUrl,
           deviceSecret: saved.deviceSecret,
           role: fresh.role,
+          uid: fresh.uid,
         );
         await accounts.save(updated);
         _saved = updated;
@@ -241,10 +259,10 @@ class SessionController extends ChangeNotifier {
         return;
       }
       _publish(SyncPhase.offline, error: _fail(e));
-      _set(SignedIn(school: saved.school, role: saved.role));
+      _set(SignedIn(school: saved.school, role: saved.role, uid: saved.uid));
     } on Object {
       _publish(SyncPhase.offline, error: _unknown);
-      _set(SignedIn(school: saved.school, role: saved.role));
+      _set(SignedIn(school: saved.school, role: saved.role, uid: saved.uid));
     }
   }
 

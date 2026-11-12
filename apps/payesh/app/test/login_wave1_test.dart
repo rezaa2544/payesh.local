@@ -128,7 +128,9 @@ void main() {
       final d = ClientFlags.parse();
       expect(d.client, ClientChoice.native);
       expect(d.uses(NativeWave.login), isTrue);
-      expect(d.uses(NativeWave.attendance), isFalse);
+      // wave 2 (attendance) ships by default since row 74 wave 2; later waves do not
+      expect(d.uses(NativeWave.attendance), isTrue);
+      expect(d.uses(NativeWave.grades), isFalse);
       expect(
         ClientFlags.parse(client: 'legacy').uses(NativeWave.login),
         isFalse,

@@ -22,7 +22,7 @@ final class ClientFlags {
   /// login need the native login).
   factory ClientFlags.parse({
     String client = 'native',
-    String waves = 'login',
+    String waves = 'login,attendance',
     String webUrl = '',
   }) {
     final c = switch (client.trim().toLowerCase()) {
@@ -51,7 +51,7 @@ final class ClientFlags {
     ),
     waves: const String.fromEnvironment(
       'PAYESH_NATIVE_WAVES',
-      defaultValue: 'login',
+      defaultValue: 'login,attendance',
     ),
     webUrl: const String.fromEnvironment('PAYESH_WEB_URL'),
   );
