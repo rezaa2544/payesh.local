@@ -6,8 +6,9 @@
      LP-01  site files exist; fa/RTL; strict CSP (no unsafe-eval, no remote hosts)
      LP-02  no external resource is loaded (scripts, styles, fonts, images, fetch)
      LP-03  no Cloudflare anywhere in the page, the build tool or the workflow (D-09)
-     LP-04  every download link points at an asset that build.yml really uploads
-            to the "continuous" release
+     LP-04  every download link points at an asset that school-native-publish.yml
+            really uploads to "native-continuous" after the native gate (row 129);
+            no WebView file, no APK while the owner key is missing
      LP-05  build output is exactly the expected files; version.json carries only
             version + built_at from releases/manifest.json
      LP-06  workflow: manual deploy only, OWNER gate variable, main only,
@@ -25,9 +26,10 @@ const ROOT = path.resolve(__dirname, '..');
 const SITE = path.join(ROOT, 'site');
 const TOOL = path.join(ROOT, 'tools/landing-114.mjs');
 const WF = path.join(ROOT, '.github/workflows/pages.yml');
-const BUILD_WF = path.join(ROOT, '.github/workflows/build.yml');
+const PUBLISH_WF = path.join(ROOT, '.github/workflows/school-native-publish.yml');
 const DOC = path.join(ROOT, 'docs/cloud/114-landing-pages-dns.md');
-const RELEASE_BASE = 'https://github.com/rezaa2544/payesh.local/releases/download/continuous/';
+const RELEASE_BASE = 'https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/';
+const WEBVIEW_ASSETS = ['payesh-local.apk', 'payesh-setup.exe', 'payesh-local-windows.zip'];
 const LINK_HOSTS = new Set(['github.com']);
 const GH_A = ['185.199.108.153', '185.199.109.153', '185.199.110.153', '185.199.111.153'];
 const GH_AAAA = ['2606:50c0:8000::153', '2606:50c0:8001::153', '2606:50c0:8002::153', '2606:50c0:8003::153'];
@@ -82,25 +84,25 @@ function checkNoCloudflare(name, text) {
   assert(!m, `${name}: Cloudflare reference "${m && m[0]}"`);
 }
 
-function releaseAssets(buildYml) {
-  // Names the build workflow uploads to the "continuous" release.
+function releaseAssets(publishYml) {
+  // Names the native publisher ends native-continuous with (the ALLOWED set it asserts). Only the
+  // set that holds WITHOUT the owner signing key counts, so the page never links a missing APK.
   const names = new Set();
-  for (const line of buildYml.split('\n')) {
-    if (/gh release upload continuous/.test(line) || /for f in out\//.test(line)) {
-      for (const m of line.matchAll(/(?:out|releases)\/([A-Za-z0-9._-]+\.(?:apk|exe|zip|json))/g)) names.add(m[1]);
-    }
-  }
+  const line = publishYml.split('\n').find((l) => /^\s+ALLOWED="/.test(l));
+  if (line) for (const n of line.match(/ALLOWED="([^"]*)"/)[1].split(/\s+/)) if (n) names.add(n);
   return names;
 }
 function checkDownloadLinks(html, assets) {
   const links = [...html.matchAll(/<a\b[^>]*\bdata-asset="([^"]+)"[^>]*\bhref="([^"]+)"/g)];
-  assert(links.length >= 3, 'expected APK, EXE and zip links, got ' + links.length);
+  assert(links.length >= 2, 'expected EXE and zip links, got ' + links.length);
   for (const [, asset, href] of links) {
     assert(href === RELEASE_BASE + asset, `link for ${asset} is ${href}`);
-    assert(assets.has(asset), `${asset} is not uploaded to the continuous release by build.yml`);
+    assert(!WEBVIEW_ASSETS.includes(asset), `${asset} is a retired WebView build (row 129)`);
+    assert(assets.has(asset), `${asset} is not uploaded to native-continuous by school-native-publish.yml`);
   }
+  for (const m of html.matchAll(/releases\/download\/([^/"]+)\//g)) assert(m[1] === 'native-continuous', 'download link on channel ' + m[1]);
   const kinds = links.map(l => path.extname(l[1]));
-  for (const k of ['.apk', '.exe', '.zip']) assert(kinds.includes(k), 'missing ' + k + ' link');
+  for (const k of ['.exe', '.zip']) assert(kinds.includes(k), 'missing ' + k + ' link');
   return links.map(l => l[1]).join(', ');
 }
 
@@ -146,7 +148,7 @@ function checkDnsDoc(doc) {
   const html = read(path.join(SITE, 'index.html'));
   const notFound = read(path.join(SITE, '404.html'));
   const vjs = read(path.join(SITE, 'version.js'));
-  const buildYml = read(BUILD_WF);
+  const publishYml = read(PUBLISH_WF);
   const wf = read(WF);
   const doc = read(DOC);
 
@@ -173,9 +175,10 @@ function checkDnsDoc(doc) {
     return files.length + ' files';
   });
 
-  await check('LP-04', 'download links point at assets build.yml uploads to "continuous"', () => {
-    const assets = releaseAssets(buildYml);
-    assert(assets.has('payesh-local.apk') && assets.has('payesh-setup.exe'), 'could not read release assets from build.yml: ' + [...assets]);
+  await check('LP-04', 'download links point at native files school-native-publish.yml uploads to "native-continuous"', () => {
+    const assets = releaseAssets(publishYml);
+    assert(assets.has('payesh-native-setup.exe') && assets.has('payesh-native-windows.zip') && !assets.has('payesh-native.apk'),
+      'could not read the native set from school-native-publish.yml: ' + [...assets]);
     return checkDownloadLinks(html, assets);
   });
 
@@ -207,15 +210,18 @@ function checkDnsDoc(doc) {
   });
 
   await check('LP-08', 'mutants: each forbidden change turns its check red', () => {
-    const assets = releaseAssets(buildYml);
+    const assets = releaseAssets(publishYml);
     const mutants = [
       ['remote script (cdnjs)', () => checkNoExternalLoads('m', html.replace('<script src="version.js">', '<script src="https://cdnjs.cloudflare.com/x.js">'))],
       ['Cloudflare analytics beacon', () => checkNoCloudflare('m', html + '<script defer src="https://static.cloudflareinsights.com/beacon.min.js"></script>')],
       ['remote web font', () => checkNoExternalLoads('m', html.replace('<style>', '<style>@import url("https://fonts.googleapis.com/css2?family=Vazirmatn");'))],
       ['protocol-relative image', () => checkNoExternalLoads('m', html.replace('src="logo-mark.png"', 'src="//example.ir/logo.png"'))],
-      ['plain-http download link', () => checkNoExternalLoads('m', html.replace(RELEASE_BASE + 'payesh-local.apk', 'http://github.com/x.apk'))],
-      ['download from another host', () => checkNoExternalLoads('m', html.replace(RELEASE_BASE + 'payesh-local.apk', 'https://mirror.example.com/payesh.apk'))],
-      ['link to an asset build.yml never uploads', () => checkDownloadLinks(html.replace(/payesh-local\.apk/g, 'payesh-debug.apk'), assets)],
+      ['plain-http download link', () => checkNoExternalLoads('m', html.replace(RELEASE_BASE + 'payesh-native-setup.exe', 'http://github.com/x.exe'))],
+      ['download from another host', () => checkNoExternalLoads('m', html.replace(RELEASE_BASE + 'payesh-native-setup.exe', 'https://mirror.example.com/payesh.exe'))],
+      ['link to an asset the publisher never uploads', () => checkDownloadLinks(html.replace(/payesh-native-windows\.zip/g, 'payesh-debug.zip'), assets)],
+      ['WebView setup linked under the native channel (row 129)', () => checkDownloadLinks(html.replace(/payesh-native-setup\.exe/g, 'payesh-setup.exe'), new Set([...assets, 'payesh-setup.exe']))],
+      ['link back to the old continuous release', () => checkDownloadLinks(html.replace(RELEASE_BASE + 'payesh-native-windows.zip', 'https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-native-windows.zip'), assets)],
+      ['APK link while the owner key is missing', () => checkDownloadLinks(html.replace('</main>', `<a data-asset="payesh-native.apk" href="${RELEASE_BASE}payesh-native.apk">apk</a></main>`), assets)],
       ['third-party fetch in version.js', () => checkNoExternalLoads('m', vjs.replace("fetch('version.json'", "fetch('https://api.example.com/v'"))],
       ['CSP with unsafe-eval', () => checkCsp(html.replace("script-src 'self'", "script-src 'self' 'unsafe-eval'"))],
       ['CSP allowing a remote host', () => checkCsp(html.replace("connect-src 'self'", "connect-src 'self' https://api.example.com"))],

@@ -1,0 +1,146 @@
+name: school-webview-control
+
+# ═══════════════════════════════════════════════════════════════════
+#  Row 129 · the school WebView2 + node.exe Windows build (installer/payesh.iss, desktop/,
+#  scripts/stage-windows.mjs) is a CI-ONLY NEGATIVE CONTROL. It is still built so the legacy
+#  installer scripts keep compiling, but:
+#   · this workflow has a read-only token and never writes a release;
+#   · the native-independence gate must REJECT the built zip (--expect-fail);
+#   · the artifact is kept 7 days for inspection only.
+#  The school app that is published is the native Flutter app (school-native-publish.yml →
+#  native-continuous). Registry: docs/cloud/125-installables.json (school-webview-windows).
+# ═══════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main, 'arena/**', 'hermes/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-webview-control:
+    name: WebView2 + node.exe school build (payesh-setup.exe / zip) — CI-only negative control, never published
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Node قابل حمل تا نصب بدون اینترنت هم کامل انجام شود
+      - name: آوردن Node قابل حمل
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force runtime | Out-Null
+          $url = 'https://nodejs.org/dist/v22.14.0/win-x64/node.exe'
+          Invoke-WebRequest -Uri $url -OutFile runtime/node.exe -UseBasicParsing
+          "node.exe: {0:N1} MB" -f ((Get-Item runtime/node.exe).Length / 1MB)
+
+      - name: آماده‌سازی پوشهٔ نصب
+        run: node scripts/stage-windows.mjs
+
+      - name: ساخت برنامهٔ ویندوز (Payesh.exe — پنجرهٔ واقعی + شناسنامه)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = 'build-win.log'
+          powershell -ExecutionPolicy Bypass -File desktop\build.ps1 -Out .build\win\desktop *>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content $log | Select-Object -Last 30 | ForEach-Object { "::error title=build.ps1::$_" }
+            exit 1
+          }
+          try {
+            $exe = '.build\win\desktop\Payesh.exe'
+            if (-not (Test-Path $exe)) { throw 'Payesh.exe ساخته نشد' }
+            Get-ChildItem .build\win\desktop | Select-Object Name, Length | Format-Table
+            # ── استاندارد مایکروسافت: شناسنامهٔ فایل نباید خالی باشد ────────
+            $vi = (Get-Item $exe).VersionInfo
+            "ProductName=$($vi.ProductName)  Company=$($vi.CompanyName)  FileVersion=$($vi.FileVersion)"
+            if (-not $vi.ProductName) { throw 'شناسنامهٔ فایل اجرایی خالی است (ProductName)' }
+            if (-not $vi.CompanyName) { throw 'شناسنامهٔ فایل اجرایی خالی است (CompanyName)' }
+            if (-not $vi.FileVersion) { throw 'نسخهٔ فایل نوشته نشده است' }
+            # ── مانیفست asInvoker باید داخل exe باشد (بدون درخواست مدیر) ───
+            $txt = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes((Resolve-Path $exe)))
+            if ($txt -notmatch 'asInvoker') { throw 'مانیفست asInvoker داخل exe نیست' }
+            if ($txt -notmatch 'supportedOS') { throw 'شناسهٔ ویندوز ۱۰/۱۱ در مانیفست نیست' }
+            "✓ شناسنامه و مانیفست برنامهٔ ویندوز درست است"
+          } catch {
+            "::error title=Payesh.exe::$($_.Exception.Message)"
+            $pos = ($_.InvocationInfo.PositionMessage -replace "`r?`n", ' ')
+            "::error title=Payesh.exe خط::$pos"
+            exit 1
+          }
+
+      - name: نصب Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw 'ISCC پیدا نشد' }
+          echo "ISCC=$iscc" >> $env:GITHUB_ENV
+
+      - name: بازبینی اسکریپت نصب
+        run: node scripts/lint-iss.mjs
+
+      - name: ساخت payesh-setup.exe
+        shell: pwsh
+        run: |
+          $v = node -p "require('./package.json').version"
+          & $env:ISCC "/DAppVersion=$v" "installer\payesh.iss" 2>&1 | Tee-Object -FilePath iscc.log
+          if ($LASTEXITCODE -ne 0) {
+            # گیت‌هاب بیشتر از ۱۰ خط annotation در هر گام نشان نمی‌دهد؛ پس
+            # اول خط‌های خطا/هشدار را بیرون می‌کشیم و بعد ۴ خط آخر لاگ را.
+            $errs = @(Get-Content iscc.log | Where-Object { $_ -match 'Error|error|Warning|Compiling|Unknown|Duplicate|Unable' } | Select-Object -First 6)
+            $tail = @(Get-Content iscc.log -Tail 4)
+            ($errs + $tail) | Select-Object -Unique | ForEach-Object { "::error::ISCC: $_" }
+            throw "ISCC ناموفق ($LASTEXITCODE)"
+          }
+          $exe = 'releases/payesh-setup.exe'
+          if (-not (Test-Path $exe)) { throw 'خروجی exe ساخته نشد' }
+          "✓ {0:N1} MB — نسخهٔ {1}" -f ((Get-Item $exe).Length/1MB), $v
+
+      # بستهٔ ویندوز باید پنجرهٔ واقعی برنامه را همراه داشته باشد؛ وگرنه کاربرِ
+      # نسخهٔ zip با «میان‌بر مرورگر» روبه‌رو می‌شد (شکایت کاربر).
+      - name: بستهٔ ویندوز همراه برنامهٔ پنجره‌ای
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = 'releases/payesh-local-windows.zip'
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          $exe = '.build\win\desktop\Payesh.exe'
+          if (-not (Test-Path $exe)) { throw 'Payesh.exe در بسته نیست' }
+          Compress-Archive -Path '.build\win\*' -DestinationPath $zip -CompressionLevel Optimal
+          "{0:N1} MB — {1}" -f ((Get-Item $zip).Length/1MB), $zip
+          # بازبینی: فایل اجرایی و موتور نمایش داخل بسته باشند
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $z = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip))
+          try {
+            $names = $z.Entries | ForEach-Object { $_.FullName }
+            foreach ($need in @('desktop/Payesh.exe', 'server/index.js', 'client/index.html', 'runtime/node.exe')) {
+              $hit = $names | Where-Object { $_ -like "*$need" }
+              if (-not $hit) { throw "در بستهٔ ویندوز نیست: $need" }
+            }
+            "✓ بسته شامل برنامه، سرور و Node است"
+          } finally { $z.Dispose() }
+
+      # Row 129: the WebView build must be REJECTED by the native-independence gate. If the gate
+      # ever accepts it, either the gate or this build is lying → red. Nothing here is published.
+      - name: Native gate must REJECT the WebView build (expect-fail)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/native-independence-gate.mjs --expect-fail --windows releases/payesh-local-windows.zip | tee webview-control-129.txt
+          grep -q 'NATIVE-GATE-NEGATIVE-CONTROL-OK' webview-control-129.txt
+          echo 'SCHOOL-WEBVIEW-CONTROL-OK not-published' | tee -a webview-control-129.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: school-webview-control
+          retention-days: 7
+          path: |
+            webview-control-129.txt
+            releases/payesh-setup.exe
+            releases/payesh-local-windows.zip

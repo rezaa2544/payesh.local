@@ -66,8 +66,8 @@
     <div class="step"><span class="n">۱</span><div>آدرس بالا را در <b>کروم</b> باز کنید.</div></div>
     <div class="step"><span class="n">۲</span><div>منوی سه‌نقطه ← <b>«نصب برنامه»</b> یا <b>«افزودن به صفحهٔ اصلی»</b>.</div></div>
     <div class="step"><span class="n">۳</span><div>آیکون پایش به صفحهٔ گوشی اضافه می‌شود و بدون مرورگر باز می‌شود.</div></div>
-    <div class="muted" style="margin-top:8px">APK نیاز به هیچ آدرسی ندارد؛ بعد از نصب مستقیم وارد سامانه می‌شود (نصب خارج از Play Store):</div>
-    <a class="btn ghost" id="apk-link" href="https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local.apk">دانلود APK</a>
+    <div class="muted" style="margin-top:8px">اپ بومی اندروید (بدون WebView) فقط پس از امضا با کلید انتشار مالک منتشر می‌شود؛ وضعیت را در صفحهٔ انتشار ببینید:</div>
+    <a class="btn ghost" id="apk-link" href="https://github.com/rezaa2544/payesh.local/releases/tag/native-continuous">اپ بومی اندروید (native-continuous)</a>
   </div>
 
   <div class="card" data-panel="ios" style="display:none">
@@ -82,13 +82,11 @@
   <div class="card" data-panel="win" style="display:none">
     <span class="badge">سیستم دفتر</span>
     <h2 style="margin-top:8px">ویندوز</h2>
-    <div class="step"><span class="n">۱</span><div>فایل <code>payesh-setup.exe</code> را دانلود کنید (همیشه آخرین نسخهٔ کامل).</div></div>
-    <div class="step"><span class="n">۲</span><div>دوبار کلیک و «Next» تا پایان؛ نیازی به دانش فنی نیست و Node همراه بسته است (آفلاین هم نصب می‌شود).</div></div>
-    <div class="step"><span class="n">۳</span><div>نصب‌کننده برنامه را در <code>C:\Payesh</code> می‌گذارد، آیکون دسکتاپ و منوی استارت می‌سازد، اجرای خودکار و فایروال را تنظیم می‌کند و در «برنامه‌ها و ویژگی‌ها» برای حذف تمیز ثبت می‌شود.</div></div>
-    <div class="step"><span class="n">۴</span><div>روی آیکون <b>پایش</b> کلیک کنید: برنامه در یک <b>پنجرهٔ مستقل</b> باز می‌شود — بدون نوار آدرس و بدون تب مرورگر، با آیکون خودش. اگر سرور خاموش باشد همان کلیک روشنش می‌کند.</div></div>
-    <div class="step"><span class="n">۵</span><div>برای رایانهٔ دبیر یا هر سیستم دیگری که «سرور» نیست: در نصب، تیک «این رایانه فقط کاربر است» را بزنید تا برنامه به‌جای بالا آوردن سرور، به سیستم مدرسه وصل شود.</div></div>
-    <a class="btn" id="win-link" href="https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-setup.exe">دانلود نصب‌کنندهٔ ویندوز</a>
-    <div class="muted" style="margin-top:8px">نسخهٔ بدون نصب (zip) هم در صفحهٔ انتشارها هست: از حالت فشرده خارج کنید و <code>install.bat</code> را اجرا کنید.</div>
+    <div class="step"><span class="n">۱</span><div>فایل <code>payesh-native-setup.exe</code> را دانلود کنید: برنامهٔ بومی پایش (Flutter) — بدون مرورگر، بدون WebView2 و بدون Node.js.</div></div>
+    <div class="step"><span class="n">۲</span><div>نصب‌کننده هنوز امضای کد ندارد؛ هش فایل را با <code>SHA256SUMS</code> همان انتشار مقایسه کنید، سپس «More info» ← «Run anyway».</div></div>
+    <div class="step"><span class="n">۳</span><div>برنامه را باز کنید و به سرور ابری یا سرویس دادهٔ شبکهٔ محلی مدرسه وصل شوید.</div></div>
+    <a class="btn" id="win-link" href="https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe">دانلود نصب‌کنندهٔ ویندوز</a>
+    <div class="muted" style="margin-top:8px">نسخهٔ قابل‌حمل: <code>payesh-native-windows.zip</code> در همان انتشار.</div>
   </div>
 
   <div class="card">
@@ -121,17 +119,6 @@
   const guess = /iPhone|iPad|iPod/i.test(ua) ? 'ios' : /Android/i.test(ua) ? 'android' : 'win';
   const tab = document.querySelector('.tab[data-t="' + guess + '"]');
   if (tab) tab.click();
-  fetch('/api/version', { cache: 'no-store' }).then(r => r.json()).then(v => {
-    const a = document.getElementById('apk-link');
-    a.textContent = 'دانلود APK (نسخهٔ ' + v.version + ')';
-    return fetch('/downloads/payesh-local.apk', { method: 'HEAD' });
-  }).then(r => {
-    if (!r || !r.ok) {
-      const a = document.getElementById('apk-link');
-      a.style.opacity = '.5'; a.textContent = 'APK هنوز ساخته نشده — فعلاً از «افزودن به صفحهٔ اصلی» استفاده کنید';
-      a.removeAttribute('href');
-    }
-  }).catch(() => {});
 </script>
 </body>
 </html>

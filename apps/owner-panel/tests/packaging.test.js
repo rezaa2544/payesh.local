@@ -205,9 +205,9 @@ const RULES = {
     for (const n of readmeNames) assert.ok(block.includes('[`' + n + '`](' + BASE + n + ')'), 'link text must equal asset name: ' + n);
     assert.ok(block.includes('نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]'), 'explicit owner-only warning');
     assert.match(block, /SmartScreen/, 'unsigned exe must carry the SmartScreen note');
-    /* جدول دانلود مدرسه دست‌نخورده */
-    assert.ok(f.readme.includes('(https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-setup.exe)'), 'school exe row intact');
-    assert.ok(f.readme.includes('(https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local.apk)'), 'school apk row intact');
+    /* جدول دانلود مدرسه: فقط اپ بومی (ردیف ۱۲۹) */
+    assert.ok(f.readme.includes('(https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe)'), 'school native exe row intact');
+    assert.ok(!f.readme.includes('/releases/download/continuous/payesh-local.apk') && !f.readme.includes('/releases/download/continuous/payesh-setup.exe'), 'no school WebView download in README');
   },
   /* ردیف ۱۰۱ — نقشهٔ مخزن، نقشهٔ راه و شاهدها هم‌تراز و پیوندها معتبر */
   P7_repo_map(f) {
@@ -271,7 +271,7 @@ const MUTATIONS = [
   ['P6_readme_links', 'readme', s => s.replace(/\| چک‌سام \|[^\n]*\n/, '')],
   ['P6_readme_links', 'readme', s => s.replace('نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]', 'نصب آزمایشی')],
   ['P6_readme_links', 'readme', s => s.replace('owner-continuous/payesh-owner.apk)', 'continuous/payesh-owner.apk)')],
-  ['P6_readme_links', 'readme', s => s.replace('(https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local.apk)', '(#)')],
+  ['P6_readme_links', 'readme', s => s.replace('(https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe)', '(#)')],
   ['P6_readme_links', 'nativePublish', s => s.replace('ALLOWED="SHA256SUMS ', 'ALLOWED="SHA256SUMS payesh-owner-portable.zip ')],
   ['P6_readme_links', 'nativePublish', s => s.replace('ALLOWED="SHA256SUMS ', 'ALLOWED="SHA256SUMS payesh-owner-web.zip ')],
   ['P6_readme_links', 'nativePublish', s => s.replace('if [ -e "$A/NOT-FOR-DISTRIBUTION.txt" ]; then', 'if false; then')],

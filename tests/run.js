@@ -924,8 +924,10 @@ async function waitFor(fn, ms = 15000) {
     const ps = fs.readFileSync(path.join(ROOT, 'desktop/build.ps1'), 'utf8');
     assert.ok(ps.includes('WebView2'), 'SDK وب‌ویو در ساخت');
     assert.ok(ps.includes('Payesh.exe'), 'خروجی exe');
-    const ci = fs.readFileSync(path.join(ROOT, '.github/workflows/build.yml'), 'utf8');
-    assert.ok(ci.includes('desktop\\build.ps1'), 'CI برنامه را می‌سازد');
+    /* ردیف ۱۲۹: ساخت WebView ویندوز فقط کنترل منفی CI است (school-webview-control.yml) و منتشر نمی‌شود */
+    const ci = fs.readFileSync(path.join(ROOT, '.github/workflows/school-webview-control.yml'), 'utf8');
+    assert.ok(ci.includes('desktop\\build.ps1'), 'CI برنامه را (فقط به‌عنوان کنترل منفی) می‌سازد');
+    assert.ok(/^permissions:\n {2}contents: read$/m.test(ci) && !/gh release|softprops/.test(ci), 'کنترل منفی چیزی منتشر نمی‌کند');
   });
 
   await test('دسترسی از هر اینترنتی: تونل خودکار روشن می‌شود', () => {
@@ -4107,7 +4109,7 @@ async function waitFor(fn, ms = 15000) {
     const web = BASE + '/#/pair=ABCD1234';
     assert.ok(card.indexOf(encodeURIComponent(web)) > -1, 'QR کارت به آدرس وبِ ورود خودکار اشاره می‌کند');
     assert.strictEqual((card.match(/scale=6/g) || []).length, 1, 'فقط یک QR اصلی روی کارت است');
-    assert.ok(card.indexOf('payesh-local.apk') > -1, 'QR نصب برنامه هم روی کارت هست');
+    assert.ok(card.indexOf('native-continuous') > -1 && card.indexOf('payesh-local.apk') < 0, 'QR نصب برنامهٔ بومی روی کارت هست (ردیف ۱۲۹: بدون APK وب‌ویو)');
     assert.ok(card.indexOf('ABCD-1234') > -1, 'کد چاپی هم روی کارت می‌ماند');
 
     /* ۲) کد از هر سه شکل پیوند خوانده می‌شود */
@@ -4124,7 +4126,7 @@ async function waitFor(fn, ms = 15000) {
     T.renderPair();
     const html = win.document.querySelector('#app').innerHTML;
     assert.ok(html.indexOf('payesh://pair?c=ABCD1234') > -1, 'صفحه دکمهٔ باز کردن برنامه را دارد');
-    assert.ok(html.indexOf('payesh-local.apk') > -1, 'صفحه دکمهٔ نصب برنامه را دارد');
+    assert.ok(html.indexOf('native-continuous') > -1 && html.indexOf('payesh-local.apk') < 0, 'صفحه دکمهٔ نصب برنامهٔ بومی را دارد');
     assert.ok(html.indexOf('همین مرورگر') > -1, 'ورود در مرورگر هم ممکن است (آیفون)');
     assert.ok(!/PIN/i.test(html) && html.indexOf('پین') < 0, 'هیچ نشانی از PIN نیست');
 
@@ -4562,9 +4564,14 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/localport=8080,8090-8093/.test(iss), 'پورت‌های جایگزین در فایروال باز می‌شوند');
     assert.ok(/server.{0,3}start\.js/.test(iss), 'حذف نصب ناظر را هم متوقف می‌کند');
     assert.ok(!/Filename:.*start-hidden\.vbs/.test(iss), 'نصب‌کننده دو مالک جدا برای سرور راه نمی‌اندازد');
-    const wf = read('.github/workflows/build.yml');
+    /* ردیف ۱۲۹: بستهٔ WebView ویندوز فقط در کنترل منفی ساخته می‌شود و دروازهٔ بومی باید ردش کند */
+    const wf = read('.github/workflows/school-webview-control.yml');
     assert.ok(/desktop\/Payesh\.exe/.test(wf) && /payesh-local-windows\.zip/.test(wf),
-      'بستهٔ ویندوز همراه برنامهٔ پنجره‌ای منتشر می‌شود');
+      'بستهٔ ویندوز همراه برنامهٔ پنجره‌ای ساخته می‌شود (کنترل منفی)');
+    assert.ok(/native-independence-gate\.mjs --expect-fail --windows releases\/payesh-local-windows\.zip/.test(wf),
+      'دروازهٔ بومی بستهٔ WebView را رد می‌کند');
+    assert.ok(!/payesh-local-windows\.zip|payesh-setup\.exe/.test(read('.github/workflows/build.yml').split('\n').filter((l) => !/^\s*#/.test(l)).join('\n')),
+      'build.yml دیگر نسخهٔ WebView ویندوز را منتشر نمی‌کند');
 
     /* ۶) اندروید: صفحهٔ اینترنتی داخل قاب برنامه باز نمی‌شود */
     const java = read('install/android/app/src/main/java/ir/payesh/local/MainActivity.java');
@@ -5132,7 +5139,7 @@ async function waitFor(fn, ms = 15000) {
     });
 
   /* ── ردیف ۱۲۵: رجیستری برنامه‌های نصبی — «فقط بومی» (D‑49) ── */
-  await test('ردیف ۱۲۵: هر برنامهٔ نصبی ثبت شده، هیچ WebView «بومی» نامیده نشده، و ۲۹ جهش همه قرمز می‌شوند',
+  await test('ردیف ۱۲۵: هر برنامهٔ نصبی ثبت شده، هیچ WebView «بومی» نامیده نشده، WebView منتشر نمی‌شود (۱۲۹)، و ۳۴ جهش همه قرمز می‌شوند',
     async () => {
       const { spawnSync } = require('child_process');
       const a = spawnSync(process.execPath, [path.join(ROOT, 'tools/installables-125.mjs')], { encoding: 'utf8', cwd: ROOT });

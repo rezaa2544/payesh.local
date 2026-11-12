@@ -3,7 +3,7 @@
 //   LM-01  server/index.js with PAYESH_HEADLESS=1 (REAL process): /api/health says headless,
 //          every non-API path (/, /index.html, /install, /join/…, /downloads/…, /app.js) is
 //          404 no_web_ui JSON — never HTML; setup over loopback works; the default (non-headless)
-//          server still serves the legacy web client until row 129 (no silent behaviour change).
+//          server still serves the browser web client (iPhone/browser access; not an installable — row 129 changed only Release and the download page).
 //   LM-02  NEG first setup from a non-loopback address is refused (403 setup_local_only) when a
 //          non-loopback IPv4 exists on this machine (CI runners have one).
 //   LM-03  Dart ⇄ server parity: every route LanAccessClient calls exists in server/index.js and
@@ -209,12 +209,12 @@ async function stopServer(s) { s.child.kill('SIGKILL'); await new Promise((r) =>
     ok('LM-01d', l.status === 200 && JSON.parse(l.body).device_token, `phone + password login on the headless server → ${l.status}`);
   } finally { await stopServer(s); }
 
-  // real server, default (legacy web client still served until row 129 — no silent change)
+  // real server, default (browser web client still served — row 129 scope is Release + download page only)
   const d = await startServer(false);
   try {
     const h = JSON.parse((await req('GET', '127.0.0.1', d.port, '/api/health')).body);
     const r = await req('GET', '127.0.0.1', d.port, '/');
-    ok('LM-01e', h.headless === false && r.status === 200 && /text\/html/.test(r.type), `default server unchanged until row 129: headless=${h.headless}, / → ${r.status} ${r.type.split(';')[0]}`);
+    ok('LM-01e', h.headless === false && r.status === 200 && /text\/html/.test(r.type), `default server unchanged (browser client; row 129 = Release only): headless=${h.headless}, / → ${r.status} ${r.type.split(';')[0]}`);
   } finally { await stopServer(d); }
 
   console.log(failures ? `LAN-MODE-127-FAIL failures=${failures}` : `LAN-MODE-127-OK checks=${checks} mutants=${killed}`);

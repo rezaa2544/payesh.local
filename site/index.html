@@ -40,17 +40,17 @@
   </header>
 
   <section class="grid" aria-label="دانلود">
-    <article class="card" id="android">
-      <h2>اندروید</h2>
-      <p>اندروید ۷ (API 24) و بالاتر. فایل نصب با کلید انتشار مالک امضا شده است.</p>
-      <a class="btn" rel="noopener" data-asset="payesh-local.apk" href="https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local.apk">دانلود APK</a>
-    </article>
     <article class="card" id="windows">
       <h2>ویندوز</h2>
-      <p>ویندوز ۱۰ و ۱۱، ۶۴ بیتی. نصب‌کنندهٔ استاندارد، یا نسخهٔ قابل‌حمل (zip).</p>
-      <a class="btn" rel="noopener" data-asset="payesh-setup.exe" href="https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-setup.exe">نصب‌کننده (EXE)</a>
+      <p>ویندوز ۱۰ و ۱۱، ۶۴ بیتی. برنامهٔ بومی (Flutter): بدون مرورگر، بدون WebView2 و بدون Node.js. نصب‌کنندهٔ استاندارد، یا نسخهٔ قابل‌حمل (zip).</p>
+      <a class="btn" rel="noopener" data-asset="payesh-native-setup.exe" href="https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe">نصب‌کننده (EXE)</a>
       <p></p>
-      <a rel="noopener" data-asset="payesh-local-windows.zip" href="https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-local-windows.zip">نسخهٔ قابل‌حمل (zip)</a>
+      <a rel="noopener" data-asset="payesh-native-windows.zip" href="https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-windows.zip">نسخهٔ قابل‌حمل (zip)</a>
+      <p>نصب‌کننده هنوز امضای کد ندارد و ویندوز هشدار SmartScreen نشان می‌دهد. پیش از اجرا، هش فایل را با <a rel="noopener" data-asset="SHA256SUMS" href="https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/SHA256SUMS">SHA256SUMS</a> مقایسه کنید.</p>
+    </article>
+    <article class="card" id="android">
+      <h2>اندروید</h2>
+      <p>اپ بومی اندروید (Flutter، بدون WebView) فقط پس از امضا با کلید انتشار مالک منتشر می‌شود. تا آن زمان فایل APK در این صفحه نیست. وضعیت: <a rel="noopener" href="https://github.com/rezaa2544/payesh.local/releases/tag/native-continuous">ریلیز native-continuous</a>.</p>
     </article>
   </section>
 
@@ -58,7 +58,7 @@
 
   <section class="card" style="margin-top:16px" aria-label="به‌روزرسانی">
     <h2>به‌روزرسانی</h2>
-    <p>اپ نصب‌شده خودش نسخهٔ تازه را پیدا می‌کند. فقط مانیفستی را می‌پذیرد که امضای ناشر را داشته باشد، و فایل را فقط با هش درست نصب می‌کند (ردیف ۷۸). نسخهٔ پایین‌تر هرگز نصب نمی‌شود. اگر فایل را دستی دانلود کردید، هش آن را با <code>manifest.json</code> همین ریلیز مقایسه کنید.</p>
+    <p>اپ نصب‌شده خودش نسخهٔ تازه را پیدا می‌کند. فقط مانیفستی را می‌پذیرد که امضای ناشر را داشته باشد، و فایل را فقط با هش درست نصب می‌کند (ردیف ۷۸). نسخهٔ پایین‌تر هرگز نصب نمی‌شود. اگر فایل را دستی دانلود کردید، هش آن را با <code>SHA256SUMS</code> همین ریلیز مقایسه کنید. هر فایل این صفحه پیش از انتشار از دروازهٔ استقلال بومی گذشته است (ردیف ۱۲۹).</p>
   </section>
 
   <footer>

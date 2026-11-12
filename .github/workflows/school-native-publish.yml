@@ -1,0 +1,175 @@
+name: school-native-publish
+
+# ═══════════════════════════════════════════════════════════════════
+#  Row 129 · the native school app — the ONLY writer of the native-continuous prerelease, which
+#  is what the download page (site/index.html) links to. It replaces the WebView builds that
+#  build.yml used to put on `continuous` (payesh-local.apk, payesh-setup.exe,
+#  payesh-local-windows.zip); those are now CI-only negative controls.
+#
+#  Fail-closed rules:
+#   · Runs only after a SUCCESSFUL native-client run for a push to main (native-gate green:
+#     widget + real-server ITs, Windows silent install → gate on the INSTALLED app → uninstall).
+#   · Only files that passed the native gate are published. The optional LAN data service
+#     bundles node.exe (server runtime, no UI), cannot pass the gate, and is NOT published here.
+#   · Publishes only the artifacts of THAT run, after re-checking: install evidence markers,
+#     artifact checksums, and the native-independence gate on the very files that are uploaded.
+#   · Android: the school APK is published ONLY when it is release-signed with the owner key
+#     (row 61). A debug-signed rehearsal APK is never published; the status file then says
+#     android=BLOCKED and the page has no APK link.
+#   · The release ends with exactly the allowed native set; any other asset is deleted, and a
+#     mismatch turns this job red.
+#   · Published files are downloaded back, checksum-verified and gated again.
+#   · An older run never overwrites a newer one (run_number in school-native-status.json).
+#   · Lives in its own workflow because release-gate.yml calls native-client.yml with
+#     contents: read — a nested write job there would break the release gate.
+# ═══════════════════════════════════════════════════════════════════
+
+on:
+  workflow_run:
+    workflows: [native-client]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-continuous-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish the NATIVE school app to native-continuous (gated on the same files)
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-windows
+          path: in/windows
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-android
+          path: in/android
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Re-verify the native artifacts of that run (fail-closed)
+        id: verify
+        run: |
+          set -euo pipefail
+          A=in/android; W=in/windows
+          ls -la "$A" "$W"
+          # Windows app: silent install → gate on the INSTALLED app → uninstall happened in that run
+          tr -d '\r' < "$W/installer-77.txt" > installer-77.txt
+          grep -q 'NATIVE-GATE-OK' installer-77.txt
+          grep -q 'INSTALLER-77-OK install+gate+uninstall' installer-77.txt
+          (cd "$W" && tr -d '\r' < SHA256SUMS-windows | sha256sum -c -)
+          (cd "$W" && tr -d '\r' < SHA256SUMS-installer | sha256sum -c -)
+          mkdir -p pub
+          cp "$W/payesh-native-setup.exe" "$W/payesh-native-windows.zip" pub/
+          # Android: only a release-signed APK (owner key, row 61) is ever published
+          ANDROID=blocked
+          (cd "$A" && sha256sum -c SHA256SUMS-android)
+          if grep -q '^ANDROID-RELEASE-76-OK mode=release' "$A/android-release-76.txt" && ! grep -q 'CN=Android Debug' "$A/apksigner.txt"; then
+            ANDROID=release
+            cp "$A/payesh-native.apk" pub/
+          else
+            echo "::warning title=School APK not published::no owner signing key (row 61) — the debug-signed rehearsal APK is never published (BLOCKED)"
+          fi
+          echo "android=$ANDROID" >> "$GITHUB_OUTPUT"
+          # the native gate on the very files that will be uploaded
+          if [ "$ANDROID" = release ]; then
+            node tools/native-independence-gate.mjs --android pub/payesh-native.apk --windows pub/payesh-native-windows.zip | tee gate-publish.txt
+          else
+            node tools/native-independence-gate.mjs --windows pub/payesh-native-windows.zip | tee gate-publish.txt
+          fi
+          grep -q '^NATIVE-GATE-OK' gate-publish.txt
+          (cd pub && sha256sum * > ../SHA256SUMS && mv ../SHA256SUMS . && cat SHA256SUMS)
+      - name: Publish — exactly the native set on native-continuous
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SRC_SHA: ${{ github.event.workflow_run.head_sha }}
+          ANDROID: ${{ steps.verify.outputs.android }}
+        run: |
+          set -euo pipefail
+          TAG=native-continuous
+          R="$GITHUB_REPOSITORY"
+          prev=0
+          if gh release download "$TAG" -R "$R" -p school-native-status.json -D prev 2>/dev/null; then
+            prev=$(node -p "Number(require('./prev/school-native-status.json').run_number)||0")
+          fi
+          if [ "$prev" -ge "$RUN_NUMBER" ]; then echo "native-client run #$prev is already published (>= #$RUN_NUMBER) — nothing to do"; exit 0; fi
+          node -e '
+            const fs = require("fs");
+            const files = {};
+            for (const l of fs.readFileSync("pub/SHA256SUMS", "utf8").trim().split("\n")) { const [h, n] = l.split(/\s+/); files[n] = h; }
+            const release = process.env.ANDROID === "release";
+            fs.writeFileSync("pub/school-native-status.json", JSON.stringify({
+              kind: "native-flutter", webview: false, row: 129,
+              run_number: Number(process.env.RUN_NUMBER), run_url: process.env.RUN_URL, commit: process.env.SRC_SHA,
+              gate: "NATIVE-GATE-OK (tools/native-independence-gate.mjs, docs/cloud/43-native-independence.json) on the published files",
+              windows: "payesh_app.exe + Inno Setup; CI: silent install → gate on the installed app → uninstall; Authenticode: BLOCKED unless PAYESH_WIN_PFX_* secrets exist",
+              data_service: "not published here — the optional LAN data service bundles node.exe, so it cannot pass the native gate (CI artifact only, row 127)",
+              android: release ? "payesh-native.apk — release-signed with the owner key (row 61)" : "BLOCKED — no owner signing key (row 61); the debug-signed rehearsal APK is never published",
+              files
+            }, null, 2) + "\n");'
+          NOTES="اپ مدرسه **بومی** (Flutter) — بدون WebView، بدون WebView2، بدون مرورگر پنهان و بدون Node.js برای رابط. ردیف ۱۲۹.
+          payesh-native-setup.exe: نصب‌کنندهٔ ویندوز اپ مدرسه/کاربر. امضای کد (Authenticode) هنوز نیست، پس Windows SmartScreen هشدار می‌دهد: پیش از اجرا SHA256 را با SHA256SUMS مقایسه کنید (Get-FileHash payesh-native-setup.exe)، سپس More info ← Run anyway.
+          payesh-native-windows.zip: همان برنامهٔ ویندوز به‌صورت قابل‌حمل.
+          اندروید: APK فقط با کلید امضای مالک منتشر می‌شود (ردیف ۶۱). وضعیت فعلی در school-native-status.json.
+          هر فایل در CI از دروازهٔ استقلال بومی گذشته و روی ویندوز نصب، آزموده و حذف شده است: $RUN_URL
+          commit: $SRC_SHA"
+          TITLE="اپ مدرسهٔ بومی (Flutter) — ساخت پیوسته؛ انتشار رسمی نیست"
+          if ! gh release view "$TAG" -R "$R" >/dev/null 2>&1; then
+            gh release create "$TAG" -R "$R" --prerelease --target "$SRC_SHA" --title "$TITLE" --notes "$NOTES"
+          else
+            gh release edit "$TAG" -R "$R" --prerelease --title "$TITLE" --notes "$NOTES"
+          fi
+          ALLOWED="SHA256SUMS payesh-native-setup.exe payesh-native-windows.zip school-native-status.json"
+          if [ "$ANDROID" = release ]; then ALLOWED="SHA256SUMS payesh-native-setup.exe payesh-native-windows.zip payesh-native.apk school-native-status.json"; fi
+          for a in $(gh release view "$TAG" -R "$R" --json assets --jq '.assets[].name'); do
+            case " $ALLOWED " in
+              *" $a "*) ;;
+              *) echo "removing asset outside the native set: $a"; gh release delete-asset "$TAG" "$a" -R "$R" -y ;;
+            esac
+          done
+          gh release upload "$TAG" -R "$R" pub/* --clobber
+          got=$(gh release view "$TAG" -R "$R" --json assets --jq '[.assets[].name] | sort | join(" ")')
+          if [ "$got" != "$ALLOWED" ]; then echo "::error::native-continuous assets [$got] != native set [$ALLOWED]"; exit 1; fi
+      - name: Download back → checksums + native gate on the PUBLISHED files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p back
+          gh release download native-continuous -R "$GITHUB_REPOSITORY" -D back
+          ls -la back
+          (cd back && sha256sum -c SHA256SUMS)
+          if [ -f back/payesh-native.apk ]; then
+            node tools/native-independence-gate.mjs --android back/payesh-native.apk --windows back/payesh-native-windows.zip | tee -a gate-publish.txt
+          else
+            node tools/native-independence-gate.mjs --windows back/payesh-native-windows.zip | tee -a gate-publish.txt
+          fi
+          grep -q "\"webview\": false" back/school-native-status.json
+          echo "SCHOOL-NATIVE-PUBLISH-OK $(node -p "require('./back/school-native-status.json').run_number") android=$(node -p "require('./back/school-native-status.json').android.split(' ')[0]")" | tee -a gate-publish.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: school-native-publish
+          path: gate-publish.txt
+          if-no-files-found: ignore

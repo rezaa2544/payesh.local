@@ -329,7 +329,7 @@ function pairDeepLink(code) {
 }
 function scanLandingHtml(code) {
   const plain = String(code || '').replace(/[^0-9A-Za-z]/g, '');
-  const apk = 'https://github.com/rezaa2544/payesh.local/releases/latest/download/payesh-local.apk';
+  const apk = 'https://github.com/rezaa2544/payesh.local/releases/tag/native-continuous'; /* row 129: native app only */
   const bundled = typeof window !== 'undefined' && window.PAYESH_BUNDLED === true;
   if (bundled) return '';
   return `<div class="card tight" style="margin-top:12px;text-align:right">
@@ -1807,7 +1807,7 @@ function pairCardHtml(r) {
      اگر نصب نباشد همان QR صفحهٔ نصب را باز می‌کند و بعد از نصب هم
      خودکار وارد حساب می‌شود. */
   const web = host + '/#/pair=' + encodeURIComponent(plain);
-  const apk = 'https://github.com/rezaa2544/payesh.local/releases/latest/download/payesh-local.apk';
+  const apk = 'https://github.com/rezaa2544/payesh.local/releases/tag/native-continuous'; /* row 129: native app only */
   return `<div class="paircard">
     <div class="who">${esc(r.user.name)}</div>
     <div class="small muted">${esc(ROLE_FA[r.user.role] || r.user.role)}</div>
@@ -1822,7 +1822,7 @@ function pairCardHtml(r) {
     <div class="small muted ltr" style="margin-top:8px;font-size:10px;word-break:break-all">${esc(web)}</div>
     <div class="row" style="gap:10px;justify-content:center;align-items:center;margin-top:10px">
       <img alt="QR" src="/api/qr?text=${encodeURIComponent(apk)}&scale=4" style="width:84px;height:84px;border-radius:10px;background:#fff;padding:4px">
-      <div class="small muted" style="text-align:right">نصب مستقیم برنامه<br><span class="ltr">payesh-local.apk</span></div>
+      <div class="small muted" style="text-align:right">نصب برنامهٔ بومی<br><span class="ltr">native-continuous</span></div>
     </div>
   </div>
   <div class="small row" style="margin-top:6px;gap:8px;flex-wrap:wrap">

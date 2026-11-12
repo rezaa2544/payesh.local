@@ -14,6 +14,7 @@ on:
       - 'site/**'
       - 'tools/landing-114.mjs'
       - 'tests/landing-114.js'
+      - '.github/workflows/school-native-publish.yml'
       - 'docs/cloud/114-landing-pages-dns.md'
       - '.github/workflows/pages.yml'
 

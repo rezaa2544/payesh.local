@@ -1,6 +1,6 @@
 {
   "id": "ROW-125/installables-registry",
-  "version": 1,
+  "version": 2,
   "decision": "D-49",
   "adr": "docs/cloud/126-adr-native-owner-panel.md",
   "criterion": "docs/cloud/43-native-independence.json",
@@ -9,9 +9,10 @@
   "rules": [
     "Every Android project, Windows installer, desktop shell, launcher, web-wrapper config, install script and tracked installable binary MUST be listed by exact path in some entry's entrypoints (directory prefixes do not count), and every workflow-built asset in some entry's artifacts (unregistered => CI red).",
     "declared=native is allowed only when the sources contain no WebView / browser-engine / web-UI / Node-for-UI usage AND every built artifact is run through tools/native-independence-gate.mjs (without --expect-fail) in CI.",
-    "A WebView build may never be declared native. A WebView build that is still published must say status=published-webview-pending-removal and name the row that removes it.",
+    "A WebView build may never be declared native and may never be published (row 129 removed the last ones). It may exist only as a CI-only negative control or a frozen fixture, with published=[].",
     "The gate criterion (docs/cloud/43-native-independence.json) may only grow: the frozen baseline in tools/installables-125.mjs must stay a subset of it.",
-    "Release channels listed in native_only_channels may carry only declared=native entries."
+    "Release channels listed in native_only_channels may carry only declared=native entries.",
+    "Release channels and the download page carry only files that passed tools/native-independence-gate.mjs on the same file; native-continuous (school-native-publish.yml) is written only by that publisher (row 129)."
   ],
   "entries": [
     {
@@ -125,7 +126,7 @@
       "platform": "android",
       "audience": "school+user",
       "declared": "native",
-      "status": "published-native-on-tag",
+      "status": "published-native",
       "sources": [
         "apps/payesh/app/android/",
         "apps/payesh/app/lib/",
@@ -140,13 +141,18 @@
       "browser_engine_at_runtime": false,
       "node_for_ui": false,
       "runs_without_browser": true,
-      "network": "Gateway only; no LAN/local-server mode yet (row 127)",
-      "capabilities": "partial: ~26 collections of the WebView school app still missing (row 128); release apk is unsigned-for-store until the school keystore secret exists",
+      "network": "Gateway (cloud) or LAN data service (row 127)",
+      "capabilities": "full parity with the retired WebView school app (row 128: 174 items, planned=0); published only when release-signed with the owner key (row 61) — otherwise BLOCKED, no APK on the page",
       "artifacts": [
         "payesh-native.apk",
         "payesh-native.aab"
       ],
       "published": [
+        {
+          "workflow": ".github/workflows/school-native-publish.yml",
+          "tag": "native-continuous",
+          "asset": "payesh-native.apk"
+        },
         {
           "workflow": ".github/workflows/release-gate.yml",
           "tag": "native-v*",
@@ -162,9 +168,13 @@
         {
           "workflow": ".github/workflows/native-client.yml",
           "line_contains": "--android native-out/payesh-native.apk"
+        },
+        {
+          "workflow": ".github/workflows/school-native-publish.yml",
+          "line_contains": "--android pub/payesh-native.apk"
         }
       ],
-      "row": 74
+      "row": 129
     },
     {
       "id": "school-native-windows",
@@ -172,7 +182,7 @@
       "platform": "windows",
       "audience": "school+user",
       "declared": "native",
-      "status": "published-native-on-tag",
+      "status": "published-native",
       "sources": [
         "apps/payesh/app/windows/",
         "apps/payesh/app/lib/",
@@ -188,14 +198,24 @@
       "browser_engine_at_runtime": false,
       "node_for_ui": false,
       "runs_without_browser": true,
-      "network": "Gateway only; no LAN/local-server mode yet (row 127)",
-      "capabilities": "partial (row 128); payesh-native-setup.exe is a CI artifact only — publishing with row 129",
+      "network": "Gateway (cloud) or LAN data service (row 127)",
+      "capabilities": "full parity with the retired WebView school app (row 128: 174 items, planned=0); Authenticode unsigned until PAYESH_WIN_PFX_* secrets exist (SmartScreen warning, SHA256SUMS published)",
       "artifacts": [
         "payesh-native-windows.zip",
         "payesh-native-setup.exe",
         "payesh_app.exe"
       ],
       "published": [
+        {
+          "workflow": ".github/workflows/school-native-publish.yml",
+          "tag": "native-continuous",
+          "asset": "payesh-native-setup.exe"
+        },
+        {
+          "workflow": ".github/workflows/school-native-publish.yml",
+          "tag": "native-continuous",
+          "asset": "payesh-native-windows.zip"
+        },
         {
           "workflow": ".github/workflows/release-gate.yml",
           "tag": "native-v*",
@@ -210,9 +230,13 @@
         {
           "workflow": ".github/workflows/native-client.yml",
           "line_contains": "--windows \"$dir\" | Tee-Object -FilePath native-out\\installer"
+        },
+        {
+          "workflow": ".github/workflows/school-native-publish.yml",
+          "line_contains": "--windows pub/payesh-native-windows.zip"
         }
       ],
-      "row": 74
+      "row": 129
     },
     {
       "id": "school-data-service-windows",
@@ -247,8 +271,7 @@
       "platform": "windows",
       "audience": "school+user",
       "declared": "webview",
-      "status": "published-webview-pending-removal",
-      "removal_row": 129,
+      "status": "negative-control",
       "replaced_by": "school-native-windows",
       "sources": [
         "desktop/",
@@ -273,33 +296,12 @@
       "node_for_ui": true,
       "runs_without_browser": false,
       "network": "local server + LAN + cloud sync",
-      "capabilities": "full school feature set (reference for the parity matrix, row 128)",
+      "capabilities": "retired — built only by school-webview-control.yml (read-only token) and rejected by the native gate (--expect-fail); never published (row 129)",
       "artifacts": [
         "payesh-setup.exe",
         "payesh-local-windows.zip"
       ],
-      "published": [
-        {
-          "workflow": ".github/workflows/build.yml",
-          "tag": "continuous",
-          "asset": "payesh-setup.exe"
-        },
-        {
-          "workflow": ".github/workflows/build.yml",
-          "tag": "continuous",
-          "asset": "payesh-local-windows.zip"
-        },
-        {
-          "workflow": ".github/workflows/build.yml",
-          "tag": "v*",
-          "asset": "payesh-setup.exe"
-        },
-        {
-          "workflow": ".github/workflows/build.yml",
-          "tag": "v*",
-          "asset": "payesh-local-windows.zip"
-        }
-      ],
+      "published": [],
       "row": 129
     },
     {
@@ -308,8 +310,7 @@
       "platform": "android",
       "audience": "school+user",
       "declared": "webview",
-      "status": "published-webview-pending-removal",
-      "removal_row": 129,
+      "status": "negative-control",
       "replaced_by": "school-native-android",
       "sources": [
         "install/android/"
@@ -323,22 +324,11 @@
       "node_for_ui": false,
       "runs_without_browser": false,
       "network": "needs a reachable school/cloud server",
-      "capabilities": "whatever the web client offers; no offline UI",
+      "capabilities": "retired — built in build.yml only as a negative control that the native gate must reject; never copied to out/, never published (row 129); last published binary frozen in install/legacy-webview-fixtures/",
       "artifacts": [
         "payesh-local.apk"
       ],
-      "published": [
-        {
-          "workflow": ".github/workflows/build.yml",
-          "tag": "continuous",
-          "asset": "payesh-local.apk"
-        },
-        {
-          "workflow": ".github/workflows/build.yml",
-          "tag": "v*",
-          "asset": "payesh-local.apk"
-        }
-      ],
+      "published": [],
       "row": 129
     },
     {
@@ -449,12 +439,36 @@
       "row": 126
     },
     {
+      "id": "school-webview-fixtures",
+      "title_fa": "باینری منجمد اپ مدرسهٔ WebView اندروید (کنترل منفی)",
+      "platform": "android",
+      "audience": "school+user",
+      "declared": "webview",
+      "status": "fixture",
+      "sources": [
+        "install/legacy-webview-fixtures/"
+      ],
+      "entrypoints": [
+        "install/legacy-webview-fixtures/payesh-local.apk"
+      ],
+      "ui": "android.webkit.WebView (assets/www)",
+      "html_css_js_ui": true,
+      "browser_engine_at_runtime": true,
+      "node_for_ui": false,
+      "runs_without_browser": false,
+      "network": "n/a",
+      "capabilities": "n/a — test input only (native gate must reject it)",
+      "artifacts": [],
+      "published": [],
+      "row": 129
+    },
+    {
       "id": "school-webview-release-zips",
       "title_fa": "zip ثبت‌شدهٔ ویندوز WebView در releases/",
       "platform": "windows",
       "audience": "school+user",
       "declared": "webview",
-      "status": "tracked-release-output-pending-removal",
+      "status": "negative-control",
       "removal_row": 129,
       "sources": [
         "releases/payesh-local-windows-"
@@ -468,7 +482,7 @@
       "node_for_ui": true,
       "runs_without_browser": false,
       "network": "n/a",
-      "capabilities": "n/a",
+      "capabilities": "tracked releases/payesh-local-windows-<ver>.zip: the Windows WebView negative control used by native-client.yml gate-controls; never published (row 129)",
       "artifacts": [
         "payesh-local-windows-<ver>.zip"
       ],
@@ -510,6 +524,7 @@
   ],
   "native_only_channels": [
     "owner-continuous",
-    "native-v*"
+    "native-v*",
+    "native-continuous"
   ]
 }

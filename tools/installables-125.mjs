@@ -6,16 +6,19 @@
 // repository in memory and prove that each rule turns red.
 //
 // Failure codes
-//   I-01 registry schema / honesty flags (declared=native but html/browser/node flags say otherwise, …)
+//   I-01 registry schema / honesty flags (declared=native but html/browser/node flags say otherwise, a
+//        WebView entry that is published — row 129 —, …)
 //   I-02 registry source path matches no tracked file
 //   I-03 UNREGISTERED installable: Android project, Windows installer, desktop shell, web wrapper,
 //        install script or tracked installable binary not covered by any registry entry
 //   I-04 UNREGISTERED asset: a workflow builds/publishes an installable asset no entry claims
 //   I-05 declared native but the sources use a WebView / browser engine / web UI / Node-for-UI
 //   I-06 declared native but no CI line runs tools/native-independence-gate.mjs (without --expect-fail)
-//   I-07 a publishing workflow ships a WebView-only asset that the registry does not declare as
-//        published-…-pending-removal for that workflow
-//   I-08 a native-only channel (owner-continuous, native-v*) carries a non-native entry
+//   I-07 a publishing workflow mentions a WebView/legacy asset that the registry does not declare as
+//        published by that workflow (after row 129 no WebView entry may be published at all)
+//   I-08 a native-only channel (owner-continuous, native-v*, native-continuous) carries a non-native entry
+//   I-11 the download page (site/index.html) links a file that is not published by a native entry on a
+//        native-only channel (row 129)
 //   I-09 the gate criterion (docs/cloud/43-native-independence.json) was weakened below the frozen baseline
 //   I-10 a native entry is published by a workflow that neither runs the gate nor reuses native-client.yml
 import fs from 'node:fs';
@@ -138,8 +141,9 @@ export function check(files, read, registry, criterion) {
     }
     if (e.declared === 'webview') {
       if (!(e.html_css_js_ui || e.browser_engine_at_runtime || e.node_for_ui)) fail('I-01', `${e.id}: declared webview but every WebView flag is false`);
-      if ((e.published || []).length && !(/pending-removal$/.test(e.status) && Number.isInteger(e.removal_row)))
-        fail('I-01', `${e.id}: WebView entry is published but not marked …-pending-removal with removal_row`);
+      // row 129: the last WebView builds were removed from Release — a WebView entry may never be published again
+      if ((e.published || []).length) fail('I-01', `${e.id}: WebView entry is published (row 129: WebView builds may only be negative controls / fixtures)`);
+      if (/pending-removal/.test(e.status)) fail('I-01', `${e.id}: status "${e.status}" — nothing is pending removal after row 129`);
     }
     if (e.declared === 'server' && e.html_css_js_ui) fail('I-01', `${e.id}: declared server but has an HTML UI on the device`);
     for (const s of e.sources || []) if (!files.some((f) => f === s || f.startsWith(s))) fail('I-02', `${e.id}: source ${s} matches no tracked file`);
@@ -194,6 +198,24 @@ export function check(files, read, registry, criterion) {
   for (const e of entries) for (const p of e.published || [])
     if ((registry.native_only_channels || []).some((c) => chanMatch(c, p.tag)) && e.declared !== 'native')
       fail('I-08', `${e.id} (${e.declared}) published to native-only channel ${p.tag}`);
+
+  // I-11 (row 129) — every download link on the page must be a native entry's file on a native-only channel
+  const SITE = 'site/index.html';
+  if (files.includes(SITE)) {
+    const html = read(SITE);
+    const links = [...html.matchAll(/href="https:\/\/github\.com\/[^/"]+\/[^/"]+\/releases\/download\/([^/"]+)\/([^"]+)"/g)];
+    const installable = (a) => /\.(apk|aab|exe|msi|msix|appx|dmg|deb|rpm|AppImage|zip)$/i.test(a);
+    const nativeOnly = (tag) => (registry.native_only_channels || []).some((c) => chanMatch(c, tag));
+    for (const [, tag, asset] of links) {
+      if (!nativeOnly(tag)) { fail('I-11', `${SITE} links ${tag}/${asset} — the page may link only native-only channels`); continue; }
+      if (!installable(asset)) continue; // SHA256SUMS / status json
+      if (!entries.some((e) => e.declared === 'native' && (e.published || []).some((p) => p.asset === asset && chanMatch(p.tag, tag))))
+        fail('I-11', `${SITE} links ${tag}/${asset}, which is not a native file on a native-only channel`);
+    }
+    for (const m of html.matchAll(/data-asset="([^"]+)"/g))
+      if (installable(m[1]) && !entries.some((e) => e.declared === 'native' && (e.published || []).some((p) => p.asset === m[1])))
+        fail('I-11', `${SITE} data-asset ${m[1]} is not published by a native entry`);
+  }
 
   // I-09
   for (const [key, want] of Object.entries(BASELINE)) {

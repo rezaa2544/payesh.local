@@ -11,8 +11,8 @@ permissions:
 
 jobs:
   build:
-    # کار ساخت بسته و کار نصب‌کننده هر دو روی ریلیز «continuous» می‌نویسند؛
-    # اگر هم‌زمان اجرا شوند، یکی فایل دیگری را نصفه می‌گذارد.
+    # فقط همین کار روی ریلیز «continuous» می‌نویسد (ردیف ۱۲۹: بدون هیچ نسخهٔ WebView)؛
+    # اجراهای هم‌زمان نباید فایل‌های انتشار را نصفه بگذارند.
     concurrency:
       # هر شاخه گروه خودش را دارد؛ وگرنه اجرای شاخهٔ کاری، اجرای main را
       # از صف بیرون می‌اندازد و نسخهٔ تازه هرگز منتشر نمی‌شود.
@@ -517,27 +517,32 @@ jobs:
           echo "APK سالم است: $SIZE بایت"
           [ "$SIZE" -ge 150000 ] || { echo "حجم APK برای نسخهٔ کامل خیلی کم است ($SIZE)"; exit 1; }
 
+      # Row 129: the WebView APK is a CI-only negative control — when it was built, the native
+      # gate must REJECT it. It is never copied to out/ and never published.
+      - name: کنترل منفی — دروازهٔ بومی باید APK وب‌ویو را رد کند (ردیف ۱۲۹)
+        if: steps.signing.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          node tools/native-independence-gate.mjs --expect-fail --android install/android/app/build/outputs/apk/release/app-release.apk | tee webview-apk-control.txt
+          grep -q 'NATIVE-GATE-NEGATIVE-CONTROL-OK' webview-apk-control.txt
+
       - name: ساخت بستهٔ استقرار ابری (payesh-cloud.zip)
         run: node scripts/build-cloud-bundle.mjs
 
+      # Row 129: Release carries NO WebView build any more. The school app that is published is
+      # the native Flutter app (school-native-publish.yml → native-continuous, gated on the same
+      # file). Here only the cloud server bundle (not an end-user installable) and the update
+      # manifest are released. The WebView APK built above is a CI-only negative control.
       - name: آماده‌سازی فایل‌های انتشار
         run: |
           mkdir -p out
-          # APK فقط وقتی امضای معتبر دارد منتشر می‌شود؛ وگرنه اصلاً فایلی تولید نمی‌شود
-          if [ "${{ steps.signing.outputs.ready }}" = "true" ]; then
-            cp install/android/app/build/outputs/apk/release/app-release.apk out/payesh-local.apk
-          else
-            echo "APK منتشر نمی‌شود: امضا در دسترس نیست."
-          fi
-          # نام ثابت برای لینک‌های همیشه‌درست در README
-          cp releases/payesh-local-windows-*.zip out/payesh-local-windows.zip
-          cp releases/*.zip releases/*.tar.gz out/ 2>/dev/null || true
+          cp releases/payesh-cloud.zip out/payesh-cloud.zip
           cp releases/manifest.json out/manifest.json
           ls -lh out
 
       - uses: actions/upload-artifact@v4
         with:
-          name: payesh-local
+          name: continuous-files
           path: out/*
 
       - name: انتشار پیوسته (هر push روی main)
@@ -545,167 +550,45 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+          NOTES="بستهٔ استقرار سرور ابری و مانیفست به‌روزرسانی. اپ مدرسه (بومی، بدون WebView) در ریلیز native-continuous است — ردیف ۱۲۹."
           if gh release view continuous >/dev/null 2>&1; then
-            echo "release exists"
+            gh release edit continuous --prerelease --title "سرور ابری و مانیفست — ساخت پیوسته" --notes "$NOTES"
           else
-            gh release create continuous --prerelease \
-              --title "آخرین نسخهٔ ساخته‌شده" \
-              --notes "این نسخه با هر push روی main به‌روز می‌شود. لینک‌های ثابت: payesh-local-windows.zip و payesh-local.apk"
+            gh release create continuous --prerelease --title "سرور ابری و مانیفست — ساخت پیوسته" --notes "$NOTES"
           fi
-          # فقط فایل‌های واقعاً ساخته‌شده؛ APK امضانشده هرگز منتشر نمی‌شود
-          FILES=""
-          for f in out/payesh-local.apk out/payesh-local-windows.zip out/payesh-cloud.zip out/manifest.json; do
-            if [ -f "$f" ]; then FILES="$FILES $f"; else echo "رد شد (موجود نیست): $f"; fi
+          # Row 129: this release ends with EXACTLY the allowed set; every other asset (the retired
+          # WebView APK / setup / zip) is deleted, and a mismatch turns this job red.
+          ALLOWED="manifest.json payesh-cloud.zip"
+          for a in $(gh release view continuous --json assets --jq '.assets[].name'); do
+            case " $ALLOWED " in
+              *" $a "*) ;;
+              *) echo "removing retired asset: $a"; gh release delete-asset continuous "$a" -y ;;
+            esac
           done
           for i in 1 2 3; do
-            gh release upload continuous $FILES --clobber && break
+            gh release upload continuous out/payesh-cloud.zip out/manifest.json --clobber && break
             echo "تلاش $i ناموفق بود؛ ۱۵ ثانیه بعد دوباره"; sleep 15
           done
+          got=$(gh release view continuous --json assets --jq '[.assets[].name] | sort | join(" ")')
+          if [ "$got" != "$ALLOWED" ]; then echo "::error::continuous assets [$got] != [$ALLOWED]"; exit 1; fi
+          echo "CONTINUOUS-129-OK $got"
 
       - name: انتشار (روی تگ)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            out/payesh-local.apk
-            out/payesh-local-windows.zip
-            out/payesh-local-windows-*.zip
+            out/payesh-cloud.zip
             out/manifest.json
           generate_release_notes: true
           body: |
-            ## پایش-لوکال
-            - بستهٔ ویندوز: `payesh-local-windows-*.zip` (از حالت فشرده خارج کنید و `install.bat` را اجرا کنید)
-            - اندروید: `payesh-local.apk` (نصب از منابع ناشناس را اجازه دهید)
-            - آیفون: از Safari باز کنید و «افزودن به صفحهٔ اصلی»
-            - به‌روزرسانی برنامه‌ها یک‌کلیکی و فقط با فایل‌های تغییرکرده انجام می‌شود.
+            ## پایش — سرور ابری و مانیفست
+            - `payesh-cloud.zip`: بستهٔ استقرار سرور ابری (برای اپراتور، نه برنامهٔ نصبی کاربر).
+            - اپ مدرسه **بومی** است (Flutter، بدون WebView): ریلیز `native-continuous` یا تگ‌های `native-v*`.
+            - نسخه‌های WebView قبلی دیگر منتشر نمی‌شوند (ردیف ۱۲۹).
 
       - name: پاکسازی کلید امضای موقت
         if: always()
         run: rm -f "$RUNNER_TEMP/payesh-release-signing.p12"
 
-  windows-installer:
-    concurrency:
-      group: payesh-release-${{ github.ref }}
-      cancel-in-progress: false
-    name: نصب‌کنندهٔ استاندارد ویندوز (payesh-setup.exe)
-    runs-on: windows-latest
-    needs: build
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      # Node قابل حمل تا نصب بدون اینترنت هم کامل انجام شود
-      - name: آوردن Node قابل حمل
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force runtime | Out-Null
-          $url = 'https://nodejs.org/dist/v22.14.0/win-x64/node.exe'
-          Invoke-WebRequest -Uri $url -OutFile runtime/node.exe -UseBasicParsing
-          "node.exe: {0:N1} MB" -f ((Get-Item runtime/node.exe).Length / 1MB)
-
-      - name: آماده‌سازی پوشهٔ نصب
-        run: node scripts/stage-windows.mjs
-
-      - name: ساخت برنامهٔ ویندوز (Payesh.exe — پنجرهٔ واقعی + شناسنامه)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $log = 'build-win.log'
-          powershell -ExecutionPolicy Bypass -File desktop\build.ps1 -Out .build\win\desktop *>&1 | Tee-Object -FilePath $log
-          if ($LASTEXITCODE -ne 0) {
-            Get-Content $log | Select-Object -Last 30 | ForEach-Object { "::error title=build.ps1::$_" }
-            exit 1
-          }
-          try {
-            $exe = '.build\win\desktop\Payesh.exe'
-            if (-not (Test-Path $exe)) { throw 'Payesh.exe ساخته نشد' }
-            Get-ChildItem .build\win\desktop | Select-Object Name, Length | Format-Table
-            # ── استاندارد مایکروسافت: شناسنامهٔ فایل نباید خالی باشد ────────
-            $vi = (Get-Item $exe).VersionInfo
-            "ProductName=$($vi.ProductName)  Company=$($vi.CompanyName)  FileVersion=$($vi.FileVersion)"
-            if (-not $vi.ProductName) { throw 'شناسنامهٔ فایل اجرایی خالی است (ProductName)' }
-            if (-not $vi.CompanyName) { throw 'شناسنامهٔ فایل اجرایی خالی است (CompanyName)' }
-            if (-not $vi.FileVersion) { throw 'نسخهٔ فایل نوشته نشده است' }
-            # ── مانیفست asInvoker باید داخل exe باشد (بدون درخواست مدیر) ───
-            $txt = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes((Resolve-Path $exe)))
-            if ($txt -notmatch 'asInvoker') { throw 'مانیفست asInvoker داخل exe نیست' }
-            if ($txt -notmatch 'supportedOS') { throw 'شناسهٔ ویندوز ۱۰/۱۱ در مانیفست نیست' }
-            "✓ شناسنامه و مانیفست برنامهٔ ویندوز درست است"
-          } catch {
-            "::error title=Payesh.exe::$($_.Exception.Message)"
-            $pos = ($_.InvocationInfo.PositionMessage -replace "`r?`n", ' ')
-            "::error title=Payesh.exe خط::$pos"
-            exit 1
-          }
-
-      - name: نصب Inno Setup
-        shell: pwsh
-        run: |
-          choco install innosetup --no-progress -y
-          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
-          if (-not (Test-Path $iscc)) { throw 'ISCC پیدا نشد' }
-          echo "ISCC=$iscc" >> $env:GITHUB_ENV
-
-      - name: بازبینی اسکریپت نصب
-        run: node scripts/lint-iss.mjs
-
-      - name: ساخت payesh-setup.exe
-        shell: pwsh
-        run: |
-          $v = node -p "require('./package.json').version"
-          & $env:ISCC "/DAppVersion=$v" "installer\payesh.iss" 2>&1 | Tee-Object -FilePath iscc.log
-          if ($LASTEXITCODE -ne 0) {
-            # گیت‌هاب بیشتر از ۱۰ خط annotation در هر گام نشان نمی‌دهد؛ پس
-            # اول خط‌های خطا/هشدار را بیرون می‌کشیم و بعد ۴ خط آخر لاگ را.
-            $errs = @(Get-Content iscc.log | Where-Object { $_ -match 'Error|error|Warning|Compiling|Unknown|Duplicate|Unable' } | Select-Object -First 6)
-            $tail = @(Get-Content iscc.log -Tail 4)
-            ($errs + $tail) | Select-Object -Unique | ForEach-Object { "::error::ISCC: $_" }
-            throw "ISCC ناموفق ($LASTEXITCODE)"
-          }
-          $exe = 'releases/payesh-setup.exe'
-          if (-not (Test-Path $exe)) { throw 'خروجی exe ساخته نشد' }
-          "✓ {0:N1} MB — نسخهٔ {1}" -f ((Get-Item $exe).Length/1MB), $v
-
-      # بستهٔ ویندوز باید پنجرهٔ واقعی برنامه را همراه داشته باشد؛ وگرنه کاربرِ
-      # نسخهٔ zip با «میان‌بر مرورگر» روبه‌رو می‌شد (شکایت کاربر).
-      - name: بستهٔ ویندوز همراه برنامهٔ پنجره‌ای
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $zip = 'releases/payesh-local-windows.zip'
-          if (Test-Path $zip) { Remove-Item $zip -Force }
-          $exe = '.build\win\desktop\Payesh.exe'
-          if (-not (Test-Path $exe)) { throw 'Payesh.exe در بسته نیست' }
-          Compress-Archive -Path '.build\win\*' -DestinationPath $zip -CompressionLevel Optimal
-          "{0:N1} MB — {1}" -f ((Get-Item $zip).Length/1MB), $zip
-          # بازبینی: فایل اجرایی و موتور نمایش داخل بسته باشند
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $z = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip))
-          try {
-            $names = $z.Entries | ForEach-Object { $_.FullName }
-            foreach ($need in @('desktop/Payesh.exe', 'server/index.js', 'client/index.html', 'runtime/node.exe')) {
-              $hit = $names | Where-Object { $_ -like "*$need" }
-              if (-not $hit) { throw "در بستهٔ ویندوز نیست: $need" }
-            }
-            "✓ بسته شامل برنامه، سرور و Node است"
-          } finally { $z.Dispose() }
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: payesh-setup
-          path: |
-            releases/payesh-setup.exe
-            releases/payesh-local-windows.zip
-
-      - name: انتشار در انتشار پیوسته
-        if: github.ref == 'refs/heads/main'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload continuous releases/payesh-setup.exe --clobber
-          gh release upload continuous releases/payesh-local-windows.zip --clobber
-          gh release view continuous --json assets --jq '.assets[] | select(.name=="payesh-setup.exe" or .name=="payesh-local-windows.zip") | "\(.name) — \(.size) بایت"'

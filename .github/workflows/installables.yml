@@ -6,6 +6,8 @@ name: installables-registry
 # Red when: something installable is unregistered, a WebView build is declared native, a native entry is
 # not run through tools/native-independence-gate.mjs, a native-only channel carries WebView, or the gate
 # criterion (docs/cloud/43-native-independence.json) loses any frozen rule.
+# Row 129: also red when any WebView entry is published again or the download page (site/index.html)
+# links a file that is not a native entry's file on a native-only channel (I-11 + tests/landing-114.js).
 
 on:
   push:
@@ -27,8 +29,10 @@ jobs:
           node-version: '22'
       - name: Registry check on the real tree
         run: node tools/installables-125.mjs | tee installables-125.txt
-      - name: Rules turn red (29 in-memory mutations)
+      - name: Rules turn red (34 in-memory mutations)
         run: node tests/installables-125.js | tee -a installables-125.txt
+      - name: Download page links only gated native files (row 129)
+        run: node tests/landing-114.js | tee -a installables-125.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -24,8 +24,8 @@ const assert = require('node:assert');
   ok('IN-03', ['owner-native-android', 'owner-native-windows', 'school-native-android', 'school-native-windows', 'school-webview-windows', 'school-webview-android'].every((i) => ids.includes(i)),
     'the six shipping programs are registered');
   const stillWebView = registry.entries.filter((e) => e.declared === 'webview' && e.published.length).map((e) => e.id).sort();
-  ok('IN-04', JSON.stringify(stillWebView) === JSON.stringify(['school-webview-android', 'school-webview-windows']),
-    `only the school WebView builds are still published, both marked for removal in row 129 (${stillWebView.join(', ')})`);
+  ok('IN-04', stillWebView.length === 0 && ids.includes('school-webview-fixtures'),
+    `row 129: no WebView entry is published any more; the last school WebView APK is a registered fixture (${stillWebView.join(', ') || 'none published'})`);
 
   // ---- mutations ----
   const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -71,8 +71,8 @@ const assert = require('node:assert');
   run('MU-21', 'I-09', 'gate criterion loses node.exe', { crit: (c) => { c.windows.forbidden_files = c.windows.forbidden_files.filter((x) => x !== 'node.exe'); return c; } });
   run('MU-22', 'I-09', 'gate criterion stops forbidding WebView.loadUrl', { crit: (c) => { c.android.forbidden_method_refs[0].names = c.android.forbidden_method_refs[0].names.filter((x) => x !== 'loadUrl'); return c; } });
   run('MU-23', 'I-09', 'gate criterion drops assets/www/', { crit: (c) => { c.android.forbidden_entries = c.android.forbidden_entries.filter((x) => x !== 'assets/www/'); return c; } });
-  run('MU-24', 'I-01', 'published WebView entry not marked pending-removal', {
-    reg: (r) => { r.entries.find((x) => x.id === 'school-webview-windows').status = 'published'; return r; } });
+  run('MU-24', 'I-01', 'row 129 undone: school WebView setup published again as "pending-removal"', {
+    reg: (r) => { Object.assign(r.entries.find((x) => x.id === 'school-webview-windows'), { status: 'published-webview-pending-removal', removal_row: 129, published: [{ workflow: '.github/workflows/build.yml', tag: 'continuous', asset: 'payesh-setup.exe' }] }); return r; } });
   run('MU-25', 'I-02', 'registry source path that does not exist', {
     reg: (r) => { r.entries.find((x) => x.id === 'owner-native-android').sources.push('apps/payesh/ghost/'); return r; } });
   run('MU-26', 'I-03', 'deleting a registry entry leaves its installer unregistered', {
@@ -81,7 +81,18 @@ const assert = require('node:assert');
   run('MU-29', 'I-02', 'registry entrypoint for a file that was deleted', { del: ['installer/payesh.iss'] });
   run('MU-27', 'I-05', 'Android WebView constructed in a native app Kotlin file', {
     add: { 'apps/payesh/app/android/app/src/main/kotlin/ir/payesh/app/Web.kt': 'import android.webkit.WebView\nclass W(c: android.content.Context) { val w = WebView(context) }' } });
+  // ---- row 129: no WebView file on Release or on the download page ----
+  run('MU-30', 'I-07', 'build.yml uploads the WebView school APK to continuous again', {
+    edit: { '.github/workflows/build.yml': (t) => t + '\n      - run: gh release upload continuous out/payesh-local.apk --clobber\n' } });
+  run('MU-31', 'I-11', 'download page links the WebView setup on continuous', {
+    edit: { 'site/index.html': (t) => t.replace('</main>', '<a data-asset="payesh-setup.exe" href="https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-setup.exe">x</a></main>') } });
+  run('MU-32', 'I-11', 'WebView APK linked under the native channel name', {
+    edit: { 'site/index.html': (t) => t.replace('</main>', '<a data-asset="payesh-local.apk" href="https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-local.apk">x</a></main>') } });
+  run('MU-33', 'I-10', 'school native publisher no longer runs the gate', {
+    edit: { '.github/workflows/school-native-publish.yml': (t) => t.split('\n').filter((l) => !l.includes('native-independence-gate.mjs')).join('\n') } });
+  run('MU-34', 'I-08', 'WebView school APK put on native-continuous', {
+    reg: (r) => { r.entries.find((x) => x.id === 'school-webview-android').published.push({ workflow: '.github/workflows/school-native-publish.yml', tag: 'native-continuous', asset: 'payesh-local.apk' }); return r; } });
 
-  console.log(failures ? `INSTALLABLES-125-TEST-FAILED failures=${failures}` : 'INSTALLABLES-125-TEST-OK checks=4 mutations=29');
+  console.log(failures ? `INSTALLABLES-125-TEST-FAILED failures=${failures}` : 'INSTALLABLES-125-TEST-OK checks=4 mutations=34');
   assert.strictEqual(failures, 0);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -16,7 +16,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const SITE_DIR = path.join(ROOT, 'site');
 export const SITE_FILES = ['index.html', '404.html', 'version.js'];
 export const LOGO = path.join(ROOT, 'client', 'icons', 'logo-mark.png');
-export const RELEASE_BASE = 'https://github.com/rezaa2544/payesh.local/releases/download/continuous/';
+export const RELEASE_BASE = 'https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/'; // row 129: native files only
 // Hosts the page may link to (plain navigation, never loaded as a resource).
 export const LINK_HOSTS = ['github.com'];
 

@@ -23,7 +23,7 @@
 | [`samples/`](../samples/) · `data/` (git-ignored، در زمان اجرا ساخته می‌شود) | نمونهٔ CSV ورود دسته‌ای · دادهٔ محلی اجرا، مثل کلید عمومی پشتیبان (`backup-key.json`، بدون راز) | اپ مدرسه |
 | [`openapi.yaml`](../openapi.yaml) | قرارداد API؛ هم‌خوانی با کد را `tests/openapi-drift-81.js` می‌سنجد (ردیف ۸۱) | قرارداد |
 | [`docs/`](./) | `00` قانون اساسی · [`cloud/`](cloud/) اسناد ابری و ADRها · [`cloud/contracts/`](cloud/contracts/) قراردادهای ماشین‌خوان · [`security/`](security/) · [`release/`](release/) · [`cloud/reports/evidence/`](cloud/reports/evidence/) شواهد خام · `01..05` تاریخی | مستند |
-| [`.github/workflows/`](../.github/workflows/) | [`build.yml`](../.github/workflows/build.yml) (مدرسه) · [`native-client.yml`](../.github/workflows/native-client.yml) (اپ بومی) · [`api-contract.yml`](../.github/workflows/api-contract.yml) (قرارداد + PostgreSQL واقعی) · [`release-gate.yml`](../.github/workflows/release-gate.yml) (دروازهٔ انتشار، ردیف ۹۵) · [`owner-panel.yml`](../.github/workflows/owner-panel.yml) (پنل مالک) · [`pages.yml`](../.github/workflows/pages.yml) (صفحهٔ ایستا، استقرار دستی با دروازهٔ مالک، ردیف ۱۱۴) · [`installables.yml`](../.github/workflows/installables.yml) (رجیستری «فقط بومی»، ردیف ۱۲۵) | CI |
+| [`.github/workflows/`](../.github/workflows/) | [`build.yml`](../.github/workflows/build.yml) (سرور ابری + مانیفست؛ بدون WebView از ردیف ۱۲۹) · [`school-native-publish.yml`](../.github/workflows/school-native-publish.yml) (انتشار بومی مدرسه، ردیف ۱۲۹) · [`native-client.yml`](../.github/workflows/native-client.yml) (اپ بومی) · [`api-contract.yml`](../.github/workflows/api-contract.yml) (قرارداد + PostgreSQL واقعی) · [`release-gate.yml`](../.github/workflows/release-gate.yml) (دروازهٔ انتشار، ردیف ۹۵) · [`owner-panel.yml`](../.github/workflows/owner-panel.yml) (پنل مالک) · [`pages.yml`](../.github/workflows/pages.yml) (صفحهٔ ایستا، استقرار دستی با دروازهٔ مالک، ردیف ۱۱۴) · [`installables.yml`](../.github/workflows/installables.yml) (رجیستری «فقط بومی»، ردیف ۱۲۵) | CI |
 
 ## ۲. `apps/owner-panel/` — پنل مالک پلتفرم
 
@@ -42,6 +42,9 @@
 | [`.github/workflows/owner-native-publish.yml`](../.github/workflows/owner-native-publish.yml) | تنها نویسندهٔ `owner-continuous`: پس از سبزشدن `native-client` روی main، فقط APK امضاشده و exe/zip بومی پنل مالک را دوباره می‌سنجد و منتشر می‌کند؛ هر فایل دیگری حذف می‌شود | ۱۲۶ |
 | [`.github/workflows/installables.yml`](../.github/workflows/installables.yml) | رجیستری برنامه‌های نصبی (`docs/cloud/125-installables.json`): هر نصبی ثبت‌نشده، WebView «بومی»، یا تضعیف دروازه ⇒ قرمز؛ بدون فیلتر مسیر | ۱۲۵ |
 | [`apps/owner-panel/legacy-webview-fixtures/`](../apps/owner-panel/legacy-webview-fixtures/) | آخرین APK و setup.exe پنل WebView، قفل‌شده با SHA‑256 — **فقط کنترل منفی CI، برای توزیع نیست** (رد دروازه، آزمون ارتقای درجا به اپ بومی) | ۱۲۶ |
+| [`.github/workflows/school-native-publish.yml`](../.github/workflows/school-native-publish.yml) | تنها نویسندهٔ `native-continuous` (مقصد صفحهٔ دانلود): پس از سبزشدن `native-client` روی main، فقط فایل‌های بومی مدرسه که روی همان فایل از دروازهٔ بومی گذشته‌اند و نصب بی‌صدا ← دروازه روی برنامهٔ نصب‌شده ← حذف را دارند منتشر می‌کند؛ APK فقط با کلید مالک (وگرنه BLOCKED) | ۱۲۹ |
+| [`.github/workflows/school-webview-control.yml`](../.github/workflows/school-webview-control.yml) | ساخت WebView2 + node.exe ویندوز مدرسه فقط به‌عنوان **کنترل منفی** (توکن فقط‌خواندنی، بدون انتشار، دروازهٔ بومی باید ردش کند) | ۱۲۹ |
+| [`install/legacy-webview-fixtures/`](../install/legacy-webview-fixtures/) | آخرین APK وب‌ویوی مدرسه که روی `continuous` منتشر شده بود، قفل‌شده با SHA‑256 — **فقط کنترل منفی CI، برای توزیع نیست** | ۱۲۹ |
 
 ## ۳. نقشهٔ راه پنل مالک (هم‌تراز با [سند ۶۱ §۶](cloud/61-owner-panel-app-proposal.md) و صف Notion)
 

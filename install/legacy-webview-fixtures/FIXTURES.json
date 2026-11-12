@@ -1,0 +1,11 @@
+{
+  "_comment": "NEGATIVE CONTROL ONLY — NOT FOR DISTRIBUTION. The last school WebView APK that was published on the continuous release, frozen before row 129 removed every WebView build from Release and the download page. Never published again, never linked, never labelled native.",
+  "source": "GitHub release continuous, asset payesh-local.apk (build.yml, android.webkit.WebView shell + client/ in assets/www)",
+  "captured": "2026-11-12",
+  "uses": [
+    "native-client.yml gate-controls: native-independence-gate --expect-fail must reject payesh-local.apk (the Windows WebView control is the tracked releases/payesh-local-windows-<ver>.zip)"
+  ],
+  "files": {
+    "payesh-local.apk": { "sha256": "eec12b7a08924693ee269e835984e09545395b969704ba527ccc386c89856aa3", "runtime": "android.webkit.WebView" }
+  }
+}
