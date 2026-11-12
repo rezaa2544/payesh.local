@@ -176,23 +176,111 @@
   },
   {
    "id": "act:class-add",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-class-add'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "Future<RecordWrite> saveClass("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W8-IT-01"
+    }
+   ]
   },
   {
    "id": "act:class-delete",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-class-delete-"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "Future<RecordWrite> deleteClass("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W8-IT-03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U05"
+    }
+   ]
   },
   {
    "id": "act:class-edit",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-class-edit-"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "class ClassFormPage"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U04"
+    }
+   ]
   },
   {
    "id": "act:class-merge",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "Key('cls-merge-to-"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "Future<RecordWrite> mergeClass("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W8-IT-02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U06"
+    }
+   ]
   },
   {
    "id": "act:cloud-cors",
@@ -257,33 +345,149 @@
   },
   {
    "id": "act:def-add",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-def-add-"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "Future<RecordWrite> saveLookup("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W8-IT-01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U07"
+    }
+   ]
   },
   {
    "id": "act:def-delete",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-def-delete-"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "Future<LookupUsage> lookupUsage("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W06"
+    },
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W07"
+    }
+   ]
   },
   {
    "id": "act:def-delete-cascade",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "Key('def-del-cascade')"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W07"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U07"
+    }
+   ]
   },
   {
    "id": "act:def-delete-only",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "Key('def-del-only')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "Future<RecordWrite> deleteLookup("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W07"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U07"
+    }
+   ]
   },
   {
    "id": "act:def-delete-students",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "Key('def-del-students')"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W08"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U08"
+    }
+   ]
   },
   {
    "id": "act:def-edit",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-def-edit-"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "class DefFormPage"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U07"
+    },
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W06"
+    }
+   ]
   },
   {
    "id": "act:devices-list",
@@ -634,13 +838,45 @@
   },
   {
    "id": "act:room-add",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-room-add'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "Future<RecordWrite> saveRoom("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W8-IT-01"
+    }
+   ]
   },
   {
    "id": "act:room-edit",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-room-edit-"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W03"
+    }
+   ]
   },
   {
    "id": "act:scan-camera",
@@ -738,18 +974,70 @@
   },
   {
    "id": "act:subject-add",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-subject-add'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "Future<RecordWrite> saveSubject("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W09"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W8-IT-01"
+    }
+   ]
   },
   {
    "id": "act:subject-delete",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-subject-delete-"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "Future<RecordWrite> deleteSubject("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W09"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W8-IT-04"
+    }
+   ]
   },
   {
    "id": "act:subject-edit",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "'cls-subject-edit-"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W09"
+    }
+   ]
   },
   {
    "id": "act:sync",
@@ -1160,13 +1448,57 @@
   },
   {
    "id": "form:class",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "class ClassFormPage"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "class RoomFormPage"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "class ClassDraft"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W02"
+    },
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U03"
+    }
+   ]
   },
   {
    "id": "form:def",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "class DefFormPage"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U07"
+    }
+   ]
   },
   {
    "id": "form:imp-fix",
@@ -1319,8 +1651,20 @@
   },
   {
    "id": "form:subject",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "class SubjectFormPage"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W09"
+    }
+   ]
   },
   {
    "id": "form:transfer",
@@ -1532,8 +1876,32 @@
   },
   {
    "id": "page:classes",
-   "status": "planned",
-   "wave": "W8"
+   "status": "native",
+   "wave": "W8",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
+     "has": "class ClassesScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'classes'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
+     "has": "Future<ClassesView> overview("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/classes_wave8_test.dart",
+     "has": "'W8-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
+     "has": "'W8-U01"
+    }
+   ]
   },
   {
    "id": "page:cloud",

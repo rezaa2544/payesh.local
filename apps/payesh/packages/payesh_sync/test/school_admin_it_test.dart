@@ -776,4 +776,145 @@ void main() {
     negatives++;
     passed++;
   }, skip: skip);
+
+  // ───────────────────────────── W8 classes, definitions, subjects ─────────────────────────────
+  var roomId = 0,
+      classA = 0,
+      classB = 0,
+      subjectId = 0,
+      gradeId = 0,
+      mergeStudent = 0;
+
+  test('W8-IT-01 offline: grade + branch + field class + room + subject → queued → all on the server', () async {
+    await manager.pull();
+    final b = ClassBook(manager.db);
+    gradeId = (await b.saveLookup(kind: 'grade', name: 'پایه یازدهم')).id!;
+    await b.saveLookup(kind: 'branch', name: 'شبکه');
+    classA = (await b.saveClass(
+      const ClassDraft(grade: 'پایه یازدهم', branch: 'شبکه'),
+    )).id!;
+    classB = (await b.saveClass(
+      const ClassDraft(grade: 'یازدهم', branch: 'شبکه', name: 'یازدهم شبکه ب'),
+    )).id!;
+    roomId = (await b.saveRoom(name: 'کارگاه شبکه')).id!;
+    subjectId = (await b.saveSubject(name: 'شبکه ۱', workshop: true)).id!;
+    final dead = Uri.parse('http://127.0.0.1:${await freePort()}');
+    expect((await manager.sync(dead)).waiting, 6);
+    expect(await serverRow('classes', classA), isNull);
+    negatives++;
+    expect((await manager.sync()).waiting, 0);
+    final a = await serverRow('classes', classA);
+    expect(a!['name'], 'پایه یازدهم شبکه');
+    expect(a['mode'], 'field');
+    expect(a['grade_level'], 11);
+    expect((await serverRow('classes', roomId))!['kind'], 'room');
+    expect((await serverRow('subjects', subjectId))!['workshop'], true);
+    expect((await serverRow('lookups', gradeId))!['name'], 'پایه یازدهم');
+    passed++;
+  }, skip: skip);
+
+  test('W8-IT-02 merge on the device → students and schedule moved on the server, source gone', () async {
+    final users = UserDirectory(manager.db);
+    mergeStudent = (await users.add(
+      UserDraft(name: 'شاگرد ادغام', classId: classB),
+    )).id!;
+    await push(managerLogin.token, []); // no-op: keep the token warm
+    expect((await manager.sync()).waiting, 0);
+    final (_, applied) = (
+      0,
+      await push(managerLogin.token, [
+        {
+          'uid': 'w8-sched',
+          'collection': 'schedule',
+          'type': 'put',
+          'id': SchoolRecords.idBaseOf('schedule') + 8001,
+          'data': {
+            'class_id': classB,
+            'subject_id': subjectId,
+            'weekday': 3,
+            'bell_order': 2,
+          },
+          'base_version': 0,
+        },
+      ]),
+    );
+    expect(applied['rejected'], isEmpty, reason: '$applied');
+    await manager.pull();
+    await ClassBook(manager.db).mergeClass(classB, classA);
+    expect((await manager.sync()).waiting, 0);
+    expect(await serverRow('classes', classB), isNull);
+    expect((await serverRow('users', mergeStudent))!['class_id'], classA);
+    expect(
+      (await serverRow(
+        'schedule',
+        SchoolRecords.idBaseOf('schedule') + 8001,
+      ))!['class_id'],
+      classA,
+    );
+    passed++;
+  }, skip: skip);
+
+  test('W8-IT-03 delete class → the student stays on the server, without a class, in follow-up', () async {
+    await ClassBook(manager.db).deleteClass(classA);
+    expect((await manager.sync()).waiting, 0);
+    expect(await serverRow('classes', classA), isNull);
+    final u = await serverRow('users', mergeStudent);
+    expect(u, isNotNull, reason: 'students are never deleted with their class');
+    expect(u!['class_id'], isNull);
+    expect('${u['followup_reason']}', contains('یازدهم شبکه'));
+    passed++;
+  }, skip: skip);
+
+  test(
+    'W8-IT-04 delete subject → its schedule slot is gone on the server too',
+    () async {
+      await manager.pull();
+      final w = await ClassBook(manager.db).deleteSubject(subjectId);
+      expect(w.keys, hasLength(2));
+      expect((await manager.sync()).waiting, 0);
+      expect(await serverRow('subjects', subjectId), isNull);
+      expect(
+        await serverRow('schedule', SchoolRecords.idBaseOf('schedule') + 8001),
+        isNull,
+      );
+      passed++;
+    },
+    skip: skip,
+  );
+
+  test('W8-IT-05 NEG a teacher cannot change classes or definitions: device AND server refuse', () async {
+    await teacher.pull();
+    await expectLater(
+      ClassBook(teacher.db).saveRoom(name: 'نفوذی'),
+      throwsA(
+        isA<RecordFailure>().having((f) => f.code, 'code', 'not_allowed'),
+      ),
+    );
+    expect(teacher.outbox.list(), isEmpty);
+    final r = await push(teacherLogin.token, [
+      {
+        'uid': 'evil-w8',
+        'collection': 'lookups',
+        'type': 'put',
+        'id': SchoolRecords.idBaseOf('lookups') + 9,
+        'data': {'kind': 'grade', 'name': 'نفوذی'},
+        'base_version': 0,
+      },
+      {
+        'uid': 'evil-w8-del',
+        'collection': 'classes',
+        'type': 'del',
+        'id': roomId,
+        'base_version': 1,
+      },
+    ]);
+    expect(r['applied'], isEmpty, reason: '$r');
+    expect(
+      await serverRow('lookups', SchoolRecords.idBaseOf('lookups') + 9),
+      isNull,
+    );
+    expect(await serverRow('classes', roomId), isNotNull);
+    negatives += 3;
+    passed++;
+  }, skip: skip);
 }

@@ -252,8 +252,9 @@ final class FakeAccounts implements AccountsApi {
     calls.add('own:$current:$next');
     _up();
     AccountRules.checkPassword(next);
-    if (current != ownPassword)
+    if (current != ownPassword) {
       throw const AccountFailure(AccountError.wrongCurrent);
+    }
     ownPassword = next;
   }
 }

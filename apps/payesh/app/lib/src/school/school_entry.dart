@@ -4,6 +4,7 @@ import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../accounts/accounts_screen.dart';
+import '../classes/classes_screen.dart';
 import '../flags.dart';
 import '../users/users_controller.dart';
 import '../users/users_screen.dart';
@@ -94,6 +95,22 @@ final List<SchoolPageSpec> schoolPages = [
           RecordController(source: a.source, role: a.role, uid: a.uid),
       page: (c) => RecordScreen(
         controller: c as RecordController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
+  SchoolPageSpec(
+    id: 'classes',
+    wave: SchoolWave.classes,
+    label: 'کلاس‌ها و تعریف‌ها',
+    icon: Icons.class_outlined,
+    roles: const {'manager'},
+    build: (a) => SchoolOwned(
+      create: () =>
+          ClassesController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => ClassesScreen(
+        controller: c as ClassesController,
         sync: a.sync,
         onRetry: a.onRetry,
       ),

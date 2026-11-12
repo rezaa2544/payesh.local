@@ -624,8 +624,9 @@ class SessionController extends ChangeNotifier {
 
   void closeClaim() {
     final s = _state;
-    if (s is NeedClaim)
+    if (s is NeedClaim) {
       _set(NeedLan(info: s.info, typed: _typedOf(s.info.server)));
+    }
   }
 
   /// Web form `claim`: 11-digit mobile + password (≥ 4) → the server sets them for the manager
