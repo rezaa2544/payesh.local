@@ -154,5 +154,6 @@
 | ۷۴ (موج ۵) | صفحه‌های والدین در کلاینت بومی + `approval_denied` مرخصی در Gateway | #214 → `56ffb97` | [`cloud/74-native-wave5-parents.md`](cloud/74-native-wave5-parents.md) |
 | ۹۴ | سند طراحی نصب و آنبوردینگ (نمودار جریان، سه خطا، فاصله‌های G1–G6، O‑21) | #215 → `adab4f1` | [`cloud/94-onboarding-design.md`](cloud/94-onboarding-design.md) |
 | ۱۲۰ | بستهٔ استقرار Gateway چندمستأجری + پیش‌بررسی + `admin.cjs` + selfcheck + راهنمای مالک [S] (اجرای [M] منتظر ۱۱۶) | #218 → `1d34add` | [`cloud/120-gateway-bundle.md`](cloud/120-gateway-bundle.md) |
+| ۱۲۶ | پنل مالک بومی Flutter (Android + Windows)؛ WebView از انتشار حذف شد؛ D‑49 / ADR‑126 (لغو ADR‑62)؛ مهاجرت اتمی tenancy | main `8d15f1d`…`c1e414c` | [`cloud/126-adr-native-owner-panel.md`](cloud/126-adr-native-owner-panel.md) · [`cloud/reports/QUEUE-126-REPORT.md`](cloud/reports/QUEUE-126-REPORT.md) |
 
 ردیف‌های باز (۹۳ — همین نقشه، ۱۱۲ (به دستور مالک اجرا نمی‌شود) و ردیف‌های OWNER/Z: ۹۱، ۹۲، ۱۰۵، ۱۱۳، ۱۱۶، ۶۱؛ ۱۰۳ و ۱۰۴ منسوخ‌شده با ADR‑105) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.
