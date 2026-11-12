@@ -25,3 +25,4 @@
 | ۱۲۵ (رجیستری برنامه‌های نصبی + Gate «فقط بومی») | [`QUEUE-125-REPORT.md`](QUEUE-125-REPORT.md) | main `f33a12f` (بدون PR، به دستور مأموریت) | روی main |
 | ۱۲۷ (حالت LAN اپ بومی + سرویس دادهٔ بی‌رابط؛ [M] دستگاه منتظر ۹۱) | [`QUEUE-127-REPORT.md`](QUEUE-127-REPORT.md) | main `f3c0f3c` (بدون PR، به دستور مأموریت) | روی main |
 | ۱۲۸ (هم‌ارزی کامل وب ↔ اپ بومی: ۱۷۴ مورد، ۰ planned؛ W6..W12) | [`QUEUE-128-REPORT.md`](QUEUE-128-REPORT.md) | main `179abcb` … `3e61de2` (بدون PR، به دستور مأموریت) | روی main |
+| ۱۲۹ (انتشار و صفحهٔ دانلود فقط بومی؛ WebView فقط کنترل منفی؛ APK و Authenticode BLOCKED منتظر ۶۱؛ اصلاح بن‌بست مهاجرت) | [`QUEUE-129-REPORT.md`](QUEUE-129-REPORT.md) | main `0bd6c46` · `37ad9df` · `b005f01` (بدون PR، به دستور مأموریت) | روی main |
