@@ -9,6 +9,8 @@ const ROLES = ['manager', 'teacher', 'parent', 'student', 'counselor', 'guard'];
 
 const ATT_STATUS = ['present', 'absent', 'late', 'early_exit', 'excused'];
 const GRADE_KINDS = ['monthly', 'midterm', 'final', 'practical', 'theory'];
+/* درخواست مرخصی ولی/دانش‌آموز فقط با این وضعیت‌ها ثبت می‌شود؛ تأیید و رد با مدرسه است (ردیف ۷۴، موج ۵). */
+const LEAVE_REQUEST_STATUSES = ['pending', 'canceled'];
 
 /* write: نقش‌های مجاز به نوشتن · read: all یا فهرست نقش‌ها */
 const COLLECTIONS = {
@@ -200,7 +202,7 @@ function canWriteRow(store, user, role, collection, row, existing) {
     const scope = buildScope(store, user);
     if (!scope.studentIds.has(Number(row.student_id))) return { ok: false, error: 'out_of_scope' };
     /* ولی فقط درخواست می‌دهد؛ تأیید با مدرسه است */
-    if (row.status && !['pending', 'canceled'].includes(row.status)) row.status = 'pending';
+    if (row.status && !LEAVE_REQUEST_STATUSES.includes(row.status)) row.status = 'pending';
     return { ok: true };
   }
 
@@ -303,7 +305,7 @@ function scrubUserIdentity(data) {
 }
 
 module.exports = {
-  ROLES, ATT_STATUS, GRADE_KINDS, COLLECTIONS,
+  ROLES, ATT_STATUS, GRADE_KINDS, LEAVE_REQUEST_STATUSES, COLLECTIONS,
   collectionAllowed, canRead, canWrite, buildScope, rowInScope, canWriteRow,
   USER_PUBLIC_FIELDS, USER_IDENTITY_FIELDS, SECRET_FIELD_RE, isSecretField,
   scrubUser, scrubUserFor, scrubUserIdentity,

@@ -315,6 +315,71 @@
     },
     {
       "scope": "parent",
+      "collection": "leaves",
+      "row": {
+        "student_id": 100,
+        "date": "2026-11-12",
+        "reason": "پزشک",
+        "status": "pending",
+        "by_id": 7
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "parent",
+      "collection": "leaves",
+      "row": {
+        "student_id": 100,
+        "date": "2026-11-12",
+        "reason": "پزشک",
+        "status": "approved",
+        "by_id": 7
+      },
+      "expect": {
+        "ok": false,
+        "error": "approval_denied"
+      }
+    },
+    {
+      "scope": "parent",
+      "collection": "leaves",
+      "row": {
+        "student_id": 100,
+        "status": "rejected"
+      },
+      "expect": {
+        "ok": false,
+        "error": "approval_denied"
+      }
+    },
+    {
+      "scope": "parent",
+      "collection": "leaves",
+      "row": {
+        "student_id": 100,
+        "status": "canceled"
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "parent",
+      "collection": "grades",
+      "row": {
+        "student_id": 100,
+        "score": 20,
+        "status": "pending"
+      },
+      "expect": {
+        "ok": false,
+        "error": "role_denied"
+      }
+    },
+    {
+      "scope": "parent",
       "collection": "grades",
       "row": {
         "student_id": 100,
