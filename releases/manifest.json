@@ -1,6 +1,6 @@
 {
   "version": "0.9.2",
-  "built_at": "2026-11-12T17:58:42.946Z",
+  "built_at": "2026-11-12T18:16:19.283Z",
   "notes": [
     "نگاشت آیکون‌های نبض هر دو شکل ایموجی با و بدون variation selector را به SVG یکسان می‌برد.",
     "بسته‌های نصب و مانیفست برای نگاشت آیکون‌های اصلاح‌شده به نسخهٔ 0.9.2 ارتقا یافتند."
@@ -96,8 +96,8 @@
     {
       "path": "client/install.html",
       "kind": "client",
-      "sha256": "a95be6ef271707fe9895d1eb39a3330607144023754e13b9c40e92406607db41",
-      "size": 10630
+      "sha256": "5a0835a5c45021599d9f8b43f4d56c8f71a164476c8518653768d5a93b9e001b",
+      "size": 9235
     },
     {
       "path": "client/lib/hash.js",
@@ -144,8 +144,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "79fcee446cad2570b1bccc962fd104308e8fe2c9d4ca52654f868fde9b5f7835",
-      "size": 164532
+      "sha256": "5d5c65de49c580c797f1e673184f6f81065af337d6d8cdfd3ae162e1fe348e3f",
+      "size": 164571
     },
     {
       "path": "client/provider-postgrest.js",
@@ -482,7 +482,7 @@
     "client": 34,
     "server": 44
   },
-  "client_size": 1487212,
+  "client_size": 1485856,
   "server_size": 649119,
-  "total_size": 2136331
+  "total_size": 2134975
 }
