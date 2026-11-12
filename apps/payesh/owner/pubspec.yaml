@@ -11,7 +11,9 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   payesh_owner_api:
+  payesh_secure:
   payesh_ui:
+  crypto: ^3.0.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

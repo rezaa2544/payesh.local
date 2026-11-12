@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:payesh_secure/payesh_secure.dart';
 
 /// Where the app remembers the server origin and the theme choice. Never the token.
 abstract interface class SettingsStore {
@@ -78,3 +79,62 @@ SettingsStore platformSettingsStore() => FileSettingsStore(() async {
   final home = env['HOME'] ?? Directory.systemTemp.path;
   return '${env['XDG_DATA_HOME'] ?? '$home/.local/share'}/payesh-owner';
 });
+
+String _windowsBase() {
+  final env = Platform.environment;
+  return env['LOCALAPPDATA'] ?? env['APPDATA'] ?? Directory.systemTemp.path;
+}
+
+/// انبار امن اندروید: AES-256-GCM با کلید درون Android Keystore (KeystoreSecureStore.kt).
+final class ChannelSecureStore implements SecureStore {
+  ChannelSecureStore([MethodChannel? channel]) : _ch = channel ?? _channel;
+  final MethodChannel _ch;
+
+  Future<T?> _call<T>(String method, Map<String, Object?> args) async {
+    try {
+      return await _ch.invokeMethod<T>(method, args);
+    } on PlatformException catch (e) {
+      throw SecureStoreException('${e.code}: ${e.message ?? ''}');
+    } on MissingPluginException {
+      throw const SecureStoreException('secure store channel not available');
+    }
+  }
+
+  @override
+  Future<String?> read(String key) =>
+      _call<String>('secureRead', {'key': checkSecureKey(key)});
+
+  @override
+  Future<void> write(String key, String value) =>
+      _call<void>('secureWrite', {'key': checkSecureKey(key), 'value': value});
+
+  @override
+  Future<void> delete(String key) =>
+      _call<void>('secureDelete', {'key': checkSecureKey(key)});
+}
+
+/// فقط دستگاه توسعه (لینوکس/مک): فایل خصوصی ساده — نصب‌کننده‌ها هرگز از آن استفاده نمی‌کنند.
+final class DevFileSecureStore implements SecureStore {
+  DevFileSecureStore(String dir) : _files = FileSettingsStore(() async => dir);
+  final FileSettingsStore _files;
+  @override
+  Future<String?> read(String key) => _files.read(checkSecureKey(key));
+  @override
+  Future<void> write(String key, String value) =>
+      _files.write(checkSecureKey(key), value);
+  @override
+  Future<void> delete(String key) => _files.write(checkSecureKey(key), null);
+}
+
+/// ویندوز: DPAPI (کاربر جاری) در `%LOCALAPPDATA%\PayeshOwner\secure`؛ اندروید: Keystore.
+SecureStore platformSecureStore() {
+  if (Platform.isWindows) {
+    return DpapiSecureStore('${_windowsBase()}\\PayeshOwner\\secure');
+  }
+  if (Platform.isAndroid) return ChannelSecureStore();
+  final env = Platform.environment;
+  final home = env['HOME'] ?? Directory.systemTemp.path;
+  return DevFileSecureStore(
+    '${env['XDG_DATA_HOME'] ?? '$home/.local/share'}/payesh-owner/secure',
+  );
+}
