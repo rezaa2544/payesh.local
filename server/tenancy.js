@@ -289,9 +289,30 @@ const SCHEMA_SQL = [
   `GRANT SELECT, INSERT, UPDATE ON ${CRED_TABLE} TO ${RUNTIME_ROLE}`,
 ];
 
-/* اجرای مهاجرت با اتصال مدیر (superuser) — بخشی از محصول است، نه هارنس */
-async function migrate(client) {
-  for (const sql of SCHEMA_SQL) await client.query(sql);
+/* اجرای مهاجرت با اتصال مدیر (superuser) — بخشی از محصول است، نه هارنس
+   ردیف ۱۲۶ (یافتهٔ CI): مهاجرت قبلاً دستور به دستور و بیرون از تراکنش اجرا می‌شد. اگر یک نمونهٔ
+   Gateway هنگام سرویس‌دهی نمونهٔ دیگر بالا می‌آمد (استقرار چرخشی، راه‌اندازی دوباره، چند نمونه)،
+   میان DROP POLICY و CREATE POLICY جدول FORCE RLS بی‌سیاست می‌ماند و Postgres هر نوشتن را رد
+   می‌کرد («new row violates row-level security policy» ⇒ 503 quota_unavailable)؛ دو مهاجرت
+   هم‌زمان هم یکدیگر را می‌شکستند (42710 / tuple concurrently updated).
+   اکنون: یک تراکنش + قفل مشورتی ⇒ مهاجرت‌های هم‌زمان پشت سر هم اجرا می‌شوند و درخواست‌های زنده
+   هرگز جدول بی‌سیاست نمی‌بینند (تا COMMIT پشت قفل جدول می‌ایستند). مهاجرت هم‌زمان با یک
+   تراکنش چندجدولی زنده ممکن است بن‌بست Postgres بدهد (40P01)؛ کل مهاجرت دوباره اجرا می‌شود. */
+const MIGRATE_LOCK_KEY = 7061796573680126; // "payesh" + row 126 — one key for every tenancy migrator
+async function migrate(client, { attempts = 5 } = {}) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await client.query('BEGIN');
+      await client.query('select pg_advisory_xact_lock($1::bigint)', [String(MIGRATE_LOCK_KEY)]);
+      for (const sql of SCHEMA_SQL) await client.query(sql);
+      await client.query('COMMIT');
+      break;
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch (_) { /* noop */ }
+      if (!(e && (e.code === '40P01' || e.code === '40001')) || attempt >= attempts) throw e;
+      await new Promise(r => setTimeout(r, 25 * attempt));
+    }
+  }
   const v = await client.query('select current_setting($1, true) as v', ['server_version']);
   return { table: TABLE, statements: SCHEMA_SQL.length, server_version: v.rows[0] && v.rows[0].v };
 }

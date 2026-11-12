@@ -25,6 +25,7 @@ on:
       - 'tests/cell-transfer-54.js'
       - 'tests/gateway-67.js'
       - 'tests/offline-119.js'
+      - 'tests/migrate-atomic-126.js'
       - 'tests/field-crypto-87.js'
       - 'tools/field-rekey-87.mjs'
       - 'tests/load-82.js'
@@ -76,6 +77,7 @@ on:
       - 'tests/cell-transfer-54.js'
       - 'tests/gateway-67.js'
       - 'tests/offline-119.js'
+      - 'tests/migrate-atomic-126.js'
       - 'tests/field-crypto-87.js'
       - 'tools/field-rekey-87.mjs'
       - 'tests/load-82.js'
@@ -206,6 +208,17 @@ jobs:
         run: |
           set -o pipefail
           node tests/offline-119.js | tee -a native-contract.txt
+      # Row 126 (CI finding): tenancy.migrate() must be atomic under live traffic — concurrent
+      # migrators + runtime writers, 0 RLS refusals; the old statement-by-statement migrate must break.
+      - name: Row 126 atomic tenancy.migrate — concurrent migrations under live writes, negative control
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+          MIG126_REQUIRE_PG: '1'
+        run: |
+          set -o pipefail
+          node tests/migrate-atomic-126.js | tee -a native-contract.txt
+          grep -q '^MIGRATE-ATOMIC-126-OK$' native-contract.txt
       - name: Row 87 field encryption — AEAD at rest, env key, rotation, DB-dump negative test (SQLite + PostgreSQL), mutation controls
         env:
           PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64

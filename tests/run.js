@@ -5112,6 +5112,25 @@ async function waitFor(fn, ms = 15000) {
       console.log('    OFFLINE-119 pool_error_listener=1 negative_controls=1 pg_suite=BLOCKED-here (CI api-contract runs it)');
     });
 
+  /* ── ردیف ۱۲۶ (یافتهٔ CI): مهاجرت tenancy اتمی است — بدون پنجرهٔ «جدول RLS بی‌سیاست» ── */
+  await test('ردیف ۱۲۶: tenancy.migrate یک تراکنش + قفل مشورتی + تکرار بن‌بست (ایستا)؛ آزمون بار هم‌زمان PG بدون PG ⇒ BLOCKED نه PASS',
+    async () => {
+      const src = fs.readFileSync(path.join(ROOT, 'server/tenancy.js'), 'utf8');
+      const body = src.slice(src.indexOf('async function migrate('), src.indexOf('/* ── اتصال runtime'));
+      const at = k => body.indexOf(k);
+      assert.ok(at("client.query('BEGIN')") > 0 && at("client.query('BEGIN')") < at('pg_advisory_xact_lock')
+        && at('pg_advisory_xact_lock') < at('for (const sql of SCHEMA_SQL)') && at('for (const sql of SCHEMA_SQL)') < at("client.query('COMMIT')"),
+        'migrate must be BEGIN → advisory lock → schema → COMMIT (row 126)');
+      assert.ok(/ROLLBACK/.test(body) && /40P01/.test(body), 'migrate must roll back and retry deadlocks');
+      const { spawnSync } = require('child_process');
+      const env = Object.assign({}, process.env);
+      delete env.PAYESH_PG_ADMIN; delete env.PAYESH_PG_RUNTIME; delete env.MIG126_REQUIRE_PG;
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/migrate-atomic-126.js')], { encoding: 'utf8', env });
+      assert.strictEqual(r.status, 3, 'migrate-atomic-126 without PG must be BLOCKED (exit 3): ' + r.stdout);
+      assert.ok(/BLOCKED/.test(r.stdout) && !/^PASS/m.test(r.stdout));
+      console.log('    MIGRATE-ATOMIC-126 static=1 pg_suite=BLOCKED-here (CI api-contract runs it)');
+    });
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));
