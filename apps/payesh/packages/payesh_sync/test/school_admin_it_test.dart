@@ -1062,4 +1062,194 @@ void main() {
     },
     skip: skip,
   );
+
+  // ───────────────────────────── W10 bulk import and follow-up ─────────────────────────────
+  var w10Student = 0;
+  var w10Bare = 0;
+
+  test('W10-IT-01 offline CSV import → queued → users, parents, links, definitions on the server; the student signs in with mobile + national id', () async {
+    await manager.pull();
+    final x = SchoolImport(manager.db);
+    final s = ImportSession.fromBook(
+      SheetReader.csv(
+        'نام و نام خانوادگی,کد ملی,موبایل,نام پدر,موبایل پدر,پایه,رشته\n'
+        'کیوان واردشده,0099887766,9351110128,رضا,09351110129,یازدهم,مکاترونیک\n'
+        'بی‌پایه وارده,,,,,,\n',
+      ),
+      kind: 'students',
+      fileName: 'w10.csv',
+      grades: const ['یازدهم'],
+    );
+    final r = await x.check(s);
+    expect(r.ready.length, 2);
+    expect(r.phonesFixed, 1);
+    final res = await x.apply(s, r);
+    expect(res.students, 2);
+    expect(res.parents, 1);
+    expect(res.savedIssues, 1, reason: 'no national id');
+    final dead = Uri.parse('http://127.0.0.1:${await freePort()}');
+    final queued = (await manager.sync(dead)).waiting;
+    expect(queued, res.keys.length);
+    expect(
+      queued,
+      greaterThanOrEqualTo(6),
+      reason: 'new definitions, 2 students, parent, link, issue',
+    );
+    negatives++;
+    expect((await manager.sync()).waiting, 0);
+    final users = await serverRows('users');
+    final kv = users.firstWhere((u) => u['name'] == 'کیوان واردشده');
+    w10Student = (kv['id']! as num).toInt();
+    expect(kv['phone'], '09351110128');
+    expect(kv['grade'], 'یازدهم');
+    expect(kv['field'], 'مکاترونیک');
+    expect(
+      kv['password_hash'],
+      isNotNull,
+      reason: 'the server set the default credentials',
+    );
+    final father = users.firstWhere((u) => u['phone'] == '09351110129');
+    expect(father['role'], 'parent');
+    final links = await serverRows('parent_links');
+    expect(
+      links.any(
+        (l) =>
+            l['student_id'] == w10Student &&
+            l['parent_id'] == father['id'] &&
+            l['relation'] == 'پدر',
+      ),
+      isTrue,
+    );
+    final defs = (await serverRows('lookups')).map((l) => l['name']).toSet();
+    expect(defs, containsAll(['یازدهم', 'مکاترونیک']));
+    final issues = await serverRows('import_issues');
+    expect(issues.single['name'], 'بی‌پایه وارده');
+    final login = await lan.login(
+      server: server,
+      phone: '09351110128',
+      password: '0099887766',
+      deviceName: 'گوشی کیوان',
+    );
+    expect(login.role, 'student');
+    expect(login.uid, w10Student);
+    w10Bare =
+        (users.firstWhere((u) => u['name'] == 'بی‌پایه وارده')['id']! as num)
+            .toInt();
+    passed++;
+  }, skip: skip);
+
+  test('W10-IT-02 another manager device pulls the follow-up list; assign + issue done reach the server', () async {
+    final other = Device(server, managerLogin, seed: 10);
+    await other.pull();
+    final f = Followup(other.db);
+    final v = await f.view();
+    expect(v.issues.map((i) => i.name), contains('بی‌پایه وارده'));
+    final issue = v.issues.firstWhere((i) => i.name == 'بی‌پایه وارده');
+    expect(issue.userId, w10Bare, reason: 'created, but incomplete');
+    expect(
+      v.students.any((s) => s.id == w10Bare),
+      isFalse,
+      reason: 'the file grade (11th, field mode) is complete without a class',
+    );
+    expect(v.students.any((s) => s.id == w10Student), isFalse);
+    await f.assign(w10Bare, grade: 'نهم');
+    await f.issueDone(issue.id);
+    expect((await other.sync()).waiting, 0);
+    final u = await serverRow('users', w10Bare);
+    expect(u!['grade'], 'نهم');
+    final cls = await serverRow('classes', (u['class_id']! as num).toInt());
+    expect(cls!['name'], 'نهم');
+    expect((await serverRow('import_issues', issue.id))!['status'], 'done');
+    await manager.pull();
+    expect((await Followup(manager.db).view()).issues, isEmpty);
+    passed++;
+  }, skip: skip);
+
+  test('W10-IT-03 past grades and attendance from a sheet reach the server with deterministic ids', () async {
+    await manager.pull();
+    final x = SchoolImport(manager.db);
+    final g = ImportSession.fromBook(
+      SheetReader.csv('کد ملی,درس,نمره,نوبت\n0099887766,ریاضی,۱۷/۵,اول\n'),
+      kind: 'grades',
+      fileName: 'g.csv',
+    );
+    await x.apply(g, await x.check(g));
+    final a = ImportSession.fromBook(
+      SheetReader.csv('کد ملی,تاریخ,وضعیت\n0099887766,۱۴۰۵/۸/۱۹,تأخیر\n'),
+      kind: 'attendance',
+      fileName: 'a.csv',
+    );
+    await x.apply(a, await x.check(a));
+    expect((await manager.sync()).waiting, 0);
+    final gid = GradeBook.recordId(
+      classId: 0,
+      subjectId: 41,
+      term: GradeTerm.first,
+      studentId: w10Student,
+    );
+    expect((await serverRow('grades', gid))!['score'], 17.5);
+    final aid = AttendanceBook.recordId(w10Student, '2026-11-10');
+    expect((await serverRow('attendance', aid))!['status'], 'late');
+    passed++;
+  }, skip: skip);
+
+  test('W10-IT-04 NEG a taken mobile is refused on the device; a teacher cannot import or write follow-up (device AND server)', () async {
+    await manager.pull();
+    final x = SchoolImport(manager.db);
+    final s = ImportSession.fromBook(
+      SheetReader.csv('نام,موبایل\nتکراری وارده,09351110128\n'),
+      kind: 'students',
+      fileName: 'dup.csv',
+      grades: const ['دهم'],
+    );
+    final r = await x.check(s);
+    expect(r.rows.single.errors.single, contains('هر شماره یک حساب دارد'));
+    await expectLater(x.apply(s, r), throwsA(isA<RecordFailure>()));
+    expect(manager.outbox.list(), isEmpty);
+    await expectLater(
+      SchoolImport(teacher.db).check(s),
+      throwsA(
+        isA<RecordFailure>().having((f) => f.code, 'code', 'not_allowed'),
+      ),
+    );
+    await expectLater(
+      Followup(teacher.db).ack(w10Student),
+      throwsA(
+        isA<RecordFailure>().having((f) => f.code, 'code', 'not_allowed'),
+      ),
+    );
+    expect(teacher.outbox.list(), isEmpty);
+    final evil = await push(teacherLogin.token, [
+      {
+        'uid': 'evil-w10-issue',
+        'collection': 'import_issues',
+        'type': 'put',
+        'id': SchoolRecords.idBaseOf('import_issues') + 7,
+        'data': {'name': 'x', 'status': 'open'},
+        'base_version': 0,
+      },
+      {
+        'uid': 'evil-w10-user',
+        'collection': 'users',
+        'type': 'put',
+        'id': SchoolRecords.idBaseOf('users') + 7,
+        'data': {'name': 'دانش‌آموز جعلی', 'role': 'student'},
+        'base_version': 0,
+      },
+    ]);
+    expect(evil['applied'], isEmpty, reason: '$evil');
+    expect(
+      await serverRow(
+        'import_issues',
+        SchoolRecords.idBaseOf('import_issues') + 7,
+      ),
+      isNull,
+    );
+    expect(
+      await serverRow('users', SchoolRecords.idBaseOf('users') + 7),
+      isNull,
+    );
+    negatives += 5;
+    passed++;
+  }, skip: skip);
 }

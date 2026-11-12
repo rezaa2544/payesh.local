@@ -6,6 +6,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 import '../accounts/accounts_screen.dart';
 import '../classes/classes_screen.dart';
 import '../flags.dart';
+import '../followup/followup_screen.dart';
 import '../schedule/schedule_screen.dart';
 import '../users/users_controller.dart';
 import '../users/users_screen.dart';
@@ -96,6 +97,22 @@ final List<SchoolPageSpec> schoolPages = [
           RecordController(source: a.source, role: a.role, uid: a.uid),
       page: (c) => RecordScreen(
         controller: c as RecordController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
+  SchoolPageSpec(
+    id: 'followup',
+    wave: SchoolWave.followup,
+    label: 'نیازمند پیگیری',
+    icon: Icons.report_problem_outlined,
+    roles: const {'manager'},
+    build: (a) => SchoolOwned(
+      create: () =>
+          FollowupController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => FollowupScreen(
+        controller: c as FollowupController,
         sync: a.sync,
         onRetry: a.onRetry,
       ),

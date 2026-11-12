@@ -112,13 +112,30 @@ void main() {
         reason: d,
       );
     }
-    for (final s in [0, -1, AttendanceBook.maxStudentId + 1]) {
+    for (final s in [0, -1, AttendanceBook.maxSafeId + 1]) {
       expect(
         () => AttendanceBook.recordId(s, day),
         refused(AttendanceError.badStudent),
       );
     }
   });
+
+  test(
+    'W2-U05b students created natively (ids from 1e15) get a wide-range id',
+    () {
+      const big = 1000000000000123;
+      final a = AttendanceBook.recordId(big, day);
+      expect(AttendanceBook.recordId(big, day), a);
+      expect(AttendanceBook.recordId(big + 1, day), isNot(a));
+      expect(AttendanceBook.recordId(big, '2026-11-13'), isNot(a));
+      expect(a, greaterThanOrEqualTo(AttendanceBook.wideBase));
+      expect(a, lessThan(AttendanceBook.wideBase + AttendanceBook.wideSpan));
+      expect(
+        AttendanceBook.recordId(AttendanceBook.maxStudentId + 1, day),
+        greaterThanOrEqualTo(AttendanceBook.wideBase),
+      );
+    },
+  );
 
   test(
     'W2-U06 teacher classes = schedule teacher_id + own class; manager = all',

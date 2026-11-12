@@ -279,8 +279,19 @@ class _UsersScreenState extends State<UsersScreen> {
 
 /// The `user` form (web «کاربر جدید»).
 class UserFormPage extends StatefulWidget {
-  const UserFormPage({super.key, required this.controller});
+  const UserFormPage({
+    super.key,
+    required this.controller,
+    this.initial = const {},
+    this.onSaved,
+  });
   final UsersController controller;
+
+  /// W10 `issue-fix`: the form opens with the values of the import row.
+  final Map<String, String> initial;
+
+  /// Runs after a successful save, before the form closes.
+  final Future<void> Function(RecordWrite w)? onSaved;
 
   @override
   State<UserFormPage> createState() => _UserFormPageState();
@@ -300,8 +311,18 @@ class _UserFormPageState extends State<UserFormPage> {
       k: TextEditingController(),
     for (final (k, _, _) in userExtraFields) k: TextEditingController(),
   };
-  String role = 'student';
+  late String role = roleFa.containsKey(widget.initial['role'])
+      ? widget.initial['role']!
+      : 'student';
   int? classId;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final e in widget.initial.entries) {
+      f[e.key]?.text = e.value;
+    }
+  }
 
   @override
   void dispose() {
@@ -326,6 +347,7 @@ class _UserFormPageState extends State<UserFormPage> {
         extra: {for (final (k, _, _) in userExtraFields) k: f[k]!.text},
       ),
     );
+    if (r != null) await widget.onSaved?.call(r);
     if (r != null && mounted) Navigator.pop(context);
   }
 
@@ -398,9 +420,17 @@ class _UserFormPageState extends State<UserFormPage> {
 
 /// `user-edit` (web «ویرایش کاربر»): name, mobile, active, extra fields.
 class UserEditPage extends StatefulWidget {
-  const UserEditPage({super.key, required this.controller, required this.user});
+  const UserEditPage({
+    super.key,
+    required this.controller,
+    required this.user,
+    this.onSaved,
+  });
   final UsersController controller;
   final SchoolUser user;
+
+  /// Runs after a successful save, before the form closes (W10 `issue-fix`).
+  final Future<void> Function(RecordWrite w)? onSaved;
 
   @override
   State<UserEditPage> createState() => _UserEditPageState();
@@ -435,6 +465,7 @@ class _UserEditPageState extends State<UserEditPage> {
       active: active,
       extra: {for (final e in extra.entries) e.key: e.value.text},
     );
+    if (r != null) await widget.onSaved?.call(r);
     if (r != null && mounted) Navigator.pop(context);
   }
 

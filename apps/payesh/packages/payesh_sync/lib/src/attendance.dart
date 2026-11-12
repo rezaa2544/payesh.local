@@ -4,6 +4,9 @@
 //   * the default status is `present`; a student whose stored status is unchanged is skipped;
 //   * every write goes to the local database first and then to the durable outbox (offline-first);
 //     the Gateway (`/api/gw/v1/push`) is the only cloud path (row 75 / D‑36).
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_data/payesh_data.dart';
 
@@ -158,17 +161,39 @@ final class AttendanceBook {
   static const int maxStudentId = 9999999999;
   static const int maxDay = 99999;
 
+  /// Students created by the native school pages (row 128) have ids from 1e15 (records.dart
+  /// `idSlots`), above [maxStudentId]: their (day, student) id is a hash in the free range
+  /// [wideBase, wideBase + wideSpan) — still deterministic (same day + student = same record), a
+  /// hash collision meets a version conflict instead of overwriting (base version 0).
+  static const int wideBase = 2500000000000000;
+  static const int wideSpan = 500000000000000;
+  static const int maxSafeId = 9007199254740991;
+
   static int recordId(int studentId, String date) {
-    if (studentId < 1 || studentId > maxStudentId) {
-      throw AttendanceFailure(AttendanceError.badStudent, studentId);
-    }
     final d = _parseDate(date);
     if (d == null) throw AttendanceFailure(AttendanceError.badDate, date);
     final day = d.difference(_epoch).inDays;
     if (day < 0 || day > maxDay) {
       throw AttendanceFailure(AttendanceError.badDate, date);
     }
+    if (studentId > maxStudentId && studentId <= maxSafeId) {
+      return _wideId(studentId, day);
+    }
+    if (studentId < 1 || studentId > maxStudentId) {
+      throw AttendanceFailure(AttendanceError.badStudent, studentId);
+    }
     return idBase + day * 10000000000 + studentId;
+  }
+
+  static int _wideId(int studentId, int day) {
+    final h = sha256
+        .convert(utf8.encode('payesh-attendance-v1|$day|$studentId'))
+        .bytes;
+    var v = 0;
+    for (var i = 0; i < 7; i++) {
+      v = (v << 8) | h[i];
+    }
+    return wideBase + v % wideSpan;
   }
 
   static int? _int(Object? v) => switch (v) {

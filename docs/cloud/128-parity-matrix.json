@@ -565,13 +565,57 @@
   },
   {
    "id": "act:followup-ack",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('fu-ack-${s.id}')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/followup.dart",
+     "has": "Future<RecordWrite> ack(int id)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U12"
+    }
+   ]
   },
   {
    "id": "act:followup-assign",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('fu-assign-${s.id}')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/followup.dart",
+     "has": "Future<RecordWrite> assign("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U12"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W10-IT-02"
+    }
+   ]
   },
   {
    "id": "act:forget-device",
@@ -642,58 +686,282 @@
   },
   {
    "id": "act:imp-branch-no",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('imp-ask-no-$i')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/school_import.dart",
+     "has": "final Map<String, String> branchAsk"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W08"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U06"
+    }
+   ]
   },
   {
    "id": "act:imp-branch-yes",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('imp-ask-yes-$i')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/school_import.dart",
+     "has": "final Map<String, String> branchAsk"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U06"
+    }
+   ]
   },
   {
    "id": "act:imp-recheck",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('imp-recheck')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Future<void> recheck()"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W06"
+    }
+   ]
   },
   {
    "id": "act:import-apply",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('imp-apply')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/school_import.dart",
+     "has": "Future<ImportResult> apply(ImportSession s, ImportReview review)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U08"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U09"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W10-IT-01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W10-IT-03"
+    }
+   ]
   },
   {
    "id": "act:import-back",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('imp-prev')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "void back()"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W07"
+    }
+   ]
   },
   {
    "id": "act:import-check",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('imp-check')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/school_import.dart",
+     "has": "Future<ImportReview> check(ImportSession s)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W10-IT-04"
+    }
+   ]
   },
   {
    "id": "act:import-open",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('fu-import')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Future<void> openFile(String path, String pasted)"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/sheet_reader.dart",
+     "has": "static SheetBook read(String fileName, Uint8List bytes)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W07"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U02"
+    }
+   ]
   },
   {
    "id": "act:issue-done",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('fu-issue-done-${i.id}')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/followup.dart",
+     "has": "Future<RecordWrite> issueDone(int id)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W10-IT-02"
+    }
+   ]
   },
   {
    "id": "act:issue-fix",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('fu-issue-fix-${i.id}')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Future<void> _fix(ImportIssue i)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W05"
+    }
+   ]
   },
   {
    "id": "act:issues-clear",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('fu-issues-clear')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/followup.dart",
+     "has": "Future<RecordWrite> issuesClear()"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U12"
+    }
+   ]
   },
   {
    "id": "act:issues-open",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('imp-issues-open')"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W06"
+    }
+   ]
   },
   {
    "id": "act:leave-add",
@@ -1858,13 +2126,61 @@
   },
   {
    "id": "form:imp-fix",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "class ImportFixPage"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/school_import.dart",
+     "has": "void fix(int idx, Map<String, String> values)"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/school_import.dart",
+     "has": "String fixValue(ImportRow r, String key)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U11"
+    }
+   ]
   },
   {
    "id": "form:import-file",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "List<Widget> _stepFile()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/school_import.dart",
+     "has": "final class ImportSession"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W06"
+    },
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W07"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U03"
+    }
+   ]
   },
   {
    "id": "form:leave",
@@ -2346,8 +2662,36 @@
   },
   {
    "id": "page:followup",
-   "status": "planned",
-   "wave": "W10"
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "class FollowupScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'followup'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/followup.dart",
+     "has": "Future<FollowupView> view()"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/followup_wave10_test.dart",
+     "has": "'W10-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_import_test.dart",
+     "has": "'W10-U12"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W10-IT-02"
+    }
+   ]
   },
   {
    "id": "page:grades",
