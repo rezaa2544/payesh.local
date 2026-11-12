@@ -549,6 +549,26 @@ final class UserDirectory {
     return RecordWrite('کاربر ویرایش شد', id: id, keys: [k]);
   }
 
+  /// W7 `user-creds`, username part: the mobile number IS the username — an ordinary users
+  /// field, so it goes through the offline queue (the server re-checks uniqueness).
+  Future<RecordWrite> setUsername(int id, String phone) async {
+    _requireManager();
+    final prev = await db.existing(users, id, 'این کاربر');
+    final m = _mobile(phone);
+    if (m.isEmpty) {
+      throw const RecordFailure(
+        'invalid',
+        'نام کاربری (شمارهٔ همراه) را بنویسید — ۱۱ رقم و با ۰۹',
+      );
+    }
+    await _uniquePhone(m, id, await _rows());
+    if (m == '${prev.data['phone'] ?? ''}') {
+      return const RecordWrite('تغییری نبود');
+    }
+    final k = await db.put(users, id, {...prev.data, 'phone': m}, prev: prev);
+    return RecordWrite('نام کاربری در صف ارسال است', id: id, keys: [k]);
+  }
+
   static void _extras(
     Map<String, Object?> data,
     Map<String, Object?> prev,

@@ -47,6 +47,24 @@ final class NeedLan extends SessionState {
   bool get needsSetup => info != null && !info!.setupDone;
 }
 
+/// Row 128 / W7 — the user locked the app on this device (web `lockApp`): the device stays
+/// registered (device token kept), but nothing is shown and nothing syncs until the user's
+/// password opens a new session (`/api/auth/unlock`). Kept across restarts.
+final class Locked extends SessionState {
+  const Locked({required this.school, this.schoolName, this.error});
+  final String school;
+  final String? schoolName;
+  final String? error;
+}
+
+/// Row 128 / W7 — manager rescue on the server computer itself (web form `claim`): the
+/// manager's mobile + a new password, accepted by the server only from its own computer.
+final class NeedClaim extends SessionState {
+  const NeedClaim(this.info, {this.error});
+  final LanServerInfo info;
+  final String? error;
+}
+
 /// Signed in. [session] is null while offline before the first refresh of this run: the app
 /// still opens (offline-first) and shows what it has.
 final class SignedIn extends SessionState {
@@ -206,6 +224,9 @@ class SessionController extends ChangeNotifier {
       if (lan != null) {
         final l = await lanAccounts.load();
         _lan = l;
+        if (l != null && await lanAccounts.isLocked()) {
+          return _set(Locked(school: l.school, schoolName: l.schoolName));
+        }
         if (l != null) {
           _set(_lanSignedIn(l));
           await refresh();
@@ -545,6 +566,103 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  /// Whether this device can be locked (LAN mode: unlocking needs the school server's
+  /// `/api/auth/unlock`; the cloud Gateway has no such endpoint).
+  bool get canLock => _lan != null && _state is SignedIn;
+
+  /// Locks the app (web `lockApp`): the access token is dropped from memory, the device token
+  /// stays saved, sync stops (the data path follows [SignedIn] only). The lock survives a restart.
+  Future<void> lock() async {
+    final l = _lan;
+    if (l == null || _state is! SignedIn || _busy) return;
+    await lanAccounts.setLocked(true);
+    _set(Locked(school: l.school, schoolName: l.schoolName));
+  }
+
+  /// Opens the lock with the user's password (web form `unlock`). Wrong password / server
+  /// unreachable keep the lock with a message; a revoked device goes back to the LAN login.
+  Future<void> submitUnlock(String password) async {
+    final s = _state;
+    final l = _lan;
+    final api = lan;
+    if (_busy || s is! Locked || l == null || api == null) return;
+    Locked again(String e) =>
+        Locked(school: l.school, schoolName: l.schoolName, error: e);
+    final wait = _lanCooldown();
+    if (wait != null) return _set(again(wait));
+    if (password.isEmpty) return _set(again('رمز عبور را وارد کنید'));
+    _set(Locked(school: l.school, schoolName: l.schoolName), busy: true);
+    try {
+      final fresh = await api.unlock(
+        server: l.server,
+        deviceToken: l.deviceToken,
+        password: password,
+      );
+      await lanAccounts.setLocked(false);
+      _publish(SyncPhase.idle, ok: _now());
+      _set(_lanSignedIn(l, fresh));
+    } on LanAccessFailure catch (e) {
+      if (e.kind == LanAccessError.deviceRevoked) {
+        await lanAccounts.clear();
+        _lan = null;
+        _publish(SyncPhase.idle);
+        return _set(NeedLan(error: e.messageFa, typed: _typedOf(l.server)));
+      }
+      _set(again(_lanFail(e)));
+    } on Object {
+      _set(again(_unknown));
+    }
+  }
+
+  /// "رمز را فراموش کرده‌ام" on the server computer (loopback server only).
+  void openClaim() {
+    final s = _state;
+    if (_busy || s is! NeedLan || s.info == null) return;
+    if (!LanServerRules.isLoopbackHost(s.info!.server.host)) return;
+    _set(NeedClaim(s.info!));
+  }
+
+  void closeClaim() {
+    final s = _state;
+    if (s is NeedClaim)
+      _set(NeedLan(info: s.info, typed: _typedOf(s.info.server)));
+  }
+
+  /// Web form `claim`: 11-digit mobile + password (≥ 4) → the server sets them for the manager
+  /// and signs this device in.
+  Future<void> submitClaim(String phone, String password) async {
+    final s = _state;
+    final api = lan;
+    if (_busy || s is! NeedClaim || api == null) return;
+    final p = LanServerRules.normalizeLogin(phone);
+    if (p.length != 11) {
+      return _set(NeedClaim(s.info, error: 'شمارهٔ همراه باید ۱۱ رقم باشد'));
+    }
+    if (password.length < 4) {
+      return _set(NeedClaim(s.info, error: 'رمز عبور حداقل ۴ نویسه باشد'));
+    }
+    _set(NeedClaim(s.info), busy: true);
+    try {
+      final fresh = await api.claim(
+        server: s.info.server,
+        phone: p,
+        password: password,
+      );
+      await _lanSignedInWith(s.info, fresh);
+    } on LanAccessFailure catch (e) {
+      _set(
+        NeedClaim(
+          s.info,
+          error: e.kind == LanAccessError.setupLocalOnly
+              ? 'این کار فقط روی خود رایانهٔ سرور مدرسه ممکن است'
+              : _lanFail(e),
+        ),
+      );
+    } on Object {
+      _set(NeedClaim(s.info, error: _unknown));
+    }
+  }
+
   Future<void> _lanSignedInWith(LanServerInfo info, LanSession fresh) async {
     final saved = SavedLan(
       server: info.server,
@@ -555,6 +673,7 @@ class SessionController extends ChangeNotifier {
       uid: fresh.uid,
     );
     await lanAccounts.save(saved);
+    await lanAccounts.setLocked(false);
     _lan = saved;
     _publish(SyncPhase.idle, ok: _now());
     _set(_lanSignedIn(saved, fresh));

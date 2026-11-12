@@ -232,8 +232,28 @@
   },
   {
    "id": "act:creds-delete",
-   "status": "planned",
-   "wave": "W7"
+   "status": "native",
+   "wave": "W7",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/accounts/accounts_screen.dart",
+     "has": "Key('crd-delete')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/accounts/accounts_screen.dart",
+     "has": "Future<RecordWrite?> delete()"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W6-IT-06"
+    }
+   ]
   },
   {
    "id": "act:def-add",
@@ -459,8 +479,33 @@
   },
   {
    "id": "act:lock",
-   "status": "planned",
-   "wave": "W7"
+   "status": "native",
+   "wave": "W7",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/login/session_controller.dart",
+     "has": "Future<void> lock()"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/login/login_screens.dart",
+     "has": "Key('lock')"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W08"
+    },
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W09"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/accounts_test.dart",
+     "has": "'W7-U06"
+    }
+   ],
+   "offline_fa": "باز کردن قفل به سرور مدرسه نیاز دارد (رمز روی دستگاه نیست) — مانند نسخهٔ وب؛ در حالت ابری (Gateway) قفل نمایش داده نمی‌شود."
   },
   {
    "id": "act:login-mode",
@@ -857,13 +902,55 @@
   },
   {
    "id": "act:user-auto-pw",
-   "status": "planned",
-   "wave": "W7"
+   "status": "native",
+   "wave": "W7",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/accounts/accounts_screen.dart",
+     "has": "Key('crd-auto')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/accounts.dart",
+     "has": "Future<String> autoPassword("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W7-IT-03"
+    }
+   ],
+   "offline_fa": "رمز عمداً فقط برخط: سرور فقط اثر PBKDF2 و نسخهٔ پلمپ‌شده را نگه می‌دارد و از همگام‌سازی رمز نمی‌پذیرد (F‑01، server/sync.js)؛ نگه‌داشتن رمز خام در صف یعنی رمز روی دیسک. بدون اتصال پیام روشن می‌آید و چیزی نیمه‌کاره ثبت نمی‌شود؛ بخش نام کاربری (شمارهٔ همراه) از صف آفلاین می‌رود."
   },
   {
    "id": "act:user-creds",
-   "status": "planned",
-   "wave": "W7"
+   "status": "native",
+   "wave": "W7",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/accounts/accounts_screen.dart",
+     "has": "class CredsPage"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "Key('usr-creds-"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W7-IT-01"
+    }
+   ],
+   "offline_fa": "رمز عمداً فقط برخط: سرور فقط اثر PBKDF2 و نسخهٔ پلمپ‌شده را نگه می‌دارد و از همگام‌سازی رمز نمی‌پذیرد (F‑01، server/sync.js)؛ نگه‌داشتن رمز خام در صف یعنی رمز روی دیسک. بدون اتصال پیام روشن می‌آید و چیزی نیمه‌کاره ثبت نمی‌شود؛ بخش نام کاربری (شمارهٔ همراه) از صف آفلاین می‌رود."
   },
   {
    "id": "act:user-delete",
@@ -942,13 +1029,50 @@
   },
   {
    "id": "act:user-password",
-   "status": "planned",
-   "wave": "W7"
+   "status": "native",
+   "wave": "W7",
+   "native": [
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/accounts.dart",
+     "has": "Future<String?> setCredentials("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W7-IT-01"
+    }
+   ],
+   "offline_fa": "رمز عمداً فقط برخط: سرور فقط اثر PBKDF2 و نسخهٔ پلمپ‌شده را نگه می‌دارد و از همگام‌سازی رمز نمی‌پذیرد (F‑01، server/sync.js)؛ نگه‌داشتن رمز خام در صف یعنی رمز روی دیسک. بدون اتصال پیام روشن می‌آید و چیزی نیمه‌کاره ثبت نمی‌شود؛ بخش نام کاربری (شمارهٔ همراه) از صف آفلاین می‌رود."
   },
   {
    "id": "act:user-pick-pw",
-   "status": "planned",
-   "wave": "W7"
+   "status": "native",
+   "wave": "W7",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/accounts/accounts_screen.dart",
+     "has": "Key('crd-random')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/accounts.dart",
+     "has": "static String randomPassword("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/accounts_test.dart",
+     "has": "'W7-U01"
+    }
+   ]
   },
   {
    "id": "act:users-bulk-delete",
@@ -1007,8 +1131,32 @@
   },
   {
    "id": "form:claim",
-   "status": "planned",
-   "wave": "W7"
+   "status": "native",
+   "wave": "W7",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/login/login_screens.dart",
+     "has": "class ClaimScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/login/session_controller.dart",
+     "has": "Future<void> submitClaim("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W10"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W7-IT-06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/accounts_test.dart",
+     "has": "'W7-U05"
+    }
+   ]
   },
   {
    "id": "form:class",
@@ -1078,8 +1226,29 @@
   },
   {
    "id": "form:own-password",
-   "status": "planned",
-   "wave": "W7"
+   "status": "native",
+   "wave": "W7",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/accounts/accounts_screen.dart",
+     "has": "class OwnPasswordPage"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/accounts.dart",
+     "has": "Future<void> changeOwnPassword("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W7-IT-04"
+    }
+   ],
+   "offline_fa": "رمز عمداً فقط برخط: سرور فقط اثر PBKDF2 و نسخهٔ پلمپ‌شده را نگه می‌دارد و از همگام‌سازی رمز نمی‌پذیرد (F‑01، server/sync.js)؛ نگه‌داشتن رمز خام در صف یعنی رمز روی دیسک. بدون اتصال پیام روشن می‌آید و چیزی نیمه‌کاره ثبت نمی‌شود؛ بخش نام کاربری (شمارهٔ همراه) از صف آفلاین می‌رود."
   },
   {
    "id": "form:pair",
@@ -1161,8 +1330,28 @@
   },
   {
    "id": "form:unlock",
-   "status": "planned",
-   "wave": "W7"
+   "status": "native",
+   "wave": "W7",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/login/login_screens.dart",
+     "has": "class LockScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/login/session_controller.dart",
+     "has": "Future<void> submitUnlock("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W08"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W7-IT-05"
+    }
+   ]
   },
   {
    "id": "form:update",
@@ -1201,8 +1390,33 @@
   },
   {
    "id": "form:user-creds",
-   "status": "planned",
-   "wave": "W7"
+   "status": "native",
+   "wave": "W7",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/accounts/accounts_screen.dart",
+     "has": "Future<bool> save("
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/users.dart",
+     "has": "Future<RecordWrite> setUsername("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W03"
+    },
+    {
+     "file": "apps/payesh/app/test/accounts_wave7_test.dart",
+     "has": "'W7-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W7-IT-02"
+    }
+   ],
+   "offline_fa": "رمز عمداً فقط برخط: سرور فقط اثر PBKDF2 و نسخهٔ پلمپ‌شده را نگه می‌دارد و از همگام‌سازی رمز نمی‌پذیرد (F‑01، server/sync.js)؛ نگه‌داشتن رمز خام در صف یعنی رمز روی دیسک. بدون اتصال پیام روشن می‌آید و چیزی نیمه‌کاره ثبت نمی‌شود؛ بخش نام کاربری (شمارهٔ همراه) از صف آفلاین می‌رود."
   },
   {
    "id": "form:user-edit",

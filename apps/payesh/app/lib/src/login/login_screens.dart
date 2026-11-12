@@ -47,6 +47,8 @@ class SessionGate extends StatelessWidget {
           controller: controller,
           state: s,
         ),
+        final Locked s => LockScreen(controller: controller, state: s),
+        final NeedClaim s => ClaimScreen(controller: controller, state: s),
         final SignedIn s => SignedInScreen(
           controller: controller,
           state: s,
@@ -393,15 +395,24 @@ class SignedInScreen extends StatelessWidget {
             tooltip: 'گزینه‌ها',
             onSelected: (v) => switch (v) {
               'legacy' => controller.useLegacy(),
+              'lock' => controller.lock(),
               _ => _confirmSignOut(context),
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
+            itemBuilder: (_) => [
+              // row 128 / W7: web `lock` (LAN: unlocking asks the school server)
+              if (controller.canLock &&
+                  controller.flags.usesSchool(SchoolWave.accounts))
+                const PopupMenuItem(
+                  key: Key('lock'),
+                  value: 'lock',
+                  child: Text('قفل برنامه'),
+                ),
+              const PopupMenuItem(
                 key: Key('use-legacy'),
                 value: 'legacy',
                 child: Text('استفاده از نسخهٔ قبلی (وب)'),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 key: Key('sign-out'),
                 value: 'sign-out',
                 child: Text('خروج از این دستگاه'),
@@ -686,6 +697,14 @@ class _LanServerScreenState extends State<LanServerScreen> {
           onPressed: busy ? null : go,
           child: _busyOr(busy, 'ورود'),
         ),
+        // row 128 / W7 — web form `claim`: only on the server computer itself
+        if (LanServerRules.isLoopbackHost(info.server.host) &&
+            c.flags.usesSchool(SchoolWave.accounts))
+          TextButton(
+            key: const Key('lan-claim'),
+            onPressed: busy ? null : c.openClaim,
+            child: const Text('رمز مدیر را فراموش کرده‌اید؟'),
+          ),
         const SizedBox(height: PayeshTokens.space3),
         change,
       ],
@@ -741,6 +760,142 @@ class LegacyClientScreen extends StatelessWidget {
             child: const Text('استفاده از نسخهٔ جدید'),
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Row 128 / W7 — the app is locked on this device (web `lockApp` + form `unlock`).
+class LockScreen extends StatefulWidget {
+  const LockScreen({super.key, required this.controller, required this.state});
+  final SessionController controller;
+  final Locked state;
+
+  @override
+  State<LockScreen> createState() => _LockScreenState();
+}
+
+class _LockScreenState extends State<LockScreen> {
+  final _password = TextEditingController();
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  void _go() {
+    widget.controller.submitUnlock(_password.text);
+    _password.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final busy = widget.controller.busy;
+    return _LoginFrame(
+      title: 'برنامه قفل است',
+      children: [
+        Text(
+          widget.state.schoolName ?? widget.state.school,
+          key: const Key('lock-school'),
+        ),
+        const SizedBox(height: PayeshTokens.space2),
+        const Text('برای باز کردن، رمز عبور خود را بنویسید.'),
+        const SizedBox(height: PayeshTokens.space4),
+        TextField(
+          key: const Key('unlock-password'),
+          controller: _password,
+          obscureText: true,
+          enabled: !busy,
+          autofocus: true,
+          textDirection: TextDirection.ltr,
+          onSubmitted: (_) => _go(),
+          decoration: const InputDecoration(labelText: 'رمز عبور'),
+        ),
+        _ErrorText(widget.state.error),
+        const SizedBox(height: PayeshTokens.space4),
+        FilledButton(
+          key: const Key('unlock-submit'),
+          onPressed: busy ? null : _go,
+          child: const Text('باز کردن'),
+        ),
+        const SizedBox(height: PayeshTokens.space3),
+        TextButton(
+          key: const Key('unlock-sign-out'),
+          onPressed: busy ? null : widget.controller.signOut,
+          child: const Text('خروج از این دستگاه'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Row 128 / W7 — manager rescue on the server computer (web form `claim`).
+class ClaimScreen extends StatefulWidget {
+  const ClaimScreen({super.key, required this.controller, required this.state});
+  final SessionController controller;
+  final NeedClaim state;
+
+  @override
+  State<ClaimScreen> createState() => _ClaimScreenState();
+}
+
+class _ClaimScreenState extends State<ClaimScreen> {
+  final _phone = TextEditingController();
+  final _password = TextEditingController();
+
+  @override
+  void dispose() {
+    _phone.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.controller;
+    final busy = c.busy;
+    void go() => c.submitClaim(_phone.text, _password.text);
+    return _LoginFrame(
+      title: 'رمز تازه برای مدیر',
+      children: [
+        const Text(
+          'روی خود رایانهٔ سرور مدرسه می‌توانید برای حساب مدیر شمارهٔ همراه و رمز تازه بگذارید.',
+          key: Key('claim-help'),
+        ),
+        const SizedBox(height: PayeshTokens.space4),
+        TextField(
+          key: const Key('claim-phone'),
+          controller: _phone,
+          enabled: !busy,
+          keyboardType: TextInputType.phone,
+          textDirection: TextDirection.ltr,
+          decoration: const InputDecoration(labelText: 'شمارهٔ همراه مدیر'),
+        ),
+        const SizedBox(height: PayeshTokens.space3),
+        TextField(
+          key: const Key('claim-password'),
+          controller: _password,
+          enabled: !busy,
+          obscureText: true,
+          textDirection: TextDirection.ltr,
+          onSubmitted: (_) => go(),
+          decoration: const InputDecoration(
+            labelText: 'رمز تازه (حداقل ۴ نویسه)',
+          ),
+        ),
+        _ErrorText(widget.state.error),
+        const SizedBox(height: PayeshTokens.space4),
+        FilledButton(
+          key: const Key('claim-submit'),
+          onPressed: busy ? null : go,
+          child: const Text('ثبت رمز و ورود'),
+        ),
+        TextButton(
+          key: const Key('claim-back'),
+          onPressed: busy ? null : c.closeClaim,
+          child: const Text('بازگشت'),
+        ),
       ],
     );
   }

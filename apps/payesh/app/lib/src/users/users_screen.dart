@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../accounts/accounts_screen.dart';
 import '../school/school_source.dart';
 import 'users_controller.dart';
 
@@ -15,11 +16,15 @@ class UsersScreen extends StatefulWidget {
     required this.controller,
     required this.sync,
     this.onRetry,
+    this.accounts = false,
   });
 
   final UsersController controller;
   final ValueListenable<SyncStatus> sync;
   final VoidCallback? onRetry;
+
+  /// W7 ships: each row offers «نام کاربری و رمز».
+  final bool accounts;
 
   @override
   State<UsersScreen> createState() => _UsersScreenState();
@@ -45,6 +50,8 @@ class _UsersScreenState extends State<UsersScreen> {
     await Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => page));
     c.clearForm();
+    // a sub-page with its own controller (credentials) may have changed the list
+    if (mounted) await c.load();
   }
 
   Future<void> _delete(SchoolUser u) async {
@@ -221,11 +228,32 @@ class _UsersScreenState extends State<UsersScreen> {
           PopupMenuButton<String>(
             key: Key('usr-menu-${u.id}'),
             onSelected: (v) => switch (v) {
+              'creds' => _open(
+                SchoolOwned(
+                  create: () => CredsController(
+                    source: c.source,
+                    role: c.role,
+                    uid: c.uid,
+                    userId: u.id,
+                  ),
+                  page: (cc) => CredsPage(
+                    controller: cc as CredsController,
+                    sync: widget.sync,
+                    onRetry: widget.onRetry,
+                  ),
+                ),
+              ),
               'full' => _open(UserProfilePage(controller: c, user: u)),
               'edit' => _open(UserEditPage(controller: c, user: u)),
               _ => _delete(u),
             },
             itemBuilder: (_) => [
+              if (widget.accounts)
+                PopupMenuItem(
+                  key: Key('usr-creds-${u.id}'),
+                  value: 'creds',
+                  child: const Text('نام کاربری و رمز'),
+                ),
               PopupMenuItem(
                 key: Key('usr-full-${u.id}'),
                 value: 'full',

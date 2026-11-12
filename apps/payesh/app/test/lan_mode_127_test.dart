@@ -60,6 +60,8 @@ final class FakeLan implements LanAccessApi {
   final logins = <Object>[];
   final setups = <Object>[];
   final refreshes = <Object>[];
+  final unlocks = <Object>[];
+  final claims = <Object>[];
 
   Future<T> _next<T>(List<Object> q, String what) {
     calls.add(what);
@@ -99,6 +101,20 @@ final class FakeLan implements LanAccessApi {
   Future<void> logout({required Uri server, required String token}) async {
     calls.add('logout:$token');
   }
+
+  @override
+  Future<LanSession> unlock({
+    required Uri server,
+    required String deviceToken,
+    required String password,
+  }) => _next(unlocks, 'unlock:$deviceToken:$password');
+
+  @override
+  Future<LanSession> claim({
+    required Uri server,
+    required String phone,
+    required String password,
+  }) => _next(claims, 'claim:${server.host}:$phone:$password');
 }
 
 LanServerInfo serverInfo({bool setupDone = true}) => LanServerInfo(

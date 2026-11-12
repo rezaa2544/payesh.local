@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../accounts/accounts_screen.dart';
 import '../flags.dart';
 import '../users/users_controller.dart';
 import '../users/users_screen.dart';
@@ -37,8 +38,10 @@ final class SchoolRouteArgs {
     required this.role,
     required this.uid,
     required this.sync,
+    required this.flags,
     this.onRetry,
   });
+  final ClientFlags flags;
   final SchoolSource source;
   final String role;
   final int uid;
@@ -54,12 +57,13 @@ final List<SchoolPageSpec> schoolPages = [
     label: 'کاربران',
     icon: Icons.people_alt_outlined,
     roles: const {'manager'},
-    build: (a) => _Owned(
+    build: (a) => SchoolOwned(
       create: () => UsersController(source: a.source, role: a.role, uid: a.uid),
       page: (c) => UsersScreen(
         controller: c as UsersController,
         sync: a.sync,
         onRetry: a.onRetry,
+        accounts: a.flags.usesSchool(SchoolWave.accounts),
       ),
     ),
   ),
@@ -69,7 +73,7 @@ final List<SchoolPageSpec> schoolPages = [
     label: 'دانش‌آموزان',
     icon: Icons.school_outlined,
     roles: const {'manager', 'teacher', 'counselor'},
-    build: (a) => _Owned(
+    build: (a) => SchoolOwned(
       create: () =>
           StudentsController(source: a.source, role: a.role, uid: a.uid),
       page: (c) => StudentsScreen(
@@ -85,7 +89,7 @@ final List<SchoolPageSpec> schoolPages = [
     label: 'پروندهٔ من',
     icon: Icons.badge_outlined,
     roles: const {'student'},
-    build: (a) => _Owned(
+    build: (a) => SchoolOwned(
       create: () =>
           RecordController(source: a.source, role: a.role, uid: a.uid),
       page: (c) => RecordScreen(
@@ -93,6 +97,27 @@ final List<SchoolPageSpec> schoolPages = [
         sync: a.sync,
         onRetry: a.onRetry,
       ),
+    ),
+  ),
+  SchoolPageSpec(
+    id: 'password',
+    wave: SchoolWave.accounts,
+    label: 'تغییر رمز من',
+    icon: Icons.password_outlined,
+    roles: const {
+      'manager',
+      'vice',
+      'teacher',
+      'counselor',
+      'staff',
+      'office',
+      'parent',
+      'student',
+    },
+    build: (a) => SchoolOwned(
+      create: () =>
+          OwnPasswordController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => OwnPasswordPage(controller: c as OwnPasswordController),
     ),
   ),
 ];
@@ -141,6 +166,7 @@ class SchoolEntry extends StatelessWidget {
       role: role!,
       uid: uid!,
       sync: sync,
+      flags: flags,
       onRetry: onRetry,
     );
     return Wrap(
@@ -159,27 +185,4 @@ class SchoolEntry extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Owns a page controller for one visit (disposed when the route closes).
-class _Owned extends StatefulWidget {
-  const _Owned({required this.create, required this.page});
-  final SchoolController Function() create;
-  final Widget Function(SchoolController c) page;
-
-  @override
-  State<_Owned> createState() => _OwnedState();
-}
-
-class _OwnedState extends State<_Owned> {
-  late final SchoolController c = widget.create();
-
-  @override
-  void dispose() {
-    c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.page(c);
 }

@@ -83,6 +83,10 @@ final class MemorySchool implements SchoolSource {
   @override
   Listenable get changed => bump;
 
+  /// W7: the school server's credential endpoints (null = not on a school server).
+  @override
+  AccountsApi? accounts;
+
   Future<void> put(String c, int id, Map<String, Object?> d, [int v = 1]) =>
       engine.put(c, id, {...d, 'id': id}, version: v);
 }
@@ -145,7 +149,10 @@ Future<void> reveal(WidgetTester tester, String key) async {
   if (f.evaluate().isEmpty) {
     // the page's own list (text fields have Scrollables of their own)
     final list = find
-        .descendant(of: find.byType(ListView).last, matching: find.byType(Scrollable))
+        .descendant(
+          of: find.byType(ListView).last,
+          matching: find.byType(Scrollable),
+        )
         .first;
     await tester.scrollUntilVisible(f, 200, scrollable: list);
   }
@@ -178,3 +185,75 @@ String badgeOf(WidgetTester tester, String key) => tester
       find.descendant(of: find.byKey(Key(key)), matching: find.byType(Text)),
     )
     .data!;
+
+/// W7: the school server's credential endpoints, scripted. [online] false = unreachable.
+final class FakeAccounts implements AccountsApi {
+  FakeAccounts(this.creds);
+  final Map<int, AccountCredential> creds;
+  bool online = true;
+  String ownPassword = 'old-pass';
+  final calls = <String>[];
+
+  void _up() {
+    if (!online) throw const AccountFailure(AccountError.offline);
+  }
+
+  @override
+  Future<List<AccountCredential>> credentials() async {
+    calls.add('creds');
+    _up();
+    return creds.values.toList();
+  }
+
+  @override
+  Future<String?> setCredentials(
+    int id, {
+    String? phone,
+    String? password,
+  }) async {
+    calls.add('set:$id:${phone ?? '-'}:${password ?? '-'}');
+    _up();
+    if (password != null) AccountRules.checkPassword(password);
+    final c = creds[id];
+    if (c == null) throw const AccountFailure(AccountError.notFound);
+    creds[id] = AccountCredential(
+      id: id,
+      name: c.name,
+      role: c.role,
+      username: phone ?? c.username,
+      password: password ?? c.password,
+    );
+    return password;
+  }
+
+  @override
+  Future<String> autoPassword(int id) async {
+    calls.add('auto:$id');
+    _up();
+    final c = creds[id];
+    if (c == null) throw const AccountFailure(AccountError.notFound);
+    if (c.username.isEmpty) throw const AccountFailure(AccountError.noLogin);
+    const nid = '0012345678';
+    creds[id] = AccountCredential(
+      id: id,
+      name: c.name,
+      role: c.role,
+      username: c.username,
+      password: nid,
+    );
+    return nid;
+  }
+
+  @override
+  Future<void> changeOwnPassword({
+    required String current,
+    required String next,
+  }) async {
+    calls.add('own:$current:$next');
+    _up();
+    AccountRules.checkPassword(next);
+    if (current != ownPassword)
+      throw const AccountFailure(AccountError.wrongCurrent);
+    ownPassword = next;
+  }
+}

@@ -314,6 +314,22 @@ abstract interface class LanAccessApi {
   });
 
   Future<void> logout({required Uri server, required String token});
+
+  /// Row 128 / W7 — "lock": opens a new access session for THIS device with the user's password
+  /// (`/api/auth/unlock`); the device token is not rotated and stays saved.
+  Future<LanSession> unlock({
+    required Uri server,
+    required String deviceToken,
+    required String password,
+  });
+
+  /// Row 128 / W7 — manager rescue on the server computer itself (`/api/auth/claim`, loopback
+  /// only on the server): sets the manager's phone + password and signs this device in.
+  Future<LanSession> claim({
+    required Uri server,
+    required String phone,
+    required String password,
+  });
 }
 
 /// `dart:io` implementation (no WebView, no browser stack).
@@ -446,6 +462,56 @@ final class LanAccessClient implements LanAccessApi {
     }
   }
 
+  @override
+  Future<LanSession> unlock({
+    required Uri server,
+    required String deviceToken,
+    required String password,
+  }) async {
+    final j = await _send('POST', server.resolve('/api/auth/unlock'), {
+      'device_token': deviceToken,
+      'password': password,
+    }, unauthorized: LanAccessError.badCredentials);
+    return LanSession.fromJson(j, keepDeviceToken: deviceToken);
+  }
+
+  @override
+  Future<LanSession> claim({
+    required Uri server,
+    required String phone,
+    required String password,
+  }) async {
+    if (!LanServerRules.isLoopbackHost(server.host)) {
+      // the server refuses anything but its own computer; do not even send the password
+      throw const LanAccessFailure(
+        LanAccessError.setupLocalOnly,
+        wire: 'local_only',
+      );
+    }
+    final j = await _send('POST', server.resolve('/api/auth/claim'), {
+      'phone': LanServerRules.normalizeLogin(phone),
+      'password': password,
+    });
+    if (j['need_login'] == true) {
+      return login(
+        server: server,
+        phone: phone,
+        password: password,
+        deviceName: 'رایانهٔ مدرسه',
+      );
+    }
+    return LanSession.fromJson(j);
+  }
+
+  /// One JSON request to the school server with this client's headers (row 128: the admin
+  /// endpoints of [LanAccounts] use the same path, timeouts and error mapping).
+  Future<Map<String, Object?>> request(
+    String method,
+    Uri uri,
+    Object? body, {
+    String? token,
+  }) => _send(method, uri, body, token: token);
+
   Future<Map<String, Object?>> _send(
     String method,
     Uri uri,
@@ -518,7 +584,14 @@ LanAccessFailure mapLanError(
   LanAccessError unauthorized = LanAccessError.unknown,
 }) {
   final wire = body['error'] is String ? body['error']! as String : null;
-  final ra = int.tryParse(retryAfter ?? '');
+  var ra = int.tryParse(retryAfter ?? '');
+  if (ra == null && wire == 'locked') {
+    // `/api/auth/unlock` after 8 wrong passwords: locked until `until` (10 minutes)
+    final until = DateTime.tryParse('${body['until']}');
+    if (until != null) {
+      ra = until.difference(DateTime.now()).inSeconds.clamp(1, 3600);
+    }
+  }
   final kind = switch ((status, wire)) {
     (
       _,
@@ -529,7 +602,8 @@ LanAccessFailure mapLanError(
     (_, 'bad_credentials' || 'bad_phone' || 'bad_password') =>
       LanAccessError.badCredentials,
     (_, 'device_limit') => LanAccessError.deviceLimit,
-    (_, 'setup_local_only') => LanAccessError.setupLocalOnly,
+    (_, 'setup_local_only' || 'local_only') => LanAccessError.setupLocalOnly,
+    (_, 'locked') => LanAccessError.rateLimited,
     (_, 'already_setup') => LanAccessError.alreadySetup,
     (_, 'api_version_unsupported') => LanAccessError.upgradeRequired,
     (426, _) => LanAccessError.upgradeRequired,
@@ -555,6 +629,9 @@ abstract final class LanKeys {
   static const String role = 'lan.role';
   static const String uid = 'lan.uid';
 
+  /// Row 128 / W7: the user locked the app on this device (kept across restarts).
+  static const String locked = 'lan.locked';
+
   static const List<String> all = [
     server,
     school,
@@ -562,6 +639,7 @@ abstract final class LanKeys {
     deviceToken,
     role,
     uid,
+    locked,
   ];
 }
 
@@ -628,6 +706,16 @@ final class LanAccountStore {
     if (r != null) await store.write(LanKeys.role, r);
     final id = a.uid;
     if (id != null && id > 0) await store.write(LanKeys.uid, '$id');
+  }
+
+  Future<bool> isLocked() async => await store.read(LanKeys.locked) == '1';
+
+  Future<void> setLocked(bool locked) async {
+    if (locked) {
+      await store.write(LanKeys.locked, '1');
+    } else {
+      await store.delete(LanKeys.locked);
+    }
   }
 
   Future<void> clear() async {

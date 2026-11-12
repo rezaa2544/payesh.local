@@ -50,6 +50,22 @@ final class GatewayAttendanceSource
   final HttpClient lanClient;
 
   final ValueNotifier<int> _changed = ValueNotifier(0);
+  LanAccessClient? _lanAccess;
+
+  @override
+  AccountsApi? get accounts {
+    final server = session.cellUrl;
+    if (!session.onLan || server == null) return null;
+    return LanAccounts(
+      client: _lanAccess ??= LanAccessClient(
+        client: lanClient,
+        platform: Platform.operatingSystem,
+      ),
+      server: server,
+      token: session.validToken,
+    );
+  }
+
   SqliteEngine? _engine;
   SqliteOutbox? _outbox;
   AutoSync? _auto;

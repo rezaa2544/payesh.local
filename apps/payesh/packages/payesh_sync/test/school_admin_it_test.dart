@@ -564,4 +564,216 @@ void main() {
     },
     skip: skip,
   );
+
+  // ───────────────────────────── W7 accounts ─────────────────────────────
+  // Passwords are online by design (F‑01): LanAccounts talks to the server directly; the
+  // username (= mobile) goes through the offline queue like every users edit.
+  LanAccounts accountsOf(LanSession who) =>
+      LanAccounts(client: lan, server: server, token: () async => who.token);
+  const newTeacherPhone = '09120000099';
+
+  test('W7-IT-01 manager reads and sets a password on the server; the old one stops working; '
+      'NEG a teacher cannot read credentials', () async {
+    final m = accountsOf(managerLogin);
+    final all = await m.credentials();
+    final t = all.singleWhere((c) => c.id == teacherId);
+    expect(t.username, teacherPhone);
+    expect(t.password, teacherPassword, reason: 'sealed copy for the manager');
+    final shown = await m.setCredentials(teacherId, password: 'moalem-new');
+    expect(shown, 'moalem-new');
+    final s = await lan.login(
+      server: server,
+      phone: teacherPhone,
+      password: 'moalem-new',
+      deviceName: 'it',
+    );
+    expect(s.uid, teacherId);
+    await expectLater(
+      lan.login(
+        server: server,
+        phone: teacherPhone,
+        password: teacherPassword,
+        deviceName: 'it',
+      ),
+      throwsA(isA<LanAccessFailure>()),
+    );
+    negatives++;
+    await expectLater(
+      accountsOf(teacherLogin).credentials(),
+      throwsA(
+        isA<AccountFailure>().having(
+          (f) => f.kind,
+          'kind',
+          AccountError.notManager,
+        ),
+      ),
+    );
+    negatives++;
+    // NEG: a short password is refused on the device, nothing sent
+    await expectLater(
+      m.setCredentials(teacherId, password: 'abc'),
+      throwsA(
+        isA<AccountFailure>().having(
+          (f) => f.kind,
+          'kind',
+          AccountError.shortPassword,
+        ),
+      ),
+    );
+    negatives++;
+    passed++;
+  }, skip: skip);
+
+  test('W7-IT-02 username (mobile) changed offline → queued → applied; the password survives', () async {
+    await manager.pull();
+    final w = await UserDirectory(manager.db)
+        .setUsername(teacherId, newTeacherPhone);
+    expect(w.keys, hasLength(1));
+    final dead = Uri.parse('http://127.0.0.1:${await freePort()}');
+    expect((await manager.sync(dead)).waiting, 1);
+    expect((await serverRow('users', teacherId))!['phone'], teacherPhone);
+    negatives++;
+    expect((await manager.sync()).waiting, 0);
+    expect((await serverRow('users', teacherId))!['phone'], newTeacherPhone);
+    final s = await lan.login(
+      server: server,
+      phone: newTeacherPhone,
+      password: 'moalem-new',
+      deviceName: 'it',
+    );
+    expect(s.uid, teacherId);
+    // the queued op carried no credential field
+    expect(manager.outbox.list(), isEmpty);
+    passed++;
+  }, skip: skip);
+
+  test('W7-IT-03 «رمز = کد ملی» on the server; NEG no mobile and no national id → refused', () async {
+    final users = UserDirectory(manager.db);
+    final a = await users.add(
+      const UserDraft(
+        name: 'کارمند آزمون',
+        role: 'staff',
+        nationalId: '0023456789',
+      ),
+    );
+    final b = await users.add(const UserDraft(name: 'بی‌شناسه', role: 'staff'));
+    expect((await manager.sync()).waiting, 0);
+    final m = accountsOf(managerLogin);
+    await m.setCredentials(a.id!, password: 'temp-1234');
+    expect(await m.autoPassword(a.id!), '0023456789');
+    final s = await lan.login(
+      server: server,
+      phone: '0023456789',
+      password: '0023456789',
+      deviceName: 'it',
+    );
+    expect(s.uid, a.id);
+    await expectLater(
+      m.autoPassword(b.id!),
+      throwsA(
+        isA<AccountFailure>().having(
+          (f) => f.kind,
+          'kind',
+          AccountError.noLogin,
+        ),
+      ),
+    );
+    negatives++;
+    passed++;
+  }, skip: skip);
+
+  test(
+    'W7-IT-04 own password: NEG wrong current refused, then changed',
+    () async {
+      final t = accountsOf(teacherLogin);
+      await expectLater(
+        t.changeOwnPassword(current: 'not-mine', next: 'khodam-128'),
+        throwsA(
+          isA<AccountFailure>().having(
+            (f) => f.kind,
+            'kind',
+            AccountError.wrongCurrent,
+          ),
+        ),
+      );
+      negatives++;
+      await t.changeOwnPassword(current: 'moalem-new', next: 'khodam-128');
+      final s = await lan.login(
+        server: server,
+        phone: newTeacherPhone,
+        password: 'khodam-128',
+        deviceName: 'it',
+      );
+      expect(s.uid, teacherId);
+      passed++;
+    },
+    skip: skip,
+  );
+
+  test('W7-IT-05 unlock: the device token + password open a new session; NEG wrong password', () async {
+    await expectLater(
+      lan.unlock(
+        server: server,
+        deviceToken: teacherLogin.deviceToken,
+        password: 'wrong-pass',
+      ),
+      throwsA(
+        isA<LanAccessFailure>().having(
+          (f) => f.kind,
+          'kind',
+          LanAccessError.badCredentials,
+        ),
+      ),
+    );
+    negatives++;
+    final u = await lan.unlock(
+      server: server,
+      deviceToken: teacherLogin.deviceToken,
+      password: 'khodam-128',
+    );
+    expect(u.uid, teacherId);
+    expect(u.deviceToken, teacherLogin.deviceToken, reason: 'not rotated');
+    final (st, _) = await raw(
+      'GET',
+      svc.base.resolve('/api/v1/pull?collections=classes'),
+      token: u.token,
+    );
+    expect(st, 200);
+    passed++;
+  }, skip: skip);
+
+  test('W7-IT-06 manager rescue (claim) on the server computer; NEG not from another address', () async {
+    await expectLater(
+      lan.claim(
+        server: Uri.parse('http://192.168.1.10:${svc.port}'),
+        phone: '09120000128',
+        password: 'modir-new',
+      ),
+      throwsA(
+        isA<LanAccessFailure>().having(
+          (f) => f.kind,
+          'kind',
+          LanAccessError.setupLocalOnly,
+        ),
+      ),
+    );
+    negatives++;
+    final c = await lan.claim(
+      server: server,
+      phone: '09120000128',
+      password: 'modir-new',
+    );
+    expect(c.role, 'manager');
+    await expectLater(
+      lan.login(
+        server: server,
+        phone: '09120000128',
+        password: 'modir-128',
+        deviceName: 'it',
+      ),
+      throwsA(isA<LanAccessFailure>()),
+    );
+    negatives++;
+    passed++;
+  }, skip: skip);
 }

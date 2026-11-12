@@ -17,6 +17,10 @@ abstract interface class SchoolSource {
 
   /// Fires after local data changed (e.g. a pull finished); open pages re-read.
   Listenable get changed;
+
+  /// W7: credential actions on the school's own server; null when this device is not on one
+  /// (cloud Gateway) — passwords are online-only by design (F‑01, see accounts.dart).
+  AccountsApi? get accounts;
 }
 
 /// Shared state of a row-128 page: loading, busy, page error, confirmation, form error. Every
@@ -361,3 +365,26 @@ Future<bool> confirmAction(
       ),
     ) ==
     true;
+
+/// Owns a page controller for one visit (disposed when the route closes).
+class SchoolOwned extends StatefulWidget {
+  const SchoolOwned({super.key, required this.create, required this.page});
+  final SchoolController Function() create;
+  final Widget Function(SchoolController c) page;
+
+  @override
+  State<SchoolOwned> createState() => _SchoolOwnedState();
+}
+
+class _SchoolOwnedState extends State<SchoolOwned> {
+  late final SchoolController c = widget.create();
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.page(c);
+}
