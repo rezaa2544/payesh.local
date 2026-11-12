@@ -2173,7 +2173,7 @@ if (process.env.PAYESH_CLOUD_AUTO !== '0') {
       })
       .catch(e => console.log('[cloud] تشخیص صندوقچه ناموفق:', e.message));
   }, 2500).unref();
-  /* پیروی از دیتابیسِ پنل مالک (control/cloud.json در صندوقچه) — هر دقیقه */
+  /* پیروی از دیتابیسِ پنل مالک (control/cloud-<kid>.json در صندوقچه) — هر دقیقه */
   require('./cloud-control').start(store);
 }
 

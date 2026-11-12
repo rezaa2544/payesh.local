@@ -77,6 +77,15 @@ void main() {
       expect(await openControlText(secret, env), v['plaintext']);
     });
 
+    test('object name per access key (same kid as the server)', () {
+      final kids = (v['kid_of_access_key']! as Map).cast<String, String>();
+      expect(kids, isNotEmpty);
+      kids.forEach((ak, kid) {
+        expect(controlKid(ak), kid);
+        expect(controlObjectKey(ak), 'payesh/control/cloud-$kid.json');
+      });
+    });
+
     test('the panel writes exactly the plaintext the server expects', () {
       final p = jsonDecode(v['plaintext']! as String) as Map<String, Object?>;
       final target = S3Settings(
@@ -149,7 +158,13 @@ void main() {
 
     test('PUT JSON with body hash and content-type', () async {
       final t = _S3([const S3Response(200, '')]);
-      await s3PutJson(_arvan, t, controlObjectKey, '{"v":1}', now: () => _at);
+      await s3PutJson(
+        _arvan,
+        t,
+        'payesh/control/cloud.json',
+        '{"v":1}',
+        now: () => _at,
+      );
       final (m, url, h, body) = t.calls.single;
       expect(m, 'PUT');
       expect(url.path, '/payesh-madrese/payesh/control/cloud.json');
@@ -283,6 +298,38 @@ void main() {
         }
       },
     );
+
+    test('only the keys changed (same bucket) ⇒ two objects, neither overwrites the other', () async {
+      final t = _S3([const S3Response(200, ''), const S3Response(200, '')]);
+      final rotated = S3Settings(
+        endpoint: _arvan.endpoint,
+        accessKey: 'AK-ROTATED',
+        secretKey: 'SK-ROTATED',
+        bucket: _arvan.bucket,
+      );
+      final (r, w) = await publishControl(
+        target: rotated,
+        previous: _arvan,
+        transport: t,
+        rev: 9,
+      );
+      expect(w, isNull);
+      expect(r.buckets, ['payesh-madrese', 'payesh-madrese']);
+      expect(
+        t.calls[0].$2.path,
+        '/payesh-madrese/${controlObjectKey('AK-ROTATED')}',
+      );
+      expect(
+        t.calls[1].$2.path,
+        '/payesh-madrese/${controlObjectKey(_arvan.accessKey)}',
+      );
+      expect(t.calls[0].$2.path, isNot(t.calls[1].$2.path));
+      final forOld = jsonDecode(t.calls[1].$4!) as Map<String, Object?>;
+      expect(
+        jsonDecode(await openControlText(_arvan.secretKey, forOld)),
+        containsPair('accessKey', 'AK-ROTATED'),
+      );
+    });
 
     test(
       'same target ⇒ one write; old bucket refused ⇒ warning only',

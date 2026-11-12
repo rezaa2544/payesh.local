@@ -3,11 +3,15 @@
    پیروی سرور مدرسه از «دیتابیس» پنل مالک — بدون اینکه کلیدی به گوشی/رایانهٔ کاربران برسد.
 
    پنل مالک هر بار که دیتابیس را ذخیره می‌کند، در صندوقچهٔ فعلی (و صندوقچهٔ قبلی، اگر عوض
-   شده باشد) فایل <prefix>control/cloud.json را می‌نویسد. محتوای آن (آدرس، صندوقچه، کلیدها)
+   شده باشد) فایل <prefix>control/cloud-<kid>.json را می‌نویسد. محتوای آن (آدرس، صندوقچه، کلیدها)
    با AES-256-GCM و کلیدی که از Secret Key همان صندوقچه (HKDF-SHA256) ساخته می‌شود مهر
    شده است؛ یعنی فقط کسی که همین حالا به آن صندوقچه دسترسی دارد (سرورهای مدرسه) می‌تواند
    بازش کند. کاربران هیچ‌وقت کلید نمی‌گیرند: برنامه‌هایشان با سرور مدرسه کار می‌کنند و سرور
    همه‌چیز را در صندوقچه می‌نویسد (live.js / outbox.js / بکاپ).
+
+   نام فایل به کلید بستگی دارد: control/cloud-<kid>.json که kid = ۱۶ نویسهٔ اول SHA-256 از
+   Access Key است. این‌طور اگر مالک فقط کلیدها را عوض کند (همان صندوقچه)، پاکتِ کلید قدیمی و
+   پاکتِ کلید تازه روی هم نمی‌افتند.
 
    این ماژول هر دقیقه همان فایل را می‌خواند؛ اگر نسخه (rev) تازه‌تر بود، اتصال تازه را
    می‌آزماید، تنظیم سرور را عوض می‌کند و در صندوقچهٔ تازه «رسید» می‌گذارد:
@@ -23,7 +27,9 @@ const os = require('os');
 const s3mem = require('./s3mem');
 
 const KIND = 'payesh-cloud-control';
-const CONTROL_KEY = 'control/cloud.json';
+/* نام فایل فرمان برای یک Access Key (زیر prefix) */
+const kidOf = (accessKey) => crypto.createHash('sha256').update(String(accessKey), 'utf8').digest('hex').slice(0, 16);
+const controlKeyFor = (accessKey) => 'control/cloud-' + kidOf(accessKey) + '.json';
 const ACK_DIR = 'control/ack/';
 const SALT = Buffer.from('payesh/cloud-control', 'utf8');
 const INFO = Buffer.from('v1', 'utf8');
@@ -165,7 +171,7 @@ async function poll(store, opts = {}) {
   const applied = Number(store.getMeta(META_REV, '0')) || 0;
   let text;
   try {
-    text = await s3mem.get(cfg, cfg.prefix + CONTROL_KEY);
+    text = await s3mem.get(cfg, cfg.prefix + controlKeyFor(cfg.accessKey));
   } catch (e) {
     if (e && e.status === 404) return { state: 'none' };
     return { state: 'unreachable', detail: String((e && (e.detail || e.message)) || '').slice(0, 200) };
@@ -223,7 +229,7 @@ function start(store, { everyMs = INTERVAL_MS, log = (m) => console.log(m) } = {
 function stop() { if (timer) clearInterval(timer); timer = null; }
 
 module.exports = {
-  KIND, CONTROL_KEY, ACK_DIR, INTERVAL_MS, ControlError,
+  KIND, kidOf, controlKeyFor, ACK_DIR, INTERVAL_MS, ControlError,
   keyFor, seal, sealText, open, openText, validConfig, poll, start, stop, serverId,
   _resetForTests() { firstPoll = true; },
 };

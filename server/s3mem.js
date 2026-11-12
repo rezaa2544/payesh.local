@@ -47,7 +47,7 @@ function saved(store) {
   /* اگر هیچ اعتبارنامه‌ای (نه ذخیره‌شده و نه محیط) نباشد، مدرسه پیکربندی‌نشده است */
   if (!c.endpoint || !c.accessKey || !c.secret) return null;
   c.enabled = !!(c.endpoint && c.bucket && c.accessKey && c.secret);
-  /* «owner» = پنل مالک از راه control/cloud.json تعیین کرده (server/cloud-control.js) */
+  /* «owner» = پنل مالک از راه control/cloud-<kid>.json تعیین کرده (server/cloud-control.js) */
   c.source = raw.source === 'owner' ? 'owner' : 'saved';
   return c;
 }

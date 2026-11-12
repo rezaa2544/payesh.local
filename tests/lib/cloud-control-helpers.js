@@ -14,7 +14,7 @@ function memStore() {
 /* همان کاری که پنل مالک می‌کند: فرمان مهرشده با Secret Key صندوقچهٔ مقصد */
 async function publish(cc, s3mem, where, target, rev) {
   const env = cc.seal(where.secret, rev, Object.assign({ prefix: 'payesh/' }, target));
-  await s3mem.put(s3mem.normalize(where), 'payesh/' + cc.CONTROL_KEY, JSON.stringify(env));
+  await s3mem.put(s3mem.normalize(where), 'payesh/' + cc.controlKeyFor(where.accessKey), JSON.stringify(env));
   return env;
 }
 

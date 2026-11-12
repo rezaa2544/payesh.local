@@ -1,7 +1,8 @@
 /// پیروی سرورهای مدرسه از «دیتابیس» پنل مالک (همتای server/cloud-control.js).
 ///
 /// پنل مالک هر بار که دیتابیس را ذخیره می‌کند، در صندوقچهٔ تازه — و اگر عوض شده، در صندوقچهٔ
-/// قبلی هم — فایل `payesh/control/cloud.json` را می‌نویسد. محتوا (آدرس، صندوقچه و کلیدها) با
+/// قبلی هم — فایل `payesh/control/cloud-<kid>.json` را می‌نویسد (kid = ۱۶ نویسهٔ اول SHA-256 از
+/// Access Key؛ پس اگر فقط کلیدها عوض شوند، پاکت کلید قدیمی و تازه روی هم نمی‌افتند). محتوا (آدرس، صندوقچه و کلیدها) با
 /// AES-256-GCM و کلیدی از Secret Key همان صندوقچه (HKDF-SHA256) مهر می‌شود؛ پس فقط سرورهایی
 /// که همین حالا به آن صندوقچه دسترسی دارند بازش می‌کنند. برنامه‌های کاربران هیچ کلیدی
 /// نمی‌گیرند: با سرور مدرسه کار می‌کنند و سرور همه‌چیز را در صندوقچه می‌نویسد.
@@ -14,6 +15,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart' as hash;
 import 'package:cryptography/cryptography.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
@@ -21,7 +23,14 @@ import 's3_client.dart';
 
 const String controlKind = 'payesh-cloud-control';
 const String controlPrefix = 'payesh/';
-const String controlObjectKey = '${controlPrefix}control/cloud.json';
+
+/// شناسهٔ کلید در نام فایل: ۱۶ نویسهٔ اول SHA-256 از Access Key.
+String controlKid(String accessKey) =>
+    hash.sha256.convert(utf8.encode(accessKey)).toString().substring(0, 16);
+
+/// فایل فرمانی که فقط دارندهٔ [accessKey] (و Secret آن) می‌خواند.
+String controlObjectKey(String accessKey) =>
+    '${controlPrefix}control/cloud-${controlKid(accessKey)}.json';
 const String ackPrefix = '${controlPrefix}control/ack/';
 
 /// شمارهٔ آخرین نسخه‌ای که پنل منتشر کرده (برای «به‌روز / قدیمی» در فهرست سرورها).
@@ -145,7 +154,7 @@ Future<(PublishResult, String?)> publishControl({
   await s3PutJson(
     target,
     transport,
-    controlObjectKey,
+    controlObjectKey(target.accessKey),
     jsonEncode(env),
     now: now,
   );
@@ -159,7 +168,7 @@ Future<(PublishResult, String?)> publishControl({
       await s3PutJson(
         previous,
         transport,
-        controlObjectKey,
+        controlObjectKey(previous.accessKey),
         jsonEncode(old),
         now: now,
       );

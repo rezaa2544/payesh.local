@@ -566,7 +566,7 @@ void main() {
           final secure = FakeSecureStore();
           final s3 = FakeS3([
             const S3Response(200, _bucketsXml),
-            const S3Response(200, ''), // PUT control/cloud.json
+            const S3Response(200, ''), // PUT control/cloud-<kid>.json
             S3Response(403, _err('SignatureDoesNotMatch')),
           ]);
           await _pump(tester, secure: secure, s3: s3);
@@ -599,7 +599,8 @@ void main() {
           expect(s3.methods, ['GET', 'PUT']);
           expect(
             s3.calls[1].$1.toString(),
-            'https://s3.ir-central1.arvanstorage.ir/payesh-main/payesh/control/cloud.json',
+            'https://s3.ir-central1.arvanstorage.ir/payesh-main/'
+            '${controlObjectKey('997cc6ad-e97a-4e4d-abf1-test')}',
           );
           final env = jsonDecode(s3.bodies[1]!) as Map<String, Object?>;
           expect(s3.bodies[1], isNot(contains('secret-test-value')));
@@ -701,9 +702,12 @@ void main() {
         expect(s3.methods, ['GET', 'PUT', 'GET', 'PUT', 'PUT']);
         expect(
           s3.calls[3].$1.path,
-          '/payesh-madrese/payesh/control/cloud.json',
+          '/payesh-madrese/${controlObjectKey('AK-NEW')}',
         );
-        expect(s3.calls[4].$1.path, '/payesh-backup/payesh/control/cloud.json');
+        expect(
+          s3.calls[4].$1.path,
+          '/payesh-backup/${controlObjectKey('AK-OLD')}',
+        );
         expect(s3.calls[4].$2['authorization'], contains('Credential=AK-OLD/'));
         // پاکتِ صندوقچهٔ قبلی با کلید قبلی باز می‌شود و مقصد تازه را می‌گوید
         final old = jsonDecode(s3.bodies[4]!) as Map<String, Object?>;

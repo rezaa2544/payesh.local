@@ -247,7 +247,7 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
     });
   }
 
-  /// ذخیرهٔ امن + اعلام به سرورهای مدرسه (control/cloud.json در صندوقچه).
+  /// ذخیرهٔ امن + اعلام به سرورهای مدرسه (`control/cloud-<kid>.json` در صندوقچه).
   Future<(String, bool)> _saveAndPublish(
     S3Settings form,
     List<String> buckets,

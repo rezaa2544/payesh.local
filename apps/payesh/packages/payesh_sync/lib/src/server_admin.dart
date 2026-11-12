@@ -212,7 +212,7 @@ final class CloudConfig {
   final bool configured;
   final bool builtIn;
 
-  /// The owner panel set this (server/cloud-control.js follows `control/cloud.json` in the
+  /// The owner panel set this (server/cloud-control.js follows `control/cloud-<kid>.json` in the
   /// bucket); it updates by itself whenever the owner changes the database.
   final bool fromOwner;
 

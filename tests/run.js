@@ -991,6 +991,10 @@ async function waitFor(fn, ms = 15000) {
       assert.throws(() => cc.open(f.secret || V.secret, f.envelope), e => e.code === 'open_failed', f.why);
     }
     assert.throws(() => cc.open(V.secret, Object.assign({}, V.envelope, { nonce: 'AA' })), e => e.code === 'bad_format');
+    for (const [ak, kid] of Object.entries(V.kid_of_access_key)) {
+      assert.equal(cc.kidOf(ak), kid, 'kid ' + ak);
+      assert.equal(cc.controlKeyFor(ak), 'control/cloud-' + kid + '.json');
+    }
     /* محتوای نامعتبر هرگز اعمال نمی‌شود: http غیرمحلی، صندوقچهٔ بدنام، کلید خالی */
     for (const bad of [
       { endpoint: 'http://s3.ir-central1.arvanstorage.ir', bucket: 'payesh-madrese', accessKey: 'abc', secret: 'abcdef' },
@@ -1042,7 +1046,7 @@ async function waitFor(fn, ms = 15000) {
       assert.equal(JSON.parse(B.objects.get('payesh/control/ack/' + id + '.json')).ok, false);
 
       /* فرمان دستکاری‌شده یا نسخهٔ قدیمی‌تر هرگز اعمال نمی‌شود */
-      B.poke('payesh/control/cloud.json', '{"v":1,"kind":"payesh-cloud-control","rev":9999,"alg":"HKDF-SHA256/A256GCM","nonce":"AAECAwQFBgcICQoL","ct":"AAAAAAAAAAAAAAAAAAAAAAAA"}');
+      B.poke('payesh/' + cc.controlKeyFor('ak-new'), '{"v":1,"kind":"payesh-cloud-control","rev":9999,"alg":"HKDF-SHA256/A256GCM","nonce":"AAECAwQFBgcICQoL","ct":"AAAAAAAAAAAAAAAAAAAAAAAA"}');
       assert.equal((await cc.poll(store)).state, 'invalid');
       await publish(cc, s3mem, B.cfg, C.cfg, 900);
       assert.equal((await cc.poll(store)).state, 'current', 'نسخهٔ قدیمی‌تر نادیده');
@@ -1050,8 +1054,17 @@ async function waitFor(fn, ms = 15000) {
 
       /* فرمانی که با کلید دیگری مهر شده باز نمی‌شود */
       const foreign = cc.seal('someone-else', 3000, C.cfg);
-      B.poke('payesh/control/cloud.json', JSON.stringify(foreign));
+      B.poke('payesh/' + cc.controlKeyFor('ak-new'), JSON.stringify(foreign));
       assert.equal((await cc.poll(store)).state, 'invalid');
+
+      /* فقط کلیدها عوض شد (همان صندوقچه): پاکتِ کلید فعلی و پاکتِ کلید تازه دو فایل جدا هستند */
+      const B2 = Object.assign({}, B.cfg, { accessKey: 'ak-new-2', secret: 'sk-new-2' });
+      await publish(cc, s3mem, B.cfg, B2, 3500);
+      await publish(cc, s3mem, B2, B2, 3500).catch(() => {}); /* stub فقط کلید فعلی را می‌پذیرد */
+      const mine = 'payesh/' + cc.controlKeyFor('ak-new');
+      assert.notEqual(mine, 'payesh/' + cc.controlKeyFor('ak-new-2'));
+      assert.equal(cc.open('sk-new-2', JSON.parse(B.objects.get(mine))).config.accessKey, 'ak-new-2',
+        'پاکتِ کلید فعلی سالم ماند و مقصد تازه را می‌گوید');
 
       /* حالا مقصد سالم ⇒ می‌رود */
       await publish(cc, s3mem, B.cfg, C.cfg, 4000);
