@@ -42,7 +42,7 @@
 <!-- RECONCILIATION-TABLE:BEGIN -->
 | ID | نیاز مالک | وضعیت مخزن | Notion | مسیر | آزمون | شاهد | شکاف | ریسک | گام بعد |
 |---|---|---|---|---|---|---|---|---|---|
-| R01 | اپ بومی Flutter (D‑43) با خروجی واقعی | PARTIAL [S] | ۶۳، ۶۹–۷۳، ۷۵: Done | `apps/payesh/app/lib/main.dart` | `tests/native-gate-63.js` | `docs/cloud/reports/evidence/native-63-69-70-ci.txt` | فقط پوسته و بسته‌ها هست؛ صفحهٔ کاربردی نیست | ادعای «اپ کامل» بی‌پایه است | ردیف ۷۴ |
+| R01 | اپ بومی Flutter (D‑43) با خروجی واقعی | PARTIAL [S] | ۶۳، ۶۹–۷۳، ۷۵: Done | `apps/payesh/app/lib/main.dart` | `tests/native-gate-63.js` | `docs/cloud/reports/evidence/native-63-69-70-ci.txt` | پوسته، بسته‌ها و موج ۱ صفحه‌ها (ورود و انتخاب مدرسه) هست؛ صفحه‌های داده (حضور، نمره، اطلاعیه، والدین) نیست | ادعای «اپ کامل» بی‌پایه است | ردیف ۷۴ |
 | R02 | موتور محلی SQLite رمزشده روی دستگاه | PASS [S] | ۷۰، ۷۲: Done | `apps/payesh/packages/payesh_data/lib/src/sqlite_engine.dart` | `tests/conformance-engine-70.js` | `docs/cloud/reports/evidence/native-72-ci.txt` | آزمون روی دستگاه واقعی نیست | رفتار روی گوشی‌های ضعیف [?] | دستگاه واقعی = OWNER [M] |
 | R03 | صندوقچهٔ ماندگار و همگام‌سازی (outbox، sync) | PASS [S] | ۴۰، ۷۱: Done | `apps/payesh/packages/payesh_sync/lib/src/outbox.dart` | `tests/conformance-outbox-71.js` | `docs/cloud/reports/evidence/native-71-ci.txt` | در هیچ صفحه‌ای به کار نرفته | — | ردیف‌های ۷۴ و ۱۱۹ |
 | R04 | Gateway/API بی‌حالت به‌عنوان ترابری پیش‌فرض (بند ۲۵) | PASS [S] | ۳۷، ۶۷: Done | `server/gateway.js` | `tests/gateway-67.js` | `docs/cloud/reports/evidence/gateway-67.txt` | روی هاست واقعی اجرا نشده | ظرفیت هاست [?] | ردیف‌های ۱۱۶ و ۱۲۰ |
@@ -64,8 +64,8 @@
 | R20 | پایش و SLO | PARTIAL [S] | ۸۵: Done | `server/slo.js` | `tests/observability-85.js` | `docs/cloud/reports/evidence/observability-85.txt` | روی هاست واقعی اجرا نشده | — | ردیف ۱۲۰ |
 | R21 | ظرفیت و بار (بدون ادعای نامحدود، ممنوع) | PARTIAL [S] | ۸۲: Done | `tools/load-82.mjs` | `tests/load-82.js` | `docs/cloud/reports/evidence/load-82.txt` | عدد [M] روی هدف واقعی وجود ندارد | ادعای ظرفیت | ۸۲ با `PAYESH_T2_MANAGED_DB=1` (OWNER) |
 | R22 | صفحهٔ دانلود `payeshschool.ir` | PARTIAL [S] | ۱۱۴: Done | `tools/landing-114.mjs` | `tests/landing-114.js` | `docs/cloud/reports/evidence/114-landing.txt` | منتشر نشده؛ DNS با مالک است | — | DNS (OWNER) |
-| R23 | صفحه‌های بومی (ورود و مدرسه ← حضور ← نمره ← اطلاعیه ← والدین) | NOT IMPLEMENTED | ۷۴: باز | `apps/payesh/app/lib/src/app.dart` | — | — | فقط صفحهٔ خانه هست | — | ردیف ۷۴ (موج‌به‌موج) |
-| R24 | RTL، تقویم جلالی، تم روشن و تیره | PASS [S] | ۷۳: Done | `apps/payesh/packages/payesh_ui/lib/src/jalali.dart` | `tests/conformance-jalali-73.js` | `docs/cloud/reports/evidence/native-73-75-ci.txt` | فقط در سطح بسته؛ در صفحه به کار نرفته | — | ردیف ۷۴ |
+| R23 | صفحه‌های بومی (ورود و مدرسه ← حضور ← نمره ← اطلاعیه ← والدین) | PARTIAL [S] | ۷۴: موج ۱ Review | `apps/payesh/app/lib/src/login/session_controller.dart` | `apps/payesh/app/test/login_wave1_test.dart` `apps/payesh/packages/payesh_sync/test/school_access_it_test.dart` | `docs/cloud/74-native-wave1-login.md` | موج ۱ از ۵ (ورود و انتخاب مدرسه) با Directory و Gateway واقعی [S]؛ حضور، نمره، اطلاعیه و والدین هنوز نیست؛ نصب روی دستگاه واقعی NOT RUN [M] | — | ردیف ۷۴ موج ۲ (حضور) |
+| R24 | RTL، تقویم جلالی، تم روشن و تیره | PASS [S] | ۷۳: Done | `apps/payesh/packages/payesh_ui/lib/src/jalali.dart` | `tests/conformance-jalali-73.js` | `docs/cloud/reports/evidence/native-73-75-ci.txt` | در صفحه‌های ورود موج ۱ به کار رفته (RTL، توکن‌ها)؛ صفحه‌های داده هنوز نیست | — | ردیف ۷۴ |
 | R25 | بدون Cloudflare (D‑09) | PASS [S] | ۱۱۴: Done | `site/index.html` | `tests/landing-114.js` | `docs/cloud/reports/evidence/114-landing.txt` | پروب هاست هم آن را می‌سنجد (PR #196) | — | — |
 | R26 | پروب هاست (۱۱۵) و اجرای آن روی هاست واقعی (۱۱۶) | NOT RUN | ۱۱۵: Done · ۱۱۶: Backlog | `deploy/selfcheck.mjs` | — | — | ابزار با #196 در main است؛ اجرای واقعی روی هاست با OWNER است | — | ۱۱۶ (OWNER) |
 | R27 | سند نصب و راه‌اندازی | BLOCKED | ۹۴: Blocked | `docs/05-install-and-updates.md` | — | — | وابسته به ۱۲۰ و ۷۴ | — | ردیف ۹۴ |
@@ -124,7 +124,7 @@
 | لایهٔ زیرساخت + صفحهٔ «زیرساخت» | ۱۲۲، ۱۲۳ | ARENA | ۰ | «نامعلوم» به‌جای عدد ساختگی؛ تأیید مالک و ممیزی برای عملیات پرخطر |
 | پژوهش API ارائه‌دهنده‌ها | ۱۲۴ | ARENA | ۰ | منبع رسمی برای هر ادعا [E] |
 | استقرار Gateway روی هاست | ۱۲۰ | ARENA (پس از ۱۱۶) | ۰ [A] | selfcheck [M] |
-| صفحه‌های بومی | ۷۴ | ARENA | ۰ | هر موج یک PR با CI سبز |
+| صفحه‌های بومی | ۷۴ (موج ۱: ورود ✓ [S]) | ARENA | ۰ | هر موج یک PR با CI سبز |
 | سند نصب | ۹۴ | ARENA | ۰ | پس از ۱۲۰ و ۷۴ |
 | کلید و Secret، DNS، پنتست، دستگاه واقعی، PG رایگان | ۶۱، ۹۱، ۹۲، ۱۱۳، ۱۱۶ | **OWNER** | ۰ تا هر هزینه‌ای که با تأیید کتبی پذیرفته شود | — |
 | مراحل C و D | — | فقط با تأیید کتبی | T2 حدود ۲۳ تا ۴۵ €/ماه [E] · T3 حدود ۸۹ تا ۳۰۰ €/ماه [E] (ADR‑34) | [M] روی هدف |

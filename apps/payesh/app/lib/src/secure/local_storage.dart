@@ -70,19 +70,29 @@ Future<LocalStorage> openLocalStorage({
   );
 }
 
-/// Platform wiring: Android Keystore or Windows DPAPI. Other platforms are not targets.
-Future<LocalStorage> openPlatformStorage() async {
-  if (Platform.isAndroid) {
-    final s = AndroidKeystoreStore();
-    return openLocalStorage(store: s, dir: await s.dataDir());
-  }
+/// Platform secure store: Android Keystore or Windows DPAPI. Other platforms are not targets.
+SecureStore platformSecureStore() {
+  if (Platform.isAndroid) return AndroidKeystoreStore();
   if (Platform.isWindows) {
-    final base =
-        Platform.environment['LOCALAPPDATA'] ??
-        Platform.environment['APPDATA'] ??
-        Directory.systemTemp.path;
-    final dir = '$base\\Payesh';
-    return openLocalStorage(store: DpapiSecureStore('$dir\\secure'), dir: dir);
+    return DpapiSecureStore('${windowsDataDir()}\\secure');
   }
   throw UnsupportedError('Payesh native targets are Android and Windows');
+}
+
+/// `%LOCALAPPDATA%\Payesh` (falls back to APPDATA / temp).
+String windowsDataDir() {
+  final base =
+      Platform.environment['LOCALAPPDATA'] ??
+      Platform.environment['APPDATA'] ??
+      Directory.systemTemp.path;
+  return '$base\\Payesh';
+}
+
+/// Platform wiring: Android Keystore or Windows DPAPI. Other platforms are not targets.
+Future<LocalStorage> openPlatformStorage() async {
+  final store = platformSecureStore();
+  if (store is AndroidKeystoreStore) {
+    return openLocalStorage(store: store, dir: await store.dataDir());
+  }
+  return openLocalStorage(store: store, dir: windowsDataDir());
 }
