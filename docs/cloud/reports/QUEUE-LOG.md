@@ -20,3 +20,4 @@
 | ۷۴ (موج ۴) | [`QUEUE-74-W4-REPORT.md`](QUEUE-74-W4-REPORT.md) | #212 | ادغام‌شده |
 | ۷۴ (موج ۵ — پایان ردیف) | [`QUEUE-74-W5-REPORT.md`](QUEUE-74-W5-REPORT.md) | #214 | ادغام‌شده |
 | ۹۴ | [`QUEUE-94-REPORT.md`](QUEUE-94-REPORT.md) | #215 | ادغام‌شده |
+| ۱۲۰ ([S]؛ [M] منتظر ۱۱۶) | [`QUEUE-120-REPORT.md`](QUEUE-120-REPORT.md) | #218 | ادغام‌شده |
