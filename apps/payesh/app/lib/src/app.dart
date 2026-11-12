@@ -8,6 +8,8 @@ import 'flags.dart';
 import 'grades/grades_controller.dart';
 import 'grades/grades_screen.dart';
 import 'login/login_screens.dart';
+import 'notices/notices_controller.dart';
+import 'notices/notices_screen.dart';
 import 'login/session_controller.dart';
 import 'secure/local_storage.dart';
 
@@ -21,6 +23,7 @@ class PayeshApp extends StatelessWidget {
     this.session,
     this.attendance,
     this.grades,
+    this.notices,
     this.onRetrySync,
   });
 
@@ -37,6 +40,9 @@ class PayeshApp extends StatelessWidget {
   /// Wave 3 data (same local database + outbox + Gateway); null = grades stay on the web client.
   final GradeSource? grades;
 
+  /// Wave 4 data (same local database + outbox + Gateway); null = notices stay on the web client.
+  final NoticeSource? notices;
+
   /// Badge tap on native pages: run a sync cycle now.
   final VoidCallback? onRetrySync;
 
@@ -45,6 +51,7 @@ class PayeshApp extends StatelessWidget {
   Widget _pages(BuildContext context, SessionController s, SignedIn state) {
     final src = attendance;
     final gsrc = grades;
+    final nsrc = notices;
     final role = state.currentRole;
     final uid = state.currentUid;
     return Column(
@@ -82,6 +89,26 @@ class PayeshApp extends StatelessWidget {
               MaterialPageRoute<void>(
                 builder: (_) => GradesRoute(
                   source: gsrc,
+                  role: role,
+                  uid: uid,
+                  sync: s.sync,
+                  onRetry: onRetrySync,
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        NoticesEntry(
+          enabled: nsrc != null && s.flags.uses(NativeWave.notices),
+          role: role,
+          uid: uid,
+          open: () {
+            if (nsrc == null || role == null || uid == null) return;
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => NoticesRoute(
+                  source: nsrc,
                   role: role,
                   uid: uid,
                   sync: s.sync,

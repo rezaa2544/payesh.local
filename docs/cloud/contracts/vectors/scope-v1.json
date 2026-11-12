@@ -163,6 +163,14 @@
       "collection": "conflicts",
       "row": {},
       "expect": true
+    },
+    {
+      "scope": "parent",
+      "collection": "announcements",
+      "row": {
+        "title": "اطلاعیه"
+      },
+      "expect": true
     }
   ],
   "write": [
@@ -324,6 +332,47 @@
         "student_id": 1,
         "class_id": 99,
         "score": 19
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "announcements",
+      "row": {
+        "title": "اطلاعیه",
+        "body": "متن",
+        "severity": "normal",
+        "date": "2026-11-12"
+      },
+      "expect": {
+        "ok": false,
+        "error": "role_denied"
+      }
+    },
+    {
+      "scope": "parent",
+      "collection": "announcements",
+      "row": {
+        "title": "اطلاعیه",
+        "body": "متن",
+        "severity": "normal",
+        "date": "2026-11-12"
+      },
+      "expect": {
+        "ok": false,
+        "error": "role_denied"
+      }
+    },
+    {
+      "scope": "manager",
+      "collection": "announcements",
+      "row": {
+        "title": "اطلاعیه",
+        "body": "متن",
+        "severity": "important",
+        "date": "2026-11-12"
       },
       "expect": {
         "ok": true

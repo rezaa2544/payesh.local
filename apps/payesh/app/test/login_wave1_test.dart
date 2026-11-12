@@ -128,10 +128,10 @@ void main() {
       final d = ClientFlags.parse();
       expect(d.client, ClientChoice.native);
       expect(d.uses(NativeWave.login), isTrue);
-      // waves 2–3 (attendance, grades) ship by default since row 74 wave 3; later waves do not
+      // waves 2–4 (attendance, grades, notices) ship by default since row 74 wave 4; parents not
       expect(d.uses(NativeWave.attendance), isTrue);
       expect(d.uses(NativeWave.grades), isTrue);
-      expect(d.uses(NativeWave.notices), isFalse);
+      expect(d.uses(NativeWave.notices), isTrue);
       expect(d.uses(NativeWave.parents), isFalse);
       expect(
         ClientFlags.parse(client: 'legacy').uses(NativeWave.login),

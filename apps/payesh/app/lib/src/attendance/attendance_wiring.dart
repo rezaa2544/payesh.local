@@ -7,6 +7,7 @@ import 'package:payesh_sync/payesh_sync.dart';
 
 import '../login/session_controller.dart';
 import '../grades/grades_controller.dart';
+import '../notices/notices_controller.dart';
 import 'attendance_controller.dart';
 
 /// Default data path of wave 2 (row 74): the encrypted local database of row 72 + the durable
@@ -19,8 +20,10 @@ import 'attendance_controller.dart';
 /// * The outbox state is published into the session's badge (queued / offline / attention).
 ///
 /// Wave 3 (grades) uses the same database, outbox and AutoSync: one data path per device, so
-/// grades and attendance share the queue, the owner claim and the badge.
-final class GatewayAttendanceSource implements AttendanceSource, GradeSource {
+/// grades and attendance share the queue, the owner claim and the badge. Wave 4 (notices) joins
+/// the same path.
+final class GatewayAttendanceSource
+    implements AttendanceSource, GradeSource, NoticeSource {
   GatewayAttendanceSource({
     required this.storage,
     required this.session,
@@ -144,6 +147,17 @@ final class GatewayAttendanceSource implements AttendanceSource, GradeSource {
     final e = _engine, ob = _outbox;
     if (e == null || ob == null || _auto == null) return null;
     return GradeBook(engine: e, outbox: ob, role: role, uid: uid);
+  }
+
+  @override
+  Future<NoticeBoard?> noticeBoardFor({
+    required String role,
+    required int uid,
+  }) async {
+    await _starting;
+    final e = _engine, ob = _outbox;
+    if (e == null || ob == null || _auto == null) return null;
+    return NoticeBoard(engine: e, outbox: ob, role: role, uid: uid);
   }
 
   @override
