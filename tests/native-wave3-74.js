@@ -237,7 +237,7 @@ const MUTANTS = [
   ['M16 capacity checked after writing', s => nw3DataPath(mut(s, 'book', 'if (active + plan.length > outbox.config.capacity) {', 'if (false) {'))],
   ['M17 grades wired with the wave off', s => nw3DataPath(mut(s, 'main', 'grades: flags.ships(NativeWave.grades) ? attendance : null,', 'grades: attendance,'))],
   ['M18 page ignores the wave flag', s => nw3Flags(mut(s, 'app', 'enabled: gsrc != null && s.flags.uses(NativeWave.grades),', 'enabled: gsrc != null,'))],
-  ['M19 default waves drop grades', s => nw3Flags(mut(s, 'flags', "defaultValue: 'login,attendance,grades'", "defaultValue: 'login,attendance'"))],
+  ['M19 default waves drop grades', s => nw3Flags(mut(s, 'flags', "defaultValue: 'login,attendance,grades", "defaultValue: 'login,attendance,x"))],
   ['M20 wave-3 IT removed from CI', s => nw3Tests(mut(s, 'ci', ' test/grades_it_test.dart', ''))],
   ['M21 doc claims a real-device PASS', s => nw3Doc(mut(s, 'doc', 'NOT RUN [M]', 'PASS [M]'))],
 ];

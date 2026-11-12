@@ -5051,6 +5051,10 @@ async function waitFor(fn, ms = 15000) {
   await test('ردیف ۷۴ موج ۳: نمرهٔ بومی — نوبت‌ها و نشان‌ها برابر وب، معنای ذخیره برابر actGradeSave (۰ تا ۲۰، kind، وضعیت مدیر/دبیر)، Gateway دبیرِ غیر pending را با approval_denied رد می‌کند و بردار scope-v1 همین را می‌گوید، شناسه زیر 2^53 و بیرون از بازهٔ حضور، همان مسیر Gateway، پرچم موج، IT واقعی در CI، کنترل منفی جهش',
     async () => { const r = await require('./native-wave3-74.js').main({ quiet: true }); if (r.failed) throw new Error('NATIVE-WAVE3-74 failures: ' + r.failures.join(',')); console.log('    NATIVE-WAVE3-74-OK passed=' + r.passed + ' negative_controls=' + r.negatives); });
 
+  /* ── ردیف ۷۴ موج ۴: اطلاعیه در کلاینت بومی (برابری با actAnnAdd، نوشتن فقط با مدیر) ── */
+  await test('ردیف ۷۴ موج ۴: اطلاعیهٔ بومی — اهمیت‌ها و برچسب‌ها برابر فرم وب، عنوان و متن الزامی، تاریخ روز UTC و ثابت در ویرایش، جدیدترین اول، خواننده = همهٔ نقش‌ها و نویسنده = مدیر، Gateway نوشتن و حذف دبیر/والد را با role_denied رد می‌کند و بردار scope-v1 همین را می‌گوید، شناسه زیر 2^53 و بالای بازهٔ نمره با base 0، صف پیش از نوشتن محلی، پرچم موج، IT واقعی در CI، کنترل منفی جهش',
+    async () => { const r = await require('./native-wave4-74.js').main({ quiet: true }); if (r.failed) throw new Error('NATIVE-WAVE4-74 failures: ' + r.failures.join(',')); console.log('    NATIVE-WAVE4-74-OK passed=' + r.passed + ' negative_controls=' + r.negatives); });
+
   /* ── ردیف ۱۰۲: پنل مالک · اجرای محلی با یک فرمان (local-up) ─────────── */
   const ownerLocalUp = require('../apps/owner-panel/tests/local-up.test.js');
   await test('ردیف ۱۰۲: local-up — فقط loopback، DATABASE_URL محلی، migration idempotent، رازها خارج از Git، ورود TOTP، خاموشی تمیز، بدون 004 ⇒ 501',

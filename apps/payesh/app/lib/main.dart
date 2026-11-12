@@ -33,6 +33,8 @@ void main() {
       attendance: attendance,
       // Wave 3: grades share the attendance data path (same database, outbox and Gateway).
       grades: flags.ships(NativeWave.grades) ? attendance : null,
+      // Wave 4: notices on the same data path (every role reads, the manager writes).
+      notices: flags.ships(NativeWave.notices) ? attendance : null,
       onRetrySync: attendance?.retry,
     ),
   );

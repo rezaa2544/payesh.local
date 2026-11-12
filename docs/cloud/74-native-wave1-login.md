@@ -10,7 +10,7 @@
 | موج ۱ | ورود و انتخاب مدرسه | انجام‌شده [S] — همین سند |
 | موج ۲ | حضور | انجام‌شده [S] — `74-native-wave2-attendance.md` |
 | موج ۳ | نمره | باز |
-| موج ۴ | اطلاعیه | باز |
+| موج ۴ | اطلاعیه | انجام‌شده [S] — `74-native-wave4-notices.md` |
 | موج ۵ | والدین | باز |
 
 موج بعدی فقط وقتی روشن می‌شود که همهٔ موج‌های قبلی روشن باشند (`ClientFlags.parse`). اگر نام موجی بدون موج‌های قبلش بیاید، آن موج روشن نمی‌شود.
@@ -35,7 +35,7 @@
 | تنظیم | مقدار | رفتار |
 |---|---|---|
 | `--dart-define=PAYESH_CLIENT` | `native` (پیش‌فرض) / `legacy` | مقدار ناشناخته ⇒ **legacy** (fail-safe) |
-| `--dart-define=PAYESH_NATIVE_WAVES` | `login` (پیش‌فرض موج ۱؛ از موج ۲: `login,attendance`؛ از موج ۳: `login,attendance,grades`) و … | فقط موج‌های پیوسته از ابتدا روشن می‌شوند |
+| `--dart-define=PAYESH_NATIVE_WAVES` | `login` (پیش‌فرض موج ۱؛ از موج ۲: `login,attendance`؛ از موج ۳: `login,attendance,grades`؛ از موج ۴: `login,attendance,grades,notices`) و … | فقط موج‌های پیوسته از ابتدا روشن می‌شوند |
 | `--dart-define=PAYESH_WEB_URL` | نشانی کلاینت وب | در صفحهٔ «نسخهٔ قبلی» نمایش داده می‌شود و قابل رونوشت است |
 | انتخاب روی دستگاه | `client.choice` در SecureStore | رفتن به نسخهٔ قبلی همیشه مجاز است. برگشت به نسخهٔ جدید فقط وقتی مجاز است که build موج ورود را داشته باشد |
 
