@@ -4,6 +4,7 @@
 |---|---|
 | تاریخ | ۱۴۰۵/۰۸/۲۲ · 2026‑11‑12 |
 | شاخه | فقط `main` (به دستور مأموریت) |
+| commit | `f33a12f` رجیستری + بررسی + workflow + گزارش |
 | برچسب‌ها | [S] = در محیط آزمایشی ARENA یا CI · [M] = روی هاست یا دستگاه واقعی |
 | فهرست همهٔ گزارش‌ها | [`QUEUE-LOG.md`](QUEUE-LOG.md) |
 | سند تصمیم | D‑49 + [`../126-adr-native-owner-panel.md`](../126-adr-native-owner-panel.md) (ADR‑126، §۷)؛ ADR‑62 لغو شد |
@@ -93,7 +94,7 @@
 | [S] محلی `node tools/installables-125.mjs` | `INSTALLABLES-125-OK entries=12 native=4 webview_still_published=2 discovered=24` |
 | [S] محلی `node tests/installables-125.js` | `INSTALLABLES-125-TEST-OK checks=4 mutations=29` |
 | [S] محلی آزمون‌های وابسته | repo-map-93، adr-117، adr-ids-60، release-gate-95، android-release-76، evidence-sha-89، owner packaging (۳۹ جهش)، landing-114: همه OK |
-| [S] CI | پس از push در جدول QUEUE-LOG و Notion ثبت می‌شود (`installables-registry`) |
+| [S] CI روی `f33a12f` | `installables-registry` **43228418079** ✅ (`INSTALLABLES-125-OK …` + `INSTALLABLES-125-TEST-OK checks=4 mutations=29`) · `build-and-release` **43228417967** ✅ (tests-run 130/130) |
 
 ## ۶. باز / بعدی
 
