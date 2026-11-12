@@ -10,7 +10,7 @@
 | موج ۱ | ورود و انتخاب مدرسه | انجام‌شده [S] (#207) |
 | موج ۲ | حضور و غیاب | انجام‌شده [S] — همین سند |
 | موج ۳ | نمره | انجام‌شده [S] — `74-native-wave3-grades.md` |
-| موج ۴ | اطلاعیه | باز |
+| موج ۴ | اطلاعیه | انجام‌شده [S] — `74-native-wave4-notices.md` |
 | موج ۵ | والدین | باز |
 
 ## ۲. برابری با کلاینت وب (از روی قرارداد)
@@ -70,7 +70,7 @@ Gateway شناسهٔ مثبتی را که کلاینت می‌فرستد می‌
 
 | تنظیم | مقدار |
 |---|---|
-| `--dart-define=PAYESH_NATIVE_WAVES` | پیش‌فرض از این موج: `login,attendance` (از موج ۳: `login,attendance,grades`). `attendance` بدون `login` روشن نمی‌شود |
+| `--dart-define=PAYESH_NATIVE_WAVES` | پیش‌فرض از این موج: `login,attendance` (از موج ۳: `login,attendance,grades`؛ از موج ۴: `login,attendance,grades,notices`). `attendance` بدون `login` روشن نمی‌شود |
 | `--dart-define=PAYESH_CLIENT=legacy` یا انتخاب «نسخهٔ قبلی» روی دستگاه | حضور و غیاب در کلاینت وب انجام می‌شود |
 | موج خاموش + نقش معلم یا مدیر | خانه می‌گوید «ثبت حضور و غیاب فعلاً در نسخهٔ وب انجام می‌شود.» و دکمهٔ مرده‌ای نشان داده نمی‌شود |
 | بدون پیکربندی Gateway | منبع داده ساخته نمی‌شود (`gatewayConfigFromEnvironment` = null). همان پیام نسخهٔ وب نمایش داده می‌شود |

@@ -14,6 +14,7 @@ export 'src/direct_transport.dart';
 export 'src/gateway_transport.dart';
 export 'src/grades.dart';
 export 'src/http_transport.dart';
+export 'src/notices.dart';
 export 'src/outbox.dart';
 export 'src/pinning.dart';
 export 'src/school_access.dart';
