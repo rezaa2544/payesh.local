@@ -68,7 +68,7 @@
 | R24 | RTL، تقویم جلالی، تم روشن و تیره | PASS [S] | ۷۳: Done | `apps/payesh/packages/payesh_ui/lib/src/jalali.dart` | `tests/conformance-jalali-73.js` | `docs/cloud/reports/evidence/native-73-75-ci.txt` | در صفحه‌های ورود موج ۱ به کار رفته (RTL، توکن‌ها)؛ صفحه‌های داده هنوز نیست | — | ردیف ۷۴ |
 | R25 | بدون Cloudflare (D‑09) | PASS [S] | ۱۱۴: Done | `site/index.html` | `tests/landing-114.js` | `docs/cloud/reports/evidence/114-landing.txt` | پروب هاست هم آن را می‌سنجد (PR #196) | — | — |
 | R26 | پروب هاست (۱۱۵) و اجرای آن روی هاست واقعی (۱۱۶) | NOT RUN | ۱۱۵: Done · ۱۱۶: Backlog | `deploy/selfcheck.mjs` | — | — | ابزار با #196 در main است؛ اجرای واقعی روی هاست با OWNER است | — | ۱۱۶ (OWNER) |
-| R27 | سند نصب و راه‌اندازی | BLOCKED | ۹۴: Review (#215، سند طراحی آنبوردینگ) | `docs/05-install-and-updates.md` | — | — | وابسته به ۱۲۰ و ۷۴ | — | ردیف ۹۴ |
+| R27 | سند نصب و راه‌اندازی | BLOCKED | ۹۴: Done (#215، سند طراحی آنبوردینگ) | `docs/05-install-and-updates.md` `docs/cloud/94-onboarding-design.md` | `tests/onboarding-94.js` | — | ۷۴ ادغام شد و سند طراحی آنبوردینگ (۹۴) هست [S]؛ سند نصب روی هاست واقعی هنوز به ۱۲۰ وابسته است | — | ردیف ۱۲۰، سپس پیاده‌سازی آنبوردینگ پس از تصمیم O‑21 |
 <!-- RECONCILIATION-TABLE:END -->
 
 ### اصلاح وضعیت‌های Notion در همین ردیف

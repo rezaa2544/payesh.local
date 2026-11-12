@@ -146,5 +146,6 @@
 | ۷۴ (موج ۳) | ثبت نمره در کلاینت بومی + `approval_denied` در Gateway | #211 → `40d7975` | [`cloud/74-native-wave3-grades.md`](cloud/74-native-wave3-grades.md) |
 | ۷۴ (موج ۴) | اطلاعیه در کلاینت بومی (نوشتن فقط مدیر) | #212 → `572852c` | [`cloud/74-native-wave4-notices.md`](cloud/74-native-wave4-notices.md) |
 | ۷۴ (موج ۵) | صفحه‌های والدین در کلاینت بومی + `approval_denied` مرخصی در Gateway | #214 → `56ffb97` | [`cloud/74-native-wave5-parents.md`](cloud/74-native-wave5-parents.md) |
+| ۹۴ | سند طراحی نصب و آنبوردینگ (نمودار جریان، سه خطا، فاصله‌های G1–G6، O‑21) | #215 → `adab4f1` | [`cloud/94-onboarding-design.md`](cloud/94-onboarding-design.md) |
 
-ردیف‌های باز (۹۳ — همین نقشه، ۹۴، ۱۱۲ و ردیف‌های OWNER/Z: ۹۱، ۹۲، ۱۰۵، ۱۱۳، ۶۱؛ ۱۰۳ و ۱۰۴ منسوخ‌شده با ADR‑105) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.
+ردیف‌های باز (۹۳ — همین نقشه، ۱۱۲ و ردیف‌های OWNER/Z: ۹۱، ۹۲، ۱۰۵، ۱۱۳، ۶۱؛ ۱۰۳ و ۱۰۴ منسوخ‌شده با ADR‑105) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.
