@@ -13,5 +13,6 @@ export 'src/gateway_transport.dart';
 export 'src/http_transport.dart';
 export 'src/outbox.dart';
 export 'src/pinning.dart';
+export 'src/school_access.dart';
 export 'src/sync_client.dart';
 export 'src/transport.dart';

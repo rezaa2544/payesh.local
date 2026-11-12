@@ -13,6 +13,7 @@ dependencies:
   payesh_core:
   payesh_data:
   payesh_secure:
+  payesh_sync:
   payesh_ui:
 dev_dependencies:
   flutter_test:

@@ -99,7 +99,7 @@ const TRUTH = {
   // a real provider adapter (row 124) = any ADAPTERS key other than `manual`
   providerApi: () => { const m = /const ADAPTERS = \{([^}]*)\}/.exec(fs.readFileSync(path.join(ROOT, 'apps/owner-panel/server/infra.js'), 'utf8')); return !!m && m[1].split(',').map(x => x.split(':')[0].trim()).some(k => k && k !== 'manual'); },
   nativePolling: () => { const d = path.join(ROOT, 'apps/payesh/packages/payesh_sync/lib/src'); return fs.readdirSync(d).some(f => /poll/i.test(fs.readFileSync(path.join(d, f), 'utf8'))); },
-  nativePages: () => { const out = []; (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else out.push(p); } })(path.join(ROOT, 'apps/payesh/app/lib')); return out.some(p => /(attendance|grades|notices|login|parents)/i.test(p)); },
+  nativePages: () => { const out = []; (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else out.push(p); } })(path.join(ROOT, 'apps/payesh/app/lib')); const waves = new Set(); for (const p of out) { const m = /(attendance|grades|notices|login|parents)/i.exec(path.relative(ROOT, p)); if (m) waves.add(m[1].toLowerCase()); } return waves.size; },
 };
 function rcTruth(rows, truth) {
   const by = Object.fromEntries(rows.map(r => [r.id, r]));
@@ -114,7 +114,10 @@ function rcTruth(rows, truth) {
   if (st('R09') === 'PASS') assert(t.createSchool() && t.createSchoolUi(), 'R09: PASS needs both POST /tenants and the SPA form');
   if (st('R08') === 'PASS') assert(t.providerLayer() && t.infraUi() && t.providerApi(), 'R08: PASS needs migration, SPA page and a real provider adapter (row 124)');
   if (!t.nativePolling()) assert(['PARTIAL', 'NOT IMPLEMENTED'].includes(st('R10')), 'R10: native client has no polling yet status=' + st('R10'));
-  if (!t.nativePages()) assert(st('R23') === 'NOT IMPLEMENTED', 'R23: no native feature pages yet status=' + st('R23'));
+  /* row 74: number of native waves present (0..5) — partial migration may only be PARTIAL */
+  const waves = Number(t.nativePages());
+  if (!waves) assert(st('R23') === 'NOT IMPLEMENTED', 'R23: no native feature pages yet status=' + st('R23'));
+  else if (waves < 5) assert(st('R23') === 'PARTIAL', 'R23: ' + waves + '/5 native waves — must be PARTIAL status=' + st('R23'));
   else assert(st('R23') !== 'NOT IMPLEMENTED', 'R23: native pages exist — update the report');
   return Object.entries(t).map(([k, f]) => k + '=' + f()).join(' ');
 }
@@ -129,6 +132,8 @@ const MUTANTS = [
   ['M1 create-school status disagrees with code', d => rcTruth(parse(setStatus(d, 'R09', TRUTH.createSchool() ? 'NOT IMPLEMENTED' : 'PASS [S]')))],
   ['M2 security claimed PASS', d => rcSecurity(parse(setStatus(d, 'R15', 'PASS [S]')))],
   ['M3 native pages claimed PASS', d => rcTruth(parse(setStatus(d, 'R23', 'PASS [S]')))],
+  // M13 (row 74): report must follow the native waves both ways (present → not NOT IMPLEMENTED; absent → NOT IMPLEMENTED)
+  ['M13 native pages status disagrees with code', d => TRUTH.nativePages() ? rcTruth(parse(setStatus(d, 'R23', 'NOT IMPLEMENTED'))) : rcTruth(parse(d), Object.assign({}, TRUTH, { nativePages: () => 1 }))],
   ['M4 evidence path that does not exist', d => rcPaths(parse(d.replace('`docs/cloud/reports/evidence/gateway-67.txt`', '`docs/cloud/reports/evidence/gateway-67-missing.txt`')))],
   ['M5 PASS without a test', d => rcRules(parse(d.split('\n').map(l => l.startsWith('| R13 |') ? l.replace('`tests/convergence-fuzz-83.js`', '—') : l).join('\n')))],
   ['M6 invalid status word', d => rcShape(parse(setStatus(d, 'R02', 'DONE')))],
