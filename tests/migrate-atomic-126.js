@@ -210,7 +210,7 @@ const fmt = s => `writes=${s.ok} rls_refused=${s.rls} other=${s.other} migration
   await check('M126-05', 'row 129: 3 forced migrators + 6 REAL multi-table pushes: no deadlock, no push lost', async () => {
     const src = fs.readFileSync(path.join(ROOT, 'server/tenancy.js'), 'utf8');
     const mig = src.slice(src.indexOf('async function migrate('), src.indexOf('/* ── اتصال runtime'));
-    assert(/lock table \$\{present/.test(mig) && mig.indexOf('lock table') < mig.indexOf('for (const sql of SCHEMA_SQL)'), 'migrate: all tables locked up front, before the DDL');
+    assert(mig.indexOf('MIGRATE_LOCK_SQL') > 0 && mig.indexOf('MIGRATE_LOCK_SQL') < mig.indexOf('for (const sql of SCHEMA_SQL)'), 'migrate: all tables locked up front, before the DDL');
     const s = await pushLoad({ secs: Number(process.env.MIG126_SECS || 8), stopOnFailure: false, attempts: 4 });
     assert(s.deadlock === 0 && s.other === 0 && s.migErr === 0, fmtPush(s));
     assert(s.migs >= 10 && s.ok >= 200, 'load too small to prove anything: ' + fmtPush(s));

@@ -311,6 +311,15 @@ const RLS_TABLES = [TABLE, PRODUCT_TABLE, JOBS_TABLE, FEED_TABLE, OPS_TABLE, QUO
 /* ترتیب قفل همان ترتیبی است که تراکنش‌های زنده جدول‌ها را لمس می‌کنند (سهمیه → دفتر ops → مدرسه →
    رکورد → فید → اعتبار → کار → رکورد قدیمی) تا چرخه کمتر شکل بگیرد. */
 const MIGRATE_LOCK_ORDER = [QUOTA_TABLE, OPS_TABLE, SCHOOL_TABLE, PRODUCT_TABLE, FEED_TABLE, CRED_TABLE, JOBS_TABLE, TABLE];
+/* متن ثابت (بدون رشتهٔ قالبی؛ SAST ردیف ۴۸): فقط جدول‌های موجود، به همان ترتیب، با %I قفل می‌شوند.
+   نگهبان زیر هنگام بارگذاری ماژول تضمین می‌کند فهرست لفظی دقیقاً همان MIGRATE_LOCK_ORDER باشد. */
+const MIGRATE_LOCK_SQL = "do $lock$ declare t text; begin " +
+  "foreach t in array array['gateway_quota','product_ops','gw_school','product_records','product_change_feed','gw_credential','product_jobs','tenant_records'] loop " +
+  "if to_regclass(t) is not null then execute format('lock table %I in access exclusive mode', t); end if; " +
+  'end loop; end $lock$';
+if (!MIGRATE_LOCK_SQL.includes("array['" + MIGRATE_LOCK_ORDER.join("','") + "']")) {
+  throw new Error('tenancy: MIGRATE_LOCK_SQL is out of sync with MIGRATE_LOCK_ORDER');
+}
 async function schemaCurrent(client) {
   const r = await client.query(
     `select (select sha from ${SCHEMA_META_TABLE} where id = 1) as sha,
@@ -343,12 +352,7 @@ async function migrate(client, { attempts = 8, force = false } = {}) {
         /* بدون ارتقای قفل: DDL پشت سر هم روی یک جدول اول قفل ضعیف می‌گیرد و بعد ACCESS EXCLUSIVE
            می‌خواهد؛ هم‌زمان یک push با ACCESS SHARE در صف ROW EXCLUSIVE می‌ماند ⇒ بن‌بست روی همان
            جدول (یافتهٔ ۱۲۹). پس همهٔ جدول‌های موجود از ابتدا، به یک ترتیب ثابت، یک‌جا قفل می‌شوند. */
-        const present = await client.query(
-          'select t.name from unnest($1::text[]) with ordinality t(name, i) where to_regclass(t.name) is not null order by t.i',
-          [MIGRATE_LOCK_ORDER]);
-        if (present.rows.length) {
-          await client.query(`lock table ${present.rows.map(x => x.name).join(', ')} in access exclusive mode`);
-        }
+        await client.query(MIGRATE_LOCK_SQL);
         for (const sql of SCHEMA_SQL) await client.query(sql);
         await client.query(`insert into ${SCHEMA_META_TABLE} (id, sha) values (1, $1)
                             on conflict (id) do update set sha = excluded.sha, applied_at = now()`, [SCHEMA_FINGERPRINT]);

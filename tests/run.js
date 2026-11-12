@@ -5133,7 +5133,7 @@ async function waitFor(fn, ms = 15000) {
          a real migration locks every tenancy table up front (no lock upgrade ⇒ no deadlock with a live push),
          and withTenant re-runs a live transaction that was picked as the deadlock victim */
       assert.ok(at('schemaCurrent(client)') > at('pg_advisory_xact_lock') && at('if (!skipped)') > at('schemaCurrent(client)')
-        && at('lock table') > at('if (!skipped)') && at('lock table') < at('for (const sql of SCHEMA_SQL)'),
+        && at('MIGRATE_LOCK_SQL') > at('if (!skipped)') && at('MIGRATE_LOCK_SQL') < at('for (const sql of SCHEMA_SQL)'),
         'row 129: advisory lock → fingerprint check → (only if needed) lock all tables → schema');
       const wt = src.slice(src.indexOf('async function withTenant('), src.indexOf('let txRetries'));
       assert.ok(/RETRYABLE_TX\.has\(e\.code\)/.test(wt) && /attempt >= attempts/.test(wt) && /ROLLBACK/.test(wt),
