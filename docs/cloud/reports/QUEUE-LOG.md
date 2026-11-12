@@ -18,3 +18,4 @@
 | ۷۴ (موج ۲) | [`QUEUE-74-W2-REPORT.md`](QUEUE-74-W2-REPORT.md) | #209 | ادغام‌شده |
 | ۷۴ (موج ۳) | [`QUEUE-74-W3-REPORT.md`](QUEUE-74-W3-REPORT.md) | #211 | ادغام‌شده |
 | ۷۴ (موج ۴) | [`QUEUE-74-W4-REPORT.md`](QUEUE-74-W4-REPORT.md) | #212 | ادغام‌شده |
+| ۷۴ (موج ۵ — پایان ردیف) | [`QUEUE-74-W5-REPORT.md`](QUEUE-74-W5-REPORT.md) | #214 | ادغام‌شده |
