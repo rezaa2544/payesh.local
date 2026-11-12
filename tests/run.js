@@ -5131,6 +5131,17 @@ async function waitFor(fn, ms = 15000) {
       console.log('    MIGRATE-ATOMIC-126 static=1 pg_suite=BLOCKED-here (CI api-contract runs it)');
     });
 
+  /* ── ردیف ۱۲۵: رجیستری برنامه‌های نصبی — «فقط بومی» (D‑49) ── */
+  await test('ردیف ۱۲۵: هر برنامهٔ نصبی ثبت شده، هیچ WebView «بومی» نامیده نشده، و ۲۹ جهش همه قرمز می‌شوند',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const a = spawnSync(process.execPath, [path.join(ROOT, 'tools/installables-125.mjs')], { encoding: 'utf8', cwd: ROOT });
+      assert.strictEqual(a.status, 0, 'installables registry: ' + a.stdout.split('\n').filter(l => /^FAIL|INSTALLABLES/.test(l)).join('\n'));
+      const b = spawnSync(process.execPath, [path.join(ROOT, 'tests/installables-125.js')], { encoding: 'utf8', cwd: ROOT });
+      assert.strictEqual(b.status, 0, 'installables mutations: ' + b.stdout.split('\n').filter(l => /^FAIL/.test(l)).join('\n'));
+      console.log('    ' + a.stdout.trim().split('\n').pop() + ' · ' + b.stdout.trim().split('\n').pop());
+    });
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));

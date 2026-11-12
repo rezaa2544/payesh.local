@@ -23,7 +23,7 @@
 | [`samples/`](../samples/) · `data/` (git-ignored، در زمان اجرا ساخته می‌شود) | نمونهٔ CSV ورود دسته‌ای · دادهٔ محلی اجرا، مثل کلید عمومی پشتیبان (`backup-key.json`، بدون راز) | اپ مدرسه |
 | [`openapi.yaml`](../openapi.yaml) | قرارداد API؛ هم‌خوانی با کد را `tests/openapi-drift-81.js` می‌سنجد (ردیف ۸۱) | قرارداد |
 | [`docs/`](./) | `00` قانون اساسی · [`cloud/`](cloud/) اسناد ابری و ADRها · [`cloud/contracts/`](cloud/contracts/) قراردادهای ماشین‌خوان · [`security/`](security/) · [`release/`](release/) · [`cloud/reports/evidence/`](cloud/reports/evidence/) شواهد خام · `01..05` تاریخی | مستند |
-| [`.github/workflows/`](../.github/workflows/) | [`build.yml`](../.github/workflows/build.yml) (مدرسه) · [`native-client.yml`](../.github/workflows/native-client.yml) (اپ بومی) · [`api-contract.yml`](../.github/workflows/api-contract.yml) (قرارداد + PostgreSQL واقعی) · [`release-gate.yml`](../.github/workflows/release-gate.yml) (دروازهٔ انتشار، ردیف ۹۵) · [`owner-panel.yml`](../.github/workflows/owner-panel.yml) (پنل مالک) · [`pages.yml`](../.github/workflows/pages.yml) (صفحهٔ ایستا، استقرار دستی با دروازهٔ مالک، ردیف ۱۱۴) | CI |
+| [`.github/workflows/`](../.github/workflows/) | [`build.yml`](../.github/workflows/build.yml) (مدرسه) · [`native-client.yml`](../.github/workflows/native-client.yml) (اپ بومی) · [`api-contract.yml`](../.github/workflows/api-contract.yml) (قرارداد + PostgreSQL واقعی) · [`release-gate.yml`](../.github/workflows/release-gate.yml) (دروازهٔ انتشار، ردیف ۹۵) · [`owner-panel.yml`](../.github/workflows/owner-panel.yml) (پنل مالک) · [`pages.yml`](../.github/workflows/pages.yml) (صفحهٔ ایستا، استقرار دستی با دروازهٔ مالک، ردیف ۱۱۴) · [`installables.yml`](../.github/workflows/installables.yml) (رجیستری «فقط بومی»، ردیف ۱۲۵) | CI |
 
 ## ۲. `apps/owner-panel/` — پنل مالک پلتفرم
 
@@ -40,6 +40,7 @@
 | [`db/migrations/owner-panel/`](../db/migrations/owner-panel/) | 001 مدل داده/RLS · 002 API · 003 حذف چهارچشمی + ۲۴ ساعت · 004 ورود (رمز + TOTP، سقف ۳ اپراتور) | PR‑1/2/3 |
 | [`.github/workflows/owner-panel.yml`](../.github/workflows/owner-panel.yml) | ساخت exe/APK/وب **قدیمی WebView** فقط به‌عنوان آزمون CI + گیت fail-closed + کنترل منفی دروازهٔ بومی؛ **از ردیف ۱۲۶ هیچ چیز منتشر نمی‌کند** | PR‑4/5 · ۱۲۶ |
 | [`.github/workflows/owner-native-publish.yml`](../.github/workflows/owner-native-publish.yml) | تنها نویسندهٔ `owner-continuous`: پس از سبزشدن `native-client` روی main، فقط APK امضاشده و exe/zip بومی پنل مالک را دوباره می‌سنجد و منتشر می‌کند؛ هر فایل دیگری حذف می‌شود | ۱۲۶ |
+| [`.github/workflows/installables.yml`](../.github/workflows/installables.yml) | رجیستری برنامه‌های نصبی (`docs/cloud/125-installables.json`): هر نصبی ثبت‌نشده، WebView «بومی»، یا تضعیف دروازه ⇒ قرمز؛ بدون فیلتر مسیر | ۱۲۵ |
 | [`apps/owner-panel/legacy-webview-fixtures/`](../apps/owner-panel/legacy-webview-fixtures/) | آخرین APK و setup.exe پنل WebView، قفل‌شده با SHA‑256 — **فقط کنترل منفی CI، برای توزیع نیست** (رد دروازه، آزمون ارتقای درجا به اپ بومی) | ۱۲۶ |
 
 ## ۳. نقشهٔ راه پنل مالک (هم‌تراز با [سند ۶۱ §۶](cloud/61-owner-panel-app-proposal.md) و صف Notion)
@@ -155,5 +156,6 @@
 | ۹۴ | سند طراحی نصب و آنبوردینگ (نمودار جریان، سه خطا، فاصله‌های G1–G6، O‑21) | #215 → `adab4f1` | [`cloud/94-onboarding-design.md`](cloud/94-onboarding-design.md) |
 | ۱۲۰ | بستهٔ استقرار Gateway چندمستأجری + پیش‌بررسی + `admin.cjs` + selfcheck + راهنمای مالک [S] (اجرای [M] منتظر ۱۱۶) | #218 → `1d34add` | [`cloud/120-gateway-bundle.md`](cloud/120-gateway-bundle.md) |
 | ۱۲۶ | پنل مالک بومی Flutter (Android + Windows)؛ WebView از انتشار حذف شد؛ D‑49 / ADR‑126 (لغو ADR‑62)؛ مهاجرت اتمی tenancy | main `8d15f1d`…`c1e414c` | [`cloud/126-adr-native-owner-panel.md`](cloud/126-adr-native-owner-panel.md) · [`cloud/reports/QUEUE-126-REPORT.md`](cloud/reports/QUEUE-126-REPORT.md) |
+| ۱۲۵ | رجیستری همهٔ برنامه‌های نصبی + Gate «فقط بومی» در CI (`installables.yml`، ۲۹ جهش) | main | [`cloud/125-installables.json`](cloud/125-installables.json) · [`cloud/reports/QUEUE-125-REPORT.md`](cloud/reports/QUEUE-125-REPORT.md) |
 
 ردیف‌های باز (۹۳ — همین نقشه، ۱۱۲ (به دستور مالک اجرا نمی‌شود) و ردیف‌های OWNER/Z: ۹۱، ۹۲، ۱۰۵، ۱۱۳، ۱۱۶، ۶۱؛ ۱۰۳ و ۱۰۴ منسوخ‌شده با ADR‑105) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.

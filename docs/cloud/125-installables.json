@@ -1,0 +1,490 @@
+{
+  "id": "ROW-125/installables-registry",
+  "version": 1,
+  "decision": "D-49",
+  "adr": "docs/cloud/126-adr-native-owner-panel.md",
+  "criterion": "docs/cloud/43-native-independence.json",
+  "checker": "tools/installables-125.mjs",
+  "test": "tests/installables-125.js",
+  "rules": [
+    "Every Android project, Windows installer, desktop shell, launcher, web-wrapper config, install script and tracked installable binary MUST be listed by exact path in some entry's entrypoints (directory prefixes do not count), and every workflow-built asset in some entry's artifacts (unregistered => CI red).",
+    "declared=native is allowed only when the sources contain no WebView / browser-engine / web-UI / Node-for-UI usage AND every built artifact is run through tools/native-independence-gate.mjs (without --expect-fail) in CI.",
+    "A WebView build may never be declared native. A WebView build that is still published must say status=published-webview-pending-removal and name the row that removes it.",
+    "The gate criterion (docs/cloud/43-native-independence.json) may only grow: the frozen baseline in tools/installables-125.mjs must stay a subset of it.",
+    "Release channels listed in native_only_channels may carry only declared=native entries."
+  ],
+  "entries": [
+    {
+      "id": "owner-native-android",
+      "title_fa": "پنل مالک بومی — Android",
+      "platform": "android",
+      "audience": "owner",
+      "declared": "native",
+      "status": "published-native",
+      "sources": [
+        "apps/payesh/owner/android/",
+        "apps/payesh/owner/lib/",
+        "apps/payesh/owner/pubspec.yaml",
+        "apps/payesh/packages/payesh_owner_api/",
+        "apps/payesh/packages/payesh_ui/"
+      ],
+      "entrypoints": [
+        "apps/payesh/owner/android/app/src/main/AndroidManifest.xml"
+      ],
+      "ui": "Flutter (Dart, Skia/Impeller) — native widgets",
+      "html_css_js_ui": false,
+      "browser_engine_at_runtime": false,
+      "node_for_ui": false,
+      "runs_without_browser": true,
+      "network": "Gateway /api/platform/v1 (online owner console)",
+      "capabilities": "full owner panel parity with the retired WebView panel (row 126 report §2)",
+      "artifacts": [
+        "payesh-owner.apk",
+        "payesh-owner.aab"
+      ],
+      "published": [
+        {
+          "workflow": ".github/workflows/owner-native-publish.yml",
+          "tag": "owner-continuous",
+          "asset": "payesh-owner.apk"
+        }
+      ],
+      "gate_evidence": [
+        {
+          "workflow": ".github/workflows/native-client.yml",
+          "line_contains": "--android owner-out/payesh-owner.apk"
+        },
+        {
+          "workflow": ".github/workflows/owner-native-publish.yml",
+          "line_contains": "--android \"$A/payesh-owner.apk\""
+        }
+      ],
+      "row": 126
+    },
+    {
+      "id": "owner-native-windows",
+      "title_fa": "پنل مالک بومی — Windows (zip + نصب‌کنندهٔ Inno)",
+      "platform": "windows",
+      "audience": "owner",
+      "declared": "native",
+      "status": "published-native",
+      "sources": [
+        "apps/payesh/owner/windows/",
+        "apps/payesh/owner/lib/",
+        "apps/payesh/owner/pubspec.yaml",
+        "apps/payesh/packages/payesh_owner_api/",
+        "apps/payesh/packages/payesh_ui/"
+      ],
+      "entrypoints": [
+        "apps/payesh/owner/windows/installer/payesh-owner-native.iss",
+        "apps/payesh/owner/windows/runner/main.cpp"
+      ],
+      "ui": "Flutter (Dart) Win32 runner — native",
+      "html_css_js_ui": false,
+      "browser_engine_at_runtime": false,
+      "node_for_ui": false,
+      "runs_without_browser": true,
+      "network": "Gateway /api/platform/v1",
+      "capabilities": "full owner panel parity; upgrades the retired WebView2 shell in place (same AppId)",
+      "artifacts": [
+        "payesh-owner-windows.zip",
+        "payesh-owner-setup.exe",
+        "payesh_owner.exe"
+      ],
+      "published": [
+        {
+          "workflow": ".github/workflows/owner-native-publish.yml",
+          "tag": "owner-continuous",
+          "asset": "payesh-owner-windows.zip"
+        },
+        {
+          "workflow": ".github/workflows/owner-native-publish.yml",
+          "tag": "owner-continuous",
+          "asset": "payesh-owner-setup.exe"
+        }
+      ],
+      "gate_evidence": [
+        {
+          "workflow": ".github/workflows/native-client.yml",
+          "line_contains": "--windows owner-out/payesh-owner-windows.zip"
+        },
+        {
+          "workflow": ".github/workflows/native-client.yml",
+          "line_contains": "--windows \"$dir\" | Tee-Object -FilePath $log -Append"
+        },
+        {
+          "workflow": ".github/workflows/owner-native-publish.yml",
+          "line_contains": "--windows \"$W/payesh-o"
+        }
+      ],
+      "row": 126
+    },
+    {
+      "id": "school-native-android",
+      "title_fa": "اپ بومی مدرسه/کاربر — Android",
+      "platform": "android",
+      "audience": "school+user",
+      "declared": "native",
+      "status": "published-native-on-tag",
+      "sources": [
+        "apps/payesh/app/android/",
+        "apps/payesh/app/lib/",
+        "apps/payesh/app/pubspec.yaml",
+        "apps/payesh/packages/"
+      ],
+      "entrypoints": [
+        "apps/payesh/app/android/app/src/main/AndroidManifest.xml"
+      ],
+      "ui": "Flutter (Dart) — native",
+      "html_css_js_ui": false,
+      "browser_engine_at_runtime": false,
+      "node_for_ui": false,
+      "runs_without_browser": true,
+      "network": "Gateway only; no LAN/local-server mode yet (row 127)",
+      "capabilities": "partial: ~26 collections of the WebView school app still missing (row 128); release apk is unsigned-for-store until the school keystore secret exists",
+      "artifacts": [
+        "payesh-native.apk",
+        "payesh-native.aab"
+      ],
+      "published": [
+        {
+          "workflow": ".github/workflows/release-gate.yml",
+          "tag": "native-v*",
+          "asset": "payesh-native.apk"
+        },
+        {
+          "workflow": ".github/workflows/release-gate.yml",
+          "tag": "native-v*",
+          "asset": "payesh-native.aab"
+        }
+      ],
+      "gate_evidence": [
+        {
+          "workflow": ".github/workflows/native-client.yml",
+          "line_contains": "--android native-out/payesh-native.apk"
+        }
+      ],
+      "row": 74
+    },
+    {
+      "id": "school-native-windows",
+      "title_fa": "اپ بومی مدرسه/کاربر — Windows (zip + نصب‌کنندهٔ Inno)",
+      "platform": "windows",
+      "audience": "school+user",
+      "declared": "native",
+      "status": "published-native-on-tag",
+      "sources": [
+        "apps/payesh/app/windows/",
+        "apps/payesh/app/lib/",
+        "apps/payesh/app/pubspec.yaml",
+        "apps/payesh/packages/"
+      ],
+      "entrypoints": [
+        "apps/payesh/app/windows/installer/payesh-native.iss",
+        "apps/payesh/app/windows/runner/main.cpp"
+      ],
+      "ui": "Flutter (Dart) Win32 runner — native",
+      "html_css_js_ui": false,
+      "browser_engine_at_runtime": false,
+      "node_for_ui": false,
+      "runs_without_browser": true,
+      "network": "Gateway only; no LAN/local-server mode yet (row 127)",
+      "capabilities": "partial (row 128); setup.exe is a CI artifact only — not published until row 127/129",
+      "artifacts": [
+        "payesh-native-windows.zip",
+        "payesh-native-setup.exe",
+        "payesh_app.exe"
+      ],
+      "published": [
+        {
+          "workflow": ".github/workflows/release-gate.yml",
+          "tag": "native-v*",
+          "asset": "payesh-native-windows.zip"
+        }
+      ],
+      "gate_evidence": [
+        {
+          "workflow": ".github/workflows/native-client.yml",
+          "line_contains": "--windows native-out/payesh-native-windows.zip"
+        },
+        {
+          "workflow": ".github/workflows/native-client.yml",
+          "line_contains": "--windows \"$dir\" | Tee-Object -FilePath native-out\\installer"
+        }
+      ],
+      "row": 74
+    },
+    {
+      "id": "school-webview-windows",
+      "title_fa": "اپ مدرسه WebView2 + node.exe — Windows (payesh-setup.exe / zip)",
+      "platform": "windows",
+      "audience": "school+user",
+      "declared": "webview",
+      "status": "published-webview-pending-removal",
+      "removal_row": 129,
+      "replaced_by": "school-native-windows",
+      "sources": [
+        "desktop/",
+        "installer/",
+        "install/windows/",
+        "install.bat",
+        "start.bat"
+      ],
+      "entrypoints": [
+        "desktop/PayeshApp.cs",
+        "install.bat",
+        "install/windows/install.bat",
+        "install/windows/install.ps1",
+        "install/windows/payesh-app.vbs",
+        "install/windows/start-hidden.vbs",
+        "installer/payesh.iss",
+        "start.bat"
+      ],
+      "ui": "HTML/CSS/JS (client/) in WebView2, served by a bundled node.exe local server on 127.0.0.1:8080",
+      "html_css_js_ui": true,
+      "browser_engine_at_runtime": true,
+      "node_for_ui": true,
+      "runs_without_browser": false,
+      "network": "local server + LAN + cloud sync",
+      "capabilities": "full school feature set (reference for the parity matrix, row 128)",
+      "artifacts": [
+        "payesh-setup.exe",
+        "payesh-local-windows.zip"
+      ],
+      "published": [
+        {
+          "workflow": ".github/workflows/build.yml",
+          "tag": "continuous",
+          "asset": "payesh-setup.exe"
+        },
+        {
+          "workflow": ".github/workflows/build.yml",
+          "tag": "continuous",
+          "asset": "payesh-local-windows.zip"
+        },
+        {
+          "workflow": ".github/workflows/build.yml",
+          "tag": "v*",
+          "asset": "payesh-setup.exe"
+        },
+        {
+          "workflow": ".github/workflows/build.yml",
+          "tag": "v*",
+          "asset": "payesh-local-windows.zip"
+        }
+      ],
+      "row": 129
+    },
+    {
+      "id": "school-webview-android",
+      "title_fa": "اپ مدرسه Android WebView (payesh-local.apk)",
+      "platform": "android",
+      "audience": "school+user",
+      "declared": "webview",
+      "status": "published-webview-pending-removal",
+      "removal_row": 129,
+      "replaced_by": "school-native-android",
+      "sources": [
+        "install/android/"
+      ],
+      "entrypoints": [
+        "install/android/app/src/main/AndroidManifest.xml"
+      ],
+      "ui": "android.webkit.WebView loading the school server URL (url.properties)",
+      "html_css_js_ui": true,
+      "browser_engine_at_runtime": true,
+      "node_for_ui": false,
+      "runs_without_browser": false,
+      "network": "needs a reachable school/cloud server",
+      "capabilities": "whatever the web client offers; no offline UI",
+      "artifacts": [
+        "payesh-local.apk"
+      ],
+      "published": [
+        {
+          "workflow": ".github/workflows/build.yml",
+          "tag": "continuous",
+          "asset": "payesh-local.apk"
+        },
+        {
+          "workflow": ".github/workflows/build.yml",
+          "tag": "v*",
+          "asset": "payesh-local.apk"
+        }
+      ],
+      "row": 129
+    },
+    {
+      "id": "school-linux-server-install",
+      "title_fa": "نصب سرور مدرسه روی لینوکس (install.sh) — رابط در مرورگر",
+      "platform": "linux",
+      "audience": "school",
+      "declared": "webview",
+      "status": "source-only-webview-pending-removal",
+      "removal_row": 127,
+      "replaced_by": "school-native-windows (LAN mode, row 127)",
+      "sources": [
+        "install/linux/",
+        "start.sh"
+      ],
+      "entrypoints": [
+        "install/linux/install.sh",
+        "start.sh"
+      ],
+      "ui": "Node.js server + browser at http://<ip>:8080",
+      "html_css_js_ui": true,
+      "browser_engine_at_runtime": true,
+      "node_for_ui": true,
+      "runs_without_browser": false,
+      "network": "LAN server",
+      "capabilities": "full school feature set via browser",
+      "artifacts": [],
+      "published": [],
+      "row": 127
+    },
+    {
+      "id": "owner-webview-android-control",
+      "title_fa": "پنل مالک WebView قدیمی — Android (فقط کنترل منفی CI)",
+      "platform": "android",
+      "audience": "owner",
+      "declared": "webview",
+      "status": "negative-control",
+      "sources": [
+        "apps/owner-panel/android/"
+      ],
+      "entrypoints": [
+        "apps/owner-panel/android/app/src/main/AndroidManifest.xml"
+      ],
+      "ui": "android.webkit.WebView",
+      "html_css_js_ui": true,
+      "browser_engine_at_runtime": true,
+      "node_for_ui": false,
+      "runs_without_browser": false,
+      "network": "Gateway",
+      "capabilities": "retired (ADR-62 superseded by ADR-126)",
+      "artifacts": [
+        "payesh-owner.apk"
+      ],
+      "published": [],
+      "row": 126
+    },
+    {
+      "id": "owner-webview-windows-control",
+      "title_fa": "پنل مالک WebView2 قدیمی — Windows (فقط کنترل منفی CI)",
+      "platform": "windows",
+      "audience": "owner",
+      "declared": "webview",
+      "status": "negative-control",
+      "sources": [
+        "apps/owner-panel/desktop/",
+        "apps/owner-panel/installer/",
+        "apps/owner-panel/scripts/package-web.js"
+      ],
+      "entrypoints": [
+        "apps/owner-panel/desktop/PayeshOwner.cs",
+        "apps/owner-panel/installer/payesh-owner.iss"
+      ],
+      "ui": "WebView2 (WinForms shell)",
+      "html_css_js_ui": true,
+      "browser_engine_at_runtime": true,
+      "node_for_ui": false,
+      "runs_without_browser": false,
+      "network": "Gateway",
+      "capabilities": "retired (ADR-62 superseded by ADR-126)",
+      "artifacts": [
+        "payesh-owner-setup.exe",
+        "payesh-owner-web.zip"
+      ],
+      "published": [],
+      "row": 126
+    },
+    {
+      "id": "owner-webview-fixtures",
+      "title_fa": "باینری‌های منجمد پنل مالک WebView (کنترل منفی + منبع ارتقا)",
+      "platform": "android+windows",
+      "audience": "owner",
+      "declared": "webview",
+      "status": "fixture",
+      "sources": [
+        "apps/owner-panel/legacy-webview-fixtures/"
+      ],
+      "entrypoints": [
+        "apps/owner-panel/legacy-webview-fixtures/payesh-owner-setup.exe",
+        "apps/owner-panel/legacy-webview-fixtures/payesh-owner.apk"
+      ],
+      "ui": "WebView / WebView2",
+      "html_css_js_ui": true,
+      "browser_engine_at_runtime": true,
+      "node_for_ui": false,
+      "runs_without_browser": false,
+      "network": "n/a",
+      "capabilities": "n/a — test input only",
+      "artifacts": [],
+      "published": [],
+      "row": 126
+    },
+    {
+      "id": "school-webview-release-zips",
+      "title_fa": "zip ثبت‌شدهٔ ویندوز WebView در releases/",
+      "platform": "windows",
+      "audience": "school+user",
+      "declared": "webview",
+      "status": "tracked-release-output-pending-removal",
+      "removal_row": 129,
+      "sources": [
+        "releases/payesh-local-windows-"
+      ],
+      "entrypoints": [
+        "releases/payesh-local-windows-<ver>.zip"
+      ],
+      "ui": "the WebView2 + node.exe school bundle committed by the release bot",
+      "html_css_js_ui": true,
+      "browser_engine_at_runtime": true,
+      "node_for_ui": true,
+      "runs_without_browser": false,
+      "network": "n/a",
+      "capabilities": "n/a",
+      "artifacts": [
+        "payesh-local-windows-<ver>.zip"
+      ],
+      "published": [],
+      "row": 129
+    },
+    {
+      "id": "cloud-server-bundle",
+      "title_fa": "بستهٔ استقرار سرور ابری (payesh-cloud.zip) — برنامهٔ نصبی کاربر نیست",
+      "platform": "server",
+      "audience": "operator",
+      "declared": "server",
+      "status": "server-bundle",
+      "sources": [
+        "releases/payesh-cloud.zip"
+      ],
+      "entrypoints": [
+        "releases/payesh-cloud.zip"
+      ],
+      "ui": "none on the device; server that also serves the legacy web client to browsers (removed with row 129)",
+      "html_css_js_ui": false,
+      "browser_engine_at_runtime": false,
+      "node_for_ui": false,
+      "runs_without_browser": true,
+      "network": "server",
+      "capabilities": "cloud server deployment",
+      "artifacts": [
+        "payesh-cloud.zip"
+      ],
+      "published": [
+        {
+          "workflow": ".github/workflows/build.yml",
+          "tag": "continuous",
+          "asset": "payesh-cloud.zip"
+        }
+      ],
+      "row": 129
+    }
+  ],
+  "native_only_channels": [
+    "owner-continuous",
+    "native-v*"
+  ]
+}

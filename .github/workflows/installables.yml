@@ -1,0 +1,36 @@
+name: installables-registry
+
+# Row 125 — "native only" (D-49) registry gate. No path filters on purpose: a new Android project,
+# installer, desktop shell, web wrapper, launcher or release asset can appear anywhere in the tree.
+# Registry: docs/cloud/125-installables.json · checker: tools/installables-125.mjs
+# Red when: something installable is unregistered, a WebView build is declared native, a native entry is
+# not run through tools/native-independence-gate.mjs, a native-only channel carries WebView, or the gate
+# criterion (docs/cloud/43-native-independence.json) loses any frozen rule.
+
+on:
+  push:
+    branches: [main, 'arena/**', 'hermes/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  registry:
+    name: Installables registry — native only (row 125)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Registry check on the real tree
+        run: node tools/installables-125.mjs | tee installables-125.txt
+      - name: Rules turn red (29 in-memory mutations)
+        run: node tests/installables-125.js | tee -a installables-125.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installables-125
+          path: installables-125.txt
