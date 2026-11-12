@@ -8,7 +8,7 @@ import 'package:payesh_data/payesh_data.dart';
 
 import 'gateway_transport.dart';
 import 'outbox.dart';
-import 'sync_client.dart' show ensureReviewTable;
+import 'sync_client.dart' show ensureReviewTable, cursorIdKey, cursorSinceKey;
 
 enum DeviceClaim {
   /// Nothing was stored yet; the data now belongs to this user.
@@ -77,7 +77,12 @@ abstract final class DeviceOwner {
     if (unsent) return DeviceClaim.blockedByQueue;
     await engine.clear();
     db.execute('DELETE FROM sync_review');
-    db.execute('DELETE FROM meta WHERE key = ?', [GatewaySync.cursorKey]);
+    // both pull cursors: Gateway (`gw.since_seq`) and Sync v1 of the school LAN server (row 127)
+    db.execute('DELETE FROM meta WHERE key IN (?, ?, ?)', [
+      GatewaySync.cursorKey,
+      cursorSinceKey,
+      cursorIdKey,
+    ]);
     _write(engine, owner);
     return DeviceClaim.switched;
   }

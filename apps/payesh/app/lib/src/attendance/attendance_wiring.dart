@@ -28,12 +28,20 @@ final class GatewayAttendanceSource
   GatewayAttendanceSource({
     required this.storage,
     required this.session,
-    required this.client,
-  });
+    this.client,
+    HttpClient? lanClient,
+  }) : lanClient = lanClient ?? HttpClient();
 
   final Future<SqliteEngine> storage;
   final SessionController session;
-  final HttpClient client;
+
+  /// Pinned client for the cloud Gateway; null when the build has no Gateway config (the
+  /// school's own LAN server still works).
+  final HttpClient? client;
+
+  /// Row 127: plain client for the school's own LAN server (address already checked by
+  /// [LanServerRules]; no pinning — there is no public certificate on a school LAN).
+  final HttpClient lanClient;
 
   final ValueNotifier<int> _changed = ValueNotifier(0);
   SqliteEngine? _engine;
@@ -104,22 +112,49 @@ final class GatewayAttendanceSource
       return;
     }
     if (claim == DeviceClaim.switched) _changed.value++;
-    final transport = GatewayTransport(
-      baseUri: cell,
-      token: () => _token,
-      deviceId: await session.accounts.deviceId(),
-      client: client,
-    );
-    final pull = GatewaySync(engine: engine, transport: transport);
+    final deviceId = await session.accounts.deviceId();
+    final PushSender send;
+    final Future<PullResult> Function() fetch;
+    if (session.onLan) {
+      // Row 127: the school's own server — Sync v1 (`/api/v1/pull`, `/api/sync`), same outbox.
+      final transport = HttpSyncTransport(
+        baseUri: cell,
+        token: () => _token,
+        deviceId: deviceId,
+        client: lanClient,
+      );
+      final sync = SyncClient(
+        engine: engine,
+        outbox: outbox,
+        transport: transport,
+      );
+      send = transport.push;
+      fetch = sync.pull;
+    } else {
+      final pinned = client;
+      if (pinned == null) {
+        _owner = null;
+        return;
+      }
+      final transport = GatewayTransport(
+        baseUri: cell,
+        token: () => _token,
+        deviceId: deviceId,
+        client: pinned,
+      );
+      final sync = GatewaySync(engine: engine, transport: transport);
+      send = transport.push;
+      fetch = sync.pull;
+    }
     final auto = AutoSync(
       outbox: outbox,
       push: (ops) async {
         await _auth();
-        return transport.push(ops);
+        return send(ops);
       },
       pull: () async {
         await _auth();
-        final r = await pull.pull();
+        final r = await fetch();
         if (r.rows > 0 || r.deleted > 0) _changed.value++;
       },
     );

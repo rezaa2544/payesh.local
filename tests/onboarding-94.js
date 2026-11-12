@@ -124,8 +124,11 @@ function obGaps(s) {
   // G4: no UI calls the activation-code endpoint
   for (const k of ['webapp', 'webpages']) assert(!/activation-codes/.test(s[k]), 'G4 fixed? ' + F[k] + ' calls activation-codes — update doc §7');
   assert(!/activation-codes/.test(s.ownerweb), 'G4: owner panel calls the school endpoint? update doc');
-  // G5: refresh_failed wipes before any Directory lookup
-  const rf = sess.slice(sess.indexOf('Future<void> refresh() async {'));
+  // G5: refresh_failed wipes before any Directory lookup (row 127 split refresh() into a
+  // single-flight dispatcher → _refreshGateway() / _refreshLan(); the Gateway path is the one here)
+  const at = sess.indexOf('Future<void> _refreshGateway() async {');
+  assert(at > 0, 'Gateway refresh body not found');
+  const rf = sess.slice(at);
   const body = rf.slice(0, rf.indexOf('Future<String?> validToken()'));
   assert(/if \(e\.kind == SchoolAccessError\.deviceRevoked\) \{\s*await accounts\.clear\(\);/.test(body) && !/resolve\(/.test(body), 'G5 fixed? refresh re-resolves before clearing — update doc §7');
   const d = s.doc;

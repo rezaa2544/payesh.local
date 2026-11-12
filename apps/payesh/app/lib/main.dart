@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 
@@ -15,16 +17,23 @@ void main() {
     api: schoolAccessFromEnvironment(),
     accounts: SchoolAccountStore(platformSecureStore()),
     flags: flags,
+    // Row 127: the school's own server on the local network (Sync v1), next to the Gateway.
+    lan: lanEnabled
+        ? LanAccessClient(platform: Platform.operatingSystem)
+        : null,
+    deviceName: 'پایش ${Platform.operatingSystem}',
   )..start();
   final storage = openPlatformStorage();
-  // Wave 2 (row 74): attendance on the device, synced through the pinned Gateway only.
+  // Wave 2 (row 74): attendance on the device, synced through the pinned Gateway — or (row 127)
+  // through the school's own LAN server with the same outbox and AutoSync.
   final gw = gatewayConfigFromEnvironment();
-  final attendance = gw == null || !flags.ships(NativeWave.attendance)
+  final attendance =
+      (gw == null && !lanEnabled) || !flags.ships(NativeWave.attendance)
       ? null
       : (GatewayAttendanceSource(
           storage: storage.then((s) => s.engine),
           session: session,
-          client: createPinnedHttpClient(gw),
+          client: gw == null ? null : createPinnedHttpClient(gw),
         )..attach());
   runApp(
     PayeshApp(

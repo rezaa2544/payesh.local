@@ -32,11 +32,40 @@ final class NeedCode extends SessionState {
   final String? error;
 }
 
+/// Row 127 — the school's own server on the local network (no Gateway): address → (first setup
+/// on a fresh server | phone + password). [info] is null until the address answered as a Payesh
+/// school server.
+final class NeedLan extends SessionState {
+  const NeedLan({this.info, this.error, this.typed = ''});
+  final LanServerInfo? info;
+  final String? error;
+
+  /// Address typed in the first step (kept on errors).
+  final String typed;
+
+  /// A fresh server: the first setup (school + manager) comes next.
+  bool get needsSetup => info != null && !info!.setupDone;
+}
+
 /// Signed in. [session] is null while offline before the first refresh of this run: the app
 /// still opens (offline-first) and shows what it has.
 final class SignedIn extends SessionState {
-  const SignedIn({required this.school, this.role, this.session, this.uid});
+  const SignedIn({
+    required this.school,
+    this.role,
+    this.session,
+    this.uid,
+    this.lanServer,
+    this.schoolName,
+  });
   final String school;
+
+  /// Row 127: set when signed in to the school's own LAN server (not the cloud Gateway).
+  final Uri? lanServer;
+
+  /// Display name of the school (LAN: from the server's `/api/health`).
+  final String? schoolName;
+  bool get onLan => lanServer != null;
   final String? role;
   final SchoolSession? session;
 
@@ -62,12 +91,23 @@ class SessionController extends ChangeNotifier {
     required this.api,
     required this.accounts,
     required ClientFlags flags,
+    this.lan,
+    this.deviceName = 'پایش',
     DateTime Function()? now,
   }) : _active = flags,
        _now = now ?? DateTime.now;
 
   final SchoolAccessApi api;
   final SchoolAccountStore accounts;
+
+  /// Row 127: login against the school's own LAN server; null = this build offers no LAN mode.
+  final LanAccessApi? lan;
+
+  /// Name the LAN server records for this device (manager's device list).
+  final String deviceName;
+  LanAccountStore get lanAccounts => LanAccountStore(accounts.store);
+  SavedLan? _lan;
+  Future<void>? _refreshing;
   final DateTime Function() _now;
   ClientFlags _active;
 
@@ -89,8 +129,19 @@ class SessionController extends ChangeNotifier {
 
   SessionState get state => _state;
 
-  /// Cell (Gateway) of the saved school — the data path of wave 2 talks to it.
-  Uri? get cellUrl => _saved?.cellUrl;
+  /// Cell (Gateway) of the saved school — the data path of wave 2 talks to it. In LAN mode
+  /// (row 127) this is the school's own server.
+  Uri? get cellUrl => _lan?.server ?? _saved?.cellUrl;
+
+  /// Row 127: the data path talks Sync v1 (`/api/v1/pull`, `/api/sync`) to the LAN server.
+  bool get onLan => _lan != null;
+
+  /// Whether this build offers the LAN login.
+  bool get lanAvailable => lan != null;
+
+  /// Addresses of the LAN server for the other devices (known after the address step).
+  List<String> get lanShareUrls => _lanShare;
+  List<String> _lanShare = const [];
   bool get busy => _busy;
   ClientFlags get flags => _active;
 
@@ -152,6 +203,15 @@ class SessionController extends ChangeNotifier {
         await accounts.store.read(SchoolKeys.clientChoice),
       );
       if (!_active.uses(NativeWave.login)) return _set(const LegacyClient());
+      if (lan != null) {
+        final l = await lanAccounts.load();
+        _lan = l;
+        if (l != null) {
+          _set(_lanSignedIn(l));
+          await refresh();
+          return;
+        }
+      }
       final saved = await accounts.load();
       _saved = saved;
       if (saved == null) return _set(const NeedSchool());
@@ -223,7 +283,15 @@ class SessionController extends ChangeNotifier {
 
   /// Fetches a fresh token with the device secret. Offline/unavailable keeps the user signed in
   /// (badge shows offline); a revoked device goes back to step 1 with a clear message.
-  Future<void> refresh() async {
+  Future<void> refresh() {
+    final cur = _refreshing;
+    if (cur != null) return cur;
+    final f = _lan != null ? _refreshLan() : _refreshGateway();
+    _refreshing = f;
+    return f.whenComplete(() => _refreshing = null);
+  }
+
+  Future<void> _refreshGateway() async {
     final saved = _saved;
     final s = _state;
     if (saved == null || s is! SignedIn || _busy) return;
@@ -283,6 +351,17 @@ class SessionController extends ChangeNotifier {
   /// the manager revokes it; a new activation code is needed to come back).
   Future<void> signOut() async {
     if (_busy) return;
+    final l = _lan;
+    if (l != null) {
+      final s = _state;
+      final t = s is SignedIn ? s.session?.token : null;
+      _lan = null;
+      await lanAccounts.clear();
+      if (t != null) await lan?.logout(server: l.server, token: t);
+      _publish(SyncPhase.idle);
+      _set(NeedLan(typed: _typedOf(l.server)));
+      return;
+    }
     await accounts.clear();
     _saved = null;
     _publish(SyncPhase.idle);
@@ -301,6 +380,224 @@ class SessionController extends ChangeNotifier {
     if (!_active.ships(NativeWave.login)) return;
     await accounts.store.write(SchoolKeys.clientChoice, 'native');
     await start();
+  }
+
+  // ── Row 127: the school's own LAN server ────────────────────────────────────────────────
+
+  static String _typedOf(Uri u) =>
+      u.port == LanServerRules.defaultPort && u.scheme == 'http'
+      ? u.host
+      : '${u.host}:${u.port}';
+
+  SignedIn _lanSignedIn(SavedLan l, [LanSession? fresh]) => SignedIn(
+    school: l.school,
+    role: fresh?.role ?? l.role,
+    uid: fresh?.uid ?? l.uid,
+    session: fresh?.toSchoolSession(l.school),
+    lanServer: l.server,
+    schoolName: l.schoolName,
+  );
+
+  String _lanFail(LanAccessFailure e) {
+    if (e.kind == LanAccessError.rateLimited) {
+      _cooldownUntil = _now().add(e.retryAfter ?? const Duration(seconds: 60));
+    }
+    return e.messageFa;
+  }
+
+  String? _lanCooldown() {
+    final until = _cooldownUntil;
+    if (until == null) return null;
+    final left = until.difference(_now());
+    if (left <= Duration.zero) {
+      _cooldownUntil = null;
+      return null;
+    }
+    return LanAccessError.rateLimited.messageFa(left);
+  }
+
+  /// From step 1: "the school has its own server on this network".
+  void useLan() {
+    if (_busy || lan == null) return;
+    _set(const NeedLan());
+  }
+
+  /// Back from the LAN form to the school-code (Gateway) login.
+  void leaveLan() {
+    if (_busy) return;
+    _set(const NeedSchool());
+  }
+
+  /// Back to the address step of the LAN form.
+  void changeLanServer() {
+    final s = _state;
+    if (_busy || s is! NeedLan) return;
+    _set(NeedLan(typed: s.typed));
+  }
+
+  /// LAN step 1: the address must be a local-network address that answers as a Payesh school
+  /// server (`/api/health` → `payesh-local`). Nothing else is sent.
+  Future<void> submitLanServer(String typed) async {
+    final api = lan;
+    if (_busy || api == null) return;
+    final server = LanServerRules.parse(typed);
+    if (server == null) {
+      return _set(
+        NeedLan(error: LanAccessError.badAddress.messageFa(), typed: typed),
+      );
+    }
+    _set(NeedLan(typed: typed), busy: true);
+    try {
+      final info = await api.probe(server);
+      _lanShare = info.lanUrls;
+      _set(NeedLan(info: info, typed: typed));
+    } on LanAccessFailure catch (e) {
+      _set(NeedLan(error: _lanFail(e), typed: typed));
+    } on Object {
+      _set(NeedLan(error: _unknown, typed: typed));
+    }
+  }
+
+  /// LAN step 2: phone (or national id) + password → device token in the secure store.
+  Future<void> submitLanLogin(String phone, String password) async {
+    final s = _state;
+    final api = lan;
+    final info = s is NeedLan ? s.info : null;
+    if (_busy || api == null || s is! NeedLan || info == null) return;
+    final wait = _lanCooldown();
+    if (wait != null) {
+      return _set(NeedLan(info: info, typed: s.typed, error: wait));
+    }
+    if (LanServerRules.normalizeLogin(phone).length < 10 ||
+        password.length < 4) {
+      return _set(
+        NeedLan(
+          info: info,
+          typed: s.typed,
+          error: LanAccessError.badCredentials.messageFa(),
+        ),
+      );
+    }
+    _set(NeedLan(info: info, typed: s.typed), busy: true);
+    try {
+      final fresh = await api.login(
+        server: info.server,
+        phone: phone,
+        password: password,
+        deviceName: deviceName,
+      );
+      await _lanSignedInWith(info, fresh);
+    } on LanAccessFailure catch (e) {
+      _set(NeedLan(info: info, typed: s.typed, error: _lanFail(e)));
+    } on Object {
+      _set(NeedLan(info: info, typed: s.typed, error: _unknown));
+    }
+  }
+
+  /// LAN first setup of a fresh server (only accepted on the server computer itself when the
+  /// server runs as the headless data service).
+  Future<void> submitLanSetup({
+    required String schoolName,
+    required String managerName,
+    required String phone,
+    required String password,
+  }) async {
+    final s = _state;
+    final api = lan;
+    final info = s is NeedLan ? s.info : null;
+    if (_busy || api == null || s is! NeedLan || info == null) return;
+    String? bad;
+    if (managerName.trim().length < 3) {
+      bad = 'نام مدیر دست‌کم ۳ نویسه است';
+    } else if (LanServerRules.normalizeLogin(phone).length < 10) {
+      bad = 'شمارهٔ همراه مدیر را کامل بنویسید';
+    } else if (password.length < 4) {
+      bad = 'رمز عبور دست‌کم ۴ نویسه است';
+    }
+    if (bad != null) {
+      return _set(NeedLan(info: info, typed: s.typed, error: bad));
+    }
+    _set(NeedLan(info: info, typed: s.typed), busy: true);
+    try {
+      final fresh = await api.setup(
+        server: info.server,
+        schoolName: schoolName.trim(),
+        managerName: managerName.trim(),
+        phone: phone,
+        password: password,
+      );
+      final named = LanServerInfo(
+        server: info.server,
+        setupDone: true,
+        headless: info.headless,
+        schoolName: schoolName.trim().isEmpty
+            ? info.schoolName
+            : schoolName.trim(),
+        instance: info.instance,
+        version: info.version,
+        lanUrls: info.lanUrls,
+      );
+      await _lanSignedInWith(named, fresh);
+    } on LanAccessFailure catch (e) {
+      _set(NeedLan(info: info, typed: s.typed, error: _lanFail(e)));
+    } on Object {
+      _set(NeedLan(info: info, typed: s.typed, error: _unknown));
+    }
+  }
+
+  Future<void> _lanSignedInWith(LanServerInfo info, LanSession fresh) async {
+    final saved = SavedLan(
+      server: info.server,
+      school: info.schoolCode,
+      deviceToken: fresh.deviceToken,
+      schoolName: info.schoolName,
+      role: fresh.role,
+      uid: fresh.uid,
+    );
+    await lanAccounts.save(saved);
+    _lan = saved;
+    _publish(SyncPhase.idle, ok: _now());
+    _set(_lanSignedIn(saved, fresh));
+  }
+
+  /// Rotates the device token (the server answers with a new one each time; it is saved before
+  /// anything else). Offline keeps the user signed in; a revoked/expired/reused device token
+  /// signs out to the LAN form with a clear message.
+  Future<void> _refreshLan() async {
+    final l = _lan;
+    final api = lan;
+    if (l == null || api == null || _busy || _state is! SignedIn) return;
+    if (_lanCooldown() != null) return;
+    _busy = true;
+    _publish(SyncPhase.syncing);
+    try {
+      final fresh = await api.refresh(
+        server: l.server,
+        deviceToken: l.deviceToken,
+      );
+      final next = l.withToken(
+        fresh.deviceToken,
+        role: fresh.role,
+        uid: fresh.uid,
+      );
+      await lanAccounts.save(next);
+      _lan = next;
+      _publish(SyncPhase.idle, ok: _now());
+      _set(_lanSignedIn(next, fresh));
+    } on LanAccessFailure catch (e) {
+      if (e.kind == LanAccessError.deviceRevoked) {
+        await lanAccounts.clear();
+        _lan = null;
+        _publish(SyncPhase.idle);
+        _set(NeedLan(error: e.messageFa, typed: _typedOf(l.server)));
+        return;
+      }
+      _publish(SyncPhase.offline, error: _lanFail(e));
+      _set(_lanSignedIn(l));
+    } on Object {
+      _publish(SyncPhase.offline, error: _unknown);
+      _set(_lanSignedIn(l));
+    }
   }
 
   @override

@@ -5142,6 +5142,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + a.stdout.trim().split('\n').pop() + ' · ' + b.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۲۷: حالت شبکهٔ محلی اپ بومی + سرویس دادهٔ بی‌رابط مدرسه ── */
+  await test('ردیف ۱۲۷: سرور بی‌رابط هیچ صفحهٔ وبی نمی‌دهد، راه‌اندازی فقط از خود سرور، نصب‌کننده‌ها بی‌رابط وب، ۲۰ جهش قرمز',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/lan-mode-127.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'lan-mode-127: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|LAN-MODE/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   childExited = true;
   child.kill('SIGTERM');
   await new Promise(r => setTimeout(r, 300));

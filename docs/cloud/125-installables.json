@@ -189,7 +189,7 @@
       "node_for_ui": false,
       "runs_without_browser": true,
       "network": "Gateway only; no LAN/local-server mode yet (row 127)",
-      "capabilities": "partial (row 128); setup.exe is a CI artifact only — not published until row 127/129",
+      "capabilities": "partial (row 128); payesh-native-setup.exe is a CI artifact only — publishing with row 129",
       "artifacts": [
         "payesh-native-windows.zip",
         "payesh-native-setup.exe",
@@ -213,6 +213,33 @@
         }
       ],
       "row": 74
+    },
+    {
+      "id": "school-data-service-windows",
+      "title_fa": "سرویس دادهٔ مدرسه — Windows (payesh-data-service-setup.exe، اختیاری کنار اپ بومی) — فقط API، بدون رابط وب",
+      "platform": "windows",
+      "audience": "school",
+      "declared": "server",
+      "status": "ci-artifact-server",
+      "sources": [
+        "install/windows/data-service/",
+        "server/"
+      ],
+      "entrypoints": [
+        "install/windows/data-service/payesh-data-service.iss"
+      ],
+      "ui": "none — background service (boot task as SYSTEM, no window/tray), PAYESH_HEADLESS=1: Sync v1 API only, every other path 404 no_web_ui; the UI is the native app (LAN mode)",
+      "html_css_js_ui": false,
+      "browser_engine_at_runtime": false,
+      "node_for_ui": false,
+      "runs_without_browser": true,
+      "network": "LAN server for the native app (Sync v1, TCP 8080 private/domain firewall profiles); first setup only from loopback",
+      "capabilities": "school data service; ISCC refuses a stage with client\\index.html / app.js / WebView2Loader.dll; CI silent install → app LAN IT against the installed service → uninstall (data kept)",
+      "artifacts": [
+        "payesh-data-service-setup.exe"
+      ],
+      "published": [],
+      "row": 127
     },
     {
       "id": "school-webview-windows",
@@ -316,13 +343,11 @@
     },
     {
       "id": "school-linux-server-install",
-      "title_fa": "نصب سرور مدرسه روی لینوکس (install.sh) — رابط در مرورگر",
+      "title_fa": "سرویس دادهٔ مدرسه روی لینوکس (install.sh / start.sh) — فقط API برای اپ بومی، بدون رابط وب",
       "platform": "linux",
       "audience": "school",
-      "declared": "webview",
-      "status": "source-only-webview-pending-removal",
-      "removal_row": 127,
-      "replaced_by": "school-native-windows (LAN mode, row 127)",
+      "declared": "server",
+      "status": "source-only-server",
       "sources": [
         "install/linux/",
         "start.sh"
@@ -331,13 +356,13 @@
         "install/linux/install.sh",
         "start.sh"
       ],
-      "ui": "Node.js server + browser at http://<ip>:8080",
-      "html_css_js_ui": true,
-      "browser_engine_at_runtime": true,
-      "node_for_ui": true,
-      "runs_without_browser": false,
-      "network": "LAN server",
-      "capabilities": "full school feature set via browser",
+      "ui": "none — headless school server (PAYESH_HEADLESS=1): Sync v1 API only, every other path 404 no_web_ui; the UI is the native app (LAN mode, row 127)",
+      "html_css_js_ui": false,
+      "browser_engine_at_runtime": false,
+      "node_for_ui": false,
+      "runs_without_browser": true,
+      "network": "LAN server for the native app (Sync v1); first setup only from loopback",
+      "capabilities": "school data service (systemd unit); web UI no longer copied (install.sh removes an old client/)",
       "artifacts": [],
       "published": [],
       "row": 127

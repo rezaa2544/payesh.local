@@ -121,14 +121,23 @@ function nw2Ids(s) {
 function nw2DataPath(s) {
   const w = code(s.wiring);
   for (const t of ['GatewayTransport(', 'GatewaySync(', 'AutoSync(', 'SqliteOutbox(engine.database)']) assert(w.includes(t), 'wiring lacks ' + t);
-  assert(!/HttpClient\(\)|DirectTransport|SyncClient\(|\/api\/sync/.test(w), 'wiring must use only the injected pinned client and the Gateway');
+  // Row 127: two data paths only — the pinned Gateway, or the school's own LAN server (Sync v1)
+  // when the session is on LAN (address already checked by LanServerRules). Never a direct cell.
+  const iLan = w.indexOf('if (session.onLan) {'), iElse = w.indexOf('} else {', iLan);
+  assert(iLan > 0 && iElse > iLan, 'wiring must branch on session.onLan (row 127)');
+  const lanPart = w.slice(iLan, iElse), gwPart = w.slice(iElse, w.indexOf('final auto = AutoSync(', iElse));
+  assert(/HttpSyncTransport\([\s\S]*?client: lanClient,/.test(lanPart) && /SyncClient\(/.test(lanPart), 'LAN path must be HttpSyncTransport + SyncClient on the LAN client');
+  assert(/final pinned = client;\s*if \(pinned == null\) \{[\s\S]*?return;\s*\}/.test(gwPart) && /GatewayTransport\([\s\S]*?client: pinned,/.test(gwPart) && !/lanClient|HttpSyncTransport|SyncClient\(/.test(gwPart), 'Gateway path must use only the pinned client (none ⇒ no sync)');
+  const outside = w.slice(0, iLan) + w.slice(iElse);
+  assert(!/DirectTransport|SyncClient\(|HttpSyncTransport\(|\/api\/sync/.test(outside), 'no other data path outside the LAN branch');
+  assert(/final cell = session\.cellUrl;/.test(w) && /Uri\? get cellUrl[\s\S]{0,200}_lan/.test(s.session), 'LAN base comes from the checked LAN session');
   const iClaim = w.indexOf('DeviceOwner.claim('), iStart = w.indexOf('auto.start()');
   assert(iClaim > 0 && iStart > iClaim, 'DeviceOwner.claim must run before the sync engine starts');
   assert(/if \(claim == DeviceClaim\.blockedByQueue\) \{[\s\S]*?return;\s*\}/.test(w), 'blocked device must not start syncing');
   assert(/auto\.status\.listen\(session\.publishOutbox\)/.test(w), 'outbox state must reach the session badge');
   assert(/void publishOutbox\(SyncStatus s\) => sync\.value = s;/.test(s.session), 'session must expose publishOutbox');
-  assert(/client: createPinnedHttpClient\(gw\)/.test(s.main) && /GatewayAttendanceSource\(/.test(s.main), 'main must wire attendance with the pinned client');
-  assert(/gw == null \|\| !flags\.ships\(NativeWave\.attendance\)\s*\?\s*null/.test(s.main), 'no Gateway config ⇒ no data source (never guess)');
+  assert(/client: gw == null \? null : createPinnedHttpClient\(gw\)/.test(s.main) && /GatewayAttendanceSource\(/.test(s.main), 'main must wire attendance with the pinned client');
+  assert(/\(gw == null && !lanEnabled\) \|\| !flags\.ships\(NativeWave\.attendance\)\s*\?\s*null/.test(s.main), 'no Gateway config and no LAN mode ⇒ no data source (never guess)');
   const b = code(s.book);
   const iCap = b.indexOf('outbox.config.capacity'), iLoop = b.indexOf('for (final (r, status, id) in plan)');
   assert(iCap > 0 && iLoop > iCap, 'queue capacity must be checked before the first write (all or nothing)');
@@ -215,7 +224,9 @@ const MUTANTS = [
   ['M10 self-conflict: base ignores queued ops', s => nw2Ids(mut(s, 'book', 'final base = r.version + _queued(id);', 'final base = r.version;'))],
   ['M11 sync starts before the owner claim', s => nw2DataPath(mut(s, 'wiring', 'final claim = await DeviceOwner.claim(engine, outbox, owner);', 'auto.start();\n    final claim = await DeviceOwner.claim(engine, outbox, owner);'))],
   ['M12 badge not fed from the outbox', s => nw2DataPath(mut(s, 'wiring', '_sub = auto.status.listen(session.publishOutbox);', '_sub = null;'))],
-  ['M13 unpinned client for attendance', s => nw2DataPath(mut(s, 'main', 'client: createPinnedHttpClient(gw),', 'client: HttpClient(),'))],
+  ['M13 unpinned client for attendance', s => nw2DataPath(mut(s, 'main', 'client: gw == null ? null : createPinnedHttpClient(gw),', 'client: HttpClient(),'))],
+  ['M13b Gateway path falls back to the LAN client', s => nw2DataPath(mut(s, 'wiring', 'client: pinned,', 'client: lanClient,'))],
+  ['M13c a direct Sync v1 path outside LAN mode', s => nw2DataPath(mut(s, 'wiring', 'final sync = GatewaySync(engine: engine, transport: transport);', 'final sync = SyncClient(engine: engine, outbox: outbox, transport: transport);'))],
   ['M14 capacity checked after writing', s => nw2DataPath(mut(s, 'book', 'if (active + plan.length > outbox.config.capacity) {', 'if (false) {'))],
   ['M15 page ignores the wave flag', s => nw2Flags(mut(s, 'app', 'enabled: src != null && s.flags.uses(NativeWave.attendance),', 'enabled: src != null,'))],
   ['M16 default waves drop attendance', s => nw2Flags(mut(s, 'flags', "defaultValue: 'login,attendance", "defaultValue: 'login"))],

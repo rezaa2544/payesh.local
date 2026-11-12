@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Row 127: the school's own server on the local network speaks plain HTTP (there is no public
+     certificate inside a school LAN). Android's config cannot express "private IP ranges only",
+     so cleartext is permitted here and the app itself confines http to local-network addresses
+     (LanServerRules in packages/payesh_sync/lib/src/lan_access.dart: 10/8, 172.16/12, 192.168/16,
+     loopback, link-local, ULA, *.local, single-label names). The cloud Gateway stays HTTPS with
+     pinned keys (row 75). Only the system CA store is trusted — never user-added CAs. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>

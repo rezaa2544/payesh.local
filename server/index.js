@@ -49,6 +49,10 @@ const RELEASES_DIR = path.join(ROOT, 'releases');
 const PORT = Number(process.env.PORT || process.env.SERVER_PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = process.env.PAYESH_DATA || path.join(ROOT, 'data');
+/* ردیف ۱۲۷: «سرویس دادهٔ بی‌رابط» (PAYESH_HEADLESS=1) — همان سرور مدرسه، اما فقط API.
+   هیچ صفحهٔ وب/HTML/JS سرو نمی‌شود (رابط فقط اپ بومی است، D‑49) و راه‌اندازی اولیه
+   (/api/setup) فقط از خودِ رایانهٔ سرور (loopback) پذیرفته می‌شود، نه از هر دستگاه شبکه. */
+const HEADLESS = process.env.PAYESH_HEADLESS === '1';
 /* نقش‌هایی که آینه/پشتیبان را می‌بینند و می‌توانند بازیابی کنند: مدیر و عوامل اجرایی */
 /* F‑01: فایل کامل داده/بکاپ فقط برای مدیر — هیچ نقش دیگری کل پایگاه را نمی‌گیرد */
 const BACKUP_ROLES = new Set(['manager']);
@@ -477,7 +481,7 @@ async function api(req, res, url, ip) {
 
   if (p === '/api/health' && m === 'GET') {
     return json({
-      ok: true, name: 'payesh-local', version: RUNNING_VERSION,
+      ok: true, name: 'payesh-local', headless: HEADLESS, version: RUNNING_VERSION,
       installed_version: readManifest().version,
       restart_pending: readManifest().version !== RUNNING_VERSION,
       time: nowISO(), server_time: nowISO(), uptime_s: Math.round(process.uptime()),
@@ -549,6 +553,10 @@ async function api(req, res, url, ip) {
   }
 
   if (p === '/api/setup' && m === 'POST') {
+    if (HEADLESS) {
+      const remote = String((req.socket && req.socket.remoteAddress) || '').replace('::ffff:', '');
+      if (!(remote === '::1' || remote.startsWith('127.'))) return json({ ok: false, error: 'setup_local_only' }, 403);
+    }
     if (!rateLimit('setup:' + ip, 10, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const body = await readBody(req);
     const r = auth.setup(store, body);
@@ -2019,6 +2027,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /* ردیف ۱۲۷: سرویس بی‌رابط هیچ چیز غیر از API سرو نمی‌کند — نه index.html، نه دانلود، نه /install */
+    if (HEADLESS) {
+      res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(JSON.stringify({ ok: false, error: 'no_web_ui', hint: 'payesh-data-service: API only (native app)' }));
+      return;
+    }
+
     /* دانلودها (نصب‌کننده‌ها و APK) */
     if (url.pathname.startsWith('/downloads/')) {
       const rel = url.pathname.replace('/downloads/', '');
@@ -2238,7 +2253,7 @@ server.listen(PORT, HOST, () => {
   ips.forEach(ip => console.log('  آدرس در شبکهٔ مدرسه : http://' + ip + ':' + PORT));
   console.log('  داده               : ' + path.join(DATA_DIR, 'payesh.sqlite'));
   console.log('  بکاپ               : ' + BACKUP_DIR);
-  console.log('  راه‌اندازی         : ' + (auth.needsSetup(store) ? 'انجام نشده — از مرورگر اول را انجام دهید' : 'انجام شده'));
+  console.log('  راه‌اندازی         : ' + (auth.needsSetup(store) ? (HEADLESS ? 'انجام نشده — اپ پایش را روی همین رایانه باز کنید ← «سرور مدرسه در همین شبکه» ← 127.0.0.1' : 'انجام نشده — از مرورگر اول را انجام دهید') : 'انجام شده'));
   const pub = cfg.publicUrl(store);
   console.log('  آدرس عمومی (همه)   : ' + (pub || 'تنظیم نشده — پنل مدیر ← شبکه'));
   console.log('');

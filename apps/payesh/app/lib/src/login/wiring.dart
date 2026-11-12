@@ -41,3 +41,8 @@ SchoolAccessApi schoolAccessFromEnvironment({
     client: createPinnedHttpClient(gw),
   );
 }
+
+/// Row 127: the LAN login (school's own server, Sync v1) is on unless the build says
+/// `--dart-define=PAYESH_LAN=0`.
+const bool lanEnabled =
+    String.fromEnvironment('PAYESH_LAN', defaultValue: '1') != '0';

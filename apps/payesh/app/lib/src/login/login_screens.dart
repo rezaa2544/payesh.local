@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:payesh_sync/payesh_sync.dart' show LanServerRules;
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../app.dart';
@@ -40,6 +41,12 @@ class SessionGate extends StatelessWidget {
           state: s,
         ),
         final NeedCode s => ActivationScreen(controller: controller, state: s),
+        final NeedLan s => LanServerScreen(
+          // a new server answer rebuilds the form (address step ↔ login/setup step)
+          key: ValueKey('lan-${s.info?.server}-${s.info?.setupDone}'),
+          controller: controller,
+          state: s,
+        ),
         final SignedIn s => SignedInScreen(
           controller: controller,
           state: s,
@@ -193,6 +200,15 @@ class _SchoolSelectScreenState extends State<SchoolSelectScreen> {
                 )
               : const Text('ادامه'),
         ),
+        if (widget.controller.lanAvailable) ...[
+          const SizedBox(height: PayeshTokens.space3),
+          OutlinedButton.icon(
+            key: const Key('use-lan'),
+            onPressed: busy ? null : widget.controller.useLan,
+            icon: const Icon(Icons.lan_outlined),
+            label: const Text('سرور مدرسه در همین شبکه'),
+          ),
+        ],
         const SizedBox(height: PayeshTokens.space3),
         TextButton(
           key: const Key('use-legacy'),
@@ -324,8 +340,10 @@ class SignedInScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'برای ورود دوباره به کد فعال‌سازی تازه از مدیر مدرسه نیاز دارید. خارج می‌شوید؟',
+            Text(
+              state.onLan
+                  ? 'برای ورود دوباره شماره و رمز عبور خود را لازم دارید. خارج می‌شوید؟'
+                  : 'برای ورود دوباره به کد فعال‌سازی تازه از مدیر مدرسه نیاز دارید. خارج می‌شوید؟',
             ),
             if (waiting > 0) ...[
               const SizedBox(height: PayeshTokens.space3),
@@ -403,12 +421,26 @@ class SignedInScreen extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
-                  state.school,
+                  state.schoolName ?? state.school,
                   key: const Key('session-school'),
-                  textDirection: TextDirection.ltr,
+                  textDirection: state.schoolName == null
+                      ? TextDirection.ltr
+                      : null,
                 ),
                 if (role != null)
                   StatusBadge(role, key: const Key('session-role')),
+                if (state.lanServer != null)
+                  Text(
+                    'سرور مدرسه: ${state.lanServer!.host}:${state.lanServer!.port}',
+                    key: const Key('session-lan-server'),
+                  ),
+                if (state.lanServer != null &&
+                    LanServerRules.isLoopbackHost(state.lanServer!.host) &&
+                    controller.lanShareUrls.isNotEmpty)
+                  SelectableText(
+                    'نشانی برای دستگاه‌های دیگر مدرسه: ${controller.lanShareUrls.join('  ·  ')}',
+                    key: const Key('session-lan-share'),
+                  ),
               ],
             ),
           ),
@@ -420,6 +452,243 @@ class SignedInScreen extends StatelessWidget {
           home ?? const HomeBody(),
         ],
       ),
+    );
+  }
+}
+
+/// Row 127 — login against the school's own server on the local network (Sync v1 server,
+/// usually the headless data service of the school Windows installer). Step 1: the address;
+/// step 2: phone + password, or the first setup when the server is fresh.
+class LanServerScreen extends StatefulWidget {
+  const LanServerScreen({
+    super.key,
+    required this.controller,
+    required this.state,
+  });
+
+  final SessionController controller;
+  final NeedLan state;
+
+  @override
+  State<LanServerScreen> createState() => _LanServerScreenState();
+}
+
+class _LanServerScreenState extends State<LanServerScreen> {
+  late final TextEditingController _server = TextEditingController(
+    text: widget.state.typed,
+  );
+  final _phone = TextEditingController();
+  final _password = TextEditingController();
+  final _schoolName = TextEditingController();
+  final _manager = TextEditingController();
+
+  @override
+  void dispose() {
+    for (final c in [_server, _phone, _password, _schoolName, _manager]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Widget _busyOr(bool busy, String label) => busy
+      ? const SizedBox.square(
+          dimension: 20,
+          child: CircularProgressIndicator(
+            key: Key('login-busy'),
+            strokeWidth: 2,
+          ),
+        )
+      : Text(label);
+
+  Widget _field(
+    String key,
+    TextEditingController c,
+    String label, {
+    bool busy = false,
+    bool ltr = false,
+    bool secret = false,
+    bool autofocus = false,
+    TextInputType? keyboard,
+    String? hint,
+    VoidCallback? onGo,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
+    child: TextField(
+      key: Key(key),
+      controller: c,
+      enabled: !busy,
+      autofocus: autofocus,
+      obscureText: secret,
+      autocorrect: false,
+      enableSuggestions: !secret,
+      textDirection: ltr ? TextDirection.ltr : null,
+      keyboardType: keyboard,
+      textInputAction: onGo == null ? TextInputAction.next : TextInputAction.go,
+      onSubmitted: onGo == null ? null : (_) => onGo(),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: const OutlineInputBorder(),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.controller;
+    final s = widget.state;
+    final busy = c.busy;
+    final info = s.info;
+    if (info == null) {
+      void go() => c.submitLanServer(_server.text);
+      return _LoginFrame(
+        title: 'سرور مدرسه در همین شبکه',
+        children: [
+          const Text(
+            'نشانی سرور مدرسه را از مدیر بگیرید (مثلاً ۱۹۲.۱۶۸.۱.۱۰:۸۰۸۰). این دستگاه باید به همان شبکهٔ مدرسه وصل باشد.',
+            key: Key('lan-help'),
+          ),
+          const SizedBox(height: PayeshTokens.space4),
+          _field(
+            'lan-server',
+            _server,
+            'نشانی سرور مدرسه',
+            busy: busy,
+            ltr: true,
+            autofocus: true,
+            keyboard: TextInputType.url,
+            hint: '192.168.1.10:8080',
+            onGo: go,
+          ),
+          _ErrorText(s.error),
+          const SizedBox(height: PayeshTokens.space4),
+          FilledButton(
+            key: const Key('lan-next'),
+            onPressed: busy ? null : go,
+            child: _busyOr(busy, 'ادامه'),
+          ),
+          const SizedBox(height: PayeshTokens.space3),
+          TextButton(
+            key: const Key('lan-back'),
+            onPressed: busy ? null : c.leaveLan,
+            child: const Text('ورود با کد مدرسه'),
+          ),
+        ],
+      );
+    }
+    final header = Wrap(
+      spacing: PayeshTokens.space2,
+      children: [
+        Text(
+          info.schoolName ?? 'سرور پایش',
+          key: const Key('lan-school'),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        Text(
+          '${info.server.host}:${info.server.port}',
+          key: const Key('lan-address'),
+          textDirection: TextDirection.ltr,
+        ),
+        if (LanServerRules.isLoopbackHost(info.server.host) &&
+            info.lanUrls.isNotEmpty)
+          SelectableText(
+            'نشانی برای دستگاه‌های دیگر مدرسه: ${info.lanUrls.join('  ·  ')}',
+            key: const Key('lan-share'),
+          ),
+      ],
+    );
+    final change = TextButton(
+      key: const Key('lan-change-server'),
+      onPressed: busy ? null : c.changeLanServer,
+      child: const Text('تغییر نشانی سرور'),
+    );
+    if (s.needsSetup) {
+      void go() => c.submitLanSetup(
+        schoolName: _schoolName.text,
+        managerName: _manager.text,
+        phone: _phone.text,
+        password: _password.text,
+      );
+      return _LoginFrame(
+        title: 'راه‌اندازی اولیهٔ سرور مدرسه',
+        children: [
+          header,
+          const SizedBox(height: PayeshTokens.space3),
+          const Text(
+            'این سرور هنوز راه‌اندازی نشده است. نام مدرسه و مشخصات مدیر را وارد کنید؛ مدیر با همین شماره و رمز وارد می‌شود.',
+            key: Key('lan-setup-help'),
+          ),
+          const SizedBox(height: PayeshTokens.space4),
+          _field('lan-setup-school', _schoolName, 'نام مدرسه', busy: busy),
+          _field(
+            'lan-setup-manager',
+            _manager,
+            'نام و نام خانوادگی مدیر',
+            busy: busy,
+          ),
+          _field(
+            'lan-phone',
+            _phone,
+            'شمارهٔ همراه مدیر',
+            busy: busy,
+            ltr: true,
+            keyboard: TextInputType.phone,
+          ),
+          _field(
+            'lan-password',
+            _password,
+            'رمز عبور (دست‌کم ۴ نویسه)',
+            busy: busy,
+            ltr: true,
+            secret: true,
+            onGo: go,
+          ),
+          _ErrorText(s.error),
+          const SizedBox(height: PayeshTokens.space4),
+          FilledButton(
+            key: const Key('lan-setup-submit'),
+            onPressed: busy ? null : go,
+            child: _busyOr(busy, 'راه‌اندازی و ورود'),
+          ),
+          const SizedBox(height: PayeshTokens.space3),
+          change,
+        ],
+      );
+    }
+    void go() => c.submitLanLogin(_phone.text, _password.text);
+    return _LoginFrame(
+      title: 'ورود به سرور مدرسه',
+      children: [
+        header,
+        const SizedBox(height: PayeshTokens.space4),
+        _field(
+          'lan-phone',
+          _phone,
+          'شمارهٔ همراه یا کد ملی',
+          busy: busy,
+          ltr: true,
+          autofocus: true,
+          keyboard: TextInputType.phone,
+        ),
+        _field(
+          'lan-password',
+          _password,
+          'رمز عبور',
+          busy: busy,
+          ltr: true,
+          secret: true,
+          onGo: go,
+        ),
+        _ErrorText(s.error),
+        const SizedBox(height: PayeshTokens.space4),
+        FilledButton(
+          key: const Key('lan-login'),
+          onPressed: busy ? null : go,
+          child: _busyOr(busy, 'ورود'),
+        ),
+        const SizedBox(height: PayeshTokens.space3),
+        change,
+      ],
     );
   }
 }

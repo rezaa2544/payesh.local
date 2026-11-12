@@ -49,6 +49,10 @@ on:
       - 'server/sync.js'
       - 'server/gateway.js'
       - 'server/tenancy.js'
+      - 'server/index.js'
+      - 'server/auth.js'
+      - 'server/identity.js'
+      - 'install/windows/data-service/**'
       - 'docs/cloud/43-native-independence.json'
       - 'docs/cloud/contracts/conformance/**'
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
@@ -77,6 +81,10 @@ on:
       - 'server/sync.js'
       - 'server/gateway.js'
       - 'server/tenancy.js'
+      - 'server/index.js'
+      - 'server/auth.js'
+      - 'server/identity.js'
+      - 'install/windows/data-service/**'
       - 'docs/cloud/43-native-independence.json'
       - 'docs/cloud/contracts/conformance/**'
       - 'docs/cloud/contracts/e2e1-vectors-107.json'
@@ -210,11 +218,28 @@ jobs:
           grep -qE '\+8: All tests passed' "$GITHUB_WORKSPACE/sync-real-server.txt"
           if grep -qE '~[0-9]+' "$GITHUB_WORKSPACE/sync-real-server.txt"; then echo 'SYNC-IT-SKIPPED'; exit 1; fi
           echo SYNC-REAL-SERVER-OK
+      # Row 127 — LAN mode: the app's LAN path (LanAccessClient → SyncClient/HttpSyncTransport →
+      # AttendanceBook + SqliteOutbox → AutoSync) against server/index.js started as the headless
+      # data service (PAYESH_HEADLESS=1): no web UI, setup only from loopback, phone+password login,
+      # pull, offline queue → applied once, token rotation + replay revocation.
+      - name: payesh_sync LAN mode ⇄ server/index.js headless (row 127)
+        working-directory: apps/payesh/packages/payesh_sync
+        env:
+          PAYESH_SERVER_IT: '1'
+        run: |
+          set -euo pipefail
+          dart test --reporter expanded test/lan_server_it_test.dart | tee "$GITHUB_WORKSPACE/lan-real-server.txt"
+          grep -qE '\+7: All tests passed' "$GITHUB_WORKSPACE/lan-real-server.txt"
+          if grep -qE '~[0-9]+' "$GITHUB_WORKSPACE/lan-real-server.txt"; then echo 'LAN-IT-SKIPPED'; exit 1; fi
+          grep -qE '^NATIVE-LAN-IT passed=7 negative_controls=12$' "$GITHUB_WORKSPACE/lan-real-server.txt"
+          echo LAN-REAL-SERVER-OK
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: sync-real-server
-          path: sync-real-server.txt
+          path: |
+            sync-real-server.txt
+            lan-real-server.txt
 
   gateway-real:
     name: Dart Gateway client — pinned TLS against the REAL Gateway + PostgreSQL (row 75)
@@ -714,6 +739,96 @@ jobs:
           if (Test-Path (Join-Path $dir 'payesh_app.exe')) { throw 'payesh_app.exe left behind after uninstall' }
           if (Test-Path $key) { throw 'uninstall key left behind' }
           'INSTALLER-77-OK install+gate+uninstall' | Tee-Object -FilePath native-out\installer-77.txt -Append
+      # ── Row 127: optional school data service (API only) + app ⇄ INSTALLED service IT ──
+      - name: Build payesh-data-service-setup.exe (API-only school server, no web UI) (row 127)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          if (-not $iscc) { throw 'ISCC not found' }
+          $stage = Join-Path $env:GITHUB_WORKSPACE 'service-stage'
+          New-Item -ItemType Directory -Force -Path "$stage\server","$stage\client\lib","$stage\releases" | Out-Null
+          # pinned node.exe, verified against the official SHASUMS256.txt
+          $nv = 'v22.14.0'
+          Invoke-WebRequest -Uri "https://nodejs.org/dist/$nv/win-x64/node.exe" -OutFile "$stage\node.exe" -UseBasicParsing
+          $sums = (Invoke-WebRequest -Uri "https://nodejs.org/dist/$nv/SHASUMS256.txt" -UseBasicParsing).Content
+          $line = @($sums -split "`n" | Where-Object { $_ -match '\s+win-x64/node\.exe\s*$' })[0]
+          if (-not $line) { throw 'win-x64/node.exe not in SHASUMS256.txt' }
+          $want = ($line -split '\s+')[0].ToLower()
+          $got = (Get-FileHash "$stage\node.exe" -Algorithm SHA256).Hash.ToLower()
+          if ($got -ne $want) { throw "node.exe sha256 mismatch: $got vs $want" }
+          Copy-Item server\*.js "$stage\server\"
+          Copy-Item client\lib\*.js "$stage\client\lib\"
+          Copy-Item package.json $stage
+          if (Test-Path releases\manifest.json) { Copy-Item releases\manifest.json "$stage\releases\" }
+          $v = (Select-String -Path 'apps\payesh\app\pubspec.yaml' -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          & $iscc "/DAppVersion=$v" "/DStageDir=$stage" 'install\windows\data-service\payesh-data-service.iss' 2>&1 | Tee-Object -FilePath native-out\iscc-data-service.log
+          if ($LASTEXITCODE -ne 0) { Get-Content native-out\iscc-data-service.log -Tail 15; throw "ISCC failed ($LASTEXITCODE)" }
+          if (-not (Test-Path 'native-out\payesh-data-service-setup.exe')) { throw 'payesh-data-service-setup.exe was not built' }
+          # negative control: a staging folder that carries the web UI must be refused at build time
+          $bad = Join-Path $env:RUNNER_TEMP 'bad-service-stage'
+          Copy-Item $stage $bad -Recurse
+          Set-Content -Path "$bad\client\index.html" -Value '<html></html>'
+          & $iscc "/DAppVersion=$v" "/DStageDir=$bad" "/O$env:RUNNER_TEMP\bad-out" 'install\windows\data-service\payesh-data-service.iss' *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'ISCC accepted a data-service stage that ships client\index.html' }
+          $global:LASTEXITCODE = 0
+          'DATA-SERVICE-NO-WEBUI-CONTROL-OK' | Tee-Object -FilePath native-out\data-service-127.txt
+          $h = (Get-FileHash 'native-out\payesh-data-service-setup.exe' -Algorithm SHA256).Hash.ToLower()
+          "$h  payesh-data-service-setup.exe" | Tee-Object -FilePath native-out\SHA256SUMS-data-service
+      - name: Silent install of the data service → app LAN IT against the INSTALLED service → uninstall (row 127)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = 'native-out\data-service-127.txt'
+          $p = Start-Process -FilePath (Resolve-Path 'native-out\payesh-data-service-setup.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "silent install failed ($($p.ExitCode))" }
+          $dir = Join-Path $env:ProgramFiles 'PayeshDataService'
+          foreach ($f in 'node.exe','server\start.js','server\index.js','payesh-service.cmd','unins000.exe') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing after install: $f" }
+          }
+          # NEG: no web UI and no browser engine on disk
+          foreach ($f in 'client\index.html','client\app.js','client\styles.css','WebView2Loader.dll','desktop') {
+            if (Test-Path (Join-Path $dir $f)) { throw "data service ships $f" }
+          }
+          $task = Get-ScheduledTask -TaskName PayeshDataService
+          "task: user=$($task.Principal.UserId) limit=$($task.Settings.ExecutionTimeLimit) trigger=$($task.Triggers[0].CimClass.CimClassName) action=$($task.Actions[0].Execute)" | Tee-Object -FilePath $log -Append
+          if ($task.Principal.UserId -notmatch 'SYSTEM') { throw 'scheduled task does not run as SYSTEM' }
+          if ($task.Settings.ExecutionTimeLimit -ne 'PT0S') { throw "scheduled task has a time limit ($($task.Settings.ExecutionTimeLimit)) — the service would be stopped" }
+          if ($task.Triggers[0].CimClass.CimClassName -ne 'MSFT_TaskBootTrigger') { throw 'scheduled task is not a boot trigger' }
+          $fw = netsh advfirewall firewall show rule name=PayeshDataService | Out-String
+          if ($fw -notmatch '8080') { throw 'firewall rule for 8080 missing' }
+          # the service runs in the background (task started by the installer)
+          $ok = $false
+          for ($i = 0; $i -lt 120 -and -not $ok; $i++) {
+            try { $h = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/health' -TimeoutSec 2; $ok = ($h.ok -and $h.headless -and $h.name -eq 'payesh-local') } catch { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $ok) { Get-Content "$env:ProgramData\Payesh\data\server.log" -Tail 30 -ErrorAction SilentlyContinue; throw 'installed data service did not answer /api/health (headless)' }
+          "health: headless=$($h.headless) setup_done=$($h.setup_done) version=$($h.version)" | Tee-Object -FilePath $log -Append
+          $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8080/' -SkipHttpErrorCheck -UseBasicParsing
+          if ($r.StatusCode -ne 404 -or $r.Content -notmatch 'no_web_ui') { throw "installed service served a page at / ($($r.StatusCode))" }
+          'NO-WEB-UI-OK' | Tee-Object -FilePath $log -Append
+          # the native app's LAN path (same Dart code as the app) against the INSTALLED service
+          Push-Location apps\payesh\packages\payesh_sync
+          $env:PAYESH_SERVER_IT = '1'
+          $env:PAYESH_LAN_IT_URL = 'http://127.0.0.1:8080'
+          dart test --reporter expanded test/lan_server_it_test.dart 2>&1 | Tee-Object -FilePath (Join-Path $env:GITHUB_WORKSPACE 'native-out\lan-installed-it.txt')
+          $rc = $LASTEXITCODE
+          Pop-Location
+          if ($rc -ne 0) { throw "LAN IT against the installed service failed ($rc)" }
+          $it = Get-Content native-out\lan-installed-it.txt -Raw
+          if ($it -notmatch '\+7: All tests passed' -or $it -match '~[0-9]+') { throw 'LAN IT against the installed service: not 7/7 executed' }
+          if ($it -notmatch 'NATIVE-LAN-IT passed=7 negative_controls=12') { throw 'LAN IT marker missing' }
+          'NATIVE-LAN-INSTALLED-IT-OK passed=7' | Tee-Object -FilePath $log -Append
+          # the data service is NOT a native UI program: the native gate must reject it (honest label)
+          node tools/native-independence-gate.mjs --windows "$dir" --expect-fail | Tee-Object -FilePath $log -Append
+          if ($LASTEXITCODE -ne 0) { throw 'native gate did not reject the data service (node.exe) — it must never be labelled native' }
+          $u = Start-Process -FilePath (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "silent uninstall failed ($($u.ExitCode))" }
+          Start-Sleep -Seconds 3
+          if (Test-Path (Join-Path $dir 'node.exe')) { throw 'node.exe left behind after uninstall' }
+          if (Get-ScheduledTask -TaskName PayeshDataService -ErrorAction SilentlyContinue) { throw 'scheduled task left behind after uninstall' }
+          if (-not (Test-Path "$env:ProgramData\Payesh\data\payesh.sqlite")) { throw 'school data was not kept on uninstall' }
+          'DATA-SERVICE-127-OK install+headless+lan-it+uninstall(data kept)' | Tee-Object -FilePath $log -Append
       - name: Authenticode state + SHA-256 (row 77)
         shell: pwsh
         env:
