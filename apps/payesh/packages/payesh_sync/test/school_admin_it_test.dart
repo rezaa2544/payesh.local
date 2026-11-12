@@ -1252,4 +1252,92 @@ void main() {
     negatives += 5;
     passed++;
   }, skip: skip);
+  test('W11-IT-01 leave decisions: another manager device approves and deletes; the server keeps who/when; NEG a teacher device is refused locally', () async {
+    const leaveId = 3000000000128011;
+    const gone = 3000000000128012;
+    final seeded = await push(managerLogin.token, [
+      for (final (id, uid) in [(leaveId, 'w11-leave-a'), (gone, 'w11-leave-b')])
+        {
+          'uid': uid,
+          'collection': 'leaves',
+          'type': 'put',
+          'id': id,
+          'data': {
+            'student_id': w10Student,
+            'date': '2026-11-20',
+            'reason': 'پزشکی',
+            'status': 'pending',
+            'created_at': '2026-11-12T08:00:00Z',
+          },
+          'base_version': 0,
+        },
+    ]);
+    expect((seeded['applied'] as List).length, 2, reason: '$seeded');
+    final other = Device(server, managerLogin, seed: 11);
+    await other.pull();
+    final r = SchoolReports(other.db);
+    final rows = await r.leaves();
+    expect(rows.map((l) => l.id), containsAll([leaveId, gone]));
+    expect(rows.firstWhere((l) => l.id == leaveId).student, 'کیوان واردشده');
+    await r.decide(leaveId, 'approved');
+    await r.deleteLeave(gone);
+    expect((await other.sync()).waiting, 0);
+    final srv = await serverRow('leaves', leaveId);
+    expect(srv!['status'], 'approved');
+    expect(srv['decided_by'], managerLogin.uid);
+    expect(srv['decided_at'], isA<String>());
+    expect(await serverRow('leaves', gone), isNull);
+    await teacher.pull();
+    await expectLater(
+      SchoolReports(teacher.db).decide(leaveId, 'rejected'),
+      throwsA(
+        isA<RecordFailure>().having((f) => f.code, 'code', 'not_allowed'),
+      ),
+    );
+    expect(teacher.outbox.list(), isEmpty);
+    expect((await serverRow('leaves', leaveId))!['status'], 'approved');
+    negatives++;
+    passed++;
+  }, skip: skip);
+
+  test('W11-IT-02 reports and the dashboard are computed from the pulled copy and match the server rows', () async {
+    final other = Device(server, managerLogin, seed: 12);
+    await other.pull();
+    final r = SchoolReports(other.db);
+    final d = await r.dashboard();
+    final users = await serverRows('users');
+    expect(
+      d.students,
+      users.where((u) => u['role'] == 'student' && u['active'] != false).length,
+    );
+    expect(d.teachers, users.where((u) => u['role'] == 'teacher').length);
+    expect(d.classes, (await serverRows('classes')).length);
+    final week = await r.weekly();
+    expect(week.length, d.classes);
+    final card = await r.card(5);
+    expect(card.className, isNotEmpty);
+    final day = await r.day('2026-11-10');
+    final att = [
+      for (final a in await serverRows('attendance'))
+        if ('${a['date']}'.startsWith('2026-11-10')) a,
+    ];
+    expect(
+      day.fold<int>(0, (n, c) => n + c.records),
+      att
+          .where(
+            (a) =>
+                a['class_id'] != null &&
+                day.any((c) => c.classId == (a['class_id']! as num).toInt()),
+          )
+          .length,
+    );
+    await expectLater(
+      SchoolReports(teacher.db).dashboard(),
+      throwsA(
+        isA<RecordFailure>().having((f) => f.code, 'code', 'not_allowed'),
+      ),
+    );
+    negatives++;
+    passed++;
+  }, skip: skip);
 }

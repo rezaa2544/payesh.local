@@ -985,13 +985,65 @@
   },
   {
    "id": "act:leave-delete",
-   "status": "planned",
-   "wave": "W11"
+   "status": "native",
+   "wave": "W11",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/reports/reports_screen.dart",
+     "has": "Key('lvd-delete-${l.id}')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/reports.dart",
+     "has": "Future<RecordWrite> deleteLeave(int id)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/reports_wave11_test.dart",
+     "has": "'W11-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/reports_test.dart",
+     "has": "'W11-U06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W11-IT-01"
+    }
+   ]
   },
   {
    "id": "act:leave-set",
-   "status": "planned",
-   "wave": "W11"
+   "status": "native",
+   "wave": "W11",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/reports/reports_screen.dart",
+     "has": "Key('lvd-approve-${l.id}')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/reports/reports_screen.dart",
+     "has": "Key('lvd-reject-${l.id}')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/reports.dart",
+     "has": "Future<RecordWrite> decide(int id, String status)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/reports_wave11_test.dart",
+     "has": "'W11-W05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/reports_test.dart",
+     "has": "'W11-U06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W11-IT-01"
+    }
+   ]
   },
   {
    "id": "act:lock",
@@ -1118,8 +1170,32 @@
   },
   {
    "id": "act:print",
-   "status": "planned",
-   "wave": "W11"
+   "status": "native",
+   "wave": "W11",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/reports/reports_screen.dart",
+     "has": "Key('rep-print')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/reports/reports_screen.dart",
+     "has": "Future<void> print()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/reports.dart",
+     "has": "static String printable("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/reports_wave11_test.dart",
+     "has": "'W11-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/reports_test.dart",
+     "has": "'W11-U07"
+    }
+   ]
   },
   {
    "id": "act:retry",
@@ -2603,8 +2679,36 @@
   },
   {
    "id": "page:attendance-report",
-   "status": "planned",
-   "wave": "W11"
+   "status": "native",
+   "wave": "W11",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/reports/reports_screen.dart",
+     "has": "class DayReportScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'attendance-report'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/reports.dart",
+     "has": "Future<List<DayClass>> day(String iso)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/reports_wave11_test.dart",
+     "has": "'W11-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/reports_test.dart",
+     "has": "'W11-U03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W11-IT-02"
+    }
+   ]
   },
   {
    "id": "page:child",
@@ -2720,8 +2824,48 @@
   },
   {
    "id": "page:home",
-   "status": "planned",
-   "wave": "W11"
+   "status": "native",
+   "wave": "W11",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/reports/reports_screen.dart",
+     "has": "class DashboardScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'home'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/reports.dart",
+     "has": "Future<Dashboard> dashboard()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/reports.dart",
+     "has": "Future<TodayView> today()"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/reports_wave11_test.dart",
+     "has": "'W11-W01"
+    },
+    {
+     "file": "apps/payesh/app/test/reports_wave11_test.dart",
+     "has": "'W11-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/reports_test.dart",
+     "has": "'W11-U04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/reports_test.dart",
+     "has": "'W11-U05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W11-IT-02"
+    }
+   ]
   },
   {
    "id": "page:leaves",
@@ -2776,8 +2920,44 @@
   },
   {
    "id": "page:reports",
-   "status": "planned",
-   "wave": "W11"
+   "status": "native",
+   "wave": "W11",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/reports/reports_screen.dart",
+     "has": "class ReportsScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'reports'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/reports.dart",
+     "has": "Future<List<ClassWeek>> weekly()"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/reports.dart",
+     "has": "Future<ReportCard> card(int classId)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/reports_wave11_test.dart",
+     "has": "'W11-W03"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/reports_test.dart",
+     "has": "'W11-U01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/reports_test.dart",
+     "has": "'W11-U02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
+     "has": "'W11-IT-02"
+    }
+   ]
   },
   {
    "id": "page:scan",

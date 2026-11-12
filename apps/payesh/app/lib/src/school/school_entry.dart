@@ -7,6 +7,7 @@ import '../accounts/accounts_screen.dart';
 import '../classes/classes_screen.dart';
 import '../flags.dart';
 import '../followup/followup_screen.dart';
+import '../reports/reports_screen.dart';
 import '../schedule/schedule_screen.dart';
 import '../users/users_controller.dart';
 import '../users/users_screen.dart';
@@ -54,6 +55,21 @@ final class SchoolRouteArgs {
 
 /// Every row-128 page, in the web navigation's order.
 final List<SchoolPageSpec> schoolPages = [
+  SchoolPageSpec(
+    id: 'home',
+    wave: SchoolWave.reports,
+    label: 'امروز',
+    icon: Icons.today_outlined,
+    roles: const {'manager', 'teacher', 'student'},
+    build: (a) => SchoolOwned(
+      create: () => HomeController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => DashboardScreen(
+        controller: c as HomeController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
   SchoolPageSpec(
     id: 'users',
     wave: SchoolWave.users,
@@ -169,6 +185,54 @@ final List<SchoolPageSpec> schoolPages = [
       create: () =>
           OwnPasswordController(source: a.source, role: a.role, uid: a.uid),
       page: (c) => OwnPasswordPage(controller: c as OwnPasswordController),
+    ),
+  ),
+  SchoolPageSpec(
+    id: 'attendance-report',
+    wave: SchoolWave.reports,
+    label: 'حضور',
+    icon: Icons.fact_check_outlined,
+    roles: const {'manager'},
+    build: (a) => SchoolOwned(
+      create: () =>
+          DayReportController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => DayReportScreen(
+        controller: c as DayReportController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
+  SchoolPageSpec(
+    id: 'reports',
+    wave: SchoolWave.reports,
+    label: 'گزارش‌ها',
+    icon: Icons.summarize_outlined,
+    roles: const {'manager'},
+    build: (a) => SchoolOwned(
+      create: () =>
+          ReportsController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => ReportsScreen(
+        controller: c as ReportsController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
+  SchoolPageSpec(
+    id: 'leaves',
+    wave: SchoolWave.reports,
+    label: 'مرخصی‌ها',
+    icon: Icons.event_busy_outlined,
+    roles: const {'manager'},
+    build: (a) => SchoolOwned(
+      create: () =>
+          LeaveDeskController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => LeaveDeskScreen(
+        controller: c as LeaveDeskController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
     ),
   ),
 ];

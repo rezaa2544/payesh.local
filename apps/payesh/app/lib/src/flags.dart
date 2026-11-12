@@ -46,7 +46,7 @@ final class ClientFlags {
 
   /// Row-128 pages this build ships natively (`--dart-define=PAYESH_SCHOOL_WAVES=users,…`).
   static const String defaultSchoolWaves =
-      'users,accounts,classes,schedule,followup';
+      'users,accounts,classes,schedule,followup,reports';
 
   /// Parses build-time values. Fail-safe: an unknown client value means the OLD client, unknown
   /// wave names are ignored, and a wave is only on when every earlier wave is on (waves after
