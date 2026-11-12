@@ -226,7 +226,7 @@ function suiteSecrets(b, stage) {
   const plant = (name, text) => { const dd = fs.mkdtempSync(path.join(d, 'c')); fs.writeFileSync(path.join(dd, name), text); return b.scanSecrets(dd, CATALOG); };
   neg('credentialed DB URL', plant('x.js', "const u = 'postgres://payesh_runtime:hunter2-not-a-template@db/p';").some(f => f.kind === 'db_url_with_password'));
   neg('.env file', plant('.env', 'A=1').some(f => f.kind === 'secret_file_name'));
-  neg('private key', plant('k.txt', '-----BEGIN PRIVATE KEY-----\nMIIB\n').some(f => f.kind === 'private_key'));
+  neg('private key', plant('k.txt', '-----BEGIN PRIVATE ' + 'KEY-----\nMIIB\n').some(f => f.kind === 'private_key'));
   neg('filled secret in env example', plant('gateway.env.example', 'GW_SECRET=abc123\n').some(f => f.kind === 'secret_value:GW_SECRET'));
   neg('otpauth with secret', plant('o.txt', 'otpauth://totp/Payesh:o?secret=JBSWY3DPEHPK3PXPJBSWY3DP').some(f => f.kind === 'otpauth_secret'));
   assert.deepStrictEqual(plant('gateway.env.example', 'GW_SECRET=<gw_secret>\nPGURL=postgres://payesh_runtime:<PASSWORD>@db/p\n'), [], 'templates are not flagged');

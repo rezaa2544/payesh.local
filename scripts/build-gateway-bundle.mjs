@@ -137,7 +137,7 @@ export function prodDeps(pkg = 'pg', root = ROOT) {
 
 const SECRET_PATTERNS = [
   ['db_url_with_password', /postgres(?:ql)?:\/\/[^\s:@/'"`<>]+:[^\s@'"`<>$]{3,}@/],
-  ['private_key', /-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----/],
+  ['private_key', /-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-{5}/],
   ['github_token', /\b(?:ghp|gho|ghs|ghu)_[A-Za-z0-9]{30,}|\bgithub_pat_[A-Za-z0-9_]{30,}/],
   ['aws_key', /\bAKIA[0-9A-Z]{16}\b/],
   ['otpauth_secret', /otpauth:\/\/totp\/[^\s'"`]*secret=[A-Z2-7]{16,}/],

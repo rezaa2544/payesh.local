@@ -93,11 +93,15 @@
 | [`apps/payesh/app/`](../apps/payesh/app/) | اپ Flutter (runner اندروید و ویندوز)، `lib/src/app.dart`، آزمون ویجت و SecureStore | ۶۹، ۷۲ |
 | [`apps/payesh/app/android/`](../apps/payesh/app/android/) | runner اندروید: `ir.payesh.school.payesh_app`، targetSdk 36، امضای انتشار فقط از env/Secrets | ۷۲، ۷۶ |
 | [`apps/payesh/app/windows/`](../apps/payesh/app/windows/) | runner ویندوز + `installer/payesh-native.iss` (نصب per-user، AppId جدا) | ۷۲، ۷۷ |
+| [`apps/payesh/owner/`](../apps/payesh/owner/) | پنل مالک بومی Flutter (جایگزین پنل WebView `apps/owner-panel/`): ۹ صفحه، نقش‌ها و CAPS، ورود + TOTP، بدون WebView/HTML | ۱۲۶ |
+| [`apps/payesh/owner/android/`](../apps/payesh/owner/android/) | runner اندروید `ir.payesh.owner` (ارتقای درجا روی APK قدیمی WebView، versionCode=100000+run)، فقط HTTPS | ۱۲۶ |
+| [`apps/payesh/owner/windows/`](../apps/payesh/owner/windows/) | runner ویندوز `payesh_owner.exe` + `installer/payesh-owner-native.iss` (همان AppId پنل قدیمی؛ فایل‌های WebView2 را حذف می‌کند) | ۱۲۶ |
 | [`apps/payesh/packages/payesh_core/`](../apps/payesh/packages/payesh_core/) | Dart خالص: شناسه‌ها، ساعت، ثابت‌های API، کدهای خطا | ۶۹ |
 | [`apps/payesh/packages/payesh_data/`](../apps/payesh/packages/payesh_data/) | موتور دادهٔ محلی SQLite (رمزنگاری‌شده) با همان قرارداد `client/engine-web.js` | ۷۰، ۷۲ |
 | [`apps/payesh/packages/payesh_sync/`](../apps/payesh/packages/payesh_sync/) | صندوق خروجی آفلاین + کلاینت Sync v1؛ ترابری HTTP/Gateway/مستقیم و پین گواهی (کلاینت Gateway ردیف ۷۵ هم همین‌جاست — بستهٔ جداگانهٔ `payesh_net` ساخته نشد) | ۷۱، ۷۵، ۱۱۰ |
 | [`apps/payesh/packages/payesh_secure/`](../apps/payesh/packages/payesh_secure/) | SecureStore (Keystore/DPAPI)، مدیر کلید پایگاه، رمزنگاری سمت دستگاه e2e1 | ۷۲، ۱۰۷ |
 | [`apps/payesh/packages/payesh_ui/`](../apps/payesh/packages/payesh_ui/) | سیستم طراحی: توکن‌ها، تم روشن/تیره، RTL، تاریخ جلالی، فونت Vazirmatn | ۷۳ |
+| [`apps/payesh/packages/payesh_owner_api/`](../apps/payesh/packages/payesh_owner_api/) | Dart خالص: قرارداد `/api/platform/v1` پنل مالک، CAPS نقش‌ها، جدول خطاها و قواعد (هم‌ارز `web/app.js`) + IT روی سرور واقعی مالک | ۱۲۶ |
 | [`apps/payesh/tool/`](../apps/payesh/tool/) | `coverage_check.dart` (دروازهٔ پوشش در CI) | ۶۹ |
 
 ## ۷. نقشهٔ راه کلاینت بومی و ابر (هم‌تراز با صف Notion)
