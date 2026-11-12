@@ -5,7 +5,9 @@
 //           school (two classes, a teacher with a schedule row for class 5 only, students in both
 //           classes, a parent) and has the manager issue one-time codes for the teacher and the
 //           parent via issueActivation. Tenant/slug are fresh per run; codes go to stdout only.
-//   read  — the server's current attendance rows of TENANT (admin view, for assertions).
+//   read  — the server's current attendance rows of TENANT (admin view, for assertions). The admin
+//           role bypasses RLS, so the query filters tenant_id explicitly (rows of earlier runs in
+//           the same database are never counted).
 const crypto = require('node:crypto');
 const path = require('node:path');
 const ROOT = process.env.PAYESH_REPO_ROOT;
@@ -19,7 +21,8 @@ const { Pool } = require(require.resolve('pg', { paths: [ROOT] }));
     if (process.argv[2] === 'read') {
       const rows = await tenancy.withTenant(pool, process.env.TENANT, async (c) => (await c.query(
         `select record_id, version, data from ${tenancy.PRODUCT_TABLE}
-          where collection = 'attendance' and deleted_at is null order by record_id`)).rows);
+          where tenant_id = current_setting('app.tenant_id')::uuid
+            and collection = 'attendance' and deleted_at is null order by record_id`)).rows);
       process.stdout.write(JSON.stringify({
         rows: rows.map(r => ({ id: Number(r.record_id), version: Number(r.version), data: r.data })),
       }));

@@ -180,6 +180,10 @@ function canWriteRow(scope, collection, row, existing) {
         (Number(row.score) < 0 || Number(row.score) > 20)) return { ok: false, error: 'bad_score' };
     if (collection === 'grades' && row && row.kind != null &&
         !policy.GRADE_KINDS.includes(String(row.kind))) return { ok: false, error: 'bad_kind' };
+    /* تأیید نمره فقط با مدیر است (همان قاعدهٔ server/policy.js). دبیر فقط «در انتظار» می‌فرستد؛
+       Gateway ردیف موجود را برای put نمی‌خواند، پس به‌جای پایین‌آوردن بی‌صدا، صریح رد می‌کند (ردیف ۷۴، موج ۳). */
+    if (collection === 'grades' && row && row.status != null &&
+        String(row.status) !== 'pending') return { ok: false, error: 'approval_denied' };
     return { ok: true };
   }
   if (scope.role === 'parent' || scope.role === 'student') {

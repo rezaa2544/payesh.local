@@ -31,6 +31,8 @@ void main() {
       storage: storage,
       session: session,
       attendance: attendance,
+      // Wave 3: grades share the attendance data path (same database, outbox and Gateway).
+      grades: flags.ships(NativeWave.grades) ? attendance : null,
       onRetrySync: attendance?.retry,
     ),
   );

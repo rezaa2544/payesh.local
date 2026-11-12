@@ -139,7 +139,9 @@ function nw2DataPath(s) {
 }
 
 function nw2Flags(s) {
-  assert(/'PAYESH_NATIVE_WAVES',\s*defaultValue: 'login,attendance'/.test(s.flags), 'default waves must ship attendance');
+  /* از موج ۳ پیش‌فرض login,attendance,grades است؛ شرط این موج: attendance در پیش‌فرض باشد */
+  const dflt = /'PAYESH_NATIVE_WAVES',\s*defaultValue: '([a-z,]*)'/.exec(s.flags);
+  assert(dflt && dflt[1].split(',').slice(0, 2).join(',') === 'login,attendance', 'default waves must ship attendance');
   assert(/enabled: src != null && s\.flags\.uses\(NativeWave\.attendance\)/.test(s.app), 'page must need the attendance wave');
   const entry = code(s.screen).slice(code(s.screen).indexOf('class AttendanceEntry'));
   assert(/if \(role == null \|\| !AttendanceBook\.writers\.contains\(role\)\)/.test(entry), 'entry must check the writer roles');
@@ -216,10 +218,10 @@ const MUTANTS = [
   ['M13 unpinned client for attendance', s => nw2DataPath(mut(s, 'main', 'client: createPinnedHttpClient(gw),', 'client: HttpClient(),'))],
   ['M14 capacity checked after writing', s => nw2DataPath(mut(s, 'book', 'if (active + plan.length > outbox.config.capacity) {', 'if (false) {'))],
   ['M15 page ignores the wave flag', s => nw2Flags(mut(s, 'app', 'enabled: src != null && s.flags.uses(NativeWave.attendance),', 'enabled: src != null,'))],
-  ['M16 default waves drop attendance', s => nw2Flags(mut(s, 'flags', "defaultValue: 'login,attendance'", "defaultValue: 'login'"))],
+  ['M16 default waves drop attendance', s => nw2Flags(mut(s, 'flags', "defaultValue: 'login,attendance", "defaultValue: 'login"))],
   ['M17 other user\'s queue wiped instead of blocking', s => nw2Owner(mut(s, 'owner', 'if (unsent) return DeviceClaim.blockedByQueue;', ''))],
   ['M18 sign-out keeps the uid', s => nw2Owner(mut(s, 'access', '      SchoolKeys.uid,\n    ]) {', '    ]) {'))],
-  ['M19 wave-2 IT removed from CI', s => nw2Tests(mut(s, 'ci', ' test/attendance_it_test.dart | tee', ' | tee'))],
+  ['M19 wave-2 IT removed from CI', s => nw2Tests(mut(s, 'ci', ' test/attendance_it_test.dart', ''))],
   ['M20 doc claims a real-device PASS', s => nw2Doc(mut(s, 'doc', 'NOT RUN [M]', 'PASS [M]'))],
 ];
 

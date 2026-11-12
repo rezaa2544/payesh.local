@@ -5,6 +5,8 @@ import 'package:payesh_ui/payesh_ui.dart';
 import 'attendance/attendance_controller.dart';
 import 'attendance/attendance_screen.dart';
 import 'flags.dart';
+import 'grades/grades_controller.dart';
+import 'grades/grades_screen.dart';
 import 'login/login_screens.dart';
 import 'login/session_controller.dart';
 import 'secure/local_storage.dart';
@@ -18,6 +20,7 @@ class PayeshApp extends StatelessWidget {
     this.today,
     this.session,
     this.attendance,
+    this.grades,
     this.onRetrySync,
   });
 
@@ -31,6 +34,9 @@ class PayeshApp extends StatelessWidget {
   /// Wave 2 data (local database + outbox + Gateway); null = attendance stays on the web client.
   final AttendanceSource? attendance;
 
+  /// Wave 3 data (same local database + outbox + Gateway); null = grades stay on the web client.
+  final GradeSource? grades;
+
   /// Badge tap on native pages: run a sync cycle now.
   final VoidCallback? onRetrySync;
 
@@ -38,27 +44,54 @@ class PayeshApp extends StatelessWidget {
 
   Widget _pages(BuildContext context, SessionController s, SignedIn state) {
     final src = attendance;
+    final gsrc = grades;
     final role = state.currentRole;
     final uid = state.currentUid;
-    return AttendanceEntry(
-      enabled: src != null && s.flags.uses(NativeWave.attendance),
-      role: role,
-      uid: uid,
-      open: () {
-        if (src == null || role == null || uid == null) return;
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => AttendanceRoute(
-              source: src,
-              role: role,
-              uid: uid,
-              sync: s.sync,
-              onRetry: onRetrySync,
-              now: today,
-            ),
-          ),
-        );
-      },
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AttendanceEntry(
+          enabled: src != null && s.flags.uses(NativeWave.attendance),
+          role: role,
+          uid: uid,
+          open: () {
+            if (src == null || role == null || uid == null) return;
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => AttendanceRoute(
+                  source: src,
+                  role: role,
+                  uid: uid,
+                  sync: s.sync,
+                  onRetry: onRetrySync,
+                  now: today,
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        GradesEntry(
+          enabled: gsrc != null && s.flags.uses(NativeWave.grades),
+          role: role,
+          uid: uid,
+          open: () {
+            if (gsrc == null || role == null || uid == null) return;
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => GradesRoute(
+                  source: gsrc,
+                  role: role,
+                  uid: uid,
+                  sync: s.sync,
+                  onRetry: onRetrySync,
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 

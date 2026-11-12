@@ -6,6 +6,7 @@ import 'package:payesh_data/payesh_data.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 
 import '../login/session_controller.dart';
+import '../grades/grades_controller.dart';
 import 'attendance_controller.dart';
 
 /// Default data path of wave 2 (row 74): the encrypted local database of row 72 + the durable
@@ -16,7 +17,10 @@ import 'attendance_controller.dart';
 /// * Before any pull/push the device data is claimed for school/uid ([DeviceOwner]): a user
 ///   switch wipes the old copy, or — with unsent writes of another user — blocks syncing.
 /// * The outbox state is published into the session's badge (queued / offline / attention).
-final class GatewayAttendanceSource implements AttendanceSource {
+///
+/// Wave 3 (grades) uses the same database, outbox and AutoSync: one data path per device, so
+/// grades and attendance share the queue, the owner claim and the badge.
+final class GatewayAttendanceSource implements AttendanceSource, GradeSource {
   GatewayAttendanceSource({
     required this.storage,
     required this.session,
@@ -129,6 +133,17 @@ final class GatewayAttendanceSource implements AttendanceSource {
     final e = _engine, ob = _outbox;
     if (e == null || ob == null || _auto == null) return null;
     return AttendanceBook(engine: e, outbox: ob, role: role, uid: uid);
+  }
+
+  @override
+  Future<GradeBook?> gradeBookFor({
+    required String role,
+    required int uid,
+  }) async {
+    await _starting;
+    final e = _engine, ob = _outbox;
+    if (e == null || ob == null || _auto == null) return null;
+    return GradeBook(engine: e, outbox: ob, role: role, uid: uid);
   }
 
   @override
