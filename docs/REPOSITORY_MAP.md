@@ -144,5 +144,6 @@
 | ۷۴ (موج ۱) | ورود و انتخاب مدرسه در کلاینت بومی | #207 → `19c2627` | [`cloud/74-native-wave1-login.md`](cloud/74-native-wave1-login.md) |
 | ۷۴ (موج ۲) | حضور و غیاب در کلاینت بومی | #209 → `d4983d8` | [`cloud/74-native-wave2-attendance.md`](cloud/74-native-wave2-attendance.md) |
 | ۷۴ (موج ۳) | ثبت نمره در کلاینت بومی + `approval_denied` در Gateway | #211 → `40d7975` | [`cloud/74-native-wave3-grades.md`](cloud/74-native-wave3-grades.md) |
+| ۷۴ (موج ۴) | اطلاعیه در کلاینت بومی (نوشتن فقط مدیر) | #212 → `572852c` | [`cloud/74-native-wave4-notices.md`](cloud/74-native-wave4-notices.md) |
 
 ردیف‌های باز (۷۴، ۹۳ — همین نقشه، ۹۴، ۱۱۲ و ردیف‌های OWNER/Z: ۹۱، ۹۲، ۱۰۵، ۱۱۳، ۶۱؛ ۱۰۳ و ۱۰۴ منسوخ‌شده با ADR‑105) در صف Notion پیگیری می‌شوند و پس از ادغام به این جدول افزوده می‌شوند.
