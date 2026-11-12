@@ -7,7 +7,7 @@
    • proxy():   سرور ایستا/پروکسی same-origin: CSP، allowlist هدر، ردّ
                 cookie/redirect/غیر JSON/بدنهٔ نامعتبر، path traversal
    • ui():      jsdom ← پروکسی ← API واقعی PR-2 ← PGlite + migrations:
-                ورود fail-closed، هشت صفحه، حالت loading/empty/error،
+                ورود fail-closed، نُه صفحه (ردیف ۱۲۳: + زیرساخت)، حالت loading/empty/error،
                 نقش operator (بدون دکمهٔ تمدید/حذف + ردّ 403 در API)،
                 حذف دومرحله‌ای: درخواست ⇒ تأیید مالک دوم ⇒ مهلت ۲۴ساعت ⇒ اجرا (003)، تم روشن/تیره
    ═══════════════════════════════════════════════════════════════════ */
@@ -299,6 +299,8 @@ async function seedDb() {
   await db.exec(read(MIG, '001_owner_panel.up.sql'));
   await db.exec(read(MIG, '002_owner_panel_api.up.sql'));
   await db.exec(read(MIG, '003_tenant_deletion.up.sql'));
+  await db.exec(read(MIG, '005_tenant_provisioning.up.sql'));
+  await db.exec(read(MIG, '006_infra_registry.up.sql'));
   const ids = { owner: crypto.randomUUID(), owner2: crypto.randomUUID(), operator: crypto.randomUUID(), support: crypto.randomUUID(),
     A: crypto.randomUUID(), B: crypto.randomUUID() };
   for (const [id, login, role] of [[ids.owner, 'owner-1', 'platform_owner'], [ids.owner2, 'owner-2', 'platform_owner'],
@@ -370,7 +372,9 @@ async function ui() {
       '/tenants': { ok: true, tenants: [], count: 0 }, '/plans': { ok: true, plans: [], count: 0 },
       '/subscriptions': { ok: true, subscriptions: [], count: 0 }, '/platform-users': { ok: true, users: [], count: 0 },
       '/support-grants': { ok: true, grants: [], count: 0 }, '/audit': { ok: true, events: [], count: 0 },
-      '/tenant-deletions': { ok: true, requests: [], count: 0 } }[p] || { ok: false, error: 'not_found' };
+      '/tenant-deletions': { ok: true, requests: [], count: 0 },
+      '/infra': { ok: true, provisioning: { automated: false }, providers: [], services: [], endpoints: [], open_alerts: [] },
+      '/infra/changes': { ok: true, changes: [], count: 0 } }[p] || { ok: false, error: 'not_found' };
     res.end(JSON.stringify(body));
   });
   const emptyPort = await listen(emptyUp);
@@ -382,7 +386,7 @@ async function ui() {
   const tok = (sub, role, extra = {}) => platformApi.signPlatformToken(Object.assign({ sub, role, iat: Date.now(), exp: Date.now() + 3600_000, jti: crypto.randomUUID() }, extra), SECRET);
   const T = { owner: tok(ids.owner, 'platform_owner'), owner2: tok(ids.owner2, 'platform_owner'),
     operator: tok(ids.operator, 'platform_operator'), support: tok(ids.support, 'platform_support') };
-  const PAGES = ['dashboard', 'schools', 'plans', 'limits', 'health', 'operators', 'reports', 'audit'];
+  const PAGES = ['dashboard', 'schools', 'plans', 'limits', 'health', 'operators', 'reports', 'audit', 'infra'];
 
   try {
     /* ── ورود fail-closed ─────────────────────────────────────────── */
@@ -425,7 +429,7 @@ async function ui() {
       await db.exec(read(MIG, '004_owner_login.down.sql'));
     }
 
-    /* ── owner: هر هشت صفحه از API واقعی ─────────────────────────── */
+    /* ── owner: هر نُه صفحه از API واقعی ─────────────────────────── */
     {
       const { doc, win, fetchImpl, calls } = makeDom(port);
       const app = win.OwnerPanel.createApp({ document: doc, window: win, fetch: fetchImpl, session: T.owner });
@@ -599,7 +603,7 @@ async function ui() {
       const { doc, win, fetchImpl } = makeDom(emptyPanelPort);
       const app = win.OwnerPanel.createApp({ document: doc, window: win, fetch: fetchImpl, session: T.owner });
       await app.start();
-      for (const p of ['dashboard', 'schools', 'plans', 'limits', 'operators', 'reports', 'audit']) {
+      for (const p of ['dashboard', 'schools', 'plans', 'limits', 'operators', 'reports', 'audit', 'infra']) {
         await app.show(p); await settle(app, win);
         const st = states(doc);
         check(`empty state on ${p} (${st.join(',')})`, st.includes('empty') && !st.includes('loading') && !st.includes('error'));

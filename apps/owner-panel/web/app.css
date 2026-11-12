@@ -116,3 +116,9 @@ label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: 13px
   .navitem { white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) { .state[data-state="loading"]::before { animation: none; } }
+
+/* ردیف ۱۲۳ — صفحهٔ زیرساخت */
+.infra-service { border-top: 1px solid var(--line); padding-top: .75rem; margin-top: .75rem; }
+.infra-service h3 { font-size: 1rem; margin: 0 0 .5rem; }
+.stat[data-known="no"] b { opacity: .7; }
+.stat small.badge { display: inline-block; margin-top: .25rem; font-size: .75rem; }

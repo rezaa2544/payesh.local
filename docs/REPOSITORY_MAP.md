@@ -34,7 +34,7 @@
 | [`apps/owner-panel/server/`](../apps/owner-panel/server/) | API `/api/platform/v1` پشت Gateway: `platform-api.js`، `owner-auth.js` (رمز scrypt + TOTP، D‑45)، `openapi.json`، `static-server.js` | PR‑2 · ۹۸ |
 | [`apps/owner-panel/web/`](../apps/owner-panel/web/) | SPA فارسی/RTL با تم نبض (`theme.css` از `client/pulse.css`)، بدون CDN/فونت/اسکریپت خارجی | PR‑3 · ۹۸ |
 | [`apps/owner-panel/scripts/`](../apps/owner-panel/scripts/) | `gen-theme.js`، `package-web.js` + `zip-lite.js`، `check-owner-artifacts.js` (گیت خروجی‌ها)، `create-operator.js` (حساب اپراتور روی سرور) | PR‑3/4/5 |
-| [`apps/owner-panel/tests/`](../apps/owner-panel/tests/) | `platform-api` · `owner-spa` · `owner-login` · `tenant-deletion` · `packaging` (P1–P7) | همه |
+| [`apps/owner-panel/tests/`](../apps/owner-panel/tests/) | `platform-api` · `owner-spa` · `owner-spa-infra` (۱۲۳) · `owner-login` · `tenant-deletion` · `packaging` (P1–P7) | همه |
 | [`apps/owner-panel/android/`](../apps/owner-panel/android/) | پوستهٔ اندروید مالک (`ir.payesh.owner`، فقط INTERNET، same-origin) — خروجی `payesh-owner.apk` فقط امضاشده | PR‑4 · ۹۹ |
 | [`apps/owner-panel/desktop/`](../apps/owner-panel/desktop/) · [`apps/owner-panel/installer/`](../apps/owner-panel/installer/) | پوستهٔ ویندوز (WebView2) و Inno Setup مالک — خروجی `payesh-owner-setup.exe` (بدون امضای کد) | PR‑4 · ۹۹ |
 | [`db/migrations/owner-panel/`](../db/migrations/owner-panel/) | 001 مدل داده/RLS · 002 API · 003 حذف چهارچشمی + ۲۴ ساعت · 004 ورود (رمز + TOTP، سقف ۳ اپراتور) | PR‑1/2/3 |

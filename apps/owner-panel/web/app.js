@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   پنل مالک پلتفرم پایش — SPA ایستا، فارسی/RTL · PR-3 · ردیف ۹۸
+   پنل مالک پلتفرم پایش — SPA ایستا، فارسی/RTL · PR-3 · ردیف ۹۸ · ردیف ۱۲۳ (زیرساخت، ساخت مدرسه)
 
    • مستقل از client/pages.js و هر فایل client/*؛ بدون CDN، فونت یا
      اسکریپت خارجی؛ فقط درخواست same-origin به /api/platform/v1.
@@ -25,11 +25,15 @@
   /* آینهٔ UI از اختیارات سرور (apps/owner-panel/server/platform-api.js).
      پنهان‌کردن دکمه امنیت نیست؛ سرور در هر حال 403 می‌دهد. */
   var CAPS = {
-    platform_owner:    { renew: true,  deleteRequest: true,  createPlan: true,  suspend: true,  approveGrant: true,  revokeGrant: true,  createUser: true,  requestGrant: false },
-    platform_operator: { renew: false, deleteRequest: false, createPlan: false, suspend: true,  approveGrant: false, revokeGrant: false, createUser: false, requestGrant: true },
-    platform_support:  { renew: false, deleteRequest: false, createPlan: false, suspend: false, approveGrant: false, revokeGrant: false, createUser: false, requestGrant: true },
+    platform_owner:    { renew: true,  deleteRequest: true,  createPlan: true,  suspend: true,  approveGrant: true,  revokeGrant: true,  createUser: true,  requestGrant: false,
+                         createSchool: true,  infraRegister: true,  infraCheck: true,  infraRequestChange: true,  infraApprove: true },
+    platform_operator: { renew: false, deleteRequest: false, createPlan: false, suspend: true,  approveGrant: false, revokeGrant: false, createUser: false, requestGrant: true,
+                         createSchool: false, infraRegister: true,  infraCheck: true,  infraRequestChange: true,  infraApprove: false },
+    platform_support:  { renew: false, deleteRequest: false, createPlan: false, suspend: false, approveGrant: false, revokeGrant: false, createUser: false, requestGrant: true,
+                         createSchool: false, infraRegister: false, infraCheck: false, infraRequestChange: false, infraApprove: false },
   };
-  var NO_CAPS = { renew: false, deleteRequest: false, createPlan: false, suspend: false, approveGrant: false, revokeGrant: false, createUser: false, requestGrant: false };
+  var NO_CAPS = { renew: false, deleteRequest: false, createPlan: false, suspend: false, approveGrant: false, revokeGrant: false, createUser: false, requestGrant: false,
+    createSchool: false, infraRegister: false, infraCheck: false, infraRequestChange: false, infraApprove: false };
 
   var PAGES = [
     { id: 'dashboard', title: 'داشبورد',           icon: 'M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 9h8V3h-8z' },
@@ -37,6 +41,7 @@
     { id: 'plans',     title: 'پلن و اشتراک',      icon: 'M4 6h16v12H4zM4 10h16M8 15h3' },
     { id: 'limits',    title: 'سقف و مصرف',        icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
     { id: 'health',    title: 'سلامت',             icon: 'M3 12h4l3-8 4 16 3-8h4' },
+    { id: 'infra',     title: 'زیرساخت',           icon: 'M3 5h18v6H3zM3 13h18v6H3zM7 8h.01M7 16h.01M11 8h6M11 16h6' },
     { id: 'operators', title: 'اپراتورها و مجوز',  icon: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M17 11l2 2 4-4' },
     { id: 'reports',   title: 'گزارش',             icon: 'M6 2h9l5 5v15H6zM14 2v6h6M9 13h8M9 17h8' },
     { id: 'audit',     title: 'ممیزی',             icon: 'M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z' },
@@ -72,6 +77,21 @@
     bad_json: 'بدنهٔ درخواست JSON معتبر نیست.',
     login_unavailable: 'صادرکنندهٔ ورود (رمز + TOTP، تصمیم D‑45) روی این سرور نصب نشده است (migration 004)؛ ورود ممکن نیست.',
     login_failed: 'شناسه، رمز یا کد دومرحله‌ای نادرست است. هر کد فقط یک بار پذیرفته می‌شود و پس از ۵ تلاش ناموفق، حساب ۱۵ دقیقه قفل می‌شود.',
+    credentials_not_accepted: 'رمز، توکن یا کلید خام پذیرفته نمی‌شود؛ فقط ارجاع به Secret به شکل secret:NAME.',
+    credential_must_be_reference: 'Credential باید ارجاع به Secret باشد: secret:NAME.',
+    provider_api_not_implemented: 'اتصال به API ارائه‌دهنده هنوز پیاده نشده است (ردیف ۱۲۴)؛ فقط ثبت دستی ممکن است.',
+    label_required: 'هر عدد باید برچسب [M] (اندازه‌گیری‌شده) یا [E] (برآورد) داشته باشد.',
+    check_cooldown: 'این Endpoint همین الان بررسی شده است؛ بین دو بررسی دستی دست‌کم ۳۰ ثانیه فاصله لازم است.',
+    endpoint_disabled: 'این Endpoint غیرفعال است.',
+    endpoint_not_found: 'Endpoint پیدا نشد.',
+    invalid_endpoint: 'نشانی Endpoint نامعتبر است (فقط http/https/tcp و بدون نام کاربری و رمز).',
+    invalid_action: 'نوع درخواست تغییر نامعتبر است.',
+    invalid_slug: 'نشانی کوتاه مدرسه نامعتبر است.',
+    invalid_display_name: 'نام نامعتبر است.',
+    invalid_manager_name: 'نام مدیر نامعتبر است.',
+    school_provisioning_not_configured: 'ساخت مدرسه روی این سرور پیکربندی نشده است (اتصال Gateway به پایگاه مدرسه).',
+    school_provisioning_failed: 'ساخت سمت مدرسه ناموفق بود؛ مدرسه در حالت «در حال ساخت» مانده است و تلاش دوباره با همان فرم امن است.',
+    slug_taken_in_school_db: 'این نشانی کوتاه در پایگاه مدرسه قبلاً گرفته شده است.',
     internal_error: 'خطای داخلی سرور.',
     not_found: 'مسیر روی سرور وجود ندارد.',
   };
@@ -136,8 +156,35 @@
     active: ['فعال', 'ok'], trialing: ['آزمایشی', 'info'], suspended: ['تعلیق', 'bad'],
     past_due: ['معوق', 'warn'], grace: ['مهلت', 'warn'], canceled: ['لغوشده', 'bad'], expired: ['منقضی', 'bad'],
     disabled: ['غیرفعال', 'bad'], locked: ['قفل', 'bad'],
-    pending: ['منتظر تأیید', 'warn'], approved: ['تأییدشده، در مهلت', 'warn'], executed: ['اجراشده (داده نگه‌داری می‌شود)', 'bad'],
+    pending: ['منتظر تأیید', 'warn'], provisioning: ['در حال ساخت', 'warn'], approved: ['تأییدشده، در مهلت', 'warn'], executed: ['اجراشده (داده نگه‌داری می‌شود)', 'bad'],
   };
+
+  /* ── ردیف ۱۲۳: برچسب‌های صفحهٔ «زیرساخت» ─────────────────────────────
+     هر عددی که منبع واقعی ندارد «نامعلوم» نمایش داده می‌شود، نه صفر یا عدد ساختگی.
+     هیچ Secret خامی در UI وارد یا نمایش داده نمی‌شود؛ فقط نام ارجاع `secret:NAME`. */
+  var INFRA_METRICS = [
+    ['capacity_cpu', 'ظرفیت CPU'], ['usage_cpu', 'مصرف CPU'],
+    ['capacity_memory', 'ظرفیت حافظه'], ['usage_memory', 'مصرف حافظه'],
+    ['capacity_disk', 'ظرفیت دیسک'], ['usage_disk', 'مصرف دیسک'],
+    ['capacity_connections', 'ظرفیت اتصال'], ['usage_connections', 'اتصال‌های فعال'],
+    ['error_rate', 'نرخ خطا'], ['latency_p95', 'تأخیر p95'],
+  ];
+  var INFRA_UNITS = { cores: 'هسته', percent: 'درصد', mb: 'مگابایت', gb: 'گیگابایت', count: 'عدد', ms: 'میلی‌ثانیه', ratio: 'نسبت' };
+  var INFRA_DEFAULT_UNIT = { capacity_cpu: 'cores', usage_cpu: 'percent', capacity_memory: 'gb', usage_memory: 'gb',
+    capacity_disk: 'gb', usage_disk: 'gb', capacity_connections: 'count', usage_connections: 'count', error_rate: 'percent', latency_p95: 'ms' };
+  var INFRA_LABEL = { M: ['اندازه‌گیری‌شده [M]', 'ok'], E: ['برآورد [E]', 'warn'], '?': ['بدون داده', ''] };
+  var INFRA_PROVIDER_KIND = { host: 'هاست', vps: 'VPS', vpc: 'VPC', db: 'پایگاه داده', storage: 'ذخیره‌سازی', other: 'سایر' };
+  var INFRA_SERVICE_KIND = { gateway: 'Gateway', postgres: 'PostgreSQL', host: 'هاست', vps: 'VPS', vpc: 'VPC', storage: 'ذخیره‌سازی', backup: 'پشتیبان', other: 'سایر' };
+  var INFRA_HEALTH = { up: ['سالم', 'ok'], down: ['قطع', 'bad'], unknown: ['نامعلوم', ''] };
+  var INFRA_CHANGE = {
+    disable_provider: 'غیرفعال‌سازی ارائه‌دهنده', enable_provider: 'فعال‌سازی ارائه‌دهنده',
+    set_credential_ref: 'تغییر ارجاع Secret', disable_endpoint: 'غیرفعال‌سازی Endpoint',
+  };
+  var INFRA_CHANGE_STATUS = { pending: ['منتظر تأیید مالک', 'warn'], executed: ['اجراشده', 'ok'], rejected: ['ردشده', 'bad'] };
+  var CREDENTIAL_REF_RE = /^secret:[A-Z][A-Z0-9_]{2,63}$/;
+  var CODE_RE = /^[a-z0-9][a-z0-9_-]{1,39}$/;
+  var SLUG_RE = /^[a-z0-9][a-z0-9-]{2,39}$/;
+  var ENDPOINT_RE = /^(https?|tcp):\/\/[A-Za-z0-9.\-\[\]:]+(:[0-9]{1,5})?(\/[A-Za-z0-9._~\/%-]*)?$/;
 
   function createApp(opts) {
     var doc = opts.document;
@@ -395,7 +442,8 @@
       },
 
       schools: function (body, caps) {
-        var box = h('div'); body.appendChild(card('فهرست مدارس', [box]));
+        var box = h('div'); body.appendChild(card('فهرست مدارس', [caps.createSchool ? h('div', { class: 'actions' }, [
+          h('button', { type: 'button', class: 'btn primary', 'data-action': 'create-school', text: 'ساخت مدرسه', onclick: function () { createSchool(); } })]) : null, box]));
         var delBox = caps.deleteRequest ? h('div') : null;
         if (delBox) body.appendChild(card('درخواست‌های حذف مدرسه (چهارچشمی + ۲۴ ساعت)', [delBox]));
         setState(box, 'loading', 'در حال دریافت مدارس…');
@@ -601,6 +649,110 @@
           box.appendChild(h('p', { class: 'notice', text: 'بررسی پیوستگی در مرورگر فقط نشانگر است؛ بازمحاسبهٔ معتبر هش در آزمون سرور انجام می‌شود.' }));
         });
       },
+      /* ردیف ۱۲۳ — صفحهٔ «زیرساخت»: فقط Control Plane (ثبت دستی، سلامت، ظرفیت/مصرف، هشدار، تاریخچه).
+         عملیات پرخطر فقط درخواست تغییر است و اجرای آن تأیید جداگانهٔ مالک می‌خواهد. */
+      infra: function (body, caps) {
+        var top = h('div');
+        var provBox = h('div'), svcBox = h('div'), epBox = h('div'), alertBox = h('div'), chBox = h('div');
+        var regActs = [];
+        if (caps.infraRegister) {
+          regActs.push(h('button', { type: 'button', class: 'btn', 'data-action': 'infra-add-provider', text: 'ثبت ارائه‌دهنده', onclick: function () { infraAddProvider(); } }));
+        }
+        body.appendChild(top);
+        body.appendChild(card('ارائه‌دهنده‌ها', [regActs.length ? h('div', { class: 'actions' }, regActs) : null, provBox]));
+        body.appendChild(card('سرویس‌ها، ظرفیت و مصرف', [svcBox]));
+        body.appendChild(card('Endpointها و سلامت', [epBox]));
+        body.appendChild(card('هشدارهای باز', [alertBox]));
+        body.appendChild(card('درخواست‌های تغییر (تاریخچه)', [chBox]));
+        [provBox, svcBox, epBox, alertBox, chBox].forEach(function (b) { setState(b, 'loading', 'در حال دریافت…'); });
+        return Promise.all([api('GET', '/infra'), api('GET', '/infra/changes')]).then(function (rs) {
+          var r = rs[0], c = rs[1];
+          if (!r.ok) {
+            [provBox, svcBox, epBox, alertBox].forEach(function (b) { setState(b, 'error', errText(r)); });
+          } else {
+            var d = r.body || {};
+            var auto = !!(d.provisioning && d.provisioning.automated === true);
+            clear(top).appendChild(h('p', { class: 'notice', 'data-provisioning': auto ? 'automated' : 'manual',
+              text: auto ? 'سرور گزارش Provisioning خودکار داده است؛ این پنل آن را بدون شاهد تأیید نمی‌کند.'
+                : 'ساخت خودکار سرور (Provisioning) فعال نیست. ثبت زیرساخت دستی است و عددی که منبع واقعی ندارد «نامعلوم» نمایش داده می‌شود.' }));
+            var providers = d.providers || [], services = d.services || [], endpoints = d.endpoints || [], alerts = d.open_alerts || [];
+            var provName = {}; providers.forEach(function (p) { provName[p.id] = p.display_name || p.code; });
+            var svcName = {}; services.forEach(function (s) { svcName[s.id] = s.name; });
+
+            if (!providers.length) setState(provBox, 'empty', 'هنوز ارائه‌دهنده‌ای ثبت نشده است.');
+            else clear(provBox).appendChild(table(['کد', 'نام', 'نوع', 'حالت', 'Credential', 'وضعیت', 'عملیات'], providers, function (p) {
+              var acts = [];
+              if (caps.infraRegister && p.status === 'active') acts.push(h('button', { type: 'button', class: 'btn', 'data-action': 'infra-add-service', 'data-provider': p.id, text: 'ثبت سرویس', onclick: function () { infraAddService(p); } }));
+              if (caps.infraRequestChange) {
+                acts.push(p.status === 'active'
+                  ? h('button', { type: 'button', class: 'btn danger', 'data-action': 'infra-req-disable-provider', 'data-provider': p.id, text: 'درخواست غیرفعال‌سازی', onclick: function () { infraRequestChange('disable_provider', p.id, p.code, null); } })
+                  : h('button', { type: 'button', class: 'btn', 'data-action': 'infra-req-enable-provider', 'data-provider': p.id, text: 'درخواست فعال‌سازی', onclick: function () { infraRequestChange('enable_provider', p.id, p.code, null); } }));
+                acts.push(h('button', { type: 'button', class: 'btn', 'data-action': 'infra-req-credential', 'data-provider': p.id, text: 'تغییر ارجاع Secret', onclick: function () { infraRequestCredential(p); } }));
+              }
+              var cred = p.credential === 'reference' && p.credential_ref
+                ? h('code', { 'data-credential': 'reference', dir: 'ltr', title: 'فقط نام Secret روی سرور؛ مقدار آن هرگز به پنل نمی‌رسد', text: p.credential_ref })
+                : h('span', { class: 'badge', 'data-credential': 'none', text: 'ندارد' });
+              return [h('code', { dir: 'ltr', text: p.code }), p.display_name || '—', INFRA_PROVIDER_KIND[p.kind] || p.kind,
+                h('span', { class: 'badge info', 'data-api-mode': p.api_mode, text: p.api_mode === 'manual' ? 'دستی' : String(p.api_mode) }),
+                cred, badge(p.status === 'active' ? 'active' : 'disabled'),
+                acts.length ? h('div', { class: 'actions' }, acts) : h('span', { class: 'badge', text: 'فقط مشاهده' })];
+            }));
+
+            if (!services.length) setState(svcBox, 'empty', 'هنوز سرویسی ثبت نشده است.');
+            else {
+              clear(svcBox);
+              services.forEach(function (s) {
+                var m = s.metrics || {};
+                var acts = [];
+                if (caps.infraRegister) {
+                  acts.push(h('button', { type: 'button', class: 'btn', 'data-action': 'infra-add-endpoint', 'data-service': s.id, text: 'ثبت Endpoint', onclick: function () { infraAddEndpoint(s); } }));
+                  acts.push(h('button', { type: 'button', class: 'btn', 'data-action': 'infra-record-metric', 'data-service': s.id, text: 'ثبت عدد دستی', onclick: function () { infraRecordMetric(s); } }));
+                }
+                svcBox.appendChild(h('div', { class: 'infra-service', 'data-service': s.id }, [
+                  h('h3', { text: s.name + ' · ' + (INFRA_SERVICE_KIND[s.kind] || s.kind) + ' · ' + (provName[s.provider_id] || shortId(s.provider_id)) + (s.region ? ' · ' + s.region : '') }),
+                  h('div', { class: 'stats' }, INFRA_METRICS.map(function (mm) { return metricStat(mm[0], mm[1], m[mm[0]]); })),
+                  acts.length ? h('div', { class: 'actions' }, acts) : null,
+                ]));
+              });
+              svcBox.appendChild(h('p', { class: 'notice', text: '«نامعلوم» یعنی هیچ منبع واقعی (API ارائه‌دهنده یا ثبت دستی با برچسب [M]/[E]) برای این عدد نیست. API ارائه‌دهنده‌ها هنوز وصل نیست (ردیف ۱۲۴).' }));
+            }
+
+            if (!endpoints.length) setState(epBox, 'empty', 'هنوز Endpointی ثبت نشده است.');
+            else clear(epBox).appendChild(table(['نشانی', 'سرویس', 'نوع بررسی', 'سلامت', 'تأخیر', 'آخرین بررسی', 'عملیات'], endpoints, function (e) {
+              var hv = e.health || { state: 'unknown' };
+              var hs = INFRA_HEALTH[hv.state] || INFRA_HEALTH.unknown;
+              var acts = [];
+              if (caps.infraCheck && e.enabled) acts.push(h('button', { type: 'button', class: 'btn', 'data-action': 'infra-check', 'data-endpoint': e.id, text: 'بررسی دستی', onclick: function () { infraCheck(e); } }));
+              if (caps.infraRequestChange && e.enabled) acts.push(h('button', { type: 'button', class: 'btn danger', 'data-action': 'infra-req-disable-endpoint', 'data-endpoint': e.id, text: 'درخواست غیرفعال‌سازی', onclick: function () { infraRequestChange('disable_endpoint', e.id, e.url, null); } }));
+              if (!e.enabled) acts.push(h('span', { class: 'badge bad', text: 'غیرفعال' }));
+              return [h('code', { dir: 'ltr', text: e.url }), svcName[e.service_id] || shortId(e.service_id), e.check_kind === 'tcp' ? 'TCP' : 'HTTP',
+                h('span', { class: 'badge ' + hs[1], 'data-health': hv.state, text: hs[0] + (hv.state === 'down' && hv.error_code ? ' (' + hv.error_code + ')' : '') }),
+                hv.latency_ms === null || hv.latency_ms === undefined ? h('span', { 'data-unknown': 'latency', text: 'نامعلوم' }) : faNum(hv.latency_ms) + ' میلی‌ثانیه',
+                hv.checked_at ? faDate(hv.checked_at) : 'هرگز',
+                acts.length ? h('div', { class: 'actions' }, acts) : h('span', { class: 'badge', text: 'فقط مشاهده' })];
+            }));
+
+            if (!alerts.length) setState(alertBox, 'empty', 'هشدار بازی نیست.');
+            else clear(alertBox).appendChild(table(['نوع', 'شدت', 'Endpoint', 'از زمان'], alerts, function (a) {
+              return [a.kind === 'endpoint_down' ? 'Endpoint پاسخ نمی‌دهد (۳ شکست پیاپی)' : a.kind,
+                h('span', { class: 'badge ' + (a.severity === 'critical' ? 'bad' : 'warn'), 'data-severity': a.severity, text: a.severity === 'critical' ? 'بحرانی' : 'هشدار' }),
+                h('code', { title: a.endpoint_id, text: shortId(a.endpoint_id) }), faDate(a.opened_at)];
+            }));
+          }
+
+          if (!c.ok) setState(chBox, 'error', errText(c));
+          else if (!(c.body.changes || []).length) setState(chBox, 'empty', 'هنوز درخواست تغییری ثبت نشده است.');
+          else clear(chBox).appendChild(table(['عمل', 'هدف', 'دلیل', 'درخواست‌دهنده', 'وضعیت', 'زمان', 'عملیات'], c.body.changes, function (x) {
+            var st = INFRA_CHANGE_STATUS[x.status] || [String(x.status), ''];
+            var act = caps.infraApprove && x.status === 'pending'
+              ? h('button', { type: 'button', class: 'btn danger', 'data-action': 'infra-approve', 'data-change': x.id, text: 'تأیید و اجرا', onclick: function () { infraApprove(x); } })
+              : h('span', { class: 'badge', text: x.status === 'pending' ? 'فقط مالک تأیید می‌کند' : '—' });
+            return [INFRA_CHANGE[x.action] || x.action, h('code', { title: x.target_id, text: shortId(x.target_id) }), x.reason || '—',
+              h('code', { text: shortId(x.requested_by) }), h('span', { class: 'badge ' + st[1], 'data-change-status': x.status, text: st[0] }),
+              faDate(x.decided_at || x.created_at), act];
+          }));
+        });
+      },
     };
 
     /* ── عملیات ─────────────────────────────────────────────────────── */
@@ -748,6 +900,198 @@
           return (pending = api('POST', '/support-grants/' + encodeURIComponent(g.id) + '/revoke', { reason: d.reason })
             .then(function (r) { return afterMutation(r, 'مجوز باطل شد.'); }));
         });
+    }
+
+    /* ── ردیف ۱۲۳: عملیات صفحهٔ «زیرساخت» و ساخت مدرسه ─────────────── */
+    function metricStat(key, title, m) {
+      var known = m && m.value !== null && m.value !== undefined;
+      var lab = INFRA_LABEL[known ? m.label : '?'] || INFRA_LABEL['?'];
+      return h('div', { class: 'stat', 'data-metric': key, 'data-known': known ? 'yes' : 'no' }, [
+        h('span', { text: title }),
+        h('b', { text: known ? faNum(m.value) + (m.unit ? ' ' + (INFRA_UNITS[m.unit] || m.unit) : '') : 'نامعلوم' }),
+        h('small', { class: 'badge ' + lab[1], 'data-label': known ? m.label : '?', text: lab[0] }),
+      ]);
+    }
+    function textField(name, id, label, attrs) {
+      var el = h('input', Object.assign({ class: 'input', id: id, autocomplete: 'off' }, attrs || {}));
+      return { name: name, el: h('div', null, [h('label', { for: id, text: label }), el]), read: function () { return String(el.value || '').trim(); }, input: el };
+    }
+    function selectField(name, id, label, map, value) {
+      var el = h('select', { class: 'input', id: id }, Object.keys(map).map(function (k) { return h('option', { value: k, text: map[k], selected: k === value }); }));
+      return { name: name, el: h('div', null, [h('label', { for: id, text: label }), el]), read: function () { return el.value; }, input: el };
+    }
+    var SECRET_HINT = 'رمز، توکن یا کلید را هرگز اینجا وارد نکنید. فقط نام Secret تعریف‌شده روی سرور را به شکل secret:NAME بنویسید (مثلاً secret:RADCLOUD_API_TOKEN).';
+    function credentialError(v) {
+      if (v === '') return null;
+      return CREDENTIAL_REF_RE.test(v) ? null : 'فقط ارجاع به Secret پذیرفته می‌شود: secret:NAME (حروف بزرگ لاتین، رقم و _).';
+    }
+
+    function infraAddProvider() {
+      var code = textField('code', 'dlg-code', 'کد (لاتین، مثلاً radcloud)', { dir: 'ltr' });
+      var name = textField('display_name', 'dlg-name', 'نام نمایشی');
+      var kind = selectField('kind', 'dlg-kind', 'نوع', INFRA_PROVIDER_KIND, 'host');
+      var ref = textField('credential_ref', 'dlg-credref', 'ارجاع Credential (اختیاری)', { dir: 'ltr', placeholder: 'secret:NAME' });
+      return confirmDialog({ title: 'ثبت دستی ارائه‌دهنده', submit: 'ثبت',
+        lines: ['ثبت دستی است و هیچ سروری ساخته نمی‌شود.', SECRET_HINT],
+        fields: [code, name, kind, ref],
+        validate: function (v) {
+          if (!CODE_RE.test(v.code)) return 'کد باید ۲ تا ۴۰ نویسهٔ لاتین کوچک، رقم، - یا _ باشد.';
+          if (v.display_name.length < 2) return 'نام نمایشی را وارد کنید.';
+          return credentialError(v.credential_ref);
+        },
+      }).then(function (d) {
+        if (!d) return null;
+        var b = { code: d.values.code, display_name: d.values.display_name, kind: d.values.kind, api_mode: 'manual', reason: d.reason };
+        if (d.values.credential_ref) b.credential_ref = d.values.credential_ref;
+        return (pending = api('POST', '/infra/providers', b).then(function (r) { return afterMutation(r, 'ارائه‌دهنده ثبت شد.'); }));
+      });
+    }
+    function infraAddService(p) {
+      var name = textField('name', 'dlg-name', 'نام سرویس');
+      var kind = selectField('kind', 'dlg-kind', 'نوع', INFRA_SERVICE_KIND, 'gateway');
+      var region = textField('region', 'dlg-region', 'منطقه (اختیاری)', { dir: 'ltr' });
+      return confirmDialog({ title: 'ثبت سرویس برای ' + (p.display_name || p.code), submit: 'ثبت',
+        fields: [name, kind, region],
+        validate: function (v) {
+          if (v.name.length < 2) return 'نام سرویس را وارد کنید.';
+          return v.region === '' || /^[A-Za-z0-9 ._-]{1,40}$/.test(v.region) ? null : 'منطقه فقط با نویسهٔ لاتین، رقم، فاصله، . _ - مجاز است.';
+        },
+      }).then(function (d) {
+        if (!d) return null;
+        return (pending = api('POST', '/infra/services', { provider_id: p.id, name: d.values.name, kind: d.values.kind,
+          region: d.values.region || null, reason: d.reason }).then(function (r) { return afterMutation(r, 'سرویس ثبت شد.'); }));
+      });
+    }
+    function infraAddEndpoint(s) {
+      var url = textField('url', 'dlg-url', 'نشانی (https://… یا tcp://host:port)', { dir: 'ltr' });
+      var kind = selectField('check_kind', 'dlg-checkkind', 'نوع بررسی', { http: 'HTTP', tcp: 'TCP' }, 'http');
+      var exp = textField('expected_status', 'dlg-expected', 'کد HTTP مورد انتظار (اختیاری)', { dir: 'ltr', inputmode: 'numeric' });
+      return confirmDialog({ title: 'ثبت Endpoint برای ' + s.name, submit: 'ثبت',
+        lines: ['نام کاربری و رمز در نشانی پذیرفته نیست. بررسی سلامت فقط یک درخواست کوتاه است، بدنهٔ پاسخ خوانده نمی‌شود و نشانی‌های شبکهٔ داخلی رد می‌شوند.'],
+        fields: [url, kind, exp],
+        validate: function (v) {
+          if (v.url.indexOf('@') >= 0) return 'نام کاربری یا رمز در نشانی مجاز نیست.';
+          if (!ENDPOINT_RE.test(v.url)) return 'نشانی باید با http://، https:// یا tcp:// شروع شود.';
+          if ((v.check_kind === 'tcp') !== (v.url.indexOf('tcp://') === 0)) return 'نوع بررسی با پروتکل نشانی هم‌خوان نیست.';
+          var n = normDigits(v.expected_status);
+          if (n !== '' && !(Number(n) >= 100 && Number(n) <= 599)) return 'کد مورد انتظار باید بین ۱۰۰ و ۵۹۹ باشد.';
+          return null;
+        },
+      }).then(function (d) {
+        if (!d) return null;
+        var n = normDigits(d.values.expected_status);
+        return (pending = api('POST', '/infra/endpoints', { service_id: s.id, url: d.values.url, check_kind: d.values.check_kind,
+          expected_status: n === '' ? null : Number(n), reason: d.reason }).then(function (r) { return afterMutation(r, 'Endpoint ثبت شد.'); }));
+      });
+    }
+    function infraRecordMetric(s) {
+      var names = {}; INFRA_METRICS.forEach(function (m) { names[m[0]] = m[1]; });
+      var metric = selectField('metric', 'dlg-metric', 'سنجه', names, 'capacity_cpu');
+      var value = textField('value', 'dlg-value', 'مقدار (خالی = نامعلوم)', { dir: 'ltr', inputmode: 'decimal' });
+      var unit = selectField('unit', 'dlg-unit', 'یکا', INFRA_UNITS, INFRA_DEFAULT_UNIT.capacity_cpu);
+      var label = selectField('label', 'dlg-label', 'برچسب', { M: 'اندازه‌گیری‌شده [M]', E: 'برآورد [E]' }, 'M');
+      metric.input.addEventListener('change', function () { unit.input.value = INFRA_DEFAULT_UNIT[metric.input.value] || 'count'; });
+      return confirmDialog({ title: 'ثبت دستی عدد برای ' + s.name, submit: 'ثبت',
+        lines: ['هر عدد باید برچسب [M] (اندازه‌گیری‌شده) یا [E] (برآورد) داشته باشد. اگر مقدار را نمی‌دانید، آن را خالی بگذارید تا «نامعلوم» ثبت شود.'],
+        fields: [metric, value, unit, label],
+        validate: function (v) {
+          var n = normDigits(v.value);
+          return n === '' || (isFinite(Number(n)) && Number(n) >= 0) ? null : 'مقدار باید عدد نامنفی باشد یا خالی بماند.';
+        },
+      }).then(function (d) {
+        if (!d) return null;
+        var n = normDigits(d.values.value);
+        var b = { service_id: s.id, metric: d.values.metric, unit: d.values.unit, source: 'manual', reason: d.reason };
+        if (n === '') b.value = null; else { b.value = Number(n); b.label = d.values.label; }
+        return (pending = api('POST', '/infra/metrics', b).then(function (r) { return afterMutation(r, n === '' ? 'سنجه «نامعلوم» ثبت شد.' : 'عدد ثبت شد.'); }));
+      });
+    }
+    function infraCheck(e) {
+      return (pending = api('POST', '/infra/endpoints/' + encodeURIComponent(e.id) + '/check', {}).then(function (r) {
+        if (r.ok) {
+          var c = r.body.check || {};
+          flash(c.ok ? 'ok' : 'error', c.ok ? 'Endpoint سالم است' + (c.latency_ms !== null && c.latency_ms !== undefined ? ' (' + faNum(c.latency_ms) + ' میلی‌ثانیه)' : '') + '.'
+            : 'Endpoint پاسخ درست نداد' + (c.error_code ? ' (' + c.error_code + ')' : '') + '.');
+          return render();
+        }
+        return afterMutation(r, '');
+      }));
+    }
+    /* مرحلهٔ ۱ از ۲: درخواست. تغییر تا تأیید مالک (مرحلهٔ ۲) هیچ اثری ندارد. */
+    function infraRequestChange(action, targetId, targetLabel, payload) {
+      return confirmDialog({ title: 'درخواست: ' + INFRA_CHANGE[action], danger: true, submit: 'ثبت درخواست', retype: targetLabel,
+        lines: ['این عمل پرخطر است و دو مرحله دارد: (۱) ثبت همین درخواست؛ (۲) تأیید جداگانهٔ مالک پلتفرم. تا تأیید، هیچ تغییری اعمال نمی‌شود.',
+          'درخواست و تأیید هر دو در دفتر ممیزی ثبت می‌شوند.'] })
+        .then(function (d) {
+          if (!d) return null;
+          var b = { action: action, target_id: targetId, reason: d.reason };
+          if (payload) b.payload = payload;
+          return (pending = api('POST', '/infra/changes', b).then(function (r) { return afterMutation(r, 'درخواست ثبت شد؛ منتظر تأیید مالک.'); }));
+        });
+    }
+    function infraRequestCredential(p) {
+      var ref = textField('credential_ref', 'dlg-credref', 'ارجاع تازه (خالی = حذف ارجاع)', { dir: 'ltr', placeholder: 'secret:NAME' });
+      return confirmDialog({ title: 'درخواست تغییر ارجاع Secret برای ' + p.code, danger: true, submit: 'ادامه',
+        lines: [SECRET_HINT], fields: [ref], validate: function (v) { return credentialError(v.credential_ref); } })
+        .then(function (d) {
+          if (!d) return null;
+          return infraRequestChange('set_credential_ref', p.id, p.code, { credential_ref: d.values.credential_ref });
+        });
+    }
+    /* مرحلهٔ ۲ از ۲: فقط مالک؛ بازتایپ شناسهٔ کوتاه هدف اجباری است و هر درخواست یک بار اجرا می‌شود. */
+    function infraApprove(x) {
+      return confirmDialog({ title: 'تأیید و اجرا: ' + (INFRA_CHANGE[x.action] || x.action), danger: true, submit: 'تأیید و اجرا', retype: shortId(x.target_id),
+        lines: ['دلیل درخواست: ' + (x.reason || '—'), 'درخواست‌دهنده: ' + shortId(x.requested_by), 'با تأیید، تغییر بلافاصله اجرا و در ممیزی ثبت می‌شود و قابل تکرار نیست.'] })
+        .then(function (d) {
+          if (!d) return null;
+          return (pending = api('POST', '/infra/changes/' + encodeURIComponent(x.id) + '/approve', { reason: d.reason })
+            .then(function (r) { return afterMutation(r, 'تغییر تأیید و اجرا شد.'); }));
+        });
+    }
+
+    /* ساخت مدرسه (ردیف ۱۲۱ API، فرم در ردیف ۱۲۳). کد فعال‌سازی مدیر فقط یک بار و فقط در همین
+       پنجره نشان داده می‌شود؛ در حافظهٔ ماندگار، flash، نشانی یا گزارش ذخیره نمی‌شود. */
+    var provisionOps = {};
+    function createSchool() {
+      var slug = textField('slug', 'dlg-slug', 'نشانی کوتاه مدرسه (لاتین، مثلاً school-12)', { dir: 'ltr' });
+      var name = textField('display_name', 'dlg-name', 'نام مدرسه');
+      var manager = textField('manager_name', 'dlg-manager', 'نام مدیر اولیه');
+      var plan = textField('plan_code', 'dlg-plan', 'کد پلن', { dir: 'ltr', value: 'basic' });
+      return confirmDialog({ title: 'ساخت مدرسه', submit: 'ساخت مدرسه',
+        lines: ['یک فضای اختصاصی (tenant) با جداسازی RLS و یک مدیر اولیه ساخته می‌شود. کد فعال‌سازی مدیر فقط یک بار نمایش داده می‌شود.'],
+        fields: [slug, name, manager, plan],
+        validate: function (v) {
+          if (!SLUG_RE.test(v.slug)) return 'نشانی کوتاه باید ۳ تا ۴۰ نویسهٔ لاتین کوچک، رقم یا - باشد.';
+          if (v.display_name.length < 2) return 'نام مدرسه را وارد کنید.';
+          if (v.manager_name.length < 2) return 'نام مدیر را وارد کنید.';
+          return v.plan_code ? null : 'کد پلن را وارد کنید.';
+        },
+      }).then(function (d) {
+        if (!d) return null;
+        var v = d.values;
+        /* تلاش دوباره برای همان نشانی همان شناسهٔ عملیات را می‌فرستد تا مدرسهٔ دوم ساخته نشود */
+        var op = provisionOps[v.slug] || (provisionOps[v.slug] = requestId());
+        return (pending = api('POST', '/tenants', { provision_op_id: op, slug: v.slug, display_name: v.display_name,
+          manager_name: v.manager_name, plan_code: v.plan_code, reason: d.reason }).then(function (r) {
+          if (!r.ok) return afterMutation(r, '');
+          delete provisionOps[v.slug];
+          var m = r.body.manager || {};
+          flash('ok', r.body.idempotent ? 'این مدرسه قبلاً با همین درخواست ساخته شده بود.' : 'مدرسه ساخته شد.');
+          return Promise.resolve(render()).then(function () { if (m.activation_code) showOnce(v.slug, m.activation_code); });
+        }));
+      });
+    }
+    function showOnce(slug, code) {
+      var wrap;
+      var btn = h('button', { type: 'button', class: 'btn primary', 'data-action': 'once-close', text: 'یادداشت کردم، بستن', onclick: function () { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); } });
+      wrap = h('div', { class: 'modal-backdrop', id: 'once' }, [h('div', { class: 'modal card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'once-title' }, [
+        h('h2', { id: 'once-title', text: 'کد فعال‌سازی مدیر مدرسهٔ ' + slug }),
+        h('p', { text: 'این کد فقط همین یک بار نمایش داده می‌شود و در هیچ جای پنل ذخیره نمی‌شود. آن را از راهی امن به مدیر مدرسه بدهید.' }),
+        h('p', null, [h('code', { id: 'activation-code', dir: 'ltr', text: code })]),
+        h('div', { class: 'actions' }, [btn]),
+      ])]);
+      root.appendChild(wrap);
+      btn.focus();
     }
 
     function start() {
