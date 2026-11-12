@@ -501,6 +501,7 @@ final class SavedSchool {
     required this.cellUrl,
     required this.deviceSecret,
     this.role,
+    this.uid,
   });
   final String school;
   final Uri cellUrl;
@@ -508,6 +509,10 @@ final class SavedSchool {
 
   /// Last known role (offline display only; the server re-reads it on every refresh).
   final String? role;
+
+  /// Last known user id (wave 2: the device's own pages offline; the server re-checks scope on
+  /// every write, so a stale value can only hide data, never widen access).
+  final int? uid;
 }
 
 /// Secure-store keys of wave 1.
@@ -516,6 +521,7 @@ abstract final class SchoolKeys {
   static const String cellUrl = 'school.cell_url';
   static const String deviceSecret = 'school.device_secret';
   static const String role = 'school.role';
+  static const String uid = 'school.uid';
   static const String clientChoice = 'client.choice';
 }
 
@@ -548,6 +554,7 @@ final class SchoolAccountStore {
       cellUrl: cell,
       deviceSecret: d,
       role: await store.read(SchoolKeys.role),
+      uid: int.tryParse(await store.read(SchoolKeys.uid) ?? ''),
     );
   }
 
@@ -557,6 +564,8 @@ final class SchoolAccountStore {
     await store.write(SchoolKeys.deviceSecret, s.deviceSecret);
     final r = s.role;
     if (r != null) await store.write(SchoolKeys.role, r);
+    final id = s.uid;
+    if (id != null && id > 0) await store.write(SchoolKeys.uid, '$id');
   }
 
   /// Sign-out: forgets the school and the device secret (the device id stays).
@@ -566,6 +575,7 @@ final class SchoolAccountStore {
       SchoolKeys.cellUrl,
       SchoolKeys.deviceSecret,
       SchoolKeys.role,
+      SchoolKeys.uid,
     ]) {
       await store.delete(k);
     }

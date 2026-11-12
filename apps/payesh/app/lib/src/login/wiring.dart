@@ -4,6 +4,20 @@ import 'package:payesh_sync/payesh_sync.dart';
 /// `PAYESH_GATEWAY_PINS`, row 75) is also the Directory and the single-cell fallback; an
 /// optional `PAYESH_DIRECTORY_URL` points at a separate Directory. Without a valid Gateway
 /// config the login answers "not configured" instead of guessing an address.
+/// The build's Gateway config, or null when missing/invalid (never a guessed address).
+GatewayConfig? gatewayConfigFromEnvironment({
+  String url = const String.fromEnvironment('PAYESH_GATEWAY_URL'),
+  String pins = const String.fromEnvironment('PAYESH_GATEWAY_PINS'),
+}) {
+  try {
+    return GatewayConfig.fromEnvironment(url: url, pins: pins);
+  } on PinConfigException {
+    return null;
+  } on FormatException {
+    return null;
+  }
+}
+
 SchoolAccessApi schoolAccessFromEnvironment({
   String url = const String.fromEnvironment('PAYESH_GATEWAY_URL'),
   String pins = const String.fromEnvironment('PAYESH_GATEWAY_PINS'),

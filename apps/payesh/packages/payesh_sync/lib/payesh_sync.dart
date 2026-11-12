@@ -7,6 +7,8 @@
 ///   `DataEngine` from `payesh_data`.
 library;
 
+export 'src/attendance.dart';
+export 'src/device_owner.dart';
 export 'src/auto_sync.dart';
 export 'src/direct_transport.dart';
 export 'src/gateway_transport.dart';

@@ -595,6 +595,46 @@ void main() {
       },
     );
 
+    test(
+      'wave 2: the user id is kept for offline pages and cleared on sign-out',
+      () async {
+        final fake = FakeSecureStore();
+        final st = SchoolAccountStore(fake);
+        await st.save(
+          SavedSchool(
+            school: 'alborz-1',
+            cellUrl: Uri.parse('https://cell-1.example.ir'),
+            deviceSecret: code32,
+            role: 'teacher',
+            uid: 10,
+          ),
+        );
+        expect((await st.load())!.uid, 10);
+        await st.clear();
+        expect(await fake.read(SchoolKeys.uid), isNull);
+      },
+    );
+
+    test(
+      'NEGATIVE: a tampered or missing saved user id is null, never 0',
+      () async {
+        final fake = FakeSecureStore();
+        final st = SchoolAccountStore(fake);
+        await st.save(
+          SavedSchool(
+            school: 'alborz-1',
+            cellUrl: Uri.parse('https://cell-1.example.ir'),
+            deviceSecret: code32,
+            uid: 0,
+          ),
+        );
+        expect(await fake.read(SchoolKeys.uid), isNull);
+        expect((await st.load())!.uid, isNull);
+        await fake.write(SchoolKeys.uid, '10; drop');
+        expect((await st.load())!.uid, isNull);
+      },
+    );
+
     test('the token is never written to the secure store', () async {
       reply(200, session(secret: code32));
       final fake = FakeSecureStore();

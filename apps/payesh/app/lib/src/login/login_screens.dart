@@ -9,12 +9,20 @@ import 'session_controller.dart';
 
 /// Root of the native client when the login wave is on: picks the screen for the session state.
 class SessionGate extends StatelessWidget {
-  const SessionGate({super.key, required this.controller, this.home});
+  const SessionGate({
+    super.key,
+    required this.controller,
+    this.home,
+    this.pages,
+  });
 
   final SessionController controller;
 
   /// Body under the signed-in header (the existing home content).
   final Widget? home;
+
+  /// Native pages of later waves for the signed-in user (row 74, wave 2+).
+  final Widget Function(BuildContext context, SignedIn state)? pages;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +44,7 @@ class SessionGate extends StatelessWidget {
           controller: controller,
           state: s,
           home: home,
+          pages: pages,
         ),
       },
     );
@@ -297,19 +306,36 @@ class SignedInScreen extends StatelessWidget {
     required this.controller,
     required this.state,
     this.home,
+    this.pages,
   });
 
   final SessionController controller;
   final SignedIn state;
   final Widget? home;
+  final Widget Function(BuildContext context, SignedIn state)? pages;
 
   Future<void> _confirmSignOut(BuildContext context) async {
+    final waiting = controller.sync.value.waiting;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('خروج از این دستگاه'),
-        content: const Text(
-          'برای ورود دوباره به کد فعال‌سازی تازه از مدیر مدرسه نیاز دارید. خارج می‌شوید؟',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'برای ورود دوباره به کد فعال‌سازی تازه از مدیر مدرسه نیاز دارید. خارج می‌شوید؟',
+            ),
+            if (waiting > 0) ...[
+              const SizedBox(height: PayeshTokens.space3),
+              Text(
+                '${faDigits(waiting)} ثبت هنوز به سرور نرسیده است. تا همین کاربر دوباره وارد نشود، ارسال نمی‌شود.',
+                key: const Key('sign-out-unsent'),
+                style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(
@@ -386,6 +412,10 @@ class SignedInScreen extends StatelessWidget {
               ],
             ),
           ),
+          if (pages != null) ...[
+            const SizedBox(height: PayeshTokens.space4),
+            pages!(context, state),
+          ],
           const SizedBox(height: PayeshTokens.space4),
           home ?? const HomeBody(),
         ],
