@@ -95,8 +95,13 @@ class AppUpdater {
     final p = plan;
     if (p == null) return false;
     if (isWindows) return !p.upToDate;
-    return currentBuild > 0 && p.manifest.build > currentBuild;
+    return _androidNewer(p.manifest);
   }
+
+  /// اندروید: ساخت بالاتر **و** بستهٔ APK همان ساخت منتشر شده باشد (بدون APK ⇒ به‌روز می‌ماند،
+  /// نه چراغ «آماده» با پیوندی که وجود ندارد).
+  bool _androidNewer(UpdateManifest m) =>
+      currentBuild > 0 && m.build > currentBuild && m.apk != null;
 
   /// در حال کار (چراغ «زنده»).
   bool get busy =>
@@ -161,11 +166,7 @@ class AppUpdater {
       if (!isWindows) {
         // اندروید: بستهٔ کامل (APK) لازم است
         plan = UpdatePlan(m, const []);
-        _set(
-          currentBuild > 0 && m.build > currentBuild
-              ? UpdatePhase.ready
-              : UpdatePhase.upToDate,
-        );
+        _set(_androidNewer(m) ? UpdatePhase.ready : UpdatePhase.upToDate);
         return;
       }
       final p = await planUpdate(m, installDir);

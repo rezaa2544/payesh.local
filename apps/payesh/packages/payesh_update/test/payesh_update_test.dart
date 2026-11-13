@@ -777,6 +777,28 @@ void main() {
       },
     );
 
+    test(
+      'اندروید: ساخت تازه ولی APK منتشر نشده ⇒ به‌روز (پیوند خالی نه)',
+      () async {
+        final h = http();
+        final m = manifest()..remove('android');
+        h.files[manifestUrl.toString()] = utf8.encode(jsonEncode(m));
+        final u = AppUpdater(
+          channel: channel,
+          http: () => h,
+          windows: false,
+          currentBuild: 7,
+          retry: UpdateRetry.none,
+          stagingRoot: staging,
+          installDir: install,
+        );
+        await u.check();
+        expect(u.phase, UpdatePhase.upToDate);
+        expect(u.available, isFalse);
+        await u.dispose();
+      },
+    );
+
     test('runUpdateNow: به‌روز ⇒ کاری نمی‌کند؛ پوشهٔ پیش‌فرض', () async {
       final h = http();
       final u = AppUpdater(
