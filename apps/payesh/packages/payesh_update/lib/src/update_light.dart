@@ -89,29 +89,44 @@ class _UpdateLightState extends State<UpdateLight> {
       liveRegion: u.busy,
       child: Tooltip(
         message: label,
-        child: InkWell(
-          key: const Key('update-light'),
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => unawaited(_tap()),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  u.channel.version,
-                  key: const Key('app-version'),
-                  textDirection: TextDirection.ltr,
-                  style: TextStyle(fontSize: 13, color: tk.muted),
+        // ردیف ۱۵۱: قاب کپسولی با حاشیهٔ هم‌رنگ وضعیت، مثل کپسول «دیتابیس»
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Material(
+            key: ValueKey('update-pill-${u.phase.name}'),
+            color: color.withValues(alpha: 0.12),
+            shape: StadiumBorder(
+              side: BorderSide(color: color.withValues(alpha: 0.7)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: const Key('update-light'),
+              onTap: () => unawaited(_tap()),
+              child: Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(12, 4, 8, 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      u.channel.version,
+                      key: const Key('app-version'),
+                      textDirection: TextDirection.ltr,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    StatusDot(
+                      key: ValueKey('update-light-${u.phase.name}'),
+                      color: color,
+                      busy: u.busy,
+                      progress: progress,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                StatusDot(
-                  key: ValueKey('update-light-${u.phase.name}'),
-                  color: color,
-                  busy: u.busy,
-                  progress: progress,
-                ),
-              ],
+              ),
             ),
           ),
         ),

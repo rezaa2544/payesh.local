@@ -597,8 +597,13 @@ trap {
   try { Write-Result $false ("unexpected: " + $_) $true } catch { }
   exit 3
 }
+# صبر تا بسته شدن برنامه با نمونه‌برداری قطعی (ردیف ۱۵۱): دستور صبر داخلی PS 5.1 گاهی
+# بی‌صدا فوراً برمی‌گشت و به‌روزرسانی «app still running» می‌شد.
 if ($AppPid -gt 0) {
-  try { Wait-Process -Id $AppPid -Timeout 120 -ErrorAction SilentlyContinue } catch { }
+  $deadline = (Get-Date).AddSeconds(120)
+  while ((Get-Date) -lt $deadline -and (Get-Process -Id $AppPid -ErrorAction SilentlyContinue)) {
+    Start-Sleep -Milliseconds 250
+  }
 }
 if (Test-Path -LiteralPath $cancel) { Write-Log 'cancelled by the app; nothing changed'; exit 0 }
 if ($AppPid -gt 0 -and (Get-Process -Id $AppPid -ErrorAction SilentlyContinue)) {

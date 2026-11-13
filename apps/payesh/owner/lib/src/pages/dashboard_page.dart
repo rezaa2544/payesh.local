@@ -42,6 +42,19 @@ class _DashboardPageState extends OwnerPageState<DashboardPage> {
         content = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ردیف ۱۵۱: کارت قهرمان «نبض» مثل داشبورد پنل کاربران
+            NabdHeroCard(
+              key: const Key('nabd-hero'),
+              title: 'نبض پلتفرم',
+              value: n('active_users'),
+              caption: 'کاربران فعال پلتفرم',
+              details: [
+                'اشتراک‌ها: ${faNumber(n('subscriptions'))}',
+                'پلن‌ها: ${faNumber(n('plans'))}',
+                'مجوزهای باز: ${faNumber(n('open_grants'))}',
+              ],
+            ),
+            const SizedBox(height: PayeshTokens.space3),
             Wrap(
               spacing: 8,
               runSpacing: 8,

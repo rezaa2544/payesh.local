@@ -449,7 +449,8 @@
         "install/legacy-webview-fixtures/"
       ],
       "entrypoints": [
-        "install/legacy-webview-fixtures/payesh-local.apk"
+        "install/legacy-webview-fixtures/payesh-local.apk",
+        "install/legacy-webview-fixtures/payesh-local-windows-0.9.2.zip"
       ],
       "ui": "android.webkit.WebView (assets/www)",
       "html_css_js_ui": true,

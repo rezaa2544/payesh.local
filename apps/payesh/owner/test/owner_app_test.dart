@@ -321,6 +321,20 @@ void main() {
       );
       await _login(tester, 'owner', 'pw-owner-1');
       expect(find.byKey(const Key('nav-rail')), findsNothing);
+      // ردیف ۱۵۱: داشبورد با کارت قهرمان «نبض» + کپسول شناور پایین صفحه
+      expect(find.byKey(const Key('nabd-hero')), findsOneWidget);
+      expect(find.byKey(const Key('nav-capsule')), findsOneWidget);
+      expect(find.byKey(const Key('cap-dashboard')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('cap-infra')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('nabd-hero')), findsNothing);
+      await tester.tap(find.byKey(const Key('cap-more')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('nav-drawer')), findsOneWidget);
+      expect(find.byKey(const Key('nav-group-finance')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('nav-health')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('health-configured')), findsOneWidget);
       await tester.tap(find.byType(DrawerButton));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('nav-health')));
@@ -713,7 +727,7 @@ void main() {
       expect(find.byKey(const Key('chain-continuous')), findsOneWidget);
       be.events.first['previous_hash'] = 'tampered';
       await tester.fling(
-        find.byType(ListView).first,
+        find.byType(ListView).last,
         const Offset(0, 400),
         1000,
       );

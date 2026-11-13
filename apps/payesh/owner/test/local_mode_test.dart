@@ -685,13 +685,18 @@ void main() {
             300,
             scrollable: find
                 .descendant(
-                  of: find.byType(ListView),
+                  of: find.byType(ListView).last,
                   matching: find.byType(Scrollable),
                 )
                 .first,
           );
           await tester.pumpAndSettle();
           expect(find.text('نامحدود'), findsWidgets);
+          // ردیف ۱۵۱: پرداخت‌ها صفحهٔ جدای «مالی و اشتراک» است، نه داخل پلن‌ها
+          expect(find.byKey(const Key('payments-section')), findsNothing);
+          await _tap(tester, 'nav-payments');
+          expect(find.byKey(const Key('payments-page')), findsOneWidget);
+          expect(find.byKey(const Key('payments-section')), findsOneWidget);
           await _tap(tester, 'nav-health');
           expect(find.byKey(const Key('health-local')), findsOneWidget);
           expect(

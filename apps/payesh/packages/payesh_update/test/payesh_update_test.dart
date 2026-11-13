@@ -348,6 +348,15 @@ void main() {
           lessThan(copyFail.indexOf('Write-Result')),
         );
         expect(ps, contains('-lt 40'));
+        // ردیف ۱۵۱: صبر قطعی برای بسته شدن برنامه (Wait-Process در PS 5.1 گاهی فوراً برمی‌گشت)
+        expect(ps, isNot(contains('Wait-Process')));
+        final wait = ps.substring(
+          ps.indexOf(r'$deadline = (Get-Date).AddSeconds(120)'),
+        );
+        expect(
+          wait.indexOf(r'Get-Process -Id $AppPid'),
+          lessThan(wait.indexOf("'app still running; nothing changed'")),
+        );
       },
     );
 
@@ -753,6 +762,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 20));
         expect(opened, [channel.apkUrl]);
         final labels = <UpdatePhase, String>{};
+        final borders = <UpdatePhase, Color>{};
         for (final p in [
           UpdatePhase.checking,
           UpdatePhase.applying,
@@ -767,7 +777,18 @@ void main() {
           await tester.pump(const Duration(milliseconds: 20));
           expect(find.byKey(Key('update-light-${p.name}')), findsOneWidget);
           labels[p] = tip();
+          // ردیف ۱۵۱: حاشیهٔ کپسول هم‌رنگ وضعیت (مثل کپسول «دیتابیس»)
+          final pill = tester.widget<Material>(
+            find.byKey(ValueKey('update-pill-${p.name}')),
+          );
+          final side = (pill.shape! as StadiumBorder).side.color;
+          borders[p] = side.withValues(alpha: 1);
         }
+        final tk = PayeshUi.light().extension<PayeshTokens>()!;
+        expect(borders[UpdatePhase.upToDate], tk.success.withValues(alpha: 1));
+        expect(borders[UpdatePhase.failed], tk.danger.withValues(alpha: 1));
+        expect(borders[UpdatePhase.applying], tk.warning.withValues(alpha: 1));
+        expect(borders[UpdatePhase.checking], tk.primary.withValues(alpha: 1));
         expect(labels[UpdatePhase.checking], 'در حال بررسی');
         expect(labels[UpdatePhase.applying], contains('دوباره باز می‌شود'));
         expect(labels[UpdatePhase.failed], 'خطا — برای تلاش دوباره لمس کنید');

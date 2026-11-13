@@ -107,11 +107,14 @@ void main() {
     expect(text(tester, 'infra-status-self'), startsWith('فعال'));
     expect(text(tester, 'infra-status-helpers'), startsWith('روشن'));
 
+    // ردیف ۱۵۱: سرور کمکی فقط در «زیرساخت» (دیگر در «تنظیمات» تکرار نمی‌شود)
     await tap(tester, 'nav-settings');
+    expect(find.byKey(const Key('helper-switch')), findsNothing);
+    expect(find.byKey(const Key('infra-card')), findsNothing);
+    await tap(tester, 'nav-infra');
     // پیش‌فرض روشن
     final sw = tester.widget<Switch>(find.byKey(const Key('helper-switch')));
     expect(sw.value, isTrue);
-    expect(find.byKey(const Key('infra-card')), findsOneWidget);
     expect(text(tester, 'helper-status'), startsWith('فعال'));
 
     // کار نمونه: سرور کمکیِ دیگری نیست ⇒ همین دستگاه انجام می‌دهد
@@ -150,7 +153,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(helper.policy.value.helpers, isTrue);
 
-    // به‌روزرسانی (اندروید/غیرویندوز: فقط اعلام بستهٔ کامل)
+    // به‌روزرسانی در «تنظیمات» (اندروید/غیرویندوز: فقط اعلام بستهٔ کامل)
+    await tap(tester, 'nav-settings');
     expect(find.byKey(const Key('upd-check')), findsOneWidget);
     await tap(tester, 'upd-check');
     expect(find.byKey(const Key('upd-status')), findsOneWidget);
@@ -160,6 +164,7 @@ void main() {
     await S3Settings.clear(secure);
     await helper.reload();
     await tester.pumpAndSettle();
+    await tap(tester, 'nav-infra');
     expect(text(tester, 'helper-status'), contains('اول دیتابیس'));
     await helper.dispose();
     await updater.dispose();

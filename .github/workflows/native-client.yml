@@ -18,7 +18,7 @@ name: native-client
 #     (the last published school WebView APK frozen in install/legacy-webview-fixtures/ and the
 #     retired WebView owner APK + setup frozen in apps/owner-panel/legacy-webview-fixtures/,
 #     both sha256-pinned; row 129 removed every WebView build from Release)
-#     and the committed releases/payesh-local-windows-0.9.2.zip. If a control passes, the gate is broken → red.
+#     and the committed install/legacy-webview-fixtures/payesh-local-windows-0.9.2.zip. If a control passes, the gate is broken → red.
 #   · Rows 76/77: the APK/AAB are release-signed ONLY from GitHub Secrets (owner key, row 61);
 #     without them they are debug-signed REHEARSAL builds, labelled NOT FOR DISTRIBUTION by
 #     tools/android-release-check-76.mjs (targetSdk >= policy, not debuggable, v2/v3, permissions).
@@ -143,7 +143,7 @@ jobs:
           mkdir -p neg
           # row 129: no WebView build is published any more (continuous carries only the cloud
           # bundle + manifest). The last published school WebView APK is a committed,
-          # sha256-pinned fixture; the Windows WebView control is the tracked release zip.
+          # sha256-pinned fixture; the Windows WebView control is the frozen 0.9.2 zip in the same folder.
           (cd install/legacy-webview-fixtures && sha256sum -c SHA256SUMS)
           cp install/legacy-webview-fixtures/payesh-local.apk neg/payesh-local.apk
           # row 126: owner-continuous now carries the NATIVE owner app; the retired WebView
@@ -151,13 +151,13 @@ jobs:
           (cd apps/owner-panel/legacy-webview-fixtures && sha256sum -c SHA256SUMS)
           cp apps/owner-panel/legacy-webview-fixtures/payesh-owner.apk neg/payesh-owner.apk
           ls -la neg
-          sha256sum neg/* releases/payesh-local-windows-0.9.2.zip
+          sha256sum neg/* install/legacy-webview-fixtures/payesh-local-windows-0.9.2.zip
       - name: Gate must REJECT every control (expect-fail)
         run: |
           set -euo pipefail
           node tools/native-independence-gate.mjs --expect-fail \
             --android neg/payesh-local.apk neg/payesh-owner.apk \
-            --windows releases/payesh-local-windows-0.9.2.zip | tee native-gate-negative.txt
+            --windows install/legacy-webview-fixtures/payesh-local-windows-0.9.2.zip | tee native-gate-negative.txt
           grep -q 'NATIVE-GATE-NEGATIVE-CONTROL-OK' native-gate-negative.txt
       - uses: actions/upload-artifact@v4
         with:

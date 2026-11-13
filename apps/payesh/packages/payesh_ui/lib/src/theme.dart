@@ -155,15 +155,94 @@ abstract final class PayeshUi {
             )
           : null,
       appBarTheme: AppBarTheme(
-        backgroundColor: t.card,
+        backgroundColor: t.isNabd ? t.card.withValues(alpha: 0.92) : t.card,
         foregroundColor: t.ink,
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
+        // «نبض»: سرتیتر نوار بالا (pulse `.topbar h2`: 19px، پررنگ، فاصلهٔ حروف منفی)
+        titleTextStyle: t.isNabd
+            ? TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+                color: t.ink,
+                fontFamily: PayeshTokens.fontFamily,
+                package: PayeshTokens.fontPackage,
+              )
+            : null,
+        shape: t.isNabd ? Border(bottom: BorderSide(color: t.line)) : null,
       ),
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(minimumSize: minButton, shape: shape),
+        // «نبض»: دکمهٔ اصلی با سایهٔ درخشان (pulse `.btn.primary`)
+        style: FilledButton.styleFrom(
+          minimumSize: minButton,
+          shape: shape,
+          elevation: t.isNabd ? 2 : null,
+          shadowColor: t.isNabd ? t.glow : null,
+        ),
       ),
+      // «نبض»: دیالوگ، کلید، نوار پیشرفت، جدول و راهنما با همان زبان بصری
+      dialogTheme: t.isNabd
+          ? DialogThemeData(
+              backgroundColor: t.card,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(t.cardRadius + 4),
+                side: BorderSide(color: t.line),
+              ),
+            )
+          : null,
+      switchTheme: t.isNabd
+          ? SwitchThemeData(
+              trackColor: WidgetStateProperty.resolveWith(
+                (s) => s.contains(WidgetState.selected) ? t.primary : t.soft,
+              ),
+              thumbColor: WidgetStateProperty.resolveWith(
+                (s) => s.contains(WidgetState.selected) ? onPrimary : t.muted,
+              ),
+              trackOutlineColor: WidgetStatePropertyAll(t.line),
+            )
+          : null,
+      progressIndicatorTheme: t.isNabd
+          ? ProgressIndicatorThemeData(
+              color: t.primary,
+              linearTrackColor: t.soft,
+            )
+          : null,
+      dividerTheme: t.isNabd ? DividerThemeData(color: t.line) : null,
+      dataTableTheme: t.isNabd
+          ? DataTableThemeData(
+              headingTextStyle: TextStyle(
+                color: t.muted,
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+                fontFamily: PayeshTokens.fontFamily,
+                package: PayeshTokens.fontPackage,
+              ),
+              dataTextStyle: TextStyle(
+                color: t.ink,
+                fontFeatures: const [FontFeature.tabularFigures()],
+                fontFamily: PayeshTokens.fontFamily,
+                package: PayeshTokens.fontPackage,
+              ),
+              dividerThickness: 1,
+            )
+          : null,
+      tooltipTheme: t.isNabd
+          ? TooltipThemeData(
+              decoration: BoxDecoration(
+                color: t.ink.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              textStyle: TextStyle(
+                color: t.card,
+                fontSize: 12,
+                fontFamily: PayeshTokens.fontFamily,
+                package: PayeshTokens.fontPackage,
+              ),
+            )
+          : null,
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(minimumSize: minButton, shape: shape),
       ),

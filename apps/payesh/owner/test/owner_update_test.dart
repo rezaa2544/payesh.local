@@ -313,7 +313,10 @@ void main() {
       expect(ps, contains(r"'data\app.so'"));
       expect(ps, contains(sha(soNew)));
       expect(ps, isNot(contains(sha(exe))));
-      expect(ps, contains('Wait-Process -Id \$AppPid'));
+      expect(
+        ps,
+        contains('(Get-Process -Id \$AppPid -ErrorAction SilentlyContinue)) {'),
+      );
       expect(ps, contains('Get-Sha256'));
       expect(ps, isNot(contains('Get-FileHash')));
       expect(ps, contains('PSModulePath'));

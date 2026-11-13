@@ -435,13 +435,24 @@ class _OwnerAppState extends State<OwnerApp> {
       now: _now,
       themeButton: _themeButton,
       onSignOut: _signOutLocal,
-      infraTop: InfraCard(
-        key: const Key('infra-card-top'),
-        helper: widget.helper,
-        db: _dbMonitor,
-        loadInfra: (onServer ? api : _localApi)?.infra,
-        now: widget.now,
-        margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      // ردیف ۱۵۱: «زیرساخت‌ها» و «سرور کمکی» فقط اینجا (پیش‌تر در «تنظیمات» تکرار می‌شدند).
+      infraTop: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InfraCard(
+            key: const Key('infra-card-top'),
+            helper: widget.helper,
+            db: _dbMonitor,
+            loadInfra: (onServer ? api : _localApi)?.infra,
+            now: widget.now,
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          ),
+          if (widget.helper != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: HelperCard(service: widget.helper!, now: widget.now),
+            ),
+        ],
       ),
       dbLight: _dbMonitor == null ? null : DbLight(monitor: _dbMonitor!),
       monitor: _liveMonitor,
@@ -460,14 +471,6 @@ class _OwnerAppState extends State<OwnerApp> {
           },
         ),
         extra: [
-          InfraCard(
-            helper: widget.helper,
-            db: _dbMonitor,
-            loadInfra: (onServer ? api : _localApi)?.infra,
-            now: widget.now,
-          ),
-          if (widget.helper != null)
-            HelperCard(service: widget.helper!, now: widget.now),
           if (widget.updater != null) UpdateCard(updater: widget.updater!),
         ],
         server: ServerSettingsPanel(

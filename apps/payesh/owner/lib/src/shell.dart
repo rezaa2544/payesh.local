@@ -8,25 +8,14 @@ import 'pages/health_page.dart';
 import 'pages/infra_page.dart';
 import 'pages/limits_page.dart';
 import 'pages/operators_page.dart';
+import 'pages/payments_page.dart';
 import 'pages/plans_page.dart';
 import 'pages/reports_page.dart';
 import 'pages/schools_page.dart';
 import 'monitor/live_monitor.dart';
 import 'schools/school_registry.dart';
+import 'menu.dart';
 import 'widgets.dart';
-
-const Map<String, IconData> _icons = {
-  'dashboard': Icons.dashboard_outlined,
-  'schools': Icons.school_outlined,
-  'plans': Icons.credit_card_outlined,
-  'limits': Icons.bar_chart_outlined,
-  'health': Icons.monitor_heart_outlined,
-  'infra': Icons.dns_outlined,
-  'operators': Icons.admin_panel_settings_outlined,
-  'reports': Icons.description_outlined,
-  'audit': Icons.verified_user_outlined,
-  'settings': Icons.settings_outlined,
-};
 
 Widget pageFor(String id) => switch (id) {
   'dashboard' => const DashboardPage(),
@@ -38,11 +27,13 @@ Widget pageFor(String id) => switch (id) {
   'operators' => const OperatorsPage(),
   'reports' => const ReportsPage(),
   'audit' => const AuditPage(),
+  'payments' => const PaymentsPage(),
   _ => const DashboardPage(),
 };
 
-/// Signed-in shell: the nine pages of the web panel. Drawer on a phone, navigation rail on a
-/// tablet / Windows window (on the right in RTL).
+/// Signed-in shell: the nine pages of the web panel + local pages, grouped by function
+/// (menu.dart). «نبض» sidebar on a tablet / Windows window (on the right in RTL); on a phone a
+/// grouped drawer + the floating glass capsule of the user panel.
 class OwnerShell extends StatefulWidget {
   const OwnerShell({
     super.key,
@@ -109,9 +100,17 @@ class _OwnerShellState extends State<OwnerShell> {
     _flash = null;
   });
 
+  final _scaffold = GlobalKey<ScaffoldState>();
+
+  List<OwnerMenuItem> get _items => ownerMenu(
+    local: {
+      if (widget.schools != null) 'payments',
+      if (widget.settings != null) 'settings',
+    },
+  );
+
   List<(String, String)> get _pages => [
-    ...ownerPages,
-    if (widget.settings != null) ('settings', 'تنظیمات'),
+    for (final m in _items) (m.id, m.title),
   ];
 
   Widget _page(String id) {
@@ -121,7 +120,7 @@ class _OwnerShellState extends State<OwnerShell> {
       return _ServerNeeded(
         onOpenSettings: widget.settings == null
             ? null
-            : () => _select(_pages.length - 1),
+            : () => _select(_pages.indexWhere((p) => p.$1 == 'settings')),
       );
     }
     return OwnerScope(
@@ -138,7 +137,7 @@ class _OwnerShellState extends State<OwnerShell> {
                 children: [
                   ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+                      maxHeight: MediaQuery.sizeOf(context).height * 0.6,
                     ),
                     child: SingleChildScrollView(child: widget.infraTop),
                   ),
@@ -234,6 +233,8 @@ class _OwnerShellState extends State<OwnerShell> {
     ];
     if (size == SizeClass.compact) {
       return Scaffold(
+        key: _scaffold,
+        extendBody: true,
         appBar: AppBar(
           title: Text(title),
           actions: [
@@ -275,13 +276,38 @@ class _OwnerShellState extends State<OwnerShell> {
               padding: EdgeInsets.fromLTRB(28, 16, 16, 10),
               child: _Brand(extended: true),
             ),
-            for (final (pid, ptitle) in pages)
+            for (final (i, m) in _items.indexed) ...[
+              if (i == 0 || _items[i - 1].group != m.group)
+                Padding(
+                  key: Key('nav-group-${m.group}'),
+                  padding: const EdgeInsetsDirectional.fromSTEB(28, 14, 16, 4),
+                  child: Text(
+                    menuGroupTitle(m.group),
+                    style: TextStyle(fontSize: 11.5, color: tk.muted),
+                  ),
+                ),
               NavigationDrawerDestination(
-                key: Key('nav-$pid'),
-                icon: Icon(_icons[pid]),
-                label: Text(ptitle),
+                key: Key('nav-${m.id}'),
+                icon: Icon(ownerMenuIcons[m.id]),
+                label: Text(m.title),
               ),
+            ],
           ],
+        ),
+        bottomNavigationBar: NabdCapsuleBar(
+          items: [
+            for (final m in _items)
+              if (const {
+                'dashboard',
+                'schools',
+                'payments',
+                'infra',
+              }.contains(m.id))
+                m,
+          ],
+          selected: id,
+          onSelected: (pid) => _select(_pages.indexWhere((p) => p.$1 == pid)),
+          onMore: () => _scaffold.currentState?.openDrawer(),
         ),
         body: PayeshBackdrop(child: SafeArea(child: body)),
       );
@@ -292,37 +318,13 @@ class _OwnerShellState extends State<OwnerShell> {
         child: SafeArea(
           child: Row(
             children: [
-              SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight:
-                        MediaQuery.sizeOf(context).height - kToolbarHeight - 24,
-                  ),
-                  child: IntrinsicHeight(
-                    child: NavigationRail(
-                      key: const Key('nav-rail'),
-                      extended: size == SizeClass.expanded,
-                      labelType: size == SizeClass.expanded
-                          ? NavigationRailLabelType.none
-                          : NavigationRailLabelType.all,
-                      selectedIndex: _index,
-                      onDestinationSelected: _select,
-                      leading: Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _Brand(extended: size == SizeClass.expanded),
-                      ),
-                      destinations: [
-                        for (final (pid, ptitle) in pages)
-                          NavigationRailDestination(
-                            icon: Icon(_icons[pid], key: Key('nav-$pid')),
-                            label: Text(ptitle),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
+              NabdSideNav(
+                items: _items,
+                selected: _index,
+                onSelected: _select,
+                extended: size == SizeClass.expanded,
+                leading: _Brand(extended: size == SizeClass.expanded),
               ),
-              VerticalDivider(width: 1, color: tk.line),
               Expanded(child: body),
             ],
           ),
@@ -353,9 +355,13 @@ class _Brand extends StatelessWidget {
       children: [
         mark,
         const SizedBox(width: 10),
-        Text(
-          'پنل مالک پایش',
-          style: TextStyle(fontWeight: FontWeight.w700, color: tk.primary),
+        Flexible(
+          child: Text(
+            'پنل مالک پایش',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontWeight: FontWeight.w700, color: tk.primary),
+          ),
         ),
       ],
     );

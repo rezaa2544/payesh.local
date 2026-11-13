@@ -2,7 +2,7 @@
 /* Row 63 — tests for tools/native-independence-gate.mjs
    Run: node tests/native-gate-63.js
    Synthetic packages (built with the gate's own buildDex/buildZip writers) prove each rule fires
-   and that a clean bundle passes; the committed 0.9.2 Windows release must FAIL (negative control).
+   and that a clean bundle passes; the frozen 0.9.2 Windows release (install/legacy-webview-fixtures/) must FAIL (negative control).
    Real CI build output is checked separately in .github/workflows/native-client.yml. */
 const fs = require('fs');
 const os = require('os');
@@ -13,7 +13,7 @@ const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const GATE = path.join(ROOT, 'tools/native-independence-gate.mjs');
-const REL_092 = path.join(ROOT, 'releases/payesh-local-windows-0.9.2.zip');
+const REL_092 = path.join(ROOT, 'install/legacy-webview-fixtures/payesh-local-windows-0.9.2.zip');
 const REL_092_SHA = 'b4c3d4ed143b5d33057eddaebd24d8aa396829de909c01caae9f355d706d6e7e';
 
 let passed = 0, failed = 0;

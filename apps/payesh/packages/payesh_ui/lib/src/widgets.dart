@@ -461,3 +461,140 @@ class AdaptiveScaffold extends StatelessWidget {
     );
   }
 }
+
+/// کارت قهرمان تمام‌عرض «نبض» (pulse.css `.nabd-card`): قاب دو‌پیکسلی رنگ اصلی، گرادیان
+/// کارت ← soft، هالهٔ شعاعی و عدد بزرگ با ارقام هم‌عرض.
+class NabdHeroCard extends StatelessWidget {
+  const NabdHeroCard({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.caption,
+    this.icon = Icons.monitor_heart_outlined,
+    this.details = const [],
+  });
+  final String title;
+  final int value;
+  final String caption;
+  final IconData icon;
+  final List<String> details;
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = context.tokens;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 150),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: Color.lerp(tk.primary, tk.line, 0.22)!,
+          width: 2,
+        ),
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: [tk.card, tk.soft],
+          stops: const [0.08, 1],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: tk.glow,
+            blurRadius: 34,
+            offset: const Offset(0, 20),
+            spreadRadius: -18,
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          PositionedDirectional(
+            start: -90,
+            top: -125,
+            child: Container(
+              width: 230,
+              height: 230,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    tk.primary.withValues(alpha: 0.22),
+                    tk.primary.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: tk.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        faNumber(value),
+                        key: const Key('nabd-hero-value'),
+                        style: TextStyle(
+                          fontSize: 44,
+                          height: 1.1,
+                          fontWeight: FontWeight.w800,
+                          color: tk.ink,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      Text(caption, style: TextStyle(color: tk.muted)),
+                      if (details.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            for (final d in details)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: tk.card.withValues(alpha: 0.8),
+                                  borderRadius: BorderRadius.circular(99),
+                                  border: Border.all(color: tk.line),
+                                ),
+                                child: Text(
+                                  d,
+                                  style: const TextStyle(fontSize: 12.5),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: tk.primaryGradient,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 32),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
