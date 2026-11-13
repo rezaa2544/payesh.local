@@ -51,6 +51,7 @@ final class UpdateException implements Exception {
     'network' => 'به سرور به‌روزرسانی نرسیدیم. اتصال اینترنت را بررسی کنید.',
     'bad_hash' => 'فایل دریافت‌شده با فهرست یکی نبود؛ هیچ تغییری اعمال نشد. دوباره امتحان کنید.',
     'io' => 'نوشتن فایل‌های به‌روزرسانی روی دیسک ممکن نشد.',
+    'launch' => 'اجرای نصب‌کنندهٔ به‌روزرسانی ممکن نشد؛ برنامه باز می‌ماند و چیزی تغییر نکرد. دوباره امتحان کنید یا نصب‌کنندهٔ کامل را اجرا کنید.',
     _ => 'به‌روزرسانی ممکن نشد ($code).',
   };
 }
@@ -368,6 +369,7 @@ String applyScript({
     ..writeln("\$staged = Join-Path \$stage 'files'")
     ..writeln("\$backup = Join-Path \$stage 'backup'")
     ..writeln("\$resultFile = Join-Path \$stage 'result.json'")
+    ..writeln("\$logFile = Join-Path \$stage 'apply.log'")
     ..writeln('\$exe = Join-Path \$install ${_psQuote(exeName)}')
     ..writeln('\$build = ${staged.plan.manifest.build}')
     ..writeln('\$files = @(');
@@ -379,7 +381,19 @@ String applyScript({
   b
     ..writeln(')')
     ..writeln(r'''
+$ProgressPreference = 'SilentlyContinue'
+function Write-Log([string]$m) {
+  try { [System.IO.File]::AppendAllText($logFile, ((Get-Date).ToUniversalTime().ToString('o') + ' ' + $m + "`r`n"), (New-Object System.Text.UTF8Encoding($false))) } catch { }
+}
+# نشانهٔ شروع (برنامه تا دیدن این خط بسته نمی‌شود)
+Write-Log "start pid=$PID ps=$($PSVersionTable.PSVersion) app=$AppPid"
+# فقط یک نمونه: اگر روش دوم هم اجرا شد، نمونهٔ دوم بی‌صدا کنار می‌رود
+try { $lock = [System.IO.File]::Open((Join-Path $stage 'apply.lock'), 'OpenOrCreate', 'ReadWrite', 'None') }
+catch { Write-Log 'another apply is running; exit'; exit 0 }
+$cancel = Join-Path $stage 'cancel'
+if (Test-Path -LiteralPath $cancel) { Write-Log 'cancelled by the app; nothing changed'; exit 0 }
 function Write-Result([bool]$ok, [string]$msg, [bool]$rolledBack) {
+  Write-Log "result ok=$ok rolled_back=$rolledBack $msg"
   $o = [ordered]@{ ok = $ok; build = $build; rolled_back = $rolledBack; message = $msg; at = (Get-Date).ToUniversalTime().ToString('o') }
   [System.IO.File]::WriteAllText($resultFile, ($o | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
 }
@@ -392,11 +406,25 @@ function Restore-Backup($list) {
     } catch { }
   }
 }
+$done = @()
+# هر خطای پیش‌بینی‌نشده: بازگشت + نتیجه (هرگز بی‌نتیجه نمی‌ماند)
+trap {
+  Write-Log "trap: $_"
+  try { Restore-Backup $done } catch { }
+  try { Write-Result $false ("unexpected: " + $_) $true } catch { }
+  try { Start-Process -FilePath $exe -WorkingDirectory $install } catch { }
+  exit 3
+}
 if ($AppPid -gt 0) {
   try { Wait-Process -Id $AppPid -Timeout 120 -ErrorAction SilentlyContinue } catch { }
 }
+if (Test-Path -LiteralPath $cancel) { Write-Log 'cancelled by the app; nothing changed'; exit 0 }
+if ($AppPid -gt 0 -and (Get-Process -Id $AppPid -ErrorAction SilentlyContinue)) {
+  Write-Result $false 'app still running; nothing changed' $false
+  exit 4
+}
+Write-Log 'app closed; copying'
 Start-Sleep -Milliseconds 700
-$done = @()
 try {
   foreach ($f in $files) {
     $dst = Join-Path $install $f.p; $src = Join-Path $staged $f.p; $bak = Join-Path $backup $f.p
@@ -422,6 +450,7 @@ try {
 }
 # بررسی سلامت: نسخهٔ تازه باید بالا بیاید و زنده بماند؛ وگرنه بازگشت خودکار
 try {
+  Write-Log 'copied and verified; health check'
   $p = Start-Process -FilePath $exe -WorkingDirectory $install -PassThru''')
     ..writeln('  Start-Sleep -Seconds $healthSeconds')
     ..writeln(r'''  $p.Refresh()
@@ -437,15 +466,40 @@ exit 0''');
   return b.toString();
 }
 
+/// اجرای یک فرایند (برای آزمون جایگزین‌پذیر؛ امضای سازگار با [Process.start]).
+typedef ProcessStarter = Future<Object?> Function(
+  String executable,
+  List<String> arguments, {
+  ProcessStartMode mode,
+});
+
 /// نوشتن اسکریپت (UTF-8 با BOM) و اجرای جدا از برنامه. پس از این، برنامه باید بسته شود.
+///
+/// برنامه فقط وقتی بسته می‌شود که خط «start» اسکریپت در `apply.log` دیده شود. اگر روش اول
+/// (`powershell.exe` جدا و بی‌پنجره) در [startTimeout] شروع نشد، روش دوم (`cmd start /min`)
+/// امتحان می‌شود؛ اسکریپت قفل دارد و دو نمونه هم‌زمان اجرا نمی‌شوند. اگر هیچ‌کدام شروع نشد
+/// [UpdateException] با کد `launch` (برنامه باز می‌ماند و چیزی تغییر نکرده).
 Future<File> launchApply({
   required StagedUpdate staged,
   required String installDir,
   required int appPid,
   String exeName = 'payesh_owner.exe',
   int healthSeconds = 15,
+  ProcessStarter starter = Process.start,
+  Duration startTimeout = const Duration(seconds: 20),
+  void Function(String line)? log,
 }) async {
-  final script = File('${staged.dir.path}${Platform.pathSeparator}apply.ps1');
+  final sep = Platform.pathSeparator;
+  final script = File('${staged.dir.path}${sep}apply.ps1');
+  final marker = File('${staged.dir.path}${sep}apply.log');
+  final cancel = File('${staged.dir.path}${sep}cancel');
+  for (final f in [
+    marker,
+    cancel,
+    File('${staged.dir.path}${sep}result.json'),
+  ]) {
+    if (f.existsSync()) f.deleteSync();
+  }
   script.writeAsBytesSync([
     0xEF,
     0xBB,
@@ -459,18 +513,45 @@ Future<File> launchApply({
       ),
     ),
   ]);
-  await Process.start('powershell.exe', [
+  final ps = [
+    'powershell.exe',
     '-NoProfile',
+    '-NonInteractive',
     '-ExecutionPolicy',
     'Bypass',
-    '-WindowStyle',
-    'Hidden',
     '-File',
     script.path,
     '-AppPid',
     '$appPid',
-  ], mode: ProcessStartMode.detached);
-  return script;
+  ];
+  final attempts = <(String, List<String>)>[
+    ('powershell-detached', ps),
+    ('cmd-start-min', ['cmd.exe', '/d', '/c', 'start', '', '/min', ...ps]),
+  ];
+  for (final (via, cmd) in attempts) {
+    try {
+      await starter(cmd.first, cmd.sublist(1), mode: ProcessStartMode.detached);
+    } on Object catch (e) {
+      log?.call('apply launch $via failed: $e');
+      continue;
+    }
+    final until = DateTime.now().add(startTimeout);
+    while (DateTime.now().isBefore(until)) {
+      if (marker.existsSync() && marker.lengthSync() > 0) {
+        log?.call('apply launched via $via');
+        return script;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    log?.call(
+      'apply launch $via: no start marker in ${startTimeout.inSeconds}s',
+    );
+  }
+  // اسکریپتی که دیرتر بالا بیاید با دیدن این فایل بدون هیچ تغییری کنار می‌رود.
+  cancel.writeAsStringSync(
+    'cancelled ${DateTime.now().toUtc().toIso8601String()}',
+  );
+  throw const UpdateException('launch', 'apply script did not start');
 }
 
 /// نتیجهٔ آخرین اعمال (پس از باز شدن دوبارهٔ برنامه).

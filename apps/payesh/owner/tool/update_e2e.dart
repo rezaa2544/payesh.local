@@ -68,6 +68,7 @@ Future<void> main(List<String> argv) async {
     staged: staged,
     installDir: a['install']!,
     appPid: int.parse(a['pid']!),
+    log: stdout.writeln,
   );
   stdout.writeln('script: ${script.path}');
   stdout.writeln(

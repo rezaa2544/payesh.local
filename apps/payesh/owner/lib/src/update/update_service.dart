@@ -196,7 +196,13 @@ final class OwnerUpdater {
       await l(s);
       return;
     }
-    await launchApply(staged: s, installDir: installDir.path, appPid: pid);
+    try {
+      await launchApply(staged: s, installDir: installDir.path, appPid: pid);
+    } on UpdateException catch (e) {
+      // اسکریپت شروع نشد: برنامه باز می‌ماند و به‌روزرسانی آماده می‌ماند.
+      _set(UpdatePhase.failed, err: e.messageFa);
+      return;
+    }
     exit(0);
   }
 

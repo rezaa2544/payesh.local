@@ -298,6 +298,75 @@ void main() {
       expect(ps, contains('رضا'));
     });
 
+    test('اجرا: برنامه فقط با دیدن نشانهٔ شروع بسته می‌شود؛ روش دوم؛ شکست ⇐ launch', () async {
+      final h = http();
+      final p = await planUpdate(
+        await fetchManifest(h, url: manifestUrl),
+        install,
+      );
+      final s = await downloadUpdate(
+        p,
+        http: h,
+        stagingRoot: staging,
+        blobBase: blobBase,
+      );
+      final calls = <List<String>>[];
+      final lines = <String>[];
+      // روش اول شروع نمی‌شود (مثل powershell بی‌کنسول)، روش دوم نشانه را می‌نویسد.
+      final script = await launchApply(
+        staged: s,
+        installDir: install.path,
+        appPid: 4242,
+        startTimeout: const Duration(milliseconds: 400),
+        log: lines.add,
+        starter: (exe, args, {mode = ProcessStartMode.normal}) async {
+          expect(mode, ProcessStartMode.detached);
+          calls.add([exe, ...args]);
+          if (exe == 'cmd.exe') {
+            File('${s.dir.path}/apply.log').writeAsStringSync('start\n');
+          }
+          return null;
+        },
+      );
+      expect(script.existsSync(), isTrue);
+      expect(script.readAsBytesSync().take(3), [0xEF, 0xBB, 0xBF]);
+      final ps = script.readAsStringSync();
+      expect(ps, contains("\$ProgressPreference = 'SilentlyContinue'"));
+      expect(ps, contains('apply.lock'));
+      expect(ps, contains('trap {'));
+      expect(calls, hasLength(2));
+      expect(calls[0].first, 'powershell.exe');
+      expect(calls[0], isNot(contains('-WindowStyle')));
+      expect(
+        calls[0],
+        containsAllInOrder(['-File', script.path, '-AppPid', '4242']),
+      );
+      expect(calls[1].take(6), ['cmd.exe', '/d', '/c', 'start', '', '/min']);
+      expect(lines.last, 'apply launched via cmd-start-min');
+
+      // هیچ روشی شروع نشد ⇐ UpdateException('launch')؛ نشانهٔ قبلی پاک شده بود.
+      final err = await launchApply(
+        staged: s,
+        installDir: install.path,
+        appPid: 4242,
+        startTimeout: const Duration(milliseconds: 200),
+        starter: (exe, args, {mode = ProcessStartMode.normal}) async {
+          if (exe == 'cmd.exe') throw const ProcessException('cmd.exe', []);
+          return null;
+        },
+      ).then<Object?>((_) => null, onError: (Object e) => e);
+      expect(err, isA<UpdateException>());
+      final ue = err! as UpdateException;
+      expect(ue.code, 'launch');
+      expect(ue.messageFa, contains('باز می‌ماند'));
+      expect(File('${s.dir.path}/cancel').existsSync(), isTrue);
+      expect(script.readAsStringSync(), contains("Join-Path \$stage 'cancel'"));
+      expect(
+        script.readAsStringSync(),
+        contains('app still running; nothing changed'),
+      );
+    });
+
     test('نتیجهٔ اعمال قبلی خوانده و پاک می‌شود', () {
       final d = Directory('${staging.path}/140')..createSync(recursive: true);
       File('${d.path}/result.json').writeAsStringSync(

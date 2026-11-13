@@ -1205,6 +1205,13 @@ jobs:
             if (Test-Path $res) { throw "($name) applied while the app was still running" }
             Stop-Process -Id $appPid -Force
             for ($i = 0; $i -lt 90 -and -not (Test-Path $res); $i++) { Start-Sleep -Seconds 1 }
+          # گزارش گام‌به‌گام اسکریپت (برای تشخیص؛ در موفقیت و شکست)
+          $alog = Join-Path $stg '999999\apply.log'
+          if (Test-Path $alog) { Get-Content $alog | ForEach-Object { "apply.log (${name}): $_" } | Tee-Object -FilePath $logAbs -Append | Out-Host }
+          else {
+            "apply.log (${name}): MISSING" | Tee-Object -FilePath $logAbs -Append | Out-Host
+            Get-Process -Name powershell, pwsh, cmd -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, StartTime -AutoSize | Out-Host
+          }
             if (-not (Test-Path $res)) { throw "($name) apply script wrote no result" }
             $text = Get-Content $res -Raw
             "update e2e ${name}: $text" | Tee-Object -FilePath $logAbs -Append | Out-Host
