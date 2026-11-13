@@ -6,6 +6,7 @@ import 'package:payesh_sync/payesh_sync.dart';
 import 'src/app.dart';
 import 'src/attendance/attendance_wiring.dart';
 import 'src/flags.dart';
+import 'src/login/device_identity.dart';
 import 'src/login/session_controller.dart';
 import 'src/login/wiring.dart';
 import 'src/secure/local_storage.dart';
@@ -13,14 +14,19 @@ import 'src/secure/local_storage.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final flags = ClientFlags.fromEnvironment();
+  final lanClient = lanEnabled
+      ? LanAccessClient(platform: Platform.operatingSystem)
+      : null;
   final session = SessionController(
     api: schoolAccessFromEnvironment(),
     accounts: SchoolAccountStore(platformSecureStore()),
     flags: flags,
     // Row 127: the school's own server on the local network (Sync v1), next to the Gateway.
-    lan: lanEnabled
-        ? LanAccessClient(platform: Platform.operatingSystem)
-        : null,
+    lan: lanClient,
+    // Row 145: registration request + subscription via the school server; trial once per device.
+    schools: lanClient == null ? null : LanSchoolsClient(lanClient),
+    deviceId: platformDeviceId,
+    openUrl: openExternalUrl,
     deviceName: 'پایش ${Platform.operatingSystem}',
   )..start();
   final storage = openPlatformStorage();

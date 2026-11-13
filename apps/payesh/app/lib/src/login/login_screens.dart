@@ -6,7 +6,9 @@ import 'package:payesh_ui/payesh_ui.dart';
 import '../app.dart';
 import '../sync_badge.dart';
 import '../flags.dart';
+import 'paywall.dart';
 import 'session_controller.dart';
+import 'signup_screen.dart';
 
 /// Root of the native client when the login wave is on: picks the screen for the session state.
 class SessionGate extends StatelessWidget {
@@ -47,6 +49,7 @@ class SessionGate extends StatelessWidget {
           controller: controller,
           state: s,
         ),
+        final NeedSignup s => SignupScreen(controller: controller, state: s),
         final Locked s => LockScreen(controller: controller, state: s),
         final NeedClaim s => ClaimScreen(controller: controller, state: s),
         final SignedIn s => SignedInScreen(
@@ -455,12 +458,23 @@ class SignedInScreen extends StatelessWidget {
               ],
             ),
           ),
-          if (pages != null) ...[
+          if (controller.paywalled) ...[
             const SizedBox(height: PayeshTokens.space4),
-            pages!(context, state),
+            PaywallView(controller: controller),
+          ] else ...[
+            if (controller.sub case final sub?
+                when sub.managed && sub.status != 'free')
+              Padding(
+                padding: const EdgeInsets.only(top: PayeshTokens.space3),
+                child: SubBanner(controller: controller, sub: sub),
+              ),
+            if (pages != null) ...[
+              const SizedBox(height: PayeshTokens.space4),
+              pages!(context, state),
+            ],
+            const SizedBox(height: PayeshTokens.space4),
+            home ?? const HomeBody(),
           ],
-          const SizedBox(height: PayeshTokens.space4),
-          home ?? const HomeBody(),
         ],
       ),
     );
@@ -488,10 +502,14 @@ class _LanServerScreenState extends State<LanServerScreen> {
   late final TextEditingController _server = TextEditingController(
     text: widget.state.typed,
   );
-  final _phone = TextEditingController();
+  late final _phone = TextEditingController(text: widget.state.login);
   final _password = TextEditingController();
   final _schoolName = TextEditingController();
   final _manager = TextEditingController();
+
+  /// Row 145: on a fresh server, the manager of a school the owner created (or approved) signs
+  /// in with the user name instead of setting the server up.
+  bool _loginInstead = false;
 
   @override
   void dispose() {
@@ -613,7 +631,20 @@ class _LanServerScreenState extends State<LanServerScreen> {
       onPressed: busy ? null : c.changeLanServer,
       child: const Text('تغییر نشانی سرور'),
     );
-    if (s.needsSetup) {
+    // Row 145 — next to the user name / password login (p2 port; the marketing site later
+    // sends the same request to the same endpoint).
+    final signup = c.signupAvailable
+        ? Padding(
+            padding: const EdgeInsets.only(top: PayeshTokens.space3),
+            child: OutlinedButton.icon(
+              key: const Key('lan-signup'),
+              onPressed: busy ? null : c.openSignup,
+              icon: const Icon(Icons.add_business_outlined),
+              label: const Text('درخواست ثبت نام مدرسه جدید'),
+            ),
+          )
+        : const SizedBox.shrink();
+    if (s.needsSetup && !_loginInstead) {
       void go() => c.submitLanSetup(
         schoolName: _schoolName.text,
         managerName: _manager.text,
@@ -662,6 +693,15 @@ class _LanServerScreenState extends State<LanServerScreen> {
             child: _busyOr(busy, 'راه‌اندازی و ورود'),
           ),
           const SizedBox(height: PayeshTokens.space3),
+          TextButton(
+            key: const Key('lan-login-instead'),
+            onPressed: busy ? null : () => setState(() => _loginInstead = true),
+            child: const Text(
+              'مدرسهٔ شما در پایش ثبت شده است؟ با نام کاربری و رمز مدیر وارد شوید',
+            ),
+          ),
+          signup,
+          const SizedBox(height: PayeshTokens.space3),
           change,
         ],
       );
@@ -675,11 +715,11 @@ class _LanServerScreenState extends State<LanServerScreen> {
         _field(
           'lan-phone',
           _phone,
-          'شمارهٔ همراه یا کد ملی',
+          'شمارهٔ همراه، کد ملی یا نام کاربری',
           busy: busy,
           ltr: true,
           autofocus: true,
-          keyboard: TextInputType.phone,
+          keyboard: TextInputType.visiblePassword,
         ),
         _field(
           'lan-password',
@@ -704,6 +744,15 @@ class _LanServerScreenState extends State<LanServerScreen> {
             key: const Key('lan-claim'),
             onPressed: busy ? null : c.openClaim,
             child: const Text('رمز مدیر را فراموش کرده‌اید؟'),
+          ),
+        signup,
+        if (_loginInstead)
+          TextButton(
+            key: const Key('lan-setup-instead'),
+            onPressed: busy
+                ? null
+                : () => setState(() => _loginInstead = false),
+            child: const Text('راه‌اندازی اولیهٔ این سرور'),
           ),
         const SizedBox(height: PayeshTokens.space3),
         change,

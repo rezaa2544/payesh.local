@@ -707,7 +707,10 @@ jobs:
           $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
           if (-not $iscc) { throw 'ISCC not found' }
           "ISCC: $iscc"
-          $v = (Select-String -Path 'apps\payesh\app\pubspec.yaml' -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          # ردیف ۱۴۵: نسخه = <major.minor از pubspec>.<run_number> ⇒ هر انتشار نسخهٔ تازه دارد (مثل پنل مالک)
+          $mm = (Select-String -Path 'apps\payesh\app\pubspec.yaml' -Pattern '^version:\s*([0-9]+\.[0-9]+)\.').Matches[0].Groups[1].Value
+          $v = "$mm.${{ github.run_number }}"
+          "APP-VERSION $v"
           & $iscc "/DAppVersion=$v" 'apps\payesh\app\windows\installer\payesh-native.iss' 2>&1 | Tee-Object -FilePath native-out\iscc-native.log
           if ($LASTEXITCODE -ne 0) { Get-Content native-out\iscc-native.log -Tail 15; throw "ISCC failed ($LASTEXITCODE)" }
           $exe = 'native-out\payesh-native-setup.exe'
@@ -782,7 +785,10 @@ jobs:
           Copy-Item client\lib\*.js "$stage\client\lib\"
           Copy-Item package.json $stage
           if (Test-Path releases\manifest.json) { Copy-Item releases\manifest.json "$stage\releases\" }
-          $v = (Select-String -Path 'apps\payesh\app\pubspec.yaml' -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          # ردیف ۱۴۵: نسخه = <major.minor از pubspec>.<run_number> ⇒ هر انتشار نسخهٔ تازه دارد (مثل پنل مالک)
+          $mm = (Select-String -Path 'apps\payesh\app\pubspec.yaml' -Pattern '^version:\s*([0-9]+\.[0-9]+)\.').Matches[0].Groups[1].Value
+          $v = "$mm.${{ github.run_number }}"
+          "APP-VERSION $v"
           & $iscc "/DAppVersion=$v" "/DStageDir=$stage" 'install\windows\data-service\payesh-data-service.iss' 2>&1 | Tee-Object -FilePath native-out\iscc-data-service.log
           if ($LASTEXITCODE -ne 0) { Get-Content native-out\iscc-data-service.log -Tail 15; throw "ISCC failed ($LASTEXITCODE)" }
           if (-not (Test-Path 'native-out\payesh-data-service-setup.exe')) { throw 'payesh-data-service-setup.exe was not built' }

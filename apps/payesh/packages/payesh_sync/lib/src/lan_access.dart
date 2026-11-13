@@ -114,8 +114,24 @@ abstract final class LanServerRules {
   }
 
   /// Phone / national id as the server normalises it (digits only, Persian digits allowed).
-  static String normalizeLogin(String typed) =>
-      _latinDigits(typed).replaceAll(RegExp('[^0-9]'), '');
+  /// Row 145: a Latin user name (the manager of a school the owner created, or of an approved
+  /// registration request) is kept as a lower-case user name, as `server/auth.js` does.
+  static String normalizeLogin(String typed) {
+    final t = _latinDigits(typed).trim();
+    if (RegExp('[A-Za-z]').hasMatch(t)) return t.toLowerCase();
+    return t.replaceAll(RegExp('[^0-9]'), '');
+  }
+
+  /// Latin user name of a school manager (`^[a-z][a-z0-9._-]{2,31}\$`, server/auth.js).
+  static final RegExp usernameRe = RegExp(r'^[a-z][a-z0-9._-]{2,31}$');
+
+  /// Something the server can look up: a mobile/national id (≥ 10 digits) or a user name.
+  static bool validLogin(String typed) {
+    final n = normalizeLogin(typed);
+    return RegExp('[a-z]').hasMatch(n)
+        ? usernameRe.hasMatch(n)
+        : n.length >= 10;
+  }
 }
 
 /// Why a LAN step failed. Each kind has exactly one Persian message.
@@ -156,6 +172,18 @@ enum LanAccessError {
   /// 426 / api_version_unsupported.
   upgradeRequired,
 
+  /// Row 145 — the owner deactivated this school (p2: deactivation blocks login).
+  schoolInactive,
+
+  /// Row 145 — the owner removed this school from the list.
+  schoolRemoved,
+
+  /// Row 145 — another server already hosts this school (the owner's list says so).
+  hostedElsewhere,
+
+  /// Row 145 — the role needs a subscription and has none (402 `subscription_required`).
+  subscriptionRequired,
+
   /// Anything else.
   unknown;
 
@@ -164,7 +192,7 @@ enum LanAccessError {
     notSchoolServer =>
       'در این نشانی سرور پایش پیدا نشد — نشانی را از مدیر مدرسه بپرسید',
     unreachable => 'سرور مدرسه پاسخ نداد — روشن بودن رایانهٔ سرور و اتصال به همان شبکه را بررسی کنید',
-    badCredentials => 'شماره یا رمز عبور درست نیست',
+    badCredentials => 'نام کاربری یا رمز عبور درست نیست',
     noPassword =>
       'برای این حساب هنوز رمز تعیین نشده — از مدیر مدرسه بخواهید رمز بسازد',
     deviceLimit => 'تعداد دستگاه‌های این حساب به سقف رسیده — مدیر باید یک دستگاه قدیمی را حذف کند',
@@ -177,6 +205,11 @@ enum LanAccessError {
     alreadySetup =>
       'این سرور قبلاً راه‌اندازی شده است — با شماره و رمز مدیر وارد شوید',
     upgradeRequired => 'این نسخهٔ برنامه با سرور مدرسه سازگار نیست — برنامه یا سرور را به‌روز کنید',
+    schoolInactive =>
+      'این مدرسه غیرفعال شده است — با پشتیبانی پایش تماس بگیرید',
+    schoolRemoved => 'این مدرسه در فهرست مدارس پایش نیست',
+    hostedElsewhere => 'این مدرسه روی سرور دیگری راه‌اندازی شده است — نشانی همان سرور را وارد کنید',
+    subscriptionRequired => 'برای استفاده از امکانات، اشتراک لازم است',
     unknown => 'خطای غیرمنتظره — دوباره امتحان کنید',
   };
 
@@ -606,6 +639,12 @@ LanAccessFailure mapLanError(
     (_, 'locked') => LanAccessError.rateLimited,
     (_, 'already_setup') => LanAccessError.alreadySetup,
     (_, 'api_version_unsupported') => LanAccessError.upgradeRequired,
+    (_, 'school_inactive') => LanAccessError.schoolInactive,
+    (_, 'school_removed') => LanAccessError.schoolRemoved,
+    (_, 'school_hosted_elsewhere') => LanAccessError.hostedElsewhere,
+    (_, 'subscription_required') ||
+    (402, _) => LanAccessError.subscriptionRequired,
+    (_, 'registry_unreachable') => LanAccessError.unreachable,
     (426, _) => LanAccessError.upgradeRequired,
     (429, _) => LanAccessError.rateLimited,
     (401, _) => unauthorized,

@@ -3,6 +3,8 @@ import 'package:payesh_sync/payesh_sync.dart';
 
 import '../flags.dart';
 
+String faCount(int n) => toPersianDigits('$n');
+
 /// Where the login flow is (row 74, wave 1).
 sealed class SessionState {
   const SessionState();
@@ -36,15 +38,28 @@ final class NeedCode extends SessionState {
 /// on a fresh server | phone + password). [info] is null until the address answered as a Payesh
 /// school server.
 final class NeedLan extends SessionState {
-  const NeedLan({this.info, this.error, this.typed = ''});
+  const NeedLan({this.info, this.error, this.typed = '', this.login = ''});
   final LanServerInfo? info;
   final String? error;
+
+  /// Row 145: user name to prefill (an approved registration request).
+  final String login;
 
   /// Address typed in the first step (kept on errors).
   final String typed;
 
   /// A fresh server: the first setup (school + manager) comes next.
   bool get needsSetup => info != null && !info!.setupDone;
+}
+
+/// Row 145 — «درخواست ثبت نام مدرسه جدید» on this school server: the form, then (with a
+/// saved [ticket]) the request's status (pending / approved / rejected).
+final class NeedSignup extends SessionState {
+  const NeedSignup(this.info, {this.error, this.ticket, this.status});
+  final LanServerInfo info;
+  final String? error;
+  final SignupTicket? ticket;
+  final SignupStatus? status;
 }
 
 /// Row 128 / W7 — the user locked the app on this device (web `lockApp`): the device stays
@@ -110,10 +125,22 @@ class SessionController extends ChangeNotifier {
     required this.accounts,
     required ClientFlags flags,
     this.lan,
+    this.schools,
+    this.deviceId,
+    this.openUrl,
     this.deviceName = 'پایش',
     DateTime Function()? now,
   }) : _active = flags,
        _now = now ?? DateTime.now;
+
+  /// Row 145: registration request + subscription on the school server; null = not offered.
+  final LanSchoolsApi? schools;
+
+  /// Row 145: hardware/system id of this device (survives reinstall) for the one-trial rule.
+  final Future<String?> Function()? deviceId;
+
+  /// Row 145: opens the payment gateway in the system browser.
+  final Future<bool> Function(String url)? openUrl;
 
   final SchoolAccessApi api;
   final SchoolAccountStore accounts;
@@ -146,6 +173,27 @@ class SessionController extends ChangeNotifier {
   );
 
   SessionState get state => _state;
+
+  /// Row 145 — subscription of the signed-in LAN user (null = unknown / not checked yet; the
+  /// school server still answers 402 to everything until a subscription or trial is active).
+  SubStatus? get sub => _sub;
+  SubStatus? _sub;
+  bool get subBusy => _subBusy;
+  bool _subBusy = false;
+  String? get subError => _subError;
+  String? _subError;
+  String? get subNotice => _subNotice;
+  String? _subNotice;
+
+  /// The role needs a subscription (or the school is inactive) — the app shows the paywall.
+  bool get paywalled {
+    final s = _sub;
+    return _state is SignedIn && s != null && s.managed && !s.access;
+  }
+
+  /// Whether this build/server offers the registration request.
+  bool get signupAvailable => schools != null;
+  SignupStore get signupStore => SignupStore(accounts.store);
 
   /// Cell (Gateway) of the saved school — the data path of wave 2 talks to it. In LAN mode
   /// (row 127) this is the school's own server.
@@ -377,6 +425,7 @@ class SessionController extends ChangeNotifier {
       final s = _state;
       final t = s is SignedIn ? s.session?.token : null;
       _lan = null;
+      _sub = null;
       await lanAccounts.clear();
       if (t != null) await lan?.logout(server: l.server, token: t);
       _publish(SyncPhase.idle);
@@ -489,8 +538,7 @@ class SessionController extends ChangeNotifier {
     if (wait != null) {
       return _set(NeedLan(info: info, typed: s.typed, error: wait));
     }
-    if (LanServerRules.normalizeLogin(phone).length < 10 ||
-        password.length < 4) {
+    if (!LanServerRules.validLogin(phone) || password.length < 4) {
       return _set(
         NeedLan(
           info: info,
@@ -678,6 +726,7 @@ class SessionController extends ChangeNotifier {
     _lan = saved;
     _publish(SyncPhase.idle, ok: _now());
     _set(_lanSignedIn(saved, fresh));
+    await checkSub(token: fresh.token);
   }
 
   /// Rotates the device token (the server answers with a new one each time; it is saved before
@@ -704,6 +753,7 @@ class SessionController extends ChangeNotifier {
       _lan = next;
       _publish(SyncPhase.idle, ok: _now());
       _set(_lanSignedIn(next, fresh));
+      await checkSub(token: fresh.token);
     } on LanAccessFailure catch (e) {
       if (e.kind == LanAccessError.deviceRevoked) {
         await lanAccounts.clear();
@@ -718,6 +768,235 @@ class SessionController extends ChangeNotifier {
       _publish(SyncPhase.offline, error: _unknown);
       _set(_lanSignedIn(l));
     }
+  }
+
+  // ── Row 145: registration request ───────────────────────────────────────────────────
+
+  /// From the LAN login: «درخواست ثبت نام مدرسه جدید» (status view when a request was sent from
+  /// this device to this server).
+  Future<void> openSignup() async {
+    final s = _state;
+    final info = s is NeedLan ? s.info : null;
+    if (_busy || info == null || schools == null) return;
+    SignupTicket? t;
+    try {
+      t = await signupStore.load();
+    } on Object {
+      t = null;
+    }
+    if (t != null && t.server != info.server) t = null;
+    _set(NeedSignup(info, ticket: t));
+    if (t != null) await checkSignup();
+  }
+
+  void closeSignup({String login = ''}) {
+    final s = _state;
+    if (s is! NeedSignup || _busy) return;
+    _set(NeedLan(info: s.info, typed: _typedOf(s.info.server), login: login));
+  }
+
+  Future<void> submitSignup(SchoolSignup form) async {
+    final s = _state;
+    final api = schools;
+    if (_busy || s is! NeedSignup || api == null) return;
+    final bad = form.validate();
+    if (bad != null) return _set(NeedSignup(s.info, error: bad));
+    _set(NeedSignup(s.info), busy: true);
+    try {
+      String? dh;
+      try {
+        dh = deviceHashOf(await deviceId?.call());
+      } on Object {
+        dh = null;
+      }
+      final r = await api.register(s.info.server, form, deviceHash: dh);
+      final t = SignupTicket(
+        server: s.info.server,
+        id: r.id,
+        token: r.token,
+        schoolName: form.schoolName.trim(),
+        username: form.normalizedUsername,
+        at: _now(),
+      );
+      await signupStore.save(t);
+      _set(
+        NeedSignup(s.info, ticket: t, status: const SignupStatus('pending')),
+      );
+    } on LanAccessFailure catch (e) {
+      _set(NeedSignup(s.info, error: schoolsErrorFa(e)));
+    } on Object {
+      _set(NeedSignup(s.info, error: _unknown));
+    }
+  }
+
+  /// «بررسی وضعیت» of the saved request.
+  Future<void> checkSignup() async {
+    final s = _state;
+    final api = schools;
+    final t = s is NeedSignup ? s.ticket : null;
+    if (s is! NeedSignup || api == null || t == null) return;
+    _set(NeedSignup(s.info, ticket: t, status: s.status), busy: true);
+    try {
+      final st = await api.registrationStatus(t);
+      _set(NeedSignup(s.info, ticket: t, status: st));
+    } on LanAccessFailure catch (e) {
+      _set(
+        NeedSignup(
+          s.info,
+          ticket: t,
+          status: s.status,
+          error: schoolsErrorFa(e),
+        ),
+      );
+    } on Object {
+      _set(NeedSignup(s.info, ticket: t, status: s.status, error: _unknown));
+    }
+  }
+
+  /// A new request instead of the saved one.
+  Future<void> forgetSignup() async {
+    final s = _state;
+    if (s is! NeedSignup || _busy) return;
+    await signupStore.clear();
+    _set(NeedSignup(s.info));
+  }
+
+  // ── Row 145: subscription (p2) ──────────────────────────────────────────────────────
+
+  void _subSet({
+    SubStatus? sub,
+    String? error,
+    String? notice,
+    bool busy = false,
+  }) {
+    if (sub != null) _sub = sub;
+    _subError = error;
+    _subNotice = notice;
+    _subBusy = busy;
+    notifyListeners();
+  }
+
+  /// Reads `/api/sub/status`. Offline keeps the last answer (the server enforces 402 anyway).
+  Future<void> checkSub({String? token}) async {
+    final api = schools;
+    final l = _lan;
+    if (api == null || l == null || _state is! SignedIn) return;
+    token ??= await validToken();
+    if (token == null) return;
+    try {
+      _subSet(sub: await api.subStatus(l.server, token));
+    } on LanAccessFailure catch (e) {
+      if (e.kind == LanAccessError.schoolInactive ||
+          e.kind == LanAccessError.schoolRemoved) {
+        _subSet(
+          sub: SubStatus(
+            managed: true,
+            access: false,
+            status: e.kind == LanAccessError.schoolInactive
+                ? 'school_inactive'
+                : 'school_removed',
+          ),
+        );
+      }
+      // otherwise keep what we had
+    } on Object {
+      // keep what we had
+    }
+  }
+
+  /// «شروع دورهٔ آزمایشی» — once per device (hashed system id), even after reinstall.
+  Future<void> startTrial() async {
+    final api = schools;
+    final l = _lan;
+    if (api == null || l == null || _subBusy) return;
+    _subSet(busy: true);
+    String? dh;
+    try {
+      dh = deviceHashOf(await deviceId?.call());
+    } on Object {
+      dh = null;
+    }
+    if (dh == null) {
+      return _subSet(
+        error: 'شناسهٔ این دستگاه خوانده نشد — دورهٔ آزمایشی روی این دستگاه ممکن نیست؛ لطفاً اشتراک تهیه کنید',
+      );
+    }
+    final token = await validToken();
+    if (token == null) {
+      return _subSet(error: LanAccessError.unreachable.messageFa());
+    }
+    try {
+      final st = await api.startTrial(l.server, token, dh);
+      _subSet(
+        sub: st,
+        notice: 'دورهٔ آزمایشی ${faCount(st.daysLeft)} روزه فعال شد',
+      );
+    } on LanAccessFailure catch (e) {
+      _subSet(error: schoolsErrorFa(e));
+    } on Object {
+      _subSet(error: _unknown);
+    }
+  }
+
+  /// Pay through the owner's gateway: the server builds the gateway link; the browser opens it;
+  /// the gateway returns to the school server (`/api/sub/callback`), which verifies it.
+  Future<String?> payWithGateway(String plan) async {
+    final api = schools;
+    final l = _lan;
+    if (api == null || l == null || _subBusy) return null;
+    _subSet(busy: true);
+    final token = await validToken();
+    if (token == null) {
+      _subSet(error: LanAccessError.unreachable.messageFa());
+      return null;
+    }
+    try {
+      final r = await api.startPayment(l.server, token, plan);
+      final opened = await (openUrl?.call(r.payUrl) ?? Future.value(false));
+      _subSet(
+        notice: opened
+            ? 'صفحهٔ پرداخت باز شد (کد پیگیری ${r.paymentId}). پس از پرداخت، «بررسی دوباره» را بزنید.'
+            : 'پیوند پرداخت آماده است (کد پیگیری ${r.paymentId}) — آن را در مرورگر باز کنید.',
+      );
+      return r.payUrl;
+    } on LanAccessFailure catch (e) {
+      _subSet(error: schoolsErrorFa(e));
+    } on Object {
+      _subSet(error: _unknown);
+    }
+    return null;
+  }
+
+  /// «ثبت رسید» (card-to-card etc.) — pending until the owner approves it.
+  Future<bool> submitReceipt(String plan, String ref) async {
+    final api = schools;
+    final l = _lan;
+    if (api == null || l == null || _subBusy) return false;
+    final r = ref.trim();
+    if (r.length < 4 || r.length > 40) {
+      _subSet(error: 'شمارهٔ پیگیری/رسید را درست بنویسید (۴ تا ۴۰ نویسه)');
+      return false;
+    }
+    _subSet(busy: true);
+    final token = await validToken();
+    if (token == null) {
+      _subSet(error: LanAccessError.unreachable.messageFa());
+      return false;
+    }
+    try {
+      final p = await api.submitReceipt(l.server, token, plan, r);
+      _subSet(
+        notice:
+            'رسید ثبت شد (کد پیگیری ${p.id}) — پس از تأیید پشتیبانی پایش، اشتراک فعال می‌شود.',
+      );
+      await checkSub();
+      return true;
+    } on LanAccessFailure catch (e) {
+      _subSet(error: schoolsErrorFa(e));
+    } on Object {
+      _subSet(error: _unknown);
+    }
+    return false;
   }
 
   @override

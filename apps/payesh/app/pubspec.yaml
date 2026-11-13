@@ -1,7 +1,7 @@
 name: payesh_app
 description: "Payesh school app — native Flutter client for Android and Windows (ADR-43 / D-43). No WebView, no Node.js."
 publish_to: none
-version: 0.1.0+1
+version: 0.2.0+1
 resolution: workspace
 environment:
   sdk: ^3.13.0
