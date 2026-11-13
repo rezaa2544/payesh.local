@@ -391,6 +391,65 @@ paths:
           $ref: '#/components/responses/Error'
         '403':
           $ref: '#/components/responses/Error'
+  /api/admin/helpers:
+    get:
+      operationId: getApiAdminHelpers
+      tags: [admin]
+      summary: "admin: GET admin/helpers — سرورهای کمکی (سیستم‌های پنل مالک) در صندوقچهٔ مشترک؛ ADR 126 §۱۱"
+      x-source: server/index.js:994
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/helpers/check-public:
+    post:
+      operationId: postApiAdminHelpersCheckPublic
+      tags: [admin]
+      summary: "admin: POST admin/helpers/check-public — بررسی نشانی عمومی از بیرون توسط سرور کمکی (یا همین سرور اگر کمکی نباشد)"
+      x-source: server/index.js:1009
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/admin/helpers/usage:
+    post:
+      operationId: postApiAdminHelpersUsage
+      tags: [admin]
+      summary: "admin: POST admin/helpers/usage — محاسبهٔ مصرف صندوقچه؛ با سرور کمکی یا بی‌وقفه روی همین سرور (by: helper|local)"
+      x-source: server/index.js:998
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
   /api/admin/network:
     get:
       operationId: getApiAdminNetwork
