@@ -53,8 +53,8 @@ class _UpdateCardState extends State<UpdateCard> {
         if (!u.isWindows) {
           final apk = p?.manifest.apk;
           text =
-              'ساخت ${p!.manifest.build} آماده است. در اندروید بستهٔ کامل لازم است'
-              '${apk == null ? '' : ' (${fmtBytesFa(apk.size)})'}: payesh-owner.apk را از صفحهٔ دانلود بگیرید.';
+              'ساخت ${p!.manifest.build} آماده است. در اندروید بستهٔ کامل'
+              '${apk == null ? '' : ' (${fmtBytesFa(apk.size)})'} درون برنامه دریافت و نصب می‌شود.';
         } else {
           text =
               'ساخت ${p!.manifest.build} آماده است: ${p.changed.length} فایل تغییر کرده — '
@@ -69,6 +69,10 @@ class _UpdateCardState extends State<UpdateCard> {
             'همهٔ ${s.plan.changed.length} فایل دریافت و بررسی شد'
             '${s.fromMirror > 0 ? ' (${s.fromMirror} فایل از آینهٔ دیتابیس آروان)' : ''}. '
             'برای نصب، برنامه بسته و دوباره باز می‌شود.';
+      case UpdatePhase.applying:
+        text = u.isWindows
+            ? 'در حال نصب… برنامه بسته و پس از جایگزینی فایل‌ها خودکار دوباره باز می‌شود.'
+            : 'نصب‌کنندهٔ اندروید باز شد؛ پس از نصب، برنامه دوباره باز می‌شود.';
       case UpdatePhase.failed:
         text = u.error;
         ok = false;
@@ -102,13 +106,12 @@ class _UpdateCardState extends State<UpdateCard> {
               style: TextStyle(color: ok ? tk.success : tk.danger),
             ),
           ),
-        if (u.phase == UpdatePhase.downloading)
+        if (u.phase == UpdatePhase.downloading ||
+            u.phase == UpdatePhase.applying)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: LinearProgressIndicator(
-              value: u.progressTotal == 0
-                  ? null
-                  : u.progressDone / u.progressTotal,
+              value: u.phase == UpdatePhase.applying ? null : u.progress,
             ),
           ),
         Wrap(
@@ -117,18 +120,19 @@ class _UpdateCardState extends State<UpdateCard> {
           children: [
             OutlinedButton(
               key: const Key('upd-check'),
-              onPressed:
-                  u.phase == UpdatePhase.checking ||
-                      u.phase == UpdatePhase.downloading
-                  ? null
-                  : u.check,
+              onPressed: u.busy ? null : u.check,
               child: const Text('بررسی به‌روزرسانی'),
             ),
-            if (u.phase == UpdatePhase.ready && u.isWindows)
+            if (u.phase == UpdatePhase.ready ||
+                (u.phase == UpdatePhase.failed && u.available))
               FilledButton(
                 key: const Key('upd-download'),
-                onPressed: u.download,
-                child: const Text('دریافت تغییرات'),
+                onPressed: u.tap,
+                child: Text(
+                  u.isWindows
+                      ? 'دریافت، نصب و باز کردن دوباره'
+                      : 'دریافت و نصب',
+                ),
               ),
             if (u.phase == UpdatePhase.staged)
               FilledButton(

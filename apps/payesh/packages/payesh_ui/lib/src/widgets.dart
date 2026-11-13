@@ -17,9 +17,15 @@ class PayeshMaterialApp extends StatelessWidget {
     this.platform,
     this.navigatorKey,
     this.look = PayeshLook.classic,
+    this.overlay,
   });
 
   final Widget home;
+
+  /// Always-visible widget above every page, top-centre (row 148: the school app's version +
+  /// update light). Sits in the navigator's own [Overlay] so tooltips work; taps outside it
+  /// reach the page below.
+  final Widget? overlay;
 
   /// Visual language: the owner panel uses [PayeshLook.nabd] (the user panel's «نبض»).
   final PayeshLook look;
@@ -42,7 +48,52 @@ class PayeshMaterialApp extends StatelessWidget {
     darkTheme: PayeshUi.dark(platform: platform, look: look),
     themeMode: themeMode,
     home: home,
+    builder: overlay == null
+        ? null
+        : (context, child) => _TopOverlay(overlay: overlay!, child: child),
   );
+}
+
+/// Page + an always-visible widget at the top centre, both inside one [Overlay] so the widget
+/// gets tooltips and taps outside it fall through to the page.
+class _TopOverlay extends StatefulWidget {
+  const _TopOverlay({required this.overlay, required this.child});
+  final Widget overlay;
+  final Widget? child;
+
+  @override
+  State<_TopOverlay> createState() => _TopOverlayState();
+}
+
+class _TopOverlayState extends State<_TopOverlay> {
+  late final OverlayEntry _page = OverlayEntry(
+    builder: (_) => widget.child ?? const SizedBox.shrink(),
+  );
+  late final OverlayEntry _top = OverlayEntry(
+    builder: (_) => SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Material(
+            type: MaterialType.transparency,
+            child: widget.overlay,
+          ),
+        ),
+      ),
+    ),
+  );
+
+  @override
+  void didUpdateWidget(covariant _TopOverlay old) {
+    super.didUpdateWidget(old);
+    _page.markNeedsBuild();
+    _top.markNeedsBuild();
+  }
+
+  // initialEntries belong to the Overlay: it drops them together with itself.
+  @override
+  Widget build(BuildContext context) => Overlay(initialEntries: [_page, _top]);
 }
 
 /// «نبض» page background (client/pulse.css `body`): the surface colour with a teal wash from the

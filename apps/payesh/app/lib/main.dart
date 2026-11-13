@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
+import 'package:payesh_update/payesh_update.dart';
 
 import 'src/app.dart';
 import 'src/attendance/attendance_wiring.dart';
@@ -10,8 +12,9 @@ import 'src/login/device_identity.dart';
 import 'src/login/session_controller.dart';
 import 'src/login/wiring.dart';
 import 'src/secure/local_storage.dart';
+import 'src/update/app_update.dart';
 
-void main() {
+void main(List<String> args) {
   WidgetsFlutterBinding.ensureInitialized();
   final flags = ClientFlags.fromEnvironment();
   final lanClient = lanEnabled
@@ -41,6 +44,21 @@ void main() {
           session: session,
           client: gw == null ? null : createPinnedHttpClient(gw),
         )..attach());
+  // Row 148: in-app update on CI-built releases (build number set); --update-from/--update-now
+  // run the very same path from a local folder (support + the CI end-to-end test).
+  final ua = UpdateArgs.parse(args);
+  Future<void> openUri(Uri u) async {
+    await openExternalUrl(u.toString());
+  }
+
+  final updater = appBuild > 0 || ua.from != null
+      ? AppUpdater(
+          channel: appChannel,
+          manifestUrl: ua.manifest('app-update.json'),
+          blobBase: ua.blobs('app-files'),
+          openUrl: openUri,
+        )
+      : null;
   runApp(
     PayeshApp(
       storage: storage,
@@ -55,6 +73,13 @@ void main() {
       // Row 128: school-management pages on the same data path (each gated by its wave).
       school: flags.school.isEmpty ? null : attendance,
       onRetrySync: attendance?.retry,
+      updater: updater,
+      openUrl: openUri,
     ),
   );
+  if (updater != null && ua.now) {
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(runUpdateNow(updater)),
+    );
+  }
 }

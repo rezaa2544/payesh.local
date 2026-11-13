@@ -15,6 +15,7 @@ dependencies:
   payesh_secure:
   payesh_sync:
   payesh_ui:
+  payesh_update:
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
-import '../status/status_lights.dart' show StatusDot;
 import 'live_monitor.dart';
 
 class LiveInfraPanel extends StatefulWidget {

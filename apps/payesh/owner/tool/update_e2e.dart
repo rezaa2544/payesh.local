@@ -18,7 +18,11 @@ final class _FileHttp implements UpdateHttp {
   final Directory blobs;
 
   @override
-  Future<List<int>?> get(Uri url, {int maxBytes = 1 << 30}) async {
+  Future<List<int>?> get(
+    Uri url, {
+    int maxBytes = 1 << 30,
+    void Function(int received)? onBytes,
+  }) async {
     final File f = url.path.endsWith('owner-update.json')
         ? manifest
         : File(
@@ -49,6 +53,7 @@ Future<void> main(List<String> argv) async {
   final m = await fetchManifest(
     http,
     url: Uri.parse('https://e2e.invalid/owner-update.json'),
+    schema: ownerUpdateSchema,
   );
   final plan = await planUpdate(m, Directory(a['install']!));
   if (plan.upToDate) {
@@ -68,6 +73,7 @@ Future<void> main(List<String> argv) async {
     staged: staged,
     installDir: a['install']!,
     appPid: int.parse(a['pid']!),
+    exeName: ownerExe,
     log: stdout.writeln,
   );
   stdout.writeln('script: ${script.path}');

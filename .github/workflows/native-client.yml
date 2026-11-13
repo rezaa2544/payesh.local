@@ -35,6 +35,7 @@ on:
       - 'db/migrations/owner-panel/**'
       - 'tools/owner-native-texts.mjs'
       - 'tools/owner-update-manifest.mjs'
+      - 'tools/update-relaunch-e2e.ps1'
       - 'apps/payesh/**'
       - 'tools/native-independence-gate.mjs'
       - 'tools/android-release-check-76.mjs'
@@ -68,6 +69,7 @@ on:
       - 'db/migrations/owner-panel/**'
       - 'tools/owner-native-texts.mjs'
       - 'tools/owner-update-manifest.mjs'
+      - 'tools/update-relaunch-e2e.ps1'
       - 'apps/payesh/**'
       - 'tools/native-independence-gate.mjs'
       - 'tools/android-release-check-76.mjs'
@@ -516,8 +518,9 @@ jobs:
           set -euo pipefail
           flutter config --no-analytics >/dev/null
           flutter pub get --enforce-lockfile
-          flutter build apk --release --build-number=${{ github.run_number }}
-          flutter build appbundle --release --build-number=${{ github.run_number }}
+          # ردیف ۱۴۸: نسخه = 0.2.<run_number> و همان شماره در برنامه (چراغ به‌روزرسانی)
+          flutter build apk --release --build-number=${{ github.run_number }} --build-name=0.2.${{ github.run_number }} --dart-define=PAYESH_APP_BUILD=${{ github.run_number }}
+          flutter build appbundle --release --build-number=${{ github.run_number }} --build-name=0.2.${{ github.run_number }} --dart-define=PAYESH_APP_BUILD=${{ github.run_number }}
       - name: Native gate on the REAL APK/AAB
         run: |
           set -euo pipefail
@@ -603,7 +606,7 @@ jobs:
           flutter config --no-analytics | Out-Null
           flutter pub get --enforce-lockfile
           if ($LASTEXITCODE -ne 0) { throw 'pub get failed' }
-          flutter build windows --release
+          flutter build windows --release --build-name=0.2.${{ github.run_number }} --dart-define=PAYESH_APP_BUILD=${{ github.run_number }}
           if ($LASTEXITCODE -ne 0) { throw 'flutter build windows failed' }
       # Row 77: the installer must run on a clean Windows without the VC++ redistributable,
       # so the MSVC runtime DLLs the binaries import are deployed app-locally (allowed by
@@ -699,6 +702,17 @@ jobs:
         run: |
           & $env:SIGNTOOL sign /f $env:NATIVE_PFX /p $env:PFX_PASS /fd sha256 /tr http://timestamp.digicert.com /td sha256 'apps\payesh\app\build\windows\x64\runner\Release\payesh_app.exe'
           if ($LASTEXITCODE -ne 0) { throw 'signtool failed — fail-closed' }
+      # ردیف ۱۴۸: مانیفست «فقط تغییرات» اپ مدرسه (پس از امضای exe — همان فایل‌هایی که نصب می‌شوند).
+      # انتشار: school-native-publish.yml ⇒ native-continuous/app-update.json + app-files/<sha>.gz
+      - name: Delta-update manifest (app-update.json + app-files/<sha>.gz) (row 148)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p native-out
+          REL=apps/payesh/app/build/windows/x64/runner/Release
+          node tools/owner-update-manifest.mjs --name app --dir "$REL" --out native-out --build ${{ github.run_number }} --commit ${{ github.sha }} | tee native-out/app-update-manifest.txt
+          grep -q '^OWNER-UPDATE-MANIFEST-OK' native-out/app-update-manifest.txt
+          node -e 'const m=require("./native-out/app-update.json"); if(m.schema!=="payesh-app-update/1"||!m.files.some(f=>f.path==="data/app.so")||!m.files.some(f=>f.path==="payesh_app.exe")) throw new Error("app files missing from the manifest"); console.log("build", m.build, "files", m.files.length)'
       - name: Build payesh-native-setup.exe (Inno Setup)
         shell: pwsh
         run: |
@@ -757,6 +771,8 @@ jobs:
           }
           if ($missing.Count) { throw "MSVC runtime not deployed app-locally: $($missing -join '; ')" }
           'MSVC-APP-LOCAL-OK' | Tee-Object -FilePath native-out\installer-77.txt -Append
+          # ردیف ۱۴۸: برنامهٔ واقعی نصب‌شده خودش به‌روز می‌شود، بسته می‌شود و با پنجره دوباره باز می‌شود
+          & .\tools\update-relaunch-e2e.ps1 -Dir $dir -Exe 'payesh_app.exe' -Name app -Staging (Join-Path $env:LOCALAPPDATA 'PayeshNative\update') -Log native-out\installer-77.txt -Commit '${{ github.sha }}'
           $u = Start-Process -FilePath (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($u.ExitCode -ne 0) { throw "silent uninstall failed ($($u.ExitCode))" }
           Start-Sleep -Seconds 3
@@ -1018,7 +1034,9 @@ jobs:
           grep -q "^package: name='ir.payesh.owner'" owner-out/aapt2-badging.txt
           if grep -q 'application-debuggable' owner-out/aapt2-badging.txt; then echo '::error::debuggable owner APK'; exit 1; fi
           grep -E "^(package|sdkVersion|targetSdkVersion|uses-permission|application-label)" owner-out/aapt2-badging.txt
-          if grep -E "uses-permission: name='" owner-out/aapt2-badging.txt | grep -vE "android.permission.INTERNET|DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"; then
+          # ردیف ۱۴۸: پنل مالک (توزیع مستقیم، نه Google Play) بستهٔ تازهٔ خودش را با نصب‌کنندهٔ سیستم نصب می‌کند
+          grep -q "uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'" owner-out/aapt2-badging.txt
+          if grep -E "uses-permission: name='" owner-out/aapt2-badging.txt | grep -vE "android.permission.INTERNET|android.permission.REQUEST_INSTALL_PACKAGES|DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"; then
             echo '::error::unexpected permission in the owner APK'; exit 1
           fi
           "$BT/apksigner" verify --verbose --print-certs owner-out/payesh-owner.apk > owner-out/apksigner.txt 2>&1
@@ -1235,6 +1253,7 @@ jobs:
           $exeHash = (Get-FileHash (Join-Path $dir 'payesh_owner.exe') -Algorithm SHA256).Hash
           $r1 = Invoke-UpdateE2E 'ok' { param($n) Set-Content -Path (Join-Path $n 'data\update-probe.txt') -Value 'probe' -NoNewline -Encoding ascii } $app.Id
           if (-not $r1.ok -or $r1.rolled_back) { throw "delta update did not apply: $($r1.message)" }
+          if (-not ($r1.relaunched_pid -gt 0)) { throw "delta update: the owner panel was not reopened after the update" }
           if ((Get-Content (Join-Path $dir 'data\update-probe.txt') -Raw) -ne 'probe') { throw 'delta update: new file missing' }
           if ((Get-FileHash (Join-Path $dir 'payesh_owner.exe') -Algorithm SHA256).Hash -ne $exeHash) { throw 'delta update touched an unchanged file' }
           $app = Start-Process (Join-Path $dir 'payesh_owner.exe') -PassThru
@@ -1243,6 +1262,8 @@ jobs:
           if ($r2.ok -or -not $r2.rolled_back) { throw "broken build was not rolled back: $($r2.message)" }
           if ((Get-FileHash (Join-Path $dir 'payesh_owner.exe') -Algorithm SHA256).Hash -ne $exeHash) { throw 'rollback did not restore payesh_owner.exe' }
           "OWNER-UPDATE-E2E-OK delta-apply=ok rollback=ok" | Tee-Object -FilePath $logAbs -Append
+          # ردیف ۱۴۸: همان مسیر لمس چراغ با برنامهٔ واقعی ⇒ بسته شدن، اعمال، و باز شدن دوباره با پنجره
+          & .\tools\update-relaunch-e2e.ps1 -Dir $dir -Exe 'payesh_owner.exe' -Name owner -Staging (Join-Path $env:LOCALAPPDATA 'PayeshOwner\update') -Log $log -Commit '${{ github.sha }}'
           Remove-Item (Join-Path $dir 'data\update-probe.txt') -Force
           $app = Start-Process (Join-Path $dir 'payesh_owner.exe') -PassThru
           Start-Sleep -Seconds 3

@@ -1,0 +1,16 @@
+name: payesh_update
+description: "Payesh installable apps — in-app updates (row 148): Windows delta update (changed files only) with resume, retries and automatic relaunch; Android in-app APK install; live update light."
+publish_to: none
+version: 0.1.0
+resolution: workspace
+environment:
+  sdk: ^3.13.0
+dependencies:
+  flutter:
+    sdk: flutter
+  crypto: ^3.0.6
+  payesh_ui:
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

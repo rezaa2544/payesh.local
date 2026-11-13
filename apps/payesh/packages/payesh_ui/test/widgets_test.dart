@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_ui/payesh_ui.dart';
@@ -224,4 +226,115 @@ void main() {
       expect(t.takeException(), isNull);
     },
   );
+
+  group('ردیف ۱۴۸: نوار بالای همیشه پیدا + نقطهٔ زنده', () {
+    testWidgets(
+      'overlay بالای همهٔ صفحه‌ها می‌ماند؛ لمس بیرون آن به صفحه می‌رسد',
+      (t) async {
+        t.view.physicalSize = const Size(800, 600);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.reset);
+        var page = 0, top = 0;
+        final nav = GlobalKey<NavigatorState>();
+        await t.pumpWidget(
+          PayeshMaterialApp(
+            navigatorKey: nav,
+            overlay: Tooltip(
+              message: 'نسخه',
+              child: InkWell(
+                key: const Key('top-widget'),
+                onTap: () => top++,
+                child: const Text('1.1.7'),
+              ),
+            ),
+            home: Scaffold(
+              body: Center(
+                child: TextButton(
+                  key: const Key('page-btn'),
+                  onPressed: () => page++,
+                  child: const Text('صفحه'),
+                ),
+              ),
+            ),
+          ),
+        );
+        final at = t.getRect(find.byKey(const Key('top-widget')));
+        expect(at.top, lessThan(40));
+        expect((at.center.dx - 400).abs(), lessThan(1));
+        await t.tap(find.byKey(const Key('top-widget')));
+        await t.tap(find.byKey(const Key('page-btn')));
+        expect((top, page), (1, 1));
+        // صفحهٔ تازه (Navigator) زیر همان نوار: هنوز پیداست
+        unawaited(
+          nav.currentState!.push(
+            MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('دوم')),
+            ),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(find.text('دوم'), findsOneWidget);
+        expect(find.byKey(const Key('top-widget')), findsOneWidget);
+        // Tooltip درون نوار کار می‌کند (Overlay دارد)
+        await t.longPress(find.byKey(const Key('top-widget')));
+        await t.pumpAndSettle();
+        expect(find.text('نسخه'), findsOneWidget);
+        expect(t.takeException(), isNull);
+      },
+    );
+
+    testWidgets('بدون overlay: همان MaterialApp قبلی (Overlay اضافه نیست)', (
+      t,
+    ) async {
+      await t.pumpWidget(const PayeshMaterialApp(home: Text('x')));
+      expect(find.text('x'), findsOneWidget);
+      expect(find.byType(Overlay), findsOneWidget);
+    });
+
+    testWidgets('StatusDot: بیکار بدون پویانمایی؛ هنگام کار هاله + حلقه', (
+      t,
+    ) async {
+      Future<void> dot({bool busy = false, double? progress}) => t.pumpWidget(
+        PayeshMaterialApp(
+          home: Center(
+            child: StatusDot(
+              color: Colors.green,
+              busy: busy,
+              progress: progress,
+            ),
+          ),
+        ),
+      );
+      await dot();
+      expect(find.byKey(const Key('status-dot-pulse')), findsNothing);
+      expect(find.byKey(const Key('status-dot-ring')), findsNothing);
+      expect(t.hasRunningAnimations, isFalse);
+      await dot(busy: true, progress: 0.5);
+      await t.pump(const Duration(milliseconds: 300));
+      expect(find.byKey(const Key('status-dot-pulse')), findsOneWidget);
+      expect(find.byKey(const Key('status-dot-ring')), findsOneWidget);
+      expect(t.hasRunningAnimations, isTrue);
+      final ring = t.widget<CircularProgressIndicator>(
+        find.descendant(
+          of: find.byKey(const Key('status-dot-ring')),
+          matching: find.byType(CircularProgressIndicator),
+          matchRoot: true,
+        ),
+      );
+      expect(ring.value, 0.5);
+      await dot(busy: true);
+      await t.pump(const Duration(milliseconds: 300));
+      final spin = t.widget<CircularProgressIndicator>(
+        find.descendant(
+          of: find.byKey(const Key('status-dot-ring')),
+          matching: find.byType(CircularProgressIndicator),
+          matchRoot: true,
+        ),
+      );
+      expect(spin.value, isNull);
+      await dot();
+      await t.pump(const Duration(milliseconds: 300));
+      expect(t.hasRunningAnimations, isFalse);
+    });
+  });
 }

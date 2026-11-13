@@ -3,7 +3,8 @@
 //     در پس‌زمینه هم مدام سنجیده می‌شود و اگر قطع شد، با فاصلهٔ کوتاه و رو به افزایش خودش
 //     دوباره وصل می‌شود — بدون دست زدن به آدرس.
 //   • نسخه + چراغ به‌روزرسانی: سبز = به‌روز، نارنجی = نسخهٔ تازه آماده. لمس ⇒ بررسی؛ اگر نسخهٔ
-//     تازه هست ⇒ دریافت فقط تغییرات، نصب و راه‌اندازی دوبارهٔ خودکار.
+//     تازه هست ⇒ دریافت فقط تغییرات، نصب و راه‌اندازی دوبارهٔ خودکار. هنگام کار «زنده» است
+//     (ردیف ۱۴۸؛ کد در payesh_update، مشترک با برنامهٔ مدرسه).
 
 import 'dart:async';
 import 'dart:math';
@@ -12,8 +13,10 @@ import 'package:flutter/material.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../local/local_platform.dart';
-import '../update/owner_update.dart';
-import '../update/update_service.dart';
+
+// نقطهٔ وضعیت زنده (payesh_ui) و چراغ نسخه/به‌روزرسانی (payesh_update) — ردیف ۱۴۸
+export 'package:payesh_ui/payesh_ui.dart' show StatusDot;
+export 'package:payesh_update/payesh_update.dart' show UpdateLight;
 
 /// سنجش دوره‌ای اتصال دیتابیس با وصل شدن خودکار.
 final class DbMonitor extends ChangeNotifier {
@@ -120,61 +123,6 @@ final class DbMonitor extends ChangeNotifier {
   }
 }
 
-/// یک نقطهٔ رنگی؛ هنگام کار، حلقهٔ پیشرفت دورش.
-class StatusDot extends StatelessWidget {
-  const StatusDot({
-    super.key,
-    required this.color,
-    this.busy = false,
-    this.progress,
-    this.size = 20,
-  });
-  final Color color;
-  final bool busy;
-  final double? progress;
-
-  /// قطر کل (حلقهٔ پیشرفت)؛ نقطه ۵۵٪ آن است.
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final dot = (size * 0.55).roundToDouble();
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (busy)
-            SizedBox(
-              width: size,
-              height: size,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                value: progress,
-                color: color,
-              ),
-            ),
-          Container(
-            width: dot,
-            height: dot,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.45),
-                  blurRadius: dot / 2,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// چراغ دیتابیس.
 class DbLight extends StatelessWidget {
   const DbLight({super.key, required this.monitor});
@@ -243,110 +191,4 @@ class DbLight extends StatelessWidget {
       );
     },
   );
-}
-
-/// نسخه + چراغ به‌روزرسانی.
-class UpdateLight extends StatefulWidget {
-  const UpdateLight({super.key, required this.updater, this.openUrl});
-  final OwnerUpdater updater;
-
-  /// اندروید: بستهٔ کامل (APK) با مرورگر دانلود و نصب می‌شود.
-  final Future<void> Function(Uri url)? openUrl;
-
-  @override
-  State<UpdateLight> createState() => _UpdateLightState();
-}
-
-class _UpdateLightState extends State<UpdateLight> {
-  StreamSubscription<void>? _sub;
-
-  @override
-  void initState() {
-    super.initState();
-    _sub = widget.updater.changes.listen((_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    unawaited(_sub?.cancel());
-    super.dispose();
-  }
-
-  Future<void> _tap() async {
-    final u = widget.updater;
-    switch (u.phase) {
-      case UpdatePhase.checking || UpdatePhase.downloading:
-        return;
-      case UpdatePhase.staged:
-        await u.applyAndRestart();
-      case UpdatePhase.ready:
-        if (!u.isWindows) {
-          await widget.openUrl?.call(defaultApkUrl);
-          return;
-        }
-        await u.download();
-        if (u.phase == UpdatePhase.staged) await u.applyAndRestart();
-      case UpdatePhase.idle || UpdatePhase.upToDate || UpdatePhase.failed:
-        await u.check();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final u = widget.updater;
-    final tk = context.tokens;
-    final next = u.plan?.manifest.build;
-    final (color, label) = switch (u.phase) {
-      UpdatePhase.ready || UpdatePhase.staged => (
-        tk.warning,
-        'نسخهٔ ${versionOf(next ?? 0)} آماده است — برای نصب لمس کنید',
-      ),
-      UpdatePhase.upToDate => (tk.success, 'به‌روز است'),
-      UpdatePhase.failed => (tk.danger, u.error ?? 'بررسی ناموفق'),
-      UpdatePhase.checking => (tk.muted, 'در حال بررسی'),
-      UpdatePhase.downloading => (tk.warning, 'در حال دریافت'),
-      UpdatePhase.idle => (tk.muted, 'بررسی به‌روزرسانی'),
-    };
-    final busy =
-        u.phase == UpdatePhase.checking || u.phase == UpdatePhase.downloading;
-    final progress = u.phase == UpdatePhase.downloading && u.progressTotal > 0
-        ? u.progressDone / u.progressTotal
-        : null;
-    return Semantics(
-      button: true,
-      label: '$ownerVersion — $label',
-      value: u.phase.name,
-      child: Tooltip(
-        message: label,
-        child: InkWell(
-          key: const Key('update-light'),
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => unawaited(_tap()),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  ownerVersion,
-                  key: const Key('app-version'),
-                  textDirection: TextDirection.ltr,
-                  style: TextStyle(fontSize: 13, color: tk.muted),
-                ),
-                const SizedBox(width: 6),
-                StatusDot(
-                  key: ValueKey('update-light-${u.phase.name}'),
-                  color: color,
-                  busy: busy,
-                  progress: progress,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

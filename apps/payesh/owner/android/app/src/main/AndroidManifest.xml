@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Row 126: native owner app (Flutter, no WebView). HTTPS to the owner API only. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Row 148: in-app update — the downloaded, hash-checked APK is handed to the system installer
+         (same signing key required; Android always asks the user to confirm). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:label="پنل مالک پایش"
         android:name="${applicationName}"
@@ -31,6 +34,19 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Row 148: read-only provider for the downloaded update APK only; reopen after update. -->
+        <provider
+            android:name=".UpdateFileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true"/>
+        <receiver
+            android:name=".UpdatedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+        </receiver>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

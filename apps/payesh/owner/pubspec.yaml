@@ -13,6 +13,7 @@ dependencies:
   payesh_owner_api:
   payesh_secure:
   payesh_ui:
+  payesh_update:
   crypto: ^3.0.6
   cryptography: ^2.9.0
 dev_dependencies:

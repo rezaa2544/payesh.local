@@ -5,7 +5,6 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
-import 'package:payesh_owner/src/status/status_lights.dart';
 import 'package:payesh_owner/src/update/owner_update.dart';
 import 'package:payesh_owner/src/update/update_service.dart';
 import 'package:payesh_secure/payesh_secure.dart';
@@ -19,7 +18,11 @@ final class FakeHttp implements UpdateHttp {
   final hits = <String>[];
 
   @override
-  Future<List<int>?> get(Uri url, {int maxBytes = 1 << 30}) async {
+  Future<List<int>?> get(
+    Uri url, {
+    int maxBytes = 1 << 30,
+    void Function(int received)? onBytes,
+  }) async {
     final k = url.replace(query: '').toString().replaceAll('?', '');
     hits.add(k);
     final b = files[k];
@@ -104,7 +107,10 @@ void main() {
 
   group('مانیفست', () {
     test('معتبر', () {
-      final m = OwnerUpdateManifest.parse(jsonEncode(manifest()));
+      final m = OwnerUpdateManifest.parse(
+        jsonEncode(manifest()),
+        schema: ownerUpdateSchema,
+      );
       expect(m.build, 140);
       expect(m.files, hasLength(3));
       expect(m.apk!.size, 30000000);
@@ -147,7 +153,10 @@ void main() {
         final m = manifest();
         mutate(m);
         expect(
-          () => OwnerUpdateManifest.parse(jsonEncode(m)),
+          () => OwnerUpdateManifest.parse(
+            jsonEncode(m),
+            schema: ownerUpdateSchema,
+          ),
           throwsA(
             isA<UpdateException>().having(
               (e) => e.code,
@@ -161,7 +170,7 @@ void main() {
 
     test('رد: JSON خراب', () {
       expect(
-        () => OwnerUpdateManifest.parse('{'),
+        () => OwnerUpdateManifest.parse('{', schema: ownerUpdateSchema),
         throwsA(isA<UpdateException>()),
       );
     });
@@ -169,7 +178,11 @@ void main() {
 
   group('فقط تغییرات', () {
     test('طرح: فقط app.so و فایل تازه؛ exe دانلود نمی‌شود', () async {
-      final m = await fetchManifest(http(), url: manifestUrl);
+      final m = await fetchManifest(
+        http(),
+        url: manifestUrl,
+        schema: ownerUpdateSchema,
+      );
       final p = await planUpdate(m, install);
       expect(p.changed.map((f) => f.path), [
         'data/app.so',
@@ -186,7 +199,7 @@ void main() {
       final h = http();
       final mirror = MemMirror();
       final p = await planUpdate(
-        await fetchManifest(h, url: manifestUrl),
+        await fetchManifest(h, url: manifestUrl, schema: ownerUpdateSchema),
         install,
       );
       final progress = <int>[];
@@ -230,7 +243,7 @@ void main() {
         final mirror = MemMirror()
           ..blobs['${sha(soNew)}.gz'] = gzip.encode(utf8.encode('evil'));
         final p = await planUpdate(
-          await fetchManifest(h, url: manifestUrl),
+          await fetchManifest(h, url: manifestUrl, schema: ownerUpdateSchema),
           install,
         );
         final s = await downloadUpdate(
@@ -247,7 +260,13 @@ void main() {
           utf8.encode('evil'),
         );
         await expectLater(
-          downloadUpdate(p, http: h, stagingRoot: staging, blobBase: blobBase),
+          downloadUpdate(
+            p,
+            http: h,
+            stagingRoot: Directory('${tmp.path}/staging-fresh'),
+            blobBase: blobBase,
+            retry: UpdateRetry.none,
+          ),
           throwsA(
             isA<UpdateException>().having((e) => e.code, 'code', 'bad_hash'),
           ),
@@ -278,7 +297,7 @@ void main() {
     test('اسکریپت اعمال: پشتیبان، بررسی هش، بازگشت خودکار', () async {
       final h = http();
       final p = await planUpdate(
-        await fetchManifest(h, url: manifestUrl),
+        await fetchManifest(h, url: manifestUrl, schema: ownerUpdateSchema),
         install,
       );
       final s = await downloadUpdate(
@@ -290,6 +309,7 @@ void main() {
       final ps = applyScript(
         staged: s,
         installDir: r'C:\Users\رضا\AppData\Local\Programs\PayeshOwner',
+        exeName: ownerExe,
       );
       expect(ps, contains(r"'data\app.so'"));
       expect(ps, contains(sha(soNew)));
@@ -306,7 +326,7 @@ void main() {
     test('اجرا: برنامه فقط با دیدن نشانهٔ شروع بسته می‌شود؛ روش دوم؛ شکست ⇐ launch', () async {
       final h = http();
       final p = await planUpdate(
-        await fetchManifest(h, url: manifestUrl),
+        await fetchManifest(h, url: manifestUrl, schema: ownerUpdateSchema),
         install,
       );
       final s = await downloadUpdate(
@@ -322,6 +342,7 @@ void main() {
         staged: s,
         installDir: install.path,
         appPid: 4242,
+        exeName: ownerExe,
         startTimeout: const Duration(milliseconds: 400),
         log: lines.add,
         starter: (exe, args, {mode = ProcessStartMode.normal}) async {
@@ -372,6 +393,7 @@ void main() {
         staged: s,
         installDir: install.path,
         appPid: 4242,
+        exeName: ownerExe,
         startTimeout: const Duration(milliseconds: 200),
         starter: (exe, args, {mode = ProcessStartMode.normal}) async {
           if (exe == 'cmd.exe') throw const ProcessException('cmd.exe', []);
@@ -456,6 +478,7 @@ void main() {
           manifestUrl: manifestUrl,
           blobBase: blobBase,
           windows: true,
+          retry: UpdateRetry.none,
           launcher: (s) async => launched = s,
         );
         await pumpLight(tester, u);
@@ -475,7 +498,11 @@ void main() {
           );
         }
         expect(launched!.plan.manifest.build, 140);
-        expect(u.phase, UpdatePhase.staged);
+        // ردیف ۱۴۸: پس از شروع اعمال، چراغ «در حال نصب» (زنده) می‌ماند تا برنامه بسته شود
+        expect(u.phase, UpdatePhase.applying);
+        await tester.pump();
+        expect(find.byKey(const Key('update-light-applying')), findsOneWidget);
+        expect(find.byKey(const ValueKey('status-dot-pulse')), findsOneWidget);
         await u.dispose();
       },
     );
@@ -495,6 +522,7 @@ void main() {
         stagingRoot: staging,
         manifestUrl: manifestUrl,
         windows: true,
+        retry: UpdateRetry.none,
       );
       await pumpLight(tester, u);
       await tester.tap(find.byKey(const Key('update-light')));
@@ -511,6 +539,7 @@ void main() {
         stagingRoot: staging,
         manifestUrl: manifestUrl,
         windows: false,
+        retry: UpdateRetry.none,
         currentBuild: 139,
       );
       await pumpLight(tester, a, openUrl: (url) async => opened.add(url));
@@ -539,6 +568,7 @@ void main() {
         manifestUrl: manifestUrl,
         blobBase: blobBase,
         windows: true,
+        retry: UpdateRetry.none,
         launcher: (s) async => launched = s,
       );
       await u.check();
@@ -566,6 +596,7 @@ void main() {
         stagingRoot: staging,
         manifestUrl: manifestUrl,
         windows: true,
+        retry: UpdateRetry.none,
       );
       await u.check();
       expect(u.phase, UpdatePhase.upToDate);

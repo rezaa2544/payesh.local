@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_ui/payesh_ui.dart';
+import 'package:payesh_update/payesh_update.dart';
 
 import 'attendance/attendance_controller.dart';
 import 'attendance/attendance_screen.dart';
@@ -31,7 +32,16 @@ class PayeshApp extends StatelessWidget {
     this.family,
     this.school,
     this.onRetrySync,
+    this.updater,
+    this.openUrl,
   });
+
+  /// Row 148: version + update light at the top of every page (null in tests/local builds).
+  /// Windows: changed files only, applied after the app closes, then it reopens by itself.
+  final AppUpdater? updater;
+
+  /// Android: the published APK in the system browser.
+  final Future<void> Function(Uri url)? openUrl;
 
   /// Encrypted local database being opened (row 72); null in widget previews.
   final Future<LocalStorage>? storage;
@@ -168,7 +178,14 @@ class PayeshApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = session;
+    final u = updater;
     return PayeshMaterialApp(
+      overlay: u == null
+          ? null
+          : AutoUpdateCheck(
+              updater: u,
+              child: UpdateLight(updater: u, openUrl: openUrl),
+            ),
       home: s == null
           ? HomeScreen(storage: storage, today: today)
           : SessionGate(

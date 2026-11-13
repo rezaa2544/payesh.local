@@ -2,7 +2,10 @@
 // مانیفست به‌روزرسانی پنل مالک (ADR 126 §۱۲) — فقط فایل‌های تغییرکرده دانلود می‌شوند.
 //
 //   node tools/owner-update-manifest.mjs --dir <Release> --out <owner-out> --build <run_number> --commit <sha>
-//        [--android <payesh-owner.apk>] [--check <owner-update.json> --blobs <dir>]
+//        [--android <payesh-owner.apk>] [--check <owner-update.json> --blobs <dir>] [--name owner|app]
+//
+// ردیف ۱۴۸: --name app ⇒ همان قالب برای برنامهٔ مدرسه: schema 'payesh-app-update/1'،
+// <out>/app-update.json و <out>/app-files/ (پیش‌فرض owner — رفتار قبلی بدون تغییر).
 //
 // خروجی:
 //   <out>/owner-update.json   {schema:'payesh-owner-update/1', build, commit, files:[{path,sha256,size,gz_size}], android?}
@@ -14,7 +17,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 
-const SCHEMA = 'payesh-owner-update/1';
+const NAMES = { owner: 'payesh-owner-update/1', app: 'payesh-app-update/1' };
 const MAX_FILES = 4000;
 const MAX_FILE = 256 * 1024 * 1024;
 /* همان قاعدهٔ owner_update.dart (_pathRe) */
@@ -25,6 +28,11 @@ const SKIP = [/^unins\d+\.(exe|dat|msg)$/i];
 const args = {};
 for (let i = 2; i < process.argv.length; i += 2) args[process.argv[i].replace(/^--/, '')] = process.argv[i + 1];
 const fail = (why) => { console.log('OWNER-UPDATE-MANIFEST-FAIL ' + why); process.exit(1); };
+const NAME = args.name || 'owner';
+if (!NAMES[NAME]) fail('--name ' + NAME);
+const SCHEMA = NAMES[NAME];
+const MANIFEST = NAME + '-update.json';
+const BLOBS = NAME + '-files';
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
 
 function check(manifestFile, blobs) {
@@ -52,7 +60,7 @@ function check(manifestFile, blobs) {
 }
 
 if (args.check) {
-  const r = check(args.check, args.blobs || path.join(path.dirname(args.check), 'owner-files'));
+  const r = check(args.check, args.blobs || path.join(path.dirname(args.check), BLOBS));
   console.log(`OWNER-UPDATE-MANIFEST-OK files=${r.files} bytes=${r.bytes} gz=${r.gz}`);
   process.exit(0);
 }
@@ -75,7 +83,7 @@ const list = [];
 })('');
 if (!list.length || list.length > MAX_FILES) fail('file count ' + list.length);
 
-const blobs = path.join(out, 'owner-files');
+const blobs = path.join(out, BLOBS);
 fs.mkdirSync(blobs, { recursive: true });
 const files = [];
 for (const p of list) {
@@ -93,6 +101,6 @@ if (args.android) {
   const a = fs.readFileSync(args.android);
   m.android = { sha256: sha(a), size: a.length };
 }
-fs.writeFileSync(path.join(out, 'owner-update.json'), JSON.stringify(m, null, 1) + '\n');
-const r = check(path.join(out, 'owner-update.json'), blobs);
+fs.writeFileSync(path.join(out, MANIFEST), JSON.stringify(m, null, 1) + '\n');
+const r = check(path.join(out, MANIFEST), blobs);
 console.log(`OWNER-UPDATE-MANIFEST-OK files=${r.files} bytes=${r.bytes} gz=${r.gz}`);

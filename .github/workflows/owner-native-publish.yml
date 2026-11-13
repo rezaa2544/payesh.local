@@ -79,6 +79,8 @@ jobs:
           grep -q '^OWNER-ANDROID-UPGRADE-OK same-signer' "$A/upgrade-android.txt"
           grep -q '^OWNER-INSTALLER-OK upgrade-from-webview=True ' "$W/installer-owner.txt"
           grep -q '^OWNER-UPDATE-E2E-OK delta-apply=ok rollback=ok' "$W/installer-owner.txt"
+          # ردیف ۱۴۸: پنل مالک واقعی با لمس چراغ به‌روز شد، بسته شد و خودش با پنجره دوباره باز شد
+          grep -q '^UPDATE-RELAUNCH-OK name=owner ' "$W/installer-owner.txt"
           (cd "$A" && sha256sum -c SHA256SUMS-owner-android)
           (cd "$W" && tr -d '\r' < SHA256SUMS-owner-installer | sha256sum -c -)
           node tools/native-independence-gate.mjs --android "$A/payesh-owner.apk" --windows "$W/payesh-owner-windows.zip" | tee gate-publish.txt

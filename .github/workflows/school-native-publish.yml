@@ -76,6 +76,8 @@ jobs:
           tr -d '\r' < "$W/installer-77.txt" > installer-77.txt
           grep -q 'NATIVE-GATE-OK' installer-77.txt
           grep -q 'INSTALLER-77-OK install+gate+uninstall' installer-77.txt
+          # ردیف ۱۴۸: برنامهٔ واقعی نصب‌شده خودش به‌روز شد و خودش با پنجره دوباره باز شد
+          grep -q '^UPDATE-RELAUNCH-OK name=app ' installer-77.txt
           (cd "$W" && tr -d '\r' < SHA256SUMS-windows | sha256sum -c -)
           (cd "$W" && tr -d '\r' < SHA256SUMS-installer | sha256sum -c -)
           mkdir -p pub
@@ -97,6 +99,22 @@ jobs:
             node tools/native-independence-gate.mjs --windows pub/payesh-native-windows.zip | tee gate-publish.txt
           fi
           grep -q '^NATIVE-GATE-OK' gate-publish.txt
+          # ردیف ۱۴۸: مانیفست «فقط تغییرات» برنامهٔ مدرسه — هر blob باز و هش می‌شود؛ ساخت و کامیت همین اجرا
+          node tools/owner-update-manifest.mjs --name app --check "$W/app-update.json" --blobs "$W/app-files" | tee -a gate-publish.txt
+          grep -q '^OWNER-UPDATE-MANIFEST-OK' gate-publish.txt
+          APK=""; if [ "$ANDROID" = release ]; then APK=pub/payesh-native.apk; fi
+          RUN_NUMBER=${{ github.event.workflow_run.run_number }} SRC_SHA=${{ github.event.workflow_run.head_sha }} APK="$APK" node -e '
+            const fs = require("fs"), crypto = require("crypto");
+            const m = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (m.schema !== "payesh-app-update/1") throw new Error("schema " + m.schema);
+            if (m.build !== Number(process.env.RUN_NUMBER)) throw new Error("manifest build " + m.build + " != run " + process.env.RUN_NUMBER);
+            if (m.commit !== process.env.SRC_SHA) throw new Error("manifest commit != head_sha");
+            if (!m.files.some(f => f.path === "payesh_app.exe") || !m.files.some(f => f.path === "data/app.so")) throw new Error("app files missing");
+            if (process.env.APK) { const a = fs.readFileSync(process.env.APK); m.android = { sha256: crypto.createHash("sha256").update(a).digest("hex"), size: a.length }; }
+            fs.writeFileSync("pub/app-update.json", JSON.stringify(m, null, 1) + "\n");
+            console.log("APP-UPDATE-MANIFEST-OK build=" + m.build + " files=" + m.files.length + " android=" + !!m.android);
+          ' "$W/app-update.json" | tee -a gate-publish.txt
+          node tools/owner-update-manifest.mjs --name app --check pub/app-update.json --blobs "$W/app-files"
           (cd pub && sha256sum * > ../SHA256SUMS && mv ../SHA256SUMS . && cat SHA256SUMS)
       - name: Publish — exactly the native set on native-continuous
         env:
@@ -140,15 +158,46 @@ jobs:
           else
             gh release edit "$TAG" -R "$R" --prerelease --title "$TITLE" --notes "$NOTES"
           fi
-          ALLOWED="SHA256SUMS payesh-native-setup.exe payesh-native-windows.zip school-native-status.json"
-          if [ "$ANDROID" = release ]; then ALLOWED="SHA256SUMS payesh-native-setup.exe payesh-native-windows.zip payesh-native.apk school-native-status.json"; fi
+          # ── ردیف ۱۴۸: فایل‌های «فقط تغییرات» در app-files (هر هش یک بار)، پیش از مانیفست ──
+          FT=app-files
+          if ! gh release view "$FT" -R "$R" >/dev/null 2>&1; then
+            gh release create "$FT" -R "$R" --prerelease --target "$SRC_SHA" --title "اپ مدرسه — فایل‌های به‌روزرسانی (فقط تغییرات)" \
+              --notes "هر فایل برنامهٔ ویندوزِ اپ مدرسه یک بار و فشرده (gzip) با نام هش SHA-256 محتوای اصلی. برنامه فقط فایل‌هایی را می‌گیرد که هششان با app-update.json (native-continuous) فرق دارد. دستی دانلود نکنید."
+          fi
+          FID=$(gh api "repos/$R/releases/tags/$FT" --jq .id)
+          gh api --paginate "repos/$R/releases/$FID/assets?per_page=100" --jq '.[] | [.name, .created_at, (.id|tostring)] | @tsv' > files-have.tsv
+          need=()
+          for f in in/windows/app-files/*.gz; do
+            n=$(basename "$f")
+            cut -f1 files-have.tsv | grep -qx "$n" || need+=("$f")
+          done
+          echo "app-files: ${#need[@]} new of $(ls in/windows/app-files | wc -l)"
+          if [ ${#need[@]} -gt 0 ]; then gh release upload "$FT" -R "$R" "${need[@]}"; fi
+          gh api --paginate "repos/$R/releases/$FID/assets?per_page=100" --jq '.[] | [.name, .created_at, (.id|tostring)] | @tsv' > files-have.tsv
+          node -e '
+            const fs = require("fs");
+            const have = new Set(fs.readFileSync("files-have.tsv", "utf8").trim().split("\n").map(l => l.split("\t")[0]));
+            const m = JSON.parse(fs.readFileSync("pub/app-update.json", "utf8"));
+            const miss = m.files.filter(f => !have.has(f.sha256 + ".gz"));
+            if (miss.length) throw new Error("app-files missing: " + miss.map(f => f.path).join(", "));
+            const ref = new Set(m.files.map(f => f.sha256 + ".gz"));
+            const cutoff = Date.now() - 14 * 24 * 3600 * 1000;
+            const prune = fs.readFileSync("files-have.tsv", "utf8").trim().split("\n").map(l => l.split("\t"))
+              .filter(([n, at]) => !ref.has(n) && Date.parse(at) < cutoff).map(x => x[2]);
+            fs.writeFileSync("files-prune.txt", prune.join("\n"));
+            console.log("app-files: all " + m.files.length + " referenced blobs present; prune " + prune.length);'
+          while read -r id; do [ -n "$id" ] && gh api -X DELETE "repos/$R/releases/assets/$id" >/dev/null; done < files-prune.txt
+          ALLOWED="SHA256SUMS app-update.json payesh-native-setup.exe payesh-native-windows.zip school-native-status.json"
+          if [ "$ANDROID" = release ]; then ALLOWED="SHA256SUMS app-update.json payesh-native-setup.exe payesh-native-windows.zip payesh-native.apk school-native-status.json"; fi
           for a in $(gh release view "$TAG" -R "$R" --json assets --jq '.assets[].name'); do
             case " $ALLOWED " in
               *" $a "*) ;;
               *) echo "removing asset outside the native set: $a"; gh release delete-asset "$TAG" "$a" -R "$R" -y ;;
             esac
           done
-          gh release upload "$TAG" -R "$R" pub/* --clobber
+          # مانیفست آخر از همه (پس از همهٔ فایل‌ها): برنامه هرگز مانیفستی بی‌فایل نمی‌بیند
+          gh release upload "$TAG" -R "$R" $(ls pub/* | grep -v '/app-update.json$') --clobber
+          gh release upload "$TAG" -R "$R" pub/app-update.json --clobber
           got=$(gh release view "$TAG" -R "$R" --json assets --jq '[.assets[].name] | sort | join(" ")')
           if [ "$got" != "$ALLOWED" ]; then echo "::error::native-continuous assets [$got] != native set [$ALLOWED]"; exit 1; fi
       - name: Download back → checksums + native gate on the PUBLISHED files
@@ -166,6 +215,12 @@ jobs:
             node tools/native-independence-gate.mjs --windows back/payesh-native-windows.zip | tee -a gate-publish.txt
           fi
           grep -q "\"webview\": false" back/school-native-status.json
+          # ردیف ۱۴۸: همهٔ فایل‌های مانیفستِ منتشرشده از app-files دانلود، باز و هش می‌شوند
+          mkdir -p back-files
+          node -p 'require("./back/app-update.json").files.map(f => f.sha256 + ".gz").join("\n")' | sort -u > back-need.txt
+          args=(); while read -r n; do args+=(-p "$n"); done < back-need.txt
+          gh release download app-files -R "$GITHUB_REPOSITORY" -D back-files "${args[@]}"
+          node tools/owner-update-manifest.mjs --name app --check back/app-update.json --blobs back-files | tee -a gate-publish.txt
           echo "SCHOOL-NATIVE-PUBLISH-OK $(node -p "require('./back/school-native-status.json').run_number") android=$(node -p "require('./back/school-native-status.json').android.split(' ')[0]")" | tee -a gate-publish.txt
       - uses: actions/upload-artifact@v4
         if: always()

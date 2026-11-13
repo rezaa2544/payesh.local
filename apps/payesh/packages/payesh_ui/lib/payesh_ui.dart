@@ -11,4 +11,5 @@ export 'src/digits.dart';
 export 'src/jalali.dart';
 export 'src/theme.dart';
 export 'src/tokens.dart';
+export 'src/status_dot.dart';
 export 'src/widgets.dart';
