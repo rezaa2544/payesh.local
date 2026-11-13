@@ -288,9 +288,10 @@ void main() {
           'manager': {'name': 'علی رضایی', 'username': 'ali.rezaei'},
         }, password: 'Madrese-1403'),
       ))!;
-      for (final (pid, status) in [
-        ('SUB-0A1B2C3D', 'pending'),
-        ('SUB-0A1B2C3E', 'pending'),
+      for (final (pid, status, amount) in [
+        ('SUB-0A1B2C3D', 'pending', 250000),
+        // ردیف ۱۵۴: مبلغ کمتر از قیمت ⇒ «مشکوک»
+        ('SUB-0A1B2C3E', 'pending', 1000),
       ]) {
         final sealed = await tester.runAsync(
           () => sealSchools(sk, SchoolKinds.payment, 1, {
@@ -301,7 +302,7 @@ void main() {
             'name': 'علی رضایی',
             'role': 'manager',
             'plan': 'monthly',
-            'amount': 250000,
+            'amount': amount,
             'method': 'receipt',
             'ref': 'TRX-$pid',
             'status': status,
@@ -346,6 +347,11 @@ void main() {
       expect(find.byKey(const Key('subscription-section')), findsOneWidget);
       expect(find.byKey(const Key('payments-section')), findsOneWidget);
       expect(find.byKey(const Key('sub-year-end')), findsOneWidget);
+      // ردیف ۱۵۴: نشان «مشکوک» فقط کنار همان پرداخت
+      expect(find.byKey(const Key('sub-suspect-count')), findsOneWidget);
+      expect(find.byKey(const Key('pay-suspect-SUB-0A1B2C3E')), findsOneWidget);
+      expect(find.byKey(const Key('pay-suspect-SUB-0A1B2C3D')), findsNothing);
+      expect(find.textContaining('مبلغ کمتر از قیمت'), findsOneWidget);
       // پالایه و جست‌وجو
       await tap(tester, 'pay-filter-paid');
       expect(find.text('پرداختی با این پالایه پیدا نشد.'), findsOneWidget);

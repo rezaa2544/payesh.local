@@ -12,6 +12,7 @@ import 'local/local_platform.dart';
 import 'local/local_screens.dart';
 import 'local/s3_client.dart';
 import 'local/settings_page.dart';
+import 'guard/guard_engine.dart';
 import 'infra/arch_card.dart';
 import 'infra/infra_card.dart';
 import 'monitor/live_monitor.dart';
@@ -120,6 +121,25 @@ class _OwnerAppState extends State<OwnerApp> {
           widget.platformS3Factory ?? widget.s3Factory ?? IoS3Transport.new,
       now: _now,
     );
+  }
+
+  /// موتور هوشمند مالک (ردیف ۱۵۴): هر دقیقه بررسی، رفع خودکار، گزارش تراکنش مشکوک.
+  GuardEngine? _guardEngine;
+  GuardEngine? get _guard {
+    final secure = widget.secure;
+    if (secure == null) return null;
+    var g = _guardEngine;
+    if (g == null) {
+      g = _guardEngine = GuardEngine(
+        secure: secure,
+        registry: _schools,
+        helper: widget.helper,
+        onDbTrouble: () async => _dbMonitor?.refresh(),
+        now: _now,
+      );
+      if (widget.dbAutoCheck) g.start();
+    }
+    return g;
   }
 
   /// پایش زندهٔ زیرساخت در داشبورد (فقط وقتی داشبورد باز است کار می‌کند).
@@ -466,6 +486,7 @@ class _OwnerAppState extends State<OwnerApp> {
       monitor: _liveMonitor,
       schools: _schools,
       router: widget.helper?.router,
+      guard: _guard,
       updateLight: widget.updater == null
           ? null
           : UpdateLight(updater: widget.updater!, openUrl: widget.openUrl),
@@ -499,6 +520,7 @@ class _OwnerAppState extends State<OwnerApp> {
     _updateTimer?.cancel();
     _dbMonitor?.dispose();
     _live?.dispose();
+    _guardEngine?.dispose();
     _api?.close();
     super.dispose();
   }

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../format.dart';
+import '../guard/fraud.dart';
 import '../widgets.dart';
 import 'school_registry.dart';
 import 'schools_section.dart';
@@ -241,6 +242,13 @@ class _PaymentsSectionState extends State<PaymentsSection> with RegistryLoader {
         if (_matches(p, names)) p,
     ];
     final now = DateTime.now();
+    // ردیف ۱۵۴: پرداخت‌های مشکوک (همان قاعده‌های موتور هوشمند)
+    final suspect = <String, List<String>>{};
+    for (final f in suspiciousPayments(v.payments, v.settings, now: now)) {
+      for (final id in f.paymentIds) {
+        suspect.putIfAbsent(id, () => []).add(f.titleFa);
+      }
+    }
     return Column(
       key: const Key('payments-section'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -265,6 +273,12 @@ class _PaymentsSectionState extends State<PaymentsSection> with RegistryLoader {
                 key: const Key('sub-pending-count'),
                 tone: pending > 0 ? PayeshTone.warning : PayeshTone.neutral,
               ),
+              if (suspect.isNotEmpty)
+                Pill(
+                  'مشکوک: ${faNum(suspect.length)}',
+                  key: const Key('sub-suspect-count'),
+                  tone: PayeshTone.danger,
+                ),
               Pill(
                 'درآمد: ${faNum(revenue)} ریال',
                 key: const Key('sub-revenue'),
@@ -341,7 +355,22 @@ class _PaymentsSectionState extends State<PaymentsSection> with RegistryLoader {
                         '${p['name'] ?? ''} (${subRoleTitles[p['role']] ?? p['role'] ?? ''})',
                         '${planTitleFa(p['plan'])} — ${faNum(p['amount'] ?? 0)} ریال',
                         '${p['method'] == 'gateway' ? 'درگاه' : 'رسید'}${p['ref'] != null ? ' — ${p['ref']}' : ''}${p['gateway_ref'] != null ? ' — ${p['gateway_ref']}' : ''}',
-                        _payStatus(p),
+                        if (suspect['${p['id']}'] case final why?)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _payStatus(p),
+                              const SizedBox(height: 4),
+                              Pill(
+                                'مشکوک: ${why.toSet().join('، ')}',
+                                key: Key('pay-suspect-${p['id']}'),
+                                tone: PayeshTone.danger,
+                              ),
+                            ],
+                          )
+                        else
+                          _payStatus(p),
                         _actions(p, edit),
                       ],
                   ],

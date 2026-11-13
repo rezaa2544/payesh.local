@@ -5365,6 +5365,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۵۴: موتور هوشمند — سمت سرور مدرسه ── */
+  await test('ردیف ۱۵۴: پرداخت گزارش‌نشده خودکار دوباره فرستاده می‌شود؛ رسید و کد تراکنش درگاه تکراری پذیرفته نمی‌شود (۴ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/guard-154.js')], { encoding: 'utf8', cwd: ROOT, timeout: 180000 });
+      assert.strictEqual(r.status, 0, 'guard-154: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|GUARD-154/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۴۶: شکل نام کاربری در فرم‌های ورود/راه‌اندازی/نجات وب (هم‌قاعده با سرور و اپ بومی) ── */
   await test('ردیف ۱۴۶: فرم ورود وب نام کاربری لاتین را می‌پذیرد؛ شکل نادرست در ورود/راه‌اندازی/نجات هیچ درخواستی نمی‌فرستد', async () => {
     const { JSDOM } = require('jsdom');

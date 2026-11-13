@@ -316,10 +316,12 @@ function req(method, port, p, body, headers = {}) {
       assert.strictEqual(sr.gate(st, mgr).end, g1.end);
       /* ردیف ۱۴۹: سالانه در حین اشتراک فعال ⇒ تا پایان سال تحصیلی (۳۱ شهریور) */
       const p3 = await sr.startPayment(st, mgr, 'yearly', { callbackBase: 'https://s6.example' });
-      await sr.callback(st, new URLSearchParams({ payment: p3.payment.id }), { fetchImpl: okFetch });
+      /* ردیف ۱۵۴: هر تراکنش درگاه کد خودش را دارد (کد تکراری به تأیید مالک می‌رود) */
+      const okFetch3 = async () => ({ json: async () => ({ data: { code: 100, ref_id: 98766 } }) });
+      await sr.callback(st, new URLSearchParams({ payment: p3.payment.id }), { fetchImpl: okFetch3 });
       assert.strictEqual(sr.gate(st, mgr).end, ay.iso(ay.yearlyEnd(Date.now(), Date.parse(g1.end))));
       const paid = await o.read(sr.DIR.pay + p3.payment.id + '.json', sr.K.payment);
-      assert.strictEqual(paid.status, 'paid'); assert.strictEqual(paid.gateway_ref, '98765');
+      assert.strictEqual(paid.status, 'paid'); assert.strictEqual(paid.gateway_ref, '98766');
       /* شناسهٔ ناشناخته/بد */
       assert.strictEqual((await sr.callback(st, new URLSearchParams({ payment: 'SUB-FFFFFFFF' }))).error, 'not_found');
       assert.strictEqual((await sr.callback(st, new URLSearchParams({ payment: '../x' }))).error, 'bad_payment');

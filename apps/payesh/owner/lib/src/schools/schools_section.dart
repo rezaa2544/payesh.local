@@ -39,6 +39,11 @@ mixin RegistryLoader<T extends StatefulWidget> on State<T> {
     try {
       await f();
     } on SchoolsFailure catch (e) {
+      // ردیف ۱۵۴: دستور در صف ماند (گم نمی‌شود) ⇒ پیام هشدار، نه شکست
+      if (e.code == 'queued') {
+        flash(true, e.messageFa);
+        return true;
+      }
       flash(false, e.messageFa);
       return false;
     }

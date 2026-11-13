@@ -126,6 +126,7 @@ void main() {
         'no_callback_address',
         'bad_plan',
         'bad_ref',
+        'dup_ref',
         'receipt_disabled',
         'not_required',
       ]) {

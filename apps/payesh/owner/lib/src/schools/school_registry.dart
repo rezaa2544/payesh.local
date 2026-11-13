@@ -1052,7 +1052,10 @@ final class SchoolRegistry {
   }
 
   /// فعال/غیرفعال (p2: غیرفعال کردن مدرسه ورود را می‌بندد).
-  Future<void> setActive(String id, bool active) => _mutate((plain) {
+  Future<void> setActive(String id, bool active) =>
+      _durable({'op': 'active', 'id': id, 'active': active});
+
+  Future<void> _setActiveNow(String id, bool active) => _mutate((plain) {
     final list = _maps(plain['schools']);
     final s = list.where((x) => x['id'] == id).firstOrNull;
     if (s == null) throw const SchoolsFailure('not_found', 'مدرسه پیدا نشد.');
@@ -1114,10 +1117,14 @@ final class SchoolRegistry {
   }
 
   /// ردِ درخواست (دلیل برای متقاضی نمایش داده می‌شود).
-  Future<void> rejectRequest(String id, String reason) => _mutate((plain) {
+  Future<void> rejectRequest(String id, String reason) {
     if (!requestIdRe.hasMatch(id)) {
       throw const SchoolsFailure('invalid', 'درخواست معتبر نیست.');
     }
+    return _durable({'op': 'reject', 'id': id, 'reason': reason.trim()});
+  }
+
+  Future<void> _rejectNow(String id, String reason) => _mutate((plain) {
     final list = _maps(plain['rejected'])
       ..removeWhere((x) => x['id'] == id)
       ..add({
@@ -1202,16 +1209,156 @@ final class SchoolRegistry {
     if (!paymentIdRe.hasMatch(paymentId)) {
       throw const SchoolsFailure('invalid', 'شناسهٔ پرداخت نامعتبر است.');
     }
-    return _mutate((plain) {
-      final d = plain['decisions'] is Map
-          ? (plain['decisions']! as Map).cast<String, Object?>()
-          : <String, Object?>{};
-      d[paymentId] = {
-        'status': status,
-        if (status != 'approved') 'reason': reason.trim(),
-        'at': _now().toUtc().toIso8601String(),
-      };
-      plain['decisions'] = d;
+    // زمان تصمیم همان لحظهٔ دستور مالک است، حتی اگر بعداً از صف ثبت شود
+    return _durable({
+      'op': 'decision',
+      'id': paymentId,
+      'status': status,
+      'reason': reason.trim(),
+      'at': _now().toUtc().toIso8601String(),
     });
+  }
+
+  Future<void> _decisionNow(
+    String paymentId,
+    String status,
+    String reason,
+    String at,
+  ) => _mutate((plain) {
+    final d = plain['decisions'] is Map
+        ? (plain['decisions']! as Map).cast<String, Object?>()
+        : <String, Object?>{};
+    d[paymentId] = {
+      'status': status,
+      if (status != 'approved') 'reason': reason,
+      'at': at,
+    };
+    plain['decisions'] = d;
+  });
+
+  // ── ردیف ۱۵۴: هیچ دستوری گم نمی‌شود ───────────────────────────────────
+  // دستورهای مالک (تصمیم پرداخت، لغو، فعال/غیرفعال کردن مدرسه، رد درخواست) اگر دیتابیس
+  // پاسخ ندهد (قطعی، کندی، خطای موقت) در «صف دستورها» روی همین دستگاه (انبار امن) می‌مانند و
+  // به همان ترتیب دوباره اجرا می‌شوند: پیش از هر دستور تازه، و هر دقیقه توسط موتور هوشمند.
+  // دستوری که دیگر معتبر نیست (مثلاً مدرسه حذف شده) کنار گذاشته و در گزارش ثبت می‌شود.
+
+  static const String journalKey = 'owner.schools.journal';
+  static const String journalLogKey = 'owner.schools.journal-log';
+  static const int journalMax = 500;
+
+  static const _queued = SchoolsFailure(
+    'queued',
+    'دیتابیس الان پاسخ نداد؛ دستور در صف ماند و با وصل شدن خودکار ثبت می‌شود.',
+  );
+
+  Future<List<Map<String, Object?>>> _readList(String key) async {
+    try {
+      final t = await secure.read(key);
+      if (t == null) return [];
+      final j = jsonDecode(t);
+      return _maps(j);
+    } on Object {
+      return [];
+    }
+  }
+
+  Future<void> _writeList(String key, List<Map<String, Object?>> list) async {
+    try {
+      if (list.isEmpty) {
+        await secure.delete(key);
+      } else {
+        await secure.write(key, jsonEncode(list));
+      }
+    } on Object {
+      // انبار امن در دسترس نیست: فقط تا بستن برنامه
+    }
+  }
+
+  /// دستورهای در صف (قدیمی‌ترین اول).
+  Future<List<Map<String, Object?>>> pendingCommands() => _readList(journalKey);
+
+  /// دستورهایی که هنگام اجرای دوباره دیگر معتبر نبودند (تازه‌ترین آخر).
+  Future<List<Map<String, Object?>>> droppedCommands() =>
+      _readList(journalLogKey);
+
+  static bool _retryable(SchoolsFailure e) =>
+      e.code == 's3' || e.code == 'timeout';
+
+  Future<void> _run(Map<String, Object?> c) {
+    String str(String k) => '${c[k] ?? ''}';
+    return switch (c['op']) {
+      'decision' => _decisionNow(
+        str('id'),
+        str('status'),
+        str('reason'),
+        str('at'),
+      ),
+      'active' => _setActiveNow(str('id'), c['active'] == true),
+      'reject' => _rejectNow(str('id'), str('reason')),
+      _ => Future<void>.error(
+        const SchoolsFailure('invalid', 'دستور ناشناخته.'),
+      ),
+    };
+  }
+
+  Future<void> _durable(Map<String, Object?> cmd) async {
+    if ((await pendingCommands()).isNotEmpty) {
+      await replayJournal();
+      if ((await pendingCommands()).isNotEmpty) {
+        await _enqueue(cmd);
+        throw _queued;
+      }
+    }
+    try {
+      await _run(cmd);
+    } on SchoolsFailure catch (e) {
+      if (!_retryable(e)) rethrow;
+      await _enqueue(cmd);
+      throw _queued;
+    }
+  }
+
+  Future<void> _enqueue(Map<String, Object?> cmd) async {
+    final j = await pendingCommands();
+    j.add({...cmd, 'queued_at': _now().toUtc().toIso8601String()});
+    await _writeList(
+      journalKey,
+      j.length > journalMax ? j.sublist(j.length - journalMax) : j,
+    );
+  }
+
+  Future<({int done, int left, int dropped})>? _replaying;
+
+  /// اجرای دوبارهٔ صف به همان ترتیب؛ با اولین خطای موقت متوقف می‌شود (بقیه می‌مانند).
+  Future<({int done, int left, int dropped})> replayJournal() =>
+      _replaying ??= _replay().whenComplete(() => _replaying = null);
+
+  Future<({int done, int left, int dropped})> _replay() async {
+    var j = await pendingCommands();
+    var done = 0;
+    var dropped = 0;
+    while (j.isNotEmpty) {
+      final c = j.first;
+      try {
+        await _run(c);
+        done++;
+      } on SchoolsFailure catch (e) {
+        if (_retryable(e) || e.code == 'not_connected') break;
+        dropped++;
+        final log = await droppedCommands();
+        log.add({
+          ...c,
+          'error': e.code,
+          'dropped_at': _now().toUtc().toIso8601String(),
+        });
+        await _writeList(
+          journalLogKey,
+          log.length > 100 ? log.sublist(log.length - 100) : log,
+        );
+      }
+      j = j.sublist(1);
+      await _writeList(journalKey, j);
+    }
+    return (done: done, left: j.length, dropped: dropped);
   }
 }

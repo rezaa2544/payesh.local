@@ -3,6 +3,7 @@ import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import 'format.dart';
+import 'guard/guard_engine.dart';
 import 'infra/load_route.dart';
 import 'monitor/live_monitor.dart';
 import 'schools/school_registry.dart';
@@ -18,7 +19,11 @@ class OwnerScope extends InheritedWidget {
     this.monitor,
     this.schools,
     this.router,
+    this.guard,
   });
+
+  /// موتور هوشمند (ردیف ۱۵۴)؛ null ⇒ صفحهٔ «نگهبان هوشمند» نیست.
+  final GuardEngine? guard;
 
   /// مسیر بار و بار لحظه‌ای (ردیف ۱۵۳)؛ null ⇒ کارت «بار لحظه‌ای» نشان داده نمی‌شود.
   final LoadRouter? router;
@@ -46,7 +51,8 @@ class OwnerScope extends InheritedWidget {
       api != old.api ||
       monitor != old.monitor ||
       schools != old.schools ||
-      router != old.router;
+      router != old.router ||
+      guard != old.guard;
 }
 
 /// Loading / error / empty placeholder (the web `.state`), announced to screen readers.

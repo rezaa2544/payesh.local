@@ -12,7 +12,9 @@ import 'pages/payments_page.dart';
 import 'pages/plans_page.dart';
 import 'pages/reports_page.dart';
 import 'pages/schools_page.dart';
+import 'pages/guard_page.dart';
 import 'pages/support_page.dart';
+import 'guard/guard_engine.dart';
 import 'infra/load_route.dart';
 import 'monitor/live_monitor.dart';
 import 'schools/school_registry.dart';
@@ -31,6 +33,7 @@ Widget pageFor(String id) => switch (id) {
   'audit' => const AuditPage(),
   'payments' => const PaymentsPage(),
   'support' => const SupportPage(),
+  'guard' => const GuardPage(),
   _ => const DashboardPage(),
 };
 
@@ -53,7 +56,11 @@ class OwnerShell extends StatefulWidget {
     this.monitor,
     this.schools,
     this.router,
+    this.guard,
   });
+
+  /// موتور هوشمند (ردیف ۱۵۴)؛ صفحهٔ «نگهبان هوشمند».
+  final GuardEngine? guard;
 
   /// پایش زندهٔ زیرساخت در داشبورد.
   final LiveMonitor? monitor;
@@ -113,6 +120,7 @@ class _OwnerShellState extends State<OwnerShell> {
     local: {
       if (widget.schools != null) 'payments',
       if (widget.schools != null) 'support',
+      if (widget.guard != null) 'guard',
       if (widget.settings != null) 'settings',
     },
   );
@@ -138,6 +146,7 @@ class _OwnerShellState extends State<OwnerShell> {
       monitor: widget.monitor,
       schools: widget.schools,
       router: widget.router,
+      guard: widget.guard,
       child: KeyedSubtree(
         key: ValueKey('page-$id-${identityHashCode(api)}'),
         child: id == 'infra' && widget.infraTop != null

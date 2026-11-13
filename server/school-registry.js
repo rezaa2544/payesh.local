@@ -320,15 +320,37 @@ function planOf(store, key, role) {
   return plansFor(settingsOf(reg && reg.plain), String(role || '')).find(p => p.key === key) || null;
 }
 
+/* ردیف ۱۵۴: هیچ پرداختی گم نمی‌شود — گزارشِ ناموفق علامت می‌خورد و در هر دور تناوبی دوباره فرستاده می‌شود */
+function markReported(store, id, ok) {
+  const state = subsState(store);
+  const row = state.payments.find(x => x.id === id);
+  if (!row || !!row.unreported === !ok) return;
+  if (ok) delete row.unreported; else row.unreported = true;
+  saveSubs(store, state);
+}
 async function reportPayment(store, p) {
   const cfg = cloud(store);
   const b = boundOf(store);
   if (!cfg || !b) return false;
+  let ok = false;
   try {
-    await writeEnv(cfg, cfg.prefix + DIR.pay + p.id + '.json', K.payment, Date.now(), Object.assign({ v: 1, school_id: b.school_id }, p));
-    return true;
-  } catch (e) { return false; }
+    const { unreported, ...clean } = p;
+    await writeEnv(cfg, cfg.prefix + DIR.pay + p.id + '.json', K.payment, Date.now(), Object.assign({ v: 1, school_id: b.school_id }, clean));
+    ok = true;
+  } catch (e) { ok = false; }
+  markReported(store, p.id, ok);
+  return ok;
 }
+async function resendUnreported(store, max = 50) {
+  const rows = subsState(store).payments.filter(x => x && x.unreported).slice(0, max);
+  let n = 0;
+  for (const row of rows) if (await reportPayment(store, row)) n++;
+  return n;
+}
+/* کد پیگیری بدون فاصله/خط تیره، حروف کوچک، ارقام لاتین */
+const normRef = (r) => String(r == null ? '' : r)
+  .replace(/[۰-۹]/g, c => String(c.charCodeAt(0) - 0x06F0)).replace(/[٠-٩]/g, c => String(c.charCodeAt(0) - 0x0660))
+  .replace(/[\s\-_/.]/g, '').toLowerCase();
 
 function newPayment(store, user, plan, method, extra = {}) {
   const state = subsState(store);
@@ -376,6 +398,11 @@ async function submitReceipt(store, user, planKey, ref) {
   if (!g.receipt) return { ok: false, error: 'receipt_disabled' };
   const r = String(ref || '').trim();
   if (r.length < 4 || r.length > 40) return { ok: false, error: 'bad_ref' };
+  /* ردیف ۱۵۴: یک رسید دو بار پذیرفته نمی‌شود (در همین مدرسه؛ میان مدرسه‌ها را موتور هوشمند مالک گزارش می‌دهد) */
+  const nr = normRef(r);
+  if (subsState(store).payments.some(x => x && x.ref && normRef(x.ref) === nr && x.status !== 'failed' && x.status !== 'cancelled' && x.status !== 'rejected')) {
+    return { ok: false, error: 'dup_ref' };
+  }
   const p = newPayment(store, user, plan, 'receipt', { ref: r });
   const sent = await reportPayment(store, p);
   return { ok: true, payment: publicPayment(p), reported: sent };
@@ -440,7 +467,19 @@ async function callback(store, query, { fetchImpl } = {}) {
   } catch (e) { j = null; }
   if (verifyOk(j)) {
     const d = (j && j.data) || {};
-    const row = markPaid(store, p, { gatewayRef: j.ref_id || d.ref_id || j.ref || j.RefID || null, by: 'gateway' });
+    const gref = j.ref_id || d.ref_id || j.ref || j.RefID || null;
+    /* ردیف ۱۵۴: کد تراکنش درگاهی که قبلاً برای پرداخت دیگری ثبت شده ⇒ خودکار فعال نمی‌شود، به تأیید مالک می‌رود */
+    if (gref && state.payments.some(x => x.id !== p.id && x.gateway_ref && normRef(x.gateway_ref) === normRef(gref))) {
+      p.gateway_params = params;
+      p.gateway_ref = String(gref).slice(0, 80);
+      p.status = 'pending';
+      p.awaiting_owner = true;
+      p.flag = 'dup_gateway_ref';
+      saveSubs(store, state);
+      await reportPayment(store, p);
+      return { ok: true, status: 'pending', payment: publicPayment(p) };
+    }
+    const row = markPaid(store, p, { gatewayRef: gref, by: 'gateway' });
     await reportPayment(store, row);
     return { ok: true, status: 'paid', payment: publicPayment(row) };
   }
@@ -739,8 +778,9 @@ async function poll(store, { instance, publicUrl, version, now = Date.now() } = 
     const row = subsState(store).payments.find(x => x.id === pid);
     if (row) await reportPayment(store, row);
   }
+  const resent = boundOf(store) ? await resendUnreported(store) : 0;
   if (boundOf(store)) await writeAck(store, { instance, publicUrl, version, now });
-  return { ok: true, managed: true, bound: !!boundOf(store), applied: a.applied };
+  return { ok: true, managed: true, bound: !!boundOf(store), applied: a.applied, resent };
 }
 
 let timer = null;
@@ -773,5 +813,5 @@ module.exports = {
   RegistryError, seal, open, keyFor, readEnv, writeEnv, trialKey, settingsOf, verifyOk, fill,
   registry, boundOf, schoolOf, gate, startTrial, startPayment, submitReceipt, callback, callbackPage,
   applyOwner, applySchool, adoptOnLogin, adoptSchool, findManager, loginShape, register, requestStatus, validRequest,
-  pullRegistry, writeAck, poll, start, stop, subsState, markPaid,
+  pullRegistry, writeAck, poll, start, stop, subsState, markPaid, reportPayment, resendUnreported, normRef,
 };
