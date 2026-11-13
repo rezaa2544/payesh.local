@@ -11,6 +11,7 @@ import 'pages/operators_page.dart';
 import 'pages/plans_page.dart';
 import 'pages/reports_page.dart';
 import 'pages/schools_page.dart';
+import 'monitor/live_monitor.dart';
 import 'widgets.dart';
 
 const Map<String, IconData> _icons = {
@@ -54,7 +55,11 @@ class OwnerShell extends StatefulWidget {
     this.extraActions = const [],
     this.dbLight,
     this.updateLight,
+    this.monitor,
   });
+
+  /// پایش زندهٔ زیرساخت در داشبورد.
+  final LiveMonitor? monitor;
 
   /// چراغ وضعیت دیتابیس: همیشه پیدا، بالا-چپ (آخرین جای نوار در راست‌به‌چپ).
   final Widget? dbLight;
@@ -118,6 +123,7 @@ class _OwnerShellState extends State<OwnerShell> {
       api: api,
       flash: _show,
       now: widget.now,
+      monitor: widget.monitor,
       child: KeyedSubtree(
         key: ValueKey('page-$id-${identityHashCode(api)}'),
         child: id == 'infra' && widget.infraTop != null

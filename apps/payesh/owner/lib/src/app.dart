@@ -12,6 +12,7 @@ import 'local/local_platform.dart';
 import 'local/local_screens.dart';
 import 'local/s3_client.dart';
 import 'local/settings_page.dart';
+import 'monitor/live_monitor.dart';
 import 'platform.dart';
 import 'shell.dart';
 import 'status/status_lights.dart';
@@ -40,10 +41,14 @@ class OwnerApp extends StatefulWidget {
     this.updater,
     this.openUrl,
     this.dbAutoCheck = true,
+    this.metricsFetcher,
   });
 
-  /// سنجش خودکار دیتابیس (آغاز، دوره‌ای، پس از ذخیرهٔ تنظیمات). false فقط در آزمون‌هایی که
-  /// پاسخ‌های اسکریپتی دارند؛ لمس چراغ همیشه کار می‌کند.
+  /// خواندن /metrics سرورها در پایش زنده (پیش‌فرض: درخواست واقعی).
+  final MetricsFetcher? metricsFetcher;
+
+  /// سنجش خودکار دیتابیس (آغاز، دوره‌ای، پس از ذخیرهٔ تنظیمات) و پایش زندهٔ زیرساخت در
+  /// داشبورد. false فقط در آزمون‌هایی که پاسخ‌های اسکریپتی دارند؛ لمس چراغ همیشه کار می‌کند.
   final bool dbAutoCheck;
 
   /// باز کردن نشانی بیرونی (اندروید: دانلود APK تازه). null ⇒ بی‌اثر.
@@ -95,6 +100,34 @@ class _OwnerAppState extends State<OwnerApp> {
 
   /// چراغ دیتابیس: سنجش دوره‌ای + وصل شدن خودکار.
   DbMonitor? _dbMonitor;
+
+  /// پایش زندهٔ زیرساخت در داشبورد (فقط وقتی داشبورد باز است کار می‌کند).
+  LiveMonitor? _live;
+  LiveMonitor? get _liveMonitor {
+    if (!widget.dbAutoCheck) return null;
+    final secure = widget.secure;
+    return _live ??= LiveMonitor(
+      db: secure == null
+          ? null
+          : DbSource(
+              settings: () async {
+                try {
+                  final s = await S3Settings.load(secure);
+                  return s == null || s.bucket.isEmpty ? null : s;
+                } on SecureStoreException {
+                  return null;
+                } on FormatException {
+                  return null;
+                }
+              },
+              transport: widget.s3Factory ?? IoS3Transport.new,
+              store: secure,
+            ),
+      checker: widget.endpointChecker,
+      fetcher: widget.metricsFetcher,
+      now: widget.now,
+    );
+  }
 
   void _openLocalPlatform(String loginId) {
     final p = _platform ??= LocalPlatform(
@@ -382,6 +415,7 @@ class _OwnerAppState extends State<OwnerApp> {
           ? null
           : HelperSummary(service: widget.helper!),
       dbLight: _dbMonitor == null ? null : DbLight(monitor: _dbMonitor!),
+      monitor: _liveMonitor,
       updateLight: widget.updater == null
           ? null
           : UpdateLight(updater: widget.updater!, openUrl: widget.openUrl),
@@ -416,6 +450,7 @@ class _OwnerAppState extends State<OwnerApp> {
   void dispose() {
     _updateTimer?.cancel();
     _dbMonitor?.dispose();
+    _live?.dispose();
     _api?.close();
     super.dispose();
   }
@@ -456,6 +491,7 @@ class _OwnerAppState extends State<OwnerApp> {
         now: _now,
         themeButton: _themeButton,
         onSignOut: _signOut,
+        monitor: _liveMonitor,
       );
     }
     return PayeshMaterialApp(

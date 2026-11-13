@@ -94,6 +94,13 @@ void main() {
     await tap(tester, 'setup-submit');
     expect(find.byKey(const Key('local-shell')), findsOneWidget);
 
+    // داشبورد (صفحهٔ اول): پایش زندهٔ زیرساخت با کارت دیتابیس (ردیف ۱۳۰)
+    expect(find.byKey(const Key('live-infra')), findsOneWidget);
+    expect(find.byKey(const Key('live-db')), findsOneWidget);
+    expect(find.byKey(const Key('live-db-traffic')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining('فضای دیتابیس'), findsOneWidget);
+
     // زیرساخت: خلاصهٔ سرور کمکی
     await tap(tester, 'nav-infra');
     expect(find.byKey(const Key('helper-summary')), findsOneWidget);

@@ -3,6 +3,7 @@ import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import 'format.dart';
+import 'monitor/live_monitor.dart';
 
 /// Session-wide services for the pages.
 class OwnerScope extends InheritedWidget {
@@ -12,9 +13,13 @@ class OwnerScope extends InheritedWidget {
     required this.flash,
     required this.now,
     required super.child,
+    this.monitor,
   });
 
   final OwnerApi api;
+
+  /// پایش زندهٔ زیرساخت (داشبورد)؛ null ⇒ بدون پایش زنده.
+  final LiveMonitor? monitor;
 
   /// Shows a result message (ok = true → success tone).
   final void Function(bool ok, String text) flash;
@@ -27,7 +32,8 @@ class OwnerScope extends InheritedWidget {
       context.dependOnInheritedWidgetOfExactType<OwnerScope>()!;
 
   @override
-  bool updateShouldNotify(OwnerScope old) => api != old.api;
+  bool updateShouldNotify(OwnerScope old) =>
+      api != old.api || monitor != old.monitor;
 }
 
 /// Loading / error / empty placeholder (the web `.state`), announced to screen readers.

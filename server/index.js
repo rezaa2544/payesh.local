@@ -1996,7 +1996,7 @@ const server = http.createServer(async (req, res) => {
   /* شمارش واقعی هر پاسخ (کلاس ۲xx..۵xx) برای نرخ خطا — ردیف ۴۹.
      بعد از پایان پاسخ ثبت می‌شود تا کد وضعیت نهایی همان چیزی باشد که
      کلاینت دید، نه آنچه در میانهٔ مسیر ساخته شده بود. */
-  res.on('finish', () => { try { mreg.observeHttp(res.statusCode, Date.now(), Date.now() - started); } catch (e) { /* noop */ } });
+  res.on('finish', () => { try { mreg.observeHttp(res.statusCode, Date.now(), Date.now() - started); mreg.observeBytes(req.socket); } catch (e) { /* noop */ } });
 
   try {
     /* ── ردیف ۴۹: متریک و پروب‌های هم‌نام با Gateway ──────────────────

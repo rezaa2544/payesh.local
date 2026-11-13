@@ -53,6 +53,10 @@
 
 > محدودیت آگاهانه: ارزیاب محلی فقط `<metric> <op> <number>` را می‌شناسد و پنجره‌اش ۵ دقیقه است. برای همین، جفت پنجرهٔ بلند و کوتاهِ SRE Workbook با «پنجرهٔ کوتاه + `for:`» تقریب زده شده است. فایل برای Prometheus واقعی هم معتبر است.
 
+### سنجه‌های پایش زندهٔ پنل مالک (ردیف ۱۳۰)
+
+`payesh_net_rx_bytes_total` و `payesh_net_tx_bytes_total` بایت واقعی سوکت‌های HTTP هستند (در keep-alive فقط اختلاف شمرده می‌شود). `payesh_cpu_usage_pct` درصد CPU میزبان از scrape قبلی است. `payesh_memory_used_pct`، `payesh_cpu_cores` و `payesh_process_resident_bytes` هم اضافه شدند. داشبورد پنل مالک اگر Endpoint ‎`/metrics` ثبت شده باشد، این‌ها را هر ۵ ثانیه می‌خواند (ADR 126 §۱۴). شاهد: OB85-13.
+
 ## ۴. شواهد و اجرا
 
 - `npm run test:observability85` در CI (`build.yml`، دروازهٔ ردیف ۸۵) اجرا می‌شود.

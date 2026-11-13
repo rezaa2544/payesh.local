@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
+import '../monitor/net_meter.dart';
 import '../net/resilience.dart';
 import 'trust_bundle.dart';
 
@@ -293,9 +294,12 @@ String sigV4Authorization({
 }
 
 final class S3Response {
-  const S3Response(this.status, this.body, {this.rawBytes});
+  const S3Response(this.status, this.body, {this.rawBytes, this.wireBytes});
   final int status;
   final String body;
+
+  /// تعداد واقعی بایت‌های بدنه که از شبکه رسید (برای شمارش ترافیک)؛ null در جعلی‌ها.
+  final int? wireBytes;
 
   /// بدنهٔ خام (برای فایل‌های دودویی). در آزمون‌ها اگر نباشد، همان [body] است.
   final Uint8List? rawBytes;
@@ -460,12 +464,21 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
         res.statusCode,
         utf8.decode(head, allowMalformed: true),
         rawBytes: raw,
+        wireBytes: raw.length,
       );
     }
-    final text = await res.transform(utf8.decoder).join().timeout(_timeout);
+    // متن تا ۶۴K نویسه نگه داشته می‌شود، اما همهٔ بایت‌ها شمرده می‌شوند
+    final b = BytesBuilder(copy: false);
+    var wire = 0;
+    await for (final chunk in res.timeout(_timeout)) {
+      wire += chunk.length;
+      if (b.length < 4 * 65536) b.add(chunk);
+    }
+    final text = utf8.decode(b.takeBytes(), allowMalformed: true);
     return S3Response(
       res.statusCode,
       text.length > 65536 ? text.substring(0, 65536) : text,
+      wireBytes: wire,
     );
   }
 
@@ -628,11 +641,22 @@ Future<S3Response> _s3RequestAt(
       '${query.isEmpty ? '' : '?${_canonicalQuery(query)}'}',
     );
     final S3Response r;
+    final sw = Stopwatch()..start();
+    final sent = requestHeadBytes(method, url, headers) + (body?.length ?? 0);
     try {
       r = await transport.send(method, url, headers, body);
+      NetMeter.record(
+        NetMeter.db,
+        sent: sent,
+        received: (r.wireBytes ?? r.bytes.length) + 200,
+        elapsedMs: sw.elapsedMilliseconds,
+        ok: r.status < 500,
+      );
     } on S3Failure {
+      NetMeter.record(NetMeter.db, sent: sent, elapsedMs: 0, ok: false);
       rethrow;
     } on Object catch (e) {
+      NetMeter.record(NetMeter.db, sent: sent, elapsedMs: 0, ok: false);
       if (!isReachabilityError(e)) rethrow;
       if (attempt + 1 < policy.attempts && isTransientNetworkError(e)) {
         // اتصال تازه (سوکت و DNS از نو) و کمی صبر

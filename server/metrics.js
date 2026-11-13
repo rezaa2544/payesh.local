@@ -17,7 +17,10 @@
 const ERROR_WINDOW_MS = 5 * 60_000;
 
 /* row 85: SLO objectives live in server/slo.js; this module only measures. */
+const os = require('os');
 const slo = require('./slo');
+/* row 130: per-socket byte marks (keep-alive: only the delta since the last response counts) */
+const NET_MARK = Symbol('payesh.net.mark');
 const LATENCY_SLO = slo.byId('latency');
 const AVAIL_SLO = slo.byId('availability');
 /* histogram buckets (seconds) — fixed, so the series set is bounded */
@@ -109,6 +112,43 @@ class Registry {
     this._trim(at);
   }
 
+  /* row 130: real wire bytes (request in / response out) for the owner panel's live traffic.
+     Called after each response on the same socket; a reused keep-alive socket adds only the delta. */
+  observeBytes(socket) {
+    if (!socket) return;
+    const prev = socket[NET_MARK] || { r: 0, w: 0 };
+    const r = Number(socket.bytesRead) || 0;
+    const w = Number(socket.bytesWritten) || 0;
+    socket[NET_MARK] = { r, w };
+    this.inc('payesh_net_rx_bytes_total', {}, Math.max(0, r - prev.r), { help: 'بایت دریافتی واقعی از سوکت‌های HTTP (ردیف ۱۳۰)' });
+    this.inc('payesh_net_tx_bytes_total', {}, Math.max(0, w - prev.w), { help: 'بایت ارسالی واقعی روی سوکت‌های HTTP (ردیف ۱۳۰)' });
+  }
+
+  /* row 130: host capacity in use — CPU (delta of os.cpus() times between scrapes; first scrape =
+     since boot), memory, and the process's own resident memory. Real values, read at scrape time. */
+  systemGauges() {
+    const cpus = os.cpus() || [];
+    let idle = 0;
+    let total = 0;
+    for (const c of cpus) {
+      const t = c.times || {};
+      idle += Number(t.idle) || 0;
+      total += (Number(t.user) || 0) + (Number(t.nice) || 0) + (Number(t.sys) || 0) + (Number(t.irq) || 0) + (Number(t.idle) || 0);
+    }
+    const prev = this._cpuMark || { idle: 0, total: 0 };
+    this._cpuMark = { idle, total };
+    const dt = total - prev.total;
+    const cpu = dt > 0 ? Math.min(100, Math.max(0, 100 * (1 - (idle - prev.idle) / dt))) : 0;
+    const tm = os.totalmem() || 0;
+    const mem = tm > 0 ? Math.min(100, Math.max(0, 100 * (1 - os.freemem() / tm))) : 0;
+    return [
+      ['payesh_cpu_usage_pct', cpu, 'درصد استفادهٔ پردازندهٔ میزبان از scrape قبلی (ردیف ۱۳۰)'],
+      ['payesh_memory_used_pct', mem, 'درصد حافظهٔ استفاده‌شدهٔ میزبان (ردیف ۱۳۰)'],
+      ['payesh_cpu_cores', cpus.length, 'تعداد هسته‌های پردازندهٔ میزبان'],
+      ['payesh_process_resident_bytes', process.memoryUsage().rss, 'حافظهٔ مقیم همین فرایند (بایت)'],
+    ];
+  }
+
   _trim(now) {
     const cut = now - this.windowMs;
     let i = 0;
@@ -169,6 +209,7 @@ class Registry {
       ['payesh_slo_objective_availability', AVAIL_SLO.objective, 'هدف SLO دسترس‌پذیری (از server/slo.js)'],
       ['payesh_slo_objective_latency', LATENCY_SLO.objective, 'هدف SLO تأخیر (از server/slo.js)'],
     ];
+    for (const [name, value, help] of this.systemGauges()) derived.push([name, value, help]);
     for (const [name, value, help] of derived) {
       if (!this.meta.has(name)) this._def(name, 'gauge', help);
       live.set(name + '|', { name, labels: {}, value });

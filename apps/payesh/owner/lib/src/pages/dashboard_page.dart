@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../monitor/live_panel.dart';
 import '../widgets.dart';
 import 'base.dart';
 
@@ -64,6 +65,16 @@ class _DashboardPageState extends OwnerPageState<DashboardPage> {
         );
       }
     }
-    return PageList(onRefresh: reload, children: [content]);
+    final monitor = scope.monitor;
+    return PageList(
+      onRefresh: () async {
+        await reload();
+        await monitor?.probeNow();
+      },
+      children: [
+        if (monitor != null) LiveInfraPanel(monitor: monitor, api: api),
+        content,
+      ],
+    );
   }
 }

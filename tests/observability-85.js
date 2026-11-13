@@ -371,6 +371,38 @@ function runAlerts(metricsText, extra = []) {
     return 'ok';
   });
 
+  await check('OB85-13', 'row 130: real wire bytes (keep-alive delta) + host CPU/memory gauges for the owner live monitor', async () => {
+    const reg = metrics.create();
+    const srv = http.createServer((req, res) => {
+      res.on('finish', () => reg.observeBytes(req.socket));
+      req.resume();
+      req.on('end', () => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('x'.repeat(5000)); });
+    });
+    await new Promise(r => srv.listen(0, '127.0.0.1', r));
+    const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+    const port = srv.address().port;
+    const one = () => new Promise((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port, method: 'POST', path: '/', agent }, res => { res.resume(); res.on('end', resolve); });
+      req.on('error', reject);
+      req.end('y'.repeat(3000));
+    });
+    await one();
+    await one();
+    agent.destroy();
+    await new Promise(r => srv.close(r));
+    const text = await reg.render();
+    const rx = Number(metricValue(text, 'payesh_net_rx_bytes_total'));
+    const tx = Number(metricValue(text, 'payesh_net_tx_bytes_total'));
+    assert(rx >= 6000 && rx < 9000, 'rx not the real 2×3000 B (+headers): ' + rx);
+    assert(tx >= 10000 && tx < 13000, 'tx not the real 2×5000 B (+headers), keep-alive double count? ' + tx);
+    const cpu = Number(metricValue(text, 'payesh_cpu_usage_pct'));
+    const mem = Number(metricValue(text, 'payesh_memory_used_pct'));
+    assert(cpu >= 0 && cpu <= 100 && mem > 0 && mem <= 100, 'cpu/mem out of range ' + cpu + '/' + mem);
+    const src = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
+    assert(/mreg\.observeBytes\(req\.socket\)/.test(src), 'server/index.js does not record wire bytes');
+    return `rx=${rx} tx=${tx} cpu=${cpu.toFixed(1)} mem=${mem.toFixed(1)}`;
+  });
+
   try { fs.rmSync(WORK, { recursive: true, force: true }); } catch (e) { /* noop */ }
   console.log(`\n# passed=${passed} failed=${failed}${failures.length ? ' failures=' + failures.join(',') : ''}`);
   console.log(failed ? 'OBSERVABILITY-85-FAILED' : 'OBSERVABILITY-85-OK');
