@@ -1033,6 +1033,136 @@ paths:
           $ref: '#/components/responses/Error'
         '429':
           $ref: '#/components/responses/RateLimited'
+  /api/schools/register:
+    post:
+      operationId: postApiSchoolsRegister
+      tags: [setup]
+      summary: "درخواست ثبت‌نام مدرسهٔ جدید (عمومی) — مهرشده در صندوقچه برای پنل مالک؛ ردیف ۱۴۵"
+      x-source: server/index.js:555
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/schools/register/status:
+    get:
+      operationId: getApiSchoolsRegisterStatus
+      tags: [setup]
+      summary: "وضعیت درخواست ثبت‌نام با شناسه و توکن (در انتظار/تأیید/رد)"
+      x-source: server/index.js:562
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '404':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+  /api/sub/callback:
+    get:
+      operationId: getApiSubCallback
+      tags: [auth]
+      summary: "بازگشت از درگاه پرداخت (صفحهٔ HTML)؛ قطعی با پیوند تأیید مالک یا تأیید دستی"
+      x-source: server/index.js:568
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '429':
+          $ref: '#/components/responses/Error'
+  /api/sub/status:
+    get:
+      operationId: getApiSubStatus
+      tags: [auth]
+      summary: "وضعیت اشتراک کاربر (برگردان p2: trial/active/expired/none، سیاست نقش، پلن‌ها)"
+      x-source: server/index.js:811
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+  /api/sub/trial:
+    post:
+      operationId: postApiSubTrial
+      tags: [auth]
+      summary: "شروع دورهٔ آزمایشی — یک بار برای هر دستگاه (device_hash)"
+      x-source: server/index.js:814
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/sub/pay:
+    post:
+      operationId: postApiSubPay
+      tags: [auth]
+      summary: "شروع پرداخت از درگاه مالک (pay_url با جای‌نگهدارها)"
+      x-source: server/index.js:821
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+  /api/sub/receipt:
+    post:
+      operationId: postApiSubReceipt
+      tags: [auth]
+      summary: "ثبت رسید پرداخت برای تأیید مالک"
+      x-source: server/index.js:828
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
   /api/auth/logout:
     post:
       operationId: postAuthLogout

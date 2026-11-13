@@ -5319,6 +5319,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۴۵: مدارس، درخواست ثبت‌نام و اشتراک (برگردان p2) ── */
+  await test('ردیف ۱۴۵: مدیر ساختهٔ مالک، درخواست ثبت‌نام، سیاست نقش، آزمایشی یک‌بار برای هر دستگاه، درگاه/رسید/تصمیم مالک (۹ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/schools-145.js')], { encoding: 'utf8', cwd: ROOT, timeout: 180000 });
+      assert.strictEqual(r.status, 0, 'schools-145: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|SCHOOLS-145/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۲۷: حالت شبکهٔ محلی اپ بومی + سرویس دادهٔ بی‌رابط مدرسه ── */
   await test('ردیف ۱۲۷: سرور بی‌رابط هیچ صفحهٔ وبی نمی‌دهد، راه‌اندازی فقط از خود سرور، نصب‌کننده‌ها بی‌رابط وب، ۲۰ جهش قرمز',
     async () => {

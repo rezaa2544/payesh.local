@@ -38,7 +38,9 @@ const update = require('./update');
 const mirror = require('./mirror');
 const tunnel = require('./tunnel');
 const helperJobs = require('./helper-jobs');
-const { nowISO, json, normDigits, normalizeMobile, validNationalId, sha256 } = require('./util');
+/* ردیف ۱۴۵: مدارس، درخواست ثبت‌نام و اشتراک (برگردان p2) — فهرست مالک در صندوقچه */
+const schools = require('./school-registry');
+const { nowISO, json, normDigits, normalizeMobile, validNationalId, sha256, pbkdf2Hash } = require('./util');
 
 /* ریشهٔ برنامه — آزمون‌ها می‌توانند با PAYESH_APP_ROOT روی یک کپی کار کنند */
 const ROOT = process.env.PAYESH_APP_ROOT || path.resolve(__dirname, '..');
@@ -491,6 +493,13 @@ async function api(req, res, url, ip) {
          احراز هویت فاش نمی‌شود — کلاینت آن را از /api/setup/state می‌گیرد. */
       public_url: cfg.publicUrl(store) || null,
       instance: cfg.instanceId(store),
+      /* ردیف ۱۴۵: این سرور پیرو فهرست مدارس مالک است؟ میزبان کدام مدرسه؟ ثبت‌نام می‌پذیرد؟ */
+      owner_managed: !!schools.registry(store),
+      school_bound: !!schools.boundOf(store),
+      registration: (() => {
+        try { const v = s3mem.usingMeta(store).get(); return !!(v.endpoint && v.bucket && v.accessKey && v.secret); }
+        catch (e) { return false; }
+      })(),
       cloud_ready: (() => {
         try { const v = s3mem.usingMeta(store).get(); return !!(v.endpoint && v.bucket && v.accessKey && v.secret); }
         catch (e) { return false; }
@@ -540,6 +549,26 @@ async function api(req, res, url, ip) {
     } catch (e) {
       return json({ ok: false, error: 'qr_failed' }, 400);
     }
+  }
+
+  /* ── ردیف ۱۴۵: درخواست ثبت‌نام مدرسهٔ جدید (عمومی؛ سایت بازاریابی هم همین را صدا می‌زند) ── */
+  if (p === '/api/schools/register' && m === 'POST') {
+    if (!rateLimit('school-register:' + ip, 5, 60 * 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    let body = {};
+    try { body = await readBody(req); } catch (e) { return json({ ok: false, error: 'bad_json' }, 400); }
+    const r = await schools.register(store, body, { instance: cfg.instanceId(store), publicUrl: cfg.publicUrl(store) || null, hash: pbkdf2Hash });
+    return json(r, r.ok ? 200 : (r.error === 'username_taken' ? 409 : (r.error === 'not_connected' || r.error === 'registry_unreachable') ? 503 : 400));
+  }
+  if (p === '/api/schools/register/status' && m === 'GET') {
+    if (!rateLimit('school-register-status:' + ip, 60, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    const r = await schools.requestStatus(store, q.get('id'), q.get('token'));
+    return json(r, r.ok ? 200 : 404);
+  }
+  /* بازگشت از درگاه پرداخت (عمومی؛ قطعی شدن فقط با «پیوند تأیید» مالک یا تأیید دستی مالک) */
+  if (p === '/api/sub/callback' && m === 'GET') {
+    if (!rateLimit('sub-callback:' + ip, 60, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    const r = await schools.callback(store, q);
+    return { status: 200, body: Buffer.from(schools.callbackPage(r), 'utf8'), headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } };
   }
 
   if (p === '/api/setup/state' && m === 'GET') {
@@ -624,10 +653,22 @@ async function api(req, res, url, ip) {
        ورودِ گروهی کاربران همدیگر را بیرون می‌گذاشت و پیام «رمز اشتباه»
        می‌گرفتند. سقف کلیِ آدرس هم بالا است تا حملهٔ انبوه بسته بماند. */
     const body = await readBody(req);
-    const who = normDigitsLocal(body.phone || '');
+    const who = /[A-Za-z]/.test(String(body.phone || '')) ? String(body.phone).trim().toLowerCase() : normDigitsLocal(body.phone || '');
     if (!rateLimit('login-ip:' + ip, 240, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     if (who && !rateLimit('login-user:' + who, 20, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     body.__ip = ip;
+    /* ردیف ۱۴۵: سرور تازه + مدیرِ مدرسه‌ای که مالک ساخته ⇒ همین سرور میزبان آن مدرسه می‌شود */
+    if (auth.needsSetup(store)) {
+      const a = await schools.adoptOnLogin(store, body.phone, body.password, { needsSetup: true, instance: cfg.instanceId(store) });
+      if (!a.ok && a.error !== 'not_managed' && a.error !== 'not_found') {
+        return json({ ok: false, error: a.error }, a.error === 'school_hosted_elsewhere' ? 409 : a.error === 'registry_unreachable' ? 503 : 401);
+      }
+    }
+    /* p2: غیرفعال کردن مدرسه ورود را می‌بندد (پیش از ساختن دستگاه) */
+    {
+      const gs = schools.gate(store, { id: 0, role: '' });
+      if (gs.status === 'school_inactive' || gs.status === 'school_removed') return json({ ok: false, error: gs.status }, 403);
+    }
     const r = auth.login(store, body);
     if (!r.ok) {
       if (r.error === 'device_limit') return json(r, 409);
@@ -766,6 +807,32 @@ async function api(req, res, url, ip) {
     return json({ ok: true });
   }
 
+  /* ── ردیف ۱۴۵: اشتراک (برگردان p2) — وضعیت، آزمایشی، درگاه، رسید ── */
+  if (p === '/api/sub/status' && m === 'GET') {
+    return json(Object.assign({ ok: true }, schools.gate(store, actor.user)));
+  }
+  if (p === '/api/sub/trial' && m === 'POST') {
+    if (!rateLimit('sub-trial:' + actor.user.id, 10, 60 * 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    let body = {};
+    try { body = await readBody(req); } catch (e) { body = {}; }
+    const r = await schools.startTrial(store, actor.user, body.device_hash);
+    return json(r, r.ok ? 200 : (r.error === 'trial_check_unavailable' ? 503 : 409));
+  }
+  if (p === '/api/sub/pay' && m === 'POST') {
+    if (!rateLimit('sub-pay:' + actor.user.id, 20, 60 * 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    let body = {};
+    try { body = await readBody(req); } catch (e) { body = {}; }
+    const r = await schools.startPayment(store, actor.user, body.plan, { callbackBase: cfg.publicUrl(store) || null });
+    return json(r, r.ok ? 200 : 409);
+  }
+  if (p === '/api/sub/receipt' && m === 'POST') {
+    if (!rateLimit('sub-receipt:' + actor.user.id, 10, 60 * 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    let body = {};
+    try { body = await readBody(req); } catch (e) { body = {}; }
+    const r = await schools.submitReceipt(store, actor.user, body.plan, body.ref);
+    return json(r, r.ok ? 200 : 409);
+  }
+
   /* F‑01: بستن همهٔ نشست‌ها/دستگاه‌های همین کاربر (مثلاً گوشی گم شده) */
   if (p === '/api/auth/revoke-all' && m === 'POST') {
     let body = {};
@@ -787,6 +854,12 @@ async function api(req, res, url, ip) {
   if (p === '/api/auth/transfer' && m === 'POST') {
     const r = auth.createTransfer(store, actor.user.id, actor.device ? actor.device.id : null);
     return json(Object.assign(r, { public_url: cfg.publicUrl(store) || null }));
+  }
+
+  /* نقشِ «اشتراکی» بدون اشتراک فعال، یا مدرسهٔ غیرفعال ⇒ هیچ امکانی (فقط ورود، خروج، صفحهٔ اشتراک و مدیریت دستگاه‌های خود) */
+  {
+    const g = schools.gate(store, actor.user);
+    if (!g.access) return json({ ok: false, error: g.status === 'school_inactive' || g.status === 'school_removed' ? g.status : 'subscription_required', sub: g }, g.status === 'school_inactive' || g.status === 'school_removed' ? 403 : 402);
   }
 
   if (p === '/api/bootstrap' && m === 'GET') {
@@ -2202,6 +2275,8 @@ if (process.env.PAYESH_CLOUD_AUTO !== '0') {
   require('./cloud-control').start(store);
   /* سرورهای کمکی: بررسی بیرونیِ آدرس عمومی هر ۳۰ دقیقه (اگر هیچ سرور کمکی نباشد، محلی) */
   helperJobs.start(store, { publicUrl: () => cfg.publicUrl(store) });
+  /* ردیف ۱۴۵: فهرست مدارس و سیاست اشتراکِ پنل مالک — هر دقیقه */
+  schools.start(store, { instance: () => cfg.instanceId(store), publicUrl: () => cfg.publicUrl(store) || null, version: () => RUNNING_VERSION });
 }
 
 /* ── صندوقچهٔ آفلاین: اولین دستگاهی که روشن شود، ثبت‌های بقیه را اعمال می‌کند ── */

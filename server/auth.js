@@ -222,9 +222,12 @@ function hasPassword(user) { return !!(user && user.password_hash); }
 function login(store, input = {}) {
   /* نام کاربری: شمارهٔ همراه (۱۱ رقم) یا کد ملی (۱۰ رقم) برای کسانی که
      شمارهٔ همراه ندارند. */
-  const phone = normDigits(input.phone);
+  /* ردیف ۱۴۵: نام کاربری لاتین (مدیری که مالک ساخته یا درخواست ثبت‌نام داده) هم پذیرفته است */
+  const raw = String(input.phone || input.username || '').trim();
+  const byName = /[A-Za-z]/.test(raw);
+  const phone = byName ? raw.toLowerCase() : normDigits(raw);
   const pw = String(input.password || '');
-  if (phone.length < 10) return { ok: false, error: 'bad_phone' };
+  if (byName ? !USERNAME_RE.test(phone) : phone.length < 10) return { ok: false, error: 'bad_phone' };
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
   let user = findUserByLogin(store, phone);
   if (!user || user.active === false) return { ok: false, error: 'bad_credentials' };
@@ -462,7 +465,13 @@ function credentialsFor(row) {
 }
 
 /* کاربر را با «نام کاربری» پیدا می‌کند: اول شمارهٔ همراه، بعد کد ملی. */
+const USERNAME_RE = /^[a-z][a-z0-9._-]{2,31}$/;
 function findUserByLogin(store, input) {
+  const name = String(input == null ? '' : input).trim().toLowerCase();
+  if (/[a-z]/.test(name)) {
+    if (!USERNAME_RE.test(name)) return null;
+    return (store.all('users') || []).find(u => String(u.username || '').toLowerCase() === name) || null;
+  }
   const key = normDigits(input);
   if (key.length < 10) return null;
   const users = store.all('users') || [];
@@ -499,7 +508,7 @@ const PUBLIC_EXTRA = ['birth_date', 'gender', 'father_name', 'father_nid', 'fath
   'mother_name', 'mother_nid', 'mother_phone', 'guardian', 'guardian_alive', 'covered',
   'org_type', 'org_percent', 'talent', 'landline', 'residence', 'village', 'residence_status',
   'address', 'shenasname_serial', 'shenasname_seri', 'last_gpa', 'failed_count', 'field',
-  'degree', 'subject', 'position'];
+  'degree', 'subject', 'position', 'username'];
 
 function publicUser(u) {
   const out = {

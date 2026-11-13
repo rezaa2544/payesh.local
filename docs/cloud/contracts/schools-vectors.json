@@ -1,0 +1,157 @@
+{
+  "contract": "schools v1",
+  "salt": "payesh/schools",
+  "info": "v1",
+  "alg": "HKDF-SHA256/A256GCM",
+  "aad": "<kind>/v1/<rev>",
+  "secret": "sk-schools-vector-1",
+  "nonce_hex": "a1a2a3a4a5a6a7a8a9aaabac",
+  "rev": 1731234567890,
+  "key_hex": "2e28cca31d598c92aa89baa6a0776f0140e0a396366d0582a65a94f96555433c",
+  "kinds": {
+    "registry": "payesh-school-registry",
+    "request": "payesh-school-request",
+    "payment": "payesh-sub-payment",
+    "ack": "payesh-school-ack",
+    "trial": "payesh-sub-trial"
+  },
+  "dirs": {
+    "registry": "schools/registry.json",
+    "req": "schools/req/",
+    "pay": "schools/pay/",
+    "ack": "schools/ack/",
+    "trial": "schools/trial/"
+  },
+  "plans": [
+    {
+      "key": "monthly",
+      "title": "ماهانه",
+      "months": 1,
+      "price": 250000
+    },
+    {
+      "key": "seasonal",
+      "title": "فصلی",
+      "months": 3,
+      "price": 650000
+    },
+    {
+      "key": "yearly",
+      "title": "سالانه",
+      "months": 12,
+      "price": 2200000
+    }
+  ],
+  "roles": [
+    "manager",
+    "deputy",
+    "teacher",
+    "student",
+    "parent"
+  ],
+  "defaults": {
+    "trial_enabled": true,
+    "trial_days": 21,
+    "paywall_enabled": true,
+    "roles": {
+      "manager": "required",
+      "deputy": "free",
+      "teacher": "free",
+      "student": "free",
+      "parent": "required"
+    },
+    "gateway": {
+      "pay_url": "",
+      "verify_url": ""
+    },
+    "receipt_enabled": true,
+    "receipt_note": ""
+  },
+  "levels": [
+    "ابتدایی",
+    "متوسطه اول",
+    "متوسطه دوم"
+  ],
+  "username_re": "^[a-z][a-z0-9._-]{2,31}$",
+  "cases": {
+    "registry": {
+      "plaintext": "{\"v\":1,\"schools\":[{\"id\":\"s-0001\",\"name\":\"دبستان نمونه\",\"level\":\"ابتدایی\",\"active\":true,\"manager\":{\"username\":\"ali.rezaei\",\"name\":\"علی رضایی\",\"phone\":\"09121234567\",\"password_hash\":\"pbkdf2$150000$00112233445566778899aabbccddeeff$4f1c\",\"rev\":1}}],\"settings\":{\"trial_enabled\":true,\"trial_days\":14,\"paywall_enabled\":true,\"roles\":{\"manager\":\"required\",\"teacher\":\"free\"},\"plans\":[{\"key\":\"monthly\",\"price\":250000}],\"gateway\":{\"pay_url\":\"\",\"verify_url\":\"\"},\"receipt_enabled\":true,\"receipt_note\":\"\"},\"domain\":\"\",\"grants\":[],\"decisions\":{},\"rejected\":[]}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-school-registry",
+        "rev": 1731234567890,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "oaKjpKWmp6ipqqus",
+        "ct": "-A9JJq91Jab88-BJrMa1RwsGrk2LD01S_gM4J5lw_nOoZs4kBZrQo8tLYNKMC-g7E6CtQ_enQdasN8HJyN2lW13_5xnHE1qJEiSikv328kryKStvb-ugQl9H5xNh6VvgbCqbXzaOYAdvX5QBYys8r7FaDnZ-HRJljKnacMrlufUiPjm8OdiXlR0kaEG1XdYvpSskWkXMH8ziQ6YssZxWKZvBW2i9mDMeXmXBDvdYQDly-cIgQr7HvMXS3sHnsb2d2RWugJWfEuYP18Jc8V5qFjzLlGLaLnuuH6hOuPzclcn9IhGUq97lJl6a0LA1E-YUOcjY7q7Ru5_75OTBnALCziI-JL4W7jB4FrP4L0mY-RWEKUMRgyJcWaW3Xody0ayuwG_x7TqOezYsZuR1YhEG8Udl9VUtQemrBk9WHMBiQMpUbX3kvDDeb_DAfgLln-etRulTYHm8xKn23eLUJnjjvSOESBKBmnLmkE3DlgzZJf_XDrlwrsbuZc24vtoTo5jVHkhzb_cOnqghIchgiauFZg27wzfc6A0LKcNfumBl6tQMS-6L84XDUZCZDnTgsAEKo1XZesHsJzMs3nihF65PCv4SoHIzcADTMiKlILcZ4grTXkCOgsPEUue3jTprdrHgyAK3kIrLyB6wmj3xKDIsoR2GpXbYswhulWN1jVr8X9kWD9rHTGuAJ2S6o35Blq0VkDGKuhlXFXKwVWH8e89gGwXiDCMsBzRyp1xAQ9HE908hj4YkTw3ShcY5wsRlwcz0Mw1gc6vTDqVd"
+      }
+    },
+    "request": {
+      "plaintext": "{\"v\":1,\"id\":\"1731234567890-0123456789abcdef\",\"school_name\":\"هنرستان نمونه\",\"level\":\"متوسطه دوم\",\"province\":\"تهران\",\"county\":\"ری\",\"village\":\"\",\"phone\":\"09121234567\",\"staff_count\":12,\"student_count\":240,\"manager_name\":\"زهرا احمدی\",\"username\":\"zahra\",\"password_hash\":\"pbkdf2$150000$aa$bb\",\"device\":null,\"server\":{\"instance\":null,\"public_url\":null}}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-school-request",
+        "rev": 1731234567890,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "oaKjpKWmp6ipqqus",
+        "ct": "-A9JJq91Jabm9Koc4ZvxVgBv5lvXXVhQ5UA4J5hy_GWxcpd9UZ6Q-o32qSgI8SiA0Rdl9i7p-T0QkCJjyNylWqdiHcZ6z-dC6Zigk9z330vQKAJuTxIAu78AvVRsqBWrw8phz5t0zdGbyiDnLZL0E0uhsS9wShFykbHSc8yioe1hivpLzGVcLN-UzE-7EdQttWdqAb9P5JCIFArWLGaWmFB2ttRUmCUeDCGMEPoVFH5g-tEiSr3GucLX3db9pO_QiBWtjoGdEu0B0cQK6UYrRnuNgSSLeyvwW8cd87mC0Nr1IhaXs8i9cgbNgOJ_dLFMNcyYtu9qbSIZWTN_HxZ8WJmx0Rm8JJ3WDq6nJ2fRqQiAMFJa12dVGve-HdEsmr2j7Hno4yqGQTpvL_glLVZasVhz-gZlL7j6TwxEApA3SIpGLiixuTnEWfbLPVrnj-_jUL9ScG7mg6m7i_yFbSzr6y-LRRbExW6xxgOd0Q3ZLuHbCcQp_t6pPsClt8RM5HOv0goTR5wiClHK9hkhg5g"
+      }
+    },
+    "payment": {
+      "plaintext": "{\"v\":1,\"school_id\":\"s-0001\",\"id\":\"SUB-0A1B2C3D\",\"uid\":1,\"role\":\"manager\",\"plan\":\"monthly\",\"months\":1,\"amount\":250000,\"method\":\"receipt\",\"status\":\"pending\",\"ref\":\"123456\"}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-sub-payment",
+        "rev": 1731234567890,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "oaKjpKWmp6ipqqus",
+        "ct": "-A9JJq91Jab88-BJrMaZDFV_702RRl9Y7EE3O4spq3O-ZvMQKtLC2NjR_UkXl3nPmw1j_lO9qXxXwHctdHlG_hKyqxTFAE3HHDzwJjtAeKh6nOvZvFhA4PFJ6Vxv5FvhaW2DVG7edA8sCJcUL3Bp__NIBD1wSgxliq_UeY39oaUmMTX7O8nP2Fo-PgzjRsRg-ituHfMRryZe7arWciGG0wY45oECjioKDHAJlgBkwUO-HUVUHEzvvTEA"
+      }
+    },
+    "ack": {
+      "plaintext": "{\"v\":1,\"school_id\":\"s-0001\",\"instance\":\"i-1\",\"users\":{\"total\":1,\"by_role\":{\"manager\":1}},\"subs\":[]}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-school-ack",
+        "rev": 1731234567890,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "oaKjpKWmp6ipqqus",
+        "ct": "-A9JJq91Jab88-BJrMaZDFV_702RRl9Y7EE3O4spoSLwJc4mDd3Iu4C-_igI8S6Q3Ap5uEv8uiQaxnktM2FN8F2xvCrQClOAEiT7aDdPNPM_lPaV8gFR5P9HuERi-Q2zQRLEl4U9Ohb1KjPTW-a5GZvWwQ"
+      }
+    },
+    "trial": {
+      "plaintext": "{\"v\":1,\"key\":\"k\",\"school_id\":\"s-0001\",\"uid\":1,\"role\":\"manager\"}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-sub-trial",
+        "rev": 1731234567890,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "oaKjpKWmp6ipqqus",
+        "ct": "-A9JJq91Jabk9fEE-YitRx1_pgyKBAAEgxlxNZNivHy0dJB0StPQ7ID37TAV_3mR1hRvuEul9TEb038kY3kB9LCTEcCS6O-B_RRrlCmePg"
+      }
+    }
+  },
+  "trial_key": {
+    "device_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+    "prefix": "payesh-trial/v1:",
+    "key": "f1925c7282585f1552fff443144fbc102b619df101a32f4db5afac4b3e0656d1"
+  },
+  "pbkdf2": {
+    "note": "salt = UTF-8 bytes of the 32-char hex string; 150000 iter; sha256; 32 bytes",
+    "password": "Madrese-1403",
+    "salt": "00112233445566778899aabbccddeeff",
+    "iterations": 150000,
+    "hash": "pbkdf2$150000$00112233445566778899aabbccddeeff$39a63c1777e2b6f99f96373213f7f4d82bf29f2eaed4b1935e8075cf032ae982"
+  },
+  "fill": {
+    "template": "https://pay.example/start?amount={amount}&t={amount_toman}&id={payment_id}&cb={callback}&d={description}&m={mobile}&x={unknown}",
+    "values": {
+      "amount": 250000,
+      "amount_toman": 25000,
+      "payment_id": "SUB-0A1B2C3D",
+      "callback": "https://s.example/api/sub/callback?payment=SUB-0A1B2C3D",
+      "description": "اشتراک ماهانه",
+      "mobile": "09121234567"
+    },
+    "result": "https://pay.example/start?amount=250000&t=25000&id=SUB-0A1B2C3D&cb=https%3A%2F%2Fs.example%2Fapi%2Fsub%2Fcallback%3Fpayment%3DSUB-0A1B2C3D&d=%D8%A7%D8%B4%D8%AA%D8%B1%D8%A7%DA%A9%20%D9%85%D8%A7%D9%87%D8%A7%D9%86%D9%87&m=09121234567&x={unknown}"
+  }
+}
