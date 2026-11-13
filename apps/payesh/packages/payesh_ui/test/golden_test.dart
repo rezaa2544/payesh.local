@@ -19,13 +19,14 @@ void main() {
     );
   });
 
-  for (final (name, size, mode, platform, scale) in [
+  for (final (name, size, mode, platform, scale, look) in [
     (
       'android_light',
       const Size(360, 780),
       ThemeMode.light,
       TargetPlatform.android,
       1.0,
+      PayeshLook.classic,
     ),
     (
       'android_dark',
@@ -33,6 +34,7 @@ void main() {
       ThemeMode.dark,
       TargetPlatform.android,
       1.0,
+      PayeshLook.classic,
     ),
     (
       'windows_light',
@@ -40,6 +42,7 @@ void main() {
       ThemeMode.light,
       TargetPlatform.windows,
       1.0,
+      PayeshLook.classic,
     ),
     (
       'windows_dark',
@@ -47,6 +50,7 @@ void main() {
       ThemeMode.dark,
       TargetPlatform.windows,
       1.0,
+      PayeshLook.classic,
     ),
     (
       'android_light_text2x',
@@ -54,6 +58,32 @@ void main() {
       ThemeMode.light,
       TargetPlatform.android,
       2.0,
+      PayeshLook.classic,
+    ),
+    // row 147: «نبض» — the owner panel's look
+    (
+      'nabd_windows_light',
+      const Size(1280, 800),
+      ThemeMode.light,
+      TargetPlatform.windows,
+      1.0,
+      PayeshLook.nabd,
+    ),
+    (
+      'nabd_windows_dark',
+      const Size(1280, 800),
+      ThemeMode.dark,
+      TargetPlatform.windows,
+      1.0,
+      PayeshLook.nabd,
+    ),
+    (
+      'nabd_android_light',
+      const Size(360, 780),
+      ThemeMode.light,
+      TargetPlatform.android,
+      1.0,
+      PayeshLook.nabd,
     ),
   ]) {
     testWidgets('golden $name', (t) async {
@@ -66,6 +96,7 @@ void main() {
         PayeshMaterialApp(
           themeMode: mode,
           platform: platform,
+          look: look,
           home: const Showcase(),
         ),
       );

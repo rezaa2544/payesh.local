@@ -16,9 +16,13 @@ class PayeshMaterialApp extends StatelessWidget {
     this.themeMode = ThemeMode.system,
     this.platform,
     this.navigatorKey,
+    this.look = PayeshLook.classic,
   });
 
   final Widget home;
+
+  /// Visual language: the owner panel uses [PayeshLook.nabd] (the user panel's «نبض»).
+  final PayeshLook look;
 
   /// Lets the app close dialogs/sheets when the session ends (owner app, row 126).
   final GlobalKey<NavigatorState>? navigatorKey;
@@ -34,11 +38,98 @@ class PayeshMaterialApp extends StatelessWidget {
     locale: PayeshUi.locale,
     supportedLocales: const [PayeshUi.locale],
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    theme: PayeshUi.light(platform: platform),
-    darkTheme: PayeshUi.dark(platform: platform),
+    theme: PayeshUi.light(platform: platform, look: look),
+    darkTheme: PayeshUi.dark(platform: platform, look: look),
     themeMode: themeMode,
     home: home,
   );
+}
+
+/// «نبض» page background (client/pulse.css `body`): the surface colour with a teal wash from the
+/// top-start corner and a warm wash from the bottom-end corner. Classic: just the surface colour.
+class PayeshBackdrop extends StatelessWidget {
+  const PayeshBackdrop({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    if (!t.isNabd) return ColoredBox(color: t.bg, child: child);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return DecoratedBox(
+      key: const Key('payesh-backdrop'),
+      decoration: BoxDecoration(color: t.bg),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: AlignmentDirectional.topStart.resolve(
+              Directionality.of(context),
+            ),
+            radius: 1.1,
+            colors: [
+              t.primary2.withValues(alpha: dark ? 0.10 : 0.08),
+              t.primary2.withValues(alpha: 0),
+            ],
+          ),
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: AlignmentDirectional.bottomEnd.resolve(
+                Directionality.of(context),
+              ),
+              radius: 1.0,
+              colors: [
+                t.accent.withValues(alpha: 0.06),
+                t.accent.withValues(alpha: 0),
+              ],
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// «نبض» brand tile: the app icon on the primary gradient (owner-panel/web `.brand-mark`).
+class PayeshBrandMark extends StatelessWidget {
+  const PayeshBrandMark({
+    super.key,
+    this.size = 36,
+    this.icon = Icons.monitor_heart_outlined,
+  });
+
+  final double size;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: t.primaryGradient,
+        borderRadius: BorderRadius.circular(size * 0.32),
+        boxShadow: t.isNabd
+            ? [
+                BoxShadow(
+                  color: t.primary2.withValues(alpha: 0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
+      ),
+      child: Icon(
+        icon,
+        size: size * 0.58,
+        color: Theme.of(context).colorScheme.onPrimary,
+      ),
+    );
+  }
 }
 
 /// Shows an ISO date as Jalali with Persian digits; screen readers get the weekday too.
@@ -202,7 +293,9 @@ class StatTile extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color: bg,
-                  borderRadius: BorderRadius.circular(PayeshTokens.radiusSmall),
+                  borderRadius: BorderRadius.circular(
+                    tk.isNabd ? PayeshTokens.radius : PayeshTokens.radiusSmall,
+                  ),
                 ),
                 child: Icon(icon, color: fg),
               ),
@@ -216,6 +309,8 @@ class StatTile extends StatelessWidget {
                       faNumber(value),
                       style: t.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w700,
+                        // «نبض»: the number is the hero, in the primary colour (`.stat b`)
+                        color: tk.isNabd ? tk.primary : null,
                       ),
                     ),
                   ],

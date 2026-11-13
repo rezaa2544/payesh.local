@@ -6,6 +6,13 @@ void main() {
   for (final (name, t, theme) in [
     ('light', PayeshTokens.light, PayeshUi.light()),
     ('dark', PayeshTokens.dark, PayeshUi.dark()),
+    // row 147: «نبض» (client/pulse.css) for the owner panel — same AA bar
+    (
+      'nabd light',
+      PayeshTokens.nabdLight,
+      PayeshUi.light(look: PayeshLook.nabd),
+    ),
+    ('nabd dark', PayeshTokens.nabdDark, PayeshUi.dark(look: PayeshLook.nabd)),
   ]) {
     group('$name tokens meet WCAG 2.x AA', () {
       test('body text and secondary text on every surface ≥ 4.5:1', () {
@@ -47,6 +54,50 @@ void main() {
       });
     });
   }
+
+  test('«نبض»: the raw pulse.css light muted/primary fail AA, so the tokens darken them', () {
+    const pulseMuted = Color(0xFF5D7D76), pulsePrimary = Color(0xFF0D9488);
+    final t = PayeshTokens.nabdLight;
+    expect(contrastRatio(pulseMuted, t.bg), lessThan(wcagAA));
+    expect(contrastRatio(pulsePrimary, Colors.white), lessThan(wcagAA));
+    expect(t.muted, isNot(pulseMuted));
+    expect(t.primary, const Color(0xFF0F766E));
+    expect(t.primary2, pulsePrimary, reason: 'gradient start only');
+    // active navigation item: white icon on the primary fill
+    final rail = PayeshUi.light(look: PayeshLook.nabd).navigationRailTheme;
+    expect(
+      contrastRatio(rail.selectedIconTheme!.color!, rail.indicatorColor!),
+      greaterThanOrEqualTo(wcagAA),
+    );
+    final railDark = PayeshUi.dark(look: PayeshLook.nabd).navigationRailTheme;
+    expect(
+      contrastRatio(
+        railDark.selectedIconTheme!.color!,
+        railDark.indicatorColor!,
+      ),
+      greaterThanOrEqualTo(wcagAA),
+    );
+    // NEG: classic keeps Material defaults (no nav theme), classic tokens unchanged
+    expect(PayeshUi.light().navigationRailTheme.indicatorColor, isNull);
+    expect(PayeshTokens.light.primary, const Color(0xFF1E3A8A));
+    expect(
+      PayeshTokens.of(PayeshLook.classic, Brightness.dark),
+      same(PayeshTokens.dark),
+    );
+    expect(
+      PayeshTokens.of(PayeshLook.nabd, Brightness.dark),
+      same(PayeshTokens.nabdDark),
+    );
+    expect(PayeshTokens.light.cardRadius, PayeshTokens.radius);
+    expect(t.cardRadius, 18);
+    expect(PayeshTokens.light.lerp(t, 0.8).look, PayeshLook.nabd);
+    expect(PayeshTokens.light.lerp(t, 0.2).look, PayeshLook.classic);
+    expect(t.copyWith().look, PayeshLook.nabd);
+    expect(t.primaryGradient.colors, [t.primary2, t.primary]);
+    expect(PayeshTokens.light.primaryGradient.colors.toSet(), {
+      PayeshTokens.light.primary,
+    });
+  });
 
   test('contrast math matches WCAG reference values', () {
     expect(contrastRatio(Colors.black, Colors.white), closeTo(21, 0.01));

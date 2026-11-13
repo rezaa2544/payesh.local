@@ -535,6 +535,8 @@ class _OwnerAppState extends State<OwnerApp> {
     }
     return PayeshMaterialApp(
       navigatorKey: _nav,
+      // ردیف ۱۴۷: پوستهٔ پنل مالک = «نبض» پنل کاربران (client/pulse.css)
+      look: PayeshLook.nabd,
       title: 'پنل مالک پایش',
       themeMode: _theme,
       home: home,
@@ -701,103 +703,112 @@ class _LoginScreenState extends State<LoginScreen> {
         title: const Text('پنل مالک پلتفرم پایش'),
         actions: [widget.themeButton],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Card(
-            margin: const EdgeInsets.all(PayeshTokens.space4),
-            child: AutofillGroup(
-              child: ListView(
-                shrinkWrap: true,
-                padding: const EdgeInsets.all(PayeshTokens.space4),
-                children: [
-                  Text(
-                    'ورود به پنل مالک',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'این برنامه از برنامهٔ مدرسه جداست. ورود دومرحله‌ای (TOTP) اجباری است.',
-                    style: TextStyle(color: tk.muted),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'سرور: ${originText(widget.api.origin)}',
-                    key: const Key('login-origin'),
-                    textDirection: TextDirection.ltr,
-                    style: TextStyle(color: tk.muted, fontSize: 12),
-                  ),
-                  if (msg != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(
-                        msg,
-                        key: const Key('login-msg'),
-                        style: TextStyle(
-                          color:
-                              _error != null ||
-                                  msg == ownerErrors['unauthorized']
-                              ? tk.danger
-                              : tk.success,
+      body: PayeshBackdrop(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Card(
+              margin: const EdgeInsets.all(PayeshTokens.space4),
+              child: AutofillGroup(
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(PayeshTokens.space4),
+                  children: [
+                    const Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: PayeshBrandMark(size: 44),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'ورود به پنل مالک',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'این برنامه از برنامهٔ مدرسه جداست. ورود دومرحله‌ای (TOTP) اجباری است.',
+                      style: TextStyle(color: tk.muted),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'سرور: ${originText(widget.api.origin)}',
+                      key: const Key('login-origin'),
+                      textDirection: TextDirection.ltr,
+                      style: TextStyle(color: tk.muted, fontSize: 12),
+                    ),
+                    if (msg != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          msg,
+                          key: const Key('login-msg'),
+                          style: TextStyle(
+                            color:
+                                _error != null ||
+                                    msg == ownerErrors['unauthorized']
+                                ? tk.danger
+                                : tk.success,
+                          ),
                         ),
                       ),
-                    ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('login_id'),
-                    controller: _id,
-                    textDirection: TextDirection.ltr,
-                    autofillHints: const [AutofillHints.username],
-                    decoration: const InputDecoration(labelText: 'شناسهٔ ورود'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    key: const Key('password'),
-                    controller: _pw,
-                    obscureText: true,
-                    textDirection: TextDirection.ltr,
-                    autofillHints: const [AutofillHints.password],
-                    decoration: const InputDecoration(labelText: 'رمز عبور'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    key: const Key('totp'),
-                    controller: _totp,
-                    textDirection: TextDirection.ltr,
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    autofillHints: const [AutofillHints.oneTimeCode],
-                    decoration: const InputDecoration(
-                      labelText: 'کد دومرحله‌ای ۶ رقمی',
-                      counterText: '',
-                    ),
-                    onSubmitted: (_) => _submit(),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      FilledButton(
-                        key: const Key('login-submit'),
-                        onPressed: _busy ? null : _submit,
-                        child: _busy
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('ورود'),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('login_id'),
+                      controller: _id,
+                      textDirection: TextDirection.ltr,
+                      autofillHints: const [AutofillHints.username],
+                      decoration: const InputDecoration(
+                        labelText: 'شناسهٔ ورود',
                       ),
-                      const Spacer(),
-                      TextButton(
-                        key: const Key('change-server'),
-                        onPressed: widget.onChangeServer,
-                        child: const Text('تغییر سرور'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      key: const Key('password'),
+                      controller: _pw,
+                      obscureText: true,
+                      textDirection: TextDirection.ltr,
+                      autofillHints: const [AutofillHints.password],
+                      decoration: const InputDecoration(labelText: 'رمز عبور'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      key: const Key('totp'),
+                      controller: _totp,
+                      textDirection: TextDirection.ltr,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      autofillHints: const [AutofillHints.oneTimeCode],
+                      decoration: const InputDecoration(
+                        labelText: 'کد دومرحله‌ای ۶ رقمی',
+                        counterText: '',
                       ),
-                    ],
-                  ),
-                ],
+                      onSubmitted: (_) => _submit(),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        FilledButton(
+                          key: const Key('login-submit'),
+                          onPressed: _busy ? null : _submit,
+                          child: _busy
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('ورود'),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          key: const Key('change-server'),
+                          onPressed: widget.onChangeServer,
+                          child: const Text('تغییر سرور'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

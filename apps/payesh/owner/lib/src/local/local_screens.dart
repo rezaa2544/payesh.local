@@ -19,21 +19,28 @@ class _CardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('پنل مالک پلتفرم پایش'), actions: actions),
-    body: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: Card(
-          margin: const EdgeInsets.all(PayeshTokens.space4),
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.all(PayeshTokens.space4),
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 4),
-              Text(subtitle, style: TextStyle(color: context.tokens.muted)),
-              const SizedBox(height: 12),
-              ...children,
-            ],
+    body: PayeshBackdrop(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: Card(
+            margin: const EdgeInsets.all(PayeshTokens.space4),
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(PayeshTokens.space4),
+              children: [
+                const Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: PayeshBrandMark(size: 44),
+                ),
+                const SizedBox(height: 12),
+                Text(title, style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 4),
+                Text(subtitle, style: TextStyle(color: context.tokens.muted)),
+                const SizedBox(height: 12),
+                ...children,
+              ],
+            ),
           ),
         ),
       ),

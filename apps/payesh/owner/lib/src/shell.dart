@@ -273,10 +273,7 @@ class _OwnerShellState extends State<OwnerShell> {
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(28, 16, 16, 10),
-              child: Text(
-                'پنل مالک پایش',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+              child: _Brand(extended: true),
             ),
             for (final (pid, ptitle) in pages)
               NavigationDrawerDestination(
@@ -286,45 +283,81 @@ class _OwnerShellState extends State<OwnerShell> {
               ),
           ],
         ),
-        body: SafeArea(child: body),
+        body: PayeshBackdrop(child: SafeArea(child: body)),
       );
     }
     return Scaffold(
       appBar: AppBar(title: Text(title), actions: actions),
-      body: SafeArea(
-        child: Row(
-          children: [
-            SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight:
-                      MediaQuery.sizeOf(context).height - kToolbarHeight - 24,
-                ),
-                child: IntrinsicHeight(
-                  child: NavigationRail(
-                    key: const Key('nav-rail'),
-                    extended: size == SizeClass.expanded,
-                    labelType: size == SizeClass.expanded
-                        ? NavigationRailLabelType.none
-                        : NavigationRailLabelType.all,
-                    selectedIndex: _index,
-                    onDestinationSelected: _select,
-                    destinations: [
-                      for (final (pid, ptitle) in pages)
-                        NavigationRailDestination(
-                          icon: Icon(_icons[pid], key: Key('nav-$pid')),
-                          label: Text(ptitle),
-                        ),
-                    ],
+      body: PayeshBackdrop(
+        child: SafeArea(
+          child: Row(
+            children: [
+              SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight:
+                        MediaQuery.sizeOf(context).height - kToolbarHeight - 24,
+                  ),
+                  child: IntrinsicHeight(
+                    child: NavigationRail(
+                      key: const Key('nav-rail'),
+                      extended: size == SizeClass.expanded,
+                      labelType: size == SizeClass.expanded
+                          ? NavigationRailLabelType.none
+                          : NavigationRailLabelType.all,
+                      selectedIndex: _index,
+                      onDestinationSelected: _select,
+                      leading: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _Brand(extended: size == SizeClass.expanded),
+                      ),
+                      destinations: [
+                        for (final (pid, ptitle) in pages)
+                          NavigationRailDestination(
+                            icon: Icon(_icons[pid], key: Key('nav-$pid')),
+                            label: Text(ptitle),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            VerticalDivider(width: 1, color: tk.line),
-            Expanded(child: body),
-          ],
+              VerticalDivider(width: 1, color: tk.line),
+              Expanded(child: body),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Brand of the web panel's sidebar (`.brand`): the mark on the «نبض» gradient + «پنل مالک پایش».
+class _Brand extends StatelessWidget {
+  const _Brand({required this.extended});
+  final bool extended;
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = context.tokens;
+    const mark = PayeshBrandMark(size: 34);
+    if (!extended) {
+      return Semantics(
+        label: 'پنل مالک پایش',
+        child: const KeyedSubtree(key: Key('owner-brand'), child: mark),
+      );
+    }
+    return Row(
+      key: const Key('owner-brand'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        mark,
+        const SizedBox(width: 10),
+        Text(
+          'پنل مالک پایش',
+          style: TextStyle(fontWeight: FontWeight.w700, color: tk.primary),
+        ),
+      ],
     );
   }
 }

@@ -8,11 +8,20 @@ abstract final class PayeshUi {
   /// The app is Persian and right-to-left on every platform.
   static const Locale locale = Locale('fa', 'IR');
 
-  static ThemeData light({TargetPlatform? platform}) =>
-      _build(PayeshTokens.light, Brightness.light, platform);
+  static ThemeData light({
+    TargetPlatform? platform,
+    PayeshLook look = PayeshLook.classic,
+  }) => _build(
+    PayeshTokens.of(look, Brightness.light),
+    Brightness.light,
+    platform,
+  );
 
-  static ThemeData dark({TargetPlatform? platform}) =>
-      _build(PayeshTokens.dark, Brightness.dark, platform);
+  static ThemeData dark({
+    TargetPlatform? platform,
+    PayeshLook look = PayeshLook.classic,
+  }) =>
+      _build(PayeshTokens.of(look, Brightness.dark), Brightness.dark, platform);
 
   /// Desktop (Windows) is mouse-first → compact density; Android stays touch-standard.
   static VisualDensity densityFor(TargetPlatform p) => switch (p) {
@@ -30,13 +39,15 @@ abstract final class PayeshUi {
     final p = platform ?? defaultTargetPlatform;
     final scheme =
         ColorScheme.fromSeed(
-          seedColor: PayeshTokens.light.primary,
+          seedColor: PayeshTokens.of(t.look, Brightness.light).primary,
           brightness: b,
         ).copyWith(
           primary: t.primary,
           onPrimary: b == Brightness.light
               ? Colors.white
               : const Color(0xFF0B1220),
+          primaryContainer: t.isNabd ? t.soft : null,
+          onPrimaryContainer: t.isNabd ? t.ink : null,
           surface: t.card,
           onSurface: t.ink,
           onSurfaceVariant: t.muted,
@@ -49,9 +60,12 @@ abstract final class PayeshUi {
           secondaryContainer: t.soft,
           onSecondaryContainer: t.ink,
         );
-    const shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(PayeshTokens.radius)),
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(t.cardRadius)),
     );
+    final onPrimary = b == Brightness.light
+        ? Colors.white
+        : const Color(0xFF0B1220);
     const minButton = Size(
       PayeshTokens.minTouchTarget,
       PayeshTokens.minTouchTarget,
@@ -79,10 +93,67 @@ abstract final class PayeshUi {
       ),
       cardTheme: CardThemeData(
         color: t.card,
-        elevation: 0,
+        // «نبض»: layered surface with the soft teal glow (pulse.css `.card` → `--shadow`)
+        elevation: t.isNabd ? 3 : 0,
+        shadowColor: t.isNabd ? t.glow : null,
+        surfaceTintColor: t.isNabd ? Colors.transparent : null,
         margin: EdgeInsets.zero,
         shape: shape.copyWith(side: BorderSide(color: t.line)),
       ),
+      // «نبض»: the active item is filled with the primary colour and its icon is white
+      // (owner-panel/web/app.css `.navitem.active`); classic keeps the Material defaults.
+      navigationRailTheme: t.isNabd
+          ? NavigationRailThemeData(
+              backgroundColor: t.card,
+              indicatorColor: t.primary,
+              selectedIconTheme: IconThemeData(color: onPrimary),
+              unselectedIconTheme: IconThemeData(color: t.muted),
+              selectedLabelTextStyle: TextStyle(
+                color: t.primary,
+                fontWeight: FontWeight.w700,
+                fontFamily: PayeshTokens.fontFamily,
+                package: PayeshTokens.fontPackage,
+              ),
+              unselectedLabelTextStyle: TextStyle(
+                color: t.muted,
+                fontFamily: PayeshTokens.fontFamily,
+                package: PayeshTokens.fontPackage,
+              ),
+              indicatorShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(PayeshTokens.radius),
+              ),
+            )
+          : null,
+      navigationDrawerTheme: t.isNabd
+          ? NavigationDrawerThemeData(
+              backgroundColor: t.card,
+              indicatorColor: t.primary,
+              indicatorShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(PayeshTokens.radius),
+              ),
+              iconTheme: WidgetStateProperty.resolveWith(
+                (s) => IconThemeData(
+                  color: s.contains(WidgetState.selected) ? onPrimary : t.muted,
+                ),
+              ),
+              labelTextStyle: WidgetStateProperty.resolveWith(
+                (s) => TextStyle(
+                  color: s.contains(WidgetState.selected) ? onPrimary : t.ink,
+                  fontWeight: s.contains(WidgetState.selected)
+                      ? FontWeight.w700
+                      : FontWeight.w400,
+                  fontFamily: PayeshTokens.fontFamily,
+                  package: PayeshTokens.fontPackage,
+                ),
+              ),
+            )
+          : null,
+      navigationBarTheme: t.isNabd
+          ? NavigationBarThemeData(
+              backgroundColor: t.card,
+              indicatorColor: t.soft,
+            )
+          : null,
       appBarTheme: AppBarTheme(
         backgroundColor: t.card,
         foregroundColor: t.ink,
@@ -103,13 +174,20 @@ abstract final class PayeshUi {
         filled: true,
         fillColor: t.card,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(PayeshTokens.radiusSmall),
+          borderRadius: BorderRadius.circular(_fieldRadius(t)),
           borderSide: BorderSide(color: t.muted),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(PayeshTokens.radiusSmall),
+          borderRadius: BorderRadius.circular(_fieldRadius(t)),
           borderSide: BorderSide(color: t.muted),
         ),
+        // «نبض»: focus ring in the primary colour (pulse.css `--ring`)
+        focusedBorder: t.isNabd
+            ? OutlineInputBorder(
+                borderRadius: BorderRadius.circular(_fieldRadius(t)),
+                borderSide: BorderSide(color: t.primary, width: 2),
+              )
+            : null,
       ),
       chipTheme: ChipThemeData(
         backgroundColor: t.soft,
@@ -118,6 +196,9 @@ abstract final class PayeshUi {
     );
   }
 }
+
+double _fieldRadius(PayeshTokens t) =>
+    t.isNabd ? PayeshTokens.radius - 2 : PayeshTokens.radiusSmall;
 
 extension PayeshThemeX on BuildContext {
   PayeshTokens get tokens =>

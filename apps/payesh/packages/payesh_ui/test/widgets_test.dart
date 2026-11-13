@@ -10,6 +10,7 @@ Future<void> pumpAt(
   ThemeMode mode = ThemeMode.light,
   double textScale = 1,
   TargetPlatform platform = TargetPlatform.android,
+  PayeshLook look = PayeshLook.classic,
 }) async {
   t.view.physicalSize = size;
   t.view.devicePixelRatio = 1;
@@ -20,6 +21,7 @@ Future<void> pumpAt(
     PayeshMaterialApp(
       themeMode: mode,
       platform: platform,
+      look: look,
       home: const Showcase(),
     ),
   );
@@ -168,4 +170,58 @@ void main() {
     );
     expect(got, same(PayeshTokens.light));
   });
+
+  testWidgets(
+    'row 147 «نبض»: stat numbers in primary, rounder icon tiles, backdrop + brand',
+    (t) async {
+      Color? numberColour() =>
+          t.widget<Text>(find.text(faNumber(1234))).style?.color;
+      await pumpAt(t, const Size(1280, 800), look: PayeshLook.nabd);
+      expect(numberColour(), PayeshTokens.nabdLight.primary);
+      expect(t.takeException(), isNull);
+      // classic: the number keeps the body ink (theme default), nothing else changes
+      await pumpAt(t, const Size(1280, 800));
+      expect(numberColour(), isNot(PayeshTokens.nabdLight.primary));
+
+      Future<void> pumpPiece(PayeshLook look, Brightness b) async {
+        await t.pumpWidget(
+          MaterialApp(
+            theme: b == Brightness.light
+                ? PayeshUi.light(look: look)
+                : PayeshUi.dark(look: look),
+            home: const Directionality(
+              textDirection: TextDirection.rtl,
+              child: PayeshBackdrop(child: Center(child: PayeshBrandMark())),
+            ),
+          ),
+        );
+        await t.pumpAndSettle(); // the theme animates between looks
+      }
+
+      await pumpPiece(PayeshLook.nabd, Brightness.light);
+      expect(find.byKey(const Key('payesh-backdrop')), findsOneWidget);
+      final mark = t.widget<Container>(
+        find.descendant(
+          of: find.byType(PayeshBrandMark),
+          matching: find.byType(Container),
+        ),
+      );
+      final deco = mark.decoration! as BoxDecoration;
+      expect(deco.gradient, PayeshTokens.nabdLight.primaryGradient);
+      expect(deco.boxShadow, isNotEmpty);
+      await pumpPiece(PayeshLook.nabd, Brightness.dark);
+      expect(find.byKey(const Key('payesh-backdrop')), findsOneWidget);
+      // NEG: classic — plain surface colour, no wash, flat mark
+      await pumpPiece(PayeshLook.classic, Brightness.light);
+      expect(find.byKey(const Key('payesh-backdrop')), findsNothing);
+      final flat = t.widget<Container>(
+        find.descendant(
+          of: find.byType(PayeshBrandMark),
+          matching: find.byType(Container),
+        ),
+      );
+      expect((flat.decoration! as BoxDecoration).boxShadow, isNull);
+      expect(t.takeException(), isNull);
+    },
+  );
 }
