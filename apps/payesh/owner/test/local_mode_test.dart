@@ -587,6 +587,55 @@ void main() {
         },
       );
 
+      for (final withDb in [false, true]) {
+        testWidgets('every section opens without a platform server '
+            '(${withDb ? 'database set but unreachable' : 'no database'})', (
+          tester,
+        ) async {
+          final secure = FakeSecureStore();
+          if (withDb) {
+            await S3Settings(
+              endpoint: normalizeS3Endpoint('s3.ir-central1.arvanstorage.ir')!,
+              accessKey: 'AK-TEST',
+              secretKey: 'SK-TEST',
+              bucket: 'payesh-madrese',
+            ).save(secure);
+          }
+          // FakeS3 بدون پاسخ ⇒ هر درخواست 500 (دیتابیس در دسترس نیست)
+          await _pump(tester, secure: secure, s3: FakeS3([]));
+          await _setup(tester);
+          for (final id in [
+            'dashboard',
+            'schools',
+            'plans',
+            'limits',
+            'health',
+            'infra',
+            'operators',
+            'reports',
+            'audit',
+          ]) {
+            await _tap(tester, 'nav-$id');
+            expect(
+              find.byKey(const Key('server-needed')),
+              findsNothing,
+              reason: id,
+            );
+            expect(
+              find.byKey(const Key('state-error')),
+              findsNothing,
+              reason: id,
+            );
+            expect(
+              find.byKey(const Key('mode-badge')),
+              findsOneWidget,
+              reason: id,
+            );
+            expect(tester.takeException(), isNull, reason: id);
+          }
+        });
+      }
+
       testWidgets('stays signed in after restart until «خروج»', (tester) async {
         final secure = FakeSecureStore();
         await _pump(tester, secure: secure);
