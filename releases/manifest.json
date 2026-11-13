@@ -1,6 +1,6 @@
 {
   "version": "0.9.2",
-  "built_at": "2026-11-13T07:30:49.778Z",
+  "built_at": "2026-11-13T08:34:11.709Z",
   "notes": [
     "نگاشت آیکون‌های نبض هر دو شکل ایموجی با و بدون variation selector را به SVG یکسان می‌برد.",
     "بسته‌های نصب و مانیفست برای نگاشت آیکون‌های اصلاح‌شده به نسخهٔ 0.9.2 ارتقا یافتند."
@@ -114,8 +114,8 @@
     {
       "path": "client/lib/s3mini.js",
       "kind": "client",
-      "sha256": "030d297054ca3e78f2ec29e3f84a24cef9c28eb072ff5f091f05f4e86a66f8ff",
-      "size": 18115
+      "sha256": "42828d2dd55ba2028bf4b120c127571695c91a741161f78822b8911bb71c9909",
+      "size": 18188
     },
     {
       "path": "client/lib/sigv4.js",
@@ -304,6 +304,12 @@
       "size": 32603
     },
     {
+      "path": "server/helper-jobs.js",
+      "kind": "server",
+      "sha256": "c7be52a948e8f1fc2b2a3fd899b413bdc03287a9efd938adca3a00fe57be9b11",
+      "size": 21222
+    },
+    {
       "path": "server/identity.js",
       "kind": "server",
       "sha256": "0de7c29ef682177f46d2e259634cd0a4ca09a17811fa243a27328b22ad9903dc",
@@ -312,8 +318,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "fda8a9cd1ca3c9bcfdb5a60a09aac3c0167cb3222ba43fbc9367ba95b15bcc5a",
-      "size": 126496
+      "sha256": "90eaeaf4adbeb1616095be5dee1befc26457803fcc3b55c9c97311a8997128fa",
+      "size": 128030
     },
     {
       "path": "server/kill-switch.js",
@@ -396,8 +402,8 @@
     {
       "path": "server/s3-https.js",
       "kind": "server",
-      "sha256": "a162f9a89c5b847bbedcc05e851a5fa8dedfd48dfc4531adedb88504818a4170",
-      "size": 2461
+      "sha256": "3c6c5a9cf377cc90b953b27b542f65e7eb9289e7ce83b5818c8558bebcd291c7",
+      "size": 2684
     },
     {
       "path": "server/s3mem.js",
@@ -498,9 +504,9 @@
   ],
   "counts": {
     "client": 34,
-    "server": 47
+    "server": 48
   },
-  "client_size": 1486430,
-  "server_size": 703830,
-  "total_size": 2190260
+  "client_size": 1486503,
+  "server_size": 726809,
+  "total_size": 2213312
 }
