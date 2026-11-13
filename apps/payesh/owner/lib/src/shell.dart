@@ -12,6 +12,7 @@ import 'pages/plans_page.dart';
 import 'pages/reports_page.dart';
 import 'pages/schools_page.dart';
 import 'monitor/live_monitor.dart';
+import 'schools/school_registry.dart';
 import 'widgets.dart';
 
 const Map<String, IconData> _icons = {
@@ -56,10 +57,14 @@ class OwnerShell extends StatefulWidget {
     this.dbLight,
     this.updateLight,
     this.monitor,
+    this.schools,
   });
 
   /// پایش زندهٔ زیرساخت در داشبورد.
   final LiveMonitor? monitor;
+
+  /// مدارس، درخواست ثبت‌نام و اشتراک (برگردان p2، ردیف ۱۴۵).
+  final SchoolRegistry? schools;
 
   /// چراغ وضعیت دیتابیس: همیشه پیدا، بالا-چپ (آخرین جای نوار در راست‌به‌چپ).
   final Widget? dbLight;
@@ -124,6 +129,7 @@ class _OwnerShellState extends State<OwnerShell> {
       flash: _show,
       now: widget.now,
       monitor: widget.monitor,
+      schools: widget.schools,
       child: KeyedSubtree(
         key: ValueKey('page-$id-${identityHashCode(api)}'),
         child: id == 'infra' && widget.infraTop != null

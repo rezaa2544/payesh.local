@@ -14,6 +14,7 @@ import 'local/s3_client.dart';
 import 'local/settings_page.dart';
 import 'infra/infra_card.dart';
 import 'monitor/live_monitor.dart';
+import 'schools/school_registry.dart';
 import 'platform.dart';
 import 'shell.dart';
 import 'status/status_lights.dart';
@@ -106,6 +107,19 @@ class _OwnerAppState extends State<OwnerApp> {
 
   /// چراغ دیتابیس: سنجش دوره‌ای + وصل شدن خودکار.
   DbMonitor? _dbMonitor;
+
+  /// مدارس، درخواست ثبت‌نام و اشتراک در صندوقچه (ردیف ۱۴۵).
+  SchoolRegistry? _schoolsReg;
+  SchoolRegistry? get _schools {
+    final secure = widget.secure;
+    if (secure == null) return null;
+    return _schoolsReg ??= SchoolRegistry(
+      secure: secure,
+      s3Factory:
+          widget.platformS3Factory ?? widget.s3Factory ?? IoS3Transport.new,
+      now: _now,
+    );
+  }
 
   /// پایش زندهٔ زیرساخت در داشبورد (فقط وقتی داشبورد باز است کار می‌کند).
   LiveMonitor? _live;
@@ -431,6 +445,7 @@ class _OwnerAppState extends State<OwnerApp> {
       ),
       dbLight: _dbMonitor == null ? null : DbLight(monitor: _dbMonitor!),
       monitor: _liveMonitor,
+      schools: _schools,
       updateLight: widget.updater == null
           ? null
           : UpdateLight(updater: widget.updater!, openUrl: widget.openUrl),
@@ -515,6 +530,7 @@ class _OwnerAppState extends State<OwnerApp> {
         themeButton: _themeButton,
         onSignOut: _signOut,
         monitor: _liveMonitor,
+        schools: _schools,
       );
     }
     return PayeshMaterialApp(

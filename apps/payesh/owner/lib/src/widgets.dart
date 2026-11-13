@@ -4,6 +4,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import 'format.dart';
 import 'monitor/live_monitor.dart';
+import 'schools/school_registry.dart';
 
 /// Session-wide services for the pages.
 class OwnerScope extends InheritedWidget {
@@ -14,9 +15,13 @@ class OwnerScope extends InheritedWidget {
     required this.now,
     required super.child,
     this.monitor,
+    this.schools,
   });
 
   final OwnerApi api;
+
+  /// فهرست مدارس و اشتراک در صندوقچه (ردیف ۱۴۵)؛ null ⇒ این بخش‌ها نشان داده نمی‌شوند.
+  final SchoolRegistry? schools;
 
   /// پایش زندهٔ زیرساخت (داشبورد)؛ null ⇒ بدون پایش زنده.
   final LiveMonitor? monitor;
@@ -33,7 +38,7 @@ class OwnerScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(OwnerScope old) =>
-      api != old.api || monitor != old.monitor;
+      api != old.api || monitor != old.monitor || schools != old.schools;
 }
 
 /// Loading / error / empty placeholder (the web `.state`), announced to screen readers.

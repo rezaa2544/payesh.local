@@ -4,6 +4,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../format.dart';
 import '../widgets.dart';
+import '../schools/subscription_section.dart';
 import 'base.dart';
 
 class PlansPage extends StatefulWidget {
@@ -142,11 +143,18 @@ class _PlansPageState extends OwnerPageState<PlansPage> {
         ],
       ),
     );
+    final reg = scope.schools;
     return PageList(
       onRefresh: reload,
       children: [
+        if (reg != null)
+          SubscriptionSection(
+            registry: reg,
+            flash: scope.flash,
+            canManage: caps.renew,
+          ),
         PayeshSection(
-          title: 'پلن‌ها',
+          title: reg == null ? 'پلن‌ها' : 'پلن‌های فضای ابری پلتفرم',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -164,7 +172,10 @@ class _PlansPageState extends OwnerPageState<PlansPage> {
             ],
           ),
         ),
-        PayeshSection(title: 'اشتراک‌ها', child: subs),
+        PayeshSection(
+          title: reg == null ? 'اشتراک‌ها' : 'اشتراک‌های فضای ابری پلتفرم',
+          child: subs,
+        ),
       ],
     );
   }

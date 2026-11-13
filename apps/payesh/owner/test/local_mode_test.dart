@@ -679,6 +679,19 @@ void main() {
           expect(find.byKey(const Key('activation-code')), findsNothing);
 
           await _tap(tester, 'nav-plans');
+          // بخش اشتراک مدارس (ردیف ۱۴۵) بالای پلن‌های فضای ابری است
+          expect(find.byKey(const Key('subscription-section')), findsOneWidget);
+          await tester.scrollUntilVisible(
+            find.text('پلن‌های فضای ابری پلتفرم'),
+            300,
+            scrollable: find
+                .descendant(
+                  of: find.byType(ListView),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
           expect(find.text('نامحدود'), findsWidgets);
           await _tap(tester, 'nav-health');
           expect(find.byKey(const Key('health-local')), findsOneWidget);

@@ -5,6 +5,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../format.dart';
 import '../widgets.dart';
+import '../schools/schools_section.dart';
 import 'base.dart';
 
 class SchoolsPage extends StatefulWidget {
@@ -262,11 +263,20 @@ class _SchoolsPageState extends OwnerPageState<SchoolsPage> {
         );
       }
     }
+    final reg = scope.schools;
     return PageList(
       onRefresh: reload,
       children: [
+        if (reg != null)
+          SchoolsRegistrySection(
+            registry: reg,
+            flash: scope.flash,
+            canManage: caps.createSchool,
+          ),
         PayeshSection(
-          title: 'فهرست مدارس',
+          title: reg == null
+              ? 'فهرست مدارس'
+              : 'فهرست مدارس پلتفرم (فضاهای ابری اختیاری)',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -274,7 +284,7 @@ class _SchoolsPageState extends OwnerPageState<SchoolsPage> {
                 ActionRow([
                   actionButton(
                     'create-school',
-                    'ساخت مدرسه',
+                    reg == null ? 'ساخت مدرسه' : 'ساخت فضای ابری',
                     _createSchool,
                     primary: true,
                   ),
