@@ -58,6 +58,12 @@ const List<SubPlan> subPlans = [
   SubPlan('yearly', 'سالانه', 12, 2200000),
 ];
 
+/// ردیف ۱۴۹: فقط ماهانه (۳۱ روز) و سالانه (تا ۳۱ شهریور) برای هر نقش ارائه می‌شود.
+const List<SubPlan> offeredPlans = [
+  SubPlan('monthly', 'ماهانه', 1, 250000),
+  SubPlan('yearly', 'سالانه', 12, 2200000),
+];
+
 const List<String> subRoles = [
   'manager',
   'deputy',
@@ -339,7 +345,7 @@ final class SubSettings {
     required this.trialDays,
     required this.paywallEnabled,
     required this.roles,
-    required this.prices,
+    required this.rolePrices,
     required this.payUrl,
     required this.verifyUrl,
     required this.receiptEnabled,
@@ -358,20 +364,33 @@ final class SubSettings {
         }
       }
     }
-    final prices = <String, int?>{};
+    // ردیف ۱۴۹: قیمت هر نقش (role_plans)؛ وگرنه از فهرست قدیمی plans برای همهٔ نقش‌ها
+    final legacy = <String, int?>{};
     final pl = s['plans'];
     if (pl is List && pl.isNotEmpty) {
       for (final p in pl) {
-        if (p is Map && subPlans.any((d) => d.key == p['key'])) {
+        if (p is Map && offeredPlans.any((d) => d.key == p['key'])) {
           final v = p['price'];
-          prices['${p['key']}'] = v is num && v >= 0 ? v.round() : null;
+          legacy['${p['key']}'] = v is num && v >= 0 ? v.round() : null;
         }
       }
     } else {
-      for (final d in subPlans) {
-        prices[d.key] = d.price;
+      for (final d in offeredPlans) {
+        legacy[d.key] = d.price;
       }
     }
+    final rp = s['role_plans'];
+    int? priceOf(String role, String plan) {
+      if (rp is! Map) return legacy[plan];
+      final m = rp[role];
+      final v = m is Map ? m[plan] : null;
+      return v is num && v >= 0 ? v.round() : null;
+    }
+
+    final rolePrices = <String, Map<String, int?>>{
+      for (final r in subRoles)
+        r: {for (final d in offeredPlans) d.key: priceOf(r, d.key)},
+    };
     final days = s['trial_days'];
     final g = s['gateway'] is Map
         ? (s['gateway']! as Map).cast<String, Object?>()
@@ -387,7 +406,7 @@ final class SubSettings {
           ? s['paywall_enabled']! as bool
           : true,
       roles: roles,
-      prices: prices,
+      rolePrices: rolePrices,
       payUrl: '${g['pay_url'] ?? ''}',
       verifyUrl: '${g['verify_url'] ?? ''}',
       receiptEnabled: s['receipt_enabled'] is bool
@@ -402,8 +421,10 @@ final class SubSettings {
   bool paywallEnabled;
   Map<String, String> roles;
 
-  /// کلید پلن ← قیمت (ریال)؛ پلنی که نیست ارائه نمی‌شود.
-  Map<String, int?> prices;
+  /// نقش ← (پلن ← قیمت به ریال)؛ null یعنی آن پلن برای آن نقش ارائه نمی‌شود.
+  Map<String, Map<String, int?>> rolePrices;
+
+  bool offered(String role, String plan) => rolePrices[role]?[plan] != null;
   String payUrl;
   String verifyUrl;
   bool receiptEnabled;
@@ -411,15 +432,27 @@ final class SubSettings {
 
   bool get gatewayConfigured => payUrl.trim().isNotEmpty;
 
+  int? _legacyPrice(String plan) {
+    for (final r in ['manager', ...subRoles]) {
+      final p = rolePrices[r]?[plan];
+      if (p != null) return p;
+    }
+    return null;
+  }
+
   Map<String, Object?> toJson() => {
     'trial_enabled': trialEnabled,
     'trial_days': trialDays,
     'paywall_enabled': paywallEnabled,
     'roles': roles,
+    'role_plans': {
+      for (final r in subRoles)
+        r: {for (final d in offeredPlans) d.key: rolePrices[r]?[d.key]},
+    },
+    // سازگاری با سرورهای مدرسهٔ پیش از ردیف ۱۴۹: قیمت مدیر (یا نخستین نقشِ دارای قیمت)
     'plans': [
-      for (final d in subPlans)
-        if (prices.containsKey(d.key) && prices[d.key] != null)
-          {'key': d.key, 'price': prices[d.key]},
+      for (final d in offeredPlans)
+        if (_legacyPrice(d.key) case final int p) {'key': d.key, 'price': p},
     ],
     'gateway': {'pay_url': payUrl.trim(), 'verify_url': verifyUrl.trim()},
     'receipt_enabled': receiptEnabled,
@@ -1060,7 +1093,7 @@ final class SchoolRegistry {
     int? userId,
     String? role,
   }) {
-    if (kind != 'gift' && kind != 'reset') {
+    if (kind != 'gift' && kind != 'reset' && kind != 'cancel') {
       throw const SchoolsFailure('invalid', 'نوع فرمان نامعتبر است.');
     }
     if (kind == 'gift' && (days < 1 || days > 3650)) {
@@ -1087,7 +1120,14 @@ final class SchoolRegistry {
   }
 
   /// تأیید یا رد یک پرداخت (رسید یا درگاهِ بدون پیوند تأیید).
-  Future<void> decide(String paymentId, bool approved, {String reason = ''}) {
+  Future<void> decide(String paymentId, bool approved, {String reason = ''}) =>
+      _decision(paymentId, approved ? 'approved' : 'rejected', reason);
+
+  /// ردیف ۱۴۹: لغو پرداختِ تأییدشده — سرور مدرسه اشتراک ساخته‌شده از آن را همین حالا می‌بندد.
+  Future<void> cancelPayment(String paymentId, {required String reason}) =>
+      _decision(paymentId, 'cancelled', reason);
+
+  Future<void> _decision(String paymentId, String status, String reason) {
     if (!paymentIdRe.hasMatch(paymentId)) {
       throw const SchoolsFailure('invalid', 'شناسهٔ پرداخت نامعتبر است.');
     }
@@ -1096,8 +1136,8 @@ final class SchoolRegistry {
           ? (plain['decisions']! as Map).cast<String, Object?>()
           : <String, Object?>{};
       d[paymentId] = {
-        'status': approved ? 'approved' : 'rejected',
-        if (!approved) 'reason': reason.trim(),
+        'status': status,
+        if (status != 'approved') 'reason': reason.trim(),
         'at': _now().toUtc().toIso8601String(),
       };
       plain['decisions'] = d;

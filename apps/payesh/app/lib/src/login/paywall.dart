@@ -12,15 +12,24 @@ import 'session_controller.dart';
 
 String _money(int rial) => '${faNumber(rial)} ریال';
 
-String _planDesc(SubPlanOffer p, List<SubPlanOffer> all) {
-  final m = all.where((x) => x.key == 'monthly').firstOrNull;
-  if (p.key == 'monthly' || m == null || m.price <= 0) {
-    return 'دسترسی کامل برای ${faDigits(p.months * 30)} روز';
+/// ردیف ۱۴۹: ماهانه ۳۱ روز و سالانه تا پایان سال تحصیلی؛ همه در ۳۱ شهریور تمام می‌شوند.
+String planDesc(SubPlanOffer p, DateTime now, [DateTime? currentEnd]) {
+  if (p.key == 'yearly') {
+    final end = AcademicYear.yearlyEnd(now, currentEnd);
+    return 'تا پایان سال تحصیلی — ${AcademicYear.yearEndLabel(end.subtract(const Duration(seconds: 1)))} (مبلغ کامل سال)';
   }
-  final save = 100 - (p.price * 100 / (m.price * p.months)).round();
-  return save > 0
-      ? '${p.key == 'yearly' ? 'به‌صرفه‌ترین گزینه' : 'صرفه‌جویی'} — ${faDigits(save)}٪ نسبت به خرید ماهانه'
-      : 'دسترسی کامل برای ${faDigits(p.months * 30)} روز';
+  if (p.key == 'monthly') {
+    final end = AcademicYear.monthlyEnd(now, currentEnd);
+    final capped =
+        end ==
+        AcademicYear.yearEnd(
+          currentEnd != null && currentEnd.isAfter(now) ? currentEnd : now,
+        );
+    return capped
+        ? 'دسترسی کامل تا ${AcademicYear.yearEndLabel(end.subtract(const Duration(seconds: 1)))} (پایان سال تحصیلی)'
+        : 'دسترسی کامل برای ${faDigits(AcademicYear.monthlyDays)} روز — تا ${_date(end)}';
+  }
+  return 'دسترسی کامل برای ${faDigits(p.months * 30)} روز';
 }
 
 /// p2: «یک‌ماهه / سه‌ماهه / یک‌ساله».
@@ -47,8 +56,41 @@ class SubBanner extends StatelessWidget {
     final trial = sub.status == 'trial';
     return Wrap(
       spacing: PayeshTokens.space2,
+      runSpacing: PayeshTokens.space2,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        // ردیف ۱۴۹: از ۱ تیر هشدار تمدید برای مدیر مدرسه
+        if (sub.renewWarning) ...[
+          StatusBadge(
+            '⚠️ وقت تمدید برای سال تحصیلی جدید',
+            key: const Key('sub-renew-warning'),
+            tone: PayeshTone.warning,
+          ),
+          Text(
+            'اشتراک فعلی ${_date(sub.end)} تمام می‌شود.',
+            key: const Key('sub-renew-help'),
+          ),
+          TextButton(
+            key: const Key('sub-renew'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => Scaffold(
+                  appBar: AppBar(title: const Text('تمدید اشتراک')),
+                  body: ListenableBuilder(
+                    listenable: controller,
+                    builder: (context, _) => controller.sub == null
+                        ? const SizedBox.shrink()
+                        : SingleChildScrollView(
+                            padding: const EdgeInsets.all(PayeshTokens.space4),
+                            child: PaywallView(controller: controller),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+            child: const Text('تمدید'),
+          ),
+        ],
         StatusBadge(
           trial
               ? '🎁 تست رایگان — ${faDigits(sub.daysLeft)} روز'
@@ -123,18 +165,27 @@ class _PaywallViewState extends State<PaywallView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               StatusBadge(
-                s.status == 'expired'
-                    ? 'منقضی — ${_date(s.end)}'
-                    : 'بدون اشتراک',
+                switch (s.status) {
+                  _ when s.access => 'فعال — تا ${_date(s.end)}',
+                  'expired' => 'منقضی — ${_date(s.end)}',
+                  'cancelled' => 'لغو شده',
+                  _ => 'بدون اشتراک',
+                },
                 key: const Key('paywall-status'),
-                tone: PayeshTone.danger,
+                tone: s.access ? PayeshTone.warning : PayeshTone.danger,
               ),
               const SizedBox(height: PayeshTokens.space2),
+              Text(switch (s.status) {
+                _ when s.access => 'برای سال تحصیلی جدید اشتراک را تمدید کنید؛ اشتراک سالانه‌ای که از ۱ تیر خریده شود تا ۳۱ شهریور سال بعد اعتبار دارد.',
+                'expired' => 'اشتراک شما منقضی شده است. برای ادامهٔ کار یکی از طرح‌های زیر را تهیه کنید.',
+                'cancelled' => 'اشتراک شما از سوی پشتیبانی پایش لغو شده است. برای ادامهٔ کار دوباره اشتراک تهیه کنید یا با پشتیبانی تماس بگیرید.',
+                _ => 'برای نقش شما اشتراک لازم است؛ تا پرداخت و تأیید آن، امکانات برنامه فعال نمی‌شود.',
+              }, key: const Key('paywall-help')),
+              const SizedBox(height: PayeshTokens.space2),
               Text(
-                s.status == 'expired'
-                    ? 'اشتراک شما منقضی شده است. برای ادامهٔ کار یکی از طرح‌های زیر را تهیه کنید.'
-                    : 'برای نقش شما اشتراک لازم است؛ تا پرداخت و تأیید آن، امکانات برنامه فعال نمی‌شود.',
-                key: const Key('paywall-help'),
+                'همهٔ اشتراک‌ها در پایان سال تحصیلی (۳۱ شهریور) تمام می‌شوند.',
+                key: const Key('paywall-year-end'),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),
@@ -160,7 +211,7 @@ class _PaywallViewState extends State<PaywallView> {
               ),
             ),
           ),
-        if (s.trialAvailable) ...[
+        if (s.trialAvailable && !s.access) ...[
           const SizedBox(height: PayeshTokens.space3),
           PayeshSection(
             title: '🎁 تست رایگان',
@@ -237,7 +288,11 @@ class _PaywallViewState extends State<PaywallView> {
                                           style: theme.textTheme.titleSmall,
                                         ),
                                         Text(
-                                          _planDesc(p, plans),
+                                          planDesc(
+                                            p,
+                                            DateTime.now(),
+                                            s.access ? s.end : null,
+                                          ),
                                           style: theme.textTheme.bodySmall,
                                         ),
                                       ],

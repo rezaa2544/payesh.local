@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
 import 'package:payesh_owner/src/net/resilience.dart';
+import 'package:payesh_owner/src/schools/payments_section.dart';
 import 'package:payesh_owner/src/schools/school_registry.dart';
 import 'package:payesh_owner/src/schools/schools_section.dart';
 import 'package:payesh_owner/src/schools/subscription_section.dart';
@@ -314,28 +315,66 @@ void main() {
 
       await pumpSection(
         tester,
-        SubscriptionSection(registry: reg, flash: flash),
+        Column(
+          children: [
+            SubscriptionSection(registry: reg, flash: flash),
+            PaymentsSection(registry: reg, flash: flash),
+          ],
+        ),
       );
       expect(find.byKey(const Key('subscription-section')), findsOneWidget);
+      expect(find.byKey(const Key('payments-section')), findsOneWidget);
+      expect(find.byKey(const Key('sub-year-end')), findsOneWidget);
+      // پالایه و جست‌وجو
+      await tap(tester, 'pay-filter-paid');
+      expect(find.text('پرداختی با این پالایه پیدا نشد.'), findsOneWidget);
+      await tap(tester, 'pay-filter-pending');
+      expect(find.byKey(const Key('pay-approve-SUB-0A1B2C3D')), findsOneWidget);
+      await type(tester, 'pay-search', 'trx-sub-0a1b2c3e');
+      expect(find.byKey(const Key('pay-approve-SUB-0A1B2C3D')), findsNothing);
+      expect(find.byKey(const Key('pay-approve-SUB-0A1B2C3E')), findsOneWidget);
+      await type(tester, 'pay-search', '');
+      await tap(tester, 'pay-filter-all');
       expect(find.byKey(const Key('gateway-off')), findsOneWidget);
       expect(find.text('در انتظار تأیید: ۲'), findsOneWidget);
       expect(find.text('آزمایشی: ۱'), findsOneWidget);
 
-      // نقش دبیر ⇒ اشتراکی؛ آزمایشی ۱۴ روز؛ فصلی خاموش؛ قیمت ماهانه
+      // ردیف ۱۴۹: نقش دبیر ⇒ کلید «نیاز به اشتراک»؛ ماهانه/سالانه با مبلغ ریالی جدا
       await tester.ensureVisible(find.byKey(const Key('sub-role-teacher')));
-      await tester.tap(
-        find.descendant(
-          of: find.byKey(const Key('sub-role-teacher')),
-          matching: find.text('نیاز به اشتراک'),
-        ),
+      expect(find.byKey(const Key('sub-price-teacher-monthly')), findsNothing);
+      await tap(tester, 'sub-role-teacher');
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('sub-role-label-teacher')))
+            .data,
+        'نیاز به اشتراک',
       );
-      await tester.pump();
+      expect(
+        find.byKey(const Key('sub-price-teacher-monthly')),
+        findsOneWidget,
+      );
       await type(tester, 'sub-trial-days', '400');
       await tap(tester, 'sub-save');
       expect(flashes.last, (false, 'روزهای آزمایشی باید بین ۰ تا ۳۶۵ باشد.'));
       await type(tester, 'sub-trial-days', '۱۴');
-      await tap(tester, 'sub-plan-on-seasonal');
-      await type(tester, 'sub-price-monthly', '300000');
+      // سالانهٔ دبیر خاموش ⇒ کادر مبلغ غیرفعال؛ مبلغ خالی پذیرفته نمی‌شود
+      await tap(tester, 'sub-on-teacher-yearly');
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const Key('sub-price-teacher-yearly')),
+            )
+            .enabled,
+        isFalse,
+      );
+      await type(tester, 'sub-price-teacher-monthly', '');
+      await tap(tester, 'sub-save');
+      expect(flashes.last, (
+        false,
+        'قیمت ماهانه برای دبیر را به ریال وارد کنید.',
+      ));
+      await type(tester, 'sub-price-teacher-monthly', '۹۰۰۰۰');
+      await type(tester, 'sub-price-manager-monthly', '300000');
       await tap(tester, 'sub-save');
       expect(flashes.last.$1, isTrue, reason: '${flashes.last}');
 
@@ -366,6 +405,10 @@ void main() {
         {'key': 'monthly', 'price': 300000},
         {'key': 'yearly', 'price': 2200000},
       ]);
+      expect((st['role_plans']! as Map)['teacher'], {
+        'monthly': 90000,
+        'yearly': null,
+      });
       expect((st['gateway']! as Map)['pay_url'], startsWith('https://pay.'));
       expect(st['receipt_note'], 'کارت ۶۰۳۷-۰۰۰۰');
       expect(plain['domain'], 'payesh.example.ir');
@@ -382,6 +425,21 @@ void main() {
       await tap(tester, 'dlg-submit');
       expect(flashes.last, (true, 'پرداخت رد شد.'));
       expect(find.text('رد شد (در حال اعمال)'), findsOneWidget);
+      // ردیف ۱۴۹: لغو پرداخت تأییدشده
+      await tap(tester, 'pay-cancel-SUB-0A1B2C3D');
+      await type(tester, 'dlg-reason', 'تراکنش تکراری بود و برگشت داده شد');
+      await tap(tester, 'dlg-submit');
+      expect(flashes.last.$1, isTrue);
+      expect(find.text('لغو شد (در حال اعمال)'), findsOneWidget);
+      expect(find.byKey(const Key('pay-cancel-SUB-0A1B2C3D')), findsNothing);
+      // لغو اشتراک یک مشترک
+      await tap(tester, 'sub-cancel-$id-1');
+      await type(tester, 'dlg-reason', 'لغو اشتراک به درخواست مدیر');
+      await tap(tester, 'dlg-submit');
+      expect(flashes.last, (
+        true,
+        'لغو اشتراک ثبت شد؛ سرور مدرسه تا یک دقیقهٔ دیگر اعمال می‌کند.',
+      ));
 
       // هدیه و بازنشانی برای یک مشترک
       await tap(tester, 'sub-gift-$id-1');
@@ -399,14 +457,18 @@ void main() {
 
       plain = await tester.runAsync(inBucket);
       final d = plain!['decisions']! as Map;
-      expect((d['SUB-0A1B2C3D']! as Map)['status'], 'approved');
+      expect((d['SUB-0A1B2C3D']! as Map)['status'], 'cancelled');
       expect((d['SUB-0A1B2C3E']! as Map)['status'], 'rejected');
       final grants = plain['grants']! as List;
-      expect([for (final g in grants) (g as Map)['kind']], ['gift', 'reset']);
-      expect((grants.first as Map)['user_id'], 1);
-      expect((grants.first as Map)['days'], 20);
+      expect(
+        [for (final g in grants) (g as Map)['kind']],
+        ['cancel', 'gift', 'reset'],
+      );
+      expect((grants[1] as Map)['user_id'], 1);
+      expect((grants[1] as Map)['days'], 20);
 
       await tap(tester, 'sub-refresh');
+      await tap(tester, 'pay-refresh');
       expect(tester.takeException(), isNull);
     },
   );

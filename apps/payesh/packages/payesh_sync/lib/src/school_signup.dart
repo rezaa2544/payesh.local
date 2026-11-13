@@ -306,11 +306,13 @@ final class SubStatus {
     this.end,
     this.daysLeft = 0,
     this.pending = const [],
+    this.renewWarning = false,
+    this.yearEnd,
   });
   final bool managed;
   final bool access;
 
-  /// free | trial | active | expired | none | school_inactive | school_removed
+  /// free | trial | active | expired | cancelled | none | school_inactive | school_removed
   final String status;
   final String? role;
   final String? policy;
@@ -325,6 +327,12 @@ final class SubStatus {
   final DateTime? end;
   final int daysLeft;
   final List<SubPayment> pending;
+
+  /// ردیف ۱۴۹: از ۱ تیر، مدیری که اشتراک سال بعد را نخریده هشدار تمدید می‌بیند.
+  final bool renewWarning;
+
+  /// پایان سال تحصیلی جاری (۳۱ شهریور) — همهٔ اشتراک‌ها آن‌جا تمام می‌شوند.
+  final DateTime? yearEnd;
 
   bool get blockedSchool =>
       status == 'school_inactive' || status == 'school_removed';
@@ -355,6 +363,8 @@ final class SubStatus {
       plan: sub['plan'] as String?,
       end: DateTime.tryParse('${sub['end']}'),
       daysLeft: n(sub['days_left']),
+      renewWarning: sub['renew_warning'] == true,
+      yearEnd: DateTime.tryParse('${sub['year_end']}'),
       pending: [
         if (sub['pending'] is List)
           for (final p in sub['pending']! as List) ?SubPayment.fromJson(p),

@@ -4,6 +4,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../format.dart';
 import '../widgets.dart';
+import '../schools/payments_section.dart';
 import '../schools/subscription_section.dart';
 import 'base.dart';
 
@@ -153,6 +154,15 @@ class _PlansPageState extends OwnerPageState<PlansPage> {
             flash: scope.flash,
             canManage: caps.renew,
           ),
+        if (reg != null) ...[
+          const SizedBox(height: PayeshTokens.space3),
+          PaymentsSection(
+            registry: reg,
+            flash: scope.flash,
+            canManage: caps.renew,
+          ),
+          const SizedBox(height: PayeshTokens.space3),
+        ],
         PayeshSection(
           title: reg == null ? 'پلن‌ها' : 'پلن‌های فضای ابری پلتفرم',
           child: Column(

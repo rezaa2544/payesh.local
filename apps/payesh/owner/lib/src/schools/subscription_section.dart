@@ -1,12 +1,12 @@
 // صفحهٔ «پلن‌ها» — بخش اشتراک (برگردان p2 src/js/23-subscription.js): سیاست هر نقش
-// («اشتراکی» یا «رایگان»)، دورهٔ آزمایشی (یک بار برای هر دستگاه)، پلن‌ها و قیمت‌ها، درگاه
-// پرداخت (فقط پیوند)، ثبت رسید، کادر دامنه، پرداخت‌ها و مشترکان (هدیه/بازنشانی).
+// (کلید «نیاز به اشتراک»، ردیف ۱۴۹: ماهانه و سالانهٔ جداگانه با مبلغ ریالی)، دورهٔ آزمایشی
+// (یک بار برای هر دستگاه)، درگاه پرداخت (فقط پیوند)، ثبت رسید و کادر دامنه.
+// پرداخت‌ها و مشترکان در payments_section.dart (پیگیری، تأیید، رد، لغو).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
-import '../format.dart';
 import '../widgets.dart';
 import 'school_registry.dart';
 import 'schools_section.dart';
@@ -40,8 +40,11 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
   final _pay = TextEditingController();
   final _verify = TextEditingController();
   final _domain = TextEditingController();
+
+  /// کلید «نقش/پلن» ← کادر قیمت (ریال).
   final Map<String, TextEditingController> _price = {
-    for (final p in subPlans) p.key: TextEditingController(),
+    for (final r in subRoles)
+      for (final p in offeredPlans) '$r/${p.key}': TextEditingController(),
   };
 
   @override
@@ -63,9 +66,11 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
     _pay.text = s.payUrl;
     _verify.text = s.verifyUrl;
     _domain.text = v.domain;
-    for (final p in subPlans) {
-      final x = s.prices[p.key];
-      _price[p.key]!.text = x == null ? '' : '$x';
+    for (final r in subRoles) {
+      for (final p in offeredPlans) {
+        final x = s.rolePrices[r]?[p.key];
+        _price['$r/${p.key}']!.text = x == null ? '' : '$x';
+      }
     }
   }
 
@@ -82,20 +87,28 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
       ..receiptNote = _note.text
       ..payUrl = _pay.text
       ..verifyUrl = _verify.text;
-    for (final p in subPlans) {
-      final t = digitsOnly(_price[p.key]!.text);
-      if (s.prices.containsKey(p.key)) {
-        final n = int.tryParse(t);
-        if (n == null) {
-          flash(false, 'قیمت پلن ${p.title} را وارد کنید.');
+    for (final r in subRoles) {
+      for (final p in offeredPlans) {
+        if (!s.offered(r, p.key)) continue;
+        final n = int.tryParse(digitsOnly(_price['$r/${p.key}']!.text));
+        if (n == null || n <= 0) {
+          flash(
+            false,
+            'قیمت ${p.title} برای ${subRoleTitles[r]} را به ریال وارد کنید.',
+          );
           return;
         }
-        s.prices[p.key] = n;
+        s.rolePrices[r]![p.key] = n;
       }
-    }
-    if (s.prices.values.every((x) => x == null) && s.paywallEnabled) {
-      flash(false, 'دست‌کم یک پلن باید ارائه شود.');
-      return;
+      if (s.paywallEnabled &&
+          s.roles[r] == 'required' &&
+          offeredPlans.every((p) => !s.offered(r, p.key))) {
+        flash(
+          false,
+          'برای ${subRoleTitles[r]} (نیاز به اشتراک) دست‌کم یکی از ماهانه یا سالانه را روشن کنید.',
+        );
+        return;
+      }
     }
     _loadedRev = -1;
     try {
@@ -107,82 +120,6 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
     flash(true, okText);
     await reloadRegistry();
   }
-
-  Future<void> _decide(Map<String, Object?> p, bool ok) async {
-    final d = await showReasonDialog(
-      context,
-      title: ok ? 'تأیید پرداخت ${p['id']}' : 'رد پرداخت ${p['id']}',
-      danger: !ok,
-      submit: ok ? 'تأیید' : 'رد',
-      lines: [
-        '${p['name'] ?? ''} (${subRoleTitles[p['role']] ?? p['role']}) — پلن ${_planTitle(p['plan'])}، مبلغ ${faNum(p['amount'] ?? 0)} ریال',
-        if (p['ref'] != null) 'شمارهٔ رسید/مرجع: ${p['ref']}',
-        ok
-            ? 'با تأیید، اشتراک این کاربر از پایان اشتراک فعلی (یا از امروز) تمدید می‌شود (p2).'
-            : 'دلیل رد به کاربر نمایش داده می‌شود.',
-      ],
-    );
-    if (d == null) return;
-    await change(
-      () => registry.decide('${p['id']}', ok, reason: d.reason),
-      ok
-          ? 'پرداخت تأیید شد؛ سرور مدرسه تا یک دقیقهٔ دیگر فعال می‌کند.'
-          : 'پرداخت رد شد.',
-    );
-  }
-
-  Future<void> _grant(
-    String schoolId,
-    Map<String, Object?> sub,
-    String kind,
-  ) async {
-    final gift = kind == 'gift';
-    final d = await showReasonDialog(
-      context,
-      title: gift
-          ? '🎁 فعال‌سازی اشتراک ${sub['name'] ?? ''}'
-          : '♻️ بازنشانی اشتراک ${sub['name'] ?? ''}',
-      danger: !gift,
-      submit: gift ? 'فعال‌سازی' : 'بازنشانی',
-      lines: [
-        gift ? 'اشتراک این کاربر به این تعداد روز تمدید می‌شود.' : 'رکورد اشتراک این کاربر پاک می‌شود (p2 «♻️ بازنشانی»). دورهٔ آزمایشیِ مصرف‌شدهٔ دستگاه دوباره باز نمی‌شود.',
-      ],
-      fields: [
-        if (gift)
-          const TextDialogField(
-            'days',
-            'تعداد روز',
-            numeric: true,
-            initial: '30',
-          ),
-      ],
-      validate: (v) {
-        if (!gift) return null;
-        final n = int.tryParse(digitsOnly(v.text('days')));
-        return n == null || n < 1 || n > 3650
-            ? 'تعداد روز باید بین ۱ تا ۳۶۵۰ باشد.'
-            : null;
-      },
-    );
-    if (d == null) return;
-    await change(
-      () => registry.grant(
-        schoolId,
-        kind,
-        days: gift ? int.parse(digitsOnly(d.text('days'))) : 0,
-        userId: sub['uid'] is int ? sub['uid']! as int : null,
-      ),
-      gift
-          ? 'فعال‌سازی ثبت شد؛ سرور مدرسه تا یک دقیقهٔ دیگر اعمال می‌کند.'
-          : 'بازنشانی ثبت شد.',
-    );
-  }
-
-  String _planTitle(Object? k) => switch (k) {
-    'trial' => 'آزمایشی',
-    'gift' => 'هدیه',
-    _ => subPlans.where((p) => p.key == k).firstOrNull?.title ?? '${k ?? '—'}',
-  };
 
   Widget _field(
     TextEditingController c,
@@ -225,35 +162,6 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
       );
     }
     final edit = widget.canManage;
-    final names = {for (final x in v.schools) '${x['id']}': '${x['name']}'};
-    final pending = v.payments
-        .where((p) => p['status'] == 'pending' && p['decision'] == null)
-        .length;
-    // آمار p2: فعال / آزمایشی / منقضی / درآمد
-    var active = 0, trial = 0, expired = 0, revenue = 0;
-    final subs = <(String, Map<String, Object?>)>[];
-    for (final e in v.acks.entries) {
-      final list = e.value['subs'];
-      if (list is! List) continue;
-      for (final x in list) {
-        if (x is! Map) continue;
-        final m = x.cast<String, Object?>();
-        subs.add((e.key, m));
-        switch (m['status']) {
-          case 'trial':
-            trial++;
-          case 'expired':
-            expired++;
-          default:
-            active++;
-        }
-      }
-    }
-    for (final p in v.payments) {
-      if (p['status'] == 'paid' && p['amount'] is num) {
-        revenue += (p['amount']! as num).round();
-      }
-    }
     return Column(
       key: const Key('subscription-section'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -263,25 +171,6 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
             padding: const EdgeInsets.only(bottom: 8),
             child: OfflineNote(v.error ?? 'دیتابیس در دسترس نیست.'),
           ),
-        PayeshSection(
-          title: 'اشتراک‌ها — خلاصه',
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Pill('فعال: ${faNum(active)}', tone: PayeshTone.success),
-              Pill('آزمایشی: ${faNum(trial)}', tone: PayeshTone.info),
-              Pill('منقضی: ${faNum(expired)}', tone: PayeshTone.warning),
-              Pill(
-                'در انتظار تأیید: ${faNum(pending)}',
-                key: const Key('sub-pending-count'),
-                tone: pending > 0 ? PayeshTone.warning : PayeshTone.neutral,
-              ),
-              Pill('درآمد: ${faNum(revenue)} ریال'),
-            ],
-          ),
-        ),
-        const SizedBox(height: PayeshTokens.space3),
         PayeshSection(
           title: 'سیاست اشتراک برای هر نقش',
           child: Column(
@@ -299,29 +188,7 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
                     ? (x) => setState(() => s.paywallEnabled = x)
                     : null,
               ),
-              for (final r in subRoles)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(subRoleTitles[r]!)),
-                      SegmentedButton<String>(
-                        key: Key('sub-role-$r'),
-                        segments: const [
-                          ButtonSegment(
-                            value: 'required',
-                            label: Text('نیاز به اشتراک'),
-                          ),
-                          ButtonSegment(value: 'free', label: Text('رایگان')),
-                        ],
-                        selected: {s.roles[r] ?? 'free'},
-                        onSelectionChanged: edit
-                            ? (x) => setState(() => s.roles[r] = x.first)
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
+              for (final r in subRoles) _roleCard(r, s, edit),
               const Notice(
                 'نقشِ «نیاز به اشتراک» تا پرداخت و تأیید هیچ امکانی ندارد، مگر دورهٔ آزمایشی تعریف شده باشد.',
               ),
@@ -344,49 +211,9 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
                 'تعداد روزهای آزمایشی (۰ تا ۳۶۵)',
                 numeric: true,
               ),
-              const Divider(),
-              Text(
-                'پلن‌ها و قیمت (ریال)',
-                style: Theme.of(context).textTheme.titleSmall,
+              const Notice(
+                'ماهانه: ۳۱ روز از پرداخت. سالانه: مبلغ کامل، حتی اگر دیر خریده شود. همهٔ اشتراک‌ها در پایان سال تحصیلی (۳۱ شهریور) تمام می‌شوند و برای سال جدید دوباره خریده می‌شوند؛ از ۱ تیر به مدیران هشدار تمدید داده می‌شود و سالانه‌ای که از ۱ تیر خریده شود سال بعد را پوشش می‌دهد.',
               ),
-              const SizedBox(height: 8),
-              for (final p in subPlans)
-                Row(
-                  children: [
-                    Checkbox(
-                      key: Key('sub-plan-on-${p.key}'),
-                      value: s.prices.containsKey(p.key),
-                      onChanged: edit
-                          ? (x) => setState(() {
-                              if (x == true) {
-                                s.prices[p.key] =
-                                    int.tryParse(
-                                      digitsOnly(_price[p.key]!.text),
-                                    ) ??
-                                    p.price;
-                                _price[p.key]!.text = '${s.prices[p.key]}';
-                              } else {
-                                s.prices.remove(p.key);
-                              }
-                            })
-                          : null,
-                    ),
-                    SizedBox(
-                      width: 90,
-                      child: Text('${p.title} (${faNum(p.months)} ماه)'),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _field(
-                        _price[p.key]!,
-                        'sub-price-${p.key}',
-                        'قیمت ${p.title}',
-                        numeric: true,
-                        ltr: true,
-                      ),
-                    ),
-                  ],
-                ),
               if (edit)
                 ActionRow([
                   actionButton(
@@ -495,98 +322,6 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
             ],
           ),
         ),
-        const SizedBox(height: PayeshTokens.space3),
-        PayeshSection(
-          title: 'پرداخت‌ها',
-          child: v.payments.isEmpty
-              ? const StateBox.empty('هنوز پرداختی ثبت نشده است.')
-              : OwnerTable(
-                  columns: const [
-                    'کد پیگیری',
-                    'زمان',
-                    'مدرسه',
-                    'کاربر',
-                    'پلن / مبلغ',
-                    'روش / مرجع',
-                    'وضعیت',
-                    'عملیات',
-                  ],
-                  rows: [
-                    for (final p in v.payments)
-                      [
-                        Code('${p['id']}'),
-                        faDate(p['created_at']),
-                        names['${p['school_id']}'] ?? '—',
-                        '${p['name'] ?? ''} (${subRoleTitles[p['role']] ?? p['role'] ?? ''})',
-                        '${_planTitle(p['plan'])} — ${faNum(p['amount'] ?? 0)} ریال',
-                        '${p['method'] == 'gateway' ? 'درگاه' : 'رسید'}${p['ref'] != null ? ' — ${p['ref']}' : ''}${p['gateway_ref'] != null ? ' — ${p['gateway_ref']}' : ''}',
-                        _payStatus(p),
-                        edit &&
-                                p['decision'] == null &&
-                                (p['status'] == 'pending' ||
-                                    p['status'] == 'failed')
-                            ? ActionRow([
-                                actionButton(
-                                  'pay-approve-${p['id']}',
-                                  'تأیید',
-                                  () => _decide(p, true),
-                                  primary: true,
-                                ),
-                                actionButton(
-                                  'pay-reject-${p['id']}',
-                                  'رد',
-                                  () => _decide(p, false),
-                                ),
-                              ])
-                            : const Text('—'),
-                      ],
-                  ],
-                ),
-        ),
-        const SizedBox(height: PayeshTokens.space3),
-        PayeshSection(
-          title: 'مشترکان',
-          child: subs.isEmpty
-              ? const StateBox.empty(
-                  'هنوز گزارشی از سرورهای مدرسه نرسیده است (هر دقیقه به‌روز می‌شود).',
-                )
-              : OwnerTable(
-                  columns: const [
-                    'مدرسه',
-                    'کاربر',
-                    'نقش',
-                    'وضعیت',
-                    'پلن',
-                    'پایان',
-                    'عملیات',
-                  ],
-                  rows: [
-                    for (final (sid, m) in subs)
-                      [
-                        names[sid] ?? '—',
-                        '${m['name'] ?? '—'}',
-                        subRoleTitles[m['role']] ?? '${m['role'] ?? ''}',
-                        _subStatus(m['status']),
-                        _planTitle(m['plan']),
-                        faDate(m['end']),
-                        edit
-                            ? ActionRow([
-                                actionButton(
-                                  'sub-gift-$sid-${m['uid']}',
-                                  '🎁 فعال‌سازی',
-                                  () => _grant(sid, m, 'gift'),
-                                ),
-                                actionButton(
-                                  'sub-reset-$sid-${m['uid']}',
-                                  '♻️ بازنشانی',
-                                  () => _grant(sid, m, 'reset'),
-                                ),
-                              ])
-                            : const Text('—'),
-                      ],
-                  ],
-                ),
-        ),
         Align(
           alignment: AlignmentDirectional.centerEnd,
           child: TextButton(
@@ -599,34 +334,97 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
     );
   }
 
-  Widget _payStatus(Map<String, Object?> p) {
-    final d = p['decision'];
-    if (d is Map && p['status'] != 'paid' && p['status'] != 'rejected') {
-      return Pill(
-        d['status'] == 'approved'
-            ? 'تأیید شد (در حال اعمال)'
-            : 'رد شد (در حال اعمال)',
-        tone: d['status'] == 'approved'
-            ? PayeshTone.success
-            : PayeshTone.danger,
-      );
-    }
-    return switch (p['status']) {
-      'paid' => const Pill('پرداخت‌شده', tone: PayeshTone.success),
-      'rejected' => const Pill('ردشده', tone: PayeshTone.danger),
-      'failed' => const Pill('ناموفق', tone: PayeshTone.danger),
-      _ => Pill(
-        p['awaiting_owner'] == true
-            ? 'بازگشت از درگاه — منتظر تأیید'
-            : 'در انتظار تأیید',
-        tone: PayeshTone.warning,
+  /// ردیف ۱۴۹: هر نقش — کلید «نیاز به اشتراک»، و ماهانه/سالانه هر کدام با کلید و مبلغ ریالی.
+  Widget _roleCard(String r, SubSettings s, bool edit) {
+    final required = (s.roles[r] ?? 'free') == 'required';
+    final theme = Theme.of(context);
+    return Card(
+      key: Key('sub-role-card-$r'),
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    subRoleTitles[r]!,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                Text(
+                  required ? 'نیاز به اشتراک' : 'رایگان',
+                  key: Key('sub-role-label-$r'),
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(width: 6),
+                Switch(
+                  key: Key('sub-role-$r'),
+                  value: required,
+                  onChanged: edit
+                      ? (x) =>
+                            setState(() => s.roles[r] = x ? 'required' : 'free')
+                      : null,
+                ),
+              ],
+            ),
+            if (required)
+              for (final p in offeredPlans)
+                Row(
+                  children: [
+                    Switch(
+                      key: Key('sub-on-$r-${p.key}'),
+                      value: s.offered(r, p.key),
+                      onChanged: edit
+                          ? (x) => setState(() {
+                              final c = _price['$r/${p.key}']!;
+                              if (x) {
+                                final n =
+                                    int.tryParse(digitsOnly(c.text)) ?? p.price;
+                                s.rolePrices[r]![p.key] = n;
+                                c.text = '$n';
+                              } else {
+                                s.rolePrices[r]![p.key] = null;
+                              }
+                            })
+                          : null,
+                    ),
+                    SizedBox(
+                      width: 64,
+                      child: Text(p.key == 'monthly' ? 'ماهانه' : 'سالانه'),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: TextField(
+                          key: Key('sub-price-$r-${p.key}'),
+                          controller: _price['$r/${p.key}'],
+                          enabled: edit && s.offered(r, p.key),
+                          textDirection: TextDirection.ltr,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9۰-۹]'),
+                            ),
+                          ],
+                          decoration: InputDecoration(
+                            labelText: p.key == 'monthly'
+                                ? 'مبلغ ماهانه (۳۱ روز)'
+                                : 'مبلغ سالانه (تا ۳۱ شهریور)',
+                            suffixText: 'ریال',
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+          ],
+        ),
       ),
-    };
+    );
   }
-
-  Widget _subStatus(Object? s) => switch (s) {
-    'trial' => const Pill('آزمایشی', tone: PayeshTone.info),
-    'expired' => const Pill('منقضی', tone: PayeshTone.warning),
-    _ => const Pill('فعال', tone: PayeshTone.success),
-  };
 }

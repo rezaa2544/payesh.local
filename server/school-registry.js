@@ -26,8 +26,14 @@
        دستگاه، درهم‌سازی‌شده، در دفتر سراسری صندوقچه)؛
      • درگاه پرداخت: مالک فقط «پیوند درگاه» (و در صورت وجود «پیوند تأیید») را در پنل وارد
        می‌کند؛ تا آن زمان «ثبت رسید» با تأیید مالک کار می‌کند.
+   ردیف ۱۴۹ (درخواست مالک ۱۴۰۵/۰۸/۲۲):
+     • هر نقش «نیاز به اشتراک / رایگان» + قیمت ماهانه و سالانهٔ جداگانه به ریال (role_plans)؛
+       پلن فصلی دیگر ارائه نمی‌شود (پرداخت‌های قدیمی همچنان خوانده می‌شوند)؛
+     • ماهانه ۳۱ روز، سالانه مبلغ کامل؛ همه در ۳۱ شهریور تمام می‌شوند (server/academic-year.js)؛
+     • از ۱ تیر هشدار تمدید به مدیران؛ مالک می‌تواند پرداخت تأییدشده را «لغو» کند.
    ═══════════════════════════════════════════════════════════════════ */
 const crypto = require('crypto');
+const ay = require('./academic-year');
 const s3mem = require('./s3mem');
 const { trustFetch } = require('./s3-https');
 const { nowISO, verifySecret, normDigits } = require('./util');
@@ -51,6 +57,9 @@ const PLANS = [
   { key: 'yearly', title: 'سالانه', months: 12, price: 2200000 },
 ];
 const ROLES = ['manager', 'deputy', 'teacher', 'student', 'parent'];
+/* ردیف ۱۴۹: فقط ماهانه و سالانه برای هر نقش؛ null = آن پلن برای آن نقش ارائه نمی‌شود */
+const OFFERED = ['monthly', 'yearly'];
+const PLAN_RULE = 'ay1';
 const DEFAULTS = {
   trial_enabled: true,
   trial_days: 21,
@@ -153,7 +162,43 @@ function settingsOf(plain) {
     receipt_enabled: s.receipt_enabled === undefined ? true : !!s.receipt_enabled,
     receipt_note: String(s.receipt_note || '').slice(0, 400),
     domain: String((plain && plain.domain) || '').slice(0, 200),
+    role_plans: rolePlansOf(s, plans),
   };
+}
+
+/* قیمت هر نقش: role_plans جدید؛ وگرنه از فهرست قدیمی plans (همان قیمت برای همهٔ نقش‌ها) */
+function rolePlansOf(s, legacyPlans) {
+  const out = {};
+  const rp = s && s.role_plans && typeof s.role_plans === 'object' ? s.role_plans : null;
+  for (const r of ROLES) {
+    out[r] = {};
+    for (const k of OFFERED) {
+      let v;
+      if (rp) v = rp[r] && typeof rp[r] === 'object' ? rp[r][k] : null;
+      else { const lp = legacyPlans.find(p => p.key === k); v = lp ? lp.price : null; }
+      const n = Number(v);
+      out[r][k] = v != null && Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+    }
+  }
+  return out;
+}
+
+/* پلن‌های ارائه‌شده به یک نقش */
+function plansFor(st, role) {
+  const rp = (st.role_plans && st.role_plans[role]) || {};
+  return OFFERED.filter(k => rp[k] != null).map(k => {
+    const d = PLANS.find(x => x.key === k);
+    return { key: k, title: d.title, months: d.months, price: rp[k] };
+  });
+}
+
+/* پایان مؤثر: رکوردهای پیش از ردیف ۱۴۹ هم در پایان سال تحصیلیِ شروعشان تمام می‌شوند */
+function effectiveEnd(rec, now) {
+  if (!rec || !rec.end) return 0;
+  const end = Date.parse(rec.end) || 0;
+  if (rec.rule === PLAN_RULE) return end;
+  const start = Date.parse(rec.start || '') || Math.min(end, now);
+  return Math.min(end, ay.yearEndMs(start));
 }
 function safeUrl(u) {
   const s = String(u || '').trim();
@@ -191,16 +236,6 @@ function subsState(store) {
   return s && typeof s === 'object' && s.users ? s : { users: {}, payments: [] };
 }
 const saveSubs = (store, s) => store.setMeta(META.subs, s);
-const addDays = (fromMs, days) => new Date(fromMs + days * DAY_MS).toISOString();
-
-/* p2 sub-pay: تمدید از پایان فعلی اگر هنوز فعال است، وگرنه از امروز؛ هر ماه ۳۰ روز */
-function extend(rec, days, now) {
-  const end = rec.end ? Date.parse(rec.end) : 0;
-  const from = end > now ? end : now;
-  rec.end = addDays(from, days);
-  if (!rec.start || end <= now) rec.start = new Date(now).toISOString();
-  return rec;
-}
 
 function userSub(state, uid) {
   return state.users[String(uid)] || null;
@@ -219,20 +254,24 @@ function gate(store, user, { now = Date.now() } = {}) {
   const policy = st.roles[role] || 'free';
   const base = {
     managed: true, role, policy, school: sch.name || '',
-    plans: st.plans, trial_days: st.trial_days,
+    plans: plansFor(st, role), trial_days: st.trial_days,
+    year_end: ay.iso(ay.yearEndMs(now)), renew_open: ay.iso(ay.renewOpenMs(now)),
     gateway: !!st.gateway.pay_url, receipt: st.receipt_enabled, receipt_note: st.receipt_note,
   };
   if (!st.paywall_enabled || policy !== 'required') return Object.assign(base, { access: true, status: 'free' });
   const state = subsState(store);
   const rec = userSub(state, user.id);
-  const active = !!(rec && rec.end && Date.parse(rec.end) > now);
+  const endMs = effectiveEnd(rec, now);
+  const active = endMs > now && rec.status !== 'cancelled';
   const pending = state.payments.filter(p => p.uid === user.id && p.status === 'pending').map(publicPayment);
   return Object.assign(base, {
     access: active,
-    status: active ? (rec.status || 'active') : (rec ? 'expired' : 'none'),
+    status: active ? (rec.status || 'active') : (rec && rec.status === 'cancelled' ? 'cancelled' : rec && rec.end ? 'expired' : 'none'),
     plan: rec ? rec.plan || null : null,
-    end: rec ? rec.end || null : null,
-    days_left: active ? Math.max(0, Math.ceil((Date.parse(rec.end) - now) / DAY_MS)) : 0,
+    end: endMs ? ay.iso(endMs) : null,
+    days_left: active ? Math.max(0, Math.ceil((endMs - now) / DAY_MS)) : 0,
+    /* هشدار تمدید فقط برای مدیر مدرسه، از ۱ تیر تا وقتی اشتراک سال بعد خریده نشده */
+    renew_warning: role === 'manager' && ay.renewWarning(now, endMs),
     trial_available: st.trial_enabled && st.trial_days > 0 && !(rec && rec.trial_used),
     pending,
   });
@@ -263,12 +302,12 @@ async function startTrial(store, user, deviceHash, { now = Date.now() } = {}) {
   } catch (e) { return { ok: false, error: 'trial_check_unavailable' }; }
   const b = boundOf(store);
   const days = g.trial_days;
-  const rec = { v: 1, key, school_id: b.school_id, uid: user.id, role: user.role, started_at: new Date(now).toISOString(), ends_at: addDays(now, days) };
+  const rec = { v: 1, key, school_id: b.school_id, uid: user.id, role: user.role, started_at: new Date(now).toISOString(), ends_at: ay.iso(ay.daysEnd(now, days)) };
   try { await writeEnv(cfg, cfg.prefix + DIR.trial + key + '.json', K.trial, now, rec); } catch (e) { return { ok: false, error: 'trial_check_unavailable' }; }
   store.setMeta(META.trials, local.concat([key]).slice(-5000));
   const state = subsState(store);
   const cur = state.users[String(user.id)] || {};
-  state.users[String(user.id)] = Object.assign(cur, { status: 'trial', plan: 'trial', start: rec.started_at, end: rec.ends_at, trial_used: true, role: user.role });
+  state.users[String(user.id)] = Object.assign(cur, { status: 'trial', plan: 'trial', start: rec.started_at, end: rec.ends_at, trial_used: true, role: user.role, rule: PLAN_RULE });
   saveSubs(store, state);
   store.audit({ user_id: user.id, role: user.role, action: 'sub_trial', collection: 'subscriptions', after: { days } });
   return { ok: true, sub: gate(store, user, { now }) };
@@ -276,9 +315,9 @@ async function startTrial(store, user, deviceHash, { now = Date.now() } = {}) {
 
 const newPaymentId = () => 'SUB-' + crypto.randomBytes(4).toString('hex').toUpperCase();
 
-function planOf(store, key) {
+function planOf(store, key, role) {
   const reg = registry(store);
-  return settingsOf(reg && reg.plain).plans.find(p => p.key === key) || null;
+  return plansFor(settingsOf(reg && reg.plain), String(role || '')).find(p => p.key === key) || null;
 }
 
 async function reportPayment(store, p) {
@@ -311,7 +350,7 @@ function fill(tpl, vals) {
 async function startPayment(store, user, planKey, { callbackBase } = {}) {
   const g = gate(store, user);
   if (!g.managed || g.status === 'free') return { ok: false, error: 'not_required' };
-  const plan = planOf(store, planKey);
+  const plan = planOf(store, planKey, user.role);
   if (!plan) return { ok: false, error: 'bad_plan' };
   const reg = registry(store);
   const st = settingsOf(reg.plain);
@@ -332,7 +371,7 @@ async function startPayment(store, user, planKey, { callbackBase } = {}) {
 async function submitReceipt(store, user, planKey, ref) {
   const g = gate(store, user);
   if (!g.managed || g.status === 'free') return { ok: false, error: 'not_required' };
-  const plan = planOf(store, planKey);
+  const plan = planOf(store, planKey, user.role);
   if (!plan) return { ok: false, error: 'bad_plan' };
   if (!g.receipt) return { ok: false, error: 'receipt_disabled' };
   const r = String(ref || '').trim();
@@ -351,7 +390,10 @@ function markPaid(store, p, { gatewayRef = null, by = 'gateway', now = Date.now(
   row.approved_by = by;
   if (gatewayRef) row.gateway_ref = String(gatewayRef).slice(0, 80);
   const rec = state.users[String(row.uid)] || { trial_used: false };
-  extend(rec, (row.months || 1) * 30, now);
+  const cur = rec.status === 'cancelled' ? 0 : effectiveEnd(rec, now);
+  if (cur <= now) rec.start = new Date(now).toISOString();
+  rec.end = ay.iso(ay.planEnd(row.plan, now, cur));
+  rec.rule = PLAN_RULE;
   rec.status = 'active';
   rec.plan = row.plan;
   rec.role = row.role;
@@ -427,10 +469,17 @@ function applyOwner(store, plain, { now = Date.now() } = {}) {
         delete state.users[k];
         /* بازنشانی p2: رکورد اشتراک پاک می‌شود؛ دفتر دستگاه (آزمایشی) دست‌نخورده می‌ماند */
         if (prev && prev.trial_used) state.users[k] = { trial_used: true };
+      } else if (g.kind === 'cancel') {
+        /* ردیف ۱۴۹: لغو اشتراک از پنل مالک — همین حالا تمام می‌شود */
+        const rec = state.users[k];
+        if (rec && rec.end) { rec.end = new Date(now).toISOString(); rec.status = 'cancelled'; rec.rule = PLAN_RULE; }
       } else if (g.kind === 'gift') {
         const days = Math.max(1, Math.min(3650, Number(g.days) || 0));
         const rec = state.users[k] || { trial_used: false };
-        extend(rec, days, now);
+        const cur = rec.status === 'cancelled' ? 0 : effectiveEnd(rec, now);
+        if (cur <= now) rec.start = new Date(now).toISOString();
+        rec.end = ay.iso(ay.daysEnd(now, days, cur));
+        rec.rule = PLAN_RULE;
         rec.status = 'active';
         rec.plan = rec.plan && rec.plan !== 'trial' ? rec.plan : 'gift';
         rec.role = u.role;
@@ -442,21 +491,39 @@ function applyOwner(store, plain, { now = Date.now() } = {}) {
   }
   saveSubs(store, state);
   const dec = plain.decisions && typeof plain.decisions === 'object' ? plain.decisions : {};
+  const touched = [];
   for (const [pid, d] of Object.entries(dec)) {
-    if (done.has('d:' + pid) || !d) continue;
+    /* لغو پس از تأیید، تصمیم تازه‌ای روی همان پرداخت است ⇒ کلید جدا */
+    const dk = (d && d.status === 'cancelled' ? 'c:' : 'd:') + pid;
+    if (!d || done.has(dk)) continue;
     const p = subsState(store).payments.find(x => x.id === pid);
     if (!p) continue;
     if (d.status === 'approved') markPaid(store, p, { by: 'owner', now });
+    else if (d.status === 'cancelled') {
+      /* ردیف ۱۴۹: لغو پرداختِ تأییدشده — اشتراکی که از آن ساخته شده همین حالا تمام می‌شود */
+      const s2 = subsState(store);
+      const row = s2.payments.find(x => x.id === pid);
+      if (row) {
+        const wasPaid = row.status === 'paid';
+        row.status = 'cancelled';
+        row.reason = String(d.reason || '').slice(0, 200);
+        const rec = s2.users[String(row.uid)];
+        if (wasPaid && rec && rec.end) { rec.end = new Date(now).toISOString(); rec.status = 'cancelled'; rec.rule = PLAN_RULE; }
+        saveSubs(store, s2);
+        store.audit({ user_id: row.uid, role: row.role, action: 'sub_cancelled', collection: 'subscriptions', after: { id: row.id } });
+      }
+    }
     else if (d.status === 'rejected') {
       const s2 = subsState(store);
       const row = s2.payments.find(x => x.id === pid);
       if (row && row.status !== 'paid') { row.status = 'rejected'; row.reason = String(d.reason || '').slice(0, 200); saveSubs(store, s2); }
     }
-    done.add('d:' + pid);
+    done.add(dk);
+    touched.push(pid);
     n++;
   }
   store.setMeta(META.applied, [...done].slice(-5000));
-  return { applied: n };
+  return { applied: n, touched };
 }
 
 /* ── میزبانی مدرسه: سرور تازه با ورود مدیر، مدرسهٔ ساخته‌شده در پنل مالک را می‌گیرد ── */
@@ -572,7 +639,9 @@ async function writeAck(store, { instance, publicUrl, version, now = Date.now() 
   for (const [uid, rec] of Object.entries(state.users)) {
     const u = users.find(x => String(x.id) === uid);
     if (!rec.end) continue;
-    subs.push({ uid: Number(uid), name: u ? u.name || '' : '', role: rec.role || (u && u.role) || '', status: Date.parse(rec.end) > now ? rec.status || 'active' : 'expired', plan: rec.plan || null, start: rec.start || null, end: rec.end });
+    const endMs = effectiveEnd(rec, now);
+    const st = rec.status === 'cancelled' ? 'cancelled' : endMs > now ? rec.status || 'active' : 'expired';
+    subs.push({ uid: Number(uid), name: u ? u.name || '' : '', role: rec.role || (u && u.role) || '', status: st, plan: rec.plan || null, start: rec.start || null, end: ay.iso(endMs) });
   }
   await writeEnv(cfg, cfg.prefix + DIR.ack + b.school_id + '.json', K.ack, now, {
     v: 1, school_id: b.school_id, instance: instance || b.instance || null, at: new Date(now).toISOString(),
@@ -658,6 +727,11 @@ async function poll(store, { instance, publicUrl, version, now = Date.now() } = 
   const sch = schoolOf(store);
   if (sch) applySchool(store, sch);
   const a = applyOwner(store, reg.plain, { now });
+  /* ردیف ۱۴۹: وضعیت نهایی پرداخت‌های تصمیم‌گرفته به پنل مالک برمی‌گردد (پیگیری پرداخت‌ها) */
+  for (const pid of a.touched || []) {
+    const row = subsState(store).payments.find(x => x.id === pid);
+    if (row) await reportPayment(store, row);
+  }
   if (boundOf(store)) await writeAck(store, { instance, publicUrl, version, now });
   return { ok: true, managed: true, bound: !!boundOf(store), applied: a.applied };
 }
@@ -688,7 +762,7 @@ function callbackPage(r) {
 }
 
 module.exports = {
-  K, DIR, SALT: SALT.toString('utf8'), PLANS, ROLES, DEFAULTS, LEVELS, USERNAME_RE,
+  K, DIR, SALT: SALT.toString('utf8'), PLANS, ROLES, OFFERED, DEFAULTS, plansFor, effectiveEnd, LEVELS, USERNAME_RE,
   RegistryError, seal, open, keyFor, readEnv, writeEnv, trialKey, settingsOf, verifyOk, fill,
   registry, boundOf, schoolOf, gate, startTrial, startPayment, submitReceipt, callback, callbackPage,
   applyOwner, adoptOnLogin, adoptSchool, findManager, loginShape, register, requestStatus, validRequest,

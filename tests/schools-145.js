@@ -27,6 +27,7 @@ const { spawn } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
 const sr = require(path.join(ROOT, 'server', 'school-registry.js'));
+const ay = require(path.join(ROOT, 'server', 'academic-year.js'));
 const s3mem = require(path.join(ROOT, 'server', 's3mem.js'));
 const auth = require(path.join(ROOT, 'server', 'auth.js'));
 const { openStore } = require(path.join(ROOT, 'server', 'db.js'));
@@ -201,7 +202,8 @@ function req(method, port, p, body, headers = {}) {
       const gm = sr.gate(st, mgr);
       assert.strictEqual(gm.access, false); assert.strictEqual(gm.status, 'none'); assert.strictEqual(gm.policy, 'required');
       assert.strictEqual(gm.trial_available, true); assert.strictEqual(gm.trial_days, 21);
-      assert.strictEqual(gm.plans.length, 3); assert.strictEqual(gm.plans[2].price, 2200000);
+      /* ردیف ۱۴۹: فقط ماهانه و سالانه، قیمت هر نقش */
+      assert.strictEqual(gm.plans.length, 2); assert.strictEqual(gm.plans[1].key, 'yearly'); assert.strictEqual(gm.plans[1].price, 2200000);
       assert.strictEqual(sr.gate(st, teacher).access, true);
       assert.strictEqual(sr.gate(st, student).access, false);
       assert.strictEqual(sr.gate(st, parent).access, false, 'parent default = required');
@@ -303,14 +305,15 @@ function req(method, port, p, body, headers = {}) {
       assert.strictEqual(c.status, 'paid');
       const g1 = sr.gate(st, mgr);
       assert.strictEqual(g1.access, true); assert.strictEqual(g1.status, 'active'); assert.strictEqual(g1.plan, 'monthly');
-      assert.ok(Math.abs(Date.parse(g1.end) - (t0 + 30 * 86400000)) < 60000);
+      /* ردیف ۱۴۹: ماهانه ۳۱ روز، با سقف ۳۱ شهریور */
+      assert.ok(Math.abs(Date.parse(g1.end) - ay.monthlyEnd(t0)) < 60000);
       /* بازگشت دوباره (تکرار) ⇒ تمدید دوباره نمی‌شود */
       await sr.callback(st, new URLSearchParams({ payment: p2.payment.id }), { fetchImpl: okFetch });
       assert.strictEqual(sr.gate(st, mgr).end, g1.end);
-      /* پرداخت سالانه در حین اشتراک فعال ⇒ تمدید از پایان فعلی (p2) */
+      /* ردیف ۱۴۹: سالانه در حین اشتراک فعال ⇒ تا پایان سال تحصیلی (۳۱ شهریور) */
       const p3 = await sr.startPayment(st, mgr, 'yearly', { callbackBase: 'https://s6.example' });
       await sr.callback(st, new URLSearchParams({ payment: p3.payment.id }), { fetchImpl: okFetch });
-      assert.strictEqual(sr.gate(st, mgr).end, new Date(Date.parse(g1.end) + 360 * 86400000).toISOString());
+      assert.strictEqual(sr.gate(st, mgr).end, ay.iso(ay.yearlyEnd(Date.now(), Date.parse(g1.end))));
       const paid = await o.read(sr.DIR.pay + p3.payment.id + '.json', sr.K.payment);
       assert.strictEqual(paid.status, 'paid'); assert.strictEqual(paid.gateway_ref, '98765');
       /* شناسهٔ ناشناخته/بد */
@@ -351,7 +354,8 @@ function req(method, port, p, body, headers = {}) {
       assert.strictEqual((await sr.submitReceipt(st, mgr, 'monthly', '12')).error, 'bad_ref');
       const r1 = await sr.submitReceipt(st, mgr, 'monthly', 'TRX-123456');
       assert.strictEqual(r1.ok, true); assert.strictEqual(r1.reported, true);
-      const r2 = await sr.submitReceipt(st, mgr, 'seasonal', 'TRX-999999');
+      assert.strictEqual((await sr.submitReceipt(st, mgr, 'seasonal', 'TRX-999998')).error, 'bad_plan', 'فصلی دیگر ارائه نمی‌شود');
+      const r2 = await sr.submitReceipt(st, mgr, 'yearly', 'TRX-999999');
       const names = await o.list(sr.DIR.pay);
       assert.strictEqual(names.length, 2);
       o.plain.decisions = { [r1.payment.id]: { status: 'rejected', reason: 'مبلغ نادرست' }, [r2.payment.id]: { status: 'approved' } };
@@ -359,7 +363,7 @@ function req(method, port, p, body, headers = {}) {
       const a1 = await sr.poll(st, {});
       assert.strictEqual(a1.applied, 2);
       const g = sr.gate(st, mgr);
-      assert.strictEqual(g.access, true); assert.strictEqual(g.plan, 'seasonal');
+      assert.strictEqual(g.access, true); assert.strictEqual(g.plan, 'yearly');
       const end = g.end;
       const st8 = sr.subsState(st);
       assert.strictEqual(st8.payments.find(p => p.id === r1.payment.id).status, 'rejected');
@@ -370,14 +374,14 @@ function req(method, port, p, body, headers = {}) {
       /* هدیهٔ ۱۰ روزه (p2 «🎁 فعال‌سازی») — فقط برای همین مدرسه */
       o.plain.grants = [{ id: 'gift-1', school_id: 's-0008', kind: 'gift', days: 10, user_id: mgr.id }, { id: 'gift-x', school_id: 's-9999', kind: 'gift', days: 99 }];
       await o.publish(); await sr.poll(st, {});
-      assert.strictEqual(sr.gate(st, mgr).end, new Date(Date.parse(end) + 10 * 86400000).toISOString());
+      assert.strictEqual(sr.gate(st, mgr).end, ay.iso(ay.daysEnd(Date.now(), 10, Date.parse(end))));
       /* رسید غیرفعال */
       o.plain.settings.receipt_enabled = false; await o.publish(); await sr.poll(st, {});
       const p = st.insert('users', { name: 'ولی', role: 'parent', active: true });
       assert.strictEqual((await sr.submitReceipt(st, p, 'monthly', 'TRX-777777')).error, 'receipt_disabled');
       /* گزارش اشتراک‌ها برای پنل مالک */
       const ack = await o.read(sr.DIR.ack + 's-0008.json', sr.K.ack);
-      assert.strictEqual(ack.subs.length, 1); assert.strictEqual(ack.subs[0].plan, 'seasonal');
+      assert.strictEqual(ack.subs.length, 1); assert.strictEqual(ack.subs[0].plan, 'yearly');
     });
 
     await check('SR-07 نوع ۲: درخواست ثبت‌نام → پنل مالک → تأیید → ورود بدون امکانات تا اشتراک/آزمایشی', async () => {
@@ -451,6 +455,81 @@ function req(method, port, p, body, headers = {}) {
       assert.strictEqual(sr.settingsOf({ settings: { trial_days: 999, roles: { manager: 'xx' }, gateway: { pay_url: 'javascript:alert(1)' } } }).trial_days, 21);
       assert.strictEqual(sr.settingsOf({ settings: { roles: { manager: 'xx' } } }).roles.manager, 'required');
       assert.strictEqual(sr.settingsOf({ settings: { gateway: { pay_url: 'javascript:alert(1)' } } }).gateway.pay_url, '');
+    });
+
+    await check('SR-10 ردیف ۱۴۹: قیمت هر نقش، ۳۱ شهریور، هشدار تمدید از ۱ تیر، لغو پرداخت', async () => {
+      const V = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/cloud/contracts/academic-year-vectors.json'), 'utf8'));
+      for (const j of V.jalali) {
+        assert.deepStrictEqual(ay.toGregorian(j[3], j[4], j[5]), j.slice(0, 3));
+        assert.deepStrictEqual(ay.toJalali(j[0], j[1], j[2]), j.slice(3));
+      }
+      for (const c of V.cases) {
+        const n = Date.parse(c.now), e = c.cur_end ? Date.parse(c.cur_end) : 0;
+        assert.strictEqual(ay.academicYearOf(n), c.academic_year, c.name);
+        assert.strictEqual(ay.iso(ay.yearEndMs(n)), c.year_end, c.name);
+        assert.strictEqual(ay.iso(ay.renewOpenMs(n)), c.renew_open, c.name);
+        assert.strictEqual(ay.iso(ay.monthlyEnd(n, e)), c.monthly_end, c.name);
+        assert.strictEqual(ay.iso(ay.yearlyEnd(n, e)), c.yearly_end, c.name);
+        assert.strictEqual(ay.iso(ay.daysEnd(n, 10, e)), c.days10_end, c.name);
+        assert.strictEqual(ay.renewWarning(n, e), c.renew_warning, c.name);
+      }
+      await wipe(S);
+      const o = owner(cfg);
+      o.addSchool('s-0149', 'mgr149', 'pass-1490');
+      o.plain.settings = {
+        roles: { manager: 'required', teacher: 'required', parent: 'free' },
+        role_plans: { manager: { monthly: 400000, yearly: 3500000 }, teacher: { monthly: 90000, yearly: null } },
+      };
+      await o.publish();
+      const st = newStore(cfg);
+      await sr.adoptOnLogin(st, 'mgr149', 'pass-1490', { needsSetup: true, instance: 'i149' });
+      const mgr = st.all('users').find(u => u.role === 'manager');
+      const teacher = st.insert('users', { name: 'دبیر', role: 'teacher', active: true });
+      const bahman = Date.parse('2027-02-01T08:00:00Z');
+      const gm = sr.gate(st, mgr, { now: bahman });
+      assert.deepStrictEqual(gm.plans.map(p => [p.key, p.price]), [['monthly', 400000], ['yearly', 3500000]]);
+      assert.deepStrictEqual(sr.gate(st, teacher).plans.map(p => [p.key, p.price]), [['monthly', 90000]]);
+      assert.strictEqual(gm.year_end, '2027-09-22T20:30:00.000Z');
+      assert.strictEqual(gm.renew_warning, false, 'پیش از ۱ تیر هشدار نیست');
+      assert.strictEqual((await sr.submitReceipt(st, teacher, 'yearly', 'TRX-140501')).error, 'bad_plan', 'سالانه برای دبیر ارائه نشده');
+      /* سالانهٔ دیرهنگام (بهمن): مبلغ کامل، پایان ۳۱ شهریور */
+      const r = await sr.submitReceipt(st, mgr, 'yearly', 'TRX-140502');
+      assert.strictEqual(r.payment.amount, 3500000);
+      sr.markPaid(st, r.payment, { by: 'owner', now: bahman });
+      const g1 = sr.gate(st, mgr, { now: bahman });
+      assert.strictEqual(g1.access, true); assert.strictEqual(g1.end, '2027-09-22T20:30:00.000Z');
+      /* ۱ تیر: هشدار تمدید فقط برای مدیر */
+      const tir = Date.parse('2027-06-22T06:00:00Z');
+      assert.strictEqual(sr.gate(st, mgr, { now: tir }).renew_warning, true);
+      /* پس از ۳۱ شهریور: منقضی */
+      const mehr = Date.parse('2027-09-23T06:00:00Z');
+      assert.strictEqual(sr.gate(st, mgr, { now: mehr }).access, false);
+      assert.strictEqual(sr.gate(st, mgr, { now: mehr }).status, 'expired');
+      /* ماهانه ۳۱ روزه برای دبیر و لغو آن از پنل مالک */
+      const rt = await sr.submitReceipt(st, teacher, 'monthly', 'TRX-140503');
+      o.plain.decisions = { [rt.payment.id]: { status: 'approved' } }; await o.publish();
+      const a1 = await sr.poll(st, {});
+      assert.ok(a1.applied >= 1);
+      const gt = sr.gate(st, teacher);
+      assert.strictEqual(gt.access, true);
+      assert.ok(Math.abs(Date.parse(gt.end) - ay.monthlyEnd(Date.now())) < 60000);
+      assert.strictEqual((await o.read(sr.DIR.pay + rt.payment.id + '.json', sr.K.payment)).status, 'paid', 'وضعیت نهایی به پنل مالک برگشت');
+      o.plain.decisions[rt.payment.id] = { status: 'cancelled', reason: 'تراکنش مشکوک' }; await o.publish();
+      await sr.poll(st, {});
+      const gc = sr.gate(st, teacher);
+      assert.strictEqual(gc.access, false); assert.strictEqual(gc.status, 'cancelled');
+      const back = await o.read(sr.DIR.pay + rt.payment.id + '.json', sr.K.payment);
+      assert.strictEqual(back.status, 'cancelled'); assert.strictEqual(back.reason, 'تراکنش مشکوک');
+      assert.strictEqual((await sr.poll(st, {})).applied, 0, 'لغو فقط یک بار');
+      /* «لغو اشتراک» یک کاربر (grant cancel) */
+      sr.markPaid(st, (await sr.submitReceipt(st, mgr, 'monthly', 'TRX-140504')).payment, { by: 'owner' });
+      assert.strictEqual(sr.gate(st, mgr).access, true);
+      o.plain.grants = [{ id: 'cx-1', school_id: 's-0149', kind: 'cancel', user_id: mgr.id }]; await o.publish();
+      await sr.poll(st, {});
+      assert.strictEqual(sr.gate(st, mgr).access, false);
+      /* رکورد قدیمی (پیش از ردیف ۱۴۹) با پایان ۳۶۰ روزه هم در ۳۱ شهریور تمام می‌شود */
+      const legacy = { users: { [String(mgr.id)]: { status: 'active', plan: 'yearly', start: '2026-10-01T08:00:00.000Z', end: '2027-09-26T08:00:00.000Z' } }, payments: [] };
+      assert.strictEqual(sr.effectiveEnd(legacy.users[String(mgr.id)], bahman), Date.parse('2027-09-22T20:30:00.000Z'));
     });
 
     await check('SR-09 سرور واقعی (HTTP): ثبت‌نام، ورود با نام کاربری، 402، آزمایشی، بازگشت درگاه', async () => {

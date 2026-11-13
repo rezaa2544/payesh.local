@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_app/src/app.dart';
 import 'package:payesh_app/src/flags.dart';
 import 'package:payesh_app/src/login/device_identity.dart';
+import 'package:payesh_app/src/login/paywall.dart';
 import 'package:payesh_app/src/login/session_controller.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_sync/payesh_sync.dart';
@@ -324,7 +325,8 @@ void main() {
       expect(find.byKey(const Key('paywall')), findsOneWidget);
       expect(find.byKey(const Key('plan-yearly')), findsOneWidget);
       expect(find.textContaining('۲٬۲۰۰٬۰۰۰ ریال'), findsOneWidget);
-      expect(find.textContaining('۲۷٪'), findsOneWidget);
+      // row 149: yearly runs to the end of the school year (31 Shahrivar)
+      expect(find.textContaining('تا پایان سال تحصیلی'), findsOneWidget);
 
       // NEG: this device already used its trial (reinstall does not help)
       schools.trials.add(
@@ -402,6 +404,66 @@ void main() {
       expect(find.byKey(const Key('sub-banner')), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'S149-W01 manager renewal warning from 1 Tir ⇒ «تمدید» opens the plans',
+    (tester) async {
+      await boot(tester);
+      await toLogin(tester);
+      lan.logins.add(lanSession(role: 'manager', uid: 1, token: 'acc-m'));
+      schools.subs.add(
+        SubStatus.fromJson({
+          'managed': true,
+          'access': true,
+          'status': 'active',
+          'role': 'manager',
+          'policy': 'required',
+          'days_left': 60,
+          'end': '2027-09-22T20:30:00.000Z',
+          'year_end': '2027-09-22T20:30:00.000Z',
+          'renew_warning': true,
+          'plans': [
+            {'key': 'monthly', 'price': 400000},
+            {'key': 'yearly', 'price': 3500000},
+          ],
+          'trial_available': true,
+          'gateway': false,
+          'receipt': true,
+        }),
+      );
+      await type(tester, 'lan-phone', 'm.karimi');
+      await type(tester, 'lan-password', 'Karimi-1403');
+      await tap(tester, 'lan-login');
+      expect(find.byKey(const Key('paywall')), findsNothing);
+      expect(find.byKey(const Key('sub-renew-warning')), findsOneWidget);
+      await tap(tester, 'sub-renew');
+      expect(find.byKey(const Key('paywall')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('paywall-status')),
+          matching: find.textContaining('فعال'),
+        ),
+        findsOneWidget,
+      );
+      // active user: no trial; both role prices shown in rial
+      expect(find.byKey(const Key('paywall-trial')), findsNothing);
+      expect(find.textContaining('۳٬۵۰۰٬۰۰۰ ریال'), findsOneWidget);
+      expect(find.byKey(const Key('paywall-year-end')), findsOneWidget);
+    },
+  );
+
+  test('S149-U01 plan descriptions follow the 31 Shahrivar rule', () {
+    const m = SubPlanOffer('monthly', 1);
+    const y = SubPlanOffer('yearly', 1);
+    final aban = DateTime.utc(2026, 11, 13, 10);
+    expect(planDesc(m, aban), contains('۳۱ روز'));
+    expect(planDesc(y, aban), contains('۳۱ شهریور ۱۴۰۶'));
+    // 25 Shahrivar: monthly is capped at the end of the school year
+    final late = DateTime.utc(2027, 9, 16, 8);
+    expect(planDesc(m, late), contains('۳۱ شهریور ۱۴۰۶'));
+    // renewal window: yearly covers the next school year
+    expect(planDesc(y, late), contains('۳۱ شهریور ۱۴۰۷'));
+  });
 
   testWidgets('S145-W05 trial starts ⇒ app opens with the trial badge', (
     tester,

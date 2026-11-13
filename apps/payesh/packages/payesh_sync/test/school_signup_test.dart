@@ -162,6 +162,8 @@ void main() {
         'plan': 'monthly',
         'end': '2026-10-01T00:00:00.000Z',
         'days_left': 0,
+        'renew_warning': true,
+        'year_end': '2027-09-22T20:30:00.000Z',
         'pending': [
           {
             'id': 'SUB-0A1B2C3D',
@@ -182,6 +184,9 @@ void main() {
       expect(s.pending.single.ref, 'TRX-1');
       expect(s.end, DateTime.utc(2026, 10));
       expect(s.blockedSchool, isFalse);
+      // ردیف ۱۴۹
+      expect(s.renewWarning, isTrue);
+      expect(s.yearEnd, DateTime.utc(2027, 9, 22, 20, 30));
       // 402 body: {error, sub:{…}}
       final b = SubStatus.fromJson({
         'ok': false,
@@ -195,6 +200,8 @@ void main() {
         'status': 'free',
       });
       expect(free.access, isTrue);
+      expect(free.renewWarning, isFalse);
+      expect(free.yearEnd, isNull);
       expect(const SubPlanOffer('seasonal', 1).titleFa, 'فصلی');
       expect(const SignupStatus('approved').approved, isTrue);
       for (final st in ['pending', 'approved', 'rejected', 'inactive']) {

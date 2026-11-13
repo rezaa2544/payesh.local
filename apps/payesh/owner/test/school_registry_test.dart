@@ -363,12 +363,13 @@ void main() {
         expect(st.trialDays, 21);
         expect(st.gatewayConfigured, isFalse);
         expect(st.roles['manager'], 'required');
-        expect(st.prices['yearly'], 2200000);
+        expect(st.rolePrices['manager']!['yearly'], 2200000);
+        expect(st.rolePrices['parent']!['monthly'], 250000);
         st
           ..trialDays = 14
           ..roles['teacher'] = 'required'
-          ..prices.remove('seasonal')
-          ..prices['monthly'] = 300000
+          ..rolePrices['teacher']!['yearly'] = null
+          ..rolePrices['manager']!['monthly'] = 300000
           ..payUrl = 'https://pay.example/start?amount={amount}&cb={callback}';
         await reg.saveSettings(st, domain: 'payesh.example.ir');
         final p = await registryInBucket();
@@ -379,10 +380,16 @@ void main() {
           {'key': 'monthly', 'price': 300000},
           {'key': 'yearly', 'price': 2200000},
         ]);
+        // ردیف ۱۴۹: قیمت هر نقش
+        final rp = s['role_plans']! as Map;
+        expect(rp['manager'], {'monthly': 300000, 'yearly': 2200000});
+        expect(rp['teacher'], {'monthly': 250000, 'yearly': null});
         expect(p['domain'], 'payesh.example.ir');
         v = await reg.load();
         expect(v.settings.gatewayConfigured, isTrue);
-        expect(v.settings.prices.containsKey('seasonal'), isFalse);
+        expect(v.settings.offered('teacher', 'yearly'), isFalse);
+        expect(v.settings.offered('teacher', 'monthly'), isTrue);
+        expect(v.settings.rolePrices['manager']!['monthly'], 300000);
         expect(
           () => reg.saveSettings(st..payUrl = 'ftp://x', domain: ''),
           throwsA(isA<SchoolsFailure>()),
@@ -390,14 +397,17 @@ void main() {
 
         await reg.grant(id, 'gift', days: 10, userId: 3);
         await reg.grant(id, 'reset', role: 'parent');
+        await reg.grant(id, 'cancel', userId: 3);
+        expect(() => reg.grant(id, 'bogus'), throwsA(isA<SchoolsFailure>()));
         expect(
           () => reg.grant(id, 'gift', days: 0),
           throwsA(isA<SchoolsFailure>()),
         );
         final grants = (await registryInBucket())['grants']! as List;
-        expect(grants.length, 2);
+        expect(grants.length, 3);
         expect((grants.first as Map)['days'], 10);
-        expect((grants.last as Map)['role'], 'parent');
+        expect((grants[1] as Map)['role'], 'parent');
+        expect((grants.last as Map)['kind'], 'cancel');
 
         bucket.putText(
           'payesh/${SchoolDirs.pay}SUB-0A1B2C3D.json',
@@ -444,6 +454,17 @@ void main() {
           'مبلغ نادرست',
         );
         expect(() => reg.decide('bad', true), throwsA(isA<SchoolsFailure>()));
+        // ردیف ۱۴۹: لغو پرداخت تأییدشده
+        await reg.cancelPayment('SUB-0A1B2C3D', reason: 'تراکنش مشکوک');
+        final dc =
+            ((await registryInBucket())['decisions']! as Map)['SUB-0A1B2C3D']
+                as Map;
+        expect(dc['status'], 'cancelled');
+        expect(dc['reason'], 'تراکنش مشکوک');
+        expect(
+          () => reg.cancelPayment('x', reason: 'r'),
+          throwsA(isA<SchoolsFailure>()),
+        );
       },
     );
 

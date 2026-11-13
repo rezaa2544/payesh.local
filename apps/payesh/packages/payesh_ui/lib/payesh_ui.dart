@@ -7,6 +7,7 @@
 library;
 
 export 'src/a11y.dart';
+export 'src/academic_year.dart';
 export 'src/digits.dart';
 export 'src/jalali.dart';
 export 'src/theme.dart';
