@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import 'helper/helper_card.dart';
+import 'helper/helper_service.dart';
 import 'local/local_account.dart';
 import 'local/local_platform.dart';
 import 'local/local_screens.dart';
@@ -10,6 +14,8 @@ import 'local/s3_client.dart';
 import 'local/settings_page.dart';
 import 'platform.dart';
 import 'shell.dart';
+import 'update/update_card.dart';
+import 'update/update_service.dart';
 
 const _themeLabels = {
   ThemeMode.system: 'پوسته: سیستم',
@@ -29,6 +35,8 @@ class OwnerApp extends StatefulWidget {
     this.pbkdf2Iterations = defaultPbkdf2Iterations,
     this.platformS3Factory,
     this.endpointChecker,
+    this.helper,
+    this.updater,
   });
 
   final SettingsStore store;
@@ -46,6 +54,12 @@ class OwnerApp extends StatefulWidget {
 
   /// بررسی سلامت Endpointهای زیرساخت (پیش‌فرض: بررسی واقعی از همین دستگاه).
   final EndpointChecker? endpointChecker;
+
+  /// سرور کمکیِ همین دستگاه (پیش‌فرض روشن؛ main.dart می‌سازد). null ⇒ بدون سرور کمکی.
+  final OwnerHelperService? helper;
+
+  /// به‌روزرسانی درجای برنامه (فقط تغییرات). null ⇒ بدون بخش به‌روزرسانی.
+  final OwnerUpdater? updater;
 
   @override
   State<OwnerApp> createState() => _OwnerAppState();
@@ -99,10 +113,26 @@ class _OwnerAppState extends State<OwnerApp> {
 
   DateTime _now() => (widget.now ?? DateTime.now)();
 
+  Timer? _updateTimer;
+
   @override
   void initState() {
     super.initState();
     _load();
+    final u = widget.updater;
+    if (u != null) {
+      u.readLastApply();
+      // بررسی خودکار: ۳۰ ثانیه پس از باز شدن (پس از بررسی سلامتِ اسکریپت اعمال، تا نتیجهٔ
+      // به‌روزرسانیِ تازه هم خوانده شود) و بعد هر ۶ ساعت
+      _updateTimer = Timer(const Duration(seconds: 30), () {
+        u.readLastApply();
+        unawaited(u.check());
+        _updateTimer = Timer.periodic(
+          const Duration(hours: 6),
+          (_) => unawaited(u.check()),
+        );
+      });
+    }
   }
 
   Future<void> _load() async {
@@ -110,6 +140,8 @@ class _OwnerAppState extends State<OwnerApp> {
     final t = await widget.store.read('theme');
     final secure = widget.secure;
     if (secure != null) {
+      // سرور کمکی مستقل از ورود: تا برنامه باز است کار می‌کند
+      unawaited(widget.helper?.init());
       final auth = LocalAuth(
         secure,
         now: _now,
@@ -240,6 +272,7 @@ class _OwnerAppState extends State<OwnerApp> {
     try {
       await _localAuth!.reset();
       await S3Settings.clear(widget.secure!);
+      unawaited(widget.helper?.reload());
       // بدون رمز نباید به داده‌های قبلی پنل رسید: نسخهٔ این دستگاه هم پاک می‌شود
       // (نسخهٔ آروان فقط با کلیدهای دیتابیس دوباره خوانده می‌شود)
       await widget.secure!.delete(platformStateKey);
@@ -323,12 +356,24 @@ class _OwnerAppState extends State<OwnerApp> {
       now: _now,
       themeButton: _themeButton,
       onSignOut: _signOutLocal,
+      infraTop: widget.helper == null
+          ? null
+          : HelperSummary(service: widget.helper!),
+      extraActions: [
+        if (widget.updater != null) UpdateBadge(updater: widget.updater!),
+      ],
       settings: OwnerSettingsPage(
         database: DatabaseSettingsPanel(
           secure: widget.secure!,
           transportFactory: widget.s3Factory ?? IoS3Transport.new,
           now: widget.now,
+          onChanged: () => unawaited(widget.helper?.reload()),
         ),
+        extra: [
+          if (widget.helper != null)
+            HelperCard(service: widget.helper!, now: widget.now),
+          if (widget.updater != null) UpdateCard(updater: widget.updater!),
+        ],
         server: ServerSettingsPanel(
           key: ValueKey('srv-${_origin ?? ''}'),
           origin: _origin,
@@ -343,6 +388,7 @@ class _OwnerAppState extends State<OwnerApp> {
 
   @override
   void dispose() {
+    _updateTimer?.cancel();
     _api?.close();
     super.dispose();
   }

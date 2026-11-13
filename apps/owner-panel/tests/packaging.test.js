@@ -191,7 +191,9 @@ const RULES = {
     assert.ok(links.length > 0 && links.every(u => u.startsWith(BASE)), 'every owner link must use the owner-continuous download base');
     const readmeNames = links.map(u => u.slice(BASE.length));
     const allowed = one(/^\s*ALLOWED="([^"]+)"$/m, f.nativePublish, 'native publish asset set').trim().split(/\s+/);
-    const workflowNames = allowed.filter(n => n !== 'owner-native-status.json');
+    /* فایل‌های ماشینی (وضعیت انتشار، مانیفست به‌روزرسانی فقط-تغییرات ADR 126 §۱۲) لینک دانلود ندارند */
+    const workflowNames = allowed.filter(n => n !== 'owner-native-status.json' && n !== 'owner-update.json');
+    assert.ok(allowed.includes('owner-update.json'), 'native publish carries the delta-update manifest');
     assert.ok(workflowNames.includes('SHA256SUMS'), 'native publish carries SHA256SUMS');
     assert.ok(!allowed.some(n => /web\.zip$/.test(n)), 'no owner web bundle in the native release');
     assert.match(f.nativePublish, /if \[ "\$got" != "\$ALLOWED" \]; then echo "::error::/, 'the release must end with exactly the native set');

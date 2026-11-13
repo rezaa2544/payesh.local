@@ -50,7 +50,15 @@ class OwnerShell extends StatefulWidget {
     required this.onSignOut,
     this.settings,
     this.badge,
+    this.infraTop,
+    this.extraActions = const [],
   });
+
+  /// بالای صفحهٔ «زیرساخت» (مثلاً خلاصهٔ سرور کمکی همین دستگاه).
+  final Widget? infraTop;
+
+  /// دکمه‌ها/نشان‌های دیگر نوار بالا (مثلاً «به‌روزرسانی آماده»).
+  final List<Widget> extraActions;
 
   /// برچسب حالت کار (مثلاً «سرور مستقل») کنار نقش.
   final String? badge;
@@ -104,7 +112,15 @@ class _OwnerShellState extends State<OwnerShell> {
       now: widget.now,
       child: KeyedSubtree(
         key: ValueKey('page-$id-${identityHashCode(api)}'),
-        child: pageFor(id),
+        child: id == 'infra' && widget.infraTop != null
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  widget.infraTop!,
+                  Expanded(child: pageFor(id)),
+                ],
+              )
+            : pageFor(id),
       ),
     );
   }
@@ -157,6 +173,7 @@ class _OwnerShellState extends State<OwnerShell> {
       ],
     );
     final actions = <Widget>[
+      ...widget.extraActions,
       if (widget.badge != null)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),

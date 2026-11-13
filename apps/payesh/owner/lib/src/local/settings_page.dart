@@ -12,9 +12,13 @@ class OwnerSettingsPage extends StatelessWidget {
     super.key,
     required this.database,
     required this.server,
+    this.extra = const [],
   });
   final Widget database;
   final Widget server;
+
+  /// بخش‌های دیگر (سرور کمکی، به‌روزرسانی برنامه).
+  final List<Widget> extra;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -28,6 +32,10 @@ class OwnerSettingsPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               database,
+              for (final w in extra) ...[
+                const SizedBox(height: PayeshTokens.space4),
+                w,
+              ],
               const SizedBox(height: PayeshTokens.space4),
               server,
             ],
@@ -38,8 +46,10 @@ class OwnerSettingsPage extends StatelessWidget {
   );
 }
 
-class _Section extends StatelessWidget {
-  const _Section({
+/// کارت یک بخش تنظیمات.
+class SettingsSection extends StatelessWidget {
+  const SettingsSection({
+    super.key,
     required this.title,
     required this.subtitle,
     required this.children,
@@ -116,10 +126,14 @@ class DatabaseSettingsPanel extends StatefulWidget {
     required this.secure,
     required this.transportFactory,
     this.now,
+    this.onChanged,
   });
   final SecureStore secure;
   final S3Transport Function() transportFactory;
   final DateTime Function()? now;
+
+  /// پس از ذخیره یا پاک کردن تنظیمات (سرور کمکی و سرور مستقل دوباره خوانده می‌شوند).
+  final VoidCallback? onChanged;
 
   @override
   State<DatabaseSettingsPanel> createState() => _DatabaseSettingsPanelState();
@@ -263,6 +277,7 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
     }
     try {
       await s.save(widget.secure);
+      widget.onChanged?.call();
     } on SecureStoreException {
       return ('اتصال برقرار شد، ولی ذخیرهٔ امن تنظیمات ممکن نشد.', false);
     }
@@ -356,6 +371,7 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
   Future<void> _clear() async {
     try {
       await S3Settings.clear(widget.secure);
+      widget.onChanged?.call();
     } on SecureStoreException {
       return; // حذف ناموفق: فرم دست نمی‌خورد
     }
@@ -383,7 +399,7 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
         ),
       );
     }
-    return _Section(
+    return SettingsSection(
       title: 'دیتابیس (فضای ابری)',
       subtitle: 'آدرس فضای ابری (مثلاً آروان‌کلاد)، نام صندوقچه و کلیدهای دسترسی را وارد کنید. کلیدها روی همین دستگاه رمزنگاری‌شده می‌مانند و به برنامهٔ کاربران داده نمی‌شوند؛ سرورهای مدرسه با پیام رمزنگاری‌شده‌ای که در خود صندوقچه گذاشته می‌شود خودکار به همین دیتابیس وصل می‌شوند و هر تغییر را دنبال می‌کنند.',
       children: [
@@ -567,7 +583,7 @@ class _ServerSettingsPanelState extends State<ServerSettingsPanel> {
   @override
   Widget build(BuildContext context) {
     final s = widget.session;
-    return _Section(
+    return SettingsSection(
       title: 'سرور پلتفرم (اختیاری)',
       subtitle: 'لازم نیست: بدون آن همهٔ بخش‌ها روی همین دستگاه (سرور مستقل) کار می‌کنند و داده‌ها در دیتابیس بالا هم نگه داشته می‌شوند. فقط اگر سرور پلتفرم جداگانه دارید و وارد آن شوید، بخش‌ها از آن خوانده می‌شوند.',
       children: [

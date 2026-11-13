@@ -16,6 +16,12 @@ name: owner-native-publish
 #     payesh-owner-web.zip or a WebView build) is deleted, and a mismatch turns this job red.
 #   · Published files are downloaded back, checksum-verified and gated again.
 #   · An older run never overwrites a newer one (run_number in owner-native-status.json).
+#   · ADR 126 §۱۲ (delta update): owner-update.json (per-file SHA-256 of the Windows app) is
+#     re-checked here — every <sha>.gz is unpacked and hashed, every entry must equal the file
+#     in payesh-owner-windows.zip of the same run, and the real install→update→rollback e2e
+#     marker must be present. Blobs go to the owner-files release (deduplicated by hash, uploaded
+#     BEFORE the manifest so a client never sees a manifest without its files); unreferenced
+#     blobs older than 14 days are pruned. Android stays a full APK (sha/size in the manifest).
 #   · Lives in its own workflow because release-gate.yml calls native-client.yml with
 #     contents: read — a nested write job there would break the release gate.
 # ═══════════════════════════════════════════════════════════════════
@@ -72,13 +78,39 @@ jobs:
           grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' "$A/apksigner.txt"
           grep -q '^OWNER-ANDROID-UPGRADE-OK same-signer' "$A/upgrade-android.txt"
           grep -q '^OWNER-INSTALLER-OK upgrade-from-webview=True ' "$W/installer-owner.txt"
+          grep -q '^OWNER-UPDATE-E2E-OK delta-apply=ok rollback=ok' "$W/installer-owner.txt"
           (cd "$A" && sha256sum -c SHA256SUMS-owner-android)
           (cd "$W" && tr -d '\r' < SHA256SUMS-owner-installer | sha256sum -c -)
           node tools/native-independence-gate.mjs --android "$A/payesh-owner.apk" --windows "$W/payesh-owner-windows.zip" | tee gate-publish.txt
           grep -q '^NATIVE-GATE-OK' gate-publish.txt
+          # ADR 126 §۱۲: مانیفست فقط-تغییرات — هر blob باز و هش می‌شود و هر فایل با zip همان ساخت یکی است
+          node tools/owner-update-manifest.mjs --check "$W/owner-update.json" --blobs "$W/owner-files" | tee -a gate-publish.txt
+          grep -q '^OWNER-UPDATE-MANIFEST-OK' gate-publish.txt
+          mkdir -p zipcheck && (cd zipcheck && unzip -q "$GITHUB_WORKSPACE/$W/payesh-owner-windows.zip")
+          RUN_NUMBER=${{ github.event.workflow_run.run_number }} SRC_SHA=${{ github.event.workflow_run.head_sha }} node -e '
+            const fs = require("fs"), crypto = require("crypto"), path = require("path");
+            const m = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (m.build !== Number(process.env.RUN_NUMBER)) throw new Error("manifest build " + m.build + " != run " + process.env.RUN_NUMBER);
+            if (m.commit !== process.env.SRC_SHA) throw new Error("manifest commit != head_sha");
+            const zipFiles = [];
+            (function walk(d, rel) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const r = rel ? rel + "/" + e.name : e.name; if (e.isDirectory()) walk(path.join(d, e.name), r); else zipFiles.push(r); } })("zipcheck", "");
+            const want = new Map(m.files.map(f => [f.path, f.sha256]));
+            for (const f of zipFiles) {
+              const h = crypto.createHash("sha256").update(fs.readFileSync(path.join("zipcheck", f))).digest("hex");
+              if (want.get(f) !== h) throw new Error("zip file not in manifest or different: " + f);
+              want.delete(f);
+            }
+            if (want.size) throw new Error("manifest files missing from the zip: " + [...want.keys()].join(", "));
+            const apk = fs.readFileSync(process.argv[2]);
+            m.android = { sha256: crypto.createHash("sha256").update(apk).digest("hex"), size: apk.length };
+            fs.mkdirSync("pub", { recursive: true });
+            fs.writeFileSync("pub/owner-update.json", JSON.stringify(m, null, 1) + "\n");
+            console.log("OWNER-UPDATE-ZIP-PARITY-OK files=" + m.files.length + " build=" + m.build);
+          ' "$W/owner-update.json" "$A/payesh-owner.apk" | tee -a gate-publish.txt
+          node tools/owner-update-manifest.mjs --check pub/owner-update.json --blobs "$W/owner-files"
           mkdir -p pub
           cp "$A/payesh-owner.apk" "$W/payesh-owner-setup.exe" "$W/payesh-owner-windows.zip" pub/
-          (cd pub && sha256sum payesh-owner-setup.exe payesh-owner.apk payesh-owner-windows.zip > SHA256SUMS && cat SHA256SUMS)
+          (cd pub && sha256sum owner-update.json payesh-owner-setup.exe payesh-owner.apk payesh-owner-windows.zip > SHA256SUMS && cat SHA256SUMS)
       - name: Publish — replace every WebView asset with the native set
         env:
           GH_TOKEN: ${{ github.token }}
@@ -119,7 +151,36 @@ jobs:
           else
             gh release edit "$TAG" -R "$R" --prerelease --title "$TITLE" --notes "$NOTES"
           fi
-          ALLOWED="SHA256SUMS owner-native-status.json payesh-owner-setup.exe payesh-owner-windows.zip payesh-owner.apk"
+          # ── ADR 126 §۱۲: فایل‌های «فقط تغییرات» در owner-files (هر هش یک بار)، پیش از مانیفست ──
+          FT=owner-files
+          if ! gh release view "$FT" -R "$R" >/dev/null 2>&1; then
+            gh release create "$FT" -R "$R" --prerelease --target "$SRC_SHA" --title "پنل مالک — فایل‌های به‌روزرسانی (فقط تغییرات)" \
+              --notes "هر فایل برنامهٔ ویندوزِ پنل مالک یک بار و فشرده (gzip) با نام هش SHA-256 محتوای اصلی. برنامه فقط فایل‌هایی را می‌گیرد که هششان با owner-update.json (owner-continuous) فرق دارد. دستی دانلود نکنید."
+          fi
+          FID=$(gh api "repos/$R/releases/tags/$FT" --jq .id)
+          gh api --paginate "repos/$R/releases/$FID/assets?per_page=100" --jq '.[] | [.name, .created_at, (.id|tostring)] | @tsv' > files-have.tsv
+          need=()
+          for f in in/windows/owner-files/*.gz; do
+            n=$(basename "$f")
+            cut -f1 files-have.tsv | grep -qx "$n" || need+=("$f")
+          done
+          echo "owner-files: ${#need[@]} new of $(ls in/windows/owner-files | wc -l)"
+          if [ ${#need[@]} -gt 0 ]; then gh release upload "$FT" -R "$R" "${need[@]}"; fi
+          gh api --paginate "repos/$R/releases/$FID/assets?per_page=100" --jq '.[] | [.name, .created_at, (.id|tostring)] | @tsv' > files-have.tsv
+          node -e '
+            const fs = require("fs");
+            const have = new Set(fs.readFileSync("files-have.tsv", "utf8").trim().split("\n").map(l => l.split("\t")[0]));
+            const m = JSON.parse(fs.readFileSync("pub/owner-update.json", "utf8"));
+            const miss = m.files.filter(f => !have.has(f.sha256 + ".gz"));
+            if (miss.length) throw new Error("owner-files missing: " + miss.map(f => f.path).join(", "));
+            const ref = new Set(m.files.map(f => f.sha256 + ".gz"));
+            const cutoff = Date.now() - 14 * 24 * 3600 * 1000;
+            const prune = fs.readFileSync("files-have.tsv", "utf8").trim().split("\n").map(l => l.split("\t"))
+              .filter(([n, at]) => !ref.has(n) && Date.parse(at) < cutoff).map(x => x[2]);
+            fs.writeFileSync("files-prune.txt", prune.join("\n"));
+            console.log("owner-files: all " + m.files.length + " referenced blobs present; prune " + prune.length);'
+          while read -r id; do [ -n "$id" ] && gh api -X DELETE "repos/$R/releases/assets/$id" >/dev/null; done < files-prune.txt
+          ALLOWED="SHA256SUMS owner-native-status.json owner-update.json payesh-owner-setup.exe payesh-owner-windows.zip payesh-owner.apk"
           for a in $(gh release view "$TAG" -R "$R" --json assets --jq '.assets[].name'); do
             case " $ALLOWED " in
               *" $a "*) ;;
@@ -127,6 +188,8 @@ jobs:
             esac
           done
           gh release upload "$TAG" -R "$R" pub/SHA256SUMS pub/owner-native-status.json pub/payesh-owner-setup.exe pub/payesh-owner-windows.zip pub/payesh-owner.apk --clobber
+          # مانیفست آخر از همه (پس از همهٔ فایل‌ها)
+          gh release upload "$TAG" -R "$R" pub/owner-update.json --clobber
           got=$(gh release view "$TAG" -R "$R" --json assets --jq '[.assets[].name] | sort | join(" ")')
           if [ "$got" != "$ALLOWED" ]; then echo "::error::owner-continuous assets [$got] != native set [$ALLOWED]"; exit 1; fi
       - name: Download back → checksums + native gate on the PUBLISHED files
@@ -138,6 +201,13 @@ jobs:
           gh release download owner-continuous -R "$GITHUB_REPOSITORY" -D back
           ls -la back
           (cd back && sha256sum -c SHA256SUMS)
+          # ADR 126 §۱۲: همهٔ فایل‌های مانیفستِ منتشرشده از owner-files دانلود، باز و هش می‌شوند
+          mkdir -p back-files
+          node -p 'require("./back/owner-update.json").files.map(f => f.sha256 + ".gz").join("\n")' | sort -u > back-need.txt
+          args=(); while read -r n; do args+=(-p "$n"); done < back-need.txt
+          gh release download owner-files -R "$GITHUB_REPOSITORY" -D back-files "${args[@]}"
+          node tools/owner-update-manifest.mjs --check back/owner-update.json --blobs back-files | tee -a gate-publish.txt
+          node -e 'const c=require("crypto"),fs=require("fs");const m=require("./back/owner-update.json");const a=fs.readFileSync("back/payesh-owner.apk");if(m.android.sha256!==c.createHash("sha256").update(a).digest("hex")||m.android.size!==a.length)throw new Error("android entry != published APK");console.log("OWNER-UPDATE-PUBLISHED-OK build="+m.build+" files="+m.files.length)' | tee -a gate-publish.txt
           node tools/native-independence-gate.mjs --android back/payesh-owner.apk --windows back/payesh-owner-windows.zip | tee -a gate-publish.txt
           grep -q "\"webview\": false" back/owner-native-status.json
           echo "OWNER-NATIVE-PUBLISH-OK $(node -p "require('./back/owner-native-status.json').run_number")" | tee -a gate-publish.txt

@@ -254,9 +254,10 @@
     const r = await call(cfg, { method: 'GET', key: '', query: q });
     const keys = all(r.text, 'Key').map(unxml);
     const sizes = all(r.text, 'Size').map(Number);
+    const mods = all(r.text, 'LastModified');
     const truncated = /<IsTruncated>true<\/IsTruncated>/i.test(r.text);
     return {
-      keys: keys.map((k, i) => ({ key: k, size: sizes[i] || 0 })),
+      keys: keys.map((k, i) => ({ key: k, size: sizes[i] || 0, modified: mods[i] || null })),
       truncated,
       token: truncated ? (tag(r.text, 'NextContinuationToken') || null) : null,
     };

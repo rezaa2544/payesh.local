@@ -1,0 +1,91 @@
+{
+  "description": "Helper jobs v1 (server/helper-jobs.js = apps/payesh/owner/lib/src/helper/helper_box.dart). key = HKDF-SHA256(utf8(secret), salt=\"payesh/helper-jobs\", info=\"v1\", 32); AES-256-GCM, AAD = \"<kind>/v1/<rev>\"; plaintext = JSON with the key order shown.",
+  "secret": "sk-vector-0123456789abcdef",
+  "rev": 1762990000000,
+  "nonce_hex": "000102030405060708090a0b",
+  "key_hex": "a166a9615dde78cf409ba051333fc4ed0d7b8fd652862fd9cf870ffb26b7e5e9",
+  "kinds": {
+    "presence": "payesh-helper",
+    "request": "payesh-job",
+    "lease": "payesh-job-lease",
+    "result": "payesh-job-result"
+  },
+  "dirs": {
+    "helpers": "helpers/",
+    "req": "jobs/req/",
+    "lease": "jobs/lease/",
+    "res": "jobs/res/"
+  },
+  "job_kinds": [
+    "storage.usage",
+    "object.verify",
+    "endpoint.check",
+    "bucket.gc"
+  ],
+  "presence_fresh_ms": 90000,
+  "claim_wait_ms": 20000,
+  "gc_job_age_ms": 3600000,
+  "cases": {
+    "presence": {
+      "plaintext": "{\"v\":1,\"helper_id\":\"a1b2c3d4e5f60718\",\"host\":\"OWNER-PC\",\"app\":\"owner-panel\",\"version\":\"1.0.0+140\",\"slots\":2,\"paused\":false,\"kinds\":[\"storage.usage\",\"object.verify\",\"endpoint.check\",\"bucket.gc\"],\"at\":1762990000000,\"done\":3,\"failed\":0}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-helper",
+        "rev": 1762990000000,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "AAECAwQFBgcICQoL",
+        "ct": "EZjdBPT0ekwV1LjLGu5kHne0NYzDG-DCqwZSSD1YKOk5ngZQCtuquZ0oYx3-FljkZplEeohyZFhRiJv4aKQGPgygrUF79Npl6mcIvFkUxpBa1DXR8_rfSyhcne-p38DoHO-EPrR9iVAi2ZJb7MNJsdkIfiM9TDIPbHy7qwecLV6ELiftl47h08TA5kNMtPt9UAUCKJEzPLtwgYJqEjgXHMnkKMu9D2j6C5Ya7nS4mZD6vXrZNsm0c44DCA-t6GsVxrtSbmaKd0h_-f0yBqscaF3vpCxoONWas66NZSMCcm1Saj1-Bcf5DzPP_kqizdEBpS54kX8NdIQT"
+      }
+    },
+    "request": {
+      "plaintext": "{\"v\":1,\"job_id\":\"1762990000000-0011223344556677\",\"kind\":\"object.verify\",\"params\":{\"key\":\"payesh/backups/a.json\",\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"size\":0},\"from\":\"school-server\",\"created_at\":1762990000000,\"deadline_at\":1762990600000}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-job",
+        "rev": 1762990000000,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "AAECAwQFBgcICQoL",
+        "ct": "EZjdBPT0ekwX3rbkFvgZTTGnOJiQE7vA-AUGTGhdY-85mAZaGsS75cZuIgnyAyCRBP59PrZVZE5RhoniL_1Qfw2rulow_ZknrXtL4hoP0MATxnjUtLnfQCQc0qbnnZz3XKLFJq1ijgxhzcoEod0K6IgecmA1H2VBJTvyug7FIA7DPiSO056k34eVuEcEo-4oVFgZPYU6POgn1sRzBThRRMqpPNOmCD-tT5oStDmjw8GuvCbDL9m0PthdT1eh_GFN_rVKP2-Ebx86oKIpBblfOwWw-3BpadSHq67dfTwMM3lWYiV-BbqiS2zDLwlI2kvte0xAaZbsYIyviy1QvFRfvOIpazardNcGAt_1zk8pmqIz2YGeQkAYQqm8XgKVUQT0ad-AHQ"
+      }
+    },
+    "lease": {
+      "plaintext": "{\"v\":1,\"job_id\":\"1762990000000-0011223344556677\",\"helper_id\":\"a1b2c3d4e5f60718\",\"token\":\"00ff00ff00ff00ff\",\"until\":1762990060000}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-job-lease",
+        "rev": 1762990000000,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "AAECAwQFBgcICQoL",
+        "ct": "EZjdBPT0ekwX3rbkFvgZTTGnOJiQE7vA-AUGTGhdY-85mAZaGsS75cZuIgnyAyCRBP5-MrRBIwYsgI-qcLxFYBn8qwAysN4-6T0ap0pagc4LyTXUtK7fQCRcg7nk3sS-WPOWK74izUVmwYxVu91crcZPIDAwHGFaJimnv1zFcwqKCeJ8LWOwydwaemqA_d7qQw"
+      }
+    },
+    "result": {
+      "plaintext": "{\"v\":1,\"job_id\":\"1762990000000-0011223344556677\",\"helper_id\":\"a1b2c3d4e5f60718\",\"ok\":true,\"result\":{\"exists\":true,\"size\":0,\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"match\":true},\"error\":null,\"started_at\":1762990001000,\"finished_at\":1762990001200}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-job-result",
+        "rev": 1762990000000,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "AAECAwQFBgcICQoL",
+        "ct": "EZjdBPT0ekwX3rbkFvgZTTGnOJiQE7vA-AUGTGhdY-85mAZaGsS75cZuIgnyAyCRBP5-MrRBIwYsgI-qcLxFYBn8qwAysN4-6T0ap0pagc4L0jGd67SPD2NAka3nnYG0SuGcNvp3hUpzl9NV9Mdasc9BOHJuUDZBJSm7qx-dIgjCOj-Ml5im3obCtRJQ-LB6VFFDNYdlP7d3hMInXGRcQ8n_M9WrWDH_Hs1C5TSgzsH95yLPeYriP9hRVErhuDACqfVIOieKYVslrrtoV7kWLB-q8WFoONSHr6TdfSpAJWdfL3NoFYSxSyudQV8KykjlfEpCYJ_sYJC833gB9BpQu-kfeSrsKrlQQM_2xkgpmKs62YHTGgqCVt6bn8pC0EEw1AFLiMkYG9Fj"
+      }
+    }
+  },
+  "public_ip": {
+    "8.8.8.8": true,
+    "10.1.2.3": false,
+    "127.0.0.1": false,
+    "172.16.0.1": false,
+    "172.32.0.1": true,
+    "192.168.1.10": false,
+    "169.254.1.1": false,
+    "100.64.0.1": false,
+    "0.0.0.0": false,
+    "224.0.0.1": false,
+    "::1": false,
+    "fe80::1": false,
+    "fd00::1": false,
+    "::ffff:192.168.1.1": false,
+    "2001:4860:4860::8888": true
+  }
+}

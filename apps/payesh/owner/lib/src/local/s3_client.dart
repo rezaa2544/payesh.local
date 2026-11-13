@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:payesh_secure/payesh_secure.dart';
@@ -256,9 +257,14 @@ String sigV4Authorization({
 }
 
 final class S3Response {
-  const S3Response(this.status, this.body);
+  const S3Response(this.status, this.body, {this.rawBytes});
   final int status;
   final String body;
+
+  /// بدنهٔ خام (برای فایل‌های دودویی). در آزمون‌ها اگر نباشد، همان [body] است.
+  final Uint8List? rawBytes;
+
+  List<int> get bytes => rawBytes ?? utf8.encode(body);
 }
 
 /// انتقال HTTP (در آزمون‌ها جعلی).
@@ -293,11 +299,15 @@ final class IoS3Transport implements S3Transport {
   IoS3Transport({
     Duration timeout = const Duration(seconds: 20),
     SecurityContext? context,
+    this.maxBytes = 0,
   }) : _timeout = timeout,
        _client = HttpClient(context: context ?? ownerTrustContext())
          ..connectionTimeout = timeout;
   final Duration _timeout;
   final HttpClient _client;
+
+  /// اگر > 0: بدنهٔ خام تا این اندازه نگه داشته می‌شود ([S3Response.rawBytes]).
+  final int maxBytes;
 
   @override
   Future<S3Response> send(
@@ -316,6 +326,22 @@ final class IoS3Transport implements S3Transport {
       req.add(body);
     }
     final res = await req.close().timeout(_timeout);
+    if (maxBytes > 0) {
+      final b = BytesBuilder(copy: false);
+      await for (final chunk in res.timeout(_timeout)) {
+        b.add(chunk);
+        if (b.length > maxBytes) {
+          throw const S3Failure('فایل از سقف مجاز بزرگ‌تر است.');
+        }
+      }
+      final raw = b.takeBytes();
+      final head = raw.length > 65536 ? raw.sublist(0, 65536) : raw;
+      return S3Response(
+        res.statusCode,
+        utf8.decode(head, allowMalformed: true),
+        rawBytes: raw,
+      );
+    }
     final text = await res.transform(utf8.decoder).join().timeout(_timeout);
     return S3Response(
       res.statusCode,
@@ -515,4 +541,109 @@ Future<List<String>> s3ListKeys(
       .allMatches(r.body)
       .map((m) => m.group(1)!.replaceAll('&amp;', '&'))
       .toList();
+}
+
+/// یک فایل در فهرست صندوقچه.
+final class S3Object {
+  const S3Object(this.key, this.size, this.modified);
+  final String key;
+  final int size;
+  final DateTime? modified;
+}
+
+String _unxml(String s) => s
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replaceAll('&amp;', '&');
+
+/// فهرست کامل زیر یک پیشوند (ListObjectsV2 با صفحه‌بندی؛ حداکثر [maxPages] صفحهٔ ۱۰۰۰تایی).
+Future<(List<S3Object>, bool)> s3ListObjects(
+  S3Settings s,
+  S3Transport t,
+  String prefix, {
+  int maxPages = 50,
+  DateTime Function()? now,
+}) async {
+  final out = <S3Object>[];
+  String? token;
+  var pages = 0;
+  do {
+    final r = await s3Request(
+      s,
+      t,
+      path: '/${s.bucket}',
+      query: {
+        'list-type': '2',
+        'max-keys': '1000',
+        'prefix': prefix,
+        'continuation-token': ?token,
+      },
+      now: now,
+    );
+    if (r.status == 404) return (out, false);
+    for (final m in RegExp(
+      r'<Contents>([\s\S]*?)</Contents>',
+    ).allMatches(r.body)) {
+      final c = m.group(1)!;
+      final key = _xmlTag(c, 'Key');
+      if (key == null) continue;
+      final mod = _xmlTag(c, 'LastModified');
+      out.add(
+        S3Object(
+          _unxml(key),
+          int.tryParse(_xmlTag(c, 'Size') ?? '') ?? 0,
+          mod == null ? null : DateTime.tryParse(mod),
+        ),
+      );
+    }
+    final truncated = _xmlTag(r.body, 'IsTruncated') == 'true';
+    token = truncated ? _xmlTag(r.body, 'NextContinuationToken') : null;
+    pages++;
+    if (token != null && pages >= maxPages) return (out, true);
+  } while (token != null);
+  return (out, false);
+}
+
+/// خواندن خام یک فایل؛ null اگر نباشد.
+Future<List<int>?> s3GetBytes(
+  S3Settings s,
+  S3Transport t,
+  String key, {
+  DateTime Function()? now,
+}) async {
+  final r = await s3Request(s, t, path: '/${s.bucket}/$key', now: now);
+  return r.status == 404 ? null : r.bytes;
+}
+
+/// نوشتن خام (مثلاً فایل فشردهٔ به‌روزرسانی).
+Future<void> s3PutBytes(
+  S3Settings s,
+  S3Transport t,
+  String key,
+  List<int> body, {
+  String contentType = 'application/octet-stream',
+  DateTime Function()? now,
+}) async {
+  final r = await s3Request(
+    s,
+    t,
+    method: 'PUT',
+    path: '/${s.bucket}/$key',
+    body: body,
+    contentType: contentType,
+    now: now,
+  );
+  if (r.status == 404) throw S3Failure(_failText(404, 'NoSuchBucket'));
+}
+
+/// پاک کردن یک فایل (نبودن هم یعنی پاک).
+Future<void> s3Delete(
+  S3Settings s,
+  S3Transport t,
+  String key, {
+  DateTime Function()? now,
+}) async {
+  await s3Request(s, t, method: 'DELETE', path: '/${s.bucket}/$key', now: now);
 }

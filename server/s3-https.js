@@ -28,7 +28,7 @@ function trustFetch(url, opts = {}) {
       let size = 0;
       res.on('data', (c) => {
         size += c.length;
-        if (size > MAX_BODY) { req.destroy(new Error('response_too_large')); return; }
+        if (size > (opts.maxBody || MAX_BODY)) { req.destroy(new Error('response_too_large')); return; }
         chunks.push(c);
       });
       res.on('error', reject);
@@ -44,6 +44,8 @@ function trustFetch(url, opts = {}) {
             },
           },
           text: async () => buf.toString('utf8'),
+          /* بایت‌های خام (بررسی یکپارچگی فایل در server/helper-jobs.js) */
+          arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length),
         });
       });
     });

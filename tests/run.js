@@ -1271,6 +1271,30 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(r.data.error, 'https_required');
   });
 
+  await test('سرورهای کمکی: وضعیت، کار نمونه و بررسی بیرونی فقط برای مدیر؛ بدون دیتابیس ⇒ محلی', async () => {
+    const st = await req('/api/admin/helpers', { token: managerToken });
+    assert.strictEqual(st.status, 200, JSON.stringify(st.data));
+    assert.strictEqual(st.data.ok, true);
+    assert.ok(Array.isArray(st.data.helpers));
+    assert.strictEqual(typeof st.data.configured, 'boolean');
+    const anon = await req('/api/admin/helpers');
+    assert.ok(anon.status === 401 || anon.status === 403, 'بدون ورود رد شود: ' + anon.status);
+    if (!st.data.configured) {
+      const u = await req('/api/admin/helpers/usage', { method: 'POST', token: managerToken, body: {} });
+      assert.strictEqual(u.status, 400); assert.strictEqual(u.data.error, 'not_configured');
+    }
+    /* آدرس عمومی بالا تنظیم شد؛ نام .test حل نمی‌شود ⇒ «در دسترس نیست»، محلی، ثبت در وضعیت */
+    const c = await req('/api/admin/helpers/check-public', { method: 'POST', token: managerToken, body: {} });
+    assert.strictEqual(c.status, 200, JSON.stringify(c.data));
+    assert.strictEqual(c.data.check.url, 'https://payesh.example.test');
+    assert.strictEqual(c.data.check.by, 'local');
+    assert.strictEqual(c.data.check.reachable, false);
+    const st2 = await req('/api/admin/helpers', { token: managerToken });
+    assert.strictEqual(st2.data.public_check ? st2.data.public_check.url : 'https://payesh.example.test', 'https://payesh.example.test');
+    const net = await req('/api/admin/network', { token: managerToken });
+    assert.ok('external_check' in net.data, 'وضعیت شبکه نتیجهٔ بررسی بیرونی را دارد');
+  });
+
   await test('QR ساخته می‌شود و قابل اسکن است', async () => {
     const res = await fetch(BASE + '/api/qr?text=' + encodeURIComponent('https://payesh.example.test') + '&scale=6');
     assert.strictEqual(res.status, 200);
@@ -5284,6 +5308,15 @@ async function waitFor(fn, ms = 15000) {
       const b = spawnSync(process.execPath, [path.join(ROOT, 'tests/parity-128.js')], { encoding: 'utf8', cwd: ROOT });
       assert.strictEqual(b.status, 0, 'parity mutations: ' + b.stdout.split('\n').filter(l => /^FAIL/.test(l)).join('\n'));
       console.log('    ' + a.stdout.trim().split('\n').pop() + ' · ' + b.stdout.trim().split('\n').pop());
+    });
+
+  /* ── سرور کمکی (ADR 126 §۱۱): صف کار در صندوقچه، رزرو، جایگزینی محلی ── */
+  await test('سرور کمکی: قرارداد مشترک با پنل مالک، یک برداشت از چند سرور، پردازش هرگز متوقف نمی‌شود (۱۱ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/helper-jobs-130.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'helper-jobs-130: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|HELPER-JOBS/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
   /* ── ردیف ۱۲۷: حالت شبکهٔ محلی اپ بومی + سرویس دادهٔ بی‌رابط مدرسه ── */

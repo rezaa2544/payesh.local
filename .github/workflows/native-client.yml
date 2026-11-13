@@ -34,6 +34,7 @@ on:
       - 'apps/owner-panel/**'
       - 'db/migrations/owner-panel/**'
       - 'tools/owner-native-texts.mjs'
+      - 'tools/owner-update-manifest.mjs'
       - 'apps/payesh/**'
       - 'tools/native-independence-gate.mjs'
       - 'tools/android-release-check-76.mjs'
@@ -66,6 +67,7 @@ on:
       - 'apps/owner-panel/**'
       - 'db/migrations/owner-panel/**'
       - 'tools/owner-native-texts.mjs'
+      - 'tools/owner-update-manifest.mjs'
       - 'apps/payesh/**'
       - 'tools/native-independence-gate.mjs'
       - 'tools/android-release-check-76.mjs'
@@ -986,8 +988,9 @@ jobs:
           set -euo pipefail
           # 100000+run: always above every WebView owner build (versionCode = run_number)
           BN=$((100000 + ${{ github.run_number }}))
-          flutter build apk --release --build-number=$BN
-          flutter build appbundle --release --build-number=$BN
+          # PAYESH_OWNER_BUILD: شمارهٔ ساخت برای «به‌روزرسانی برنامه» (ADR 126 §۱۲)
+          flutter build apk --release --build-number=$BN --dart-define=PAYESH_OWNER_BUILD=${{ github.run_number }}
+          flutter build appbundle --release --build-number=$BN --dart-define=PAYESH_OWNER_BUILD=${{ github.run_number }}
       - name: Native gate + identity + signature on the REAL owner APK/AAB
         env:
           READY: ${{ steps.signing.outputs.ready }}
@@ -1079,7 +1082,8 @@ jobs:
           flutter config --no-analytics | Out-Null
           flutter pub get --enforce-lockfile
           if ($LASTEXITCODE -ne 0) { throw 'pub get failed' }
-          flutter build windows --release
+          # PAYESH_OWNER_BUILD: شمارهٔ ساخت برای به‌روزرسانی درجا (فقط تغییرات، ADR 126 §۱۲)
+          flutter build windows --release --dart-define=PAYESH_OWNER_BUILD=${{ github.run_number }}
           if ($LASTEXITCODE -ne 0) { throw 'flutter build windows failed' }
           Pop-Location
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
@@ -1102,6 +1106,16 @@ jobs:
           grep -q '^NATIVE-GATE-OK' owner-out/native-gate-owner-windows.txt
           (cd "$REL" && 7z a -tzip -r "$GITHUB_WORKSPACE/owner-out/payesh-owner-windows.zip" . >/dev/null)
           node tools/native-independence-gate.mjs --windows owner-out/payesh-owner-windows.zip | tee -a owner-out/native-gate-owner-windows.txt
+      # ADR 126 §۱۲: مانیفست «فقط تغییرات» (هش هر فایل) + هر فایل یک بار فشرده (<sha>.gz) —
+      # همان پوشه‌ای که نصب‌کننده کپی می‌کند. انتشار: owner-native-publish.yml.
+      - name: Delta-update manifest (owner-update.json + owner-files/<sha>.gz)
+        shell: bash
+        run: |
+          set -euo pipefail
+          REL=apps/payesh/owner/build/windows/x64/runner/Release
+          node tools/owner-update-manifest.mjs --dir "$REL" --out owner-out --build ${{ github.run_number }} --commit ${{ github.sha }} | tee owner-out/owner-update-manifest.txt
+          grep -q '^OWNER-UPDATE-MANIFEST-OK' owner-out/owner-update-manifest.txt
+          node -e 'const m=require("./owner-out/owner-update.json"); if(!m.files.some(f=>f.path==="data/app.so")||!m.files.some(f=>f.path==="payesh_owner.exe")) throw new Error("app files missing from the manifest"); console.log("build", m.build, "files", m.files.length)'
       - name: Build payesh-owner-setup.exe (Inno Setup)
         shell: pwsh
         run: |
@@ -1168,6 +1182,50 @@ jobs:
           if (Get-Process -Name msedgewebview2 -ErrorAction SilentlyContinue | Where-Object { $_.Parent.Id -eq $app.Id }) { throw 'WebView2 child process' }
           if ($mods -notcontains 'flutter_windows.dll') { throw 'flutter engine not loaded' }
           "RUN-OK pid=$($app.Id) title=$($app.MainWindowTitle)" | Tee-Object -FilePath $log -Append
+          # ── ADR 126 §۱۲: به‌روزرسانی درجا روی همین برنامهٔ نصب‌شده (کد واقعی برنامه) ──
+          # (۱) ساخت بعدی = همین فایل‌ها + یک فایل تازه ⇒ فقط همان یک فایل دانلود و پس از بسته شدن
+          #     برنامه اعمال می‌شود؛ نسخهٔ تازه بالا می‌آید ⇒ ok.
+          # (۲) ساخت خراب (payesh_owner.exe نامعتبر) ⇒ بالا نمی‌آید ⇒ بازگشت خودکار به نسخهٔ قبلی.
+          $e2e = Join-Path $env:RUNNER_TEMP 'owner-e2e'
+          $logAbs = (Resolve-Path $log).Path
+          function Invoke-UpdateE2E([string]$name, [scriptblock]$mutate, [int]$appPid) {
+            $next = Join-Path $e2e "$name-next"; $out = Join-Path $e2e "$name-out"; $stg = Join-Path $e2e "$name-staging"
+            New-Item -ItemType Directory -Force $e2e | Out-Null
+            Copy-Item $dir $next -Recurse -Force
+            & $mutate $next
+            node tools/owner-update-manifest.mjs --dir $next --out $out --build 999999 --commit ${{ github.sha }} | Tee-Object -FilePath $logAbs -Append | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "e2e manifest ($name) failed" }
+            Push-Location apps/payesh/owner
+            dart run tool/update_e2e.dart --manifest (Join-Path $out 'owner-update.json') --blobs (Join-Path $out 'owner-files') --install $dir --staging $stg --pid $appPid 2>&1 | Tee-Object -FilePath $logAbs -Append | Out-Host
+            $rc = $LASTEXITCODE
+            Pop-Location
+            if ($rc -ne 0) { throw "update_e2e ($name) failed ($rc)" }
+            $res = Join-Path $stg '999999\result.json'
+            Start-Sleep -Seconds 3
+            if (Test-Path $res) { throw "($name) applied while the app was still running" }
+            Stop-Process -Id $appPid -Force
+            for ($i = 0; $i -lt 90 -and -not (Test-Path $res); $i++) { Start-Sleep -Seconds 1 }
+            if (-not (Test-Path $res)) { throw "($name) apply script wrote no result" }
+            $text = Get-Content $res -Raw
+            "update e2e ${name}: $text" | Tee-Object -FilePath $logAbs -Append | Out-Host
+            Get-Process -Name payesh_owner -ErrorAction SilentlyContinue | Stop-Process -Force
+            Start-Sleep -Seconds 2
+            return ($text | ConvertFrom-Json)
+          }
+          $exeHash = (Get-FileHash (Join-Path $dir 'payesh_owner.exe') -Algorithm SHA256).Hash
+          $r1 = Invoke-UpdateE2E 'ok' { param($n) Set-Content -Path (Join-Path $n 'data\update-probe.txt') -Value 'probe' -NoNewline -Encoding ascii } $app.Id
+          if (-not $r1.ok -or $r1.rolled_back) { throw "delta update did not apply: $($r1.message)" }
+          if ((Get-Content (Join-Path $dir 'data\update-probe.txt') -Raw) -ne 'probe') { throw 'delta update: new file missing' }
+          if ((Get-FileHash (Join-Path $dir 'payesh_owner.exe') -Algorithm SHA256).Hash -ne $exeHash) { throw 'delta update touched an unchanged file' }
+          $app = Start-Process (Join-Path $dir 'payesh_owner.exe') -PassThru
+          Start-Sleep -Seconds 8
+          $r2 = Invoke-UpdateE2E 'bad' { param($n) Set-Content -Path (Join-Path $n 'payesh_owner.exe') -Value 'not a windows program' -Encoding ascii } $app.Id
+          if ($r2.ok -or -not $r2.rolled_back) { throw "broken build was not rolled back: $($r2.message)" }
+          if ((Get-FileHash (Join-Path $dir 'payesh_owner.exe') -Algorithm SHA256).Hash -ne $exeHash) { throw 'rollback did not restore payesh_owner.exe' }
+          "OWNER-UPDATE-E2E-OK delta-apply=ok rollback=ok" | Tee-Object -FilePath $logAbs -Append
+          Remove-Item (Join-Path $dir 'data\update-probe.txt') -Force
+          $app = Start-Process (Join-Path $dir 'payesh_owner.exe') -PassThru
+          Start-Sleep -Seconds 3
           Stop-Process -Id $app.Id -Force
           $u = Start-Process (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($u.ExitCode -ne 0) { throw "silent uninstall failed ($($u.ExitCode))" }

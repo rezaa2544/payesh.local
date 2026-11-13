@@ -60,6 +60,7 @@ function parseAmzDate(s) {
 
 function startStub({ accessKey = 'test-ak', secret = 'test-sk', region = 'us-east-1', bucket = 'payesh-test' } = {}) {
   const objects = new Map();
+  const modified = new Map();
   const counters = { verified: 0, rejected: 0, expired: 0, presigned_ok: 0, body_hash_mismatch: 0 };
   const log = [];
 
@@ -154,6 +155,7 @@ function startStub({ accessKey = 'test-ak', secret = 'test-sk', region = 'us-eas
 
       if (req.method === 'PUT') {
         objects.set(key, body.toString('utf8'));
+        modified.set(key, Date.now());
         res.writeHead(200, { etag: '"' + sha256hex(body).slice(0, 16) + '"' });
         return res.end();
       }
@@ -161,10 +163,18 @@ function startStub({ accessKey = 'test-ak', secret = 'test-sk', region = 'us-eas
         /* ListObjectsV2 (برای آزمون پیروی از پنل مالک) */
         const prefix = url.searchParams.get('prefix') || '';
         const max = Number(url.searchParams.get('max-keys') || 1000);
-        const keys = [...objects.keys()].filter(k => k.startsWith(prefix)).sort().slice(0, max);
+        /* صفحه‌بندی با continuation-token و LastModified (برای صف سرورهای کمکی) */
+        const after = url.searchParams.get('continuation-token') || url.searchParams.get('start-after') || '';
+        const all = [...objects.keys()].filter(k => k.startsWith(prefix) && (!after || k > after)).sort();
+        const keys = all.slice(0, max);
+        const truncated = all.length > keys.length;
+        const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         res.writeHead(200, { 'content-type': 'application/xml' });
-        return res.end('<?xml version="1.0"?><ListBucketResult><IsTruncated>false</IsTruncated>' +
-          keys.map(k => '<Contents><Key>' + k + '</Key><Size>' + objects.get(k).length + '</Size></Contents>').join('') +
+        return res.end('<?xml version="1.0"?><ListBucketResult><IsTruncated>' + truncated + '</IsTruncated>' +
+          (truncated ? '<NextContinuationToken>' + esc(keys[keys.length - 1]) + '</NextContinuationToken>' : '') +
+          keys.map(k => '<Contents><Key>' + esc(k) + '</Key><LastModified>' +
+            new Date(modified.get(k) || Date.now()).toISOString() + '</LastModified><Size>' +
+            Buffer.byteLength(objects.get(k)) + '</Size></Contents>').join('') +
           '</ListBucketResult>');
       }
       if (req.method === 'GET') {
@@ -177,6 +187,7 @@ function startStub({ accessKey = 'test-ak', secret = 'test-sk', region = 'us-eas
       }
       if (req.method === 'DELETE') {
         objects.delete(key);
+        modified.delete(key);
         res.writeHead(204);
         return res.end();
       }
@@ -194,7 +205,7 @@ function startStub({ accessKey = 'test-ak', secret = 'test-sk', region = 'us-eas
         cfg: { endpoint: 'http://127.0.0.1:' + port, bucket, accessKey, secret, region, prefix: 'payesh/', pathStyle: true },
         close: () => new Promise(r => server.close(r)),
         /* برای آزمون دستکاری: نوشتن مستقیم شیء بدون امضا */
-        poke: (k, v) => objects.set(k, v),
+        poke: (k, v, at) => { objects.set(k, v); modified.set(k, at || Date.now()); },
       });
     });
   });

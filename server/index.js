@@ -37,6 +37,7 @@ function normDigitsLocal(v) {
 const update = require('./update');
 const mirror = require('./mirror');
 const tunnel = require('./tunnel');
+const helperJobs = require('./helper-jobs');
 const { nowISO, json, normDigits, normalizeMobile, validNationalId, sha256 } = require('./util');
 
 /* ریشهٔ برنامه — آزمون‌ها می‌توانند با PAYESH_APP_ROOT روی یک کپی کار کنند */
@@ -967,6 +968,7 @@ async function api(req, res, url, ip) {
       instance: cfg.instanceId(store),
       tunnel: await cfg.tunnelStatus(store, { force: q.get('force') === '1' }),
       public: await tunnel.status(store),
+      external_check: store.getMeta('helper:public_check', null),
     });
   }
 
@@ -986,6 +988,29 @@ async function api(req, res, url, ip) {
       public_url: cfg.publicUrl(store) || null,
       tunnel: await cfg.tunnelStatus(store, { force: true }),
     });
+  }
+
+  /* ── سرورهای کمکی (سیستم‌های پنل مالک) — server/helper-jobs.js ───── */
+  if (p === '/api/admin/helpers' && m === 'GET') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    return json(Object.assign({ ok: true }, await helperJobs.status(store)));
+  }
+  if (p === '/api/admin/helpers/usage' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const c = s3mem.usingMeta(store).get();
+    if (!c || !c.enabled) return json({ ok: false, error: 'not_configured' }, 400);
+    try {
+      const r = await helperJobs.runJob(c, 'storage.usage', {}, { from: 'school-server' });
+      return json(r, r.ok ? 200 : 502);
+    } catch (e) {
+      return json({ ok: false, error: e.code || 'failed' }, 502);
+    }
+  }
+  if (p === '/api/admin/helpers/check-public' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const url = cfg.publicUrl(store);
+    if (!url) return json({ ok: false, error: 'no_public_url' }, 400);
+    return json({ ok: true, check: await helperJobs.checkPublicUrl(store, url) });
   }
 
   /* ── تونل عمومی: دسترسی از هر اینترنتی ─────────────────────────── */
@@ -2175,6 +2200,8 @@ if (process.env.PAYESH_CLOUD_AUTO !== '0') {
   }, 2500).unref();
   /* پیروی از دیتابیسِ پنل مالک (control/cloud-<kid>.json در صندوقچه) — هر دقیقه */
   require('./cloud-control').start(store);
+  /* سرورهای کمکی: بررسی بیرونیِ آدرس عمومی هر ۳۰ دقیقه (اگر هیچ سرور کمکی نباشد، محلی) */
+  helperJobs.start(store, { publicUrl: () => cfg.publicUrl(store) });
 }
 
 /* ── صندوقچهٔ آفلاین: اولین دستگاهی که روشن شود، ثبت‌های بقیه را اعمال می‌کند ── */
