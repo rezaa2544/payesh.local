@@ -10,6 +10,7 @@
 //   registry    خواندن فهرست مدارس ناموفق است
 //   hosts       سرور میزبان مدرسه‌ای بیش از ۲۴ ساعت گزارش نداده
 //   fraud       تراکنش مشکوک اشتراک (fraud.dart) — فقط گزارش؛ مالک «بررسی شد» می‌زند
+//   backup      پشتیبان کامل دیتابیس (ردیف ۱۵۵) خطا داده یا بیش از یک ساعت موفق نبوده
 // گزارش رفع‌های خودکار و فهرست «بررسی شد» در انبار امن همین دستگاه می‌ماند.
 
 import 'dart:async';
@@ -18,6 +19,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
+import '../backup/backup_engine.dart';
 import '../helper/helper_box.dart';
 import '../helper/helper_service.dart';
 import '../infra/load_route.dart';
@@ -81,6 +83,7 @@ class GuardEngine extends ChangeNotifier {
     required this.secure,
     this.registry,
     this.helper,
+    this.backup,
     this.onDbTrouble,
     SchoolsLoader? loadSchools,
     DateTime Function()? now,
@@ -90,6 +93,7 @@ class GuardEngine extends ChangeNotifier {
   final SecureStore secure;
   final SchoolRegistry? registry;
   final OwnerHelperService? helper;
+  final OwnerBackupEngine? backup;
 
   /// بازبینی اتصال دیتابیس (مثلاً DbMonitor.refresh).
   final Future<void> Function()? onDbTrouble;
@@ -231,6 +235,7 @@ class GuardEngine extends ChangeNotifier {
     await guard('db', () => _checkDb(out));
     await guard('jobs', () => _checkJobs(out));
     await guard('schools', () => _checkSchools(out));
+    _checkBackup(out);
     out.sort((a, b) => _rank(a.level).compareTo(_rank(b.level)));
     _findings = out;
     lastRun = _now();
@@ -383,6 +388,23 @@ class GuardEngine extends ChangeNotifier {
             'کار یا نتیجه‌ای بیش از یک ساعت در صندوقچه مانده بود؛ همان کارها '
             'روی سرور فرستنده انجام شده‌اند (پردازش هرگز متوقف نمی‌شود).',
         fixedFa: fixed ? 'پاک‌سازی' : null,
+      ),
+    );
+  }
+
+  void _checkBackup(List<GuardFinding> out) {
+    final b = backup;
+    if (b == null || !b.autoOn || b.lastCheck == null) return;
+    final ok = b.lastSuccess;
+    final stale =
+        ok == null || _now().difference(ok) > const Duration(hours: 1);
+    if (b.lastError == null && !stale) return;
+    out.add(
+      GuardFinding(
+        check: 'backup',
+        level: GuardLevel.warning,
+        titleFa: 'پشتیبان دیتابیس به‌روز نیست',
+        detailFa: b.lastError ?? 'بیش از یک ساعت پشتیبان موفقی ساخته نشده؛ هر ۱۵ دقیقه دوباره تلاش می‌شود.',
       ),
     );
   }

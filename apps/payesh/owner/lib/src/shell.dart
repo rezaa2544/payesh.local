@@ -12,8 +12,10 @@ import 'pages/payments_page.dart';
 import 'pages/plans_page.dart';
 import 'pages/reports_page.dart';
 import 'pages/schools_page.dart';
+import 'pages/backup_page.dart';
 import 'pages/guard_page.dart';
 import 'pages/support_page.dart';
+import 'backup/backup_engine.dart';
 import 'guard/guard_engine.dart';
 import 'infra/load_route.dart';
 import 'monitor/live_monitor.dart';
@@ -34,6 +36,7 @@ Widget pageFor(String id) => switch (id) {
   'payments' => const PaymentsPage(),
   'support' => const SupportPage(),
   'guard' => const GuardPage(),
+  'backup' => const BackupPage(),
   _ => const DashboardPage(),
 };
 
@@ -57,7 +60,11 @@ class OwnerShell extends StatefulWidget {
     this.schools,
     this.router,
     this.guard,
+    this.backup,
   });
+
+  /// پشتیبان کامل دیتابیس (ردیف ۱۵۵)؛ صفحهٔ «پشتیبان دیتابیس».
+  final OwnerBackupEngine? backup;
 
   /// موتور هوشمند (ردیف ۱۵۴)؛ صفحهٔ «نگهبان هوشمند».
   final GuardEngine? guard;
@@ -121,6 +128,7 @@ class _OwnerShellState extends State<OwnerShell> {
       if (widget.schools != null) 'payments',
       if (widget.schools != null) 'support',
       if (widget.guard != null) 'guard',
+      if (widget.backup != null) 'backup',
       if (widget.settings != null) 'settings',
     },
   );
@@ -147,6 +155,7 @@ class _OwnerShellState extends State<OwnerShell> {
       schools: widget.schools,
       router: widget.router,
       guard: widget.guard,
+      backup: widget.backup,
       child: KeyedSubtree(
         key: ValueKey('page-$id-${identityHashCode(api)}'),
         child: id == 'infra' && widget.infraTop != null

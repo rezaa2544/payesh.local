@@ -33,6 +33,14 @@ void main(List<String> args) {
       helper: OwnerHelperService(secure: secure),
       updater: updater,
       openUrl: platformOpenUrl,
+      // ردیف ۱۵۵: پشتیبان کامل دیتابیس روی دیسک همین سیستم
+      backupDir: () async {
+        try {
+          return Directory('${await platformDataDir()}/owner-backup');
+        } on Object {
+          return null;
+        }
+      },
     ),
   );
   if (ua.now) {

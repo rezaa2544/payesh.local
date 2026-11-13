@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Directory;
 
 import 'package:flutter/material.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
@@ -12,6 +13,7 @@ import 'local/local_platform.dart';
 import 'local/local_screens.dart';
 import 'local/s3_client.dart';
 import 'local/settings_page.dart';
+import 'backup/backup_engine.dart';
 import 'guard/guard_engine.dart';
 import 'infra/arch_card.dart';
 import 'infra/infra_card.dart';
@@ -51,10 +53,14 @@ class OwnerApp extends StatefulWidget {
     this.openUrl,
     this.dbAutoCheck = true,
     this.metricsFetcher,
+    this.backupDir,
   });
 
   /// خواندن /metrics سرورها در پایش زنده (پیش‌فرض: درخواست واقعی).
   final MetricsFetcher? metricsFetcher;
+
+  /// پوشهٔ پشتیبان دیتابیس روی دیسک همین سیستم (ردیف ۱۵۵)؛ null ⇒ فقط روی دیتابیس.
+  final Future<Directory?> Function()? backupDir;
 
   /// سنجش خودکار دیتابیس (آغاز، دوره‌ای، پس از ذخیرهٔ تنظیمات) و پایش زندهٔ زیرساخت در
   /// داشبورد. false فقط در آزمون‌هایی که پاسخ‌های اسکریپتی دارند؛ لمس چراغ همیشه کار می‌کند.
@@ -123,6 +129,26 @@ class _OwnerAppState extends State<OwnerApp> {
     );
   }
 
+  /// پشتیبان کامل و خودکار دیتابیس (ردیف ۱۵۵): هر ۱۵ دقیقه، افزایشی، دیسک + دیتابیس.
+  OwnerBackupEngine? _backupEngine;
+  OwnerBackupEngine? get _backup {
+    final secure = widget.secure;
+    if (secure == null) return null;
+    var b = _backupEngine;
+    if (b == null) {
+      b = _backupEngine = OwnerBackupEngine(
+        secure: secure,
+        // بدون جعلی ⇒ انتقال بدنهٔ کامل خود موتور (نه IoS3Transport پیش‌فرض)
+        s3Factory: widget.platformS3Factory ?? widget.s3Factory,
+        localRoot: widget.backupDir,
+        policy: widget.helper?.policy,
+        now: _now,
+      );
+      if (widget.dbAutoCheck) b.start();
+    }
+    return b;
+  }
+
   /// موتور هوشمند مالک (ردیف ۱۵۴): هر دقیقه بررسی، رفع خودکار، گزارش تراکنش مشکوک.
   GuardEngine? _guardEngine;
   GuardEngine? get _guard {
@@ -134,6 +160,7 @@ class _OwnerAppState extends State<OwnerApp> {
         secure: secure,
         registry: _schools,
         helper: widget.helper,
+        backup: _backup,
         onDbTrouble: () async => _dbMonitor?.refresh(),
         now: _now,
       );
@@ -487,6 +514,7 @@ class _OwnerAppState extends State<OwnerApp> {
       schools: _schools,
       router: widget.helper?.router,
       guard: _guard,
+      backup: _backup,
       updateLight: widget.updater == null
           ? null
           : UpdateLight(updater: widget.updater!, openUrl: widget.openUrl),
@@ -521,6 +549,7 @@ class _OwnerAppState extends State<OwnerApp> {
     _dbMonitor?.dispose();
     _live?.dispose();
     _guardEngine?.dispose();
+    _backupEngine?.dispose();
     _api?.close();
     super.dispose();
   }

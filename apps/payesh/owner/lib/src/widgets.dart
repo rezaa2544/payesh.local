@@ -3,6 +3,7 @@ import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import 'format.dart';
+import 'backup/backup_engine.dart';
 import 'guard/guard_engine.dart';
 import 'infra/load_route.dart';
 import 'monitor/live_monitor.dart';
@@ -20,7 +21,11 @@ class OwnerScope extends InheritedWidget {
     this.schools,
     this.router,
     this.guard,
+    this.backup,
   });
+
+  /// پشتیبان کامل دیتابیس (ردیف ۱۵۵)؛ null ⇒ صفحهٔ «پشتیبان دیتابیس» نیست.
+  final OwnerBackupEngine? backup;
 
   /// موتور هوشمند (ردیف ۱۵۴)؛ null ⇒ صفحهٔ «نگهبان هوشمند» نیست.
   final GuardEngine? guard;
@@ -52,7 +57,8 @@ class OwnerScope extends InheritedWidget {
       monitor != old.monitor ||
       schools != old.schools ||
       router != old.router ||
-      guard != old.guard;
+      guard != old.guard ||
+      backup != old.backup;
 }
 
 /// Loading / error / empty placeholder (the web `.state`), announced to screen readers.

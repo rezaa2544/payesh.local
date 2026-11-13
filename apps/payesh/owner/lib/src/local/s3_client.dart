@@ -761,18 +761,22 @@ Future<List<String>> s3ListKeys(
     now: now,
   );
   if (r.status == 404) return const [];
+  final raw = r.rawBytes;
   return RegExp(r'<Key>([^<]+)</Key>')
-      .allMatches(r.body)
+      .allMatches(raw != null ? utf8.decode(raw, allowMalformed: true) : r.body)
       .map((m) => m.group(1)!.replaceAll('&amp;', '&'))
       .toList();
 }
 
 /// یک فایل در فهرست صندوقچه.
 final class S3Object {
-  const S3Object(this.key, this.size, this.modified);
+  const S3Object(this.key, this.size, this.modified, [this.etag = '']);
   final String key;
   final int size;
   final DateTime? modified;
+
+  /// اثر محتوا از فهرست S3 (بدون نقل‌قول)؛ خالی اگر سرور نداد.
+  final String etag;
 }
 
 String _unxml(String s) => s
@@ -782,7 +786,12 @@ String _unxml(String s) => s
     .replaceAll('&apos;', "'")
     .replaceAll('&amp;', '&');
 
-/// فهرست کامل زیر یک پیشوند (ListObjectsV2 با صفحه‌بندی؛ حداکثر [maxPages] صفحهٔ ۱۰۰۰تایی).
+/// فهرست کامل زیر یک پیشوند (ListObjectsV2 با صفحه‌بندی؛ حداکثر [maxPages] × ۱۰۰۰ فایل).
+///
+/// ردیف ۱۵۵: پاسخ از بایت‌های خام خوانده می‌شود؛ اگر انتقال متن را بریده باشد (بدون
+/// `</ListBucketResult>` — انتقال پیش‌فرض متن را در ۶۴K نویسه نگه می‌دارد و هر فایل در فهرست
+/// آروان حدود ۳۰۰ بایت است)، همان صفحه با صفحه‌های کوچک‌تر دوباره خوانده می‌شود تا هیچ
+/// فایلی جا نماند.
 Future<(List<S3Object>, bool)> s3ListObjects(
   S3Settings s,
   S3Transport t,
@@ -791,25 +800,35 @@ Future<(List<S3Object>, bool)> s3ListObjects(
   DateTime Function()? now,
 }) async {
   final out = <S3Object>[];
+  final maxItems = maxPages * 1000;
   String? token;
-  var pages = 0;
-  do {
+  var size = 1000;
+  while (true) {
     final r = await s3Request(
       s,
       t,
       path: '/${s.bucket}',
       query: {
         'list-type': '2',
-        'max-keys': '1000',
+        'max-keys': '$size',
         'prefix': prefix,
         'continuation-token': ?token,
       },
       now: now,
     );
     if (r.status == 404) return (out, false);
+    final raw = r.rawBytes;
+    final xml = raw != null ? utf8.decode(raw, allowMalformed: true) : r.body;
+    if (!xml.contains('</ListBucketResult>')) {
+      if (size > 50) {
+        size = size > 100 ? 100 : 50;
+        continue;
+      }
+      throw const S3Failure('فهرست صندوقچه کامل خوانده نشد.');
+    }
     for (final m in RegExp(
       r'<Contents>([\s\S]*?)</Contents>',
-    ).allMatches(r.body)) {
+    ).allMatches(xml)) {
       final c = m.group(1)!;
       final key = _xmlTag(c, 'Key');
       if (key == null) continue;
@@ -819,15 +838,16 @@ Future<(List<S3Object>, bool)> s3ListObjects(
           _unxml(key),
           int.tryParse(_xmlTag(c, 'Size') ?? '') ?? 0,
           mod == null ? null : DateTime.tryParse(mod),
+          _unxml(_xmlTag(c, 'ETag') ?? '').replaceAll('"', ''),
         ),
       );
     }
-    final truncated = _xmlTag(r.body, 'IsTruncated') == 'true';
-    token = truncated ? _xmlTag(r.body, 'NextContinuationToken') : null;
-    pages++;
-    if (token != null && pages >= maxPages) return (out, true);
-  } while (token != null);
-  return (out, false);
+    final truncated = _xmlTag(xml, 'IsTruncated') == 'true';
+    final next = truncated ? _xmlTag(xml, 'NextContinuationToken') : null;
+    if (next == null) return (out, false);
+    token = _unxml(next);
+    if (out.length >= maxItems) return (out, true);
+  }
 }
 
 /// خواندن خام یک فایل؛ null اگر نباشد.

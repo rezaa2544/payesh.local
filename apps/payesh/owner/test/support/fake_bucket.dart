@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
 
 /// صندوقچهٔ S3 در حافظه که چند «دستگاه» هم‌زمان از آن استفاده می‌کنند:
@@ -70,7 +71,8 @@ final class _FakeBucketTransport implements S3Transport {
         x.write(
           '<Contents><Key>${k.replaceAll('&', '&amp;')}</Key>'
           '<LastModified>${b.modified[k]!.toUtc().toIso8601String()}</LastModified>'
-          '<Size>${b.objects[k]!.length}</Size></Contents>',
+          '<Size>${b.objects[k]!.length}</Size>'
+          '<ETag>&quot;${md5.convert(b.objects[k]!)}&quot;</ETag></Contents>',
         );
       }
       x.write('<IsTruncated>$truncated</IsTruncated>');

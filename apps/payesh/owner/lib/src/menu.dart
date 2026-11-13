@@ -2,7 +2,7 @@
 //
 // صفحه‌های سروری همان ownerPages پنل وب است (برابری با apps/owner-panel/web/app.js
 // در parity_test)؛ اینجا فقط «چیدمان منو» تعیین می‌شود: هر صفحه دقیقاً یک بار، در
-// گروه کارکردی خودش. صفحه‌های محلی پنل بومی (پرداخت‌ها، پشتیبانی، نگهبان هوشمند، تنظیمات) هم جای
+// گروه کارکردی خودش. صفحه‌های محلی پنل بومی (پرداخت‌ها، پشتیبانی، نگهبان هوشمند، پشتیبان دیتابیس، تنظیمات) هم جای
 // ثابت دارند و فقط وقتی امکانش هست دیده می‌شوند.
 import 'package:flutter/material.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
@@ -25,7 +25,7 @@ const List<OwnerMenuGroup> ownerMenuGroups = [
   ),
   (id: 'infra', title: 'زیرساخت و پایش', pages: ['infra', 'health', 'guard']),
   (id: 'records', title: 'گزارش و ممیزی', pages: ['reports', 'audit']),
-  (id: 'system', title: 'سیستم', pages: ['settings']),
+  (id: 'system', title: 'سیستم', pages: ['backup', 'settings']),
 ];
 
 /// عنوان صفحه‌های محلی (غیر از ownerPages).
@@ -33,6 +33,7 @@ const Map<String, String> localPageTitles = {
   'payments': 'پرداخت‌ها',
   'support': 'پشتیبانی',
   'guard': 'نگهبان هوشمند',
+  'backup': 'پشتیبان دیتابیس',
   'settings': 'تنظیمات',
 };
 
@@ -47,6 +48,7 @@ const Map<String, IconData> ownerMenuIcons = {
   'infra': Icons.dns_outlined,
   'health': Icons.monitor_heart_outlined,
   'guard': Icons.shield_outlined,
+  'backup': Icons.backup_outlined,
   'reports': Icons.description_outlined,
   'audit': Icons.verified_user_outlined,
   'settings': Icons.settings_outlined,

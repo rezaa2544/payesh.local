@@ -64,7 +64,10 @@ const MethodChannel _channel = MethodChannel('ir.payesh.owner/app');
 /// Android: the app's no-backup files dir; Windows: `%LOCALAPPDATA%\PayeshOwner` (the same
 /// folder whose `origin.txt` the retired WebView2 shell used, so the saved server carries
 /// over); elsewhere (developer machines): `$XDG_DATA_HOME/payesh-owner`.
-SettingsStore platformSettingsStore() => FileSettingsStore(() async {
+SettingsStore platformSettingsStore() => FileSettingsStore(platformDataDir);
+
+/// پوشهٔ دادهٔ برنامه روی همین سیستم (تنظیمات، پشتیبان دیتابیس).
+Future<String> platformDataDir() async {
   if (Platform.isAndroid) {
     final d = await _channel.invokeMethod<String>('dataDir');
     if (d == null || d.isEmpty) throw const FileSystemException('no data dir');
@@ -78,7 +81,7 @@ SettingsStore platformSettingsStore() => FileSettingsStore(() async {
   }
   final home = env['HOME'] ?? Directory.systemTemp.path;
   return '${env['XDG_DATA_HOME'] ?? '$home/.local/share'}/payesh-owner';
-});
+}
 
 /// باز کردن نشانی https بیرونی (اندروید: مرورگر/دانلودگر سیستم برای APK تازه).
 Future<void> platformOpenUrl(Uri url) async {
