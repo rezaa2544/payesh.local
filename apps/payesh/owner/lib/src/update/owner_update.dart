@@ -382,6 +382,16 @@ String applyScript({
     ..writeln(')')
     ..writeln(r'''
 $ProgressPreference = 'SilentlyContinue'
+# اگر از محیط PowerShell 7 اجرا شده باشیم، مسیر ماژول‌های آن برای Windows PowerShell 5.1 ناسازگار است
+try {
+  $env:PSModulePath = (@((Join-Path $PSHOME 'Modules'), [Environment]::GetEnvironmentVariable('PSModulePath', 'User'), [Environment]::GetEnvironmentVariable('PSModulePath', 'Machine')) | Where-Object { $_ }) -join [System.IO.Path]::PathSeparator
+} catch { }
+function Get-Sha256([string]$path) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  $fs = [System.IO.File]::OpenRead($path)
+  try { return ([System.BitConverter]::ToString($sha.ComputeHash($fs)) -replace '-', '').ToLower() }
+  finally { $fs.Dispose(); $sha.Dispose() }
+}
 function Write-Log([string]$m) {
   try { [System.IO.File]::AppendAllText($logFile, ((Get-Date).ToUniversalTime().ToString('o') + ' ' + $m + "`r`n"), (New-Object System.Text.UTF8Encoding($false))) } catch { }
 }
@@ -439,7 +449,7 @@ try {
     }
   }
   foreach ($f in $files) {
-    $h = (Get-FileHash -LiteralPath (Join-Path $install $f.p) -Algorithm SHA256).Hash.ToLower()
+    $h = Get-Sha256 (Join-Path $install $f.p)
     if ($h -ne $f.h) { throw "hash mismatch after copy: $($f.p)" }
   }
 } catch {
@@ -524,9 +534,16 @@ Future<File> launchApply({
     '-AppPid',
     '$appPid',
   ];
+  // روش اول: کنسول تازهٔ کوچک‌شده که PowerShell بلافاصله پنهانش می‌کند (powershell جدا و
+  // بی‌کنسول در Windows PowerShell 5.1 اصلاً شروع نمی‌شود؛ در CI دیده شد).
+  final start = ['cmd.exe', '/d', '/c', 'start', '', '/min'];
   final attempts = <(String, List<String>)>[
+    (
+      'cmd-start-hidden',
+      [...start, ps.first, '-WindowStyle', 'Hidden', ...ps.sublist(1)],
+    ),
+    ('cmd-start-min', [...start, ...ps]),
     ('powershell-detached', ps),
-    ('cmd-start-min', ['cmd.exe', '/d', '/c', 'start', '', '/min', ...ps]),
   ];
   for (final (via, cmd) in attempts) {
     try {

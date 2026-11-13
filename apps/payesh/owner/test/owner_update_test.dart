@@ -292,7 +292,9 @@ void main() {
       expect(ps, contains(sha(soNew)));
       expect(ps, isNot(contains(sha(exe))));
       expect(ps, contains('Wait-Process -Id \$AppPid'));
-      expect(ps, contains('Get-FileHash'));
+      expect(ps, contains('Get-Sha256'));
+      expect(ps, isNot(contains('Get-FileHash')));
+      expect(ps, contains('PSModulePath'));
       expect(ps, contains('Restore-Backup'));
       expect(ps, contains(r'$build = 140'));
       expect(ps, contains('رضا'));
@@ -322,7 +324,7 @@ void main() {
         starter: (exe, args, {mode = ProcessStartMode.normal}) async {
           expect(mode, ProcessStartMode.detached);
           calls.add([exe, ...args]);
-          if (exe == 'cmd.exe') {
+          if (exe == 'cmd.exe' && !args.contains('-WindowStyle')) {
             File('${s.dir.path}/apply.log').writeAsStringSync('start\n');
           }
           return null;
@@ -335,13 +337,31 @@ void main() {
       expect(ps, contains('apply.lock'));
       expect(ps, contains('trap {'));
       expect(calls, hasLength(2));
-      expect(calls[0].first, 'powershell.exe');
-      expect(calls[0], isNot(contains('-WindowStyle')));
+      expect(calls[0].take(9), [
+        'cmd.exe',
+        '/d',
+        '/c',
+        'start',
+        '',
+        '/min',
+        'powershell.exe',
+        '-WindowStyle',
+        'Hidden',
+      ]);
       expect(
         calls[0],
         containsAllInOrder(['-File', script.path, '-AppPid', '4242']),
       );
-      expect(calls[1].take(6), ['cmd.exe', '/d', '/c', 'start', '', '/min']);
+      expect(calls[1].take(7), [
+        'cmd.exe',
+        '/d',
+        '/c',
+        'start',
+        '',
+        '/min',
+        'powershell.exe',
+      ]);
+      expect(calls[1], isNot(contains('-WindowStyle')));
       expect(lines.last, 'apply launched via cmd-start-min');
 
       // هیچ روشی شروع نشد ⇐ UpdateException('launch')؛ نشانهٔ قبلی پاک شده بود.
