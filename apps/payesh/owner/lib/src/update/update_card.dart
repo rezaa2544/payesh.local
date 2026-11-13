@@ -5,7 +5,6 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../helper/helper_card.dart' show fmtBytesFa;
 import '../local/settings_page.dart';
-import '../widgets.dart';
 import 'owner_update.dart';
 import 'update_service.dart';
 
@@ -140,48 +139,6 @@ class _UpdateCardState extends State<UpdateCard> {
           ],
         ),
       ],
-    );
-  }
-}
-
-/// نشان «به‌روزرسانی آماده» در نوار بالا.
-class UpdateBadge extends StatefulWidget {
-  const UpdateBadge({super.key, required this.updater});
-  final OwnerUpdater updater;
-
-  @override
-  State<UpdateBadge> createState() => _UpdateBadgeState();
-}
-
-class _UpdateBadgeState extends State<UpdateBadge> {
-  StreamSubscription<void>? _sub;
-
-  @override
-  void initState() {
-    super.initState();
-    _sub = widget.updater.changes.listen((_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    unawaited(_sub?.cancel());
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.updater.available) return const SizedBox.shrink();
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 4),
-      child: Center(
-        child: Pill(
-          'به‌روزرسانی آماده (تنظیمات)',
-          key: Key('update-badge'),
-          tone: PayeshTone.warning,
-        ),
-      ),
     );
   }
 }

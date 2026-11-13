@@ -1,7 +1,7 @@
 name: payesh_owner
 description: "Payesh owner panel — NATIVE Flutter app for Android and Windows (row 126). Replaces the WebView2/Android WebView shells. No WebView, no HTML/JS, no Node.js."
 publish_to: none
-version: 1.0.0+1
+version: 1.1.0+1
 resolution: workspace
 environment:
   sdk: ^3.13.0

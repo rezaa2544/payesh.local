@@ -1,5 +1,7 @@
 package ir.payesh.owner
 
+import android.content.Intent
+import android.net.Uri
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -24,6 +26,13 @@ class MainActivity : FlutterActivity() {
                     }
                     "secureDelete" -> {
                         store.delete(call.argument<String>("key")!!)
+                        result.success(null)
+                    }
+                    // نسخهٔ تازه (APK) با مرورگر/دانلودگر سیستم؛ فقط https
+                    "openUrl" -> {
+                        val url = call.argument<String>("url")!!
+                        if (!url.startsWith("https://")) throw IllegalArgumentException("https only")
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         result.success(null)
                     }
                     else -> result.notImplemented()

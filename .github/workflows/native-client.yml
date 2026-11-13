@@ -989,8 +989,12 @@ jobs:
           # 100000+run: always above every WebView owner build (versionCode = run_number)
           BN=$((100000 + ${{ github.run_number }}))
           # PAYESH_OWNER_BUILD: شمارهٔ ساخت برای «به‌روزرسانی برنامه» (ADR 126 §۱۲)
-          flutter build apk --release --build-number=$BN --dart-define=PAYESH_OWNER_BUILD=${{ github.run_number }}
-          flutter build appbundle --release --build-number=$BN --dart-define=PAYESH_OWNER_BUILD=${{ github.run_number }}
+          # نسخه = <major.minor از pubspec>.<run_number> ⇒ با هر تغییرِ منتشرشده عوض می‌شود (نوار بالا)
+          OV="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+)\..*/\1/p' pubspec.yaml).${{ github.run_number }}"
+          echo "OWNER-VERSION $OV"
+          flutter build apk --release --build-number=$BN --build-name=1.1.${{ github.run_number }} --dart-define=PAYESH_OWNER_BUILD=${{ github.run_number }}
+          flutter build appbundle --release --build-number=$BN --build-name=1.1.${{ github.run_number }} --dart-define=PAYESH_OWNER_BUILD=${{ github.run_number }}
+          [ "$OV" = "1.1.${{ github.run_number }}" ] || { echo "::error::pubspec version ($OV) and --build-name differ"; exit 1; }
       - name: Native gate + identity + signature on the REAL owner APK/AAB
         env:
           READY: ${{ steps.signing.outputs.ready }}
@@ -1083,7 +1087,7 @@ jobs:
           flutter pub get --enforce-lockfile
           if ($LASTEXITCODE -ne 0) { throw 'pub get failed' }
           # PAYESH_OWNER_BUILD: شمارهٔ ساخت برای به‌روزرسانی درجا (فقط تغییرات، ADR 126 §۱۲)
-          flutter build windows --release --dart-define=PAYESH_OWNER_BUILD=${{ github.run_number }}
+          flutter build windows --release --build-name=1.1.${{ github.run_number }} --dart-define=PAYESH_OWNER_BUILD=${{ github.run_number }}
           if ($LASTEXITCODE -ne 0) { throw 'flutter build windows failed' }
           Pop-Location
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
@@ -1123,7 +1127,10 @@ jobs:
           choco install innosetup --no-progress -y | Out-Null
           $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
           if (-not $iscc) { throw 'ISCC not found' }
-          $v = (Select-String -Path 'apps\payesh\owner\pubspec.yaml' -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          # نسخهٔ نصب‌کننده = همان نسخهٔ برنامه: <major.minor>.<run_number>
+          $mm = (Select-String -Path 'apps\payesh\owner\pubspec.yaml' -Pattern '^version:\s*([0-9]+\.[0-9]+)\.').Matches[0].Groups[1].Value
+          $v = "$mm.${{ github.run_number }}"
+          "OWNER-VERSION $v"
           New-Item -ItemType Directory -Force native-out | Out-Null
           & $iscc "/DAppVersion=$v" 'apps\payesh\owner\windows\installer\payesh-owner-native.iss' 2>&1 | Tee-Object -FilePath owner-out\iscc-owner.log
           if ($LASTEXITCODE -ne 0) { Get-Content owner-out\iscc-owner.log -Tail 15; throw "ISCC failed ($LASTEXITCODE)" }

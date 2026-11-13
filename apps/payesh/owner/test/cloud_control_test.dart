@@ -5,6 +5,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_owner/src/local/cloud_control.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
+import 'package:payesh_owner/src/net/resilience.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
 /// پیروی سرورهای مدرسه از دیتابیس پنل مالک: بردار مشترک با server/cloud-control.js،
@@ -59,6 +60,10 @@ final _arvan = S3Settings(
 final _at = DateTime.utc(2026, 11, 12, 21, 5, 43);
 
 void main() {
+  // پاسخ‌های اسکریپتی: هر درخواست دقیقاً یک پاسخ (تلاش دوباره در resilience_test.dart)
+  setUpAll(() => s3RetryPolicy = RetryPolicy.none);
+  tearDownAll(() => s3RetryPolicy = const RetryPolicy());
+  setUp(EndpointRoutes.reset);
   group('shared vector (Node server/cloud-control.js = Dart)', () {
     final v = _vectors();
     final secret = v['secret']! as String;

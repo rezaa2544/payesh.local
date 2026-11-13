@@ -56,7 +56,9 @@ final class OwnerUpdater {
     this.blobBase,
     this.windows,
     this.launcher,
-  }) : http = http ?? IoUpdateHttp.new,
+    int? currentBuild,
+  }) : currentBuild = currentBuild ?? ownerBuild,
+       http = http ?? IoUpdateHttp.new,
        mirrorTransport =
            mirrorTransport ??
            (() => IoS3Transport(
@@ -74,6 +76,9 @@ final class OwnerUpdater {
   final Uri? manifestUrl;
   final Uri? blobBase;
   final Future<void> Function(StagedUpdate staged)? launcher;
+
+  /// شمارهٔ ساخت همین برنامه (پیش‌فرض [ownerBuild]؛ آزمون‌ها عوضش می‌کنند).
+  final int currentBuild;
 
   /// null ⇒ Platform.isWindows.
   final bool? windows;
@@ -139,7 +144,7 @@ final class OwnerUpdater {
         // اندروید: بستهٔ کامل (APK) لازم است؛ فقط اعلام
         plan = UpdatePlan(m, const []);
         _set(
-          ownerBuild > 0 && m.build > ownerBuild
+          currentBuild > 0 && m.build > currentBuild
               ? UpdatePhase.ready
               : UpdatePhase.upToDate,
         );

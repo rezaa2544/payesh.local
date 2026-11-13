@@ -19,6 +19,7 @@ void main() {
       // سرور کمکی: پیش‌فرض روشن (قابل توقف موقت در «تنظیمات»)
       helper: OwnerHelperService(secure: secure),
       updater: OwnerUpdater(secure: secure),
+      openUrl: platformOpenUrl,
     ),
   );
 }

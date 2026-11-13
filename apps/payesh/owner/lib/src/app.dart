@@ -14,6 +14,7 @@ import 'local/s3_client.dart';
 import 'local/settings_page.dart';
 import 'platform.dart';
 import 'shell.dart';
+import 'status/status_lights.dart';
 import 'update/update_card.dart';
 import 'update/update_service.dart';
 
@@ -37,7 +38,16 @@ class OwnerApp extends StatefulWidget {
     this.endpointChecker,
     this.helper,
     this.updater,
+    this.openUrl,
+    this.dbAutoCheck = true,
   });
+
+  /// سنجش خودکار دیتابیس (آغاز، دوره‌ای، پس از ذخیرهٔ تنظیمات). false فقط در آزمون‌هایی که
+  /// پاسخ‌های اسکریپتی دارند؛ لمس چراغ همیشه کار می‌کند.
+  final bool dbAutoCheck;
+
+  /// باز کردن نشانی بیرونی (اندروید: دانلود APK تازه). null ⇒ بی‌اثر.
+  final Future<void> Function(Uri url)? openUrl;
 
   final SettingsStore store;
   final OwnerHttp Function() httpFactory;
@@ -83,6 +93,9 @@ class _OwnerAppState extends State<OwnerApp> {
   LocalPlatform? _platform;
   OwnerApi? _localApi;
 
+  /// چراغ دیتابیس: سنجش دوره‌ای + وصل شدن خودکار.
+  DbMonitor? _dbMonitor;
+
   void _openLocalPlatform(String loginId) {
     final p = _platform ??= LocalPlatform(
       secure: widget.secure!,
@@ -101,11 +114,20 @@ class _OwnerAppState extends State<OwnerApp> {
       setState(() => api.restoreSession(p.signIn(loginId)));
     };
     api.restoreSession(p.signIn(loginId));
+    if (_dbMonitor == null) {
+      final m = _dbMonitor = DbMonitor(probe: p.probe, updates: p.syncChanges);
+      if (widget.dbAutoCheck) {
+        p.backgroundProbe = true;
+        m.start();
+      }
+    }
   }
 
   void _closeLocalPlatform() {
     _platform?.signOut();
     _localApi?.signOut();
+    _dbMonitor?.dispose();
+    _dbMonitor = null;
   }
 
   /// Session over: close every dialog / sheet above the home screen.
@@ -123,12 +145,12 @@ class _OwnerAppState extends State<OwnerApp> {
     if (u != null) {
       u.readLastApply();
       // بررسی خودکار: ۳۰ ثانیه پس از باز شدن (پس از بررسی سلامتِ اسکریپت اعمال، تا نتیجهٔ
-      // به‌روزرسانیِ تازه هم خوانده شود) و بعد هر ۶ ساعت
+      // به‌روزرسانیِ تازه هم خوانده شود) و بعد هر ۳۰ دقیقه (چراغ نوار بالا رنگ عوض می‌کند)
       _updateTimer = Timer(const Duration(seconds: 30), () {
         u.readLastApply();
         unawaited(u.check());
         _updateTimer = Timer.periodic(
-          const Duration(hours: 6),
+          const Duration(minutes: 30),
           (_) => unawaited(u.check()),
         );
       });
@@ -359,15 +381,19 @@ class _OwnerAppState extends State<OwnerApp> {
       infraTop: widget.helper == null
           ? null
           : HelperSummary(service: widget.helper!),
-      extraActions: [
-        if (widget.updater != null) UpdateBadge(updater: widget.updater!),
-      ],
+      dbLight: _dbMonitor == null ? null : DbLight(monitor: _dbMonitor!),
+      updateLight: widget.updater == null
+          ? null
+          : UpdateLight(updater: widget.updater!, openUrl: widget.openUrl),
       settings: OwnerSettingsPage(
         database: DatabaseSettingsPanel(
           secure: widget.secure!,
           transportFactory: widget.s3Factory ?? IoS3Transport.new,
           now: widget.now,
-          onChanged: () => unawaited(widget.helper?.reload()),
+          onChanged: () {
+            unawaited(widget.helper?.reload());
+            if (widget.dbAutoCheck) unawaited(_dbMonitor?.refresh());
+          },
         ),
         extra: [
           if (widget.helper != null)
@@ -389,6 +415,7 @@ class _OwnerAppState extends State<OwnerApp> {
   @override
   void dispose() {
     _updateTimer?.cancel();
+    _dbMonitor?.dispose();
     _api?.close();
     super.dispose();
   }

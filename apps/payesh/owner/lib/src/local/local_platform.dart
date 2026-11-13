@@ -230,7 +230,16 @@ final class LocalPlatform implements OwnerHttp {
   final Set<String> _tokens = {};
   String? _sub;
   String? _loginId;
-  PlatformSync _sync = const PlatformSync(state: 'not_configured');
+  PlatformSync _syncValue = const PlatformSync(state: 'not_configured');
+  final StreamController<PlatformSync> _syncChanges =
+      StreamController<PlatformSync>.broadcast();
+
+  PlatformSync get _sync => _syncValue;
+  set _sync(PlatformSync v) {
+    _syncValue = v;
+    if (!_syncChanges.isClosed) _syncChanges.add(v);
+  }
+
   Future<void> _queue = Future.value();
 
   /// rev نسخهٔ صندوقچه در آخرین خواندن (۰ = نبود)؛ null = خوانده نشد.
@@ -241,6 +250,9 @@ final class LocalPlatform implements OwnerHttp {
   static const Duration pullEvery = Duration(seconds: 15);
 
   PlatformSync get sync => _sync;
+
+  /// هر بار که وضعیت اتصال به دیتابیس دوباره سنجیده می‌شود (چراغ نوار بالا).
+  Stream<PlatformSync> get syncChanges => _syncChanges.stream;
 
   // ── session ─────────────────────────────────────────────────────────────
 
@@ -354,6 +366,7 @@ final class LocalPlatform implements OwnerHttp {
   Future<void> _refreshIfStale() async {
     final last = _lastPull;
     if (last != null && _now().difference(last) < pullEvery) return;
+    if (backgroundProbe && _sync.state == 'error') return;
     await _pull();
     await _pushIfAhead();
   }
@@ -428,7 +441,7 @@ final class LocalPlatform implements OwnerHttp {
   };
 
   /// اگر نسخهٔ صندوقچه تازه‌تر است، همان را بردار.
-  Future<void> _pull() async {
+  Future<void> _pull({Duration? timeout}) async {
     _lastPull = _now();
     _remoteRev = null;
     final s = await _s3();
@@ -443,25 +456,31 @@ final class LocalPlatform implements OwnerHttp {
         t,
         platformObjectKey(s.accessKey),
         now: _now,
-      ).timeout(syncTimeout);
-      final remote = text == null ? null : await _open(s, text);
-      if (remote != null) {
-        if (_rev(remote) > _rev(_st)) {
-          _st = remote;
-          await _saveLocal();
-        }
-        _remoteRev = _rev(remote);
-      } else {
-        // نبود، یا با Secret قبلیِ همین Access Key مهر شده بود: همین کلیدها برای صندوقچه
-        // معتبرند (خواندن امضاشده پذیرفته شد) و آن پاکت را هیچ دارندهٔ فعلی نمی‌تواند باز کند
-        _remoteRev = 0;
-      }
-      _sync = _syncOf(s, 'synced');
+      ).timeout(timeout ?? syncTimeout);
+      await _applyRemote(s, text);
     } on Object catch (e) {
       _sync = _syncOf(s, 'error', _syncError(e));
     } finally {
       t.close();
     }
+  }
+
+  /// نسخهٔ خوانده‌شده از صندوقچه (null = نبود) را با نسخهٔ این دستگاه یکی می‌کند.
+  Future<void> _applyRemote(S3Settings s, String? text) async {
+    _lastPull = _now();
+    final remote = text == null ? null : await _open(s, text);
+    if (remote != null) {
+      if (_rev(remote) > _rev(_st)) {
+        _st = remote;
+        await _saveLocal();
+      }
+      _remoteRev = _rev(remote);
+    } else {
+      // نبود، یا با Secret قبلیِ همین Access Key مهر شده بود: همین کلیدها برای صندوقچه
+      // معتبرند (خواندن امضاشده پذیرفته شد) و آن پاکت را هیچ دارندهٔ فعلی نمی‌تواند باز کند
+      _remoteRev = 0;
+    }
+    _sync = _syncOf(s, 'synced');
   }
 
   Future<Map<String, Object?>?> _open(S3Settings s, String text) async {
@@ -530,6 +549,60 @@ final class LocalPlatform implements OwnerHttp {
     // برقراری دوبارهٔ اتصال، نسخهٔ تازه‌تر فرستاده می‌شود
     if (push && _remoteRev != null) await _push();
   }
+
+  /// سنجش فوری اتصال به دیتابیس (چراغ نوار بالا و بررسی دوره‌ای): همین حالا صندوقچه خوانده
+  /// می‌شود (با تلاش دوبارهٔ کامل و مهلت بلندتر) و اگر نسخهٔ این دستگاه جلوتر است فرستاده می‌شود.
+  /// خواندن از شبکه بیرون از صف انجام می‌شود تا هنگام قطعی، صفحه‌ها منتظر نمانند.
+  Future<PlatformSync> probe({
+    Duration timeout = const Duration(seconds: 45),
+  }) async {
+    await _serial(_ensure);
+    final s = await _s3();
+    if (s == null) {
+      return _serial(() async {
+        _remoteRev = null;
+        return _sync = const PlatformSync(state: 'not_configured');
+      });
+    }
+    String? text;
+    Object? error;
+    final t = s3Factory();
+    try {
+      text = await s3GetText(
+        s,
+        t,
+        platformObjectKey(s.accessKey),
+        now: _now,
+      ).timeout(timeout);
+    } on Object catch (e) {
+      error = e;
+    } finally {
+      t.close();
+    }
+    return _serial(() async {
+      // تنظیمات در این فاصله عوض شد؟ نتیجهٔ این سنجش دیگر معتبر نیست
+      final now = await _s3();
+      if (now == null || !now.sameTarget(s)) {
+        await _pull();
+      } else if (error != null) {
+        _remoteRev = null;
+        _sync = _syncOf(s, 'error', _syncError(error));
+      } else {
+        try {
+          await _applyRemote(s, text);
+        } on Object catch (e) {
+          _remoteRev = null;
+          _sync = _syncOf(s, 'error', _syncError(e));
+        }
+      }
+      await _pushIfAhead();
+      return _sync;
+    });
+  }
+
+  /// سنجش پس‌زمینه روشن است (چراغ دیتابیس)؟ در این حالت خواندن صفحه‌ها هنگام قطعی منتظر
+  /// شبکه نمی‌ماند؛ داده‌های همین دستگاه نشان داده می‌شود و پس از وصل شدن دوباره یکی می‌شوند.
+  bool backgroundProbe = false;
 
   /// همگام‌سازی دستی (پس از ذخیرهٔ تنظیمات دیتابیس).
   Future<PlatformSync> syncNow() => _serial(() async {

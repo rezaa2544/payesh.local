@@ -80,6 +80,20 @@ SettingsStore platformSettingsStore() => FileSettingsStore(() async {
   return '${env['XDG_DATA_HOME'] ?? '$home/.local/share'}/payesh-owner';
 });
 
+/// باز کردن نشانی https بیرونی (اندروید: مرورگر/دانلودگر سیستم برای APK تازه).
+Future<void> platformOpenUrl(Uri url) async {
+  if (url.scheme != 'https') return;
+  try {
+    if (Platform.isAndroid) {
+      await _channel.invokeMethod<void>('openUrl', {'url': url.toString()});
+    } else if (Platform.isWindows) {
+      await Process.start('explorer.exe', [url.toString()]);
+    }
+  } on Object {
+    // بی‌اثر: چراغ همچنان «آماده» می‌ماند
+  }
+}
+
 String _windowsBase() {
   final env = Platform.environment;
   return env['LOCALAPPDATA'] ?? env['APPDATA'] ?? Directory.systemTemp.path;

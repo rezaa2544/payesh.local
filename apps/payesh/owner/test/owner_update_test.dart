@@ -2,11 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
+import 'package:payesh_owner/src/status/status_lights.dart';
 import 'package:payesh_owner/src/update/owner_update.dart';
 import 'package:payesh_owner/src/update/update_service.dart';
 import 'package:payesh_secure/payesh_secure.dart';
+import 'package:payesh_ui/payesh_ui.dart';
 
 import 'support/fake_bucket.dart';
 
@@ -403,6 +406,124 @@ void main() {
       expect(r.build, 140);
       expect(d.existsSync(), isFalse);
       expect(takeApplyResult(staging), isNull);
+    });
+  });
+
+  group('چراغ به‌روزرسانی (نوار بالا)', () {
+    Future<void> pumpLight(
+      WidgetTester tester,
+      OwnerUpdater u, {
+      Future<void> Function(Uri)? openUrl,
+    }) => tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(extensions: const [PayeshTokens.light]),
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            body: Center(
+              child: UpdateLight(updater: u, openUrl: openUrl),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // فایل‌خوانی واقعی ⇒ runAsync، و صبر تا مرحلهٔ مورد انتظار
+    Future<void> until(
+      WidgetTester tester,
+      OwnerUpdater u,
+      UpdatePhase p,
+    ) async {
+      for (var i = 0; i < 200 && u.phase != p; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+      }
+      await tester.pump();
+      expect(u.phase, p);
+    }
+
+    testWidgets(
+      'فقط نسخه + نقطه؛ لمس ⇒ بررسی؛ لمس دوباره ⇒ دریافت، نصب و راه‌اندازی خودکار',
+      (tester) async {
+        final h = http();
+        StagedUpdate? launched;
+        final u = OwnerUpdater(
+          secure: FakeSecureStore(),
+          http: () => h,
+          installDir: install,
+          stagingRoot: staging,
+          manifestUrl: manifestUrl,
+          blobBase: blobBase,
+          windows: true,
+          launcher: (s) async => launched = s,
+        );
+        await pumpLight(tester, u);
+        final texts = tester.widgetList<Text>(find.byType(Text)).toList();
+        expect(texts.map((t) => t.data), [ownerVersion]); // بدون نوشتهٔ اضافی
+        expect(find.byKey(const Key('update-light-idle')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('update-light')));
+        await until(tester, u, UpdatePhase.ready);
+        expect(find.byKey(const Key('update-light-ready')), findsOneWidget);
+        expect(launched, isNull);
+
+        await tester.tap(find.byKey(const Key('update-light')));
+        for (var i = 0; i < 200 && launched == null; i++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+        }
+        expect(launched!.plan.manifest.build, 140);
+        expect(u.phase, UpdatePhase.staged);
+        await u.dispose();
+      },
+    );
+
+    testWidgets('به‌روز ⇒ سبز؛ اندروید با نسخهٔ تازه ⇒ لمس، دانلود APK', (
+      tester,
+    ) async {
+      File('${install.path}/data/app.so').writeAsBytesSync(soNew);
+      File('${install.path}/data/flutter_assets/new.json')
+        ..parent.createSync(recursive: true)
+        ..writeAsBytesSync(asset);
+      final h = http();
+      final u = OwnerUpdater(
+        secure: FakeSecureStore(),
+        http: () => h,
+        installDir: install,
+        stagingRoot: staging,
+        manifestUrl: manifestUrl,
+        windows: true,
+      );
+      await pumpLight(tester, u);
+      await tester.tap(find.byKey(const Key('update-light')));
+      await until(tester, u, UpdatePhase.upToDate);
+      expect(find.byKey(const Key('update-light-upToDate')), findsOneWidget);
+      await u.dispose();
+
+      // اندروید: نصب‌شده ۱۳۹، منتشرشده ۱۴۰
+      final opened = <Uri>[];
+      final a = OwnerUpdater(
+        secure: FakeSecureStore(),
+        http: http,
+        installDir: install,
+        stagingRoot: staging,
+        manifestUrl: manifestUrl,
+        windows: false,
+        currentBuild: 139,
+      );
+      await pumpLight(tester, a, openUrl: (url) async => opened.add(url));
+      await tester.tap(find.byKey(const Key('update-light')));
+      await until(tester, a, UpdatePhase.ready);
+      await tester.tap(find.byKey(const Key('update-light')));
+      await tester.pump();
+      expect(opened, [defaultApkUrl]);
+      expect(
+        defaultApkUrl.path,
+        endsWith('/owner-continuous/payesh-owner.apk'),
+      );
+      await a.dispose();
     });
   });
 

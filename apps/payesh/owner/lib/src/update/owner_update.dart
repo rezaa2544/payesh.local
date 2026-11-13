@@ -31,8 +31,23 @@ final Uri defaultBlobBase = Uri.parse(
 );
 const String mirrorPrefix = 'payesh/updates/owner/';
 
+/// اندروید: بستهٔ کامل آخرین نسخه (همان انتشار owner-continuous).
+final Uri defaultApkUrl = Uri.parse(
+  'https://github.com/$ownerRepo/releases/download/owner-continuous/payesh-owner.apk',
+);
+
 /// شمارهٔ ساخت همین برنامه (CI: `--dart-define=PAYESH_OWNER_BUILD=<run_number>`).
 const int ownerBuild = int.fromEnvironment('PAYESH_OWNER_BUILD');
+
+/// دو بخش اول نسخه (همان `version:` در pubspec.yaml). بخش سوم = شمارهٔ ساخت CI، پس با هر
+/// تغییرِ منتشرشده نسخه هم عوض می‌شود و به‌روزرسانی آن را می‌بیند (CI: `--build-name`).
+const String ownerVersionBase = '1.1';
+
+/// نسخهٔ نمایشی یک ساخت: `1.1.<build>`.
+String versionOf(int build) => '$ownerVersionBase.$build';
+
+/// نسخهٔ همین برنامه (نوار بالا).
+final String ownerVersion = versionOf(ownerBuild);
 
 const int _maxFileBytes = 256 * 1024 * 1024;
 const int _maxFiles = 4000;

@@ -52,7 +52,15 @@ class OwnerShell extends StatefulWidget {
     this.badge,
     this.infraTop,
     this.extraActions = const [],
+    this.dbLight,
+    this.updateLight,
   });
+
+  /// چراغ وضعیت دیتابیس: همیشه پیدا، بالا-چپ (آخرین جای نوار در راست‌به‌چپ).
+  final Widget? dbLight;
+
+  /// نسخه + چراغ به‌روزرسانی: همیشه پیدا در نوار بالا.
+  final Widget? updateLight;
 
   /// بالای صفحهٔ «زیرساخت» (مثلاً خلاصهٔ سرور کمکی همین دستگاه).
   final Widget? infraTop;
@@ -173,6 +181,7 @@ class _OwnerShellState extends State<OwnerShell> {
       ],
     );
     final actions = <Widget>[
+      ?widget.updateLight,
       ...widget.extraActions,
       if (widget.badge != null)
         Padding(
@@ -202,12 +211,14 @@ class _OwnerShellState extends State<OwnerShell> {
         onPressed: widget.onSignOut,
         child: const Text('خروج'),
       ),
+      ?widget.dbLight,
     ];
     if (size == SizeClass.compact) {
       return Scaffold(
         appBar: AppBar(
           title: Text(title),
           actions: [
+            ?widget.updateLight,
             IconButton(
               key: const Key('account-menu'),
               tooltip: 'حساب و پوسته',
@@ -221,12 +232,16 @@ class _OwnerShellState extends State<OwnerShell> {
                       spacing: 8,
                       runSpacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
-                      children: actions,
+                      children: [
+                        for (final a in actions)
+                          if (a != widget.updateLight && a != widget.dbLight) a,
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
+            ?widget.dbLight,
           ],
         ),
         drawer: NavigationDrawer(

@@ -11,7 +11,11 @@ import 'package:payesh_owner/src/local/cloud_control.dart';
 import 'package:payesh_owner/src/local/local_account.dart';
 import 'package:payesh_owner/src/local/local_platform.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
+import 'package:payesh_owner/src/net/resilience.dart';
 import 'package:payesh_owner/src/platform.dart';
+import 'package:payesh_owner/src/status/status_lights.dart';
+import 'package:payesh_owner/src/update/owner_update.dart';
+import 'package:payesh_owner/src/update/update_service.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
 import 'support/fake_backend.dart';
@@ -66,6 +70,7 @@ Future<void> _pump(
   required FakeSecureStore secure,
   FakeS3? s3,
   DateTime Function()? now,
+  OwnerUpdater? updater,
 }) async {
   tester.view.physicalSize = const Size(1400, 1100);
   tester.view.devicePixelRatio = 1;
@@ -78,6 +83,8 @@ Future<void> _pump(
       s3Factory: () => s3 ?? FakeS3([]),
       pbkdf2Iterations: 50,
       now: now ?? () => _t0,
+      dbAutoCheck: false,
+      updater: updater,
     ),
   );
   await tester.pumpAndSettle();
@@ -120,6 +127,10 @@ Future<void> _login(
 }
 
 void main() {
+  // پاسخ‌های اسکریپتی: هر درخواست دقیقاً یک پاسخ (تلاش دوباره در resilience_test.dart)
+  setUpAll(() => s3RetryPolicy = RetryPolicy.none);
+  tearDownAll(() => s3RetryPolicy = const RetryPolicy());
+  setUp(EndpointRoutes.reset);
   group('PBKDF2 / local account', () {
     test('PBKDF2-HMAC-SHA256 matches published vectors', () {
       final p = utf8.encode('password'), s = utf8.encode('salt');
@@ -540,6 +551,65 @@ void main() {
           await _tap(tester, 'nav-settings');
           expect(find.byKey(const Key('db-endpoint')), findsOneWidget);
           expect(find.byKey(const Key('srv-origin')), findsOneWidget);
+        },
+      );
+
+      testWidgets(
+        'top bar: version + update light; one DB light at the far left, always visible; tap ⇒ re-check',
+        (tester) async {
+          final secure = FakeSecureStore();
+          final tmp = Directory.systemTemp.createTempSync('owner-bar-');
+          addTearDown(() => tmp.deleteSync(recursive: true));
+          await _pump(
+            tester,
+            secure: secure,
+            updater: OwnerUpdater(
+              secure: secure,
+              installDir: tmp,
+              stagingRoot: tmp,
+              windows: true,
+            ),
+          );
+          await _setup(tester);
+          expect(find.byKey(const Key('update-badge')), findsNothing);
+          expect(_text(tester, 'app-version'), ownerVersion);
+          expect(find.byKey(const Key('update-light-idle')), findsOneWidget);
+          // بالا-چپ: در راست‌به‌چپ، چپ‌ترین چیزِ نوار بالا
+          final bar = find.byType(AppBar);
+          final db = tester.getRect(find.byKey(const Key('db-light')));
+          for (final k in ['logout', 'theme', 'update-light', 'mode-badge']) {
+            expect(
+              db.right,
+              lessThanOrEqualTo(tester.getRect(find.byKey(Key(k))).left),
+              reason: k,
+            );
+          }
+          expect(
+            find.descendant(
+              of: bar,
+              matching: find.byKey(const Key('db-light')),
+            ),
+            findsOneWidget,
+          );
+          expect(find.byType(StatusDot), findsNWidgets(2));
+          // تنظیم نشده ⇒ خاکستری؛ لمس ⇒ سنجش دوباره
+          await _tap(tester, 'db-light');
+          expect(
+            find.byKey(const Key('db-light-not_configured')),
+            findsOneWidget,
+          );
+          // تلفن: هر دو چراغ بیرون از منوی حساب، همیشه پیدا
+          tester.view.physicalSize = const Size(420, 900);
+          await tester.pumpAndSettle();
+          expect(find.byKey(const Key('account-menu')), findsOneWidget);
+          expect(find.byKey(const Key('db-light')), findsOneWidget);
+          expect(find.byKey(const Key('update-light')), findsOneWidget);
+          expect(
+            tester.getRect(find.byKey(const Key('db-light'))).right,
+            lessThanOrEqualTo(
+              tester.getRect(find.byKey(const Key('account-menu'))).left,
+            ),
+          );
         },
       );
 

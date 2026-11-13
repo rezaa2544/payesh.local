@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
+import '../net/resilience.dart';
 import 'trust_bundle.dart';
 
 /// تنظیمات دیتابیس (فضای ابری سازگار با S3، مثل آروان‌کلاد) که مالک داخل برنامه وارد می‌کند.
@@ -54,9 +55,37 @@ String endpointText(Uri u) =>
 
 /// ناحیهٔ امضا: `s3.<region>.arvanstorage.ir` ⇒ `<region>`؛ در غیر این صورت `us-east-1`.
 String regionFor(Uri endpoint) {
-  final m = RegExp(r'^s3\.([a-z0-9-]+)\.arvanstorage\.ir$')
+  final m = RegExp(r'^s3\.([a-z0-9-]+)\.arvanstorage\.(ir|com)$')
       .firstMatch(endpoint.host);
   return m?.group(1) ?? 'us-east-1';
+}
+
+/// نام‌های قدیمی/جدید یک ناحیهٔ آروان (تغییر نام ناحیه نباید اتصال را قطع کند).
+const Map<String, String> _arvanRegionAliases = {
+  'ir-central1': 'ir-thr-at1',
+  'ir-thr-at1': 'ir-central1',
+};
+
+/// آدرس‌های جایگزینِ همان فضای ذخیره‌سازی (فقط برای آروان): دامنهٔ `.ir`/`.com` و نام
+/// قدیمی/جدید ناحیه. اگر آدرس تنظیم‌شده موقتاً در دسترس نبود (DNS، مسیر شبکه، گواهی)، همین‌ها
+/// امتحان می‌شوند — کاربر لازم نیست آدرس را دستی عوض کند.
+List<Uri> s3EndpointAlternates(Uri endpoint) {
+  final m = RegExp(r'^s3\.([a-z0-9-]+)\.arvanstorage\.(ir|com)$')
+      .firstMatch(endpoint.host);
+  if (m == null) return const [];
+  final region = m.group(1)!, tld = m.group(2)!;
+  final other = tld == 'ir' ? 'com' : 'ir';
+  final alias = _arvanRegionAliases[region];
+  Uri at(String r, String t) => Uri(
+    scheme: endpoint.scheme,
+    host: 's3.$r.arvanstorage.$t',
+    port: endpoint.hasPort ? endpoint.port : null,
+  );
+  return [
+    at(region, other),
+    if (alias != null) at(alias, tld),
+    if (alias != null) at(alias, other),
+  ];
 }
 
 /// نام صندوقچه (Bucket) طبق قواعد S3.
@@ -109,6 +138,13 @@ final class S3Settings {
 
   /// خالی = خودکار (همان قاعدهٔ سرور مدرسه، [pickBucket]).
   final String bucket;
+
+  S3Settings withEndpoint(Uri e) => S3Settings(
+    endpoint: e,
+    accessKey: accessKey,
+    secretKey: secretKey,
+    bucket: bucket,
+  );
 
   S3Settings withBucket(String b) => S3Settings(
     endpoint: endpoint,
@@ -295,19 +331,78 @@ SecurityContext ownerTrustContext({
   return c;
 }
 
-final class IoS3Transport implements S3Transport {
+/// انتقالی که پس از خطا می‌تواند اتصال‌هایش را دور بریزد و از نو بسازد.
+abstract interface class ResettableTransport {
+  void reset();
+}
+
+final class IoS3Transport implements S3Transport, ResettableTransport {
   IoS3Transport({
     Duration timeout = const Duration(seconds: 20),
     SecurityContext? context,
     this.maxBytes = 0,
   }) : _timeout = timeout,
-       _client = HttpClient(context: context ?? ownerTrustContext())
-         ..connectionTimeout = timeout;
+       _connectTimeout = timeout < const Duration(seconds: 10)
+           ? timeout
+           : const Duration(seconds: 10),
+       _context = context ?? ownerTrustContext() {
+    _client = _newClient();
+  }
   final Duration _timeout;
-  final HttpClient _client;
+  final Duration _connectTimeout;
+  final SecurityContext _context;
+  late HttpClient _client;
 
   /// اگر > 0: بدنهٔ خام تا این اندازه نگه داشته می‌شود ([S3Response.rawBytes]).
   final int maxBytes;
+
+  /// آخرین نشانی IP که هر میزبان از آن جواب داد (برای وقتی که DNS موقتاً جواب نمی‌دهد).
+  static final Map<String, InternetAddress> _known = {};
+
+  /// فقط برای آزمون‌ها.
+  static void rememberAddress(String host, InternetAddress a) =>
+      _known[host] = a;
+  static void forgetAddresses() => _known.clear();
+
+  HttpClient _newClient() => HttpClient(context: _context)
+    ..connectionTimeout = _connectTimeout
+    // اتصال بیکار زود بسته می‌شود تا هیچ‌وقت سراغ سوکتی که سرور (یا شبکه) بسته نرویم
+    ..idleTimeout = const Duration(seconds: 5);
+
+  /// اتصال‌های قبلی (و نتیجهٔ DNS آن‌ها) دور ریخته می‌شوند؛ درخواست بعدی از نو وصل می‌شود.
+  @override
+  void reset() {
+    _client.close(force: true);
+    _client = _newClient();
+  }
+
+  /// اتصال مستقیم به IP شناخته‌شده، با همان نام میزبان برای SNI و بررسی گواهی.
+  HttpClient _pinnedClient(String host, InternetAddress ip) =>
+      HttpClient(context: _context)
+        ..connectionTimeout = _connectTimeout
+        ..findProxy = ((_) => 'DIRECT')
+        ..connectionFactory = (uri, proxyHost, proxyPort) async {
+          final port = uri.hasPort
+              ? uri.port
+              : (uri.scheme == 'https' ? 443 : 80);
+          final task = await Socket.startConnect(ip, port);
+          if (uri.scheme != 'https') return task;
+          return ConnectionTask.fromSocket(
+            task.socket.then(
+              (raw) => SecureSocket.secure(raw, host: host, context: _context),
+            ),
+            task.cancel,
+          );
+        };
+
+  static bool _lookupFailed(SocketException e) {
+    final m = '${e.message} ${e.osError?.message ?? ''}'.toLowerCase();
+    return m.contains('lookup') ||
+        m.contains('no address') ||
+        m.contains('name or service') ||
+        m.contains('nodename') ||
+        m.contains('getaddrinfo');
+  }
 
   @override
   Future<S3Response> send(
@@ -316,7 +411,28 @@ final class IoS3Transport implements S3Transport {
     Map<String, String> headers, [
     List<int>? body,
   ]) async {
-    final req = await _client.openUrl(method, url).timeout(_timeout);
+    try {
+      return await _send(_client, method, url, headers, body);
+    } on SocketException catch (e) {
+      final ip = _known[url.host];
+      if (ip == null || !_lookupFailed(e)) rethrow;
+      final c = _pinnedClient(url.host, ip);
+      try {
+        return await _send(c, method, url, headers, body);
+      } finally {
+        c.close(force: true);
+      }
+    }
+  }
+
+  Future<S3Response> _send(
+    HttpClient client,
+    String method,
+    Uri url,
+    Map<String, String> headers,
+    List<int>? body,
+  ) async {
+    final req = await client.openUrl(method, url).timeout(_timeout);
     req.followRedirects = false;
     headers.forEach((k, v) {
       if (k != 'host') req.headers.set(k, v);
@@ -326,6 +442,10 @@ final class IoS3Transport implements S3Transport {
       req.add(body);
     }
     final res = await req.close().timeout(_timeout);
+    final addr = res.connectionInfo?.remoteAddress;
+    if (addr != null && InternetAddress.tryParse(url.host) == null) {
+      _known[url.host] = addr;
+    }
     if (maxBytes > 0) {
       final b = BytesBuilder(copy: false);
       await for (final chunk in res.timeout(_timeout)) {
@@ -385,8 +505,37 @@ String _failText(int status, String? code) => switch (code) {
     'پاسخ نامنتظره از سرور دیتابیس: کد $status${code == null ? '' : ' ($code)'}',
 };
 
+/// تلاش‌های دوباره برای همهٔ درخواست‌های دیتابیس (آزمون‌ها می‌توانند عوضش کنند).
+RetryPolicy s3RetryPolicy = const RetryPolicy();
+
+/// خطای «به آدرس نرسیدیم» (نه پاسخ سرور) — آدرس جایگزین ارزش امتحان دارد.
+final class _Unreachable implements Exception {
+  const _Unreachable(this.cause);
+  final Object cause;
+}
+
+S3Failure _networkFailure(Object e) => switch (e) {
+  TimeoutException() => const S3Failure(
+    'پاسخی از سرور دیتابیس نیامد (مهلت تمام شد). اتصال اینترنت را بررسی کنید.',
+  ),
+  HandshakeException(:final osError, :final message) => S3Failure(
+    'گواهی امنیتی (TLS) سرور دیتابیس پذیرفته نشد'
+    '${(osError?.message ?? message).trim().isEmpty ? '.' : ': ${(osError?.message ?? message).trim()}'}',
+  ),
+  HttpException() => const S3Failure(
+    'ارتباط با سرور دیتابیس نیمه‌کاره قطع شد.',
+  ),
+  _ => const S3Failure(
+    'ارتباط با سرور دیتابیس برقرار نشد. اتصال اینترنت یا آدرس را بررسی کنید.',
+  ),
+};
+
 /// یک درخواست امضاشده (SigV4، مسیر-محور روی همان آدرس). ناحیه از آدرس؛ اگر سرور ناحیهٔ دیگری
 /// پیشنهاد کند، یک بار دیگر با همان. پاسخ 2xx یا 404 برمی‌گردد؛ بقیه ⇒ [S3Failure].
+///
+/// پایداری: خطای گذرای شبکه و پاسخ‌های ۴۰۸/۴۲۹/۵xx با فاصلهٔ نمایی + لرزش دوباره فرستاده
+/// می‌شوند (با اتصال تازه)؛ اگر خود آدرس در دسترس نبود، آدرس‌های جایگزینِ همان فضای
+/// ذخیره‌سازی امتحان می‌شوند و آدرسی که جواب داد برای درخواست‌های بعدی اول می‌آید.
 Future<S3Response> s3Request(
   S3Settings s,
   S3Transport transport, {
@@ -397,12 +546,61 @@ Future<S3Response> s3Request(
   String? contentType,
   DateTime Function()? now,
 }) async {
+  final configured = endpointText(s.endpoint);
+  final routes = EndpointRoutes.order(
+    s.endpoint,
+    s3EndpointAlternates(s.endpoint),
+    endpointText,
+  );
+  Object? firstCause;
+  for (var i = 0; i < routes.length; i++) {
+    final ep = routes[i];
+    try {
+      final r = await _s3RequestAt(
+        ep == s.endpoint ? s : s.withEndpoint(ep),
+        transport,
+        method: method,
+        path: path,
+        query: query,
+        body: body,
+        contentType: contentType,
+        now: now,
+        // آدرس اول همهٔ تلاش‌ها را دارد؛ جایگزین‌ها فقط یک تلاش (تا قطعی واقعی طول نکشد)
+        policy: i == 0 ? s3RetryPolicy : RetryPolicy.none,
+      );
+      EndpointRoutes.good(configured, endpointText(ep));
+      return r;
+    } on _Unreachable catch (u) {
+      firstCause ??= u.cause;
+      if (transport is ResettableTransport) {
+        (transport as ResettableTransport).reset();
+      }
+    } on S3Failure {
+      // پاسخ خطای یک آدرس جایگزین جای خطای اصلی (نرسیدن به آدرس تنظیم‌شده) را نمی‌گیرد
+      if (firstCause == null) rethrow;
+    }
+  }
+  throw _networkFailure(firstCause ?? const SocketException(''));
+}
+
+Future<S3Response> _s3RequestAt(
+  S3Settings s,
+  S3Transport transport, {
+  required String method,
+  required String path,
+  required Map<String, String> query,
+  required List<int>? body,
+  required String? contentType,
+  required DateTime Function()? now,
+  required RetryPolicy policy,
+}) async {
   var region = regionFor(s.endpoint);
   final payloadHash = body == null
       ? _emptySha256
       : sha256.convert(body).toString();
   final canonicalPath = uriEncode(path, keepSlash: true);
-  for (var attempt = 0; attempt < 2; attempt++) {
+  var regionRetried = false;
+  for (var attempt = 0; ; attempt++) {
     final date = amzDate((now ?? DateTime.now)());
     final hostHeader = s.endpoint.hasPort
         ? '${s.endpoint.host}:${s.endpoint.port}'
@@ -432,21 +630,19 @@ Future<S3Response> s3Request(
     final S3Response r;
     try {
       r = await transport.send(method, url, headers, body);
-    } on TimeoutException {
-      throw const S3Failure(
-        'پاسخی از سرور دیتابیس نیامد (مهلت تمام شد). اتصال اینترنت را بررسی کنید.',
-      );
-    } on SocketException {
-      throw const S3Failure(
-        'ارتباط با سرور دیتابیس برقرار نشد. اتصال اینترنت یا آدرس را بررسی کنید.',
-      );
-    } on HandshakeException catch (e) {
-      final why = (e.osError?.message ?? e.message).trim();
-      throw S3Failure(
-        'گواهی امنیتی (TLS) سرور دیتابیس پذیرفته نشد${why.isEmpty ? '.' : ': $why'}',
-      );
-    } on HttpException {
-      throw const S3Failure('ارتباط با سرور دیتابیس نیمه‌کاره قطع شد.');
+    } on S3Failure {
+      rethrow;
+    } on Object catch (e) {
+      if (!isReachabilityError(e)) rethrow;
+      if (attempt + 1 < policy.attempts && isTransientNetworkError(e)) {
+        // اتصال تازه (سوکت و DNS از نو) و کمی صبر
+        if (transport is ResettableTransport) {
+          (transport as ResettableTransport).reset();
+        }
+        await Future<void>.delayed(policy.delayFor(attempt));
+        continue;
+      }
+      throw _Unreachable(e);
     }
     if ((r.status >= 200 && r.status < 300) ||
         (r.status == 404 && _xmlTag(r.body, 'Code') != 'NoSuchBucket')) {
@@ -454,7 +650,7 @@ Future<S3Response> s3Request(
     }
     final code = _xmlTag(r.body, 'Code');
     final hinted = _xmlTag(r.body, 'Region');
-    if (attempt == 0 &&
+    if (!regionRetried &&
         hinted != null &&
         hinted.isNotEmpty &&
         hinted != region &&
@@ -462,11 +658,15 @@ Future<S3Response> s3Request(
             r.status == 301 ||
             r.status == 400)) {
       region = hinted;
+      regionRetried = true;
+      continue;
+    }
+    if (isTransientStatus(r.status) && attempt + 1 < policy.attempts) {
+      await Future<void>.delayed(policy.delayFor(attempt));
       continue;
     }
     throw S3Failure(_failText(r.status, code), status: r.status, code: code);
   }
-  throw const S3Failure('ناحیهٔ سرور دیتابیس شناخته نشد.');
 }
 
 /// فهرست صندوقچه‌ها (ListBuckets): آزمون واقعی کلیدها روی همان آدرس.
