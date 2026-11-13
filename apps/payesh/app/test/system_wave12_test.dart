@@ -8,6 +8,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:payesh_app/src/system/school_profile_screen.dart';
 import 'package:payesh_app/src/system/system_screen.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 
@@ -152,6 +153,36 @@ final class FakeAdmin implements ServerAdminApi {
   Future<void> saveSettings({required String name}) async {
     await _gate('settings');
     school = name;
+  }
+
+  /// Row 150: «مشخصات مدرسه» on the school server.
+  Map<String, Object?> profile = {
+    'name': 'هنرستان نمونه',
+    'code': '1234',
+    'province': 'خراسان رضوی',
+    'county': 'نیشابور',
+    'district': '',
+    'level': '',
+    'gender': '',
+    'school_type': 'governmental',
+    'capacity': 300,
+    'work_days': [0, 1, 2, 3, 4],
+    'excuse_window_minutes': 15,
+    'complete': false,
+  };
+  Map<String, Object?>? savedProfile;
+
+  @override
+  Future<Map<String, Object?>> schoolProfile() async {
+    await _gate('profile');
+    return profile;
+  }
+
+  @override
+  Future<Map<String, Object?>> saveSchoolProfile(Map<String, Object?> p) async {
+    await _gate('profile-save');
+    savedProfile = p;
+    return profile = {...profile, ...p, 'complete': true};
   }
 
   @override
@@ -561,6 +592,113 @@ void main() {
       for (final k in ['system', 'cloud', 'health']) {
         expect(find.byKey(Key('adm-$k')), findsNothing, reason: k);
       }
+    },
+  );
+  testWidgets(
+    'W12-W08 row 150: «مشخصات مدرسه» in the manager settings — owner part read-only, '
+    'dependencies (type ⇒ caps, شب ⇒ evening, متوسطه دوم ⇒ branch, students ≤ capacity), '
+    'saved to the school server; NEG invalid never sent, offline says so',
+    (tester) async {
+      final (_, admin) = await open(tester, 'system');
+      await tapKey(tester, 'sys-profile');
+      expect(find.byType(SchoolProfileView), findsOneWidget);
+      expect(textOf(tester, 'sp-name'), 'هنرستان نمونه · کد ۱۲۳۴');
+      expect(find.byKey(const Key('sp-incomplete')), findsOneWidget);
+      // nothing chosen yet ⇒ local validation, nothing sent
+      await tapKey(tester, 'sp-save');
+      expect(textOf(tester, 'sp-error'), 'مقطع را انتخاب کنید');
+      expect(admin.calls, isNot(contains('profile-save')));
+
+      Future<void> top() async {
+        await tester.drag(
+          find.byKey(const Key('sp-list')),
+          const Offset(0, 6000),
+        );
+        await settle(tester);
+      }
+
+      Future<void> tk(String key) async {
+        await top();
+        await tapKey(tester, key);
+      }
+
+      Future<void> ty(String key, String text) async {
+        await top();
+        await typeKey(tester, key, text);
+      }
+
+      Future<void> pick(String key, String label) async {
+        await tk(key);
+        await tester.tap(find.text(label).last);
+        await settle(tester);
+      }
+
+      await pick('sp-level', 'متوسطه دوم');
+      await pick('sp-gender', 'دخترانه');
+      await pick('sp-school_type', 'هنرستان');
+      await top();
+      await reveal(tester, 'sp-cap-has_workshop');
+      final ws = tester.widget<CheckboxListTile>(
+        find.byKey(const Key('sp-cap-has_workshop')),
+      );
+      expect(ws.value, isTrue, reason: 'vocational ⇒ workshop');
+      await pick('sp-shift', 'هر دو شیفت');
+      await top();
+      await reveal(tester, 'sp-cap-has_evening');
+      final ev = tester.widget<CheckboxListTile>(
+        find.byKey(const Key('sp-cap-has_evening')),
+      );
+      expect(ev.value, isTrue);
+      expect(ev.onChanged, isNull, reason: 'locked on for شب / هر دو');
+      await ty('sp-capacity', '۲۰۰');
+      await ty('sp-students', '250');
+      expect(find.byKey(const Key('sp-over')), findsOneWidget);
+      await tk('sp-save');
+      expect(
+        textOf(tester, 'sp-error'),
+        'تعداد دانش‌آموزان از ظرفیت مدرسه بیشتر است',
+      );
+      await ty('sp-students', '150');
+      expect(find.byKey(const Key('sp-over')), findsNothing);
+      await tk('sp-save');
+      expect(
+        textOf(tester, 'sp-error'),
+        startsWith('برای متوسطه دوم دست‌کم یک شاخه'),
+      );
+      await tk('sp-branch-فنی و حرفه‌ای');
+      await tk('sp-field-کامپیوتر');
+      await tk('sp-day-5');
+      await ty('sp-phone', '09121234567');
+      await tk('sp-save');
+      expect(textOf(tester, 'sp-notice'), 'مشخصات مدرسه ذخیره شد');
+      final sp = admin.savedProfile!;
+      expect(sp['level'], 'متوسطه دوم');
+      expect(sp['gender'], 'دخترانه');
+      expect(sp['school_type'], 'vocational');
+      expect(sp['capacity'], 200);
+      expect(sp['student_count'], 150);
+      expect(sp['work_days'], [0, 1, 2, 3, 4, 5]);
+      expect(sp['branches'], ['فنی و حرفه‌ای']);
+      expect(sp['fields'], ['کامپیوتر']);
+      expect((sp['capabilities']! as Map)['has_evening'], 1);
+      expect(find.byKey(const Key('sp-incomplete')), findsNothing);
+      // un-ticking a branch drops its fields
+      await tk('sp-branch-فنی و حرفه‌ای');
+      expect(find.byKey(const Key('sp-field-کامپیوتر')), findsNothing);
+      admin.online = false;
+      await tk('sp-branch-نظری');
+      await tk('sp-save');
+      expect(
+        textOf(tester, 'sp-error'),
+        startsWith('این کار روی سرور مدرسه انجام می‌شود'),
+      );
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: SchoolProfileView(admin: null))),
+      );
+      await settle(tester);
+      expect(textOf(tester, 'sp-error'), startsWith('این کار روی سرور مدرسه'));
+      expect(find.byKey(const Key('sp-retry')), findsOneWidget);
     },
   );
 }

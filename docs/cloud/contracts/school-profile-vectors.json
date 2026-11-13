@@ -1,0 +1,1081 @@
+{
+  "contract": "school-profile v1",
+  "levels": [
+    "ابتدایی",
+    "متوسطه اول",
+    "متوسطه دوم"
+  ],
+  "genders": [
+    "پسرانه",
+    "دخترانه"
+  ],
+  "shifts": [
+    "صبح",
+    "بعدازظهر",
+    "شب",
+    "هر دو"
+  ],
+  "kinds": [
+    "عادی",
+    "علوم تجربی",
+    "ریاضی",
+    "فنی و حرفه‌ای"
+  ],
+  "school_types": [
+    "governmental",
+    "exemplary",
+    "non_profit",
+    "sampad",
+    "shahed",
+    "exceptional",
+    "rural",
+    "boarding",
+    "vocational"
+  ],
+  "caps": [
+    "has_tuition",
+    "has_dorm",
+    "has_iep",
+    "has_workshop",
+    "has_multigrade",
+    "has_second_term_exam",
+    "has_evening"
+  ],
+  "branches": {
+    "نظری": [
+      "ریاضی فیزیک",
+      "علوم تجربی",
+      "ادبیات و علوم انسانی",
+      "علوم و معارف اسلامی"
+    ],
+    "فنی و حرفه‌ای": [
+      "الکتروتکنیک",
+      "الکترونیک",
+      "مکانیک خودرو",
+      "کامپیوتر",
+      "حسابداری",
+      "ساختمان",
+      "گرافیک"
+    ],
+    "کاردانش": [
+      "تعمیر لوازم خانگی",
+      "طراحی دوخت",
+      "تأسیسات",
+      "صنایع غذایی"
+    ]
+  },
+  "max": {
+    "capacity": 20000,
+    "staff": 5000,
+    "excuse": 240,
+    "boom": 2000
+  },
+  "cases": [
+    {
+      "id": "ok-basic",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "patch": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": 300,
+        "landline": "05142233445",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": 250,
+        "work_days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_dorm": 0,
+          "has_iep": 0,
+          "has_workshop": 0,
+          "has_multigrade": 0,
+          "has_second_term_exam": 1,
+          "has_evening": 0
+        },
+        "branches": [],
+        "fields": [],
+        "boom_goals": "هدف",
+        "public_goals": true
+      }
+    },
+    {
+      "id": "ok-second",
+      "input": {
+        "level": "متوسطه دوم",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری",
+          "کاردانش"
+        ],
+        "fields": [
+          "ریاضی فیزیک",
+          "تأسیسات"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "patch": {
+        "level": "متوسطه دوم",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": 300,
+        "landline": "05142233445",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": 250,
+        "work_days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_dorm": 0,
+          "has_iep": 0,
+          "has_workshop": 0,
+          "has_multigrade": 0,
+          "has_second_term_exam": 1,
+          "has_evening": 0
+        },
+        "branches": [
+          "نظری",
+          "کاردانش"
+        ],
+        "fields": [
+          "ریاضی فیزیک",
+          "تأسیسات"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      }
+    },
+    {
+      "id": "ok-night-evening",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "شب",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {},
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "patch": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "شب",
+        "capacity": 300,
+        "landline": "05142233445",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": 250,
+        "work_days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 0,
+          "has_dorm": 0,
+          "has_iep": 0,
+          "has_workshop": 0,
+          "has_multigrade": 0,
+          "has_second_term_exam": 0,
+          "has_evening": 1
+        },
+        "branches": [],
+        "fields": [],
+        "boom_goals": "هدف",
+        "public_goals": true
+      }
+    },
+    {
+      "id": "ok-empty-optional",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "",
+        "phone": "",
+        "staff_count": "",
+        "student_count": null,
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "patch": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": 300,
+        "landline": "",
+        "phone": "",
+        "staff_count": null,
+        "student_count": null,
+        "work_days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_dorm": 0,
+          "has_iep": 0,
+          "has_workshop": 0,
+          "has_multigrade": 0,
+          "has_second_term_exam": 1,
+          "has_evening": 0
+        },
+        "branches": [],
+        "fields": [],
+        "boom_goals": "هدف",
+        "public_goals": true
+      }
+    },
+    {
+      "id": "bad-level",
+      "input": {
+        "level": "دانشگاه",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "level"
+    },
+    {
+      "id": "bad-type",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "x",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "type"
+    },
+    {
+      "id": "bad-school-type",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "x",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "school_type"
+    },
+    {
+      "id": "bad-gender",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "gender"
+    },
+    {
+      "id": "bad-shift",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "عصر",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "shift"
+    },
+    {
+      "id": "bad-capacity-zero",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": 0,
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "capacity"
+    },
+    {
+      "id": "bad-capacity-text",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "abc",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "capacity"
+    },
+    {
+      "id": "bad-staff",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 9999,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "staff_count"
+    },
+    {
+      "id": "bad-students",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "-3",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "student_count"
+    },
+    {
+      "id": "over-capacity",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": 301,
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "over_capacity"
+    },
+    {
+      "id": "bad-landline",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "1234",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "landline"
+    },
+    {
+      "id": "bad-phone",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "0912",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "phone"
+    },
+    {
+      "id": "no-days",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "work_days"
+    },
+    {
+      "id": "bad-day",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          7
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "work_days"
+    },
+    {
+      "id": "bad-excuse",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 500,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "excuse"
+    },
+    {
+      "id": "bad-cap-key",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_pool": 1
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "capabilities"
+    },
+    {
+      "id": "second-no-branch",
+      "input": {
+        "level": "متوسطه دوم",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "branches"
+    },
+    {
+      "id": "second-bad-branch",
+      "input": {
+        "level": "متوسطه دوم",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "هنر"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "branches"
+    },
+    {
+      "id": "second-field-outside",
+      "input": {
+        "level": "متوسطه دوم",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "کامپیوتر"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "fields"
+    },
+    {
+      "id": "long-boom",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "capacity": "۳۰۰",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "public_goals": true
+      },
+      "error": "boom_goals"
+    }
+  ]
+}

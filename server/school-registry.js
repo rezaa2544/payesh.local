@@ -620,9 +620,16 @@ function applySchool(store, sch) {
     changed = true;
   }
   const s1 = store.get('schools', 1);
-  if (s1 && (s1.name !== sch.name || s1.level !== sch.level)) {
-    store.update('schools', 1, { name: sch.name, level: sch.level, capabilities: Object.assign({}, s1.capabilities || {}, sch.capabilities || {}) });
-    changed = true;
+  /* ردیف ۱۵۰: مالک فقط نام/مکان/مدیر را تعیین می‌کند؛ مقطع، قابلیت‌ها و بقیهٔ مشخصات
+     مال تنظیمات مدیر است و از رجیستری مالک بازنویسی نمی‌شود */
+  if (s1 && sch.name) {
+    const loc = { name: sch.name, code: sch.code || s1.code || '', province: sch.province || s1.province || '',
+      county: sch.county || s1.county || '', district: sch.district != null ? sch.district : (s1.district || ''),
+      area_kind: sch.area_kind || s1.area_kind || 'district', address: sch.address != null ? sch.address : (s1.address || '') };
+    if (Object.keys(loc).some(k => (s1[k] || '') !== loc[k])) {
+      store.update('schools', 1, Object.assign(loc, { city: loc.county }));
+      changed = true;
+    }
   }
   return changed;
 }
@@ -765,6 +772,6 @@ module.exports = {
   K, DIR, SALT: SALT.toString('utf8'), PLANS, ROLES, OFFERED, DEFAULTS, plansFor, effectiveEnd, LEVELS, USERNAME_RE,
   RegistryError, seal, open, keyFor, readEnv, writeEnv, trialKey, settingsOf, verifyOk, fill,
   registry, boundOf, schoolOf, gate, startTrial, startPayment, submitReceipt, callback, callbackPage,
-  applyOwner, adoptOnLogin, adoptSchool, findManager, loginShape, register, requestStatus, validRequest,
+  applyOwner, applySchool, adoptOnLogin, adoptSchool, findManager, loginShape, register, requestStatus, validRequest,
   pullRegistry, writeAck, poll, start, stop, subsState, markPaid,
 };

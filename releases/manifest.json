@@ -1,18 +1,19 @@
 {
-  "version": "0.9.2",
-  "built_at": "2026-11-13T20:22:25.682Z",
+  "version": "0.9.3",
+  "built_at": "2026-11-13T20:31:26.756Z",
   "notes": [
-    "نگاشت آیکون‌های نبض هر دو شکل ایموجی با و بدون variation selector را به SVG یکسان می‌برد.",
-    "بسته‌های نصب و مانیفست برای نگاشت آیکون‌های اصلاح‌شده به نسخهٔ 0.9.2 ارتقا یافتند."
+    "اشتراک برای هر نقش با کلید «نیازمند اشتراک/رایگان» و قیمت ماهانه و سالانهٔ جدا به ریال؛ همهٔ اشتراک‌ها ۳۱ شهریور پایان می‌یابند و هشدار تمدید مدیر از ۱ تیر نمایش داده می‌شود.",
+    "بخش «پرداخت‌ها» در پنل مالک برای پیگیری، تأیید، رد و لغو پرداخت‌ها و اشتراک‌ها اضافه شد.",
+    "فرم تعریف مدرسه در پنل مالک فقط مکان/اداره و مشخصات مدیر را دارد؛ بقیهٔ مشخصات مدرسه با وابستگی‌ها در «سیستم ← مشخصات مدرسه» پنل مدیر تنظیم می‌شود."
   ],
   "shell": {
-    "android": "0.9.2"
+    "android": "0.9.3"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "e6e6f26cd269dcc12e1d3a3d93567386b1a0576867fd5a1e28a24483e6382a85",
+      "sha256": "cca9227b270292461ddbc36df4c9a4288f2439d35496c240ac71e5b513f1b4b3",
       "size": 203840
     },
     {
@@ -222,7 +223,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "8bc8cfcdf8257e044400326f3ec14f8c66f88de08cef837c341c23f314e7a553",
+      "sha256": "6940785638d339d5ec6cc0e944a648e2002f69bf3b164bf71cd58fc0702fb848",
       "size": 6282
     },
     {
@@ -324,8 +325,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "acd60fc6a919a8ed41317a8dc27cbea44c9e0bf00ff46a9d41c56aeffb385a7d",
-      "size": 133596
+      "sha256": "8a83ab27a7789ebe27ac4b2d567644b4e78b400276dce42b8223498e34e57806",
+      "size": 134622
     },
     {
       "path": "server/kill-switch.js",
@@ -424,10 +425,16 @@
       "size": 10460
     },
     {
+      "path": "server/school-profile.js",
+      "kind": "server",
+      "sha256": "5c893cc0345645698a8f292c208c4adee5bc75f4a034a3e95311cdb898e9334d",
+      "size": 8098
+    },
+    {
       "path": "server/school-registry.js",
       "kind": "server",
-      "sha256": "55ee7af76eba2ea975b83dae48f35b5dd08c00c45bf7cca7a674f551467d83e3",
-      "size": 42861
+      "sha256": "22b73d033f72f19c8326d0165783b867f0128c92573a536b8a9ba94f0cbe6b70",
+      "size": 43451
     },
     {
       "path": "server/scope.js",
@@ -516,9 +523,9 @@
   ],
   "counts": {
     "client": 34,
-    "server": 50
+    "server": 51
   },
   "client_size": 1487760,
-  "server_size": 789594,
-  "total_size": 2277354
+  "server_size": 799308,
+  "total_size": 2287068
 }

@@ -13,7 +13,10 @@
 //   SR-07  نوع ۲ (ثبت‌نام): درخواست معتبر مهرشده در صندوقچه؛ اعتبارسنجی فیلدها؛ نام کاربری تکراری؛ وضعیت با توکن
 //          (در انتظار ← تأیید/رد)؛ پس از تأیید، مدیر وارد می‌شود ولی تا اشتراک یا آزمایشی هیچ امکانی ندارد.
 //   SR-08  غیرفعال کردن مدرسه در پنل مالک ورود را می‌بندد؛ گزارش سرور (ack) برای پنل مالک.
-//   SR-09  سرور واقعی (HTTP): ثبت‌نام عمومی، ورود با نام کاربری، 402 subscription_required، آزمایشی، بازگشت درگاه HTML.
+//   SR-09  سرور واقعی (HTTP): ثبت‌نام عمومی، ورود با نام کاربری، 402 subscription_required، آزمایشی، بازگشت درگاه HTML؛
+//          ردیف ۱۵۰: GET/POST /api/admin/school (مشخصات مدرسه در تنظیمات مدیر) · بدون نشست 401.
+
+//   SR-11  ردیف ۱۵۰: بردارهای school-profile v1؛ رجیستری مالک مقطع/قابلیت‌های تعیین‌شدهٔ مدیر را بازنویسی نمی‌کند.
 // خط آخر: SCHOOLS-145-OK checks=N | SCHOOLS-145-FAIL failures=N
 'use strict';
 const fs = require('node:fs');
@@ -28,6 +31,7 @@ const { spawn } = require('node:child_process');
 const ROOT = path.join(__dirname, '..');
 const sr = require(path.join(ROOT, 'server', 'school-registry.js'));
 const ay = require(path.join(ROOT, 'server', 'academic-year.js'));
+const sp = require(path.join(ROOT, 'server', 'school-profile.js'));
 const s3mem = require(path.join(ROOT, 'server', 's3mem.js'));
 const auth = require(path.join(ROOT, 'server', 'auth.js'));
 const { openStore } = require(path.join(ROOT, 'server', 'db.js'));
@@ -532,6 +536,30 @@ function req(method, port, p, body, headers = {}) {
       assert.strictEqual(sr.effectiveEnd(legacy.users[String(mgr.id)], bahman), Date.parse('2027-09-22T20:30:00.000Z'));
     });
 
+    await check('SR-11 ردیف ۱۵۰: مشخصات مدرسه مال مدیر است (بردارها + رجیستری مالک بازنویسی نمی‌کند)', async () => {
+      const PV = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/cloud/contracts/school-profile-vectors.json'), 'utf8'));
+      assert.deepStrictEqual(PV.levels, sp.LEVELS); assert.deepStrictEqual(PV.levels, sr.LEVELS);
+      assert.deepStrictEqual(PV.caps, sp.CAPS); assert.deepStrictEqual(PV.branches, sp.BRANCHES); assert.deepStrictEqual(PV.school_types, sp.SCHOOL_TYPES);
+      assert.ok(PV.cases.length >= 20);
+      for (const c of PV.cases) {
+        const r = sp.validateProfile(c.input);
+        if (c.error) assert.strictEqual(r.error, c.error, c.id);
+        else assert.deepStrictEqual(r.patch, c.patch, c.id);
+      }
+      const store = newStore();
+      store.insert('schools', { name: 'قدیم', code: '1', level: 'متوسطه دوم', county: 'نیشابور', capabilities: { has_dorm: 1 }, gender: 'دخترانه' }, { id: 1 });
+      store.setMeta('schools:bound', { school_id: 's-0099', manager_rev: 5, username: 'm.x' });
+      assert.strictEqual(sr.applySchool(store, { id: 's-0099', name: 'هنرستان نو', code: '1', province: 'خراسان رضوی', county: 'نیشابور', district: 'خرو', level: 'ابتدایی', capabilities: { has_dorm: 0 }, manager: { rev: 5 } }), true);
+      const s1 = store.get('schools', 1);
+      assert.strictEqual(s1.name, 'هنرستان نو'); assert.strictEqual(s1.province, 'خراسان رضوی'); assert.strictEqual(s1.district, 'خرو');
+      assert.strictEqual(s1.level, 'متوسطه دوم', 'level stays manager-owned'); assert.strictEqual(s1.capabilities.has_dorm, 1); assert.strictEqual(s1.gender, 'دخترانه');
+      assert.strictEqual(sr.applySchool(store, { id: 's-0099', name: 'هنرستان نو', code: '1', province: 'خراسان رضوی', county: 'نیشابور', district: 'خرو', manager: { rev: 5 } }), false, 'idempotent');
+      const pr = sp.profileOf(s1);
+      assert.strictEqual(pr.complete, true); assert.strictEqual(pr.capabilities.has_dorm, 1); assert.strictEqual(pr.capacity, 300);
+      assert.strictEqual(sp.profileOf({ name: 'x', level: 'ابتدایی' }).complete, false);
+      store.close();
+    });
+
     await check('SR-09 سرور واقعی (HTTP): ثبت‌نام، ورود با نام کاربری، 402، آزمایشی، بازگشت درگاه', async () => {
       await wipe(S);
       const o = owner(cfg);
@@ -583,6 +611,18 @@ function req(method, port, p, body, headers = {}) {
         const tr = await req('POST', port, '/api/sub/trial', { device_hash: DEV_B }, H);
         assert.strictEqual(tr.status, 200, tr.body); assert.strictEqual(tr.json.sub.status, 'trial');
         assert.strictEqual((await req('GET', port, '/api/bootstrap', null, H)).status, 200);
+        /* ردیف ۱۵۰: مشخصات مدرسه در تنظیمات مدیر */
+        const pf = await req('GET', port, '/api/admin/school', null, H);
+        assert.strictEqual(pf.status, 200, pf.body); assert.strictEqual(pf.json.school.complete, false);
+        const okIn = { level: 'متوسطه دوم', gender: 'پسرانه', shift: 'هر دو', capacity: 200, student_count: 150, work_days: [0, 1, 2], excuse_window_minutes: 20, capabilities: { has_workshop: 1 }, branches: ['فنی و حرفه‌ای'], fields: ['کامپیوتر'] };
+        const over = await req('POST', port, '/api/admin/school', Object.assign({}, okIn, { student_count: 201 }), H);
+        assert.strictEqual(over.status, 400); assert.strictEqual(over.json.field, 'over_capacity');
+        const sv = await req('POST', port, '/api/admin/school', okIn, H);
+        assert.strictEqual(sv.status, 200, sv.body);
+        assert.strictEqual(sv.json.school.complete, true); assert.strictEqual(sv.json.school.level, 'متوسطه دوم');
+        assert.strictEqual(sv.json.school.capabilities.has_evening, 1, 'shift هر دو ⇒ evening'); assert.deepStrictEqual(sv.json.school.fields, ['کامپیوتر']);
+        assert.strictEqual((await req('GET', port, '/api/admin/school', null, H)).json.school.capacity, 200);
+        assert.strictEqual((await req('GET', port, '/api/admin/school')).status, 401);
         const cb = await req('GET', port, '/api/sub/callback?payment=' + rc.json.payment.id);
         assert.strictEqual(cb.status, 200); assert.ok(cb.type.startsWith('text/html')); assert.ok(cb.body.includes(rc.json.payment.id));
         /* سرور دوم با همان مدیر ⇒ 409 */

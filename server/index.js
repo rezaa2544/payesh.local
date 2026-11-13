@@ -40,6 +40,7 @@ const tunnel = require('./tunnel');
 const helperJobs = require('./helper-jobs');
 /* ردیف ۱۴۵: مدارس، درخواست ثبت‌نام و اشتراک (برگردان p2) — فهرست مالک در صندوقچه */
 const schools = require('./school-registry');
+const schoolProfile = require('./school-profile');
 const { nowISO, json, normDigits, normalizeMobile, validNationalId, sha256, pbkdf2Hash } = require('./util');
 
 /* ریشهٔ برنامه — آزمون‌ها می‌توانند با PAYESH_APP_ROOT روی یک کپی کار کنند */
@@ -1624,6 +1625,20 @@ async function api(req, res, url, ip) {
     if (body.capabilities) patch.capabilities = Object.assign({}, s.capabilities || {}, body.capabilities);
     const saved = store.update('schools', 1, patch);
     return json({ ok: true, school: saved });
+  }
+
+  /* ردیف ۱۵۰: «مشخصات مدرسه» — فرم مالک فقط مکان/اداره + مدیر را دارد؛ بقیه را مدیر اینجا تعیین می‌کند */
+  if (p === '/api/admin/school' && m === 'GET') {
+    return json({ ok: true, school: schoolProfile.profileOf(store.get('schools', 1)) });
+  }
+  if (p === '/api/admin/school' && m === 'POST') {
+    const body = await readBody(req);
+    const r = schoolProfile.validateProfile(body);
+    if (r.error) return json({ ok: false, error: 'invalid_profile', field: r.error }, 400);
+    const s = store.get('schools', 1) || {};
+    store.update('schools', 1, Object.assign({}, r.patch, { capabilities: Object.assign({}, s.capabilities || {}, r.patch.capabilities), profile_at: nowISO() }));
+    store.audit({ user_id: actor.user.id, role: actor.role, action: 'school_profile', collection: 'schools' });
+    return json({ ok: true, school: schoolProfile.profileOf(store.get('schools', 1)) });
   }
 
   return json({ ok: false, error: 'not_found' }, 404);

@@ -550,6 +550,40 @@ paths:
           $ref: '#/components/responses/Error'
         '403':
           $ref: '#/components/responses/Error'
+  /api/admin/school:
+    get:
+      operationId: getApiAdminSchool
+      tags: [admin]
+      summary: "admin: GET admin/school — مشخصات مدرسه (ردیف ۱۵۰؛ فقط مدیر)"
+      x-source: server/index.js
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: postApiAdminSchool
+      tags: [admin]
+      summary: "admin: POST admin/school — ذخیرهٔ مشخصات مدرسه با وابستگی‌ها (docs/cloud/contracts/school-profile-vectors.json)"
+      x-source: server/index.js
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
   /api/admin/stats:
     get:
       operationId: getApiAdminStats

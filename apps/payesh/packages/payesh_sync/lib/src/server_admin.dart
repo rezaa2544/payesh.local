@@ -373,6 +373,14 @@ abstract interface class ServerAdminApi {
   Future<void> revokeDevice(String id);
   Future<List<AuditEntry>> audit({int limit = 60});
   Future<void> saveSettings({required String name});
+
+  /// Row 150: «مشخصات مدرسه» in the manager's settings (level, type, gender,
+  /// shift, capacity, phones, counts, work days, excuse window, capabilities…).
+  Future<Map<String, Object?>> schoolProfile();
+
+  /// Saves the profile (validated with `SchoolProfile.validate` first); returns
+  /// the stored profile.
+  Future<Map<String, Object?>> saveSchoolProfile(Map<String, Object?> profile);
   Future<CloudConfig> cloud();
 
   /// Returns whether the saved settings are complete.
@@ -485,6 +493,10 @@ final class LanServerAdmin implements ServerAdminApi {
         'bad_format' => const AdminFailure(AdminError.notBackup),
         'cross_tenant' => const AdminFailure(AdminError.crossTenant),
         'not_found' => const AdminFailure(AdminError.notFound),
+        'invalid_profile' => const AdminFailure(
+          AdminError.unknown,
+          'مشخصات مدرسه معتبر نیست',
+        ),
         _ when e.kind == LanAccessError.unreachable => AdminFailure(
           AdminError.offline,
           e.wire,
@@ -561,6 +573,16 @@ final class LanServerAdmin implements ServerAdminApi {
   Future<void> saveSettings({required String name}) async {
     await _call('POST', '/api/admin/settings', {'name': name.trim()});
   }
+
+  @override
+  Future<Map<String, Object?>> schoolProfile() async =>
+      _map((await _call('GET', '/api/admin/school'))['school']);
+
+  @override
+  Future<Map<String, Object?>> saveSchoolProfile(
+    Map<String, Object?> profile,
+  ) async =>
+      _map((await _call('POST', '/api/admin/school', profile))['school']);
 
   @override
   Future<CloudConfig> cloud() async =>

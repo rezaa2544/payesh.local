@@ -1,6 +1,6 @@
 {
   "name": "payesh-local",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "private": true,
   "description": "پایش-لوکال — سامانهٔ مدیریت مدرسه، درون‌مدرسه‌ای و آفلاین (Node + SQLite)",
   "type": "commonjs",

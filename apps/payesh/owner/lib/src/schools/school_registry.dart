@@ -20,9 +20,34 @@ import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:payesh_secure/payesh_secure.dart';
+import 'package:payesh_ui/payesh_ui.dart'
+    show
+        schoolLevels,
+        schoolGenders,
+        schoolShifts,
+        schoolKindsFa,
+        schoolTypeDefs,
+        capDefs,
+        schoolBranches,
+        defaultWorkDays;
 
 import '../local/cloud_control.dart';
 import '../local/s3_client.dart';
+
+// ردیف ۱۵۰: ثابت‌های مشخصات مدرسه به payesh_ui منتقل شد (مشترک با تنظیمات مدیر).
+export 'package:payesh_ui/payesh_ui.dart'
+    show
+        schoolLevels,
+        schoolGenders,
+        schoolShifts,
+        schoolKindsFa,
+        schoolTypeDefs,
+        capDefs,
+        capDefaults,
+        capsForType,
+        schoolBranches,
+        weekDays,
+        defaultWorkDays;
 
 const String schoolsSalt = 'payesh/schools';
 const String schoolsRoot = 'payesh/';
@@ -89,108 +114,6 @@ const Map<String, String> defaultRolePolicy = {
   'parent': 'required',
 };
 const int defaultTrialDays = 21;
-
-const List<String> schoolLevels = ['ابتدایی', 'متوسطه اول', 'متوسطه دوم'];
-const List<String> schoolGenders = ['پسرانه', 'دخترانه'];
-const List<String> schoolShifts = ['صبح', 'بعدازظهر', 'شب', 'هر دو'];
-const List<String> schoolKindsFa = [
-  'عادی',
-  'علوم تجربی',
-  'ریاضی',
-  'فنی و حرفه‌ای',
-];
-
-/// p2 SCHOOL_TYPE_DEFS: شناسه، عنوان، قابلیت‌هایی که روشن می‌کند.
-const List<(String, String, Set<String>)> schoolTypeDefs = [
-  ('governmental', 'دولتی معمولی', {}),
-  ('exemplary', 'نمونه دولتی (هیئت امنایی)', {'has_tuition'}),
-  ('non_profit', 'غیردولتی / غیرانتفاعی', {'has_tuition', 'has_dorm'}),
-  ('sampad', 'تیزهوشان (سمپاد)', {}),
-  ('shahed', 'شاهد', {'has_tuition'}),
-  ('exceptional', 'استثنایی', {'has_iep'}),
-  ('rural', 'روستایی / عشایری', {'has_multigrade'}),
-  ('boarding', 'شبانه‌روزی', {'has_tuition', 'has_dorm'}),
-  ('vocational', 'هنرستان', {'has_tuition', 'has_workshop'}),
-];
-
-/// p2 CAP_DEFS.
-const List<(String, String, String)> capDefs = [
-  ('has_tuition', 'شهریه', 'مدرسه شهریه می‌گیرد — ماژول مالی و شهریه فعال است'),
-  ('has_dorm', 'اسکان و خانه‌دانش‌آموزی', 'مدرسه بخش اسکان دارد'),
-  (
-    'has_iep',
-    'پشتیبانی ویژه (IEP)',
-    'طرح فردی یادگیری برای دانش‌آموزان نیازمند ویژه',
-  ),
-  (
-    'has_workshop',
-    'کارگاه و آزمایشگاه',
-    'فضای عملی/فنی برای پروژه‌های کارگاهی',
-  ),
-  ('has_multigrade', 'کلاس‌های چندپایه', 'چند پایه در یک کلاس (روستایی/کوچک)'),
-  ('has_second_term_exam', 'امتحان نوبت دوم', 'مدرسه امتحان نوبت دوم می‌گذارد'),
-  (
-    'has_evening',
-    'نوبت دوم / کلاس شبانه',
-    'برنامهٔ فشردهٔ بزرگسالان — کلاس‌های شبانه با تراکمِ هفتگیِ بالاتر',
-  ),
-];
-const Map<String, int> capDefaults = {
-  'has_tuition': 1,
-  'has_dorm': 0,
-  'has_iep': 0,
-  'has_workshop': 0,
-  'has_multigrade': 0,
-  'has_second_term_exam': 1,
-  'has_evening': 0,
-};
-
-/// قابلیت‌های پیش‌فرض یک نوع مدرسه (p2: CAP_DEFAULTS + سطر نوع).
-Map<String, int> capsForType(String type) {
-  final out = Map<String, int>.of(capDefaults);
-  final row = schoolTypeDefs.where((d) => d.$1 == type).firstOrNull;
-  for (final k in const [
-    'has_tuition',
-    'has_dorm',
-    'has_iep',
-    'has_multigrade',
-    'has_workshop',
-  ]) {
-    out[k] = row != null && row.$3.contains(k) ? 1 : 0;
-  }
-  return out;
-}
-
-/// p2 BRANCHES (شاخه‌ها و رشته‌های متوسطه دوم).
-const Map<String, List<String>> schoolBranches = {
-  'نظری': [
-    'ریاضی فیزیک',
-    'علوم تجربی',
-    'ادبیات و علوم انسانی',
-    'علوم و معارف اسلامی',
-  ],
-  'فنی و حرفه‌ای': [
-    'الکتروتکنیک',
-    'الکترونیک',
-    'مکانیک خودرو',
-    'کامپیوتر',
-    'حسابداری',
-    'ساختمان',
-    'گرافیک',
-  ],
-  'کاردانش': ['تعمیر لوازم خانگی', 'طراحی دوخت', 'تأسیسات', 'صنایع غذایی'],
-};
-
-const List<String> weekDays = [
-  'شنبه',
-  'یکشنبه',
-  'دوشنبه',
-  'سه‌شنبه',
-  'چهارشنبه',
-  'پنجشنبه',
-  'جمعه',
-];
-const List<int> defaultWorkDays = [0, 1, 2, 3, 4];
 
 /// ۳۱ استان کشور (تقسیمات p2: استان ← شهرستان ← منطقه/روستا).
 const List<String> iranProvinces = [
@@ -787,7 +710,11 @@ final class SchoolRegistry {
     }
     if (t('province').isEmpty) return 'استان را انتخاب کنید';
     if (t('county').isEmpty) return 'شهرستان را وارد کنید';
-    if (!schoolLevels.contains(t('level'))) return 'مقطع را انتخاب کنید';
+    // ردیف ۱۵۰: مقطع را مدیر در «مشخصات مدرسه» تعیین می‌کند؛ اگر آمده باشد (درخواست
+    // ثبت‌نام یا مدرسهٔ قدیمی) باید معتبر باشد.
+    if (t('level').isNotEmpty && !schoolLevels.contains(t('level'))) {
+      return 'مقطع را انتخاب کنید';
+    }
     final br = f['branches'];
     if (t('level') == 'متوسطه دوم' && (br is! List || br.isEmpty)) {
       return 'برای متوسطه دوم دست‌کم یک شاخه (نظری، فنی و حرفه‌ای یا کاردانش) انتخاب کنید';
@@ -832,7 +759,32 @@ final class SchoolRegistry {
     return null;
   }
 
-  static Map<String, Object?> _clean(Map<String, Object?> f) {
+  /// ردیف ۱۵۰: کلیدهایی که مدیر در «مشخصات مدرسه» تعیین می‌کند؛ فرم مالک آن‌ها را
+  /// نمی‌فرستد و فقط اگر آمده باشند (درخواست ثبت‌نام/مدرسهٔ قدیمی) نگه داشته می‌شوند.
+  static const List<String> managerOwnedKeys = [
+    'phone',
+    'landline',
+    'level',
+    'type',
+    'school_type',
+    'gender',
+    'shift',
+    'capacity',
+    'work_days',
+    'excuse_window_minutes',
+    'capabilities',
+    'branches',
+    'fields',
+    'boom_goals',
+    'public_goals',
+    'staff_count',
+    'student_count',
+  ];
+
+  static Map<String, Object?> _clean(Map<String, Object?> f) => _cleanAll(f)
+    ..removeWhere((k, _) => managerOwnedKeys.contains(k) && !f.containsKey(k));
+
+  static Map<String, Object?> _cleanAll(Map<String, Object?> f) {
     String t(String k) => '${f[k] ?? ''}'.trim();
     final m = f['manager'] is Map
         ? (f['manager']! as Map).cast<String, Object?>()

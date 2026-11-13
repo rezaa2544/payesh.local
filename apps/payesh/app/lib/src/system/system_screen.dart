@@ -13,6 +13,7 @@ import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../school/school_source.dart';
+import 'school_profile_screen.dart';
 
 Widget _card(
   BuildContext context,
@@ -593,7 +594,16 @@ class _SystemScreenState extends State<SystemScreen> {
                     onPressed: c.busy ? null : () => c.saveSettings(name.text),
                     child: const Text('ذخیره'),
                   ),
+                  OutlinedButton(
+                    key: const Key('sys-profile'),
+                    onPressed: () => openSchoolProfile(context, c.admin),
+                    child: const Text('مشخصات مدرسه'),
+                  ),
                 ]),
+                _small(
+                  context,
+                  'مقطع، نوع، جنسیت، شیفت، ظرفیت، تلفن‌ها، روزهای کاری، پنجرهٔ موجه و قابلیت‌ها در «مشخصات مدرسه».',
+                ),
               ]),
               _card(context, 'آمار پایگاه داده', key: const Key('sys-stats'), [
                 Text(

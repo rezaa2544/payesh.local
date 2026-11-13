@@ -107,6 +107,19 @@ void main() {
       expect(find.byKey(const Key('schools-registry')), findsOneWidget);
       await tap(tester, 'p2-create-school');
       expect(find.byKey(const Key('school-form')), findsOneWidget);
+      for (final k in const [
+        'sf-level',
+        'sf-gender',
+        'sf-capacity',
+        'sf-shift',
+        'sf-landline',
+        'sf-day-0',
+        'sf-cap-has_tuition',
+        'sf-excuse',
+      ]) {
+        expect(find.byKey(Key(k)), findsNothing, reason: k);
+      }
+      expect(find.byKey(const Key('sf-profile-note')), findsOneWidget);
       // اعتبارسنجی p2: نام و کد اجباری
       await tap(tester, 'sf-submit');
       expect(find.byKey(const Key('sf-error')), findsOneWidget);
@@ -131,7 +144,12 @@ void main() {
       final s = (plain!['schools']! as List).single as Map;
       final id = '${s['id']}';
       expect((s['manager'] as Map)['username'], 'ali.rezaei');
-      expect(s['work_days'], [0, 1, 2, 3, 4]);
+      // ردیف ۱۵۰: فرم مالک فقط مکان/اداره + مدیر؛ بقیه با مدیر (مشخصات مدرسه)
+      expect(s.containsKey('work_days'), isFalse);
+      expect(s.containsKey('level'), isFalse);
+      expect(s.containsKey('gender'), isFalse);
+      expect(s['province'], 'تهران');
+      expect(s['district'], 'کهریزک');
       expect(find.byKey(Key('reg-school-$id')), findsOneWidget);
       expect(find.textContaining('دبستان شهید رجایی'), findsWidgets);
 
@@ -243,6 +261,9 @@ void main() {
     expect((s['manager'] as Map)['username'], 'm.karimi');
     expect((s['manager'] as Map)['password_hash'], hash);
     expect(s['district'], 'خرو');
+    // ردیف ۱۵۰: دادهٔ درخواست ثبت‌نام (مقطع، آمار) حفظ می‌شود
+    expect(s['level'], 'متوسطه اول');
+    expect(s['school_type'], 'rural');
     expect(find.byKey(const Key('req-$rid')), findsNothing);
 
     await tap(tester, 'req-reject-$rid2');
