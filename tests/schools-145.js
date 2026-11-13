@@ -140,6 +140,21 @@ function req(method, port, p, body, headers = {}) {
       assert.strictEqual(bad.error, 'bad_credentials');
       const nf = await sr.adoptOnLogin(st, 'nobody', 'x', { needsSetup: true, instance: 'inst-A' });
       assert.strictEqual(nf.error, 'not_found');
+      /* ردیف ۱۴۶: شکل نام کاربری در ورود نخستین همان قاعدهٔ همه‌جاست — رمز درست هم کمکی نمی‌کند */
+      o.plain.schools.push(Object.assign({}, o.plain.schools[0], { id: 's-bad1',
+        manager: Object.assign({}, o.plain.schools[0].manager, { username: 'ab', phone: '091200001466' }) }));
+      await o.publish();
+      for (const bad of ['', 'ab', '2ali.rezaei', 'ali rezaei', 'علی.رضایی', 'ali.rezaei!', '0912000', '091200001466']) {
+        const n = await sr.adoptOnLogin(st, bad, 'Madrese-1403', { needsSetup: true, instance: 'inst-A' });
+        assert.strictEqual(n.error, 'bad_shape', '«' + bad + '» → ' + JSON.stringify(n));
+        assert.strictEqual(sr.loginShape(bad), null, bad);
+      }
+      assert.deepStrictEqual(sr.loginShape(' ALI.Rezaei '), { name: 'ali.rezaei' });
+      assert.deepStrictEqual(sr.loginShape('۰۹۱۲ ۰۰۰ ۰۱۴۶'), { digits: '09120000146' });
+      assert.deepStrictEqual(sr.loginShape('٠٠١٢٣٤٥٦٧٨'), { digits: '0012345678' });
+      assert.strictEqual(auth.needsSetup(st), true, 'شکل نادرست هیچ چیز نساخت');
+      o.plain.schools.pop();
+      await o.publish();
       const a = await sr.adoptOnLogin(st, 'ALI.Rezaei', 'Madrese-1403', { needsSetup: true, instance: 'inst-A' });
       assert.strictEqual(a.ok, true, JSON.stringify(a));
       assert.strictEqual(auth.needsSetup(st), false);

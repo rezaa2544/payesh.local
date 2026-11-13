@@ -660,7 +660,7 @@ async function api(req, res, url, ip) {
     /* ردیف ۱۴۵: سرور تازه + مدیرِ مدرسه‌ای که مالک ساخته ⇒ همین سرور میزبان آن مدرسه می‌شود */
     if (auth.needsSetup(store)) {
       const a = await schools.adoptOnLogin(store, body.phone, body.password, { needsSetup: true, instance: cfg.instanceId(store) });
-      if (!a.ok && a.error !== 'not_managed' && a.error !== 'not_found') {
+      if (!a.ok && a.error !== 'not_managed' && a.error !== 'not_found' && a.error !== 'bad_shape') {
         return json({ ok: false, error: a.error }, a.error === 'school_hosted_elsewhere' ? 409 : a.error === 'registry_unreachable' ? 503 : 401);
       }
     }

@@ -125,13 +125,43 @@ abstract final class LanServerRules {
   /// Latin user name of a school manager (`^[a-z][a-z0-9._-]{2,31}\$`, server/auth.js).
   static final RegExp usernameRe = RegExp(r'^[a-z][a-z0-9._-]{2,31}$');
 
-  /// Something the server can look up: a mobile/national id (≥ 10 digits) or a user name.
-  static bool validLogin(String typed) {
-    final n = normalizeLogin(typed);
-    return RegExp('[a-z]').hasMatch(n)
-        ? usernameRe.hasMatch(n)
-        : n.length >= 10;
+  /// Web `digitsOnly` (client/app.js): Persian / Arabic digits → Latin; everything that is not
+  /// a digit (spaces, dashes, letters) is dropped. Used by the setup and claim forms, which only
+  /// take a mobile number.
+  static String digitsOnly(String typed) =>
+      _latinDigits(typed).replaceAll(RegExp('[^0-9]'), '');
+
+  /// Web `doSetup` / `doClaim`: the manager's mobile is exactly 11 digits.
+  static const String mobileRuleFa = 'شمارهٔ همراه باید ۱۱ رقم باشد';
+
+  /// Web `doLogin`: a mobile is 11 digits and a national id 10.
+  static const String loginDigitsRuleFa =
+      'شمارهٔ همراه ۱۱ رقم است و کد ملی ۱۰ رقم — دوباره بنویسید';
+
+  /// Row 145 user name rule, said the way the owner's school form says it.
+  static const String usernameRuleFa =
+      'نام کاربری با حرف انگلیسی شروع می‌شود و ۳ تا ۳۲ نویسه (حرف انگلیسی، رقم، . _ -) است';
+
+  /// Persian letters in the login field: the keyboard is on Persian while typing a user name.
+  static const String latinUsernameFa =
+      'نام کاربری را با حروف انگلیسی بنویسید (صفحه‌کلید را انگلیسی کنید)';
+
+  /// Why the typed login cannot be sent, or null when it can (web `doLogin` + row 145):
+  /// a Latin user name must match [usernameRe]; otherwise only digits count and they must be a
+  /// mobile (11) or a national id (10). Nothing is sent while this is not null.
+  static String? loginProblem(String typed) {
+    final t = _latinDigits(typed).trim();
+    if (t.isEmpty) return 'شمارهٔ همراه، کد ملی یا نام کاربری را بنویسید';
+    if (RegExp('[A-Za-z]').hasMatch(t)) {
+      return usernameRe.hasMatch(t.toLowerCase()) ? null : usernameRuleFa;
+    }
+    if (RegExp('[\u0600-\u06FF]').hasMatch(t)) return latinUsernameFa;
+    final d = digitsOnly(t);
+    return d.length == 11 || d.length == 10 ? null : loginDigitsRuleFa;
   }
+
+  /// Something the server can look up: a mobile (11) / national id (10) or a user name.
+  static bool validLogin(String typed) => loginProblem(typed) == null;
 }
 
 /// Why a LAN step failed. Each kind has exactly one Persian message.
@@ -322,6 +352,18 @@ final class LanSession {
 }
 
 /// The LAN login calls. [LanAccessClient] is the real one; tests use fakes.
+/// School types of the web first-setup form (client/pages.js `renderSetup`), in its order.
+const List<String> setupSchoolTypes = [
+  'کاردانش',
+  'فنی و حرفه‌ای',
+  'متوسطه دوم',
+  'متوسطه اول',
+  'ابتدایی',
+];
+
+/// Default school year of the web first-setup form.
+const String setupDefaultYear = '۱۴۰۵–۱۴۰۶';
+
 abstract interface class LanAccessApi {
   Future<LanServerInfo> probe(Uri server);
 
@@ -339,6 +381,8 @@ abstract interface class LanAccessApi {
     required String managerName,
     required String phone,
     required String password,
+    String schoolType = 'کاردانش',
+    String schoolYear = '',
   });
 
   Future<LanSession> refresh({
@@ -449,12 +493,16 @@ final class LanAccessClient implements LanAccessApi {
     required String managerName,
     required String phone,
     required String password,
+    String schoolType = 'کاردانش',
+    String schoolYear = '',
   }) async {
     final j = await _send('POST', server.resolve('/api/setup'), {
       'school_name': schoolName,
       'manager_name': managerName,
-      'phone': LanServerRules.normalizeLogin(phone),
+      'phone': LanServerRules.digitsOnly(phone),
       'password': password,
+      'school_type': schoolType,
+      if (schoolYear.trim().isNotEmpty) 'school_year': schoolYear.trim(),
     });
     return LanSession.fromJson(j);
   }
@@ -522,7 +570,7 @@ final class LanAccessClient implements LanAccessApi {
       );
     }
     final j = await _send('POST', server.resolve('/api/auth/claim'), {
-      'phone': LanServerRules.normalizeLogin(phone),
+      'phone': LanServerRules.digitsOnly(phone),
       'password': password,
     });
     if (j['need_login'] == true) {

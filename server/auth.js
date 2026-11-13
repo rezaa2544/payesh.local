@@ -78,6 +78,9 @@ function setup(store, input) {
   const name = String(input.manager_name || '').trim();
   /* PIN حذف شده است: از این پس ورود با شمارهٔ همراه + رمز عبور است */
   if (name.length < 3) return { ok: false, error: 'bad_name' };
+  /* ردیف ۱۴۶: همان قاعدهٔ فرم راه‌اندازی (client/app.js doSetup و برنامهٔ بومی):
+     شمارهٔ همراه مدیر = نام کاربری‌اش و دقیقاً ۱۱ رقم؛ ارقام فارسی/عربی پذیرفته می‌شوند. */
+  if (normDigits(input.phone || '').length !== 11) return { ok: false, error: 'bad_phone' };
   const pw = String(input.password || '');
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
 
@@ -227,7 +230,8 @@ function login(store, input = {}) {
   const byName = /[A-Za-z]/.test(raw);
   const phone = byName ? raw.toLowerCase() : normDigits(raw);
   const pw = String(input.password || '');
-  if (byName ? !USERNAME_RE.test(phone) : phone.length < 10) return { ok: false, error: 'bad_phone' };
+  /* ردیف ۱۴۶: همان شکل فرم‌های ورود — موبایل ۱۱ رقم، کد ملی ۱۰ رقم یا نام کاربری لاتین */
+  if (byName ? !USERNAME_RE.test(phone) : (phone.length !== 11 && phone.length !== 10)) return { ok: false, error: 'bad_phone' };
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
   let user = findUserByLogin(store, phone);
   if (!user || user.active === false) return { ok: false, error: 'bad_credentials' };

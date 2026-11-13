@@ -128,6 +128,15 @@ async function waitFor(fn, ms = 15000) {
   let managerToken;
   const managerPassword = 'Manager-99';
   await test('راه‌اندازی اولیه و ساخت مدیر', async () => {
+    /* ردیف ۱۴۶: شکل نام کاربری نخستین مدیر = همان قاعدهٔ فرم (۱۱ رقم) — پیش از ساختن هیچ چیز */
+    for (const bad of ['', '0912000000', '091200000011', 'ali.rezaei', '۰۹۱۲۰۰۰۰۰۰']) {
+      const n = await req('/api/setup', { method: 'POST', body: {
+        school_name: 'دبیرستان آزمون', manager_name: 'مدیر آزمون', password: managerPassword, phone: bad,
+      } });
+      assert.strictEqual(n.status, 400, 'setup با «' + bad + '» رد شد');
+      assert.strictEqual(n.data.error, 'bad_phone');
+    }
+    assert.strictEqual((await req('/api/setup/state')).data.needs_setup, true, 'تلاش نادرست چیزی نساخت');
     const r = await req('/api/setup', { method: 'POST', body: {
       school_name: 'دبیرستان آزمون', manager_name: 'مدیر آزمون', password: managerPassword, phone: '09120000001',
     } });
@@ -136,6 +145,16 @@ async function waitFor(fn, ms = 15000) {
     managerToken = r.data.session.token;
     const again = await req('/api/setup', { method: 'POST', body: { school_name: 'x', manager_name: 'y', password: 'Another-1' } });
     assert.strictEqual(again.status, 400);
+  });
+
+  await test('ردیف ۱۴۶: ورود فقط با شکل درست (۱۱/۱۰ رقم یا نام کاربری لاتین) — شکل نادرست bad_phone', async () => {
+    for (const bad of ['091200000011', '0912000', 'ab', '2ali', 'علی']) {
+      const n = await req('/api/auth/login', { method: 'POST', body: { phone: bad, password: managerPassword } });
+      assert.strictEqual(n.status === 400 || n.status === 401, true, 'ورود با «' + bad + '» رد شد');
+      assert.ok(['bad_phone', 'bad_credentials'].includes(n.data.error), bad + ' → ' + n.data.error);
+    }
+    const ok = await req('/api/auth/login', { method: 'POST', body: { phone: '۰۹۱۲ ۰۰۰ ۰۰۰۱', password: managerPassword } });
+    assert.strictEqual(ok.data.ok, true, 'ارقام فارسی با فاصله پذیرفته است');
   });
 
   await test('دسترسی بدون نشست رد می‌شود', async () => {
@@ -5327,6 +5346,51 @@ async function waitFor(fn, ms = 15000) {
       assert.strictEqual(r.status, 0, 'schools-145: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|SCHOOLS-145/.test(l)).join('\n') + (r.stderr || ''));
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
+
+  /* ── ردیف ۱۴۶: شکل نام کاربری در فرم‌های ورود/راه‌اندازی/نجات وب (هم‌قاعده با سرور و اپ بومی) ── */
+  await test('ردیف ۱۴۶: فرم ورود وب نام کاربری لاتین را می‌پذیرد؛ شکل نادرست در ورود/راه‌اندازی/نجات هیچ درخواستی نمی‌فرستد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { doLogin, doSetup, doClaim, loginValue, LOGIN_USERNAME_RE };');
+    const T = win.__t;
+    const sent = []; const toasts = [];
+    win.eval('api = function (p, o) { window.__sent.push([p, o && o.body]); return Promise.reject(new Error("bad_credentials")); };'
+      + 'toast = function (m, k) { window.__toasts.push([m, k]); };');
+    win.__sent = sent; win.__toasts = toasts;
+    const F = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { value: v }]));
+    /* ورود: شکل نادرست ⇒ هیچ درخواستی */
+    for (const bad of ['', 'ab', '2ali', 'ali rezaei!', '0912', '091200000011']) {
+      await T.doLogin(F({ phone: bad, password: 'Madrese-1403' }));
+    }
+    assert.strictEqual(sent.length, 0, 'شکل نادرست ورود چیزی نفرستاد: ' + JSON.stringify(sent));
+    assert.ok(toasts.every(t => t[1] === 'err'));
+    /* ورود: نام کاربری لاتین (کوچک‌شده)، ۱۱ رقم فارسی، ۱۰ رقم */
+    await T.doLogin(F({ phone: ' ALI.Rezaei ', password: 'Madrese-1403' }));
+    await T.doLogin(F({ phone: '۰۹۱۲ ۰۰۰ ۰۰۰۱', password: 'Madrese-1403' }));
+    await T.doLogin(F({ phone: '0012345678', password: 'Madrese-1403' }));
+    assert.deepStrictEqual(sent.map(x => x[1].phone), ['ali.rezaei', '09120000001', '0012345678']);
+    /* فیلد ورود صفحهٔ وب دیگر نام کاربری را به رقم تبدیل نمی‌کند */
+    const pagesSrc = fs.readFileSync(path.join(ROOT, 'client/pages.js'), 'utf8');
+    const pairFn = pagesSrc.slice(pagesSrc.indexOf('function renderPair('), pagesSrc.indexOf('function renderTransfer('));
+    assert.ok(/name="phone" data-login/.test(pairFn) && !/name="phone"[^>]*data-digits/.test(pairFn) && /maxlength="32"/.test(pairFn),
+      'فیلد ورود با رمز (renderPair) نام کاربری را رقم نمی‌کند');
+    /* راه‌اندازی و نجات: فقط ۱۱ رقم */
+    sent.length = 0;
+    const base = { school_name: 'هنرستان', manager_name: 'مدیر آزمون', school_type: 'کاردانش', school_year: '۱۴۰۵–۱۴۰۶' };
+    for (const bad of ['0912000000', 'ali.rezaei', '091200000011']) {
+      await T.doSetup(F(Object.assign({ phone: bad, password: 'modir-146', password2: 'modir-146' }, base)));
+      await T.doClaim(F({ phone: bad, password: 'modir-146' }));
+    }
+    await T.doSetup(F(Object.assign({ phone: '09120000146', password: 'modir-146', password2: 'modir-147' }, base)));
+    assert.strictEqual(sent.length, 0, 'شکل نادرست راه‌اندازی/نجات چیزی نفرستاد');
+    await T.doSetup(F(Object.assign({ phone: '۰۹۱۲۰۰۰۰۱۴۶', password: 'modir-146', password2: 'modir-146' }, base)));
+    assert.deepStrictEqual(sent.map(x => [x[0], x[1].phone, x[1].school_type]), [['/api/setup', '09120000146', 'کاردانش']]);
+    dom.window.close();
+  });
 
   /* ── ردیف ۱۲۷: حالت شبکهٔ محلی اپ بومی + سرویس دادهٔ بی‌رابط مدرسه ── */
   await test('ردیف ۱۲۷: سرور بی‌رابط هیچ صفحهٔ وبی نمی‌دهد، راه‌اندازی فقط از خود سرور، نصب‌کننده‌ها بی‌رابط وب، ۲۰ جهش قرمز',

@@ -460,13 +460,26 @@ function applyOwner(store, plain, { now = Date.now() } = {}) {
 }
 
 /* ── میزبانی مدرسه: سرور تازه با ورود مدیر، مدرسهٔ ساخته‌شده در پنل مالک را می‌گیرد ── */
+/* ردیف ۱۴۶: شکل نام کاربری در ورود نخستین مدیر روی سرور تازه همان قاعدهٔ همه‌جاست
+   (auth.findUserByLogin، client/app.js doLogin، LanServerRules.loginProblem در برنامهٔ بومی):
+   حرف لاتین ⇒ USERNAME_RE؛ وگرنه فقط رقم و دقیقاً ۱۱ (همراه) یا ۱۰ (کد ملی). شکل نادرست
+   ⇒ null، پیش از هر مقایسه با فهرست مالک. */
+function loginShape(login) {
+  const raw = String(login == null ? '' : login).trim();
+  if (/[A-Za-z]/.test(raw)) {
+    const name = raw.toLowerCase();
+    return USERNAME_RE.test(name) ? { name } : null;
+  }
+  const digits = normDigits(raw);
+  return digits.length === 11 || digits.length === 10 ? { digits } : null;
+}
+
 function findManager(plain, login) {
-  const key = String(login || '').trim().toLowerCase();
-  if (!key) return null;
-  const digits = normDigits(key);
-  return (plain.schools || []).find(s => s && s.manager && (
-    String(s.manager.username || '').toLowerCase() === key ||
-    (digits.length >= 10 && normDigits(s.manager.phone || '') === digits))) || null;
+  const k = loginShape(login);
+  if (!k) return null;
+  return (plain.schools || []).find(s => s && s.manager && (k.name
+    ? String(s.manager.username || '').toLowerCase() === k.name
+    : normDigits(s.manager.phone || '') === k.digits)) || null;
 }
 
 function adoptSchool(store, sch, { instance } = {}) {
@@ -500,6 +513,8 @@ function adoptSchool(store, sch, { instance } = {}) {
    میزبان آن مدرسه می‌شود (فقط یک بار؛ سرور دیگری که قبلاً میزبان شده باشد رد می‌شود). */
 async function adoptOnLogin(store, login, password, { needsSetup, instance, now = Date.now() } = {}) {
   if (!needsSetup) return { ok: false, error: 'not_fresh' };
+  /* شکل نادرست: نه سراغ صندوقچه می‌رویم نه رمز را می‌سنجیم (همان bad_phone ورود عادی) */
+  if (!loginShape(login)) return { ok: false, error: 'bad_shape' };
   const cfg = cloud(store);
   if (!cfg) return { ok: false, error: 'not_managed' };
   let reg;
@@ -676,6 +691,6 @@ module.exports = {
   K, DIR, SALT: SALT.toString('utf8'), PLANS, ROLES, DEFAULTS, LEVELS, USERNAME_RE,
   RegistryError, seal, open, keyFor, readEnv, writeEnv, trialKey, settingsOf, verifyOk, fill,
   registry, boundOf, schoolOf, gate, startTrial, startPayment, submitReceipt, callback, callbackPage,
-  applyOwner, adoptOnLogin, adoptSchool, findManager, register, requestStatus, validRequest,
+  applyOwner, adoptOnLogin, adoptSchool, findManager, loginShape, register, requestStatus, validRequest,
   pullRegistry, writeAck, poll, start, stop, subsState, markPaid,
 };

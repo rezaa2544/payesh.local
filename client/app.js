@@ -1099,10 +1099,22 @@ async function doClaim(form) {
   }
 }
 
+/* ردیف ۱۴۵/۱۴۶: نام کاربری لاتینِ مدیری که مالک ساخته (یا درخواست ثبت‌نامش تأیید شده) هم
+   پذیرفته است؛ همان قاعدهٔ server/auth.js و برنامهٔ بومی (LanServerRules.loginProblem). */
+const LOGIN_USERNAME_RE = /^[a-z][a-z0-9._-]{2,31}$/;
+function loginValue(v) {
+  const raw = String(v == null ? '' : v).trim();
+  return /[A-Za-z]/.test(raw) ? raw.toLowerCase() : digitsOnly(raw);
+}
+
 async function doLogin(form) {
-  const phone = digitsOnly(form.phone.value);
+  const phone = loginValue(form.phone.value);
   const password = String(form.password.value || '');
-  if (phone.length !== 11 && phone.length !== 10) {
+  if (/[a-z]/.test(phone)) {
+    if (!LOGIN_USERNAME_RE.test(phone)) {
+      return toast('نام کاربری با حرف انگلیسی شروع می‌شود و ۳ تا ۳۲ نویسه (حرف انگلیسی، رقم، . _ -) است', 'err');
+    }
+  } else if (phone.length !== 11 && phone.length !== 10) {
     return toast('شمارهٔ همراه ۱۱ رقم است و کد ملی ۱۰ رقم — دوباره بنویسید', 'err');
   }
   if (!password) return toast('رمز عبور را وارد کنید', 'err');
@@ -1117,7 +1129,7 @@ async function doLogin(form) {
   } catch (e) {
     const em = String((e && e.message) || '');
     if (/no_password/.test(em)) return toast('این حساب هنوز رمز ندارد — مدیر باید از «کاربران ← ویرایش» یک رمز بسازد', 'err');
-    if (/bad_credentials/.test(em)) return toast('نام کاربری (شمارهٔ همراه یا کد ملی) یا رمز درست نیست', 'err');
+    if (/bad_credentials/.test(em)) return toast('نام کاربری (شمارهٔ همراه، کد ملی یا نام کاربری مدیر) یا رمز درست نیست', 'err');
     toast('ورود ناموفق: ' + em, 'err');
   }
 }
@@ -1156,7 +1168,7 @@ async function doPhoneLogin(f) {
     const r = await window.PayeshPhone.login(phone, password);
     if (!r.ok) {
       const map = {
-        bad_credentials: 'نام کاربری (شمارهٔ همراه یا کد ملی) یا رمز درست نیست',
+        bad_credentials: 'نام کاربری (شمارهٔ همراه، کد ملی یا نام کاربری مدیر) یا رمز درست نیست',
         no_password: 'این حساب هنوز رمز ندارد — از مدیر بخواهید رمز بسازد',
         not_registered: 'این شماره/کد ملی در مدرسه ثبت نشده — از مدیر بخواهید حساب بسازد (و یک‌بار با سیستم مدرسه همگام شود)',
         user_inactive: 'حساب غیرفعال است',
@@ -3134,7 +3146,15 @@ async function handleActionClick(e, el) {
 
 document.addEventListener('input', (e) => {
   const el = e.target;
-  if (!el || !el.hasAttribute || !el.hasAttribute('data-digits')) return;
+  if (!el || !el.hasAttribute) return;
+  /* فیلد ورود: نام کاربری لاتین دست‌نخورده می‌ماند؛ غیر از آن فقط رقم (ارقام فارسی ⇒ لاتین) */
+  if (el.hasAttribute('data-login')) {
+    const raw = String(el.value || '');
+    const v = /[A-Za-z]/.test(raw) ? raw.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\s+/g, '') : digitsOnly(raw);
+    if (v !== el.value) el.value = v;
+    return;
+  }
+  if (!el.hasAttribute('data-digits')) return;
   const v = digitsOnly(el.value);
   if (v !== el.value) el.value = v;
 });

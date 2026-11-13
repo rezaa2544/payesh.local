@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:payesh_sync/payesh_sync.dart' show LanServerRules;
+import 'package:payesh_sync/payesh_sync.dart'
+    show LanServerRules, setupDefaultYear, setupSchoolTypes;
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../app.dart';
@@ -506,6 +507,9 @@ class _LanServerScreenState extends State<LanServerScreen> {
   final _password = TextEditingController();
   final _schoolName = TextEditingController();
   final _manager = TextEditingController();
+  final _password2 = TextEditingController();
+  final _schoolYear = TextEditingController(text: setupDefaultYear);
+  String _schoolType = setupSchoolTypes.first;
 
   /// Row 145: on a fresh server, the manager of a school the owner created (or approved) signs
   /// in with the user name instead of setting the server up.
@@ -513,7 +517,15 @@ class _LanServerScreenState extends State<LanServerScreen> {
 
   @override
   void dispose() {
-    for (final c in [_server, _phone, _password, _schoolName, _manager]) {
+    for (final c in [
+      _server,
+      _phone,
+      _password,
+      _schoolName,
+      _manager,
+      _password2,
+      _schoolYear,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -645,11 +657,15 @@ class _LanServerScreenState extends State<LanServerScreen> {
           )
         : const SizedBox.shrink();
     if (s.needsSetup && !_loginInstead) {
+      // web `renderSetup` (client/pages.js): the same fields, order and rules
       void go() => c.submitLanSetup(
         schoolName: _schoolName.text,
         managerName: _manager.text,
         phone: _phone.text,
         password: _password.text,
+        password2: _password2.text,
+        schoolType: _schoolType,
+        schoolYear: _schoolYear.text,
       );
       return _LoginFrame(
         title: 'راه‌اندازی اولیهٔ سرور مدرسه',
@@ -657,29 +673,75 @@ class _LanServerScreenState extends State<LanServerScreen> {
           header,
           const SizedBox(height: PayeshTokens.space3),
           const Text(
-            'این سرور هنوز راه‌اندازی نشده است. نام مدرسه و مشخصات مدیر را وارد کنید؛ مدیر با همین شماره و رمز وارد می‌شود.',
+            'این فرم فقط یک‌بار پر می‌شود؛ بعد از آن همیشه صفحهٔ ورود می‌آید.',
             key: Key('lan-setup-help'),
           ),
           const SizedBox(height: PayeshTokens.space4),
           _field('lan-setup-school', _schoolName, 'نام مدرسه', busy: busy),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
+                  child: DropdownButtonFormField<String>(
+                    key: const Key('lan-setup-type'),
+                    initialValue: _schoolType,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'نوع مدرسه',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final t in setupSchoolTypes)
+                        DropdownMenuItem(value: t, child: Text(t)),
+                    ],
+                    onChanged: busy
+                        ? null
+                        : (v) => setState(() => _schoolType = v ?? _schoolType),
+                  ),
+                ),
+              ),
+              const SizedBox(width: PayeshTokens.space3),
+              Expanded(
+                child: _field(
+                  'lan-setup-year',
+                  _schoolYear,
+                  'سال تحصیلی',
+                  busy: busy,
+                ),
+              ),
+            ],
+          ),
           _field(
             'lan-setup-manager',
             _manager,
-            'نام و نام خانوادگی مدیر',
+            'نام مدیر',
             busy: busy,
+            hint: 'نام و نام خانوادگی',
           ),
           _field(
             'lan-phone',
             _phone,
-            'شمارهٔ همراه مدیر',
+            'شمارهٔ همراه مدیر (نام کاربری ورود)',
             busy: busy,
             ltr: true,
             keyboard: TextInputType.phone,
+            hint: '09xxxxxxxxx',
           ),
           _field(
             'lan-password',
             _password,
-            'رمز عبور (دست‌کم ۴ نویسه)',
+            'رمز عبور مدیر',
+            busy: busy,
+            ltr: true,
+            secret: true,
+            hint: 'حداقل ۴ نویسه',
+          ),
+          _field(
+            'lan-password2',
+            _password2,
+            'تکرار رمز عبور',
             busy: busy,
             ltr: true,
             secret: true,
@@ -690,7 +752,13 @@ class _LanServerScreenState extends State<LanServerScreen> {
           FilledButton(
             key: const Key('lan-setup-submit'),
             onPressed: busy ? null : go,
-            child: _busyOr(busy, 'راه‌اندازی و ورود'),
+            child: _busyOr(busy, 'ایجاد مدرسه'),
+          ),
+          const SizedBox(height: PayeshTokens.space2),
+          const Text(
+            'بعد از این، با «شمارهٔ همراه + رمز عبور» وارد می‌شوید.',
+            key: Key('lan-setup-after'),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: PayeshTokens.space3),
           TextButton(

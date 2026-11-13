@@ -114,6 +114,32 @@ void main() {
         expect(LanServerRules.normalizeLogin('0012345678'), '0012345678');
       },
     );
+
+    test('LAN-U04b login shape = web doLogin (11 / 10 digits) + row 145 user names', () {
+      String? p(String s) => LanServerRules.loginProblem(s);
+      for (final ok in [
+        '09121234567',
+        '۰۹۱۲ ۱۲۳ ۴۵۶۷',
+        '0012345678',
+        '٠٠١٢٣٤٥٦٧٨',
+        'Ali.Rezaei',
+        'm_karimi-2',
+      ]) {
+        expect(p(ok), isNull, reason: ok);
+        expect(LanServerRules.validLogin(ok), isTrue, reason: ok);
+      }
+      expect(p(''), isNotNull);
+      expect(p('   '), isNotNull);
+      expect(p('0912'), LanServerRules.loginDigitsRuleFa);
+      expect(p('091212345678'), LanServerRules.loginDigitsRuleFa);
+      expect(p('+98 912 123 4567'), LanServerRules.loginDigitsRuleFa);
+      expect(p('ab'), LanServerRules.usernameRuleFa);
+      expect(p('1ali'), LanServerRules.usernameRuleFa);
+      expect(p('ali rezaei'), LanServerRules.usernameRuleFa);
+      expect(p('علی.رضایی'), LanServerRules.latinUsernameFa);
+      expect(LanServerRules.digitsOnly(' ۰۹۱۲-۱۲۳ ٤٥٦٧ '), '09121234567');
+      expect(LanServerRules.digitsOnly('ab09'), '09');
+    });
   });
 
   group('mapLanError — one message per failure', () {
@@ -188,11 +214,13 @@ void main() {
     late HttpServer srv;
     late Uri base;
     final seen = <String>[];
+    final bodies = <String, Map<String, Object?>>{};
     var health = <String, Object?>{};
     var refreshFails = 0;
 
     setUp(() async {
       seen.clear();
+      bodies.clear();
       refreshFails = 0;
       health = {
         'ok': true,
@@ -248,6 +276,19 @@ void main() {
             status = 401;
             out = {'ok': false, 'error': 'device_revoked', 'wipe': true};
           }
+        } else if (r.uri.path == '/api/setup' ||
+            r.uri.path == '/api/auth/claim') {
+          bodies[r.uri.path] = (jsonDecode(body) as Map)
+              .cast<String, Object?>();
+          out = {
+            'ok': true,
+            'user': {'id': 1, 'role': 'manager', 'name': 'مدیر'},
+            'session': {
+              'token': 'acc-m',
+              'expires_at': '2030-01-01T00:00:00.000Z',
+            },
+            'device_token': 'dt-m',
+          };
         } else if (r.uri.path == '/') {
           r.response.headers.contentType = ContentType.html;
           r.response.write('<html></html>');
@@ -376,5 +417,32 @@ void main() {
         c.close();
       },
     );
+
+    test('LAN-U11 setup and claim send what the web forms send (digits only, type, year)', () async {
+      final c = LanAccessClient();
+      await c.setup(
+        server: base,
+        schoolName: 'هنرستان نو',
+        managerName: 'مدیر آزمون',
+        phone: '۰۹۱۲ ۰۰۰-۰۱۴۶',
+        password: 'modir-146',
+        schoolType: 'متوسطه اول',
+        schoolYear: ' ۱۴۰۵–۱۴۰۶ ',
+      );
+      expect(bodies['/api/setup'], {
+        'school_name': 'هنرستان نو',
+        'manager_name': 'مدیر آزمون',
+        'phone': '09120000146',
+        'password': 'modir-146',
+        'school_type': 'متوسطه اول',
+        'school_year': '۱۴۰۵–۱۴۰۶',
+      });
+      await c.claim(server: base, phone: '۰۹۱۲۰۰۰۰۱۴۶', password: 'modir-1');
+      expect(bodies['/api/auth/claim'], {
+        'phone': '09120000146',
+        'password': 'modir-1',
+      });
+      c.close();
+    });
   });
 }

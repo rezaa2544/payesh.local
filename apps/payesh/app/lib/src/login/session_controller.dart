@@ -538,14 +538,16 @@ class SessionController extends ChangeNotifier {
     if (wait != null) {
       return _set(NeedLan(info: info, typed: s.typed, error: wait));
     }
-    if (!LanServerRules.validLogin(phone) || password.length < 4) {
-      return _set(
-        NeedLan(
-          info: info,
-          typed: s.typed,
-          error: LanAccessError.badCredentials.messageFa(),
-        ),
-      );
+    // web `doLogin` (+ row 145 user names): nothing is sent until the login has a valid shape
+    final shape =
+        LanServerRules.loginProblem(phone) ??
+        (password.isEmpty
+            ? 'رمز عبور را وارد کنید'
+            : password.length < 4
+            ? LanAccessError.badCredentials.messageFa()
+            : null);
+    if (shape != null) {
+      return _set(NeedLan(info: info, typed: s.typed, error: shape));
     }
     _set(NeedLan(info: info, typed: s.typed), busy: true);
     try {
@@ -570,18 +572,24 @@ class SessionController extends ChangeNotifier {
     required String managerName,
     required String phone,
     required String password,
+    String? password2,
+    String schoolType = 'کاردانش',
+    String schoolYear = setupDefaultYear,
   }) async {
     final s = _state;
     final api = lan;
     final info = s is NeedLan ? s.info : null;
     if (_busy || api == null || s is! NeedLan || info == null) return;
+    // web `doSetup`: mobile exactly 11 digits, password ≥ 4 and typed twice the same
     String? bad;
     if (managerName.trim().length < 3) {
       bad = 'نام مدیر دست‌کم ۳ نویسه است';
-    } else if (LanServerRules.normalizeLogin(phone).length < 10) {
-      bad = 'شمارهٔ همراه مدیر را کامل بنویسید';
+    } else if (LanServerRules.digitsOnly(phone).length != 11) {
+      bad = LanServerRules.mobileRuleFa;
     } else if (password.length < 4) {
-      bad = 'رمز عبور دست‌کم ۴ نویسه است';
+      bad = 'رمز عبور حداقل ۴ نویسه باشد';
+    } else if (password2 != null && password2 != password) {
+      bad = 'رمز عبور و تکرارش یکی نیست';
     }
     if (bad != null) {
       return _set(NeedLan(info: info, typed: s.typed, error: bad));
@@ -594,6 +602,10 @@ class SessionController extends ChangeNotifier {
         managerName: managerName.trim(),
         phone: phone,
         password: password,
+        schoolType: setupSchoolTypes.contains(schoolType)
+            ? schoolType
+            : setupSchoolTypes.first,
+        schoolYear: schoolYear,
       );
       final named = LanServerInfo(
         server: info.server,
@@ -683,9 +695,10 @@ class SessionController extends ChangeNotifier {
     final s = _state;
     final api = lan;
     if (_busy || s is! NeedClaim || api == null) return;
-    final p = LanServerRules.normalizeLogin(phone);
+    // web `doClaim`: digits only (a Latin letter is not part of a mobile number)
+    final p = LanServerRules.digitsOnly(phone);
     if (p.length != 11) {
-      return _set(NeedClaim(s.info, error: 'شمارهٔ همراه باید ۱۱ رقم باشد'));
+      return _set(NeedClaim(s.info, error: LanServerRules.mobileRuleFa));
     }
     if (password.length < 4) {
       return _set(NeedClaim(s.info, error: 'رمز عبور حداقل ۴ نویسه باشد'));

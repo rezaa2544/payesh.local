@@ -292,10 +292,10 @@ function renderPair() {
       <p class="small center" style="margin-top:6px"><a href="#" data-act="login-mode" data-id="password">ورود با شمارهٔ همراه و رمز عبور</a></p>
       ${pre ? scanLandingHtml(pre) : ''}`
     : `
-      <label class="field"><span>شمارهٔ همراه (یا کد ملی)</span>
-        <input class="input ltr" name="phone" inputmode="numeric" data-digits data-focus-key="phone"
+      <label class="field"><span>شمارهٔ همراه، کد ملی یا نام کاربری</span>
+        <input class="input ltr" name="phone" data-login data-focus-key="phone"
           autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
-          maxlength="11" placeholder="09xxxxxxxxx" autofocus></label>
+          maxlength="32" placeholder="09xxxxxxxxx" autofocus></label>
       <label class="field"><span>رمز عبور</span>
         <input class="input ltr" type="password" name="password" data-focus-key="password"
           autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="••••••"></label>

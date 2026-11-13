@@ -63,6 +63,9 @@ final class FakeLan implements LanAccessApi {
   final unlocks = <Object>[];
   final claims = <Object>[];
 
+  /// Row 146: what the setup form sent besides the call line (type | year).
+  final setupExtras = <String>[];
+
   Future<T> _next<T>(List<Object> q, String what) {
     calls.add(what);
     if (q.isEmpty) return Future.error(StateError('unexpected $what'));
@@ -89,7 +92,12 @@ final class FakeLan implements LanAccessApi {
     required String managerName,
     required String phone,
     required String password,
-  }) => _next(setups, 'setup:$schoolName:$managerName:$phone');
+    String schoolType = 'کاردانش',
+    String schoolYear = '',
+  }) {
+    setupExtras.add('$schoolType|$schoolYear');
+    return _next(setups, 'setup:$schoolName:$managerName:$phone');
+  }
 
   @override
   Future<LanSession> refresh({
@@ -294,6 +302,9 @@ void main() {
     testWidgets('L127-W06 fresh server: first setup form → manager signed in', (
       tester,
     ) async {
+      tester.view.physicalSize = const Size(900, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       final lan = FakeLan()
         ..probes.add(serverInfo(setupDone: false))
         ..setups.add(lanSession(role: 'manager', uid: 1));
@@ -308,6 +319,7 @@ void main() {
         'lan-setup-manager': 'ab',
         'lan-phone': '09120000127',
         'lan-password': 'modir-127',
+        'lan-password2': 'modir-127',
       }, 'lan-setup-submit');
       expect(errorText(tester), contains('نام مدیر'));
       expect(lan.calls.where((x) => x.startsWith('setup')), isEmpty);
@@ -323,6 +335,9 @@ void main() {
     testWidgets(
       'L127-W07 setup refused off the server computer → the one clear message',
       (tester) async {
+        tester.view.physicalSize = const Size(900, 1800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
         final lan = FakeLan()
           ..probes.add(serverInfo(setupDone: false))
           ..setups.add(
@@ -337,6 +352,7 @@ void main() {
           'lan-setup-manager': 'مدیر آزمون',
           'lan-phone': '09120000127',
           'lan-password': 'modir-127',
+          'lan-password2': 'modir-127',
         }, 'lan-setup-submit');
         expect(errorText(tester), LanAccessError.setupLocalOnly.messageFa());
         expect(c.state, isA<NeedLan>());
