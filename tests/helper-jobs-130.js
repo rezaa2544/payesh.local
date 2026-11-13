@@ -10,6 +10,9 @@
 //   HJ-08  پاکسازی (bucket.gc): کارهای کهنه، حضورهای قدیمی، آینهٔ کهنهٔ به‌روزرسانی؛ پاکت کلید دیگر دست‌نخورده.
 //   HJ-09  پارامترها: پیشوند/کلید بیرون از payesh/ و نشانی غیر http(s) رد؛ checkEndpoint نشانی خصوصی را رد می‌کند.
 //   HJ-10  فهرست صفحه‌بندی‌شده (continuation-token) و LastModified.
+//   HJ-11  وضعیت و بررسی بیرونی (سرور مدرسه).
+//   HJ-12  «فقط هنگام نیاز» (ردیف ۱۳۱): سرور جا دارد ⇒ همین سرور، بدون صف؛ شلوغ ⇒ سرور کمکی؛
+//          endpoint.check همیشه از بیرون؛ سیاست مالک helpers=false ⇒ هیچ کاری به سرور کمکی نمی‌رود.
 // خط آخر: HELPER-JOBS-130-OK checks=N | HELPER-JOBS-130-FAIL failures=N
 'use strict';
 const fs = require('node:fs');
@@ -106,7 +109,7 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
   try {
     await check('HJ-02 بدون سرور کمکی ⇒ محلی', async () => {
       wipe();
-      const r = await hj.runJob(cfg, 'storage.usage', {}, { now, sleep: async () => {} });
+      const r = await hj.runJob(cfg, 'storage.usage', {}, { busy: true, now, sleep: async () => {} });
       assert.strictEqual(r.by, 'local'); assert.strictEqual(r.why, 'no_helper'); assert.strictEqual(r.ok, true);
       assert.strictEqual(r.result.groups.schools.objects, 3);
       assert.strictEqual(r.result.groups.schools.bytes, 160);
@@ -118,7 +121,7 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       await b.presence();
       const st = await hj.helpersOnline(cfg, { now: now() });
       assert.strictEqual(st.length, 1); assert.strictEqual(st[0].online, true); assert.strictEqual(st[0].host, 'PC-b000');
-      const r = await hj.runJob(cfg, 'storage.usage', {}, {
+      const r = await hj.runJob(cfg, 'storage.usage', {}, { busy: true,
         now, sleep: async (ms) => { clock += ms; await b.poll(); },
       });
       assert.strictEqual(r.ok, true); assert.strictEqual(r.by, 'b000000000000001');
@@ -137,7 +140,7 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       const both = new Promise(r => { gate = r; });
       let waiting = 0;
       const settle = async () => { waiting++; if (waiting === 2) gate(); await both; };
-      const r = await hj.runJob(cfg, 'storage.usage', {}, {
+      const r = await hj.runJob(cfg, 'storage.usage', {}, { busy: true,
         now, sleep: async (ms) => { clock += ms; await Promise.all([b.poll({ settle }), c.poll({ settle })]); },
       });
       assert.strictEqual(r.ok, true); assert.ok(r.by === b.id || r.by === c.id);
@@ -148,12 +151,12 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       wipe();
       const b = fakeHelper(cfg, 'b000000000000001', { now });
       await b.presence();
-      const r1 = await hj.runJob(cfg, 'storage.usage', {}, { now, sleep: async (ms) => { clock += ms; } });
+      const r1 = await hj.runJob(cfg, 'storage.usage', {}, { busy: true, now, sleep: async (ms) => { clock += ms; } });
       assert.strictEqual(r1.why, 'not_claimed'); assert.strictEqual(r1.ok, true);
 
       wipe(); await b.presence();
       let leased = false;
-      const r2 = await hj.runJob(cfg, 'storage.usage', {}, {
+      const r2 = await hj.runJob(cfg, 'storage.usage', {}, { busy: true,
         now,
         sleep: async () => {
           if (!leased) {
@@ -172,12 +175,12 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       await fakeHelper(cfg, 'd000000000000001', { now, paused: true }).presence();
       const st = await hj.helpersOnline(cfg, { now: now() });
       assert.strictEqual(st[0].online, false);
-      const r3 = await hj.runJob(cfg, 'storage.usage', {}, { now, sleep: async () => {} });
+      const r3 = await hj.runJob(cfg, 'storage.usage', {}, { busy: true, now, sleep: async () => {} });
       assert.strictEqual(r3.why, 'no_helper');
 
       /* حضور کهنه (بیش از ۹۰ ثانیه) ⇒ خاموش */
       wipe(); await b.presence(); clock += hj.PRESENCE_FRESH_MS + 1000;
-      const r4 = await hj.runJob(cfg, 'storage.usage', {}, { now, sleep: async () => {} });
+      const r4 = await hj.runJob(cfg, 'storage.usage', {}, { busy: true, now, sleep: async () => {} });
       assert.strictEqual(r4.why, 'no_helper');
     });
 
@@ -185,7 +188,7 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       wipe();
       const b = fakeHelper(cfg, 'b000000000000001', { now });
       await b.presence();
-      const r = await hj.runJob(cfg, 'storage.usage', {}, {
+      const r = await hj.runJob(cfg, 'storage.usage', {}, { busy: true,
         now,
         sleep: async (ms) => {
           const k = [...S.objects.keys()].find(x => x.startsWith('payesh/jobs/req/'));
@@ -200,7 +203,7 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       assert.strictEqual(r.by, 'local'); assert.notStrictEqual(r.result.objects, 999);
 
       wipe(); await b.presence();
-      const r2 = await hj.runJob(cfg, 'storage.usage', {}, {
+      const r2 = await hj.runJob(cfg, 'storage.usage', {}, { busy: true,
         now,
         sleep: async (ms) => {
           const k = [...S.objects.keys()].find(x => x.startsWith('payesh/jobs/req/'));
@@ -280,6 +283,54 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       });
       assert.strictEqual(rec.by, 'local'); assert.strictEqual(rec.why, 'not_claimed'); assert.strictEqual(rec.reachable, true);
       assert.strictEqual(meta.get('helper:public_check').url, 'https://payesh.example.test/');
+    });
+
+    await check('HJ-12 پردازش کمکی فقط هنگام نیاز + سیاست مالک', async () => {
+      wipe();
+      S.objects.delete('payesh/' + hj.POLICY_KEY);
+      hj._resetPolicyCache();
+      assert.strictEqual(hj.helperNeed('storage.usage', { policy: null, busy: false }), 'not_needed');
+      assert.strictEqual(hj.helperNeed('storage.usage', { policy: null, busy: true }), null);
+      assert.strictEqual(hj.helperNeed('endpoint.check', { policy: null, busy: false }), null);
+      assert.strictEqual(hj.helperNeed('endpoint.check', { policy: { helpers: false }, busy: true }), 'helpers_disabled');
+      assert.strictEqual(typeof hj.busyNow(), 'boolean');
+
+      const b = fakeHelper(cfg, 'b000000000000001', { now });
+      await b.presence();
+      /* سرور جا دارد ⇒ همین سرور؛ هیچ فایلی در صف نوشته نمی‌شود */
+      let slept = 0;
+      const r1 = await hj.runJob(cfg, 'storage.usage', {}, { busy: false, now, sleep: async () => { slept++; } });
+      assert.strictEqual(r1.by, 'local'); assert.strictEqual(r1.why, 'not_needed'); assert.strictEqual(slept, 0);
+      assert.deepStrictEqual([...S.objects.keys()].filter(k => k.startsWith('payesh/jobs/')), []);
+      /* شلوغ ⇒ سرور کمکی */
+      const r2 = await hj.runJob(cfg, 'storage.usage', {}, { busy: () => true, now, sleep: async (ms) => { clock += ms; await b.poll(); } });
+      assert.strictEqual(r2.by, b.id);
+      /* بررسی از بیرون حتی وقتی سرور جا دارد */
+      const r3 = await hj.runJob(cfg, 'endpoint.check', { url: 'https://example.com/' }, {
+        busy: false, now, sleep: async (ms) => { clock += ms; }, claimWaitMs: 1,
+        checkEndpoint: async () => ({ reachable: true, status: 200 }),
+      });
+      assert.strictEqual(r3.why, 'not_claimed', 'به صف رفت (سرور کمکی ثبت‌شده برنداشت)');
+
+      /* سیاست مالک: پردازش کمکی خاموش (پاکت رمزشده در control/) */
+      const pol = { v: 1, helpers: false, off: ['svc-1'], at: clock };
+      await hj.writePolicy(cfg, pol);
+      hj._resetPolicyCache();
+      assert.deepStrictEqual(await hj.readPolicy(cfg), pol);
+      const r4 = await hj.runJob(cfg, 'storage.usage', {}, { busy: true, now, sleep: async () => { throw new Error('نباید منتظر بماند'); } });
+      assert.strictEqual(r4.why, 'helpers_disabled'); assert.strictEqual(r4.by, 'local');
+      const meta = new Map([[s3mem.META_KEY, JSON.stringify(Object.assign({}, cfg))]]);
+      const store = { getMeta: (k, fb = null) => (meta.has(k) ? meta.get(k) : fb), setMeta: (k, v) => meta.set(k, v) };
+      s3mem.usingMeta({ getMeta: (k, fb) => store.getMeta(k, fb), setMeta: (k, v) => store.setMeta(k, JSON.stringify(v)) });
+      const st = await hj.status(store);
+      assert.strictEqual(st.use_helpers, false); assert.strictEqual(st.when, 'need');
+      /* پاکت با کلید دیگر یا شکل نادرست نادیده گرفته می‌شود */
+      await s3mem.put(cfg, 'payesh/' + hj.POLICY_KEY, JSON.stringify(hj.seal('other', hj.K.policy, 1, JSON.stringify(pol))));
+      hj._resetPolicyCache();
+      assert.strictEqual(await hj.readPolicy(cfg), null);
+      assert.strictEqual(hj.validPolicy({ v: 1, helpers: 'no', off: [], at: 1 }), false);
+      S.objects.delete('payesh/' + hj.POLICY_KEY);
+      hj._resetPolicyCache();
     });
   } finally {
     await S.close();

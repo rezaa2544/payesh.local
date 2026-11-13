@@ -130,7 +130,12 @@ class _OwnerShellState extends State<OwnerShell> {
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  widget.infraTop!,
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+                    ),
+                    child: SingleChildScrollView(child: widget.infraTop),
+                  ),
                   Expanded(child: pageFor(id)),
                 ],
               )
@@ -205,17 +210,19 @@ class _OwnerShellState extends State<OwnerShell> {
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Center(
             child: Pill(
-              s.role.label,
+              // نوار بالا کوتاه: فقط «مالک» (برچسب کامل نقش در caps.dart ثابت می‌ماند)
+              s.role == OwnerRole.owner ? 'مالک' : s.role.label,
               key: Key('role-${s.role.wire}'),
               tone: PayeshTone.info,
             ),
           ),
         ),
       widget.themeButton,
-      TextButton(
+      IconButton(
         key: const Key('logout'),
+        tooltip: 'خروج',
+        icon: const Icon(Icons.logout),
         onPressed: widget.onSignOut,
-        child: const Text('خروج'),
       ),
       ?widget.dbLight,
     ];

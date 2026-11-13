@@ -515,28 +515,35 @@ void main() {
       unawaited(updates.close());
     });
 
-    testWidgets('چراغ دیتابیس: فقط یک نقطه؛ لمس ⇒ سنجش دوباره', (tester) async {
-      var state = 'error';
-      var probes = 0;
-      final m = DbMonitor(
-        probe: () async {
-          probes++;
-          return PlatformSync(state: state, error: 'x');
-        },
-      );
-      await tester.pumpWidget(_wrap(Center(child: DbLight(monitor: m))));
-      expect(find.byKey(const Key('db-light-unknown')), findsOneWidget);
-      expect(find.byType(Text), findsNothing); // بدون نوشته
-      await tester.tap(find.byKey(const Key('db-light')));
-      await tester.pump();
-      expect(find.byKey(const Key('db-light-error')), findsOneWidget);
-      state = 'synced';
-      await tester.tap(find.byKey(const Key('db-light')));
-      await tester.pump();
-      expect(find.byKey(const Key('db-light-synced')), findsOneWidget);
-      expect(probes, 2);
-      m.dispose();
-    });
+    testWidgets(
+      'چراغ دیتابیس: یک چراغ بزرگ با نوشتهٔ «دیتابیس»؛ لمس ⇒ سنجش دوباره',
+      (tester) async {
+        var state = 'error';
+        var probes = 0;
+        final m = DbMonitor(
+          probe: () async {
+            probes++;
+            return PlatformSync(state: state, error: 'x');
+          },
+        );
+        await tester.pumpWidget(_wrap(Center(child: DbLight(monitor: m))));
+        expect(find.byKey(const Key('db-light-unknown')), findsOneWidget);
+        // فقط یک نوشته: «دیتابیس» (ردیف ۱۳۱)
+        expect(find.byType(Text), findsOneWidget);
+        expect(find.text('دیتابیس'), findsOneWidget);
+        final dot = tester.getSize(find.byKey(const Key('db-light-unknown')));
+        expect(dot.width, greaterThanOrEqualTo(24));
+        await tester.tap(find.byKey(const Key('db-light')));
+        await tester.pump();
+        expect(find.byKey(const Key('db-light-error')), findsOneWidget);
+        state = 'synced';
+        await tester.tap(find.byKey(const Key('db-light')));
+        await tester.pump();
+        expect(find.byKey(const Key('db-light-synced')), findsOneWidget);
+        expect(probes, 2);
+        m.dispose();
+      },
+    );
   });
 
   group('نسخه', () {

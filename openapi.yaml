@@ -395,7 +395,7 @@ paths:
     get:
       operationId: getApiAdminHelpers
       tags: [admin]
-      summary: "admin: GET admin/helpers — سرورهای کمکی (سیستم‌های پنل مالک) در صندوقچهٔ مشترک؛ ADR 126 §۱۱"
+      summary: "admin: GET admin/helpers — سرورهای کمکی (سیستم‌های پنل مالک) در صندوقچهٔ مشترک و سیاست مالک (use_helpers، فقط هنگام نیاز)؛ ADR 126 §۱۱/§۱۵"
       x-source: server/index.js:994
       responses:
         '200':

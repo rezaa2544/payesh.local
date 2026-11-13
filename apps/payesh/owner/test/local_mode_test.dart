@@ -592,6 +592,46 @@ void main() {
             findsOneWidget,
           );
           expect(find.byType(StatusDot), findsNWidgets(2));
+          // نوار بالا تمیز (ردیف ۱۳۱): پوسته و خروج فقط آیکن، «سرور مستقل»، چراغ «دیتابیس»
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('theme')),
+              matching: find.byType(Text),
+            ),
+            findsNothing,
+          );
+          expect(find.textContaining('پوسته'), findsNothing);
+          expect(
+            tester.widget<IconButton>(find.byKey(const Key('theme'))).tooltip,
+            startsWith('پوسته'),
+          );
+          expect(
+            tester.widget<IconButton>(find.byKey(const Key('logout'))).tooltip,
+            'خروج',
+          );
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('mode-badge')),
+              matching: find.text('سرور مستقل'),
+            ),
+            findsOneWidget,
+          );
+          expect(find.textContaining('همین دستگاه)'), findsNothing);
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('db-light')),
+              matching: find.text('دیتابیس'),
+            ),
+            findsOneWidget,
+          );
+          final themeBefore = tester
+              .widget<IconButton>(find.byKey(const Key('theme')))
+              .tooltip;
+          await _tap(tester, 'theme');
+          expect(
+            tester.widget<IconButton>(find.byKey(const Key('theme'))).tooltip,
+            isNot(themeBefore),
+          );
           // تنظیم نشده ⇒ خاکستری؛ لمس ⇒ سنجش دوباره
           await _tap(tester, 'db-light');
           expect(

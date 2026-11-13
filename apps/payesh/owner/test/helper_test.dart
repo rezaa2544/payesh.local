@@ -6,6 +6,7 @@ import 'package:payesh_owner/src/helper/helper_box.dart';
 import 'package:payesh_owner/src/helper/helper_jobs.dart';
 import 'package:payesh_owner/src/helper/helper_node.dart';
 import 'package:payesh_owner/src/helper/helper_service.dart';
+import 'package:payesh_owner/src/infra/infra_policy.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
@@ -63,7 +64,10 @@ void main() {
         'request': HelperKinds.request,
         'lease': HelperKinds.lease,
         'result': HelperKinds.result,
+        'policy': HelperKinds.policy,
       });
+      expect(vectors['policy_key'], 'control/infra-policy.json');
+      expect(infraPolicyKey, 'payesh/control/infra-policy.json');
       expect(vectors['dirs'], {
         'helpers': HelperDirs.helpers,
         'req': HelperDirs.req,
@@ -148,6 +152,7 @@ void main() {
       'بدون سرور کمکی ⇒ همین دستگاه انجام می‌دهد (پردازش متوقف نمی‌شود)',
       () async {
         final r = await submitJob(
+          busy: () => true,
           s3: s3,
           transport: bucket.transport,
           executor: exec(),
@@ -168,6 +173,7 @@ void main() {
       await b.tick(); // حضور
       expect(bucket.keysUnder('payesh/helpers/'), hasLength(1));
       final r = await submitJob(
+        busy: () => true,
         s3: s3,
         transport: bucket.transport,
         executor: exec(),
@@ -195,6 +201,7 @@ void main() {
       final c = node('c000000000000001');
       await Future.wait([b.tick(), c.tick()]);
       final r = await submitJob(
+        busy: () => true,
         s3: s3,
         transport: bucket.transport,
         executor: exec(),
@@ -217,6 +224,7 @@ void main() {
       final hs = await readHelpers(s3, bucket.transport());
       expect(hs.single.paused, isTrue);
       final r = await submitJob(
+        busy: () => true,
         s3: s3,
         transport: bucket.transport,
         executor: exec(),
@@ -233,6 +241,7 @@ void main() {
       () async {
         await node('b000000000000001').tick(); // حضور و بعد خاموش
         final r = await submitJob(
+          busy: () => true,
           s3: s3,
           transport: bucket.transport,
           executor: exec(),
@@ -251,6 +260,7 @@ void main() {
       await node('b000000000000001').tick();
       var leased = false;
       final r = await submitJob(
+        busy: () => true,
         s3: s3,
         transport: bucket.transport,
         executor: exec(),
@@ -287,6 +297,7 @@ void main() {
     test('نتیجهٔ دستکاری‌شده یا با کلید دیگر پذیرفته نمی‌شود', () async {
       await node('b000000000000001').tick();
       final r = await submitJob(
+        busy: () => true,
         s3: s3,
         transport: bucket.transport,
         executor: exec(),
@@ -316,6 +327,7 @@ void main() {
       () async {
         bucket.down = true;
         final r = await submitJob(
+          busy: () => true,
           s3: s3,
           transport: bucket.transport,
           executor: exec(),
@@ -497,6 +509,186 @@ void main() {
       await b.reload();
       expect(b.node!.configured, isFalse);
       await b.dispose();
+    });
+  });
+
+  group('فقط هنگام نیاز + سیاست زیرساخت (ردیف ۱۳۱)', () {
+    late DateTime clock;
+    late FakeBucket bucket;
+    final s3 = S3Settings(
+      endpoint: Uri.https('s3.example.test'),
+      accessKey: 'ak',
+      secretKey: 'sk-test',
+      bucket: 'payesh-madrese',
+    );
+    setUp(() {
+      clock = DateTime.utc(2026, 11, 13, 10);
+      bucket = FakeBucket(() => clock);
+      bucket.putText('payesh/schools/a/1.bin', 'x' * 100);
+    });
+    JobExecutor exec() => JobExecutor(
+      transport: bucket.transport,
+      bigTransport: bucket.transport,
+      now: () => clock,
+      probe: (u) async => {'ok': true, 'status': 200, 'url': '$u'},
+    );
+
+    test('helperNeed همان قاعدهٔ Node', () {
+      expect(
+        helperNeed('storage.usage', helpersOn: true, busy: false),
+        'not_needed',
+      );
+      expect(helperNeed('storage.usage', helpersOn: true, busy: true), isNull);
+      expect(
+        helperNeed('endpoint.check', helpersOn: true, busy: false),
+        isNull,
+      );
+      expect(
+        helperNeed('endpoint.check', helpersOn: false, busy: true),
+        'helpers_disabled',
+      );
+    });
+
+    test('دستگاه جا دارد ⇒ همین دستگاه، بدون صف و بدون انتظار', () async {
+      final helper = HelperNode(
+        helperId: 'b000000000000001',
+        transport: bucket.transport,
+        executor: exec(),
+        now: () => clock,
+        sleep: (_) async {},
+        host: 'PC-b',
+        slots: 1,
+      )..configure(s3);
+      await helper.tick();
+      var slept = 0;
+      final r = await submitJob(
+        s3: s3,
+        transport: bucket.transport,
+        executor: exec(),
+        kind: 'storage.usage',
+        now: () => clock,
+        sleep: (_) async => slept++,
+      );
+      expect(r.by, 'local');
+      expect(r.why, 'not_needed');
+      expect(slept, 0);
+      expect(
+        bucket.objects.keys.where((k) => k.startsWith('payesh/jobs/')),
+        isEmpty,
+      );
+      final off = await submitJob(
+        s3: s3,
+        transport: bucket.transport,
+        executor: exec(),
+        kind: 'endpoint.check',
+        params: {'url': 'https://example.com/'},
+        now: () => clock,
+        sleep: (_) async => slept++,
+        helpersOn: false,
+      );
+      expect(off.why, 'helpers_disabled');
+      expect(slept, 0);
+      await helper.dispose();
+    });
+
+    test('سیاست: ذخیره، خواندن از دستگاه دیگر، بدون اینترنت', () async {
+      final secA = FakeSecureStore();
+      final a = InfraPolicyStore(
+        secure: secA,
+        transport: bucket.transport,
+        now: () => clock,
+      )..configure(s3);
+      expect(a.value.helpers, isTrue);
+      await a.setHelpers(false);
+      await a.setService('svc-1', false);
+      expect(a.pending, isFalse);
+      expect(a.error, isNull);
+      final text = bucket.objects['payesh/control/infra-policy.json'];
+      expect(text, isNotNull);
+      final plain = await openHelper(
+        'sk-test',
+        HelperKinds.policy,
+        utf8.decode(text!),
+      );
+      expect(plain!['helpers'], false);
+      expect(plain['off'], ['svc-1']);
+
+      final b = InfraPolicyStore(
+        secure: FakeSecureStore(),
+        transport: bucket.transport,
+        now: () => clock,
+      )..configure(s3);
+      await b.refresh();
+      expect(b.value, a.value);
+      expect(b.value.serviceOn('svc-1'), isFalse);
+      expect(b.value.serviceOn('svc-2'), isTrue);
+
+      // بدون اینترنت: تغییر روی دستگاه می‌ماند و بعداً ثبت می‌شود
+      bucket.down = true;
+      clock = clock.add(const Duration(minutes: 1));
+      await b.setService('svc-1', true);
+      expect(b.pending, isTrue);
+      expect(b.error, isNotNull);
+      final c = InfraPolicyStore(secure: b.secure, transport: bucket.transport);
+      await c.loadCache();
+      expect(c.pending, isTrue);
+      expect(c.value.serviceOn('svc-1'), isTrue);
+      bucket.down = false;
+      await b.refresh();
+      expect(b.pending, isFalse);
+      await a.refresh();
+      expect(a.value.serviceOn('svc-1'), isTrue);
+      expect(a.value.helpers, isFalse);
+
+      // پاکت با کلید دیگر نادیده گرفته می‌شود
+      bucket.putText(
+        'payesh/control/infra-policy.json',
+        await sealHelper('other', HelperKinds.policy, 1, {
+          'v': 1,
+          'helpers': true,
+          'off': <String>[],
+          'at': 1,
+        }),
+      );
+      await a.refresh();
+      expect(a.value.helpers, isFalse);
+      expect(
+        InfraPolicy.fromPlain({'v': 1, 'helpers': 1, 'off': [], 'at': 1}),
+        isNull,
+      );
+      expect(
+        InfraPolicy.fromPlain({
+          'v': 1,
+          'helpers': true,
+          'off': ['a b'],
+          'at': 1,
+        }),
+        isNull,
+      );
+      a.dispose();
+      b.dispose();
+    });
+
+    test('پردازش کمکی خاموش ⇒ این دستگاه کار دیگران را برنمی‌دارد', () async {
+      var accept = false;
+      final helper = HelperNode(
+        helperId: 'b000000000000001',
+        transport: bucket.transport,
+        executor: exec(),
+        now: () => clock,
+        sleep: (_) async {},
+        host: 'PC-b',
+        slots: 1,
+        acceptWork: () => accept,
+      )..configure(s3);
+      expect(await helper.tick(), const Duration(seconds: 30));
+      expect(
+        bucket.objects.keys,
+        contains('payesh/helpers/b000000000000001.json'),
+      );
+      accept = true;
+      expect(await helper.tick(), isNot(const Duration(seconds: 30)));
+      await helper.dispose();
     });
   });
 }

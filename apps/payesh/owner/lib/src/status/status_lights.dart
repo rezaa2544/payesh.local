@@ -127,42 +127,52 @@ class StatusDot extends StatelessWidget {
     required this.color,
     this.busy = false,
     this.progress,
+    this.size = 20,
   });
   final Color color;
   final bool busy;
   final double? progress;
 
+  /// قطر کل (حلقهٔ پیشرفت)؛ نقطه ۵۵٪ آن است.
+  final double size;
+
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 20,
-    height: 20,
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        if (busy)
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              value: progress,
+  Widget build(BuildContext context) {
+    final dot = (size * 0.55).roundToDouble();
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (busy)
+            SizedBox(
+              width: size,
+              height: size,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                value: progress,
+                color: color,
+              ),
+            ),
+          Container(
+            width: dot,
+            height: dot,
+            decoration: BoxDecoration(
               color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.45),
+                  blurRadius: dot / 2,
+                ),
+              ],
             ),
           ),
-        Container(
-          width: 11,
-          height: 11,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: 5),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 /// چراغ دیتابیس.
@@ -191,16 +201,41 @@ class DbLight extends StatelessWidget {
         value: st ?? 'unknown',
         child: Tooltip(
           message: detail,
-          child: InkResponse(
-            key: const Key('db-light'),
-            radius: 20,
-            onTap: () => unawaited(monitor.refresh()),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: StatusDot(
-                key: ValueKey('db-light-${st ?? 'unknown'}'),
-                color: color,
-                busy: monitor.checking,
+          // چراغ بزرگ‌تر با نوشتهٔ «دیتابیس» (ردیف ۱۳۱)
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            child: Material(
+              color: color.withValues(alpha: 0.12),
+              shape: StadiumBorder(
+                side: BorderSide(color: color.withValues(alpha: 0.7)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: const Key('db-light'),
+                onTap: () => unawaited(monitor.refresh()),
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 12, 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      StatusDot(
+                        key: ValueKey('db-light-${st ?? 'unknown'}'),
+                        color: color,
+                        busy: monitor.checking,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'دیتابیس',
+                        key: const Key('db-light-label'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

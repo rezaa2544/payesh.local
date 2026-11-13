@@ -131,6 +131,9 @@ final class InfraLive {
   String name;
   String? detail;
 
+  /// مالک این زیرساخت را غیرفعال کرده (کارت «زیرساخت‌ها»): سنجیده نمی‌شود.
+  bool disabled = false;
+
   /// null = هنوز سنجیده نشده.
   bool? up;
   int? latencyMs;
@@ -189,6 +192,7 @@ class LiveMonitor extends ChangeNotifier {
     this.probeEvery = const Duration(seconds: 5),
     this.capacityEvery = const Duration(minutes: 2),
     this.capacityPages = 20,
+    this.enabled,
   }) : _checker = checker ?? defaultEndpointCheck,
        _fetch = fetcher ?? defaultMetricsFetch,
        _now = now ?? DateTime.now;
@@ -201,6 +205,9 @@ class LiveMonitor extends ChangeNotifier {
   final Duration probeEvery;
   final Duration capacityEvery;
   final int capacityPages;
+
+  /// سیاست مالک: false ⇒ این سرویس غیرفعال است و سنجیده نمی‌شود (ردیف ۱۳۱).
+  final bool Function(String serviceId)? enabled;
 
   final InfraLive _db = InfraLive('db', 'db', 'دیتابیس');
   final Map<String, _Svc> _svcs = {};
@@ -280,6 +287,7 @@ class LiveMonitor extends ChangeNotifier {
         () => _Svc(InfraLive(id, 'service', '${s['name'] ?? id}')),
       );
       svc.live.name = '${s['name'] ?? id}';
+      svc.live.disabled = !(enabled?.call(id) ?? true);
       svc.endpoints = [
         for (final e in endpoints)
           if ('${e['service_id']}' == id && e['enabled'] != false) e,
@@ -498,6 +506,17 @@ class LiveMonitor extends ChangeNotifier {
 
   Future<void> _probeSvc(_Svc s) async {
     final l = s.live;
+    l.disabled = !(enabled?.call(l.id) ?? true);
+    if (l.disabled) {
+      l
+        ..up = null
+        ..latencyMs = null
+        ..rxBps = null
+        ..txBps = null
+        ..reqPs = null
+        ..error = 'غیرفعال (کارت «زیرساخت‌ها»)';
+      return;
+    }
     if (s.endpoints.isEmpty) {
       l
         ..up = null

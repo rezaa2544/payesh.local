@@ -1,5 +1,5 @@
 {
-  "description": "Helper jobs v1 (server/helper-jobs.js = apps/payesh/owner/lib/src/helper/helper_box.dart). key = HKDF-SHA256(utf8(secret), salt=\"payesh/helper-jobs\", info=\"v1\", 32); AES-256-GCM, AAD = \"<kind>/v1/<rev>\"; plaintext = JSON with the key order shown.",
+  "description": "Helper jobs v1 (server/helper-jobs.js = apps/payesh/owner/lib/src/helper/helper_box.dart). key = HKDF-SHA256(utf8(secret), salt=\"payesh/helper-jobs\", info=\"v1\", 32); AES-256-GCM, AAD = \"<kind>/v1/<rev>\"; plaintext = JSON with the key order shown. Infra policy (row 131): <prefix>control/infra-policy.json, kind payesh-infra-policy, plaintext {v,helpers,off,at}; rev = at.",
   "secret": "sk-vector-0123456789abcdef",
   "rev": 1762990000000,
   "nonce_hex": "000102030405060708090a0b",
@@ -8,7 +8,8 @@
     "presence": "payesh-helper",
     "request": "payesh-job",
     "lease": "payesh-job-lease",
-    "result": "payesh-job-result"
+    "result": "payesh-job-result",
+    "policy": "payesh-infra-policy"
   },
   "dirs": {
     "helpers": "helpers/",
@@ -69,6 +70,17 @@
         "nonce": "AAECAwQFBgcICQoL",
         "ct": "EZjdBPT0ekwX3rbkFvgZTTGnOJiQE7vA-AUGTGhdY-85mAZaGsS75cZuIgnyAyCRBP5-MrRBIwYsgI-qcLxFYBn8qwAysN4-6T0ap0pagc4L0jGd67SPD2NAka3nnYG0SuGcNvp3hUpzl9NV9Mdasc9BOHJuUDZBJSm7qx-dIgjCOj-Ml5im3obCtRJQ-LB6VFFDNYdlP7d3hMInXGRcQ8n_M9WrWDH_Hs1C5TSgzsH95yLPeYriP9hRVErhuDACqfVIOieKYVslrrtoV7kWLB-q8WFoONSHr6TdfSpAJWdfL3NoFYSxSyudQV8KykjlfEpCYJ_sYJC833gB9BpQu-kfeSrsKrlQQM_2xkgpmKs62YHTGgqCVt6bn8pC0EEw1AFLiMkYG9Fj"
       }
+    },
+    "policy": {
+      "plaintext": "{\"v\":1,\"helpers\":false,\"off\":[\"5f0c1a2b-0000-4000-8000-000000000001\"],\"at\":1762990000000}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-infra-policy",
+        "rev": 1762990000000,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "AAECAwQFBgcICQoL",
+        "ct": "EZjdBPT0ekwV1LjLGu5IVSnwbsLRT67Sp1NQXmI2bOpvmVRZScXq_MJrJw_pACeDGPEuZ-gBa0RD2du4eq4UYUv--RELqJlq-ykQoUxUkdsQjWqP4fDNSnu1gE38QmAqP9a16Gdo5jWj"
+      }
     }
   },
   "public_ip": {
@@ -87,5 +99,6 @@
     "fd00::1": false,
     "::ffff:192.168.1.1": false,
     "2001:4860:4860::8888": true
-  }
+  },
+  "policy_key": "control/infra-policy.json"
 }

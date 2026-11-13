@@ -47,7 +47,7 @@ class _HealthPageState extends OwnerPageState<HealthPage> {
                 'نمونهٔ سرور',
                 x['mode'] == 'local'
                     ? const Pill(
-                        'سرور مستقل (همین دستگاه)',
+                        'سرور مستقل',
                         key: Key('health-local'),
                         tone: PayeshTone.success,
                       )

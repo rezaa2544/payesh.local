@@ -25,6 +25,8 @@ const _whyFa = {
   'helper_failed': 'سرور کمکی نتوانست انجام دهد',
   'bucket_unreachable': 'دیتابیس در دسترس نبود',
   'deadline': 'مهلت تمام شد',
+  'not_needed': 'مسیر عادی؛ نیازی به سیستم کمکی نبود',
+  'helpers_disabled': 'پردازش کمکی خاموش است',
 };
 
 /// «سرور کمکی»: روشن/خاموش (پیش‌فرض روشن)، وضعیت همین دستگاه، سرورهای کمکی فعال و یک
@@ -133,7 +135,7 @@ class _HelperCardState extends State<HelperCard> {
       status = 'اول دیتابیس را تنظیم و ذخیره کنید؛ بعد این دستگاه خودکار سرور کمکی می‌شود.';
       ok = false;
     } else if (node.paused) {
-      status = 'متوقف (موقت). کاری به این دستگاه داده نمی‌شود.';
+      status = 'متوقف. کاری به این دستگاه داده نمی‌شود.';
       ok = false;
     } else if (node.lastError != null) {
       status = 'به دیتابیس نرسیدیم: ${node.lastError}';
@@ -146,28 +148,14 @@ class _HelperCardState extends State<HelperCard> {
           '؛ هم‌زمان حداکثر ${node.slots} کار.';
     }
     return SettingsSection(
-      title: 'سرور کمکی (همین دستگاه)',
+      title: 'پردازش کمکی (همین سیستم)',
       subtitle:
-          'هر سیستمی که پنل مدیریت روی آن نصب است، به‌طور پیش‌فرض سرور کمکی هم هست: '
-          'سرورهای مدرسه کارهای پردازشی را در دیتابیس می‌گذارند و هر سرور کمکیِ روشن آن را '
-          'انجام می‌دهد. اگر هیچ سرور کمکی روشن نباشد، همان سیستم کار را خودش انجام می‌دهد؛ '
-          'پس پردازش هیچ‌وقت متوقف نمی‌شود. محتوای مدارس به سرور کمکی داده نمی‌شود.',
+          'روشن/خاموش در کارت «زیرساخت‌ها» است. هر کاری اول روی همان سیستمی انجام می‌شود که '
+          'آن را لازم دارد؛ فقط وقتی آن سیستم شلوغ است یا بررسی «از بیرون» لازم است، کار در '
+          'دیتابیس گذاشته می‌شود تا یک سیستم کمکیِ روشن انجام دهد. اگر هیچ سیستم کمکی روشن '
+          'نباشد، همان سیستم خودش انجام می‌دهد؛ پس پردازش هیچ‌وقت متوقف نمی‌شود. محتوای مدارس '
+          'به سیستم کمکی داده نمی‌شود.',
       children: [
-        SwitchListTile(
-          key: const Key('helper-switch'),
-          contentPadding: EdgeInsets.zero,
-          title: const Text('سرور کمکی روشن باشد (پیش‌فرض)'),
-          subtitle: const Text(
-            'تا وقتی برنامه باز است (حتی کوچک‌شده) کار می‌کند؛ با اولویت پایین و حداکثر نصف هسته‌ها.',
-          ),
-          value: node != null && !node.paused,
-          onChanged: node == null
-              ? null
-              : (v) async {
-                  await widget.service.setPaused(!v);
-                  if (mounted) setState(() {});
-                },
-        ),
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Text(
@@ -260,67 +248,6 @@ class _HelperCardState extends State<HelperCard> {
             ),
         ],
       ],
-    );
-  }
-}
-
-/// برای صفحهٔ «زیرساخت»: خلاصهٔ یک‌خطی.
-class HelperSummary extends StatefulWidget {
-  const HelperSummary({super.key, required this.service});
-  final OwnerHelperService service;
-
-  @override
-  State<HelperSummary> createState() => _HelperSummaryState();
-}
-
-class _HelperSummaryState extends State<HelperSummary> {
-  StreamSubscription<void>? _sub;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(
-      widget.service.ready.then((_) {
-        if (!mounted) return;
-        _sub = widget.service.node?.changes.listen((_) {
-          if (mounted) setState(() {});
-        });
-        setState(() {});
-      }),
-    );
-  }
-
-  @override
-  void dispose() {
-    unawaited(_sub?.cancel());
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final n = widget.service.node;
-    final on = n != null && n.configured && !n.paused && n.lastError == null;
-    return Card(
-      key: const Key('helper-summary'),
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: ListTile(
-        leading: Icon(
-          Icons.hub_outlined,
-          color: on ? context.tokens.success : context.tokens.muted,
-        ),
-        title: const Text('سرور کمکی (همین دستگاه)'),
-        subtitle: Text(
-          n == null
-              ? 'در حال آماده‌سازی…'
-              : !n.configured
-              ? 'بدون دیتابیس غیرفعال است.'
-              : n.paused
-              ? 'متوقف (موقت) — از «تنظیمات» روشن کنید.'
-              : n.lastError != null
-              ? 'به دیتابیس نرسیدیم.'
-              : 'فعال — ${n.done} کار انجام شد؛ هم‌زمان حداکثر ${n.slots} کار.',
-        ),
-      ),
     );
   }
 }

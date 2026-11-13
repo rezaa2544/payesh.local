@@ -12,6 +12,7 @@ import 'local/local_platform.dart';
 import 'local/local_screens.dart';
 import 'local/s3_client.dart';
 import 'local/settings_page.dart';
+import 'infra/infra_card.dart';
 import 'monitor/live_monitor.dart';
 import 'platform.dart';
 import 'shell.dart';
@@ -23,6 +24,11 @@ const _themeLabels = {
   ThemeMode.system: 'پوسته: سیستم',
   ThemeMode.light: 'پوسته: روشن',
   ThemeMode.dark: 'پوسته: تاریک',
+};
+const _themeIcons = {
+  ThemeMode.system: Icons.brightness_auto,
+  ThemeMode.light: Icons.light_mode,
+  ThemeMode.dark: Icons.dark_mode,
 };
 
 /// Root of the native owner app: server origin → password + TOTP login → panel.
@@ -106,7 +112,11 @@ class _OwnerAppState extends State<OwnerApp> {
   LiveMonitor? get _liveMonitor {
     if (!widget.dbAutoCheck) return null;
     final secure = widget.secure;
+    final helper = widget.helper;
     return _live ??= LiveMonitor(
+      enabled: helper == null
+          ? null
+          : (id) => helper.policy.value.serviceOn(id),
       db: secure == null
           ? null
           : DbSource(
@@ -407,13 +417,18 @@ class _OwnerAppState extends State<OwnerApp> {
     return OwnerShell(
       key: const Key('local-shell'),
       api: onServer ? api : _localApi,
-      badge: onServer ? null : 'سرور مستقل (همین دستگاه)',
+      badge: onServer ? null : 'سرور مستقل',
       now: _now,
       themeButton: _themeButton,
       onSignOut: _signOutLocal,
-      infraTop: widget.helper == null
-          ? null
-          : HelperSummary(service: widget.helper!),
+      infraTop: InfraCard(
+        key: const Key('infra-card-top'),
+        helper: widget.helper,
+        db: _dbMonitor,
+        loadInfra: (onServer ? api : _localApi)?.infra,
+        now: widget.now,
+        margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      ),
       dbLight: _dbMonitor == null ? null : DbLight(monitor: _dbMonitor!),
       monitor: _liveMonitor,
       updateLight: widget.updater == null
@@ -430,6 +445,12 @@ class _OwnerAppState extends State<OwnerApp> {
           },
         ),
         extra: [
+          InfraCard(
+            helper: widget.helper,
+            db: _dbMonitor,
+            loadInfra: (onServer ? api : _localApi)?.infra,
+            now: widget.now,
+          ),
           if (widget.helper != null)
             HelperCard(service: widget.helper!, now: widget.now),
           if (widget.updater != null) UpdateCard(updater: widget.updater!),
@@ -455,10 +476,12 @@ class _OwnerAppState extends State<OwnerApp> {
     super.dispose();
   }
 
-  Widget get _themeButton => TextButton(
+  /// فقط آیکن (نام پوسته در راهنمای شناور).
+  Widget get _themeButton => IconButton(
     key: const Key('theme'),
+    tooltip: _themeLabels[_theme],
+    icon: Icon(_themeIcons[_theme]),
     onPressed: _cycleTheme,
-    child: Text(_themeLabels[_theme]!),
   );
 
   @override

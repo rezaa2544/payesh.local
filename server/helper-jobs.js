@@ -34,6 +34,8 @@ const dns = require('dns');
 const net = require('net');
 const http = require('http');
 const https = require('https');
+const os = require('os');
+const { performance } = require('perf_hooks');
 const s3mem = require('./s3mem');
 const { trustFetch } = require('./s3-https');
 
@@ -45,9 +47,17 @@ const K = {
   request: 'payesh-job',
   lease: 'payesh-job-lease',
   result: 'payesh-job-result',
+  policy: 'payesh-infra-policy',
 };
 const DIR = { helpers: 'helpers/', req: 'jobs/req/', lease: 'jobs/lease/', res: 'jobs/res/' };
 const KINDS = ['storage.usage', 'object.verify', 'endpoint.check', 'bucket.gc'];
+/* سیاست زیرساخت که پنل مالک می‌نویسد (ردیف ۱۳۱): {v:1, helpers:bool, off:[service_id], at} */
+const POLICY_KEY = 'control/infra-policy.json';
+const POLICY_MAX_AGE_MS = 60_000;
+/* «نیاز به پردازش کمکی»: بار حلقهٔ رویداد Node یا CPU میزبان در ۵ ثانیهٔ اخیر */
+const BUSY_ELU = 0.6;
+const BUSY_CPU = 0.75;
+const LOAD_SAMPLE_MS = 5_000;
 
 const PRESENCE_FRESH_MS = 90_000;     /* حضوری که از این قدیمی‌تر باشد «خاموش» است */
 const CLAIM_WAIT_MS = 20_000;         /* اگر کسی کار را برنداشت ⇒ خودمان */
@@ -315,6 +325,61 @@ async function runLocal(cfg, kind, params, opts = {}) {
   throw new HelperError('unknown_kind', kind);
 }
 
+/* ── سیاست زیرساخت (پنل مالک ⇐ همهٔ سرورها) ─────────────────────────── */
+function validPolicy(p) {
+  return !!p && p.v === 1 && typeof p.helpers === 'boolean' && Array.isArray(p.off) &&
+    p.off.every(x => typeof x === 'string') && Number.isSafeInteger(p.at);
+}
+let policyCache = { key: '', at: 0, value: null };
+async function readPolicy(cfg, { now = Date.now(), maxAgeMs = POLICY_MAX_AGE_MS } = {}) {
+  const ck = cfg.bucket + '|' + cfg.prefix + '|' + keyFor(cfg.secret).toString('hex').slice(0, 16);
+  if (policyCache.key === ck && now - policyCache.at < maxAgeMs) return policyCache.value;
+  let value = null;
+  try {
+    const r = await readEnv(cfg, cfg.prefix + POLICY_KEY, K.policy);
+    if (r && !r.invalid && validPolicy(r.plain)) value = r.plain;
+  } catch (e) {
+    /* صندوقچه موقتاً در دسترس نیست: آخرین سیاست شناخته‌شده */
+    value = policyCache.key === ck ? policyCache.value : null;
+  }
+  policyCache = { key: ck, at: now, value };
+  return value;
+}
+const writePolicy = (cfg, policy) => writeEnv(cfg, cfg.prefix + POLICY_KEY, K.policy, policy.at, policy);
+
+/* بار همین سرور در ۵ ثانیهٔ اخیر (نمونه‌برداری با تایمر unref) */
+function cpuTimes() {
+  let idle = 0, total = 0;
+  for (const c of os.cpus()) { for (const v of Object.values(c.times)) total += v; idle += c.times.idle; }
+  return { idle, total };
+}
+const load = { elu: 0, cpu: 0, timer: null, lastElu: null, lastCpu: null };
+function sampleLoad() {
+  const e = performance.eventLoopUtilization();
+  const c = cpuTimes();
+  if (load.lastElu) {
+    load.elu = performance.eventLoopUtilization(e, load.lastElu).utilization;
+    const dt = c.total - load.lastCpu.total;
+    load.cpu = dt > 0 ? Math.max(0, Math.min(1, 1 - (c.idle - load.lastCpu.idle) / dt)) : 0;
+  }
+  load.lastElu = e; load.lastCpu = c;
+}
+function busyNow() {
+  if (!load.timer) {
+    sampleLoad();
+    load.timer = setInterval(sampleLoad, LOAD_SAMPLE_MS);
+    load.timer.unref();
+  }
+  return load.elu >= BUSY_ELU || load.cpu >= BUSY_CPU;
+}
+
+/* آیا این کار به سرور کمکی نیاز دارد؟ null = بله؛ وگرنه دلیلِ انجام روی همین سرور */
+function helperNeed(kind, { policy, busy }) {
+  if (policy && policy.helpers === false) return 'helpers_disabled';
+  if (kind === 'endpoint.check') return null;   /* دید «از بیرون» فقط از سیستم دیگر */
+  return busy ? null : 'not_needed';            /* سرور خودش جا دارد ⇒ بدون تأخیر صف */
+}
+
 /* ── ارسال یک کار: سرور کمکی ⇐ یا خودمان (هرگز متوقف نمی‌شود) ─────────── */
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -330,6 +395,11 @@ async function runJob(cfg, kind, params, opts = {}) {
     return { ok: true, by: 'local', why, result };
   };
   if (opts.preferLocal) return local('prefer_local');
+  /* مسیر عادی: همین سرور مستقیم با دیتابیس. سرور کمکی فقط هنگام نیاز. */
+  const policy = opts.policy !== undefined ? opts.policy : await readPolicy(cfg, { now: now() });
+  const busy = typeof opts.busy === 'function' ? !!opts.busy() : opts.busy !== undefined ? !!opts.busy : busyNow();
+  const skip = helperNeed(kind, { policy, busy });
+  if (skip) return local(skip);
   let online = [];
   try { online = (await helpersOnline(cfg, { now: now() })).filter(h => h.online && h.kinds.includes(kind)); }
   catch (e) { return local('bucket_unreachable'); }
@@ -382,11 +452,13 @@ let timer = null;
 async function status(store) {
   const cfg = s3mem.usingMeta(store).get();
   if (!cfg || !cfg.enabled) return { configured: false, helpers: [], online: 0 };
+  const use = (p) => ({ use_helpers: !p || p.helpers !== false, when: 'need' });
   try {
     const helpers = await helpersOnline(cfg);
-    return { configured: true, helpers, online: helpers.filter(h => h.online).length, public_check: store.getMeta(META_PUBLIC_CHECK, null) };
+    const policy = await readPolicy(cfg);
+    return Object.assign({ configured: true, helpers, online: helpers.filter(h => h.online).length, public_check: store.getMeta(META_PUBLIC_CHECK, null) }, use(policy));
   } catch (e) {
-    return { configured: true, error: 'unreachable', helpers: [], online: 0, public_check: store.getMeta(META_PUBLIC_CHECK, null) };
+    return Object.assign({ configured: true, error: 'unreachable', helpers: [], online: 0, public_check: store.getMeta(META_PUBLIC_CHECK, null) }, use(null));
   }
 }
 
@@ -423,4 +495,6 @@ module.exports = {
   K, DIR, KINDS, SALT: SALT.toString('utf8'), PRESENCE_FRESH_MS, CLAIM_WAIT_MS, GC_JOB_AGE_MS,
   HelperError, seal, open, keyFor, newJobId, jobAt, isPublicIp, validParams,
   helpersOnline, runLocal, runJob, checkEndpoint, status, checkPublicUrl, start, listAll,
+  POLICY_KEY, readPolicy, writePolicy, validPolicy, helperNeed, busyNow,
+  _resetPolicyCache: () => { policyCache = { key: '', at: 0, value: null }; },
 };

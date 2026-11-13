@@ -5311,7 +5311,7 @@ async function waitFor(fn, ms = 15000) {
     });
 
   /* ── سرور کمکی (ADR 126 §۱۱): صف کار در صندوقچه، رزرو، جایگزینی محلی ── */
-  await test('سرور کمکی: قرارداد مشترک با پنل مالک، یک برداشت از چند سرور، پردازش هرگز متوقف نمی‌شود (۱۱ بررسی)',
+  await test('سرور کمکی: قرارداد مشترک با پنل مالک، یک برداشت از چند سرور، پردازش هرگز متوقف نمی‌شود، فقط هنگام نیاز + سیاست مالک (۱۲ بررسی)',
     async () => {
       const { spawnSync } = require('child_process');
       const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/helper-jobs-130.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });

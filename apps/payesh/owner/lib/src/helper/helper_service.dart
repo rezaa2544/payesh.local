@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:payesh_secure/payesh_secure.dart';
 
+import '../infra/infra_policy.dart';
 import '../local/s3_client.dart';
 import '../update/owner_update.dart';
 import 'helper_box.dart';
@@ -28,6 +29,11 @@ final class OwnerHelperService {
     this.slots,
   }) : transport = transport ?? IoS3Transport.new,
        _now = now ?? DateTime.now {
+    policy = InfraPolicyStore(
+      secure: secure,
+      transport: this.transport,
+      now: _now,
+    );
     executor = JobExecutor(
       transport: this.transport,
       bigTransport: bigTransport,
@@ -43,6 +49,9 @@ final class OwnerHelperService {
   final Sleeper? sleep;
   final int? slots;
   late final JobExecutor executor;
+
+  /// سیاست زیرساخت مالک: «پردازش کمکی» و زیرساخت‌های غیرفعال (ردیف ۱۳۱).
+  late final InfraPolicyStore policy;
   HelperNode? _node;
   S3Settings? _s3;
   final _ready = Completer<void>();
@@ -67,11 +76,16 @@ final class OwnerHelperService {
       sleep: sleep,
       version: ownerBuild > 0 ? 'build $ownerBuild' : 'dev',
       slots: slots,
+      acceptWork: () => policy.value.helpers,
     );
     _node = n;
+    await policy.loadCache();
     if (await _read(HelperKeys.paused) == '1') await n.setPaused(true);
     await reload();
-    if (autoStart) n.start();
+    if (autoStart) {
+      n.start();
+      policy.start();
+    }
     if (!_ready.isCompleted) _ready.complete();
   }
 
@@ -84,6 +98,8 @@ final class OwnerHelperService {
     }
     final s = _s3;
     _node?.configure(s == null || s.bucket.isEmpty ? null : s);
+    policy.configure(s);
+    unawaited(policy.refresh());
   }
 
   Future<void> setPaused(bool v) async {
@@ -99,7 +115,7 @@ final class OwnerHelperService {
     await _node?.setPaused(v);
   }
 
-  /// فرستادن یک کار (سرور کمکیِ دیگر یا همین دستگاه).
+  /// فرستادن یک کار: همین دستگاه؛ سرور کمکیِ دیگر فقط هنگام نیاز.
   Future<JobOutcome> submit(
     String kind, [
     Map<String, Object?> params = const {},
@@ -117,6 +133,12 @@ final class OwnerHelperService {
       selfHelperId: _node?.helperId,
       now: _now,
       sleep: sleep,
+      helpersOn: policy.value.helpers,
+      // همین دستگاه پر است (کارهای دیگران) ⇒ نیاز به سرور کمکی
+      busy: () {
+        final n = _node;
+        return n != null && n.activeJobs >= n.slots;
+      },
     );
   }
 
@@ -147,5 +169,8 @@ final class OwnerHelperService {
     }
   }
 
-  Future<void> dispose() async => _node?.dispose();
+  Future<void> dispose() async {
+    policy.dispose();
+    await _node?.dispose();
+  }
 }

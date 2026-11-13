@@ -68,6 +68,7 @@ final class HelperNode {
     this.version = '',
     int? slots,
     Random? random,
+    this.acceptWork,
   }) : _now = now ?? DateTime.now,
        _sleep = sleep ?? _realSleep,
        host = host ?? _hostName(),
@@ -77,6 +78,9 @@ final class HelperNode {
   final String helperId;
   final S3Transport Function() transport;
   final JobExecutor executor;
+
+  /// false ⇒ مالک «پردازش کمکی» را خاموش کرده: صف کارها خوانده نمی‌شود (فقط حضور).
+  final bool Function()? acceptWork;
   final String host;
   final String version;
   final int slots;
@@ -189,6 +193,7 @@ final class HelperNode {
         await _writePresence(s3);
       }
       if (_paused) return const Duration(seconds: 30);
+      if (!(acceptWork?.call() ?? true)) return const Duration(seconds: 30);
       if (_lastGc == null || now.difference(_lastGc!) >= gcJobAge) {
         _lastGc = now;
         unawaited(executor.gc(s3).then((_) {}, onError: (_) {}));
@@ -455,7 +460,18 @@ Future<List<HelperPresence>> readHelpers(S3Settings s3, S3Transport t) async {
   return out;
 }
 
-/// فرستادن یک کار: سرور کمکیِ دیگری ⇐ یا همین دستگاه. هرگز متوقف نمی‌شود.
+/// آیا کار به سرور کمکی نیاز دارد؟ null = بله؛ وگرنه دلیلِ انجام روی همین دستگاه
+/// (همان `helperNeed` در server/helper-jobs.js).
+String? helperNeed(String kind, {required bool helpersOn, required bool busy}) {
+  if (!helpersOn) return 'helpers_disabled';
+  // دید «از بیرون» فقط از سیستم دیگر به دست می‌آید
+  if (kind == 'endpoint.check') return null;
+  // همین دستگاه جا دارد ⇒ بدون تأخیر صف
+  return busy ? null : 'not_needed';
+}
+
+/// فرستادن یک کار: مسیر عادی همین دستگاه است؛ سرور کمکیِ دیگر فقط هنگام نیاز
+/// ([helperNeed]: این دستگاه شلوغ است یا کار دید بیرونی می‌خواهد). هرگز متوقف نمی‌شود.
 Future<JobOutcome> submitJob({
   required S3Settings s3,
   required S3Transport Function() transport,
@@ -468,6 +484,8 @@ Future<JobOutcome> submitJob({
   Sleeper? sleep,
   Duration pollEvery = const Duration(seconds: 2),
   Random? random,
+  bool helpersOn = true,
+  bool Function()? busy,
 }) async {
   final clock = now ?? DateTime.now;
   final wait = sleep ?? _realSleep;
@@ -484,6 +502,13 @@ Future<JobOutcome> submitJob({
       return JobOutcome(ok: false, by: 'local', why: why, error: e.code);
     }
   }
+
+  final skip = helperNeed(
+    kind,
+    helpersOn: helpersOn,
+    busy: busy?.call() ?? false,
+  );
+  if (skip != null) return local(skip);
 
   final t = transport();
   try {

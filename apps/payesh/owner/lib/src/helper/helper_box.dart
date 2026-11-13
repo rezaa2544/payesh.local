@@ -6,6 +6,7 @@
 //   payesh/jobs/req/<job_id>.json     درخواست kind=payesh-job
 //   payesh/jobs/lease/<job_id>.json   رزرو    kind=payesh-job-lease
 //   payesh/jobs/res/<job_id>.json     نتیجه   kind=payesh-job-result
+//   payesh/control/infra-policy.json  سیاست   kind=payesh-infra-policy (ردیف ۱۳۱)
 // پاکت = sealBox با نمک "payesh/helper-jobs" (HKDF-SHA256 از Secret صندوقچه + AES-256-GCM،
 // AAD = "<kind>/v1/<rev>"). فقط دارندهٔ کلید همان صندوقچه کاری می‌گذارد یا نتیجه می‌نویسد.
 
@@ -23,6 +24,9 @@ abstract final class HelperKinds {
   static const String request = 'payesh-job';
   static const String lease = 'payesh-job-lease';
   static const String result = 'payesh-job-result';
+
+  /// سیاست زیرساخت که پنل مالک می‌نویسد (ردیف ۱۳۱؛ `infra/infra_policy.dart`).
+  static const String policy = 'payesh-infra-policy';
 }
 
 abstract final class HelperDirs {

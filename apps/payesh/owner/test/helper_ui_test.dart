@@ -101,17 +101,18 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.textContaining('فضای دیتابیس'), findsOneWidget);
 
-    // زیرساخت: خلاصهٔ سرور کمکی
+    // زیرساخت: کارت «زیرساخت‌ها» بالای صفحه (ردیف ۱۳۱)
     await tap(tester, 'nav-infra');
-    expect(find.byKey(const Key('helper-summary')), findsOneWidget);
-    expect(find.textContaining('فعال —'), findsOneWidget);
+    expect(find.byKey(const Key('infra-card-top')), findsOneWidget);
+    expect(find.byKey(const Key('infra-light-db')), findsOneWidget);
+    expect(text(tester, 'infra-status-self'), startsWith('فعال'));
+    expect(text(tester, 'infra-status-helpers'), startsWith('روشن'));
 
     await tap(tester, 'nav-settings');
     // پیش‌فرض روشن
-    final sw = tester.widget<SwitchListTile>(
-      find.byKey(const Key('helper-switch')),
-    );
+    final sw = tester.widget<Switch>(find.byKey(const Key('helper-switch')));
     expect(sw.value, isTrue);
+    expect(find.byKey(const Key('infra-card')), findsOneWidget);
     expect(text(tester, 'helper-status'), startsWith('فعال'));
 
     // کار نمونه: سرور کمکیِ دیگری نیست ⇒ همین دستگاه انجام می‌دهد
@@ -133,6 +134,22 @@ void main() {
     expect(text(tester, 'helper-status'), startsWith('متوقف'));
     await tap(tester, 'helper-switch');
     expect(helper.node!.paused, isFalse);
+
+    // پردازش کمکی برای همه (سیاست رمزشده در دیتابیس، ردیف ۱۳۱)
+    await tap(tester, 'infra-helpers-switch');
+    await tester.runAsync(() => helper.policy.refresh());
+    await tester.pumpAndSettle();
+    expect(helper.policy.value.helpers, isFalse);
+    expect(helper.policy.pending, isFalse);
+    expect(bucket.objects.keys, contains('payesh/control/infra-policy.json'));
+    expect(text(tester, 'infra-status-helpers'), startsWith('خاموش'));
+    expect(text(tester, 'infra-status-self'), startsWith('منتظر'));
+    await tap(tester, 'helper-usage');
+    expect(text(tester, 'helper-usage-result'), contains('خاموش'));
+    await tap(tester, 'infra-helpers-switch');
+    await tester.runAsync(() => helper.policy.refresh());
+    await tester.pumpAndSettle();
+    expect(helper.policy.value.helpers, isTrue);
 
     // به‌روزرسانی (اندروید/غیرویندوز: فقط اعلام بستهٔ کامل)
     expect(find.byKey(const Key('upd-check')), findsOneWidget);

@@ -127,6 +127,14 @@ void main() {
         await _login(tester, 'owner', 'pw-owner-1');
         expect(find.byKey(const Key('nav-rail')), findsOneWidget);
         expect(find.byKey(const Key('role-platform_owner')), findsOneWidget);
+        // نوار بالا کوتاه: «مالک» (نه «مالک پلتفرم»)
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('role-platform_owner')),
+            matching: find.text('مالک'),
+          ),
+          findsOneWidget,
+        );
         expect(find.byKey(const Key('metric-subscriptions')), findsOneWidget);
         final login = be.posts('/auth/login').last.body!;
         expect(login, {
