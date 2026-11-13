@@ -492,7 +492,7 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
   }
 }
 
-/// سرور پلتفرم (اختیاری): نشانی + ورود به حساب سرور. بخش‌های مدارس، پلن‌ها و … از آن خوانده می‌شوند.
+/// سرور پلتفرم (اختیاری): نشانی + ورود به حساب سرور. بدون آن بخش‌ها از سرور مستقل همین دستگاه خوانده می‌شوند.
 class ServerSettingsPanel extends StatefulWidget {
   const ServerSettingsPanel({
     super.key,
@@ -569,7 +569,7 @@ class _ServerSettingsPanelState extends State<ServerSettingsPanel> {
     final s = widget.session;
     return _Section(
       title: 'سرور پلتفرم (اختیاری)',
-      subtitle: 'بخش‌های داشبورد، مدارس، پلن‌ها، سقف‌ها، سلامت، زیرساخت، اپراتورها، گزارش‌ها و ممیزی از سرور پلتفرم خوانده می‌شوند.',
+      subtitle: 'لازم نیست: بدون آن همهٔ بخش‌ها روی همین دستگاه (سرور مستقل) کار می‌کنند و داده‌ها در دیتابیس بالا هم نگه داشته می‌شوند. فقط اگر سرور پلتفرم جداگانه دارید و وارد آن شوید، بخش‌ها از آن خوانده می‌شوند.',
       children: [
         _msg(context, 'srv-msg', _message, _ok),
         _input(

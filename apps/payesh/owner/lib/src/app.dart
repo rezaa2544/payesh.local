@@ -4,6 +4,7 @@ import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import 'local/local_account.dart';
+import 'local/local_platform.dart';
 import 'local/local_screens.dart';
 import 'local/s3_client.dart';
 import 'local/settings_page.dart';
@@ -26,6 +27,8 @@ class OwnerApp extends StatefulWidget {
     this.secure,
     this.s3Factory,
     this.pbkdf2Iterations = defaultPbkdf2Iterations,
+    this.platformS3Factory,
+    this.endpointChecker,
   });
 
   final SettingsStore store;
@@ -37,6 +40,12 @@ class OwnerApp extends StatefulWidget {
   final SecureStore? secure;
   final S3Transport Function()? s3Factory;
   final int pbkdf2Iterations;
+
+  /// اتصال «سرور مستقل» همین دستگاه به صندوقچه (پیش‌فرض: همان [s3Factory]).
+  final S3Transport Function()? platformS3Factory;
+
+  /// بررسی سلامت Endpointهای زیرساخت (پیش‌فرض: بررسی واقعی از همین دستگاه).
+  final EndpointChecker? endpointChecker;
 
   @override
   State<OwnerApp> createState() => _OwnerAppState();
@@ -55,6 +64,35 @@ class _OwnerAppState extends State<OwnerApp> {
   String? _localNotice;
   bool _localSignedIn = false;
   final _nav = GlobalKey<NavigatorState>();
+
+  /// سرور مستقل همین دستگاه: بدون سرور پلتفرم، همهٔ بخش‌ها از این خوانده می‌شوند.
+  LocalPlatform? _platform;
+  OwnerApi? _localApi;
+
+  void _openLocalPlatform(String loginId) {
+    final p = _platform ??= LocalPlatform(
+      secure: widget.secure!,
+      s3Factory:
+          widget.platformS3Factory ?? widget.s3Factory ?? IoS3Transport.new,
+      now: _now,
+      checker: widget.endpointChecker,
+    );
+    final api = _localApi ??= OwnerApi(
+      origin: Uri.parse('https://local.payesh.invalid'),
+      http: p,
+      now: _now,
+    );
+    api.onUnauthorized = () {
+      if (!mounted || !_localSignedIn) return;
+      setState(() => api.restoreSession(p.signIn(loginId)));
+    };
+    api.restoreSession(p.signIn(loginId));
+  }
+
+  void _closeLocalPlatform() {
+    _platform?.signOut();
+    _localApi?.signOut();
+  }
 
   /// Session over: close every dialog / sheet above the home screen.
   void _closeRoutes() => _nav.currentState?.popUntil((r) => r.isFirst);
@@ -83,6 +121,7 @@ class _OwnerAppState extends State<OwnerApp> {
         _account = rec;
         if (rec != null && await auth.hasSession(rec)) {
           _localSignedIn = true;
+          _openLocalPlatform(rec.loginId);
           _savedServerToken = await secure.read(LocalAccountKeys.serverSession);
         }
       } on SecureStoreException {
@@ -174,6 +213,7 @@ class _OwnerAppState extends State<OwnerApp> {
         _account = rec;
         _localError = null;
         _localSignedIn = true;
+        _openLocalPlatform(rec.loginId);
       });
       return null;
     } on SecureStoreException {
@@ -190,6 +230,7 @@ class _OwnerAppState extends State<OwnerApp> {
       setState(() {
         _localSignedIn = true;
         _localNotice = null;
+        _openLocalPlatform(rec.loginId);
       });
     }
     return r.error;
@@ -199,6 +240,12 @@ class _OwnerAppState extends State<OwnerApp> {
     try {
       await _localAuth!.reset();
       await S3Settings.clear(widget.secure!);
+      // بدون رمز نباید به داده‌های قبلی پنل رسید: نسخهٔ این دستگاه هم پاک می‌شود
+      // (نسخهٔ آروان فقط با کلیدهای دیتابیس دوباره خوانده می‌شود)
+      await widget.secure!.delete(platformStateKey);
+      _closeLocalPlatform();
+      _platform = null;
+      _localApi = null;
     } on SecureStoreException {
       if (!mounted) return;
       setState(() => _localError = 'پاک کردن حساب محلی ممکن نشد.');
@@ -216,6 +263,7 @@ class _OwnerAppState extends State<OwnerApp> {
   Future<void> _signOutLocal() async {
     _closeRoutes();
     _api?.signOut();
+    _closeLocalPlatform();
     try {
       await _localAuth!.clearSession();
     } on SecureStoreException {
@@ -266,9 +314,12 @@ class _OwnerAppState extends State<OwnerApp> {
       );
     }
     final api = _api;
+    // سرور پلتفرم فقط اگر واقعاً وارد آن شده باشید؛ وگرنه سرور مستقل همین دستگاه
+    final onServer = api?.session != null;
     return OwnerShell(
       key: const Key('local-shell'),
-      api: api,
+      api: onServer ? api : _localApi,
+      badge: onServer ? null : 'سرور مستقل (همین دستگاه)',
       now: _now,
       themeButton: _themeButton,
       onSignOut: _signOutLocal,

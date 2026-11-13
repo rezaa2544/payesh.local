@@ -106,9 +106,13 @@ class _PlansPageState extends OwnerPageState<PlansPage> {
             [
               Code('${x['code']}'),
               '${x['name'] ?? '—'}',
-              faNum(x['max_users']),
-              faNum(x['max_students']),
-              faBytes((num.tryParse('${x['storage_mb']}') ?? 0) * 1048576),
+              capText(x['max_users']),
+              capText(x['max_students']),
+              x['storage_mb'] == null
+                  ? 'نامحدود'
+                  : faBytes(
+                      (num.tryParse('${x['storage_mb']}') ?? 0) * 1048576,
+                    ),
               x['archived_at'] != null
                   ? const Pill('بایگانی', tone: PayeshTone.danger)
                   : const Pill('فعال', tone: PayeshTone.success),

@@ -49,7 +49,11 @@ class OwnerShell extends StatefulWidget {
     required this.themeButton,
     required this.onSignOut,
     this.settings,
+    this.badge,
   });
+
+  /// برچسب حالت کار (مثلاً «سرور مستقل») کنار نقش.
+  final String? badge;
 
   /// null یا بدون نشست ⇒ بخش‌های سروری راهنمای «اتصال در تنظیمات» را نشان می‌دهند.
   final OwnerApi? api;
@@ -98,7 +102,10 @@ class _OwnerShellState extends State<OwnerShell> {
       api: api,
       flash: _show,
       now: widget.now,
-      child: KeyedSubtree(key: ValueKey('page-$id'), child: pageFor(id)),
+      child: KeyedSubtree(
+        key: ValueKey('page-$id-${identityHashCode(api)}'),
+        child: pageFor(id),
+      ),
     );
   }
 
@@ -150,6 +157,17 @@ class _OwnerShellState extends State<OwnerShell> {
       ],
     );
     final actions = <Widget>[
+      if (widget.badge != null)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Center(
+            child: Pill(
+              widget.badge!,
+              key: const Key('mode-badge'),
+              tone: PayeshTone.success,
+            ),
+          ),
+        ),
       if (s != null)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),

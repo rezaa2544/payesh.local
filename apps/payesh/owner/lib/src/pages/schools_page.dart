@@ -205,7 +205,12 @@ class _SchoolsPageState extends OwnerPageState<SchoolsPage> {
         rows: [
           for (final t in rows)
             [
-              Code(shortId(t['tenant_id']), full: '${t['tenant_id']}'),
+              t['display_name'] is String
+                  ? Text(
+                      '${t['display_name']} (${t['slug'] ?? shortId(t['tenant_id'])})',
+                      key: Key('school-name-${t['tenant_id']}'),
+                    )
+                  : Code(shortId(t['tenant_id']), full: '${t['tenant_id']}'),
               '${t['plan_code'] ?? '—'}',
               Status(t['status']),
               faDate(t['ends_at']),

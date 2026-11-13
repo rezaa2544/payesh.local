@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_owner/src/app.dart';
 import 'package:payesh_owner/src/local/cloud_control.dart';
 import 'package:payesh_owner/src/local/local_account.dart';
+import 'package:payesh_owner/src/local/local_platform.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
 import 'package:payesh_owner/src/platform.dart';
 import 'package:payesh_secure/payesh_secure.dart';
@@ -527,15 +528,62 @@ void main() {
           ]) {
             expect(find.byKey(Key('nav-$id')), findsOneWidget, reason: id);
           }
-          expect(find.byKey(const Key('server-needed')), findsOneWidget);
+          // بدون سرور پلتفرم: سرور مستقل همین دستگاه؛ هیچ بخشی «سرور لازم است» نمی‌گوید
+          expect(find.byKey(const Key('server-needed')), findsNothing);
+          expect(find.byKey(const Key('mode-badge')), findsOneWidget);
+          expect(find.byKey(const Key('metric-plans')), findsOneWidget);
           expect(
             secure.values[LocalAccountKeys.account],
             isNot(contains('pass-word-123')),
           );
           expect(secure.values.keys, contains(LocalAccountKeys.session));
-          await _tap(tester, 'open-settings');
+          await _tap(tester, 'nav-settings');
           expect(find.byKey(const Key('db-endpoint')), findsOneWidget);
           expect(find.byKey(const Key('srv-origin')), findsOneWidget);
+        },
+      );
+
+      testWidgets(
+        'no platform server: schools, plans, health work on this device and survive restart',
+        (tester) async {
+          final secure = FakeSecureStore();
+          await _pump(tester, secure: secure);
+          await _setup(tester);
+          await _tap(tester, 'nav-schools');
+          expect(find.byKey(const Key('server-needed')), findsNothing);
+          await _tap(tester, 'create-school');
+          for (final e in {
+            'slug': 'school-12',
+            'display_name': 'هنرستان نمونه',
+            'manager_name': 'مدیر نمونه',
+          }.entries) {
+            await tester.enterText(find.byKey(Key('dlg-${e.key}')), e.value);
+          }
+          await tester.enterText(
+            find.byKey(const Key('dlg-reason')),
+            'ثبت مدرسهٔ نمونه برای آزمون',
+          );
+          await _tap(tester, 'dlg-submit');
+          expect(_text(tester, 'flash'), 'مدرسه ساخته شد.');
+          expect(find.text('هنرستان نمونه (school-12)'), findsOneWidget);
+          expect(find.byKey(const Key('activation-code')), findsNothing);
+
+          await _tap(tester, 'nav-plans');
+          expect(find.text('نامحدود'), findsWidgets);
+          await _tap(tester, 'nav-health');
+          expect(find.byKey(const Key('health-local')), findsOneWidget);
+          expect(
+            find.byKey(const Key('health-db-not_configured')),
+            findsOneWidget,
+          );
+          await _tap(tester, 'nav-audit');
+          expect(find.text('tenant.provision'), findsWidgets);
+          expect(secure.values[platformStateKey], contains('school-12'));
+
+          await tester.pumpWidget(const SizedBox());
+          await _pump(tester, secure: secure);
+          await _tap(tester, 'nav-schools');
+          expect(find.text('هنرستان نمونه (school-12)'), findsOneWidget);
         },
       );
 
@@ -863,6 +911,7 @@ void main() {
           expect(secure.values.keys, contains(LocalAccountKeys.serverSession));
           await _tap(tester, 'nav-dashboard');
           expect(find.byKey(const Key('server-needed')), findsNothing);
+          expect(find.byKey(const Key('mode-badge')), findsNothing);
 
           await tester.pumpWidget(const SizedBox());
           await pumpWith();
@@ -875,7 +924,9 @@ void main() {
             isNot(contains(LocalAccountKeys.serverSession)),
           );
           await _tap(tester, 'nav-dashboard');
-          expect(find.byKey(const Key('server-needed')), findsOneWidget);
+          // جدا از سرور ⇒ دوباره سرور مستقل همین دستگاه
+          expect(find.byKey(const Key('server-needed')), findsNothing);
+          expect(find.byKey(const Key('mode-badge')), findsOneWidget);
         },
       );
 

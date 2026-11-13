@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../format.dart';
 import '../widgets.dart';
 import 'base.dart';
 
@@ -42,7 +43,16 @@ class _HealthPageState extends OwnerPageState<HealthPage> {
                   tone: configured ? PayeshTone.success : PayeshTone.danger,
                 ),
               ],
-              ['نمونهٔ سرور', Code('${x['instance'] ?? '—'}')],
+              [
+                'نمونهٔ سرور',
+                x['mode'] == 'local'
+                    ? const Pill(
+                        'سرور مستقل (همین دستگاه)',
+                        key: Key('health-local'),
+                        tone: PayeshTone.success,
+                      )
+                    : Code('${x['instance'] ?? '—'}'),
+              ],
               [
                 'پیش‌فرض محتوا',
                 Pill(
@@ -62,9 +72,11 @@ class _HealthPageState extends OwnerPageState<HealthPage> {
               ],
             ],
           ),
-          const Notice(
-            'سلامت جداگانهٔ هر مدرسه (آخرین همگام‌سازی، نسخه، خطاها) هنوز در API وجود ندارد.',
-          ),
+          if (x['database'] is Map) ..._databaseRows(x),
+          if (x['database'] is! Map)
+            const Notice(
+              'سلامت جداگانهٔ هر مدرسه (آخرین همگام‌سازی، نسخه، خطاها) هنوز در API وجود ندارد.',
+            ),
         ],
       );
     }
@@ -75,4 +87,40 @@ class _HealthPageState extends OwnerPageState<HealthPage> {
       ],
     );
   }
+}
+
+const _dbState = {
+  'synced': ('همگام با دیتابیس', PayeshTone.success),
+  'error': ('خطا در اتصال به دیتابیس', PayeshTone.danger),
+  'pending': ('در انتظار همگام‌سازی', PayeshTone.warning),
+  'not_configured': ('دیتابیس تعریف نشده', PayeshTone.warning),
+};
+
+/// سرور مستقل: وضعیت نگه‌داری داده‌های پنل در دیتابیس (صندوقچهٔ آروان).
+List<Widget> _databaseRows(Map<String, Object?> x) {
+  final d = (x['database']! as Map).cast<String, Object?>();
+  final st = _dbState['${d['state']}'] ?? ('${d['state']}', PayeshTone.warning);
+  final servers = x['school_servers'];
+  return [
+    const SizedBox(height: 12),
+    OwnerTable(
+      key: const Key('health-db'),
+      columns: const ['دیتابیس پنل', 'مقدار'],
+      rows: [
+        [
+          'وضعیت',
+          Pill(st.$1, key: Key('health-db-${d['state']}'), tone: st.$2),
+        ],
+        ['صندوقچه', Code('${d['bucket'] ?? '—'}')],
+        ['آخرین همگام‌سازی', faDate(d['last_sync_at'])],
+        if (d['error'] is String) ['خطا', '${d['error']}'],
+        ['سرورهای مدرسهٔ پیرو', servers is num ? faNum(servers) : '—'],
+      ],
+    ),
+    Notice(
+      d['state'] == 'not_configured'
+          ? 'داده‌های پنل روی همین دستگاه نگه داشته می‌شوند. برای نگه‌داری در آروان و دیدن همین داده‌ها روی دستگاه دیگر، دیتابیس را در «تنظیمات» وصل کنید.'
+          : 'همهٔ بخش‌ها روی همین دستگاه کار می‌کنند و هر تغییر به‌صورت رمزشده در همین صندوقچه هم ذخیره می‌شود.',
+    ),
+  ];
 }

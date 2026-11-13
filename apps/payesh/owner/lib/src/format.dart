@@ -1,6 +1,9 @@
 import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+/// سقف: null یعنی بدون سقف.
+String capText(Object? v) => v == null ? 'نامحدود' : faNum(v);
+
 /// ISO timestamp → Jalali date + local time with Persian digits; `—` when empty/unreadable.
 String faDate(Object? iso) {
   if (iso == null || iso == '') return '—';

@@ -59,7 +59,7 @@ class _LimitsPageState extends OwnerPageState<LimitsPage> {
             DropdownMenuItem(
               value: '${r['tenant_id']}',
               child: Text(
-                '${shortId(r['tenant_id'])} · ${r['plan_code'] ?? ''}',
+                '${r['display_name'] ?? shortId(r['tenant_id'])} · ${r['plan_code'] ?? ''}',
               ),
             ),
         ],
@@ -81,7 +81,9 @@ class _LimitsPageState extends OwnerPageState<LimitsPage> {
           'برای این مدرسه هنوز سقف یا مصرفی ثبت نشده است.',
         );
       } else {
+        final hasLim = l.object('limits') != null;
         final lim = l.object('limits') ?? const {};
+        String capOf(String k) => hasLim ? capText(lim[k]) : '—';
         final use = u.object('usage') ?? const {};
         final cap = num.tryParse('${lim['storage_bytes'] ?? ''}') ?? 0;
         final used = num.tryParse('${use['storage_bytes'] ?? 0}') ?? 0;
@@ -93,16 +95,18 @@ class _LimitsPageState extends OwnerPageState<LimitsPage> {
               key: const Key('limits-table'),
               columns: const ['شاخص', 'مصرف', 'سقف'],
               rows: [
-                ['کاربران', faNum(use['users_count']), faNum(lim['max_users'])],
+                ['کاربران', faNum(use['users_count']), capOf('max_users')],
                 [
                   'هنرجویان',
                   faNum(use['students_count']),
-                  faNum(lim['max_students']),
+                  capOf('max_students'),
                 ],
                 [
                   'فضای ذخیره‌سازی',
                   '${faBytes(use['storage_bytes'])}${pct == null ? '' : ' (${faNum(pct)}٪)'}',
-                  faBytes(lim['storage_bytes']),
+                  hasLim && lim['storage_bytes'] == null
+                      ? 'نامحدود'
+                      : faBytes(lim['storage_bytes']),
                 ],
               ],
             ),

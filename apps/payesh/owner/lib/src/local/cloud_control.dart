@@ -53,16 +53,20 @@ Uint8List _unb64u(String s) {
 }
 
 /// کلید مهر: HKDF-SHA256(utf8(secret), salt="payesh/cloud-control", info="v1").
-Future<Uint8List> controlKey(String secret) async {
+Future<Uint8List> controlKey(String secret) =>
+    boxKey(secret, 'payesh/cloud-control');
+
+/// HKDF-SHA256(utf8(secret), salt=[salt], info="v1") — هر نوع پاکت نمک خودش را دارد.
+Future<Uint8List> boxKey(String secret, String salt) async {
   final k = await _hkdf.deriveKey(
     secretKey: SecretKey(utf8.encode(secret)),
-    nonce: utf8.encode('payesh/cloud-control'),
+    nonce: utf8.encode(salt),
     info: utf8.encode('v1'),
   );
   return Uint8List.fromList(await k.extractBytes());
 }
 
-List<int> _aad(int rev) => utf8.encode('$controlKind/v1/$rev');
+List<int> _aad(String kind, int rev) => utf8.encode('$kind/v1/$rev');
 
 /// متن JSON داخل پاکت؛ ترتیب کلیدها همان سرور است (بردار آزمون مشترک).
 String controlPlaintext(S3Settings target, int rev) => jsonEncode({
@@ -82,19 +86,36 @@ Future<Map<String, Object?>> sealControlText(
   int rev,
   String plaintext, {
   List<int>? nonce,
+}) => sealBox(
+  secret: secret,
+  salt: 'payesh/cloud-control',
+  kind: controlKind,
+  rev: rev,
+  plaintext: plaintext,
+  nonce: nonce,
+);
+
+/// پاکت عمومی: AES-256-GCM با کلید [boxKey]، AAD = `<kind>/v1/<rev>`.
+Future<Map<String, Object?>> sealBox({
+  required String secret,
+  required String salt,
+  required String kind,
+  required int rev,
+  required String plaintext,
+  List<int>? nonce,
 }) async {
   final n =
       nonce ?? List<int>.generate(12, (_) => Random.secure().nextInt(256));
   if (n.length != 12) throw ArgumentError('nonce must be 12 bytes');
   final box = await _gcm.encrypt(
     utf8.encode(plaintext),
-    secretKey: SecretKey(await controlKey(secret)),
+    secretKey: SecretKey(await boxKey(secret, salt)),
     nonce: n,
-    aad: _aad(rev),
+    aad: _aad(kind, rev),
   );
   return {
     'v': 1,
-    'kind': controlKind,
+    'kind': kind,
     'rev': rev,
     'alg': 'HKDF-SHA256/A256GCM',
     'nonce': _b64u(n),
@@ -103,10 +124,24 @@ Future<Map<String, Object?>> sealControlText(
 }
 
 /// باز کردن پاکت (برای آزمون و بازبینی)؛ هر خطا ⇒ [FormatException] یا [SecretBoxAuthenticationError].
-Future<String> openControlText(String secret, Map<String, Object?> env) async {
+Future<String> openControlText(String secret, Map<String, Object?> env) =>
+    openBox(
+      secret: secret,
+      salt: 'payesh/cloud-control',
+      kind: controlKind,
+      env: env,
+    );
+
+/// باز کردن پاکت [sealBox]؛ هر خطا ⇒ [FormatException] یا [SecretBoxAuthenticationError].
+Future<String> openBox({
+  required String secret,
+  required String salt,
+  required String kind,
+  required Map<String, Object?> env,
+}) async {
   final rev = env['rev'];
   if (env['v'] != 1 ||
-      env['kind'] != controlKind ||
+      env['kind'] != kind ||
       env['alg'] != 'HKDF-SHA256/A256GCM' ||
       rev is! int ||
       rev <= 0) {
@@ -123,8 +158,8 @@ Future<String> openControlText(String secret, Map<String, Object?> env) async {
       nonce: n,
       mac: Mac(ct.sublist(ct.length - 16)),
     ),
-    secretKey: SecretKey(await controlKey(secret)),
-    aad: _aad(rev),
+    secretKey: SecretKey(await boxKey(secret, salt)),
+    aad: _aad(kind, rev),
   );
   return utf8.decode(clear);
 }
