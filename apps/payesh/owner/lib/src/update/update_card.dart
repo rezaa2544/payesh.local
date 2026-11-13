@@ -5,7 +5,6 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../helper/helper_card.dart' show fmtBytesFa;
 import '../local/settings_page.dart';
-import 'owner_update.dart';
 import 'update_service.dart';
 
 /// «به‌روزرسانی برنامه»: فقط فایل‌های تغییرکرده دانلود می‌شوند (مثل پنل کاربران).

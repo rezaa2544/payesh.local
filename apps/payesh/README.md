@@ -14,6 +14,7 @@ API/Gateway (`openapi.yaml`, `docs/cloud/contracts/sync-v1.md`).
 | `packages/payesh_secure` | SecureStore (Android Keystore / Windows DPAPI), database-key manager, e2e1 device-side encryption | 72, 107 |
 | `packages/payesh_ui` | design system: tokens, light/dark, RTL, Jalali, Vazirmatn | 73 |
 | `packages/payesh_owner_api` | pure Dart owner-panel API client (`/api/platform/v1`), role CAPS, error table, validators — parity with `apps/owner-panel/web/app.js` | 126 |
+| `packages/payesh_update` | shared in-app updater for every installable app: delta download with retry/resume, apply script with rollback and automatic relaunch, Android APK, live update light | 148 |
 | `tool/coverage_check.dart` | coverage gate used by CI | 69 |
 | `app/windows/installer/payesh-native.iss` | per-user Inno Setup installer (row 77) | 77 |
 

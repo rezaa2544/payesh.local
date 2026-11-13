@@ -5,9 +5,15 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:payesh_secure/payesh_secure.dart';
+import 'package:payesh_update/payesh_update.dart';
 
 import '../local/s3_client.dart';
 import 'owner_update.dart';
+
+// رابط برنامه (چراغ، کارت، AppUpdater) همهٔ payesh_update را از اینجا می‌گیرد.
+export 'package:payesh_update/payesh_update.dart';
+
+export 'owner_update.dart';
 
 /// آینهٔ صندوقچهٔ آروان برای فایل‌های فشردهٔ به‌روزرسانی.
 final class S3UpdateMirror implements UpdateMirror {

@@ -4,9 +4,10 @@
 //   • فایل‌ها: owner-files/<sha>.gz — اول از آینهٔ صندوقچهٔ آروان (payesh/updates/owner/)؛
 //   • اندروید: owner-continuous/payesh-owner.apk (درون برنامه دانلود و نصب می‌شود).
 
-import 'package:payesh_update/payesh_update.dart';
+import 'package:payesh_update/core.dart';
 
-export 'package:payesh_update/payesh_update.dart';
+// فقط هستهٔ Dart خالص: tool/update_e2e.dart با `dart run` (بدون Flutter) همین را وارد می‌کند.
+export 'package:payesh_update/core.dart';
 
 const String ownerUpdateSchema = 'payesh-owner-update/1';
 const String ownerRepo = 'rezaa2544/payesh.local';

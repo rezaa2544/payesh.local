@@ -108,6 +108,7 @@
 | [`apps/payesh/packages/payesh_secure/`](../apps/payesh/packages/payesh_secure/) | SecureStore (Keystore/DPAPI)، مدیر کلید پایگاه، رمزنگاری سمت دستگاه e2e1 | ۷۲، ۱۰۷ |
 | [`apps/payesh/packages/payesh_ui/`](../apps/payesh/packages/payesh_ui/) | سیستم طراحی: توکن‌ها، تم روشن/تیره، RTL، تاریخ جلالی، فونت Vazirmatn | ۷۳ |
 | [`apps/payesh/packages/payesh_owner_api/`](../apps/payesh/packages/payesh_owner_api/) | Dart خالص: قرارداد `/api/platform/v1` پنل مالک، CAPS نقش‌ها، جدول خطاها و قواعد (هم‌ارز `web/app.js`) + IT روی سرور واقعی مالک | ۱۲۶ |
+| [`apps/payesh/packages/payesh_update/`](../apps/payesh/packages/payesh_update/) | به‌روزرسانی مشترک همهٔ برنامه‌های نصبی: دریافت تفاضلی با تلاش دوباره و ادامه، اسکریپت اعمال با بازگشت و باز شدن خودکار، APK اندروید، چراغ زنده | ۱۴۸ |
 | [`apps/payesh/tool/`](../apps/payesh/tool/) | `coverage_check.dart` (دروازهٔ پوشش در CI) | ۶۹ |
 
 ## ۷. نقشهٔ راه کلاینت بومی و ابر (هم‌تراز با صف Notion)

@@ -6,7 +6,6 @@ import 'package:payesh_owner/src/app.dart';
 import 'package:payesh_owner/src/helper/helper_service.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
 import 'package:payesh_owner/src/platform.dart';
-import 'package:payesh_owner/src/update/owner_update.dart';
 import 'package:payesh_owner/src/update/update_service.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 

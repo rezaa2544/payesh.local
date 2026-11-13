@@ -7,7 +7,6 @@ import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'src/app.dart';
 import 'src/helper/helper_service.dart';
 import 'src/platform.dart';
-import 'src/update/owner_update.dart';
 import 'src/update/update_service.dart';
 
 /// پنل مالک بومی (ردیف ۱۲۶): رابط Flutter، بدون WebView و Node.js.

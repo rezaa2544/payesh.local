@@ -14,7 +14,6 @@ import 'package:payesh_owner/src/local/s3_client.dart';
 import 'package:payesh_owner/src/net/resilience.dart';
 import 'package:payesh_owner/src/platform.dart';
 import 'package:payesh_owner/src/status/status_lights.dart';
-import 'package:payesh_owner/src/update/owner_update.dart';
 import 'package:payesh_owner/src/update/update_service.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 

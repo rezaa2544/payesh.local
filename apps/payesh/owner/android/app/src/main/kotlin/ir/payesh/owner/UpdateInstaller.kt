@@ -92,13 +92,15 @@ class UpdateFileProvider : ContentProvider() {
         val f = fileFor(uri)
         val cols = projection ?: arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
         val c = MatrixCursor(cols)
-        c.addRow(cols.map { col ->
-            when (col) {
+        val row = arrayOfNulls<Any>(cols.size)
+        for (i in cols.indices) {
+            row[i] = when (cols[i]) {
                 OpenableColumns.DISPLAY_NAME -> f.name
                 OpenableColumns.SIZE -> f.length()
                 else -> null
             }
-        }.toTypedArray())
+        }
+        c.addRow(row)
         return c
     }
 

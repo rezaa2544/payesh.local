@@ -5,7 +5,6 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
-import 'package:payesh_owner/src/update/owner_update.dart';
 import 'package:payesh_owner/src/update/update_service.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_ui/payesh_ui.dart';

@@ -6,6 +6,7 @@
 library;
 
 export 'src/apk.dart';
+export 'src/channel.dart';
 export 'src/delta.dart';
 export 'src/update_light.dart';
 export 'src/updater.dart';
