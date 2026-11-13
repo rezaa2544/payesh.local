@@ -27,3 +27,4 @@
 | ۱۲۸ (هم‌ارزی کامل وب ↔ اپ بومی: ۱۷۴ مورد، ۰ planned؛ W6..W12) | [`QUEUE-128-REPORT.md`](QUEUE-128-REPORT.md) | main `179abcb` … `3e61de2` (بدون PR، به دستور مأموریت) | روی main |
 | ۱۲۹ (انتشار و صفحهٔ دانلود فقط بومی؛ WebView فقط کنترل منفی؛ APK و Authenticode BLOCKED منتظر ۶۱؛ اصلاح بن‌بست مهاجرت) | [`QUEUE-129-REPORT.md`](QUEUE-129-REPORT.md) | main `0bd6c46` · `37ad9df` · `b005f01` (بدون PR، به دستور مأموریت) | روی main |
 | درخواست مالک ۲۰۲۶‑۱۱‑۱۲ مورد ۴ (برنامه‌های کاربران از دیتابیس پنل مالک پیروی می‌کنند؛ صندوقچهٔ `payesh-madrese`؛ ورود ماندگار بررسی شد) | [`SHARED-DB-REPORT.md`](SHARED-DB-REPORT.md) | main `5379348` · `216ad77` · `0c65f24` (بدون PR، به دستور مأموریت) | روی main، CI سبز |
+| درخواست مالک ۲۰۲۶‑۱۱‑۱۳ (پنل مالک بدون سرور پلتفرم؛ سرور مستقل همین دستگاه، داده‌ها رمزشده در آروان) | [`STANDALONE-OWNER-REPORT.md`](STANDALONE-OWNER-REPORT.md) | main `f51cd60` · `2121820` (بدون PR، به دستور مأموریت) | روی main، CI سبز |
