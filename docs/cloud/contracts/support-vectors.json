@@ -1,0 +1,55 @@
+{
+  "contract": "support v1 (row 152) — school server writes tickets, owner panel writes replies; same envelope/salt as schools v1",
+  "salt": "payesh/schools",
+  "info": "v1",
+  "alg": "HKDF-SHA256/A256GCM",
+  "secret": "sk-support-vector-1",
+  "nonce_hex": "b1b2b3b4b5b6b7b8b9babbbc",
+  "rev": 1731234567890,
+  "kinds": {
+    "ticket": "payesh-support-ticket",
+    "reply": "payesh-support-reply"
+  },
+  "dirs": {
+    "ticket": "schools/support/",
+    "reply": "schools/support-reply/"
+  },
+  "categories": [
+    "bug",
+    "question",
+    "payment",
+    "account",
+    "suggestion",
+    "other"
+  ],
+  "statuses": [
+    "open",
+    "answered",
+    "closed"
+  ],
+  "id_re": "^TKT-[0-9A-F]{8}$",
+  "cases": {
+    "ticket": {
+      "plaintext": "{\"v\":1,\"id\":\"TKT-0A1B2C3D\",\"school_id\":\"s-0042\",\"school\":\"دبستان نمونه\",\"uid\":7,\"name\":\"زهرا کریمی\",\"role\":\"teacher\",\"category\":\"bug\",\"subject\":\"حضور و غیاب ذخیره نمی‌شود\",\"closed_by_user\":false,\"created_at\":\"2026-11-13T08:00:00.000Z\",\"updated_at\":\"2026-11-13T08:05:00.000Z\",\"messages\":[{\"at\":\"2026-11-13T08:00:00.000Z\",\"from\":\"user\",\"text\":\"بعد از ثبت، صفحه خالی می‌شود.\"},{\"at\":\"2026-11-13T08:05:00.000Z\",\"from\":\"user\",\"text\":\"نسخه 0.2.153\"}]}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-support-ticket",
+        "rev": 1731234567890,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "sbKztLW2t7i5uru8",
+        "ct": "iIqyy4H2mOjdKV2MLJowkc3fmsGn9k41PGljoK8g3ojLf3AWbWn77sfD8UG38TaEHc5SLTqb0z_aG5I6KDjR7GnNEQTGmr4I4T4Lx3CBBN1Ly7nhRYvR0bEAW7RFVfQSBwv2FEuiGWGqTN9-xn2mwaw6-5afUXpag3Xkm30rAVbW9OiLj0lhHXIL-po-vQHdMPjDhznIIGYa_fH2muIGZA4rAIMLCGc8i274ZBhzCljTJR5WtICD71AIfF3XtxRCNdTNfQMMx-7iiMeqbAvGUmLC7GKkULLsUXw6DFy1b4S4jM1KIHnQGBE5Q849qjOXB48FT8DHcD6AnxK5B1cCIx_kICbBl_EhKQd9Zerw4Ig-u_RKIYt1gQwJOiRc9M4rZWfgYHptXBbyDhvqwm5k5jNQgHqj98sF9xHuAqMgLoELwmTPte6Sq22PhgyA8YfOoXeheIxUziQMnE-MGbxnWaobUur_v1KOKHq5SD21KM6iE9XEHRjAN4NE8VWXS42pLdrZir4GH7Y5l6VImqEEOfx2aZ-JGjKUPx-GN5wpACsuBfHIgvirSLbF1o_h_rKz12Sps6HhvocS9_qdTGP-LUw0ctGmiLY0zsV2GOj_vRzHYDZgtknfD-12PH_zm8IsR2Ncy5zP3WHcudX6XzcXK7a5-4K5CloqjP5H29pJ1es9hOmpfyQ_Byp9gKpddbyF0mnQ"
+      }
+    },
+    "reply": {
+      "plaintext": "{\"v\":1,\"id\":\"TKT-0A1B2C3D\",\"status\":\"answered\",\"updated_at\":\"2026-11-13T09:00:00.000Z\",\"by\":\"owner\",\"messages\":[{\"at\":\"2026-11-13T09:00:00.000Z\",\"from\":\"owner\",\"text\":\"لطفاً برنامه را به‌روز کنید.\"}]}",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-support-reply",
+        "rev": 1731234567890,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "sbKztLW2t7i5uru8",
+        "ct": "iIqyy4H2mOjdKV2MLJowkc3fmsGn9k41PGljoK8315PRYA1FKyqvv8OLsxTn4TiKSs1VJCGR20KBTWiv0qI5bYdK-JIyLa2FV960LshisjTi2aXzasCZ0elOVawJW-4ZQEP24NsW-8po9R87b_ZEKwyUQ2dm53pEkTW92ik4FkWRxbnR3RwjBW4Zt8t66DyQbqOHz3THdzsavqTrivJOLU8rR8Fd8vDG5DOoC3DSC3cqdoRVkICV7n7wAzSKwEjuNdTMXQMN6e7gscvENDbHbmP4FBcvpRZUscvmRxqXUIBMWp1OXg_EDadgeGoANCtg"
+      }
+    }
+  }
+}

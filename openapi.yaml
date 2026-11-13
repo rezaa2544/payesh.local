@@ -1197,6 +1197,86 @@ paths:
           $ref: '#/components/responses/Error'
         '429':
           $ref: '#/components/responses/Error'
+  /api/support:
+    get:
+      operationId: getApiSupport
+      tags: [auth]
+      summary: "پیام‌های پشتیبانی کاربر همراه پاسخ‌های مالک (ردیف ۱۵۲)"
+      x-source: server/index.js:872
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: postApiSupport
+      tags: [auth]
+      summary: "پیام یا گزارش مشکل تازه به مالک (ردیف ۱۵۲)"
+      x-source: server/index.js:875
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+  /api/support/message:
+    post:
+      operationId: postApiSupportMessage
+      tags: [auth]
+      summary: "پیام تازه در همان گفت‌وگوی پشتیبانی (ردیف ۱۵۲)"
+      x-source: server/index.js:876
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+  /api/support/close:
+    post:
+      operationId: postApiSupportClose
+      tags: [auth]
+      summary: "بستن گفت‌وگوی پشتیبانی توسط کاربر (ردیف ۱۵۲)"
+      x-source: server/index.js:877
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
   /api/auth/logout:
     post:
       operationId: postAuthLogout

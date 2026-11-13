@@ -12,6 +12,7 @@ import 'pages/payments_page.dart';
 import 'pages/plans_page.dart';
 import 'pages/reports_page.dart';
 import 'pages/schools_page.dart';
+import 'pages/support_page.dart';
 import 'monitor/live_monitor.dart';
 import 'schools/school_registry.dart';
 import 'menu.dart';
@@ -28,6 +29,7 @@ Widget pageFor(String id) => switch (id) {
   'reports' => const ReportsPage(),
   'audit' => const AuditPage(),
   'payments' => const PaymentsPage(),
+  'support' => const SupportPage(),
   _ => const DashboardPage(),
 };
 
@@ -105,6 +107,7 @@ class _OwnerShellState extends State<OwnerShell> {
   List<OwnerMenuItem> get _items => ownerMenu(
     local: {
       if (widget.schools != null) 'payments',
+      if (widget.schools != null) 'support',
       if (widget.settings != null) 'settings',
     },
   );

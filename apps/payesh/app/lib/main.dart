@@ -28,6 +28,8 @@ void main(List<String> args) {
     lan: lanClient,
     // Row 145: registration request + subscription via the school server; trial once per device.
     schools: lanClient == null ? null : LanSchoolsClient(lanClient),
+    // Row 152: support messages to the owner via the school server (never the bucket key).
+    support: lanClient == null ? null : LanSupportClient(lanClient),
     deviceId: platformDeviceId,
     openUrl: openExternalUrl,
     deviceName: 'پایش ${Platform.operatingSystem}',

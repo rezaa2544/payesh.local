@@ -697,6 +697,9 @@ void main() {
           await _tap(tester, 'nav-payments');
           expect(find.byKey(const Key('payments-page')), findsOneWidget);
           expect(find.byKey(const Key('payments-section')), findsOneWidget);
+          // ردیف ۱۵۲: «پشتیبانی» در گروه «مدارس و کاربران»
+          await _tap(tester, 'nav-support');
+          expect(find.byKey(const Key('support-page')), findsOneWidget);
           await _tap(tester, 'nav-health');
           expect(find.byKey(const Key('health-local')), findsOneWidget);
           expect(

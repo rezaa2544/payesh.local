@@ -8,6 +8,7 @@ import '../app.dart';
 import '../sync_badge.dart';
 import '../flags.dart';
 import 'paywall.dart';
+import '../support/support_screen.dart';
 import 'session_controller.dart';
 import 'signup_screen.dart';
 
@@ -475,6 +476,11 @@ class SignedInScreen extends StatelessWidget {
             ],
             const SizedBox(height: PayeshTokens.space4),
             home ?? const HomeBody(),
+          ],
+          // Row 152: support for every role — also on the paywall (payment problems).
+          if (controller.supportAvailable) ...[
+            const SizedBox(height: PayeshTokens.space4),
+            SupportEntry(controller: controller),
           ],
         ],
       ),

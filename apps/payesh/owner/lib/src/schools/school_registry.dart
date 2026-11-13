@@ -33,6 +33,9 @@ import 'package:payesh_ui/payesh_ui.dart'
 
 import '../local/cloud_control.dart';
 import '../local/s3_client.dart';
+import 'support_inbox.dart';
+
+export 'support_inbox.dart';
 
 // ردیف ۱۵۰: ثابت‌های مشخصات مدرسه به payesh_ui منتقل شد (مشترک با تنظیمات مدیر).
 export 'package:payesh_ui/payesh_ui.dart'
@@ -679,6 +682,122 @@ final class SchoolRegistry {
       ).timeout(timeout);
       await _saveCache(rev, plain);
       return out;
+    } on SchoolsFailure {
+      rethrow;
+    } on S3Failure catch (e) {
+      throw SchoolsFailure('s3', e.messageFa);
+    } on TimeoutException {
+      throw const SchoolsFailure('timeout', 'دیتابیس در زمان مقرر پاسخ نداد.');
+    } finally {
+      t.close();
+    }
+  });
+
+  // ── ردیف ۱۵۲: صندوق پشتیبانی (تیکت‌های سرورهای مدرسه + پاسخ‌های همین پنل) ──
+
+  String _isoNow() => DateTime.fromMillisecondsSinceEpoch(
+    _now().millisecondsSinceEpoch,
+    isUtc: true,
+  ).toIso8601String();
+
+  static const _supportOff = SchoolsFailure(
+    'not_connected',
+    'برای دیدن و پاسخ دادن به پیام‌های پشتیبانی، دیتابیس باید در «تنظیمات» وصل باشد.',
+  );
+
+  /// همهٔ گفت‌وگوها، تازه‌ترین بالا؛ «باز — منتظر پاسخ» پیش از بقیه.
+  Future<List<SupportThread>> loadSupport() => _serial(() async {
+    final s = await _s3();
+    if (s == null) throw _supportOff;
+    final t = s3Factory();
+    try {
+      final tickets = await _readDir(
+        s,
+        t,
+        SupportDirs.ticket,
+        SupportKinds.ticket,
+      );
+      final replies = {
+        for (final r in await _readDir(
+          s,
+          t,
+          SupportDirs.reply,
+          SupportKinds.reply,
+        ))
+          r.name: r.plain,
+      };
+      final out = [
+        for (final x in tickets) ?SupportThread.merge(x.plain, replies[x.name]),
+      ];
+      out.sort((a, b) {
+        final o = (a.needsAnswer ? 0 : 1).compareTo(b.needsAnswer ? 0 : 1);
+        return o != 0 ? o : b.updatedAt.compareTo(a.updatedAt);
+      });
+      return out;
+    } on S3Failure catch (e) {
+      throw SchoolsFailure('s3', e.messageFa);
+    } on TimeoutException {
+      throw const SchoolsFailure('timeout', 'دیتابیس در زمان مقرر پاسخ نداد.');
+    } finally {
+      t.close();
+    }
+  });
+
+  /// پاسخ مالک (و/یا تغییر وضعیت). پاکت پاسخ تازه از روی آخرین نسخه ساخته می‌شود تا هیچ پاسخی
+  /// گم نشود؛ سرور مدرسه در «فهرست» کاربر آن را می‌خواند.
+  Future<SupportThread> answerSupport(
+    String id, {
+    String? text,
+    required String status,
+  }) => _serial(() async {
+    if (!supportIdRe.hasMatch(id)) {
+      throw const SchoolsFailure('bad_id', 'شناسهٔ گفت‌وگو درست نیست.');
+    }
+    if (!supportStatuses.contains(status)) {
+      throw const SchoolsFailure('bad_status', 'وضعیت درست نیست.');
+    }
+    final body = text?.trim() ?? '';
+    if (body.length > 2000) {
+      throw const SchoolsFailure('bad_text', 'پاسخ حداکثر ۲۰۰۰ نویسه باشد.');
+    }
+    if (body.isEmpty && status == 'answered') {
+      throw const SchoolsFailure('bad_text', 'متن پاسخ را بنویسید.');
+    }
+    final s = await _s3();
+    if (s == null) throw _supportOff;
+    final t = s3Factory();
+    try {
+      final tk = await s3GetText(
+        s,
+        t,
+        _k('${SupportDirs.ticket}$id.json'),
+        now: _now,
+      ).timeout(timeout);
+      final ticket = tk == null
+          ? null
+          : await openSchools(s.secretKey, SupportKinds.ticket, tk);
+      if (ticket == null) {
+        throw const SchoolsFailure(
+          'not_found',
+          'این گفت‌وگو در دیتابیس پیدا نشد.',
+        );
+      }
+      final key = _k('${SupportDirs.reply}$id.json');
+      final rp = await s3GetText(s, t, key, now: _now).timeout(timeout);
+      final prev = rp == null
+          ? null
+          : await openSchools(s.secretKey, SupportKinds.reply, rp);
+      final cur = SupportThread.merge(ticket.plain, prev?.plain)!;
+      final plain = cur.replyPlain(now: _isoNow(), text: body, status: status);
+      final rev = max(_now().millisecondsSinceEpoch, (prev?.rev ?? 0) + 1);
+      await s3PutJson(
+        s,
+        t,
+        key,
+        await sealSchools(s.secretKey, SupportKinds.reply, rev, plain),
+        now: _now,
+      ).timeout(timeout);
+      return SupportThread.merge(ticket.plain, plain)!;
     } on SchoolsFailure {
       rethrow;
     } on S3Failure catch (e) {

@@ -5347,6 +5347,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۵۲: پشتیبانی — پیام و گزارش مشکل کاربران به مالک (سرور مدرسه ← صندوقچه ← پنل مالک) ── */
+  await test('ردیف ۱۵۲: پشتیبانی — تیکت مهرشده در صندوقچه، صف ارسال بی‌گم‌شدن، ادغام پاسخ مالک، پیش از دروازهٔ اشتراک (۶ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/support-152.js')], { encoding: 'utf8', cwd: ROOT, timeout: 180000 });
+      assert.strictEqual(r.status, 0, 'support-152: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|SUPPORT-152/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۴۶: شکل نام کاربری در فرم‌های ورود/راه‌اندازی/نجات وب (هم‌قاعده با سرور و اپ بومی) ── */
   await test('ردیف ۱۴۶: فرم ورود وب نام کاربری لاتین را می‌پذیرد؛ شکل نادرست در ورود/راه‌اندازی/نجات هیچ درخواستی نمی‌فرستد', async () => {
     const { JSDOM } = require('jsdom');

@@ -126,6 +126,7 @@ class SessionController extends ChangeNotifier {
     required ClientFlags flags,
     this.lan,
     this.schools,
+    this.support,
     this.deviceId,
     this.openUrl,
     this.deviceName = 'پایش',
@@ -135,6 +136,24 @@ class SessionController extends ChangeNotifier {
 
   /// Row 145: registration request + subscription on the school server; null = not offered.
   final LanSchoolsApi? schools;
+
+  /// Row 152: messages and problem reports to the platform owner through the school server
+  /// (school server → owner's database → owner panel); null = this build offers no LAN mode.
+  final SupportApi? support;
+
+  /// Support is offered to every signed-in LAN user — also while paywalled (payment problems).
+  bool get supportAvailable =>
+      support != null && _lan != null && _state is SignedIn;
+
+  /// The school server and a fresh token for the support page; null when offline.
+  Future<SupportLink?> supportLink() async {
+    final api = support;
+    final l = _lan;
+    if (api == null || l == null) return null;
+    final t = await validToken();
+    if (t == null) return null;
+    return (api: api, server: l.server, token: t);
+  }
 
   /// Row 145: hardware/system id of this device (survives reinstall) for the one-trial rule.
   final Future<String?> Function()? deviceId;

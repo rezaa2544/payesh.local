@@ -40,6 +40,7 @@ const tunnel = require('./tunnel');
 const helperJobs = require('./helper-jobs');
 /* ردیف ۱۴۵: مدارس، درخواست ثبت‌نام و اشتراک (برگردان p2) — فهرست مالک در صندوقچه */
 const schools = require('./school-registry');
+const support = require('./support');
 const schoolProfile = require('./school-profile');
 const { nowISO, json, normDigits, normalizeMobile, validNationalId, sha256, pbkdf2Hash } = require('./util');
 
@@ -856,6 +857,24 @@ async function api(req, res, url, ip) {
     const r = auth.createTransfer(store, actor.user.id, actor.device ? actor.device.id : null);
     return json(Object.assign(r, { public_url: cfg.publicUrl(store) || null }));
   }
+
+  /* ── ردیف ۱۵۲: پشتیبانی — پیام و گزارش مشکل به مالک (سرور مدرسه ← صندوقچه ← پنل مالک).
+     پیش از دروازهٔ اشتراک: کاربری که اشتراکش تمام شده هم باید بتواند به مالک پیام بدهد. ── */
+  async function supportPost(rq, act, fn) {
+    if (!rateLimit('support:' + act.user.id, 30, 60 * 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    let body = {};
+    try { body = await readBody(rq); } catch (e) { body = {}; }
+    try { return json(await fn(body || {})); } catch (e) {
+      if (e instanceof support.SupportError) return json({ ok: false, error: e.code }, e.code === 'not_found' ? 404 : 400);
+      throw e;
+    }
+  }
+  if (p === '/api/support' && m === 'GET') {
+    return json(await support.list(store, actor.user));
+  }
+  if (p === '/api/support' && m === 'POST') return supportPost(req, actor, b => support.create(store, actor.user, b));
+  if (p === '/api/support/message' && m === 'POST') return supportPost(req, actor, b => support.message(store, actor.user, b.id, b));
+  if (p === '/api/support/close' && m === 'POST') return supportPost(req, actor, b => support.close(store, actor.user, b.id));
 
   /* نقشِ «اشتراکی» بدون اشتراک فعال، یا مدرسهٔ غیرفعال ⇒ هیچ امکانی (فقط ورود، خروج، صفحهٔ اشتراک و مدیریت دستگاه‌های خود) */
   {
@@ -2292,6 +2311,7 @@ if (process.env.PAYESH_CLOUD_AUTO !== '0') {
   helperJobs.start(store, { publicUrl: () => cfg.publicUrl(store) });
   /* ردیف ۱۴۵: فهرست مدارس و سیاست اشتراکِ پنل مالک — هر دقیقه */
   schools.start(store, { instance: () => cfg.instanceId(store), publicUrl: () => cfg.publicUrl(store) || null, version: () => RUNNING_VERSION });
+  support.start(store);
 }
 
 /* ── صندوقچهٔ آفلاین: اولین دستگاهی که روشن شود، ثبت‌های بقیه را اعمال می‌کند ── */
