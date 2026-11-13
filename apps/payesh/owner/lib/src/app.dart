@@ -12,6 +12,7 @@ import 'local/local_platform.dart';
 import 'local/local_screens.dart';
 import 'local/s3_client.dart';
 import 'local/settings_page.dart';
+import 'infra/arch_card.dart';
 import 'infra/infra_card.dart';
 import 'monitor/live_monitor.dart';
 import 'schools/school_registry.dart';
@@ -439,6 +440,13 @@ class _OwnerAppState extends State<OwnerApp> {
       infraTop: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // ردیف ۱۵۳: سه حالت معماری + مسیر زندهٔ بار
+          if (widget.helper != null)
+            ArchCard(
+              policy: widget.helper!.policy,
+              router: widget.helper!.router,
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            ),
           InfraCard(
             key: const Key('infra-card-top'),
             helper: widget.helper,
@@ -457,6 +465,7 @@ class _OwnerAppState extends State<OwnerApp> {
       dbLight: _dbMonitor == null ? null : DbLight(monitor: _dbMonitor!),
       monitor: _liveMonitor,
       schools: _schools,
+      router: widget.helper?.router,
       updateLight: widget.updater == null
           ? null
           : UpdateLight(updater: widget.updater!, openUrl: widget.openUrl),

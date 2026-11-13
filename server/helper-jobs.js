@@ -38,6 +38,7 @@ const os = require('os');
 const { performance } = require('perf_hooks');
 const s3mem = require('./s3mem');
 const { trustFetch } = require('./s3-https');
+const loadRoute = require('./load-route');
 
 const SALT = Buffer.from('payesh/helper-jobs', 'utf8');
 const INFO = Buffer.from('v1', 'utf8');
@@ -326,10 +327,15 @@ async function runLocal(cfg, kind, params, opts = {}) {
 }
 
 /* ── سیاست زیرساخت (پنل مالک ⇐ همهٔ سرورها) ─────────────────────────── */
+/* ردیف ۱۵۳: mode (db | helpers | external) و external (نشانی سرور بیرونی) اختیاری‌اند؛
+   سیاست قدیمی بدون mode ⇒ helpers ? 'helpers' : 'db'. کلید هر سیستم کمکی در off با «helper:<id>». */
 function validPolicy(p) {
   return !!p && p.v === 1 && typeof p.helpers === 'boolean' && Array.isArray(p.off) &&
-    p.off.every(x => typeof x === 'string') && Number.isSafeInteger(p.at);
+    p.off.every(x => typeof x === 'string') && Number.isSafeInteger(p.at) &&
+    (p.mode === undefined || loadRoute.MODES.includes(p.mode)) &&
+    (p.external === undefined || (typeof p.external === 'string' && p.external.length <= 300));
 }
+const helperOff = (policy, id) => !!policy && Array.isArray(policy.off) && policy.off.includes('helper:' + id);
 let policyCache = { key: '', at: 0, value: null };
 async function readPolicy(cfg, { now = Date.now(), maxAgeMs = POLICY_MAX_AGE_MS } = {}) {
   const ck = cfg.bucket + '|' + cfg.prefix + '|' + keyFor(cfg.secret).toString('hex').slice(0, 16);
@@ -373,11 +379,24 @@ function busyNow() {
   return load.elu >= BUSY_ELU || load.cpu >= BUSY_CPU;
 }
 
-/* آیا این کار به سرور کمکی نیاز دارد؟ null = بله؛ وگرنه دلیلِ انجام روی همین سرور */
-function helperNeed(kind, { policy, busy }) {
-  if (policy && policy.helpers === false) return 'helpers_disabled';
+/* آیا این کار به سرور کمکی نیاز دارد؟ null = بله؛ وگرنه دلیلِ انجام روی همین سرور.
+   ردیف ۱۵۳: حالت «فقط دیتابیس» ⇒ هرگز؛ وگرنه وقتی مسیر بار سیستم‌های کمکی را به کار گرفته
+   (زمان پاسخ/خطای دیتابیس یا سرور بیرونی بالا رفته) یا خود سرور شلوغ است. */
+function helperNeed(kind, { policy, busy, route = null }) {
+  if (policy && (policy.helpers === false || policy.mode === 'db')) return 'helpers_disabled';
   if (kind === 'endpoint.check') return null;   /* دید «از بیرون» فقط از سیستم دیگر */
-  return busy ? null : 'not_needed';            /* سرور خودش جا دارد ⇒ بدون تأخیر صف */
+  if (busy) return null;
+  if (route && Array.isArray(route.active) && route.active.includes('helpers')) return null;
+  return 'not_needed';                          /* دیتابیس و سرور جا دارند ⇒ بدون تأخیر صف */
+}
+
+/* مسیر بار همین سرور با سیاست جاری (ردیف ۱۵۳) */
+async function routeNow(policy, { busy = false, now = Date.now() } = {}) {
+  const mode = loadRoute.modeOf(policy);
+  if (mode === 'external' && policy && policy.external) {
+    await loadRoute.probeExternal(policy.external, trustFetch, now).catch(() => null);
+  }
+  return loadRoute.tick(policy, { busy, now });
 }
 
 /* ── ارسال یک کار: سرور کمکی ⇐ یا خودمان (هرگز متوقف نمی‌شود) ─────────── */
@@ -398,10 +417,11 @@ async function runJob(cfg, kind, params, opts = {}) {
   /* مسیر عادی: همین سرور مستقیم با دیتابیس. سرور کمکی فقط هنگام نیاز. */
   const policy = opts.policy !== undefined ? opts.policy : await readPolicy(cfg, { now: now() });
   const busy = typeof opts.busy === 'function' ? !!opts.busy() : opts.busy !== undefined ? !!opts.busy : busyNow();
-  const skip = helperNeed(kind, { policy, busy });
+  const route = opts.route !== undefined ? opts.route : await routeNow(policy, { busy, now: now() });
+  const skip = helperNeed(kind, { policy, busy, route });
   if (skip) return local(skip);
   let online = [];
-  try { online = (await helpersOnline(cfg, { now: now() })).filter(h => h.online && h.kinds.includes(kind)); }
+  try { online = (await helpersOnline(cfg, { now: now() })).filter(h => h.online && h.kinds.includes(kind) && !helperOff(policy, h.helper_id)); }
   catch (e) { return local('bucket_unreachable'); }
   if (!online.length) return local('no_helper');
 
@@ -448,11 +468,13 @@ async function runJob(cfg, kind, params, opts = {}) {
 /* ── سرور مدرسه: وضعیت سرورهای کمکی + بررسی بیرونیِ آدرس عمومی ─────── */
 const META_PUBLIC_CHECK = 'helper:public_check';
 let timer = null;
+let routeTimer = null;
+const ROUTE_TICK_MS = 5_000;
 
 async function status(store) {
   const cfg = s3mem.usingMeta(store).get();
   if (!cfg || !cfg.enabled) return { configured: false, helpers: [], online: 0 };
-  const use = (p) => ({ use_helpers: !p || p.helpers !== false, when: 'need' });
+  const use = (p) => ({ use_helpers: loadRoute.modeOf(p) !== 'db', when: 'need', mode: loadRoute.modeOf(p), load: loadRoute.snapshot() });
   try {
     const helpers = await helpersOnline(cfg);
     const policy = await readPolicy(cfg);
@@ -489,12 +511,21 @@ function start(store, { everyMs = 30 * 60_000, publicUrl = () => null, log = (m)
   setTimeout(tick, 60_000).unref();
   timer = setInterval(tick, everyMs);
   timer.unref();
+  /* ردیف ۱۵۳: مسیر بار هر ۵ ثانیه تازه می‌شود (بالا/پایین رفتن حتی بدون کار تازه؛ سنجه‌های /metrics) */
+  routeTimer = setInterval(async () => {
+    try {
+      const cfg = s3mem.usingMeta(store).get();
+      const policy = cfg && cfg.enabled ? await readPolicy(cfg) : null;
+      await routeNow(policy, { busy: busyNow() });
+    } catch (e) { /* گام بعد */ }
+  }, ROUTE_TICK_MS);
+  routeTimer.unref();
 }
 
 module.exports = {
   K, DIR, KINDS, SALT: SALT.toString('utf8'), PRESENCE_FRESH_MS, CLAIM_WAIT_MS, GC_JOB_AGE_MS,
   HelperError, seal, open, keyFor, newJobId, jobAt, isPublicIp, validParams,
   helpersOnline, runLocal, runJob, checkEndpoint, status, checkPublicUrl, start, listAll,
-  POLICY_KEY, readPolicy, writePolicy, validPolicy, helperNeed, busyNow,
+  POLICY_KEY, readPolicy, writePolicy, validPolicy, helperNeed, busyNow, routeNow, helperOff,
   _resetPolicyCache: () => { policyCache = { key: '', at: 0, value: null }; },
 };

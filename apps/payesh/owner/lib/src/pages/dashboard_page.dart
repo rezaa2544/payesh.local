@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../infra/arch_card.dart';
 import '../monitor/live_panel.dart';
 import '../widgets.dart';
 import 'base.dart';
@@ -85,6 +86,8 @@ class _DashboardPageState extends OwnerPageState<DashboardPage> {
         await monitor?.probeNow();
       },
       children: [
+        // ردیف ۱۵۳: بار لحظه‌ای و مسیر بار (پیش‌نیاز حالت‌های معماری)
+        if (scope.router != null) LoadCard(router: scope.router!),
         if (monitor != null) LiveInfraPanel(monitor: monitor, api: api),
         content,
       ],

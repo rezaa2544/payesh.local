@@ -3,6 +3,7 @@ import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import 'format.dart';
+import 'infra/load_route.dart';
 import 'monitor/live_monitor.dart';
 import 'schools/school_registry.dart';
 
@@ -16,7 +17,11 @@ class OwnerScope extends InheritedWidget {
     required super.child,
     this.monitor,
     this.schools,
+    this.router,
   });
+
+  /// مسیر بار و بار لحظه‌ای (ردیف ۱۵۳)؛ null ⇒ کارت «بار لحظه‌ای» نشان داده نمی‌شود.
+  final LoadRouter? router;
 
   final OwnerApi api;
 
@@ -38,7 +43,10 @@ class OwnerScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(OwnerScope old) =>
-      api != old.api || monitor != old.monitor || schools != old.schools;
+      api != old.api ||
+      monitor != old.monitor ||
+      schools != old.schools ||
+      router != old.router;
 }
 
 /// Loading / error / empty placeholder (the web `.state`), announced to screen readers.

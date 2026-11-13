@@ -6,6 +6,10 @@
 // حداکثر ۶۰ ثانیه بعد پیروی می‌کنند. نسخهٔ این دستگاه در انبار امن هم می‌ماند تا بدون اینترنت
 // هم معتبر باشد؛ تغییری که هنوز به دیتابیس نرسیده «در انتظار ثبت» است و با وصل شدن فرستاده می‌شود.
 // اگر دو دستگاه هم‌زمان تغییر بدهند، تغییر تازه‌تر (at بزرگ‌تر) برنده است.
+//
+// ردیف ۱۵۳: «حالت معماری» (mode: db | helpers | external) و نشانی سرور بیرونی (external).
+// helpers همیشه برابر mode != db نوشته می‌شود تا سرورهای قدیمی‌تر هم درست پیروی کنند.
+// هر سیستم کمکی کلید جدا دارد: شناسهٔ «helper:<id>» در off ⇒ آن سیستم کار نمی‌گیرد.
 
 import 'dart:async';
 import 'dart:convert';
@@ -16,21 +20,47 @@ import 'package:payesh_secure/payesh_secure.dart';
 
 import '../helper/helper_box.dart';
 import '../local/s3_client.dart';
+import 'load_route.dart';
 
 const String infraPolicyKey = '${helperRoot}control/infra-policy.json';
 const String infraPolicyCacheKey = 'owner.infra.policy';
 final RegExp _serviceIdRe = RegExp(r'^[0-9A-Za-z_.:-]{1,80}$');
 
+/// شناسهٔ کلید یک سیستم کمکی در [InfraPolicy.off].
+String helperServiceId(String helperId) => 'helper:$helperId';
+
+/// نشانی سرور بیرونی: خالی یا http(s) با میزبان، حداکثر ۳۰۰ نویسه.
+bool validExternalUrl(String u) {
+  if (u.isEmpty) return true;
+  if (u.length > 300) return false;
+  final x = Uri.tryParse(u);
+  return x != null &&
+      (x.scheme == 'https' || x.scheme == 'http') &&
+      x.host.isNotEmpty &&
+      !x.hasQuery &&
+      !x.hasFragment &&
+      x.userInfo.isEmpty;
+}
+
 @immutable
 final class InfraPolicy {
   const InfraPolicy({
-    this.helpers = true,
+    this.mode = ArchModes.helpers,
+    this.external = '',
     this.off = const <String>{},
     this.at = 0,
   });
 
+  /// حالت معماری (ردیف ۱۵۳)؛ پیش‌فرض: دیتابیس + سیستم‌های کمکی هنگام نیاز.
+  final String mode;
+
+  /// نشانی سرور بیرونی (برای حالت external؛ خالی = تنظیم نشده).
+  final String external;
+
   /// پردازش کمکی (پیش‌فرض روشن؛ فقط هنگام نیاز به کار می‌رود).
-  final bool helpers;
+  bool get helpers => mode != ArchModes.db;
+
+  bool helperOn(String helperId) => !off.contains(helperServiceId(helperId));
 
   /// شناسهٔ زیرساخت‌های غیرفعال.
   final Set<String> off;
@@ -43,6 +73,8 @@ final class InfraPolicy {
   Map<String, Object?> toPlain() => {
     'v': 1,
     'helpers': helpers,
+    'mode': mode,
+    'external': external,
     'off': off.toList()..sort(),
     'at': at,
   };
@@ -60,18 +92,41 @@ final class InfraPolicy {
       if (x is! String || !_serviceIdRe.hasMatch(x)) return null;
       ids.add(x);
     }
-    return InfraPolicy(helpers: h, off: ids, at: at);
+    final m = p['mode'];
+    if (m != null && (m is! String || !ArchModes.all.contains(m))) return null;
+    final ext = p['external'] ?? '';
+    if (ext is! String || !validExternalUrl(ext)) return null;
+    return InfraPolicy(
+      mode: m is String ? m : (h ? ArchModes.helpers : ArchModes.db),
+      external: ext,
+      off: ids,
+      at: at,
+    );
   }
 
   @override
   bool operator ==(Object other) =>
       other is InfraPolicy &&
-      other.helpers == helpers &&
+      other.mode == mode &&
+      other.external == external &&
       other.at == at &&
       setEquals(other.off, off);
 
   @override
-  int get hashCode => Object.hash(helpers, at, Object.hashAllUnordered(off));
+  int get hashCode =>
+      Object.hash(mode, external, at, Object.hashAllUnordered(off));
+
+  InfraPolicy copyWith({
+    String? mode,
+    String? external,
+    Set<String>? off,
+    required int at,
+  }) => InfraPolicy(
+    mode: mode ?? this.mode,
+    external: external ?? this.external,
+    off: off ?? this.off,
+    at: at,
+  );
 }
 
 /// سیاست جاری + همگام‌سازی با دیتابیس.
@@ -194,8 +249,37 @@ class InfraPolicyStore extends ChangeNotifier {
 
   int _nextAt() => max(_now().millisecondsSinceEpoch, _value.at + 1);
 
-  Future<void> setHelpers(bool on) =>
-      _set(InfraPolicy(helpers: on, off: _value.off, at: _nextAt()));
+  /// کلید قدیمی «پردازش کمکی»: روشن ⇒ دیتابیس + کمکی (یا همان سرور بیرونی)، خاموش ⇒ فقط دیتابیس.
+  Future<void> setHelpers(bool on) => _set(
+    _value.copyWith(
+      mode: on
+          ? (_value.mode == ArchModes.db ? ArchModes.helpers : _value.mode)
+          : ArchModes.db,
+      at: _nextAt(),
+    ),
+  );
+
+  /// حالت معماری (ردیف ۱۵۳).
+  Future<void> setMode(String mode) {
+    if (!ArchModes.all.contains(mode) || mode == _value.mode) {
+      return Future.value();
+    }
+    return _set(_value.copyWith(mode: mode, at: _nextAt()));
+  }
+
+  /// نشانی سرور بیرونی؛ نادرست ⇒ false و بدون تغییر.
+  Future<bool> setExternal(String url) async {
+    final u = url.trim();
+    if (!validExternalUrl(u)) return false;
+    if (u != _value.external) {
+      await _set(_value.copyWith(external: u, at: _nextAt()));
+    }
+    return true;
+  }
+
+  /// کلید یک سیستم کمکی.
+  Future<void> setHelperOn(String helperId, bool on) =>
+      setService(helperServiceId(helperId), on);
 
   Future<void> setService(String id, bool on) {
     if (!_serviceIdRe.hasMatch(id)) return Future.value();
@@ -205,7 +289,7 @@ class InfraPolicyStore extends ChangeNotifier {
     } else {
       off.add(id);
     }
-    return _set(InfraPolicy(helpers: _value.helpers, off: off, at: _nextAt()));
+    return _set(_value.copyWith(off: off, at: _nextAt()));
   }
 
   Future<void> _set(InfraPolicy p) async {

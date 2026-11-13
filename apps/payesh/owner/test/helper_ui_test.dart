@@ -99,6 +99,10 @@ void main() {
     expect(find.byKey(const Key('live-db-traffic')), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
     expect(find.textContaining('فضای دیتابیس'), findsOneWidget);
+    // ردیف ۱۵۳: بار لحظه‌ای و مسیر بار بالای داشبورد
+    expect(find.byKey(const Key('load-card')), findsOneWidget);
+    expect(find.byKey(const Key('load-rpm')), findsOneWidget);
+    expect(find.byKey(const Key('route-chain')), findsOneWidget);
 
     // زیرساخت: کارت «زیرساخت‌ها» بالای صفحه (ردیف ۱۳۱)
     await tap(tester, 'nav-infra');
@@ -152,6 +156,23 @@ void main() {
     await tester.runAsync(() => helper.policy.refresh());
     await tester.pumpAndSettle();
     expect(helper.policy.value.helpers, isTrue);
+
+    // ردیف ۱۵۳: «حالت معماری» بالای «زیرساخت» — هم‌خوان با کلید «پردازش کمکی»
+    expect(find.byKey(const Key('arch-card')), findsOneWidget);
+    await tap(tester, 'arch-mode-db');
+    await tester.runAsync(() => helper.policy.refresh());
+    await tester.pumpAndSettle();
+    expect(helper.policy.value.mode, 'db');
+    expect(text(tester, 'infra-status-helpers'), startsWith('خاموش'));
+    await tap(tester, 'arch-mode-external');
+    await tester.runAsync(() => helper.policy.refresh());
+    await tester.pumpAndSettle();
+    expect(helper.policy.value.mode, 'external');
+    expect(helper.policy.value.helpers, isTrue);
+    await tap(tester, 'arch-mode-helpers');
+    await tester.runAsync(() => helper.policy.refresh());
+    await tester.pumpAndSettle();
+    expect(helper.policy.value.mode, 'helpers');
 
     // به‌روزرسانی در «تنظیمات» (اندروید/غیرویندوز: فقط اعلام بستهٔ کامل)
     await tap(tester, 'nav-settings');

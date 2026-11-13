@@ -15,7 +15,8 @@ const baked = require('./cloud-defaults');
 const { trustFetch } = require('./s3-https');
 
 /* سرور: گواهی نسل Y آروان با زنجیر رسمی Let's Encrypt (fetch داخلی Node ریشهٔ YR را ندارد) */
-s3.setFetch(trustFetch);
+/* ردیف ۱۵۳: هر درخواست واقعی به دیتابیس یک نمونهٔ زمان پاسخ برای مسیر بار است */
+s3.setFetch(require('./load-route').metered(trustFetch));
 
 const META_KEY = 'cloud:config';
 

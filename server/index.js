@@ -457,6 +457,15 @@ mreg.onCollect(() => {
 
   /* نرخ خطا از شمارندهٔ واقعی درخواست‌ها (پنجرهٔ ۵ دقیقه) */
   add('payesh_http_error_ratio_events', mreg.httpEvents.length, 'تعداد درخواست‌های داخل پنجرهٔ محاسبهٔ نرخ خطا');
+
+  /* ردیف ۱۵۳: بار لحظه‌ای دیتابیس و مسیر بار (حالت معماری) */
+  const lr = require('./load-route').snapshot();
+  add('payesh_db_latency_p95_ms', lr.db.p95, 'زمان پاسخ p95 دیتابیس در ۶۰ ثانیهٔ اخیر (میلی‌ثانیه)');
+  add('payesh_db_latency_avg_ms', lr.db.avg, 'میانگین زمان پاسخ دیتابیس در ۶۰ ثانیهٔ اخیر (میلی‌ثانیه)');
+  add('payesh_db_requests_per_min', lr.db.per_min, 'تعداد درخواست به دیتابیس در دقیقه');
+  add('payesh_db_error_ratio', lr.db.err, 'نرخ خطای درخواست‌های دیتابیس در ۶۰ ثانیهٔ اخیر');
+  add('payesh_route_level', lr.route.level, 'پلهٔ مسیر بار: ۰ = فقط زیرساخت اصلی');
+  add('payesh_route_helpers_active', lr.route.active.includes('helpers') ? 1 : 0, 'سیستم‌های کمکی به کار گرفته شده‌اند');
   return out;
 });
 

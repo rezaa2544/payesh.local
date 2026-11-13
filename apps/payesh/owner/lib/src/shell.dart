@@ -13,6 +13,7 @@ import 'pages/plans_page.dart';
 import 'pages/reports_page.dart';
 import 'pages/schools_page.dart';
 import 'pages/support_page.dart';
+import 'infra/load_route.dart';
 import 'monitor/live_monitor.dart';
 import 'schools/school_registry.dart';
 import 'menu.dart';
@@ -51,10 +52,14 @@ class OwnerShell extends StatefulWidget {
     this.updateLight,
     this.monitor,
     this.schools,
+    this.router,
   });
 
   /// پایش زندهٔ زیرساخت در داشبورد.
   final LiveMonitor? monitor;
+
+  /// مسیر بار و بار لحظه‌ای (ردیف ۱۵۳)؛ کارت «بار لحظه‌ای» داشبورد.
+  final LoadRouter? router;
 
   /// مدارس، درخواست ثبت‌نام و اشتراک (برگردان p2، ردیف ۱۴۵).
   final SchoolRegistry? schools;
@@ -132,6 +137,7 @@ class _OwnerShellState extends State<OwnerShell> {
       now: widget.now,
       monitor: widget.monitor,
       schools: widget.schools,
+      router: widget.router,
       child: KeyedSubtree(
         key: ValueKey('page-$id-${identityHashCode(api)}'),
         child: id == 'infra' && widget.infraTop != null

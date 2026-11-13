@@ -3,6 +3,10 @@
 // هر درخواست واقعی (مثلاً هر درخواست S3 به دیتابیس) بعد از پایانش این‌جا ثبت می‌شود:
 // بایت ارسالی، بایت دریافتی، مدت، موفق یا ناموفق. پایش زنده (live_monitor.dart) از
 // اختلاف این شمارنده‌ها در هر ثانیه «سرعت لحظه‌ای ترافیک» را می‌سازد. هیچ عددی ساختگی نیست.
+// ردیف ۱۵۳: هر درخواست (به‌جز انتقال‌های بزرگ) در پنجرهٔ لغزان زمان پاسخ هم ثبت می‌شود
+// (p95، نرخ خطا، درخواست در دقیقه) تا «مسیر بار» و کارت «بار لحظه‌ای» داشبورد واقعی باشند.
+
+import '../infra/load_route.dart';
 
 /// شمارنده‌های تجمعی یک زیرساخت (از شروع برنامه).
 final class NetCounters {
@@ -18,6 +22,9 @@ final class NetCounters {
   double? downBps;
   bool? lastOk;
   DateTime? lastAt;
+
+  /// پنجرهٔ ۶۰ ثانیهٔ اخیر (ردیف ۱۵۳).
+  final LatencyWindow window = LatencyWindow();
 }
 
 abstract final class NetMeter {
@@ -46,7 +53,11 @@ abstract final class NetMeter {
     c.requests++;
     if (!ok) c.errors++;
     c.lastOk = ok;
-    c.lastAt = at ?? DateTime.now();
+    final when = at ?? DateTime.now();
+    c.lastAt = when;
+    if (!ok || received < bulkBytes) {
+      c.window.record(elapsedMs, ok: ok, atMs: when.millisecondsSinceEpoch);
+    }
     if (!ok) return;
     if (received >= bulkBytes) {
       if (elapsedMs > 0) c.downBps = received * 1000 / elapsedMs;

@@ -289,6 +289,8 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       wipe();
       S.objects.delete('payesh/' + hj.POLICY_KEY);
       hj._resetPolicyCache();
+      /* ردیف ۱۵۳: خطاهای عمدی HJ-07 (صندوقچه در دسترس نیست) مسیر بار را بالا برده‌اند؛ از نو */
+      require(path.join(ROOT, 'server', 'load-route.js'))._reset();
       assert.strictEqual(hj.helperNeed('storage.usage', { policy: null, busy: false }), 'not_needed');
       assert.strictEqual(hj.helperNeed('storage.usage', { policy: null, busy: true }), null);
       assert.strictEqual(hj.helperNeed('endpoint.check', { policy: null, busy: false }), null);

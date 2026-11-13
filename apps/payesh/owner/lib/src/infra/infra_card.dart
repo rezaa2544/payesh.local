@@ -254,6 +254,9 @@ class _InfraCardState extends State<InfraCard> {
                       : (v) => unawaited(policy.setHelpers(v)),
                 ),
               ),
+              // ردیف ۱۵۳: هر سیستم پنل مالک کلید جدا (برای همهٔ پنل‌ها و سرورهای مدرسه)
+              for (final h in _helpers ?? const <HelperPresence>[])
+                _helperRow(h, tk, helpersOn: helpersOn),
               _row(
                 id: 'self',
                 light: selfColor,
@@ -291,6 +294,47 @@ class _InfraCardState extends State<InfraCard> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _helperRow(
+    HelperPresence h,
+    PayeshTokens tk, {
+    required bool helpersOn,
+  }) {
+    final store = _svc?.policy;
+    final on = store?.value.helperOn(h.helperId) ?? true;
+    final live = h.onlineAt(_clock());
+    final self = h.helperId == _svc?.node?.helperId;
+    final Color c;
+    final String t;
+    if (!on) {
+      c = tk.muted;
+      t = 'خاموش — این سیستم کار پردازشی نمی‌گیرد';
+    } else if (!helpersOn) {
+      c = tk.muted;
+      t = 'منتظر — حالت «فقط دیتابیس» است';
+    } else if (!live) {
+      c = tk.warning;
+      t = h.paused ? 'روشن — روی خود سیستم متوقف شده' : 'روشن — در دسترس نیست';
+    } else {
+      c = tk.success;
+      t = 'روشن — آماده؛ ${h.done} کار انجام داده';
+    }
+    return _row(
+      id: 'helper-${h.helperId}',
+      light: c,
+      title:
+          'سیستم کمکی: ${h.host.isEmpty ? h.helperId : h.host}'
+          '${self ? ' (همین دستگاه)' : ''}',
+      status: t,
+      trailing: Switch(
+        key: Key('infra-helper-switch-${h.helperId}'),
+        value: on,
+        onChanged: store == null || !store.configured
+            ? null
+            : (v) => unawaited(store.setHelperOn(h.helperId, v)),
       ),
     );
   }

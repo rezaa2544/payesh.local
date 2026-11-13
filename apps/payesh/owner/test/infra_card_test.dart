@@ -172,4 +172,59 @@ void main() {
     expect(text(tester, 'infra-status-db'), contains('بررسی'));
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('ردیف ۱۵۳: هر سیستم کمکی کلید جدا دارد (برای همهٔ پنل‌ها)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final secure = FakeSecureStore();
+    final bucket = FakeBucket(() => t0);
+    await S3Settings(
+      endpoint: Uri.https('s3.example.test'),
+      accessKey: 'ak',
+      secretKey: 'sk',
+      bucket: 'payesh-madrese',
+    ).save(secure);
+    final helper = OwnerHelperService(
+      secure: secure,
+      transport: bucket.transport,
+      now: () => t0,
+      sleep: (_) async {},
+      autoStart: false,
+      slots: 1,
+    );
+    await tester.runAsync(helper.init);
+    await tester.runAsync(() => helper.node!.tick());
+    final id = helper.node!.helperId;
+    await tester.pumpWidget(
+      PayeshMaterialApp(
+        title: 't',
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: InfraCard(helper: helper, now: () => t0),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
+    expect(find.byKey(Key('infra-row-helper-$id')), findsOneWidget);
+    expect(find.textContaining('(همین دستگاه)'), findsOneWidget);
+    expect(text(tester, 'infra-status-helper-$id'), startsWith('روشن'));
+    await tester.tap(find.byKey(Key('infra-helper-switch-$id')));
+    await tester.runAsync(() => helper.policy.refresh());
+    await tester.pumpAndSettle();
+    expect(helper.policy.value.helperOn(id), isFalse);
+    expect(helper.policy.value.off, contains(helperServiceId(id)));
+    expect(text(tester, 'infra-status-helper-$id'), startsWith('خاموش'));
+    expect(bucket.objects.keys, contains(infraPolicyKey));
+    // حالت «فقط دیتابیس» ⇒ همهٔ سیستم‌ها منتظر
+    await tester.tap(find.byKey(Key('infra-helper-switch-$id')));
+    await tester.runAsync(() => helper.policy.setMode('db'));
+    await tester.pumpAndSettle();
+    expect(text(tester, 'infra-status-helper-$id'), startsWith('منتظر'));
+    await tester.runAsync(helper.dispose);
+  });
 }

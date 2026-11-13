@@ -1,0 +1,1129 @@
+{
+  "v": 1,
+  "about": "ردیف ۱۵۳ — مسیر بار؛ server/load-route.js = owner/lib/src/infra/load_route.dart",
+  "thresholds": {
+    "hi_ms": 1200,
+    "lo_ms": 500,
+    "err_hi": 0.2,
+    "err_lo": 0.05,
+    "hold_ms": 60000,
+    "min_samples": 5,
+    "window_ms": 60000,
+    "window_max": 200
+  },
+  "scenarios": [
+    {
+      "name": "db_only_never_escalates",
+      "steps": [
+        {
+          "sample": {
+            "now_ms": 0,
+            "mode": "db",
+            "ext": null,
+            "db": {
+              "p95": 5000,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 3
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db"
+            ],
+            "level": 0,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "start",
+            "active": [
+              "db"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 5000,
+            "mode": "db",
+            "ext": null,
+            "db": {
+              "p95": 100,
+              "err": 0.9,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 3
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db"
+            ],
+            "level": 0,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "start",
+            "active": [
+              "db"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "helpers_join_on_db_latency_and_leave_after_hold",
+      "steps": [
+        {
+          "sample": {
+            "now_ms": 0,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "mode",
+            "active": [
+              "db"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 5000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 1500,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 5000,
+            "calm_ms": null,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 10000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 800,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 5000,
+            "calm_ms": null,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 15000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 400,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 5000,
+            "calm_ms": 15000,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 45000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 5000,
+            "calm_ms": 15000,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 74999,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 5000,
+            "calm_ms": 15000,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 75000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 75000,
+            "calm_ms": null,
+            "reason": "recovered:db",
+            "active": [
+              "db"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "calm_interrupted_restarts_hold",
+      "steps": [
+        {
+          "sample": {
+            "now_ms": 0,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 2000,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": null
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 5000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 200,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": null
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 0,
+            "calm_ms": 5000,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 40000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 700,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": null
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 70000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 200,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": null
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 0,
+            "calm_ms": 70000,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 125000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 200,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": null
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 0,
+            "calm_ms": 70000,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 130000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 200,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": null
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 130000,
+            "calm_ms": null,
+            "reason": "recovered:db",
+            "active": [
+              "db"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "errors_and_busy_escalate_few_samples_do_not",
+      "steps": [
+        {
+          "sample": {
+            "now_ms": 0,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 9000,
+              "err": 0,
+              "n": 3,
+              "busy": false
+            },
+            "helpers": 1
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "mode",
+            "active": [
+              "db"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 1000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 100,
+              "err": 0.25,
+              "n": 3,
+              "busy": false
+            },
+            "helpers": 1
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 1000,
+            "calm_ms": null,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 2000,
+            "mode": "db",
+            "ext": null,
+            "db": {
+              "p95": 100,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 1
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db"
+            ],
+            "level": 0,
+            "changed_ms": 2000,
+            "calm_ms": null,
+            "reason": "mode",
+            "active": [
+              "db"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 3000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 100,
+              "err": 0,
+              "n": 20,
+              "busy": true
+            },
+            "helpers": 1
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 3000,
+            "calm_ms": null,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "no_helpers_online_stays",
+      "steps": [
+        {
+          "sample": {
+            "now_ms": 0,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 3000,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 0
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "no_helpers",
+            "active": [
+              "db"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 5000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 3000,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 1
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 5000,
+            "calm_ms": null,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "external_chain_escalates_then_returns",
+      "steps": [
+        {
+          "sample": {
+            "now_ms": 0,
+            "mode": "external",
+            "ext": {
+              "ok": true,
+              "p95": 200,
+              "err": 0,
+              "n": 10
+            },
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "external",
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "mode",
+            "active": [
+              "external"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 5000,
+            "mode": "external",
+            "ext": {
+              "ok": true,
+              "p95": 2500,
+              "err": 0,
+              "n": 10
+            },
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "external",
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 5000,
+            "calm_ms": null,
+            "reason": "escalate:external",
+            "active": [
+              "external",
+              "db"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 10000,
+            "mode": "external",
+            "ext": {
+              "ok": true,
+              "p95": 2500,
+              "err": 0,
+              "n": 10
+            },
+            "db": {
+              "p95": 1600,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "external",
+              "db",
+              "helpers"
+            ],
+            "level": 2,
+            "changed_ms": 10000,
+            "calm_ms": null,
+            "reason": "escalate:db",
+            "active": [
+              "external",
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 15000,
+            "mode": "external",
+            "ext": {
+              "ok": true,
+              "p95": 2500,
+              "err": 0,
+              "n": 10
+            },
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "external",
+              "db",
+              "helpers"
+            ],
+            "level": 2,
+            "changed_ms": 10000,
+            "calm_ms": 15000,
+            "reason": "escalate:db",
+            "active": [
+              "external",
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 75000,
+            "mode": "external",
+            "ext": {
+              "ok": true,
+              "p95": 2500,
+              "err": 0,
+              "n": 10
+            },
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "external",
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 75000,
+            "calm_ms": null,
+            "reason": "recovered:db",
+            "active": [
+              "external",
+              "db"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 80000,
+            "mode": "external",
+            "ext": {
+              "ok": true,
+              "p95": 300,
+              "err": 0,
+              "n": 10
+            },
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "external",
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 75000,
+            "calm_ms": 80000,
+            "reason": "recovered:db",
+            "active": [
+              "external",
+              "db"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 140000,
+            "mode": "external",
+            "ext": {
+              "ok": true,
+              "p95": 300,
+              "err": 0,
+              "n": 10
+            },
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "external",
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 140000,
+            "calm_ms": null,
+            "reason": "recovered:external",
+            "active": [
+              "external"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "external_down_falls_back_to_db_chain",
+      "steps": [
+        {
+          "sample": {
+            "now_ms": 0,
+            "mode": "external",
+            "ext": {
+              "ok": true,
+              "p95": 200,
+              "err": 0,
+              "n": 10
+            },
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "external",
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "mode",
+            "active": [
+              "external"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 5000,
+            "mode": "external",
+            "ext": {
+              "ok": false,
+              "p95": 100,
+              "err": 0,
+              "n": 10
+            },
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 5000,
+            "calm_ms": null,
+            "reason": "external_down",
+            "active": [
+              "db"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 10000,
+            "mode": "external",
+            "ext": null,
+            "db": {
+              "p95": 2000,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 1,
+            "changed_ms": 10000,
+            "calm_ms": null,
+            "reason": "escalate:db",
+            "active": [
+              "db",
+              "helpers"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 15000,
+            "mode": "external",
+            "ext": {
+              "ok": true,
+              "p95": 200,
+              "err": 0,
+              "n": 10
+            },
+            "db": {
+              "p95": 300,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 2
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "external",
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 15000,
+            "calm_ms": null,
+            "reason": "mode",
+            "active": [
+              "external"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "p95": [
+    {
+      "values": [],
+      "p95": 0
+    },
+    {
+      "values": [
+        5
+      ],
+      "p95": 5
+    },
+    {
+      "values": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "p95": 10
+    },
+    {
+      "values": [
+        100,
+        90,
+        80,
+        70,
+        60,
+        50,
+        40,
+        30,
+        20,
+        10,
+        15,
+        25,
+        35,
+        45,
+        55,
+        65,
+        75,
+        85,
+        95,
+        5
+      ],
+      "p95": 95
+    },
+    {
+      "values": [
+        3,
+        1,
+        2
+      ],
+      "p95": 3
+    }
+  ],
+  "policies": [
+    {
+      "policy": {
+        "v": 1,
+        "helpers": true,
+        "off": [],
+        "at": 1
+      },
+      "mode": "helpers"
+    },
+    {
+      "policy": {
+        "v": 1,
+        "helpers": false,
+        "off": [],
+        "at": 1
+      },
+      "mode": "db"
+    },
+    {
+      "policy": {
+        "v": 1,
+        "helpers": true,
+        "off": [],
+        "at": 1,
+        "mode": "external",
+        "external": "https://ext.example.ir"
+      },
+      "mode": "external"
+    },
+    {
+      "policy": {
+        "v": 1,
+        "helpers": false,
+        "off": [],
+        "at": 1,
+        "mode": "db"
+      },
+      "mode": "db"
+    },
+    {
+      "policy": null,
+      "mode": "helpers"
+    }
+  ]
+}

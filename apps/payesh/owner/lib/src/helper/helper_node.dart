@@ -486,6 +486,7 @@ Future<JobOutcome> submitJob({
   Random? random,
   bool helpersOn = true,
   bool Function()? busy,
+  bool Function(String helperId)? helperAllowed,
 }) async {
   final clock = now ?? DateTime.now;
   final wait = sleep ?? _realSleep;
@@ -520,7 +521,8 @@ Future<JobOutcome> submitJob({
             (h) =>
                 h.onlineAt(at) &&
                 h.kinds.contains(kind) &&
-                h.helperId != selfHelperId,
+                h.helperId != selfHelperId &&
+                (helperAllowed?.call(h.helperId) ?? true),
           )
           .toList();
     } on S3Failure {

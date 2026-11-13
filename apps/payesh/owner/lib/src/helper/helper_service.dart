@@ -6,6 +6,8 @@ import 'dart:async';
 import 'package:payesh_secure/payesh_secure.dart';
 
 import '../infra/infra_policy.dart';
+import '../infra/load_route.dart';
+import '../local/local_platform.dart' show defaultEndpointCheck;
 import '../local/s3_client.dart';
 import '../update/owner_update.dart';
 import 'helper_box.dart';
@@ -27,11 +29,19 @@ final class OwnerHelperService {
     EndpointProbe? probe,
     this.autoStart = true,
     this.slots,
+    ExternalProbe? externalProbe,
   }) : transport = transport ?? IoS3Transport.new,
        _now = now ?? DateTime.now {
     policy = InfraPolicyStore(
       secure: secure,
       transport: this.transport,
+      now: _now,
+    );
+    router = LoadRouter(
+      policy: () => (mode: policy.value.mode, external: policy.value.external),
+      helpersOnline: _helpersAvailable,
+      probe: externalProbe ?? _probeExternal,
+      busy: _nodeBusy,
       now: _now,
     );
     executor = JobExecutor(
@@ -52,6 +62,9 @@ final class OwnerHelperService {
 
   /// سیاست زیرساخت مالک: «پردازش کمکی» و زیرساخت‌های غیرفعال (ردیف ۱۳۱).
   late final InfraPolicyStore policy;
+
+  /// مسیر بار همین پنل (ردیف ۱۵۳): کِی سیستم‌های کمکی به کار گرفته شوند.
+  late final LoadRouter router;
   HelperNode? _node;
   S3Settings? _s3;
   final _ready = Completer<void>();
@@ -76,7 +89,8 @@ final class OwnerHelperService {
       sleep: sleep,
       version: ownerBuild > 0 ? 'build $ownerBuild' : 'dev',
       slots: slots,
-      acceptWork: () => policy.value.helpers,
+      // ردیف ۱۵۳: حالت «فقط دیتابیس» یا کلید خاموشِ همین سیستم ⇒ کار دیگران را برنمی‌دارد
+      acceptWork: () => policy.value.helpers && policy.value.helperOn(id!),
     );
     _node = n;
     await policy.loadCache();
@@ -85,6 +99,7 @@ final class OwnerHelperService {
     if (autoStart) {
       n.start();
       policy.start();
+      router.start();
     }
     if (!_ready.isCompleted) _ready.complete();
   }
@@ -134,12 +149,36 @@ final class OwnerHelperService {
       now: _now,
       sleep: sleep,
       helpersOn: policy.value.helpers,
-      // همین دستگاه پر است (کارهای دیگران) ⇒ نیاز به سرور کمکی
-      busy: () {
-        final n = _node;
-        return n != null && n.activeJobs >= n.slots;
-      },
+      // همین دستگاه پر است یا مسیر بار سیستم‌های کمکی را به کار گرفته ⇒ نیاز به سرور کمکی
+      busy: () => _nodeBusy() || router.state.helpersActive,
+      helperAllowed: policy.value.helperOn,
     );
+  }
+
+  bool _nodeBusy() {
+    final n = _node;
+    return n != null && n.activeJobs >= n.slots;
+  }
+
+  /// سیستم‌های کمکیِ فعال و روشن به‌جز همین دستگاه (برای مسیر بار).
+  Future<int?> _helpersAvailable() async {
+    final s = _s3;
+    if (s == null || s.bucket.isEmpty) return null;
+    final at = _now();
+    final list = await helpers();
+    return list
+        .where(
+          (h) =>
+              h.onlineAt(at) &&
+              h.helperId != _node?.helperId &&
+              policy.value.helperOn(h.helperId),
+        )
+        .length;
+  }
+
+  static Future<({bool ok, int ms})> _probeExternal(Uri url) async {
+    final r = await defaultEndpointCheck({'url': url.toString()});
+    return (ok: r.ok, ms: r.latencyMs ?? 0);
   }
 
   Future<List<HelperPresence>> helpers() async {
@@ -170,6 +209,7 @@ final class OwnerHelperService {
   }
 
   Future<void> dispose() async {
+    router.dispose();
     policy.dispose();
     await _node?.dispose();
   }
