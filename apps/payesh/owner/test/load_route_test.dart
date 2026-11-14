@@ -344,7 +344,13 @@ void main() {
         now: () => clock,
       );
       await tester.runAsync(router.tick);
+      // ردیف ۱۵۶: نسخهٔ درون کادر «نبض» بدون Card
+      await pump(tester, LoadCard(router: router, embedded: true));
+      expect(find.byKey(const Key('load-card')), findsOneWidget);
+      expect(find.byType(Card), findsNothing);
+      expect(find.byKey(const Key('load-rpm')), findsOneWidget);
       await pump(tester, LoadCard(router: router));
+      expect(find.byType(Card), findsOneWidget);
       expect(find.byKey(const Key('load-card')), findsOneWidget);
       expect(find.text('${faNumber(1500)} میلی‌ثانیه'), findsNWidgets(2));
       expect(find.text('۱۰'), findsOneWidget);

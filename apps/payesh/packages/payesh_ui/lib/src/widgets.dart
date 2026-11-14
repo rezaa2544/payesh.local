@@ -472,12 +472,19 @@ class NabdHeroCard extends StatelessWidget {
     required this.caption,
     this.icon = Icons.monitor_heart_outlined,
     this.details = const [],
+    this.side,
+    this.sideBreakpoint = 760,
   });
   final String title;
   final int value;
   final String caption;
   final IconData icon;
   final List<String> details;
+
+  /// محتوای کناری داخل همین کادر (مثلاً «بار لحظه‌ای» داشبورد مالک، ردیف ۱۵۶). در عرض
+  /// دست‌کم [sideBreakpoint] میان عدد و نشان می‌نشیند؛ در عرض کمتر زیر جزئیات می‌آید.
+  final Widget? side;
+  final double sideBreakpoint;
 
   @override
   Widget build(BuildContext context) {
@@ -527,61 +534,60 @@ class NabdHeroCard extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: tk.primary,
-                          fontWeight: FontWeight.w800,
-                        ),
+            child: LayoutBuilder(
+              builder: (context, box) {
+                final main = Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: tk.primary,
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        faNumber(value),
-                        key: const Key('nabd-hero-value'),
-                        style: TextStyle(
-                          fontSize: 44,
-                          height: 1.1,
-                          fontWeight: FontWeight.w800,
-                          color: tk.ink,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      faNumber(value),
+                      key: const Key('nabd-hero-value'),
+                      style: TextStyle(
+                        fontSize: 44,
+                        height: 1.1,
+                        fontWeight: FontWeight.w800,
+                        color: tk.ink,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
-                      Text(caption, style: TextStyle(color: tk.muted)),
-                      if (details.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            for (final d in details)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: tk.card.withValues(alpha: 0.8),
-                                  borderRadius: BorderRadius.circular(99),
-                                  border: Border.all(color: tk.line),
-                                ),
-                                child: Text(
-                                  d,
-                                  style: const TextStyle(fontSize: 12.5),
-                                ),
+                    ),
+                    Text(caption, style: TextStyle(color: tk.muted)),
+                    if (details.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          for (final d in details)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
                               ),
-                          ],
-                        ),
-                      ],
+                              decoration: BoxDecoration(
+                                color: tk.card.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(99),
+                                border: Border.all(color: tk.line),
+                              ),
+                              child: Text(
+                                d,
+                                style: const TextStyle(fontSize: 12.5),
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
-                  ),
-                ),
-                Container(
+                  ],
+                );
+                final badge = Container(
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
@@ -589,8 +595,43 @@ class NabdHeroCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Icon(icon, color: Colors.white, size: 32),
-                ),
-              ],
+                );
+                final extra = side;
+                if (extra == null) {
+                  return Row(
+                    children: [
+                      Expanded(child: main),
+                      badge,
+                    ],
+                  );
+                }
+                if (box.maxWidth >= sideBreakpoint) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: main),
+                      const SizedBox(width: 20),
+                      Expanded(flex: 5, child: extra),
+                      const SizedBox(width: 20),
+                      badge,
+                    ],
+                  );
+                }
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: main),
+                        badge,
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    extra,
+                  ],
+                );
+              },
             ),
           ),
         ],

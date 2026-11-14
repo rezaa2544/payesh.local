@@ -29,6 +29,10 @@ class _DashboardPageState extends OwnerPageState<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final r = _r;
+    final router = scope.router;
+    // ردیف ۱۵۶: «بار لحظه‌ای» داخل کادر «نبض پلتفرم»؛ تا وقتی کادر نیست (بارگیری، خطا،
+    // بدون داده) همان کارت جدا بالای داشبورد می‌ماند.
+    Widget? hero;
     Widget content;
     if (loading || r == null) {
       content = const StateBox.loading('در حال دریافت خلاصه…');
@@ -40,22 +44,24 @@ class _DashboardPageState extends OwnerPageState<DashboardPage> {
       if (_items.every((i) => n(i.$1) == 0)) {
         content = const StateBox.empty('هنوز داده‌ای برای خلاصه وجود ندارد.');
       } else {
+        // ردیف ۱۵۱: کارت قهرمان «نبض» مثل داشبورد پنل کاربران؛ بالای صفحه
+        hero = NabdHeroCard(
+          key: const Key('nabd-hero'),
+          title: 'نبض پلتفرم',
+          value: n('active_users'),
+          caption: 'کاربران فعال پلتفرم',
+          details: [
+            'اشتراک‌ها: ${faNumber(n('subscriptions'))}',
+            'پلن‌ها: ${faNumber(n('plans'))}',
+            'مجوزهای باز: ${faNumber(n('open_grants'))}',
+          ],
+          side: router == null
+              ? null
+              : LoadCard(router: router, embedded: true),
+        );
         content = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ردیف ۱۵۱: کارت قهرمان «نبض» مثل داشبورد پنل کاربران
-            NabdHeroCard(
-              key: const Key('nabd-hero'),
-              title: 'نبض پلتفرم',
-              value: n('active_users'),
-              caption: 'کاربران فعال پلتفرم',
-              details: [
-                'اشتراک‌ها: ${faNumber(n('subscriptions'))}',
-                'پلن‌ها: ${faNumber(n('plans'))}',
-                'مجوزهای باز: ${faNumber(n('open_grants'))}',
-              ],
-            ),
-            const SizedBox(height: PayeshTokens.space3),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -87,7 +93,10 @@ class _DashboardPageState extends OwnerPageState<DashboardPage> {
       },
       children: [
         // ردیف ۱۵۳: بار لحظه‌ای و مسیر بار (پیش‌نیاز حالت‌های معماری)
-        if (scope.router != null) LoadCard(router: scope.router!),
+        if (hero != null)
+          hero
+        else if (router != null)
+          LoadCard(router: router),
         if (monitor != null) LiveInfraPanel(monitor: monitor, api: api),
         content,
       ],

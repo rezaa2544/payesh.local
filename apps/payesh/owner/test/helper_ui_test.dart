@@ -102,6 +102,18 @@ void main() {
     // ردیف ۱۵۳: بار لحظه‌ای و مسیر بار بالای داشبورد
     expect(find.byKey(const Key('load-card')), findsOneWidget);
     expect(find.byKey(const Key('load-rpm')), findsOneWidget);
+    // ردیف ۱۵۶: داخل کادر «نبض پلتفرم»، بالای پایش زنده، بدون کارت جدا
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('nabd-hero')),
+        matching: find.byKey(const Key('load-rpm')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const Key('nabd-hero'))).dy,
+      lessThan(tester.getTopLeft(find.byKey(const Key('live-infra'))).dy),
+    );
     expect(find.byKey(const Key('route-chain')), findsOneWidget);
 
     // زیرساخت: کارت «زیرساخت‌ها» بالای صفحه (ردیف ۱۳۱)

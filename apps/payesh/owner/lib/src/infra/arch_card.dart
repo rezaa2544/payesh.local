@@ -271,10 +271,12 @@ class _ArchCardState extends State<ArchCard> {
   }
 }
 
-/// کارت «بار لحظه‌ای» داشبورد.
+/// کارت «بار لحظه‌ای» داشبورد. [embedded] ⇒ بدون کارت جدا، برای نشستن داخل کادر
+/// «نبض پلتفرم» (ردیف ۱۵۶).
 class LoadCard extends StatelessWidget {
-  const LoadCard({super.key, required this.router});
+  const LoadCard({super.key, required this.router, this.embedded = false});
   final LoadRouter router;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -291,8 +293,11 @@ class LoadCard extends StatelessWidget {
           width: 150,
           padding: const EdgeInsets.all(PayeshTokens.space3),
           decoration: BoxDecoration(
-            color: bg,
+            color: embedded
+                ? Color.alphaBlend(bg.withValues(alpha: 0.7), tk.card)
+                : bg,
             borderRadius: BorderRadius.circular(PayeshTokens.radiusSmall),
+            border: embedded ? Border.all(color: tk.line) : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,60 +320,65 @@ class LoadCard extends StatelessWidget {
           : v > routeThresholds.loMs
           ? PayeshTone.warning
           : PayeshTone.success;
+      final body = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.speed, color: tk.primary),
+              const SizedBox(width: 6),
+              Expanded(child: Text('بار لحظه‌ای', style: t.titleMedium)),
+              StatusBadge(
+                archModeTitles[router.policy().mode] ?? '',
+                key: const Key('load-mode'),
+                tone: PayeshTone.info,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              metric(
+                'rpm',
+                'درخواست در دقیقه',
+                faNumber(db.perMin),
+                PayeshTone.info,
+              ),
+              metric('p95', 'زمان پاسخ p95', _ms(db.p95), msTone(db.p95)),
+              metric('avg', 'میانگین پاسخ', _ms(db.avg), msTone(db.avg)),
+              metric(
+                'err',
+                'نرخ خطا',
+                _pct(db.err),
+                db.err > routeThresholds.errHi
+                    ? PayeshTone.danger
+                    : db.err > 0
+                    ? PayeshTone.warning
+                    : PayeshTone.success,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          RouteChainView(state: st),
+          const SizedBox(height: 4),
+          Text(
+            routeReasonFa(st.reason),
+            key: const Key('load-reason'),
+            style: t.bodySmall?.copyWith(color: tk.muted),
+          ),
+        ],
+      );
+      if (embedded) {
+        return KeyedSubtree(key: const Key('load-card'), child: body);
+      }
       return Card(
         key: const Key('load-card'),
         child: Padding(
           padding: const EdgeInsets.all(PayeshTokens.space4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.speed, color: tk.primary),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text('بار لحظه‌ای', style: t.titleMedium)),
-                  StatusBadge(
-                    archModeTitles[router.policy().mode] ?? '',
-                    key: const Key('load-mode'),
-                    tone: PayeshTone.info,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  metric(
-                    'rpm',
-                    'درخواست در دقیقه',
-                    faNumber(db.perMin),
-                    PayeshTone.info,
-                  ),
-                  metric('p95', 'زمان پاسخ p95', _ms(db.p95), msTone(db.p95)),
-                  metric('avg', 'میانگین پاسخ', _ms(db.avg), msTone(db.avg)),
-                  metric(
-                    'err',
-                    'نرخ خطا',
-                    _pct(db.err),
-                    db.err > routeThresholds.errHi
-                        ? PayeshTone.danger
-                        : db.err > 0
-                        ? PayeshTone.warning
-                        : PayeshTone.success,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              RouteChainView(state: st),
-              const SizedBox(height: 4),
-              Text(
-                routeReasonFa(st.reason),
-                key: const Key('load-reason'),
-                style: t.bodySmall?.copyWith(color: tk.muted),
-              ),
-            ],
-          ),
+          child: body,
         ),
       );
     },
