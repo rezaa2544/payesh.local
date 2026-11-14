@@ -40,6 +40,9 @@ Widget pageFor(String id) => switch (id) {
   _ => const DashboardPage(),
 };
 
+/// عرض لازم برای کنار هم نشستن دو بخش «زیرساخت» (ردیف ۱۵۷).
+const double infraSideBySideWidth = 960;
+
 /// Signed-in shell: the nine pages of the web panel + local pages, grouped by function
 /// (menu.dart). «نبض» sidebar on a tablet / Windows window (on the right in RTL); on a phone a
 /// grouped drawer + the floating glass capsule of the user panel.
@@ -159,17 +162,37 @@ class _OwnerShellState extends State<OwnerShell> {
       child: KeyedSubtree(
         key: ValueKey('page-$id-${identityHashCode(api)}'),
         child: id == 'infra' && widget.infraTop != null
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.sizeOf(context).height * 0.6,
-                    ),
-                    child: SingleChildScrollView(child: widget.infraTop),
-                  ),
-                  Expanded(child: pageFor(id)),
-                ],
+            ? LayoutBuilder(
+                builder: (context, box) {
+                  final top = SingleChildScrollView(
+                    key: const Key('infra-top-pane'),
+                    child: widget.infraTop,
+                  );
+                  // ردیف ۱۵۷: در صفحهٔ پهن «حالت معماری/زیرساخت‌ها» (راست) و
+                  // «ارائه‌دهنده‌ها/سرویس‌ها» (چپ) کنار هم، هر کدام با پیمایش جدا.
+                  if (box.maxWidth >= infraSideBySideWidth) {
+                    return Row(
+                      key: const Key('infra-side-by-side'),
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: top),
+                        Expanded(child: pageFor(id)),
+                      ],
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+                        ),
+                        child: top,
+                      ),
+                      Expanded(child: pageFor(id)),
+                    ],
+                  );
+                },
               )
             : pageFor(id),
       ),

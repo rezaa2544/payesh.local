@@ -123,6 +123,22 @@ void main() {
     expect(text(tester, 'infra-status-self'), startsWith('فعال'));
     expect(text(tester, 'infra-status-helpers'), startsWith('روشن'));
 
+    // ردیف ۱۵۷: پنجرهٔ پهن ⇒ «حالت معماری» راست و «ارائه‌دهنده‌ها» چپ، هم‌تراز در بالا
+    expect(find.byKey(const Key('infra-side-by-side')), findsOneWidget);
+    final arch = tester.getRect(find.byKey(const Key('arch-card')));
+    final prov = tester.getRect(find.text('ارائه‌دهنده‌ها').first);
+    expect(arch.left, greaterThan(prov.right), reason: 'معماری سمت راست');
+    final note = tester.getRect(find.byKey(const Key('provisioning-manual')));
+    expect((arch.top - note.top).abs(), lessThan(40), reason: 'هم‌تراز');
+    expect(prov.top, lessThan(arch.bottom), reason: 'کنار هم، نه زیر هم');
+    // پنجرهٔ باریک ⇒ مثل قبل زیر هم
+    tester.view.physicalSize = const Size(820, 1100);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('infra-side-by-side')), findsNothing);
+    expect(find.byKey(const Key('infra-top-pane')), findsOneWidget);
+    tester.view.physicalSize = const Size(1400, 1100);
+    await tester.pumpAndSettle();
+
     // ردیف ۱۵۱: سرور کمکی فقط در «زیرساخت» (دیگر در «تنظیمات» تکرار نمی‌شود)
     await tap(tester, 'nav-settings');
     expect(find.byKey(const Key('helper-switch')), findsNothing);
