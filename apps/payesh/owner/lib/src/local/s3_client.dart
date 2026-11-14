@@ -320,10 +320,22 @@ abstract interface class S3Transport {
 
 /// ریشه‌های سیستم + زنجیر رسمی Let's Encrypt (trust_bundle.dart). گواهی‌ای که از قبل در انبار
 /// باشد خطای «تکراری» می‌دهد و نادیده گرفته می‌شود؛ هیچ بررسی‌ای خاموش نمی‌شود.
+///
+/// ردیف ۱۵۹: حالت پیش‌فرض (ریشه‌های سیستم + همین زنجیر) یک بار ساخته و بین همهٔ اتصال‌ها
+/// مشترک می‌شود؛ پیش‌تر هر درخواست انبار ریشه‌های ویندوز را از نو بار می‌کرد.
 SecurityContext ownerTrustContext({
   bool withTrustedRoots = true,
   List<String> pems = letsEncryptChainPems,
 }) {
+  if (withTrustedRoots && identical(pems, letsEncryptChainPems)) {
+    return _sharedTrust ??= _buildTrust(true, pems);
+  }
+  return _buildTrust(withTrustedRoots, pems);
+}
+
+SecurityContext? _sharedTrust;
+
+SecurityContext _buildTrust(bool withTrustedRoots, List<String> pems) {
   final c = SecurityContext(withTrustedRoots: withTrustedRoots);
   for (final p in pems) {
     try {
@@ -340,6 +352,70 @@ abstract interface class ResettableTransport {
   void reset();
 }
 
+/// مخزن مشترک اتصال‌های HTTP به دیتابیس (ردیف ۱۵۹).
+///
+/// ریشهٔ کندی و خطای «بار لحظه‌ای» در حالت بیکار: هر کار پس‌زمینه (حضور سیستم کمکی، صف کارها،
+/// سیاست زیرساخت، سنجش ۵ ثانیه‌ای داشبورد، …) یک HttpClient تازه می‌ساخت و بعد می‌بست، و
+/// اتصال بیکار هم پس از ۵ ثانیه بسته می‌شد. نتیجه: حدود ۳۵ دست‌دهی TCP+TLS تازه در دقیقه
+/// بدون هیچ کاربری. روی شبکه‌هایی که اتصال تازه گاهی ۱۰ تا ۲۰ ثانیه طول می‌کشد (مثلاً تونل
+/// VPN/TUN)، همین دست‌دهی‌ها p95 را به ~۱۰ ثانیه و مهلت‌های تمام‌شده را به «نرخ خطا» تبدیل
+/// می‌کردند — درحالی‌که درخواست روی اتصال باز همیشه ۴۰ تا ۱۲۰ میلی‌ثانیه بود.
+///
+/// اکنون همهٔ [IoS3Transport]های پیش‌فرض یک HttpClient مشترک دارند؛ اتصال‌های keep-alive تا
+/// [idle] باز می‌مانند (آروان: `Keep-Alive: timeout=65`) و [IoS3Transport.close] فقط «رها
+/// کردن» است. [recycle] پس از خطای شبکه اتصال‌های بیکار را دور می‌ریزد بی‌آنکه درخواست‌های
+/// در جریانِ دیگران را قطع کند.
+final class S3ConnectionPool {
+  S3ConnectionPool._(this.connectTimeout, this.context);
+
+  /// زیر مهلت keep-alive سرور (آروان ۶۵ ثانیه) تا سراغ سوکتی که سرور بسته نرویم.
+  static const Duration idle = Duration(seconds: 45);
+
+  final Duration connectTimeout;
+  final SecurityContext context;
+  HttpClient? _client;
+  HttpOverrides? _overrides;
+
+  /// تعداد HttpClientهایی که این مخزن ساخته (برای آزمون‌ها و عیب‌یابی).
+  int clientsCreated = 0;
+
+  static final Map<Duration, S3ConnectionPool> _shared = {};
+
+  static S3ConnectionPool shared(Duration connectTimeout) =>
+      _shared.putIfAbsent(
+        connectTimeout,
+        () => S3ConnectionPool._(connectTimeout, ownerTrustContext()),
+      );
+
+  HttpClient get client {
+    final c = _client;
+    // آزمون‌ها HttpOverrides را عوض می‌کنند؛ HttpClientِ ساخته‌شده زیر override قبلی کنار می‌رود
+    if (c != null && identical(_overrides, HttpOverrides.current)) return c;
+    c?.close();
+    _overrides = HttpOverrides.current;
+    clientsCreated++;
+    return _client = HttpClient(context: context)
+      ..connectionTimeout = connectTimeout
+      ..idleTimeout = idle;
+  }
+
+  /// اتصال‌های بیکار دور ریخته می‌شوند (و DNS از نو)؛ درخواست‌های در جریان تمام می‌شوند.
+  void recycle() {
+    final c = _client;
+    _client = null;
+    c?.close();
+  }
+
+  /// فقط برای آزمون‌ها و خروج برنامه.
+  static void closeAll() {
+    for (final p in _shared.values) {
+      p._client?.close(force: true);
+      p._client = null;
+    }
+    _shared.clear();
+  }
+}
+
 final class IoS3Transport implements S3Transport, ResettableTransport {
   IoS3Transport({
     Duration timeout = const Duration(seconds: 20),
@@ -350,12 +426,17 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
            ? timeout
            : const Duration(seconds: 10),
        _context = context ?? ownerTrustContext() {
-    _client = _newClient();
+    // اعتماد پیش‌فرض ⇒ مخزن مشترک؛ اعتماد سفارشی (آزمون‌ها) ⇒ HttpClient خصوصی
+    _pool = context == null ? S3ConnectionPool.shared(_connectTimeout) : null;
+    _own = _pool == null ? _newClient() : null;
   }
   final Duration _timeout;
   final Duration _connectTimeout;
   final SecurityContext _context;
-  late HttpClient _client;
+  late final S3ConnectionPool? _pool;
+  HttpClient? _own;
+
+  HttpClient get _client => _pool?.client ?? _own!;
 
   /// اگر > 0: بدنهٔ خام تا این اندازه نگه داشته می‌شود ([S3Response.rawBytes]).
   final int maxBytes;
@@ -370,14 +451,18 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
 
   HttpClient _newClient() => HttpClient(context: _context)
     ..connectionTimeout = _connectTimeout
-    // اتصال بیکار زود بسته می‌شود تا هیچ‌وقت سراغ سوکتی که سرور (یا شبکه) بسته نرویم
-    ..idleTimeout = const Duration(seconds: 5);
+    ..idleTimeout = S3ConnectionPool.idle;
 
   /// اتصال‌های قبلی (و نتیجهٔ DNS آن‌ها) دور ریخته می‌شوند؛ درخواست بعدی از نو وصل می‌شود.
   @override
   void reset() {
-    _client.close(force: true);
-    _client = _newClient();
+    final p = _pool;
+    if (p != null) {
+      p.recycle();
+      return;
+    }
+    _own?.close(force: true);
+    _own = _newClient();
   }
 
   /// اتصال مستقیم به IP شناخته‌شده، با همان نام میزبان برای SNI و بررسی گواهی.
@@ -482,8 +567,9 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
     );
   }
 
+  /// مخزن مشترک: فقط رها کردن (اتصال keep-alive برای کار بعدی می‌ماند)؛ خصوصی: بستن.
   @override
-  void close() => _client.close(force: true);
+  void close() => _own?.close(force: true);
 }
 
 final class S3TestResult {
