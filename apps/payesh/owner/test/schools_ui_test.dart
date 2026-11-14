@@ -107,16 +107,30 @@ void main() {
       expect(find.byKey(const Key('schools-registry')), findsOneWidget);
       await tap(tester, 'p2-create-school');
       expect(find.byKey(const Key('school-form')), findsOneWidget);
+      // ردیف ۱۵۸: مشخصات اصلی p2 دوباره در فرم مالک است
       for (final k in const [
+        'sf-name',
+        'sf-code',
+        'sf-province',
+        'sf-county',
+        'sf-district',
+        'sf-area_kind',
         'sf-level',
+        'sf-type',
+        'sf-school_type',
         'sf-gender',
-        'sf-capacity',
-        'sf-shift',
         'sf-landline',
-        'sf-day-0',
-        'sf-cap-has_tuition',
-        'sf-excuse',
+        'sf-phone',
+        'sf-capacity',
+        'sf-active',
+        'sf-shift',
+        'sf-staff',
+        'sf-students',
       ]) {
+        expect(find.byKey(Key(k)), findsOneWidget, reason: k);
+      }
+      // روزهای کاری، پنجرهٔ موجه و قابلیت‌ها همچنان در «مشخصات مدرسه» پنل مدیر
+      for (final k in const ['sf-day-0', 'sf-cap-has_tuition', 'sf-excuse']) {
         expect(find.byKey(Key(k)), findsNothing, reason: k);
       }
       expect(find.byKey(const Key('sf-profile-note')), findsOneWidget);
@@ -128,8 +142,30 @@ void main() {
       await pick(tester, 'sf-province', 'تهران');
       await type(tester, 'sf-county', 'ری');
       await type(tester, 'sf-district', 'کهریزک');
+      await pick(tester, 'sf-level', 'ابتدایی');
+      await pick(tester, 'sf-gender', 'دخترانه');
+      await pick(tester, 'sf-school_type', 'شبانه‌روزی');
+      await pick(tester, 'sf-shift', 'هر دو شیفت');
+      await type(tester, 'sf-landline', '02133445566');
+      await type(tester, 'sf-phone', '0912123');
+      await type(tester, 'sf-capacity', '250');
+      await type(tester, 'sf-staff', '18');
+      await type(tester, 'sf-students', '260');
       await type(tester, 'sf-mg_name', 'علی رضایی');
       await type(tester, 'sf-mg_user', 'Ali.Rezaei');
+      await type(tester, 'sf-mg_pass', 'Madrese-1403');
+      await tap(tester, 'sf-submit');
+      expect(
+        tester.widget<Text>(find.byKey(const Key('sf-error'))).data,
+        contains('تلفن همراه رابط'),
+      );
+      await type(tester, 'sf-phone', '09121234567');
+      await tap(tester, 'sf-submit');
+      expect(
+        tester.widget<Text>(find.byKey(const Key('sf-error'))).data,
+        'تعداد دانش‌آموزان از ظرفیت بیشتر است',
+      );
+      await type(tester, 'sf-students', '240');
       await type(tester, 'sf-mg_pass', '123');
       await tap(tester, 'sf-submit');
       expect(
@@ -144,10 +180,19 @@ void main() {
       final s = (plain!['schools']! as List).single as Map;
       final id = '${s['id']}';
       expect((s['manager'] as Map)['username'], 'ali.rezaei');
-      // ردیف ۱۵۰: فرم مالک فقط مکان/اداره + مدیر؛ بقیه با مدیر (مشخصات مدرسه)
+      // ردیف ۱۵۸: مشخصات اصلی فرم مالک ذخیره می‌شود؛ روزهای کاری با مدیر
       expect(s.containsKey('work_days'), isFalse);
-      expect(s.containsKey('level'), isFalse);
-      expect(s.containsKey('gender'), isFalse);
+      expect(s['level'], 'ابتدایی');
+      expect(s['gender'], 'دخترانه');
+      expect(s['school_type'], 'boarding');
+      expect(s['shift'], 'هر دو');
+      expect(s['landline'], '02133445566');
+      expect(s['phone'], '09121234567');
+      expect(s['capacity'], 250);
+      expect(s['staff_count'], 18);
+      expect(s['student_count'], 240);
+      expect((s['capabilities'] as Map)['has_dorm'], 1);
+      expect((s['capabilities'] as Map)['has_evening'], 1);
       expect(s['province'], 'تهران');
       expect(s['district'], 'کهریزک');
       expect(find.byKey(Key('reg-school-$id')), findsOneWidget);
@@ -169,9 +214,17 @@ void main() {
       );
       await tap(tester, 'sf-cancel');
 
-      // ویرایش
+      // ویرایش (مقادیر قبلی در فرم پیش‌پر است)
       await tap(tester, 'school-edit-$id');
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('sf-capacity')))
+            .controller!
+            .text,
+        '250',
+      );
       await type(tester, 'sf-name', 'دبستان نو');
+      await type(tester, 'sf-capacity', '300');
       await tap(tester, 'sf-submit');
       expect(flashes.last, (true, 'تغییرات ذخیره شد'));
 
@@ -198,6 +251,8 @@ void main() {
       plain = await tester.runAsync(inBucket);
       final s2 = (plain!['schools']! as List).single as Map;
       expect(s2['name'], 'دبستان نو');
+      expect(s2['capacity'], 300);
+      expect(s2['level'], 'ابتدایی');
       expect(s2['active'], isFalse);
       expect((s2['manager'] as Map)['rev'], 2);
       final g = (plain['grants']! as List).single as Map;
@@ -264,6 +319,10 @@ void main() {
     // ردیف ۱۵۰: دادهٔ درخواست ثبت‌نام (مقطع، آمار) حفظ می‌شود
     expect(s['level'], 'متوسطه اول');
     expect(s['school_type'], 'rural');
+    // ردیف ۱۵۸: ظرفیت پیش‌فرض کمتر از تعداد دانش‌آموزان درخواست نیست
+    expect(s['capacity'], 320);
+    expect(s['student_count'], 320);
+    expect(s['phone'], '09151234567');
     expect(find.byKey(const Key('req-$rid')), findsNothing);
 
     await tap(tester, 'req-reject-$rid2');

@@ -17,6 +17,8 @@
 //          ردیف ۱۵۰: GET/POST /api/admin/school (مشخصات مدرسه در تنظیمات مدیر) · بدون نشست 401.
 
 //   SR-11  ردیف ۱۵۰: بردارهای school-profile v1؛ رجیستری مالک مقطع/قابلیت‌های تعیین‌شدهٔ مدیر را بازنویسی نمی‌کند.
+//   SR-12  ردیف ۱۵۸: مشخصات فرم مالک (مقطع، نوع، جنسیت، شیفت، ظرفیت، تلفن‌ها، آمار) هنگام میزبانی به سرور مدرسه
+//          می‌رسد؛ اصلاح مدیر می‌ماند؛ تغییر بعدی مالک فقط همان کلید را می‌نویسد (با وابستگی شیفت/مقطع).
 // خط آخر: SCHOOLS-145-OK checks=N | SCHOOLS-145-FAIL failures=N
 'use strict';
 const fs = require('node:fs');
@@ -559,6 +561,43 @@ function req(method, port, p, body, headers = {}) {
       const pr = sp.profileOf(s1);
       assert.strictEqual(pr.complete, true); assert.strictEqual(pr.capabilities.has_dorm, 1); assert.strictEqual(pr.capacity, 300);
       assert.strictEqual(sp.profileOf({ name: 'x', level: 'ابتدایی' }).complete, false);
+      store.close();
+    });
+
+    await check('SR-12 ردیف ۱۵۸: مشخصات فرم مالک به سرور مدرسه می‌رسد؛ فقط کلید تغییرکردهٔ مالک بازنویسی می‌شود', async () => {
+      const store = newStore();
+      const owner = { id: 's-0158', name: 'دبیرستان نمونه', code: '158', province: 'تهران', county: 'تهران', district: 'منطقه ۵', area_kind: 'district',
+        level: 'متوسطه اول', type: 'عادی', school_type: 'boarding', gender: 'دخترانه', shift: 'صبح', capacity: 400,
+        landline: '۰۲۱۴۴۵۵۶۶۷۷', phone: '09121234567', staff_count: 25, student_count: 310,
+        capabilities: { has_tuition: 0, has_dorm: 1, has_iep: 0, has_workshop: 0, has_multigrade: 0, has_second_term_exam: 0, has_evening: 0 },
+        manager: { name: 'مدیر', username: 'm.n', rev: 1, password_hash: 'x' } };
+      sr.adoptSchool(store, owner, {});
+      let s1 = store.get('schools', 1);
+      for (const [k, v] of Object.entries({ level: 'متوسطه اول', school_type: 'boarding', gender: 'دخترانه', capacity: 400, landline: '02144556677', phone: '09121234567', staff_count: 25, student_count: 310, area_kind: 'district' })) {
+        assert.deepStrictEqual(s1[k], v, 'adopt ' + k);
+      }
+      assert.strictEqual(s1.capabilities.has_dorm, 1);
+      assert.strictEqual(sr.applySchool(store, owner), false, 'بدون تغییر ⇒ idempotent');
+      /* مدیر در «مشخصات مدرسه» ظرفیت و جنسیت را اصلاح می‌کند */
+      store.update('schools', 1, { capacity: 450, gender: 'پسرانه', level: 'متوسطه دوم', branches: ['نظری'], fields: ['ریاضی فیزیک'], profile_at: new Date().toISOString() });
+      assert.strictEqual(sr.applySchool(store, owner), false, 'مقادیر قدیمی مالک اصلاح مدیر را بازنویسی نمی‌کند');
+      assert.strictEqual(store.get('schools', 1).capacity, 450);
+      /* مالک فقط شیفت و تعداد کارکنان را عوض می‌کند */
+      const o2 = Object.assign({}, owner, { shift: 'هر دو', staff_count: 30 });
+      assert.strictEqual(sr.applySchool(store, o2), true);
+      s1 = store.get('schools', 1);
+      assert.strictEqual(s1.shift, 'هر دو'); assert.strictEqual(s1.staff_count, 30);
+      assert.strictEqual(s1.capabilities.has_evening, 1, 'شیفت هر دو ⇒ نوبت دوم روشن');
+      assert.strictEqual(s1.capacity, 450); assert.strictEqual(s1.gender, 'پسرانه'); assert.strictEqual(s1.level, 'متوسطه دوم');
+      assert.deepStrictEqual(s1.branches, ['نظری']);
+      assert.strictEqual(sr.applySchool(store, o2), false, 'یک بار');
+      /* مالک مقطع را عوض می‌کند ⇒ شاخه‌ها پاک می‌شوند */
+      assert.strictEqual(sr.applySchool(store, Object.assign({}, o2, { level: 'ابتدایی' })), true);
+      s1 = store.get('schools', 1);
+      assert.strictEqual(s1.level, 'ابتدایی'); assert.deepStrictEqual(s1.branches, []); assert.deepStrictEqual(s1.fields, []);
+      assert.ok(store.recentAudit(50).some(a => a.action === 'owner_school_profile'), 'audit');
+      /* مدرسهٔ ردیف ۱۵۰–۱۵۷ (رکورد مالک بدون این کلیدها) ⇒ هیچ کلیدی نوشته نمی‌شود */
+      assert.deepStrictEqual(sr.ownerProfileOf({ name: 'x', manager: {} }), {});
       store.close();
     });
 

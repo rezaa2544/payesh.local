@@ -37,6 +37,7 @@ const ay = require('./academic-year');
 const s3mem = require('./s3mem');
 const { trustFetch } = require('./s3-https');
 const { nowISO, verifySecret, normDigits } = require('./util');
+const schoolProfile = require('./school-profile');
 
 const SALT = Buffer.from('payesh/schools', 'utf8');
 const INFO = Buffer.from('v1', 'utf8');
@@ -596,9 +597,13 @@ function adoptSchool(store, sch, { instance } = {}) {
     province: sch.province || '', county: sch.county || '', district: sch.district || '', city: sch.county || '',
     phone: normDigits(sch.phone || ''), landline: normDigits(sch.landline || ''), address: sch.address || '',
     capacity: sch.capacity || 300, work_days: sch.work_days || [0, 1, 2, 3, 4],
+    area_kind: sch.area_kind === 'village' ? 'village' : 'district',
+    staff_count: Number.isInteger(sch.staff_count) ? sch.staff_count : null,
+    student_count: Number.isInteger(sch.student_count) ? sch.student_count : null,
     excuse_window_minutes: sch.excuse_window_minutes != null ? sch.excuse_window_minutes : 15,
     branches: sch.branches || [], fields: sch.fields || [],
-    capabilities: Object.assign({}, sch.capabilities || {}),
+    capabilities: Object.assign({}, sch.capabilities || {},
+      sch.shift === 'شب' || sch.shift === 'هر دو' ? { has_evening: 1 } : {}),
     boom_goals: sch.boom_goals || '', public_goals: !!sch.public_goals,
     owner_school_id: sch.id, created_at: nowISO(),
   }, { id: 1 });
@@ -610,9 +615,54 @@ function adoptSchool(store, sch, { instance } = {}) {
     active: true, school_id: 1, title: 'مدیر مدرسه', created_at: nowISO(),
     password_hash: m.password_hash, phone_hash: m.password_hash, password_enc: null,
   });
-  store.setMeta(META.bound, { school_id: sch.id, at: nowISO(), manager_rev: m.rev || 1, username: String(m.username || '').toLowerCase(), instance: instance || null });
+  store.setMeta(META.bound, { school_id: sch.id, at: nowISO(), manager_rev: m.rev || 1, username: String(m.username || '').toLowerCase(), instance: instance || null, owner_profile: ownerProfileOf(sch) });
   store.audit({ user_id: manager.id, role: 'manager', action: 'school_adopt', collection: 'schools', record_id: 1, after: { owner_school_id: sch.id } });
   return manager;
+}
+
+/* ردیف ۱۵۸: مشخصاتی که فرم مالک دوباره تعیین می‌کند (owner/lib/src/schools/school_registry.dart
+   ownerProfileKeys). مدیر هم در «مشخصات مدرسه» اصلاحشان می‌کند؛ پس روی سرور مدرسه فقط کلیدی
+   بازنویسی می‌شود که مقدارش در رجیستری مالک نسبت به آخرین دیده‌شده (bound.owner_profile) عوض شده.
+   کلیدی که بار اول دیده می‌شود فقط وقتی نوشته می‌شود که مدیر هنوز مشخصات را ذخیره نکرده (profile_at)؛
+   سرورِ میزبان‌شده پیش از ردیف ۱۵۸ (بدون owner_profile) بار اول فقط مقادیر را ثبت می‌کند. */
+const OWNER_PROFILE_KEYS = ['level', 'type', 'school_type', 'gender', 'shift', 'capacity', 'landline', 'phone',
+  'capabilities', 'staff_count', 'student_count'];
+const SECOND_LEVEL = 'متوسطه دوم';
+
+function ownerProfileOf(sch) {
+  const out = {};
+  if (!sch || typeof sch !== 'object') return out;
+  const has = (k) => Object.prototype.hasOwnProperty.call(sch, k) && sch[k] !== undefined;
+  const int = (v) => (Number.isInteger(v) ? v : null);
+  for (const k of OWNER_PROFILE_KEYS) {
+    if (!has(k)) continue;
+    const v = sch[k];
+    if (k === 'phone' || k === 'landline') out[k] = normDigits(v || '');
+    else if (k === 'capacity') { if (Number.isInteger(v) && v > 0) out[k] = v; }
+    else if (k === 'staff_count' || k === 'student_count') out[k] = int(v);
+    else if (k === 'capabilities') {
+      if (v && typeof v === 'object') {
+        const caps = {};
+        for (const c of schoolProfile.CAPS) caps[c] = v[c] === 1 || v[c] === true ? 1 : 0;
+        out[k] = caps;
+      }
+    } else if (typeof v === 'string' && v) out[k] = v;
+  }
+  return out;
+}
+
+const sameVal = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+
+/* وابستگی‌ها مثل school-profile.validateProfile: شیفت شب/هر دو ⇒ has_evening؛ مقطع غیر متوسطه دوم ⇒ بدون شاخه */
+function withProfileRules(s1, patch) {
+  const shift = patch.shift || (s1 && s1.shift);
+  if (patch.capabilities) patch.capabilities = Object.assign({}, (s1 && s1.capabilities) || {}, patch.capabilities);
+  if (shift === 'شب' || shift === 'هر دو') {
+    const caps = patch.capabilities || Object.assign({}, (s1 && s1.capabilities) || {});
+    if (caps.has_evening !== 1) { caps.has_evening = 1; patch.capabilities = caps; }
+  }
+  if (patch.level && patch.level !== SECOND_LEVEL) { patch.branches = []; patch.fields = []; }
+  return patch;
 }
 
 /* ورود روی سرور تازه: اگر نام کاربری و رمز با مدیر یکی از مدارس پنل مالک یکی است، همین سرور
@@ -659,8 +709,8 @@ function applySchool(store, sch) {
     changed = true;
   }
   const s1 = store.get('schools', 1);
-  /* ردیف ۱۵۰: مالک فقط نام/مکان/مدیر را تعیین می‌کند؛ مقطع، قابلیت‌ها و بقیهٔ مشخصات
-     مال تنظیمات مدیر است و از رجیستری مالک بازنویسی نمی‌شود */
+  /* ردیف ۱۵۰: نام/مکان همیشه از مالک. روزهای کاری، پنجرهٔ موجه، شاخه‌ها و بوم فقط مال مدیر است.
+     ردیف ۱۵۸: مشخصات فرم مالک (OWNER_PROFILE_KEYS) فقط وقتی مالک همان کلید را عوض کرده باشد. */
   if (s1 && sch.name) {
     const loc = { name: sch.name, code: sch.code || s1.code || '', province: sch.province || s1.province || '',
       county: sch.county || s1.county || '', district: sch.district != null ? sch.district : (s1.district || ''),
@@ -669,6 +719,28 @@ function applySchool(store, sch) {
       store.update('schools', 1, Object.assign(loc, { city: loc.county }));
       changed = true;
     }
+  }
+  if (s1 && sch.name) {
+    const nb = boundOf(store) || b;
+    /* سرورِ میزبان‌شده پیش از ردیف ۱۵۸ آخرین مقادیر مالک را ندارد: آن بار فقط ثبت می‌شود، چیزی بازنویسی نمی‌شود */
+    const hasSnap = !!(nb.owner_profile && typeof nb.owner_profile === 'object');
+    const snap = hasSnap ? nb.owner_profile : {};
+    const cur = ownerProfileOf(sch);
+    const managerEdited = !!s1.profile_at;
+    const s1now = store.get('schools', 1) || s1;
+    const patch = {};
+    for (const k of Object.keys(cur)) {
+      const seen = Object.prototype.hasOwnProperty.call(snap, k);
+      const ownerChanged = seen ? !sameVal(snap[k], cur[k]) : hasSnap && !managerEdited;
+      if (ownerChanged && !sameVal(s1now[k], cur[k])) patch[k] = cur[k];
+    }
+    if (Object.keys(patch).length) {
+      store.update('schools', 1, withProfileRules(s1now, patch));
+      store.audit({ role: 'owner', action: 'owner_school_profile', collection: 'schools', record_id: 1, after: { keys: Object.keys(patch) } });
+      changed = true;
+    }
+    const nextSnap = Object.assign({}, snap, cur);
+    if (!sameVal(snap, nextSnap)) store.setMeta(META.bound, Object.assign({}, boundOf(store) || nb, { owner_profile: nextSnap }));
   }
   return changed;
 }
@@ -812,6 +884,6 @@ module.exports = {
   K, DIR, SALT: SALT.toString('utf8'), PLANS, ROLES, OFFERED, DEFAULTS, plansFor, effectiveEnd, LEVELS, USERNAME_RE,
   RegistryError, seal, open, keyFor, readEnv, writeEnv, trialKey, settingsOf, verifyOk, fill,
   registry, boundOf, schoolOf, gate, startTrial, startPayment, submitReceipt, callback, callbackPage,
-  applyOwner, applySchool, adoptOnLogin, adoptSchool, findManager, loginShape, register, requestStatus, validRequest,
+  applyOwner, applySchool, adoptOnLogin, adoptSchool, ownerProfileOf, OWNER_PROFILE_KEYS, findManager, loginShape, register, requestStatus, validRequest,
   pullRegistry, writeAck, poll, start, stop, subsState, markPaid, reportPayment, resendUnreported, normRef,
 };

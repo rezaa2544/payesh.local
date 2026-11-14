@@ -829,14 +829,30 @@ final class SchoolRegistry {
     }
     if (t('province').isEmpty) return 'استان را انتخاب کنید';
     if (t('county').isEmpty) return 'شهرستان را وارد کنید';
-    // ردیف ۱۵۰: مقطع را مدیر در «مشخصات مدرسه» تعیین می‌کند؛ اگر آمده باشد (درخواست
-    // ثبت‌نام یا مدرسهٔ قدیمی) باید معتبر باشد.
+    // ردیف ۱۵۸: مقطع، تلفن‌ها، ظرفیت و آمار دوباره در فرم مالک است (همان قواعد
+    // server/school-profile.js). شاخه‌های متوسطه دوم را مدیر در «مشخصات مدرسه» انتخاب می‌کند.
     if (t('level').isNotEmpty && !schoolLevels.contains(t('level'))) {
       return 'مقطع را انتخاب کنید';
     }
-    final br = f['branches'];
-    if (t('level') == 'متوسطه دوم' && (br is! List || br.isEmpty)) {
-      return 'برای متوسطه دوم دست‌کم یک شاخه (نظری، فنی و حرفه‌ای یا کاردانش) انتخاب کنید';
+    final landline = digitsOnly(f['landline']);
+    if (landline.isNotEmpty && !RegExp(r'^0\d{6,10}$').hasMatch(landline)) {
+      return 'تلفن ثابت مدرسه باید با ۰ شروع شود (۷ تا ۱۱ رقم)';
+    }
+    final sPhone = digitsOnly(f['phone']);
+    if (sPhone.isNotEmpty && !RegExp(r'^09\d{9}$').hasMatch(sPhone)) {
+      return 'تلفن همراه رابط باید ۱۱ رقم و با ۰۹ شروع شود';
+    }
+    final cap = f['capacity'];
+    if (cap != null && (cap is! int || cap < 1 || cap > 20000)) {
+      return 'ظرفیت باید بین ۱ تا ۲۰٬۰۰۰ باشد';
+    }
+    final staff = f['staff_count'];
+    if (staff != null && (staff is! int || staff > 5000)) {
+      return 'تعداد کارکنان حداکثر ۵٬۰۰۰ است';
+    }
+    final students = f['student_count'];
+    if (students is int && cap is int && students > cap) {
+      return 'تعداد دانش‌آموزان از ظرفیت بیشتر است';
     }
     final m = f['manager'] is Map
         ? (f['manager']! as Map).cast<String, Object?>()
@@ -878,9 +894,10 @@ final class SchoolRegistry {
     return null;
   }
 
-  /// ردیف ۱۵۰: کلیدهایی که مدیر در «مشخصات مدرسه» تعیین می‌کند؛ فرم مالک آن‌ها را
-  /// نمی‌فرستد و فقط اگر آمده باشند (درخواست ثبت‌نام/مدرسهٔ قدیمی) نگه داشته می‌شوند.
-  static const List<String> managerOwnedKeys = [
+  /// ردیف ۱۵۸: مشخصاتی که فرم مالک دوباره تعیین می‌کند (همان بخش p2). مدیر هم در
+  /// «مشخصات مدرسه» می‌تواند اصلاحشان کند؛ سرور مدرسه فقط کلیدی را که مالک عوض کرده
+  /// بازنویسی می‌کند (server/school-registry.js · OWNER_PROFILE_KEYS).
+  static const List<String> ownerProfileKeys = [
     'phone',
     'landline',
     'level',
@@ -889,6 +906,14 @@ final class SchoolRegistry {
     'gender',
     'shift',
     'capacity',
+    'capabilities',
+    'staff_count',
+    'student_count',
+  ];
+
+  /// کلیدهایی که فقط مدیر در «مشخصات مدرسه» تعیین می‌کند؛ فرم مالک آن‌ها را نمی‌فرستد
+  /// و فقط اگر آمده باشند (درخواست ثبت‌نام/مدرسهٔ قدیمی) نگه داشته می‌شوند.
+  static const List<String> managerOwnedKeys = [
     'work_days',
     'excuse_window_minutes',
     'capabilities',
@@ -896,8 +921,6 @@ final class SchoolRegistry {
     'fields',
     'boom_goals',
     'public_goals',
-    'staff_count',
-    'student_count',
   ];
 
   static Map<String, Object?> _clean(Map<String, Object?> f) => _cleanAll(f)

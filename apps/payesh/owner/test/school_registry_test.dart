@@ -226,9 +226,29 @@ void main() {
         await err(school(code: '1002', user: 'b.user'), '123'),
         contains('دست‌کم ۶'),
       );
+      // ردیف ۱۵۸: شاخه‌های متوسطه دوم را مدیر انتخاب می‌کند؛ تلفن‌ها، ظرفیت و آمار در فرم مالک
+      String? v(Map<String, Object?> f) =>
+          SchoolRegistry.validateSchool(f, const [], password: 'pass-123456');
+      final base = school(code: '1002', user: 'b.user', level: 'متوسطه دوم');
+      expect(v(base), isNull);
+      expect(v({...base, 'phone': '0912'}), contains('تلفن همراه رابط'));
+      expect(v({...base, 'landline': '2133'}), contains('تلفن ثابت'));
+      expect(v({...base, 'capacity': 0}), contains('ظرفیت'));
+      expect(v({...base, 'staff_count': 9000}), contains('کارکنان'));
       expect(
-        await err(school(code: '1002', user: 'b.user', level: 'متوسطه دوم')),
-        contains('دست‌کم یک شاخه'),
+        v({...base, 'capacity': 100, 'student_count': 101}),
+        'تعداد دانش‌آموزان از ظرفیت بیشتر است',
+      );
+      expect(
+        v({
+          ...base,
+          'phone': '09121234567',
+          'landline': '02133445566',
+          'capacity': 100,
+          'student_count': 100,
+          'staff_count': 12,
+        }),
+        isNull,
       );
       expect(
         await err({...school(code: '1002', user: 'b.user'), 'province': ''}),
