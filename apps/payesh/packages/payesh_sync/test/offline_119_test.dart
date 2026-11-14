@@ -1035,7 +1035,16 @@ void main() {
       lessThanOrEqualTo(8 * 8),
       reason: 'a tight loop would be hundreds',
     );
+    // Row 158 (CI #162): each device keeps retrying (backoff 400–1600 ms) during the outage and
+    // is legitimately «syncing» while an attempt is on the wire; sampling one instant can land on
+    // such an attempt on a slow runner. Wait (bounded) for the between-attempts state of each
+    // device, then assert it strictly: offline, nothing blocked, all 3 ops still waiting.
     for (final (ob, a, _) in devices) {
+      await until(
+        () => a.current.phase != SyncPhase.syncing,
+        max: const Duration(seconds: 5),
+        what: 'device between retry attempts',
+      );
       expect(a.current.phase, SyncPhase.offline);
       expect(ob.stats().blocked, 0, reason: 'outage must not block');
       expect(a.current.waiting, 3);
