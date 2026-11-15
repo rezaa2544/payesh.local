@@ -250,6 +250,49 @@ class SessionController extends ChangeNotifier {
   /// Whether this build offers the LAN login.
   bool get lanAvailable => lan != null;
 
+  /// Row 162 — this build has a Gateway (school code + activation code). Without one the
+  /// school-code screen can never succeed, so it is not shown at all.
+  bool get gatewayAvailable => api is! UnconfiguredSchoolAccess;
+
+  /// Row 162 — the login of the school server is the first (and only) login screen.
+  bool get lanFirst => lan != null && !gatewayAvailable;
+
+  /// Row 162 — the owner's login order last seen on the remembered server (before it answered).
+  bool get lastMobileFirst => _lastPrimary == 'mobile';
+  String _lastPrimary = 'password';
+
+  /// Loopback address of a school server running on this same computer.
+  static final Uri _loopback = Uri.parse(
+    'http://127.0.0.1:${LanServerRules.defaultPort}',
+  );
+
+  /// Row 162 — opens the login form of the remembered school server (or of a server on this same
+  /// computer) without asking for the address again; otherwise the form asks for it.
+  Future<void> _startLan() async {
+    final store = lanAccounts;
+    final last = await store.lastServer();
+    _lastPrimary = await store.lastPrimary();
+    final first = NeedLan(typed: last == null ? '' : _typedOf(last));
+    _set(first);
+    final api = lan;
+    if (api == null) return;
+    final candidates = <Uri>[?last, if (last != _loopback) _loopback];
+    for (final server in candidates) {
+      try {
+        final info = await api.probe(server);
+        // the user may already have typed or pressed something — never overwrite that
+        if (!identical(_state, first) || _busy) return;
+        _lanShare = info.lanUrls;
+        await store.remember(info);
+        _lastPrimary = info.loginPrimary;
+        _set(NeedLan(info: info, typed: _typedOf(server)));
+        return;
+      } on Object {
+        // next candidate / the form asks for the address
+      }
+    }
+  }
+
   /// Addresses of the LAN server for the other devices (known after the address step).
   List<String> get lanShareUrls => _lanShare;
   List<String> _lanShare = const [];
@@ -328,15 +371,18 @@ class SessionController extends ChangeNotifier {
       }
       final saved = await accounts.load();
       _saved = saved;
-      if (saved == null) return _set(const NeedSchool());
+      if (saved == null) {
+        // row 162: without a Gateway in this build the school-code screen is a dead end — the
+        // first screen is the school server's own login (username/password or mobile + SMS code,
+        // in the order the owner chose).
+        if (lanFirst) return await _startLan();
+        return _set(const NeedSchool());
+      }
       _set(SignedIn(school: saved.school, role: saved.role, uid: saved.uid));
       await refresh();
     } on Object {
-      _set(
-        const NeedSchool(
-          error: 'حافظهٔ امن دستگاه باز نشد — برنامه را دوباره باز کنید',
-        ),
-      );
+      const msg = 'حافظهٔ امن دستگاه باز نشد — برنامه را دوباره باز کنید';
+      _set(lanFirst ? const NeedLan(error: msg) : const NeedSchool(error: msg));
     }
   }
 
@@ -474,6 +520,8 @@ class SessionController extends ChangeNotifier {
       await lanAccounts.clear();
       if (t != null) await lan?.logout(server: l.server, token: t);
       _publish(SyncPhase.idle);
+      // row 162: straight back to the same server's login form (no address step)
+      if (lanFirst) return _startLan();
       _set(NeedLan(typed: _typedOf(l.server)));
       return;
     }
@@ -539,7 +587,7 @@ class SessionController extends ChangeNotifier {
 
   /// Back from the LAN form to the school-code (Gateway) login.
   void leaveLan() {
-    if (_busy) return;
+    if (_busy || !gatewayAvailable) return;
     _set(const NeedSchool());
   }
 
@@ -565,12 +613,61 @@ class SessionController extends ChangeNotifier {
     try {
       final info = await api.probe(server);
       _lanShare = info.lanUrls;
+      await lanAccounts.remember(info);
+      _lastPrimary = info.loginPrimary;
       _set(NeedLan(info: info, typed: typed));
     } on LanAccessFailure catch (e) {
       _set(NeedLan(error: _lanFail(e), typed: typed));
     } on Object {
       _set(NeedLan(error: _unknown, typed: typed));
     }
+  }
+
+  /// Row 162 — the single login screen (server not reached yet): the address, then straight on
+  /// with the username/password login — one press. A fresh server shows its first setup instead;
+  /// an empty login only connects (the form then shows the server's own login order).
+  Future<void> connectAndLogin(
+    String typed,
+    String phone,
+    String password,
+  ) async {
+    if (!await _connect(typed, login: phone)) return;
+    if (phone.trim().isEmpty && password.isEmpty) return;
+    final s = _state;
+    if (s is NeedLan && s.info != null && !s.needsSetup) {
+      await submitLanLogin(phone, password);
+    }
+  }
+
+  /// Row 162 — same, for «دریافت کد پیامکی» (login or «فراموشی رمز»).
+  Future<void> connectAndRequestOtp(
+    String typed,
+    String mobile, {
+    String purpose = 'login',
+  }) async {
+    if (!await _connect(typed)) return;
+    if (mobile.trim().isEmpty) return;
+    final s = _state;
+    if (s is NeedLan && s.info != null && !s.needsSetup) {
+      await requestLanOtp(mobile, purpose: purpose);
+    }
+  }
+
+  Future<bool> _connect(String typed, {String login = ''}) async {
+    final s = _state;
+    if (_busy || lan == null || s is! NeedLan) return false;
+    final info = s.info;
+    final server = LanServerRules.parse(typed);
+    if (info != null && (server == null || server == info.server)) return true;
+    await submitLanServer(typed);
+    final n = _state;
+    if (n is NeedLan && n.info != null) {
+      if (login.isNotEmpty && n.login.isEmpty) {
+        _set(NeedLan(info: n.info, typed: n.typed, login: login));
+      }
+      return true;
+    }
+    return false;
   }
 
   /// LAN step 2: phone (or national id) + password → device token in the secure store.

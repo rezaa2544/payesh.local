@@ -3,6 +3,8 @@
 //   • وضعیت: آخرین بررسی، آخرین پشتیبان موفق، خطا، پیشرفت زنده؛
 //   • «پشتیبان‌گیری اکنون»؛
 //   • فهرست پشتیبان‌ها با جای نگهداری و «بازیابی» یک‌کلیکی (با تأیید).
+//   • ردیف ۱۶۲: «پشتیبان اصلی» یک بار با حجم کامل، و هر دور فقط آنچه همان دور افزوده شد
+//     («۱۲ فایل تازه/تغییرکرده · ۳۵ کیلوبایت») — نه حجم کل دیتابیس در هر ردیف.
 
 import 'dart:async';
 
@@ -45,6 +47,44 @@ const Map<String, String> backupTargetFa = {
   'db': 'دیتابیس',
 };
 
+/// ردیف ۱۶۲ — هر ردیف فقط آنچه همان دور افزود؛ پشتیبان اصلی با حجم کامل.
+String backupItemFa(BackupItem it) {
+  if (it.main) {
+    return 'پشتیبان اصلی — ${faNumber(it.count)} فایل · ${backupSizeFa(it.bytes)}';
+  }
+  final parts = <String>[
+    if (it.changed > 0)
+      '${faNumber(it.changed)} فایل تازه/تغییرکرده · ${backupSizeFa(it.changedBytes)}',
+    if (it.removed > 0) '${faNumber(it.removed)} فایل پاک‌شده',
+  ];
+  return parts.isEmpty ? 'بدون تغییر' : parts.join('، ');
+}
+
+/// خلاصهٔ بالای صفحه: یک پشتیبان اصلی + جمع تغییرهای افزوده‌شده پس از آن.
+List<Widget> backupMainLines(List<BackupItem> items, TextTheme t) {
+  final mains = items.where((i) => i.main).toList();
+  if (mains.isEmpty) return const [];
+  final m = mains.last; // قدیمی‌ترین (فهرست تازه‌ترین اول است)
+  final adds = items.where((i) => !i.main && i.id.compareTo(m.id) > 0).toList();
+  final addBytes = adds.fold<int>(0, (a, i) => a + i.changedBytes);
+  final now = items.first;
+  return [
+    Text(
+      'پشتیبان اصلی: ${faNumber(m.count)} فایل · ${backupSizeFa(m.bytes)} (${_stamp(m.at)})',
+      key: const Key('backup-main'),
+    ),
+    Text(
+      adds.isEmpty
+          ? 'هنوز تغییری پس از پشتیبان اصلی افزوده نشده است.'
+          : 'پس از آن فقط تغییرها افزوده شده: ${faNumber(adds.length)} دور، روی هم '
+                '${backupSizeFa(addBytes)} · اکنون ${faNumber(now.count)} فایل · '
+                '${backupSizeFa(now.bytes)}',
+      key: const Key('backup-adds'),
+      style: t.bodySmall,
+    ),
+  ];
+}
+
 class BackupView extends StatefulWidget {
   const BackupView({super.key, required this.engine});
   final OwnerBackupEngine engine;
@@ -84,9 +124,9 @@ class _BackupViewState extends State<BackupView> {
       _flash(
         true,
         r.created
-            ? 'پشتیبان ساخته شد: ${faNumber(r.count)} فایل '
-                  '(${faNumber(r.fetched)} فایل تازه یا تغییرکرده).'
-            : 'تغییری نبود؛ آخرین پشتیبان همچنان کامل است.',
+            ? 'تغییرها به پشتیبان اصلی افزوده شد: ${faNumber(r.fetched)} فایل تازه یا '
+                  'تغییرکرده دانلود شد (از کل ${faNumber(r.count)} فایل).'
+            : 'تغییری نبود؛ چیزی دانلود نشد و پشتیبان همچنان کامل است.',
       );
     }
   }
@@ -97,7 +137,8 @@ class _BackupViewState extends State<BackupView> {
       builder: (c) => AlertDialog(
         title: const Text('بازیابی کامل دیتابیس'),
         content: Text(
-          'همهٔ ${faNumber(it.count)} فایلِ پشتیبان ${_stamp(it.at)} در دیتابیسِ '
+          'وضع کامل دیتابیس در ${_stamp(it.at)} (${faNumber(it.count)} فایل، از پشتیبان اصلی '
+          'و تغییرهای تا آن لحظه) در دیتابیسِ '
           'تنظیم‌شده نوشته می‌شود. پیش از آن از وضع فعلی پشتیبان «پیش از بازیابی» '
           'گرفته می‌شود و فایل‌های تازه‌تر دست نمی‌خورند.\n\n'
           'برای انتقال به دیتابیس تازه، اول آن را در «تنظیمات» وارد کنید.',
@@ -211,6 +252,7 @@ class _BackupViewState extends State<BackupView> {
                     key: Key('backup-usage-${u.key}'),
                     style: t.bodySmall,
                   ),
+                ...backupMainLines(e.items, t),
                 if (e.lastError != null)
                   Text(
                     e.lastError!,
@@ -254,14 +296,19 @@ class _BackupViewState extends State<BackupView> {
                         ListTile(
                           key: Key('backup-item-${it.id}'),
                           contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.inventory_2_outlined),
+                          leading: Icon(
+                            it.main
+                                ? Icons.inventory_2_outlined
+                                : Icons.add_circle_outline,
+                          ),
                           title: Text(
                             '${_stamp(it.at)}'
                             '${it.label.isEmpty ? '' : ' — ${it.label}'}',
                           ),
                           subtitle: Text(
-                            '${faNumber(it.count)} فایل · ${backupSizeFa(it.bytes)} · '
+                            '${backupItemFa(it)} · '
                             '${[for (final x in it.targets) backupTargetFa[x] ?? x].join(' + ')}',
+                            key: Key('backup-item-text-${it.id}'),
                           ),
                           trailing: OutlinedButton(
                             key: Key('backup-restore-${it.id}'),

@@ -193,22 +193,20 @@ void main() {
 
     tearDown(() => srv.close(force: true));
 
-    test(
-      'L160-U04 health.login: SMS off ⇒ password first; on ⇒ mobile first',
-      () async {
-        final c = LanAccessClient();
-        addTearDown(c.close);
-        final off = await c.probe(base);
-        expect(off.smsReady, isFalse);
-        expect(off.mobileFirst, isFalse);
-        expect(off.loginPrimary, 'password');
-        smsOn = true;
-        final on = await c.probe(base);
-        expect(on.smsReady, isTrue);
-        expect(on.mobileFirst, isTrue);
-        expect(on.otpLength, 5);
-      },
-    );
+    test('L160-U04 / L162 health.login: the owner chose «mobile» ⇒ mobile first (SMS off: the form says «به‌زودی»)', () async {
+      final c = LanAccessClient();
+      addTearDown(c.close);
+      final off = await c.probe(base);
+      expect(off.smsReady, isFalse);
+      // row 162: the owner's choice (requested_primary) decides, not the SMS fallback
+      expect(off.mobileFirst, isTrue);
+      expect(off.loginPrimary, 'mobile');
+      smsOn = true;
+      final on = await c.probe(base);
+      expect(on.smsReady, isTrue);
+      expect(on.mobileFirst, isTrue);
+      expect(on.otpLength, 5);
+    });
 
     test('L160-U05 OTP request (disabled → smsDisabled) and verify (login / reset)', () async {
       final c = LanAccessClient();

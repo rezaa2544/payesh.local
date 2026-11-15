@@ -3,6 +3,8 @@
 // • هر ۱۵ دقیقه کل صندوقچه (همهٔ مدارس، پنل مالک، پرداخت‌ها، پشتیبانی، سیاست‌ها، به‌روزرسانی‌ها)
 //   بررسی می‌شود و فقط فایل‌های عوض‌شده خوانده می‌شوند (افزایشی). اگر چیزی عوض نشده باشد،
 //   فهرست تازه‌ای ساخته نمی‌شود.
+// • ردیف ۱۶۲: یک «پشتیبان اصلی» و هر دور فقط «تغییرها» (فایل‌های تازه/تغییرکرده و نام‌های
+//   پاک‌شده) به آن افزوده می‌شود — نه فهرست کامل در هر دور.
 // • مقصدها: دیسک همین سیستم (هر سیستم پنل مالک خودش) + خود دیتابیس (کلید روشن/خاموش).
 //   کلیدها در سیاست زیرساخت هستند (`backup:auto`، `backup:db`) تا همهٔ سیستم‌های مالک یکسان پیروی کنند.
 // • صندوقچهٔ خالی هرگز پشتیبان نمی‌شود (مثلاً پس از عوض کردن دیتابیس) تا پشتیبان خوب جایگزین نشود.
@@ -42,7 +44,8 @@ typedef BackupRestoreResult = ({
   String? error,
 });
 
-/// یک فهرست برای نمایش.
+/// یک فهرست برای نمایش. [count]/[bytes] کل دیتابیسِ آن لحظه است؛ [changed]/[changedBytes] آنچه
+/// همان دور افزود (پشتیبان اصلی: همه)، [removed] نام‌های پاک‌شده. [main] = پشتیبان اصلی.
 typedef BackupItem = ({
   String id,
   DateTime at,
@@ -50,6 +53,10 @@ typedef BackupItem = ({
   int bytes,
   String label,
   Set<String> targets,
+  bool main,
+  int changed,
+  int changedBytes,
+  int removed,
 });
 
 class OwnerBackupEngine extends ChangeNotifier {
@@ -382,7 +389,7 @@ class OwnerBackupEngine extends ChangeNotifier {
     phaseFa = 'ثبت فهرست…';
     _notify();
     // یک شناسه برای همهٔ مقصدها (بزرگ‌تر از تازه‌ترین فهرستِ هر مقصد)
-    final need = <BackupTarget>[];
+    final need = <BackupTarget, String?>{};
     String? newest;
     for (final tg in targets) {
       final ids = await tg.listSnapshots();
@@ -392,8 +399,8 @@ class OwnerBackupEngine extends ChangeNotifier {
       }
       _latestFp[tg.id] ??= latest == null
           ? ''
-          : (await tg.getSnapshot(latest))?.fingerprint ?? '';
-      if (label.isNotEmpty || _latestFp[tg.id] != fp) need.add(tg);
+          : (await tg.getRecord(latest))?.fp ?? '';
+      if (label.isNotEmpty || _latestFp[tg.id] != fp) need[tg] = latest;
     }
     String? written;
     if (need.isNotEmpty) {
@@ -409,8 +416,19 @@ class OwnerBackupEngine extends ChangeNotifier {
         objects: entries,
         label: label,
       );
-      for (final tg in need) {
-        await tg.putSnapshot(snap);
+      for (final MapEntry(key: tg, value: latest) in need.entries) {
+        // ردیف ۱۶۲: فقط تغییرها نسبت به آخرین لحظهٔ همین مقصد؛ مقصد خالی (یا زنجیرهٔ
+        // خراب) ⇒ پشتیبان اصلی تازه
+        final parent = latest == null
+            ? null
+            : _prev?.id == latest
+            ? _prev
+            : await readState(tg, latest);
+        await tg.putRecord(
+          parent == null
+              ? BackupRecord.main(snap)
+              : BackupRecord.delta(parent, snap),
+        );
         _latestFp[tg.id] = fp;
       }
       written = id;
@@ -467,7 +485,7 @@ class OwnerBackupEngine extends ChangeNotifier {
     for (final tg in targets) {
       try {
         final ids = await tg.listSnapshots();
-        if (ids.isNotEmpty) return await tg.getSnapshot(ids.last);
+        if (ids.isNotEmpty) return await readState(tg, ids.last);
       } on Object {
         // مقصد بعدی
       }
@@ -475,17 +493,42 @@ class OwnerBackupEngine extends ChangeNotifier {
     return null;
   }
 
+  /// نگه‌داری + فشرده‌سازی (ردیف ۱۶۲): هر لحظهٔ نگه‌داشته نسبت به لحظهٔ نگه‌داشتهٔ پیشین بازنویسی
+  /// می‌شود (تغییرهای دورهای کنار گذاشته در آن ادغام می‌شود) و نخستینِ آن‌ها «پشتیبان اصلی» کامل
+  /// است؛ اول نوشتن، بعد پاک کردن ⇒ قطع برق در میانه هیچ لحظه‌ای را ناقص نمی‌کند. هر خرابی ⇒
+  /// هیچ چیز پاک نمی‌شود.
   Future<void> _retain(BackupTarget tg, DateTime now) async {
     final ids = await tg.listSnapshots();
     final keep = backupKeep(ids, now);
+    final recs = <String, BackupRecord>{};
     for (final id in ids) {
-      if (!keep.contains(id)) await tg.deleteSnapshot(id);
+      final r = await tg.getRecord(id);
+      if (r == null) return; // فهرست خراب ⇒ هیچ چیز پاک نمی‌شود
+      recs[id] = r;
     }
     final shas = <String>{};
-    for (final id in keep) {
-      final sn = await tg.getSnapshot(id);
-      if (sn == null) return; // فهرست خراب ⇒ هیچ محتوایی پاک نمی‌شود
-      shas.addAll(sn.objects.values.map((e) => e.sha));
+    BackupSnapshot? state;
+    BackupSnapshot? kept;
+    for (final id in ids) {
+      final r = recs[id]!;
+      state = state != null && (r.isMain || r.base == state.id)
+          ? r.applyTo(state)
+          : await readState(tg, id, cache: recs);
+      if (state == null) return;
+      if (!keep.contains(id)) continue;
+      final want = kept?.id;
+      if (r.legacy || r.base != want) {
+        await tg.putRecord(
+          kept == null
+              ? BackupRecord.main(state)
+              : BackupRecord.delta(kept, state),
+        );
+      }
+      shas.addAll(state.objects.values.map((e) => e.sha));
+      kept = state;
+    }
+    for (final id in ids) {
+      if (!keep.contains(id)) await tg.deleteSnapshot(id);
     }
     await tg.gcBlobs(shas);
   }
@@ -508,10 +551,14 @@ class OwnerBackupEngine extends ChangeNotifier {
               bytes: cur.bytes,
               label: cur.label,
               targets: {...cur.targets, tg.id},
+              main: cur.main,
+              changed: cur.changed,
+              changedBytes: cur.changedBytes,
+              removed: cur.removed,
             );
             continue;
           }
-          final sn = await tg.getSnapshot(id);
+          final sn = await tg.getRecord(id);
           if (sn == null) continue;
           byId[id] = (
             id: id,
@@ -520,6 +567,10 @@ class OwnerBackupEngine extends ChangeNotifier {
             bytes: sn.bytes,
             label: sn.label,
             targets: {tg.id},
+            main: sn.isMain,
+            changed: sn.changedCount,
+            changedBytes: sn.changedBytes,
+            removed: sn.removed.length,
           );
         }
         use[tg.id] = await tg.usedBytes();
@@ -550,7 +601,7 @@ class OwnerBackupEngine extends ChangeNotifier {
     BackupSnapshot? snap;
     for (final tg in targets) {
       try {
-        snap = await tg.getSnapshot(id);
+        snap = await readState(tg, id);
       } on Object {
         snap = null;
       }

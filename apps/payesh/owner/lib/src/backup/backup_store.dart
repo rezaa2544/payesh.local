@@ -1,10 +1,15 @@
-// پشتیبان کامل دیتابیس مالک (ردیف ۱۵۵) — قالب و دو مقصد.
+// پشتیبان کامل دیتابیس مالک (ردیف ۱۵۵، ردیف ۱۶۲) — قالب و دو مقصد.
 //
-// قالب «محتوامحور» و افزایشی:
+// قالب «محتوامحور» و افزایشی — یک پشتیبان اصلی و فقط تغییرها:
 //   blobs/<sha[0:2]>/<sha>.gz   محتوای فشردهٔ هر فایل دیتابیس؛ هر محتوا فقط یک بار ذخیره می‌شود
-//   snaps/<yyyyMMddTHHmmssZ>.json  فهرست یک لحظه: نام هر فایل ← [sha256, اندازه, زمان تغییر]
-// پس پشتیبان هر ۱۵ دقیقه فقط فایل‌های عوض‌شده را می‌خواند و می‌نویسد؛ هر فهرست به‌تنهایی
-// برای بازیابی کامل همان لحظه کافی است.
+//   snaps/<yyyyMMddTHHmmssZ>.json
+//       • قدیمی‌ترین = «پشتیبان اصلی»: فهرست کامل (نام هر فایل ← [sha256, اندازه, زمان، ETag])؛
+//       • هر دور بعدی فقط «تغییرها» نسبت به دور قبل: فایل‌های تازه/تغییرکرده + نام‌های پاک‌شده
+//         (ردیف ۱۶۲؛ پیش از آن هر دور یک فهرست کامل ~۱ مگابایتی می‌ساخت).
+// پس هر ۱۵ دقیقه فقط فایل‌های عوض‌شده خوانده و افزوده می‌شوند؛ هر لحظه با «پشتیبان اصلی +
+// تغییرهای تا آن لحظه» کامل بازسازی می‌شود. نگه‌داری، دورهای کنار گذاشته را در دور بعدی ادغام
+// می‌کند (هیچ لحظهٔ نگه‌داشته‌ای ناقص نمی‌شود) و فهرست‌های کامل قدیمی (قالب ۱) را به همین قالب
+// فشرده می‌کند.
 //
 // مقصدها (هر دو همین قالب):
 //   • دیسک همین سیستم  [DirBackupTarget]   — هر سیستم پنل مالک نسخهٔ کامل خودش را دارد؛
@@ -78,10 +83,7 @@ final class BackupSnapshot {
     'label': label,
     'count': count,
     'bytes': bytes,
-    'objects': {
-      for (final e in objects.entries)
-        e.key: [e.value.sha, e.value.size, e.value.modifiedMs, e.value.etag],
-    },
+    'objects': {for (final e in objects.entries) e.key: _entryJson(e.value)},
   };
 
   static BackupSnapshot? fromJson(Object? j) {
@@ -92,16 +94,9 @@ final class BackupSnapshot {
     if (!idRe.hasMatch(id) || at == null || o is! Map) return null;
     final objects = <String, BackupEntry>{};
     for (final e in o.entries) {
-      final v = e.value;
-      if (v is! List || v.length < 3) return null;
-      final sha = '${v[0]}';
-      if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(sha)) return null;
-      objects['${e.key}'] = (
-        sha: sha,
-        size: (v[1] as num).toInt(),
-        modifiedMs: (v[2] as num).toInt(),
-        etag: v.length > 3 ? '${v[3]}' : '',
-      );
+      final v = _entryFrom(e.value);
+      if (v == null) return null;
+      objects['${e.key}'] = v;
     }
     return BackupSnapshot(
       id: id,
@@ -109,6 +104,190 @@ final class BackupSnapshot {
       bucket: '${j['bucket'] ?? ''}',
       objects: objects,
       label: '${j['label'] ?? ''}',
+    );
+  }
+}
+
+List<Object> _entryJson(BackupEntry e) => [e.sha, e.size, e.modifiedMs, e.etag];
+
+final RegExp _shaRe = RegExp(r'^[0-9a-f]{64}$');
+
+BackupEntry? _entryFrom(Object? v) {
+  if (v is! List || v.length < 3) return null;
+  final sha = '${v[0]}';
+  if (!_shaRe.hasMatch(sha) || v[1] is! num || v[2] is! num) return null;
+  return (
+    sha: sha,
+    size: (v[1] as num).toInt(),
+    modifiedMs: (v[2] as num).toInt(),
+    etag: v.length > 3 ? '${v[3]}' : '',
+  );
+}
+
+/// ردیف ۱۶۲ — آنچه روی مقصد نوشته می‌شود: «پشتیبان اصلی» (کامل، [base] تهی) یا «تغییرها» نسبت به
+/// فهرست [base]. [count]/[bytes] همیشه کل دیتابیسِ همان لحظه است و [fp] اثر انگشت کل آن لحظه
+/// (برای «تغییری نبود» بی‌آنکه زنجیره خوانده شود).
+final class BackupRecord {
+  BackupRecord({
+    required this.id,
+    required this.at,
+    required this.bucket,
+    required this.changed,
+    required this.count,
+    required this.bytes,
+    required this.fp,
+    this.base,
+    this.removed = const [],
+    this.label = '',
+    this.legacy = false,
+  });
+
+  final String id;
+  final DateTime at;
+  final String bucket;
+  final String label;
+
+  /// فهرست پیشین؛ null ⇒ همین «پشتیبان اصلی» (کامل) است.
+  final String? base;
+
+  /// پشتیبان اصلی: همهٔ فایل‌ها؛ تغییرها: فقط فایل‌های تازه یا تغییرکرده.
+  final Map<String, BackupEntry> changed;
+
+  /// نام فایل‌هایی که از لحظهٔ [base] به بعد پاک شده‌اند.
+  final List<String> removed;
+  final int count;
+  final int bytes;
+  final String fp;
+
+  /// قالب ۱ (فهرست کامل هر دور) — نگه‌داری آن را به قالب تازه فشرده می‌کند.
+  final bool legacy;
+
+  bool get isMain => base == null;
+  int get changedCount => changed.length;
+  int get changedBytes => changed.values.fold(0, (a, e) => a + e.size);
+
+  /// پشتیبان اصلی از یک لحظهٔ کامل.
+  factory BackupRecord.main(BackupSnapshot s) => BackupRecord(
+    id: s.id,
+    at: s.at,
+    bucket: s.bucket,
+    label: s.label,
+    changed: Map.of(s.objects),
+    count: s.count,
+    bytes: s.bytes,
+    fp: s.fingerprint,
+  );
+
+  /// فقط تفاوت [next] با [parent].
+  factory BackupRecord.delta(BackupSnapshot parent, BackupSnapshot next) {
+    final changed = <String, BackupEntry>{};
+    for (final e in next.objects.entries) {
+      final p = parent.objects[e.key];
+      if (p == null || p != e.value) changed[e.key] = e.value;
+    }
+    return BackupRecord(
+      id: next.id,
+      at: next.at,
+      bucket: next.bucket,
+      label: next.label,
+      base: parent.id,
+      changed: changed,
+      removed: [
+        for (final k in parent.objects.keys)
+          if (!next.objects.containsKey(k)) k,
+      ]..sort(),
+      count: next.count,
+      bytes: next.bytes,
+      fp: next.fingerprint,
+    );
+  }
+
+  /// وضع کامل این لحظه از وضع کامل [base].
+  BackupSnapshot applyTo(BackupSnapshot? parent) {
+    final o = isMain || parent == null
+        ? <String, BackupEntry>{}
+        : Map.of(parent.objects);
+    for (final k in removed) {
+      o.remove(k);
+    }
+    o.addAll(changed);
+    return BackupSnapshot(
+      id: id,
+      at: at,
+      bucket: bucket,
+      objects: o,
+      label: label,
+    );
+  }
+
+  Map<String, Object?> toJson() => {
+    'v': 2,
+    'kind': ownerBackupKind,
+    'id': id,
+    'at': at.toUtc().toIso8601String(),
+    'bucket': bucket,
+    'label': label,
+    'base': base,
+    'count': count,
+    'bytes': bytes,
+    'fp': fp,
+    'changed': {for (final e in changed.entries) e.key: _entryJson(e.value)},
+    'removed': removed,
+  };
+
+  static BackupRecord? fromJson(Object? j) {
+    if (j is! Map || j['kind'] != ownerBackupKind) return null;
+    if (j['v'] == 1) {
+      final s = BackupSnapshot.fromJson(j);
+      if (s == null) return null;
+      final r = BackupRecord.main(s);
+      return BackupRecord(
+        id: r.id,
+        at: r.at,
+        bucket: r.bucket,
+        label: r.label,
+        changed: r.changed,
+        count: r.count,
+        bytes: r.bytes,
+        fp: r.fp,
+        legacy: true,
+      );
+    }
+    if (j['v'] != 2) return null;
+    final id = '${j['id']}';
+    final at = DateTime.tryParse('${j['at']}');
+    final base = j['base'];
+    final c = j['changed'];
+    final r = j['removed'] ?? const <Object?>[];
+    final fp = '${j['fp'] ?? ''}';
+    if (!BackupSnapshot.idRe.hasMatch(id) ||
+        at == null ||
+        c is! Map ||
+        r is! List ||
+        !_shaRe.hasMatch(fp) ||
+        (base != null &&
+            (base is! String ||
+                !BackupSnapshot.idRe.hasMatch(base) ||
+                base.compareTo(id) >= 0))) {
+      return null;
+    }
+    final changed = <String, BackupEntry>{};
+    for (final e in c.entries) {
+      final v = _entryFrom(e.value);
+      if (v == null) return null;
+      changed['${e.key}'] = v;
+    }
+    return BackupRecord(
+      id: id,
+      at: at,
+      bucket: '${j['bucket'] ?? ''}',
+      label: '${j['label'] ?? ''}',
+      base: base as String?,
+      changed: changed,
+      removed: [for (final k in r) '$k'],
+      count: (j['count'] as num?)?.toInt() ?? 0,
+      bytes: (j['bytes'] as num?)?.toInt() ?? 0,
+      fp: fp,
     );
   }
 }
@@ -127,11 +306,13 @@ abstract interface class BackupTarget {
 
   /// محتوای خام؛ null اگر نباشد یا خراب باشد (sha نخواند).
   Future<List<int>?> getBlob(String sha);
-  Future<void> putSnapshot(BackupSnapshot s);
+
+  /// ردیف ۱۶۲: پشتیبان اصلی یا «تغییرها»؛ وضع کامل هر لحظه را [readState] می‌سازد.
+  Future<void> putRecord(BackupRecord r);
 
   /// شناسهٔ فهرست‌ها، قدیمی‌ترین اول.
   Future<List<String>> listSnapshots();
-  Future<BackupSnapshot?> getSnapshot(String id);
+  Future<BackupRecord?> getRecord(String id);
   Future<void> deleteSnapshot(String id);
 
   /// پاک کردن محتواهایی که هیچ فهرست نگه‌داشته‌ای به آن‌ها اشاره نمی‌کند؛ تعداد پاک‌شده.
@@ -186,11 +367,11 @@ final class DirBackupTarget implements BackupTarget {
   }
 
   @override
-  Future<void> putSnapshot(BackupSnapshot s) async {
-    final f = _snap(s.id);
+  Future<void> putRecord(BackupRecord r) async {
+    final f = _snap(r.id);
     await f.parent.create(recursive: true);
     final tmp = File('${f.path}.tmp');
-    await tmp.writeAsString(jsonEncode(s.toJson()), flush: true);
+    await tmp.writeAsString(jsonEncode(r.toJson()), flush: true);
     await tmp.rename(f.path);
   }
 
@@ -210,12 +391,12 @@ final class DirBackupTarget implements BackupTarget {
   }
 
   @override
-  Future<BackupSnapshot?> getSnapshot(String id) async {
+  Future<BackupRecord?> getRecord(String id) async {
     if (!BackupSnapshot.idRe.hasMatch(id)) return null;
     final f = _snap(id);
     if (!await f.exists()) return null;
     try {
-      return BackupSnapshot.fromJson(jsonDecode(await f.readAsString()));
+      return BackupRecord.fromJson(jsonDecode(await f.readAsString()));
     } on Object {
       return null;
     }
@@ -312,12 +493,12 @@ final class BucketBackupTarget implements BackupTarget {
       _verified(sha, await _with((t) => s3GetBytes(s3, t, _blobKey(sha))));
 
   @override
-  Future<void> putSnapshot(BackupSnapshot s) => _with(
+  Future<void> putRecord(BackupRecord r) => _with(
     (t) => s3PutBytes(
       s3,
       t,
-      _snapKey(s.id),
-      utf8.encode(jsonEncode(s.toJson())),
+      _snapKey(r.id),
+      utf8.encode(jsonEncode(r.toJson())),
       contentType: 'application/json',
     ),
   );
@@ -335,12 +516,12 @@ final class BucketBackupTarget implements BackupTarget {
   }
 
   @override
-  Future<BackupSnapshot?> getSnapshot(String id) async {
+  Future<BackupRecord?> getRecord(String id) async {
     if (!BackupSnapshot.idRe.hasMatch(id)) return null;
     final b = await _with((t) => s3GetBytes(s3, t, _snapKey(id)));
     if (b == null) return null;
     try {
-      return BackupSnapshot.fromJson(jsonDecode(utf8.decode(b)));
+      return BackupRecord.fromJson(jsonDecode(utf8.decode(b)));
     } on Object {
       return null;
     }
@@ -399,4 +580,33 @@ Set<String> backupKeep(List<String> ids, DateTime now) {
   return keep
     ..addAll(day.values)
     ..addAll(month.values);
+}
+
+/// ردیف ۱۶۲ — وضع کامل لحظهٔ [id] = پشتیبان اصلی + تغییرهای تا آن لحظه؛ null اگر حلقه‌ای از
+/// زنجیره نباشد یا خراب باشد. [known] (اگر داده شود) وضع کامل یک لحظهٔ میانی است تا از آنجا
+/// ادامه یابد و زنجیره از اول خوانده نشود.
+Future<BackupSnapshot?> readState(
+  BackupTarget tg,
+  String id, {
+  BackupSnapshot? known,
+  Map<String, BackupRecord>? cache,
+}) async {
+  final chain = <BackupRecord>[];
+  String? cur = id;
+  BackupSnapshot? start;
+  while (cur != null) {
+    if (known != null && known.id == cur) {
+      start = known;
+      break;
+    }
+    final r = cache?[cur] ?? await tg.getRecord(cur);
+    if (r == null || chain.length > 5000) return null;
+    chain.add(r);
+    cur = r.base;
+  }
+  var state = start;
+  for (final r in chain.reversed) {
+    state = r.applyTo(state);
+  }
+  return state;
 }

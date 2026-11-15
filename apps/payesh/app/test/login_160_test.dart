@@ -43,7 +43,7 @@ void main() {
       await boot(tester, lan: lan);
       await toLogin(tester);
       expect(find.byKey(const Key('lan-password')), findsOneWidget);
-      expect(find.text('ورود با شماره'), findsOneWidget);
+      expect(find.text('ورود با شماره و کد یکبارمصرف'), findsOneWidget);
       expect(find.text('فراموشی رمز'), findsOneWidget);
       await tapKey(tester, 'lan-switch-method');
       expect(find.byKey(const Key('lan-mobile')), findsOneWidget);

@@ -735,12 +735,141 @@ class _LanServerScreenState extends State<LanServerScreen> {
     ),
   );
 
+  /// Row 162 — THE first screen of the app: username + password, or mobile + SMS code, in the
+  /// order the owner chose in the owner panel (last seen on this server). The school server's
+  /// address sits above it — prefilled with the remembered server — and is only needed once on a
+  /// new device; no school code, no activation code.
+  Widget _firstLogin(NeedLan s, bool busy) {
+    final c = widget.controller;
+    final mobile = _reset || (_mobileMode ?? c.lastMobileFirst);
+    final server = _field(
+      'lan-server',
+      _server,
+      'نشانی سرور مدرسه',
+      busy: busy,
+      ltr: true,
+      keyboard: TextInputType.url,
+      hint: '192.168.1.10:8080',
+    );
+    final help = Text(
+      _server.text.isEmpty
+          ? 'نشانی سرور مدرسه را یک‌بار از مدیر بگیرید (مثلاً ۱۹۲.۱۶۸.۱.۱۰:۸۰۸۰)؛ این دستگاه آن را به خاطر می‌سپارد.'
+          : 'این دستگاه سرور مدرسه را به خاطر سپرده است.',
+      key: const Key('lan-help'),
+      style: Theme.of(context).textTheme.bodySmall,
+    );
+    if (mobile) {
+      void send() => c.connectAndRequestOtp(
+        _server.text,
+        _mobile.text,
+        purpose: _reset ? 'reset' : 'login',
+      );
+      return _LoginFrame(
+        title: _reset ? 'فراموشی رمز' : 'ورود با شمارهٔ همراه',
+        children: [
+          server,
+          help,
+          const SizedBox(height: PayeshTokens.space4),
+          _field(
+            'lan-mobile',
+            _mobile,
+            'شمارهٔ همراه',
+            busy: busy,
+            ltr: true,
+            autofocus: true,
+            keyboard: TextInputType.phone,
+            hint: '09xxxxxxxxx',
+            onGo: send,
+          ),
+          _ErrorText(s.error),
+          const SizedBox(height: PayeshTokens.space4),
+          FilledButton(
+            key: const Key('lan-otp-send'),
+            onPressed: busy ? null : send,
+            child: _busyOr(busy, 'دریافت کد پیامکی'),
+          ),
+          TextButton(
+            key: const Key('lan-switch-method'),
+            onPressed: busy
+                ? null
+                : () => setState(() {
+                    _reset = false;
+                    _mobileMode = false;
+                  }),
+            child: const Text('ورود با نام کاربری و رمز عبور'),
+          ),
+        ],
+      );
+    }
+    void go() => c.connectAndLogin(_server.text, _phone.text, _password.text);
+    return _LoginFrame(
+      title: 'ورود به پایش',
+      children: [
+        server,
+        help,
+        const SizedBox(height: PayeshTokens.space4),
+        _field(
+          'lan-phone',
+          _phone,
+          'نام کاربری (شمارهٔ همراه، کد ملی یا نام کاربری)',
+          busy: busy,
+          ltr: true,
+          autofocus: _server.text.isNotEmpty,
+          keyboard: TextInputType.visiblePassword,
+        ),
+        _field(
+          'lan-password',
+          _password,
+          'رمز عبور',
+          busy: busy,
+          ltr: true,
+          secret: true,
+          onGo: go,
+        ),
+        _ErrorText(s.error),
+        const SizedBox(height: PayeshTokens.space4),
+        FilledButton(
+          key: const Key('lan-login'),
+          onPressed: busy ? null : go,
+          child: _busyOr(busy, 'ورود'),
+        ),
+        TextButton(
+          key: const Key('lan-switch-method'),
+          onPressed: busy ? null : () => setState(() => _mobileMode = true),
+          child: const Text('ورود با شماره و کد یکبارمصرف'),
+        ),
+        TextButton(
+          key: const Key('lan-forgot'),
+          onPressed: busy
+              ? null
+              : () => setState(() {
+                  _reset = true;
+                  final d = LanServerRules.digitsOnly(_phone.text);
+                  if (d.length == 11) _mobile.text = d;
+                }),
+          child: const Text('فراموشی رمز'),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void didUpdateWidget(LanServerScreen old) {
+    super.didUpdateWidget(old);
+    // row 162: the remembered server answered after the screen was built — show its address
+    final t = widget.state.typed;
+    if (t.isNotEmpty && _server.text.isEmpty) _server.text = t;
+    final l = widget.state.login;
+    if (l.isNotEmpty && _phone.text.isEmpty) _phone.text = l;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
     final s = widget.state;
     final busy = c.busy;
     final info = s.info;
+    if (info == null && c.lanFirst) return _firstLogin(s, busy);
     if (info == null) {
       void go() => c.submitLanServer(_server.text);
       return _LoginFrame(
@@ -769,12 +898,14 @@ class _LanServerScreenState extends State<LanServerScreen> {
             onPressed: busy ? null : go,
             child: _busyOr(busy, 'ادامه'),
           ),
-          const SizedBox(height: PayeshTokens.space3),
-          TextButton(
-            key: const Key('lan-back'),
-            onPressed: busy ? null : c.leaveLan,
-            child: const Text('ورود با کد مدرسه'),
-          ),
+          if (c.gatewayAvailable) ...[
+            const SizedBox(height: PayeshTokens.space3),
+            TextButton(
+              key: const Key('lan-back'),
+              onPressed: busy ? null : c.leaveLan,
+              child: const Text('ورود با کد مدرسه'),
+            ),
+          ],
         ],
       );
     }
@@ -975,7 +1106,7 @@ class _LanServerScreenState extends State<LanServerScreen> {
         TextButton(
           key: const Key('lan-switch-method'),
           onPressed: busy ? null : () => setState(() => _mobileMode = true),
-          child: const Text('ورود با شماره'),
+          child: const Text('ورود با شماره و کد یکبارمصرف'),
         ),
         TextButton(
           key: const Key('lan-forgot'),

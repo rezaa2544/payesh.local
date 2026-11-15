@@ -67,6 +67,57 @@ void main() {
       expect(unpackBlob(packBlob(utf8.encode('سلام'))), utf8.encode('سلام'));
     });
 
+    test('ردیف ۱۶۲: پشتیبان اصلی + فقط تغییرها؛ رفت‌وبرگشت و بازسازی', () {
+      BackupSnapshot snap(String id, Map<String, String> m) => BackupSnapshot(
+        id: id,
+        at: t0,
+        bucket: 'b',
+        objects: {
+          for (final e in m.entries)
+            e.key: (sha: e.value * 64, size: 5, modifiedMs: 1, etag: ''),
+        },
+      );
+      final a = snap('20261114T100000Z', {'x': 'a', 'y': 'b', 'z': 'c'});
+      final b = snap('20261114T101500Z', {'x': 'a', 'y': 'd', 'w': 'e'});
+      final main = BackupRecord.main(a);
+      final d = BackupRecord.delta(a, b);
+      expect((main.isMain, main.changedCount, main.count), (true, 3, 3));
+      expect((d.isMain, d.base), (false, a.id));
+      expect(d.changed.keys.toSet(), {'y', 'w'});
+      expect(d.removed, ['z']);
+      expect(
+        (d.count, d.bytes, d.changedBytes, d.fp),
+        (3, 15, 10, b.fingerprint),
+      );
+      final back = BackupRecord.fromJson(jsonDecode(jsonEncode(d.toJson())))!;
+      final full = back.applyTo(
+        BackupRecord.fromJson(jsonDecode(jsonEncode(main.toJson())))!
+            .applyTo(null),
+      );
+      expect(full.fingerprint, b.fingerprint);
+      expect(full.objects.keys.toSet(), {'x', 'y', 'w'});
+      // قالب ۱ (فهرست کامل) هم خوانده می‌شود و «قدیمی» علامت می‌خورد
+      final legacy = BackupRecord.fromJson(jsonDecode(jsonEncode(a.toJson())))!;
+      expect(
+        (legacy.legacy, legacy.isMain, legacy.fp),
+        (true, true, a.fingerprint),
+      );
+      for (final bad in <Object?>[
+        {...d.toJson(), 'base': '20991231T000000Z'}, // پایه پس از خودش
+        {...d.toJson(), 'base': '../x'},
+        {...d.toJson(), 'fp': 'x'},
+        {
+          ...d.toJson(),
+          'changed': {
+            'k': ['zz', 1, 1],
+          },
+        },
+        {...d.toJson(), 'v': 3},
+      ]) {
+        expect(BackupRecord.fromJson(bad), isNull);
+      }
+    });
+
     test('نگه‌داری: ۴۸ ساعت همه، سپس روزانه تا ۳۰ روز، ماهانه تا یک سال', () {
       final now = t0;
       String at(Duration ago) => BackupSnapshot.idFor(now.subtract(ago));
@@ -143,7 +194,7 @@ void main() {
       expect((r.count, r.fetched), (4, 4));
       final ids = await disk().listSnapshots();
       expect(ids.length, 1);
-      final snap = (await disk().getSnapshot(ids.single))!;
+      final snap = (await readState(disk(), ids.single))!;
       expect(snap.bucket, 'payesh-madrese');
       expect(snap.objects.keys, contains('payesh/updates/owner.zip'));
       // محتوای یکسان یک بار
@@ -237,7 +288,7 @@ void main() {
         expect(bucket.text('payesh/schools/registry.json'), 'R1');
         expect(bucket.text('payesh/data/core.json'), 'C1');
         expect(bucket.text('payesh/support/new.json'), 'N');
-        final safety = (await disk().getSnapshot(r.safety!))!;
+        final safety = (await readState(disk(), r.safety!))!;
         expect(safety.label, 'پیش از بازیابی');
         expect(
           safety.objects.keys,
@@ -247,9 +298,10 @@ void main() {
           ]),
         );
         // محتوای خراب روی دیسک ⇒ از نسخهٔ دیتابیس
-        final sha = (await disk().getSnapshot(first))!
-            .objects['payesh/data/core.json']!
-            .sha;
+        final sha = (await readState(
+          disk(),
+          first,
+        ))!.objects['payesh/data/core.json']!.sha;
         File('${dir.path}/blobs/${sha.substring(0, 2)}/$sha.gz')
             .writeAsBytesSync([1, 2, 3]);
         bucket.objects.remove('payesh/data/core.json');
@@ -344,6 +396,161 @@ void main() {
       expect(dbSnaps().length, ids.length);
     });
 
+    test('ردیف ۱۶۲: هر دور فقط تغییرها روی دیسک و دیتابیس نوشته می‌شود — نه فهرست کامل', () async {
+      for (var i = 0; i < 200; i++) {
+        bucket.putText('payesh/data/person/$i.json', '{"id":$i}');
+      }
+      var r = await eng.run();
+      expect((r.created, r.fetched, r.count), (true, 200, 200));
+      final main = (await disk().listSnapshots()).single;
+      final mainBytes = File('${dir.path}/snaps/$main.json').lengthSync();
+      clock = clock.add(const Duration(minutes: 15));
+      bucket
+        ..putText('payesh/data/person/7.json', '{"id":7,"n":1}')
+        ..putText('payesh/data/person/new.json', '{"id":"new"}');
+      bucket.objects.remove('payesh/data/person/9.json');
+      final gets = bucket.log.where((l) => l.startsWith('GET /payesh/')).length;
+      r = await eng.run();
+      expect((r.created, r.fetched, r.count), (true, 2, 200));
+      expect(
+        bucket.log.where((l) => l.startsWith('GET /payesh/')).length - gets,
+        2,
+        reason: 'فقط دو فایل تازه/تغییرکرده دانلود شد',
+      );
+      final ids = await disk().listSnapshots();
+      expect(ids.length, 2);
+      final rec = (await disk().getRecord(ids.last))!;
+      expect(rec.base, main);
+      expect(rec.changed.keys.toSet(), {
+        'payesh/data/person/7.json',
+        'payesh/data/person/new.json',
+      });
+      expect(rec.removed, ['payesh/data/person/9.json']);
+      expect((rec.count, rec.isMain), (200, false));
+      final deltaBytes = File('${dir.path}/snaps/${ids.last}.json')
+          .lengthSync();
+      expect(deltaBytes * 20, lessThan(mainBytes));
+      // روی دیتابیس هم همان «تغییرها»
+      final dbRec = (await BucketBackupTarget(
+        S3Settings(
+          endpoint: Uri.https('s3.example.test'),
+          accessKey: 'ak',
+          secretKey: 'sk',
+          bucket: bucket.bucket,
+        ),
+        () => bucket.transport(),
+      ).getRecord(ids.last))!;
+      expect((dbRec.base, dbRec.changedCount), (main, 2));
+      // وضع کامل همان لحظه بازسازی می‌شود و بازیابی نخستین لحظه هنوز کار می‌کند
+      final full = (await readState(disk(), ids.last))!;
+      expect(full.count, 200);
+      expect(full.objects.containsKey('payesh/data/person/9.json'), isFalse);
+      await eng.refresh();
+      expect(eng.items.first.changed, 2);
+      expect(eng.items.first.removed, 1);
+      expect(eng.items.last.main, isTrue);
+      expect(backupItemFa(eng.items.first), contains('۲ فایل تازه/تغییرکرده'));
+      expect(backupItemFa(eng.items.first), contains('۱ فایل پاک‌شده'));
+      expect(backupItemFa(eng.items.last), startsWith('پشتیبان اصلی'));
+      clock = clock.add(const Duration(minutes: 1));
+      final rr = await eng.restore(main);
+      expect((rr.ok, rr.written), (true, 2));
+      expect(bucket.text('payesh/data/person/7.json'), '{"id":7}');
+      expect(bucket.text('payesh/data/person/9.json'), '{"id":9}');
+    });
+
+    test('ردیف ۱۶۲: فهرست‌های کامل قدیمی (قالب ۱) به یک پشتیبان اصلی + تغییرها فشرده می‌شوند و هیچ لحظه‌ای عوض نمی‌شود', () async {
+      // سه فهرست کامل به قالب قدیمی، همان‌طور که نسخه‌های پیشین روی دیسک می‌نوشتند
+      final legacy = <BackupSnapshot>[];
+      final objs = <String, BackupEntry>{};
+      for (var i = 0; i < 3; i++) {
+        for (var k = 0; k < 50; k++) {
+          final raw = utf8.encode(k == i ? 'changed $i' : 'v $k');
+          final sha = sha256Hex(raw);
+          if (k == i || i == 0) {
+            objs['payesh/f$k.json'] = (
+              sha: sha,
+              size: raw.length,
+              modifiedMs: i,
+              etag: '',
+            );
+            await disk().putBlob(sha, raw);
+          }
+        }
+        final at = clock.subtract(Duration(hours: 3 - i));
+        final sn = BackupSnapshot(
+          id: BackupSnapshot.idFor(at),
+          at: at,
+          bucket: bucket.bucket,
+          objects: Map.of(objs),
+        );
+        legacy.add(sn);
+        final fl = File('${dir.path}/snaps/${sn.id}.json')
+          ..parent.createSync(recursive: true);
+        fl.writeAsStringSync(jsonEncode(sn.toJson()));
+      }
+      final before = Directory('${dir.path}/snaps')
+          .listSync()
+          .whereType<File>()
+          .fold<int>(0, (a, f) => a + f.lengthSync());
+      await eng.setDb(false);
+      bucket.putText('payesh/other.json', 'O');
+      await eng.run(); // نخستین دور پس از به‌روزرسانی ⇒ فشرده‌سازی
+      final ids = await disk().listSnapshots();
+      expect(ids.take(3), [for (final l in legacy) l.id]);
+      final recs = [for (final id in ids) (await disk().getRecord(id))!];
+      expect(recs.first.isMain, isTrue);
+      expect(recs.every((r) => !r.legacy), isTrue);
+      for (var i = 1; i < recs.length; i++) {
+        expect(recs[i].base, ids[i - 1]);
+      }
+      for (final l in legacy) {
+        expect((await readState(disk(), l.id))!.fingerprint, l.fingerprint);
+      }
+      final after = Directory('${dir.path}/snaps')
+          .listSync()
+          .whereType<File>()
+          .fold<int>(0, (a, f) => a + f.lengthSync());
+      expect(after, lessThan(before));
+    });
+
+    test('ردیف ۱۶۲: پاک‌سازی دورهای کنار گذاشته را در دور بعد ادغام می‌کند؛ هر لحظهٔ نگه‌داشته همان می‌ماند', () async {
+      final expected = <String, String>{};
+      for (var d = 0; d < 6; d++) {
+        for (var h = 0; h < 3; h++) {
+          bucket.putText('payesh/k$h.json', 'd$d h$h');
+          if (d == 2 && h == 1) bucket.objects.remove('payesh/k0.json');
+          final r = await eng.run();
+          if (r.snapshot != null) {
+            expected[r.snapshot!] = (await readState(
+              disk(),
+              r.snapshot!,
+            ))!.fingerprint;
+          }
+          clock = clock.add(const Duration(hours: 8));
+        }
+      }
+      // روزهای قدیمی‌تر از ۴۸ ساعت تک‌فهرستی شده‌اند؛ بقیه دقیقاً همان وضع را دارند
+      clock = clock.add(const Duration(days: 2));
+      bucket.putText('payesh/last.json', 'L');
+      await eng.run();
+      final ids = await disk().listSnapshots();
+      expect(ids.length, lessThan(expected.length));
+      for (final id in ids) {
+        if (expected.containsKey(id)) {
+          expect(
+            (await readState(disk(), id))!.fingerprint,
+            expected[id],
+            reason: id,
+          );
+        }
+      }
+      expect((await disk().getRecord(ids.first))!.isMain, isTrue);
+      expect([
+        for (final id in ids.skip(1)) (await disk().getRecord(id))!.isMain,
+      ], everyElement(isFalse));
+    });
+
     test(
       'زمان‌بندی: start فقط وقتی کلید خودکار روشن است اجرا می‌کند',
       () async {
@@ -413,7 +620,13 @@ void main() {
       });
       await tester.pump();
       expect(find.byKey(const Key('backup-note')), findsOneWidget);
-      expect(find.textContaining('پشتیبان ساخته شد'), findsOneWidget);
+      expect(
+        find.textContaining('تغییرها به پشتیبان اصلی افزوده شد'),
+        findsOneWidget,
+      );
+      // ردیف ۱۶۲: نخستین ردیف «پشتیبان اصلی» است و خلاصهٔ بالا هم همان را می‌گوید
+      expect(find.textContaining('پشتیبان اصلی — '), findsOneWidget);
+      expect(find.byKey(const Key('backup-main')), findsOneWidget);
       final id = eng.items.single.id;
       expect(find.byKey(Key('backup-item-$id')), findsOneWidget);
       expect(find.textContaining('دیسک این سیستم + دیتابیس'), findsOneWidget);

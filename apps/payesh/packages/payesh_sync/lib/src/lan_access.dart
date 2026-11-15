@@ -313,8 +313,9 @@ final class LanServerInfo {
   final bool setupDone;
   final bool headless;
 
-  /// Row 160 — which login the first screen shows (the owner's choice; the server already falls
-  /// back to `password` while no SMS panel is linked): `password` | `mobile`.
+  /// Row 160/162 — which login the first screen shows: exactly the owner's choice in the owner
+  /// panel (`requested_primary`), `password` | `mobile`. While no SMS panel is linked the
+  /// mobile form says «به‌زودی» and the username/password link sits right under it.
   final String loginPrimary;
 
   /// Row 160 — an SMS panel is linked: the mobile + SMS code login and the SMS password reset work.
@@ -322,7 +323,7 @@ final class LanServerInfo {
 
   /// Row 160 — digits of the SMS code (4–8).
   final int otpLength;
-  bool get mobileFirst => loginPrimary == 'mobile' && smsReady;
+  bool get mobileFirst => loginPrimary == 'mobile';
 
   /// Addresses of this server for the other devices of the school (`/api/network`), e.g.
   /// `http://192.168.1.10:8080` — shown to the manager who set the server up on its own computer.
@@ -555,7 +556,10 @@ final class LanAccessClient implements LanAccessApi {
       schoolName: j['school'] as String?,
       instance: j['instance'] as String?,
       version: j['version'] as String?,
-      loginPrimary: login['primary'] == 'mobile' ? 'mobile' : 'password',
+      // row 162: the owner's choice as set (older servers only send `primary`)
+      loginPrimary: (login['requested_primary'] ?? login['primary']) == 'mobile'
+          ? 'mobile'
+          : 'password',
       smsReady: login['sms'] == true,
       otpLength: login['code_length'] is num
           ? (login['code_length']! as num).toInt().clamp(4, 8)
@@ -850,6 +854,11 @@ abstract final class LanKeys {
   /// Row 128 / W7: the user locked the app on this device (kept across restarts).
   static const String locked = 'lan.locked';
 
+  /// Row 162: the last school server this device reached and its login order — kept across
+  /// sign-out (NOT in [all]) so the next start opens straight on that server's login form.
+  static const String lastServer = 'lan.last_server';
+  static const String lastPrimary = 'lan.last_primary';
+
   static const List<String> all = [
     server,
     school,
@@ -940,5 +949,20 @@ final class LanAccountStore {
     for (final k in LanKeys.all) {
       await store.delete(k);
     }
+  }
+
+  /// Row 162 — the last school server that answered (survives sign-out).
+  Future<Uri?> lastServer() async {
+    final u = Uri.tryParse(await store.read(LanKeys.lastServer) ?? '');
+    return u == null || !LanServerRules.allowed(u) ? null : u;
+  }
+
+  /// Row 162 — the owner's login order last seen on that server (`password` | `mobile`).
+  Future<String> lastPrimary() async =>
+      await store.read(LanKeys.lastPrimary) == 'mobile' ? 'mobile' : 'password';
+
+  Future<void> remember(LanServerInfo info) async {
+    await store.write(LanKeys.lastServer, info.server.toString());
+    await store.write(LanKeys.lastPrimary, info.loginPrimary);
   }
 }
