@@ -5,6 +5,9 @@
 'use strict';
 
 const PAGES = {};
+/* ردیف ۱۶۱: پیوندهای دانلود همیشه مستقیم به خودِ فایل‌اند، نه صفحهٔ انتشار یا صفحهٔ معرفی */
+const NATIVE_APK_URL = 'https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native.apk';
+const TAILSCALE_WIN_URL = 'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe';
 window.PAGES = PAGES;
 
 /* ── اجزای کوچک ─────────────────────────────────────────────────── */
@@ -329,7 +332,7 @@ function pairDeepLink(code) {
 }
 function scanLandingHtml(code) {
   const plain = String(code || '').replace(/[^0-9A-Za-z]/g, '');
-  const apk = 'https://github.com/rezaa2544/payesh.local/releases/tag/native-continuous'; /* row 129: native app only */
+  const apk = NATIVE_APK_URL; /* row 161: direct file, never the release page */
   const bundled = typeof window !== 'undefined' && window.PAYESH_BUNDLED === true;
   if (bundled) return '';
   return `<div class="card tight" style="margin-top:12px;text-align:right">
@@ -1395,7 +1398,7 @@ function publicAccessCard(n) {
       </div>`;
   } else {
     body = `<ol class="small" style="margin:8px 0 0;padding-inline-start:18px;line-height:2">
-        <li><a href="${esc(ts.download || 'https://tailscale.com/download/windows')}" target="_blank">Tailscale</a> را روی همین سیستم نصب کنید (رایگان، بدون کارت بانکی).</li>
+        <li><a href="${esc(ts.download || TAILSCALE_WIN_URL)}" target="_blank">Tailscale</a> را روی همین سیستم نصب کنید (رایگان، بدون کارت بانکی).</li>
         <li>با حساب رایگان وارد شوید و برگردید؛ بقیه‌اش یک کلیک است.</li>
       </ol>
       <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">
@@ -1807,7 +1810,7 @@ function pairCardHtml(r) {
      اگر نصب نباشد همان QR صفحهٔ نصب را باز می‌کند و بعد از نصب هم
      خودکار وارد حساب می‌شود. */
   const web = host + '/#/pair=' + encodeURIComponent(plain);
-  const apk = 'https://github.com/rezaa2544/payesh.local/releases/tag/native-continuous'; /* row 129: native app only */
+  const apk = NATIVE_APK_URL; /* row 161: direct file, never the release page */
   return `<div class="paircard">
     <div class="who">${esc(r.user.name)}</div>
     <div class="small muted">${esc(ROLE_FA[r.user.role] || r.user.role)}</div>

@@ -20,6 +20,9 @@ const { spawn, execFile } = require('child_process');
 const cfg = require('./config');
 const { nowISO } = require('./util');
 
+// ردیف ۱۶۱: دانلود مستقیم نصب‌کنندهٔ ویندوز Tailscale (نه صفحهٔ معرفی tailscale.com/download)
+const TAILSCALE_WIN_URL = 'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe';
+
 const TS_PATHS = [
   'C:\\Program Files\\Tailscale\\tailscale.exe',
   'C:\\Program Files (x86)\\Tailscale\\tailscale.exe',
@@ -131,7 +134,7 @@ async function enableFunnel(port = 8080) {
 /** باز کردن صفحهٔ ورود Tailscale (مرورگر روی همان سیستم باز می‌شود) */
 function login() {
   const bin = tailscaleBin();
-  if (!bin) return { ok: false, error: 'tailscale_not_installed', download: 'https://tailscale.com/download/windows' };
+  if (!bin) return { ok: false, error: 'tailscale_not_installed', download: TAILSCALE_WIN_URL };
   try {
     const child = spawn(bin, ['up'], { windowsHide: false, detached: true, stdio: 'ignore' });
     child.unref();
@@ -184,7 +187,7 @@ async function status(store) {
       funnel: !!ts.funnel,
       url: ts.url || null,
       error: ts.error || null,
-      download: 'https://tailscale.com/download/windows',
+      download: TAILSCALE_WIN_URL,
     },
     can_enable: !!ts.installed,
     checked_at: nowISO(),

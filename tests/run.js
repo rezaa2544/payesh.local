@@ -5318,6 +5318,16 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + a.stdout.trim().split('\n').pop() + ' · ' + b.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۶۱: همهٔ پیوندهای دانلود مستقیم به خودِ فایل‌اند ── */
+  await test('ردیف ۱۶۱: هر پیوند دانلود (README، سایت، کلاینت، سرور، اپ) مستقیم به فایل منتشرشده می‌رود — نه صفحهٔ انتشار — و ۹ جهش قرمز',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const env = Object.assign({}, process.env); delete env.PAYESH_LIVE_LINKS;
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/direct-links-161.js')], { encoding: 'utf8', cwd: ROOT, env });
+      assert.strictEqual(r.status, 0, 'direct-links-161: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|DIRECT-LINKS/.test(l)).join('\n'));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۲۸: ماتریس برابری قابلیت‌های اپ بومی با کلاینت وب ── */
   await test('ردیف ۱۲۸: هر صفحه/عمل/فرم کلاینت وب در ماتریس برابری است (بومی، موج برنامه‌ریزی‌شده، یا حذف با جایگزین) و ۱۵ جهش قرمز',
     async () => {

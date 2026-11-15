@@ -82,14 +82,17 @@ jobs:
           (cd "$W" && tr -d '\r' < SHA256SUMS-installer | sha256sum -c -)
           mkdir -p pub
           cp "$W/payesh-native-setup.exe" "$W/payesh-native-windows.zip" pub/
-          # Android: only a release-signed APK (owner key, row 61) is ever published
+          # Android: only a release-signed APK (owner key, row 61) is ever published.
+          # ردیف ۱۶۱: APK بخشی اجباری از انتشار است — پیوند دانلود مستقیم payesh-native.apk در README،
+          # صفحهٔ دانلود و سرور مدرسه هرگز نباید به ۴۰۴ برسد؛ بدون APK امضاشده، انتشار قرمز می‌شود (شکست بسته).
           ANDROID=blocked
           (cd "$A" && sha256sum -c SHA256SUMS-android)
           if grep -q '^ANDROID-RELEASE-76-OK mode=release' "$A/android-release-76.txt" && ! grep -q 'CN=Android Debug' "$A/apksigner.txt"; then
             ANDROID=release
             cp "$A/payesh-native.apk" pub/
           else
-            echo "::warning title=School APK not published::no owner signing key (row 61) — the debug-signed rehearsal APK is never published (BLOCKED)"
+            echo "::error title=School APK not release-signed::no owner signing key (row 61) — the debug-signed rehearsal APK is never published, and the direct APK link must not break (row 161)"
+            exit 1
           fi
           echo "android=$ANDROID" >> "$GITHUB_OUTPUT"
           # the native gate on the very files that will be uploaded
@@ -149,7 +152,7 @@ jobs:
           NOTES="اپ مدرسه **بومی** (Flutter) — بدون WebView، بدون WebView2، بدون مرورگر پنهان و بدون Node.js برای رابط. ردیف ۱۲۹.
           payesh-native-setup.exe: نصب‌کنندهٔ ویندوز اپ مدرسه/کاربر. امضای کد (Authenticode) هنوز نیست، پس Windows SmartScreen هشدار می‌دهد: پیش از اجرا SHA256 را با SHA256SUMS مقایسه کنید (Get-FileHash payesh-native-setup.exe)، سپس More info ← Run anyway.
           payesh-native-windows.zip: همان برنامهٔ ویندوز به‌صورت قابل‌حمل.
-          اندروید: APK فقط با کلید امضای مالک منتشر می‌شود (ردیف ۶۱). وضعیت فعلی در school-native-status.json.
+          payesh-native.apk: اپ اندروید، امضاشده با کلید مالک (ردیف ۶۱)؛ روی نسخهٔ قبلی درجا ارتقا می‌یابد.
           هر فایل در CI از دروازهٔ استقلال بومی گذشته و روی ویندوز نصب، آزموده و حذف شده است: $RUN_URL
           commit: $SRC_SHA"
           TITLE="اپ مدرسهٔ بومی (Flutter) — ساخت پیوسته؛ انتشار رسمی نیست"
@@ -187,8 +190,8 @@ jobs:
             fs.writeFileSync("files-prune.txt", prune.join("\n"));
             console.log("app-files: all " + m.files.length + " referenced blobs present; prune " + prune.length);'
           while read -r id; do [ -n "$id" ] && gh api -X DELETE "repos/$R/releases/assets/$id" >/dev/null; done < files-prune.txt
-          ALLOWED="SHA256SUMS app-update.json payesh-native-setup.exe payesh-native-windows.zip school-native-status.json"
-          if [ "$ANDROID" = release ]; then ALLOWED="SHA256SUMS app-update.json payesh-native-setup.exe payesh-native-windows.zip payesh-native.apk school-native-status.json"; fi
+          ALLOWED="SHA256SUMS app-update.json payesh-native-setup.exe payesh-native-windows.zip payesh-native.apk school-native-status.json"
+          if [ "$ANDROID" != release ]; then echo "::error::android=$ANDROID — refusing to publish without payesh-native.apk (row 161)"; exit 1; fi
           for a in $(gh release view "$TAG" -R "$R" --json assets --jq '.assets[].name'); do
             case " $ALLOWED " in
               *" $a "*) ;;

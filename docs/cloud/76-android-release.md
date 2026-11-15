@@ -18,6 +18,8 @@
 | `PAYESH_SIGNING_ROTATION_APPROVED` | Variable | باید `true` باشد تا امضای انتشار فعال شود (درگاه آگاهانهٔ OWNER، هم‌راستا با ردیف ۶۱) |
 | `PAYESH_ANDROID_CERT_SHA256` | Variable (اختیاری) | پین اثرانگشت گواهی؛ اگر تنظیم شود، APK با گواهی دیگر رد می‌شود |
 
+> **ردیف ۱۶۱ — کلید مالک به‌عنوان جایگزین:** اگر چهار Secret بالا تنظیم نشده باشند، همان کلید مالک (`PAYESH_OWNER_KEYSTORE_B64`، `PAYESH_OWNER_KEYSTORE_PASS`، `PAYESH_OWNER_KEY_ALIAS`، `PAYESH_OWNER_KEY_PASS`) که APK پنل مالک با آن منتشر می‌شود، APK مدرسه را هم امضا می‌کند. APK مدرسه پیش از این هرگز با کلید دیگری منتشر نشده بود، پس چرخش امضاکننده‌ای رخ نمی‌دهد و درگاه `PAYESH_SIGNING_ROTATION_APPROVED` فقط برای کلید جداگانهٔ `PAYESH_KEYSTORE_*` می‌ماند. `school-native-publish.yml` بدون APK امضاشده با کلید انتشار **قرمز** می‌شود (شکست بسته) تا پیوند مستقیم `payesh-native.apk` هرگز به ۴۰۴ نرسد (`tests/direct-links-161.js`).
+
 ## ۳. دو حالت
 - **rehearsal** (پیش‌فرض، بدون Secrets): ساخت با امضای debug، همهٔ بررسی‌ها اجرا می‌شود، گزارش `distributable=false`. برای PR و شاخه‌ها.
 - **release**: با Secrets و Variable بالا؛ `PAYESH_NATIVE_REQUIRE_RELEASE_SIGNING=true` ⇒ اگر امضای انتشار در دسترس نباشد Gradle با `PAYESH-SIGNING-REQUIRED` می‌شکند (شکست بسته). روی برچسب `native-v*` ساخت بدون امضای انتشار **خطا** است.

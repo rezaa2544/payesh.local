@@ -33,7 +33,7 @@
 | دستگاه | دانلود |
 |---|---|
 | 🖥️ **ویندوز ۱۰/۱۱ (۶۴ بیتی)** | **[⤓ نصب‌کنندهٔ ویندوز `payesh-native-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe)** · نسخهٔ قابل‌حمل: [`payesh-native-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-windows.zip) · [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/SHA256SUMS) |
-| 🤖 **اندروید** | فقط پس از امضا با کلید انتشار مالک منتشر می‌شود (ردیف ۶۱) — وضعیت: [ریلیز native-continuous](https://github.com/rezaa2544/payesh.local/releases/tag/native-continuous) |
+| 🤖 **اندروید ۸ به بالا** | **[⤓ اپ اندروید `payesh-native.apk`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native.apk)** — امضاشده با کلید مالک (ردیف ۶۱)؛ روی نسخهٔ قبلی درجا ارتقا می‌یابد |
 | 🍎 **آیفون / آیپد** | فایلی ندارد — آدرس سامانه را در Safari باز کنید و «افزودن به صفحهٔ اصلی» را بزنید |
 | 🐧 **لینوکس / سرور** | `sudo bash install/linux/install.sh` |
 

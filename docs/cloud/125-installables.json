@@ -142,7 +142,7 @@
       "node_for_ui": false,
       "runs_without_browser": true,
       "network": "Gateway (cloud) or LAN data service (row 127)",
-      "capabilities": "full parity with the retired WebView school app (row 128: 174 items, planned=0); published only when release-signed with the owner key (row 61) — otherwise BLOCKED, no APK on the page",
+      "capabilities": "full parity with the retired WebView school app (row 128: 174 items, planned=0); always release-signed with the owner key (row 61; PAYESH_OWNER_* fallback, row 161) — school-native-publish fails closed without it, so the direct APK link never breaks",
       "artifacts": [
         "payesh-native.apk",
         "payesh-native.aab"

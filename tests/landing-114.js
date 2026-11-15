@@ -8,7 +8,8 @@
      LP-03  no Cloudflare anywhere in the page, the build tool or the workflow (D-09)
      LP-04  every download link points at an asset that school-native-publish.yml
             really uploads to "native-continuous" after the native gate (row 129);
-            no WebView file, no APK while the owner key is missing
+            no WebView file; the APK is linked as the file itself (row 161:
+            the publisher fails closed without a release-signed APK)
      LP-05  build output is exactly the expected files; version.json carries only
             version + built_at from releases/manifest.json
      LP-06  workflow: manual deploy only, OWNER gate variable, main only,
@@ -85,8 +86,8 @@ function checkNoCloudflare(name, text) {
 }
 
 function releaseAssets(publishYml) {
-  // Names the native publisher ends native-continuous with (the ALLOWED set it asserts). Only the
-  // set that holds WITHOUT the owner signing key counts, so the page never links a missing APK.
+  // Names the native publisher ends native-continuous with (the ALLOWED set it asserts). Row 161:
+  // a single unconditional set — the publisher refuses to publish without the release-signed APK.
   const names = new Set();
   const line = publishYml.split('\n').find((l) => /^\s+ALLOWED="/.test(l));
   if (line) for (const n of line.match(/ALLOWED="([^"]*)"/)[1].split(/\s+/)) if (n) names.add(n);
@@ -102,7 +103,9 @@ function checkDownloadLinks(html, assets) {
   }
   for (const m of html.matchAll(/releases\/download\/([^/"]+)\//g)) assert(m[1] === 'native-continuous', 'download link on channel ' + m[1]);
   const kinds = links.map(l => path.extname(l[1]));
-  for (const k of ['.exe', '.zip']) assert(kinds.includes(k), 'missing ' + k + ' link');
+  for (const k of ['.exe', '.zip', '.apk']) assert(kinds.includes(k), 'missing ' + k + ' link');
+  // row 161: no link to a release *page* — every download goes straight to the file
+  for (const m of html.matchAll(/href="([^"]*\/releases(?:\/tag\/[^"]*|\/latest|\/?))"/g)) assert(false, 'release page link instead of a file: ' + m[1]);
   return links.map(l => l[1]).join(', ');
 }
 
@@ -177,7 +180,7 @@ function checkDnsDoc(doc) {
 
   await check('LP-04', 'download links point at native files school-native-publish.yml uploads to "native-continuous"', () => {
     const assets = releaseAssets(publishYml);
-    assert(assets.has('payesh-native-setup.exe') && assets.has('payesh-native-windows.zip') && !assets.has('payesh-native.apk'),
+    assert(assets.has('payesh-native-setup.exe') && assets.has('payesh-native-windows.zip') && assets.has('payesh-native.apk'),
       'could not read the native set from school-native-publish.yml: ' + [...assets]);
     return checkDownloadLinks(html, assets);
   });
@@ -221,7 +224,8 @@ function checkDnsDoc(doc) {
       ['link to an asset the publisher never uploads', () => checkDownloadLinks(html.replace(/payesh-native-windows\.zip/g, 'payesh-debug.zip'), assets)],
       ['WebView setup linked under the native channel (row 129)', () => checkDownloadLinks(html.replace(/payesh-native-setup\.exe/g, 'payesh-setup.exe'), new Set([...assets, 'payesh-setup.exe']))],
       ['link back to the old continuous release', () => checkDownloadLinks(html.replace(RELEASE_BASE + 'payesh-native-windows.zip', 'https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-native-windows.zip'), assets)],
-      ['APK link while the owner key is missing', () => checkDownloadLinks(html.replace('</main>', `<a data-asset="payesh-native.apk" href="${RELEASE_BASE}payesh-native.apk">apk</a></main>`), assets)],
+      ['Android button points at the release page, not the APK (row 161)', () => checkDownloadLinks(html.replace(`data-asset="payesh-native.apk" href="${RELEASE_BASE}payesh-native.apk"`, 'href="https://github.com/rezaa2544/payesh.local/releases/tag/native-continuous"'), assets)],
+      ['APK link while the publisher may skip the APK', () => checkDownloadLinks(html, new Set([...assets].filter(a => a !== 'payesh-native.apk')))],
       ['third-party fetch in version.js', () => checkNoExternalLoads('m', vjs.replace("fetch('version.json'", "fetch('https://api.example.com/v'"))],
       ['CSP with unsafe-eval', () => checkCsp(html.replace("script-src 'self'", "script-src 'self' 'unsafe-eval'"))],
       ['CSP allowing a remote host', () => checkCsp(html.replace("connect-src 'self'", "connect-src 'self' https://api.example.com"))],

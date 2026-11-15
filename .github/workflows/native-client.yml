@@ -464,19 +464,36 @@ jobs:
           PAYESH_KEYSTORE_PASS: ${{ secrets.PAYESH_KEYSTORE_PASS }}
           PAYESH_KEY_ALIAS: ${{ secrets.PAYESH_KEY_ALIAS }}
           PAYESH_KEY_PASS: ${{ secrets.PAYESH_KEY_PASS }}
+          # ردیف ۱۶۱: کلید مالک (همان کلیدی که APK پنل مالک را امضا می‌کند، ردیف ۶۱) — جایگزین
+          # وقتی کلید جداگانهٔ PAYESH_KEYSTORE_* تنظیم نشده؛ تا APK مدرسه منتشر و پیوند دانلود مستقیم باشد.
+          OWNER_KEYSTORE_B64: ${{ secrets.PAYESH_OWNER_KEYSTORE_B64 }}
+          OWNER_KEYSTORE_PASS: ${{ secrets.PAYESH_OWNER_KEYSTORE_PASS }}
+          OWNER_KEY_ALIAS: ${{ secrets.PAYESH_OWNER_KEY_ALIAS }}
+          OWNER_KEY_PASS: ${{ secrets.PAYESH_OWNER_KEY_PASS }}
           PAYESH_SIGNING_ROTATION_APPROVED: ${{ vars.PAYESH_SIGNING_ROTATION_APPROVED }}
         run: |
           set -euo pipefail
           echo "ready=false" >> "$GITHUB_OUTPUT"
+          echo "source=none" >> "$GITHUB_OUTPUT"
           MISSING=""
           for name in PAYESH_KEYSTORE_B64 PAYESH_KEYSTORE_PASS PAYESH_KEY_ALIAS PAYESH_KEY_PASS; do
             if [ -z "${!name:-}" ]; then MISSING="$MISSING $name"; fi
           done
+          SOURCE=school
           if [ -n "$MISSING" ]; then
-            echo "::warning title=Native APK not release-signed::missing secrets:$MISSING — debug-signed rehearsal build, NOT FOR DISTRIBUTION (owner key: row 61)"
-            exit 0
-          fi
-          if [ "${PAYESH_SIGNING_ROTATION_APPROVED:-}" != "true" ]; then
+            if [ -n "${OWNER_KEYSTORE_B64:-}" ] && [ -n "${OWNER_KEYSTORE_PASS:-}" ] && [ -n "${OWNER_KEY_ALIAS:-}" ] && [ -n "${OWNER_KEY_PASS:-}" ]; then
+              # همان کلید مالک که پنل مالک با آن منتشر می‌شود؛ APK مدرسه پیش از این هرگز با کلید دیگری
+              # منتشر نشده، پس چرخش امضاکننده‌ای در کار نیست (درگاه ROTATION فقط برای کلید جداگانه است).
+              SOURCE=owner
+              PAYESH_KEYSTORE_B64="$OWNER_KEYSTORE_B64"; PAYESH_KEYSTORE_PASS="$OWNER_KEYSTORE_PASS"
+              PAYESH_KEY_ALIAS="$OWNER_KEY_ALIAS"; PAYESH_KEY_PASS="$OWNER_KEY_PASS"
+              export PAYESH_KEYSTORE_PASS
+              echo "school APK: signing with the owner key (PAYESH_OWNER_*, row 61) — missing:$MISSING"
+            else
+              echo "::warning title=Native APK not release-signed::missing secrets:$MISSING (and no PAYESH_OWNER_*) — debug-signed rehearsal build, NOT FOR DISTRIBUTION (owner key: row 61)"
+              exit 0
+            fi
+          elif [ "${PAYESH_SIGNING_ROTATION_APPROVED:-}" != "true" ]; then
             echo "::warning title=Native APK not release-signed::vars.PAYESH_SIGNING_ROTATION_APPROVED is not true — rehearsal build only"
             exit 0
           fi
@@ -489,6 +506,7 @@ jobs:
             exit 1
           fi
           printf 'PAYESH_KEYSTORE=%s\n' "$KS" >> "$GITHUB_ENV"
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
           echo "ready=true" >> "$GITHUB_OUTPUT"
       - name: Fail-closed control — required release signing without a key must stop Gradle (row 76)
         working-directory: apps/payesh/app
@@ -510,9 +528,9 @@ jobs:
       - name: Build APK + AAB (release)
         working-directory: apps/payesh/app
         env:
-          PAYESH_KEYSTORE_PASS: ${{ steps.signing.outputs.ready == 'true' && secrets.PAYESH_KEYSTORE_PASS || '' }}
-          PAYESH_KEY_ALIAS: ${{ steps.signing.outputs.ready == 'true' && secrets.PAYESH_KEY_ALIAS || '' }}
-          PAYESH_KEY_PASS: ${{ steps.signing.outputs.ready == 'true' && secrets.PAYESH_KEY_PASS || '' }}
+          PAYESH_KEYSTORE_PASS: ${{ steps.signing.outputs.ready == 'true' && (steps.signing.outputs.source == 'owner' && secrets.PAYESH_OWNER_KEYSTORE_PASS || secrets.PAYESH_KEYSTORE_PASS) || '' }}
+          PAYESH_KEY_ALIAS: ${{ steps.signing.outputs.ready == 'true' && (steps.signing.outputs.source == 'owner' && secrets.PAYESH_OWNER_KEY_ALIAS || secrets.PAYESH_KEY_ALIAS) || '' }}
+          PAYESH_KEY_PASS: ${{ steps.signing.outputs.ready == 'true' && (steps.signing.outputs.source == 'owner' && secrets.PAYESH_OWNER_KEY_PASS || secrets.PAYESH_KEY_PASS) || '' }}
           PAYESH_NATIVE_REQUIRE_RELEASE_SIGNING: ${{ steps.signing.outputs.ready == 'true' && 'true' || 'false' }}
         run: |
           set -euo pipefail
