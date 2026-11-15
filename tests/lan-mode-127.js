@@ -8,7 +8,8 @@
 //          non-loopback IPv4 exists on this machine (CI runners have one).
 //   LM-03  Dart ⇄ server parity: every route LanAccessClient calls exists in server/index.js and
 //          every server error the Dart side maps is really emitted by the server.
-//   LM-04  Dart LanServerRules keep http to the four private ranges + loopback/link-local/ULA.
+//   LM-04  Dart LanServerRules keep http to the four private ranges + loopback/link-local/ULA
+//          (row 163: https — a school server's own tunnel — is also allowed; plain http never public).
 //   LM-05  Windows data-service installer: build-time refusals (web UI / WebView2), no web-UI
 //          Source lines, headless launcher, no task time limit, firewall private/domain only.
 //   LM-06  Linux install.sh / start.sh are headless and copy no web UI.
@@ -71,7 +72,8 @@ function rules(src) {
     need(re.test(src.dart), `LM-04 LanServerRules lost ${what}`);
   }
   need(!/b\[0\] == 172 && b\[1\] >= 16 && b\[1\] <= 3[2-9]/.test(src.dart), 'LM-04 172 range widened');
-  need(/static bool allowed\(Uri u\)[\s\S]{0,300}return isLocalHost\(u\.host\)/.test(src.dart), 'LM-04 allowed() does not require a local host');
+  // row 163: plain http still only to a local host; https (a school server's own tunnel) is allowed
+  need(/static bool allowed\(Uri u\)[\s\S]{0,300}return (u\.scheme == 'https' \|\| )?isLocalHost\(u\.host\);/.test(src.dart), 'LM-04 allowed() does not require a local host');
   need(/if \(!LanServerRules\.allowed\(uri\)\) \{\s*throw const LanAccessFailure\(LanAccessError\.badAddress\)/.test(src.dart), 'LM-04 client sends without checking the address');
   // LM-05 Windows data service installer
   for (const e of ['client\\index.html', 'client\\app.js', 'WebView2Loader.dll']) {
