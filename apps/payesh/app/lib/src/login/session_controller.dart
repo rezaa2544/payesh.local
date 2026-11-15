@@ -44,9 +44,18 @@ final class NeedLan extends SessionState {
     this.typed = '',
     this.login = '',
     this.otp,
+    this.searching = false,
+    this.notFound = false,
   });
   final LanServerInfo? info;
   final String? error;
+
+  /// Row 163 — the app is looking for the school server (nothing is typed: the remembered
+  /// server, this computer, then the address-only list in the owner's database).
+  final bool searching;
+
+  /// Row 163 — the search ended without an answer (the screen offers «تلاش دوباره»).
+  final bool notFound;
 
   /// Row 160 — an SMS code was sent: the code (and, for a reset, the new password) comes next.
   final LanOtpStep? otp;
@@ -151,6 +160,8 @@ class SessionController extends ChangeNotifier {
     required this.accounts,
     required ClientFlags flags,
     this.lan,
+    this.directory,
+    this.startLocalServer,
     this.schools,
     this.support,
     this.deviceId,
@@ -192,6 +203,17 @@ class SessionController extends ChangeNotifier {
 
   /// Row 127: login against the school's own LAN server; null = this build offers no LAN mode.
   final LanAccessApi? lan;
+
+  /// Row 163 — the address-only list of school servers in the owner's database; null = not used.
+  final SchoolDirectoryApi? directory;
+
+  /// Row 163 — starts a school server installed on this very computer (Windows: the Payesh Data
+  /// Service task, or the school system's own server); true when one was started.
+  final Future<bool> Function()? startLocalServer;
+
+  /// How long the app waits for a school server it just started on this computer.
+  static const Duration localStartWait = Duration(seconds: 30);
+  static const Duration localPollEvery = Duration(milliseconds: 1500);
 
   /// Name the LAN server records for this device (manager's device list).
   final String deviceName;
@@ -266,31 +288,107 @@ class SessionController extends ChangeNotifier {
     'http://127.0.0.1:${LanServerRules.defaultPort}',
   );
 
-  /// Row 162 — opens the login form of the remembered school server (or of a server on this same
-  /// computer) without asking for the address again; otherwise the form asks for it.
-  Future<void> _startLan() async {
+  /// Row 162/163 — finds the school server with NOTHING typed and opens its login form: the
+  /// remembered server and this computer first, then (if a school server is installed here but
+  /// not running) starts it, then the address-only list in the owner's database. The login form
+  /// is usable meanwhile; a press waits for the search.
+  Future<void> _startLan() {
+    final f = _finding;
+    if (f != null) return f;
+    final run = _findLan().whenComplete(() => _finding = null);
+    _finding = run;
+    return run;
+  }
+
+  Future<void>? _finding;
+
+  Future<void> _findLan() async {
     final store = lanAccounts;
     final last = await store.lastServer();
     _lastPrimary = await store.lastPrimary();
-    final first = NeedLan(typed: last == null ? '' : _typedOf(last));
-    _set(first);
     final api = lan;
-    if (api == null) return;
-    final candidates = <Uri>[?last, if (last != _loopback) _loopback];
-    for (final server in candidates) {
-      try {
-        final info = await api.probe(server);
-        // the user may already have typed or pressed something — never overwrite that
-        if (!identical(_state, first) || _busy) return;
-        _lanShare = info.lanUrls;
-        await store.remember(info);
-        _lastPrimary = info.loginPrimary;
-        _set(NeedLan(info: info, typed: _typedOf(server)));
-        return;
-      } on Object {
-        // next candidate / the form asks for the address
+    if (api == null) {
+      _set(const NeedLan(notFound: true));
+      return;
+    }
+    _set(NeedLan(searching: true, login: _keepLogin()), busy: _busy);
+    LanServerInfo? info = await firstAnswering(api, [
+      ?last,
+      if (last != _loopback) _loopback,
+    ]);
+    if (info == null) {
+      final start = startLocalServer;
+      var started = false;
+      if (start != null) {
+        try {
+          started = await start();
+        } on Object {
+          started = false;
+        }
+      }
+      if (started) info = await _waitLocal(api);
+    }
+    if (info == null) {
+      final dir = directory;
+      if (dir != null) {
+        try {
+          final cands = await dir.candidates();
+          info = await firstAnswering(api, [
+            for (final u in cands)
+              if (u != last && u != _loopback) u,
+          ]);
+        } on Object {
+          info = null;
+        }
       }
     }
+    final now = _state;
+    // the user went elsewhere meanwhile (signed in, signup, …) — never overwrite that
+    if (now is! NeedLan || now.info != null) return;
+    if (info == null) {
+      _set(
+        NeedLan(notFound: true, login: now.login, error: now.error),
+        busy: _busy,
+      );
+      return;
+    }
+    _lanShare = info.lanUrls;
+    await store.remember(info);
+    _lastPrimary = info.loginPrimary;
+    _set(
+      NeedLan(info: info, typed: _typedOf(info.server), login: now.login),
+      busy: _busy,
+    );
+  }
+
+  String _keepLogin() {
+    final s = _state;
+    return s is NeedLan ? s.login : '';
+  }
+
+  /// A school server just started on this computer: wait until it answers (or give up).
+  Future<LanServerInfo?> _waitLocal(LanAccessApi api) async {
+    final tries =
+        localStartWait.inMilliseconds ~/ localPollEvery.inMilliseconds;
+    for (var i = 0; i < tries; i++) {
+      try {
+        return await api.probe(_loopback);
+      } on Object {
+        await Future<void>.delayed(localPollEvery);
+      }
+    }
+    return null;
+  }
+
+  /// Row 163 — what the login screen says when no school server answered.
+  static const String lanNotFoundFa =
+      'اتصال به دیتابیس مدرسه برقرار نشد — سیستم سرور مدرسه روشن نیست یا این دستگاه به اینترنت وصل نیست. چند لحظه بعد «تلاش دوباره» را بزنید.';
+
+  /// Row 163 — «تلاش دوباره»: searches for the school server again.
+  Future<void> reconnect() {
+    final s = _state;
+    if (_busy || s is! NeedLan || s.info != null) return Future.value();
+    return _startLan();
   }
 
   /// Addresses of the LAN server for the other devices (known after the address step).
@@ -623,15 +721,11 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  /// Row 162 — the single login screen (server not reached yet): the address, then straight on
-  /// with the username/password login — one press. A fresh server shows its first setup instead;
-  /// an empty login only connects (the form then shows the server's own login order).
-  Future<void> connectAndLogin(
-    String typed,
-    String phone,
-    String password,
-  ) async {
-    if (!await _connect(typed, login: phone)) return;
+  /// Row 162/163 — the single login screen: if the school server is not reached yet, the press
+  /// waits for the search (nothing to type), then goes straight on with the username/password
+  /// login — one press. A fresh server shows its first setup instead.
+  Future<void> connectAndLogin(String phone, String password) async {
+    if (!await _connect(login: phone)) return;
     if (phone.trim().isEmpty && password.isEmpty) return;
     final s = _state;
     if (s is NeedLan && s.info != null && !s.needsSetup) {
@@ -639,13 +733,12 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  /// Row 162 — same, for «دریافت کد پیامکی» (login or «فراموشی رمز»).
+  /// Row 162/163 — same, for «دریافت کد پیامکی» (login or «فراموشی رمز»).
   Future<void> connectAndRequestOtp(
-    String typed,
     String mobile, {
     String purpose = 'login',
   }) async {
-    if (!await _connect(typed)) return;
+    if (!await _connect()) return;
     if (mobile.trim().isEmpty) return;
     final s = _state;
     if (s is NeedLan && s.info != null && !s.needsSetup) {
@@ -653,21 +746,28 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  Future<bool> _connect(String typed, {String login = ''}) async {
-    final s = _state;
+  Future<bool> _connect({String login = ''}) async {
+    var s = _state;
     if (_busy || lan == null || s is! NeedLan) return false;
-    final info = s.info;
-    final server = LanServerRules.parse(typed);
-    if (info != null && (server == null || server == info.server)) return true;
-    await submitLanServer(typed);
-    final n = _state;
-    if (n is NeedLan && n.info != null) {
-      if (login.isNotEmpty && n.login.isEmpty) {
-        _set(NeedLan(info: n.info, typed: n.typed, login: login));
-      }
-      return true;
+    if (s.info != null) return true;
+    if (login.isNotEmpty) {
+      _set(NeedLan(searching: true, login: login, notFound: false), busy: true);
+    } else {
+      _set(NeedLan(searching: true, login: s.login), busy: true);
     }
-    return false;
+    await (_finding ?? _startLan());
+    s = _state;
+    if (s is! NeedLan) return false;
+    _set(
+      NeedLan(
+        info: s.info,
+        typed: s.typed,
+        login: login.isNotEmpty ? login : s.login,
+        notFound: s.info == null,
+        error: s.info == null ? lanNotFoundFa : null,
+      ),
+    );
+    return s.info != null;
   }
 
   /// LAN step 2: phone (or national id) + password → device token in the secure store.

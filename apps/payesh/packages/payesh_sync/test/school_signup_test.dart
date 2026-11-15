@@ -232,7 +232,7 @@ void main() {
       expect(await s.load(), isNull);
       await store.write(
         SignupStore.key,
-        jsonEncode({...t.toJson(), 'server': 'https://evil.example'}),
+        jsonEncode({...t.toJson(), 'server': 'http://8.8.8.8:8080'}),
       );
       expect(await s.load(), isNull, reason: 'public address refused');
       await s.clear();
@@ -404,7 +404,8 @@ void main() {
 
     test('S145-I03 NEG public address is never contacted', () async {
       await expectLater(
-        c.subStatus(Uri.parse('https://example.com'), 't'),
+        // row 163: https (a school server's own tunnel) is allowed; plain http only on the LAN
+        c.subStatus(Uri.parse('http://8.8.8.8:8080'), 't'),
         throwsA(
           isA<LanAccessFailure>().having(
             (e) => e.kind,

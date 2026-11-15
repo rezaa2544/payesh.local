@@ -32,12 +32,16 @@ Future<SessionController> bootProd(
   WidgetTester tester,
   FakeLan lan, {
   FakeSecureStore? store,
+  SchoolDirectoryApi? directory,
+  Future<bool> Function()? startLocal,
 }) async {
   final c = SessionController(
     api: const UnconfiguredSchoolAccess(),
     accounts: SchoolAccountStore(store ?? FakeSecureStore()),
     flags: ClientFlags.parse(),
     lan: lan,
+    directory: directory,
+    startLocalServer: startLocal,
     now: () => DateTime.utc(2026, 11, 15, 8),
   );
   addTearDown(c.dispose);
@@ -51,7 +55,7 @@ Future<SessionController> bootProd(
 
 void main() {
   testWidgets(
-    'L162-01 fresh device: the first screen is username + password (no school code), one press signs in and the server is remembered',
+    'L162-01 fresh device: the first screen is username + password (no school code, no server address), one press finds the server, signs in and remembers it',
     (tester) async {
       final store = FakeSecureStore();
       final lan = FakeLan()
@@ -61,15 +65,13 @@ void main() {
       expect(c.lanFirst, isTrue);
       expect(c.state, isA<NeedLan>());
       expect(find.text('ورود به پایش'), findsOneWidget);
-      for (final k in [
-        'lan-server',
-        'lan-phone',
-        'lan-password',
-        'lan-login',
-      ]) {
+      for (final k in ['lan-phone', 'lan-password', 'lan-login']) {
         expect(find.byKey(Key(k)), findsOneWidget, reason: k);
       }
-      expect(find.text('ورود با شماره و کد یکبارمصرف'), findsOneWidget);
+      // row 163: no server address field at all
+      expect(find.byKey(const Key('lan-server')), findsNothing);
+      expect(find.textContaining('نشانی سرور'), findsNothing);
+      expect(find.text('شماره و کد پیامکی'), findsOneWidget);
       expect(find.text('فراموشی رمز'), findsOneWidget);
       // the old school-code / activation login is gone from this build
       for (final k in ['school-code', 'use-lan', 'use-legacy', 'lan-back']) {
@@ -77,14 +79,13 @@ void main() {
       }
       expect(find.textContaining('کد مدرسه'), findsNothing);
       await typeAndTap(tester, {
-        'lan-server': '192.168.1.10',
         'lan-phone': '09121234567',
         'lan-password': '0012345678',
       }, 'lan-login');
       expect(c.state, isA<SignedIn>());
       expect(lan.calls, [
         'probe:127.0.0.1:8080',
-        'probe:192.168.1.10:8080',
+        'probe:127.0.0.1:8080',
         'login:09121234567:0012345678',
       ]);
       expect(await store.read(LanKeys.lastServer), 'http://192.168.1.10:8080');
@@ -107,13 +108,15 @@ void main() {
       expect(find.text('ورود با شمارهٔ همراه'), findsOneWidget);
       expect(find.byKey(const Key('lan-mobile')), findsOneWidget);
       expect(find.byKey(const Key('lan-server')), findsNothing);
-      expect(find.text('ورود با نام کاربری و رمز عبور'), findsOneWidget);
+      expect(find.text('نام کاربری و رمز'), findsOneWidget);
       await typeAndTap(tester, {'lan-mobile': '09121234567'}, 'lan-otp-send');
       expect(find.byKey(const Key('lan-otp-code')), findsOneWidget);
       await typeAndTap(tester, {'lan-otp-code': '12345'}, 'lan-otp-verify');
       expect(c.state, isA<SignedIn>());
+      // row 163: the remembered server and this computer are asked at the same time
       expect(lan.calls, [
         'probe:192.168.1.10:8080',
+        'probe:127.0.0.1:8080',
         'otp-request:09121234567:login',
         'otp-verify:09121234567:12345:login:-',
       ]);
@@ -136,7 +139,7 @@ void main() {
   );
 
   testWidgets(
-    'L162-04 server not reachable at start: the same login form, address prefilled; mobile login connects and asks for the code in one press',
+    'L162-04 server not reachable at start: the same login form (no address); mobile login searches again and asks for the code in one press',
     (tester) async {
       final store = FakeSecureStore();
       await store.write(LanKeys.lastServer, 'http://192.168.1.10:8080');
@@ -150,13 +153,9 @@ void main() {
         ..otpRequests.add(const OtpTicket(length: 5));
       final c = await bootProd(tester, lan, store: store);
       expect(c.lastMobileFirst, isTrue);
-      expect(
-        tester
-            .widget<TextField>(find.byKey(const Key('lan-server')))
-            .controller!
-            .text,
-        '192.168.1.10',
-      );
+      expect((c.state as NeedLan).notFound, isTrue);
+      expect(find.byKey(const Key('lan-server')), findsNothing);
+      expect(find.byKey(const Key('lan-retry')), findsOneWidget);
       await typeAndTap(tester, {'lan-mobile': '09121234567'}, 'lan-otp-send');
       expect((c.state as NeedLan).otp, isNotNull);
       expect(lan.calls.last, 'otp-request:09121234567:login');
@@ -172,7 +171,6 @@ void main() {
         ..logins.add(lanSession());
       final c = await bootProd(tester, lan, store: store);
       await typeAndTap(tester, {
-        'lan-server': '192.168.1.10',
         'lan-phone': '09121234567',
         'lan-password': '0012345678',
       }, 'lan-login');
@@ -182,7 +180,11 @@ void main() {
       final s = c.state as NeedLan;
       expect(s.info?.server, lanServer);
       expect(find.byKey(const Key('lan-password')), findsOneWidget);
-      expect(find.byKey(const Key('lan-school')), findsOneWidget);
+      // row 163: the connection line names the school (once)
+      expect(
+        find.text('وصل به دیتابیس مدرسه · هنرستان شهید آزمون'),
+        findsOneWidget,
+      );
       expect(find.textContaining('کد مدرسه'), findsNothing);
       c.leaveLan(); // no Gateway in this build: nothing to go back to
       expect(c.state, isA<NeedLan>());

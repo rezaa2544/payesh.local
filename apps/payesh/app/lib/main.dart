@@ -9,6 +9,7 @@ import 'src/app.dart';
 import 'src/attendance/attendance_wiring.dart';
 import 'src/flags.dart';
 import 'src/login/device_identity.dart';
+import 'src/login/local_server.dart';
 import 'src/login/session_controller.dart';
 import 'src/login/wiring.dart';
 import 'src/secure/local_storage.dart';
@@ -26,6 +27,10 @@ void main(List<String> args) {
     flags: flags,
     // Row 127: the school's own server on the local network (Sync v1), next to the Gateway.
     lan: lanClient,
+    // Row 163: no server address on the login screen — the remembered server, this computer
+    // (started if installed here), then the address-only list in the owner's database.
+    directory: lanClient == null ? null : SchoolDirectoryClient(),
+    startLocalServer: lanClient == null ? null : LocalSchoolServer().start,
     // Row 145: registration request + subscription via the school server; trial once per device.
     schools: lanClient == null ? null : LanSchoolsClient(lanClient),
     // Row 152: support messages to the owner via the school server (never the bucket key).

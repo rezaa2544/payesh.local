@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:payesh_core/payesh_core.dart';
 
+import 'le_trust.dart';
 import 'outbox.dart';
 import 'pinning.dart';
 import 'transport.dart';
@@ -23,7 +24,7 @@ final class HttpSyncTransport implements SyncTransport {
     HttpClient? client,
     this.timeout = const Duration(seconds: 30),
     String Function()? requestId,
-  }) : _client = client ?? HttpClient(),
+  }) : _client = client ?? trustedHttpClient(),
        _requestId = requestId ?? newIdempotencyKey;
 
   final Uri baseUri;

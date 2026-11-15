@@ -26,6 +26,8 @@ export 'src/gateway_transport.dart';
 export 'src/grades.dart';
 export 'src/http_transport.dart';
 export 'src/lan_access.dart';
+export 'src/le_trust.dart';
+export 'src/school_finder.dart';
 export 'src/notices.dart';
 export 'src/outbox.dart';
 export 'src/pinning.dart';

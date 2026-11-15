@@ -36,7 +36,7 @@ final class GatewayAttendanceSource
     required this.session,
     this.client,
     HttpClient? lanClient,
-  }) : lanClient = lanClient ?? HttpClient();
+  }) : lanClient = lanClient ?? trustedHttpClient();
 
   final Future<SqliteEngine> storage;
   final SessionController session;

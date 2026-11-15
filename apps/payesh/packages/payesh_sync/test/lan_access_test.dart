@@ -63,7 +63,7 @@ void main() {
           '172.32.0.1', // just outside 172.16/12
           '172.15.0.1',
           'payesh.example.ir',
-          'https://gateway.payesh.ir',
+          'http://gateway.payesh.ir',
           'http://203.0.113.9:8080',
           'ftp://192.168.1.10',
           'http://user:pw@192.168.1.10',
@@ -82,6 +82,15 @@ void main() {
         expect(
           LanServerRules.allowed(Uri.parse('http://192.168.0.2:8080')),
           isTrue,
+        );
+        // row 163: the school server's own https public address (from the address-only list)
+        expect(
+          LanServerRules.allowed(Uri.parse('https://school.tail1.ts.net')),
+          isTrue,
+        );
+        expect(
+          LanServerRules.allowed(Uri.parse('http://school.tail1.ts.net')),
+          isFalse,
         );
       },
     );

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_secure/payesh_secure.dart' show SecureStore;
 
+import 'le_trust.dart';
 import 'school_access.dart' show SchoolSession, toPersianDigits;
 
 /// Row 127 — the school's OWN server on the local network (no cloud Gateway).
@@ -18,7 +19,9 @@ import 'school_access.dart' show SchoolSession, toPersianDigits;
 ///
 /// Plain `http` is accepted ONLY for addresses that are on the local network (private IPv4
 /// ranges, loopback, link-local, IPv6 ULA/link-local, `localhost`, `*.local` and single-label
-/// host names). A public address is refused before anything is sent.
+/// host names). A public address is refused before anything is sent — unless it is `https`
+/// (row 163: the school server's own public address, e.g. its Tailscale Funnel name, found in the
+/// address-only list of the owner's database; TLS-verified, never plain http).
 abstract final class LanServerRules {
   /// Default port of the school server (`PORT` in server/index.js and the installers).
   static const int defaultPort = 8080;
@@ -52,7 +55,7 @@ abstract final class LanServerRules {
     if (!u.hasAuthority || u.host.isEmpty || u.userInfo.isNotEmpty) {
       return false;
     }
-    return isLocalHost(u.host);
+    return u.scheme == 'https' || isLocalHost(u.host);
   }
 
   /// Host on the local network (never a public internet address).
@@ -507,7 +510,7 @@ final class LanAccessClient implements LanAccessApi {
       Duration(seconds: 4),
     ],
     String Function()? requestId,
-  }) : _client = client ?? HttpClient(),
+  }) : _client = client ?? trustedHttpClient(),
        _requestId = requestId ?? newIdempotencyKey;
 
   final String clientVersion;

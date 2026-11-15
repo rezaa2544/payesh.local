@@ -240,11 +240,11 @@
     },
     {
       "id": "school-data-service-windows",
-      "title_fa": "سرویس دادهٔ مدرسه — Windows (payesh-data-service-setup.exe، اختیاری کنار اپ بومی) — فقط API، بدون رابط وب",
+      "title_fa": "سرور دیتابیس مدرسه — Windows (payesh-data-service-setup.exe، روی رایانهٔ سرور مدرسه؛ اپ بومی خودش روشنش می‌کند) — فقط API، بدون رابط وب",
       "platform": "windows",
       "audience": "school",
       "declared": "server",
-      "status": "ci-artifact-server",
+      "status": "published-server",
       "sources": [
         "install/windows/data-service/",
         "server/"
@@ -262,8 +262,14 @@
       "artifacts": [
         "payesh-data-service-setup.exe"
       ],
-      "published": [],
-      "row": 127
+      "published": [
+        {
+          "workflow": ".github/workflows/school-native-publish.yml",
+          "tag": "school-server-continuous",
+          "asset": "payesh-data-service-setup.exe"
+        }
+      ],
+      "row": 163
     },
     {
       "id": "school-webview-windows",

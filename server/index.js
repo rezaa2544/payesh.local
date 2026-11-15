@@ -2396,6 +2396,16 @@ if (process.env.PAYESH_CLOUD_AUTO !== '0') {
   /* ردیف ۱۴۵: فهرست مدارس و سیاست اشتراکِ پنل مالک — هر دقیقه */
   schools.start(store, { instance: () => cfg.instanceId(store), publicUrl: () => cfg.publicUrl(store) || null, version: () => RUNNING_VERSION });
   support.start(store);
+  /* ردیف ۱۶۳: نشانی همین سرور در فهرست «فقط نشانی» دیتابیس ⇒ برنامه بدون «نشانی سرور» پیدایش می‌کند */
+  if (process.env.PAYESH_DISCOVERY !== '0') {
+    require('./discovery').start(store, () => ({
+      instance: cfg.instanceId(store),
+      school: (store.get('schools', 1) || {}).name || null,
+      lanUrls: cfg.lanUrls(PORT),
+      publicUrl: cfg.publicUrl(store) || null,
+      version: RUNNING_VERSION,
+    }));
+  }
 }
 
 /* ── صندوقچهٔ آفلاین: اولین دستگاهی که روشن شود، ثبت‌های بقیه را اعمال می‌کند ── */

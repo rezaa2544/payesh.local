@@ -5393,6 +5393,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۶۳: سرور مدرسه بدون «نشانی سرور» پیدا می‌شود (فهرست فقط‌نشانی public-read در دیتابیس) ── */
+  await test('ردیف ۱۶۳: فهرست نشانی سرورهای مدرسه در دیتابیس — public-read، فقط نشانی، بدون کلید/کاربر، کهنه‌ها کنار (۷ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/discovery-163.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'discovery-163: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|DISCOVERY-163/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۴۶: شکل نام کاربری در فرم‌های ورود/راه‌اندازی/نجات وب (هم‌قاعده با سرور و اپ بومی) ── */
   await test('ردیف ۱۴۶: فرم ورود وب نام کاربری لاتین را می‌پذیرد؛ شکل نادرست در ورود/راه‌اندازی/نجات هیچ درخواستی نمی‌فرستد', async () => {
     const { JSDOM } = require('jsdom');

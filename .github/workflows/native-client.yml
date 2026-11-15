@@ -537,8 +537,8 @@ jobs:
           flutter config --no-analytics >/dev/null
           flutter pub get --enforce-lockfile
           # ردیف ۱۴۸: نسخه = 0.2.<run_number> و همان شماره در برنامه (چراغ به‌روزرسانی)
-          flutter build apk --release --build-number=${{ github.run_number }} --build-name=0.2.${{ github.run_number }} --dart-define=PAYESH_APP_BUILD=${{ github.run_number }}
-          flutter build appbundle --release --build-number=${{ github.run_number }} --build-name=0.2.${{ github.run_number }} --dart-define=PAYESH_APP_BUILD=${{ github.run_number }}
+          flutter build apk --release --build-number=${{ github.run_number }} --build-name=0.2.${{ github.run_number }} --dart-define=PAYESH_APP_BUILD=${{ github.run_number }} --dart-define=PAYESH_SERVERS_URL=https://s3.ir-central1.arvanstorage.ir/payesh-madrese/payesh/pub/school-servers.json
+          flutter build appbundle --release --build-number=${{ github.run_number }} --build-name=0.2.${{ github.run_number }} --dart-define=PAYESH_APP_BUILD=${{ github.run_number }} --dart-define=PAYESH_SERVERS_URL=https://s3.ir-central1.arvanstorage.ir/payesh-madrese/payesh/pub/school-servers.json
       - name: Native gate on the REAL APK/AAB
         run: |
           set -euo pipefail
@@ -624,7 +624,7 @@ jobs:
           flutter config --no-analytics | Out-Null
           flutter pub get --enforce-lockfile
           if ($LASTEXITCODE -ne 0) { throw 'pub get failed' }
-          flutter build windows --release --build-name=0.2.${{ github.run_number }} --dart-define=PAYESH_APP_BUILD=${{ github.run_number }}
+          flutter build windows --release --build-name=0.2.${{ github.run_number }} --dart-define=PAYESH_APP_BUILD=${{ github.run_number }} --dart-define=PAYESH_SERVERS_URL=https://s3.ir-central1.arvanstorage.ir/payesh-madrese/payesh/pub/school-servers.json
           if ($LASTEXITCODE -ne 0) { throw 'flutter build windows failed' }
       # Row 77: the installer must run on a clean Windows without the VC++ redistributable,
       # so the MSVC runtime DLLs the binaries import are deployed app-locally (allowed by

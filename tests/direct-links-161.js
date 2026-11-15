@@ -59,9 +59,16 @@ function allowedSet(yml) {
   assert(line, 'no ALLOWED= line');
   return new Set(line.match(/ALLOWED="([^"]*)"/)[1].split(/\s+/).filter(Boolean));
 }
+// row 163: the school database server has its own channel, written by the same publisher
+function serverAllowedSet(yml) {
+  const line = yml.split('\n').find((l) => /^\s+SERVER_ALLOWED="/.test(l));
+  assert(line, 'no SERVER_ALLOWED= line');
+  return new Set(line.match(/SERVER_ALLOWED="([^"]*)"/)[1].split(/\s+/).filter(Boolean));
+}
 function publishers(over = {}) {
   return {
     'native-continuous': allowedSet(over.school || read('.github/workflows/school-native-publish.yml')),
+    'school-server-continuous': serverAllowedSet(over.school || read('.github/workflows/school-native-publish.yml')),
     'owner-continuous': allowedSet(over.owner || read('.github/workflows/owner-native-publish.yml')),
     continuous: allowedSet(over.cloud || read('.github/workflows/build.yml')),
   };

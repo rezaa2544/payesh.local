@@ -145,7 +145,7 @@ jobs:
               run_number: Number(process.env.RUN_NUMBER), run_url: process.env.RUN_URL, commit: process.env.SRC_SHA,
               gate: "NATIVE-GATE-OK (tools/native-independence-gate.mjs, docs/cloud/43-native-independence.json) on the published files",
               windows: "payesh_app.exe + Inno Setup; CI: silent install → gate on the installed app → uninstall; Authenticode: BLOCKED unless PAYESH_WIN_PFX_* secrets exist",
-              data_service: "not published here — the optional LAN data service bundles node.exe, so it cannot pass the native gate (CI artifact only, row 127)",
+              data_service: "school-server-continuous/payesh-data-service-setup.exe — the school database server (bundles node.exe, so never on this native-only channel); CI: silent install → headless → LAN IT → uninstall (rows 127/163)",
               android: release ? "payesh-native.apk — release-signed with the owner key (row 61)" : "BLOCKED — no owner signing key (row 61); the debug-signed rehearsal APK is never published",
               files
             }, null, 2) + "\n");'
@@ -203,6 +203,45 @@ jobs:
           gh release upload "$TAG" -R "$R" pub/app-update.json --clobber
           got=$(gh release view "$TAG" -R "$R" --json assets --jq '[.assets[].name] | sort | join(" ")')
           if [ "$got" != "$ALLOWED" ]; then echo "::error::native-continuous assets [$got] != native set [$ALLOWED]"; exit 1; fi
+      # ── ردیف ۱۶۳: سرور دیتابیس مدرسه (سرویس دادهٔ پایش) — نصب‌کنندهٔ رایانهٔ سرور مدرسه ──
+      # اپ بومی (ورود بدون نشانی سرور) این سرویس را روی همان رایانه خودش روشن می‌کند و دستگاه‌های دیگر
+      # آن را از فهرست نشانی‌ها در دیتابیس مالک پیدا می‌کنند. node.exe دارد، پس هرگز روی کانال بومی
+      # native-continuous نمی‌رود؛ کانال جدا: school-server-continuous. فقط پس از نصب/آزمون/حذف در CI.
+      - name: Publish the school database server (payesh-data-service-setup.exe) — row 163
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SRC_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          W=in/windows; T=school-server-continuous; R="$GITHUB_REPOSITORY"
+          SERVER_ALLOWED="SHA256SUMS payesh-data-service-setup.exe"
+          tr -d '\r' < "$W/data-service-127.txt" > data-service-127.txt
+          grep -q '^DATA-SERVICE-127-OK install+headless+lan-it+uninstall' data-service-127.txt
+          grep -q '^NATIVE-LAN-INSTALLED-IT-OK' data-service-127.txt
+          (cd "$W" && tr -d '\r' < SHA256SUMS-data-service | sha256sum -c -)
+          mkdir -p srv && cp "$W/payesh-data-service-setup.exe" srv/
+          (cd srv && sha256sum payesh-data-service-setup.exe > SHA256SUMS && cat SHA256SUMS)
+          NOTES="سرور دیتابیس مدرسه (سرویس دادهٔ پایش) — فقط روی رایانه‌ای که سرور مدرسه است نصب شود.
+          با روشن شدن ویندوز خودش اجرا می‌شود (بدون پنجره)، دیتابیس مدرسه را از دیتابیس مالک همگام می‌کند و اپ پایش روی همهٔ دستگاه‌های مدرسه بدون واردکردن نشانی به آن وصل می‌شود.
+          امضای کد هنوز نیست: پیش از اجرا SHA256 را با SHA256SUMS مقایسه کنید.
+          در CI نصب، آزموده و حذف شده است: $RUN_URL
+          commit: $SRC_SHA"
+          TITLE="سرور دیتابیس مدرسه (پایش) — ساخت پیوسته"
+          if ! gh release view "$T" -R "$R" >/dev/null 2>&1; then
+            gh release create "$T" -R "$R" --prerelease --target "$SRC_SHA" --title "$TITLE" --notes "$NOTES"
+          else
+            gh release edit "$T" -R "$R" --prerelease --title "$TITLE" --notes "$NOTES"
+          fi
+          gh release upload "$T" -R "$R" srv/payesh-data-service-setup.exe srv/SHA256SUMS --clobber
+          for a in $(gh release view "$T" -R "$R" --json assets --jq '.assets[].name'); do
+            case " $SERVER_ALLOWED " in *" $a "*) ;; *) gh release delete-asset "$T" "$a" -R "$R" -y ;; esac
+          done
+          got=$(gh release view "$T" -R "$R" --json assets --jq '[.assets[].name] | sort | join(" ")')
+          if [ "$got" != "$SERVER_ALLOWED" ]; then echo "::error::$T assets [$got] != [$SERVER_ALLOWED]"; exit 1; fi
+          mkdir -p srv-back && gh release download "$T" -R "$R" -D srv-back -p payesh-data-service-setup.exe -p SHA256SUMS
+          (cd srv-back && sha256sum -c SHA256SUMS)
+          echo "SCHOOL-SERVER-PUBLISH-OK $T" | tee -a gate-publish.txt
       - name: Download back → checksums + native gate on the PUBLISHED files
         env:
           GH_TOKEN: ${{ github.token }}
