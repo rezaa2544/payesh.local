@@ -41,6 +41,7 @@ const helperJobs = require('./helper-jobs');
 /* ردیف ۱۴۵: مدارس، درخواست ثبت‌نام و اشتراک (برگردان p2) — فهرست مالک در صندوقچه */
 const schools = require('./school-registry');
 const support = require('./support');
+const sms = require('./sms');   /* ردیف ۱۶۰: روش‌های ورود + زیرساخت پیامک */
 const schoolProfile = require('./school-profile');
 const { nowISO, json, normDigits, normalizeMobile, validNationalId, sha256, pbkdf2Hash } = require('./util');
 
@@ -506,6 +507,8 @@ async function api(req, res, url, ip) {
       instance: cfg.instanceId(store),
       /* ردیف ۱۴۵: این سرور پیرو فهرست مدارس مالک است؟ میزبان کدام مدرسه؟ ثبت‌نام می‌پذیرد؟ */
       owner_managed: !!schools.registry(store),
+      /* ردیف ۱۶۰: روش اصلی صفحهٔ ورود (انتخاب مالک) و آماده بودن پنل پیامک */
+      login: sms.publicInfo(store),
       school_bound: !!schools.boundOf(store),
       registration: (() => {
         try { const v = s3mem.usingMeta(store).get(); return !!(v.endpoint && v.bucket && v.accessKey && v.secret); }
@@ -689,6 +692,70 @@ async function api(req, res, url, ip) {
     }
     store.audit({ user_id: r.user.id, role: r.user.role, action: 'login', collection: 'users' });
     return json(r);
+  }
+
+  /* ── ردیف ۱۶۰: ورود با شمارهٔ همراه + کد پیامکی، و بازیابی رمز با پیامک ──────────
+     تا وقتی مالک پیوند پنل پیامک را در تنظیمات پنل مدیریت نگذاشته، هر دو مسیر
+     sms_disabled (503) می‌دهند و برنامه‌ها فقط نام کاربری/رمز را نشان می‌دهند. */
+  if (p === '/api/auth/methods' && m === 'GET') {
+    return json(Object.assign({ ok: true }, sms.publicInfo(store)));
+  }
+
+  if (p === '/api/auth/otp/request' && m === 'POST') {
+    if (!rateLimit('otp-req-ip:' + ip, 30, 10 * 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    let body = {};
+    try { body = await readBody(req, 16 * 1024); } catch (e) { return json({ ok: false, error: 'bad_json' }, 400); }
+    {
+      const gs = schools.gate(store, { id: 0, role: '' });
+      if (gs.status === 'school_inactive' || gs.status === 'school_removed') return json({ ok: false, error: gs.status }, 403);
+    }
+    const r = await sms.request(store, { phone: body.phone, purpose: body.purpose }, {
+      findUser: (mobile) => auth.findUserByPhone(store, mobile),
+      school: (store.get('schools', 1) || {}).name || 'پایش',
+      /* فقط حالت توسعهٔ PAYESH_SMS_CONSOLE=1: متن پیامک روی خروجی سرور (لاگ ساختاری PII را حذف می‌کند) */
+      log: (msg) => process.stdout.write(msg + '\n'),
+    });
+    if (!r.ok) {
+      if (r.error === 'sms_send_failed') logger.warn('sms_send_failed', { component: 'auth', status: r.status || 0 });
+      const out = { ok: false, error: r.error };
+      if (r.retry_after_s) { out.retry_after_s = r.retry_after_s; res.setHeader('retry-after', String(r.retry_after_s)); }
+      return json(out, sms.statusOf(r.error));
+    }
+    store.audit({ role: 'system', action: 'otp_requested', collection: 'users', after: { purpose: body.purpose === 'reset' ? 'reset' : 'login' } });
+    return json(r);
+  }
+
+  if (p === '/api/auth/otp/verify' && m === 'POST') {
+    if (!rateLimit('otp-ver-ip:' + ip, 60, 10 * 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
+    let body = {};
+    try { body = await readBody(req, 16 * 1024); } catch (e) { return json({ ok: false, error: 'bad_json' }, 400); }
+    const purpose = body.purpose === 'reset' ? 'reset' : 'login';
+    /* رمز تازه پیش از مصرف کد سنجیده می‌شود تا کد برای یک رمز کوتاه هدر نرود */
+    if (purpose === 'reset' && String(body.password || '').length < 4) return json({ ok: false, error: 'bad_password' }, 400);
+    {
+      const gs = schools.gate(store, { id: 0, role: '' });
+      if (gs.status === 'school_inactive' || gs.status === 'school_removed') return json({ ok: false, error: gs.status }, 403);
+    }
+    const v = sms.verify(store, { phone: body.phone, code: body.code, purpose });
+    if (!v.ok) {
+      store.audit({ action: 'otp_failed', role: 'system', collection: 'users', after: { ip, error: v.error } });
+      return json(v, sms.statusOf(v.error));
+    }
+    const user = store.get('users', v.uid);
+    /* کاربر در این فاصله غیرفعال شده یا شماره‌اش عوض شده ⇒ رد */
+    if (!user || user.active === false || normDigitsLocal(user.phone) !== v.mobile) return json({ ok: false, error: 'bad_credentials' }, 401);
+    if (purpose === 'reset') {
+      const set = auth.setPassword(store, user.id, body.password);
+      if (!set.ok) return json(set, 400);
+      store.audit({ user_id: user.id, role: user.role, action: 'password_reset_otp', collection: 'users' });
+    }
+    body.__ip = ip;
+    const r = auth.issueLogin(store, store.get('users', user.id), {
+      name: body.name, platform: body.platform, device_pubkey: body.device_pubkey, __ip: ip,
+    }, 'otp');
+    if (!r.ok) return json(r, r.error === 'device_limit' ? 409 : 400);
+    store.audit({ user_id: user.id, role: user.role, action: 'login_otp', collection: 'users' });
+    return json(Object.assign(r, { password_reset: purpose === 'reset' }));
   }
 
   if (p === '/api/auth/unlock' && m === 'POST') {
@@ -1288,7 +1355,7 @@ async function api(req, res, url, ip) {
     res.setHeader('pragma', 'no-cache');
     const rows = (store.all('users') || []).map(u => ({
       id: u.id, name: u.name, role: u.role,
-      phone: u.phone || '', password: auth.passwordOf(store, u),
+      phone: u.phone || '', username: u.username || '', password: auth.passwordOf(store, u),
     }));
     return json({ ok: true, users: rows });
   }
@@ -1338,9 +1405,17 @@ async function api(req, res, url, ip) {
     if (body.phone != null) {
       const phone = normDigits(body.phone);
       if (phone && phone.length < 10) return json({ ok: false, error: 'bad_phone' }, 400);
-      const dup = phone && auth.phoneTaken(store, phone, id);
+      const dup = phone && (auth.phoneTaken(store, phone, id) || auth.loginTaken(store, phone, id));
       if (dup) return json({ ok: false, error: 'duplicate_phone', name: dup.name }, 409);
       patch.phone = phone;
+    }
+    /* ردیف ۱۶۰: نام کاربری دلخواهِ مدیر — لاتین (۳ تا ۳۲) یا عددی (۴ تا ۹ رقم)؛ خالی = شمارهٔ همراه */
+    if (body.username != null) {
+      const un = auth.normUsername(body.username);
+      if (un && !auth.validUsername(un)) return json({ ok: false, error: 'bad_username' }, 400);
+      const taken = un && auth.loginTaken(store, un, id);
+      if (taken) return json({ ok: false, error: 'duplicate_username', name: taken.name }, 409);
+      patch.username = un;
     }
     if (body.national_id != null) {
       const nid = normDigits(body.national_id);

@@ -1114,8 +1114,9 @@ async function doLogin(form) {
     if (!LOGIN_USERNAME_RE.test(phone)) {
       return toast('نام کاربری با حرف انگلیسی شروع می‌شود و ۳ تا ۳۲ نویسه (حرف انگلیسی، رقم، . _ -) است', 'err');
     }
-  } else if (phone.length !== 11 && phone.length !== 10) {
-    return toast('شمارهٔ همراه ۱۱ رقم است و کد ملی ۱۰ رقم — دوباره بنویسید', 'err');
+  } else if (phone.length !== 11 && phone.length !== 10 && !/^\d{4,9}$/.test(phone)) {
+    /* ردیف ۱۶۰: کد کاربریِ عددیِ تعیین‌شدهٔ مدیر ۴ تا ۹ رقم است */
+    return toast('شمارهٔ همراه ۱۱ رقم، کد ملی ۱۰ رقم و کد کاربری ۴ تا ۹ رقم است — دوباره بنویسید', 'err');
   }
   if (!password) return toast('رمز عبور را وارد کنید', 'err');
   try {

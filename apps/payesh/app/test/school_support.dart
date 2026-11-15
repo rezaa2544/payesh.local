@@ -217,17 +217,33 @@ final class FakeAccounts implements AccountsApi {
     int id, {
     String? phone,
     String? password,
+    String? username,
   }) async {
-    calls.add('set:$id:${phone ?? '-'}:${password ?? '-'}');
+    calls.add(
+      'set:$id:${phone ?? '-'}:${password ?? '-'}'
+      '${username == null ? '' : ':u=$username'}',
+    );
     _up();
     if (password != null) AccountRules.checkPassword(password);
+    if (username != null && AccountRules.usernameProblem(username) != null) {
+      throw const AccountFailure(AccountError.badUsername);
+    }
     final c = creds[id];
     if (c == null) throw const AccountFailure(AccountError.notFound);
+    final custom = username == null
+        ? c.custom
+        : AccountRules.normUsername(username);
+    // the mobile part: what the server stores as phone (old fixtures: username = mobile)
+    final mobile =
+        phone ??
+        (c.phone.isNotEmpty ? c.phone : (c.custom.isEmpty ? c.username : ''));
     creds[id] = AccountCredential(
       id: id,
       name: c.name,
       role: c.role,
-      username: phone ?? c.username,
+      username: custom.isNotEmpty ? custom : mobile,
+      custom: custom,
+      phone: mobile,
       password: password ?? c.password,
     );
     return password;

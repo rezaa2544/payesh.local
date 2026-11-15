@@ -63,6 +63,10 @@ final class FakeLan implements LanAccessApi {
   final unlocks = <Object>[];
   final claims = <Object>[];
 
+  /// Row 160: scripted answers of the SMS code calls.
+  final otpRequests = <Object>[];
+  final otpVerifies = <Object>[];
+
   /// Row 146: what the setup form sent besides the call line (type | year).
   final setupExtras = <String>[];
 
@@ -123,6 +127,26 @@ final class FakeLan implements LanAccessApi {
     required String phone,
     required String password,
   }) => _next(claims, 'claim:${server.host}:$phone:$password');
+
+  @override
+  Future<OtpTicket> requestOtp({
+    required Uri server,
+    required String phone,
+    String purpose = 'login',
+  }) => _next(otpRequests, 'otp-request:$phone:$purpose');
+
+  @override
+  Future<LanSession> verifyOtp({
+    required Uri server,
+    required String phone,
+    required String code,
+    required String deviceName,
+    String purpose = 'login',
+    String? newPassword,
+  }) => _next(
+    otpVerifies,
+    'otp-verify:$phone:$code:$purpose:${newPassword ?? '-'}',
+  );
 }
 
 LanServerInfo serverInfo({bool setupDone = true}) => LanServerInfo(

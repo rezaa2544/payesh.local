@@ -33,8 +33,10 @@ import 'package:payesh_ui/payesh_ui.dart'
 
 import '../local/cloud_control.dart';
 import '../local/s3_client.dart';
+import 'auth_settings.dart';
 import 'support_inbox.dart';
 
+export 'auth_settings.dart';
 export 'support_inbox.dart';
 
 // ردیف ۱۵۰: ثابت‌های مشخصات مدرسه به payesh_ui منتقل شد (مشترک با تنظیمات مدیر).
@@ -434,6 +436,9 @@ final class SchoolsView {
 
   List<Map<String, Object?>> get schools => _maps(plain['schools']);
   SubSettings get settings => SubSettings.of(plain);
+
+  /// ردیف ۱۶۰: روش‌های ورود و پنل پیامکِ کل سامانه.
+  AuthSettings get auth => AuthSettings.of(plain);
   String get domain => '${plain['domain'] ?? ''}';
 }
 
@@ -1184,6 +1189,14 @@ final class SchoolRegistry {
       plain['settings'] = s.toJson();
       plain['domain'] = domain.trim();
     });
+  }
+
+  /// ردیف ۱۶۰: روش ورود اول و پنل پیامک — کلید جدای `plain.auth`؛ همهٔ سرورهای مدرسه
+  /// با همگام‌سازی بعدی فهرست آن را می‌خوانند.
+  Future<void> saveAuth(AuthSettings a, {String? rawUrl}) async {
+    final bad = a.problem(rawUrl: rawUrl ?? a.url);
+    if (bad != null) throw SchoolsFailure('invalid', bad);
+    return _mutate((plain) => plain['auth'] = a.toJson());
   }
 
   /// p2 «🎁 فعال‌سازی» (gift) و «♻️ بازنشانی» (reset) — برای یک کاربر یا یک نقش یا کل مدرسه.

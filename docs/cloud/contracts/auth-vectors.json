@@ -1,0 +1,22 @@
+{
+  "contract": "payesh-auth-settings",
+  "version": 1,
+  "row": 160,
+  "note": "plain.auth در فهرست مهرشدهٔ مدارس (پنل مالک ⇄ سرور مدرسه). server/sms.js settingsOf و owner AuthSettings.of باید برای هر ورودی همین خروجی را بدهند.",
+  "cases": [
+    { "name": "empty", "input": null,
+      "expect": { "primary": "password", "sms_ready": false, "enabled": false, "url": "", "method": "GET", "code_length": 6, "headers": 0 } },
+    { "name": "primary mobile, panel not linked", "input": { "primary": "mobile", "sms": { "enabled": true } },
+      "expect": { "primary": "mobile", "sms_ready": false, "enabled": true, "url": "", "method": "GET", "code_length": 6, "headers": 0 } },
+    { "name": "linked GET", "input": { "primary": "password", "sms": { "enabled": true, "url": "https://api.kavenegar.com/v1/KEY/verify/lookup.json?receptor={mobile}&token={code}&template=payesh", "method": "get", "code_length": 5 } },
+      "expect": { "primary": "password", "sms_ready": true, "enabled": true, "url": "https://api.kavenegar.com/v1/KEY/verify/lookup.json?receptor={mobile}&token={code}&template=payesh", "method": "GET", "code_length": 5, "headers": 0 } },
+    { "name": "linked but off", "input": { "sms": { "enabled": false, "url": "https://x.example/s?to={mobile}" } },
+      "expect": { "primary": "password", "sms_ready": false, "enabled": false, "url": "https://x.example/s?to={mobile}", "method": "GET", "code_length": 6, "headers": 0 } },
+    { "name": "POST with headers", "input": { "primary": "mobile", "sms": { "enabled": true, "url": "https://api.sms.ir/v1/send/verify", "method": "POST", "headers": "x-api-key: KEY\nAccept: application/json\nbad name: v", "body": "{\"mobile\":\"{mobile}\"}", "code_length": 8 } },
+      "expect": { "primary": "mobile", "sms_ready": true, "enabled": true, "url": "https://api.sms.ir/v1/send/verify", "method": "POST", "code_length": 8, "headers": 2 } },
+    { "name": "bad url and bad length", "input": { "primary": "sms", "sms": { "enabled": true, "url": "ftp://x.example/a", "code_length": 12 } },
+      "expect": { "primary": "password", "sms_ready": false, "enabled": true, "url": "", "method": "GET", "code_length": 6, "headers": 0 } },
+    { "name": "enabled must be true (not truthy)", "input": { "sms": { "enabled": "yes", "url": "https://x.example/s" } },
+      "expect": { "primary": "password", "sms_ready": false, "enabled": false, "url": "https://x.example/s", "method": "GET", "code_length": 6, "headers": 0 } }
+  ]
+}

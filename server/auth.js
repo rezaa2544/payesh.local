@@ -230,8 +230,9 @@ function login(store, input = {}) {
   const byName = /[A-Za-z]/.test(raw);
   const phone = byName ? raw.toLowerCase() : normDigits(raw);
   const pw = String(input.password || '');
-  /* ردیف ۱۴۶: همان شکل فرم‌های ورود — موبایل ۱۱ رقم، کد ملی ۱۰ رقم یا نام کاربری لاتین */
-  if (byName ? !USERNAME_RE.test(phone) : (phone.length !== 11 && phone.length !== 10)) return { ok: false, error: 'bad_phone' };
+  /* ردیف ۱۴۶: همان شکل فرم‌های ورود — موبایل ۱۱ رقم، کد ملی ۱۰ رقم یا نام کاربری لاتین؛
+     ردیف ۱۶۰: نام کاربری عددیِ تعیین‌شدهٔ مدیر (۴ تا ۹ رقم) هم پذیرفته است */
+  if (byName ? !USERNAME_RE.test(phone) : !(USERCODE_RE.test(phone) || phone.length === 11 || phone.length === 10)) return { ok: false, error: 'bad_phone' };
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
   let user = findUserByLogin(store, phone);
   if (!user || user.active === false) return { ok: false, error: 'bad_credentials' };
@@ -241,12 +242,17 @@ function login(store, input = {}) {
     /* برای ورود بدون سرور روی گوشی لازم است */
     user = store.update('users', user.id, { phone_hash: pbkdf2Hash(pw) });
   }
+  return issueLogin(store, user, input, 'password');
+}
+
+/* ردیف ۱۶۰: بعد از اثبات هویت (رمز یا کد پیامکی) — نشست/دستگاه با همان قواعد سقف و کلید عمومی */
+function issueLogin(store, user, input = {}, via = 'password') {
   /* ردیف ۶۵: ورود گوشیِ بی‌سرور (/api/phone/login) هرگز توکن دستگاه را به کلاینت
      نمی‌دهد (هویت آن تیکت ۲۰۰ روزهٔ امضاشده است)؛ پس دستگاه یتیم نمی‌سازیم و سقف
      را مصرف نمی‌کنیم — فقط یک نشست کوتاه‌عمر بدون دستگاه. */
   if (input.__sessionOnly) {
     identity.audit(store, { id: null, user_id: user.id }, 'session_login', { platform: String(input.platform || 'phone').slice(0, 20) }, input.__ip);
-    return { ok: true, user: publicUser(user), session: createSession(store, user.id, null), auth: 'password' };
+    return { ok: true, user: publicUser(user), session: createSession(store, user.id, null), auth: via };
   }
   /* نجات مدیر از خودِ رایانهٔ مدرسه (loopback، /api/auth/claim) مسیر بازیابی است و
      نباید پشت سقف دستگاه قفل شود؛ کلید عمومی همچنان اعتبارسنجی می‌شود. */
@@ -254,9 +260,9 @@ function login(store, input = {}) {
   if (adm.error) return adm.error;
   if (!adm.pubkey.ok) return { ok: false, error: adm.pubkey.error };
   const device = createDevice(store, user.id, {
-    name: input.name || 'دستگاه', platform: input.platform || 'web', pubkey: adm.pubkey, via: 'login', ip: input.__ip,
+    name: input.name || 'دستگاه', platform: input.platform || 'web', pubkey: adm.pubkey, via: via === 'otp' ? 'otp' : 'login', ip: input.__ip,
   });
-  return { ok: true, user: publicUser(user), session: device.session, device_token: device.device_token, device_id: device.device_id, auth: 'password' };
+  return { ok: true, user: publicUser(user), session: device.session, device_token: device.device_token, device_id: device.device_id, auth: via };
 }
 
 /* باز کردن قفلِ دستگاهِ ساخته‌شده با رمز عبور (بدون PIN) */
@@ -468,8 +474,18 @@ function credentialsFor(row) {
   return { phone: login, password };
 }
 
-/* کاربر را با «نام کاربری» پیدا می‌کند: اول شمارهٔ همراه، بعد کد ملی. */
+/* کاربر را با «نام کاربری» پیدا می‌کند: ردیف ۱۶۰ — اول نام کاربریِ تعیین‌شدهٔ مدیر (لاتین یا
+   عددی)، بعد شمارهٔ همراه، بعد کد ملی. یکتایی میان این سه را setUsername/PATCH تضمین می‌کند. */
 const USERNAME_RE = /^[a-z][a-z0-9._-]{2,31}$/;
+const USERCODE_RE = /^\d{4,9}$/;   /* ۱۰ رقم = کد ملی، ۱۱ رقم = همراه ⇒ بی‌ابهام */
+function validUsername(v) {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return USERNAME_RE.test(s) || USERCODE_RE.test(s);
+}
+function normUsername(v) {
+  const s = String(v == null ? '' : v).trim();
+  return /[A-Za-z]/.test(s) ? s.toLowerCase() : normDigits(s);
+}
 function findUserByLogin(store, input) {
   const name = String(input == null ? '' : input).trim().toLowerCase();
   if (/[a-z]/.test(name)) {
@@ -477,8 +493,11 @@ function findUserByLogin(store, input) {
     return (store.all('users') || []).find(u => String(u.username || '').toLowerCase() === name) || null;
   }
   const key = normDigits(input);
-  if (key.length < 10) return null;
+  if (key.length < 4) return null;
   const users = store.all('users') || [];
+  const byCode = USERCODE_RE.test(key) ? users.find(u => normDigits(u.username) === key && String(u.username || '').trim() !== '' && !/[A-Za-z]/.test(String(u.username))) : null;
+  if (byCode) return byCode;
+  if (key.length < 10) return null;
   const byPhone = users.find(u => normDigits(u.phone) === key);
   if (byPhone) return byPhone;
   if (key.length === 10) return users.find(u => normDigits(u.national_id) === key) || null;
@@ -498,6 +517,17 @@ function applyDefaultCredentials(row, store) {
   if (row.password_hash) return row;
   const verifier = pbkdf2Hash(c.password);
   return Object.assign({}, row, { password_hash: verifier, phone_hash: verifier, password_enc: store ? sealSecret(store, c.password) : null });
+}
+
+/* ردیف ۱۶۰: نام کاربری/شماره/کد ملیِ یک نفر نباید «نام ورود» کس دیگری باشد */
+function loginTaken(store, key, exceptId) {
+  const k = normUsername(key);
+  if (!k) return null;
+  const digits = !/[a-z]/.test(k);
+  return (store.all('users') || []).find(u => Number(u.id) !== Number(exceptId || 0) && (
+    String(u.username || '').trim().toLowerCase() === k ||
+    (digits && (normDigits(u.phone) === k || normDigits(u.national_id) === k))
+  )) || null;
 }
 
 function phoneTaken(store, phone, exceptId) {
@@ -534,7 +564,7 @@ function prune(store) {
 }
 
 module.exports = {
-  findUserByLogin,
+  findUserByLogin, validUsername, normUsername, loginTaken, issueLogin, USERNAME_RE, USERCODE_RE,
   needsSetup, setup, createPairCode, pair,
   credentialsFor, applyDefaultCredentials, phoneTaken, passwordOf, randomDigits,
   hasPassword, login, refreshWithDevice, unlockWithPassword, setPassword, changeOwnPassword,

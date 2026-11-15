@@ -114,7 +114,11 @@ void main() {
         ('ab', 'Madrese-1403', LanServerRules.usernameRuleFa),
         ('2ali', 'Madrese-1403', LanServerRules.usernameRuleFa),
         ('علی.رضایی', 'Madrese-1403', LanServerRules.latinUsernameFa),
-        ('0912', 'Madrese-1403', LanServerRules.loginDigitsRuleFa),
+        (
+          '091',
+          'Madrese-1403',
+          LanServerRules.loginDigitsRuleFa,
+        ), // row 160: 4–9 digits = user code
         ('091212345678', 'Madrese-1403', LanServerRules.loginDigitsRuleFa),
         ('Ali.Rezaei', '', 'رمز عبور را وارد کنید'),
         ('Ali.Rezaei', 'abc', LanAccessError.badCredentials.messageFa()),

@@ -5374,6 +5374,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۶۰: دو روش ورود — نام کاربری/رمزِ مدیر و شمارهٔ همراه + کد پیامکی (زیرساخت پیامک) ── */
+  await test('ردیف ۱۶۰: نام کاربری دلخواه مدیر، کد پیامکی یک‌بارمصرف (درهم‌سازی، سقف‌ها، ناشناس)، پنل غیرفعال ⇒ ۵۰۳، بازیابی رمز (۶ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/login-160.js')], { encoding: 'utf8', cwd: ROOT, timeout: 180000 });
+      assert.strictEqual(r.status, 0, 'login-160: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|LOGIN-160/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۴۶: شکل نام کاربری در فرم‌های ورود/راه‌اندازی/نجات وب (هم‌قاعده با سرور و اپ بومی) ── */
   await test('ردیف ۱۴۶: فرم ورود وب نام کاربری لاتین را می‌پذیرد؛ شکل نادرست در ورود/راه‌اندازی/نجات هیچ درخواستی نمی‌فرستد', async () => {
     const { JSDOM } = require('jsdom');
@@ -5390,7 +5399,8 @@ async function waitFor(fn, ms = 15000) {
     win.__sent = sent; win.__toasts = toasts;
     const F = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { value: v }]));
     /* ورود: شکل نادرست ⇒ هیچ درخواستی */
-    for (const bad of ['', 'ab', '2ali', 'ali rezaei!', '0912', '091200000011']) {
+    /* ردیف ۱۶۰: کد کاربری عددی ۴ تا ۹ رقم مجاز شد ⇒ «۰۹۱» (۳ رقم) جای «۰۹۱۲» را گرفت */
+    for (const bad of ['', 'ab', '2ali', 'ali rezaei!', '091', '091200000011']) {
       await T.doLogin(F({ phone: bad, password: 'Madrese-1403' }));
     }
     assert.strictEqual(sent.length, 0, 'شکل نادرست ورود چیزی نفرستاد: ' + JSON.stringify(sent));

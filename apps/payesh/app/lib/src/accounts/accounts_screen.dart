@@ -68,12 +68,38 @@ class CredsController extends SchoolController {
       credential?.username ??
       (user == null ? '' : AccountRules.usernameOf(user!));
 
-  /// Web form `user-creds`: the username through the queue, the password (if typed) online.
-  /// An unchanged username + an empty password changes nothing.
-  Future<bool> save({required String phone, required String password}) async {
+  /// Row 160 — the user name the manager chose ('' = the user signs in with the mobile).
+  String get customName => credential?.custom ?? '';
+
+  /// The mobile part (the default user name and the number of the SMS login).
+  String get mobile =>
+      customName.isNotEmpty ? (credential?.phone ?? '') : username;
+
+  /// Web form `user-creds`: the mobile through the queue, the user name (row 160) and the
+  /// password (if typed) online. Nothing changed = nothing sent.
+  Future<bool> save({
+    required String phone,
+    required String password,
+    String? login,
+  }) async {
     final typed = SchoolRecords.digitsOnly(phone);
     final changedName =
-        typed.isNotEmpty && SchoolRecords.mobile11(phone) != username;
+        typed.isNotEmpty && SchoolRecords.mobile11(phone) != mobile;
+    final wantLogin = login == null ? null : AccountRules.normUsername(login);
+    final changedLogin = wantLogin != null && wantLogin != customName;
+    if (changedLogin) {
+      final bad = AccountRules.usernameProblem(login!);
+      if (bad != null) {
+        formError = bad;
+        emit();
+        return false;
+      }
+      if (source.accounts == null) {
+        formError = const AccountFailure(AccountError.offline).messageFa;
+        emit();
+        return false;
+      }
+    }
     if (password.isNotEmpty && password.length < AccountRules.minPassword) {
       formError = const AccountFailure(AccountError.shortPassword).messageFa;
       emit();
@@ -91,6 +117,18 @@ class CredsController extends SchoolController {
       );
       if (r == null) return false;
     }
+    if (changedLogin) {
+      final ok = await _online(
+        (api) async {
+          await api.setCredentials(userId, username: wantLogin);
+          return null;
+        },
+        done: wantLogin.isEmpty
+            ? 'نام کاربری = شمارهٔ همراه شد'
+            : 'نام کاربری «$wantLogin» ثبت شد',
+      );
+      if (!ok) return false;
+    }
     if (password.isNotEmpty) {
       final ok = await _online(
         (api) => api.setCredentials(userId, password: password),
@@ -98,7 +136,7 @@ class CredsController extends SchoolController {
       );
       if (!ok) return false;
     }
-    if (!changedName && password.isEmpty) {
+    if (!changedName && !changedLogin && password.isEmpty) {
       notice = 'تغییری نبود';
       emit();
     }
@@ -163,6 +201,7 @@ class CredsPage extends StatefulWidget {
 
 class _CredsPageState extends State<CredsPage> {
   final phone = TextEditingController();
+  final login = TextEditingController();
   final password = TextEditingController();
   bool _filled = false;
 
@@ -177,6 +216,7 @@ class _CredsPageState extends State<CredsPage> {
   @override
   void dispose() {
     phone.dispose();
+    login.dispose();
     password.dispose();
     super.dispose();
   }
@@ -209,7 +249,8 @@ class _CredsPageState extends State<CredsPage> {
     builder: (context, _) {
       if (!_filled && c.user != null && !c.loading) {
         _filled = true;
-        phone.text = c.username;
+        phone.text = c.mobile;
+        login.text = c.customName;
         password.text = c.credential?.password ?? '';
       }
       final u = c.user;
@@ -264,9 +305,24 @@ class _CredsPageState extends State<CredsPage> {
                   const SizedBox(height: PayeshTokens.space3),
                   SchoolField(
                     'crd-phone',
-                    'نام کاربری (شمارهٔ همراه)',
+                    'شمارهٔ همراه',
                     phone,
                     numeric: true,
+                  ),
+                  const SizedBox(height: PayeshTokens.space3),
+                  // row 160 — the manager's own user name (Latin or a 4–9 digit code)
+                  TextField(
+                    key: const Key('crd-username'),
+                    controller: login,
+                    enabled: c.onServer,
+                    textDirection: TextDirection.ltr,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    decoration: const InputDecoration(
+                      labelText: 'نام کاربری',
+                      helperText: 'خالی = شمارهٔ همراه · حروف انگلیسی یا کد ۴ تا ۹ رقمی',
+                      helperMaxLines: 2,
+                    ),
                   ),
                   const SizedBox(height: PayeshTokens.space3),
                   TextField(
@@ -322,13 +378,19 @@ class _CredsPageState extends State<CredsPage> {
                     key: const Key('crd-save'),
                     onPressed: c.busy
                         ? null
-                        : () => c.save(
-                            phone: phone.text,
-                            password:
-                                password.text == (c.credential?.password ?? '')
-                                ? ''
-                                : password.text,
-                          ),
+                        : () async {
+                            final ok = await c.save(
+                              phone: phone.text,
+                              login: c.onServer ? login.text : null,
+                              password:
+                                  password.text ==
+                                      (c.credential?.password ?? '')
+                                  ? ''
+                                  : password.text,
+                            );
+                            // row 160: the saved (normalized) user name back in the field
+                            if (ok && mounted) login.text = c.customName;
+                          },
                     child: const Text('ذخیرهٔ نام کاربری و رمز'),
                   ),
                   const SizedBox(height: PayeshTokens.space4),

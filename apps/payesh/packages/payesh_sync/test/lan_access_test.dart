@@ -130,7 +130,10 @@ void main() {
       }
       expect(p(''), isNotNull);
       expect(p('   '), isNotNull);
-      expect(p('0912'), LanServerRules.loginDigitsRuleFa);
+      expect(
+        p('091'),
+        LanServerRules.loginDigitsRuleFa,
+      ); // row 160: 4–9 digits = user code
       expect(p('091212345678'), LanServerRules.loginDigitsRuleFa);
       expect(p('+98 912 123 4567'), LanServerRules.loginDigitsRuleFa);
       expect(p('ab'), LanServerRules.usernameRuleFa);

@@ -86,7 +86,10 @@ void main() {
       expect(LanServerRules.validLogin('Ali.Rezaei'), isTrue);
       expect(LanServerRules.validLogin('a1'), isFalse);
       expect(LanServerRules.validLogin('09121234567'), isTrue);
-      expect(LanServerRules.validLogin('0912'), isFalse);
+      expect(
+        LanServerRules.validLogin('091'),
+        isFalse,
+      ); // row 160: 4–9 digits = user code
       LanAccessError k(int st, String e) =>
           mapLanError(st, {'error': e}, null).kind;
       expect(k(403, 'school_inactive'), LanAccessError.schoolInactive);

@@ -1454,6 +1454,66 @@ paths:
           $ref: '#/components/responses/Error'
         '429':
           $ref: '#/components/responses/RateLimited'
+  /api/auth/methods:
+    get:
+      operationId: getApiAuthMethods
+      tags: [auth]
+      summary: "Row 160: login methods of this school server (primary screen chosen by the owner, SMS panel ready)"
+      x-source: server/index.js
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /api/auth/otp/request:
+    post:
+      operationId: postApiAuthOtpRequest
+      tags: [auth]
+      summary: "Row 160: send a one-time SMS code (login or password reset); 503 sms_disabled until the owner links an SMS panel"
+      x-source: server/index.js
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/auth/otp/verify:
+    post:
+      operationId: postApiAuthOtpVerify
+      tags: [auth]
+      summary: "Row 160: verify the SMS code (single use, 5 tries, 120 s) and sign in; purpose=reset also sets a new password"
+      x-source: server/index.js
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/bootstrap:
     get:
       operationId: getBootstrap

@@ -134,9 +134,22 @@ abstract final class LanServerRules {
   /// Web `doSetup` / `doClaim`: the manager's mobile is exactly 11 digits.
   static const String mobileRuleFa = 'شمارهٔ همراه باید ۱۱ رقم باشد';
 
-  /// Web `doLogin`: a mobile is 11 digits and a national id 10.
+  /// Web `doLogin`: a mobile is 11 digits and a national id 10; row 160 — a numeric user code the
+  /// manager set is 4–9 digits (10 / 11 stay national id / mobile, so nothing is ambiguous).
   static const String loginDigitsRuleFa =
-      'شمارهٔ همراه ۱۱ رقم است و کد ملی ۱۰ رقم — دوباره بنویسید';
+      'شمارهٔ همراه ۱۱ رقم، کد ملی ۱۰ رقم و کد کاربری ۴ تا ۹ رقم است — دوباره بنویسید';
+
+  /// Row 160: numeric user code set by the school manager (server/auth.js `USERCODE_RE`).
+  static final RegExp userCodeRe = RegExp(r'^\d{4,9}$');
+
+  /// Row 160: mobile number of the SMS login — 11 digits starting with 09 (Persian digits ok).
+  static String? mobileProblem(String typed) {
+    final d = digitsOnly(typed);
+    if (d.isEmpty) return 'شمارهٔ همراه را بنویسید';
+    return RegExp(r'^09\d{9}$').hasMatch(d)
+        ? null
+        : 'شمارهٔ همراه باید ۱۱ رقم و با ۰۹ باشد';
+  }
 
   /// Row 145 user name rule, said the way the owner's school form says it.
   static const String usernameRuleFa =
@@ -157,7 +170,9 @@ abstract final class LanServerRules {
     }
     if (RegExp('[\u0600-\u06FF]').hasMatch(t)) return latinUsernameFa;
     final d = digitsOnly(t);
-    return d.length == 11 || d.length == 10 ? null : loginDigitsRuleFa;
+    return d.length == 11 || d.length == 10 || userCodeRe.hasMatch(d)
+        ? null
+        : loginDigitsRuleFa;
   }
 
   /// Something the server can look up: a mobile (11) / national id (10) or a user name.
@@ -214,6 +229,18 @@ enum LanAccessError {
   /// Row 145 — the role needs a subscription and has none (402 `subscription_required`).
   subscriptionRequired,
 
+  /// Row 160 — no SMS panel is linked yet (503 `sms_disabled`).
+  smsDisabled,
+
+  /// Row 160 — the SMS code is wrong (or was already used).
+  otpInvalid,
+
+  /// Row 160 — the SMS code expired (120 s) or was locked after 5 wrong tries.
+  otpExpired,
+
+  /// Row 160 — the SMS panel did not accept the message (502 `sms_send_failed`).
+  smsFailed,
+
   /// Anything else.
   unknown;
 
@@ -240,6 +267,11 @@ enum LanAccessError {
     schoolRemoved => 'این مدرسه در فهرست مدارس پایش نیست',
     hostedElsewhere => 'این مدرسه روی سرور دیگری راه‌اندازی شده است — نشانی همان سرور را وارد کنید',
     subscriptionRequired => 'برای استفاده از امکانات، اشتراک لازم است',
+    smsDisabled =>
+      'ورود با پیامک هنوز فعال نشده — فعلاً با نام کاربری و رمز عبور وارد شوید',
+    otpInvalid => 'کد پیامکی درست نیست',
+    otpExpired => 'کد پیامکی دیگر معتبر نیست — کد تازه بگیرید',
+    smsFailed => 'پیامک فرستاده نشد — کمی بعد دوباره امتحان کنید',
     unknown => 'خطای غیرمنتظره — دوباره امتحان کنید',
   };
 
@@ -273,10 +305,24 @@ final class LanServerInfo {
     this.instance,
     this.version,
     this.lanUrls = const [],
+    this.loginPrimary = 'password',
+    this.smsReady = false,
+    this.otpLength = 6,
   });
   final Uri server;
   final bool setupDone;
   final bool headless;
+
+  /// Row 160 — which login the first screen shows (the owner's choice; the server already falls
+  /// back to `password` while no SMS panel is linked): `password` | `mobile`.
+  final String loginPrimary;
+
+  /// Row 160 — an SMS panel is linked: the mobile + SMS code login and the SMS password reset work.
+  final bool smsReady;
+
+  /// Row 160 — digits of the SMS code (4–8).
+  final int otpLength;
+  bool get mobileFirst => loginPrimary == 'mobile' && smsReady;
 
   /// Addresses of this server for the other devices of the school (`/api/network`), e.g.
   /// `http://192.168.1.10:8080` — shown to the manager who set the server up on its own computer.
@@ -351,6 +397,28 @@ final class LanSession {
   }
 }
 
+/// Row 160 — answer of `/api/auth/otp/request`: the code was sent (an unknown number gets the same
+/// answer, so nobody can probe which numbers are registered).
+final class OtpTicket {
+  const OtpTicket({
+    this.ttl = const Duration(seconds: 120),
+    this.resend = const Duration(seconds: 60),
+    this.length = 6,
+  });
+  final Duration ttl;
+  final Duration resend;
+  final int length;
+
+  static OtpTicket fromJson(Map<String, Object?> j) {
+    int n(Object? v, int d) => v is num && v > 0 ? v.toInt() : d;
+    return OtpTicket(
+      ttl: Duration(seconds: n(j['ttl_s'], 120)),
+      resend: Duration(seconds: n(j['resend_s'], 60)),
+      length: n(j['code_length'], 6).clamp(4, 8),
+    );
+  }
+}
+
 /// The LAN login calls. [LanAccessClient] is the real one; tests use fakes.
 /// School types of the web first-setup form (client/pages.js `renderSetup`), in its order.
 const List<String> setupSchoolTypes = [
@@ -407,6 +475,23 @@ abstract interface class LanAccessApi {
     required String phone,
     required String password,
   });
+
+  /// Row 160 — sends a one-time SMS code to [phone] (`purpose`: `login` | `reset`).
+  Future<OtpTicket> requestOtp({
+    required Uri server,
+    required String phone,
+    String purpose = 'login',
+  });
+
+  /// Row 160 — the SMS code signs this device in; `purpose: reset` also sets [newPassword].
+  Future<LanSession> verifyOtp({
+    required Uri server,
+    required String phone,
+    required String code,
+    required String deviceName,
+    String purpose = 'login',
+    String? newPassword,
+  });
 }
 
 /// `dart:io` implementation (no WebView, no browser stack).
@@ -443,6 +528,9 @@ final class LanAccessClient implements LanAccessApi {
       throw const LanAccessFailure(LanAccessError.badAddress);
     }
     final j = await _send('GET', server.resolve('/api/health'), null);
+    final login = j['login'] is Map
+        ? (j['login']! as Map).cast<String, Object?>()
+        : const <String, Object?>{};
     if (j['name'] != 'payesh-local' || j['ok'] != true) {
       throw const LanAccessFailure(LanAccessError.notSchoolServer);
     }
@@ -467,6 +555,11 @@ final class LanAccessClient implements LanAccessApi {
       schoolName: j['school'] as String?,
       instance: j['instance'] as String?,
       version: j['version'] as String?,
+      loginPrimary: login['primary'] == 'mobile' ? 'mobile' : 'password',
+      smsReady: login['sms'] == true,
+      otpLength: login['code_length'] is num
+          ? (login['code_length']! as num).toInt().clamp(4, 8)
+          : 6,
     );
   }
 
@@ -584,6 +677,39 @@ final class LanAccessClient implements LanAccessApi {
     return LanSession.fromJson(j);
   }
 
+  @override
+  Future<OtpTicket> requestOtp({
+    required Uri server,
+    required String phone,
+    String purpose = 'login',
+  }) async {
+    final j = await _send('POST', server.resolve('/api/auth/otp/request'), {
+      'phone': LanServerRules.digitsOnly(phone),
+      'purpose': purpose == 'reset' ? 'reset' : 'login',
+    });
+    return OtpTicket.fromJson(j);
+  }
+
+  @override
+  Future<LanSession> verifyOtp({
+    required Uri server,
+    required String phone,
+    required String code,
+    required String deviceName,
+    String purpose = 'login',
+    String? newPassword,
+  }) async {
+    final j = await _send('POST', server.resolve('/api/auth/otp/verify'), {
+      'phone': LanServerRules.digitsOnly(phone),
+      'code': LanServerRules.digitsOnly(code),
+      'purpose': purpose == 'reset' ? 'reset' : 'login',
+      'password': ?newPassword,
+      'name': deviceName,
+      'platform': platform,
+    }, unauthorized: LanAccessError.otpInvalid);
+    return LanSession.fromJson(j);
+  }
+
   /// One JSON request to the school server with this client's headers (row 128: the admin
   /// endpoints of [LanAccounts] use the same path, timeouts and error mapping).
   Future<Map<String, Object?>> request(
@@ -693,6 +819,11 @@ LanAccessFailure mapLanError(
     (_, 'subscription_required') ||
     (402, _) => LanAccessError.subscriptionRequired,
     (_, 'registry_unreachable') => LanAccessError.unreachable,
+    (_, 'sms_disabled') => LanAccessError.smsDisabled,
+    (_, 'sms_send_failed') => LanAccessError.smsFailed,
+    (_, 'otp_invalid') => LanAccessError.otpInvalid,
+    (_, 'otp_expired' || 'otp_locked') => LanAccessError.otpExpired,
+    (_, 'otp_cooldown' || 'otp_limit') => LanAccessError.rateLimited,
     (426, _) => LanAccessError.upgradeRequired,
     (429, _) => LanAccessError.rateLimited,
     (401, _) => unauthorized,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:payesh_sync/payesh_sync.dart'
-    show LanServerRules, setupDefaultYear, setupSchoolTypes;
+    show LanServerInfo, LanServerRules, setupDefaultYear, setupSchoolTypes;
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../app.dart';
@@ -521,12 +521,24 @@ class _LanServerScreenState extends State<LanServerScreen> {
   /// in with the user name instead of setting the server up.
   bool _loginInstead = false;
 
+  /// Row 160 — the method the user switched to (null = the owner's primary method).
+  bool? _mobileMode;
+
+  /// Row 160 — «فراموشی رمز»: the mobile form sends a reset code instead of a login code.
+  bool _reset = false;
+  final _mobile = TextEditingController();
+  final _code = TextEditingController();
+  final _newPassword = TextEditingController();
+
   @override
   void dispose() {
     for (final c in [
       _server,
       _phone,
       _password,
+      _mobile,
+      _code,
+      _newPassword,
       _schoolName,
       _manager,
       _password2,
@@ -536,6 +548,149 @@ class _LanServerScreenState extends State<LanServerScreen> {
     }
     super.dispose();
   }
+
+  /// Row 160 — «ورود با شماره» (or «فراموشی رمز»): the mobile, then «دریافت کد». While no SMS
+  /// panel is linked the form says it is coming soon and sends nothing.
+  Widget _mobileForm(
+    LanServerInfo info,
+    NeedLan s,
+    Widget header,
+    bool busy,
+    Widget signup,
+    Widget change,
+  ) {
+    final c = widget.controller;
+    final ready = info.smsReady;
+    void send() =>
+        c.requestLanOtp(_mobile.text, purpose: _reset ? 'reset' : 'login');
+    return _LoginFrame(
+      title: _reset ? 'فراموشی رمز' : 'ورود با شمارهٔ همراه',
+      children: [
+        header,
+        const SizedBox(height: PayeshTokens.space4),
+        _field(
+          'lan-mobile',
+          _mobile,
+          'شمارهٔ همراه',
+          busy: busy || !ready,
+          ltr: true,
+          autofocus: ready,
+          keyboard: TextInputType.phone,
+          onGo: ready ? send : null,
+        ),
+        if (!ready)
+          Padding(
+            padding: const EdgeInsets.only(top: PayeshTokens.space3),
+            child: Text(
+              _reset
+                  ? 'بازیابی رمز با پیامک به‌زودی فعال می‌شود. فعلاً رمز تازه را از مدیر مدرسه بگیرید.'
+                  : 'ورود با پیامک به‌زودی فعال می‌شود. فعلاً با نام کاربری و رمز عبوری که مدیر مدرسه داده وارد شوید.',
+              key: const Key('lan-sms-soon'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        _ErrorText(s.error),
+        const SizedBox(height: PayeshTokens.space4),
+        FilledButton(
+          key: const Key('lan-otp-send'),
+          onPressed: busy || !ready ? null : send,
+          child: _busyOr(busy, 'دریافت کد پیامکی'),
+        ),
+        TextButton(
+          key: const Key('lan-switch-method'),
+          onPressed: busy
+              ? null
+              : () => setState(() {
+                  _reset = false;
+                  _mobileMode = false;
+                }),
+          child: const Text('ورود با نام کاربری و رمز عبور'),
+        ),
+        if (!_reset) signup,
+        const SizedBox(height: PayeshTokens.space3),
+        change,
+      ],
+    );
+  }
+
+  /// Row 160 — the SMS code (and, for «فراموشی رمز», the new password).
+  Widget _otpCodeForm(
+    LanServerInfo info,
+    LanOtpStep otp,
+    Widget header,
+    bool busy,
+    Widget change,
+  ) {
+    final c = widget.controller;
+    final s = widget.state;
+    void go() => c.verifyLanOtp(
+      _code.text,
+      newPassword: otp.reset ? _newPassword.text : null,
+    );
+    return _LoginFrame(
+      title: otp.reset ? 'رمز تازه' : 'کد پیامکی',
+      children: [
+        header,
+        const SizedBox(height: PayeshTokens.space4),
+        Text(
+          'اگر این شماره در مدرسه ثبت شده باشد، کد ${_fa(otp.ticket.length)} رقمی به ${_fa(otp.phone)} پیامک شد (تا ${_fa(otp.ticket.ttl.inMinutes)} دقیقه معتبر است).',
+          key: const Key('lan-otp-sent'),
+        ),
+        const SizedBox(height: PayeshTokens.space3),
+        _field(
+          'lan-otp-code',
+          _code,
+          'کد پیامکی',
+          busy: busy,
+          ltr: true,
+          autofocus: true,
+          keyboard: TextInputType.number,
+          onGo: otp.reset ? null : go,
+        ),
+        if (otp.reset)
+          _field(
+            'lan-otp-password',
+            _newPassword,
+            'رمز تازه (دست‌کم ۴ نویسه)',
+            busy: busy,
+            ltr: true,
+            secret: true,
+            onGo: go,
+          ),
+        _ErrorText(s.error),
+        const SizedBox(height: PayeshTokens.space4),
+        FilledButton(
+          key: const Key('lan-otp-verify'),
+          onPressed: busy ? null : go,
+          child: _busyOr(busy, otp.reset ? 'ثبت رمز تازه و ورود' : 'ورود'),
+        ),
+        TextButton(
+          key: const Key('lan-otp-resend'),
+          onPressed: busy
+              ? null
+              : () => c.requestLanOtp(otp.phone, purpose: otp.purpose),
+          child: const Text('ارسال دوبارهٔ کد'),
+        ),
+        TextButton(
+          key: const Key('lan-otp-back'),
+          onPressed: busy
+              ? null
+              : () {
+                  _code.clear();
+                  c.cancelLanOtp();
+                },
+          child: const Text('بازگشت'),
+        ),
+        const SizedBox(height: PayeshTokens.space3),
+        change,
+      ],
+    );
+  }
+
+  static String _fa(Object n) => '$n'.replaceAllMapped(
+    RegExp('[0-9]'),
+    (m) => '۰۱۲۳۴۵۶۷۸۹'[int.parse(m[0]!)],
+  );
 
   Widget _busyOr(bool busy, String label) => busy
       ? const SizedBox.square(
@@ -780,6 +935,11 @@ class _LanServerScreenState extends State<LanServerScreen> {
         ],
       );
     }
+    final otp = s.otp;
+    if (otp != null) return _otpCodeForm(info, otp, header, busy, change);
+    if (_reset || (_mobileMode ?? info.mobileFirst)) {
+      return _mobileForm(info, s, header, busy, signup, change);
+    }
     void go() => c.submitLanLogin(_phone.text, _password.text);
     return _LoginFrame(
       title: 'ورود به سرور مدرسه',
@@ -810,6 +970,25 @@ class _LanServerScreenState extends State<LanServerScreen> {
           key: const Key('lan-login'),
           onPressed: busy ? null : go,
           child: _busyOr(busy, 'ورود'),
+        ),
+        // row 160 — the second method, written under the first (owner setting picks the order)
+        TextButton(
+          key: const Key('lan-switch-method'),
+          onPressed: busy ? null : () => setState(() => _mobileMode = true),
+          child: const Text('ورود با شماره'),
+        ),
+        TextButton(
+          key: const Key('lan-forgot'),
+          onPressed: busy
+              ? null
+              : () => setState(() {
+                  _reset = true;
+                  _mobile.text =
+                      LanServerRules.digitsOnly(_phone.text).length == 11
+                      ? LanServerRules.digitsOnly(_phone.text)
+                      : _mobile.text;
+                }),
+          child: const Text('فراموشی رمز'),
         ),
         // row 128 / W7 — web form `claim`: only on the server computer itself
         if (LanServerRules.isLoopbackHost(info.server.host) &&

@@ -18,6 +18,7 @@ import 'guard/guard_engine.dart';
 import 'infra/arch_card.dart';
 import 'infra/infra_card.dart';
 import 'monitor/live_monitor.dart';
+import 'schools/login_methods_section.dart';
 import 'schools/school_registry.dart';
 import 'platform.dart';
 import 'shell.dart';
@@ -530,6 +531,8 @@ class _OwnerAppState extends State<OwnerApp> {
         ),
         extra: [
           if (widget.updater != null) UpdateCard(updater: widget.updater!),
+          // ردیف ۱۶۰: روش ورود اول کاربران و پنل پیامکِ کل سامانه
+          if (_schools != null) LoginMethodsSection(registry: _schools!),
         ],
         server: ServerSettingsPanel(
           key: ValueKey('srv-${_origin ?? ''}'),

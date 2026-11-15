@@ -24,13 +24,22 @@ final class AccountCredential {
     required this.role,
     required this.username,
     this.password,
+    this.custom = '',
+    this.phone = '',
   });
   final int id;
   final String name;
   final String role;
 
-  /// Mobile number (or national id when there is no mobile).
+  /// What the user types to sign in: the manager's own user name (row 160) when set, else the
+  /// mobile number (or national id when there is no mobile).
   final String username;
+
+  /// Row 160 — user name the manager chose (Latin, or a 4–9 digit code); '' = the mobile number.
+  final String custom;
+
+  /// Mobile number on the server (also the number of the SMS login).
+  final String phone;
 
   /// Current password when the server can show it (set by the manager, or still the national
   /// id); null = the user changed it — only a new one can be set.
@@ -51,6 +60,12 @@ enum AccountError {
 
   /// Own password: the current password is wrong.
   wrongCurrent,
+
+  /// Row 160 — the user name has a wrong shape.
+  badUsername,
+
+  /// Row 160 — the user name is someone else's user name / mobile / national id.
+  duplicateUsername,
   unknown,
 }
 
@@ -70,6 +85,9 @@ final class AccountFailure implements Exception {
     AccountError.noLogin =>
       'این کاربر نه شمارهٔ همراه دارد نه کد ملی — اول یکی را ثبت کنید',
     AccountError.wrongCurrent => 'رمز فعلی درست نیست',
+    AccountError.badUsername => AccountRules.usernameRuleFa,
+    AccountError.duplicateUsername =>
+      'این نام کاربری قبلاً برای ${detail ?? 'کاربر دیگری'} ثبت شده',
     AccountError.unknown => 'انجام نشد — دوباره امتحان کنید',
   };
 
@@ -100,6 +118,40 @@ abstract final class AccountRules {
     return nid.length == 10 ? nid : '';
   }
 
+  /// Row 160 — the manager's own user name: Latin (starts with a letter, 3–32 of a-z 0-9 . _ -)
+  /// or a 4–9 digit code (server/auth.js `validUsername`).
+  static const String usernameRuleFa =
+      'نام کاربری: حروف انگلیسی (۳ تا ۳۲ نویسه، با حرف شروع شود) یا کد عددی ۴ تا ۹ رقمی';
+
+  /// The user name as the server stores it (lower-case Latin, or Latin digits).
+  static String normUsername(String typed) =>
+      LanServerRules.normalizeLogin(typed);
+
+  static String _latin(String s) {
+    const fa = '۰۱۲۳۴۵۶۷۸۹';
+    const ar = '٠١٢٣٤٥٦٧٨٩';
+    return String.fromCharCodes(
+      s.runes.map((r) {
+        final ch = String.fromCharCode(r);
+        final i = fa.indexOf(ch);
+        final j = ar.indexOf(ch);
+        return i >= 0 ? 48 + i : (j >= 0 ? 48 + j : r);
+      }),
+    );
+  }
+
+  /// Why [typed] cannot be a user name, or null ('' = clear it: sign in with the mobile again).
+  static String? usernameProblem(String typed) {
+    final t = _latin(typed).trim();
+    if (t.isEmpty) return null;
+    if (RegExp('[A-Za-z]').hasMatch(t)) {
+      return RegExp(r'^[a-z][a-z0-9._-]{2,31}$').hasMatch(t.toLowerCase())
+          ? null
+          : usernameRuleFa;
+    }
+    return RegExp(r'^\d{4,9}$').hasMatch(t) ? null : usernameRuleFa;
+  }
+
   static void checkPassword(String pw) {
     if (pw.length < minPassword) {
       throw const AccountFailure(AccountError.shortPassword);
@@ -111,8 +163,14 @@ abstract final class AccountRules {
 abstract interface class AccountsApi {
   Future<List<AccountCredential>> credentials();
 
-  /// Sets the username (mobile) and/or a new password; returns the password to show, if any.
-  Future<String?> setCredentials(int id, {String? phone, String? password});
+  /// Sets the mobile, the manager's own user name (row 160; '' = back to the mobile) and/or a
+  /// new password; returns the password to show, if any.
+  Future<String?> setCredentials(
+    int id, {
+    String? phone,
+    String? password,
+    String? username,
+  });
 
   /// "رمز = کد ملی" (server: national id, or 6 random digits without one); returns it.
   Future<String> autoPassword(int id);
@@ -158,6 +216,10 @@ final class LanAccounts implements AccountsApi {
         'bad_password' => const AccountFailure(AccountError.shortPassword),
         'bad_phone' => const AccountFailure(AccountError.badPhone),
         'duplicate_phone' => const AccountFailure(AccountError.duplicatePhone),
+        'bad_username' => const AccountFailure(AccountError.badUsername),
+        'duplicate_username' => const AccountFailure(
+          AccountError.duplicateUsername,
+        ),
         'no_phone' ||
         'no_national_id' => const AccountFailure(AccountError.noLogin),
         'bad_credentials' => const AccountFailure(AccountError.wrongCurrent),
@@ -181,7 +243,11 @@ final class LanAccounts implements AccountsApi {
             id: (r['id'] as num).toInt(),
             name: '${r['name'] ?? ''}',
             role: '${r['role'] ?? ''}',
-            username: '${r['phone'] ?? ''}',
+            username: '${r['username'] ?? ''}'.isNotEmpty
+                ? '${r['username']}'
+                : '${r['phone'] ?? ''}',
+            custom: '${r['username'] ?? ''}',
+            phone: '${r['phone'] ?? ''}',
             password: r['password'] is String ? r['password'] as String : null,
           ),
     ];
@@ -192,8 +258,14 @@ final class LanAccounts implements AccountsApi {
     int id, {
     String? phone,
     String? password,
+    String? username,
   }) async {
     final body = <String, Object?>{};
+    if (username != null) {
+      final problem = AccountRules.usernameProblem(username);
+      if (problem != null) throw const AccountFailure(AccountError.badUsername);
+      body['username'] = AccountRules.normUsername(username);
+    }
     if (phone != null) {
       final p = SchoolRecords.digitsOnly(phone).isEmpty
           ? ''

@@ -38,9 +38,18 @@ final class NeedCode extends SessionState {
 /// on a fresh server | phone + password). [info] is null until the address answered as a Payesh
 /// school server.
 final class NeedLan extends SessionState {
-  const NeedLan({this.info, this.error, this.typed = '', this.login = ''});
+  const NeedLan({
+    this.info,
+    this.error,
+    this.typed = '',
+    this.login = '',
+    this.otp,
+  });
   final LanServerInfo? info;
   final String? error;
+
+  /// Row 160 — an SMS code was sent: the code (and, for a reset, the new password) comes next.
+  final LanOtpStep? otp;
 
   /// Row 145: user name to prefill (an approved registration request).
   final String login;
@@ -50,6 +59,23 @@ final class NeedLan extends SessionState {
 
   /// A fresh server: the first setup (school + manager) comes next.
   bool get needsSetup => info != null && !info!.setupDone;
+}
+
+/// Row 160 — the mobile + SMS code step of the LAN login (or of «فراموشی رمز»).
+final class LanOtpStep {
+  const LanOtpStep({
+    required this.phone,
+    required this.purpose,
+    required this.sentAt,
+    this.ticket = const OtpTicket(),
+  });
+  final String phone;
+
+  /// `login` | `reset`.
+  final String purpose;
+  final DateTime sentAt;
+  final OtpTicket ticket;
+  bool get reset => purpose == 'reset';
 }
 
 /// Row 145 — «درخواست ثبت نام مدرسه جدید» on this school server: the form, then (with a
@@ -584,6 +610,109 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  /// Row 160 — «ورود با شماره» / «فراموشی رمز»: sends a one-time SMS code to the mobile. While no
+  /// SMS panel is linked the server answers `sms_disabled` and the screen says so; nothing else
+  /// changes. An unknown number gets the same answer as a known one (no probing).
+  Future<void> requestLanOtp(String phone, {String purpose = 'login'}) async {
+    final s = _state;
+    final api = lan;
+    final info = s is NeedLan ? s.info : null;
+    if (_busy || api == null || s is! NeedLan || info == null) return;
+    final wait = _lanCooldown();
+    if (wait != null) {
+      return _set(NeedLan(info: info, typed: s.typed, error: wait, otp: s.otp));
+    }
+    if (!info.smsReady) {
+      return _set(
+        NeedLan(
+          info: info,
+          typed: s.typed,
+          error: LanAccessError.smsDisabled.messageFa(),
+        ),
+      );
+    }
+    final bad = LanServerRules.mobileProblem(phone);
+    if (bad != null) {
+      return _set(NeedLan(info: info, typed: s.typed, error: bad, otp: s.otp));
+    }
+    final mobile = LanServerRules.digitsOnly(phone);
+    _set(NeedLan(info: info, typed: s.typed, otp: s.otp), busy: true);
+    try {
+      final ticket = await api.requestOtp(
+        server: info.server,
+        phone: mobile,
+        purpose: purpose == 'reset' ? 'reset' : 'login',
+      );
+      _set(
+        NeedLan(
+          info: info,
+          typed: s.typed,
+          otp: LanOtpStep(
+            phone: mobile,
+            purpose: purpose == 'reset' ? 'reset' : 'login',
+            sentAt: _now(),
+            ticket: ticket,
+          ),
+        ),
+      );
+    } on LanAccessFailure catch (e) {
+      _set(NeedLan(info: info, typed: s.typed, error: _lanFail(e), otp: s.otp));
+    } on Object {
+      _set(NeedLan(info: info, typed: s.typed, error: _unknown, otp: s.otp));
+    }
+  }
+
+  /// Row 160 — the SMS code signs this device in (a reset also sets [newPassword] first).
+  Future<void> verifyLanOtp(String code, {String? newPassword}) async {
+    final s = _state;
+    final api = lan;
+    final info = s is NeedLan ? s.info : null;
+    final step = s is NeedLan ? s.otp : null;
+    if (_busy || api == null || s is! NeedLan || info == null || step == null) {
+      return;
+    }
+    final digits = LanServerRules.digitsOnly(code);
+    String? bad;
+    if (digits.length != step.ticket.length) {
+      bad = 'کد پیامکی ${_faNum(step.ticket.length)} رقم است';
+    } else if (step.reset && (newPassword ?? '').length < 4) {
+      bad = 'رمز تازه حداقل ۴ نویسه باشد';
+    }
+    if (bad != null) {
+      return _set(NeedLan(info: info, typed: s.typed, error: bad, otp: step));
+    }
+    _set(NeedLan(info: info, typed: s.typed, otp: step), busy: true);
+    try {
+      final fresh = await api.verifyOtp(
+        server: info.server,
+        phone: step.phone,
+        code: digits,
+        deviceName: deviceName,
+        purpose: step.purpose,
+        newPassword: step.reset ? newPassword : null,
+      );
+      await _lanSignedInWith(info, fresh);
+    } on LanAccessFailure catch (e) {
+      // an expired / locked code cannot be retried: back to the number step
+      final keep = e.kind == LanAccessError.otpExpired ? null : step;
+      _set(NeedLan(info: info, typed: s.typed, error: _lanFail(e), otp: keep));
+    } on Object {
+      _set(NeedLan(info: info, typed: s.typed, error: _unknown, otp: step));
+    }
+  }
+
+  /// Row 160 — back from the code step to the number (or password) form.
+  void cancelLanOtp() {
+    final s = _state;
+    if (_busy || s is! NeedLan) return;
+    _set(NeedLan(info: s.info, typed: s.typed, login: s.login));
+  }
+
+  static String _faNum(int n) => '$n'.replaceAllMapped(
+    RegExp('[0-9]'),
+    (m) => '۰۱۲۳۴۵۶۷۸۹'[int.parse(m[0]!)],
+  );
+
   /// LAN first setup of a fresh server (only accepted on the server computer itself when the
   /// server runs as the headless data service).
   Future<void> submitLanSetup({
@@ -636,6 +765,9 @@ class SessionController extends ChangeNotifier {
         instance: info.instance,
         version: info.version,
         lanUrls: info.lanUrls,
+        loginPrimary: info.loginPrimary,
+        smsReady: info.smsReady,
+        otpLength: info.otpLength,
       );
       await _lanSignedInWith(named, fresh);
     } on LanAccessFailure catch (e) {
