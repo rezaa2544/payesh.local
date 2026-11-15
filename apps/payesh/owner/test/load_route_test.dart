@@ -311,24 +311,18 @@ void main() {
       await tester.pump();
       expect(find.byKey(const Key('route-tier-helpers')), findsNothing);
 
-      await tester.enterText(find.byKey(const Key('arch-external')), 'bad');
-      await tester.runAsync(() async {
-        await tester.tap(find.byKey(const Key('arch-external-save')));
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-      });
-      await tester.pump();
-      expect(find.textContaining('نشانی درست نیست'), findsOneWidget);
-      await tester.enterText(
-        find.byKey(const Key('arch-external')),
-        'https://ext.example.ir',
+      // ردیف ۱۶۴: نشانی سرور مرکزی فقط در «تعریف سرور»؛ اینجا فقط نمایش
+      expect(find.byKey(const Key('arch-external')), findsNothing);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('arch-external-line'))).data,
+        contains('تعریف سرور'),
       );
-      await tester.runAsync(() async {
-        await tester.tap(find.byKey(const Key('arch-external-save')));
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-      });
+      await tester.runAsync(() => store.setExternal('https://ext.example.ir'));
       await tester.pump();
-      expect(store.value.external, 'https://ext.example.ir');
-      expect(find.text('نشانی ذخیره شد.'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('arch-external-line'))).data,
+        contains('https://ext.example.ir'),
+      );
       router.dispose();
       store.dispose();
     });

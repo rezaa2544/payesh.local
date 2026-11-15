@@ -113,6 +113,14 @@ async function tailscaleStatus({ force = false } = {}) {
   return value;
 }
 
+/* پیوند تأیید یک‌بارهٔ Funnel در خروجی tailscale (فقط login.tailscale.com) */
+function funnelEnableUrl(text) {
+  const m = String(text || '').match(/https:\/\/login\.tailscale\.com\/f\/funnel\?[A-Za-z0-9=&_.-]{1,200}/);
+  return m ? m[0] : null;
+}
+let lastAttempt = { at: null, ok: null, error: null, enable_url: null };
+/* وضعیت تونل برای رسید سرور در دیتابیس (cloud-control.writeAck) — بدون راز */
+function hint() { return Object.assign({}, lastAttempt); }
 /* ── روشن/خاموش کردن Funnel ──────────────────────────────────────── */
 async function enableFunnel(port = 8080) {
   const bin = tailscaleBin();
@@ -121,13 +129,23 @@ async function enableFunnel(port = 8080) {
   if (!st.logged_in) return { ok: false, error: 'tailscale_not_logged_in', hint: 'tailscale up' };
 
   /* نحو جدید و قدیم هر دو امتحان می‌شوند */
-  let r = await run(bin, ['funnel', '--bg', String(port)], { timeout: 45_000 });
-  if (!r.ok) r = await run(bin, ['funnel', String(port), 'on'], { timeout: 45_000 });
+  let r = await run(bin, ['funnel', '--bg', '--yes', String(port)], { timeout: 45_000 });
+  if (!r.ok && /flag provided but not defined|unknown flag/i.test(`${r.stdout || ''}${r.stderr || ''}`)) {
+    r = await run(bin, ['funnel', '--bg', String(port)], { timeout: 45_000 });
+  }
+  if (!r.ok && !funnelEnableUrl(`${r.stdout || ''}${r.stderr || ''}`)) r = await run(bin, ['funnel', String(port), 'on'], { timeout: 45_000 });
   if (!r.ok) {
-    return { ok: false, error: 'funnel_failed', detail: (r.stderr || r.error || '').slice(0, 400) };
+    /* ردیف ۱۶۴: بار اول Tailscale می‌گوید «Funnel روی tailnet روشن نیست» و یک پیوند تأیید می‌دهد
+       که صاحب حساب Tailscale باید یک بار باز کند. پیوند را نگه می‌داریم تا پنل مالک
+       (زیرساخت ← سرور) دکمه‌اش را نشان دهد؛ بعد از تأیید، تلاش بعدی خودکار روشن می‌شود. */
+    const text = String(r.stdout || '') + '\n' + String(r.stderr || '');
+    const enableUrl = funnelEnableUrl(text);
+    lastAttempt = { at: nowISO(), ok: false, error: enableUrl ? 'funnel_not_enabled' : 'funnel_failed', enable_url: enableUrl };
+    return { ok: false, error: lastAttempt.error, enable_url: enableUrl, detail: (r.stderr || r.error || '').slice(0, 400) };
   }
   const after = await tailscaleStatus({ force: true });
   if (!after.url) return { ok: false, error: 'no_url' };
+  lastAttempt = { at: nowISO(), ok: true, error: null, enable_url: null };
   return { ok: true, url: after.url, provider: 'tailscale' };
 }
 
@@ -253,7 +271,13 @@ async function autoStartOnce(store, port) {
 }
 
 function start(store, { everyMs = 10 * 60_000, port = 8080 } = {}) {
-  const tick = () => { refresh(store).catch(() => {}); };
+  /* ردیف ۱۶۴: اگر هنوز آدرس عمومی نیست (مثلاً Funnel منتظر تأیید صاحب حساب بود) هر دور دوباره
+     تلاش می‌کنیم تا بعد از تأیید، بدون دخالت کسی روشن شود. */
+  const tick = () => {
+    refresh(store)
+      .then(() => (cfg.publicUrl(store) ? null : autoStart(store, port)))
+      .catch(() => {});
+  };
   setTimeout(tick, 8_000).unref?.();
   /* چند ثانیه بعد از بالا آمدن، خودش تونل را روشن کن (اگر ممکن بود).
      اگر ابزار تازه نصب شده/وارد نشده باشد، چند بار دیگر هم تلاش می‌کند:
@@ -288,7 +312,7 @@ function purgeStalePublicUrl(store) {
   const provider = String(cfg.getMeta(store, 'tunnel_provider') || '');
   let keep = false;
   try {
-    keep = /\.ts\.net$/i.test(new URL(prev).hostname) || provider === 'manual';
+    keep = /\.ts\.net$/i.test(new URL(prev).hostname) || provider === 'custom' || provider === 'manual';
   } catch (e) { keep = false; }
   if (keep) return { cleared: false, url: prev };
   cfg.setMeta(store, 'public_url', '');
@@ -298,6 +322,7 @@ function purgeStalePublicUrl(store) {
 }
 
 module.exports = {
+  funnelEnableUrl, hint,
   purgeStalePublicUrl,
   status, refresh, start, stop, autoStart, autoEnabled,
   enableFunnel, disableFunnel, login,

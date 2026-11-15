@@ -5402,6 +5402,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۶۴: یک دیتابیس برای همه، از هر اینترنتی (گره خوردن سرور قدیمی، سرور مرکزی، تونل) ── */
+  await test('ردیف ۱۶۴: سرور قدیمی با ورود مدیر به مدرسهٔ پنل مالک گره می‌خورد (بدون پاک شدن داده)؛ سرور مرکزی https در فهرست نشانی‌ها؛ پیوند تأیید تونل؛ آدرس دستی پایدار (۱۰ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/link-164.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'link-164: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|LINK-164/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۴۶: شکل نام کاربری در فرم‌های ورود/راه‌اندازی/نجات وب (هم‌قاعده با سرور و اپ بومی) ── */
   await test('ردیف ۱۴۶: فرم ورود وب نام کاربری لاتین را می‌پذیرد؛ شکل نادرست در ورود/راه‌اندازی/نجات هیچ درخواستی نمی‌فرستد', async () => {
     const { JSDOM } = require('jsdom');

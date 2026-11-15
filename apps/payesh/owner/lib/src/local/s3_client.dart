@@ -644,6 +644,7 @@ Future<S3Response> s3Request(
   List<int>? body,
   String? contentType,
   DateTime Function()? now,
+  Map<String, String> amzHeaders = const {},
 }) async {
   final configured = endpointText(s.endpoint);
   final routes = EndpointRoutes.order(
@@ -664,6 +665,7 @@ Future<S3Response> s3Request(
         body: body,
         contentType: contentType,
         now: now,
+        amzHeaders: amzHeaders,
         // آدرس اول همهٔ تلاش‌ها را دارد؛ جایگزین‌ها فقط یک تلاش (تا قطعی واقعی طول نکشد)
         policy: i == 0 ? s3RetryPolicy : RetryPolicy.none,
       );
@@ -692,6 +694,7 @@ Future<S3Response> _s3RequestAt(
   required String? contentType,
   required DateTime Function()? now,
   required RetryPolicy policy,
+  Map<String, String> amzHeaders = const {},
 }) async {
   var region = regionFor(s.endpoint);
   final payloadHash = body == null
@@ -709,6 +712,11 @@ Future<S3Response> _s3RequestAt(
       'x-amz-content-sha256': payloadHash,
       'x-amz-date': date,
       'content-type': ?contentType,
+      // ردیف ۱۶۴: سرآیندهای x-amz-* (مثل x-amz-acl) هم امضا می‌شوند
+      for (final e in amzHeaders.entries)
+        if (e.key.toLowerCase().startsWith('x-amz-') ||
+            e.key.toLowerCase() == 'cache-control')
+          e.key.toLowerCase(): e.value,
     };
     headers['authorization'] = sigV4Authorization(
       method: method,
@@ -807,6 +815,7 @@ Future<void> s3PutJson(
   String key,
   String json, {
   DateTime Function()? now,
+  Map<String, String> headers = const {},
 }) async {
   final r = await s3Request(
     s,
@@ -816,6 +825,7 @@ Future<void> s3PutJson(
     body: utf8.encode(json),
     contentType: 'application/json; charset=utf-8',
     now: now,
+    amzHeaders: headers,
   );
   if (r.status == 404) throw S3Failure(_failText(404, 'NoSuchBucket'));
 }

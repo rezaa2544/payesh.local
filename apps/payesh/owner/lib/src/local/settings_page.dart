@@ -10,12 +10,14 @@ import 's3_client.dart';
 class OwnerSettingsPage extends StatelessWidget {
   const OwnerSettingsPage({
     super.key,
-    required this.database,
-    required this.server,
+    this.database,
+    this.server,
     this.extra = const [],
   });
-  final Widget database;
-  final Widget server;
+
+  /// ردیف ۱۶۴: «تعریف دیتابیس» و «تعریف سرور» به «زیرساخت» رفتند؛ اینجا فقط اگر داده شوند.
+  final Widget? database;
+  final Widget? server;
 
   /// بخش‌های دیگر (سرور کمکی، به‌روزرسانی برنامه).
   final List<Widget> extra;
@@ -31,13 +33,16 @@ class OwnerSettingsPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              database,
+              ?database,
               for (final w in extra) ...[
-                const SizedBox(height: PayeshTokens.space4),
+                if (database != null || w != extra.first)
+                  const SizedBox(height: PayeshTokens.space4),
                 w,
               ],
-              const SizedBox(height: PayeshTokens.space4),
-              server,
+              if (server != null) ...[
+                const SizedBox(height: PayeshTokens.space4),
+                server!,
+              ],
             ],
           ),
         ),
@@ -400,8 +405,9 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
       );
     }
     return SettingsSection(
-      title: 'دیتابیس (فضای ابری)',
-      subtitle: 'آدرس فضای ابری (مثلاً آروان‌کلاد)، نام صندوقچه و کلیدهای دسترسی را وارد کنید. کلیدها روی همین دستگاه رمزنگاری‌شده می‌مانند و به برنامهٔ کاربران داده نمی‌شوند؛ سرورهای مدرسه با پیام رمزنگاری‌شده‌ای که در خود صندوقچه گذاشته می‌شود خودکار به همین دیتابیس وصل می‌شوند و هر تغییر را دنبال می‌کنند.',
+      key: const Key('db-panel'),
+      title: 'تعریف دیتابیس',
+      subtitle: 'یک دیتابیس برای کل سامانه؛ دادهٔ هر مدرسه در بخش جدای خودش، بدون تداخل با مدارس دیگر. نشانی (لینک) دیتابیس، نام صندوقچه، کلید دسترسی (Access Key) و کلید مخفی (Secret Key) را وارد کنید. کلیدها روی همین دستگاه رمزنگاری‌شده می‌مانند و به برنامهٔ کاربران داده نمی‌شوند؛ سرورهای پایش با پیام رمزنگاری‌شده‌ای که در خود دیتابیس گذاشته می‌شود خودکار به همین دیتابیس وصل می‌شوند و هر تغییر را دنبال می‌کنند.',
       children: [
         _msg(context, 'db-msg', _message, _messageOk),
         _input(
@@ -451,7 +457,7 @@ class _DatabaseSettingsPanelState extends State<DatabaseSettingsPanel> {
             OutlinedButton(
               key: const Key('db-followers'),
               onPressed: _busy ? null : _loadFollowers,
-              child: const Text('وضعیت سرورهای مدرسه'),
+              child: const Text('وضعیت سرورهای پایش'),
             ),
             TextButton(
               key: const Key('db-clear'),

@@ -98,10 +98,29 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
   final HttpClient _client;
   final DateTime Function() _now;
 
+  /// Row 164 — the central server the owner defined in the owner panel (Infrastructure → Server),
+  /// read from the list's top-level `central` by the last [entries] call. Https only, no path.
+  Uri? get central => _central;
+  Uri? _central;
+
+  /// Parses the list's `central` object (`{url, at}`); null when absent or not plain https.
+  static Uri? centralOf(Object? raw) {
+    if (raw is! Map || raw['url'] is! String) return null;
+    final u = Uri.tryParse(raw['url'] as String);
+    if (u == null ||
+        u.scheme != 'https' ||
+        u.host.isEmpty ||
+        u.userInfo.isNotEmpty) {
+      return null;
+    }
+    return Uri(scheme: 'https', host: u.host.toLowerCase(), port: u.port);
+  }
+
   /// The usable rows, freshest first.
   Future<List<SchoolServerEntry>> entries() async {
     final u = url;
     if (u == null) return const [];
+    _central = null;
     final req = await _client.getUrl(u).timeout(timeout);
     req.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
     final res = await req.close().timeout(timeout);
@@ -114,6 +133,7 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
       return const [];
     }
     if (j is! Map || j['kind'] != 'payesh-school-servers') return const [];
+    _central = centralOf(j['central']);
     final now = _now();
     final out = <SchoolServerEntry>[
       for (final r in (j['servers'] is List ? j['servers'] as List : const []))
@@ -124,15 +144,21 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
   }
 
   @override
-  Future<List<Uri>> candidates() async => candidatesOf(await entries());
+  Future<List<Uri>> candidates() async {
+    final list = await entries();
+    return candidatesOf(list, central: _central);
+  }
 
-  /// LAN addresses of every server first (fast, inside the school), then the public addresses.
-  static List<Uri> candidatesOf(List<SchoolServerEntry> list) {
+  /// The owner's central server first (reachable from any internet), then LAN addresses of every
+  /// server (fast, inside the school), then the servers' own public addresses.
+  static List<Uri> candidatesOf(List<SchoolServerEntry> list, {Uri? central}) {
     final seen = <String>{};
     final out = <Uri>[];
     void add(Uri u) {
       if (seen.add(u.toString())) out.add(u);
     }
+
+    if (central != null) add(central);
 
     for (final e in list) {
       e.lan.forEach(add);

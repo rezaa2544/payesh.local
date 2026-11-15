@@ -56,6 +56,7 @@ class OwnerShell extends StatefulWidget {
     this.settings,
     this.badge,
     this.infraTop,
+    this.infraSide,
     this.extraActions = const [],
     this.dbLight,
     this.updateLight,
@@ -89,6 +90,10 @@ class OwnerShell extends StatefulWidget {
 
   /// بالای صفحهٔ «زیرساخت» (مثلاً خلاصهٔ سرور کمکی همین دستگاه).
   final Widget? infraTop;
+
+  /// ردیف ۱۶۴: ستون چپ «زیرساخت» — تعریف سرور، تعریف دیتابیس و سرور کمکی. وقتی داده شود،
+  /// فهرست ارائه‌دهنده‌ها/سرویس‌های قدیمی (InfraPage) دیگر نشان داده نمی‌شود.
+  final Widget? infraSide;
 
   /// دکمه‌ها/نشان‌های دیگر نوار بالا (مثلاً «به‌روزرسانی آماده»).
   final List<Widget> extraActions;
@@ -140,6 +145,40 @@ class _OwnerShellState extends State<OwnerShell> {
     for (final m in _items) (m.id, m.title),
   ];
 
+  /// پهن: «مدل پردازش» راست و «سرور/دیتابیس/سرور کمکی» چپ، هر کدام با پیمایش جدا؛ باریک: زیر هم.
+  Widget _infraLayout(Widget? right, Widget left) => LayoutBuilder(
+    builder: (context, box) {
+      if (box.maxWidth >= infraSideBySideWidth) {
+        return Row(
+          key: const Key('infra-side-by-side'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (right != null)
+              Expanded(
+                child: SingleChildScrollView(
+                  key: const Key('infra-top-pane'),
+                  child: right,
+                ),
+              ),
+            Expanded(
+              child: SingleChildScrollView(
+                key: const Key('infra-left-pane'),
+                child: left,
+              ),
+            ),
+          ],
+        );
+      }
+      return SingleChildScrollView(
+        key: const Key('infra-top-pane'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [?right, left],
+        ),
+      );
+    },
+  );
+
   Widget _page(String id) {
     if (id == 'settings') return widget.settings!;
     final api = widget.api;
@@ -161,7 +200,9 @@ class _OwnerShellState extends State<OwnerShell> {
       backup: widget.backup,
       child: KeyedSubtree(
         key: ValueKey('page-$id-${identityHashCode(api)}'),
-        child: id == 'infra' && widget.infraTop != null
+        child: id == 'infra' && widget.infraSide != null
+            ? _infraLayout(widget.infraTop, widget.infraSide!)
+            : id == 'infra' && widget.infraTop != null
             ? LayoutBuilder(
                 builder: (context, box) {
                   final top = SingleChildScrollView(

@@ -503,8 +503,9 @@ void main() {
   group(
     'app: offline login ⇒ whole app; settings inside; session until «خروج»',
     () {
+      // ردیف ۱۶۴: «تعریف دیتابیس» در «زیرساخت» (ستون چپ) است، نه «تنظیمات»
       Future<void> openSettings(WidgetTester tester) =>
-          _tap(tester, 'nav-settings');
+          _tap(tester, 'nav-infra');
 
       testWidgets(
         'first run: one password field, empty code ⇒ whole app opens',
@@ -547,8 +548,11 @@ void main() {
             isNot(contains('pass-word-123')),
           );
           expect(secure.values.keys, contains(LocalAccountKeys.session));
-          await _tap(tester, 'nav-settings');
+          await _tap(tester, 'nav-infra');
           expect(find.byKey(const Key('db-endpoint')), findsOneWidget);
+          expect(find.byKey(const Key('server-url')), findsOneWidget);
+          await _tap(tester, 'nav-settings');
+          expect(find.byKey(const Key('db-endpoint')), findsNothing);
           expect(find.byKey(const Key('srv-origin')), findsOneWidget);
         },
       );
@@ -1067,7 +1071,7 @@ void main() {
 
           await pumpWith();
           await _setup(tester);
-          await openSettings(tester);
+          await _tap(tester, 'nav-settings');
           await _enter(tester, {'srv-origin': 'ftp://x'});
           await _tap(tester, 'srv-origin-save');
           expect(_text(tester, 'srv-msg'), contains('معتبر نیست'));
@@ -1096,7 +1100,7 @@ void main() {
           await pumpWith();
           await _tap(tester, 'nav-dashboard');
           expect(find.byKey(const Key('server-needed')), findsNothing);
-          await openSettings(tester);
+          await _tap(tester, 'nav-settings');
           await _tap(tester, 'srv-disconnect');
           expect(
             secure.values.keys,

@@ -123,15 +123,21 @@ void main() {
     expect(text(tester, 'infra-status-self'), startsWith('فعال'));
     expect(text(tester, 'infra-status-helpers'), startsWith('روشن'));
 
-    // ردیف ۱۵۷: پنجرهٔ پهن ⇒ «حالت معماری» راست و «ارائه‌دهنده‌ها» چپ، هم‌تراز در بالا
+    // ردیف ۱۶۴: «زیرساخت» = راست «مدل پردازش»، چپ «تعریف سرور» + «تعریف دیتابیس» + کلیدها
+    // و سرور کمکی؛ فهرست ارائه‌دهنده‌ها/سرویس‌ها دیگر نیست.
     expect(find.byKey(const Key('infra-side-by-side')), findsOneWidget);
+    expect(find.text('ارائه‌دهنده‌ها'), findsNothing);
+    expect(find.byKey(const Key('provisioning-manual')), findsNothing);
     final arch = tester.getRect(find.byKey(const Key('arch-card')));
-    final prov = tester.getRect(find.text('ارائه‌دهنده‌ها').first);
-    expect(arch.left, greaterThan(prov.right), reason: 'معماری سمت راست');
-    final note = tester.getRect(find.byKey(const Key('provisioning-manual')));
-    expect((arch.top - note.top).abs(), lessThan(40), reason: 'هم‌تراز');
-    expect(prov.top, lessThan(arch.bottom), reason: 'کنار هم، نه زیر هم');
-    // پنجرهٔ باریک ⇒ مثل قبل زیر هم
+    final server = tester.getRect(find.byKey(const Key('server-panel')));
+    final dbPanel = tester.getRect(find.byKey(const Key('db-panel')));
+    expect(arch.left, greaterThan(server.right), reason: 'مدل پردازش سمت راست');
+    expect(dbPanel.right, lessThan(arch.left), reason: 'دیتابیس سمت چپ');
+    expect((arch.top - server.top).abs(), lessThan(40), reason: 'هم‌تراز');
+    expect(find.byKey(const Key('db-endpoint')), findsOneWidget);
+    expect(find.byKey(const Key('server-url')), findsOneWidget);
+    expect(find.byKey(const Key('arch-external')), findsNothing);
+    // پنجرهٔ باریک ⇒ زیر هم
     tester.view.physicalSize = const Size(820, 1100);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('infra-side-by-side')), findsNothing);
@@ -143,6 +149,7 @@ void main() {
     await tap(tester, 'nav-settings');
     expect(find.byKey(const Key('helper-switch')), findsNothing);
     expect(find.byKey(const Key('infra-card')), findsNothing);
+    expect(find.byKey(const Key('db-endpoint')), findsNothing);
     await tap(tester, 'nav-infra');
     // پیش‌فرض روشن
     final sw = tester.widget<Switch>(find.byKey(const Key('helper-switch')));

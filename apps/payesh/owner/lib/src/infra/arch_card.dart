@@ -75,12 +75,6 @@ class ArchCard extends StatefulWidget {
 }
 
 class _ArchCardState extends State<ArchCard> {
-  late final TextEditingController _ext = TextEditingController(
-    text: widget.policy.value.external,
-  );
-  String? _extError;
-  String? _extNote;
-
   @override
   void initState() {
     super.initState();
@@ -92,7 +86,6 @@ class _ArchCardState extends State<ArchCard> {
   void dispose() {
     widget.policy.removeListener(_redraw);
     widget.router.removeListener(_redraw);
-    _ext.dispose();
     super.dispose();
   }
 
@@ -103,18 +96,6 @@ class _ArchCardState extends State<ArchCard> {
   Future<void> _setMode(String m) async {
     await widget.policy.setMode(m);
     unawaited(widget.router.tick());
-  }
-
-  Future<void> _saveExternal() async {
-    final ok = await widget.policy.setExternal(_ext.text);
-    if (!mounted) return;
-    setState(() {
-      _extError = ok
-          ? null
-          : 'نشانی درست نیست؛ مثل https://server.example.ir (بدون ? و #).';
-      _extNote = ok ? 'نشانی ذخیره شد.' : null;
-    });
-    if (ok) unawaited(widget.router.tick());
   }
 
   Widget _modeTile(String m, String detail, IconData icon) {
@@ -153,7 +134,7 @@ class _ArchCardState extends State<ArchCard> {
     final note = p.pending
         ? 'تغییر روی همین دستگاه ذخیره شد؛ با وصل شدن دیتابیس برای همه ثبت می‌شود.'
         : !p.configured
-        ? 'برای تغییر حالت، اول دیتابیس را در «تنظیمات» وصل کنید.'
+        ? 'برای تغییر حالت، اول دیتابیس را در «تعریف دیتابیس» (ستون چپ) وصل کنید.'
         : null;
     return Card(
       key: const Key('arch-card'),
@@ -163,7 +144,10 @@ class _ArchCardState extends State<ArchCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('حالت معماری', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'مدل پردازش (حالت معماری)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 4),
             Text(
               'برای کل پروژه (پنل مالک، سرورهای مدرسه و برنامه‌های کاربران). '
@@ -183,43 +167,20 @@ class _ArchCardState extends State<ArchCard> {
             ),
             _modeTile(
               ArchModes.external,
-              'سرور بیرونی اصلی است ← زیر بار: دیتابیس هم ← باز زیر بار: سیستم‌های کمکی. '
-              'وقتی بار عادی شد به سرور بیرونی برمی‌گردد. بدون سرور بیرونیِ در دسترس، همان حالت دوم.',
+              'سرور مرکزی اصلی است ← زیر بار: دیتابیس هم ← باز زیر بار: سیستم‌های کمکی. '
+              'وقتی بار عادی شد به سرور مرکزی برمی‌گردد. بدون سرور مرکزیِ در دسترس، همان حالت دوم.',
               Icons.cloud_outlined,
             ),
+            // ردیف ۱۶۴: نشانی سرور بیرونی/مرکزی فقط در «تعریف سرور» (ستون چپ همین صفحه)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: const Key('arch-external'),
-                      controller: _ext,
-                      enabled: p.configured,
-                      textDirection: TextDirection.ltr,
-                      keyboardType: TextInputType.url,
-                      decoration: InputDecoration(
-                        labelText: 'نشانی سرور بیرونی (برای آینده)',
-                        hintText: 'https://server.example.ir',
-                        errorText: _extError,
-                        helperText: _extNote,
-                      ),
-                      onSubmitted: (_) => unawaited(_saveExternal()),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: FilledButton.tonal(
-                      key: const Key('arch-external-save'),
-                      onPressed: p.configured
-                          ? () => unawaited(_saveExternal())
-                          : null,
-                      child: const Text('ذخیره'),
-                    ),
-                  ),
-                ],
+              child: Text(
+                p.value.external.isEmpty
+                    ? 'سرور مرکزی هنوز تعریف نشده (ستون چپ: «تعریف سرور»).'
+                    : 'سرور مرکزی: ${p.value.external}',
+                key: const Key('arch-external-line'),
+                textDirection: TextDirection.rtl,
+                style: TextStyle(color: tk.muted),
               ),
             ),
             const Divider(height: 24),
@@ -240,7 +201,7 @@ class _ArchCardState extends State<ArchCard> {
             ),
             if (ext != null)
               Text(
-                'سرور بیرونی: ${ext.ok ? 'در دسترس' : 'در دسترس نیست'} · '
+                'سرور مرکزی: ${ext.ok ? 'در دسترس' : 'در دسترس نیست'} · '
                 'p95 ${_ms(ext.p95)}',
                 key: const Key('arch-ext-stats'),
                 style: TextStyle(color: ext.ok ? null : tk.danger),

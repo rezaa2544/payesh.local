@@ -382,7 +382,7 @@ class SessionController extends ChangeNotifier {
 
   /// Row 163 — what the login screen says when no school server answered.
   static const String lanNotFoundFa =
-      'اتصال به دیتابیس مدرسه برقرار نشد — سیستم سرور مدرسه روشن نیست یا این دستگاه به اینترنت وصل نیست. چند لحظه بعد «تلاش دوباره» را بزنید.';
+      'اتصال به دیتابیس برقرار نشد — سرور پایش در دسترس نیست یا این دستگاه به اینترنت وصل نیست. چند لحظه بعد «تلاش دوباره» را بزنید.';
 
   /// Row 163 — «تلاش دوباره»: searches for the school server again.
   Future<void> reconnect() {

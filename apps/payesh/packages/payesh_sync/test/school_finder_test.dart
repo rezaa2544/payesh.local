@@ -149,6 +149,67 @@ void main() {
       },
     );
 
+    test('DF-08 row 164: the owner\'s central server (from any internet) comes first', () async {
+      body = jsonEncode({
+        'v': 1,
+        'kind': 'payesh-school-servers',
+        'central': {
+          'url': 'https://Server.Example.ir/',
+          'at': '2026-11-15T22:00:00Z',
+        },
+        'servers': [
+          {
+            'instance': 'a',
+            'lan': ['http://192.168.1.120:8080'],
+            'public_url': 'https://reza.tailb692ba.ts.net',
+            'at': now.subtract(const Duration(minutes: 3)).toIso8601String(),
+          },
+        ],
+      });
+      final c = client();
+      expect((await c.candidates()).map((u) => u.toString()), [
+        'https://server.example.ir',
+        'http://192.168.1.120:8080',
+        'https://reza.tailb692ba.ts.net',
+      ]);
+      expect(c.central.toString(), 'https://server.example.ir');
+      // only a central and no rows ⇒ still usable
+      body = jsonEncode({
+        'v': 1,
+        'kind': 'payesh-school-servers',
+        'central': {'url': 'https://server.example.ir'},
+        'servers': <Object>[],
+      });
+      expect((await c.candidates()).single.host, 'server.example.ir');
+    });
+
+    test('DF-09 NEG row 164: central must be plain https', () async {
+      for (final bad in [
+        'http://server.example.ir',
+        'https://u:p@server.example.ir',
+        'ftp://x',
+        '',
+        42,
+      ]) {
+        expect(
+          SchoolDirectoryClient.centralOf({'url': bad}),
+          isNull,
+          reason: '$bad',
+        );
+      }
+      expect(SchoolDirectoryClient.centralOf(null), isNull);
+      expect(SchoolDirectoryClient.centralOf('https://x.ir'), isNull);
+      body = jsonEncode({
+        'v': 1,
+        'kind': 'payesh-school-servers',
+        'central': {'url': 'http://server.example.ir'},
+        'servers': <Object>[],
+      });
+      final c = client();
+      expect(await c.candidates(), isEmpty);
+      expect(c.central, isNull);
+    });
+
     test('DF-04 NEG: 403 / not JSON / other kind ⇒ no candidates', () async {
       status = 403;
       body = '<Error>AccessDenied</Error>';

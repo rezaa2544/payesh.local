@@ -181,10 +181,7 @@ void main() {
       expect(s.info?.server, lanServer);
       expect(find.byKey(const Key('lan-password')), findsOneWidget);
       // row 163: the connection line names the school (once)
-      expect(
-        find.text('وصل به دیتابیس مدرسه · هنرستان شهید آزمون'),
-        findsOneWidget,
-      );
+      expect(find.text('وصل به دیتابیس'), findsOneWidget);
       expect(find.textContaining('کد مدرسه'), findsNothing);
       c.leaveLan(); // no Gateway in this build: nothing to go back to
       expect(c.state, isA<NeedLan>());

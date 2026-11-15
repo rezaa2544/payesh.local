@@ -227,6 +227,9 @@ final class Follower {
     required this.at,
     this.error,
     this.version,
+    this.publicUrl,
+    this.tunnelEnableUrl,
+    this.tunnelError,
   });
   final String id;
   final String host;
@@ -235,6 +238,13 @@ final class Follower {
   final String at;
   final String? error;
   final String? version;
+
+  /// ردیف ۱۶۴: نشانی عمومی همین سرور (مثلاً تونل Tailscale)؛ null ⇒ فقط شبکهٔ داخلی.
+  final String? publicUrl;
+
+  /// پیوند تأیید یک‌بارهٔ Funnel در حساب Tailscale (فقط login.tailscale.com).
+  final String? tunnelEnableUrl;
+  final String? tunnelError;
 
   static Follower? fromJson(String text) {
     final Object? j;
@@ -254,6 +264,11 @@ final class Follower {
       at: (j['at'] as String?) ?? '',
       error: j['error'] as String?,
       version: j['version'] as String?,
+      publicUrl: _https(j['public_url']),
+      tunnelEnableUrl: _tunnelLink(j['tunnel']),
+      tunnelError: j['tunnel'] is Map && (j['tunnel'] as Map)['error'] is String
+          ? (j['tunnel'] as Map)['error'] as String
+          : null,
     );
   }
 }
@@ -277,3 +292,20 @@ Future<List<Follower>> readFollowers(
 
 Future<int?> loadPublishedRev(SecureStore store) async =>
     int.tryParse(await store.read(ControlKeys.rev) ?? '');
+
+String? _https(Object? v) {
+  if (v is! String) return null;
+  final u = Uri.tryParse(v);
+  return u != null && u.scheme == 'https' && u.host.isNotEmpty ? v : null;
+}
+
+String? _tunnelLink(Object? t) {
+  if (t is! Map || t['enable_url'] is! String) return null;
+  final u = Uri.tryParse(t['enable_url'] as String);
+  return u != null &&
+          u.scheme == 'https' &&
+          u.host == 'login.tailscale.com' &&
+          u.path.startsWith('/f/funnel')
+      ? u.toString()
+      : null;
+}

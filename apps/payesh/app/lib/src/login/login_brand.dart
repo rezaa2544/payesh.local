@@ -329,7 +329,7 @@ class _BrandSide extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'حضور و غیاب، نمره‌ها، برنامهٔ هفتگی و ارتباط با اولیا — روی رایانه و گوشی، همگام با دیتابیس مدرسه.',
+          'حضور و غیاب، نمره‌ها، برنامهٔ هفتگی و ارتباط با اولیا — روی رایانه و گوشی، از هر اینترنتی، همگام با دیتابیس پایش.',
           style: tt.bodyLarge?.copyWith(color: _white70, height: 1.8),
         ),
         const SizedBox(height: 32),
@@ -346,7 +346,7 @@ class _BrandSide extends StatelessWidget {
         feature(
           Icons.lock_outline,
           'امن و مستقل',
-          'هر مدرسه دیتابیس و دسترسی‌های خودش را دارد',
+          'یک دیتابیس برای همه؛ دادهٔ هر مدرسه در بخش جدای خودش',
         ),
         const SizedBox(height: 8),
         const _Footer(start: true),
@@ -369,7 +369,7 @@ class _Footer extends StatelessWidget {
 }
 
 /// Row 163 — the database connection line at the top of the card: looking (spinner), connected
-/// (green, school name) or not found (red, «تلاش دوباره»). Text always says it; colour only helps.
+/// (green; row 164: no school name — one database for all) or not found (red, «تلاش دوباره»). Text always says it; colour only helps.
 class LoginConnectionPill extends StatelessWidget {
   const LoginConnectionPill({
     super.key,
@@ -387,23 +387,18 @@ class LoginConnectionPill extends StatelessWidget {
     final t = context.tokens;
     final info = state.info;
     final (Color fg, Color bg, String text, Widget lead) = info != null
-        ? (
-            t.success,
-            t.successBg,
-            'وصل به دیتابیس مدرسه${info.schoolName == null ? '' : ' · ${info.schoolName}'}',
-            _Dot(color: t.success),
-          )
+        ? (t.success, t.successBg, 'وصل به دیتابیس', _Dot(color: t.success))
         : state.notFound
         ? (
             t.danger,
             t.dangerBg,
-            'اتصال به دیتابیس مدرسه برقرار نشد',
+            'اتصال به دیتابیس برقرار نشد',
             _Dot(color: t.danger),
           )
         : (
             t.primary,
             t.soft,
-            'در حال اتصال به دیتابیس مدرسه…',
+            'در حال اتصال به دیتابیس…',
             SizedBox.square(
               dimension: 12,
               child: CircularProgressIndicator(

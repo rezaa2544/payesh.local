@@ -419,7 +419,7 @@ mreg.onCollect(() => {
 
   const { checks, ready } = readinessChecks();
   add('payesh_ready', ready ? 1 : 0, 'آمادگی واقعی سرویس (DB + نوشتن داده + فضای دیسک)');
-  add('payesh_db_up', checks.db ? 1 : 0, 'دیتابیس مدرسه قابل خواندن است');
+  add('payesh_db_up', checks.db ? 1 : 0, 'دیتابیس محلی سرور قابل خواندن است');
   add('payesh_data_writable', checks.data_writable ? 1 : 0, 'دایرکتوری داده قابل نوشتن است');
   if (checks.disk_free_pct != null) add('payesh_disk_free_pct', checks.disk_free_pct, 'درصد فضای آزاد دیسک داده');
   if (checks.backup_age_s != null) add('payesh_backup_age_seconds', checks.backup_age_s, 'عمر جدیدترین نسخهٔ پشتیبان به ثانیه');
@@ -676,6 +676,14 @@ async function api(req, res, url, ip) {
       const a = await schools.adoptOnLogin(store, body.phone, body.password, { needsSetup: true, instance: cfg.instanceId(store) });
       if (!a.ok && a.error !== 'not_managed' && a.error !== 'not_found' && a.error !== 'bad_shape') {
         return json({ ok: false, error: a.error }, a.error === 'school_hosted_elsewhere' ? 409 : a.error === 'registry_unreachable' ? 503 : 401);
+      }
+    }
+    /* ردیف ۱۶۴: سرورِ از قبل راه‌افتاده که هنوز به مدرسهٔ پنل مالک گره نخورده ⇒ با همان
+       نام کاربری/رمزی که مالک داده گره می‌خورد (داده‌ها دست نمی‌خورند). */
+    else if (!schools.boundOf(store)) {
+      const a = await schools.linkOnLogin(store, body.phone, body.password, { instance: cfg.instanceId(store) });
+      if (!a.ok && (a.error === 'school_hosted_elsewhere' || a.error === 'school_inactive')) {
+        return json({ ok: false, error: a.error }, a.error === 'school_hosted_elsewhere' ? 409 : 403);
       }
     }
     /* p2: غیرفعال کردن مدرسه ورود را می‌بندد (پیش از ساختن دستگاه) */

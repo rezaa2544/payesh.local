@@ -691,6 +691,56 @@ async function adoptOnLogin(store, login, password, { needsSetup, instance, now 
   return { ok: true, manager };
 }
 
+/* ردیف ۱۶۴: سروری که پیش از پنل مالک راه افتاده و مدرسه‌اش را از قبل دارد (داده دارد، پس
+   «تازه» نیست و adoptOnLogin اجرا نمی‌شود) با ورود مدیر به همان مدرسهٔ پنل مالک گره می‌خورد:
+   نام کاربری یا همراه + رمزی که مالک داده باید با رجیستری مالک بخواند، و همراه مدیر محلی باید
+   همان همراه مدیر در پنل مالک باشد. هیچ داده‌ای پاک یا جایگزین نمی‌شود؛ فقط حساب مدیر محلی
+   نام کاربری/رمز پنل مالک را می‌گیرد و از این به بعد تغییرات مالک (applySchool) را دنبال می‌کند. */
+/* ورودهای عادی کاربران روی سرور گره‌نخورده هر بار سراغ صندوقچه نروند */
+const LINK_PULL_MS = 60_000;
+let linkPulledAt = 0;
+async function linkOnLogin(store, login, password, { instance, now = Date.now() } = {}) {
+  if (boundOf(store)) return { ok: false, error: 'already_bound' };
+  if (!loginShape(login)) return { ok: false, error: 'bad_shape' };
+  const cfg = cloud(store);
+  if (!cfg) return { ok: false, error: 'not_managed' };
+  let reg = registry(store);
+  const sch0 = reg ? findManager(reg.plain, login) : null;
+  /* رجیستری محلی کهنه یا خالی ⇒ یک بار تازه می‌کنیم */
+  if ((!sch0 || !sch0.manager || !verifySecret(String(password || ''), String(sch0.manager.password_hash || ''))) &&
+      now - linkPulledAt > LINK_PULL_MS) {
+    linkPulledAt = now;
+    try { reg = await pullRegistry(store, cfg); } catch (e) { /* همان نسخهٔ محلی */ }
+  }
+  if (!reg) return { ok: false, error: 'not_managed' };
+  const sch = findManager(reg.plain, login);
+  if (!sch || !sch.manager || !sch.manager.password_hash) return { ok: false, error: 'not_found' };
+  if (!verifySecret(String(password || ''), sch.manager.password_hash)) return { ok: false, error: 'bad_credentials' };
+  if (sch.active === false) return { ok: false, error: 'school_inactive' };
+  const phone = normDigits(sch.manager.phone || '');
+  const managers = (store.all('users') || []).filter(u => u.role === 'manager');
+  const local = managers.find(u => phone && normDigits(u.phone || '') === phone);
+  if (!local) return { ok: false, error: 'no_local_manager' };
+  try {
+    const ack = await readEnv(cfg, cfg.prefix + DIR.ack + sch.id + '.json', K.ack);
+    if (ack && !ack.invalid && ack.plain.instance && instance && ack.plain.instance !== instance) {
+      return { ok: false, error: 'school_hosted_elsewhere' };
+    }
+  } catch (e) { return { ok: false, error: 'registry_unreachable' }; }
+  const m = sch.manager;
+  const username = String(m.username || '').toLowerCase();
+  const patch = { username, password_hash: m.password_hash, phone_hash: m.password_hash, password_enc: null, active: true };
+  if (!local.national_id && m.national_id) patch.national_id = normDigits(m.national_id);
+  if (!local.name && m.name) patch.name = m.name;
+  store.update('users', local.id, patch);
+  const s1 = store.get('schools', 1);
+  if (s1) store.update('schools', 1, { owner_school_id: sch.id });
+  store.setMeta(META.bound, { school_id: sch.id, at: nowISO(), manager_rev: m.rev || 1, username, instance: instance || null, owner_profile: ownerProfileOf(sch), linked: true });
+  store.audit({ user_id: local.id, role: 'manager', action: 'school_link', collection: 'schools', record_id: 1, after: { owner_school_id: sch.id } });
+  await writeAck(store, { instance, now }).catch(() => {});
+  return { ok: true, manager: store.get('users', local.id) };
+}
+
 /* مالک رمز یا نام کاربری مدیر را عوض کرد ⇒ روی سرور میزبان اعمال شود */
 function applySchool(store, sch) {
   const b = boundOf(store);
@@ -884,6 +934,6 @@ module.exports = {
   K, DIR, SALT: SALT.toString('utf8'), PLANS, ROLES, OFFERED, DEFAULTS, plansFor, effectiveEnd, LEVELS, USERNAME_RE,
   RegistryError, seal, open, keyFor, readEnv, writeEnv, trialKey, settingsOf, verifyOk, fill,
   registry, boundOf, schoolOf, gate, startTrial, startPayment, submitReceipt, callback, callbackPage,
-  applyOwner, applySchool, adoptOnLogin, adoptSchool, ownerProfileOf, OWNER_PROFILE_KEYS, findManager, loginShape, register, requestStatus, validRequest,
+  applyOwner, applySchool, adoptOnLogin, linkOnLogin, adoptSchool, ownerProfileOf, OWNER_PROFILE_KEYS, findManager, loginShape, register, requestStatus, validRequest,
   pullRegistry, writeAck, poll, start, stop, subsState, markPaid, reportPayment, resendUnreported, normRef,
 };

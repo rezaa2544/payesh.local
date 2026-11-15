@@ -405,7 +405,7 @@ Uri healthzOf(Uri base) {
 
 /// عنوان فارسی هر زیرساخت در زنجیره.
 const Map<String, String> routeTierTitles = {
-  RouteTiers.external: 'سرور بیرونی',
+  RouteTiers.external: 'سرور مرکزی',
   RouteTiers.db: 'دیتابیس',
   RouteTiers.helpers: 'سیستم‌های کمکی',
 };
@@ -413,7 +413,7 @@ const Map<String, String> routeTierTitles = {
 const Map<String, String> archModeTitles = {
   ArchModes.db: 'فقط دیتابیس',
   ArchModes.helpers: 'دیتابیس + سیستم‌های پنل مالک (کمکی)',
-  ArchModes.external: 'سرور بیرونی',
+  ArchModes.external: 'سرور مرکزی',
 };
 
 /// توضیح فارسی دلیل آخرین تغییر مسیر.
@@ -428,7 +428,7 @@ String routeReasonFa(String reason) {
   }
   return switch (reason) {
     'no_helpers' => 'دیتابیس کمک می‌خواهد ولی فعلاً سیستم کمکیِ روشنی نیست؛ همین سیستم ادامه می‌دهد.',
-    'external_down' => 'سرور بیرونی در دسترس نیست؛ دیتابیس مسیر اصلی شد.',
+    'external_down' => 'سرور مرکزی در دسترس نیست؛ دیتابیس مسیر اصلی شد.',
     'mode' => 'حالت معماری تغییر کرد.',
     _ => 'همه‌چیز عادی است؛ فقط زیرساخت اصلی کار می‌کند.',
   };

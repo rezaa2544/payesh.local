@@ -60,7 +60,23 @@ function merge(prev, mine, now) {
   const servers = [mine, ...others]
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
     .slice(0, MAX_SERVERS);
-  return { v: 1, kind: KIND, at: new Date(t).toISOString(), servers };
+  const doc = { v: 1, kind: KIND, at: new Date(t).toISOString(), servers };
+  /* ردیف ۱۶۴: «سرور مرکزی» که مالک در پنل (زیرساخت ← سرور) تعریف کرده؛ فقط پنل مالک آن را
+     می‌نویسد و سرورهای مدرسه هنگام تازه کردن ردیف خودشان دست نمی‌زنند. */
+  const c = centralOf(prev);
+  if (c) doc.central = c;
+  return doc;
+}
+
+/* فقط https و بدون مسیر/کاربر (همان قاعدهٔ برنامه: نشانی عمومی بدون https پذیرفته نیست) */
+function centralOf(prev) {
+  const c = prev && prev.central;
+  if (!c || typeof c !== 'object' || typeof c.url !== 'string') return null;
+  try {
+    const u = new URL(c.url);
+    if (u.protocol !== 'https:' || u.username || u.password || !u.hostname) return null;
+    return { url: u.origin, at: typeof c.at === 'string' ? c.at.slice(0, 40) : null };
+  } catch (e) { return null; }
 }
 
 const keyOf = (cfg) => String(cfg.prefix || 'payesh/') + REL;
@@ -80,7 +96,7 @@ async function publish(store, info, { now } = {}) {
   if (prev && prev.kind !== KIND) prev = null;
   const doc = merge(prev, mine, now);
   /* اگر چیزی جز زمان عوض نشده و کمتر از یک ساعت گذشته، دوباره نمی‌نویسیم */
-  const stable = JSON.stringify(doc.servers.map(s => Object.assign({}, s, { at: s.instance === mine.instance ? '' : s.at })));
+  const stable = JSON.stringify(doc.central || null) + JSON.stringify(doc.servers.map(s => Object.assign({}, s, { at: s.instance === mine.instance ? '' : s.at })));
   const t = now == null ? Date.now() : now;
   if (stable === lastBody && t - lastAt < 3600_000) return { ok: true, skipped: 'unchanged', servers: doc.servers.length };
   await s3mem.call(cfg, {
@@ -107,4 +123,4 @@ function start(store, getInfo, { every = EVERY_MS, first = 15_000 } = {}) {
 }
 function stop() { if (timer) clearInterval(timer); timer = null; lastBody = ''; lastAt = 0; }
 
-module.exports = { KIND, REL, STALE_MS, entryOf, merge, publish, start, stop, keyOf };
+module.exports = { KIND, REL, STALE_MS, entryOf, merge, centralOf, publish, start, stop, keyOf };

@@ -17,6 +17,7 @@ import 'backup/backup_engine.dart';
 import 'guard/guard_engine.dart';
 import 'infra/arch_card.dart';
 import 'infra/infra_card.dart';
+import 'infra/server_panel.dart';
 import 'monitor/live_monitor.dart';
 import 'schools/login_methods_section.dart';
 import 'schools/school_registry.dart';
@@ -484,31 +485,53 @@ class _OwnerAppState extends State<OwnerApp> {
       now: _now,
       themeButton: _themeButton,
       onSignOut: _signOutLocal,
-      // ردیف ۱۵۱: «زیرساخت‌ها» و «سرور کمکی» فقط اینجا (پیش‌تر در «تنظیمات» تکرار می‌شدند).
-      infraTop: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ردیف ۱۵۳: سه حالت معماری + مسیر زندهٔ بار
-          if (widget.helper != null)
-            ArchCard(
+      // ردیف ۱۶۴: «زیرساخت» = راست: مدل پردازش (حالت معماری)؛ چپ: تعریف سرور، تعریف دیتابیس و
+      // کلیدهای زیرساخت و سرور کمکی. فهرست ارائه‌دهنده‌ها/سرویس‌ها/Endpointها/عدد دستی حذف شد.
+      infraTop: widget.helper == null
+          ? null
+          : ArchCard(
               policy: widget.helper!.policy,
               router: widget.helper!.router,
-              margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             ),
-          InfraCard(
-            key: const Key('infra-card-top'),
-            helper: widget.helper,
-            db: _dbMonitor,
-            loadInfra: (onServer ? api : _localApi)?.infra,
-            now: widget.now,
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          ),
-          if (widget.helper != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: HelperCard(service: widget.helper!, now: widget.now),
+      infraSide: Padding(
+        key: const Key('infra-side'),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ServerDefinitionPanel(
+              secure: widget.secure!,
+              transportFactory: widget.s3Factory ?? IoS3Transport.new,
+              policy: widget.helper?.policy,
+              openUrl: widget.openUrl,
+              now: widget.now,
+              autoLoad: widget.dbAutoCheck,
             ),
-        ],
+            const SizedBox(height: 16),
+            DatabaseSettingsPanel(
+              secure: widget.secure!,
+              transportFactory: widget.s3Factory ?? IoS3Transport.new,
+              now: widget.now,
+              onChanged: () {
+                unawaited(widget.helper?.reload());
+                if (widget.dbAutoCheck) unawaited(_dbMonitor?.refresh());
+              },
+            ),
+            const SizedBox(height: 16),
+            // کلیدهای روشن/خاموش هر زیرساخت با چراغ وضعیت (ردیف ۱۳۱)؛ بدون فهرست سرویس‌های قدیمی
+            InfraCard(
+              key: const Key('infra-card-top'),
+              helper: widget.helper,
+              db: _dbMonitor,
+              now: widget.now,
+            ),
+            if (widget.helper != null) ...[
+              const SizedBox(height: 16),
+              HelperCard(service: widget.helper!, now: widget.now),
+            ],
+          ],
+        ),
       ),
       dbLight: _dbMonitor == null ? null : DbLight(monitor: _dbMonitor!),
       monitor: _liveMonitor,
@@ -520,15 +543,6 @@ class _OwnerAppState extends State<OwnerApp> {
           ? null
           : UpdateLight(updater: widget.updater!, openUrl: widget.openUrl),
       settings: OwnerSettingsPage(
-        database: DatabaseSettingsPanel(
-          secure: widget.secure!,
-          transportFactory: widget.s3Factory ?? IoS3Transport.new,
-          now: widget.now,
-          onChanged: () {
-            unawaited(widget.helper?.reload());
-            if (widget.dbAutoCheck) unawaited(_dbMonitor?.refresh());
-          },
-        ),
         extra: [
           if (widget.updater != null) UpdateCard(updater: widget.updater!),
           // ردیف ۱۶۰: روش ورود اول کاربران و پنل پیامکِ کل سامانه

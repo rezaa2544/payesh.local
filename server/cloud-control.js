@@ -148,6 +148,20 @@ function serverId(store) {
 const sameTarget = (a, b) => a.endpoint === b.endpoint && a.bucket === b.bucket && a.prefix === b.prefix &&
   a.accessKey === b.accessKey && a.secret === b.secret && (a.region || '') === (b.region || '');
 
+/* ردیف ۱۶۴: نشانی عمومی این سرور و وضعیت تونل در رسید، تا پنل مالک (زیرساخت ← سرور) ببیند
+   کدام سرور از بیرون در دسترس است و اگر Funnel منتظر تأیید است، پیوند تأیید را نشان دهد. */
+function publicInfo(store) {
+  try {
+    const conf = require('./config');
+    const tunnel = require('./tunnel');
+    const h = tunnel.hint();
+    return {
+      public_url: conf.publicUrl(store) || null,
+      tunnel: { ok: h.ok, error: h.error || null, enable_url: h.enable_url || null, at: h.at || null },
+    };
+  } catch (e) { return {}; }
+}
+
 async function writeAck(store, cfg, info) {
   const id = serverId(store);
   let version = null;
@@ -155,7 +169,7 @@ async function writeAck(store, cfg, info) {
   const body = Object.assign({
     v: 1, server_id: id, host: os.hostname().slice(0, 64), version, at: new Date().toISOString(),
     bucket: cfg.bucket, endpoint: cfg.endpoint,
-  }, info);
+  }, publicInfo(store), info);
   await s3mem.put(cfg, cfg.prefix + ACK_DIR + id + '.json', JSON.stringify(body));
   store.setMeta(META_ACK_AT, String(Date.now()));
 }
@@ -229,7 +243,7 @@ function start(store, { everyMs = INTERVAL_MS, log = (m) => console.log(m) } = {
 function stop() { if (timer) clearInterval(timer); timer = null; }
 
 module.exports = {
-  KIND, kidOf, controlKeyFor, ACK_DIR, INTERVAL_MS, ControlError,
+  KIND, kidOf, controlKeyFor, publicInfo, ACK_DIR, INTERVAL_MS, ControlError,
   keyFor, seal, sealText, open, openText, validConfig, poll, start, stop, serverId,
   _resetForTests() { firstPoll = true; },
 };

@@ -13,6 +13,9 @@ final class FakeBucket {
   final objects = <String, Uint8List>{};
   final modified = <String, DateTime>{};
   final log = <String>[];
+
+  /// سرآیندهای آخرین PUT هر کلید (مثلاً x-amz-acl، ردیف ۱۶۴).
+  final putHeaders = <String, Map<String, String>>{};
   int lists = 0;
   bool down = false;
 
@@ -94,6 +97,7 @@ final class _FakeBucketTransport implements S3Transport {
           rawBytes: o,
         );
       case 'PUT':
+        b.putHeaders[key] = Map.of(headers);
         b.objects[key] = Uint8List.fromList(body ?? const []);
         b.modified[key] = b.now();
         return const S3Response(200, '');

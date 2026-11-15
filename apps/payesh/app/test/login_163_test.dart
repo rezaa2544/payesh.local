@@ -40,7 +40,7 @@ String pillText(WidgetTester tester) =>
 void main() {
   group('login without a server address', () {
     testWidgets(
-      'L163-01 nothing remembered, nothing here: the owner database list gives the school server; the card says «وصل به دیتابیس مدرسه» and one press signs in',
+      'L163-01 nothing remembered, nothing here: the owner database list gives the school server; the card says «وصل به دیتابیس» (row 164: no school name) and one press signs in',
       (tester) async {
         final store = FakeSecureStore();
         final dir = FakeDirectory([
@@ -52,7 +52,7 @@ void main() {
         final c = await bootProd(tester, lan, store: store, directory: dir);
         expect(find.byKey(const Key('lan-server')), findsNothing);
         expect(find.textContaining('نشانی'), findsNothing);
-        expect(pillText(tester), 'وصل به دیتابیس مدرسه · هنرستان شهید آزمون');
+        expect(pillText(tester), 'وصل به دیتابیس');
         expect(find.byKey(const Key('lan-retry')), findsNothing);
         expect(dir.calls, 1);
         expect(
@@ -114,7 +114,7 @@ void main() {
           startLocal: () async => false,
         );
         expect((c.state as NeedLan).notFound, isTrue);
-        expect(pillText(tester), 'اتصال به دیتابیس مدرسه برقرار نشد');
+        expect(pillText(tester), 'اتصال به دیتابیس برقرار نشد');
         expect(find.byKey(const Key('lan-retry')), findsOneWidget);
         // a press searches once more, then tells why — no login is sent
         await typeAndTap(tester, {
@@ -133,7 +133,7 @@ void main() {
         );
         await tester.tap(find.byKey(const Key('lan-retry')));
         await tester.pumpAndSettle();
-        expect(pillText(tester), startsWith('وصل به دیتابیس مدرسه'));
+        expect(pillText(tester), 'وصل به دیتابیس');
         await typeAndTap(tester, {'lan-password': '0012345678'}, 'lan-login');
         expect(c.state, isA<SignedIn>());
         expect(lan.calls.last, 'login:09121234567:0012345678');
