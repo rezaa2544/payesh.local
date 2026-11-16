@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show SocketException;
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -18,6 +19,9 @@ final class FakeBucket {
   final putHeaders = <String, Map<String, String>>{};
   int lists = 0;
   bool down = false;
+
+  /// قطع اینترنت شبیه‌سازی‌شده برای یک درخواست (true ⇒ SocketException).
+  bool Function(String method, String key)? failWhen;
 
   void putText(String key, String text, {DateTime? at}) {
     objects[key] = Uint8List.fromList(utf8.encode(text));
@@ -54,6 +58,10 @@ final class _FakeBucketTransport implements S3Transport {
       return const S3Response(404, '<Error><Code>NoSuchBucket</Code></Error>');
     }
     final key = segs.skip(1).join('/');
+    if (b.failWhen?.call(method, key) ?? false) {
+      b.log.add('FAIL $method /$key');
+      throw const SocketException('fake: connection reset');
+    }
     b.log.add('$method /$key${url.hasQuery ? '?${url.query}' : ''}');
     if (method == 'GET' &&
         key.isEmpty &&

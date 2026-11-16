@@ -345,3 +345,86 @@ final class BucketBackupTarget implements BackupTarget {
     return await _dropLegacy() || had;
   }
 }
+
+/// قالب قدیمی روی دیسک (`blobs/` + `snaps/`، ردیف ۱۵۵–۱۶۲) — فقط برای ساختن نخستین فایل جامع
+/// بی‌آنکه همهٔ فایل‌ها دوباره از دیتابیس دانلود شوند. فهرست از زنجیرهٔ snaps بازسازی می‌شود و
+/// محتوای هر فایل فقط وقتی برداشته می‌شود که sha256 آن بخواند (هر ناهمخوانی ⇒ دانلود از دیتابیس).
+final class LegacyDiskBackup {
+  LegacyDiskBackup._(this.root, this.objects);
+  final Directory root;
+
+  /// آخرین وضع شناخته‌شده: نام فایل ← [sha256، اندازه، زمان، ETag].
+  final Map<String, BackupEntry> objects;
+
+  static final RegExp _shaRe = RegExp(r'^[0-9a-f]{64}$');
+
+  static BackupEntry? _entry(Object? v) {
+    if (v is! List || v.length < 3) return null;
+    final sha = '${v[0]}';
+    if (!_shaRe.hasMatch(sha) || v[1] is! num || v[2] is! num) return null;
+    return (
+      sha: sha,
+      size: (v[1] as num).toInt(),
+      modifiedMs: (v[2] as num).toInt(),
+      etag: v.length > 3 ? '${v[3]}' : '',
+    );
+  }
+
+  /// null ⇒ قالب قدیمی روی این دیسک نیست.
+  static Future<LegacyDiskBackup?> open(Directory root) async {
+    final d = Directory('${root.path}${Platform.pathSeparator}snaps');
+    if (!await d.exists()) return null;
+    final recs = <(String, Map<Object?, Object?>)>[];
+    try {
+      await for (final f in d.list()) {
+        if (f is! File || !f.path.endsWith('.json')) continue;
+        try {
+          final j = jsonDecode(await f.readAsString());
+          if (j is Map && j['kind'] == ownerBackupKind) {
+            recs.add(('${j['id'] ?? f.uri.pathSegments.last}', j));
+          }
+        } on Object {
+          // فهرست خراب ⇒ نادیده
+        }
+      }
+    } on FileSystemException {
+      return null;
+    }
+    recs.sort((a, b) => a.$1.compareTo(b.$1));
+    Map<String, BackupEntry>? cur;
+    for (final (_, j) in recs) {
+      final full = j['v'] == 1;
+      final o = full ? j['objects'] : j['changed'];
+      if (o is! Map) continue;
+      if (full || j['base'] == null || cur == null) cur = {};
+      final removed = j['removed'];
+      if (!full && removed is List) {
+        for (final k in removed) {
+          cur.remove('$k');
+        }
+      }
+      for (final e in o.entries) {
+        final v = _entry(e.value);
+        if (v != null) cur['${e.key}'] = v;
+      }
+    }
+    if (cur == null || cur.isEmpty) return null;
+    return LegacyDiskBackup._(root, cur);
+  }
+
+  /// محتوای خام یک sha از `blobs/`؛ null اگر نباشد یا sha نخواند.
+  Future<List<int>?> content(String sha) async {
+    if (!_shaRe.hasMatch(sha)) return null;
+    final sep = Platform.pathSeparator;
+    final f = File(
+      '${root.path}${sep}blobs$sep${sha.substring(0, 2)}$sep$sha.gz',
+    );
+    try {
+      if (!await f.exists()) return null;
+      final raw = gzip.decode(await f.readAsBytes());
+      return sha256Hex(raw) == sha ? raw : null;
+    } on Object {
+      return null;
+    }
+  }
+}

@@ -52,10 +52,14 @@ class OwnerBackupEngine extends ChangeNotifier {
     this.localRoot,
     this.policy,
     DateTime Function()? now,
+    this.retryDelay = const Duration(seconds: 2),
   }) : _now = now ?? DateTime.now,
        s3Factory = s3Factory ?? backupTransport;
 
   final SecureStore secure;
+
+  /// فاصلهٔ تلاش دوباره برای خواندن/نوشتن یک فایل روی اینترنت ناپایدار (۱×، ۲×…).
+  final Duration retryDelay;
 
   /// انتقال با بدنهٔ خام کامل: انتقال پیش‌فرض متن را در ۶۴K نویسه می‌بُرد و برای
   /// فایل‌های دودویی و فهرست‌های بلند S3 مناسب نیست.
@@ -117,6 +121,11 @@ class OwnerBackupEngine extends ChangeNotifier {
   /// پس از بازیابی در دیتابیس تازه: پشتیبانِ صندوقچهٔ قبلی را می‌شود با این صندوقچه نوشت.
   String? _adopt;
   int _refreshGen = 0;
+
+  /// فایل‌هایی که در دوری ناتمام (مثلاً قطع اینترنت) دانلود شدند؛ دور بعد دوباره دانلود نمی‌شوند.
+  /// پس از دور موفق خالی می‌شود.
+  final Map<String, ({int size, int ms, String etag, List<int> raw})> _cache =
+      {};
 
   bool get autoOn => policy?.value.serviceOn(autoId) ?? _localAuto;
   bool get dbOn => policy?.value.serviceOn(dbId) ?? _localDb;
@@ -270,6 +279,7 @@ class OwnerBackupEngine extends ChangeNotifier {
     try {
       res = await _backup(now, force);
       if (res.ok) {
+        _cache.clear();
         lastError = null;
         lastSuccess = now;
         if (res.snapshot != null) lastSnapshot = res.snapshot;
@@ -373,6 +383,15 @@ class OwnerBackupEngine extends ChangeNotifier {
     }
     // (پشتیبانِ دیتابیسی دیگر بالاتر رد شد مگر با «اکنون» یا پس از بازیابی) ⇒ منبع همان فایل
     final prev = base;
+    // نخستین فایل جامع: محتوای بدون تغییر از قالب قدیمی همین دیسک (بی‌دانلود دوباره)
+    LegacyDiskBackup? legacy;
+    if (prev == null) {
+      for (final tg in targets) {
+        if (tg is DirBackupTarget) {
+          legacy = await LegacyDiskBackup.open(tg.root);
+        }
+      }
+    }
     progressTotal = objs.length;
     phaseFa = 'خواندن فایل‌های تازه یا تغییرکرده…';
     _notify();
@@ -394,9 +413,22 @@ class OwnerBackupEngine extends ChangeNotifier {
       } else if (o.size > backupMaxObjectBytes) {
         skipped++;
       } else {
-        final raw = await _get(s, o.key);
+        bool match(int size, int m, String etag) =>
+            size == o.size && m == ms && etag == o.etag;
+        List<int>? raw;
+        final c = _cache[o.key];
+        if (c != null && match(c.size, c.ms, c.etag)) raw = c.raw;
+        final l = legacy?.objects[o.key];
+        if (raw == null && l != null && match(l.size, l.modifiedMs, l.etag)) {
+          raw = await legacy!.content(l.sha);
+          if (raw != null && raw.length != o.size) raw = null;
+        }
+        if (raw == null) {
+          raw = await _get(s, o.key);
+          if (raw != null) fetched++;
+        }
         if (raw != null) {
-          fetched++;
+          _cache[o.key] = (size: o.size, ms: ms, etag: o.etag, raw: raw);
           fresh[o.key] = raw;
           entries[o.key] = (
             sha: sha256Hex(raw),
@@ -458,7 +490,7 @@ class OwnerBackupEngine extends ChangeNotifier {
     _notify();
     final outFp = out.fingerprint;
     for (final tg in need) {
-      await tg.write(bytes);
+      await _retry(() => tg.write(bytes));
       _fp[tg.id] = outFp;
     }
     _base = archive;
@@ -478,14 +510,30 @@ class OwnerBackupEngine extends ChangeNotifier {
   static String _skippedFa(int n) =>
       '$n فایل بزرگ‌تر از ${backupMaxObjectBytes >> 20} مگابایت پشتیبان نشد.';
 
-  Future<List<int>?> _get(S3Settings s, String key) async {
+  /// تا ۳ بار با فاصلهٔ فزاینده (اینترنت ناپایدار)؛ خطای آخر بالا می‌رود.
+  Future<T> _retry<T>(Future<T> Function() f) async {
+    for (var i = 0; ; i++) {
+      try {
+        return await f();
+      } on S3Failure {
+        if (i >= 2) rethrow;
+      } on SocketException {
+        if (i >= 2) rethrow;
+      } on TimeoutException {
+        if (i >= 2) rethrow;
+      }
+      await Future<void>.delayed(retryDelay * (i + 1));
+    }
+  }
+
+  Future<List<int>?> _get(S3Settings s, String key) => _retry(() async {
     final t = s3Factory();
     try {
       return await s3GetBytes(s, t, key);
     } finally {
       t.close();
     }
-  }
+  });
 
   /// همان یک فایلِ هر مقصد (برای صفحه).
   Future<void> refresh() async {

@@ -129,6 +129,7 @@ void main() {
         s3Factory: () => bucket.transport(),
         localRoot: () async => dir,
         now: () => clock,
+        retryDelay: Duration.zero,
       );
     });
     tearDown(() {
@@ -428,6 +429,118 @@ void main() {
       final a = diskArchive()!;
       expect(a.snapshot.count, 21);
       expect(utf8.decode(a.content('payesh/day.json')!), 'day 39');
+    });
+
+    test('ردیف ۱۶۶ (رایانهٔ مدرسه): قطع لحظه‌ای اینترنت ⇒ تلاش دوباره، دور ادامه می‌یابد', () async {
+      bucket
+        ..putText('payesh/a.json', 'A')
+        ..putText('payesh/b.json', 'B');
+      var fails = 0;
+      bucket.failWhen = (m, k) =>
+          m == 'GET' && k == 'payesh/b.json' && fails++ < 2;
+      final r = await eng.run();
+      expect(r.ok, isTrue, reason: r.error);
+      expect(r.created, isTrue);
+      expect(fails, 3);
+      expect(utf8.decode(diskArchive()!.content('payesh/b.json')!), 'B');
+    });
+
+    test('ردیف ۱۶۶ (رایانهٔ مدرسه): دور ناتمام ⇒ دور بعد فایل‌های دانلودشده را دوباره نمی‌گیرد', () async {
+      for (var i = 0; i < 20; i++) {
+        bucket.putText('payesh/f$i.json', 'v$i');
+      }
+      bucket.failWhen = (m, k) => m == 'GET' && k == 'payesh/f9.json';
+      final r1 = await eng.run();
+      expect(r1.ok, isFalse);
+      expect(diskFile().existsSync(), isFalse);
+      expect(eng.lastError, isNotNull);
+      bucket
+        ..failWhen = null
+        ..log.clear();
+      final r2 = await eng.run();
+      expect(r2.ok, isTrue, reason: r2.error);
+      expect(r2.created, isTrue);
+      final gets = [
+        for (final l in bucket.log)
+          if (l.startsWith('GET /payesh/')) l,
+      ];
+      // فقط فایل‌هایی که دور قبل نرسیدند (f9 و بعد از آن به ترتیب فهرست)
+      expect(gets, isNot(contains('GET /payesh/f0.json')));
+      expect(gets, contains('GET /payesh/f9.json'));
+      expect(diskArchive()!.snapshot.count, 20);
+    });
+
+    test('ردیف ۱۶۶ (رایانهٔ مدرسه): نخستین فایل جامع از قالب قدیمی همین دیسک، بی‌دانلود دوباره', () async {
+      bucket
+        ..putText('payesh/a.json', 'A' * 5000)
+        ..putText('payesh/b.json', 'B-new')
+        ..putText('payesh/c.json', 'C');
+      final settings = await S3Settings.load(secure);
+      final (objs, _) = await s3ListObjects(settings!, bucket.transport(), '');
+      List<Object> entry(String key, List<int> raw) {
+        final o = objs.firstWhere((x) => x.key == key);
+        return [
+          sha256Hex(raw),
+          raw.length,
+          o.modified!.millisecondsSinceEpoch,
+          o.etag,
+        ];
+      }
+
+      void blob(List<int> raw) {
+        final sha = sha256Hex(raw);
+        final f = File('${dir.path}/blobs/${sha.substring(0, 2)}/$sha.gz')
+          ..parent.createSync(recursive: true);
+        f.writeAsBytesSync(gzip.encode(raw));
+      }
+
+      final a = utf8.encode('A' * 5000);
+      final c = utf8.encode('C');
+      blob(a);
+      blob(c);
+      // c: محتوای blob خراب ⇒ باید از دیتابیس خوانده شود
+      final cSha = sha256Hex(c);
+      File('${dir.path}/blobs/${cSha.substring(0, 2)}/$cSha.gz')
+          .writeAsBytesSync(gzip.encode(utf8.encode('X')));
+      Directory('${dir.path}/snaps').createSync(recursive: true);
+      File('${dir.path}/snaps/20261101T000000Z.json').writeAsStringSync(
+        jsonEncode({
+          'v': 2,
+          'kind': ownerBackupKind,
+          'id': '20261101T000000Z',
+          'base': null,
+          'changed': {
+            'payesh/a.json': entry('payesh/a.json', a),
+            'payesh/c.json': entry('payesh/c.json', c),
+            'payesh/gone.json': entry('payesh/a.json', a),
+          },
+        }),
+      );
+      File('${dir.path}/snaps/20261101T001500Z.json').writeAsStringSync(
+        jsonEncode({
+          'v': 2,
+          'kind': ownerBackupKind,
+          'id': '20261101T001500Z',
+          'base': '20261101T000000Z',
+          'changed': <String, Object>{},
+          'removed': ['payesh/gone.json'],
+        }),
+      );
+      final legacy = await LegacyDiskBackup.open(dir);
+      expect(legacy!.objects.keys.toSet(), {'payesh/a.json', 'payesh/c.json'});
+
+      bucket.log.clear();
+      final r = await eng.run();
+      expect(r.ok, isTrue, reason: r.error);
+      expect(r.created, isTrue);
+      expect(bucket.log, isNot(contains('GET /payesh/a.json')));
+      expect(bucket.log, contains('GET /payesh/b.json'));
+      expect(bucket.log, contains('GET /payesh/c.json'));
+      final arc = diskArchive()!;
+      expect(arc.snapshot.count, 3);
+      expect(utf8.decode(arc.content('payesh/a.json')!), 'A' * 5000);
+      expect(utf8.decode(arc.content('payesh/c.json')!), 'C');
+      expect(diskFiles(), [backupFileName]); // قالب قدیمی پس از نوشتن پاک شد
     });
 
     test(
