@@ -63,7 +63,9 @@ function rules(src) {
   }
   need(/const HEADLESS = process\.env\.PAYESH_HEADLESS === '1'/.test(src.index), 'LM-01 HEADLESS switch missing');
   need(/if \(HEADLESS\) \{\s*res\.writeHead\(404[\s\S]{0,200}no_web_ui/.test(src.index), 'LM-01 headless does not refuse non-API paths');
-  need(/if \(HEADLESS\) \{\s*const remote[^\n]*\n\s*if \(!\(remote === '::1' \|\| remote\.startsWith\('127\.'\)\)\) return json\(\{ ok: false, error: 'setup_local_only' \}, 403\);/.test(src.index), 'LM-02 headless setup not loopback-only');
+  /* ردیف ۱۶۵: همان قاعده، از راه isLocalReq (که درخواست درگاه تونل را هم «از بیرون» می‌داند) */
+  need(/if \(HEADLESS \|\| req\.__public\) \{\s*if \(!isLocalReq\(req\)\) return json\(\{ ok: false, error: 'setup_local_only' \}, 403\);/.test(src.index), 'LM-02 headless setup not loopback-only');
+  need(/function isLocalReq\(req\) \{\s*if \(req\.__public\) return false;\s*const remote[^\n]*\n\s*return remote === '::1' \|\| remote === '127\.0\.0\.1' \|\| remote\.startsWith\('127\.'\);/.test(src.index), 'LM-02 isLocalReq not loopback-only');
   // the headless refusal must come BEFORE downloads / static files / SPA fallback
   const hIdx = src.index.indexOf("error: 'no_web_ui'");
   need(hIdx > 0 && hIdx < src.index.indexOf("url.pathname.startsWith('/downloads/')") && hIdx < src.index.indexOf('/* SPA fallback */'), 'LM-01 headless refusal placed after static serving');
@@ -114,7 +116,7 @@ const real = Object.fromEntries(Object.entries(F).map(([k, p]) => [k, read(p)]))
 const MUTANTS = [
   ['M01', 'headless switch removed', 'index', (s) => s.replace("const HEADLESS = process.env.PAYESH_HEADLESS === '1';", 'const HEADLESS = false;')],
   ['M02', 'headless refusal moved after SPA fallback', 'index', (s) => s.replace("error: 'no_web_ui'", "error: 'x'").replace('/* SPA fallback */', "/* SPA fallback */ error: 'no_web_ui'")],
-  ['M03', 'setup allowed from the network', 'index', (s) => s.replace("if (!(remote === '::1' || remote.startsWith('127.'))) return json({ ok: false, error: 'setup_local_only' }", "if (false) return json({ ok: false, error: 'setup_local_only' }")],
+  ['M03', 'setup allowed from the network', 'index', (s) => s.replace("if (!isLocalReq(req)) return json({ ok: false, error: 'setup_local_only' }", "if (false) return json({ ok: false, error: 'setup_local_only' }")],
   ['M04', 'Dart forgets device_revoked', 'dart', (s) => s.replace(/'device_revoked' \|\|/g, '')],
   ['M05', '172.16/12 widened to 172.0/8', 'dart', (s) => s.replace('b[1] >= 16 && b[1] <= 31', 'b[1] >= 16 && b[1] <= 39')],
   ['M06', 'client skips the address check', 'dart', (s) => s.replace('if (!LanServerRules.allowed(uri)) {\n      throw const LanAccessFailure(LanAccessError.badAddress);', 'if (false) {\n      throw const LanAccessFailure(LanAccessError.badAddress);')],

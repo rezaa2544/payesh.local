@@ -178,3 +178,126 @@ class _AutoUpdateCheckState extends State<AutoUpdateCheck> {
   @override
   Widget build(BuildContext context) => widget.child;
 }
+
+/// ردیف ۱۶۵: کارت «نسخهٔ تازه» در صفحهٔ اصلی — وقتی نسخهٔ تازه پیدا شده (یا دریافت/نصب در جریان
+/// است) با یک دکمهٔ روشن «نصب»؛ پیش‌تر فقط چراغ کوچک نارنجی بود و کاربر نمی‌دانست باید لمسش کند.
+/// به‌روز یا هنوز بررسی‌نشده ⇒ هیچ.
+class UpdateBanner extends StatefulWidget {
+  const UpdateBanner({super.key, required this.updater, this.openUrl});
+  final AppUpdater updater;
+  final Future<void> Function(Uri url)? openUrl;
+
+  @override
+  State<UpdateBanner> createState() => _UpdateBannerState();
+}
+
+class _UpdateBannerState extends State<UpdateBanner> {
+  StreamSubscription<void>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = widget.updater.changes.listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_sub?.cancel());
+    super.dispose();
+  }
+
+  Future<void> _install() async {
+    final u = widget.updater;
+    if (!u.isWindows && u.apkInstaller == null) {
+      await (widget.openUrl ?? u.openUrl)?.call(u.channel.apkUrl);
+      return;
+    }
+    await u.tap();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final u = widget.updater;
+    final show = switch (u.phase) {
+      UpdatePhase.ready ||
+      UpdatePhase.staged ||
+      UpdatePhase.downloading ||
+      UpdatePhase.applying => true,
+      UpdatePhase.failed => u.available,
+      _ => false,
+    };
+    if (!show) return const SizedBox.shrink(key: Key('update-banner-none'));
+    final tk = context.tokens;
+    final next = u.plan?.manifest.build;
+    final progress = u.progress;
+    final title = next == null
+        ? 'نسخهٔ تازهٔ برنامه آماده است'
+        : 'نسخهٔ ${u.channel.versionOf(next)} آماده است';
+    final sub = switch (u.phase) {
+      UpdatePhase.downloading =>
+        progress == null ? 'در حال دریافت…' : 'در حال دریافت ${_pct(progress)}',
+      UpdatePhase.applying =>
+        u.isWindows
+            ? 'در حال نصب — برنامه بسته و دوباره باز می‌شود'
+            : 'نصب‌کنندهٔ اندروید باز شد — «نصب» را بزنید',
+      UpdatePhase.failed => '${u.error ?? 'نصب ناموفق بود'} — دوباره بزنید',
+      _ =>
+        u.error ??
+            'نسخهٔ فعلی ${u.channel.version} است. با «نصب» دریافت و نصب می‌شود؛ داده‌ها می‌مانند.',
+    };
+    final busy = u.busy;
+    return Container(
+      key: const Key('update-banner'),
+      margin: const EdgeInsets.only(bottom: PayeshTokens.space4),
+      padding: const EdgeInsets.all(PayeshTokens.space3),
+      decoration: BoxDecoration(
+        color: tk.warningBg,
+        borderRadius: BorderRadius.circular(tk.cardRadius),
+        border: Border.all(color: tk.warning.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.system_update_alt_rounded, color: tk.warning, size: 28),
+          const SizedBox(width: PayeshTokens.space3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: tk.ink,
+                    fontSize: 14.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  sub,
+                  key: const Key('update-banner-text'),
+                  style: TextStyle(
+                    color: tk.muted,
+                    fontSize: 12.5,
+                    height: 1.5,
+                  ),
+                ),
+                if (u.phase == UpdatePhase.downloading) ...[
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(value: progress),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: PayeshTokens.space2),
+          FilledButton(
+            key: const Key('update-banner-install'),
+            onPressed: busy ? null : () => unawaited(_install()),
+            child: Text(u.phase == UpdatePhase.failed ? 'دوباره' : 'نصب'),
+          ),
+        ],
+      ),
+    );
+  }
+}

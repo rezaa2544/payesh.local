@@ -41,22 +41,55 @@ typedef ListedServer = ({
   String? publicUrl,
   int lan,
   String at,
+
+  /// ردیف ۱۶۵ — همهٔ نشانی‌های عمومی همان سرور (Tailscale، تونل Cloudflare، دستی).
+  List<String> publicUrls,
+  String? version,
 });
 
-/// محتوای فهرست: سرور مرکزی (اگر تعریف شده) و سرورهای اعلام‌شده.
-typedef ServersList = ({Uri? central, List<ListedServer> servers});
+/// ردیف ۱۶۵ — «حالت اتصال» که مالک انتخاب می‌کند (همان server/tunnel.js · MODES).
+const List<String> connectModes = [
+  'auto',
+  'cloudflare',
+  'tailscale',
+  'central',
+  'lan',
+];
+
+/// محتوای فهرست: سرور مرکزی (اگر تعریف شده)، حالت اتصال و سرورهای اعلام‌شده.
+typedef ServersList = ({
+  Uri? central,
+  List<ListedServer> servers,
+  String connectMode,
+});
+
+const ServersList _emptyList = (
+  central: null,
+  servers: <ListedServer>[],
+  connectMode: 'auto',
+);
+
+/// نوع نشانی عمومی برای نمایش (فقط از روی نام میزبان).
+String publicUrlKind(String url) {
+  final h = Uri.tryParse(url)?.host ?? '';
+  if (h.endsWith('.trycloudflare.com')) return 'cloudflare';
+  if (h.endsWith('.ts.net')) return 'tailscale';
+  return 'custom';
+}
 
 ServersList parseServersList(String? text) {
-  if (text == null) return (central: null, servers: const []);
+  if (text == null) return _emptyList;
   final Object? j;
   try {
     j = jsonDecode(text);
   } on FormatException {
-    return (central: null, servers: const []);
+    return _emptyList;
   }
-  if (j is! Map || j['kind'] != serversListKind) {
-    return (central: null, servers: const []);
-  }
+  if (j is! Map || j['kind'] != serversListKind) return _emptyList;
+  final k = j['connect'];
+  final mode = k is Map && connectModes.contains(k['mode'])
+      ? k['mode'] as String
+      : 'auto';
   final c = j['central'];
   final central = c is Map && c['url'] is String
       ? normalizeCentral(c['url'] as String)
@@ -72,9 +105,23 @@ ServersList parseServersList(String? text) {
               : null,
           lan: r['lan'] is List ? (r['lan'] as List).length : 0,
           at: r['at'] is String ? r['at'] as String : '',
+          publicUrls: _httpsList(r['public_urls'], r['public_url']),
+          version: r['version'] is String ? r['version'] as String : null,
         ),
   ];
-  return (central: central, servers: servers);
+  return (central: central, servers: servers, connectMode: mode);
+}
+
+List<String> _httpsList(Object? list, Object? first) {
+  final out = <String>[];
+  for (final x in [...(list is List ? list : const []), first]) {
+    if (x is! String) continue;
+    final u = normalizeCentral(x);
+    if (u != null && !out.contains(u.toString()) && out.length < 4) {
+      out.add(u.toString());
+    }
+  }
+  return out;
 }
 
 Future<ServersList> readServersList(
@@ -88,6 +135,35 @@ Future<void> publishCentral(
   S3Settings s,
   S3Transport t,
   Uri? url, {
+  DateTime Function()? now,
+}) => _editServersList(s, t, now: now, (doc, at) {
+  if (url == null) {
+    doc.remove('central');
+  } else {
+    doc['central'] = {'url': url.toString(), 'at': at};
+  }
+});
+
+/// ردیف ۱۶۵ — «حالت اتصال» را در فهرست می‌گذارد؛ هر سرور پایش ظرف یک دقیقه آن را می‌خواند و
+/// تونل‌ها را مطابقش روشن/خاموش می‌کند (server/discovery.js → tunnel.setConnectMode).
+Future<void> publishConnectMode(
+  S3Settings s,
+  S3Transport t,
+  String mode, {
+  DateTime Function()? now,
+}) {
+  if (!connectModes.contains(mode)) {
+    throw ArgumentError.value(mode, 'mode');
+  }
+  return _editServersList(s, t, now: now, (doc, at) {
+    doc['connect'] = {'mode': mode, 'at': at};
+  });
+}
+
+Future<void> _editServersList(
+  S3Settings s,
+  S3Transport t,
+  void Function(Map<String, Object?> doc, String at) edit, {
   DateTime Function()? now,
 }) async {
   final at = (now ?? DateTime.now)().toUtc().toIso8601String();
@@ -106,11 +182,7 @@ Future<void> publishCentral(
     ..['kind'] = serversListKind
     ..['servers'] = doc['servers'] is List ? doc['servers'] : <Object?>[]
     ..['at'] = doc['at'] ?? at;
-  if (url == null) {
-    doc.remove('central');
-  } else {
-    doc['central'] = {'url': url.toString(), 'at': at};
-  }
+  edit(doc, at);
   await s3PutJson(
     s,
     t,

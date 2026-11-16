@@ -78,99 +78,129 @@ class PayeshApp extends StatelessWidget {
     final fsrc = family;
     final role = state.currentRole;
     final uid = state.currentUid;
+    final fam = FamilyEntry(
+      enabled: fsrc != null && s.flags.uses(NativeWave.parents),
+      role: role,
+      uid: uid,
+      open: () {
+        if (fsrc == null || role == null || uid == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => FamilyRoute(
+              source: fsrc,
+              role: role,
+              uid: uid,
+              sync: s.sync,
+              onRetry: onRetrySync,
+            ),
+          ),
+        );
+      },
+    );
+    final att = AttendanceEntry(
+      enabled: src != null && s.flags.uses(NativeWave.attendance),
+      role: role,
+      uid: uid,
+      open: () {
+        if (src == null || role == null || uid == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AttendanceRoute(
+              source: src,
+              role: role,
+              uid: uid,
+              sync: s.sync,
+              onRetry: onRetrySync,
+              now: today,
+            ),
+          ),
+        );
+      },
+    );
+    final grd = GradesEntry(
+      enabled: gsrc != null && s.flags.uses(NativeWave.grades),
+      role: role,
+      uid: uid,
+      open: () {
+        if (gsrc == null || role == null || uid == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => GradesRoute(
+              source: gsrc,
+              role: role,
+              uid: uid,
+              sync: s.sync,
+              onRetry: onRetrySync,
+            ),
+          ),
+        );
+      },
+    );
+    final ntc = NoticesEntry(
+      enabled: nsrc != null && s.flags.uses(NativeWave.notices),
+      role: role,
+      uid: uid,
+      open: () {
+        if (nsrc == null || role == null || uid == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => NoticesRoute(
+              source: nsrc,
+              role: role,
+              uid: uid,
+              sync: s.sync,
+              onRetry: onRetrySync,
+            ),
+          ),
+        );
+      },
+    );
+    final sch = SchoolEntry(
+      flags: s.flags,
+      source: school,
+      role: role,
+      uid: uid,
+      sync: s.sync,
+      onRetry: onRetrySync,
+    );
+    // Row 165: equal tiles in three short sections; entries that are not tiles (the page is
+    // still on the web, or the user must connect once) become one calm note line each.
+    final groups = sch.hasTiles
+        ? sch.tilesByGroup(context)
+        : <String, List<Widget>>{};
+    final daily = <Widget>[
+      if (fam.isTile) fam,
+      ...?groups['daily']?.take(1),
+      if (att.isTile) att,
+      if (grd.isTile) grd,
+      if (ntc.isTile) ntc,
+      ...?groups['daily']?.skip(1),
+    ];
+    final notes = <Widget>[
+      if (!fam.isTile) fam,
+      if (!att.isTile) att,
+      if (!grd.isTile) grd,
+      if (!ntc.isTile) ntc,
+      if (!sch.hasTiles) sch,
+    ];
     return Column(
+      key: const Key('home-grid'),
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FamilyEntry(
-          enabled: fsrc != null && s.flags.uses(NativeWave.parents),
-          role: role,
-          uid: uid,
-          open: () {
-            if (fsrc == null || role == null || uid == null) return;
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => FamilyRoute(
-                  source: fsrc,
-                  role: role,
-                  uid: uid,
-                  sync: s.sync,
-                  onRetry: onRetrySync,
-                ),
-              ),
-            );
-          },
-        ),
-        if (role == 'parent') const SizedBox(height: 8),
-        AttendanceEntry(
-          enabled: src != null && s.flags.uses(NativeWave.attendance),
-          role: role,
-          uid: uid,
-          open: () {
-            if (src == null || role == null || uid == null) return;
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => AttendanceRoute(
-                  source: src,
-                  role: role,
-                  uid: uid,
-                  sync: s.sync,
-                  onRetry: onRetrySync,
-                  now: today,
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        GradesEntry(
-          enabled: gsrc != null && s.flags.uses(NativeWave.grades),
-          role: role,
-          uid: uid,
-          open: () {
-            if (gsrc == null || role == null || uid == null) return;
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => GradesRoute(
-                  source: gsrc,
-                  role: role,
-                  uid: uid,
-                  sync: s.sync,
-                  onRetry: onRetrySync,
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        NoticesEntry(
-          enabled: nsrc != null && s.flags.uses(NativeWave.notices),
-          role: role,
-          uid: uid,
-          open: () {
-            if (nsrc == null || role == null || uid == null) return;
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => NoticesRoute(
-                  source: nsrc,
-                  role: role,
-                  uid: uid,
-                  sync: s.sync,
-                  onRetry: onRetrySync,
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        SchoolEntry(
-          flags: s.flags,
-          source: school,
-          role: role,
-          uid: uid,
-          sync: s.sync,
-          onRetry: onRetrySync,
-        ),
+        // Row 165: a new version is a clear card with «نصب» (the small light alone was missed).
+        if (updater case final u?) UpdateBanner(updater: u, openUrl: openUrl),
+        if (daily.isNotEmpty)
+          PayeshTileSection(title: 'کار روزانه', tiles: daily),
+        if (groups['school'] case final t? when t.isNotEmpty) ...[
+          const SizedBox(height: PayeshTokens.space5),
+          PayeshTileSection(title: 'مدیریت مدرسه', tiles: t),
+        ],
+        if (groups['system'] case final t? when t.isNotEmpty) ...[
+          const SizedBox(height: PayeshTokens.space5),
+          PayeshTileSection(title: 'سیستم و حساب', tiles: t),
+        ],
+        if (notes.isNotEmpty) HomeNotes(children: notes),
       ],
     );
   }
@@ -190,7 +220,7 @@ class PayeshApp extends StatelessWidget {
           ? HomeScreen(storage: storage, today: today)
           : SessionGate(
               controller: s,
-              home: HomeBody(storage: storage, today: today),
+              home: HomeFooter(storage: storage, today: today),
               pages: (context, state) => _pages(context, s, state),
             ),
     );
@@ -217,7 +247,64 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-/// Home content (shared by the preview screen and the signed-in shell of row 74).
+/// Row 165: notes under the home grid (a page still on the web, or «connect once») — one calm
+/// line each in a soft box; entries with nothing to say render nothing.
+class HomeNotes extends StatelessWidget {
+  const HomeNotes({super.key, required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Padding(
+      padding: const EdgeInsets.only(top: PayeshTokens.space4),
+      child: DefaultTextStyle.merge(
+        style: TextStyle(color: t.muted, fontSize: 13, height: 1.6),
+        child: Column(
+          key: const Key('home-notes'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
+      ),
+    );
+  }
+}
+
+/// Row 165: quiet footer of the signed-in home — today (Jalali) and whether the encrypted local
+/// database opened. Replaces the old debug-like block (title, `sync-v1`, …).
+class HomeFooter extends StatelessWidget {
+  const HomeFooter({super.key, this.storage, this.today});
+
+  final Future<LocalStorage>? storage;
+  final DateTime Function()? today;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final style = TextStyle(color: t.muted, fontSize: 12);
+    return DefaultTextStyle.merge(
+      style: style,
+      textAlign: TextAlign.center,
+      child: Column(
+        key: const Key('home-footer'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          JalaliDateText(
+            (today ?? DateTime.now)().toIso8601String().substring(0, 10),
+            key: const Key('home-today'),
+            style: style,
+          ),
+          if (storage != null) ...[
+            const SizedBox(height: 2),
+            StorageStatus(storage: storage!),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Home content of the preview screen (no session).
 class HomeBody extends StatelessWidget {
   const HomeBody({super.key, this.storage, this.today});
 

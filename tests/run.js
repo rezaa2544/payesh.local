@@ -957,7 +957,12 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/autoStart\(\)/.test(tunnel) || /autoStart\(store/.test(tunnel), 'در start فراخوانی می‌شود');
     const iss = fs.readFileSync(path.join(ROOT, 'installer/payesh.iss'), 'utf8');
     assert.ok(!/cloudflared/i.test(iss), 'نصب‌کننده هیچ اثری از Cloudflare ندارد');
-    assert.ok(!/cloudflared|trycloudflare|quick tunnel/i.test(tunnel), 'کد تونل بدون Cloudflare است');
+    /* ردیف ۱۶۵: Cloudflare دوباره فقط «یکی از حالت‌های اتصال» است، در ماژول جدا، با نسخهٔ
+       سنجاق‌شده و SHA-256 و فقط پشت درگاه ورودی عمومی (نه درگاه اصلی) */
+    assert.ok(/MODES = Object\.freeze\(\['auto', 'cloudflare', 'tailscale', 'central', 'lan'\]\)/.test(tunnel), 'حالت‌های اتصال');
+    assert.ok(/mgr\.ingress !== mgr\.port/.test(tunnel), 'Cloudflare فقط پشت درگاه ورودی عمومی');
+    const cfm = fs.readFileSync(path.join(ROOT, 'server/quick-tunnel.js'), 'utf8');
+    assert.ok(/sha256: '[0-9a-f]{64}'/.test(cfm) && /'--protocol', 'http2'/.test(cfm), 'cloudflared سنجاق‌شده با http2');
     assert.ok(index.includes('tunnel.start('), 'سرور تونل را راه می‌اندازد');
 
     /* آدرس عمومی باید در health منتشر شود تا کلاینت‌ها یاد بگیرند */
@@ -2321,7 +2326,11 @@ async function waitFor(fn, ms = 15000) {
   });
 
   await test('هیچ اثری از Cloudflare در برنامه نمانده', () => {
-    const files = ['server/index.js', 'server/tunnel.js', 'client/app.js', 'client/pages.js', 'installer/payesh.iss', 'package.json'];
+    /* ردیف ۱۶۵: Cloudflare Quick Tunnel فقط در server/quick-tunnel.js و tunnel.js (حالت اتصال)؛
+       Worker/D1/Hub همچنان حذف‌اند و جای دیگری نامی از Cloudflare نیست */
+    const tun = fs.readFileSync(path.join(ROOT, 'server/tunnel.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'server/quick-tunnel.js'), 'utf8');
+    assert.ok(!/workers\.dev|wrangler|\bD1\b/i.test(tun), 'هیچ Worker/D1');
+    const files = ['server/index.js', 'client/app.js', 'client/pages.js', 'installer/payesh.iss', 'package.json'];
     for (const f of files) {
       const text = fs.readFileSync(path.join(ROOT, f), 'utf8');
       assert.ok(!/cloudflare|cloudflared|trycloudflare|workers\.dev/i.test(text), f + ' پاک است');
@@ -5408,6 +5417,15 @@ async function waitFor(fn, ms = 15000) {
       const { spawnSync } = require('child_process');
       const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/link-164.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
       assert.strictEqual(r.status, 0, 'link-164: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|LINK-164/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
+  /* ── ردیف ۱۶۵: حالت‌های اتصال + تونل رایگان Cloudflare (گوشی بیرون از شبکه) ── */
+  await test('ردیف ۱۶۵: حالت اتصال پنل مالک؛ cloudflared سنجاق‌شده (SHA-256، http2)؛ روشن شدن دوباره؛ درخواست تونل «محلی» نیست (۹ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/connect-165.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'connect-165: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|CONNECT-165/.test(l)).join('\n') + (r.stderr || ''));
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 

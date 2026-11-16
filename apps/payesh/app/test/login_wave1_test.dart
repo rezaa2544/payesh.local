@@ -257,7 +257,7 @@ void main() {
       );
       expect(find.byKey(const Key('session-school')), findsOneWidget);
       expect(find.text('معلم'), findsOneWidget);
-      expect(find.byKey(const Key('home-title')), findsOneWidget);
+      expect(find.byKey(const Key('home-footer')), findsOneWidget);
       expect(find.byKey(const Key('sync-idle')), findsOneWidget);
       expect(find.text('همگام'), findsOneWidget);
       expect(await store.read(SchoolKeys.deviceSecret), secret32);

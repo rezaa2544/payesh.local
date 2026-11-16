@@ -310,16 +310,21 @@ class AttendanceEntry extends StatelessWidget {
         key: Key('att-entry-wait'),
       );
     }
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: FilledButton.tonalIcon(
-        key: const Key('att-entry'),
-        onPressed: open,
-        icon: const Icon(Icons.fact_check_outlined),
-        label: const Text('حضور و غیاب'),
-      ),
+    return PayeshTile(
+      key: const Key('att-entry'),
+      onTap: open,
+      icon: Icons.fact_check_outlined,
+      label: 'حضور و غیاب',
+      tone: PayeshTone.success,
     );
   }
+
+  /// Row 165: true when this entry is a home tile (else a short note or nothing).
+  bool get isTile =>
+      role != null &&
+      AttendanceBook.writers.contains(role) &&
+      enabled &&
+      uid != null;
 }
 
 /// Route that owns the page controller for one visit.

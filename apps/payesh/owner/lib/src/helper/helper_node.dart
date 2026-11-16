@@ -57,6 +57,24 @@ final class JobOutcome {
 int defaultSlots([int? cores]) =>
     ((cores ?? Platform.numberOfProcessors) ~/ 2).clamp(1, 4);
 
+/// ردیف ۱۶۵ — یک رخداد گزارش کار زندهٔ همین دستگاه (برای «پردازش کمکی (همین سیستم)»).
+final class HelperEvent {
+  const HelperEvent(this.at, this.text, {this.ok = true, this.count = 1});
+  final DateTime at;
+  final String text;
+  final bool ok;
+
+  /// چند بار پشت‌سرهم تکرار شد (مثلاً «صف بررسی شد — کاری نبود» × ۱۲).
+  final int count;
+}
+
+const Map<String, String> helperJobKindsFa = {
+  'storage.usage': 'محاسبهٔ مصرف فضای دیتابیس',
+  'object.verify': 'بررسی سلامت فایل',
+  'endpoint.check': 'بررسی دسترسی از بیرون',
+  'bucket.gc': 'پاک‌سازی کارهای کهنه',
+};
+
 final class HelperNode {
   HelperNode({
     required this.helperId,
@@ -110,7 +128,39 @@ final class HelperNode {
   final Set<String> _active = {};
   final Set<String> _foreign = {};
   final List<HelperJobLog> recent = [];
+
+  /// ردیف ۱۶۵ — گزارش کار زنده (تازه‌ترین اول، حداکثر ۵۰).
+  final List<HelperEvent> activity = [];
   final _changes = StreamController<void>.broadcast();
+
+  /// کاری که از همین دستگاه فرستاده شد و نتیجه‌اش رسید (محلی یا سرور کمکی دیگر).
+  void noteSubmitted(String kind, JobOutcome r) {
+    final name = helperJobKindsFa[kind] ?? kind;
+    _log(
+      r.ok
+          ? (r.byHelper
+                ? 'انجام شد توسط سرور کمکی ${r.by}: $name'
+                : 'انجام شد روی همین دستگاه: $name')
+          : 'ناموفق: $name (${r.error})',
+      ok: r.ok,
+    );
+    _notify();
+  }
+
+  void _log(String text, {bool ok = true}) {
+    final now = _now();
+    if (activity.isNotEmpty && activity.first.text == text) {
+      activity[0] = HelperEvent(
+        now,
+        text,
+        ok: ok,
+        count: activity.first.count + 1,
+      );
+    } else {
+      activity.insert(0, HelperEvent(now, text, ok: ok));
+      if (activity.length > 50) activity.removeLast();
+    }
+  }
 
   /// هر تغییر وضعیت (برای رابط کاربری).
   Stream<void> get changes => _changes.stream;
@@ -191,16 +241,27 @@ final class HelperNode {
       if (_lastPresence == null ||
           now.difference(_lastPresence!) >= presenceEvery) {
         await _writePresence(s3);
+        _log('حضور این دستگاه در دیتابیس ثبت شد');
       }
-      if (_paused) return const Duration(seconds: 30);
-      if (!(acceptWork?.call() ?? true)) return const Duration(seconds: 30);
+      if (_paused) {
+        _log('متوقف — کاری برداشته نمی‌شود', ok: false);
+        return const Duration(seconds: 30);
+      }
+      if (!(acceptWork?.call() ?? true)) {
+        _log('پردازش کمکی خاموش است — صف خوانده نمی‌شود', ok: false);
+        return const Duration(seconds: 30);
+      }
       if (_lastGc == null || now.difference(_lastGc!) >= gcJobAge) {
         _lastGc = now;
         unawaited(executor.gc(s3).then((_) {}, onError: (_) {}));
       }
-      if (_active.length >= slots) return const Duration(seconds: 3);
+      if (_active.length >= slots) {
+        _log('همهٔ $slots جای کار پر است');
+        return const Duration(seconds: 3);
+      }
       final found = await _pollOnce(s3);
       lastError = null;
+      if (!found) _log('صف کارها بررسی شد — کاری نبود');
       _notify();
       if (found) {
         _idleStep = 0;
@@ -209,10 +270,12 @@ final class HelperNode {
       return _idle();
     } on S3Failure catch (e) {
       lastError = e.messageFa;
+      _log('به دیتابیس نرسیدیم: ${e.messageFa}', ok: false);
       _notify();
       return const Duration(seconds: 30);
     } on Object catch (e) {
       lastError = '$e';
+      _log('خطا: $e', ok: false);
       _notify();
       return const Duration(seconds: 30);
     }
@@ -361,6 +424,8 @@ final class HelperNode {
   ) async {
     final started = _now();
     final kind = '${req['kind']}';
+    _log('کار برداشته شد: ${helperJobKindsFa[kind] ?? kind}');
+    _notify();
     Timer? renew;
     renew = Timer.periodic(leaseRenewEvery, (_) async {
       final t = transport();
@@ -432,6 +497,12 @@ final class HelperNode {
         ),
       );
       if (recent.length > 20) recent.removeLast();
+      _log(
+        '${error == null ? 'انجام شد' : 'ناموفق ($error)'}: '
+        '${helperJobKindsFa[kind] ?? kind} · '
+        '${finished.difference(started).inMilliseconds} میلی‌ثانیه',
+        ok: error == null,
+      );
       _notify();
     }
   }

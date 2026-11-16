@@ -3,6 +3,10 @@
          Without this the debug/profile manifests had INTERNET but the release APK did not.
          Row 127: and to the school's own LAN server (see res/xml/network_security_config.xml). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Row 165 (owner decision): in-app update like the owner app — the downloaded, hash-checked
+         APK is handed to the system installer (same signing key required; Android always asks the
+         user to confirm). The app is distributed directly (GitHub release), not via Google Play. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:label="payesh_app"
         android:name="${applicationName}"
@@ -33,9 +37,13 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Row 148: reopen the app after it was updated (Android ≤ 9 directly; newer versions via
-             the installer's «Open»). No REQUEST_INSTALL_PACKAGES: the school app does not
-             install packages itself (Google Play policy) — the APK opens in the system browser. -->
+        <!-- Row 165: read-only provider for the downloaded update APK only; row 148: reopen the app
+             after it was updated (Android ≤ 9 directly; newer versions via the installer's «Open»). -->
+        <provider
+            android:name=".UpdateFileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true"/>
         <receiver
             android:name=".UpdatedReceiver"
             android:exported="false">

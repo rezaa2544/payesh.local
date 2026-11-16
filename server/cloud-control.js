@@ -158,6 +158,8 @@ function publicInfo(store) {
     return {
       public_url: conf.publicUrl(store) || null,
       tunnel: { ok: h.ok, error: h.error || null, enable_url: h.enable_url || null, at: h.at || null },
+      /* ردیف ۱۶۵: حالت اتصال و همهٔ نشانی‌های عمومی (Cloudflare/Tailscale/دستی) */
+      connect: tunnel.connectInfo(store),
     };
   } catch (e) { return {}; }
 }

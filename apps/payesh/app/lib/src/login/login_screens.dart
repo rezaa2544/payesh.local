@@ -388,9 +388,19 @@ class SignedInScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final role = state.roleFa;
+    final w = MediaQuery.sizeOf(context).width;
+    final side = w > 1000 ? (w - 960) / 2 : PayeshTokens.space4;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('پایش'),
+        titleSpacing: PayeshTokens.space4,
+        title: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PayeshBrandMark(size: 30),
+            SizedBox(width: 10),
+            Text('پایش', style: TextStyle(fontWeight: FontWeight.w800)),
+          ],
+        ),
         actions: [
           Padding(
             padding: const EdgeInsetsDirectional.only(end: PayeshTokens.space2),
@@ -433,38 +443,52 @@ class SignedInScreen extends StatelessWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(PayeshTokens.space4),
+        padding: EdgeInsets.fromLTRB(
+          side,
+          PayeshTokens.space4,
+          side,
+          PayeshTokens.space6,
+        ),
         children: [
-          PayeshSection(
-            title: 'مدرسه',
-            child: Wrap(
-              spacing: PayeshTokens.space3,
-              runSpacing: PayeshTokens.space2,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  state.schoolName ?? state.school,
-                  key: const Key('session-school'),
-                  textDirection: state.schoolName == null
-                      ? TextDirection.ltr
-                      : null,
+          // Row 165: one clean header card — school, role, how this device is connected.
+          PayeshHeaderCard(
+            key: const Key('session-header'),
+            title: state.schoolName ?? state.school,
+            titleKey: const Key('session-school'),
+            chips: [
+              if (role != null)
+                StatusBadge(role, key: const Key('session-role')),
+            ],
+            lines: [
+              if (state.lanServer case final srv?)
+                Row(
+                  key: const Key('session-lan-server'),
+                  children: [
+                    Icon(
+                      srv.scheme == 'https' ? Icons.public : Icons.lan_outlined,
+                      size: 16,
+                      color: context.tokens.muted,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        srv.scheme == 'https'
+                            ? 'وصل از راه اینترنت'
+                            : LanServerRules.isLoopbackHost(srv.host)
+                            ? 'سرور مدرسه روی همین رایانه'
+                            : 'وصل در شبکهٔ مدرسه',
+                      ),
+                    ),
+                  ],
                 ),
-                if (role != null)
-                  StatusBadge(role, key: const Key('session-role')),
-                if (state.lanServer != null)
-                  Text(
-                    'سرور مدرسه: ${state.lanServer!.host}:${state.lanServer!.port}',
-                    key: const Key('session-lan-server'),
-                  ),
-                if (state.lanServer != null &&
-                    LanServerRules.isLoopbackHost(state.lanServer!.host) &&
-                    controller.lanShareUrls.isNotEmpty)
-                  SelectableText(
-                    'نشانی برای دستگاه‌های دیگر مدرسه: ${controller.lanShareUrls.join('  ·  ')}',
-                    key: const Key('session-lan-share'),
-                  ),
-              ],
-            ),
+              if (state.lanServer != null &&
+                  LanServerRules.isLoopbackHost(state.lanServer!.host) &&
+                  controller.lanShareUrls.isNotEmpty)
+                SelectableText(
+                  'نشانی برای دستگاه‌های دیگر مدرسه: ${controller.lanShareUrls.join('  ·  ')}',
+                  key: const Key('session-lan-share'),
+                ),
+            ],
           ),
           if (controller.paywalled) ...[
             const SizedBox(height: PayeshTokens.space4),
@@ -477,10 +501,10 @@ class SignedInScreen extends StatelessWidget {
                 child: SubBanner(controller: controller, sub: sub),
               ),
             if (pages != null) ...[
-              const SizedBox(height: PayeshTokens.space4),
+              const SizedBox(height: PayeshTokens.space5),
               pages!(context, state),
             ],
-            const SizedBox(height: PayeshTokens.space4),
+            const SizedBox(height: PayeshTokens.space6),
             home ?? const HomeBody(),
           ],
           // Row 152: support for every role — also on the paywall (payment problems).

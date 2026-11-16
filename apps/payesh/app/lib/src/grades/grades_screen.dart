@@ -373,16 +373,21 @@ class GradesEntry extends StatelessWidget {
         key: Key('grd-entry-wait'),
       );
     }
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: FilledButton.tonalIcon(
-        key: const Key('grd-entry'),
-        onPressed: open,
-        icon: const Icon(Icons.edit_note),
-        label: const Text('ثبت نمره'),
-      ),
+    return PayeshTile(
+      key: const Key('grd-entry'),
+      onTap: open,
+      icon: Icons.edit_note,
+      label: 'ثبت نمره',
+      tone: PayeshTone.success,
     );
   }
+
+  /// Row 165: true when this entry is a home tile (else a short note or nothing).
+  bool get isTile =>
+      role != null &&
+      GradeBook.writers.contains(role) &&
+      enabled &&
+      uid != null;
 }
 
 /// Route that owns the page controller for one visit.

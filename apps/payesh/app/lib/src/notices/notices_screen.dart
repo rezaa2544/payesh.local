@@ -448,16 +448,21 @@ class NoticesEntry extends StatelessWidget {
         key: Key('ntc-entry-wait'),
       );
     }
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: FilledButton.tonalIcon(
-        key: const Key('ntc-entry'),
-        onPressed: open,
-        icon: const Icon(Icons.campaign_outlined),
-        label: const Text('اطلاعیه‌ها'),
-      ),
+    return PayeshTile(
+      key: const Key('ntc-entry'),
+      onTap: open,
+      icon: Icons.campaign_outlined,
+      label: 'اطلاعیه‌ها',
+      tone: PayeshTone.success,
     );
   }
+
+  /// Row 165: true when this entry is a home tile (else a short note or nothing).
+  bool get isTile =>
+      role != null &&
+      NoticeBoard.readers.contains(role) &&
+      enabled &&
+      uid != null;
 }
 
 /// Route that owns the page controller for one visit.

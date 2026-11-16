@@ -649,14 +649,24 @@ class CloudController extends SchoolController with _Online {
   @override
   Future<void> read(SchoolRecords db) async {}
 
+  /// Row 165: why the settings could not be read (shown as a calm empty state with «دوباره»,
+  /// not as the red bar over a page stuck on «در حال خواندن…»).
+  String? loadError;
+
   @override
   Future<void> load() async {
+    if (busy) return;
     loading = true;
+    loadError = null;
     emit();
-    await online((a) async {
+    final ok = await online((a) async {
       config = await a.cloud();
       return null;
     });
+    if (!ok && config == null && admin != null) {
+      loadError = error ?? const AdminFailure(AdminError.offline).messageFa;
+      error = null;
+    }
     loading = false;
     emit();
   }
@@ -810,17 +820,17 @@ class _CloudScreenState extends State<CloudScreen> {
         return ListView(
           padding: const EdgeInsets.all(PayeshTokens.space4),
           children: [
-            _small(
-              context,
-              'وقتی هیچ سیستمی در مدرسه روشن نیست، داده‌ها باید جایی بمانند تا اولین دستگاهِ روشن‌شده همه را بردارد. اینجا همان «صندوقچه» است.',
-            ),
+            const _CloudIntro(),
+            const SizedBox(height: PayeshTokens.space3),
             if (cfg == null)
-              _small(
-                context,
-                c.admin == null
+              _CloudEmpty(
+                offline: c.admin == null || c.loadError != null,
+                text: c.admin == null
                     ? 'این تنظیمات روی سرور مدرسه است؛ این دستگاه الان به سرور مدرسه وصل نیست.'
+                    : c.loadError != null
+                    ? 'سرور مدرسه جواب نداد، پس تنظیمات خوانده نشد. سرور مدرسه روشن باشد و این گوشی به آن (یا به اینترنت) وصل باشد، بعد «دوباره» را بزنید.'
                     : 'در حال خواندن تنظیمات…',
-                key: const Key('cld-none'),
+                onRetry: c.admin == null || c.busy ? null : c.load,
               )
             else
               _card(
@@ -923,25 +933,117 @@ class _CloudScreenState extends State<CloudScreen> {
                   ]),
                 ],
               ),
-            _card(context, 'دسترسی گوشی‌ها', key: const Key('cld-phone-card'), [
-              _small(
+            if (cfg != null) ...[
+              const SizedBox(height: PayeshTokens.space3),
+              _card(
                 context,
-                'این دکمه خودش بررسی و درست می‌کند: صندوقچه پیدا می‌شود، اجازهٔ خواندن برای گوشی گذاشته می‌شود و نتیجه همین‌جا دیده می‌شود.',
+                'دسترسی گوشی‌ها',
+                key: const Key('cld-phone-card'),
+                [
+                  _small(
+                    context,
+                    'خودش بررسی و درست می‌کند: صندوقچه پیدا می‌شود، اجازهٔ خواندن برای گوشی‌ها گذاشته می‌شود و نتیجه همین‌جا دیده می‌شود.',
+                  ),
+                  const SizedBox(height: PayeshTokens.space3),
+                  FilledButton.tonalIcon(
+                    key: const Key('cld-phone'),
+                    onPressed: c.busy ? null : c.phoneCheck,
+                    icon: const Icon(Icons.phonelink_setup_outlined),
+                    label: const Text('بررسی و درست‌کردن دسترسی گوشی'),
+                  ),
+                  if (c.phone case final p?) _outcome(context, p, 'cld-phone'),
+                ],
               ),
-              _buttons([
-                FilledButton.tonal(
-                  key: const Key('cld-phone'),
-                  onPressed: c.busy ? null : c.phoneCheck,
-                  child: const Text('بررسی و درست‌کردن دسترسی گوشی'),
-                ),
-              ]),
-              if (c.phone case final p?) _outcome(context, p, 'cld-phone'),
-            ]),
+            ],
           ],
         );
       },
     ),
   );
+}
+
+/// Row 165: what the «صندوقچه» is, in a soft info box (was a loose grey line).
+class _CloudIntro extends StatelessWidget {
+  const _CloudIntro();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Container(
+      padding: const EdgeInsets.all(PayeshTokens.space3),
+      decoration: BoxDecoration(
+        color: t.soft,
+        borderRadius: BorderRadius.circular(PayeshTokens.radius),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.cloud_outlined, color: t.primary, size: 22),
+          const SizedBox(width: PayeshTokens.space2),
+          Expanded(
+            child: Text(
+              'وقتی هیچ سیستمی در مدرسه روشن نیست، داده‌ها باید جایی بمانند تا اولین دستگاهِ روشن‌شده همه را بردارد. اینجا همان «صندوقچه» است.',
+              style: TextStyle(color: t.ink, fontSize: 13, height: 1.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Row 165: settings not (yet) read — spinner while reading; otherwise an icon, one clear
+/// sentence and «دوباره» (never a page stuck on «در حال خواندن…» under a red bar).
+class _CloudEmpty extends StatelessWidget {
+  const _CloudEmpty({
+    required this.offline,
+    required this.text,
+    required this.onRetry,
+  });
+
+  final bool offline;
+  final String text;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: PayeshTokens.space4,
+          vertical: PayeshTokens.space5,
+        ),
+        child: Column(
+          children: [
+            if (offline)
+              Icon(Icons.cloud_off_outlined, size: 40, color: t.muted)
+            else
+              const SizedBox.square(
+                dimension: 28,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              ),
+            const SizedBox(height: PayeshTokens.space3),
+            Text(
+              text,
+              key: const Key('cld-none'),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: t.muted, fontSize: 13.5, height: 1.7),
+            ),
+            if (offline && onRetry != null) ...[
+              const SizedBox(height: PayeshTokens.space3),
+              OutlinedButton.icon(
+                key: const Key('cld-retry'),
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('دوباره'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────── data health ───────────────────────────────────

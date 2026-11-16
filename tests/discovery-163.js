@@ -73,7 +73,7 @@ check('DS-02', 'only addresses — no key, user or data', async () => {
   const doc = JSON.parse(objects.get(KEY));
   assert(doc.v === 1 && doc.kind === 'payesh-school-servers', 'kind');
   const s = doc.servers[0];
-  assert(JSON.stringify(Object.keys(s).sort()) === JSON.stringify(['at', 'instance', 'lan', 'public_url', 'school', 'version']), Object.keys(s).join(','));
+  assert(JSON.stringify(Object.keys(s).sort()) === JSON.stringify(['at', 'instance', 'lan', 'public_url', 'public_urls', 'school', 'version']), Object.keys(s).join(','));
   const txt = objects.get(KEY);
   assert(!/AKIA-TEST-163|secret-test-163|password|phone|token/i.test(txt), 'secret-looking content');
   return s.school;

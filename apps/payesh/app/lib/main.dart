@@ -63,6 +63,10 @@ void main(List<String> args) {
           channel: appChannel,
           manifestUrl: ua.manifest('app-update.json'),
           blobBase: ua.blobs('app-files'),
+          // Row 165 (owner decision): in-app install like the owner app — the APK is downloaded
+          // here (progress, retries, SHA-256 + size from the manifest) and handed to the system
+          // installer; no browser.
+          apkInstaller: Platform.isAndroid ? const ChannelApkInstaller() : null,
           openUrl: openUri,
         )
       : null;

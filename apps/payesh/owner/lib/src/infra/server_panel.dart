@@ -3,8 +3,9 @@
 // یک دیتابیس برای کل سامانه؛ دادهٔ هر مدرسه در بخش جدای خودش. برنامه‌های کاربران کلید دیتابیس
 // ندارند (امنیت همهٔ مدارس)، پس از راه یک «سرور با نشانی عمومی» به آن می‌رسند:
 //   ۱) سرور مرکزی که مالک اینجا تعریف می‌کند (https، مثلاً سرور ابری با دامنه) — اولویت اول؛
-//   ۲) تا وقتی تعریف نشده: سرور پایش روی رایانهٔ مدرسه خودش با تونل رایگان Tailscale Funnel
-//      نشانی عمومی ثابت می‌گیرد (server/tunnel.js) و همان اعلام می‌شود.
+//   ۲) تا وقتی تعریف نشده: سرور پایش روی رایانهٔ مدرسه خودش نشانی عمومی می‌گیرد — مطابق «حالت
+//      اتصال» ستون راست (ردیف ۱۶۵: تونل رایگان Cloudflare بدون حساب، یا Tailscale Funnel) — و
+//      همان اعلام می‌شود (server/tunnel.js).
 // هر دو در فهرست «فقط نشانی» دیتابیس اعلام می‌شوند و برنامه‌ها خودکار پیدایشان می‌کنند.
 
 import 'dart:async';
@@ -182,7 +183,9 @@ class _ServerDefinitionPanelState extends State<ServerDefinitionPanel> {
 
   Widget _reachRow(BuildContext context) {
     final tk = context.tokens;
-    final publicServers = _servers.where((s) => s.publicUrl != null).toList();
+    final publicServers = _servers
+        .where((s) => s.publicUrls.isNotEmpty)
+        .toList();
     final String text;
     final Color color;
     if (_central != null) {
@@ -190,12 +193,12 @@ class _ServerDefinitionPanelState extends State<ServerDefinitionPanel> {
       color = tk.success;
     } else if (publicServers.isNotEmpty) {
       text =
-          'از هر اینترنت در دسترس است: ${publicServers.map((s) => s.publicUrl).join('، ')}';
+          'از هر اینترنت در دسترس است: ${publicServers.expand((s) => s.publicUrls).join('، ')}';
       color = tk.success;
     } else if (_servers.isNotEmpty) {
       text =
           'هنوز هیچ نشانی عمومی‌ای نیست؛ فقط در شبکهٔ داخلی همان مدرسه وصل می‌شود. '
-          'سرور مرکزی را تعریف کنید یا تونل رایگان را تأیید کنید (پایین).';
+          'سرور مرکزی را تعریف کنید یا «حالت اتصال» (ستون راست) را ببینید.';
       color = tk.danger;
     } else {
       text = 'هنوز هیچ سرور پایشی خودش را اعلام نکرده است.';

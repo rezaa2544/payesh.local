@@ -5,9 +5,20 @@
    مدرسه معمولاً IP ثابت و پورت باز ندارد (CGNAT). راه رایگان و بدون
    دامنه: یک تونل خروجی از خود سیستم مدرسه.
 
-     • Tailscale Funnel → آدرس ثابت https://<machine>.<tailnet>.ts.net
-   (تونل‌های ابری خارجی عمداً پشتیبانی نمی‌شوند: در ایران در دسترس نیستند
-    و آدرسشان هم با هر بار روشن شدن عوض می‌شود.)
+     • Tailscale Funnel → آدرس ثابت https://<machine>.<tailnet>.ts.net (بار اول تأیید صاحب حساب)
+     • تونل رایگان Cloudflare (quick-tunnel.js) → بدون حساب و بدون تأیید؛ نشانی متغیر که فقط
+       در فهرست نشانی‌های دیتابیس اعلام می‌شود و برنامه‌ها خودشان پیدایش می‌کنند.
+
+   ردیف ۱۶۵ — «حالت اتصال» را مالک در پنل مالک (زیرساخت ← حالت اتصال، ستون راست) انتخاب
+   می‌کند و در همان فهرست نشانی‌ها (pub/school-servers.json → connect.mode) می‌نویسد؛ هر سرور
+   مدرسه آن را می‌خواند (discovery.js) و تونل‌ها را مطابقش روشن/خاموش می‌کند:
+     auto        سرور مرکزی مالک (اگر تعریف شده) + Tailscale اگر آماده بود، وگرنه Cloudflare
+     cloudflare  فقط تونل رایگان Cloudflare
+     tailscale   فقط Tailscale Funnel
+     central     هیچ تونلی روی سرورهای مدرسه؛ برنامه‌ها فقط سرور مرکزی مالک (و شبکهٔ داخلی)
+     lan         فقط شبکهٔ داخلی مدرسه؛ هیچ نشانی عمومی اعلام نمی‌شود
+   همهٔ تونل‌ها به «درگاه ورودی عمومی» (127.0.0.1:PAYESH_TUNNEL_PORT) وصل‌اند که درخواستش
+   هرگز «از خود رایانه» حساب نمی‌شود (index.js isLocalReq).
 
    این ماژول ابزارها را پیدا می‌کند، تونل را روشن می‌کند، آدرس عمومی را
    می‌گیرد و خودکار در تنظیمات ذخیره می‌کند تا:
@@ -54,7 +65,7 @@ function hasCommand(cmd) {
 function tailscaleBin() {
   return locate('PAYESH_TAILSCALE_BIN', TS_PATHS, 'tailscale') || hasCommand('tailscale');
 }
-/* هیچ تونل ابری خارجی دیگری پشتیبانی نمی‌شود */
+/* Cloudflare در quick-tunnel.js است (فقط وقتی حالت اتصال اجازه بدهد) */
 
 /* ── اجرا ─────────────────────────────────────────────────────────── */
 function run(bin, args, { timeout = 20_000 } = {}) {
@@ -171,7 +182,6 @@ async function disableFunnel(port = 8080) {
   return { ok: true };
 }
 
-/* تونل ابری خارجی حذف شده است — فقط Tailscale Funnel */
 
 /* ── وضعیت کلی برای پنل ──────────────────────────────────────────── */
 function rememberPublicUrl(store, url, provider) {
@@ -270,43 +280,155 @@ async function autoStartOnce(store, port) {
   return { ok: false, error: 'no_tool', hint: 'Tailscale را نصب و وارد شوید' };
 }
 
-function start(store, { everyMs = 10 * 60_000, port = 8080 } = {}) {
-  /* ردیف ۱۶۴: اگر هنوز آدرس عمومی نیست (مثلاً Funnel منتظر تأیید صاحب حساب بود) هر دور دوباره
-     تلاش می‌کنیم تا بعد از تأیید، بدون دخالت کسی روشن شود. */
-  const tick = () => {
-    refresh(store)
-      .then(() => (cfg.publicUrl(store) ? null : autoStart(store, port)))
-      .catch(() => {});
+/* ── ردیف ۱۶۵: حالت اتصال و مدیر تونل‌ها ─────────────────────────── */
+const MODES = Object.freeze(['auto', 'cloudflare', 'tailscale', 'central', 'lan']);
+const META_MODE = 'connect_mode';
+const META_URLS = 'connect_urls';
+
+function connectMode(store) {
+  const m = store ? cfg.getMeta(store, META_MODE) : null;
+  return MODES.includes(m) ? m : 'auto';
+}
+
+/** حالت انتخاب‌شدهٔ مالک را ثبت می‌کند؛ true اگر عوض شد (و بی‌درنگ اعمال می‌شود). */
+function setConnectMode(store, mode, { by = 'owner' } = {}) {
+  if (!MODES.includes(mode) || connectMode(store) === mode) return false;
+  cfg.setMeta(store, META_MODE, mode);
+  try { store.audit({ role: 'system', action: 'connect_mode', collection: 'system', after: { mode, by } }); } catch (e) { /* noop */ }
+  if (mgr.store === store) setImmediate(() => reconcile().catch(() => {}));
+  return true;
+}
+
+/** نشانی‌های عمومی که الان اعلام می‌شوند (بهترین اول، فقط https). */
+function publicUrls(store) {
+  try {
+    const v = JSON.parse(cfg.getMeta(store, META_URLS) || '[]');
+    return Array.isArray(v) ? v.filter(u => typeof u === 'string' && /^https:\/\//.test(u)).slice(0, 4) : [];
+  } catch (e) { return []; }
+}
+
+const mgr = {
+  store: null, port: 8080, ingress: 8091, dataDir: null, cf: null, cfInfo: { state: 'off', url: null, error: null },
+  tsUrl: null, lastFunnelTry: 0, onChange: () => {}, timer: null, checkTimer: null, busy: false,
+  cloudflare: null,
+};
+
+function cfMod() { return mgr.cloudflare || (mgr.cloudflare = require('./quick-tunnel')); }
+
+async function ensureCloudflare() {
+  if (mgr.cf) { mgr.cf.start(); return; }
+  const b = await cfMod().ensureBinary({ dataDir: mgr.dataDir });
+  if (!b.ok) { mgr.cfInfo = { state: 'error', url: null, error: b.error, at: nowISO() }; return; }
+  mgr.cf = new (cfMod().QuickTunnel)({
+    bin: b.bin, port: mgr.ingress,
+    onState: (info) => { mgr.cfInfo = info; },
+    onUrl: () => { reconcileSoon(); },
+  });
+  mgr.cf.start();
+}
+
+function stopCloudflare() {
+  if (mgr.cf) mgr.cf.stop();
+  if (mgr.cfInfo.state !== 'off') mgr.cfInfo = Object.assign({}, mgr.cfInfo, { state: 'off', url: null });
+}
+
+let soon = null;
+function reconcileSoon() {
+  clearTimeout(soon);
+  soon = setTimeout(() => reconcile().catch(() => {}), 500);
+  soon.unref?.();
+}
+
+/** یک دور: تونل‌ها را با حالت فعلی هماهنگ می‌کند و نشانی‌های اعلام‌شده را تازه می‌کند. */
+async function reconcile() {
+  const store = mgr.store;
+  if (!store || mgr.busy) return null;
+  mgr.busy = true;
+  try {
+    const mode = connectMode(store);
+    const auto = autoEnabled(store);
+    let tsUrl = null;
+    let ts = null;
+    try { ts = await tailscaleStatus(); } catch (e) { ts = null; }
+    if (mode === 'auto' || mode === 'tailscale') {
+      if (ts && ts.funnel && ts.url) tsUrl = ts.url;
+      else if (auto && ts && ts.installed && ts.logged_in && Date.now() - mgr.lastFunnelTry > 10 * 60_000) {
+        mgr.lastFunnelTry = Date.now();
+        const r = await enableFunnel(mgr.ingress);
+        if (r.ok && r.url) tsUrl = r.url;
+      }
+    } else if (ts && ts.funnel && cfg.getMeta(store, 'connect_ts_ours') === '1') {
+      await disableFunnel(mgr.ingress);
+      cfg.setMeta(store, 'connect_ts_ours', '');
+    }
+    if (tsUrl) cfg.setMeta(store, 'connect_ts_ours', '1');
+    mgr.tsUrl = tsUrl;
+
+    /* Cloudflare فقط پشت درگاه ورودی عمومی (هرگز مستقیم به درگاه اصلی) */
+    const wantCf = auto && mgr.ingress !== mgr.port && process.env.PAYESH_CLOUDFLARE !== '0'
+      && (mode === 'cloudflare' || (mode === 'auto' && !tsUrl));
+    if (wantCf) await ensureCloudflare(); else stopCloudflare();
+    const cfUrl = wantCf && mgr.cf ? mgr.cf.url : null;
+
+    const custom = cfg.getMeta(store, 'tunnel_provider') === 'custom' ? (cfg.publicUrl(store) || null) : null;
+    const urls = mode === 'lan' ? [] : [...new Set([custom, tsUrl, cfUrl].filter(Boolean).map(u => String(u).replace(/\/+$/, '')))];
+    const before = JSON.stringify(publicUrls(store));
+    cfg.setMeta(store, META_URLS, JSON.stringify(urls));
+    if (!custom) {
+      cfg.setMeta(store, 'public_url', urls[0] || '');
+      cfg.setMeta(store, 'tunnel_provider', urls[0] ? (urls[0] === tsUrl ? 'tailscale' : 'cloudflare') : '');
+    }
+    if (before !== JSON.stringify(urls)) {
+      if (urls[0]) console.log('[tunnel] نشانی عمومی: ' + urls.join(' · ') + ' (حالت ' + mode + ')');
+      try { mgr.onChange(urls); } catch (e) { /* noop */ }
+    }
+    return { mode, urls };
+  } finally {
+    mgr.busy = false;
+  }
+}
+
+/** وضعیت برای رسید سرور (پنل مالک) — بدون هیچ راز. */
+function connectInfo(store) {
+  return {
+    mode: connectMode(store),
+    public_urls: publicUrls(store),
+    cloudflare: { state: mgr.cfInfo.state || 'off', url: mgr.cfInfo.url || null, error: mgr.cfInfo.error || null, at: mgr.cfInfo.at || null },
+    tailscale: { url: mgr.tsUrl || null, enable_url: lastAttempt ? lastAttempt.enable_url || null : null },
   };
-  setTimeout(tick, 8_000).unref?.();
-  /* چند ثانیه بعد از بالا آمدن، خودش تونل را روشن کن (اگر ممکن بود).
-     اگر ابزار تازه نصب شده/وارد نشده باشد، چند بار دیگر هم تلاش می‌کند:
-     مثلاً نصب Tailscale یا ورود مدیر. */
-  const delay = Number(process.env.PAYESH_TUNNEL_DELAY || 15_000);
-  const attempt = (n) => {
-    autoStart(store, port)
-      .then(r => {
-        if (r && r.ok && r.url) { console.log('[tunnel] آدرس عمومی خودکار: ' + r.url); return; }
-        if (n < 10) setTimeout(() => attempt(n + 1), 60_000).unref?.();
-      })
-      .catch(() => { if (n < 10) setTimeout(() => attempt(n + 1), 60_000).unref?.(); });
-  };
-  setTimeout(() => attempt(1), delay).unref?.();
-  if (timer) clearInterval(timer);
-  timer = setInterval(tick, everyMs);
-  timer.unref?.();
+}
+
+function start(store, { everyMs = 2 * 60_000, port = 8080, ingressPort = null, dataDir = null, onChange = null } = {}) {
+  Object.assign(mgr, { store, port, ingress: ingressPort || port, dataDir: dataDir || mgr.dataDir });
+  if (onChange) mgr.onChange = onChange;
+  const delay = Number(process.env.PAYESH_TUNNEL_DELAY || 8_000);
+  const t0 = setTimeout(() => reconcile().catch(() => {}), delay);
+  t0.unref?.();
+  if (mgr.timer) clearInterval(mgr.timer);
+  mgr.timer = setInterval(() => reconcile().catch(() => {}), everyMs);
+  mgr.timer.unref?.();
+  if (mgr.checkTimer) clearInterval(mgr.checkTimer);
+  mgr.checkTimer = setInterval(() => { if (mgr.cf) mgr.cf.check().catch(() => {}); }, 2 * 60_000);
+  mgr.checkTimer.unref?.();
   return { ok: true };
 }
 
 function stop() {
   if (timer) clearInterval(timer);
   timer = null;
+  if (mgr.timer) clearInterval(mgr.timer);
+  if (mgr.checkTimer) clearInterval(mgr.checkTimer);
+  mgr.timer = null;
+  mgr.checkTimer = null;
+  stopCloudflare();
 }
 
 /* آدرس‌های موقتیِ نسخه‌های قدیمی را پاک می‌کنیم تا برنامه هیچ آدرسی را که
    کار نمی‌کند نشان ندهد. فقط آدرس Tailscale (ساختهٔ خودمان) و آدرس دستیِ
    مدیر می‌مانند. */
 function purgeStalePublicUrl(store) {
+  /* ردیف ۱۶۵: نشانی‌های تونل دور قبل اعتبار ندارند؛ دور اول reconcile دوباره می‌سازدشان */
+  try { cfg.setMeta(store, META_URLS, '[]'); } catch (e) { /* noop */ }
   const prev = cfg.publicUrl(store);
   if (!prev) return { cleared: false, url: '' };
   const provider = String(cfg.getMeta(store, 'tunnel_provider') || '');
@@ -322,6 +444,8 @@ function purgeStalePublicUrl(store) {
 }
 
 module.exports = {
+  MODES, connectMode, setConnectMode, publicUrls, connectInfo, reconcile,
+  __mgrForTest: () => mgr,
   funnelEnableUrl, hint,
   purgeStalePublicUrl,
   status, refresh, start, stop, autoStart, autoEnabled,

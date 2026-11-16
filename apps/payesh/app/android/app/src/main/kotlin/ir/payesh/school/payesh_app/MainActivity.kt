@@ -54,6 +54,21 @@ class MainActivity : FlutterActivity() {
                     result.error("secure_store", e.javaClass.simpleName + ": " + (e.message ?: ""), null)
                 }
             }
+        // Row 165: in-app update — the APK downloaded and hash-checked by Dart goes to the SYSTEM
+        // installer (same signing key required; Android always asks the user to confirm).
+        val updates = UpdateInstaller(this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UpdateInstaller.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                try {
+                    when (call.method) {
+                        "cacheDir" -> result.success(updates.cacheDir())
+                        "installApk" -> result.success(updates.install(call.argument<String>("path")!!))
+                        else -> result.notImplemented()
+                    }
+                } catch (e: Exception) {
+                    result.error("update", e.javaClass.simpleName + ": " + (e.message ?: ""), null)
+                }
+            }
     }
 
     companion object {

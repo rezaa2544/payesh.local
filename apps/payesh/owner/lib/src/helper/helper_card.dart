@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:payesh_ui/payesh_ui.dart';
@@ -6,7 +7,9 @@ import 'package:payesh_ui/payesh_ui.dart';
 import '../local/s3_client.dart';
 import '../local/settings_page.dart';
 import 'helper_box.dart';
+import 'helper_node.dart';
 import 'helper_service.dart';
+import 'host_cpu.dart';
 
 String fmtBytesFa(int b) {
   if (b < 1024) return '$b بایت';
@@ -32,9 +35,25 @@ const _whyFa = {
 /// «سرور کمکی»: روشن/خاموش (پیش‌فرض روشن)، وضعیت همین دستگاه، سرورهای کمکی فعال و یک
 /// کار نمونه (محاسبهٔ مصرف فضای دیتابیس) که از سرور کمکی یا همین دستگاه انجام می‌شود.
 class HelperCard extends StatefulWidget {
-  const HelperCard({super.key, required this.service, this.now});
+  const HelperCard({
+    super.key,
+    required this.service,
+    this.now,
+    this.cpu,
+    this.liveEvery,
+    this.memory,
+  });
   final OwnerHelperService service;
   final DateTime Function()? now;
+
+  /// ردیف ۱۶۵ — مصرف زندهٔ پردازندهٔ همین رایانه (پیش‌فرض: [HostCpuMeter]).
+  final HostCpuMeter? cpu;
+
+  /// فاصلهٔ نمونه‌گیری زنده؛ پیش‌فرض ۱ ثانیه (در آزمون‌ها خاموش مگر صریحاً داده شود).
+  final Duration? liveEvery;
+
+  /// حافظهٔ برنامه (بایت)؛ پیش‌فرض ProcessInfo.currentRss.
+  final int Function()? memory;
 
   @override
   State<HelperCard> createState() => _HelperCardState();
@@ -47,11 +66,35 @@ class _HelperCardState extends State<HelperCard> {
   bool _busy = false;
   String? _usage;
   bool _usageOk = true;
+  late final HostCpuMeter _cpu = widget.cpu ?? HostCpuMeter();
+  Timer? _live;
+  int? _rss;
 
   @override
   void initState() {
     super.initState();
     unawaited(_attach());
+    final every =
+        widget.liveEvery ??
+        (Platform.environment.containsKey('FLUTTER_TEST')
+            ? null
+            : const Duration(seconds: 1));
+    _sampleLive();
+    if (every != null) {
+      _live = Timer.periodic(every, (_) {
+        _sampleLive();
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  void _sampleLive() {
+    _cpu.sample();
+    try {
+      _rss = (widget.memory ?? () => ProcessInfo.currentRss)();
+    } on Object {
+      _rss = null;
+    }
   }
 
   Future<void> _attach() async {
@@ -65,6 +108,7 @@ class _HelperCardState extends State<HelperCard> {
 
   @override
   void dispose() {
+    _live?.cancel();
     unawaited(_sub?.cancel());
     super.dispose();
   }
@@ -156,6 +200,8 @@ class _HelperCardState extends State<HelperCard> {
           'نباشد، همان سیستم خودش انجام می‌دهد؛ پس پردازش هیچ‌وقت متوقف نمی‌شود. محتوای مدارس '
           'به سیستم کمکی داده نمی‌شود.',
       children: [
+        _livePanel(context, node, ok),
+        const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Text(
@@ -242,7 +288,8 @@ class _HelperCardState extends State<HelperCard> {
           const Text('آخرین کارهای این دستگاه:'),
           for (final j in node.recent.take(5))
             Text(
-              '${j.ok ? '✓' : '✗'} ${j.kind} · ${j.ms} میلی‌ثانیه',
+              '${j.ok ? '✓' : '✗'} ${helperJobKindsFa[j.kind] ?? j.kind} · '
+              '${faNumber(j.ms)} میلی‌ثانیه',
               key: Key('helper-job-${j.jobId}'),
               style: TextStyle(color: tk.muted),
             ),
@@ -250,4 +297,213 @@ class _HelperCardState extends State<HelperCard> {
       ],
     );
   }
+
+  /// ردیف ۱۶۵ — «زنده»: پردازندهٔ همین رایانه (درصد + نمودار ۶۰ ثانیه)، حافظهٔ برنامه، جاهای
+  /// کار در حال استفاده و گزارش کار لحظه‌ای همین سرور کمکی.
+  Widget _livePanel(BuildContext context, HelperNode? node, bool active) {
+    final tk = context.tokens;
+    final cpu = _cpu.last;
+    final cpuTone = cpu == null
+        ? tk.muted
+        : cpu >= 85
+        ? tk.danger
+        : cpu >= 60
+        ? tk.warning
+        : tk.success;
+    final events = node?.activity ?? const <HelperEvent>[];
+    String hms(DateTime t) => faDigits(
+      '${t.hour.toString().padLeft(2, '0')}:'
+      '${t.minute.toString().padLeft(2, '0')}:'
+      '${t.second.toString().padLeft(2, '0')}',
+    );
+    Widget stat(String key, String label, String value, {Color? color}) =>
+        Expanded(
+          child: Column(
+            key: Key(key),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(color: tk.muted, fontSize: 12)),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: color ?? tk.ink,
+                ),
+              ),
+            ],
+          ),
+        );
+    return Container(
+      key: const Key('helper-live'),
+      padding: const EdgeInsets.all(PayeshTokens.space3),
+      decoration: BoxDecoration(
+        color: tk.soft,
+        borderRadius: BorderRadius.circular(tk.cardRadius - 4),
+        border: Border.all(color: tk.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.circle,
+                size: 10,
+                color: active && node != null && !node.paused
+                    ? tk.success
+                    : tk.muted,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  active && node != null && !node.paused
+                      ? 'زنده — این سیستم سرور کمکی فعال است'
+                      : 'زنده — این سیستم الان کار کمکی نمی‌گیرد',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              stat(
+                'helper-live-cpu',
+                'پردازندهٔ این رایانه',
+                cpu == null ? '—' : '${faNumber(cpu.round())}٪',
+                color: cpuTone,
+              ),
+              stat(
+                'helper-live-mem',
+                'حافظهٔ پنل',
+                _rss == null ? '—' : fmtBytesFa(_rss!),
+              ),
+              stat(
+                'helper-live-jobs',
+                'کار در حال انجام',
+                node == null
+                    ? '—'
+                    : '${faNumber(node.activeJobs)} از ${faNumber(node.slots)}',
+              ),
+              stat(
+                'helper-live-done',
+                'انجام‌شده',
+                node == null
+                    ? '—'
+                    : faNumber(node.done) +
+                          (node.failed > 0
+                              ? ' · ${faNumber(node.failed)} ناموفق'
+                              : ''),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 44,
+            child: CustomPaint(
+              key: const Key('helper-live-chart'),
+              painter: _SparkPainter(List.of(_cpu.history), cpuTone, tk.line),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'گزارش کار لحظه‌ای',
+            style: TextStyle(color: tk.muted, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          if (events.isEmpty)
+            Text(
+              'هنوز رخدادی نیست.',
+              key: const Key('helper-log-empty'),
+              style: TextStyle(color: tk.muted),
+            )
+          else
+            for (final (i, e) in events.take(8).indexed)
+              Padding(
+                key: Key('helper-log-$i'),
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hms(e.at),
+                      textDirection: TextDirection.ltr,
+                      style: TextStyle(
+                        color: tk.muted,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      e.ok ? Icons.check_circle_outline : Icons.error_outline,
+                      size: 16,
+                      color: e.ok ? tk.success : tk.danger,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        e.count > 1
+                            ? '${e.text} (×${faNumber(e.count)})'
+                            : e.text,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SparkPainter extends CustomPainter {
+  _SparkPainter(this.values, this.color, this.grid);
+  final List<double> values;
+  final Color color;
+  final Color grid;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final g = Paint()
+      ..color = grid
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(0, size.height), Offset(size.width, size.height), g);
+    canvas.drawLine(
+      Offset(0, size.height / 2),
+      Offset(size.width, size.height / 2),
+      g..color = grid.withValues(alpha: 0.5),
+    );
+    if (values.length < 2) return;
+    const slots = 60;
+    final dx = size.width / (slots - 1);
+    final start = slots - values.length;
+    final path = Path();
+    for (var i = 0; i < values.length; i++) {
+      // RTL: تازه‌ترین سمت چپ نیست؛ زمان از راست به چپ جلو می‌رود
+      final x = size.width - (start + i) * dx;
+      final y = size.height - (values[i] / 100) * size.height;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    final fill = Path.from(path)
+      ..lineTo(size.width - (slots - 1) * dx, size.height)
+      ..lineTo(size.width - start * dx, size.height)
+      ..close();
+    canvas.drawPath(fill, Paint()..color = color.withValues(alpha: 0.15));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SparkPainter old) => true;
 }

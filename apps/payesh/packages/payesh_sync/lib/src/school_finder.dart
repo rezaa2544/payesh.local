@@ -20,6 +20,12 @@ import 'le_trust.dart';
 abstract interface class SchoolDirectoryApi {
   /// Addresses to try, best first (LAN of the freshest server first, then its public address).
   Future<List<Uri>> candidates();
+
+  /// Row 165 — every address of ONE server (its `instance`, e.g. from the saved `lan-<instance>`
+  /// school code): LAN first, then its public addresses (Cloudflare / Tailscale / custom). A
+  /// signed-in phone that left the school network re-finds the SAME server with this (its device
+  /// token only works there). Empty when the list does not name that server.
+  Future<List<Uri>> addressesOf(String instance);
 }
 
 /// One server row of the list.
@@ -30,11 +36,16 @@ final class SchoolServerEntry {
     required this.at,
     this.school,
     this.publicUrl,
+    this.publicUrls = const [],
   });
   final String instance;
   final String? school;
   final List<Uri> lan;
   final Uri? publicUrl;
+
+  /// Row 165 — all public addresses of this server, best first (`public_urls`; [publicUrl] is the
+  /// first). Https only, no path.
+  final List<Uri> publicUrls;
   final DateTime at;
 
   /// Parses one row; null when it is not usable (no instance, no time, no address).
@@ -47,14 +58,27 @@ final class SchoolServerEntry {
       for (final u in (raw['lan'] is List ? raw['lan'] as List : const []))
         if (u is String) ?LanServerRules.parse(u),
     ];
-    Uri? pub;
-    final p = raw['public_url'];
-    if (p is String) {
+    Uri? https(Object? p) {
+      if (p is! String) return null;
       final u = Uri.tryParse(p);
-      if (u != null && u.scheme == 'https' && u.host.isNotEmpty) {
-        pub = Uri(scheme: 'https', host: u.host.toLowerCase(), port: u.port);
+      if (u == null ||
+          u.scheme != 'https' ||
+          u.host.isEmpty ||
+          u.userInfo.isNotEmpty) {
+        return null;
       }
+      return Uri(scheme: 'https', host: u.host.toLowerCase(), port: u.port);
     }
+
+    final pubs = <Uri>[];
+    for (final p in [
+      ...(raw['public_urls'] is List ? raw['public_urls'] as List : const []),
+      raw['public_url'],
+    ]) {
+      final u = https(p);
+      if (u != null && !pubs.contains(u) && pubs.length < 4) pubs.add(u);
+    }
+    final pub = pubs.isEmpty ? null : pubs.first;
     if (lan.isEmpty && pub == null) return null;
     final s = raw['school'];
     return SchoolServerEntry(
@@ -62,6 +86,7 @@ final class SchoolServerEntry {
       school: s is String && s.isNotEmpty ? s : null,
       lan: lan,
       publicUrl: pub,
+      publicUrls: pubs,
       at: at,
     );
   }
@@ -164,9 +189,23 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
       e.lan.forEach(add);
     }
     for (final e in list) {
-      if (e.publicUrl case final p?) add(p);
+      e.publicUrls.forEach(add);
     }
     return out;
+  }
+
+  @override
+  Future<List<Uri>> addressesOf(String instance) async =>
+      addressesIn(await entries(), instance);
+
+  /// LAN then public addresses of the row whose `instance` is [instance].
+  static List<Uri> addressesIn(List<SchoolServerEntry> list, String instance) {
+    final want = instance.trim().toLowerCase();
+    if (want.isEmpty) return const [];
+    for (final e in list) {
+      if (e.instance.toLowerCase() == want) return [...e.lan, ...e.publicUrls];
+    }
+    return const [];
   }
 }
 

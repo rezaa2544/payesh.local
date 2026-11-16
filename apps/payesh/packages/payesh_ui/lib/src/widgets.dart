@@ -66,18 +66,37 @@ class _TopOverlay extends StatefulWidget {
 }
 
 class _TopOverlayState extends State<_TopOverlay> {
+  /// Row 165: the strip the widget lives in is RESERVED — the page sees it as part of the top
+  /// system inset, so every AppBar (and SafeArea) starts below it and paints its colour behind
+  /// it. Nothing on any page is covered any more (the phone screenshots showed the version pill
+  /// over the AppBar titles).
+  static const double strip = 44;
+
   late final OverlayEntry _page = OverlayEntry(
-    builder: (_) => widget.child ?? const SizedBox.shrink(),
+    builder: (context) {
+      final mq = MediaQuery.of(context);
+      return MediaQuery(
+        data: mq.copyWith(
+          padding: mq.padding.copyWith(top: mq.padding.top + strip),
+          viewPadding: mq.viewPadding.copyWith(top: mq.viewPadding.top + strip),
+        ),
+        child: widget.child ?? const SizedBox.shrink(),
+      );
+    },
   );
   late final OverlayEntry _top = OverlayEntry(
     builder: (_) => SafeArea(
+      bottom: false,
       child: Align(
         alignment: Alignment.topCenter,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Material(
-            type: MaterialType.transparency,
-            child: widget.overlay,
+        child: SizedBox(
+          key: const Key('payesh-top-strip'),
+          height: strip,
+          child: Center(
+            child: Material(
+              type: MaterialType.transparency,
+              child: widget.overlay,
+            ),
           ),
         ),
       ),

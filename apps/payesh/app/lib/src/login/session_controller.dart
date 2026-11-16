@@ -1123,12 +1123,69 @@ class SessionController extends ChangeNotifier {
         _set(NeedLan(error: e.messageFa, typed: _typedOf(l.server)));
         return;
       }
+      // Row 165: the phone left the school network (or the address changed) — find the SAME
+      // server at its other addresses (public tunnel / LAN) and carry on there.
+      final moved = e.kind == LanAccessError.unreachable
+          ? await _relocateLan(l, api)
+          : null;
+      if (moved != null) {
+        _busy = false;
+        _lanRelocated = moved.server;
+        await _refreshLan();
+        return;
+      }
       _publish(SyncPhase.offline, error: _lanFail(e));
       _set(_lanSignedIn(l));
     } on Object {
       _publish(SyncPhase.offline, error: _unknown);
       _set(_lanSignedIn(l));
+    } finally {
+      _busy = false;
     }
+  }
+
+  /// Last address the session moved to (row 165; tests and the diagnostics read it).
+  Uri? get lanRelocated => _lanRelocated;
+  Uri? _lanRelocated;
+  DateTime? _lastRelocate;
+
+  /// Row 165 — other addresses of the signed-in server (same `instance`, from the address list in
+  /// the owner's database): LAN first, then the public tunnel addresses. The first one that answers
+  /// AS THE SAME SERVER (same school code) is saved and returned; null when none does. At most once
+  /// every 20 s so an offline phone does not hammer the list.
+  Future<SavedLan?> _relocateLan(SavedLan l, LanAccessApi api) async {
+    final dir = directory;
+    if (dir == null || !l.school.startsWith('lan-')) return null;
+    final now = _now();
+    final last = _lastRelocate;
+    if (last != null && now.difference(last) < const Duration(seconds: 20)) {
+      return null;
+    }
+    _lastRelocate = now;
+    final List<Uri> cands;
+    try {
+      cands = [
+        for (final u in await dir.addressesOf(l.school.substring(4)))
+          if (u != l.server && LanServerRules.allowed(u)) u,
+      ];
+    } on Object {
+      return null;
+    }
+    if (cands.isEmpty) return null;
+    final info = await firstAnswering(api, cands);
+    if (info == null || info.schoolCode != l.school) return null;
+    final moved = SavedLan(
+      server: info.server,
+      school: l.school,
+      deviceToken: l.deviceToken,
+      schoolName: l.schoolName,
+      role: l.role,
+      uid: l.uid,
+    );
+    await lanAccounts.save(moved);
+    await lanAccounts.remember(info);
+    _lan = moved;
+    return moved;
   }
 
   // ── Row 145: registration request ───────────────────────────────────────────────────

@@ -54,6 +54,18 @@ const OVERLAY_DIR = path.join(process.env.PAYESH_DATA || path.join(ROOT, 'data')
 const RELEASES_DIR = path.join(ROOT, 'releases');
 const PORT = Number(process.env.PORT || process.env.SERVER_PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
+/* ردیف ۱۶۵: درگاه ورودی عمومی — فقط روی 127.0.0.1 و فقط برای تونل‌ها (تونل‌ها).
+   هر درخواستی که از این درگاه بیاید «از بیرون» است، حتی اگر نشانی‌اش 127.0.0.1 باشد. */
+const TUNNEL_PORT = Number(process.env.PAYESH_TUNNEL_PORT || (PORT + 11));
+/* سروری که فقط روی خود رایانه گوش می‌دهد (آزمون‌ها، HOST=127.0.0.1) تونل عمومی نمی‌سازد */
+const INGRESS_ON = !!process.env.PAYESH_TUNNEL_PORT || !/^(127\.|::1$|localhost$)/.test(HOST);
+
+/** درخواست واقعاً از خود همین رایانه است؟ (نه از تونل) */
+function isLocalReq(req) {
+  if (req.__public) return false;
+  const remote = String((req.socket && req.socket.remoteAddress) || '').replace('::ffff:', '');
+  return remote === '::1' || remote === '127.0.0.1' || remote.startsWith('127.');
+}
 const DATA_DIR = process.env.PAYESH_DATA || path.join(ROOT, 'data');
 /* ردیف ۱۲۷: «سرویس دادهٔ بی‌رابط» (PAYESH_HEADLESS=1) — همان سرور مدرسه، اما فقط API.
    هیچ صفحهٔ وب/HTML/JS سرو نمی‌شود (رابط فقط اپ بومی است، D‑49) و راه‌اندازی اولیه
@@ -588,8 +600,7 @@ async function api(req, res, url, ip) {
   if (p === '/api/setup/state' && m === 'GET') {
     /* ردیف ۶۵: این مسیر بی‌نشست است؛ مسیر دیسک فقط به مرورگرِ خودِ رایانهٔ مدرسه
        (loopback) گفته می‌شود — نه به هر کسی در شبکه (نقشه‌برداری مهاجم). */
-    const remote = String((req.socket && req.socket.remoteAddress) || '').replace('::ffff:', '');
-    const loopback = remote === '::1' || remote.startsWith('127.');
+    const loopback = isLocalReq(req);
     return json({ ok: true, needs_setup: auth.needsSetup(store), version: readManifest().version,
       ...(loopback ? { data_dir: DATA_DIR, db_file: path.join(DATA_DIR, 'payesh.sqlite') } : {}),
       school: (store.get('schools', 1) || {}).name || null,
@@ -597,9 +608,9 @@ async function api(req, res, url, ip) {
   }
 
   if (p === '/api/setup' && m === 'POST') {
-    if (HEADLESS) {
-      const remote = String((req.socket && req.socket.remoteAddress) || '').replace('::ffff:', '');
-      if (!(remote === '::1' || remote.startsWith('127.'))) return json({ ok: false, error: 'setup_local_only' }, 403);
+    /* ردیف ۱۶۵: راه‌اندازی اول هرگز از تونل عمومی (هر کسی در اینترنت) پذیرفته نمی‌شود */
+    if (HEADLESS || req.__public) {
+      if (!isLocalReq(req)) return json({ ok: false, error: 'setup_local_only' }, 403);
     }
     if (!rateLimit('setup:' + ip, 10, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const body = await readBody(req);
@@ -640,9 +651,7 @@ async function api(req, res, url, ip) {
   /* نجاتِ مدیر: اگر حساب مدیر رمز ندارد و کاربر پشتِ خودِ رایانهٔ مدرسه است،
      یک‌بار می‌تواند شماره + رمز بسازد و بلافاصله وارد شود. (فقط از خود دستگاه) */
   if (p === '/api/auth/claim' && m === 'POST') {
-    const remote = String((req.socket && req.socket.remoteAddress) || '').replace('::ffff:', '');
-    const local = remote === '::1' || remote === '127.0.0.1' || remote.startsWith('127.');
-    if (!local) return json({ ok: false, error: 'local_only' }, 403);
+    if (!isLocalReq(req)) return json({ ok: false, error: 'local_only' }, 403);
     if (!rateLimit('claim:' + ip, 10, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     const body = await readBody(req);
     const mgr = store.all('users').find(u => u.role === 'manager' && u.active !== false);
@@ -804,7 +813,7 @@ async function api(req, res, url, ip) {
   }
 
   if (p === '/api/phone/login' && m === 'POST') {
-    const ip = (req.socket && req.socket.remoteAddress) || 'phone';
+    const ip = cfg.clientIp(req) || 'phone';
     if (!rateLimit('phone-login:' + ip, 40, 10 * 60_000)) return json({ ok: false, error: 'too_many' }, 429);
     let body = {};
     try { body = await readBody(req); } catch (e) { return json({ ok: false, error: 'bad_json' }, 400); }
@@ -829,7 +838,7 @@ async function api(req, res, url, ip) {
   /* تازه‌سازی تیکت فایل‌ها با تیکت دستگاه (۲۰۰ روز) — بدون نشست، بدون کلید.
      هویت فقط از تیکت امضاشدهٔ سرور خوانده می‌شود، نه از بدنه/هدر قابل‌دستکاری. */
   if (p === '/api/phone/ticket' && m === 'POST') {
-    const ip = (req.socket && req.socket.remoteAddress) || 'phone';
+    const ip = cfg.clientIp(req) || 'phone';
     if (!rateLimit('phone-ticket:' + ip, 120, 10 * 60_000)) return json({ ok: false, error: 'too_many' }, 429);
     const headerTicket = String(req.headers['x-phone-ticket'] || '');
     let body = {};
@@ -852,7 +861,7 @@ async function api(req, res, url, ip) {
      هر user_id/role/tenant_id که کلاینت در بدنه بفرستد نادیده گرفته
      می‌شود: پاکت با هویتِ همین درخواست امضا و در صندوقچه نوشته می‌شود. */
   if (p === '/api/outbox/submit' && m === 'POST') {
-    const ip = (req.socket && req.socket.remoteAddress) || 'phone';
+    const ip = cfg.clientIp(req) || 'phone';
     if (!rateLimit('outbox-submit:' + ip, 240, 10 * 60_000)) return json({ ok: false, error: 'too_many' }, 429);
     let body = {};
     try { body = await readBody(req); } catch (e) { return json({ ok: false, error: 'bad_json' }, 400); }
@@ -1204,7 +1213,7 @@ async function api(req, res, url, ip) {
     const action = String(body.action || 'refresh');
 
     if (action === 'enable') {
-      const r = await tunnel.enableFunnel(PORT);
+      const r = await tunnel.enableFunnel(TUNNEL_PORT);
       if (r.ok) tunnel.rememberPublicUrl(store, r.url, 'tailscale');
       store.audit({ user_id: actor.user.id, role: 'manager', action: 'tunnel_enable', collection: 'config', after: r });
       return json(Object.assign({ ok: r.ok }, r, { status: await tunnel.status(store) }), r.ok ? 200 : 400);
@@ -1216,7 +1225,7 @@ async function api(req, res, url, ip) {
     }
 
     if (action === 'off') {
-      if (body.tailscale_too) await tunnel.disableFunnel(PORT);
+      if (body.tailscale_too) await tunnel.disableFunnel(TUNNEL_PORT);
       cfg.setMeta(store, 'public_url', '');
       store.audit({ user_id: actor.user.id, role: 'manager', action: 'tunnel_off', collection: 'config' });
       return json({ ok: true, status: await tunnel.status(store) });
@@ -2162,7 +2171,7 @@ function toCSV(rows) {
 }
 
 /* ── سرور ─────────────────────────────────────────────────────────── */
-const server = http.createServer(async (req, res) => {
+const handler = async (req, res) => {
   const started = Date.now();
   const ip = cfg.clientIp(req);
   /* row 85: every response carries X-Request-Id (honoured if opaque, else minted) */
@@ -2308,7 +2317,10 @@ const server = http.createServer(async (req, res) => {
       }
     }
   }
-});
+};
+const server = http.createServer(handler);
+/* ردیف ۱۶۵: درگاه ورودی عمومی تونل‌ها — همان برنامه، ولی هر درخواست «از بیرون» علامت می‌خورد */
+const tunnelIngress = http.createServer((req, res) => { req.__public = true; return handler(req, res); });
 
 /* پاک‌سازی دوره‌ای + بکاپ خودکار */
 setInterval(() => { try { auth.prune(store); } catch (e) { /* noop */ } }, 60 * 60 * 1000).unref();
@@ -2411,8 +2423,9 @@ if (process.env.PAYESH_CLOUD_AUTO !== '0') {
       school: (store.get('schools', 1) || {}).name || null,
       lanUrls: cfg.lanUrls(PORT),
       publicUrl: cfg.publicUrl(store) || null,
+      publicUrls: tunnel.publicUrls(store),
       version: RUNNING_VERSION,
-    }));
+    }), { onConnect: (k) => { if (k) tunnel.setConnectMode(store, k.mode, { by: 'owner' }); } });
   }
 }
 
@@ -2430,6 +2443,8 @@ function closeServerForRestart() {
   try { update.stop(); } catch (e) { /* noop */ }
   try { server.close(); } catch (e) { /* noop */ }
   try { if (server.closeAllConnections) server.closeAllConnections(); } catch (e) { /* noop */ }
+  try { tunnelIngress.close(); if (tunnelIngress.closeAllConnections) tunnelIngress.closeAllConnections(); } catch (e) { /* noop */ }
+  try { tunnel.stop(); } catch (e) { /* تونل‌ها هم بسته شوند */ }
   try { store.close(); } catch (e) { /* noop */ }
 }
 
@@ -2498,8 +2513,17 @@ server.listen(PORT, HOST, () => {
   const pub = cfg.publicUrl(store);
   console.log('  آدرس عمومی (همه)   : ' + (pub || 'تنظیم نشده — پنل مدیر ← شبکه'));
   console.log('');
-  /* تونل عمومی: اگر Tailscale Funnel روشن باشد، آدرس را برمی‌داریم */
-  try { tunnel.start(store, { port: PORT }); } catch (e) { logger.error('start_failed', { component: 'tunnel', detail: e.message }); }
+  /* ردیف ۱۶۵: درگاه ورودی عمومی + تونل‌ها مطابق «حالت اتصال» پنل مالک */
+  if (INGRESS_ON) {
+    tunnelIngress.on('error', e => logger.error('start_failed', { component: 'tunnel_ingress', detail: e && e.message }));
+    tunnelIngress.listen(TUNNEL_PORT, '127.0.0.1');
+  }
+  try {
+    tunnel.start(store, {
+      port: PORT, ingressPort: INGRESS_ON ? TUNNEL_PORT : null, dataDir: DATA_DIR,
+      onChange: () => { try { require('./discovery').kick(); } catch (e) { /* noop */ } },
+    });
+  } catch (e) { logger.error('start_failed', { component: 'tunnel', detail: e.message }); }
 
   /* همگام‌سازی زنده: هر ۱ ثانیه — تغییرها به حافظهٔ مشترک می‌روند و
      تغییرهای گوشی‌ها همان‌جا برداشته می‌شوند. */
@@ -2517,5 +2541,6 @@ server.listen(PORT, HOST, () => {
   } catch (e) { logger.error('start_failed', { component: 'update', detail: e.message }); }
 });
 
-process.on('SIGINT', () => { try { update.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });
-process.on('SIGTERM', () => { try { update.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });
+process.on('SIGINT', () => { try { update.stop(); tunnel.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });
+process.on('SIGTERM', () => { try { update.stop(); tunnel.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });
+process.on('exit', () => { try { tunnel.stop(); } catch (e) { /* noop */ } });

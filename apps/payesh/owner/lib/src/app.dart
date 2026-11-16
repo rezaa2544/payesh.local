@@ -16,6 +16,7 @@ import 'local/settings_page.dart';
 import 'backup/backup_engine.dart';
 import 'guard/guard_engine.dart';
 import 'infra/arch_card.dart';
+import 'infra/connect_modes_card.dart';
 import 'infra/infra_card.dart';
 import 'infra/server_panel.dart';
 import 'monitor/live_monitor.dart';
@@ -487,13 +488,26 @@ class _OwnerAppState extends State<OwnerApp> {
       onSignOut: _signOutLocal,
       // ردیف ۱۶۴: «زیرساخت» = راست: مدل پردازش (حالت معماری)؛ چپ: تعریف سرور، تعریف دیتابیس و
       // کلیدهای زیرساخت و سرور کمکی. فهرست ارائه‌دهنده‌ها/سرویس‌ها/Endpointها/عدد دستی حذف شد.
-      infraTop: widget.helper == null
-          ? null
-          : ArchCard(
+      // ردیف ۱۶۵: زیر مدل پردازش، «حالت اتصال» (راه رسیدن کاربران بیرون از مدرسه)
+      infraTop: Column(
+        key: const Key('infra-right'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.helper != null)
+            ArchCard(
               policy: widget.helper!.policy,
               router: widget.helper!.router,
-              margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             ),
+          ConnectModesCard(
+            secure: widget.secure!,
+            transportFactory: widget.s3Factory ?? IoS3Transport.new,
+            now: widget.now,
+            autoLoad: widget.dbAutoCheck,
+            margin: const EdgeInsets.all(16),
+          ),
+        ],
+      ),
       infraSide: Padding(
         key: const Key('infra-side'),
         padding: const EdgeInsets.all(16),

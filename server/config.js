@@ -66,6 +66,12 @@ function trustProxyFor(remoteAddress) {
 }
 
 function clientIp(req) {
+  /* ردیف ۱۶۵: درخواستی که از تونل (درگاه ورودی عمومی) آمده — نشانی واقعی را تونل می‌گوید */
+  if (req.__public) {
+    const cf = String(req.headers['cf-connecting-ip'] || '').trim();
+    const xff = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    return (cf || xff || 'tunnel').replace(/^::ffff:/, '').slice(0, 64);
+  }
   const direct = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
   if (trustProxyFor(direct)) {
     const xff = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();

@@ -191,7 +191,7 @@ final List<SchoolPageSpec> schoolPages = [
   SchoolPageSpec(
     id: 'attendance-report',
     wave: SchoolWave.reports,
-    label: 'حضور',
+    label: 'گزارش حضور',
     icon: Icons.fact_check_outlined,
     roles: const {'manager'},
     build: (a) => SchoolOwned(
@@ -326,6 +326,23 @@ class SchoolEntry extends StatelessWidget {
         key: Key('adm-entry-wait'),
       );
     }
+    // Row 165: the tiles go into the sections of the home grid (app.dart); this widget itself
+    // only stands in for them where a caller places it directly.
+    return PayeshTileGrid(
+      key: const Key('adm-entry'),
+      children: [for (final g in tilesByGroup(context).values) ...g],
+    );
+  }
+
+  /// Row 165: true when the pages are home tiles (else a short note or nothing).
+  bool get hasTiles =>
+      source != null && role != null && uid != null && visible.isNotEmpty;
+
+  /// The page tiles of the home, by section (`daily` / `school` / `system`).
+  Map<String, List<Widget>> tilesByGroup(BuildContext context) {
+    final src = source;
+    final out = <String, List<Widget>>{};
+    if (src == null || role == null || uid == null) return out;
     final args = SchoolRouteArgs(
       source: src,
       role: role!,
@@ -334,23 +351,45 @@ class SchoolEntry extends StatelessWidget {
       flags: flags,
       onRetry: onRetry,
     );
-    return Wrap(
-      key: const Key('adm-entry'),
-      spacing: PayeshTokens.space2,
-      runSpacing: PayeshTokens.space2,
-      children: [
-        for (final p in pages)
-          FilledButton.tonalIcon(
-            key: Key('adm-${p.id}'),
-            onPressed: () => Navigator.of(context)
-                .push(MaterialPageRoute<void>(builder: (_) => p.build(args))),
-            icon: Icon(p.icon),
-            label: Text(p.label),
-          ),
-      ],
-    );
+    for (final p in visible) {
+      final g = schoolPageGroups[p.id] ?? 'school';
+      (out[g] ??= []).add(
+        PayeshTile(
+          key: Key('adm-${p.id}'),
+          icon: p.icon,
+          label: p.label,
+          tone: switch (g) {
+            'daily' => PayeshTone.success,
+            'system' => PayeshTone.warning,
+            _ => PayeshTone.info,
+          },
+          onTap: () =>
+              Navigator.of(context)
+                  .push(MaterialPageRoute<void>(builder: (_) => p.build(args))),
+        ),
+      );
+    }
+    return out;
   }
 }
+
+/// Row 165: home section of each page (daily work · school management · system & account).
+const Map<String, String> schoolPageGroups = {
+  'home': 'daily',
+  'followup': 'daily',
+  'record': 'daily',
+  'users': 'school',
+  'students': 'school',
+  'classes': 'school',
+  'schedule': 'school',
+  'attendance-report': 'school',
+  'reports': 'school',
+  'leaves': 'school',
+  'health': 'system',
+  'cloud': 'system',
+  'system': 'system',
+  'password': 'system',
+};
 
 Widget _health(SchoolRouteArgs a) => SchoolOwned(
   create: () => HealthController(source: a.source, role: a.role, uid: a.uid),

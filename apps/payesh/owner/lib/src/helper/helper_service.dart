@@ -139,7 +139,7 @@ final class OwnerHelperService {
     if (s == null || s.bucket.isEmpty) {
       throw const S3Failure('اول دیتابیس را در همین صفحه تنظیم و ذخیره کنید.');
     }
-    return submitJob(
+    final r = await submitJob(
       s3: s,
       transport: transport,
       executor: executor,
@@ -153,6 +153,8 @@ final class OwnerHelperService {
       busy: () => _nodeBusy() || router.state.helpersActive,
       helperAllowed: policy.value.helperOn,
     );
+    _node?.noteSubmitted(kind, r);
+    return r;
   }
 
   bool _nodeBusy() {

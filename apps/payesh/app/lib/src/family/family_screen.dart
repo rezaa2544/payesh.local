@@ -677,16 +677,17 @@ class FamilyEntry extends StatelessWidget {
         key: Key('fam-entry-wait'),
       );
     }
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: FilledButton.tonalIcon(
-        key: const Key('fam-entry'),
-        onPressed: open,
-        icon: const Icon(Icons.family_restroom),
-        label: const Text('فرزندان من'),
-      ),
+    return PayeshTile(
+      key: const Key('fam-entry'),
+      onTap: open,
+      icon: Icons.family_restroom,
+      label: 'فرزندان من',
+      tone: PayeshTone.success,
     );
   }
+
+  /// Row 165: true when this entry is a home tile (else a short note or nothing).
+  bool get isTile => role == 'parent' && enabled && uid != null;
 }
 
 /// Route that owns the page controller for one visit.

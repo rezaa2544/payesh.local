@@ -32,6 +32,16 @@ final class FakeDirectory implements SchoolDirectoryApi {
     if (a is List<Uri>) return a;
     throw a;
   }
+
+  /// Row 165 — addresses of one server (by instance); set by the off‑LAN tests.
+  Map<String, List<Uri>> byInstance = {};
+  var addressCalls = 0;
+
+  @override
+  Future<List<Uri>> addressesOf(String instance) async {
+    addressCalls++;
+    return byInstance[instance] ?? const [];
+  }
 }
 
 String pillText(WidgetTester tester) =>

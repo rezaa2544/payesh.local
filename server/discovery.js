@@ -20,6 +20,12 @@
 
    چند سرور روی یک دیتابیس: هر سرور فقط ردیف خودش را (با instance) تازه می‌کند و ردیف
    بقیه را دست نمی‌زند؛ ردیف‌هایی که ۱۰ روز تازه نشده‌اند کنار می‌روند.
+
+   ردیف ۱۶۵: هر ردیف همهٔ نشانی‌های عمومی همان سرور را هم دارد (public_urls — Tailscale،
+   تونل Cloudflare، نشانی دستی؛ public_url = بهترینِ آن‌ها برای برنامه‌های قدیمی). پنل مالک
+   «حالت اتصال» را در connect:{mode,at} می‌نویسد؛ سرورها آن را نگه می‌دارند، هر دقیقه
+   می‌خوانند و تونل‌ها را مطابقش روشن/خاموش می‌کنند (tunnel.js). وقتی نشانی تونل عوض شد،
+   فهرست بی‌درنگ (kick) تازه می‌شود، نه پنج دقیقهٔ بعد.
    ═══════════════════════════════════════════════════════════════════ */
 const s3mem = require('./s3mem');
 
@@ -37,15 +43,22 @@ const isPrivateLan = (u) => {
 };
 
 /* ردیف همین سرور — فقط نشانی‌ها (نشانی‌های 169.254 و 127 به درد دستگاه دیگری نمی‌خورند) */
-function entryOf({ instance, school, lanUrls, publicUrl, version, now }) {
+const httpsOrigin = (u) => {
+  try {
+    const x = new URL(String(u));
+    return x.protocol === 'https:' && x.hostname && !x.username && !x.password ? x.origin : null;
+  } catch (e) { return null; }
+};
+
+function entryOf({ instance, school, lanUrls, publicUrl, publicUrls, version, now }) {
   const lan = [...new Set((lanUrls || []).filter(isPrivateLan))].slice(0, 8);
-  let pub = null;
-  try { pub = publicUrl && new URL(publicUrl).protocol === 'https:' ? String(publicUrl).replace(/\/+$/, '') : null; } catch (e) { pub = null; }
+  const pubs = [...new Set([...(Array.isArray(publicUrls) ? publicUrls : []), publicUrl].map(httpsOrigin).filter(Boolean))].slice(0, 4);
   return {
     instance: String(instance || '').slice(0, 40),
     school: school ? String(school).slice(0, 120) : null,
     lan,
-    public_url: pub,
+    public_url: pubs[0] || null,
+    public_urls: pubs,
     version: version ? String(version).slice(0, 20) : null,
     at: new Date(now == null ? Date.now() : now).toISOString(),
   };
@@ -65,7 +78,18 @@ function merge(prev, mine, now) {
      می‌نویسد و سرورهای مدرسه هنگام تازه کردن ردیف خودشان دست نمی‌زنند. */
   const c = centralOf(prev);
   if (c) doc.central = c;
+  /* ردیف ۱۶۵: «حالت اتصال» انتخاب مالک — مثل central فقط پنل مالک می‌نویسد */
+  const k = connectOf(prev);
+  if (k) doc.connect = k;
   return doc;
+}
+
+const CONNECT_MODES = ['auto', 'cloudflare', 'tailscale', 'central', 'lan'];
+/** connect:{mode,at} معتبر یا null (حالت ناشناخته ⇒ null ⇒ سرور روی «خودکار» می‌ماند). */
+function connectOf(prev) {
+  const k = prev && prev.connect;
+  if (!k || typeof k !== 'object' || !CONNECT_MODES.includes(k.mode)) return null;
+  return { mode: k.mode, at: typeof k.at === 'string' ? k.at.slice(0, 40) : null };
 }
 
 /* فقط https و بدون مسیر/کاربر (همان قاعدهٔ برنامه: نشانی عمومی بدون https پذیرفته نیست) */
@@ -85,7 +109,7 @@ let lastBody = '';
 let lastAt = 0;
 
 /* یک دور: فهرست فعلی را می‌خواند، ردیف خودش را می‌گذارد و با public-read می‌نویسد */
-async function publish(store, info, { now } = {}) {
+async function publish(store, info, { now, onDoc = null } = {}) {
   const cfg = await s3mem.ensureBucket(store);
   if (!cfg || !cfg.enabled) return { ok: false, error: 'no_cloud' };
   const mine = entryOf(Object.assign({}, info, { now }));
@@ -94,6 +118,7 @@ async function publish(store, info, { now } = {}) {
   let prev = null;
   try { prev = JSON.parse(await s3mem.get(cfg, keyOf(cfg))); } catch (e) { prev = null; }
   if (prev && prev.kind !== KIND) prev = null;
+  if (onDoc && prev) { try { onDoc(prev); } catch (e) { /* noop */ } }
   const doc = merge(prev, mine, now);
   /* اگر چیزی جز زمان عوض نشده و کمتر از یک ساعت گذشته، دوباره نمی‌نویسیم */
   const stable = JSON.stringify(doc.central || null) + JSON.stringify(doc.servers.map(s => Object.assign({}, s, { at: s.instance === mine.instance ? '' : s.at })));
@@ -108,19 +133,54 @@ async function publish(store, info, { now } = {}) {
   return { ok: true, key: keyOf(cfg), servers: doc.servers.length };
 }
 
+/** فقط خواندن فهرست (برای حالت اتصال)؛ null اگر نشد. */
+async function read(store) {
+  const cfg = await s3mem.ensureBucket(store);
+  if (!cfg || !cfg.enabled) return null;
+  try {
+    const doc = JSON.parse(await s3mem.get(cfg, keyOf(cfg)));
+    return doc && doc.kind === KIND ? doc : null;
+  } catch (e) { return null; }
+}
+
 let timer = null;
-function start(store, getInfo, { every = EVERY_MS, first = 15_000 } = {}) {
+let watchTimer = null;
+let kickTimer = null;
+let tickFn = null;
+/**
+ * [onConnect]({mode,at}|null) هر بار که فهرست خوانده شد (هر دقیقه و هنگام هر انتشار).
+ */
+function start(store, getInfo, { every = EVERY_MS, first = 15_000, watchEvery = 60_000, onConnect = null } = {}) {
   stop();
+  const onDoc = onConnect ? (doc) => onConnect(connectOf(doc)) : null;
   const tick = () => {
     let info;
     try { info = getInfo(); } catch (e) { return; }
-    publish(store, info).catch(() => { /* دور بعد */ });
+    publish(store, info, { onDoc }).catch(() => { /* دور بعد */ });
   };
+  tickFn = tick;
   const t0 = setTimeout(tick, first);
   if (t0.unref) t0.unref();
   timer = setInterval(tick, every);
   if (timer.unref) timer.unref();
+  if (onDoc && watchEvery > 0) {
+    watchTimer = setInterval(() => { read(store).then(d => { if (d) onDoc(d); }).catch(() => {}); }, watchEvery);
+    if (watchTimer.unref) watchTimer.unref();
+  }
 }
-function stop() { if (timer) clearInterval(timer); timer = null; lastBody = ''; lastAt = 0; }
+/** نشانی عوض شد ⇒ چند ثانیه بعد منتشر کن (نه پنج دقیقهٔ بعد). */
+function kick(delayMs = 2_000) {
+  if (!tickFn) return false;
+  clearTimeout(kickTimer);
+  kickTimer = setTimeout(tickFn, delayMs);
+  if (kickTimer.unref) kickTimer.unref();
+  return true;
+}
+function stop() {
+  if (timer) clearInterval(timer);
+  if (watchTimer) clearInterval(watchTimer);
+  clearTimeout(kickTimer);
+  timer = null; watchTimer = null; tickFn = null; lastBody = ''; lastAt = 0;
+}
 
-module.exports = { KIND, REL, STALE_MS, entryOf, merge, centralOf, publish, start, stop, keyOf };
+module.exports = { KIND, REL, STALE_MS, CONNECT_MODES, entryOf, merge, centralOf, connectOf, publish, read, start, stop, kick, keyOf };

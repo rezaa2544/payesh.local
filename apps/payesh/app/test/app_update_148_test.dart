@@ -87,11 +87,31 @@ void main() {
         ),
       );
     }
-    // اپ مدرسه هرگز مجوز نصب بسته نمی‌خواهد (سیاست Google Play) — فقط گیرندهٔ «پس از نصب»
+    // ردیف ۱۶۵ (تصمیم مالک): نصب درون برنامه مثل پنل مالک — مجوز نصب + فراهم‌کنندهٔ فقط‌خواندنی
+    // همان APK دانلودشده + کانال بومی + گیرندهٔ «پس از نصب»
     final mf = File('android/app/src/main/AndroidManifest.xml')
         .readAsStringSync();
-    expect(mf, isNot(contains('permission.REQUEST_INSTALL_PACKAGES"')));
+    expect(mf, contains('permission.REQUEST_INSTALL_PACKAGES"'));
+    expect(mf, contains('android:name=".UpdateFileProvider"'));
+    expect(mf, contains('android:exported="false"'));
     expect(mf, contains('android.intent.action.MY_PACKAGE_REPLACED'));
+    final kt = File(
+      'android/app/src/main/kotlin/ir/payesh/school/payesh_app/MainActivity.kt',
+    ).readAsStringSync();
+    expect(kt, contains('UpdateInstaller.CHANNEL'));
+    expect(kt, contains('"installApk"'));
+    final inst = File(
+      'android/app/src/main/kotlin/ir/payesh/school/payesh_app/UpdateInstaller.kt',
+    ).readAsStringSync();
+    expect(inst, contains('"ir.payesh/update"'));
+    expect(inst, contains('apk outside the update cache'));
+    final main = File('lib/main.dart').readAsStringSync();
+    expect(
+      main,
+      contains(
+        'apkInstaller: Platform.isAndroid ? const ChannelApkInstaller() : null',
+      ),
+    );
   });
 
   testWidgets(
