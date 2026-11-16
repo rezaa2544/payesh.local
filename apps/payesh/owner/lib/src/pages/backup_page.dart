@@ -2,9 +2,8 @@
 //   • کلید «پشتیبان خودکار (هر ۱۵ دقیقه)» و کلید «نگهداری روی دیتابیس»؛ دیسک این سیستم همیشه؛
 //   • وضعیت: آخرین بررسی، آخرین پشتیبان موفق، خطا، پیشرفت زنده؛
 //   • «پشتیبان‌گیری اکنون»؛
-//   • فهرست پشتیبان‌ها با جای نگهداری و «بازیابی» یک‌کلیکی (با تأیید).
-//   • ردیف ۱۶۲: «پشتیبان اصلی» یک بار با حجم کامل، و هر دور فقط آنچه همان دور افزوده شد
-//     («۱۲ فایل تازه/تغییرکرده · ۳۵ کیلوبایت») — نه حجم کل دیتابیس در هر ردیف.
+//   • ردیف ۱۶۶: به‌جای فهرست بلند پشتیبان‌ها، فقط «یک فایل جامع» روی هر مقصد (دیسک این سیستم،
+//     دیتابیس) که هر تغییر در آن ادغام می‌شود؛ هر نسخه «بازیابی» یک‌کلیکی و «حذف» (با تأیید) دارد.
 
 import 'dart:async';
 
@@ -12,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../backup/backup_engine.dart';
+import '../backup/backup_store.dart' show BackupFileInfo;
 import '../widgets.dart';
 
 class BackupPage extends StatelessWidget {
@@ -47,43 +47,10 @@ const Map<String, String> backupTargetFa = {
   'db': 'دیتابیس',
 };
 
-/// ردیف ۱۶۲ — هر ردیف فقط آنچه همان دور افزود؛ پشتیبان اصلی با حجم کامل.
-String backupItemFa(BackupItem it) {
-  if (it.main) {
-    return 'پشتیبان اصلی — ${faNumber(it.count)} فایل · ${backupSizeFa(it.bytes)}';
-  }
-  final parts = <String>[
-    if (it.changed > 0)
-      '${faNumber(it.changed)} فایل تازه/تغییرکرده · ${backupSizeFa(it.changedBytes)}',
-    if (it.removed > 0) '${faNumber(it.removed)} فایل پاک‌شده',
-  ];
-  return parts.isEmpty ? 'بدون تغییر' : parts.join('، ');
-}
-
-/// خلاصهٔ بالای صفحه: یک پشتیبان اصلی + جمع تغییرهای افزوده‌شده پس از آن.
-List<Widget> backupMainLines(List<BackupItem> items, TextTheme t) {
-  final mains = items.where((i) => i.main).toList();
-  if (mains.isEmpty) return const [];
-  final m = mains.last; // قدیمی‌ترین (فهرست تازه‌ترین اول است)
-  final adds = items.where((i) => !i.main && i.id.compareTo(m.id) > 0).toList();
-  final addBytes = adds.fold<int>(0, (a, i) => a + i.changedBytes);
-  final now = items.first;
-  return [
-    Text(
-      'پشتیبان اصلی: ${faNumber(m.count)} فایل · ${backupSizeFa(m.bytes)} (${_stamp(m.at)})',
-      key: const Key('backup-main'),
-    ),
-    Text(
-      adds.isEmpty
-          ? 'هنوز تغییری پس از پشتیبان اصلی افزوده نشده است.'
-          : 'پس از آن فقط تغییرها افزوده شده: ${faNumber(adds.length)} دور، روی هم '
-                '${backupSizeFa(addBytes)} · اکنون ${faNumber(now.count)} فایل · '
-                '${backupSizeFa(now.bytes)}',
-      key: const Key('backup-adds'),
-      style: t.bodySmall,
-    ),
-  ];
-}
+/// ردیف ۱۶۶ — یک خط برای همان یک فایل.
+String backupFileFa(BackupFileInfo f) =>
+    'به‌روز تا ${_stamp(f.at)} · ${faNumber(f.count)} فایل دیتابیس '
+    '(${backupSizeFa(f.bytes)}) · حجم فایل پشتیبان ${backupSizeFa(f.size)}';
 
 class BackupView extends StatefulWidget {
   const BackupView({super.key, required this.engine});
@@ -115,7 +82,7 @@ class _BackupViewState extends State<BackupView> {
   }
 
   Future<void> _runNow() async {
-    final r = await e.run();
+    final r = await e.run(force: true);
     if (!r.ok) {
       _flash(false, r.error ?? 'پشتیبان ساخته نشد.');
     } else if (r.count == 0) {
@@ -124,23 +91,23 @@ class _BackupViewState extends State<BackupView> {
       _flash(
         true,
         r.created
-            ? 'تغییرها به پشتیبان اصلی افزوده شد: ${faNumber(r.fetched)} فایل تازه یا '
+            ? 'تغییرها در فایل پشتیبان ادغام شد: ${faNumber(r.fetched)} فایل تازه یا '
                   'تغییرکرده دانلود شد (از کل ${faNumber(r.count)} فایل).'
-            : 'تغییری نبود؛ چیزی دانلود نشد و پشتیبان همچنان کامل است.',
+            : 'تغییری نبود؛ چیزی دانلود نشد و فایل پشتیبان همچنان کامل است.',
       );
     }
   }
 
-  Future<void> _restore(BackupItem it) async {
+  Future<void> _restore(BackupFileInfo f) async {
+    final where = backupTargetFa[f.target] ?? f.target;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('بازیابی کامل دیتابیس'),
         content: Text(
-          'وضع کامل دیتابیس در ${_stamp(it.at)} (${faNumber(it.count)} فایل، از پشتیبان اصلی '
-          'و تغییرهای تا آن لحظه) در دیتابیسِ '
-          'تنظیم‌شده نوشته می‌شود. پیش از آن از وضع فعلی پشتیبان «پیش از بازیابی» '
-          'گرفته می‌شود و فایل‌های تازه‌تر دست نمی‌خورند.\n\n'
+          'همهٔ ${faNumber(f.count)} فایل پشتیبان «$where» (به‌روز تا ${_stamp(f.at)}) در '
+          'دیتابیسِ تنظیم‌شده نوشته می‌شود؛ فایل‌هایی که پس از آن عوض شده‌اند به نسخهٔ پشتیبان '
+          'برمی‌گردند و فایل‌هایی که در پشتیبان نیستند دست نمی‌خورند.\n\n'
           'برای انتقال به دیتابیس تازه، اول آن را در «تنظیمات» وارد کنید.',
         ),
         actions: [
@@ -158,7 +125,7 @@ class _BackupViewState extends State<BackupView> {
       ),
     );
     if (ok != true) return;
-    final r = await e.restore(it.id);
+    final r = await e.restore(f.target);
     if (!r.ok) {
       _flash(false, r.error ?? 'بازیابی انجام نشد.');
       return;
@@ -169,6 +136,38 @@ class _BackupViewState extends State<BackupView> {
       '${faNumber(r.same)} فایل از قبل یکسان بود'
       '${r.newer > 0 ? '، ${faNumber(r.newer)} فایل تازه‌تر دست نخورد' : ''}.',
     );
+  }
+
+  Future<void> _delete(String target) async {
+    final where = backupTargetFa[target] ?? target;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('حذف پشتیبان «$where»'),
+        content: Text(
+          'فایل پشتیبان روی «$where» پاک می‌شود و برنمی‌گردد. '
+          '${e.autoOn ? 'چون پشتیبان خودکار روشن است، در دور بعد (حداکثر ۱۵ دقیقه) از نو ساخته می‌شود؛ برای جلوگیری، اول پشتیبان خودکار را خاموش کنید.' : 'پشتیبان خودکار خاموش است؛ تا «پشتیبان‌گیری اکنون» را نزنید ساخته نمی‌شود.'}',
+        ),
+        actions: [
+          TextButton(
+            key: const Key('backup-delete-cancel'),
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            key: const Key('backup-delete-confirm'),
+            style: FilledButton.styleFrom(
+              backgroundColor: context.tokens.danger,
+            ),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final err = await e.deleteBackup(target);
+    _flash(err == null, err ?? 'پشتیبان «$where» حذف شد.');
   }
 
   @override
@@ -218,8 +217,9 @@ class _BackupViewState extends State<BackupView> {
               children: [
                 Text(
                   'همهٔ داده‌های دیتابیس (مدارس، کاربران، پرداخت‌ها، پشتیبانی، سیاست‌ها و '
-                  'به‌روزرسانی‌ها) هر ۱۵ دقیقه بررسی و فقط تغییرها افزوده می‌شود. جدا از '
-                  'پشتیبان روزانهٔ هر مدرسه در پنل مدیر است.',
+                  'به‌روزرسانی‌ها) در یک فایل پشتیبان جامع نگه داشته می‌شود؛ هر ۱۵ دقیقه بررسی '
+                  'و فقط تغییرها در همان فایل ادغام می‌شود. جدا از پشتیبان روزانهٔ هر مدرسه در '
+                  'پنل مدیر است.',
                   style: t.bodySmall?.copyWith(color: tk.muted),
                 ),
                 SwitchListTile(
@@ -246,13 +246,6 @@ class _BackupViewState extends State<BackupView> {
                   'آخرین پشتیبان موفق: ${_stamp(e.lastSuccess)}',
                   key: const Key('backup-times'),
                 ),
-                for (final u in e.usage.entries)
-                  Text(
-                    'حجم روی ${backupTargetFa[u.key] ?? u.key}: ${backupSizeFa(u.value)}',
-                    key: Key('backup-usage-${u.key}'),
-                    style: t.bodySmall,
-                  ),
-                ...backupMainLines(e.items, t),
                 if (e.lastError != null)
                   Text(
                     e.lastError!,
@@ -283,43 +276,73 @@ class _BackupViewState extends State<BackupView> {
           ),
           const SizedBox(height: PayeshTokens.space3),
           PayeshSection(
-            title: 'پشتیبان‌ها و بازیابی',
-            child: e.items.isEmpty
-                ? const Text(
+            title: 'فایل پشتیبان، بازیابی و حذف',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (e.files.isEmpty && e.fileErrors.isEmpty)
+                  const Text(
                     'هنوز پشتیبانی ساخته نشده است.',
                     key: Key('backup-empty'),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final it in e.items.take(60))
-                        ListTile(
-                          key: Key('backup-item-${it.id}'),
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(
-                            it.main
-                                ? Icons.inventory_2_outlined
-                                : Icons.add_circle_outline,
-                          ),
-                          title: Text(
-                            '${_stamp(it.at)}'
-                            '${it.label.isEmpty ? '' : ' — ${it.label}'}',
-                          ),
-                          subtitle: Text(
-                            '${backupItemFa(it)} · '
-                            '${[for (final x in it.targets) backupTargetFa[x] ?? x].join(' + ')}',
-                            key: Key('backup-item-text-${it.id}'),
-                          ),
-                          trailing: OutlinedButton(
-                            key: Key('backup-restore-${it.id}'),
-                            onPressed: e.running
-                                ? null
-                                : () => unawaited(_restore(it)),
-                            child: const Text('بازیابی'),
-                          ),
-                        ),
-                    ],
                   ),
+                for (final f in e.files)
+                  ListTile(
+                    key: Key('backup-file-${f.target}'),
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      f.target == 'db'
+                          ? Icons.cloud_done_outlined
+                          : Icons.inventory_2_outlined,
+                    ),
+                    title: Text(
+                      'پشتیبان جامع روی ${backupTargetFa[f.target] ?? f.target}',
+                    ),
+                    subtitle: Text(
+                      backupFileFa(f),
+                      key: Key('backup-file-text-${f.target}'),
+                    ),
+                    trailing: Wrap(
+                      spacing: 6,
+                      children: [
+                        OutlinedButton(
+                          key: Key('backup-restore-${f.target}'),
+                          onPressed: e.running
+                              ? null
+                              : () => unawaited(_restore(f)),
+                          child: const Text('بازیابی'),
+                        ),
+                        OutlinedButton(
+                          key: Key('backup-delete-${f.target}'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: tk.danger,
+                          ),
+                          onPressed: e.running
+                              ? null
+                              : () => unawaited(_delete(f.target)),
+                          child: const Text('حذف'),
+                        ),
+                      ],
+                    ),
+                  ),
+                for (final x in e.fileErrors.entries)
+                  ListTile(
+                    key: Key('backup-file-error-${x.key}'),
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.error_outline, color: tk.danger),
+                    title: Text(
+                      'پشتیبان روی ${backupTargetFa[x.key] ?? x.key}',
+                    ),
+                    subtitle: Text(x.value, style: TextStyle(color: tk.danger)),
+                    trailing: OutlinedButton(
+                      key: Key('backup-delete-${x.key}'),
+                      onPressed: e.running
+                          ? null
+                          : () => unawaited(_delete(x.key)),
+                      child: const Text('حذف'),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       );

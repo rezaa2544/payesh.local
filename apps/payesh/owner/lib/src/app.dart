@@ -695,9 +695,14 @@ class _OriginScreenState extends State<OriginScreen> {
               textDirection: TextDirection.ltr,
               keyboardType: TextInputType.url,
               autocorrect: false,
-              decoration: const InputDecoration(
+              onChanged: (_) {
+                if (_error != null) setState(() => _error = null);
+              },
+              decoration: InputDecoration(
                 labelText: 'نشانی سرور',
                 hintText: 'https://owner.example.ir',
+                // row 166: the refused field is outlined red
+                errorText: _error == null ? null : 'نشانی را اصلاح کنید',
               ),
               onSubmitted: (_) => _save(),
             ),
@@ -761,6 +766,15 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
   bool _busy = false;
 
+  /// Row 166: the fields a refused sign-in is about (empty ones and the ones it names).
+  Map<String, String> _issues = const {};
+
+  void _fix(String k) {
+    if (_issues.containsKey(k)) {
+      setState(() => _issues = {..._issues}..remove(k));
+    }
+  }
+
   @override
   void dispose() {
     _id.dispose();
@@ -784,7 +798,14 @@ class _LoginScreenState extends State<LoginScreen> {
     if (r.ok) {
       widget.onSignedIn();
     } else {
-      setState(() => _error = r.error);
+      setState(() {
+        _error = r.error;
+        _issues = FieldIssues.guess(r.error ?? '', {
+          'login_id': (label: 'شناسه *', value: id),
+          'password': (label: 'رمز *', value: pw),
+          'totp': (label: 'کد دومرحله‌ای *', value: code),
+        });
+      });
     }
   }
 
@@ -850,8 +871,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _id,
                       textDirection: TextDirection.ltr,
                       autofillHints: const [AutofillHints.username],
-                      decoration: const InputDecoration(
+                      onChanged: (_) => _fix('login_id'),
+                      decoration: InputDecoration(
                         labelText: 'شناسهٔ ورود',
+                        errorText: _issues['login_id'],
+                        errorMaxLines: 2,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -861,7 +885,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       obscureText: true,
                       textDirection: TextDirection.ltr,
                       autofillHints: const [AutofillHints.password],
-                      decoration: const InputDecoration(labelText: 'رمز عبور'),
+                      onChanged: (_) => _fix('password'),
+                      decoration: InputDecoration(
+                        labelText: 'رمز عبور',
+                        errorText: _issues['password'],
+                        errorMaxLines: 2,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextField(
@@ -871,8 +900,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       keyboardType: TextInputType.number,
                       maxLength: 6,
                       autofillHints: const [AutofillHints.oneTimeCode],
-                      decoration: const InputDecoration(
+                      onChanged: (_) => _fix('totp'),
+                      decoration: InputDecoration(
                         labelText: 'کد دومرحله‌ای ۶ رقمی',
+                        errorText: _issues['totp'],
+                        errorMaxLines: 2,
                         counterText: '',
                       ),
                       onSubmitted: (_) => _submit(),

@@ -72,7 +72,13 @@ const DEFAULTS = {
 };
 const LEVELS = ['ابتدایی', 'متوسطه اول', 'متوسطه دوم'];
 const DAY_MS = 24 * 3600_000;
-const USERNAME_RE = /^[a-z][a-z0-9._-]{2,31}$/;
+/* ردیف ۱۶۶: همان قاعدهٔ server/auth.js — حرف انگلیسی/رقم/. _ - @، ۳ تا ۳۲، فقط‌رقم هم درست */
+const USERNAME_RE = /^[a-z0-9._@-]{3,32}$/;
+/* نام کاربری به شکل یکتا: ارقام فارسی/عربی ⇒ لاتین؛ با حرف ⇒ حروف کوچک، بی‌حرف ⇒ فقط رقم */
+function normLogin(v) {
+  const raw = String(v == null ? '' : v).trim();
+  return /[A-Za-z]/.test(raw) ? raw.replace(/[۰-۹]/g, c => String(c.charCodeAt(0) - 0x06F0)).replace(/[٠-٩]/g, c => String(c.charCodeAt(0) - 0x0660)).toLowerCase() : normDigits(raw);
+}
 const ID_RE = /^[0-9]{13}-[0-9a-f]{16}$/;
 const DEV_RE = /^[0-9a-f]{64}$/;
 const PAY_RE = /^SUB-[0-9A-F]{8}$/;
@@ -569,24 +575,26 @@ function applyOwner(store, plain, { now = Date.now() } = {}) {
 /* ── میزبانی مدرسه: سرور تازه با ورود مدیر، مدرسهٔ ساخته‌شده در پنل مالک را می‌گیرد ── */
 /* ردیف ۱۴۶: شکل نام کاربری در ورود نخستین مدیر روی سرور تازه همان قاعدهٔ همه‌جاست
    (auth.findUserByLogin، client/app.js doLogin، LanServerRules.loginProblem در برنامهٔ بومی):
-   حرف لاتین ⇒ USERNAME_RE؛ وگرنه فقط رقم و دقیقاً ۱۱ (همراه) یا ۱۰ (کد ملی). شکل نادرست
-   ⇒ null، پیش از هر مقایسه با فهرست مالک. */
+   حرف لاتین ⇒ USERNAME_RE؛ وگرنه فقط رقم (ردیف ۱۶۶: ۳ تا ۳۲ رقم — نام کاربریِ رقمی، همراه یا
+   کد ملی). شکل نادرست ⇒ null، پیش از هر مقایسه با فهرست مالک. */
 function loginShape(login) {
   const raw = String(login == null ? '' : login).trim();
   if (/[A-Za-z]/.test(raw)) {
-    const name = raw.toLowerCase();
+    const name = normLogin(raw);
     return USERNAME_RE.test(name) ? { name } : null;
   }
   const digits = normDigits(raw);
-  return digits.length === 11 || digits.length === 10 ? { digits } : null;
+  return /^\d{3,32}$/.test(digits) ? { digits } : null;
 }
 
+/* ردیف ۱۶۶: ورود رقمی یا همان نام کاربریِ رقمیِ مدیر است (پیش‌فرض: همراه) یا همراه مدیر */
 function findManager(plain, login) {
   const k = loginShape(login);
   if (!k) return null;
-  return (plain.schools || []).find(s => s && s.manager && (k.name
-    ? String(s.manager.username || '').toLowerCase() === k.name
-    : normDigits(s.manager.phone || '') === k.digits)) || null;
+  const list = (plain.schools || []).filter(s => s && s.manager);
+  if (k.name) return list.find(s => normLogin(s.manager.username) === k.name) || null;
+  return list.find(s => !/[A-Za-z]/.test(String(s.manager.username || '')) && normDigits(s.manager.username || '') === k.digits)
+    || list.find(s => normDigits(s.manager.phone || '') === k.digits) || null;
 }
 
 function adoptSchool(store, sch, { instance } = {}) {
@@ -596,7 +604,7 @@ function adoptSchool(store, sch, { instance } = {}) {
     school_type: sch.school_type || 'governmental', gender: sch.gender || '', shift: sch.shift || 'صبح',
     province: sch.province || '', county: sch.county || '', district: sch.district || '', city: sch.county || '',
     phone: normDigits(sch.phone || ''), landline: normDigits(sch.landline || ''), address: sch.address || '',
-    capacity: sch.capacity || 300, work_days: sch.work_days || [0, 1, 2, 3, 4],
+    work_days: sch.work_days || [0, 1, 2, 3, 4],
     area_kind: sch.area_kind === 'village' ? 'village' : 'district',
     staff_count: Number.isInteger(sch.staff_count) ? sch.staff_count : null,
     student_count: Number.isInteger(sch.student_count) ? sch.student_count : null,
@@ -611,11 +619,11 @@ function adoptSchool(store, sch, { instance } = {}) {
   store.insert('school_years', { title: year, active: true, school_id: 1, created_at: nowISO() }, { id: 1 });
   const manager = store.insert('users', {
     name: m.name || 'مدیر مدرسه', role: 'manager', phone: normDigits(m.phone || ''),
-    national_id: normDigits(m.national_id || ''), username: String(m.username || '').toLowerCase(),
+    national_id: normDigits(m.national_id || ''), username: normLogin(m.username),
     active: true, school_id: 1, title: 'مدیر مدرسه', created_at: nowISO(),
     password_hash: m.password_hash, phone_hash: m.password_hash, password_enc: null,
   });
-  store.setMeta(META.bound, { school_id: sch.id, at: nowISO(), manager_rev: m.rev || 1, username: String(m.username || '').toLowerCase(), instance: instance || null, owner_profile: ownerProfileOf(sch) });
+  store.setMeta(META.bound, { school_id: sch.id, at: nowISO(), manager_rev: m.rev || 1, username: normLogin(m.username), instance: instance || null, owner_profile: ownerProfileOf(sch) });
   store.audit({ user_id: manager.id, role: 'manager', action: 'school_adopt', collection: 'schools', record_id: 1, after: { owner_school_id: sch.id } });
   return manager;
 }
@@ -625,7 +633,7 @@ function adoptSchool(store, sch, { instance } = {}) {
    بازنویسی می‌شود که مقدارش در رجیستری مالک نسبت به آخرین دیده‌شده (bound.owner_profile) عوض شده.
    کلیدی که بار اول دیده می‌شود فقط وقتی نوشته می‌شود که مدیر هنوز مشخصات را ذخیره نکرده (profile_at)؛
    سرورِ میزبان‌شده پیش از ردیف ۱۵۸ (بدون owner_profile) بار اول فقط مقادیر را ثبت می‌کند. */
-const OWNER_PROFILE_KEYS = ['level', 'type', 'school_type', 'gender', 'shift', 'capacity', 'landline', 'phone',
+const OWNER_PROFILE_KEYS = ['level', 'type', 'school_type', 'gender', 'shift', 'landline', 'phone',
   'capabilities', 'staff_count', 'student_count'];
 const SECOND_LEVEL = 'متوسطه دوم';
 
@@ -638,7 +646,6 @@ function ownerProfileOf(sch) {
     if (!has(k)) continue;
     const v = sch[k];
     if (k === 'phone' || k === 'landline') out[k] = normDigits(v || '');
-    else if (k === 'capacity') { if (Number.isInteger(v) && v > 0) out[k] = v; }
     else if (k === 'staff_count' || k === 'student_count') out[k] = int(v);
     else if (k === 'capabilities') {
       if (v && typeof v === 'object') {
@@ -728,7 +735,7 @@ async function linkOnLogin(store, login, password, { instance, now = Date.now() 
     }
   } catch (e) { return { ok: false, error: 'registry_unreachable' }; }
   const m = sch.manager;
-  const username = String(m.username || '').toLowerCase();
+  const username = normLogin(m.username);
   const patch = { username, password_hash: m.password_hash, phone_hash: m.password_hash, password_enc: null, active: true };
   if (!local.national_id && m.national_id) patch.national_id = normDigits(m.national_id);
   if (!local.name && m.name) patch.name = m.name;
@@ -752,10 +759,10 @@ function applySchool(store, sch) {
     const managers = (store.all('users') || []).filter(u => u.role === 'manager');
     const mgr = managers.find(u => u.username && u.username === String(b.username || '')) || managers[0];
     if (mgr) {
-      store.update('users', mgr.id, { password_hash: m.password_hash, phone_hash: m.password_hash, password_enc: null, username: String(m.username || mgr.username || '').toLowerCase(), name: m.name || mgr.name });
+      store.update('users', mgr.id, { password_hash: m.password_hash, phone_hash: m.password_hash, password_enc: null, username: normLogin(m.username || mgr.username), name: m.name || mgr.name });
       store.audit({ user_id: mgr.id, role: 'manager', action: 'owner_manager_reset', collection: 'users' });
     }
-    store.setMeta(META.bound, Object.assign({}, b, { manager_rev: rev, username: String(m.username || '').toLowerCase() }));
+    store.setMeta(META.bound, Object.assign({}, b, { manager_rev: rev, username: normLogin(m.username) }));
     changed = true;
   }
   const s1 = store.get('schools', 1);
@@ -825,7 +832,7 @@ function validRequest(b) {
   const t = (v, a, z) => { const s = String(v == null ? '' : v).trim(); return s.length >= a && s.length <= z ? s : null; };
   const n = (v, z) => {
     const d = String(v == null ? '' : v).trim().replace(/[۰-۹]/g, c => String(c.charCodeAt(0) - 0x06F0)).replace(/[٠-٩]/g, c => String(c.charCodeAt(0) - 0x0660));
-    if (!/^[0-9]{1,6}$/.test(d)) return null;
+    if (!/^[0-9]{1,9}$/.test(d)) return null;
     const x = Number(d);
     return x <= z ? x : null;
   };
@@ -837,9 +844,9 @@ function validRequest(b) {
     village: t(b.village == null ? '' : b.village, 0, 60),
     phone: /^0\d{10}$/.test(normDigits(b.phone)) ? normDigits(b.phone) : null,
     staff_count: n(b.staff_count, 10000),
-    student_count: n(b.student_count, 100000),
+    student_count: n(b.student_count, Infinity),   /* ردیف ۱۶۶: تعداد دانش‌آموزان سقف ندارد */
     manager_name: t(b.manager_name, 3, 80),
-    username: USERNAME_RE.test(String(b.username || '').trim().toLowerCase()) ? String(b.username).trim().toLowerCase() : null,
+    username: USERNAME_RE.test(normLogin(b.username)) ? normLogin(b.username) : null,
   };
   for (const [k, v] of Object.entries(out)) if (v === null) return { error: 'bad_' + k };
   if (String(b.password || '').length < 6) return { error: 'bad_password' };

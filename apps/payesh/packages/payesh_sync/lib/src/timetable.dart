@@ -71,6 +71,49 @@ final class Bell {
   bool get isBreak => type == 'break';
 }
 
+/// Row 166 — شیفت چرخشی: کل مدرسه یک هفته صبح و هفتهٔ بعد بعدازظهر. مدیر زنگ‌های صبح و
+/// بعدازظهر را جدا ثبت می‌کند (`bell_schedules.shift`) و شیفت هفتهٔ اول را انتخاب می‌کند
+/// (`schools/1.rotation = {first, start}`)؛ هفته از شنبه شروع می‌شود و هر هفته خودکار جابه‌جا
+/// می‌شود: هفته‌های زوجِ پس از [start] همان [first]، هفته‌های فرد شیفت دیگر.
+const String rotatingShiftFa = 'چرخشی';
+const String shiftMorningFa = 'صبح';
+const String shiftAfternoonFa = 'بعدازظهر';
+const List<String> rotationShiftsFa = [shiftMorningFa, shiftAfternoonFa];
+
+final class Rotation {
+  const Rotation({required this.first, required this.start});
+
+  /// شیفت هفتهٔ اول (صبح / بعدازظهر).
+  final String first;
+
+  /// شنبهٔ هفتهٔ اول (yyyy-MM-dd).
+  final String start;
+
+  /// شنبهٔ هفتهٔ [d] (تاریخ تقویمی، بدون ساعت).
+  static DateTime saturdayOf(DateTime d) {
+    final day = DateTime.utc(d.year, d.month, d.day);
+    return day.subtract(Duration(days: (day.weekday + 1) % 7));
+  }
+
+  static String iso(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  static String other(String shift) =>
+      shift == shiftAfternoonFa ? shiftMorningFa : shiftAfternoonFa;
+
+  /// شمارهٔ هفتهٔ [d] از هفتهٔ اول (۰ = هفتهٔ اول؛ پیش از آن منفی).
+  int weekIndex(DateTime d) {
+    final s = DateTime.tryParse(start);
+    final a = saturdayOf(s ?? d);
+    return saturdayOf(d).difference(a).inDays ~/ 7;
+  }
+
+  /// شیفت هفته‌ای که [d] در آن است.
+  String shiftOn(DateTime d) => weekIndex(d) % 2 == 0 ? first : other(first);
+
+  Map<String, Object?> toJson() => {'first': first, 'start': start};
+}
+
 /// One row of the bells form (`bells`): id 0 = new.
 final class BellDraft {
   const BellDraft({
@@ -301,21 +344,59 @@ final class Timetable {
     return out;
   }
 
-  /// All bell rows (lessons and breaks) in order.
-  Future<List<Bell>> bells() async {
+  /// Row 166: the school's shift is «چرخشی».
+  Future<bool> rotating() async =>
+      _s((await db.get('schools', 1))?.data['shift']) == rotatingShiftFa;
+
+  /// Row 166: the rotation the manager set (default: this week = morning).
+  Future<Rotation> rotation() async {
+    final r = (await db.get('schools', 1))?.data['rotation'];
+    final m = r is Map ? r : const <String, Object?>{};
+    final first = rotationShiftsFa.contains(m['first'])
+        ? '${m['first']}'
+        : shiftMorningFa;
+    final start = DateTime.tryParse(_s(m['start'])) != null
+        ? _s(m['start'])
+        : Rotation.iso(Rotation.saturdayOf(db.now()));
+    return Rotation(first: first, start: start);
+  }
+
+  /// Row 166: this week's shift of a rotating school (صبح / بعدازظهر), or null.
+  Future<String?> weekShift([DateTime? day]) async {
+    if (!await rotating()) return null;
+    return (await rotation()).shiftOn(day ?? db.now());
+  }
+
+  Bell _bell(EngineRow b) => Bell(
+    id: b.id,
+    order: num.tryParse('${b.data['order'] ?? 0}') ?? 0,
+    start: _s(b.data['start']),
+    end: _s(b.data['end']),
+    type: _s(b.data['type']).isEmpty ? 'lesson' : _s(b.data['type']),
+    label: _s(b.data['label']),
+  );
+
+  /// All bell rows (lessons and breaks) in order. Row 166: a rotating school uses the bells of
+  /// [shift] (default: this week's shift); a shift without its own bells yet falls back to the
+  /// untagged bells. A school that does not rotate uses the untagged bells.
+  Future<List<Bell>> bells({String? shift}) async {
     final rows = await db.allOrEmpty('bell_schedules');
-    final out = [
+    final want = shift ?? await weekShift();
+    String tag(EngineRow b) => _s(b.data['shift']);
+    var pick = [
       for (final b in rows)
-        Bell(
-          id: b.id,
-          order: num.tryParse('${b.data['order'] ?? 0}') ?? 0,
-          start: _s(b.data['start']),
-          end: _s(b.data['end']),
-          type: _s(b.data['type']).isEmpty ? 'lesson' : _s(b.data['type']),
-          label: _s(b.data['label']),
-        ),
-    ]..sort((a, b) => a.order.compareTo(b.order));
-    return out;
+        if (tag(b) == (want ?? '')) b,
+    ];
+    if (pick.isEmpty) {
+      // rotating shift not set up yet ⇒ the old (untagged) bells; not rotating any more ⇒ the
+      // morning bells until the manager saves the bells again
+      pick = [
+        for (final b in rows)
+          if (tag(b) == (want == null ? shiftMorningFa : '')) b,
+      ];
+    }
+    return [for (final b in pick) _bell(b)]
+      ..sort((a, b) => a.order.compareTo(b.order));
   }
 
   /// Lesson bells (web `schedLessons`): one per order; four defaults when none is defined.
@@ -947,13 +1028,58 @@ final class Timetable {
     return RecordWrite('روزهای فعال مدرسه ذخیره شد', id: 1, keys: [k]);
   }
 
+  /// Row 166: bells of a rotating school — the morning and afternoon sets (each checked first,
+  /// nothing written when one is wrong) and the first week's shift. The week starts on Saturday;
+  /// [start] defaults to this week.
+  Future<RecordWrite> saveRotatingBells({
+    required List<BellDraft> morning,
+    required List<BellDraft> afternoon,
+    required String first,
+    String? start,
+  }) async {
+    _requireManager();
+    if (!rotationShiftsFa.contains(first)) {
+      throw const RecordFailure('invalid', 'شیفت هفتهٔ اول را انتخاب کنید');
+    }
+    checkBells(morning, label: 'زنگ‌های صبح');
+    checkBells(afternoon, label: 'زنگ‌های بعدازظهر');
+    final a = await saveBells(morning, shift: shiftMorningFa);
+    final b = await saveBells(afternoon, shift: shiftAfternoonFa);
+    final day = DateTime.tryParse(start ?? '') ?? db.now();
+    final prev = await db.get('schools', 1);
+    final k = await db.put('schools', 1, {
+      ...?prev?.data,
+      'rotation': Rotation(
+        first: first,
+        start: Rotation.iso(Rotation.saturdayOf(day)),
+      ).toJson(),
+    }, prev: prev);
+    return RecordWrite(
+      'زنگ‌های صبح و بعدازظهر و شیفت هفتهٔ اول ذخیره شد',
+      keys: [...a.keys, ...b.keys, k],
+    );
+  }
+
   /// The draft the bells form opens with (web `schedBellModal`).
-  Future<List<BellDraft>> bellDraft() async {
-    final b = await bells();
+  /// Row 166: [shift] = the morning / afternoon bells of a rotating school. Bells that are
+  /// shown only as a fallback (untagged) come as new rows (id 0), so saving one shift never
+  /// takes rows away from the other.
+  Future<List<BellDraft>> bellDraft({String? shift}) async {
+    final b = await bells(shift: shift);
     if (b.isNotEmpty) {
+      final rows = await db.allOrEmpty('bell_schedules');
+      final own = {
+        for (final r in rows)
+          if (_s(r.data['shift']) == (shift ?? '')) r.id,
+      };
       return [
         for (final x in b)
-          BellDraft(id: x.id, start: x.start, end: x.end, type: x.type),
+          BellDraft(
+            id: own.contains(x.id) ? x.id : 0,
+            start: x.start,
+            end: x.end,
+            type: x.type,
+          ),
       ];
     }
     return const [
@@ -983,11 +1109,11 @@ final class Timetable {
     return n >= 1 && n <= o.length ? o[n - 1] : _faDigits(n);
   }
 
-  /// Form `bells` (bell-edit / bell-add / bell-del happen in the draft list).
-  Future<RecordWrite> saveBells(List<BellDraft> rows) async {
-    _requireManager();
+  /// Same rules as [saveBells]; [label] names the shift in the message (row 166).
+  void checkBells(List<BellDraft> rows, {String label = ''}) {
+    final pre = label.isEmpty ? '' : '$label: ';
     if (rows.isEmpty) {
-      throw const RecordFailure('invalid', 'دست‌کم یک زنگ تعریف کنید');
+      throw RecordFailure('invalid', '$preدست‌کم یک زنگ تعریف کنید');
     }
     int mins(String t) =>
         int.parse(t.substring(0, 2)) * 60 + int.parse(t.substring(3));
@@ -997,27 +1123,46 @@ final class Timetable {
       if (s.isEmpty || e.isEmpty) {
         throw RecordFailure(
           'invalid',
-          'زمان شروع و پایان ردیف ${_faDigits(i + 1)} را وارد کنید',
+          '$preزمان شروع و پایان ردیف ${_faDigits(i + 1)} را وارد کنید',
         );
       }
       if (mins(s) >= mins(e)) {
-        throw const RecordFailure(
+        throw RecordFailure(
           'invalid',
-          'پایان هر زنگ باید بعد از شروع آن باشد',
+          '$preپایان هر زنگ باید بعد از شروع آن باشد',
         );
       }
       if (mins(s) < prevEnd) {
-        throw const RecordFailure(
+        throw RecordFailure(
           'invalid',
-          'ساعت ردیف‌ها باید به‌ترتیب باشند و با هم هم‌پوشانی نداشته باشند',
+          '$preساعت ردیف‌ها باید به‌ترتیب باشند و با هم هم‌پوشانی نداشته باشند',
         );
       }
       prevEnd = mins(e);
     }
     if (rows.every((r) => r.type == 'break')) {
-      throw const RecordFailure('invalid', 'دست‌کم یک زنگ درسی لازم است');
+      throw RecordFailure('invalid', '$preدست‌کم یک زنگ درسی لازم است');
     }
-    final existing = await db.allOrEmpty('bell_schedules');
+  }
+
+  /// Form `bells` (bell-edit / bell-add / bell-del happen in the draft list). Row 166: [shift] =
+  /// the morning / afternoon bells of a rotating school (only that shift's rows are replaced);
+  /// null = the one set of bells of a school that does not rotate (every row is replaced).
+  Future<RecordWrite> saveBells(List<BellDraft> rows, {String? shift}) async {
+    _requireManager();
+    checkBells(rows);
+    final all = await db.allOrEmpty('bell_schedules');
+    String tag(EngineRow b) => _s(b.data['shift']);
+    final otherTagged =
+        shift != null && all.any((b) => tag(b) == Rotation.other(shift));
+    // a shift replaces only its own rows; the untagged (pre-rotation) rows go once both
+    // shifts have their own bells
+    final existing = shift == null
+        ? all
+        : [
+            for (final b in all)
+              if (tag(b) == shift || (tag(b).isEmpty && otherTagged)) b,
+          ];
     final keep = {
       for (final r in rows)
         if (r.id != 0) r.id,
@@ -1041,6 +1186,7 @@ final class Timetable {
       keys.add(
         await db.put('bell_schedules', id, {
           ...?prev?.data,
+          'shift': shift ?? '',
           'order': isBreak ? lesson + brk / (brk + 1) : lesson,
           'start': schedTime(r.start),
           'end': schedTime(r.end),

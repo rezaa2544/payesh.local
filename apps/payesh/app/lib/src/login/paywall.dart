@@ -368,9 +368,14 @@ class _PaywallViewState extends State<PaywallView> {
                         controller: _ref,
                         enabled: !busy,
                         textDirection: TextDirection.ltr,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'شمارهٔ پیگیری / رسید',
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
+                          errorText: fieldIssueFor(
+                            c.subError,
+                            'شمارهٔ پیگیری / رسید',
+                            _ref.text,
+                          ),
                         ),
                       ),
                       const SizedBox(height: PayeshTokens.space2),

@@ -184,8 +184,9 @@ const codeOf = (call) => {
     const { store } = newStore();
     const a = addUser(store, { name: 'الف', role: 'teacher', phone: '09121111111', national_id: '0012345678' });
     const b = addUser(store, { name: 'ب', role: 'student', phone: '09122222222', national_id: '0087654321' });
-    for (const ok of ['ali.r', 'abc', '1234', '123456789', 'Teacher_7']) assert.ok(auth.validUsername(ok), ok);
-    for (const bad of ['ab', '123', '1234567890', '09121111111', '1abc', 'علی', 'a b', '']) assert.ok(!auth.validUsername(bad), bad);
+    /* ردیف ۱۶۶: قید «با حرف شروع شود» و «۴ تا ۹ رقم» برداشته شد؛ ۳ تا ۳۲ نویسه، فقط رقم هم درست است (پیش‌فرض = شمارهٔ همراه) */
+    for (const ok of ['ali.r', 'abc', '123', '1234', '123456789', '1234567890', '09142869505', '1abc', 'Teacher_7']) assert.ok(auth.validUsername(ok), ok);
+    for (const bad of ['ab', '12', 'علی', 'a b', '', '1'.repeat(33)]) assert.ok(!auth.validUsername(bad), bad);
     /* یکتایی: شماره/کد ملی/نام کاربری دیگران */
     assert.strictEqual(auth.loginTaken(store, '09122222222', a.id).id, b.id);
     assert.strictEqual(auth.loginTaken(store, '0087654321', a.id).id, b.id);
@@ -204,7 +205,7 @@ const codeOf = (call) => {
     const l1 = auth.login(store, { phone: '7001', password: 'pw-b-1', platform: 'android' });
     assert.strictEqual(l1.ok, true, JSON.stringify(l1)); assert.strictEqual(l1.user.id, b.id);
     assert.strictEqual(auth.login(store, { phone: '7001', password: 'wrong-1' }).error, 'bad_credentials');
-    assert.strictEqual(auth.login(store, { phone: '123', password: 'pw-b-1' }).error, 'bad_phone');
+    assert.strictEqual(auth.login(store, { phone: '12', password: 'pw-b-1' }).error, 'bad_phone');
     const l2 = auth.login(store, { phone: 'ali.r', password: '0012345678', platform: 'android' });
     assert.strictEqual(l2.ok, true, JSON.stringify(l2));
     assert.strictEqual(auth.issueLogin(store, store.get('users', a.id), { platform: 'android', __sessionOnly: true }, 'otp').auth, 'otp');
@@ -261,7 +262,7 @@ const codeOf = (call) => {
       const t1 = creds.find(u => u.phone === '09121111111'); const t2 = creds.find(u => u.phone === '09122222222');
       assert.strictEqual(t1.username, '');
       assert.strictEqual((await req('PATCH', box.port, '/api/admin/users/' + t1.id, { username: '12' }, H)).json.error, 'bad_username');
-      assert.strictEqual((await req('PATCH', box.port, '/api/admin/users/' + t1.id, { username: '0087654321' }, H)).json.error, 'bad_username', '10 digits = national id shape');
+      assert.strictEqual((await req('PATCH', box.port, '/api/admin/users/' + t1.id, { username: '0087654321' }, H)).status, 409, 'ردیف ۱۶۶: کد ملی کاربر دیگر ⇒ تکراری');
       assert.strictEqual((await req('PATCH', box.port, '/api/admin/users/' + t2.id, { username: '8001' }, H)).status, 200);
       const dup = await req('PATCH', box.port, '/api/admin/users/' + t1.id, { username: '8001' }, H);
       assert.strictEqual(dup.status, 409); assert.strictEqual(dup.json.error, 'duplicate_username');

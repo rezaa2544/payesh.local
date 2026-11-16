@@ -2,7 +2,7 @@
 /* ردیف ۱۵۰ — «مشخصات مدرسه» در تنظیمات پنل مدیر.
  *
  * فرم مالک فقط «مکان و ادارهٔ مربوطه» + «مشخصات مدیر» را دارد (برای ساخت حساب مدیر).
- * بقیهٔ مشخصات (مقطع، نوع، جنسیت، شیفت، ظرفیت، تلفن‌ها، آمار، روزهای کاری،
+ * بقیهٔ مشخصات (مقطع، نوع، جنسیت، شیفت، تلفن‌ها، آمار، روزهای کاری،
  * پنجرهٔ موجه، قابلیت‌ها، شاخه/رشته، بوم) را خود مدیر در تنظیمات مدرسه پر می‌کند.
  *
  * قرارداد مشترک با Dart (packages/payesh_ui/lib/src/school_profile.dart):
@@ -13,13 +13,14 @@
  *   • مقطع «متوسطه دوم» ⇒ دست‌کم یک شاخه؛ رشته‌ها فقط از شاخه‌های انتخاب‌شده؛
  *     مقطع دیگر ⇒ شاخه/رشته خالی می‌شود.
  *   • شیفت «شب» یا «هر دو» ⇒ قابلیت «نوبت دوم / کلاس شبانه» خودکار روشن.
- *   • تعداد دانش‌آموزان ≤ ظرفیت.
+ *   • ردیف ۱۶۶: «ظرفیت» حذف شد؛ تعداد دانش‌آموزان سقف ندارد.
+ *   • ردیف ۱۶۶: شیفت «چرخشی» = کل مدرسه یک هفته صبح و هفتهٔ بعد بعدازظهر (زنگ‌های جدا در برنامهٔ هفتگی).
  *   • دست‌کم یک روز کاری.
  */
 
 const LEVELS = ['ابتدایی', 'متوسطه اول', 'متوسطه دوم'];
 const GENDERS = ['پسرانه', 'دخترانه'];
-const SHIFTS = ['صبح', 'بعدازظهر', 'شب', 'هر دو'];
+const SHIFTS = ['صبح', 'بعدازظهر', 'شب', 'هر دو', 'چرخشی'];
 const KINDS = ['عادی', 'علوم تجربی', 'ریاضی', 'فنی و حرفه‌ای'];
 const SCHOOL_TYPES = ['governmental', 'exemplary', 'non_profit', 'sampad', 'shahed', 'exceptional', 'rural', 'boarding', 'vocational'];
 const CAPS = ['has_tuition', 'has_dorm', 'has_iep', 'has_workshop', 'has_multigrade', 'has_second_term_exam', 'has_evening'];
@@ -29,10 +30,10 @@ const BRANCHES = {
   'کاردانش': ['تعمیر لوازم خانگی', 'طراحی دوخت', 'تأسیسات', 'صنایع غذایی'],
 };
 /* فیلدهایی که فقط مدیر (نه فرم مالک) تعیین می‌کند */
-const FIELDS = ['level', 'type', 'school_type', 'gender', 'shift', 'capacity', 'landline', 'phone',
+const FIELDS = ['level', 'type', 'school_type', 'gender', 'shift', 'landline', 'phone',
   'staff_count', 'student_count', 'work_days', 'excuse_window_minutes', 'capabilities',
   'branches', 'fields', 'boom_goals', 'public_goals'];
-const MAX = { capacity: 20000, staff: 5000, excuse: 240, boom: 2000 };
+const MAX = { staff: 5000, excuse: 240, boom: 2000 };
 
 function digits(v) {
   return String(v == null ? '' : v)
@@ -61,7 +62,6 @@ function profileOf(s) {
     school_type: SCHOOL_TYPES.includes(s.school_type) ? s.school_type : 'governmental',
     gender: GENDERS.includes(s.gender) ? s.gender : '',
     shift: SHIFTS.includes(s.shift) ? s.shift : 'صبح',
-    capacity: Number.isInteger(s.capacity) ? s.capacity : 300,
     landline: digits(s.landline), phone: digits(s.phone),
     staff_count: Number.isInteger(s.staff_count) ? s.staff_count : null,
     student_count: Number.isInteger(s.student_count) ? s.student_count : null,
@@ -88,13 +88,10 @@ function validateProfile(body) {
   if (!GENDERS.includes(gender)) return { error: 'gender' };
   const shift = String(b.shift || 'صبح');
   if (!SHIFTS.includes(shift)) return { error: 'shift' };
-  const capacity = intOf(b.capacity);
-  if (capacity == null || !(capacity >= 1 && capacity <= MAX.capacity)) return { error: 'capacity' };
   const staff = intOf(b.staff_count);
   if (staff != null && !(staff >= 0 && staff <= MAX.staff)) return { error: 'staff_count' };
   const students = intOf(b.student_count);
   if (students != null && !(students >= 0)) return { error: 'student_count' };
-  if (students != null && students > capacity) return { error: 'over_capacity' };
   const landline = digits(b.landline);
   if (landline && !/^0\d{6,10}$/.test(landline)) return { error: 'landline' };
   const phone = digits(b.phone);
@@ -121,7 +118,7 @@ function validateProfile(body) {
   const boom = String(b.boom_goals || '');
   if (boom.length > MAX.boom) return { error: 'boom_goals' };
   return { patch: {
-    level, type, school_type: schoolType, gender, shift, capacity,
+    level, type, school_type: schoolType, gender, shift,
     landline, phone, staff_count: staff, student_count: students,
     work_days: days, excuse_window_minutes: excuse, capabilities: caps,
     branches, fields, boom_goals: boom, public_goals: b.public_goals === true,

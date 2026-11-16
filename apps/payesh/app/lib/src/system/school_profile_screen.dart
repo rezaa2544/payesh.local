@@ -38,7 +38,6 @@ class SchoolProfileView extends StatefulWidget {
 class _SchoolProfileViewState extends State<SchoolProfileView> {
   final Map<String, TextEditingController> _c = {
     for (final k in const [
-      'capacity',
       'landline',
       'phone',
       'staff',
@@ -62,6 +61,33 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
   bool _busy = false;
   String? _error;
   String? _notice;
+
+  /// ردیف ۱۶۶: ایراد هر کادر پس از «ذخیره» (کلید کادر ⇒ پیام)؛ با اصلاح همان کادر پاک می‌شود.
+  Map<String, String> _issues = const {};
+
+  /// کد خطای [SchoolProfile] ⇒ کلید کادر این فرم.
+  static const Map<String, String> _fieldOf = {
+    'level': 'level',
+    'type': 'type',
+    'school_type': 'school_type',
+    'gender': 'gender',
+    'shift': 'shift',
+    'staff_count': 'staff',
+    'student_count': 'students',
+    'landline': 'landline',
+    'phone': 'phone',
+    'work_days': 'days',
+    'excuse': 'excuse',
+    'capabilities': 'caps',
+    'branches': 'branches',
+    'fields': 'branches',
+    'boom_goals': 'boom',
+  };
+
+  void _fix(String k) {
+    if (!_issues.containsKey(k)) return;
+    setState(() => _issues = {..._issues}..remove(k));
+  }
 
   bool get _evening => _shift == 'شب' || _shift == 'هر دو';
 
@@ -115,7 +141,6 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
         : 'governmental';
     _gender = schoolGenders.contains(p['gender']) ? '${p['gender']}' : '';
     _shift = schoolShifts.contains(p['shift']) ? '${p['shift']}' : 'صبح';
-    _c['capacity']!.text = _s(p['capacity'] ?? 300);
     _c['landline']!.text = _s(p['landline']);
     _c['phone']!.text = _s(p['phone']);
     _c['staff']!.text = _s(p['staff_count']);
@@ -150,7 +175,6 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
     'school_type': _schoolType,
     'gender': _gender,
     'shift': _shift,
-    'capacity': _c['capacity']!.text.trim(),
     'landline': _c['landline']!.text.trim(),
     'phone': _c['phone']!.text.trim(),
     'staff_count': _c['staff']!.text.trim(),
@@ -165,14 +189,20 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
   };
 
   Future<void> _save() async {
-    final check = SchoolProfile.validate(_collect());
+    final form = _collect();
+    final check = SchoolProfile.validate(form);
     if (check.error != null) {
+      final all = SchoolProfile.problems(form);
       setState(() {
-        _error = check.messageFa;
+        _issues = {
+          for (final e in all.entries) _fieldOf[e.key] ?? e.key: e.value,
+        };
+        _error = fieldsToFixFa(_issues.length);
         _notice = null;
       });
       return;
     }
+    _issues = const {};
     final a = widget.admin;
     if (a == null) {
       setState(() => _error = const AdminFailure(AdminError.offline).messageFa);
@@ -192,8 +222,6 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
     if (mounted) setState(() => _busy = false);
   }
 
-  int? _num(String k) => int.tryParse(latinDigits(_c[k]!.text.trim()));
-
   Widget _text(
     String k,
     String label, {
@@ -205,6 +233,7 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
     child: TextField(
       key: Key('sp-$k'),
       controller: _c[k],
+      onChanged: (_) => _fix(k),
       maxLines: lines,
       textDirection: ltr ? TextDirection.ltr : null,
       keyboardType: numeric ? TextInputType.number : null,
@@ -213,11 +242,36 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
           : null,
       decoration: InputDecoration(
         labelText: label,
+        errorText: _issues[k],
+        errorMaxLines: 3,
         border: const OutlineInputBorder(),
         isDense: true,
       ),
     ),
   );
+
+  /// گروه چیپ/چک‌باکس با قاب قرمز و پیام وقتی ایراد دارد (ردیف ۱۶۶).
+  Widget _group(String k, Widget child) {
+    final e = _issues[k];
+    if (e == null) return child;
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      key: Key('sp-$k-invalid'),
+      padding: const EdgeInsets.all(PayeshTokens.space2),
+      margin: const EdgeInsets.only(bottom: PayeshTokens.space2),
+      decoration: BoxDecoration(
+        border: Border.all(color: cs.error, width: 1.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          child,
+          Text(e, style: TextStyle(color: cs.error, fontSize: 12)),
+        ],
+      ),
+    );
+  }
 
   Widget _select(
     String k,
@@ -233,6 +287,8 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
+        errorText: _issues[k],
+        errorMaxLines: 3,
         border: const OutlineInputBorder(),
         isDense: true,
       ),
@@ -241,7 +297,10 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
           DropdownMenuItem(value: e.key, child: Text(e.value)),
       ],
       onChanged: (v) {
-        if (v != null) setState(() => onChanged(v));
+        if (v != null) {
+          _fix(k);
+          setState(() => onChanged(v));
+        }
       },
     ),
   );
@@ -268,9 +327,6 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
   Widget build(BuildContext context) {
     final p = _loaded;
     final cs = Theme.of(context).colorScheme;
-    final cap = _num('capacity');
-    final st = _num('students');
-    final over = cap != null && st != null && st > cap;
     return ListView(
       key: const Key('sp-list'),
       padding: const EdgeInsets.all(PayeshTokens.space4),
@@ -356,33 +412,38 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
             'بعدازظهر': 'بعدازظهر',
             'شب': 'شب (نوبت دوم / بزرگسالان)',
             'هر دو': 'هر دو شیفت',
+            rotatingShift: 'چرخشی (هفته‌ای صبح، هفته‌ای بعدازظهر)',
           }, (v) => _shift = v),
-          _title('👥 ظرفیت و آمار'),
-          _text('capacity', 'ظرفیت *'),
-          _text('students', 'تعداد دانش‌آموزان'),
-          if (over)
-            Text(
-              schoolProfileErrorsFa['over_capacity']!,
-              key: const Key('sp-over'),
-              style: TextStyle(color: cs.error),
+          if (_shift == rotatingShift)
+            _muted(
+              'شیفت چرخشی: کل مدرسه یک هفته صبح و هفتهٔ بعد بعدازظهر است. زنگ‌های صبح و بعدازظهر و شیفت هفتهٔ اول را در «برنامهٔ هفتگی ← زنگ‌ها» ثبت کنید؛ برنامه هر هفته (از شنبه) خودکار جابه‌جا می‌شود.',
+              key: const Key('sp-rotating-note'),
             ),
+          // ردیف ۱۶۶: «ظرفیت» حذف شد؛ تعداد دانش‌آموزان سقف ندارد
+          _title('👥 آمار'),
+          _text('students', 'تعداد دانش‌آموزان'),
           _text('staff', 'تعداد کارکنان'),
           _title('☎️ تلفن‌ها'),
           _text('landline', 'تلفن ثابت مدرسه', ltr: true),
           _text('phone', 'تلفن همراه رابط', ltr: true),
           _title('🗓️ روزهای کاری'),
-          Wrap(
-            spacing: 4,
-            children: [
-              for (var i = 0; i < weekDays.length; i++)
-                FilterChip(
-                  key: Key('sp-day-$i'),
-                  label: Text(weekDays[i]),
-                  selected: _days.contains(i),
-                  onSelected: (v) =>
-                      setState(() => v ? _days.add(i) : _days.remove(i)),
-                ),
-            ],
+          _group(
+            'days',
+            Wrap(
+              spacing: 4,
+              children: [
+                for (var i = 0; i < weekDays.length; i++)
+                  FilterChip(
+                    key: Key('sp-day-$i'),
+                    label: Text(weekDays[i]),
+                    selected: _days.contains(i),
+                    onSelected: (v) => setState(() {
+                      v ? _days.add(i) : _days.remove(i);
+                      _issues = {..._issues}..remove('days');
+                    }),
+                  ),
+              ],
+            ),
           ),
           _title('🕓 پنجرهٔ موجهِ حضور و غیاب'),
           _text('excuse', 'دقیقهٔ بعد از پایان زنگ'),
@@ -404,6 +465,8 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
             ),
           if (_level == 'متوسطه دوم') ...[
             _title('🎓 شاخه‌ها و رشته‌های متوسطه دوم'),
+            if (_issues.containsKey('branches'))
+              _group('branches', const SizedBox.shrink()),
             for (final b in schoolBranches.entries) ...[
               CheckboxListTile(
                 key: Key('sp-branch-${b.key}'),
@@ -412,6 +475,7 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
                 value: _branches.contains(b.key),
                 title: Text('${b.key} (${faNumber(b.value.length)} رشته)'),
                 onChanged: (v) => setState(() {
+                  _issues = {..._issues}..remove('branches');
                   if (v == true) {
                     _branches.add(b.key);
                   } else {

@@ -112,14 +112,14 @@ void main() {
       for (final (typed, pw, msg) in [
         ('', 'Madrese-1403', null),
         ('ab', 'Madrese-1403', LanServerRules.usernameRuleFa),
-        ('2ali', 'Madrese-1403', LanServerRules.usernameRuleFa),
+        ('ali rezaei', 'Madrese-1403', LanServerRules.usernameRuleFa),
         ('علی.رضایی', 'Madrese-1403', LanServerRules.latinUsernameFa),
         (
-          '091',
+          '09',
           'Madrese-1403',
           LanServerRules.loginDigitsRuleFa,
-        ), // row 160: 4–9 digits = user code
-        ('091212345678', 'Madrese-1403', LanServerRules.loginDigitsRuleFa),
+        ), // row 166: a numeric user name is 3–32 digits
+        ('1' * 33, 'Madrese-1403', LanServerRules.loginDigitsRuleFa),
         ('Ali.Rezaei', '', 'رمز عبور را وارد کنید'),
         ('Ali.Rezaei', 'abc', LanAccessError.badCredentials.messageFa()),
       ]) {

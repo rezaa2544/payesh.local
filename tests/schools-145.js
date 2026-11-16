@@ -151,11 +151,13 @@ function req(method, port, p, body, headers = {}) {
       o.plain.schools.push(Object.assign({}, o.plain.schools[0], { id: 's-bad1',
         manager: Object.assign({}, o.plain.schools[0].manager, { username: 'ab', phone: '091200001466' }) }));
       await o.publish();
-      for (const bad of ['', 'ab', '2ali.rezaei', 'ali rezaei', 'علی.رضایی', 'ali.rezaei!', '0912000', '091200001466']) {
+      for (const bad of ['', 'ab', 'ali rezaei', 'علی.رضایی', 'ali.rezaei!', '09', '1'.repeat(33)]) { /* ردیف ۱۶۶: «2ali» و رقم ۳ تا ۳۲ تایی شکل درستی است */
         const n = await sr.adoptOnLogin(st, bad, 'Madrese-1403', { needsSetup: true, instance: 'inst-A' });
         assert.strictEqual(n.error, 'bad_shape', '«' + bad + '» → ' + JSON.stringify(n));
         assert.strictEqual(sr.loginShape(bad), null, bad);
       }
+      assert.deepStrictEqual(sr.loginShape('2Ali.Rezaei'), { name: '2ali.rezaei' }, 'ردیف ۱۶۶');
+      assert.strictEqual((await sr.adoptOnLogin(st, '2ali.rezaei', 'Madrese-1403', { needsSetup: true, instance: 'inst-A' })).error, 'not_found');
       assert.deepStrictEqual(sr.loginShape(' ALI.Rezaei '), { name: 'ali.rezaei' });
       assert.deepStrictEqual(sr.loginShape('۰۹۱۲ ۰۰۰ ۰۱۴۶'), { digits: '09120000146' });
       assert.deepStrictEqual(sr.loginShape('٠٠١٢٣٤٥٦٧٨'), { digits: '0012345678' });
@@ -400,7 +402,7 @@ function req(method, port, p, body, headers = {}) {
       const host = newStore(cfg); /* سرور مدرسه‌ای که برنامهٔ کاربران به آن وصل است */
       const good = { school_name: 'هنرستان فنی شهید باهنر', level: 'متوسطه دوم', province: 'خراسان رضوی', county: 'نیشابور', village: 'خرو',
         phone: '۰۹۱۵۱۲۳۴۵۶۷', staff_count: '۲۵', student_count: 320, manager_name: 'محمد کریمی', username: 'm.karimi', password: 'Karimi-1403', device_hash: DEV_A };
-      const bads = { school_name: 'x', level: 'دانشگاه', province: '', county: '', phone: '12345', staff_count: -1, student_count: 'abc', manager_name: 'ab', username: '1abc', password: '123' };
+      const bads = { school_name: 'x', level: 'دانشگاه', province: '', county: '', phone: '12345', staff_count: -1, student_count: 'abc', manager_name: 'ab', username: 'a b', password: '123' };
       for (const [k, v] of Object.entries(bads)) {
         const r = await sr.register(host, Object.assign({}, good, { [k]: v }), { hash: pbkdf2Hash });
         assert.strictEqual(r.error, 'bad_' + k, k + ' → ' + JSON.stringify(r));
@@ -437,6 +439,9 @@ function req(method, port, p, body, headers = {}) {
       const mgr = mine.all('users').find(u => u.role === 'manager');
       const g = sr.gate(mine, mgr);
       assert.strictEqual(g.access, false); assert.strictEqual(g.trial_available, true); assert.strictEqual(g.trial_days, 14);
+      /* ردیف ۱۶۶: نام کاربری پیش‌فرض = شمارهٔ همراه (فقط رقم) پذیرفته می‌شود */
+      const rd = await sr.register(host, Object.assign({}, good, { username: '۰۹۱۴۲۸۶۹۵۰۵' }), { hash: pbkdf2Hash });
+      assert.strictEqual(rd.ok, true, JSON.stringify(rd));
       /* رد درخواست دیگر */
       const r2 = await sr.register(host, Object.assign({}, good, { username: 'other.mgr' }), { hash: pbkdf2Hash });
       o.plain.rejected = [{ id: r2.id, reason: 'اطلاعات ناقص' }]; await o.publish();
@@ -559,7 +564,7 @@ function req(method, port, p, body, headers = {}) {
       assert.strictEqual(s1.level, 'متوسطه دوم', 'level stays manager-owned'); assert.strictEqual(s1.capabilities.has_dorm, 1); assert.strictEqual(s1.gender, 'دخترانه');
       assert.strictEqual(sr.applySchool(store, { id: 's-0099', name: 'هنرستان نو', code: '1', province: 'خراسان رضوی', county: 'نیشابور', district: 'خرو', manager: { rev: 5 } }), false, 'idempotent');
       const pr = sp.profileOf(s1);
-      assert.strictEqual(pr.complete, true); assert.strictEqual(pr.capabilities.has_dorm, 1); assert.strictEqual(pr.capacity, 300);
+      assert.strictEqual(pr.complete, true); assert.strictEqual(pr.capabilities.has_dorm, 1); assert.strictEqual(pr.capacity, undefined, 'ردیف ۱۶۶: ظرفیت حذف شد');
       assert.strictEqual(sp.profileOf({ name: 'x', level: 'ابتدایی' }).complete, false);
       store.close();
     });
@@ -567,28 +572,29 @@ function req(method, port, p, body, headers = {}) {
     await check('SR-12 ردیف ۱۵۸: مشخصات فرم مالک به سرور مدرسه می‌رسد؛ فقط کلید تغییرکردهٔ مالک بازنویسی می‌شود', async () => {
       const store = newStore();
       const owner = { id: 's-0158', name: 'دبیرستان نمونه', code: '158', province: 'تهران', county: 'تهران', district: 'منطقه ۵', area_kind: 'district',
-        level: 'متوسطه اول', type: 'عادی', school_type: 'boarding', gender: 'دخترانه', shift: 'صبح', capacity: 400,
+        level: 'متوسطه اول', type: 'عادی', school_type: 'boarding', gender: 'دخترانه', shift: 'صبح', capacity: 400 /* ردیف ۱۶۶: نادیده گرفته می‌شود */,
         landline: '۰۲۱۴۴۵۵۶۶۷۷', phone: '09121234567', staff_count: 25, student_count: 310,
         capabilities: { has_tuition: 0, has_dorm: 1, has_iep: 0, has_workshop: 0, has_multigrade: 0, has_second_term_exam: 0, has_evening: 0 },
         manager: { name: 'مدیر', username: 'm.n', rev: 1, password_hash: 'x' } };
       sr.adoptSchool(store, owner, {});
       let s1 = store.get('schools', 1);
-      for (const [k, v] of Object.entries({ level: 'متوسطه اول', school_type: 'boarding', gender: 'دخترانه', capacity: 400, landline: '02144556677', phone: '09121234567', staff_count: 25, student_count: 310, area_kind: 'district' })) {
+      for (const [k, v] of Object.entries({ level: 'متوسطه اول', school_type: 'boarding', gender: 'دخترانه', landline: '02144556677', phone: '09121234567', staff_count: 25, student_count: 310, area_kind: 'district' })) {
         assert.deepStrictEqual(s1[k], v, 'adopt ' + k);
       }
+      assert.strictEqual(s1.capacity, undefined, 'ردیف ۱۶۶: ظرفیت از فرم مالک نمی‌آید');
       assert.strictEqual(s1.capabilities.has_dorm, 1);
       assert.strictEqual(sr.applySchool(store, owner), false, 'بدون تغییر ⇒ idempotent');
       /* مدیر در «مشخصات مدرسه» ظرفیت و جنسیت را اصلاح می‌کند */
-      store.update('schools', 1, { capacity: 450, gender: 'پسرانه', level: 'متوسطه دوم', branches: ['نظری'], fields: ['ریاضی فیزیک'], profile_at: new Date().toISOString() });
+      store.update('schools', 1, { student_count: 450, gender: 'پسرانه', level: 'متوسطه دوم', branches: ['نظری'], fields: ['ریاضی فیزیک'], profile_at: new Date().toISOString() });
       assert.strictEqual(sr.applySchool(store, owner), false, 'مقادیر قدیمی مالک اصلاح مدیر را بازنویسی نمی‌کند');
-      assert.strictEqual(store.get('schools', 1).capacity, 450);
+      assert.strictEqual(store.get('schools', 1).student_count, 450);
       /* مالک فقط شیفت و تعداد کارکنان را عوض می‌کند */
       const o2 = Object.assign({}, owner, { shift: 'هر دو', staff_count: 30 });
       assert.strictEqual(sr.applySchool(store, o2), true);
       s1 = store.get('schools', 1);
       assert.strictEqual(s1.shift, 'هر دو'); assert.strictEqual(s1.staff_count, 30);
       assert.strictEqual(s1.capabilities.has_evening, 1, 'شیفت هر دو ⇒ نوبت دوم روشن');
-      assert.strictEqual(s1.capacity, 450); assert.strictEqual(s1.gender, 'پسرانه'); assert.strictEqual(s1.level, 'متوسطه دوم');
+      assert.strictEqual(s1.student_count, 450); assert.strictEqual(s1.gender, 'پسرانه'); assert.strictEqual(s1.level, 'متوسطه دوم');
       assert.deepStrictEqual(s1.branches, ['نظری']);
       assert.strictEqual(sr.applySchool(store, o2), false, 'یک بار');
       /* مالک مقطع را عوض می‌کند ⇒ شاخه‌ها پاک می‌شوند */
@@ -655,14 +661,18 @@ function req(method, port, p, body, headers = {}) {
         /* ردیف ۱۵۰: مشخصات مدرسه در تنظیمات مدیر */
         const pf = await req('GET', port, '/api/admin/school', null, H);
         assert.strictEqual(pf.status, 200, pf.body); assert.strictEqual(pf.json.school.complete, false);
-        const okIn = { level: 'متوسطه دوم', gender: 'پسرانه', shift: 'هر دو', capacity: 200, student_count: 150, work_days: [0, 1, 2], excuse_window_minutes: 20, capabilities: { has_workshop: 1 }, branches: ['فنی و حرفه‌ای'], fields: ['کامپیوتر'] };
-        const over = await req('POST', port, '/api/admin/school', Object.assign({}, okIn, { student_count: 201 }), H);
-        assert.strictEqual(over.status, 400); assert.strictEqual(over.json.field, 'over_capacity');
+        const okIn = { level: 'متوسطه دوم', gender: 'پسرانه', shift: 'هر دو', student_count: 150, work_days: [0, 1, 2], excuse_window_minutes: 20, capabilities: { has_workshop: 1 }, branches: ['فنی و حرفه‌ای'], fields: ['کامپیوتر'] };
+        /* ردیف ۱۶۶: تعداد دانش‌آموزان سقف ندارد و ظرفیت حذف شد */
+        const big = await req('POST', port, '/api/admin/school', Object.assign({}, okIn, { student_count: 25000, capacity: 10 }), H);
+        assert.strictEqual(big.status, 200, big.body); assert.strictEqual(big.json.school.student_count, 25000);
+        assert.strictEqual(big.json.school.capacity, undefined);
+        const rot = await req('POST', port, '/api/admin/school', Object.assign({}, okIn, { shift: 'چرخشی' }), H);
+        assert.strictEqual(rot.status, 200, rot.body); assert.strictEqual(rot.json.school.shift, 'چرخشی');
         const sv = await req('POST', port, '/api/admin/school', okIn, H);
         assert.strictEqual(sv.status, 200, sv.body);
         assert.strictEqual(sv.json.school.complete, true); assert.strictEqual(sv.json.school.level, 'متوسطه دوم');
         assert.strictEqual(sv.json.school.capabilities.has_evening, 1, 'shift هر دو ⇒ evening'); assert.deepStrictEqual(sv.json.school.fields, ['کامپیوتر']);
-        assert.strictEqual((await req('GET', port, '/api/admin/school', null, H)).json.school.capacity, 200);
+        assert.strictEqual((await req('GET', port, '/api/admin/school', null, H)).json.school.student_count, 150);
         assert.strictEqual((await req('GET', port, '/api/admin/school')).status, 401);
         const cb = await req('GET', port, '/api/sub/callback?payment=' + rc.json.payment.id);
         assert.strictEqual(cb.status, 200); assert.ok(cb.type.startsWith('text/html')); assert.ok(cb.body.includes(rc.json.payment.id));

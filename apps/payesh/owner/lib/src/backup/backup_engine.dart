@@ -1,16 +1,18 @@
-// پشتیبان کامل و خودکار دیتابیس مالک (ردیف ۱۵۵).
+// پشتیبان کامل و خودکار دیتابیس مالک (ردیف ۱۵۵؛ ردیف ۱۶۶: «یک فایل جامع»).
 //
 // • هر ۱۵ دقیقه کل صندوقچه (همهٔ مدارس، پنل مالک، پرداخت‌ها، پشتیبانی، سیاست‌ها، به‌روزرسانی‌ها)
-//   بررسی می‌شود و فقط فایل‌های عوض‌شده خوانده می‌شوند (افزایشی). اگر چیزی عوض نشده باشد،
-//   فهرست تازه‌ای ساخته نمی‌شود.
-// • ردیف ۱۶۲: یک «پشتیبان اصلی» و هر دور فقط «تغییرها» (فایل‌های تازه/تغییرکرده و نام‌های
-//   پاک‌شده) به آن افزوده می‌شود — نه فهرست کامل در هر دور.
-// • مقصدها: دیسک همین سیستم (هر سیستم پنل مالک خودش) + خود دیتابیس (کلید روشن/خاموش).
-//   کلیدها در سیاست زیرساخت هستند (`backup:auto`، `backup:db`) تا همهٔ سیستم‌های مالک یکسان پیروی کنند.
-// • صندوقچهٔ خالی هرگز پشتیبان نمی‌شود (مثلاً پس از عوض کردن دیتابیس) تا پشتیبان خوب جایگزین نشود.
-// • بازیابی/انتقال با یک کلیک: اول یک پشتیبان «پیش از بازیابی» از وضع فعلی، بعد همهٔ فایل‌های
-//   آن لحظه (با بازبینی sha256) در دیتابیسِ تنظیم‌شده نوشته می‌شوند. فایل‌های تازه‌تر دست نمی‌خورند،
-//   پس هیچ داده‌ای از دست نمی‌رود. برای انتقال: دیتابیس تازه را در «تنظیمات» وارد و «بازیابی» را بزنید.
+//   بررسی می‌شود و فقط فایل‌های عوض‌شده از دیتابیس خوانده می‌شوند (افزایشی).
+// • ردیف ۱۶۶: روی هر مقصد همیشه فقط یک فایل پشتیبان جامع هست (`payesh-owner-backup.zip`)؛ هر
+//   تغییر در همان فایل ادغام می‌شود (بقیهٔ محتوا از خود فایل) و فایل تازه اتمی جای قبلی را می‌گیرد.
+//   اگر چیزی عوض نشده باشد، چیزی نوشته نمی‌شود. فهرست بلند پشتیبان‌های ۱۵ دقیقه‌ای حذف شد.
+// • مقصدها: دیسک همین سیستم (هر سیستم پنل مالک خودش) + خود دیتابیس (کلید روشن/خاموش). کلیدها در
+//   سیاست زیرساخت هستند (`backup:auto`، `backup:db`) تا همهٔ سیستم‌های مالک یکسان پیروی کنند.
+// • هر نسخه (دیسک / دیتابیس) با «حذف» پاک می‌شود؛ با پشتیبان خودکار روشن، دور بعد از نو ساخته می‌شود.
+// • صندوقچهٔ خالی هرگز پشتیبان نمی‌شود (مثلاً پس از عوض کردن دیتابیس) و پشتیبانِ دیتابیسی دیگر
+//   خودکار بازنویسی نمی‌شود (فقط با «پشتیبان‌گیری اکنون»)، تا پشتیبان خوب از دست نرود.
+// • بازیابی/انتقال با یک کلیک: همهٔ فایل‌های پشتیبان (با بازبینی sha256) در دیتابیسِ تنظیم‌شده
+//   نوشته می‌شوند؛ فایل‌هایی که در پشتیبان نیستند (تازه‌تر) دست نمی‌خورند. برای انتقال: دیتابیس
+//   تازه را در «تنظیمات» وارد و «بازیابی» را بزنید.
 // • جدا از پشتیبان روزانهٔ هر مدرسه (سرور مدرسه، پنل مدیر) است و جای آن را نمی‌گیرد.
 
 import 'dart:async';
@@ -40,23 +42,7 @@ typedef BackupRestoreResult = ({
   int same,
   int failed,
   int newer,
-  String? safety,
   String? error,
-});
-
-/// یک فهرست برای نمایش. [count]/[bytes] کل دیتابیسِ آن لحظه است؛ [changed]/[changedBytes] آنچه
-/// همان دور افزود (پشتیبان اصلی: همه)، [removed] نام‌های پاک‌شده. [main] = پشتیبان اصلی.
-typedef BackupItem = ({
-  String id,
-  DateTime at,
-  int count,
-  int bytes,
-  String label,
-  Set<String> targets,
-  bool main,
-  int changed,
-  int changedBytes,
-  int removed,
 });
 
 class OwnerBackupEngine extends ChangeNotifier {
@@ -103,8 +89,12 @@ class OwnerBackupEngine extends ChangeNotifier {
   int progressDone = 0;
   int progressTotal = 0;
   String phaseFa = '';
-  List<BackupItem> items = const [];
-  Map<String, int> usage = const {};
+
+  /// ردیف ۱۶۶: همان یک فایل روی هر مقصد (دیسک، دیتابیس) — برای صفحه.
+  List<BackupFileInfo> files = const [];
+
+  /// مقصدهایی که در «بازخوانی» خوانده نشدند (مثلاً دیتابیس قطع) ⇒ پیام.
+  Map<String, String> fileErrors = const {};
 
   bool _localAuto = true;
   bool _localDb = true;
@@ -113,9 +103,20 @@ class OwnerBackupEngine extends ChangeNotifier {
   Timer? _first;
   bool _disposed = false;
   Future<BackupRunResult>? _inflight;
-  final Map<String, String> _latestFp = {};
-  BackupSnapshot? _prev;
-  DateTime? _lastGc;
+
+  /// اثر انگشت فایلِ هر مقصد (`disk`/`db`) تا «بدون تغییر» بی‌خواندن فایل دانسته شود؛ '' = نیست.
+  final Map<String, String> _fp = {};
+
+  /// آخرین فایل خوانده/نوشته‌شده (منبع محتوای فایل‌های بدون تغییر).
+  BackupArchive? _base;
+
+  /// ETag فایل روی دیتابیس که [files] از آن ساخته شد (بازخوانی ارزان).
+  String? _dbEtag;
+  BackupFileInfo? _dbInfo;
+
+  /// پس از بازیابی در دیتابیس تازه: پشتیبانِ صندوقچهٔ قبلی را می‌شود با این صندوقچه نوشت.
+  String? _adopt;
+  int _refreshGen = 0;
 
   bool get autoOn => policy?.value.serviceOn(autoId) ?? _localAuto;
   bool get dbOn => policy?.value.serviceOn(dbId) ?? _localDb;
@@ -195,7 +196,7 @@ class OwnerBackupEngine extends ChangeNotifier {
       _localDb = on;
       await _saveFlags();
     }
-    _latestFp.remove('db');
+    _fp.remove('db');
     _notify();
   }
 
@@ -238,9 +239,10 @@ class OwnerBackupEngine extends ChangeNotifier {
     if (f != null) await f;
   }
 
-  /// یک دور پشتیبان (دورهای هم‌زمان یکی می‌شوند).
-  Future<BackupRunResult> run({String label = ''}) =>
-      _inflight ??= _run(label).whenComplete(() => _inflight = null);
+  /// یک دور پشتیبان (دورهای هم‌زمان یکی می‌شوند). [force] ⇒ پشتیبانِ دیتابیسی دیگر هم با
+  /// همین دیتابیس جایگزین می‌شود (دکمهٔ «پشتیبان‌گیری اکنون»).
+  Future<BackupRunResult> run({bool force = false}) =>
+      _inflight ??= _run(force).whenComplete(() => _inflight = null);
 
   BackupRunResult _fail(String e) {
     lastError = e;
@@ -255,7 +257,7 @@ class OwnerBackupEngine extends ChangeNotifier {
     );
   }
 
-  Future<BackupRunResult> _run(String label) async {
+  Future<BackupRunResult> _run(bool force) async {
     await _load();
     running = true;
     phaseFa = 'فهرست کردن فایل‌های دیتابیس…';
@@ -266,7 +268,7 @@ class OwnerBackupEngine extends ChangeNotifier {
     lastCheck = now;
     BackupRunResult res;
     try {
-      res = await _backup(now, label);
+      res = await _backup(now, force);
       if (res.ok) {
         lastError = null;
         lastSuccess = now;
@@ -274,6 +276,8 @@ class OwnerBackupEngine extends ChangeNotifier {
       }
     } on S3Failure catch (e) {
       res = _fail(e.messageFa);
+    } on FileSystemException catch (e) {
+      res = _fail('نوشتن فایل پشتیبان روی دیسک نشد: ${e.message}');
     } on Object catch (e) {
       res = _fail('$e');
     }
@@ -285,7 +289,41 @@ class OwnerBackupEngine extends ChangeNotifier {
     return res;
   }
 
-  Future<BackupRunResult> _backup(DateTime now, String label) async {
+  /// فایل پشتیبان یک مقصد، باز شده؛ null اگر نباشد یا خراب باشد.
+  Future<BackupArchive?> _open(BackupTarget tg) async {
+    try {
+      final b = await tg.read();
+      return b == null ? null : BackupArchive.parse(b);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// منبع محتوا: آخرین فایل در حافظه، وگرنه فایل دیسک، وگرنه فایل دیتابیس.
+  Future<BackupArchive?> _baseOf(List<BackupTarget> targets) async {
+    if (_base != null) return _base;
+    for (final tg in targets) {
+      final a = await _open(tg);
+      if (a != null) {
+        _fp[tg.id] = a.snapshot.fingerprint;
+        return _base = a;
+      }
+    }
+    return null;
+  }
+
+  /// اثر انگشت فایل فعلی مقصد ('' = نیست/خراب).
+  Future<String> _fpOf(BackupTarget tg) async {
+    final known = _fp[tg.id];
+    if (known != null) return known;
+    if (tg is BucketBackupTarget && await tg.head() == null) {
+      return _fp[tg.id] = '';
+    }
+    final a = await _open(tg);
+    return _fp[tg.id] = a?.snapshot.fingerprint ?? '';
+  }
+
+  Future<BackupRunResult> _backup(DateTime now, bool force) async {
     final s = await _s3();
     if (s == null) {
       return _fail('دیتابیس در «تنظیمات» وصل نیست؛ پشتیبان ساخته نشد.');
@@ -321,141 +359,124 @@ class OwnerBackupEngine extends ChangeNotifier {
         error: null,
       );
     }
-    _prev ??= await _latestOf(targets);
-    final prev = _prev?.bucket == s.bucket ? _prev : null;
+    final base = await _baseOf(targets);
+    if (base != null &&
+        base.snapshot.bucket.isNotEmpty &&
+        base.snapshot.bucket != s.bucket &&
+        !force &&
+        _adopt != s.bucket) {
+      return _fail(
+        'فایل پشتیبان مال دیتابیس «${base.snapshot.bucket}» است و خودکار با دیتابیس '
+        '«${s.bucket}» جایگزین نمی‌شود. برای انتقال، «بازیابی» را بزنید؛ برای جایگزینی، '
+        '«پشتیبان‌گیری اکنون».',
+      );
+    }
+    // (پشتیبانِ دیتابیسی دیگر بالاتر رد شد مگر با «اکنون» یا پس از بازیابی) ⇒ منبع همان فایل
+    final prev = base;
     progressTotal = objs.length;
     phaseFa = 'خواندن فایل‌های تازه یا تغییرکرده…';
     _notify();
     final entries = <String, BackupEntry>{};
+    final fresh = <String, List<int>>{};
     var fetched = 0;
     var skipped = 0;
     for (final o in objs) {
       final ms = o.modified?.millisecondsSinceEpoch ?? 0;
-      final p = prev?.objects[o.key];
-      // بدون تغییر = همان اندازه، همان زمان و (اگر S3 داد) همان ETag
-      BackupEntry? e =
+      final p = prev?.snapshot.objects[o.key];
+      // بدون تغییر = همان اندازه، همان زمان و (اگر S3 داد) همان ETag — محتوا از خود فایل پشتیبان
+      final same =
           p != null &&
-              p.size == o.size &&
-              p.modifiedMs == ms &&
-              p.etag == o.etag
-          ? p
-          : null;
-      List<int>? raw;
-      if (e != null) {
-        // بدون تغییر: فقط مطمئن شو هر مقصد محتوایش را دارد
-        final sha = e.sha;
-        for (final tg in targets) {
-          if (await tg.hasBlob(sha)) continue;
-          raw ??= await _fromTargets(targets, sha) ?? await _get(s, o.key);
-          if (raw == null) break;
-          if (sha256Hex(raw) != sha) {
-            e = null; // محتوای دیتابیس با فهرست قبلی نمی‌خواند ⇒ دوباره
-            break;
-          }
-          await tg.putBlob(sha, raw);
-        }
+          p.size == o.size &&
+          p.modifiedMs == ms &&
+          p.etag == o.etag;
+      if (same) {
+        entries[o.key] = p;
+      } else if (o.size > backupMaxObjectBytes) {
+        skipped++;
+      } else {
+        final raw = await _get(s, o.key);
+        if (raw != null) {
+          fetched++;
+          fresh[o.key] = raw;
+          entries[o.key] = (
+            sha: sha256Hex(raw),
+            size: raw.length,
+            modifiedMs: ms,
+            etag: o.etag,
+          );
+        } // null ⇒ میان فهرست و خواندن پاک شد
       }
-      if (e == null) {
-        if (o.size > backupMaxObjectBytes) {
-          skipped++;
-          progressDone++;
-          continue;
-        }
-        raw = await _get(s, o.key);
-        if (raw == null) {
-          progressDone++;
-          continue; // میان فهرست و خواندن پاک شد
-        }
-        fetched++;
-        final sha = sha256Hex(raw);
-        e = (sha: sha, size: raw.length, modifiedMs: ms, etag: o.etag);
-        for (final tg in targets) {
-          if (!await tg.hasBlob(sha)) await tg.putBlob(sha, raw);
-        }
-      }
-      entries[o.key] = e;
       progressDone++;
       if (progressDone % 25 == 0) _notify();
     }
-    var at = now;
-    final snap0 = BackupSnapshot(
-      id: BackupSnapshot.idFor(at),
-      at: at,
-      bucket: s.bucket,
-      objects: entries,
-      label: label,
-    );
-    final fp = snap0.fingerprint;
-    phaseFa = 'ثبت فهرست…';
-    _notify();
-    // یک شناسه برای همهٔ مقصدها (بزرگ‌تر از تازه‌ترین فهرستِ هر مقصد)
-    final need = <BackupTarget, String?>{};
-    String? newest;
-    for (final tg in targets) {
-      final ids = await tg.listSnapshots();
-      final latest = ids.isEmpty ? null : ids.last;
-      if (latest != null && (newest == null || latest.compareTo(newest) > 0)) {
-        newest = latest;
-      }
-      _latestFp[tg.id] ??= latest == null
-          ? ''
-          : (await tg.getRecord(latest))?.fp ?? '';
-      if (label.isNotEmpty || _latestFp[tg.id] != fp) need[tg] = latest;
-    }
-    String? written;
-    if (need.isNotEmpty) {
-      var id = snap0.id;
-      while (newest != null && id.compareTo(newest) <= 0) {
-        at = at.add(const Duration(seconds: 1));
-        id = BackupSnapshot.idFor(at);
-      }
-      final snap = BackupSnapshot(
-        id: id,
-        at: at,
-        bucket: s.bucket,
-        objects: entries,
-        label: label,
+    final snap = BackupSnapshot(at: now, bucket: s.bucket, objects: entries);
+    final fp = snap.fingerprint;
+    final need = <BackupTarget>[
+      for (final tg in targets)
+        if (await _fpOf(tg) != fp) tg,
+    ];
+    if (need.isEmpty) {
+      return (
+        ok: true,
+        created: false,
+        count: entries.length,
+        fetched: fetched,
+        skipped: skipped,
+        snapshot: null,
+        error: skipped > 0 ? _skippedFa(skipped) : null,
       );
-      for (final MapEntry(key: tg, value: latest) in need.entries) {
-        // ردیف ۱۶۲: فقط تغییرها نسبت به آخرین لحظهٔ همین مقصد؛ مقصد خالی (یا زنجیرهٔ
-        // خراب) ⇒ پشتیبان اصلی تازه
-        final parent = latest == null
-            ? null
-            : _prev?.id == latest
-            ? _prev
-            : await readState(tg, latest);
-        await tg.putRecord(
-          parent == null
-              ? BackupRecord.main(snap)
-              : BackupRecord.delta(parent, snap),
+    }
+    phaseFa = 'ادغام تغییرها در فایل پشتیبان…';
+    _notify();
+    // محتوای بدون تغییر از خود فایل؛ اگر آنجا خراب بود، دوباره از دیتابیس
+    for (final k in entries.keys.toList()) {
+      if (fresh.containsKey(k)) continue;
+      final raw = prev?.content(k) ?? await _get(s, k);
+      if (raw == null) {
+        entries.remove(k);
+        continue;
+      }
+      if (sha256Hex(raw) != entries[k]!.sha) {
+        fetched++;
+        final e = entries[k]!;
+        entries[k] = (
+          sha: sha256Hex(raw),
+          size: raw.length,
+          modifiedMs: e.modifiedMs,
+          etag: e.etag,
         );
-        _latestFp[tg.id] = fp;
       }
-      written = id;
-      _prev = snap;
+      fresh[k] = raw;
     }
-    _prev ??= snap0;
-    if (_lastGc == null ||
-        now.difference(_lastGc!) > const Duration(hours: 24)) {
-      phaseFa = 'پاک‌سازی پشتیبان‌های قدیمی…';
-      _notify();
-      for (final tg in targets) {
-        await _retain(tg, now);
-      }
-      _lastGc = now;
+    final out = BackupSnapshot(at: now, bucket: s.bucket, objects: entries);
+    final bytes = BackupArchive.build(out, (k) => fresh[k]!);
+    final archive = BackupArchive.parse(bytes);
+    if (archive == null) {
+      return _fail('فایل پشتیبان ساخته شد ولی بازبینی آن نخواند؛ نوشته نشد.');
     }
+    phaseFa = 'نوشتن فایل پشتیبان…';
+    _notify();
+    final outFp = out.fingerprint;
+    for (final tg in need) {
+      await tg.write(bytes);
+      _fp[tg.id] = outFp;
+    }
+    _base = archive;
+    _adopt = null;
+    _dbEtag = null;
     return (
       ok: true,
-      created: written != null,
+      created: true,
       count: entries.length,
       fetched: fetched,
       skipped: skipped,
-      snapshot: written,
-      error: skipped > 0
-          ? '$skipped فایل بزرگ‌تر از ${backupMaxObjectBytes >> 20} مگابایت پشتیبان نشد.'
-          : null,
+      snapshot: BackupSnapshot.idFor(now),
+      error: skipped > 0 ? _skippedFa(skipped) : null,
     );
   }
+
+  static String _skippedFa(int n) =>
+      '$n فایل بزرگ‌تر از ${backupMaxObjectBytes >> 20} مگابایت پشتیبان نشد.';
 
   Future<List<int>?> _get(S3Settings s, String key) async {
     final t = s3Factory();
@@ -466,167 +487,148 @@ class OwnerBackupEngine extends ChangeNotifier {
     }
   }
 
-  Future<List<int>?> _fromTargets(
-    List<BackupTarget> targets,
-    String sha,
-  ) async {
-    for (final tg in targets) {
-      try {
-        final b = await tg.getBlob(sha);
-        if (b != null) return b;
-      } on Object {
-        // مقصد بعدی
-      }
-    }
-    return null;
-  }
-
-  Future<BackupSnapshot?> _latestOf(List<BackupTarget> targets) async {
-    for (final tg in targets) {
-      try {
-        final ids = await tg.listSnapshots();
-        if (ids.isNotEmpty) return await readState(tg, ids.last);
-      } on Object {
-        // مقصد بعدی
-      }
-    }
-    return null;
-  }
-
-  /// نگه‌داری + فشرده‌سازی (ردیف ۱۶۲): هر لحظهٔ نگه‌داشته نسبت به لحظهٔ نگه‌داشتهٔ پیشین بازنویسی
-  /// می‌شود (تغییرهای دورهای کنار گذاشته در آن ادغام می‌شود) و نخستینِ آن‌ها «پشتیبان اصلی» کامل
-  /// است؛ اول نوشتن، بعد پاک کردن ⇒ قطع برق در میانه هیچ لحظه‌ای را ناقص نمی‌کند. هر خرابی ⇒
-  /// هیچ چیز پاک نمی‌شود.
-  Future<void> _retain(BackupTarget tg, DateTime now) async {
-    final ids = await tg.listSnapshots();
-    final keep = backupKeep(ids, now);
-    final recs = <String, BackupRecord>{};
-    for (final id in ids) {
-      final r = await tg.getRecord(id);
-      if (r == null) return; // فهرست خراب ⇒ هیچ چیز پاک نمی‌شود
-      recs[id] = r;
-    }
-    final shas = <String>{};
-    BackupSnapshot? state;
-    BackupSnapshot? kept;
-    for (final id in ids) {
-      final r = recs[id]!;
-      state = state != null && (r.isMain || r.base == state.id)
-          ? r.applyTo(state)
-          : await readState(tg, id, cache: recs);
-      if (state == null) return;
-      if (!keep.contains(id)) continue;
-      final want = kept?.id;
-      if (r.legacy || r.base != want) {
-        await tg.putRecord(
-          kept == null
-              ? BackupRecord.main(state)
-              : BackupRecord.delta(kept, state),
-        );
-      }
-      shas.addAll(state.objects.values.map((e) => e.sha));
-      kept = state;
-    }
-    for (final id in ids) {
-      if (!keep.contains(id)) await tg.deleteSnapshot(id);
-    }
-    await tg.gcBlobs(shas);
-  }
-
-  /// فهرست‌های همهٔ مقصدها (برای صفحه) + حجم اشغال‌شده.
+  /// همان یک فایلِ هر مقصد (برای صفحه).
   Future<void> refresh() async {
+    final gen = ++_refreshGen;
     await _load();
     final s = await _s3();
-    final byId = <String, BackupItem>{};
-    final use = <String, int>{};
-    for (final tg in await _targets(s)) {
+    final out = <BackupFileInfo>[];
+    final errs = <String, String>{};
+    for (final tg in await _targets(s, all: true)) {
       try {
-        for (final id in await tg.listSnapshots()) {
-          final cur = byId[id];
-          if (cur != null) {
-            byId[id] = (
-              id: cur.id,
-              at: cur.at,
-              count: cur.count,
-              bytes: cur.bytes,
-              label: cur.label,
-              targets: {...cur.targets, tg.id},
-              main: cur.main,
-              changed: cur.changed,
-              changedBytes: cur.changedBytes,
-              removed: cur.removed,
-            );
+        if (tg is BucketBackupTarget) {
+          final h = await tg.head();
+          if (h == null) {
+            _dbEtag = null;
+            _dbInfo = null;
+            _fp[tg.id] = '';
             continue;
           }
-          final sn = await tg.getRecord(id);
-          if (sn == null) continue;
-          byId[id] = (
-            id: id,
-            at: sn.at,
-            count: sn.count,
-            bytes: sn.bytes,
-            label: sn.label,
-            targets: {tg.id},
-            main: sn.isMain,
-            changed: sn.changedCount,
-            changedBytes: sn.changedBytes,
-            removed: sn.removed.length,
-          );
+          if (_dbEtag != h.etag || _dbInfo == null) {
+            final a = await _open(tg);
+            if (a == null) {
+              errs[tg.id] = 'فایل پشتیبان روی دیتابیس خراب است.';
+              continue;
+            }
+            _dbEtag = h.etag;
+            _dbInfo = infoOf(tg.id, a);
+            _fp[tg.id] = a.snapshot.fingerprint;
+          }
+          out.add(_dbInfo!);
+        } else {
+          final a = await _open(tg);
+          if (a == null) {
+            if ((await tg.read()) != null) {
+              errs[tg.id] = 'فایل پشتیبان روی این دیسک خراب است.';
+            } else {
+              _fp[tg.id] = '';
+            }
+            continue;
+          }
+          _fp[tg.id] = a.snapshot.fingerprint;
+          out.add(infoOf(tg.id, a));
         }
-        use[tg.id] = await tg.usedBytes();
-      } on Object {
-        // مقصد در دسترس نیست
+      } on S3Failure catch (e) {
+        errs[tg.id] = e.messageFa;
+      } on Object catch (e) {
+        errs[tg.id] = '$e';
       }
     }
-    items = byId.values.toList()..sort((a, b) => b.id.compareTo(a.id));
-    usage = use;
+    if (gen != _refreshGen) return; // بازخوانی تازه‌تری در راه است
+    files = out;
+    fileErrors = errs;
     _notify();
   }
 
-  /// بازیابی کامل یک لحظه در دیتابیسِ تنظیم‌شده (همان دیتابیس یا دیتابیس تازه برای انتقال).
-  Future<BackupRestoreResult> restore(String id) async {
-    BackupRestoreResult fail(String e) => (
-      ok: false,
-      written: 0,
-      same: 0,
-      failed: 0,
-      newer: 0,
-      safety: null,
-      error: e,
-    );
+  /// پاک کردن فایل پشتیبانِ یک مقصد (`disk` / `db`)؛ null = انجام شد، وگرنه پیام خطا.
+  Future<String?> deleteBackup(String target) async {
+    await _load();
+    await idle;
+    final s = await _s3();
+    final tg = [
+      for (final x in await _targets(s, all: true))
+        if (x.id == target) x,
+    ].firstOrNull;
+    if (tg == null) {
+      return target == 'db'
+          ? 'دیتابیس در «تنظیمات» وصل نیست.'
+          : 'پوشهٔ پشتیبان روی این دستگاه نیست.';
+    }
+    try {
+      await tg.delete();
+    } on S3Failure catch (e) {
+      return e.messageFa;
+    } on Object catch (e) {
+      return '$e';
+    }
+    _fp[target] = '';
+    if (target == 'db') {
+      _dbEtag = null;
+      _dbInfo = null;
+    }
+    if (_base != null) {
+      // منبع محتوا اگر همین نسخه بود، دور بعد از نسخهٔ دیگر یا از دیتابیس خوانده می‌شود
+      _base = null;
+    }
+    await refresh();
+    return null;
+  }
+
+  /// بازیابی کامل از فایل پشتیبانِ [target] (`disk` / `db`) در دیتابیسِ تنظیم‌شده (همان دیتابیس
+  /// یا دیتابیس تازه برای انتقال). محتوای خراب یک نسخه از نسخهٔ دیگر برداشته می‌شود.
+  Future<BackupRestoreResult> restore(String target) async {
+    BackupRestoreResult fail(String e) =>
+        (ok: false, written: 0, same: 0, failed: 0, newer: 0, error: e);
     await _load();
     final s = await _s3();
     if (s == null) return fail('اول دیتابیس مقصد را در «تنظیمات» وصل کنید.');
+    await idle;
     final targets = await _targets(s, all: true);
-    BackupSnapshot? snap;
-    for (final tg in targets) {
-      try {
-        snap = await readState(tg, id);
-      } on Object {
-        snap = null;
-      }
-      if (snap != null) break;
+    final ordered = [
+      ...targets.where((t) => t.id == target),
+      ...targets.where((t) => t.id != target),
+    ];
+    final opened = <BackupArchive>[];
+    for (final tg in ordered) {
+      final a = await _open(tg);
+      if (a != null) opened.add(a); // نسخهٔ خراب/نبوده ⇒ نسخهٔ دیگر
     }
-    if (snap == null) return fail('این پشتیبان پیدا نشد.');
-    // ۱) پشتیبان «پیش از بازیابی» از وضع فعلی ⇒ هیچ داده‌ای از دست نمی‌رود
-    // دور در جریان اول تمام شود تا پشتیبان «پیش از بازیابی» تازه و برچسب‌دار باشد
-    final busy = _inflight;
-    if (busy != null) await busy;
-    final pre = await run(label: 'پیش از بازیابی');
-    if (!pre.ok) return fail('پشتیبان پیش از بازیابی ساخته نشد: ${pre.error}');
-    final current = pre.count == 0 ? <String, BackupEntry>{} : _prev!.objects;
+    if (opened.isEmpty) return fail('این پشتیبان پیدا نشد.');
+    final snap = opened.first.snapshot;
     running = true;
     phaseFa = 'بازیابی…';
     progressDone = 0;
     progressTotal = snap.count;
     _notify();
-    var written = 0, same = 0, failed = 0;
+    var written = 0, same = 0, failed = 0, newer = 0;
     try {
+      final t = s3Factory();
+      List<S3Object> objs;
+      try {
+        (objs, _) = await s3ListObjects(s, t, '', maxPages: 500);
+      } finally {
+        t.close();
+      }
+      final current = {
+        for (final o in objs)
+          if (!o.key.startsWith(bucketBackupRoot)) o.key: o,
+      };
       for (final e in snap.objects.entries) {
-        if (current[e.key]?.sha == e.value.sha) {
+        final c = current[e.key];
+        if (c != null &&
+            c.size == e.value.size &&
+            c.etag.isNotEmpty &&
+            c.etag == e.value.etag) {
           same++;
         } else {
-          final raw = await _fromTargets(targets, e.value.sha);
+          List<int>? raw;
+          for (final a in opened) {
+            final r = a.content(e.key);
+            if (r != null && sha256Hex(r) == e.value.sha) {
+              raw = r;
+              break;
+            }
+          }
           if (raw == null) {
             failed++;
           } else {
@@ -650,21 +652,21 @@ class OwnerBackupEngine extends ChangeNotifier {
         progressDone++;
         if (progressDone % 25 == 0) _notify();
       }
+      newer = current.keys.where((k) => !snap.objects.containsKey(k)).length;
     } on S3Failure catch (e) {
       running = false;
       phaseFa = '';
       _notify();
       return fail(e.messageFa);
     }
-    final newer = current.keys
-        .where((k) => !snap!.objects.containsKey(k))
-        .length;
     running = false;
     phaseFa = '';
-    _prev = null; // دور بعد وضع تازه را از نو می‌سنجد
-    _latestFp.clear();
+    // پس از انتقال، همین پشتیبان با دیتابیس تازه ادامه می‌یابد
+    _adopt = s.bucket;
+    _base = null;
+    _fp.clear();
+    _dbEtag = null;
     _notify();
-    // وضع تازه بی‌درنگ پشتیبان می‌شود (پس از انتقال: نسخهٔ روی دیتابیس تازه هم)
     unawaited(run());
     return (
       ok: failed == 0,
@@ -672,8 +674,7 @@ class OwnerBackupEngine extends ChangeNotifier {
       same: same,
       failed: failed,
       newer: newer,
-      safety: pre.snapshot,
-      error: failed > 0 ? '$failed فایل در هیچ مقصدی سالم پیدا نشد.' : null,
+      error: failed > 0 ? '$failed فایل در هیچ نسخه‌ای سالم پیدا نشد.' : null,
     );
   }
 

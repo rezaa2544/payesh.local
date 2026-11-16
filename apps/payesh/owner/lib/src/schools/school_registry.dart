@@ -155,7 +155,26 @@ const List<String> iranProvinces = [
   'یزد',
 ];
 
-final RegExp usernameRe = RegExp(r'^[a-z][a-z0-9._-]{2,31}$');
+/// ردیف ۱۶۶ (همان USERNAME_RE سرور): ۳ تا ۳۲ نویسه از حرف انگلیسی، رقم و . _ - @، به هر ترتیبی؛
+/// فقط‌رقم (مثلاً همراه ۰۹۱۴۲۸۶۹۵۰۵) هم درست است.
+final RegExp usernameRe = RegExp(r'^[a-z0-9._@-]{3,32}$');
+const String usernameRuleFa =
+    'نام کاربری ۳ تا ۳۲ نویسه از حرف انگلیسی، رقم و . _ - @ است (فقط رقم هم درست است)';
+
+/// نام کاربری به شکل سرور (server/school-registry.js normLogin): ارقام فارسی ⇒ لاتین؛ با حرف ⇒
+/// حروف کوچک؛ بی‌حرف ⇒ فقط رقم.
+String normalizeUsername(String v) {
+  final t = v.trim();
+  if (RegExp('[A-Za-z]').hasMatch(t)) {
+    return t
+        .replaceAllMapped(
+          RegExp('[۰-۹٠-٩]'),
+          (m) => digitsOnly(m[0]),
+        )
+        .toLowerCase();
+  }
+  return digitsOnly(t);
+}
 final RegExp requestIdRe = RegExp(r'^[0-9]{13}-[0-9a-f]{16}$');
 final RegExp paymentIdRe = RegExp(r'^SUB-[0-9A-F]{8}$');
 final RegExp schoolIdRe = RegExp(r'^s-[0-9a-f]{12}$');
@@ -817,7 +836,8 @@ final class SchoolRegistry {
   String _newSchoolId() =>
       's-${_hex(List<int>.generate(6, (_) => _rnd.nextInt(256)))}';
 
-  /// اعتبارسنجی p2 «school-save» (نام، کد یکتا، استان/شهرستان، شاخه، مدیر، کد ملی، نام کاربری یکتا).
+  /// اعتبارسنجی p2 «school-save» (نام، کد یکتا، استان/شهرستان، مدیر، کد ملی، نام کاربری یکتا)؛
+  /// پیام نخستین ایراد یا null. همهٔ ایرادها با کادرشان: [validateSchoolFields].
   static String? validateSchool(
     Map<String, Object?> f,
     List<Map<String, Object?>> schools, {
@@ -825,78 +845,100 @@ final class SchoolRegistry {
     bool needPassword = false,
     String? password,
   }) {
+    final all = validateSchoolFields(
+      f,
+      schools,
+      selfId: selfId,
+      needPassword: needPassword,
+      password: password,
+    );
+    return all.isEmpty ? null : all.values.first;
+  }
+
+  /// ردیف ۱۶۶: همهٔ ایرادهای فرم «تعریف مدرسه» با کلید کادرش (همان کلیدهای `sf-<کلید>` فرم):
+  /// هر کادر نادرست پس از «ثبت» قاب قرمز می‌گیرد. ترتیب = ترتیب کادرها در فرم.
+  ///  • ظرفیت حذف شد؛ تعداد دانش‌آموزان سقف ندارد.
+  ///  • نام کاربری مدیر: ۳ تا ۳۲ نویسه از حرف انگلیسی، رقم و . _ - @ (فقط‌رقم هم درست؛ پیش‌فرض
+  ///    همراه مدیر). قاعدهٔ «حرف کوچک لاتین و شروع با حرف» برداشته شد.
+  static Map<String, String> validateSchoolFields(
+    Map<String, Object?> f,
+    List<Map<String, Object?>> schools, {
+    String? selfId,
+    bool needPassword = false,
+    String? password,
+  }) {
+    final out = <String, String>{};
     String t(String k) => '${f[k] ?? ''}'.trim();
-    if (t('name').length < 2 || t('code').isEmpty) {
-      return 'نام و کد مدرسه الزامی است';
+    if (t('name').length < 2) out['name'] = 'نام مدرسه را بنویسید';
+    if (t('code').isEmpty) {
+      out['code'] = 'کد مدرسه را بنویسید';
+    } else if (schools.any(
+      (x) => '${x['code']}' == t('code') && x['id'] != selfId,
+    )) {
+      out['code'] = 'کد مدرسه تکراری است';
     }
-    if (schools.any((x) => '${x['code']}' == t('code') && x['id'] != selfId)) {
-      return 'کد مدرسه تکراری است';
-    }
-    if (t('province').isEmpty) return 'استان را انتخاب کنید';
-    if (t('county').isEmpty) return 'شهرستان را وارد کنید';
-    // ردیف ۱۵۸: مقطع، تلفن‌ها، ظرفیت و آمار دوباره در فرم مالک است (همان قواعد
-    // server/school-profile.js). شاخه‌های متوسطه دوم را مدیر در «مشخصات مدرسه» انتخاب می‌کند.
+    if (t('province').isEmpty) out['province'] = 'استان را انتخاب کنید';
+    if (t('county').isEmpty) out['county'] = 'شهرستان را انتخاب کنید';
+    // ردیف ۱۵۸: مقطع، تلفن‌ها و آمار در فرم مالک است (همان قواعد server/school-profile.js).
     if (t('level').isNotEmpty && !schoolLevels.contains(t('level'))) {
-      return 'مقطع را انتخاب کنید';
+      out['level'] = 'مقطع را انتخاب کنید';
     }
     final landline = digitsOnly(f['landline']);
     if (landline.isNotEmpty && !RegExp(r'^0\d{6,10}$').hasMatch(landline)) {
-      return 'تلفن ثابت مدرسه باید با ۰ شروع شود (۷ تا ۱۱ رقم)';
+      out['landline'] = 'تلفن ثابت مدرسه باید با ۰ شروع شود (۷ تا ۱۱ رقم)';
     }
     final sPhone = digitsOnly(f['phone']);
     if (sPhone.isNotEmpty && !RegExp(r'^09\d{9}$').hasMatch(sPhone)) {
-      return 'تلفن همراه رابط باید ۱۱ رقم و با ۰۹ شروع شود';
-    }
-    final cap = f['capacity'];
-    if (cap != null && (cap is! int || cap < 1 || cap > 20000)) {
-      return 'ظرفیت باید بین ۱ تا ۲۰٬۰۰۰ باشد';
+      out['phone'] = 'تلفن همراه رابط باید ۱۱ رقم و با ۰۹ شروع شود';
     }
     final staff = f['staff_count'];
-    if (staff != null && (staff is! int || staff > 5000)) {
-      return 'تعداد کارکنان حداکثر ۵٬۰۰۰ است';
+    if (staff != null && (staff is! int || staff < 0 || staff > 5000)) {
+      out['staff'] = 'تعداد کارکنان حداکثر ۵٬۰۰۰ است';
     }
     final students = f['student_count'];
-    if (students is int && cap is int && students > cap) {
-      return 'تعداد دانش‌آموزان از ظرفیت بیشتر است';
+    if (students != null && (students is! int || students < 0)) {
+      out['students'] = 'تعداد دانش‌آموزان را درست بنویسید';
     }
     final m = f['manager'] is Map
         ? (f['manager']! as Map).cast<String, Object?>()
         : const <String, Object?>{};
     final mName = '${m['name'] ?? ''}'.trim();
-    final mUser = '${m['username'] ?? ''}'.trim().toLowerCase();
+    final mUser = normalizeUsername('${m['username'] ?? ''}');
     final nid = digitsOnly(m['national_id']);
-    if (mName.length < 3 || mUser.isEmpty) {
-      return 'نام مدیر و نام کاربری مدیر الزامی است';
-    }
-    if (!usernameRe.hasMatch(mUser)) {
-      return 'نام کاربری مدیر باید ۳ تا ۳۲ نویسهٔ لاتین کوچک، رقم یا . _ - باشد و با حرف شروع شود';
-    }
+    if (mName.length < 3) out['mg_name'] = 'نام و نام خانوادگی مدیر را بنویسید';
     if (nid.isNotEmpty && !validNationalId(nid)) {
-      return 'کد ملی مدیر معتبر نیست';
+      out['mg_nid'] = 'کد ملی مدیر معتبر نیست';
     }
     final phone = digitsOnly(m['phone']);
     if (phone.isNotEmpty && !RegExp(r'^09\d{9}$').hasMatch(phone)) {
-      return 'شمارهٔ همراه مدیر باید ۱۱ رقم و با ۰۹ شروع شود';
+      out['mg_phone'] = 'شمارهٔ همراه مدیر باید ۱۱ رقم و با ۰۹ شروع شود';
+    }
+    if (mUser.isEmpty) {
+      out['mg_user'] = 'نام کاربری مدیر را بنویسید (پیش‌فرض: تلفن همراه مدیر)';
+    } else if (!usernameRe.hasMatch(mUser)) {
+      out['mg_user'] = usernameRuleFa;
     }
     for (final x in schools) {
       if (x['id'] == selfId) continue;
       final xm = x['manager'] is Map
           ? (x['manager']! as Map).cast<String, Object?>()
           : const <String, Object?>{};
-      if ('${xm['username'] ?? ''}'.toLowerCase() == mUser) {
-        return 'نام کاربری مدیر تکراری است';
+      if (mUser.isNotEmpty &&
+          normalizeUsername('${xm['username'] ?? ''}') == mUser) {
+        out['mg_user'] = 'نام کاربری مدیر تکراری است';
       }
       if (nid.isNotEmpty && digitsOnly(xm['national_id']) == nid) {
-        return 'این کد ملی قبلاً برای فرد دیگری ثبت شده است';
+        out['mg_nid'] = 'این کد ملی قبلاً برای فرد دیگری ثبت شده است';
       }
     }
     if (needPassword && (password ?? '').length < 6) {
-      return 'رمز ورود مدیر دست‌کم ۶ نویسه باشد';
+      out['mg_pass'] =
+          'رمز ورود مدیر دست‌کم ۶ نویسه باشد (پیش‌فرض: کد ملی مدیر)';
     }
     if (!needPassword && password != null && password.isNotEmpty) {
-      if (password.length < 6) return 'رمز ورود مدیر دست‌کم ۶ نویسه باشد';
+      if (password.length < 6) out['mg_pass'] = 'رمز ورود مدیر دست‌کم ۶ نویسه باشد';
     }
-    return null;
+    return out;
   }
 
   /// ردیف ۱۵۸: مشخصاتی که فرم مالک دوباره تعیین می‌کند (همان بخش p2). مدیر هم در
@@ -910,7 +952,6 @@ final class SchoolRegistry {
     'school_type',
     'gender',
     'shift',
-    'capacity',
     'capabilities',
     'staff_count',
     'student_count',
@@ -964,7 +1005,6 @@ final class SchoolRegistry {
           ]..sort())
         : List<int>.of(defaultWorkDays);
     final ex = f['excuse_window_minutes'];
-    final cap = f['capacity'];
     return <String, Object?>{
       'name': t('name'),
       'code': t('code'),
@@ -979,7 +1019,6 @@ final class SchoolRegistry {
       'school_type': type,
       'gender': schoolGenders.contains(t('gender')) ? t('gender') : 'پسرانه',
       'shift': schoolShifts.contains(t('shift')) ? t('shift') : 'صبح',
-      'capacity': cap is int && cap > 0 ? cap : 300,
       'work_days': wd,
       'excuse_window_minutes': ex is int && ex >= 0 && ex <= 240 ? ex : 15,
       'capabilities': caps,
@@ -992,7 +1031,7 @@ final class SchoolRegistry {
       'student_count': f['student_count'] is int ? f['student_count'] : null,
       'manager': <String, Object?>{
         'name': '${m['name'] ?? ''}'.trim(),
-        'username': '${m['username'] ?? ''}'.trim().toLowerCase(),
+        'username': normalizeUsername('${m['username'] ?? ''}'),
         'national_id': digitsOnly(m['national_id']),
         'phone': digitsOnly(m['phone']),
         'title': 'مدیر مدرسه',

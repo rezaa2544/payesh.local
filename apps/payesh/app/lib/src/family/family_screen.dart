@@ -600,7 +600,13 @@ class _LeaveFormState extends State<LeaveForm> {
               DropdownButtonFormField<int>(
                 key: const Key('lvf-student'),
                 initialValue: _student,
-                decoration: const InputDecoration(labelText: 'دانش‌آموز'),
+                // row 166: the refused field is outlined red
+                decoration: InputDecoration(
+                  labelText: 'دانش‌آموز',
+                  errorText: _student == null
+                      ? fieldIssueFor(c.formError, 'دانش‌آموز', '')
+                      : null,
+                ),
                 items: [
                   for (final k in c.children)
                     DropdownMenuItem(value: k.id, child: Text(k.name)),
@@ -612,9 +618,14 @@ class _LeaveFormState extends State<LeaveForm> {
                 key: const Key('lvf-date'),
                 controller: _day,
                 keyboardType: TextInputType.datetime,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'تاریخ شمسی',
                   hintText: '۱۴۰۵/۰۸/۲۱',
+                  errorText:
+                      c.formError == FamilyError.badDate.messageFa ||
+                          fieldIssueFor(c.formError, 'تاریخ', _day.text) != null
+                      ? checkFieldFa
+                      : null,
                 ),
               ),
               const SizedBox(height: PayeshTokens.space3),

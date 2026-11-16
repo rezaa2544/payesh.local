@@ -248,65 +248,114 @@ class SchoolForm extends StatelessWidget {
   final VoidCallback onSubmit;
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: controller,
-    builder: (context, _) => Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          key: Key('$prefix-form-back'),
-          tooltip: 'بازگشت',
-          icon: const BackButtonIcon(),
-          onPressed: () => Navigator.maybePop(context),
+  Widget build(BuildContext context) => _IssueHost(
+    controller: controller,
+    child: ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            key: Key('$prefix-form-back'),
+            tooltip: 'بازگشت',
+            icon: const BackButtonIcon(),
+            onPressed: () => Navigator.maybePop(context),
+          ),
+          title: Text(title),
         ),
-        title: Text(title),
-      ),
-      // the refusal stays pinned above the fields: visible wherever the form was scrolled
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (controller.formError != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                PayeshTokens.space4,
-                PayeshTokens.space3,
-                PayeshTokens.space4,
-                0,
-              ),
-              child: Semantics(
-                liveRegion: true,
-                child: Text(
-                  controller.formError!,
-                  key: Key('$prefix-form-error'),
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+        // the refusal stays pinned above the fields: visible wherever the form was scrolled
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (controller.formError != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  PayeshTokens.space4,
+                  PayeshTokens.space3,
+                  PayeshTokens.space4,
+                  0,
+                ),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    controller.formError!,
+                    key: Key('$prefix-form-error'),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
               ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(PayeshTokens.space4),
+                children: [
+                  for (final f in fields)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: PayeshTokens.space3,
+                      ),
+                      child: f,
+                    ),
+                ],
+              ),
             ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(PayeshTokens.space4),
-              children: [
-                for (final f in fields)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-                    child: f,
-                  ),
-              ],
+          ],
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(PayeshTokens.space3),
+            child: FilledButton(
+              key: Key('$prefix-save'),
+              onPressed: controller.busy ? null : onSubmit,
+              child: Text(submitLabel),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(PayeshTokens.space3),
-          child: FilledButton(
-            key: Key('$prefix-save'),
-            onPressed: controller.busy ? null : onSubmit,
-            child: Text(submitLabel),
           ),
         ),
       ),
     ),
   );
+}
+
+/// Row 166: the red outline of every field a refused submit is about. The form's message
+/// ([SchoolController.formError]) is matched to the [SchoolField]s registered below: empty
+/// required (`*`) fields and the field whose label the message names. Typing in a field
+/// clears its outline.
+class _IssueHost extends StatefulWidget {
+  const _IssueHost({required this.controller, required this.child});
+  final SchoolController controller;
+  final Widget child;
+
+  @override
+  State<_IssueHost> createState() => _IssueHostState();
+}
+
+class _IssueHostState extends State<_IssueHost> {
+  final FieldIssues issues = FieldIssues();
+  String? _seen;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_sync);
+  }
+
+  void _sync() {
+    final e = widget.controller.formError;
+    if (e == _seen) return;
+    _seen = e;
+    issues.guessFrom(e);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_sync);
+    issues.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      FieldIssueScope(issues: issues, child: widget.child);
 }
 
 /// Labelled text field of a [SchoolForm].
@@ -327,18 +376,25 @@ class SchoolField extends StatelessWidget {
   final int lines;
 
   @override
-  Widget build(BuildContext context) => TextField(
-    key: Key(keyName),
-    controller: controller,
-    keyboardType: numeric ? TextInputType.number : null,
-    textDirection: numeric ? TextDirection.ltr : null,
-    minLines: lines,
-    maxLines: lines == 1 ? 1 : lines * 3,
-    decoration: InputDecoration(
-      labelText: label,
-      border: const OutlineInputBorder(),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final issues = FieldIssueScope.maybeOf(context);
+    issues?.register(keyName, () => (label: label, value: controller.text));
+    return TextField(
+      key: Key(keyName),
+      controller: controller,
+      keyboardType: numeric ? TextInputType.number : null,
+      textDirection: numeric ? TextDirection.ltr : null,
+      minLines: lines,
+      maxLines: lines == 1 ? 1 : lines * 3,
+      onChanged: (_) => issues?.clear(keyName),
+      decoration: InputDecoration(
+        labelText: label,
+        errorText: issues?.of(keyName),
+        errorMaxLines: 3,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
 }
 
 /// Two-step confirmation (web `confirm()`); true only when the user confirmed.

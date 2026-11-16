@@ -125,8 +125,10 @@ abstract final class LanServerRules {
     return t.replaceAll(RegExp('[^0-9]'), '');
   }
 
-  /// Latin user name of a school manager (`^[a-z][a-z0-9._-]{2,31}\$`, server/auth.js).
-  static final RegExp usernameRe = RegExp(r'^[a-z][a-z0-9._-]{2,31}$');
+  /// User name of a school manager (server/auth.js `USERNAME_RE`). Row 166: the owner's rule
+  /// "lower-case Latin, starts with a letter" is gone — any 3–32 of a-z 0-9 . _ - @, digits only
+  /// too (the default user name is the manager's mobile, e.g. 09142869505).
+  static final RegExp usernameRe = RegExp(r'^[a-z0-9._@-]{3,32}$');
 
   /// Web `digitsOnly` (client/app.js): Persian / Arabic digits → Latin; everything that is not
   /// a digit (spaces, dashes, letters) is dropped. Used by the setup and claim forms, which only
@@ -137,13 +139,13 @@ abstract final class LanServerRules {
   /// Web `doSetup` / `doClaim`: the manager's mobile is exactly 11 digits.
   static const String mobileRuleFa = 'شمارهٔ همراه باید ۱۱ رقم باشد';
 
-  /// Web `doLogin`: a mobile is 11 digits and a national id 10; row 160 — a numeric user code the
-  /// manager set is 4–9 digits (10 / 11 stay national id / mobile, so nothing is ambiguous).
+  /// Web `doLogin`: digits are a numeric user name (row 166: 3–32 digits, e.g. the mobile), a
+  /// mobile (11) or a national id (10); the server tries them in that order.
   static const String loginDigitsRuleFa =
-      'شمارهٔ همراه ۱۱ رقم، کد ملی ۱۰ رقم و کد کاربری ۴ تا ۹ رقم است — دوباره بنویسید';
+      'نام کاربری، شمارهٔ همراه یا کد ملی را درست بنویسید (دست‌کم ۳ رقم)';
 
-  /// Row 160: numeric user code set by the school manager (server/auth.js `USERCODE_RE`).
-  static final RegExp userCodeRe = RegExp(r'^\d{4,9}$');
+  /// Numeric user name (server/auth.js `USERCODE_RE`, row 166: 3–32 digits).
+  static final RegExp userCodeRe = RegExp(r'^\d{3,32}$');
 
   /// Row 160: mobile number of the SMS login — 11 digits starting with 09 (Persian digits ok).
   static String? mobileProblem(String typed) {
@@ -154,9 +156,9 @@ abstract final class LanServerRules {
         : 'شمارهٔ همراه باید ۱۱ رقم و با ۰۹ باشد';
   }
 
-  /// Row 145 user name rule, said the way the owner's school form says it.
+  /// Row 166 user name rule, said the way the owner's school form says it.
   static const String usernameRuleFa =
-      'نام کاربری با حرف انگلیسی شروع می‌شود و ۳ تا ۳۲ نویسه (حرف انگلیسی، رقم، . _ -) است';
+      'نام کاربری ۳ تا ۳۲ نویسه از حرف انگلیسی، رقم و . _ - @ است (فقط رقم هم درست است)';
 
   /// Persian letters in the login field: the keyboard is on Persian while typing a user name.
   static const String latinUsernameFa =
@@ -173,9 +175,7 @@ abstract final class LanServerRules {
     }
     if (RegExp('[\u0600-\u06FF]').hasMatch(t)) return latinUsernameFa;
     final d = digitsOnly(t);
-    return d.length == 11 || d.length == 10 || userCodeRe.hasMatch(d)
-        ? null
-        : loginDigitsRuleFa;
+    return userCodeRe.hasMatch(d) ? null : loginDigitsRuleFa;
   }
 
   /// Something the server can look up: a mobile (11) / national id (10) or a user name.

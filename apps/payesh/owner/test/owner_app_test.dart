@@ -412,6 +412,14 @@ void main() {
         await _fillDialog(tester, 'کوتاه');
         expect(find.text(ownerErrors['reason_too_short']!), findsOneWidget);
         expect(be.posts('/tenants/$tenantA/suspend'), isEmpty);
+        // row 166: the refused field itself is outlined red
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const Key('dlg-reason')))
+              .decoration
+              ?.errorText,
+          'دست‌کم ۱۰ نویسه بنویسید',
+        );
         await _fillDialog(tester, 'تعلیق به درخواست مدیر مدرسه');
         final post = be.posts('/tenants/$tenantA/suspend').single.body!;
         expect(post['reason'], 'تعلیق به درخواست مدیر مدرسه');

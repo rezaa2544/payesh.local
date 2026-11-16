@@ -133,20 +133,18 @@ void main() {
         '٠٠١٢٣٤٥٦٧٨',
         'Ali.Rezaei',
         'm_karimi-2',
+        '091', // row 166: digit user names
+        '091212345678',
+        '1ali',
       ]) {
         expect(p(ok), isNull, reason: ok);
         expect(LanServerRules.validLogin(ok), isTrue, reason: ok);
       }
       expect(p(''), isNotNull);
       expect(p('   '), isNotNull);
-      expect(
-        p('091'),
-        LanServerRules.loginDigitsRuleFa,
-      ); // row 160: 4–9 digits = user code
-      expect(p('091212345678'), LanServerRules.loginDigitsRuleFa);
-      expect(p('+98 912 123 4567'), LanServerRules.loginDigitsRuleFa);
+      expect(p('09'), LanServerRules.loginDigitsRuleFa);
+      expect(p('1' * 33), LanServerRules.loginDigitsRuleFa);
       expect(p('ab'), LanServerRules.usernameRuleFa);
-      expect(p('1ali'), LanServerRules.usernameRuleFa);
       expect(p('ali rezaei'), LanServerRules.usernameRuleFa);
       expect(p('علی.رضایی'), LanServerRules.latinUsernameFa);
       expect(LanServerRules.digitsOnly(' ۰۹۱۲-۱۲۳ ٤٥٦٧ '), '09121234567');

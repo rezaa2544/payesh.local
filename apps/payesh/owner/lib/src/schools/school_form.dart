@@ -2,14 +2,24 @@
 // و اعتبارسنجی «school-save» (src/js/19-actions-admin.js)، به‌اضافهٔ نام کاربری و رمز مدیر.
 //
 // ردیف ۱۵۸ (درخواست مالک ۱۴۰۵/۰۸/۲۳، بازگرداندن بخشی از ردیف ۱۵۰): فرم مالک دوباره همهٔ
-// مشخصات اصلی p2 را دارد — مقطع، نوع، نوع مدرسه، جنسیت، تلفن ثابت، تلفن همراه رابط، ظرفیت،
+// مشخصات اصلی p2 را دارد — مقطع، نوع، نوع مدرسه، جنسیت، تلفن ثابت، تلفن همراه رابط،
 // وضعیت، شیفت، تعداد کارکنان و دانش‌آموزان. روزهای کاری، پنجرهٔ موجه، قابلیت‌ها و شاخه‌ها
 // همچنان در «سیستم ← مشخصات مدرسه» پنل مدیر است. مدیر همهٔ این مشخصات را آنجا هم می‌تواند
 // اصلاح کند؛ تغییر بعدی مالک فقط همان فیلدی را که مالک عوض کرده روی سرور مدرسه می‌نویسد
 // (server/school-registry.js applySchool · OWNER_PROFILE_KEYS).
+//
+// ردیف ۱۶۶ (خواستهٔ مالک):
+//  • نام کاربری مدیر به‌طور پیش‌فرض همان تلفن همراه مدیر و رمز همان کد ملی است (تا مالک خودش
+//    چیز دیگری ننویسد)؛ قاعدهٔ «حروف کوچک لاتین، شروع با حرف» برداشته شد (۰۹۱۴۲۸۶۹۵۰۵ درست است).
+//  • با انتخاب استان، فهرست شهرستان‌های همان استان خودکار پر می‌شود (بدون تایپ دستی).
+//  • «ظرفیت» حذف شد؛ فقط «تعداد دانش‌آموزان»، بدون سقف.
+//  • شیفت «چرخشی»: کل مدرسه یک هفته صبح و هفتهٔ بعد بعدازظهر (زنگ‌ها در پنل مدیر).
+//  • پس از «ثبت» دور هر کادر نادرست قرمز می‌شود و پیامش زیر همان کادر می‌آید.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:payesh_ui/payesh_ui.dart'
+    show FieldIssues, fieldsToFixFa, iranCountiesOf;
 
 import 'school_registry.dart';
 
@@ -59,6 +69,7 @@ class SchoolFormDialog extends StatefulWidget {
 class _SchoolFormDialogState extends State<SchoolFormDialog> {
   final Map<String, TextEditingController> _c = {};
   late String _province;
+  late String _county;
   late String _areaKind;
   late String _level;
   late String _type;
@@ -68,6 +79,13 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
   late bool _active;
   late Map<String, int> _caps;
   String? _error;
+
+  /// ایراد هر کادر پس از آخرین «ثبت» (ردیف ۱۶۶).
+  final FieldIssues _issues = FieldIssues();
+
+  /// نام کاربری / رمز مدیر تا وقتی مالک دستی ننوشته، از همراه / کد ملی پر می‌شود.
+  late bool _userAuto;
+  late bool _passAuto;
 
   Map<String, Object?> get _m => widget.initial['manager'] is Map
       ? (widget.initial['manager']! as Map).cast<String, Object?>()
@@ -82,13 +100,9 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
     final s = widget.initial;
     _ctl('name', s['name']);
     _ctl('code', s['code']);
-    _ctl('county', s['county']);
     _ctl('district', s['district']);
     _ctl('landline', s['landline']);
     _ctl('phone', s['phone']);
-    // درخواست ثبت‌نام ظرفیت ندارد: پیش‌فرض p2 (۳۰۰) ولی نه کمتر از تعداد دانش‌آموزان
-    final st = s['student_count'];
-    _ctl('capacity', s['capacity'] ?? (st is int && st > 300 ? st : 300));
     _ctl('staff', s['staff_count']);
     _ctl('students', s['student_count']);
     _ctl('address', s['address']);
@@ -98,6 +112,13 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
     _ctl('mg_user', _m['username']);
     _ctl('mg_pass', '');
     _province = iranProvinces.contains(s['province']) ? '${s['province']}' : '';
+    // شهرستانِ قدیمیِ تایپ‌شده (خارج از فهرست) هم نگه داشته می‌شود تا ویرایش آن را پاک نکند
+    _county = '${s['county'] ?? ''}'.trim();
+    final mode = widget.mode;
+    _userAuto = mode == 'create' && '${_m['username'] ?? ''}'.trim().isEmpty;
+    _passAuto = mode == 'create';
+    if (_userAuto) _c['mg_user']!.text = digitsOnly(_m['phone']);
+    if (_passAuto) _c['mg_pass']!.text = digitsOnly(_m['national_id']);
     _areaKind = s['area_kind'] == 'village' ? 'village' : 'district';
     _level = schoolLevels.contains(s['level']) ? '${s['level']}' : 'متوسطه اول';
     _type = schoolKindsFa.contains(s['type']) ? '${s['type']}' : 'عادی';
@@ -121,6 +142,7 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
     for (final c in _c.values) {
       c.dispose();
     }
+    _issues.dispose();
     super.dispose();
   }
 
@@ -132,7 +154,7 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
     'name': _t('name'),
     'code': _t('code'),
     'province': _province,
-    'county': _t('county'),
+    'county': _county,
     'district': _t('district'),
     'area_kind': _areaKind,
     'phone': _t('phone'),
@@ -142,7 +164,6 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
     'school_type': _schoolType,
     'gender': _gender,
     'shift': _shift,
-    'capacity': _int('capacity') ?? 300,
     'active': _active,
     'capabilities': {
       ..._caps,
@@ -155,7 +176,7 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
       'name': _t('mg_name'),
       'national_id': _t('mg_nid'),
       'phone': _t('mg_phone'),
-      'username': _t('mg_user').toLowerCase(),
+      'username': normalizeUsername(_t('mg_user')),
     },
   };
 
@@ -174,8 +195,16 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
       needPassword: widget.mode == 'create',
       password: widget.mode == 'approve' ? null : pw,
     );
+    final all = SchoolRegistry.validateSchoolFields(
+      f,
+      widget.schools,
+      selfId: widget.selfId,
+      needPassword: widget.mode == 'create',
+      password: widget.mode == 'approve' ? null : pw,
+    );
     if (err != null) {
-      setState(() => _error = err);
+      _issues.setAll(all);
+      setState(() => _error = all.isEmpty ? err : fieldsToFixFa(all.length));
       return;
     }
     Navigator.of(context).pop(SchoolFormResult(f, pw));
@@ -190,11 +219,13 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
     bool enabled = true,
     int lines = 1,
     String? hint,
+    String? helper,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
     child: TextField(
       key: Key('sf-$k'),
       controller: _c[k],
+      onChanged: (v) => _changed(k, v),
       enabled: enabled,
       obscureText: obscure,
       maxLines: obscure ? 1 : lines,
@@ -206,11 +237,34 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        helperText: helper,
+        helperMaxLines: 2,
+        errorText: _issues.of(k),
+        errorMaxLines: 3,
         border: const OutlineInputBorder(),
         isDense: true,
       ),
     ),
   );
+
+  /// کاربر کادر را اصلاح کرد ⇒ قرمزیِ همان کادر برداشته می‌شود؛ پیش‌فرض‌های نام کاربری/رمز.
+  void _changed(String k, String v) {
+    var dirty = _issues.has(k);
+    _issues.clear(k);
+    if (k == 'mg_user') _userAuto = false;
+    if (k == 'mg_pass') _passAuto = false;
+    if (k == 'mg_phone' && _userAuto) {
+      _c['mg_user']!.text = digitsOnly(v);
+      dirty |= _issues.has('mg_user');
+      _issues.clear('mg_user');
+    }
+    if (k == 'mg_nid' && _passAuto) {
+      _c['mg_pass']!.text = digitsOnly(v);
+      dirty |= _issues.has('mg_pass');
+      _issues.clear('mg_pass');
+    }
+    if (dirty) setState(() {});
+  }
 
   Widget _select(
     String k,
@@ -226,6 +280,8 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
+        errorText: _issues.of(k),
+        errorMaxLines: 3,
         border: const OutlineInputBorder(),
         isDense: true,
       ),
@@ -233,9 +289,16 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
         for (final e in options.entries)
           DropdownMenuItem(value: e.key, child: Text(e.value)),
       ],
-      onChanged: (v) {
-        if (v != null) setState(() => onChanged(v));
-      },
+      onChanged: options.length <= 1
+          ? null
+          : (v) {
+              if (v != null) {
+                setState(() {
+                  _issues.clear(k);
+                  onChanged(v);
+                });
+              }
+            },
     ),
   );
 
@@ -294,8 +357,26 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
                 _select('province', 'استان *', _province, {
                   '': '— انتخاب استان —',
                   for (final p in iranProvinces) p: p,
-                }, (v) => _province = v),
-                _text('county', 'شهرستان *'),
+                }, (v) {
+                  if (v != _province) {
+                    _county = '';
+                    _issues.clear('county');
+                  }
+                  _province = v;
+                }),
+                // ردیف ۱۶۶: شهرستان‌های همان استان (کلید تازه با هر استان ⇒ فهرست از نو)
+                KeyedSubtree(
+                  key: ValueKey('sf-county-of-$_province'),
+                  child: _select('county', 'شهرستان *', _county, {
+                    '': _province.isEmpty
+                        ? '— اول استان را انتخاب کنید —'
+                        : '— انتخاب شهرستان —',
+                    if (_county.isNotEmpty &&
+                        !iranCountiesOf(_province).contains(_county))
+                      _county: _county,
+                    for (final c in iranCountiesOf(_province)) c: c,
+                  }, (v) => _county = v),
+                ),
                 _text('district', 'منطقه / ناحیه یا روستا'),
                 _select('area_kind', 'نوع محل', _areaKind, const {
                   'district': 'منطقه / ناحیه (شهری)',
@@ -324,7 +405,6 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
                 }, (v) => _gender = v),
                 _text('landline', 'تلفن ثابت مدرسه', ltr: true, numeric: true),
                 _text('phone', 'تلفن همراه رابط', ltr: true, numeric: true),
-                _text('capacity', 'ظرفیت', numeric: true),
                 _select('active', 'وضعیت', _active ? '1' : '0', const {
                   '1': 'فعال',
                   '0': 'غیرفعال',
@@ -334,10 +414,16 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
                   'بعدازظهر': 'بعدازظهر',
                   'شب': 'شب (نوبت دوم / بزرگسالان)',
                   'هر دو': 'هر دو شیفت',
+                  'چرخشی': 'چرخشی (هفته‌ای صبح، هفته‌ای بعدازظهر)',
                 }, (v) => _shift = v),
                 _text('staff', 'تعداد کارکنان', numeric: true),
                 _text('students', 'تعداد دانش‌آموزان', numeric: true),
               ]),
+              if (_shift == 'چرخشی')
+                _muted(
+                  'شیفت چرخشی: کل مدرسه یک هفته صبح و هفتهٔ بعد بعدازظهر است. مدیر در «برنامهٔ هفتگی ← زنگ‌ها» زنگ‌های صبح و بعدازظهر را جدا ثبت می‌کند و شیفت هفتهٔ اول را انتخاب می‌کند؛ برنامه هر هفته خودکار جابه‌جا می‌شود.',
+                  key: const Key('sf-rotating-note'),
+                ),
               _muted(
                 'نوع مدرسه تعیین می‌کند کدام ماژول‌ها (شهریه، خوابگاه، IEP، چندپایه، کارگاه) فعال باشند؛ با تغییر آن، چک‌باکس‌های «پروفایل قابلیت» خودکار تنظیم می‌شوند ولی مدیر در «مشخصات مدرسه» دستی هم می‌تواند اصلاح کند.',
               ),
@@ -360,7 +446,8 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
                   'نام کاربری *',
                   ltr: true,
                   enabled: !approve,
-                  hint: 'لاتین، مثلاً ali.rezaei',
+                  hint: 'مثلاً 09121234567',
+                  helper: approve ? null : 'پیش‌فرض: تلفن همراه مدیر',
                 ),
                 if (!approve)
                   _text(
@@ -368,6 +455,7 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
                     edit ? 'رمز تازه (خالی = بدون تغییر)' : 'رمز ورود مدیر *',
                     ltr: true,
                     obscure: true,
+                    helper: edit ? null : 'پیش‌فرض: کد ملی مدیر',
                   ),
               ]),
               _muted(

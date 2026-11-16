@@ -397,6 +397,108 @@ void main() {
     );
   });
 
+  test('R166-U01 rotating shift: morning/afternoon bells, first week, weekly flip from Saturday', () async {
+    final (e, ob) = await seeded();
+    SchoolRecords at(DateTime now) => SchoolRecords(
+      engine: e,
+      outbox: ob,
+      role: 'manager',
+      uid: 1,
+      random: Random(9),
+      now: () => now,
+    );
+    // pre-rotation bells (untagged)
+    await Timetable(db(e, ob)).saveBells(const [
+      BellDraft(start: '07:30', end: '08:15'),
+      BellDraft(start: '08:30', end: '09:15'),
+    ]);
+    final t = Timetable(db(e, ob));
+    expect(await t.rotating(), isFalse);
+    expect(await t.weekShift(), isNull);
+    final row = (await e.get('schools', 1))!;
+    await e.put('schools', 1, {...row.data, 'shift': 'چرخشی'}, version: 2);
+    expect(await t.rotating(), isTrue);
+    // not set up yet: this week = morning (default), untagged bells as the fallback, offered as
+    // new rows so one shift never takes rows from the other
+    expect(await t.weekShift(), 'صبح');
+    expect((await t.bells()).map((b) => b.start), ['07:30', '08:30']);
+    final draftA = await t.bellDraft(shift: 'بعدازظهر');
+    expect(draftA.map((d) => d.id), [0, 0]);
+    // NEG: a wrong afternoon set ⇒ nothing written, the message names the shift
+    await expectLater(
+      t.saveRotatingBells(
+        morning: const [BellDraft(start: '07:30', end: '08:15')],
+        afternoon: const [BellDraft(start: '14:00', end: '13:00')],
+        first: 'صبح',
+      ),
+      throwsA(
+        isA<RecordFailure>().having(
+          (f) => f.messageFa,
+          'message',
+          startsWith('زنگ‌های بعدازظهر: '),
+        ),
+      ),
+    );
+    await expectLater(
+      t.saveRotatingBells(
+        morning: const [BellDraft(start: '07:30', end: '08:15')],
+        afternoon: const [BellDraft(start: '13:30', end: '14:15')],
+        first: 'شب',
+      ),
+      failsWith('invalid'),
+    );
+    // first week = afternoon, from a Wednesday ⇒ anchored on that week's Saturday
+    await t.saveRotatingBells(
+      morning: const [
+        BellDraft(start: '07:30', end: '08:15'),
+        BellDraft(start: '08:15', end: '08:30', type: 'break'),
+        BellDraft(start: '08:30', end: '09:15'),
+      ],
+      afternoon: const [
+        BellDraft(start: '13:30', end: '14:15'),
+        BellDraft(start: '14:30', end: '15:15'),
+        BellDraft(start: '15:30', end: '16:15'),
+      ],
+      first: 'بعدازظهر',
+      start: '2026-11-18',
+    );
+    final rot = (await e.get('schools', 1))!.data['rotation'] as Map;
+    expect(rot, {'first': 'بعدازظهر', 'start': '2026-11-14'});
+    // untagged rows are gone once both shifts have their own
+    final rows = await db(e, ob).allOrEmpty('bell_schedules');
+    expect(rows.map((r) => r.data['shift']).toSet(), {'صبح', 'بعدازظهر'});
+    // week of 2026-11-14 (Sat) … 2026-11-20 (Fri) = afternoon; next Saturday flips to morning
+    for (final (day, shift, first) in [
+      (DateTime.utc(2026, 11, 14, 8), 'بعدازظهر', '13:30'),
+      (DateTime.utc(2026, 11, 20, 23), 'بعدازظهر', '13:30'),
+      (DateTime.utc(2026, 11, 21, 7), 'صبح', '07:30'),
+      (DateTime.utc(2026, 11, 28, 7), 'بعدازظهر', '13:30'),
+      (DateTime.utc(2026, 11, 7, 7), 'صبح', '07:30'),
+    ]) {
+      final tt = Timetable(at(day));
+      expect(await tt.weekShift(), shift, reason: '$day');
+      expect((await tt.lessons()).first.start, first, reason: '$day');
+    }
+    // the afternoon has 3 lessons, the morning 2: the grid follows this week's shift
+    expect((await Timetable(at(DateTime.utc(2026, 11, 14))).lessons()).length, 3);
+    expect((await Timetable(at(DateTime.utc(2026, 11, 21))).lessons()).length, 2);
+    // drafts are per shift with their own ids; re-saving one shift keeps the other
+    final dm = await t.bellDraft(shift: 'صبح');
+    expect(dm.every((d) => d.id != 0), isTrue);
+    await t.saveBells([dm.first], shift: 'صبح');
+    expect((await t.bells(shift: 'صبح')).length, 1);
+    expect((await t.bells(shift: 'بعدازظهر')).length, 3);
+    // rotation off again ⇒ the morning bells until the manager saves bells again
+    final r2 = (await e.get('schools', 1))!;
+    await e.put('schools', 1, {...r2.data, 'shift': 'صبح'}, version: 9);
+    expect(await t.weekShift(), isNull);
+    expect((await t.bells()).single.start, '07:30');
+    await t.saveBells(const [BellDraft(start: '08:00', end: '08:45')]);
+    expect((await db(e, ob).allOrEmpty('bell_schedules')).length, 1, reason: 'one set again');
+    expect(Rotation.saturdayOf(DateTime(2026, 11, 20)), DateTime.utc(2026, 11, 14));
+    expect(Rotation.saturdayOf(DateTime(2026, 11, 14)), DateTime.utc(2026, 11, 14));
+  });
+
   test('W9-U11 generator: demands by weekly hours, specialists, one-day spread; apply fills only empty cells', () async {
     final (e, ob) = await seeded();
     final t = Timetable(db(e, ob));

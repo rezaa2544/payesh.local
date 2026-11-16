@@ -17,9 +17,38 @@
 
 const SCHED_DAY_FA = ['شنبه', 'یک‌شنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه'];
 
+/* ── ردیف ۱۶۶: شیفت چرخشی (همان payesh_sync Timetable.weekShift / bells) ──
+   کل مدرسه یک هفته صبح و هفتهٔ بعد بعدازظهر؛ زنگ‌های هر شیفت با bell_schedules.shift جداست و
+   schools/1.rotation = { first, start } شیفت هفتهٔ اول و شنبهٔ آن هفته است. */
+const SCHED_ROT = 'چرخشی', SCHED_AM = 'صبح', SCHED_PM = 'بعدازظهر';
+function schedSchoolRow() { return byId('schools', 1) || list('schools')[0] || {}; }
+function schedSatOf(d) {
+  const x = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  return x - ((new Date(x).getUTCDay() + 1) % 7) * 864e5;
+}
+function schedWeekShift(day) {
+  const s = schedSchoolRow();
+  if (String(s.shift || '') !== SCHED_ROT) return null;
+  const r = s.rotation && typeof s.rotation === 'object' ? s.rotation : {};
+  const first = r.first === SCHED_PM ? SCHED_PM : SCHED_AM;
+  const d = day || new Date();
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(r.start || ''));
+  const a = m ? schedSatOf(new Date(+m[1], +m[2] - 1, +m[3])) : schedSatOf(d);
+  const i = Math.round((schedSatOf(d) - a) / (7 * 864e5));
+  return ((i % 2) + 2) % 2 === 0 ? first : (first === SCHED_PM ? SCHED_AM : SCHED_PM);
+}
+/* زنگ‌های شیفت [shift] (پیش‌فرض: شیفت این هفته)؛ شیفتی که هنوز زنگ ندارد ⇒ زنگ‌های بدون برچسب */
+function schedBellRows(shift) {
+  const rows = list('bell_schedules');
+  const want = shift === undefined ? schedWeekShift() : shift;
+  const tag = b => String(b.shift || '');
+  const pick = rows.filter(b => tag(b) === (want || ''));
+  return pick.length ? pick : rows.filter(b => tag(b) === (want == null ? SCHED_AM : ''));
+}
+
 /* ── زنگ‌ها ──────────────────────────────────────────────────────── */
 function schedLessons() {
-  const sorted = list('bell_schedules')
+  const sorted = schedBellRows()
     .filter(b => String(b.type || 'lesson') === 'lesson')
     .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
   const seen = new Set();
@@ -564,8 +593,11 @@ function schedOrdinal(n) {
 
 /* ══════════════ تنظیم زنگ‌ها ══════════════ */
 function schedBellModal() {
-  const bells = list('bell_schedules').sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
-  const draft = bells.length ? bells.map(b => ({ id: b.id, order: Number(b.order || 0), start: b.start || '', end: b.end || '', type: b.type || 'lesson', label: b.label || '' }))
+  /* ردیف ۱۶۶: مدرسهٔ چرخشی ⇒ زنگ‌های شیفت این هفته؛ زنگ‌های قرضی (بدون برچسب) ردیف تازه می‌شوند */
+  S.bellShift = schedWeekShift();
+  const own = b => String(b.shift || '') === (S.bellShift || '');
+  const bells = schedBellRows().sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+  const draft = bells.length ? bells.map(b => ({ id: own(b) ? b.id : 0, order: Number(b.order || 0), start: b.start || '', end: b.end || '', type: b.type || 'lesson', label: b.label || '' }))
     : [
       { id: 0, order: 1, start: '', end: '', type: 'lesson', label: 'زنگ ۱ (درس)' },
       { id: 0, order: 1.5, start: '', end: '', type: 'break', label: 'تفریح اول' },
@@ -593,9 +625,10 @@ function schedBellCaptureDraft(form) {
 }
 function schedBellModalHtml() {
   const d = S.bellDraft || [];
-  S.modalTitle = '⏱️ تنظیم زنگ‌ها';
+  S.modalTitle = '⏱️ تنظیم زنگ‌ها' + (S.bellShift ? ' — شیفت ' + S.bellShift + ' (این هفته)' : '');
   let lessonNumber = 0, breakNumber = 0;
   modal(`<form data-form="bells">
+    ${S.bellShift ? `<div class="small" style="margin-bottom:8px;line-height:1.9">شیفت مدرسه چرخشی است؛ این فرم زنگ‌های شیفت «${esc(S.bellShift)}» را ذخیره می‌کند. زنگ‌های شیفت دیگر و شیفت هفتهٔ اول در برنامهٔ مدرسه (برنامهٔ هفتگی ← زنگ‌ها) تنظیم می‌شوند.</div>` : ''}
     <div class="small muted" style="margin-bottom:10px;line-height:1.9">برای هر ردیف زمان شروع و پایان را وارد کنید. نوع «درس» به‌صورت زنگ در جدول می‌آید؛ «تفریح» فاصلهٔ بین زنگ‌هاست و خانهٔ درسی ایجاد نمی‌کند. ترتیب ردیف‌ها از بالا به پایین است.</div>
     ${d.map((b, i) => {
       if (b.type === 'break') breakNumber++; else lessonNumber++;
@@ -652,6 +685,7 @@ function schedSaveBells(f) {
       start, end, type,
       label: type === 'break' ? 'تفریح ' + schedOrdinal(breakOrder) : ('زنگ ' + fa(lessonOrder) + ' (درس)'),
       school_id: 1,
+      shift: S.bellShift || '',
     };
     const id = Number(b.id) || 0;
     if (id) putLocal('bell_schedules', Object.assign({}, byId('bell_schedules', id) || {}, row, { id }));
@@ -659,8 +693,9 @@ function schedSaveBells(f) {
   });
   /* زنگ‌هایی که در فرم حذف شده‌اند؛ شناسه‌های آفلاینِ منفی هم حفظ/حذف شوند. */
   const keep = new Set(d.map(x => Number(x.id)).filter(Boolean));
-  list('bell_schedules').filter(b => !keep.has(Number(b.id))).forEach(b => removeLocal('bell_schedules', b.id));
-  S.bellDraft = null;
+  list('bell_schedules').filter(b => !keep.has(Number(b.id)) && (!S.bellShift || String(b.shift || '') === S.bellShift))
+    .forEach(b => removeLocal('bell_schedules', b.id));
+  S.bellDraft = null; S.bellShift = null;
   closeModal(); saveCache(); render();
   flushQueue().catch(() => {});
   toast('زنگ‌ها ذخیره شد', 'ok');

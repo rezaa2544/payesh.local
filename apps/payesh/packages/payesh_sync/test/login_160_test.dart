@@ -17,13 +17,16 @@ void main() {
           '8001',
           '123456789',
           'ali.r',
+          '091',
+          '09142869505',
+          '2ali',
         ]) {
           expect(LanServerRules.loginProblem(ok), isNull, reason: ok);
         }
-        for (final bad in ['091', '1234567890123', '2ali']) {
+        for (final bad in ['09', '1' * 33, 'ali rezaei']) {
           expect(LanServerRules.loginProblem(bad), isNotNull, reason: bad);
         }
-        expect(LanServerRules.loginDigitsRuleFa, contains('۴ تا ۹'));
+        expect(LanServerRules.loginDigitsRuleFa, contains('دست‌کم ۳ رقم'));
         expect(LanServerRules.mobileProblem('۰۹۱۲۱۲۳۴۵۶۷'), isNull);
         expect(LanServerRules.mobileProblem('0912'), isNotNull);
         expect(LanServerRules.mobileProblem(''), 'شمارهٔ همراه را بنویسید');
@@ -34,15 +37,24 @@ void main() {
     test(
       'L160-U02 manager user name: Latin or a 4–9 digit code; empty = mobile',
       () {
-        for (final ok in ['', 'ali.rezaei', 'Teacher_7', '8001', '۱۲۳۴']) {
-          expect(AccountRules.usernameProblem(ok), isNull, reason: ok);
-        }
-        for (final bad in [
-          'ab',
+        // row 166: digits only (the mobile, the national id, any code) and letter-first-free
+        for (final ok in [
+          '',
+          'ali.rezaei',
+          'Teacher_7',
+          '8001',
+          '۱۲۳۴',
           '123',
           '0012345678',
           '09121234567',
           '1abc',
+        ]) {
+          expect(AccountRules.usernameProblem(ok), isNull, reason: ok);
+        }
+        for (final bad in [
+          'ab',
+          '12',
+          'ali rezaei',
           'علی',
         ]) {
           expect(

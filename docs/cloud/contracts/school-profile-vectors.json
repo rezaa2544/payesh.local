@@ -13,7 +13,8 @@
     "صبح",
     "بعدازظهر",
     "شب",
-    "هر دو"
+    "هر دو",
+    "چرخشی"
   ],
   "kinds": [
     "عادی",
@@ -65,7 +66,6 @@
     ]
   },
   "max": {
-    "capacity": 20000,
     "staff": 5000,
     "excuse": 240,
     "boom": 2000
@@ -79,7 +79,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -112,7 +111,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": 300,
         "landline": "05142233445",
         "phone": "09121234567",
         "staff_count": 20,
@@ -148,7 +146,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -183,7 +180,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": 300,
         "landline": "05142233445",
         "phone": "09121234567",
         "staff_count": 20,
@@ -225,7 +221,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "شب",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -255,7 +250,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "شب",
-        "capacity": 300,
         "landline": "05142233445",
         "phone": "09121234567",
         "staff_count": 20,
@@ -291,7 +285,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "",
         "phone": "",
         "staff_count": "",
@@ -324,11 +317,78 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": 300,
         "landline": "",
         "phone": "",
         "staff_count": null,
         "student_count": null,
+        "work_days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_dorm": 0,
+          "has_iep": 0,
+          "has_workshop": 0,
+          "has_multigrade": 0,
+          "has_second_term_exam": 1,
+          "has_evening": 0
+        },
+        "branches": [],
+        "fields": [],
+        "boom_goals": "هدف",
+        "public_goals": true
+      }
+    },
+    {
+      "id": "ok-rotating-no-cap",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "چرخشی",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "۵۰۰۰۰",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true,
+        "capacity": "۱۰"
+      },
+      "patch": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "چرخشی",
+        "landline": "05142233445",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": 50000,
         "work_days": [
           0,
           1,
@@ -360,7 +420,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -397,7 +456,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -434,7 +492,6 @@
         "school_type": "x",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -471,7 +528,6 @@
         "school_type": "governmental",
         "gender": "",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -508,7 +564,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "عصر",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -538,80 +593,6 @@
       "error": "shift"
     },
     {
-      "id": "bad-capacity-zero",
-      "input": {
-        "level": "متوسطه اول",
-        "type": "عادی",
-        "school_type": "governmental",
-        "gender": "پسرانه",
-        "shift": "صبح",
-        "capacity": 0,
-        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
-        "phone": "09121234567",
-        "staff_count": 20,
-        "student_count": "250",
-        "work_days": [
-          4,
-          0,
-          1,
-          2,
-          3,
-          3
-        ],
-        "excuse_window_minutes": 15,
-        "capabilities": {
-          "has_tuition": 1,
-          "has_second_term_exam": true
-        },
-        "branches": [
-          "نظری"
-        ],
-        "fields": [
-          "ریاضی فیزیک"
-        ],
-        "boom_goals": "هدف",
-        "public_goals": true
-      },
-      "error": "capacity"
-    },
-    {
-      "id": "bad-capacity-text",
-      "input": {
-        "level": "متوسطه اول",
-        "type": "عادی",
-        "school_type": "governmental",
-        "gender": "پسرانه",
-        "shift": "صبح",
-        "capacity": "abc",
-        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
-        "phone": "09121234567",
-        "staff_count": 20,
-        "student_count": "250",
-        "work_days": [
-          4,
-          0,
-          1,
-          2,
-          3,
-          3
-        ],
-        "excuse_window_minutes": 15,
-        "capabilities": {
-          "has_tuition": 1,
-          "has_second_term_exam": true
-        },
-        "branches": [
-          "نظری"
-        ],
-        "fields": [
-          "ریاضی فیزیک"
-        ],
-        "boom_goals": "هدف",
-        "public_goals": true
-      },
-      "error": "capacity"
-    },
-    {
       "id": "bad-staff",
       "input": {
         "level": "متوسطه اول",
@@ -619,7 +600,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 9999,
@@ -656,7 +636,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -686,43 +665,6 @@
       "error": "student_count"
     },
     {
-      "id": "over-capacity",
-      "input": {
-        "level": "متوسطه اول",
-        "type": "عادی",
-        "school_type": "governmental",
-        "gender": "پسرانه",
-        "shift": "صبح",
-        "capacity": "۳۰۰",
-        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
-        "phone": "09121234567",
-        "staff_count": 20,
-        "student_count": 301,
-        "work_days": [
-          4,
-          0,
-          1,
-          2,
-          3,
-          3
-        ],
-        "excuse_window_minutes": 15,
-        "capabilities": {
-          "has_tuition": 1,
-          "has_second_term_exam": true
-        },
-        "branches": [
-          "نظری"
-        ],
-        "fields": [
-          "ریاضی فیزیک"
-        ],
-        "boom_goals": "هدف",
-        "public_goals": true
-      },
-      "error": "over_capacity"
-    },
-    {
       "id": "bad-landline",
       "input": {
         "level": "متوسطه اول",
@@ -730,7 +672,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "1234",
         "phone": "09121234567",
         "staff_count": 20,
@@ -767,7 +708,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "0912",
         "staff_count": 20,
@@ -804,7 +744,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -834,7 +773,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -866,7 +804,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -903,7 +840,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -939,7 +875,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -974,7 +909,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -1011,7 +945,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,
@@ -1048,7 +981,6 @@
         "school_type": "governmental",
         "gender": "پسرانه",
         "shift": "صبح",
-        "capacity": "۳۰۰",
         "landline": "۰۵۱۴۲۲۳۳۴۴۵",
         "phone": "09121234567",
         "staff_count": 20,

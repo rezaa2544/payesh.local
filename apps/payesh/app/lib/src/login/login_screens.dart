@@ -735,6 +735,26 @@ class _LanServerScreenState extends State<LanServerScreen> {
   /// Row 163 — password fields show / hide the typed password.
   bool _showSecret = false;
 
+  // Row 166: after a refused submit every field the message is about gets a red outline (each
+  // login field counts as required); typing in a field clears its outline.
+  final Map<String, FieldInfo Function()> _reg = {};
+  String? _errSeen;
+  Map<String, String> _issues = const {};
+
+  void _syncIssues(String? error) {
+    if (error == _errSeen) return;
+    _errSeen = error;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final infos = {for (final e in _reg.entries) e.key: e.value()};
+      setState(
+        () => _issues = error == null
+            ? const {}
+            : FieldIssues.guess(error, infos),
+      );
+    });
+  }
+
   Widget _field(
     String key,
     TextEditingController c,
@@ -750,11 +770,18 @@ class _LanServerScreenState extends State<LanServerScreen> {
   }) {
     final t = context.tokens;
     final radius = BorderRadius.circular(14);
+    _reg[key] = () => (label: '$label *', value: c.text);
+    final issue = _issues[key];
     return Padding(
       padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
       child: TextField(
         key: Key(key),
         controller: c,
+        onChanged: (_) {
+          if (_issues.containsKey(key)) {
+            setState(() => _issues = {..._issues}..remove(key));
+          }
+        },
         enabled: !busy,
         autofocus: autofocus,
         obscureText: secret && !_showSecret,
@@ -769,6 +796,8 @@ class _LanServerScreenState extends State<LanServerScreen> {
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
+          errorText: issue,
+          errorMaxLines: 3,
           filled: true,
           fillColor: t.bg,
           prefixIcon: icon == null ? null : Icon(icon, color: t.muted),
@@ -799,6 +828,20 @@ class _LanServerScreenState extends State<LanServerScreen> {
           focusedBorder: OutlineInputBorder(
             borderRadius: radius,
             borderSide: BorderSide(color: t.primary, width: 1.6),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: radius,
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.error,
+              width: 1.6,
+            ),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: radius,
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.error,
+              width: 2,
+            ),
           ),
         ),
       ),
@@ -1038,6 +1081,7 @@ class _LanServerScreenState extends State<LanServerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _syncIssues(widget.state.error);
     final c = widget.controller;
     final s = widget.state;
     final busy = c.busy;

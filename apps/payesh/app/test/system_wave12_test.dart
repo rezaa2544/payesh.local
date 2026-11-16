@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_app/src/system/school_profile_screen.dart';
 import 'package:payesh_app/src/system/system_screen.dart';
 import 'package:payesh_sync/payesh_sync.dart';
+import 'package:payesh_ui/payesh_ui.dart' show schoolProfileErrorsFa;
 
 import 'school_support.dart';
 
@@ -606,7 +607,13 @@ void main() {
       expect(find.byKey(const Key('sp-incomplete')), findsOneWidget);
       // nothing chosen yet ⇒ local validation, nothing sent
       await tapKey(tester, 'sp-save');
-      expect(textOf(tester, 'sp-error'), 'مقطع را انتخاب کنید');
+      // row 166: every invalid field is outlined red (level AND gender), one summary line
+      expect(textOf(tester, 'sp-error'), 'کادرهای قرمز را بررسی و اصلاح کنید');
+      await tester.drag(find.byKey(const Key('sp-list')), const Offset(0, 6000));
+      await settle(tester);
+      expect(find.text('مقطع را انتخاب کنید'), findsOneWidget);
+      expect(find.text('جنسیت مدرسه را انتخاب کنید'), findsOneWidget);
+      expect(find.byKey(const Key('sp-capacity')), findsNothing);
       expect(admin.calls, isNot(contains('profile-save')));
 
       Future<void> top() async {
@@ -650,37 +657,50 @@ void main() {
       );
       expect(ev.value, isTrue);
       expect(ev.onChanged, isNull, reason: 'locked on for شب / هر دو');
-      await ty('sp-capacity', '۲۰۰');
-      await ty('sp-students', '250');
-      expect(find.byKey(const Key('sp-over')), findsOneWidget);
+      // row 166: no capacity — any number of students
+      await ty('sp-students', '۱۵۰۰۰۰');
+      await ty('sp-phone', '0912');
       await tk('sp-save');
+      expect(textOf(tester, 'sp-error'), 'کادرهای قرمز را بررسی و اصلاح کنید');
+      await top();
+      await reveal(tester, 'sp-phone');
       expect(
-        textOf(tester, 'sp-error'),
-        'تعداد دانش‌آموزان از ظرفیت مدرسه بیشتر است',
+        tester
+            .widget<TextField>(find.byKey(const Key('sp-phone')))
+            .decoration!
+            .errorText,
+        schoolProfileErrorsFa['phone'],
       );
-      await ty('sp-students', '150');
-      expect(find.byKey(const Key('sp-over')), findsNothing);
-      await tk('sp-save');
+      await top();
+      await reveal(tester, 'sp-students');
       expect(
-        textOf(tester, 'sp-error'),
-        startsWith('برای متوسطه دوم دست‌کم یک شاخه'),
+        tester
+            .widget<TextField>(find.byKey(const Key('sp-students')))
+            .decoration!
+            .errorText,
+        isNull,
       );
+      await reveal(tester, 'sp-branches-invalid');
+      expect(find.byKey(const Key('sp-branches-invalid')), findsOneWidget);
+      await pick('sp-shift', 'چرخشی (هفته‌ای صبح، هفته‌ای بعدازظهر)');
+      expect(find.byKey(const Key('sp-rotating-note')), findsOneWidget);
       await tk('sp-branch-فنی و حرفه‌ای');
       await tk('sp-field-کامپیوتر');
       await tk('sp-day-5');
       await ty('sp-phone', '09121234567');
       await tk('sp-save');
       expect(textOf(tester, 'sp-notice'), 'مشخصات مدرسه ذخیره شد');
+      expect(find.byKey(const Key('sp-branches-invalid')), findsNothing);
       final sp = admin.savedProfile!;
       expect(sp['level'], 'متوسطه دوم');
       expect(sp['gender'], 'دخترانه');
       expect(sp['school_type'], 'vocational');
-      expect(sp['capacity'], 200);
-      expect(sp['student_count'], 150);
+      expect(sp.containsKey('capacity'), isFalse);
+      expect(sp['student_count'], 150000);
+      expect(sp['shift'], 'چرخشی');
       expect(sp['work_days'], [0, 1, 2, 3, 4, 5]);
       expect(sp['branches'], ['فنی و حرفه‌ای']);
       expect(sp['fields'], ['کامپیوتر']);
-      expect((sp['capabilities']! as Map)['has_evening'], 1);
       expect(find.byKey(const Key('sp-incomplete')), findsNothing);
       // un-ticking a branch drops its fields
       await tk('sp-branch-فنی و حرفه‌ای');

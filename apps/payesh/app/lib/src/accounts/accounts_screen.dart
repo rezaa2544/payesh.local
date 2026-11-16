@@ -318,10 +318,16 @@ class _CredsPageState extends State<CredsPage> {
                     textDirection: TextDirection.ltr,
                     autocorrect: false,
                     enableSuggestions: false,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'نام کاربری',
-                      helperText: 'خالی = شمارهٔ همراه · حروف انگلیسی یا کد ۴ تا ۹ رقمی',
+                      helperText: 'خالی = شمارهٔ همراه · حروف انگلیسی، رقم و . _ - @ (۳ تا ۳۲ نویسه)',
                       helperMaxLines: 2,
+                      errorText: fieldIssueFor(
+                        c.formError,
+                        'نام کاربری',
+                        login.text,
+                      ),
+                      errorMaxLines: 3,
                     ),
                   ),
                   const SizedBox(height: PayeshTokens.space3),
@@ -331,9 +337,15 @@ class _CredsPageState extends State<CredsPage> {
                     textDirection: TextDirection.ltr,
                     autocorrect: false,
                     enableSuggestions: false,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'رمز عبور',
                       helperText: 'خالی = همان رمز فعلی می‌ماند',
+                      errorText: fieldIssueFor(
+                        c.formError,
+                        'رمز',
+                        password.text,
+                      ),
+                      errorMaxLines: 3,
                     ),
                   ),
                   const SizedBox(height: PayeshTokens.space2),
@@ -492,16 +504,24 @@ class _OwnPasswordPageState extends State<OwnPasswordPage> {
     super.dispose();
   }
 
-  Widget _secret(String key, String label, TextEditingController t) =>
-      TextField(
-        key: Key(key),
-        controller: t,
-        obscureText: true,
-        textDirection: TextDirection.ltr,
-        autocorrect: false,
-        enableSuggestions: false,
-        decoration: InputDecoration(labelText: label),
-      );
+  // row 166: inside the form's issue scope ⇒ the refused field is outlined red
+  Widget _secret(String key, String label, TextEditingController t) => Builder(
+    builder: (context) => TextField(
+      key: Key(key),
+      controller: t,
+      obscureText: true,
+      textDirection: TextDirection.ltr,
+      autocorrect: false,
+      enableSuggestions: false,
+      onChanged: (_) => clearFieldIssue(context, key),
+      decoration: issueDecoration(
+        context,
+        key,
+        t,
+        InputDecoration(labelText: '$label *'),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(

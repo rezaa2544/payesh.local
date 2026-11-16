@@ -70,6 +70,8 @@ Widget _field(
   bool digits = false,
   String? hint,
   ValueChanged<String>? onSubmitted,
+  Map<String, String> issues = const {},
+  void Function(String key)? onEdit,
 }) => Padding(
   padding: const EdgeInsets.only(bottom: 8),
   child: TextField(
@@ -81,10 +83,14 @@ Widget _field(
     enableSuggestions: false,
     keyboardType: digits ? TextInputType.number : TextInputType.text,
     maxLength: digits ? 6 : null,
+    // row 166: a refused field is outlined red until it is edited
+    onChanged: onEdit == null ? null : (_) => onEdit(key),
     decoration: InputDecoration(
       labelText: label,
       hintText: hint,
       counterText: '',
+      errorText: issues[key],
+      errorMaxLines: 2,
     ),
     onSubmitted: onSubmitted,
   ),
@@ -111,6 +117,22 @@ class _LocalSetupScreenState extends State<LocalSetupScreen> {
   final _code = TextEditingController();
   String? _error;
   bool _busy = false;
+  Map<String, String> _issues = const {};
+
+  void _fix(String k) {
+    if (_issues.containsKey(k)) {
+      setState(() => _issues = {..._issues}..remove(k));
+    }
+  }
+
+  Map<String, String> _guess(String? e, String id, String pw, String code) =>
+      e == null
+      ? const {}
+      : FieldIssues.guess(e, {
+          'setup-id': (label: 'شناسه *', value: id),
+          'setup-pw': (label: 'رمز *', value: pw),
+          'setup-code': (label: 'کد دومرحله‌ای *', value: code),
+        });
 
   @override
   void dispose() {
@@ -128,18 +150,23 @@ class _LocalSetupScreenState extends State<LocalSetupScreen> {
       code: _code.text,
     );
     if (err != null) {
-      setState(() => _error = err);
+      setState(() {
+        _error = err;
+        _issues = _guess(err, _id.text, _pw.text, _code.text);
+      });
       return;
     }
     setState(() {
       _busy = true;
       _error = null;
+      _issues = const {};
     });
     final failure = await widget.onCreate(_id.text, _pw.text, _code.text);
     if (!mounted) return;
     setState(() {
       _busy = false;
       _error = failure;
+      _issues = _guess(failure, _id.text, _pw.text, _code.text);
     });
   }
 
@@ -150,14 +177,23 @@ class _LocalSetupScreenState extends State<LocalSetupScreen> {
     actions: [widget.themeButton],
     children: [
       _message(context, _error),
-      _field('setup-id', _id, 'شناسهٔ ورود'),
-      _field('setup-pw', _pw, 'رمز عبور', secret: true),
+      _field('setup-id', _id, 'شناسهٔ ورود', issues: _issues, onEdit: _fix),
+      _field(
+        'setup-pw',
+        _pw,
+        'رمز عبور',
+        secret: true,
+        issues: _issues,
+        onEdit: _fix,
+      ),
       _field(
         'setup-code',
         _code,
         'کد دومرحله‌ای ۶ رقمی',
         digits: true,
         onSubmitted: (_) => _submit(),
+        issues: _issues,
+        onEdit: _fix,
       ),
       const SizedBox(height: 8),
       Align(
@@ -195,6 +231,13 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
   final _pw = TextEditingController();
   final _code = TextEditingController();
   String? _error;
+  Map<String, String> _issues = const {};
+
+  void _fix(String k) {
+    if (_issues.containsKey(k)) {
+      setState(() => _issues = {..._issues}..remove(k));
+    }
+  }
 
   @override
   void dispose() {
@@ -205,10 +248,20 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
   }
 
   void _submit() {
-    final err = widget.onLogin(_id.text, _pw.text, _code.text);
+    final id = _id.text, pw = _pw.text, code = _code.text;
+    final err = widget.onLogin(id, pw, code);
     _pw.clear();
     _code.clear();
-    setState(() => _error = err);
+    setState(() {
+      _error = err;
+      _issues = err == null
+          ? const {}
+          : FieldIssues.guess(err, {
+              'local-id': (label: 'شناسه *', value: id),
+              'local-pw': (label: 'رمز *', value: pw),
+              'local-code': (label: 'کد دومرحله‌ای *', value: code),
+            });
+    });
   }
 
   Future<void> _confirmReset() async {
@@ -244,14 +297,23 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
       actions: [widget.themeButton],
       children: [
         _message(context, msg, ok: _error == null),
-        _field('local-id', _id, 'شناسهٔ ورود'),
-        _field('local-pw', _pw, 'رمز عبور', secret: true),
+        _field('local-id', _id, 'شناسهٔ ورود', issues: _issues, onEdit: _fix),
+        _field(
+          'local-pw',
+          _pw,
+          'رمز عبور',
+          secret: true,
+          issues: _issues,
+          onEdit: _fix,
+        ),
         _field(
           'local-code',
           _code,
           'کد دومرحله‌ای ۶ رقمی',
           digits: true,
           onSubmitted: (_) => _submit(),
+          issues: _issues,
+          onEdit: _fix,
         ),
         const SizedBox(height: 8),
         Wrap(

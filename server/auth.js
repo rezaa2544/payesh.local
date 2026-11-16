@@ -228,11 +228,11 @@ function login(store, input = {}) {
   /* ردیف ۱۴۵: نام کاربری لاتین (مدیری که مالک ساخته یا درخواست ثبت‌نام داده) هم پذیرفته است */
   const raw = String(input.phone || input.username || '').trim();
   const byName = /[A-Za-z]/.test(raw);
-  const phone = byName ? raw.toLowerCase() : normDigits(raw);
+  const phone = normUsername(raw);
   const pw = String(input.password || '');
-  /* ردیف ۱۴۶: همان شکل فرم‌های ورود — موبایل ۱۱ رقم، کد ملی ۱۰ رقم یا نام کاربری لاتین؛
-     ردیف ۱۶۰: نام کاربری عددیِ تعیین‌شدهٔ مدیر (۴ تا ۹ رقم) هم پذیرفته است */
-  if (byName ? !USERNAME_RE.test(phone) : !(USERCODE_RE.test(phone) || phone.length === 11 || phone.length === 10)) return { ok: false, error: 'bad_phone' };
+  /* ردیف ۱۴۶: همان شکل فرم‌های ورود — موبایل ۱۱ رقم، کد ملی ۱۰ رقم یا نام کاربری؛
+     ردیف ۱۶۶: نام کاربری هر ترکیبی از حرف انگلیسی و رقم است (۳ تا ۳۲)، حتی فقط رقم (مثلاً همراه) */
+  if (byName ? !USERNAME_RE.test(phone) : !USERCODE_RE.test(phone)) return { ok: false, error: 'bad_phone' };
   if (pw.length < 4) return { ok: false, error: 'bad_password' };
   let user = findUserByLogin(store, phone);
   if (!user || user.active === false) return { ok: false, error: 'bad_credentials' };
@@ -476,15 +476,18 @@ function credentialsFor(row) {
 
 /* کاربر را با «نام کاربری» پیدا می‌کند: ردیف ۱۶۰ — اول نام کاربریِ تعیین‌شدهٔ مدیر (لاتین یا
    عددی)، بعد شمارهٔ همراه، بعد کد ملی. یکتایی میان این سه را setUsername/PATCH تضمین می‌کند. */
-const USERNAME_RE = /^[a-z][a-z0-9._-]{2,31}$/;
-const USERCODE_RE = /^\d{4,9}$/;   /* ۱۰ رقم = کد ملی، ۱۱ رقم = همراه ⇒ بی‌ابهام */
+/* ردیف ۱۶۶ (خواستهٔ مالک): قاعدهٔ «حرف کوچک لاتین، شروع با حرف» برداشته شد. نام کاربری ۳ تا ۳۲
+   نویسه از حرف انگلیسی، رقم و . _ - @ است، به هر ترتیبی؛ فقط‌رقم (مثل ۰۹۱۴۲۸۶۹۵۰۵) هم درست است.
+   ورودیِ بی‌حرف همیشه «رقمی» خوانده می‌شود: اول نام کاربریِ رقمی، بعد همراه، بعد کد ملی. */
+const USERNAME_RE = /^[a-z0-9._@-]{3,32}$/;
+const USERCODE_RE = /^\d{3,32}$/;
 function validUsername(v) {
   const s = String(v == null ? '' : v).trim().toLowerCase();
   return USERNAME_RE.test(s) || USERCODE_RE.test(s);
 }
 function normUsername(v) {
   const s = String(v == null ? '' : v).trim();
-  return /[A-Za-z]/.test(s) ? s.toLowerCase() : normDigits(s);
+  return /[A-Za-z]/.test(s) ? s.replace(/[۰-۹]/g, c => String(c.charCodeAt(0) - 0x06F0)).replace(/[٠-٩]/g, c => String(c.charCodeAt(0) - 0x0660)).toLowerCase() : normDigits(s);
 }
 function findUserByLogin(store, input) {
   const name = String(input == null ? '' : input).trim().toLowerCase();
@@ -493,9 +496,9 @@ function findUserByLogin(store, input) {
     return (store.all('users') || []).find(u => String(u.username || '').toLowerCase() === name) || null;
   }
   const key = normDigits(input);
-  if (key.length < 4) return null;
+  if (!USERCODE_RE.test(key)) return null;
   const users = store.all('users') || [];
-  const byCode = USERCODE_RE.test(key) ? users.find(u => normDigits(u.username) === key && String(u.username || '').trim() !== '' && !/[A-Za-z]/.test(String(u.username))) : null;
+  const byCode = users.find(u => String(u.username || '').trim() !== '' && !/[A-Za-z]/.test(String(u.username)) && normDigits(u.username) === key);
   if (byCode) return byCode;
   if (key.length < 10) return null;
   const byPhone = users.find(u => normDigits(u.phone) === key);

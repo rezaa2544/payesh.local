@@ -27,7 +27,6 @@ class _SignupScreenState extends State<SignupScreen> {
   final _c = {
     for (final k in [
       'school',
-      'county',
       'village',
       'phone',
       'staff',
@@ -40,6 +39,10 @@ class _SignupScreenState extends State<SignupScreen> {
   };
   String? _level;
   String? _province;
+
+  /// Row 166: the county comes from the province's list (no typing).
+  String? _county;
+  bool _userTyped = false;
 
   @override
   void dispose() {
@@ -59,6 +62,7 @@ class _SignupScreenState extends State<SignupScreen> {
     TextInputType? keyboard,
   }) {
     final busy = widget.controller.busy;
+    final issue = _issue(k);
     return Padding(
       padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
       child: TextField(
@@ -73,13 +77,41 @@ class _SignupScreenState extends State<SignupScreen> {
         inputFormatters: numeric
             ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩]'))]
             : null,
+        onChanged: (v) {
+          _fix(k);
+          // Row 166: the manager's user name defaults to the mobile until typed by hand
+          if (k == 'username') _userTyped = v.isNotEmpty;
+          if (k == 'phone' && !_userTyped) {
+            _c['username']!.text = LanServerRules.digitsOnly(v);
+            _fix('username');
+          }
+        },
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
+          errorText: issue,
+          errorMaxLines: 3,
           border: const OutlineInputBorder(),
         ),
       ),
     );
+  }
+
+  /// Row 166: every field the last submit refused gets a red outline + its message, until the
+  /// user edits that field.
+  final Set<String> _fixed = {};
+  Map<String, String>? _seen;
+  String? _issue(String k) {
+    final f = widget.state.fields;
+    if (!identical(f, _seen)) {
+      _seen = f;
+      _fixed.clear();
+    }
+    return _fixed.contains(k) ? null : f[k];
+  }
+
+  void _fix(String k) {
+    if (widget.state.fields.containsKey(k) && _fixed.add(k)) setState(() {});
   }
 
   Widget _select(
@@ -96,14 +128,18 @@ class _SignupScreenState extends State<SignupScreen> {
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
+        errorText: _issue(k),
         border: const OutlineInputBorder(),
       ),
       items: [
         for (final o in options) DropdownMenuItem(value: o, child: Text(o)),
       ],
-      onChanged: widget.controller.busy
+      onChanged: widget.controller.busy || options.isEmpty
           ? null
-          : (v) => setState(() => onChanged(v)),
+          : (v) => setState(() {
+              _fixed.add(k);
+              onChanged(v);
+            }),
     ),
   );
 
@@ -112,7 +148,7 @@ class _SignupScreenState extends State<SignupScreen> {
       schoolName: _c['school']!.text,
       level: _level ?? '',
       province: _province ?? '',
-      county: _c['county']!.text,
+      county: _county ?? '',
       village: _c['village']!.text,
       phone: _c['phone']!.text,
       staffCount: _c['staff']!.text,
@@ -190,14 +226,22 @@ class _SignupScreenState extends State<SignupScreen> {
       _select('level', 'مقطع *', _level, signupLevels, (v) => _level = v),
       Text('مکان', style: Theme.of(context).textTheme.titleSmall),
       const SizedBox(height: PayeshTokens.space2),
-      _select(
-        'province',
-        'استان *',
-        _province,
-        signupProvinces,
-        (v) => _province = v,
+      _select('province', 'استان *', _province, signupProvinces, (v) {
+        if (v != _province) _county = null;
+        _province = v;
+      }),
+      KeyedSubtree(
+        key: ValueKey('signup-county-of-$_province'),
+        child: _select(
+          'county',
+          _province == null
+              ? 'شهرستان * (اول استان را انتخاب کنید)'
+              : 'شهرستان *',
+          _county,
+          iranCountiesOf(_province),
+          (v) => _county = v,
+        ),
       ),
-      _field('county', 'شهرستان *'),
       _field('village', 'روستا / منطقه'),
       _field(
         'phone',
@@ -213,10 +257,10 @@ class _SignupScreenState extends State<SignupScreen> {
       _field('manager', 'نام و نام خانوادگی مدیر *'),
       _field(
         'username',
-        'نام کاربری (حروف انگلیسی) *',
+        'نام کاربری (مثلاً شمارهٔ همراه) *',
         ltr: true,
         keyboard: TextInputType.visiblePassword,
-        hint: 'ali.rezaei',
+        hint: '09121234567',
       ),
       _field(
         'password',

@@ -103,36 +103,66 @@ final class SchoolSignup {
   final String password;
 
   String get normalizedPhone => _latin(phone).replaceAll(RegExp('[^0-9]'), '');
-  String get normalizedUsername => username.trim().toLowerCase();
+  String get normalizedUsername => LanServerRules.normalizeLogin(username);
   int? _count(String v) {
     final d = _latin(v).trim();
-    return RegExp(r'^[0-9]{1,6}$').hasMatch(d) ? int.parse(d) : null;
+    return RegExp(r'^[0-9]{1,9}$').hasMatch(d) ? int.parse(d) : null;
   }
 
-  /// همان قواعد سرور (validRequest)؛ پیام فارسی یا null.
-  String? validate() {
+  /// همان قواعد سرور (validRequest) برای همهٔ کادرها: «نام کادر ← پیام» (ردیف ۱۶۶: هر کادر نادرست
+  /// قاب قرمز می‌گیرد). کلیدها همان کلیدهای فرم درخواست‌اند (signup-<کلید>).
+  Map<String, String> problems() {
+    final out = <String, String>{};
     final n = schoolName.trim().length;
-    if (n < 2 || n > 120) return 'نام مدرسه را بنویسید';
-    if (!signupLevels.contains(level)) return 'مقطع را انتخاب کنید';
-    if (province.trim().length < 2) return 'استان را انتخاب کنید';
+    if (n < 2 || n > 120) out['school'] = 'نام مدرسه را بنویسید';
+    if (!signupLevels.contains(level)) out['level'] = 'مقطع را انتخاب کنید';
+    if (province.trim().length < 2) out['province'] = 'استان را انتخاب کنید';
     final c = county.trim().length;
-    if (c < 2 || c > 60) return 'شهرستان را بنویسید';
-    if (village.trim().length > 60) return 'نام روستا/منطقه طولانی است';
+    if (c < 2 || c > 60) out['county'] = 'شهرستان را انتخاب کنید';
+    if (village.trim().length > 60) out['village'] = 'نام روستا/منطقه طولانی است';
     if (!RegExp(r'^0\d{10}$').hasMatch(normalizedPhone)) {
-      return 'شمارهٔ تلفن را کامل و ۱۱ رقمی بنویسید (مثلاً ۰۹۱۲۱۲۳۴۵۶۷)';
+      out['phone'] =
+          'شمارهٔ تلفن را کامل و ۱۱ رقمی بنویسید (مثلاً ۰۹۱۲۱۲۳۴۵۶۷)';
     }
     final st = _count(staffCount);
-    if (st == null || st > 10000) return 'تعداد کارکنان را درست بنویسید';
-    final su = _count(studentCount);
-    if (su == null || su > 100000) return 'تعداد دانش‌آموزان را درست بنویسید';
-    final m = managerName.trim().length;
-    if (m < 3 || m > 80) return 'نام و نام خانوادگی مدیر را بنویسید';
-    if (!LanServerRules.usernameRe.hasMatch(normalizedUsername)) {
-      return 'نام کاربری باید با حرف انگلیسی شروع شود و ۳ تا ۳۲ نویسه از حروف انگلیسی، رقم، نقطه، خط تیره یا زیرخط باشد';
+    if (st == null || st > 10000) out['staff'] = 'تعداد کارکنان را درست بنویسید';
+    // ردیف ۱۶۶: تعداد دانش‌آموزان سقف ندارد (فقط عدد درست)
+    if (_count(studentCount) == null) {
+      out['students'] = 'تعداد دانش‌آموزان را درست بنویسید';
     }
-    if (password.length < 6) return 'رمز عبور دست‌کم ۶ نویسه باشد';
-    return null;
+    final m = managerName.trim().length;
+    if (m < 3 || m > 80) out['manager'] = 'نام و نام خانوادگی مدیر را بنویسید';
+    if (!LanServerRules.usernameRe.hasMatch(normalizedUsername)) {
+      out['username'] = LanServerRules.usernameRuleFa;
+    }
+    if (password.length < 6) out['password'] = 'رمز عبور دست‌کم ۶ نویسه باشد';
+    return out;
   }
+
+  /// همان قواعد سرور (validRequest)؛ پیام فارسیِ نخستین ایراد یا null.
+  String? validate() {
+    final p = problems();
+    return p.isEmpty ? null : p.values.first;
+  }
+
+  /// کادرِ کد خطای سرور (`bad_<کلید>` / `username_taken`)، یا null.
+  /// Row 166: the form field a refused request is about (red outline), or null.
+  static String? fieldOfFailure(LanAccessFailure f) => fieldOfError(f.wire);
+
+  static String? fieldOfError(String? code) => switch (code) {
+    'bad_school_name' => 'school',
+    'bad_level' => 'level',
+    'bad_province' => 'province',
+    'bad_county' => 'county',
+    'bad_village' => 'village',
+    'bad_phone' => 'phone',
+    'bad_staff_count' => 'staff',
+    'bad_student_count' => 'students',
+    'bad_manager_name' => 'manager',
+    'bad_username' || 'username_taken' => 'username',
+    'bad_password' => 'password',
+    _ => null,
+  };
 
   Map<String, Object?> toJson({String? deviceHash}) => {
     'school_name': schoolName.trim(),
@@ -384,7 +414,7 @@ String schoolsErrorFa(LanAccessFailure e) => switch (e.wire) {
   'bad_school_name' => 'نام مدرسه را بنویسید',
   'bad_level' => 'مقطع را انتخاب کنید',
   'bad_province' => 'استان را انتخاب کنید',
-  'bad_county' => 'شهرستان را بنویسید',
+  'bad_county' => 'شهرستان را انتخاب کنید',
   'bad_village' => 'نام روستا/منطقه طولانی است',
   'bad_phone' => 'شمارهٔ تلفن را کامل و ۱۱ رقمی بنویسید',
   'bad_staff_count' => 'تعداد کارکنان را درست بنویسید',

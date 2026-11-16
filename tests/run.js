@@ -5446,7 +5446,8 @@ async function waitFor(fn, ms = 15000) {
     const F = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { value: v }]));
     /* ورود: شکل نادرست ⇒ هیچ درخواستی */
     /* ردیف ۱۶۰: کد کاربری عددی ۴ تا ۹ رقم مجاز شد ⇒ «۰۹۱» (۳ رقم) جای «۰۹۱۲» را گرفت */
-    for (const bad of ['', 'ab', '2ali', 'ali rezaei!', '091', '091200000011']) {
+    /* ردیف ۱۶۶: «2ali» و نام کاربری عددی ۳ تا ۳۲ رقم (مثل شمارهٔ همراه) درست است ⇒ «۰۹» و ۳۳ رقم */
+    for (const bad of ['', 'ab', 'ali rezaei!', '09', '1'.repeat(33)]) {
       await T.doLogin(F({ phone: bad, password: 'Madrese-1403' }));
     }
     assert.strictEqual(sent.length, 0, 'شکل نادرست ورود چیزی نفرستاد: ' + JSON.stringify(sent));

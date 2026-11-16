@@ -1426,7 +1426,7 @@ async function api(req, res, url, ip) {
       if (dup) return json({ ok: false, error: 'duplicate_phone', name: dup.name }, 409);
       patch.phone = phone;
     }
-    /* ردیف ۱۶۰: نام کاربری دلخواهِ مدیر — لاتین (۳ تا ۳۲) یا عددی (۴ تا ۹ رقم)؛ خالی = شمارهٔ همراه */
+    /* ردیف ۱۶۰/۱۶۶: نام کاربری دلخواهِ مدیر — حرف انگلیسی/رقم (۳ تا ۳۲)، فقط‌رقم هم درست؛ خالی = شمارهٔ همراه */
     if (body.username != null) {
       const un = auth.normUsername(body.username);
       if (un && !auth.validUsername(un)) return json({ ok: false, error: 'bad_username' }, 400);

@@ -118,10 +118,9 @@ abstract final class AccountRules {
     return nid.length == 10 ? nid : '';
   }
 
-  /// Row 160 — the manager's own user name: Latin (starts with a letter, 3–32 of a-z 0-9 . _ -)
-  /// or a 4–9 digit code (server/auth.js `validUsername`).
-  static const String usernameRuleFa =
-      'نام کاربری: حروف انگلیسی (۳ تا ۳۲ نویسه، با حرف شروع شود) یا کد عددی ۴ تا ۹ رقمی';
+  /// Row 160/166 — a user name: 3–32 of a-z 0-9 . _ - @ in any order, digits only too
+  /// (server/auth.js `validUsername`).
+  static const String usernameRuleFa = LanServerRules.usernameRuleFa;
 
   /// The user name as the server stores it (lower-case Latin, or Latin digits).
   static String normUsername(String typed) =>
@@ -145,11 +144,11 @@ abstract final class AccountRules {
     final t = _latin(typed).trim();
     if (t.isEmpty) return null;
     if (RegExp('[A-Za-z]').hasMatch(t)) {
-      return RegExp(r'^[a-z][a-z0-9._-]{2,31}$').hasMatch(t.toLowerCase())
+      return LanServerRules.usernameRe.hasMatch(t.toLowerCase())
           ? null
           : usernameRuleFa;
     }
-    return RegExp(r'^\d{4,9}$').hasMatch(t) ? null : usernameRuleFa;
+    return LanServerRules.userCodeRe.hasMatch(t) ? null : usernameRuleFa;
   }
 
   static void checkPassword(String pw) {

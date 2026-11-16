@@ -359,9 +359,11 @@ class _NoticeEditorState extends State<NoticeEditor> {
                 key: const Key('ntc-title'),
                 controller: title,
                 enabled: !c.busy,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'عنوان',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  errorText: fieldIssueFor(c.formError, 'عنوان', title.text),
+                  errorMaxLines: 3,
                 ),
                 onChanged: (_) => setState(() {}),
               ),
@@ -372,9 +374,11 @@ class _NoticeEditorState extends State<NoticeEditor> {
                 enabled: !c.busy,
                 minLines: 4,
                 maxLines: 12,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'متن',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  errorText: fieldIssueFor(c.formError, 'متن', body.text),
+                  errorMaxLines: 3,
                 ),
                 onChanged: (_) => setState(() {}),
               ),

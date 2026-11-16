@@ -11,6 +11,9 @@ const TAILSCALE_WIN_URL = 'https://pkgs.tailscale.com/stable/tailscale-setup-lat
 window.PAGES = PAGES;
 
 /* ── اجزای کوچک ─────────────────────────────────────────────────── */
+/* ردیف ۱۶۶: زنگ‌های شیفت این هفته (schedule.js)؛ بی آن، همهٔ زنگ‌ها */
+function pageBellRows() { return typeof schedBellRows === 'function' ? schedBellRows() : list('bell_schedules'); }
+
 function pageHead(title, sub, actions) {
   return `<div class="topbar">
     <div><h2>${esc(title)}</h2>${sub ? `<div class="small muted">${esc(sub)}</div>` : ''}</div>
@@ -587,12 +590,12 @@ function teacherScheduleFor(day) {
   return list('schedule').filter(s => Number(s.teacher_id) === Number(S.user.id) && Number(s.weekday) === Number(day));
 }
 function currentBell() {
-  const bells = sortBy(list('bell_schedules').filter(b => String(b.type || 'lesson') === 'lesson'), 'order');
+  const bells = sortBy(pageBellRows().filter(b => String(b.type || 'lesson') === 'lesson'), 'order');
   const m = nowMin();
   return bells.find(b => m >= toMin(b.start) && m <= toMin(b.end)) || null;
 }
 function nextBell() {
-  const bells = sortBy(list('bell_schedules').filter(b => String(b.type || 'lesson') === 'lesson'), 'order');
+  const bells = sortBy(pageBellRows().filter(b => String(b.type || 'lesson') === 'lesson'), 'order');
   const m = nowMin();
   return bells.find(b => toMin(b.start) > m) || null;
 }
@@ -603,7 +606,7 @@ function attendanceFor(classId, date) {
 function teacherHome() {
   const day = weekdayIndex();
   const rows = teacherScheduleFor(day);
-  const bells = new Map(list('bell_schedules').map(b => [Number(b.order), b]));
+  const bells = new Map(pageBellRows().map(b => [Number(b.order), b]));
   const cur = currentBell();
   const nxt = nextBell();
   const today = todayISO();
@@ -1343,7 +1346,7 @@ function studentHomeCard() {
     (Number(s.class_id) && Number(s.class_id) === Number(S.user.class_id)) ||
     (grade && String(s.grade || '').trim() === grade && String(s.branch || '').trim() === branch)
   ));
-  const bells = new Map(list('bell_schedules').map(b => [Number(b.order), b]));
+  const bells = new Map(pageBellRows().map(b => [Number(b.order), b]));
   const cur = currentBell();
   return `${pageHead('امروز', J_DAYS[day] + ' · ' + jdate(todayISO()), `<button class="btn sm" data-act="sync">🔄</button>`)}
   ${cur ? card(`<div class="small muted">زنگ جاری</div><b>${esc(cur.start)} – ${esc(cur.end)}</b>`) : ''}

@@ -5,7 +5,7 @@
 'use strict';
 
 /* با build-release هم‌تراز می‌شود؛ برای تشخیص «نسخهٔ کهنه در حافظهٔ مرورگر» */
-const CLIENT_VERSION = '0.9.19';
+const CLIENT_VERSION = '0.9.20';
 
 /* ── حالت «همه‌چیز داخل برنامه» (اندروید/ویندوز بسته‌بندی‌شده) ──────────
    وقتی فایل‌ها روی خودِ دستگاه اجرا می‌شوند (و نه از خود سرور)، آدرس سرور
@@ -1101,7 +1101,8 @@ async function doClaim(form) {
 
 /* ردیف ۱۴۵/۱۴۶: نام کاربری لاتینِ مدیری که مالک ساخته (یا درخواست ثبت‌نامش تأیید شده) هم
    پذیرفته است؛ همان قاعدهٔ server/auth.js و برنامهٔ بومی (LanServerRules.loginProblem). */
-const LOGIN_USERNAME_RE = /^[a-z][a-z0-9._-]{2,31}$/;
+/* ردیف ۱۶۶: نام کاربری ۳ تا ۳۲ نویسه از حرف انگلیسی، رقم و . _ - @ (فقط‌رقم هم درست است) */
+const LOGIN_USERNAME_RE = /^[a-z0-9._@-]{3,32}$/;
 function loginValue(v) {
   const raw = String(v == null ? '' : v).trim();
   return /[A-Za-z]/.test(raw) ? raw.toLowerCase() : digitsOnly(raw);
@@ -1112,11 +1113,11 @@ async function doLogin(form) {
   const password = String(form.password.value || '');
   if (/[a-z]/.test(phone)) {
     if (!LOGIN_USERNAME_RE.test(phone)) {
-      return toast('نام کاربری با حرف انگلیسی شروع می‌شود و ۳ تا ۳۲ نویسه (حرف انگلیسی، رقم، . _ -) است', 'err');
+      return toast('نام کاربری ۳ تا ۳۲ نویسه از حرف انگلیسی، رقم و . _ - @ است', 'err');
     }
-  } else if (phone.length !== 11 && phone.length !== 10 && !/^\d{4,9}$/.test(phone)) {
-    /* ردیف ۱۶۰: کد کاربریِ عددیِ تعیین‌شدهٔ مدیر ۴ تا ۹ رقم است */
-    return toast('شمارهٔ همراه ۱۱ رقم، کد ملی ۱۰ رقم و کد کاربری ۴ تا ۹ رقم است — دوباره بنویسید', 'err');
+  } else if (!/^\d{3,32}$/.test(phone)) {
+    /* ردیف ۱۶۶: نام کاربریِ رقمی (مثلاً همراه)، همراه ۱۱ رقم یا کد ملی ۱۰ رقم */
+    return toast('نام کاربری، شمارهٔ همراه یا کد ملی را درست بنویسید', 'err');
   }
   if (!password) return toast('رمز عبور را وارد کنید', 'err');
   try {

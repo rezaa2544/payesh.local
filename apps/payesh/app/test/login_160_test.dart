@@ -73,10 +73,16 @@ void main() {
     final c = await boot(tester, lan: lan);
     await toLogin(tester);
     await typeAndTap(tester, {
-      'lan-phone': '091',
+      'lan-phone': '09',
       'lan-password': 'ramz-160',
     }, 'lan-login');
     expect(errorText(tester), LanServerRules.loginDigitsRuleFa);
+    // row 166: the field the refusal names is outlined red (not the password)
+    await tester.pump();
+    InputDecoration? deco(String k) =>
+        tester.widget<TextField>(find.byKey(Key(k))).decoration;
+    expect(deco('lan-phone')?.errorText, isNotNull);
+    expect(deco('lan-password')?.errorText, isNull);
     await typeAndTap(tester, {
       'lan-phone': '۸۰۰۱',
       'lan-password': 'ramz-160',

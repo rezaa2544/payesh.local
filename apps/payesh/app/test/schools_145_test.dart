@@ -183,22 +183,50 @@ void main() {
       expect(find.byKey(const Key('lan-login')), findsOneWidget);
       await tap(tester, 'lan-signup');
       expect(find.text('درخواست ثبت نام مدرسه جدید'), findsWidgets);
-      // NEG: empty form ⇒ first missing field, nothing sent
+      // NEG: empty form ⇒ every missing field outlined red (row 166), nothing sent
       await tap(tester, 'signup-submit');
-      expect(text(tester, 'signup-error'), 'نام مدرسه را بنویسید');
+      expect(text(tester, 'signup-error'), 'کادرهای قرمز را بررسی و اصلاح کنید');
+      expect(find.text('نام مدرسه را بنویسید'), findsOneWidget);
+      expect(find.text('شهرستان را انتخاب کنید'), findsOneWidget);
+      expect(find.text('رمز عبور دست‌کم ۶ نویسه باشد'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('signup-school')))
+            .decoration!
+            .errorText,
+        'نام مدرسه را بنویسید',
+      );
       await type(tester, 'signup-school', 'هنرستان باهنر');
       await pick(tester, 'signup-level', 'متوسطه دوم');
+      expect(
+        find.text('نام مدرسه را بنویسید'),
+        findsNothing,
+        reason: 'typing clears that field\'s red outline',
+      );
+      // row 166: the county list follows the province (no typing)
+      await pick(tester, 'signup-province', 'آذربایجان شرقی');
+      await pick(tester, 'signup-county', 'مراغه');
       await pick(tester, 'signup-province', 'خراسان رضوی');
-      await type(tester, 'signup-county', 'نیشابور');
+      expect(find.text('مراغه'), findsNothing, reason: 'county reset with the province');
+      await pick(tester, 'signup-county', 'نیشابور');
       await type(tester, 'signup-village', 'خرو');
       await type(tester, 'signup-phone', '۰۹۱۵۱۲۳۴۵۶۷');
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('signup-username')))
+            .controller!
+            .text,
+        '09151234567',
+        reason: 'row 166: user name defaults to the mobile',
+      );
       await type(tester, 'signup-staff', '25');
       await type(tester, 'signup-students', '320');
       await type(tester, 'signup-manager', 'محمد کریمی');
-      await type(tester, 'signup-username', '9bad');
+      await type(tester, 'signup-username', 'ab');
       await type(tester, 'signup-password', 'Karimi-1403');
       await tap(tester, 'signup-submit');
-      expect(text(tester, 'signup-error'), contains('نام کاربری باید'));
+      expect(text(tester, 'signup-error'), 'کادرِ قرمز را بررسی و اصلاح کنید');
+      expect(find.text(LanServerRules.usernameRuleFa), findsOneWidget);
       expect(schools.calls, isEmpty);
       // NEG: user name taken (server)
       schools.registers.addAll([

@@ -72,7 +72,7 @@
     "متوسطه اول",
     "متوسطه دوم"
   ],
-  "username_re": "^[a-z][a-z0-9._-]{2,31}$",
+  "username_re": "^[a-z0-9._@-]{3,32}$",
   "cases": {
     "registry": {
       "plaintext": "{\"v\":1,\"schools\":[{\"id\":\"s-0001\",\"name\":\"دبستان نمونه\",\"level\":\"ابتدایی\",\"active\":true,\"manager\":{\"username\":\"ali.rezaei\",\"name\":\"علی رضایی\",\"phone\":\"09121234567\",\"password_hash\":\"pbkdf2$150000$00112233445566778899aabbccddeeff$4f1c\",\"rev\":1}}],\"settings\":{\"trial_enabled\":true,\"trial_days\":14,\"paywall_enabled\":true,\"roles\":{\"manager\":\"required\",\"teacher\":\"free\"},\"plans\":[{\"key\":\"monthly\",\"price\":250000}],\"gateway\":{\"pay_url\":\"\",\"verify_url\":\"\"},\"receipt_enabled\":true,\"receipt_note\":\"\"},\"domain\":\"\",\"grants\":[],\"decisions\":{},\"rejected\":[]}",

@@ -64,18 +64,31 @@ void main() {
       expect(form(school: 'x').validate(), 'نام مدرسه را بنویسید');
       expect(form(level: 'دانشگاه').validate(), 'مقطع را انتخاب کنید');
       expect(form(province: '').validate(), 'استان را انتخاب کنید');
-      expect(form(county: '').validate(), 'شهرستان را بنویسید');
+      expect(form(county: '').validate(), 'شهرستان را انتخاب کنید');
       expect(form(village: 'x' * 61).validate(), contains('طولانی'));
       expect(form(phone: '0915123456').validate(), contains('۱۱ رقمی'));
       expect(form(phone: '19151234567').validate(), contains('۱۱ رقمی'));
       expect(form(staff: '').validate(), contains('کارکنان'));
       expect(form(staff: '10001').validate(), contains('کارکنان'));
       expect(form(students: '-1').validate(), contains('دانش‌آموزان'));
-      expect(form(students: '100001').validate(), contains('دانش‌آموزان'));
+      expect(form(students: 'abc').validate(), contains('دانش‌آموزان'));
+      expect(form(students: '5000000').validate(), isNull, reason: 'row 166: no cap');
       expect(form(manager: 'ab').validate(), contains('مدیر'));
-      expect(form(username: '9bad').validate(), contains('نام کاربری'));
+      expect(form(username: '09142869505').validate(), isNull, reason: 'row 166');
+      expect(form(username: '9bad').validate(), isNull, reason: 'row 166');
+      expect(form(username: 'a b c').validate(), contains('نام کاربری'));
       expect(form(username: 'ab').validate(), contains('نام کاربری'));
       expect(form(password: '12345').validate(), contains('۶'));
+      final all = form(
+        school: '',
+        county: '',
+        username: 'ab',
+        password: '1',
+      ).problems();
+      expect(all.keys.toSet(), {'school', 'county', 'username', 'password'});
+      expect(SchoolSignup.fieldOfError('bad_county'), 'county');
+      expect(SchoolSignup.fieldOfError('username_taken'), 'username');
+      expect(SchoolSignup.fieldOfError('registry_unreachable'), isNull);
       expect(signupProvinces.length, 31);
       expect(signupLevels, ['ابتدایی', 'متوسطه اول', 'متوسطه دوم']);
     });
@@ -87,9 +100,9 @@ void main() {
       expect(LanServerRules.validLogin('a1'), isFalse);
       expect(LanServerRules.validLogin('09121234567'), isTrue);
       expect(
-        LanServerRules.validLogin('091'),
+        LanServerRules.validLogin('09'),
         isFalse,
-      ); // row 160: 4–9 digits = user code
+      ); // row 166: digits = user name (3+), mobile or national id
       LanAccessError k(int st, String e) =>
           mapLanError(st, {'error': e}, null).kind;
       expect(k(403, 'school_inactive'), LanAccessError.schoolInactive);

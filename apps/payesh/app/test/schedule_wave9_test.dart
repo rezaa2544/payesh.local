@@ -302,6 +302,82 @@ void main() {
   );
 
   testWidgets(
+    'R166-W01 rotating shift: morning + afternoon bells, first week, this week shown above the grid',
+    (tester) async {
+      final s = await openSchedule(
+        tester,
+        extra: (s) async {
+          await s.put('schools', 1, {
+            'name': 'هنرستان',
+            'workdays': [0, 1, 2, 3, 4],
+            'shift': 'چرخشی',
+          });
+        },
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('sch-week-shift')),
+          matching: find.text('شیفت چرخشی — این هفته: صبح'),
+        ),
+        findsOneWidget,
+      );
+      await tapKey(tester, 'sch-bells');
+      expect(find.byKey(const Key('bell-rotation-help')), findsOneWidget);
+      expect(find.byKey(const Key('bell-first')), findsOneWidget);
+      // morning set: one lesson
+      await tester.drag(find.byType(ListView).last, const Offset(0, -400));
+      await settle(tester);
+      for (var i = 0; i < 6; i++) {
+        await tapKey(tester, 'bell-del-1');
+      }
+      await typeKey(tester, 'bell-s-0', '07:30');
+      await typeKey(tester, 'bell-e-0', '08:15');
+      // afternoon set left empty ⇒ refused, the message names the shift
+      await tester.drag(find.byType(ListView).last, const Offset(0, 3000));
+      await settle(tester);
+      await tapKey(tester, 'bell-save');
+      expect(
+        textOf(tester, 'bell-form-error'),
+        startsWith('زنگ‌های بعدازظهر: '),
+      );
+      await tester.drag(find.byType(ListView).last, const Offset(0, 3000));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('bell-shift-بعدازظهر')));
+      await settle(tester);
+      for (var i = 0; i < 6; i++) {
+        await tapKey(tester, 'bell-del-1');
+      }
+      await typeKey(tester, 'bell-s-0', '13:30');
+      await typeKey(tester, 'bell-e-0', '14:15');
+      // first week = afternoon ⇒ this week is the afternoon
+      await tester.drag(find.byType(ListView).last, const Offset(0, 3000));
+      await settle(tester);
+      await choose(tester, 'bell-first', 'بعدازظهر');
+      expect(textOf(tester, 'bell-week'), contains('این هفته: بعدازظهر'));
+      await tapKey(tester, 'bell-save');
+      expect(find.byKey(const Key('bell-save')), findsNothing);
+      final ops = s.outbox.list();
+      expect(
+        ops.where((o) => o.collection == 'bell_schedules').map(
+          (o) => o.payload!['shift'],
+        ),
+        containsAll(['صبح', 'بعدازظهر']),
+      );
+      expect(ops.last.collection, 'schools');
+      expect((ops.last.payload!['rotation'] as Map)['first'], 'بعدازظهر');
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('sch-week-shift')),
+          matching: find.text('شیفت چرخشی — این هفته: بعدازظهر'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('13:30 – 14:15'), findsOneWidget);
+      expect(find.text('07:30 – 08:15'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'W9-W09 work days: NEG none refused; Thursday added → its column appears',
     (tester) async {
       final s = await openSchedule(tester);

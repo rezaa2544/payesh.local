@@ -218,10 +218,24 @@ void main() {
         'کد مدرسه تکراری است',
       );
       expect(await err(school(code: '1002')), 'نام کاربری مدیر تکراری است');
+      // ردیف ۱۶۶: نام کاربری فقط‌رقمی (همراه) و شروع با رقم درست است
       expect(
-        await err(school(code: '1002', user: '9bad')),
-        contains('نام کاربری مدیر باید'),
+        await err(school(code: '1002', user: 'a b')),
+        usernameRuleFa,
       );
+      for (final ok in ['09142869505', '9bad', 'Ali.R', 'm@x']) {
+        expect(
+          SchoolRegistry.validateSchool(
+            school(code: '1002', user: ok),
+            const [],
+            password: 'pass-123456',
+          ),
+          isNull,
+          reason: ok,
+        );
+      }
+      expect(normalizeUsername('۰۹۱۴۲۸۶۹۵۰۵'), '09142869505');
+      expect(normalizeUsername(' Ali.R۱ '), 'ali.r1');
       expect(
         await err(school(code: '1002', user: 'b.user'), '123'),
         contains('دست‌کم ۶'),
@@ -233,12 +247,16 @@ void main() {
       expect(v(base), isNull);
       expect(v({...base, 'phone': '0912'}), contains('تلفن همراه رابط'));
       expect(v({...base, 'landline': '2133'}), contains('تلفن ثابت'));
-      expect(v({...base, 'capacity': 0}), contains('ظرفیت'));
+      // ردیف ۱۶۶: ظرفیت حذف شد؛ تعداد دانش‌آموزان سقف ندارد
+      expect(v({...base, 'capacity': 0}), isNull);
+      expect(v({...base, 'student_count': 250000}), isNull);
       expect(v({...base, 'staff_count': 9000}), contains('کارکنان'));
-      expect(
-        v({...base, 'capacity': 100, 'student_count': 101}),
-        'تعداد دانش‌آموزان از ظرفیت بیشتر است',
+      // همهٔ ایرادها با کادرشان (قاب قرمز)
+      final all = SchoolRegistry.validateSchoolFields(
+        {...base, 'name': '', 'county': '', 'phone': '0912'},
+        const [],
       );
+      expect(all.keys.toList(), ['name', 'county', 'phone']);
       expect(
         v({
           ...base,

@@ -22,6 +22,9 @@ class ScheduleController extends SchoolController {
   });
 
   TimetableView? view;
+
+  /// Row 166: this week's shift of a rotating school (shown above the grid), or null.
+  String? weekShiftFa;
   String? grade;
   String? branch;
   int? homeClass;
@@ -37,6 +40,7 @@ class ScheduleController extends SchoolController {
   Future<void> read(SchoolRecords db) async {
     view = await Timetable(db)
         .view(grade: grade, branch: branch, homeClass: homeClass, child: child);
+    weekShiftFa = await Timetable(db).weekShift();
     for (final id in openSuggestions) {
       suggestions[id] = await Timetable(db).suggest(id);
     }
@@ -79,7 +83,27 @@ class ScheduleController extends SchoolController {
   Future<List<(int, String)>> rooms() => _t.rooms();
   Future<List<int>> workDays() => _t.workDays();
   Future<List<Bell>> lessons() => _t.lessons();
-  Future<List<BellDraft>> bellDraft() => _t.bellDraft();
+  Future<List<BellDraft>> bellDraft({String? shift}) =>
+      _t.bellDraft(shift: shift);
+
+  /// Row 166: rotating shift (the whole school: a morning week, then an afternoon week).
+  Future<bool> rotating() => _t.rotating();
+  Future<Rotation> rotation() => _t.rotation();
+  Future<String?> weekShift() => _t.weekShift();
+  Future<RecordWrite?> saveRotatingBells({
+    required List<BellDraft> morning,
+    required List<BellDraft> afternoon,
+    required String first,
+    String? start,
+  }) => run(
+    (db) => Timetable(db).saveRotatingBells(
+      morning: morning,
+      afternoon: afternoon,
+      first: first,
+      start: start,
+    ),
+    form: true,
+  );
   Future<GenResult?> generate() async {
     try {
       return await _t.generate();
@@ -420,6 +444,18 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             : ListView(
                 padding: const EdgeInsets.all(PayeshTokens.space4),
                 children: [
+                  // row 166: rotating shift — this week's bells (flips every Saturday)
+                  if (c.weekShiftFa case final w?)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: PayeshTokens.space2,
+                      ),
+                      child: StatusBadge(
+                        'شیفت چرخشی — این هفته: $w',
+                        key: const Key('sch-week-shift'),
+                        tone: PayeshTone.info,
+                      ),
+                    ),
                   if (mgr) ...[
                     if (v.grades.isEmpty)
                       const Text(
@@ -1012,19 +1048,54 @@ class _BellRow {
 }
 
 class _BellsPageState extends State<BellsPage> {
+  /// The rows on screen: the one set, or the morning / afternoon set of a rotating school.
   List<_BellRow>? rows;
+
+  /// Row 166: rotating school ⇒ both sets kept while switching between them.
+  bool rotating = false;
+  String shown = shiftMorningFa;
+  final Map<String, List<_BellRow>> sets = {};
+  String first = shiftMorningFa;
+  String? start;
+  String? thisWeek;
 
   @override
   void initState() {
     super.initState();
-    widget.controller.bellDraft().then((d) {
+    _init();
+  }
+
+  Future<void> _init() async {
+    final c = widget.controller;
+    final rot = await c.rotating();
+    if (!rot) {
+      final d = await c.bellDraft();
       if (mounted) setState(() => rows = [for (final b in d) _BellRow(b)]);
+      return;
+    }
+    final r = await c.rotation();
+    final m = await c.bellDraft(shift: shiftMorningFa);
+    final a = await c.bellDraft(shift: shiftAfternoonFa);
+    final w = await c.weekShift();
+    if (!mounted) return;
+    setState(() {
+      rotating = true;
+      first = r.first;
+      start = r.start;
+      thisWeek = w;
+      sets[shiftMorningFa] = [for (final b in m) _BellRow(b)];
+      sets[shiftAfternoonFa] = [for (final b in a) _BellRow(b)];
+      shown = w ?? shiftMorningFa;
+      rows = sets[shown];
     });
   }
 
   @override
   void dispose() {
-    for (final r in rows ?? const <_BellRow>[]) {
+    final all = rotating
+        ? [for (final l in sets.values) ...l]
+        : (rows ?? const <_BellRow>[]);
+    for (final r in all) {
       r.dispose();
     }
     super.dispose();
@@ -1044,21 +1115,93 @@ class _BellsPageState extends State<BellsPage> {
     setState(() => rows!.removeAt(i).dispose());
   }
 
+  void _show(String shift) => setState(() {
+    shown = shift;
+    rows = sets[shift];
+  });
+
+  DateTime _now() => widget.controller.db?.now() ?? DateTime.now();
+
+  String _flip(String s) =>
+      s == shiftMorningFa ? shiftAfternoonFa : shiftMorningFa;
+
+  List<Widget> _rotationHeader() => [
+    Text(
+      'شیفت مدرسه «چرخشی» است: کل مدرسه یک هفته صبح و هفتهٔ بعد بعدازظهر. زنگ‌های صبح و بعدازظهر را جدا وارد کنید و شیفت هفتهٔ اول را انتخاب کنید؛ از آن به بعد هر هفته (از شنبه) خودکار جابه‌جا می‌شود.',
+      key: const Key('bell-rotation-help'),
+    ),
+    const SizedBox(height: PayeshTokens.space3),
+    DropdownButtonFormField<String>(
+      key: const Key('bell-first'),
+      initialValue: first,
+      decoration: const InputDecoration(
+        labelText: 'شیفت هفتهٔ اول',
+        border: OutlineInputBorder(),
+      ),
+      items: [
+        for (final s in rotationShiftsFa)
+          DropdownMenuItem(value: s, child: Text(s)),
+      ],
+      onChanged: (v) => setState(() => first = v ?? shiftMorningFa),
+    ),
+    const SizedBox(height: PayeshTokens.space2),
+    Text(() {
+      final st = start == null ? null : DateTime.tryParse(start!);
+      final from = st == null ? '' : 'هفتهٔ اول از شنبه ${jalaliText(start)}؛ ';
+      final cur = st == null
+          ? first
+          : Rotation(first: first, start: start!).shiftOn(_now());
+      return '$fromاین هفته: $cur · هفتهٔ بعد: ${_flip(cur)}';
+    }(), key: const Key('bell-week')),
+    Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: TextButton(
+        key: const Key('bell-start-now'),
+        onPressed: () =>
+            setState(() => start = Rotation.iso(Rotation.saturdayOf(_now()))),
+        child: const Text('هفتهٔ اول = همین هفته'),
+      ),
+    ),
+    const SizedBox(height: PayeshTokens.space2),
+    SegmentedButton<String>(
+      key: const Key('bell-shift'),
+      segments: [
+        for (final s in rotationShiftsFa)
+          ButtonSegment(
+            value: s,
+            label: Text('زنگ‌های $s', key: Key('bell-shift-$s')),
+          ),
+      ],
+      selected: {shown},
+      onSelectionChanged: (v) => _show(v.first),
+    ),
+    const SizedBox(height: PayeshTokens.space2),
+  ];
+
   @override
   Widget build(BuildContext context) {
     var lesson = 0, brk = 0;
     return SchoolForm(
       prefix: 'bell',
-      title: 'تنظیم زنگ‌ها',
+      title: rotating ? 'تنظیم زنگ‌ها (شیفت چرخشی)' : 'تنظیم زنگ‌ها',
       controller: widget.controller,
       submitLabel: 'ذخیرهٔ ساعت‌ها',
       onSubmit: () async {
-        final w = await widget.controller.saveBells([
-          for (final r in rows ?? const <_BellRow>[]) r.draft,
-        ]);
+        final c = widget.controller;
+        final w = rotating
+            ? await c.saveRotatingBells(
+                morning: [for (final r in sets[shiftMorningFa]!) r.draft],
+                afternoon: [for (final r in sets[shiftAfternoonFa]!) r.draft],
+                first: first,
+                start: start,
+              )
+            : await c.saveBells([
+                for (final r in rows ?? const <_BellRow>[]) r.draft,
+              ]);
         if (w != null && context.mounted) Navigator.pop(context);
       },
       fields: [
+        if (rotating) ..._rotationHeader(),
         const Text(
           'برای هر ردیف زمان شروع و پایان را وارد کنید. «درس» به‌صورت زنگ در جدول می‌آید؛ «تفریح» فاصلهٔ بین زنگ‌هاست.',
         ),
@@ -1110,7 +1253,9 @@ class _BellsPageState extends State<BellsPage> {
                     ),
                     const SizedBox(height: PayeshTokens.space2),
                     DropdownButtonFormField<String>(
-                      key: Key('bell-t-$i'),
+                      key: rotating
+                          ? Key('bell-t-$shown-$i')
+                          : Key('bell-t-$i'),
                       initialValue: rows![i].type,
                       decoration: const InputDecoration(
                         labelText: 'این ردیف',

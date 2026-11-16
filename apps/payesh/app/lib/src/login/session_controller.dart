@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:payesh_sync/payesh_sync.dart';
+import 'package:payesh_ui/payesh_ui.dart' show fieldsToFixFa;
 
 import '../flags.dart';
 
@@ -90,9 +91,18 @@ final class LanOtpStep {
 /// Row 145 — «درخواست ثبت نام مدرسه جدید» on this school server: the form, then (with a
 /// saved [ticket]) the request's status (pending / approved / rejected).
 final class NeedSignup extends SessionState {
-  const NeedSignup(this.info, {this.error, this.ticket, this.status});
+  const NeedSignup(
+    this.info, {
+    this.error,
+    this.ticket,
+    this.status,
+    this.fields = const {},
+  });
   final LanServerInfo info;
   final String? error;
+
+  /// Row 166: the field each problem belongs to (form key ⇒ message) — red outline on each.
+  final Map<String, String> fields;
   final SignupTicket? ticket;
   final SignupStatus? status;
 }
@@ -1217,8 +1227,12 @@ class SessionController extends ChangeNotifier {
     final s = _state;
     final api = schools;
     if (_busy || s is! NeedSignup || api == null) return;
-    final bad = form.validate();
-    if (bad != null) return _set(NeedSignup(s.info, error: bad));
+    final bad = form.problems();
+    if (bad.isNotEmpty) {
+      return _set(
+        NeedSignup(s.info, error: fieldsToFixFa(bad.length), fields: bad),
+      );
+    }
     _set(NeedSignup(s.info), busy: true);
     try {
       String? dh;
@@ -1241,7 +1255,14 @@ class SessionController extends ChangeNotifier {
         NeedSignup(s.info, ticket: t, status: const SignupStatus('pending')),
       );
     } on LanAccessFailure catch (e) {
-      _set(NeedSignup(s.info, error: schoolsErrorFa(e)));
+      final f = SchoolSignup.fieldOfFailure(e);
+      _set(
+        NeedSignup(
+          s.info,
+          error: schoolsErrorFa(e),
+          fields: {?f: schoolsErrorFa(e)},
+        ),
+      );
     } on Object {
       _set(NeedSignup(s.info, error: _unknown));
     }

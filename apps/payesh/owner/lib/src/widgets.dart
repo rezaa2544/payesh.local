@@ -349,6 +349,15 @@ class _ReasonDialogState extends State<_ReasonDialog> {
   final _time = <String, DateTime>{};
   String? _error;
 
+  /// Row 166: the red outline of every field the refusal is about (name ⇒ message).
+  Map<String, String> _issues = const {};
+
+  void _fix(String name) {
+    if (_issues.containsKey(name)) {
+      setState(() => _issues = {..._issues}..remove(name));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -384,12 +393,18 @@ class _ReasonDialogState extends State<_ReasonDialog> {
 
   void _submit() {
     final r = _reason.text.trim();
-    if (r.length < 10) {
-      setState(() => _error = ownerErrors['reason_too_short']);
-      return;
-    }
-    if (widget.retype != null && _retype.text.trim() != widget.retype) {
-      setState(() => _error = 'مقدار تأیید با مقدار خواسته‌شده یکسان نیست.');
+    final bad = <String, String>{
+      if (r.length < 10) 'reason': 'دست‌کم ۱۰ نویسه بنویسید',
+      if (widget.retype != null && _retype.text.trim() != widget.retype)
+        'retype': 'با مقدار خواسته‌شده یکسان نیست',
+    };
+    if (bad.isNotEmpty) {
+      setState(() {
+        _issues = bad;
+        _error = bad.containsKey('reason')
+            ? ownerErrors['reason_too_short']
+            : 'مقدار تأیید با مقدار خواسته‌شده یکسان نیست.';
+      });
       return;
     }
     final values = <String, Object?>{
@@ -400,7 +415,16 @@ class _ReasonDialogState extends State<_ReasonDialog> {
     final draft = DialogResult(r, values);
     final m = widget.validate?.call(draft);
     if (m != null) {
-      setState(() => _error = m);
+      setState(() {
+        _error = m;
+        _issues = FieldIssues.guess(m, {
+          for (final f in widget.fields)
+            f.name: (
+              label: f.label,
+              value: _text[f.name]?.text ?? _select[f.name] ?? '',
+            ),
+        });
+      });
       return;
     }
     Navigator.of(context).pop(draft);
@@ -431,18 +455,29 @@ class _ReasonDialogState extends State<_ReasonDialog> {
       controller: _text[f.name],
       textDirection: f.ltr ? TextDirection.ltr : null,
       keyboardType: f.numeric ? TextInputType.number : null,
-      decoration: InputDecoration(labelText: f.label, hintText: f.hint),
+      onChanged: (_) => _fix(f.name),
+      decoration: InputDecoration(
+        labelText: f.label,
+        hintText: f.hint,
+        errorText: _issues[f.name],
+        errorMaxLines: 3,
+      ),
     ),
     SelectDialogField() => DropdownButtonFormField<String>(
       key: Key('dlg-${f.name}'),
       initialValue: _select[f.name],
-      decoration: InputDecoration(labelText: f.label),
+      decoration: InputDecoration(
+        labelText: f.label,
+        errorText: _issues[f.name],
+        errorMaxLines: 3,
+      ),
       items: [
         for (final e in f.options.entries)
           DropdownMenuItem(value: e.key, child: Text(e.value)),
       ],
       onChanged: (v) {
         if (v == null) return;
+        _fix(f.name);
         setState(() => _select[f.name] = v);
         f.onChanged?.call(v, _set);
       },
@@ -482,8 +517,10 @@ class _ReasonDialogState extends State<_ReasonDialog> {
               controller: _reason,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(
+              onChanged: (_) => _fix('reason'),
+              decoration: InputDecoration(
                 labelText: 'دلیل (اجباری، دست‌کم ۱۰ نویسه)',
+                errorText: _issues['reason'],
               ),
             ),
             if (widget.retype != null) ...[
@@ -492,9 +529,11 @@ class _ReasonDialogState extends State<_ReasonDialog> {
                 key: const Key('dlg-retype'),
                 controller: _retype,
                 textDirection: TextDirection.ltr,
+                onChanged: (_) => _fix('retype'),
                 decoration: InputDecoration(
                   labelText:
                       'برای تأیید دوباره، این مقدار را تایپ کنید: ${widget.retype}',
+                  errorText: _issues['retype'],
                 ),
               ),
             ],

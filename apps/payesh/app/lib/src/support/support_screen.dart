@@ -217,6 +217,9 @@ class _NewTicketDialogState extends State<_NewTicketDialog> {
   bool _busy = false;
   String? _error;
 
+  /// Row 166: the field the refusal is about (red outline).
+  String? _bad;
+
   @override
   void dispose() {
     _subject.dispose();
@@ -228,16 +231,23 @@ class _NewTicketDialogState extends State<_NewTicketDialog> {
     final subject = _subject.text.trim();
     final text = _text.text.trim();
     if (subject.length < 3) {
-      setState(() => _error = 'موضوع را بنویسید (دست‌کم ۳ نویسه)');
+      setState(() {
+        _error = 'موضوع را بنویسید (دست‌کم ۳ نویسه)';
+        _bad = 'subject';
+      });
       return;
     }
     if (text.length < 2) {
-      setState(() => _error = 'متن پیام را بنویسید');
+      setState(() {
+        _error = 'متن پیام را بنویسید';
+        _bad = 'text';
+      });
       return;
     }
     setState(() {
       _busy = true;
       _error = null;
+      _bad = null;
     });
     try {
       final l = await widget.link();
@@ -288,7 +298,13 @@ class _NewTicketDialogState extends State<_NewTicketDialog> {
               controller: _subject,
               maxLength: 120,
               enabled: !_busy,
-              decoration: const InputDecoration(labelText: 'عنوان'),
+              onChanged: (_) {
+                if (_bad == 'subject') setState(() => _bad = null);
+              },
+              decoration: InputDecoration(
+                labelText: 'عنوان',
+                errorText: _bad == 'subject' ? checkFieldFa : null,
+              ),
             ),
             TextField(
               key: const Key('support-text'),
@@ -297,9 +313,13 @@ class _NewTicketDialogState extends State<_NewTicketDialog> {
               maxLines: 8,
               maxLength: 2000,
               enabled: !_busy,
-              decoration: const InputDecoration(
+              onChanged: (_) {
+                if (_bad == 'text') setState(() => _bad = null);
+              },
+              decoration: InputDecoration(
                 labelText: 'شرح پیام یا مشکل',
                 hintText: 'چه شد؟ کجا؟ چه انتظاری داشتید؟',
+                errorText: _bad == 'text' ? checkFieldFa : null,
               ),
             ),
             if (_error case final e?)
@@ -345,6 +365,7 @@ class _SupportThreadScreenState extends State<SupportThreadScreen> {
   final _reply = TextEditingController();
   bool _busy = false;
   String? _error;
+  bool _replyBad = false; // row 166: red outline of an empty reply
 
   @override
   void dispose() {
@@ -379,9 +400,13 @@ class _SupportThreadScreenState extends State<SupportThreadScreen> {
   Future<void> _send() async {
     final text = _reply.text.trim();
     if (text.length < 2) {
-      setState(() => _error = 'متن پیام را بنویسید');
+      setState(() {
+        _error = 'متن پیام را بنویسید';
+        _replyBad = true;
+      });
       return;
     }
+    _replyBad = false;
     await _run((l) async {
       final r = await l.api.message(l.server, l.token, _t.id, text);
       _reply.clear();
@@ -499,7 +524,11 @@ class _SupportThreadScreenState extends State<SupportThreadScreen> {
                       minLines: 1,
                       maxLines: 4,
                       maxLength: 2000,
+                      onChanged: (_) {
+                        if (_replyBad) setState(() => _replyBad = false);
+                      },
                       decoration: InputDecoration(
+                        errorText: _replyBad ? checkFieldFa : null,
                         hintText: _t.closed
                             ? 'پیام تازه گفت‌وگو را دوباره باز می‌کند'
                             : 'پیام شما',

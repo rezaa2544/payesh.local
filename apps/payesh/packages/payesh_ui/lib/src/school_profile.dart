@@ -7,7 +7,12 @@ library;
 
 const List<String> schoolLevels = ['ابتدایی', 'متوسطه اول', 'متوسطه دوم'];
 const List<String> schoolGenders = ['پسرانه', 'دخترانه'];
-const List<String> schoolShifts = ['صبح', 'بعدازظهر', 'شب', 'هر دو'];
+
+/// ردیف ۱۶۶: «چرخشی» = کل مدرسه یک هفته صبح و هفتهٔ بعد بعدازظهر.
+const List<String> schoolShifts = ['صبح', 'بعدازظهر', 'شب', 'هر دو', 'چرخشی'];
+
+/// شیفت چرخشی (ردیف ۱۶۶).
+const String rotatingShift = 'چرخشی';
 const List<String> schoolKindsFa = [
   'عادی',
   'علوم تجربی',
@@ -108,7 +113,6 @@ const List<String> weekDays = [
 const List<int> defaultWorkDays = [0, 1, 2, 3, 4];
 
 /// سقف‌ها (همان MAX سرور).
-const int maxCapacity = 20000;
 const int maxStaff = 5000;
 const int maxExcuseMinutes = 240;
 const int maxBoomChars = 2000;
@@ -120,10 +124,8 @@ const Map<String, String> schoolProfileErrorsFa = {
   'school_type': 'نوع مدرسه را انتخاب کنید',
   'gender': 'جنسیت مدرسه را انتخاب کنید',
   'shift': 'شیفت را انتخاب کنید',
-  'capacity': 'ظرفیت باید عددی بین ۱ تا ۲۰٬۰۰۰ باشد',
   'staff_count': 'تعداد کارکنان باید عددی بین ۰ تا ۵٬۰۰۰ باشد',
   'student_count': 'تعداد دانش‌آموزان معتبر نیست',
-  'over_capacity': 'تعداد دانش‌آموزان از ظرفیت مدرسه بیشتر است',
   'landline': 'تلفن ثابت باید با ۰ شروع شود (۷ تا ۱۱ رقم)',
   'phone': 'تلفن همراه رابط باید ۱۱ رقم و با ۰۹ شروع شود',
   'work_days': 'دست‌کم یک روز کاری انتخاب کنید',
@@ -185,6 +187,46 @@ final class SchoolProfileCheck {
 
 /// مشخصات مدرسه‌ای که مدیر در تنظیمات تعیین می‌کند.
 abstract final class SchoolProfile {
+  /// ردیف ۱۶۶: همهٔ ایرادهای فرم (کد ⇒ پیام فارسی)، نه فقط نخستین؛ هر کادر نادرست قاب قرمز
+  /// می‌گیرد. همان [validate] است: کد خطا پیدا می‌شود، مقدار آن کادر موقتاً با مقداری درست
+  /// جایگزین می‌شود و دوباره سنجیده می‌شود.
+  static Map<String, String> problems(Map<String, Object?> b) {
+    const fill = <String, Object?>{
+      'level': 'ابتدایی',
+      'type': 'عادی',
+      'school_type': 'governmental',
+      'gender': 'پسرانه',
+      'shift': 'صبح',
+      'staff_count': null,
+      'student_count': null,
+      'landline': '',
+      'phone': '',
+      'work_days': [0],
+      'excuse': 15,
+      'capabilities': <String, Object?>{},
+      'branches': ['نظری'],
+      'fields': <String>[],
+      'boom_goals': '',
+    };
+    final out = <String, String>{};
+    final m = Map<String, Object?>.of(b);
+    for (var i = 0; i < fill.length + 1; i++) {
+      final r = validate(m);
+      final e = r.error;
+      if (e == null || out.containsKey(e) || !fill.containsKey(e)) break;
+      out[e] = r.messageFa!;
+      if (e == 'excuse') {
+        m['excuse_window_minutes'] = fill[e];
+      } else if (e == 'branches') {
+        m['branches'] = fill[e];
+        m['fields'] = const <String>[];
+      } else {
+        m[e] = fill[e];
+      }
+    }
+    return out;
+  }
+
   /// همان validateProfile سرور (بایت‌به‌بایت با بردارهای مشترک).
   static SchoolProfileCheck validate(Map<String, Object?> b) {
     String str(String k, String d) =>
@@ -209,10 +251,6 @@ abstract final class SchoolProfile {
     if (!schoolShifts.contains(shift)) {
       return const SchoolProfileCheck.error('shift');
     }
-    final capacity = _intOf(b['capacity']);
-    if (capacity == null || capacity < 1 || capacity > maxCapacity) {
-      return const SchoolProfileCheck.error('capacity');
-    }
     final staff = _intOf(b['staff_count']);
     if (staff != null && (staff < 0 || staff > maxStaff)) {
       return const SchoolProfileCheck.error('staff_count');
@@ -220,9 +258,6 @@ abstract final class SchoolProfile {
     final students = _intOf(b['student_count']);
     if (students != null && students < 0) {
       return const SchoolProfileCheck.error('student_count');
-    }
-    if (students != null && students > capacity) {
-      return const SchoolProfileCheck.error('over_capacity');
     }
     final landline = _digits(b['landline']);
     if (landline.isNotEmpty && !RegExp(r'^0\d{6,10}$').hasMatch(landline)) {
@@ -297,7 +332,6 @@ abstract final class SchoolProfile {
       'school_type': st,
       'gender': gender,
       'shift': shift,
-      'capacity': capacity,
       'landline': landline,
       'phone': phone,
       'staff_count': staff,

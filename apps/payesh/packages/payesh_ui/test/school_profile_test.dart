@@ -21,7 +21,12 @@ void main() {
     expect(v['caps'], [for (final d in capDefs) d.$1]);
     expect(v['branches'], schoolBranches);
     final max = v['max']! as Map;
-    expect(max['capacity'], maxCapacity);
+    expect(
+      max.containsKey('capacity'),
+      isFalse,
+      reason: 'ردیف ۱۶۶: ظرفیت حذف شد',
+    );
+    expect(schoolShifts, contains(rotatingShift));
     expect(max['staff'], maxStaff);
     expect(max['excuse'], maxExcuseMinutes);
     expect(max['boom'], maxBoomChars);
@@ -51,6 +56,33 @@ void main() {
     }
   });
 
+  test('ردیف ۱۶۶: همهٔ ایرادها با هم (قاب قرمز هر کادر)', () {
+    final all = SchoolProfile.problems({
+      'level': '',
+      'gender': '',
+      'phone': '0912',
+      'work_days': <int>[],
+      'excuse_window_minutes': '999',
+    });
+    expect(all.keys.toList(), [
+      'level',
+      'gender',
+      'phone',
+      'work_days',
+      'excuse',
+    ]);
+    expect(all['phone'], schoolProfileErrorsFa['phone']);
+    expect(
+      SchoolProfile.problems({
+        'level': 'ابتدایی',
+        'gender': 'پسرانه',
+        'work_days': [0],
+        'excuse_window_minutes': 10,
+      }),
+      isEmpty,
+    );
+  });
+
   test('وابستگی‌ها: نوع مدرسه ⇒ قابلیت‌ها؛ شب ⇒ شبانه', () {
     expect(capsForType('boarding')['has_dorm'], 1);
     expect(capsForType('governmental')['has_tuition'], 0);
@@ -61,10 +93,17 @@ void main() {
       'gender': 'دخترانه',
       'shift': 'هر دو',
       'capacity': 1.5,
+      'student_count': 999999,
       'work_days': [0],
       'excuse_window_minutes': 0,
     });
-    expect(r.error, 'capacity');
+    expect(
+      r.error,
+      isNull,
+      reason: 'ردیف ۱۶۶: ظرفیت نادیده و تعداد دانش‌آموزان بی‌سقف',
+    );
+    expect(r.patch!.containsKey('capacity'), isFalse);
+    expect(r.patch!['student_count'], 999999);
     final ok = SchoolProfile.validate({
       'level': 'ابتدایی',
       'gender': 'دخترانه',

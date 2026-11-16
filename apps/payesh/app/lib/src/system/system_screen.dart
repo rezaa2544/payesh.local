@@ -470,9 +470,15 @@ class _SystemScreenState extends State<SystemScreen> {
                     key: const Key('sys-restore-path'),
                     controller: restorePath,
                     textDirection: TextDirection.ltr,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'مسیر فایل پشتیبان (.json) برای بازیابی',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      errorText:
+                          c.error != null &&
+                              (c.error!.contains('فایل پشتیبان') ||
+                                  c.error == 'فایل خوانده نشد')
+                          ? checkFieldFa
+                          : null,
                     ),
                   ),
                   _buttons([
@@ -583,9 +589,11 @@ class _SystemScreenState extends State<SystemScreen> {
                 TextField(
                   key: const Key('sys-name'),
                   controller: name,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'نام مدرسه',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    // row 166: the refused field is outlined red
+                    errorText: fieldIssueFor(c.error, 'نام مدرسه', name.text),
                   ),
                 ),
                 _buttons([
@@ -602,7 +610,7 @@ class _SystemScreenState extends State<SystemScreen> {
                 ]),
                 _small(
                   context,
-                  'مقطع، نوع، جنسیت، شیفت، ظرفیت، تلفن‌ها، روزهای کاری، پنجرهٔ موجه و قابلیت‌ها در «مشخصات مدرسه».',
+                  'مقطع، نوع، جنسیت، شیفت، آمار، تلفن‌ها، روزهای کاری، پنجرهٔ موجه و قابلیت‌ها در «مشخصات مدرسه».',
                 ),
               ]),
               _card(context, 'آمار پایگاه داده', key: const Key('sys-stats'), [
@@ -921,6 +929,8 @@ class _CloudScreenState extends State<CloudScreen> {
                         decoration: InputDecoration(
                           labelText: label,
                           border: const OutlineInputBorder(),
+                          errorText: fieldIssueFor(c.error, label, t.text),
+                          errorMaxLines: 3,
                         ),
                       ),
                     ),
