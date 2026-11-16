@@ -167,14 +167,12 @@ String normalizeUsername(String v) {
   final t = v.trim();
   if (RegExp('[A-Za-z]').hasMatch(t)) {
     return t
-        .replaceAllMapped(
-          RegExp('[۰-۹٠-٩]'),
-          (m) => digitsOnly(m[0]),
-        )
+        .replaceAllMapped(RegExp('[۰-۹٠-٩]'), (m) => digitsOnly(m[0]))
         .toLowerCase();
   }
   return digitsOnly(t);
 }
+
 final RegExp requestIdRe = RegExp(r'^[0-9]{13}-[0-9a-f]{16}$');
 final RegExp paymentIdRe = RegExp(r'^SUB-[0-9A-F]{8}$');
 final RegExp schoolIdRe = RegExp(r'^s-[0-9a-f]{12}$');
@@ -936,7 +934,9 @@ final class SchoolRegistry {
           'رمز ورود مدیر دست‌کم ۶ نویسه باشد (پیش‌فرض: کد ملی مدیر)';
     }
     if (!needPassword && password != null && password.isNotEmpty) {
-      if (password.length < 6) out['mg_pass'] = 'رمز ورود مدیر دست‌کم ۶ نویسه باشد';
+      if (password.length < 6) {
+        out['mg_pass'] = 'رمز ورود مدیر دست‌کم ۶ نویسه باشد';
+      }
     }
     return out;
   }

@@ -609,7 +609,10 @@ void main() {
       await tapKey(tester, 'sp-save');
       // row 166: every invalid field is outlined red (level AND gender), one summary line
       expect(textOf(tester, 'sp-error'), 'کادرهای قرمز را بررسی و اصلاح کنید');
-      await tester.drag(find.byKey(const Key('sp-list')), const Offset(0, 6000));
+      await tester.drag(
+        find.byKey(const Key('sp-list')),
+        const Offset(0, 6000),
+      );
       await settle(tester);
       expect(find.text('مقطع را انتخاب کنید'), findsOneWidget);
       expect(find.text('جنسیت مدرسه را انتخاب کنید'), findsOneWidget);

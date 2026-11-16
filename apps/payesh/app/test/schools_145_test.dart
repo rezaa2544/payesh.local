@@ -185,7 +185,10 @@ void main() {
       expect(find.text('درخواست ثبت نام مدرسه جدید'), findsWidgets);
       // NEG: empty form ⇒ every missing field outlined red (row 166), nothing sent
       await tap(tester, 'signup-submit');
-      expect(text(tester, 'signup-error'), 'کادرهای قرمز را بررسی و اصلاح کنید');
+      expect(
+        text(tester, 'signup-error'),
+        'کادرهای قرمز را بررسی و اصلاح کنید',
+      );
       expect(find.text('نام مدرسه را بنویسید'), findsOneWidget);
       expect(find.text('شهرستان را انتخاب کنید'), findsOneWidget);
       expect(find.text('رمز عبور دست‌کم ۶ نویسه باشد'), findsOneWidget);
@@ -207,7 +210,11 @@ void main() {
       await pick(tester, 'signup-province', 'آذربایجان شرقی');
       await pick(tester, 'signup-county', 'مراغه');
       await pick(tester, 'signup-province', 'خراسان رضوی');
-      expect(find.text('مراغه'), findsNothing, reason: 'county reset with the province');
+      expect(
+        find.text('مراغه'),
+        findsNothing,
+        reason: 'county reset with the province',
+      );
       await pick(tester, 'signup-county', 'نیشابور');
       await type(tester, 'signup-village', 'خرو');
       await type(tester, 'signup-phone', '۰۹۱۵۱۲۳۴۵۶۷');

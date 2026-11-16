@@ -145,9 +145,7 @@ void main() {
       );
       String? issue(String k) {
         final w = tester.widget(find.byKey(Key('sf-$k')));
-        return w is TextField
-            ? w.decoration!.errorText
-            : null;
+        return w is TextField ? w.decoration!.errorText : null;
       }
 
       expect(issue('name'), 'نام مدرسه را بنویسید');

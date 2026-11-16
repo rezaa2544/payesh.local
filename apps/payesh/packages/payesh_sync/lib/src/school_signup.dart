@@ -119,13 +119,17 @@ final class SchoolSignup {
     if (province.trim().length < 2) out['province'] = 'استان را انتخاب کنید';
     final c = county.trim().length;
     if (c < 2 || c > 60) out['county'] = 'شهرستان را انتخاب کنید';
-    if (village.trim().length > 60) out['village'] = 'نام روستا/منطقه طولانی است';
+    if (village.trim().length > 60) {
+      out['village'] = 'نام روستا/منطقه طولانی است';
+    }
     if (!RegExp(r'^0\d{10}$').hasMatch(normalizedPhone)) {
       out['phone'] =
           'شمارهٔ تلفن را کامل و ۱۱ رقمی بنویسید (مثلاً ۰۹۱۲۱۲۳۴۵۶۷)';
     }
     final st = _count(staffCount);
-    if (st == null || st > 10000) out['staff'] = 'تعداد کارکنان را درست بنویسید';
+    if (st == null || st > 10000) {
+      out['staff'] = 'تعداد کارکنان را درست بنویسید';
+    }
     // ردیف ۱۶۶: تعداد دانش‌آموزان سقف ندارد (فقط عدد درست)
     if (_count(studentCount) == null) {
       out['students'] = 'تعداد دانش‌آموزان را درست بنویسید';

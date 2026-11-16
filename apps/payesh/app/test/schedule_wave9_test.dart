@@ -358,9 +358,9 @@ void main() {
       expect(find.byKey(const Key('bell-save')), findsNothing);
       final ops = s.outbox.list();
       expect(
-        ops.where((o) => o.collection == 'bell_schedules').map(
-          (o) => o.payload!['shift'],
-        ),
+        ops
+            .where((o) => o.collection == 'bell_schedules')
+            .map((o) => o.payload!['shift']),
         containsAll(['صبح', 'بعدازظهر']),
       );
       expect(ops.last.collection, 'schools');

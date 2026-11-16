@@ -219,10 +219,7 @@ void main() {
       );
       expect(await err(school(code: '1002')), 'نام کاربری مدیر تکراری است');
       // ردیف ۱۶۶: نام کاربری فقط‌رقمی (همراه) و شروع با رقم درست است
-      expect(
-        await err(school(code: '1002', user: 'a b')),
-        usernameRuleFa,
-      );
+      expect(await err(school(code: '1002', user: 'a b')), usernameRuleFa);
       for (final ok in ['09142869505', '9bad', 'Ali.R', 'm@x']) {
         expect(
           SchoolRegistry.validateSchool(
@@ -252,10 +249,12 @@ void main() {
       expect(v({...base, 'student_count': 250000}), isNull);
       expect(v({...base, 'staff_count': 9000}), contains('کارکنان'));
       // همهٔ ایرادها با کادرشان (قاب قرمز)
-      final all = SchoolRegistry.validateSchoolFields(
-        {...base, 'name': '', 'county': '', 'phone': '0912'},
-        const [],
-      );
+      final all = SchoolRegistry.validateSchoolFields({
+        ...base,
+        'name': '',
+        'county': '',
+        'phone': '0912',
+      }, const []);
       expect(all.keys.toList(), ['name', 'county', 'phone']);
       expect(
         v({

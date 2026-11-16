@@ -72,9 +72,17 @@ void main() {
       expect(form(staff: '10001').validate(), contains('کارکنان'));
       expect(form(students: '-1').validate(), contains('دانش‌آموزان'));
       expect(form(students: 'abc').validate(), contains('دانش‌آموزان'));
-      expect(form(students: '5000000').validate(), isNull, reason: 'row 166: no cap');
+      expect(
+        form(students: '5000000').validate(),
+        isNull,
+        reason: 'row 166: no cap',
+      );
       expect(form(manager: 'ab').validate(), contains('مدیر'));
-      expect(form(username: '09142869505').validate(), isNull, reason: 'row 166');
+      expect(
+        form(username: '09142869505').validate(),
+        isNull,
+        reason: 'row 166',
+      );
       expect(form(username: '9bad').validate(), isNull, reason: 'row 166');
       expect(form(username: 'a b c').validate(), contains('نام کاربری'));
       expect(form(username: 'ab').validate(), contains('نام کاربری'));

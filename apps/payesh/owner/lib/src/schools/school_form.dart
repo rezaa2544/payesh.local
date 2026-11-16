@@ -354,16 +354,19 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
               ]),
               _title('📍 مکان و اداره مربوطه'),
               _grid([
-                _select('province', 'استان *', _province, {
-                  '': '— انتخاب استان —',
-                  for (final p in iranProvinces) p: p,
-                }, (v) {
-                  if (v != _province) {
-                    _county = '';
-                    _issues.clear('county');
-                  }
-                  _province = v;
-                }),
+                _select(
+                  'province',
+                  'استان *',
+                  _province,
+                  {'': '— انتخاب استان —', for (final p in iranProvinces) p: p},
+                  (v) {
+                    if (v != _province) {
+                      _county = '';
+                      _issues.clear('county');
+                    }
+                    _province = v;
+                  },
+                ),
                 // ردیف ۱۶۶: شهرستان‌های همان استان (کلید تازه با هر استان ⇒ فهرست از نو)
                 KeyedSubtree(
                   key: ValueKey('sf-county-of-$_province'),

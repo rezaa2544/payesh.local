@@ -51,12 +51,7 @@ void main() {
         ]) {
           expect(AccountRules.usernameProblem(ok), isNull, reason: ok);
         }
-        for (final bad in [
-          'ab',
-          '12',
-          'ali rezaei',
-          'علی',
-        ]) {
+        for (final bad in ['ab', '12', 'ali rezaei', 'علی']) {
           expect(
             AccountRules.usernameProblem(bad),
             AccountRules.usernameRuleFa,

@@ -480,8 +480,14 @@ void main() {
       expect((await tt.lessons()).first.start, first, reason: '$day');
     }
     // the afternoon has 3 lessons, the morning 2: the grid follows this week's shift
-    expect((await Timetable(at(DateTime.utc(2026, 11, 14))).lessons()).length, 3);
-    expect((await Timetable(at(DateTime.utc(2026, 11, 21))).lessons()).length, 2);
+    expect(
+      (await Timetable(at(DateTime.utc(2026, 11, 14))).lessons()).length,
+      3,
+    );
+    expect(
+      (await Timetable(at(DateTime.utc(2026, 11, 21))).lessons()).length,
+      2,
+    );
     // drafts are per shift with their own ids; re-saving one shift keeps the other
     final dm = await t.bellDraft(shift: 'صبح');
     expect(dm.every((d) => d.id != 0), isTrue);
@@ -494,9 +500,19 @@ void main() {
     expect(await t.weekShift(), isNull);
     expect((await t.bells()).single.start, '07:30');
     await t.saveBells(const [BellDraft(start: '08:00', end: '08:45')]);
-    expect((await db(e, ob).allOrEmpty('bell_schedules')).length, 1, reason: 'one set again');
-    expect(Rotation.saturdayOf(DateTime(2026, 11, 20)), DateTime.utc(2026, 11, 14));
-    expect(Rotation.saturdayOf(DateTime(2026, 11, 14)), DateTime.utc(2026, 11, 14));
+    expect(
+      (await db(e, ob).allOrEmpty('bell_schedules')).length,
+      1,
+      reason: 'one set again',
+    );
+    expect(
+      Rotation.saturdayOf(DateTime(2026, 11, 20)),
+      DateTime.utc(2026, 11, 14),
+    );
+    expect(
+      Rotation.saturdayOf(DateTime(2026, 11, 14)),
+      DateTime.utc(2026, 11, 14),
+    );
   });
 
   test('W9-U11 generator: demands by weekly hours, specialists, one-day spread; apply fills only empty cells', () async {
