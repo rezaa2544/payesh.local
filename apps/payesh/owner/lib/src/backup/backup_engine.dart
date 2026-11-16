@@ -238,7 +238,9 @@ class OwnerBackupEngine extends ChangeNotifier {
     final out = <BackupTarget>[];
     final d = await localRoot?.call();
     if (d != null) out.add(DirBackupTarget(d));
-    if (s != null && (all || dbOn)) out.add(BucketBackupTarget(s, s3Factory));
+    if (s != null && (all || dbOn)) {
+      out.add(BucketBackupTarget(s, s3Factory, retry: _retry));
+    }
     return out;
   }
 
@@ -490,7 +492,9 @@ class OwnerBackupEngine extends ChangeNotifier {
     _notify();
     final outFp = out.fingerprint;
     for (final tg in need) {
-      await _retry(() => tg.write(bytes));
+      await tg.write(
+        bytes,
+      ); // دیتابیس: هر تکه با تلاش دوباره (BucketBackupTarget.retry)
       _fp[tg.id] = outFp;
     }
     _base = archive;

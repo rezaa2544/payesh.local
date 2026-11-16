@@ -20,6 +20,10 @@ final class FakeBucket {
   int lists = 0;
   bool down = false;
 
+  /// بارگذاری‌های تکه‌ایِ باز: uploadId ← (کلید، شمارهٔ تکه ← بایت‌ها).
+  final uploads = <String, (String, Map<int, Uint8List>)>{};
+  int uploadSeq = 0;
+
   /// قطع اینترنت شبیه‌سازی‌شده برای یک درخواست (true ⇒ SocketException).
   bool Function(String method, String key)? failWhen;
 
@@ -92,6 +96,62 @@ final class _FakeBucketTransport implements S3Transport {
       }
       x.write('</ListBucketResult>');
       return S3Response(200, x.toString());
+    }
+    final q = url.queryParameters;
+    if (method == 'POST' && q.containsKey('uploads')) {
+      final id = 'up${++b.uploadSeq}';
+      b.uploads[id] = (key, <int, Uint8List>{});
+      return S3Response(
+        200,
+        '<InitiateMultipartUploadResult><UploadId>$id</UploadId>'
+        '</InitiateMultipartUploadResult>',
+      );
+    }
+    final up = q['uploadId'];
+    if (up != null) {
+      final u = b.uploads[up];
+      if (u == null || u.$1 != key) {
+        return const S3Response(
+          404,
+          '<Error><Code>NoSuchUpload</Code></Error>',
+        );
+      }
+      if (method == 'PUT') {
+        final part = Uint8List.fromList(body ?? const []);
+        u.$2[int.parse(q['partNumber']!)] = part;
+        return S3Response(200, '', etag: '"${md5.convert(part)}"');
+      }
+      if (method == 'DELETE') {
+        b.uploads.remove(up);
+        return const S3Response(204, '');
+      }
+      if (method == 'POST') {
+        final xml = utf8.decode(body ?? const []);
+        final nums = [
+          for (final m in RegExp(
+            r'<PartNumber>(\d+)</PartNumber><ETag>([^<]*)</ETag>',
+          ).allMatches(xml))
+            (int.parse(m.group(1)!), m.group(2)!.replaceAll('&quot;', '"')),
+        ];
+        final all = BytesBuilder();
+        for (final (n, tag) in nums) {
+          final p = u.$2[n];
+          if (p == null || tag != '"${md5.convert(p)}"') {
+            return const S3Response(
+              400,
+              '<Error><Code>InvalidPart</Code></Error>',
+            );
+          }
+          all.add(p);
+        }
+        b.uploads.remove(up);
+        b.objects[key] = all.takeBytes();
+        b.modified[key] = b.now();
+        return const S3Response(
+          200,
+          '<CompleteMultipartUploadResult></CompleteMultipartUploadResult>',
+        );
+      }
     }
     switch (method) {
       case 'GET':

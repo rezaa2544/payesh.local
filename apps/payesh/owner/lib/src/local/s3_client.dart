@@ -294,9 +294,18 @@ String sigV4Authorization({
 }
 
 final class S3Response {
-  const S3Response(this.status, this.body, {this.rawBytes, this.wireBytes});
+  const S3Response(
+    this.status,
+    this.body, {
+    this.rawBytes,
+    this.wireBytes,
+    this.etag,
+  });
   final int status;
   final String body;
+
+  /// سرآیند ETag پاسخ (برای تکه‌های بارگذاری تکه‌ای)؛ null در جعلی‌هایی که نمی‌دهند.
+  final String? etag;
 
   /// تعداد واقعی بایت‌های بدنه که از شبکه رسید (برای شمارش ترافیک)؛ null در جعلی‌ها.
   final int? wireBytes;
@@ -550,6 +559,7 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
         utf8.decode(head, allowMalformed: true),
         rawBytes: raw,
         wireBytes: raw.length,
+        etag: res.headers.value('etag'),
       );
     }
     // متن تا ۶۴K نویسه نگه داشته می‌شود، اما همهٔ بایت‌ها شمرده می‌شوند
@@ -564,6 +574,7 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
       res.statusCode,
       text.length > 65536 ? text.substring(0, 65536) : text,
       wireBytes: wire,
+      etag: res.headers.value('etag'),
     );
   }
 
@@ -976,6 +987,109 @@ Future<void> s3PutBytes(
     now: now,
   );
   if (r.status == 404) throw S3Failure(_failText(404, 'NoSuchBucket'));
+}
+
+/// اندازهٔ هر تکه در بارگذاری تکه‌ای (S3 دست‌کم ۵ مگابایت می‌خواهد، جز تکهٔ آخر).
+const int s3PartBytes = 8 << 20;
+
+/// نوشتن یک فایل بزرگ به‌صورت تکه‌ای (S3 Multipart Upload) تا روی اینترنت کند هر درخواست کوتاه
+/// بماند و قطع شدن یک تکه فقط همان تکه را دوباره بفرستد. [retry] هر گام را دربر می‌گیرد (مثلاً
+/// تلاش دوباره با فاصله). اگر کار تمام نشود، بارگذاری نیمه‌کاره لغو می‌شود و فایل قبلی همان کلید
+/// دست نمی‌خورد (کلید فقط با «پایان» جایگزین می‌شود).
+Future<void> s3PutMultipart(
+  S3Settings s,
+  S3Transport Function() transport,
+  String key,
+  List<int> body, {
+  String contentType = 'application/octet-stream',
+  int partBytes = s3PartBytes,
+  Future<void> Function(Future<void> Function() step)? retry,
+}) async {
+  final run = retry ?? (f) => f();
+  final path = '/${s.bucket}/$key';
+  Future<S3Response> req(
+    String method,
+    Map<String, String> query, {
+    List<int>? b,
+    String? ct,
+  }) async {
+    final t = transport();
+    try {
+      return await s3Request(
+        s,
+        t,
+        method: method,
+        path: path,
+        query: query,
+        body: b,
+        contentType: ct,
+      );
+    } finally {
+      t.close();
+    }
+  }
+
+  String? id;
+  await run(() async {
+    final r = await req(
+      'POST',
+      const {'uploads': ''},
+      b: const [],
+      ct: contentType,
+    );
+    id = _xmlTag(r.body, 'UploadId');
+  });
+  final uploadId = id;
+  if (uploadId == null || uploadId.isEmpty) {
+    throw const S3Failure('دیتابیس بارگذاری تکه‌ای را نپذیرفت.');
+  }
+  try {
+    final tags = <String>[];
+    for (var off = 0, n = 1; off < body.length; off += partBytes, n++) {
+      final end = off + partBytes < body.length ? off + partBytes : body.length;
+      final part = body is Uint8List
+          ? Uint8List.sublistView(body, off, end)
+          : body.sublist(off, end);
+      String? tag;
+      await run(() async {
+        final r = await req('PUT', {
+          'partNumber': '$n',
+          'uploadId': uploadId,
+        }, b: part);
+        tag = r.etag ?? '"${md5.convert(part)}"';
+      });
+      tags.add(tag!);
+    }
+    final x = StringBuffer('<CompleteMultipartUpload>');
+    for (var i = 0; i < tags.length; i++) {
+      final t = tags[i]
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;');
+      x.write('<Part><PartNumber>${i + 1}</PartNumber><ETag>$t</ETag></Part>');
+    }
+    x.write('</CompleteMultipartUpload>');
+    await run(() async {
+      final r = await req(
+        'POST',
+        {'uploadId': uploadId},
+        b: utf8.encode(x.toString()),
+        ct: 'application/xml',
+      );
+      // S3 ممکن است خطای «پایان» را با کد ۲۰۰ و بدنهٔ <Error> بدهد
+      if (r.body.contains('<Error>')) {
+        final code = _xmlTag(r.body, 'Code');
+        throw S3Failure(_failText(500, code), status: 500, code: code);
+      }
+    });
+  } on Object {
+    try {
+      await req('DELETE', {'uploadId': uploadId});
+    } on Object {
+      // لغو هم نشد؛ S3 تکه‌های رهاشده را با قاعدهٔ چرخهٔ عمر پاک می‌کند
+    }
+    rethrow;
+  }
 }
 
 /// پاک کردن یک فایل (نبودن هم یعنی پاک).

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -541,6 +542,57 @@ void main() {
       expect(utf8.decode(arc.content('payesh/a.json')!), 'A' * 5000);
       expect(utf8.decode(arc.content('payesh/c.json')!), 'C');
       expect(diskFiles(), [backupFileName]); // قالب قدیمی پس از نوشتن پاک شد
+    });
+
+    test('ردیف ۱۶۶ (رایانهٔ مدرسه): فایل بزرگ روی دیتابیس تکه‌ای (۸ مگابایتی) نوشته می‌شود؛ تکهٔ قطع‌شده دوباره', () async {
+      final rnd = Random(166);
+      final big = Uint8List.fromList(
+        List<int>.generate(s3PartBytes + 3000000, (_) => rnd.nextInt(256)),
+      );
+      bucket.objects['payesh/big.bin'] = big;
+      bucket.modified['payesh/big.bin'] = clock;
+      bucket.putText('payesh/a.json', 'A');
+      var partFails = 0;
+      bucket.failWhen = (m, k) =>
+          m == 'PUT' && k == BucketBackupTarget.key && partFails++ == 1;
+      final r = await eng.run();
+      expect(r.ok, isTrue, reason: r.error);
+      expect(bucket.log.where((l) => l.contains('?uploads')), hasLength(1));
+      expect(
+        bucket.log.where(
+          (l) => l.startsWith('PUT /${BucketBackupTarget.key}?'),
+        ),
+        hasLength(2), // دو تکهٔ موفق
+      );
+      expect(partFails, 3); // یک تکه یک بار قطع شد و دوباره رفت
+      expect(bucket.uploads, isEmpty);
+      final db = dbArchive()!;
+      expect(db.snapshot.count, 2);
+      expect(db.content('payesh/big.bin'), big);
+      expect(diskArchive()!.snapshot.fingerprint, db.snapshot.fingerprint);
+    });
+
+    test('ردیف ۱۶۶ (رایانهٔ مدرسه): تکه‌ها نرسید ⇒ بارگذاری لغو، فایل قبلی دیتابیس دست‌نخورده', () async {
+      bucket.putText('payesh/a.json', 'A');
+      expect((await eng.run()).ok, isTrue);
+      final before = bucket.objects[BucketBackupTarget.key];
+      final rnd = Random(7);
+      bucket.objects['payesh/big.bin'] = Uint8List.fromList(
+        List<int>.generate(s3PartBytes + 1000, (_) => rnd.nextInt(256)),
+      );
+      bucket.modified['payesh/big.bin'] = clock;
+      clock = clock.add(const Duration(minutes: 15));
+      bucket.failWhen = (m, k) => m == 'PUT' && k == BucketBackupTarget.key;
+      final r = await eng.run();
+      expect(r.ok, isFalse);
+      expect(bucket.uploads, isEmpty); // لغو شد
+      expect(bucket.objects[BucketBackupTarget.key], before);
+      // دیسک همان دور نوشته شد
+      expect(diskArchive()!.snapshot.count, 2);
+      bucket.failWhen = null;
+      final r2 = await eng.run();
+      expect(r2.ok, isTrue, reason: r2.error);
+      expect(dbArchive()!.snapshot.count, 2);
     });
 
     test(

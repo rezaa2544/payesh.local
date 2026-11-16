@@ -278,9 +278,12 @@ final class DirBackupTarget implements BackupTarget {
 
 /// خود دیتابیس: `payesh-owner-backup/payesh-owner-backup.zip` در همان صندوقچه.
 final class BucketBackupTarget implements BackupTarget {
-  BucketBackupTarget(this.s3, this.transport);
+  BucketBackupTarget(this.s3, this.transport, {this.retry});
   final S3Settings s3;
   final S3Transport Function() transport;
+
+  /// تلاش دوباره برای هر گام نوشتن (هر تکه جدا)؛ null ⇒ یک بار.
+  final Future<void> Function(Future<void> Function() step)? retry;
 
   static const String key = '$bucketBackupRoot$backupFileName';
 
@@ -317,12 +320,32 @@ final class BucketBackupTarget implements BackupTarget {
     return null;
   }
 
+  /// فایل بزرگ تکه‌ای (۸ مگابایتی) نوشته می‌شود تا روی اینترنت کند هیچ درخواستی از مهلت نگذرد و
+  /// قطع شدن یک تکه فقط همان تکه را دوباره بفرستد.
   @override
   Future<void> write(Uint8List bytes) async {
-    await _with(
-      (t) => s3PutBytes(s3, t, key, bytes, contentType: 'application/zip'),
-    );
-    await _dropLegacy();
+    final run = retry ?? (f) => f();
+    if (bytes.length > s3PartBytes) {
+      await s3PutMultipart(
+        s3,
+        transport,
+        key,
+        bytes,
+        contentType: 'application/zip',
+        retry: run,
+      );
+    } else {
+      await run(
+        () => _with(
+          (t) => s3PutBytes(s3, t, key, bytes, contentType: 'application/zip'),
+        ),
+      );
+    }
+    try {
+      await _dropLegacy();
+    } on Object {
+      // پاک کردن قالب قدیمی بهترین‌تلاش است؛ دور بعد دوباره امتحان می‌شود
+    }
   }
 
   Future<bool> _dropLegacy() async {
