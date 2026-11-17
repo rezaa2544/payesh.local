@@ -32,8 +32,11 @@ function Say([string]$m) {
   Write-Host $m
   if ($Log) { Add-Content -Path $Log -Value $m -Encoding UTF8 }
 }
-function Node([string[]]$a) {
-  $o = & node @a 2>&1 | ForEach-Object { "$_" }
+# The host's node.exe (never a function or alias: PowerShell resolves names case-insensitively,
+# so a helper called "Node" calling "node" recursed until "call depth overflow" on CI).
+$hostNode = @(Get-Command node -CommandType Application -ErrorAction Stop)[0].Source
+function Invoke-W7Node([string[]]$a) {
+  $o = & $hostNode @a 2>&1 | ForEach-Object { "$_" }
   $script:nodeRc = $LASTEXITCODE
   return $o
 }
@@ -56,13 +59,13 @@ if ($Ucrt) {
 # ── 2. patch + build pw7.dll ───────────────────────────────────────────────────────────────────
 $w7 = Join-Path $here 'w7patch.mjs'
 $bins = @(Get-ChildItem $Dir -File | Where-Object { $_.Extension -in '.exe', '.dll' -and $_.Name -ne 'pw7.dll' -and $_.Name -notlike 'unins*' })
-$scan = Node (@($w7, '--scan') + ($bins | ForEach-Object { $_.FullName }))
+$scan = Invoke-W7Node (@($w7, '--scan') + ($bins | ForEach-Object { $_.FullName }))
 $bad = @($scan | Where-Object { $_ -like 'W7-BAD*' } | ForEach-Object { ($_ -replace '^W7-BAD\s+', '') -replace '\s+\[.*$', '' })
 $scan | Where-Object { $_ -like 'W7-BAD*' } | ForEach-Object { Say "  needs patch: $_" }
 if (-not $bad.Count) { Say "W7-PATCH nothing to patch in $Dir" }
 else {
   $def = Join-Path $work 'pw7.def'
-  $o = Node (@($w7, '--arch', $Arch, '--def', $def) + $bad)
+  $o = Invoke-W7Node (@($w7, '--arch', $Arch, '--def', $def) + $bad)
   $o | ForEach-Object { Say "  $_" }
   if ($nodeRc -ne 0) { throw "w7patch failed ($nodeRc)" }
   Get-ChildItem $Dir -Filter '*.pw7.json' | Remove-Item -Force
@@ -100,12 +103,12 @@ $shim = Join-Path $Dir 'pw7.dll'
 if ($bad.Count) {
   & $gcc @cflags -shared -nostdlib -o $shim (Join-Path $here 'pw7shim.c') $def -lkernel32 -lws2_32 "-Wl,-e,$entry" 2>&1 | Where-Object { $_ -notmatch 'array-bounds|readgsqword|readfsdword|intrin-impl|NtCurrentTeb|cc1: note|In function|In file included|from |\^' } | ForEach-Object { Say "  gcc: $_" }
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path $shim)) { throw 'building pw7.dll failed' }
-  $o = Node (@($w7, '--verify', $shim) + $bad)
+  $o = Invoke-W7Node (@($w7, '--verify', $shim) + $bad)
   $o | ForEach-Object { Say "  $_" }
   if ($nodeRc -ne 0) { throw 'pw7.dll does not satisfy the patched imports' }
 }
 $all = @(Get-ChildItem $Dir -Recurse -File | Where-Object { $_.Extension -in '.exe', '.dll' -and $_.Name -notlike 'unins*' } | ForEach-Object { $_.FullName })
-$o = Node (@($w7, '--scan') + $all)
+$o = Invoke-W7Node (@($w7, '--scan') + $all)
 $o | ForEach-Object { Say "  $_" }
 if ($nodeRc -ne 0) { throw 'Windows 8+ imports remain after patching' }
 Say "W7-SCAN-OK $($all.Count) binaries"
