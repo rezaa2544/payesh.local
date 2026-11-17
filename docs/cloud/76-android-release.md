@@ -32,7 +32,7 @@
 |---|---|
 | AR-01 | package name = `ir.payesh.school.payesh_app` (سیاست) |
 | AR-02 | targetSdk ≥ 36 (الزام Google Play از ۲۰۲۶-۰۸-۳۱) |
-| AR-03 | minSdk ≥ 24 |
+| AR-03 | minSdk ≥ 21 (ردیف ۱۶۸: اندروید ۵٫۰ به بالا) |
 | AR-04 | `application-debuggable` نباشد |
 | AR-05 | apksigner: امضای v2/v3 تأییدشده |
 | AR-06 | دقیقاً یک امضاکننده |

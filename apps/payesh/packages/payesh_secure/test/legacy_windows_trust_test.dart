@@ -1,4 +1,4 @@
-// Row 168: Mozilla roots for Windows 7/8/8.1.
+// Row 168: Mozilla roots for Windows 7/8/8.1 and Android 5.0-7.0.
 import 'dart:io';
 
 import 'package:payesh_secure/payesh_secure.dart';
@@ -33,6 +33,19 @@ void main() {
     },
   );
 
+  test(
+    'Android API levels: 5.0-7.0 (21-24) and unknown need the bundled roots',
+    () {
+      for (final sdk in [21, 22, 23, 24]) {
+        expect(isLegacyAndroidSdk(sdk), isTrue, reason: '$sdk');
+      }
+      expect(isLegacyAndroidSdk(null), isTrue);
+      for (final sdk in [25, 28, 34, 36]) {
+        expect(isLegacyAndroidSdk(sdk), isFalse, reason: '$sdk');
+      }
+    },
+  );
+
   test('every bundled root parses and is added to an empty context', () {
     expect(mozillaRootPems.length, mozillaRootCount);
     expect(mozillaRootCount, greaterThan(100));
@@ -40,8 +53,8 @@ void main() {
     expect(addLegacyWindowsRoots(c, force: true), mozillaRootCount);
   });
 
-  test('no-op where the system store is current (not Windows 7/8)', () {
-    if (isLegacyWindows) return;
+  test('no-op where the system store is current (not Windows 7/8, not Android < 7.1)', () {
+    if (needsBundledRoots) return;
     expect(addLegacyWindowsRoots(SecurityContext(withTrustedRoots: false)), 0);
   });
 

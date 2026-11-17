@@ -40,7 +40,7 @@ function assert(c, m) { if (!c) throw new Error(m); }
 const OWNER_SHA = 'a1'.repeat(32);
 const badging = (o = {}) => [
   `package: name='${o.pkg || 'ir.payesh.school.payesh_app'}' versionCode='${o.vc || '42'}' versionName='0.1.0' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'`,
-  `minSdkVersion:'${o.min || 24}'`,
+  `minSdkVersion:'${o.min || 21}'`,
   `targetSdkVersion:'${o.target || 36}'`,
   ...(o.perms || ['android.permission.INTERNET', 'ir.payesh.school.payesh_app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION']).map(p => `uses-permission: name='${p}'`),
   "application-label:'payesh_app'",
@@ -51,7 +51,7 @@ const badging = (o = {}) => [
 ].join('\n') + '\n';
 const signer = (n, dn, sha) => `Signer #${n} certificate DN: ${dn}\nSigner #${n} certificate SHA-256 digest: ${sha}\nSigner #${n} certificate SHA-1 digest: ${'b2'.repeat(20)}\nSigner #${n} certificate MD5 digest: ${'c3'.repeat(16)}\n`;
 const certs = (o = {}) => (o.unsigned ? 'DOES NOT VERIFY\nERROR: Missing META-INF/MANIFEST.MF\n' : 'Verifies\n')
-  + `Verified using v1 scheme (JAR signing): ${o.v1 === undefined ? false : o.v1}\n`
+  + `Verified using v1 scheme (JAR signing): ${o.v1 === undefined ? true : o.v1}\n`
   + `Verified using v2 scheme (APK Signature Scheme v2): ${o.v2 === undefined ? true : o.v2}\n`
   + `Verified using v3 scheme (APK Signature Scheme v3): ${o.v3 === undefined ? true : o.v3}\n`
   + 'Verified using v3.1 scheme (APK Signature Scheme v3.1): false\nVerified using v4 scheme (APK Signature Scheme v4): false\nVerified for SourceStamp: false\n'
@@ -114,7 +114,8 @@ const FIX37 = f => fs.readFileSync(path.join(ROOT, 'tests/fixtures/apksigner-37'
 const SHA37 = '3e97c784c7d7f0c7b8733ac64fce3b1591342201795253651cd03f41b45390eb';
 check('AR-OK-3', 'real apksigner 37 output (v2-only and v2+v3): exactly one signer, pinned digest matches', () => {
   for (const f of ['v2-only.txt', 'v2-v3.txt']) {
-    const r = run(badging(), FIX37(f), jar(), ['--mode', 'release', '--expect-cert-sha256', SHA37]);
+    // these real outputs come from minSdk 24 builds (v1 off); row 168 builds add v1 (AR-N17)
+    const r = run(badging({ min: 24 }), FIX37(f), jar(), ['--mode', 'release', '--expect-cert-sha256', SHA37]);
     assert(r.code === 0 && r.last.includes(`signer_sha256=${SHA37}`), `${f}: ${r.code}: ${r.last}`);
   }
   return 'v2-only, v2+v3';
@@ -125,11 +126,23 @@ neg('AR-N15', 'apksigner 37 format with two different certificates', badging(),
 neg('AR-N16', 'apksigner 37 format, signer differs from the owner pin', badging(), FIX37('v2-v3.txt'), jar(),
   ['--mode', 'release', '--expect-cert-sha256', OWNER_SHA], 'pinned');
 
+// Row 168: Android 5.0+ — minSdk 21 needs a v1 signature; minSdk 24 may drop it; below policy is refused.
+neg('AR-N17', 'minSdk 21 without a v1 (JAR) signature (Android 5.0-6.0 cannot install it)', badging(), certs({ v1: false }), jar(), ['--mode', 'release'], 'needs a v1');
+neg('AR-N18', 'minSdk 19 below policy.min_sdk 21', badging({ min: 19 }), certs(), jar(), ['--mode', 'release'], 'AR-03');
+check('AR-OK-4', 'minSdk 24 without v1 still passes (v1 only required below API 24)', () => {
+  const r = run(badging({ min: 24 }), certs({ v1: false }), jar(), ['--mode', 'release']);
+  assert(r.code === 0, `${r.code}: ${r.last}`);
+  return 'v2/v3 only at API 24';
+});
+
 check('W-1', 'build.gradle.kts: signing only from env, fail-closed flag, v2/v3, not debuggable', () => {
   const g = read('apps/payesh/app/android/app/build.gradle.kts');
   for (const n of ['PAYESH_KEYSTORE', 'PAYESH_KEYSTORE_PASS', 'PAYESH_KEY_ALIAS', 'PAYESH_KEY_PASS']) assert(g.includes(`System.getenv("${n}")`) || g.includes(`"${n}"`), `${n} not read from env`);
   assert(g.includes('PAYESH_NATIVE_REQUIRE_RELEASE_SIGNING') && g.includes('PAYESH-SIGNING-REQUIRED') && g.includes('GradleException'), 'no fail-closed switch');
   assert(/enableV2Signing = true/.test(g) && /enableV3Signing = true/.test(g) && /isDebuggable = false/.test(g), 'v2/v3 / debuggable not set');
+  // row 168: Android 5.0+ (minSdk 21 via a variable) and the v1 signature those versions need
+  assert(/enableV1Signing = true/.test(g) && /val payeshMinSdk = 21\b/.test(g) && /minSdk = payeshMinSdk/.test(g), 'row 168: minSdk 21 / v1 signing not set');
+  assert(!/^\s*minSdk(Version)?\s*=\s*(1[6-9]|2[0-3])\s*(\/\/.*)?$/m.test(g), 'literal minSdk 16-23 (flutter build rewrites it to 24)');
   assert(!/storePassword\s*=\s*"/.test(g) && !/keyPassword\s*=\s*"/.test(g), 'literal password in gradle');
   assert(g.indexOf('plugins {') < g.indexOf('PAYESH_KEYSTORE'), 'code before the plugins {} block (Kotlin DSL forbids it)');
   const tracked = spawnSync('git', ['-C', ROOT, 'ls-files', 'apps/payesh'], { encoding: 'utf8' }).stdout.split('\n');

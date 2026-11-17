@@ -131,8 +131,12 @@ async function main() {
     })).json();
     const token = login.session.token;
 
-    const before = await health();
-    assert.ok(before.uptime_s >= 2, 'قبل از ری‌استارت سرور مدتی روشن بوده');
+    /* Row 168 (CI finding): «برگشت» با uptime ≤ 6 فقط وقتی معنا دارد که فرایند قدیمی بیش از آن
+       روشن بوده باشد؛ وگرنه همان فرایند قدیمی (که ~۱۲۰ms پس از درخواست هنوز پاسخ می‌دهد) قبول
+       می‌شد و درخواست‌های بعدی در فاصلهٔ بسته‌شدن/بالا‌آمدن «fetch failed» می‌گرفتند. */
+    let before = await health();
+    while (before && before.uptime_s < 8) { await sleep(500); before = await health(); }
+    assert.ok(before && before.uptime_s >= 8, 'قبل از ری‌استارت سرور مدتی روشن بوده');
 
     /* ── دوام صف و ایندمپوتنسی در برابر ری‌استارت (ردیف ۲۷) ── */
     const post = (pathname, body) => fetch(BASE + pathname, {
@@ -161,9 +165,10 @@ async function main() {
     await test('سرور بدون دخالت کاربر دوباره بالا می‌آید', async () => {
       const back = await waitFor(async () => {
         const h = await health();
-        return h && h.ok && h.uptime_s <= 6 ? h : null;
-      }, 30000);
+        return h && h.ok && h.uptime_s <= 6 ? h : null; // the old process is ≥ 8 s old
+      }, 30000, 100);
       assert.ok(back, 'سرور برنگشت — لاگ: ' + log.slice(-500));
+      assert.ok(/نسخهٔ تازه فعال شد/.test(log), 'ناظر فرایند تازه را بالا آورد — لاگ: ' + log.slice(-300));
     });
 
     await test('داده‌ها سالم ماندند و ورود کار می‌کند', async () => {

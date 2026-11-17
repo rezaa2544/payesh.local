@@ -19,6 +19,11 @@ if (ownerKeystore != null && !file(ownerKeystore).isFile) {
     throw GradleException("PAYESH-OWNER-SIGNING-REQUIRED: PAYESH_OWNER_KEYSTORE does not point to a file")
 }
 
+// Row 168: Android 5.0 (API 21) and newer — "all Android versions" (owner decision; 4.x cannot run
+// Flutter). A variable on purpose: `flutter build` rewrites a literal `minSdk = 16..23` line to
+// flutter.minSdkVersion (24). The rest lives in apps/payesh/android21.gradle (applied below).
+val payeshMinSdk = 21
+
 android {
     namespace = "ir.payesh.owner"
     compileSdk = flutter.compileSdkVersion
@@ -27,11 +32,13 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Row 168: java.util.function / Map default methods used by the Flutter embedding on API 21-23
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
         applicationId = "ir.payesh.owner"
-        minSdk = flutter.minSdkVersion
+        minSdk = payeshMinSdk // row 168: Android 5.0+ (see ../../../android21.gradle)
         targetSdk = flutter.targetSdkVersion
         // CI passes --build-number=100000+run_number: always above every WebView build
         // (which used the bare run_number), so Android accepts the in-place upgrade.
@@ -47,7 +54,7 @@ android {
                 storePassword = System.getenv("PAYESH_OWNER_KEYSTORE_PASS")
                 keyAlias = System.getenv("PAYESH_OWNER_KEY_ALIAS")
                 keyPassword = System.getenv("PAYESH_OWNER_KEY_PASS")
-                enableV1Signing = true
+                enableV1Signing = true // Android 5.0-6.0 verify only v1 (JAR) signatures (row 168)
                 enableV2Signing = true
                 enableV3Signing = true
             }
@@ -73,3 +80,11 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Row 168: core library desugaring for API 21-23 (see compileOptions)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+}
+
+// Row 168: fixed Flutter engine artifacts for Android 5.0/6.0 + minSdk-check opt-out.
+apply(from = "../../../android21.gradle")

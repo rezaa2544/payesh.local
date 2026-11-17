@@ -16,7 +16,8 @@ SecurityContext? _shared;
 
 SecurityContext _build() {
   final c = SecurityContext(withTrustedRoots: true);
-  addLegacyWindowsRoots(c); // row 168: Windows 7/8/8.1 root store
+  // row 168: Windows 7/8/8.1 + Android < 7.1 root stores
+  addLegacyWindowsRoots(c);
   for (final p in _letsEncryptChainPems) {
     try {
       c.setTrustedCertificatesBytes(utf8.encode(p));

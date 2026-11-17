@@ -39,6 +39,8 @@ on:
       - 'apps/payesh/**'
       - 'tools/native-independence-gate.mjs'
       - 'tools/android-release-check-76.mjs'
+      - 'tools/android21/**'
+      - 'tools/win7/**'
       - 'tests/android-release-76.js'
       - 'docs/cloud/76-android-release.json'
       - 'tests/native-gate-63.js'
@@ -73,6 +75,8 @@ on:
       - 'apps/payesh/**'
       - 'tools/native-independence-gate.mjs'
       - 'tools/android-release-check-76.mjs'
+      - 'tools/android21/**'
+      - 'tools/win7/**'
       - 'tests/android-release-76.js'
       - 'docs/cloud/76-android-release.json'
       - 'tests/native-gate-63.js'
@@ -454,6 +458,19 @@ jobs:
           tar -xJf "$RUNNER_TEMP/$F" -C "$RUNNER_TEMP"
           git config --global --add safe.directory "$RUNNER_TEMP/flutter"
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      # Row 168: Android 5.0 (API 21) build — android21.gradle builds the API 21 Flutter embedding +
+      # engine repo during Gradle configuration (tools/android21/build-repo.py: javac against the
+      # compileSdk android.jar, libpayeshw21.so with the NDK). Provision both explicitly.
+      - name: Android SDK platform 36 + NDK for the API 21 build (row 168)
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SM=$(ls "$SDK"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
+          yes | "$SM" --sdk_root="$SDK" --licenses >/dev/null || true
+          "$SM" --sdk_root="$SDK" --install "platforms;android-36" "ndk;28.2.13676358" > "$RUNNER_TEMP/sdkmanager.log" 2>&1 || { tail -20 "$RUNNER_TEMP/sdkmanager.log"; exit 1; }
+          test -f "$SDK/platforms/android-36/android.jar"
+          test -d "$SDK/ndk/28.2.13676358/toolchains/llvm"
+          python3 --version; javac -version
       # Row 76: release signing ONLY from GitHub Secrets (same owner key as row 61),
       # decoded into runner temp storage. Missing secrets ⇒ debug-signed REHEARSAL
       # build (labelled NOT FOR DISTRIBUTION); secrets present but invalid ⇒ red.
@@ -549,6 +566,15 @@ jobs:
           node tools/native-independence-gate.mjs --android native-out/payesh-native.apk native-out/payesh-native.aab | tee native-out/native-gate-android.txt
           grep -q '^NATIVE-GATE-OK' native-out/native-gate-android.txt
           (cd native-out && sha256sum payesh-native.apk payesh-native.aab | tee SHA256SUMS-android)
+      # Row 168: every native library of the APK (libflutter + libpayeshw21 on 64-bit, libapp,
+      # the source-built libsqlite3) imports only symbols Android 5.0 (API 21) has. minSdk 21 and
+      # the v1 signature are enforced by the release check below (AR-03 / AR-05).
+      - name: Android 5.0 (API 21) — every .so in the APK loads (row 168)
+        run: |
+          set -euo pipefail
+          python3 tools/android21/check-so-api.py --api 21 native-out/payesh-native.apk | tee native-out/so-api21.txt
+          grep -q '^SO-API-OK' native-out/so-api21.txt
+          grep -q 'libpayeshw21.so' native-out/so-api21.txt
       # Row 76: targetSdk (Google Play), not debuggable, v2/v3 signature, permission
       # allowlist, owner certificate in release mode — read from the REAL APK/AAB.
       - name: Release check on the REAL APK/AAB (row 76)
@@ -1004,6 +1030,19 @@ jobs:
       # Same owner key as the retired WebView APK (ADR-62, GitHub Secrets PAYESH_OWNER_*):
       # the native APK upgrades an installed WebView panel in place. Missing ⇒ debug-signed
       # rehearsal (never published); present but invalid ⇒ red.
+      # Row 168: Android 5.0 (API 21) build — android21.gradle builds the API 21 Flutter embedding +
+      # engine repo during Gradle configuration (tools/android21/build-repo.py: javac against the
+      # compileSdk android.jar, libpayeshw21.so with the NDK). Provision both explicitly.
+      - name: Android SDK platform 36 + NDK for the API 21 build (row 168)
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SM=$(ls "$SDK"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
+          yes | "$SM" --sdk_root="$SDK" --licenses >/dev/null || true
+          "$SM" --sdk_root="$SDK" --install "platforms;android-36" "ndk;28.2.13676358" > "$RUNNER_TEMP/sdkmanager.log" 2>&1 || { tail -20 "$RUNNER_TEMP/sdkmanager.log"; exit 1; }
+          test -f "$SDK/platforms/android-36/android.jar"
+          test -d "$SDK/ndk/28.2.13676358/toolchains/llvm"
+          python3 --version; javac -version
       - name: Owner signing material from Secrets
         id: signing
         env:
@@ -1083,6 +1122,11 @@ jobs:
           grep -E "^(Verif|Number of signers|.*certificate (DN|SHA-256))" owner-out/apksigner.txt
           if [ "$READY" = true ] && grep -q 'CN=Android Debug' owner-out/apksigner.txt; then echo '::error::owner key ready but APK debug-signed'; exit 1; fi
           if [ "$READY" != true ]; then echo 'REHEARSAL (debug-signed) — NOT FOR DISTRIBUTION' | tee owner-out/NOT-FOR-DISTRIBUTION.txt; fi
+          # Row 168: Android 5.0+ — minSdk 21, v1 (JAR) signature for 5.0-6.0, every .so loads on API 21
+          grep -qE "^(minSdkVersion|sdkVersion):'21'" owner-out/aapt2-badging.txt || { echo '::error::owner APK minSdk is not 21 (row 168)'; exit 1; }
+          grep -q 'Verified using v1 scheme (JAR signing): true' owner-out/apksigner.txt || { echo '::error::owner APK has no v1 signature — Android 5.0-6.0 cannot install it (row 168)'; exit 1; }
+          python3 tools/android21/check-so-api.py --api 21 owner-out/payesh-owner.apk | tee owner-out/so-api21.txt
+          grep -q '^SO-API-OK' owner-out/so-api21.txt
           (cd owner-out && sha256sum payesh-owner.apk payesh-owner.aab | tee SHA256SUMS-owner-android)
       # Row 126: owners already have the WebView APK installed. Android upgrades in place only
       # with the SAME signer certificate and a HIGHER versionCode — proven against the frozen
@@ -1326,9 +1370,51 @@ jobs:
           name: owner-native-windows
           path: owner-out/
 
+  # Row 168: the REAL release APKs on Android 5.0 (API 21) and 6.0 (API 23) emulators — install,
+  # start, Dart running (libapp.so mapped), 64-bit compat library loaded, no crash, a rendered frame.
+  android-legacy-emulator:
+    name: Android ${{ matrix.api == 21 && '5.0' || '6.0' }} (API ${{ matrix.api }}) emulator — school app + owner app start (row 168)
+    needs: [android, owner-android]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [21, 23]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-android
+          path: native-out
+      - uses: actions/download-artifact@v4
+        with:
+          name: owner-native-android
+          path: owner-out
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Start both apps on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: default
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          disable-animations: true
+          script: bash tools/android21/emulator-smoke.sh emu-out native-out/payesh-native.apk ir.payesh.school.payesh_app owner-out/payesh-owner.apk ir.payesh.owner
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-api${{ matrix.api }}-emulator
+          path: emu-out/
+
   native-gate:
     name: native-gate (all must pass)
-    needs: [gate-controls, engine-web-conformance, sync-real-server, gateway-real, dart, android, windows, owner-native-it, owner-android, owner-windows]
+    needs: [gate-controls, engine-web-conformance, sync-real-server, gateway-real, dart, android, windows, owner-native-it, owner-android, owner-windows, android-legacy-emulator]
     if: always()
     runs-on: ubuntu-latest
     outputs:
@@ -1337,7 +1423,7 @@ jobs:
       - name: Verdict
         id: verdict
         run: |
-          echo "results=gate-controls=${{ needs.gate-controls.result }},engine-web-conformance=${{ needs.engine-web-conformance.result }},sync-real-server=${{ needs.sync-real-server.result }},gateway-real=${{ needs.gateway-real.result }},dart=${{ needs.dart.result }},android=${{ needs.android.result }},windows=${{ needs.windows.result }},owner-native-it=${{ needs.owner-native-it.result }},owner-android=${{ needs.owner-android.result }},owner-windows=${{ needs.owner-windows.result }}" >> "$GITHUB_OUTPUT"
+          echo "results=gate-controls=${{ needs.gate-controls.result }},engine-web-conformance=${{ needs.engine-web-conformance.result }},sync-real-server=${{ needs.sync-real-server.result }},gateway-real=${{ needs.gateway-real.result }},dart=${{ needs.dart.result }},android=${{ needs.android.result }},windows=${{ needs.windows.result }},owner-native-it=${{ needs.owner-native-it.result }},owner-android=${{ needs.owner-android.result }},owner-windows=${{ needs.owner-windows.result }},android-legacy-emulator=${{ needs.android-legacy-emulator.result }}" >> "$GITHUB_OUTPUT"
           echo "gate-controls=${{ needs.gate-controls.result }} engine-web=${{ needs.engine-web-conformance.result }} sync-real-server=${{ needs.sync-real-server.result }} gateway-real=${{ needs.gateway-real.result }} dart=${{ needs.dart.result }} android=${{ needs.android.result }} windows=${{ needs.windows.result }}"
           test "${{ needs.gate-controls.result }}" = success
           test "${{ needs.engine-web-conformance.result }}" = success
@@ -1349,4 +1435,5 @@ jobs:
           test "${{ needs.owner-native-it.result }}" = success
           test "${{ needs.owner-android.result }}" = success
           test "${{ needs.owner-windows.result }}" = success
+          test "${{ needs.android-legacy-emulator.result }}" = success
           echo NATIVE-CLIENT-CI-OK

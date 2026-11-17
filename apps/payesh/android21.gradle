@@ -1,0 +1,114 @@
+// Row 168 — Android 5.0+ (API 21) for both native apps (applied by app/ and owner/
+// android/app/build.gradle.kts after their android {} block).
+//
+// Flutter 3.35+ supports Android 7.0+ only (flutter.minSdkVersion = 24). The apps run on 5.0+ with:
+//   · minSdk 21 in build.gradle.kts (a variable: `flutter build` rewrites literal 16-23 lines),
+//     core library desugaring and v1 (JAR) signing (Android 5.0/6.0 only verify v1);
+//   · io.flutter:flutter_embedding_<mode> and the 64-bit engine jars replaced by the fixed copies that
+//     tools/android21/build-repo.py builds from the SAME engine release into build/android21-maven
+//     (embedding: API 24 calls version-guarded; libflutter.so: libpayeshw21.so provides the libc
+//     symbols Android 5.0/6.0 lack) — see that script;
+//   · Flutter's <variant>MinSdkCheck task (an error below API 23) disabled — the only check that is.
+//   · SQLite3 Multiple Ciphers built from source for minSdk (apps/payesh/pubspec.yaml).
+// A release build fails if the fixed artifacts cannot be produced (never a silent fallback to
+// the stock API 24 ones); CI verifies every .so of the APK (tools/android21/check-so-api.py) and
+// starts the APK on an Android 5.0 emulator.
+
+def payeshScriptDir = buildscript.sourceFile.parentFile
+def payeshToolsDir = new File(payeshScriptDir, '../../tools/android21').canonicalFile
+def payeshRepoDir = new File(rootProject.layout.buildDirectory.get().asFile, 'android21-maven')
+def payeshIsWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+
+def payeshFlutterRoot = {
+    def props = new Properties()
+    def lp = rootProject.file('local.properties')
+    if (lp.isFile()) lp.withInputStream { props.load(it) }
+    props.getProperty('flutter.sdk') ?: System.getenv('FLUTTER_ROOT')
+}()
+
+// Which Flutter build modes this invocation builds (flutter build apk => assembleRelease).
+def payeshModes = {
+    def names = gradle.startParameter.taskNames.collect { it.toLowerCase() }
+    if (names.isEmpty()) return []                       // IDE sync: substitute only what exists
+    def found = ['release', 'profile', 'debug'].findAll { m -> names.any { it.contains(m) } }
+    found.isEmpty() ? ['release', 'profile', 'debug'] : found
+}()
+
+repositories {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'payeshAndroid21'
+                url = payeshRepoDir.toURI()
+            }
+        }
+        filter { includeVersionByRegex('io\\.flutter', '.*', '.*-api21') }
+    }
+}
+
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        def r = details.requested
+        if (r.group == 'io.flutter' && r.version != null && !r.version.endsWith('-api21') &&
+                new File(payeshRepoDir, "io/flutter/${r.name}/${r.version}-api21").isDirectory()) {
+            details.useVersion(r.version + '-api21')
+            details.because('row 168: Android 5.0+ (tools/android21/build-repo.py)')
+        }
+    }
+}
+
+// FlutterPlugin's DependencyVersionChecker registers <Variant>MinSdkCheck (error below API 23).
+tasks.configureEach { t ->
+    if (t.name.endsWith('MinSdkCheck')) {
+        t.enabled = false
+    }
+}
+
+afterEvaluate {
+    if (payeshModes.isEmpty()) return
+    if (payeshFlutterRoot == null) throw new GradleException('PAYESH-ANDROID21: flutter.sdk not set in local.properties')
+    def sdkDir = android.sdkDirectory
+    def androidJar = new File(sdkDir, "platforms/${android.compileSdkVersion}/android.jar")
+    if (!androidJar.isFile()) {
+        throw new GradleException("PAYESH-ANDROID21: ${androidJar} missing (install platforms;${android.compileSdkVersion})")
+    }
+    File ndkDir = null
+    try {
+        ndkDir = android.ndkDirectory
+    } catch (Exception ignored) {
+    }
+    if (ndkDir == null || !ndkDir.isDirectory()) {
+        def all = new File(sdkDir, 'ndk').listFiles()?.findAll { new File(it, 'toolchains/llvm').isDirectory() }
+        ndkDir = all?.max { a, b -> a.name.tokenize('.')*.toInteger() <=> b.name.tokenize('.')*.toInteger() }
+    }
+    if (ndkDir == null) throw new GradleException('PAYESH-ANDROID21: no Android NDK found (ndkVersion ' + android.ndkVersion + ')')
+    def python = ['python3', 'python', 'py'].find { exe ->
+        try {
+            def p = [exe, '--version'].execute()
+            p.waitForOrKill(20000)
+            p.exitValue() == 0
+        } catch (Exception ignored) {
+            false
+        }
+    }
+    if (python == null) throw new GradleException('PAYESH-ANDROID21: python3 is required to prepare the Android 5.0 engine artifacts')
+    def javac = new File(System.getProperty('java.home'), 'bin/javac' + (payeshIsWindows ? '.exe' : ''))
+    def cmd = [python, new File(payeshToolsDir, 'build-repo.py').path,
+               '--flutter-root', payeshFlutterRoot, '--android-jar', androidJar.path, '--ndk', ndkDir.path,
+               '--out', payeshRepoDir.path, '--modes', payeshModes.join(','),
+               '--javac', javac.isFile() ? javac.path : 'javac']
+    def run = providers.exec {
+        commandLine cmd
+        ignoreExitValue = true
+    }
+    def text = run.standardOutput.asText.get() + run.standardError.asText.get()
+    def code = run.result.get().exitValue
+    text.readLines().findAll { it.startsWith('ANDROID21-') || it.contains('-api21:') || it.contains('loads on API 21') }
+        .each { logger.lifecycle('[android21] ' + it) }
+    if (code != 0) {
+        logger.error(text)
+        def msg = "PAYESH-ANDROID21: build-repo.py failed (exit ${code}) for ${payeshModes}"
+        if (payeshModes.contains('release')) throw new GradleException(msg)
+        logger.warn(msg + ' — non-release build continues with the stock artifacts')
+    }
+}

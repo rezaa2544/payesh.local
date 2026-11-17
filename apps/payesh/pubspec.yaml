@@ -17,4 +17,38 @@ workspace:
 hooks:
   user_defines:
     sqlite3:
-      source: sqlite3mc
+      # Row 168: Android builds SQLite3 Multiple Ciphers from the committed amalgamation
+      # (third_party/sqlite3mc-2.6.1, same source as the prebuilt) so the library targets the
+      # app's minSdk 21 (Android 5.0); the prebuilt Android library needs API 23/24.
+      # Every other platform keeps the prebuilt sqlite3mc binary.
+      source:
+        android: source
+        default: sqlite3mc
+      path: third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c
+      defines:
+        android:
+          default_options: false
+          defines:
+            - SQLITE_ENABLE_DBSTAT_VTAB
+            - SQLITE_ENABLE_FTS5
+            - SQLITE_ENABLE_RTREE
+            - SQLITE_ENABLE_MATH_FUNCTIONS
+            - SQLITE_DQS=0
+            - SQLITE_DEFAULT_MEMSTATUS=0
+            - SQLITE_TEMP_STORE=2
+            - SQLITE_MAX_EXPR_DEPTH=0
+            - SQLITE_STRICT_SUBTYPE=1
+            - SQLITE_OMIT_AUTHORIZATION
+            - SQLITE_OMIT_DECLTYPE
+            - SQLITE_OMIT_DEPRECATED
+            - SQLITE_OMIT_PROGRESS_CALLBACK
+            - SQLITE_OMIT_SHARED_CACHE
+            - SQLITE_OMIT_TCL_VARIABLE
+            - SQLITE_USE_ALLOCA
+            - SQLITE_ENABLE_SESSION
+            - SQLITE_ENABLE_PREUPDATE_HOOK
+            - SQLITE_UNTESTABLE
+            - SQLITE_HAVE_ISNAN
+            - SQLITE_HAVE_LOCALTIME_R
+            - SQLITE_HAVE_MALLOC_USABLE_SIZE
+            - SQLITE_ENABLE_BATCH_ATOMIC_WRITE

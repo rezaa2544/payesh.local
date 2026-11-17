@@ -22,6 +22,11 @@ if (payeshKeystore != null && !file(payeshKeystore).isFile) {
     throw GradleException("PAYESH-SIGNING-REQUIRED: PAYESH_KEYSTORE does not point to a file")
 }
 
+// Row 168: Android 5.0 (API 21) and newer — "all Android versions" (owner decision; 4.x cannot run
+// Flutter). A variable on purpose: `flutter build` rewrites a literal `minSdk = 16..23` line to
+// flutter.minSdkVersion (24). The rest lives in apps/payesh/android21.gradle (applied below).
+val payeshMinSdk = 21
+
 android {
     namespace = "ir.payesh.school.payesh_app"
     compileSdk = flutter.compileSdkVersion
@@ -30,6 +35,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Row 168: java.util.function / Map default methods used by the Flutter embedding on API 21-23
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -37,7 +44,7 @@ android {
         applicationId = "ir.payesh.school.payesh_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = payeshMinSdk // row 168: Android 5.0+ (see ../../../android21.gradle)
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
@@ -55,7 +62,7 @@ android {
                 storePassword = System.getenv("PAYESH_KEYSTORE_PASS")
                 keyAlias = System.getenv("PAYESH_KEY_ALIAS")
                 keyPassword = System.getenv("PAYESH_KEY_PASS")
-                enableV1Signing = false
+                enableV1Signing = true // row 168: Android 5.0-6.0 verify only v1 (JAR) signatures
                 enableV2Signing = true
                 enableV3Signing = true
             }
@@ -82,3 +89,11 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Row 168: core library desugaring for API 21-23 (see compileOptions)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+}
+
+// Row 168: fixed Flutter engine artifacts for Android 5.0/6.0 + minSdk-check opt-out.
+apply(from = "../../../android21.gradle")

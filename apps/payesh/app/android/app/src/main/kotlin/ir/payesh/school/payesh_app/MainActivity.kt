@@ -3,6 +3,7 @@ package ir.payesh.school.payesh_app
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -72,6 +73,19 @@ class MainActivity : FlutterActivity() {
     }
 
     companion object {
+        init {
+            // Row 168: on Android 5.0-6.0 the 64-bit libflutter.so needs libpayeshw21.so (libc
+            // symbols added in 6.0/7.0, see tools/android21/pw21shim.c). It is a DT_NEEDED of
+            // libflutter.so; loading it first just makes that independent of the linker's search
+            // path. The 32-bit build does not bundle it (not needed there).
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                try {
+                    System.loadLibrary("payeshw21")
+                } catch (e: UnsatisfiedLinkError) {
+                }
+            }
+        }
+
         const val CHANNEL = "ir.payesh.school/secure_store"
     }
 }

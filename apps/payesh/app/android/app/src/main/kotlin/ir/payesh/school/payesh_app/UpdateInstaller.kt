@@ -49,11 +49,23 @@ class UpdateInstaller(private val activity: Activity) {
             )
             return "needs_permission"
         }
-        val uri = Uri.Builder().scheme("content").authority(activity.packageName + AUTHORITY_SUFFIX)
-            .appendPath(file.name).build()
-        val intent = Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, APK_MIME)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val uri = Uri.Builder().scheme("content").authority(activity.packageName + AUTHORITY_SUFFIX)
+                .appendPath(file.name).build()
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, APK_MIME)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        } else {
+            // Row 168: the installer of Android 5.0-6.0 only accepts file:// URIs and reads the
+            // file from its own process, so the downloaded APK (already hash-checked by Dart) is
+            // made world-readable and its directories traversable — never listable.
+            base.setExecutable(true, false)
+            base.parentFile?.setExecutable(true, false)
+            file.setReadable(true, false)
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(Uri.fromFile(file), APK_MIME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
         activity.startActivity(intent)
         return "started"
     }

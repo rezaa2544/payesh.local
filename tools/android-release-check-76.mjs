@@ -10,7 +10,8 @@
      AR-02  targetSdkVersion >= policy.min_target_sdk (Google Play: 36 since 2026-08-31)
      AR-03  minSdkVersion >= policy.min_sdk
      AR-04  not debuggable (no `application-debuggable` in aapt2 badging)
-     AR-05  apksigner: "Verifies" and the v2 or v3 scheme verified (v1-only is refused)
+     AR-05  apksigner: "Verifies" and the v2 or v3 scheme verified (v1-only is refused);
+            minSdk below policy.require_v1_below_sdk (24) also needs v1 (row 168: Android 5.0-6.0)
      AR-06  exactly one signer
      AR-07  permissions ⊆ policy.allowed_permissions (+ the AndroidX per-app
             DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION)
@@ -96,6 +97,10 @@ export function check({ badging, certs, aab = null, policy, mode = 'rehearsal', 
   if (b.debuggable) bad('AR-04', 'APK is debuggable');
   if (!c.verifies) bad('AR-05', 'apksigner did not print "Verifies"');
   if (!(c.v2 || c.v3)) bad('AR-05', `no v2/v3 signature verified (v1=${c.v1} v2=${c.v2} v3=${c.v3})`);
+  // Row 168: Android 5.0-6.0 (API < 24) only verify v1 (JAR) signatures — without it the APK
+  // does not install there ("no certificates" / INSTALL_PARSE_FAILED_NO_CERTIFICATES).
+  const v1Below = policy.require_v1_below_sdk || 24;
+  if (b.minSdk !== null && b.minSdk < v1Below && !c.v1) bad('AR-05', `minSdkVersion ${b.minSdk} < ${v1Below} needs a v1 (JAR) signature (v1=${c.v1})`);
   if (c.signerCount !== 1 || c.signers.length !== 1) bad('AR-06', `expected exactly one signer, got ${c.signerCount}/${c.signers.length}`);
   const allowed = new Set(policy.allowed_permissions || []);
   const dyn = `${policy.application_id}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`;

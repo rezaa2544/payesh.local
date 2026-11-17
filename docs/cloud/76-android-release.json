@@ -1,8 +1,9 @@
 {
-  "_doc": "Row 76 — release policy for the native Android build, checked on the REAL APK/AAB by tools/android-release-check-76.mjs in .github/workflows/native-client.yml. min_target_sdk follows Google Play (API 36 for new apps and updates since 2026-08-31). Raise it when Play raises the bar; never lower it. Row 165 (owner decision): REQUEST_INSTALL_PACKAGES allowed — in-app update like the owner app (direct distribution).",
+  "_doc": "Row 76 — release policy for the native Android build, checked on the REAL APK/AAB by tools/android-release-check-76.mjs in .github/workflows/native-client.yml. min_target_sdk follows Google Play (API 36 for new apps and updates since 2026-08-31). Raise it when Play raises the bar; never lower it. Row 165 (owner decision): REQUEST_INSTALL_PACKAGES allowed — in-app update like the owner app (direct distribution). Row 168 (owner decision): every Android version from 5.0 (API 21) — min_sdk 21, and a v1 (JAR) signature next to v2/v3 because Android 5.0-6.0 only verify v1.",
   "application_id": "ir.payesh.school.payesh_app",
   "min_target_sdk": 36,
-  "min_sdk": 24,
+  "min_sdk": 21,
+  "require_v1_below_sdk": 24,
   "required_permissions": [
     "android.permission.INTERNET"
   ],
