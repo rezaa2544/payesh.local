@@ -44,7 +44,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 STORAGE = os.environ.get('FLUTTER_STORAGE_BASE_URL', 'https://storage.googleapis.com') + '/download.flutter.io'
 ANNOTATION = 'https://dl.google.com/android/maven2/androidx/annotation/annotation-jvm/1.8.1/annotation-jvm-1.8.1.jar'
 SUFFIX = '-api21'
-MARKER = 'META-INF/payesh-api21.txt'
+MARKER_FMT = 'META-INF/payesh-api21-%s.txt'  # one name per artifact: AGP merges every jar's META-INF
 SHIM_SRC = os.path.join(HERE, 'pw21shim.c')
 SHIM_NAME = 'libpayeshw21.so'
 REPLACED_NEEDED = 'libjnigraphics.so'
@@ -186,12 +186,13 @@ def fetch_artifact(work, art, version):
 def publish(out, art, version, src_jar, replace, add, drop, pom, note):
     """Write <out>/io/flutter/<art>/<version>-api21/{jar,pom}: entries of src_jar streamed
     unchanged except `replace` {name: bytes} and `drop(name)`; then `add` {name: bytes}."""
+    marker = MARKER_FMT % art
     vdir = os.path.join(out, 'io', 'flutter', art, version + SUFFIX)
     os.makedirs(vdir, exist_ok=True)
     jar = os.path.join(vdir, '%s-%s%s.jar' % (art, version, SUFFIX))
     with zipfile.ZipFile(src_jar) as zin, zipfile.ZipFile(jar + '.part', 'w', zipfile.ZIP_DEFLATED) as z:
         for info in zin.infolist():
-            if info.filename == MARKER or drop(info.filename):
+            if info.filename == marker or drop(info.filename):
                 continue
             if info.filename in replace:
                 z.writestr(info, replace[info.filename])
@@ -201,7 +202,7 @@ def publish(out, art, version, src_jar, replace, add, drop, pom, note):
         for name in sorted(add):
             zi, data = entry(name, add[name])
             z.writestr(zi, data)
-        z.writestr(zipfile.ZipInfo(MARKER, date_time=(2026, 1, 1, 0, 0, 0)), note)
+        z.writestr(zipfile.ZipInfo(marker, date_time=(2026, 1, 1, 0, 0, 0)), note)
     os.replace(jar + '.part', jar)
     text = open(pom, encoding='utf-8').read()
     if text.count('<version>%s</version>' % version) != 1:
