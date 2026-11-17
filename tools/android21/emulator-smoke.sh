@@ -20,9 +20,9 @@ while [ $# -ge 2 ]; do
   tag="$PKG-api$API"
   echo "== $PKG ($APK)"
   adb logcat -c || true
-  adb shell input keyevent 82 >/dev/null 2>&1 || true   # wake + dismiss the keyguard
-  adb uninstall "$PKG" >/dev/null 2>&1 || true
-  r=$(adb install -r "$APK" 2>&1 | tr -d '\r'); echo "$r" | tail -2
+  timeout 30 adb shell input keyevent 82 >/dev/null 2>&1 || true   # wake + dismiss the keyguard
+  timeout 60 adb uninstall "$PKG" >/dev/null 2>&1 || true
+  r=$(timeout 300 adb install -r "$APK" 2>&1 | tr -d '\r'); echo "$r" | tail -2
   if ! echo "$r" | grep -q '^Success'; then echo "SMOKE-FAIL $tag: install"; fail=1; continue; fi
   # launcher activity from the APK itself (API 21 has no `cmd package resolve-activity`)
   SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
@@ -30,22 +30,23 @@ while [ $# -ge 2 ]; do
   LA=""
   [ -n "$AAPT2" ] && LA=$("$AAPT2" dump badging "$APK" 2>/dev/null | sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p" | head -1)
   if [ -n "$LA" ]; then
-    adb shell am start -W -n "$PKG/$LA" 2>&1 | tr -d '\r' | tee "$OUT/$tag-start.txt"
+    # no -W: on a stuck first frame `am start -W` never returns (seen on API 21)
+    timeout 60 adb shell am start -n "$PKG/$LA" 2>&1 | tr -d '\r' | tee "$OUT/$tag-start.txt"
   else
-    adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 2>&1 | tr -d '\r' | tee "$OUT/$tag-start.txt"
+    timeout 60 adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 2>&1 | tr -d '\r' | tee "$OUT/$tag-start.txt"
   fi
   if grep -qE "^Error|does not exist|No activities found" "$OUT/$tag-start.txt"; then
     echo "SMOKE-FAIL $tag: launcher activity did not start"; fail=1; continue
   fi
   sleep 30
   # toolbox ps (API 21-23): USER PID PPID VSIZE RSS WCHAN PC S NAME
-  PID=$(adb shell ps | tr -d '\r' | awk -v p="$PKG" '$NF==p {print $2}' | head -1)
-  adb logcat -d > "$OUT/$tag-logcat.txt" 2>&1 || true
-  adb exec-out screencap -p > "$OUT/$tag.png" 2>/dev/null || true
+  PID=$(timeout 30 adb shell ps | tr -d '\r' | awk -v p="$PKG" '$NF==p {print $2}' | head -1)
+  timeout 60 adb logcat -d -v threadtime > "$OUT/$tag-logcat.txt" 2>&1 || true
+  timeout 60 adb exec-out screencap -p > "$OUT/$tag.png" 2>/dev/null || true
   ok=1
   if [ -z "$PID" ]; then echo "SMOKE-FAIL $tag: process not running after 30 s"; ok=0
   else
-    adb shell cat /proc/$PID/maps 2>/dev/null | tr -d '\r' | grep -oE '[^/ ]+\.so$' | sort -u > "$OUT/$tag-libs.txt" || true
+    timeout 30 adb shell cat /proc/$PID/maps 2>/dev/null | tr -d '\r' | grep -oE '[^/ ]+\.so$' | sort -u > "$OUT/$tag-libs.txt" || true
     want="libflutter.so libapp.so"
     case "$ABI" in arm64-v8a|x86_64) want="$want libpayeshw21.so" ;; esac
     for l in $want; do
@@ -61,12 +62,20 @@ while [ $# -ge 2 ]; do
   fi
   # the frame must be OURS: the focused window belongs to the package (a launcher screenshot
   # has plenty of colours too)
-  FOCUS=$(adb shell dumpsys window windows 2>/dev/null | tr -d '\r' | grep -E "mCurrentFocus|mFocusedApp" | head -2 | tr '\n' ' ')
+  FOCUS=$(timeout 60 adb shell dumpsys window windows 2>/dev/null | tr -d '\r' | grep -E "mCurrentFocus|mFocusedApp" | head -2 | tr '\n' ' ')
   echo "focus: $FOCUS" > "$OUT/$tag-focus.txt"
   if ! echo "$FOCUS" | grep -q "$PKG/"; then echo "SMOKE-FAIL $tag: app is not in front ($FOCUS)"; ok=0
   elif ! python3 "$(dirname "$0")/png-rendered.py" "$OUT/$tag.png"; then echo "SMOKE-FAIL $tag: no rendered frame"; ok=0; fi
+  if [ $ok = 0 ] && [ -n "$PID" ]; then
+    # still alive but not OK (e.g. stuck before the first frame): Java + native stacks
+    timeout 30 adb shell kill -3 "$PID" >/dev/null 2>&1 || true; sleep 5
+    timeout 60 adb shell cat /data/anr/traces.txt > "$OUT/$tag-java-traces.txt" 2>&1 || true
+    timeout 90 adb shell debuggerd -b "$PID" > "$OUT/$tag-native-traces.txt" 2>&1 || true
+    echo "--- java main thread ($tag)"; awk '/^"main"/{f=1} f&&/^$/{exit} f' "$OUT/$tag-java-traces.txt" | head -40
+    echo "--- native traces ($tag, first 80 lines)"; head -80 "$OUT/$tag-native-traces.txt"
+  fi
   if [ $ok = 1 ]; then echo "SMOKE-OK $tag pid=$PID libs=$(tr '\n' ' ' < "$OUT/$tag-libs.txt" | grep -oE 'lib(flutter|app|payeshw21|sqlite3)\.so' | tr '\n' ' ')"
   else fail=1; grep -iE "flutter|payesh|AndroidRuntime|linker|DEBUG" "$OUT/$tag-logcat.txt" | tail -60; fi
-  adb shell am force-stop "$PKG" || true
+  timeout 30 adb shell am force-stop "$PKG" || true
 done
 [ $fail = 0 ] && echo "ANDROID-EMULATOR-SMOKE-OK api=$API abi=$ABI" || { echo "ANDROID-EMULATOR-SMOKE-FAILED api=$API"; exit 1; }
