@@ -8,12 +8,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:payesh_secure/payesh_secure.dart' show addLegacyWindowsRoots;
+
 /// System roots + the Let's Encrypt chain, built once and shared.
 SecurityContext payeshTrustContext() => _shared ??= _build();
 SecurityContext? _shared;
 
 SecurityContext _build() {
   final c = SecurityContext(withTrustedRoots: true);
+  addLegacyWindowsRoots(c); // row 168: Windows 7/8/8.1 root store
   for (final p in _letsEncryptChainPems) {
     try {
       c.setTrustedCertificatesBytes(utf8.encode(p));

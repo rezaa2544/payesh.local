@@ -85,7 +85,9 @@ function rules(src) {
   need(/^\s*Source:\s*"\{#StageDir\}\\client\\lib\\\*\.js"/m.test(src.iss), 'LM-05 iss must ship only client\\lib\\*.js from client');
   need(/PrivilegesRequired=admin/.test(src.iss) && /AppId=\{\{9B1F0C52-7D3A-4E59-A6C1-2F8E4D7B3A61\}/.test(src.iss), 'LM-05 iss AppId/admin');
   need(!/F022A94A-885F-4620-9730-3E5EF0086EBE/.test(src.iss), 'LM-05 iss reuses the native app AppId');
-  need(/-ExecutionTimeLimit \(\[TimeSpan\]::Zero\)/.test(src.iss) && /-UserId 'SYSTEM'/.test(src.iss) && /-AtStartup/.test(src.iss), 'LM-05 task: SYSTEM, boot, no time limit');
+  // row 168: Task Scheduler 2.0 COM + task XML (Windows 7+); Register-ScheduledTask is Windows 8+
+  need(/<ExecutionTimeLimit>PT0S<\/ExecutionTimeLimit>/.test(src.iss) && /<UserId>S-1-5-18<\/UserId>/.test(src.iss) && /<BootTrigger>/.test(src.iss) && /RegisterTask\('PayeshDataService', ServiceTaskXml\(\), 6, Unassigned, Unassigned, 5\)/.test(src.iss), 'LM-05 task: SYSTEM, boot, no time limit');
+  need(!/Register-ScheduledTask|New-ScheduledTask/.test(src.iss), 'LM-05 task uses a Windows 8+ cmdlet (fails on Windows 7)');
   need(!/schtasks\.exe"; Parameters: "\/Create/.test(src.iss), 'LM-05 schtasks /Create (72 h limit) used');
   need(/localport=8080 profile=private,domain"/.test(src.iss) && !/profile=(any|public)/.test(src.iss), 'LM-05 firewall must be private/domain only');
   need(/uninsneveruninstall/.test(src.iss), 'LM-05 school data must survive uninstall');
@@ -122,7 +124,8 @@ const MUTANTS = [
   ['M06', 'client skips the address check', 'dart', (s) => s.replace('if (!LanServerRules.allowed(uri)) {\n      throw const LanAccessFailure(LanAccessError.badAddress);', 'if (false) {\n      throw const LanAccessFailure(LanAccessError.badAddress);')],
   ['M07', 'installer ships the web UI', 'iss', (s) => s.replace('Source: "payesh-service.cmd"', 'Source: "{#StageDir}\\client\\index.html"; DestDir: "{app}\\client"\nSource: "payesh-service.cmd"')],
   ['M08', 'installer stops refusing WebView2', 'iss', (s) => s.replace('#error WebView2Loader.dll', '; WebView2Loader.dll')],
-  ['M09', 'task back to schtasks (72 h limit)', 'iss', (s) => s.replace('-ExecutionTimeLimit ([TimeSpan]::Zero)', '')],
+  ['M09', 'task back to a 72 h limit', 'iss', (s) => s.replace('<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>', '<ExecutionTimeLimit>PT72H</ExecutionTimeLimit>')],
+  ['M09b', 'task back to Register-ScheduledTask (Windows 8+)', 'iss', (s) => s.replace('[Run]\n', '[Run]\nFilename: "powershell.exe"; Parameters: "Register-ScheduledTask -TaskName PayeshDataService"\n')],
   ['M10', 'firewall opened for public networks', 'iss', (s) => s.replace('profile=private,domain"', 'profile=any"')],
   ['M11', 'launcher not headless', 'cmd', (s) => s.replace('set "PAYESH_HEADLESS=1"', 'rem')],
   ['M12', 'linux unit serves the web UI', 'linux', (s) => s.replace('Environment=PAYESH_HEADLESS=1\n', '')],

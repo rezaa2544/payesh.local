@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
+import 'package:payesh_secure/payesh_secure.dart'
+    show installLegacyWindowsTrust;
 
 import 'src/app.dart';
 import 'src/helper/helper_service.dart';
@@ -13,6 +15,8 @@ import 'src/update/update_service.dart';
 /// اول ورود محلی بدون اینترنت، بعد تنظیم دیتابیس (S3 آروان)؛ سرور پلتفرم اختیاری است.
 void main(List<String> args) {
   WidgetsFlutterBinding.ensureInitialized();
+  // ردیف ۱۶۸: ویندوز ۷/۸/۸.۱ — ریشه‌های Mozilla کنار انبار قدیمی سیستم (جاهای دیگر بی‌اثر)
+  installLegacyWindowsTrust();
   final secure = platformSecureStore();
   // ردیف ۱۴۸: --update-from <dir> / --update-now (پشتیبانی و آزمون سرتاسری CI)
   final ua = UpdateArgs.parse(args);

@@ -348,6 +348,12 @@ void main() {
           lessThan(copyFail.indexOf('Write-Result')),
         );
         expect(ps, contains('-lt 40'));
+        // ردیف ۱۶۸: اجرا در Windows PowerShell 2.0 ویندوز ۷ (روی PS 2.0 واقعی آزموده شد)
+        for (final f in ps2Forbidden) {
+          expect(ps, isNot(contains(f)), reason: 'PS 2.0: $f');
+        }
+        expect(ps, contains(r'$null = $script:relaunched.Handle'));
+        expect(ps, contains('function Json-Str'));
         // ردیف ۱۵۱: صبر قطعی برای بسته شدن برنامه (Wait-Process در PS 5.1 گاهی فوراً برمی‌گشت)
         expect(ps, isNot(contains('Wait-Process')));
         final wait = ps.substring(

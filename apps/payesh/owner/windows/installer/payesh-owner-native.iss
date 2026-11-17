@@ -58,7 +58,8 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-MinVersion=10.0
+; Row 168: Windows 7 SP1+ (flutter_windows.dll / msvcp140.dll go through pw7.dll, UCRT app-local)
+MinVersion=6.1sp1
 UninstallDisplayName={#AppName} (native)
 UninstallDisplayIcon={app}\{#AppExeName}
 VersionInfoVersion={#AppVersion}.0

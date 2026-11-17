@@ -648,6 +648,17 @@ jobs:
             Copy-Item (Join-Path $src $d) $rel -Force
             "{0} <- {1}" -f $d, $src
           }
+      # Row 168: Windows 7 SP1 / 8 / 8.1. flutter_windows.dll (Dart VM) and msvcp140.dll import a few
+      # Windows 8+ functions, so the loader refused the app on Windows 7. tools/win7/w7-package.ps1
+      # deploys the UCRT app-locally, redirects those imports to pw7.dll (real API on Windows 8+,
+      # Windows 7 implementation otherwise), verifies that no Windows 8+ import remains, runs the
+      # real-vs-Windows-7 selftest and starts the app with every Windows 7 code path forced.
+      - name: Windows 7/8 compatibility — pw7 shim + app-local UCRT (row 168)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force native-out | Out-Null
+          & .\tools\win7\w7-package.ps1 -Dir 'apps\payesh\app\build\windows\x64\runner\Release' -Arch x64 -Ucrt -Smoke payesh_app.exe -Log native-out\win7-168.txt
       # Row 72: real DPAPI (crypt32.dll) + encrypted SQLite on Windows — not a fake.
       - name: payesh_secure (REAL DPAPI) + payesh_data (SQLite3MC) tests on Windows
         shell: pwsh
@@ -815,6 +826,17 @@ jobs:
           $want = ($line -split '\s+')[0].ToLower()
           $got = (Get-FileHash "$stage\node.exe" -Algorithm SHA256).Hash.ToLower()
           if ($got -ne $want) { throw "node.exe sha256 mismatch: $got vs $want" }
+          # Row 168: 32-bit Windows (7/8/10) gets the win-x86 node.exe (installed by the setup on x86 only)
+          New-Item -ItemType Directory -Force -Path "$stage\x86" | Out-Null
+          Invoke-WebRequest -Uri "https://nodejs.org/dist/$nv/win-x86/node.exe" -OutFile "$stage\x86\node.exe" -UseBasicParsing
+          $line86 = @($sums -split "`n" | Where-Object { $_ -match '\s+win-x86/node\.exe\s*$' })[0]
+          if (-not $line86) { throw 'win-x86/node.exe not in SHASUMS256.txt' }
+          $got86 = (Get-FileHash "$stage\x86\node.exe" -Algorithm SHA256).Hash.ToLower()
+          if ($got86 -ne ($line86 -split '\s+')[0].ToLower()) { throw "x86 node.exe sha256 mismatch: $got86" }
+          # Row 168: node 22 imports GetSystemTimePreciseAsFileTime / EventSetInformation (Windows 8+)
+          # ⇒ pw7.dll next to each node.exe; x86 first so the final recursive scan sees both patched.
+          & .\tools\win7\w7-package.ps1 -Dir "$stage\x86" -Arch x86 -NodeSmoke -Log native-out\win7-168.txt
+          & .\tools\win7\w7-package.ps1 -Dir $stage -Arch x64 -NodeSmoke -Log native-out\win7-168.txt
           Copy-Item server\*.js "$stage\server\"
           Copy-Item client\lib\*.js "$stage\client\lib\"
           Copy-Item package.json $stage
@@ -844,7 +866,7 @@ jobs:
           $p = Start-Process -FilePath (Resolve-Path 'native-out\payesh-data-service-setup.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "silent install failed ($($p.ExitCode))" }
           $dir = Join-Path $env:ProgramFiles 'PayeshDataService'
-          foreach ($f in 'node.exe','server\start.js','server\index.js','payesh-service.cmd','unins000.exe') {
+          foreach ($f in 'node.exe','pw7.dll','server\start.js','server\index.js','payesh-service.cmd','unins000.exe') {
             if (-not (Test-Path (Join-Path $dir $f))) { throw "missing after install: $f" }
           }
           # NEG: no web UI and no browser engine on disk
@@ -1141,6 +1163,12 @@ jobs:
           }
           if (-not $src) { throw "MSVC CRT redist not found under $redist" }
           foreach ($d in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') { Copy-Item (Join-Path $src $d) 'apps\payesh\owner\build\windows\x64\runner\Release' -Force }
+      - name: Windows 7/8 compatibility — pw7 shim + app-local UCRT (row 168)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force owner-out | Out-Null
+          & .\tools\win7\w7-package.ps1 -Dir 'apps\payesh\owner\build\windows\x64\runner\Release' -Arch x64 -Ucrt -Smoke payesh_owner.exe -Log owner-out\win7-168.txt
       - name: Native gate on the REAL owner Windows bundle
         shell: bash
         run: |

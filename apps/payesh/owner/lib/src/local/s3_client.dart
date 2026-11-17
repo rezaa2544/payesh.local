@@ -346,6 +346,10 @@ SecurityContext? _sharedTrust;
 
 SecurityContext _buildTrust(bool withTrustedRoots, List<String> pems) {
   final c = SecurityContext(withTrustedRoots: withTrustedRoots);
+  // ردیف ۱۶۸: انبار ریشهٔ ویندوز ۷/۸
+  if (withTrustedRoots) {
+    addLegacyWindowsRoots(c);
+  }
   for (final p in pems) {
     try {
       c.setTrustedCertificatesBytes(utf8.encode(p));

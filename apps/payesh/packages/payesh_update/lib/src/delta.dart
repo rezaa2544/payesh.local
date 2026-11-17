@@ -486,6 +486,10 @@ String _psQuote(String s) => "'${s.replaceAll("'", "''")}'";
 
 /// اسکریپت PowerShell جایگزینی (پس از بسته شدن برنامه). UTF-8 با BOM ذخیره می‌شود تا
 /// مسیرهای فارسی در Windows PowerShell 5.1 درست خوانده شوند.
+///
+/// ردیف ۱۶۸: باید در Windows PowerShell 2.0 (ویندوز ۷، CLR 2.0) هم اجرا شود ⇒ بدون
+/// `[ordered]`، `ConvertTo-Json`، `Get-ChildItem -File` و `Dispose()` روی الگوریتم هش
+/// (در .NET 3.5 عمومی نیست). در CI با `ps2Forbidden` بررسی می‌شود.
 String applyScript({
   required StagedUpdate staged,
   required String installDir,
@@ -523,6 +527,22 @@ String applyScript({
   return b.toString();
 }
 
+/// سازه‌هایی که در Windows PowerShell 2.0 (ویندوز ۷) وجود ندارند (ردیف ۱۶۸).
+const List<String> ps2Forbidden = [
+  '[ordered]',
+  'ConvertTo-Json',
+  'ConvertFrom-Json',
+  'Invoke-WebRequest',
+  'Invoke-RestMethod',
+  'Get-CimInstance',
+  '-File -Filter',
+  'Recurse -File',
+  '.Dispose()',
+  'Register-ScheduledTask',
+  '-SkipHttpErrorCheck',
+  '?.',
+];
+
 const String _applyBody = r'''
 $ProgressPreference = 'SilentlyContinue'
 # اگر از محیط PowerShell 7 اجرا شده باشیم، مسیر ماژول‌های آن برای Windows PowerShell 5.1 ناسازگار است
@@ -533,8 +553,23 @@ function Get-Sha256([string]$path) {
   $sha = [System.Security.Cryptography.SHA256]::Create()
   $fs = [System.IO.File]::Open($path, 'Open', 'Read', 'ReadWrite')
   try { return ([System.BitConverter]::ToString($sha.ComputeHash($fs)) -replace '-', '').ToLower() }
-  finally { $fs.Dispose(); $sha.Dispose() }
+  finally { $fs.Close(); $sha.Clear() }
 }
+# JSON دست‌ساز (PowerShell 2.0 مبدل JSON ندارد)
+function Json-Str([string]$s) {
+  $sb = New-Object System.Text.StringBuilder
+  [void]$sb.Append('"')
+  foreach ($ch in $s.ToCharArray()) {
+    $c = [int]$ch
+    if ($c -eq 34) { [void]$sb.Append('\"') }
+    elseif ($c -eq 92) { [void]$sb.Append('\\') }
+    elseif ($c -lt 32) { [void]$sb.Append(('\u{0:x4}' -f $c)) }
+    else { [void]$sb.Append($ch) }
+  }
+  [void]$sb.Append('"')
+  return $sb.ToString()
+}
+function Json-Bool([bool]$b) { if ($b) { 'true' } else { 'false' } }
 function Write-Log([string]$m) {
   try { [System.IO.File]::AppendAllText($logFile, ((Get-Date).ToUniversalTime().ToString('o') + ' ' + $m + "`r`n"), (New-Object System.Text.UTF8Encoding($false))) } catch { }
 }
@@ -550,14 +585,16 @@ function Write-Result([bool]$ok, [string]$msg, [bool]$rolledBack) {
   Write-Log "result ok=$ok rolled_back=$rolledBack $msg"
   $rp = 0; $win = $false
   if ($script:relaunched) { try { $script:relaunched.Refresh(); $rp = $script:relaunched.Id; $win = ($script:relaunched.MainWindowHandle -ne [IntPtr]::Zero) } catch { } }
-  $o = [ordered]@{ ok = $ok; build = $build; rolled_back = $rolledBack; message = $msg; relaunched_pid = $rp; window = $win; at = (Get-Date).ToUniversalTime().ToString('o') }
-  [System.IO.File]::WriteAllText($resultFile, ($o | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+  $json = '{"ok":' + (Json-Bool $ok) + ',"build":' + [int64]$build + ',"rolled_back":' + (Json-Bool $rolledBack) + ',"message":' + (Json-Str $msg) + ',"relaunched_pid":' + [int64]$rp + ',"window":' + (Json-Bool $win) + ',"at":' + (Json-Str ((Get-Date).ToUniversalTime().ToString('o'))) + '}'
+  [System.IO.File]::WriteAllText($resultFile, $json, (New-Object System.Text.UTF8Encoding($false)))
 }
 # باز کردن دوبارهٔ برنامه: پنجرهٔ معمولی؛ اگر نشد، از راه Explorer (مثل دوبار کلیک)
 function Start-App {
   for ($i = 0; $i -lt 3; $i++) {
     try {
       $script:relaunched = Start-Process -FilePath $exe -WorkingDirectory $install -WindowStyle Normal -PassThru
+      # PowerShell 2.0 (ویندوز ۷): بدون گرفتن Handle در همین لحظه، ExitCode بعداً خالی می‌ماند
+      try { $null = $script:relaunched.Handle } catch { }
       Write-Log "relaunched pid=$($script:relaunched.Id)"
       return $script:relaunched
     } catch { Write-Log "relaunch attempt $i failed: $_"; Start-Sleep -Milliseconds 800 }
@@ -611,8 +648,8 @@ if ($AppPid -gt 0 -and (Get-Process -Id $AppPid -ErrorAction SilentlyContinue)) 
   exit 4
 }
 # نمونه‌های دیگرِ باز (پنجرهٔ دوم): تا ۳۰ ثانیه صبر، بعد بسته می‌شوند تا فایل‌ها آزاد شوند
-for ($i = 0; $i -lt 60 -and (Get-AppProcs).Count -gt 0; $i++) { Start-Sleep -Milliseconds 500 }
-$others = Get-AppProcs
+for ($i = 0; $i -lt 60 -and @(Get-AppProcs).Count -gt 0; $i++) { Start-Sleep -Milliseconds 500 }
+$others = @(Get-AppProcs)
 if ($others.Count -gt 0) {
   Write-Log "closing $($others.Count) other instance(s)"
   $others | ForEach-Object { try { Stop-Process -Id $_.Id -Force } catch { } }
@@ -666,7 +703,11 @@ try {
     if (-not $window -and $p.MainWindowHandle -ne [IntPtr]::Zero) { $window = $true; Write-Log "window up after $([int]($i / 2))s" }
   }
   $p.Refresh()
-  if ($p.HasExited -and $p.ExitCode -ne 0) { throw "new build exited early ($($p.ExitCode))" }
+  if ($p.HasExited) {
+    $code = $null
+    try { $code = $p.ExitCode } catch { }
+    if ($code -ne 0) { throw "new build exited early ($code)" }
+  }
 } catch {
   Write-Log "health check failed: $_"
   Restore-Backup $done
@@ -676,7 +717,7 @@ try {
   exit 2
 }
 # پاک‌سازی فایل‌های کنارگذاشته (اگر هنوز قفل‌اند، برنامه در اجرای بعد پاکشان می‌کند)
-Get-ChildItem -LiteralPath $install -Recurse -File -Filter '*.old-*' -ErrorAction SilentlyContinue | ForEach-Object { try { Remove-Item -LiteralPath $_.FullName -Force } catch { } }
+Get-ChildItem -LiteralPath $install -Recurse -Filter '*.old-*' -ErrorAction SilentlyContinue | Where-Object { -not $_.PSIsContainer } | ForEach-Object { try { Remove-Item -LiteralPath $_.FullName -Force } catch { } }
 Write-Result $true 'ok' $false
 exit 0
 ''';

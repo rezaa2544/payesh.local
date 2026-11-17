@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:payesh_secure/payesh_secure.dart'
+    show installLegacyWindowsTrust;
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_update/payesh_update.dart';
 
@@ -17,6 +19,8 @@ import 'src/update/app_update.dart';
 
 void main(List<String> args) {
   WidgetsFlutterBinding.ensureInitialized();
+  // Row 168: Windows 7/8/8.1 — Mozilla roots next to the old system root store (no-op elsewhere).
+  installLegacyWindowsTrust();
   final flags = ClientFlags.fromEnvironment();
   final lanClient = lanEnabled
       ? LanAccessClient(platform: Platform.operatingSystem)

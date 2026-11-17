@@ -30,6 +30,12 @@
 #if !FileExists(AddBackslash(StageDir) + "node.exe")
   #error node.exe missing in the staging folder
 #endif
+#if !FileExists(AddBackslash(StageDir) + "pw7.dll")
+  #error pw7.dll missing in the staging folder (row 168: node.exe needs it on Windows 7/8)
+#endif
+#if !FileExists(AddBackslash(StageDir) + "x86\node.exe") || !FileExists(AddBackslash(StageDir) + "x86\pw7.dll")
+  #error x86\node.exe / x86\pw7.dll missing in the staging folder (row 168: 32-bit Windows)
+#endif
 #if !FileExists(AddBackslash(StageDir) + "server\start.js")
   #error server\start.js missing in the staging folder
 #endif
@@ -44,8 +50,10 @@ DefaultDirName={autopf}\PayeshDataService
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 PrivilegesRequired=admin
-ArchitecturesAllowed=x64compatible
+; Row 168: 64-bit AND 32-bit Windows 7 SP1 or newer — x64 gets the x64 node.exe, 32-bit Windows
+; the win-x86 node.exe (each with its own pw7.dll for the Windows 8+ functions node 22 imports).
 ArchitecturesInstallIn64BitMode=x64compatible
+MinVersion=6.1sp1
 OutputDir=..\..\..\native-out
 OutputBaseFilename=payesh-data-service-setup
 Compression=lzma2
@@ -56,7 +64,10 @@ UninstallDisplayName=Payesh Data Service
 VersionInfoDescription=Payesh school data service (API only, for the native app)
 
 [Files]
-Source: "{#StageDir}\node.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\node.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: Is64BitInstallMode
+Source: "{#StageDir}\pw7.dll"; DestDir: "{app}"; Flags: ignoreversion; Check: Is64BitInstallMode
+Source: "{#StageDir}\x86\node.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: not Is64BitInstallMode
+Source: "{#StageDir}\x86\pw7.dll"; DestDir: "{app}"; Flags: ignoreversion; Check: not Is64BitInstallMode
 Source: "{#StageDir}\server\*.js"; DestDir: "{app}\server"; Flags: ignoreversion
 Source: "{#StageDir}\client\lib\*.js"; DestDir: "{app}\client\lib"; Flags: ignoreversion
 Source: "{#StageDir}\package.json"; DestDir: "{app}"; Flags: ignoreversion
@@ -69,17 +80,85 @@ Name: "{commonappdata}\Payesh\data"; Flags: uninsneveruninstall
 [Run]
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=PayeshDataService"; Flags: runhidden waituntilterminated
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=PayeshDataService dir=in action=allow protocol=TCP localport=8080 profile=private,domain"; Flags: runhidden waituntilterminated
-; Boot-time task as SYSTEM with NO execution time limit (schtasks /Create would stop it after 72 h),
-; restarted by Task Scheduler if it fails to start; server\start.js itself supervises the server.
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ""$a = New-ScheduledTaskAction -Execute '{app}\payesh-service.cmd' -WorkingDirectory '{app}'; $t = New-ScheduledTaskTrigger -AtStartup; $s = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 99 -RestartInterval (New-TimeSpan -Minutes 1) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable; $p = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest; Register-ScheduledTask -TaskName PayeshDataService -Action $a -Trigger $t -Settings $s -Principal $p -Force | Out-Null; Start-ScheduledTask -TaskName PayeshDataService"""; Flags: runhidden waituntilterminated
+; Boot-time task (SYSTEM, no time limit, restart on failure) — registered in [Code] through the
+; Task Scheduler 2.0 COM API, which exists on Windows 7 … 11 (the PowerShell ScheduledTasks module needs Windows 8+).
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/End /TN PayeshDataService"; Flags: runhidden waituntilterminated; RunOnceId: "EndTask"
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -Command ""Get-Process node -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -like '{app}\*' } | Stop-Process -Force"""; Flags: runhidden waituntilterminated; RunOnceId: "StopNode"
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -Command ""Get-WmiObject Win32_Process | Where-Object {{ $_.Name -eq 'node.exe' -and $_.ExecutablePath -like '{app}\*' } | ForEach-Object {{ [void]$_.Terminate() }"""; Flags: runhidden waituntilterminated; RunOnceId: "StopNode"
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /F /TN PayeshDataService"; Flags: runhidden waituntilterminated; RunOnceId: "DeleteTask"
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=PayeshDataService"; Flags: runhidden waituntilterminated; RunOnceId: "DeleteFirewall"
 
 [Code]
+// Row 168: the service task through Task Scheduler 2.0 (COM, Windows 7+). Same task as before:
+// boot trigger, SYSTEM (service account, highest), ExecutionTimeLimit PT0S (schtasks /Create would
+// stop it after 72 h), restart every minute up to 99 times; server\start.js supervises the server.
+function XmlEsc(S: String): String;
+begin
+  Result := S;
+  StringChangeEx(Result, '&', '&amp;', True);
+  StringChangeEx(Result, '<', '&lt;', True);
+  StringChangeEx(Result, '>', '&gt;', True);
+end;
+
+function ServiceTaskXml(): String;
+var
+  App: String;
+begin
+  App := XmlEsc(ExpandConstant('{app}'));
+  Result :=
+    '<?xml version="1.0" encoding="UTF-16"?>' + #13#10 +
+    '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">' +
+    '<RegistrationInfo><Description>Payesh Data Service</Description></RegistrationInfo>' +
+    '<Triggers><BootTrigger><Enabled>true</Enabled></BootTrigger></Triggers>' +
+    '<Principals><Principal id="Author"><UserId>S-1-5-18</UserId><RunLevel>HighestAvailable</RunLevel></Principal></Principals>' +
+    '<Settings>' +
+    '<MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>' +
+    '<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>' +
+    '<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>' +
+    '<AllowHardTerminate>true</AllowHardTerminate>' +
+    '<StartWhenAvailable>true</StartWhenAvailable>' +
+    '<RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>' +
+    '<IdleSettings><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings>' +
+    '<AllowStartOnDemand>true</AllowStartOnDemand>' +
+    '<Enabled>true</Enabled>' +
+    '<Hidden>false</Hidden>' +
+    '<RunOnlyIfIdle>false</RunOnlyIfIdle>' +
+    '<WakeToRun>false</WakeToRun>' +
+    '<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>' +
+    '<Priority>7</Priority>' +
+    '<RestartOnFailure><Interval>PT1M</Interval><Count>99</Count></RestartOnFailure>' +
+    '</Settings>' +
+    '<Actions Context="Author"><Exec><Command>"' + App + '\payesh-service.cmd"</Command><WorkingDirectory>' + App + '</WorkingDirectory></Exec></Actions>' +
+    '</Task>';
+end;
+
+procedure RegisterServiceTask();
+var
+  Svc, Folder: Variant;
+  Code: Integer;
+begin
+  try
+    Svc := CreateOleObject('Schedule.Service');
+    Svc.Connect();
+    Folder := Svc.GetFolder('\');
+    // 6 = TASK_CREATE_OR_UPDATE, 5 = TASK_LOGON_SERVICE_ACCOUNT. The account comes from the XML
+    // principal (S-1-5-18); Pascal Script's string/Null VARIANTs are rejected by RegisterTask
+    // (verified with a probe setup), so user and password stay Unassigned.
+    Folder.RegisterTask('PayeshDataService', ServiceTaskXml(), 6, Unassigned, Unassigned, 5);
+    Log('PayeshDataService: task registered through Task Scheduler 2.0 (COM)');
+  except
+    RaiseException('Payesh Data Service: the background task could not be registered (' + GetExceptionMessage() + ')');
+  end;
+  Exec(ExpandConstant('{sys}\schtasks.exe'), '/Run /TN PayeshDataService', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Log('PayeshDataService: schtasks /Run exit ' + IntToStr(Code));
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then RegisterServiceTask();
+end;
+
 // An upgrade must not fight the running service for node.exe / server\*.js.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
@@ -87,7 +166,7 @@ var
 begin
   Exec(ExpandConstant('{sys}\schtasks.exe'), '/End /TN PayeshDataService', '', SW_HIDE, ewWaitUntilTerminated, Code);
   Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-    '-NoProfile -NonInteractive -Command "Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like ''' + ExpandConstant('{app}') + '\*'' } | Stop-Process -Force"',
+    '-NoProfile -NonInteractive -Command "Get-WmiObject Win32_Process | Where-Object { $_.Name -eq ''node.exe'' -and $_.ExecutablePath -like ''' + ExpandConstant('{app}') + '\*'' } | ForEach-Object { [void]$_.Terminate() }"',
     '', SW_HIDE, ewWaitUntilTerminated, Code);
   Result := '';
 end;
