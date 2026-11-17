@@ -5429,6 +5429,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۶۷: یک سرور پایش، همهٔ مدارس پنل مالک + نقش رایگان + آزمایشی ── */
+  await test('ردیف ۱۶۷: مدرسهٔ دوم پنل مالک خودکار سرور می‌گیرد (دادهٔ جدا، همان نشانی)؛ نقش بی‌گزینهٔ پولی رایگان؛ آزمایشی دسترسی می‌دهد (۶ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/hosted-167.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'hosted-167: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|HOSTED-167/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۴۶: شکل نام کاربری در فرم‌های ورود/راه‌اندازی/نجات وب (هم‌قاعده با سرور و اپ بومی) ── */
   await test('ردیف ۱۴۶: فرم ورود وب نام کاربری لاتین را می‌پذیرد؛ شکل نادرست در ورود/راه‌اندازی/نجات هیچ درخواستی نمی‌فرستد', async () => {
     const { JSDOM } = require('jsdom');

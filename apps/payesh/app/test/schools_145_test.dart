@@ -550,6 +550,41 @@ void main() {
     },
   );
 
+  testWidgets(
+    'S167-W07 trial on ⇒ a never-subscribed user gets the trial at once (no tap); failure stays quiet',
+    (tester) async {
+      await boot(tester);
+      await toLogin(tester);
+      lan.logins.add(lanSession(role: 'manager', uid: 1, token: 'acc-m'));
+      schools.subs.add(paywalled());
+      schools.trials.add(active(days: 14));
+      await type(tester, 'lan-phone', 'm.karimi');
+      await type(tester, 'lan-password', 'Karimi-1403');
+      await tap(tester, 'lan-login');
+      expect(schools.calls.where((c) => c.startsWith('trial:')).toList(), [
+        'trial:${deviceHashOf(deviceId)}',
+      ]);
+      expect(find.byKey(const Key('paywall')), findsNothing);
+      expect(find.byKey(const Key('session-school')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'S167-W08 NEG trial off ⇒ no automatic request; the paywall stays',
+    (tester) async {
+      await boot(tester);
+      await toLogin(tester);
+      lan.logins.add(lanSession(role: 'manager', uid: 1, token: 'acc-m'));
+      schools.subs.add(paywalled(trial: false));
+      await type(tester, 'lan-phone', 'm.karimi');
+      await type(tester, 'lan-password', 'Karimi-1403');
+      await tap(tester, 'lan-login');
+      expect(schools.calls.where((c) => c.startsWith('trial')), isEmpty);
+      expect(find.byKey(const Key('paywall')), findsOneWidget);
+      expect(find.byKey(const Key('paywall-trial')), findsNothing);
+    },
+  );
+
   test('S145-U01 device identity helpers', () async {
     expect(
       parseMachineGuid(

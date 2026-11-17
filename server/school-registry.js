@@ -143,7 +143,9 @@ const META = { registry: 'schools:registry', bound: 'schools:bound', subs: 'sub:
 
 function cloud(store) {
   const c = s3mem.usingMeta(store).get();
-  return c && c.enabled ? c : null;
+  /* ردیف ۱۶۷: سرور مدرسهٔ میزبانی‌شده دادهٔ خودش را زیر <prefix>h/<id>/ دارد؛ پرونده‌های
+     مشترک مالک (فهرست مدارس، پرداخت، رسید، آزمایشی) همان پیشوند اصلی است */
+  return c && c.enabled ? require('./hosting').withControlPrefix(store, c) : null;
 }
 
 function settingsOf(plain) {
@@ -265,7 +267,10 @@ function gate(store, user, { now = Date.now() } = {}) {
     year_end: ay.iso(ay.yearEndMs(now)), renew_open: ay.iso(ay.renewOpenMs(now)),
     gateway: !!st.gateway.pay_url, receipt: st.receipt_enabled, receipt_note: st.receipt_note,
   };
-  if (!st.paywall_enabled || policy !== 'required') return Object.assign(base, { access: true, status: 'free' });
+  /* ردیف ۱۶۷: مالک می‌تواند هر دو گزینهٔ ماهانه و سالانهٔ یک نقش را بردارد (یا قیمت را صفر کند)
+     ⇒ آن نقش رایگان است، حتی اگر «اشتراک لازم» مانده باشد — کاربر بی‌راه پرداخت پشت دیوار نمی‌ماند */
+  const paid = base.plans.some(p => Number(p.price) > 0);
+  if (!st.paywall_enabled || policy !== 'required' || !paid) return Object.assign(base, { access: true, status: 'free', policy: paid ? policy : 'free' });
   const state = subsState(store);
   const rec = userSub(state, user.id);
   const endMs = effectiveEnd(rec, now);
@@ -940,7 +945,7 @@ function callbackPage(r) {
 module.exports = {
   K, DIR, SALT: SALT.toString('utf8'), PLANS, ROLES, OFFERED, DEFAULTS, plansFor, effectiveEnd, LEVELS, USERNAME_RE,
   RegistryError, seal, open, keyFor, readEnv, writeEnv, trialKey, settingsOf, verifyOk, fill,
-  registry, boundOf, schoolOf, gate, startTrial, startPayment, submitReceipt, callback, callbackPage,
+  cloud, registry, boundOf, schoolOf, gate, startTrial, startPayment, submitReceipt, callback, callbackPage,
   applyOwner, applySchool, adoptOnLogin, linkOnLogin, adoptSchool, ownerProfileOf, OWNER_PROFILE_KEYS, findManager, loginShape, register, requestStatus, validRequest,
   pullRegistry, writeAck, poll, start, stop, subsState, markPaid, reportPayment, resendUnreported, normRef,
 };

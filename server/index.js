@@ -67,6 +67,12 @@ function isLocalReq(req) {
   return remote === '::1' || remote === '127.0.0.1' || remote.startsWith('127.');
 }
 const DATA_DIR = process.env.PAYESH_DATA || path.join(ROOT, 'data');
+/* ردیف ۱۶۷: همین سرور، اجراشده به‌عنوان «سرور مدرسهٔ میزبانی‌شده» برای یک مدرسهٔ دیگرِ
+   پنل مالک (server/hosting.js). فقط روی 127.0.0.1، فقط از راه سرور اصلی همین رایانه. */
+const hosting = require('./hosting');
+const HOSTED = /^[A-Za-z0-9_-]{1,64}$/.test(String(process.env.PAYESH_HOSTED || '')) ? String(process.env.PAYESH_HOSTED) : null;
+let hostedPublicUrl = null;
+let host = null;
 /* ردیف ۱۲۷: «سرویس دادهٔ بی‌رابط» (PAYESH_HEADLESS=1) — همان سرور مدرسه، اما فقط API.
    هیچ صفحهٔ وب/HTML/JS سرو نمی‌شود (رابط فقط اپ بومی است، D‑49) و راه‌اندازی اولیه
    (/api/setup) فقط از خودِ رایانهٔ سرور (loopback) پذیرفته می‌شود، نه از هر دستگاه شبکه. */
@@ -2171,7 +2177,31 @@ function toCSV(rows) {
 }
 
 /* ── سرور ─────────────────────────────────────────────────────────── */
+/* ردیف ۱۶۷: درِ ورودی — سرور اصلی درخواست کاربران مدرسه‌های میزبانی‌شده را به سرور همان
+   مدرسه می‌رساند؛ سرور میزبانی‌شده فقط درخواستِ سرور اصلی همین رایانه را می‌پذیرد. */
 const handler = async (req, res) => {
+  if (HOSTED) {
+    if (!hosting.trusted(req)) {
+      res.writeHead(403, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, error: 'hosted_only' }));
+      return undefined;
+    }
+    /* «از خود همین رایانه» را فقط سرور اصلی تعیین می‌کند؛ نشانی واقعی کاربر در x-forwarded-for */
+    if (req.headers[hosting.H_LOCAL] !== '1') req.__public = true;
+    if (req.method === 'POST' && String(req.url || '').split('?')[0] === '/__hosted/owns') {
+      let body = {};
+      try { body = await readBody(req, 64 * 1024); } catch (e) { body = {}; }
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(JSON.stringify({ owns: hosting.owns(store, body, { auth, identity: require('./identity'), schools }) }));
+      return undefined;
+    }
+    return baseHandler(req, res);
+  }
+  if (host) return host.route(req, res, baseHandler, { rootOwnsToken: (t) => !!auth.verifySession(store, t) });
+  return baseHandler(req, res);
+};
+
+const baseHandler = async (req, res) => {
   const started = Date.now();
   const ip = cfg.clientIp(req);
   /* row 85: every response carries X-Request-Id (honoured if opaque, else minted) */
@@ -2387,7 +2417,9 @@ try {
 /* ── صندوقچهٔ پیش‌فرض: در شروع نام صندوقچه را پیدا می‌کنیم و اجازهٔ CORS را
       هم خودکار می‌گذاریم — گوشی‌ها بدون هیچ کاری می‌توانند بخوانند/بنویسند. ── */
 if (process.env.PAYESH_CLOUD_AUTO !== '0') {
-  setTimeout(() => {
+  /* ردیف ۱۶۷: سرور میزبانی‌شده تنظیم دیتابیس را از سرور اصلی می‌گیرد (پیشوند جدا)؛ نه CORS،
+     نه پیروی مستقیم از دیتابیس مالک، نه سرور کمکی، نه فهرست نشانی‌ها — همه کار سرور اصلی است */
+  if (!HOSTED) setTimeout(() => {
     s3mem.ensureBucket(store)
       .then(async c => {
         if (!c.bucket) return;
@@ -2410,14 +2442,19 @@ if (process.env.PAYESH_CLOUD_AUTO !== '0') {
       .catch(e => console.log('[cloud] تشخیص صندوقچه ناموفق:', e.message));
   }, 2500).unref();
   /* پیروی از دیتابیسِ پنل مالک (control/cloud-<kid>.json در صندوقچه) — هر دقیقه */
-  require('./cloud-control').start(store);
+  if (!HOSTED) require('./cloud-control').start(store);
   /* سرورهای کمکی: بررسی بیرونیِ آدرس عمومی هر ۳۰ دقیقه (اگر هیچ سرور کمکی نباشد، محلی) */
-  helperJobs.start(store, { publicUrl: () => cfg.publicUrl(store) });
+  if (!HOSTED) helperJobs.start(store, { publicUrl: () => cfg.publicUrl(store) });
   /* ردیف ۱۴۵: فهرست مدارس و سیاست اشتراکِ پنل مالک — هر دقیقه */
-  schools.start(store, { instance: () => cfg.instanceId(store), publicUrl: () => cfg.publicUrl(store) || null, version: () => RUNNING_VERSION });
+  schools.start(store, {
+    everyMs: Number(process.env.PAYESH_SCHOOLS_EVERY_MS || 60_000),
+    instance: () => cfg.instanceId(store),
+    publicUrl: () => (HOSTED ? hostedPublicUrl : cfg.publicUrl(store)) || null,
+    version: () => RUNNING_VERSION,
+  });
   support.start(store);
   /* ردیف ۱۶۳: نشانی همین سرور در فهرست «فقط نشانی» دیتابیس ⇒ برنامه بدون «نشانی سرور» پیدایش می‌کند */
-  if (process.env.PAYESH_DISCOVERY !== '0') {
+  if (process.env.PAYESH_DISCOVERY !== '0' && !HOSTED) {
     require('./discovery').start(store, () => ({
       instance: cfg.instanceId(store),
       school: (store.get('schools', 1) || {}).name || null,
@@ -2445,6 +2482,7 @@ function closeServerForRestart() {
   try { if (server.closeAllConnections) server.closeAllConnections(); } catch (e) { /* noop */ }
   try { tunnelIngress.close(); if (tunnelIngress.closeAllConnections) tunnelIngress.closeAllConnections(); } catch (e) { /* noop */ }
   try { tunnel.stop(); } catch (e) { /* تونل‌ها هم بسته شوند */ }
+  try { if (host) host.stop(); } catch (e) { /* سرورهای مدرسه‌های میزبانی‌شده هم */ }
   try { store.close(); } catch (e) { /* noop */ }
 }
 
@@ -2514,6 +2552,7 @@ server.listen(PORT, HOST, () => {
   console.log('  آدرس عمومی (همه)   : ' + (pub || 'تنظیم نشده — پنل مدیر ← شبکه'));
   console.log('');
   /* ردیف ۱۶۵: درگاه ورودی عمومی + تونل‌ها مطابق «حالت اتصال» پنل مالک */
+  if (HOSTED) { hostedReady(); return; }
   if (INGRESS_ON) {
     tunnelIngress.on('error', e => logger.error('start_failed', { component: 'tunnel_ingress', detail: e && e.message }));
     tunnelIngress.listen(TUNNEL_PORT, '127.0.0.1');
@@ -2539,8 +2578,34 @@ server.listen(PORT, HOST, () => {
       },
     });
   } catch (e) { logger.error('start_failed', { component: 'update', detail: e.message }); }
+
+  /* ردیف ۱۶۷: هر مدرسهٔ دیگر فهرست پنل مالک که سروری ندارد ⇒ سرور خودش، همین‌جا */
+  if (process.env.PAYESH_HOSTING !== '0') {
+    try {
+      host = hosting.createHost({
+        store, dataDir: DATA_DIR, entry: path.resolve(__filename), schools, s3mem, auth,
+        instanceId: () => cfg.instanceId(store), publicUrl: () => cfg.publicUrl(store) || null,
+        isLocal: isLocalReq, clientIp: (r) => cfg.clientIp(r),
+      });
+      host.startTimer({ everyMs: Number(process.env.PAYESH_HOSTING_EVERY_MS || 60_000), firstMs: Number(process.env.PAYESH_HOSTING_FIRST_MS || 8000) });
+    } catch (e) { logger.error('start_failed', { component: 'hosting', detail: e.message }); }
+  }
 });
 
-process.on('SIGINT', () => { try { update.stop(); tunnel.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });
-process.on('SIGTERM', () => { try { update.stop(); tunnel.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });
-process.on('exit', () => { try { tunnel.stop(); } catch (e) { /* noop */ } });
+/* ردیف ۱۶۷: سرور میزبانی‌شده — درگاه را به سرور اصلی می‌گوید و تنظیم دیتابیس را از او می‌گیرد */
+function hostedReady() {
+  const send = (m) => { try { if (process.send) process.send(m); } catch (e) { /* noop */ } };
+  process.on('message', (msg) => {
+    if (msg && msg.type === 'cloud') hostedPublicUrl = typeof msg.public_url === 'string' ? msg.public_url : null;
+    hosting.onParentMessage(store, msg, { sid: HOSTED, s3mem, schools, auth, instance: cfg.instanceId(store), send, log: (m) => console.log(m) })
+      .catch((e) => send({ type: 'adopted', ok: false, error: e.message, bound: !!schools.boundOf(store) }));
+  });
+  /* سرور اصلی بسته شد ⇒ این هم (دوباره که بالا بیاید، دوباره راه‌اندازی می‌کند) */
+  process.on('disconnect', () => { try { store.close(); } catch (e) { /* noop */ } process.exit(0); });
+  try { live.start(store, { everyMs: Number(process.env.PAYESH_LIVE_MS || live.INTERVAL_MS) }); } catch (e) { logger.error('start_failed', { component: 'live', detail: e.message }); }
+  send({ type: 'ready', port: server.address().port, instance: cfg.instanceId(store) });
+}
+
+process.on('SIGINT', () => { try { update.stop(); tunnel.stop(); if (host) host.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });
+process.on('SIGTERM', () => { try { update.stop(); tunnel.stop(); if (host) host.stop(); } catch (e) { /* noop */ } store.close(); process.exit(0); });
+process.on('exit', () => { try { tunnel.stop(); if (host) host.stop(); } catch (e) { /* noop */ } });

@@ -36,7 +36,8 @@ const cleanText = (s, max) => String(s == null ? '' : s).replace(/\r\n?/g, '\n')
 
 function cloud(store) {
   const c = s3mem.usingMeta(store).get();
-  return c && c.enabled ? c : null;
+  /* ردیف ۱۶۷: تیکت‌های مدرسهٔ میزبانی‌شده همان صندوق پشتیبانی مالک است */
+  return c && c.enabled ? require('./hosting').withControlPrefix(store, c) : null;
 }
 
 function state(store) {

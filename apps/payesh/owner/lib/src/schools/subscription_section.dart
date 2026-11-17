@@ -87,27 +87,13 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
       ..receiptNote = _note.text
       ..payUrl = _pay.text
       ..verifyUrl = _verify.text;
+    // ردیف ۱۶۷: هیچ گیری روی قیمت‌ها نیست — مالک می‌تواند هر دو گزینه را بردارد یا مبلغ را
+    // خالی/صفر بگذارد؛ نقشی که گزینهٔ پولی ندارد رایگان است (سرور هم همین را می‌فهمد).
     for (final r in subRoles) {
       for (final p in offeredPlans) {
         if (!s.offered(r, p.key)) continue;
-        final n = int.tryParse(digitsOnly(_price['$r/${p.key}']!.text));
-        if (n == null || n <= 0) {
-          flash(
-            false,
-            'قیمت ${p.title} برای ${subRoleTitles[r]} را به ریال وارد کنید.',
-          );
-          return;
-        }
-        s.rolePrices[r]![p.key] = n;
-      }
-      if (s.paywallEnabled &&
-          s.roles[r] == 'required' &&
-          offeredPlans.every((p) => !s.offered(r, p.key))) {
-        flash(
-          false,
-          'برای ${subRoleTitles[r]} (نیاز به اشتراک) دست‌کم یکی از ماهانه یا سالانه را روشن کنید.',
-        );
-        return;
+        s.rolePrices[r]![p.key] =
+            int.tryParse(digitsOnly(_price['$r/${p.key}']!.text)) ?? 0;
       }
     }
     _loadedRev = -1;
@@ -334,6 +320,13 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
     );
   }
 
+  /// ردیف ۱۶۷: گزینهٔ روشن با مبلغ بیش از صفر (از روی کادر، پیش از ذخیره)
+  bool _hasPaidPlan(String r, SubSettings s) => offeredPlans.any(
+    (p) =>
+        s.offered(r, p.key) &&
+        (int.tryParse(digitsOnly(_price['$r/${p.key}']!.text)) ?? 0) > 0,
+  );
+
   /// ردیف ۱۴۹: هر نقش — کلید «نیاز به اشتراک»، و ماهانه/سالانه هر کدام با کلید و مبلغ ریالی.
   Widget _roleCard(String r, SubSettings s, bool edit) {
     final required = (s.roles[r] ?? 'free') == 'required';
@@ -370,6 +363,15 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
                 ),
               ],
             ),
+            if (required && !_hasPaidPlan(r, s))
+              Padding(
+                padding: const EdgeInsets.only(top: 2, bottom: 4),
+                child: Text(
+                  'بدون گزینهٔ پولی — این نقش رایگان است.',
+                  key: Key('sub-role-free-$r'),
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
             if (required)
               for (final p in offeredPlans)
                 Row(
@@ -402,6 +404,7 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
                           key: Key('sub-price-$r-${p.key}'),
                           controller: _price['$r/${p.key}'],
                           enabled: edit && s.offered(r, p.key),
+                          onChanged: (_) => setState(() {}),
                           textDirection: TextDirection.ltr,
                           keyboardType: TextInputType.number,
                           inputFormatters: [

@@ -625,6 +625,7 @@ class SessionController extends ChangeNotifier {
       final t = s is SignedIn ? s.session?.token : null;
       _lan = null;
       _sub = null;
+      _autoTrialTried = false;
       await lanAccounts.clear();
       if (t != null) await lan?.logout(server: l.server, token: t);
       _publish(SyncPhase.idle);
@@ -1322,8 +1323,10 @@ class SessionController extends ChangeNotifier {
     if (api == null || l == null || _state is! SignedIn) return;
     token ??= await validToken();
     if (token == null) return;
+    SubStatus? st;
     try {
-      _subSet(sub: await api.subStatus(l.server, token));
+      st = await api.subStatus(l.server, token);
+      _subSet(sub: st);
     } on LanAccessFailure catch (e) {
       if (e.kind == LanAccessError.schoolInactive ||
           e.kind == LanAccessError.schoolRemoved) {
@@ -1341,10 +1344,25 @@ class SessionController extends ChangeNotifier {
     } on Object {
       // keep what we had
     }
+    // Row 167: the owner turned the trial on ⇒ a user whose role needs a subscription and who
+    // never had one gets the trial period straight away (no extra tap behind the paywall).
+    // Once per session; the server still enforces once per user and once per device.
+    if (st != null &&
+        st.managed &&
+        !st.access &&
+        st.status == 'none' &&
+        st.trialAvailable &&
+        !_autoTrialTried) {
+      _autoTrialTried = true;
+      await startTrial(auto: true);
+    }
   }
 
+  bool _autoTrialTried = false;
+
   /// «شروع دورهٔ آزمایشی» — once per device (hashed system id), even after reinstall.
-  Future<void> startTrial() async {
+  /// `auto`: started by [checkSub] — a failure stays quiet (the paywall still shows the button).
+  Future<void> startTrial({bool auto = false}) async {
     final api = schools;
     final l = _lan;
     if (api == null || l == null || _subBusy) return;
@@ -1356,12 +1374,14 @@ class SessionController extends ChangeNotifier {
       dh = null;
     }
     if (dh == null) {
+      if (auto) return _subSet();
       return _subSet(
         error: 'شناسهٔ این دستگاه خوانده نشد — دورهٔ آزمایشی روی این دستگاه ممکن نیست؛ لطفاً اشتراک تهیه کنید',
       );
     }
     final token = await validToken();
     if (token == null) {
+      if (auto) return _subSet();
       return _subSet(error: LanAccessError.unreachable.messageFa());
     }
     try {
@@ -1371,9 +1391,9 @@ class SessionController extends ChangeNotifier {
         notice: 'دورهٔ آزمایشی ${faCount(st.daysLeft)} روزه فعال شد',
       );
     } on LanAccessFailure catch (e) {
-      _subSet(error: schoolsErrorFa(e));
+      _subSet(error: auto ? null : schoolsErrorFa(e));
     } on Object {
-      _subSet(error: _unknown);
+      _subSet(error: auto ? null : _unknown);
     }
   }
 

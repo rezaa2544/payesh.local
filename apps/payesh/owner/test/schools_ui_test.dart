@@ -492,13 +492,24 @@ void main() {
             .enabled,
         isFalse,
       );
+      // ردیف ۱۶۷: هیچ گیری نیست — مبلغ خالی/صفر یا برداشتن هر دو گزینه ⇒ نقش رایگان
+      expect(find.byKey(const Key('sub-role-free-teacher')), findsNothing);
       await type(tester, 'sub-price-teacher-monthly', '');
+      expect(find.byKey(const Key('sub-role-free-teacher')), findsOneWidget);
       await tap(tester, 'sub-save');
-      expect(flashes.last, (
-        false,
-        'قیمت ماهانه برای دبیر را به ریال وارد کنید.',
-      ));
+      expect(flashes.last.$1, isTrue, reason: '${flashes.last}');
+      await tap(tester, 'sub-on-teacher-monthly');
+      expect(find.byKey(const Key('sub-role-free-teacher')), findsOneWidget);
+      await tap(tester, 'sub-save');
+      expect(flashes.last.$1, isTrue, reason: '${flashes.last}');
+      final free = await tester.runAsync(inBucket);
+      expect(((free!['settings']! as Map)['role_plans']! as Map)['teacher'], {
+        'monthly': null,
+        'yearly': null,
+      });
+      await tap(tester, 'sub-on-teacher-monthly');
       await type(tester, 'sub-price-teacher-monthly', '۹۰۰۰۰');
+      expect(find.byKey(const Key('sub-role-free-teacher')), findsNothing);
       await type(tester, 'sub-price-manager-monthly', '300000');
       await tap(tester, 'sub-save');
       expect(flashes.last.$1, isTrue, reason: '${flashes.last}');
