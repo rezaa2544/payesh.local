@@ -20,12 +20,23 @@ while [ $# -ge 2 ]; do
   tag="$PKG-api$API"
   echo "== $PKG ($APK)"
   adb logcat -c || true
+  adb shell input keyevent 82 >/dev/null 2>&1 || true   # wake + dismiss the keyguard
   adb uninstall "$PKG" >/dev/null 2>&1 || true
   r=$(adb install -r "$APK" 2>&1 | tr -d '\r'); echo "$r" | tail -2
   if ! echo "$r" | grep -q '^Success'; then echo "SMOKE-FAIL $tag: install"; fail=1; continue; fi
-  ACT=$(adb shell cmd package resolve-activity --brief "$PKG" 2>/dev/null | tr -d '\r' | tail -1)
-  case "$ACT" in */*) ;; *) ACT="$PKG/.MainActivity" ;; esac
-  adb shell am start -W -n "$ACT" 2>&1 | tr -d '\r' | tee "$OUT/$tag-start.txt"
+  # launcher activity from the APK itself (API 21 has no `cmd package resolve-activity`)
+  SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+  AAPT2=$(ls "$SDK"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+  LA=""
+  [ -n "$AAPT2" ] && LA=$("$AAPT2" dump badging "$APK" 2>/dev/null | sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p" | head -1)
+  if [ -n "$LA" ]; then
+    adb shell am start -W -n "$PKG/$LA" 2>&1 | tr -d '\r' | tee "$OUT/$tag-start.txt"
+  else
+    adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 2>&1 | tr -d '\r' | tee "$OUT/$tag-start.txt"
+  fi
+  if grep -qE "^Error|does not exist|No activities found" "$OUT/$tag-start.txt"; then
+    echo "SMOKE-FAIL $tag: launcher activity did not start"; fail=1; continue
+  fi
   sleep 30
   # toolbox ps (API 21-23): USER PID PPID VSIZE RSS WCHAN PC S NAME
   PID=$(adb shell ps | tr -d '\r' | awk -v p="$PKG" '$NF==p {print $2}' | head -1)
@@ -48,7 +59,12 @@ while [ $# -ge 2 ]; do
   if grep -E "FATAL EXCEPTION|UnsatisfiedLinkError|cannot locate symbol|CANNOT LINK EXECUTABLE|dlopen failed|Fatal signal|\*\*\* \*\*\* \*\*\*|NoSuchMethodError|NoClassDefFoundError|VerifyError" "$OUT/$tag-logcat.txt" | grep -v "payeshw21.*No such file" | head -20 | tee "$OUT/$tag-errors.txt" | grep -q .; then
     echo "SMOKE-FAIL $tag: errors in logcat:"; cat "$OUT/$tag-errors.txt"; ok=0
   fi
-  if ! python3 "$(dirname "$0")/png-rendered.py" "$OUT/$tag.png"; then echo "SMOKE-FAIL $tag: no rendered frame"; ok=0; fi
+  # the frame must be OURS: the focused window belongs to the package (a launcher screenshot
+  # has plenty of colours too)
+  FOCUS=$(adb shell dumpsys window windows 2>/dev/null | tr -d '\r' | grep -E "mCurrentFocus|mFocusedApp" | head -2 | tr '\n' ' ')
+  echo "focus: $FOCUS" > "$OUT/$tag-focus.txt"
+  if ! echo "$FOCUS" | grep -q "$PKG/"; then echo "SMOKE-FAIL $tag: app is not in front ($FOCUS)"; ok=0
+  elif ! python3 "$(dirname "$0")/png-rendered.py" "$OUT/$tag.png"; then echo "SMOKE-FAIL $tag: no rendered frame"; ok=0; fi
   if [ $ok = 1 ]; then echo "SMOKE-OK $tag pid=$PID libs=$(tr '\n' ' ' < "$OUT/$tag-libs.txt" | grep -oE 'lib(flutter|app|payeshw21|sqlite3)\.so' | tr '\n' ' ')"
   else fail=1; grep -iE "flutter|payesh|AndroidRuntime|linker|DEBUG" "$OUT/$tag-logcat.txt" | tail -60; fi
   adb shell am force-stop "$PKG" || true
