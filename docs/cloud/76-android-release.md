@@ -34,7 +34,7 @@
 | AR-02 | targetSdk ≥ 36 (الزام Google Play از ۲۰۲۶-۰۸-۳۱) |
 | AR-03 | minSdk ≥ 21 (ردیف ۱۶۸: اندروید ۵٫۰ به بالا) |
 | AR-04 | `application-debuggable` نباشد |
-| AR-05 | apksigner: امضای v2/v3 تأییدشده |
+| AR-05 | apksigner: امضای v2/v3 تأییدشده؛ وقتی minSdk < 24 (اندروید ۵ و ۶)، امضای v1 (JAR) هم لازم است (ردیف ۱۶۸) |
 | AR-06 | دقیقاً یک امضاکننده |
 | AR-07 | مجوزها ⊆ allowlist سیاست (`INTERNET` + مجوز داخلی AndroidX) |
 | AR-08 | حالت release: امضاکننده گواهی debug نیست و در صورت تنظیم، با پین SHA-256 برابر است |

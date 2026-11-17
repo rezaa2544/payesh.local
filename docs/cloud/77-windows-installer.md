@@ -27,5 +27,16 @@
 `tests/android-release-76.js` بخش W (W-3..W-6): AppId یکتا، `#error` برای node.exe/WebView2، per-user، مراحل نصب/دروازه/حذف در workflow. اجرای واقعی روی `windows-latest` در هر PR مرتبط.
 
 ## ۵. OWNER
-1. نصب روی ویندوز ۱۰/۱۱ تمیز واقعی، اجرای اپ و ورود (برچسب M).
+1. نصب روی ویندوز ۷ SP1 / ۸ / ۸٫۱ / ۱۰ / ۱۱ تمیز واقعی (۶۴ بیتی)، اجرای اپ و ورود (برچسب M).
 2. در صورت تمایل، تهیهٔ گواهی code-signing و تنظیم دو Secret بالا.
+
+## ۶. ویندوز ۷ و ۸ (ردیف ۱۶۸، v0.9.22)
+- همهٔ نصب‌کننده‌های جاری (`payesh-native.iss`، `payesh-owner-native.iss`، `payesh-data-service.iss`) با `MinVersion=6.1sp1` ساخته می‌شوند.
+- Flutter ۳٫۲۰ به بعد روی ویندوز ۷/۸ تابع‌هایی می‌خواهد که آن‌جا نیستند. `tools/win7/w7patch.mjs` وارداتِ Win8+ را (فهرست `tools/win7/win8plus-apis.json`) به `pw7.dll` (`tools/win7/pw7shim.c`) می‌برد. روی ویندوز ۸ به بعد، `pw7.dll` تابع اصلی سیستم را صدا می‌زند و روی ۷ جایگزین سازگار را.
+- runtime UCRT (`ucrtbase.dll` و `api-ms-win-*.dll`) app-local کنار exe است، پس ویندوز ۷ بدون KB2999226 هم اجرا می‌شود.
+- اعتماد TLS: ریشه‌های Mozilla همراه برنامه‌اند (`legacy_windows_trust`)، چون مخزن گواهی ویندوز ۷ به‌روز نیست.
+- دروازه‌های CI: `w7patch --scan` (هیچ واردات Win8+ نماند) و `--verify` (`PW7-VERIFY-OK`)، سپس `w7-package.ps1` با `W7-PACKAGE-OK`.
+- معماری: اپ مدرسه و پنل مالک **فقط ۶۴ بیتی**‌اند (Flutter خروجی ۳۲ بیتی ویندوز ندارد). سرور دیتابیس (سرویس داده) هم ۳۲ بیتی است و هم ۶۴ بیتی.
+- روی ویندوز ۷ «اتصال از هر اینترنتی» با Cloudflare quick tunnel و Tailscale Funnel در دسترس نیست (این دو برنامه دیگر روی ۷ اجرا نمی‌شوند). LAN و سرور مرکزی تعریف‌شدهٔ مالک کار می‌کنند.
+- هشدار تلگرام **از پشت پراکسی** به `curl.exe` نیاز دارد که روی ویندوز ۷ نیست. بدون پراکسی با `fetch` خود Node ارسال می‌شود. خطای پراکسی در دفتر حسابرسی ثبت می‌شود و سرویس از کار نمی‌افتد.
+- نصب‌کننده‌های قدیمی WebView (`installer/payesh.iss` و `apps/owner-panel/installer/payesh-owner.iss`، با `MinVersion=10.0`) بازنشسته‌اند و توزیع نمی‌شوند.
