@@ -110,6 +110,7 @@
 | [`apps/payesh/packages/payesh_owner_api/`](../apps/payesh/packages/payesh_owner_api/) | Dart خالص: قرارداد `/api/platform/v1` پنل مالک، CAPS نقش‌ها، جدول خطاها و قواعد (هم‌ارز `web/app.js`) + IT روی سرور واقعی مالک | ۱۲۶ |
 | [`apps/payesh/packages/payesh_update/`](../apps/payesh/packages/payesh_update/) | به‌روزرسانی مشترک همهٔ برنامه‌های نصبی: دریافت تفاضلی با تلاش دوباره و ادامه، اسکریپت اعمال با بازگشت و باز شدن خودکار، APK اندروید، چراغ زنده | ۱۴۸ |
 | [`apps/payesh/tool/`](../apps/payesh/tool/) | `coverage_check.dart` (دروازهٔ پوشش در CI) | ۶۹ |
+| [`apps/payesh/third_party/`](../apps/payesh/third_party/) | منبع SQLite3 Multiple Ciphers (amalgamation، sha256 در `SHA256SUMS`) — برای اندروید ۵٫۰+ از منبع و با minSdk 21 ساخته می‌شود؛ [`android21.gradle`](../apps/payesh/android21.gradle) و `tools/android21/` (موتور/embedding سازگار با API 21، دروازهٔ `check-so-api.py`) | ۱۶۸ |
 
 ## ۷. نقشهٔ راه کلاینت بومی و ابر (هم‌تراز با صف Notion)
 
