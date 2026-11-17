@@ -5,7 +5,8 @@ Reads each ELF shared object (no external tools: pure Python ELF parser), lists 
 dynamic symbols it imports, and looks them up in bionic's symbol maps
 (libc/libm/libdl .map.txt, which record the API level that introduced each symbol,
 per architecture). A library that imports a symbol introduced after --api fails to
-load there ("cannot locate symbol"), so any such import is an error.
+load there ("cannot locate symbol"), so any such import is an error. Below API 23 every
+library must also carry a System V DT_HASH table (Android 5.x linkers cannot use GNU hash).
 
 usage: check-so-api.py [--api 21] [--maps DIR] FILE.so|FILE.apk ...
   --maps DIR   directory with libc.map.txt, libm.map.txt, libdl.map.txt (downloaded
@@ -128,6 +129,58 @@ def min_api(entries, arch):
     return best
 
 
+def sysv_hash_problem(data):
+    """None if the library has a usable System V DT_HASH, else why not. Android before 6.0
+    (API 21/22) only looks symbols up through DT_HASH ("empty/missing DT_HASH ... built with
+    --hash-style=gnu?"); DT_GNU_HASH alone is accepted from API 23."""
+    is64 = data[4] == 2
+    end = '<' if data[5] == 1 else '>'
+    if is64:
+        phoff, shoff = struct.unpack_from(end + 'QQ', data, 32)
+        phentsize, phnum, shentsize, shnum = struct.unpack_from(end + 'HHHH', data, 54)
+    else:
+        phoff, shoff = struct.unpack_from(end + 'II', data, 28)
+        phentsize, phnum, shentsize, shnum = struct.unpack_from(end + 'HHHH', data, 42)
+    loads, dynamic = [], None
+    for i in range(phnum):
+        o = phoff + i * phentsize
+        if is64:
+            t, _, off, va, _, fsz, _, _ = struct.unpack_from(end + 'IIQQQQQQ', data, o)
+        else:
+            t, off, va, _, fsz, _, _, _ = struct.unpack_from(end + 'IIIIIIII', data, o)
+        if t == 1:
+            loads.append((off, va, fsz))
+        elif t == 2:
+            dynamic = (off, fsz)
+    if dynamic is None:
+        return 'no PT_DYNAMIC'
+    hash_va = None
+    for o in range(dynamic[0], dynamic[0] + dynamic[1], 16 if is64 else 8):
+        tag, val = struct.unpack_from(end + ('qQ' if is64 else 'iI'), data, o)
+        if tag == 0:
+            break
+        if tag == 4:
+            hash_va = val
+    if hash_va is None:
+        return 'no DT_HASH (GNU hash only: Android < 6.0 refuses to load it)'
+    ho = next((off + hash_va - va for off, va, fsz in loads if va <= hash_va < va + fsz), None)
+    if ho is None or ho + 8 > len(data):
+        return 'DT_HASH 0x%x outside the loaded segments' % hash_va
+    nbucket, nchain = struct.unpack_from(end + 'II', data, ho)
+    nsym = None
+    for i in range(shnum):
+        o = shoff + i * shentsize
+        if is64:
+            _, typ, _, _, _, size, _, _, _, ent = struct.unpack_from(end + 'IIQQQQIIQQ', data, o)
+        else:
+            _, typ, _, _, _, size, _, _, _, ent = struct.unpack_from(end + 'IIIIIIIIII', data, o)
+        if typ == 11 and ent:
+            nsym = size // ent
+    if nbucket == 0 or (nsym is not None and nchain != nsym) or ho + 8 + 4 * (nbucket + nchain) > len(data):
+        return 'DT_HASH table invalid (nbucket=%d nchain=%d dynsym=%s)' % (nbucket, nchain, nsym)
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--api', type=int, default=21)
@@ -174,6 +227,10 @@ def main():
             api = min_api(e, arch)
             if api is not None and api > a.api and not weak:
                 problems.append('%s(API %d)' % (sym, api))
+        if a.api < 23:
+            hp = sysv_hash_problem(dict(libs)[name])
+            if hp:
+                problems.append(hp)
         status = 'OK' if not problems else 'BAD'
         print('%-3s %s [%s] imports=%d needed=%s%s' % (status, name, arch, len(imports), ','.join(needed),
                                                          ('  > API %d: %s' % (a.api, ' '.join(sorted(problems)))) if problems else ''))
@@ -181,7 +238,7 @@ def main():
             print('    note: NEEDED outside the NDK stable set: %s' % ','.join(foreign))
         bad += len(problems)
     if bad:
-        print('SO-API-FAIL %d imports newer than API %d' % (bad, a.api))
+        print('SO-API-FAIL %d problems for API %d (imports newer than the API level / no DT_HASH)' % (bad, a.api))
         sys.exit(1)
     print('SO-API-OK %d libraries load on API %d' % (len(libs), a.api))
 

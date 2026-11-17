@@ -377,6 +377,169 @@ def rename_needed(data, old, new):
     return bytes(out)
 
 
+def elf_hash(name):
+    """System V ELF hash (gABI)."""
+    h = 0
+    for c in name:
+        h = ((h << 4) + c) & 0xffffffff
+        g = h & 0xf0000000
+        if g:
+            h ^= g >> 24
+        h &= ~g & 0xffffffff
+    return h
+
+
+def elf_hash_layout(data):
+    """ELF64/ELF32 LE: (is64, phdrs [(index, type, flags, off, vaddr, filesz, memsz, align)], dyn entries
+    [(file offset, tag, val)], dynsym (file offset, count, entsize), dynstr file offset)."""
+    if data[:4] != b'\x7fELF' or data[5] != 1:
+        fail('not a little-endian ELF')
+    is64 = data[4] == 2
+    if is64:
+        phoff, shoff = struct.unpack_from('<QQ', data, 32)
+        phentsize, phnum, shentsize, shnum = struct.unpack_from('<HHHH', data, 54)
+    else:
+        phoff, shoff = struct.unpack_from('<II', data, 28)
+        phentsize, phnum, shentsize, shnum = struct.unpack_from('<HHHH', data, 42)
+    ph = []
+    for i in range(phnum):
+        o = phoff + i * phentsize
+        if is64:
+            t, fl, off, va, _, fsz, msz, al = struct.unpack_from('<IIQQQQQQ', data, o)
+        else:
+            t, off, va, _, fsz, msz, fl, al = struct.unpack_from('<IIIIIIII', data, o)
+        ph.append((i, t, fl, off, va, fsz, msz, al))
+
+    def v2o(va):
+        for _, t, _, off, pva, fsz, _, _ in ph:
+            if t == 1 and pva <= va < pva + fsz:
+                return off + va - pva
+        fail('vaddr 0x%x is not in a PT_LOAD' % va)
+
+    dynp = [p for p in ph if p[1] == 2]
+    if len(dynp) != 1:
+        fail('expected one PT_DYNAMIC')
+    step = 16 if is64 else 8
+    dyn = []
+    for o in range(dynp[0][3], dynp[0][3] + dynp[0][5], step):
+        tag, val = struct.unpack_from('<qQ' if is64 else '<iI', data, o)
+        dyn.append((o, tag, val))
+        if tag == 0:
+            break
+    tags = {t: v for _, t, v in dyn}
+    if 6 not in tags or 5 not in tags:
+        fail('no DT_SYMTAB/DT_STRTAB')
+    symoff = v2o(tags[6])
+    entsize = tags.get(11, 24 if is64 else 16)
+    count = None
+    for i in range(shnum):  # .dynsym size from its section header (llvm-strip keeps it)
+        o = shoff + i * shentsize
+        if is64:
+            _, typ, _, _, off, size, _, _, _, ent = struct.unpack_from('<IIQQQQIIQQ', data, o)
+        else:
+            _, typ, _, _, off, size, _, _, _, ent = struct.unpack_from('<IIIIIIIIII', data, o)
+        if typ == 11 and off == symoff:
+            count = size // ent
+    if count is None:
+        fail('no .dynsym section header')
+    return is64, ph, dyn, (symoff, count, entsize), v2o(tags[5])
+
+
+DT_HASH, DT_GNU_HASH, DT_RELACOUNT, DT_RELCOUNT = 4, 0x6ffffef5, 0x6ffffff9, 0x6ffffffa
+
+
+def add_sysv_hash(data):
+    """Android 5.0/5.1 (API 21/22) only load libraries with a System V DT_HASH table — GNU hash is
+    API 23+ ("empty/missing DT_HASH ... built with --hash-style=gnu?"). The 64-bit libflutter.so is
+    GNU-hash only. Adds a standard DT_HASH over every .dynsym entry:
+      · the table is appended in a new read-only PT_LOAD placed after the highest segment (the
+        PT_NOTE program header is reused for it — the dynamic linker never reads PT_NOTE);
+      · the DT_RELACOUNT/DT_RELCOUNT entry (an optional relocation-count hint) becomes DT_HASH.
+    API 23+ linkers prefer DT_GNU_HASH when both exist, so newer Android behaves as before."""
+    is64, ph, dyn, (symoff, count, entsize), stroff = elf_hash_layout(data)
+    tags = [t for _, t, _ in dyn]
+    if DT_HASH in tags:
+        return data
+    names = []
+    for i in range(count):
+        st_name = struct.unpack_from('<I', data, symoff + i * entsize)[0]
+        names.append(data[stroff + st_name:data.index(b'\0', stroff + st_name)])
+    nbucket = max(1, count // 2) | 1
+    buckets, chains = [0] * nbucket, [0] * count
+    for i in range(1, count):
+        b = elf_hash(names[i]) % nbucket
+        chains[i] = buckets[b]
+        buckets[b] = i
+    blob = struct.pack('<II', nbucket, count) + struct.pack('<%dI' % nbucket, *buckets) + \
+        struct.pack('<%dI' % count, *chains)
+    notes = [p for p in ph if p[1] == 4]
+    hint = [(o, t) for o, t, _ in dyn if t in (DT_RELACOUNT, DT_RELCOUNT)]
+    if not notes or not hint:
+        fail('no PT_NOTE / DT_RELACOUNT to reuse for DT_HASH')
+    loads = [p for p in ph if p[1] == 1]
+    align = max(p[7] for p in loads)
+    top = max(p[4] + p[6] for p in loads)
+    off = (len(data) + 15) & ~15
+    va = ((top + align - 1) & ~(align - 1)) + off % align
+    out = bytearray(data) + b'\0' * (off - len(data)) + blob
+    idx = notes[0][0]
+    if is64:
+        phoff, = struct.unpack_from('<Q', data, 32)
+        phentsize, = struct.unpack_from('<H', data, 54)
+        struct.pack_into('<IIQQQQQQ', out, phoff + idx * phentsize, 1, 4, off, va, va, len(blob), len(blob), align)
+        struct.pack_into('<qQ', out, hint[0][0], DT_HASH, va)
+    else:
+        phoff, = struct.unpack_from('<I', data, 28)
+        phentsize, = struct.unpack_from('<H', data, 42)
+        struct.pack_into('<IIIIIIII', out, phoff + idx * phentsize, 1, off, va, va, len(blob), len(blob), 4, align)
+        struct.pack_into('<iI', out, hint[0][0], DT_HASH, va)
+    out = bytes(out)
+    verify_sysv_hash(out)
+    return out
+
+
+def verify_sysv_hash(data):
+    """Every named .dynsym entry is found through DT_HASH exactly like the API 21 linker looks it up."""
+    is64, ph, dyn, (symoff, count, entsize), stroff = elf_hash_layout(data)
+    hv = [v for _, t, v in dyn if t == DT_HASH]
+    if not hv:
+        fail('no DT_HASH')
+    for _, t, _, off, va, fsz, _, _ in ph:
+        if t == 1 and va <= hv[0] < va + fsz:
+            ho = off + hv[0] - va
+            break
+    else:
+        fail('DT_HASH not in a PT_LOAD')
+    nbucket, nchain = struct.unpack_from('<II', data, ho)
+    if nbucket == 0 or nchain != count:
+        fail('DT_HASH header bad: nbucket=%d nchain=%d dynsym=%d' % (nbucket, nchain, count))
+    buckets = struct.unpack_from('<%dI' % nbucket, data, ho + 8)
+    chains = struct.unpack_from('<%dI' % nchain, data, ho + 8 + 4 * nbucket)
+    for i in range(1, count):
+        st_name = struct.unpack_from('<I', data, symoff + i * entsize)[0]
+        name = data[stroff + st_name:data.index(b'\0', stroff + st_name)]
+        if not name:
+            continue
+        n, seen = buckets[elf_hash(name) % nbucket], 0
+        while n and n != i and seen <= count:
+            n, seen = chains[n], seen + 1
+        if n != i:
+            fail('DT_HASH lookup of %s failed' % name.decode(errors='replace'))
+    return True
+
+
+def strip_unneeded(ndk, src, dst):
+    """llvm-strip --strip-unneeded (what AGP does when packaging) before patching: the patched
+    bytes are final (AGP's own strip pass keeps PT_LOAD contents, so DT_HASH survives it — the
+    APK gate re-checks), and debug libflutter.so (hundreds of MB) never has to sit in memory."""
+    host = {'linux': 'linux-x86_64', 'darwin': 'darwin-x86_64', 'win32': 'windows-x86_64'}[sys.platform]
+    tool = os.path.join(ndk, 'toolchains', 'llvm', 'prebuilt', host, 'bin',
+                        'llvm-strip' + ('.exe' if sys.platform == 'win32' else ''))
+    r = subprocess.run([tool, '--strip-unneeded', '-o', dst, src], capture_output=True, text=True)
+    if r.returncode != 0:
+        fail('llvm-strip %s: %s%s' % (src, r.stdout, r.stderr))
+
+
 def ndk_clang(ndk):
     host = {'linux': 'linux-x86_64', 'darwin': 'darwin-x86_64', 'win32': 'windows-x86_64'}[sys.platform]
     b = os.path.join(ndk, 'toolchains', 'llvm', 'prebuilt', host)
@@ -417,13 +580,22 @@ def build_engine(a, work, engine, version, modes):
                 log('  %s: not available (%s) — skipped' % (art, e))
                 continue
             lib = 'lib/%s/libflutter.so' % abi
+            # streamed to disk + stripped there (debug libflutter.so is several hundred MB)
+            raw = os.path.join(work, '%s-libflutter.so' % art)
+            stripped = raw + '.stripped'
             with zipfile.ZipFile(jar) as z:
                 if lib not in z.namelist():
                     fail('%s has no %s' % (art, lib))
-                so = [z.read(lib)]
+                with z.open(lib) as src, open(raw, 'wb') as dst:
+                    shutil.copyfileobj(src, dst, 1 << 20)
+            strip_unneeded(a.ndk, raw, stripped)
+            os.remove(raw)
+            so = [open(stripped, 'rb').read()]
+            os.remove(stripped)
             stubs = api21_symbols(sysroot_lib, target)
             miss = missing_imports(so[0], stubs)
-            if not miss:
+            has_hash = DT_HASH in [t for _, t, _ in elf_hash_layout(so[0])[2]]
+            if not miss and has_hash:
                 log('  %s: libflutter.so loads on API 21 as is' % art)
                 continue
             if not patch:
@@ -459,11 +631,13 @@ def build_engine(a, work, engine, version, modes):
                 fail('%s: DT_NEEDED rewrite did not take effect' % art)
             if missing_imports(patched, stubs | shim_defs):
                 fail('%s: unresolved imports remain after patching' % art)
+            patched = add_sysv_hash(patched)
             publish(a.out, art, version, jar, {lib: patched}, {'lib/%s/%s' % (abi, SHIM_NAME): sdata},
                     lambda n: False, pom,
-                    'payesh row 168: libflutter.so DT_NEEDED %s -> %s; %s provides %s (engine %s)\n'
+                    'payesh row 168: libflutter.so stripped (llvm-strip --strip-unneeded), DT_NEEDED %s -> %s, '
+                    'System V DT_HASH added (Android 5.x linker); %s provides %s (engine %s)\n'
                     % (REPLACED_NEEDED, SHIM_NAME, SHIM_NAME, ' '.join(miss), engine))
-            log('  %s%s: libflutter.so +%s for %s' % (art, SUFFIX, SHIM_NAME, ' '.join(miss)))
+            log('  %s%s: libflutter.so +%s for %s; +DT_HASH' % (art, SUFFIX, SHIM_NAME, ' '.join(miss)))
             done.append(art)
     return done
 
