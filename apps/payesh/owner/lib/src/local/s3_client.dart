@@ -546,7 +546,9 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
     final res = await req.close().timeout(_timeout);
     final addr = res.connectionInfo?.remoteAddress;
     if (addr != null && InternetAddress.tryParse(url.host) == null) {
-      _known[url.host] = addr;
+      // Row 169: rebuilt from the address so the 32-bit edition (own InternetAddress type,
+      // no connection info) compiles; natively the same IP is remembered.
+      _known[url.host] = InternetAddress(addr.address, type: addr.type);
     }
     if (maxBytes > 0) {
       final b = BytesBuilder(copy: false);

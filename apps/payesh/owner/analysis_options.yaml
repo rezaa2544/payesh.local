@@ -8,6 +8,7 @@ analyzer:
     - build/**
     - android/**
     - windows/**
+    - web/**
 linter:
   rules:
     - always_declare_return_types

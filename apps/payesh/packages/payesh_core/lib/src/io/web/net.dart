@@ -135,7 +135,18 @@ final class InternetAddress implements io.InternetAddress {
   }) async {
     final a = tryParse(host);
     if (a != null) return [a];
-    throw io.SocketException('DNS lookup is not available on web32: $host');
+    try {
+      final all = [
+        for (final ip in WebHost.instance.resolve(host)) ?tryParse(ip),
+      ].where((x) => type == io.InternetAddressType.any || x.type == type);
+      if (all.isNotEmpty) return all.toList();
+    } on HostError catch (e) {
+      throw io.SocketException(
+        'Failed host lookup: $host',
+        osError: io.OSError(e.message, e.code),
+      );
+    }
+    throw io.SocketException('Failed host lookup: $host');
   }
 
   static final InternetAddress loopbackIPv4 = InternetAddress('127.0.0.1');

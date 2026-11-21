@@ -87,6 +87,9 @@ abstract class WebHost {
   int spawn(String exe, List<String> args, {String? cwd});
   bool kill(int pid);
   void openUrl(String url);
+
+  /// DNS (getaddrinfo in the shell): the IP addresses of [host].
+  List<String> resolve(String host);
   void trustPem(String pem);
   void exit(int code);
   void log(String line);
@@ -265,6 +268,11 @@ final class _JsHost implements WebHost {
 
   @override
   void openUrl(String url) => _call<JSAny?>('openUrl', [url.toJS]);
+
+  @override
+  List<String> resolve(String host) => [
+    for (final a in jsonDecode(_s('resolve', [host.toJS])) as List) '$a',
+  ];
 
   @override
   void trustPem(String pem) => _call<JSAny?>('trustPem', [pem.toJS]);
@@ -502,6 +510,10 @@ final class MemoryHost implements WebHost {
 
   @override
   void openUrl(String url) => opened.add(url);
+
+  @override
+  List<String> resolve(String host) =>
+      throw HostError(11001, 'No such host is known: $host');
 
   @override
   void trustPem(String pem) => trusted.add(pem);
