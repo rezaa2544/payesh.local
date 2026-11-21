@@ -9,7 +9,8 @@
 // host-name validation stay as they are; Windows 10/11, Android 7.1+ and the other platforms are
 // untouched.
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:payesh_core/io.dart';
 
 import 'mozilla_roots.dart';
 

@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:payesh_core/io.dart';
+import 'package:payesh_data/sqlite.dart' show prepareWebSqlite;
 import 'package:payesh_secure/payesh_secure.dart'
     show installLegacyWindowsTrust;
 import 'package:payesh_sync/payesh_sync.dart';
@@ -17,8 +18,14 @@ import 'src/login/wiring.dart';
 import 'src/secure/local_storage.dart';
 import 'src/update/app_update.dart';
 
-void main(List<String> args) {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Row 169 (D-50): the 32-bit Windows edition (this code compiled to JavaScript inside the
+  // CEF x86 shell) gets dart:io and SQLite from the shell first. Native builds skip this.
+  if (isWeb32) {
+    await prepareWebHost();
+    await prepareWebSqlite();
+  }
   // Row 168: Windows 7/8/8.1 — Mozilla roots next to the old system root store (no-op elsewhere).
   installLegacyWindowsTrust();
   final flags = ClientFlags.fromEnvironment();

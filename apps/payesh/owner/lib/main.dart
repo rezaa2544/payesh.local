@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:payesh_core/io.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_secure/payesh_secure.dart'
     show installLegacyWindowsTrust;
@@ -13,8 +13,11 @@ import 'src/update/update_service.dart';
 
 /// پنل مالک بومی (ردیف ۱۲۶): رابط Flutter، بدون WebView و Node.js.
 /// اول ورود محلی بدون اینترنت، بعد تنظیم دیتابیس (S3 آروان)؛ سرور پلتفرم اختیاری است.
-void main(List<String> args) {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // ردیف ۱۶۹ (D-50): نسخهٔ ۳۲بیتی ویندوز (همین کد به JavaScript در پوستهٔ CEF x86) —
+  // dart:io از پوسته می‌آید. ساخت‌های بومی این را رد می‌کنند.
+  if (isWeb32) await prepareWebHost();
   // ردیف ۱۶۸: ویندوز ۷/۸/۸.۱ — ریشه‌های Mozilla کنار انبار قدیمی سیستم (جاهای دیگر بی‌اثر)
   installLegacyWindowsTrust();
   final secure = platformSecureStore();

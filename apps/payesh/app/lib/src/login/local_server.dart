@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:payesh_core/io.dart';
 
 /// Row 163 — a school server installed on THIS computer, started by the app when it is not
 /// running (nothing for the user to do or type).

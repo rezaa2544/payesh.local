@@ -5,8 +5,9 @@
 //   • بدون هیچ کار دستی: کاربر هرگز برای وصل شدن دوباره لازم نیست آدرس را عوض کند.
 
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
+
+import 'package:payesh_core/io.dart';
 
 /// فاصلهٔ تلاش‌های دوباره. `attempts` = کل تلاش‌ها روی یک آدرس (۱ = بدون تلاش دوباره).
 final class RetryPolicy {

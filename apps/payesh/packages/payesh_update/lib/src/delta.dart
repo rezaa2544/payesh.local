@@ -22,12 +22,11 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:payesh_core/io.dart';
 
 const int _maxFileBytes = 256 * 1024 * 1024;
 const int _maxFiles = 4000;

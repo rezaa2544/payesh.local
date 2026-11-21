@@ -8,6 +8,7 @@ environment:
 dependencies:
   cryptography: ^2.9.0
   ffi: ^2.1.4
+  payesh_core: any
 dev_dependencies:
   coverage: ^1.15.0
   lints: ^6.0.0

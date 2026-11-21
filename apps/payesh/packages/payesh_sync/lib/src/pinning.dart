@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:payesh_core/io.dart';
 
 /// The server's TLS public key is not one of the pinned keys (row 75). Raised before any
 /// HTTP byte (and therefore before the bearer token) is written to the connection.

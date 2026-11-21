@@ -19,7 +19,8 @@
 // overwrites a newer server version. The JS reference (tools/direct-sync.js)
 // merges auto fields; the difference is documented in docs/cloud/110.
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:payesh_core/io.dart';
 
 import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_data/payesh_data.dart';

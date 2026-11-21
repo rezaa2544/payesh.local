@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:payesh_core/io.dart';
 
 import 'lan_access.dart';
 import 'le_trust.dart';

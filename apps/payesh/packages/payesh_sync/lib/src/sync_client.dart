@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:payesh_data/payesh_data.dart';
-import 'package:sqlite3/sqlite3.dart' show Database;
+import 'package:payesh_data/sqlite.dart' show Database;
 
 import 'outbox.dart';
 import 'transport.dart';

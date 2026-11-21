@@ -3,8 +3,9 @@
 // بیش از ۶۵۵۳۵ فایل) همین‌جاست.
 
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
+
+import 'package:payesh_core/io.dart';
 
 final Uint32List _crcTable = () {
   final t = Uint32List(256);

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:payesh_core/payesh_core.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:payesh_data/sqlite.dart';
 
 /// Outbox tuning — defaults equal `DEFAULTS` in client/outbox-web.js.
 final class OutboxConfig {

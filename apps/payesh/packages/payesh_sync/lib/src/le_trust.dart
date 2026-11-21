@@ -6,7 +6,8 @@
 // chain completes through the cross-signs to ISRG Root X1/X2. No not-yet-trusted self-signed
 // root is added; nothing is switched off.
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:payesh_core/io.dart';
 
 import 'package:payesh_secure/payesh_secure.dart' show addLegacyWindowsRoots;
 

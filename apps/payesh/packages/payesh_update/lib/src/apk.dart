@@ -4,10 +4,10 @@
 // (تا جایی که اندروید اجازه دهد؛ وگرنه دکمهٔ «باز کردن» نصب‌کنندهٔ سیستم).
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
+import 'package:payesh_core/io.dart';
 
 import 'delta.dart';
 

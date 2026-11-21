@@ -18,10 +18,10 @@
 // فایل جامع روی همان مقصد پاک می‌شود.
 
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:payesh_core/io.dart';
 
 import '../local/s3_client.dart';
 import 'backup_zip.dart';

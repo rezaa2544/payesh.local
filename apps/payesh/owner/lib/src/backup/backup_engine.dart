@@ -17,9 +17,9 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:payesh_core/io.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
 import '../infra/infra_policy.dart';

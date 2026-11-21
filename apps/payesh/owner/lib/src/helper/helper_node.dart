@@ -10,8 +10,9 @@
 // فاصلهٔ چرخه‌ها هوشمند است: وقتی کار هست ۳ ثانیه، وقتی نیست ۵ ← ۱۰ ← ۲۰ ← ۳۰ ثانیه.
 
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
+
+import 'package:payesh_core/io.dart';
 
 import '../local/s3_client.dart';
 import 'helper_box.dart';

@@ -4,7 +4,8 @@
 //   • اندروید: APK کامل درون برنامه، نصب‌کنندهٔ سیستم، باز شدن دوباره پس از نصب.
 
 import 'dart:async';
-import 'dart:io';
+
+import 'package:payesh_core/io.dart';
 
 import 'apk.dart';
 import 'channel.dart';

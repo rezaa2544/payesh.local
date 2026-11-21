@@ -2,8 +2,9 @@
 // (zip of XML parts, deflate via dart:io's raw zlib) or a CSV/TSV text whose separator is
 // detected from the first line. No third-party package: the same small reader as the web.
 import 'dart:convert';
-import 'dart:io' show ZLibDecoder;
 import 'dart:typed_data';
+
+import 'package:payesh_core/io.dart' show ZLibDecoder;
 
 import 'records.dart';
 

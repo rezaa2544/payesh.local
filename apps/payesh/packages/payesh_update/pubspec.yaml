@@ -9,6 +9,7 @@ dependencies:
   flutter:
     sdk: flutter
   crypto: ^3.0.6
+  payesh_core:
   payesh_ui:
 dev_dependencies:
   flutter_test:

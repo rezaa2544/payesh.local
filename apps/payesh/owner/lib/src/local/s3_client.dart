@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:payesh_core/io.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
 import '../monitor/net_meter.dart';

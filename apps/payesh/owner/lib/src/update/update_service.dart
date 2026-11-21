@@ -2,7 +2,8 @@
 // باز شدن دوباره (ویندوز)، یا APK درون برنامه (اندروید). کنترل مشترک: payesh_update.
 
 import 'dart:async';
-import 'dart:io';
+
+import 'package:payesh_core/io.dart';
 
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_update/payesh_update.dart';

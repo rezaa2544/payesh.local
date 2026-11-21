@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:sqlite3/sqlite3.dart';
+import '../sqlite.dart';
 
 import 'engine.dart';
 import 'migrations.dart';

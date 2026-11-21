@@ -24,10 +24,10 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:payesh_core/io.dart';
 
 /// Every refusal of the updater: one stable code.
 final class UpdateError implements Exception {

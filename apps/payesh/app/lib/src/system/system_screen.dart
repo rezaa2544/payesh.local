@@ -5,10 +5,9 @@
 // Server-management actions are online by design (see payesh_sync server_admin.dart): they
 // work on the school server itself, so without the school's own server the page says so and
 // nothing is half-done. Data health runs on the device's copy and repairs are queued writes.
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:payesh_core/io.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 

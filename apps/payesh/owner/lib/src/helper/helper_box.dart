@@ -11,8 +11,9 @@
 // AAD = "<kind>/v1/<rev>"). فقط دارندهٔ کلید همان صندوقچه کاری می‌گذارد یا نتیجه می‌نویسد.
 
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
+
+import 'package:payesh_core/io.dart';
 
 import '../local/cloud_control.dart';
 

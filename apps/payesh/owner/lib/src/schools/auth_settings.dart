@@ -10,7 +10,8 @@
 // جای‌نگهدارها: {mobile} {mobile98} {code} {message} {minutes} {school}
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:payesh_core/io.dart';
 
 /// متن پیش‌فرض پیامک (همان DEFAULT_MESSAGE سرور).
 const String defaultSmsMessage =

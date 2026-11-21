@@ -10,6 +10,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  payesh_core:
   payesh_owner_api:
   payesh_secure:
   payesh_ui:

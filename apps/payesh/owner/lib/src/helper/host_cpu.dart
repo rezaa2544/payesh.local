@@ -4,46 +4,15 @@
 // درصد = ۱ − (اختلاف بیکار ÷ اختلاف کل) بین دو نمونه. نمونهٔ اول فقط نشانه می‌گذارد (null).
 // هیچ فرایندی اجرا نمی‌شود (نه PowerShell، نه wmic) ⇒ هزینهٔ هر نمونه چند میکروثانیه است.
 
-import 'dart:ffi';
-import 'dart:io';
+import 'package:payesh_core/io.dart';
 
-import 'package:ffi/ffi.dart';
+// ردیف ۱۶۹: نسخهٔ ۳۲بیتی ویندوز (وب در پوستهٔ CEF) dart:ffi ندارد ⇒ پیاده‌سازی جدا.
+import 'host_cpu_ffi.dart' if (dart.library.js_interop) 'host_cpu_web.dart';
 
 /// (بیکار، کل) بر حسب واحدهای خود سیستم‌عامل؛ null اگر خوانده نشد.
 typedef CpuTimes = ({int idle, int total});
 
 typedef CpuTimesReader = CpuTimes? Function();
-
-typedef _GetSystemTimesC = Int32 Function(
-  Pointer<Uint64>,
-  Pointer<Uint64>,
-  Pointer<Uint64>,
-);
-typedef _GetSystemTimesDart = int Function(
-  Pointer<Uint64>,
-  Pointer<Uint64>,
-  Pointer<Uint64>,
-);
-
-_GetSystemTimesDart? _gst;
-
-CpuTimes? _windowsTimes() {
-  try {
-    _gst ??= DynamicLibrary.open(
-      'kernel32.dll',
-    ).lookupFunction<_GetSystemTimesC, _GetSystemTimesDart>('GetSystemTimes');
-    final p = calloc<Uint64>(3);
-    try {
-      if (_gst!(p, p + 1, p + 2) == 0) return null;
-      // زمان «هسته» شامل زمان بیکار هم هست
-      return (idle: p[0], total: p[1] + p[2]);
-    } finally {
-      calloc.free(p);
-    }
-  } on Object {
-    return null;
-  }
-}
 
 /// سطر اول /proc/stat: `cpu user nice system idle iowait irq softirq steal …`
 CpuTimes? parseProcStat(String text) {
@@ -72,7 +41,7 @@ CpuTimes? _linuxTimes() {
 }
 
 CpuTimes? defaultCpuTimes() {
-  if (Platform.isWindows) return _windowsTimes();
+  if (Platform.isWindows) return windowsCpuTimes();
   if (Platform.isLinux || Platform.isAndroid) return _linuxTimes();
   return null;
 }

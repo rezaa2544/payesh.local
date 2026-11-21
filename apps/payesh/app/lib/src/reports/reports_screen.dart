@@ -4,10 +4,9 @@
 // (`leave-set` / `leave-delete`). Reads come from the local copy (SchoolReports); the two leave
 // writes go through the outbox first. `print` writes one self-contained HTML file on the device
 // (there is no browser window to print from any more).
-import 'dart:io' show Directory, File, Platform;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:payesh_core/io.dart' show Directory, File, Platform;
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 

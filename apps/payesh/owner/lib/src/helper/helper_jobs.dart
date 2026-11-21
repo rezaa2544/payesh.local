@@ -2,10 +2,10 @@
 // هیچ‌کدام محتوای خوانای مدرسه را باز نمی‌کند (D-21).
 
 import 'dart:async';
-import 'dart:io';
 import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
+import 'package:payesh_core/io.dart';
 
 import '../local/s3_client.dart';
 import 'helper_box.dart';

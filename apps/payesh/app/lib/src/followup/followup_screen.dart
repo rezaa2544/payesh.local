@@ -2,10 +2,9 @@
 // client/import.js, the «ورود دسته‌ای از اکسل» modal): students whose grade/branch is not
 // complete, open rows of past imports, and the four steps file → columns → check/fix → apply.
 // Every write is local-first through Followup / SchoolImport (queue first, then the local copy).
-import 'dart:io' show File, FileSystemException;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:payesh_core/io.dart' show File, FileSystemException;
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 

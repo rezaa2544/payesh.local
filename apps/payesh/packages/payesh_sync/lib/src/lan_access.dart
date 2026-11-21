@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:payesh_core/io.dart';
 
 import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_secure/payesh_secure.dart' show SecureStore;

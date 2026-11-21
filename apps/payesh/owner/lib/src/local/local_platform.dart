@@ -15,12 +15,12 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart' as hash;
 import 'package:cryptography/cryptography.dart'
     show SecretBoxAuthenticationError;
+import 'package:payesh_core/io.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 

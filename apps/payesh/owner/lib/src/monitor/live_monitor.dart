@@ -11,11 +11,10 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:payesh_core/io.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
 import '../local/local_platform.dart'

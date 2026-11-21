@@ -7,6 +7,7 @@ environment:
   sdk: ^3.13.0
 dependencies:
   sqlite3: ^3.9.1
+  payesh_core: any
 dev_dependencies:
   coverage: ^1.15.0
   lints: ^6.0.0

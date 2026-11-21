@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/services.dart';
+import 'package:payesh_core/io.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
 /// Where the app remembers the server origin and the theme choice. Never the token.

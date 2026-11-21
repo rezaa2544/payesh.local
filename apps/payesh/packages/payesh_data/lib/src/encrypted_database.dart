@@ -1,6 +1,6 @@
-import 'dart:io';
+import 'package:payesh_core/io.dart';
 
-import 'package:sqlite3/sqlite3.dart';
+import '../sqlite.dart';
 
 import 'sqlite_engine.dart';
 

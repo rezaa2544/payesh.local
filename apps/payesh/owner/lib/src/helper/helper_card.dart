@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:payesh_core/io.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../local/s3_client.dart';

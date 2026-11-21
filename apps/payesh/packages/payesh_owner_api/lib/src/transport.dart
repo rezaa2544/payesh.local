@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:payesh_core/io.dart';
 
 /// One HTTP response as the owner client needs it.
 final class OwnerHttpResponse {
