@@ -215,12 +215,16 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $log = 'web32-out\installer-web32.txt'
-          foreach ($e in @(@{a='app'; exe='payesh_app.exe'; setup='payesh-native32-setup.exe'; dir='PayeshNative32'},
-                           @{a='owner'; exe='payesh_owner.exe'; setup='payesh-owner32-setup.exe'; dir='PayeshOwner32'})) {
+          foreach ($e in @(@{a='app'; name='Payesh'; exe='payesh_app.exe'; setup='payesh-native32-setup.exe'; dir='PayeshNative32'},
+                           @{a='owner'; name='Payesh Owner Panel'; exe='payesh_owner.exe'; setup='payesh-owner32-setup.exe'; dir='PayeshOwner32'})) {
             $dir = Join-Path $env:LOCALAPPDATA "Programs\$($e.dir)"
             $p = Start-Process "web32-out\$($e.setup)" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',"/LOG=web32-out\setup-$($e.a).log" -Wait -PassThru
             if ($p.ExitCode -ne 0) { throw "setup $($e.a) exit $($p.ExitCode)" }
             if (-not (Test-Path (Join-Path $dir $e.exe))) { throw "not installed: $dir" }
+            # the 64-bit app's shortcut names ("Payesh", "Payesh Owner Panel") are never taken
+            $sm = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
+            $lnk = @(Get-ChildItem $sm -Filter '*.lnk' | Where-Object { $_.Name -like 'Payesh*' } | ForEach-Object Name)
+            if ($lnk -notcontains "$($e.name) (32-bit).lnk" -or $lnk -contains "$($e.name).lnk") { throw "shortcuts: $($lnk -join ', ')" }
             node tools/web32/web32-gate.mjs --app $e.a $dir | Tee-Object -Append -FilePath $log
             if ($LASTEXITCODE -ne 0) { throw "gate on installed $($e.a)" }
             node tools/web32/e2e.mjs --exe (Join-Path $dir $e.exe) --app $e.a --out web32-out\e2e | Tee-Object -Append -FilePath $log

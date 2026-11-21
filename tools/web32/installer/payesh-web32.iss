@@ -56,7 +56,7 @@ AppCopyright=(c) 1405 {#AppPublisher} — MIT License
 AppComments=Payesh — 32-bit Windows edition (same Flutter app, Chromium 109 host; D-50)
 SourceDir=..\..\..
 DefaultDirName={localappdata}\Programs\{#Folder}
-DefaultGroupName={#AppName}
+DefaultGroupName={#AppName} (32-bit)
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 ShowLanguageDialog=no
@@ -93,8 +93,9 @@ Source: "{#Bundle}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs cre
 Type: filesandordirs; Name: "{app}\web"
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+; own names: on a PC that also has the 64-bit app, "Payesh" / "Payesh Owner Panel" belong to it
+Name: "{autoprograms}\{#AppName} (32-bit)"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
+Name: "{autodesktop}\{#AppName} (32-bit)"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Start {#AppName}"; Flags: nowait postinstall skipifsilent
