@@ -4,6 +4,7 @@
 //   • فایل‌ها: owner-files/<sha>.gz — اول از آینهٔ صندوقچهٔ آروان (payesh/updates/owner/)؛
 //   • اندروید: owner-continuous/payesh-owner.apk (درون برنامه دانلود و نصب می‌شود).
 
+import 'package:payesh_core/io.dart' show isWeb32;
 import 'package:payesh_update/core.dart';
 
 // فقط هستهٔ Dart خالص: tool/update_e2e.dart با `dart run` (بدون Flutter) همین را وارد می‌کند.
@@ -24,13 +25,17 @@ const String ownerVersionBase = '1.1';
 const UpdateChannel ownerChannel = UpdateChannel(
   id: 'owner',
   schema: ownerUpdateSchema,
-  manifest:
-      'https://github.com/$ownerRepo/releases/download/owner-continuous/owner-update.json',
-  blobs: 'https://github.com/$ownerRepo/releases/download/owner-files/',
+  // ردیف ۱۶۹ (D-50): نسخهٔ ۳۲بیتی ویندوز کانال خودش را دارد (پوستهٔ CEF + ساخت وب).
+  manifest: isWeb32
+      ? 'https://github.com/$ownerRepo/releases/download/win32-continuous/owner32-update.json'
+      : 'https://github.com/$ownerRepo/releases/download/owner-continuous/owner-update.json',
+  blobs: isWeb32
+      ? 'https://github.com/$ownerRepo/releases/download/owner32-files/'
+      : 'https://github.com/$ownerRepo/releases/download/owner-files/',
   apk:
       'https://github.com/$ownerRepo/releases/download/owner-continuous/payesh-owner.apk',
   exeName: ownerExe,
-  stagingFolder: 'PayeshOwner',
+  stagingFolder: isWeb32 ? 'PayeshOwner32' : 'PayeshOwner',
   versionBase: ownerVersionBase,
   build: ownerBuild,
 );

@@ -117,6 +117,11 @@ HttpClient createPinnedHttpClient(
   SecurityContext? context,
 }) {
   final client = HttpClient(context: context);
+  if (isWeb32) {
+    // Row 169 (D-50): the 32-bit edition's network is Chromium's — the SPKI pin cannot be
+    // checked there, so a pinned endpoint fails closed (never an unpinned fallback).
+    return client..close(force: true);
+  }
   client.connectionFactory = (uri, proxyHost, proxyPort) async {
     if (uri.scheme != 'https') {
       throw PinningException(uri.host, 'plaintext-http-refused');

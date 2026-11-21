@@ -5,6 +5,7 @@
 //     payesh-native.apk درون برنامه دانلود و با هش بررسی می‌شود و نصب‌کنندهٔ سیستم مستقیم باز
 //     می‌شود (مثل پنل مالک)؛ پس از نصب، گیرندهٔ MY_PACKAGE_REPLACED بازش می‌کند.
 
+import 'package:payesh_core/io.dart' show isWeb32;
 import 'package:payesh_update/payesh_update.dart';
 
 const String appUpdateSchema = 'payesh-app-update/1';
@@ -19,13 +20,18 @@ const String appVersionBase = '0.2';
 const UpdateChannel appChannel = UpdateChannel(
   id: 'app',
   schema: appUpdateSchema,
-  manifest:
-      'https://github.com/$appRepo/releases/download/native-continuous/app-update.json',
-  blobs: 'https://github.com/$appRepo/releases/download/app-files/',
+  // Row 169 (D-50): the 32-bit Windows edition updates from its own channel (its files are
+  // the CEF shell + the web build), never from the 64-bit app's manifest.
+  manifest: isWeb32
+      ? 'https://github.com/$appRepo/releases/download/win32-continuous/app32-update.json'
+      : 'https://github.com/$appRepo/releases/download/native-continuous/app-update.json',
+  blobs: isWeb32
+      ? 'https://github.com/$appRepo/releases/download/app32-files/'
+      : 'https://github.com/$appRepo/releases/download/app-files/',
   apk:
       'https://github.com/$appRepo/releases/download/native-continuous/payesh-native.apk',
   exeName: 'payesh_app.exe',
-  stagingFolder: 'PayeshNative',
+  stagingFolder: isWeb32 ? 'PayeshNative32' : 'PayeshNative',
   versionBase: appVersionBase,
   build: appBuild,
 );

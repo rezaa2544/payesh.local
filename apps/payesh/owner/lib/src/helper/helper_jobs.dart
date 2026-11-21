@@ -47,6 +47,8 @@ Future<Map<String, Object?>> probeEndpoint(
   final client = HttpClient(context: ownerTrustContext())
     ..connectionTimeout = timeout
     ..findProxy = (_) => 'DIRECT';
+  // Row 169: in the 32-bit edition Chromium connects by name (no raw sockets); the
+  // public-address check above still applies.
   client.connectionFactory = (uri, _, _) async {
     final task = await Socket.startConnect(target, uri.port);
     if (uri.scheme != 'https') return task;

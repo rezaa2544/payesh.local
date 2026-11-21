@@ -49,7 +49,8 @@ Future<void> main(List<String> args) async {
     deviceId: platformDeviceId,
     openUrl: openExternalUrl,
     deviceName: 'پایش ${Platform.operatingSystem}',
-  )..start();
+  );
+  unawaited(session.start());
   final storage = openPlatformStorage();
   // Wave 2 (row 74): attendance on the device, synced through the pinned Gateway — or (row 127)
   // through the school's own LAN server with the same outbox and AutoSync.
