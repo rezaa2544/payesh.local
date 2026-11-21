@@ -139,8 +139,11 @@ const hostJs = `(() => {
   must(H.dpapi(sealed, 'payesh', false) === 'secret-key-bytes', 'dpapi unprotect');
   let wrong = false; try { H.dpapi(sealed, 'other', false); } catch (e) { wrong = true; }
   must(wrong, 'dpapi entropy enforced');
-  const r = JSON.parse(H.run('cmd.exe', JSON.stringify(['/d', '/c', 'echo', 'payesh web32']), '', 20000));
+  const r = JSON.parse(H.run('cmd.exe', JSON.stringify(['/d', '/c', 'echo', 'payesh', 'web32']), '', 20000));
   must(r.code === 0 && r.out.trim() === 'payesh web32', 'run ' + JSON.stringify(r));
+  /* an argument with a space is quoted exactly like dart:io Process.run does on Windows */
+  const q = JSON.parse(H.run('cmd.exe', JSON.stringify(['/d', '/c', 'echo', 'a b']), '', 20000));
+  must(q.code === 0 && q.out.trim() === '"a b"', 'run quoting ' + JSON.stringify(q));
   const reg = JSON.parse(H.run('reg', JSON.stringify(['query', 'HKLM\\\\SOFTWARE\\\\Microsoft\\\\Cryptography', '/v', 'MachineGuid']), '', 20000));
   must(/MachineGuid\\s+REG_SZ\\s+[0-9A-Fa-f-]{36}/.test(reg.out), 'reg MachineGuid ' + reg.out.slice(0, 200));
   const ips = JSON.parse(H.resolve('localhost'));
