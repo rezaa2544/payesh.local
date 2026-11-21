@@ -9,6 +9,8 @@ project(payesh_web32 LANGUAGES C CXX)
 if(NOT DEFINED CEF_ROOT)
   message(FATAL_ERROR "CEF_ROOT must point at the CEF 109 windows32 binary distribution")
 endif()
+# a Windows path (D:\a\_temp\…) would be re-parsed by cef_macros.cmake as escapes
+file(TO_CMAKE_PATH "${CEF_ROOT}" CEF_ROOT)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CEF_ROOT}/cmake")
 set(USE_SANDBOX OFF CACHE BOOL "The renderer does file I/O for window.payeshHost" FORCE)
 find_package(CEF REQUIRED)
