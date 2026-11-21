@@ -17,7 +17,12 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 
-const NAMES = { owner: 'payesh-owner-update/1', app: 'payesh-app-update/1' };
+// ردیف ۱۶۹ (D-50): app32/owner32 = نسخهٔ ۳۲بیتی ویندوز (پوستهٔ CEF + ساخت وب) — همان قالب، فایل‌های جدا
+// (app32-update.json + app32-files/، owner32-update.json + owner32-files/ روی win32-continuous).
+const NAMES = {
+  owner: 'payesh-owner-update/1', app: 'payesh-app-update/1',
+  owner32: 'payesh-owner-update/1', app32: 'payesh-app-update/1',
+};
 const MAX_FILES = 4000;
 const MAX_FILE = 256 * 1024 * 1024;
 /* همان قاعدهٔ owner_update.dart (_pathRe) */
