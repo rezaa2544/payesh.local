@@ -144,7 +144,7 @@ const hostJs = `(() => {
   /* an argument with a space is quoted exactly like dart:io Process.run does on Windows */
   const q = JSON.parse(H.run('cmd.exe', JSON.stringify(['/d', '/c', 'echo', 'a b']), '', 20000));
   must(q.code === 0 && q.out.trim() === '"a b"', 'run quoting ' + JSON.stringify(q));
-  const reg = JSON.parse(H.run('reg', JSON.stringify(['query', 'HKLM\\\\SOFTWARE\\\\Microsoft\\\\Cryptography', '/v', 'MachineGuid']), '', 20000));
+  const reg = JSON.parse(H.run('reg', JSON.stringify(['query', 'HKLM\\\\SOFTWARE\\\\Microsoft\\\\Cryptography', '/v', 'MachineGuid', '/reg:64']), '', 20000));
   must(/MachineGuid\\s+REG_SZ\\s+[0-9A-Fa-f-]{36}/.test(reg.out), 'reg MachineGuid ' + reg.out.slice(0, 200));
   const ips = JSON.parse(H.resolve('localhost'));
   must(ips.length > 0, 'resolve localhost');

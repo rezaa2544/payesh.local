@@ -19,14 +19,25 @@ Future<String?> platformDeviceId({
       return await channel.invokeMethod<String>('deviceId');
     }
     if (Platform.isWindows) {
-      final r = await (run ?? Process.run)('reg', [
-        'query',
-        r'HKLM\SOFTWARE\Microsoft\Cryptography',
-        '/v',
-        'MachineGuid',
-        '/reg:64',
-      ]);
-      return parseMachineGuid('${r.stdout}');
+      // /reg:64: the 32-bit edition (row 169) on 64-bit Windows would otherwise read the
+      // WOW6432Node view, which has no MachineGuid. Plain query as a fallback (32-bit Windows).
+      final exec = run ?? Process.run;
+      const key = r'HKLM\SOFTWARE\Microsoft\Cryptography';
+      for (final view in const [
+        ['/reg:64'],
+        <String>[],
+      ]) {
+        final r = await exec('reg', [
+          'query',
+          key,
+          '/v',
+          'MachineGuid',
+          ...view,
+        ]);
+        final id = parseMachineGuid('${r.stdout}');
+        if (id != null) return id;
+      }
+      return null;
     }
     if (Platform.isLinux) {
       for (final p in ['/etc/machine-id', '/var/lib/dbus/machine-id']) {
