@@ -9,7 +9,7 @@ name: downloads-page
 
 on:
   workflow_run:
-    workflows: [school-native-publish, owner-native-publish, build-and-release]
+    workflows: [school-native-publish, owner-native-publish, build-and-release, win32-publish]
     types: [completed]
   push:
     branches: [main]
@@ -76,7 +76,9 @@ jobs:
           fi
           # technical channels: explicit «do not download» titles (their publishers create them once)
           for pair in "app-files|⚙️ فنی — تکه‌های به‌روزرسانی خودکار اپ مدرسه (دستی دانلود نکنید)" \
-                      "owner-files|⚙️ فنی — تکه‌های به‌روزرسانی خودکار پنل مالک (دستی دانلود نکنید)"; do
+                      "owner-files|⚙️ فنی — تکه‌های به‌روزرسانی خودکار پنل مالک (دستی دانلود نکنید)" \
+                      "app32-files|⚙️ فنی — تکه‌های به‌روزرسانی خودکار اپ مدرسهٔ ۳۲ بیتی (دستی دانلود نکنید)" \
+                      "owner32-files|⚙️ فنی — تکه‌های به‌روزرسانی خودکار پنل مالک ۳۲ بیتی (دستی دانلود نکنید)"; do
             tag="${pair%%|*}"; title="${pair#*|}"
             if gh release view "$tag" -R "$R" >/dev/null 2>&1; then gh release edit "$tag" -R "$R" --prerelease --title "$title"; fi
           done

@@ -1,0 +1,184 @@
+name: win32-publish
+
+# ═══════════════════════════════════════════════════════════════════
+#  Row 169 · D-50 — the ONLY writer of the win32-continuous prerelease: the 32-bit Windows
+#  edition (web32) of the school app and the owner panel. The download page / README link the
+#  files here (tools/release/downloads.mjs, category «ویندوز ۳۲ بیتی»).
+#
+#  Fail-closed:
+#   · only after a SUCCESSFUL win32-edition run for a push to main (installed → e2e → uninstalled);
+#   · re-checks the install/e2e markers, the checksums and the web32 gate on the very files
+#     that are uploaded; manifest build = run number, commit = head sha;
+#   · update blobs (app32-files / owner32-files, «⚙️ فنی — … دستی دانلود نکنید») first, the
+#     manifests last; the release ends with exactly the ALLOWED set (else red);
+#   · an older run never overwrites a newer one (win32-status.json run_number);
+#   · the published files are downloaded back, checksum-verified and gated again.
+#  Not a native-only channel (D-49 stays as it is for native-continuous / owner-continuous):
+#  D-50 is the owner's limited exception for 32-bit Windows only.
+# ═══════════════════════════════════════════════════════════════════
+
+on:
+  workflow_run:
+    workflows: [win32-edition]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: win32-continuous-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish the 32-bit Windows edition to win32-continuous
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: win32-edition
+          path: in
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Re-verify the artifacts of that run (fail-closed)
+        env:
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          SRC_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          ls -la in
+          tr -d '\r' < in/installer-web32.txt > installer-web32.txt
+          grep -q '^INSTALLER-WEB32-OK app install+gate+e2e+uninstall' installer-web32.txt
+          grep -q '^INSTALLER-WEB32-OK owner install+gate+e2e+uninstall' installer-web32.txt
+          grep -q '^WEB32-E2E-OK app=app ' installer-web32.txt
+          grep -q '^WEB32-E2E-OK app=owner ' installer-web32.txt
+          (cd in && tr -d '\r' < SHA256SUMS-web32 | sha256sum -c -)
+          mkdir -p pub
+          cp in/payesh-native32-setup.exe in/payesh-native32-windows.zip in/payesh-owner32-setup.exe in/payesh-owner32-windows.zip in/app32-update.json in/owner32-update.json pub/
+          node tools/web32/web32-gate.mjs --app app pub/payesh-native32-windows.zip | tee gate-publish.txt
+          node tools/web32/web32-gate.mjs --app owner pub/payesh-owner32-windows.zip | tee -a gate-publish.txt
+          [ "$(grep -c '^WEB32-GATE-OK' gate-publish.txt)" = 2 ]
+          node tools/owner-update-manifest.mjs --name app32 --check pub/app32-update.json --blobs in/app32-files | tee -a gate-publish.txt
+          node tools/owner-update-manifest.mjs --name owner32 --check pub/owner32-update.json --blobs in/owner32-files | tee -a gate-publish.txt
+          [ "$(grep -c '^OWNER-UPDATE-MANIFEST-OK' gate-publish.txt)" = 2 ]
+          node -e '
+            const fs = require("fs");
+            for (const [f, exe] of [["pub/app32-update.json", "payesh_app.exe"], ["pub/owner32-update.json", "payesh_owner.exe"]]) {
+              const m = JSON.parse(fs.readFileSync(f, "utf8"));
+              if (m.build !== Number(process.env.RUN_NUMBER)) throw new Error(f + " build " + m.build);
+              if (m.commit !== process.env.SRC_SHA) throw new Error(f + " commit");
+              for (const p of [exe, "libcef.dll", "web/main.dart.js"]) if (!m.files.some(x => x.path === p)) throw new Error(f + " lacks " + p);
+            }
+            console.log("WEB32-MANIFESTS-OK build=" + process.env.RUN_NUMBER);' | tee -a gate-publish.txt
+          (cd pub && sha256sum * > ../SHA256SUMS && mv ../SHA256SUMS . && cat SHA256SUMS)
+      - name: Publish — exactly the 32-bit set on win32-continuous
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SRC_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          TAG=win32-continuous
+          R="$GITHUB_REPOSITORY"
+          prev=0
+          if gh release download "$TAG" -R "$R" -p win32-status.json -D prev 2>/dev/null; then
+            prev=$(node -p "Number(require('./prev/win32-status.json').run_number)||0")
+          fi
+          if [ "$prev" -ge "$RUN_NUMBER" ]; then echo "win32-edition run #$prev is already published (>= #$RUN_NUMBER) — nothing to do"; exit 0; fi
+          node -e '
+            const fs = require("fs");
+            const files = {};
+            for (const l of fs.readFileSync("pub/SHA256SUMS", "utf8").trim().split("\n")) { const [h, n] = l.split(/\s+/); files[n] = h; }
+            fs.writeFileSync("pub/win32-status.json", JSON.stringify({
+              kind: "web32-compat", policy: "D-50", row: 169,
+              what: "32-bit Windows edition: the same Flutter app compiled to JavaScript, in a 32-bit Chromium 109 (CEF) program",
+              run_number: Number(process.env.RUN_NUMBER), run_url: process.env.RUN_URL, commit: process.env.SRC_SHA,
+              gate: "WEB32-GATE-OK (tools/web32/web32-gate.mjs) on the published zips; CI: silent install → e2e on the installed programs → uninstall",
+              files
+            }, null, 2) + "\n");'
+          NOTES="فهرست دسته‌بندی‌شدهٔ همهٔ دانلودها (ویندوز ۶۴ و ۳۲ بیتی، اندروید، سرور): https://github.com/rezaa2544/payesh.local/releases/tag/downloads
+          نسخهٔ **ویندوز ۳۲ بیتی** (ویندوز ۷ SP1، ۸، ۸٫۱ و ۱۰) — همان اپ مدرسه و همان پنل مالک، با همان ظاهر و همان دیتابیس، در یک برنامهٔ ۳۲ بیتی (Chromium 109). تصمیم D-50، ردیف ۱۶۹.
+          payesh-native32-setup.exe: اپ مدرسه برای ویندوز ۳۲ بیتی. payesh-owner32-setup.exe: پنل مالک برای ویندوز ۳۲ بیتی. فایل‌های zip همان برنامه‌ها به‌صورت قابل‌حمل‌اند.
+          روی ویندوز ۶۴ بیتی نسخهٔ ۶۴ بیتی را نصب کنید. امضای کد هنوز نیست: SHA256 را با SHA256SUMS مقایسه کنید، سپس More info ← Run anyway.
+          app32-update.json و owner32-update.json برای به‌روزرسانی خودکار برنامه‌اند — دستی دانلود نکنید.
+          در CI نصب، آزموده و حذف شده است: $RUN_URL
+          commit: $SRC_SHA"
+          TITLE="ویندوز ۳۲ بیتی — محل انتشار (برای دانلود، انتشار «⬇️ دانلودها» را ببینید)"
+          if ! gh release view "$TAG" -R "$R" >/dev/null 2>&1; then
+            gh release create "$TAG" -R "$R" --prerelease --target "$SRC_SHA" --title "$TITLE" --notes "$NOTES"
+          else
+            gh release edit "$TAG" -R "$R" --prerelease --title "$TITLE" --notes "$NOTES"
+          fi
+          # ── update blobs first (each hash once), then the manifests ──
+          for FT in app32-files owner32-files; do
+            M=pub/${FT%-files}-update.json
+            if ! gh release view "$FT" -R "$R" >/dev/null 2>&1; then
+              gh release create "$FT" -R "$R" --prerelease --target "$SRC_SHA" --title "⚙️ فنی — تکه‌های به‌روزرسانی خودکار نسخهٔ ۳۲ بیتی ($FT) — دستی دانلود نکنید" \
+                --notes "هر فایل نسخهٔ ۳۲ بیتی ویندوز یک بار و فشرده (gzip) با نام هش SHA-256. برنامه فقط فایل‌های تغییرکرده را می‌گیرد. دستی دانلود نکنید."
+            fi
+            FID=$(gh api "repos/$R/releases/tags/$FT" --jq .id)
+            gh api --paginate "repos/$R/releases/$FID/assets?per_page=100" --jq '.[] | [.name, .created_at, (.id|tostring)] | @tsv' > have.tsv
+            need=()
+            for f in in/$FT/*.gz; do n=$(basename "$f"); cut -f1 have.tsv | grep -qx "$n" || need+=("$f"); done
+            echo "$FT: ${#need[@]} new of $(ls in/$FT | wc -l)"
+            if [ ${#need[@]} -gt 0 ]; then gh release upload "$FT" -R "$R" "${need[@]}"; fi
+            gh api --paginate "repos/$R/releases/$FID/assets?per_page=100" --jq '.[] | [.name, .created_at, (.id|tostring)] | @tsv' > have.tsv
+            M="$M" node -e '
+              const fs = require("fs");
+              const rows = fs.readFileSync("have.tsv", "utf8").trim().split("\n").filter(Boolean).map(l => l.split("\t"));
+              const have = new Set(rows.map(r => r[0]));
+              const m = JSON.parse(fs.readFileSync(process.env.M, "utf8"));
+              const miss = m.files.filter(f => !have.has(f.sha256 + ".gz"));
+              if (miss.length) throw new Error("blobs missing: " + miss.map(f => f.path).join(", "));
+              const ref = new Set(m.files.map(f => f.sha256 + ".gz"));
+              const cutoff = Date.now() - 14 * 24 * 3600 * 1000;
+              fs.writeFileSync("prune.txt", rows.filter(([n, at]) => !ref.has(n) && Date.parse(at) < cutoff).map(r => r[2]).join("\n"));
+              console.log(process.env.M + ": all " + m.files.length + " blobs present");'
+            while read -r id; do [ -n "$id" ] && gh api -X DELETE "repos/$R/releases/assets/$id" >/dev/null; done < prune.txt
+          done
+          ALLOWED="SHA256SUMS app32-update.json owner32-update.json payesh-native32-setup.exe payesh-native32-windows.zip payesh-owner32-setup.exe payesh-owner32-windows.zip win32-status.json"
+          for a in $(gh release view "$TAG" -R "$R" --json assets --jq '.assets[].name'); do
+            case " $ALLOWED " in *" $a "*) ;; *) echo "removing $a"; gh release delete-asset "$TAG" "$a" -R "$R" -y ;; esac
+          done
+          gh release upload "$TAG" -R "$R" $(ls pub/* | grep -v -- '-update.json$') --clobber
+          gh release upload "$TAG" -R "$R" pub/app32-update.json pub/owner32-update.json --clobber
+          got=$(gh release view "$TAG" -R "$R" --json assets --jq '[.assets[].name] | sort | join(" ")')
+          if [ "$got" != "$ALLOWED" ]; then echo "::error::$TAG assets [$got] != [$ALLOWED]"; exit 1; fi
+      - name: Download back → checksums + gate on the PUBLISHED files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p back
+          gh release download win32-continuous -R "$GITHUB_REPOSITORY" -D back
+          (cd back && sha256sum -c SHA256SUMS)
+          node tools/web32/web32-gate.mjs --app app back/payesh-native32-windows.zip | tee -a gate-publish.txt
+          node tools/web32/web32-gate.mjs --app owner back/payesh-owner32-windows.zip | tee -a gate-publish.txt
+          for n in app32 owner32; do
+            mkdir -p "back-$n"
+            node -p "require('./back/$n-update.json').files.map(f => f.sha256 + '.gz').join('\n')" | sort -u > need.txt
+            args=(); while read -r x; do args+=(-p "$x"); done < need.txt
+            gh release download "$n-files" -R "$GITHUB_REPOSITORY" -D "back-$n" "${args[@]}"
+            node tools/owner-update-manifest.mjs --name "$n" --check "back/$n-update.json" --blobs "back-$n" | tee -a gate-publish.txt
+          done
+          echo "WIN32-PUBLISH-OK $(node -p "require('./back/win32-status.json').run_number")" | tee -a gate-publish.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: win32-publish
+          path: gate-publish.txt
+          if-no-files-found: ignore

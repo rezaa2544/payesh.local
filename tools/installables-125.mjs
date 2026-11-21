@@ -116,7 +116,10 @@ export function nativeViolations(files, read, entry) {
 }
 
 // ---------- the check ----------
-const DECLARED = new Set(['native', 'webview', 'server']);
+// row 169 (D-50): 'web32-compat' = the 32-bit Windows edition — the SAME Flutter app compiled to JS in a
+// 32-bit Chromium 109 (CEF) program; the owner's limited exception for 32-bit Windows only.
+const DECLARED = new Set(['native', 'webview', 'server', 'web32-compat']);
+export const WEB32 = { policy: 'D-50', tag: 'win32-continuous', workflow: '.github/workflows/win32-publish.yml', gate: 'tools/web32/web32-gate.mjs' };
 const REQUIRED = ['id', 'title_fa', 'platform', 'audience', 'declared', 'status', 'sources', 'entrypoints', 'ui', 'html_css_js_ui', 'browser_engine_at_runtime', 'node_for_ui', 'runs_without_browser', 'capabilities', 'artifacts', 'published', 'row'];
 
 // exact path only (a version number in a file name is normalised to <ver>)
@@ -133,7 +136,24 @@ export function check(files, read, registry, criterion) {
   for (const e of entries) {
     for (const k of REQUIRED) if (!(k in e)) fail('I-01', `${e.id || '?'}: missing field ${k}`);
     if (ids.has(e.id)) fail('I-01', `duplicate id ${e.id}`); ids.add(e.id);
-    if (!DECLARED.has(e.declared)) fail('I-01', `${e.id}: declared must be native|webview|server`);
+    if (!DECLARED.has(e.declared)) fail('I-01', `${e.id}: declared must be native|webview|server|web32-compat`);
+    if (e.declared === 'web32-compat') {
+      // I-12 (row 169): only under D-50, honest flags, only on win32-continuous via win32-publish.yml, the
+      // same Flutter sources as its native twin, and the web32 gate on the published files.
+      if (e.policy !== WEB32.policy) fail('I-12', `${e.id}: web32-compat needs policy ${WEB32.policy}`);
+      if (!e.html_css_js_ui || !e.browser_engine_at_runtime || e.node_for_ui) fail('I-12', `${e.id}: web32-compat flags must say compiled JS UI in a browser engine, no Node`);
+      if (e.platform !== 'windows-x86') fail('I-12', `${e.id}: web32-compat is only for platform windows-x86`);
+      const twin = entries.find((x) => x.id === e.same_code_as);
+      if (!twin || twin.declared !== 'native') fail('I-12', `${e.id}: same_code_as must name a native entry`);
+      else for (const src of twin.sources.filter((x) => /\/lib\/$/.test(x))) if (!(e.sources || []).includes(src)) fail('I-12', `${e.id}: not built from ${src} (same code as ${twin.id})`);
+      if (!(e.published || []).length) fail('I-12', `${e.id}: web32-compat entry is not published`);
+      for (const p of e.published || []) {
+        if (p.tag !== WEB32.tag || p.workflow !== WEB32.workflow) fail('I-12', `${e.id}: published outside ${WEB32.tag} / ${WEB32.workflow} (${p.tag})`);
+        const t = files.includes(p.workflow) ? stripComments(read(p.workflow)) : '';
+        if (!t.split('\n').some((l) => l.includes('web32-gate.mjs') && l.includes(p.asset.endsWith('.zip') ? p.asset : 'web32-gate.mjs'))) fail('I-12', `${e.id}: ${p.workflow} does not gate ${p.asset} with ${WEB32.gate}`);
+        if (!t.includes(p.asset)) fail('I-12', `${e.id}: ${p.workflow} never mentions ${p.asset}`);
+      }
+    }
     if (e.declared === 'native') {
       if (e.html_css_js_ui || e.browser_engine_at_runtime || e.node_for_ui || !e.runs_without_browser)
         fail('I-01', `${e.id}: declared native but html/browser/node flags say WebView`);

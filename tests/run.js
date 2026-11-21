@@ -5439,12 +5439,10 @@ async function waitFor(fn, ms = 15000) {
     });
 
   /* ── ردیف ۱۶۹: همهٔ دانلودها دسته‌بندی‌شده از یک منبع (README + انتشار «دانلودها») ── */
-  await test('ردیف ۱۶۹: بلوک دانلود README = tools/release/downloads.mjs؛ دسته‌های ویندوز ۶۴/۳۲ بیتی، اندروید؛ هر پیوند فایل منتشرشده؛ انتشار «دانلودها» Latest و بالای همه (۹ جهش قرمز)',
+  await test('ردیف ۱۶۹: بلوک دانلود README = tools/release/downloads.mjs؛ دسته‌های ویندوز ۶۴/۳۲ بیتی، اندروید؛ هر پیوند فایل منتشرشده؛ انتشار «دانلودها» Latest و بالای همه (۱۱ جهش قرمز)',
     async () => {
       const { spawnSync } = require('child_process');
-      // PAYESH_WIN32_REQUIRED=0 until the 32-bit school app / owner panel are published (row 169, phase C)
-      const env = Object.assign({}, process.env, { PAYESH_WIN32_REQUIRED: '0' });
-      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/downloads-169.js')], { encoding: 'utf8', cwd: ROOT, env });
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/downloads-169.js')], { encoding: 'utf8', cwd: ROOT });
       assert.strictEqual(r.status, 0, 'downloads-169: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|DOWNLOADS-169/.test(l)).join('\n') + (r.stderr || ''));
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });

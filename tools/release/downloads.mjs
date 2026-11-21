@@ -32,6 +32,7 @@ const SCHOOL = 'native-continuous';
 const OWNER = 'owner-continuous';
 const SERVER = 'school-server-continuous';
 const CLOUD = 'continuous';
+const WIN32 = 'win32-continuous';
 
 // The programs. `arch` lists the Windows architectures one installer covers.
 export const APPS = {
@@ -57,6 +58,8 @@ export const CATEGORIES = [
     title: '🖥️ ویندوز ۳۲ بیتی',
     sub: 'ویندوز ۷ (SP1)، ۸، ۸٫۱ و ۱۰',
     rows: [
+      { app: 'school', file: [WIN32, 'payesh-native32-setup.exe'], portable: [WIN32, 'payesh-native32-windows.zip'], note: 'همان اپ و همان ظاهر و دیتابیس؛ برنامهٔ ۳۲ بیتی (D-50)' },
+      { app: 'owner', file: [WIN32, 'payesh-owner32-setup.exe'], portable: [WIN32, 'payesh-owner32-windows.zip'], note: 'همان پنل مالک؛ برنامهٔ ۳۲ بیتی (D-50)' },
       { app: 'server', file: [SERVER, 'payesh-data-service-setup.exe'], note: 'همان فایل ۶۴ بیتی؛ خودش نسخهٔ ۳۲ بیتی را نصب می‌کند' },
     ],
   },
@@ -81,6 +84,7 @@ export const SUMS = [
   { label: 'اپ مدرسه (ویندوز و اندروید)', file: [SCHOOL, 'SHA256SUMS'] },
   { label: 'پنل مالک (ویندوز و اندروید)', file: [OWNER, 'SHA256SUMS'] },
   { label: 'سرور دیتابیس مدرسه', file: [SERVER, 'SHA256SUMS'] },
+  { label: 'ویندوز ۳۲ بیتی (اپ مدرسه و پنل مالک)', file: [WIN32, 'SHA256SUMS'] },
 ];
 
 // Technical channels: files for the in-app updater / machines, never for a person.
@@ -91,6 +95,9 @@ export const TECHNICAL = [
   { tag: SCHOOL, what: 'محل انتشار اپ مدرسه + مانیفست به‌روزرسانی (app-update.json)' },
   { tag: OWNER, what: 'محل انتشار پنل مالک + مانیفست به‌روزرسانی (owner-update.json)' },
   { tag: SERVER, what: 'محل انتشار سرور دیتابیس مدرسه' },
+  { tag: 'app32-files', what: 'تکه‌های به‌روزرسانی خودکار اپ مدرسهٔ ویندوز ۳۲ بیتی (فقط تغییرات)' },
+  { tag: 'owner32-files', what: 'تکه‌های به‌روزرسانی خودکار پنل مالک ویندوز ۳۲ بیتی (فقط تغییرات)' },
+  { tag: WIN32, what: 'محل انتشار نسخهٔ ویندوز ۳۲ بیتی + مانیفست‌های به‌روزرسانی (app32-update.json، owner32-update.json)' },
 ];
 
 /** Every [tag, file] a person can click in the generated surfaces. */

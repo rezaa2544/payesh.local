@@ -99,9 +99,11 @@
 | [`apps/payesh/app/`](../apps/payesh/app/) | اپ Flutter (runner اندروید و ویندوز)، `lib/src/app.dart`، آزمون ویجت و SecureStore | ۶۹، ۷۲ |
 | [`apps/payesh/app/android/`](../apps/payesh/app/android/) | runner اندروید: `ir.payesh.school.payesh_app`، targetSdk 36، امضای انتشار فقط از env/Secrets | ۷۲، ۷۶ |
 | [`apps/payesh/app/windows/`](../apps/payesh/app/windows/) | runner ویندوز + `installer/payesh-native.iss` (نصب per-user، AppId جدا) | ۷۲، ۷۷ |
+| [`apps/payesh/app/web/`](../apps/payesh/app/web/) | ورودی وب همان اپ برای نسخهٔ ویندوز ۳۲ بیتی (D‑50، `flutter build web` ← برنامهٔ CEF ۳۲ بیتی `tools/web32/`) | ۱۶۹ |
 | [`apps/payesh/owner/`](../apps/payesh/owner/) | پنل مالک بومی Flutter (جایگزین پنل WebView `apps/owner-panel/`): ۹ صفحه، نقش‌ها و CAPS، ورود + TOTP، بدون WebView/HTML | ۱۲۶ |
 | [`apps/payesh/owner/android/`](../apps/payesh/owner/android/) | runner اندروید `ir.payesh.owner` (ارتقای درجا روی APK قدیمی WebView، versionCode=100000+run)، فقط HTTPS | ۱۲۶ |
 | [`apps/payesh/owner/windows/`](../apps/payesh/owner/windows/) | runner ویندوز `payesh_owner.exe` + `installer/payesh-owner-native.iss` (همان AppId پنل قدیمی؛ فایل‌های WebView2 را حذف می‌کند) | ۱۲۶ |
+| [`apps/payesh/owner/web/`](../apps/payesh/owner/web/) | ورودی وب پنل مالک برای نسخهٔ ویندوز ۳۲ بیتی (D‑50) | ۱۶۹ |
 | [`apps/payesh/packages/payesh_core/`](../apps/payesh/packages/payesh_core/) | Dart خالص: شناسه‌ها، ساعت، ثابت‌های API، کدهای خطا | ۶۹ |
 | [`apps/payesh/packages/payesh_data/`](../apps/payesh/packages/payesh_data/) | موتور دادهٔ محلی SQLite (رمزنگاری‌شده) با همان قرارداد `client/engine-web.js` | ۷۰، ۷۲ |
 | [`apps/payesh/packages/payesh_sync/`](../apps/payesh/packages/payesh_sync/) | صندوق خروجی آفلاین + کلاینت Sync v1؛ ترابری HTTP/Gateway/مستقیم و پین گواهی (کلاینت Gateway ردیف ۷۵ هم همین‌جاست — بستهٔ جداگانهٔ `payesh_net` ساخته نشد) | ۷۱، ۷۵، ۱۱۰ |
@@ -110,6 +112,7 @@
 | [`apps/payesh/packages/payesh_owner_api/`](../apps/payesh/packages/payesh_owner_api/) | Dart خالص: قرارداد `/api/platform/v1` پنل مالک، CAPS نقش‌ها، جدول خطاها و قواعد (هم‌ارز `web/app.js`) + IT روی سرور واقعی مالک | ۱۲۶ |
 | [`apps/payesh/packages/payesh_update/`](../apps/payesh/packages/payesh_update/) | به‌روزرسانی مشترک همهٔ برنامه‌های نصبی: دریافت تفاضلی با تلاش دوباره و ادامه، اسکریپت اعمال با بازگشت و باز شدن خودکار، APK اندروید، چراغ زنده | ۱۴۸ |
 | [`apps/payesh/tool/`](../apps/payesh/tool/) | `coverage_check.dart` (دروازهٔ پوشش در CI) | ۶۹ |
+| [`tools/web32/`](../tools/web32/) | نسخهٔ ویندوز ۳۲ بیتی (D‑50 / [ADR‑169](cloud/169-adr-web32-compat.md)): `shell/` برنامهٔ ۳۲ بیتی CEF 109 با `window.payeshHost`، `installer/payesh-web32.iss`، `web32-gate.mjs` (دروازه روی خروجی واقعی)، `e2e.mjs` (آزمون روی برنامهٔ نصب‌شده)؛ CI `win32-edition.yml` ← `win32-publish.yml` (`win32-continuous`) | ۱۶۹ |
 | [`apps/payesh/third_party/`](../apps/payesh/third_party/) | منبع SQLite3 Multiple Ciphers (amalgamation، sha256 در `SHA256SUMS`) — برای اندروید ۵٫۰+ از منبع و با minSdk 21 ساخته می‌شود؛ [`android21.gradle`](../apps/payesh/android21.gradle) و `tools/android21/` (موتور/embedding سازگار با API 21، دروازهٔ `check-so-api.py`) | ۱۶۸ |
 
 ## ۷. نقشهٔ راه کلاینت بومی و ابر (هم‌تراز با صف Notion)

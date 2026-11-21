@@ -2,7 +2,7 @@
 // مانیفست به‌روزرسانی پنل مالک (ADR 126 §۱۲) — فقط فایل‌های تغییرکرده دانلود می‌شوند.
 //
 //   node tools/owner-update-manifest.mjs --dir <Release> --out <owner-out> --build <run_number> --commit <sha>
-//        [--android <payesh-owner.apk>] [--check <owner-update.json> --blobs <dir>] [--name owner|app]
+//        [--android <payesh-owner.apk>] [--check <owner-update.json> --blobs <dir>] [--name owner|app|owner32|app32]
 //
 // ردیف ۱۴۸: --name app ⇒ همان قالب برای برنامهٔ مدرسه: schema 'payesh-app-update/1'،
 // <out>/app-update.json و <out>/app-files/ (پیش‌فرض owner — رفتار قبلی بدون تغییر).

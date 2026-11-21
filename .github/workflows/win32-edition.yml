@@ -1,0 +1,266 @@
+name: win32-edition
+
+# ═══════════════════════════════════════════════════════════════════
+#  Row 169 · D-50 — the 32-bit Windows edition (web32) of the school app and the owner panel.
+#  Owner order (1405/08/26): «همه فایل های نصبی ویندوز باید ورژن 32 بیتی رو هم داشته باشن».
+#  Flutter has no 32-bit Windows engine, so the edition is the SAME Flutter code (same look,
+#  same database format, same server protocol) compiled with `flutter build web` and shown by
+#  a 32-bit Chromium 109 (CEF — the last Chromium for Windows 7) program: tools/web32/shell.
+#  That program gives the app what dart:io gives the 64-bit build (window.payeshHost: files,
+#  DPAPI, processes, DNS) — apps/payesh/packages/payesh_core/lib/src/io/web/host.dart.
+#
+#  Fail-closed:
+#   · web: the dart:io + SQLite3MC conformance checks (incl. a database written by NATIVE
+#     SQLite3MC opening in the wasm build) before anything is built;
+#   · windows: the shell is built from source (CEF sha1-pinned), the assembled folders pass
+#     tools/web32/web32-gate.mjs (32-bit PE, complete runtime, the web32 Flutter build, no
+#     node.exe/WebView2), the installers install silently, tools/web32/e2e.mjs runs on the
+#     INSTALLED programs (host contract, CORS, Flutter UI, encrypted DB, exit), then uninstall.
+#   · publishing is win32-publish.yml (after a successful push run on main), never here.
+# ═══════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main, 'arena/**', 'hermes/**']
+    paths:
+      - 'apps/payesh/**'
+      - 'tools/web32/**'
+      - 'tools/owner-update-manifest.mjs'
+      - 'tools/native-independence-gate.mjs'
+      - '.github/workflows/win32-edition.yml'
+  pull_request:
+    paths:
+      - 'apps/payesh/**'
+      - 'tools/web32/**'
+      - '.github/workflows/win32-edition.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: win32-edition-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.9'
+  FLUTTER_LINUX_SHA256: '25ed8c3c29d51a7353f2a944310b478af8214920639524b19c50a19e6c044c5a'
+  FLUTTER_SUPPRESS_ANALYTICS: 'true'
+  # sqlite3.dart 3.9.1 release asset (SQLite3 Multiple Ciphers, ChaCha20) — same cipher as native
+  SQLITE3MC_URL: 'https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-3.9.1/sqlite3mc.wasm'
+  SQLITE3MC_SHA256: '408a1d9bf8071bfb6e91aba005e6c8e2072c240784e1d199bbd7eb441dd5ea94'
+  # CEF 109.1.18 (Chromium 109.0.5414.120) windows32 minimal — the last Chromium for Windows 7
+  CEF_NAME: 'cef_binary_109.1.18+gf1c41e4+chromium-109.0.5414.120_windows32_minimal'
+  CEF_SHA1: '57fbd7b4506b4f9f784f35460a010a2e787ef7bc'
+  SERVERS_URL: 'https://s3.ir-central1.arvanstorage.ir/payesh-madrese/payesh/pub/school-servers.json'
+
+jobs:
+  web:
+    name: Flutter web build of the school app + owner panel (web32) + conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Flutter ${{ env.FLUTTER_VERSION }} (pinned, sha256-verified)
+        run: |
+          set -euo pipefail
+          F="flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$F" "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/$F"
+          echo "${FLUTTER_LINUX_SHA256}  $RUNNER_TEMP/$F" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/$F" -C "$RUNNER_TEMP"
+          git config --global --add safe.directory "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: pub get (lockfile enforced)
+        working-directory: apps/payesh
+        run: flutter pub get --enforce-lockfile
+      - name: sqlite3mc.wasm (pinned sha256)
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/sqlite3mc.wasm" "$SQLITE3MC_URL"
+          echo "${SQLITE3MC_SHA256}  $RUNNER_TEMP/sqlite3mc.wasm" | sha256sum -c -
+      - name: web32 conformance — dart:io surface + encrypted SQLite (wasm) incl. a NATIVE-written DB
+        run: |
+          set -euo pipefail
+          (cd apps/payesh/packages/payesh_core && dart compile js -O1 -o "$RUNNER_TEMP/io.js" tool/web32_io_check.dart && node tool/web32_io_check.mjs "$RUNNER_TEMP/io.js") | tee web32-conformance.txt
+          cd apps/payesh/packages/payesh_data
+          dart run tool/make_web32_fixture.dart > "$RUNNER_TEMP/fx.b64"
+          dart compile js -O1 -o "$RUNNER_TEMP/sq.js" tool/web32_sqlite_check.dart
+          node tool/web32_sqlite_check.mjs "$RUNNER_TEMP/sq.js" "$RUNNER_TEMP/sqlite3mc.wasm" "$RUNNER_TEMP/fx.b64" | tee -a "$GITHUB_WORKSPACE/web32-conformance.txt"
+          grep -q '^WEB32-IO-OK' "$GITHUB_WORKSPACE/web32-conformance.txt"
+          grep -q '^WEB32-SQLITE-OK 6' "$GITHUB_WORKSPACE/web32-conformance.txt"
+      - name: flutter build web — school app (0.2.${{ github.run_number }}) + owner panel (1.1.${{ github.run_number }})
+        run: |
+          set -euo pipefail
+          FLAGS="--release --no-web-resources-cdn --no-wasm-dry-run --no-source-maps -O2"
+          (cd apps/payesh/app && flutter build web $FLAGS --build-name=0.2.${{ github.run_number }} \
+            --dart-define=PAYESH_APP_BUILD=${{ github.run_number }} --dart-define=PAYESH_SERVERS_URL=$SERVERS_URL)
+          (cd apps/payesh/owner && flutter build web $FLAGS --build-name=1.1.${{ github.run_number }} \
+            --dart-define=PAYESH_OWNER_BUILD=${{ github.run_number }})
+          cp "$RUNNER_TEMP/sqlite3mc.wasm" apps/payesh/app/build/web/
+          for d in apps/payesh/app/build/web apps/payesh/owner/build/web; do
+            # only the dart2js + CanvasKit renderer is used (Chromium 109): drop the other renderers
+            rm -rf "$d"/canvaskit/skwasm* "$d"/canvaskit/wimp* "$d"/canvaskit/webparagraph "$d/.last_build_id"
+            find "$d" -name '*.symbols' -delete
+            grep -q '"useLocalCanvasKit":true' "$d/flutter_bootstrap.js"
+            grep -q payeshHost "$d/main.dart.js"
+            du -sh "$d"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web32-web
+          path: |
+            apps/payesh/app/build/web
+            apps/payesh/owner/build/web
+            web32-conformance.txt
+          if-no-files-found: error
+
+  windows:
+    name: 32-bit shell (CEF 109) → assemble → gate → installers → install → e2e → uninstall
+    needs: web
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      RUN: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: web32-web
+          path: web32-in
+      - name: CEF cache
+        id: cefcache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/cef.tar.bz2
+          key: cef-${{ env.CEF_SHA1 }}
+      - name: CEF 109 windows32 (sha1-pinned) → extract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $t = Join-Path $env:RUNNER_TEMP 'cef.tar.bz2'
+          if (-not (Test-Path $t)) {
+            $u = 'https://cef-builds.spotifycdn.com/' + [uri]::EscapeDataString("$env:CEF_NAME.tar.bz2")
+            Invoke-WebRequest -Uri $u -OutFile $t
+          }
+          $h = (Get-FileHash $t -Algorithm SHA1).Hash.ToLower()
+          if ($h -ne $env:CEF_SHA1) { throw "CEF sha1 mismatch: $h" }
+          tar -xjf $t -C $env:RUNNER_TEMP
+          if ($LASTEXITCODE -ne 0) { throw 'CEF extract failed' }
+          Add-Content $env:GITHUB_ENV "CEF_ROOT=$(Join-Path $env:RUNNER_TEMP $env:CEF_NAME)"
+      - name: Build payesh_app.exe + payesh_owner.exe (x86, /MT, sandbox off)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake -S tools/web32/shell -B build32 -A Win32 "-DCEF_ROOT=$env:CEF_ROOT"
+          if ($LASTEXITCODE -ne 0) { throw 'cmake configure failed' }
+          cmake --build build32 --config Release --parallel
+          if ($LASTEXITCODE -ne 0) { throw 'shell build failed' }
+          Get-ChildItem build32\Release\*.exe | Format-Table Name, Length
+      - name: Assemble web32-out\app and web32-out\owner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($a in 'app','owner') {
+            $d = "web32-out\$a"
+            New-Item -ItemType Directory -Force "$d\locales" | Out-Null
+            Copy-Item "build32\Release\payesh_$a.exe" $d
+            Get-ChildItem "$env:CEF_ROOT\Release" -File | Where-Object { $_.Extension -in '.dll','.bin','.json' } | Copy-Item -Destination $d
+            Get-ChildItem "$env:CEF_ROOT\Resources" -File | Copy-Item -Destination $d
+            Copy-Item "$env:CEF_ROOT\Resources\locales\fa.pak","$env:CEF_ROOT\Resources\locales\en-US.pak" "$d\locales"
+            Copy-Item -Recurse "web32-in\apps\payesh\$a\build\web" "$d\web"
+            "{0}: {1:N1} MB" -f $a, ((Get-ChildItem $d -Recurse -File | Measure-Object Length -Sum).Sum/1MB)
+          }
+      - name: web32 gate on the assembled folders
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/web32/web32-gate.mjs --app app web32-out/app --version 0.2.$RUN | tee web32-out/gate.txt
+          node tools/web32/web32-gate.mjs --app owner web32-out/owner --version 1.1.$RUN | tee -a web32-out/gate.txt
+          [ "$(grep -c '^WEB32-GATE-OK' web32-out/gate.txt)" = 2 ]
+      - name: Delta-update manifests (app32-update.json, owner32-update.json) + portable zips
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($a in 'app','owner') {
+            node tools/owner-update-manifest.mjs --name "${a}32" --dir "web32-out\$a" --out web32-out --build $env:RUN --commit $env:GITHUB_SHA | Tee-Object -FilePath "web32-out\$a-manifest.txt"
+            if (-not (Select-String -Quiet '^OWNER-UPDATE-MANIFEST-OK' "web32-out\$a-manifest.txt")) { throw "manifest $a" }
+          }
+          # 7z (forward-slash entry names, like native-client.yml) — Compress-Archive is not used
+          Push-Location web32-out\app;   7z a -tzip -r ..\payesh-native32-windows.zip . | Out-Null; $c1 = $LASTEXITCODE; Pop-Location
+          Push-Location web32-out\owner; 7z a -tzip -r ..\payesh-owner32-windows.zip . | Out-Null; $c2 = $LASTEXITCODE; Pop-Location
+          if ($c1 -ne 0 -or $c2 -ne 0) { throw '7z' }
+          node tools/web32/web32-gate.mjs --app app web32-out\payesh-native32-windows.zip | Tee-Object -Append -FilePath web32-out\gate.txt
+          node tools/web32/web32-gate.mjs --app owner web32-out\payesh-owner32-windows.zip | Tee-Object -Append -FilePath web32-out\gate.txt
+          if ((Select-String '^WEB32-GATE-OK' web32-out\gate.txt).Count -ne 4) { throw 'zip gate' }
+      - name: Installers (Inno Setup, 32-bit, per-user)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          if (-not $iscc) { choco install innosetup --no-progress -y | Out-Null; $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse | Select-Object -First 1).FullName }
+          "ISCC: $iscc"
+          & $iscc /DEdition=app "/DAppVersion=0.2.$env:RUN" /DBundle=web32-out\app tools\web32\installer\payesh-web32.iss | Out-File web32-out\iscc-app.log
+          if ($LASTEXITCODE -ne 0) { Get-Content web32-out\iscc-app.log -Tail 20; throw 'ISCC app' }
+          & $iscc /DEdition=owner "/DAppVersion=1.1.$env:RUN" /DBundle=web32-out\owner tools\web32\installer\payesh-web32.iss | Out-File web32-out\iscc-owner.log
+          if ($LASTEXITCODE -ne 0) { Get-Content web32-out\iscc-owner.log -Tail 20; throw 'ISCC owner' }
+          Get-ChildItem web32-out\*-setup.exe | Format-Table Name, Length
+      - name: Silent install → e2e on the INSTALLED programs → silent uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = 'web32-out\installer-web32.txt'
+          foreach ($e in @(@{a='app'; exe='payesh_app.exe'; setup='payesh-native32-setup.exe'; dir='PayeshNative32'},
+                           @{a='owner'; exe='payesh_owner.exe'; setup='payesh-owner32-setup.exe'; dir='PayeshOwner32'})) {
+            $dir = Join-Path $env:LOCALAPPDATA "Programs\$($e.dir)"
+            $p = Start-Process "web32-out\$($e.setup)" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',"/LOG=web32-out\setup-$($e.a).log" -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "setup $($e.a) exit $($p.ExitCode)" }
+            if (-not (Test-Path (Join-Path $dir $e.exe))) { throw "not installed: $dir" }
+            node tools/web32/web32-gate.mjs --app $e.a $dir | Tee-Object -Append -FilePath $log
+            if ($LASTEXITCODE -ne 0) { throw "gate on installed $($e.a)" }
+            node tools/web32/e2e.mjs --exe (Join-Path $dir $e.exe) --app $e.a --out web32-out\e2e | Tee-Object -Append -FilePath $log
+            if ($LASTEXITCODE -ne 0) { throw "e2e $($e.a)" }
+            Start-Sleep -Seconds 3
+            $un = Get-ChildItem $dir -Filter 'unins*.exe' | Select-Object -First 1
+            $p = Start-Process $un.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+            Start-Sleep -Seconds 3
+            if (Test-Path (Join-Path $dir $e.exe)) { throw "uninstall left $($e.exe)" }
+            "INSTALLER-WEB32-OK $($e.a) install+gate+e2e+uninstall" | Tee-Object -Append -FilePath $log
+          }
+      - name: Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd web32-out
+          sha256sum payesh-native32-setup.exe payesh-native32-windows.zip payesh-owner32-setup.exe payesh-owner32-windows.zip app32-update.json owner32-update.json > SHA256SUMS-web32
+          cat SHA256SUMS-web32
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: win32-edition-evidence
+          path: |
+            web32-out/*.txt
+            web32-out/*.log
+            web32-out/e2e
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win32-edition
+          path: |
+            web32-out/payesh-native32-setup.exe
+            web32-out/payesh-native32-windows.zip
+            web32-out/payesh-owner32-setup.exe
+            web32-out/payesh-owner32-windows.zip
+            web32-out/app32-update.json
+            web32-out/owner32-update.json
+            web32-out/app32-files
+            web32-out/owner32-files
+            web32-out/SHA256SUMS-web32
+            web32-out/installer-web32.txt
+            web32-out/gate.txt
+          if-no-files-found: error

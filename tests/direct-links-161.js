@@ -71,10 +71,12 @@ function publishers(over = {}) {
     'school-server-continuous': serverAllowedSet(over.school || read('.github/workflows/school-native-publish.yml')),
     'owner-continuous': allowedSet(over.owner || read('.github/workflows/owner-native-publish.yml')),
     continuous: allowedSet(over.cloud || read('.github/workflows/build.yml')),
+    // row 169 (D-50): the 32-bit Windows edition
+    'win32-continuous': allowedSet(over.win32 || read('.github/workflows/win32-publish.yml')),
   };
 }
 // content-addressed blob bases for the in-app delta updater (not a link a person opens)
-const BLOB_BASES = new Set(['app-files', 'owner-files']);
+const BLOB_BASES = new Set(['app-files', 'owner-files', 'app32-files', 'owner32-files']);
 
 const REL_RE = /https:\/\/github\.com\/(?:rezaa2544\/payesh\.local|\$\{?\w+\}?)\/releases(?:\/[^\s"'`)<>\\]*)?/g;
 function releaseLinks(text) { return [...text.matchAll(REL_RE)].map((m) => m[0].replace(/[.,;:]+$/, '')); }

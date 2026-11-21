@@ -93,6 +93,18 @@ const assert = require('node:assert');
   run('MU-34', 'I-08', 'WebView school APK put on native-continuous', {
     reg: (r) => { r.entries.find((x) => x.id === 'school-webview-android').published.push({ workflow: '.github/workflows/school-native-publish.yml', tag: 'native-continuous', asset: 'payesh-local.apk' }); return r; } });
 
-  console.log(failures ? `INSTALLABLES-125-TEST-FAILED failures=${failures}` : 'INSTALLABLES-125-TEST-OK checks=4 mutations=34');
+  // ---- row 169 (D-50): the 32-bit edition stays inside its exception ----
+  run('MU-35', 'I-12', '32-bit school edition published on native-continuous', {
+    reg: (r) => { r.entries.find((x) => x.id === 'school-web32-windows').published.push({ workflow: '.github/workflows/school-native-publish.yml', tag: 'native-continuous', asset: 'payesh-native32-setup.exe' }); return r; } });
+  run('MU-36', 'I-12', '32-bit edition without the D-50 policy', {
+    reg: (r) => { delete r.entries.find((x) => x.id === 'owner-web32-windows').policy; return r; } });
+  run('MU-37', 'I-12', '32-bit edition built from other sources than its native twin', {
+    reg: (r) => { const e = r.entries.find((x) => x.id === 'school-web32-windows'); e.sources = e.sources.filter((x) => x !== 'apps/payesh/app/lib/'); return r; } });
+  run('MU-38', 'I-12', 'win32 publisher stops running the web32 gate', {
+    edit: { '.github/workflows/win32-publish.yml': (t) => t.split('\n').filter((l) => !l.includes('web32-gate.mjs')).join('\n') } });
+  run('MU-39', 'I-12', '32-bit edition hides its browser engine (flags flipped)', {
+    reg: (r) => { r.entries.find((x) => x.id === 'owner-web32-windows').browser_engine_at_runtime = false; return r; } });
+
+  console.log(failures ? `INSTALLABLES-125-TEST-FAILED failures=${failures}` : 'INSTALLABLES-125-TEST-OK checks=4 mutations=39');
   assert.strictEqual(failures, 0);
 })().catch((e) => { console.error(e); process.exit(1); });

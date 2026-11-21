@@ -36,8 +36,7 @@ jobs:
       - name: Direct download links (row 161)
         run: node tests/direct-links-161.js | tee -a installables-125.txt
       - name: Downloads page — one categorized source, README in sync (row 169)
-        # PAYESH_WIN32_REQUIRED=0 until the 32-bit school app / owner panel are published (row 169, phase C)
-        run: PAYESH_WIN32_REQUIRED=0 node tests/downloads-169.js | tee -a installables-125.txt
+        run: node tests/downloads-169.js | tee -a installables-125.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

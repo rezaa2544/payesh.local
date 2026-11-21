@@ -12,7 +12,8 @@
     "A WebView build may never be declared native and may never be published (row 129 removed the last ones). It may exist only as a CI-only negative control or a frozen fixture, with published=[].",
     "The gate criterion (docs/cloud/43-native-independence.json) may only grow: the frozen baseline in tools/installables-125.mjs must stay a subset of it.",
     "Release channels listed in native_only_channels may carry only declared=native entries.",
-    "Release channels and the download page carry only files that passed tools/native-independence-gate.mjs on the same file; native-continuous (school-native-publish.yml) is written only by that publisher (row 129)."
+    "Release channels and the download page carry only files that passed tools/native-independence-gate.mjs on the same file; native-continuous (school-native-publish.yml) is written only by that publisher (row 129).",
+    "Row 169 (D-50): declared=web32-compat is allowed only for platform windows-x86, policy D-50, with honest flags (compiled JS UI in a browser engine, no Node), built from the same Flutter lib/ sources as its native twin (same_code_as), published only to win32-continuous by win32-publish.yml with tools/web32/web32-gate.mjs on the published files; never on a native-only channel."
   ],
   "entries": [
     {
@@ -527,6 +528,98 @@
         }
       ],
       "row": 129
+    },
+    {
+      "id": "school-web32-windows",
+      "title_fa": "اپ مدرسه/کاربر — ویندوز ۳۲ بیتی (همان کد Flutter در Chromium 109 ۳۲ بیتی، D-50)",
+      "platform": "windows-x86",
+      "audience": "school+user",
+      "declared": "web32-compat",
+      "policy": "D-50",
+      "same_code_as": "school-native-windows",
+      "status": "published-web32",
+      "sources": [
+        "apps/payesh/app/lib/",
+        "apps/payesh/app/web/",
+        "apps/payesh/packages/",
+        "tools/web32/shell/",
+        "tools/web32/installer/"
+      ],
+      "entrypoints": [
+        "tools/web32/installer/payesh-web32.iss",
+        "tools/web32/shell/src/main.cc"
+      ],
+      "ui": "the same Flutter (Dart) app compiled with `flutter build web` (CanvasKit), shown by a 32-bit Chromium 109 (CEF) program; window.payeshHost gives it dart:io (files, DPAPI, processes) — D-50",
+      "html_css_js_ui": true,
+      "browser_engine_at_runtime": true,
+      "node_for_ui": false,
+      "runs_without_browser": true,
+      "network": "same as the native twin (fetch through Chromium; LAN data service, Gateway)",
+      "capabilities": "same code, same look, same encrypted database format (SQLite3MC wasm) and DPAPI key store as the 64-bit app; SPKI-pinned endpoints fail closed; CI: web32 gate + silent install → e2e on the installed program → uninstall",
+      "artifacts": [
+        "payesh-native32-setup.exe",
+        "payesh-native32-windows.zip",
+        "payesh_app.exe"
+      ],
+      "published": [
+        {
+          "workflow": ".github/workflows/win32-publish.yml",
+          "tag": "win32-continuous",
+          "asset": "payesh-native32-setup.exe"
+        },
+        {
+          "workflow": ".github/workflows/win32-publish.yml",
+          "tag": "win32-continuous",
+          "asset": "payesh-native32-windows.zip"
+        }
+      ],
+      "row": 169
+    },
+    {
+      "id": "owner-web32-windows",
+      "title_fa": "پنل مالک — ویندوز ۳۲ بیتی (همان کد Flutter در Chromium 109 ۳۲ بیتی، D-50)",
+      "platform": "windows-x86",
+      "audience": "owner",
+      "declared": "web32-compat",
+      "policy": "D-50",
+      "same_code_as": "owner-native-windows",
+      "status": "published-web32",
+      "sources": [
+        "apps/payesh/owner/lib/",
+        "apps/payesh/owner/web/",
+        "apps/payesh/packages/",
+        "tools/web32/shell/",
+        "tools/web32/installer/"
+      ],
+      "entrypoints": [
+        "tools/web32/installer/payesh-web32.iss",
+        "tools/web32/shell/src/main.cc"
+      ],
+      "ui": "the same Flutter (Dart) app compiled with `flutter build web` (CanvasKit), shown by a 32-bit Chromium 109 (CEF) program; window.payeshHost gives it dart:io (files, DPAPI, processes) — D-50",
+      "html_css_js_ui": true,
+      "browser_engine_at_runtime": true,
+      "node_for_ui": false,
+      "runs_without_browser": true,
+      "network": "same as the native twin (fetch through Chromium; LAN data service, Gateway)",
+      "capabilities": "same code, same look, same encrypted database format (SQLite3MC wasm) and DPAPI key store as the 64-bit app; SPKI-pinned endpoints fail closed; CI: web32 gate + silent install → e2e on the installed program → uninstall",
+      "artifacts": [
+        "payesh-owner32-setup.exe",
+        "payesh-owner32-windows.zip",
+        "payesh_owner.exe"
+      ],
+      "published": [
+        {
+          "workflow": ".github/workflows/win32-publish.yml",
+          "tag": "win32-continuous",
+          "asset": "payesh-owner32-setup.exe"
+        },
+        {
+          "workflow": ".github/workflows/win32-publish.yml",
+          "tag": "win32-continuous",
+          "asset": "payesh-owner32-windows.zip"
+        }
+      ],
+      "row": 169
     }
   ],
   "native_only_channels": [
