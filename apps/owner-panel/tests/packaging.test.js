@@ -181,13 +181,14 @@ const RULES = {
     assert.match(w, /\$s\.Status -ne 'NotSigned'/, 'unsigned exe must be proven unsigned');
     assert.match(w, /\$s\.Status -ne 'Valid'/, 'signed exe must verify as Valid');
   },
-  /* ردیف ۱۰۰ — لینک‌های README باید دقیقاً همان نام‌های خروجی workflow باشند */
+  /* ردیف ۱۰۰ — لینک‌های README باید دقیقاً همان نام‌های خروجی workflow باشند.
+     ردیف ۱۶۹: بلوک واحد «دانلودها» (tools/release/downloads.mjs) با دسته‌های ویندوز ۶۴/۳۲ بیتی، اندروید و … */
   P6_readme_links(f) {
     const BASE = 'https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/';
-    const block = one(/(<!-- owner-panel-downloads:start[\s\S]*?<!-- owner-panel-downloads:end -->)/, f.readme, 'README owner block');
-    const head = f.readme.slice(0, f.readme.indexOf('<!-- owner-panel-downloads:start'));
-    assert.ok(head.split('\n').length < 12, 'owner download block must be at the top of README');
-    const links = [...block.matchAll(/\]\((https:\/\/[^)\s]+)\)/g)].map(m => m[1]);
+    const block = one(/(<!-- downloads:start[\s\S]*?<!-- downloads:end -->)/, f.readme, 'README downloads block');
+    const head = f.readme.slice(0, f.readme.indexOf('<!-- downloads:start'));
+    assert.ok(head.split('\n').length < 12, 'downloads block must be at the top of README');
+    const links = [...block.matchAll(/\]\((https:\/\/[^)\s]+)\)/g)].map(m => m[1]).filter(u => u.includes('/owner-continuous/'));
     assert.ok(links.length > 0 && links.every(u => u.startsWith(BASE)), 'every owner link must use the owner-continuous download base');
     const readmeNames = links.map(u => u.slice(BASE.length));
     const allowed = one(/^\s*ALLOWED="([^"]+)"$/m, f.nativePublish, 'native publish asset set').trim().split(/\s+/);
@@ -201,11 +202,10 @@ const RULES = {
     assert.match(f.nativePublish, /native-independence-gate\.mjs --android "\$A\/payesh-owner\.apk" --windows "\$W\/payesh-owner-windows\.zip"/, 'native gate before publishing');
     assert.match(f.nativePublish, /native-independence-gate\.mjs --android back\/payesh-owner\.apk --windows back\/payesh-owner-windows\.zip/, 'native gate on the published files');
     assert.ok(!/payesh-owner-web\.zip|WebView[^\n]*\]\(/.test(block), 'README offers no WebView/web owner download');
-    assert.match(block, /بومی/, 'README block names the app native');
-    assert.deepEqual([...readmeNames].sort(), [...workflowNames].sort(), 'README link names must equal workflow asset names');
+    assert.deepEqual([...new Set(readmeNames)].sort(), [...workflowNames].sort(), 'README link names must equal workflow asset names');
     assert.equal(new Set(readmeNames).size, readmeNames.length, 'no duplicate README links');
-    for (const n of readmeNames) assert.ok(block.includes('[`' + n + '`](' + BASE + n + ')'), 'link text must equal asset name: ' + n);
-    assert.ok(block.includes('نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]'), 'explicit owner-only warning');
+    for (const n of readmeNames) assert.ok(block.includes('`' + n + '`](' + BASE + n + ')'), 'link text must equal asset name: ' + n);
+    assert.ok(block.includes('🔑 پنل مالک | فقط مالک سامانه'), 'explicit owner-only audience');
     assert.match(block, /SmartScreen/, 'unsigned exe must carry the SmartScreen note');
     /* جدول دانلود مدرسه: فقط اپ بومی (ردیف ۱۲۹) */
     assert.ok(f.readme.includes('(https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe)'), 'school native exe row intact');
@@ -270,15 +270,15 @@ const MUTATIONS = [
   ['P5_adr_and_boundary', 'adr', s => s.replace('ردیف ۶۳ و دروازهٔ استقلال بومی کلاینت مدرسه تغییر نمی‌کند و تضعیف نمی‌شود', 'ردیف ۶۳ برای پنل مالک بازنگری می‌شود')],
   ['P5_adr_and_boundary', 'schoolBuildYml', s => s + '\n# payesh-owner-setup.exe\n'],
   ['P6_readme_links', 'readme', s => s.replace('owner-continuous/payesh-owner-setup.exe)', 'owner-continuous/payesh-owner-installer.exe)')],
-  ['P6_readme_links', 'readme', s => s.replace(/\| چک‌سام \|[^\n]*\n/, '')],
-  ['P6_readme_links', 'readme', s => s.replace('نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]', 'نصب آزمایشی')],
+  ['P6_readme_links', 'readme', s => s.replace(/\| پنل مالک \(ویندوز و اندروید\) \|[^\n]*\n/, '')],
+  ['P6_readme_links', 'readme', s => s.split('🔑 پنل مالک | فقط مالک سامانه').join('🔑 پنل مالک | همه')],
   ['P6_readme_links', 'readme', s => s.replace('owner-continuous/payesh-owner.apk)', 'continuous/payesh-owner.apk)')],
   ['P6_readme_links', 'readme', s => s.replace('(https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe)', '(#)')],
   ['P6_readme_links', 'nativePublish', s => s.replace('ALLOWED="SHA256SUMS ', 'ALLOWED="SHA256SUMS payesh-owner-portable.zip ')],
   ['P6_readme_links', 'nativePublish', s => s.replace('ALLOWED="SHA256SUMS ', 'ALLOWED="SHA256SUMS payesh-owner-web.zip ')],
   ['P6_readme_links', 'nativePublish', s => s.replace('if [ -e "$A/NOT-FOR-DISTRIBUTION.txt" ]; then', 'if false; then')],
   ['P6_readme_links', 'nativePublish', s => s.replace('--android back/payesh-owner.apk', '--android back/other.apk')],
-  ['P6_readme_links', 'readme', s => s.replace('| چک‌سام |', '| وب | [`payesh-owner-web.zip`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-web.zip) | x |\n| چک‌سام |')],
+  ['P6_readme_links', 'readme', s => s.replace('| پنل مالک (ویندوز و اندروید) |', '| وب | [`payesh-owner-web.zip`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-web.zip) |\n| پنل مالک (ویندوز و اندروید) |')],
   ['P7_repo_map', 'repoMap', s => s.replace('[`apps/owner-panel/`](../apps/owner-panel/)', '`apps/owner-panel/`')],
   ['P7_repo_map', 'repoMap', s => s.replace('](../apps/owner-panel/android/)', '](../apps/owner-panel/)')],
   ['P7_repo_map', 'repoMap', s => s.replace('(cloud/reports/evidence/owner-panel-pr4-99.txt)', '(cloud/reports/evidence/owner-panel-pr4-99-missing.txt)')],

@@ -5,22 +5,53 @@
 > [`docs/00-PAYESH-CLOUD-CONSTITUTION.md`](docs/00-PAYESH-CLOUD-CONSTITUTION.md) را بخوانید.
 > این مخزن در پروژهٔ «پایش ابری مستقل» نقش **منبع بررسی و مقایسه** دارد، نه معماری مقصد.
 
-<!-- owner-panel-downloads:start — نام‌ها باید با مجموعهٔ انتشار owner-native-publish.yml برابر باشند (گیت P6 در apps/owner-panel/tests/packaging.test.js) -->
-### 🔑 پنل مالک پلتفرم — اپ بومی (Flutter)، دانلود مستقیم
+<!-- downloads:start — tools/release/downloads.mjs می‌سازد؛ دستی ویرایش نکنید (ردیف ۱۶۹) -->
+## ⬇️ دانلودها
 
-> ⚠️ **نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]**
+همهٔ لینک‌ها **مستقیم خود فایل** (آخرین ساخت) را دانلود می‌کنند. برنامه‌ها پس از نصب، به‌روزرسانی را خودشان خبر می‌دهند.
 
-این برنامه‌ها **بومی** هستند و WebView، مرورگر پنهان یا Node.js ندارند (ردیف ۱۲۶). هر فایل پیش از انتشار در CI از دروازهٔ استقلال بومی گذشته است.
+### 🖥️ ویندوز ۶۴ بیتی — ویندوز ۷ (SP1)، ۸، ۸٫۱، ۱۰ و ۱۱
 
-| خروجی | لینک مستقیم | توضیح |
-|---|---|---|
-| ویندوز | [`payesh-owner-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-setup.exe) | نصب‌کنندهٔ بومی؛ پنل WebView قبلی را درجا جایگزین می‌کند و آدرس سرور را نگه می‌دارد. امضای کد ندارد، پس SmartScreen هشدار می‌دهد: پیش از اجرا SHA256 را با `SHA256SUMS` مقایسه کنید، سپس More info ← Run anyway |
-| اندروید | [`payesh-owner.apk`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner.apk) | امضاشده با کلید مالک؛ روی اپ قبلی درجا ارتقا می‌یابد |
-| ویندوز (قابل‌حمل) | [`payesh-owner-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-windows.zip) | همان برنامهٔ بومی بدون نصب |
-| چک‌سام | [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/SHA256SUMS) | SHA-256 همهٔ فایل‌های منتشرشدهٔ همین انتشار |
+| برنامه | برای چه کسی | دانلود | بدون نصب (قابل‌حمل) | توضیح |
+|---|---|---|---|---|
+| 🏫 اپ مدرسه | مدیر، معاون، معلم، کادر و اولیا | **[⤓ `payesh-native-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe)** | [`payesh-native-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-windows.zip) | برای همان کاربر نصب می‌شود؛ نیازی به مدیر سیستم نیست |
+| 🔑 پنل مالک | فقط مالک سامانه | **[⤓ `payesh-owner-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-setup.exe)** | [`payesh-owner-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-windows.zip) | پنل قبلی را درجا ارتقا می‌دهد و تنظیماتش را نگه می‌دارد |
+| 🗄️ سرور دیتابیس مدرسه | فقط روی **یک** رایانهٔ مدرسه | **[⤓ `payesh-data-service-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/school-server-continuous/payesh-data-service-setup.exe)** | — | یک فایل برای ۳۲ و ۶۴ بیتی |
 
-این‌ها پنل مالک‌اند، نه برنامهٔ مدرسه؛ دانلود برنامهٔ مدرسه در جدول پایین است.
-<!-- owner-panel-downloads:end -->
+### 🖥️ ویندوز ۳۲ بیتی — ویندوز ۷ (SP1)، ۸، ۸٫۱ و ۱۰
+
+| برنامه | برای چه کسی | دانلود | بدون نصب (قابل‌حمل) | توضیح |
+|---|---|---|---|---|
+| 🗄️ سرور دیتابیس مدرسه | فقط روی **یک** رایانهٔ مدرسه | **[⤓ `payesh-data-service-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/school-server-continuous/payesh-data-service-setup.exe)** | — | همان فایل ۶۴ بیتی؛ خودش نسخهٔ ۳۲ بیتی را نصب می‌کند |
+
+### 🤖 اندروید — اندروید ۵٫۰ به بالا
+
+| برنامه | برای چه کسی | دانلود | بدون نصب (قابل‌حمل) | توضیح |
+|---|---|---|---|---|
+| 🏫 اپ مدرسه | مدیر، معاون، معلم، کادر و اولیا | **[⤓ `payesh-native.apk`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native.apk)** | — | روی نسخهٔ قبلی درجا ارتقا می‌یابد |
+| 🔑 پنل مالک | فقط مالک سامانه | **[⤓ `payesh-owner.apk`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner.apk)** | — | روی نسخهٔ قبلی درجا ارتقا می‌یابد |
+
+### ☁️ سرور ابری (اختیاری) — برای میزبان همیشه‌روشن؛ برنامهٔ نصبی کاربر نیست
+
+| برنامه | برای چه کسی | دانلود | بدون نصب (قابل‌حمل) | توضیح |
+|---|---|---|---|---|
+| ☁️ سرور ابری | اختیاری — مدیر فنی | **[⤓ `payesh-cloud.zip`](https://github.com/rezaa2544/payesh.local/releases/download/continuous/payesh-cloud.zip)** | — | بستهٔ استقرار سرور ابری |
+
+### 🔐 بررسی سلامت فایل (SHA-256)
+
+| برای | فایل |
+|---|---|
+| اپ مدرسه (ویندوز و اندروید) | [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/SHA256SUMS) |
+| پنل مالک (ویندوز و اندروید) | [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/SHA256SUMS) |
+| سرور دیتابیس مدرسه | [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/school-server-continuous/SHA256SUMS) |
+
+**کدام را بگیرم؟**
+- **ویندوز ۳۲ یا ۶۴ بیتی؟** ویندوز ۱۰/۱۱: تنظیمات ← System ← About ← «System type». ویندوز ۷/۸: کنترل پنل ← System ← «System type».
+- **سرور دیتابیس مدرسه** فقط روی یک رایانهٔ مدرسه نصب می‌شود. همهٔ اپ‌ها خودشان آن را پیدا می‌کنند و نیازی به وارد کردن نشانی نیست.
+- **پنل مالک** فقط برای مالک سامانه است، نه برای مدرسه.
+- نصب‌کننده‌های ویندوز هنوز امضای کد ندارند، پس SmartScreen هشدار می‌دهد: «More info» ← «Run anyway». برای اطمینان، هش فایل را با `SHA256SUMS` مقایسه کنید (`Get-FileHash نام-فایل`).
+- 🍎 آیفون/آیپد فایل نصبی ندارد. 🐧 روی لینوکس: `sudo bash install/linux/install.sh`.
+<!-- downloads:end -->
 
 سامانهٔ مدیریت مدرسه، **درون‌مدرسه‌ای و بدون هزینهٔ ماهانه**: روی یک سیستم ویندوزی در دفتر مدرسه اجرا می‌شود، و از **هر اینترنتی** — خانهٔ دبیر، گوشی ولی، هر جای دیگر — به همان سیستم وصل می‌شود؛ داخل مدرسه حتی بدون اینترنت هم کار می‌کند.
 
@@ -28,17 +59,7 @@
 
 ---
 
-## ⬇️ دانلود — اپ بومی پایش (Flutter، بدون WebView)
-
-| دستگاه | دانلود |
-|---|---|
-| 🖥️ **ویندوز ۷ تا ۱۱ (۶۴ بیتی)** | **[⤓ نصب‌کنندهٔ ویندوز `payesh-native-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe)** · نسخهٔ قابل‌حمل: [`payesh-native-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-windows.zip) · [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/SHA256SUMS) |
-| 🤖 **اندروید ۵٫۰ به بالا** | **[⤓ اپ اندروید `payesh-native.apk`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native.apk)** — امضاشده با کلید مالک (ردیف ۶۱)؛ روی نسخهٔ قبلی درجا ارتقا می‌یابد |
-| 🗄️ **رایانهٔ سرور مدرسه (ویندوز)** | **[⤓ سرویس دادهٔ پایش `payesh-data-service-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/school-server-continuous/payesh-data-service-setup.exe)** · [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/school-server-continuous/SHA256SUMS) — فقط روی یک رایانهٔ مدرسه؛ با روشن شدن ویندوز خودش اجرا می‌شود و همهٔ اپ‌ها بدون واردکردن نشانی به آن وصل می‌شوند (ردیف ۱۶۳) |
-| 🍎 **آیفون / آیپد** | فایلی ندارد — آدرس سامانه را در Safari باز کنید و «افزودن به صفحهٔ اصلی» را بزنید |
-| 🐧 **لینوکس / سرور** | `sudo bash install/linux/install.sh` |
-
-> این لینک‌ها **فقط** به ریلیز `native-continuous` اشاره می‌کنند که تنها نویسنده‌اش `school-native-publish.yml` است: هر فایل پیش از انتشار و دوباره پس از انتشار از **دروازهٔ استقلال بومی** (`tools/native-independence-gate.mjs`) می‌گذرد، و نصب‌کنندهٔ ویندوز در CI بی‌صدا نصب، روی برنامهٔ نصب‌شده آزموده و حذف شده است (ردیف ۱۲۹).
+> لینک‌های اپ مدرسه به ریلیز `native-continuous` اشاره می‌کنند که تنها نویسنده‌اش `school-native-publish.yml` است: هر فایل پیش از انتشار و دوباره پس از انتشار از **دروازهٔ استقلال بومی** (`tools/native-independence-gate.mjs`) می‌گذرد، و نصب‌کنندهٔ ویندوز در CI بی‌صدا نصب، روی برنامهٔ نصب‌شده آزموده و حذف شده است (ردیف ۱۲۹).
 > نسخه‌های WebView قبلی (`payesh-setup.exe`، `payesh-local.apk`، `payesh-local-windows.zip`) دیگر منتشر نمی‌شوند؛ فقط به‌عنوان کنترل منفی در CI ساخته می‌شوند.
 
 ### نصب در ویندوز

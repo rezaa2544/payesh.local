@@ -553,9 +553,9 @@ jobs:
           set -euo pipefail
           NOTES="بستهٔ استقرار سرور ابری و مانیفست به‌روزرسانی. اپ مدرسه (بومی، بدون WebView) در ریلیز native-continuous است — ردیف ۱۲۹."
           if gh release view continuous >/dev/null 2>&1; then
-            gh release edit continuous --prerelease --title "سرور ابری و مانیفست — ساخت پیوسته" --notes "$NOTES"
+            gh release edit continuous --prerelease --title "⚙️ فنی — سرور ابری و مانیفست به‌روزرسانی (برای دانلود، «⬇️ دانلودها» را ببینید)" --notes "$NOTES"
           else
-            gh release create continuous --prerelease --title "سرور ابری و مانیفست — ساخت پیوسته" --notes "$NOTES"
+            gh release create continuous --prerelease --title "⚙️ فنی — سرور ابری و مانیفست به‌روزرسانی (برای دانلود، «⬇️ دانلودها» را ببینید)" --notes "$NOTES"
           fi
           # Row 129: this release ends with EXACTLY the allowed set; every other asset (the retired
           # WebView APK / setup / zip) is deleted, and a mismatch turns this job red.

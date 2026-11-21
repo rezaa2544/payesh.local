@@ -140,14 +140,15 @@ jobs:
               windows: "payesh_owner.exe + Inno Setup (same AppId as the retired WebView2 shell → in-place upgrade); Authenticode: BLOCKED (no PAYESH_WIN_PFX_*)",
               files
             }, null, 2) + "\n");'
-          NOTES="پنل مالک **بومی** (Flutter) — بدون WebView، بدون WebView2، بدون مرورگر پنهان و بدون Node.js. ردیف ۱۲۶.
+          NOTES="فهرست دسته‌بندی‌شدهٔ همهٔ دانلودها (ویندوز ۶۴ و ۳۲ بیتی، اندروید، سرور): https://github.com/rezaa2544/payesh.local/releases/tag/downloads
+          پنل مالک **بومی** (Flutter) — بدون WebView، بدون WebView2، بدون مرورگر پنهان و بدون Node.js. ردیف ۱۲۶.
           نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]. انتشار رسمی نیست.
           payesh-owner-setup.exe: نصب‌کنندهٔ ویندوز؛ پنل WebView قبلی را درجا جایگزین می‌کند و آدرس سرور ذخیره‌شده را نگه می‌دارد. امضای کد (Authenticode) هنوز نیست، پس Windows SmartScreen هشدار می‌دهد: پیش از اجرا SHA256 را با SHA256SUMS مقایسه کنید (Get-FileHash payesh-owner-setup.exe)، سپس More info ← Run anyway.
           payesh-owner.apk: امضاشده با کلید مالک (همان امضای APK قبلی)؛ روی اپ قبلی درجا ارتقا می‌یابد.
           payesh-owner-windows.zip: همان برنامهٔ ویندوز به‌صورت قابل‌حمل.
           هر فایل در CI از دروازهٔ استقلال بومی گذشته است: $RUN_URL
           commit: $SRC_SHA"
-          TITLE="پنل مالک بومی (Flutter) — ساخت پیوسته؛ انتشار رسمی نیست"
+          TITLE="پنل مالک — محل انتشار (برای دانلود، انتشار «⬇️ دانلودها» را ببینید)"
           if ! gh release view "$TAG" -R "$R" >/dev/null 2>&1; then
             gh release create "$TAG" -R "$R" --prerelease --target "$SRC_SHA" --title "$TITLE" --notes "$NOTES"
           else
@@ -156,7 +157,7 @@ jobs:
           # ── ADR 126 §۱۲: فایل‌های «فقط تغییرات» در owner-files (هر هش یک بار)، پیش از مانیفست ──
           FT=owner-files
           if ! gh release view "$FT" -R "$R" >/dev/null 2>&1; then
-            gh release create "$FT" -R "$R" --prerelease --target "$SRC_SHA" --title "پنل مالک — فایل‌های به‌روزرسانی (فقط تغییرات)" \
+            gh release create "$FT" -R "$R" --prerelease --target "$SRC_SHA" --title "⚙️ فنی — تکه‌های به‌روزرسانی خودکار پنل مالک (دستی دانلود نکنید)" \
               --notes "هر فایل برنامهٔ ویندوزِ پنل مالک یک بار و فشرده (gzip) با نام هش SHA-256 محتوای اصلی. برنامه فقط فایل‌هایی را می‌گیرد که هششان با owner-update.json (owner-continuous) فرق دارد. دستی دانلود نکنید."
           fi
           FID=$(gh api "repos/$R/releases/tags/$FT" --jq .id)
