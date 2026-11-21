@@ -26,6 +26,10 @@ void ShellApp::OnBeforeCommandLineProcessing(const CefString& process_type,
       "disable-features",
       "BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,"
       "PrivateNetworkAccessRespectPreflightResults,CalculateNativeWinOcclusion");
+  // CORS off for this browser (like the 64-bit build's HttpClient: the school server sends no
+  // CORS headers). Safe here: every frame can only ever show the app's own origin
+  // (client.cc OnBeforeBrowse), popups are refused, there is no address bar.
+  cl->AppendSwitch("disable-web-security");
   cl->AppendSwitch("disable-extensions");
   cl->AppendSwitch("disable-pdf-extension");
   cl->AppendSwitch("disable-spell-checking");

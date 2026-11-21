@@ -31,7 +31,9 @@ const log = (s) => { logLines.push(s); console.log(s); };
 let checks = 0;
 const ok = (id, detail) => { checks++; log(`PASS ${id} ${detail ?? ''}`.trim()); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const browserLog = []; /* CDP Log domain (CORS / network / security messages) */
 function fail(why) {
+  for (const l of browserLog.slice(-25)) log('  browser-log: ' + l);
   log('WEB32-E2E-FAIL ' + why);
   fs.writeFileSync(path.join(OUT, `e2e-${APP}.txt`), logLines.join('\n') + '\n');
   try { child?.kill(); } catch { /* gone */ }
@@ -78,11 +80,13 @@ ws.onmessage = (ev) => {
   const m = JSON.parse(ev.data);
   if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); return; }
   if (m.method === 'Runtime.exceptionThrown') exceptions.push(m.params.exceptionDetails?.exception?.description || m.params.exceptionDetails?.text);
+  if (m.method === 'Log.entryAdded') browserLog.push(`${m.params.entry.level} ${m.params.entry.source}: ${m.params.entry.text}`.slice(0, 400));
   if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') consoleErrors.push(m.params.args.map((a) => a.value ?? a.description).join(' '));
 };
 const send = (method, params = {}) => new Promise((r) => { const id = ++seq; pending.set(id, r); ws.send(JSON.stringify({ id, method, params })); });
 await send('Runtime.enable');
 await send('Page.enable');
+await send('Log.enable');
 async function evalJs(expr) {
   const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
   if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || r.result.exceptionDetails.text);
