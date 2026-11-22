@@ -94,7 +94,7 @@ async function evalJs(expr) {
 }
 
 // ── the host object ─────────────────────────────────────────────────────────
-for (let i = 0; i < 60; i++) { if (await evalJs('typeof window.payeshHost')) break; await sleep(250); }
+for (let i = 0; i < 120; i++) { if ((await evalJs("typeof window.payeshHost")) === "object") break; await sleep(250); }
 if ((await evalJs('typeof window.payeshHost')) !== 'object') {
   // row 170: say WHICH page/state lacks the host (crash loop, other origin, still loading…)
   const diag = await evalJs(`JSON.stringify({ href: location.href, ready: document.readyState, title: document.title, host: typeof window.payeshHost, keys: Object.keys(window).filter((k) => /payesh|flutter/i.test(k)) })`).catch((e) => String(e));
