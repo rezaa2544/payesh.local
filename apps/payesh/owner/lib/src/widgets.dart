@@ -22,7 +22,11 @@ class OwnerScope extends InheritedWidget {
     this.router,
     this.guard,
     this.backup,
+    this.dashSide,
   });
+
+  /// ردیف ۱۷۲: کارت «پردازش کمکی (همین سیستم)» در داشبورد، سمت چپ کنار «پایش زنده» دیتابیس.
+  final Widget? dashSide;
 
   /// پشتیبان کامل دیتابیس (ردیف ۱۵۵)؛ null ⇒ صفحهٔ «پشتیبان دیتابیس» نیست.
   final OwnerBackupEngine? backup;
@@ -58,7 +62,8 @@ class OwnerScope extends InheritedWidget {
       schools != old.schools ||
       router != old.router ||
       guard != old.guard ||
-      backup != old.backup;
+      backup != old.backup ||
+      dashSide != old.dashSide;
 }
 
 /// Loading / error / empty placeholder (the web `.state`), announced to screen readers.

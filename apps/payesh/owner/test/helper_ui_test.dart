@@ -98,7 +98,7 @@ void main() {
     expect(find.byKey(const Key('live-db')), findsOneWidget);
     expect(find.byKey(const Key('live-db-traffic')), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
-    expect(find.textContaining('فضای دیتابیس'), findsOneWidget);
+    expect(find.text('فضای دیتابیس'), findsOneWidget);
     // ردیف ۱۵۳: بار لحظه‌ای و مسیر بار بالای داشبورد
     expect(find.byKey(const Key('load-card')), findsOneWidget);
     expect(find.byKey(const Key('load-rpm')), findsOneWidget);
@@ -115,6 +115,26 @@ void main() {
       lessThan(tester.getTopLeft(find.byKey(const Key('live-infra'))).dy),
     );
     expect(find.byKey(const Key('route-chain')), findsOneWidget);
+    // ردیف ۱۷۲: «پردازش کمکی (همین سیستم)» در داشبورد، در همان ردیف و سمت چپ کارت دیتابیس
+    final side = find.byKey(const Key('live-side'));
+    expect(
+      find.descendant(
+        of: side,
+        matching: find.byKey(const Key('dash-helper-card')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: side,
+        matching: find.text('پردازش کمکی (همین سیستم)'),
+      ),
+      findsOneWidget,
+    );
+    final db = tester.getRect(find.byKey(const Key('live-db')));
+    final hc = tester.getRect(side);
+    expect(hc.right, lessThanOrEqualTo(db.left), reason: 'left of the db card');
+    expect(hc.top, db.top, reason: 'same row');
 
     // زیرساخت: کارت «زیرساخت‌ها» بالای صفحه (ردیف ۱۳۱)
     await tap(tester, 'nav-infra');

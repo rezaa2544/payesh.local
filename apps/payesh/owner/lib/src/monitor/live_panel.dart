@@ -15,8 +15,13 @@ class LiveInfraPanel extends StatefulWidget {
     required this.monitor,
     this.api,
     this.infraEvery = const Duration(seconds: 30),
+    this.side,
   });
   final LiveMonitor monitor;
+
+  /// ردیف ۱۷۲: کارتی که در همان ردیف کنار کارت(های) زیرساخت می‌نشیند — در راست‌به‌چپ
+  /// سمت چپ کارت دیتابیس (کارت «پردازش کمکی (همین سیستم)»)؛ در پنجرهٔ باریک زیر آن.
+  final Widget? side;
 
   /// برای فهرست سرویس‌ها/Endpointها (`/infra`)؛ null ⇒ فقط دیتابیس.
   final OwnerApi? api;
@@ -98,7 +103,7 @@ class _LiveInfraPanelState extends State<LiveInfraPanel> {
             ],
           ),
           const SizedBox(height: PayeshTokens.space2),
-          if (items.isEmpty)
+          if (items.isEmpty && widget.side == null)
             Text(
               'هنوز زیرساختی برای پایش نیست؛ دیتابیس را در «تنظیمات» و سرورها را در «زیرساخت» ثبت کنید.',
               style: TextStyle(color: tk.muted),
@@ -122,6 +127,12 @@ class _LiveInfraPanelState extends State<LiveInfraPanel> {
                           onTap: widget.monitor.probeNow,
                           onEditCapacity: _editCapacity,
                         ),
+                      ),
+                    if (widget.side != null)
+                      SizedBox(
+                        key: const Key('live-side'),
+                        width: w,
+                        child: widget.side,
                       ),
                   ],
                 );

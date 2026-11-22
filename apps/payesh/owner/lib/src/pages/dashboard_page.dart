@@ -97,7 +97,8 @@ class _DashboardPageState extends OwnerPageState<DashboardPage> {
           hero
         else if (router != null)
           LoadCard(router: router),
-        if (monitor != null) LiveInfraPanel(monitor: monitor, api: api),
+        if (monitor != null)
+          LiveInfraPanel(monitor: monitor, api: api, side: scope.dashSide),
         content,
       ],
     );

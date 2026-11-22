@@ -65,7 +65,11 @@ class OwnerShell extends StatefulWidget {
     this.router,
     this.guard,
     this.backup,
+    this.dashSide,
   });
+
+  /// ردیف ۱۷۲: کارت «پردازش کمکی» در داشبورد، کنار «پایش زنده» دیتابیس.
+  final Widget? dashSide;
 
   /// پشتیبان کامل دیتابیس (ردیف ۱۵۵)؛ صفحهٔ «پشتیبان دیتابیس».
   final OwnerBackupEngine? backup;
@@ -198,6 +202,7 @@ class _OwnerShellState extends State<OwnerShell> {
       router: widget.router,
       guard: widget.guard,
       backup: widget.backup,
+      dashSide: widget.dashSide,
       child: KeyedSubtree(
         key: ValueKey('page-$id-${identityHashCode(api)}'),
         child: id == 'infra' && widget.infraSide != null

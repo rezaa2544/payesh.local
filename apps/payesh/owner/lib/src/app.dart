@@ -538,6 +538,14 @@ class _OwnerAppState extends State<OwnerApp> {
       now: _now,
       themeButton: _themeButton,
       onSignOut: _signOutLocal,
+      // ردیف ۱۷۲: «پردازش کمکی (همین سیستم)» در داشبورد هم، سمت چپ کنار «پایش زنده» دیتابیس
+      dashSide: widget.helper == null
+          ? null
+          : HelperCard(
+              key: const Key('dash-helper-card'),
+              service: widget.helper!,
+              now: widget.now,
+            ),
       // ردیف ۱۶۴: «زیرساخت» = راست: مدل پردازش (حالت معماری)؛ چپ: تعریف سرور، تعریف دیتابیس و
       // کلیدهای زیرساخت و سرور کمکی. فهرست ارائه‌دهنده‌ها/سرویس‌ها/Endpointها/عدد دستی حذف شد.
       // ردیف ۱۶۵: زیر مدل پردازش، «حالت اتصال» (راه رسیدن کاربران بیرون از مدرسه)
