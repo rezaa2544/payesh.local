@@ -222,7 +222,8 @@ jobs:
           if (-not $line) { throw 'payesh-data-service-setup.exe not in SHA256SUMS' }
           $got = (Get-FileHash $ds -Algorithm SHA256).Hash.ToLower()
           if ($got -ne ($line -split '\s+')[0].ToLower()) { throw "data service sha256 mismatch: $got" }
-          $dsv = (Get-Item $ds).VersionInfo.ProductVersion
+          # ProductVersion comes padded with spaces; DisplayVersion is bare ⇒ trim, or every app update re-runs the service setup (UAC)
+          $dsv = "$((Get-Item $ds).VersionInfo.ProductVersion)".Trim()
           if (-not $dsv -or $dsv -match '^0(\.0)*$') { $dsv = 'unknown' }
           "DATA-SERVICE sha256=$got version=$dsv" | Tee-Object -FilePath web32-out\data-service-170.txt
           $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName

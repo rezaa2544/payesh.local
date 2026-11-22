@@ -48,6 +48,6 @@ begin
   if not Result then exit;
   Have := DataServiceInstalledVersion();
   // DisplayVersion of an Inno setup = its AppVersion
-  if Have = '{#DataServiceVersion}' then
+  if (Have <> '') and (Trim(Have) = Trim('{#DataServiceVersion}')) then
     Result := False;
 end;
