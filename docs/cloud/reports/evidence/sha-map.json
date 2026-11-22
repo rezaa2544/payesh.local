@@ -150,6 +150,17 @@
         "docs/cloud/reports/evidence/mission-05-tests-run.log",
         "docs/cloud/reports/evidence/tests-run-ebe271a-20261112T130402Z.log"
       ]
+    },
+    {
+      "old": "dda401be1565a591182c8e0ffb59e79abd1159df",
+      "new": "872ab2b566a06ef4580c3b8bac22a280ae4f3ca9",
+      "kind": "rebased-or-local",
+      "source": "row 170: fix commit rebased over the CI bot manifest commit 878c086 before push (same tree change)",
+      "files": [
+        "docs/cloud/reports/evidence/mission-05-11-structure.txt",
+        "docs/cloud/reports/evidence/mission-05-tests-run.log",
+        "docs/cloud/reports/evidence/tests-run-dda401b-20261122T145600Z.log"
+      ]
     }
   ]
 }
