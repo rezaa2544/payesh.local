@@ -1,7 +1,8 @@
 # Row 171 — a copy of the school-server list OUTSIDE Iran's networks, for apps that reach neither
 # the project domain nor the database storage (e.g. a phone abroad). The apps read it last:
 #   https://raw.githubusercontent.com/rezaa2544/payesh.local/directory/school-servers.json
-# (SchoolDirectoryClient.defaultMirrorUrl). Source: the central server's merged list. Only
+# (SchoolDirectoryClient.defaultMirrorUrl). Source: the central server's merged list, else the
+# list in the database storage. Only
 # addresses are in it (the same file every school server already publishes) — no keys, no names
 # beyond what the public list holds. The `directory` branch is one commit, force-pushed; no other
 # workflow runs on it (they all filter on main / arena/** / hermes/**).
@@ -29,7 +30,9 @@ jobs:
     steps:
       - name: read the list from the central server
         run: |
-          urls="https://app.payeshschool.ir/payesh/pub/school-servers.json https://payeshschool.ir/payesh/pub/school-servers.json"
+          # Last: the list every school server already publishes to the database storage (the
+          # same URL the release builds bake in) — so the mirror is useful before serv00 is up.
+          urls="https://app.payeshschool.ir/payesh/pub/school-servers.json https://payeshschool.ir/payesh/pub/school-servers.json https://s3.ir-central1.arvanstorage.ir/payesh-madrese/payesh/pub/school-servers.json"
           if [ -n "$SERV00_DOMAIN" ] || [ -n "$SERV00_USER" ]; then
             D="${SERV00_DOMAIN:-$(echo "$SERV00_USER" | tr 'A-Z' 'a-z').serv00.net}"
             urls="https://$D/payesh/pub/school-servers.json $urls"
