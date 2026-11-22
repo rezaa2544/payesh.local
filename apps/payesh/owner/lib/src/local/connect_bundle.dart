@@ -15,10 +15,9 @@ library;
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart' as hash;
-import 'package:payesh_core/io.dart' show runOffThread;
 
 import 'cloud_control.dart';
-import 'local_account.dart' show pbkdf2Sha256;
+import '../schools/school_registry.dart' show pbkdf2Hex;
 import 's3_client.dart';
 
 const String connectKind = 'payesh-connect';
@@ -78,14 +77,9 @@ Future<String> connectSecret(
   _kind(kind);
   final pw = kind == 'owner' ? '$password\u0000${code.trim()}' : password;
   final salt = _saltOf(kind, login);
-  return runOffThread(() {
-    final out = pbkdf2Sha256(
-      utf8.encode(pw),
-      utf8.encode(salt),
-      connectIterations,
-    );
-    return out.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  });
+  // pbkdf2Hex = package:cryptography: Isolate روی بومی، WebCrypto (ناهمگام) در وب ۳۲ بیتی —
+  // PBKDF2 خالص Dart در dart2js رشتهٔ رابط را چند ثانیه قفل می‌کرد (W170-02).
+  return pbkdf2Hex(pw, salt, connectIterations);
 }
 
 /// مهر متن JSON فرمان با رمز بسته.
