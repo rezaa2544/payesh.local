@@ -1,4 +1,7 @@
 // Native builds: dart:io itself (row 169 — see package:payesh_core/io.dart).
+import 'dart:async';
+import 'dart:isolate';
+
 export 'dart:io'
     show
         Platform,
@@ -21,3 +24,7 @@ const bool isWeb32 = false;
 
 /// Native builds need no preparation.
 Future<void> prepareWebHost() async {}
+
+/// Row 170: CPU-heavy work (hashing, PBKDF2) off the UI thread. Native builds use a
+/// short-lived isolate; the 32-bit edition (dart2js) has no isolates and runs it inline.
+Future<T> runOffThread<T>(FutureOr<T> Function() work) => Isolate.run(work);

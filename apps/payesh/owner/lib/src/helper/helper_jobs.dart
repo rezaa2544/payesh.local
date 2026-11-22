@@ -2,7 +2,6 @@
 // هیچ‌کدام محتوای خوانای مدرسه را باز نمی‌کند (D-21).
 
 import 'dart:async';
-import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
 import 'package:payesh_core/io.dart';
@@ -178,7 +177,7 @@ final class JobExecutor {
         };
       }
       // هش در Isolate جدا: پنجرهٔ برنامه کند نمی‌شود
-      final sha = await Isolate.run(() => sha256.convert(b).toString());
+      final sha = await runOffThread(() => sha256.convert(b).toString());
       return {
         'exists': true,
         'size': b.length,

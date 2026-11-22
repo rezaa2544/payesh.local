@@ -1,4 +1,5 @@
 // 32-bit Windows edition: dart:io surface answered by the CEF shell (row 169, D-50).
+import 'dart:async';
 import 'dart:io' as io;
 
 import 'web/files.dart';
@@ -27,3 +28,6 @@ Future<void> prepareWebHost() async {
   io.IOOverrides.global = WebIOOverrides();
   io.HttpOverrides.global = WebHttpOverrides();
 }
+
+/// Row 170: dart2js has no isolates (`Isolate.run` throws) — heavy work runs inline here.
+Future<T> runOffThread<T>(FutureOr<T> Function() work) async => work();

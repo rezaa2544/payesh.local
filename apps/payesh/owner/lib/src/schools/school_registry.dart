@@ -15,10 +15,10 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:isolate';
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:payesh_core/io.dart' show runOffThread;
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_ui/payesh_ui.dart'
     show
@@ -225,7 +225,7 @@ Future<String> pbkdf2Hash(
 }
 
 Future<String> pbkdf2Hex(String password, String salt, int iterations) =>
-    Isolate.run(() async {
+    runOffThread(() async {
       final k = await Pbkdf2(
         macAlgorithm: Hmac.sha256(),
         iterations: iterations,

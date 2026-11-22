@@ -5447,6 +5447,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۷۰: پنل وب «نبض» در مرورگر واقعی بالا می‌آید (بدون برخورد نام سراسری اسکریپت‌ها) ── */
+  await test('ردیف ۱۷۰: همهٔ اسکریپت‌های client/index.html در یک realm بدون «already been declared» بار می‌شوند',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/web-client-scripts-170.js')], { encoding: 'utf8', cwd: ROOT });
+      assert.strictEqual(r.status, 0, 'web-client-scripts-170: ' + (r.stdout || '') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۴۶: شکل نام کاربری در فرم‌های ورود/راه‌اندازی/نجات وب (هم‌قاعده با سرور و اپ بومی) ── */
   await test('ردیف ۱۴۶: فرم ورود وب نام کاربری لاتین را می‌پذیرد؛ شکل نادرست در ورود/راه‌اندازی/نجات هیچ درخواستی نمی‌فرستد', async () => {
     const { JSDOM } = require('jsdom');

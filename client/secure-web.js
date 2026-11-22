@@ -1,3 +1,4 @@
+(function () {
 'use strict';
 /* ═══════════════════════════════════════════════════════════════════
    لایهٔ امن دادهٔ روی دستگاه — ردیف ۴۴
@@ -396,3 +397,5 @@ async function cacheStore({ secret, name = 'payesh_cache_secure' } = {}) {
 const api = { SecureStore, SecureError, cacheStore, KDF, DB_NAME, STORE, META };
 if (typeof module === 'object' && module.exports) module.exports = api;
 if (typeof globalThis !== 'undefined') globalThis.PayeshSecure = api;
+
+})();

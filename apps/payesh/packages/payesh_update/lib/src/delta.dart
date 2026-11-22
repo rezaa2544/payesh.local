@@ -22,7 +22,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
@@ -198,7 +197,7 @@ final class UpdatePlan {
 Future<UpdatePlan> planUpdate(UpdateManifest m, Directory installDir) async {
   final root = installDir.path;
   final want = [for (final f in m.files) (f.path, f.sha256, f.size)];
-  final changedPaths = await Isolate.run(() {
+  final changedPaths = await runOffThread(() {
     final out = <String>{};
     for (final (path, sha, size) in want) {
       final file = File('$root${Platform.pathSeparator}${_native(path)}');

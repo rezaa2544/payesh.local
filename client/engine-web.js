@@ -1,3 +1,4 @@
+(function () {
 'use strict';
 /* ═══════════════════════════════════════════════════════════════════
    موتور دادهٔ سمت کلاینت (IndexedDB) — ردیف ۳۹
@@ -257,3 +258,5 @@ function makeRows(n, { collections = ['attendance', 'grades', 'users', 'schedule
 const api = { open, Engine, makeRows, DB_NAME, STORE, DB_VERSION, DEFAULT_CHUNK };
 if (typeof module === 'object' && module.exports) module.exports = api;
 if (typeof globalThis !== 'undefined') globalThis.PayeshEngine = api;
+
+})();

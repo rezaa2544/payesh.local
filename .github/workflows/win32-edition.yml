@@ -76,6 +76,13 @@ jobs:
       - name: pub get (lockfile enforced)
         working-directory: apps/payesh
         run: flutter pub get --enforce-lockfile
+      - name: Owner school registry in Chromium (dart2js) — create / edit / reset password (row 170)
+        working-directory: apps/payesh/owner
+        run: |
+          set -euo pipefail
+          export CHROME_EXECUTABLE="$(command -v google-chrome || command -v chromium)"
+          flutter test --platform chrome test/web32_registry_170_test.dart | tee "$GITHUB_WORKSPACE/web32-registry-170.txt"
+          grep -q 'All tests passed' "$GITHUB_WORKSPACE/web32-registry-170.txt"
       - name: sqlite3mc.wasm (pinned sha256)
         run: |
           set -euo pipefail
@@ -115,6 +122,7 @@ jobs:
             apps/payesh/app/build/web
             apps/payesh/owner/build/web
             web32-conformance.txt
+            web32-registry-170.txt
           if-no-files-found: error
 
   windows:

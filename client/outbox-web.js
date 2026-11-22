@@ -1,3 +1,4 @@
+(function () {
 'use strict';
 /* ═══════════════════════════════════════════════════════════════════
    صندوقچهٔ عملیات ماندگار روی دستگاه — ردیف ۴۰
@@ -436,3 +437,5 @@ function toWire(rec) {
 const api = { open, Outbox, DEFAULTS, DB_NAME, DB_VERSION, STORE, META, ACTIVE, toWire, newKey };
 if (typeof module === 'object' && module.exports) module.exports = api;
 if (typeof globalThis !== 'undefined') globalThis.PayeshOutbox = api;
+
+})();
