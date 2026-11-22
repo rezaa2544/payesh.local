@@ -289,6 +289,103 @@ void main() {
       );
       expect(hits, everyElement('/payesh/pub/school-servers.json'));
     });
+
+    group('row 171 — reachable from any network', () {
+      String list(String instance, {String? central}) => jsonEncode({
+        'v': 1,
+        'kind': 'payesh-school-servers',
+        if (central != null)
+          'central': {'url': central, 'at': now.toIso8601String()},
+        'servers': [
+          {
+            'instance': instance,
+            'lan': ['http://192.168.1.101:8080'],
+            'public_url': 'https://$instance.example.ir',
+            'at': now.subtract(const Duration(minutes: 1)).toIso8601String(),
+          },
+        ],
+      });
+
+      test('DF-171a defaults: GitHub copy of the list and the central server on the project domain', () {
+        expect(
+          SchoolDirectoryClient.defaultMirrorUrl.toString(),
+          'https://raw.githubusercontent.com/rezaa2544/payesh.local/directory/school-servers.json',
+        );
+        expect(
+          SchoolDirectoryClient.defaultCentral.toString(),
+          'https://app.payeshschool.ir',
+        );
+        final prod = SchoolDirectoryClient(client: HttpClient());
+        expect(prod.mirrorUrl, SchoolDirectoryClient.defaultMirrorUrl);
+        expect(prod.fallbackCentral, SchoolDirectoryClient.defaultCentral);
+        final off = SchoolDirectoryClient(
+          client: HttpClient(),
+          useDomain: false,
+        );
+        expect(off.mirrorUrl, isNull);
+        expect(off.fallbackCentral, isNull);
+      });
+
+      test('DF-171b domain and database copy down (a phone abroad) ⇒ the GitHub copy is read', () async {
+        final mir = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => mir.close(force: true));
+        final hits = <String>[];
+        mir.listen((req) {
+          hits.add(req.uri.path);
+          req.response.write(list('abroad'));
+          unawaited(req.response.close());
+        });
+        final dead = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final deadPort = dead.port;
+        await dead.close(force: true);
+        final c = SchoolDirectoryClient(
+          url: Uri.parse('http://127.0.0.1:$deadPort/pub/school-servers.json'),
+          domain: Uri.parse(
+            'http://127.0.0.1:$deadPort/payesh/pub/school-servers.json',
+          ),
+          mirror: Uri.parse(
+            'http://127.0.0.1:${mir.port}/directory/school-servers.json',
+          ),
+          central: Uri.parse('https://central.example.ir'),
+          client: HttpClient(),
+          now: () => now,
+        );
+        expect((await c.entries()).single.instance, 'abroad');
+        expect(hits, ['/directory/school-servers.json']);
+        expect((await c.candidates()).map((u) => u.toString()), [
+          'https://central.example.ir',
+          'http://192.168.1.101:8080',
+          'https://abroad.example.ir',
+        ], reason: 'no central in the list ⇒ the built-in one first');
+      });
+
+      test('DF-171c the list has its own central ⇒ it is first, the built-in one is still tried last; no list at all ⇒ the built-in one alone', () async {
+        body = list('pc', central: 'https://owner.example.ir');
+        final c = SchoolDirectoryClient(
+          url: Uri.parse(
+            'http://127.0.0.1:${server.port}/pub/school-servers.json',
+          ),
+          useDomain: false,
+          central: Uri.parse('https://central.example.ir'),
+          client: HttpClient(),
+          now: () => now,
+        );
+        expect((await c.candidates()).map((u) => u.toString()), [
+          'https://owner.example.ir',
+          'http://192.168.1.101:8080',
+          'https://pc.example.ir',
+          'https://central.example.ir',
+        ]);
+        final none = SchoolDirectoryClient(
+          useDomain: false,
+          central: Uri.parse('https://central.example.ir'),
+          client: HttpClient(),
+        );
+        expect((await none.candidates()).map((u) => u.toString()), [
+          'https://central.example.ir',
+        ]);
+      });
+    });
   });
 
   group('firstAnswering', () {

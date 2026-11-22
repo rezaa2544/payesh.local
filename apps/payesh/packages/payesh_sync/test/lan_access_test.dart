@@ -183,6 +183,51 @@ void main() {
     });
   });
 
+  group('row 171 — where the school is hosted', () {
+    test('LAN-171a a 409 «hosted elsewhere» carries the host instance and its usable addresses', () {
+      final f = mapLanError(409, {
+        'error': 'school_hosted_elsewhere',
+        'instance': 'dd9286ad1f5d3ccb',
+        'urls': [
+          'https://pc.example.ir',
+          'http://192.168.1.101:8080',
+          'javascript:alert(1)',
+          42,
+        ],
+      }, null);
+      expect(f.kind, LanAccessError.hostedElsewhere);
+      expect(f.instance, 'dd9286ad1f5d3ccb');
+      expect(f.urls.map((u) => u.toString()), [
+        'https://pc.example.ir',
+        'http://192.168.1.101:8080',
+      ]);
+      expect(
+        LanAccessError.hostedElsewhere.messageFa(),
+        isNot(contains('وارد کنید')),
+        reason: 'nobody types an address any more',
+      );
+      final plain = mapLanError(401, {'error': 'bad_credentials'}, null);
+      expect(plain.instance, isNull);
+      expect(plain.urls, isEmpty);
+    });
+
+    test(
+      'LAN-171b the server this device signs in on survives sign-out',
+      () async {
+        final store = FakeSecureStore();
+        final a = LanAccountStore(store);
+        expect(await a.homeServer(), isNull);
+        await a.setHome(Uri.parse('https://app.payeshschool.ir'));
+        await a.clear();
+        expect(
+          (await a.homeServer()).toString(),
+          'https://app.payeshschool.ir',
+        );
+        expect(LanKeys.all, isNot(contains(LanKeys.homeServer)));
+      },
+    );
+  });
+
   group('LanAccountStore', () {
     test('LAN-U06 save/load/clear; rotated token persisted', () async {
       final store = FakeSecureStore();

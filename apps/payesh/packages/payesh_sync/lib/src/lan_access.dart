@@ -269,7 +269,8 @@ enum LanAccessError {
     schoolInactive =>
       'این مدرسه غیرفعال شده است — با پشتیبانی پایش تماس بگیرید',
     schoolRemoved => 'این مدرسه در فهرست مدارس پایش نیست',
-    hostedElsewhere => 'این مدرسه روی سرور دیگری راه‌اندازی شده است — نشانی همان سرور را وارد کنید',
+    // row 171: the app looks for that server by itself; this shows only when it found none
+    hostedElsewhere => 'این مدرسه روی سرور دیگری است و آن سرور الان در دسترس نیست — اینترنت را بررسی و دوباره امتحان کنید',
     subscriptionRequired => 'برای استفاده از امکانات، اشتراک لازم است',
     smsDisabled =>
       'ورود با پیامک هنوز فعال نشده — فعلاً با نام کاربری و رمز عبور وارد شوید',
@@ -286,11 +287,24 @@ enum LanAccessError {
 }
 
 final class LanAccessFailure implements Exception {
-  const LanAccessFailure(this.kind, {this.wire, this.status, this.retryAfter});
+  const LanAccessFailure(
+    this.kind, {
+    this.wire,
+    this.status,
+    this.retryAfter,
+    this.instance,
+    this.urls = const [],
+  });
   final LanAccessError kind;
   final String? wire;
   final int? status;
   final Duration? retryAfter;
+
+  /// Row 171 — `school_hosted_elsewhere`: the server that hosts the school (its `instance`, the
+  /// same id the address-only list uses) and the addresses this server knows for it. The app goes
+  /// there by itself — nothing is typed.
+  final String? instance;
+  final List<Uri> urls;
 
   String get messageFa => kind.messageFa(retryAfter);
 
@@ -838,11 +852,17 @@ LanAccessFailure mapLanError(
     (final int s, _) when s >= 500 => LanAccessError.unreachable,
     _ => LanAccessError.unknown,
   };
+  final inst = body['instance'];
   return LanAccessFailure(
     kind,
     wire: wire,
     status: status,
     retryAfter: ra == null ? null : Duration(seconds: ra),
+    instance: inst is String && inst.isNotEmpty ? inst : null,
+    urls: [
+      for (final u in (body['urls'] is List ? body['urls']! as List : const []))
+        if (u is String) ?LanServerRules.parse(u),
+    ],
   );
 }
 
@@ -862,6 +882,9 @@ abstract final class LanKeys {
   /// sign-out (NOT in [all]) so the next start opens straight on that server's login form.
   static const String lastServer = 'lan.last_server';
   static const String lastPrimary = 'lan.last_primary';
+
+  /// Row 171: the server this device last signed in on — also kept across sign-out.
+  static const String homeServer = 'lan.home_server';
 
   static const List<String> all = [
     server,
@@ -969,4 +992,14 @@ final class LanAccountStore {
     await store.write(LanKeys.lastServer, info.server.toString());
     await store.write(LanKeys.lastPrimary, info.loginPrimary);
   }
+
+  /// Row 171 — the server this device last signed in on (survives sign-out). A wrong password
+  /// THERE is a wrong password; anywhere else the app may try the user's other school servers.
+  Future<Uri?> homeServer() async {
+    final u = Uri.tryParse(await store.read(LanKeys.homeServer) ?? '');
+    return u == null || !LanServerRules.allowed(u) ? null : u;
+  }
+
+  Future<void> setHome(Uri server) =>
+      store.write(LanKeys.homeServer, server.toString());
 }

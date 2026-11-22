@@ -107,6 +107,16 @@ const keyOf = (cfg) => String(cfg.prefix || 'payesh/') + REL;
 
 let lastBody = '';
 let lastAt = 0;
+/* ردیف ۱۷۱: آخرین فهرستی که از صندوقچه خوانده شد (برای نقطهٔ قرار و پاسخ «مدرسه جای دیگر است») */
+let lastDocSeen = null;
+const lastDoc = () => lastDocSeen;
+
+/* ردیف ۱۷۱: ردیف همین سرور را به سرور(های) مرکزی هم اعلام می‌کند — حتی وقتی صندوقچه در دسترس نیست */
+async function announceNow(store, info, opts = {}) {
+  const mine = entryOf(Object.assign({}, info, { now: opts.now }));
+  if (!mine.instance || (!mine.lan.length && !mine.public_url)) return [];
+  return require('./rendezvous').announce(store, mine, Object.assign({ doc: lastDocSeen, selfUrl: info && info.publicUrl }, opts));
+}
 
 /* یک دور: فهرست فعلی را می‌خواند، ردیف خودش را می‌گذارد و با public-read می‌نویسد */
 async function publish(store, info, { now, onDoc = null } = {}) {
@@ -118,6 +128,7 @@ async function publish(store, info, { now, onDoc = null } = {}) {
   let prev = null;
   try { prev = JSON.parse(await s3mem.get(cfg, keyOf(cfg))); } catch (e) { prev = null; }
   if (prev && prev.kind !== KIND) prev = null;
+  if (prev) lastDocSeen = prev;
   if (onDoc && prev) { try { onDoc(prev); } catch (e) { /* noop */ } }
   const doc = merge(prev, mine, now);
   /* اگر چیزی جز زمان عوض نشده و کمتر از یک ساعت گذشته، دوباره نمی‌نویسیم */
@@ -139,6 +150,7 @@ async function read(store) {
   if (!cfg || !cfg.enabled) return null;
   try {
     const doc = JSON.parse(await s3mem.get(cfg, keyOf(cfg)));
+    if (doc && doc.kind === KIND) lastDocSeen = doc;
     return doc && doc.kind === KIND ? doc : null;
   } catch (e) { return null; }
 }
@@ -156,7 +168,9 @@ function start(store, getInfo, { every = EVERY_MS, first = 15_000, watchEvery = 
   const tick = () => {
     let info;
     try { info = getInfo(); } catch (e) { return; }
-    publish(store, info, { onDoc }).catch(() => { /* دور بعد */ });
+    publish(store, info, { onDoc }).catch(() => { /* دور بعد */ })
+      .then(() => (process.env.PAYESH_ANNOUNCE === '0' ? null : announceNow(store, info)))
+      .catch(() => { /* دور بعد */ });
   };
   tickFn = tick;
   const t0 = setTimeout(tick, first);
@@ -180,7 +194,7 @@ function stop() {
   if (timer) clearInterval(timer);
   if (watchTimer) clearInterval(watchTimer);
   clearTimeout(kickTimer);
-  timer = null; watchTimer = null; tickFn = null; lastBody = ''; lastAt = 0;
+  timer = null; watchTimer = null; tickFn = null; lastBody = ''; lastAt = 0; lastDocSeen = null;
 }
 
-module.exports = { KIND, REL, STALE_MS, CONNECT_MODES, entryOf, merge, centralOf, connectOf, publish, read, start, stop, kick, keyOf };
+module.exports = { KIND, REL, STALE_MS, CONNECT_MODES, entryOf, merge, centralOf, connectOf, publish, read, start, stop, kick, keyOf, lastDoc, announceNow };

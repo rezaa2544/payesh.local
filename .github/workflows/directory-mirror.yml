@@ -1,0 +1,62 @@
+# Row 171 — a copy of the school-server list OUTSIDE Iran's networks, for apps that reach neither
+# the project domain nor the database storage (e.g. a phone abroad). The apps read it last:
+#   https://raw.githubusercontent.com/rezaa2544/payesh.local/directory/school-servers.json
+# (SchoolDirectoryClient.defaultMirrorUrl). Source: the central server's merged list. Only
+# addresses are in it (the same file every school server already publishes) — no keys, no names
+# beyond what the public list holds. The `directory` branch is one commit, force-pushed; no other
+# workflow runs on it (they all filter on main / arena/** / hermes/**).
+name: directory-mirror
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: directory-mirror
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SERV00_USER: ${{ secrets.SERV00_USER }}
+      SERV00_DOMAIN: ${{ secrets.SERV00_DOMAIN }}
+    steps:
+      - name: read the list from the central server
+        run: |
+          urls="https://app.payeshschool.ir/payesh/pub/school-servers.json https://payeshschool.ir/payesh/pub/school-servers.json"
+          if [ -n "$SERV00_DOMAIN" ] || [ -n "$SERV00_USER" ]; then
+            D="${SERV00_DOMAIN:-$(echo "$SERV00_USER" | tr 'A-Z' 'a-z').serv00.net}"
+            urls="https://$D/payesh/pub/school-servers.json $urls"
+          fi
+          : > list.json
+          for u in $urls; do
+            if curl -fsS -m 60 -o got.json "$u" && node -e "
+              const j = JSON.parse(require('fs').readFileSync('got.json', 'utf8'));
+              if (j.kind !== 'payesh-school-servers' || !Array.isArray(j.servers)) process.exit(1);
+              const keep = (r) => r && typeof r.instance === 'string' && typeof r.at === 'string';
+              const out = { v: j.v || 1, kind: j.kind, at: j.at || new Date().toISOString(),
+                ...(j.central && typeof j.central.url === 'string' ? { central: { url: j.central.url, at: j.central.at } } : {}),
+                servers: j.servers.filter(keep).map((r) => ({ instance: r.instance, school: r.school, lan: r.lan, public_url: r.public_url, public_urls: r.public_urls, at: r.at })) };
+              require('fs').writeFileSync('list.json', JSON.stringify(out, null, 1));
+              console.log('servers: ' + out.servers.length);
+            "; then echo "source: $u"; break; fi
+          done
+          if [ ! -s list.json ]; then echo "::notice::no list reachable yet — mirror unchanged"; fi
+      - name: publish to the directory branch
+        if: hashFiles('list.json') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -s list.json ] || exit 0
+          mkdir pub && cd pub
+          git init -q -b directory
+          cp ../list.json school-servers.json
+          git -c user.name=payesh-bot -c user.email=bot@payeshschool.ir add school-servers.json
+          git -c user.name=payesh-bot -c user.email=bot@payeshschool.ir commit -qm "directory: school-servers.json"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" directory

@@ -99,12 +99,17 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
     Uri? url,
     Uri? domain,
     bool useDomain = true,
+    Uri? mirror,
+    Uri? central,
     HttpClient? client,
     this.timeout = const Duration(seconds: 10),
     this.maxAge = const Duration(days: 10),
     DateTime Function()? now,
   }) : url = url ?? defaultUrl,
        domainUrl = useDomain ? (domain ?? defaultDomainUrl) : null,
+       // row 171: the GitHub copy and the project's central server ride along with the domain
+       mirrorUrl = useDomain ? (mirror ?? defaultMirrorUrl) : mirror,
+       fallbackCentral = useDomain ? (central ?? defaultCentral) : central,
        _client = client ?? trustedHttpClient(),
        _now = now ?? DateTime.now;
 
@@ -116,6 +121,25 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
 
   /// The domain copy of the list (null = not used).
   final Uri? domainUrl;
+
+  /// Row 171 — a copy of the list OUTSIDE Iran's networks (the public repository, refreshed by
+  /// .github/workflows/directory-mirror.yml from the central server). Read when neither the
+  /// domain nor the database copy answers — e.g. a phone abroad, where the database is not
+  /// reachable and the domain is not set up yet.
+  static final Uri defaultMirrorUrl = Uri.parse(
+    'https://raw.githubusercontent.com/rezaa2544/payesh.local/directory/school-servers.json',
+  );
+
+  /// Null = no mirror.
+  final Uri? mirrorUrl;
+
+  /// Row 171 — the project's always-on central server (deploy/serv00): one address, on the
+  /// project domain, reachable from any network; it hosts schools and answers which server hosts
+  /// the others. Tried when the list names no central server of its own.
+  static final Uri defaultCentral = Uri.parse('https://app.payeshschool.ir');
+
+  /// Null = no built-in central server.
+  final Uri? fallbackCentral;
 
   /// The list in the owner's database. Set by the release build
   /// (`--dart-define=PAYESH_SERVERS_URL=…`, .github/workflows/native-client.yml): the client code
@@ -157,8 +181,9 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
   /// The usable rows, freshest first.
   Future<List<SchoolServerEntry>> entries() async {
     _central = null;
-    // row 170: the domain first, then the address baked into the build
-    for (final u in [?domainUrl, ?url]) {
+    // row 170: the domain first, then the address baked into the build; row 171: then the copy
+    // outside Iran (GitHub)
+    for (final u in [?domainUrl, ?url, ?mirrorUrl]) {
       try {
         final r = await _read(u);
         if (r != null) return r;
@@ -196,7 +221,12 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
   @override
   Future<List<Uri>> candidates() async {
     final list = await entries();
-    return candidatesOf(list, central: _central);
+    final out = candidatesOf(list, central: _central ?? fallbackCentral);
+    // row 171: the built-in central server is always somewhere in the list (last when the list
+    // has its own central): a fresh install with no list at all still has one address to try
+    final c = fallbackCentral;
+    if (c != null && !out.contains(c)) out.add(c);
+    return out;
   }
 
   /// The owner's central server first (reachable from any internet), then LAN addresses of every

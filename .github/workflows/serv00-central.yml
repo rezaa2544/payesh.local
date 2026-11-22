@@ -1,0 +1,95 @@
+# Row 171 — the project's always-on central server on serv00.com (deploy/serv00).
+#   • deploy:    after every successful build-and-release on main (new releases/manifest.json),
+#                by hand (Run workflow), and once a week (that SSH login also keeps the free
+#                account alive: serv00 deletes accounts after 90 days without a login).
+#   • keepalive: every 10 minutes a GET /api/health (Passenger stops an app after 24 h without
+#                requests; the first request after that would wait for a cold start).
+# Repository secrets (Settings → Secrets and variables → Actions). Nothing set ⇒ every job skips:
+#   SERV00_HOST      e.g. s1.serv00.com        SERV00_USER      the serv00 login
+#   SERV00_PASSWORD  (or SERV00_SSH_KEY)       SERV00_DOMAIN    optional, default <login>.serv00.net
+#   PAYESH_S3_ACCESS_KEY / PAYESH_S3_SECRET    optional: database keys for hosting schools
+name: serv00-central
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'release version (empty = newest)'
+        required: false
+        default: ''
+  workflow_run:
+    workflows: [build-and-release]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '*/10 * * * *'
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: serv00-central-${{ github.event.schedule == '*/10 * * * *' && 'ping' || 'deploy' }}
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    if: github.event_name == 'schedule' && github.event.schedule == '*/10 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SERV00_USER: ${{ secrets.SERV00_USER }}
+      SERV00_DOMAIN: ${{ secrets.SERV00_DOMAIN }}
+    steps:
+      - name: ping the central server
+        run: |
+          if [ -z "$SERV00_USER" ] && [ -z "$SERV00_DOMAIN" ]; then echo "::notice::serv00 not configured — skipped"; exit 0; fi
+          D="${SERV00_DOMAIN:-$(echo "$SERV00_USER" | tr 'A-Z' 'a-z').serv00.net}"
+          for u in "https://$D/api/health" "https://app.payeshschool.ir/api/health"; do
+            code=$(curl -s -m 60 -o /tmp/h.json -w '%{http_code}' "$u" || true)
+            echo "$u → $code $(head -c 200 /tmp/h.json 2>/dev/null)"
+          done
+
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'schedule' && github.event.schedule == '17 3 * * 1')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SERV00_HOST: ${{ secrets.SERV00_HOST }}
+      SERV00_USER: ${{ secrets.SERV00_USER }}
+      SERV00_PASSWORD: ${{ secrets.SERV00_PASSWORD }}
+      SERV00_SSH_KEY: ${{ secrets.SERV00_SSH_KEY }}
+      SERV00_DOMAIN: ${{ secrets.SERV00_DOMAIN }}
+      PAYESH_S3_ACCESS_KEY: ${{ secrets.PAYESH_S3_ACCESS_KEY }}
+      PAYESH_S3_SECRET: ${{ secrets.PAYESH_S3_SECRET }}
+      PAYESH_VERSION: ${{ github.event.inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: install / update on serv00
+        run: |
+          if [ -z "$SERV00_HOST" ] || [ -z "$SERV00_USER" ] || { [ -z "$SERV00_PASSWORD" ] && [ -z "$SERV00_SSH_KEY" ]; }; then
+            echo "::notice::serv00 secrets not set (SERV00_HOST, SERV00_USER, SERV00_PASSWORD) — skipped"; exit 0
+          fi
+          q() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+          {
+            for k in PAYESH_S3_ACCESS_KEY PAYESH_S3_SECRET PAYESH_VERSION; do
+              v="${!k}"; [ -n "$v" ] && printf 'export %s=%s\n' "$k" "$(q "$v")"
+            done
+            [ -n "$SERV00_DOMAIN" ] && printf 'export PAYESH_DOMAIN=%s\n' "$(q "$SERV00_DOMAIN")"
+            cat deploy/serv00/setup.sh
+          } > /tmp/remote.sh
+          SSH_OPTS="-o StrictHostKeyChecking=accept-new -o ServerAliveInterval=20 -o ConnectTimeout=30"
+          if [ -n "$SERV00_SSH_KEY" ]; then
+            install -m 600 /dev/null ~/.ssh_serv00 && printf '%s\n' "$SERV00_SSH_KEY" > ~/.ssh_serv00
+            ssh $SSH_OPTS -i ~/.ssh_serv00 "$SERV00_USER@$SERV00_HOST" 'sh -s' < /tmp/remote.sh | tee /tmp/setup.log
+          else
+            sudo apt-get install -y -qq sshpass >/dev/null
+            SSHPASS="$SERV00_PASSWORD" sshpass -e ssh $SSH_OPTS -o PubkeyAuthentication=no "$SERV00_USER@$SERV00_HOST" 'sh -s' < /tmp/remote.sh | tee /tmp/setup.log
+          fi
+          rm -f /tmp/remote.sh ~/.ssh_serv00
+          grep -q 'PAYESH-SETUP-OK' /tmp/setup.log

@@ -326,7 +326,16 @@ class SessionController extends ChangeNotifier {
       ?last,
       if (last != _loopback) _loopback,
     ]);
-    if (info == null) {
+    // row 171: an EMPTY server (never set up — e.g. the data service a fresh install of this app
+    // brought along) is not this user's school. Look for the real one first (the address-only
+    // list: central server, then every school server); the empty one stays as the last resort
+    // (first setup of a brand-new school).
+    LanServerInfo? spare;
+    if (info != null && !info.setupDone) {
+      spare = info;
+      info = null;
+    }
+    if (info == null && spare == null) {
       final start = startLocalServer;
       var started = false;
       if (start != null) {
@@ -345,13 +354,18 @@ class SessionController extends ChangeNotifier {
           final cands = await dir.candidates();
           info = await firstAnswering(api, [
             for (final u in cands)
-              if (u != last && u != _loopback) u,
+              if (u != last && u != _loopback && u != spare?.server) u,
           ]);
+          if (info != null && !info.setupDone) {
+            spare ??= info;
+            info = null;
+          }
         } on Object {
           info = null;
         }
       }
     }
+    info ??= spare;
     final now = _state;
     // the user went elsewhere meanwhile (signed in, signup, …) — never overwrite that
     if (now is! NeedLan || now.info != null) return;
@@ -812,10 +826,122 @@ class SessionController extends ChangeNotifier {
       );
       await _lanSignedInWith(info, fresh);
     } on LanAccessFailure catch (e) {
+      if (await _loginElsewhere(info, phone, password, e)) return;
       _set(NeedLan(info: info, typed: s.typed, error: _lanFail(e)));
     } on Object {
       _set(NeedLan(info: info, typed: s.typed, error: _unknown));
     }
+  }
+
+  /// Row 171 — how many other school servers one login may try.
+  static const int maxElsewhere = 8;
+
+  /// Row 171 — the login reached A server, but not this user's: «مدرسه روی سرور دیگری است»
+  /// (409, with the host's instance + addresses), or «نام کاربری یا رمز درست نیست» on a server
+  /// this device never signed in on (another school's server answered first, or this computer's
+  /// own empty server). The same username/password is tried — only on the owner's servers from
+  /// the address-only list: the host named by the answer first, then the central server, then the
+  /// other school servers. The first that accepts signs the user in and is remembered; a real
+  /// answer about THIS user (inactive school, device limit, locked, …) is shown as is. False when
+  /// nothing else accepted (the original error stays). Nothing is typed by the user.
+  Future<bool> _loginElsewhere(
+    LanServerInfo from,
+    String phone,
+    String password,
+    LanAccessFailure first,
+  ) async {
+    final api = lan;
+    if (api == null) return false;
+    final moved = first.kind == LanAccessError.hostedElsewhere;
+    if (!moved) {
+      if (first.kind != LanAccessError.badCredentials) return false;
+      // a wrong password on the server this device already signs in on is a wrong password
+      final home = await lanAccounts.homeServer();
+      if (home != null && home == from.server && from.setupDone) return false;
+    }
+    final tried = <Uri>{from.server};
+    final queue = <Uri>[];
+    final dir = directory;
+    Future<void> hint(LanAccessFailure f) async {
+      final front = <Uri>[...f.urls];
+      final id = f.instance;
+      if (id != null && dir != null) {
+        try {
+          front.addAll(await dir.addressesOf(id));
+        } on Object {
+          // the list is not reachable: the addresses in the answer only
+        }
+      }
+      var at = 0;
+      for (final u in front) {
+        if (tried.contains(u)) continue;
+        queue.remove(u);
+        queue.insert(at++, u);
+      }
+    }
+
+    await hint(first);
+    if (dir != null) {
+      try {
+        for (final u in await dir.candidates()) {
+          if (!tried.contains(u) && !queue.contains(u)) queue.add(u);
+        }
+      } on Object {
+        // no list: only the hinted addresses
+      }
+    }
+    if (from.server != _loopback && !queue.contains(_loopback)) {
+      queue.add(_loopback);
+    }
+    var budget = maxElsewhere;
+    while (queue.isNotEmpty && budget-- > 0) {
+      final u = queue.removeAt(0);
+      if (!tried.add(u)) continue;
+      final LanServerInfo other;
+      try {
+        other = await api.probe(u).timeout(const Duration(seconds: 12));
+      } on Object {
+        continue;
+      }
+      // an empty server would make this user its manager — never by accident
+      if (!other.setupDone || other.server == from.server) continue;
+      try {
+        final fresh = await api.login(
+          server: other.server,
+          phone: phone,
+          password: password,
+          deviceName: deviceName,
+        );
+        await lanAccounts.remember(other);
+        _lanShare = other.lanUrls;
+        _lastPrimary = other.loginPrimary;
+        await _lanSignedInWith(other, fresh);
+        return true;
+      } on LanAccessFailure catch (f) {
+        if (f.kind == LanAccessError.hostedElsewhere) {
+          await hint(f);
+          continue;
+        }
+        if (f.kind == LanAccessError.badCredentials ||
+            f.kind == LanAccessError.unreachable ||
+            f.kind == LanAccessError.unknown) {
+          continue;
+        }
+        // this server knows the user: its answer is the real one
+        await lanAccounts.remember(other);
+        _set(
+          NeedLan(
+            info: other,
+            typed: _typedOf(other.server),
+            error: _lanFail(f),
+          ),
+        );
+        return true;
+      } on Object {
+        continue;
+      }
+    }
+    return false;
   }
 
   /// Row 160 — «ورود با شماره» / «فراموشی رمز»: sends a one-time SMS code to the mobile. While no
@@ -1095,6 +1221,7 @@ class SessionController extends ChangeNotifier {
     );
     await lanAccounts.save(saved);
     await lanAccounts.setLocked(false);
+    await lanAccounts.setHome(info.server);
     _lan = saved;
     _publish(SyncPhase.idle, ok: _now());
     _set(_lanSignedIn(saved, fresh));

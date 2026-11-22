@@ -71,6 +71,7 @@ const DATA_DIR = process.env.PAYESH_DATA || path.join(ROOT, 'data');
 /* ردیف ۱۶۷: همین سرور، اجراشده به‌عنوان «سرور مدرسهٔ میزبانی‌شده» برای یک مدرسهٔ دیگرِ
    پنل مالک (server/hosting.js). فقط روی 127.0.0.1، فقط از راه سرور اصلی همین رایانه. */
 const hosting = require('./hosting');
+const rendezvous = require('./rendezvous'); /* ردیف ۱۷۱: نقطهٔ قرار سرورهای مدرسه (فهرست + اعلام) */
 const HOSTED = /^[A-Za-z0-9_-]{1,64}$/.test(String(process.env.PAYESH_HOSTED || '')) ? String(process.env.PAYESH_HOSTED) : null;
 let hostedPublicUrl = null;
 let host = null;
@@ -519,7 +520,10 @@ async function api(req, res, url, ip) {
       installed_version: readManifest().version,
       restart_pending: readManifest().version !== RUNNING_VERSION,
       time: nowISO(), server_time: nowISO(), uptime_s: Math.round(process.uptime()),
-      setup_done: !auth.needsSetup(store), school: (store.get('schools', 1) || {}).name || null,
+      /* ردیف ۱۷۱: سرور مرکزی (PAYESH_CENTRAL=1) هیچ‌وقت فرم «راه‌اندازی اولیه» نشان نمی‌دهد —
+         مدارس را مالک تعریف می‌کند و ورود مدیر/کاربر خودش مدرسه را پیدا می‌کند. */
+      setup_done: !auth.needsSetup(store) || process.env.PAYESH_CENTRAL === '1', school: (store.get('schools', 1) || {}).name || null,
+      central: process.env.PAYESH_CENTRAL === '1',
       /* ردیف ۵۷ (S4): مسیر مطلق سرور (data_dir/db_file) در یک مسیر بدون
          احراز هویت فاش نمی‌شود — کلاینت آن را از /api/setup/state می‌گیرد. */
       public_url: cfg.publicUrl(store) || null,
@@ -678,6 +682,16 @@ async function api(req, res, url, ip) {
   }
 
   if (p === '/api/auth/login' && m === 'POST') {
+    /* ردیف ۱۷۱: «مدرسه روی سرور دیگری است» ⇒ شناسهٔ همان سرور و نشانی‌هایش (همان فهرست عمومی)،
+       تا برنامه بی‌آنکه کاربر چیزی وارد کند خودش به آن سرور برود. فقط پس از رمز درست ساخته می‌شود. */
+    const elsewhere = (a) => {
+      const out = { ok: false, error: a.error };
+      if (a.error === 'school_hosted_elsewhere' && a.instance) {
+        out.instance = a.instance;
+        try { out.urls = rendezvous.addressesOf(a.instance, { bucketDoc: require('./discovery').lastDoc() }); } catch (e) { out.urls = []; }
+      }
+      return out;
+    };
     /* محدودیت ورود به ازای «همان شماره» شمرده می‌شود، نه به ازای یک آدرس.
        در مدرسه همهٔ گوشی‌ها یک آدرس مشترک دارند؛ اگر سقف روی آدرس بود،
        ورودِ گروهی کاربران همدیگر را بیرون می‌گذاشت و پیام «رمز اشتباه»
@@ -699,7 +713,7 @@ async function api(req, res, url, ip) {
     if (auth.needsSetup(store)) {
       const a = await schools.adoptOnLogin(store, body.phone, body.password, { needsSetup: true, instance: cfg.instanceId(store) });
       if (!a.ok && a.error !== 'not_managed' && a.error !== 'not_found' && a.error !== 'bad_shape') {
-        return json({ ok: false, error: a.error }, a.error === 'school_hosted_elsewhere' ? 409 : a.error === 'registry_unreachable' ? 503 : 401);
+        return json(elsewhere(a), a.error === 'school_hosted_elsewhere' ? 409 : a.error === 'registry_unreachable' ? 503 : 401);
       }
     }
     /* ردیف ۱۶۴: سرورِ از قبل راه‌افتاده که هنوز به مدرسهٔ پنل مالک گره نخورده ⇒ با همان
@@ -707,7 +721,7 @@ async function api(req, res, url, ip) {
     else if (!schools.boundOf(store)) {
       const a = await schools.linkOnLogin(store, body.phone, body.password, { instance: cfg.instanceId(store) });
       if (!a.ok && (a.error === 'school_hosted_elsewhere' || a.error === 'school_inactive')) {
-        return json({ ok: false, error: a.error }, a.error === 'school_hosted_elsewhere' ? 409 : 403);
+        return json(elsewhere(a), a.error === 'school_hosted_elsewhere' ? 409 : 403);
       }
     }
     /* p2: غیرفعال کردن مدرسه ورود را می‌بندد (پیش از ساختن دستگاه) */
@@ -2249,6 +2263,19 @@ const baseHandler = async (req, res) => {
     /* ── ردیف ۴۹: متریک و پروب‌های هم‌نام با Gateway ──────────────────
        /healthz = زنده‌بودن فرایند (بدون وابستگی) · /readyz = آمادگی واقعی
        (/api/readyz هم برای سازگاری می‌ماند) · /metrics = scrape استاندارد. */
+    /* ردیف ۱۷۱: فهرست نشانی سرورها و اعلام سرورهای دیگر (بی‌نشست، بی‌راز) */
+    if (!HOSTED && (url.pathname === '/payesh/pub/school-servers.json' || url.pathname.startsWith('/api/dir/'))) {
+      const done = await rendezvous.handle(req, res, url, {
+        store,
+        self: () => require('./discovery').entryOf({
+          instance: cfg.instanceId(store), school: (store.get('schools', 1) || {}).name || null,
+          lanUrls: cfg.lanUrls(PORT), publicUrl: cfg.publicUrl(store) || null, publicUrls: tunnel.publicUrls(store), version: RUNNING_VERSION,
+        }),
+        bucketDoc: () => require('./discovery').lastDoc(),
+        selfUrl: () => cfg.publicUrl(store) || null,
+      });
+      if (done) return;
+    }
     if (url.pathname === '/healthz') {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
       res.end(JSON.stringify({ ok: true, instance: 'payesh-local', version: RUNNING_VERSION, uptime_s: Math.round(process.uptime()) }));

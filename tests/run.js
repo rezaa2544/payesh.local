@@ -5456,6 +5456,24 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۷۱: نقطهٔ قرار سرورهای مدرسه — فهرست روی دامنه، اعلام امضاشده، ۴۰۹ با نشانی میزبان ── */
+  await test('ردیف ۱۷۱: نقطهٔ قرار — فقط نشانی، امضای HMAC، فهرست ادغامی، سرور واقعی روی مسیر دامنه، ۴۰۹ با نشانی (۷ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/rendezvous-171.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'rendezvous-171: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|RENDEZVOUS-171/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
+  /* ── ردیف ۱۷۱: سرور مرکزی روی serv00 — app.js، setup.sh واقعی با devil ساختگی، گردش‌کارها ── */
+  await test('ردیف ۱۷۱: بستهٔ serv00 — نصب واقعی نسخه، کلید در ‎.payesh.env (600)، سرور مرکزی پاسخ می‌دهد، بیدارنگه‌دار و آینهٔ فهرست (۴ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/serv00-171.js')], { encoding: 'utf8', cwd: ROOT, timeout: 240000 });
+      assert.strictEqual(r.status, 0, 'serv00-171: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|SERV00-171/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۷۰: پنل وب «نبض» در مرورگر واقعی بالا می‌آید (بدون برخورد نام سراسری اسکریپت‌ها) ── */
   await test('ردیف ۱۷۰: همهٔ اسکریپت‌های client/index.html در یک realm بدون «already been declared» بار می‌شوند',
     async () => {

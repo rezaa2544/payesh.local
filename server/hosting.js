@@ -252,7 +252,8 @@ function createHost(opts) {
       PAYESH_DATA: dir, PORT: '0', HOST: '127.0.0.1', PAYESH_HOSTED: sid, PAYESH_HOSTED_KEY: key,
       PAYESH_DISCOVERY: '0', PAYESH_NO_RESTART: '1', PAYESH_HOSTING: '0',
     });
-    for (const k of ['PAYESH_TUNNEL_PORT', 'PAYESH_SUPERVISED', 'PAYESH_TENANT_ID', 'SERVER_PORT']) delete childEnv[k];
+    /* row 171: only the main server is the central meeting point (deploy/serv00) */
+    for (const k of ['PAYESH_TUNNEL_PORT', 'PAYESH_SUPERVISED', 'PAYESH_TENANT_ID', 'SERVER_PORT', 'PAYESH_CENTRAL']) delete childEnv[k];
     const c = { sid, proc: null, port: 0, instance: null, adopted: false, restarts: (children.get(sid) || {}).restarts || 0, stopped: false };
     let markReady;
     c.ready = new Promise(r => { markReady = r; });

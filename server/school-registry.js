@@ -695,7 +695,8 @@ async function adoptOnLogin(store, login, password, { needsSetup, instance, now 
   try {
     const ack = await readEnv(cfg, cfg.prefix + DIR.ack + sch.id + '.json', K.ack);
     if (ack && !ack.invalid && ack.plain.instance && ack.plain.instance !== instance) {
-      return { ok: false, error: 'school_hosted_elsewhere' };
+      /* ردیف ۱۷۱: نشانی میزبان (فقط شناسهٔ نمونه، همان که در فهرست عمومی نشانی‌ها هست) تا برنامه خودش جابه‌جا شود */
+      return { ok: false, error: 'school_hosted_elsewhere', instance: String(ack.plain.instance).slice(0, 40) };
     }
   } catch (e) { /* صندوقچه در دسترس نیست: نمی‌توانیم مطمئن شویم */ return { ok: false, error: 'registry_unreachable' }; }
   const manager = adoptSchool(store, sch, { instance });
@@ -736,7 +737,7 @@ async function linkOnLogin(store, login, password, { instance, now = Date.now() 
   try {
     const ack = await readEnv(cfg, cfg.prefix + DIR.ack + sch.id + '.json', K.ack);
     if (ack && !ack.invalid && ack.plain.instance && instance && ack.plain.instance !== instance) {
-      return { ok: false, error: 'school_hosted_elsewhere' };
+      return { ok: false, error: 'school_hosted_elsewhere', instance: String(ack.plain.instance).slice(0, 40) };
     }
   } catch (e) { return { ok: false, error: 'registry_unreachable' }; }
   const m = sch.manager;
