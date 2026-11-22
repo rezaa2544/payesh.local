@@ -63,10 +63,23 @@ void ShellApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> cl) {
 void ShellApp::OnContextCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
                                 CefRefPtr<CefV8Context> context) {
   if (!frame->IsMain()) return;
-  const std::string url = frame->GetURL().ToString();
   const std::string prefix = std::string(kAppOrigin) + "/";
+  auto is_app = [&](const std::string& u) { return u.compare(0, prefix.size(), prefix) == 0; };
+  std::string url = frame->GetURL().ToString();
+  // row 171: on the first navigation of a fresh renderer CEF can still report the frame's
+  // previous URL (about:blank) here, so the app page came up without window.payeshHost
+  // (WEB32-E2E-FAIL "payeshHost missing", intermittent since row 169). Ask the new
+  // document itself: location.href of THIS context is the committed URL.
+  if (!is_app(url) && context->Enter()) {
+    CefRefPtr<CefV8Value> loc = context->GetGlobal()->GetValue("location");
+    if (loc && loc->IsObject()) {
+      CefRefPtr<CefV8Value> href = loc->GetValue("href");
+      if (href && href->IsString()) url = href->GetStringValue().ToString();
+    }
+    context->Exit();
+  }
   // The host functions exist only for the app's own pages, never for any other origin.
-  if (url.compare(0, prefix.size(), prefix) != 0) return;
+  if (!is_app(url)) return;
   InstallHost(context);
 }
 
