@@ -1,17 +1,19 @@
 {
-  "version": "0.9.24",
-  "built_at": "2026-11-21T20:36:45.589Z",
+  "version": "0.9.25",
+  "built_at": "2026-11-22T11:32:40.864Z",
   "notes": [
-    "نسخهٔ ویندوز ۳۲ بیتی: اپ مدرسه و پنل مالک حالا برای ویندوز ۳۲ بیتی (ویندوز ۷ SP1، ۸، ۸٫۱ و ۱۰) هم نصب‌کننده دارند — همان برنامه، همان ظاهر و همان دیتابیس، در دستهٔ «ویندوز ۳۲ بیتی» صفحهٔ دانلودها. سرور دیتابیس مدرسه از قبل روی ۳۲ و ۶۴ بیتی نصب می‌شود."
+    "پنل مالک ۳۲ بیتی: «تعریف مدرسهٔ جدید»، «ویرایش مدرسه» و «تعیین رمز تازهٔ مدیر» در نسخهٔ ۳۲ بیتی هرگز به دیتابیس نمی‌رسید (هش رمز مدیر در این نسخه اجرا نمی‌شد و ثبت بی‌صدا شکست می‌خورد). رفع شد؛ ساخت، ویرایش و رمز تازه حالا مثل نسخهٔ ۶۴ بیتی ثبت می‌شوند و در CI داخل خود مرورگر Chromium آزموده می‌شوند.",
+    "به‌روزرسانی خودکار نسخه‌های ۳۲ بیتی (اپ مدرسه و پنل مالک) به همان دلیل گیر می‌کرد؛ رفع شد.",
+    "پنل وب «نبض» (داشبورد مدیر و کاربران در مرورگر) دوباره بالا می‌آید — از مدتی پیش روی «در حال بارگذاری…» می‌ماند."
   ],
   "shell": {
-    "android": "0.9.24"
+    "android": "0.9.25"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "44e930e21a3506ba42e8a0c048f51c131a8045fc75647a4fbbd1368517fe2abe",
+      "sha256": "0f4001f70efdc3e20a1b770c4a3d49f52f79eede3229d02f62e45339b4eeb017",
       "size": 204052
     },
     {
@@ -35,8 +37,8 @@
     {
       "path": "client/engine-web.js",
       "kind": "client",
-      "sha256": "b82077f4debc51c05b90684743cbc198d8a2595642ec6212670b8b066c144e37",
-      "size": 10020
+      "sha256": "a16b6927f2aadfed0f91ea8c49e3e9d9fcece8f0800f00b1549e0f1486ab4b62",
+      "size": 10042
     },
     {
       "path": "client/icons/apple-touch-icon.png",
@@ -137,8 +139,8 @@
     {
       "path": "client/outbox-web.js",
       "kind": "client",
-      "sha256": "dc96b071f7a46c0d11354b85839c4ed71b1ab2022043aecf077e6b457d1d8eca",
-      "size": 19310
+      "sha256": "8dfa1d187a9b6f3454e0ab1f98c3dde53a94ecca7bf95f761fdc963d9b2cbe88",
+      "size": 19332
     },
     {
       "path": "client/pages.js",
@@ -179,8 +181,8 @@
     {
       "path": "client/secure-web.js",
       "kind": "client",
-      "sha256": "af60d2bdc2e6c992025e987b2907beb32c321c0b3e8848f60ea6e6e75b045b3a",
-      "size": 16601
+      "sha256": "8c168be7827ad0e2886e8eacfb02ba9be55bfcc7c0b2d273dd6312e1442db58d",
+      "size": 16623
     },
     {
       "path": "client/styles.css",
@@ -221,8 +223,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "5b78506676d0dee8d6b466d097c20362130523dcd1531cb8c1cd26f877d5cb06",
-      "size": 6843
+      "sha256": "825f08b94a5b0466c293405820f39676bbd90c23beffecd5d4b0f648102df9e4",
+      "size": 6891
     },
     {
       "path": "server/academic-year.js",
@@ -559,7 +561,7 @@
     "client": 34,
     "server": 57
   },
-  "client_size": 1491046,
-  "server_size": 925634,
-  "total_size": 2416680
+  "client_size": 1491112,
+  "server_size": 925682,
+  "total_size": 2416794
 }
