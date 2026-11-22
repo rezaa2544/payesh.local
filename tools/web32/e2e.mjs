@@ -95,7 +95,15 @@ async function evalJs(expr) {
 
 // ── the host object ─────────────────────────────────────────────────────────
 for (let i = 0; i < 60; i++) { if (await evalJs('typeof window.payeshHost')) break; await sleep(250); }
-if ((await evalJs('typeof window.payeshHost')) !== 'object') fail('window.payeshHost missing in the app page');
+if ((await evalJs('typeof window.payeshHost')) !== 'object') {
+  // row 170: say WHICH page/state lacks the host (crash loop, other origin, still loading…)
+  const diag = await evalJs(`JSON.stringify({ href: location.href, ready: document.readyState, title: document.title, host: typeof window.payeshHost, keys: Object.keys(window).filter((k) => /payesh|flutter/i.test(k)) })`).catch((e) => String(e));
+  const all = (await targets()).map((t) => `${t.type} ${t.url}`).join(' | ');
+  log('  diag: ' + diag);
+  log('  targets: ' + all);
+  for (const e of exceptions.slice(-5)) log('  exception: ' + String(e).slice(0, 300));
+  fail('window.payeshHost missing in the app page');
+}
 const info = JSON.parse(await evalJs('payeshHost.info()'));
 if (info.os !== 'windows' || !/\.exe$/i.test(info.exe) || !(info.pid > 0) || info.app !== APP) fail('info ' + JSON.stringify(info).slice(0, 300));
 if (!info.env || info.env.LOCALAPPDATA !== LOCAL) fail('env.LOCALAPPDATA ' + (info.env && info.env.LOCALAPPDATA));
