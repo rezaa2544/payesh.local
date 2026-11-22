@@ -1,11 +1,11 @@
-base_sha=ae3743f592206165d15d99a97c30acb234670a7f
-date_utc=2026-11-22T20:21:41Z
+base_sha=54c67aa11a00cb8d22be4e285931510d34320893
+date_utc=2026-11-22T20:52:02Z
 command=bash docs/cloud/reports/evidence/gen-audit-evidence.sh
 # شاهد ساختاری ممیزی ۰۵–۱۱
 # تولید: bash docs/cloud/reports/evidence/gen-audit-evidence.sh
-# تاریخ اجرای آزمون (از لاگ خام): 2026-11-22T20:18:01Z
-# SHA اجرای آزمون (از لاگ خام): ae3743f592206165d15d99a97c30acb234670a7f
-# اثر انگشت کد محصول (log / HEAD): ee0e844c436bffb6f4879c87d8e6389c092483b631dce55e0543eaab9d8de821 / ee0e844c436bffb6f4879c87d8e6389c092483b631dce55e0543eaab9d8de821
+# تاریخ اجرای آزمون (از لاگ خام): 2026-11-22T20:48:35Z
+# SHA اجرای آزمون (از لاگ خام): 54c67aa11a00cb8d22be4e285931510d34320893
+# اثر انگشت کد محصول (log / HEAD): 5da693ea4976d3e6f8318001f2209eb5ce768963d7f429c3144ed138cc25d0d5 / 5da693ea4976d3e6f8318001f2209eb5ce768963d7f429c3144ed138cc25d0d5
 # هش بدنهٔ خام (بازمحاسبه‌شده): d229dd4bf3f7405aa7f0496276cc86f352ba4f887dc2bdc9ebbc84d340a272e1
 # شمارش بدنه: 154 ✓ / 0 ✗ — SUMMARY: SUMMARY pass=154 fail=0
 # آزمون‌های ثبت‌شده: 154 · گزارش‌شده: 154
