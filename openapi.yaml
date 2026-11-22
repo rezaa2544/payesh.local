@@ -2822,6 +2822,16 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/Ok'
+  /payesh/pub/school-servers.json:
+    get:
+      operationId: getSchoolServers
+      tags: [ops]
+      summary: "Row 171: merged address-only list of school servers (own row + bucket list + signed announces), the domain path every app reads first; CORS *"
+      x-source: server/index.js:2267
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
   /install:
     get:
       operationId: getInstall
