@@ -193,8 +193,13 @@ final class SignupTicket {
     required this.schoolName,
     required this.username,
     required this.at,
+    this.via,
   });
   final Uri server;
+
+  /// Row 170 — the server the request was typed on when another (connected) server relayed it;
+  /// the status view of [via] still finds this ticket.
+  final Uri? via;
   final String id;
   final String token;
   final String schoolName;
@@ -208,7 +213,11 @@ final class SignupTicket {
     'school_name': schoolName,
     'username': username,
     'at': at.toUtc().toIso8601String(),
+    'via': ?via?.toString(),
   };
+
+  /// Whether this request belongs to the status view of [s] (sent there or relayed from there).
+  bool belongsTo(Uri s) => server == s || via == s;
 
   static SignupTicket? fromJson(Object? j) {
     if (j is! Map) return null;
@@ -228,6 +237,7 @@ final class SignupTicket {
       schoolName: '${j['school_name'] ?? ''}',
       username: '${j['username'] ?? ''}',
       at: at,
+      via: j['via'] is String ? Uri.tryParse(j['via']! as String) : null,
     );
   }
 }
@@ -406,6 +416,17 @@ final class SubStatus {
     );
   }
 }
+
+/// Row 170 — the reached server could not store a registration request because IT is not (yet)
+/// connected to the Payesh database (or the database did not answer); another, connected server
+/// may relay the same request.
+bool signupNotStoredHere(LanAccessFailure e) =>
+    e.wire == 'not_connected' || e.wire == 'registry_unreachable';
+
+/// Row 170 — a server's own verdict on the request (taken user name, bad field, …): final, the
+/// other servers check the same registry. Network errors (no wire code) are not verdicts.
+bool signupVerdict(LanAccessFailure e) =>
+    e.wire != null && !signupNotStoredHere(e);
 
 /// پیام فارسی خطاهای ثبت‌نام/اشتراک (رشتهٔ `error` سرور).
 String schoolsErrorFa(LanAccessFailure e) => switch (e.wire) {

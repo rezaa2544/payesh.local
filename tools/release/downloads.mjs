@@ -4,6 +4,8 @@
 //   * the body of the GitHub release `downloads` (the «Latest» release, kept on top of the Releases page
 //     by .github/workflows/downloads-page.yml).
 // Categories (owner order, row 169): Windows 64-bit · Windows 32-bit · Android · cloud server · checksums.
+// Row 170 (D-51): ONE school app — the school data service (سرور کمکی) travels inside the school-app
+// setups, so there is no separate «server» download (school-server-continuous is technical only).
 // Every link goes straight to the file (row 161, tests/direct-links-161.js): releases/download/<tag>/<file>.
 // The files themselves are uploaded by their publishers (school-native-publish.yml, owner-native-publish.yml,
 // build.yml); tests/downloads-169.js proves each linked file is in its publisher's ALLOWED set.
@@ -38,7 +40,6 @@ const WIN32 = 'win32-continuous';
 export const APPS = {
   school: { name: '🏫 اپ مدرسه', who: 'مدیر، معاون، معلم، کادر و اولیا' },
   owner: { name: '🔑 پنل مالک', who: 'فقط مالک سامانه' },
-  server: { name: '🗄️ سرور دیتابیس مدرسه', who: 'فقط روی **یک** رایانهٔ مدرسه' },
   cloud: { name: '☁️ سرور ابری', who: 'اختیاری — مدیر فنی' },
 };
 
@@ -48,9 +49,8 @@ export const CATEGORIES = [
     title: '🖥️ ویندوز ۶۴ بیتی',
     sub: 'ویندوز ۷ (SP1)، ۸، ۸٫۱، ۱۰ و ۱۱',
     rows: [
-      { app: 'school', file: [SCHOOL, 'payesh-native-setup.exe'], portable: [SCHOOL, 'payesh-native-windows.zip'], note: 'برای همان کاربر نصب می‌شود؛ نیازی به مدیر سیستم نیست' },
+      { app: 'school', file: [SCHOOL, 'payesh-native-setup.exe'], portable: [SCHOOL, 'payesh-native-windows.zip'], note: 'همه‌کاره: سرور کمکی مدرسه داخل همین نصب است (یک بار «Yes» در پنجرهٔ تأیید ویندوز)' },
       { app: 'owner', file: [OWNER, 'payesh-owner-setup.exe'], portable: [OWNER, 'payesh-owner-windows.zip'], note: 'پنل قبلی را درجا ارتقا می‌دهد و تنظیماتش را نگه می‌دارد' },
-      { app: 'server', file: [SERVER, 'payesh-data-service-setup.exe'], note: 'یک فایل برای ۳۲ و ۶۴ بیتی' },
     ],
   },
   {
@@ -58,9 +58,8 @@ export const CATEGORIES = [
     title: '🖥️ ویندوز ۳۲ بیتی',
     sub: 'ویندوز ۷ (SP1)، ۸، ۸٫۱ و ۱۰',
     rows: [
-      { app: 'school', file: [WIN32, 'payesh-native32-setup.exe'], portable: [WIN32, 'payesh-native32-windows.zip'], note: 'همان اپ و همان ظاهر و دیتابیس؛ برنامهٔ ۳۲ بیتی (D-50)' },
+      { app: 'school', file: [WIN32, 'payesh-native32-setup.exe'], portable: [WIN32, 'payesh-native32-windows.zip'], note: 'همان اپ، همان ظاهر و همان امکانات (سرور کمکی هم داخلش است)؛ برنامهٔ ۳۲ بیتی (D-50)' },
       { app: 'owner', file: [WIN32, 'payesh-owner32-setup.exe'], portable: [WIN32, 'payesh-owner32-windows.zip'], note: 'همان پنل مالک؛ برنامهٔ ۳۲ بیتی (D-50)' },
-      { app: 'server', file: [SERVER, 'payesh-data-service-setup.exe'], note: 'همان فایل ۶۴ بیتی؛ خودش نسخهٔ ۳۲ بیتی را نصب می‌کند' },
     ],
   },
   {
@@ -83,7 +82,6 @@ export const CATEGORIES = [
 export const SUMS = [
   { label: 'اپ مدرسه (ویندوز و اندروید)', file: [SCHOOL, 'SHA256SUMS'] },
   { label: 'پنل مالک (ویندوز و اندروید)', file: [OWNER, 'SHA256SUMS'] },
-  { label: 'سرور دیتابیس مدرسه', file: [SERVER, 'SHA256SUMS'] },
   { label: 'ویندوز ۳۲ بیتی (اپ مدرسه و پنل مالک)', file: [WIN32, 'SHA256SUMS'] },
 ];
 
@@ -94,7 +92,7 @@ export const TECHNICAL = [
   { tag: CLOUD, what: 'مانیفست به‌روزرسانی و بستهٔ سرور ابری (بستهٔ سرور در جدول بالا هست)' },
   { tag: SCHOOL, what: 'محل انتشار اپ مدرسه + مانیفست به‌روزرسانی (app-update.json)' },
   { tag: OWNER, what: 'محل انتشار پنل مالک + مانیفست به‌روزرسانی (owner-update.json)' },
-  { tag: SERVER, what: 'محل انتشار سرور دیتابیس مدرسه' },
+  { tag: SERVER, what: 'سرویس دادهٔ مدرسه برای ساخت نصب‌کننده‌های اپ مدرسه (داخل اپ مدرسه نصب می‌شود؛ ردیف ۱۷۰)' },
   { tag: 'app32-files', what: 'تکه‌های به‌روزرسانی خودکار اپ مدرسهٔ ویندوز ۳۲ بیتی (فقط تغییرات)' },
   { tag: 'owner32-files', what: 'تکه‌های به‌روزرسانی خودکار پنل مالک ویندوز ۳۲ بیتی (فقط تغییرات)' },
   { tag: WIN32, what: 'محل انتشار نسخهٔ ویندوز ۳۲ بیتی + مانیفست‌های به‌روزرسانی (app32-update.json، owner32-update.json)' },
@@ -135,7 +133,7 @@ function sumsTable() {
 const HELP = [
   '**کدام را بگیرم؟**',
   '- **ویندوز ۳۲ یا ۶۴ بیتی؟** ویندوز ۱۰/۱۱: تنظیمات ← System ← About ← «System type». ویندوز ۷/۸: کنترل پنل ← System ← «System type».',
-  '- **سرور دیتابیس مدرسه** فقط روی یک رایانهٔ مدرسه نصب می‌شود. همهٔ اپ‌ها خودشان آن را پیدا می‌کنند و نیازی به وارد کردن نشانی نیست.',
+  '- **فقط اپ مدرسه را نصب کنید.** سرور کمکی مدرسه داخل همان اپ است و برنامهٔ جداگانه‌ای ندارد؛ اینکه کدام رایانه سرور کمکی باشد را مالک در پنل مالک («زیرساخت» ← «سیستم‌های کمکی») تعیین می‌کند. اپ‌ها پس از نصب خودشان به دیتابیس وصل می‌شوند و نیازی به وارد کردن نشانی نیست.',
   '- **پنل مالک** فقط برای مالک سامانه است، نه برای مدرسه.',
   '- نصب‌کننده‌های ویندوز هنوز امضای کد ندارند، پس SmartScreen هشدار می‌دهد: «More info» ← «Run anyway». برای اطمینان، هش فایل را با `SHA256SUMS` مقایسه کنید (`Get-FileHash نام-فایل`).',
   '- 🍎 آیفون/آیپد فایل نصبی ندارد. 🐧 روی لینوکس: `sudo bash install/linux/install.sh`.',
@@ -160,7 +158,6 @@ export function releaseBody(info = {}) {
   const v = [];
   if (info.school_build) v.push(`اپ مدرسه **0.2.${info.school_build}**`);
   if (info.owner_build) v.push(`پنل مالک **1.1.${info.owner_build}**`);
-  if (info.data_service) v.push(`سرور دیتابیس مدرسه **${info.data_service}**`);
   return [
     'این صفحه **فهرست دسته‌بندی‌شدهٔ همهٔ دانلودهای پایش** است. هر لینک مستقیم آخرین نسخهٔ همان فایل را دانلود می‌کند.',
     v.length ? `\nنسخه‌های فعلی: ${v.join(' · ')}` : '',

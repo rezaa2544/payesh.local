@@ -5447,6 +5447,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۷۰: اتصال خودکار سرور مدرسه به دیتابیس با ورود مدیر (بستهٔ مهرشده، بی‌کلید در کد) ── */
+  await test('ردیف ۱۷۰: بستهٔ اتصال — بردار مشترک با Dart، دامنه اول، دنبال کردن base، ورود مدیر ⇒ وصل؛ رمز غلط/بی‌شبکه ⇒ هیچ (۶ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/connect-170.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'connect-170: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|CONNECT-170/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۷۰: پنل وب «نبض» در مرورگر واقعی بالا می‌آید (بدون برخورد نام سراسری اسکریپت‌ها) ── */
   await test('ردیف ۱۷۰: همهٔ اسکریپت‌های client/index.html در یک realm بدون «already been declared» بار می‌شوند',
     async () => {

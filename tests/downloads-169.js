@@ -73,7 +73,9 @@ const RULES = {
     for (const want of ['win64', 'win32', 'android']) assert(ids.includes(want), 'missing category ' + want);
     assert(ids.indexOf('win64') < ids.indexOf('win32') && ids.indexOf('win32') < ids.indexOf('android'), 'order: win64, win32, android');
     const apps = (id) => new Set(M.CATEGORIES.find((c) => c.id === id).rows.map((r) => r.app));
-    const winApps = ['school', 'owner', 'server'];
+    const winApps = ['school', 'owner'];
+    // row 170 (D-51): ONE school app — no separate data-server download anywhere
+    for (const c of M.CATEGORIES) for (const r of c.rows) assert(r.app !== 'server' && !/data-service/.test(r.file[1]), `separate data-server download in ${c.id}`);
     for (const a of winApps) assert(apps('win64').has(a), `win64 lacks ${a}`);
     const miss32 = winApps.filter((a) => !apps('win32').has(a));
     assert(miss32.length === 0, 'Windows 32-bit download missing for: ' + miss32.join(', '));
@@ -132,7 +134,7 @@ function runAll(M, f, body) {
   const body = M.releaseBody({ school_build: 1, owner_build: 1, data_service: '0.0.0', commit: 'abc' });
   check('DP-01', 'README downloads block = generator output', () => RULES.inSync(f, M));
   check('DP-02', 'every linked file is uploaded by its publisher (README + release body)', () => RULES.published(f, M, body));
-  check('DP-03', 'categories win64 → win32 → android; every Windows program in 64 AND 32 bit', () => RULES.categories(M));
+  check('DP-03', 'categories win64 → win32 → android; every Windows program in 64 AND 32 bit; no separate data server (row 170)', () => RULES.categories(M));
   check('DP-04', 'technical releases marked «do not download»; no release-page links', () => RULES.technical(M, body));
   check('DP-05', 'downloads-page.yml keeps the release Latest and on top after every publisher', () => RULES.workflow(f));
 
@@ -146,6 +148,7 @@ function runAll(M, f, body) {
     ['categories', 'school app without a 32-bit download', () => [{ ...M, CATEGORIES: M.CATEGORIES.map((c) => (c.id === 'win32' ? { ...c, rows: c.rows.filter((r) => r.app !== 'school') } : c)) }, f, body]],
     ['published', '32-bit link to a file win32-publish does not upload', () => [M, f, swap(body, 'win32-continuous/payesh-owner32-setup.exe', 'win32-continuous/payesh-owner32-debug.exe')]],
     ['categories', 'owner panel without a 64-bit download', () => [{ ...M, CATEGORIES: M.CATEGORIES.map((c) => (c.id === 'win64' ? { ...c, rows: c.rows.filter((r) => r.app !== 'owner') } : c)) }, f, body]],
+    ['categories', 'separate data-server download back in win32 (row 170)', () => [{ ...M, APPS: { ...M.APPS, server: { name: 's', who: 's' } }, CATEGORIES: M.CATEGORIES.map((c) => (c.id === 'win32' ? { ...c, rows: [...c.rows, { app: 'server', file: ['school-server-continuous', 'payesh-data-service-setup.exe'] }] } : c)) }, f, body]],
     ['technical', 'technical release not listed', () => [M, f, swap(body, '`owner-files`', '`x`')]],
     ['workflow', 'release not marked Latest', () => [M, files({ page: swap(f.page, 'create "$T" -R "$R" --target main --latest', 'create "$T" -R "$R" --target main') }), body]],
     ['workflow', 'not kept on top', () => [M, files({ page: swap(f.page, 'gh release delete "$T"', 'echo') }), body]],

@@ -1213,7 +1213,7 @@ class SessionController extends ChangeNotifier {
     } on Object {
       t = null;
     }
-    if (t != null && t.server != info.server) t = null;
+    if (t != null && !t.belongsTo(info.server)) t = null;
     _set(NeedSignup(info, ticket: t));
     if (t != null) await checkSignup();
   }
@@ -1242,14 +1242,24 @@ class SessionController extends ChangeNotifier {
       } on Object {
         dh = null;
       }
-      final r = await api.register(s.info.server, form, deviceHash: dh);
+      var at = s.info.server;
+      ({String id, String token}) r;
+      try {
+        r = await api.register(at, form, deviceHash: dh);
+      } on LanAccessFailure catch (e) {
+        if (!signupNotStoredHere(e)) rethrow;
+        final relay = await _registerElsewhere(api, at, form, dh);
+        if (relay == null) rethrow;
+        (at, r) = relay;
+      }
       final t = SignupTicket(
-        server: s.info.server,
+        server: at,
         id: r.id,
         token: r.token,
         schoolName: form.schoolName.trim(),
         username: form.normalizedUsername,
         at: _now(),
+        via: at == s.info.server ? null : s.info.server,
       );
       await signupStore.save(t);
       _set(
@@ -1267,6 +1277,37 @@ class SessionController extends ChangeNotifier {
     } on Object {
       _set(NeedSignup(s.info, error: _unknown));
     }
+  }
+
+  /// Row 170 — the server this device reached is not (yet) connected to the Payesh database, so
+  /// the request would never reach the owner panel. Any other listed server that IS connected
+  /// relays it (the request lands in the same registry); the ticket then follows that server.
+  Future<(Uri, ({String id, String token}))?> _registerElsewhere(
+    LanSchoolsApi api,
+    Uri tried,
+    SchoolSignup form,
+    String? deviceHash,
+  ) async {
+    final dir = directory;
+    if (dir == null) return null;
+    List<Uri> list;
+    try {
+      list = await dir.candidates();
+    } on Object {
+      return null;
+    }
+    for (final u in list) {
+      if (u.toString() == tried.toString()) continue;
+      try {
+        return (u, await api.register(u, form, deviceHash: deviceHash));
+      } on LanAccessFailure catch (e) {
+        // A taken username / bad field is final: the other server checked the same registry.
+        if (signupVerdict(e)) rethrow;
+      } on Object {
+        continue;
+      }
+    }
+    return null;
   }
 
   /// «بررسی وضعیت» of the saved request.

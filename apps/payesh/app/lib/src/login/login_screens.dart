@@ -6,6 +6,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../app.dart';
 import '../sync_badge.dart';
+import '../pulse/pulse.dart';
 import '../flags.dart';
 import 'paywall.dart';
 import '../support/support_screen.dart';
@@ -20,6 +21,7 @@ class SessionGate extends StatelessWidget {
     required this.controller,
     this.home,
     this.pages,
+    this.nav,
   });
 
   final SessionController controller;
@@ -29,6 +31,9 @@ class SessionGate extends StatelessWidget {
 
   /// Native pages of later waves for the signed-in user (row 74, wave 2+).
   final Widget Function(BuildContext context, SignedIn state)? pages;
+
+  /// Row 170: the «نبض» sidebar / drawer pages of the signed-in user.
+  final List<PulseNavItem> Function(BuildContext context, SignedIn state)? nav;
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +70,7 @@ class SessionGate extends StatelessWidget {
           state: s,
           home: home,
           pages: pages,
+          nav: nav,
         ),
       },
     );
@@ -329,19 +335,37 @@ class _ActivationScreenState extends State<ActivationScreen> {
 
 /// Signed-in shell: school + role, the visible sync badge, sign-out (two steps) and the switch
 /// to the old client. The page body is the existing home content.
-class SignedInScreen extends StatelessWidget {
+class SignedInScreen extends StatefulWidget {
   const SignedInScreen({
     super.key,
     required this.controller,
     required this.state,
     this.home,
     this.pages,
+    this.nav,
   });
 
   final SessionController controller;
   final SignedIn state;
   final Widget? home;
   final Widget Function(BuildContext context, SignedIn state)? pages;
+
+  /// Row 170: «نبض» navigation (sidebar on a wide window, drawer on a phone).
+  final List<PulseNavItem> Function(BuildContext context, SignedIn state)? nav;
+
+  @override
+  State<SignedInScreen> createState() => _SignedInScreenState();
+}
+
+class _SignedInScreenState extends State<SignedInScreen> {
+  SessionController get controller => widget.controller;
+  SignedIn get state => widget.state;
+  Widget? get home => widget.home;
+  Widget Function(BuildContext context, SignedIn state)? get pages =>
+      widget.pages;
+
+  /// `dashboard` or the id of the page shown inside the wide shell.
+  String _selected = 'dashboard';
 
   Future<void> _confirmSignOut(BuildContext context) async {
     final waiting = controller.sync.value.waiting;
@@ -385,134 +409,231 @@ class SignedInScreen extends StatelessWidget {
     if (ok == true) await controller.signOut();
   }
 
+  Widget _menu(BuildContext context) => PopupMenuButton<String>(
+    key: const Key('session-menu'),
+    tooltip: 'گزینه‌ها',
+    onSelected: (v) => switch (v) {
+      'legacy' => controller.useLegacy(),
+      'lock' => controller.lock(),
+      _ => _confirmSignOut(context),
+    },
+    itemBuilder: (_) => [
+      // row 128 / W7: web `lock` (LAN: unlocking asks the school server)
+      if (controller.canLock &&
+          controller.flags.usesSchool(SchoolWave.accounts))
+        const PopupMenuItem(
+          key: Key('lock'),
+          value: 'lock',
+          child: Text('قفل برنامه'),
+        ),
+      const PopupMenuItem(
+        key: Key('use-legacy'),
+        value: 'legacy',
+        child: Text('استفاده از نسخهٔ قبلی (وب)'),
+      ),
+      const PopupMenuItem(
+        key: Key('sign-out'),
+        value: 'sign-out',
+        child: Text('خروج از این دستگاه'),
+      ),
+    ],
+  );
+
+  Widget _badge() => Padding(
+    padding: const EdgeInsetsDirectional.only(end: PayeshTokens.space2),
+    child: Center(
+      child: SyncBadge(status: controller.sync, onRetry: controller.refresh),
+    ),
+  );
+
+  Widget _dashboard(BuildContext context, double side) {
+    final role = state.roleFa;
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        side,
+        PayeshTokens.space4,
+        side,
+        PayeshTokens.space6,
+      ),
+      children: [
+        // Row 165: one clean header card — school, role, how this device is connected.
+        PayeshHeaderCard(
+          key: const Key('session-header'),
+          title: state.schoolName ?? state.school,
+          titleKey: const Key('session-school'),
+          chips: [
+            if (role != null) StatusBadge(role, key: const Key('session-role')),
+          ],
+          lines: [
+            if (state.lanServer case final srv?)
+              Row(
+                key: const Key('session-lan-server'),
+                children: [
+                  Icon(
+                    srv.scheme == 'https' ? Icons.public : Icons.lan_outlined,
+                    size: 16,
+                    color: context.tokens.muted,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      srv.scheme == 'https'
+                          ? 'وصل از راه اینترنت'
+                          : LanServerRules.isLoopbackHost(srv.host)
+                          ? 'سرور مدرسه روی همین رایانه'
+                          : 'وصل در شبکهٔ مدرسه',
+                    ),
+                  ),
+                ],
+              ),
+            if (state.lanServer != null &&
+                LanServerRules.isLoopbackHost(state.lanServer!.host) &&
+                controller.lanShareUrls.isNotEmpty)
+              SelectableText(
+                'نشانی برای دستگاه‌های دیگر مدرسه: ${controller.lanShareUrls.join('  ·  ')}',
+                key: const Key('session-lan-share'),
+              ),
+          ],
+        ),
+        if (controller.paywalled) ...[
+          const SizedBox(height: PayeshTokens.space4),
+          PaywallView(controller: controller),
+        ] else ...[
+          if (controller.sub case final sub?
+              when sub.managed && sub.status != 'free')
+            Padding(
+              padding: const EdgeInsets.only(top: PayeshTokens.space3),
+              child: SubBanner(controller: controller, sub: sub),
+            ),
+          if (pages != null) ...[
+            const SizedBox(height: PayeshTokens.space5),
+            pages!(context, state),
+          ],
+          const SizedBox(height: PayeshTokens.space6),
+          home ?? const HomeBody(),
+        ],
+        // Row 152: support for every role — also on the paywall (payment problems).
+        if (controller.supportAvailable) ...[
+          const SizedBox(height: PayeshTokens.space4),
+          SupportEntry(controller: controller),
+        ],
+      ],
+    );
+  }
+
+  void _open(BuildContext context, PulseNavItem m) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: m.page));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final role = state.roleFa;
     final w = MediaQuery.sizeOf(context).width;
-    final side = w > 1000 ? (w - 960) / 2 : PayeshTokens.space4;
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: PayeshTokens.space4,
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PayeshBrandMark(size: 30),
-            SizedBox(width: 10),
-            Text('پایش', style: TextStyle(fontWeight: FontWeight.w800)),
-          ],
+    final nav = controller.paywalled
+        ? const <PulseNavItem>[]
+        : (widget.nav?.call(context, state) ?? const <PulseNavItem>[]);
+    final wide = w >= pulseWideBreakpoint && nav.isNotEmpty;
+    final brand = const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PayeshBrandMark(size: 30),
+        SizedBox(width: 10),
+        Text('پایش', style: TextStyle(fontWeight: FontWeight.w800)),
+      ],
+    );
+    if (!wide) {
+      final side = w > 1000 ? (w - 960) / 2 : PayeshTokens.space4;
+      return Scaffold(
+        appBar: AppBar(
+          titleSpacing: PayeshTokens.space4,
+          title: brand,
+          actions: [_badge(), _menu(context)],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: PayeshTokens.space2),
-            child: Center(
-              child: SyncBadge(
-                status: controller.sync,
-                onRetry: controller.refresh,
-              ),
-            ),
-          ),
-          PopupMenuButton<String>(
-            key: const Key('session-menu'),
-            tooltip: 'گزینه‌ها',
-            onSelected: (v) => switch (v) {
-              'legacy' => controller.useLegacy(),
-              'lock' => controller.lock(),
-              _ => _confirmSignOut(context),
-            },
-            itemBuilder: (_) => [
-              // row 128 / W7: web `lock` (LAN: unlocking asks the school server)
-              if (controller.canLock &&
-                  controller.flags.usesSchool(SchoolWave.accounts))
-                const PopupMenuItem(
-                  key: Key('lock'),
-                  value: 'lock',
-                  child: Text('قفل برنامه'),
-                ),
-              const PopupMenuItem(
-                key: Key('use-legacy'),
-                value: 'legacy',
-                child: Text('استفاده از نسخهٔ قبلی (وب)'),
-              ),
-              const PopupMenuItem(
-                key: Key('sign-out'),
-                value: 'sign-out',
-                child: Text('خروج از این دستگاه'),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          side,
-          PayeshTokens.space4,
-          side,
-          PayeshTokens.space6,
-        ),
-        children: [
-          // Row 165: one clean header card — school, role, how this device is connected.
-          PayeshHeaderCard(
-            key: const Key('session-header'),
-            title: state.schoolName ?? state.school,
-            titleKey: const Key('session-school'),
-            chips: [
-              if (role != null)
-                StatusBadge(role, key: const Key('session-role')),
-            ],
-            lines: [
-              if (state.lanServer case final srv?)
-                Row(
-                  key: const Key('session-lan-server'),
-                  children: [
-                    Icon(
-                      srv.scheme == 'https' ? Icons.public : Icons.lan_outlined,
-                      size: 16,
-                      color: context.tokens.muted,
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        srv.scheme == 'https'
-                            ? 'وصل از راه اینترنت'
-                            : LanServerRules.isLoopbackHost(srv.host)
-                            ? 'سرور مدرسه روی همین رایانه'
-                            : 'وصل در شبکهٔ مدرسه',
+        drawer: nav.isEmpty
+            ? null
+            : Drawer(
+                key: const Key('pulse-drawer'),
+                child: SafeArea(
+                  child: ListView(
+                    padding: const EdgeInsets.all(PayeshTokens.space3),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(PayeshTokens.space2),
+                        child: brand,
                       ),
-                    ),
-                  ],
+                      if ((state.schoolName ?? state.school).isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: PayeshTokens.space2,
+                          ),
+                          child: Text(
+                            state.schoolName ?? state.school,
+                            style: TextStyle(color: context.tokens.muted),
+                          ),
+                        ),
+                      const Divider(),
+                      ListTile(
+                        key: const Key('drawer-dashboard'),
+                        leading: const Icon(Icons.home_outlined),
+                        title: const Text('داشبورد'),
+                        selected: true,
+                        onTap: () => Navigator.of(context).pop(),
+                      ),
+                      for (final m in nav)
+                        ListTile(
+                          key: Key('drawer-${m.id}'),
+                          leading: Icon(m.icon),
+                          title: Text(m.label),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            _open(context, m);
+                          },
+                        ),
+                    ],
+                  ),
                 ),
-              if (state.lanServer != null &&
-                  LanServerRules.isLoopbackHost(state.lanServer!.host) &&
-                  controller.lanShareUrls.isNotEmpty)
-                SelectableText(
-                  'نشانی برای دستگاه‌های دیگر مدرسه: ${controller.lanShareUrls.join('  ·  ')}',
-                  key: const Key('session-lan-share'),
-                ),
+              ),
+        body: _dashboard(context, side),
+      );
+    }
+    final selected = nav.any((m) => m.id == _selected)
+        ? _selected
+        : 'dashboard';
+    final contentW = w - 250;
+    final side = contentW > 1060 ? (contentW - 1000) / 2 : PayeshTokens.space5;
+    final page = selected == 'dashboard'
+        ? _dashboard(context, side)
+        : PulseInline(
+            child: KeyedSubtree(
+              key: ValueKey('pulse-page-$selected'),
+              child: nav.firstWhere((m) => m.id == selected).page(context),
+            ),
+          );
+    final role = state.roleFa;
+    return Scaffold(
+      key: const Key('pulse-shell'),
+      body: PayeshBackdrop(
+        child: SafeArea(
+          child: Row(
+            children: [
+              PulseSidebar(
+                items: nav,
+                selected: selected,
+                onSelected: (id) => setState(() => _selected = id),
+                school: state.schoolName ?? state.school,
+                account: role,
+                footer: [
+                  Row(
+                    children: [
+                      Flexible(child: _badge()),
+                      _menu(context),
+                    ],
+                  ),
+                ],
+              ),
+              Expanded(child: page),
             ],
           ),
-          if (controller.paywalled) ...[
-            const SizedBox(height: PayeshTokens.space4),
-            PaywallView(controller: controller),
-          ] else ...[
-            if (controller.sub case final sub?
-                when sub.managed && sub.status != 'free')
-              Padding(
-                padding: const EdgeInsets.only(top: PayeshTokens.space3),
-                child: SubBanner(controller: controller, sub: sub),
-              ),
-            if (pages != null) ...[
-              const SizedBox(height: PayeshTokens.space5),
-              pages!(context, state),
-            ],
-            const SizedBox(height: PayeshTokens.space6),
-            home ?? const HomeBody(),
-          ],
-          // Row 152: support for every role — also on the paywall (payment problems).
-          if (controller.supportAvailable) ...[
-            const SizedBox(height: PayeshTokens.space4),
-            SupportEntry(controller: controller),
-          ],
-        ],
+        ),
       ),
     );
   }

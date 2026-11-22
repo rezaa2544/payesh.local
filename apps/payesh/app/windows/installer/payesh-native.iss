@@ -82,3 +82,8 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Start Payesh"; Flags: nowait postinstall skipifsilent
+
+; Row 170 (D-51): the school data service travels inside the school-app setup (one app, every role)
+#ifdef DataService
+#include "..\..\..\..\..\install\windows\data-service\embed.isi"
+#endif

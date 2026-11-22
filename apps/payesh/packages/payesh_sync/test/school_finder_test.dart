@@ -106,6 +106,7 @@ void main() {
 
     SchoolDirectoryClient client() => SchoolDirectoryClient(
       url: Uri.parse('http://127.0.0.1:${server.port}/pub/school-servers.json'),
+      useDomain: false,
       client: HttpClient(),
       now: () => now,
     );
@@ -223,9 +224,70 @@ void main() {
 
     test('DF-05 no list in this build (no PAYESH_SERVERS_URL) ⇒ no request, no candidates', () async {
       expect(SchoolDirectoryClient.defaultUrl, isNull);
-      final c = SchoolDirectoryClient(client: HttpClient());
+      final c = SchoolDirectoryClient(client: HttpClient(), useDomain: false);
       expect(await c.candidates(), isEmpty);
       expect(seenHeaders, isEmpty);
+    });
+
+    test('DF-170 row 170: the domain copy is read first; down / invalid ⇒ the baked list', () async {
+      expect(
+        SchoolDirectoryClient.defaultDomainUrl.toString(),
+        'https://payeshschool.ir/payesh/pub/school-servers.json',
+      );
+      final dom = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => dom.close(force: true));
+      var domStatus = 200;
+      var domBody = '';
+      final hits = <String>[];
+      dom.listen((req) {
+        hits.add(req.uri.path);
+        req.response
+          ..statusCode = domStatus
+          ..write(domBody);
+        unawaited(req.response.close());
+      });
+      String list(String instance, String lan) => jsonEncode({
+        'v': 1,
+        'kind': 'payesh-school-servers',
+        'servers': [
+          {
+            'instance': instance,
+            'lan': [lan],
+            'at': now.subtract(const Duration(minutes: 1)).toIso8601String(),
+          },
+        ],
+      });
+      domBody = list('moved', 'http://192.168.7.7:8080');
+      body = list('baked', 'http://192.168.1.10:8080');
+      final domPort = dom.port;
+      SchoolDirectoryClient c() => SchoolDirectoryClient(
+        url: Uri.parse(
+          'http://127.0.0.1:${server.port}/pub/school-servers.json',
+        ),
+        domain: Uri.parse(
+          'http://127.0.0.1:$domPort/payesh/pub/school-servers.json',
+        ),
+        client: HttpClient(),
+        now: () => now,
+      );
+      expect((await c().entries()).single.instance, 'moved');
+      expect(
+        seenHeaders,
+        isEmpty,
+        reason: 'the baked list is not asked when the domain answers',
+      );
+      domStatus = 404;
+      expect((await c().entries()).single.instance, 'baked');
+      domStatus = 200;
+      domBody = '<html>parked domain</html>';
+      expect((await c().entries()).single.instance, 'baked');
+      await dom.close(force: true);
+      expect(
+        (await c().entries()).single.instance,
+        'baked',
+        reason: 'domain down',
+      );
+      expect(hits, everyElement('/payesh/pub/school-servers.json'));
     });
   });
 

@@ -13,6 +13,7 @@ import 'grades/grades_screen.dart';
 import 'login/login_screens.dart';
 import 'notices/notices_controller.dart';
 import 'notices/notices_screen.dart';
+import 'pulse/pulse.dart';
 import 'school/school_entry.dart';
 import 'school/school_source.dart';
 import 'login/session_controller.dart';
@@ -71,41 +72,27 @@ class PayeshApp extends StatelessWidget {
 
   static const Locale fa = PayeshUi.locale;
 
-  Widget _pages(BuildContext context, SessionController s, SignedIn state) {
+  /// Route builders of the wave pages (null = not available for this user / build).
+  ({
+    WidgetBuilder? attendance,
+    WidgetBuilder? grades,
+    WidgetBuilder? notices,
+    WidgetBuilder? family,
+  })
+  _routes(SessionController s, SignedIn state) {
     final src = attendance;
     final gsrc = grades;
     final nsrc = notices;
     final fsrc = family;
     final role = state.currentRole;
     final uid = state.currentUid;
-    final fam = FamilyEntry(
-      enabled: fsrc != null && s.flags.uses(NativeWave.parents),
-      role: role,
-      uid: uid,
-      open: () {
-        if (fsrc == null || role == null || uid == null) return;
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => FamilyRoute(
-              source: fsrc,
-              role: role,
-              uid: uid,
-              sync: s.sync,
-              onRetry: onRetrySync,
-            ),
-          ),
-        );
-      },
-    );
-    final att = AttendanceEntry(
-      enabled: src != null && s.flags.uses(NativeWave.attendance),
-      role: role,
-      uid: uid,
-      open: () {
-        if (src == null || role == null || uid == null) return;
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => AttendanceRoute(
+    if (role == null || uid == null) {
+      return (attendance: null, grades: null, notices: null, family: null);
+    }
+    return (
+      attendance: src == null
+          ? null
+          : (_) => AttendanceRoute(
               source: src,
               role: role,
               uid: uid,
@@ -113,8 +100,71 @@ class PayeshApp extends StatelessWidget {
               onRetry: onRetrySync,
               now: today,
             ),
-          ),
-        );
+      grades: gsrc == null
+          ? null
+          : (_) => GradesRoute(
+              source: gsrc,
+              role: role,
+              uid: uid,
+              sync: s.sync,
+              onRetry: onRetrySync,
+            ),
+      notices: nsrc == null
+          ? null
+          : (_) => NoticesRoute(
+              source: nsrc,
+              role: role,
+              uid: uid,
+              sync: s.sync,
+              onRetry: onRetrySync,
+            ),
+      family: fsrc == null
+          ? null
+          : (_) => FamilyRoute(
+              source: fsrc,
+              role: role,
+              uid: uid,
+              sync: s.sync,
+              onRetry: onRetrySync,
+            ),
+    );
+  }
+
+  ({
+    FamilyEntry fam,
+    AttendanceEntry att,
+    GradesEntry grd,
+    NoticesEntry ntc,
+    SchoolEntry sch,
+  })
+  _entries(BuildContext context, SessionController s, SignedIn state) {
+    final src = attendance;
+    final gsrc = grades;
+    final nsrc = notices;
+    final fsrc = family;
+    final role = state.currentRole;
+    final uid = state.currentUid;
+    final r = _routes(s, state);
+    final fam = FamilyEntry(
+      enabled: fsrc != null && s.flags.uses(NativeWave.parents),
+      role: role,
+      uid: uid,
+      open: () {
+        final b = r.family;
+        if (b != null) {
+          Navigator.of(context).push(MaterialPageRoute<void>(builder: b));
+        }
+      },
+    );
+    final att = AttendanceEntry(
+      enabled: src != null && s.flags.uses(NativeWave.attendance),
+      role: role,
+      uid: uid,
+      open: () {
+        final b = r.attendance;
+        if (b != null) {
+          Navigator.of(context).push(MaterialPageRoute<void>(builder: b));
+        }
       },
     );
     final grd = GradesEntry(
@@ -122,18 +172,10 @@ class PayeshApp extends StatelessWidget {
       role: role,
       uid: uid,
       open: () {
-        if (gsrc == null || role == null || uid == null) return;
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => GradesRoute(
-              source: gsrc,
-              role: role,
-              uid: uid,
-              sync: s.sync,
-              onRetry: onRetrySync,
-            ),
-          ),
-        );
+        final b = r.grades;
+        if (b != null) {
+          Navigator.of(context).push(MaterialPageRoute<void>(builder: b));
+        }
       },
     );
     final ntc = NoticesEntry(
@@ -141,18 +183,10 @@ class PayeshApp extends StatelessWidget {
       role: role,
       uid: uid,
       open: () {
-        if (nsrc == null || role == null || uid == null) return;
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => NoticesRoute(
-              source: nsrc,
-              role: role,
-              uid: uid,
-              sync: s.sync,
-              onRetry: onRetrySync,
-            ),
-          ),
-        );
+        final b = r.notices;
+        if (b != null) {
+          Navigator.of(context).push(MaterialPageRoute<void>(builder: b));
+        }
       },
     );
     final sch = SchoolEntry(
@@ -163,6 +197,54 @@ class PayeshApp extends StatelessWidget {
       sync: s.sync,
       onRetry: onRetrySync,
     );
+    return (fam: fam, att: att, grd: grd, ntc: ntc, sch: sch);
+  }
+
+  /// Row 170: the «نبض» navigation — every page this user has, in the web sidebar order.
+  List<PulseNavItem> _nav(
+    BuildContext context,
+    SessionController s,
+    SignedIn state,
+  ) {
+    final e = _entries(context, s, state);
+    final r = _routes(s, state);
+    return pulseSorted([
+      ...e.sch.navItems(),
+      if (e.att.isTile && r.attendance != null)
+        PulseNavItem(
+          id: 'attendance',
+          label: 'حضور و غیاب',
+          icon: Icons.how_to_reg_outlined,
+          page: r.attendance!,
+        ),
+      if (e.grd.isTile && r.grades != null)
+        PulseNavItem(
+          id: 'grades',
+          label: 'ثبت نمره',
+          icon: Icons.grading_outlined,
+          page: r.grades!,
+        ),
+      if (e.ntc.isTile && r.notices != null)
+        PulseNavItem(
+          id: 'notices',
+          label: 'اطلاعیه‌ها',
+          icon: Icons.campaign_outlined,
+          page: r.notices!,
+        ),
+      if (e.fam.isTile && r.family != null)
+        PulseNavItem(
+          id: 'family',
+          label: 'فرزندان من',
+          icon: Icons.family_restroom_outlined,
+          page: r.family!,
+        ),
+    ]);
+  }
+
+  Widget _pages(BuildContext context, SessionController s, SignedIn state) {
+    final e = _entries(context, s, state);
+    final (fam, att, grd, ntc, sch) = (e.fam, e.att, e.grd, e.ntc, e.sch);
+    final hero = sch.pulseHero();
     // Row 165: equal tiles in three short sections; entries that are not tiles (the page is
     // still on the web, or the user must connect once) become one calm note line each.
     final groups = sch.hasTiles
@@ -190,6 +272,8 @@ class PayeshApp extends StatelessWidget {
       children: [
         // Row 165: a new version is a clear card with «نصب» (the small light alone was missed).
         if (updater case final u?) UpdateBanner(updater: u, openUrl: openUrl),
+        // Row 170: «نبض امروز مدرسه» of the web panel on the manager's home
+        ?hero,
         if (daily.isNotEmpty)
           PayeshTileSection(title: 'کار روزانه', tiles: daily),
         if (groups['school'] case final t? when t.isNotEmpty) ...[
@@ -210,6 +294,7 @@ class PayeshApp extends StatelessWidget {
     final s = session;
     final u = updater;
     return PayeshMaterialApp(
+      look: PayeshLook.nabd,
       overlay: u == null
           ? null
           : AutoUpdateCheck(
@@ -222,6 +307,7 @@ class PayeshApp extends StatelessWidget {
               controller: s,
               home: HomeFooter(storage: storage, today: today),
               pages: (context, state) => _pages(context, s, state),
+              nav: (context, state) => _nav(context, s, state),
             ),
     );
   }

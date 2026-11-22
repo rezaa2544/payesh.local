@@ -99,3 +99,10 @@ Name: "{autodesktop}\{#AppName} (32-bit)"; Filename: "{app}\{#AppExeName}"; Work
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Start {#AppName}"; Flags: nowait postinstall skipifsilent
+
+; Row 170 (D-51): the school data service travels inside the school-app setup (one app, every role)
+#if Edition != "owner"
+#ifdef DataService
+#include "..\..\..\install\windows\data-service\embed.isi"
+#endif
+#endif

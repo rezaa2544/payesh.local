@@ -1,0 +1,53 @@
+; ═══════════════════════════════════════════════════════════════════
+;  Row 170 (D-51) — ONE school app: the school-app installers (64-bit native
+;  payesh-native.iss and 32-bit web32 payesh-web32.iss, Edition=app) carry the
+;  school data service (payesh-data-service-setup.exe, AppId {9B1F0C52-…}) and
+;  install it with one UAC prompt. There is no separate "data server" download;
+;  whether this PC serves other systems (سرور کمکی) is the owner's infra policy.
+;  The app folder stays node-free (the service lives in Program Files\PayeshDataService).
+;  Include ONLY when the builder passes /DDataService=<path of the built setup>.
+;    /NODATASERVICE on the app setup command line skips the service.
+;    /DDataServiceVersion=<its AppVersion>: already that version ⇒ skipped (silent app updates never prompt UAC again).
+; ═══════════════════════════════════════════════════════════════════
+#ifndef DataService
+  #error embed.isi needs /DDataService=<payesh-data-service-setup.exe>
+#endif
+#if !FileExists(DataService)
+  #error DataService setup not found: {#DataService}
+#endif
+#ifndef DataServiceVersion
+  #error embed.isi needs /DDataServiceVersion=<the AppVersion the service setup was built with>
+#endif
+
+[Files]
+Source: "{#DataService}"; DestDir: "{tmp}"; DestName: "payesh-data-service-setup.exe"; Flags: deleteafterinstall ignoreversion; Check: WantDataService
+
+[Run]
+Filename: "{tmp}\payesh-data-service-setup.exe"; Parameters: "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"; Verb: "runas"; Flags: shellexec waituntilterminated; StatusMsg: "Installing the Payesh school data service..."; Check: WantDataService
+
+[Code]
+const
+  DataServiceKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{9B1F0C52-7D3A-4E59-A6C1-2F8E4D7B3A61}_is1';
+
+function DataServiceInstalledVersion(): String;
+var
+  V: String;
+begin
+  Result := '';
+  if IsWin64 then begin
+    if RegQueryStringValue(HKLM64, DataServiceKey, 'DisplayVersion', V) then Result := V;
+  end;
+  if (Result = '') and RegQueryStringValue(HKLM32, DataServiceKey, 'DisplayVersion', V) then Result := V;
+end;
+
+function WantDataService(): Boolean;
+var
+  Have: String;
+begin
+  Result := Pos('/NODATASERVICE', Uppercase(GetCmdTail)) = 0;
+  if not Result then exit;
+  Have := DataServiceInstalledVersion();
+  // DisplayVersion of an Inno setup = its AppVersion
+  if Have = '{#DataServiceVersion}' then
+    Result := False;
+end;

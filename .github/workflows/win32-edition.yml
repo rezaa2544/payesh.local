@@ -27,11 +27,13 @@ on:
       - 'tools/web32/**'
       - 'tools/owner-update-manifest.mjs'
       - 'tools/native-independence-gate.mjs'
+      - 'install/windows/data-service/**'
       - '.github/workflows/win32-edition.yml'
   pull_request:
     paths:
       - 'apps/payesh/**'
       - 'tools/web32/**'
+      - 'install/windows/data-service/**'
       - '.github/workflows/win32-edition.yml'
   workflow_dispatch:
 
@@ -81,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           export CHROME_EXECUTABLE="$(command -v google-chrome || command -v chromium)"
-          flutter test --platform chrome test/web32_registry_170_test.dart | tee "$GITHUB_WORKSPACE/web32-registry-170.txt"
+          flutter test --platform chrome --reporter expanded test/web32_registry_170_test.dart | tee "$GITHUB_WORKSPACE/web32-registry-170.txt"
           grep -q 'All tests passed' "$GITHUB_WORKSPACE/web32-registry-170.txt"
       - name: sqlite3mc.wasm (pinned sha256)
         run: |
@@ -210,10 +212,23 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # ردیف ۱۷۰ (D-51): سرویس دادهٔ مدرسه درون نصب‌کنندهٔ اپ ۳۲ بیتی (همان نصب‌کنندهٔ منتشرشده، با SHA256SUMS)
+          $rel = 'https://github.com/rezaa2544/payesh.local/releases/download/school-server-continuous'
+          $ds = Join-Path $env:RUNNER_TEMP 'payesh-data-service-setup.exe'
+          Invoke-WebRequest -Uri "$rel/payesh-data-service-setup.exe" -OutFile $ds -UseBasicParsing
+          $sums = (Invoke-WebRequest -Uri "$rel/SHA256SUMS" -UseBasicParsing).Content
+          if ($sums -is [byte[]]) { $sums = [Text.Encoding]::UTF8.GetString($sums) }
+          $line = @($sums -split "`n" | Where-Object { $_ -match '\s+\*?payesh-data-service-setup\.exe\s*$' })[0]
+          if (-not $line) { throw 'payesh-data-service-setup.exe not in SHA256SUMS' }
+          $got = (Get-FileHash $ds -Algorithm SHA256).Hash.ToLower()
+          if ($got -ne ($line -split '\s+')[0].ToLower()) { throw "data service sha256 mismatch: $got" }
+          $dsv = (Get-Item $ds).VersionInfo.ProductVersion
+          if (-not $dsv -or $dsv -match '^0(\.0)*$') { $dsv = 'unknown' }
+          "DATA-SERVICE sha256=$got version=$dsv" | Tee-Object -FilePath web32-out\data-service-170.txt
           $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
           if (-not $iscc) { choco install innosetup --no-progress -y | Out-Null; $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse | Select-Object -First 1).FullName }
           "ISCC: $iscc"
-          & $iscc /DEdition=app "/DAppVersion=0.2.$env:RUN" /DBundle=web32-out\app tools\web32\installer\payesh-web32.iss | Out-File web32-out\iscc-app.log
+          & $iscc /DEdition=app "/DAppVersion=0.2.$env:RUN" /DBundle=web32-out\app "/DDataService=$ds" "/DDataServiceVersion=$dsv" tools\web32\installer\payesh-web32.iss | Out-File web32-out\iscc-app.log
           if ($LASTEXITCODE -ne 0) { Get-Content web32-out\iscc-app.log -Tail 20; throw 'ISCC app' }
           & $iscc /DEdition=owner "/DAppVersion=1.1.$env:RUN" /DBundle=web32-out\owner tools\web32\installer\payesh-web32.iss | Out-File web32-out\iscc-owner.log
           if ($LASTEXITCODE -ne 0) { Get-Content web32-out\iscc-owner.log -Tail 20; throw 'ISCC owner' }
@@ -229,6 +244,15 @@ jobs:
             $p = Start-Process "web32-out\$($e.setup)" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',"/LOG=web32-out\setup-$($e.a).log" -Wait -PassThru
             if ($p.ExitCode -ne 0) { throw "setup $($e.a) exit $($p.ExitCode)" }
             if (-not (Test-Path (Join-Path $dir $e.exe))) { throw "not installed: $dir" }
+            if ($e.a -eq 'app') {
+              # ردیف ۱۷۰: اپ مدرسهٔ ۳۲ بیتی سرویس داده را هم نصب کرده است؛ پوشهٔ برنامه بدون node.exe
+              $dsDir = Join-Path $env:ProgramFiles 'PayeshDataService'
+              foreach ($f in 'node.exe','server\start.js','unins000.exe') {
+                if (-not (Test-Path (Join-Path $dsDir $f))) { throw "embedded data service not installed: $f" }
+              }
+              if (Test-Path (Join-Path $dir 'node.exe')) { throw 'node.exe inside the app folder' }
+              'EMBEDDED-DATA-SERVICE-OK web32' | Tee-Object -Append -FilePath $log
+            }
             # the 64-bit app's shortcut names ("Payesh", "Payesh Owner Panel") are never taken
             $sm = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
             $lnk = @(Get-ChildItem $sm -Filter '*.lnk' | Where-Object { $_.Name -like 'Payesh*' } | ForEach-Object Name)

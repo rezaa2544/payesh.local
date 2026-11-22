@@ -62,6 +62,9 @@ WizardStyle=modern
 CloseApplications=yes
 UninstallDisplayName=Payesh Data Service
 VersionInfoDescription=Payesh school data service (API only, for the native app)
+; Row 170: the school-app setups that carry this service read its version from here
+VersionInfoVersion={#AppVersion}
+VersionInfoProductVersion={#AppVersion}
 
 [Files]
 Source: "{#StageDir}\node.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: Is64BitInstallMode

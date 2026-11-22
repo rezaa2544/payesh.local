@@ -14,6 +14,7 @@ import 'infra/arch_card.dart';
 import 'infra/connect_modes_card.dart';
 import 'infra/infra_card.dart';
 import 'infra/server_panel.dart';
+import 'local/connect_bundle.dart';
 import 'local/local_account.dart';
 import 'local/local_platform.dart';
 import 'local/local_screens.dart';
@@ -57,7 +58,13 @@ class OwnerApp extends StatefulWidget {
     this.dbAutoCheck = true,
     this.metricsFetcher,
     this.backupDir,
+    this.connectBases,
   });
+
+  /// ردیف ۱۷۰: پایه‌های «بستهٔ اتصال» (payeshschool.ir اول). با ورود مالک روی دستگاه تازه،
+  /// دیتابیس از بستهٔ مهرشده با شناسه + رمز + کد خودکار تنظیم می‌شود و روی دستگاهِ وصل، بسته
+  /// تازه نوشته می‌شود. null (آزمون‌ها) = خاموش.
+  final List<String>? connectBases;
 
   /// خواندن /metrics سرورها در پایش زنده (پیش‌فرض: درخواست واقعی).
   final MetricsFetcher? metricsFetcher;
@@ -365,11 +372,55 @@ class _OwnerAppState extends State<OwnerApp> {
     setState(() => _loginNotice = 'از پنل خارج شدید.');
   }
 
+  /// ردیف ۱۷۰: اتصال خودکار دیتابیس پنل مالک (بهترین تلاش، در پس‌زمینه).
+  Future<void> _autoConnect(String id, String pw, String code) async {
+    final secure = widget.secure;
+    final bases = widget.connectBases;
+    if (secure == null || bases == null || bases.isEmpty) return;
+    final t = (widget.s3Factory ?? IoS3Transport.new)();
+    try {
+      final cur = await S3Settings.load(secure);
+      if (cur == null || cur.bucket.isEmpty) {
+        final found = await discoverOwnerDatabase(
+          t,
+          login: id,
+          password: pw,
+          code: code,
+          bases: bases,
+        );
+        if (found == null) return;
+        await found.save(secure);
+        unawaited(widget.helper?.reload());
+        if (mounted) {
+          setState(
+            () => _localNotice =
+                'دیتابیس خودکار وصل شد (${found.bucket}) — نیازی به وارد کردن کلید نبود.',
+          );
+        }
+      } else {
+        await publishConnectBundle(
+          s: cur,
+          t: t,
+          kind: 'owner',
+          login: id,
+          password: pw,
+          code: code,
+          now: widget.now,
+        );
+      }
+    } on Object {
+      // بی‌اینترنت یا بی‌بسته: تنظیم دستی در «تنظیمات» هنوز هست
+    } finally {
+      t.close();
+    }
+  }
+
   Future<String?> _createLocal(String id, String pw, String code) async {
     final auth = _localAuth!;
     try {
       final rec = await auth.create(loginId: id, password: pw, code: code);
       await auth.saveSession(rec);
+      unawaited(_autoConnect(id, pw, code));
       if (!mounted) return null;
       setState(() {
         _account = rec;
@@ -389,6 +440,7 @@ class _OwnerAppState extends State<OwnerApp> {
     final r = _localAuth!.login(rec, loginId: id, password: pw, code: code);
     if (r.ok) {
       _localAuth!.saveSession(rec).ignore();
+      unawaited(_autoConnect(id, pw, code));
       setState(() {
         _localSignedIn = true;
         _localNotice = null;

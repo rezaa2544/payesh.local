@@ -14,17 +14,15 @@
 
 | برنامه | برای چه کسی | دانلود | بدون نصب (قابل‌حمل) | توضیح |
 |---|---|---|---|---|
-| 🏫 اپ مدرسه | مدیر، معاون، معلم، کادر و اولیا | **[⤓ `payesh-native-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe)** | [`payesh-native-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-windows.zip) | برای همان کاربر نصب می‌شود؛ نیازی به مدیر سیستم نیست |
+| 🏫 اپ مدرسه | مدیر، معاون، معلم، کادر و اولیا | **[⤓ `payesh-native-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-setup.exe)** | [`payesh-native-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native-windows.zip) | همه‌کاره: سرور کمکی مدرسه داخل همین نصب است (یک بار «Yes» در پنجرهٔ تأیید ویندوز) |
 | 🔑 پنل مالک | فقط مالک سامانه | **[⤓ `payesh-owner-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-setup.exe)** | [`payesh-owner-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/payesh-owner-windows.zip) | پنل قبلی را درجا ارتقا می‌دهد و تنظیماتش را نگه می‌دارد |
-| 🗄️ سرور دیتابیس مدرسه | فقط روی **یک** رایانهٔ مدرسه | **[⤓ `payesh-data-service-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/school-server-continuous/payesh-data-service-setup.exe)** | — | یک فایل برای ۳۲ و ۶۴ بیتی |
 
 ### 🖥️ ویندوز ۳۲ بیتی — ویندوز ۷ (SP1)، ۸، ۸٫۱ و ۱۰
 
 | برنامه | برای چه کسی | دانلود | بدون نصب (قابل‌حمل) | توضیح |
 |---|---|---|---|---|
-| 🏫 اپ مدرسه | مدیر، معاون، معلم، کادر و اولیا | **[⤓ `payesh-native32-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/win32-continuous/payesh-native32-setup.exe)** | [`payesh-native32-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/win32-continuous/payesh-native32-windows.zip) | همان اپ و همان ظاهر و دیتابیس؛ برنامهٔ ۳۲ بیتی (D-50) |
+| 🏫 اپ مدرسه | مدیر، معاون، معلم، کادر و اولیا | **[⤓ `payesh-native32-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/win32-continuous/payesh-native32-setup.exe)** | [`payesh-native32-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/win32-continuous/payesh-native32-windows.zip) | همان اپ، همان ظاهر و همان امکانات (سرور کمکی هم داخلش است)؛ برنامهٔ ۳۲ بیتی (D-50) |
 | 🔑 پنل مالک | فقط مالک سامانه | **[⤓ `payesh-owner32-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/win32-continuous/payesh-owner32-setup.exe)** | [`payesh-owner32-windows.zip`](https://github.com/rezaa2544/payesh.local/releases/download/win32-continuous/payesh-owner32-windows.zip) | همان پنل مالک؛ برنامهٔ ۳۲ بیتی (D-50) |
-| 🗄️ سرور دیتابیس مدرسه | فقط روی **یک** رایانهٔ مدرسه | **[⤓ `payesh-data-service-setup.exe`](https://github.com/rezaa2544/payesh.local/releases/download/school-server-continuous/payesh-data-service-setup.exe)** | — | همان فایل ۶۴ بیتی؛ خودش نسخهٔ ۳۲ بیتی را نصب می‌کند |
 
 ### 🤖 اندروید — اندروید ۵٫۰ به بالا
 
@@ -45,12 +43,11 @@
 |---|---|
 | اپ مدرسه (ویندوز و اندروید) | [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/SHA256SUMS) |
 | پنل مالک (ویندوز و اندروید) | [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/owner-continuous/SHA256SUMS) |
-| سرور دیتابیس مدرسه | [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/school-server-continuous/SHA256SUMS) |
 | ویندوز ۳۲ بیتی (اپ مدرسه و پنل مالک) | [`SHA256SUMS`](https://github.com/rezaa2544/payesh.local/releases/download/win32-continuous/SHA256SUMS) |
 
 **کدام را بگیرم؟**
 - **ویندوز ۳۲ یا ۶۴ بیتی؟** ویندوز ۱۰/۱۱: تنظیمات ← System ← About ← «System type». ویندوز ۷/۸: کنترل پنل ← System ← «System type».
-- **سرور دیتابیس مدرسه** فقط روی یک رایانهٔ مدرسه نصب می‌شود. همهٔ اپ‌ها خودشان آن را پیدا می‌کنند و نیازی به وارد کردن نشانی نیست.
+- **فقط اپ مدرسه را نصب کنید.** سرور کمکی مدرسه داخل همان اپ است و برنامهٔ جداگانه‌ای ندارد؛ اینکه کدام رایانه سرور کمکی باشد را مالک در پنل مالک («زیرساخت» ← «سیستم‌های کمکی») تعیین می‌کند. اپ‌ها پس از نصب خودشان به دیتابیس وصل می‌شوند و نیازی به وارد کردن نشانی نیست.
 - **پنل مالک** فقط برای مالک سامانه است، نه برای مدرسه.
 - نصب‌کننده‌های ویندوز هنوز امضای کد ندارند، پس SmartScreen هشدار می‌دهد: «More info» ← «Run anyway». برای اطمینان، هش فایل را با `SHA256SUMS` مقایسه کنید (`Get-FileHash نام-فایل`).
 - 🍎 آیفون/آیپد فایل نصبی ندارد. 🐧 روی لینوکس: `sudo bash install/linux/install.sh`.

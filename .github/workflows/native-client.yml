@@ -768,77 +768,12 @@ jobs:
           node tools/owner-update-manifest.mjs --name app --dir "$REL" --out native-out --build ${{ github.run_number }} --commit ${{ github.sha }} | tee native-out/app-update-manifest.txt
           grep -q '^OWNER-UPDATE-MANIFEST-OK' native-out/app-update-manifest.txt
           node -e 'const m=require("./native-out/app-update.json"); if(m.schema!=="payesh-app-update/1"||!m.files.some(f=>f.path==="data/app.so")||!m.files.some(f=>f.path==="payesh_app.exe")) throw new Error("app files missing from the manifest"); console.log("build", m.build, "files", m.files.length)'
-      - name: Build payesh-native-setup.exe (Inno Setup)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          choco install innosetup --no-progress -y | Out-Null
-          $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
-          if (-not $iscc) { throw 'ISCC not found' }
-          "ISCC: $iscc"
-          # ردیف ۱۴۵: نسخه = <major.minor از pubspec>.<run_number> ⇒ هر انتشار نسخهٔ تازه دارد (مثل پنل مالک)
-          $mm = (Select-String -Path 'apps\payesh\app\pubspec.yaml' -Pattern '^version:\s*([0-9]+\.[0-9]+)\.').Matches[0].Groups[1].Value
-          $v = "$mm.${{ github.run_number }}"
-          "APP-VERSION $v"
-          & $iscc "/DAppVersion=$v" 'apps\payesh\app\windows\installer\payesh-native.iss' 2>&1 | Tee-Object -FilePath native-out\iscc-native.log
-          if ($LASTEXITCODE -ne 0) { Get-Content native-out\iscc-native.log -Tail 15; throw "ISCC failed ($LASTEXITCODE)" }
-          $exe = 'native-out\payesh-native-setup.exe'
-          if (-not (Test-Path $exe)) { throw 'payesh-native-setup.exe was not built' }
-          "{0:N1} MB — version {1}" -f ((Get-Item $exe).Length/1MB), $v
-      - name: Sign the installer (only with Secrets)
-        if: steps.wsign.outputs.ready == 'true'
-        shell: pwsh
-        env:
-          PFX_PASS: ${{ secrets.PAYESH_WIN_PFX_PASS }}
-        run: |
-          & $env:SIGNTOOL sign /f $env:NATIVE_PFX /p $env:PFX_PASS /fd sha256 /tr http://timestamp.digicert.com /td sha256 'native-out\payesh-native-setup.exe'
-          if ($LASTEXITCODE -ne 0) { throw 'signtool failed — fail-closed' }
-      - name: Silent install → native gate + MSVC imports on the INSTALLED app → silent uninstall (row 77)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $setup = Resolve-Path 'native-out\payesh-native-setup.exe'
-          $p = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
-          if ($p.ExitCode -ne 0) { throw "silent install failed ($($p.ExitCode))" }
-          $dir = Join-Path $env:LOCALAPPDATA 'Programs\PayeshNative'
-          foreach ($f in 'payesh_app.exe','flutter_windows.dll','data\icudtl.dat','data\app.so','msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll','unins000.exe') {
-            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing after install: $f" }
-          }
-          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{F022A94A-885F-4620-9730-3E5EF0086EBE}_is1'
-          if (-not (Test-Path $key)) { throw 'uninstall key with the native AppId not found' }
-          foreach ($other in '{7C4E2A51-9F3B-4E7A-9C21-5B8A1D3E6F02}','{20AE76FD-560D-41ED-B6F5-7F66F3308129}') {
-            if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\${other}_is1") { throw "foreign AppId $other registered" }
-          }
-          "installed: $dir" | Tee-Object -FilePath native-out\installer-77.txt
-          Get-ChildItem $dir -Recurse -File | ForEach-Object { "{0}`t{1}" -f $_.FullName.Substring($dir.Length+1), $_.Length } | Tee-Object -FilePath native-out\installer-77.txt -Append
-          node tools/native-independence-gate.mjs --windows "$dir" | Tee-Object -FilePath native-out\installer-77.txt -Append
-          if ($LASTEXITCODE -ne 0) { throw 'native gate (row 63) failed on the INSTALLED app' }
-          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          $dumpbin = Get-ChildItem (Join-Path $vs 'VC\Tools\MSVC') -Recurse -Filter dumpbin.exe | Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
-          if (-not $dumpbin) { throw 'dumpbin.exe not found' }
-          $missing = @()
-          foreach ($bin in Get-ChildItem $dir -Recurse -Include *.exe,*.dll | Where-Object { $_.Name -ne 'unins000.exe' }) {
-            $deps = & $dumpbin.FullName /nologo /dependents $bin.FullName | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() }
-            "$($bin.Name) imports: $($deps -join ', ')" | Tee-Object -FilePath native-out\installer-77.txt -Append
-            foreach ($d in $deps) {
-              if ($d -match '^(msvcp|vcruntime|concrt|vccorlib)\d' -and -not (Test-Path (Join-Path $bin.DirectoryName $d))) { $missing += "$($bin.Name) -> $d" }
-            }
-          }
-          if ($missing.Count) { throw "MSVC runtime not deployed app-locally: $($missing -join '; ')" }
-          'MSVC-APP-LOCAL-OK' | Tee-Object -FilePath native-out\installer-77.txt -Append
-          # ردیف ۱۴۸: برنامهٔ واقعی نصب‌شده خودش به‌روز می‌شود، بسته می‌شود و با پنجره دوباره باز می‌شود
-          & .\tools\update-relaunch-e2e.ps1 -Dir $dir -Exe 'payesh_app.exe' -Name app -Staging (Join-Path $env:LOCALAPPDATA 'PayeshNative\update') -Log native-out\installer-77.txt -Commit '${{ github.sha }}'
-          $u = Start-Process -FilePath (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
-          if ($u.ExitCode -ne 0) { throw "silent uninstall failed ($($u.ExitCode))" }
-          Start-Sleep -Seconds 3
-          if (Test-Path (Join-Path $dir 'payesh_app.exe')) { throw 'payesh_app.exe left behind after uninstall' }
-          if (Test-Path $key) { throw 'uninstall key left behind' }
-          'INSTALLER-77-OK install+gate+uninstall' | Tee-Object -FilePath native-out\installer-77.txt -Append
-      # ── Row 127: optional school data service (API only) + app ⇄ INSTALLED service IT ──
+      # ── Row 127 / row 170 (D-51): the school data service — built FIRST, it travels inside payesh-native-setup.exe ──
       - name: Build payesh-data-service-setup.exe (API-only school server, no web UI) (row 127)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          choco install innosetup --no-progress -y | Out-Null
           $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
           if (-not $iscc) { throw 'ISCC not found' }
           $stage = Join-Path $env:GITHUB_WORKSPACE 'service-stage'
@@ -884,6 +819,83 @@ jobs:
           'DATA-SERVICE-NO-WEBUI-CONTROL-OK' | Tee-Object -FilePath native-out\data-service-127.txt
           $h = (Get-FileHash 'native-out\payesh-data-service-setup.exe' -Algorithm SHA256).Hash.ToLower()
           "$h  payesh-data-service-setup.exe" | Tee-Object -FilePath native-out\SHA256SUMS-data-service
+      - name: Build payesh-native-setup.exe (Inno Setup)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install innosetup --no-progress -y | Out-Null
+          $iscc = @(Get-ChildItem 'C:\Program Files (x86)\Inno Setup*','C:\Program Files\Inno Setup*' -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          if (-not $iscc) { throw 'ISCC not found' }
+          "ISCC: $iscc"
+          # ردیف ۱۴۵: نسخه = <major.minor از pubspec>.<run_number> ⇒ هر انتشار نسخهٔ تازه دارد (مثل پنل مالک)
+          $mm = (Select-String -Path 'apps\payesh\app\pubspec.yaml' -Pattern '^version:\s*([0-9]+\.[0-9]+)\.').Matches[0].Groups[1].Value
+          $v = "$mm.${{ github.run_number }}"
+          "APP-VERSION $v"
+          # ردیف ۱۷۰ (D-51): سرویس داده درون همین نصب‌کننده — دانلود جداگانهٔ «سرور» وجود ندارد
+          $ds = (Resolve-Path 'native-out\payesh-data-service-setup.exe').Path
+          & $iscc "/DAppVersion=$v" "/DDataService=$ds" "/DDataServiceVersion=$v" 'apps\payesh\app\windows\installer\payesh-native.iss' 2>&1 | Tee-Object -FilePath native-out\iscc-native.log
+          if ($LASTEXITCODE -ne 0) { Get-Content native-out\iscc-native.log -Tail 15; throw "ISCC failed ($LASTEXITCODE)" }
+          $exe = 'native-out\payesh-native-setup.exe'
+          if (-not (Test-Path $exe)) { throw 'payesh-native-setup.exe was not built' }
+          "{0:N1} MB — version {1}" -f ((Get-Item $exe).Length/1MB), $v
+      - name: Sign the installer (only with Secrets)
+        if: steps.wsign.outputs.ready == 'true'
+        shell: pwsh
+        env:
+          PFX_PASS: ${{ secrets.PAYESH_WIN_PFX_PASS }}
+        run: |
+          & $env:SIGNTOOL sign /f $env:NATIVE_PFX /p $env:PFX_PASS /fd sha256 /tr http://timestamp.digicert.com /td sha256 'native-out\payesh-native-setup.exe'
+          if ($LASTEXITCODE -ne 0) { throw 'signtool failed — fail-closed' }
+      - name: Silent install → native gate + MSVC imports on the INSTALLED app → silent uninstall (row 77)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Resolve-Path 'native-out\payesh-native-setup.exe'
+          $p = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "silent install failed ($($p.ExitCode))" }
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\PayeshNative'
+          foreach ($f in 'payesh_app.exe','flutter_windows.dll','data\icudtl.dat','data\app.so','msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll','unins000.exe') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing after install: $f" }
+          }
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{F022A94A-885F-4620-9730-3E5EF0086EBE}_is1'
+          if (-not (Test-Path $key)) { throw 'uninstall key with the native AppId not found' }
+          foreach ($other in '{7C4E2A51-9F3B-4E7A-9C21-5B8A1D3E6F02}','{20AE76FD-560D-41ED-B6F5-7F66F3308129}') {
+            if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\${other}_is1") { throw "foreign AppId $other registered" }
+          }
+          "installed: $dir" | Tee-Object -FilePath native-out\installer-77.txt
+          # ردیف ۱۷۰: همان نصب، سرویس داده را هم نصب کرده است (بدون node.exe در پوشهٔ برنامه)
+          $dsDir = Join-Path $env:ProgramFiles 'PayeshDataService'
+          foreach ($f in 'node.exe','server\start.js','unins000.exe') {
+            if (-not (Test-Path (Join-Path $dsDir $f))) { throw "embedded data service not installed: $f" }
+          }
+          if (Test-Path (Join-Path $dir 'node.exe')) { throw 'node.exe inside the app folder' }
+          $dsKey = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{9B1F0C52-7D3A-4E59-A6C1-2F8E4D7B3A61}_is1'
+          $dsVer = (Get-ItemProperty $dsKey).DisplayVersion
+          "EMBEDDED-DATA-SERVICE-OK version=$dsVer dir=$dsDir" | Tee-Object -FilePath native-out\installer-77.txt -Append
+          Get-ChildItem $dir -Recurse -File | ForEach-Object { "{0}`t{1}" -f $_.FullName.Substring($dir.Length+1), $_.Length } | Tee-Object -FilePath native-out\installer-77.txt -Append
+          node tools/native-independence-gate.mjs --windows "$dir" | Tee-Object -FilePath native-out\installer-77.txt -Append
+          if ($LASTEXITCODE -ne 0) { throw 'native gate (row 63) failed on the INSTALLED app' }
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem (Join-Path $vs 'VC\Tools\MSVC') -Recurse -Filter dumpbin.exe | Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
+          if (-not $dumpbin) { throw 'dumpbin.exe not found' }
+          $missing = @()
+          foreach ($bin in Get-ChildItem $dir -Recurse -Include *.exe,*.dll | Where-Object { $_.Name -ne 'unins000.exe' }) {
+            $deps = & $dumpbin.FullName /nologo /dependents $bin.FullName | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() }
+            "$($bin.Name) imports: $($deps -join ', ')" | Tee-Object -FilePath native-out\installer-77.txt -Append
+            foreach ($d in $deps) {
+              if ($d -match '^(msvcp|vcruntime|concrt|vccorlib)\d' -and -not (Test-Path (Join-Path $bin.DirectoryName $d))) { $missing += "$($bin.Name) -> $d" }
+            }
+          }
+          if ($missing.Count) { throw "MSVC runtime not deployed app-locally: $($missing -join '; ')" }
+          'MSVC-APP-LOCAL-OK' | Tee-Object -FilePath native-out\installer-77.txt -Append
+          # ردیف ۱۴۸: برنامهٔ واقعی نصب‌شده خودش به‌روز می‌شود، بسته می‌شود و با پنجره دوباره باز می‌شود
+          & .\tools\update-relaunch-e2e.ps1 -Dir $dir -Exe 'payesh_app.exe' -Name app -Staging (Join-Path $env:LOCALAPPDATA 'PayeshNative\update') -Log native-out\installer-77.txt -Commit '${{ github.sha }}'
+          $u = Start-Process -FilePath (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "silent uninstall failed ($($u.ExitCode))" }
+          Start-Sleep -Seconds 3
+          if (Test-Path (Join-Path $dir 'payesh_app.exe')) { throw 'payesh_app.exe left behind after uninstall' }
+          if (Test-Path $key) { throw 'uninstall key left behind' }
+          'INSTALLER-77-OK install+gate+uninstall' | Tee-Object -FilePath native-out\installer-77.txt -Append
       - name: Silent install of the data service → app LAN IT against the INSTALLED service → uninstall (row 127)
         shell: pwsh
         run: |

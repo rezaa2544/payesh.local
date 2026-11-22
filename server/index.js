@@ -40,6 +40,7 @@ const tunnel = require('./tunnel');
 const helperJobs = require('./helper-jobs');
 /* ردیف ۱۴۵: مدارس، درخواست ثبت‌نام و اشتراک (برگردان p2) — فهرست مالک در صندوقچه */
 const schools = require('./school-registry');
+const connect = require('./connect'); /* ردیف ۱۷۰: اتصال خودکار به دیتابیس با ورود مدیر */
 const support = require('./support');
 const sms = require('./sms');   /* ردیف ۱۶۰: روش‌های ورود + زیرساخت پیامک */
 const schoolProfile = require('./school-profile');
@@ -686,6 +687,14 @@ async function api(req, res, url, ip) {
     if (!rateLimit('login-ip:' + ip, 240, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     if (who && !rateLimit('login-user:' + who, 20, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     body.__ip = ip;
+    /* ردیف ۱۷۰: سرورِ هنوز وصل‌نشده به دیتابیس ⇒ بستهٔ اتصالی که پنل مالک با نام کاربری و رمز
+       همین مدیر مهر کرده (payeshschool.ir یا صندوقچه) باز و سرور خودکار وصل می‌شود. بی‌کلید در کد. */
+    if (who && body.password && !s3mem.saved(store)) {
+      try {
+        const b = await connect.bootstrapFromLogin(store, body.phone, body.password);
+        if (b.state === 'ok') logger.info('cloud_connect_bundle', { component: 'connect', bucket: b.bucket });
+      } catch (e) { /* بهترین تلاش؛ ورود عادی ادامه دارد */ }
+    }
     /* ردیف ۱۴۵: سرور تازه + مدیرِ مدرسه‌ای که مالک ساخته ⇒ همین سرور میزبان آن مدرسه می‌شود */
     if (auth.needsSetup(store)) {
       const a = await schools.adoptOnLogin(store, body.phone, body.password, { needsSetup: true, instance: cfg.instanceId(store) });

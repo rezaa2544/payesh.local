@@ -487,6 +487,20 @@ class _SchoolsRegistrySectionState extends State<SchoolsRegistrySection>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               reqBox,
+              // ردیف ۱۷۰: درخواستی که با کلید این پنل باز نشد (سرورِ با تنظیم دستیِ دیگر) دیگر گم نمی‌شود
+              if ((v?.unreadableRequests ?? 0) > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: PayeshTokens.space2),
+                  child: Text(
+                    '${faNum(v!.unreadableRequests)} درخواست ثبت‌نام رسید که با کلید این پنل باز نمی‌شود: '
+                    'کلیدی که دستی در آن سرور وارد شده با کلید این پنل یکی نیست؛ تنظیم دستی دیتابیس آن سرور را پاک کنید '
+                    '(از نسخهٔ ۰٫۹٫۲۶ خودکار وصل می‌شود) و مدرسه درخواست را دوباره بفرستد.',
+                    key: const Key('req-unreadable'),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
               const Notice(
                 'این درخواست‌ها از بخش «درخواست ثبت نام مدرسه جدید» صفحهٔ ورود پنل کاربران (و بعداً سایت معرفی) می‌آیند. پس از تأیید، مدیر وارد می‌شود ولی تا خرید اشتراک یا شروع دورهٔ آزمایشی هیچ امکانی فعال نیست.',
               ),

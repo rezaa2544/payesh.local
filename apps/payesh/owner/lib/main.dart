@@ -8,6 +8,7 @@ import 'package:payesh_secure/payesh_secure.dart'
 
 import 'src/app.dart';
 import 'src/helper/helper_service.dart';
+import 'src/local/connect_bundle.dart';
 import 'src/platform.dart';
 import 'src/update/update_service.dart';
 
@@ -40,6 +41,8 @@ Future<void> main(List<String> args) async {
       helper: OwnerHelperService(secure: secure),
       updater: updater,
       openUrl: platformOpenUrl,
+      // ردیف ۱۷۰: اتصال خودکار دیتابیس (payeshschool.ir اول، سپس صندوقچه)
+      connectBases: defaultConnectBases,
       // ردیف ۱۵۵: پشتیبان کامل دیتابیس روی دیسک همین سیستم
       backupDir: () async {
         try {

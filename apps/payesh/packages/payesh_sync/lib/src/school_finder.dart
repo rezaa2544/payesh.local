@@ -97,13 +97,25 @@ final class SchoolServerEntry {
 final class SchoolDirectoryClient implements SchoolDirectoryApi {
   SchoolDirectoryClient({
     Uri? url,
+    Uri? domain,
+    bool useDomain = true,
     HttpClient? client,
     this.timeout = const Duration(seconds: 10),
     this.maxAge = const Duration(days: 10),
     DateTime Function()? now,
   }) : url = url ?? defaultUrl,
+       domainUrl = useDomain ? (domain ?? defaultDomainUrl) : null,
        _client = client ?? trustedHttpClient(),
        _now = now ?? DateTime.now;
+
+  /// Row 170 — the same list through the project domain, read FIRST: when the database moves,
+  /// only the domain (ArvanCloud) is pointed at the new place and every installed app follows.
+  static final Uri defaultDomainUrl = Uri.parse(
+    'https://payeshschool.ir/payesh/pub/school-servers.json',
+  );
+
+  /// The domain copy of the list (null = not used).
+  final Uri? domainUrl;
 
   /// The list in the owner's database. Set by the release build
   /// (`--dart-define=PAYESH_SERVERS_URL=…`, .github/workflows/native-client.yml): the client code
@@ -144,21 +156,33 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
 
   /// The usable rows, freshest first.
   Future<List<SchoolServerEntry>> entries() async {
-    final u = url;
-    if (u == null) return const [];
     _central = null;
+    // row 170: the domain first, then the address baked into the build
+    for (final u in [?domainUrl, ?url]) {
+      try {
+        final r = await _read(u);
+        if (r != null) return r;
+      } on Object {
+        // not reachable: the next source
+      }
+    }
+    return const [];
+  }
+
+  /// One source; null = no valid list there.
+  Future<List<SchoolServerEntry>?> _read(Uri u) async {
     final req = await _client.getUrl(u).timeout(timeout);
     req.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
     final res = await req.close().timeout(timeout);
     final body = await res.transform(utf8.decoder).join().timeout(timeout);
-    if (res.statusCode != 200) return const [];
+    if (res.statusCode != 200) return null;
     final Object? j;
     try {
       j = jsonDecode(body);
     } on FormatException {
-      return const [];
+      return null;
     }
-    if (j is! Map || j['kind'] != 'payesh-school-servers') return const [];
+    if (j is! Map || j['kind'] != 'payesh-school-servers') return null;
     _central = centralOf(j['central']);
     final now = _now();
     final out = <SchoolServerEntry>[

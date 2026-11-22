@@ -7,6 +7,7 @@ import '../accounts/accounts_screen.dart';
 import '../classes/classes_screen.dart';
 import '../flags.dart';
 import '../followup/followup_screen.dart';
+import '../pulse/pulse.dart';
 import '../reports/reports_screen.dart';
 import '../system/system_screen.dart';
 import '../schedule/schedule_screen.dart';
@@ -371,6 +372,144 @@ class SchoolEntry extends StatelessWidget {
     }
     return out;
   }
+
+  SchoolRouteArgs? get _args {
+    final src = source;
+    if (src == null || role == null || uid == null) return null;
+    return SchoolRouteArgs(
+      source: src,
+      role: role!,
+      uid: uid!,
+      sync: sync,
+      flags: flags,
+      onRetry: onRetry,
+    );
+  }
+
+  /// Row 170: the pages as «نبض» sidebar / drawer entries.
+  List<PulseNavItem> navItems() {
+    final args = _args;
+    if (args == null) return const [];
+    return [
+      for (final p in visible)
+        PulseNavItem(
+          id: p.id == 'home' ? 'today' : p.id,
+          label: p.label,
+          icon: p.icon,
+          page: (_) => p.build(args),
+        ),
+    ];
+  }
+
+  /// Row 170: «نبض امروز مدرسه» at the top of the manager's home (null for the other roles or
+  /// while the reports page is not in this build).
+  Widget? pulseHero() {
+    final args = _args;
+    if (args == null ||
+        role != 'manager' ||
+        !visible.any((p) => p.id == 'home')) {
+      return null;
+    }
+    return SchoolOwned(
+      key: const Key('pulse-home'),
+      create: () =>
+          HomeController(source: args.source, role: args.role, uid: args.uid),
+      page: (c) => _PulseHome(controller: c as HomeController),
+    );
+  }
+}
+
+class _PulseHome extends StatefulWidget {
+  const _PulseHome({required this.controller});
+  final HomeController controller;
+
+  @override
+  State<_PulseHome> createState() => _PulseHomeState();
+}
+
+class _PulseHomeState extends State<_PulseHome> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.load();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.controller,
+    builder: (context, _) {
+      final d = widget.controller.dashboard;
+      if (d == null) return const SizedBox.shrink();
+      String n(int v) => faNumber(v);
+      return Padding(
+        padding: const EdgeInsets.only(bottom: PayeshTokens.space5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PulseHero(
+              present: d.presentToday,
+              of: d.students,
+              absent: d.absentToday,
+              late: d.lateToday,
+            ),
+            const SizedBox(height: PayeshTokens.space3),
+            // the stat cards of the web dashboard (ids `home-*`: the «امروز» page has its own)
+            PulseStatGrid(
+              key: const Key('pulse-stats'),
+              children: [
+                PulseStat(
+                  id: 'home-students',
+                  icon: Icons.people_alt_outlined,
+                  value: n(d.students),
+                  label: 'دانش‌آموز',
+                ),
+                PulseStat(
+                  id: 'home-teachers',
+                  icon: Icons.school_outlined,
+                  value: n(d.teachers),
+                  label: 'دبیر',
+                ),
+                PulseStat(
+                  id: 'home-classes',
+                  icon: Icons.class_outlined,
+                  value: n(d.classes),
+                  label: 'کلاس',
+                ),
+                PulseStat(
+                  id: 'home-present',
+                  icon: Icons.fact_check_outlined,
+                  value: '${n(d.presentToday)} / ${n(d.recordsToday)}',
+                  label: 'حاضر امروز',
+                  tone: PayeshTone.success,
+                ),
+                PulseStat(
+                  id: 'home-absent',
+                  icon: Icons.highlight_off,
+                  value: n(d.absentToday),
+                  label: 'غایب امروز',
+                  tone: PayeshTone.danger,
+                ),
+                PulseStat(
+                  id: 'home-late',
+                  icon: Icons.schedule,
+                  value: n(d.lateToday),
+                  label: 'تأخیر',
+                  tone: PayeshTone.warning,
+                ),
+                PulseStat(
+                  id: 'home-pending',
+                  icon: Icons.edit_note,
+                  value: n(d.pendingGrades),
+                  label: 'نمرهٔ در انتظار تأیید',
+                  tone: PayeshTone.info,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 /// Row 165: home section of each page (daily work · school management · system & account).

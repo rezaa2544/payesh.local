@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../pulse/pulse.dart';
 import '../sync_badge.dart';
 
 /// Where the school-management pages of row 128 (waves W6..W12) read and write. Production: the
@@ -167,12 +168,16 @@ class SchoolPage extends StatelessWidget {
       listenable: c,
       builder: (context, _) => Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            key: Key('$prefix-back'),
-            tooltip: 'بازگشت',
-            icon: const BackButtonIcon(),
-            onPressed: () => Navigator.maybePop(context),
-          ),
+          // row 170: inside the «نبض» shell the sidebar is the way back
+          automaticallyImplyLeading: false,
+          leading: PulseInline.of(context)
+              ? null
+              : IconButton(
+                  key: Key('$prefix-back'),
+                  tooltip: 'بازگشت',
+                  icon: const BackButtonIcon(),
+                  onPressed: () => Navigator.maybePop(context),
+                ),
           title: Text(title),
           actions: [
             ...actions,

@@ -7,8 +7,8 @@
              (sha256 of the body without the row-117 import note) and says Parked
      ADR-02  constitution clause 25 (data path only through the Gateway) is
              byte-identical to before (sha256 of the line)
-     ADR-03  constitution 1.19 (rev 1.17/1.18 kept) + D-48: Parked, PAYESH_TRANSPORT=direct, clause 25
-             unchanged, ADR-117 linked; decision ids D-01..D-49 unique, no gaps, D-49 last (row 126)
+     ADR-03  constitution 1.20 (rev 1.17/1.18/1.19 kept) + D-48: Parked, PAYESH_TRANSPORT=direct, clause 25
+             unchanged, ADR-117 linked; decision ids D-01..D-51 unique, no gaps, D-51 last (row 170)
      ADR-04  ADR-117: stages A..D each with cost/capacity/gate; every € figure is [E];
              no [M] measured number; no "unlimited" claim; zero-cost stage A
      ADR-05  client/transport.js: Gateway is the default; only an explicit
@@ -59,8 +59,9 @@ function suiteAdr105(t) {
 function clause25(con) { return con.split('\n').find(l => l.startsWith('25. ')) || ''; }
 function suiteClause25(con) { assert(sha(clause25(con)) === CLAUSE25_SHA256, 'clause 25 changed'); }
 function suiteConstitution(con) {
-  /* row 126 (D-49) bumped the constitution to 1.18, row 169 (D-50) to 1.19; older revision rows must stay */
-  assert(/\| نسخهٔ سند \| \*\*۱٫۱۹\*\*/.test(con), 'version must be 1.19');
+  /* row 126 (D-49) bumped the constitution to 1.18, row 169 (D-50) to 1.19, row 170 (D-51) to 1.20; older revision rows must stay */
+  assert(/\| نسخهٔ سند \| \*\*۱٫۲۰\*\*/.test(con), 'version must be 1.20');
+  assert(/\| بازنگری ۱٫۲۰ \| [^\n]*D‑51/.test(con), 'revision row 1.20 (D-51) missing');
   assert(/\| بازنگری ۱٫۱۹ \| [^\n]*D‑50/.test(con), 'revision row 1.19 (D-50) missing');
   assert(/\| بازنگری ۱٫۱۷ \|/.test(con), 'revision row 1.17 missing');
   assert(/\| بازنگری ۱٫۱۸ \| [^\n]*D‑49/.test(con), 'revision row 1.18 (D-49) missing');
@@ -69,13 +70,16 @@ function suiteConstitution(con) {
   for (const k of ['Parked', 'PAYESH_TRANSPORT=direct', 'بند ۲۵ و D‑36 بی‌تغییر', '117-adr-staged-low-cost.md', 'تأیید کتبی', 'D‑09']) assert(d48.includes(k), 'D-48 missing: ' + k);
   const ids = [...con.matchAll(/^\| \*\*D‑(\d+)\*\* \|/gm)].map(m => Number(m[1]));
   assert(new Set(ids).size === ids.length, 'duplicate decision id');
-  assert(ids[ids.length - 1] === 50 && Math.max(...ids) === 50, 'D-50 must be the newest (last, highest) decision');
-  for (let n = 1; n <= 50; n++) assert(ids.includes(n), 'decision log gap at D-' + n);
+  assert(ids[ids.length - 1] === 51 && Math.max(...ids) === 51, 'D-51 must be the newest (last, highest) decision');
+  for (let n = 1; n <= 51; n++) assert(ids.includes(n), 'decision log gap at D-' + n);
   const d49 = con.split('\n').find(l => l.startsWith('| **D‑49** |')) || '';
   for (const k of ['ADR‑62', 'لغو', 'native-independence-gate', 'آفلاین‌محوری', '126']) assert(d49.includes(k), 'D-49 missing: ' + k);
   /* row 169: D-50 is a limited exception next to D-49 — never called native, only win32-continuous */
   const d50 = con.split('\n').find(l => l.startsWith('| **D‑50** |')) || '';
   for (const k of ['بومی خوانده نمی‌شوند', 'win32-continuous', 'web32-compat', 'web32-gate.mjs', 'ADR‑169']) assert(d50.includes(k), 'D-50 missing: ' + k);
+  /* row 170: D-51 — one school app; the data service rides inside its setups; the app folder stays node-free */
+  const d51 = con.split('\n').find(l => l.startsWith('| **D‑51** |')) || '';
+  for (const k of ['دانلود جداگانهٔ «سرور دیتابیس مدرسه» وجود ندارد', 'embed.isi', 'بدون node.exe', 'payeshschool.ir', 'D‑23 بی‌تغییر', 'connect-170.js']) assert(d51.includes(k), 'D-51 missing: ' + k);
   assert(/`docs\/cloud\/105-adr-direct-managed-db\.md` \| ADR‑105 [^|]*Parked/.test(con), 'appendix B must list ADR-105 as Parked');
 }
 function stageRows(t) {
@@ -147,6 +151,7 @@ const MUTANTS = [
   ['M3 clause 25 rewritten (direct allowed)', () => suiteClause25(read(P.con).replace('هیچ کلاینتی مستقیم به دیتابیس وصل نمی‌شود', 'کلاینت می‌تواند با RLS مستقیم وصل شود'))],
   ['M4 D-48 dropped', () => suiteConstitution(read(P.con).split('\n').filter(l => !l.startsWith('| **D‑48** |')).join('\n'))],
   ['M4c D-50 claims the 32-bit edition is native (row 169)', () => suiteConstitution(read(P.con).replace('**بومی خوانده نمی‌شوند.**', '**بومی است.**'))],
+  ['M4d D-51 brings back a separate data-server download (row 170)', () => suiteConstitution(read(P.con).replace('دانلود جداگانهٔ «سرور دیتابیس مدرسه» وجود ندارد', 'سرور دیتابیس مدرسه جدا دانلود می‌شود'))],
   ['M4b D-49 dropped (row 126)', () => suiteConstitution(read(P.con).split('\n').filter(l => !l.startsWith('| **D‑49** |')).join('\n'))],
   ['M5 stage D gate removed', () => suiteAdr117(read(P.adr117).split('\n').filter(l => !l.startsWith('| D |')).join('\n'))],
   ['M6 € figure without [E]', () => suiteAdr117(read(P.adr117).replace('T3 حدود ۸۹ تا ۳۰۰ €/ماه [E]', 'T3 حدود ۸۹ تا ۳۰۰ €/ماه'))],
@@ -160,7 +165,7 @@ async function main(opts) {
   passed = 0; failed = 0; negatives = 0; failures.length = 0;
   await check('ADR-01', 'ADR-105 on main verbatim from a532393 + Parked', () => suiteAdr105(read(P.adr105)));
   await check('ADR-02', 'constitution clause 25 unchanged', () => suiteClause25(read(P.con)));
-  await check('ADR-03', 'constitution 1.19 + D-48 + D-49 + D-50 + decision ids', () => suiteConstitution(read(P.con)));
+  await check('ADR-03', 'constitution 1.20 + D-48 + D-49 + D-50 + D-51 + decision ids', () => suiteConstitution(read(P.con)));
   await check('ADR-04', 'ADR-117 stages/gates/labels, no unlimited, € → [E]', () => suiteAdr117(read(P.adr117)));
   await check('ADR-05', 'transport: Gateway default, direct only explicit', () => suiteTransport(require(path.join(ROOT, P.transport))));
   await check('ADR-06', 'ADR-105 references resolve; ADR-117 links exist', () => suiteLinks(read(P.adr117)));

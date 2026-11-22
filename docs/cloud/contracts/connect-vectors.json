@@ -1,0 +1,58 @@
+{
+  "description": "Payesh connect bundle v1 (row 170). path = connect/<s|o>-<first 32 hex of SHA-256(utf8(\"payesh/connect/<kind>/<normLogin>\"))>.json under each base (https://payeshschool.ir/payesh/pub/ first). normLogin = trim, lowercase, Persian/Arabic digits to ASCII. secret_hex = hex(PBKDF2-HMAC-SHA256(utf8(password), utf8(\"payesh/connect/<kind>/<normLogin>\"), 120000, 32)); owner password = password + \"\\u0000\" + trim(code). key = HKDF-SHA256(ikm=utf8(secret_hex), salt=utf8(\"payesh/connect\"), info=utf8(\"v1\"), L=32); AES-256-GCM, AAD = utf8(\"payesh-connect/v1/\" + rev), ct = ciphertext || tag, base64url without padding. Plaintext = the cloud-control plaintext. Test-only values.",
+  "iterations": 120000,
+  "rev": 1763800000000,
+  "plaintext": "{\"v\":1,\"rev\":1763800000000,\"endpoint\":\"https://s3.ir-central1.arvanstorage.ir\",\"region\":\"ir-central1\",\"bucket\":\"payesh-madrese\",\"prefix\":\"payesh/\",\"accessKey\":\"00000000-1111-2222-3333-444444444444\",\"secret\":\"test-only-secret-not-real\"}",
+  "nonce_hex": "0c0b0a090807060504030201",
+  "vectors": [
+    {
+      "kind": "school",
+      "login": " RezaA170 ",
+      "password": "Madrese-1403",
+      "norm": "rezaa170",
+      "path": "connect/s-4b73eebec153bfd2db2bd65b14514e97.json",
+      "secret_hex": "e954a1364b3dd353174aff43e304e29b32847387725d05bd54e0083455e961b9",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-connect",
+        "rev": 1763800000000,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "DAsKCQgHBgUEAwIB",
+        "ct": "n2o-o308K1gkEmpJrRoB9GGQMkQGWmlZBME4H342oZHXQ-Lj2PbcwF0vc-DZ5XOQLREt5NKhTeUwOo1Y9UZgRx6U0ZmaIRR6lXjZmdO6Lka_Yo-CYU1BmG4eqcaUZActDM7pAs7B_0Yc-B4-vlUJTP3VNatOIkIJoHmUqB0rYAE2oEAIDL3_YYN9QTfvU8Bc-wloMBjsH7ANyUyOlLEYySPX1ILreqAQF2_XMGpk9ETUcsoZsBswyFtb18oH17LDJF5qpYp3ZpP8mpHc376WtOUlDYHCePBQjbhcYUIPUvsLCVzu3aZkbzDbQw4JFUhtGMZcRXXwu2RlndE"
+      }
+    },
+    {
+      "kind": "school",
+      "login": "۰۹۱۲۰۰۰۱۷۰۱",
+      "password": "0012345679",
+      "norm": "09120001701",
+      "path": "connect/s-f0831739a83d2ef9f988815081cf4d8c.json",
+      "secret_hex": "abe60b1e9de0bb1b327f1a15d043b634d03f1e590903d5acfbbe7cdbddeb0378",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-connect",
+        "rev": 1763800000000,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "DAsKCQgHBgUEAwIB",
+        "ct": "LP84pfzpiKVIX5l4GAUDTKrusJmCheB66q1WMykaM7p3xkOmSpgNDsNn248gHipJ_4Mhl5b1vlUIiAQsVNsSmsqlfdAPgA4iS7z2R8VfZMyeksMYwqbkWMRrzP6ocu34tzCx6g39ffIVvCCZl7tLeWXrn2rAWZru0AzwvzJNj76hN_uYEmNxsJs-IqCd5R_ErXqw-qtojeGhfrFlSVMJXZTPa-iySrvs4z2Qo70wNXYlk28LLVyetPb8hkw9WZFQSmVsrOs29CeeJLu88oJBUCPVZy67LjqFiSidHot2AeOTZFABlr09ukQobEBCOd0GooYyuU9H_nmztvs"
+      }
+    },
+    {
+      "kind": "owner",
+      "login": "owner",
+      "password": "Owner-pass-1",
+      "code": " 123456 ",
+      "norm": "owner",
+      "path": "connect/o-50671db45b696034d080ae284887489b.json",
+      "secret_hex": "d074f43f75ddf30c1063a113b7c1e24db524ccca59eb5115430f13c2a7cd07c9",
+      "envelope": {
+        "v": 1,
+        "kind": "payesh-connect",
+        "rev": 1763800000000,
+        "alg": "HKDF-SHA256/A256GCM",
+        "nonce": "DAsKCQgHBgUEAwIB",
+        "ct": "dzC_ivU_wWmeLZWNhM57S_GBJSLzol8lltg0xoyt_5m6ToPgVNmcyI_tkGes9HGkbkyebt1v8xc0ENANYEByNM6LGz0qTKuo-gFGHntkwoBXDWIU3x3_sMpqSsLFYFoXYTC0KighnQx-J26BkQt8pJU6kcu7-__lXBhsbJkwAmh0HtXD98_id0bAUlDFfF7Bri4CKXMBN_NYKDNbV11a-b09eumbfwkRWENzupHXlDmam8D7KcFsp90QNz-krpAxbOPhZzFc-u-SJBdM_5pVveaxT2kdQlsOm8L7rvYC3nyHUdrqpsAF9qmLxuJ28ZlhBo8qpJSoXCAcwUo"
+      }
+    }
+  ]
+}

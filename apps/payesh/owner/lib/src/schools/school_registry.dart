@@ -32,6 +32,7 @@ import 'package:payesh_ui/payesh_ui.dart'
         defaultWorkDays;
 
 import '../local/cloud_control.dart';
+import '../local/connect_bundle.dart';
 import '../local/s3_client.dart';
 import 'auth_settings.dart';
 import 'support_inbox.dart';
@@ -434,7 +435,11 @@ final class SchoolsView {
     this.payments = const [],
     this.acks = const {},
     this.error,
+    this.unreadableRequests = 0,
   });
+
+  /// ردیف ۱۷۰: درخواست‌هایی که با کلید این پنل باز نشدند (سرورِ با کلید دستیِ دیگر فرستاده).
+  final int unreadableRequests;
 
   /// دیتابیس (صندوقچه) تنظیم شده و خواندن موفق بود؟
   final bool connected;
@@ -575,12 +580,16 @@ final class SchoolRegistry {
     return local;
   }
 
+  /// ردیف ۱۷۰: شمار فایل‌های [_readDir] که باز نشدند (آخرین خواندن).
+  int _unreadable = 0;
+
   Future<List<({String name, Map<String, Object?> plain})>> _readDir(
     S3Settings s,
     S3Transport t,
     String dir,
     String kind,
   ) async {
+    _unreadable = 0;
     final (objs, _) = await s3ListObjects(
       s,
       t,
@@ -608,7 +617,11 @@ final class SchoolRegistry {
       ).timeout(timeout);
       if (text == null) continue;
       final r = await openSchools(s.secretKey, kind, text);
-      if (r != null) out.add((name: n, plain: r.plain));
+      if (r != null) {
+        out.add((name: n, plain: r.plain));
+      } else {
+        _unreadable++;
+      }
     }
     return out;
   }
@@ -629,6 +642,7 @@ final class SchoolRegistry {
     try {
       final reg = await _pull(s, t);
       final reqs = await _readDir(s, t, SchoolDirs.req, SchoolKinds.request);
+      final unreadable = _unreadable;
       final pays = await _readDir(s, t, SchoolDirs.pay, SchoolKinds.payment);
       final acks = await _readDir(s, t, SchoolDirs.ack, SchoolKinds.ack);
       final schools = _maps(reg.plain['schools']);
@@ -660,6 +674,7 @@ final class SchoolRegistry {
           for (final a in acks)
             if (a.plain['school_id'] == a.name) a.name: a.plain,
         },
+        unreadableRequests: unreadable,
       );
     } on Object catch (e) {
       final c = await _cached();
@@ -1050,7 +1065,7 @@ final class SchoolRegistry {
     final hash =
         passwordHash ??
         await pbkdf2Hash(password ?? '', iterations: hashIterations);
-    return _mutate((plain) {
+    final created = await _mutate((plain) {
       final list = _maps(plain['schools']);
       final err = validateSchool(
         fields,
@@ -1081,6 +1096,9 @@ final class SchoolRegistry {
       plain['schools'] = list;
       return id;
     });
+    // ردیف ۱۷۰: سرور مدرسهٔ تازه‌نصب با نخستین ورود همین مدیر خودکار وصل می‌شود
+    if (passwordHash == null) _queueConnect(fields['manager'], password ?? '');
+    return created;
   }
 
   /// ویرایش (p2 «school-save» برای مدرسهٔ موجود)؛ رمز تازه اختیاری.
@@ -1116,6 +1134,7 @@ final class SchoolRegistry {
       };
       plain['schools'] = list;
     });
+    if (hash != null) _queueConnect(fields['manager'], password!);
   }
 
   /// فعال/غیرفعال (p2: غیرفعال کردن مدرسه ورود را می‌بندد).
@@ -1139,7 +1158,7 @@ final class SchoolRegistry {
       );
     }
     final hash = await pbkdf2Hash(password, iterations: hashIterations);
-    await _mutate((plain) {
+    final manager = await _mutate((plain) {
       final list = _maps(plain['schools']);
       final s = list.where((x) => x['id'] == id).firstOrNull;
       if (s == null) throw const SchoolsFailure('not_found', 'مدرسه پیدا نشد.');
@@ -1148,7 +1167,54 @@ final class SchoolRegistry {
       m['rev'] = (m['rev'] is int ? m['rev']! as int : 1) + 1;
       s['manager'] = m;
       plain['schools'] = list;
+      return m;
     });
+    _queueConnect(manager, password);
+  }
+
+  /// ردیف ۱۷۰: بستهٔ اتصال خودکار سرور مدرسه (`pub/connect/s-….json`، مهرشده با نام کاربری و
+  /// رمز مدیر) — سرور مدرسهٔ تازه‌نصب با نخستین ورود مدیر خودکار به همین دیتابیس وصل می‌شود.
+  /// در پس‌زمینه (PBKDF2 کند است): «ثبت» منتظرش نمی‌ماند؛ [connectPublishing] برای آزمون‌ها.
+  void _queueConnect(Object? manager, String password) {
+    _connectQueue = _connectQueue.then(
+      (_) => _publishConnect(manager, password),
+    );
+  }
+
+  Future<void> _connectQueue = Future<void>.value();
+
+  /// پایان نوشتن بسته‌های اتصالِ در صف.
+  Future<void> get connectPublishing => _connectQueue;
+
+  /// بهترین تلاش: نبودِ آن ساخت/ویرایش مدرسه را خراب نمی‌کند.
+  Future<void> _publishConnect(Object? manager, String password) async {
+    if (manager is! Map || password.isEmpty) return;
+    final logins = <String>{
+      for (final k in const ['username', 'phone'])
+        if ('${manager[k] ?? ''}'.trim().isNotEmpty) '${manager[k]}'.trim(),
+    };
+    if (logins.isEmpty) return;
+    try {
+      final s = await _s3();
+      if (s == null) return;
+      final t = s3Factory();
+      try {
+        for (final login in logins) {
+          await publishConnectBundle(
+            s: s,
+            t: t,
+            kind: 'school',
+            login: login,
+            password: password,
+            now: _now,
+          ).timeout(timeout);
+        }
+      } finally {
+        t.close();
+      }
+    } on Object {
+      // بعداً با ویرایش یا رمز تازه دوباره نوشته می‌شود
+    }
   }
 
   /// حذف از فهرست (سرور میزبان دیگر به آن مدرسه دسترسی نمی‌دهد؛ داده روی همان سرور می‌ماند).

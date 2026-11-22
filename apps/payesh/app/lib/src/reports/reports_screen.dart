@@ -11,6 +11,7 @@ import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../school/school_source.dart';
+import '../pulse/pulse.dart';
 
 String _jd(String iso) => faDigits(JalaliDate.fromIso(iso)?.slash ?? '—');
 
@@ -113,34 +114,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _stat(
     String key,
-    String icon,
+    IconData icon,
     String value,
     String label, [
     PayeshTone tone = PayeshTone.neutral,
-  ]) => SizedBox(
-    width: 150,
-    child: Card(
-      key: Key('dash-stat-$key'),
-      child: Padding(
-        padding: const EdgeInsets.all(PayeshTokens.space3),
-        child: Column(
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 22)),
-            Text(
-              value,
-              key: Key('dash-$key'),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: tone == PayeshTone.neutral
-                    ? null
-                    : context.tokens.tone(tone).$1,
-              ),
-            ),
-            Text(label, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    ),
-  );
+  ]) => PulseStat(id: key, icon: icon, value: value, label: label, tone: tone);
 
   String _bellLabel(Bell? b) => b == null
       ? 'بین زنگ‌های درسی'
@@ -151,32 +129,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'الان در ${_bellLabel(d.bell)} · ${schedDayFa[d.weekday]} ${_jd(d.today)}',
       key: const Key('dash-now'),
     ),
-    const SizedBox(height: PayeshTokens.space2),
-    Wrap(
-      spacing: PayeshTokens.space2,
-      runSpacing: PayeshTokens.space2,
+    const SizedBox(height: PayeshTokens.space3),
+    // row 170: «نبض امروز مدرسه» of the web panel
+    PulseHero(
+      present: d.presentToday,
+      of: d.students,
+      absent: d.absentToday,
+      late: d.lateToday,
+    ),
+    const SizedBox(height: PayeshTokens.space3),
+    PulseStatGrid(
       children: [
-        _stat('students', '👥', faNumber(d.students), 'دانش‌آموز'),
-        _stat('teachers', '👨‍🏫', faNumber(d.teachers), 'دبیر'),
-        _stat('classes', '🏛️', faNumber(d.classes), 'کلاس'),
+        _stat(
+          'students',
+          Icons.people_alt_outlined,
+          faNumber(d.students),
+          'دانش‌آموز',
+        ),
+        _stat('teachers', Icons.school_outlined, faNumber(d.teachers), 'دبیر'),
+        _stat('classes', Icons.class_outlined, faNumber(d.classes), 'کلاس'),
         _stat(
           'present',
-          '✅',
+          Icons.fact_check_outlined,
           '${faNumber(d.presentToday)} / ${faNumber(d.recordsToday)}',
           'حاضر امروز',
           PayeshTone.success,
         ),
         _stat(
           'absent',
-          '❌',
+          Icons.highlight_off,
           faNumber(d.absentToday),
           'غایب امروز',
           PayeshTone.danger,
         ),
-        _stat('late', '⏰', faNumber(d.lateToday), 'تأخیر', PayeshTone.warning),
+        _stat(
+          'late',
+          Icons.schedule,
+          faNumber(d.lateToday),
+          'تأخیر',
+          PayeshTone.warning,
+        ),
         _stat(
           'pending',
-          '📝',
+          Icons.edit_note,
           faNumber(d.pendingGrades),
           'نمرهٔ در انتظار تأیید',
           PayeshTone.info,

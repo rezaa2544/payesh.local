@@ -118,6 +118,12 @@ void main() {
       // the old debug block is gone; today stays as a quiet footer
       expect(find.text('sync-v1'), findsNothing);
       expect(find.text('نسخهٔ بومی پایش'), findsNothing);
+      // row 170: «نبض امروز مدرسه» + stat cards push the footer below the fold
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('home-footer')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.byKey(const Key('home-footer')), findsOneWidget);
       expect(find.byKey(const Key('home-today')), findsOneWidget);
       expect(tester.takeException(), isNull);

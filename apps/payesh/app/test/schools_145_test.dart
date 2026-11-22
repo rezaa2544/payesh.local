@@ -18,6 +18,7 @@ import 'lan_mode_127_test.dart'
 final class FakeSchools implements LanSchoolsApi {
   final calls = <String>[];
   final registers = <Object>[];
+  final registerServers = <Uri>[];
   final statuses = <Object>[];
   final subs = <Object>[];
   final trials = <Object>[];
@@ -39,6 +40,7 @@ final class FakeSchools implements LanSchoolsApi {
     String? deviceHash,
   }) {
     lastForm = form.toJson(deviceHash: deviceHash);
+    registerServers.add(server);
     return _next(registers, 'register:${form.normalizedUsername}');
   }
 
@@ -68,6 +70,21 @@ final class FakeSchools implements LanSchoolsApi {
     String plan,
     String ref,
   ) => _next(receipts, 'receipt:$plan:$ref');
+}
+
+/// Row 170 — the address list (mutable: empty while the app starts, filled for the relay).
+final class ListDirectory implements SchoolDirectoryApi {
+  var list = <Uri>[];
+  var calls = 0;
+
+  @override
+  Future<List<Uri>> candidates() async {
+    calls++;
+    return list;
+  }
+
+  @override
+  Future<List<Uri>> addressesOf(String instance) async => const [];
 }
 
 SubStatus paywalled({bool trial = true, bool gateway = true}) =>
@@ -106,6 +123,7 @@ void main() {
   late FakeSchools schools;
   late FakeSecureStore store;
   late List<String> opened;
+  late ListDirectory directory;
   String? deviceId;
 
   setUp(() {
@@ -113,6 +131,7 @@ void main() {
     schools = FakeSchools();
     store = FakeSecureStore();
     opened = [];
+    directory = ListDirectory();
     deviceId = 'android-id-0123456789';
   });
 
@@ -126,6 +145,7 @@ void main() {
       flags: ClientFlags.parse(),
       lan: lan,
       schools: schools,
+      directory: directory,
       deviceId: () async => deviceId,
       openUrl: (u) async {
         opened.add(u);
@@ -297,6 +317,89 @@ void main() {
       expect(lan.calls.last, 'login:m.karimi:Karimi-1403');
       expect(find.byKey(const Key('paywall')), findsOneWidget);
       expect(find.byKey(const Key('paywall-trial')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'S170-W01 the reached server is not connected ⇒ a connected server relays the request (it reaches the owner panel)',
+    (tester) async {
+      await boot(tester);
+      await toLogin(tester);
+      await tap(tester, 'lan-signup');
+      await type(tester, 'signup-school', 'هنرستان باهنر');
+      await pick(tester, 'signup-level', 'متوسطه دوم');
+      await pick(tester, 'signup-province', 'خراسان رضوی');
+      await pick(tester, 'signup-county', 'نیشابور');
+      await type(tester, 'signup-phone', '09151234567');
+      await type(tester, 'signup-staff', '25');
+      await type(tester, 'signup-students', '320');
+      await type(tester, 'signup-manager', 'محمد کریمی');
+      await type(tester, 'signup-password', 'Karimi-1403');
+      const notConnected = LanAccessFailure(
+        LanAccessError.unknown,
+        wire: 'not_connected',
+        status: 503,
+      );
+      // NEG: no other server known ⇒ the honest «not connected» message, nothing saved
+      schools.registers.add(notConnected);
+      await tap(tester, 'signup-submit');
+      expect(
+        text(tester, 'signup-error'),
+        contains('هنوز به دیتابیس پایش وصل نیست'),
+      );
+      expect(await SignupStore(store).load(), isNull);
+      // the list names: the same server (skipped), a dead one, an unconnected one, a connected one
+      final dead = Uri.parse('http://192.168.1.20:8080');
+      final other = Uri.parse('http://192.168.1.30:8080');
+      final central = Uri.parse('https://srv.payeshschool.ir');
+      directory.list = [lanServer, dead, other, central];
+      schools.registers.addAll([
+        notConnected,
+        const LanAccessFailure(LanAccessError.unreachable),
+        notConnected,
+        (id: '1794579912714-00000000000000aa', token: 'tok-r'),
+      ]);
+      await tap(tester, 'signup-submit');
+      expect(schools.registerServers.skip(1), [
+        lanServer,
+        dead,
+        other,
+        central,
+      ]);
+      expect(find.byKey(const Key('signup-pending')), findsOneWidget);
+      final t = (await SignupStore(store).load())!;
+      expect(t.server, central, reason: 'status is asked where it was stored');
+      expect(t.via, lanServer);
+      // back to the LAN login and in again: the relayed request is still followed
+      schools.statuses.add(const SignupStatus('pending'));
+      await tap(tester, 'signup-back');
+      await tap(tester, 'lan-signup');
+      expect(find.byKey(const Key('signup-pending')), findsOneWidget);
+      expect(schools.calls.last, 'status:1794579912714-00000000000000aa');
+      // NEG: a final answer from the relay (taken name) is not hidden by trying further servers
+      await tap(tester, 'signup-new');
+      schools.registers.addAll([
+        notConnected,
+        const LanAccessFailure(
+          LanAccessError.unknown,
+          wire: 'username_taken',
+          status: 409,
+        ),
+      ]);
+      directory.list = [central, other];
+      final before = schools.registerServers.length;
+      await type(tester, 'signup-school', 'هنرستان باهنر');
+      await pick(tester, 'signup-level', 'متوسطه دوم');
+      await pick(tester, 'signup-province', 'خراسان رضوی');
+      await pick(tester, 'signup-county', 'نیشابور');
+      await type(tester, 'signup-phone', '09151234567');
+      await type(tester, 'signup-staff', '25');
+      await type(tester, 'signup-students', '320');
+      await type(tester, 'signup-manager', 'محمد کریمی');
+      await type(tester, 'signup-password', 'Karimi-1403');
+      await tap(tester, 'signup-submit');
+      expect(schools.registerServers.skip(before), [lanServer, central]);
+      expect(text(tester, 'signup-error'), contains('قبلاً گرفته شده'));
     },
   );
 
