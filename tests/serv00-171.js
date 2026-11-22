@@ -99,16 +99,25 @@ a=(); for x in "$@"; do case "$x" in https://${DOMAIN}*) x="http://127.0.0.1:${p
 exec "${realCurl}" "\${a[@]}"
 `, { mode: 0o755 });
   fs.symlinkSync(process.execPath, path.join(bin, 'node'));
+  /* the release files as GitHub serves them: releases/manifest.json + releases/payesh-local-src-<v>.tar.gz
+     (built here from this tree: CI commits the real tarball only after the release build) */
+  const raw = path.join(home, 'raw');
+  const ver = '9.9.171';
+  fs.mkdirSync(path.join(raw, 'releases'), { recursive: true });
+  fs.mkdirSync(path.join(raw, 'deploy/serv00'), { recursive: true });
+  fs.writeFileSync(path.join(raw, 'releases/manifest.json'), JSON.stringify({ version: ver }));
+  fs.copyFileSync(path.join(ROOT, 'deploy/serv00/app.js'), path.join(raw, 'deploy/serv00/app.js'));
+  const tz = spawnSync('tar', ['czf', path.join(raw, 'releases/payesh-local-src-' + ver + '.tar.gz'), '-C', ROOT, 'server', 'package.json'], { encoding: 'utf8' });
+  assert(tz.status === 0, 'tar ' + tz.stderr);
   const env = Object.assign({}, process.env, {
     HOME: home, USER: 'T171', PATH: bin + ':' + process.env.PATH,
-    PAYESH_RAW: 'file://' + ROOT, PAYESH_DOMAIN: DOMAIN,
+    PAYESH_RAW: 'file://' + raw, PAYESH_DOMAIN: DOMAIN,
     PAYESH_S3_ACCESS_KEY: 'AK-171-TEST', PAYESH_S3_SECRET: "se'cret-171",
   });
   delete env.PAYESH_SERV00_TEST;
   try {
     const r = spawnSync('sh', [path.join(ROOT, 'deploy/serv00/setup.sh')], { env, encoding: 'utf8', timeout: 120000 });
     const out = r.stdout + r.stderr;
-    const ver = JSON.parse(read('releases/manifest.json')).version;
     assert(r.status === 0, 'exit ' + r.status + '\n' + out + '\n' + (fs.existsSync(path.join(home, 'app.log')) ? fs.readFileSync(path.join(home, 'app.log'), 'utf8').slice(-1500) : ''));
     assert(out.includes('PAYESH-SETUP-OK ' + ver + ' ' + DOMAIN), out);
     assert(!out.includes('AK-171-TEST') && !out.includes('cret-171'), 'a key was printed');
