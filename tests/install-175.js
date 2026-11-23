@@ -69,6 +69,10 @@ t('A175-03 manifests declare the permission and a private result receiver', () =
     assert.ok(s.includes('<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>'), f);
     assert.ok(/<receiver\s+android:name="\.InstallStatusReceiver"\s+android:exported="false"\/>/.test(s), f + ': receiver not exported');
   }
+  // the CI permission allowlists accept exactly this one new permission (school policy file + owner check)
+  const pol = JSON.parse(read('docs/cloud/76-android-release.json'));
+  assert.deepStrictEqual(pol.allowed_permissions, ['android.permission.INTERNET', 'android.permission.REQUEST_INSTALL_PACKAGES', 'android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION']);
+  assert.ok(read('.github/workflows/native-client.yml').includes('grep -vE "android.permission.INTERNET|android.permission.REQUEST_INSTALL_PACKAGES|android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION|DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"'), 'owner APK permission allowlist');
   // Android 16 requires target SDK >= 34 for installs without user action: both apps follow Flutter's default (36)
   assert.ok(read('apps/payesh/app/android/app/build.gradle.kts').includes('targetSdk = flutter.targetSdkVersion'));
   assert.ok(read('apps/payesh/owner/android/app/build.gradle.kts').includes('targetSdk = flutter.targetSdkVersion'));

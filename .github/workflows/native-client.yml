@@ -1130,8 +1130,9 @@ jobs:
           if grep -q 'application-debuggable' owner-out/aapt2-badging.txt; then echo '::error::debuggable owner APK'; exit 1; fi
           grep -E "^(package|sdkVersion|targetSdkVersion|uses-permission|application-label)" owner-out/aapt2-badging.txt
           # ردیف ۱۴۸: پنل مالک (توزیع مستقیم، نه Google Play) بستهٔ تازهٔ خودش را با نصب‌کنندهٔ سیستم نصب می‌کند
+          # ردیف ۱۷۵: اندروید ۱۲+ همان به‌روزرسانی خودِ برنامه بدون صفحهٔ نصب (UPDATE_PACKAGES_WITHOUT_USER_ACTION)
           grep -q "uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'" owner-out/aapt2-badging.txt
-          if grep -E "uses-permission: name='" owner-out/aapt2-badging.txt | grep -vE "android.permission.INTERNET|android.permission.REQUEST_INSTALL_PACKAGES|DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"; then
+          if grep -E "uses-permission: name='" owner-out/aapt2-badging.txt | grep -vE "android.permission.INTERNET|android.permission.REQUEST_INSTALL_PACKAGES|android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION|DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"; then
             echo '::error::unexpected permission in the owner APK'; exit 1
           fi
           "$BT/apksigner" verify --verbose --print-certs owner-out/payesh-owner.apk > owner-out/apksigner.txt 2>&1
