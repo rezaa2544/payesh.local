@@ -245,7 +245,7 @@ const login = (port, phone, password) => req('POST', port, '/api/auth/login', { 
     assert.ok(!/payesh-(pg|redis)-ha|benzin|hermes/.test(compose), 'به کانتینرهای دیگر دست نمی‌زند');
     for (const f of fs.readdirSync(sim)) {
       const t = fs.readFileSync(path.join(sim, f), 'utf8');
-      assert.ok(!/AKIA[0-9A-Z]{12,}|-----BEGIN (RSA |EC )?PRIVATE KEY-----/.test(t), 'کلید واقعی در ' + f);
+      assert.ok(!/AKIA[0-9A-Z]{12,}|-----BEGIN (RSA |EC )?PRIVATE KEY-{5}/.test(t), 'کلید واقعی در ' + f);
     }
   });
 
