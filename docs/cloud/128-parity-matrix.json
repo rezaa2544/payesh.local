@@ -322,7 +322,7 @@
    "native": [
     {
      "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
-     "has": "'cls-class-delete-"
+     "has": "'cls-room-delete-"
     },
     {
      "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
@@ -346,57 +346,15 @@
   },
   {
    "id": "act:class-edit",
-   "status": "native",
-   "wave": "W8",
-   "native": [
-    {
-     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
-     "has": "'cls-class-edit-"
-    },
-    {
-     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
-     "has": "class ClassFormPage"
-    }
-   ],
-   "tests": [
-    {
-     "file": "apps/payesh/app/test/classes_wave8_test.dart",
-     "has": "'W8-W02"
-    },
-    {
-     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
-     "has": "'W8-U04"
-    }
-   ]
+   "status": "retired",
+   "reason_fa": "ردیف ۱۷۲ (پنل اپ دقیقاً مثل پنل وب): صفحهٔ «کلاس‌ها و تعریف‌ها»ی وب (PAGES.classes) دکمهٔ class-edit را نشان نمی‌دهد و فقط جدول «کلاس‌ها و کارگاه‌ها» با room-edit دارد؛ کنترل‌کنندهٔ class-edit در app.js از هیچ صفحه‌ای فراخوانده نمی‌شود",
+   "replacement": "ویرایش نام کلاس/کارگاه از همان جدول (room-edit، Key cls-room-edit- در classes_screen.dart)؛ کلاس‌های پایه × رشته از «تعریف‌ها» ویرایش می‌شوند (def-edit)"
   },
   {
    "id": "act:class-merge",
-   "status": "native",
-   "wave": "W8",
-   "native": [
-    {
-     "file": "apps/payesh/app/lib/src/classes/classes_screen.dart",
-     "has": "Key('cls-merge-to-"
-    },
-    {
-     "file": "apps/payesh/packages/payesh_sync/lib/src/classes.dart",
-     "has": "Future<RecordWrite> mergeClass("
-    }
-   ],
-   "tests": [
-    {
-     "file": "apps/payesh/app/test/classes_wave8_test.dart",
-     "has": "'W8-W05"
-    },
-    {
-     "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
-     "has": "'W8-IT-02"
-    },
-    {
-     "file": "apps/payesh/packages/payesh_sync/test/classes_test.dart",
-     "has": "'W8-U06"
-    }
-   ]
+   "status": "retired",
+   "reason_fa": "ردیف ۱۷۲ (پنل اپ دقیقاً مثل پنل وب): صفحهٔ «کلاس‌ها و تعریف‌ها»ی وب فهرست کلاس و دکمهٔ ادغام ندارد؛ کنترل‌کنندهٔ class-merge در app.js از هیچ صفحه‌ای فراخوانده نمی‌شود. توان ادغام در payesh_sync (ClassBook.mergeClass) و آزمون‌هایش (W8-U06، W8-IT-02) دست‌نخورده ماند",
+   "replacement": "حذف کلاس (class-delete، دانش‌آموزان بی‌کلاس می‌شوند و خودشان حذف نمی‌شوند) و سپس تعیین کلاس هر دانش‌آموز در ویرایش کاربر (user-edit، usr-edit-)"
   },
   {
    "id": "act:cloud-cors",
@@ -1682,7 +1640,7 @@
    "native": [
     {
      "file": "apps/payesh/app/lib/src/users/users_screen.dart",
-     "has": "Key('usr-role-"
+     "has": "keyPrefix: 'usr-role'"
     }
    ],
    "tests": [
@@ -1765,7 +1723,7 @@
    "native": [
     {
      "file": "apps/payesh/app/lib/src/schedule/schedule_screen.dart",
-     "has": "Key('sch-child-"
+     "has": "keyPrefix: 'sch-child'"
     },
     {
      "file": "apps/payesh/app/lib/src/schedule/schedule_screen.dart",
@@ -1790,7 +1748,7 @@
    "native": [
     {
      "file": "apps/payesh/app/lib/src/schedule/schedule_screen.dart",
-     "has": "Key('sch-move-"
+     "has": "'sch-move-${x.kind}-"
     },
     {
      "file": "apps/payesh/packages/payesh_sync/lib/src/timetable.dart",

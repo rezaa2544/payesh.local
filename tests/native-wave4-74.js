@@ -201,7 +201,8 @@ function nw4Flags(s) {
   assert(/if \(role == null \|\| !NoticeBoard\.readers\.contains\(role\)\)/.test(entry), 'entry must check the reader roles');
   assert(/if \(!enabled\) \{\s*return const Text\(\s*'اطلاعیه‌ها فعلاً در نسخهٔ وب نمایش داده می‌شود\.'/.test(entry), 'wave off ⇒ old (web) client message');
   assert(/if \(uid == null\)/.test(entry), 'unknown uid ⇒ no dead button');
-  assert(/floatingActionButton: c\.canWrite/.test(sc) && /if \(c\.canWrite\) \.\.\.\[/.test(sc), 'write controls only for writers');
+  // row 172: like the web page head — «+ اطلاعیه» in the head actions and ویرایش/حذف per card, each behind canWrite
+  assert(/if \(c\.canWrite\)\s*WebBtn\(\s*'\+ اطلاعیه',\s*key: const Key\('ntc-add'\)/.test(sc) && /if \(c\.canWrite\)\s*Padding\([\s\S]{0,260}Key\('ntc-edit-/.test(sc) && (sc.match(/Key\('ntc-add'\)|Key\('ntc-edit-\$\{|Key\('ntc-delete-\$\{/g) || []).length === 3, 'write controls only for writers');
   assert(/bool get canWrite => NoticeBoard\.writers\.contains\(role\);/.test(code(s.ctrl)), 'controller canWrite must come from the board writers');
   for (const k of ['ctrl', 'screen', 'wiring', 'app']) assert(!/webview|WebView|InAppWebView/.test(code(s[k])), k + ': no WebView');
   return 'default login,attendance,grades,notices · readers see it · writers write · legacy message';
@@ -270,7 +271,7 @@ const MUTANTS = [
   ['M20 notices wired with the wave off', s => nw4DataPath(mut(s, 'main', 'notices: flags.ships(NativeWave.notices) ? attendance : null,', 'notices: attendance,'))],
   ['M21 page ignores the wave flag', s => nw4Flags(mut(s, 'app', 'enabled: nsrc != null && s.flags.uses(NativeWave.notices),', 'enabled: nsrc != null,'))],
   ['M22 default waves drop notices', s => nw4Flags(mut(s, 'flags', "defaultValue: 'login,attendance,grades,notices", "defaultValue: 'login,attendance,grades,x"))],
-  ['M23 add button for every role', s => nw4Flags(mut(s, 'screen', 'floatingActionButton: c.canWrite', 'floatingActionButton: true'))],
+  ['M23 add button for every role', s => nw4Flags(mut(s, 'screen', "if (c.canWrite)\n                      WebBtn(\n                        '+ اطلاعیه',", "if (true)\n                      WebBtn(\n                        '+ اطلاعیه',"))],
   ['M24 wave-4 IT removed from CI', s => nw4Tests(mut(s, 'ci', ' test/notices_it_test.dart', ''))],
   ['M25 doc claims a real-device PASS', s => nw4Doc(mut(s, 'doc', 'NOT RUN [M]', 'PASS [M]'))],
 ];

@@ -70,8 +70,9 @@ function nw5Badges(s) {
   // average / attendance thresholds (home card and child page)
   assert(/avg >= 15 \? 'green' : avg >= 10 \? 'amber' : 'red'/.test(home), 'web average badge changed');
   assert(/pct >= 90 \? 'green' : 'amber'/.test(home) && /pct >= 90 \? 'green' : 'amber'/.test(child), 'web attendance badge changed');
-  assert(/final a when a >= 15 => PayeshTone\.success,\s*final a when a >= 10 => PayeshTone\.warning,\s*_ => PayeshTone\.danger,/.test(sc), 'native average tones ≠ web (15 green, 10 amber, else red)');
-  assert(/final p when p >= 90 => PayeshTone\.success,\s*_ => PayeshTone\.warning,/.test(sc), 'native attendance tones ≠ web (90 green, else amber)');
+  // row 172: the screen uses the web kit (WebTone green/amber/red), written like the web ternaries
+  assert(/WebTone webAverageTone\(double avg\) => avg >= 15\s*\? WebTone\.green\s*: avg >= 10\s*\? WebTone\.amber\s*: WebTone\.red;/.test(sc) && /tone: webAverageTone\(k\.average \?\? 0\),/.test(sc), 'native average tones ≠ web (15 green, 10 amber, else red)');
+  assert(/tone: \(k\.attendancePercent \?\? 0\) >= 90\s*\? WebTone\.green\s*: WebTone\.amber,/.test(sc), 'native attendance tones ≠ web (90 green, else amber)');
   // leave states
   const web = /badge\(l\.status === 'approved' \? '([^']+)' : l\.status === 'rejected' \? '([^']+)' : '([^']+)', l\.status === 'approved' \? 'green' : l\.status === 'rejected' \? 'red' : 'amber'\)/.exec(lv);
   assert(web, 'web leave badge changed');
@@ -80,11 +81,11 @@ function nw5Badges(s) {
   const dart = Object.fromEntries([...en[1].matchAll(/^\s+([a-z]+)\('([^']+)'\)/gm)].map(m => [m[1], m[2]]));
   assert(dart.approved === web[1] && dart.rejected === web[2] && dart.pending === web[3] && Object.keys(dart).length === 3, 'leave labels ' + JSON.stringify(dart) + ' ≠ web ' + web.slice(1, 4));
   assert(/'approved' => LeaveState\.approved,\s*'rejected' => LeaveState\.rejected,\s*_ => LeaveState\.pending,/.test(b), 'unknown leave status must read as pending (web else-branch)');
-  assert(/LeaveState\.approved => PayeshTone\.success,\s*LeaveState\.rejected => PayeshTone\.danger,\s*LeaveState\.pending => PayeshTone\.warning,/.test(sc), 'native leave tones ≠ web (green / red / amber)');
+  assert(/LeaveState\.approved => WebTone\.green,\s*LeaveState\.rejected => WebTone\.red,\s*LeaveState\.pending => WebTone\.amber,/.test(sc), 'native leave tones ≠ web (green / red / amber)');
   // grade review + attendance labels on the child page
   assert(/badge\(g\.status === 'approved' \? 'تأییدشده' : 'در انتظار', g\.status === 'approved' \? 'green' : 'amber'\)/.test(child), 'web grade review badge changed');
   assert(/a\.status === 'present' \? 'green' : a\.status === 'absent' \? 'red' : 'amber'/.test(child), 'web attendance record colours changed');
-  assert(/AttendanceStatus\.present => PayeshTone\.success,\s*AttendanceStatus\.absent => PayeshTone\.danger,\s*_ => PayeshTone\.warning,/.test(sc), 'native attendance record tones ≠ web');
+  assert(/AttendanceStatus\.present => WebTone\.green,\s*AttendanceStatus\.absent => WebTone\.red,\s*_ => WebTone\.amber,/.test(sc), 'native attendance record tones ≠ web');
   const att = Object.fromEntries([...code(s.attendance).matchAll(/^\s+[a-zA-Z]+\('([a-z_]+)', '([^']+)'\)/gm)].map(m => [m[1], m[2]]));
   const webAtt = {};
   const al = /const ATT_LABEL = \{([^}]+)\};/.exec(s.pages);
@@ -257,10 +258,10 @@ class AnchorError extends Error {}
 /* a mutant whose anchor vanished must FAIL the run, never count as "killed" */
 const mut = (s, k, from, to) => { if (!s[k].includes(from)) throw new AnchorError('mutant anchor missing in ' + k + ': ' + from.slice(0, 50)); return Object.assign({}, s, { [k]: s[k].replace(from, to) }); };
 const MUTANTS = [
-  ['M1 average green from 14', s => nw5Badges(mut(s, 'screen', 'final a when a >= 15 => PayeshTone.success,', 'final a when a >= 14 => PayeshTone.success,'))],
+  ['M1 average green from 14', s => nw5Badges(mut(s, 'screen', 'WebTone webAverageTone(double avg) => avg >= 15', 'WebTone webAverageTone(double avg) => avg >= 14'))],
   ['M2 leave label drifts from the web', s => nw5Badges(mut(s, 'book', "rejected('رد شده')", "rejected('ردشده')"))],
   ['M3 unknown leave status reads as approved', s => nw5Badges(mut(s, 'book', "    _ => LeaveState.pending,\n  };", "    _ => LeaveState.approved,\n  };"))],
-  ['M4 rejected shown amber', s => nw5Badges(mut(s, 'screen', 'LeaveState.rejected => PayeshTone.danger,', 'LeaveState.rejected => PayeshTone.warning,'))],
+  ['M4 rejected shown amber', s => nw5Badges(mut(s, 'screen', 'LeaveState.rejected => WebTone.red,', 'LeaveState.rejected => WebTone.amber,'))],
   ['M5 web gains an attendance label the client lacks', s => nw5Badges(mut(s, 'pages', "excused: 'موجه' }", "excused: 'موجه', sick: 'بیمار' }"))],
   ['M6 other parents\' links count', s => nw5Reads(mut(s, 'book', "if (_live(l) && _int(l.data['parent_id']) == uid) l,", 'if (_live(l)) l,'))],
   ['M7 pending grades in the average', s => nw5Reads(mut(s, 'book', "if (g.data['status'] == 'approved') _num(g.data['score']),", "_num(g.data['score']),"))],
