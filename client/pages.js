@@ -76,7 +76,7 @@ function updateBarHtml() {
   }
   return `<div class="updbar" id="update-bar" dir="rtl">
     <span class="upd-dot" style="background:${dot}" title="${esc(text)}"></span>
-    <span class="small"><b class="ltr">v${esc(cur)}</b> — ${text}</span>
+    <span class="small">نسخهٔ <b class="ltr">${esc(cur)}</b> — ${text}</span>
     ${isManager && !bundled && (avail || ready)
       ? `<button class="btn xs primary" data-act="${ready ? 'update-install' : 'update-now'}">${ready ? 'نصب و راه‌اندازی دوباره' : 'دانلود و نصب'}</button>`
       : ''}
@@ -518,7 +518,7 @@ function managerHome() {
       </div>
       <div class="dashboard-now" aria-label="وضعیت زنگ جاری">
         <div class="dashboard-now-line"><span class="dashboard-now-kicker">الان در</span><strong>${esc(currentBellLabel)}</strong></div>
-        <div class="dashboard-now-date">${esc(J_DAYS[dashboardDay] + ' · ' + fa(jdate(today)))}</div>
+        <div class="dashboard-now-date">${esc(J_DAYS[dashboardDay] + '، ' + fa(jdate(today)))}</div>
       </div>
     </div>
   </div>
@@ -631,7 +631,7 @@ function teacherHome() {
   };
 
   return `
-  ${pageHead('امروز من', J_DAYS[day] + ' · ' + jdate(today), `<button class="btn sm" data-act="sync">🔄</button>`)}
+  ${pageHead('امروز من', J_DAYS[day] + '، ' + jdate(today), `<button class="btn sm" data-act="sync">🔄</button>`)}
   ${cur ? card(`<div class="row between"><div><div class="small muted">زنگ جاری</div><b style="font-size:17px">${esc(clock24(cur.start) || cur.start)} – ${esc(clock24(cur.end) || cur.end)}</b></div>
       <div class="badge purple">${esc(cur.label || '')}</div></div>`) :
     card(`<div class="row between"><div><div class="small muted">زنگ جاری</div><b>${nxt ? 'زنگ بعدی: ' + esc(clock24(nxt.start) || nxt.start) : 'زنگ درسی در جریان نیست'}</b></div></div>`)}
@@ -1348,7 +1348,7 @@ function studentHomeCard() {
   ));
   const bells = new Map(pageBellRows().map(b => [Number(b.order), b]));
   const cur = currentBell();
-  return `${pageHead('امروز', J_DAYS[day] + ' · ' + jdate(todayISO()), `<button class="btn sm" data-act="sync">🔄</button>`)}
+  return `${pageHead('امروز', J_DAYS[day] + '، ' + jdate(todayISO()), `<button class="btn sm" data-act="sync">🔄</button>`)}
   ${cur ? card(`<div class="small muted">زنگ جاری</div><b>${esc(cur.start)} – ${esc(cur.end)}</b>`) : ''}
   ${card(`<b>برنامهٔ امروز</b><div class="list" style="margin-top:8px">
     ${rows.map(s => { const b = bells.get(Number(s.bell_order)) || {}; const subj = byId('subjects', s.subject_id) || {}; const t = byId('users', s.teacher_id) || {};

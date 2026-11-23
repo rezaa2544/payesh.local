@@ -3564,7 +3564,7 @@ async function waitFor(fn, ms = 15000) {
 
     const green = T.updateBarHtml();
     assert.ok(/update-bar/.test(green), 'نوار همیشگی هست');
-    assert.ok(green.includes('v' + T.CLIENT_VERSION), 'نسخه نوشته شده: ' + T.CLIENT_VERSION);
+    assert.ok(green.includes('نسخهٔ <b class="ltr">' + T.CLIENT_VERSION), 'نسخه نوشته شده: ' + T.CLIENT_VERSION);
     assert.ok(/16a34a/.test(green), 'چراغ سبز وقتی به‌روز است');
     assert.ok(/به‌روز/.test(green));
 
@@ -3943,7 +3943,7 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(!attendance[1].includes('کلاس ۱۰۱'), 'محل فیزیکی به‌جای پایه/رشته در جدول حضور نمایش داده نمی‌شود');
     assert.ok(rooms && /dashboard-room-row is-occupied[^>]*data-room-id="7"/.test(rooms[1]), 'کلاس ۱۰۱ هنگام وجود زنگ جاری در وضعیت سبز است');
     assert.ok(html.includes('dashboard-now') && html.includes('<span class="dashboard-now-kicker">الان در</span><strong>زنگ اول</strong>'), 'زنگ جاری در گوشهٔ بالای داشبورد نمایش داده می‌شود');
-    assert.ok(/class="dashboard-now-date">(?:شنبه|یک‌شنبه|دوشنبه|سه‌شنبه|چهارشنبه|پنج‌شنبه|جمعه) · /.test(html), 'روز هفته و تاریخ شمسی با اندازهٔ کوچک زیر زنگ می‌آیند');
+    assert.ok(/class="dashboard-now-date">(?:شنبه|یک‌شنبه|دوشنبه|سه‌شنبه|چهارشنبه|پنج‌شنبه|جمعه)، /.test(html), 'روز هفته و تاریخ شمسی با اندازهٔ کوچک زیر زنگ می‌آیند');
     assert.ok(rooms[1].includes('دهم · الکترونیک') && rooms[1].includes('فیزیک') && rooms[1].includes('دبیر آزمون'), 'وضعیت کلاس، پایه/رشته و درس/دبیر را مشخص می‌کند');
     assert.ok(/data-room-id="8"/.test(rooms[1]) && /خالی در این زنگ/.test(rooms[1]), 'کلاس بدون برنامهٔ جاری خالی نشان داده می‌شود');
     T.S.data.bell_schedules.get(1).type = 'break';
@@ -5462,6 +5462,15 @@ async function waitFor(fn, ms = 15000) {
       const { spawnSync } = require('child_process');
       const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/sim-173.js')], { encoding: 'utf8', cwd: ROOT, timeout: 180000 });
       assert.strictEqual(r.status, 0, 'sim-173: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|SIM-173/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
+  /* ── ردیف ۱۷۴: کارهای باز مالک — ابطال کلید افشاشده، تصمیم ADR-105، خوانایی RTL ── */
+  await test('ردیف ۱۷۴: کلید امضای افشاشده ابطال و در هر چهار مرحلهٔ امضا رد می‌شود، تصمیم ADR-105، «نسخهٔ X» و «روز، تاریخ» (۶ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/owner-rows-174.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'owner-rows-174: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|OWNER-ROWS-174/.test(l)).join('\n') + (r.stderr || ''));
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 

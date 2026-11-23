@@ -187,14 +187,14 @@ void main() {
       expect(find.byKey(const Key('update-bar-install')), findsNothing);
       expect(
         barText(tester),
-        'v${appChannel.versionOf(5)} — برنامه به‌روز است',
+        'نسخهٔ ${appChannel.versionOf(5)} — برنامه به‌روز است',
       );
       await tester.runAsync(u.check);
       await tester.pump();
       expect(u.phase, UpdatePhase.ready);
       expect(
         barText(tester),
-        'v${appChannel.versionOf(5)} — نسخهٔ تازهٔ ${appChannel.versionOf(9)} موجود است',
+        'نسخهٔ ${appChannel.versionOf(5)} — نسخهٔ تازهٔ ${appChannel.versionOf(9)} موجود است',
       );
       await tester.runAsync(() async {
         await tester.tap(find.byKey(const Key('update-bar-install')));

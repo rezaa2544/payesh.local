@@ -411,7 +411,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                     Text(
-                      '${Web.jDays[d.weekday]} · ${Web.fa(Web.jdate(d.today))}',
+                      '${Web.jDays[d.weekday]}، ${Web.fa(Web.jdate(d.today))}',
                       style: const TextStyle(
                         fontSize: 11,
                         color: Web.muted,
@@ -733,7 +733,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         bare: manager,
         sub: t == null
             ? null
-            : '${Web.jDays[t.weekday]} · ${Web.jdate(t.today)}',
+            : '${Web.jDays[t.weekday]}، ${Web.jdate(t.today)}',
         headActions: [
           if (!manager)
             WebBtn(

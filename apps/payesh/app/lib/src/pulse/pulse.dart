@@ -805,7 +805,7 @@ class _PulseBn extends StatelessWidget {
 
 /// Row 172: the bars at the top of web `.main` — `canonicalBarHtml` (manager: «☁️ حافظهٔ مشترک
 /// ابری هنوز آماده نیست …» with «تنظیم خودکار» / «بستن») and `updateBarHtml` (`.updbar`: the
-/// light, «vX — برنامه به‌روز است», the manager's «بررسی آپدیت» / «دانلود و نصب»).
+/// light, «نسخهٔ X — برنامه به‌روز است», the manager's «بررسی آپدیت» / «دانلود و نصب»).
 /// The version and its light are this app's own updater (the app updates itself); the cloud
 /// state is the school server's `/api/health` `cloud_ready`, read quietly once.
 class PulseTopBars extends StatefulWidget {
@@ -963,8 +963,10 @@ class _PulseTopBarsState extends State<PulseTopBars> {
           Text.rich(
             TextSpan(
               children: [
+                const TextSpan(text: 'نسخهٔ '),
                 TextSpan(
-                  text: 'v${u.channel.versionOf(u.currentBuild)}',
+                  // row 174: no Latin «v» before the number — next to Persian digits it reads as «۷»
+                  text: u.channel.versionOf(u.currentBuild),
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontFeatures: Web.numFeatures,

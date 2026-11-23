@@ -1,0 +1,12 @@
+{
+  "schema": "payesh-revoked-signing-certs/1",
+  "note": "Android signing certificates that must never sign a Payesh release again (row 61). SHA-256 of the DER certificate, upper-case hex without separators. Values are public fingerprints, not secrets.",
+  "revoked": [
+    {
+      "sha256": "D646302BDFAE9495C8726C3D582F5816DCA5401E2CFB77B137C845CFF6B2E36E",
+      "subject": "CN=Payesh Local, O=Payesh, C=IR",
+      "reason": "keystore and its password were committed to the public repository (e30e0fb6, removed in b8d4bcd5); treat as compromised",
+      "revoked_on": "2026-11-23"
+    }
+  ]
+}

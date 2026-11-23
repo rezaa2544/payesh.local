@@ -522,6 +522,8 @@ jobs:
             echo "::error::keystore/alias from Secrets cannot be validated — fail-closed"
             exit 1
           fi
+          # row 61: a revoked (leaked) certificate may never sign a release
+          bash tools/signing-revoked-check.sh "$KS" PAYESH_KEYSTORE_PASS
           printf 'PAYESH_KEYSTORE=%s\n' "$KS" >> "$GITHUB_ENV"
           echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
           echo "ready=true" >> "$GITHUB_OUTPUT"
@@ -1075,6 +1077,8 @@ jobs:
           if ! keytool -list -keystore "$KS" -storetype PKCS12 -storepass:env PAYESH_OWNER_KEYSTORE_PASS -alias "$PAYESH_OWNER_KEY_ALIAS" >/dev/null 2>&1; then
             echo "::error::owner keystore/alias from Secrets cannot be validated — fail-closed"; exit 1
           fi
+          # row 61: a revoked (leaked) certificate may never sign a release
+          bash tools/signing-revoked-check.sh "$KS" PAYESH_OWNER_KEYSTORE_PASS
           printf 'PAYESH_OWNER_KEYSTORE=%s\n' "$KS" >> "$GITHUB_ENV"
           echo "ready=true" >> "$GITHUB_OUTPUT"
       - name: Fail-closed control — required owner signing without a key must stop Gradle
