@@ -58,11 +58,44 @@ function lanUrls(port) {
   return out;
 }
 
-/** فقط وقتی درخواست از خود سیستم/تونل محلی می‌آید به X-Forwarded-For اعتماد کن */
-function trustProxyFor(remoteAddress) {
-  if (process.env.PAYESH_TRUST_PROXY === '0') return false;
+/* ردیف ۱۷۳: پروکسی معکوسِ جدا (کانتینر درگاه HTTPS در داکر، nginx روی سیستم دیگر) از نشانی
+   loopback نمی‌آید ⇒ پیش‌تر همهٔ کاربران «یک نشانی» (نشانی پروکسی) دیده می‌شدند و سقف‌های نرخ
+   (ثبت‌نام ۵ در ساعت، ورود) همه را با هم می‌بست. PAYESH_TRUST_PROXY = فهرست IP/CIDR (IPv4) جدا با
+   ویرگول، مثل «172.16.0.0/12,10.0.0.5». مقدار 0 = هیچ پروکسی (حتی loopback). */
+function ipv4Num(ip) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
+  if (!m) return null;
+  const p = m.slice(1).map(Number);
+  if (p.some(x => x > 255)) return null;
+  return ((p[0] << 24) >>> 0) + (p[1] << 16) + (p[2] << 8) + p[3];
+}
+function proxyRules(raw) {
+  const out = [];
+  for (const part of String(raw || '').split(',').map(x => x.trim()).filter(Boolean)) {
+    const [ip, bits] = part.split('/');
+    const n = ipv4Num(ip);
+    if (n !== null) {
+      const b = bits === undefined ? 32 : Number(bits);
+      if (Number.isInteger(b) && b >= 8 && b <= 32) out.push({ n, mask: b === 32 ? 0xFFFFFFFF : (0xFFFFFFFF << (32 - b)) >>> 0 });
+    } else if (bits === undefined && /^[0-9a-f:]+$/i.test(part)) out.push({ ip6: part.toLowerCase() });
+  }
+  return out;
+}
+/** فقط وقتی درخواست از خود سیستم/تونل محلی (یا پروکسی معرفی‌شده) می‌آید به X-Forwarded-For اعتماد کن */
+function knownProxy(remoteAddress, env = process.env.PAYESH_TRUST_PROXY) {
+  if (env === '0') return false;
   const ip = String(remoteAddress || '').replace(/^::ffff:/, '');
-  return ip === '127.0.0.1' || ip === '::1' || ip === '';
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '') return true;
+  if (!env || env === '1') return false;
+  const n = ipv4Num(ip);
+  return proxyRules(env).some(r => (r.ip6 ? r.ip6 === ip.toLowerCase() : n !== null && ((n & r.mask) >>> 0) === ((r.n & r.mask) >>> 0)));
+}
+/* «1» (همان معنای deploy/gateway/env-catalog.json): «پشت پروکسی خودم هستم» ⇒ هر همتای مستقیم
+   پروکسی است، ولی فقط یک گام — نشانی کاربر = راست‌ترین X-Forwarded-For (نه سمت چپِ جعل‌پذیر) */
+function trustProxyFor(remoteAddress) {
+  const env = process.env.PAYESH_TRUST_PROXY;
+  if (env === '1') return true;
+  return knownProxy(remoteAddress, env);
 }
 
 function clientIp(req) {
@@ -74,8 +107,12 @@ function clientIp(req) {
   }
   const direct = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
   if (trustProxyFor(direct)) {
-    const xff = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-    if (xff) return xff.replace(/^::ffff:/, '');
+    /* ردیف ۱۷۳: پروکسی (nginx، Passenger serv00، درگاه HTTPS) نشانی را به «انتهای» X-Forwarded-For
+       می‌افزاید و هرچه کاربر خودش فرستاده سمت چپ می‌ماند؛ پس از راست، اولین نشانی‌ای که خودش
+       پروکسیِ مورد اعتماد نیست = کاربر واقعی. پیش‌تر سمت چپ‌ترین برداشته می‌شد ⇒ هر کس با یک
+       هدر جعلی از سقف‌های نرخ (ثبت‌نام ۵ در ساعت، ورود) فرار می‌کرد (شبیه‌سازی داکر). */
+    const hops = String(req.headers['x-forwarded-for'] || '').split(',').map(x => x.trim().replace(/^::ffff:/, '')).filter(Boolean);
+    for (let i = hops.length - 1; i >= 0; i--) if (i === 0 || !knownProxy(hops[i])) return hops[i].slice(0, 64);
     const real = String(req.headers['x-real-ip'] || '').trim();
     if (real) return real;
   }

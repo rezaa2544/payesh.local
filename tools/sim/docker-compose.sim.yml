@@ -1,0 +1,157 @@
+# Row 173 — full simulation of the Payesh deployment in Docker (one machine, no internet).
+#   docker compose -f tools/sim/docker-compose.sim.yml -p payesh-sim up -d --build s3 front central school1 school2
+#   docker compose -f tools/sim/docker-compose.sim.yml -p payesh-sim run --rm driver
+# (tools/sim/run-sim.ps1 does all of it and tears it down.)
+#
+#   s3       the owner's «database» (ArvanCloud bucket) — tools/sim/s3-lite.js, real SigV4
+#   front    HTTPS for https://central.sim and https://s3.sim (simulation CA, tools/sim/tls-front.js)
+#   central  the always-on central server (serv00 kit): PAYESH_CENTRAL=1 + hosting of schools
+#   school1  a school PC: the data service of the school app, fresh install, no address/key typed
+#   school2  a second school PC (own server; announces itself to the central)
+#   driver   plays the owner panel and the apps (tools/sim/run-sim.js) and measures every step
+# The servers are the REAL image of the repository Dockerfile with production timings
+# (registry poll 60 s, hosting 60 s); only the addresses of the bucket/central differ.
+name: payesh-sim
+
+x-server: &server
+  image: payesh-sim:local
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  networks: [simnet]
+  depends_on: [front]
+
+x-sim-env: &simenv
+  NODE_EXTRA_CA_CERTS: /certs/ca.crt
+  PAYESH_CONNECT_URLS: https://s3.sim/payesh-sim/payesh/pub/
+  PAYESH_CENTRAL_URL: https://central.sim
+  PAYESH_NO_DEFAULT_CENTRAL: "1"
+  PAYESH_TUNNEL_AUTO: "0"
+  TZ: Asia/Tehran
+
+networks:
+  simnet:
+    internal: true
+
+volumes:
+  certs:
+  s3-data:
+  central-data:
+  school1-data:
+  school2-data:
+
+services:
+  certs:
+    image: node:22-bookworm
+    command: ["sh", "/sim/make-certs.sh"]
+    volumes: ["./:/sim:ro", "certs:/certs"]
+    network_mode: none
+
+  # the owner's database: real MinIO (S3) — anonymous read only under payesh/pub/ (like the
+  # public-read objects on Arvan); everything else needs a SigV4 signature
+  s3:
+    image: bitnamilegacy/minio:2025.7.23
+    profiles: [minio]
+    environment:
+      MINIO_ROOT_USER: sim-owner-ak-173
+      MINIO_ROOT_PASSWORD: sim-owner-secret-173-do-not-reuse
+      MINIO_DEFAULT_BUCKETS: payesh-sim
+      MINIO_SITE_REGION: us-east-1
+    volumes: ["s3-data:/bitnami/minio/data"]
+    networks:
+      simnet:
+        aliases: [s3]
+    restart: unless-stopped
+
+  s3-init:
+    image: bitnamilegacy/minio:2025.7.23
+    profiles: [minio]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        for i in $$(seq 1 60); do mc alias set sim http://s3:9000 sim-owner-ak-173 sim-owner-secret-173-do-not-reuse >/dev/null 2>&1 && break; sleep 1; done;
+        mc mb --ignore-existing sim/payesh-sim && mc anonymous set download sim/payesh-sim/payesh/pub && echo S3-INIT-OK
+    networks: [simnet]
+    depends_on: [s3]
+
+  # fallback when MinIO cannot be pulled: tools/sim/s3-lite.js (SigV4-checking, public-read ACL)
+  s3-lite:
+    image: node:22-slim
+    profiles: [lite]
+    command: ["node", "/sim/s3-lite.js"]
+    environment:
+      S3_ACCESS_KEY: sim-owner-ak-173
+      S3_SECRET: sim-owner-secret-173-do-not-reuse
+      S3_BUCKET: payesh-sim
+      S3_REGION: us-east-1
+      S3_LATENCY_MS: "${SIM_S3_LATENCY_MS:-60}"
+    volumes: ["./:/sim:ro", "s3-data:/data"]
+    networks:
+      simnet:
+        aliases: [s3]
+    restart: unless-stopped
+
+  front:
+    image: node:22-slim
+    command: ["node", "/sim/tls-front.js"]
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    environment:
+      ROUTES: central.sim=central:8080,s3.sim=s3:9000
+    volumes: ["./:/sim:ro", "certs:/certs:ro"]
+    networks:
+      simnet:
+        aliases: [central.sim, s3.sim]
+    restart: unless-stopped
+
+  central:
+    <<: *server
+    hostname: central
+    environment:
+      <<: *simenv
+      PAYESH_CENTRAL: "1"
+      PAYESH_TRUST_PROXY: "${SIM_TRUST_PROXY-172.16.0.0/12,192.168.0.0/16,10.0.0.0/8}"
+      PAYESH_HEADLESS: "1"
+      PAYESH_PUBLIC_URL: https://central.sim
+      PAYESH_S3_ENDPOINT: https://s3.sim
+      PAYESH_S3_BUCKET: payesh-sim
+      PAYESH_S3_ACCESS_KEY: sim-owner-ak-173
+      PAYESH_S3_SECRET: sim-owner-secret-173-do-not-reuse
+    volumes: ["central-data:/data", "certs:/certs:ro"]
+
+  school1:
+    <<: *server
+    hostname: school1
+    environment:
+      <<: *simenv
+    volumes: ["school1-data:/data", "certs:/certs:ro"]
+
+  school2:
+    <<: *server
+    hostname: school2
+    environment:
+      <<: *simenv
+    volumes: ["school2-data:/data", "certs:/certs:ro"]
+
+  driver:
+    image: node:22-slim
+    working_dir: /repo
+    command: ["node", "--experimental-sqlite", "--disable-warning=ExperimentalWarning", "/repo/tools/sim/run-sim.js"]
+    environment:
+      <<: *simenv
+      SIM_S3_ENDPOINT: https://s3.sim
+      SIM_S3_BUCKET: payesh-sim
+      SIM_S3_ACCESS_KEY: sim-owner-ak-173
+      SIM_S3_SECRET: sim-owner-secret-173-do-not-reuse
+      SIM_OUT: /out
+      SIM_PROJECT: payesh-sim
+      SIM_S3_SERVICE: "${SIM_S3_SERVICE:-s3}"
+    volumes:
+      - "../..:/repo:ro"
+      - "certs:/certs:ro"
+      - "${SIM_OUT_DIR:-./out}:/out"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks: [simnet]
+    profiles: [driver]

@@ -30,7 +30,34 @@ function envKeys(env) {
   };
 }
 
+/* ردیف ۱۷۳ (شبیه‌سازی داکر): فرادادهٔ صندوقچه هم از محیط سرور — برای سرور مرکزی (serv00/داکر)
+   که فقط کلید محیطی دارد و دیتابیسش روی نشانی پیش‌فرض آروان نیست. فقط فراداده است (کلید همان
+   envKeys)؛ نشانی فقط https (یا http روی همین رایانه)، همان قاعدهٔ cloud-control.endpointOk.
+   خالی ⇒ همان پیش‌فرض‌های بالا. */
+function envMeta(env) {
+  const e = env || process.env;
+  const out = {};
+  const ep = String(e.PAYESH_S3_ENDPOINT || '').trim().replace(/\/+$/, '');
+  if (ep) {
+    try {
+      const u = new URL(ep);
+      const local = u.hostname === '127.0.0.1' || u.hostname === 'localhost' || u.hostname === '[::1]';
+      if (!u.username && !u.password && !u.search && (u.protocol === 'https:' || (u.protocol === 'http:' && local))) out.endpoint = ep;
+    } catch (x) { /* نشانی نامعتبر ⇒ پیش‌فرض */ }
+  }
+  const bucket = String(e.PAYESH_S3_BUCKET || '').trim();
+  if (/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) out.bucket = bucket;
+  const region = String(e.PAYESH_S3_REGION || '').trim();
+  if (/^[a-z0-9-]{2,40}$/.test(region)) out.region = region;
+  /* نشانی دیگر بی‌ناحیه ⇒ ناحیه از خود نشانی (همان regionFor پنل مالک: آروان ⇒ نام ناحیه، وگرنه
+     us-east-1)؛ نه ناحیهٔ پیش‌فرض آروان — وگرنه امضای سرور و پنل مالک برای یک صندوقچه دو ناحیه داشت */
+  else if (out.endpoint) out.region = '';
+  const prefix = String(e.PAYESH_S3_PREFIX || '').trim();
+  if (/^[A-Za-z0-9._-]+\/$/.test(prefix)) out.prefix = prefix;
+  return out;
+}
+
 /* برای سازگاری با فراخوانی‌های قدیمی؛ فقط فراداده را برمی‌گرداند */
 const b64 = (s) => Buffer.from(String(s), 'base64').toString('utf8');
 
-module.exports = { DEFAULTS, envKeys, b64 };
+module.exports = { DEFAULTS, envKeys, envMeta, b64 };

@@ -36,7 +36,7 @@
     { "name": "PAYESH_DIR_MIGRATING_TTL_SEC", "need": "optional", "secret": false, "default": "", "fa": "TTL پاسخ «در حال انتقال»." },
     { "name": "DIR_CACHE_TTL_SEC", "need": "optional", "secret": false, "default": "60", "fa": "کش داخلی Directory." },
     { "name": "DIR_STALE_MAX_SEC", "need": "optional", "secret": false, "default": "900", "fa": "حداکثر عمر کش کهنهٔ Directory هنگام قطعی." },
-    { "name": "PAYESH_TRUST_PROXY", "need": "optional", "secret": false, "default": "", "fa": "1 فقط وقتی پشت reverse proxy خودتان هستید (X-Forwarded-For معتبر)." },
+    { "name": "PAYESH_TRUST_PROXY", "need": "optional", "secret": false, "default": "", "fa": "1 فقط وقتی پشت reverse proxy خودتان هستید (نشانی کاربر = راست‌ترین X-Forwarded-For)؛ یا فهرست IP/CIDR پروکسی‌ها مثل 172.16.0.0/12." },
     { "name": "PAYESH_NATIVE_API_CURRENT", "need": "optional", "secret": false, "default": "1", "fa": "نسخهٔ جاری API کلاینت بومی." },
     { "name": "PAYESH_MIN_NATIVE_CLIENT", "need": "optional", "secret": false, "default": "0.1.0", "fa": "کمینهٔ نسخهٔ کلاینت؛ پایین‌تر ⇒ 426." },
     { "name": "PAYESH_CLIENT_KILL", "need": "optional", "secret": false, "default": "", "fa": "فهرست نسخه‌های مسدود کلاینت (اضطراری)." },

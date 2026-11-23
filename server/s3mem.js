@@ -22,7 +22,7 @@ const META_KEY = 'cloud:config';
 
 /* پیش‌فرض‌ها فقط فراداده‌اند؛ کلید (اگر باشد) از محیط سرور می‌آید — D‑23/F‑04 */
 function defaults() {
-  const c = s3.normalize(Object.assign({}, baked.DEFAULTS, baked.envKeys()));
+  const c = s3.normalize(Object.assign({}, baked.DEFAULTS, baked.envMeta(), baked.envKeys()));
   c.enabled = !!(c.endpoint && c.accessKey && c.secret);
   c.source = 'default';
   return c;
@@ -44,7 +44,7 @@ function rawSaved(store) {
    کلیدِ ذخیره‌شده (اگر مدیر ست کرده باشد) بر محیط اولویت دارد. */
 function saved(store) {
   const raw = rawSaved(store);
-  const c = s3.normalize(Object.assign({}, baked.DEFAULTS, baked.envKeys(), raw));
+  const c = s3.normalize(Object.assign({}, baked.DEFAULTS, baked.envMeta(), baked.envKeys(), raw));
   /* اگر هیچ اعتبارنامه‌ای (نه ذخیره‌شده و نه محیط) نباشد، مدرسه پیکربندی‌نشده است */
   if (!c.endpoint || !c.accessKey || !c.secret) return null;
   c.enabled = !!(c.endpoint && c.bucket && c.accessKey && c.secret);

@@ -51,6 +51,11 @@ const FALLBACK = new Set([
   'POST /api/phone/login', 'POST /api/phone/ticket', 'POST /api/outbox/submit', 'GET /api/sub/callback',
 ]);
 const RETRY_STATUS = new Set([400, 401, 403, 404]);
+/* پاسخ‌هایی که فقط مدرسهٔ خودِ کاربر می‌دهد (پس از شناختن کاربر) */
+/* ردیف ۱۷۳ D14: خطاهای نوسازی دستگاه هم فقط از مدرسه‌ای می‌آیند که توکن را شناخت؛ پس از ری‌استارت
+   (حافظهٔ توکن خالی) نباید پشت bad_device سرور اصلی پنهان شوند */
+const SPECIFIC_ERRORS = new Set(['school_inactive', 'school_removed', 'device_limit', 'no_password', 'device_revoked',
+  'device_expired', 'proof_required', 'proof_expired', 'proof_replayed', 'bad_proof']);
 const MAX_BODY = 4 * 1024 * 1024;
 
 const dataPrefix = (controlPrefix, sid) => String(controlPrefix || 'payesh/') + 'h/' + sid + '/';
@@ -213,6 +218,10 @@ function createHost(opts) {
     store, dataDir, entry, schools, s3mem, auth, instanceId, publicUrl = () => null,
     isLocal = () => false, clientIp = () => '', log = (m) => console.log(m),
     spawn = null, env = process.env, execArgv = process.execArgv,
+    /* ردیف ۱۷۳: سرور مرکزی (PAYESH_CENTRAL=1، serv00/داکر) خودش هیچ مدرسه‌ای ندارد و نباید داشته
+       باشد؛ پس «میزبانی» نباید منتظر گره خوردن سرور اصلی به یک مدرسه بماند (شبیه‌سازی داکر: مرکزی
+       هیچ مدرسه‌ای را میزبانی نمی‌کرد و ورود مدیرِ مدرسهٔ تازه همیشه شکست می‌خورد). */
+    central = env.PAYESH_CENTRAL === '1',
   } = opts;
   const key = crypto.randomBytes(24).toString('hex');
   const children = new Map();   /* sid → {sid, proc, port, instance, ready, readyAt, adopted, restarts, stopped} */
@@ -302,18 +311,26 @@ function createHost(opts) {
   /** هر مدرسهٔ فهرست مالک که این‌جا یا جای دیگر میزبان ندارد ⇒ همین‌جا. */
   async function sync() {
     if (stopped) return { ok: false, error: 'stopped' };
-    const reg = schools.registry(store);
+    let reg = schools.registry(store);
+    /* ردیف ۱۷۳: سرور مرکزی کارش همین میزبانی است ⇒ هر دور فهرست تازه (یک GET در دقیقه) — مدرسهٔ
+       تازهٔ پنل مالک پیش‌تر تا ~۲ دقیقه بی‌سرور می‌ماند (شبیه‌سازی داکر: ۱۲۰ ثانیه). نسخهٔ اول این
+       اصلاح، فهرستِ «کمتر از ۲۰ ثانیه کهنه» را تازه می‌پنداشت؛ اما همان فهرست را حلقهٔ پیروی چند ثانیه
+       پیش از ساخت مدرسه گرفته بود ⇒ باز یک دور کامل (۶۰ ثانیه) تأخیر (شبیه‌سازی داکر، اجرای دوم) */
+    if (central) {
+      const c0 = schools.cloud(store);
+      if (c0) { try { reg = await schools.pullRegistry(store, c0); } catch (e) { /* همان نسخهٔ محلی */ } }
+    }
     const b = schools.boundOf(store);
     const hosted = new Set(list().map(x => x.school_id));
     for (const sid of hosted) if (!children.has(sid)) start(sid);
     const cc = cloudCfg();
     for (const c of children.values()) if (c.port && cc) { try { c.proc.send({ type: 'cloud', cfg: cc, public_url: publicUrl() }); } catch (e) { /* noop */ } }
-    if (!reg || !b) return { ok: true, started: [], hosted: [...hosted] };
+    if (!reg || (!b && !central)) return { ok: true, started: [], hosted: [...hosted] };
     const cfg = schools.cloud(store);
     const started = [];
     for (const sch of reg.plain.schools || []) {
       const sid = sch && String(sch.id || '');
-      if (!sid || !ID_RE.test(sid) || sid === b.school_id || hosted.has(sid)) continue;
+      if (!sid || !ID_RE.test(sid) || (b && sid === b.school_id) || hosted.has(sid)) continue;
       if (sch.active === false || !sch.manager || !sch.manager.password_hash) continue;
       if (cfg) {
         try {
@@ -330,12 +347,21 @@ function createHost(opts) {
   }
 
   /** ورود مدیر مدرسه‌ای که هنوز سرور ندارد (پیش از دور بعدی sync) */
-  async function prepareLogin(body) {
-    const reg = schools.registry(store);
+  let freshPullAt = 0;
+  async function prepareLogin(body, { now = Date.now() } = {}) {
+    let reg = schools.registry(store);
     const b = schools.boundOf(store);
-    if (!reg || !b || !body) return null;
-    const sch = schools.findManager(reg.plain, body.phone);
-    if (!sch || sch.id === b.school_id || !ID_RE.test(String(sch.id))) return null;
+    if ((!b && !central) || !body || !body.phone) return null;
+    let sch = reg ? schools.findManager(reg.plain, body.phone) : null;
+    /* ردیف ۱۷۳: مدرسه‌ای که مالک همین الان ساخته هنوز در نسخهٔ محلی فهرست نیست (دور ۶۰ ثانیه‌ای)
+       ⇒ یک بار فهرست تازه (حداکثر هر ۱۰ ثانیه یک بار، تا ورودهای ناشناس صندوقچه را نکوبند) */
+    if (!sch && now - freshPullAt > 10_000) {
+      freshPullAt = now;
+      const cfg = schools.cloud(store);
+      if (cfg) { try { reg = await schools.pullRegistry(store, cfg); } catch (e) { /* همان نسخهٔ محلی */ } }
+      sch = reg ? schools.findManager(reg.plain, body.phone) : null;
+    }
+    if (!reg || !sch || (b && sch.id === b.school_id) || !ID_RE.test(String(sch.id))) return null;
     if (!children.has(sch.id)) {
       const r = await sync();
       if (!r.hosted || !r.hosted.includes(sch.id)) return null;
@@ -458,6 +484,9 @@ function createHost(opts) {
     const rj = rootCap.json();
     if (rj && (rj.error === 'local_only' || rj.error === 'rate_limited' || rj.error === 'bad_json')) return replay(res, rootCap);
 
+    /* ردیف ۱۷۳: پاسخِ روشنِ مدرسهٔ خودِ کاربر («مدرسه غیرفعال/حذف شد»، «سقف دستگاه»، …) بر ۴۰۱
+       سرور اصلی مقدم است — پیش‌تر کاربرِ مدرسهٔ غیرفعال «رمز اشتباه است» می‌دید (شبیه‌سازی داکر) */
+    let specific = null;
     for (const c of [...children.values()]) {
       if (!c.port) continue;
       const cap = await forward(c, req, res, buf, { capture: true });
@@ -465,8 +494,10 @@ function createHost(opts) {
         for (const t of tokensIn(cap.json())) cacheSet(t, c.sid);
         return replay(res, cap);
       }
+      const cj = cap.json();
+      if (!specific && cj && SPECIFIC_ERRORS.has(cj.error)) specific = cap;
     }
-    return replay(res, rootCap);
+    return replay(res, specific || rootCap);
   }
 
   function startTimer({ everyMs = SYNC_MS, firstMs = 8000 } = {}) {

@@ -71,6 +71,9 @@ const DATA_DIR = process.env.PAYESH_DATA || path.join(ROOT, 'data');
 /* ردیف ۱۶۷: همین سرور، اجراشده به‌عنوان «سرور مدرسهٔ میزبانی‌شده» برای یک مدرسهٔ دیگرِ
    پنل مالک (server/hosting.js). فقط روی 127.0.0.1، فقط از راه سرور اصلی همین رایانه. */
 const hosting = require('./hosting');
+/* ردیف ۱۷۳: سرورِ تازه گره‌خورده به مدرسه (کلید دیتابیس را همین الان گرفت) ⇒ همین چند ثانیه
+   نشانی‌اش را منتشر/اعلام کند، نه ۵ دقیقهٔ بعد (تا آن موقع دستگاه‌های شبکهٔ دیگر پیدایش نمی‌کردند) */
+function kickDiscovery() { if (!HOSTED && process.env.PAYESH_DISCOVERY !== '0') { try { require('./discovery').kick(3000); } catch (e) { /* noop */ } } }
 const rendezvous = require('./rendezvous'); /* ردیف ۱۷۱: نقطهٔ قرار سرورهای مدرسه (فهرست + اعلام) */
 const HOSTED = /^[A-Za-z0-9_-]{1,64}$/.test(String(process.env.PAYESH_HOSTED || '')) ? String(process.env.PAYESH_HOSTED) : null;
 let hostedPublicUrl = null;
@@ -709,9 +712,14 @@ async function api(req, res, url, ip) {
         if (b.state === 'ok') logger.info('cloud_connect_bundle', { component: 'connect', bucket: b.bucket });
       } catch (e) { /* بهترین تلاش؛ ورود عادی ادامه دارد */ }
     }
+    /* ردیف ۱۷۳: سرور مرکزی خودش مدرسه نمی‌گیرد (هر مدرسه سرور میزبانی‌شدهٔ خودش را دارد،
+       server/hosting.js) — وگرنه اولین مدیری که از راه مرکزی وارد می‌شد مدرسه‌اش را در پایگاه
+       خودِ مرکزی می‌نشاند، یا «مدرسه روی سرور دیگری است» (۴۰۹) می‌گرفت و به سرور میزبان نمی‌رسید. */
+    if (process.env.PAYESH_CENTRAL === '1' && !HOSTED) { /* فقط ورود عادی؛ میزبان‌ها پس از ۴۰۱ امتحان می‌شوند */ }
     /* ردیف ۱۴۵: سرور تازه + مدیرِ مدرسه‌ای که مالک ساخته ⇒ همین سرور میزبان آن مدرسه می‌شود */
-    if (auth.needsSetup(store)) {
+    else if (auth.needsSetup(store)) {
       const a = await schools.adoptOnLogin(store, body.phone, body.password, { needsSetup: true, instance: cfg.instanceId(store) });
+      if (a.ok) kickDiscovery();
       if (!a.ok && a.error !== 'not_managed' && a.error !== 'not_found' && a.error !== 'bad_shape') {
         return json(elsewhere(a), a.error === 'school_hosted_elsewhere' ? 409 : a.error === 'registry_unreachable' ? 503 : 401);
       }
@@ -720,6 +728,7 @@ async function api(req, res, url, ip) {
        نام کاربری/رمزی که مالک داده گره می‌خورد (داده‌ها دست نمی‌خورند). */
     else if (!schools.boundOf(store)) {
       const a = await schools.linkOnLogin(store, body.phone, body.password, { instance: cfg.instanceId(store) });
+      if (a.ok) kickDiscovery();
       if (!a.ok && (a.error === 'school_hosted_elsewhere' || a.error === 'school_inactive')) {
         return json(elsewhere(a), a.error === 'school_hosted_elsewhere' ? 409 : 403);
       }
@@ -727,7 +736,9 @@ async function api(req, res, url, ip) {
     /* p2: غیرفعال کردن مدرسه ورود را می‌بندد (پیش از ساختن دستگاه) */
     {
       const gs = schools.gate(store, { id: 0, role: '' });
-      if (gs.status === 'school_inactive' || gs.status === 'school_removed') return json({ ok: false, error: gs.status }, 403);
+      /* ردیف ۱۷۳: سرور میزبانی‌شده فقط به کاربر خودش «مدرسه غیرفعال است» می‌گوید — سرور اصلی ورود
+         را به همهٔ مدرسه‌های میزبانی‌شده می‌دهد و این پاسخ را فقط از مدرسهٔ خودِ کاربر برمی‌گرداند */
+      if ((gs.status === 'school_inactive' || gs.status === 'school_removed') && (!HOSTED || auth.findUserByLogin(store, body.phone || body.username))) return json({ ok: false, error: gs.status }, 403);
     }
     const r = auth.login(store, body);
     if (!r.ok) {

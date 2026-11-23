@@ -29,7 +29,8 @@ const DEFAULTS = {
 
 function clientKey(req, trustProxy) {
   if (trustProxy) {
-    const xf = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    /* ردیف ۱۷۳: پروکسی نشانی را به انتها می‌افزاید ⇒ راست‌ترین (سمت چپ را خود کاربر می‌فرستد) */
+    const xf = String(req.headers['x-forwarded-for'] || '').split(',').map(x => x.trim()).filter(Boolean).pop() || '';
     if (xf) return xf.slice(0, 64);
   }
   return String((req.socket && req.socket.remoteAddress) || 'unknown').replace('::ffff:', '');

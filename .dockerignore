@@ -1,10 +1,12 @@
 .git
 node_modules
 .build
-releases
+releases/*
+!releases/manifest.json
 data
 install/android
 install/windows
 desktop
 tests
 *.log
+tools/sim/out

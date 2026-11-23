@@ -61,3 +61,6 @@ docs/cloud/reports/evidence/*FAILED-*.log
 *.e2b
 *.e2b.partial
 payesh-backup.private.key
+
+# row 173: Docker simulation output
+tools/sim/out/

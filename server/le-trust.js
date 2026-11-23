@@ -54,11 +54,24 @@ const PEMS = [
   '-----BEGIN CERTIFICATE-----\nMIIFBjCCAu6gAwIBAgIRAL7zc3iocCqewKR6uSGlBqswDQYJKoZIhvcNAQELBQAw\nTzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh\ncmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMjQwMzEzMDAwMDAw\nWhcNMjcwMzEyMjM1OTU5WjAzMQswCQYDVQQGEwJVUzEWMBQGA1UEChMNTGV0J3Mg\nRW5jcnlwdDEMMAoGA1UEAxMDUjE0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB\nCgKCAQEAzWhUbJkv1MTfFF7ihLylp5jaitXVng6yEeruE71/c0TLq/bZ438PLiPN\nr3I1qp66HaqOANbQ6ETg0SjuBbWng7VLHG4M1vQnx40EyXb4MnqeiwIucbyfEras\nGfTsS7E0ulC7uJ3G80OeAGQl76Rvq/qOYOR8n9VofZfbSKiQkHjUE4yP18YKub7E\ny8L0i7+WibZd7OYLtcGDxZwgr56r5iSYSVFl6c4ihop2I81g2BkBGPYLygDSktVW\nVz1/cnjHH+u7ubt5hhlw/GwsOaJfIjrFhw3KafQJyvJxanpfCSSTShzR9whLTSKV\nlH2A1761dHaceWkBRqcV3HkuFIGIlQIDAQABo4H4MIH1MA4GA1UdDwEB/wQEAwIB\nhjAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwEwEgYDVR0TAQH/BAgwBgEB\n/wIBADAdBgNVHQ4EFgQU5RCV2LYMUdencjVjClRobgZT+PswHwYDVR0jBBgwFoAU\nebRZ5nu25eQBc4AIiMgaWPbpm24wMgYIKwYBBQUHAQEEJjAkMCIGCCsGAQUFBzAC\nhhZodHRwOi8veDEuaS5sZW5jci5vcmcvMBMGA1UdIAQMMAowCAYGZ4EMAQIBMCcG\nA1UdHwQgMB4wHKAaoBiGFmh0dHA6Ly94MS5jLmxlbmNyLm9yZy8wDQYJKoZIhvcN\nAQELBQADggIBACA3LtFXH8eQXLovPGzp7c2XE0/jmEp7tokiecuSdHfIUoMMYLjI\nTpCNbi92Czp+qraLmp0eLy6QEE5wnvMe5f9fgE24yk8EpsLw0JEr9L8tqWUXC1Kp\njsT3ydhbWR70i4gElBvXnjGJc6HnU80veqABHEOU8TuAVwerBqH479ZLZSX+ezAf\nn9QcYiU9r8kVMbeSoSiQY39L6QK/3w4lmMZ9XoGM+9YhJldIbpBNgikoNgcOp3ya\nQxsfsE6ixjBZ/G6OSdi7KY41a/QdzeIiSy4dDV8R4pYF9FEhogpU/T/fD9tE7gEO\n81vGLOyhUSlI2EzsJeH0lAt9NIN5CPtcooj9ZV3gkuYwhQMdhiBM/giI1CX+3JUh\nw6zKwXr3EjiY4Emw12U6ACaMSJxFxakt1zjmBn/DNgx0rP4WyeSJrewrQsYjW9Us\nbpO7GGrbADy72exibqrULU3Hp/PWHdXn+j3dKweU5ZL5li67ckqf1ixqQtoQuyjb\nF4+flbcU7AdHYnNHNUHMz5TWXYKWP6fFk9PSggS8DmYtYozN3npRSCHTC56Rxa81\nApdD9Ab0dF7fOvlnmniGxfqCRSh/RMGGEaTxdAfhp/m/yaR4xtm8VTAn8d65h/3D\nfKOGZ34UnvZmJ/bHqnU4zkLWc51iC1i9OIQWzoePK6qNPUq7k+oKUMSj\n-----END CERTIFICATE-----\n',
 ];
 
-/* ریشه‌های داخلی Node + زنجیر بالا (برای گزینهٔ ca در https.request) */
+/* ردیف ۱۷۳: گواهی‌های NODE_EXTRA_CA_CERTS (ریشهٔ سازمانی، پروکسی بازرسی TLS، صندوقچهٔ خصوصی).
+   گزینهٔ ca در https.request فهرست پیش‌فرض Node را — همراه همین افزوده‌ها — کامل جایگزین می‌کند؛
+   پس بی این بند، سروری که مدیر شبکه برایش ریشهٔ اضافه گذاشته بود به صندوقچه/سرور مرکزی نمی‌رسید
+   (در شبیه‌سازی داکر دیده شد). فقط افزودن است؛ بررسی گواهی هرگز خاموش نمی‌شود. */
+function extraPems(env = process.env) {
+  const f = String(env.NODE_EXTRA_CA_CERTS || '').trim();
+  if (!f) return [];
+  try {
+    const text = require('fs').readFileSync(f, 'utf8');
+    return text.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) || [];
+  } catch (e) { return []; }
+}
+
+/* ریشه‌های داخلی Node + زنجیر بالا + NODE_EXTRA_CA_CERTS (برای گزینهٔ ca در https.request) */
 let cached = null;
 function caList() {
-  if (!cached) cached = [...tls.rootCertificates, ...PEMS];
+  if (!cached) cached = [...tls.rootCertificates, ...PEMS, ...extraPems()];
   return cached;
 }
 
-module.exports = { PEMS, caList };
+module.exports = { PEMS, caList, extraPems };
