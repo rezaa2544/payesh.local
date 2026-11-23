@@ -144,9 +144,8 @@ Future<MemorySchool> open(
       flags: ClientFlags.parse(school: 'reports'),
     );
     unawaited(
-      Navigator.of(tester.element(find.byKey(const Key('pulse-shell')))).push(
-        MaterialPageRoute<void>(builder: (_) => spec.build(args)),
-      ),
+      Navigator.of(tester.element(find.byKey(const Key('pulse-shell'))))
+          .push(MaterialPageRoute<void>(builder: (_) => spec.build(args))),
     );
     await settle(tester);
     return s;

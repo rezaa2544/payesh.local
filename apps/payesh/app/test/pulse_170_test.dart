@@ -88,31 +88,28 @@ void main() {
     },
   );
 
-  testWidgets(
-    'S170-P02 phone: the web `.bottomnav` (row 172) — same pages inside the shell, hero on the '
-    'home, no drawer and no overflow at 400 px',
-    (tester) async {
-      await size(tester, 400, 860);
-      await boot(tester, 'manager');
-      expect(find.byKey(const Key('pulse-sidebar')), findsNothing);
-      expect(find.byKey(const Key('pulse-drawer')), findsNothing);
-      expect(find.byKey(const Key('pulse-bottomnav')), findsOneWidget);
-      expect(find.byKey(const Key('pulse-hero')), findsOneWidget);
-      expect(tester.takeException(), isNull, reason: 'no overflow at 400 px');
-      await tester.tap(find.byKey(const Key('nav-users')));
-      await settle(tester);
-      expect(find.byKey(const Key('pulse-page-users')), findsOneWidget);
-      expect(find.byKey(const Key('usr-back')), findsNothing);
-      expect(tester.takeException(), isNull, reason: 'no overflow at 400 px');
-      // the far end of the bar scrolls into view
-      await tester.ensureVisible(find.byKey(const Key('nav-system')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('nav-system')));
-      await settle(tester);
-      expect(find.byKey(const Key('pulse-page-system')), findsOneWidget);
-      expect(tester.takeException(), isNull, reason: 'no overflow at 400 px');
-    },
-  );
+  testWidgets('S170-P02 phone: the web `.bottomnav` (row 172) — same pages inside the shell, hero on the '
+      'home, no drawer and no overflow at 400 px', (tester) async {
+    await size(tester, 400, 860);
+    await boot(tester, 'manager');
+    expect(find.byKey(const Key('pulse-sidebar')), findsNothing);
+    expect(find.byKey(const Key('pulse-drawer')), findsNothing);
+    expect(find.byKey(const Key('pulse-bottomnav')), findsOneWidget);
+    expect(find.byKey(const Key('pulse-hero')), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'no overflow at 400 px');
+    await tester.tap(find.byKey(const Key('nav-users')));
+    await settle(tester);
+    expect(find.byKey(const Key('pulse-page-users')), findsOneWidget);
+    expect(find.byKey(const Key('usr-back')), findsNothing);
+    expect(tester.takeException(), isNull, reason: 'no overflow at 400 px');
+    // the far end of the bar scrolls into view
+    await tester.ensureVisible(find.byKey(const Key('nav-system')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('nav-system')));
+    await settle(tester);
+    expect(find.byKey(const Key('pulse-page-system')), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'no overflow at 400 px');
+  });
 
   testWidgets(
     'S170-P03 NEG a student: no hero, no manager pages in the sidebar',

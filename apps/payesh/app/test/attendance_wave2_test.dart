@@ -163,9 +163,8 @@ Future<void> openClass5(WidgetTester tester) async {
   await tapKey(tester, 'att-class-5');
 }
 
-bool chipOn(WidgetTester tester, int sid, String wire) => tester
-    .widget<AttendanceButton>(find.byKey(Key('att-$sid-$wire')))
-    .on;
+bool chipOn(WidgetTester tester, int sid, String wire) =>
+    tester.widget<AttendanceButton>(find.byKey(Key('att-$sid-$wire'))).on;
 
 String badgeOf(WidgetTester tester, String key) => tester
     .widget<Text>(
@@ -324,53 +323,50 @@ void main() {
     },
   );
 
-  testWidgets(
-    'W2-W09 row 172: web offline bar (server out of reach + queued count); NEG nothing while '
-    'merely queued online; refused writes get a warn line',
-    (tester) async {
-      final (c, _) = await boot(tester);
-      await openClass5(tester);
-      c.publishOutbox(
-        const SyncStatus(
-          phase: SyncPhase.queued,
-          pending: 3,
-          inflight: 0,
-          blocked: 0,
-        ),
-      );
-      await tester.pumpAndSettle();
-      // the web shows nothing while it is online with a queue
-      expect(find.byKey(const Key('offline-bar')), findsNothing);
-      c.publishOutbox(
-        const SyncStatus(
-          phase: SyncPhase.offline,
-          pending: 3,
-          inflight: 0,
-          blocked: 0,
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        textOf(tester, 'offline-bar-text'),
-        allOf(
-          startsWith('📴 سیستم مدرسه در دسترس نیست'),
-          contains('۳ تغییر در صف مانده'),
-        ),
-      );
-      expect(find.byKey(const Key('offline-bar-retry')), findsOneWidget);
-      c.publishOutbox(
-        const SyncStatus(
-          phase: SyncPhase.attention,
-          pending: 0,
-          inflight: 0,
-          blocked: 1,
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('offline-bar')), findsNothing);
-      expect(textOf(tester, 'attention-bar-text'), startsWith('۱ تغییر'));
-    },
-  );
+  testWidgets('W2-W09 row 172: web offline bar (server out of reach + queued count); NEG nothing while '
+      'merely queued online; refused writes get a warn line', (tester) async {
+    final (c, _) = await boot(tester);
+    await openClass5(tester);
+    c.publishOutbox(
+      const SyncStatus(
+        phase: SyncPhase.queued,
+        pending: 3,
+        inflight: 0,
+        blocked: 0,
+      ),
+    );
+    await tester.pumpAndSettle();
+    // the web shows nothing while it is online with a queue
+    expect(find.byKey(const Key('offline-bar')), findsNothing);
+    c.publishOutbox(
+      const SyncStatus(
+        phase: SyncPhase.offline,
+        pending: 3,
+        inflight: 0,
+        blocked: 0,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      textOf(tester, 'offline-bar-text'),
+      allOf(
+        startsWith('📴 سیستم مدرسه در دسترس نیست'),
+        contains('۳ تغییر در صف مانده'),
+      ),
+    );
+    expect(find.byKey(const Key('offline-bar-retry')), findsOneWidget);
+    c.publishOutbox(
+      const SyncStatus(
+        phase: SyncPhase.attention,
+        pending: 0,
+        inflight: 0,
+        blocked: 1,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('offline-bar')), findsNothing);
+    expect(textOf(tester, 'attention-bar-text'), startsWith('۱ تغییر'));
+  });
 
   testWidgets(
     'W2-W10 NEG back with unsaved marks asks first; «ماندن» keeps them',
