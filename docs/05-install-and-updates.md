@@ -49,6 +49,17 @@
 
 > ویندوز ممکن است هنگام اجرای `install.bat` هشدار SmartScreen بدهد؛ «More info → Run anyway».
 
+**نصب بدون هشدار SmartScreen (ردیف ۱۷۵ — برنامهٔ بومی مدرسه و پنل مالک):** به‌جای دانلود `setup.exe` با مرورگر، این یک خط را در PowerShell (بدون نیاز به Administrator) اجرا کنید:
+
+```powershell
+# برنامهٔ مدرسه
+irm https://raw.githubusercontent.com/rezaa2544/payesh.local/main/install/windows/get-payesh.ps1 | iex
+# پنل مالک
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/rezaa2544/payesh.local/main/install/windows/get-payesh.ps1))) -App owner
+```
+
+اسکریپت فایل را از Releases می‌گیرد، با `SHA256SUMS` مقایسه می‌کند (اگر نخواند، نصب نمی‌کند) و نصب کاربری بی‌صدا انجام می‌دهد. چون فایل با مرورگر دانلود نشده، برچسب «از اینترنت آمده» ندارد و SmartScreen نمی‌آید. به‌روزرسانی‌های بعدی از داخل خود برنامه هم همین‌طور بی‌هشدار است. جزئیات: [`docs/cloud/175-install-warnings.md`](cloud/175-install-warnings.md).
+
 **برداشتن نصب:** `powershell -ExecutionPolicy Bypass -File uninstall.ps1` (با `-Purge` داده‌ها هم حذف می‌شوند).
 
 **لینوکس:** `sudo bash install/linux/install.sh` → سرویس `payesh.service` روی `/opt/payesh`.
@@ -63,6 +74,7 @@
 
 1. (تاریخی — دیگر منتشر نمی‌شود؛ اکنون `payesh-native.apk` از `native-continuous`) APK را دانلود و نصب کنید («نصب از منابع ناشناس» را اجازه دهید).
 2. برنامه را باز کنید — **هیچ آدرسی پرسیده نمی‌شود** و مستقیم وارد سامانه می‌شوید.
+3. **به‌روزرسانی‌های بعدی (اندروید ۱۲ به بالا):** برنامه نسخهٔ تازهٔ خودش را بی‌صدا نصب می‌کند و صفحهٔ تأیید نصب نمی‌آید (ردیف ۱۷۵). فقط اولین نصب، اجازهٔ «نصب برنامه‌های ناشناس» و پیام Play Protect را دارد؛ این‌ها بدون ناشرِ تأییدشده حذف‌شدنی نیستند. جزئیات: [`docs/cloud/175-install-warnings.md`](cloud/175-install-warnings.md).
 
 آدرس سرویس به‌ترتیب این منابع پیدا می‌شود (کاربر کاری انجام نمی‌دهد):
 
