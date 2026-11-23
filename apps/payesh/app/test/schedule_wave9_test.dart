@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import 'nav_support.dart';
 import 'school_support.dart';
 
 // harness "today" is Thursday 2026-11-12; the slot 900 is on Saturday (0).
@@ -58,6 +59,7 @@ Future<MemorySchool> openSchedule(
   MemorySchool? source,
   Future<void> Function(MemorySchool s)? extra,
 }) async {
+  tallView(tester);
   final (_, s) = await bootSchool(
     tester,
     role: role,
@@ -67,7 +69,7 @@ Future<MemorySchool> openSchedule(
     },
     source: source,
   );
-  await tapKey(tester, 'adm-schedule');
+  await openPage(tester, 'schedule');
   return s;
 }
 
@@ -100,7 +102,7 @@ void main() {
         });
       },
     );
-    await tapKey(tester, 'adm-schedule');
+    await openPage(tester, 'schedule');
     expect(find.text('ریاضی'), findsOneWidget);
     expect(find.byKey(const Key('sch-workdays')), findsNothing);
     await tapKey(tester, 'sch-cell-1-1');
@@ -460,6 +462,7 @@ void main() {
 
   testWidgets('W9-W11 parent: one tab per child (web sched-class), each child\'s class week; '
       'NEG no edit tools', (tester) async {
+    tallView(tester);
     await bootSchool(
       tester,
       role: 'parent',
@@ -487,7 +490,7 @@ void main() {
         await s.put('parent_links', 701, {'parent_id': 10, 'student_id': 22});
       },
     );
-    await tapKey(tester, 'adm-schedule');
+    await openPage(tester, 'schedule');
     expect(find.text('ریاضی'), findsOneWidget);
     expect(find.text('فیزیک'), findsNothing);
     await tapKey(tester, 'sch-child-22');

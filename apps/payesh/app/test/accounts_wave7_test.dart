@@ -8,10 +8,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_app/src/app.dart';
 import 'package:payesh_app/src/flags.dart';
 import 'package:payesh_app/src/login/session_controller.dart';
+import 'package:payesh_app/src/reports/reports_screen.dart'
+    show ReportsController;
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 
 import 'lan_mode_127_test.dart' as lan;
+import 'nav_support.dart';
 import 'school_support.dart';
 import 'users_wave6_test.dart' as w6;
 
@@ -41,8 +44,8 @@ Future<MemorySchool> openCreds(
   final src = MemorySchool()
     ..accounts = withAccounts ? (accounts ?? serverCreds()) : null;
   await bootSchool(tester, role: 'manager', seed: w6.seed, source: src);
-  await tapKey(tester, 'adm-users');
-  await tapKey(tester, 'usr-menu-$id');
+  await openPage(tester, 'users');
+  // Row 172: the web row buttons (no kebab menu)
   await tapKey(tester, 'usr-creds-$id');
   return src;
 }
@@ -86,10 +89,51 @@ void main() {
       // NEG: users wave only → no credentials entry in the row menu
       await tester.pumpWidget(const SizedBox());
       await bootSchool(tester, role: 'manager', seed: w6.seed, school: 'users');
-      await tapKey(tester, 'adm-users');
-      await tapKey(tester, 'usr-menu-11');
+      await openPage(tester, 'users');
       expect(find.byKey(const Key('usr-creds-11')), findsNothing);
       expect(find.byKey(const Key('usr-edit-11')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'W7-W01b row 172 «کارت پیوند» (web pairCardHtml): code, link, «چاپ کارت» writes one HTML '
+    'file, «کد تازه»; NEG without the school server the row has no pair button',
+    (tester) async {
+      final saved = ReportsController.save;
+      addTearDown(() => ReportsController.save = saved);
+      final files = <String, String>{};
+      ReportsController.save = (name, html) async {
+        files[name] = html;
+        return '/docs/$name';
+      };
+      tester.view.physicalSize = const Size(1600, 3200);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      final src = MemorySchool()..accounts = serverCreds();
+      await bootSchool(tester, role: 'manager', seed: w6.seed, source: src);
+      await openPage(tester, 'users');
+      await tapKey(tester, 'usr-pair-11');
+      await tester.pumpAndSettle();
+      expect(textOf(tester, 'pair-code'), isNotEmpty);
+      expect(find.byKey(const Key('pair-how')), findsOneWidget);
+      await tapKey(tester, 'pair-print');
+      await tester.pumpAndSettle();
+      final html = files.values.single;
+      expect(files.keys.single, 'payesh-pair-card-11.html');
+      expect(html, contains('AB12CD34'));
+      expect(html, contains('http://school.test/#/pair=AB12CD34'));
+      expect(html, contains('window.print()'));
+      expect(find.textContaining('نسخهٔ چاپی کارت ذخیره شد'), findsOneWidget);
+      await tapKey(tester, 'pair-refresh');
+      await tester.pumpAndSettle();
+      expect(
+        (src.accounts! as FakeAccounts).calls,
+        contains('pair:11:refresh'),
+      );
+      await tester.pumpWidget(const SizedBox());
+      await bootSchool(tester, role: 'manager', seed: w6.seed);
+      await openPage(tester, 'users');
+      expect(find.byKey(const Key('usr-pair-11')), findsNothing);
     },
   );
 
@@ -190,22 +234,23 @@ void main() {
       seed: w6.seedTeacher,
       source: src,
     );
-    await tapKey(tester, 'adm-password');
+    // Row 172: «تغییر رمز عبور» is a card of «سیستم», like the web panel
+    await openPage(tester, 'system');
     await typeKey(tester, 'pw-current', 'old-pass');
     await typeKey(tester, 'pw-next', 'new-pass');
     await typeKey(tester, 'pw-again', 'new-pazz');
-    await tapKey(tester, 'pw-save');
-    expect(textOf(tester, 'pw-form-error'), 'رمز تازه و تکرارش یکی نیست');
+    await tapKey(tester, 'pw-submit');
+    expect(textOf(tester, 'pw-error'), 'رمز تازه و تکرارش یکی نیست');
     expect(acc.calls, isEmpty);
     await typeKey(tester, 'pw-current', 'not-mine');
     await typeKey(tester, 'pw-again', 'new-pass');
-    await tapKey(tester, 'pw-save');
-    expect(textOf(tester, 'pw-form-error'), 'رمز فعلی درست نیست');
+    await tapKey(tester, 'pw-submit');
+    expect(textOf(tester, 'pw-error'), 'رمز فعلی درست نیست');
     expect(acc.ownPassword, 'old-pass');
     await typeKey(tester, 'pw-current', 'old-pass');
     await typeKey(tester, 'pw-next', 'new-pass');
     await typeKey(tester, 'pw-again', 'new-pass');
-    await tapKey(tester, 'pw-save');
+    await tapKey(tester, 'pw-submit');
     expect(acc.ownPassword, 'new-pass');
     expect(textOf(tester, 'pw-notice'), 'رمز عبور عوض شد');
     expect(src.outbox.list(), isEmpty);
@@ -235,6 +280,8 @@ void main() {
     final server = lan.FakeLan()..refreshes.add(lan.lanSession(device: 'dt-1'));
     final c = await bootLan(tester, server: server, store: store);
     expect(c.state, isA<SignedIn>());
+    // a build without native pages keeps the plain home with its menu (no web shell)
+    expect(navOf('system'), findsNothing);
     await tester.tap(find.byKey(const Key('session-menu')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('lock')));
@@ -277,15 +324,25 @@ void main() {
       final store = await lan.savedLan();
       final server = lan.FakeLan()..refreshes.add(lan.lanSession());
       await bootLan(tester, server: server, store: store, school: 'users');
+      // Row 172: «🔒 خروج» (system page) then signs out — it asks first, nothing is locked
+      Future<void> noLock() async {
+        await openPage(tester, 'system');
+        await tapKey(tester, 'sys-lock');
+        expect(find.byKey(const Key('sign-out-cancel')), findsOneWidget);
+        await tapKey(tester, 'sign-out-cancel');
+        expect(find.byKey(const Key('unlock-password')), findsNothing);
+        // the extra «خروج از این دستگاه» is only there when «🔒 خروج» locks
+        expect(find.byKey(const Key('sign-out')), findsNothing);
+      }
+
+      // a build without native pages: the plain home's menu has no «قفل»
       await tester.tap(find.byKey(const Key('session-menu')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('lock')), findsNothing);
       expect(find.byKey(const Key('sign-out')), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       await bootSchool(tester, role: 'manager', seed: w6.seed);
-      await tester.tap(find.byKey(const Key('session-menu')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('lock')), findsNothing);
+      await noLock();
     },
   );
 

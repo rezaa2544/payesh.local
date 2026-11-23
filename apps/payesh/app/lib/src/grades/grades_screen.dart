@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../pulse/pulse.dart';
+import '../pulse/web.dart';
 import '../sync_badge.dart';
 import 'grades_controller.dart';
 
@@ -67,12 +69,25 @@ class _GradesScreenState extends State<GradesScreen> {
     return ok == true;
   }
 
-  Future<void> _back() async {
-    if (c.open == null) {
-      Navigator.maybePop(context);
-      return;
+  // the three selects of the web card; applied by «نمایش» (web `grade-reload`)
+  int? _selClass;
+  int? _selSubject;
+  GradeTerm? _selTerm;
+
+  Future<void> _show() async {
+    final k = c.classes.where((x) => x.id == (_selClass ?? c.open?.id));
+    if (k.isEmpty) return;
+    final sid = _selSubject ?? c.subject?.id;
+    final sub = c.subjects.where((x) => x.id == sid);
+    if (!await _confirmDiscard()) return;
+    await c.show(k.first, sub.isEmpty ? null : sub.first, _selTerm ?? c.term);
+    if (mounted) {
+      setState(() {
+        _selClass = null;
+        _selSubject = null;
+        _selTerm = null;
+      });
     }
-    if (await _confirmDiscard()) c.closeClass();
   }
 
   @override
@@ -80,198 +95,251 @@ class _GradesScreenState extends State<GradesScreen> {
     return ListenableBuilder(
       listenable: c,
       builder: (context, _) {
-        final open = c.open;
-        return PopScope(
-          canPop: open == null,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _back();
-          },
-          child: Scaffold(
-            appBar: AppBar(
-              leading: IconButton(
-                key: const Key('grd-back'),
-                tooltip: 'بازگشت',
-                icon: const BackButtonIcon(),
-                onPressed: _back,
-              ),
-              title: Text(open == null ? 'ثبت نمره' : open.name),
-              actions: [
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(
-                    end: PayeshTokens.space2,
+        final inline = PulseInline.of(context);
+        final content = WebPageBody(children: _page());
+        return Scaffold(
+          backgroundColor: inline ? Colors.transparent : Web.bg,
+          appBar: inline
+              ? null
+              : AppBar(
+                  leading: IconButton(
+                    key: const Key('grd-back'),
+                    tooltip: 'بازگشت',
+                    icon: const BackButtonIcon(),
+                    onPressed: () async {
+                      if (await _confirmDiscard() && context.mounted) {
+                        Navigator.maybePop(context);
+                      }
+                    },
                   ),
-                  child: Center(
-                    child: SyncBadge(
-                      status: widget.sync,
-                      onRetry: widget.onRetry,
+                  title: const Text('ثبت نمره'),
+                  actions: [
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        end: PayeshTokens.space2,
+                      ),
+                      child: Center(
+                        child: SyncBadge(
+                          status: widget.sync,
+                          onRetry: widget.onRetry,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-            body: open == null ? _classList(context) : _sheet(context),
-            bottomNavigationBar: open == null ? null : _saveBar(context),
-          ),
+          body: inline ? content : WebBackdrop(child: content),
         );
       },
     );
   }
 
-  Widget _messages() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      if (c.error != null)
-        Padding(
-          padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-          child: Text(
-            c.error!,
-            key: const Key('grd-error'),
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
+  List<Widget> _messages() => [
+    if (c.error != null)
+      WebBanner(
+        kind: WebBannerKind.err,
+        text: c.error!,
+        textKey: const Key('grd-error'),
+      )
+    else if (c.notice != null)
+      Semantics(
+        liveRegion: true,
+        child: WebBanner(
+          kind: WebBannerKind.ok,
+          text: faDigits(c.notice!),
+          textKey: const Key('grd-notice'),
         ),
-      if (c.notice != null)
-        Padding(
-          padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-          child: Semantics(
-            liveRegion: true,
-            child: Text(faDigits(c.notice!), key: const Key('grd-notice')),
-          ),
-        ),
-    ],
-  );
+      ),
+  ];
 
-  Widget _classList(BuildContext context) {
+  /// Row 172: web `PAGES.grades` (teacher / manager) exactly — no class list: pageHead
+  /// «ثبت نمره» / the subject; a tight card with the selects «پایه / رشته», «درس», «نوبت» and
+  /// «نمایش»; a card with the bold subject + «نمره از ۲۰» (or «درس کارگاهی — نمرهٔ عملی»),
+  /// the table دانش‌آموز / نمره / وضعیت and the block «ثبت نمرات».
+  List<Widget> _page() {
     if (c.loading && c.classes.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(key: Key('grd-loading')),
-      );
+      return [
+        const WebPageHead(title: 'ثبت نمره'),
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(26),
+            child: CircularProgressIndicator(key: Key('grd-loading')),
+          ),
+        ),
+      ];
     }
-    return ListView(
-      padding: const EdgeInsets.all(PayeshTokens.space4),
-      children: [
-        _messages(),
-        if (c.error == null && c.classes.isEmpty)
-          const Text(
+    if (c.classes.isEmpty) {
+      return [
+        const WebPageHead(title: 'ثبت نمره'),
+        ..._messages(),
+        if (c.error == null)
+          const WebEmpty(
             'کلاسی به شما تخصیص نیافته است.',
             key: Key('grd-no-classes'),
           ),
-        for (final k in c.classes)
-          Card(
-            child: ListTile(
-              key: Key('grd-class-${k.id}'),
-              title: Text(k.name),
-              trailing: const Icon(Icons.chevron_left),
-              onTap: c.busy ? null : () => c.openClass(k),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Future<void> _pick(Future<void> Function() change) async {
-    if (await _confirmDiscard()) await change();
-  }
-
-  Widget _pickers(BuildContext context) {
+      ];
+    }
     final s = c.subject;
-    return Wrap(
-      spacing: PayeshTokens.space3,
-      runSpacing: PayeshTokens.space2,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        DropdownMenu<int>(
-          key: const Key('grd-subject'),
-          label: const Text('درس'),
-          initialSelection: s?.id,
-          enabled: !c.busy && c.subjects.isNotEmpty,
-          dropdownMenuEntries: [
-            for (final x in c.subjects)
-              DropdownMenuEntry(value: x.id, label: x.name),
-          ],
-          onSelected: (id) {
-            if (id == null || id == s?.id) return;
-            final next = c.subjects.firstWhere((x) => x.id == id);
-            _pick(() => c.chooseSubject(next));
-          },
+    final open = c.open;
+    return [
+      WebPageHead(
+        title: 'ثبت نمره',
+        sub: s?.name ?? 'یک درس را انتخاب کنید',
+        subKey: const Key('grd-subject-name'),
+      ),
+      ..._messages(),
+      WebCard.tight(child: _selects()),
+      if (open != null)
+        WebCard(
+          key: const Key('grd-sheet'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(s?.name ?? '', style: Web.b)),
+                    Text(
+                      s?.workshop ?? false
+                          ? 'درس کارگاهی — نمرهٔ عملی'
+                          : 'نمره از ۲۰',
+                      key: const Key('grd-scale'),
+                      style: Web.small,
+                    ),
+                  ],
+                ),
+              ),
+              if (s == null)
+                const Text(
+                  'درسی تعریف نشده است',
+                  key: Key('grd-no-subjects'),
+                  style: Web.small,
+                )
+              else if (c.sheet.isEmpty)
+                const Text(
+                  'دانش‌آموزی در این کلاس نیست.',
+                  key: Key('grd-empty'),
+                  style: Web.small,
+                )
+              else ...[
+                WebTable(
+                  head: const ['دانش‌آموز', 'نمره', 'وضعیت'],
+                  widths: const {1: 110, 2: 90},
+                  rows: [
+                    for (final e in c.sheet)
+                      [
+                        Text(e.name, key: Key('grd-row-${e.studentId}')),
+                        _GradeField(
+                          key: ValueKey('grd-field-${e.studentId}'),
+                          c: c,
+                          e: e,
+                        ),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: WebBadge(
+                            e.state.labelFa,
+                            key: Key('grd-state-${e.studentId}'),
+                            tone: switch (e.state) {
+                              GradeState.approved => WebTone.green,
+                              GradeState.pending => WebTone.amber,
+                              GradeState.fresh => WebTone.none,
+                            },
+                          ),
+                        ),
+                      ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                WebBtn(
+                  'ثبت نمرات',
+                  key: const Key('grd-save'),
+                  kind: WebBtnKind.primary,
+                  size: WebBtnSize.normal,
+                  block: true,
+                  onPressed: c.busy ? null : c.save,
+                ),
+              ],
+            ],
+          ),
         ),
-        DropdownMenu<GradeTerm>(
-          key: const Key('grd-term'),
-          label: const Text('نوبت'),
-          initialSelection: c.term,
-          enabled: !c.busy,
-          dropdownMenuEntries: [
-            for (final t in GradeTerm.values)
-              DropdownMenuEntry(value: t, label: t.wire),
-          ],
-          onSelected: (t) {
-            if (t == null || t == c.term) return;
-            _pick(() => c.chooseTerm(t));
-          },
-        ),
-      ],
-    );
+    ];
   }
 
-  Widget _sheet(BuildContext context) {
-    final s = c.subject;
-    return ListView(
-      padding: const EdgeInsets.all(PayeshTokens.space4),
-      children: [
-        _pickers(context),
-        const SizedBox(height: PayeshTokens.space3),
-        if (s != null)
-          Text(
-            s.workshop ? 'درس کارگاهی — نمرهٔ عملی' : 'نمره از ۲۰',
-            key: const Key('grd-scale'),
+  /// `<div class="row">` of three `label.field.grow` selects + «نمایش» at the bottom.
+  Widget _selects() {
+    Widget select<T>(
+      String key,
+      String label,
+      T? value,
+      List<(T, String)> items,
+      ValueChanged<T?> onChanged,
+    ) => Expanded(
+      child: WebField(
+        label: label,
+        bottom: 0,
+        child: DropdownButtonFormField<T>(
+          key: Key(key),
+          initialValue: items.any((i) => i.$1 == value) ? value : null,
+          isExpanded: true,
+          isDense: true,
+          style: const TextStyle(
+            fontSize: 15,
+            color: Web.ink,
+            fontFamily: 'Vazirmatn',
           ),
-        const SizedBox(height: PayeshTokens.space3),
-        _messages(),
-        if (s == null)
-          const Text('درسی تعریف نشده است', key: Key('grd-no-subjects'))
-        else if (c.sheet.isEmpty)
-          const Text('دانش‌آموزی در این کلاس نیست.', key: Key('grd-empty')),
-        if (s != null)
-          for (final e in c.sheet)
-            _GradeRow(key: ValueKey('grd-row-${e.studentId}'), c: c, e: e),
-      ],
-    );
-  }
-
-  Widget _saveBar(BuildContext context) {
-    final n = c.changes;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(PayeshTokens.space3),
-        child: FilledButton.icon(
-          key: const Key('grd-save'),
-          onPressed: c.busy || c.subject == null ? null : c.save,
-          icon: const Icon(Icons.save_outlined),
-          label: Text(
-            n == 0 ? 'ثبت نمرات' : 'ثبت نمرات (${faDigits(n)} تغییر)',
-          ),
+          decoration: webInput(),
+          items: [
+            for (final (v, l) in items)
+              DropdownMenuItem<T>(value: v, child: Text(l)),
+          ],
+          onChanged: c.busy ? null : onChanged,
         ),
       ),
+    );
+    const gap = SizedBox(width: 9.6);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        select<int>('grd-class', 'پایه / رشته', _selClass ?? c.open?.id, [
+          for (final k in c.classes) (k.id, k.name),
+        ], (v) => setState(() => _selClass = v)),
+        gap,
+        select<int>('grd-subject', 'درس', _selSubject ?? c.subject?.id, [
+          for (final x in c.subjects) (x.id, x.name),
+        ], (v) => setState(() => _selSubject = v)),
+        gap,
+        select<GradeTerm>('grd-term', 'نوبت', _selTerm ?? c.term, [
+          for (final t in GradeTerm.values) (t, t.wire),
+        ], (v) => setState(() => _selTerm = v)),
+        gap,
+        WebBtn(
+          'نمایش',
+          key: const Key('grd-show'),
+          onPressed: c.busy ? null : _show,
+        ),
+      ],
     );
   }
 }
 
-class _GradeRow extends StatefulWidget {
-  const _GradeRow({super.key, required this.c, required this.e});
+/// `<input class="input ltr" style="padding:.3rem" inputmode="decimal" placeholder="—">`.
+class _GradeField extends StatefulWidget {
+  const _GradeField({super.key, required this.c, required this.e});
 
   final GradesController c;
   final GradeEntry e;
 
   @override
-  State<_GradeRow> createState() => _GradeRowState();
+  State<_GradeField> createState() => _GradeFieldState();
 }
 
-class _GradeRowState extends State<_GradeRow> {
+class _GradeFieldState extends State<_GradeField> {
   late final TextEditingController text = TextEditingController(
     text: widget.c.valueOf(widget.e),
   );
 
   @override
-  void didUpdateWidget(_GradeRow old) {
+  void didUpdateWidget(_GradeField old) {
     super.didUpdateWidget(old);
     final v = widget.c.valueOf(widget.e);
     // after a save / pull / sheet change the stored value replaces the field text
@@ -290,49 +358,28 @@ class _GradeRowState extends State<_GradeRow> {
   Widget build(BuildContext context) {
     final e = widget.e;
     final bad = widget.c.invalid == e.studentId;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(PayeshTokens.space3),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(e.name, style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: PayeshTokens.space1),
-                  StatusBadge(
-                    e.state.labelFa,
-                    key: Key('grd-state-${e.studentId}'),
-                    tone: gradeTone(e.state),
-                  ),
-                ],
-              ),
+    final d = webInput(error: bad ? '' : null);
+    // the web input has no visible label; screen readers hear «نمره» (+ «نامعتبر»)
+    return Semantics(
+      label: bad ? 'نمره، نامعتبر' : 'نمره',
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: TextField(
+          key: Key('grd-${e.studentId}'),
+          controller: text,
+          enabled: !widget.c.busy,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: const TextStyle(fontSize: 15, color: Web.ink),
+          decoration: d.copyWith(
+            hintText: '—',
+            errorText: null,
+            // padding .3rem inside the 44px `.input` min-height
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 4.8,
+              vertical: 11.5,
             ),
-            SizedBox(
-              width: 96,
-              child: Directionality(
-                textDirection: TextDirection.ltr,
-                child: TextField(
-                  key: Key('grd-${e.studentId}'),
-                  controller: text,
-                  enabled: !widget.c.busy,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    hintText: '—',
-                    labelText: 'نمره',
-                    errorText: bad ? 'نامعتبر' : null,
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onChanged: (v) => widget.c.edit(e.studentId, v),
-                ),
-              ),
-            ),
-          ],
+          ),
+          onChanged: (v) => widget.c.edit(e.studentId, v),
         ),
       ),
     );

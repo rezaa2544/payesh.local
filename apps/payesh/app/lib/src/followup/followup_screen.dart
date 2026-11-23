@@ -8,6 +8,7 @@ import 'package:payesh_core/io.dart' show File, FileSystemException;
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../pulse/web.dart';
 import '../school/school_source.dart';
 import '../users/users_controller.dart';
 import '../users/users_screen.dart';
@@ -134,22 +135,59 @@ class _FollowupScreenState extends State<FollowupScreen> {
     await c.load();
   }
 
-  Widget _title(String t, String count, String key) => Padding(
-    padding: const EdgeInsets.only(
-      top: PayeshTokens.space4,
-      bottom: PayeshTokens.space2,
+  Widget _select(
+    Key key,
+    String value,
+    String empty,
+    List<String> options,
+    double minWidth,
+    ValueChanged<String> onChanged,
+  ) => ConstrainedBox(
+    constraints: BoxConstraints(minWidth: minWidth, maxWidth: minWidth + 40),
+    child: DropdownButtonFormField<String>(
+      key: key,
+      initialValue: value,
+      isExpanded: true,
+      isDense: true,
+      style: const TextStyle(
+        fontSize: 15,
+        color: Web.ink,
+        fontFamily: 'Vazirmatn',
+      ),
+      decoration: webInput(),
+      items: [
+        DropdownMenuItem(value: '', child: Text(empty)),
+        for (final x in options) DropdownMenuItem(value: x, child: Text(x)),
+      ],
+      onChanged: (x) => onChanged(x ?? ''),
     ),
+  );
+
+  Widget _cardHead(String t, String count, String key) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
     child: Row(
       children: [
-        Expanded(
-          child: Text(t, style: Theme.of(context).textTheme.titleMedium),
-        ),
-        Text(count, key: Key(key)),
+        Expanded(child: Text(t, style: Web.b)),
+        Text(count, key: Key(key), style: Web.small),
       ],
     ),
   );
 
-  Widget _student(FollowupView v, FollowupStudent s) {
+  Widget _nameCell(String name, String sub, {Key? key}) => Column(
+    key: key,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(name.isEmpty ? '—' : name, style: Web.b),
+      if (sub.isNotEmpty)
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Text(sub, style: Web.small),
+        ),
+    ],
+  );
+
+  List<Widget> _student(FollowupView v, FollowupStudent s) {
     final g = _grade[s.id] ?? s.grade;
     final b = _branch[s.id] ?? s.branch;
     final grades = [...v.grades, if (g.isNotEmpty && !v.grades.contains(g)) g];
@@ -157,201 +195,217 @@ class _FollowupScreenState extends State<FollowupScreen> {
       ...v.branches,
       if (b.isNotEmpty && !v.branches.contains(b)) b,
     ];
-    return Card(
-      key: Key('fu-stud-${s.id}'),
-      child: Padding(
-        padding: const EdgeInsets.all(PayeshTokens.space3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            if (s.contact.isNotEmpty)
-              Text(s.contact, textDirection: TextDirection.ltr),
-            Text('⚠️ ${s.reason}', key: Key('fu-reason-${s.id}')),
-            const SizedBox(height: PayeshTokens.space2),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    key: Key('fu-grade-${s.id}'),
-                    initialValue: g.isEmpty ? '' : g,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'پایه',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: '',
-                        child: Text('— پایه —'),
-                      ),
-                      for (final x in grades)
-                        DropdownMenuItem(value: x, child: Text(x)),
-                    ],
-                    onChanged: (x) => setState(() => _grade[s.id] = x ?? ''),
-                  ),
-                ),
-                const SizedBox(width: PayeshTokens.space2),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    key: Key('fu-branch-${s.id}'),
-                    initialValue: b.isEmpty ? '' : b,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'رشته',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: '',
-                        child: Text('— رشته —'),
-                      ),
-                      for (final x in branches)
-                        DropdownMenuItem(value: x, child: Text(x)),
-                    ],
-                    onChanged: (x) => setState(() => _branch[s.id] = x ?? ''),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: PayeshTokens.space2),
-            Wrap(
-              spacing: PayeshTokens.space2,
-              children: [
-                FilledButton(
-                  key: Key('fu-assign-${s.id}'),
-                  onPressed: c.busy ? null : () => c.assign(s.id, g, b),
-                  child: const Text('ذخیره'),
-                ),
-                OutlinedButton(
-                  key: Key('fu-ack-${s.id}'),
-                  onPressed: c.busy ? null : () => c.ack(s.id),
-                  child: const Text('حل شد (بی‌کلاس بماند)'),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return [
+      _nameCell(s.name, s.contact, key: Key('fu-stud-${s.id}')),
+      Text(
+        '⚠️ ${s.reason}',
+        key: Key('fu-reason-${s.id}'),
+        style: Web.small.copyWith(color: Web.ink),
       ),
-    );
-  }
-
-  Widget _issue(ImportIssue i) => Card(
-    key: Key('fu-issue-${i.id}'),
-    child: Padding(
-      padding: const EdgeInsets.all(PayeshTokens.space3),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  i.name.isEmpty ? '—' : i.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              StatusBadge(
-                i.userId != null ? 'در سامانه هست' : 'ساخته نشده',
-                key: Key('fu-issue-state-${i.id}'),
-                tone: i.userId != null ? PayeshTone.success : PayeshTone.danger,
-              ),
-            ],
+          _select(
+            Key('fu-grade-${s.id}'),
+            g,
+            '— پایه —',
+            grades,
+            104,
+            (x) => setState(() => _grade[s.id] = x),
           ),
-          if (i.nationalId.isNotEmpty || i.phone.isNotEmpty)
-            Text(
-              [i.nationalId, i.phone].where((x) => x.isNotEmpty).join(' · '),
-              textDirection: TextDirection.ltr,
-            ),
-          for (final r in i.reasons.take(4)) Text('⚠️ $r'),
-          Wrap(
-            spacing: PayeshTokens.space2,
-            children: [
-              FilledButton.tonal(
-                key: Key('fu-issue-fix-${i.id}'),
-                onPressed: c.busy ? null : () => _fix(i),
-                child: Text(i.userId != null ? 'اصلاح' : 'ساختن کاربر'),
-              ),
-              OutlinedButton(
-                key: Key('fu-issue-done-${i.id}'),
-                onPressed: c.busy ? null : () => c.issueDone(i.id),
-                child: const Text('حل شد'),
-              ),
-            ],
+          _select(
+            Key('fu-branch-${s.id}'),
+            b,
+            '— رشته —',
+            branches,
+            118,
+            (x) => setState(() => _branch[s.id] = x),
           ),
         ],
       ),
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) => SchoolPage(
-    prefix: 'fu',
-    title: 'نیازمند پیگیری',
-    controller: c,
-    sync: widget.sync,
-    onRetry: widget.onRetry,
-    actions: [
-      TextButton.icon(
-        key: const Key('fu-import'),
-        onPressed: _import,
-        icon: const Icon(Icons.upload_file_outlined),
-        label: const Text('ورود دسته‌ای'),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          WebBtn(
+            'ذخیره',
+            key: Key('fu-assign-${s.id}'),
+            kind: WebBtnKind.primary,
+            onPressed: c.busy ? null : () => c.assign(s.id, g, b),
+          ),
+          Tooltip(
+            message: 'بی‌کلاس بماند',
+            child: WebBtn(
+              'حل شد',
+              key: Key('fu-ack-${s.id}'),
+              kind: WebBtnKind.ghost,
+              onPressed: c.busy ? null : () => c.ack(s.id),
+            ),
+          ),
+        ],
       ),
-    ],
-    body: ListenableBuilder(
-      listenable: c,
-      builder: (context, _) {
-        final v = c.view;
-        if (v == null) return const SizedBox.shrink();
-        return ListView(
-          padding: const EdgeInsets.all(PayeshTokens.space4),
-          children: [
-            Text(
-              '${_fa(v.total)} مورد برای رسیدگی',
-              key: const Key('fu-count'),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const Text(
-              'هر چیزی که کامل نیست اینجا جمع می‌شود: ردیف‌های ورود دسته‌ای که ساخته نشدند '
-              'یا مشخصاتشان کامل نبود، و دانش‌آموزانی که پایه یا رشته‌شان کامل نیست. '
-              'تا اینجا باشند جایی گم نمی‌شوند.',
-            ),
-            _title(
-              'دانش‌آموزانی که پایه/رشته‌شان کامل نیست',
-              '${_fa(v.students.length)} نفر',
-              'fu-students-count',
-            ),
-            if (v.students.isEmpty)
-              const Text(
-                'پایه و رشتهٔ همهٔ دانش‌آموزان کامل است. ✅',
-                key: Key('fu-students-none'),
-              )
-            else
-              for (final s in v.students) _student(v, s),
-            _title(
-              'ردیف‌های ورود دسته‌ای',
-              '${_fa(v.issues.length)} ردیف',
-              'fu-issues-count',
-            ),
-            if (v.issues.isEmpty)
-              const Text(
-                'ردیف ناتمامی از ورود دسته‌ای نمانده. ✅',
-                key: Key('fu-issues-none'),
-              )
-            else ...[
-              for (final i in v.issues) _issue(i),
-              const SizedBox(height: PayeshTokens.space2),
-              FilledButton(
-                key: const Key('fu-issues-clear'),
-                onPressed: c.busy ? null : c.issuesClear,
-                child: const Text('همه را حل‌شده کن'),
-              ),
-            ],
-          ],
-        );
-      },
+    ];
+  }
+
+  List<Widget> _issue(ImportIssue i) => [
+    _nameCell(i.name, i.nationalId, key: Key('fu-issue-${i.id}')),
+    Directionality(
+      textDirection: TextDirection.ltr,
+      child: Text(
+        i.phone.isEmpty ? '—' : i.phone,
+        style: Web.small.copyWith(color: Web.ink),
+        textAlign: TextAlign.right,
+      ),
     ),
+    i.reasons.isEmpty
+        ? Text('—', style: Web.small.copyWith(color: Web.ink))
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final r in i.reasons.take(4))
+                Text('⚠️ $r', style: Web.small.copyWith(color: Web.ink)),
+            ],
+          ),
+    Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: WebBadge(
+        i.userId != null ? 'در سامانه هست' : 'ساخته نشده',
+        key: Key('fu-issue-state-${i.id}'),
+        tone: i.userId != null ? WebTone.green : WebTone.red,
+      ),
+    ),
+    Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        WebBtn(
+          i.userId != null ? 'اصلاح' : 'ساختن کاربر',
+          key: Key('fu-issue-fix-${i.id}'),
+          onPressed: c.busy ? null : () => _fix(i),
+        ),
+        WebBtn(
+          'حل شد',
+          key: Key('fu-issue-done-${i.id}'),
+          kind: WebBtnKind.ghost,
+          onPressed: c.busy ? null : () => c.issueDone(i.id),
+        ),
+      ],
+    ),
+  ];
+
+  /// Row 172: web `PAGES.followup` exactly — pageHead «نیازمند پیگیری» + «N مورد برای
+  /// رسیدگی» with «📥 ورود دسته‌ای», the muted note, then the students card and the import
+  /// rows card (each a table, or the ✅ line).
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: c,
+    builder: (context, _) {
+      final v = c.view;
+      return SchoolPage(
+        prefix: 'fu',
+        title: 'نیازمند پیگیری',
+        controller: c,
+        sync: widget.sync,
+        onRetry: widget.onRetry,
+        body: const SizedBox.shrink(),
+        sub: v == null ? null : '${Web.fa(v.total)} مورد برای رسیدگی',
+        subKey: const Key('fu-count'),
+        headActions: [
+          WebBtn(
+            '📥 ورود دسته‌ای',
+            key: const Key('fu-import'),
+            onPressed: _import,
+          ),
+        ],
+        children: v == null
+            ? const []
+            : [
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    'هر چیزی که کامل نیست اینجا جمع می‌شود: ردیف‌های ورود دسته‌ای که ساخته نشدند، '
+                    'و دانش‌آموزانی که پایه یا رشته‌شان کامل نیست (مثلاً رشته‌شان حذف شده یا پایه‌اش در فایل نبود). '
+                    'تا اینجا باشند جایی گم نمی‌شوند.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Web.muted,
+                      height: 2,
+                    ),
+                  ),
+                ),
+                WebCard(
+                  key: const Key('fu-students'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _cardHead(
+                        'دانش‌آموزانی که پایه/رشته‌شان کامل نیست',
+                        '${Web.fa(v.students.length)} نفر',
+                        'fu-students-count',
+                      ),
+                      if (v.students.isEmpty)
+                        const Text(
+                          'پایه و رشتهٔ همهٔ دانش‌آموزان کامل است. ✅',
+                          key: Key('fu-students-none'),
+                          style: Web.small,
+                        )
+                      else
+                        WebTable(
+                          minWidth: 640,
+                          head: const ['دانش‌آموز', 'دلیل', 'پایه و رشته', ''],
+                          rows: [for (final s in v.students) _student(v, s)],
+                        ),
+                    ],
+                  ),
+                ),
+                WebCard(
+                  key: const Key('fu-issues'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _cardHead(
+                        'ردیف‌های ورود دسته‌ای',
+                        '${Web.fa(v.issues.length)} ردیف',
+                        'fu-issues-count',
+                      ),
+                      if (v.issues.isEmpty)
+                        const Text(
+                          'ردیف ناتمامی از ورود دسته‌ای نمانده. ✅',
+                          key: Key('fu-issues-none'),
+                          style: Web.small,
+                        )
+                      else ...[
+                        WebTable(
+                          minWidth: 640,
+                          head: const [
+                            'نام',
+                            'شمارهٔ همراه',
+                            'دلیل',
+                            'وضعیت',
+                            '',
+                          ],
+                          rows: [for (final i in v.issues) _issue(i)],
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: WebBtn(
+                            'همه را حل‌شده کن',
+                            key: const Key('fu-issues-clear'),
+                            kind: WebBtnKind.primary,
+                            size: WebBtnSize.normal,
+                            onPressed: c.busy ? null : c.issuesClear,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+      );
+    },
   );
 }
 

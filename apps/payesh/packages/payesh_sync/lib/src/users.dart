@@ -101,10 +101,17 @@ final class SchoolUser {
     this.className = '',
     this.kids = const [],
     this.queued = false,
+    this.grade = '',
+    this.branch = '',
   });
   final int id;
   final Map<String, Object?> data;
   final String className;
+
+  /// Web `PAGES.users` «پایه» / «رشته»: from the enrolment group (class), or the user's own
+  /// fields; for a parent, from the first linked child.
+  final String grade;
+  final String branch;
 
   /// For a parent: full names of the linked students.
   final List<String> kids;
@@ -210,19 +217,6 @@ final class UserDirectory {
       c.id: SchoolRecords.str(c.data['name']),
   };
 
-  SchoolUser _of(
-    EngineRowLike r,
-    Map<int, String> classes,
-    Set<int> queued, [
-    List<String> kids = const [],
-  ]) => SchoolUser(
-    id: r.id,
-    data: r.data,
-    className: classes[SchoolRecords.asInt(r.data['class_id'])] ?? '',
-    kids: kids,
-    queued: queued.contains(r.id),
-  );
-
   void _requireManager() {
     if (!canManage) {
       throw const RecordFailure(
@@ -240,6 +234,9 @@ final class UserDirectory {
     final rows = await db.all(users);
     final byId = {for (final r in rows) r.id: r};
     final links = await db.allOrEmpty('parent_links');
+    final groups = {
+      for (final c in await db.allOrEmpty('classes')) c.id: c.data,
+    };
     final q = query.trim();
     final out = <SchoolUser>[];
     for (final r in rows) {
@@ -251,16 +248,31 @@ final class UserDirectory {
           !u.nationalId.contains(q)) {
         continue;
       }
-      final kids = u.role == 'parent'
+      final kidRows = u.role == 'parent'
           ? [
               for (final l in links)
                 if (SchoolRecords.asInt(l.data['parent_id']) == r.id)
-                  if (byId[SchoolRecords.asInt(l.data['student_id'])]
-                      case final k?)
-                    fullName(k.data),
+                  ?byId[SchoolRecords.asInt(l.data['student_id'])],
             ]
-          : const <String>[];
-      out.add(_of(EngineRowLike(r.id, r.data), classes, queued, kids));
+          : rows.take(0).toList();
+      final subject = kidRows.isNotEmpty ? kidRows.first.data : r.data;
+      final grp =
+          groups[SchoolRecords.asInt(subject['class_id'])] ??
+          const <String, Object?>{};
+      String pick(List<Object?> xs) => xs
+          .map(SchoolRecords.str)
+          .firstWhere((x) => x.isNotEmpty, orElse: () => '');
+      out.add(
+        SchoolUser(
+          id: r.id,
+          data: r.data,
+          className: classes[SchoolRecords.asInt(r.data['class_id'])] ?? '',
+          kids: [for (final k in kidRows) fullName(k.data)],
+          queued: queued.contains(r.id),
+          grade: pick([grp['grade'], subject['grade']]),
+          branch: pick([grp['branch'], subject['field'], subject['branch']]),
+        ),
+      );
     }
     out.sort((a, b) => a.name.compareTo(b.name));
     return out;

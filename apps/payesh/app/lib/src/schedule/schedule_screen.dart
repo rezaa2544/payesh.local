@@ -2,11 +2,15 @@
 // grade + branch for the manager (slot form, clashes + suggested moves, substitutions, bells,
 // work days, generator), the teacher's own teaching / home class, and the read-only view of a
 // student or a parent's child. Every write is local-first through Timetable (queue first).
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../pulse/pulse.dart';
+import '../pulse/web.dart';
 import '../school/school_source.dart';
 
 String _fa(Object n) => '$n'.replaceAllMapped(
@@ -207,338 +211,622 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     if (ok) await c.deleteSub(x.id);
   }
 
+  /// `<label class="field grow"><span>…</span><select class="input">`.
   Widget _dropdown<T>(
     String key,
     String label,
     T value,
     List<(T, String)> items,
     ValueChanged<T?> onChanged,
-  ) => DropdownButtonFormField<T>(
-    key: Key(key),
-    initialValue: items.any((i) => i.$1 == value) ? value : null,
-    decoration: InputDecoration(
-      labelText: label,
-      border: const OutlineInputBorder(),
+  ) => WebField(
+    label: label,
+    child: DropdownButtonFormField<T>(
+      key: Key(key),
+      initialValue: items.any((i) => i.$1 == value) ? value : null,
+      isExpanded: true,
+      isDense: true,
+      style: const TextStyle(
+        fontSize: 15,
+        color: Web.ink,
+        fontFamily: 'Vazirmatn',
+      ),
+      decoration: webInput(),
+      items: [
+        for (final (v, l) in items)
+          DropdownMenuItem<T>(value: v, child: Text(l)),
+      ],
+      onChanged: onChanged,
     ),
-    items: [
-      for (final (v, l) in items) DropdownMenuItem<T>(value: v, child: Text(l)),
-    ],
-    onChanged: onChanged,
   );
 
-  Widget _clashes(TimetableView v) {
+  Widget? _clashes(TimetableView v) {
     if (c.role != 'manager') {
-      if (v.clashes.isEmpty) return const SizedBox.shrink();
-      return Card(
-        child: ListTile(
-          key: const Key('sch-my-clashes'),
-          title: Text('⚠️ ${_fa(v.clashes.length)} تداخل ساعتی شما در برنامه'),
-          subtitle: Text(
-            '${v.clashes.map((x) => '${schedDayFa[x.day]} زنگ ${_fa(x.period)}').join(' · ')}\nجابه‌جایی را مدیر انجام می‌دهد.',
-          ),
-        ),
-      );
-    }
-    if (v.clashes.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: PayeshTokens.space2),
-        child: StatusBadge(
-          'بدون تداخل — همهٔ زنگ‌ها آزاد است',
-          key: Key('sch-noclash'),
-          tone: PayeshTone.success,
-          icon: Icons.check_circle_outline,
-        ),
-      );
-    }
-    final err = Theme.of(context).colorScheme.error;
-    return Card(
-      key: const Key('sch-clashes'),
-      child: Padding(
-        padding: const EdgeInsets.all(PayeshTokens.space3),
+      if (v.clashes.isEmpty) return null;
+      return WebCard(
+        key: const Key('sch-my-clashes'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '⚠️ ${_fa(v.clashes.length)} تداخل در برنامهٔ هفتگی',
-              style: TextStyle(color: err, fontWeight: FontWeight.bold),
+              '⚠️ ${_fa(v.clashes.length)} تداخل ساعتی شما در برنامه',
+              style: Web.b.copyWith(color: Web.amber),
             ),
-            for (final x in v.clashes) ...[
-              const Divider(),
-              Text(
-                '${x.kind == 'teacher' ? 'دبیر' : 'پایه و رشته'}: ${x.who} — ${schedDayFa[x.day]} زنگ ${_fa(x.period)}',
-              ),
-              for (final r in x.rows)
-                Wrap(
-                  spacing: PayeshTokens.space2,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      x.kind == 'teacher'
-                          ? 'زنگ «${r.cohort.isEmpty ? '—' : r.cohort}»'
-                          : 'درس «${r.subject}»',
-                    ),
-                    TextButton.icon(
-                      key: Key('sch-sug-${x.kind}-${r.id}'),
-                      onPressed: () => c.toggleSuggestions(r.id),
-                      icon: const Icon(Icons.search),
-                      label: const Text('پیشنهاد جایِ آزاد'),
-                    ),
-                    if (c.openSuggestions.contains(r.id))
-                      if ((c.suggestions[r.id] ?? const []).isEmpty)
-                        Text(
-                          'جایِ آزاد پیدا نشد — یک زنگ را دستی خالی کنید.',
-                          style: TextStyle(color: err),
-                        )
-                      else
-                        for (final (d, p) in c.suggestions[r.id]!)
-                          OutlinedButton(
-                            key: Key('sch-move-${x.kind}-${r.id}-$d-$p'),
-                            onPressed: c.busy ? null : () => c.move(r.id, d, p),
-                            child: Text(
-                              'جابه‌جایی به ${schedDayFa[d]} زنگ ${_fa(p)}',
-                            ),
-                          ),
-                  ],
-                ),
-            ],
+            const SizedBox(height: 4),
+            Text(
+              v.clashes
+                  .map((x) => '${schedDayFa[x.day]} زنگ ${_fa(x.period)}')
+                  .join(' · '),
+              style: Web.small,
+            ),
+            const SizedBox(height: 4),
+            const Text('جابه‌جایی را مدیر انجام می‌دهد.', style: Web.small),
           ],
         ),
+      );
+    }
+    if (v.clashes.isEmpty) {
+      return const WebCard(
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: WebBadge(
+            '✅ بدون تداخل — همهٔ زنگ‌ها آزاد است',
+            key: Key('sch-noclash'),
+            tone: WebTone.green,
+          ),
+        ),
+      );
+    }
+    return WebCard(
+      key: const Key('sch-clashes'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '⚠️ ${_fa(v.clashes.length)} تداخل در برنامهٔ هفتگی',
+            style: Web.b.copyWith(color: Web.red),
+          ),
+          const SizedBox(height: 6),
+          for (final x in v.clashes)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Web.card,
+                border: Border.all(color: Web.line),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: DefaultTextStyle.merge(
+                style: const TextStyle(fontSize: 13),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text:
+                                '${x.kind == 'teacher' ? 'دبیر' : 'پایه و رشته'}: ${x.who}',
+                            style: Web.b,
+                          ),
+                          TextSpan(
+                            text:
+                                ' — ${schedDayFa[x.day]} زنگ ${_fa(x.period)}: '
+                                '${x.rows.map((r) => x.kind == 'teacher' ? r.cohort : r.subject).join(' و ')}',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        for (final r in x.rows)
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                '${x.kind == 'teacher' ? 'زنگ «${r.cohort.isEmpty ? '—' : r.cohort}»' : 'درس «${r.subject}»'}:',
+                                style: const TextStyle(color: Web.muted),
+                              ),
+                              WebBtn(
+                                '🔎 پیشنهاد جایِ آزاد',
+                                key: Key('sch-sug-${x.kind}-${r.id}'),
+                                kind: WebBtnKind.ghost,
+                                onPressed: () => c.toggleSuggestions(r.id),
+                              ),
+                              if (c.openSuggestions.contains(r.id))
+                                if ((c.suggestions[r.id] ?? const []).isEmpty)
+                                  const Text(
+                                    'جایِ آزاد پیدا نشد — یک زنگ را دستی خالی کنید.',
+                                    style: TextStyle(color: Web.red),
+                                  )
+                                else
+                                  for (final (d, p) in c.suggestions[r.id]!)
+                                    WebBtn(
+                                      'جابه‌جایی به ${schedDayFa[d]} زنگ ${_fa(p)}',
+                                      key: Key(
+                                        'sch-move-${x.kind}-${r.id}-$d-$p',
+                                      ),
+                                      onPressed: c.busy
+                                          ? null
+                                          : () => c.move(r.id, d, p),
+                                    ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
+  /// web `.timetable`: `grid-template-columns:74px repeat(N,minmax(112px,1fr))`, gap 6,
+  /// min-width 640; `.tt-head` muted 12.5px; `.tt-cell` 1px line, radius 10, min-height 52,
+  /// dashed + transparent when empty.
   Widget _grid(TimetableView v) {
     final showTeacher = c.role != 'teacher' || c.homeClass != null;
+    Widget head(Widget child) => Padding(
+      padding: const EdgeInsets.all(4.8),
+      child: DefaultTextStyle.merge(
+        style: const TextStyle(fontSize: 12.5, color: Web.muted),
+        textAlign: TextAlign.center,
+        child: Center(child: child),
+      ),
+    );
     Widget cell(int d, Bell b) {
       final p = b.order.toInt();
       final s = v.at(d, p);
+      final tap = v.canEdit && !c.busy ? () => _openSlot(v, d, p) : null;
       final content = s == null
-          ? Text(
-              v.canEdit ? '+ افزودن' : '—',
-              style: Theme.of(context).textTheme.bodySmall,
-            )
+          ? Text(v.canEdit ? '+ افزودن' : '—', style: Web.small)
           : Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   s.subject,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
                 ),
-                Text(
-                  showTeacher ? s.teacher : s.cohort,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                Text(showTeacher ? s.teacher : s.cohort, style: Web.small),
                 if (s.room.isNotEmpty)
                   Text(
                     '🏫 ${s.room}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF6B7280),
+                    ),
                   ),
                 if (s.subToday != null)
-                  StatusBadge('🔁 ${s.subToday}', tone: PayeshTone.warning),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: WebBadge('🔁 ${s.subToday}', tone: WebTone.amber),
+                  ),
                 if (s.queued)
                   const Icon(
                     Icons.schedule,
                     size: 14,
+                    color: Web.muted,
                     semanticLabel: 'در صف ارسال',
                   ),
               ],
             );
-      return InkWell(
+      return _TtCell(
         key: Key('sch-cell-$d-$p'),
-        onTap: v.canEdit && !c.busy ? () => _openSlot(v, d, p) : null,
-        child: Container(
-          width: 120,
-          constraints: const BoxConstraints(minHeight: 72),
-          padding: const EdgeInsets.all(PayeshTokens.space1),
-          alignment: Alignment.center,
-          child: content,
-        ),
+        empty: s == null,
+        onTap: tap,
+        child: content,
       );
     }
 
-    return Card(
-      child: SingleChildScrollView(
-        key: const Key('sch-grid'),
-        scrollDirection: Axis.horizontal,
-        child: Table(
-          defaultColumnWidth: const IntrinsicColumnWidth(),
-          border: TableBorder.all(color: Theme.of(context).dividerColor),
+    final rows = <Widget>[
+      WebEqualRow(
+        gap: 6,
+        firstWidth: 74,
+        children: [
+          head(const SizedBox.shrink()),
+          for (final d in v.days)
+            head(Text(schedDayFa[d], style: Web.b.copyWith(fontSize: 12.5))),
+        ],
+      ),
+      for (final b in v.periods)
+        WebEqualRow(
+          gap: 6,
+          firstWidth: 74,
           children: [
-            TableRow(
-              children: [
-                const SizedBox(width: 72),
-                for (final d in v.days)
-                  Padding(
-                    padding: const EdgeInsets.all(PayeshTokens.space2),
-                    child: Text(
-                      schedDayFa[d],
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-              ],
-            ),
-            for (final b in v.periods)
-              TableRow(
+            head(
+              Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(PayeshTokens.space1),
-                    child: Column(
-                      children: [
-                        Text('زنگ ${_fa(b.order.toInt())}'),
-                        if (b.start.isNotEmpty)
-                          Text(
-                            '${b.start}${b.end.isEmpty ? '' : ' – ${b.end}'}',
-                            textDirection: TextDirection.ltr,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                      ],
+                  WebBadge('زنگ ${_fa(b.order.toInt())}', tone: WebTone.purple),
+                  if (b.start.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Text(
+                        '${b.start}${b.end.isEmpty ? '' : ' – ${b.end}'}',
+                        style: Web.small,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                  for (final d in v.days) cell(d, b),
+                  ],
                 ],
               ),
+            ),
+            for (final d in v.days) cell(d, b),
           ],
         ),
-      ),
+    ];
+    final grid = Column(
+      key: const Key('sch-grid'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (i, r) in rows.indexed) ...[
+          if (i > 0) const SizedBox(height: 6),
+          r,
+        ],
+      ],
+    );
+    final minW = math.max(640.0, 74 + v.days.length * (112 + 6.0));
+    return LayoutBuilder(
+      builder: (context, box) => box.maxWidth >= minW
+          ? grid
+          : SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(width: minW, child: grid),
+            ),
     );
   }
 
+  Widget _subsList(TimetableView v) => Container(
+    margin: const EdgeInsets.only(top: 10),
+    padding: const EdgeInsets.only(top: 8),
+    decoration: const BoxDecoration(
+      border: Border(top: BorderSide(color: Web.line)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '🔁 جابه‌جای‌های موقت این کلاس',
+          style: Web.b.copyWith(fontSize: 12.5),
+        ),
+        const SizedBox(height: 4),
+        for (final x in v.subs)
+          Padding(
+            key: Key('sch-sub-${x.id}'),
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    style: const TextStyle(fontSize: 12.5, height: 2.3),
+                    children: [
+                      TextSpan(
+                        text: '${Web.jdate(x.date)} — ${x.slotLabel} — ',
+                      ),
+                      TextSpan(text: x.teacher, style: Web.b),
+                      const TextSpan(text: ' '),
+                    ],
+                  ),
+                ),
+                InkWell(
+                  key: Key('sch-sub-del-${x.id}'),
+                  onTap: c.busy ? null : () => _deleteSub(x),
+                  child: const Text(
+                    'حذف',
+                    style: TextStyle(
+                      color: Web.red,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+
+  /// Row 172: web `schedPage()` exactly — pageHead (title, «پایه · رشته», «📅 روزهای فعال»
+  /// «⏱️ تنظیم زنگ‌ها» «⚙️ تولید خودکار»), the cohort picker card, «نمای من», the clash card,
+  /// the timetable card (with the 💡 line and the temporary-swap list).
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: c,
     builder: (context, _) {
       final v = c.view;
       final mgr = c.role == 'manager';
+      final clashes = v == null ? null : _clashes(v);
       return SchoolPage(
         prefix: 'sch',
         title: v?.title ?? 'برنامهٔ هفتگی',
         controller: c,
         sync: widget.sync,
         onRetry: widget.onRetry,
-        actions: [
+        body: const SizedBox.shrink(),
+        sub: v?.sub,
+        headActions: [
           if (mgr) ...[
-            IconButton(
+            WebBtn(
+              '📅 روزهای فعال',
               key: const Key('sch-workdays'),
-              tooltip: 'روزهای فعال',
-              icon: const Icon(Icons.date_range_outlined),
+              kind: WebBtnKind.primary,
               onPressed: () => _open(WorkdaysPage(controller: c)),
             ),
-            IconButton(
+            WebBtn(
+              '⏱️ تنظیم زنگ‌ها',
               key: const Key('sch-bells'),
-              tooltip: 'تنظیم زنگ‌ها',
-              icon: const Icon(Icons.timer_outlined),
+              kind: WebBtnKind.primary,
               onPressed: () => _open(BellsPage(controller: c)),
             ),
           ],
           if (v != null && v.canEdit)
-            IconButton(
+            WebBtn(
+              '⚙️ تولید خودکار',
               key: const Key('sch-gen'),
-              tooltip: 'تولید خودکار',
-              icon: const Icon(Icons.auto_fix_high_outlined),
               onPressed: () => _open(GeneratorPage(controller: c)),
             ),
         ],
-        body: v == null
-            ? const SizedBox.shrink()
-            : ListView(
-                padding: const EdgeInsets.all(PayeshTokens.space4),
-                children: [
-                  // row 166: rotating shift — this week's bells (flips every Saturday)
-                  if (c.weekShiftFa case final w?)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: PayeshTokens.space2,
-                      ),
-                      child: StatusBadge(
+        children: v == null
+            ? const []
+            : [
+                // row 166: rotating shift — this week's bells (flips every Saturday)
+                if (c.weekShiftFa case final w?)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: WebBadge(
                         'شیفت چرخشی — این هفته: $w',
                         key: const Key('sch-week-shift'),
-                        tone: PayeshTone.info,
+                        tone: WebTone.purple,
                       ),
                     ),
-                  if (mgr) ...[
-                    if (v.grades.isEmpty)
-                      const Text(
-                        'برای چیدن برنامه، ابتدا پایه و رشته را در بخش «کلاس‌ها» تعریف کنید.',
-                        key: Key('sch-no-grade'),
-                      )
-                    else ...[
-                      _dropdown<String>('sch-grade', 'پایه', v.grade, [
-                        for (final g in v.grades) (g, g),
-                      ], (g) => c.pickCohort(grade: g)),
-                      const SizedBox(height: PayeshTokens.space2),
-                      _dropdown<String>('sch-branch', 'رشته', v.branch, [
-                        ('', '— بدون رشته —'),
-                        for (final b in v.branches) (b, b),
-                      ], (b) => c.pickCohort(branch: b ?? '')),
-                      const Padding(
-                        padding: EdgeInsets.only(top: PayeshTokens.space1),
-                        child: Text(
-                          'برنامه برای این پایه و رشته چیده می‌شود؛ محل برگزاری را برای هر زنگ جداگانه انتخاب کنید.',
-                        ),
-                      ),
-                    ],
-                  ],
-                  if (c.role == 'teacher' && v.homeClasses.isNotEmpty)
-                    _dropdown<int>('sch-home', 'نمای من', c.homeClass ?? 0, [
-                      (0, 'تدریس من'),
-                      for (final (id, n) in v.homeClasses) (id, 'سرپرستی: $n'),
-                    ], (id) => c.pickHome(id == 0 ? null : id)),
-                  if (c.role == 'parent' && v.children.length > 1)
-                    Wrap(
-                      spacing: PayeshTokens.space2,
+                  ),
+                if (mgr)
+                  WebCard.tight(
+                    key: const Key('sch-cohort'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final (id, n) in v.children)
-                          ChoiceChip(
-                            key: Key('sch-child-$id'),
-                            label: Text(n),
-                            selected: (c.child ?? v.children.first.$1) == id,
-                            onSelected: (_) => c.pickChild(id),
-                          ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: _dropdown<String>(
+                                'sch-grade',
+                                'پایه',
+                                v.grade,
+                                [
+                                  for (final g in v.grades) (g, g),
+                                  if (v.grades.isEmpty) ('', 'پایه تعریف نشده'),
+                                ],
+                                (g) => c.pickCohort(grade: g),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _dropdown<String>(
+                                'sch-branch',
+                                'رشته',
+                                v.branch,
+                                [
+                                  ('', '— بدون رشته —'),
+                                  for (final b in v.branches) (b, b),
+                                ],
+                                (b) => c.pickCohort(branch: b ?? ''),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 7),
+                        const Text(
+                          'برنامه برای این پایه و رشته چیده می‌شود؛ محل برگزاری را برای هر زنگ جداگانه انتخاب کنید.',
+                          style: Web.small,
+                        ),
                       ],
                     ),
-                  _clashes(v),
-                  if (!mgr || v.grades.isNotEmpty) _grid(v),
-                  if (v.canEdit)
-                    const Padding(
-                      padding: EdgeInsets.only(top: PayeshTokens.space2),
-                      child: Text(
-                        '💡 روی خانه بزنید تا درس، دبیر و محل برگزاری را مشخص کنید. روزهای غیرفعال از جدول حذف شده‌اند.',
-                      ),
-                    ),
-                  if (v.subs.isNotEmpty) ...[
-                    const SizedBox(height: PayeshTokens.space3),
-                    Text(
-                      '🔁 جابه‌جای‌های موقت این کلاس',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    for (final x in v.subs)
-                      ListTile(
-                        key: Key('sch-sub-${x.id}'),
-                        title: Text('${x.slotLabel} — ${x.teacher}'),
-                        subtitle: Text(
-                          JalaliDate.fromIso(x.date)?.jdate ?? x.date,
+                  ),
+                if (c.role == 'teacher' && v.homeClasses.isNotEmpty)
+                  WebCard.tight(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'نمای من',
+                            style: Web.b.copyWith(fontSize: 12.5),
+                          ),
                         ),
-                        trailing: IconButton(
-                          key: Key('sch-sub-del-${x.id}'),
-                          tooltip: 'حذف',
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: c.busy ? null : () => _deleteSub(x),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 260),
+                          child: DropdownButtonFormField<int>(
+                            key: const Key('sch-home'),
+                            initialValue: c.homeClass ?? 0,
+                            isExpanded: true,
+                            isDense: true,
+                            decoration: webInput(),
+                            items: [
+                              const DropdownMenuItem(
+                                value: 0,
+                                child: Text('تدریس من'),
+                              ),
+                              for (final (id, n) in v.homeClasses)
+                                DropdownMenuItem(
+                                  value: id,
+                                  child: Text('سرپرستی: $n'),
+                                ),
+                            ],
+                            onChanged: (id) =>
+                                c.pickHome(id == null || id == 0 ? null : id),
+                          ),
                         ),
-                      ),
-                  ],
+                      ],
+                    ),
+                  ),
+                if (c.role == 'parent' && v.children.length > 1)
+                  WebPills(
+                    keyPrefix: 'sch-child',
+                    tabs: [for (final (id, n) in v.children) ('$id', n)],
+                    selected: '${c.child ?? v.children.first.$1}',
+                    onSelected: (id) => c.pickChild(int.parse(id)),
+                  ),
+                if (mgr && v.grades.isEmpty)
+                  WebCard(
+                    key: const Key('sch-no-grade'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'برای چیدن برنامه، ابتدا پایه و رشته را در بخش «کلاس‌ها» تعریف کنید.',
+                          style: Web.small,
+                        ),
+                        const SizedBox(height: 8),
+                        WebBtn(
+                          'تعریف پایه و رشته',
+                          key: const Key('sch-go-classes'),
+                          kind: WebBtnKind.primary,
+                          size: WebBtnSize.normal,
+                          onPressed: () => PulseInline.go(context, 'classes'),
+                        ),
+                      ],
+                    ),
+                  )
+                else ...[
+                  ?clashes,
+                  WebCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _grid(v),
+                        if (v.canEdit)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 10),
+                            child: Text(
+                              '💡 روی خانه بزنید تا درس، دبیر و محل برگزاری را مشخص کنید. روزهای غیرفعال از جدول حذف شده‌اند.',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Web.muted,
+                                height: 2,
+                              ),
+                            ),
+                          ),
+                        if (v.canEdit && v.subs.isNotEmpty) _subsList(v),
+                      ],
+                    ),
+                  ),
                   if (v.slots.isEmpty && !v.canEdit)
-                    const Padding(
-                      padding: EdgeInsets.only(top: PayeshTokens.space3),
+                    const WebCard(
                       child: Text(
                         'برنامهٔ هفتگی برای این پایه یا کاربر هنوز ثبت نشده است.',
+                        style: Web.small,
                       ),
                     ),
                 ],
-              ),
+              ],
       );
     },
   );
+}
+
+/// One `.tt-cell` (hover: soft background + primary border).
+class _TtCell extends StatefulWidget {
+  const _TtCell({
+    super.key,
+    required this.empty,
+    required this.onTap,
+    required this.child,
+  });
+  final bool empty;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  State<_TtCell> createState() => _TtCellState();
+}
+
+class _TtCellState extends State<_TtCell> {
+  bool hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = hover && widget.onTap != null;
+    final box = CustomPaint(
+      foregroundPainter: widget.empty && !on
+          ? const _DashedBox(Web.line, 10)
+          : null,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7.2),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: on ? Web.soft : (widget.empty ? null : Web.card),
+          border: widget.empty && !on
+              ? null
+              : Border.all(color: on ? Web.primary : Web.line),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(fontSize: 13),
+          textAlign: TextAlign.center,
+          child: widget.child,
+        ),
+      ),
+    );
+    if (widget.onTap == null) return box;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => hover = true),
+      onExit: (_) => setState(() => hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: box,
+      ),
+    );
+  }
+}
+
+/// CSS `border:1px dashed` around a rounded box.
+class _DashedBox extends CustomPainter {
+  const _DashedBox(this.color, this.radius);
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          (Offset.zero & size).deflate(0.5),
+          Radius.circular(radius),
+        ),
+      );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final m in path.computeMetrics()) {
+      var d = 0.0;
+      while (d < m.length) {
+        canvas.drawPath(m.extractPath(d, math.min(d + 3, m.length)), paint);
+        d += 6;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBox old) => old.color != color;
 }
 
 /// Asks for one name (forms `sched-teacher`, `sched-room`, and the short `subject` form).

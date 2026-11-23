@@ -5,7 +5,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_sync/payesh_sync.dart';
+import 'package:payesh_app/src/login/session_controller.dart';
 
+import 'nav_support.dart';
 import 'school_support.dart';
 
 Future<void> seed(MemorySchool s) async {
@@ -78,32 +80,50 @@ Future<void> seedStudent(MemorySchool s) async {
   await s.put('attendance', 2, {'student_id': 10, 'status': 'absent'});
 }
 
+/// Row 172: the users page is one long scroll like the web; a tall view keeps the head
+/// (count, notices) built while rows further down are tapped.
+Future<(SessionController, MemorySchool)> bootTall(
+  WidgetTester tester, {
+  required String role,
+  required Future<void> Function(MemorySchool s) seed,
+  MemorySchool? source,
+}) {
+  tallView(tester);
+  return bootSchool(tester, role: role, seed: seed, source: source);
+}
+
 void main() {
   testWidgets(
     'W6-W01 manager: users + students entries; list, count, role filter, search',
     (tester) async {
-      await bootSchool(tester, role: 'manager', seed: seed);
-      expect(find.byKey(const Key('adm-users')), findsOneWidget);
-      expect(find.byKey(const Key('adm-students')), findsOneWidget);
-      expect(find.byKey(const Key('adm-record')), findsNothing);
-      await tapKey(tester, 'adm-users');
+      await bootTall(tester, role: 'manager', seed: seed);
+      expect(navOf('users'), findsOneWidget);
+      // Row 172: the web manager navigation has «کاربران» only (no «دانش‌آموزان»)
+      expect(navOf('students'), findsNothing);
+      expect(navOf('record'), findsNothing);
+      await openPage(tester, 'users');
       expect(textOf(tester, 'usr-count'), '۵ کاربر');
       await tapKey(tester, 'usr-role-parent');
-      expect(textOf(tester, 'usr-count'), '۱ کاربر');
+      // like the web (`list('users').length`): the head counts every user, not the filtered rows
+      expect(textOf(tester, 'usr-count'), '۵ کاربر');
+      expect(find.byKey(const Key('usr-row-40')), findsOneWidget);
+      expect(find.byKey(const Key('usr-row-21')), findsNothing);
       expect(find.text('مادر'), findsNothing);
-      expect(find.textContaining('ولیِ بهار سعیدی'), findsOneWidget);
+      // web: the «ولیِ چه دانش‌آموزی» column names the child
+      expect(find.text('ولیِ چه دانش‌آموزی'), findsOneWidget);
+      expect(find.text('بهار سعیدی'), findsOneWidget);
       await tapKey(tester, 'usr-role-all');
       await submitKey(tester, 'usr-search', '0012345678');
       expect(find.byKey(const Key('usr-row-21')), findsOneWidget);
-      expect(textOf(tester, 'usr-count'), '۱ کاربر');
+      expect(find.byKey(const Key('usr-row-22')), findsNothing);
     },
   );
 
   testWidgets(
     'W6-W02 add a student with a parent while offline → queued, rows marked',
     (tester) async {
-      final (_, s) = await bootSchool(tester, role: 'manager', seed: seed);
-      await tapKey(tester, 'adm-users');
+      final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
+      await openPage(tester, 'users');
       await tapKey(tester, 'usr-add');
       await typeKey(tester, 'usr-f-name', 'کیان');
       await typeKey(tester, 'usr-f-nid', '۰۰۹۸۷۶۵۴۳۲');
@@ -130,8 +150,8 @@ void main() {
   testWidgets(
     'W6-W03 NEG bad national id / used mobile: the form stays, nothing queued',
     (tester) async {
-      final (_, s) = await bootSchool(tester, role: 'manager', seed: seed);
-      await tapKey(tester, 'adm-users');
+      final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
+      await openPage(tester, 'users');
       await tapKey(tester, 'usr-add');
       await typeKey(tester, 'usr-f-name', 'کیان');
       await typeKey(tester, 'usr-f-nid', '12345');
@@ -152,8 +172,8 @@ void main() {
   testWidgets(
     'W6-W04 same name + birth date: warned first, saved only after confirming',
     (tester) async {
-      final (_, s) = await bootSchool(tester, role: 'manager', seed: seed);
-      await tapKey(tester, 'adm-users');
+      final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
+      await openPage(tester, 'users');
       await tapKey(tester, 'usr-add');
       await typeKey(tester, 'usr-f-name', 'بهار سعیدی');
       await typeKey(tester, 'usr-f-birth', '2010-03-01');
@@ -169,9 +189,8 @@ void main() {
   testWidgets(
     'W6-W05 edit: a used mobile is refused (NEG), a valid edit is queued',
     (tester) async {
-      final (_, s) = await bootSchool(tester, role: 'manager', seed: seed);
-      await tapKey(tester, 'adm-users');
-      await tapKey(tester, 'usr-menu-22');
+      final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
+      await openPage(tester, 'users');
       await tapKey(tester, 'usr-edit-22');
       await typeKey(tester, 'usr-e-phone', '09120000040');
       await tapKey(tester, 'usr-save');
@@ -191,9 +210,8 @@ void main() {
   testWidgets(
     'W6-W06 full profile: the mother\'s mobile follows to the linked parent',
     (tester) async {
-      final (_, s) = await bootSchool(tester, role: 'manager', seed: seed);
-      await tapKey(tester, 'adm-users');
-      await tapKey(tester, 'usr-menu-21');
+      final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
+      await openPage(tester, 'users');
       await tapKey(tester, 'usr-full-21');
       await typeKey(tester, 'usr-p-mother_phone', '9126660000');
       await typeKey(tester, 'usr-p-address', 'خیابان آزادی');
@@ -208,15 +226,13 @@ void main() {
   testWidgets(
     'W6-W07 delete a student: confirm names the parent; cancel keeps everything (NEG)',
     (tester) async {
-      final (_, s) = await bootSchool(tester, role: 'manager', seed: seed);
-      await tapKey(tester, 'adm-users');
-      await tapKey(tester, 'usr-menu-21');
+      final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
+      await openPage(tester, 'users');
       await tapKey(tester, 'usr-delete-21');
       expect(find.textContaining('ولیِ او هم (مریم)'), findsOneWidget);
       await tapKey(tester, 'usr-confirm-cancel');
       expect(s.outbox.list(), isEmpty);
       expect(find.byKey(const Key('usr-row-21')), findsOneWidget);
-      await tapKey(tester, 'usr-menu-21');
       await tapKey(tester, 'usr-delete-21');
       await tapKey(tester, 'usr-confirm-ok');
       expect(find.byKey(const Key('usr-row-21')), findsNothing);
@@ -228,8 +244,8 @@ void main() {
   testWidgets(
     'W6-W08 multi-select: clear, then bulk delete; never your own account (NEG)',
     (tester) async {
-      final (_, s) = await bootSchool(tester, role: 'manager', seed: seed);
-      await tapKey(tester, 'adm-users');
+      final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
+      await openPage(tester, 'users');
       await tapKey(tester, 'usr-pick-22');
       await tapKey(tester, 'usr-pick-11');
       expect(find.byKey(const Key('usr-picked-bar')), findsOneWidget);
@@ -254,8 +270,8 @@ void main() {
     'W6-W09 teacher: only «students» (NEG no users page), only the taught class',
     (tester) async {
       await bootSchool(tester, role: 'teacher', seed: seedTeacher);
-      expect(find.byKey(const Key('adm-users')), findsNothing);
-      await tapKey(tester, 'adm-students');
+      expect(navOf('users'), findsNothing);
+      await openPage(tester, 'students');
       expect(textOf(tester, 'std-count'), '۱ نفر');
       expect(find.byKey(const Key('std-row-21')), findsOneWidget);
       expect(find.byKey(const Key('std-row-22')), findsNothing);
@@ -267,10 +283,13 @@ void main() {
     tester,
   ) async {
     await bootSchool(tester, role: 'student', seed: seedStudent);
-    expect(find.byKey(const Key('adm-students')), findsNothing);
-    await tapKey(tester, 'adm-record');
-    expect(badgeOf(tester, 'rec-present'), 'حضور ۵۰٪');
+    expect(navOf('students'), findsNothing);
+    await openPage(tester, 'record');
+    // Row 172: web `PAGES.record` — stat cards, «مشخصات», the grades table
+    expect(textOf(tester, 'rec-present'), '۵۰٪');
     expect(textOf(tester, 'rec-class'), 'دهم الف');
+    expect(find.text('مشخصات'), findsOneWidget);
+    expect(find.text('درس'), findsOneWidget);
     expect(find.byKey(const Key('rec-grade-0')), findsOneWidget);
     expect(find.text('رضا'), findsOneWidget);
   });
@@ -284,10 +303,9 @@ void main() {
         seed: seed,
         school: 'no-such-wave',
       );
-      expect(find.byKey(const Key('adm-users')), findsNothing);
-      expect(find.byKey(const Key('adm-entry-none')), findsOneWidget);
+      expect(navOf('users'), findsNothing);
       await bootSchool(tester, role: 'manager', seed: seed, wire: false);
-      expect(find.byKey(const Key('adm-users')), findsNothing);
+      expect(navOf('users'), findsNothing);
     },
   );
 
@@ -295,8 +313,8 @@ void main() {
     'W6-W12 NEG full queue: add refused with the queue message, nothing written',
     (tester) async {
       final s = MemorySchool(config: const OutboxConfig(capacity: 0));
-      await bootSchool(tester, role: 'manager', seed: seed, source: s);
-      await tapKey(tester, 'adm-users');
+      await bootTall(tester, role: 'manager', seed: seed, source: s);
+      await openPage(tester, 'users');
       await tapKey(tester, 'usr-add');
       await typeKey(tester, 'usr-f-name', 'کیان');
       await tapKey(tester, 'usr-save');

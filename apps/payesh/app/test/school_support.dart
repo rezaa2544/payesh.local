@@ -250,6 +250,27 @@ final class FakeAccounts implements AccountsApi {
   }
 
   @override
+  Future<PairCard> pairCode(int id, {bool refresh = false}) async {
+    calls.add('pair:$id${refresh ? ':refresh' : ''}');
+    _up();
+    final c = creds[id];
+    final code = refresh ? 'NEWC0DE9' : 'AB12CD34';
+    return PairCard(
+      code: code,
+      display: '${code.substring(0, 4)}-${code.substring(4)}',
+      name: c?.name ?? '',
+      role: c?.role ?? '',
+      refreshed: refresh,
+    );
+  }
+
+  @override
+  Uri? qrImage(String text, {int scale = 6}) => null;
+
+  @override
+  String pairLink(String code) => 'http://school.test/#/pair=$code';
+
+  @override
   Future<String> autoPassword(int id) async {
     calls.add('auto:$id');
     _up();

@@ -158,9 +158,23 @@ final class SignedIn extends SessionState {
 
   String? get roleFa {
     final r = session?.role ?? role;
-    return r == null ? null : roleNameFa(r);
+    return r == null ? null : (webRoleFa[r] ?? roleNameFa(r));
   }
 }
+
+/// Row 172: the web `ROLE_FA` (client/pages.js) — what the panel shows beside the user's name.
+const webRoleFa = {
+  'manager': 'مدیر',
+  'vice': 'معاون',
+  'deputy': 'معاون',
+  'teacher': 'دبیر',
+  'parent': 'ولی',
+  'student': 'دانش‌آموز',
+  'counselor': 'مشاور',
+  'staff': 'کارمند',
+  'office': 'اجرایی',
+  'guard': 'نگهبان',
+};
 
 /// Drives school select → activation → signed in, plus refresh, sign-out and the old/new client
 /// switch. Network failures never sign the user out; only a revoked device credential does.

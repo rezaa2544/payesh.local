@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../pulse/web.dart';
 import '../school/school_source.dart';
 
 class ClassesController extends SchoolController {
@@ -17,9 +18,16 @@ class ClassesController extends SchoolController {
 
   ClassesView? view;
 
+  /// web `isFieldSchool`: the school level is «متوسطهٔ دوم».
+  bool fieldSchool = false;
+
   @override
   Future<void> read(SchoolRecords db) async {
     view = await ClassBook(db).overview();
+    final level = SchoolRecords.str(
+      (await db.get('schools', 1))?.data['level'],
+    );
+    fieldSchool = RegExp('متوسطهٔ? ?دوم').hasMatch(level);
   }
 
   Future<RecordWrite?> saveRoom({int? id, required String name}) =>
@@ -97,41 +105,48 @@ class _ClassesScreenState extends State<ClassesScreen> {
     c.clearForm();
   }
 
-  Widget _queued(bool q) => q
-      ? const Padding(
-          padding: EdgeInsetsDirectional.only(end: PayeshTokens.space1),
-          child: StatusBadge(
-            'در صف ارسال',
-            tone: PayeshTone.warning,
-            icon: Icons.schedule,
-          ),
-        )
-      : const SizedBox.shrink();
+  /// Native-only: a write still waiting for the server (the web has no offline queue).
+  List<Widget> _queued(bool q) =>
+      q ? const [WebBadge('در صف ارسال', tone: WebTone.amber)] : const [];
 
+  /// `<div class="row between" style="margin-bottom:8px"><b>…</b><button class="btn sm">…`
   Widget _head(
     String title,
     String addKey,
     String addLabel,
-    VoidCallback add,
-  ) => Padding(
-    padding: const EdgeInsets.only(
-      top: PayeshTokens.space4,
-      bottom: PayeshTokens.space2,
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text(title, style: Theme.of(context).textTheme.titleMedium),
-        ),
-        FilledButton.tonalIcon(
-          key: Key(addKey),
-          onPressed: c.busy ? null : add,
-          icon: const Icon(Icons.add),
-          label: Text(addLabel),
-        ),
-      ],
-    ),
+    VoidCallback add, {
+    String? icon,
+    bool primary = false,
+    String? count,
+  }) => WebCardHead(
+    title: title,
+    icon: icon,
+    actions: [
+      if (count != null) Text(count, style: Web.small),
+      WebBtn(
+        '+ $addLabel',
+        key: Key(addKey),
+        kind: primary ? WebBtnKind.primary : WebBtnKind.normal,
+        onPressed: c.busy ? null : add,
+      ),
+    ],
   );
+
+  /// The «ویرایش» + red «حذف» pair of every web row.
+  List<Widget> _rowActions(
+    String edit,
+    VoidCallback onEdit,
+    String delete,
+    VoidCallback onDelete,
+  ) => [
+    WebBtn(
+      'ویرایش',
+      key: Key(edit),
+      kind: WebBtnKind.ghost,
+      onPressed: c.busy ? null : onEdit,
+    ),
+    WebBtn.delete('حذف', key: Key(delete), onPressed: c.busy ? null : onDelete),
+  ];
 
   Future<void> _deleteClass(ClassRow r) async {
     final n = await c.studentsOf(r.id);
@@ -145,43 +160,6 @@ class _ClassesScreenState extends State<ClassesScreen> {
           : 'کلاس «${r.name}» حذف شود؟',
     );
     if (ok) await c.deleteClass(r.id);
-  }
-
-  Future<void> _merge(ClassRow r) async {
-    final targets = [
-      for (final x in c.view?.classes ?? const <ClassRow>[])
-        if (x.id != r.id) x,
-    ];
-    final into = await showDialog<int>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text('ادغام «${r.name}» در …'),
-        children: [
-          for (final t in targets)
-            SimpleDialogOption(
-              key: Key('cls-merge-to-${t.id}'),
-              onPressed: () => Navigator.pop(ctx, t.id),
-              child: Text(t.name),
-            ),
-          SimpleDialogOption(
-            key: const Key('cls-merge-cancel'),
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('انصراف'),
-          ),
-        ],
-      ),
-    );
-    if (into == null || !mounted) return;
-    final name = targets.firstWhere((t) => t.id == into).name;
-    final ok = await confirmAction(
-      context,
-      prefix: 'cls',
-      title: 'ادغام کلاس',
-      confirm: 'ادغام',
-      message:
-          'کلاس «${r.name}» در «$name» ادغام شود؟ دانش‌آموزان و برنامه‌اش به کلاس مقصد منتقل می‌شوند.',
-    );
-    if (ok) await c.merge(r.id, into);
   }
 
   Future<void> _deleteLookup(LookupRow r) async {
@@ -279,191 +257,191 @@ class _ClassesScreenState extends State<ClassesScreen> {
     if (ok) await c.deleteSubject(r.id);
   }
 
-  Widget _menu(String key, List<(String, String, VoidCallback)> items) =>
-      PopupMenuButton<int>(
-        key: Key(key),
-        onSelected: (i) => items[i].$3(),
-        itemBuilder: (_) => [
-          for (var i = 0; i < items.length; i++)
-            PopupMenuItem(
-              key: Key(items[i].$1),
-              value: i,
-              child: Text(items[i].$2),
-            ),
-        ],
-      );
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: c,
     builder: (context, _) {
       final v = c.view;
+      // web PAGES.classes: `isFieldSchool` hides «+ کلاس جدید» (field schools get their
+      // classes from the grade × branch pairs).
+      final field =
+          c.fieldSchool || (v?.classes.any((x) => x.mode == 'field') ?? false);
       return SchoolPage(
         prefix: 'cls',
         title: 'کلاس‌ها و تعریف‌ها',
         controller: c,
         sync: widget.sync,
         onRetry: widget.onRetry,
-        body: v == null
-            ? const SizedBox.shrink()
-            : ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: PayeshTokens.space4,
-                ),
-                children: [
-                  _head(
-                    'کلاس‌ها و کارگاه‌ها (محل برگزاری)',
-                    'cls-room-add',
-                    'کلاس/کارگاه',
-                    () => _open(RoomFormPage(controller: c)),
-                  ),
-                  if (v.rooms.isEmpty)
-                    const Text('هنوز کلاس یا کارگاهی تعریف نشده است.'),
-                  for (final r in v.rooms)
-                    ListTile(
-                      key: Key('cls-room-${r.id}'),
-                      title: Text(r.name),
-                      subtitle: Text('${r.students} دانش‌آموز'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _queued(r.queued),
-                          _menu('cls-room-menu-${r.id}', [
-                            (
-                              'cls-room-edit-${r.id}',
-                              'ویرایش',
-                              () => _open(RoomFormPage(controller: c, row: r)),
-                            ),
-                            (
-                              'cls-room-delete-${r.id}',
-                              'حذف',
-                              () => _deleteClass(r),
-                            ),
-                          ]),
-                        ],
+        body: const SizedBox.shrink(),
+        headActions: [
+          if (!field)
+            WebBtn(
+              '+ کلاس جدید',
+              key: const Key('cls-class-add'),
+              kind: WebBtnKind.primary,
+              onPressed: c.busy
+                  ? null
+                  : () => _open(ClassFormPage(controller: c)),
+            ),
+        ],
+        children: v == null
+            ? const []
+            : [
+                WebCard(
+                  key: const Key('cls-rooms'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _head(
+                        'کلاس‌ها و کارگاه‌ها (محل برگزاری)',
+                        'cls-room-add',
+                        'کلاس/کارگاه',
+                        () => _open(RoomFormPage(controller: c)),
+                        icon: '🏫',
+                        primary: true,
+                        count: '${Web.fa(v.rooms.length)} مورد',
                       ),
-                    ),
-                  _head(
-                    'کلاس‌ها',
-                    'cls-class-add',
-                    'کلاس جدید',
-                    () => _open(ClassFormPage(controller: c)),
-                  ),
-                  if (v.classes.isEmpty) const Text('کلاسی ساخته نشده.'),
-                  for (final r in v.classes)
-                    ListTile(
-                      key: Key('cls-class-${r.id}'),
-                      title: Text(r.name),
-                      subtitle: Text(
-                        [
-                          r.mode == 'field' ? 'رشته‌محور' : 'کلاس‌محور',
-                          '${r.students} دانش‌آموز',
-                        ].join(' · '),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _queued(r.queued),
-                          _menu('cls-class-menu-${r.id}', [
-                            (
-                              'cls-class-edit-${r.id}',
-                              'ویرایش',
-                              () => _open(ClassFormPage(controller: c, row: r)),
-                            ),
-                            (
-                              'cls-class-merge-${r.id}',
-                              'ادغام در کلاس دیگر',
-                              () => _merge(r),
-                            ),
-                            (
-                              'cls-class-delete-${r.id}',
-                              'حذف',
-                              () => _deleteClass(r),
-                            ),
-                          ]),
-                        ],
-                      ),
-                    ),
-                  for (final (kind, title, rows) in [
-                    ('grade', 'پایه‌ها', v.grades),
-                    ('branch', 'رشته‌ها', v.branches),
-                  ]) ...[
-                    _head(
-                      title,
-                      'cls-def-add-$kind',
-                      lookupFa[kind]!,
-                      () => _open(DefFormPage(controller: c, kind: kind)),
-                    ),
-                    for (final r in rows)
-                      ListTile(
-                        key: Key('cls-def-${r.id}'),
-                        title: Text(r.name),
-                        subtitle: Text(
-                          r.classes > 0
-                              ? '${r.classes} کلاس از این مورد استفاده می‌کند'
-                              : 'بدون استفاده',
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'فقط نام لازم است؛ همین نام در برنامهٔ هفتگی به هر زنگ داده می‌شود.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: Web.muted,
+                            height: 2,
+                          ),
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _queued(r.queued),
-                            _menu('cls-def-menu-${r.id}', [
-                              (
-                                'cls-def-edit-${r.id}',
-                                'ویرایش',
-                                () => _open(
-                                  DefFormPage(
-                                    controller: c,
-                                    kind: kind,
-                                    row: r,
+                      ),
+                      if (v.rooms.isEmpty)
+                        const Text(
+                          'هنوز کلاس یا کارگاهی تعریف نشده است.',
+                          style: Web.small,
+                        )
+                      else
+                        WebTable(
+                          key: const Key('cls-rooms-table'),
+                          head: const ['نام', 'دانش‌آموز', ''],
+                          rows: [
+                            for (final r in v.rooms)
+                              [
+                                Wrap(
+                                  key: Key('cls-room-${r.id}'),
+                                  spacing: 4,
+                                  children: [
+                                    Text(
+                                      r.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    ..._queued(r.queued),
+                                  ],
+                                ),
+                                Text(Web.fa(r.students)),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: _rowActions(
+                                    'cls-room-edit-${r.id}',
+                                    () => _open(
+                                      RoomFormPage(controller: c, row: r),
+                                    ),
+                                    'cls-room-delete-${r.id}',
+                                    () => _deleteClass(r),
                                   ),
                                 ),
-                              ),
-                              (
-                                'cls-def-delete-${r.id}',
-                                'حذف',
-                                () => _deleteLookup(r),
-                              ),
-                            ]),
+                              ],
                           ],
                         ),
-                      ),
-                  ],
-                  _head(
-                    'دروس',
-                    'cls-subject-add',
-                    'درس',
-                    () => _open(SubjectFormPage(controller: c)),
+                    ],
                   ),
-                  if (v.subjects.isEmpty) const Text('درسی تعریف نشده.'),
-                  for (final r in v.subjects)
-                    ListTile(
-                      key: Key('cls-subject-${r.id}'),
-                      title: Text(r.workshop ? '${r.name} · کارگاهی' : r.name),
-                      subtitle: Text('${r.slots} زنگ در برنامه'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _queued(r.queued),
-                          _menu('cls-subject-menu-${r.id}', [
-                            (
-                              'cls-subject-edit-${r.id}',
-                              'ویرایش',
-                              () =>
-                                  _open(SubjectFormPage(controller: c, row: r)),
-                            ),
-                            (
-                              'cls-subject-delete-${r.id}',
-                              'حذف',
-                              () => _deleteSubject(r),
-                            ),
-                          ]),
-                        ],
-                      ),
+                ),
+                for (final (kind, title, rows) in [
+                  ('grade', 'پایه‌ها', v.grades),
+                  ('branch', 'رشته‌ها', v.branches),
+                ])
+                  WebCard(
+                    key: Key('cls-defs-$kind'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _head(
+                          title,
+                          'cls-def-add-$kind',
+                          lookupFa[kind]!,
+                          () => _open(DefFormPage(controller: c, kind: kind)),
+                        ),
+                        WebList(
+                          children: [
+                            for (final r in rows)
+                              WebItem(
+                                key: Key('cls-def-${r.id}'),
+                                title: r.name,
+                                titleTrailing: _queued(r.queued),
+                                sub: r.classes > 0
+                                    ? '${Web.fa(r.classes)} کلاس از این مورد استفاده می‌کند'
+                                    : 'بدون استفاده',
+                                actions: _rowActions(
+                                  'cls-def-edit-${r.id}',
+                                  () => _open(
+                                    DefFormPage(
+                                      controller: c,
+                                      kind: kind,
+                                      row: r,
+                                    ),
+                                  ),
+                                  'cls-def-delete-${r.id}',
+                                  () => _deleteLookup(r),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: PayeshTokens.space6),
-                ],
-              ),
+                  ),
+                WebCard(
+                  key: const Key('cls-subjects'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _head(
+                        'دروس',
+                        'cls-subject-add',
+                        'درس',
+                        () => _open(SubjectFormPage(controller: c)),
+                      ),
+                      if (v.subjects.isEmpty)
+                        const WebEmpty('درسی تعریف نشده.')
+                      else
+                        WebList(
+                          children: [
+                            for (final r in v.subjects)
+                              WebItem(
+                                key: Key('cls-subject-${r.id}'),
+                                title: r.name,
+                                titleTrailing: [
+                                  if (r.workshop)
+                                    const WebBadge(
+                                      'کارگاهی',
+                                      tone: WebTone.purple,
+                                    ),
+                                  ..._queued(r.queued),
+                                ],
+                                sub: '${Web.fa(r.slots)} زنگ در برنامه',
+                                actions: _rowActions(
+                                  'cls-subject-edit-${r.id}',
+                                  () => _open(
+                                    SubjectFormPage(controller: c, row: r),
+                                  ),
+                                  'cls-subject-delete-${r.id}',
+                                  () => _deleteSubject(r),
+                                ),
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ],
       );
     },
   );

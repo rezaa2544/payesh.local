@@ -256,7 +256,8 @@ void main() {
         startsWith('activate:alborz-12@cell-1.example.ir:pd-'),
       );
       expect(find.byKey(const Key('session-school')), findsOneWidget);
-      expect(find.text('معلم'), findsOneWidget);
+      // row 172: the web ROLE_FA word
+      expect(find.text('دبیر'), findsOneWidget);
       expect(find.byKey(const Key('home-footer')), findsOneWidget);
       expect(find.byKey(const Key('sync-idle')), findsOneWidget);
       expect(find.text('همگام'), findsOneWidget);

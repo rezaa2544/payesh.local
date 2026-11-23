@@ -16,6 +16,8 @@ import 'package:payesh_data/payesh_data.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 
+import 'nav_support.dart';
+
 const secret32 = 'QRSTUVWXYZ234567ABCDEFGHIJKLMNOP';
 final today = DateTime.utc(2026, 11, 12, 8);
 
@@ -164,6 +166,7 @@ Future<(SessionController, MemorySource)> boot(
   MemorySource? source,
   bool wireNotices = true,
 }) async {
+  tallView(tester);
   final src = source ?? MemorySource();
   await tester.runAsync(() => seed(src.engine));
   final c = SessionController(
@@ -212,7 +215,16 @@ String badgeOf(WidgetTester tester, String key) => tester
     .data!;
 
 List<int> cardOrder(WidgetTester tester) {
-  final cards = tester.widgetList<Card>(find.byType(Card)).toList();
+  // Row 172: the web-layout cards (WebCard), keyed `ntc-card-<id>`, in screen order
+  final cards = tester
+      .widgetList(
+        find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith('ntc-card-'),
+        ),
+      )
+      .toList();
   return [
     for (final c in cards)
       if (c.key case ValueKey<String>(:final value)
@@ -232,16 +244,16 @@ void main() {
     'W4-W01 teacher: entry → notices newest first, severity labels; no write controls (negative)',
     (tester) async {
       await boot(tester, role: 'teacher');
-      expect(find.byKey(const Key('ntc-entry')), findsOneWidget);
+      expect(navOf('announcements'), findsOneWidget);
       // earlier waves are still there — one data path
-      expect(find.byKey(const Key('att-entry')), findsOneWidget);
-      expect(find.byKey(const Key('grd-entry')), findsOneWidget);
-      await tapKey(tester, 'ntc-entry');
+      expect(navOf('attendance'), findsOneWidget);
+      expect(navOf('grades'), findsOneWidget);
+      await openPage(tester, 'announcements');
       expect(textOf(tester, 'ntc-count'), '۳ مورد');
       expect(cardOrder(tester), [3, 2, 1]);
-      expect(badgeOf(tester, 'ntc-sev-2'), 'مهم');
-      expect(badgeOf(tester, 'ntc-sev-1'), 'اطلاع‌رسانی');
-      expect(badgeOf(tester, 'ntc-sev-3'), 'عادی');
+      expect(sevOf(tester, 'ntc-sev-2'), 'مهم');
+      expect(sevOf(tester, 'ntc-sev-1'), 'اطلاع‌رسانی');
+      expect(sevOf(tester, 'ntc-sev-3'), 'عادی');
       expect(find.byKey(const Key('ntc-date-2')), findsOneWidget);
       expect(textOf(tester, 'ntc-body-2'), 'مدرسه شنبه تعطیل است');
       // NEG: a teacher gets no publish / edit / delete controls
@@ -255,7 +267,7 @@ void main() {
     'W4-W02 manager publish: local first, queued badge, AutoSync nudged, newest on top',
     (tester) async {
       final (_, src) = await boot(tester);
-      await tapKey(tester, 'ntc-entry');
+      await openPage(tester, 'announcements');
       await tapKey(tester, 'ntc-add');
       expect(find.text('اطلاعیهٔ جدید'), findsOneWidget);
       await fill(tester, ' امتحان ریاضی ', 'شنبه ساعت ۸');
@@ -287,7 +299,7 @@ void main() {
     'W4-W03 empty title / body: refused in the editor, text kept, nothing queued (negative)',
     (tester) async {
       final (_, src) = await boot(tester);
-      await tapKey(tester, 'ntc-entry');
+      await openPage(tester, 'announcements');
       await tapKey(tester, 'ntc-add');
       await fill(tester, '   ', 'متن');
       await tapKey(tester, 'ntc-submit');
@@ -312,7 +324,7 @@ void main() {
     'W4-W04 manager edit: prefilled, date kept, base = version; unchanged → «تغییری نبود»',
     (tester) async {
       final (_, src) = await boot(tester);
-      await tapKey(tester, 'ntc-entry');
+      await openPage(tester, 'announcements');
       await tapKey(tester, 'ntc-edit-2');
       expect(find.text('ویرایش اطلاعیه'), findsOneWidget);
       expect(
@@ -350,7 +362,7 @@ void main() {
     'W4-W05 delete asks first: cancel keeps it (negative), confirm queues a tombstone',
     (tester) async {
       final (_, src) = await boot(tester);
-      await tapKey(tester, 'ntc-entry');
+      await openPage(tester, 'announcements');
       await tapKey(tester, 'ntc-delete-1');
       expect(find.text('اطلاعیهٔ «اردوی پاییزه» حذف شود؟'), findsOneWidget);
       await tapKey(tester, 'ntc-delete-cancel');
@@ -368,21 +380,16 @@ void main() {
   );
 
   testWidgets(
-    'W4-W06 flag / source / role gates: legacy line, wait line, none — never a dead button (negative)',
+    'W4-W06 flag / source / role gates: no native «اطلاعیه‌ها» — never a dead button (negative)',
     (tester) async {
       await boot(tester, waves: 'login,attendance,grades');
-      expect(
-        textOf(tester, 'ntc-entry-legacy'),
-        'اطلاعیه‌ها فعلاً در نسخهٔ وب نمایش داده می‌شود.',
-      );
-      expect(find.byKey(const Key('ntc-entry')), findsNothing);
+      expect(navOf('announcements'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await boot(tester, wireNotices: false);
-      expect(find.byKey(const Key('ntc-entry-legacy')), findsOneWidget);
+      expect(navOf('announcements'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await boot(tester, role: 'janitor');
-      expect(find.byKey(const Key('ntc-entry')), findsNothing);
-      expect(find.byKey(const Key('ntc-entry-legacy')), findsNothing);
+      expect(navOf('announcements'), findsNothing);
     },
   );
 
@@ -390,10 +397,10 @@ void main() {
     'W4-W07 parent reads the notices (read: all) with no write controls',
     (tester) async {
       await boot(tester, role: 'parent', savedUid: 40);
-      expect(find.byKey(const Key('ntc-entry')), findsOneWidget);
+      expect(navOf('announcements'), findsOneWidget);
       // NEG: the earlier waves are teacher/manager pages — not offered to a parent
-      expect(find.byKey(const Key('grd-entry')), findsNothing);
-      await tapKey(tester, 'ntc-entry');
+      expect(navOf('grades'), findsNothing);
+      await openPage(tester, 'announcements');
       expect(cardOrder(tester), [3, 2, 1]);
       expect(find.byKey(const Key('ntc-add')), findsNothing);
       expect(find.byKey(const Key('ntc-delete-3')), findsNothing);
@@ -404,7 +411,7 @@ void main() {
     'W4-W08 leaving the editor with unsaved text asks; «ماندن» keeps it (negative)',
     (tester) async {
       final (_, src) = await boot(tester);
-      await tapKey(tester, 'ntc-entry');
+      await openPage(tester, 'announcements');
       await tapKey(tester, 'ntc-add');
       await fill(tester, 'پیش‌نویس', 'متن');
       await tapKey(tester, 'ntc-editor-back');
@@ -430,7 +437,7 @@ void main() {
         tester,
         source: MemorySource(config: const OutboxConfig(capacity: 0)),
       );
-      await tapKey(tester, 'ntc-entry');
+      await openPage(tester, 'announcements');
       await tapKey(tester, 'ntc-add');
       await fill(tester, 'عنوان', 'متن');
       await tapKey(tester, 'ntc-submit');
@@ -447,7 +454,7 @@ void main() {
     'W4-W10 a pull that brings a new notice refreshes the open page',
     (tester) async {
       final (_, src) = await boot(tester, role: 'teacher');
-      await tapKey(tester, 'ntc-entry');
+      await openPage(tester, 'announcements');
       expect(cardOrder(tester), [3, 2, 1]);
       await tester.runAsync(
         () => src.engine.put('announcements', 7, {
@@ -472,12 +479,11 @@ void main() {
         (BrokenSource(), 'خواندن دادهٔ محلی ناموفق بود'),
       ]) {
         await boot(tester, role: 'teacher', source: src);
-        await tapKey(tester, 'ntc-entry');
+        await openPage(tester, 'announcements');
         expect(textOf(tester, 'ntc-error'), msg);
         expect(find.byKey(const Key('ntc-empty')), findsNothing);
-        expect(find.byType(Card), findsNothing);
-        await tapKey(tester, 'ntc-back');
-        expect(find.byKey(const Key('ntc-entry')), findsOneWidget);
+        expect(cardOrder(tester), isEmpty);
+        await tester.pumpWidget(const SizedBox());
       }
     },
   );
@@ -495,7 +501,9 @@ void main() {
           }, version: 9);
         }
       });
-      await tapKey(tester, 'ntc-entry');
+      // the deletions arrive like a finished pull
+      src.bump.value++;
+      await openPage(tester, 'announcements');
       expect(find.byKey(const Key('ntc-empty')), findsOneWidget);
       expect(textOf(tester, 'ntc-count'), '۰ مورد');
       await tapKey(tester, 'ntc-add');
@@ -515,7 +523,7 @@ void main() {
         tester,
         source: MemorySource(config: const OutboxConfig(capacity: 0)),
       );
-      await tapKey(tester, 'ntc-entry');
+      await openPage(tester, 'announcements');
       await tapKey(tester, 'ntc-delete-2');
       await tapKey(tester, 'ntc-delete-confirm');
       expect(
@@ -598,3 +606,7 @@ void main() {
     },
   );
 }
+
+/// Row 172: the severity is the colour of the date badge (web) and its spoken label.
+String? sevOf(WidgetTester tester, String key) =>
+    tester.widget<Semantics>(find.byKey(Key(key))).properties.label;

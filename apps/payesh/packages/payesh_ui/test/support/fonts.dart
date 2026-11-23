@@ -14,7 +14,7 @@ Future<void> loadPayeshFonts() async {
   }
 
   final vazir = FontLoader('packages/payesh_ui/Vazirmatn');
-  for (final w in ['Regular', 'Medium', 'Bold']) {
+  for (final w in ['Regular', 'Medium', 'Bold', 'ExtraBold', 'Black']) {
     vazir.addFont(f('fonts/Vazirmatn-$w.ttf'));
   }
   await vazir.load();

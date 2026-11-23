@@ -2,10 +2,16 @@
 // manager's leave decisions. Widget tests drive the REAL app shell, pages, controllers and
 // SchoolReports on an in-memory SQLite + durable outbox; the real server path is
 // packages/payesh_sync/test/school_admin_it_test.dart W11-IT-*.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:payesh_app/src/flags.dart';
 import 'package:payesh_app/src/reports/reports_screen.dart';
+import 'package:payesh_app/src/school/school_entry.dart';
+import 'package:payesh_sync/payesh_sync.dart' show SyncPhase, SyncStatus;
 
+import 'nav_support.dart';
 import 'school_support.dart';
 
 // harness "today" is Thursday 2026-11-12 08:00 — inside the first lesson bell.
@@ -99,6 +105,10 @@ Future<MemorySchool> open(
   String page, {
   String role = 'manager',
 }) async {
+  // Row 172: the web-layout pages are long lists of cards — a tall window keeps them built
+  tester.view.physicalSize = const Size(2400, 24000);
+  tester.view.devicePixelRatio = 3;
+  addTearDown(tester.view.reset);
   final (_, s) = await bootSchool(
     tester,
     role: role,
@@ -114,7 +124,34 @@ Future<MemorySchool> open(
       }
     },
   );
-  await tapKey(tester, 'adm-$page');
+  if (page == 'leaves') {
+    // Row 172: like the web panel, «مرخصی» is not in the manager's navigation (web
+    // `navConfig`); the request desk itself is still the native page — opened directly here.
+    expect(navOf('leaves'), findsNothing);
+    final spec = schoolPages.firstWhere((p) => p.id == 'leaves');
+    final args = SchoolRouteArgs(
+      source: s,
+      role: role,
+      uid: 10,
+      sync: ValueNotifier(
+        const SyncStatus(
+          phase: SyncPhase.idle,
+          pending: 0,
+          inflight: 0,
+          blocked: 0,
+        ),
+      ),
+      flags: ClientFlags.parse(school: 'reports'),
+    );
+    unawaited(
+      Navigator.of(tester.element(find.byKey(const Key('pulse-shell')))).push(
+        MaterialPageRoute<void>(builder: (_) => spec.build(args)),
+      ),
+    );
+    await settle(tester);
+    return s;
+  }
+  await openPage(tester, page);
   return s;
 }
 
@@ -122,8 +159,8 @@ void main() {
   testWidgets('W11-W01 manager home: counts, cohort coverage, the room in use now, latest notice; '
       'NEG a teacher has no reports, day view or leave list', (tester) async {
     await open(tester, 'home');
-    expect(find.text('داشبورد مدرسه'), findsOneWidget);
-    expect(textOf(tester, 'dash-now'), contains('زنگ اول'));
+    expect(find.text('داشبورد مدرسه'), findsWidgets);
+    expect(textIn(tester, 'dash-now'), contains('زنگ اول'));
     expect(textOf(tester, 'dash-students'), '۳');
     expect(textOf(tester, 'dash-present'), '۱ / ۲');
     expect(textOf(tester, 'dash-absent'), '۱');
@@ -131,23 +168,26 @@ void main() {
     expect(badgeOf(tester, 'dash-covered'), '۱ از ۲ گروه دارای ثبت');
     expect(badgeOf(tester, 'dash-cov-0'), '۱۰۰٪');
     await reveal(tester, 'dash-room-6');
-    expect(find.text('هفتم · فیزیک · دبیر ریاضی'), findsOneWidget);
+    // Row 172: the web rooms table — class, lesson and teacher in their own cells
+    expect(find.byKey(const Key('dash-room-6')), findsOneWidget);
+    expect(find.textContaining('فیزیک'), findsWidgets);
+    expect(find.textContaining('دبیر ریاضی'), findsWidgets);
     expect(find.text('در حال برگزاری'), findsOneWidget);
     await reveal(tester, 'dash-recent');
     expect(find.text('جلسهٔ اولیا'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await bootSchool(tester, role: 'teacher', seed: (s) => seed(s));
-    expect(find.byKey(const Key('adm-home')), findsOneWidget);
+    expect(navOf('home'), findsOneWidget);
     for (final k in ['reports', 'attendance-report', 'leaves']) {
-      expect(find.byKey(Key('adm-$k')), findsNothing, reason: k);
+      expect(navOf(k), findsNothing, reason: k);
     }
   });
 
   testWidgets('W11-W02 teacher and student home: today\'s lessons, the current bell, attendance '
       'recorded or not', (tester) async {
     await open(tester, 'home', role: 'teacher');
-    expect(find.text('امروز من'), findsOneWidget);
-    expect(textOf(tester, 'dash-bell-text'), '۰۸:۰۰ – ۰۸:۴۵ · زنگ اول');
+    expect(find.text('امروز من'), findsWidgets);
+    expect(textIn(tester, 'dash-bell-text'), contains('08:00 – 08:45'));
     expect(badgeOf(tester, 'dash-done-1'), 'ثبت نشده');
     expect(badgeOf(tester, 'dash-done-2'), 'ثبت شده');
     expect(find.text('فیزیک · زنگ جاری'), findsOneWidget);
@@ -158,6 +198,10 @@ void main() {
     expect(find.byKey(const Key('dash-slot-1')), findsNothing);
     expect(find.text('ریاضی'), findsOneWidget);
     expect(find.byKey(const Key('dash-done-2')), findsNothing);
+    // Row 172: web `studentHome` = the today card + `PAGES.record` («پروندهٔ من» below)
+    expect(find.text('پروندهٔ من'), findsOneWidget);
+    expect(find.byKey(const Key('rec-present')), findsOneWidget);
+    expect(find.byKey(const Key('rec-grades')), findsOneWidget);
   });
 
   testWidgets('W11-W03 reports: weekly share per class, class report card, another class; print '
@@ -198,18 +242,29 @@ void main() {
     'W11-W04 attendance report: today per class, everyone not present; other days',
     (tester) async {
       await open(tester, 'attendance-report');
-      expect(textOf(tester, 'atr-date'), '۱۴۰۵/۰۸/۲۱');
+      // Row 172: the web Jalali date input (typed) replaces the ‹ › day buttons
+      String shown() => tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const Key('atr-date')),
+              matching: find.byType(TextField),
+            ),
+          )
+          .controller!
+          .text;
+      expect(shown(), '۱۴۰۵/۰۸/۲۱');
       expect(textOf(tester, 'atr-count-5'), '۱ حاضر از ۲');
       expect(badgeOf(tester, 'atr-miss-5-0'), 'آرش · غایب');
       expect(textOf(tester, 'atr-count-7'), 'ثبت نشده');
-      await tapKey(tester, 'atr-prev');
-      expect(textOf(tester, 'atr-date'), '۱۴۰۵/۰۸/۲۰');
+      await typeKey(tester, 'atr-date', '1405/08/20');
+      await settle(tester);
       expect(textOf(tester, 'atr-count-5'), 'ثبت نشده');
-      await tapKey(tester, 'atr-prev');
-      await tapKey(tester, 'atr-prev');
+      await typeKey(tester, 'atr-date', '1405/08/18');
+      await settle(tester);
       expect(badgeOf(tester, 'atr-miss-5-0'), 'بهار · تأخیر');
-      await tapKey(tester, 'atr-next');
-      expect(textOf(tester, 'atr-date'), '۱۴۰۵/۰۸/۱۹');
+      await typeKey(tester, 'atr-date', '1405/08/19');
+      await settle(tester);
+      expect(shown(), '1405/08/19');
     },
   );
 

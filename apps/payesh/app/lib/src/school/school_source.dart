@@ -4,6 +4,7 @@ import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../pulse/pulse.dart';
+import '../pulse/web.dart';
 import '../sync_badge.dart';
 
 /// Where the school-management pages of row 128 (waves W6..W12) read and write. Production: the
@@ -149,7 +150,30 @@ class SchoolPage extends StatelessWidget {
     this.onRetry,
     this.fab,
     this.actions = const [],
+    this.children,
+    this.headActions = const [],
+    this.sub,
+    this.subKey,
+    this.headTitle,
+    this.bare = false,
   });
+
+  /// The page draws its own title row (the manager's `.dashboard-topbar`).
+  final bool bare;
+
+  /// Row 172: the web page itself — `pageHead(title, sub, headActions)` then these blocks in the
+  /// web `.main` column ([body] is ignored when set).
+  final List<Widget>? children;
+
+  /// Buttons on the left of the web title row.
+  final List<Widget> headActions;
+
+  /// The small muted line under the web title.
+  final String? sub;
+  final Key? subKey;
+
+  /// The web `<h2>` when it differs from [title].
+  final String? headTitle;
 
   /// Key prefix of the page (`usr`, `cls`, …).
   final String prefix;
@@ -161,9 +185,77 @@ class SchoolPage extends StatelessWidget {
   final Widget? fab;
   final List<Widget> actions;
 
+  Widget _web(BuildContext context) {
+    final c = controller;
+    final inline = PulseInline.of(context);
+    final content = c.loading && c.db == null && c.error == null
+        ? Center(child: CircularProgressIndicator(key: Key('$prefix-loading')))
+        : WebPageBody(
+            children: [
+              if (!bare)
+                WebPageHead(
+                  title: headTitle ?? title,
+                  sub: sub,
+                  subKey: subKey,
+                  actions: headActions,
+                ),
+              if (c.error != null)
+                WebBanner(
+                  kind: WebBannerKind.err,
+                  text: c.error!,
+                  textKey: Key('$prefix-error'),
+                )
+              else if (c.notice != null)
+                Semantics(
+                  liveRegion: true,
+                  child: WebBanner(
+                    kind: WebBannerKind.ok,
+                    text: c.notice!,
+                    textKey: Key('$prefix-notice'),
+                  ),
+                ),
+              ...children!,
+            ],
+          );
+    return Scaffold(
+      backgroundColor: inline ? Colors.transparent : Web.bg,
+      appBar: inline
+          ? null
+          : AppBar(
+              automaticallyImplyLeading: false,
+              leading: IconButton(
+                key: Key('$prefix-back'),
+                tooltip: 'بازگشت',
+                icon: const BackButtonIcon(),
+                onPressed: () => Navigator.maybePop(context),
+              ),
+              title: Text(title),
+              actions: [
+                ...actions,
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(
+                    end: PayeshTokens.space2,
+                  ),
+                  child: Center(
+                    child: SyncBadge(status: sync, onRetry: onRetry),
+                  ),
+                ),
+              ],
+            ),
+      floatingActionButton: fab,
+      body: inline ? content : WebBackdrop(child: content),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = controller;
+    if (children != null) {
+      return ListenableBuilder(
+        listenable: c,
+        builder: (context, _) => _web(context),
+      );
+    }
     return ListenableBuilder(
       listenable: c,
       builder: (context, _) => Scaffold(

@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_app/src/followup/followup_screen.dart';
 
+import 'nav_support.dart';
 import 'school_support.dart';
 
 Future<void> seed(MemorySchool s) async {
@@ -54,6 +55,7 @@ Future<MemorySchool> openFollowup(
   MemorySchool? source,
   Future<void> Function(MemorySchool s)? extra,
 }) async {
+  tallView(tester);
   final (_, s) = await bootSchool(
     tester,
     role: 'manager',
@@ -63,7 +65,7 @@ Future<MemorySchool> openFollowup(
     },
     source: source,
   );
-  await tapKey(tester, 'adm-followup');
+  await openPage(tester, 'followup');
   return s;
 }
 
@@ -93,7 +95,7 @@ void main() {
     expect(badgeOf(tester, 'fu-issue-state-71'), 'در سامانه هست');
     await tester.pumpWidget(const SizedBox());
     await bootSchool(tester, role: 'teacher', seed: seed);
-    expect(find.byKey(const Key('adm-followup')), findsNothing);
+    expect(navOf('followup'), findsNothing);
   });
 
   testWidgets(

@@ -19,6 +19,53 @@ import 'school/school_source.dart';
 import 'login/session_controller.dart';
 import 'secure/local_storage.dart';
 
+/// client/pages.js `navConfig(role)`: (web route, pulse.js icon, label, native page id).
+List<(String, String, String, String)> webNavConfig(String? role) =>
+    switch (role) {
+      'manager' => const [
+        ('home', 'home', 'داشبورد', 'today'),
+        ('users', 'users', 'کاربران', 'users'),
+        ('followup', 'alert', 'پیگیری', 'followup'),
+        ('classes', 'school', 'کلاس‌ها', 'classes'),
+        ('schedule', 'calendar', 'برنامه', 'schedule'),
+        ('attendance-report', 'check', 'حضور', 'attendance-report'),
+        ('reports', 'report', 'گزارش‌ها', 'reports'),
+        ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
+        ('health', 'health', 'سلامت', 'health'),
+        ('network', 'globe', 'شبکه', 'network'),
+        ('cloud', 'cloud', 'حافظهٔ ابری', 'cloud'),
+        ('system', 'gear', 'سیستم', 'system'),
+      ],
+      'teacher' => const [
+        ('home', 'home', 'امروز', 'today'),
+        ('schedule', 'calendar', 'برنامه', 'schedule'),
+        ('attendance', 'check', 'حضور', 'attendance'),
+        ('grades', 'pen', 'نمره', 'grades'),
+        ('students', 'users', 'دانش‌آموزان', 'students'),
+        ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
+        ('system', 'gear', 'سیستم', 'system'),
+      ],
+      'parent' => const [
+        ('home', 'family', 'فرزندان', 'family'),
+        ('schedule', 'calendar', 'برنامه', 'schedule'),
+        ('leaves', 'mail', 'مرخصی', 'parent-leaves'),
+        ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
+        ('system', 'gear', 'سیستم', 'system'),
+      ],
+      'student' => const [
+        ('home', 'home', 'خانه', 'today'),
+        ('schedule', 'calendar', 'برنامه', 'schedule'),
+        ('record', 'folder', 'پرونده', 'record'),
+        ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
+        ('system', 'gear', 'سیستم', 'system'),
+      ],
+      _ => const [
+        ('home', 'home', 'خانه', 'today'),
+        ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
+        ('system', 'gear', 'سیستم', 'system'),
+      ],
+    };
+
 /// Root widget of the native Payesh client (ADR-43). Persian, right-to-left, Material 3, built on
 /// the payesh_ui design system (row 73): tokens, light/dark themes, bundled Vazirmatn, Jalali.
 class PayeshApp extends StatelessWidget {
@@ -200,7 +247,9 @@ class PayeshApp extends StatelessWidget {
     return (fam: fam, att: att, grd: grd, ntc: ntc, sch: sch);
   }
 
-  /// Row 170: the «نبض» navigation — every page this user has, in the web sidebar order.
+  /// Row 172: the sidebar is the web `navConfig(role)` exactly — same pages, labels, icons and
+  /// order (client/pages.js). A web page this build has no native page for is left out (never
+  /// a dead entry); native pages the web sidebar does not list are not added.
   List<PulseNavItem> _nav(
     BuildContext context,
     SessionController s,
@@ -208,37 +257,63 @@ class PayeshApp extends StatelessWidget {
   ) {
     final e = _entries(context, s, state);
     final r = _routes(s, state);
-    return pulseSorted([
-      ...e.sch.navItems(),
+    final native = <String, PulseNavItem>{
+      for (final m in e.sch.navItems()) m.id: m,
       if (e.att.isTile && r.attendance != null)
-        PulseNavItem(
+        'attendance': PulseNavItem(
           id: 'attendance',
-          label: 'حضور و غیاب',
+          label: 'حضور',
           icon: Icons.how_to_reg_outlined,
           page: r.attendance!,
         ),
       if (e.grd.isTile && r.grades != null)
-        PulseNavItem(
+        'grades': PulseNavItem(
           id: 'grades',
-          label: 'ثبت نمره',
+          label: 'نمره',
           icon: Icons.grading_outlined,
           page: r.grades!,
         ),
       if (e.ntc.isTile && r.notices != null)
-        PulseNavItem(
+        'notices': PulseNavItem(
           id: 'notices',
           label: 'اطلاعیه‌ها',
           icon: Icons.campaign_outlined,
           page: r.notices!,
         ),
       if (e.fam.isTile && r.family != null)
-        PulseNavItem(
+        'family': PulseNavItem(
           id: 'family',
-          label: 'فرزندان من',
+          label: 'فرزندان',
           icon: Icons.family_restroom_outlined,
           page: r.family!,
         ),
-    ]);
+      // Row 172: the parent's «مرخصی» (web `#/leaves`) — same data as «فرزندان»
+      if (e.fam.isTile && family != null && state.currentUid != null)
+        'parent-leaves': PulseNavItem(
+          id: 'parent-leaves',
+          label: 'مرخصی',
+          icon: Icons.mail_outline,
+          page: (_) => FamilyRoute(
+            source: family!,
+            role: state.currentRole!,
+            uid: state.currentUid!,
+            sync: s.sync,
+            onRetry: onRetrySync,
+            leaves: true,
+          ),
+        ),
+    };
+    return [
+      for (final (route, icon, label, from) in webNavConfig(state.currentRole))
+        if (native[from] case final m?)
+          PulseNavItem(
+            id: route,
+            label: label,
+            icon: m.icon,
+            webIcon: icon,
+            page: m.page,
+          ),
+    ];
   }
 
   Widget _pages(BuildContext context, SessionController s, SignedIn state) {
@@ -293,23 +368,41 @@ class PayeshApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = session;
     final u = updater;
-    return PayeshMaterialApp(
-      look: PayeshLook.nabd,
-      overlay: u == null
-          ? null
-          : AutoUpdateCheck(
-              updater: u,
-              child: UpdateLight(updater: u, openUrl: openUrl),
-            ),
-      home: s == null
-          ? HomeScreen(storage: storage, today: today)
-          : SessionGate(
-              controller: s,
-              home: HomeFooter(storage: storage, today: today),
-              pages: (context, state) => _pages(context, s, state),
-              nav: (context, state) => _nav(context, s, state),
-            ),
+    return PulseApp(
+      updater: u,
+      openUrl: openUrl,
+      child: PayeshMaterialApp(
+        look: PayeshLook.nabd,
+        overlay: u == null
+            ? null
+            : AutoUpdateCheck(
+                updater: u,
+                child: UpdateLight(updater: u, openUrl: openUrl),
+              ),
+        home: s == null
+            ? HomeScreen(storage: storage, today: today)
+            : SessionGate(
+                controller: s,
+                home: HomeFooter(storage: storage, today: today),
+                pages: (context, state) => _pages(context, s, state),
+                nav: (context, state) => _nav(context, s, state),
+                accountName: _accountName,
+                admin: () => school?.admin,
+              ),
+      ),
     );
+  }
+
+  /// Row 172: «name · role» of the sidebar — the user's own row of the local database.
+  Future<String?> _accountName(SignedIn state) async {
+    final src = school;
+    final role = state.currentRole;
+    final uid = state.currentUid;
+    if (src == null || role == null || uid == null) return null;
+    final db = await src.recordsFor(role: role, uid: uid);
+    final row = await db?.get('users', uid);
+    final n = row?.data['name'];
+    return n is String ? n : null;
   }
 
   /// Injected clock for tests; defaults to the device date (displayed as Jalali).

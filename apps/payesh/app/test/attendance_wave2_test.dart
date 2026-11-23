@@ -7,12 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_app/src/app.dart';
 import 'package:payesh_app/src/attendance/attendance_controller.dart';
+import 'package:payesh_app/src/attendance/attendance_screen.dart';
 import 'package:payesh_app/src/attendance/attendance_wiring.dart';
 import 'package:payesh_app/src/flags.dart';
 import 'package:payesh_app/src/login/session_controller.dart';
 import 'package:payesh_data/payesh_data.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_sync/payesh_sync.dart';
+
+import 'nav_support.dart';
 
 const secret32 = 'QRSTUVWXYZ234567ABCDEFGHIJKLMNOP';
 final today = DateTime.utc(2026, 11, 12, 8);
@@ -121,6 +124,7 @@ Future<(SessionController, MemorySource)> boot(
   String waves = 'login,attendance',
   MemorySource? source,
 }) async {
+  tallView(tester);
   final src = source ?? MemorySource();
   await tester.runAsync(() => seed(src.engine));
   final c = SessionController(
@@ -155,12 +159,19 @@ Future<void> tapKey(WidgetTester tester, String key) async {
 }
 
 Future<void> openClass5(WidgetTester tester) async {
-  await tapKey(tester, 'att-entry');
+  await openPage(tester, 'attendance');
   await tapKey(tester, 'att-class-5');
 }
 
-bool chipOn(WidgetTester tester, int sid, String wire) =>
-    tester.widget<ChoiceChip>(find.byKey(Key('att-$sid-$wire'))).selected;
+bool chipOn(WidgetTester tester, int sid, String wire) => tester
+    .widget<AttendanceButton>(find.byKey(Key('att-$sid-$wire')))
+    .on;
+
+String badgeOf(WidgetTester tester, String key) => tester
+    .widget<Text>(
+      find.descendant(of: find.byKey(Key(key)), matching: find.byType(Text)),
+    )
+    .data!;
 
 String textOf(WidgetTester tester, String key) =>
     tester.widget<Text>(find.byKey(Key(key))).data!;
@@ -170,20 +181,20 @@ void main() {
     'W2-W01 teacher: entry → own classes with «ثبت نشده» → roster, default حاضر',
     (tester) async {
       await boot(tester);
-      expect(find.byKey(const Key('att-entry')), findsOneWidget);
-      await tapKey(tester, 'att-entry');
+      expect(navOf('attendance'), findsOneWidget);
+      await openPage(tester, 'attendance');
       expect(find.byKey(const Key('att-class-5')), findsOneWidget);
       // NEG: another teacher's class is not listed
       expect(find.byKey(const Key('att-class-6')), findsNothing);
-      expect(find.text('ثبت نشده'), findsOneWidget);
+      // web badges: «ثبت‌نشده» / «ثبت‌شده»; the item says «N دانش‌آموز · grade»
+      expect(find.text('ثبت‌نشده'), findsOneWidget);
+      expect(find.text('۳ دانش‌آموز · '), findsOneWidget);
       await tapKey(tester, 'att-class-5');
-      expect(find.text('دهم الف'), findsWidgets);
+      expect(find.textContaining('دهم الف · '), findsWidgets);
       // sorted like the web roster; every student starts at present
       final rows = tester
-          .widgetList<Card>(
-            find.byWidgetPredicate(
-              (w) => w is Card && '${w.key}'.contains('att-row-'),
-            ),
+          .widgetList(
+            find.byWidgetPredicate((w) => '${w.key}'.contains('att-row-2')),
           )
           .map((w) => '${w.key}')
           .toList();
@@ -196,9 +207,13 @@ void main() {
         expect(chipOn(tester, s, 'present'), isTrue);
         expect(chipOn(tester, s, 'absent'), isFalse);
       }
-      for (final l in ['حاضر', 'غایب', 'تأخیر', 'خروج', 'موجه']) {
+      // the four web buttons (no «موجه» on the web roster) and the four counts
+      for (final l in ['حاضر', 'غایب', 'تأخیر', 'خروج']) {
         expect(find.text(l), findsNWidgets(3));
       }
+      expect(find.text('موجه'), findsNothing);
+      expect(badgeOf(tester, 'att-count-present'), 'حاضر ۳');
+      expect(badgeOf(tester, 'att-count-absent'), 'غایب ۰');
     },
   );
 
@@ -220,12 +235,12 @@ void main() {
         {21: 'absent', 22: 'present', 23: 'late'},
       );
       expect(src.nudges, 1);
-      // after saving, the chips show the stored state
+      // like the web, saving leaves the sheet: the list says «ثبت‌شده»
+      expect(find.text('ثبت‌شده'), findsOneWidget);
+      // reopened, the buttons show the stored state
+      await tapKey(tester, 'att-class-5');
       expect(chipOn(tester, 21, 'absent'), isTrue);
       expect(find.byKey(const Key('att-row-new')), findsNothing);
-      // back to the list: the class is now «ثبت شده»
-      await tapKey(tester, 'att-back');
-      expect(find.text('ثبت شده'), findsOneWidget);
     },
   );
 
@@ -236,6 +251,7 @@ void main() {
       await openClass5(tester);
       await tapKey(tester, 'att-save');
       expect(src.outbox.list().length, 3);
+      await tapKey(tester, 'att-class-5');
       await tapKey(tester, 'att-save');
       expect(textOf(tester, 'att-notice'), 'تغییری نبود');
       expect(src.outbox.list().length, 3);
@@ -259,11 +275,11 @@ void main() {
       await boot(tester, source: src);
       await openClass5(tester);
       expect(chipOn(tester, 22, 'late'), isTrue);
-      await tapKey(tester, 'att-22-excused');
+      await tapKey(tester, 'att-22-absent');
       await tapKey(tester, 'att-save');
       final op = src.outbox.list().firstWhere((o) => o.id == 501);
       expect(op.baseVersion, 3);
-      expect(op.payload!['status'], 'excused');
+      expect(op.payload!['status'], 'absent');
     },
   );
 
@@ -272,8 +288,8 @@ void main() {
   ) async {
     for (final r in ['parent', 'student']) {
       await boot(tester, role: r);
-      expect(find.byKey(const Key('att-entry')), findsNothing, reason: r);
-      expect(find.byKey(const Key('att-entry-none')), findsOneWidget);
+      // Row 172: the web navigation of a parent / student has no «حضور»
+      expect(navOf('attendance'), findsNothing, reason: r);
       await tester.pumpWidget(const SizedBox());
     }
   });
@@ -282,8 +298,8 @@ void main() {
     'W2-W06 NEG wave flag off: the old (web) client keeps attendance',
     (tester) async {
       await boot(tester, waves: 'login');
-      expect(find.byKey(const Key('att-entry')), findsNothing);
-      expect(find.byKey(const Key('att-entry-legacy')), findsOneWidget);
+      // Row 172: no native «حضور» in the navigation (the previous web version has it)
+      expect(navOf('attendance'), findsNothing);
     },
   );
 
@@ -291,8 +307,8 @@ void main() {
     'W2-W07 NEG offline before the first refresh and no saved user id: no dead button',
     (tester) async {
       await boot(tester, online: false, savedUid: null);
+      expect(navOf('attendance'), findsNothing);
       expect(find.byKey(const Key('att-entry')), findsNothing);
-      expect(find.byKey(const Key('att-entry-wait')), findsOneWidget);
     },
   );
 
@@ -309,7 +325,8 @@ void main() {
   );
 
   testWidgets(
-    'W2-W09 the badge shows the outbox: queued, offline and needs-review counts',
+    'W2-W09 row 172: web offline bar (server out of reach + queued count); NEG nothing while '
+    'merely queued online; refused writes get a warn line',
     (tester) async {
       final (c, _) = await boot(tester);
       await openClass5(tester);
@@ -322,8 +339,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('3 مورد در صف ارسال'), findsOneWidget);
-      expect(find.byKey(const Key('sync-queued')), findsOneWidget);
+      // the web shows nothing while it is online with a queue
+      expect(find.byKey(const Key('offline-bar')), findsNothing);
       c.publishOutbox(
         const SyncStatus(
           phase: SyncPhase.offline,
@@ -333,7 +350,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('آفلاین — 3 مورد در صف ارسال'), findsOneWidget);
+      expect(
+        textOf(tester, 'offline-bar-text'),
+        allOf(
+          startsWith('📴 سیستم مدرسه در دسترس نیست'),
+          contains('۳ تغییر در صف مانده'),
+        ),
+      );
+      expect(find.byKey(const Key('offline-bar-retry')), findsOneWidget);
       c.publishOutbox(
         const SyncStatus(
           phase: SyncPhase.attention,
@@ -343,7 +367,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('sync-attention')), findsOneWidget);
+      expect(find.byKey(const Key('offline-bar')), findsNothing);
+      expect(textOf(tester, 'attention-bar-text'), startsWith('۱ تغییر'));
     },
   );
 
@@ -380,7 +405,7 @@ void main() {
     tester,
   ) async {
     final (_, src) = await boot(tester);
-    await tapKey(tester, 'att-entry');
+    await openPage(tester, 'attendance');
     expect(find.byKey(const Key('att-class-6')), findsNothing);
     await tester.runAsync(
       () => src.engine.put('schedule', 901, {
@@ -399,8 +424,9 @@ void main() {
     (tester) async {
       final (c, _) = await boot(tester);
       Future<void> openDialog() async {
-        await tapKey(tester, 'session-menu');
-        await tapKey(tester, 'sign-out');
+        // Row 172: «🔒 خروج» of «سیستم» (the shell has no menu, like the web panel)
+        await openPage(tester, 'system');
+        await tapKey(tester, 'sys-lock');
       }
 
       await openDialog();
@@ -427,12 +453,28 @@ void main() {
       final h = tester.ensureSemantics();
       await boot(tester);
       await openClass5(tester);
-      final chip = tester.widget<ChoiceChip>(
+      final b = tester.widget<AttendanceButton>(
         find.byKey(const Key('att-21-absent')),
       );
-      expect(chip.tooltip, 'بهار: غایب');
-      expect((chip.label as Text).data, 'غایب');
-      expect(chip.avatar, isA<Icon>());
+      expect(b.label, 'بهار: غایب');
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('att-21-absent')),
+          matching: find.text('غایب'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.getSemantics(find.byKey(const Key('att-21-absent'))),
+        isSemantics(
+          label: 'بهار: غایب',
+          isButton: true,
+          hasSelectedState: true,
+          isSelected: false,
+          isInMutuallyExclusiveGroup: true,
+          hasTapAction: true,
+        ),
+      );
       h.dispose();
     },
   );

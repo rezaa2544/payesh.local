@@ -24,3 +24,7 @@ flutter:
           weight: 500
         - asset: fonts/Vazirmatn-Bold.ttf
           weight: 700
+        - asset: fonts/Vazirmatn-ExtraBold.ttf
+          weight: 800
+        - asset: fonts/Vazirmatn-Black.ttf
+          weight: 900

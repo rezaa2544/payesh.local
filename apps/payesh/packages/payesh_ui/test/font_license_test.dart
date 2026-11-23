@@ -24,6 +24,8 @@ void main() {
         'Vazirmatn-Regular.ttf',
         'Vazirmatn-Medium.ttf',
         'Vazirmatn-Bold.ttf',
+        'Vazirmatn-ExtraBold.ttf',
+        'Vazirmatn-Black.ttf',
         'OFL.txt',
       ]),
     );
@@ -33,9 +35,9 @@ void main() {
     final ttfs = Directory('fonts')
         .listSync()
         .where((e) => e.path.endsWith('.ttf'));
-    expect(ttfs.length, 3, reason: 'every bundled font is listed and hashed');
+    expect(ttfs.length, 5, reason: 'every bundled font is listed and hashed');
     final pub = File('pubspec.yaml').readAsStringSync();
-    for (final w in ['Regular', 'Medium', 'Bold']) {
+    for (final w in ['Regular', 'Medium', 'Bold', 'ExtraBold', 'Black']) {
       expect(pub, contains('fonts/Vazirmatn-$w.ttf'));
     }
   });

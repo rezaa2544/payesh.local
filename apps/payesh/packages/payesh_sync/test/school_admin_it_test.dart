@@ -1571,6 +1571,53 @@ void main() {
     passed++;
   }, skip: skip);
 
+  test(
+    'W12-IT-03b row 172 «شبکه» (web PAGES.network): network state, save the address '
+    '(NEG http refused), clear it, tunnel state, outbox check; NEG a teacher',
+    () async {
+      final m = adminOf(managerLogin);
+      final n = await m.network();
+      expect(n.publicUrl, isEmpty);
+      expect(n.lanUrls, isNotEmpty);
+      expect(n.probe.configured, isFalse);
+      await expectLater(
+        m.saveNetwork('http://payesh.example.ir'),
+        throwsA(
+          isA<AdminFailure>().having(
+            (f) => f.messageFa,
+            'message',
+            contains('https://'),
+          ),
+        ),
+      );
+      negatives++;
+      await m.saveNetwork('https://payesh.example.ir');
+      final saved = await m.network(force: true);
+      expect(saved.publicUrl, 'https://payesh.example.ir');
+      expect(saved.probe.configured, isTrue);
+      final t = await m.tunnel();
+      expect(t.publicUrl, 'https://payesh.example.ir');
+      expect(t.download, startsWith('https://'));
+      // not `tunnelAction('off')`: that also turns Tailscale Funnel off on the machine running this
+      await m.saveNetwork('');
+      expect((await m.network()).publicUrl, isEmpty);
+      expect(await m.outboxCheck(), greaterThanOrEqualTo(0));
+      await expectLater(
+        adminOf(teacherLogin).network(),
+        throwsA(
+          isA<AdminFailure>().having(
+            (f) => f.kind,
+            'kind',
+            AdminError.notManager,
+          ),
+        ),
+      );
+      negatives++;
+      passed++;
+    },
+    skip: skip,
+  );
+
   test('W12-IT-04 data health on the pulled copy: a safe fix is queued and reaches the '
       'server; NEG a teacher cannot run the checks', () async {
     final other = Device(server, managerLogin, seed: 13);

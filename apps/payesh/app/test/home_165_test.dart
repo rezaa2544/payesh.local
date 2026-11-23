@@ -20,6 +20,7 @@ import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 import 'package:payesh_update/payesh_update.dart';
 
+import 'nav_support.dart';
 import 'school_support.dart';
 import 'system_wave12_test.dart' show FakeAdmin, open;
 
@@ -89,43 +90,26 @@ Future<void> _seed(MemorySchool s) async {
 
 void main() {
   testWidgets(
-    'H165-01 home: equal tiles in sections, clean header, no debug footer',
+    'H165-01 home (row 172): a phone gets the web panel itself — the dashboard page, the web '
+    '`.bottomnav`, no tile grid, no native header and no debug footer',
     (tester) async {
       tester.view.physicalSize = const Size(412, 1800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await bootSchool(tester, role: 'manager', seed: _seed);
-      expect(find.byKey(const Key('session-header')), findsOneWidget);
-      expect(find.byKey(const Key('session-school')), findsOneWidget);
-      expect(find.byKey(const Key('home-grid')), findsOneWidget);
-      expect(find.text('کار روزانه'), findsOneWidget);
-      expect(find.text('مدیریت مدرسه'), findsOneWidget);
-      expect(find.text('سیستم و حساب'), findsOneWidget);
-      final keys = [
-        'adm-home',
-        'adm-followup',
-        'adm-users',
-        'adm-students',
-        'adm-classes',
-        'adm-schedule',
-      ];
-      final sizes = {for (final k in keys) tester.getSize(find.byKey(Key(k)))};
-      expect(sizes, hasLength(1), reason: 'every tile has the same size');
-      // 3 per row on a phone
-      final w = sizes.single.width;
-      expect(w, greaterThan(100));
-      expect(w, lessThan(412 / 3));
-      // the old debug block is gone; today stays as a quiet footer
+      expect(find.byKey(const Key('pulse-shell')), findsOneWidget);
+      expect(find.byKey(const Key('pulse-bottomnav')), findsOneWidget);
+      expect(find.byKey(const Key('session-header')), findsNothing);
+      expect(find.byKey(const Key('home-grid')), findsNothing);
+      expect(find.text('کار روزانه'), findsNothing);
+      expect(find.byKey(const Key('pulse-page-home')), findsOneWidget);
+      expect(find.text('داشبورد مدرسه'), findsWidgets);
+      for (final k in ['home', 'users', 'followup', 'classes', 'schedule']) {
+        expect(navOf(k), findsOneWidget, reason: k);
+      }
       expect(find.text('sync-v1'), findsNothing);
       expect(find.text('نسخهٔ بومی پایش'), findsNothing);
-      // row 170: «نبض امروز مدرسه» + stat cards push the footer below the fold
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('home-footer')),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.byKey(const Key('home-footer')), findsOneWidget);
-      expect(find.byKey(const Key('home-today')), findsOneWidget);
+      expect(find.byKey(const Key('home-footer')), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -156,7 +140,7 @@ void main() {
   );
 
   testWidgets(
-    'H165-03 new version ⇒ a card with «نصب» on the home; tap ⇒ APK downloaded, hash-checked and handed to the system installer (no browser)',
+    'H165-03 new version ⇒ the web version bar (row 172) says so with «دانلود و نصب»; tap ⇒ APK downloaded, hash-checked and handed to the system installer (no browser)',
     (tester) async {
       tester.view.physicalSize = const Size(412, 1800);
       tester.view.devicePixelRatio = 1;
@@ -194,18 +178,26 @@ void main() {
         ),
       );
       await c.start();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(find.byKey(const Key('update-banner')), findsNothing);
+      for (var i = 0; i < 6; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byKey(const Key('update-bar-install')), findsNothing);
+      expect(
+        barText(tester),
+        'v${appChannel.versionOf(5)} — برنامه به‌روز است',
+      );
       await tester.runAsync(u.check);
       await tester.pump();
       expect(u.phase, UpdatePhase.ready);
-      expect(find.byKey(const Key('update-banner')), findsOneWidget);
       expect(
-        find.text('نسخهٔ ${appChannel.versionOf(9)} آماده است'),
-        findsOneWidget,
+        barText(tester),
+        'v${appChannel.versionOf(5)} — نسخهٔ تازهٔ ${appChannel.versionOf(9)} موجود است',
       );
       await tester.runAsync(() async {
-        await tester.tap(find.byKey(const Key('update-banner-install')));
+        await tester.tap(find.byKey(const Key('update-bar-install')));
         for (var i = 0; i < 50 && inst.installed.isEmpty; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 20));
         }
@@ -215,10 +207,7 @@ void main() {
       expect(opened, isEmpty, reason: 'never the browser');
       expect(http.hits, ['app-update.json', 'payesh-native.apk']);
       expect(u.phase, UpdatePhase.applying);
-      expect(
-        textOf(tester, 'update-banner-text'),
-        contains('نصب‌کنندهٔ اندروید باز شد'),
-      );
+      expect(barText(tester), contains('در حال دانلود'));
       await tester.pumpWidget(const SizedBox());
     },
   );
@@ -232,7 +221,8 @@ void main() {
       expect(textOf(tester, 'cld-none'), startsWith('سرور مدرسه جواب نداد'));
       expect(find.text('در حال خواندن تنظیمات…'), findsNothing);
       expect(find.byKey(const Key('cld-error')), findsNothing);
-      expect(find.byKey(const Key('cld-phone-card')), findsNothing);
+      // Row 172: like the web page, the phone and CORS cards always show.
+      expect(find.byKey(const Key('cld-phone-card')), findsOneWidget);
       admin.online = true;
       await tapKey(tester, 'cld-retry');
       await tester.pumpAndSettle();
@@ -242,3 +232,9 @@ void main() {
     },
   );
 }
+
+/// Row 172: the plain text of the web `.updbar` («vX — …»).
+String barText(WidgetTester tester) => tester
+    .widget<Text>(find.byKey(const Key('update-bar-text')))
+    .textSpan!
+    .toPlainText();

@@ -23,7 +23,7 @@ Future<void> _fonts() async {
 
   for (final family in ['Vazirmatn', 'packages/payesh_ui/Vazirmatn']) {
     final l = FontLoader(family);
-    for (final w in ['Regular', 'Medium', 'Bold']) {
+    for (final w in ['Regular', 'Medium', 'Bold', 'ExtraBold', 'Black']) {
       l.addFont(f('../packages/payesh_ui/fonts/Vazirmatn-$w.ttf'));
     }
     await l.load();

@@ -223,7 +223,12 @@ final class TimetableView {
     this.cohortClassId,
     this.homeClasses = const [],
     this.children = const [],
+    this.sub = '',
   });
+
+  /// The web pageHead sub line: «پایه · رشته» of the shown cohort/class, or «همهٔ برنامه‌های
+  /// شما» for a teacher's own timetable.
+  final String sub;
   final String title;
   final List<int> days;
   final List<Bell> periods;
@@ -621,6 +626,7 @@ final class Timetable {
         grade: g,
         branch: b,
         cohortClassId: group?.id,
+        sub: [g, b].where((x) => x.isNotEmpty).join(' · '),
       );
     }
     if (role == 'teacher') {
@@ -647,6 +653,7 @@ final class Timetable {
         subs: const [],
         canEdit: false,
         homeClasses: home,
+        sub: inHome ? await _cohortLine(homeClass) : 'همهٔ برنامه‌های شما',
       );
     }
     // student / parent / other staff: read-only view of one class
@@ -697,7 +704,17 @@ final class Timetable {
       subs: const [],
       canEdit: false,
       children: children,
+      sub: await _cohortLine(classId),
     );
+  }
+
+  Future<String> _cohortLine(int? classId) async {
+    final c = classId == null ? null : await db.get('classes', classId);
+    if (c == null) return '';
+    return [
+      _s(c.data['grade']),
+      _s(c.data['branch']),
+    ].where((x) => x.isNotEmpty).join(' · ');
   }
 
   static EngineRow? _groupOf(List<EngineRow> classes, String g, String b) {

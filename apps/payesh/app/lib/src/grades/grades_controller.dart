@@ -76,6 +76,12 @@ class GradesController extends ChangeNotifier {
       } else {
         classes = await b.classes();
         subjects = await b.subjects();
+        // web `S.gradeSel`: the first class is selected from the start (no class list)
+        if (open != null && !classes.any((k) => k.id == open!.id)) open = null;
+        if (open == null && classes.isNotEmpty) {
+          open = classes.first;
+          subject = await b.defaultSubject(open!.id);
+        }
         if (open != null) await _loadSheet();
       }
     } on GradeFailure catch (e) {
@@ -124,6 +130,15 @@ class GradesController extends ChangeNotifier {
     draft.clear();
     subject = await _book!.defaultSubject(c.id);
   });
+
+  /// Web «نمایش» (`grade-reload`): class, subject and term at once; the draft is dropped.
+  Future<void> show(AttendanceClass c, GradeSubject? s, GradeTerm t) =>
+      _select(() async {
+        open = c;
+        subject = s ?? await _book!.defaultSubject(c.id);
+        term = t;
+        draft.clear();
+      });
 
   Future<void> chooseSubject(GradeSubject s) => _select(() async {
     subject = s;

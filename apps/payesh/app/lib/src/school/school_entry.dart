@@ -245,6 +245,15 @@ final List<SchoolPageSpec> schoolPages = [
     roles: const {'manager'},
     build: _health,
   ),
+  // Row 172: web `PAGES.network` («شبکه»), between «سلامت» and «حافظهٔ ابری» as in navConfig.
+  SchoolPageSpec(
+    id: 'network',
+    wave: SchoolWave.server,
+    label: 'شبکه',
+    icon: Icons.public,
+    roles: const {'manager'},
+    build: _network,
+  ),
   SchoolPageSpec(
     id: 'cloud',
     wave: SchoolWave.server,
@@ -279,9 +288,6 @@ final List<SchoolPageSpec> schoolPages = [
           openCloud: () =>
               Navigator.of(context)
                   .push(MaterialPageRoute<void>(builder: (_) => _cloud(a))),
-          openHealth: () =>
-              Navigator.of(context)
-                  .push(MaterialPageRoute<void>(builder: (_) => _health(a))),
         ),
       ),
     ),
@@ -525,6 +531,7 @@ const Map<String, String> schoolPageGroups = {
   'reports': 'school',
   'leaves': 'school',
   'health': 'system',
+  'network': 'system',
   'cloud': 'system',
   'system': 'system',
   'password': 'system',
@@ -534,6 +541,15 @@ Widget _health(SchoolRouteArgs a) => SchoolOwned(
   create: () => HealthController(source: a.source, role: a.role, uid: a.uid),
   page: (c) => HealthScreen(
     controller: c as HealthController,
+    sync: a.sync,
+    onRetry: a.onRetry,
+  ),
+);
+
+Widget _network(SchoolRouteArgs a) => SchoolOwned(
+  create: () => NetworkController(source: a.source, role: a.role, uid: a.uid),
+  page: (c) => NetworkScreen(
+    controller: c as NetworkController,
     sync: a.sync,
     onRetry: a.onRetry,
   ),

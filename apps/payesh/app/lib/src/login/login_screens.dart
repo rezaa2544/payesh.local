@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:payesh_sync/payesh_sync.dart'
-    show LanServerInfo, LanServerRules, setupDefaultYear, setupSchoolTypes;
+    show
+        LanServerInfo,
+        LanServerRules,
+        ServerAdminApi,
+        setupDefaultYear,
+        setupSchoolTypes;
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../app.dart';
 import '../sync_badge.dart';
 import '../pulse/pulse.dart';
+import '../pulse/web.dart';
 import '../flags.dart';
 import 'paywall.dart';
 import '../support/support_screen.dart';
@@ -22,6 +28,8 @@ class SessionGate extends StatelessWidget {
     this.home,
     this.pages,
     this.nav,
+    this.accountName,
+    this.admin,
   });
 
   final SessionController controller;
@@ -34,6 +42,12 @@ class SessionGate extends StatelessWidget {
 
   /// Row 170: the «نبض» sidebar / drawer pages of the signed-in user.
   final List<PulseNavItem> Function(BuildContext context, SignedIn state)? nav;
+
+  /// Row 172: the signed-in user's name for the sidebar's «name · role» line.
+  final Future<String?> Function(SignedIn state)? accountName;
+
+  /// Row 172: the school server's admin API (the manager's cloud banner reads its health).
+  final ServerAdminApi? Function()? admin;
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +85,8 @@ class SessionGate extends StatelessWidget {
           home: home,
           pages: pages,
           nav: nav,
+          accountName: accountName,
+          admin: admin,
         ),
       },
     );
@@ -343,10 +359,16 @@ class SignedInScreen extends StatefulWidget {
     this.home,
     this.pages,
     this.nav,
+    this.accountName,
+    this.admin,
   });
 
   final SessionController controller;
   final SignedIn state;
+  final Future<String?> Function(SignedIn state)? accountName;
+
+  /// Row 172: the school server's admin API (the manager's cloud banner reads its health).
+  final ServerAdminApi? Function()? admin;
   final Widget? home;
   final Widget Function(BuildContext context, SignedIn state)? pages;
 
@@ -364,8 +386,19 @@ class _SignedInScreenState extends State<SignedInScreen> {
   Widget Function(BuildContext context, SignedIn state)? get pages =>
       widget.pages;
 
-  /// `dashboard` or the id of the page shown inside the wide shell.
-  String _selected = 'dashboard';
+  /// The id of the page shown inside the wide shell (null = the role's home, the first one).
+  String? _selected;
+
+  /// Row 172: the user's name for «name · role» (read once from the local database).
+  String? _name;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.accountName?.call(state).then((n) {
+      if (mounted && n != null && n.isNotEmpty) setState(() => _name = n);
+    }, onError: (Object _) {});
+  }
 
   Future<void> _confirmSignOut(BuildContext context) async {
     final waiting = controller.sync.value.waiting;
@@ -528,10 +561,25 @@ class _SignedInScreenState extends State<SignedInScreen> {
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    final nav = controller.paywalled
+    final pages0 = controller.paywalled
         ? const <PulseNavItem>[]
         : (widget.nav?.call(context, state) ?? const <PulseNavItem>[]);
-    final wide = w >= pulseWideBreakpoint && nav.isNotEmpty;
+    // Row 172: every web role ends with «⚙️ سیستم»; when this build has no system page for the
+    // user, a small one keeps «🔒 خروج» and this device's controls reachable (never a shell
+    // without a way out).
+    final nav = pages0.isEmpty || pages0.any((m) => m.id == 'system')
+        ? pages0
+        : [
+            ...pages0,
+            PulseNavItem(
+              id: 'system',
+              label: 'سیستم',
+              icon: Icons.settings_outlined,
+              webIcon: 'gear',
+              page: (context) => const _DevicePage(),
+            ),
+          ];
+    final wide = w >= pulseWideBreakpoint;
     final brand = const Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -540,7 +588,7 @@ class _SignedInScreenState extends State<SignedInScreen> {
         Text('پایش', style: TextStyle(fontWeight: FontWeight.w800)),
       ],
     );
-    if (!wide) {
+    if (nav.isEmpty) {
       final side = w > 1000 ? (w - 960) / 2 : PayeshTokens.space4;
       return Scaffold(
         appBar: AppBar(
@@ -595,45 +643,144 @@ class _SignedInScreenState extends State<SignedInScreen> {
         body: _dashboard(context, side),
       );
     }
+    // Row 172: exactly the web shell — `.sidebar` on the right (900px and up) or `.bottomnav`
+    // (below), `.main` with the cloud / version bars then the page; the first page is the
+    // role's home (web `#/home`). The sync light and the session menu of the native shell are
+    // gone (the web has none): «🔒 خروج» is on «سیستم», with this device's extras.
     final selected = nav.any((m) => m.id == _selected)
-        ? _selected
-        : 'dashboard';
-    final contentW = w - 250;
-    final side = contentW > 1060 ? (contentW - 1000) / 2 : PayeshTokens.space5;
-    final page = selected == 'dashboard'
-        ? _dashboard(context, side)
-        : PulseInline(
-            child: KeyedSubtree(
-              key: ValueKey('pulse-page-$selected'),
-              child: nav.firstWhere((m) => m.id == selected).page(context),
-            ),
-          );
+        ? _selected!
+        : nav.first.id;
+    void go(String id) {
+      if (nav.any((m) => m.id == id)) setState(() => _selected = id);
+    }
+
+    final app = PulseApp.of(context);
+    final page = PulseInline(
+      onGo: go,
+      onLock:
+          controller.canLock && controller.flags.usesSchool(SchoolWave.accounts)
+          ? controller.lock
+          : () => _confirmSignOut(context),
+      extras: _extras,
+      child: WebMainTop(
+        bars: PulseTopBars(
+          manager: state.currentRole == 'manager',
+          updater: app?.updater,
+          admin: widget.admin?.call(),
+          openUrl: app?.openUrl,
+          onGo: go,
+          sync: controller.sync,
+          onRetry: controller.refresh,
+        ),
+        child: KeyedSubtree(
+          key: ValueKey('pulse-page-$selected'),
+          child: nav.firstWhere((m) => m.id == selected).page(context),
+        ),
+      ),
+    );
     final role = state.roleFa;
+    final sub = controller.sub;
+    final main = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (sub != null && sub.managed && sub.status != 'free')
+          Padding(
+            padding: wide
+                ? const EdgeInsets.fromLTRB(26, 12, 26, 0)
+                : const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: SubBanner(controller: controller, sub: sub),
+          ),
+        Expanded(child: page),
+      ],
+    );
     return Scaffold(
       key: const Key('pulse-shell'),
-      body: PayeshBackdrop(
+      backgroundColor: Web.bg,
+      body: WebBackdrop(
         child: SafeArea(
-          child: Row(
-            children: [
-              PulseSidebar(
-                items: nav,
-                selected: selected,
-                onSelected: (id) => setState(() => _selected = id),
-                school: state.schoolName ?? state.school,
-                account: role,
-                footer: [
-                  Row(
-                    children: [
-                      Flexible(child: _badge()),
-                      _menu(context),
-                    ],
-                  ),
-                ],
-              ),
-              Expanded(child: page),
+          bottom: wide,
+          child: wide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PulseSidebar(
+                      items: nav,
+                      selected: selected,
+                      onSelected: go,
+                      school: state.schoolName ?? state.school,
+                      account: '${_name ?? ''} · ${role ?? ''}',
+                    ),
+                    Expanded(child: main),
+                  ],
+                )
+              // the bar sits over the page like the fixed web bar (`.main` keeps 86px free)
+              : Stack(
+                  children: [
+                    Positioned.fill(child: main),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: PulseBottomNav(
+                        items: nav,
+                        selected: selected,
+                        onSelected: go,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  /// Native-only controls of this device for the system page's last card.
+  Widget _extras(BuildContext context) => Wrap(
+    key: const Key('sys-extras'),
+    spacing: 8,
+    runSpacing: 8,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      if (controller.supportAvailable) SupportEntry(controller: controller),
+      WebBtn(
+        'استفاده از نسخهٔ قبلی (وب)',
+        key: const Key('use-legacy'),
+        kind: WebBtnKind.ghost,
+        onPressed: controller.useLegacy,
+      ),
+      if (controller.canLock &&
+          controller.flags.usesSchool(SchoolWave.accounts))
+        WebBtn(
+          'خروج از این دستگاه',
+          key: const Key('sign-out'),
+          kind: WebBtnKind.ghost,
+          onPressed: () => _confirmSignOut(context),
+        ),
+    ],
+  );
+}
+
+/// Row 172: the fallback «سیستم» page — «🔒 خروج» and this device's own controls.
+class _DevicePage extends StatelessWidget {
+  const _DevicePage();
+
+  @override
+  Widget build(BuildContext context) {
+    final lock = PulseInline.lockOf(context);
+    final extras = PulseInline.extrasOf(context);
+    return Material(
+      type: MaterialType.transparency,
+      child: WebPageBody(
+        children: [
+          WebPageHead(
+            title: 'سیستم',
+            actions: [
+              if (lock != null)
+                WebBtn('🔒 خروج', key: const Key('sys-lock'), onPressed: lock),
             ],
           ),
-        ),
+          if (extras != null) WebCard(child: extras(context)),
+        ],
       ),
     );
   }

@@ -391,6 +391,147 @@ abstract interface class ServerAdminApi {
   /// Back to the built-in default; returns the bucket (may be empty offline).
   Future<String> cloudReset();
   Future<CloudOutcome> phoneCheck();
+
+  /// Row 172: web `loadNetwork` — `GET /api/admin/network` (`?force=1` re-probes the tunnel).
+  Future<NetworkState> network({bool force = false});
+
+  /// Web `data-form="network"` — `POST /api/admin/network {public_url}` ('' clears it).
+  /// Throws `AdminFailure` with «آدرس باید با https:// شروع شود» on `https_required`.
+  Future<void> saveNetwork(String publicUrl);
+
+  /// Web `tunnel-refresh` — `GET /api/admin/tunnel?force=1` (the «تونل» card's state).
+  Future<PublicAccess> tunnel();
+
+  /// Web `tunnel-enable` / `tunnel-login` / `tunnel-off` — `POST /api/admin/tunnel {action}`.
+  Future<TunnelOutcome> tunnelAction(String action);
+
+  /// Web `loadOutbox(false)` for a server role: `GET /api/outbox/state`; when anything is
+  /// waiting, `POST /api/outbox/drain` and read the state again. Returns what still waits.
+  Future<int> outboxCheck({bool drain = false});
+}
+
+/// Row 172: web `S.network` (`GET /api/admin/network`).
+final class NetworkState {
+  const NetworkState({
+    this.publicUrl = '',
+    this.lanUrls = const [],
+    this.probe = const TunnelProbe(),
+    this.public = const PublicAccess(),
+    this.outboxPending = 0,
+  });
+
+  factory NetworkState.fromJson(Map<String, Object?> j) => NetworkState(
+    publicUrl: _str(j['public_url']),
+    lanUrls: [
+      for (final u
+          in (j['lan_urls'] is List ? j['lan_urls'] as List : const []))
+        '$u',
+    ],
+    probe: TunnelProbe.fromJson(_map(j['tunnel'])),
+    public: PublicAccess.fromJson(_map(j['public'])),
+  );
+
+  /// The official HTTPS address ('' = «تنظیم نشده»).
+  final String publicUrl;
+  final List<String> lanUrls;
+  final TunnelProbe probe;
+  final PublicAccess public;
+
+  /// Web `S.outbox.pending` (the «📥 صندوقچهٔ آفلاین» badge).
+  final int outboxPending;
+
+  NetworkState copyWith({PublicAccess? public, int? outboxPending}) =>
+      NetworkState(
+        publicUrl: publicUrl,
+        lanUrls: lanUrls,
+        probe: probe,
+        public: public ?? this.public,
+        outboxPending: outboxPending ?? this.outboxPending,
+      );
+}
+
+/// server/config.js `tunnelStatus`: did the public address answer, and was it this server.
+final class TunnelProbe {
+  const TunnelProbe({
+    this.configured = false,
+    this.reachable = false,
+    this.latencyMs,
+    this.sameServer,
+    this.error = '',
+  });
+
+  factory TunnelProbe.fromJson(Map<String, Object?> j) => TunnelProbe(
+    configured: j['configured'] == true,
+    reachable: j['reachable'] == true,
+    latencyMs: j['latency_ms'] is num ? (j['latency_ms'] as num).toInt() : null,
+    sameServer: j['same_server'] is bool ? j['same_server'] as bool : null,
+    error: _str(j['error']),
+  );
+
+  final bool configured;
+  final bool reachable;
+  final int? latencyMs;
+  final bool? sameServer;
+  final String error;
+}
+
+/// server/tunnel.js `status`: the public address and the Tailscale state on the server.
+final class PublicAccess {
+  const PublicAccess({
+    this.publicUrl = '',
+    this.installed = false,
+    this.loggedIn = false,
+    this.download = tailscaleWinUrl,
+  });
+
+  factory PublicAccess.fromJson(Map<String, Object?> j) {
+    final ts = _map(j['tailscale']);
+    final dl = _str(ts['download']);
+    return PublicAccess(
+      publicUrl: _str(j['public_url']),
+      installed: ts['installed'] == true,
+      loggedIn: ts['logged_in'] == true,
+      download: dl.isEmpty ? tailscaleWinUrl : dl,
+    );
+  }
+
+  /// client/pages.js `TAILSCALE_WIN_URL`.
+  static const tailscaleWinUrl =
+      'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe';
+
+  final String publicUrl;
+  final bool installed;
+  final bool loggedIn;
+  final String download;
+}
+
+/// `POST /api/admin/tunnel` result (the web toasts read `ok`, `url`, `error`, `detail`,
+/// `message`, `download`).
+final class TunnelOutcome {
+  const TunnelOutcome({
+    required this.ok,
+    this.url = '',
+    this.error = '',
+    this.detail = '',
+    this.message = '',
+    this.download = '',
+  });
+
+  factory TunnelOutcome.fromJson(Map<String, Object?> j) => TunnelOutcome(
+    ok: j['ok'] == true,
+    url: _str(j['url']),
+    error: _str(j['error']),
+    detail: _str(j['detail']),
+    message: _str(j['message']),
+    download: _str(j['download']),
+  );
+
+  final bool ok;
+  final String url;
+  final String error;
+  final String detail;
+  final String message;
+  final String download;
 }
 
 /// Web `phone-diagnose` for the native app: where this device thinks the school server is,
@@ -615,4 +756,58 @@ final class LanServerAdmin implements ServerAdminApi {
   Future<CloudOutcome> phoneCheck() async => CloudOutcome.phone(
     await _call('POST', '/api/admin/cloud/phone-check', const {}),
   );
+
+  @override
+  Future<NetworkState> network({bool force = false}) async =>
+      NetworkState.fromJson(
+        await _call('GET', '/api/admin/network${force ? '?force=1' : ''}'),
+      );
+
+  @override
+  Future<void> saveNetwork(String publicUrl) async {
+    try {
+      await _call('POST', '/api/admin/network', {'public_url': publicUrl});
+    } on AdminFailure catch (e) {
+      if (e.detail == 'https_required') {
+        throw const AdminFailure(
+          AdminError.unknown,
+          'آدرس باید با https:// شروع شود',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<PublicAccess> tunnel() async =>
+      PublicAccess.fromJson(await _call('GET', '/api/admin/tunnel?force=1'));
+
+  /// The server answers 400 with the outcome body on a failed enable/login; the web reads
+  /// that body (`r.error`, `r.detail`, `r.download`), so a failure here is an outcome too.
+  @override
+  Future<TunnelOutcome> tunnelAction(String action) async {
+    try {
+      return TunnelOutcome.fromJson(
+        await _call('POST', '/api/admin/tunnel', {
+          'action': action,
+          if (action == 'off') 'tailscale_too': true,
+        }),
+      );
+    } on AdminFailure catch (e) {
+      if (e.kind == AdminError.offline || e.kind == AdminError.notManager) {
+        rethrow;
+      }
+      return TunnelOutcome(ok: false, error: e.detail ?? '');
+    }
+  }
+
+  @override
+  Future<int> outboxCheck({bool drain = false}) async {
+    var st = await _call('GET', '/api/outbox/state');
+    if (drain && _int(st['pending']) > 0) {
+      await _call('POST', '/api/outbox/drain', const {});
+      st = await _call('GET', '/api/outbox/state');
+    }
+    return _int(st['pending']);
+  }
 }

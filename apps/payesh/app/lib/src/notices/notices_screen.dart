@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../pulse/pulse.dart';
+import '../pulse/web.dart';
 import '../sync_badge.dart';
 import 'notices_controller.dart';
 
@@ -73,177 +75,150 @@ class _NoticesScreenState extends State<NoticesScreen> {
     if (ok == true) await c.delete(n.id);
   }
 
+  /// Row 172: web `PAGES.announcements` exactly — pageHead «اطلاعیه‌ها» + «N مورد» and
+  /// «+ اطلاعیه» (manager); one card per notice: bold title, the Jalali date as a badge (red =
+  /// important, purple = info), the text, then «ویرایش» / «حذف».
   @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: c,
-      builder: (context, _) => Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            key: const Key('ntc-back'),
-            tooltip: 'بازگشت',
-            icon: const BackButtonIcon(),
-            onPressed: () => Navigator.maybePop(context),
-          ),
-          title: const Text('اطلاعیه‌ها'),
-          actions: [
-            Padding(
-              padding: const EdgeInsetsDirectional.only(
-                end: PayeshTokens.space2,
-              ),
-              child: Center(
-                child: SyncBadge(status: widget.sync, onRetry: widget.onRetry),
-              ),
-            ),
-          ],
-        ),
-        floatingActionButton: c.canWrite
-            ? FloatingActionButton.extended(
-                key: const Key('ntc-add'),
-                onPressed: c.busy ? null : _openEditor,
-                icon: const Icon(Icons.add),
-                label: const Text('اطلاعیه'),
-              )
-            : null,
-        body: _list(context),
-      ),
-    );
-  }
-
-  Widget _list(BuildContext context) {
-    if (c.loading && c.notices.isEmpty && c.error == null) {
-      return const Center(
-        child: CircularProgressIndicator(key: Key('ntc-loading')),
-      );
-    }
-    // messages and the count stay pinned above the list: a confirmation is visible wherever
-    // the list was scrolled (e.g. after editing a card far down)
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            PayeshTokens.space4,
-            PayeshTokens.space4,
-            PayeshTokens.space4,
-            0,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (c.error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-                  child: Text(
-                    c.error!,
-                    key: const Key('ntc-error'),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: c,
+    builder: (context, _) {
+      final inline = PulseInline.of(context);
+      final content = c.loading && c.notices.isEmpty && c.error == null
+          ? const Center(
+              child: CircularProgressIndicator(key: Key('ntc-loading')),
+            )
+          : WebPageBody(
+              children: [
+                WebPageHead(
+                  title: 'اطلاعیه‌ها',
+                  sub: c.error == null
+                      ? '${faDigits(c.notices.length)} مورد'
+                      : null,
+                  subKey: const Key('ntc-count'),
+                  actions: [
+                    if (c.canWrite)
+                      WebBtn(
+                        '+ اطلاعیه',
+                        key: const Key('ntc-add'),
+                        kind: WebBtnKind.primary,
+                        onPressed: c.busy ? null : _openEditor,
+                      ),
+                  ],
                 ),
-              if (c.notice != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-                  child: Semantics(
+                if (c.error != null)
+                  WebBanner(
+                    kind: WebBannerKind.err,
+                    text: c.error!,
+                    textKey: const Key('ntc-error'),
+                  )
+                else if (c.notice != null)
+                  Semantics(
                     liveRegion: true,
-                    child: Text(c.notice!, key: const Key('ntc-notice')),
-                  ),
-                ),
-              if (c.error == null)
-                Text(
-                  '${faDigits(c.notices.length)} مورد',
-                  key: const Key('ntc-count'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              PayeshTokens.space4,
-              PayeshTokens.space2,
-              PayeshTokens.space4,
-              96, // room above the add button
-            ),
-            children: [
-              if (c.error == null && c.notices.isEmpty)
-                const Text('اطلاعیه‌ای ثبت نشده.', key: Key('ntc-empty')),
-              for (final n in c.notices) _card(context, n),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _card(BuildContext context, Notice n) {
-    final theme = Theme.of(context);
-    return Card(
-      key: Key('ntc-card-${n.id}'),
-      child: Padding(
-        padding: const EdgeInsets.all(PayeshTokens.space3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(n.title, style: theme.textTheme.titleMedium),
-                ),
-                JalaliDateText(n.date, key: Key('ntc-date-${n.id}')),
-              ],
-            ),
-            const SizedBox(height: PayeshTokens.space1),
-            Wrap(
-              spacing: PayeshTokens.space2,
-              runSpacing: PayeshTokens.space1,
-              children: [
-                StatusBadge(
-                  n.severity.labelFa,
-                  key: Key('ntc-sev-${n.id}'),
-                  tone: noticeTone(n.severity),
-                ),
-                if (n.queued)
-                  StatusBadge(
-                    'در صف ارسال',
-                    key: Key('ntc-queued-${n.id}'),
-                    tone: PayeshTone.warning,
-                    icon: Icons.schedule,
-                  ),
-              ],
-            ),
-            const SizedBox(height: PayeshTokens.space2),
-            Text(n.body, key: Key('ntc-body-${n.id}')),
-            if (c.canWrite) ...[
-              const SizedBox(height: PayeshTokens.space2),
-              Wrap(
-                spacing: PayeshTokens.space2,
-                children: [
-                  TextButton.icon(
-                    key: Key('ntc-edit-${n.id}'),
-                    onPressed: c.busy ? null : () => _openEditor(n),
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('ویرایش'),
-                  ),
-                  TextButton.icon(
-                    key: Key('ntc-delete-${n.id}'),
-                    onPressed: c.busy ? null : () => _confirmDelete(n),
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.error,
+                    child: WebBanner(
+                      kind: WebBannerKind.ok,
+                      text: c.notice!,
+                      textKey: const Key('ntc-notice'),
                     ),
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('حذف'),
+                  ),
+                if (c.error == null && c.notices.isEmpty)
+                  const WebEmpty('اطلاعیه‌ای ثبت نشده.', key: Key('ntc-empty')),
+                for (final n in c.notices) _card(n),
+              ],
+            );
+      return Scaffold(
+        backgroundColor: inline ? Colors.transparent : Web.bg,
+        appBar: inline
+            ? null
+            : AppBar(
+                automaticallyImplyLeading: false,
+                leading: IconButton(
+                  key: const Key('ntc-back'),
+                  tooltip: 'بازگشت',
+                  icon: const BackButtonIcon(),
+                  onPressed: () => Navigator.maybePop(context),
+                ),
+                title: const Text('اطلاعیه‌ها'),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      end: PayeshTokens.space2,
+                    ),
+                    child: Center(
+                      child: SyncBadge(
+                        status: widget.sync,
+                        onRetry: widget.onRetry,
+                      ),
+                    ),
                   ),
                 ],
               ),
+        body: inline ? content : WebBackdrop(child: content),
+      );
+    },
+  );
+
+  Widget _card(Notice n) => WebCard(
+    key: Key('ntc-card-${n.id}'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text(n.title, style: Web.b)),
+            if (n.queued) ...[
+              WebBadge(
+                'در صف ارسال',
+                key: Key('ntc-queued-${n.id}'),
+                tone: WebTone.amber,
+              ),
+              const SizedBox(width: 6),
             ],
+            // the severity is the badge's colour, as on the web; its name is read aloud
+            Semantics(
+              key: Key('ntc-sev-${n.id}'),
+              label: n.severity.labelFa,
+              child: WebBadge(
+                Web.fa(Web.jdate(n.date)),
+                key: Key('ntc-date-${n.id}'),
+                tone: switch (n.severity) {
+                  NoticeSeverity.important => WebTone.red,
+                  NoticeSeverity.info => WebTone.purple,
+                  NoticeSeverity.normal => WebTone.none,
+                },
+              ),
+            ),
           ],
         ),
-      ),
-    );
-  }
+        const SizedBox(height: 6),
+        Text(
+          n.body,
+          key: Key('ntc-body-${n.id}'),
+          style: const TextStyle(fontSize: 13.5, color: Web.ink, height: 1.6),
+        ),
+        if (c.canWrite)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                WebBtn(
+                  'ویرایش',
+                  key: Key('ntc-edit-${n.id}'),
+                  kind: WebBtnKind.ghost,
+                  onPressed: c.busy ? null : () => _openEditor(n),
+                ),
+                WebBtn.delete(
+                  'حذف',
+                  key: Key('ntc-delete-${n.id}'),
+                  onPressed: c.busy ? null : () => _confirmDelete(n),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
 /// Publish / edit form (web modal «اطلاعیهٔ جدید / ویرایش اطلاعیه»). Stays open with the typed

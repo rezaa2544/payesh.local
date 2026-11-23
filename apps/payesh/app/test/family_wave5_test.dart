@@ -14,10 +14,12 @@ import 'package:payesh_app/src/flags.dart';
 import 'package:payesh_app/src/grades/grades_controller.dart';
 import 'package:payesh_app/src/login/session_controller.dart';
 import 'package:payesh_app/src/notices/notices_controller.dart';
+import 'package:payesh_app/src/pulse/web.dart';
 import 'package:payesh_data/payesh_data.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_sync/payesh_sync.dart';
-import 'package:payesh_ui/payesh_ui.dart';
+
+import 'nav_support.dart';
 
 const secret32 = 'QRSTUVWXYZ234567ABCDEFGHIJKLMNOP';
 
@@ -212,7 +214,9 @@ Future<(SessionController, MemorySource)> boot(
   MemorySource? source,
   bool wireFamily = true,
   bool links = true,
+  bool tall = true,
 }) async {
+  if (tall) tallView(tester);
   final src = source ?? MemorySource();
   await tester.runAsync(() => seed(src.engine, links: links));
   final c = SessionController(
@@ -255,6 +259,9 @@ Future<void> tapKey(WidgetTester tester, String key) async {
 String textOf(WidgetTester tester, String key) =>
     tester.widget<Text>(find.byKey(Key(key))).data!;
 
+WebTone toneOf(WidgetTester tester, String key) =>
+    tester.widget<WebBadge>(find.byKey(Key(key))).tone;
+
 String badgeOf(WidgetTester tester, String key) => tester
     .widget<Text>(
       find.descendant(of: find.byKey(Key(key)), matching: find.byType(Text)),
@@ -266,9 +273,11 @@ void main() {
     'W5-W01 parent: entry → one card per linked child, class, approved average and attendance',
     (tester) async {
       await boot(tester);
-      expect(find.byKey(const Key('fam-entry')), findsOneWidget);
-      expect(find.byKey(const Key('ntc-entry')), findsOneWidget);
-      await tapKey(tester, 'fam-entry');
+      // Row 172: the web parent navigation — «فرزندان» is the home page
+      expect(navOf('home'), findsOneWidget);
+      expect(navOf('leaves'), findsOneWidget);
+      expect(navOf('announcements'), findsOneWidget);
+      await openPage(tester, 'home');
       expect(textOf(tester, 'fam-count'), '۲ فرزند');
       expect(find.byKey(const Key('fam-card-22')), findsOneWidget);
       expect(find.byKey(const Key('fam-card-21')), findsOneWidget);
@@ -276,17 +285,17 @@ void main() {
       expect(textOf(tester, 'fam-class-21'), 'دهم ریاضی');
       expect(badgeOf(tester, 'fam-avg-21'), 'معدل ۱۵.۵');
       expect(badgeOf(tester, 'fam-att-21'), 'حضور ۳۳٪');
-      final avg = tester.widget<StatusBadge>(
-        find.byKey(const Key('fam-avg-21')),
-      );
-      expect(avg.tone, PayeshTone.success);
-      // no grade / no record: «—», neutral — never a misleading 0
-      expect(badgeOf(tester, 'fam-avg-22'), 'معدل —');
-      expect(badgeOf(tester, 'fam-att-22'), 'حضور —');
-      expect(
-        tester.widget<StatusBadge>(find.byKey(const Key('fam-att-22'))).tone,
-        PayeshTone.neutral,
-      );
+      expect(toneOf(tester, 'fam-avg-21'), WebTone.green);
+      expect(toneOf(tester, 'fam-att-21'), WebTone.amber);
+      // Row 172: the web panel exactly — no grade / no record reads 0 (red / amber badges)
+      expect(badgeOf(tester, 'fam-avg-22'), 'معدل ۰.۰');
+      expect(badgeOf(tester, 'fam-att-22'), 'حضور ۰٪');
+      expect(toneOf(tester, 'fam-avg-22'), WebTone.red);
+      expect(toneOf(tester, 'fam-att-22'), WebTone.amber);
+      // web cards: «📨 درخواست مرخصی» and «📢 اطلاعیه‌ها»
+      expect(find.byKey(const Key('fam-leaves')), findsOneWidget);
+      expect(find.byKey(const Key('fam-notices')), findsOneWidget);
+      expect(find.byKey(const Key('fam-cloud')), findsNothing);
     },
   );
 
@@ -294,25 +303,22 @@ void main() {
     'W5-W02 child page: grades with review state, attendance states, internship',
     (tester) async {
       await boot(tester);
-      await tapKey(tester, 'fam-entry');
+      await openPage(tester, 'home');
       await tapKey(tester, 'fam-open-21');
       expect(find.text('سارا'), findsWidgets);
-      expect(badgeOf(tester, 'chd-avg'), 'معدل ۱۵.۵');
-      expect(badgeOf(tester, 'chd-count'), '۳ نمره ثبت‌شده');
+      // web stat cards: the average of every grade (approved and pending), the share present
+      expect(textOf(tester, 'chd-avg'), '۱۲.۰');
+      expect(textOf(tester, 'chd-att'), '۳۳٪');
+      expect(textOf(tester, 'chd-count'), '۳');
       expect(badgeOf(tester, 'chd-state-101'), 'تأییدشده');
       expect(badgeOf(tester, 'chd-state-102'), 'در انتظار');
-      expect(textOf(tester, 'chd-score-103'), '۱۳');
+      expect(textIn(tester, 'chd-score-103'), '۱۳');
       final days = [
         for (final d in [11, 10, 9]) 4000000000000000 + d * 10000000000 + 21,
       ];
       expect(badgeOf(tester, 'chd-day-state-${days[0]}'), 'تأخیر');
       expect(badgeOf(tester, 'chd-day-state-${days[1]}'), 'غایب');
-      expect(
-        tester
-            .widget<StatusBadge>(find.byKey(Key('chd-day-state-${days[1]}')))
-            .tone,
-        PayeshTone.danger,
-      );
+      expect(toneOf(tester, 'chd-day-state-${days[1]}'), WebTone.red);
       expect(find.byKey(const Key('chd-int-201')), findsOneWidget);
       await tapKey(tester, 'chd-back');
       expect(find.byKey(const Key('fam-card-21')), findsOneWidget);
@@ -323,11 +329,12 @@ void main() {
     'W5-W03 child without grades or attendance: explicit empty rows',
     (tester) async {
       await boot(tester);
-      await tapKey(tester, 'fam-entry');
+      await openPage(tester, 'home');
       await tapKey(tester, 'fam-open-22');
       expect(find.byKey(const Key('chd-grades-empty')), findsOneWidget);
       expect(find.byKey(const Key('chd-att-empty')), findsOneWidget);
-      expect(badgeOf(tester, 'chd-count'), '۰ نمره ثبت‌شده');
+      expect(textOf(tester, 'chd-count'), '۰');
+      expect(textOf(tester, 'chd-avg'), '۰.۰');
     },
   );
 
@@ -335,7 +342,7 @@ void main() {
     'W5-W04 leave request: today by default, pending, queued badge, AutoSync nudged',
     (tester) async {
       final (_, src) = await boot(tester);
-      await tapKey(tester, 'fam-entry');
+      await openPage(tester, 'home');
       await tapKey(tester, 'fam-leaves');
       expect(textOf(tester, 'lvs-count'), '۱ درخواست');
       expect(find.byKey(const Key('lvs-card-302')), findsNothing);
@@ -376,7 +383,7 @@ void main() {
     'W5-W05 a day that does not exist (۱۴۰۵/۰۷/۳۱) or junk: refused in the form, nothing queued (negative)',
     (tester) async {
       final (_, src) = await boot(tester);
-      await tapKey(tester, 'fam-entry');
+      await openPage(tester, 'home');
       await tapKey(tester, 'fam-leaves');
       await tapKey(tester, 'lvs-add');
       for (final d in ['۱۴۰۵/۰۷/۳۱', '۱۴۰۵/۱۳/۰۱', 'فردا', '']) {
@@ -401,7 +408,7 @@ void main() {
         tester,
         source: MemorySource(config: const OutboxConfig(capacity: 0)),
       );
-      await tapKey(tester, 'fam-entry');
+      await openPage(tester, 'home');
       await tapKey(tester, 'fam-leaves');
       await tapKey(tester, 'lvs-add');
       await tapKey(tester, 'lvf-submit');
@@ -415,23 +422,30 @@ void main() {
   );
 
   testWidgets(
-    'W5-W07 flag / source / role gates: legacy line, wait line, none — never a dead button (negative)',
+    'W5-W07 flag / source / role gates: no native «فرزندان» — never a dead button (negative)',
     (tester) async {
+      // Row 172: no native «فرزندان» / «مرخصی» in the navigation (the web version has them)
       await boot(tester, waves: 'login,attendance,grades,notices');
-      expect(find.byKey(const Key('fam-entry-legacy')), findsOneWidget);
-      expect(find.byKey(const Key('fam-entry')), findsNothing);
+      expect(navOf('home'), findsNothing);
+      expect(navOf('leaves'), findsNothing);
+      expect(find.byKey(const Key('fam-count')), findsNothing);
+      await tester.pumpWidget(const SizedBox());
       await boot(tester, wireFamily: false);
-      expect(find.byKey(const Key('fam-entry-legacy')), findsOneWidget);
+      expect(navOf('home'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
       // parents without the earlier waves stays off (waves are strictly in order)
       await boot(tester, waves: 'login,attendance,grades,parents');
-      expect(find.byKey(const Key('fam-entry-legacy')), findsOneWidget);
-      // offline first start of a saved parent whose uid is not known yet: a wait line
+      expect(navOf('home'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      // offline first start of a saved parent whose uid is not known yet: no dead page
       await boot(tester, savedUid: null, online: false);
-      expect(find.byKey(const Key('fam-entry-wait')), findsOneWidget);
-      expect(find.byKey(const Key('fam-entry')), findsNothing);
+      expect(navOf('home'), findsNothing);
+      expect(find.byKey(const Key('fam-count')), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      // a teacher's home is «امروز», never the family page
       await boot(tester, role: 'teacher');
-      expect(find.byKey(const Key('fam-entry-none')), findsOneWidget);
-      expect(find.byKey(const Key('fam-entry-legacy')), findsNothing);
+      expect(navOf('leaves'), findsNothing);
+      expect(find.byKey(const Key('fam-count')), findsNothing);
       expect(
         ClientFlags.parse(waves: 'login,attendance,grades,parents')
             .uses(NativeWave.parents),
@@ -444,7 +458,7 @@ void main() {
     'W5-W08 leaving the form with a typed reason asks; «ماندن» keeps it (negative)',
     (tester) async {
       final (_, src) = await boot(tester);
-      await tapKey(tester, 'fam-entry');
+      await openPage(tester, 'home');
       await tapKey(tester, 'fam-leaves');
       await tapKey(tester, 'lvs-add');
       await tester.enterText(find.byKey(const Key('lvf-reason')), 'سفر');
@@ -468,18 +482,17 @@ void main() {
     'W5-W09 no linked child: the web message, and no request can be started (negative)',
     (tester) async {
       await boot(tester, links: false);
-      await tapKey(tester, 'fam-entry');
+      await openPage(tester, 'home');
       expect(
-        textOf(tester, 'fam-empty'),
+        textIn(tester, 'fam-empty'),
         'فرزندی به حساب شما متصل نیست — با دفتر مدرسه تماس بگیرید.',
       );
-      expect(find.byType(Card), findsNothing);
+      expect(find.byKey(const Key('fam-card-21')), findsNothing);
       await tapKey(tester, 'fam-leaves');
       expect(find.byKey(const Key('lvs-empty')), findsOneWidget);
-      final fab = tester.widget<FloatingActionButton>(
-        find.byKey(const Key('lvs-add')),
-      );
-      expect(fab.onPressed, isNull);
+      // Row 172: the web head button «+ درخواست», disabled
+      final add = tester.widget<WebBtn>(find.byKey(const Key('lvs-add')));
+      expect(add.onPressed, isNull);
     },
   );
 
@@ -487,7 +500,7 @@ void main() {
     'W5-W10 a pull that brings the school\'s decision refreshes the open pages',
     (tester) async {
       final (_, src) = await boot(tester);
-      await tapKey(tester, 'fam-entry');
+      await openPage(tester, 'home');
       await tapKey(tester, 'fam-open-21');
       expect(badgeOf(tester, 'chd-state-102'), 'در انتظار');
       await tester.runAsync(
@@ -504,7 +517,7 @@ void main() {
       src.bump.value++;
       await settle(tester);
       expect(badgeOf(tester, 'chd-state-102'), 'تأییدشده');
-      expect(badgeOf(tester, 'chd-avg'), 'معدل ۱۲.۰');
+      expect(textOf(tester, 'chd-avg'), '۱۲.۰');
       await tapKey(tester, 'chd-back');
       expect(badgeOf(tester, 'fam-avg-21'), 'معدل ۱۲.۰');
     },
@@ -518,12 +531,11 @@ void main() {
         (BrokenSource(), 'خواندن دادهٔ محلی ناموفق بود'),
       ]) {
         await boot(tester, source: src);
-        await tapKey(tester, 'fam-entry');
+        await openPage(tester, 'home');
         expect(textOf(tester, 'fam-error'), msg);
         expect(find.byKey(const Key('fam-empty')), findsNothing);
         expect(find.byKey(const Key('fam-leaves')), findsNothing);
-        await tapKey(tester, 'fam-back');
-        expect(find.byKey(const Key('fam-entry')), findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
       }
     },
   );
@@ -534,12 +546,12 @@ void main() {
     expect(jalaliToIso('۱۴۰۵/۰۶/۳۱'), isNotNull);
     expect(jalaliToIso('۱۴۰۵/۰۷/۳۱'), isNull);
     expect(jalaliToIso('x'), isNull);
-    expect(averageTone(14.9), PayeshTone.warning);
-    expect(averageTone(15), PayeshTone.success);
-    expect(averageTone(9.99), PayeshTone.danger);
-    expect(attendanceTone(90), PayeshTone.success);
-    expect(attendanceTone(89), PayeshTone.warning);
-    expect(leaveTone(LeaveState.rejected), PayeshTone.danger);
+    expect(webAverageTone(14.9), WebTone.amber);
+    expect(webAverageTone(15), WebTone.green);
+    expect(webAverageTone(9.99), WebTone.red);
+    expect(webAverageTone(0), WebTone.red);
+    expect(averageLabel(null), 'معدل ۰.۰');
+    expect(attendanceLabel(null), 'حضور ۰٪');
   });
 
   group('GatewayAttendanceSource serves the parents pages (production wiring, network-free)', () {

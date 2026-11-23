@@ -17,6 +17,13 @@ class UsersController extends SchoolController {
   String query = '';
   final Set<int> picked = {};
 
+  /// Web «N کاربر» (every user, not the filtered list).
+  int total = 0;
+
+  /// Web `followupCount()` and its import-issue part (the amber card).
+  int followups = 0;
+  int followupIssues = 0;
+
   /// Set when the add form found the same person; the next save confirms (web banner).
   SamePersonFailure? samePerson;
 
@@ -26,6 +33,14 @@ class UsersController extends SchoolController {
   Future<void> read(SchoolRecords db) async {
     final dir = UserDirectory(db);
     users = await dir.list(role: roleFilter, query: query);
+    total = (await db.allOrEmpty('users')).length;
+    try {
+      final f = await Followup(db).view();
+      followups = f.total;
+      followupIssues = f.issues.length;
+    } on Object {
+      followups = followupIssues = 0;
+    }
     classes = [
       for (final c in await db.allOrEmpty('classes'))
         (c.id, SchoolRecords.str(c.data['name'])),
@@ -117,9 +132,16 @@ class StudentsController extends SchoolController {
   List<StudentRow> students = const [];
   String query = '';
 
+  /// Web pageHead «N نفر» counts every student of the page, not the search hits.
+  int total = 0;
+
   @override
   Future<void> read(SchoolRecords db) async {
-    students = await UserDirectory(db).students(query: query);
+    final dir = UserDirectory(db);
+    students = await dir.students(query: query);
+    total = query.trim().isEmpty
+        ? students.length
+        : (await dir.students(query: '')).length;
   }
 
   Future<void> search(String q) async {

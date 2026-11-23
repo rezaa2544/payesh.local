@@ -13,6 +13,7 @@ import 'package:payesh_app/src/system/system_screen.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart' show schoolProfileErrorsFa;
 
+import 'nav_support.dart';
 import 'school_support.dart';
 
 /// The school server's management endpoints, scripted. [online] false = unreachable.
@@ -258,6 +259,79 @@ final class FakeAdmin implements ServerAdminApi {
       ],
     });
   }
+
+  // Row 172: web `PAGES.network` (the «شبکه» page).
+  String publicUrl = '';
+  bool reachable = false;
+  bool tsInstalled = true;
+  bool tsLoggedIn = true;
+  int pending = 0;
+  TunnelOutcome enableResult = const TunnelOutcome(
+    ok: true,
+    url: 'https://payesh.school.ts.net',
+  );
+
+  PublicAccess get _public => PublicAccess(
+    publicUrl: publicUrl,
+    installed: tsInstalled,
+    loggedIn: tsLoggedIn,
+  );
+
+  @override
+  Future<NetworkState> network({bool force = false}) async {
+    await _gate(force ? 'network-force' : 'network');
+    return NetworkState(
+      publicUrl: publicUrl,
+      lanUrls: const ['http://192.168.1.5:8080'],
+      probe: TunnelProbe(
+        configured: publicUrl.isNotEmpty,
+        reachable: publicUrl.isNotEmpty && reachable,
+        latencyMs: reachable ? 120 : null,
+        sameServer: reachable ? true : null,
+        error: reachable ? '' : 'timeout',
+      ),
+      public: _public,
+    );
+  }
+
+  @override
+  Future<void> saveNetwork(String url) async {
+    await _gate('network-save');
+    if (url.isNotEmpty && !url.startsWith('https://')) {
+      throw const AdminFailure(
+        AdminError.unknown,
+        'آدرس باید با https:// شروع شود',
+      );
+    }
+    publicUrl = url;
+  }
+
+  @override
+  Future<PublicAccess> tunnel() async {
+    await _gate('tunnel');
+    return _public;
+  }
+
+  @override
+  Future<TunnelOutcome> tunnelAction(String action) async {
+    await _gate('tunnel-$action');
+    if (action == 'enable' && enableResult.ok) {
+      publicUrl = enableResult.url;
+      reachable = true;
+    }
+    if (action == 'off') {
+      publicUrl = '';
+      reachable = false;
+    }
+    return action == 'enable' ? enableResult : const TunnelOutcome(ok: true);
+  }
+
+  @override
+  Future<int> outboxCheck({bool drain = false}) async {
+    await _gate(drain ? 'outbox-drain' : 'outbox');
+    if (drain) pending = 0;
+    return pending;
+  }
 }
 
 Future<void> seed(MemorySchool s) async {
@@ -298,6 +372,13 @@ Future<(MemorySchool, FakeAdmin)> open(
 }) async {
   final src = MemorySchool();
   admin ??= FakeAdmin();
+  if (page == 'system' || page == 'health' || page == 'network') {
+    // Row 172: the web-layout system page is one long list of cards — a tall window keeps
+    // every card built, as on the web page.
+    tester.view.physicalSize = const Size(2400, 24000);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+  }
   if (server) src.admin = admin;
   await bootSchool(
     tester,
@@ -310,7 +391,7 @@ Future<(MemorySchool, FakeAdmin)> open(
       }
     },
   );
-  await tapKey(tester, 'adm-$page');
+  await openPage(tester, page);
   return (src, admin);
 }
 
@@ -321,10 +402,10 @@ void main() {
     (tester) async {
       final (src, _) = await open(tester, 'system', role: 'teacher');
       expect(textOf(tester, 'sys-user'), 'کاربر: دبیر · نقش: دبیر');
-      expect(badgeOf(tester, 'sys-state'), 'همه‌چیز رسیده');
+      expect(badgeOf(tester, 'sys-state'), 'متصل');
       await tapKey(tester, 'sys-sync');
       expect(src.nudges, 1);
-      expect(textOf(tester, 'sys-notice'), 'همگام‌سازی درخواست شد');
+      expect(await noticeOf(tester, 'sys-notice'), 'همگام‌سازی درخواست شد');
       await tapKey(tester, 'sys-diagnose');
       expect(
         textOf(tester, 'sys-diag-0'),
@@ -336,7 +417,7 @@ void main() {
         '✅ همهٔ تغییرات این دستگاه رسیده است',
       );
       expect(find.byKey(const Key('sys-backup-now')), findsNothing);
-      expect(find.byKey(const Key('adm-health')), findsNothing);
+      expect(navOf('health'), findsNothing);
     },
   );
 
@@ -353,27 +434,30 @@ void main() {
       SystemController.readFile = (p) async =>
           Uint8List.fromList(utf8.encode(files[p]!));
       final (src, admin) = await open(tester, 'system');
+      await reveal(tester, 'sys-mirror-state');
       expect(badgeOf(tester, 'sys-mirror-state'), 'بررسی نشده');
       await tapKey(tester, 'sys-mirror-refresh');
       expect(
-        textOf(tester, 'sys-notice'),
+        await noticeOf(tester, 'sys-notice'),
         'آینه به‌روز شد · ۱۲۰ رکورد — با دیتابیس یکی است ✅',
       );
       expect(badgeOf(tester, 'sys-mirror-state'), 'آینه با دیتابیس یکی است');
       expect(textOf(tester, 'sys-mirror-daily'), 'روزهای پشتیبان: ۱ فایل');
-      expect(
-        textOf(tester, 'sys-daily-2026-11-12'),
-        '۲۰۲۶-۱۱-۱۲ · ۱۲۰ رکورد · ۴ کیلوبایت',
-      );
+      // Row 172: the web table — روز · رکورد · حجم
+      expect(textOf(tester, 'sys-daily-2026-11-12'), '2026-11-12');
+      expect(find.text('۴ کیلوبایت'), findsOneWidget);
       await tapKey(tester, 'sys-restore');
       expect(
-        textOf(tester, 'sys-error'),
+        await noticeOf(tester, 'sys-error'),
         'اول فایل پشتیبان (.json) را انتخاب کنید',
       );
       await typeKey(tester, 'sys-restore-path', '/b/bad.json');
       await tapKey(tester, 'sys-restore');
       await tapKey(tester, 'sys-confirm-ok');
-      expect(textOf(tester, 'sys-error'), 'این فایل، فایل پشتیبان پایش نیست');
+      expect(
+        await noticeOf(tester, 'sys-error'),
+        'این فایل، فایل پشتیبان پایش نیست',
+      );
       expect(admin.restored, isNull);
       await typeKey(tester, 'sys-restore-path', '/b/ok.json');
       await tapKey(tester, 'sys-restore');
@@ -382,14 +466,14 @@ void main() {
       await tapKey(tester, 'sys-restore');
       await tapKey(tester, 'sys-confirm-ok');
       expect(
-        textOf(tester, 'sys-notice'),
+        await noticeOf(tester, 'sys-notice'),
         'بازیابی انجام شد · 7 رکورد · نسخهٔ ایمنی: safety-1.sqlite',
       );
       expect(admin.restored!['format'], 'payesh-backup');
       expect(src.nudges, 1, reason: 'a pull follows the restore');
       await tapKey(tester, 'sys-backup-now');
       expect(
-        textOf(tester, 'sys-notice'),
+        await noticeOf(tester, 'sys-notice'),
         'پشتیبان ساخته شد: payesh-2026-11-12-0800.sqlite',
       );
       await tapKey(tester, 'sys-backup-list');
@@ -416,15 +500,15 @@ void main() {
       await tapKey(tester, 'sys-revoke-abc1');
       await tapKey(tester, 'sys-confirm-ok');
       expect(admin.calls, contains('revoke abc1'));
-      expect(textOf(tester, 'sys-notice'), 'دستگاه باطل شد');
+      expect(await noticeOf(tester, 'sys-notice'), 'دستگاه باطل شد');
       expect(find.byKey(const Key('sys-revoke-abc1')), findsNothing);
       await typeKey(tester, 'sys-name', 'هنرستان تازه');
       await tapKey(tester, 'sys-settings-save');
-      expect(textOf(tester, 'sys-notice'), 'ذخیره شد');
+      expect(await noticeOf(tester, 'sys-notice'), 'ذخیره شد');
       expect(admin.school, 'هنرستان تازه');
       await typeKey(tester, 'sys-name', '  ');
       await tapKey(tester, 'sys-settings-save');
-      expect(textOf(tester, 'sys-error'), 'نام مدرسه را بنویسید');
+      expect(await noticeOf(tester, 'sys-error'), 'نام مدرسه را بنویسید');
       await tapKey(tester, 'sys-audit');
       expect(textOf(tester, 'sys-audit-0'), contains('device_revoke'));
       admin.online = false;
@@ -433,14 +517,14 @@ void main() {
       await tester.pumpAndSettle();
       await tapKey(tester, 'sys-backup-now');
       expect(
-        textOf(tester, 'sys-error'),
+        await noticeOf(tester, 'sys-error'),
         'این کار روی سرور مدرسه انجام می‌شود — اتصال را بررسی کنید و دوباره بزنید',
       );
       admin
         ..online = true
         ..forbidden = true;
       await tapKey(tester, 'sys-devices');
-      expect(textOf(tester, 'sys-error'), 'این کار فقط برای مدیر است');
+      expect(await noticeOf(tester, 'sys-error'), 'این کار فقط برای مدیر است');
       await tester.pumpWidget(const SizedBox());
       await open(tester, 'system', server: false);
       expect(find.byKey(const Key('sys-no-server')), findsOneWidget);
@@ -451,7 +535,7 @@ void main() {
       );
       await tapKey(tester, 'sys-mirror-refresh');
       expect(
-        textOf(tester, 'sys-error'),
+        await noticeOf(tester, 'sys-error'),
         startsWith('این کار روی سرور مدرسه انجام می‌شود'),
       );
     },
@@ -479,24 +563,31 @@ void main() {
       await tester.pump();
       await tapKey(tester, 'cld-save');
       expect(
-        textOf(tester, 'cld-notice'),
+        await noticeOf(tester, 'cld-notice'),
         'ذخیره شد · CORS هم خودکار تنظیم شد',
       );
       expect(admin.saved!.secret, 'top-secret');
       expect(find.byKey(const Key('cld-form')), findsNothing);
       expect(find.textContaining('top-secret'), findsNothing);
-      expect(textOf(tester, 'cld-manual'), contains('کلید: AKNE…'));
+      expect(
+        textOf(tester, 'cld-manual'),
+        startsWith('تنظیمات دستی روی این دستگاه فعال است'),
+      );
       await tapKey(tester, 'cld-reset');
       expect(
-        textOf(tester, 'cld-notice'),
+        await noticeOf(tester, 'cld-notice'),
         'به پیش‌فرض برنامه برگشت (صندوقچه: payesh-1)',
       );
       await tapKey(tester, 'cld-phone');
-      expect(textOf(tester, 'cld-notice'), 'هنوز کامل نشد — پایین را ببینید');
+      expect(
+        await noticeOf(tester, 'cld-notice'),
+        'هنوز کامل نشد — پایین را ببینید',
+      );
+      await reveal(tester, 'cld-phone-step-1');
       expect(badgeOf(tester, 'cld-phone-head'), 'هنوز نشده');
       expect(
         textOf(tester, 'cld-phone-step-1'),
-        '⛔ گذاشتن اجازهٔ خواندن — کد 403 — denied',
+        '❌ گذاشتن اجازهٔ خواندن — کد 403 — denied',
       );
       await tester.pumpWidget(const SizedBox());
       await open(tester, 'cloud', server: false);
@@ -531,6 +622,97 @@ void main() {
       expect(find.byKey(const Key('cld-builtin')), findsNothing);
     },
   );
+
+  testWidgets(
+    'W12-W04c network = web PAGES.network: address card, tunnel card, LAN card, outbox; '
+    'save (NEG http), enable the tunnel, turn it off (asks), outbox check',
+    (tester) async {
+      final opened = <String>[];
+      final was = NetworkScreen.open;
+      NetworkScreen.open = (u) async {
+        opened.add(u);
+        return true;
+      };
+      addTearDown(() => NetworkScreen.open = was);
+      final admin = FakeAdmin()..pending = 2;
+      await open(tester, 'network', admin: admin);
+      expect(find.text('شبکه و دسترسی'), findsWidgets);
+      expect(badgeOf(tester, 'net-url-state'), 'تنظیم نشده');
+      expect(find.byKey(const Key('net-qr-card')), findsNothing);
+      expect(badgeOf(tester, 'net-public-state'), 'خاموش');
+      expect(textOf(tester, 'net-lan-0'), 'http://192.168.1.5:8080');
+      expect(find.byKey(const Key('net-lan-qr')), findsOneWidget);
+      expect(badgeOf(tester, 'net-outbox-state'), 'در انتظار اعمال');
+      // NEG: the server only takes https
+      await tester.enterText(find.byKey(const Key('net-url')), 'http://x.ir');
+      await tapKey(tester, 'net-url-save');
+      expect(textOf(tester, 'net-error'), contains('https://'));
+      expect(admin.publicUrl, '');
+      await tester.enterText(
+        find.byKey(const Key('net-url')),
+        'https://payesh.school.ir',
+      );
+      await tapKey(tester, 'net-url-save');
+      expect(textOf(tester, 'net-notice'), 'ذخیره شد');
+      expect(admin.publicUrl, 'https://payesh.school.ir');
+      expect(badgeOf(tester, 'net-url-state'), 'در دسترس نیست');
+      expect(textOf(tester, 'net-url-fail'), contains('timeout'));
+      expect(find.byKey(const Key('net-pub-qr')), findsOneWidget);
+      await tapKey(tester, 'net-pub-open');
+      expect(opened, ['https://payesh.school.ir']);
+      expect(badgeOf(tester, 'net-public-state'), 'فعال — دستی');
+      // turn it off: asks first; cancel keeps it
+      await tapKey(tester, 'net-tunnel-off');
+      await tapKey(tester, 'net-off-confirm-cancel');
+      expect(admin.publicUrl, 'https://payesh.school.ir');
+      await tapKey(tester, 'net-tunnel-off');
+      await tapKey(tester, 'net-off-confirm-ok');
+      expect(textOf(tester, 'net-notice'), 'دسترسی اینترنتی قطع شد');
+      expect(badgeOf(tester, 'net-url-state'), 'تنظیم نشده');
+      // enable the tunnel (Tailscale installed and signed in)
+      await tapKey(tester, 'net-tunnel-enable');
+      expect(
+        textOf(tester, 'net-notice'),
+        'آدرس عمومی فعال شد: https://payesh.school.ts.net',
+      );
+      expect(badgeOf(tester, 'net-url-state'), 'در دسترس از اینترنت');
+      expect(textOf(tester, 'net-url-checked'), 'آخرین بررسی: ۱۲۰ میلی‌ثانیه');
+      expect(badgeOf(tester, 'net-public-state'), 'فعال — Tailscale');
+      expect(textOf(tester, 'net-public-url'), 'https://payesh.school.ts.net');
+      await tapKey(tester, 'net-outbox-sync');
+      expect(textOf(tester, 'net-notice'), 'همه‌چیز اعمال شده است');
+      expect(badgeOf(tester, 'net-outbox-state'), 'خالی');
+      expect(admin.calls, contains('outbox-drain'));
+    },
+  );
+
+  testWidgets('W12-W04d network: Tailscale missing → install steps; enable fails with the server reason; '
+      'NEG offline → calm empty card, no dead buttons', (tester) async {
+    final admin = FakeAdmin()..tsInstalled = false;
+    await open(tester, 'network', admin: admin);
+    expect(badgeOf(tester, 'net-public-state'), 'ابزاری نصب نیست');
+    expect(find.byKey(const Key('net-ts-step-1')), findsOneWidget);
+    expect(find.byKey(const Key('net-tunnel-login')), findsOneWidget);
+    expect(find.byKey(const Key('net-tunnel-enable')), findsNothing);
+    admin
+      ..tsInstalled = true
+      ..tsLoggedIn = false;
+    await tapKey(tester, 'net-refresh');
+    expect(badgeOf(tester, 'net-public-state'), 'Tailscale نصب است، وارد نشده');
+    admin.tsLoggedIn = true;
+    await tapKey(tester, 'net-refresh');
+    admin.enableResult = const TunnelOutcome(
+      ok: false,
+      error: 'tailscale_not_logged_in',
+    );
+    await tapKey(tester, 'net-tunnel-enable');
+    expect(textOf(tester, 'net-error'), contains('اول وارد Tailscale شوید'));
+    await tester.pumpWidget(const SizedBox());
+    await open(tester, 'network', admin: FakeAdmin()..online = false);
+    expect(find.byKey(const Key('cld-none')), findsOneWidget);
+    expect(find.byKey(const Key('net-url-card')), findsNothing);
+    expect(find.byKey(const Key('cld-retry')), findsOneWidget);
+  });
 
   testWidgets(
     'W12-W05 data health: findings by severity, safe fix (asks first) queued, '
@@ -574,15 +756,17 @@ void main() {
   );
 
   testWidgets(
-    'W12-W06 system links open cloud and health; NEG an unknown wave hides all three',
+    'W12-W06 system links open cloud; NEG an unknown wave hides all three',
     (tester) async {
       await open(tester, 'system');
       await tapKey(tester, 'sys-cloud');
+      await settleAsync(tester);
+      // Row 172: «تنظیم صندوقچه» switches the shell to the «حافظهٔ ابری» page (web `go('cloud')`)
       expect(find.text('حافظهٔ ابری'), findsWidgets);
       expect(badgeOf(tester, 'cld-state'), 'آماده');
-      await tapKey(tester, 'cld-back');
-      await tapKey(tester, 'sys-health');
-      expect(find.byKey(const Key('hlt-summary')), findsOneWidget);
+      await openPage(tester, 'system');
+      // Row 172: like the web page, «سلامت» is its own page in the menu (no link here)
+      expect(find.byKey(const Key('sys-health')), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await bootSchool(
         tester,
@@ -590,9 +774,13 @@ void main() {
         seed: seed,
         school: 'users,accounts,classes,schedule,followup,reports,no-such-wave',
       );
-      for (final k in ['system', 'cloud', 'health']) {
-        expect(find.byKey(Key('adm-$k')), findsNothing, reason: k);
+      for (final k in ['cloud', 'health']) {
+        expect(navOf(k), findsNothing, reason: k);
       }
+      // «سیستم» stays as the device page (lock / sign out) but has no school settings
+      await openPage(tester, 'system');
+      expect(find.byKey(const Key('sys-lock')), findsOneWidget);
+      expect(find.byKey(const Key('sys-cloud')), findsNothing);
     },
   );
   testWidgets(
@@ -724,4 +912,19 @@ void main() {
       expect(find.byKey(const Key('sp-retry')), findsOneWidget);
     },
   );
+}
+
+/// Row 172: the web-layout page shows the notice at the top of its list — scroll back up.
+Future<String> noticeOf(WidgetTester tester, String key) async {
+  final f = find.byKey(Key(key));
+  if (f.evaluate().isEmpty) {
+    final list = find
+        .descendant(
+          of: find.byType(ListView).last,
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(f, -300, scrollable: list);
+  }
+  return textOf(tester, key);
 }

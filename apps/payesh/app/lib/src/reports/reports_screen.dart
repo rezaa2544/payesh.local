@@ -12,58 +12,10 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../school/school_source.dart';
 import '../pulse/pulse.dart';
+import '../pulse/web.dart';
+import '../users/users_screen.dart' show recordBlocks;
 
 String _jd(String iso) => faDigits(JalaliDate.fromIso(iso)?.slash ?? '—');
-
-PayeshTone _pctTone(int pct) => pct >= 90
-    ? PayeshTone.success
-    : pct >= 75
-    ? PayeshTone.warning
-    : PayeshTone.danger;
-
-Widget _card(
-  BuildContext context,
-  String title,
-  List<Widget> children, {
-  Key? key,
-  Widget? trailing,
-}) => Card(
-  key: key,
-  child: Padding(
-    padding: const EdgeInsets.all(PayeshTokens.space3),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            ?trailing,
-          ],
-        ),
-        const SizedBox(height: PayeshTokens.space2),
-        ...children,
-      ],
-    ),
-  ),
-);
-
-Widget _table(Key key, List<String> head, List<List<Widget>> rows) =>
-    SingleChildScrollView(
-      key: key,
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: [for (final h in head) DataColumn(label: Text(h))],
-        rows: [
-          for (final r in rows)
-            DataRow(cells: [for (final c in r) DataCell(c)]),
-        ],
-      ),
-    );
 
 // ─────────────────────────────── home ───────────────────────────────
 
@@ -77,6 +29,9 @@ class HomeController extends SchoolController {
   Dashboard? dashboard;
   TodayView? today;
 
+  /// Row 172: web `studentHome` = `studentHomeCard()` + `PAGES.record()`.
+  StudentRecord? record;
+
   @override
   Future<void> read(SchoolRecords db) async {
     final r = SchoolReports(db);
@@ -84,6 +39,14 @@ class HomeController extends SchoolController {
       dashboard = await r.dashboard();
     } else {
       today = await r.today();
+      if (role == 'student') {
+        try {
+          record = await UserDirectory(db).myRecord();
+        } on RecordFailure {
+          // the today card stays; the record part needs this student's own row
+          record = null;
+        }
+      }
     }
   }
 }
@@ -112,242 +75,680 @@ class _DashboardScreenState extends State<DashboardScreen> {
     c.load();
   }
 
-  Widget _stat(
-    String key,
-    IconData icon,
-    String value,
-    String label, [
-    PayeshTone tone = PayeshTone.neutral,
-  ]) => PulseStat(id: key, icon: icon, value: value, label: label, tone: tone);
+  void _go(String route) => PulseInline.go(context, route);
 
   String _bellLabel(Bell? b) => b == null
       ? 'بین زنگ‌های درسی'
       : (b.label.isNotEmpty ? b.label : 'زنگ ${faDigits(b.order)}');
 
-  List<Widget> _manager(Dashboard d) => [
-    Text(
-      'الان در ${_bellLabel(d.bell)} · ${schedDayFa[d.weekday]} ${_jd(d.today)}',
-      key: const Key('dash-now'),
-    ),
-    const SizedBox(height: PayeshTokens.space3),
-    // row 170: «نبض امروز مدرسه» of the web panel
-    PulseHero(
-      present: d.presentToday,
-      of: d.students,
-      absent: d.absentToday,
-      late: d.lateToday,
-    ),
-    const SizedBox(height: PayeshTokens.space3),
-    PulseStatGrid(
+  /// `.dashboard-card-title` + small muted line, the badge on the left (margin-bottom 10).
+  Widget _covHead(String title, String sub, Widget badge) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _stat(
-          'students',
-          Icons.people_alt_outlined,
-          faNumber(d.students),
-          'دانش‌آموز',
-        ),
-        _stat('teachers', Icons.school_outlined, faNumber(d.teachers), 'دبیر'),
-        _stat('classes', Icons.class_outlined, faNumber(d.classes), 'کلاس'),
-        _stat(
-          'present',
-          Icons.fact_check_outlined,
-          '${faNumber(d.presentToday)} / ${faNumber(d.recordsToday)}',
-          'حاضر امروز',
-          PayeshTone.success,
-        ),
-        _stat(
-          'absent',
-          Icons.highlight_off,
-          faNumber(d.absentToday),
-          'غایب امروز',
-          PayeshTone.danger,
-        ),
-        _stat(
-          'late',
-          Icons.schedule,
-          faNumber(d.lateToday),
-          'تأخیر',
-          PayeshTone.warning,
-        ),
-        _stat(
-          'pending',
-          Icons.edit_note,
-          faNumber(d.pendingGrades),
-          'نمرهٔ در انتظار تأیید',
-          PayeshTone.info,
-        ),
-      ],
-    ),
-    _card(
-      context,
-      'پوشش حضور امروز · پایه و رشته',
-      key: const Key('dash-coverage'),
-      trailing: StatusBadge(
-        '${faNumber(d.covered)} از ${faNumber(d.coverage.length)} گروه دارای ثبت',
-        key: const Key('dash-covered'),
-        tone: d.covered > 0 ? PayeshTone.success : PayeshTone.warning,
-      ),
-      [
-        if (d.coverage.isEmpty)
-          const Text('هنوز پایه یا رشته‌ای برای پوشش حضور تعریف نشده است.')
-        else
-          _table(
-            const Key('dash-coverage-table'),
-            const [
-              'پایه',
-              'رشته',
-              'دانش‌آموزان',
-              'ثبت‌شده',
-              'حاضر / غایب / تأخیر',
-              'پوشش',
-            ],
-            [
-              for (final (i, g) in d.coverage.indexed)
-                [
-                  Text(g.grade.isEmpty ? '—' : g.grade),
-                  Text(
-                    g.branch.isNotEmpty
-                        ? g.branch
-                        : (g.grade.isEmpty ? g.name : '—'),
-                  ),
-                  Text(faNumber(g.roster)),
-                  Text('${faNumber(g.checked)} / ${faNumber(g.roster)}'),
-                  Text(
-                    '${faNumber(g.present)} حاضر · ${faNumber(g.absent)} غایب · ${faNumber(g.late)} تأخیر',
-                  ),
-                  StatusBadge(
-                    g.roster > 0
-                        ? '${faNumber(g.ratio)}٪'
-                        : (g.checked > 0 ? 'ثبت دارد' : 'بدون دانش‌آموز'),
-                    key: Key('dash-cov-$i'),
-                    tone: g.roster == 0
-                        ? PayeshTone.neutral
-                        : g.checked >= g.roster
-                        ? PayeshTone.success
-                        : g.checked > 0
-                        ? PayeshTone.warning
-                        : PayeshTone.danger,
-                  ),
-                ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Web.primary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(sub, style: Web.small),
             ],
           ),
+        ),
+        const SizedBox(width: 9.6),
+        badge,
       ],
     ),
-    _card(context, 'پوشش کلاس‌ها', key: const Key('dash-rooms'), [
-      Text(
-        d.bell == null
-            ? 'در حال حاضر زنگ درسی فعالی نیست.'
-            : 'وضعیت محل‌ها در ${_bellLabel(d.bell)}',
-      ),
-      if (d.rooms.isEmpty)
-        const Text('هنوز کلاس یا محل برگزاری تعریف نشده است.')
-      else
-        for (final r in d.rooms)
-          ListTile(
-            key: Key('dash-room-${r.id}'),
-            dense: true,
-            title: Text(r.name),
-            subtitle: r.busy
-                ? Text('${r.cohort} · ${r.subject} · ${r.teacher}')
-                : null,
-            trailing: StatusBadge(
-              r.busy
-                  ? 'در حال برگزاری'
-                  : (d.bell != null ? 'خالی در این زنگ' : 'خالی اکنون'),
-              tone: r.busy ? PayeshTone.success : PayeshTone.neutral,
-            ),
-          ),
-    ]),
-    if (d.recent.isNotEmpty)
-      _card(context, 'آخرین اطلاعیه‌ها', key: const Key('dash-recent'), [
-        for (final (t, date) in d.recent)
-          ListTile(dense: true, title: Text(t), subtitle: Text(_jd(date))),
-      ]),
-  ];
+  );
 
-  List<Widget> _today(TodayView t) => [
-    _card(context, 'زنگ جاری', key: const Key('dash-bell'), [
-      Text(
-        t.bell != null
-            ? '${faDigits(schedTime(t.bell!.start))} – ${faDigits(schedTime(t.bell!.end))}'
-                  '${t.bell!.label.isEmpty ? '' : ' · ${t.bell!.label}'}'
-            : t.next != null
-            ? 'زنگ بعدی: ${faDigits(schedTime(t.next!.start))}'
-            : 'زنگ درسی در جریان نیست',
-        key: const Key('dash-bell-text'),
-      ),
-    ]),
-    _card(
-      context,
-      'برنامهٔ امروز',
-      key: const Key('dash-today'),
-      trailing: Text('${faNumber(t.slots.length)} زنگ'),
-      [
-        if (t.slots.isEmpty)
-          Text(
-            c.role == 'teacher'
-                ? 'امروز کلاسی در برنامه ندارید.'
-                : 'برنامه‌ای نیست.',
-            key: const Key('dash-today-none'),
-          ),
-        for (final s in t.slots)
-          ListTile(
-            key: Key('dash-slot-${s.period}'),
-            selected: s.current,
-            leading: Text(faDigits(s.start.isEmpty ? '—' : s.start)),
-            title: Text(
-              c.role == 'teacher'
-                  ? (s.className.isEmpty ? '—' : s.className)
-                  : s.subject,
-            ),
-            subtitle: Text(
-              c.role == 'teacher'
-                  ? '${s.subject}${s.current ? ' · زنگ جاری' : ''}'
-                  : s.teacher,
-            ),
-            trailing: c.role == 'teacher'
-                ? StatusBadge(
-                    s.done ? 'ثبت شده' : 'ثبت نشده',
-                    key: Key('dash-done-${s.period}'),
-                    tone: s.done ? PayeshTone.success : PayeshTone.danger,
-                  )
-                : null,
-          ),
-      ],
+  /// `.dashboard-empty`.
+  Widget _dashEmpty(String t) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      border: Border.all(color: const Color(0xFF94A3B8)),
+      borderRadius: BorderRadius.circular(12),
     ),
-  ];
+    child: Text(
+      t,
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: Web.muted, fontWeight: FontWeight.w600),
+    ),
+  );
+
+  Widget _coverageCard(Dashboard d, bool twoCol) {
+    WebTone tone(Coverage g) => g.roster == 0
+        ? (g.checked > 0 ? WebTone.amber : WebTone.none)
+        : g.checked >= g.roster
+        ? WebTone.green
+        : g.checked > 0
+        ? WebTone.amber
+        : WebTone.red;
+    final bs = twoCol ? 10.0 : null;
+    const strong = TextStyle(fontWeight: FontWeight.w800);
+    return WebCard(
+      key: const Key('dash-coverage'),
+      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _covHead(
+            'پوشش حضور امروز · پایه و رشته',
+            'تعداد دانش‌آموزانی که حضورشان برای امروز ثبت شده است.',
+            WebBadge(
+              '${Web.fa(d.covered)} از ${Web.fa(d.coverage.length)} گروه دارای ثبت',
+              key: const Key('dash-covered'),
+              tone: d.covered > 0 ? WebTone.green : WebTone.amber,
+            ),
+          ),
+          if (d.coverage.isEmpty)
+            _dashEmpty('هنوز پایه یا رشته‌ای برای پوشش حضور تعریف نشده است.')
+          else
+            WebTable(
+              key: const Key('dash-coverage-table'),
+              bordered: true,
+              fontSize: twoCol ? 12 : 13.5,
+              minWidth: twoCol ? null : 680,
+              fixed: twoCol ? const [.12, .18, .12, .14, .30, .14] : null,
+              cellPadding: twoCol
+                  ? const EdgeInsets.symmetric(horizontal: 4.8, vertical: 6.4)
+                  : const EdgeInsets.symmetric(horizontal: 7.2, vertical: 8),
+              head: const [
+                'پایه',
+                'رشته',
+                'دانش‌آموزان',
+                'ثبت‌شده',
+                'حاضر / غایب / تأخیر',
+                'پوشش',
+              ],
+              rows: [
+                for (final (i, g) in d.coverage.indexed)
+                  [
+                    Text(g.grade.isEmpty ? '—' : g.grade, style: strong),
+                    Text(
+                      g.branch.isNotEmpty
+                          ? g.branch
+                          : (g.grade.isNotEmpty
+                                ? '—'
+                                : (g.name.isEmpty ? '—' : g.name)),
+                      style: strong,
+                    ),
+                    Text(Web.fa(g.roster)),
+                    Text(
+                      '${Web.fa(g.checked)} / ${Web.fa(g.roster)}',
+                      style: strong,
+                    ),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        WebBadge(
+                          '${Web.fa(g.present)} حاضر',
+                          tone: WebTone.green,
+                          size: bs,
+                        ),
+                        WebBadge(
+                          '${Web.fa(g.absent)} غایب',
+                          tone: WebTone.red,
+                          size: bs,
+                        ),
+                        WebBadge(
+                          '${Web.fa(g.late)} تأخیر',
+                          tone: WebTone.amber,
+                          size: bs,
+                        ),
+                      ],
+                    ),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: WebBadge(
+                        g.roster > 0
+                            ? '${Web.fa(g.ratio)}٪'
+                            : (g.checked > 0 ? 'ثبت دارد' : 'بدون دانش‌آموز'),
+                        key: Key('dash-cov-$i'),
+                        tone: tone(g),
+                        size: bs,
+                      ),
+                    ),
+                  ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roomsCard(Dashboard d, bool twoCol) {
+    final bell = d.bell;
+    return WebCard(
+      key: const Key('dash-rooms'),
+      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _covHead(
+            'پوشش کلاس‌ها',
+            bell != null
+                ? 'وضعیت محل‌ها در زنگ ${bell.label.isNotEmpty ? bell.label : Web.fa(bell.order)} · ${Web.clock24(bell.start)}'
+                : 'در حال حاضر زنگ درسی فعالی نیست.',
+            WebBadge(
+              '${Web.fa(d.rooms.length)} کلاس / محل',
+              tone: d.rooms.any((r) => r.busy) ? WebTone.green : WebTone.none,
+            ),
+          ),
+          if (d.rooms.isEmpty)
+            _dashEmpty('هنوز کلاس یا محل برگزاری تعریف نشده است.')
+          else
+            WebTable(
+              key: const Key('dash-rooms-table'),
+              bordered: true,
+              fontSize: twoCol ? 12 : 13.5,
+              minWidth: twoCol ? null : 600,
+              fixed: twoCol ? const [.18, .20, .26, .18, .18] : null,
+              cellPadding: twoCol
+                  ? const EdgeInsets.symmetric(horizontal: 4.8, vertical: 6.4)
+                  : const EdgeInsets.symmetric(horizontal: 7.2, vertical: 8),
+              rowColor: (i) => d.rooms[i].busy
+                  ? Color.lerp(Web.card, Web.greenBg, 0.55)
+                  : null,
+              head: const ['کلاس / محل', 'وضعیت', 'پایه و رشته', 'درس', 'دبیر'],
+              rows: [
+                for (final r in d.rooms)
+                  [
+                    Text(
+                      r.name.isEmpty ? '—' : r.name,
+                      key: Key('dash-room-${r.id}'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: r.busy ? Web.green : null,
+                      ),
+                    ),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: WebBadge(
+                        r.busy
+                            ? 'در حال برگزاری'
+                            : (bell != null ? 'خالی در این زنگ' : 'خالی اکنون'),
+                        tone: r.busy ? WebTone.green : WebTone.none,
+                      ),
+                    ),
+                    r.busy
+                        ? Text(
+                            r.cohort.isEmpty ? '—' : r.cohort,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Web.green,
+                            ),
+                          )
+                        : const Text('—', style: TextStyle(color: Web.muted)),
+                    Text(r.busy ? r.subject : '—'),
+                    Text(r.busy && r.teacher.isNotEmpty ? r.teacher : '—'),
+                  ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// web `managerHome()`.
+  List<Widget> _manager(Dashboard d) {
+    final wide = MediaQuery.sizeOf(context).width > 1200;
+    final title = MediaQuery.sizeOf(context).width * 0.022;
+    return [
+      // .topbar.dashboard-topbar
+      Container(
+        key: const Key('dash-topbar'),
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Web.line),
+          borderRadius: BorderRadius.circular(Web.radius),
+          gradient: LinearGradient(
+            colors: [Color.lerp(Web.card, Web.primary, 0.06)!, Web.card],
+          ),
+          boxShadow: Web.shadow,
+        ),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          runSpacing: 8,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'داشبورد مدرسه',
+                  key: const Key('web-title'),
+                  style: TextStyle(
+                    fontSize: title.clamp(20, 27).toDouble(),
+                    fontWeight: FontWeight.w900,
+                    height: 1.4,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const WebNowChip(),
+              ],
+            ),
+            // @media (max-width:700px){.dashboard-topbar-left{width:100%;flex-wrap:wrap;gap:8px}}
+            (MediaQuery.sizeOf(context).width <= 700
+                ? (List<Widget> c) => Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      for (final w in c)
+                        if (w is! SizedBox) w,
+                    ],
+                  )
+                : (List<Widget> c) =>
+                      Row(mainAxisSize: MainAxisSize.min, children: c))([
+              WebBtn(
+                '🔄 همگام‌سازی',
+                key: const Key('dash-sync'),
+                onPressed: widget.onRetry,
+              ),
+              const SizedBox(width: 9.6),
+              WebBtn(
+                'اطلاعیهٔ جدید',
+                key: const Key('dash-new-notice'),
+                kind: WebBtnKind.primary,
+                onPressed: () => _go('announcements'),
+              ),
+              const SizedBox(width: 14),
+              Container(
+                key: const Key('dash-now'),
+                constraints: const BoxConstraints(minWidth: 140),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Color.lerp(Web.line, Web.primary, 0.28)!,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  color: Web.soft.withValues(alpha: 0.75),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        const Text(
+                          'الان در',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Web.muted,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          _bellLabel(d.bell),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Web.primary,
+                            fontWeight: FontWeight.w800,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '${Web.jDays[d.weekday]} · ${Web.fa(Web.jdate(d.today))}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Web.muted,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ]),
+          ],
+        ),
+      ),
+      // .grid — pulse.js puts «نبض امروز مدرسه» first, full width
+      if (d.students > 0)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: PulseHero(
+            present: d.presentToday,
+            of: d.students,
+            absent: d.absentToday,
+            late: d.lateToday,
+          ),
+        ),
+      WebGrid(
+        key: const Key('pulse-stats'),
+        children: [
+          WebStat(
+            icon: 'users',
+            num: Web.fa(d.students),
+            label: 'دانش‌آموز',
+            numKey: const Key('dash-students'),
+          ),
+          WebStat(
+            icon: 'teacher',
+            num: Web.fa(d.teachers),
+            label: 'دبیر',
+            numKey: const Key('dash-teachers'),
+          ),
+          WebStat(
+            icon: 'school',
+            num: Web.fa(d.classes),
+            label: 'کلاس',
+            numKey: const Key('dash-classes'),
+          ),
+          WebStat(
+            icon: 'check',
+            num: '${Web.fa(d.presentToday)} / ${Web.fa(d.recordsToday)}',
+            label: 'حاضر امروز',
+            numKey: const Key('dash-present'),
+            numColor: Web.green,
+          ),
+          WebStat(
+            icon: 'cross',
+            num: Web.fa(d.absentToday),
+            label: 'غایب امروز',
+            numKey: const Key('dash-absent'),
+            numColor: Web.red,
+          ),
+          WebStat(
+            icon: 'clock',
+            num: Web.fa(d.lateToday),
+            label: 'تأخیر',
+            numKey: const Key('dash-late'),
+            numColor: Web.amber,
+          ),
+          WebStat(
+            icon: 'pen',
+            num: Web.fa(d.pendingGrades),
+            label: 'نمرهٔ در انتظار تأیید',
+            numKey: const Key('dash-pending'),
+          ),
+        ],
+      ),
+      // .dashboard-coverage-grid (two columns above 1200px, one below)
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: wide
+            ? WebEqualRow(
+                gap: 16,
+                children: [_coverageCard(d, true), _roomsCard(d, true)],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _coverageCard(d, false),
+                  const SizedBox(height: 16),
+                  _roomsCard(d, false),
+                ],
+              ),
+      ),
+      WebGrid(
+        min: 160,
+        children: [
+          for (final (route, title, sub) in const [
+            ('users', '👥 کاربران', 'افزودن، کارت پیوند، ورود دسته‌ای'),
+            ('reports', '📑 گزارش‌ها', 'حضور، نمره، چاپ کارنامه'),
+            ('system', '⚙️ سیستم', 'پشتیبان، دستگاه‌ها، آپدیت'),
+          ])
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                key: Key('dash-go-$route'),
+                onTap: () => _go(route),
+                child: WebCard(
+                  margin: EdgeInsets.zero,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: Web.b.copyWith(color: Web.primary)),
+                      Text(sub, style: Web.small),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      if (d.recent.isNotEmpty)
+        WebCard(
+          key: const Key('dash-recent'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('آخرین اطلاعیه‌ها', style: Web.b),
+              const SizedBox(height: 8),
+              WebList(
+                children: [
+                  for (final (t, date) in d.recent)
+                    WebItem(title: t, sub: Web.jdate(date)),
+                ],
+              ),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  /// web `teacherHome()` / `studentHomeCard()`.
+  List<Widget> _today(TodayView t) {
+    final teacher = c.role == 'teacher';
+    final bell = t.bell;
+    return [
+      if (teacher)
+        WebCard(
+          key: const Key('dash-bell'),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('زنگ جاری', style: Web.small),
+                    Text(
+                      bell != null
+                          ? '${Web.clock24(bell.start)} – ${Web.clock24(bell.end)}'
+                          : t.next != null
+                          ? 'زنگ بعدی: ${Web.clock24(t.next!.start)}'
+                          : 'زنگ درسی در جریان نیست',
+                      key: const Key('dash-bell-text'),
+                      style: Web.b.copyWith(fontSize: bell != null ? 17 : null),
+                    ),
+                  ],
+                ),
+              ),
+              if (bell != null) WebBadge(bell.label, tone: WebTone.purple),
+            ],
+          ),
+        )
+      else if (bell != null)
+        WebCard(
+          key: const Key('dash-bell'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('زنگ جاری', style: Web.small),
+              Text(
+                '${bell.start} – ${bell.end}',
+                key: const Key('dash-bell-text'),
+                style: Web.b,
+              ),
+            ],
+          ),
+        ),
+      WebCard(
+        key: const Key('dash-today'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (teacher)
+              WebCardHead(
+                title: 'برنامهٔ امروز',
+                actions: [
+                  Text('${Web.fa(t.slots.length)} زنگ', style: Web.small),
+                ],
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text('برنامهٔ امروز', style: Web.b),
+              ),
+            if (t.slots.isEmpty)
+              Text(
+                teacher ? 'امروز کلاسی در برنامه ندارید.' : 'برنامه‌ای نیست.',
+                key: const Key('dash-today-none'),
+                style: Web.small,
+              ),
+            WebList(
+              children: [
+                for (final s in t.slots)
+                  teacher
+                      ? Container(
+                          key: Key('dash-slot-${s.period}'),
+                          decoration: s.current
+                              ? BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Web.primary),
+                                  color: Web.soft,
+                                )
+                              : null,
+                          child: WebItem(
+                            leading: SizedBox(
+                              width: 64,
+                              child: Column(
+                                children: [
+                                  Text(
+                                    Web.clock24(s.start),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  Text(Web.clock24(s.end), style: Web.small),
+                                ],
+                              ),
+                            ),
+                            title: s.className.isEmpty ? '—' : s.className,
+                            sub:
+                                '${s.subject.isEmpty ? '—' : s.subject} ${s.current ? '· زنگ جاری' : ''}',
+                            actions: [
+                              WebBadge(
+                                s.done ? 'ثبت شده' : 'ثبت نشده',
+                                key: Key('dash-done-${s.period}'),
+                                tone: s.done ? WebTone.green : WebTone.red,
+                              ),
+                              WebBtn(
+                                'ثبت',
+                                kind: WebBtnKind.primary,
+                                onPressed: () => _go('attendance'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : WebItem(
+                          key: Key('dash-slot-${s.period}'),
+                          leading: SizedBox(
+                            width: 56,
+                            child: Text(
+                              s.start,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          title: s.subject,
+                          sub: s.teacher,
+                        ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      if (teacher)
+        WebCard(
+          child: Row(
+            children: [
+              Expanded(
+                child: WebBtn(
+                  '📝 ثبت نمره',
+                  size: WebBtnSize.normal,
+                  block: true,
+                  onPressed: () => _go('grades'),
+                ),
+              ),
+              const SizedBox(width: 9.6),
+              Expanded(
+                child: WebBtn(
+                  '👥 دانش‌آموزان',
+                  size: WebBtnSize.normal,
+                  block: true,
+                  onPressed: () => _go('students'),
+                ),
+              ),
+            ],
+          ),
+        ),
+    ];
+  }
 
   @override
-  Widget build(BuildContext context) => SchoolPage(
-    prefix: 'dash',
-    title: c.role == 'manager'
-        ? 'داشبورد مدرسه'
-        : c.role == 'teacher'
-        ? 'امروز من'
-        : 'امروز',
-    controller: c,
-    sync: widget.sync,
-    onRetry: widget.onRetry,
-    body: ListenableBuilder(
-      listenable: c,
-      builder: (context, _) {
-        final d = c.dashboard;
-        final t = c.today;
-        return ListView(
-          padding: const EdgeInsets.all(PayeshTokens.space4),
-          children: [
-            if (d != null) ..._manager(d),
-            if (t != null) ...[
-              Text(
-                '${schedDayFa[t.weekday]} · ${_jd(t.today)}',
-                key: const Key('dash-now'),
-              ),
-              ..._today(t),
-            ],
-          ],
-        );
-      },
-    ),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: c,
+    builder: (context, _) {
+      final d = c.dashboard;
+      final t = c.today;
+      final manager = c.role == 'manager';
+      return SchoolPage(
+        prefix: 'dash',
+        title: manager
+            ? 'داشبورد مدرسه'
+            : c.role == 'teacher'
+            ? 'امروز من'
+            : 'امروز',
+        controller: c,
+        sync: widget.sync,
+        onRetry: widget.onRetry,
+        body: const SizedBox.shrink(),
+        // the manager's title row is the `.dashboard-topbar` card itself
+        bare: manager,
+        sub: t == null
+            ? null
+            : '${Web.jDays[t.weekday]} · ${Web.jdate(t.today)}',
+        headActions: [
+          if (!manager)
+            WebBtn(
+              '🔄',
+              key: const Key('dash-sync'),
+              onPressed: widget.onRetry,
+            ),
+        ],
+        children: [
+          if (d != null) ..._manager(d),
+          if (t != null) ..._today(t),
+          if (c.record case final r?) ...recordBlocks(r, first: false),
+        ],
+      );
+    },
   );
 }
 
@@ -445,114 +846,151 @@ class _ReportsScreenState extends State<ReportsScreen> {
     c.load();
   }
 
+  static WebTone _tone(int pct) => pct >= 90
+      ? WebTone.green
+      : pct >= 75
+      ? WebTone.amber
+      : WebTone.red;
+
+  /// Row 172: web `PAGES.reports` exactly — pageHead «گزارش‌ها» + «هفتهٔ اخیر» with «🖨️ چاپ»;
+  /// the weekly table card; «کارنامهٔ کلاسی» with the class select (max 240) on the left.
   @override
-  Widget build(BuildContext context) => SchoolPage(
-    prefix: 'rep',
-    title: 'گزارش‌ها',
-    controller: c,
-    sync: widget.sync,
-    onRetry: widget.onRetry,
-    actions: [
-      TextButton.icon(
-        key: const Key('rep-print'),
-        onPressed: c.busy ? null : c.print,
-        icon: const Icon(Icons.print_outlined),
-        label: const Text('چاپ'),
-      ),
-    ],
-    body: ListenableBuilder(
-      listenable: c,
-      builder: (context, _) {
-        final card = c.card;
-        return ListView(
-          padding: const EdgeInsets.all(PayeshTokens.space4),
-          children: [
-            _card(
-              context,
-              'حضور هفتگی به تفکیک کلاس',
-              key: const Key('rep-week'),
-              [
-                const Text('هفتهٔ اخیر'),
-                _table(
-                  const Key('rep-week-table'),
-                  const ['کلاس', 'ثبت', 'حاضر', 'غایب', 'تأخیر', 'درصد'],
-                  [
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: c,
+    builder: (context, _) {
+      final card = c.card;
+      return SchoolPage(
+        prefix: 'rep',
+        title: 'گزارش‌ها',
+        controller: c,
+        sync: widget.sync,
+        onRetry: widget.onRetry,
+        body: const SizedBox.shrink(),
+        sub: 'هفتهٔ اخیر',
+        headActions: [
+          WebBtn(
+            '🖨️ چاپ',
+            key: const Key('rep-print'),
+            onPressed: c.busy ? null : c.print,
+          ),
+        ],
+        children: [
+          WebCard(
+            key: const Key('rep-week'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('حضور هفتگی به تفکیک کلاس', style: Web.b),
+                WebTable(
+                  key: const Key('rep-week-table'),
+                  head: const ['کلاس', 'ثبت', 'حاضر', 'غایب', 'تأخیر', 'درصد'],
+                  rows: [
                     for (final r in c.week)
                       [
                         Text(r.name),
-                        Text(faNumber(r.records)),
-                        Text(faNumber(r.present)),
-                        Text(faNumber(r.absent)),
-                        Text(faNumber(r.late)),
-                        StatusBadge(
-                          '${faNumber(r.pct)}٪',
-                          key: Key('rep-pct-${r.classId}'),
-                          tone: _pctTone(r.pct),
+                        Text(Web.fa(r.records)),
+                        Text(Web.fa(r.present)),
+                        Text(Web.fa(r.absent)),
+                        Text(Web.fa(r.late)),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: WebBadge(
+                            '${Web.fa(r.pct)}٪',
+                            key: Key('rep-pct-${r.classId}'),
+                            tone: _tone(r.pct),
+                          ),
                         ),
                       ],
                   ],
                 ),
               ],
             ),
-            _card(context, 'کارنامهٔ کلاسی', key: const Key('rep-card'), [
-              if (c.week.isNotEmpty)
-                DropdownButtonFormField<int>(
-                  key: const Key('rep-class'),
-                  initialValue: c.classId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'کلاس',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    for (final w in c.week)
-                      DropdownMenuItem(value: w.classId, child: Text(w.name)),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) c.pick(v);
-                  },
-                ),
-              const SizedBox(height: PayeshTokens.space2),
-              if (card == null || card.rows.isEmpty)
-                const Text('دانش‌آموزی نیست.', key: Key('rep-card-none'))
-              else
-                _table(
-                  const Key('rep-card-table'),
-                  [
-                    'دانش‌آموز',
-                    for (final (_, n) in card.subjects) n,
-                    'معدل',
-                    'حضور',
-                  ],
-                  [
-                    for (final r in card.rows)
-                      [
-                        Text(r.name),
-                        for (final (id, _) in card.subjects)
-                          Text(
-                            r.scores[id] == null ? '—' : faDigits(r.scores[id]),
+          ),
+          WebCard(
+            key: const Key('rep-card'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(child: Text('کارنامهٔ کلاسی', style: Web.b)),
+                    if (c.week.isNotEmpty)
+                      SizedBox(
+                        width: 240,
+                        child: DropdownButtonFormField<int>(
+                          key: const Key('rep-class'),
+                          initialValue: c.classId,
+                          isExpanded: true,
+                          isDense: true,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Web.ink,
+                            fontFamily: 'Vazirmatn',
                           ),
-                        Text(
-                          faDigits(r.average.toStringAsFixed(2)),
-                          key: Key('rep-avg-${r.studentId}'),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          decoration: webInput(),
+                          items: [
+                            for (final w in c.week)
+                              DropdownMenuItem(
+                                value: w.classId,
+                                child: Text(w.name),
+                              ),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) c.pick(v);
+                          },
                         ),
-                        Text(
-                          '${faNumber(r.attendancePct)}٪',
-                          key: Key('rep-att-${r.studentId}'),
-                        ),
-                      ],
+                      ),
                   ],
                 ),
-              const SizedBox(height: PayeshTokens.space2),
-              const Text(
-                'میانگین‌ها از نمرات ثبت‌شده محاسبه می‌شوند؛ برای چاپ، دکمهٔ «چاپ» بالا.',
-              ),
-            ]),
-          ],
-        );
-      },
-    ),
+                const SizedBox(height: 8),
+                if (card == null || card.rows.isEmpty)
+                  const Text(
+                    'دانش‌آموزی نیست.',
+                    key: Key('rep-card-none'),
+                    style: Web.small,
+                  )
+                else
+                  WebTable(
+                    key: const Key('rep-card-table'),
+                    head: [
+                      'دانش‌آموز',
+                      for (final (_, n) in card.subjects) n,
+                      'معدل',
+                      'حضور',
+                    ],
+                    rows: [
+                      for (final r in card.rows)
+                        [
+                          Text(r.name),
+                          for (final (id, _) in card.subjects)
+                            Text(
+                              r.scores[id] == null
+                                  ? '—'
+                                  : faDigits(r.scores[id]),
+                            ),
+                          Text(
+                            faDigits(r.average.toStringAsFixed(2)),
+                            key: Key('rep-avg-${r.studentId}'),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            '${Web.fa(r.attendancePct)}٪',
+                            key: Key('rep-att-${r.studentId}'),
+                          ),
+                        ],
+                    ],
+                  ),
+                const SizedBox(height: 8),
+                const Text(
+                  'میانگین‌ها از نمرات ثبت‌شده محاسبه می‌شوند؛ برای چاپ، دکمهٔ «چاپ» بالا.',
+                  style: Web.small,
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 
@@ -572,6 +1010,11 @@ class DayReportController extends SchoolController {
   Future<void> read(SchoolRecords db) async {
     date ??= db.today();
     classes = await SchoolReports(db).day(date!);
+  }
+
+  Future<void> setDate(String iso) async {
+    date = iso;
+    await load();
   }
 
   Future<void> shift(int days) async {
@@ -606,73 +1049,72 @@ class _DayReportScreenState extends State<DayReportScreen> {
     c.load();
   }
 
+  /// Row 172: web `PAGES['attendance-report']` exactly — pageHead «حضور و غیاب» + jdate with
+  /// the Jalali date input; one card per class: name, «N حاضر از M» / «ثبت نشده», the red
+  /// badges of the absent/late (or «همه حاضر»).
   @override
-  Widget build(BuildContext context) => SchoolPage(
-    prefix: 'atr',
-    title: 'حضور و غیاب',
-    controller: c,
-    sync: widget.sync,
-    onRetry: widget.onRetry,
-    body: ListenableBuilder(
-      listenable: c,
-      builder: (context, _) => ListView(
-        padding: const EdgeInsets.all(PayeshTokens.space4),
-        children: [
-          Row(
-            children: [
-              IconButton(
-                key: const Key('atr-prev'),
-                tooltip: 'روز قبل',
-                onPressed: () => c.shift(-1),
-                icon: const Icon(Icons.chevron_right),
-              ),
-              Expanded(
-                child: Text(
-                  c.date == null ? '—' : _jd(c.date!),
-                  key: const Key('atr-date'),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              IconButton(
-                key: const Key('atr-next'),
-                tooltip: 'روز بعد',
-                onPressed: () => c.shift(1),
-                icon: const Icon(Icons.chevron_left),
-              ),
-            ],
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: c,
+    builder: (context, _) => SchoolPage(
+      prefix: 'atr',
+      title: 'حضور و غیاب',
+      controller: c,
+      sync: widget.sync,
+      onRetry: widget.onRetry,
+      body: const SizedBox.shrink(),
+      sub: c.date == null ? null : Web.jdate(c.date),
+      headActions: [
+        if (c.date != null)
+          SizedBox(
+            width: 180,
+            child: WebJalaliField(
+              key: const Key('atr-date'),
+              iso: c.date,
+              onChanged: c.setDate,
+            ),
           ),
-          for (final d in c.classes)
-            _card(
-              context,
-              d.name,
-              key: Key('atr-class-${d.classId}'),
-              trailing: Text(
-                d.records > 0
-                    ? '${faNumber(d.present)} حاضر از ${faNumber(d.records)}'
-                    : 'ثبت نشده',
-                key: Key('atr-count-${d.classId}'),
-              ),
-              [
+      ],
+      children: [
+        for (final d in c.classes)
+          WebCard(
+            key: Key('atr-class-${d.classId}'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: Text(d.name, style: Web.b)),
+                    Text(
+                      d.records > 0
+                          ? '${Web.fa(d.present)} حاضر از ${Web.fa(d.records)}'
+                          : 'ثبت نشده',
+                      key: Key('atr-count-${d.classId}'),
+                      style: Web.small,
+                    ),
+                  ],
+                ),
                 if (d.records > 0)
-                  d.notPresent.isEmpty
-                      ? const Text('همه حاضر')
-                      : Wrap(
-                          spacing: PayeshTokens.space2,
-                          runSpacing: PayeshTokens.space2,
-                          children: [
-                            for (final (i, (n, l)) in d.notPresent.indexed)
-                              StatusBadge(
-                                '$n · $l',
-                                key: Key('atr-miss-${d.classId}-$i'),
-                                tone: PayeshTone.danger,
-                              ),
-                          ],
-                        ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: d.notPresent.isEmpty
+                        ? const Text('همه حاضر', style: Web.small)
+                        : Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: [
+                              for (final (i, (n, l)) in d.notPresent.indexed)
+                                WebBadge(
+                                  '$n · $l',
+                                  key: Key('atr-miss-${d.classId}-$i'),
+                                  tone: WebTone.red,
+                                ),
+                            ],
+                          ),
+                  ),
               ],
             ),
-        ],
-      ),
+          ),
+      ],
     ),
   );
 }
@@ -734,74 +1176,93 @@ class _LeaveDeskScreenState extends State<LeaveDeskScreen> {
     if (ok) await c.delete(l.id);
   }
 
+  /// Row 172: web `PAGES.leaves` (manager view) — pageHead «مرخصی و غیبت موجه» + «N درخواست»;
+  /// per request: bold name, state badge, «date · reason», «تأیید» / «رد» / «حذف».
   @override
-  Widget build(BuildContext context) => SchoolPage(
-    prefix: 'lvd',
-    title: 'مرخصی و غیبت موجه',
-    controller: c,
-    sync: widget.sync,
-    onRetry: widget.onRetry,
-    body: ListenableBuilder(
-      listenable: c,
-      builder: (context, _) => ListView(
-        padding: const EdgeInsets.all(PayeshTokens.space4),
-        children: [
-          Text(
-            '${faNumber(c.rows.length)} درخواست',
-            key: const Key('lvd-count'),
-          ),
-          if (c.rows.isEmpty)
-            const Text('درخواستی ثبت نشده.', key: Key('lvd-none')),
-          for (final l in c.rows)
-            _card(
-              context,
-              l.student.isEmpty ? '—' : l.student,
-              key: Key('lvd-row-${l.id}'),
-              trailing: StatusBadge(
-                l.statusFa,
-                key: Key('lvd-status-${l.id}'),
-                tone: l.status == 'approved'
-                    ? PayeshTone.success
-                    : l.status == 'rejected'
-                    ? PayeshTone.danger
-                    : PayeshTone.warning,
-              ),
-              [
-                Text('${_jd(l.date)} · ${l.reason}'),
-                if (l.queued) const Text('در صف ارسال'),
-                Wrap(
-                  spacing: PayeshTokens.space2,
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: c,
+    builder: (context, _) => SchoolPage(
+      prefix: 'lvd',
+      title: 'مرخصی و غیبت موجه',
+      controller: c,
+      sync: widget.sync,
+      onRetry: widget.onRetry,
+      body: const SizedBox.shrink(),
+      sub: '${faNumber(c.rows.length)} درخواست',
+      subKey: const Key('lvd-count'),
+      children: [
+        if (c.rows.isEmpty)
+          const WebEmpty('درخواستی ثبت نشده.', key: Key('lvd-none')),
+        for (final l in c.rows)
+          WebCard(
+            key: Key('lvd-row-${l.id}'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
                   children: [
-                    FilledButton(
-                      key: Key('lvd-approve-${l.id}'),
-                      onPressed: c.busy
-                          ? null
-                          : () => c.decide(l.id, 'approved'),
-                      child: const Text('تأیید'),
-                    ),
-                    OutlinedButton(
-                      key: Key('lvd-reject-${l.id}'),
-                      onPressed: c.busy
-                          ? null
-                          : () => c.decide(l.id, 'rejected'),
-                      child: const Text('رد'),
-                    ),
-                    TextButton(
-                      key: Key('lvd-delete-${l.id}'),
-                      onPressed: c.busy ? null : () => _delete(l),
+                    Expanded(
                       child: Text(
-                        'حذف',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
+                        l.student.isEmpty ? '—' : l.student,
+                        style: Web.b,
                       ),
+                    ),
+                    if (l.queued) ...[
+                      const WebBadge('در صف ارسال', tone: WebTone.amber),
+                      const SizedBox(width: 6),
+                    ],
+                    WebBadge(
+                      l.statusFa,
+                      key: Key('lvd-status-${l.id}'),
+                      tone: l.status == 'approved'
+                          ? WebTone.green
+                          : l.status == 'rejected'
+                          ? WebTone.red
+                          : WebTone.amber,
                     ),
                   ],
                 ),
+                Text(
+                  '${Web.jdate(l.date)} · ${l.reason}',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Web.muted,
+                    height: 1.6,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      WebBtn(
+                        'تأیید',
+                        key: Key('lvd-approve-${l.id}'),
+                        onPressed: c.busy
+                            ? null
+                            : () => c.decide(l.id, 'approved'),
+                      ),
+                      WebBtn(
+                        'رد',
+                        key: Key('lvd-reject-${l.id}'),
+                        kind: WebBtnKind.ghost,
+                        onPressed: c.busy
+                            ? null
+                            : () => c.decide(l.id, 'rejected'),
+                      ),
+                      WebBtn.delete(
+                        'حذف',
+                        key: Key('lvd-delete-${l.id}'),
+                        onPressed: c.busy ? null : () => _delete(l),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-        ],
-      ),
+          ),
+      ],
     ),
   );
 }

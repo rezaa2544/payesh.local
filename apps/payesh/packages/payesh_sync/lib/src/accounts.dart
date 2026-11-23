@@ -158,6 +158,35 @@ abstract final class AccountRules {
   }
 }
 
+/// What `POST /api/admin/pair-code` returns.
+final class PairCard {
+  const PairCard({
+    required this.code,
+    required this.display,
+    required this.name,
+    required this.role,
+    this.refreshed = false,
+  });
+  final String code;
+  final String display;
+  final String name;
+  final String role;
+  final bool refreshed;
+
+  factory PairCard.fromJson(Map<String, Object?> j) {
+    final u = j['user'];
+    final user = u is Map ? u : const <String, Object?>{};
+    final code = '${j['code'] ?? ''}';
+    return PairCard(
+      code: code,
+      display: '${j['display'] ?? code}',
+      name: '${user['name'] ?? ''}',
+      role: '${user['role'] ?? ''}',
+      refreshed: j['refreshed'] == true,
+    );
+  }
+}
+
 /// The manager's credential actions and the user's own password change.
 abstract interface class AccountsApi {
   Future<List<AccountCredential>> credentials();
@@ -173,6 +202,16 @@ abstract interface class AccountsApi {
 
   /// "رمز = کد ملی" (server: national id, or 6 random digits without one); returns it.
   Future<String> autoPassword(int id);
+
+  /// Row 172: the web «کارت پیوند» (`POST /api/admin/pair-code`). [refresh] revokes the old
+  /// code and makes a new one.
+  Future<PairCard> pairCode(int id, {bool refresh = false});
+
+  /// The server's QR image of [text] (`GET /api/qr`), or null when there is none.
+  Uri? qrImage(String text, {int scale = 6});
+
+  /// The link the pair card's QR carries (web `location.origin + '/#/pair=' + code`).
+  String pairLink(String code);
 
   Future<void> changeOwnPassword({
     required String current,
@@ -285,6 +324,27 @@ final class LanAccounts implements AccountsApi {
     }
     return j['password'] as String?;
   }
+
+  @override
+  Future<PairCard> pairCode(int id, {bool refresh = false}) async {
+    final j = await _call('POST', '/api/admin/pair-code', {
+      'user_id': id,
+      'refresh': refresh,
+    });
+    if (j['ok'] == false || j['code'] == null) {
+      throw AccountFailure(AccountError.unknown, '${j['error'] ?? ''}');
+    }
+    return PairCard.fromJson(j);
+  }
+
+  @override
+  Uri? qrImage(String text, {int scale = 6}) => server.resolve(
+    '/api/qr?text=${Uri.encodeQueryComponent(text)}&scale=$scale',
+  );
+
+  @override
+  String pairLink(String code) =>
+      '${server.origin}/#/pair=${Uri.encodeQueryComponent(code.replaceAll(RegExp('[^0-9A-Za-z]'), ''))}';
 
   @override
   Future<String> autoPassword(int id) async {

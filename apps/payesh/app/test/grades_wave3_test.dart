@@ -15,6 +15,8 @@ import 'package:payesh_data/payesh_data.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 
+import 'nav_support.dart';
+
 const secret32 = 'QRSTUVWXYZ234567ABCDEFGHIJKLMNOP';
 final today = DateTime.utc(2026, 11, 12, 8);
 
@@ -134,7 +136,9 @@ Future<(SessionController, MemorySource)> boot(
   String waves = 'login,attendance,grades',
   MemorySource? source,
   bool wireGrades = true,
+  bool tall = true,
 }) async {
+  if (tall) tallView(tester);
   final src = source ?? MemorySource();
   await tester.runAsync(() => seed(src.engine));
   final c = SessionController(
@@ -172,10 +176,24 @@ Future<void> tapKey(WidgetTester tester, String key) async {
   await settle(tester);
 }
 
+/// Row 172: the web «نمره» page opens on the teacher's first class (class 5 here).
 Future<void> openClass5(WidgetTester tester) async {
-  await tapKey(tester, 'grd-entry');
-  await tapKey(tester, 'grd-class-5');
+  await openPage(tester, 'grades');
+  expect(find.byKey(const Key('grd-sheet')), findsOneWidget);
 }
+
+/// Picks [label] in the web select [key] (the choice applies with «نمایش»).
+Future<void> pick(WidgetTester tester, String key, String label) async {
+  await tester.ensureVisible(find.byKey(Key(key)));
+  await tester.tap(find.byKey(Key(key)));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
+}
+
+/// What a screen reader hears for the score field of [sid].
+String fieldLabel(WidgetTester tester, int sid) =>
+    tester.getSemantics(find.byKey(Key('grd-$sid'))).getSemanticsData().label;
 
 Future<void> type(WidgetTester tester, int sid, String v) async {
   await tester.ensureVisible(find.byKey(Key('grd-$sid')));
@@ -198,35 +216,36 @@ String stateOf(WidgetTester tester, int sid) => tester
 String fieldOf(WidgetTester tester, int sid) =>
     tester.widget<TextField>(find.byKey(Key('grd-$sid'))).controller!.text;
 
-Future<void> pickSubject(WidgetTester tester, String name) async {
-  await tester.tap(find.byKey(const Key('grd-subject')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(name).last);
-  await settle(tester);
-}
-
 void main() {
   testWidgets(
-    'W3-W01 teacher: entry → own classes → sheet of the scheduled subject, all «جدید»',
+    'W3-W01 teacher: «نمره» page = web: own classes in «پایه / رشته», the scheduled subject, all «جدید»',
     (tester) async {
       await boot(tester);
-      expect(find.byKey(const Key('grd-entry')), findsOneWidget);
-      // attendance entry is still there (wave 2) — both pages share one data path
-      expect(find.byKey(const Key('att-entry')), findsOneWidget);
-      await tapKey(tester, 'grd-entry');
-      expect(find.byKey(const Key('grd-class-5')), findsOneWidget);
-      // NEG: another teacher's class is not listed
-      expect(find.byKey(const Key('grd-class-6')), findsNothing);
-      await tapKey(tester, 'grd-class-5');
+      // Row 172: the web teacher navigation has «نمره» (and «حضور», same data path)
+      expect(navOf('grades'), findsOneWidget);
+      expect(navOf('attendance'), findsOneWidget);
+      await openPage(tester, 'grades');
+      // web `S.gradeSel`: no class list — the first own class is open from the start
+      expect(find.byKey(const Key('grd-sheet')), findsOneWidget);
       expect(textOf(tester, 'grd-scale'), 'نمره از ۲۰');
+      await tester.tap(find.byKey(const Key('grd-class')));
+      await tester.pumpAndSettle();
+      expect(find.text('دهم الف'), findsWidgets);
+      // NEG: another teacher's class is not offered
+      expect(find.text('یازدهم ب'), findsNothing);
+      await tester.tap(find.text('دهم الف').last);
+      await tester.pumpAndSettle();
       // default subject = the class's schedule row (web rule), term = نوبت اول
-      expect(find.text('ریاضی'), findsWidgets);
+      expect(textOf(tester, 'grd-subject-name'), 'ریاضی');
       expect(find.text('نوبت اول'), findsWidgets);
       final rows = tester
-          .widgetList<Card>(find.byType(Card))
-          .map((w) => w.child)
+          .widgetList(
+            find.byWidgetPredicate((w) => '${w.key}'.contains("'grd-row-")),
+          )
           .length;
       expect(rows, 3);
+      expect(find.text('دانش‌آموز'), findsOneWidget);
+      expect(find.text('ثبت نمرات'), findsOneWidget);
       for (final s in [21, 22, 23]) {
         expect(stateOf(tester, s), 'جدید');
         expect(fieldOf(tester, s), '');
@@ -246,7 +265,8 @@ void main() {
       await openClass5(tester);
       await type(tester, 21, '۱۷');
       await type(tester, 22, '12.5');
-      expect(find.text('ثبت نمرات (۲ تغییر)'), findsOneWidget);
+      // the web button has no change count
+      expect(find.text('ثبت نمرات'), findsOneWidget);
       await tapKey(tester, 'grd-save');
       expect(textOf(tester, 'grd-notice'), '۲ نمره ذخیره شد');
       expect(src.nudges, 1);
@@ -266,6 +286,7 @@ void main() {
   testWidgets(
     'W3-W03 NEG invalid score: named error, field marked, nothing queued',
     (tester) async {
+      final h = tester.ensureSemantics();
       final (_, src) = await boot(tester);
       await openClass5(tester);
       await type(tester, 21, '18');
@@ -275,95 +296,90 @@ void main() {
         textOf(tester, 'grd-error'),
         'نمرهٔ نامعتبر برای یکی از دانش‌آموزان: سارا',
       );
-      expect(
-        tester
-            .widget<TextField>(find.byKey(const Key('grd-23')))
-            .decoration!
-            .errorText,
-        'نامعتبر',
-      );
+      // marked: red border (web `.input` error look) + «نامعتبر» for screen readers
+      expect(fieldLabel(tester, 23), contains('نامعتبر'));
+      expect(fieldLabel(tester, 21), isNot(contains('نامعتبر')));
       expect(src.outbox.list(), isEmpty);
       expect(src.nudges, 0);
       // the typed values are kept for correction
       expect(fieldOf(tester, 21), '18');
       await type(tester, 23, '19');
-      expect(
-        tester
-            .widget<TextField>(find.byKey(const Key('grd-23')))
-            .decoration!
-            .errorText,
-        isNull,
-      );
+      expect(fieldLabel(tester, 23), isNot(contains('نامعتبر')));
       await tapKey(tester, 'grd-save');
       expect(src.outbox.list().length, 2);
+      h.dispose();
     },
   );
 
-  testWidgets('W3-W04 manager: every class; saved grades are «تأییدشده»', (
-    tester,
-  ) async {
-    final (_, src) = await boot(tester, role: 'manager');
-    await tapKey(tester, 'grd-entry');
-    expect(find.byKey(const Key('grd-class-5')), findsOneWidget);
-    expect(find.byKey(const Key('grd-class-6')), findsOneWidget);
-    await tapKey(tester, 'grd-class-5');
-    await type(tester, 22, '20');
-    await tapKey(tester, 'grd-save');
-    expect(src.outbox.list().single.payload!['status'], 'approved');
-    expect(stateOf(tester, 22), 'تأییدشده');
-  });
+  testWidgets(
+    'W3-W04 manager: no «نمره» page (web: «دسترسی ندارید»); the book still approves manager grades',
+    (tester) async {
+      final (_, src) = await boot(tester, role: 'manager');
+      expect(navOf('grades'), findsNothing);
+      final c = GradesController(source: src, role: 'manager', uid: 10);
+      addTearDown(c.dispose);
+      await tester.runAsync(c.load);
+      expect(c.classes.map((k) => k.id).toSet(), {5, 6});
+      expect(c.open?.id, 5);
+      c.edit(22, '20');
+      await tester.runAsync(c.save);
+      expect(src.outbox.list().single.payload!['status'], 'approved');
+      expect(
+        c.sheet.firstWhere((e) => e.studentId == 22).state.labelFa,
+        'تأییدشده',
+      );
+    },
+  );
 
   testWidgets('W3-W05 NEG parent / student: no grade entry at all', (
     tester,
   ) async {
     for (final role in ['parent', 'student']) {
       await boot(tester, role: role);
-      expect(find.byKey(const Key('grd-entry-none')), findsOneWidget);
-      expect(find.byKey(const Key('grd-entry')), findsNothing);
+      expect(navOf('grades'), findsNothing, reason: role);
       expect(find.text('ثبت نمره'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
     }
   });
 
   testWidgets(
-    'W3-W06 NEG wave off or no data path → the web-client line, never a dead button',
+    'W3-W06 NEG wave off or no data path → no native «نمره», never a dead button',
     (tester) async {
       await boot(tester, waves: 'login,attendance');
-      expect(find.byKey(const Key('grd-entry-legacy')), findsOneWidget);
-      expect(find.byKey(const Key('grd-entry')), findsNothing);
+      expect(navOf('grades'), findsNothing);
       // attendance (wave 2) is unaffected
-      expect(find.byKey(const Key('att-entry')), findsOneWidget);
+      expect(navOf('attendance'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
       await boot(tester, wireGrades: false);
-      expect(
-        textOf(tester, 'grd-entry-legacy'),
-        'ثبت نمره فعلاً در نسخهٔ وب انجام می‌شود.',
-      );
+      expect(navOf('grades'), findsNothing);
     },
   );
 
   testWidgets(
-    'W3-W07 NEG user id unknown on this device (never online) → wait line',
+    'W3-W07 NEG user id unknown on this device (never online) → no «نمره»',
     (tester) async {
       await boot(tester, savedUid: null, online: false);
-      expect(find.byKey(const Key('grd-entry-wait')), findsOneWidget);
-      expect(find.byKey(const Key('grd-entry')), findsNothing);
+      expect(navOf('grades'), findsNothing);
     },
   );
 
   testWidgets(
-    'W3-W08 workshop subject = practical; switching with unsaved scores asks first',
+    'W3-W08 workshop subject = practical; «نمایش» with unsaved scores asks first',
     (tester) async {
       final (_, src) = await boot(tester);
       await openClass5(tester);
       await type(tester, 21, '15');
-      await pickSubject(tester, 'کارگاه برق');
+      await pick(tester, 'grd-subject', 'کارگاه برق');
+      await tapKey(tester, 'grd-show');
       // unsaved field → confirmation; «ماندن» keeps the sheet and the text
       expect(find.text('نمره‌های ذخیره نشده'), findsOneWidget);
       await tapKey(tester, 'grd-discard-cancel');
       expect(textOf(tester, 'grd-scale'), 'نمره از ۲۰');
       expect(fieldOf(tester, 21), '15');
-      await pickSubject(tester, 'کارگاه برق');
+      await tapKey(tester, 'grd-show');
       await tapKey(tester, 'grd-discard-confirm');
       expect(textOf(tester, 'grd-scale'), 'درس کارگاهی — نمرهٔ عملی');
+      expect(textOf(tester, 'grd-subject-name'), 'کارگاه برق');
       expect(fieldOf(tester, 21), '');
       await type(tester, 21, '16');
       await tapKey(tester, 'grd-save');
@@ -375,7 +391,7 @@ void main() {
   );
 
   testWidgets(
-    'W3-W09 term change reads another sheet; back with unsaved asks',
+    'W3-W09 term change reads another sheet; switching back with unsaved asks',
     (tester) async {
       final (_, src) = await boot(tester);
       await tester.runAsync(
@@ -391,17 +407,17 @@ void main() {
       );
       await openClass5(tester);
       expect(fieldOf(tester, 21), '');
-      await tester.tap(find.byKey(const Key('grd-term')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('نوبت دوم').last);
-      await settle(tester);
+      await pick(tester, 'grd-term', 'نوبت دوم');
+      await tapKey(tester, 'grd-show');
       expect(fieldOf(tester, 21), '11');
       expect(stateOf(tester, 21), 'تأییدشده');
       await type(tester, 22, '9');
-      await tapKey(tester, 'grd-back');
+      await pick(tester, 'grd-term', 'نوبت اول');
+      await tapKey(tester, 'grd-show');
       expect(find.text('نمره‌های ذخیره نشده'), findsOneWidget);
       await tapKey(tester, 'grd-discard-confirm');
-      expect(find.byKey(const Key('grd-class-5')), findsOneWidget);
+      expect(fieldOf(tester, 21), '');
+      expect(fieldOf(tester, 22), '');
       expect(src.outbox.list(), isEmpty);
     },
   );
@@ -442,17 +458,19 @@ void main() {
   });
 
   testWidgets(
-    'W3-W12 a11y: each field is labelled «نمره»; the review state is text, not colour',
+    'W3-W12 a11y: each field is announced «نمره»; the review state is text, not colour',
     (tester) async {
       final h = tester.ensureSemantics();
       await boot(tester);
       await openClass5(tester);
       final f = tester.widget<TextField>(find.byKey(const Key('grd-21')));
-      expect(f.decoration!.labelText, 'نمره');
+      // web input: placeholder «—», no visible label
+      expect(f.decoration!.hintText, '—');
       expect(
         f.keyboardType,
         const TextInputType.numberWithOptions(decimal: true),
       );
+      expect(fieldLabel(tester, 21), contains('نمره'));
       expect(stateOf(tester, 21), 'جدید');
       expect(find.bySemanticsLabel(RegExp('نمره')), findsWidgets);
       h.dispose();

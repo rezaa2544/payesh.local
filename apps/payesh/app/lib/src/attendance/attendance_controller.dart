@@ -109,10 +109,20 @@ class AttendanceController extends ChangeNotifier {
   }
 
   void closeClass() {
+    if (open == null) return;
     open = null;
     roster = const [];
     draft.clear();
     error = null;
+    _emit();
+  }
+
+  /// Web «همه حاضر» / «همه غایب» (`att-all`): every student of the sheet gets [s].
+  void markAll(AttendanceStatus s) {
+    draft
+      ..clear()
+      ..addAll({for (final r in roster) r.studentId: s});
+    notice = null;
     _emit();
   }
 

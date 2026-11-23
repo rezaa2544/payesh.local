@@ -67,9 +67,20 @@ final class AttendanceFailure implements Exception {
 }
 
 final class AttendanceClass {
-  const AttendanceClass({required this.id, required this.name});
+  const AttendanceClass({
+    required this.id,
+    required this.name,
+    this.grade = '',
+    this.students = 0,
+  });
   final int id;
   final String name;
+
+  /// The class's `grade` field (web class list: «N دانش‌آموز · grade»).
+  final String grade;
+
+  /// Students of the class (web: every `role=student` row with this class_id).
+  final int students;
 }
 
 /// One student of the roster with what is stored for [AttendanceBook] date.
@@ -227,8 +238,10 @@ final class AttendanceBook {
     _requireWriter();
     final ids = <int>{};
     final names = <int, String>{};
+    final grades = <int, String>{};
     for (final c in await _all('classes')) {
       names[c.id] = _name(c.data, c.id, 'کلاس');
+      grades[c.id] = '${c.data['grade'] ?? ''}';
       if (role == 'manager') ids.add(c.id);
     }
     if (role == 'teacher') {
@@ -240,10 +253,23 @@ final class AttendanceBook {
       final own = _int(me?.data['class_id']);
       if (own != null && own > 0) ids.add(own);
     }
+    final students = <int, int>{};
+    for (final id in ids) {
+      students[id] = (await engine.byRef(
+        'users',
+        'class_id',
+        id,
+      )).where((u) => u.data['role'] == 'student').length;
+    }
     final out =
         [
           for (final id in ids)
-            AttendanceClass(id: id, name: names[id] ?? 'کلاس $id'),
+            AttendanceClass(
+              id: id,
+              name: names[id] ?? 'کلاس $id',
+              grade: grades[id] ?? '',
+              students: students[id] ?? 0,
+            ),
         ]..sort((a, b) {
           final c = a.name.compareTo(b.name);
           return c != 0 ? c : a.id.compareTo(b.id);

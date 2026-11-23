@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../pulse/pulse.dart';
+import '../pulse/web.dart';
 import '../sync_badge.dart';
 import 'attendance_controller.dart';
 
@@ -72,12 +74,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return ok == true;
   }
 
+  /// Web «بازگشت» is a link to `#/home`; the web keeps the draft in memory, the native page
+  /// does not, so unsaved marks are confirmed first.
   Future<void> _back() async {
     if (c.open == null) {
-      Navigator.maybePop(context);
+      if (!PulseInline.go(context, 'home')) Navigator.maybePop(context);
       return;
     }
-    if (await _confirmDiscard()) c.closeClass();
+    if (!await _confirmDiscard()) return;
+    c.closeClass();
+    // outside the shell (an old pushed route) the class list stands in for «home»
+    if (mounted) PulseInline.go(context, 'home');
+  }
+
+  Future<void> _save() async {
+    final r = await c.save();
+    // web `actAttendanceSave`: toast «N رکورد ذخیره شد» / «تغییری نبود», then away from the
+    // sheet; the native page shows the message above the class list
+    if (r != null && mounted) c.closeClass();
   }
 
   @override
@@ -86,137 +100,244 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       listenable: c,
       builder: (context, _) {
         final open = c.open;
+        final inline = PulseInline.of(context);
+        final content = WebPageBody(
+          children: open == null ? _classList() : _sheet(open),
+        );
         return PopScope(
           canPop: open == null,
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) _back();
           },
           child: Scaffold(
-            appBar: AppBar(
-              leading: IconButton(
-                key: const Key('att-back'),
-                tooltip: 'بازگشت',
-                icon: const BackButtonIcon(),
-                onPressed: _back,
-              ),
-              title: Text(open == null ? 'حضور و غیاب' : open.name),
-              actions: [
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(
-                    end: PayeshTokens.space2,
+            backgroundColor: inline ? Colors.transparent : Web.bg,
+            appBar: inline
+                ? null
+                : AppBar(
+                    automaticallyImplyLeading: false,
+                    title: const Text('حضور و غیاب'),
+                    actions: [
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(
+                          end: PayeshTokens.space2,
+                        ),
+                        child: Center(
+                          child: SyncBadge(
+                            status: widget.sync,
+                            onRetry: widget.onRetry,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: Center(
-                    child: SyncBadge(
-                      status: widget.sync,
-                      onRetry: widget.onRetry,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            body: open == null ? _classList(context) : _sheet(context),
-            bottomNavigationBar: open == null ? null : _saveBar(context),
+            body: inline ? content : WebBackdrop(child: content),
           ),
         );
       },
     );
   }
 
-  Widget _messages() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      if (c.error != null)
-        Padding(
-          padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-          child: Text(
-            c.error!,
-            key: const Key('att-error'),
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        ),
-      if (c.notice != null)
-        Padding(
-          padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-          child: Semantics(
-            liveRegion: true,
-            child: Text(faDigits(c.notice!), key: const Key('att-notice')),
-          ),
-        ),
-    ],
-  );
-
-  Widget _classList(BuildContext context) {
-    if (c.loading && c.classes.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(key: Key('att-loading')),
-      );
-    }
-    return ListView(
-      padding: const EdgeInsets.all(PayeshTokens.space4),
-      children: [
-        Row(
-          children: [
-            const Text('امروز: '),
-            JalaliDateText(c.date, key: const Key('att-date')),
-          ],
-        ),
-        const SizedBox(height: PayeshTokens.space3),
-        _messages(),
-        if (c.error == null && c.classes.isEmpty)
-          const Text(
-            'کلاسی برای شما ثبت نشده است. پس از همگام‌سازی برنامهٔ هفتگی دوباره ببینید.',
-            key: Key('att-no-classes'),
-          ),
-        for (final k in c.classes)
-          Card(
-            child: ListTile(
-              key: Key('att-class-${k.id}'),
-              title: Text(k.name),
-              trailing: c.recorded[k.id] == true
-                  ? const StatusBadge(
-                      'ثبت شده',
-                      tone: PayeshTone.success,
-                      icon: Icons.check,
-                    )
-                  : const StatusBadge('ثبت نشده', tone: PayeshTone.warning),
-              onTap: c.busy ? null : () => c.openClass(k),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _sheet(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(PayeshTokens.space4),
-      children: [
-        _messages(),
-        if (c.roster.isEmpty)
-          const Text(
-            'دانش‌آموزی در این کلاس ثبت نشده است',
-            key: Key('att-empty'),
-          ),
-        for (final r in c.roster) _StudentRow(controller: c, entry: r),
-      ],
-    );
-  }
-
-  Widget _saveBar(BuildContext context) {
-    final n = c.changes;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(PayeshTokens.space3),
-        child: FilledButton.icon(
-          key: const Key('att-save'),
-          onPressed: c.busy ? null : c.save,
-          icon: const Icon(Icons.save_outlined),
-          label: Text(n == 0 ? 'ذخیره' : 'ذخیره (${faDigits(n)} تغییر)'),
+  List<Widget> _messages() => [
+    if (c.error != null)
+      WebBanner(
+        kind: WebBannerKind.err,
+        text: c.error!,
+        textKey: const Key('att-error'),
+      )
+    else if (c.notice != null)
+      Semantics(
+        liveRegion: true,
+        child: WebBanner(
+          kind: WebBannerKind.ok,
+          text: faDigits(c.notice!),
+          textKey: const Key('att-notice'),
         ),
       ),
+  ];
+
+  /// Web `PAGES.attendance` without a class: pageHead «حضور و غیاب» / «کلاس را انتخاب کنید»,
+  /// one card with a `.list` of `a.item` rows — the class name (link colour), «N دانش‌آموز ·
+  /// grade», and a green «ثبت‌شده» or amber «ثبت‌نشده» badge.
+  List<Widget> _classList() => [
+    const WebPageHead(title: 'حضور و غیاب', sub: 'کلاس را انتخاب کنید'),
+    ..._messages(),
+    if (c.loading && c.classes.isEmpty)
+      const Center(
+        child: Padding(
+          padding: EdgeInsets.all(26),
+          child: CircularProgressIndicator(key: Key('att-loading')),
+        ),
+      )
+    else if (c.error == null || c.classes.isNotEmpty)
+      WebCard(
+        child: c.classes.isEmpty
+            ? const WebEmpty(
+                'کلاسی به شما تخصیص نیافته است.',
+                key: Key('att-no-classes'),
+              )
+            : WebList(
+                children: [
+                  for (final k in c.classes)
+                    _ClassItem(
+                      key: Key('att-class-${k.id}'),
+                      item: k,
+                      done: c.recorded[k.id] == true,
+                      onTap: c.busy ? null : () => c.openClass(k),
+                    ),
+                ],
+              ),
+      ),
+  ];
+
+  /// Web `PAGES.attendance(classId)`: pageHead «حضور و غیاب» / «class · date» + «بازگشت»;
+  /// a tight card with the four counts spread out; the card «فهرست کلاس» with «همه حاضر» /
+  /// «همه غایب», one `.att-row` per student and the block «ثبت نهایی حضور».
+  List<Widget> _sheet(AttendanceClass open) {
+    final back = WebBtn(
+      'بازگشت',
+      key: const Key('att-back'),
+      onPressed: c.busy ? null : _back,
     );
+    if (c.roster.isEmpty) {
+      return [
+        WebPageHead(title: 'حضور و غیاب', sub: open.name, actions: [back]),
+        ..._messages(),
+        const WebEmpty(
+          'دانش‌آموزی برای این کلاس ثبت نشده است.',
+          key: Key('att-empty'),
+        ),
+      ];
+    }
+    final counts = {for (final s in _webStates) s: 0};
+    for (final r in c.roster) {
+      final v = c.statusOf(r);
+      if (counts.containsKey(v)) counts[v] = counts[v]! + 1;
+    }
+    return [
+      WebPageHead(
+        title: 'حضور و غیاب',
+        sub: '${open.name} · ${Web.jdate(c.date)}',
+        actions: [back],
+      ),
+      ..._messages(),
+      WebCard.tight(
+        key: const Key('att-counts'),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            WebBadge(
+              'حاضر ${Web.fa(counts[AttendanceStatus.present]!)}',
+              key: const Key('att-count-present'),
+              tone: WebTone.green,
+            ),
+            WebBadge(
+              'غایب ${Web.fa(counts[AttendanceStatus.absent]!)}',
+              key: const Key('att-count-absent'),
+              tone: WebTone.red,
+            ),
+            WebBadge(
+              'تأخیر ${Web.fa(counts[AttendanceStatus.late]!)}',
+              key: const Key('att-count-late'),
+              tone: WebTone.amber,
+            ),
+            WebBadge(
+              'خروج ${Web.fa(counts[AttendanceStatus.earlyExit]!)}',
+              key: const Key('att-count-early_exit'),
+              tone: WebTone.purple,
+            ),
+          ],
+        ),
+      ),
+      WebCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  const Expanded(child: Text('فهرست کلاس', style: Web.b)),
+                  WebBtn(
+                    'همه حاضر',
+                    key: const Key('att-all-present'),
+                    onPressed: c.busy
+                        ? null
+                        : () => c.markAll(AttendanceStatus.present),
+                  ),
+                  const SizedBox(width: 9.6),
+                  WebBtn(
+                    'همه غایب',
+                    key: const Key('att-all-absent'),
+                    onPressed: c.busy
+                        ? null
+                        : () => c.markAll(AttendanceStatus.absent),
+                  ),
+                ],
+              ),
+            ),
+            for (final r in c.roster) _StudentRow(controller: c, entry: r),
+            const SizedBox(height: 12),
+            WebBtn(
+              'ثبت نهایی حضور',
+              key: const Key('att-save'),
+              kind: WebBtnKind.primary,
+              size: WebBtnSize.normal,
+              block: true,
+              onPressed: c.busy ? null : _save,
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 }
 
+/// The four buttons of the web roster (`excused` has none there).
+const _webStates = [
+  AttendanceStatus.present,
+  AttendanceStatus.absent,
+  AttendanceStatus.late,
+  AttendanceStatus.earlyExit,
+];
+
+/// `a.item` of the class list (`a{color:var(--primary)}` colours the name).
+class _ClassItem extends StatelessWidget {
+  const _ClassItem({
+    super.key,
+    required this.item,
+    required this.done,
+    required this.onTap,
+  });
+  final AttendanceClass item;
+  final bool done;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    child: WebItem(
+      title: item.name,
+      subWidget: Text(
+        '${Web.fa(item.students)} دانش‌آموز · ${faDigits(item.grade)}',
+        style: const TextStyle(
+          fontSize: 12,
+          color: Web.muted,
+          height: Web.lineHeight,
+        ),
+      ),
+      titleColor: Web.primary,
+      actions: [
+        WebBadge(
+          done ? 'ثبت‌شده' : 'ثبت‌نشده',
+          tone: done ? WebTone.green : WebTone.amber,
+        ),
+      ],
+      onTap: onTap,
+    ),
+  );
+}
+
+/// `.att-row`: the name (flex, 14px) and the four `.att-btn`s, a line under each row.
 class _StudentRow extends StatelessWidget {
   const _StudentRow({required this.controller, required this.entry});
 
@@ -226,50 +347,136 @@ class _StudentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = controller.statusOf(entry);
-    final changed = current != entry.recorded;
-    return Card(
+    return Container(
       key: Key('att-row-${entry.studentId}'),
-      child: Padding(
-        padding: const EdgeInsets.all(PayeshTokens.space3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    entry.name,
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                ),
-                if (entry.recorded == null)
-                  const Text('ثبت نشده', key: Key('att-row-new'))
-                else if (changed)
-                  const Text('تغییر ذخیره نشده'),
-              ],
-            ),
-            const SizedBox(height: PayeshTokens.space2),
-            Wrap(
-              spacing: PayeshTokens.space2,
-              runSpacing: PayeshTokens.space2,
-              children: [
-                for (final s in AttendanceStatus.values)
-                  Semantics(
-                    inMutuallyExclusiveGroup: true,
-                    child: ChoiceChip(
-                      key: Key('att-${entry.studentId}-${s.wire}'),
-                      avatar: Icon(attendanceLook(s).$2, size: 18),
-                      label: Text(s.labelFa),
-                      selected: current == s,
-                      tooltip: '${entry.name}: ${s.labelFa}',
-                      onSelected: controller.busy
-                          ? null
-                          : (_) => controller.mark(entry.studentId, s),
-                    ),
-                  ),
-              ],
+      padding: const EdgeInsets.symmetric(horizontal: 3.2, vertical: 8),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Web.line)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(entry.name, style: const TextStyle(fontSize: 14)),
+          ),
+          if (entry.recorded == null)
+            // native: the day has nothing stored for this student yet (screen readers)
+            const SizedBox.shrink(key: Key('att-row-new')),
+          const SizedBox(width: 8),
+          for (final (i, s) in _webStates.indexed) ...[
+            if (i > 0) const SizedBox(width: 4),
+            AttendanceButton(
+              key: Key('att-${entry.studentId}-${s.wire}'),
+              status: s,
+              on: current == s,
+              label: '${entry.name}: ${s.labelFa}',
+              onTap: controller.busy
+                  ? null
+                  : () => controller.mark(entry.studentId, s),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// `.att-btn` as pulse.css draws it (`.pjs-att-*`: min-height 48, radius 14, weight 800,
+/// tinted per state); the chosen one has the strong `.on-*` colours of styles.css.
+class AttBtnLook {
+  const AttBtnLook(
+    this.fg,
+    this.border,
+    this.bg,
+    this.onFg,
+    this.onBorder,
+    this.onBg,
+  );
+  final Color fg, border, bg, onFg, onBorder, onBg;
+
+  static AttBtnLook of(AttendanceStatus s) => switch (s) {
+    AttendanceStatus.present => const AttBtnLook(
+      Color(0xFF0D9488),
+      Color(0x660D9488),
+      Color(0x1A14B8A6),
+      Color(0xFF166534),
+      Color(0xFF86EFAC),
+      Color(0xFFDCFCE7),
+    ),
+    AttendanceStatus.absent => const AttBtnLook(
+      Color(0xFFE11D48),
+      Color(0x59E11D48),
+      Color(0x17F43F5E),
+      Color(0xFF991B1B),
+      Color(0xFFFCA5A5),
+      Color(0xFFFEE2E2),
+    ),
+    AttendanceStatus.late => const AttBtnLook(
+      Color(0xFFB45309),
+      Color(0x66F59E0B),
+      Color(0x1AF59E0B),
+      Color(0xFF92400E),
+      Color(0xFFFCD34D),
+      Color(0xFFFEF3C7),
+    ),
+    _ => const AttBtnLook(
+      Color(0xFF0284C7),
+      Color(0x590EA5E9),
+      Color(0x170EA5E9),
+      Color(0xFF3730A3),
+      Color(0xFFA5B4FC),
+      Color(0xFFE0E7FF),
+    ),
+  };
+}
+
+/// One `.att-btn` (public so tests can read its state).
+class AttendanceButton extends StatelessWidget {
+  const AttendanceButton({
+    super.key,
+    required this.status,
+    required this.on,
+    required this.label,
+    required this.onTap,
+  });
+  final AttendanceStatus status;
+  final bool on;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AttBtnLook.of(status);
+    return Semantics(
+      button: true,
+      selected: on,
+      inMutuallyExclusiveGroup: true,
+      label: label,
+      enabled: onTap != null,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: MouseRegion(
+        cursor: onTap == null ? MouseCursor.defer : SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48, minWidth: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 8.8, vertical: 5.6),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: on ? l.onBg : l.bg,
+              border: Border.all(color: on ? l.onBorder : l.border),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              status.labelFa,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: on ? FontWeight.w700 : FontWeight.w800,
+                color: on ? l.onFg : l.fg,
+              ),
+            ),
+          ),
         ),
       ),
     );
