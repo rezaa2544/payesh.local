@@ -4,6 +4,9 @@
     <!-- Row 148: in-app update — the downloaded, hash-checked APK is handed to the system installer
          (same signing key required; Android always asks the user to confirm). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- Row 175: Android 12+ — the app may install its OWN update (same key) without the installer
+         screen. Normal permission; the one-time «install unknown apps» toggle is still needed. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION"/>
     <application
         android:label="پنل مالک پایش"
         android:name="${applicationName}"
@@ -40,6 +43,10 @@
             android:authorities="${applicationId}.updates"
             android:exported="false"
             android:grantUriPermissions="true"/>
+        <!-- Row 175: result of the self-update session (only reachable via our PendingIntent). -->
+        <receiver
+            android:name=".InstallStatusReceiver"
+            android:exported="false"/>
         <receiver
             android:name=".UpdatedReceiver"
             android:exported="false">

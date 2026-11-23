@@ -5465,6 +5465,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۷۵: هشدار امنیتی هنگام نصب — به‌روزرسانی بی‌صفحهٔ اندروید ۱۲+، نصب اول ویندوز بدون نشان مرورگر ── */
+  await test('ردیف ۱۷۵: اندروید ۱۲+ به‌روزرسانی خودِ برنامه بدون صفحهٔ نصب (با بازگشت امن)، نصب اول ویندوز با PowerShell و SHA256SUMS بسته در خطا (۶ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/install-175.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'install-175: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|INSTALL-175/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۷۴: کارهای باز مالک — ابطال کلید افشاشده، تصمیم ADR-105، خوانایی RTL ── */
   await test('ردیف ۱۷۴: کلید امضای افشاشده ابطال و در هر چهار مرحلهٔ امضا رد می‌شود، تصمیم ADR-105، «نسخهٔ X» و «روز، تاریخ» (۶ بررسی)',
     async () => {

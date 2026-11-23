@@ -77,7 +77,8 @@ abstract interface class ApkInstaller {
   Future<Directory> cacheDir();
 
   /// `started` ⇒ نصب‌کنندهٔ سیستم باز شد (برنامه پس از نصب بسته و دوباره باز می‌شود)؛
-  /// `needs_permission` ⇒ صفحهٔ اجازهٔ «نصب برنامه‌های ناشناس» باز شد.
+  /// `needs_permission` ⇒ صفحهٔ اجازهٔ «نصب برنامه‌های ناشناس» باز شد؛
+  /// `silent` ⇒ (ردیف ۱۷۵، اندروید ۱۲+) نصب بدون صفحهٔ نصب‌کننده آغاز شد.
   Future<String> install(File apk);
 }
 

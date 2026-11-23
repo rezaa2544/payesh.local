@@ -152,6 +152,7 @@ jobs:
           NOTES="فهرست دسته‌بندی‌شدهٔ همهٔ دانلودها (ویندوز ۶۴ و ۳۲ بیتی، اندروید، سرور): https://github.com/rezaa2544/payesh.local/releases/tag/downloads
           اپ مدرسه **بومی** (Flutter) — بدون WebView، بدون WebView2، بدون مرورگر پنهان و بدون Node.js برای رابط. ردیف ۱۲۹.
           payesh-native-setup.exe: نصب‌کنندهٔ ویندوز اپ مدرسه/کاربر. امضای کد (Authenticode) هنوز نیست، پس Windows SmartScreen هشدار می‌دهد: پیش از اجرا SHA256 را با SHA256SUMS مقایسه کنید (Get-FileHash payesh-native-setup.exe)، سپس More info ← Run anyway.
+          نصب بدون هشدار SmartScreen (ردیف ۱۷۵): در PowerShell بزنید  irm https://raw.githubusercontent.com/rezaa2544/payesh.local/main/install/windows/get-payesh.ps1 | iex  — همین فایل را می‌گیرد، با SHA256SUMS می‌سنجد و بی‌صدا نصب می‌کند.
           payesh-native-windows.zip: همان برنامهٔ ویندوز به‌صورت قابل‌حمل.
           payesh-native.apk: اپ اندروید، امضاشده با کلید مالک (ردیف ۶۱)؛ روی نسخهٔ قبلی درجا ارتقا می‌یابد.
           هر فایل در CI از دروازهٔ استقلال بومی گذشته و روی ویندوز نصب، آزموده و حذف شده است: $RUN_URL

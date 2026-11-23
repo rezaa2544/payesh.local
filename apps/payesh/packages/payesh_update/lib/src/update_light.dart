@@ -78,6 +78,8 @@ class _UpdateLightState extends State<UpdateLight> {
         tk.warning,
         u.isWindows
             ? 'در حال نصب — برنامه بسته و دوباره باز می‌شود'
+            : u.silentInstall
+            ? 'در حال نصب — برنامه چند لحظه بسته می‌شود؛ سپس دوباره بازش کنید'
             : 'در حال نصب — پس از نصب برنامه دوباره باز می‌شود',
       ),
       UpdatePhase.idle => (tk.muted, 'بررسی به‌روزرسانی'),
@@ -241,6 +243,8 @@ class _UpdateBannerState extends State<UpdateBanner> {
       UpdatePhase.applying =>
         u.isWindows
             ? 'در حال نصب — برنامه بسته و دوباره باز می‌شود'
+            : u.silentInstall
+            ? 'در حال نصب — برنامه چند لحظه بسته می‌شود؛ سپس دوباره بازش کنید'
             : 'نصب‌کنندهٔ اندروید باز شد — «نصب» را بزنید',
       UpdatePhase.failed => '${u.error ?? 'نصب ناموفق بود'} — دوباره بزنید',
       _ =>

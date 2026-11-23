@@ -544,6 +544,35 @@ void main() {
       },
     );
 
+    test('ردیف ۱۷۵: نصب بی‌صفحه (silent) ⇒ در حال نصب و پرچم silentInstall؛ پاسخ ناشناخته ⇒ خطا', () async {
+      final h = http();
+      final inst = FakeInstaller(Directory('${tmp.path}/cache'))
+        ..answer = 'silent';
+      final u = AppUpdater(
+        channel: channel,
+        http: () => h,
+        windows: false,
+        currentBuild: 7,
+        retry: UpdateRetry.none,
+        apkInstaller: inst,
+        stagingRoot: staging,
+        installDir: install,
+      );
+      await u.check();
+      expect(u.silentInstall, isFalse);
+      await u.tap();
+      expect(inst.installed!.path, endsWith('payesh-update-8.apk'));
+      expect(u.phase, UpdatePhase.applying);
+      expect(u.silentInstall, isTrue);
+      expect(u.error, isNull);
+
+      inst.answer = 'weird';
+      u.phase = UpdatePhase.ready;
+      await u.tap();
+      expect(u.phase, UpdatePhase.failed);
+      await u.dispose();
+    });
+
     test(
       'ساخت تازه‌تر نیست ⇒ به‌روز؛ بدون نصب‌کنندهٔ بومی ⇒ صفحهٔ دانلود',
       () async {
@@ -926,7 +955,7 @@ final class FakeInstaller implements ApkInstaller {
 
   @override
   Future<String> install(File apk) async {
-    if (answer == 'started') installed = apk;
+    if (answer == 'started' || answer == 'silent') installed = apk;
     return answer;
   }
 }

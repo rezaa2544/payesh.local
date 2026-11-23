@@ -104,6 +104,10 @@ class AppUpdater {
   bool _androidNewer(UpdateManifest m) =>
       currentBuild > 0 && m.build > currentBuild && m.apk != null;
 
+  /// ردیف ۱۷۵: اندروید ۱۲+ نسخهٔ تازه را بدون صفحهٔ نصب‌کننده نصب می‌کند (به‌روزرسانی خودِ
+  /// برنامه با همان کلید)؛ اندروید برنامه را برای جایگزینی می‌بندد.
+  bool silentInstall = false;
+
   /// در حال کار (چراغ «زنده»).
   bool get busy =>
       phase == UpdatePhase.checking ||
@@ -281,6 +285,9 @@ class AppUpdater {
           UpdatePhase.ready,
           err: const UpdateException('install_permission').messageFa,
         );
+      } else if (r == 'silent') {
+        silentInstall = true;
+        _emit();
       } else if (r != 'started') {
         throw UpdateException('install', r);
       }

@@ -144,6 +144,7 @@ jobs:
           پنل مالک **بومی** (Flutter) — بدون WebView، بدون WebView2، بدون مرورگر پنهان و بدون Node.js. ردیف ۱۲۶.
           نصبی فقط برای مالک؛ تست روی دستگاه واقعی هنوز تأیید نشده [?]. انتشار رسمی نیست.
           payesh-owner-setup.exe: نصب‌کنندهٔ ویندوز؛ پنل WebView قبلی را درجا جایگزین می‌کند و آدرس سرور ذخیره‌شده را نگه می‌دارد. امضای کد (Authenticode) هنوز نیست، پس Windows SmartScreen هشدار می‌دهد: پیش از اجرا SHA256 را با SHA256SUMS مقایسه کنید (Get-FileHash payesh-owner-setup.exe)، سپس More info ← Run anyway.
+          نصب بدون هشدار SmartScreen (ردیف ۱۷۵): در PowerShell بزنید  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/rezaa2544/payesh.local/main/install/windows/get-payesh.ps1))) -App owner  — همین فایل را می‌گیرد، با SHA256SUMS می‌سنجد و بی‌صدا نصب می‌کند.
           payesh-owner.apk: امضاشده با کلید مالک (همان امضای APK قبلی)؛ روی اپ قبلی درجا ارتقا می‌یابد.
           payesh-owner-windows.zip: همان برنامهٔ ویندوز به‌صورت قابل‌حمل.
           هر فایل در CI از دروازهٔ استقلال بومی گذشته است: $RUN_URL

@@ -71,6 +71,8 @@ class _UpdateCardState extends State<UpdateCard> {
       case UpdatePhase.applying:
         text = u.isWindows
             ? 'در حال نصب… برنامه بسته و پس از جایگزینی فایل‌ها خودکار دوباره باز می‌شود.'
+            : u.silentInstall
+            ? 'در حال نصب… برنامه چند لحظه بسته می‌شود؛ سپس دوباره بازش کنید.'
             : 'نصب‌کنندهٔ اندروید باز شد؛ پس از نصب، برنامه دوباره باز می‌شود.';
       case UpdatePhase.failed:
         text = u.error;
