@@ -1,0 +1,92 @@
+TEST_ID=GRADLE-VERIFY
+PURPOSE=PC Gradle cache (612 entries) vs upstream .sha1
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash ~/lab176/scripts/gradle-verify.sh
+START=2026-11-24T04:13:48Z
+----- RAW -----
+MATCH    org/jetbrains/kotlin/kotlin-tooling-core/2.2.21/kotlin-tooling-core-2.2.21.jar 685151c03e638207a3b5045002411fbef78fdeb repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-tooling-core/2.2.21/kotlin-tooling-core-2.2.21.pom d322fdd0c9beba1f1e6c9fbc68a8d1a2fafb2130 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-tooling-core/2.4.0/kotlin-tooling-core-2.4.0.jar 75970f5a2a9cb4d25557965bbec0a7ccd55bfbcf repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-tooling-core/2.4.0/kotlin-tooling-core-2.4.0.pom b91058ea726abfa0b2da97aea29272c02c585acf repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-io/2.0.0/kotlin-util-io-2.0.0.pom 1e0dbb52e205535bd463ead55f08be3083c8e575 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-io/2.0.0/kotlin-util-io-2.0.0.jar b99cf9311bece174111296392b11c662b5fc1949 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-io/2.2.21/kotlin-util-io-2.2.21.pom ec33dc8d062a74815b62d8cd8ef00a87ff0fa2c5 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-io/2.2.21/kotlin-util-io-2.2.21.jar fa383bc0398a3b345940b428d53b5e0010ca07e3 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-io/2.4.0/kotlin-util-io-2.4.0.jar 5cbad06319bd397dde521561701c0f5b36cd7faf repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-io/2.4.0/kotlin-util-io-2.4.0.pom e4b09b1556d22448db5d9a2728e69807f954e314 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-klib/2.0.0/kotlin-util-klib-2.0.0.jar 46dc3eecb38a50482064a141d457e25f66c74751 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-klib/2.0.0/kotlin-util-klib-2.0.0.pom 4a716dc72cacfe45d1d21cff50d57cb2fe66bbfc repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-klib/2.2.21/kotlin-util-klib-2.2.21.pom 87c0bb16dd0257178a8317e36fe83d32432f3de5 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-klib/2.2.21/kotlin-util-klib-2.2.21.jar aa33b85baf74644feb9c5e12ac10b08f417359a repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-klib/2.4.0/kotlin-util-klib-2.4.0.jar 336a8a1bd6fab18c5e529811076de2c0d46b3cdb repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-klib/2.4.0/kotlin-util-klib-2.4.0.pom bbea0bc5ac5a35a71b0647744b5e33b868990fad repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-klib-metadata/2.2.21/kotlin-util-klib-metadata-2.2.21.jar 5d2acad8f6ba832aa30cf50abb4f25bbe00ace34 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-klib-metadata/2.2.21/kotlin-util-klib-metadata-2.2.21.pom 6c8cada557f9ccd128e9b762b9d2db57b3084ea repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-klib-metadata/2.4.0/kotlin-util-klib-metadata-2.4.0.jar 83486d03b118c0fd8a3c6901f9990fd90d9f8591 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/kotlin-util-klib-metadata/2.4.0/kotlin-util-klib-metadata-2.4.0.pom fd99e887640b26fb3feb70793f484a75aacb67ff repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.4.0/org.jetbrains.kotlin.android.gradle.plugin-2.4.0.pom 64d9d8bb89afd42e02e8777c646b989c8518a1cc repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlin/jvm/org.jetbrains.kotlin.jvm.gradle.plugin/2.2.20/org.jetbrains.kotlin.jvm.gradle.plugin-2.2.20.pom e41c54ed27a9a57e81b85d4c4edb58f4854779e8 plugins.gradle.org/m2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-android/1.7.1/kotlinx-coroutines-android-1.7.1.module 1b02f35d403c0f103b5ab7d514f7a82ce1c62be3 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-android/1.7.1/kotlinx-coroutines-android-1.7.1.pom 9ee6cbd283c294cf4acac8a2a4ace40fbb5611d9 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-android/1.7.1/kotlinx-coroutines-android-1.7.1.jar c2d86b569f10b7fc7e28d3f50c0eed97897d77a7 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.7.1/kotlinx-coroutines-bom-1.7.1.pom a401c2b3dd81c9524eea251b932551df80112e4a repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.8.0/kotlinx-coroutines-bom-1.8.0.pom ffe074f050e215c80d7d76f740f8c1095a8da403 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.9.0/kotlinx-coroutines-bom-1.9.0.pom 11a86a1aa2fb0ecb72e865e4e0b421be56eb30fb repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core/1.7.1/kotlinx-coroutines-core-1.7.1.module 2be13ceb2f0f7c8a3e3eb8cf78f5de0f2420a1c3 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core/1.7.1/kotlinx-coroutines-core-1.7.1.pom 7d06f54556706010a3f0e50e2480a6f3e14f6686 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core/1.9.0/kotlinx-coroutines-core-1.9.0.module 3bdff39bfd164fa139252fdcf98c5a5122f7aa9d repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core/1.9.0/kotlinx-coroutines-core-1.9.0.pom d3fdd34e883e3a68fb4c10f33ab3abc4d66bdb28 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.7.1/kotlinx-coroutines-core-jvm-1.7.1.module 38f436b8c182a563ae05b68ca452b8d9b9207d25 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.7.1/kotlinx-coroutines-core-jvm-1.7.1.jar 63a0779cf668e2a47d13fda7c3b0c4f8dc7762f4 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.7.1/kotlinx-coroutines-core-jvm-1.7.1.pom d94b719623f7cc0ae33da71590f5d2d3376e5ca4 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.8.0/kotlinx-coroutines-core-jvm-1.8.0.module 514090b64cfb8bf6bf3bd9a3a3d2baa721bdb421 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.8.0/kotlinx-coroutines-core-jvm-1.8.0.jar ac1dc37a30a93150b704022f8d895ee1bd3a36b3 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.8.0/kotlinx-coroutines-core-jvm-1.8.0.pom e780ad230da743bcd753190ac043e58e3187c591 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.9.0/kotlinx-coroutines-core-jvm-1.9.0.module 253c11ec9fcf1ba2abc04263404ae403e4560e76 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.9.0/kotlinx-coroutines-core-jvm-1.9.0.jar 9beade4c1c1569e4f36cbd2c37e02e3e41502601 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.9.0/kotlinx-coroutines-core-jvm-1.9.0.pom f3febcf3224434beeb65f4d19de553b6b9db6fd repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-serialization-core/1.4.0/kotlinx-serialization-core-1.4.0.pom 33588f59d46127feb32deb6ee42da43b517b289e repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-serialization-core/1.4.0/kotlinx-serialization-core-1.4.0.module bd86e33c110cf8ae994ff3677ecbdb80cc4bda92 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-serialization-core-jvm/1.4.0/kotlinx-serialization-core-jvm-1.4.0.module 6194073efde423e9f2a1bbe7067c7061a72ecf3b repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-serialization-core-jvm/1.4.0/kotlinx-serialization-core-jvm-1.4.0.jar 9b00d574374ae0201a505ab54c7744586866dc27 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-serialization-core-jvm/1.4.0/kotlinx-serialization-core-jvm-1.4.0.pom c8a7de10f28d65158da28677bda2b114c4c7707 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-serialization-json/1.4.0/kotlinx-serialization-json-1.4.0.module 30522ef157aec6c26b3d0fc92a5b59a3a3a059e2 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-serialization-json/1.4.0/kotlinx-serialization-json-1.4.0.pom 689efc81fd28905f30472fcc3b4833d23b7f715d repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-serialization-json-jvm/1.4.0/kotlinx-serialization-json-jvm-1.4.0.pom 309417ac51c56af9e72051610b0b19bec99b4d69 repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-serialization-json-jvm/1.4.0/kotlinx-serialization-json-jvm-1.4.0.jar cfa3e57d044a20e5c9e4561a997df823e2f1c81a repo1.maven.org/maven2
+MATCH    org/jetbrains/kotlinx/kotlinx-serialization-json-jvm/1.4.0/kotlinx-serialization-json-jvm-1.4.0.module d5b2ea30952aabecaedb71cf9f436427bd8f597f repo1.maven.org/maven2
+MATCH    org/jspecify/jspecify/1.0.0/jspecify-1.0.0.jar 7425a601c1c7ec76645a78d22b8c6a627edee507 repo1.maven.org/maven2
+MATCH    org/jspecify/jspecify/1.0.0/jspecify-1.0.0.module 9c18ac54a30620fdc216c01faf87c0f7effbeec7 repo1.maven.org/maven2
+MATCH    org/jspecify/jspecify/1.0.0/jspecify-1.0.0.pom fae4a252aeee8a649653b2f239067bcead8f80cb repo1.maven.org/maven2
+MATCH    org/junit/junit-bom/5.10.2/junit-bom-5.10.2.pom b25ed98a5bd08cdda60e569cf22822a760e76019 repo1.maven.org/maven2
+MATCH    org/junit/junit-bom/5.10.2/junit-bom-5.10.2.module ce536748a853ae6ac09e7815fce0678a96cff778 repo1.maven.org/maven2
+MATCH    org/junit/junit-bom/5.11.0-M2/junit-bom-5.11.0-M2.module 4546561225def9f7f99c7c1abc3828dec51aad2a repo1.maven.org/maven2
+MATCH    org/junit/junit-bom/5.11.0-M2/junit-bom-5.11.0-M2.pom 6c517cddae7893aba5bf9f051c44860a4fc18211 repo1.maven.org/maven2
+MATCH    org/jvnet/staxex/stax-ex/1.8.1/stax-ex-1.8.1.jar 78011e483a21102fb4858f3e8f269a677e50aa23 repo1.maven.org/maven2
+MATCH    org/jvnet/staxex/stax-ex/1.8.1/stax-ex-1.8.1.pom 93132b1ebaf1c419ad3d2216924af39c68f43b51 repo1.maven.org/maven2
+MATCH    org/ow2/ow2/1.5.1/ow2-1.5.1.pom bda66fa5f1b68fa7d2de3d569bdc8508b2af82d4 repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm/9.7.1/asm-9.7.1.pom 381a4b6892969305d88ee13c53e88eabff82d382 repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm/9.7.1/asm-9.7.1.jar f0ed132a49244b042cd0e15702ab9f2ce3cc8436 repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm/9.9/asm-9.9.pom 6be75cdd226790754abd862eca949e7b8d1f98a3 repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm/9.9/asm-9.9.jar c29635c8a7afa03d74b33c1884df8abb2b3f3dcc repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm-analysis/9.9/asm-analysis-9.9.pom 904d037a3b4f4d72ea24f220a35143588351c48f repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm-analysis/9.9/asm-analysis-9.9.jar bf4fa6e66638851c1cd22c2caea0c3ee5d5f437 repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm-commons/9.9/asm-commons-9.9.jar db9165a3bf908ded6b08612d583a15d1d0c7bda0 repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm-commons/9.9/asm-commons-9.9.pom ddc3d39d810a7ab2b48838dc409160d50973d8cd repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm-tree/9.9/asm-tree-9.9.pom aa8617df7e8a81ab44fd42d09c55c57c01da9521 repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm-tree/9.9/asm-tree-9.9.jar f8de6eead6d24dd0f45bd065bbe112b2cda6ea21 repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm-util/9.9/asm-util-9.9.jar 42fdfc0508b43807c8078d6e82ecff2ce2112ae8 repo1.maven.org/maven2
+MATCH    org/ow2/asm/asm-util/9.9/asm-util-9.9.pom c04c21f71b58649ba15eee7e8b6aae28f6427996 repo1.maven.org/maven2
+MATCH    org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom 2013960e5ee7f712d8fa6f2e618a6ff2e8d98a9 repo1.maven.org/maven2
+MATCH    org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.jar b5a4b6d16ab13e34a88fae84c35cd5d68cac922c repo1.maven.org/maven2
+MATCH    org/slf4j/slf4j-parent/1.7.30/slf4j-parent-1.7.30.pom d3cf0e0cdb58d3c6f8a08c21e55894422fd725b9 repo1.maven.org/maven2
+MATCH    org/sonatype/oss/oss-parent/7/oss-parent-7.pom 46b8a785b60a2767095b8611613b58577e96d4c9 repo1.maven.org/maven2
+MATCH    org/sonatype/oss/oss-parent/9/oss-parent-9.pom e5cdc4d23b86d79c436f16fed20853284e868f65 repo1.maven.org/maven2
+MATCH    org/tensorflow/tensorflow-lite-metadata/0.2.0/tensorflow-lite-metadata-0.2.0.pom 3d4eeba9903312a3ddf95937897f99db183be6c8 repo1.maven.org/maven2
+MATCH    org/tensorflow/tensorflow-lite-metadata/0.2.0/tensorflow-lite-metadata-0.2.0.jar 7dbe8f75ae5c0ef7093c43c3ac8b560bbc7ea4b6 repo1.maven.org/maven2
+GRADLE-VERIFY total=80 match=80 mismatch=0 notfound=0
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:13:55Z
+DURATION_S=7

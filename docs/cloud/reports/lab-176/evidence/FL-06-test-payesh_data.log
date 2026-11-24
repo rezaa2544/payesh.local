@@ -1,0 +1,45 @@
+TEST_ID=FL-06-test-payesh_data
+PURPOSE=package tests (CI rule: flutter test for flutter pkgs, coverage:test_with_coverage otherwise)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh/packages/payesh_data && if grep -q 'sdk: flutter' pubspec.yaml; then flutter test --concurrency=1 --coverage; else dart run coverage:test_with_coverage; fi
+START=2026-11-24T04:14:28Z
+----- RAW -----
+Running build hooks...Running build hooks...The Dart VM service is listening on http://127.0.0.1:34917/
+The Dart DevTools debugger and profiler is available at: http://127.0.0.1:34917/devtools/?uri=ws://127.0.0.1:34917/ws
+00:00 +0: loading test/encrypted_database_test.dart
+00:00 +0: test/encrypted_database_test.dart: the linked SQLite is SQLite3 Multiple Ciphers (encryption available)
+00:00 +1: test/encrypted_database_test.dart: data at rest is encrypted: no plaintext header, no plaintext values on disk
+00:00 +2: test/encrypted_database_test.dart: wrong key and missing key cannot read the file
+00:00 +3: test/encrypted_database_test.dart: tampering with ciphertext is detected (page MAC)
+00:00 +4: test/encrypted_database_test.dart: key rotation: old key stops working, new key opens, data intact
+00:00 +5: test/encrypted_database_test.dart: one-time migration of an existing plaintext database
+00:00 +6: test/encrypted_database_test.dart: keys must be 256-bit lowercase hex (no SQL injection through the key)
+00:00 +7: test/encrypted_database_test.dart: exception messages are descriptive
+00:00 +8: loading test/conformance_test.dart
+00:00 +8: test/conformance_test.dart: vector file identity
+00:00 +9: test/conformance_test.dart: put then get returns the stored row with derived k/refKeys
+00:00 +10: test/conformance_test.dart: put overwrites by k (collection/id) and keeps one row
+00:01 +11: test/conformance_test.dart: refKeys skip null and object values; explicit refFields override
+00:01 +12: test/conformance_test.dart: putMany + list orders by key string within collection (IndexedDB primary-key order)
+00:01 +13: test/conformance_test.dart: byRef returns only the requested collection, ordered by key
+00:01 +14: test/conformance_test.dart: since is inclusive, ordered by updated_at then key, and honours limit
+00:01 +15: test/conformance_test.dart: del removes one row; clear removes all
+00:01 +16: test/conformance_test.dart: Persian text, numbers and nested JSON round-trip unchanged
+00:01 +17: loading test/engine_test.dart
+00:01 +17: test/engine_test.dart: migrations fresh database is migrated to the latest schema
+00:01 +18: test/engine_test.dart: migrations v1 database with data migrates to v2 and keeps rows
+00:01 +19: test/engine_test.dart: migrations database newer than this build is refused (no silent downgrade)
+00:01 +20: test/engine_test.dart: migrations a failing migration rolls back completely
+00:01 +21: test/engine_test.dart: engine rows survive close/reopen of a database file
+00:01 +22: test/engine_test.dart: engine default updated_at comes from the injected clock
+00:01 +23: test/engine_test.dart: engine loadChunked reports progress and loads 10k rows
+00:01 +24: test/engine_test.dart: engine putMany of an empty list is a no-op
+00:01 +25: test/engine_test.dart: engine a failing batch is atomic (no partial putMany)
+00:01 +26: test/engine_test.dart: refKeysOf / jsString (JavaScript parity) numbers stringify like JavaScript
+00:01 +27: test/engine_test.dart: refKeysOf / jsString (JavaScript parity) only *_id / id fields, null and objects skipped
+00:01 +28: All tests passed!
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:14:32Z
+DURATION_S=4

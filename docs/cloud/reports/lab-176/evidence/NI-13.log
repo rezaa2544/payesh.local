@@ -1,0 +1,26 @@
+TEST_ID=NI-13
+PURPOSE=CI native-client/gateway-real step: pub get (lockfile enforced)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-13.sh
+START=2026-11-24T04:20:10Z
+----- RAW -----
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 103.0.0 (111.0.0 available)
+  analyzer 13.3.0 (14.7.0 available)
+  cli_util 0.6.0 (0.6.1 available)
+  coverage 1.16.0 (1.16.1 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  package_config 2.2.0 (3.0.0 available)
+  sqlite3 3.9.1 (3.9.2 available)
+  test 1.31.1 (1.33.0 available)
+  test_api 0.7.12 (0.7.15 available)
+  test_core 0.6.18 (0.6.21 available)
+Got dependencies!
+10 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:20:11Z
+DURATION_S=1

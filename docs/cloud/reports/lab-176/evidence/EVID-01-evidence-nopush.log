@@ -1,0 +1,25 @@
+TEST_ID=EVID-01-evidence-nopush
+PURPOSE=_evidence main (tests-evidence + gen-audit + commit + sha-89 check) WITHOUT push
+SHA=6896e144e5e1ec350c3862d72cb8754c080213f4 (+ working-tree diff raw/FIX-D01-D02.diff: )
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /home/user/lab176/scripts/evidence-nopush.sh
+START=2026-11-24T05:30:56Z
+----- RAW -----
+→ docs/cloud/reports/evidence/mission-05-tests-run.log
+→ docs/cloud/reports/evidence/tests-run-6896e14-20261124T053056Z.log (append-only)
+pass=158 fail=0 registered=158 exit=0
+body_sha256=fce66bd074900df21646e1ba7de2079528294f7bd8ab422301a5471980f06bfe
+product_tree_sha256=b4e651afa478ae51f9fe47631b8f115e1096782abdcfe508f9df95a31b9b2bba
+LINE: pass=158 fail=0 registered=158 exit=0
+→ docs/cloud/reports/evidence/mission-05-11-structure.txt (pass=158 fail=0 measured P/F/U=26/40/7)
+EVIDENCE-OK
+sha=6896e144e5e1ec350c3862d72cb8754c080213f4
+body_sha256=fce66bd074900df21646e1ba7de2079528294f7bd8ab422301a5471980f06bfe
+product_tree_sha256=b4e651afa478ae51f9fe47631b8f115e1096782abdcfe508f9df95a31b9b2bba
+EVIDENCE-SHA-89-OK files=629 txt=177 log=421 other_embedded=4 indexed=27 mapped_refs=11 failures=0
+62179d50 evidence: main — tests-run 158/158, EVIDENCE-OK
+NO PUSH (pending owner approval)
+----- END RAW -----
+EXIT=0
+END=2026-11-24T05:35:39Z
+DURATION_S=283

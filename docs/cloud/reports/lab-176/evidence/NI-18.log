@@ -1,0 +1,33 @@
+TEST_ID=NI-18
+PURPOSE=CI native-client/owner-native-it step: payesh_owner_api ⇄ real Gateway + platform API (PGlite) + parity with web/app.js
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  4 files changed, 241 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-18.sh
+START=2026-11-24T04:20:46Z
+----- RAW -----
+00:00 +0: loading test/real_server_it_test.dart
+00:00 +0: test/real_server_it_test.dart: (setUpAll)
+00:02 +0: test/real_server_it_test.dart: native owner client ⇄ real Gateway + platform API + PostgreSQL
+  ✓ health readable without session; dashboard without token ⇒ 401
+  ✓ password + wrong TOTP ⇒ refused; password + TOTP ⇒ owner session
+  ✓ dashboard counters; tenants list has the seeded schools
+  ✓ create plan ⇒ listed
+  ✓ renew subscription +30 days (server value)
+  ✓ limits + usage of a school
+  ✓ suspend school ⇒ status suspended
+  ✓ deletion: self-approve ⇒ four_eyes_required; owner2 approves; early execute ⇒ deletion_delay_pending; cancel
+  ✓ create school ⇒ school_provisioning_failed on a stack without a school DB; same-op retry is safe
+  ✓ operator: renew/createUser ⇒ 403; grant request → owner approves → revoke; users listed
+  ✓ infra: raw credential refused; provider/service/endpoint/metrics; check + cooldown; operator request → owner approve
+  ✓ audit: 20 events, hash chain continuous; report aggregates
+  ✓ same API through the owner-panel server origin
+  ✓ tampered token ⇒ 401 ⇒ session dropped
+OWNER-NATIVE-IT-OK steps=14 db=pglite
+00:03 +1: test/real_server_it_test.dart: (tearDownAll)
+00:03 +1: loading test/parity_test.dart
+00:03 +1: test/parity_test.dart: errors, pages, roles and caps equal the web panel
+00:03 +2: All tests passed!
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:20:51Z
+DURATION_S=5

@@ -1,0 +1,35 @@
+== labctl recover @ 2026-11-24T03:26:48Z
+CLAIM status=200 ok=true
+ACTIVE-BEFORE {"ó|—«Ì«‰Â? „œ—”Â":1,"ó|lab176-labctl":9,"ó|Å«Ì‘ android":1,"ó|”Ì” „ „œÌ—":1}
+REVOKED lab176-labctl=0
+ACTIVE-AFTER-REVOKE {"ó|—«Ì«‰Â? „œ—”Â":1,"ó|lab176-labctl":9,"ó|Å«Ì‘ android":1,"ó|”Ì” „ „œÌ—":1}
+== labctl pwcheck @ 2026-11-24T03:26:48Z
+PWCHECK teacher_pw1 status=401 error=bad_credentials
+PWCHECK teacher_pw0 status=200 LOGIN-OK
+PWCHECK logout status=200
+== labctl pull @ 2026-11-24T03:26:49Z
+LOGIN-FAIL 409 device_limit
+== labctl recover @ 2026-11-24T03:27:22Z
+CLAIM status=200 ok=true
+ACTIVE-BEFORE {"ó|—«Ì«‰Â? „œ—”Â":2,"ó|lab176-pwcheck":1,"ó|lab176-labctl":9,"ó|Å«Ì‘ android":1,"ó|”Ì” „ „œÌ—":1}
+REVOKED lab176-labctl/pwcheck=10 sample-row-keys=["id","user_id","user_name","role","name","platform","created_at","last_seen_at","revoked","key_bound","revoke_reason"] user_name/role of all=["ó/ó"]
+ACTIVE-AFTER-REVOKE {"ó|—«Ì«‰Â? „œ—”Â":2,"ó|lab176-pwcheck":1,"ó|lab176-labctl":9,"ó|Å«Ì‘ android":1,"ó|”Ì” „ „œÌ—":1}
+CLAIM-DEVICE-REVOKED status=200
+== labctl pull @ 2026-11-24T03:27:22Z
+PULL {"status":200,"total":20,"by":{"schools":1,"school_years":1,"users":4,"classes":1,"subjects":1,"lookups":7,"schedule":1,"attendance":4},"attendance_fields":["collection","id","student_id","class_id","date","status","note","source","school_id","_version"],"attendance":[{"id":4025180000000004,"student_id":4,"class_id":1,"date":"2026-11-23","status":"absent"},{"id":4025180000000003,"student_id":3,"class_id":1,"date":"2026-11-23","status":"late"},{"id":4025190000000004,"student_id":4,"class_id":1,"date":"2026-11-24","status":"present"},{"id":4025190000000003,"student_id":3,"class_id":1,"date"...
+SELF-DEVICE-REVOKED status=200
+== docker logs school: lines mentioning auth/password (count) = 0
+== labctl recover (cleanup pass) @ 2026-11-24T03:27:55Z
+CLAIM status=200 ok=true
+ACTIVE-BEFORE {"ó|—«Ì«‰Â? „œ—”Â":2,"ó|Å«Ì‘ android":1,"ó|”Ì” „ „œÌ—":1}
+REVOKED lab176-labctl/pwcheck=0 sample-row-keys=["id","user_id","user_name","role","name","platform","created_at","last_seen_at","revoked","key_bound","revoke_reason"] user_name/role of all=["ó/ó"]
+ACTIVE-AFTER-REVOKE {"ó|—«Ì«‰Â? „œ—”Â":2,"ó|Å«Ì‘ android":1,"ó|”Ì” „ „œÌ—":1}
+CLAIM-DEVICE-REVOKED status=200
+CLAIM-DEVICE-REVOKED status=401
+== labctl recover (cleanup pass) @ 2026-11-24T03:28:12Z
+CLAIM status=200 ok=true
+ACTIVE-BEFORE {"ó|—«Ì«‰Â? „œ—”Â":2,"ó|Å«Ì‘ android":1,"ó|”Ì” „ „œÌ—":1}
+REVOKED lab176-labctl/pwcheck=0 sample-row-keys=["id","user_id","user_name","role","name","platform","created_at","last_seen_at","revoked","key_bound","revoke_reason"] user_name/role of all=["ó/ó"]
+ACTIVE-AFTER-REVOKE {"ó|—«Ì«‰Â? „œ—”Â":2,"ó|Å«Ì‘ android":1,"ó|”Ì” „ „œÌ—":1}
+CLAIM-DEVICE-REVOKED status=200
+CLAIM-DEVICE-REVOKED status=200

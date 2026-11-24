@@ -1,0 +1,594 @@
+TEST_ID=FL-06-test-payesh_sync
+PURPOSE=package tests (CI rule: flutter test for flutter pkgs, coverage:test_with_coverage otherwise)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh/packages/payesh_sync && if grep -q 'sdk: flutter' pubspec.yaml; then flutter test --concurrency=1 --coverage; else dart run coverage:test_with_coverage; fi
+START=2026-11-24T04:14:41Z
+----- RAW -----
+Running build hooks...Running build hooks...The Dart VM service is listening on http://127.0.0.1:45251/
+The Dart DevTools debugger and profiler is available at: http://127.0.0.1:45251/devtools/?uri=ws://127.0.0.1:45251/ws
+00:00 +0: loading test/pinning_test.dart
+00:00 +0: test/pinning_test.dart: (setUpAll)
+00:00 +0: test/pinning_test.dart: SPKI pin computation matches openssl pin-sha256 for every test certificate
+00:00 +1: test/pinning_test.dart: SPKI pin computation garbage DER is rejected
+00:00 +2: test/pinning_test.dart: GatewayConfig (owner decision: pinning ON + backup pin) accepts https + two distinct pins
+00:00 +3: test/pinning_test.dart: GatewayConfig (owner decision: pinning ON + backup pin) rejects http, a single pin, duplicate pins and malformed pins
+00:00 +4: test/pinning_test.dart: GatewayConfig (owner decision: pinning ON + backup pin) fromEnvironment: unset → no remote data path; set → validated
+00:00 +5: test/pinning_test.dart: pinned TLS client against a mock Gateway primary pin: request goes through with version, request id, device and token
+00:00 +6: test/pinning_test.dart: pinned TLS client against a mock Gateway backup pin only (key rotated on the server): still accepted
+00:00 +7: test/pinning_test.dart: pinned TLS client against a mock Gateway valid chain but UNPINNED key (MITM with trusted CA) → refused, zero HTTP bytes sent
+00:00 +8: test/pinning_test.dart: pinned TLS client against a mock Gateway pinned outbox drain: a pin failure keeps the ops queued (never dropped)
+00:00 +9: test/pinning_test.dart: pinned TLS client against a mock Gateway untrusted chain is still refused (pinning does not disable validation)
+00:00 +10: test/pinning_test.dart: pinned TLS client against a mock Gateway plaintext http and proxies are refused by the pinned client
+00:00 +11: test/pinning_test.dart: GatewayTransport + GatewaySync (mock, plain HTTP) push maps applied / duplicates / conflicts onto the outbox verdicts
+00:00 +12: test/pinning_test.dart: GatewayTransport + GatewaySync (mock, plain HTTP) paged pull applies puts and deletes, persists the seq cursor
+00:00 +13: test/pinning_test.dart: GatewayTransport + GatewaySync (mock, plain HTTP) protocol guards: schema, backwards cursor, no progress, page cap
+00:00 +14: test/pinning_test.dart: GatewayTransport + GatewaySync (mock, plain HTTP) HTTP 401 from the Gateway → SyncFailure(unauthorized)
+00:00 +15: test/pinning_test.dart: (tearDownAll)
+00:00 +15: loading test/sync_client_test.dart
+00:00 +15: test/sync_client_test.dart: pull follows the composite cursor until more=false and persists it
+00:00 +16: test/sync_client_test.dart: pull cursor survives restart (same database file)
+00:00 +17: test/sync_client_test.dart: pull unknown collections and rows without id are skipped, pull does not break
+00:00 +18: test/sync_client_test.dart: pull unsupported schema_version is refused
+00:00 +19: test/sync_client_test.dart: pull more=true without cursor progress is refused (no infinite loop)
+00:01 +20: test/sync_client_test.dart: pull maxPages guard
+00:01 +21: test/sync_client_test.dart: pull a stale page never moves the cursor backwards
+00:01 +22: test/sync_client_test.dart: push / faults syncOnce pushes then pulls
+00:01 +23: test/sync_client_test.dart: push / faults unauthorized: ops stay queued, pull skipped
+00:01 +24: test/sync_client_test.dart: push / faults write_frozen (409) keeps ops queued with backoff
+00:01 +25: test/sync_client_test.dart: push / faults 413 body_too_large halves the batch until it fits; nothing dropped
+00:01 +26: test/sync_client_test.dart: push / faults 413 on a single op fails it (no infinite split)
+00:01 +27: test/sync_client_test.dart: push / faults 429 Retry-After overrides the shorter backoff
+00:01 +28: test/sync_client_test.dart: push / faults network exception → stopped=network, op kept and retried later with the same uid
+00:01 +29: test/sync_client_test.dart: push / faults verdict hooks are called; rejected and conflict leave the queue
+00:01 +30: test/sync_client_test.dart: push / faults convergence (D-28): conflict keeps both versions, server version shown, later edits of that record are superseded, rejected goes to review
+00:01 +31: test/sync_client_test.dart: push / faults conflict without a server row (deleted on server) is still recorded
+00:01 +32: test/sync_client_test.dart: push / faults ordering: ops are sent in enqueue order across batches
+00:01 +33: test/sync_client_test.dart: push / faults crash mid-send: lease expires, recover() and the op is resent
+00:01 +34: test/sync_client_test.dart: push / faults enqueue without k generates a UUIDv4; release ignores non-inflight ops
+00:01 +35: test/sync_client_test.dart: push / faults jittered backoff stays within [1-j, 1] × base
+00:01 +36: test/sync_client_test.dart: push / faults SyncFailure / SyncProtocolException describe themselves
+00:01 +37: loading test/server_it_test.dart
+00:01 +37: test/server_it_test.dart: (setUpAll)
+00:01 +37: test/server_it_test.dart: push: offline-created ops are applied once by the real server
+  Skip: set PAYESH_SERVER_IT=1 to run against the real Node server
+00:01 +37 ~1: test/server_it_test.dart: idempotency: re-sending the same uid is marked duplicate, no second row
+  Skip: set PAYESH_SERVER_IT=1 to run against the real Node server
+00:01 +37 ~2: test/server_it_test.dart: pull: real rows land in the local SQLite engine; second pull is empty
+  Skip: set PAYESH_SERVER_IT=1 to run against the real Node server
+00:01 +37 ~3: test/server_it_test.dart: fault: bad token → unauthorized, ops stay queued and are sent after re-login
+  Skip: set PAYESH_SERVER_IT=1 to run against the real Node server
+00:01 +37 ~4: test/server_it_test.dart: fault: server killed (offline) → op kept; after restart it is applied exactly once
+  Skip: set PAYESH_SERVER_IT=1 to run against the real Node server
+00:01 +37 ~5: test/server_it_test.dart: server rejects an unknown collection per op (rejected, not 500)
+  Skip: set PAYESH_SERVER_IT=1 to run against the real Node server
+00:01 +37 ~6: test/server_it_test.dart: convergence: stale edit vs another device → real server conflict; both versions kept
+  Skip: set PAYESH_SERVER_IT=1 to run against the real Node server
+00:01 +37 ~7: test/server_it_test.dart: request headers reach the server (version + request id)
+  Skip: set PAYESH_SERVER_IT=1 to run against the real Node server
+00:01 +37 ~8: test/server_it_test.dart: (tearDownAll)
+00:01 +37 ~8: loading test/server_admin_test.dart
+00:01 +37 ~8: test/server_admin_test.dart: W12-U01 data health: same checks as the web, failures first by severity; NEG a teacher cannot run it
+00:01 +38 ~8: test/server_admin_test.dart: W12-U02 safe fixes queue their repairs (orphan link, deleted class, duplicate lookup, duplicate attendance); NEG unsafe checks are refused
+00:01 +39 ~8: test/server_admin_test.dart: W12-U03 merge: the kept account takes empty fields, dependants move, the duplicate is deleted; NEG nothing to merge / missing main account
+00:01 +40 ~8: test/server_admin_test.dart: W12-U04 a duplicate parent link is dropped, not doubled; stuck queue over 20
+00:01 +41 ~8: test/server_admin_test.dart: W12-U05 server models read the web's fields; the cloud key is never kept
+00:01 +42 ~8: test/server_admin_test.dart: W12-U06 restore file checks (NEG not JSON, not a Payesh backup, too large); connection diagnosis without a server
+00:02 +43 ~8: loading test/school_finder_test.dart
+00:02 +43 ~8: test/school_finder_test.dart: SchoolServerEntry.fromJson DF-01 keeps private LAN addresses and https public address only
+00:02 +44 ~8: test/school_finder_test.dart: SchoolServerEntry.fromJson DF-02 NEG: no instance / no time / no usable address ⇒ skipped
+00:02 +45 ~8: test/school_finder_test.dart: SchoolDirectoryClient (real HTTP) DF-03 freshest first, stale rows skipped, LAN before public
+00:02 +46 ~8: test/school_finder_test.dart: SchoolDirectoryClient (real HTTP) DF-08 row 164: the owner's central server (from any internet) comes first
+00:02 +47 ~8: test/school_finder_test.dart: SchoolDirectoryClient (real HTTP) DF-09 NEG row 164: central must be plain https
+00:02 +48 ~8: test/school_finder_test.dart: SchoolDirectoryClient (real HTTP) DF-04 NEG: 403 / not JSON / other kind ⇒ no candidates
+00:02 +49 ~8: test/school_finder_test.dart: SchoolDirectoryClient (real HTTP) DF-05 no list in this build (no PAYESH_SERVERS_URL) ⇒ no request, no candidates
+00:02 +50 ~8: test/school_finder_test.dart: SchoolDirectoryClient (real HTTP) DF-170 row 170: the domain copy is read first; down / invalid ⇒ the baked list
+00:02 +51 ~8: test/school_finder_test.dart: SchoolDirectoryClient (real HTTP) row 171 — reachable from any network DF-171a defaults: GitHub copy of the list and the central server on the project domain
+00:02 +52 ~8: test/school_finder_test.dart: SchoolDirectoryClient (real HTTP) row 171 — reachable from any network DF-171b domain and database copy down (a phone abroad) ⇒ the GitHub copy is read
+00:02 +53 ~8: test/school_finder_test.dart: SchoolDirectoryClient (real HTTP) row 171 — reachable from any network DF-171c the list has its own central ⇒ it is first, the built-in one is still tried last; no list at all ⇒ the built-in one alone
+00:02 +54 ~8: test/school_finder_test.dart: firstAnswering DF-06 asks all at once; the first that answers wins, failures ignored
+00:02 +55 ~8: test/school_finder_test.dart: firstAnswering DF-07 NEG: none answers / empty list ⇒ null
+00:02 +56 ~8: loading test/offline_119_test.dart
+00:03 +56 ~8: test/offline_119_test.dart: (setUpAll)
+00:03 +56 ~8: test/offline_119_test.dart: O119-S01 internet lost BEFORE send: nothing reaches the server, ops kept, status offline
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~9: test/offline_119_test.dart: O119-S02 internet RETURNS: automatic send after notifyOnline, exactly once, status idle
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~10: test/offline_119_test.dart: O119-S03 internet lost DURING send (cut mid-request): no partial write, then exactly once
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~11: test/offline_119_test.dart: O119-S04 internet lost AFTER send (server applied, verdict lost): retry is a duplicate, not a second write
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~12: test/offline_119_test.dart: O119-S05 Gateway DOWN (process killed) then restarted: ops kept, then exactly once
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~13: test/offline_119_test.dart: O119-S06 DATABASE down: readyz 503, 5xx are transient — never blocked after > maxAttempts; DB back → exactly once
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~14: test/offline_119_test.dart: O119-S07 HTTP 429 + Retry-After: client waits at least Retry-After, then exactly once
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~15: test/offline_119_test.dart: O119-S08 HTTP 500 / 502 / 503: transient backoff, never blocked, then exactly once
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~16: test/offline_119_test.dart: O119-S09 TIMEOUT (blackhole link): transient, ops kept, then exactly once
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~17: test/offline_119_test.dart: O119-S10 CONGESTION (slow link, 300 ops): batched by batchLimit, no duplicate, order kept
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~18: test/offline_119_test.dart: O119-S11 APP RESTART mid-send: separate app process SIGKILLed while its request is on the wire; reopen file → exactly once
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~19: test/offline_119_test.dart: O119-S12 restart while OFFLINE: queue file closed and reopened, pending intact, then exactly once
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~20: test/offline_119_test.dart: O119-S13 AUTOMATIC queue run: enqueue only — AutoSync sends without any manual call; status stream shows it
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~21: test/offline_119_test.dart: O119-S14 RETRY of an already executed op (same k re-queued): server answers duplicate, version stays 1
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~22: test/offline_119_test.dart: O119-S15 DEPENDENT ORDER: a later op (references class) never overtakes the earlier op in backoff
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~23: test/offline_119_test.dart: O119-S16 TWO-DEVICE conflict: second writer gets a conflict, its edit is kept for review (and a later queued edit superseded), server keeps v2
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~24: test/offline_119_test.dart: O119-S17 CROSS-SCHOOL: school B never sees school A rows; B writing the same ids does not touch A
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~25: test/offline_119_test.dart: O119-S18 SENSITIVE DATA authorization: parent pulls only own child grades; forbidden write → visible "attention", bounded retries
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~26: test/offline_119_test.dart: O119-S19 connection LOST AGAIN mid-sync (after 2 of 6 batches): acked part stays acked, rest resent, exactly once, order kept
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~27: test/offline_119_test.dart: O119-S20 NO RETRY STORM: 8 devices through an outage — bounded attempts; on return arrivals are spread; all exactly once
+  Skip: set PAYESH_OFFLINE_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:03 +56 ~28: test/offline_119_test.dart: (tearDownAll)
+00:03 +56 ~28: loading test/classes_test.dart
+00:03 +56 ~28: test/classes_test.dart: W8-U01 overview: rooms vs classes, student counts, definitions in use, subject slots
+00:03 +57 ~28: test/classes_test.dart: W8-U02 grade level: words, digits, longest word first; NEG a branch is not a grade
+00:03 +58 ~28: test/classes_test.dart: W8-U03 class form: field mode needs a branch, class mode none; name from grade+branch; students waiting for this grade/branch join it
+00:03 +59 ~28: test/classes_test.dart: W8-U04 rooms: name only, unique across all classes (letter forms ignored)
+00:03 +60 ~28: test/classes_test.dart: W8-U05 delete class: students stay without a class, in follow-up with the reason
+00:03 +61 ~28: test/classes_test.dart: W8-U06 merge: students, schedule, grades, attendance move; a clashing slot is dropped with its substitution
+00:03 +62 ~28: test/classes_test.dart: W8-U07 definitions: add/edit, duplicate refused, usage, three ways to delete
+00:03 +63 ~28: test/classes_test.dart: W8-U08 delete a grade with its students: grades, attendance, links, students, classes
+00:03 +64 ~28: test/classes_test.dart: W8-U09 subjects: add/edit (workshop), delete removes its slots
+00:03 +65 ~28: test/classes_test.dart: W8-U10 NEG teacher: every write refused, nothing queued
+00:03 +66 ~28: test/classes_test.dart: W8-U11 NEG a full queue refuses a multi-row delete up front: nothing changed
+00:03 +67 ~28: loading test/http_transport_test.dart
+00:03 +67 ~28: test/http_transport_test.dart: pull sends cursor + auth, version, request-id and device headers
+00:04 +68 ~28: test/http_transport_test.dart: push posts {ops} as JSON and parses verdicts
+00:04 +69 ~28: test/http_transport_test.dart: HTTP 401 unauthorized → SyncFailure(unauthorized)
+00:04 +70 ~28: test/http_transport_test.dart: HTTP 403 missing_cell → SyncFailure(missing_cell)
+00:04 +71 ~28: test/http_transport_test.dart: HTTP 403 wrong_cell → SyncFailure(wrong_cell)
+00:04 +72 ~28: test/http_transport_test.dart: HTTP 409 write_frozen → SyncFailure(write_frozen)
+00:04 +73 ~28: test/http_transport_test.dart: HTTP 413 body_too_large → SyncFailure(body_too_large)
+00:04 +74 ~28: test/http_transport_test.dart: HTTP 429 rate_limited → SyncFailure(unknown)
+00:04 +75 ~28: test/http_transport_test.dart: HTTP 502  → SyncFailure(unknown)
+00:04 +76 ~28: test/http_transport_test.dart: non-JSON error body still maps by status
+00:04 +77 ~28: test/http_transport_test.dart: connection refused → SyncFailure network (no code)
+00:04 +78 ~28: test/http_transport_test.dart: server that never answers → SyncFailure timeout
+00:04 +79 ~28: test/http_transport_test.dart: default request ids are UUIDv4 and differ per request
+00:04 +80 ~28: loading test/school_signup_test.dart
+00:04 +80 ~28: test/school_signup_test.dart: rules (same as server/school-registry.js validRequest) S145-U01 a valid request; normalised JSON with the device hash
+00:04 +81 ~28: test/school_signup_test.dart: rules (same as server/school-registry.js validRequest) S145-U02 NEG each field
+00:04 +82 ~28: test/school_signup_test.dart: rules (same as server/school-registry.js validRequest) S145-U03 user-name login + new server errors
+00:04 +83 ~28: test/school_signup_test.dart: rules (same as server/school-registry.js validRequest) S145-U04 subscription status (gate) parsing
+00:04 +84 ~28: test/school_signup_test.dart: rules (same as server/school-registry.js validRequest) S145-U05 ticket store survives a restart; NEG junk
+00:04 +85 ~28: test/school_signup_test.dart: LanSchoolsClient (real HTTP, loopback server) S145-I01 register → status; NEG user name taken
+00:04 +86 ~28: test/school_signup_test.dart: LanSchoolsClient (real HTTP, loopback server) S145-I02 status, trial, gateway link, receipt — with the session token
+00:04 +87 ~28: test/school_signup_test.dart: LanSchoolsClient (real HTTP, loopback server) S145-I03 NEG public address is never contacted
+00:04 +88 ~28: loading test/direct_transport_test.dart
+00:05 +88 ~28: test/direct_transport_test.dart: selection (default off) only PAYESH_TRANSPORT=direct turns the direct path on
+00:05 +89 ~28: test/direct_transport_test.dart: credentials service / secret / privileged keys are refused; public keys pass
+00:05 +90 ~28: test/direct_transport_test.dart: credentials pinned constructor keeps the https + two-pin rule of the Gateway
+00:05 +91 ~28: test/direct_transport_test.dart: credentials provider url: https only (http on loopback), no credentials or query
+00:05 +92 ~28: test/direct_transport_test.dart: PostgrestProvider over real HTTP POST /rest/v1/rpc/<fn> with named parameters, public key + user JWT
+00:05 +93 ~28: test/direct_transport_test.dart: PostgrestProvider over real HTTP errors: 401 → unauthorized, 42501 → forbidden, 54000 → plan_limit, 503 → retryable
+00:05 +94 ~28: test/direct_transport_test.dart: DirectTransport + SqliteOutbox (offline unchanged) outage keeps every op, reconnect drains, replay is a duplicate, the other device pulls plaintext
+00:05 +95 ~28: test/direct_transport_test.dart: DirectTransport + SqliteOutbox (offline unchanged) stale put → conflict with the local copy sealed (never overwrites); stale delete deletes the current version
+00:05 +96 ~28: loading test/notices_it_test.dart
+00:05 +96 ~28: test/notices_it_test.dart: (setUpAll)
+00:05 +96 ~28: test/notices_it_test.dart: W4-IT-01 teacher and parent pull the web notices and read them; neither may write
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:05 +96 ~29: test/notices_it_test.dart: W4-IT-02 manager publishes offline → queued → online → applied once, version 1
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:05 +96 ~30: test/notices_it_test.dart: W4-IT-03 manager edits: version 2, original date kept, teacher sees the edit
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:05 +96 ~31: test/notices_it_test.dart: W4-IT-04 manager deletes: server tombstone; the teacher device drops it on pull
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:05 +96 ~32: test/notices_it_test.dart: W4-IT-05 NEG forged teacher publish and delete → role_denied, nothing changes
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:05 +96 ~33: test/notices_it_test.dart: W4-IT-06 NEG forged parent edit → role_denied; the notice is unchanged
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:05 +96 ~34: test/notices_it_test.dart: W4-IT-07 NEG a second manager device with a stale copy: real conflict → review, server kept
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:05 +96 ~35: test/notices_it_test.dart: W4-IT-08 NEG id collision with a notice this device never pulled → conflict, no overwrite
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:05 +96 ~36: test/notices_it_test.dart: (tearDownAll)
+00:05 +96 ~36: loading test/timetable_test.dart
+00:06 +96 ~36: test/timetable_test.dart: W9-U01 helpers: clock text, Saturday-based weekday, default bells and work days
+00:06 +97 ~36: test/timetable_test.dart: W9-U02 manager view: cohort picker, cohort rows only, today's substitute shown
+00:06 +98 ~36: test/timetable_test.dart: W9-U03 read-only views: teacher (mine / home class), student, parent
+00:06 +99 ~36: test/timetable_test.dart: W9-U04 save slot: the cohort class is reused; a new cohort creates its class row
+00:06 +100 ~36: test/timetable_test.dart: W9-U05 NEG slot rules: no subject, inactive day, cohort / teacher / room clash → refused, nothing queued
+00:06 +101 ~36: test/timetable_test.dart: W9-U06 teacher options are marked busy at that bell; inactive teachers hidden
+00:06 +102 ~36: test/timetable_test.dart: W9-U07 clashes in the data → listed; suggestions are free for class and teacher; move
+00:06 +103 ~36: test/timetable_test.dart: W9-U08 substitution: date must be the slot weekday, another free teacher; one per slot
+00:06 +104 ~36: test/timetable_test.dart: W9-U09 delete slot removes its substitutions; delete one substitution from the list
+00:06 +105 ~36: test/timetable_test.dart: W9-U10 bells: validation, lesson/break numbering, removed rows deleted; work days
+00:06 +106 ~36: test/timetable_test.dart: R166-U01 rotating shift: morning/afternoon bells, first week, weekly flip from Saturday
+00:06 +107 ~36: test/timetable_test.dart: W9-U11 generator: demands by weekly hours, specialists, one-day spread; apply fills only empty cells
+00:06 +108 ~36: test/timetable_test.dart: W9-U12 NEG teacher: every write refused, nothing queued; full queue refuses multi-row up front
+00:06 +109 ~36: loading test/auto_sync_test.dart
+00:06 +109 ~36: test/auto_sync_test.dart: runs automatically after enqueue — no manual drain call
+00:06 +110 ~36: test/auto_sync_test.dart: offline: status offline with pending count; notifyOnline sends everything once
+00:06 +111 ~36: test/auto_sync_test.dart: an all-in-backoff cycle (nothing claimed) does not flip "offline" back to "synced"
+00:06 +112 ~36: test/auto_sync_test.dart: no retry storm: a 1 s outage costs a bounded number of cycles and requests
+00:07 +113 ~36: test/auto_sync_test.dart: transient failures (network/429/5xx) never block, even far beyond maxAttempts
+00:08 +114 ~36: test/auto_sync_test.dart: non-transient failure (403) blocks after maxAttempts and shows "attention"
+00:09 +115 ~36: test/auto_sync_test.dart: FIFO: a later op never overtakes an earlier op that is in backoff
+00:09 +116 ~36: test/auto_sync_test.dart: restart: pending ops in a file-backed outbox survive close/reopen and are sent once
+00:09 +117 ~36: test/auto_sync_test.dart: notifyOnline spreads wake-ups (seeded Random): 40 devices are not scheduled in lockstep
+00:09 +118 ~36: test/auto_sync_test.dart: status stream: every phase change is published with a Persian label
+00:10 +119 ~36: loading test/outbox_conformance_test.dart
+00:10 +119 ~36: test/outbox_conformance_test.dart: vector file identity
+00:10 +120 ~36: test/outbox_conformance_test.dart: enqueue is idempotent on k and the queue is FIFO by seq
+00:10 +121 ~36: test/outbox_conformance_test.dart: full queue refuses the new op and never evicts an old one
+00:10 +122 ~36: test/outbox_conformance_test.dart: claim respects batch limit, lease and backoff windows
+00:10 +123 ~36: test/outbox_conformance_test.dart: exponential backoff capped at maxBackoff; maxAttempts → blocked; retry resets
+00:10 +124 ~36: test/outbox_conformance_test.dart: recover returns expired leases to pending (crash/restart)
+00:10 +125 ~36: test/outbox_conformance_test.dart: drain routes verdicts by uid; no verdict keeps the op queued
+00:10 +126 ~36: test/outbox_conformance_test.dart: drain: conflict acks; network error fails the whole batch and stops
+00:10 +127 ~36: test/outbox_conformance_test.dart: wire format matches Sync v1 push op
+00:10 +128 ~36: test/outbox_conformance_test.dart: row 119: FIFO barrier — a later op never overtakes an earlier op in backoff
+00:10 +129 ~36: test/outbox_conformance_test.dart: row 119: transient failures (offline, timeout, 429, 5xx) never block; capped backoff; a non-transient failure past maxAttempts still blocks
+00:10 +130 ~36: loading test/data_path_test.dart
+00:10 +130 ~36: test/data_path_test.dart: the scan actually covers the native sources
+00:10 +131 ~36: test/data_path_test.dart: no DB driver / object storage / direct DB URL in native lib code
+00:10 +132 ~36: test/data_path_test.dart: cloud endpoints used by the client are exclusively /api/gw/v1/*
+00:10 +133 ~36: test/data_path_test.dart: resolved dependency graph has no DB / cloud-storage package
+00:10 +134 ~36: loading test/school_import_test.dart
+00:11 +134 ~36: test/school_import_test.dart: W10-U01 CSV: separator detected, quotes, BOM, CRLF
+00:11 +135 ~36: test/school_import_test.dart: W10-U02 xlsx: shared strings, inline strings, numbers, gaps, sheet name
+00:11 +136 ~36: test/school_import_test.dart: W10-U03 header row + column mapping: parents never map to the student
+00:11 +137 ~36: test/school_import_test.dart: W10-U04 helpers: Jalali dates, Persian decimals, mobiles Excel broke
+00:11 +138 ~36: test/school_import_test.dart: W10-U05 check: national id rules, duplicates, owners, mobile blocks
+00:11 +139 ~36: test/school_import_test.dart: W10-U06 a branch that only looks like a defined one is asked, never merged
+00:11 +140 ~36: test/school_import_test.dart: W10-U07 grades: file scope, class mode creates the class, field mode never
+00:11 +141 ~36: test/school_import_test.dart: W10-U08 apply students: users, parents (re-used), links, class, update, follow-up
+00:11 +142 ~36: test/school_import_test.dart: W10-U09 apply is all-or-nothing for the queue; teachers/role refused
+00:11 +143 ~36: test/school_import_test.dart: W10-U10 grades and attendance find the student and subject (deterministic ids)
+00:11 +144 ~36: test/school_import_test.dart: W10-U11 in-place fix: corrected values make the row ready; teachers update
+00:11 +145 ~36: test/school_import_test.dart: W10-U12 follow-up: reasons, assign (field/class mode), ack, issues done/clear
+00:11 +146 ~36: loading test/family_it_test.dart
+00:11 +146 ~36: test/family_it_test.dart: (setUpAll)
+00:11 +146 ~36: test/family_it_test.dart: W5-IT-01 parent pulls exactly the own family: two children, nothing of the other family
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:11 +146 ~37: test/family_it_test.dart: W5-IT-02 home and child page from the pulled rows: approved average, attendance, review states
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:11 +146 ~38: test/family_it_test.dart: W5-IT-03 leave request offline → queued → online → applied once as pending, version 1
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:11 +146 ~39: test/family_it_test.dart: W5-IT-04 the school approves it (manager device) → the parent sees «تأییدشده» after a pull
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:11 +146 ~40: test/family_it_test.dart: W5-IT-05 NEG forged parent leave with status approved / rejected → approval_denied
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:11 +146 ~41: test/family_it_test.dart: W5-IT-06 NEG forged leave for the other family's child → out_of_scope
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:11 +146 ~42: test/family_it_test.dart: W5-IT-07 NEG forged parent grade → role_denied; the grade is unchanged
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:11 +146 ~43: test/family_it_test.dart: W5-IT-08 NEG a teacher has no parents page and never pulls parent links
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:11 +146 ~44: test/family_it_test.dart: (tearDownAll)
+00:11 +146 ~44: loading test/grades_test.dart
+00:11 +146 ~44: test/grades_test.dart: W3-U01 terms and review labels are exactly the web set
+00:11 +147 ~44: test/grades_test.dart: W3-U02 score parsing: Persian digits, decimals, empty = skip
+00:11 +148 ~44: test/grades_test.dart: W3-U03 NEG out-of-range or non-decimal scores are refused
+00:11 +149 ~44: test/grades_test.dart: W3-U04 record id: deterministic, per (class, subject, term, student), reserved range below 2^53
+00:12 +150 ~44: test/grades_test.dart: W3-U05 classes = attendance rule; subjects sorted; default subject from the schedule
+00:12 +151 ~44: test/grades_test.dart: W3-U06 NEG parent / student / counselor / guard may not enter grades
+00:12 +152 ~44: test/grades_test.dart: W3-U07 sheet = active students of the class, sorted, all «جدید»
+00:12 +153 ~44: test/grades_test.dart: W3-U08 NEG another teacher's class / unknown subject are refused
+00:12 +154 ~44: test/grades_test.dart: W3-U09 teacher save: payload = web row, status pending, queued
+00:12 +155 ~44: test/grades_test.dart: W3-U10 manager save is approved; workshop subject = practical
+00:12 +156 ~44: test/grades_test.dart: W3-U11 unchanged / empty fields are skipped → «تغییری نبود»
+00:12 +157 ~44: test/grades_test.dart: W3-U12 a pulled grade is edited in place; the teacher edit drops it back to pending; other sheets do not count
+00:12 +158 ~44: test/grades_test.dart: W3-U13 a practical_score is what the sheet shows (web valOf)
+00:12 +159 ~44: test/grades_test.dart: W3-U14 a second edit before sync is based on version + queued ops
+00:12 +160 ~44: test/grades_test.dart: W3-U15 NEG one invalid score refuses the whole save (nothing written)
+00:12 +161 ~44: test/grades_test.dart: W3-U16 NEG a student outside the class: refused, nothing written
+00:12 +162 ~44: test/grades_test.dart: W3-U17 NEG a full queue refuses the whole sheet (no half save)
+00:12 +163 ~44: test/grades_test.dart: W3-U18 NEG a teacher never writes approved — even when editing an approved grade
+00:12 +164 ~44: test/grades_test.dart: W3-U19 duplicate grades of one sheet: the lowest id wins (web dup rule)
+00:12 +165 ~44: loading test/reports_test.dart
+00:12 +165 ~44: test/reports_test.dart: W11-U01 weekly attendance per class: only the last seven days; NEG a teacher is refused
+00:12 +166 ~44: test/reports_test.dart: W11-U02 class report card: subjects with a mark, marks, average of all marks, attendance share
+00:12 +167 ~44: test/reports_test.dart: W11-U03 one day, every class: present count and everyone not present with the label
+00:12 +168 ~44: test/reports_test.dart: W11-U04 manager dashboard: counts, cohort coverage, rooms in the current bell, latest notices
+00:12 +169 ~44: test/reports_test.dart: W11-U05 today: the teacher's own lessons (current bell, attendance done), the student's class; NEG a day off has no lessons
+00:12 +170 ~44: test/reports_test.dart: W11-U06 leaves: newest first; approve/reject with who and when; delete; queued before the local copy; NEG a teacher or parent cannot decide
+00:12 +171 ~44: test/reports_test.dart: W11-U07 print: one self-contained right-to-left HTML document, names escaped
+00:12 +172 ~44: loading test/attendance_test.dart
+00:12 +172 ~44: test/attendance_test.dart: DeviceOwner (shared device / school change) W2-U20 first user claims an empty device; same user again = same
+00:13 +173 ~44: test/attendance_test.dart: DeviceOwner (shared device / school change) W2-U21 another user with nothing unsent: old rows, cursor and review wiped
+00:13 +174 ~44: test/attendance_test.dart: DeviceOwner (shared device / school change) W2-U22 NEG another user while writes are queued: blocked, nothing wiped or sent
+00:13 +175 ~44: test/attendance_test.dart: DeviceOwner (shared device / school change) W2-U23 NEG an open review item of the old user also blocks the switch
+00:13 +176 ~44: test/attendance_test.dart: W2-U01 statuses and labels are exactly the web/server set
+00:13 +177 ~44: test/attendance_test.dart: W2-U02 NEG unknown / missing status is null, never mapped to present
+00:13 +178 ~44: test/attendance_test.dart: W2-U03 date key = UTC day, the web todayISO rule
+00:13 +179 ~44: test/attendance_test.dart: W2-U04 record id: deterministic, reserved range, below 2^53
+00:13 +180 ~44: test/attendance_test.dart: W2-U05 NEG record id refuses bad dates and student ids
+00:13 +181 ~44: test/attendance_test.dart: W2-U05b students created natively (ids from 1e15) get a wide-range id
+00:13 +182 ~44: test/attendance_test.dart: W2-U06 teacher classes = schedule teacher_id + own class; manager = all
+00:13 +183 ~44: test/attendance_test.dart: W2-U07 NEG parent / student / counselor / guard may not take attendance
+00:13 +184 ~44: test/attendance_test.dart: W2-U08 roster = active students of the class, sorted, no other roles
+00:13 +185 ~44: test/attendance_test.dart: W2-U09 NEG another teacher's class is refused (local scope)
+00:13 +186 ~44: test/attendance_test.dart: W2-U10 first save: everyone defaults to present, marks applied, all queued
+00:13 +187 ~44: test/attendance_test.dart: W2-U11 unchanged students are skipped; nothing changed = «تغییری نبود»
+00:13 +188 ~44: test/attendance_test.dart: W2-U12 a pulled record is updated in place with its id, version and note
+00:13 +189 ~44: test/attendance_test.dart: W2-U13 a second edit before sync is based on version + queued ops
+00:13 +190 ~44: test/attendance_test.dart: W2-U14 NEG a student outside the class: refused, nothing written
+00:13 +191 ~44: test/attendance_test.dart: W2-U15 NEG bad date: refused before any write
+00:13 +192 ~44: test/attendance_test.dart: W2-U16 NEG a full queue refuses the whole class (no half save)
+00:13 +193 ~44: test/attendance_test.dart: W2-U17 NEG a stored unknown status is shown as not recorded and rewritten
+00:13 +194 ~44: test/attendance_test.dart: W2-U18 queued ops drain through a push sender with the wire contract
+00:13 +195 ~44: test/attendance_test.dart: W2-U19 «ثبت شده / ثبت نشده» badge follows the day's records
+00:13 +196 ~44: loading test/lan_server_it_test.dart
+00:13 +196 ~44: test/lan_server_it_test.dart: (setUpAll)
+00:13 +196 ~44: test/lan_server_it_test.dart: LAN-IT-01 data service: Payesh server, headless, fresh — and NO web UI is served
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:13 +196 ~45: test/lan_server_it_test.dart: LAN-IT-02 NEG first setup from another device of the network is refused
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:13 +196 ~46: test/lan_server_it_test.dart: LAN-IT-03 first setup on the server computer → manager signed in (device token)
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:13 +196 ~47: test/lan_server_it_test.dart: LAN-IT-04 teacher signs in with phone + password; wrong password is refused
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:13 +196 ~48: test/lan_server_it_test.dart: LAN-IT-05 pull into the device: the teacher's class and its students
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:13 +196 ~49: test/lan_server_it_test.dart: LAN-IT-06 offline save → queued, nothing sent → server back → applied exactly once
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:13 +196 ~50: test/lan_server_it_test.dart: LAN-IT-07 refresh rotates the device token; a replayed old token revokes the device
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:13 +196 ~51: test/lan_server_it_test.dart: (tearDownAll)
+00:13 +196 ~51: loading test/accounts_test.dart
+00:13 +196 ~51: test/accounts_test.dart: W7-U01 random password: 8 characters, no look-alikes, differs per call
+00:13 +197 ~51: test/accounts_test.dart: W7-U02 username = mobile, else a 10-digit national id, else none (server credentialsFor)
+00:13 +198 ~51: test/accounts_test.dart: W7-U03 NEG short password refused locally
+00:13 +199 ~51: test/accounts_test.dart: W7-U04 lock / claim errors: locked → wait with the server time, local_only → server only
+00:13 +200 ~51: test/accounts_test.dart: W7-U05 NEG claim to a non-loopback server is refused before any request
+00:13 +201 ~51: test/accounts_test.dart: W7-U06 lock flag: kept until cleared; sign-out clears it
+00:13 +202 ~51: loading test/school_admin_it_test.dart
+00:14 +202 ~51: test/school_admin_it_test.dart: (setUpAll)
+00:14 +202 ~51: test/school_admin_it_test.dart: ADM-IT-00 setup: manager + teacher signed in, both devices pulled
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~52: test/school_admin_it_test.dart: W6-IT-01 offline add of a student + parent → queued → server: accounts + link, the student signs in with the default credentials
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~53: test/school_admin_it_test.dart: W6-IT-02 edit + full profile reach the server; the father's name follows to the parent
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~54: test/school_admin_it_test.dart: W6-IT-03 NEG stale edit of a sensitive field from a second manager device → conflict kept for review, never a silent overwrite
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~55: test/school_admin_it_test.dart: W6-IT-04 NEG a teacher cannot manage users: refused on the device AND by the server
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~56: test/school_admin_it_test.dart: W6-IT-05 NEG a mobile taken on the server meanwhile → the server refuses the add (duplicate_phone), the op goes to review
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~57: test/school_admin_it_test.dart: W6-IT-06 teacher: students of the taught class (pulled); delete student → link and lone parent gone on the server, the student can no longer sign in
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~58: test/school_admin_it_test.dart: W7-IT-01 manager reads and sets a password on the server; the old one stops working; NEG a teacher cannot read credentials
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~59: test/school_admin_it_test.dart: W7-IT-02 username (mobile) changed offline → queued → applied; the password survives
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~60: test/school_admin_it_test.dart: W7-IT-03 «رمز = کد ملی» on the server; NEG no mobile and no national id → refused
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~61: test/school_admin_it_test.dart: W7-IT-04 own password: NEG wrong current refused, then changed
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~62: test/school_admin_it_test.dart: W7-IT-05 unlock: the device token + password open a new session; NEG wrong password
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~63: test/school_admin_it_test.dart: W7-IT-06 manager rescue (claim) on the server computer; NEG not from another address
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~64: test/school_admin_it_test.dart: W8-IT-01 offline: grade + branch + field class + room + subject → queued → all on the server
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~65: test/school_admin_it_test.dart: W8-IT-02 merge on the device → students and schedule moved on the server, source gone
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~66: test/school_admin_it_test.dart: W8-IT-03 delete class → the student stays on the server, without a class, in follow-up
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~67: test/school_admin_it_test.dart: W8-IT-04 delete subject → its schedule slot is gone on the server too
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~68: test/school_admin_it_test.dart: W8-IT-05 NEG a teacher cannot change classes or definitions: device AND server refuse
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~69: test/school_admin_it_test.dart: W9-IT-01 offline: work days + bells + a slot for a new cohort → queued → all on the server
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~70: test/school_admin_it_test.dart: W9-IT-02 the teacher pulls it: own teaching view shows the slot (read-only)
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~71: test/school_admin_it_test.dart: W9-IT-03 substitution by a teacher created offline → both reach the server
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~72: test/school_admin_it_test.dart: W9-IT-04 NEG clash refused on the device; a teacher cannot write the schedule (device AND server)
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~73: test/school_admin_it_test.dart: W9-IT-05 delete the slot → its substitution is gone on the server too
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~74: test/school_admin_it_test.dart: W10-IT-01 offline CSV import → queued → users, parents, links, definitions on the server; the student signs in with mobile + national id
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~75: test/school_admin_it_test.dart: W10-IT-02 another manager device pulls the follow-up list; assign + issue done reach the server
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~76: test/school_admin_it_test.dart: W10-IT-03 past grades and attendance from a sheet reach the server with deterministic ids
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~77: test/school_admin_it_test.dart: W10-IT-04 NEG a taken mobile is refused on the device; a teacher cannot import or write follow-up (device AND server)
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~78: test/school_admin_it_test.dart: W11-IT-01 leave decisions: another manager device approves and deletes; the server keeps who/when; NEG a teacher device is refused locally
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~79: test/school_admin_it_test.dart: W11-IT-02 reports and the dashboard are computed from the pulled copy and match the server rows
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~80: test/school_admin_it_test.dart: W12-IT-01 backup now, backup list, mirror refresh and restore from the mirror file; NEG a teacher can do none of it, a non-backup file is refused
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~81: test/school_admin_it_test.dart: W12-IT-02 devices list, revoke a device (its token stops working), audit shows it, school name saved; NEG a teacher cannot list devices or read the audit
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~82: test/school_admin_it_test.dart: W12-IT-03 cloud settings: save (key write-only), test / CORS / phone check report their steps, reset to the built-in default; NEG the key never comes back, a teacher cannot read the settings
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~83: test/school_admin_it_test.dart: W12-IT-03b row 172 «شبکه» (web PAGES.network): network state, save the address (NEG http refused), clear it, tunnel state, outbox check; NEG a teacher
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~84: test/school_admin_it_test.dart: W12-IT-04 data health on the pulled copy: a safe fix is queued and reaches the server; NEG a teacher cannot run the checks
+  Skip: set PAYESH_SERVER_IT=1 to run against server/index.js
+00:14 +202 ~85: test/school_admin_it_test.dart: (tearDownAll)
+00:14 +202 ~85: loading test/school_access_test.dart
+00:14 +202 ~85: test/school_access_test.dart: resolve (GET /api/dir/v1/resolve) sends the code normalised, no Authorization, standard headers
+00:14 +203 ~85: test/school_access_test.dart: resolve (GET /api/dir/v1/resolve) migrating school: route kept, flagged
+00:14 +204 ~85: test/school_access_test.dart: resolve (GET /api/dir/v1/resolve) NEGATIVE: malformed code is refused on the device — nothing is sent
+00:14 +205 ~85: test/school_access_test.dart: resolve (GET /api/dir/v1/resolve) NEGATIVE: unknown school (404) → schoolNotFound
+00:14 +206 ~85: test/school_access_test.dart: resolve (GET /api/dir/v1/resolve) NEGATIVE: http cell URL (not loopback) is refused → insecureCell
+00:14 +207 ~85: test/school_access_test.dart: resolve (GET /api/dir/v1/resolve) Directory not deployed (503 not_configured) → fallback cell when configured
+00:14 +208 ~85: test/school_access_test.dart: resolve (GET /api/dir/v1/resolve) NEGATIVE: ok:false or garbage 200 body → unknown
+00:14 +209 ~85: test/school_access_test.dart: activate (POST /api/gw/v1/session/activate) sends school/code/device_id exactly; returns session + device secret
+00:14 +210 ~85: test/school_access_test.dart: activate (POST /api/gw/v1/session/activate) NEGATIVE: wrong-shape code refused on the device — nothing is sent
+00:14 +211 ~85: test/school_access_test.dart: activate (POST /api/gw/v1/session/activate) NEGATIVE: 401 activation_failed → activationRejected (one answer)
+00:14 +212 ~85: test/school_access_test.dart: activate (POST /api/gw/v1/session/activate) NEGATIVE: 200 without a valid device secret is not accepted
+00:14 +213 ~85: test/school_access_test.dart: refresh (POST /api/gw/v1/session/refresh) returns a fresh session
+00:14 +214 ~85: test/school_access_test.dart: refresh (POST /api/gw/v1/session/refresh) NEGATIVE: 401 refresh_failed → deviceRevoked
+00:14 +215 ~85: test/school_access_test.dart: refresh (POST /api/gw/v1/session/refresh) NEGATIVE: connection refused → offline (nothing lost, no crash)
+00:14 +216 ~85: test/school_access_test.dart: refresh (POST /api/gw/v1/session/refresh) NEGATIVE: server never answers → offline after the timeout
+00:14 +217 ~85: test/school_access_test.dart: TLS / pinning NEGATIVE: pinned client refuses plaintext before sending → tlsRejected
+00:14 +218 ~85: test/school_access_test.dart: error mapping every status class maps to one kind with a Persian message
+00:14 +219 ~85: test/school_access_test.dart: error mapping role names in Persian; unknown role shown verbatim
+00:14 +220 ~85: test/school_access_test.dart: SchoolAccountStore (secure store) device id created once and kept; save/load/clear round trip
+00:14 +221 ~85: test/school_access_test.dart: SchoolAccountStore (secure store) NEGATIVE: tampered saved values are ignored (never used to connect)
+00:14 +222 ~85: test/school_access_test.dart: SchoolAccountStore (secure store) wave 2: the user id is kept for offline pages and cleared on sign-out
+00:14 +223 ~85: test/school_access_test.dart: SchoolAccountStore (secure store) NEGATIVE: a tampered or missing saved user id is null, never 0
+00:14 +224 ~85: test/school_access_test.dart: SchoolAccountStore (secure store) the token is never written to the secure store
+00:14 +225 ~85: loading test/login_160_test.dart
+00:15 +225 ~85: test/login_160_test.dart: rules L160-U01 login shapes: mobile 11, national id 10, user code 4–9, Latin
+00:15 +226 ~85: test/login_160_test.dart: rules L160-U02 manager user name: Latin or a 4–9 digit code; empty = mobile
+00:15 +227 ~85: test/login_160_test.dart: rules L160-U03 server errors → Persian messages
+00:15 +228 ~85: test/login_160_test.dart: HTTP (scripted school server) L160-U04 / L162 health.login: the owner chose «mobile» ⇒ mobile first (SMS off: the form says «به‌زودی»)
+00:15 +229 ~85: test/login_160_test.dart: HTTP (scripted school server) L160-U05 OTP request (disabled → smsDisabled) and verify (login / reset)
+00:15 +230 ~85: test/login_160_test.dart: HTTP (scripted school server) L160-U06 credentials show the manager user name; PATCH username (409 / bad shape)
+00:15 +231 ~85: loading test/support_test.dart
+00:15 +231 ~85: test/support_test.dart: فهرست: تیکت‌ها با پیام‌های کاربر و مالک؛ ورودی خراب نادیده
+00:15 +232 ~85: test/support_test.dart: تیکت تازه + پیام + بستن؛ خطاها با پیام فارسی
+00:15 +233 ~85: test/support_test.dart: برچسب‌های فارسی دسته و وضعیت
+00:15 +234 ~85: loading test/school_access_it_test.dart
+00:15 +234 ~85: test/school_access_it_test.dart: (setUpAll)
+00:15 +234 ~85: test/school_access_it_test.dart: W1-IT-01 resolve: real Directory → this Gateway; unknown/malformed → same 404
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:15 +234 ~86: test/school_access_it_test.dart: W1-IT-02 activate: wrong school and wrong code get the SAME 401; right code → session
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:15 +234 ~87: test/school_access_it_test.dart: W1-IT-03 the school token opens the Gateway data path (pull 200); garbage token 401
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:15 +234 ~88: test/school_access_it_test.dart: W1-IT-04 restart: saved device secret → refresh; wrong secret → deviceRevoked
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:15 +234 ~89: test/school_access_it_test.dart: W1-IT-05 re-activation on the same device revokes the old device secret
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:15 +234 ~90: test/school_access_it_test.dart: W1-IT-06 Gateway without a Directory: 503 not_configured → fallback cell; without fallback → unavailable
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:15 +234 ~91: test/school_access_it_test.dart: W1-IT-07 Gateway down → offline (nothing hangs, no crash)
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:15 +234 ~92: test/school_access_it_test.dart: (tearDownAll)
+00:15 +234 ~92: loading test/grades_it_test.dart
+00:16 +234 ~92: test/grades_it_test.dart: (setUpAll)
+00:16 +234 ~92: test/grades_it_test.dart: W3-IT-01 teacher pull: scheduled class, all subjects, sheet of its students only
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~93: test/grades_it_test.dart: W3-IT-02 offline save → queued → online → applied once, pending, version 1
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~94: test/grades_it_test.dart: W3-IT-03 manager approves by entering the grade; a later teacher edit drops it back to pending
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~95: test/grades_it_test.dart: W3-IT-04 NEG forged teacher op with status approved → 403 approval_denied, nothing written
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~96: test/grades_it_test.dart: W3-IT-05 NEG forged score 25 → bad_score; forged kind → bad_kind
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~97: test/grades_it_test.dart: W3-IT-06 NEG forged grade for a class outside the teacher scope → out_of_scope
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~98: test/grades_it_test.dart: W3-IT-07 NEG parent: no grade entry locally AND role_denied on the server
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~99: test/grades_it_test.dart: W3-IT-08 NEG a second device with a stale copy: real conflict → review, server value kept
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~100: test/grades_it_test.dart: (tearDownAll)
+00:16 +234 ~100: loading test/attendance_it_test.dart
+00:16 +234 ~100: test/attendance_it_test.dart: (setUpAll)
+00:16 +234 ~100: test/attendance_it_test.dart: W2-IT-01 teacher pull: only the scheduled class and its students reach the device
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~101: test/attendance_it_test.dart: W2-IT-02 offline save → queued with a visible count → online → applied once on the server
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~102: test/attendance_it_test.dart: W2-IT-03 edit after sync: only the changed student is sent, version 1 → 2
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~103: test/attendance_it_test.dart: W2-IT-04 NEG a second device with a stale copy: real conflict → review, server value kept
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~104: test/attendance_it_test.dart: W2-IT-05 NEG forged op for a class outside the teacher scope → 403 out_of_scope, kept on device
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~105: test/attendance_it_test.dart: W2-IT-06 NEG forged unknown status → 403 bad_status, nothing written
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~106: test/attendance_it_test.dart: W2-IT-07 NEG parent: no attendance UI locally AND role_denied on the server
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~107: test/attendance_it_test.dart: W2-IT-08 NEG forged token → 401, op stays queued (never dropped)
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:16 +234 ~108: test/attendance_it_test.dart: (tearDownAll)
+00:16 +234 ~108: loading test/family_test.dart
+00:16 +234 ~108: test/family_test.dart: W5-U01 leave states and labels are exactly the web badge
+00:16 +235 ~108: test/family_test.dart: W5-U02 home: exactly the linked children, link order, one card each; deleted link ignored
+00:16 +236 ~108: test/family_test.dart: W5-U03 average = approved grades only; attendance = present / all, rounded; none → null
+00:16 +237 ~108: test/family_test.dart: W5-U04 child page: grades with review state, subject «—» when missing, practical part
+00:16 +238 ~108: test/family_test.dart: W5-U05 child page: latest 12 attendance records, newest first; unknown value kept raw
+00:16 +239 ~108: test/family_test.dart: W5-U06 child page of a student who is not linked is refused — no fallback child (negative)
+00:16 +240 ~108: test/family_test.dart: W5-U07 only a parent uses these pages (negative)
+00:17 +241 ~108: test/family_test.dart: W5-U08 leave list: own children only, newest day first, same day by id; states mapped
+00:17 +242 ~108: test/family_test.dart: W5-U09 leave request: pending, UTC day by default, trimmed reason, by_id, base 0, queued first
+00:17 +243 ~108: test/family_test.dart: W5-U10 leave request for a student who is not linked: refused, nothing written (negative)
+00:17 +244 ~108: test/family_test.dart: W5-U11 bad dates are refused before anything is written (negative)
+00:17 +245 ~108: test/family_test.dart: W5-U12 ids: inside [3e15, 4e15) (below attendance), distinct, a local collision is re-drawn
+00:17 +246 ~108: test/family_test.dart: W5-U13 full queue or oversize reason: refused, nothing written (negative)
+00:17 +247 ~108: loading test/lan_access_test.dart
+00:17 +247 ~108: test/lan_access_test.dart: LanServerRules.parse — only local-network addresses LAN-U01 typed forms → normalised base URI (default port 8080)
+00:17 +248 ~108: test/lan_access_test.dart: LanServerRules.parse — only local-network addresses LAN-U02 NEG public / malformed addresses are refused before any request
+00:17 +249 ~108: test/lan_access_test.dart: LanServerRules.parse — only local-network addresses LAN-U03 school code: stable, fits SchoolAccessRules.school, lan- prefix
+00:17 +250 ~108: test/lan_access_test.dart: LanServerRules.parse — only local-network addresses LAN-U04 login normalisation keeps digits only (Persian digits too)
+00:17 +251 ~108: test/lan_access_test.dart: LanServerRules.parse — only local-network addresses LAN-U04b login shape = web doLogin (11 / 10 digits) + row 145 user names
+00:17 +252 ~108: test/lan_access_test.dart: mapLanError — one message per failure LAN-U05 server error codes
+00:17 +253 ~108: test/lan_access_test.dart: row 171 — where the school is hosted LAN-171a a 409 «hosted elsewhere» carries the host instance and its usable addresses
+00:17 +254 ~108: test/lan_access_test.dart: row 171 — where the school is hosted LAN-171b the server this device signs in on survives sign-out
+00:17 +255 ~108: test/lan_access_test.dart: LanAccountStore LAN-U06 save/load/clear; rotated token persisted
+00:17 +256 ~108: test/lan_access_test.dart: LanAccountStore LAN-U07 NEG a saved public address is never used
+00:17 +257 ~108: test/lan_access_test.dart: LanAccessClient against a scripted local HTTP server LAN-U08 probe → login → refresh rotates the device token
+00:17 +258 ~108: test/lan_access_test.dart: LanAccessClient against a scripted local HTTP server LAN-U09 NEG wrong password / reused token / not a Payesh server
+00:17 +259 ~108: test/lan_access_test.dart: LanAccessClient against a scripted local HTTP server LAN-U10 NEG nothing listening → unreachable (no crash, no guess)
+00:17 +260 ~108: test/lan_access_test.dart: LanAccessClient against a scripted local HTTP server LAN-U11 setup and claim send what the web forms send (digits only, type, year)
+00:17 +261 ~108: loading test/users_test.dart
+00:17 +261 ~108: test/users_test.dart: W6-U01 users page: manager only, role filter, search on name/mobile/national id, sorted
+00:17 +262 ~108: test/users_test.dart: W6-U02 students page: a teacher sees only the classes they teach; average of grades
+00:17 +263 ~108: test/users_test.dart: W6-U03 record page: the student's attendance %, grades and profile
+00:17 +264 ~108: test/users_test.dart: W6-U04 add: student with a new parent → user + parent + link queued (offline)
+00:17 +265 ~108: test/users_test.dart: W6-U05 add: an existing parent mobile re-uses that parent
+00:18 +266 ~108: test/users_test.dart: W6-U06 add refuses: empty name, bad national id / mobile, used national id / mobile (negative)
+00:18 +267 ~108: test/users_test.dart: W6-U07 add: same name + birth date = same person until the manager confirms
+00:18 +268 ~108: test/users_test.dart: W6-U08 edit keeps other fields, clears emptied extras, refuses a used mobile
+00:18 +269 ~108: test/users_test.dart: W6-U09 full profile: the student's father/mother details follow to the parent accounts
+00:18 +270 ~108: test/users_test.dart: W6-U10 delete a student: links go; a parent with another child stays, a lone parent goes
+00:18 +271 ~108: test/users_test.dart: W6-U11 bulk delete; never your own account (negative)
+00:18 +272 ~108: test/users_test.dart: W6-U12 full queue: a student+parent add is refused whole, nothing written (negative)
+00:18 +273 ~108: loading test/notices_test.dart
+00:18 +273 ~108: test/notices_test.dart: W4-U01 severity values and labels are exactly the web select
+00:18 +274 ~108: test/notices_test.dart: W4-U02 every server role reads; an unknown role reads nothing (negative)
+00:18 +275 ~108: test/notices_test.dart: W4-U03 newest first, same day → higher id first; deleted hidden
+00:18 +276 ~108: test/notices_test.dart: W4-U04 manager publish: web row, UTC day, trimmed, queued with base 0
+00:18 +277 ~108: test/notices_test.dart: W4-U05 ids: inside [9e15, 2^53), distinct, a local collision is re-drawn
+00:18 +278 ~108: test/notices_test.dart: W4-U06 non-managers cannot publish, edit or delete; nothing queued (negative)
+00:18 +279 ~108: test/notices_test.dart: W4-U07 empty title or body is refused before any write (negative)
+00:18 +280 ~108: test/notices_test.dart: W4-U08 a notice above the Gateway op ceiling is refused (negative)
+00:18 +281 ~108: test/notices_test.dart: W4-U09 edit keeps date and other fields, author = editor, base = version + queued
+00:18 +282 ~108: test/notices_test.dart: W4-U10 an unchanged edit writes nothing
+00:18 +283 ~108: test/notices_test.dart: W4-U11 edit or delete of a missing / deleted notice is refused (negative)
+00:18 +284 ~108: test/notices_test.dart: W4-U12 delete: tombstone op with base version, local row gone
+00:18 +285 ~108: test/notices_test.dart: W4-U13 full queue: publish/edit/delete refused, nothing written (negative)
+00:18 +286 ~108: loading test/records_test.dart
+00:18 +286 ~108: test/records_test.dart: R-01 role rules equal server/policy.js COLLECTIONS exactly
+00:18 +287 ~108: test/records_test.dart: R-02 id ranges are disjoint, inside [1e15, 3e15) and below every older wave
+00:18 +288 ~108: test/records_test.dart: R-03 put queues the op BEFORE the local row; base = version + queued ops
+00:18 +289 ~108: test/records_test.dart: R-04 role gates refuse before anything is written (negative)
+00:18 +290 ~108: test/records_test.dart: R-05 an op over 64 KiB and a full queue are refused, nothing written (negative)
+00:18 +291 ~108: test/records_test.dart: R-06 digits and mobiles like the web client
+00:18 +292 ~108: test/records_test.dart: R-07 credentials and the row version are never sent back (negative)
+00:18 +293 ~108: loading test/gateway_it_test.dart
+00:19 +293 ~108: test/gateway_it_test.dart: (setUpAll)
+00:19 +293 ~108: test/gateway_it_test.dart: push through pinned TLS → real Gateway applies once; same uid → duplicate
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:19 +293 ~109: test/gateway_it_test.dart: version header, request id and device id reach the Gateway (seen at the TLS front)
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:19 +293 ~110: test/gateway_it_test.dart: pull from the real change feed into the local SQLite engine; second pull empty
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:19 +293 ~111: test/gateway_it_test.dart: tenant isolation: tenant B sees none of tenant A rows
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:19 +293 ~112: test/gateway_it_test.dart: stale base_version → real conflict verdict, op leaves the queue, server keeps v1
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:19 +293 ~113: test/gateway_it_test.dart: MITM front with a trusted-CA but UNPINNED key → refused, zero bytes reach the Gateway
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:19 +293 ~114: test/gateway_it_test.dart: invalid token → 401 unauthorized from the real Gateway
+  Skip: set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway
+00:19 +293 ~115: test/gateway_it_test.dart: (tearDownAll)
+00:19 +293 ~115: All tests passed!
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:15:04Z
+DURATION_S=23

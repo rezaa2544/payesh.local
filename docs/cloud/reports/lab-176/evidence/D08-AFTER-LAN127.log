@@ -1,0 +1,41 @@
+TEST_ID=D08-AFTER-LAN127
+PURPOSE=lan-mode-127 after D-08 fix, cloudflared monitor
+SHA=7e326568ded9fc9bcd5b38949394f04dba3993d6 (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 4 insertions(+))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /home/user/lab176/scripts/d08-verify.sh node tests/lan-mode-127.js
+START=2026-11-24T05:22:29Z
+----- RAW -----
+PASS  LM-STATIC  static rules LM-01..LM-08 hold on the real repository (0 violations)
+PASS  M01  headless switch removed → LM-01 HEADLESS switch missing
+PASS  M02  headless refusal moved after SPA fallback → LM-01 headless does not refuse non-API paths
+PASS  M03  setup allowed from the network → LM-02 headless setup not loopback-only
+PASS  M04  Dart forgets device_revoked → LM-03 dart does not map device_revoked
+PASS  M05  172.16/12 widened to 172.0/8 → LM-04 LanServerRules lost 172.16/12
+PASS  M06  client skips the address check → LM-04 client sends without checking the address
+PASS  M07  installer ships the web UI → LM-05 iss ships web UI / WebView2
+PASS  M08  installer stops refusing WebView2 → LM-05 iss does not refuse WebView2Loader.dll
+PASS  M09  task back to a 72 h limit → LM-05 task: SYSTEM, boot, no time limit
+PASS  M09b  task back to Register-ScheduledTask (Windows 8+) → LM-05 task uses a Windows 8+ cmdlet (fails on Windows 7)
+PASS  M10  firewall opened for public networks → LM-05 firewall must be private/domain only
+PASS  M11  launcher not headless → LM-05 launcher not headless
+PASS  M12  linux unit serves the web UI → LM-06 systemd unit not headless
+PASS  M13  linux copies client/ → LM-06 install.sh copies the web UI
+PASS  M14  Android trusts user CAs → LM-07 user CAs trusted
+PASS  M15  Android config not referenced → LM-07 networkSecurityConfig not referenced
+PASS  M16  CI LAN tally relaxed → LM-08 LAN IT tally not enforced
+PASS  M17  CI no longer tests the INSTALLED service → LM-08 IT against the INSTALLED service missing
+PASS  M18  native-client path filter drops server/index.js → LM-08 path filter 'server/index.js' missing in push/pull_request
+PASS  M19  start.sh serves the web UI again → LM-06 start.sh not headless by default
+PASS  M20  server stops emitting setup_local_only → LM-03 server never emits setup_local_only
+PASS  LM-01a  headless server: /api/health headless=true setup_done=false
+PASS  LM-01b  headless server serves NO web page: 8 UI paths → 404 no_web_ui JSON
+PASS  LM-02  setup from 169.254.0.21 (not loopback) → 403 {"ok":false,"error":"setup_local_only"}
+PASS  LM-01c  setup from loopback → 200, device token issued
+PASS  LM-01d  phone + password login on the headless server → 200
+PASS  LM-01e  default server unchanged (browser client; row 129 = Release only): headless=false, / → 200 text/html
+LAN-MODE-127-OK checks=28 mutants=21
+MONITOR samples=4 CF_SEEN=0 suite_rc=0 orphans_after=0
+----- END RAW -----
+EXIT=0
+END=2026-11-24T05:22:33Z
+DURATION_S=4

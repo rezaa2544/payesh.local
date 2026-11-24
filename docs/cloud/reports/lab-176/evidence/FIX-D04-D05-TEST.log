@@ -1,0 +1,37 @@
+TEST_ID=FIX-D04-D05-TEST
+PURPOSE=tests/device-logout-176.js (DL-01..08 + 3 mutants) on fixed tree
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=node --experimental-sqlite --disable-warning=ExperimentalWarning tests/device-logout-176.js
+START=2026-11-24T04:17:21Z
+----- RAW -----
+── D-04/D-05 suite on the real tree ──
+PASS  DL-01  12/12 login→logout cycles succeeded with cap 4 [1:200 2:200 3:200 4:200 5:200 6:200 7:200 8:200 9:200 10:200 11:200 12:200]
+PASS  DL-02  active devices back to baseline 1 after 12/12 logouts (now 1)
+PASS  DL-03  revoke_reason=logout 12/12, audit device_logout 12/12
+PASS  DL-04  after logout: /api/me 401 2/2, refresh device_revoked 2/2
+PASS  DL-05  non-logged-out device: login 200, refresh 200, still active=true
+PASS  DL-06  cap 4 still enforced: refused=409/device_limit with 4 active
+PASS  DL-07  admin/devices 200: 17/17 rows match DB records.data name/role (e.g. "Lab176 Manager/manager")
+PASS  DL-08  0 rows of existing users show "—"
+DL checks=8 pass=8 fail=0
+
+── negative controls: each fix reverted ⇒ its check must go red ──
+FAIL  DL-01  3/12 login→logout cycles succeeded with cap 4 [1:200 2:200 3:200 4:409/device_limit]
+FAIL  DL-02  active devices back to baseline 1 after 0/12 logouts (now 4)
+FAIL  DL-03  revoke_reason=logout 0/12, audit device_logout 3/12
+FAIL  DL-04  after logout: /api/me 401 1/2, refresh device_revoked 0/2
+FAIL  DL-05  non-logged-out device: login 409, refresh 0, still active=false
+PASS  MUT-logout-keeps-device  revert in server/auth.js ⇒ DL-01 red  → red=[DL-01,DL-02,DL-03,DL-04,DL-05]
+FAIL  DL-07  admin/devices 200: 0/17 rows match DB records.data name/role (e.g. "—/—")
+FAIL  DL-08  17 rows of existing users show "—"
+PASS  MUT-devices-name-column  revert in server/auth.js ⇒ DL-07 red  → red=[DL-07,DL-08]
+FAIL  DL-06  cap 4 still enforced: refused=never with 7 active
+PASS  MUT-cap-off  revert in server/identity.js ⇒ DL-06 red  → red=[DL-06]
+MUTANTS total=3 killed=3
+
+DEVICE-LOGOUT-176-OK checks=8 mutants_killed=3/3
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:18:27Z
+DURATION_S=66

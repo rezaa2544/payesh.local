@@ -1,0 +1,17 @@
+TEST_ID=DEF-04-05-repro
+PURPOSE=sandbox reproduction of D-04 (device cap via login/logout) and D-05 (devices list user '—')
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=node ~/lab176/scripts/def04-05-repro.js
+START=2026-11-24T03:41:58Z
+----- RAW -----
+setup 200 true
+login/logout cycles: 1:200 2:200 3:200 4:200 5:200 6:200 7:200 8:200 9:200 10:409/device_limit
+CONFIRMED D-04  cycle 10 refused with device_limit after 9 clean login→logout cycles from ONE client (setup device + 9 orphans = cap 10)
+admin/devices status 200 total 11 active 11 distinct user_name/role: ["—/—"]
+CONFIRMED D-05  every device row shows user_name/role "—/—" although all belong to manager "Repro Manager"
+REPRO-OK both defects reproduced
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:42:15Z
+DURATION_S=17

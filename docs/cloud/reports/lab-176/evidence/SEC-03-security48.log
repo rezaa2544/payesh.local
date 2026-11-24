@@ -1,0 +1,31 @@
+TEST_ID=SEC-03-security48
+PURPOSE=SAST semgrep + secrets + deps gate with negative controls
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=npm run test:security48
+START=2026-11-24T03:23:54Z
+----- RAW -----
+
+> payesh-local@0.9.31 test:security48
+> node tests/security-scan-48.js
+
+PASS  SS-01  وابستگی‌های تولیدی: صفر high/critical (بدون استثنا)  → prod_high=0  (0ms)
+PASS  SS-02  وابستگی‌های dev: هر یافته با دلیل و تاریخ انقضا در allowlist  → dev_high=0 همه تریاژ‌شده  (0ms)
+PASS  SS-03  SAST الگویی: صفر یافتهٔ ERROR (eval/راز/client env)  → errors=0  (0ms)
+PASS  SS-04  SAST taint روی server/: صفر تزریق SQL/فرمان  → taint_errors=0  (0ms)
+PASS  SS-05  هشدارها تریاژ‌شده و زیر سقفِ ثبت‌شده (رشد خاموش ممنوع)  → warnings=40 · rules=4 تریاژ‌شده  (0ms)
+PASS  SS-06  اسکن راز: صفر رازِ ثابت در فایل‌های ردیابی‌شده (نمونهٔ AWS مستثنا)  → secrets=0  (1ms)
+PASS  SS-07  کنترل منفی: eval روی ورودی HTTP ⇒ دروازه قرمز می‌شود  → gate=RED (eval, 1 error)  (19112ms)
+PASS  SS-08  کنترل منفی: SQL ساخته‌شده از req.body ⇒ دروازه قرمز می‌شود  → gate=RED (sql-taint)  (18589ms)
+PASS  SS-09  کنترل منفی: کلید AWS ثابت در کد ⇒ دروازه قرمز می‌شود  → gate=RED (aws_access_key)  (18540ms)
+PASS  SS-10  کنترل منفی: هشدار تازه بدون تریاژ ⇒ دروازه قرمز می‌شود  → gate=RED (untriaged warnings)  (19015ms)
+PASS  SS-11  کنترل منفی: وابستگی dev عمداً آسیب‌پذیر + allowlist منقضی ⇒ دروازه قرمز می‌شود  → gate=RED (injected lodash 4.17.15, expired allowlist)  (18880ms)
+PASS  SS-11b  کنترل منفی: وابستگی dev عمداً آسیب‌پذیر بدون مدخل allowlist ⇒ قرمز؛ با مدخل معتبر ⇒ G2 سبز  → unlisted=RED, listed=G2 green (dev_high=1)  (38810ms)
+PASS  SS-12  پوشش واقعی: قواعد و مسیرهای محصول اسکن می‌شوند و CI/سند وصل است  → rules=9 taint=2 ci=true doc=true  (1ms)
+
+SS checks=13 pass=13 fail=0
+SECURITY-48-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:26:33Z
+DURATION_S=159

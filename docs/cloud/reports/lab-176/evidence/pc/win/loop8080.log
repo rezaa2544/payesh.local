@@ -1,0 +1,15 @@
+LOOP8080 127.0.0.1:8080 -> 127.0.0.1:18080
+{"t":"2026-11-24T03:23:02.961Z","from":"undefined:undefined","up":88,"down":1277,"ms":19,"why":"client-close"}
+{"t":"2026-11-24T03:29:32.496Z","from":"undefined:undefined","up":445,"down":2206,"ms":6125,"why":"client-close"}
+{"t":"2026-11-24T03:31:57.335Z","from":"undefined:undefined","up":702,"down":2034,"ms":6333,"why":"client-close"}
+{"t":"2026-11-24T03:31:57.432Z","from":"undefined:undefined","up":395,"down":2926,"ms":6053,"why":"client-close"}
+{"t":"2026-11-24T03:32:36.027Z","from":"undefined:undefined","up":395,"down":1119,"ms":6022,"why":"client-close"}
+LOOP8080 127.0.0.1:8080 -> 127.0.0.1:18080
+{"t":"2026-11-24T03:33:49.814Z","from":"undefined:undefined","up":1100,"down":2245,"ms":6084,"why":"client-close"}
+{"t":"2026-11-24T03:34:48.444Z","from":"undefined:undefined","up":395,"down":1119,"ms":6024,"why":"client-close"}
+LOOP8080 2026-11-24T03:35:19.682Z 127.0.0.1:8080 -> 127.0.0.1:18080 (hidden)
+{"t":"2026-11-24T03:35:57.503Z","from":"127.0.0.1:60571","up":395,"down":1119,"ms":6057,"why":"client-close"}
+{"t":"2026-11-24T03:36:56.992Z","from":"127.0.0.1:51102","up":395,"down":1119,"ms":6026,"why":"client-close"}
+{"t":"2026-11-24T03:37:25.610Z","from":"127.0.0.1:54840","up":693,"down":2062,"ms":6363,"why":"client-close"}
+{"t":"2026-11-24T03:37:25.719Z","from":"127.0.0.1:54842","up":395,"down":1119,"ms":6080,"why":"client-close"}
+{"t":"2026-11-24T03:37:58.043Z","from":"127.0.0.1:53582","up":395,"down":1119,"ms":5328,"why":"client-close"}

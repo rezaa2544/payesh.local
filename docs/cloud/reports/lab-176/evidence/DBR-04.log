@@ -1,0 +1,24 @@
+TEST_ID=DBR-04
+PURPOSE=CI api-contract/native-contract step: Row 54 transfer tool unit checks (sequence fix must not regress)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  5 files changed, 245 insertions(+), 9 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-04.sh
+START=2026-11-24T04:29:31Z
+----- RAW -----
+PASS  CT-01  بدون مجوز صریح، ابزار فعال نمی‌شود (شرط ردیف ۵۴)  → exit=3 + پیام صریح
+PASS  CT-02  checksum محتوایی پایدار است (ترتیب ردیف‌ها اثر ندارد)  → order-independent
+PASS  CT-03  لایهٔ ۱ (تعداد) اختلاف را می‌گیرد  → count mismatch detected
+PASS  CT-04  لایهٔ ۲ (checksum) اختلاف محتوا با تعداد برابر را می‌گیرد  → checksum mismatch detected
+PASS  CT-05  لایهٔ ۳ (seq) رکورد به‌رکورد را مقایسه می‌کند  → a:1 ok · b:2≠9 گرفته شد
+PASS  CT-06  تطبیق کامل ⇒ ok (کنترل مثبت)  → ok=true · tables=2
+PASS  CT-07  Gateway توقف نوشتن را اجرا می‌کند و ۴۰۹ می‌دهد  → push → 409 write_frozen
+PASS  CT-08  انتقال از lock نشستی استفاده نمی‌کند (سازگار با transaction pooling)  → freeze row, no session lock
+PASS  CT-09  اعتبارسنجی ورودی: tenant نامعتبر، مبدأ=مقصد، فهرست خالی  → 4/4 rejected with exit=2
+PASS  CT-10  رویداد batch برای rollback ثبت می‌شود (اثر انگشت انتقال)  → batch → rollback مسیر کامل
+
+CT checks=10 pass=10 fail=0
+CELL-TRANSFER-54-TEST-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:29:31Z
+DURATION_S=0

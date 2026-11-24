@@ -1,0 +1,87 @@
+TEST_ID=DBR-01
+PURPOSE=CI api-contract/native-contract step: Shared conformance vectors (conflict, scope, version)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  5 files changed, 245 insertions(+), 9 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-01.sh
+START=2026-11-24T04:29:17Z
+----- RAW -----
+PASS  VEC-00  vector set is complete and well-formed: conflict-v1.json, idempotency-v1.json, pagination-v1.json, scope-v1.json, version-v1.json
+PASS  VEC-CF-01  conflict: new row is never a conflict
+PASS  VEC-CF-02  conflict: attendance note only → auto merge
+PASS  VEC-CF-03  conflict: attendance status is sensitive → conflict
+PASS  VEC-CF-04  conflict: mixed auto+manual → conflict, fields sorted
+PASS  VEC-CF-05  conflict: grade score never auto-merges
+PASS  VEC-CF-06  conflict: grade teacher_note merges
+PASS  VEC-CF-07  conflict: leaves: no field merge at all
+PASS  VEC-CF-08  conflict: unknown collection is fail-closed (manual)
+PASS  VEC-CF-09  conflict: identical values → noop
+PASS  VEC-CF-10  conflict: meta fields only → noop
+PASS  VEC-CF-11  conflict: delete at current version → apply
+PASS  VEC-CF-12  conflict: delete vs later edit → conflict, row kept
+PASS  VEC-CF-13  conflict: users phone merges (field unit)
+PASS  VEC-CF-14  conflict: users role never auto-merges
+PASS  VEC-CF-15  conflict: announcements: merge none
+PASS  VEC-CF-16  conflict: explicit null is a real change
+PASS  VEC-CF-COVER  conflict vectors cover every rule class (merge/conflict/noop/apply, delete_vs_edit, fail-closed)
+PASS  VEC-SR-01  scope read: teacher × attendance → true
+PASS  VEC-SR-02  scope read: teacher × attendance → false
+PASS  VEC-SR-03  scope read: teacher × counselor_notes → false
+PASS  VEC-SR-04  scope read: teacher × announcements → true
+PASS  VEC-SR-05  scope read: teacher × app_settings → false
+PASS  VEC-SR-06  scope read: parent × grades → true
+PASS  VEC-SR-07  scope read: parent × grades → false
+PASS  VEC-SR-08  scope read: parent × users → true
+PASS  VEC-SR-09  scope read: parent × users → true
+PASS  VEC-SR-10  scope read: parent × users → false
+PASS  VEC-SR-11  scope read: parent × leaves → true
+PASS  VEC-SR-12  scope read: counselor × counselor_notes → true
+PASS  VEC-SR-13  scope read: parent × counselor_notes → false
+PASS  VEC-SR-14  scope read: teacher × zz_unknown → false
+PASS  VEC-SR-15  scope read: manager × zz_unknown → true
+PASS  VEC-SR-16  scope read: manager × conflicts → true
+PASS  VEC-SR-17  scope read: parent × announcements → true
+PASS  VEC-SW-01  scope write: teacher × grades → ok
+PASS  VEC-SW-02  scope write: teacher × grades → bad_score
+PASS  VEC-SW-03  scope write: teacher × grades → bad_kind
+PASS  VEC-SW-04  scope write: teacher × grades → out_of_scope
+PASS  VEC-SW-05  scope write: teacher × grades → ok
+PASS  VEC-SW-06  scope write: teacher × grades → approval_denied
+PASS  VEC-SW-07  scope write: manager × grades → ok
+PASS  VEC-SW-08  scope write: teacher × attendance → bad_status
+PASS  VEC-SW-09  scope write: teacher × app_settings → role_denied
+PASS  VEC-SW-10  scope write: parent × leaves → ok
+PASS  VEC-SW-11  scope write: parent × leaves → out_of_scope
+PASS  VEC-SW-12  scope write: parent × leaves → ok
+PASS  VEC-SW-13  scope write: parent × leaves → approval_denied
+PASS  VEC-SW-14  scope write: parent × leaves → approval_denied
+PASS  VEC-SW-15  scope write: parent × leaves → ok
+PASS  VEC-SW-16  scope write: parent × grades → role_denied
+PASS  VEC-SW-17  scope write: parent × grades → role_denied
+PASS  VEC-SW-18  scope write: manager × grades → ok
+PASS  VEC-SW-19  scope write: teacher × announcements → role_denied
+PASS  VEC-SW-20  scope write: parent × announcements → role_denied
+PASS  VEC-SW-21  scope write: manager × announcements → ok
+PASS  VEC-VER-01  version: web client (no header) is untouched
+PASS  VEC-VER-02  version: current native client
+PASS  VEC-VER-03  version: prerelease suffix is accepted
+PASS  VEC-VER-04  version: api newer than the server
+PASS  VEC-VER-05  version: N-1 still served
+PASS  VEC-VER-06  version: N-2 still served
+PASS  VEC-VER-07  version: N-3 → upgrade_required
+PASS  VEC-VER-08  version: below minimum client → upgrade_required
+PASS  VEC-VER-09  version: kill-switched build → upgrade_required
+PASS  VEC-VER-10  version: foreign product name is malformed
+PASS  VEC-VER-11  version: two-part version is malformed
+PASS  VEC-VER-12  version: non-numeric api is malformed
+PASS  VEC-VER-13  version: health is exempt even for a dead client
+PASS  VEC-VER-WINDOW  window is exactly N, N-1, N-2 (BACK_VERSIONS=2) for every N in 1..6
+PASS  VEC-NEG-01  negative control: a flipped conflict expectation is detected
+PASS  VEC-NEG-02  negative control: a widened scope expectation is detected
+PASS  VEC-NEG-03  negative control: an old client is NOT silently allowed
+
+VEC checks=73 pass=73 fail=0
+CONTRACT-VECTORS-64-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:29:17Z
+DURATION_S=0

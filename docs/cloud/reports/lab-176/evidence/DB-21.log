@@ -1,0 +1,30 @@
+TEST_ID=DB-21
+PURPOSE=CI api-contract/native-contract step: Row 120 Gateway bundle → extracted → selfcheck on two schools (real postgres:16)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-21.sh
+START=2026-11-24T03:32:18Z
+----- RAW -----
+PASS  GB-01  build: gateway closure, no single-school file, pg without pg-cloudflare, manifest sha256  → 156 files, 25 in closure
+PASS  GB-02  env vars come from the code: scan == catalog; new/stale var detected  → 52 vars
+PASS  GB-03  secret scan: bundle clean; planted secrets caught; templates not flagged  → 5 planted secrets caught, templates clean
+PASS  GB-04  guard refusals (single-school, dynamic require, extra module, cloudflare)  → 25 files, deps 13
+PASS  GB-05  preflight rules (pure)  → 13 cases
+PASS  GB-06  extracted bundle with an empty environment refuses to start (exit 2)  → exit 2
+PASS  GB-07  SCRAM-SHA-256 verifier verified by pg SASL client code  → iterations=4096
+PASS  GB-08  selfcheck vs stub servers + transport/Cloudflare verdicts  → honest OK, 5 flawed stubs FAILED
+PASS  GB-09  owner doc: Persian, every command, [S]/[M], D-09/D-40, no secret
+PASS  GB-10  mutants: each reverted control turns red  → 11/11 killed
+PASS  GB-E1  bundle extracted outside the repo resolves pg from its own node_modules  → pg → bundle/node_modules
+PASS  GB-E2  admin migrate: fresh DB, idempotent rerun, tampered migration refused  → 6 migrations, rerun 0 applied
+PASS  GB-E3  admin logins: refusals, SCRAM verifier stored, no password printed, check FAIL→OK  → GW-ADMIN check OK 20/20
+PASS  GB-E4  preflight against the DB: superuser refused (exit 3), runtime principals OK, closed port refused  → superuser 3, mutant 0, runtime 0, dead 3
+PASS  GB-E5  create-owner → owner login (password + TOTP) → plan → two schools with one-time codes  → owner + 2 schools
+PASS  GB-E6  bundled selfcheck: both schools ⇒ OK (S09..S12), codes never printed; reused codes ⇒ FAILED  → GATEWAY-SELFCHECK OK pass=11 fail=0 warn=1 skip=0
+PASS  GB-E7  SIGTERM ⇒ drained exit 0; owner-panel local-up ledger shared with admin migrate  → skipped 6
+
+GATEWAY-BUNDLE-120 OK passed=17 failed=0 negative_controls=48
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:32:22Z
+DURATION_S=4

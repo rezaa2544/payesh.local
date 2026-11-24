@@ -1,0 +1,12 @@
+school app closed: True
+OWNER TIME-TO-WINDOW-MS: 5415
+OWNER pid=21620 ws=114MB private=455MB
+INTEGRITY: Mandatory Label\Medium Mandatory Level Label S-1-16-8192 
+TCP: 
+OWNER-PROFILE-FILES:
+  Local\PayeshOwner\secure\owner.helper.id.dpapi 250
+IMG raw/WIN-OWN-01-first.jpg
+REAL C:\Users\R.M\AppData\Local\PayeshOwner changed-since-03:37Z=0
+REAL C:\Users\R.M\AppData\Local\PayeshOwner32 changed-since-03:37Z=0
+REAL C:\Users\R.M\AppData\Roaming\PayeshOwner absent
+OWNER running: True

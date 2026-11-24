@@ -1,0 +1,210 @@
+{
+  "at": "2026-11-23T22:33:28.438Z",
+  "version": "0.9.31",
+  "total_ms": 309382,
+  "passed": 28,
+  "failed": 0,
+  "steps": [
+    {
+      "id": "S00",
+      "fa": "همهٔ سرورها بالا آمدند (مرکزی پشت HTTPS، دو رایانهٔ مدرسه)",
+      "ok": true,
+      "ms": 355,
+      "detail": "{\"central\":{\"ms\":299,\"version\":\"0.9.31\",\"central\":true,\"setup_done\":true,\"headless\":true},\"school1\":{\"ms\":31,\"version\":\"0.9.31\",\"central\":false,\"setup_done\":false,\"headless\":false},\"school2\":{\"ms\":24,\"version\":\"0.9.31\",\"central\":false,\"setup_done\":false,\"headless\":false}}"
+    },
+    {
+      "id": "S01",
+      "fa": "سرور مرکزی با کلید محیطی به دیتابیس وصل است و در فهرست نشانی‌ها دیده می‌شود",
+      "ok": true,
+      "ms": 257,
+      "detail": "{\"bucket_list_after_ms\":174,\"bucket_entries\":1,\"central_list_entries\":1}"
+    },
+    {
+      "id": "S02",
+      "fa": "پنل مالک «ذخیرهٔ دیتابیس» (پاکت control) ⇒ رسید پیروی سرور مرکزی",
+      "ok": true,
+      "ms": 44862,
+      "detail": "{\"ack_after_ms\":44793,\"ack\":{\"key\":\"f0d85d22f7fa9004.json\",\"ok\":true,\"error\":null}}"
+    },
+    {
+      "id": "S03",
+      "fa": "پنل مالک مدرسهٔ الف را با نام کاربری و رمز مدیر می‌سازد (+ بستهٔ اتصال)",
+      "ok": true,
+      "ms": 445,
+      "detail": "{\"id\":\"s-1fce28b3a40e\",\"owner_write_ms\":444,\"bundle_public\":200}"
+    },
+    {
+      "id": "S04",
+      "fa": "سرور مرکزی خودکار میزبان مدرسهٔ الف می‌شود (رسید schools/ack)",
+      "ok": true,
+      "ms": 60650,
+      "detail": "{\"hosted_after_ms\":60650,\"instance\":\"3d571609ab269a00\"}"
+    },
+    {
+      "id": "S05",
+      "fa": "اپ مدرسه روی رایانهٔ تازه‌نصب: ورود مدیر الف (اتصال خودکار ⇒ سرور میزبان)",
+      "ok": true,
+      "ms": 984,
+      "detail": "{\"signed_in_on\":\"https://central.sim\",\"path\":\"school1:8080:409/school_hosted_elsewhere → central.sim:200\",\"school1_connected\":false}"
+    },
+    {
+      "id": "S06",
+      "fa": "مدیر الف دادهٔ مدرسهٔ خودش را می‌بیند (نام مدرسه از پنل مالک)",
+      "ok": true,
+      "ms": 35,
+      "detail": "{\"pull_ms\":35,\"users\":1}"
+    },
+    {
+      "id": "S07",
+      "fa": "مدیر الف کلاس، درس، دبیر، دانش‌آموز، ولی، پیوند و برنامه را ثبت می‌کند",
+      "ok": true,
+      "ms": 760,
+      "detail": "{\"push_ms\":[106,493,159],\"users\":4}"
+    },
+    {
+      "id": "S08",
+      "fa": "ورود دبیر از اپ روی رایانهٔ مدرسه (نام کاربری = همراه، رمز = کد ملی)",
+      "ok": true,
+      "ms": 321,
+      "detail": "{\"on\":\"https://central.sim\",\"path\":\"school1:8080:401/bad_credentials → central.sim:200\"}"
+    },
+    {
+      "id": "S09",
+      "fa": "ورود دانش‌آموز از اپ روی رایانهٔ مدرسه (نام کاربری = همراه، رمز = کد ملی)",
+      "ok": true,
+      "ms": 218,
+      "detail": "{\"on\":\"https://central.sim\",\"path\":\"school1:8080:401/bad_credentials → central.sim:200\"}"
+    },
+    {
+      "id": "S10",
+      "fa": "ورود ولی از اپ روی رایانهٔ مدرسه (نام کاربری = همراه، رمز = کد ملی)",
+      "ok": true,
+      "ms": 415,
+      "detail": "{\"on\":\"https://central.sim\",\"path\":\"school1:8080:401/bad_credentials → central.sim:200\"}"
+    },
+    {
+      "id": "S11",
+      "fa": "دبیر حضور و غیاب ثبت می‌کند؛ دانش‌آموز و ولی همان را می‌بینند؛ دانش‌آموز دیگر را نه",
+      "ok": true,
+      "ms": 304,
+      "detail": "{\"teacher_push_ms\":147,\"student_rows\":1,\"parent_rows\":1,\"student_write\":\"role_denied\"}"
+    },
+    {
+      "id": "S12",
+      "fa": "مالک رمز مدیر الف را عوض می‌کند ⇒ رمز تازه کار می‌کند، رمز قدیم نه",
+      "ok": true,
+      "ms": 4070,
+      "detail": "{\"new_password_after_ms\":4069,\"old_password\":\"401/bad_credentials\"}"
+    },
+    {
+      "id": "S13",
+      "fa": "مالک مدرسهٔ الف را غیرفعال و دوباره فعال می‌کند (ورود بسته/باز)",
+      "ok": true,
+      "ms": 114543,
+      "detail": "{\"closed_after_ms\":53345,\"closed_error\":\"school_inactive\",\"open_session_sees\":\"school_inactive\",\"reopened_after_ms\":61197}"
+    },
+    {
+      "id": "S14",
+      "fa": "اپ «درخواست ثبت مدرسه» می‌فرستد (به سرور مرکزی)",
+      "ok": true,
+      "ms": 136,
+      "detail": "{\"id\":\"1795473127293-5df781fd5d14f836\",\"status\":\"pending\",\"ms\":136}"
+    },
+    {
+      "id": "S15",
+      "fa": "درخواست در صفحهٔ «درخواست‌ها»ی پنل مالک دیده می‌شود",
+      "ok": true,
+      "ms": 49,
+      "detail": "{\"visible_after_ms\":48,\"school\":\"دبستان درخواستی 99057\"}"
+    },
+    {
+      "id": "S16",
+      "fa": "مالک تأیید می‌کند ⇒ وضعیت «تأیید شد» ⇒ مدیر با همان رمز درخواست وارد می‌شود",
+      "ok": true,
+      "ms": 1646,
+      "detail": "{\"status_after_ms\":62,\"login_after_ms\":1646,\"on\":\"https://central.sim\",\"school\":\"دبستان درخواستی 99057\"}"
+    },
+    {
+      "id": "S17",
+      "fa": "مالک مدرسهٔ ب را می‌سازد و مدیرش همان لحظه روی رایانهٔ مدرسهٔ ۲ وارد می‌شود",
+      "ok": true,
+      "ms": 975,
+      "detail": "{\"on\":\"http://school2:8080\",\"own_server\":true,\"path\":\"school2:8080:200\"}"
+    },
+    {
+      "id": "S18",
+      "fa": "رایانهٔ مدرسهٔ ۲ خودش را به سرور مرکزی اعلام می‌کند (فهرست نشانی‌ها)",
+      "ok": true,
+      "ms": 3034,
+      "detail": "{\"listed_after_ms\":3023,\"urls\":1,\"school\":\"هنرستان شبیه‌سازی ب 99057\"}"
+    },
+    {
+      "id": "S19",
+      "fa": "جداسازی: توکن مدرسهٔ ب/درخواستی دادهٔ مدرسهٔ الف را نمی‌بیند",
+      "ok": true,
+      "ms": 221,
+      "detail": "{\"B@school2:8080\":200,\"B@central.sim\":401,\"B@school1:8080\":401,\"R@central.sim\":200,\"R@school1:8080\":401}"
+    },
+    {
+      "id": "S20",
+      "fa": "ری‌استارت سرور مرکزی ⇒ مدارس میزبانی‌شده برمی‌گردند و داده سالم است",
+      "ok": true,
+      "ms": 3545,
+      "detail": "{\"health_after_ms\":2063,\"login_after_ms\":3544,\"users\":5}"
+    },
+    {
+      "id": "S21",
+      "fa": "نشست قبلی دبیر بعد از ری‌استارت هنوز معتبر است؛ نوسازی نشست با دستگاه (بی‌ورود دوباره)",
+      "ok": true,
+      "ms": 523,
+      "detail": "{\"old_session\":\"still valid\",\"no_proof\":\"proof_required\",\"refreshed\":200,\"rotated\":true,\"app_nokey_refresh\":200}"
+    },
+    {
+      "id": "S22",
+      "fa": "ری‌استارت رایانهٔ مدرسهٔ ۲ ⇒ داده و ورود مدیر ب سالم",
+      "ok": true,
+      "ms": 2320,
+      "detail": "{\"back_after_ms\":2320,\"on\":\"http://school2:8080\"}"
+    },
+    {
+      "id": "S23",
+      "fa": "قطع دیتابیس (صندوقچه) ⇒ ورود و کار کاربران ادامه دارد؛ وصل دوباره ⇒ همگام",
+      "ok": true,
+      "ms": 3510,
+      "detail": "{\"login_ms\":139,\"write_ms\":88}"
+    },
+    {
+      "id": "S24",
+      "fa": "پشتیبان‌گیری مدیر ب و بازگردانی آن",
+      "ok": true,
+      "ms": 1071,
+      "detail": "{\"backup_ms\":64,\"backups\":3,\"file\":\"payesh-2026-11-23T22-32-23-471Z.sqlite\",\"size\":118784,\"restore_ms\":294,\"tampered\":\"bad_signature\",\"pull_bytes_before\":2326,\"pull_bytes_after\":2340}"
+    },
+    {
+      "id": "S25",
+      "fa": "۳۰ ورود هم‌زمان کاربران مدرسهٔ الف از راه سرور مرکزی (پشت پروکسی HTTPS)",
+      "ok": true,
+      "ms": 7965,
+      "detail": "{\"ok\":30,\"wall_ms\":4264,\"p50\":2544,\"p95\":4074,\"max\":4262}"
+    },
+    {
+      "id": "S26",
+      "fa": "شش درخواست ثبت مدرسه از شش دستگاه مختلف پشت همان پروکسی؛ هدر جعلی سقف را دور نمی‌زند",
+      "ok": true,
+      "ms": 2027,
+      "detail": "{\"devices\":\"200, 200, 200, 200, 200, 200\",\"forged_xff\":\"200,200,200,200,200,429,429\"}"
+    },
+    {
+      "id": "S27",
+      "fa": "مالک مدرسهٔ درخواستی را حذف می‌کند ⇒ ورود بسته؛ با همان نام کاربری دوباره می‌سازد ⇒ ورود باز",
+      "ok": true,
+      "ms": 54106,
+      "detail": "{\"closed_after_ms\":45886,\"closed\":\"403/school_removed\",\"reopened_after_ms\":8218,\"school\":\"دبستان درخواستی (دوباره) 99057\"}"
+    }
+  ],
+  "s3": null,
+  "front": {
+    "s3.sim": 1556,
+    "central.sim": 168
+  }
+}

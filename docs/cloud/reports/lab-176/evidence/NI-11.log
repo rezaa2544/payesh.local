@@ -1,0 +1,24 @@
+TEST_ID=NI-11
+PURPOSE=CI native-client/sync-real-server step: payesh_sync LAN mode ⇄ server/index.js headless (row 127)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-11.sh
+START=2026-11-24T04:19:21Z
+----- RAW -----
+Running build hooks...Running build hooks...00:00 +0: loading test/lan_server_it_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: LAN-IT-01 data service: Payesh server, headless, fresh — and NO web UI is served
+00:00 +1: LAN-IT-02 NEG first setup from another device of the network is refused
+00:00 +2: LAN-IT-03 first setup on the server computer → manager signed in (device token)
+00:03 +3: LAN-IT-04 teacher signs in with phone + password; wrong password is refused
+00:08 +4: LAN-IT-05 pull into the device: the teacher's class and its students
+00:08 +5: LAN-IT-06 offline save → queued, nothing sent → server back → applied exactly once
+00:08 +6: LAN-IT-07 refresh rotates the device token; a replayed old token revokes the device
+00:08 +7: (tearDownAll)
+NATIVE-LAN-IT passed=7 negative_controls=12
+00:08 +7: All tests passed!
+LAN-REAL-SERVER-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:19:31Z
+DURATION_S=10

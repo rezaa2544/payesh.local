@@ -1,0 +1,110 @@
+TEST_ID=FL-04-test-app
+PURPOSE=flutter test --coverage app (CI)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh/app && flutter test --coverage
+START=2026-11-24T03:33:30Z
+----- RAW -----
+Resolving dependencies in `/work/repo/apps/payesh`...
+Downloading packages...
+  _fe_analyzer_shared 103.0.0 (111.0.0 available)
+  analyzer 13.3.0 (14.7.0 available)
+  cli_util 0.6.0 (0.6.1 available)
+  coverage 1.16.0 (1.16.1 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  package_config 2.2.0 (3.0.0 available)
+  sqlite3 3.9.1 (3.9.2 available)
+  test 1.31.1 (1.33.0 available)
+  test_api 0.7.12 (0.7.15 available)
+  test_core 0.6.18 (0.6.21 available)
+Got dependencies in `/work/repo/apps/payesh`!
+10 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /work/repo/apps/payesh/app/test/widget_test.dart
+00:00 +0: /work/repo/apps/payesh/app/test/widget_test.dart: app starts in Persian, right-to-left
+00:00 +1: /work/repo/apps/payesh/app/test/widget_test.dart: design system: Vazirmatn theme, today in Jalali, dark mode follows system
+00:02 +2: loading /work/repo/apps/payesh/app/test/system_wave12_test.dart
+00:02 +2: /work/repo/apps/payesh/app/test/system_wave12_test.dart: W12-W01 system page: status, sync now, connection diagnosis; a teacher sees only that; NEG no server-management section for a teacher
+00:04 +3: /work/repo/apps/payesh/app/test/system_wave12_test.dart: W12-W02 manager: mirror refresh, backup now + list, restore a backup file (asks first); NEG a file that is not a Payesh backup, an empty path
+00:07 +4: /work/repo/apps/payesh/app/test/system_wave12_test.dart: W12-W03 devices (revoke asks first, owner name from the local copy), school name saved, stats + audit; NEG without the school server nothing is half-done
+00:10 +5: /work/repo/apps/payesh/app/test/system_wave12_test.dart: W12-W04 cloud: state, test and CORS steps, edit + save (key write-only, CORS set too), reset to default, phone check; NEG no school server
+00:13 +6: /work/repo/apps/payesh/app/test/system_wave12_test.dart: W12-W04b cloud set by the owner panel: says so, shows bucket, no manual/built-in text
+00:13 +7: /work/repo/apps/payesh/app/test/system_wave12_test.dart: W12-W04c network = web PAGES.network: address card, tunnel card, LAN card, outbox; save (NEG http), enable the tunnel, turn it off (asks), outbox check
+00:15 +8: /work/repo/apps/payesh/app/test/system_wave12_test.dart: W12-W04d network: Tailscale missing → install steps; enable fails with the server reason; NEG offline → calm empty card, no dead buttons
+00:16 +9: /work/repo/apps/payesh/app/test/system_wave12_test.dart: W12-W05 data health: findings by severity, safe fix (asks first) queued, details, merge two accounts into one; rerun
+00:19 +10: /work/repo/apps/payesh/app/test/system_wave12_test.dart: W12-W06 system links open cloud; NEG an unknown wave hides all three
+00:20 +11: /work/repo/apps/payesh/app/test/system_wave12_test.dart: W12-W08 row 150: «مشخصات مدرسه» in the manager settings — owner part read-only, dependencies (type ⇒ caps, شب ⇒ evening, متوسطه دوم ⇒ branch, students ≤ capacity), saved to the school server; NEG invalid never sent, offline says so
+00:56 +12: loading /work/repo/apps/payesh/app/test/lan_mode_127_test.dart
+00:57 +12: /work/repo/apps/payesh/app/test/lan_mode_127_test.dart: LAN login screens (real controller, scripted server) L127-W01 step 1 offers the school-LAN login; NEG not in a build without LAN
+00:58 +13: /work/repo/apps/payesh/app/test/lan_mode_127_test.dart: LAN login screens (real controller, scripted server) L127-W02 address → server name → phone + password → signed in on the LAN server
+00:59 +14: /work/repo/apps/payesh/app/test/lan_mode_127_test.dart: LAN login screens (real controller, scripted server) L127-W03 restart: refresh rotates the device token and saves the new one
+00:59 +15: /work/repo/apps/payesh/app/test/lan_mode_127_test.dart: LAN login screens (real controller, scripted server) L127-W04 offline at start: still signed in (offline-first), token kept
+00:59 +16: /work/repo/apps/payesh/app/test/lan_mode_127_test.dart: LAN login screens (real controller, scripted server) L127-W05 NEG revoked/reused device token → signed out to the LAN form, token wiped
+00:59 +17: /work/repo/apps/payesh/app/test/lan_mode_127_test.dart: LAN login screens (real controller, scripted server) L127-W06 fresh server: first setup form → manager signed in
+01:00 +18: /work/repo/apps/payesh/app/test/lan_mode_127_test.dart: LAN login screens (real controller, scripted server) L127-W07 setup refused off the server computer → the one clear message
+01:00 +19: /work/repo/apps/payesh/app/test/lan_mode_127_test.dart: LAN login screens (real controller, scripted server) L127-W08 sign-out forgets the LAN account and tells the server
+01:00 +20: /work/repo/apps/payesh/app/test/lan_mode_127_test.dart: LAN login screens (real controller, scripted server) L127-W09 NEG not a Payesh server / server off → message, nothing saved
+01:01 +21: /work/repo/apps/payesh/app/test/lan_mode_127_test.dart: LAN data path (real LanAccessClient + GatewayAttendanceSource, local Sync v1 server) L127-D01 LAN login → pull into SQLite → attendance queued → AutoSync push over /api/sync
+01:01 +22: loading /work/repo/apps/payesh/app/test/login_163_test.dart
+01:02 +22: /work/repo/apps/payesh/app/test/login_163_test.dart: login without a server address L163-01 nothing remembered, nothing here: the owner database list gives the school server; the card says «وصل به دیتابیس» (row 164: no school name) and one press signs in
+01:04 +23: /work/repo/apps/payesh/app/test/login_163_test.dart: login without a server address L163-02 school server installed on this computer but off: the app starts it and connects to it (the list is not needed)
+01:04 +24: /work/repo/apps/payesh/app/test/login_163_test.dart: login without a server address L163-03 NEG nothing answers: red line + «تلاش دوباره»; a press says why (nothing sent); retry finds the server, then login works
+01:04 +25: /work/repo/apps/payesh/app/test/login_163_test.dart: login without a server address L163-04 the login card on a phone and on a wide screen: brand, method tabs, no address
+01:04 +26: /work/repo/apps/payesh/app/test/login_163_test.dart: LocalSchoolServer LS-01 not Windows / nothing installed ⇒ nothing started
+01:04 +27: /work/repo/apps/payesh/app/test/login_163_test.dart: LocalSchoolServer LS-02 Payesh Data Service installed ⇒ its boot task is run
+01:04 +28: /work/repo/apps/payesh/app/test/login_163_test.dart: LocalSchoolServer LS-03 school system of payesh.iss ⇒ its own node runs server\start.js on 8080 with the window's data folder
+01:04 +29: /work/repo/apps/payesh/app/test/login_163_test.dart: LocalSchoolServer LS-04 data service task fails ⇒ its node is started headless
+01:04 +30: /work/repo/apps/payesh/app/test/login_163_test.dart: LocalSchoolServer LS-05 data folder: PAYESH_DATA, then ProgramData, then per-user
+01:04 +31: /work/repo/apps/payesh/app/test/login_163_test.dart: LocalSchoolServer LS-06 NEG no node next to the server ⇒ false, spawn errors ⇒ false
+01:05 +32: loading /work/repo/apps/payesh/app/test/support_152_test.dart
+01:06 +32: /work/repo/apps/payesh/app/test/support_152_test.dart: S152-W01 paywalled manager still reaches support: NEG validation (no call), send queued (school server not on the database), list shows «در صف ارسال»
+01:09 +33: /work/repo/apps/payesh/app/test/support_152_test.dart: S152-W02 thread: owner answer shown; reply; close; NEG server error message in Persian
+01:10 +34: /work/repo/apps/payesh/app/test/support_152_test.dart: S152-W03 NEG: no support API in this build ⇒ no entry
+01:10 +35: /work/repo/apps/payesh/app/test/support_152_test.dart: S152-W04 NEG: list fails ⇒ error shown, refresh retries
+01:11 +36: loading /work/repo/apps/payesh/app/test/first_login_146_test.dart
+01:11 +36: /work/repo/apps/payesh/app/test/first_login_146_test.dart: F146-W01 fresh server setup = web renderSetup: type, year, mobile 11 digits, password twice
+01:14 +37: /work/repo/apps/payesh/app/test/first_login_146_test.dart: F146-W02 first manager sign-in on a fresh server: user name / mobile / national id shapes
+01:15 +38: /work/repo/apps/payesh/app/test/first_login_146_test.dart: F146-W03 national id (10 digits, Arabic digits too) is a valid login
+01:16 +39: loading /work/repo/apps/payesh/app/test/reports_wave11_test.dart
+01:17 +39: /work/repo/apps/payesh/app/test/reports_wave11_test.dart: W11-W01 manager home: counts, cohort coverage, the room in use now, latest notice; NEG a teacher has no reports, day view or leave list
+01:18 +40: /work/repo/apps/payesh/app/test/reports_wave11_test.dart: W11-W02 teacher and student home: today's lessons, the current bell, attendance recorded or not
+01:19 +41: /work/repo/apps/payesh/app/test/reports_wave11_test.dart: W11-W03 reports: weekly share per class, class report card, another class; print writes one HTML file; NEG a failed write is reported
+01:20 +42: /work/repo/apps/payesh/app/test/reports_wave11_test.dart: W11-W04 attendance report: today per class, everyone not present; other days
+01:21 +43: /work/repo/apps/payesh/app/test/reports_wave11_test.dart: W11-W05 leaves: approve and reject (queued with who decided); delete asks first (NEG cancel keeps it)
+01:24 +44: loading /work/repo/apps/payesh/app/test/anywhere_171_test.dart
+01:25 +44: /work/repo/apps/payesh/app/test/anywhere_171_test.dart: row 171 — the right school server, from anywhere A171-01 fresh install: this computer's EMPTY server is skipped — the central server from the list opens its login (no setup form) and signs in
+01:27 +45: /work/repo/apps/payesh/app/test/anywhere_171_test.dart: row 171 — the right school server, from anywhere A171-02 two schools: the server that answered first does not know the user ⇒ the other school server of the list signs them in (and is remembered)
+01:27 +46: /work/repo/apps/payesh/app/test/anywhere_171_test.dart: row 171 — the right school server, from anywhere A171-03 «school hosted elsewhere» (409 + host instance/addresses) ⇒ the app goes to THAT host first, by itself
+01:27 +47: /work/repo/apps/payesh/app/test/anywhere_171_test.dart: row 171 — the right school server, from anywhere A171-04 NEG a wrong password on the server this device already signs in on stays «wrong password» — no other server is tried
+01:27 +48: /work/repo/apps/payesh/app/test/anywhere_171_test.dart: row 171 — the right school server, from anywhere A171-05 another server KNOWS the user (school inactive) ⇒ its answer is shown, on that server
+01:28 +49: /work/repo/apps/payesh/app/test/anywhere_171_test.dart: row 171 — the right school server, from anywhere A171-06 NEG an EMPTY server of the list is never logged into (it would make the user its manager)
+01:28 +50: loading /work/repo/apps/payesh/app/test/home_165_test.dart
+01:29 +50: /work/repo/apps/payesh/app/test/home_165_test.dart: H165-01 home (row 172): a phone gets the web panel itself — the dashboard page, the web `.bottomnav`, no tile grid, no native header and no debug footer
+01:30 +51: /work/repo/apps/payesh/app/test/home_165_test.dart: H165-02 the version strip is reserved: the pill never covers the AppBar title
+01:30 +52: /work/repo/apps/payesh/app/test/home_165_test.dart: H165-03 new version ⇒ the web version bar (row 172) says so with «دانلود و نصب»; tap ⇒ APK downloaded, hash-checked and handed to the system installer (no browser)
+01:31 +53: /work/repo/apps/payesh/app/test/home_165_test.dart: H165-04 NEG «حافظهٔ ابری» with the school server out of reach: calm sentence + «دوباره», no red bar, not stuck on «در حال خواندن…»; back online ⇒ the card
+01:35 +54: loading /work/repo/apps/payesh/app/test/login_162_test.dart
+01:36 +54: /work/repo/apps/payesh/app/test/login_162_test.dart: L162-01 fresh device: the first screen is username + password (no school code, no server address), one press finds the server, signs in and remembers it
+01:38 +55: /work/repo/apps/payesh/app/test/login_162_test.dart: L162-02 remembered server + owner chose «mobile»: the app opens on the mobile + code form and signs in with the SMS code
+01:38 +56: /work/repo/apps/payesh/app/test/login_162_test.dart: L162-03 owner chose «mobile» but no SMS panel yet: the mobile form shows (owner setting wins) with «به‌زودی» and the password link under it
+01:38 +57: /work/repo/apps/payesh/app/test/login_162_test.dart: L162-04 server not reachable at start: the same login form (no address); mobile login searches again and asks for the code in one press
+01:38 +58: /work/repo/apps/payesh/app/test/login_162_test.dart: L162-05 «خروج» returns straight to the same server login form (no address, no school code)
+01:39 +59: loading /work/repo/apps/payesh/app/test/schools_145_test.dart
+01:40 +59: /work/repo/apps/payesh/app/test/schools_145_test.dart: S145-W01 registration request next to the login: validation, send, status, approved ⇒ login with the user name
+01:44 +60: /work/repo/apps/payesh/app/test/schools_145_test.dart: S170-W01 the reached server is not connected ⇒ a connected server relays the request (it reaches the owner panel)
+01:46 +61: /work/repo/apps/payesh/app/test/schools_145_test.dart: S145-W02 rejected request shows the reason; a new request starts over
+01:47 +62: /work/repo/apps/payesh/app/test/schools_145_test.dart: S145-W03 fresh server: «with the manager user name» instead of setup (owner-created school)
+01:47 +63: /work/repo/apps/payesh/app/test/schools_145_test.dart: S145-W04 paywall: trial once per device (NEG used on this device), gateway opens the browser, receipt pending
+03:19 +64: /work/repo/apps/payesh/app/test/schools_145_test.dart: S149-W01 manager renewal warning from 1 Tir ⇒ «تمدید» opens the plans
+03:20 +65: /work/repo/apps/payesh/app/test/schools_145_test.dart: S149-U01 plan descriptions follow the 31 Shahrivar rule
+03:20 +66: /work/repo/apps/payesh/app/test/schools_145_test.dart: S145-W05 trial starts ⇒ app opens with the trial badge
+03:20 +67: /work/repo/apps/payesh/app/test/schools_145_test.dart: S145-W06 NEG no device id ⇒ no trial request; inactive school ⇒ closed
+03:20 +68: /work/repo/apps/payesh/app/test/schools_145_test.dart: S167-W07 trial on ⇒ a never-subscribed user gets the trial at once (no tap); failure stays quiet
+03:20 +69: /work/repo/apps/payesh/app/test/schools_145_test.dart: S167-W08 NEG trial off ⇒ no automatic request; the paywall stays
+03:21 +70: /work/repo/apps/payesh/app/test/schools_145_test.dart: S145-U01 device identity helpers
+03:21 +71: loading /work/repo/apps/payesh/app/test/secure_storage_test.dart
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:48:06Z
+DURATION_S=876
+VERDICT=INVALID — run killed by operator after kernel OOM-killed frontend_server (03:37Z); EXIT=0 above is NOT a pass. See FL-04 rerun.

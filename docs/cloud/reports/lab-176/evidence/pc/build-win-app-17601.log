@@ -1,0 +1,82 @@
+﻿[        ]   payesh_app.dir\Release\win32_window.obj
+[        ]   payesh_app.dir\Release\generated_plugin_registrant.obj
+[ +356 ms]   payesh_app.vcxproj -> C:\Users\R.M\psim\repo\apps\payesh\app\build\windows\x64\runner\Release\payesh_app.exe
+[  +15 ms] FinalizeBuildStatus:
+[        ]   Deleting file "payesh_app.dir\Release\payesh_app.tlog\unsuccessfulbuild".
+[        ]   Touching "payesh_app.dir\Release\payesh_app.tlog\payesh_app.lastbuildstate".
+[   +1 ms] Done Building Project "C:\Users\R.M\psim\repo\apps\payesh\app\build\windows\x64\runner\payesh_app.vcxproj" (default targets).
+[  +10 ms] PrepareForBuild:
+[        ]   Creating directory "x64\Release\ALL_BUILD\".
+[   +3 ms]   Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+[        ]   Creating directory "x64\Release\ALL_BUILD\ALL_BUILD.tlog\".
+[   +3 ms] InitializeBuildStatus:
+[        ]   Creating "x64\Release\ALL_BUILD\ALL_BUILD.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+[        ]   Touching "x64\Release\ALL_BUILD\ALL_BUILD.tlog\unsuccessfulbuild".
+[  +47 ms] CustomBuild:
+[        ]   Building Custom Rule C:/Users/R.M/psim/repo/apps/payesh/app/windows/CMakeLists.txt
+[  +85 ms] FinalizeBuildStatus:
+[        ]   Deleting file "x64\Release\ALL_BUILD\ALL_BUILD.tlog\unsuccessfulbuild".
+[        ]   Touching "x64\Release\ALL_BUILD\ALL_BUILD.tlog\ALL_BUILD.lastbuildstate".
+[   +1 ms] Done Building Project "C:\Users\R.M\psim\repo\apps\payesh\app\build\windows\x64\ALL_BUILD.vcxproj" (default targets).
+[   +9 ms] PrepareForBuild:
+[        ]   Creating directory "x64\Release\INSTALL\".
+[   +4 ms]   Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+[        ]   Creating directory "x64\Release\INSTALL\INSTALL.tlog\".
+[   +5 ms] InitializeBuildStatus:
+[        ]   Creating "x64\Release\INSTALL\INSTALL.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+[        ]   Touching "x64\Release\INSTALL\INSTALL.tlog\unsuccessfulbuild".
+[  +51 ms] CustomBuild:
+[        ]   1>
+[  +45 ms] PostBuildEvent:
+[        ]   setlocal
+[        ]   "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DBUILD_TYPE=Release -P cmake_install.cmake
+[        ]   if %errorlevel% neq 0 goto :cmEnd
+[        ]   :cmEnd
+[        ]   endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+[   +1 ms]   :cmErrorLevel
+[        ]   exit /b %1
+[        ]   :cmDone
+[        ]   if %errorlevel% neq 0 goto :VCEnd
+[        ]   :VCEnd
+[ +105 ms]   -- Install configuration: "Release"
+[   +4 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/icudtl.dat
+[   +8 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/flutter_windows.dll
+[ +157 ms]   -- Up-to-date: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release
+[   +1 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/sqlite3mc.dll
+[  +16 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets
+[   +1 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/AssetManifest.bin
+[   +3 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/assets
+[   +2 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/assets/logo-mark.png
+[   +3 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/FontManifest.json
+[   +2 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/fonts
+[   +1 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/fonts/MaterialIcons-Regular.otf
+[   +2 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/NativeAssetsManifest.json
+[   +2 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/NOTICES.Z
+[   +3 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/packages
+[   +2 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/packages/payesh_ui
+[   +1 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/packages/payesh_ui/fonts
+[   +1 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Black.ttf
+[   +3 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Bold.ttf
+[   +4 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-ExtraBold.ttf
+[   +4 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Medium.ttf
+[   +3 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/packages/payesh_ui/fonts/Vazirmatn-Regular.ttf
+[   +3 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/shaders
+[   +1 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/shaders/ink_sparkle.frag
+[   +3 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/flutter_assets/shaders/stretch_effect.frag
+[   +4 ms]   -- Installing: C:/Users/R.M/psim/repo/apps/payesh/app/build/windows/x64/runner/Release/data/app.so
+[  +87 ms] FinalizeBuildStatus:
+[        ]   Deleting file "x64\Release\INSTALL\INSTALL.tlog\unsuccessfulbuild".
+[   +7 ms]   Touching "x64\Release\INSTALL\INSTALL.tlog\INSTALL.lastbuildstate".
+[        ] Done Building Project "C:\Users\R.M\psim\repo\apps\payesh\app\build\windows\x64\INSTALL.vcxproj" (default targets).
+[  +33 ms] Build succeeded.
+[        ]     0 Warning(s)
+[        ]     0 Error(s)
+[        ] Time Elapsed 00:02:12.56
+[ +171 ms] Building Windows application... (completed in غ±غ³غ¹ظ«غ¶s)
+[   +5 ms] âˆڑ Built build\windows\x64\runner\Release\payesh_app.exe
+[   +2 ms] "flutter windows" took غ±غ´غ±ظ¬غ±غ¸غ²ms.
+[   +2 ms] Running 1 shutdown hook
+[   +1 ms] Shutdown hooks complete
+[        ] exiting with code 0
+
+[LAB176: tail 80 of 68330 bytes; full log on PC at C:\lab\evidence\build-win-app-17601.log]

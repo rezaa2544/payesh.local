@@ -1,0 +1,28 @@
+TEST_ID=DBR-09
+PURPOSE=CI api-contract/native-contract step: Load test (row 82, [S] simulated)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  5 files changed, 245 insertions(+), 9 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-09.sh
+START=2026-11-24T04:30:25Z
+----- RAW -----
+PASS  LD-01  measurement math: quantiles, least-squares slope, leak verdict (flat RSS ⇒ no leak; +120 MB/min ⇒ leak; noise only ⇒ no leak)  → flat=ok grow=leak(120MB/min) noise=ok
+PASS  LD-02  claims gate: "unlimited"/"نامحدود" claim ⇒ refused; missing label ⇒ refused; target-DB label without managed DB ⇒ refused; CLI --label M without PAYESH_T2_MANAGED_DB ⇒ exit 2  → unlimited⇒red · نامحدود⇒red · no label⇒red · target label unattested⇒red · CLI --label M⇒exit 2
+      [S] row 82 load: devices=2000 tenants=20 concurrency=64 duration=30s (+5s warmup)
+      [S] requests=18663 rps=620
+      [S] latency ms all p50=100.9 p95=133.6 p99=150.7 max=208.7
+      [S] latency ms pull p50=100.1 p95=132.8 p99=150.1 · push p50=104 p95=136.4 p99=152
+      [S] errors=0 rate=0 statuses={"200":18663}
+      [S] memory rss start=85.7MB end=90.8MB peak=90.8MB growth=2.9MB slope=8.3MB/min leak_suspected=false
+      [S] scope: simulated: synthetic devices against one gateway process + PostgreSQL on a CI runner or dev machine (loopback); describes this run only, not production capacity
+PASS  LD-03  main run [S]: 2000 devices / 20 tenants, 64 concurrent, 30s on Gateway+PG ⇒ error rate ≤ 0.5%, p95 ≤ 1000 ms, no RSS leak  → [S] req=18663 rps=620 p50/p95/p99=100.9/133.6/150.7ms err=0 rss 85.7→90.8MB slope=8.3MB/min
+PASS  LD-04  every number is labelled [S]: report sections + summary lines; no capacity claim; raw RSS samples and per-route latency present  → sections labelled=6/6 · summary lines=7 all [S] · rss samples=36
+PASS  LD-05  negative: memory leak injected into the gateway (64 KB kept per request) ⇒ leak gate red  → red: slope=2268.5MB/min growth=367.7MB
+PASS  LD-06  negative: push killed at the gateway (PAYESH_FEATURE_KILL=push ⇒ 503) ⇒ error-rate gate red  → red: error_rate=0.20438 statuses={"200":3562,"503":915}
+PASS  LD-07  negative: 1.2 s delay injected before every gateway request ⇒ p95 gate red  → red: p95=1254.2ms
+PASS  LD-08  control: the same short profile on an unmodified gateway is green (the negatives are caused by the injection, not the profile)  → green: p95=67ms err=0 slope=12.2MB/min growth=2MB
+# passed=8 failed=0 skipped=0
+LOAD-82-TEST-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:31:40Z
+DURATION_S=75

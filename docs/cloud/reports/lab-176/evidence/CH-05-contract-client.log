@@ -1,0 +1,30 @@
+TEST_ID=CH-05-contract-client
+PURPOSE=sync contract (client)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=npm run test:contract:client
+START=2026-11-24T03:27:10Z
+----- RAW -----
+
+> payesh-local@0.9.31 test:contract:client
+> node --experimental-sqlite --disable-warning=ExperimentalWarning tests/sync-client-contract.js
+
+
+قرارداد Sync v1 — سمت کلاینت (jsdom)
+
+  ✓ setup سرور واقعی + نشست مدیر
+  ✓ دادهٔ نمونه از مسیر push ثبت می‌شود
+  ✓ کلاینت بالا آمد و پوسته رندر شد
+  ✓ کلاینت pull را با مکان‌نمای مرکب (since + since_id) می‌فرستد
+  ✓ همهٔ پاسخ‌های pull با طرح قرارداد معتبرند
+  ✓ pull واقعاً داده را در رابط کلاینت نشانده است
+  ✓ بدنهٔ push کلاینت (اگر فرستاده شد) با طرح قرارداد می‌خواند
+  ✓ دور دوم pull از مکان‌نمای ذخیره‌شده ادامه می‌دهد (بدون تکرار/بدون گم‌شدن)
+
+pull‌های دیده‌شده: 2 · پاسخ‌های معتبرسنجی‌شده: 2 · push دیده‌شده: 0
+8 موفق · 0 ناموفق
+
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:27:14Z
+DURATION_S=4

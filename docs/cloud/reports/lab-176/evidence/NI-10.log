@@ -1,0 +1,24 @@
+TEST_ID=NI-10
+PURPOSE=CI native-client/sync-real-server step: payesh_sync ⇄ server/index.js
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-10.sh
+START=2026-11-24T04:19:19Z
+----- RAW -----
+Running build hooks...Running build hooks...00:00 +0: loading test/server_it_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: push: offline-created ops are applied once by the real server
+00:00 +1: idempotency: re-sending the same uid is marked duplicate, no second row
+00:00 +2: pull: real rows land in the local SQLite engine; second pull is empty
+00:00 +3: fault: bad token → unauthorized, ops stay queued and are sent after re-login
+00:00 +4: fault: server killed (offline) → op kept; after restart it is applied exactly once
+00:00 +5: server rejects an unknown collection per op (rejected, not 500)
+00:00 +6: convergence: stale edit vs another device → real server conflict; both versions kept
+00:00 +7: request headers reach the server (version + request id)
+00:00 +8: (tearDownAll)
+00:00 +8: All tests passed!
+SYNC-REAL-SERVER-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:19:21Z
+DURATION_S=2

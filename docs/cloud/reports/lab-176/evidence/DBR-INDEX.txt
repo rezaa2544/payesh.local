@@ -1,0 +1,21 @@
+DBR-01	Shared conformance vectors (conflict, scope, version)
+DBR-02	Every native endpoint vs JSON Schema (school server + Gateway/Directory on PostgreSQL)
+DBR-03	Directory bootstrap — school moved between two cells while the client writes
+DBR-04	Row 54 transfer tool unit checks (sequence fix must not regress)
+DBR-05	Row 67 Gateway hardening — SIGTERM drain, request-id, 429 Retry-After, kill-switches, short load test
+DBR-06	Row 119 offline — Gateway survives DB drop, outbox transient/FIFO/exactly-once, mutants
+DBR-07	Row 126 atomic tenancy.migrate — concurrent migrations under live writes, negative control
+DBR-08	Row 87 field encryption — AEAD at rest, env key, rotation, DB-dump negative test (SQLite + PostgreSQL), mutati
+DBR-09	Load test (row 82, [S] simulated)
+DBR-10	Load test, direct path (row 82, [S] simulated)
+DBR-11	Migrations gate (row 86, expand → migrate → contract on PG)
+DBR-12	Direct-path identity + RLS (row 106, real postgres:16)
+DBR-13	Device-side encryption, key grants, rotation (row 107, real postgres:16)
+DBR-14	Direct sync in SQL (row 108, real postgres:16)
+DBR-15	RLS pentest (row 109, real postgres:16)
+DBR-16	Telemetry without PII (row 80, real postgres:16)
+DBR-17	Privacy delete/export (row 88, real postgres:16)
+DBR-18	Direct transport (row 110, real postgres:16)
+DBR-19	Backup + restore drill (row 111, real postgres:16 + fresh cluster)
+DBR-20	Row 121 school creation → tenant → initial manager, cross-school 0 rows (real postgres:16)
+DBR-21	Row 120 Gateway bundle → extracted → selfcheck on two schools (real postgres:16)

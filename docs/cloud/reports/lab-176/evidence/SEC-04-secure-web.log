@@ -1,0 +1,30 @@
+TEST_ID=SEC-04-secure-web
+PURPOSE=device secure store (after D-02)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=npm run test:secure
+START=2026-11-24T03:26:33Z
+----- RAW -----
+
+> payesh-local@0.9.31 test:secure
+> node tests/secure-web.js
+
+PASS  SE-01  open با راز دستگاه + put/get رمزگذاری‌شده  → kdf=PBKDF2 iter=210000 version=2
+PASS  SE-02  در حالت سکون هیچ متن روشنی از payload روی دیسک نیست  → records=3 bytes≈2KB iv=12 ct>0 plaintext=absent
+PASS  SE-03  استخراج داده با کلید نادرست = شکست (بدون استثنای بی‌صدا)  → decrypt_failed (GCM auth) rows_readable=0
+PASS  SE-04  کلید مشتق‌شده non-extractable است (بایت خام کلید بیرون نمی‌آید)  → extractable=false export=rejected
+PASS  SE-05  قفل برنامه: کلید از حافظه می‌رود و خواندن تا unlock ناممکن است  → locked → unlock ok locks=1
+PASS  SE-06  list/since/byRef روی دادهٔ رمزشده درست کار می‌کنند  → list=4 byRef=3 since=2
+PASS  SE-07  دستکاری بایت رمزنگاری‌شده تشخیص داده می‌شود (بدون خرابی بی‌صدا)  → decrypt_failed tamper_detected=true restored=ok
+PASS  SE-08  چرخش راز: ردیف‌ها حفظ، راز قدیمی بی‌اثر، راز تازه کارگر  → rotated=6 old=rejected new=ok
+PASS  SE-09  پاک‌سازی یک کالکشن، بقیه را دست نمی‌زند  → cleared=4 remaining=2
+PASS  SE-10  wipe: نابودی کلید و نمک + صفرشدن ردیف‌ها + بازگشایی ناممکن  → rows_deleted=2 meta=0 reopen_rows=0
+PASS  SE-11  ابطال دستگاه ⇒ wipe با شاهد قابل‌حسابرسی (بدون ACK کاذب)  → reason=device_revoked rows_deleted=1 notified=1
+PASS  SE-12  راز دستگاه نه در دیتابیس و نه در متادیتا ذخیره نمی‌شود  → meta=key,kdf,hash,iterations,salt,created_at secret_on_disk=no
+
+SE checks=12 pass=12 fail=0
+DEVICE-SECURE-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:26:33Z
+DURATION_S=0

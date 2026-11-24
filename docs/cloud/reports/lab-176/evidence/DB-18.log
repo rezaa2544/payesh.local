@@ -1,0 +1,25 @@
+TEST_ID=DB-18
+PURPOSE=CI api-contract/native-contract step: Direct transport (row 110, real postgres:16)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-18.sh
+START=2026-11-24T03:32:09Z
+----- RAW -----
+
+Row 110: direct transport in the JS client (PAYESH_TRANSPORT=direct, default off) — transport ↔ provider
+
+PASS  TR-01  selection: unset / gateway / typo → Gateway (typo flagged); only "direct" turns the direct path on; direct without a provider is an error, never a silent fallback  → default gateway; direct only on request; layers independent  (1ms)
+PASS  TR-02  provider: POST {url}/rest/v1/rpc/<fn>, named parameters, publishable key + user JWT, schema profile; allowlisted RPCs only; https (http only on loopback); no credentials in the URL  → 10 allowlisted RPCs; 5 bad urls refused  (3ms)
+PASS  TR-03  runtime refusal: secret key (sb_secret_…), service_role / supabase_admin / postgres JWTs, a non-anon JWT as client key, and a privileged token as the user token — all refused before any byte is sent  → 8 privileged/invalid credentials refused, 0 requests sent  (1ms)
+PASS  TR-04  static: no service key / DB credential / privileged JWT anywhere in client code (client/**, native app + packages lib) — scanner proven by planted positive controls; the refusal lists are the only marked exceptions  → 161 files clean; 6 planted controls caught; 4 marked guard lines  (53ms)
+PASS  TR-05  Gateway mode unchanged: the outbox drains through gatewayTransport with exactly app.js's calls (POST /api/sync {ops}, GET /api/v1/pull?since=&since_id=); verdicts flow back unchanged  → same calls as client/app.js; npm test keeps the Gateway suite  (12ms)
+PASS  TR-06  offline unchanged over the direct path: ops queued offline survive a network outage (same uids, backoff), drain on reconnect, replay = duplicate; the other device pulls and decrypts into its engine  → outage: 4 kept, 0 requests; reconnect: 3 applied + 1 reported; replay duplicate; device 2 pulled 4 rows  (101ms)
+PASS  TR-07  two devices, offline edits on the same record through the same outbox: manual field on both sides → conflict (both versions kept); auto fields on both sides → merged on the device into one new version; nothing lost  → manual: D2 applied, D1 conflict (both versions kept); auto: merged on the device (v3 has both edits); 2 stale rounds, 1 merge  (121ms)
+PASS  TR-08  the provider over HTTP: wrong publishable key → 401 auth, forged JWT → 401, a privileged token never leaves the device, the database's own refusals arrive as SQLSTATE (42501, 54000)  → emulator served 25 requests (4 refused)  (14ms)
+
+# passed=8 failed=0 skipped=0
+TRANSPORT-110-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:32:10Z
+DURATION_S=1

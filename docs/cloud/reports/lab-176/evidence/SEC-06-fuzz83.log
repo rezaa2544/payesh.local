@@ -1,0 +1,25 @@
+TEST_ID=SEC-06-fuzz83
+PURPOSE=convergence fuzz (12 seeds)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=npm run test:fuzz83
+START=2026-11-24T03:26:34Z
+----- RAW -----
+
+> payesh-local@0.9.31 test:fuzz83
+> node --experimental-sqlite --disable-warning=ExperimentalWarning tests/convergence-fuzz-83.js
+
+PASS  FZ-01  property run: 40 seeded scenarios × 3–5 devices, random offline/online, lost responses, retries, deletes, human resolutions  → scenarios=40 devices=157 pushes=1220 ops=3654 applied=1432 merged=904 noop=493 conflicts=738 deleted=33 rejected=3 duplicates=51 lost_responses=154 replayed=127 resolved=179 pulls=1016
+PASS  FZ-02  P1 convergence: after reconnect + drain every device replica deep-equals the server (no row missing, extra or different)  → replica rows compared=2262 mismatches=0
+PASS  FZ-03  P2 domain law: per-op outcome and final value+version of every row equal the spec oracle (sensitive fields never auto-merged; auto fields LWW by server receipt; idempotent retries)  → ops checked=3654 · sensitive conflicts kept for review=738 · same-device chains that conflicted=347
+PASS  FZ-04  reproducible: the same seed yields the same trace + final state digest; a different seed differs  → seed=8300 digest=88aee3f8affe9853 (twice) · seed=8301 digest=fbcadf27af557235
+PASS  FZ-05  negative: domain rule removed: grades.score made auto-mergeable ⇒ divergence detected (seed/step reported)  → detected: seed=8300 step=24 op d1-5 grades#102 put base=1 data={"score":20}: server=ok spec=conflict
+PASS  FZ-06  negative: attendance rule deleted (falls back to manual-only) ⇒ divergence detected  → detected: seed=8300 step=24 op d1-4 attendance#102 put base=1 data={"note":"n2"}: server=conflict spec=merged
+PASS  FZ-07  negative: domain law replaced by blind last-writer-wins on every field ⇒ divergence detected  → detected: seed=8300 step=24 op d1-5 grades#102 put base=1 data={"score":20}: server=ok spec=conflict
+PASS  FZ-08  negative (P1 is live): a device that ignores tombstones ⇒ replica divergence detected; unmodified run of the same seeds is clean  → detected seed=8300: device 1: missing=0 extra=1 differing=0 · baseline clean
+# passed=8 failed=0
+CONVERGENCE-FUZZ-83-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:26:37Z
+DURATION_S=3

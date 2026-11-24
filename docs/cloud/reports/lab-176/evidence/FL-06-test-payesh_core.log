@@ -1,0 +1,32 @@
+TEST_ID=FL-06-test-payesh_core
+PURPOSE=package tests (CI rule: flutter test for flutter pkgs, coverage:test_with_coverage otherwise)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh/packages/payesh_core && if grep -q 'sdk: flutter' pubspec.yaml; then flutter test --concurrency=1 --coverage; else dart run coverage:test_with_coverage; fi
+START=2026-11-24T04:14:17Z
+----- RAW -----
+The Dart VM service is listening on http://127.0.0.1:39813/
+The Dart DevTools debugger and profiler is available at: http://127.0.0.1:39813/devtools/?uri=ws://127.0.0.1:39813/ws
+00:00 +0: loading test/core_test.dart
+00:00 +0: test/core_test.dart: idempotency keys v4 UUID shape, lowercase, 36 chars
+00:00 +1: test/core_test.dart: idempotency keys unique across 10k draws
+00:00 +2: test/core_test.dart: idempotency keys deterministic with a seeded Random
+00:00 +3: test/core_test.dart: idempotency keys server limit of 120 chars is enforced
+00:00 +4: test/core_test.dart: clock FakeClock advances deterministically in UTC
+00:00 +5: test/core_test.dart: clock SystemClock is UTC
+00:00 +6: test/core_test.dart: error codes round-trip wire names
+00:00 +7: test/core_test.dart: error codes write_frozen keeps ops queued; queue_full refuses the new op
+00:00 +8: test/core_test.dart: API limits match the server contract
+00:00 +9: loading test/zlib_dart_test.dart
+00:00 +9: test/zlib_dart_test.dart: Z-01 checksums match known vectors
+00:00 +10: test/zlib_dart_test.dart: Z-02 raw deflate → dart:io inflate (levels 0 and 6)
+00:00 +11: test/zlib_dart_test.dart: Z-03 dart:io deflate (all strategies) → pure inflate
+00:01 +12: test/zlib_dart_test.dart: Z-04 zlib + gzip wrappers interoperate
+00:01 +13: test/zlib_dart_test.dart: Z-05 compression actually compresses repetitive data
+00:01 +14: test/zlib_dart_test.dart: Z-06 corrupt input is rejected, never silently accepted
+00:01 +15: test/zlib_dart_test.dart: Z-07 concatenated gzip members decode like dart:io
+00:01 +16: All tests passed!
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:14:28Z
+DURATION_S=11

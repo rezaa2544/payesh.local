@@ -1,0 +1,20 @@
+TEST_ID=DBR-20
+PURPOSE=CI api-contract/native-contract step: Row 121 school creation → tenant → initial manager, cross-school 0 rows (real postgres:16)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  5 files changed, 245 insertions(+), 9 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-20.sh
+START=2026-11-24T04:34:14Z
+----- RAW -----
+PASS  T121-E01  owner creates two schools → two dedicated tenants, active, one-time codes  → A=24a19c88… B=17e12609…
+PASS  T121-E02  initial manager activates → school token (tid A, role manager from DB); code is one-time  → manager A + manager B activated
+PASS  T121-E03  manager A creates a teacher + data in the same school; teacher activates in A and reads A  → teacher pulled 2 rows of A
+PASS  T121-E04  cross-school: B's manager sees 0 rows of A and cannot issue a code for A's user  → B_rows=1 rows_of_A_seen_by_B=0
+PASS  T121-E05  privilege: teacher cannot issue codes or promote itself; forged/expired tokens 401
+PASS  T121-E06  refresh: device secret → token (role re-read); deactivated user → refresh 401
+PASS  T121-E07  data layer: runtime with tenant B sees 0 rows of A; permissive-policy mutant is detected  → B_sees_A={"gw_school":0,"gw_credential":0,"product_records":0} mutant_sees=4
+PASS  T121-E08  platform controls over HTTP: operator/forged 403, short reason 400, replay 200 without new code
+TENANT-121 passed=8 failed=0 negative_controls=28
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:34:15Z
+DURATION_S=1

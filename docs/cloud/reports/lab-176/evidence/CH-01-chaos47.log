@@ -1,0 +1,39 @@
+TEST_ID=CH-01-chaos47
+PURPOSE=chaos: crash/restart/partial failures
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=npm run test:chaos47
+START=2026-11-24T03:26:47Z
+----- RAW -----
+
+> payesh-local@0.9.31 test:chaos47
+> node --experimental-sqlite --disable-warning=ExperimentalWarning tests/chaos-47.js
+
+
+پایش-لوکال — آزمون آشوب همگام‌سازی (ردیف ۴۷)
+
+PASS  CH-01  مسیر پایه: دستهٔ ۱۰ عملیاتی از صندوقچه به سرور واقعی، بدون خطا  → applied=10 data_loss=0 duplicate=0 cross_tenant=0 rows=10  (24ms)
+PASS  CH-02  قطع شبکه پیش از ارسال: هیچ op گم نمی‌شود و هیچ نوشتنی رخ نمی‌دهد  → stopped=network pending=10 server_rows=0 cut=1  (9ms)
+PASS  CH-03  بازگشت شبکه و ارسال دوبارهٔ همان صندوقچه: هر op دقیقاً یک‌بار  → replayed_after_restore=10 data_loss=0 duplicate=0 cross_tenant=0 rows=20  (10ms)
+PASS  CH-04  قطع وسط پاسخ پس از اعمال سرور: دستگاه خطا می‌بیند، replay تکرار نمی‌سازد  → server_applied_before_cut=10 queue_kept=10 data_loss=0 duplicate=0 cross_tenant=0 rows=30  (18ms)
+PASS  CH-05  crash سرور درست وسط push: بازگشت فرایند و replay بدون دادهٔ گم‌شده/تکراری  → server_restarts=2 data_loss=0 duplicate=0 cross_tenant=0 rows=40  (266ms)
+PASS  CH-06  تکرار همان دسته با همان idempotency_key: پاسخ replay و صفر نوشتن تازه  → rows_before=45 rows_after=45 replayed=true  (13ms)
+PASS  CH-07  همان uid با کلید تازه (replay بدون idempotency): سرور duplicate می‌دهد نه نوشتن دوم  → duplicate_marked=true version_stable=1  (7ms)
+PASS  CH-08  رخداد خارج از ترتیب: op کهنه مقدار جدیدتر را بازنویسی نمی‌کند  → kept=late stale_op=conflict version=2  (10ms)
+PASS  CH-09  تغییر ساعت دستگاه: برنده با زمان سرور تعیین می‌شود، نه at کلاینت  → winner=last_received clock_ignored=true  (12ms)
+PASS  CH-10  قطع وسط درخواست: دستهٔ نیمه‌رسیده نه گم می‌شود نه دوباره نوشته  → cut_bytes=300 data_loss=0 duplicate=0 cross_tenant=0 rows=58  (13ms)
+PASS  CH-11  blackhole (اتصال بی‌پاسخ): مهلت کلاینت، صف سالم، سپس دقیقاً یک‌بار  → blackholed=1 data_loss=0 duplicate=0 cross_tenant=0 rows=64  (614ms)
+PASS  CH-12  بستن ناگهانی برنامه وسط ارسال: lease بازیابی و ارسال دوباره بدون تکرار  → recovered=8 data_loss=0 duplicate=0 cross_tenant=0 rows=72  (13ms)
+PASS  CH-13  نشت متقاطع مستأجر: school_id/tenant_id کلاینتی پذیرفته نمی‌شود  → client_tenant_fields_stripped=true  (8ms)
+PASS  CH-14  طوفان آشوب: ۵ دور × ۴۰ op با خطای تصادفی واقعی، بدون گم‌شدن/تکرار  → ops=200 data_loss=0 duplicate=0 cross_tenant=0 rows=273  (627ms)
+PASS  CH-15  کنترل منفی ۱: حذف idempotency در سرور ⇒ duplicate>0 و دروازه قرمز می‌شود  → injected duplicate=1 ⇒ gate would be RED  (10ms)
+PASS  CH-16  کنترل منفی ۲: حذف مهر مستأجر ⇒ cross_tenant>0 و دروازه قرمز می‌شود  → injected cross_tenant=1 ⇒ gate would be RED  (3ms)
+PASS  CH-17  کنترل منفی ۳: کلاینت بی‌دوام (دورریختن op در خطا) ⇒ data_loss>0 و دروازه قرمز می‌شود  → injected data_loss=5 ⇒ gate would be RED  (5ms)
+
+CHAOS scenarios=14 data_loss=0 duplicate=0 cross_tenant=0
+CHAOS checks=17 pass=17 fail=0
+CHAOS-47-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:26:49Z
+DURATION_S=2

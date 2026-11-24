@@ -1,0 +1,363 @@
+TEST_ID=FL-05-test-owner
+PURPOSE=flutter test --coverage owner (CI; --concurrency=1 for 2 GB sandbox)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh/owner && flutter test --coverage --concurrency=1
+START=2026-11-24T04:11:50Z
+----- RAW -----
+Resolving dependencies in `/work/repo/apps/payesh`...
+Downloading packages...
+  _fe_analyzer_shared 103.0.0 (111.0.0 available)
+  analyzer 13.3.0 (14.7.0 available)
+  cli_util 0.6.0 (0.6.1 available)
+  coverage 1.16.0 (1.16.1 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  package_config 2.2.0 (3.0.0 available)
+  sqlite3 3.9.1 (3.9.2 available)
+  test 1.31.1 (1.33.0 available)
+  test_api 0.7.12 (0.7.15 available)
+  test_core 0.6.18 (0.6.21 available)
+Got dependencies in `/work/repo/apps/payesh`!
+10 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /work/repo/apps/payesh/owner/test/auth_settings_test.dart
+00:00 +0: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) بردارهای مشترک auth-vectors.json: همان خروجی settingsOf سرور
+00:00 +1: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) پیش‌فرض: غیرفعال، صفحهٔ اول نام کاربری/رمز حتی با «شماره»
+00:00 +2: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) ساخت درخواست: GET با رمزگذاری URL، POST JSON/فرم، سرآیند
+00:00 +3: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) ذخیره‌شدنی نیست: پیوند نامعتبر، روشن بی‌پیوند، بی {code}
+00:00 +4: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) پیامک آزمایشی: شمارهٔ فارسی، ok_match، خطای پنل
+00:00 +5: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) ارسال واقعی با HttpClient: GET/POST به سرور محلی
+00:00 +6: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: کارت تنظیمات «ورود کاربران و پنل پیامک» (setUpAll)
+00:00 +6: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: کارت تنظیمات «ورود کاربران و پنل پیامک» پیش‌فرض غیرفعال؛ روش اول، پیوند POST، ذخیره در plain.auth؛ آزمایشی
+00:04 +7: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: کارت تنظیمات «ورود کاربران و پنل پیامک» پیوند نامعتبر و فقط مشاهده
+00:05 +8: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: کارت تنظیمات «ورود کاربران و پنل پیامک» saveAuth بی دیتابیس ⇒ خطای روشن
+00:05 +9: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: کارت تنظیمات «ورود کاربران و پنل پیامک» (tearDownAll)
+00:06 +9: loading /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart
+00:07 +9: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: list C165-01 connect mode + every public address parsed (https only)
+00:07 +10: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: list C165-02 publishConnectMode writes connect publicly, keeps servers + central
+00:07 +11: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: ConnectModesCard C165-03 five modes, the saved one selected; addresses with live state
+00:07 +12: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: ConnectModesCard C165-04 a tap saves the mode for every server
+00:08 +13: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: ConnectModesCard C165-05 NEG no database ⇒ says so, nothing selectable
+00:08 +14: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: ConnectModesCard C165-06 no public address yet ⇒ warns (not a false «connected»)
+00:08 +15: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: live helper (this computer) C165-07 CPU percent from two samples (/proc/stat shape)
+00:08 +16: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: live helper (this computer) C165-08 activity log: repeats fold (×n), newest first, max 50
+00:08 +17: loading /work/repo/apps/payesh/owner/test/helper_ui_test.dart
+00:09 +17: /work/repo/apps/payesh/owner/test/helper_ui_test.dart: سرور کمکی و به‌روزرسانی در تنظیمات
+00:15 +18: loading /work/repo/apps/payesh/owner/test/school_registry_test.dart
+00:15 +18: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) پاکت registry
+00:15 +19: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) پاکت request
+00:15 +20: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) پاکت payment
+00:15 +21: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) پاکت ack
+00:15 +22: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) پاکت trial
+00:15 +23: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) ثابت‌ها: نمک، پوشه‌ها، پلن‌ها، نقش‌ها، مقطع‌ها، نام کاربری
+00:15 +24: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) pbkdf2 همان سرور (۱۵۰۰۰۰ دور، نمک = رشتهٔ hex)
+00:17 +25: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) کد ملی و ارقام فارسی
+00:17 +26: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه (setUpAll)
+00:17 +26: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه نوع ۱: ساخت دستی + اعتبارسنجی p2 + رمز مدیر هش‌شده
+00:17 +27: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه ویرایش، تغییر رمز (rev مدیر)، فعال/غیرفعال، حذف
+00:17 +28: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه نوع ۲: درخواست سرور ← فهرست مالک ← تأیید با همان هش، یا رد
+00:17 +29: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه سیاست اشتراک، دامنه، هدیه/بازنشانی، تصمیم پرداخت، گزارش سرور
+00:17 +30: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه بدون دیتابیس: خواندن از نسخهٔ همین دستگاه، تغییر ممنوع با پیام روشن
+00:17 +31: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه (tearDownAll)
+00:18 +31: loading /work/repo/apps/payesh/owner/test/load_route_test.dart
+00:19 +31: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) آستانه‌ها
+00:19 +32: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو db_only_never_escalates
+00:19 +33: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو helpers_join_on_db_latency_and_leave_after_hold
+00:19 +34: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو calm_interrupted_restarts_hold
+00:19 +35: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو errors_and_busy_escalate_few_samples_do_not
+00:19 +36: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو no_helpers_online_stays
+00:19 +37: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو external_chain_escalates_then_returns
+00:19 +38: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو external_down_falls_back_to_db_chain
+00:19 +39: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) p95 و حالت هر سیاست
+00:19 +40: /work/repo/apps/payesh/owner/test/load_route_test.dart: پنجرهٔ لغزان: p95 فقط موفق‌ها، خطا، در دقیقه، کهنه‌ها، سقف
+00:19 +41: /work/repo/apps/payesh/owner/test/load_route_test.dart: NetMeter: درخواست‌های کوچک و خطاها در پنجره، انتقال بزرگ نه
+00:19 +42: /work/repo/apps/payesh/owner/test/load_route_test.dart: سیاست زیرساخت: حالت، سرور بیرونی، کلید هر سیستم کمکی fromPlain / toPlain و سازگاری با سیاست قدیمی
+00:19 +43: /work/repo/apps/payesh/owner/test/load_route_test.dart: سیاست زیرساخت: حالت، سرور بیرونی، کلید هر سیستم کمکی ذخیره در دیتابیس و خواندن سرور مدرسه (helpers همیشه هم‌خوان)
+00:19 +44: /work/repo/apps/payesh/owner/test/load_route_test.dart: LoadRouter (مسیر بار همین پنل) دیتابیس کند ⇒ سیستم‌های کمکی؛ «فقط دیتابیس» ⇒ هرگز
+00:19 +45: /work/repo/apps/payesh/owner/test/load_route_test.dart: LoadRouter (مسیر بار همین پنل) سرور بیرونی: در دسترس ⇒ اصلی؛ قطع ⇒ زنجیرهٔ دیتابیس
+00:19 +46: /work/repo/apps/payesh/owner/test/load_route_test.dart: رابط کارت «حالت معماری»: تعویض حالت، نشانی بیرونی، مسیر زنده
+00:20 +47: /work/repo/apps/payesh/owner/test/load_route_test.dart: رابط کارت «بار لحظه‌ای»: عددهای واقعی و زنجیره
+00:21 +48: loading /work/repo/apps/payesh/owner/test/guard_test.dart
+00:22 +48: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک پرداخت سالم ⇒ هیچ یافته‌ای
+00:22 +49: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک کد پیگیری تکراری (با فاصله و خط تیره) در دو مدرسه ⇒ شدید
+00:22 +50: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک مبلغ کم/زیاد/صفر، پلن عرضه‌نشده، نقش رایگان، زمان آینده
+00:22 +51: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک کد تراکنش درگاه تکراری و پرداخت درگاهی بدون کد
+00:22 +52: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک تصمیم مالک بر وضعیت سرور مقدم است
+00:22 +53: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک پرداخت‌های پی‌درپی یک کاربر و ناموفق‌های پی‌درپی یک مدرسه
+00:22 +54: /work/repo/apps/payesh/owner/test/guard_test.dart: صف دستورهای مالک (هیچ دستوری گم نمی‌شود) (setUpAll)
+00:22 +54: /work/repo/apps/payesh/owner/test/guard_test.dart: صف دستورهای مالک (هیچ دستوری گم نمی‌شود) دیتابیس قطع ⇒ صف؛ وصل ⇒ به همان ترتیب و با زمان اصلی ثبت
+00:22 +55: /work/repo/apps/payesh/owner/test/guard_test.dart: صف دستورهای مالک (هیچ دستوری گم نمی‌شود) دستور تازه پیش از اجرا صف قدیمی را خالی می‌کند (ترتیب حفظ)
+00:22 +56: /work/repo/apps/payesh/owner/test/guard_test.dart: صف دستورهای مالک (هیچ دستوری گم نمی‌شود) موتور: صف را خالی می‌کند، گزارش می‌دهد و رفع را ثبت می‌کند
+00:22 +57: /work/repo/apps/payesh/owner/test/guard_test.dart: صف دستورهای مالک (هیچ دستوری گم نمی‌شود) (tearDownAll)
+00:22 +57: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند + سرور کمکی (setUpAll)
+00:22 +57: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند + سرور کمکی سیاست ثبت‌نشده ⇒ ثبت دوباره؛ قطع ⇒ هشدار
+00:22 +58: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند + سرور کمکی خطای بالای دیتابیس ⇒ بازبینی اتصال؛ کندی ⇒ هشدار
+00:22 +59: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند + سرور کمکی کار ماندهٔ صندوقچه ⇒ پاک‌سازی خودکار (bucket.gc)
+00:22 +60: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند + سرور کمکی (tearDownAll)
+00:22 +60: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند میزبان خاموش، تراکنش مشکوک، «بررسی شد» ماندگار
+00:22 +61: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند خطای یک بررسی بقیه را متوقف نمی‌کند
+00:22 +62: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند منوی کناری: «نگهبان هوشمند» در گروه زیرساخت و فقط وقتی هست
+00:22 +63: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند صفحهٔ نگهبان: یافته‌ها، «بررسی شد»، بررسی اکنون
+00:24 +64: loading /work/repo/apps/payesh/owner/test/connection_pool_test.dart
+00:24 +64: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: ۱۰ کار پشت‌سرهم، هر کدام با انتقال تازه ⇒ فقط یک اتصال
+00:24 +65: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: انتقال‌های با مهلت متفاوت (پشتیبان‌گیری) همان مخزن را دارند
+00:24 +66: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: reset پس از خطای شبکه ⇒ اتصال تازه، بدون قطع کار دیگران
+00:24 +67: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: مهلت بیکاری: کمتر از keep-alive آروان (۶۵ ثانیه) و نه ۵ ثانیه
+00:24 +68: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: زمینهٔ اعتماد پیش‌فرض یک بار ساخته می‌شود
+00:24 +69: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: اعتماد سفارشی ⇒ اتصال خصوصی که با close بسته می‌شود
+00:25 +70: loading /work/repo/apps/payesh/owner/test/local_mode_test.dart
+00:26 +70: /work/repo/apps/payesh/owner/test/local_mode_test.dart: (setUpAll)
+00:26 +70: /work/repo/apps/payesh/owner/test/local_mode_test.dart: PBKDF2 / local account PBKDF2-HMAC-SHA256 matches published vectors
+00:26 +71: /work/repo/apps/payesh/owner/test/local_mode_test.dart: PBKDF2 / local account record verifies only the exact id + password + code; never stores them
+00:26 +72: /work/repo/apps/payesh/owner/test/local_mode_test.dart: PBKDF2 / local account form validation (Persian messages)
+00:26 +73: /work/repo/apps/payesh/owner/test/local_mode_test.dart: PBKDF2 / local account LocalAuth: create, login, lock after 5 failures, unlock after 30 s
+00:26 +74: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test endpoint normalization and region
+00:26 +75: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test SigV4 matches botocore (official AWS SDK) byte-for-byte
+00:26 +76: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test 200 ⇒ bucket list; request is signed for ir-central1
+00:26 +77: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test server error codes ⇒ Persian messages
+00:26 +78: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test wrong region hint ⇒ one retry with the region the server names
+00:26 +79: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test settings round-trip through the secure store; form validation
+00:26 +80: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test IoS3Transport talks real HTTP (loopback server)
+00:26 +81: /work/repo/apps/payesh/owner/test/local_mode_test.dart: platform secure stores ChannelSecureStore uses secureRead/Write/Delete; errors fail closed
+00:26 +82: /work/repo/apps/payesh/owner/test/local_mode_test.dart: platform secure stores DevFileSecureStore (developer machines only)
+00:26 +83: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» first run: one password field, empty code ⇒ whole app opens
+00:28 +84: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» top bar: version + update light; one DB light at the far left, always visible; tap ⇒ re-check
+00:29 +85: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» no platform server: schools, plans, health work on this device and survive restart
+00:31 +86: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» every section opens without a platform server (no database)
+00:32 +87: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» every section opens without a platform server (database set but unreachable)
+00:33 +88: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» stays signed in after restart until «خروج»
+00:34 +89: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» settings: database validate, test+save (buckets), reload, clear
+00:35 +90: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» settings: pasted bucket URL, change of database tells the old bucket too, followers list; NEG publish failure and no bucket
+00:36 +91: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» settings: followers — none yet; listing error
+00:37 +92: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» settings: test only (no save), empty bucket list
+00:37 +93: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» settings: platform server origin + server login, kept after restart
+00:39 +94: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» lockout after 5 wrong attempts; reset wipes account + database
+00:40 +95: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» corrupted account record ⇒ fail closed
+00:40 +96: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» unreachable secure store ⇒ fail closed; reset failure reported
+00:40 +97: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» secure store failures on setup / save / clear / sign-out
+00:41 +98: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» unreadable saved database settings ⇒ asks to re-enter
+00:41 +99: /work/repo/apps/payesh/owner/test/local_mode_test.dart: (tearDownAll)
+00:41 +99: loading /work/repo/apps/payesh/owner/test/backup_test.dart
+00:42 +99: /work/repo/apps/payesh/owner/test/backup_test.dart: قالب یک فایل جامع (ZIP) CRC-32 و ZIP: رفت‌وبرگشت، نام فارسی، فشرده/بی‌فشرده، خرابی رد
+00:42 +100: /work/repo/apps/payesh/owner/test/backup_test.dart: قالب یک فایل جامع (ZIP) ZIP64: بیش از ۶۵۵۳۵ فایل
+00:44 +101: /work/repo/apps/payesh/owner/test/backup_test.dart: قالب یک فایل جامع (ZIP) فایل پشتیبان: فهرست + محتوا با بازبینی sha256؛ فایل غیرپشتیبان رد
+00:44 +102: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی (setUpAll)
+00:44 +102: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی ردیف ۱۶۶: همیشه یک فایل جامع؛ هر تغییر در همان فایل ادغام می‌شود؛ دیسک + دیتابیس
+00:44 +103: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی ردیف ۱۶۶: قالب قدیمی (blobs/ و snaps/) پس از نخستین فایل جامع پاک می‌شود
+00:44 +104: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی ردیف ۱۶۶: حذف پشتیبان روی دیسک و روی دیتابیس؛ دور بعد از نو ساخته می‌شود
+00:44 +105: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی بازیابی یک‌کلیکی از فایل جامع؛ فایل تازه‌تر دست نمی‌خورد؛ محتوای خراب از نسخهٔ دیگر
+00:44 +106: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی انتقال به دیتابیس تازه: صندوقچهٔ خالی جای پشتیبان را نمی‌گیرد؛ پس از بازیابی همان فایل ادامه می‌یابد
+00:45 +107: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی دیتابیسِ دیگرِ پُر: پشتیبان خودکار بازنویسی نمی‌شود؛ «اکنون» (force) جایگزین می‌کند
+00:45 +108: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی دیتابیس قطع ⇒ خطا و هشدار نگهبان؛ بدون دیتابیس ⇒ پیام روشن
+00:45 +109: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی ۲۰۰ دور با تغییر: باز هم فقط یک فایل روی هر مقصد
+00:45 +110: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی ردیف ۱۶۶ (رایانهٔ مدرسه): قطع لحظه‌ای اینترنت ⇒ تلاش دوباره، دور ادامه می‌یابد
+00:45 +111: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی ردیف ۱۶۶ (رایانهٔ مدرسه): دور ناتمام ⇒ دور بعد فایل‌های دانلودشده را دوباره نمی‌گیرد
+00:45 +112: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی ردیف ۱۶۶ (رایانهٔ مدرسه): نخستین فایل جامع از قالب قدیمی همین دیسک، بی‌دانلود دوباره
+00:45 +113: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی ردیف ۱۶۶ (رایانهٔ مدرسه): فایل بزرگ روی دیتابیس تکه‌ای (۸ مگابایتی) نوشته می‌شود؛ تکهٔ قطع‌شده دوباره
+00:48 +114: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی ردیف ۱۶۶ (رایانهٔ مدرسه): تکه‌ها نرسید ⇒ بارگذاری لغو، فایل قبلی دیتابیس دست‌نخورده
+00:50 +115: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی زمان‌بندی: start فقط وقتی کلید خودکار روشن است اجرا می‌کند
+00:51 +116: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی منو: «پشتیبان دیتابیس» در گروه سیستم و فقط وقتی هست
+00:51 +117: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی صفحه: یک فایل روی هر مقصد، پشتیبان‌گیری اکنون، بازیابی و حذف با تأیید
+00:53 +118: /work/repo/apps/payesh/owner/test/backup_test.dart: موتور پشتیبان در برابر صندوقچهٔ جعلی (tearDownAll)
+00:53 +118: loading /work/repo/apps/payesh/owner/test/local_platform_test.dart
+00:54 +118: /work/repo/apps/payesh/owner/test/local_platform_test.dart: local platform: every section works without a platform server fresh install: seeded plan + this owner; dashboard counts
+00:54 +119: /work/repo/apps/payesh/owner/test/local_platform_test.dart: local platform: every section works without a platform server schools: create (idempotent), limits, suspend, renew
+00:54 +120: /work/repo/apps/payesh/owner/test/local_platform_test.dart: local platform: every section works without a platform server plans + operators
+00:54 +121: /work/repo/apps/payesh/owner/test/local_platform_test.dart: local platform: every section works without a platform server audit: same hash chain as the server, newest first
+00:54 +122: /work/repo/apps/payesh/owner/test/local_platform_test.dart: local platform: every section works without a platform server kept on this device across restarts (no database)
+00:54 +123: /work/repo/apps/payesh/owner/test/local_platform_test.dart: local platform: every section works without a platform server tokens: none / foreign / expired ⇒ 401; login route is not a backdoor
+00:54 +124: /work/repo/apps/payesh/owner/test/local_platform_test.dart: deletion: four eyes + 24 h, across two owner devices requester cannot approve; second owner approves; delay; execute
+00:54 +125: /work/repo/apps/payesh/owner/test/local_platform_test.dart: deletion: four eyes + 24 h, across two owner devices cancel needs a reason; closed request cannot be approved
+00:54 +126: /work/repo/apps/payesh/owner/test/local_platform_test.dart: infrastructure register, refuse raw credentials, metrics, change + approve, checks + alerts
+00:54 +127: /work/repo/apps/payesh/owner/test/local_platform_test.dart: database (Arvan bucket): everything is kept there, sealed write sealed, second device reads the same, health shows synced
+00:54 +128: /work/repo/apps/payesh/owner/test/local_platform_test.dart: database (Arvan bucket): everything is kept there, sealed database connected later: existing data is uploaded
+00:54 +129: /work/repo/apps/payesh/owner/test/local_platform_test.dart: database (Arvan bucket): everything is kept there, sealed wrong key / unreachable: error is shown, data still works locally, nothing overwritten
+00:54 +130: /work/repo/apps/payesh/owner/test/local_platform_test.dart: envelope sealed with an earlier secret of the same key is replaced
+00:54 +131: /work/repo/apps/payesh/owner/test/local_platform_test.dart: owner id is stable per login id (same on every device)
+00:55 +132: loading /work/repo/apps/payesh/owner/test/cloud_control_test.dart
+00:56 +132: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: (setUpAll)
+00:56 +132: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: shared vector (Node server/cloud-control.js = Dart) HKDF key, byte-exact envelope, open
+00:56 +133: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: shared vector (Node server/cloud-control.js = Dart) object name per access key (same kid as the server)
+00:56 +134: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: shared vector (Node server/cloud-control.js = Dart) the panel writes exactly the plaintext the server expects
+00:56 +135: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: shared vector (Node server/cloud-control.js = Dart) NEG: changed rev, wrong secret, bad envelope never open
+00:56 +136: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: signed requests (same signatures as botocore) ListObjectsV2 with query
+00:56 +137: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: signed requests (same signatures as botocore) PUT JSON with body hash and content-type
+00:56 +138: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: signed requests (same signatures as botocore) GET: 404 ⇒ null; NoSuchBucket / errors ⇒ S3Failure
+00:56 +139: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: bucket helpers pasted bucket URL, pick rule = school server rule, validation
+00:56 +140: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: publish + followers writes the new bucket and the old one (each sealed with its own key)
+00:56 +141: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: publish + followers only the keys changed (same bucket) ⇒ two objects, neither overwrites the other
+00:56 +142: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: publish + followers same target ⇒ one write; old bucket refused ⇒ warning only
+00:56 +143: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: publish + followers followers: parsed, newest first, junk skipped
+00:56 +144: /work/repo/apps/payesh/owner/test/cloud_control_test.dart: (tearDownAll)
+00:57 +144: loading /work/repo/apps/payesh/owner/test/web32_registry_170_test.dart
+00:57 +144: /work/repo/apps/payesh/owner/test/web32_registry_170_test.dart: (setUpAll)
+00:57 +144: /work/repo/apps/payesh/owner/test/web32_registry_170_test.dart: W170-01 pbkdf2 hash + verify (no isolate on web)
+00:57 +145: /work/repo/apps/payesh/owner/test/web32_registry_170_test.dart: W170-02 create, edit and reset password reach the database
+00:57 +146: /work/repo/apps/payesh/owner/test/web32_registry_170_test.dart: (tearDownAll)
+00:58 +146: loading /work/repo/apps/payesh/owner/test/owner_app_test.dart
+00:59 +146: /work/repo/apps/payesh/owner/test/owner_app_test.dart: first start + login asks for the server origin, rejects unsafe ones, remembers a valid one
+01:00 +147: /work/repo/apps/payesh/owner/test/owner_app_test.dart: first start + login password + wrong TOTP ⇒ refused; password + TOTP ⇒ panel; token never persisted
+01:01 +148: /work/repo/apps/payesh/owner/test/owner_app_test.dart: first start + login server 401 ⇒ session dropped ⇒ login screen with notice
+01:02 +149: /work/repo/apps/payesh/owner/test/owner_app_test.dart: first start + login logout returns to login; change server keeps the old one until saved
+01:02 +150: /work/repo/apps/payesh/owner/test/owner_app_test.dart: first start + login theme choice cycles and is remembered
+01:03 +151: /work/repo/apps/payesh/owner/test/owner_app_test.dart: row 147: the owner panel wears «نبض» (the user panel theme) light + dark: نبض tokens, teal primary, radius 18, brand, backdrop, active nav filled
+01:03 +152: /work/repo/apps/payesh/owner/test/owner_app_test.dart: all nine pages owner: every page of the web panel renders its data natively
+01:04 +153: /work/repo/apps/payesh/owner/test/owner_app_test.dart: all nine pages phone layout uses a drawer
+01:06 +154: /work/repo/apps/payesh/owner/test/owner_app_test.dart: CAPS matrix (buttons hidden by role; server still decides) role platform_owner
+01:07 +155: /work/repo/apps/payesh/owner/test/owner_app_test.dart: CAPS matrix (buttons hidden by role; server still decides) role platform_operator
+01:07 +156: /work/repo/apps/payesh/owner/test/owner_app_test.dart: CAPS matrix (buttons hidden by role; server still decides) role platform_support
+01:08 +157: /work/repo/apps/payesh/owner/test/owner_app_test.dart: mutations: reason ≥ 10, retype, server verdict suspend: short reason refused locally; valid ⇒ POST + reload
+01:09 +158: /work/repo/apps/payesh/owner/test/owner_app_test.dart: mutations: reason ≥ 10, retype, server verdict deletion request needs the tenant id retyped; self-approve hidden; second owner approves
+01:10 +159: /work/repo/apps/payesh/owner/test/owner_app_test.dart: mutations: reason ≥ 10, retype, server verdict server refusal is shown with the Persian error text
+01:10 +160: /work/repo/apps/payesh/owner/test/owner_app_test.dart: mutations: reason ≥ 10, retype, server verdict create school: activation code shown once, never stored
+01:11 +161: /work/repo/apps/payesh/owner/test/owner_app_test.dart: mutations: reason ≥ 10, retype, server verdict renew: days 1..366 validated; plan created
+01:11 +162: /work/repo/apps/payesh/owner/test/owner_app_test.dart: mutations: reason ≥ 10, retype, server verdict operators: create user; support grant request validated
+01:12 +163: /work/repo/apps/payesh/owner/test/owner_app_test.dart: mutations: reason ≥ 10, retype, server verdict infra: credential refs only; change request ⇒ owner approve with short id retype
+01:13 +164: /work/repo/apps/payesh/owner/test/owner_app_test.dart: mutations: reason ≥ 10, retype, server verdict limits page switches tenant; empty tenant shows the empty state
+01:13 +165: /work/repo/apps/payesh/owner/test/owner_app_test.dart: mutations: reason ≥ 10, retype, server verdict audit chain indicator
+01:14 +166: /work/repo/apps/payesh/owner/test/owner_app_test.dart: FileSettingsStore round-trips in a private directory
+01:15 +167: loading /work/repo/apps/payesh/owner/test/infra_card_test.dart
+01:15 +167: /work/repo/apps/payesh/owner/test/infra_card_test.dart: (setUpAll)
+01:15 +167: /work/repo/apps/payesh/owner/test/infra_card_test.dart: هر زیرساخت: کلید + چراغ؛ تغییر برای همه در دیتابیس
+01:16 +168: /work/repo/apps/payesh/owner/test/infra_card_test.dart: خطای فهرست زیرساخت و بدون سرویس کمکی
+01:16 +169: /work/repo/apps/payesh/owner/test/infra_card_test.dart: ردیف ۱۵۳: هر سیستم کمکی کلید جدا دارد (برای همهٔ پنل‌ها)
+01:17 +170: /work/repo/apps/payesh/owner/test/infra_card_test.dart: (tearDownAll)
+01:17 +170: loading /work/repo/apps/payesh/owner/test/owner_update_test.dart
+01:18 +170: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست معتبر
+01:18 +171: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست رد: schema
+01:18 +172: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست رد: build
+01:18 +173: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست رد: commit
+01:18 +174: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست رد: files empty
+01:18 +175: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست رد: path ..
+01:18 +176: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست رد: absolute path
+01:18 +177: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست رد: duplicate (case-insensitive)
+01:18 +178: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست رد: sha
+01:18 +179: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست رد: android
+01:18 +180: /work/repo/apps/payesh/owner/test/owner_update_test.dart: مانیفست رد: JSON خراب
+01:18 +181: /work/repo/apps/payesh/owner/test/owner_update_test.dart: فقط تغییرات طرح: فقط app.so و فایل تازه؛ exe دانلود نمی‌شود
+01:18 +182: /work/repo/apps/payesh/owner/test/owner_update_test.dart: فقط تغییرات دریافت از GitHub، پر کردن آینهٔ آروان، بار دوم از آینه
+01:18 +183: /work/repo/apps/payesh/owner/test/owner_update_test.dart: فقط تغییرات آینهٔ دستکاری‌شده نادیده گرفته می‌شود؛ GitHub دستکاری‌شده ⇒ هیچ تغییری
+01:18 +184: /work/repo/apps/payesh/owner/test/owner_update_test.dart: فقط تغییرات آینهٔ صندوقچهٔ آروان (S3)
+01:18 +185: /work/repo/apps/payesh/owner/test/owner_update_test.dart: فقط تغییرات اسکریپت اعمال: پشتیبان، بررسی هش، بازگشت خودکار
+01:18 +186: /work/repo/apps/payesh/owner/test/owner_update_test.dart: فقط تغییرات اجرا: برنامه فقط با دیدن نشانهٔ شروع بسته می‌شود؛ روش دوم؛ شکست ⇐ launch
+01:19 +187: /work/repo/apps/payesh/owner/test/owner_update_test.dart: فقط تغییرات نتیجهٔ اعمال قبلی خوانده و پاک می‌شود
+01:19 +188: /work/repo/apps/payesh/owner/test/owner_update_test.dart: چراغ به‌روزرسانی (نوار بالا) فقط نسخه + نقطه؛ لمس ⇒ بررسی؛ لمس دوباره ⇒ دریافت، نصب و راه‌اندازی خودکار
+01:19 +189: /work/repo/apps/payesh/owner/test/owner_update_test.dart: چراغ به‌روزرسانی (نوار بالا) به‌روز ⇒ سبز؛ اندروید با نسخهٔ تازه ⇒ لمس، دانلود APK
+01:19 +190: /work/repo/apps/payesh/owner/test/owner_update_test.dart: OwnerUpdater بررسی ⇐ دریافت ⇐ اعمال (ویندوز)
+01:19 +191: /work/repo/apps/payesh/owner/test/owner_update_test.dart: OwnerUpdater به‌روز ⇒ upToDate؛ شبکه قطع ⇒ پیام فارسی
+01:20 +192: loading /work/repo/apps/payesh/owner/test/server_panel_164_test.dart
+01:21 +192: /work/repo/apps/payesh/owner/test/server_panel_164_test.dart: normalizeCentral S164-01 only plain https origins
+01:21 +193: /work/repo/apps/payesh/owner/test/server_panel_164_test.dart: publishCentral S164-02 writes `central` publicly, keeps the servers rows, removes on null
+01:21 +194: /work/repo/apps/payesh/owner/test/server_panel_164_test.dart: publishCentral S164-03 no list yet ⇒ a fresh, valid list with only central
+01:21 +195: /work/repo/apps/payesh/owner/test/server_panel_164_test.dart: Follower (server ack) S164-04 public address and the Tailscale approval link only
+01:21 +196: /work/repo/apps/payesh/owner/test/server_panel_164_test.dart: ServerDefinitionPanel S164-05 LAN only ⇒ says so (red), offers the one-time tunnel approval
+01:22 +197: /work/repo/apps/payesh/owner/test/server_panel_164_test.dart: ServerDefinitionPanel S164-06 bad address refused; good address saved, announced, tested, cleared
+01:22 +198: /work/repo/apps/payesh/owner/test/server_panel_164_test.dart: ServerDefinitionPanel S164-07 no database yet ⇒ asks for «تعریف دیتابیس» first
+01:22 +199: /work/repo/apps/payesh/owner/test/server_panel_164_test.dart: ServerDefinitionPanel S164-08 server does not answer ⇒ red message with the reason
+01:23 +200: loading /work/repo/apps/payesh/owner/test/live_monitor_test.dart
+01:23 +200: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: شمارش ترافیک واقعی هر درخواست S3: بایت ارسال/دریافت، تأخیر (کوچک) و سرعت دانلود (بزرگ)
+01:23 +201: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: شمارش ترافیک واقعی خطای شبکه شمرده می‌شود
+01:23 +202: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: شمارش ترافیک واقعی سرآیند درخواست اندازهٔ معقول دارد
+01:23 +203: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: Prometheus جمع روی برچسب‌ها؛ توضیح و خط خراب نادیده
+01:23 +204: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: پایش دیتابیس ترافیک لحظه‌ای از اختلاف شمارنده‌ها در هر ثانیه
+01:23 +205: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: پایش دیتابیس سنجش: وصل ⇒ سبز با تأخیر؛ قطع ⇒ قرمز با پیام فارسی
+01:23 +206: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: پایش دیتابیس تنظیم نشده ⇒ خاکستری بدون سنجش
+01:23 +207: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: پایش دیتابیس درصد استفاده از ظرفیت = مجموع فایل‌ها / ظرفیت مالک (ماندگار)
+01:23 +208: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: پایش دیتابیس بیش از سقف صفحه‌ها ⇒ «≥» (کمینه)
+01:24 +209: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: پایش سرورها /metrics ⇒ ترافیک و درخواست در ثانیه + CPU/حافظه/دیسک واقعی
+01:24 +210: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: پایش سرورها سرور دوباره روشن شد (شمارنده صفر شد) ⇒ نرخ منفی نمی‌شود
+01:24 +211: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: پایش سرورها بدون /metrics ⇒ ترافیک نامعلوم؛ ظرفیت از عددهای دستی [M]/[E]
+01:24 +212: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: پایش سرورها یک Endpoint از دو قطع ⇒ وضعیت نامعلوم با پیام؛ همه قطع ⇒ قرمز
+01:24 +213: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: پایش سرورها سرویس حذف‌شده از فهرست حذف می‌شود؛ Endpoint غیرفعال سنجیده نمی‌شود
+01:24 +214: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: قالب اندازه و سرعت
+01:24 +215: /work/repo/apps/payesh/owner/test/live_monitor_test.dart: داشبورد: کارت زنده با سرعت، ترافیک، نمودار و درصد ظرفیت؛ لمس ⇒ تعیین ظرفیت
+01:25 +216: loading /work/repo/apps/payesh/owner/test/helper_test.dart
+01:26 +216: /work/repo/apps/payesh/owner/test/helper_test.dart: قرارداد (همان بایت‌های Node) پاکت presence
+01:26 +217: /work/repo/apps/payesh/owner/test/helper_test.dart: قرارداد (همان بایت‌های Node) پاکت request
+01:26 +218: /work/repo/apps/payesh/owner/test/helper_test.dart: قرارداد (همان بایت‌های Node) پاکت lease
+01:26 +219: /work/repo/apps/payesh/owner/test/helper_test.dart: قرارداد (همان بایت‌های Node) پاکت result
+01:26 +220: /work/repo/apps/payesh/owner/test/helper_test.dart: قرارداد (همان بایت‌های Node) پاکت policy
+01:26 +221: /work/repo/apps/payesh/owner/test/helper_test.dart: قرارداد (همان بایت‌های Node) ثابت‌ها و مسیرها
+01:26 +222: /work/repo/apps/payesh/owner/test/helper_test.dart: قرارداد (همان بایت‌های Node) فقط نشانی عمومی (همان جدول سرور)
+01:26 +223: /work/repo/apps/payesh/owner/test/helper_test.dart: قرارداد (همان بایت‌های Node) پارامترهای نامعتبر
+01:26 +224: /work/repo/apps/payesh/owner/test/helper_test.dart: صف کارها با چند سرور کمکی بدون سرور کمکی ⇒ همین دستگاه انجام می‌دهد (پردازش متوقف نمی‌شود)
+01:26 +225: /work/repo/apps/payesh/owner/test/helper_test.dart: صف کارها با چند سرور کمکی سرور کمکیِ روشن کار را برمی‌دارد و نتیجه را می‌گذارد
+01:26 +226: /work/repo/apps/payesh/owner/test/helper_test.dart: صف کارها با چند سرور کمکی دو سرور کمکی هم‌زمان: فقط یکی کار را انجام می‌دهد
+01:26 +227: /work/repo/apps/payesh/owner/test/helper_test.dart: صف کارها با چند سرور کمکی سرور کمکیِ متوقف (موقت) کاری نمی‌گیرد ⇒ محلی
+01:26 +228: /work/repo/apps/payesh/owner/test/helper_test.dart: صف کارها با چند سرور کمکی سرور کمکیِ ثبت‌شده که کار را برنمی‌دارد ⇒ ۲۰ ثانیه بعد محلی
+01:26 +229: /work/repo/apps/payesh/owner/test/helper_test.dart: صف کارها با چند سرور کمکی سرور کمکی وسط کار خاموش شد (رزرو منقضی) ⇒ محلی
+01:26 +230: /work/repo/apps/payesh/owner/test/helper_test.dart: صف کارها با چند سرور کمکی نتیجهٔ دستکاری‌شده یا با کلید دیگر پذیرفته نمی‌شود
+01:26 +231: /work/repo/apps/payesh/owner/test/helper_test.dart: صف کارها با چند سرور کمکی دیتابیس در دسترس نیست ⇒ کار مستقل از دیتابیس روی همین دستگاه
+01:27 +232: /work/repo/apps/payesh/owner/test/helper_test.dart: صف کارها با چند سرور کمکی پاکسازی: کارهای کهنه، حضورهای قدیمی، آینهٔ کهنهٔ به‌روزرسانی
+01:27 +233: /work/repo/apps/payesh/owner/test/helper_test.dart: صف کارها با چند سرور کمکی بررسی یکپارچگی فایل (object.verify)
+01:27 +234: /work/repo/apps/payesh/owner/test/helper_test.dart: بررسی Endpoint (فقط نشانی عمومی، بدون redirect، اتصال به همان IP) نشانی خصوصی و DNS ناموفق رد می‌شوند
+01:27 +235: /work/repo/apps/payesh/owner/test/helper_test.dart: بررسی Endpoint (فقط نشانی عمومی، بدون redirect، اتصال به همان IP) اتصال به IP بررسی‌شده و redirect دنبال نمی‌شود
+01:27 +236: /work/repo/apps/payesh/owner/test/helper_test.dart: سرویس سرور کمکی در برنامه پیش‌فرض روشن، شناسهٔ پایدار، توقف موقت ماندگار
+01:27 +237: /work/repo/apps/payesh/owner/test/helper_test.dart: فقط هنگام نیاز + سیاست زیرساخت (ردیف ۱۳۱) helperNeed همان قاعدهٔ Node
+01:27 +238: /work/repo/apps/payesh/owner/test/helper_test.dart: فقط هنگام نیاز + سیاست زیرساخت (ردیف ۱۳۱) دستگاه جا دارد ⇒ همین دستگاه، بدون صف و بدون انتظار
+01:27 +239: /work/repo/apps/payesh/owner/test/helper_test.dart: فقط هنگام نیاز + سیاست زیرساخت (ردیف ۱۳۱) سیاست: ذخیره، خواندن از دستگاه دیگر، بدون اینترنت
+01:29 +240: /work/repo/apps/payesh/owner/test/helper_test.dart: فقط هنگام نیاز + سیاست زیرساخت (ردیف ۱۳۱) پردازش کمکی خاموش ⇒ این دستگاه کار دیگران را برنمی‌دارد
+01:30 +241: loading /work/repo/apps/payesh/owner/test/connect_bundle_170_test.dart
+01:30 +241: /work/repo/apps/payesh/owner/test/connect_bundle_170_test.dart: (setUpAll)
+01:30 +241: /work/repo/apps/payesh/owner/test/connect_bundle_170_test.dart: CB-01 the shared vectors: path, PBKDF2 secret and envelope equal the server
+01:32 +242: /work/repo/apps/payesh/owner/test/connect_bundle_170_test.dart: CB-02 createSchool / resetManagerPassword publish the school bundle (public, no-cache); only the right password opens it
+01:40 +243: /work/repo/apps/payesh/owner/test/connect_bundle_170_test.dart: CB-03 owner on a fresh device: discovered through the domain index (moved base) with login id + password + code only
+01:42 +244: /work/repo/apps/payesh/owner/test/connect_bundle_170_test.dart: (tearDownAll)
+01:43 +244: loading /work/repo/apps/payesh/owner/test/trust_test.dart
+01:43 +244: /work/repo/apps/payesh/owner/test/trust_test.dart: bundle: 21 official certificates, PEM shaped, no private keys
+01:44 +245: /work/repo/apps/payesh/owner/test/trust_test.dart: server that omits the intermediate: fails with roots only, works once the bundle has it
+01:44 +246: /work/repo/apps/payesh/owner/test/trust_test.dart: real Let's Encrypt Gen Y test sites (YR/YE) with ONLY the bundle as trust
+  Skip: network test: set PAYESH_NET_IT=1
+01:45 +246 ~1: loading /work/repo/apps/payesh/owner/test/schools_ui_test.dart
+01:45 +246 ~1: /work/repo/apps/payesh/owner/test/schools_ui_test.dart: (setUpAll)
+01:45 +246 ~1: /work/repo/apps/payesh/owner/test/schools_ui_test.dart: نوع ۱: ساخت دستی با فرم p2؛ خطاها؛ ویرایش، رمز، تعلیق، هدیه، حذف
+01:59 +247 ~1: /work/repo/apps/payesh/owner/test/schools_ui_test.dart: نوع ۲: درخواست ثبت‌نام ← تأیید با فرم p2 یا رد
+02:00 +248 ~1: /work/repo/apps/payesh/owner/test/schools_ui_test.dart: اشتراک: سیاست نقش‌ها، آزمایشی، درگاه، دامنه، تأیید پرداخت، هدیه
+02:10 +249 ~1: /work/repo/apps/payesh/owner/test/schools_ui_test.dart: بدون دیتابیس: هشدار، نه خطای صفحه؛ تغییر با پیام روشن
+02:10 +250 ~1: /work/repo/apps/payesh/owner/test/schools_ui_test.dart: فقط مشاهده: دکمه‌های تغییر نیست
+02:11 +251 ~1: /work/repo/apps/payesh/owner/test/schools_ui_test.dart: (tearDownAll)
+02:11 +251 ~1: loading /work/repo/apps/payesh/owner/test/resilience_test.dart
+02:12 +251 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: سیاست تلاش دوباره فاصلهٔ نمایی با لرزش و سقف
+02:12 +252 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: سیاست تلاش دوباره خطای گذرا ⇒ دوباره؛ غیرگذرا ⇒ فوری؛ تمام شدن تلاش‌ها ⇒ همان خطا
+02:12 +253 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: سیاست تلاش دوباره دسته‌بندی خطاها
+02:12 +254 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: آدرس‌های جایگزین آروان: .ir/.com و نام قدیمی/جدید ناحیه؛ بقیه هیچ
+02:12 +255 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: آدرس‌های جایگزین ترتیب: آخرین آدرس سالم اول
+02:12 +256 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: s3Request پایدار قطع لحظه‌ای ⇒ با اتصال تازه دوباره و موفق
+02:12 +257 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: s3Request پایدار ۵۰۳ گذرا ⇒ دوباره؛ ۵۰۳ پیاپی ⇒ پیام فارسی با کد
+02:12 +258 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: s3Request پایدار ۴۰۳ ⇒ بدون تلاش دوباره
+02:12 +259 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: s3Request پایدار آدرس تنظیم‌شده در دسترس نیست ⇒ جایگزین؛ دفعهٔ بعد اول همان (بدون تغییر دستی آدرس)
+02:12 +260 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: s3Request پایدار همه در دسترس نیستند ⇒ پیام خطای شبکه (نه پاسخ یک جایگزین)
+02:12 +261 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: s3Request پایدار گواهی نامعتبر ⇒ همان آدرس دوباره امتحان نمی‌شود، جایگزین بله
+02:12 +262 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: IoS3Transport (اتصال واقعی) اتصال قطع‌شده ⇒ اتصال تازه و موفق
+02:12 +263 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: IoS3Transport (اتصال واقعی) DNS جواب نمی‌دهد ⇒ آخرین IP سالمِ همان میزبان
+02:12 +264 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: IoS3Transport (اتصال واقعی) https با IP شناخته‌شده: SNI و بررسی گواهی با همان نام میزبان
+02:12 +265 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: سنجش دیتابیس و وصل شدن خودکار LocalPlatform.probe: قطع ⇒ error، وصل ⇒ synced؛ هر سنجش اعلام می‌شود
+02:13 +266 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: سنجش دیتابیس و وصل شدن خودکار سنجش کُند صفحه‌ها را منتظر نمی‌گذارد؛ هنگام قطعی، خواندن‌ها فوری از همین دستگاه
+02:13 +267 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: سنجش دیتابیس و وصل شدن خودکار DbMonitor: قطع ⇒ تلاش با فاصلهٔ رو به افزایش؛ وصل ⇒ دوره‌ای
+02:13 +268 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: سنجش دیتابیس و وصل شدن خودکار DbMonitor بدون start: فقط با لمس (بدون زمان‌سنج)
+02:13 +269 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: سنجش دیتابیس و وصل شدن خودکار چراغ دیتابیس: یک چراغ بزرگ با نوشتهٔ «دیتابیس»؛ لمس ⇒ سنجش دوباره
+02:13 +270 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: نسخه نسخهٔ نمایشی = pubspec (major.minor) + شمارهٔ ساخت
+02:13 +271 ~1: /work/repo/apps/payesh/owner/test/resilience_test.dart: نسخه CI نسخه را با هر ساخت عوض می‌کند (build-name + نصب‌کننده)
+02:14 +272 ~1: loading /work/repo/apps/payesh/owner/test/nabd_menu_test.dart
+02:15 +272 ~1: /work/repo/apps/payesh/owner/test/nabd_menu_test.dart: ownerMenu هر صفحه دقیقاً یک بار و گروه‌ها به ترتیب کارکرد
+02:15 +273 ~1: /work/repo/apps/payesh/owner/test/nabd_menu_test.dart: ownerMenu صفحه‌های محلی فقط وقتی در دسترس‌اند دیده می‌شوند
+02:15 +274 ~1: /work/repo/apps/payesh/owner/test/nabd_menu_test.dart: NabdSideNav: عنوان گروه‌ها + مورد فعال با گرادیان
+02:16 +275 ~1: /work/repo/apps/payesh/owner/test/nabd_menu_test.dart: NabdCapsuleBar: خانه‌های cap-* و «همهٔ بخش‌ها»
+02:16 +276 ~1: /work/repo/apps/payesh/owner/test/nabd_menu_test.dart: NabdHeroCard: مقدار و جزئیات
+02:16 +277 ~1: loading /work/repo/apps/payesh/owner/test/support_inbox_test.dart
+02:17 +277 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: قرارداد support v1 (همان بایت‌های Node) پاکت ticket
+02:17 +278 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: قرارداد support v1 (همان بایت‌های Node) پاکت reply
+02:17 +279 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: قرارداد support v1 (همان بایت‌های Node) ثابت‌ها: نوع‌ها، پوشه‌ها، دسته‌ها، وضعیت‌ها، شناسه
+02:17 +280 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: قرارداد support v1 (همان بایت‌های Node) ادغام بردار تیکت + پاسخ
+02:17 +281 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: قاعدهٔ ادغام (همان server/support.js) پیام تازهٔ کاربر پس از پاسخ ⇒ دوباره «باز»
+02:17 +282 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: قاعدهٔ ادغام (همان server/support.js) بستن به‌دست کاربر پس از پاسخ ⇒ بسته؛ پاسخِ تیکتی دیگر نادیده
+02:17 +283 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: قاعدهٔ ادغام (همان server/support.js) پاکت پاسخ تازه پیام‌های قبلی مالک را نگه می‌دارد
+02:17 +284 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: SchoolRegistry + صفحهٔ «پشتیبانی» در برابر صندوقچهٔ جعلی (setUpAll)
+02:17 +284 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: SchoolRegistry + صفحهٔ «پشتیبانی» در برابر صندوقچهٔ جعلی فهرست، پاسخ، بستن؛ پاکت پاسخ با کلید صندوقچه؛ خطاها
+02:17 +285 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: SchoolRegistry + صفحهٔ «پشتیبانی» در برابر صندوقچهٔ جعلی صفحهٔ «پشتیبانی»: شمارش، پالایه، جست‌وجو، پاسخ، بستن
+02:21 +286 ~1: /work/repo/apps/payesh/owner/test/support_inbox_test.dart: SchoolRegistry + صفحهٔ «پشتیبانی» در برابر صندوقچهٔ جعلی (tearDownAll)
+02:21 +286 ~1: All tests passed!
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:14:17Z
+DURATION_S=147

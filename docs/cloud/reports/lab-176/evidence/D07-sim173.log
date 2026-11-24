@@ -1,0 +1,19 @@
+TEST_ID=D07-sim173
+PURPOSE=tests/sim-173.js alone after D-07 polling fix
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  5 files changed, 245 insertions(+), 9 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=node --experimental-sqlite --disable-warning=ExperimentalWarning tests/sim-173.js
+START=2026-11-24T04:34:43Z
+----- RAW -----
+ok   S173-01 D4: پروکسی معرفی‌شده (IP/CIDR) ⇒ XFF؛ بی‌فهرست فقط loopback؛ 0 ⇒ هیچ؛ بیرون از فهرست ⇒ نه
+ok   S173-02 D2: ریشه‌های NODE_EXTRA_CA_CERTS در caList
+ok   S173-03 D3: نشانی و نام صندوقچه از محیط سرور (فقط https یا محلی)
+ok   S173-04 D5: سرور مرکزیِ بی‌مدرسه خودکار میزبان هر دو مدرسه؛ ورود مدیر؛ خودش گره نمی‌خورد
+ok   S173-05 D6: مدرسهٔ میزبانی‌شدهٔ غیرفعال ⇒ school_inactive (نه رمز اشتباه)؛ مدرسهٔ دیگر بی‌اثر
+ok   S173-07 D14: نوسازی دستگاه پس از ری‌استارت سرور مرکزی ⇒ خطای خودِ مدرسه (proof_required) و با اثبات ۲۰۰
+ok   S173-06 D7 + ابزار شبیه‌سازی: انتشار فوری نشانی پس از گره؛ پرونده‌های tools/sim سالم و بی‌کلید واقعی
+SIM-173 PASS — 7 checks
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:34:52Z
+DURATION_S=9

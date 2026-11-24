@@ -1,0 +1,8 @@
+﻿
+payesh-sim-school1-1 0.57% 38.83MiB / 5.789GiB
+payesh-sim-central-1 7.89% 115.5MiB / 5.789GiB
+payesh-sim-school2-1 0.30% 30.86MiB / 5.789GiB
+payesh-sim-front-1 1.74% 21.77MiB / 5.789GiB
+payesh-sim-s3-lite-1 1.85% 14.71MiB / 5.789GiB
+
+

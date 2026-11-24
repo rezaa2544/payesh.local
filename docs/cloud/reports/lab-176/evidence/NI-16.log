@@ -1,0 +1,14 @@
+TEST_ID=NI-16
+PURPOSE=CI native-client/owner-native-it step: npm ci
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  4 files changed, 241 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-16.sh
+START=2026-11-24T04:20:43Z
+----- RAW -----
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 122 packages in 2s
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:20:45Z
+DURATION_S=2

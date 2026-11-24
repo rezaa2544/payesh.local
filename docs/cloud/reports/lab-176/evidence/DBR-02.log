@@ -1,0 +1,58 @@
+TEST_ID=DBR-02
+PURPOSE=CI api-contract/native-contract step: Every native endpoint vs JSON Schema (school server + Gateway/Directory on PostgreSQL)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  5 files changed, 245 insertions(+), 9 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-02.sh
+START=2026-11-24T04:29:17Z
+----- RAW -----
+Native API v1 conformance — row 64
+PASS  NC-00  schema compiles; role enum mirrors server/policy.js ROLES  → 31 defs
+
+── Part A: school server (server/index.js) ──
+PASS  NC-A01  GET /api/health → healthResponse (no data_dir/db_file leak)
+PASS  NC-A02  GET /api/version → versionResponse
+PASS  NC-A03  GET /api/update/check (old + current) → updateCheckResponse (both branches)  → old.up_to_date=false cur.up_to_date=true
+PASS  NC-A04  POST /api/setup → authSessionResponse (first manager session)
+PASS  NC-A05  POST /api/auth/login (native headers) → authSessionResponse + X-Payesh-Api headers
+PASS  NC-A06  login negatives: wrong password 401, short phone 401 → errorResponse; no secret in body
+PASS  NC-A07  POST /api/sync (manager) → syncPushResponse; creates the users used below
+PASS  NC-A08  GET /api/v1/pull → syncPullResponse
+PASS  NC-A09  POST /api/auth/pair (code from /api/admin/pair-code) → authSessionResponse
+PASS  NC-A10  pair negative: unknown code → 400 errorResponse(bad_code)
+PASS  NC-A11  POST /api/auth/refresh → authSessionResponse (fresh session)
+PASS  NC-A12  GET /api/me → meResponse; without token → 401 errorResponse
+PASS  NC-A13  GET /api/admin/devices → deviceListResponse (manager); student → 403 errorResponse
+PASS  NC-A14  DELETE /api/admin/devices/{id} → okResponse; revoked device: refresh 401 errorResponse, session dead
+PASS  NC-A15  POST /api/auth/logout → okResponse; session no longer valid
+PASS  NC-A16  version policy over HTTP: old client 426 upgradeRequired, newer api 400, malformed 400, web untouched
+PASS  NC-A17  malformed JSON body → 400 errorResponse(bad_json) on /api/sync
+
+── Part B: Gateway + Directory on PostgreSQL (server/gateway.js) ──
+PASS  NC-B01  GET /healthz → gwHealthzResponse; GET /readyz → gwReadyzResponse(ok)
+PASS  NC-B02  GET /api/dir/v1/resolve → directoryResolveResponse
+PASS  NC-B03  resolve negatives: unknown and malformed codes → identical 404 errorResponse(not_found)
+PASS  NC-B04  POST /api/gw/v1/push + GET pull → gwPushResponse / gwPullResponse
+PASS  NC-B05  gateway negatives: no token 401, bad ops 400, old client 426 — all schema-valid
+PASS  NC-B-IDEM-01  vector idempotency-v1: first send applies
+PASS  NC-B-IDEM-02  vector idempotency-v1: exact retry is a duplicate
+PASS  NC-B-IDEM-03  vector idempotency-v1: retry with a changed body is still a duplicate (uid wins)
+PASS  NC-B-IDEM-04  vector idempotency-v1: mixed batch: old uid duplicate, new uid applied
+PASS  NC-B-IDEM-05  vector idempotency-v1: same uid twice in one batch → second is a duplicate
+PASS  NC-B-IDEM-06  vector idempotency-v1: stale base_version → conflict, not overwrite
+PASS  NC-B-IDEM-07  vector idempotency-v1: conflict retry is a duplicate (verdict is final)
+PASS  NC-B-PAGE-01  vector pagination-v1: walk 25 rows with limit 10  → pages=10/10/5
+PASS  NC-B-PAGE-C1  vector pagination-v1: limit=0 → clamped_limit 1
+PASS  NC-B-PAGE-C2  vector pagination-v1: limit=5000 → clamped_limit 50
+PASS  NC-B-PAGE-C3  vector pagination-v1: limit=abc → clamped_limit 50
+PASS  NC-B-PAGE-C4  vector pagination-v1: limit=7 → clamped_limit 7
+
+── invalid-structure controls (schema must reject) ──
+PASS  NC-S01  mutated responses are rejected by the schema (12 mutations)  → 12 mutations rejected
+PASS  NC-COVER  every response $def was exercised against a real server response  → 22 defs covered
+
+NC checks=37 pass=37 fail=0
+NATIVE-CONTRACT-64-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:29:28Z
+DURATION_S=11

@@ -1,0 +1,31 @@
+TEST_ID=DBR-16
+PURPOSE=CI api-contract/native-contract step: Telemetry without PII (row 80, real postgres:16)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  5 files changed, 245 insertions(+), 9 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-16.sh
+START=2026-11-24T04:34:04Z
+----- RAW -----
+
+Row 80: telemetry — closed field allowlist, no PII, opt-in, direct-path ingest with rate limit
+
+PASS  TM-01  one closed field allowlist: schema (additionalProperties:false) = SQL telemetry_ingest = client/telemetry.js  → app_version,code,count,duration_ms,platform,type,v,where
+PASS  TM-02  no national_id / name / phone (or any PII-like) field, and the stored table has no free-form column  → fields=8 columns=12
+PASS  TM-03  NEGATIVE: adding a PII field to any layer turns the gate red (6 mutants)  → 6/6 red
+PASS  TM-04  client: no consent ⇒ nothing recorded or sent (default OFF); revoking consent drops the queue  → ok
+PASS  TM-05  client: events are REBUILT from allowlisted fields — message, stack, name, national_id, phone never copied; PII-shaped values dropped  → ok
+PASS  TM-06  client: sent ONLY through the direct provider (rpc telemetry_ingest, consent=true); no direct provider ⇒ nothing; ≤20 per batch, ≤60 per hour  → sent=20/20/20/0/0
+PASS  TM-07  PostgREST provider allowlists telemetry_ingest(p_events, p_consent) and sends events as JSON (not text)  → ok
+PASS  TM-08  ingest: valid events stored in typed columns; tenant + device come from the token, not the event  → stored=2
+PASS  TM-09  NEGATIVE ingest: a PII field (national_id / name / phone / tenant_id / message) refuses the WHOLE batch; PII-shaped values refused  → 11 refusals, 0 rows
+PASS  TM-10  consent + identity: p_consent=false refused; no token / unknown device refused  → ok
+PASS  TM-11  rate limit: ≤20 per call; per device 60/hour (61st refused, batch atomic); another device / school unaffected; window reset  → device cap 60/h; school cap 2000/h
+PASS  TM-12  clients cannot read or write telemetry tables directly; the only client RPC added is telemetry_ingest  → ok
+PASS  TM-13  end to end: client/telemetry.js → provider.rpc → telemetry_ingest; an Error with a national id in its message stores only the code  → ok
+PASS  TM-14  mutant: without the allowlist check in telemetry_ingest a national_id event is ACCEPTED (control is load-bearing); down migration removes everything  → mutant red, rollback clean
+
+checks=14 pass=14 fail=0
+TELEMETRY-80-OK checks=14
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:34:05Z
+DURATION_S=1

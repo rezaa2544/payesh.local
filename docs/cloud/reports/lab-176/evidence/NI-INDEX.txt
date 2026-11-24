@@ -1,0 +1,18 @@
+NI-01	gate-controls	Gate unit tests (synthetic clean/dirty APK, AAB, Windows bundles)
+NI-02	gate-controls	Android release check + installer wiring unit tests (rows 76/77)
+NI-03	gate-controls	Frozen WebView/Node bundles (negative controls, sha256-pinned)
+NI-04	gate-controls	Gate must REJECT every control (expect-fail)
+NI-05	engine-web-conformance	engine-v1 vectors on client/engine-web.js (IndexedDB)
+NI-06	engine-web-conformance	outbox-v1 vectors on client/outbox-web.js (IndexedDB)
+NI-07	engine-web-conformance	jalali-v1 vectors regenerated from client/app.js + client/import.js must equal the committed file
+NI-08	engine-web-conformance	native-update-78 — signed manifest, bad hash, downgrade, kill-switch vectors + mutants
+NI-09	sync-real-server	pub get (lockfile enforced)
+NI-10	sync-real-server	payesh_sync ⇄ server/index.js
+NI-11	sync-real-server	payesh_sync LAN mode ⇄ server/index.js headless (row 127)
+NI-12	sync-real-server	payesh_sync school admin ⇄ server/index.js headless (row 128)
+NI-13	gateway-real	pub get (lockfile enforced)
+NI-14	gateway-real	payesh_sync ⇄ server/gateway.js (pinned TLS)
+NI-15	gateway-real	payesh_sync offline scenarios (row 119, real gateway + postgres)
+NI-16	owner-native-it	npm ci
+NI-17	owner-native-it	pub get (lockfile enforced)
+NI-18	owner-native-it	payesh_owner_api ⇄ real Gateway + platform API (PGlite) + parity with web/app.js

@@ -1,0 +1,12 @@
+TEST_ID=SEC-05-npm-audit
+PURPOSE=dependency vulnerability scan
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=npm audit
+START=2026-11-24T03:26:33Z
+----- RAW -----
+found 0 vulnerabilities
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:26:34Z
+DURATION_S=1

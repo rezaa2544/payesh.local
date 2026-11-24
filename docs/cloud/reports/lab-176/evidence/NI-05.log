@@ -1,0 +1,25 @@
+TEST_ID=NI-05
+PURPOSE=CI native-client/engine-web-conformance step: engine-v1 vectors on client/engine-web.js (IndexedDB)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-05.sh
+START=2026-11-24T04:19:16Z
+----- RAW -----
+
+engine conformance engine-v1 v1 — web engine (IndexedDB)
+
+  ✓ put then get returns the stored row with derived k/refKeys
+  ✓ put overwrites by k (collection/id) and keeps one row
+  ✓ refKeys skip null and object values; explicit refFields override
+  ✓ putMany + list orders by key string within collection (IndexedDB primary-key order)
+  ✓ byRef returns only the requested collection, ordered by key
+  ✓ since is inclusive, ordered by updated_at then key, and honours limit
+  ✓ del removes one row; clear removes all
+  ✓ Persian text, numbers and nested JSON round-trip unchanged
+
+  8 passed, 0 failed (cases=8)
+CONFORMANCE-ENGINE-WEB-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:19:16Z
+DURATION_S=0

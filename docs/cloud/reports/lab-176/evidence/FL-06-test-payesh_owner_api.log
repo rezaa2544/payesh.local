@@ -1,0 +1,41 @@
+TEST_ID=FL-06-test-payesh_owner_api
+PURPOSE=package tests (CI rule: flutter test for flutter pkgs, coverage:test_with_coverage otherwise)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh/packages/payesh_owner_api && if grep -q 'sdk: flutter' pubspec.yaml; then flutter test --concurrency=1 --coverage; else dart run coverage:test_with_coverage; fi
+START=2026-11-24T04:14:32Z
+----- RAW -----
+The Dart VM service is listening on http://127.0.0.1:40323/
+The Dart DevTools debugger and profiler is available at: http://127.0.0.1:40323/devtools/?uri=ws://127.0.0.1:40323/ws
+00:00 +0: loading test/owner_api_test.dart
+00:00 +0: test/owner_api_test.dart: normalizeOrigin (same policy as the retired WebView shells) https origins are accepted and normalised
+00:00 +1: test/owner_api_test.dart: normalizeOrigin (same policy as the retired WebView shells) http only on loopback
+00:00 +2: test/owner_api_test.dart: normalizeOrigin (same policy as the retired WebView shells) paths, queries, fragments, user-info and junk are refused
+00:00 +3: test/owner_api_test.dart: OwnerClaims.decode (display only, fail closed) valid token → role + caps
+00:00 +4: test/owner_api_test.dart: OwnerClaims.decode (display only, fail closed) expired, wrong type/version, unknown role, bad sub, bad shape → null
+00:00 +5: test/owner_api_test.dart: OwnerCaps owner/operator/support match the server role model
+00:00 +6: test/owner_api_test.dart: rules + formatting digits, numbers, bytes, ids
+00:00 +7: test/owner_api_test.dart: rules + formatting credential references only
+00:00 +8: test/owner_api_test.dart: rules + formatting endpoint validation
+00:00 +9: test/owner_api_test.dart: rules + formatting support grant validation
+00:00 +10: test/owner_api_test.dart: rules + formatting status labels, audit chain, report
+00:00 +11: test/owner_api_test.dart: errorText server code, client kind, status fallback, detail
+00:00 +12: test/owner_api_test.dart: OwnerApi over a fake transport login: client-side checks before any request
+00:00 +13: test/owner_api_test.dart: OwnerApi over a fake transport login: Persian digits normalised, token kept in memory, Bearer sent
+00:00 +14: test/owner_api_test.dart: OwnerApi over a fake transport login failures map to the panel texts
+00:00 +15: test/owner_api_test.dart: OwnerApi over a fake transport non-JSON, broken JSON and network errors
+00:00 +16: test/owner_api_test.dart: OwnerApi over a fake transport 401 on an authenticated call drops the session once
+00:00 +17: test/owner_api_test.dart: OwnerApi over a fake transport expired session is dropped locally
+00:00 +18: test/owner_api_test.dart: OwnerApi over a fake transport every mutation hits the same route/body as the web panel
+00:00 +19: loading test/parity_test.dart
+00:00 +19: test/parity_test.dart: errors, pages, roles and caps equal the web panel
+00:00 +20: loading test/real_server_it_test.dart
+00:00 +20: test/real_server_it_test.dart: (setUpAll)
+00:00 +20: test/real_server_it_test.dart: native owner client ⇄ real Gateway + platform API + PostgreSQL
+  Skip: set PAYESH_OWNER_IT=1 (CI job owner-native-it)
+00:00 +20 ~1: test/real_server_it_test.dart: (tearDownAll)
+00:00 +20 ~1: All tests passed!
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:14:36Z
+DURATION_S=4

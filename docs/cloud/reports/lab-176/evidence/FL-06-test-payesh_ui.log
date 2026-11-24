@@ -1,0 +1,108 @@
+TEST_ID=FL-06-test-payesh_ui
+PURPOSE=package tests (CI rule: flutter test for flutter pkgs, coverage:test_with_coverage otherwise)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh/packages/payesh_ui && if grep -q 'sdk: flutter' pubspec.yaml; then flutter test --concurrency=1 --coverage; else dart run coverage:test_with_coverage; fi
+START=2026-11-24T04:15:04Z
+----- RAW -----
+Resolving dependencies in `/work/repo/apps/payesh`...
+Downloading packages...
+  _fe_analyzer_shared 103.0.0 (111.0.0 available)
+  analyzer 13.3.0 (14.7.0 available)
+  cli_util 0.6.0 (0.6.1 available)
+  coverage 1.16.0 (1.16.1 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  package_config 2.2.0 (3.0.0 available)
+  sqlite3 3.9.1 (3.9.2 available)
+  test 1.31.1 (1.33.0 available)
+  test_api 0.7.12 (0.7.15 available)
+  test_core 0.6.18 (0.6.21 available)
+Got dependencies in `/work/repo/apps/payesh`!
+10 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /work/repo/apps/payesh/packages/payesh_ui/test/jalali_conformance_test.dart
+00:00 +0: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_conformance_test.dart: schema + names identical to the web client
+00:00 +1: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_conformance_test.dart: ISO → Jalali, jdate text, slash form and weekday match the web for every vector
+00:00 +2: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_conformance_test.dart: Jalali input → ISO matches the web import rules (incl. rejections)
+00:00 +3: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_conformance_test.dart: digits: Persian rendering and normalisation match fa()/norm()
+00:00 +4: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_conformance_test.dart: unreadable dates render as — like the web jdate
+00:00 +5: loading /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart
+Warning: A tag was used that wasn't specified in dart_test.yaml.
+  golden was used in the suite itself
+
+00:01 +5: /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart: (setUpAll)
+00:01 +5: /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart: golden android_light
+00:02 +6: /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart: golden android_dark
+00:03 +7: /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart: golden windows_light
+00:03 +8: /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart: golden windows_dark
+00:03 +9: /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart: golden android_light_text2x
+00:03 +10: /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart: golden nabd_windows_light
+00:03 +11: /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart: golden nabd_windows_dark
+00:04 +12: /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart: golden nabd_android_light
+00:04 +13: /work/repo/apps/payesh/packages/payesh_ui/test/golden_test.dart: (tearDownAll)
+00:04 +13: loading /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart
+00:05 +13: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: full RTL: fa locale, rtl Directionality, start edge is on the right
+00:06 +14: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: Jalali display over ISO data + Persian digits + screen-reader labels
+00:06 +15: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: unknown date is announced, not silent
+00:06 +16: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: Android phone: bottom navigation; selecting a tab works
+00:07 +17: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: Windows window: extended navigation rail on the RIGHT, compact density
+00:07 +18: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: tablet width: rail with labels (not extended)
+00:07 +19: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: accessibility guidelines (ThemeMode.light): tap targets, labels, text contrast
+00:07 +20: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: accessibility guidelines (ThemeMode.dark): tap targets, labels, text contrast
+00:07 +21: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: text scale ×1.3: no overflow on a phone or a Windows window
+00:07 +22: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: text scale ×2.0: no overflow on a phone or a Windows window
+00:08 +23: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: dark theme really switches surfaces and keeps tokens reachable
+00:08 +24: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: tokens fallback outside a Payesh theme
+00:08 +25: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: row 147 «نبض»: stat numbers in primary, rounder icon tiles, backdrop + brand
+00:08 +26: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: ردیف ۱۴۸: نوار بالای همیشه پیدا + نقطهٔ زنده overlay بالای همهٔ صفحه‌ها می‌ماند؛ لمس بیرون آن به صفحه می‌رسد
+00:08 +27: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: ردیف ۱۴۸: نوار بالای همیشه پیدا + نقطهٔ زنده بدون overlay: همان MaterialApp قبلی (Overlay اضافه نیست)
+00:08 +28: /work/repo/apps/payesh/packages/payesh_ui/test/widgets_test.dart: ردیف ۱۴۸: نوار بالای همیشه پیدا + نقطهٔ زنده StatusDot: بیکار بدون پویانمایی؛ هنگام کار هاله + حلقه
+00:09 +29: loading /work/repo/apps/payesh/packages/payesh_ui/test/font_license_test.dart
+00:09 +29: /work/repo/apps/payesh/packages/payesh_ui/test/font_license_test.dart: bundled Vazirmatn is unmodified (SHA256SUMS) and ships with its OFL-1.1 licence
+00:10 +30: loading /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart
+00:10 +30: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: light tokens meet WCAG 2.x AA body text and secondary text on every surface ≥ 4.5:1
+00:10 +31: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: light tokens meet WCAG 2.x AA every status tone: text on its own background ≥ 4.5:1
+00:10 +32: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: light tokens meet WCAG 2.x AA filled buttons and field borders
+00:10 +33: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: dark tokens meet WCAG 2.x AA body text and secondary text on every surface ≥ 4.5:1
+00:10 +34: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: dark tokens meet WCAG 2.x AA every status tone: text on its own background ≥ 4.5:1
+00:10 +35: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: dark tokens meet WCAG 2.x AA filled buttons and field borders
+00:10 +36: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: nabd light tokens meet WCAG 2.x AA body text and secondary text on every surface ≥ 4.5:1
+00:10 +37: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: nabd light tokens meet WCAG 2.x AA every status tone: text on its own background ≥ 4.5:1
+00:10 +38: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: nabd light tokens meet WCAG 2.x AA filled buttons and field borders
+00:10 +39: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: nabd dark tokens meet WCAG 2.x AA body text and secondary text on every surface ≥ 4.5:1
+00:10 +40: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: nabd dark tokens meet WCAG 2.x AA every status tone: text on its own background ≥ 4.5:1
+00:10 +41: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: nabd dark tokens meet WCAG 2.x AA filled buttons and field borders
+00:10 +42: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: «نبض»: the raw pulse.css light muted/primary fail AA, so the tokens darken them
+00:10 +43: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: contrast math matches WCAG reference values
+00:10 +44: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: token lerp / copyWith keep the extension usable for theme animation
+00:10 +45: /work/repo/apps/payesh/packages/payesh_ui/test/a11y_contrast_test.dart: platform sizing: Windows compact density, Android standard, 48dp targets kept
+00:11 +46: loading /work/repo/apps/payesh/packages/payesh_ui/test/academic_year_test.dart
+00:12 +46: /work/repo/apps/payesh/packages/payesh_ui/test/academic_year_test.dart: Jalali ⇄ Gregorian vectors
+00:12 +47: /work/repo/apps/payesh/packages/payesh_ui/test/academic_year_test.dart: every case matches Node
+00:12 +48: /work/repo/apps/payesh/packages/payesh_ui/test/academic_year_test.dart: planEnd and yearEndLabel
+00:12 +49: loading /work/repo/apps/payesh/packages/payesh_ui/test/jalali_test.dart
+00:13 +49: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_test.dart: exhaustive: every day 1900-01-01 … 2150-12-31 round-trips and is contiguous
+00:13 +50: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_test.dart: known dates incl. the Nowruz regression fixed in the web client
+00:13 +51: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_test.dart: leap years and month lengths
+00:13 +52: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_test.dart: validation and parsing
+00:13 +53: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_test.dart: ordering, equality, toString
+00:13 +54: /work/repo/apps/payesh/packages/payesh_ui/test/jalali_test.dart: digits helpers
+00:14 +55: loading /work/repo/apps/payesh/packages/payesh_ui/test/divisions_issues_test.dart
+00:14 +55: /work/repo/apps/payesh/packages/payesh_ui/test/divisions_issues_test.dart: ۳۱ استان و ۴۸۴ شهرستان؛ هر استان دست‌کم یک شهرستان
+00:14 +56: /work/repo/apps/payesh/packages/payesh_ui/test/divisions_issues_test.dart: FieldIssues: تنظیم، پاک‌کردن، حدس از پیام کلی
+00:14 +57: /work/repo/apps/payesh/packages/payesh_ui/test/divisions_issues_test.dart: FieldIssueScope ⇒ errorText ⇒ قاب قرمز
+00:16 +58: loading /work/repo/apps/payesh/packages/payesh_ui/test/nabd_full_theme_test.dart
+00:16 +58: /work/repo/apps/payesh/packages/payesh_ui/test/nabd_full_theme_test.dart: کارت قهرمان نبض: عدد فارسی، جزئیات، قاب رنگ اصلی
+00:17 +59: /work/repo/apps/payesh/packages/payesh_ui/test/nabd_full_theme_test.dart: کارت قهرمان: محتوای کناری در عرض 1200.0
+00:17 +60: /work/repo/apps/payesh/packages/payesh_ui/test/nabd_full_theme_test.dart: کارت قهرمان: محتوای کناری در عرض 500.0
+00:17 +61: /work/repo/apps/payesh/packages/payesh_ui/test/nabd_full_theme_test.dart: اجزای Material با زبان بصری نبض؛ پوستهٔ کلاسیک دست‌نخورده
+00:18 +62: loading /work/repo/apps/payesh/packages/payesh_ui/test/school_profile_test.dart
+00:18 +62: /work/repo/apps/payesh/packages/payesh_ui/test/school_profile_test.dart: ثابت‌ها همان سرور
+00:18 +63: /work/repo/apps/payesh/packages/payesh_ui/test/school_profile_test.dart: همهٔ بردارها (خطا یا patch)
+00:18 +64: /work/repo/apps/payesh/packages/payesh_ui/test/school_profile_test.dart: ردیف ۱۶۶: همهٔ ایرادها با هم (قاب قرمز هر کادر)
+00:18 +65: /work/repo/apps/payesh/packages/payesh_ui/test/school_profile_test.dart: وابستگی‌ها: نوع مدرسه ⇒ قابلیت‌ها؛ شب ⇒ شبانه
+00:19 +66: All tests passed!
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:15:37Z
+DURATION_S=33

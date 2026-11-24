@@ -1,0 +1,82 @@
+﻿central-1  | 2026-11-23T22:33:14.829172029Z [helper] ╪ذ╪▒╪▒╪│█î ╪ذ█î╪▒┘ê┘█î ╪ت╪»╪▒╪│ ╪╣┘à┘ê┘à█î: ╪»╪▒ ╪»╪│╪ز╪▒╪│ ┘█î╪│╪ز (┘à╪ص┘█î)
+central-1  | 2026-11-23T22:33:16.006178428Z {"ts":"2026-11-23T22:33:16.003Z","level":"info","service":"payesh-local","event":"http","request_id":"727cf7dd-6c5e-4601-be96-b7adcaf720bb","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":401,"ms":14}
+central-1  | 2026-11-23T22:33:16.028149442Z [school s-1fce28b3a40e] {"ts":"2026-11-23T22:33:16.025Z","level":"info","service":"payesh-local","event":"http","request_id":"8a8bcaac-aa1a-4c5b-8213-c7dc7e4efcb3","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":401,"ms":19}
+central-1  | 2026-11-23T22:33:16.131146743Z [school s-ae6020ef032e] {"ts":"2026-11-23T22:33:16.128Z","level":"info","service":"payesh-local","event":"http","request_id":"46d19bd2-51d4-4632-95ac-c7c76c946189","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":400,"ms":100}
+central-1  | 2026-11-23T22:33:20.180886001Z {"ts":"2026-11-23T22:33:20.179Z","level":"info","service":"payesh-local","event":"http","request_id":"fc83d9d5-22fa-4d27-8de2-8ebb6c0fafc9","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":401,"ms":9}
+central-1  | 2026-11-23T22:33:20.198100184Z [school s-1fce28b3a40e] {"ts":"2026-11-23T22:33:20.195Z","level":"info","service":"payesh-local","event":"http","request_id":"b0120672-6a81-4fc3-aac2-e022b6c89d90","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":401,"ms":13}
+central-1  | 2026-11-23T22:33:20.204760370Z [school s-ae6020ef032e] {"ts":"2026-11-23T22:33:20.202Z","level":"info","service":"payesh-local","event":"http","request_id":"aeb68286-ab1c-41b4-8504-53f7acacfc69","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":403,"ms":4}
+central-1  | 2026-11-23T22:33:20.525938761Z {"ts":"2026-11-23T22:33:20.525Z","level":"info","service":"payesh-local","event":"http","request_id":"bca5a992-5cfe-42b6-8c9c-7355246ac3ae","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":401,"ms":16}
+central-1  | 2026-11-23T22:33:20.554037257Z [school s-1fce28b3a40e] {"ts":"2026-11-23T22:33:20.545Z","level":"info","service":"payesh-local","event":"http","request_id":"732ecd39-1fed-4581-b868-04a40b189ba1","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":401,"ms":18}
+central-1  | 2026-11-23T22:33:20.556971789Z [school s-ae6020ef032e] {"ts":"2026-11-23T22:33:20.554Z","level":"info","service":"payesh-local","event":"http","request_id":"837af491-a8d1-4767-9a0d-ded55ee5f59a","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":403,"ms":5}
+central-1  | 2026-11-23T22:33:20.812425004Z {"ts":"2026-11-23T22:33:20.811Z","level":"info","service":"payesh-local","event":"http","request_id":"4734e7d3-2db5-4a86-bbd8-c8ebee4960c2","school_id":null,"auth":false,"role":null,"method":"GET","path":"/api/health","status":200,"ms":4}
+central-1  | 2026-11-23T22:33:23.591742020Z {"ts":"2026-11-23T22:33:23.590Z","level":"info","service":"payesh-local","event":"http","request_id":"6ef1065c-70e2-4731-ba7d-1f6b0ac8f5e3","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":401,"ms":16}
+central-1  | 2026-11-23T22:33:23.614778515Z [school s-1fce28b3a40e] {"ts":"2026-11-23T22:33:23.612Z","level":"info","service":"payesh-local","event":"http","request_id":"95d2eb7c-69d1-4896-988e-2f5e75ad8a43","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":401,"ms":19}
+central-1  | 2026-11-23T22:33:23.622748114Z [school s-ae6020ef032e] {"ts":"2026-11-23T22:33:23.619Z","level":"info","service":"payesh-local","event":"http","request_id":"e0efffc1-5e88-4b52-aced-4ca37ec62d0d","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":403,"ms":5}
+central-1  | 2026-11-23T22:33:26.791581611Z [hosting] ╪│╪▒┘ê╪▒ ┘à╪»╪▒╪│┘ç┘¤ s-e0a8d8316642 ╪▒╪د┘çظî╪د┘╪»╪د╪▓█î ╪┤╪» (/data/hosted/s-e0a8d8316642)
+central-1  | 2026-11-23T22:33:27.620743247Z [school s-e0a8d8316642] [network] ╪ت╪»╪▒╪│ ┘à┘ê┘é╪ز ┘é╪»█î┘à█î ┘╛╪د┌ر ╪┤╪»: https://central.sim
+central-1  | 2026-11-23T22:33:27.622975581Z [school s-e0a8d8316642] [schools] ┘╛█î╪▒┘ê█î ╪د╪▓ ┘┘ç╪▒╪│╪ز ┘à╪»╪د╪▒╪│ ┘ê ╪د╪┤╪ز╪▒╪د┌ر ┘╛┘┘ ┘à╪د┘┌ر ╪▒┘ê╪┤┘ ╪┤╪»
+central-1  | 2026-11-23T22:33:27.652359511Z [school s-e0a8d8316642]   ┘╛╪د█î╪┤-┘┘ê┌ر╪د┘  ┬╖  ┘╪│╪«┘ç┘¤ 0.9.31
+central-1  | 2026-11-23T22:33:27.652510251Z [school s-e0a8d8316642]   ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
+central-1  | 2026-11-23T22:33:27.652532267Z [school s-e0a8d8316642]   ╪ت╪»╪▒╪│ ╪▒┘ê█î ┘ç┘à█î┘ ╪│█î╪│╪ز┘à : http://localhost:0
+central-1  | 2026-11-23T22:33:27.653200272Z [school s-e0a8d8316642]   ╪ت╪»╪▒╪│ ╪»╪▒ ╪┤╪ذ┌ر┘ç┘¤ ┘à╪»╪▒╪│┘ç : http://172.23.0.3:0
+central-1  | 2026-11-23T22:33:27.653486646Z [school s-e0a8d8316642]   ╪»╪د╪»┘ç               : /data/hosted/s-e0a8d8316642/payesh.sqlite
+central-1  | 2026-11-23T22:33:27.653515826Z [school s-e0a8d8316642]   ╪ذ┌ر╪د┘╛               : /data/hosted/s-e0a8d8316642/backups
+central-1  | 2026-11-23T22:33:27.654943023Z [school s-e0a8d8316642]   ╪▒╪د┘çظî╪د┘╪»╪د╪▓█î         : ╪د┘╪ش╪د┘à ┘╪┤╪»┘ç ظ¤ ╪د┘╛ ┘╛╪د█î╪┤ ╪▒╪د ╪▒┘ê█î ┘ç┘à█î┘ ╪▒╪د█î╪د┘┘ç ╪ذ╪د╪▓ ┌ر┘█î╪» ظ ┬س╪│╪▒┘ê╪▒ ┘à╪»╪▒╪│┘ç ╪»╪▒ ┘ç┘à█î┘ ╪┤╪ذ┌ر┘ç┬╗ ظ 127.0.0.1
+central-1  | 2026-11-23T22:33:27.655690311Z [school s-e0a8d8316642]   ╪ت╪»╪▒╪│ ╪╣┘à┘ê┘à█î (┘ç┘à┘ç)   : https://central.sim
+central-1  | 2026-11-23T22:33:28.007779698Z [school s-e0a8d8316642] [hosted s-e0a8d8316642] ┘à╪»╪▒╪│┘ç ╪د╪▓ ┘┘ç╪▒╪│╪ز ┘╛┘┘ ┘à╪د┘┌ر ╪ذ╪▒╪»╪د╪┤╪ز┘ç ╪┤╪»
+central-1  | 2026-11-23T22:33:28.023490991Z {"ts":"2026-11-23T22:33:28.022Z","level":"info","service":"payesh-local","event":"http","request_id":"905aebda-ff78-40db-9614-6707f0cac694","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":401,"ms":15}
+central-1  | 2026-11-23T22:33:28.045673759Z [school s-1fce28b3a40e] {"ts":"2026-11-23T22:33:28.042Z","level":"info","service":"payesh-local","event":"http","request_id":"7391a3a6-e360-4c5a-9011-2541e5b86a43","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":401,"ms":18}
+central-1  | 2026-11-23T22:33:28.053889173Z [school s-ae6020ef032e] {"ts":"2026-11-23T22:33:28.051Z","level":"info","service":"payesh-local","event":"http","request_id":"a040ce50-850c-4086-9fa4-518f91339ab3","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":403,"ms":5}
+central-1  | 2026-11-23T22:33:28.222701967Z [school s-e0a8d8316642] {"ts":"2026-11-23T22:33:28.219Z","level":"info","service":"payesh-local","event":"http","request_id":"acaad97c-69e0-4f7f-b45f-05de7bac0a16","school_id":null,"auth":false,"role":null,"method":"POST","path":"/api/auth/login","status":200,"ms":159}
+central-1  | 2026-11-23T22:33:28.260980200Z [school s-e0a8d8316642] {"ts":"2026-11-23T22:33:28.257Z","level":"info","service":"payesh-local","event":"http","request_id":"0068c1a3-1a53-4372-af26-33d6e38d64f9","school_id":1,"auth":true,"role":"manager","method":"GET","path":"/api/sub/status","status":200,"ms":19}
+central-1  | 2026-11-23T22:33:28.387972038Z [school s-e0a8d8316642] {"ts":"2026-11-23T22:33:28.386Z","level":"info","service":"payesh-local","event":"http","request_id":"b1f7c754-a837-4c3e-b6d4-dd2833377c40","school_id":1,"auth":true,"role":"manager","method":"POST","path":"/api/sub/trial","status":200,"ms":116}
+front-1    | 2026-11-23T22:28:00.908349765Z tls-front up central.sim s3.sim
+central-1  | 2026-11-23T22:33:28.423162025Z [school s-e0a8d8316642] {"ts":"2026-11-23T22:33:28.421Z","level":"info","service":"payesh-local","event":"http","request_id":"f4245faf-7460-4a78-bb20-bd7fdcb25d36","school_id":1,"auth":true,"role":"manager","method":"GET","path":"/api/v1/pull","status":200,"ms":26}
+s3-1       | 2026-11-23T22:27:54.649281664Z [38;5;6m [38;5;5m22:27:54.64 [0m[38;5;2mINFO [0m ==> 
+s3-1       | 2026-11-23T22:27:54.654995977Z [38;5;6m [38;5;5m22:27:54.65 [0m[38;5;2mINFO [0m ==> [1mWelcome to the Bitnami minio container[0m
+s3-1       | 2026-11-23T22:27:54.665871267Z [38;5;6m [38;5;5m22:27:54.66 [0m[38;5;2mINFO [0m ==> Subscribe to project updates by watching [1mhttps://github.com/bitnami/containers[0m
+s3-1       | 2026-11-23T22:27:54.687528037Z [38;5;6m [38;5;5m22:27:54.68 [0m[38;5;2mINFO [0m ==> [38;5;3mNOTICE: Starting August 28th, 2025, only a limited subset of images/charts will remain available for free. Backup will be available for some time at the 'Bitnami Legacy' repository. More info at https://github.com/bitnami/containers/issues/83267[0m
+s3-1       | 2026-11-23T22:27:54.692681407Z [38;5;6m [38;5;5m22:27:54.69 [0m[38;5;2mINFO [0m ==> 
+s3-1       | 2026-11-23T22:27:54.707896888Z [38;5;6m [38;5;5m22:27:54.70 [0m[38;5;2mINFO [0m ==> ** Starting MinIO setup **
+s3-1       | 2026-11-23T22:27:54.914828636Z [38;5;6mminio [38;5;5m22:27:54.90 [0m[38;5;2mINFO [0m ==> Starting MinIO in background...
+s3-1       | 2026-11-23T22:28:00.257162938Z [38;5;6mminio [38;5;5m22:28:00.25 [0m[38;5;2mINFO [0m ==> Adding local Minio host to 'mc' configuration...
+s3-1       | 2026-11-23T22:28:00.705071421Z [38;5;6mminio [38;5;5m22:28:00.70 [0m[38;5;2mINFO [0m ==> Creating default buckets...
+s3-1       | 2026-11-23T22:28:01.172624471Z [38;5;6mminio [38;5;5m22:28:01.17 [0m[38;5;2mINFO [0m ==> Bucket local/payesh-sim already exists, skipping creation.
+s3-1       | 2026-11-23T22:28:01.705879071Z [38;5;6mminio [38;5;5m22:28:01.70 [0m[38;5;2mINFO [0m ==> Stopping MinIO...
+s3-1       | 2026-11-23T22:28:02.053940321Z [38;5;6m [38;5;5m22:28:02.05 [0m[38;5;2mINFO [0m ==> ** MinIO setup finished! **
+s3-1       | 2026-11-23T22:28:02.053959277Z 
+s3-1       | 2026-11-23T22:28:02.140514553Z [38;5;6mminio [38;5;5m22:28:02.13 [0m[38;5;2mINFO [0m ==> ** Starting MinIO **
+s3-1       | 2026-11-23T22:28:04.271357054Z MinIO Object Storage Server
+s3-1       | 2026-11-23T22:28:04.271520371Z Copyright: 2015-2026 MinIO, Inc.
+s3-1       | 2026-11-23T22:28:04.271534330Z License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html
+s3-1       | 2026-11-23T22:28:04.271542287Z Version: DEVELOPMENT.2025-07-23T15-54-02Z (go1.24.2 linux/amd64)
+s3-1       | 2026-11-23T22:28:04.271548048Z 
+s3-1       | 2026-11-23T22:28:04.271553600Z API: http://localhost:9000 
+s3-1       | 2026-11-23T22:28:04.271560073Z 
+s3-1       | 2026-11-23T22:28:04.271566056Z Docs: https://docs.min.io
+s3-1       | 2026-11-23T22:32:19.854890176Z INFO: Exiting on signal: TERMINATED
+s3-1       | 2026-11-23T22:32:21.344811323Z [38;5;6m [38;5;5m22:32:21.34 [0m[38;5;2mINFO [0m ==> 
+s3-1       | 2026-11-23T22:32:21.349712878Z [38;5;6m [38;5;5m22:32:21.34 [0m[38;5;2mINFO [0m ==> [1mWelcome to the Bitnami minio container[0m
+s3-1       | 2026-11-23T22:32:21.361826628Z [38;5;6m [38;5;5m22:32:21.36 [0m[38;5;2mINFO [0m ==> Subscribe to project updates by watching [1mhttps://github.com/bitnami/containers[0m
+s3-1       | 2026-11-23T22:32:21.366017234Z [38;5;6m [38;5;5m22:32:21.36 [0m[38;5;2mINFO [0m ==> [38;5;3mNOTICE: Starting August 28th, 2025, only a limited subset of images/charts will remain available for free. Backup will be available for some time at the 'Bitnami Legacy' repository. More info at https://github.com/bitnami/containers/issues/83267[0m
+s3-1       | 2026-11-23T22:32:21.378719591Z [38;5;6m [38;5;5m22:32:21.37 [0m[38;5;2mINFO [0m ==> 
+s3-1       | 2026-11-23T22:32:21.384095277Z [38;5;6m [38;5;5m22:32:21.38 [0m[38;5;2mINFO [0m ==> ** Starting MinIO setup **
+s3-1       | 2026-11-23T22:32:21.466569703Z [38;5;6mminio [38;5;5m22:32:21.46 [0m[38;5;3mWARN [0m ==> Certificates provided but 'http' scheme in use. Please set MINIO_SCHEME and/or MINIO_SERVER_URL variables
+s3-1       | 2026-11-23T22:32:21.601536277Z [38;5;6mminio [38;5;5m22:32:21.59 [0m[38;5;2mINFO [0m ==> Starting MinIO in background...
+s3-1       | 2026-11-23T22:32:26.768939253Z [38;5;6mminio [38;5;5m22:32:26.76 [0m[38;5;2mINFO [0m ==> Adding local Minio host to 'mc' configuration...
+s3-1       | 2026-11-23T22:32:26.915728386Z [38;5;6mminio [38;5;5m22:32:26.91 [0m[38;5;2mINFO [0m ==> Creating default buckets...
+s3-1       | 2026-11-23T22:32:27.093699269Z [38;5;6mminio [38;5;5m22:32:27.09 [0m[38;5;2mINFO [0m ==> Bucket local/payesh-sim already exists, skipping creation.
+s3-1       | 2026-11-23T22:32:27.270855564Z [38;5;6mminio [38;5;5m22:32:27.26 [0m[38;5;2mINFO [0m ==> Stopping MinIO...
+s3-1       | 2026-11-23T22:32:27.578948281Z [38;5;6m [38;5;5m22:32:27.57 [0m[38;5;2mINFO [0m ==> ** MinIO setup finished! **
+s3-1       | 2026-11-23T22:32:27.579043221Z 
+s3-1       | 2026-11-23T22:32:27.630972452Z [38;5;6mminio [38;5;5m22:32:27.62 [0m[38;5;2mINFO [0m ==> ** Starting MinIO **
+s3-1       | 2026-11-23T22:32:29.039650821Z MinIO Object Storage Server
+s3-1       | 2026-11-23T22:32:29.039713268Z Copyright: 2015-2026 MinIO, Inc.
+s3-1       | 2026-11-23T22:32:29.039723319Z License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html
+s3-1       | 2026-11-23T22:32:29.039730043Z Version: DEVELOPMENT.2025-07-23T15-54-02Z (go1.24.2 linux/amd64)
+s3-1       | 2026-11-23T22:32:29.039734532Z 
+s3-1       | 2026-11-23T22:32:29.039738811Z API: http://localhost:9000 
+s3-1       | 2026-11-23T22:32:29.039743110Z 
+s3-1       | 2026-11-23T22:32:29.039747248Z Docs: https://docs.min.io
+
+[LAB176: tail 80 of 131570 bytes; full log on PC at C:\lab\evidence\sim-s3\compose.log]

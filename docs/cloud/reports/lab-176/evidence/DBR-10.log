@@ -1,0 +1,32 @@
+TEST_ID=DBR-10
+PURPOSE=CI api-contract/native-contract step: Load test, direct path (row 82, [S] simulated)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  5 files changed, 245 insertions(+), 9 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-10.sh
+START=2026-11-24T04:31:40Z
+----- RAW -----
+PASS  LDD-01  gates on synthetic reports: green baseline; stale op / record mismatch / idle-in-transaction / peak over pool / foreign row / "unlimited" each ⇒ red; CLI --label M without PAYESH_T2_MANAGED_DB ⇒ exit 2  → baseline green; red: stale,records,idle,peak,foreign,claim,label,p95,err; CLI label M without the owner flag: exit 2
+      setup [S]: 2000 devices / 20 schools enrolled + keys registered in 6423 ms (MIGRATE-86-OK up)
+      [S] row 82 direct-path load: devices=2000 tenants=20 concurrency=64 pool=32 duration=30s (+5s warmup)
+      [S] rpc calls=10084 rps=335 applied_ops/s=137
+      [S] latency ms all p50=184.3 p95=282.4 p99=340.2 max=458.3
+      [S] latency ms sync_pull p50=176 p95=237 p99=265.2 · sync_push p50=241.6 p95=338.9 p99=394.6
+      [S] errors=0 rate=0 sqlstates={}
+      [S] ops sent=4815 applied=4815 stale=0 conflicts=0 rejected=0 duplicates=0 records db=4815/4815
+      [S] sessions pool=32 peak=32 idle_in_tx_after=0 · isolation schools=5 foreign_rows=0 mismatched=0
+      [S] scope: simulated: synthetic devices calling the direct-path RPCs (PostgREST transaction semantics, no HTTP hop) on PostgreSQL on a CI runner or dev machine (loopback); describes this run only, not production capacity
+PASS  LDD-02  main run [S]: 2000 devices / 20 schools, 64 concurrent, pool 32, 30s on the direct RPCs + RLS ⇒ error rate ≤ 0.5%, p95 ≤ 1000 ms, op integrity, no session leak, isolation  → [S] calls=10084 rps=335 p50/p95/p99=184.3/282.4/340.2ms err=0 ops=4815 records=4815/4815 sessions peak=32/32
+PASS  LDD-03  every number is labelled [S]: report sections + summary lines; no capacity claim; per-RPC latency and session samples present  → sections labelled=9/9 · summary lines=8 all [S] · session samples=34
+PASS  LDD-04  negative: plan cut to 5 ops per minute per school ⇒ sync_push refuses ⇒ error-rate gate red  → red: error_rate=0.50117 sqlstates={"54000":2140}
+PASS  LDD-05  negative: 1.2 s sleep trigger on payesh_direct.record ⇒ p95 gate red  → red: p95=3745.7ms
+PASS  LDD-06  negative: a transaction left open by the API role during the run ⇒ session-leak gate red  → red: idle_in_tx_after=1 peak=17/32
+PASS  LDD-07  negative: RLS mutant record_read USING (true) ⇒ isolation gate red (devices see other schools)  → red: foreign_rows=33536 mismatched=5/5
+PASS  LDD-08  control: the same short profile with every injection undone is green (the negatives come from the injections)  → green: p95=150.9ms err=0 isolation foreign=0 sessions idle_tx=0
+PASS  LDD-09  finding of this row (migration 0006): as a device, the feed walk uses record_feed_idx with tenant_id = InitPlan; with 0006 rolled back it filters can_access() row by row and has no tenant index condition  → head: tenant_id = $InitPlan index condition · without 0006: per-row can_access filter · re-applied: tenant condition back
+PASS  LDD-10  defence in depth from 0006: with can_access() forced to true, a device of school B still sees zero records of school A (the policy tenant predicate holds on its own); restored after  → can_access→true: B sees 0/408 of A's records · can_access restored
+# passed=10 failed=0 skipped=0
+LOAD-82-DIRECT-TEST-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:33:00Z
+DURATION_S=80

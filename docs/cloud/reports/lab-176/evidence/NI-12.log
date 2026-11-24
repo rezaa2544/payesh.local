@@ -1,0 +1,51 @@
+TEST_ID=NI-12
+PURPOSE=CI native-client/sync-real-server step: payesh_sync school admin ⇄ server/index.js headless (row 128)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-12.sh
+START=2026-11-24T04:19:31Z
+----- RAW -----
+Running build hooks...Running build hooks...00:00 +0: loading test/school_admin_it_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: ADM-IT-00 setup: manager + teacher signed in, both devices pulled
+00:03 +1: W6-IT-01 offline add of a student + parent → queued → server: accounts + link, the student signs in with the default credentials
+00:08 +2: W6-IT-02 edit + full profile reach the server; the father's name follows to the parent
+00:10 +3: W6-IT-03 NEG stale edit of a sensitive field from a second manager device → conflict kept for review, never a silent overwrite
+00:10 +4: W6-IT-04 NEG a teacher cannot manage users: refused on the device AND by the server
+00:10 +5: W6-IT-05 NEG a mobile taken on the server meanwhile → the server refuses the add (duplicate_phone), the op goes to review
+00:10 +6: W6-IT-06 teacher: students of the taught class (pulled); delete student → link and lone parent gone on the server, the student can no longer sign in
+00:16 +7: W7-IT-01 manager reads and sets a password on the server; the old one stops working; NEG a teacher cannot read credentials
+00:18 +8: W7-IT-02 username (mobile) changed offline → queued → applied; the password survives
+00:21 +9: W7-IT-03 «رمز = کد ملی» on the server; NEG no mobile and no national id → refused
+00:23 +10: W7-IT-04 own password: NEG wrong current refused, then changed
+00:26 +11: W7-IT-05 unlock: the device token + password open a new session; NEG wrong password
+00:26 +12: W7-IT-06 manager rescue (claim) on the server computer; NEG not from another address
+00:29 +13: W8-IT-01 offline: grade + branch + field class + room + subject → queued → all on the server
+00:29 +14: W8-IT-02 merge on the device → students and schedule moved on the server, source gone
+00:29 +15: W8-IT-03 delete class → the student stays on the server, without a class, in follow-up
+00:29 +16: W8-IT-04 delete subject → its schedule slot is gone on the server too
+00:29 +17: W8-IT-05 NEG a teacher cannot change classes or definitions: device AND server refuse
+00:29 +18: W9-IT-01 offline: work days + bells + a slot for a new cohort → queued → all on the server
+00:29 +19: W9-IT-02 the teacher pulls it: own teaching view shows the slot (read-only)
+00:29 +20: W9-IT-03 substitution by a teacher created offline → both reach the server
+00:29 +21: W9-IT-04 NEG clash refused on the device; a teacher cannot write the schedule (device AND server)
+00:29 +22: W9-IT-05 delete the slot → its substitution is gone on the server too
+00:29 +23: W10-IT-01 offline CSV import → queued → users, parents, links, definitions on the server; the student signs in with mobile + national id
+00:32 +24: W10-IT-02 another manager device pulls the follow-up list; assign + issue done reach the server
+00:32 +25: W10-IT-03 past grades and attendance from a sheet reach the server with deterministic ids
+00:32 +26: W10-IT-04 NEG a taken mobile is refused on the device; a teacher cannot import or write follow-up (device AND server)
+00:32 +27: W11-IT-01 leave decisions: another manager device approves and deletes; the server keeps who/when; NEG a teacher device is refused locally
+00:32 +28: W11-IT-02 reports and the dashboard are computed from the pulled copy and match the server rows
+00:32 +29: W12-IT-01 backup now, backup list, mirror refresh and restore from the mirror file; NEG a teacher can do none of it, a non-backup file is refused
+00:35 +30: W12-IT-02 devices list, revoke a device (its token stops working), audit shows it, school name saved; NEG a teacher cannot list devices or read the audit
+00:35 +31: W12-IT-03 cloud settings: save (key write-only), test / CORS / phone check report their steps, reset to the built-in default; NEG the key never comes back, a teacher cannot read the settings
+00:36 +32: W12-IT-03b row 172 «شبکه» (web PAGES.network): network state, save the address (NEG http refused), clear it, tunnel state, outbox check; NEG a teacher
+00:37 +33: W12-IT-04 data health on the pulled copy: a safe fix is queued and reaches the server; NEG a teacher cannot run the checks
+00:37 +34: (tearDownAll)
+NATIVE-ADMIN-IT passed=34 negative_controls=50
+00:37 +34: All tests passed!
+ADMIN-REAL-SERVER-OK tests=34
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:20:10Z
+DURATION_S=39

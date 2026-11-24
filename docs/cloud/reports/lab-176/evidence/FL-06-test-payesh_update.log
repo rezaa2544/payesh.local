@@ -1,0 +1,51 @@
+TEST_ID=FL-06-test-payesh_update
+PURPOSE=package tests (CI rule: flutter test for flutter pkgs, coverage:test_with_coverage otherwise)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh/packages/payesh_update && if grep -q 'sdk: flutter' pubspec.yaml; then flutter test --concurrency=1 --coverage; else dart run coverage:test_with_coverage; fi
+START=2026-11-24T04:15:37Z
+----- RAW -----
+Resolving dependencies in `/work/repo/apps/payesh`...
+Downloading packages...
+  _fe_analyzer_shared 103.0.0 (111.0.0 available)
+  analyzer 13.3.0 (14.7.0 available)
+  cli_util 0.6.0 (0.6.1 available)
+  coverage 1.16.0 (1.16.1 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  package_config 2.2.0 (3.0.0 available)
+  sqlite3 3.9.1 (3.9.2 available)
+  test 1.31.1 (1.33.0 available)
+  test_api 0.7.12 (0.7.15 available)
+  test_core 0.6.18 (0.6.21 available)
+Got dependencies in `/work/repo/apps/payesh`!
+10 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /work/repo/apps/payesh/packages/payesh_update/test/payesh_update_test.dart
+00:00 +0: پایداری دریافت قطع شبکه ⇒ تلاش دوباره و موفق (مانیفست و هر فایل)
+00:00 +1: پایداری دریافت تلاش‌ها تمام ⇒ همان خطا؛ خطای غیرگذرا ⇒ بی‌درنگ
+00:00 +2: پایداری دریافت ۴۰۴ لحظهٔ انتشار مانیفست ⇒ دوباره و موفق
+00:00 +3: پایداری دریافت ادامه: فایل‌های سالم دریافت قبلی دوباره دانلود نمی‌شوند
+00:00 +4: پایداری دریافت پیشرفت بایت‌به‌بایت، صعودی و تا انتها
+00:00 +5: پایداری دریافت IoUpdateHttp: پاسخ بریده ⇒ network (گذرا)؛ file:// برای آزمون محلی
+00:00 +6: اعمال و باز شدن دوباره (ویندوز) اسکریپت: همهٔ نمونه‌ها بسته، فایل قفل کنار، باز شدن دوباره در هر حالت
+00:00 +7: اعمال و باز شدن دوباره (ویندوز) نتیجه: last-apply.json ماندگار + پاک کردن فایل‌های کنارگذاشته
+00:00 +8: اعمال و باز شدن دوباره (ویندوز) یک لمس: بررسی؛ لمس بعد: دریافت ⇒ نصب ⇒ بسته شدن (اسکریپت باز می‌کند)
+00:00 +9: اعمال و باز شدن دوباره (ویندوز) خطای دریافت ⇒ لمس دوباره همان‌جا ادامه می‌دهد (نه بررسی از نو)
+00:00 +10: اعمال و باز شدن دوباره (ویندوز) اسکریپت شروع نشد ⇒ برنامه باز می‌ماند، پیام فارسی
+00:01 +11: اندروید: APK درون برنامه دریافت با پیشرفت و بررسی هش ⇒ نصب‌کنندهٔ سیستم
+00:01 +12: اندروید: APK درون برنامه اجازهٔ نصب نیست ⇒ آماده با راهنما؛ هش ناجور ⇒ خطا و نصب نمی‌شود
+00:01 +13: اندروید: APK درون برنامه ردیف ۱۷۵: نصب بی‌صفحه (silent) ⇒ در حال نصب و پرچم silentInstall؛ پاسخ ناشناخته ⇒ خطا
+00:01 +14: اندروید: APK درون برنامه ساخت تازه‌تر نیست ⇒ به‌روز؛ بدون نصب‌کنندهٔ بومی ⇒ صفحهٔ دانلود
+00:01 +15: چراغ زنده آرام ⇒ بدون پویانمایی؛ دریافت ⇒ هاله می‌تپد و حلقه پر می‌شود
+00:01 +16: چراغ زنده «کاهش حرکت» سیستم ⇒ تپش نه، حلقهٔ پیشرفت بله
+00:01 +17: بررسی خودکار + برچسب‌ها + کانال بومی AutoUpdateCheck: نتیجهٔ قبلی، بررسی پس از first و هر every
+00:01 +18: بررسی خودکار + برچسب‌ها + کانال بومی هر حالت رنگ/برچسب خودش را دارد؛ اندروید بدون نصب‌کننده ⇒ مرورگر
+00:01 +19: بررسی خودکار + برچسب‌ها + کانال بومی اندروید: ساخت تازه ولی APK منتشر نشده ⇒ به‌روز (پیوند خالی نه)
+00:02 +20: بررسی خودکار + برچسب‌ها + کانال بومی runUpdateNow: به‌روز ⇒ کاری نمی‌کند؛ پوشهٔ پیش‌فرض
+00:02 +21: بررسی خودکار + برچسب‌ها + کانال بومی ChannelApkInstaller: پاسخ‌ها و خطاهای کانال بومی
+00:02 +22: آرگومان‌های --update-from / --update-now
+00:02 +23: All tests passed!
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:15:52Z
+DURATION_S=15

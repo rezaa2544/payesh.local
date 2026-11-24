@@ -1,0 +1,145 @@
+TEST_ID=FL-05-test-owner
+PURPOSE=flutter test --coverage owner (CI)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh/owner && flutter test --coverage
+START=2026-11-24T03:48:07Z
+----- RAW -----
+Resolving dependencies in `/work/repo/apps/payesh`...
+Downloading packages...
+  _fe_analyzer_shared 103.0.0 (111.0.0 available)
+  analyzer 13.3.0 (14.7.0 available)
+  cli_util 0.6.0 (0.6.1 available)
+  coverage 1.16.0 (1.16.1 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  package_config 2.2.0 (3.0.0 available)
+  sqlite3 3.9.1 (3.9.2 available)
+  test 1.31.1 (1.33.0 available)
+  test_api 0.7.12 (0.7.15 available)
+  test_core 0.6.18 (0.6.21 available)
+Got dependencies in `/work/repo/apps/payesh`!
+10 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /work/repo/apps/payesh/owner/test/auth_settings_test.dart
+00:00 +0: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) بردارهای مشترک auth-vectors.json: همان خروجی settingsOf سرور
+00:00 +1: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) پیش‌فرض: غیرفعال، صفحهٔ اول نام کاربری/رمز حتی با «شماره»
+00:00 +2: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) ساخت درخواست: GET با رمزگذاری URL، POST JSON/فرم، سرآیند
+00:00 +3: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) ذخیره‌شدنی نیست: پیوند نامعتبر، روشن بی‌پیوند، بی {code}
+00:00 +4: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) پیامک آزمایشی: شمارهٔ فارسی، ok_match، خطای پنل
+00:00 +5: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: AuthSettings (قرارداد مشترک با server/sms.js) ارسال واقعی با HttpClient: GET/POST به سرور محلی
+00:00 +6: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: کارت تنظیمات «ورود کاربران و پنل پیامک» (setUpAll)
+00:00 +6: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: کارت تنظیمات «ورود کاربران و پنل پیامک» پیش‌فرض غیرفعال؛ روش اول، پیوند POST، ذخیره در plain.auth؛ آزمایشی
+00:04 +7: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: کارت تنظیمات «ورود کاربران و پنل پیامک» پیوند نامعتبر و فقط مشاهده
+00:05 +8: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: کارت تنظیمات «ورود کاربران و پنل پیامک» saveAuth بی دیتابیس ⇒ خطای روشن
+00:05 +9: /work/repo/apps/payesh/owner/test/auth_settings_test.dart: کارت تنظیمات «ورود کاربران و پنل پیامک» (tearDownAll)
+00:06 +9: loading /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart
+00:07 +9: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: list C165-01 connect mode + every public address parsed (https only)
+00:07 +10: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: list C165-02 publishConnectMode writes connect publicly, keeps servers + central
+00:07 +11: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: ConnectModesCard C165-03 five modes, the saved one selected; addresses with live state
+00:07 +12: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: ConnectModesCard C165-04 a tap saves the mode for every server
+00:08 +13: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: ConnectModesCard C165-05 NEG no database ⇒ says so, nothing selectable
+00:08 +14: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: ConnectModesCard C165-06 no public address yet ⇒ warns (not a false «connected»)
+00:08 +15: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: live helper (this computer) C165-07 CPU percent from two samples (/proc/stat shape)
+00:08 +16: /work/repo/apps/payesh/owner/test/connect_modes_165_test.dart: live helper (this computer) C165-08 activity log: repeats fold (×n), newest first, max 50
+00:08 +17: loading /work/repo/apps/payesh/owner/test/helper_ui_test.dart
+00:09 +17: /work/repo/apps/payesh/owner/test/helper_ui_test.dart: سرور کمکی و به‌روزرسانی در تنظیمات
+00:15 +18: loading /work/repo/apps/payesh/owner/test/school_registry_test.dart
+00:15 +18: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) پاکت registry
+00:15 +19: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) پاکت request
+00:15 +20: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) پاکت payment
+00:15 +21: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) پاکت ack
+00:15 +22: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) پاکت trial
+00:15 +23: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) ثابت‌ها: نمک، پوشه‌ها، پلن‌ها، نقش‌ها، مقطع‌ها، نام کاربری
+00:15 +24: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) pbkdf2 همان سرور (۱۵۰۰۰۰ دور، نمک = رشتهٔ hex)
+00:17 +25: /work/repo/apps/payesh/owner/test/school_registry_test.dart: قرارداد schools v1 (همان بایت‌های Node) کد ملی و ارقام فارسی
+00:17 +26: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه (setUpAll)
+00:17 +26: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه نوع ۱: ساخت دستی + اعتبارسنجی p2 + رمز مدیر هش‌شده
+00:17 +27: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه ویرایش، تغییر رمز (rev مدیر)، فعال/غیرفعال، حذف
+00:17 +28: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه نوع ۲: درخواست سرور ← فهرست مالک ← تأیید با همان هش، یا رد
+00:17 +29: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه سیاست اشتراک، دامنه، هدیه/بازنشانی، تصمیم پرداخت، گزارش سرور
+00:17 +30: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه بدون دیتابیس: خواندن از نسخهٔ همین دستگاه، تغییر ممنوع با پیام روشن
+00:17 +31: /work/repo/apps/payesh/owner/test/school_registry_test.dart: فهرست مدارس در صندوقچه (tearDownAll)
+00:19 +31: loading /work/repo/apps/payesh/owner/test/load_route_test.dart
+00:19 +31: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) آستانه‌ها
+00:19 +32: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو db_only_never_escalates
+00:19 +33: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو helpers_join_on_db_latency_and_leave_after_hold
+00:19 +34: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو calm_interrupted_restarts_hold
+00:19 +35: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو errors_and_busy_escalate_few_samples_do_not
+00:19 +36: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو no_helpers_online_stays
+00:19 +37: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو external_chain_escalates_then_returns
+00:19 +38: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) سناریو external_down_falls_back_to_db_chain
+00:19 +39: /work/repo/apps/payesh/owner/test/load_route_test.dart: قرارداد load-route v1 (همان نتیجهٔ Node) p95 و حالت هر سیاست
+00:19 +40: /work/repo/apps/payesh/owner/test/load_route_test.dart: پنجرهٔ لغزان: p95 فقط موفق‌ها، خطا، در دقیقه، کهنه‌ها، سقف
+00:19 +41: /work/repo/apps/payesh/owner/test/load_route_test.dart: NetMeter: درخواست‌های کوچک و خطاها در پنجره، انتقال بزرگ نه
+00:19 +42: /work/repo/apps/payesh/owner/test/load_route_test.dart: سیاست زیرساخت: حالت، سرور بیرونی، کلید هر سیستم کمکی fromPlain / toPlain و سازگاری با سیاست قدیمی
+00:19 +43: /work/repo/apps/payesh/owner/test/load_route_test.dart: سیاست زیرساخت: حالت، سرور بیرونی، کلید هر سیستم کمکی ذخیره در دیتابیس و خواندن سرور مدرسه (helpers همیشه هم‌خوان)
+00:19 +44: /work/repo/apps/payesh/owner/test/load_route_test.dart: LoadRouter (مسیر بار همین پنل) دیتابیس کند ⇒ سیستم‌های کمکی؛ «فقط دیتابیس» ⇒ هرگز
+00:19 +45: /work/repo/apps/payesh/owner/test/load_route_test.dart: LoadRouter (مسیر بار همین پنل) سرور بیرونی: در دسترس ⇒ اصلی؛ قطع ⇒ زنجیرهٔ دیتابیس
+00:19 +46: /work/repo/apps/payesh/owner/test/load_route_test.dart: رابط کارت «حالت معماری»: تعویض حالت، نشانی بیرونی، مسیر زنده
+00:20 +47: /work/repo/apps/payesh/owner/test/load_route_test.dart: رابط کارت «بار لحظه‌ای»: عددهای واقعی و زنجیره
+00:21 +48: loading /work/repo/apps/payesh/owner/test/guard_test.dart
+00:22 +48: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک پرداخت سالم ⇒ هیچ یافته‌ای
+00:22 +49: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک کد پیگیری تکراری (با فاصله و خط تیره) در دو مدرسه ⇒ شدید
+00:22 +50: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک مبلغ کم/زیاد/صفر، پلن عرضه‌نشده، نقش رایگان، زمان آینده
+00:22 +51: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک کد تراکنش درگاه تکراری و پرداخت درگاهی بدون کد
+00:22 +52: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک تصمیم مالک بر وضعیت سرور مقدم است
+00:22 +53: /work/repo/apps/payesh/owner/test/guard_test.dart: تراکنش مشکوک اشتراک پرداخت‌های پی‌درپی یک کاربر و ناموفق‌های پی‌درپی یک مدرسه
+00:22 +54: /work/repo/apps/payesh/owner/test/guard_test.dart: صف دستورهای مالک (هیچ دستوری گم نمی‌شود) (setUpAll)
+00:22 +54: /work/repo/apps/payesh/owner/test/guard_test.dart: صف دستورهای مالک (هیچ دستوری گم نمی‌شود) دیتابیس قطع ⇒ صف؛ وصل ⇒ به همان ترتیب و با زمان اصلی ثبت
+00:22 +55: /work/repo/apps/payesh/owner/test/guard_test.dart: صف دستورهای مالک (هیچ دستوری گم نمی‌شود) دستور تازه پیش از اجرا صف قدیمی را خالی می‌کند (ترتیب حفظ)
+00:22 +56: /work/repo/apps/payesh/owner/test/guard_test.dart: صف دستورهای مالک (هیچ دستوری گم نمی‌شود) موتور: صف را خالی می‌کند، گزارش می‌دهد و رفع را ثبت می‌کند
+00:22 +57: /work/repo/apps/payesh/owner/test/guard_test.dart: صف دستورهای مالک (هیچ دستوری گم نمی‌شود) (tearDownAll)
+00:22 +57: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند + سرور کمکی (setUpAll)
+00:22 +57: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند + سرور کمکی سیاست ثبت‌نشده ⇒ ثبت دوباره؛ قطع ⇒ هشدار
+00:22 +58: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند + سرور کمکی خطای بالای دیتابیس ⇒ بازبینی اتصال؛ کندی ⇒ هشدار
+00:22 +59: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند + سرور کمکی کار ماندهٔ صندوقچه ⇒ پاک‌سازی خودکار (bucket.gc)
+00:22 +60: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند + سرور کمکی (tearDownAll)
+00:22 +60: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند میزبان خاموش، تراکنش مشکوک، «بررسی شد» ماندگار
+00:22 +61: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند خطای یک بررسی بقیه را متوقف نمی‌کند
+00:22 +62: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند منوی کناری: «نگهبان هوشمند» در گروه زیرساخت و فقط وقتی هست
+00:22 +63: /work/repo/apps/payesh/owner/test/guard_test.dart: موتور هوشمند صفحهٔ نگهبان: یافته‌ها، «بررسی شد»، بررسی اکنون
+00:24 +64: loading /work/repo/apps/payesh/owner/test/connection_pool_test.dart
+00:24 +64: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: ۱۰ کار پشت‌سرهم، هر کدام با انتقال تازه ⇒ فقط یک اتصال
+00:24 +65: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: انتقال‌های با مهلت متفاوت (پشتیبان‌گیری) همان مخزن را دارند
+00:24 +66: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: reset پس از خطای شبکه ⇒ اتصال تازه، بدون قطع کار دیگران
+00:24 +67: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: مهلت بیکاری: کمتر از keep-alive آروان (۶۵ ثانیه) و نه ۵ ثانیه
+00:24 +68: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: زمینهٔ اعتماد پیش‌فرض یک بار ساخته می‌شود
+00:24 +69: /work/repo/apps/payesh/owner/test/connection_pool_test.dart: اعتماد سفارشی ⇒ اتصال خصوصی که با close بسته می‌شود
+00:25 +70: loading /work/repo/apps/payesh/owner/test/local_mode_test.dart
+00:26 +70: /work/repo/apps/payesh/owner/test/local_mode_test.dart: (setUpAll)
+00:26 +70: /work/repo/apps/payesh/owner/test/local_mode_test.dart: PBKDF2 / local account PBKDF2-HMAC-SHA256 matches published vectors
+00:26 +71: /work/repo/apps/payesh/owner/test/local_mode_test.dart: PBKDF2 / local account record verifies only the exact id + password + code; never stores them
+00:26 +72: /work/repo/apps/payesh/owner/test/local_mode_test.dart: PBKDF2 / local account form validation (Persian messages)
+00:26 +73: /work/repo/apps/payesh/owner/test/local_mode_test.dart: PBKDF2 / local account LocalAuth: create, login, lock after 5 failures, unlock after 30 s
+00:26 +74: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test endpoint normalization and region
+00:26 +75: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test SigV4 matches botocore (official AWS SDK) byte-for-byte
+00:26 +76: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test 200 ⇒ bucket list; request is signed for ir-central1
+00:26 +77: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test server error codes ⇒ Persian messages
+00:26 +78: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test wrong region hint ⇒ one retry with the region the server names
+00:26 +79: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test settings round-trip through the secure store; form validation
+00:26 +80: /work/repo/apps/payesh/owner/test/local_mode_test.dart: S3 endpoint + SigV4 + connection test IoS3Transport talks real HTTP (loopback server)
+00:26 +81: /work/repo/apps/payesh/owner/test/local_mode_test.dart: platform secure stores ChannelSecureStore uses secureRead/Write/Delete; errors fail closed
+00:26 +82: /work/repo/apps/payesh/owner/test/local_mode_test.dart: platform secure stores DevFileSecureStore (developer machines only)
+00:26 +83: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» first run: one password field, empty code ⇒ whole app opens
+00:29 +84: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» top bar: version + update light; one DB light at the far left, always visible; tap ⇒ re-check
+00:29 +85: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» no platform server: schools, plans, health work on this device and survive restart
+00:31 +86: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» every section opens without a platform server (no database)
+00:32 +87: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» every section opens without a platform server (database set but unreachable)
+00:33 +88: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» stays signed in after restart until «خروج»
+00:34 +89: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» settings: database validate, test+save (buckets), reload, clear
+00:35 +90: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» settings: pasted bucket URL, change of database tells the old bucket too, followers list; NEG publish failure and no bucket
+02:06 +91: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» settings: followers — none yet; listing error
+02:07 +92: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» settings: test only (no save), empty bucket list
+02:07 +93: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» settings: platform server origin + server login, kept after restart
+02:09 +94: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» lockout after 5 wrong attempts; reset wipes account + database
+02:10 +95: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» corrupted account record ⇒ fail closed
+02:10 +96: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» unreachable secure store ⇒ fail closed; reset failure reported
+02:10 +97: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» secure store failures on setup / save / clear / sign-out
+02:11 +98: /work/repo/apps/payesh/owner/test/local_mode_test.dart: app: offline login ⇒ whole app; settings inside; session until «خروج» unreadable saved database settings ⇒ asks to re-enter
+02:11 +99: /work/repo/apps/payesh/owner/test/local_mode_test.dart: (tearDownAll)
+02:11 +99: loading /work/repo/apps/payesh/owner/test/backup_test.dart
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:05:04Z
+DURATION_S=1017
+VERDICT=INVALID — kernel OOM-killed frontend_server at ~03:50Z (sandbox 2 GB shared with evidence work); run killed by operator 04:05Z. NOT a pass. See FL rerun.

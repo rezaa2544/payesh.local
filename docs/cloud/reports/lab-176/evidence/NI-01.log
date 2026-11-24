@@ -1,0 +1,40 @@
+TEST_ID=NI-01
+PURPOSE=CI native-client/gate-controls step: Gate unit tests (synthetic clean/dirty APK, AAB, Windows bundles)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-01.sh
+START=2026-11-24T04:19:14Z
+----- RAW -----
+
+native-independence-gate (row 63)
+
+  ✓ NG-01 criterion is the machine-readable source (id/version/android/windows)
+  ✓ NG-02 DEX parser round-trips strings, types and method refs
+  ✓ NG-03 clean Flutter-like APK passes (bare WebView type string is tolerated)
+  ✓ NG-04 clean Flutter-like AAB (base/ prefix, multidex) passes
+  ✓ NG-1x WebView-><init> method ref FAILS
+  ✓ NG-1x WebView->loadUrl method ref FAILS
+  ✓ NG-1x WebView->loadData method ref FAILS
+  ✓ NG-1x WebView->loadDataWithBaseURL method ref FAILS
+  ✓ NG-1x WebView->evaluateJavascript method ref FAILS
+  ✓ NG-1x WebView->postUrl method ref FAILS
+  ✓ NG-17 JS bridge method ref FAILS
+  ✓ NG-18 WebViewClient / WebChromeClient construction FAILS
+  ✓ NG-19 Capacitor / Cordova / androidx.webkit classes FAIL
+  ✓ NG-20 bundled web UI entries FAIL (assets/www/, assets/public/index.html)
+  ✓ NG-21 APK without classes.dex / non-zip is an input error (not a pass)
+  ✓ NG-30 clean Flutter-like Windows bundle (zip and directory) passes
+  ✓ NG-31 Windows: node.exe / WebView2Loader.dll / WebView2 managed dlls FAIL (case-insensitive)
+  ✓ NG-32 Windows: runtime/ and node_modules/ dirs, client/index.html, server/index.js FAIL
+  ✓ NG-33 Windows: exe importing the WebView2 loader (ASCII and UTF-16LE) FAILS
+  ✓ NG-34 Windows: bundle without any .exe FAILS (not standalone)
+  ✓ NG-40 released 0.9.2 Windows zip (sha-pinned) FAILS via the CLI
+  ✓ NG-41 CLI --expect-fail: OK on dirty inputs, BROKEN when a clean input slips in
+  ✓ NG-42 CLI exit codes: clean=0 (NATIVE-GATE-OK), missing file=2, --json is parseable
+
+  23 passed, 0 failed
+NATIVE-GATE-63-TEST-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:19:14Z
+DURATION_S=0

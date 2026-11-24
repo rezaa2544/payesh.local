@@ -1,0 +1,20 @@
+TEST_ID=FL-07-coverage-check
+PURPOSE=coverage gate COVERAGE_MIN=80 (CI)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh && dart tool/coverage_check.dart 80 app/coverage/lcov.info owner/coverage/lcov.info packages/*/coverage/lcov.info
+START=2026-11-24T04:15:52Z
+----- RAW -----
+COVERAGE-OK app/coverage/lcov.info lines=8772/9675 90.7% (min 80.0%)
+COVERAGE-OK owner/coverage/lcov.info lines=9303/10088 92.2% (min 80.0%)
+COVERAGE-OK packages/payesh_core/coverage/lcov.info lines=307/315 97.5% (min 80.0%)
+COVERAGE-OK packages/payesh_data/coverage/lcov.info lines=203/208 97.6% (min 80.0%)
+COVERAGE-OK packages/payesh_owner_api/coverage/lcov.info lines=289/352 82.1% (min 80.0%)
+COVERAGE-OK packages/payesh_secure/coverage/lcov.info lines=499/509 98.0% (min 80.0%)
+COVERAGE-OK packages/payesh_sync/coverage/lcov.info lines=5823/6420 90.7% (min 80.0%)
+COVERAGE-OK packages/payesh_ui/coverage/lcov.info lines=803/958 83.8% (min 80.0%)
+COVERAGE-OK packages/payesh_update/coverage/lcov.info lines=510/626 81.5% (min 80.0%)
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:15:52Z
+DURATION_S=0

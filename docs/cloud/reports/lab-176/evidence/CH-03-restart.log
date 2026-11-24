@@ -1,0 +1,25 @@
+TEST_ID=CH-03-restart
+PURPOSE=server restart recovery
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=npm run test:restart
+START=2026-11-24T03:26:50Z
+----- RAW -----
+
+> payesh-local@0.9.31 test:restart
+> node tests/restart.js
+
+  ✓ اجرای دوبارهٔ start.js ناظر دوم یا سرور دوم نمی‌سازد
+  ✓ قفلِ باقی‌مانده از پردازهٔ مرده خودکار پاک می‌شود
+  ✓ پیش از ری‌استارت: ردیف و uid ثبت می‌شوند
+  ✓ راه‌اندازی مجدد (همان کاری که آپدیت می‌کند)
+  ✓ سرور بدون دخالت کاربر دوباره بالا می‌آید
+  ✓ داده‌ها سالم ماندند و ورود کار می‌کند
+  ✓ پس از ری‌استارت: داده ماند و تکرار همان uid دوباره اعمال نمی‌شود
+  ✓ آدرس را از دست نمی‌دهد (EADDRINUSE رخ نمی‌دهد)
+
+8 موفق، 0 ناموفق
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:27:04Z
+DURATION_S=14

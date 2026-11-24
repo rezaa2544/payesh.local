@@ -1,0 +1,12 @@
+TEST_ID=NI-07
+PURPOSE=CI native-client/engine-web-conformance step: jalali-v1 vectors regenerated from client/app.js + client/import.js must equal the committed file
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-07.sh
+START=2026-11-24T04:19:16Z
+----- RAW -----
+JALALI-WEB-CONFORMANCE-OK roundtrip_days=91312 dates=3650 jalali_to_iso=1015 digits=6
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:19:17Z
+DURATION_S=1

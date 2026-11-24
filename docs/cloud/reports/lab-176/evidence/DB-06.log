@@ -1,0 +1,18 @@
+TEST_ID=DB-06
+PURPOSE=CI api-contract/native-contract step: Row 119 offline — Gateway survives DB drop, outbox transient/FIFO/exactly-once, mutants
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-06.sh
+START=2026-11-24T03:27:38Z
+----- RAW -----
+PASS  OFF119-G01  PostgreSQL drops all connections → Gateway survives; mutant without pool error handler dies  → survived=yes mutant_exit=1
+PASS  OFF119-G02  DB refused → readyz 503 + push 5xx (no crash); DB back → readyz 200 without restart  → readyz=503 db_unavailable push=503/quota_unavailable
+PASS  OFF119-G03  web outbox through real Gateway: 8 transient failures never block; recovery → exactly once; retry → duplicate  → attempts=8>maxAttempts blocked=0 applied=3 feed_rows=3 retry=duplicate
+PASS  OFF119-G04  FIFO barrier against the real Gateway: later op waits for the earlier op in backoff  → early_claimed=0 seq 662 < 663
+PASS  OFF119-G05  cross-school: tenant B sees 0 rows of tenant A  → a_rows=7 b_rows=0
+OFFLINE-119-NODE passed=5 failed=0 negative_controls=2
+OFFLINE-119-NODE-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:27:39Z
+DURATION_S=1

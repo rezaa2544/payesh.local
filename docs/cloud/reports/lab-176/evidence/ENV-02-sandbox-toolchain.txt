@@ -1,0 +1,27 @@
+ENV-02 sandbox toolchain (PATH as used by scripts/run-t.sh) 2026-11-24T04:20:19Z
+Linux 6.1.189+
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+cpus=2
+Mem:            1982        1158         405         292         895         824
+/dev/root        25G  9.7G   15G  41% /
+### git
+git version 2.47.3
+### node
+v22.23.5
+### npm
+10.9.9
+### flutter
+Flutter 3.47.9 • channel stable • https://github.com/flutter/flutter.git
+Framework • revision c197ca5199 (4 weeks ago) • 2026-10-29 10:10:20 -0400
+Engine • hash 9e025265bef30b838c0c1b68cad19decf97048f2 (revision 89c39edfdf) (27 days ago) • 2026-10-27 19:51:20.000Z
+Tools • Dart 3.13.7 • DevTools 2.60.0
+### dart
+Dart SDK version: 3.13.7 (stable) (Thu Oct 22 14:28:57 2026 -0700) on "linux_x64"
+### psql/postgres
+postgres (PostgreSQL) 17.11 (Debian 17.11-0+deb13u1)
+### openssl
+OpenSSL 3.5.7 9 Jun 2026 (Library: OpenSSL 3.5.7 9 Jun 2026)
+### docker
+BLOCKED: no docker in sandbox (Docker used on PC: ENV-01)
+### adb
+BLOCKED in sandbox: phone is attached to the PC (adb on PC: ENV-01)

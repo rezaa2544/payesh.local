@@ -1,0 +1,82 @@
+﻿[        ] Task ':app:l8DexDesugarLibRelease' is not up-to-date because:
+[        ]   No history is available.
+[ +799 ms] > Task :app:optimizeReleaseResources
+[        ] Custom actions are attached to task ':app:optimizeReleaseResources'.
+[        ] Caching disabled for task ':app:optimizeReleaseResources' because:
+[        ]   Build cache is disabled
+[        ] Task ':app:optimizeReleaseResources' is not up-to-date because:
+[        ]   No history is available.
+[+52196 ms] Resolve mutations for :app:compileReleaseArtProfile (Thread[Execution worker Thread 3,5,main]) started.
+[        ] :app:compileReleaseArtProfile (Thread[Execution worker Thread 3,5,main]) started.
+[ +404 ms] > Task :app:compileReleaseArtProfile
+[        ] Caching disabled for task ':app:compileReleaseArtProfile' because:
+[   +1 ms]   Build cache is disabled
+[        ] Task ':app:compileReleaseArtProfile' is not up-to-date because:
+[        ]   No history is available.
+[+7097 ms] Resolve mutations for :app:lintVitalReportRelease (Thread[Execution worker Thread 6,5,main]) started.
+[   +1 ms] :app:lintVitalReportRelease (Thread[Execution worker Thread 6,5,main]) started.
+[ +298 ms] > Task :app:lintVitalReportRelease
+[        ] Caching disabled for task ':app:lintVitalReportRelease' because:
+[        ]   Build cache is disabled
+[        ]   Caching has been disabled for the task
+[        ] Task ':app:lintVitalReportRelease' is not up-to-date because:
+[        ]   No history is available.
+[   +1 ms] Android Lint: Reusing lint classloader 32.1.0_true
+[        ] Resolve mutations for :app:lintVitalRelease (Thread[Execution worker Thread 6,5,main]) started.
+[        ] :app:lintVitalRelease (Thread[Execution worker Thread 6,5,main]) started.
+[  +78 ms] > Task :app:lintVitalRelease
+[   +1 ms] Caching disabled for task ':app:lintVitalRelease' because:
+[   +4 ms]   Build cache is disabled
+[   +1 ms]   Caching has been disabled for the task
+[   +1 ms] Task ':app:lintVitalRelease' is not up-to-date because:
+[        ]   Task.upToDateWhen is false.
+[        ] Resolve mutations for :app:packageRelease (Thread[Execution worker Thread 6,5,main]) started.
+[        ] :app:packageRelease (Thread[Execution worker Thread 6,5,main]) started.
+[+2003 ms] > Task :app:packageRelease
+[        ] Custom actions are attached to task ':app:packageRelease'.
+[        ] Caching disabled for task ':app:packageRelease' because:
+[   +1 ms]   Build cache is disabled
+[        ]   Caching has been disabled for the task
+[        ] Task ':app:packageRelease' is not up-to-date because:
+[        ]   No history is available.
+[        ] The input changes require a full rebuild for incremental task ':app:packageRelease'.
+[        ] There are no .so files available to package in the APK for armeabi-v7a, x86_64.
+[+1480 ms] Resolve mutations for :app:createReleaseApkListingFileRedirect (Thread[Execution worker Thread 6,5,main]) started.
+[        ] :app:createReleaseApkListingFileRedirect (Thread[Execution worker Thread 6,5,main]) started.
+[ +109 ms] > Task :app:createReleaseApkListingFileRedirect
+[        ] Caching disabled for task ':app:createReleaseApkListingFileRedirect' because:
+[        ]   Build cache is disabled
+[        ]   Caching has been disabled for the task
+[        ] Task ':app:createReleaseApkListingFileRedirect' is not up-to-date because:
+[        ]   No history is available.
+[        ] Resolve mutations for :app:assembleRelease (Thread[Execution worker Thread 6,5,main]) started.
+[        ] :app:assembleRelease (Thread[Execution worker Thread 6,5,main]) started.
+[        ] > Task :app:assembleRelease
+[        ] Caching disabled for task ':app:assembleRelease' because:
+[        ]   Build cache is disabled
+[        ] Task ':app:assembleRelease' is not up-to-date because:
+[        ]   Task has not declared any outputs despite executing actions.
+[        ] Build 97912f4c-5ce1-4ddc-ac2c-54d27816b5aa is closed
+[  +96 ms] AAPT2 aapt2-9.1.0-14792394-windows Daemon #0: shutdown
+[        ] AAPT2 aapt2-9.1.0-14792394-windows Daemon #1: shutdown
+[   +1 ms] AAPT2 aapt2-9.1.0-14792394-windows Daemon #2: shutdown
+[  +86 ms] AAPT2 aapt2-9.1.0-14792394-windows Daemon #3: shutdown
+[        ] AAPT2 aapt2-9.1.0-14792394-windows Daemon #4: shutdown
+[        ] Android Lint: Disposing Uast application environment in lint classloader [32.1.0_true]
+[        ] Build b70db489-1283-4758-a8e6-352cfcb01d52 is closed
+[        ] [Incubating] Problems report is available at: file:///C:/Users/R.M/psim/repo/apps/payesh/owner/build/reports/problems/problems-report.html
+[        ] Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+[        ] You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+[        ] For more on this, please refer to https://docs.gradle.org/9.3.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+[ +103 ms] BUILD SUCCESSFUL in 7m 13s
+[        ] 63 actionable tasks: 58 executed, 5 up-to-date
+[   +4 ms] Watched directory hierarchies: [C:\lab\flutter\packages\flutter_tools\gradle, C:\Users\R.M\psim\repo\apps\payesh\owner\android]
+[ +264 ms] Running Gradle task 'assembleRelease'... (completed in غ´غ³غ´ظ«غ±s)
+[   +4 ms] Calculate SHA1: LocalDirectory: 'C:\Users\R.M\psim\repo\apps\payesh\owner\build\app\outputs\flutter-apk'/app-release.apk
+[ +334 ms] âˆڑ Built build\app\outputs\flutter-apk\app-release.apk (9.5MB)
+[  +10 ms] "flutter apk" took غ´غ³غ¶ظ¬غ³غ¶غ¹ms.
+[   +3 ms] Running 1 shutdown hook
+[   +1 ms] Shutdown hooks complete
+[        ] exiting with code 0
+
+[LAB176: tail 80 of 165306 bytes; full log on PC at C:\lab\evidence\build-owner-17601.log]

@@ -1,0 +1,23 @@
+TEST_ID=DBR-07
+PURPOSE=CI api-contract/native-contract step: Row 126 atomic tenancy.migrate — concurrent migrations under live writes, negative control
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  5 files changed, 245 insertions(+), 9 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-07.sh
+START=2026-11-24T04:29:41Z
+----- RAW -----
+# row 126 atomic tenancy.migrate — node v22.23.5
+PASS  M126-01  migrate = one transaction + advisory lock, deadlock retry  → 82 statements in one transaction
+PASS  M126-02  3 concurrent migrators + 6 runtime writers: nothing refused, nothing broken  → writes=3646 rls_refused=0 other=0 migrations=328 migrate_failed=0
+PASS  M126-03  NEGATIVE: the old statement-by-statement migrate breaks under the same load  → writes=44 rls_refused=0 other=0 migrations=1 migrate_failed=2 [migrate 42710 policy "tenant_records_isolation" for table "tenant_records" already exists | migrate XX000 tuple concurrently updated]
+PASS  M126-04  schema complete afterwards: every FORCE-RLS table has its isolation policy  → 8 tables, all with a policy
+PASS  M126-05  row 129: 3 forced migrators + 6 REAL multi-table pushes: no deadlock, no push lost  → pushes=2219 deadlock_victims=0 other=0 migrations=345 migrate_failed=0 tx_reruns=0
+PASS  M126-06  NEGATIVE: the row-126 migrate (lock upgrades statement by statement) deadlocks under the same load  → pushes=2 deadlock_victims=4 other=0 migrations=2 migrate_failed=1 tx_reruns=0 [migrate 40P01 deadlock detected]
+PASS  M126-07  withTenant re-runs a deadlock victim; NEGATIVE: PAYESH_PG_TX_ATTEMPTS=1 surfaces 40P01  → default ok=2 calls=3 · no-retry ok=1 40P01=1
+PASS  M126-08  steady state: migrate is DDL-free (no table lock); drift is repaired  → skipped=true under live tx 3 ms · drift → full run, policy restored
+
+checks=8 pass=8 fail=0
+MIGRATE-ATOMIC-126-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:29:58Z
+DURATION_S=17

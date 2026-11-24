@@ -1,0 +1,22 @@
+BEFORE-CLOSE ws=132MB private=531MB cpu=3s
+CLOSED-GRACEFULLY: True
+FILE Local\Payesh\payesh.db 45056
+FILE Local\Payesh\secure\db.key.v1.dpapi 298
+FILE Local\Payesh\secure\device.id.dpapi 250
+FILE Local\Payesh\secure\lan.device_token.dpapi 298
+FILE Local\Payesh\secure\lan.home_server.dpapi 250
+FILE Local\Payesh\secure\lan.last_primary.dpapi 234
+FILE Local\Payesh\secure\lan.last_server.dpapi 250
+FILE Local\Payesh\secure\lan.role.dpapi 234
+FILE Local\Payesh\secure\lan.school.dpapi 250
+FILE Local\Payesh\secure\lan.school_name.dpapi 266
+FILE Local\Payesh\secure\lan.server_url.dpapi 250
+FILE Local\Payesh\secure\lan.uid.dpapi 234
+DB-HEADER-PLAIN-SQLITE: False
+PLAINTEXT-HITS: 
+DPAPI-BLOB-HEADER(db.key): 50595331
+TIME-TO-WINDOW-MS: 5252
+AFTER-START ws=121MB private=502MB threads=33 handles=400
+TCP: 
+TASK: Ready
+IMG raw/WIN-RESTART-01.jpg

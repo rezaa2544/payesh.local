@@ -1,0 +1,82 @@
+﻿[   +1 ms]   Build cache is disabled
+[        ] Skipping task ':app:compileReleaseArtProfile' as it is up-to-date.
+[   +9 ms] Resolve mutations for :app:convertShrunkResourcesToBinaryRelease (Thread[Execution worker Thread 3,5,main]) started.
+[   +1 ms] :app:convertShrunkResourcesToBinaryRelease (Thread[Execution worker Thread 3,5,main]) started.
+[  +64 ms] > Task :app:convertShrunkResourcesToBinaryRelease
+[        ] Custom actions are attached to task ':app:convertShrunkResourcesToBinaryRelease'.
+[        ] Caching disabled for task ':app:convertShrunkResourcesToBinaryRelease' because:
+[        ]   Build cache is disabled
+[        ] Task ':app:convertShrunkResourcesToBinaryRelease' is not up-to-date because:
+[        ]   Value of input property 'multiOutputHandler.variantOutputs.$0.versionCode' has changed for task ':app:convertShrunkResourcesToBinaryRelease'
+[        ]   Value of input property 'multiOutputHandler.variantOutputs.$0.versionName' has changed for task ':app:convertShrunkResourcesToBinaryRelease'
+[        ] Resolve mutations for :app:optimizeReleaseResources (Thread[Execution worker Thread 3,5,main]) started.
+[        ] :app:optimizeReleaseResources (Thread[Execution worker Thread 3,5,main]) started.
+[ +191 ms] > Task :app:optimizeReleaseResources
+[        ] Custom actions are attached to task ':app:optimizeReleaseResources'.
+[        ] Caching disabled for task ':app:optimizeReleaseResources' because:
+[        ]   Build cache is disabled
+[        ] Task ':app:optimizeReleaseResources' is not up-to-date because:
+[        ]   Value of input property 'outputsHandler.variantOutputs.$0.versionCode' has changed for task ':app:optimizeReleaseResources'
+[        ]   Value of input property 'outputsHandler.variantOutputs.$0.versionName' has changed for task ':app:optimizeReleaseResources'
+[+14112 ms] Resolve mutations for :app:lintVitalReportRelease (Thread[Execution worker Thread 5,5,main]) started.
+[        ] :app:lintVitalReportRelease (Thread[Execution worker Thread 5,5,main]) started.
+[        ] > Task :app:lintVitalReportRelease UP-TO-DATE
+[        ] Caching disabled for task ':app:lintVitalReportRelease' because:
+[        ]   Build cache is disabled
+[        ]   Caching has been disabled for the task
+[        ] Skipping task ':app:lintVitalReportRelease' as it is up-to-date.
+[        ] Resolve mutations for :app:lintVitalRelease (Thread[Execution worker Thread 5,5,main]) started.
+[        ] :app:lintVitalRelease (Thread[Execution worker Thread 5,5,main]) started.
+[        ] > Task :app:lintVitalRelease
+[        ] Caching disabled for task ':app:lintVitalRelease' because:
+[        ]   Build cache is disabled
+[        ]   Caching has been disabled for the task
+[        ] Task ':app:lintVitalRelease' is not up-to-date because:
+[        ]   Task.upToDateWhen is false.
+[        ] Resolve mutations for :app:packageRelease (Thread[Execution worker Thread 5,5,main]) started.
+[        ] :app:packageRelease (Thread[Execution worker Thread 5,5,main]) started.
+[+1990 ms] > Task :app:packageRelease
+[   +2 ms] Custom actions are attached to task ':app:packageRelease'.
+[   +2 ms] Caching disabled for task ':app:packageRelease' because:
+[   +4 ms]   Build cache is disabled
+[        ]   Caching has been disabled for the task
+[        ] Task ':app:packageRelease' is not up-to-date because:
+[        ]   Value of input property 'outputsHandler.variantOutputs.$0.versionCode' has changed for task ':app:packageRelease'
+[        ]   Value of input property 'outputsHandler.variantOutputs.$0.versionName' has changed for task ':app:packageRelease'
+[        ] The input changes require a full rebuild for incremental task ':app:packageRelease'.
+[        ] There are no .so files available to package in the APK for armeabi-v7a, x86_64.
+[+1086 ms] Resolve mutations for :app:createReleaseApkListingFileRedirect (Thread[Execution worker Thread 3,5,main]) started.
+[        ] :app:createReleaseApkListingFileRedirect (Thread[Execution worker Thread 3,5,main]) started.
+[        ] > Task :app:createReleaseApkListingFileRedirect
+[        ] Caching disabled for task ':app:createReleaseApkListingFileRedirect' because:
+[        ]   Build cache is disabled
+[        ]   Caching has been disabled for the task
+[        ] Task ':app:createReleaseApkListingFileRedirect' is not up-to-date because:
+[        ]   Input property 'listingFile' file C:\Users\R.M\psim\repo\apps\payesh\app\build\app\outputs\apk\release\output-metadata.json has changed.
+[        ] Resolve mutations for :app:assembleRelease (Thread[Execution worker Thread 3,5,main]) started.
+[        ] :app:assembleRelease (Thread[Execution worker Thread 3,5,main]) started.
+[  +88 ms] > Task :app:assembleRelease
+[        ] Caching disabled for task ':app:assembleRelease' because:
+[        ]   Build cache is disabled
+[        ] Task ':app:assembleRelease' is not up-to-date because:
+[        ]   Task has not declared any outputs despite executing actions.
+[  +96 ms] Build 88b48c45-9bdf-40f7-bc5f-9423cf0420c4 is closed
+[        ] AAPT2 aapt2-9.1.0-14792394-windows Daemon #0: shutdown
+[        ] Android Lint: Disposing Uast application environment in lint classloader [32.1.0_true]
+[ +116 ms] Build 4eb01ff9-1b71-43c6-bcfa-7600aaaff04b is closed
+[        ] [Incubating] Problems report is available at: file:///C:/Users/R.M/psim/repo/apps/payesh/app/build/reports/problems/problems-report.html
+[        ] Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+[        ] You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+[        ] For more on this, please refer to https://docs.gradle.org/9.3.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+[        ] BUILD SUCCESSFUL in 2m 40s
+[        ] 63 actionable tasks: 21 executed, 42 up-to-date
+[ +280 ms] Watched directory hierarchies: [C:\lab\flutter\packages\flutter_tools\gradle, C:\Users\R.M\psim\repo\apps\payesh\app\android]
+[ +525 ms] Running Gradle task 'assembleRelease'... (completed in غ±غ¶غ±ظ«غ¹s)
+[   +3 ms] Calculate SHA1: LocalDirectory: 'C:\Users\R.M\psim\repo\apps\payesh\app\build\app\outputs\flutter-apk'/app-release.apk
+[ +471 ms] âˆڑ Built build\app\outputs\flutter-apk\app-release.apk (10.5MB)
+[  +12 ms] "flutter apk" took غ±غ¶غ³ظ¬غ¹غ¸غ¸ms.
+[   +4 ms] Running 1 shutdown hook
+[   +1 ms] Shutdown hooks complete
+[        ] exiting with code 0
+
+[LAB176: tail 80 of 118356 bytes; full log on PC at C:\lab\evidence\build-school-17601.log]

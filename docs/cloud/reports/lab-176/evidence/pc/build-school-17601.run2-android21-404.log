@@ -1,0 +1,82 @@
+﻿[        ] 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:29)
+[        ] 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:26)
+[        ] 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+[        ] 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+[        ] 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+[        ] 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+[        ] 	at org.gradle.internal.operations.DefaultBuildOperationRunner.run(DefaultBuildOperationRunner.java:47)
+[        ] 	at org.gradle.configuration.internal.DefaultListenerBuildOperationDecorator$BuildOperationEmittingClosure.doCall(DefaultListenerBuildOperationDecorator.java:195)
+[        ] 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[        ] 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+[        ] 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[        ] 	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+[        ] 	at org.codehaus.groovy.reflection.CachedMethod.invoke(CachedMethod.java:343)
+[        ] 	at groovy.lang.MetaMethod.doMethodInvoke(MetaMethod.java:328)
+[        ] 	at groovy.lang.MetaClassImpl.doInvokeMethod(MetaClassImpl.java:1339)
+[        ] 	at groovy.lang.MetaClassImpl.invokeMethod(MetaClassImpl.java:1094)
+[        ] 	at groovy.lang.MetaClassImpl.invokeMethod(MetaClassImpl.java:1007)
+[   +6 ms] 	at groovy.lang.Closure.call(Closure.java:433)
+[        ] 	at org.gradle.listener.ClosureBackedMethodInvocationDispatch.dispatch(ClosureBackedMethodInvocationDispatch.java:41)
+[        ] 	at org.gradle.listener.ClosureBackedMethodInvocationDispatch.dispatch(ClosureBackedMethodInvocationDispatch.java:25)
+[        ] 	at org.gradle.internal.event.AbstractBroadcastDispatch.dispatch(AbstractBroadcastDispatch.java:44)
+[        ] 	at org.gradle.internal.event.BroadcastDispatch$SingletonDispatch.dispatch(BroadcastDispatch.java:270)
+[        ] 	at org.gradle.internal.event.BroadcastDispatch$SingletonDispatch.dispatch(BroadcastDispatch.java:172)
+[        ] 	at org.gradle.internal.event.AbstractBroadcastDispatch.dispatch(AbstractBroadcastDispatch.java:84)
+[        ] 	at org.gradle.internal.event.AbstractBroadcastDispatch.dispatch(AbstractBroadcastDispatch.java:70)
+[        ] 	at org.gradle.internal.event.BroadcastDispatch$CompositeDispatch.dispatch(BroadcastDispatch.java:382)
+[        ] 	at org.gradle.internal.event.BroadcastDispatch$CompositeDispatch.dispatch(BroadcastDispatch.java:274)
+[        ] 	at org.gradle.internal.event.ListenerBroadcast.dispatch(ListenerBroadcast.java:160)
+[        ] 	at org.gradle.internal.event.ListenerBroadcast.dispatch(ListenerBroadcast.java:37)
+[        ] 	at org.gradle.internal.dispatch.ProxyDispatchAdapter$DispatchingInvocationHandler.invoke(ProxyDispatchAdapter.java:88)
+[        ] 	at jdk.proxy1/jdk.proxy1.$Proxy70.afterEvaluate(Unknown Source)
+[        ] 	at org.gradle.configuration.project.LifecycleProjectEvaluator$NotifyAfterEvaluate$1.execute(LifecycleProjectEvaluator.java:247)
+[        ] 	at org.gradle.configuration.project.LifecycleProjectEvaluator$NotifyAfterEvaluate$1.execute(LifecycleProjectEvaluator.java:244)
+[        ] 	at org.gradle.api.internal.project.DefaultProject.stepEvaluationListener(DefaultProject.java:1510)
+[        ] 	at org.gradle.configuration.project.LifecycleProjectEvaluator$NotifyAfterEvaluate.run(LifecycleProjectEvaluator.java:253)
+[        ] 	... 245 more
+[        ] BUILD FAILED in 5m 21s
+[        ] 4 actionable tasks: 2 executed, 2 up-to-date
+[        ] Watched directory hierarchies: [C:\lab\flutter\packages\flutter_tools\gradle]
+[ +306 ms] Running Gradle task 'assembleRelease'... (completed in غ³غ²غ²ظ«غ³s)
+[   +6 ms] executing: C:\lab\jdk17\bin\java --version
+[ +308 ms] Exit code 0 from: C:\lab\jdk17\bin\java --version
+[        ] openjdk 17.0.21.1 2026-11-17
+           OpenJDK Runtime Environment Temurin-17.0.21.1+2 (build 17.0.21.1+2)
+           OpenJDK 64-Bit Server VM Temurin-17.0.21.1+2 (build 17.0.21.1+2, mixed mode, sharing)
+[  +13 ms] "flutter apk" took غ³غ²غ´ظ¬غ°غ±غ¹ms.
+[   +9 ms] Gradle task assembleRelease failed with exit code 1
+[   +1 ms] 
+           #0      throwToolExit (package:flutter_tools/src/base/common.dart:34:3)
+           #1      AndroidGradleBuilder.buildGradleApp (package:flutter_tools/src/android/gradle.dart:653:7)
+           <asynchronous suspension>
+           #2      AndroidGradleBuilder.buildApk (package:flutter_tools/src/android/gradle.dart:246:5)
+           <asynchronous suspension>
+           #3      BuildApkCommand.runCommand (package:flutter_tools/src/commands/build_apk.dart:132:5)
+           <asynchronous suspension>
+           #4      FlutterCommand.run.<anonymous closure> (package:flutter_tools/src/runner/flutter_command.dart:1663:27)
+           <asynchronous suspension>
+           #5      AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+           <asynchronous suspension>
+           #6      CommandRunner.runCommand (package:args/command_runner.dart:212:13)
+           <asynchronous suspension>
+           #7      FlutterCommandRunner.runCommand.<anonymous closure> (package:flutter_tools/src/runner/flutter_command_runner.dart:496:9)
+           <asynchronous suspension>
+           #8      AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+           <asynchronous suspension>
+           #9      FlutterCommandRunner.runCommand (package:flutter_tools/src/runner/flutter_command_runner.dart:431:5)
+           <asynchronous suspension>
+           #10     FlutterCommandRunner.run.<anonymous closure> (package:flutter_tools/src/runner/flutter_command_runner.dart:307:33)
+           <asynchronous suspension>
+           #11     run.<anonymous closure>.<anonymous closure> (package:flutter_tools/runner.dart:104:11)
+           <asynchronous suspension>
+           #12     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+           <asynchronous suspension>
+           #13     main (package:flutter_tools/executable.dart:103:3)
+           <asynchronous suspension>
+
+
+[   +1 ms] Running 1 shutdown hook
+[   +9 ms] Shutdown hooks complete
+[   +1 ms] exiting with code 1
+
+[LAB176: tail 80 of 337675 bytes; full log on PC at C:\lab\evidence\build-school-17601.run2-android21-404.log]

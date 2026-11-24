@@ -1,0 +1,49 @@
+﻿[ظêأ] Flutter (Channel stable, 3.47.9, on Microsoft Windows [Version 10.0.22631.5262], locale fa-IR) [█▒┘ش█▓█╡█│ms]
+    ظت Flutter version 3.47.9 on channel stable at C:\lab\flutter
+    ظت Upstream repository https://github.com/flutter/flutter.git
+    ظت Framework revision c197ca5199 (4 weeks ago), 2026-10-29 10:10:20 -0400
+    ظت Engine revision 89c39edfdf
+    ظت Dart version 3.13.7
+    ظت DevTools version 2.60.0
+    ظت Feature flags: no-enable-web, enable-linux-desktop, enable-macos-desktop, enable-windows-desktop, enable-android, enable-ios, cli-animations, enable-native-assets, enable-record-use, enable-swift-package-manager, omit-legacy-version-file, enable-lldb-debugging, enable-uiscene-migration
+
+[ظêأ] Windows Version (11 Enterprise 64-bit, 23H2, 2009) [█┤┘س█╣s]
+
+[ظêأ] Android toolchain - develop for Android devices (Android SDK version 36.0.0) [█▒┘ش█┤█╣█╣ms]
+    ظت Android SDK at C:\lab\android-sdk
+    ظت Emulator version unknown
+    ظت Platform android-36, build-tools 36.0.0
+    ظت ANDROID_HOME = C:\lab\android-sdk
+    ظت Java binary at: C:\lab\jdk17\bin\java
+      This JDK is specified in your Flutter configuration.
+      To change the current JDK, run: `flutter config --jdk-dir="path/to/jdk"`.
+    ظت Java version OpenJDK Runtime Environment Temurin-17.0.21.1+2 (build 17.0.21.1+2)
+    ظت All Android licenses accepted.
+
+[ظêأ] Visual Studio - develop Windows apps (Visual Studio Build Tools 2026 18.8.2) [█▒┘ش█░█▒█░ms]
+    ظت Visual Studio at C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools
+    ظت Visual Studio Build Tools 2026 version 18.8.12023.21
+    ظت Windows 10 SDK version 10.0.26100.0
+
+[ظêأ] Connected device (2 available) [█▒┘ش█│█▒█╡ms]
+    ظت 2412DPC0AG (mobile) ظت NVCYXCF6YHKNFIJF ظت android-arm64 ظت Android 16 (API 36)
+    ظت Windows (desktop)   ظت windows          ظت windows-x64   ظت Microsoft Windows [Version 10.0.22631.5262]
+
+[ظêأ] Network resources [█╡┘س█╖s]
+    ظت All expected network resources are available.
+
+ظت No issues found!
+The Flutter CLI developer tool uses Google Analytics to report usage and diagnostic
+data along with package dependencies, and crash reporting to send basic crash
+reports. This data is used to help improve the Dart platform, Flutter framework,
+and related tools.
+
+Telemetry is not sent on the very first run. To disable reporting of telemetry,
+run this terminal command:
+
+    flutter --disable-analytics
+
+If you opt out of telemetry, an opt-out event will be sent, and then no further
+information will be sent. This data is collected in accordance with the Google
+Privacy Policy (https://policies.google.com/privacy).
+

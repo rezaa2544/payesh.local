@@ -1,0 +1,20 @@
+R175-VERIFY — real (user) apps on the phone vs. the currently published update channels
+Source: bridge step d51 (PC adb, read-only) + sandbox download of the published assets, 2026-11-24 ~04:0xZ.
+NOTE: transcribed from the d51 console output (the bridge returns stdout only; no file was written on the phone).
+
+Published (GitHub releases, public URLs):
+  native-continuous  *-update.json -> build 198, commit 764d2542
+  owner-continuous   *-update.json -> build 198, commit 764d2542
+  /tmp/payesh-native.apk  sha256 3ee1e1ef934984b4b94b9fc720048d2c539231ffd63b6b2fa2047a93452b87f4  31145327 B
+  /tmp/payesh-owner.apk   sha256 e0a4454301649465b7ace5e4f46106f2a3c9f8379d4fc760b83d9d94713839f2  27698457 B
+
+Phone (adb shell pm path / sha256sum on base.apk; dumpsys package versionName):
+  ir.payesh.school.payesh_app  versionName 0.2.198  base.apk sha256 3ee1e1ef934984b4b94b9fc720048d2c539231ffd63b6b2fa2047a93452b87f4  31145327 B  => MATCH
+  ir.payesh.owner              versionName 1.1.198  base.apk sha256 e0a4454301649465b7ace5e4f46106f2a3c9f8379d4fc760b83d9d94713839f2  27698457 B  => MATCH
+  lastUpdateTime 2026-11-23 23:13 (unchanged by the lab)
+
+CI: native-client #199 run 45252135389 (workflow_dispatch, bd447dc4) 13/13 jobs success; publish workflows gate on
+event == 'push' -> not published. 764d2542..bd447dc4 = docs/ + releases/ only => build 198 = current app code.
+Repro: curl -sL https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/<apk> | sha256sum ;
+       adb shell 'sha256sum $(pm path ir.payesh.school.payesh_app | cut -d: -f2)'
+VERDICT: PASS (phone == latest published). Silent update 198->next: BLOCKED (nothing newer published).

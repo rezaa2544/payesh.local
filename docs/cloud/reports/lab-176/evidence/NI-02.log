@@ -1,0 +1,42 @@
+TEST_ID=NI-02
+PURPOSE=CI native-client/gate-controls step: Android release check + installer wiring unit tests (rows 76/77)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-02.sh
+START=2026-11-24T04:19:14Z
+----- RAW -----
+# rows 76/77 native release packaging — node v22.23.5
+PASS  AR-OK-1  owner-signed release APK + AAB passes, distributable  → ANDROID-RELEASE-76-OK mode=release distributable=true signer_sha256=a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1
+PASS  AR-OK-2  debug-signed rehearsal passes but is labelled NOT FOR DISTRIBUTION  → rehearsal
+PASS  AR-N1  NEGATIVE: release mode with the Android debug certificate  → AR-08
+PASS  AR-N2  NEGATIVE: release mode, signer differs from the owner-pinned fingerprint  → pinned
+PASS  AR-N3  NEGATIVE: targetSdk 35 (below Google Play 2026)  → AR-02
+PASS  AR-N4  NEGATIVE: debuggable APK  → AR-04
+PASS  AR-N5  NEGATIVE: unsigned / not verifying APK  → AR-05
+PASS  AR-N6  NEGATIVE: v1-only (JAR) signature  → no v2/v3
+PASS  AR-N7  NEGATIVE: two signers  → AR-06
+PASS  AR-N8  NEGATIVE: permission outside the allowlist (READ_CONTACTS)  → READ_CONTACTS
+PASS  AR-N9  NEGATIVE: release build without INTERNET  → required permission missing
+PASS  AR-N10  NEGATIVE: wrong application id  → AR-01
+PASS  AR-N11  NEGATIVE: AAB not verified by jarsigner  → AR-09
+PASS  AR-N12  NEGATIVE: AAB debug-signed in release mode  → AAB signed with the Android debug
+PASS  AR-N13  NEGATIVE: garbage instead of aapt2 output  → no package line
+PASS  AR-N14  NEGATIVE: missing inputs / unknown flag ⇒ exit 2  → exit 2
+PASS  AR-OK-3  real apksigner 37 output (v2-only and v2+v3): exactly one signer, pinned digest matches  → v2-only, v2+v3
+PASS  AR-N15  NEGATIVE: apksigner 37 format with two different certificates  → AR-06
+PASS  AR-N16  NEGATIVE: apksigner 37 format, signer differs from the owner pin  → pinned
+PASS  AR-N17  NEGATIVE: minSdk 21 without a v1 (JAR) signature (Android 5.0-6.0 cannot install it)  → needs a v1
+PASS  AR-N18  NEGATIVE: minSdk 19 below policy.min_sdk 21  → AR-03
+PASS  AR-OK-4  minSdk 24 without v1 still passes (v1 only required below API 24)  → v2/v3 only at API 24
+PASS  W-1  build.gradle.kts: signing only from env, fail-closed flag, v2/v3, not debuggable  → env-only signing
+PASS  W-2  release manifest declares INTERNET  → ok
+PASS  W-3  native-client.yml android: secrets → temp keystore, fail-closed control, real-APK check, tag ⇒ release only  → ok
+PASS  W-4  Inno Setup script: own AppId, per-user, bundle only, refuses node/WebView2  → ok
+PASS  W-5  windows job: MSVC app-local, ISCC, silent install → gate 63 + dumpbin on installed app → uninstall, Authenticode only with Secrets  → ok
+PASS  W-6  release-gate passes secrets to the native workflow; policy = Google Play 2026  → min_target_sdk=36
+checks=28 pass=28 fail=0
+NATIVE-RELEASE-76-77-OK checks=28
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:19:15Z
+DURATION_S=1

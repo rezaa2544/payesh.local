@@ -1,0 +1,106 @@
+TEST_ID=NI-14
+PURPOSE=CI native-client/gateway-real step: payesh_sync ⇄ server/gateway.js (pinned TLS)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-14.sh
+START=2026-11-24T04:20:11Z
+----- RAW -----
+/usr/bin/openssl
+Running build hooks...Running build hooks...00:00 +0: loading test/gateway_it_test.dart
+00:00 +0: test/gateway_it_test.dart: (setUpAll)
+00:00 +0: test/gateway_it_test.dart: push through pinned TLS → real Gateway applies once; same uid → duplicate
+00:00 +1: test/gateway_it_test.dart: version header, request id and device id reach the Gateway (seen at the TLS front)
+00:00 +2: test/gateway_it_test.dart: pull from the real change feed into the local SQLite engine; second pull empty
+00:00 +3: test/gateway_it_test.dart: tenant isolation: tenant B sees none of tenant A rows
+00:00 +4: test/gateway_it_test.dart: stale base_version → real conflict verdict, op leaves the queue, server keeps v1
+00:00 +5: test/gateway_it_test.dart: MITM front with a trusted-CA but UNPINNED key → refused, zero bytes reach the Gateway
+00:01 +6: test/gateway_it_test.dart: invalid token → 401 unauthorized from the real Gateway
+00:01 +7: test/gateway_it_test.dart: (tearDownAll)
+00:01 +7: loading test/pinning_test.dart
+00:01 +7: test/pinning_test.dart: (setUpAll)
+00:01 +7: test/pinning_test.dart: SPKI pin computation matches openssl pin-sha256 for every test certificate
+00:01 +8: test/pinning_test.dart: SPKI pin computation garbage DER is rejected
+00:01 +9: test/pinning_test.dart: GatewayConfig (owner decision: pinning ON + backup pin) accepts https + two distinct pins
+00:01 +10: test/pinning_test.dart: GatewayConfig (owner decision: pinning ON + backup pin) rejects http, a single pin, duplicate pins and malformed pins
+00:01 +11: test/pinning_test.dart: GatewayConfig (owner decision: pinning ON + backup pin) fromEnvironment: unset → no remote data path; set → validated
+00:01 +12: test/pinning_test.dart: pinned TLS client against a mock Gateway primary pin: request goes through with version, request id, device and token
+00:01 +13: test/pinning_test.dart: pinned TLS client against a mock Gateway backup pin only (key rotated on the server): still accepted
+00:01 +14: test/pinning_test.dart: pinned TLS client against a mock Gateway valid chain but UNPINNED key (MITM with trusted CA) → refused, zero HTTP bytes sent
+00:01 +15: test/pinning_test.dart: pinned TLS client against a mock Gateway pinned outbox drain: a pin failure keeps the ops queued (never dropped)
+00:01 +16: test/pinning_test.dart: pinned TLS client against a mock Gateway untrusted chain is still refused (pinning does not disable validation)
+00:01 +17: test/pinning_test.dart: pinned TLS client against a mock Gateway plaintext http and proxies are refused by the pinned client
+00:01 +18: test/pinning_test.dart: GatewayTransport + GatewaySync (mock, plain HTTP) push maps applied / duplicates / conflicts onto the outbox verdicts
+00:01 +19: test/pinning_test.dart: GatewayTransport + GatewaySync (mock, plain HTTP) paged pull applies puts and deletes, persists the seq cursor
+00:01 +20: test/pinning_test.dart: GatewayTransport + GatewaySync (mock, plain HTTP) protocol guards: schema, backwards cursor, no progress, page cap
+00:01 +21: test/pinning_test.dart: GatewayTransport + GatewaySync (mock, plain HTTP) HTTP 401 from the Gateway → SyncFailure(unauthorized)
+00:01 +22: test/pinning_test.dart: (tearDownAll)
+00:01 +22: loading test/data_path_test.dart
+00:02 +22: test/data_path_test.dart: the scan actually covers the native sources
+00:02 +23: test/data_path_test.dart: no DB driver / object storage / direct DB URL in native lib code
+00:02 +24: test/data_path_test.dart: cloud endpoints used by the client are exclusively /api/gw/v1/*
+00:02 +25: test/data_path_test.dart: resolved dependency graph has no DB / cloud-storage package
+00:02 +26: loading test/school_access_it_test.dart
+00:02 +26: test/school_access_it_test.dart: (setUpAll)
+00:02 +26: test/school_access_it_test.dart: W1-IT-01 resolve: real Directory → this Gateway; unknown/malformed → same 404
+00:02 +27: test/school_access_it_test.dart: W1-IT-02 activate: wrong school and wrong code get the SAME 401; right code → session
+00:02 +28: test/school_access_it_test.dart: W1-IT-03 the school token opens the Gateway data path (pull 200); garbage token 401
+00:02 +29: test/school_access_it_test.dart: W1-IT-04 restart: saved device secret → refresh; wrong secret → deviceRevoked
+00:02 +30: test/school_access_it_test.dart: W1-IT-05 re-activation on the same device revokes the old device secret
+00:03 +31: test/school_access_it_test.dart: W1-IT-06 Gateway without a Directory: 503 not_configured → fallback cell; without fallback → unavailable
+00:03 +32: test/school_access_it_test.dart: W1-IT-07 Gateway down → offline (nothing hangs, no crash)
+00:03 +33: test/school_access_it_test.dart: (tearDownAll)
+NATIVE-WAVE1-IT passed=7 negative_controls=11
+00:03 +33: loading test/attendance_it_test.dart
+00:03 +33: test/attendance_it_test.dart: (setUpAll)
+00:03 +33: test/attendance_it_test.dart: W2-IT-01 teacher pull: only the scheduled class and its students reach the device
+00:03 +34: test/attendance_it_test.dart: W2-IT-02 offline save → queued with a visible count → online → applied once on the server
+00:03 +35: test/attendance_it_test.dart: W2-IT-03 edit after sync: only the changed student is sent, version 1 → 2
+00:03 +36: test/attendance_it_test.dart: W2-IT-04 NEG a second device with a stale copy: real conflict → review, server value kept
+00:04 +37: test/attendance_it_test.dart: W2-IT-05 NEG forged op for a class outside the teacher scope → 403 out_of_scope, kept on device
+00:04 +38: test/attendance_it_test.dart: W2-IT-06 NEG forged unknown status → 403 bad_status, nothing written
+00:04 +39: test/attendance_it_test.dart: W2-IT-07 NEG parent: no attendance UI locally AND role_denied on the server
+00:04 +40: test/attendance_it_test.dart: W2-IT-08 NEG forged token → 401, op stays queued (never dropped)
+00:04 +41: test/attendance_it_test.dart: (tearDownAll)
+NATIVE-WAVE2-IT passed=8 negative_controls=9
+00:04 +41: loading test/grades_it_test.dart
+00:04 +41: test/grades_it_test.dart: (setUpAll)
+00:04 +41: test/grades_it_test.dart: W3-IT-01 teacher pull: scheduled class, all subjects, sheet of its students only
+00:04 +42: test/grades_it_test.dart: W3-IT-02 offline save → queued → online → applied once, pending, version 1
+00:05 +43: test/grades_it_test.dart: W3-IT-03 manager approves by entering the grade; a later teacher edit drops it back to pending
+00:05 +44: test/grades_it_test.dart: W3-IT-04 NEG forged teacher op with status approved → 403 approval_denied, nothing written
+00:05 +45: test/grades_it_test.dart: W3-IT-05 NEG forged score 25 → bad_score; forged kind → bad_kind
+00:05 +46: test/grades_it_test.dart: W3-IT-06 NEG forged grade for a class outside the teacher scope → out_of_scope
+00:05 +47: test/grades_it_test.dart: W3-IT-07 NEG parent: no grade entry locally AND role_denied on the server
+00:05 +48: test/grades_it_test.dart: W3-IT-08 NEG a second device with a stale copy: real conflict → review, server value kept
+00:06 +49: test/grades_it_test.dart: (tearDownAll)
+NATIVE-WAVE3-IT passed=8 negative_controls=10
+00:06 +49: loading test/notices_it_test.dart
+00:06 +49: test/notices_it_test.dart: (setUpAll)
+00:06 +49: test/notices_it_test.dart: W4-IT-01 teacher and parent pull the web notices and read them; neither may write
+00:06 +50: test/notices_it_test.dart: W4-IT-02 manager publishes offline → queued → online → applied once, version 1
+00:07 +51: test/notices_it_test.dart: W4-IT-03 manager edits: version 2, original date kept, teacher sees the edit
+00:07 +52: test/notices_it_test.dart: W4-IT-04 manager deletes: server tombstone; the teacher device drops it on pull
+00:07 +53: test/notices_it_test.dart: W4-IT-05 NEG forged teacher publish and delete → role_denied, nothing changes
+00:07 +54: test/notices_it_test.dart: W4-IT-06 NEG forged parent edit → role_denied; the notice is unchanged
+00:07 +55: test/notices_it_test.dart: W4-IT-07 NEG a second manager device with a stale copy: real conflict → review, server kept
+00:07 +56: test/notices_it_test.dart: W4-IT-08 NEG id collision with a notice this device never pulled → conflict, no overwrite
+00:07 +57: test/notices_it_test.dart: (tearDownAll)
+NATIVE-WAVE4-IT passed=8 negative_controls=8
+00:07 +57: loading test/family_it_test.dart
+00:07 +57: test/family_it_test.dart: (setUpAll)
+00:08 +57: test/family_it_test.dart: W5-IT-01 parent pulls exactly the own family: two children, nothing of the other family
+00:08 +58: test/family_it_test.dart: W5-IT-02 home and child page from the pulled rows: approved average, attendance, review states
+00:08 +59: test/family_it_test.dart: W5-IT-03 leave request offline → queued → online → applied once as pending, version 1
+00:08 +60: test/family_it_test.dart: W5-IT-04 the school approves it (manager device) → the parent sees «تأییدشده» after a pull
+00:08 +61: test/family_it_test.dart: W5-IT-05 NEG forged parent leave with status approved / rejected → approval_denied
+00:09 +62: test/family_it_test.dart: W5-IT-06 NEG forged leave for the other family's child → out_of_scope
+00:09 +63: test/family_it_test.dart: W5-IT-07 NEG forged parent grade → role_denied; the grade is unchanged
+00:09 +64: test/family_it_test.dart: W5-IT-08 NEG a teacher has no parents page and never pulls parent links
+00:09 +65: test/family_it_test.dart: (tearDownAll)
+NATIVE-WAVE5-IT passed=8 negative_controls=9
+00:09 +65: All tests passed!
+GATEWAY-REAL-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:20:21Z
+DURATION_S=10

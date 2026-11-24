@@ -1,0 +1,24 @@
+TEST_ID=DBR-03
+PURPOSE=CI api-contract/native-contract step: Directory bootstrap — school moved between two cells while the client writes
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  5 files changed, 245 insertions(+), 9 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ci-step-03.sh
+START=2026-11-24T04:29:28Z
+----- RAW -----
+PASS  DIR-01  resolve returns exactly the contract fields of the asked school, nothing about others  → {"ok":true,"schema_version":1,"school_code":"school-66","cell_id":"66666666-aaaa-4aaa-8aaa-000000000066","cell_url":"http://127.0.0.1:43645","version":1,"ttl":2,"migration_state":"stable","stale":false}
+PASS  DIR-02  no enumeration oracle: unknown, malformed, empty and injection codes → same 404 body  → {"ok":false,"error":"not_found"}
+PASS  DIR-03  rate limit per client address: 6th call → 429 + Retry-After, body has retry_after_ms  → 200,200,200,200,200,429
+PASS  DIR-04  reference client honours TTL: inside TTL no network, after TTL exactly one call  → network=2 hits=3
+PASS  DIR-05  before the move: 20 ops land in cell A
+PASS  DIR-06  transfer starts (freeze A + migrating): client writes are HELD, never dropped  → write_frozen → migrating, outbox=11
+PASS  DIR-07  real transfer tool copies A → B with 3-layer reconciliation; route flips to B (moved, version+)  → version 2 → 3
+PASS  DIR-08  after the move: client re-routes to B; held ops applied once, retry is a duplicate; A token refused by B  → {"applied":10,"duplicates":1,"conflicts":0}
+PASS  DIR-09  B holds every op exactly once (30 records, no duplicate seq); A received nothing after the freeze  → B rows=30 distinct=30; A ops=20
+PASS  DIR-10  route back to stable bumps version again; disabled cell → 503 cell_unavailable (no data)  → version=4
+
+DIR checks=10 pass=10 fail=0
+DIRECTORY-66-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:29:31Z
+DURATION_S=3

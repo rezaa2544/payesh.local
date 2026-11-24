@@ -1,0 +1,60 @@
+diff --git a/tests/load-82-direct.js b/tests/load-82-direct.js
+index ca408ac2..cb39daea 100644
+--- a/tests/load-82-direct.js
++++ b/tests/load-82-direct.js
+@@ -176,6 +176,7 @@ const INJ = Object.freeze({
+       return `green: p95=${r.latency_ms.all.p95}ms err=${r.errors.rate} isolation foreign=${r.isolation.foreign_rows} sessions idle_tx=${r.sessions.idle_in_tx_after}`;
+     });
+ 
++    // D-01 (lab-176): PostgreSQL 16 prints the InitPlan parameter as $N, 17+ as (InitPlan N).colM.
+     await check('LDD-09', 'finding of this row (migration 0006): as a device, the feed walk uses record_feed_idx with tenant_id = InitPlan; with 0006 rolled back it filters can_access() row by row and has no tenant index condition', async () => {
+       const dev = ctx.devices[0];
+       const plan = async () => {
+@@ -189,13 +190,13 @@ const INJ = Object.freeze({
+         } finally { c.release(); }
+       };
+       const head = await plan();
+-      assert(/InitPlan/.test(head) && /Index Cond: \(\(tenant_id = \$\d\)/.test(head), 'head plan without tenant index condition:\n' + head);
++      assert(/InitPlan/.test(head) && /Index Cond: \(\(tenant_id = (?:\$\d|\(InitPlan \d+\)\.col\d+)\)/.test(head), 'head plan without tenant index condition:\n' + head);
+       await ctx.owner.query(fs.readFileSync(DOWN6, 'utf8'));
+       let before;
+       try { before = await plan(); } finally { await ctx.owner.query(fs.readFileSync(UP6, 'utf8')); }
+-      assert(!/tenant_id = \$/.test(before) && /can_access/.test(before), 'pre-0006 plan unexpectedly tenant-indexed:\n' + before);
++      assert(!/tenant_id = (?:\$|\(InitPlan)/.test(before) && /can_access/.test(before), 'pre-0006 plan unexpectedly tenant-indexed:\n' + before);
+       const again = await plan();
+-      assert(/Index Cond: \(\(tenant_id = \$\d\)/.test(again), 're-applied 0006 plan lost the tenant condition');
++      assert(/Index Cond: \(\(tenant_id = (?:\$\d|\(InitPlan \d+\)\.col\d+)\)/.test(again), 're-applied 0006 plan lost the tenant condition');
+       return 'head: tenant_id = $InitPlan index condition · without 0006: per-row can_access filter · re-applied: tenant condition back';
+     });
+ 
+diff --git a/tests/secure-web.js b/tests/secure-web.js
+index 569bb03d..8b14572a 100644
+--- a/tests/secure-web.js
++++ b/tests/secure-web.js
+@@ -105,17 +105,22 @@ function rawPut(db, store, rec) {
+   });
+ 
+   await check('SE-06', 'list/since/byRef روی دادهٔ رمزشده درست کار می‌کنند', async () => {
+-    const t0 = new Date(Date.UTC(2026, 10, 1)).toISOString();
++    /* D-02 (lab-176): dates relative to now — records written earlier in this run carry
++       updated_at = now, so a fixed boundary (2026-11-15) started counting them once the real
++       date passed it. Same assertion: exactly the two records after the boundary. */
++    const DAY = 86400000, now = Date.now();
++    const t0 = new Date(now - 30 * DAY).toISOString();
++    const boundary = new Date(now + DAY).toISOString();
+     await s.putMany([
+       { collection: 'attendance', id: 10, data: { class_id: 7, student_id: 11 }, updated_at: t0 },
+-      { collection: 'attendance', id: 11, data: { class_id: 8, student_id: 12 }, updated_at: '2026-11-20T00:00:00.000Z' },
+-      { collection: 'attendance', id: 12, data: { class_id: 7, student_id: 13 }, updated_at: '2026-11-21T00:00:00.000Z' },
++      { collection: 'attendance', id: 11, data: { class_id: 8, student_id: 12 }, updated_at: new Date(now + 2 * DAY).toISOString() },
++      { collection: 'attendance', id: 12, data: { class_id: 7, student_id: 13 }, updated_at: new Date(now + 3 * DAY).toISOString() },
+     ]);
+     const list = await s.list('attendance', { limit: 10 });
+     assert(list.length >= 4, `list=${list.length}`);
+     const ref = await s.byRef('attendance', 'class_id', 7);
+     assert(ref.length >= 2, `byRef=${ref.length}`);
+-    const ch = await s.since('attendance', '2026-11-15T00:00:00.000Z');
++    const ch = await s.since('attendance', boundary);
+     assert(ch.length === 2, `since=${ch.length}`);
+     const all = await s.listAll('grades');
+     assert(all.length === 1, `grades=${all.length}`);

@@ -1,0 +1,12 @@
+34447 http://127.0.0.1:40958
+34482 http://127.0.0.1:40956
+34539 http://127.0.0.1:36814
+34615 http://127.0.0.1:39024
+34644 http://127.0.0.1:33004
+34737 http://127.0.0.1:36286
+34774 http://127.0.0.1:40812
+34833 http://127.0.0.1:39776
+38968 -1)
+# captured 05:16Z (pid  --url target). exe=/tmp/payesh-id65-nDa14b/{main,MUT-*}/bin/cloudflared (ELF, deleted). started 04:24:36Z (=ID65-postfix run).
+# ss: established TCP to 198.41.192.{7,27,37,77}:7844 and 198.41.200.{23,53}:7844 (10 conns). targets no longer listening.
+# last line (38968) = the observer's own pgrep shell, not a cloudflared.

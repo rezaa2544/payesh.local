@@ -1,0 +1,12 @@
+TEST_ID=FL-02-dart-format
+PURPOSE=dart format --set-exit-if-changed (CI)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh && dart format --output=none --set-exit-if-changed app/lib app/test owner/lib owner/test packages tool
+START=2026-11-24T03:32:36Z
+----- RAW -----
+Formatted 323 files (0 changed) in 2.86 seconds.
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:32:39Z
+DURATION_S=3

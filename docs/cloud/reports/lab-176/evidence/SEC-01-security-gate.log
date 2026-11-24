@@ -1,0 +1,25 @@
+TEST_ID=SEC-01-security-gate
+PURPOSE=security gate: 40 attacks + negative controls
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash docs/cloud/reports/evidence/gen-security-gate.sh; rc=$?; cat docs/cloud/reports/evidence/cc-security-gate.txt 2>/dev/null | tail -40; git checkout -- docs/cloud/reports/evidence/; exit $rc
+START=2026-11-24T03:23:04Z
+----- RAW -----
+→ docs/cloud/reports/evidence/cc-security-gate.txt
+SECURITY-GATE-CLOSED checks=17 pen=40/0/0 status=UNKNOWN
+# دروازهٔ امنیت — ردیف ۲۸ (Security Gate مستقل)
+generated_by: docs/cloud/reports/evidence/gen-security-gate.sh
+head: bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df
+generated_at_utc: 2026-11-24T03:23:43Z
+penetration_witness: docs/cloud/reports/evidence/security-penetration.txt (SECURITY-PEN pass=40 fail=0 skip=0)
+threat_model: docs/cloud/12-security-threat-model.md
+fixes_verified: SEC-01 CSV/hashes · SEC-02 bad_json→400 · SEC-03 nosniff/frame · SEC-04 vault no-store
+checks_passed: 17
+security_status: UNKNOWN (evidence-backed — طبق §۱۰.۲ و D‑25)
+row-28: CLOSED
+
+SECURITY-GATE-CLOSED checks=17 pen=40/0/0 status=UNKNOWN
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:23:43Z
+DURATION_S=39

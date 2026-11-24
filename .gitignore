@@ -52,6 +52,8 @@ install/android/app/src/main/assets/www/
 
 # شواهد خام آزمون باید در مخزن بمانند (Evidence Gate — A-01)
 !docs/cloud/reports/evidence/*.log
+# row 176: lab evidence logs (raw output behind reports in docs/cloud/reports/lab-176)
+!docs/cloud/reports/lab-176/evidence/**/*.log
 
 # شاهدهای ناموفق، append-only و موقتی‌اند؛ شاهد سالم هرگز بازنویسی نمی‌شود
 docs/cloud/reports/evidence/*FAILED-*.txt

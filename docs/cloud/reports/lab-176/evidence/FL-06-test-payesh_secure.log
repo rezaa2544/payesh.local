@@ -1,0 +1,70 @@
+TEST_ID=FL-06-test-payesh_secure
+PURPOSE=package tests (CI rule: flutter test for flutter pkgs, coverage:test_with_coverage otherwise)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh/packages/payesh_secure && if grep -q 'sdk: flutter' pubspec.yaml; then flutter test --concurrency=1 --coverage; else dart run coverage:test_with_coverage; fi
+START=2026-11-24T04:14:36Z
+----- RAW -----
+The Dart VM service is listening on http://127.0.0.1:37763/
+The Dart DevTools debugger and profiler is available at: http://127.0.0.1:37763/devtools/?uri=ws://127.0.0.1:37763/ws
+00:00 +0: loading test/secure_store_test.dart
+00:00 +0: test/secure_store_test.dart: SecureStore contract on FakeSecureStore read/write/delete, missing → null, delete missing is fine
+00:00 +1: test/secure_store_test.dart: SecureStore contract on FakeSecureStore key names are validated (no path tricks)
+00:00 +2: test/secure_store_test.dart: SecureStore contract on FakeSecureStore failWith makes every call fail (fail-closed paths)
+00:00 +3: test/secure_store_test.dart: DpapiSecureStore file layout (fake cipher on non-Windows) roundtrip, overwrite, persistence across instances, delete
+00:00 +4: test/secure_store_test.dart: DpapiSecureStore file layout (fake cipher on non-Windows) file carries the PYS1 magic and no plaintext
+00:00 +5: test/secure_store_test.dart: DpapiSecureStore file layout (fake cipher on non-Windows) tampered, foreign-format, swapped and non-UTF-8 files fail closed
+00:00 +6: test/secure_store_test.dart: DpapiSecureStore file layout (fake cipher on non-Windows) the real DPAPI cipher refuses to load off Windows
+00:00 +7: test/secure_store_test.dart: DatabaseKeyManager first run creates one random 256-bit key and stores it
+00:00 +8: test/secure_store_test.dart: DatabaseKeyManager rotation is crash-safe: next is stored before apply, promoted after
+00:00 +9: test/secure_store_test.dart: DatabaseKeyManager failed apply keeps the old key and drops next
+00:00 +10: test/secure_store_test.dart: DatabaseKeyManager crash between rekey and promote: obtain offers both keys; confirm settles
+00:00 +11: test/secure_store_test.dart: DatabaseKeyManager only next present (crash right after deleting current) → promoted
+00:00 +12: test/secure_store_test.dart: DatabaseKeyManager malformed stored key or a store that drops writes → fail closed
+00:00 +13: loading test/native_update_test.dart
+00:00 +13: test/native_update_test.dart: NU-01 key id of the pinned test key = SHA-256 prefix
+00:00 +14: test/native_update_test.dart: NU-02 NUV-01 valid pilot manifest, newer build ⇒ available
+00:00 +15: test/native_update_test.dart: NU-02 NUV-02 same build as installed ⇒ up_to_date
+00:00 +16: test/native_update_test.dart: NU-02 NUV-03 older build (downgrade / replay of an old release) ⇒ refused:upd_rollback
+00:00 +17: test/native_update_test.dart: NU-02 NUV-04 manifest changed after signing (build 99) ⇒ refused:upd_bad_signature
+00:00 +18: test/native_update_test.dart: NU-02 NUV-05 signed by an unknown key ⇒ refused:upd_unknown_key
+00:00 +19: test/native_update_test.dart: NU-02 NUV-06 attacker key presented under the pinned key_id ⇒ refused:upd_bad_signature
+00:00 +20: test/native_update_test.dart: NU-02 NUV-07 expired manifest (frozen mirror) ⇒ refused:upd_expired
+00:00 +21: test/native_update_test.dart: NU-02 NUV-08 other channel (stable) on a pilot device ⇒ refused:upd_wrong_channel
+00:00 +22: test/native_update_test.dart: NU-02 NUV-09 publisher kill-switch (halt) ⇒ halted:publisher_halt
+00:00 +23: test/native_update_test.dart: NU-02 NUV-10 unknown field in the signed manifest ⇒ refused:upd_bad_manifest
+00:00 +24: test/native_update_test.dart: NU-02 NUV-11 plain-http artifact URL ⇒ refused:upd_bad_manifest
+00:00 +25: test/native_update_test.dart: NU-02 NUV-12 no artifact for this platform ⇒ refused:upd_no_artifact
+00:00 +26: test/native_update_test.dart: NU-02 NUV-13 envelope is not JSON ⇒ refused:upd_bad_envelope
+00:00 +27: test/native_update_test.dart: NU-02 NUV-14 truncated signature ⇒ refused:upd_bad_signature
+00:00 +28: test/native_update_test.dart: NU-03 pilot default: auto-install OFF (PAYESH_UPDATE_AUTO unset)
+00:00 +29: test/native_update_test.dart: NU-04 downgrade forbidden even below the highest build ever seen
+00:00 +30: test/native_update_test.dart: NU-05 artifact staging (hash + size from the signed manifest) good artifact is promoted to update-58.apk
+00:00 +31: test/native_update_test.dart: NU-05 artifact staging (hash + size from the signed manifest) NEGATIVE: one flipped byte ⇒ upd_bad_hash, nothing left on disk
+00:00 +32: test/native_update_test.dart: NU-05 artifact staging (hash + size from the signed manifest) NEGATIVE: longer / shorter body ⇒ upd_bad_size, nothing left
+00:00 +33: test/native_update_test.dart: NU-05 artifact staging (hash + size from the signed manifest) kill-switch: discardAll removes staged files only
+00:00 +34: test/native_update_test.dart: NU-06 server kill-switch: 503 feature_disabled ⇒ Halted; other errors ⇒ Refused
+00:00 +35: test/native_update_test.dart: NU-07 rollback: a build that never confirms health goes back to the previous one
+00:00 +36: test/native_update_test.dart: NU-08 healthy start clears the pending build; no rollback, no re-install of older builds
+00:00 +37: test/native_update_test.dart: NU-09 a key rotation: two pinned keys, either verifies; config is immutable
+00:00 +38: test/native_update_test.dart: NU-10 malformed envelopes and manifests are refused with stable codes
+00:00 +39: loading test/legacy_windows_trust_test.dart
+00:00 +39: test/legacy_windows_trust_test.dart: Windows version detection (Platform.operatingSystemVersion formats)
+00:00 +40: test/legacy_windows_trust_test.dart: Android API levels: 5.0-7.0 (21-24) and unknown need the bundled roots
+00:00 +41: test/legacy_windows_trust_test.dart: every bundled root parses and is added to an empty context
+00:00 +42: test/legacy_windows_trust_test.dart: no-op where the system store is current (not Windows 7/8, not Android < 7.1)
+00:00 +43: test/legacy_windows_trust_test.dart: the bundle contains the roots our hosts chain to
+00:00 +44: loading test/e2e1_test.dart
+00:01 +44: test/e2e1_test.dart: E1D-01 X25519 matches RFC 7748 §6.1
+00:01 +45: test/e2e1_test.dart: E1D-02 scope key derivation equals the JS vectors
+00:01 +46: test/e2e1_test.dart: E1D-03 record envelope: deterministic seal equals the JS vector; 4 readers open it
+00:01 +47: test/e2e1_test.dart: E1D-04 NEGATIVE record vectors refused with the same codes as JS
+00:01 +48: test/e2e1_test.dart: E1D-05 grants equal the JS vectors; SMK keyring and scope keyring open the record
+00:01 +49: test/e2e1_test.dart: E1D-06 random sealing round-trips (Persian text, 64 KiB) and is non-deterministic
+00:01 +50: test/e2e1_test.dart: E1D-07 NEGATIVE malformed input fails closed
+00:01 +51: test/e2e1_test.dart: E1D-08 rotation: the old class generation cannot open a row re-sealed to gen+1
+00:01 +52: All tests passed!
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:14:40Z
+DURATION_S=4

@@ -1,0 +1,90 @@
+ENV-01 PC toolchain audit (row 176) 2026-11-24T04:19:38Z
+OS: Microsoft Windows 11 Enterprise 10.0.22631 build 22631
+CPU: AMD Ryzen 7 PRO 3700U w/ Radeon Vega Mobile Gfx cores=4 threads=8 VirtualizationFirmwareEnabled=True
+RAM_GB: 13.9 free_GB: 3.8
+Disk: SK hynix SC300 SATA 256GB SSD 238GB
+Drive C: free_GB=27.2
+
+### WSL
+> wsl --status
+Default Distribution: Ubuntu
+
+Default Version: 2
+
+
+
+### docker
+> docker version
+Client:
+ Version:           29.8.2
+ API version:       1.56
+ Go version:        go1.26.8
+ Git commit:        7fc2dff
+ Built:             Wed Sep 30 19:35:42 2026
+ OS/Arch:           windows/amd64
+ Context:           desktop-linux
+
+Server: Docker Desktop 4.95.0 (242831)
+ Engine:
+  Version:          29.8.2
+  API version:      1.56 (minimum version 1.40)
+  Go version:       go1.26.8
+  Git commit:       8af9fe3
+  Built:            Wed Sep 30 19:32:25 2026
+  OS/Arch:          linux/amd64
+  Experimental:     false
+ containerd:
+  Version:          v2.3.6
+  GitCommit:        ee2735368117d2eb259779949d5e75cdafec9761
+ runc:
+  Version:          1.5.1
+  GitCommit:        v1.5.1-0-g8f2685a4
+ docker-init:
+  Version:          0.19.0
+  GitCommit:        de40ad0
+
+### compose
+> docker compose version
+Docker Compose version v5.6.0
+
+### git
+> git --version
+git version 2.55.0.windows.3
+
+### node
+> node --version
+v24.21.0
+
+### npm
+> npm --version
+11.19.0
+
+### dart
+> dart --version
+'dart' is not recognized as an internal or external command,
+operable program or batch file.
+
+### java
+> java -version
+java version "1.8.0_503"
+Java(TM) SE Runtime Environment (build 1.8.0_503-b01)
+Java HotSpot(TM) 64-Bit Server VM (build 25.503-b01, mixed mode)
+
+### openssl
+> openssl version
+'openssl' is not recognized as an internal or external command,
+operable program or batch file.
+
+### adb
+> C:\Users\R.M\psim\adb\platform-tools\adb.exe devices -l
+List of devices attached
+NVCYXCF6YHKNFIJF       device product:rodin_global model:2412DPC0AG device:rodin transport_id:6
+
+
+### PowerShell
+5.1.22621.4391
+
+### VS C++
+> "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property displayName
+Visual Studio Build Tools 2026
+

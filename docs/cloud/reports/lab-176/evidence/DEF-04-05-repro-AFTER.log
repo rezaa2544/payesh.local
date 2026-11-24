@@ -1,0 +1,17 @@
+TEST_ID=DEF-04-05-repro-AFTER
+PURPOSE=same repro as DEF-04-05-repro, on the fixed tree (expect NOT-REPRO for both)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=node ~/lab176/scripts/def04-05-repro.js
+START=2026-11-24T04:16:58Z
+----- RAW -----
+setup 200 true
+login/logout cycles: 1:200 2:200 3:200 4:200 5:200 6:200 7:200 8:200 9:200 10:200 11:200 12:200
+NOT-REPRO D-04  never blocked
+admin/devices status 200 total 14 active 2 distinct user_name/role: ["Repro Manager/manager"]
+NOT-REPRO D-05  every device row shows user_name/role "—/—" although all belong to manager "Repro Manager"
+REPRO-INCOMPLETE
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:17:16Z
+DURATION_S=18

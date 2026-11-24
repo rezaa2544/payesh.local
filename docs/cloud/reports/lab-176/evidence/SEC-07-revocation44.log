@@ -1,0 +1,24 @@
+TEST_ID=SEC-07-revocation44
+PURPOSE=token/session revocation
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=npm run test:revocation
+START=2026-11-24T03:26:38Z
+----- RAW -----
+
+> payesh-local@0.9.31 test:revocation
+> node --experimental-sqlite --disable-warning=ExperimentalWarning tests/revocation-44.js
+
+PASS  RV-01  ساخت کاربر و دستگاه + نشست معتبر (پیش‌نیاز)  → device=7e57c4119044e4da50cce95c session=valid
+PASS  RV-02  نشست و دستگاه پیش از ابطال هر دو معتبرند  → role=manager revoked_at=null
+PASS  RV-03  ابطال سمت سرور بی‌درنگ اثر می‌کند (W1) — بدون نیاز به دستگاه  → session=null refresh=device_revoked
+PASS  RV-04  حتی اگر ردیف نشست از ابطال جا بماند، دستگاه ابطال‌شده نشست نمی‌دهد  → device=25d119889efa689507f77408 live_session=yes verdict=rejected user=1
+PASS  RV-05  دستگاه ابطال‌شده در فهرست دستگاه‌ها با revoked=true دیده می‌شود  → devices=2 revoked=2
+PASS  RV-06  ابطال همهٔ نشست‌های کاربر، ابطال دستگاه را لازم نمی‌کند (تفکیک دو کنترل)  → revoked_sessions=2 device_revoke=independent
+
+RV checks=6 pass=6 fail=0
+REVOCATION-44-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:26:38Z
+DURATION_S=0

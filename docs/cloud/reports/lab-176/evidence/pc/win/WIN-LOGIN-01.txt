@@ -1,0 +1,11 @@
+WIN-LOGIN-01 start 2026-11-24T03:31:49Z rect=12,12,1600,900
+typed user len=11 at 502 434
+typed pw len=10 at 502 508
+clicked login at 502 652
+waited 8s
+SHOT C:\lab\evidence\win\shots\WIN-LOGIN-01-after.png 1600x900
+RELAY-TAIL:
+{"t":"2026-11-24T03:23:02.961Z","from":"undefined:undefined","up":88,"down":1277,"ms":19,"why":"client-close"}
+{"t":"2026-11-24T03:29:32.496Z","from":"undefined:undefined","up":445,"down":2206,"ms":6125,"why":"client-close"}
+{"t":"2026-11-24T03:31:57.335Z","from":"undefined:undefined","up":702,"down":2034,"ms":6333,"why":"client-close"}
+{"t":"2026-11-24T03:31:57.432Z","from":"undefined:undefined","up":395,"down":2926,"ms":6053,"why":"client-close"}

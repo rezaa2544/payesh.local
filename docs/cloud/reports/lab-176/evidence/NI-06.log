@@ -1,0 +1,27 @@
+TEST_ID=NI-06
+PURPOSE=CI native-client/engine-web-conformance step: outbox-v1 vectors on client/outbox-web.js (IndexedDB)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  3 files changed, 25 insertions(+), 8 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=bash /tmp/ni-step-06.sh
+START=2026-11-24T04:19:16Z
+----- RAW -----
+
+outbox conformance outbox-v1 v1 — web outbox (IndexedDB)
+
+  ✓ enqueue is idempotent on k and the queue is FIFO by seq
+  ✓ full queue refuses the new op and never evicts an old one
+  ✓ claim respects batch limit, lease and backoff windows
+  ✓ exponential backoff capped at maxBackoff; maxAttempts → blocked; retry resets
+  ✓ recover returns expired leases to pending (crash/restart)
+  ✓ drain routes verdicts by uid; no verdict keeps the op queued
+  ✓ drain: conflict acks; network error fails the whole batch and stops
+  ✓ wire format matches Sync v1 push op
+  ✓ row 119: FIFO barrier — a later op never overtakes an earlier op in backoff
+  ✓ row 119: transient failures (offline, timeout, 429, 5xx) never block; capped backoff; a non-transient failure past maxAttempts still blocks
+
+  10 passed, 0 failed (cases=10)
+CONFORMANCE-OUTBOX-WEB-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T04:19:16Z
+DURATION_S=0

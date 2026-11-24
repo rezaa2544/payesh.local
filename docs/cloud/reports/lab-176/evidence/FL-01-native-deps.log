@@ -1,0 +1,12 @@
+TEST_ID=FL-01-native-deps
+PURPOSE=no WebView/JS package in pubspec.lock (CI native-deps)
+SHA=bd447dc402bf916df4f7ca2cc9d4f7f7ae5939df (+ working-tree diff raw/FIX-D01-D02.diff:  2 files changed, 13 insertions(+), 7 deletions(-))
+ENV=sandbox Linux 6.1.189+ node v22.23.5 npm 10.9.9 pg 17.11
+CMD=cd apps/payesh && if grep -nEi '^  (webview[a-z_]*|[a-z_]*_webview[a-z_]*|flutter_inappwebview[a-z_]*|flutter_js|flutter_qjs|nodejs[a-z_]*|capacitor[a-z_]*|cordova[a-z_]*):' pubspec.lock; then echo NATIVE-DEPS-FAIL; exit 1; fi; echo NATIVE-DEPS-OK
+START=2026-11-24T03:32:36Z
+----- RAW -----
+NATIVE-DEPS-OK
+----- END RAW -----
+EXIT=0
+END=2026-11-24T03:32:36Z
+DURATION_S=0

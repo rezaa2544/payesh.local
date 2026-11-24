@@ -1,0 +1,10 @@
+﻿[2026-11-24T06:39:29.901+03:30] AND-CRASH-01 + NET-UID-01 (privacy: only lab UIDs are printed)
+UID ir.payesh.owner.lab176 = 11166
+UID ir.payesh.school.payesh_app.lab176 = 11167
+crash buffer lines mentioning lab176: 0
+FATAL EXCEPTION / ANR in for lab176 (main,system,events): 0
+dropbox app crash/anr/native entries mentioning lab176: 0
+netstats lines for uid=11167 (ir.payesh.school.payesh_app.lab176): 1
+    uid=11167 set=1
+netstats lines for uid=11166 (ir.payesh.owner.lab176): 0
+netstats current ifaces: 

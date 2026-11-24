@@ -1,0 +1,56 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/offline_119_test.dart
+00:00 +0: test/offline_119_test.dart: (setUpAll)
+00:00 +0: test/offline_119_test.dart: O119-S01 internet lost BEFORE send: nothing reaches the server, ops kept, status offline
+PASS  O119-S01  refused=2 server_rows=0 status="آفلاین — 5 مورد در صف ارسال"
+00:00 +1: test/offline_119_test.dart: O119-S02 internet RETURNS: automatic send after notifyOnline, exactly once, status idle
+PASS  O119-S02  data_loss=0 duplicate=0 order=ok rows=5
+00:00 +2: test/offline_119_test.dart: O119-S03 internet lost DURING send (cut mid-request): no partial write, then exactly once
+PASS  O119-S03  first=network data_loss=0 duplicate=0 order=ok rows=5
+00:00 +3: test/offline_119_test.dart: O119-S04 internet lost AFTER send (server applied, verdict lost): retry is a duplicate, not a second write
+PASS  O119-S04  retry_verdicts=duplicate×5 data_loss=0 duplicate=0 order=ok rows=5
+00:00 +4: test/offline_119_test.dart: O119-S05 Gateway DOWN (process killed) then restarted: ops kept, then exactly once
+PASS  O119-S05  down=network data_loss=0 duplicate=0 order=ok rows=5
+00:01 +5: test/offline_119_test.dart: O119-S06 DATABASE down: readyz 503, 5xx are transient — never blocked after > maxAttempts; DB back → exactly once
+PASS  O119-S06  stopped={quota_unavailable} attempts=5>maxAttempts blocked=0 data_loss=0 duplicate=0 order=ok rows=5
+00:01 +6: test/offline_119_test.dart: O119-S07 HTTP 429 + Retry-After: client waits at least Retry-After, then exactly once
+PASS  O119-S07  stopped=rate_limited next_at≥+2000ms data_loss=0 duplicate=0 order=ok rows=3
+00:01 +7: test/offline_119_test.dart: O119-S08 HTTP 500 / 502 / 503: transient backoff, never blocked, then exactly once
+PASS  O119-S08  4×5xx attempts=4>maxAttempts blocked=0 data_loss=0 duplicate=0 order=ok rows=3
+00:01 +8: test/offline_119_test.dart: O119-S09 TIMEOUT (blackhole link): transient, ops kept, then exactly once
+PASS  O119-S09  error=timeout data_loss=0 duplicate=0 order=ok rows=3
+00:02 +9: test/offline_119_test.dart: O119-S10 CONGESTION (slow link, 300 ops): batched by batchLimit, no duplicate, order kept
+PASS  O119-S10  batches=3 data_loss=0 duplicate=0 order=ok rows=300
+00:03 +10: test/offline_119_test.dart: O119-S11 APP RESTART mid-send: separate app process SIGKILLed while its request is on the wire; reopen file → exactly once
+PASS  O119-S11  killed=SIGKILL recovered=10 data_loss=0 duplicate=0 order=ok rows=10
+00:07 +11: test/offline_119_test.dart: O119-S12 restart while OFFLINE: queue file closed and reopened, pending intact, then exactly once
+PASS  O119-S12  reopened pending=5 data_loss=0 duplicate=0 order=ok rows=5
+00:07 +12: test/offline_119_test.dart: O119-S13 AUTOMATIC queue run: enqueue only — AutoSync sends without any manual call; status stream shows it
+PASS  O119-S13  phases={idle, queued, syncing} data_loss=0 duplicate=0 order=ok rows=4
+00:07 +13: test/offline_119_test.dart: O119-S14 RETRY of an already executed op (same k re-queued): server answers duplicate, version stays 1
+PASS  O119-S14  duplicate×5 data_loss=0 duplicate=0 order=ok rows=5
+00:07 +14: test/offline_119_test.dart: O119-S15 DEPENDENT ORDER: a later op (references class) never overtakes the earlier op in backoff
+PASS  O119-S15  early_claimed=0 seq(class)=430 < seq(dependent)=431
+00:07 +15: test/offline_119_test.dart: O119-S16 TWO-DEVICE conflict: second writer gets a conflict, its edit is kept for review (and a later queued edit superseded), server keeps v2
+PASS  O119-S16  review=[conflict, superseded] data_loss=0 duplicate=0 order=ok rows=1
+00:07 +16: test/offline_119_test.dart: O119-S17 CROSS-SCHOOL: school B never sees school A rows; B writing the same ids does not touch A
+PASS  O119-S17  b_rows=1 leaked_a_rows=0 a_rows=356 data_loss=0 duplicate=0 order=ok rows=1
+00:07 +17: test/offline_119_test.dart: O119-S18 SENSITIVE DATA authorization: parent pulls only own child grades; forbidden write → visible "attention", bounded retries
+PASS  O119-S18  parent_grades=[2402] forbidden_requests=3 status="1 مورد نیاز به بررسی دارد"
+00:10 +18: test/offline_119_test.dart: O119-S19 connection LOST AGAIN mid-sync (after 2 of 6 batches): acked part stays acked, rest resent, exactly once, order kept
+PASS  O119-S19  first_applied=50 resent=100 (dup_verdicts=25) data_loss=0 duplicate=0 order=ok rows=150
+00:10 +19: test/offline_119_test.dart: O119-S20 NO RETRY STORM: 8 devices through an outage — bounded attempts; on return arrivals are spread; all exactly once
+PASS  O119-S20  attempts_during_5s_outage=42 (8 devices) return_spread=480ms per_device: data_loss=0 duplicate=0 order=ok rows=3 ×8
+00:16 +20: test/offline_119_test.dart: (tearDownAll)
+OFFLINE-119 scenarios=20 data_loss=0 duplicate=0 order_violations=0 cross_tenant=0
+00:16 +20: loading test/auto_sync_test.dart
+00:16 +20: test/auto_sync_test.dart: runs automatically after enqueue — no manual drain call
+00:16 +21: test/auto_sync_test.dart: offline: status offline with pending count; notifyOnline sends everything once
+00:16 +22: test/auto_sync_test.dart: an all-in-backoff cycle (nothing claimed) does not flip "offline" back to "synced"
+00:16 +23: test/auto_sync_test.dart: no retry storm: a 1 s outage costs a bounded number of cycles and requests
+00:17 +24: test/auto_sync_test.dart: transient failures (network/429/5xx) never block, even far beyond maxAttempts
+00:19 +25: test/auto_sync_test.dart: non-transient failure (403) blocks after maxAttempts and shows "attention"
+00:19 +26: test/auto_sync_test.dart: FIFO: a later op never overtakes an earlier op that is in backoff
+00:19 +27: test/auto_sync_test.dart: restart: pending ops in a file-backed outbox survive close/reopen and are sent once
+00:19 +28: test/auto_sync_test.dart: notifyOnline spreads wake-ups (seeded Random): 40 devices are not scheduled in lockstep
+00:20 +29: test/auto_sync_test.dart: status stream: every phase change is published with a Persian label
+00:20 +30: All tests passed!

@@ -1,0 +1,42 @@
+﻿[2026-11-24T06:24:23.309+03:30] DRIVE OWN-01-local-setup-b
+  sh> am force-stop ir.payesh.owner.lab176
+  sh> monkey -p ir.payesh.owner.lab176 -c android.intent.category.LAUNCHER 1
+      bash arg: -p
+      bash arg: ir.payesh.owner.lab176
+      bash arg: -c
+      bash arg: android.intent.category.LAUNCHER
+      bash arg: 1
+    args: [-p, ir.payesh.owner.lab176, -c, android.intent.category.LAUNCHER, 1]
+     arg: "-p"
+     arg: "ir.payesh.owner.lab176"
+     arg: "-c"
+     arg: "android.intent.category.LAUNCHER"
+     arg: "1"
+    data="ir.payesh.owner.lab176"
+    data="android.intent.category.LAUNCHER"
+    Events injected: 1
+    ## Network stats: elapsed time=75ms (0ms mobile, 0ms wifi, 75ms not connected)
+  xy 610,1465
+  secret <owner_local_id>
+  xy 610,1666
+  secret <owner_local_pw>
+  xy 610,1868
+  secret <owner_local_code>
+  back
+  UI[OWN-01-local-setup-b-1] 'پنل مالک پلتفرم پایش' android.view.View [680,177][1168,265] clickable=false
+  UI[OWN-01-local-setup-b-1] 'پوسته: سیستم' android.widget.Button [0,143][156,299] clickable=true
+  UI[OWN-01-local-setup-b-1] 'تعریف حساب مالک' android.view.View [104,1055][1116,1137] clickable=false
+  UI[OWN-01-local-setup-b-1] 'این کار فقط یک‌بار انجام می‌شود. شناسه، رمز عبور و کد دومرحله‌ای فقط روی همین دستگاه و به‌صورت رمزنگاری‌شده نگه داشته می‌شوند. ورود بعدی به اینترنت نیاز ندارد.' android.view.View [104,1150][1116,1325] clickable=false
+  [REDACTED UI line: contained lab credential]
+  UI[OWN-01-local-setup-b-1] 'ذخیره و ورود' android.widget.Button [753,1995][1116,2151] clickable=true
+  xy 934,2073
+  UI[OWN-01-local-setup-b-2] 'پنل مالک پلتفرم پایش' android.view.View [680,177][1168,265] clickable=false
+  UI[OWN-01-local-setup-b-2] 'پوسته: سیستم' android.widget.Button [0,143][156,299] clickable=true
+  UI[OWN-01-local-setup-b-2] 'تعریف حساب مالک' android.view.View [104,948][1116,1029] clickable=false
+  UI[OWN-01-local-setup-b-2] 'این کار فقط یک‌بار انجام می‌شود. شناسه، رمز عبور و کد دومرحله‌ای فقط روی همین دستگاه و به‌صورت رمزنگاری‌شده نگه داشته می‌شوند. ورود بعدی به اینترنت نیاز ندارد.' android.view.View [104,1042][1116,1218] clickable=false
+  UI[OWN-01-local-setup-b-2] 'رمز عبور باید دست‌کم 8 نویسه باشد.' android.view.View [104,1257][1116,1354] clickable=false
+  [REDACTED UI line: contained lab credential]
+  UI[OWN-01-local-setup-b-2] 'این کادر را بررسی و اصلاح کنید' android.view.View [651,1744][1064,1790] clickable=false
+  UI[OWN-01-local-setup-b-2] 'این کادر را پر کنید' android.view.View [825,2004][1064,2050] clickable=false
+  UI[OWN-01-local-setup-b-2] 'ذخیره و ورود' android.widget.Button [753,2102][1116,2258] clickable=true
+[2026-11-24T06:24:48.952+03:30] END OWN-01-local-setup-b
