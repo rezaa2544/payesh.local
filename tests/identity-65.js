@@ -51,6 +51,8 @@ async function startServer(root, label) {
       PORT: String(port), HOST: '0.0.0.0', PAYESH_DATA: data, PAYESH_LOG: '0',
       PAYESH_AUTO_BACKUP: '0', PAYESH_UPDATE_AUTO: '0', PAYESH_LIVE_MS: '0',
       PAYESH_OUTBOX_AUTO: '0', PAYESH_CLOUD_AUTO: '0', PAYESH_MIRROR: '0',
+      // row 176 (D-08): HOST=0.0.0.0 turns on ingress => auto quick tunnel (real cloudflared to Cloudflare). Tests must never open public tunnels.
+      PAYESH_TUNNEL_AUTO: '0', PAYESH_CLOUDFLARE: '0',
       PAYESH_REFRESH_GRACE_SEC: String(GRACE_SEC), PAYESH_DEVICE_CAP: String(CAP),
       PAYESH_ACCESS_TTL_MIN: '', PAYESH_DEVICE_STALE_DAYS: '', PAYESH_DEVICE_DAYS: '',
     }),

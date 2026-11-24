@@ -161,6 +161,8 @@ async function startServer(headless) {
   const env = Object.assign({}, process.env, {
     PORT: String(port), HOST: '0.0.0.0', PAYESH_DATA: dir, PAYESH_LOG: '0', PAYESH_AUTO_BACKUP: '0', PAYESH_UPDATE_AUTO: '0',
     PAYESH_LIVE_MS: '0', PAYESH_OUTBOX_AUTO: '0', PAYESH_CLOUD_AUTO: '0', PAYESH_MIRROR: '0',
+    // row 176 (D-08): HOST=0.0.0.0 turns on ingress => auto quick tunnel; tests must never open public tunnels.
+    PAYESH_TUNNEL_AUTO: '0', PAYESH_CLOUDFLARE: '0',
   });
   if (headless) env.PAYESH_HEADLESS = '1'; else delete env.PAYESH_HEADLESS;
   const child = spawn(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', 'server/index.js'], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
