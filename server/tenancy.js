@@ -31,6 +31,8 @@ const PRODUCT_TABLE = 'product_records';
 const JOBS_TABLE = 'product_jobs';
 /* ردیف ۳۶: جدول change-feed هر مدرسه (seq صعودی، ایندکس مکان‌نما، retention) */
 const FEED_TABLE = 'product_change_feed';
+/* row 178: change notification to every Gateway instance (delivered on COMMIT only) */
+const NOTIFY_SQL = "select pg_notify('payesh_gw_feed', json_build_object('t', current_setting('app.tenant_id'), 's', (select coalesce(max(seq), 0) from product_change_feed where tenant_id = current_setting('app.tenant_id')::uuid), 'c', $1::text[])::text)";
 const FEED_DEFAULT_KEEP_DAYS = 30;
 const FEED_MAX_KEEP_DAYS = 365;
 const FEED_DEFAULT_LIMIT = 200;
@@ -776,10 +778,8 @@ async function applyOps(pool, tenantId, { ops = [], device_id = null, claims = n
        commit تحویل می‌شود و با rollback هیچ اعلانی نمی‌رود. فقط نام مجموعه‌ها، نه داده. */
     const changed = [...new Set(applied.filter(a => !a.missing).map(a => a.collection).filter(Boolean))].slice(0, 40);
     if (changed.length) {
-      await c.query(
-        `select pg_notify('payesh_gw_feed', json_build_object('t', current_setting('app.tenant_id'),
-           's', (select coalesce(max(seq), 0) from ${FEED_TABLE} where tenant_id = current_setting('app.tenant_id')::uuid),
-           'c', $1::text[])::text)`, [changed]);
+      /* plain literal (FEED_TABLE = 'product_change_feed'): no SQL built from strings */
+      await c.query(NOTIFY_SQL, [changed]);
     }
     return {
       applied, duplicates, conflicts,

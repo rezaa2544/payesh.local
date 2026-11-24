@@ -213,6 +213,11 @@ async function unit() {
     assert.strictEqual(gwEvents.parsePayload('{"t":"a","s":"x"}'), null);
     assert.deepStrictEqual(gwEvents.parsePayload('{"t":"a","s":3,"c":["ok_1","Bad","../x"]}'), { tenant: 'a', seq: 3, topics: ['ok_1'] });
     assert.deepStrictEqual(gwEvents.parseTopics('a1, homework ,DROP,x'), ['a1', 'homework']);
+    /* the channel name is written as a literal in gateway.js (LISTEN) and tenancy.js (pg_notify) */
+    const fs = require('node:fs');
+    assert.strictEqual(gwEvents.CHANNEL, 'payesh_gw_feed');
+    assert.ok(fs.readFileSync(path.join(ROOT, 'server/gateway.js'), 'utf8').includes("'LISTEN payesh_gw_feed'"));
+    assert.ok(fs.readFileSync(path.join(ROOT, 'server/tenancy.js'), 'utf8').includes("pg_notify('payesh_gw_feed'"));
     return 'ok';
   });
 }

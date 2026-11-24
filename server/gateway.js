@@ -119,7 +119,7 @@ const gwEvents = gwEventsModule.create({
     c.on('end', gone);
     c.on('notification', (n) => { if (n && n.channel === gwEventsModule.CHANNEL) onPayload(n.payload); });
     await c.connect();
-    await c.query('LISTEN ' + gwEventsModule.CHANNEL);
+    await c.query('LISTEN payesh_gw_feed');   /* = gwEventsModule.CHANNEL (literal: no SQL built from strings) */
     return { close: () => { lost = true; return c.end().catch(() => {}); } };
   } : null,
   pollMs: Number(process.env.GW_EVENTS_POLL_MS || 60000),
