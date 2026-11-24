@@ -121,6 +121,30 @@ check('CB-06', 'کنترل منفی: تزریق pg_advisory_lock / LISTEN / SET 
   }
 });
 
+check('CB-06b', 'row 178: the Gateway LISTEN exception holds only for a dedicated direct connection (GW_LISTEN_PGURL); LISTEN on the pool / PGURL is still caught', () => {
+  const real = mod.auditSessionState(['server/gateway.js']);
+  assert(real.length === 0, 'real gateway.js: ' + JSON.stringify(real));
+  const src = fs.readFileSync(path.join(ROOT, 'server/gateway.js'), 'utf8');
+  const mutants = {
+    'pool LISTEN': src + "\nasync function bad() { await pool.query('LISTEN payesh_gw_feed'); }\n",
+    'PGURL listener': src.replace(/connectionString:\s*LISTEN_PGURL\b/, 'connectionString: PGURL'),
+    'no direct url': src.replace(/process\.env\.GW_LISTEN_PGURL/g, 'process.env.PGURL'),
+  };
+  const caught = [];
+  for (const [name, body] of Object.entries(mutants)) {
+    const rel = 'server/gateway.js';
+    const ex = mod.SESSION_EXCEPTIONS.find(e => e.file === rel);
+    assert(ex && !ex.verify(body.split('\n').map(l => l.replace(/(^|[^:])\/\/.*$/, '$1')).join('\n')), 'mutant accepted: ' + name);
+    caught.push(name);
+  }
+  const other = 'server/__nc_listen2.js';
+  try {
+    fs.writeFileSync(path.join(ROOT, other), "const LISTEN_PGURL = process.env.GW_LISTEN_PGURL; new Client({ connectionString: LISTEN_PGURL }); c.query('LISTEN x_feed');\n");
+    assert(mod.auditSessionState([other]).length === 1, 'the exception is bound to server/gateway.js only');
+  } finally { try { fs.unlinkSync(path.join(ROOT, other)); } catch (e) { /* noop */ } }
+  return 'exception verified; mutants caught: ' + caught.join(', ') + '; other file still flagged';
+});
+
 /* ── ۴) انطباق PgBouncer ── */
 /* بودجهٔ توصیه‌شدهٔ استقرار: ۲ نمونه × pool ۱۲ (+۲ ذخیره) با ظرفیت ۱۰۰ */
 const budget = mod.computeBudget({ instances: 2, pool: 12, cap: 100 });

@@ -107,12 +107,17 @@ if (REPLICA_URL) {
 }
 
 /* ردیف ۱۷۸: اعلان تغییر برای دستگاه‌هایی که از اینترنت (Gateway) همگام می‌شوند.
-   یک اتصال LISTEN برای هر نمونه، فقط وقتی دست‌کم یک stream باز است. */
+   ۱) همین نمونه: پس از push موفق، فوری و بدون هیچ کوئری اضافه (seq از همان تراکنش push).
+   ۲) نمونه‌های دیگر: LISTEN فقط روی اتصال «مستقیم» جدا (GW_LISTEN_PGURL، هرگز از PgBouncer —
+      transaction pooling نشست ندارد؛ ردیف ۴۵). بدون آن: نگاه پشتیبان max(seq) هر ۱۵ ثانیه.
+   یک اتصال برای هر نمونه، فقط وقتی دست‌کم یک stream باز است. */
+const LISTEN_PGURL = String(process.env.GW_LISTEN_PGURL || '').trim();
 const gwEvents = gwEventsModule.create({
   probe: (tid) => tenancy.maxFeedSeq(pool, tid),
-  listen: PGURL ? async (onPayload, onLost) => {
+  listen: LISTEN_PGURL ? async (onPayload, onLost) => {
     const { Client } = require('pg');
-    const c = new Client({ connectionString: PGURL, application_name: 'payesh-gateway-listen' });
+    /* dedicated direct session (not the pool, not PgBouncer) */
+    const c = new Client({ connectionString: LISTEN_PGURL, application_name: 'payesh-gateway-listen' });
     let lost = false;
     const gone = () => { if (!lost) { lost = true; onLost(); } };
     c.on('error', gone);
@@ -513,6 +518,8 @@ async function handle(req, res, url) {
         return json(res, 409, { ok: false, error: 'write_frozen', detail: 'tenant is being transferred' }, quotaHeaders);
       }
       const out = await tenancy.applyOps(pool, tenantId, { ops, device_id: deviceId, claims });
+      /* row 178: same-instance devices hear it at once (no extra query; seq from the push tx) */
+      if (out.notify) gwEvents.notify(tenantId, out.notify.seq, out.notify.topics);
       /* ناوردای read-your-writes: بزرگ‌ترین seq این دستگاه ثبت می‌شود.
          فقط وقتی replica وجود دارد لازم است (بدون replica همه‌چیز primary است). */
       if (REPLICA_URL) {

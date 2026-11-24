@@ -238,13 +238,13 @@ async function pg() {
   const H = (t, did = 'dev-178') => ({ authorization: 'Bearer ' + token(t, did), 'x-device-id': did, 'content-type': 'application/json' });
   const children = [];
   const freePort = () => new Promise((res, rej) => { const s = net.createServer(); s.on('error', rej); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); });
-  async function startGw(name) {
+  async function startGw(name, extra = {}) {
     const port = await freePort();
     const child = spawn(process.execPath, ['server/gateway.js'], {
       cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'],
       env: Object.assign({}, process.env, { PORT: String(port), HOST: '127.0.0.1', PGURL: RUNTIME, GW_SECRET: SECRET,
         GW_INSTANCE: 'ge178-' + name, GW_QUOTA_MAX: '100000', GW_QUOTA_WINDOW_SEC: '3600', PAYESH_LOG: '0', GW_ACCESS_LOG: '0',
-        PAYESH_FEATURE_KILL: '', PAYESH_CLIENT_KILL: '' }),
+        PAYESH_FEATURE_KILL: '', PAYESH_CLIENT_KILL: '' }, extra),
     });
     children.push(child);
     child.err = ''; child.stderr.on('data', d => { child.err += String(d); });
@@ -259,7 +259,10 @@ async function pg() {
   }
   const push = (gw, t, ops) => fetch(gw.base + '/api/gw/v1/push', { method: 'POST', headers: H(t), body: JSON.stringify({ ops }) }).then(async r => ({ status: r.status, data: await r.json() }));
   try {
-    const A = await startGw('a'), B = await startGw('b');
+    /* A/B: multi-instance deployment ⇒ a dedicated direct LISTEN url (here the same DB; in production
+       a direct port, never PgBouncer). C: single-instance deployment, no LISTEN url at all. */
+    const A = await startGw('a', { GW_LISTEN_PGURL: RUNTIME }), B = await startGw('b', { GW_LISTEN_PGURL: RUNTIME });
+    const C = await startGw('c', { GW_LISTEN_PGURL: '' });
     const T1 = tid(1), T2 = tid(2);
 
     await test('GE-PG-01', '401 without a token; with a token the stream opens with hello', async () => {
@@ -309,6 +312,22 @@ async function pg() {
       assert.strictEqual(of(s, 'change').length, 0, JSON.stringify(of(s, 'change')));
       s.close();
       return 'bad=' + bad.status + ', duplicate silent';
+    });
+
+    await test('GE-PG-04', 'without GW_LISTEN_PGURL (PgBouncer / single instance): a push on the same instance is announced at once with no LISTEN session; the push response does not leak the internal notify', async () => {
+      const T3 = tid(3);
+      const s = await sse(C.base + '/api/gw/v1/events?since=0', H(T3, 'dev-d'));
+      await waitFor(() => of(s, 'hello').length, 5000);
+      const t0 = Date.now();
+      const r = await push(C, T3, [{ uid: 'ge-' + RUN + '-4', collection: 'attendance', id: 4, type: 'put', data: { p: 1 } }]);
+      assert.strictEqual(r.status, 200, JSON.stringify(r.data));
+      assert.ok(!('notify' in r.data), 'internal notify is not serialized');
+      const ch = await waitFor(() => of(s, 'change')[0], 1500);
+      assert.ok(ch, 'change on the same instance');
+      assert.deepStrictEqual(ch.topics, ['attendance']);
+      const listens = await admin.query("select count(*)::int as n from pg_stat_activity where application_name = 'payesh-gateway-listen'");
+      s.close();
+      return `${Date.now() - t0} ms, seq=${ch.seq}, listen sessions in DB=${listens.rows[0].n} (A/B only)`;
     });
   } finally {
     for (const c of children) { try { c.kill('SIGKILL'); } catch (e) { /* gone */ } }

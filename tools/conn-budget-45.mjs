@@ -79,7 +79,21 @@ const SESSION_PATTERNS = [
   { id: 'session_prepare', re: /\bPREPARE\s+[a-z_]/i },
 ];
 
-export function auditSessionState(files) {
+/* استثنای بازبینی‌شده و قابل‌وارسی (ردیف ۱۷۸): LISTEN اعلان تغییر Gateway روی اتصال «مستقیم» جدا
+   (GW_LISTEN_PGURL) است، نه روی pool یا PgBouncer. فقط وقتی پذیرفته می‌شود که همان فایل اتصال
+   LISTEN را با GW_LISTEN_PGURL بسازد و هرگز LISTEN را روی pool/PGURL نفرستد. */
+export const SESSION_EXCEPTIONS = [
+  {
+    file: 'server/gateway.js', pattern: 'listen_notify',
+    why: 'dedicated direct LISTEN connection (GW_LISTEN_PGURL), never the pool / PgBouncer',
+    verify: (text) => /process\.env\.GW_LISTEN_PGURL/.test(text) &&
+      /new Client\(\{\s*connectionString:\s*LISTEN_PGURL\b/.test(text) &&
+      !/(pool|replicaPool|platformPool)\.query\(\s*['"`]LISTEN/i.test(text) &&
+      !/connectionString:\s*PGURL[^\n]*payesh-gateway-listen/.test(text),
+  },
+];
+
+export function auditSessionState(files, exceptions = SESSION_EXCEPTIONS) {
   const hits = [];
   for (const rel of files) {
     let text = '';
@@ -88,7 +102,10 @@ export function auditSessionState(files) {
     const withoutComments = text.split('\n').map(l => l.replace(/(^|[^:])\/\/.*$/, '$1')).join('\n');
     for (const p of SESSION_PATTERNS) {
       const m = p.re.exec(withoutComments);
-      if (m) hits.push({ file: rel, pattern: p.id, sample: String(m[0]).slice(0, 60) });
+      if (!m) continue;
+      const ex = exceptions.find(e => e.file === rel && e.pattern === p.id);
+      if (ex && ex.verify(withoutComments)) continue;
+      hits.push({ file: rel, pattern: p.id, sample: String(m[0]).slice(0, 60) });
     }
   }
   return hits;

@@ -32,7 +32,10 @@ const JOBS_TABLE = 'product_jobs';
 /* ردیف ۳۶: جدول change-feed هر مدرسه (seq صعودی، ایندکس مکان‌نما، retention) */
 const FEED_TABLE = 'product_change_feed';
 /* row 178: change notification to every Gateway instance (delivered on COMMIT only) */
-const NOTIFY_SQL = "select pg_notify('payesh_gw_feed', json_build_object('t', current_setting('app.tenant_id'), 's', (select coalesce(max(seq), 0) from product_change_feed where tenant_id = current_setting('app.tenant_id')::uuid), 'c', $1::text[])::text)";
+/* pg_notify is a function call inside the push transaction — it works through PgBouncer
+   (transaction mode); only the listener side needs a session, and that lives on a dedicated
+   direct connection in the Gateway (GW_LISTEN_PGURL). Returns the tenant feed seq for the local notify. */
+const NOTIFY_SQL = "with f as (select coalesce(max(seq), 0)::bigint as seq from product_change_feed where tenant_id = current_setting('app.tenant_id')::uuid) select f.seq, pg_notify('payesh_gw_feed', json_build_object('t', current_setting('app.tenant_id'), 's', f.seq, 'c', $1::text[])::text) from f";
 const FEED_DEFAULT_KEEP_DAYS = 30;
 const FEED_MAX_KEEP_DAYS = 365;
 const FEED_DEFAULT_LIMIT = 200;
@@ -777,15 +780,20 @@ async function applyOps(pool, tenantId, { ops = [], device_id = null, claims = n
     /* ردیف ۱۷۸: اعلان تغییر به همهٔ نمونه‌های Gateway. pg_notify تراکنشی است: فقط پس از
        commit تحویل می‌شود و با rollback هیچ اعلانی نمی‌رود. فقط نام مجموعه‌ها، نه داده. */
     const changed = [...new Set(applied.filter(a => !a.missing).map(a => a.collection).filter(Boolean))].slice(0, 40);
+    let notify = null;
     if (changed.length) {
       /* plain literal (FEED_TABLE = 'product_change_feed'): no SQL built from strings */
-      await c.query(NOTIFY_SQL, [changed]);
+      const nq = await c.query(NOTIFY_SQL, [changed]);
+      notify = { seq: Number(nq.rows[0] && nq.rows[0].seq) || 0, topics: changed };
     }
-    return {
+    const result = {
       applied, duplicates, conflicts,
       counts: { applied: applied.length, duplicates: duplicates.length, conflicts: conflicts.length },
       device_id: device_id || null,
     };
+    /* internal (row 178): not enumerable ⇒ never serialized into the push response */
+    Object.defineProperty(result, 'notify', { value: notify, enumerable: false });
+    return result;
   });
 }
 

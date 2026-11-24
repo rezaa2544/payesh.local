@@ -75,3 +75,20 @@ The card now has its own control box (`helper-controls`). It appears both on the
   * after each job the node rests `restForCpu(work, effective)` (same formula as the server, max 5 s)
     and does not even read the queue while resting.
 * Global «توقف پردازش» ⇒ the node claims no new jobs; running jobs finish.
+
+## اصلاحیهٔ پس از CI — PgBouncer و LISTEN (ردیف ۴۵)
+
+دروازهٔ «بودجهٔ اتصال» (ردیف ۴۵) درست گفت: با PgBouncer در حالت transaction، `LISTEN` روی اتصال pool کار نمی‌کند (نشست ثابت ندارد). طرح نهایی:
+
+| بخش | کجا اجرا می‌شود | از PgBouncer؟ |
+|---|---|---|
+| `pg_notify(...)` داخل تراکنش push | `tenancy.applyOps` | بله — فراخوانی تابع درون تراکنش، با transaction pooling سازگار است |
+| اعلان به دستگاه‌های **همین** نمونه | `gateway.js` بلافاصله پس از push موفق (`gwEvents.notify`)، seq از همان تراکنش؛ بدون کوئری اضافه | — |
+| اعلان به نمونه‌های **دیگر** | اتصال جدا و «مستقیم» با `GW_LISTEN_PGURL` (فقط وقتی stream باز است) | **هرگز** |
+| بدون `GW_LISTEN_PGURL` | نمونه‌های دیگر با نگاه پشتیبان `max(seq)` هر ۱۵ ثانیه | — |
+
+- استقرار تک‌نمونه: `GW_LISTEN_PGURL` لازم نیست؛ اعلان فوری است.
+- چندنمونه: `GW_LISTEN_PGURL` را به پورت مستقیم PostgreSQL (نه 6432) بدهید؛ هزینه: ۱ اتصال برای هر نمونه.
+- `tools/conn-budget-45.mjs` یک استثنای **وارسی‌پذیر** دارد (`SESSION_EXCEPTIONS`): فقط `server/gateway.js` و فقط اگر اتصال LISTEN با `GW_LISTEN_PGURL` ساخته شود؛ `LISTEN` روی pool/`PGURL` هنوز قرمز می‌شود (آزمون CB-06b با سه جهش).
+- SAST ردیف ۴۸: دستورهای `LISTEN payesh_gw_feed` و `pg_notify` رشتهٔ ثابت‌اند؛ سقف تریاژشدهٔ `payesh-sql-string-concat` (۲۰) دوباره رعایت می‌شود.
+- آزمون: `tests/gw-events-178.js` → GE-PG-04 (بدون LISTEN، همان نمونه، فوری؛ فیلد داخلی `notify` در پاسخ push نیست).

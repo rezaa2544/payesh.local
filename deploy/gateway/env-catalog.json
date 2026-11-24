@@ -23,6 +23,7 @@
     { "name": "GW_SESSION_TTL_SEC", "need": "optional", "secret": false, "default": "43200", "fa": "عمر توکن نشست مدرسه (ثانیه، حداقل ۳۰۰)." },
     { "name": "GW_DRAIN_TIMEOUT_MS", "need": "optional", "secret": false, "default": "25000", "fa": "مهلت تخلیهٔ درخواست‌ها پس از SIGTERM." },
     { "name": "GW_ACCESS_LOG", "need": "optional", "secret": false, "default": "1", "fa": "0 = خاموش کردن لاگ دسترسی." },
+    { "name": "GW_LISTEN_PGURL", "need": "optional", "secret": true, "default": "", "fa": "اتصال «مستقیم» PostgreSQL (نه از PgBouncer) فقط برای LISTEN اعلان تغییر بین چند نمونهٔ Gateway؛ تک‌نمونه لازم نیست. خالی ⇒ نمونه‌های دیگر هر ۱۵ ثانیه می‌فهمند (ردیف ۱۷۸)." },
     { "name": "GW_EVENTS_MAX", "need": "optional", "secret": false, "default": "2000", "fa": "سقف اتصال‌های باز اعلان تغییر (SSE) در هر نمونه؛ بیشتر ⇒ ۵۰۳ و برنامه آرام سرکشی می‌کند (ردیف ۱۷۸)." },
     { "name": "GW_EVENTS_POLL_MS", "need": "optional", "secret": false, "default": "60000", "fa": "فاصلهٔ نگاه پشتیبان max(seq) برای هر مدرسهٔ دارای اتصال، وقتی LISTEN برقرار است (ردیف ۱۷۸)." },
     { "name": "GW_EVENTS_FALLBACK_POLL_MS", "need": "optional", "secret": false, "default": "15000", "fa": "همان نگاه، وقتی اتصال LISTEN قطع است (ردیف ۱۷۸)." },
