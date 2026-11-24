@@ -1,6 +1,6 @@
 {
   "version": "0.9.34",
-  "built_at": "2026-11-24T19:59:44.684Z",
+  "built_at": "2026-11-24T20:19:54.142Z",
   "notes": [],
   "shell": {
     "android": "0.9.34"
@@ -321,8 +321,8 @@
     {
       "path": "server/gateway.js",
       "kind": "server",
-      "sha256": "ea49d19c50e61a6cd81cb195695f90c2747947fe8fa93ad9bf501bd757bac39c",
-      "size": 34370
+      "sha256": "fc0d550058d9e4051cf219ac37e0459634ee9fd586fcb8276241b246bfd63d55",
+      "size": 34429
     },
     {
       "path": "server/gw-events.js",
@@ -531,8 +531,8 @@
     {
       "path": "server/tenancy.js",
       "kind": "server",
-      "sha256": "9ed001f76c885ffad7406f1a83312ca0423ade771c8e547128d22df0a983939a",
-      "size": 79486
+      "sha256": "9d338c7b607244e7aaf09255c1b4de179a511d545cfd70e2d2f65a34fec518f0",
+      "size": 79670
     },
     {
       "path": "server/tenant-context.js",
@@ -588,6 +588,6 @@
     "server": 62
   },
   "client_size": 1496493,
-  "server_size": 1002500,
-  "total_size": 2498993
+  "server_size": 1002743,
+  "total_size": 2499236
 }
