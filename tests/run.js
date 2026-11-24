@@ -5465,6 +5465,16 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۷۶ (آزمایشگاه): D-04 خروج دستگاه را باطل می‌کند (ورود/خروج پیاپی هرگز به سقف نمی‌خورد)؛
+     D-05 فهرست دستگاه‌های مدیر نام و نقش واقعی کاربر را از records.data نشان می‌دهد ── */
+  await test('ردیف ۱۷۶: خروج دستگاه را باطل می‌کند و ورود/خروج پیاپی به سقف نمی‌خورد؛ فهرست دستگاه‌ها نام و نقش واقعی کاربر را نشان می‌دهد (۸ بررسی + ۳ جهش)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/device-logout-176.js')], { encoding: 'utf8', cwd: ROOT, timeout: 240000 });
+      assert.strictEqual(r.status, 0, 'device-logout-176: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|DEVICE-LOGOUT-176/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۷۵: هشدار امنیتی هنگام نصب — به‌روزرسانی بی‌صفحهٔ اندروید ۱۲+، نصب اول ویندوز بدون نشان مرورگر ── */
   await test('ردیف ۱۷۵: اندروید ۱۲+ به‌روزرسانی خودِ برنامه بدون صفحهٔ نصب (با بازگشت امن)، نصب اول ویندوز با PowerShell و SHA256SUMS بسته در خطا (۶ بررسی)',
     async () => {

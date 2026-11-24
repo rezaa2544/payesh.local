@@ -217,7 +217,10 @@ const login = (port, phone, password) => req('POST', port, '/api/auth/login', { 
         await stop(box2);
         box3 = await boot(dir, { PAYESH_CENTRAL: '1', PAYESH_HOSTING_FIRST_MS: '300', PAYESH_HOSTING_EVERY_MS: '1500', PAYESH_SCHOOLS_EVERY_MS: '1500' });
         let np = null;
-        for (let i = 0; i < 100; i++) { np = await req('POST', box3.port, '/api/auth/refresh', { device_token: raw }); if (np.json && np.json.error === 'proof_required') break; await sleep(150); }
+        /* ردیف ۱۷۶ (D-07): هر تلاش از سهمیهٔ refresh همان IP (۶۰ در دقیقه، server/index.js) کم می‌کند؛ با فاصلهٔ
+           ۱۵۰ms روی runner کند سهمیه پیش از رسیدن مدرسه تمام می‌شد و refresh با اثبات 429 می‌گرفت. با ۱۱۰۰ms
+           حداکثر ~۵۵ تلاش در هر دقیقه + یک refresh با اثبات، زیر سقف می‌ماند. */
+        for (let i = 0; i < 100; i++) { np = await req('POST', box3.port, '/api/auth/refresh', { device_token: raw }); if (np.json && np.json.error === 'proof_required') break; await sleep(1100); }
         assert.strictEqual(np.status, 401, np.body);
         assert.strictEqual(np.json.error, 'proof_required', 'پیش‌تر bad_device سرور اصلی: ' + np.body);
         const ts = Date.now();

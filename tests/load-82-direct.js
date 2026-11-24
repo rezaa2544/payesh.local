@@ -176,6 +176,7 @@ const INJ = Object.freeze({
       return `green: p95=${r.latency_ms.all.p95}ms err=${r.errors.rate} isolation foreign=${r.isolation.foreign_rows} sessions idle_tx=${r.sessions.idle_in_tx_after}`;
     });
 
+    // D-01 (lab-176): PostgreSQL 16 prints the InitPlan parameter as $N, 17+ as (InitPlan N).colM.
     await check('LDD-09', 'finding of this row (migration 0006): as a device, the feed walk uses record_feed_idx with tenant_id = InitPlan; with 0006 rolled back it filters can_access() row by row and has no tenant index condition', async () => {
       const dev = ctx.devices[0];
       const plan = async () => {
@@ -189,13 +190,13 @@ const INJ = Object.freeze({
         } finally { c.release(); }
       };
       const head = await plan();
-      assert(/InitPlan/.test(head) && /Index Cond: \(\(tenant_id = \$\d\)/.test(head), 'head plan without tenant index condition:\n' + head);
+      assert(/InitPlan/.test(head) && /Index Cond: \(\(tenant_id = (?:\$\d|\(InitPlan \d+\)\.col\d+)\)/.test(head), 'head plan without tenant index condition:\n' + head);
       await ctx.owner.query(fs.readFileSync(DOWN6, 'utf8'));
       let before;
       try { before = await plan(); } finally { await ctx.owner.query(fs.readFileSync(UP6, 'utf8')); }
-      assert(!/tenant_id = \$/.test(before) && /can_access/.test(before), 'pre-0006 plan unexpectedly tenant-indexed:\n' + before);
+      assert(!/tenant_id = (?:\$|\(InitPlan)/.test(before) && /can_access/.test(before), 'pre-0006 plan unexpectedly tenant-indexed:\n' + before);
       const again = await plan();
-      assert(/Index Cond: \(\(tenant_id = \$\d\)/.test(again), 're-applied 0006 plan lost the tenant condition');
+      assert(/Index Cond: \(\(tenant_id = (?:\$\d|\(InitPlan \d+\)\.col\d+)\)/.test(again), 're-applied 0006 plan lost the tenant condition');
       return 'head: tenant_id = $InitPlan index condition · without 0006: per-row can_access filter · re-applied: tenant condition back';
     });
 

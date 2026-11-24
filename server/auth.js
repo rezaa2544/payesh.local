@@ -411,9 +411,11 @@ function redeemTransfer(store, code, opts = {}) {
   return { ok: true, device_token: dev.device_token, session: dev.session, user: publicUser(user) };
 }
 
+/* ردیف ۱۷۶ (D-05): ستون records.data است (JSON کاربر)؛ «name» ستونی ندارد و همهٔ
+   ردیف‌ها «—» نشان می‌دادند. */
 function listDevices(store) {
   return store.db.prepare(
-    `SELECT d.*, (SELECT name FROM records WHERE collection='users' AND id=d.user_id) AS user_json
+    `SELECT d.*, (SELECT data FROM records WHERE collection='users' AND id=d.user_id) AS user_json
      FROM devices d ORDER BY d.created_at DESC`
   ).all().map(d => {
     let u = null;
@@ -456,6 +458,15 @@ function revokeAll(store, userId, exceptTokenHash) {
 function logout(store, session) {
   if (!session) return { ok: true };
   store.db.prepare('UPDATE sessions SET revoked_at=? WHERE token_hash=?').run(nowISO(), session.token_hash);
+  /* ردیف ۱۷۶ (D-04): خروج صریح، دستگاهِ همان نشست را هم باطل می‌کند. پیش‌تر فقط نشست
+     می‌بست و هر ورود تازه دستگاه نو می‌ساخت، پس پس از چند ورود/خروج (مثلاً رایانهٔ مشترک
+     دفتر) سقف PAYESH_DEVICE_CAP پر و کاربر با device_limit قفل می‌شد. تنها فراخوانِ این
+     مسیر (signOut برنامهٔ مدرسه) پیش از خروج رازِ دستگاه را فراموش می‌کند؛ قفلِ نسخهٔ وب
+     (lockApp) این مسیر را صدا نمی‌زند و دستگاهِ مورد اعتمادش می‌ماند. */
+  if (session.device_id) {
+    identity.revokeDevice(store, session.device_id, 'logout');
+    identity.audit(store, { id: session.device_id, user_id: session.user_id }, 'device_logout', {}, null);
+  }
   return { ok: true };
 }
 

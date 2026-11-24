@@ -105,17 +105,22 @@ function rawPut(db, store, rec) {
   });
 
   await check('SE-06', 'list/since/byRef روی دادهٔ رمزشده درست کار می‌کنند', async () => {
-    const t0 = new Date(Date.UTC(2026, 10, 1)).toISOString();
+    /* D-02 (lab-176): dates relative to now — records written earlier in this run carry
+       updated_at = now, so a fixed boundary (2026-11-15) started counting them once the real
+       date passed it. Same assertion: exactly the two records after the boundary. */
+    const DAY = 86400000, now = Date.now();
+    const t0 = new Date(now - 30 * DAY).toISOString();
+    const boundary = new Date(now + DAY).toISOString();
     await s.putMany([
       { collection: 'attendance', id: 10, data: { class_id: 7, student_id: 11 }, updated_at: t0 },
-      { collection: 'attendance', id: 11, data: { class_id: 8, student_id: 12 }, updated_at: '2026-11-20T00:00:00.000Z' },
-      { collection: 'attendance', id: 12, data: { class_id: 7, student_id: 13 }, updated_at: '2026-11-21T00:00:00.000Z' },
+      { collection: 'attendance', id: 11, data: { class_id: 8, student_id: 12 }, updated_at: new Date(now + 2 * DAY).toISOString() },
+      { collection: 'attendance', id: 12, data: { class_id: 7, student_id: 13 }, updated_at: new Date(now + 3 * DAY).toISOString() },
     ]);
     const list = await s.list('attendance', { limit: 10 });
     assert(list.length >= 4, `list=${list.length}`);
     const ref = await s.byRef('attendance', 'class_id', 7);
     assert(ref.length >= 2, `byRef=${ref.length}`);
-    const ch = await s.since('attendance', '2026-11-15T00:00:00.000Z');
+    const ch = await s.since('attendance', boundary);
     assert(ch.length === 2, `since=${ch.length}`);
     const all = await s.listAll('grades');
     assert(all.length === 1, `grades=${all.length}`);
