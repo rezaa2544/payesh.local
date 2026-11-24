@@ -1,15 +1,15 @@
 {
-  "version": "0.9.33",
-  "built_at": "2026-11-24T19:25:29.387Z",
+  "version": "0.9.34",
+  "built_at": "2026-11-24T19:59:44.684Z",
   "notes": [],
   "shell": {
-    "android": "0.9.33"
+    "android": "0.9.34"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "60032fe8cd6f0da3fe5991e89675199fa454c4b3e4152d2ec4525d57f01d3a7f",
+      "sha256": "3e7e4aeabc0ab7133abf5c80d8975db6c5d8aa35be6a9f37af95c99d4d1a836b",
       "size": 209426
     },
     {
@@ -219,8 +219,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "c4136ac354adb4122e13e14bb30642f72b639b19d34d66e5a2ef75287b3dca8f",
-      "size": 7549
+      "sha256": "2c345008644800ee8599edff797a1a89099593178d51b3c7d057636d71deea41",
+      "size": 7624
     },
     {
       "path": "server/academic-year.js",
@@ -321,14 +321,20 @@
     {
       "path": "server/gateway.js",
       "kind": "server",
-      "sha256": "e3247718b026a9de0bb7ff480119087e84f272d259dd10ef1400fd25c46863ec",
-      "size": 32603
+      "sha256": "ea49d19c50e61a6cd81cb195695f90c2747947fe8fa93ad9bf501bd757bac39c",
+      "size": 34370
+    },
+    {
+      "path": "server/gw-events.js",
+      "kind": "server",
+      "sha256": "f7fd61f5316bfb20f56ff59c0a8a782fa06dcf2325728e8e26182d50ee2011f5",
+      "size": 9747
     },
     {
       "path": "server/helper-jobs.js",
       "kind": "server",
-      "sha256": "3ed093d498cbd010d8451bc9adde8441f98639556d149f7104854aad160b9201",
-      "size": 27978
+      "sha256": "d61e1fb63d404a554bda845bee42110905f8eddc195b9491c1e0ad3e551c1688",
+      "size": 29497
     },
     {
       "path": "server/hosting.js",
@@ -525,8 +531,8 @@
     {
       "path": "server/tenancy.js",
       "kind": "server",
-      "sha256": "e96b776b0b3a453c6836b616e23bbdaa4cf8f2262e13b4393c0d9aef6d9676f3",
-      "size": 78728
+      "sha256": "9ed001f76c885ffad7406f1a83312ca0423ade771c8e547128d22df0a983939a",
+      "size": 79486
     },
     {
       "path": "server/tenant-context.js",
@@ -579,9 +585,9 @@
   ],
   "counts": {
     "client": 34,
-    "server": 61
+    "server": 62
   },
   "client_size": 1496493,
-  "server_size": 988634,
-  "total_size": 2485127
+  "server_size": 1002500,
+  "total_size": 2498993
 }
