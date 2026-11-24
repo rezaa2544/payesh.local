@@ -1,5 +1,7 @@
 # گزارش ۰۳ — ساخت و زنجیرهٔ تأمین
 
+> **وضعیت پس از push (2026-11-24 10:02Z):** push انجام شد؛ main = `92466ec0`؛ CI سبز (#862)؛ build 200 و سرور 0.9.32 منتشر شدند و هش/امضا با شواهد برابر است. نصب روی کاربران هنوز دیده نشده؛ آزمون بی‌صدای گوشی BLOCKED (گوشی وصل نبود)؛ serv00 مرکزی به‌روز نشد. جزئیات: گزارش ۰۱ §۷.
+
 SHA: `bd447dc4` (ساخت روی PC، از `psim\repo` پس از `reset --hard` به همین SHA؛ WIP قبلی کاربر در `stash@{0}` محفوظ است).
 **یادآوری:** «ساخت موفق» یعنی بسته ساخته شد، نه این‌که محصول درست کار می‌کند. درستیِ رفتار در گزارش‌های ۰۴ تا ۱۲ سنجیده شده است.
 
@@ -44,3 +46,18 @@ SHA: `bd447dc4` (ساخت روی PC، از `psim\repo` پس از `reset --hard` 
 - امضای release در آزمایشگاه **آزموده نشد** (BLOCKED): کلید امضای مالک عمداً بیرون از آزمایشگاه ماند. APKهای آزمایشگاهی debug-signed هستند.
 - exeهای ویندوز امضای کد ندارند و SmartScreen هشدار می‌دهد (شناخته‌شده؛ ردیف ۱۷۵).
 - `android21.gradle` نشانی dl.google.com را ثابت نوشته است، پس پشت DNS جعلی، ساخت بدون mirror شکست می‌خورد (مشاهده).
+
+## ۶. پس از push — ساخت و انتشار واقعی build 200 (2026-11-24 10:02Z)
+| بسته | اندازه | sha256 | امضا | اجرا |
+|---|---|---|---|---|
+| `payesh-native.apk` 0.2.200 | 31,145,347 B | `30a9b56f4d70892b2c8e811fe7f3223f2cb3ec211829dd8ef7791693d89817d0` | `CN=Payesh Owner Panel` ‏`d35afba3…8321`، v1/v2/v3 | native-client ‏#200 ← school-native-publish ‏#73 |
+| `payesh-owner.apk` 1.1.200 (versionCode 100200) | 27,698,429 B | `f8e73f75933cdccc5264d398028c61b5dcbbf435fbbcec2813e999b650cabf2a` | همان | native-client ‏#200 ← owner-native-publish ‏#83 |
+| `payesh-native-windows.zip` | — | `567f32f4…01bf7` | — | همان |
+| `payesh-owner-windows.zip` | — | `b6fc9247…5bf8` | — | همان |
+| `payesh-data-service-setup.exe` | 41,650,661 B | `fe6dd029…e234` | — | school-native-publish ‏#73 |
+| `payesh-cloud.zip` 0.9.32 | 6,845,357 B | `020d89786695e820528f67441b66fff5e0a765016dc8b69f554e2dd0fe1e4253` | — | build-and-release ‏#862 |
+
+- همهٔ فایل‌ها دوباره و مستقل هش شدند و با `SHA256SUMS` هر release، لاگ CI و مانیفست‌های `app-update.json` / `owner-update.json` برابرند (`raw/post-push/PP-05`).
+- امضاکنندهٔ build 200 با build 198 (`3ee1e1ef…87f4` / `e0a44543…39f2`، روی گوشی) **یکسان** است، پس ارتقای درجا ممکن است (`OWNER-ANDROID-UPGRADE-OK same-signer`؛ PP-05b).
+- یافتهٔ «امضای release آزموده نشد» (§۵) برای فایل‌های منتشرشده برطرف شد: `ANDROID-RELEASE-76-OK mode=release distributable=true`. باقی‌مانده: اپ مدرسه با کلید مالک امضا می‌شود (PAYESH_KEYSTORE تعریف نشده). exeها همچنان امضای کد ندارند.
+- build-and-release ‏#861 روی `e31f70f9` در دروازهٔ شاهد قرمز شد (تغییر `.gitignore`)؛ با `8223b59b` اصلاح و ‏#862 سبز شد.
