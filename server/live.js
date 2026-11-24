@@ -15,13 +15,24 @@
 
    این ماژول سمتِ «سیستم مدرسه» را انجام می‌دهد: نوشتن تغییرهای محلی
    در حافظه، و برداشتن تغییرهای دستگاه‌های دیگر (گوشی‌ها) هر ثانیه.
+   ردیف ۱۷۷ (خواستهٔ مالک: «تا تغییری نشده، الکی هر لحظه همه‌چیز را چک نکن»):
+     • تغییرِ همین سیستم دیگر با پرسیدنِ هر‌ثانیه پیدا نمی‌شود؛ هاب رویداد (events.js)
+       همان لحظهٔ نوشتن خبر می‌دهد و فقط آن‌وقت در حافظه نوشته می‌شود.
+     • نگاه به مُهر حافظه (تغییر گوشی‌ها) «تطبیقی» است: پس از هر فعالیت (تغییر محلی، تغییر
+       گوشی، دستگاهی که وصل شد/پرسید) تا ۲ دقیقه هر ۱ ثانیه؛ بعد هر بار دو برابر تا سقف
+       ۶۰ ثانیه وقتی دستگاهی وصل است، و ۵ دقیقه وقتی هیچ‌کس وصل نیست و فعالیتی نبوده.
+       بیکار: ~۱٬۴۴۰ درخواست در روز به‌جای ۸۶٬۴۰۰ (۶۰ برابر کمتر)؛ در کار: همان ۱ ثانیه.
    ═══════════════════════════════════════════════════════════════════ */
 const crypto = require('crypto');
 const s3mem = require('./s3mem');
 const outbox = require('./outbox');
 
 const REV_KEY = 'realtime/rev.json';
-const INTERVAL_MS = 1000;          /* خواستهٔ صریح: هر ۱ ثانیه */
+const INTERVAL_MS = 1000;          /* هنگام فعالیت: هر ۱ ثانیه (خواستهٔ قبلی مالک) */
+const ACTIVE_WINDOW_MS = 120_000;  /* ردیف ۱۷۷: پس از هر فعالیت، ۲ دقیقه سریع */
+const IDLE_MAX_MS = 60_000;        /* بیکار ولی دستگاهی وصل است */
+const ASLEEP_MAX_MS = 300_000;     /* هیچ دستگاهی وصل نیست و فعالیتی نبوده */
+const events = require('./events');
 
 const token = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
@@ -92,31 +103,63 @@ async function publishChanged(store, cfg) {
   return hashes.size !== before || true;
 }
 
-/* ── یک تیکِ یک‌ثانیه‌ای ─────────────────────────────────────────── */
+/* ── یک تیک ────────────────────────────────────────────────────────── */
 let timer = null;
 let running = false;
-let last = { at: null, pushed: 0, pulled: 0, error: null };
+let dirty = false;       /* تغییر محلی منتشرنشده (از هاب رویداد) */
+let lastActivity = 0;    /* آخرین فعالیت (ms) */
+let delayMs = INTERVAL_MS;
+let opts = { everyMs: INTERVAL_MS, idleMaxMs: IDLE_MAX_MS, asleepMaxMs: ASLEEP_MAX_MS, activeWindowMs: ACTIVE_WINDOW_MS };
+let storeRef = null;
+let offEvents = null;
+let last = { at: null, pushed: 0, pulled: 0, checks: 0, error: null };
+
+/** فعالیت ⇒ چند دقیقه سریع نگاه کن (دستگاهی پرسید، وصل شد، یا چیزی نوشت). */
+function touch() {
+  lastActivity = Date.now();
+  if (storeRef && delayMs > opts.everyMs && !running) reschedule(opts.everyMs);
+}
+
+/** قاعدهٔ تطبیقی (خالص، آزمون‌پذیر): تا [activeWindowMs] پس از فعالیت ⇒ [everyMs]؛ بعد هر بار
+ *  دو برابر تا سقف — [idleMaxMs] اگر دستگاهی وصل است، وگرنه [asleepMaxMs]. */
+function adaptiveDelay({ now, lastActivity: la, prevDelay, clients, opts: o }) {
+  if (now - la < o.activeWindowMs) return o.everyMs;
+  const cap = clients > 0 ? o.idleMaxMs : o.asleepMaxMs;
+  return Math.min(cap, Math.max(o.everyMs, prevDelay * 2));
+}
+
+/** فاصلهٔ نگاه بعدی (تطبیقی). */
+function nextDelay(changed) {
+  const now = Date.now();
+  if (changed) lastActivity = now;
+  return adaptiveDelay({ now, lastActivity, prevDelay: delayMs, clients: events.clientCount(), opts });
+}
 
 async function tick(store) {
-  if (running) return;
+  if (running) return false;
   running = true;
+  let changed = false;
   try {
     const cfg = await cloudCfg(store);
-    if (!cfg) { last = Object.assign({}, last, { error: 'no_cloud', at: new Date().toISOString() }); return; }
+    if (!cfg) { last = Object.assign({}, last, { error: 'no_cloud', at: new Date().toISOString() }); return false; }
 
-    /* ۱) تغییرهای همین سیستم (کاربری که در رایانهٔ مدرسه کار می‌کند)
-          بی‌درنگ در حافظهٔ مشترک نوشته می‌شوند. */
-    const mine = localRev(store);
-    if (mine !== String(store.getMeta('live:published', ''))) {
+    /* ۱) تغییرهای همین سیستم (کاربری که در رایانهٔ مدرسه کار می‌کند) — فقط وقتی هاب
+          رویداد خبر داده (یا بار اول)، نه با پرسیدن هر ثانیه. */
+    if (dirty) {
+      dirty = false;
       const r = await outbox.publishAll(store);
       if (r && (r.data && r.data.ok)) {
         await writeRev(store, cfg, { core: token(), persons: token() });
-        store.setMeta('live:published', mine);
+        store.setMeta('live:published', localRev(store));
         last.pushed++;
+        changed = true;
+      } else {
+        dirty = true; /* بعداً دوباره */
       }
     }
 
     /* ۲) تغییرهای دیگر دستگاه‌ها (گوشی‌ها) خوانده و اعمال می‌شوند. */
+    last.checks++;
     const rev = await readRemote(store);
     if (rev && rev.rev && rev.rev !== String(store.getMeta('live:seen', ''))) {
       store.setMeta('live:seen', rev.rev);
@@ -125,6 +168,7 @@ async function tick(store) {
         bumpLocal(store);
         last.pulled += d.applied;
       }
+      changed = true;
     }
     last.at = new Date().toISOString();
     last.error = null;
@@ -133,25 +177,69 @@ async function tick(store) {
   } finally {
     running = false;
   }
+  return changed;
 }
 
-function start(store, { everyMs = INTERVAL_MS } = {}) {
-  if (timer) clearInterval(timer);
+function reschedule(ms) {
+  if (timer) clearTimeout(timer);
+  delayMs = Math.max(0, ms);
+  timer = setTimeout(loop, delayMs);
+  timer.unref?.();
+}
+
+function loop() {
+  const store = storeRef;
+  if (!store) return;
+  tick(store).catch(() => false).then((changed) => {
+    if (!storeRef) return;
+    if (dirty) { reschedule(opts.everyMs); return; } /* تغییری وسط کار رسید */
+    reschedule(nextDelay(changed));
+  });
+}
+
+function start(store, { everyMs = INTERVAL_MS, idleMaxMs, asleepMaxMs, activeWindowMs } = {}) {
+  stop();
   /* آزمون‌های قطعی می‌توانند با PAYESH_LIVE_MS=0 خاموشش کنند */
   if (Number(everyMs) === 0) return null;
-  const loop = () => { tick(store).catch(() => {}); };
-  /* یک‌بار بلافاصله، بعد هر ثانیه */
-  setTimeout(loop, 800).unref?.();
-  timer = setInterval(loop, Math.max(500, everyMs));
-  timer.unref?.();
+  const fast = Math.max(500, Number(everyMs) || INTERVAL_MS);
+  const envAct = process.env.PAYESH_LIVE_ACTIVE_MS;
+  opts = {
+    everyMs: fast,
+    idleMaxMs: Math.max(fast, Number(idleMaxMs || process.env.PAYESH_LIVE_IDLE_MS) || IDLE_MAX_MS),
+    asleepMaxMs: Math.max(fast, Number(asleepMaxMs || process.env.PAYESH_LIVE_ASLEEP_MS) || ASLEEP_MAX_MS),
+    activeWindowMs: Math.max(0, Number(activeWindowMs != null ? activeWindowMs : (envAct != null && envAct !== '' ? envAct : ACTIVE_WINDOW_MS))),
+  };
+  storeRef = store;
+  lastActivity = Date.now();
+  /* فقط یک‌بار هنگام روشن شدن: تغییرهایی که وقتی سرور خاموش بود ثبت شده‌اند */
+  try { dirty = localRev(store) !== String(store.getMeta('live:published', '')); } catch (e) { dirty = true; }
+  /* تغییر محلی ⇒ همان لحظه (پس از ادغام ۱۵۰ms هاب) منتشر شود */
+  offEvents = events.onChange(() => {
+    dirty = true;
+    lastActivity = Date.now();
+    if (!running) reschedule(0);
+  });
+  reschedule(800); /* یک‌بار تقریباً بلافاصله */
   return timer;
 }
 
-function stop() { if (timer) clearInterval(timer); timer = null; }
+function stop() {
+  if (timer) clearTimeout(timer);
+  timer = null;
+  storeRef = null;
+  if (offEvents) offEvents();
+  offEvents = null;
+}
 
 function status(store) {
   return {
-    every_ms: INTERVAL_MS,
+    every_ms: opts.everyMs,
+    /* ردیف ۱۷۷: نگاه تطبیقی — فاصلهٔ فعلی و سقف‌ها */
+    delay_ms: timer ? delayMs : null,
+    idle_max_ms: opts.idleMaxMs,
+    asleep_max_ms: opts.asleepMaxMs,
+    active_window_ms: opts.activeWindowMs,
+    clients: events.clientCount(),
     last,
     local_rev: localRev(store),
     published_rev: String(store.getMeta('live:published', '')),
@@ -159,4 +247,4 @@ function status(store) {
   };
 }
 
-module.exports = { start, stop, status, readRemote, writeRev, localRev, bumpLocal, cloudCfg, keyOf, REV_KEY, INTERVAL_MS, token };
+module.exports = { start, stop, status, touch, nextDelay, adaptiveDelay, ACTIVE_WINDOW_MS, IDLE_MAX_MS, ASLEEP_MAX_MS, readRemote, writeRev, localRev, bumpLocal, cloudCfg, keyOf, REV_KEY, INTERVAL_MS, token };

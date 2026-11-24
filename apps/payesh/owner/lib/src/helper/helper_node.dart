@@ -86,12 +86,13 @@ final class HelperNode {
     String? host,
     this.version = '',
     int? slots,
+    this.slotsFor,
     Random? random,
     this.acceptWork,
   }) : _now = now ?? DateTime.now,
        _sleep = sleep ?? _realSleep,
        host = host ?? _hostName(),
-       slots = slots ?? defaultSlots(),
+       _slots = slots ?? defaultSlots(),
        _rnd = random ?? Random.secure();
 
   final String helperId;
@@ -102,7 +103,11 @@ final class HelperNode {
   final bool Function()? acceptWork;
   final String host;
   final String version;
-  final int slots;
+  final int _slots;
+
+  /// ردیف ۱۷۷: تعداد کارهای هم‌زمان از سقف «درصد CPU» مالک (هر چرخه دوباره خوانده می‌شود).
+  final int Function()? slotsFor;
+  int get slots => slotsFor?.call() ?? _slots;
   final DateTime Function() _now;
   final Sleeper _sleep;
   final Random _rnd;

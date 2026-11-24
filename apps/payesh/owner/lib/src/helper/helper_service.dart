@@ -9,6 +9,7 @@ import '../infra/infra_policy.dart';
 import '../infra/load_route.dart';
 import '../local/local_platform.dart' show defaultEndpointCheck;
 import '../local/s3_client.dart';
+import '../power/activity.dart';
 import '../update/owner_update.dart';
 import 'helper_box.dart';
 import 'helper_jobs.dart';
@@ -89,9 +90,22 @@ final class OwnerHelperService {
       sleep: sleep,
       version: ownerBuild > 0 ? 'build $ownerBuild' : 'dev',
       slots: slots,
-      // ردیف ۱۵۳: حالت «فقط دیتابیس» یا کلید خاموشِ همین سیستم ⇒ کار دیگران را برنمی‌دارد
-      acceptWork: () => policy.value.helpers && policy.value.helperOn(id!),
+      // ردیف ۱۷۷: سقف درصد CPU مالک ⇒ تعداد کارهای هم‌زمان (null ⇒ پیش‌فرض قدیمی)
+      slotsFor: slots != null
+          ? null
+          : () => slotsForCpu(policy.value.cpuPercent),
+      // ردیف ۱۵۳: حالت «فقط دیتابیس» یا کلید خاموشِ همین سیستم ⇒ کار دیگران را برنمی‌دارد؛
+      // ردیف ۱۷۷: «توقف پردازش» مالک هم همین‌طور
+      acceptWork: () =>
+          policy.value.helpers &&
+          policy.value.helperOn(id!) &&
+          !policy.value.procPaused,
     );
+    // ردیف ۱۷۷: «توقف پردازش» به همهٔ کارهای پس‌زمینهٔ همین پنل هم می‌رسد (PacedTimer.heavy)
+    void follow() =>
+        OwnerActivity.instance.setProcessingPaused(policy.value.procPaused);
+    policy.addListener(follow);
+    follow();
     _node = n;
     await policy.loadCache();
     if (await _read(HelperKeys.paused) == '1') await n.setPaused(true);

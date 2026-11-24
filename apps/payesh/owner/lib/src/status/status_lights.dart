@@ -6,6 +6,8 @@
 //     تازه هست ⇒ دریافت فقط تغییرات، نصب و راه‌اندازی دوبارهٔ خودکار. هنگام کار «زنده» است
 //     (ردیف ۱۴۸؛ کد در payesh_update، مشترک با برنامهٔ مدرسه).
 
+import '../power/activity.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -27,8 +29,19 @@ final class DbMonitor extends ChangeNotifier {
     this.retryBase = const Duration(seconds: 3),
     this.retryMax = const Duration(seconds: 60),
     Random? random,
-  }) : _rnd = random ?? Random() {
+    OwnerActivity? activity,
+  }) : _rnd = random ?? Random(),
+       _activity = activity ?? OwnerActivity.instance {
     _sub = updates?.listen(_observe);
+    _activity.addListener(_onActivity);
+  }
+
+  /// ردیف ۱۷۷: پنجرهٔ پنهان ⇒ سنجشی نیست؛ بیکار ⇒ ۵ برابر کندتر؛ برگشت ⇒ یک سنجش فوری.
+  final OwnerActivity _activity;
+
+  void _onActivity() {
+    if (_disposed || !_auto || checking) return;
+    if (_activity.visible && _timer == null) unawaited(refresh());
   }
 
   final Future<PlatformSync> Function() probe;
@@ -83,8 +96,17 @@ final class DbMonitor extends ChangeNotifier {
   void _schedule(Duration d) {
     if (_disposed || !_auto) return;
     _timer?.cancel();
-    nextIn = d;
-    _timer = Timer(d, () => unawaited(refresh()));
+    _timer = null;
+    if (!_activity.visible) {
+      nextIn = null;
+      return;
+    }
+    final w = _activity.idle && d == okEvery ? okEvery * 5 : d;
+    nextIn = w;
+    _timer = Timer(w, () {
+      _timer = null;
+      unawaited(refresh());
+    });
   }
 
   /// سنجش همین حالا (لمس چراغ). اگر سنجشی در جریان است، همان را منتظر می‌ماند.
@@ -118,6 +140,7 @@ final class DbMonitor extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    _activity.removeListener(_onActivity);
     unawaited(_sub?.cancel());
     super.dispose();
   }

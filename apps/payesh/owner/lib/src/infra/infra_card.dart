@@ -15,6 +15,7 @@ import '../helper/helper_box.dart';
 import '../helper/helper_service.dart';
 import '../local/s3_client.dart';
 import '../status/status_lights.dart';
+import '../power/activity.dart';
 
 class InfraCard extends StatefulWidget {
   const InfraCard({
@@ -45,7 +46,7 @@ class _InfraCardState extends State<InfraCard> {
   List<Map<String, Object?>> _endpoints = const [];
   String? _infraError;
   bool _loading = false;
-  Timer? _timer;
+  PacedTimer? _timer;
 
   OwnerHelperService? get _svc => widget.helper;
 
@@ -56,7 +57,11 @@ class _InfraCardState extends State<InfraCard> {
     unawaited(_attach());
     unawaited(_load());
     // تعداد سرورهای کمکی فعال تازه بماند (فقط تا وقتی کارت باز است)
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _load());
+    _timer = PacedTimer.periodic(
+      const Duration(seconds: 30),
+      _load,
+      idleEvery: const Duration(minutes: 5),
+    );
   }
 
   void _redraw() {

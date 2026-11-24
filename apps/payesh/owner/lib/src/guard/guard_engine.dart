@@ -26,6 +26,7 @@ import '../infra/load_route.dart';
 import '../local/s3_client.dart';
 import '../schools/school_registry.dart';
 import 'fraud.dart';
+import '../power/activity.dart';
 
 abstract final class GuardLevel {
   static const String ok = 'ok';
@@ -113,7 +114,7 @@ class GuardEngine extends ChangeNotifier {
   Set<String> _acked = {};
   DateTime? lastRun;
   bool running = false;
-  Timer? _timer;
+  PacedTimer? _timer;
   bool _disposed = false;
   bool _loaded = false;
   Future<void>? _inflight;
@@ -147,7 +148,13 @@ class GuardEngine extends ChangeNotifier {
   }
 
   void start({Duration every = const Duration(seconds: 60)}) {
-    _timer ??= Timer.periodic(every, (_) => unawaited(run()));
+    // ردیف ۱۷۷: پنهان ⇒ خاموش، بیکار ⇒ ۱۰ برابر کندتر، «توقف پردازش» ⇒ اجرا نمی‌شود
+    _timer ??= PacedTimer.periodic(
+      every,
+      () => unawaited(run()),
+      idleEvery: every * 10,
+      heavy: true,
+    );
     unawaited(run());
   }
 

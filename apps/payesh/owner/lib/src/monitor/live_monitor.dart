@@ -21,6 +21,7 @@ import '../local/local_platform.dart'
     show CheckOutcome, EndpointChecker, defaultEndpointCheck;
 import '../local/s3_client.dart';
 import 'net_meter.dart';
+import '../power/activity.dart';
 
 /// کلید ظرفیت دیتابیس (بایت) در انبار امن دستگاه.
 const String dbCapacityKey = 'owner.monitor.db-capacity';
@@ -189,14 +190,23 @@ class LiveMonitor extends ChangeNotifier {
     DateTime Function()? now,
     this.tickEvery = const Duration(seconds: 1),
     this.probeEvery = const Duration(seconds: 5),
-    this.capacityEvery = const Duration(minutes: 2),
+    // ردیف ۱۷۷: شمارش ظرفیت (فهرست کامل دیتابیس، تا ۲۰ صفحه) پرهزینه است ⇒ هر ۳۰ دقیقه
+    // (نه ۲ دقیقه)، و با لمس کارت ([scanCapacity]) همان لحظه.
+    this.capacityEvery = const Duration(minutes: 30),
+    this.idleProbeEvery = const Duration(seconds: 60),
+    OwnerActivity? activity,
     this.capacityPages = 20,
     this.enabled,
   }) : _checker = checker ?? defaultEndpointCheck,
        _fetch = fetcher ?? defaultMetricsFetch,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       _activity = activity ?? OwnerActivity.instance;
 
   final DbSource? db;
+
+  /// ردیف ۱۷۷: سنجش تأخیر وقتی مالک بیکار است (به‌جای [probeEvery]).
+  final Duration idleProbeEvery;
+  final OwnerActivity _activity;
   final EndpointChecker _checker;
   final MetricsFetcher _fetch;
   final DateTime Function() _now;
@@ -222,7 +232,7 @@ class LiveMonitor extends ChangeNotifier {
   Future<void>? _probing;
   Future<void>? _scanning;
   S3Transport? _t;
-  Timer? _timer;
+  PacedTimer? _timer;
   int _users = 0;
   bool _disposed = false;
 
@@ -242,7 +252,13 @@ class LiveMonitor extends ChangeNotifier {
 
   void attach() {
     if (_users++ == 0 && !_disposed) {
-      _timer = Timer.periodic(tickEvery, (_) => tick());
+      // ردیف ۱۷۷: پنجرهٔ پنهان ⇒ خاموش؛ بیکار ⇒ هر ۱۰ ثانیه یک ضربان
+      _timer = PacedTimer.periodic(
+        tickEvery,
+        tick,
+        idleEvery: tickEvery * 10,
+        activity: _activity,
+      );
       unawaited(probeNow());
     }
   }
@@ -334,7 +350,8 @@ class LiveMonitor extends ChangeNotifier {
       }
     }
     final lp = _lastProbe;
-    if (lp == null || now.difference(lp) >= probeEvery) {
+    final every = _activity.active ? probeEvery : idleProbeEvery;
+    if (lp == null || now.difference(lp) >= every) {
       unawaited(probeNow());
     }
     _changed();
@@ -356,6 +373,7 @@ class LiveMonitor extends ChangeNotifier {
       final lc = _lastCapacity;
       if (db != null &&
           _dbConfigured &&
+          !_activity.processingPaused &&
           (lc == null || _now().difference(lc) >= capacityEvery)) {
         unawaited(scanCapacity());
       }

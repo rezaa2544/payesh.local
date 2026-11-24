@@ -14,6 +14,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../monitor/net_meter.dart';
+import '../power/activity.dart';
 
 abstract final class ArchModes {
   static const String db = 'db';
@@ -314,7 +315,7 @@ class LoadRouter extends ChangeNotifier {
   int _extAt = -1 << 62;
   bool _extOk = false;
   int _helpersAt = -1 << 62;
-  Timer? _timer;
+  PacedTimer? _timer;
   bool _disposed = false;
   Future<void>? _inflight;
 
@@ -322,7 +323,13 @@ class LoadRouter extends ChangeNotifier {
   static const int helpersEveryMs = 30000;
 
   void start({Duration every = const Duration(seconds: 5)}) {
-    _timer ??= Timer.periodic(every, (_) => unawaited(tick()));
+    // ردیف ۱۷۷: کوچک‌شده/بیکار ⇒ هر ۶۰ ثانیه (نه ۵)؛ سرور کمکی همین دستگاه هنوز پیرو می‌ماند
+    _timer ??= PacedTimer.periodic(
+      every,
+      () => unawaited(tick()),
+      idleEvery: every * 12,
+      background: true,
+    );
     unawaited(tick());
   }
 

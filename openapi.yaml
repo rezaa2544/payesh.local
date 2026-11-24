@@ -2755,6 +2755,42 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/Ok'
+  /api/v1/events:
+    get:
+      operationId: getV1Events
+      tags: [sync]
+      summary: "Row 177: change notifications over Server-Sent Events (which collections changed; never record data)"
+      description: >-
+        One long-lived connection per device. On connect the server sends `event: hello`
+        `{seq, at, missed}`; afterwards, only when something was written, `event: change`
+        `{seq, topics, at}` (writes coalesced over 150 ms). Nothing is sent while nothing changes
+        except a `:` comment every 45 s to keep proxies from closing the stream. The client then
+        fetches just those collections with GET /api/v1/pull?collections=… and If-None-Match.
+        `missed=true` means changes happened since `since` — pull once.
+      x-source: server/index.js:1041
+      parameters:
+        - name: topics
+          in: query
+          description: CSV of collection names to listen to; empty means all.
+          schema:
+            type: string
+        - name: since
+          in: query
+          description: Last seq the client saw (from a previous hello/change).
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        '200':
+          description: SSE stream (text/event-stream)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          description: No valid session
+        '503':
+          description: Too many open event streams; fall back to slow polling
   /api/v1/pull:
     get:
       operationId: getV1Pull

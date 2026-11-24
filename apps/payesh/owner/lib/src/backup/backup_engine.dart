@@ -25,6 +25,7 @@ import 'package:payesh_secure/payesh_secure.dart';
 import '../infra/infra_policy.dart';
 import '../local/s3_client.dart';
 import 'backup_store.dart';
+import '../power/activity.dart';
 
 typedef BackupRunResult = ({
   bool ok,
@@ -103,7 +104,7 @@ class OwnerBackupEngine extends ChangeNotifier {
   bool _localAuto = true;
   bool _localDb = true;
   bool _loaded = false;
-  Timer? _timer;
+  PacedTimer? _timer;
   Timer? _first;
   bool _disposed = false;
   Future<BackupRunResult>? _inflight;
@@ -215,7 +216,15 @@ class OwnerBackupEngine extends ChangeNotifier {
     Duration firstAfter = const Duration(seconds: 30),
   }) {
     if (_timer != null) return;
-    _timer = Timer.periodic(interval ?? every, (_) => unawaited(_auto()));
+    // ردیف ۱۷۷: کوچک‌شده هم ادامه دارد؛ «توقف پردازش» ⇒ بکاپ خودکار اجرا نمی‌شود
+    _timer = PacedTimer.periodic(
+      interval ?? every,
+      () => unawaited(_auto()),
+      idleEvery: interval ?? every,
+      heavy: true,
+      background: true,
+      wakeRefresh: false,
+    );
     _first = Timer(firstAfter, () => unawaited(_auto()));
   }
 

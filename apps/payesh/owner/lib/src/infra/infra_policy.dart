@@ -10,6 +10,10 @@
 // ردیف ۱۵۳: «حالت معماری» (mode: db | helpers | external) و نشانی سرور بیرونی (external).
 // helpers همیشه برابر mode != db نوشته می‌شود تا سرورهای قدیمی‌تر هم درست پیروی کنند.
 // هر سیستم کمکی کلید جدا دارد: شناسهٔ «helper:<id>» در off ⇒ آن سیستم کار نمی‌گیرد.
+//
+// ردیف ۱۷۷: «کنترل پردازش» (proc، اختیاری): {paused, cpu} — توقف کارهای سنگین پس‌زمینه و سقف
+// درصد CPU برای همهٔ سیستم‌ها (سرور کمکی، سرور دادهٔ مدرسه، کارهای پس‌زمینهٔ همین پنل).
+// پیش‌فرض (متوقف نیست، سقف ندارد) نوشته نمی‌شود تا پاکت سرورها/پنل‌های قدیمی‌تر عوض نشود.
 
 import 'dart:async';
 import 'dart:convert';
@@ -21,6 +25,7 @@ import 'package:payesh_secure/payesh_secure.dart';
 import '../helper/helper_box.dart';
 import '../local/s3_client.dart';
 import 'load_route.dart';
+import '../power/activity.dart';
 
 const String infraPolicyKey = '${helperRoot}control/infra-policy.json';
 const String infraPolicyCacheKey = 'owner.infra.policy';
@@ -49,7 +54,15 @@ final class InfraPolicy {
     this.external = '',
     this.off = const <String>{},
     this.at = 0,
+    this.procPaused = false,
+    this.cpuPercent,
   });
+
+  /// ردیف ۱۷۷: کارهای سنگین پس‌زمینه در همهٔ سیستم‌ها متوقف است.
+  final bool procPaused;
+
+  /// ردیف ۱۷۷: سقف درصد CPU (۱۰ تا ۱۰۰)؛ null = بدون سقف (همان رفتار قبلی).
+  final int? cpuPercent;
 
   /// حالت معماری (ردیف ۱۵۳)؛ پیش‌فرض: دیتابیس + سیستم‌های کمکی هنگام نیاز.
   final String mode;
@@ -77,6 +90,8 @@ final class InfraPolicy {
     'external': external,
     'off': off.toList()..sort(),
     'at': at,
+    if (procPaused || cpuPercent != null)
+      'proc': {'paused': procPaused, 'cpu': ?cpuPercent},
   };
 
   static InfraPolicy? fromPlain(Map<String, Object?> p) {
@@ -96,11 +111,24 @@ final class InfraPolicy {
     if (m != null && (m is! String || !ArchModes.all.contains(m))) return null;
     final ext = p['external'] ?? '';
     if (ext is! String || !validExternalUrl(ext)) return null;
+    final proc = p['proc'];
+    var paused = false;
+    int? cpu;
+    if (proc != null) {
+      if (proc is! Map) return null;
+      final pz = proc['paused'], c = proc['cpu'];
+      if (pz is! bool) return null;
+      if (c != null && (c is! int || c < 10 || c > 100)) return null;
+      paused = pz;
+      cpu = c as int?;
+    }
     return InfraPolicy(
       mode: m is String ? m : (h ? ArchModes.helpers : ArchModes.db),
       external: ext,
       off: ids,
       at: at,
+      procPaused: paused,
+      cpuPercent: cpu,
     );
   }
 
@@ -110,22 +138,37 @@ final class InfraPolicy {
       other.mode == mode &&
       other.external == external &&
       other.at == at &&
+      other.procPaused == procPaused &&
+      other.cpuPercent == cpuPercent &&
       setEquals(other.off, off);
 
   @override
-  int get hashCode =>
-      Object.hash(mode, external, at, Object.hashAllUnordered(off));
+  int get hashCode => Object.hash(
+    mode,
+    external,
+    at,
+    procPaused,
+    cpuPercent,
+    Object.hashAllUnordered(off),
+  );
 
+  /// [cpuPercent] = 0 ⇒ برداشتن سقف (null).
   InfraPolicy copyWith({
     String? mode,
     String? external,
     Set<String>? off,
+    bool? procPaused,
+    int? cpuPercent,
     required int at,
   }) => InfraPolicy(
     mode: mode ?? this.mode,
     external: external ?? this.external,
     off: off ?? this.off,
     at: at,
+    procPaused: procPaused ?? this.procPaused,
+    cpuPercent: cpuPercent == null
+        ? this.cpuPercent
+        : (cpuPercent == 0 ? null : cpuPercent),
   );
 }
 
@@ -155,7 +198,7 @@ class InfraPolicyStore extends ChangeNotifier {
 
   S3Settings? _s3;
   bool get configured => _s3 != null;
-  Timer? _timer;
+  PacedTimer? _timer;
   Future<void>? _inflight;
   bool _disposed = false;
 
@@ -198,7 +241,13 @@ class InfraPolicyStore extends ChangeNotifier {
 
   /// خواندن دوره‌ای (هر [every]).
   void start({Duration every = const Duration(seconds: 60)}) {
-    _timer ??= Timer.periodic(every, (_) => unawaited(refresh()));
+    // ردیف ۱۷۷: کوچک‌شده/بیکار ⇒ هر ۵ دقیقه؛ تغییر همین دستگاه همان لحظه فرستاده می‌شود (_set)
+    _timer ??= PacedTimer.periodic(
+      every,
+      () => unawaited(refresh()),
+      idleEvery: every * 5,
+      background: true,
+    );
   }
 
   /// همگام‌سازی با دیتابیس (درخواست‌های هم‌زمان یکی می‌شوند).
@@ -290,6 +339,21 @@ class InfraPolicyStore extends ChangeNotifier {
       off.add(id);
     }
     return _set(_value.copyWith(off: off, at: _nextAt()));
+  }
+
+  /// ردیف ۱۷۷: «کنترل پردازش» همهٔ سیستم‌ها. [cpu] = 0 ⇒ بدون سقف؛ ۱۰ تا ۱۰۰ ⇒ سقف درصد.
+  Future<void> setProcessing({bool? paused, int? cpu}) {
+    if (cpu != null && cpu != 0 && (cpu < 10 || cpu > 100)) {
+      return Future.value();
+    }
+    final next = _value.copyWith(procPaused: paused, cpuPercent: cpu, at: 0);
+    if (next.procPaused == _value.procPaused &&
+        next.cpuPercent == _value.cpuPercent) {
+      return Future.value();
+    }
+    return _set(
+      _value.copyWith(procPaused: paused, cpuPercent: cpu, at: _nextAt()),
+    );
   }
 
   Future<void> _set(InfraPolicy p) async {

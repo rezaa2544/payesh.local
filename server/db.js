@@ -49,6 +49,8 @@ class Store {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     this.db = new DatabaseSync(file);
     this.closed = false;
+    /* ردیف ۱۷۷: شنوندگانِ «نوشتن» (هاب رویداد server/events.js) */
+    this._writeHooks = new Set();
     this.db.exec(`
       PRAGMA journal_mode = WAL;
       PRAGMA synchronous = FULL;
@@ -289,6 +291,18 @@ class Store {
     return r ? r.n : 0;
   }
 
+  /* ── ردیف ۱۷۷: خبر نوشتن ── هر insert / update / remove یک بار fn(collection) را صدا
+     می‌زند. خطای شنونده هرگز جلوی نوشتن را نمی‌گیرد. خروجی: تابع لغو. */
+  onWrite(fn) {
+    this._writeHooks.add(fn);
+    return () => this._writeHooks.delete(fn);
+  }
+  _wrote(collection) {
+    for (const fn of this._writeHooks) {
+      try { fn(String(collection)); } catch (e) { /* شنونده نباید نوشتن را بشکند */ }
+    }
+  }
+
   /* ── نوشتن ── */
   insert(collection, data, opts = {}) {
     const id = opts.id != null ? Number(opts.id) : this.nextId(collection);
@@ -301,6 +315,7 @@ class Store {
       idx.ref1 == null ? null : Number(idx.ref1),
       idx.ref2 == null ? null : Number(idx.ref2),
       idx.day == null ? null : String(idx.day), ts, ts);
+    this._wrote(collection);
     return this.get(collection, id);
   }
 
@@ -318,6 +333,7 @@ class Store {
       idx.ref2 == null ? null : Number(idx.ref2),
       idx.day == null ? null : String(idx.day),
       ts, collection, Number(id));
+    this._wrote(collection);
     return this.get(collection, id);
   }
 
@@ -325,6 +341,7 @@ class Store {
     const ts = nowISO();
     this.db.prepare('UPDATE records SET deleted_at=?, updated_at=?, version=version+1 WHERE collection=? AND id=?')
       .run(ts, ts, collection, Number(id));
+    this._wrote(collection);
     return true;
   }
 

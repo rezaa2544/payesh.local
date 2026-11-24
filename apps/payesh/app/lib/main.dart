@@ -63,6 +63,13 @@ Future<void> main(List<String> args) async {
           session: session,
           client: gw == null ? null : createPinnedHttpClient(gw),
         )..attach());
+  // Row 177: in the background (minimised / another app on top) nothing is fetched at all.
+  if (attendance != null) {
+    AppLifecycleListener(
+      onHide: () => attendance.setForeground(false),
+      onShow: () => attendance.setForeground(true),
+    );
+  }
   // Row 148: in-app update on CI-built releases (build number set); --update-from/--update-now
   // run the very same path from a local folder (support + the CI end-to-end test).
   final ua = UpdateArgs.parse(args);

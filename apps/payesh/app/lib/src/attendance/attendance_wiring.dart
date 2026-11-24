@@ -84,6 +84,13 @@ final class GatewayAttendanceSource
   SqliteOutbox? _outbox;
   AutoSync? _auto;
   StreamSubscription<SyncStatus>? _sub;
+  ChangeFeed? _feed;
+  final List<StreamSubscription<Object?>> _feedSubs = [];
+  bool _foreground = true;
+
+  /// Row 177: the change feed of the school server (LAN mode), or null (Gateway / old server).
+  @visibleForTesting
+  ChangeFeed? get feed => _feed;
   String? _owner;
   String _token = '';
   Future<void>? _starting;
@@ -114,6 +121,13 @@ final class GatewayAttendanceSource
     _owner = null;
     await _sub?.cancel();
     _sub = null;
+    for (final s in _feedSubs) {
+      await s.cancel();
+    }
+    _feedSubs.clear();
+    final f = _feed;
+    _feed = null;
+    await f?.stop();
     final a = _auto;
     _auto = null;
     await a?.stop();
@@ -166,6 +180,8 @@ final class GatewayAttendanceSource
       );
       send = transport.push;
       fetch = sync.pull;
+      // Row 177: event-driven — the server says when (and what) changed; no idle polling.
+      _feed = ChangeFeed(baseUri: cell, token: () => _token, client: lanClient);
     } else {
       final pinned = client;
       if (pinned == null) {
@@ -190,12 +206,25 @@ final class GatewayAttendanceSource
       },
       pull: () async {
         await _auth();
+        // the feed opens only with a valid token (first cycle), never with an empty one
+        if (_foreground) _feed?.start();
         final r = await fetch();
         if (r.rows > 0 || r.deleted > 0) _changed.value++;
       },
     );
     _sub = auto.status.listen(session.publishOutbox);
     _auto = auto;
+    final feed = _feed;
+    if (feed != null) {
+      _feedSubs
+        ..add(feed.liveChanges.listen((live) => auto.feedLive = live))
+        ..add(
+          feed.events.listen((e) {
+            if (e.needsPull) auto.notifyRemoteChange();
+          }),
+        );
+    }
+    if (!_foreground) auto.pause();
     auto.start();
   }
 
@@ -257,6 +286,23 @@ final class GatewayAttendanceSource
 
   @override
   void queued() => _auto?.notifyEnqueued();
+
+  /// Row 177: app visible (true) / hidden or minimised (false). Hidden ⇒ no timers, no feed
+  /// connection, no requests; visible again ⇒ reconnect and catch up once.
+  void setForeground(bool visible) {
+    if (_foreground == visible) return;
+    _foreground = visible;
+    final a = _auto, f = _feed;
+    if (visible) {
+      a?.resume();
+      f?.resume();
+    } else {
+      a?.pause();
+      f?.pause();
+    }
+  }
+
+  bool get foreground => _foreground;
 
   /// Manual retry from the badge; the resulting outbox state is shown right away.
   Future<void> retry() async {

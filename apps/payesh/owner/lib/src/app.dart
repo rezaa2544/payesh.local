@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:payesh_core/io.dart' show Directory;
 import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_secure/payesh_secure.dart';
@@ -28,6 +29,8 @@ import 'shell.dart';
 import 'status/status_lights.dart';
 import 'update/update_card.dart';
 import 'update/update_service.dart';
+import 'power/activity.dart';
+import 'power/processing_card.dart';
 
 const _themeLabels = {
   ThemeMode.system: 'پوسته: سیستم',
@@ -251,10 +254,24 @@ class _OwnerAppState extends State<OwnerApp> {
   DateTime _now() => (widget.now ?? DateTime.now)();
 
   Timer? _updateTimer;
+  PacedTimer? _updateEvery;
+  AppLifecycleListener? _life;
+
+  /// ردیف ۱۷۷: هر کلید = فعالیت مالک (آهنگ عادیِ تازه‌سازی‌ها برمی‌گردد).
+  bool _onKey(KeyEvent e) {
+    OwnerActivity.instance.markInteraction();
+    return false;
+  }
 
   @override
   void initState() {
     super.initState();
+    // ردیف ۱۷۷: پنجرهٔ کوچک‌شده/پنهان ⇒ تازه‌سازی‌ها خاموش؛ برگشت ⇒ یک بار فوری
+    _life = AppLifecycleListener(
+      onHide: () => OwnerActivity.instance.setVisible(false),
+      onShow: () => OwnerActivity.instance.setVisible(true),
+    );
+    HardwareKeyboard.instance.addHandler(_onKey);
     _load();
     final u = widget.updater;
     if (u != null) {
@@ -264,9 +281,12 @@ class _OwnerAppState extends State<OwnerApp> {
       _updateTimer = Timer(const Duration(seconds: 30), () {
         u.readLastApply();
         unawaited(u.check());
-        _updateTimer = Timer.periodic(
+        _updateEvery = PacedTimer.periodic(
           const Duration(minutes: 30),
-          (_) => unawaited(u.check()),
+          () => unawaited(u.check()),
+          idleEvery: const Duration(minutes: 30),
+          background: true,
+          wakeRefresh: false,
         );
       });
     }
@@ -559,6 +579,12 @@ class _OwnerAppState extends State<OwnerApp> {
               router: widget.helper!.router,
               margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             ),
+          // ردیف ۱۷۷: توقف پردازش / سقف درصد CPU برای همهٔ سیستم‌ها
+          if (widget.helper != null)
+            ProcessingCard(
+              policy: widget.helper!.policy,
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            ),
           ConnectModesCard(
             secure: widget.secure!,
             transportFactory: widget.s3Factory ?? IoS3Transport.new,
@@ -637,6 +663,9 @@ class _OwnerAppState extends State<OwnerApp> {
   @override
   void dispose() {
     _updateTimer?.cancel();
+    _updateEvery?.cancel();
+    _life?.dispose();
+    HardwareKeyboard.instance.removeHandler(_onKey);
     _dbMonitor?.dispose();
     _live?.dispose();
     _guardEngine?.dispose();
@@ -687,13 +716,18 @@ class _OwnerAppState extends State<OwnerApp> {
         schools: _schools,
       );
     }
-    return PayeshMaterialApp(
-      navigatorKey: _nav,
-      // ردیف ۱۴۷: پوستهٔ پنل مالک = «نبض» پنل کاربران (client/pulse.css)
-      look: PayeshLook.nabd,
-      title: 'پنل مالک پایش',
-      themeMode: _theme,
-      home: home,
+    // ردیف ۱۷۷: هر لمس/کلیک = فعالیت مالک (بدون گرفتن رویداد از ویجت‌ها)
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => OwnerActivity.instance.markInteraction(),
+      child: PayeshMaterialApp(
+        navigatorKey: _nav,
+        // ردیف ۱۴۷: پوستهٔ پنل مالک = «نبض» پنل کاربران (client/pulse.css)
+        look: PayeshLook.nabd,
+        title: 'پنل مالک پایش',
+        themeMode: _theme,
+        home: home,
+      ),
     );
   }
 }

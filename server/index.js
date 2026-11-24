@@ -23,6 +23,8 @@ const qr = require('./qr');
 const s3mem = require('./s3mem');
 const outbox = require('./outbox');
 const live = require('./live');
+const events = require('./events');
+const processing = require('./processing');
 const tenancy = require('./tenancy');
 const metrics = require('./metrics');
 /* row 85: structured JSON logs (request_id + school_id, no PII) */
@@ -90,6 +92,8 @@ const MIRROR_DIR = path.join(DATA_DIR, 'mirror');
 const DAILY_BACKUP_DIR = path.join(BACKUP_DIR, 'daily');
 
 const store = openStore(path.join(DATA_DIR, 'payesh.sqlite'));
+/* ردیف ۱۷۷: هر نوشتن در پایگاه داده ⇒ رویداد «کدام بخش عوض شد» (events.js) */
+events.attachStore(store);
 
 /* ── لایهٔ چندمستأجری (فاز ۳ · CC‑12‑2) ─────────────────────────────
    فقط وقتی روشن می‌شود که اتصال PostgreSQL و کلید امضای توکن تنظیم شده
@@ -1033,7 +1037,15 @@ async function api(req, res, url, ip) {
     });
   }
 
+  /* ── ردیف ۱۷۷: رویدادهای زنده (SSE) — دستگاه یک اتصال باز نگه می‌دارد و فقط وقتی چیزی
+     عوض شد خبر می‌گیرد («کدام بخش»)؛ بعد فقط همان بخش را با ‎/api/v1/pull‎ می‌گیرد. ── */
+  if (p === '/api/v1/events' && m === 'GET') {
+    live.touch();
+    return events.serve(req, res, { topics: q.get('topics'), since: q.get('since') });
+  }
+
   if (p === '/api/v1/pull' && m === 'GET') {
+    live.touch();
     const out = sync.pull(store, actor, { since: q.get('since'), since_seq: q.get('since_seq'), since_id: q.get('since_id'), collections: q.get('collections') });
     /* ردیف ۴۲: درخواست بدون تغییر ⇒ ۳۰۴ با بدنهٔ خالی. مکان‌نمای مرکب
        (since, since_id) بخشی از ETag است، پس ۳۰۴ هرگز دادهٔ جامانده را
@@ -1085,6 +1097,7 @@ async function api(req, res, url, ip) {
 
   /* ── همگام‌سازی زنده: هر دستگاه هر ۱ ثانیه همین را می‌پرسد ────────── */
   if (p === '/api/live/rev' && m === 'GET') {
+    live.touch();
     return json({
       ok: true, rev: live.localRev(store), at: new Date().toISOString(),
       every_ms: live.INTERVAL_MS, cloud: !!(await live.cloudCfg(store)),
@@ -1098,6 +1111,9 @@ async function api(req, res, url, ip) {
     const ob = await outbox.state(store);
     return json({ ok: true, every_ms: live.INTERVAL_MS, local_rev: st.local_rev,
       published_rev: st.published_rev, seen_rev: st.seen_rev, last: st.last,
+      delay_ms: st.delay_ms, idle_max_ms: st.idle_max_ms, asleep_max_ms: st.asleep_max_ms,
+      active_window_ms: st.active_window_ms, clients: st.clients, events: events.status(),
+      processing: processing.status(),
       remote: remote ? { rev: remote.rev, at: remote.at, by: remote.by } : null,
       cloud: ob.cloud, bucket: ob.bucket, pending: ob.pending });
   }
@@ -1219,7 +1235,7 @@ async function api(req, res, url, ip) {
   /* ── سرورهای کمکی (سیستم‌های پنل مالک) — server/helper-jobs.js ───── */
   if (p === '/api/admin/helpers' && m === 'GET') {
     if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
-    return json(Object.assign({ ok: true }, await helperJobs.status(store)));
+    return json(Object.assign({ ok: true, processing: processing.status() }, await helperJobs.status(store)));
   }
   if (p === '/api/admin/helpers/usage' && m === 'POST') {
     if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
@@ -2403,6 +2419,7 @@ const tunnelIngress = http.createServer((req, res) => { req.__public = true; ret
 setInterval(() => { try { auth.prune(store); } catch (e) { /* noop */ } }, 60 * 60 * 1000).unref();
 if (process.env.PAYESH_AUTO_BACKUP !== '0') {
   setInterval(() => {
+    if (processing.paused()) return;   /* ردیف ۱۷۷: «توقف پردازش» مالک */
     try { store.backupTo(BACKUP_DIR, 48); } catch (e) { logger.error('backup_failed', { component: 'backup', detail: e.message }); }
   }, 60 * 60 * 1000).unref();
   try { store.backupTo(BACKUP_DIR, 48); } catch (e) { /* noop */ }
@@ -2412,11 +2429,15 @@ if (process.env.PAYESH_AUTO_BACKUP !== '0') {
    هر دقیقه داده‌ها روی دیسک آینه می‌شوند (اگر عوض شده باشند) و همان
    لحظه با دیتابیس مقایسه می‌شوند؛ فایل روزانه هم تازه می‌شود. */
 let mirrorBusy = false;
+let mirrorSeq = -1;
 async function mirrorTick() {
-  if (mirrorBusy) return;
+  if (mirrorBusy || processing.paused()) return;
   mirrorBusy = true;
   try {
-    const r = mirror.refreshMirror(store, MIRROR_DIR);
+    /* ردیف ۱۷۷: آینه فقط وقتی داده واقعاً عوض شده (رویداد نوشتن)، نه هر دقیقه از نو */
+    const seq = events.currentSeq();
+    const r = seq === mirrorSeq ? { changed: false } : mirror.refreshMirror(store, MIRROR_DIR);
+    mirrorSeq = seq;
     mirror.refreshDaily(store, DAILY_BACKUP_DIR);
     if (r.changed) store.setMeta('mirror_status', { at: nowISO(), ok: true, total: r.total, counts: r.counts });
   } catch (e) {

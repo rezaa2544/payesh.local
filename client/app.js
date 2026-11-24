@@ -886,8 +886,26 @@ async function liveTick() {
       liveState.at = new Date().toISOString();
       liveState.error = null;
     } else {
-      /* روی سیستم مدرسه: سرور خودش هر ثانیه با حافظه حرف می‌زند؛
-         ما هم هر ثانیه از سرور می‌پرسیم آیا چیزی عوض شده */
+      /* ردیف ۱۷۷: اگر جریان رویداد وصل است، تا خبرِ «تغییر» نیامده هیچ درخواستی نمی‌رود؛
+         با خبر، فقط تغییرهای بعد از مکان‌نما (pullAll = delta + ETag) گرفته می‌شود.
+         نگاه به ‎/api/live/rev‎ فقط وقتی جریان وصل نیست یا هر ۵ دقیقه یک‌بار (تور ایمنی). */
+      if (liveEvents && liveEvents.ok) {
+        const safety = Date.now() - liveSafetyAt > LIVE_SAFETY_MS;
+        if (!livePending && !safety) { liveState.at = new Date().toISOString(); liveState.error = null; return; }
+        if (livePending) {
+          livePending = false;
+          liveSafetyAt = Date.now();
+          const changedAny = await pullAll();
+          await loadOutbox(true).catch(() => {});
+          saveCache();
+          render();
+          if (changedAny !== false) liveState.changes++;
+          liveState.at = new Date().toISOString();
+          liveState.error = null;
+          return;
+        }
+        liveSafetyAt = Date.now();
+      }
       const r = await api('/api/live/rev', { noAuthRedirect: true });
       if (!r || !r.ok) return;
       if (liveServerRev === null) { liveServerRev = r.rev; }
@@ -924,14 +942,91 @@ function liveLoop() {
   const before = liveState.changes;
   Promise.resolve().then(liveTick).catch(() => {}).then(() => {
     liveIdle = liveState.changes > before ? 0 : Math.min(liveIdle + 1, 20);
-    scheduleLive(liveDelayMs());
+    /* ردیف ۱۷۷: صفحهٔ پنهان ⇒ هیچ زمان‌بندی (بازگشت به صفحه liveKick می‌زند) */
+    if (typeof document !== 'undefined' && document.hidden) { stopLive(); return; }
+    scheduleLive(liveEvents && liveEvents.ok ? LIVE_SAFETY_MS : liveDelayMs());
   });
 }
 function startLive() {
+  openLiveEvents();
   if (liveTimer) return;
   scheduleLive(400);
 }
 function stopLive() { if (liveTimer) clearTimeout(liveTimer); liveTimer = null; }
+
+/* ═══ ردیف ۱۷۷: «انتشار/اشتراک» — خبرِ تغییر از سرور (SSE روی fetch، چون EventSource
+   سرآیند Authorization نمی‌فرستد). سرور فقط وقتی چیزی نوشته شد می‌گوید «کدام بخش»؛
+   در بیکاری هیچ بایتی جابه‌جا نمی‌شود (جز یک «:» هر ۴۵ ثانیه برای زنده ماندن اتصال). ═══ */
+const LIVE_SAFETY_MS = 5 * 60_000;
+let liveEvents = null;          /* { ctrl, ok, seq } — اتصال جاری */
+let livePending = false;        /* خبر تغییر آمده و هنوز گرفته نشده */
+let liveSafetyAt = Date.now();
+let liveEventsFails = 0;
+let liveEventsRetry = null;
+function liveEventsSupported() {
+  return !PHONE_MODE && typeof fetch === 'function' && typeof TextDecoder !== 'undefined' &&
+    typeof AbortController !== 'undefined' && typeof ReadableStream !== 'undefined';
+}
+function closeLiveEvents() {
+  if (liveEventsRetry) { clearTimeout(liveEventsRetry); liveEventsRetry = null; }
+  const cur = liveEvents;
+  liveEvents = null;
+  if (cur) { cur.ok = false; try { cur.ctrl.abort(); } catch (e) { /* noop */ } }
+}
+function onLiveEvent(me, ev, d) {
+  if (d && d.seq != null) { me.seq = Number(d.seq) || 0; try { localStorage.setItem('payesh.live.seq', String(me.seq)); } catch (e) { /* noop */ } }
+  if (ev === 'hello') {
+    me.ok = true;
+    liveEventsFails = 0;
+    liveState.events = true;
+    if (d && d.missed) { livePending = true; liveKick(); }
+    else scheduleLive(LIVE_SAFETY_MS);       /* وصل شدیم: دیگر چیزی برای پرسیدن نیست */
+  } else if (ev === 'change') {
+    livePending = true;
+    liveKick();
+  }
+}
+async function openLiveEvents() {
+  if (liveEvents || !liveEventsSupported() || !S.session || !S.user) return;
+  if (typeof document !== 'undefined' && document.hidden) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  const ctrl = new AbortController();
+  const me = { ctrl, ok: false, seq: Number(localStorage.getItem('payesh.live.seq') || 0) || 0 };
+  liveEvents = me;
+  try {
+    const res = await fetch(apiUrl('/api/v1/events?since=' + me.seq), {
+      headers: { authorization: 'Bearer ' + S.session, accept: 'text/event-stream' }, cache: 'no-store', signal: ctrl.signal,
+    });
+    if (!res.ok || !res.body || typeof res.body.getReader !== 'function') throw new Error('events_' + res.status);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const block = buf.slice(0, i); buf = buf.slice(i + 2);
+        const ev = (block.match(/^event: (.*)$/m) || [])[1];
+        if (!ev) continue;
+        let d = {};
+        try { d = JSON.parse((block.match(/^data: (.*)$/m) || [])[1] || '{}'); } catch (e) { d = {}; }
+        onLiveEvent(me, ev, d);
+      }
+    }
+  } catch (e) { /* قطع شد یا پشتیبانی نشد ⇒ برگشت به پرسیدن تطبیقی */ }
+  const aborted = ctrl.signal.aborted;
+  if (liveEvents === me) liveEvents = null;
+  me.ok = false;
+  liveState.events = false;
+  if (aborted || !S.session) return;
+  /* برگشت با تأخیر رو به رشد (۵ث، ۱۰ث، … تا ۵ دقیقه) و تا آن موقع همان پرسیدن تطبیقی */
+  liveEventsFails = Math.min(liveEventsFails + 1, 8);
+  const wait = Math.min(LIVE_SAFETY_MS, 5000 * Math.pow(2, liveEventsFails - 1));
+  liveKick();
+  liveEventsRetry = setTimeout(() => { liveEventsRetry = null; openLiveEvents(); }, wait);
+}
 function liveKick() { liveIdle = 0; scheduleLive(0); }
 /* ردیف ۴۲ — «۱ ثانیه» جایی که معنا دارد: هر تعامل کاربر نردبان بی‌کاری را صفر
    می‌کند و زمان‌بند به ۱ ثانیه برمی‌گردد (بدون شلیک درخواست به‌ازای هر کلید). */
@@ -1031,6 +1126,7 @@ function lockApp() {
   /* ردیف ۴۴: با قفل‌شدن، کلید از حافظه می‌رود و کش تا ورود بعدی خواندنی نیست */
   if (_secure) { try { _secure.lock(); } catch (e) { /* noop */ } }
   stopLive();
+  closeLiveEvents();
   renderLock();
 }
 
@@ -1396,7 +1492,9 @@ let syncSweepDelay = 90_000;
 function syncSweepTick() {
   const hidden = typeof document !== 'undefined' && document.hidden;
   const idleOk = S.online && S.session && !hidden;
-  if (idleOk) syncNow(true);
+  /* ردیف ۱۷۷: وقتی جریان رویداد وصل است و صفی نیست، دریافت کامل لازم نیست — خبر تغییر خودش می‌آید */
+  const covered = liveEvents && liveEvents.ok && !(S.queue && S.queue.length);
+  if (idleOk && !covered) syncNow(true);
   const S2 = globalThis.PayeshSchedule;
   scheduleSyncSweep(S2 ? S2.sweepDelay(idleOk, null) : (idleOk ? 90_000 : 5 * 60_000));
 }
@@ -2162,7 +2260,12 @@ async function boot() {
 document.addEventListener('DOMContentLoaded', boot);
 /* وقتی کاربر به برنامه برمی‌گردد، همان لحظه تازه‌سازی (نه تا یک ثانیه بعد) */
 if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) liveKick(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { stopLive(); closeLiveEvents(); return; }   /* ردیف ۱۷۷: پنهان ⇒ صفر درخواست */
+    if (!S.session) return;
+    openLiveEvents();
+    liveKick();
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════════

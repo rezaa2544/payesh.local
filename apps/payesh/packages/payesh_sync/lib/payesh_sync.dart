@@ -20,6 +20,7 @@ export 'src/data_health.dart';
 export 'src/server_admin.dart';
 export 'src/device_owner.dart';
 export 'src/auto_sync.dart';
+export 'src/change_feed.dart';
 export 'src/direct_transport.dart';
 export 'src/family.dart';
 export 'src/gateway_transport.dart';

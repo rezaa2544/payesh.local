@@ -5465,6 +5465,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۷۷: همگام‌سازی رویدادمحور — فقط وقتی چیزی عوض شد، فقط همان بخش (SSE + نگاه تطبیقی به ابر) ── */
+  await test('ردیف ۱۷۷: هر نوشتن یک رویداد «کدام بخش» می‌سازد، SSE فقط هنگام تغییر چیزی می‌فرستد، در بیکاری نگاه به ابر کم می‌شود و تغییر گوشی باز هم می‌رسد؛ کنترل پردازش (توقف / سقف CPU) از سیاست مالک پیروی می‌شود (۱۷ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/events-177.js')], { encoding: 'utf8', cwd: ROOT, timeout: 180000 });
+      assert.strictEqual(r.status, 0, 'events-177: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|EVENTS-177/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۷۶ (آزمایشگاه): D-04 خروج دستگاه را باطل می‌کند (ورود/خروج پیاپی هرگز به سقف نمی‌خورد)؛
      D-05 فهرست دستگاه‌های مدیر نام و نقش واقعی کاربر را از records.data نشان می‌دهد ── */
   await test('ردیف ۱۷۶: خروج دستگاه را باطل می‌کند و ورود/خروج پیاپی به سقف نمی‌خورد؛ فهرست دستگاه‌ها نام و نقش واقعی کاربر را نشان می‌دهد (۸ بررسی + ۳ جهش)',

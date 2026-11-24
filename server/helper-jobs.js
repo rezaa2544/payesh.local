@@ -37,6 +37,7 @@ const https = require('https');
 const os = require('os');
 const { performance } = require('perf_hooks');
 const s3mem = require('./s3mem');
+const processing = require('./processing');
 const { trustFetch } = require('./s3-https');
 const loadRoute = require('./load-route');
 
@@ -145,11 +146,13 @@ async function listAll(cfg, prefix, maxPages = USAGE_MAX_PAGES) {
   let pages = 0;
   let truncated = false;
   do {
+    const t0 = Date.now();
     const r = await s3mem.list(cfg, { prefix, max: 1000, token: token || undefined });
     out.push(...r.keys);
     token = r.truncated ? r.token : null;
     pages++;
     if (token && pages >= maxPages) { truncated = true; break; }
+    if (token) await processing.throttle(Date.now() - t0);   /* ردیف ۱۷۷: سقف CPU */
   } while (token);
   return { keys: out, truncated };
 }
@@ -333,7 +336,8 @@ function validPolicy(p) {
   return !!p && p.v === 1 && typeof p.helpers === 'boolean' && Array.isArray(p.off) &&
     p.off.every(x => typeof x === 'string') && Number.isSafeInteger(p.at) &&
     (p.mode === undefined || loadRoute.MODES.includes(p.mode)) &&
-    (p.external === undefined || (typeof p.external === 'string' && p.external.length <= 300));
+    (p.external === undefined || (typeof p.external === 'string' && p.external.length <= 300)) &&
+    processing.validProc(p.proc);   /* ردیف ۱۷۷: کنترل پردازش (اختیاری) */
 }
 const helperOff = (policy, id) => !!policy && Array.isArray(policy.off) && policy.off.includes('helper:' + id);
 let policyCache = { key: '', at: 0, value: null };
@@ -344,6 +348,7 @@ async function readPolicy(cfg, { now = Date.now(), maxAgeMs = POLICY_MAX_AGE_MS 
   try {
     const r = await readEnv(cfg, cfg.prefix + POLICY_KEY, K.policy);
     if (r && !r.invalid && validPolicy(r.plain)) value = r.plain;
+    processing.apply(value);   /* ردیف ۱۷۷: توقف / سقف CPU مالک ⇒ همین سرور */
   } catch (e) {
     /* صندوقچه موقتاً در دسترس نیست: آخرین سیاست شناخته‌شده */
     value = policyCache.key === ck ? policyCache.value : null;
@@ -376,7 +381,8 @@ function busyNow() {
     load.timer = setInterval(sampleLoad, LOAD_SAMPLE_MS);
     load.timer.unref();
   }
-  return load.elu >= BUSY_ELU || load.cpu >= BUSY_CPU;
+  /* ردیف ۱۷۷: سقف درصد CPU مالک = آستانهٔ «شلوغ» (بالاتر ⇒ کار سنگین به سرور کمکی) */
+  return load.elu >= BUSY_ELU || load.cpu >= processing.busyCpu(BUSY_CPU);
 }
 
 /* آیا این کار به سرور کمکی نیاز دارد؟ null = بله؛ وگرنه دلیلِ انجام روی همین سرور.
@@ -502,7 +508,7 @@ function start(store, { everyMs = 30 * 60_000, publicUrl = () => null, log = (m)
   if (timer) return;
   const tick = async () => {
     const url = publicUrl();
-    if (!url) return;
+    if (!url || processing.paused()) return;   /* ردیف ۱۷۷: «توقف پردازش» مالک */
     try {
       const r = await checkPublicUrl(store, url);
       if (r) log('[helper] بررسی بیرونی آدرس عمومی: ' + (r.reachable ? 'در دسترس' : 'در دسترس نیست') + ' (' + (r.by === 'local' ? 'محلی' : 'سرور کمکی ' + r.by) + ')');

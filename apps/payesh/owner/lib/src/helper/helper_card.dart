@@ -10,6 +10,7 @@ import 'helper_box.dart';
 import 'helper_node.dart';
 import 'helper_service.dart';
 import 'host_cpu.dart';
+import '../power/activity.dart';
 
 String fmtBytesFa(int b) {
   if (b < 1024) return '$b بایت';
@@ -67,7 +68,7 @@ class _HelperCardState extends State<HelperCard> {
   String? _usage;
   bool _usageOk = true;
   late final HostCpuMeter _cpu = widget.cpu ?? HostCpuMeter();
-  Timer? _live;
+  PacedTimer? _live;
   int? _rss;
 
   @override
@@ -81,10 +82,10 @@ class _HelperCardState extends State<HelperCard> {
             : const Duration(seconds: 1));
     _sampleLive();
     if (every != null) {
-      _live = Timer.periodic(every, (_) {
+      _live = PacedTimer.periodic(every, () {
         _sampleLive();
         if (mounted) setState(() {});
-      });
+      }, idleEvery: every * 10);
     }
   }
 

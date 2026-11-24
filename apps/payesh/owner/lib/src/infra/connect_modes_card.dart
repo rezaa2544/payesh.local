@@ -16,6 +16,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 import '../local/central_server.dart';
 import '../local/local_platform.dart';
 import '../local/s3_client.dart';
+import '../power/activity.dart';
 
 const Map<String, String> connectModeTitles = {
   'auto': 'خودکار (پیشنهادی)',
@@ -85,7 +86,7 @@ class _ConnectModesCardState extends State<ConnectModesCard> {
   String? _error;
   String? _message;
   bool _ok = true;
-  Timer? _timer;
+  PacedTimer? _timer;
 
   @override
   void initState() {
@@ -93,9 +94,10 @@ class _ConnectModesCardState extends State<ConnectModesCard> {
     if (widget.autoLoad) {
       unawaited(_load());
       // وضعیت نشانی‌ها زنده بماند (نشانی تونل ممکن است عوض شود)
-      _timer = Timer.periodic(
+      _timer = PacedTimer.periodic(
         const Duration(minutes: 1),
-        (_) => unawaited(_load(quiet: true)),
+        () => unawaited(_load(quiet: true)),
+        idleEvery: const Duration(minutes: 10),
       );
     } else {
       _loaded = true;

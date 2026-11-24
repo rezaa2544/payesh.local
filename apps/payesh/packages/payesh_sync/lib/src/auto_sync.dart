@@ -69,7 +69,11 @@ final class SyncStatus {
 /// * single-flight: never two cycles at once, and never two cycles closer than [minGap];
 /// * no retry storm: retries follow the outbox backoff, and every scheduled wake-up carries a
 ///   random spread so devices that lost the same network do not return in lockstep;
-/// * every state change is published on [status] so the UI can always show what is pending.
+/// * every state change is published on [status] so the UI can always show what is pending;
+/// * row 177 — event-driven: while a [ChangeFeed] is connected ([feedLive]) the idle poll is
+///   replaced by a rare safety check ([liveIdleInterval]); a pull runs when the server says
+///   something changed ([notifyRemoteChange]). [pause] stops every wake-up while the app is in
+///   the background; [resume] catches up once.
 final class AutoSync {
   AutoSync({
     required this.outbox,
@@ -77,6 +81,7 @@ final class AutoSync {
     this.pull,
     this.clock = const SystemClock(),
     this.idleInterval = const Duration(seconds: 60),
+    this.liveIdleInterval = const Duration(minutes: 10),
     this.minGap = const Duration(seconds: 2),
     this.spread = const Duration(seconds: 5),
     Random? random,
@@ -89,6 +94,9 @@ final class AutoSync {
   /// never touch the outbox.
   final Future<void> Function()? pull;
   final Duration idleInterval;
+
+  /// Idle safety check while the change feed is connected (row 177).
+  final Duration liveIdleInterval;
   final Duration minGap;
   final Duration spread;
   final Clock clock;
@@ -99,6 +107,8 @@ final class AutoSync {
   bool _running = false;
   bool _again = false;
   bool _started = false;
+  bool _paused = false;
+  bool _feedLive = false;
   DateTime? _lastRunAt;
   DateTime? _lastSuccessAt;
   String? _lastError;
@@ -144,6 +154,38 @@ final class AutoSync {
   void notifyOnline() {
     outbox.wake();
     _schedule(_jittered(Duration.zero, spread));
+  }
+
+  /// Row 177: the change feed is connected (true) or lost (false). Connected ⇒ no idle polling.
+  set feedLive(bool live) {
+    if (_feedLive == live) return;
+    _feedLive = live;
+    if (!_running && !_paused) _scheduleNext();
+  }
+
+  bool get feedLive => _feedLive;
+  bool get paused => _paused;
+
+  /// Row 177: the server reported a change — pull soon (debounced by [minGap]).
+  void notifyRemoteChange() {
+    if (_paused) return;
+    _schedule(Duration.zero);
+  }
+
+  /// Row 177: app in the background — no timers, no requests.
+  void pause() {
+    if (_paused) return;
+    _paused = true;
+    _timer?.cancel();
+    _timer = null;
+    _publish(_snapshot(_phase(), null));
+  }
+
+  /// Row 177: app visible again — one catch-up cycle soon, then the normal schedule.
+  void resume() {
+    if (!_paused) return;
+    _paused = false;
+    _schedule(_jittered(Duration.zero, minGap));
   }
 
   /// The OS reports no connectivity: nothing is sent until the next wake-up.
@@ -207,7 +249,7 @@ final class AutoSync {
   }
 
   void _scheduleNext() {
-    if (!_started) {
+    if (!_started || _paused) {
       _publish(_snapshot(_phase(), null));
       return;
     }
@@ -225,13 +267,14 @@ final class AutoSync {
       );
       wait = dueIn < minGap ? minGap : dueIn;
     } else {
-      wait = _jittered(idleInterval * 0.5, idleInterval * 0.5);
+      final base = _feedLive ? liveIdleInterval : idleInterval;
+      wait = _jittered(base * 0.5, base * 0.5);
     }
     _schedule(wait);
   }
 
   void _schedule(Duration wait) {
-    if (!_started) return;
+    if (!_started || _paused) return;
     final now = clock.now();
     var w = wait;
     final last = _lastRunAt;

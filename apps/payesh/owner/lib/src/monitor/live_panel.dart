@@ -8,6 +8,7 @@ import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import 'live_monitor.dart';
+import '../power/activity.dart';
 
 class LiveInfraPanel extends StatefulWidget {
   const LiveInfraPanel({
@@ -32,7 +33,7 @@ class LiveInfraPanel extends StatefulWidget {
 }
 
 class _LiveInfraPanelState extends State<LiveInfraPanel> {
-  Timer? _infraTimer;
+  PacedTimer? _infraTimer;
 
   @override
   void initState() {
@@ -40,7 +41,11 @@ class _LiveInfraPanelState extends State<LiveInfraPanel> {
     widget.monitor.attach();
     unawaited(_loadInfra());
     if (widget.api != null) {
-      _infraTimer = Timer.periodic(widget.infraEvery, (_) => _loadInfra());
+      _infraTimer = PacedTimer.periodic(
+        widget.infraEvery,
+        _loadInfra,
+        idleEvery: widget.infraEvery * 10,
+      );
     }
   }
 
