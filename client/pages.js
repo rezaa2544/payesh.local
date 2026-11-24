@@ -1552,6 +1552,7 @@ PAGES.system = () => {
     <div class="row" style="margin-top:10px">
       <button class="btn sm" data-act="sync">همگام‌سازی</button>
       <button class="btn sm" data-act="lock">🔒 خروج</button>
+      <button class="btn sm ghost" data-act="whats-new-all">✦ همهٔ تغییرات نسخه‌ها</button>
     </div>`)}
   ${liveCard()}
   ${isManager ? phoneAccessCard() : ''}

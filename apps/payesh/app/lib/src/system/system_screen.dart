@@ -5,6 +5,8 @@
 // Server-management actions are online by design (see payesh_sync server_admin.dart): they
 // work on the school server itself, so without the school's own server the page says so and
 // nothing is half-done. Data health runs on the device's copy and repairs are queued writes.
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show TapGestureRecognizer;
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -12,7 +14,8 @@ import 'package:flutter/material.dart';
 import 'package:payesh_core/io.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
-import 'package:payesh_update/payesh_update.dart' show UpdatePhase;
+import 'package:payesh_update/payesh_update.dart'
+    show NoteAudience, UpdatePhase, showReleaseHistory;
 
 import '../pulse/web.dart';
 import '../school/school_source.dart';
@@ -513,6 +516,13 @@ class _SystemScreenState extends State<SystemScreen> {
               ),
               if (lock != null)
                 WebBtn('🔒 خروج', key: const Key('sys-lock'), onPressed: lock),
+              // Row 179: the release history (same notes as «چه چیزهایی تازه است؟»).
+              WebBtn(
+                '✦ همهٔ تغییرات نسخه‌ها',
+                key: const Key('sys-whats-new'),
+                onPressed: () =>
+                    unawaited(showReleaseHistory(context, NoteAudience.school)),
+              ),
             ]),
           ]),
           _col(key: const Key('sys-live'), [

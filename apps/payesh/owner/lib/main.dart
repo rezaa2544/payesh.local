@@ -40,6 +40,7 @@ Future<void> main(List<String> args) async {
       // سرور کمکی: پیش‌فرض روشن (قابل توقف موقت در «تنظیمات»)
       helper: OwnerHelperService(secure: secure),
       updater: updater,
+      whatsNew: WhatsNewStore(read: secure.read, write: secure.write),
       openUrl: platformOpenUrl,
       // ردیف ۱۷۰: اتصال خودکار دیتابیس (payeshschool.ir اول، سپس صندوقچه)
       connectBases: defaultConnectBases,

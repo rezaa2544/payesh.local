@@ -27,6 +27,7 @@ import 'schools/login_methods_section.dart';
 import 'schools/school_registry.dart';
 import 'shell.dart';
 import 'status/status_lights.dart';
+
 import 'update/update_card.dart';
 import 'update/update_service.dart';
 import 'power/activity.dart';
@@ -58,6 +59,7 @@ class OwnerApp extends StatefulWidget {
     this.helper,
     this.updater,
     this.openUrl,
+    this.whatsNew,
     this.dbAutoCheck = true,
     this.metricsFetcher,
     this.backupDir,
@@ -89,6 +91,9 @@ class OwnerApp extends StatefulWidget {
   /// انبار امن دستگاه. اگر داده شود (برنامهٔ نصب‌شده): ورود محلی بدون اینترنت ⇒ کل برنامه با
   /// صفحهٔ «تنظیمات» (دیتابیس + سرور پلتفرم). نشست تا «خروج» می‌ماند. بدون آن: فقط حالت سرور.
   final SecureStore? secure;
+
+  /// ردیف ۱۷۹: نسخهٔ «دیده‌شده» برای پنجرهٔ «چه چیزهایی تازه است؟» (فقط برنامهٔ نصب‌شده).
+  final WhatsNewStore? whatsNew;
   final S3Transport Function()? s3Factory;
   final int pbkdf2Iterations;
 
@@ -726,7 +731,13 @@ class _OwnerAppState extends State<OwnerApp> {
         look: PayeshLook.nabd,
         title: 'پنل مالک پایش',
         themeMode: _theme,
-        home: home,
+        // ردیف ۱۷۹: پس از هر به‌روزرسانی یک‌بار «چه چیزهایی تازه است؟»
+        home: WhatsNewGate(
+          store: widget.whatsNew,
+          audience: NoteAudience.owner,
+          appVersion: widget.updater?.channel.version,
+          child: home,
+        ),
       ),
     );
   }

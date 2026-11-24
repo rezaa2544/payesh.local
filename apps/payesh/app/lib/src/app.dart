@@ -83,6 +83,7 @@ class PayeshApp extends StatelessWidget {
     this.onRetrySync,
     this.updater,
     this.openUrl,
+    this.whatsNew,
   });
 
   /// Row 148: version + update light at the top of every page (null in tests/local builds).
@@ -91,6 +92,9 @@ class PayeshApp extends StatelessWidget {
 
   /// Android: the published APK in the system browser.
   final Future<void> Function(Uri url)? openUrl;
+
+  /// Row 179: where the «seen» release is kept (installed app only; null in tests).
+  final WhatsNewStore? whatsNew;
 
   /// Encrypted local database being opened (row 72); null in widget previews.
   final Future<LocalStorage>? storage;
@@ -382,16 +386,22 @@ class PayeshApp extends StatelessWidget {
                 updater: u,
                 child: TopStatus(updater: u, session: s, openUrl: openUrl),
               ),
-        home: s == null
-            ? HomeScreen(storage: storage, today: today)
-            : SessionGate(
-                controller: s,
-                home: HomeFooter(storage: storage, today: today),
-                pages: (context, state) => _pages(context, s, state),
-                nav: (context, state) => _nav(context, s, state),
-                accountName: _accountName,
-                admin: () => school?.admin,
-              ),
+        // Row 179: «چه چیزهایی تازه است؟» once after every update (Android, Windows, Win32).
+        home: WhatsNewGate(
+          store: whatsNew,
+          audience: NoteAudience.school,
+          appVersion: u?.channel.version,
+          child: s == null
+              ? HomeScreen(storage: storage, today: today)
+              : SessionGate(
+                  controller: s,
+                  home: HomeFooter(storage: storage, today: today),
+                  pages: (context, state) => _pages(context, s, state),
+                  nav: (context, state) => _nav(context, s, state),
+                  accountName: _accountName,
+                  admin: () => school?.admin,
+                ),
+        ),
       ),
     );
   }

@@ -124,6 +124,8 @@ class _UpdateCardState extends State<UpdateCard> {
               onPressed: u.busy ? null : u.check,
               child: const Text('بررسی به‌روزرسانی'),
             ),
+            // ردیف ۱۷۹: تاریخچهٔ «چه چیزهایی تازه است؟»
+            const ReleaseHistoryButton(audience: NoteAudience.owner),
             if (u.phase == UpdatePhase.ready ||
                 (u.phase == UpdatePhase.failed && u.available))
               FilledButton(

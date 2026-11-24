@@ -2498,6 +2498,27 @@
    ]
   },
   {
+   "id": "act:whats-new-all",
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/system/system_screen.dart",
+     "has": "sys-whats-new"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_update/lib/src/whats_new.dart",
+     "has": "class ReleaseHistoryPage"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/packages/payesh_update/test/whats_new_179_test.dart",
+     "has": "WN-06"
+    }
+   ]
+  },
+  {
    "id": "act:workdays-edit",
    "status": "native",
    "wave": "W9",

@@ -39,7 +39,12 @@ function sha(file) {
 let NOTES = [];
 try {
   const all = JSON.parse(fs.readFileSync(path.join(ROOT, 'RELEASE_NOTES.json'), 'utf8'));
-  NOTES = all[VERSION] || [];
+  /* ردیف ۱۷۹: هر خط یا رشته است (همهٔ پنل‌ها) یا {t, for:[owner|school|web]}؛ مانیفست سرور
+     مدرسه فقط متن خط‌های وب/مدرسه را می‌گیرد. */
+  NOTES = (all[VERSION] || [])
+    .filter(n => typeof n === 'string' || !Array.isArray(n.for) || n.for.includes('web') || n.for.includes('school'))
+    .map(n => (typeof n === 'string' ? n : String(n.t || '')))
+    .filter(Boolean);
 } catch (e) { NOTES = []; }
 
 /* نسخهٔ کلاینت را با نسخهٔ بسته هم‌تراز می‌کنیم (برای تشخیص کش کهنه در مرورگر) */

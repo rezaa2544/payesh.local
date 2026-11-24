@@ -10,3 +10,5 @@ export 'src/channel.dart';
 export 'src/delta.dart';
 export 'src/update_light.dart';
 export 'src/updater.dart';
+export 'src/whats_new.dart';
+export 'src/whats_new_data.dart';

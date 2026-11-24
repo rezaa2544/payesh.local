@@ -290,3 +290,9 @@ tr:last-child td{border-bottom:0}
 @keyframes payesh-spin{to{transform:rotate(360deg)}}
 .busy-bar{height:8px;background:#eef2f7;border-radius:999px;overflow:hidden;margin-top:12px;display:none}
 .busy-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#6366f1,#8b5cf6);transition:width .25s}
+
+/* ردیف ۱۷۹: «چه چیزهایی تازه است؟» و تاریخچهٔ نسخه‌ها */
+.wn-badge{width:52px;height:52px;margin:0 auto 8px;border-radius:16px;display:grid;place-items:center;font-size:24px;background:var(--primary-soft,rgba(13,148,136,.12));color:var(--primary,#0d9488)}
+.wn-ver{font-weight:700;font-size:13.5px;margin:14px 0 4px;color:var(--ink,inherit)}
+.wn-list{margin:0;padding-inline-start:20px;line-height:1.95;font-size:13px}
+.wn-list li{margin-bottom:4px}

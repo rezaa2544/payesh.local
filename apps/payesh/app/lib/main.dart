@@ -32,9 +32,10 @@ Future<void> main(List<String> args) async {
   final lanClient = lanEnabled
       ? LanAccessClient(platform: Platform.operatingSystem)
       : null;
+  final prefs = platformSecureStore();
   final session = SessionController(
     api: schoolAccessFromEnvironment(),
-    accounts: SchoolAccountStore(platformSecureStore()),
+    accounts: SchoolAccountStore(prefs),
     flags: flags,
     // Row 127: the school's own server on the local network (Sync v1), next to the Gateway.
     lan: lanClient,
@@ -105,6 +106,8 @@ Future<void> main(List<String> args) async {
       onRetrySync: attendance?.retry,
       updater: updater,
       openUrl: openUri,
+      // Row 179: «چه چیزهایی تازه است؟» once after every update.
+      whatsNew: WhatsNewStore(read: prefs.read, write: prefs.write),
     ),
   );
   if (updater != null && ua.now) {

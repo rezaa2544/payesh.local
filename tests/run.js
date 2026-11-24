@@ -5484,6 +5484,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۷۹: «چه چیزهایی تازه است؟» در همهٔ پنل‌ها از یک منبع ── */
+  await test('ردیف ۱۷۹: پس از هر به‌روزرسانی «چه چیزهایی تازه است؟» — یادداشت نسخهٔ جاری موجود، خروجی Dart و وب هم‌تراز با RELEASE_NOTES.json، خط‌های فقط-مالک به مانیفست مدرسه نمی‌روند، یک‌بار برای هر نسخه و تاریخچه (۷ بررسی + جهش)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/whats-new-179.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'whats-new-179: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|WHATS-NEW-179/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۷۶ (آزمایشگاه): D-04 خروج دستگاه را باطل می‌کند (ورود/خروج پیاپی هرگز به سقف نمی‌خورد)؛
      D-05 فهرست دستگاه‌های مدیر نام و نقش واقعی کاربر را از records.data نشان می‌دهد ── */
   await test('ردیف ۱۷۶: خروج دستگاه را باطل می‌کند و ورود/خروج پیاپی به سقف نمی‌خورد؛ فهرست دستگاه‌ها نام و نقش واقعی کاربر را نشان می‌دهد (۸ بررسی + ۳ جهش)',
