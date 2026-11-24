@@ -1,19 +1,16 @@
 {
-  "version": "0.9.32",
-  "built_at": "2026-11-24T09:46:22.042Z",
-  "notes": [
-    "خروج از حساب حالا دستگاه را هم آزاد می‌کند. پیش‌تر هر بار ورود دوباره یک «دستگاه» تازه می‌ساخت و دبیری که روی رایانهٔ مشترک دفتر هر روز وارد و خارج می‌شد، پس از چند بار با پیام «سقف دستگاه» قفل می‌شد. حالا ورود و خروج پیاپی هیچ‌وقت به سقف نمی‌خورد؛ دستگاهی که خارج نشده (قفل صفحه) همچنان بدون رمز باز می‌شود.",
-    "فهرست دستگاه‌ها در پنل مدیر حالا نام و نقش صاحب هر دستگاه را نشان می‌دهد. پیش‌تر برای همه «—» می‌آمد و مدیر نمی‌دانست گوشی گم‌شدهٔ کدام کاربر را باطل کند."
-  ],
+  "version": "0.9.33",
+  "built_at": "2026-11-24T19:03:28.846Z",
+  "notes": [],
   "shell": {
-    "android": "0.9.32"
+    "android": "0.9.33"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "af36e77317926a3f0b141e9c0705d74ecd2158f375351091a0d9debdc6df4e9a",
-      "size": 204052
+      "sha256": "60032fe8cd6f0da3fe5991e89675199fa454c4b3e4152d2ec4525d57f01d3a7f",
+      "size": 209426
     },
     {
       "path": "client/authz.js",
@@ -222,8 +219,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "0307fc9ae06c67b01b4ed52b95f5b4e3bafd7cc75693e4c959d2c07bc32ec584",
-      "size": 7443
+      "sha256": "c4136ac354adb4122e13e14bb30642f72b639b19d34d66e5a2ef75287b3dca8f",
+      "size": 7549
     },
     {
       "path": "server/academic-year.js",
@@ -288,8 +285,8 @@
     {
       "path": "server/db.js",
       "kind": "server",
-      "sha256": "e9ffb57be4fb665c5f49a9043ee455eaaf26a4678637c848084aa57eb3cbfa4f",
-      "size": 19752
+      "sha256": "0b8d7193d842da99bca3323c5787f935a3f3a99e6bd5714ed55abbec6b59a971",
+      "size": 20503
     },
     {
       "path": "server/directory-api.js",
@@ -310,6 +307,12 @@
       "size": 11337
     },
     {
+      "path": "server/events.js",
+      "kind": "server",
+      "sha256": "da1949a5789ca494ca8150499070069dbbe92d6c5d0a5b7cddb064da3eed3971",
+      "size": 6230
+    },
+    {
       "path": "server/field-crypto.js",
       "kind": "server",
       "sha256": "5530a6bcb274be9d39679487ae0557d6693d2d7d42af30ff35102fdcfca1c778",
@@ -324,8 +327,8 @@
     {
       "path": "server/helper-jobs.js",
       "kind": "server",
-      "sha256": "f3b6efefb3d825af3c446148c6963f86b04be37b04af6fc0411fa2965be559c4",
-      "size": 27356
+      "sha256": "3ed093d498cbd010d8451bc9adde8441f98639556d149f7104854aad160b9201",
+      "size": 27978
     },
     {
       "path": "server/hosting.js",
@@ -342,8 +345,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "8f304f841c76e215d8de2f131341104a174904450ccc0cef2c295542b306bc7d",
-      "size": 153985
+      "sha256": "1f32ca78f080064bc3b18b0904f1b7ed25195924fdfa1b0c4a4326f7601be8d5",
+      "size": 155356
     },
     {
       "path": "server/kill-switch.js",
@@ -360,8 +363,8 @@
     {
       "path": "server/live.js",
       "kind": "server",
-      "sha256": "521156bfbe8ea5b1bc78108bbfdfac2b4874faddb9a77ebf675b02fdad7ea615",
-      "size": 7396
+      "sha256": "e73cdc8314bcf757e274bf00b584f3f765bfe41c98cfec059f6f29d0303ad068",
+      "size": 12143
     },
     {
       "path": "server/load-route.js",
@@ -416,6 +419,12 @@
       "kind": "server",
       "sha256": "8831c9b24d432af4d21fd13ab9213af814b9eada06ecff3f9406bea440b9da0b",
       "size": 5384
+    },
+    {
+      "path": "server/processing.js",
+      "kind": "server",
+      "sha256": "fc7f423a85a9a2fd0bcb22fdb4450bd87ef9530a890062c21f7e12ef0a401653",
+      "size": 4628
     },
     {
       "path": "server/qr.js",
@@ -570,9 +579,9 @@
   ],
   "counts": {
     "client": 34,
-    "server": 59
+    "server": 61
   },
-  "client_size": 1491119,
-  "server_size": 970179,
-  "total_size": 2461298
+  "client_size": 1496493,
+  "server_size": 988634,
+  "total_size": 2485127
 }
