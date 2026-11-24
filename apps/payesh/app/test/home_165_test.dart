@@ -28,6 +28,8 @@ final _apk = List<int>.filled(64, 7);
 
 /// Manifest (build 9) + the APK itself.
 final class _Http implements UpdateHttp {
+  _Http({this.build = 9});
+  final int build;
   final hits = <String>[];
 
   @override
@@ -41,7 +43,7 @@ final class _Http implements UpdateHttp {
       return utf8.encode(
         jsonEncode(<String, Object?>{
           'schema': appUpdateSchema,
-          'build': 9,
+          'build': build,
           'commit': 'c' * 40,
           'files': [
             {
@@ -185,9 +187,11 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byKey(const Key('update-bar-install')), findsNothing);
+      // Row 177: no bar at all until a new version is found
+      expect(find.byKey(const Key('update-bar')), findsNothing);
       expect(
-        barText(tester),
-        'نسخهٔ ${appChannel.versionOf(5)} — برنامه به‌روز است',
+        find.byKey(const Key('update-bar-none'), skipOffstage: false),
+        findsOneWidget,
       );
       await tester.runAsync(u.check);
       await tester.pump();
@@ -208,6 +212,69 @@ void main() {
       expect(http.hits, ['app-update.json', 'payesh-native.apk']);
       expect(u.phase, UpdatePhase.applying);
       expect(barText(tester), contains('در حال دانلود'));
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'H177-01 after the update (the app runs the published build) the bar is gone — no '
+    '«برنامه به‌روز است»; the version pill sits in the top-left corner of the window',
+    (tester) async {
+      tester.view.physicalSize = const Size(1568, 880);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final dir = Directory.systemTemp.createTempSync('h177');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final http = _Http(build: 9);
+      final u = AppUpdater(
+        channel: appChannel,
+        http: () => http,
+        windows: false,
+        currentBuild: 9,
+        retry: UpdateRetry.none,
+        stagingRoot: dir,
+      );
+      final src = MemorySchool();
+      await tester.runAsync(() => _seed(src));
+      final c = SessionController(
+        api: FakeAccess([FakeAccess.session('manager')]),
+        accounts: SchoolAccountStore(await savedSchool(role: 'manager')),
+        flags: ClientFlags.parse(school: 'users,server'),
+        now: () => today,
+      );
+      addTearDown(c.dispose);
+      await tester.pumpWidget(
+        PayeshApp(session: c, school: src, today: () => today, updater: u),
+      );
+      await c.start();
+      for (var i = 0; i < 6; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.runAsync(u.check);
+      await tester.pump();
+      expect(u.phase, UpdatePhase.upToDate);
+      expect(find.byKey(const Key('update-bar')), findsNothing);
+      expect(find.textContaining('برنامه به‌روز است'), findsNothing);
+      expect(find.text('بررسی آپدیت'), findsNothing);
+      // the pill: top-left corner, inside the reserved strip
+      final pill = tester.getRect(find.byKey(const Key('app-version')));
+      expect(pill.left, lessThan(80));
+      expect(pill.bottom, lessThanOrEqualTo(44));
+      expect(
+        tester.widget<Text>(find.byKey(const Key('app-version'))).data,
+        u.channel.version,
+      );
+      // a tap on the pill still checks by hand
+      await tester.runAsync(() async {
+        await tester.tap(find.byKey(const Key('update-light')));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pump();
+      expect(http.hits.where((h) => h == 'app-update.json'), hasLength(2));
+      expect(find.byKey(const Key('update-bar')), findsNothing);
       await tester.pumpWidget(const SizedBox());
     },
   );

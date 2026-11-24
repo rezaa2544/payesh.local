@@ -324,6 +324,37 @@ class SchoolPage extends StatelessWidget {
   }
 }
 
+/// Row 177: from this window width a [SchoolForm] opened with [openSchoolForm] is a centred
+/// dialog about half the window wide (two columns of fields) instead of a full-screen page.
+const double schoolFormDialogBreakpoint = 900;
+
+/// Opens a [SchoolForm] page: a centred dialog on wide windows (Windows/tablet, row 177 — the
+/// full-width page of ~20 fields was hard to read), the usual full-screen page on phones.
+/// Closing needs the form's own «بستن» / «انصراف» (or Esc): a stray click outside never throws
+/// away what was typed.
+Future<T?> openSchoolForm<T>(BuildContext context, Widget form) {
+  if (MediaQuery.sizeOf(context).width < schoolFormDialogBreakpoint) {
+    return Navigator.of(context)
+        .push<T>(MaterialPageRoute<T>(builder: (_) => form));
+  }
+  return showDialog<T>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _SchoolFormDialog(child: form),
+  );
+}
+
+/// Marks a [SchoolForm] shown by [openSchoolForm] as a dialog.
+class _SchoolFormDialog extends InheritedWidget {
+  const _SchoolFormDialog({required super.child});
+
+  static bool of(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<_SchoolFormDialog>() != null;
+
+  @override
+  bool updateShouldNotify(_SchoolFormDialog oldWidget) => false;
+}
+
 /// A form page of row 128 (the web modal): error on top, fields, a submit button at the bottom.
 /// The form stays open with what the user typed when the device refuses.
 class SchoolForm extends StatelessWidget {
@@ -344,71 +375,176 @@ class SchoolForm extends StatelessWidget {
   final String submitLabel;
   final VoidCallback onSubmit;
 
-  @override
-  Widget build(BuildContext context) => _IssueHost(
-    controller: controller,
-    child: ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) => Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            key: Key('$prefix-form-back'),
-            tooltip: 'بازگشت',
-            icon: const BackButtonIcon(),
-            onPressed: () => Navigator.maybePop(context),
-          ),
-          title: Text(title),
+  Widget _error(BuildContext context, EdgeInsets padding) => Padding(
+    padding: padding,
+    child: Semantics(
+      liveRegion: true,
+      child: Text(
+        controller.formError!,
+        key: Key('$prefix-form-error'),
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      ),
+    ),
+  );
+
+  /// Row 177: the dialog look — title + «بستن» on top, fields in two columns (a multi-line
+  /// field takes the whole row), «انصراف» and the submit button at the bottom.
+  Widget _dialog(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final theme = Theme.of(context);
+    final width = (size.width * 0.5).clamp(560.0, 820.0);
+    const gap = PayeshTokens.space4;
+    return Dialog(
+      key: Key('$prefix-form-dialog'),
+      insetPadding: const EdgeInsets.all(PayeshTokens.space5),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: width,
+          minWidth: width,
+          maxHeight: size.height * 0.88,
         ),
-        // the refusal stays pinned above the fields: visible wherever the form was scrolled
-        body: Column(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (controller.formError != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  PayeshTokens.space4,
-                  PayeshTokens.space3,
-                  PayeshTokens.space4,
-                  0,
-                ),
-                child: Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    controller.formError!,
-                    key: Key('$prefix-form-error'),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(24, 14, 10, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      key: Key('$prefix-form-title'),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  IconButton(
+                    key: Key('$prefix-form-back'),
+                    tooltip: 'بستن',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.maybePop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            if (controller.formError != null)
+              _error(context, const EdgeInsets.fromLTRB(24, 12, 24, 0)),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                child: LayoutBuilder(
+                  builder: (context, box) {
+                    final half = (box.maxWidth - gap) / 2;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: PayeshTokens.space4,
+                      children: [
+                        for (final f in fields)
+                          SizedBox(
+                            width: f is SchoolField && f.lines > 1
+                                ? box.maxWidth
+                                : half,
+                            child: f,
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(PayeshTokens.space4),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  for (final f in fields)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: PayeshTokens.space3,
-                      ),
-                      child: f,
+                  TextButton(
+                    key: Key('$prefix-form-cancel'),
+                    onPressed: () => Navigator.maybePop(context),
+                    child: const Text('انصراف'),
+                  ),
+                  const SizedBox(width: PayeshTokens.space3),
+                  FilledButton(
+                    key: Key('$prefix-save'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(180, 46),
                     ),
+                    onPressed: controller.busy ? null : onSubmit,
+                    child: Text(submitLabel),
+                  ),
                 ],
               ),
             ),
           ],
         ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(PayeshTokens.space3),
-            child: FilledButton(
-              key: Key('$prefix-save'),
-              onPressed: controller.busy ? null : onSubmit,
-              child: Text(submitLabel),
-            ),
-          ),
-        ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => _IssueHost(
+    controller: controller,
+    child: ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => _SchoolFormDialog.of(context)
+          ? _dialog(context)
+          : Scaffold(
+              appBar: AppBar(
+                leading: IconButton(
+                  key: Key('$prefix-form-back'),
+                  tooltip: 'بازگشت',
+                  icon: const BackButtonIcon(),
+                  onPressed: () => Navigator.maybePop(context),
+                ),
+                title: Text(title),
+              ),
+              // the refusal stays pinned above the fields: visible wherever the form was scrolled
+              body: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (controller.formError != null)
+                    _error(
+                      context,
+                      const EdgeInsets.fromLTRB(
+                        PayeshTokens.space4,
+                        PayeshTokens.space3,
+                        PayeshTokens.space4,
+                        0,
+                      ),
+                    ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(PayeshTokens.space4),
+                      children: [
+                        for (final f in fields)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: PayeshTokens.space3,
+                            ),
+                            child: f,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              bottomNavigationBar: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(PayeshTokens.space3),
+                  child: FilledButton(
+                    key: Key('$prefix-save'),
+                    onPressed: controller.busy ? null : onSubmit,
+                    child: Text(submitLabel),
+                  ),
+                ),
+              ),
+            ),
     ),
   );
 }

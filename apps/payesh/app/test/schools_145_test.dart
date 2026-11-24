@@ -10,6 +10,8 @@ import 'package:payesh_app/src/login/paywall.dart';
 import 'package:payesh_app/src/login/session_controller.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_sync/payesh_sync.dart';
+import 'package:payesh_update/payesh_update.dart';
+import 'package:payesh_app/src/update/app_update.dart';
 
 import 'lan_mode_127_test.dart'
     show FakeLan, NoGateway, lanServer, lanSession, serverInfo;
@@ -135,8 +137,12 @@ void main() {
     deviceId = 'android-id-0123456789';
   });
 
-  Future<SessionController> boot(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(900, 2400);
+  Future<SessionController> boot(
+    WidgetTester tester, {
+    AppUpdater? updater,
+    Size size = const Size(900, 2400),
+  }) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final c = SessionController(
@@ -155,7 +161,11 @@ void main() {
     );
     addTearDown(c.dispose);
     await tester.pumpWidget(
-      PayeshApp(session: c, today: () => DateTime(2026, 11, 12)),
+      PayeshApp(
+        session: c,
+        today: () => DateTime(2026, 11, 12),
+        updater: updater,
+      ),
     );
     await c.start();
     await tester.pumpAndSettle();
@@ -544,6 +554,59 @@ void main() {
   );
 
   testWidgets(
+    'S177-01 with the app updater (release builds) «🎁 تست رایگان — N روز» sits in the top-left '
+    'corner next to the version pill, not above the page; a free user has no badge there',
+    (tester) async {
+      final u = AppUpdater(
+        channel: appChannel,
+        http: () => _NoHttp(),
+        windows: false,
+        currentBuild: 200,
+        retry: UpdateRetry.none,
+      );
+      await boot(tester, updater: u, size: const Size(1568, 880));
+      await toLogin(tester);
+      lan.logins.add(lanSession(role: 'manager', uid: 1, token: 'acc-m'));
+      schools.subs.add(active(days: 19));
+      await type(tester, 'lan-phone', 'Ali.Rezaei');
+      await type(tester, 'lan-password', 'Madrese-1403');
+      await tap(tester, 'lan-login');
+      final badge = find.byKey(const Key('sub-banner'));
+      expect(
+        badge,
+        findsOneWidget,
+        reason: 'one badge only — not also above the page',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('top-status')),
+          matching: badge,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: badge,
+          matching: find.textContaining('تست رایگان — ۱۹ روز'),
+        ),
+        findsOneWidget,
+      );
+      final b = tester.getRect(badge);
+      final pill = tester.getRect(find.byKey(const Key('app-version')));
+      expect(b.left, lessThan(40), reason: 'the very left corner');
+      expect(b.bottom, lessThanOrEqualTo(44), reason: 'inside the top strip');
+      expect(
+        pill.left,
+        greaterThan(b.right),
+        reason: 'version right next to it',
+      );
+      expect(pill.left - b.right, lessThan(60));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'S149-W01 manager renewal warning from 1 Tir ⇒ «تمدید» opens the plans',
     (tester) async {
       await boot(tester);
@@ -700,4 +763,17 @@ void main() {
     expect(await openExternalUrl('ftp://x'), isFalse);
     expect(await openExternalUrl('not a url'), isFalse);
   });
+}
+
+/// No network in S177-01 (the automatic check never finds anything).
+final class _NoHttp implements UpdateHttp {
+  @override
+  Future<List<int>?> get(
+    Uri url, {
+    int maxBytes = 1 << 30,
+    void Function(int received)? onBytes,
+  }) async => null;
+
+  @override
+  void close() {}
 }

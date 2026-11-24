@@ -805,7 +805,11 @@ class _PulseBn extends StatelessWidget {
 
 /// Row 172: the bars at the top of web `.main` — `canonicalBarHtml` (manager: «☁️ حافظهٔ مشترک
 /// ابری هنوز آماده نیست …» with «تنظیم خودکار» / «بستن») and `updateBarHtml` (`.updbar`: the
-/// light, «نسخهٔ X — برنامه به‌روز است», the manager's «بررسی آپدیت» / «دانلود و نصب»).
+/// light, «نسخهٔ X — نسخهٔ تازهٔ Y موجود است», the manager's «دانلود و نصب»).
+/// Row 177 (owner decision): the update bar shows ONLY while a new version is found, being
+/// downloaded/applied or staged — never «برنامه به‌روز است»; once the update is installed (the
+/// app restarts on the new build) it is gone. The version pill in the top-left corner stays and
+/// a tap on it still checks by hand.
 /// The version and its light are this app's own updater (the app updates itself); the cloud
 /// state is the school server's `/api/health` `cloud_ready`, read quietly once.
 class PulseTopBars extends StatefulWidget {
@@ -917,20 +921,17 @@ class _PulseTopBarsState extends State<PulseTopBars> {
         u.phase == UpdatePhase.downloading || u.phase == UpdatePhase.applying;
     final ready = u.phase == UpdatePhase.staged;
     final avail = !ready && u.available;
+    if (!busy && !ready && !avail) {
+      return const SizedBox.shrink(key: Key('update-bar-none'));
+    }
     final next = u.plan?.manifest.build;
     final latest = next == null ? '' : u.channel.versionOf(next);
-    final dot = busy
-        ? const Color(0xFF2563EB)
-        : (ready || avail)
-        ? const Color(0xFFF59E0B)
-        : const Color(0xFF16A34A);
+    final dot = busy ? const Color(0xFF2563EB) : const Color(0xFFF59E0B);
     final text = busy
         ? 'در حال دانلود ${Web.fa(((u.progress ?? 0) * 100).round())}٪'
         : ready
         ? 'نسخهٔ $latest آمادهٔ نصب است'
-        : avail
-        ? 'نسخهٔ تازهٔ $latest موجود است'
-        : 'برنامه به‌روز است';
+        : 'نسخهٔ تازهٔ $latest موجود است';
     Widget xs(String label, Key key, WebBtnKind kind, VoidCallback? on) =>
         WebBtn(label, key: key, kind: kind, size: WebBtnSize.xs, onPressed: on);
     // .updbar{gap:8px;padding:6px 10px;border-radius:10px;background:#f8fafc;
@@ -985,13 +986,6 @@ class _PulseTopBarsState extends State<PulseTopBars> {
               const Key('update-bar-install'),
               WebBtnKind.primary,
               u.busy ? null : () => unawaited(_install(u)),
-            ),
-          if (widget.manager && !avail && !ready && !busy)
-            xs(
-              'بررسی آپدیت',
-              const Key('update-bar-check'),
-              WebBtnKind.ghost,
-              u.busy ? null : () => unawaited(u.check()),
             ),
         ],
       ),

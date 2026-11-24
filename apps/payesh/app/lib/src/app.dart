@@ -11,6 +11,7 @@ import 'flags.dart';
 import 'grades/grades_controller.dart';
 import 'grades/grades_screen.dart';
 import 'login/login_screens.dart';
+import 'login/paywall.dart';
 import 'notices/notices_controller.dart';
 import 'notices/notices_screen.dart';
 import 'pulse/pulse.dart';
@@ -373,11 +374,13 @@ class PayeshApp extends StatelessWidget {
       openUrl: openUrl,
       child: PayeshMaterialApp(
         look: PayeshLook.nabd,
+        // Row 177: version + update light and the subscription badge in the top-left corner.
+        overlayAlignment: Alignment.topLeft,
         overlay: u == null
             ? null
             : AutoUpdateCheck(
                 updater: u,
-                child: UpdateLight(updater: u, openUrl: openUrl),
+                child: TopStatus(updater: u, session: s, openUrl: openUrl),
               ),
         home: s == null
             ? HomeScreen(storage: storage, today: today)
@@ -540,6 +543,44 @@ class StorageStatus extends StatelessWidget {
           key: const Key('storage-ok'),
         );
       },
+    );
+  }
+}
+
+/// Row 177: the always-visible top-left corner of the school app — the subscription badge
+/// («🎁 تست رایگان — N روز») at the very left and the version pill (with its update light) next
+/// to it. The badge shows only for a signed-in, managed user with access ([showsSubStatus]).
+class TopStatus extends StatelessWidget {
+  const TopStatus({
+    super.key = const Key('top-status'),
+    required this.updater,
+    this.session,
+    this.openUrl,
+  });
+
+  final AppUpdater updater;
+  final SessionController? session;
+  final Future<void> Function(Uri url)? openUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = session;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      // RTL: the first child is on the right, so the badge ends up in the corner
+      children: [
+        UpdateLight(updater: updater, openUrl: openUrl),
+        if (s != null)
+          ListenableBuilder(
+            listenable: s,
+            builder: (context, _) => showsSubStatus(s)
+                ? Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 6),
+                    child: SubBadge(sub: s.sub!),
+                  )
+                : const SizedBox.shrink(),
+          ),
+      ],
     );
   }
 }

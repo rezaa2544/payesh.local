@@ -18,6 +18,7 @@ class PayeshMaterialApp extends StatelessWidget {
     this.navigatorKey,
     this.look = PayeshLook.classic,
     this.overlay,
+    this.overlayAlignment = Alignment.topCenter,
   });
 
   final Widget home;
@@ -26,6 +27,11 @@ class PayeshMaterialApp extends StatelessWidget {
   /// update light). Sits in the navigator's own [Overlay] so tooltips work; taps outside it
   /// reach the page below.
   final Widget? overlay;
+
+  /// Where [overlay] sits inside its strip: top-centre by default; the school app puts its
+  /// version + subscription status in the top-left corner (row 177). Only the horizontal part
+  /// (`x`) is used — the strip is always at the top.
+  final Alignment overlayAlignment;
 
   /// Visual language: the owner panel uses [PayeshLook.nabd] (the user panel's «نبض»).
   final PayeshLook look;
@@ -50,15 +56,24 @@ class PayeshMaterialApp extends StatelessWidget {
     home: home,
     builder: overlay == null
         ? null
-        : (context, child) => _TopOverlay(overlay: overlay!, child: child),
+        : (context, child) => _TopOverlay(
+            overlay: overlay!,
+            alignment: overlayAlignment,
+            child: child,
+          ),
   );
 }
 
 /// Page + an always-visible widget at the top centre, both inside one [Overlay] so the widget
 /// gets tooltips and taps outside it fall through to the page.
 class _TopOverlay extends StatefulWidget {
-  const _TopOverlay({required this.overlay, required this.child});
+  const _TopOverlay({
+    required this.overlay,
+    required this.child,
+    this.alignment = Alignment.topCenter,
+  });
   final Widget overlay;
+  final Alignment alignment;
   final Widget? child;
 
   @override
@@ -92,10 +107,17 @@ class _TopOverlayState extends State<_TopOverlay> {
         child: SizedBox(
           key: const Key('payesh-top-strip'),
           height: strip,
-          child: Center(
-            child: Material(
-              type: MaterialType.transparency,
-              child: widget.overlay,
+          child: Padding(
+            // a corner placement keeps a small gap from the window edge
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.alignment.x == 0 ? 0 : 12,
+            ),
+            child: Align(
+              alignment: Alignment(widget.alignment.x, 0),
+              child: Material(
+                type: MaterialType.transparency,
+                child: widget.overlay,
+              ),
             ),
           ),
         ),

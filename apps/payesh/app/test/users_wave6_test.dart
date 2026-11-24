@@ -208,6 +208,69 @@ void main() {
   );
 
   testWidgets(
+    'U177-01 Windows window (1568×880): «مشخصات کامل» is a centred dialog about half the '
+    'window wide, fields in two readable columns, «بستن»/«انصراف» keep the list; save closes it',
+    (tester) async {
+      tester.view.physicalSize = const Size(1568, 880);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (_, s) = await bootSchool(tester, role: 'manager', seed: seed);
+      await openPage(tester, 'users');
+      await tapKey(tester, 'usr-full-21');
+      final dialog = find.byKey(const Key('usr-form-dialog'));
+      expect(dialog, findsOneWidget);
+      expect(find.byType(Dialog), findsOneWidget);
+      final box = tester.getRect(
+        find.descendant(of: dialog, matching: find.byType(Column)).first,
+      );
+      expect(box.width, inInclusiveRange(1568 * 0.45, 1568 * 0.55));
+      expect(box.center.dx, closeTo(1568 / 2, 2));
+      expect(
+        tester.widget<Text>(find.byKey(const Key('usr-form-title'))).data,
+        'مشخصات کامل — بهار سعیدی',
+      );
+      // two columns (RTL): «نام» on the right, «نام خانوادگی» on its left, same row
+      final name = tester.getRect(find.byKey(const Key('usr-p-name')));
+      final last = tester.getRect(find.byKey(const Key('usr-p-last_name')));
+      expect(name.top, closeTo(last.top, 0.5));
+      expect(name.left, greaterThan(last.right));
+      expect(name.width, closeTo(last.width, 0.5));
+      final nid = tester.getRect(find.byKey(const Key('usr-p-national_id')));
+      expect(nid.top, greaterThan(name.bottom));
+      // «انصراف» closes without saving
+      await typeKey(tester, 'usr-p-address', 'نباید ذخیره شود');
+      await tapKey(tester, 'usr-form-cancel');
+      expect(dialog, findsNothing);
+      expect(s.outbox.list(), isEmpty);
+      // open again, save ⇒ the dialog closes and the change is written
+      await tapKey(tester, 'usr-full-21');
+      await typeKey(tester, 'usr-p-address', 'خیابان آزادی');
+      await tapKey(tester, 'usr-save');
+      expect(dialog, findsNothing);
+      final row = await tester.runAsync(() => s.engine.get('users', 21));
+      expect(row!.data['address'], 'خیابان آزادی');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'U177-02 phone (412 wide): «مشخصات کامل» stays a full page (no dialog)',
+    (tester) async {
+      tester.view.physicalSize = const Size(412, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await bootSchool(tester, role: 'manager', seed: seed);
+      await openPage(tester, 'users');
+      await tapKey(tester, 'usr-full-21');
+      expect(find.byKey(const Key('usr-form-dialog')), findsNothing);
+      expect(find.byKey(const Key('usr-p-name')), findsOneWidget);
+      expect(find.text('مشخصات کامل — بهار سعیدی'), findsOneWidget);
+      await tapKey(tester, 'usr-form-back');
+      expect(find.byKey(const Key('usr-p-name')), findsNothing);
+    },
+  );
+
+  testWidgets(
     'W6-W06 full profile: the mother\'s mobile follows to the linked parent',
     (tester) async {
       final (_, s) = await bootTall(tester, role: 'manager', seed: seed);

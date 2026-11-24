@@ -400,6 +400,10 @@ class _SignedInScreenState extends State<SignedInScreen> {
     }, onError: (Object _) {});
   }
 
+  /// Row 177: the app's top strip (version + update light) also shows the subscription badge.
+  bool _badgeInStrip(BuildContext context) =>
+      PulseApp.of(context)?.updater != null;
+
   Future<void> _confirmSignOut(BuildContext context) async {
     final waiting = controller.sync.value.waiting;
     final ok = await showDialog<bool>(
@@ -533,10 +537,16 @@ class _SignedInScreenState extends State<SignedInScreen> {
           PaywallView(controller: controller),
         ] else ...[
           if (controller.sub case final sub?
-              when sub.managed && sub.status != 'free')
+              when sub.managed &&
+                  sub.status != 'free' &&
+                  (!_badgeInStrip(context) || sub.renewWarning))
             Padding(
               padding: const EdgeInsets.only(top: PayeshTokens.space3),
-              child: SubBanner(controller: controller, sub: sub),
+              child: SubBanner(
+                controller: controller,
+                sub: sub,
+                showBadge: !_badgeInStrip(context),
+              ),
             ),
           if (pages != null) ...[
             const SizedBox(height: PayeshTokens.space5),
@@ -683,12 +693,21 @@ class _SignedInScreenState extends State<SignedInScreen> {
     final main = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (sub != null && sub.managed && sub.status != 'free')
+        // Row 177: with an updater the badge sits in the top-left strip next to the version;
+        // only the renewal warning (if any) stays above the page.
+        if (sub != null &&
+            sub.managed &&
+            sub.status != 'free' &&
+            (!_badgeInStrip(context) || sub.renewWarning))
           Padding(
             padding: wide
                 ? const EdgeInsets.fromLTRB(26, 12, 26, 0)
                 : const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: SubBanner(controller: controller, sub: sub),
+            child: SubBanner(
+              controller: controller,
+              sub: sub,
+              showBadge: !_badgeInStrip(context),
+            ),
           ),
         Expanded(child: page),
       ],

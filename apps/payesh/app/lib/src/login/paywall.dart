@@ -45,15 +45,56 @@ String _planTitle(String key) => switch (key) {
 String _date(DateTime? d) =>
     d == null ? '—' : JalaliDate.fromDateTime(d.toLocal()).formatShort();
 
-/// نوار کوچک وضعیت اشتراک برای کاربری که دسترسی دارد (آزمایشی/فعال).
-class SubBanner extends StatelessWidget {
-  const SubBanner({super.key, required this.controller, required this.sub});
-  final SessionController controller;
+/// Whether the subscription status is shown at all: a signed-in, managed, non-free user with
+/// access (the paywall replaces it otherwise).
+bool showsSubStatus(SessionController c) {
+  final sub = c.sub;
+  return c.state is SignedIn &&
+      !c.paywalled &&
+      sub != null &&
+      sub.managed &&
+      sub.status != 'free';
+}
+
+/// Row 177: the small «🎁 تست رایگان — N روز» / «✅ اشتراک فعال» badge on its own — with an
+/// updater it lives in the top-left strip next to the version, not above the page.
+class SubBadge extends StatelessWidget {
+  const SubBadge({super.key, required this.sub});
   final SubStatus sub;
 
   @override
   Widget build(BuildContext context) {
     final trial = sub.status == 'trial';
+    return StatusBadge(
+      trial
+          ? '🎁 تست رایگان — ${faDigits(sub.daysLeft)} روز'
+          : '✅ اشتراک فعال — تا ${_date(sub.end)}',
+      key: const Key('sub-banner'),
+      tone: trial || sub.daysLeft <= 7
+          ? PayeshTone.warning
+          : PayeshTone.success,
+    );
+  }
+}
+
+/// نوار کوچک وضعیت اشتراک برای کاربری که دسترسی دارد (آزمایشی/فعال).
+/// [showBadge] false = only the renewal warning (the badge is in the top strip, row 177).
+class SubBanner extends StatelessWidget {
+  const SubBanner({
+    super.key,
+    required this.controller,
+    required this.sub,
+    this.showBadge = true,
+  });
+  final SessionController controller;
+  final SubStatus sub;
+  final bool showBadge;
+
+  /// Whether this banner has anything to show.
+  bool get visible => showBadge || sub.renewWarning;
+
+  @override
+  Widget build(BuildContext context) {
     return Wrap(
       spacing: PayeshTokens.space2,
       runSpacing: PayeshTokens.space2,
@@ -91,15 +132,7 @@ class SubBanner extends StatelessWidget {
             child: const Text('تمدید'),
           ),
         ],
-        StatusBadge(
-          trial
-              ? '🎁 تست رایگان — ${faDigits(sub.daysLeft)} روز'
-              : '✅ اشتراک فعال — تا ${_date(sub.end)}',
-          key: const Key('sub-banner'),
-          tone: trial || sub.daysLeft <= 7
-              ? PayeshTone.warning
-              : PayeshTone.success,
-        ),
+        if (showBadge) SubBadge(sub: sub),
       ],
     );
   }

@@ -53,8 +53,15 @@ class _UsersScreenState extends State<UsersScreen> {
   }
 
   Future<void> _open(Widget page) async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => page));
+    // Row 177: the user forms are a half-width dialog on wide windows; other pages stay pages.
+    if (page is UserProfilePage ||
+        page is UserFormPage ||
+        page is UserEditPage) {
+      await openSchoolForm<void>(context, page);
+    } else {
+      await Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => page));
+    }
     c.clearForm();
     // a sub-page with its own controller (credentials) may have changed the list
     if (mounted) await c.load();
