@@ -163,3 +163,18 @@ int slotsForCpu(int? percent, [int? cores]) {
 }
 
 const int minCpuPercent = 10;
+
+/// ردیف ۱۷۸ — استراحت پس از هر کار برای ماندن زیر سقف درصد CPU (هم‌ارز
+/// `server/processing.js` restMs): کار × (۱۰۰ − درصد) / درصد، حداکثر ۵ ثانیه.
+/// null یا ۱۰۰ ⇒ بدون استراحت.
+Duration restForCpu(Duration work, int? percent) {
+  if (percent == null || percent >= 100) return Duration.zero;
+  final p = percent.clamp(minCpuPercent, 100);
+  final ms = work.inMilliseconds * (100 - p) ~/ p;
+  return Duration(milliseconds: ms.clamp(0, maxRest.inMilliseconds));
+}
+
+const Duration maxRest = Duration(seconds: 5);
+
+/// کمترینِ دو سقف (null یعنی بدون سقف).
+int? minCpu(int? a, int? b) => a == null ? b : (b == null ? a : min(a, b));

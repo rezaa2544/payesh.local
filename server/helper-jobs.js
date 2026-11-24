@@ -341,6 +341,7 @@ function validPolicy(p) {
 }
 const helperOff = (policy, id) => !!policy && Array.isArray(policy.off) && policy.off.includes('helper:' + id);
 let policyCache = { key: '', at: 0, value: null };
+let routeSkipped = 0;   /* ردیف ۱۷۸: گام‌های مسیریابی ردشده در «توقف پردازش» (برای آزمون/وضعیت) */
 async function readPolicy(cfg, { now = Date.now(), maxAgeMs = POLICY_MAX_AGE_MS } = {}) {
   const ck = cfg.bucket + '|' + cfg.prefix + '|' + keyFor(cfg.secret).toString('hex').slice(0, 16);
   if (policyCache.key === ck && now - policyCache.at < maxAgeMs) return policyCache.value;
@@ -416,10 +417,19 @@ async function runJob(cfg, kind, params, opts = {}) {
   const deadlineMs = opts.deadlineMs || JOB_DEADLINE_MS;
   const p = validParams(cfg, kind, params);
   const local = async (why) => {
+    const t0 = Date.now();
     const result = await runLocal(cfg, kind, p, opts);
+    /* ردیف ۱۷۸: کار پس‌زمینه سقف CPU مالک را رعایت می‌کند (درخواست کاربر معطل نمی‌شود) */
+    if (opts.background) await (opts.throttle || processing.throttle)(Date.now() - t0);
     return { ok: true, by: 'local', why, result };
   };
   if (opts.preferLocal) return local('prefer_local');
+  /* ردیف ۱۷۸: «توقف پردازش» مالک — کار پس‌زمینه اصلاً اجرا نمی‌شود؛ درخواست کاربر بی‌معطلی
+     روی همین سرور (سیستم‌های کمکی هم در توقف کاری برنمی‌دارند، پس صبر برای آن‌ها بیهوده است). */
+  if (processing.paused()) {
+    if (opts.background) return { ok: false, by: 'local', why: 'processing_paused', error: 'processing_paused' };
+    return local('processing_paused');
+  }
   /* مسیر عادی: همین سرور مستقیم با دیتابیس. سرور کمکی فقط هنگام نیاز. */
   const policy = opts.policy !== undefined ? opts.policy : await readPolicy(cfg, { now: now() });
   const busy = typeof opts.busy === 'function' ? !!opts.busy() : opts.busy !== undefined ? !!opts.busy : busyNow();
@@ -499,6 +509,7 @@ async function checkPublicUrl(store, url, opts = {}) {
   } else {
     r = await runJob(cfg, 'endpoint.check', { url }, Object.assign({ from: 'school-server' }, opts));
   }
+  if (r && r.error === 'processing_paused') return null;   /* ردیف ۱۷۸: بدون ثبت نتیجهٔ ساختگی */
   const rec = Object.assign({ url, by: r.by, why: r.why || null, at: new Date().toISOString() }, r.result || { reachable: false, error: r.error });
   store.setMeta(META_PUBLIC_CHECK, rec);
   return rec;
@@ -510,7 +521,7 @@ function start(store, { everyMs = 30 * 60_000, publicUrl = () => null, log = (m)
     const url = publicUrl();
     if (!url || processing.paused()) return;   /* ردیف ۱۷۷: «توقف پردازش» مالک */
     try {
-      const r = await checkPublicUrl(store, url);
+      const r = await checkPublicUrl(store, url, { background: true });
       if (r) log('[helper] بررسی بیرونی آدرس عمومی: ' + (r.reachable ? 'در دسترس' : 'در دسترس نیست') + ' (' + (r.by === 'local' ? 'محلی' : 'سرور کمکی ' + r.by) + ')');
     } catch (e) { /* دفعهٔ بعد */ }
   };
@@ -521,7 +532,10 @@ function start(store, { everyMs = 30 * 60_000, publicUrl = () => null, log = (m)
   routeTimer = setInterval(async () => {
     try {
       const cfg = s3mem.usingMeta(store).get();
+      /* خواندن سیاست (کش ۶۰ ثانیه‌ای) می‌ماند: همین است که «ادامه» را هم به این سرور می‌رساند */
       const policy = cfg && cfg.enabled ? await readPolicy(cfg) : null;
+      /* ردیف ۱۷۸: در «توقف پردازش» مسیریابی بار و بررسی سرور بیرونی (شبکه) انجام نمی‌شود */
+      if (processing.paused()) { routeSkipped++; return; }
       await routeNow(policy, { busy: busyNow() });
     } catch (e) { /* گام بعد */ }
   }, ROUTE_TICK_MS);
@@ -534,4 +548,5 @@ module.exports = {
   helpersOnline, runLocal, runJob, checkEndpoint, status, checkPublicUrl, start, listAll,
   POLICY_KEY, readPolicy, writePolicy, validPolicy, helperNeed, busyNow, routeNow, helperOff,
   _resetPolicyCache: () => { policyCache = { key: '', at: 0, value: null }; },
+  _routeSkipped: () => routeSkipped,
 };

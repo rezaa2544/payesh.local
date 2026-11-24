@@ -18,6 +18,9 @@ import 'helper_node.dart';
 abstract final class HelperKeys {
   static const String id = 'owner.helper.id';
   static const String paused = 'owner.helper.paused';
+
+  /// ردیف ۱۷۸: سقف درصد پردازش سرور کمکیِ همین سیستم (نبود ⇒ بدون سقف محلی).
+  static const String cpu = 'owner.helper.cpu';
 }
 
 final class OwnerHelperService {
@@ -91,15 +94,13 @@ final class OwnerHelperService {
       version: ownerBuild > 0 ? 'build $ownerBuild' : 'dev',
       slots: slots,
       // ردیف ۱۷۷: سقف درصد CPU مالک ⇒ تعداد کارهای هم‌زمان (null ⇒ پیش‌فرض قدیمی)
-      slotsFor: slots != null
-          ? null
-          : () => slotsForCpu(policy.value.cpuPercent),
+      // ردیف ۱۷۸: کمترینِ سقف همین سیستم و سقف کلی «کنترل پردازش»
+      slotsFor: slots != null ? null : () => slotsForCpu(effectiveCpu),
+      restFor: (work) => restForCpu(work, effectiveCpu),
+      processingPaused: () => policy.value.procPaused,
       // ردیف ۱۵۳: حالت «فقط دیتابیس» یا کلید خاموشِ همین سیستم ⇒ کار دیگران را برنمی‌دارد؛
       // ردیف ۱۷۷: «توقف پردازش» مالک هم همین‌طور
-      acceptWork: () =>
-          policy.value.helpers &&
-          policy.value.helperOn(id!) &&
-          !policy.value.procPaused,
+      acceptWork: () => policy.value.helpers && policy.value.helperOn(id!),
     );
     // ردیف ۱۷۷: «توقف پردازش» به همهٔ کارهای پس‌زمینهٔ همین پنل هم می‌رسد (PacedTimer.heavy)
     void follow() =>
@@ -109,6 +110,7 @@ final class OwnerHelperService {
     _node = n;
     await policy.loadCache();
     if (await _read(HelperKeys.paused) == '1') await n.setPaused(true);
+    _localCpu = _parseCpu(await _read(HelperKeys.cpu));
     await reload();
     if (autoStart) {
       n.start();
@@ -129,6 +131,50 @@ final class OwnerHelperService {
     _node?.configure(s == null || s.bucket.isEmpty ? null : s);
     policy.configure(s);
     unawaited(policy.refresh());
+  }
+
+  int? _localCpu;
+
+  /// ردیف ۱۷۸: سقف درصد پردازش سرور کمکیِ همین سیستم (null ⇒ بدون سقف محلی).
+  int? get localCpu => _localCpu;
+
+  /// سقفی که واقعاً اعمال می‌شود: کمترینِ سقف همین سیستم و سقف کلی «کنترل پردازش».
+  int? get effectiveCpu => minCpu(_localCpu, policy.value.cpuPercent);
+
+  static int? _parseCpu(String? v) {
+    final n = int.tryParse(v ?? '');
+    if (n == null || n >= 100) return null;
+    return n.clamp(minCpuPercent, 99);
+  }
+
+  /// ردیف ۱۷۸: تنظیم سقف پردازش همین سیستم (null یا ۱۰۰ ⇒ بدون سقف؛ ماندگار).
+  Future<void> setLocalCpu(int? pct) async {
+    _localCpu = _parseCpu(pct?.toString());
+    if (_localCpu == null) {
+      try {
+        await secure.delete(HelperKeys.cpu);
+      } on Object {
+        // بی‌اهمیت
+      }
+    } else {
+      await _write(HelperKeys.cpu, '$_localCpu');
+    }
+    _node?.refresh();
+  }
+
+  /// ردیف ۱۷۸: «شروع» در کارت پردازش کمکی — هر چه جلوی کار همین سیستم را گرفته باز می‌شود:
+  /// توقف همین سیستم، «توقف پردازش» کلی، خاموشی پردازش کمکی (حالت «فقط دیتابیس» ⇒ حالت
+  /// سیستم‌های کمکی) و کلید خاموش همین سیستم.
+  Future<void> startHelper() async {
+    await setPaused(false);
+    final v = policy.value;
+    if (v.procPaused) await policy.setProcessing(paused: false);
+    if (!policy.value.helpers) await policy.setHelpers(true);
+    final id = _node?.helperId;
+    if (id != null && !policy.value.helperOn(id)) {
+      await policy.setHelperOn(id, true);
+    }
+    _node?.refresh();
   }
 
   Future<void> setPaused(bool v) async {

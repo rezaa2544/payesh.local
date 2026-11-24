@@ -34,6 +34,8 @@ const schoolAccess = require('./school-access');
 const killSwitch = require('./kill-switch');
 const crypto = require('node:crypto');
 const logger = require('./logger'); /* row 85: PII detector for caller-supplied request ids */
+/* row 178: change notifications through the Gateway (SSE + LISTEN/NOTIFY) */
+const gwEventsModule = require('./gw-events');
 
 const PORT = Number(process.env.PORT || 5660);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -103,6 +105,27 @@ if (REPLICA_URL) {
   });
   replicaPool.on('error', () => { /* اتصال مردهٔ replica سرویس را نمی‌کشد */ });
 }
+
+/* ردیف ۱۷۸: اعلان تغییر برای دستگاه‌هایی که از اینترنت (Gateway) همگام می‌شوند.
+   یک اتصال LISTEN برای هر نمونه، فقط وقتی دست‌کم یک stream باز است. */
+const gwEvents = gwEventsModule.create({
+  probe: (tid) => tenancy.maxFeedSeq(pool, tid),
+  listen: PGURL ? async (onPayload, onLost) => {
+    const { Client } = require('pg');
+    const c = new Client({ connectionString: PGURL, application_name: 'payesh-gateway-listen' });
+    let lost = false;
+    const gone = () => { if (!lost) { lost = true; onLost(); } };
+    c.on('error', gone);
+    c.on('end', gone);
+    c.on('notification', (n) => { if (n && n.channel === gwEventsModule.CHANNEL) onPayload(n.payload); });
+    await c.connect();
+    await c.query('LISTEN ' + gwEventsModule.CHANNEL);
+    return { close: () => { lost = true; return c.end().catch(() => {}); } };
+  } : null,
+  pollMs: Number(process.env.GW_EVENTS_POLL_MS || 60000),
+  fallbackPollMs: Number(process.env.GW_EVENTS_FALLBACK_POLL_MS || 15000),
+  maxStreams: Number(process.env.GW_EVENTS_MAX || 2000),
+});
 
 /* pool جداگانهٔ پلتفرم. انتظار میرود لاگین آن payesh_platform_runtime باشد
    (یا عضو آن)؛ هیچ grant مستقیمی از سوی نقش مدرسه به جداول پلتفرم داده
@@ -445,6 +468,13 @@ async function handle(req, res, url) {
     }
   }
 
+  /* ── row 178: change notifications (SSE) — همان قرارداد /api/v1/events ─────── */
+  if (p === '/api/gw/v1/events' && m === 'GET') {
+    for (const [k, v] of Object.entries(quotaHeaders)) res.setHeader(k, v);
+    await gwEvents.open(req, res, { tenantId, since: url.searchParams.get('since'), topics: url.searchParams.get('topics') });
+    return;
+  }
+
   /* ── pull: یک کوئری ایندکس‌دار روی change-feed ─────────────────────── */
   if (p === '/api/gw/v1/pull' && m === 'GET') {
     const sinceSeq = Number(url.searchParams.get('since_seq') || 0);
@@ -553,6 +583,7 @@ function drain(signal) {
     try { server.closeAllConnections(); } catch (e) { /* noop */ }
     finish('timeout');
   }, DRAIN_TIMEOUT_MS);
+  try { gwEvents.closeAll(); } catch (e) { /* noop */ }   /* row 178: open SSE streams must not hold the drain */
   for (const r of inflight) { if (!r.headersSent) { try { r.setHeader('connection', 'close'); } catch (e) { /* noop */ } } }
   server.close(() => finish('drained'));
   server.closeIdleConnections();
@@ -566,4 +597,4 @@ if (require.main === module) {
   process.on('SIGINT', () => drain('SIGINT'));
 }
 
-module.exports = { server, handle, drain, requestIdOf, INSTANCE, PORT, mreg, platformApi, usePlatformDb };
+module.exports = { server, handle, drain, requestIdOf, INSTANCE, PORT, mreg, platformApi, usePlatformDb, gwEvents };

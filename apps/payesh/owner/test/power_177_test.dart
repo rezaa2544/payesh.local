@@ -125,6 +125,21 @@ void main() {
     });
   });
 
+  test('row 178: restForCpu / minCpu (same formula as server processing.js restMs)', () {
+    const w = Duration(milliseconds: 100);
+    expect(restForCpu(w, null), Duration.zero);
+    expect(restForCpu(w, 100), Duration.zero);
+    expect(restForCpu(w, 25), const Duration(milliseconds: 300));
+    expect(restForCpu(w, 50), const Duration(milliseconds: 100));
+    expect(restForCpu(const Duration(seconds: 10), 25), maxRest);
+    expect(restForCpu(w, 5), restForCpu(w, minCpuPercent), reason: 'clamped');
+    expect(restForCpu(Duration.zero, 25), Duration.zero);
+    expect(minCpu(null, null), isNull);
+    expect(minCpu(40, null), 40);
+    expect(minCpu(null, 30), 30);
+    expect(minCpu(40, 30), 30);
+  });
+
   test('slotsForCpu: unset ⇒ old default; % of cores within 1..cores', () {
     expect(slotsForCpu(null, 8), 4);
     expect(slotsForCpu(null, 16), 4);

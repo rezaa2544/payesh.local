@@ -399,7 +399,27 @@ paths:
       x-source: server/index.js:994
       responses:
         '200':
-          $ref: '#/components/responses/Ok'
+          description: Helper systems, the owner's routing policy and processing control
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, processing]
+                additionalProperties: true
+                properties:
+                  ok:
+                    type: boolean
+                  configured:
+                    type: boolean
+                  online:
+                    type: integer
+                  helpers:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  processing:
+                    $ref: '#/components/schemas/ProcessingStatus'
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -2235,6 +2255,49 @@ paths:
           $ref: '#/components/responses/Error'
         '429':
           $ref: '#/components/responses/RateLimited'
+  /api/gw/v1/events:
+    get:
+      operationId: getGwV1Events
+      tags: [gateway]
+      summary: "Row 178: change notifications through the Gateway (SSE) — same contract as /api/v1/events"
+      description: >-
+        For devices that sync over the internet. One long-lived connection per device; the tenant
+        comes only from the token. `event: hello` `{seq, at, missed}` on connect, then
+        `event: change` `{seq, topics, at}` only when a push committed (pg_notify inside the push
+        transaction reaches every Gateway instance; coalesced over 150 ms). A `:` comment every 45 s
+        keeps proxies from closing the stream; the response carries `X-Accel-Buffering: no`.
+        `seq` is the tenant change-feed seq, so the client follows with GET /api/gw/v1/pull?since_seq=….
+        Database cost: one LISTEN connection per instance while streams are open, plus one indexed
+        max(seq) per connected tenant every 60 s (15 s while LISTEN is down); zero with no streams.
+      x-source: server/gateway.js:472
+      security:
+        - gateway: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+        - name: topics
+          in: query
+          description: CSV of collection names to listen to; empty means all.
+          schema:
+            type: string
+        - name: since
+          in: query
+          description: Last seq the client saw (from a previous hello/change).
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        '200':
+          description: SSE stream (text/event-stream)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          description: Too many open event streams on this instance; fall back to slow polling
   /api/gw/v1/pull:
     get:
       operationId: getGwV1Pull
@@ -2455,7 +2518,22 @@ paths:
       x-source: server/index.js:834
       responses:
         '200':
-          $ref: '#/components/responses/Ok'
+          description: Live sync status, change-feed clients and the owner's processing control
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, processing]
+                additionalProperties: true
+                properties:
+                  ok:
+                    type: boolean
+                  events:
+                    type: object
+                    additionalProperties: true
+                    description: Row 177 change feed (SSE) — current seq and open streams.
+                  processing:
+                    $ref: '#/components/schemas/ProcessingStatus'
         '401':
           $ref: '#/components/responses/Error'
   /api/me:
@@ -2964,6 +3042,31 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
+    ProcessingStatus:
+      type: object
+      description: >-
+        Rows 177/178 — the owner's processing control as applied on this server (sealed infra
+        policy field `proc`, followed within 60 s; env PAYESH_PROC_PAUSED / PAYESH_CPU_PCT win).
+        While paused, heavy background work (helper job queue, automatic backup, mirror,
+        public-URL check) does not run; user requests and sync never stop.
+      required: [paused, cpu_pct, source]
+      properties:
+        paused:
+          type: boolean
+        cpu_pct:
+          description: CPU cap in percent (10–100); null means no cap.
+          type: integer
+          nullable: true
+          minimum: 10
+          maximum: 100
+        source:
+          type: string
+          enum: [default, env, policy]
+        at:
+          description: When this value was applied on the server (ISO 8601); null before the first read.
+          type: string
+          format: date-time
+          nullable: true
     Error:
       type: object
       required: [ok, error]

@@ -196,6 +196,50 @@ void main() {
     await tap(tester, 'helper-switch');
     expect(helper.node!.paused, isFalse);
 
+    // ردیف ۱۷۸: «شروع/توقف» و «مقدار پردازش» داخل همین کارت «پردازش کمکی (همین سیستم)»
+    final controls = find.byKey(const Key('helper-controls'));
+    expect(controls, findsOneWidget);
+    for (final k in ['helper-toggle', 'helper-cpu', 'helper-cpu-value']) {
+      expect(
+        find.descendant(of: controls, matching: find.byKey(Key(k))),
+        findsOneWidget,
+      );
+    }
+    expect(text(tester, 'helper-run-state'), contains('در حال کار'));
+    expect(find.widgetWithText(OutlinedButton, 'توقف'), findsOneWidget);
+    expect(text(tester, 'helper-cpu-value'), 'کامل');
+    await tap(tester, 'helper-toggle'); // توقف
+    expect(helper.node!.paused, isTrue);
+    expect(await secure.read(HelperKeys.paused), '1');
+    expect(text(tester, 'helper-run-state'), contains('متوقف'));
+    expect(find.widgetWithText(FilledButton, 'شروع'), findsOneWidget);
+    // «شروع» هر چیزی را که جلوی همین سیستم را گرفته برمی‌دارد — حتی «توقف پردازش» کلی
+    await tester.runAsync(() => helper.policy.setProcessing(paused: true));
+    await tester.pumpAndSettle();
+    expect(text(tester, 'helper-status'), contains('کنترل پردازش'));
+    await tap(tester, 'helper-toggle'); // شروع
+    await tester.runAsync(() => helper.policy.refresh());
+    await tester.pumpAndSettle();
+    expect(helper.node!.paused, isFalse);
+    expect(helper.policy.value.procPaused, isFalse);
+    expect(text(tester, 'helper-run-state'), contains('در حال کار'));
+    // مقدار پردازش همین سیستم (ماندگار): RTL ⇒ کشیدن به راست = کمینه ۱۰٪
+    final cpu = find.byKey(const Key('helper-cpu'));
+    await tester.ensureVisible(cpu);
+    await tester.pumpAndSettle();
+    await tester.drag(cpu, const Offset(2000, 0));
+    await tester.pumpAndSettle();
+    expect(await secure.read(HelperKeys.cpu), '10');
+    expect(helper.localCpu, 10);
+    expect(helper.effectiveCpu, 10);
+    expect(text(tester, 'helper-cpu-value'), '۱۰٪');
+    expect(text(tester, 'helper-cpu-note'), contains('۱۰٪'));
+    await tester.drag(cpu, const Offset(-2000, 0));
+    await tester.pumpAndSettle();
+    expect(await secure.read(HelperKeys.cpu), isNull);
+    expect(helper.localCpu, isNull);
+    expect(text(tester, 'helper-cpu-value'), 'کامل');
+
     // پردازش کمکی برای همه (سیاست رمزشده در دیتابیس، ردیف ۱۳۱)
     await tap(tester, 'infra-helpers-switch');
     await tester.runAsync(() => helper.policy.refresh());

@@ -24,6 +24,7 @@ on:
       - 'tests/directory-66.js'
       - 'tests/cell-transfer-54.js'
       - 'tests/gateway-67.js'
+      - 'tests/gw-events-178.js'
       - 'tests/offline-119.js'
       - 'tests/migrate-atomic-126.js'
       - 'tests/field-crypto-87.js'
@@ -76,6 +77,7 @@ on:
       - 'tests/directory-66.js'
       - 'tests/cell-transfer-54.js'
       - 'tests/gateway-67.js'
+      - 'tests/gw-events-178.js'
       - 'tests/offline-119.js'
       - 'tests/migrate-atomic-126.js'
       - 'tests/field-crypto-87.js'
@@ -200,6 +202,13 @@ jobs:
         run: |
           set -o pipefail
           node tests/gateway-67.js | tee -a native-contract.txt
+      - name: Row 178 Gateway change notifications — SSE + LISTEN/NOTIFY across two instances, tenant isolation, no-stream = zero DB work
+        env:
+          PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
+          PAYESH_PG_RUNTIME: postgres://payesh_runtime@127.0.0.1:5432/payesh_c64
+        run: |
+          set -o pipefail
+          node tests/gw-events-178.js | tee -a native-contract.txt
       # Row 119: the Gateway must survive PostgreSQL dropping its connections (unhandled pg.Pool
       # 'error' used to kill the process); web outbox transient/FIFO/exactly-once on the real Gateway.
       # Negative control: same Gateway with the pool 'error' handler stripped must crash.

@@ -184,6 +184,28 @@ async function main() {
     const bad = [{ paused: true, cpu: 5 }, { paused: true, cpu: 150 }, { paused: 'yes' }, null]
       .map(p => hj.validPolicy({ v: 1, helpers: true, off: [], at: 1, proc: p }));
     check('PR-04', bad.every(b => b === false), `invalid proc ⇒ ${JSON.stringify(bad)}`);
+    /* PR-06/07 (row 178): «pause» also stops the helper server's background work; CPU cap on background local jobs */
+    fake.objects.clear();
+    proc.apply({ proc: { paused: true, cpu: 50 } }, {});
+    const before = fake.objects.size;
+    let ran = 0;
+    const checkEndpoint = async () => { ran++; return { reachable: true }; };
+    const bg = await hj.runJob(cfg, 'endpoint.check', { url: 'https://example.org/' }, { background: true, checkEndpoint, claimWaitMs: 50 });
+    const user = await hj.runJob(cfg, 'endpoint.check', { url: 'https://example.org/' }, { checkEndpoint, claimWaitMs: 50 });
+    const hjSrc = fs.readFileSync(path.join(ROOT, 'server/helper-jobs.js'), 'utf8');
+    const routeGated = /if \(processing\.paused\(\)\) \{ routeSkipped\+\+; return; \}\s*await routeNow/.test(hjSrc) &&
+      /const policy = cfg && cfg\.enabled \? await readPolicy\(cfg\) : null;\s*\/\*[^]*?\*\/\s*if \(processing\.paused\(\)\)/.test(hjSrc);
+    check('PR-06', bg.ok === false && bg.error === 'processing_paused' && user.ok === true && user.by === 'local' && user.why === 'processing_paused' &&
+      ran === 1 && fake.objects.size === before && routeGated,
+      `paused: background job ⇒ ${bg.error} (not run), user request ⇒ ${user.by}/${user.why}, checks run=${ran}, queue writes=${fake.objects.size - before}; 5 s route tick keeps reading the policy but skips routing: ${routeGated}`);
+    proc.apply({ proc: { paused: false, cpu: 50 } }, {});
+    const rests = [];
+    const slow = async () => { await new Promise(r => setTimeout(r, 30)); return { reachable: true }; };
+    const throttle = async (ms) => { rests.push(ms); return proc.restMs(ms); };
+    await hj.runJob(cfg, 'endpoint.check', { url: 'https://example.org/' }, { preferLocal: true, background: true, checkEndpoint: slow, throttle });
+    await hj.runJob(cfg, 'endpoint.check', { url: 'https://example.org/' }, { preferLocal: true, checkEndpoint: slow, throttle });
+    check('PR-07', rests.length === 1 && rests[0] >= 25 && proc.restMs(rests[0]) === rests[0],
+      `cap 50%: background local job rests after ${rests[0]} ms work (rest ${proc.restMs(rests[0] || 0)} ms); user request not throttled (${rests.length} throttle call)`);
     fake.objects.clear();
     hj._resetPolicyCache();
     proc._reset();

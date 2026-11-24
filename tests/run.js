@@ -5466,11 +5466,21 @@ async function waitFor(fn, ms = 15000) {
     });
 
   /* ── ردیف ۱۷۷: همگام‌سازی رویدادمحور — فقط وقتی چیزی عوض شد، فقط همان بخش (SSE + نگاه تطبیقی به ابر) ── */
-  await test('ردیف ۱۷۷: هر نوشتن یک رویداد «کدام بخش» می‌سازد، SSE فقط هنگام تغییر چیزی می‌فرستد، در بیکاری نگاه به ابر کم می‌شود و تغییر گوشی باز هم می‌رسد؛ کنترل پردازش (توقف / سقف CPU) از سیاست مالک پیروی می‌شود (۱۷ بررسی)',
+  await test('ردیف ۱۷۷: هر نوشتن یک رویداد «کدام بخش» می‌سازد، SSE فقط هنگام تغییر چیزی می‌فرستد، در بیکاری نگاه به ابر کم می‌شود و تغییر گوشی باز هم می‌رسد؛ کنترل پردازش (توقف / سقف CPU) از سیاست مالک پیروی می‌شود و در توقف، کار پس‌زمینهٔ سرور کمکی هم نمی‌ماند (۱۹ بررسی)',
     async () => {
       const { spawnSync } = require('child_process');
       const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/events-177.js')], { encoding: 'utf8', cwd: ROOT, timeout: 180000 });
       assert.strictEqual(r.status, 0, 'events-177: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|EVENTS-177/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
+  /* ── ردیف ۱۷۸: اعلان تغییر از راه Gateway (SSE) — بدون اتصال باز صفر کار دیتابیس؛ بخش PostgreSQL در CI ── */
+  await test('ردیف ۱۷۸: اعلان فوری از راه Gateway — hello/missed، یکجاسازی، فیلتر بخش و مستأجر، پشتیبان هنگام قطع LISTEN، سقف اتصال و بستن هنگام خاموشی (۷ بررسی بی‌دیتابیس)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const env = Object.assign({}, process.env, { PAYESH_PG_ADMIN: '', PAYESH_PG_RUNTIME: '' });
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/gw-events-178.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000, env });
+      assert.strictEqual(r.status, 0, 'gw-events-178: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|GW-EVENTS-178/.test(l)).join('\n') + (r.stderr || ''));
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 

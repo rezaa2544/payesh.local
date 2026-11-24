@@ -121,10 +121,12 @@ final class GatewayAttendanceSource
     _owner = null;
     await _sub?.cancel();
     _sub = null;
-    for (final s in _feedSubs) {
+    // snapshot first: sign-out and dispose can both run _stop at once (row 178)
+    final subs = List.of(_feedSubs);
+    _feedSubs.clear();
+    for (final s in subs) {
       await s.cancel();
     }
-    _feedSubs.clear();
     final f = _feed;
     _feed = null;
     await f?.stop();
@@ -197,6 +199,14 @@ final class GatewayAttendanceSource
       final sync = GatewaySync(engine: engine, transport: transport);
       send = transport.push;
       fetch = sync.pull;
+      // Row 178: the same instant notifications through the Gateway (SSE + LISTEN/NOTIFY).
+      _feed = ChangeFeed(
+        baseUri: cell,
+        path: ChangeFeed.gatewayPath,
+        deviceId: deviceId,
+        token: () => _token,
+        client: pinned,
+      );
     }
     final auto = AutoSync(
       outbox: outbox,

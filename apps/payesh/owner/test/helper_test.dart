@@ -218,6 +218,104 @@ void main() {
       expect(b.done + c.done, 1);
     });
 
+    test('row 178: «توقف پردازش» مالک ⇒ صف خوانده نمی‌شود؛ ادامه ⇒ کار برداشته می‌شود', () async {
+      var paused = true;
+      final b = HelperNode(
+        helperId: 'b000000000000009',
+        transport: bucket.transport,
+        executor: exec(),
+        now: () => clock,
+        sleep: (_) async {},
+        host: 'PC-9',
+        version: 'test',
+        slots: 2,
+        processingPaused: () => paused,
+      )..configure(s3);
+      expect(await b.tick(), const Duration(seconds: 30));
+      final r = await submitJob(
+        busy: () => true,
+        s3: s3,
+        transport: bucket.transport,
+        executor: exec(),
+        kind: 'storage.usage',
+        selfHelperId: 'a000000000000001',
+        now: () => clock,
+        sleep: (d) async {
+          clock = clock.add(d);
+          await b.tick();
+          await settle();
+        },
+      );
+      expect(r.by, 'local', reason: 'paused helper never claims');
+      expect(b.done, 0);
+      paused = false;
+      final r2 = await submitJob(
+        busy: () => true,
+        s3: s3,
+        transport: bucket.transport,
+        executor: exec(),
+        kind: 'storage.usage',
+        selfHelperId: 'a000000000000001',
+        now: () => clock,
+        sleep: (d) async {
+          clock = clock.add(d);
+          await b.tick();
+          await settle();
+        },
+      );
+      expect(r2.by, 'b000000000000009');
+      expect(b.done, 1);
+    });
+
+    test(
+      'row 178: سقف CPU ⇒ پس از هر کار استراحت؛ تا پایانش صف خوانده نمی‌شود',
+      () async {
+        final works = <Duration>[];
+        final b = HelperNode(
+          helperId: 'b000000000000008',
+          transport: bucket.transport,
+          executor: exec(),
+          now: () => clock,
+          sleep: (_) async {},
+          host: 'PC-8',
+          version: 'test',
+          slots: 2,
+          restFor: (w) {
+            works.add(w);
+            return const Duration(
+              hours: 1,
+            ); // long, so the fake clock stays inside it
+          },
+        )..configure(s3);
+        await b.tick();
+        final r = await submitJob(
+          busy: () => true,
+          s3: s3,
+          transport: bucket.transport,
+          executor: exec(),
+          kind: 'storage.usage',
+          selfHelperId: 'a000000000000001',
+          now: () => clock,
+          sleep: (d) async {
+            clock = clock.add(d);
+            await b.tick();
+            await settle();
+          },
+        );
+        expect(r.by, 'b000000000000008');
+        expect(works, hasLength(1));
+        expect(b.restingUntil, isNotNull);
+        final left = b.restingUntil!.difference(clock);
+        expect(left, greaterThan(const Duration(minutes: 50)));
+        final reads = bucket.lists;
+        expect(await b.tick(), left, reason: 'tick returns the remaining rest');
+        expect(bucket.lists, reads, reason: 'no queue read while resting');
+        clock = clock.add(const Duration(hours: 2));
+        expect(await b.tick(), lessThan(const Duration(minutes: 10)));
+        expect(bucket.lists, greaterThan(reads), reason: 'queue read again');
+      },
+    );
+
     test('سرور کمکیِ متوقف (موقت) کاری نمی‌گیرد ⇒ محلی', () async {
       final b = node('b000000000000001');
       await b.setPaused(true);

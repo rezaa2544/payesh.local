@@ -765,12 +765,21 @@ async function applyOps(pool, tenantId, { ops = [], device_id = null, claims = n
       if (p.type === 'del') {
         const out = await deleteInTx(c, p.collection, p.id);
         if (!out) { applied.push({ uid: p.uid, id: p.id, deleted: false, missing: true }); continue; }
-        applied.push({ uid: p.uid, id: p.id, deleted: true, version: out.version });
+        applied.push({ uid: p.uid, id: p.id, deleted: true, version: out.version, collection: p.collection });
         continue;
       }
       const out = await upsertInTx(c, p.collection, p.id, p.payload, p.base_version);
       if (out.conflict) { conflicts.push({ uid: p.uid, id: p.id, version: out.version }); continue; }
       applied.push({ uid: p.uid, id: p.id, version: out.version, collection: p.collection });
+    }
+    /* ردیف ۱۷۸: اعلان تغییر به همهٔ نمونه‌های Gateway. pg_notify تراکنشی است: فقط پس از
+       commit تحویل می‌شود و با rollback هیچ اعلانی نمی‌رود. فقط نام مجموعه‌ها، نه داده. */
+    const changed = [...new Set(applied.filter(a => !a.missing).map(a => a.collection).filter(Boolean))].slice(0, 40);
+    if (changed.length) {
+      await c.query(
+        `select pg_notify('payesh_gw_feed', json_build_object('t', current_setting('app.tenant_id'),
+           's', (select coalesce(max(seq), 0) from ${FEED_TABLE} where tenant_id = current_setting('app.tenant_id')::uuid),
+           'c', $1::text[])::text)`, [changed]);
     }
     return {
       applied, duplicates, conflicts,

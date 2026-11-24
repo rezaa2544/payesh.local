@@ -205,6 +205,45 @@ void main() {
     });
   });
 
+  group('row 178: through the Gateway', () {
+    test(
+      'gateway path + X-Device-Id; LAN default stays /api/v1/events without it',
+      () async {
+        final seen = <(Uri, Map<String, String>)>[];
+        Future<Stream<List<int>>> fake(Uri u, Map<String, String> h) async {
+          seen.add((u, h));
+          return Stream.value(
+            utf8.encode('event: hello\ndata: {"seq":4,"missed":false}\n\n'),
+          );
+        }
+
+        final gw = ChangeFeed(
+          baseUri: Uri.parse('https://gw.example/'),
+          path: ChangeFeed.gatewayPath,
+          deviceId: 'dev-9',
+          token: () => 'tok',
+          connect: fake,
+        )..start();
+        final lan = ChangeFeed(
+          baseUri: Uri.parse('http://10.0.0.2:4777/'),
+          token: () => 'tok',
+          connect: fake,
+        )..start();
+        await until(() => seen.length == 2);
+        final g = seen.firstWhere((e) => e.$1.host == 'gw.example');
+        final l = seen.firstWhere((e) => e.$1.host == '10.0.0.2');
+        expect(g.$1.path, '/api/gw/v1/events');
+        expect(g.$1.queryParameters['since'], '0');
+        expect(g.$2['X-Device-Id'], 'dev-9');
+        expect(g.$2[HttpHeaders.authorizationHeader], 'Bearer tok');
+        expect(l.$1.path, '/api/v1/events');
+        expect(l.$2.containsKey('X-Device-Id'), isFalse);
+        await gw.stop();
+        await lan.stop();
+      },
+    );
+  });
+
   group('AutoSync with the feed', () {
     AutoSync mk(SqliteOutbox ob, List<String> log) => AutoSync(
       outbox: ob,

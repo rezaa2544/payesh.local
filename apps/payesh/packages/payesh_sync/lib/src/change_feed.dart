@@ -100,15 +100,29 @@ final class ChangeFeed {
     required this.baseUri,
     required this.token,
     this.topics = const [],
+    this.path = lanPath,
+    this.deviceId,
     FeedConnector? connect,
     HttpClient? client,
     this.minRetry = const Duration(seconds: 5),
     this.maxRetry = const Duration(minutes: 5),
   }) : _connect = connect ?? _httpConnector(client ?? trustedHttpClient());
 
+  /// School server on the LAN (row 177).
+  static const lanPath = '/api/v1/events';
+
+  /// Same contract through the Gateway, for devices syncing over the internet (row 178).
+  static const gatewayPath = '/api/gw/v1/events';
+
   final Uri baseUri;
   final String Function() token;
   final List<String> topics;
+
+  /// [lanPath] or [gatewayPath].
+  final String path;
+
+  /// Sent as `X-Device-Id` (the Gateway's per-device quota bucket).
+  final String? deviceId;
   final Duration minRetry;
   final Duration maxRetry;
   final FeedConnector _connect;
@@ -165,7 +179,7 @@ final class ChangeFeed {
   }
 
   Uri get _uri => baseUri
-      .resolve('/api/v1/events')
+      .resolve(path)
       .replace(
         queryParameters: {
           'since': '$_seq',
@@ -183,6 +197,8 @@ final class ChangeFeed {
       final stream = await _connect(_uri, {
         HttpHeaders.authorizationHeader: 'Bearer ${token()}',
         HttpHeaders.acceptHeader: 'text/event-stream',
+        if (deviceId case final id? when id.isNotEmpty)
+          PayeshApi.deviceIdHeader: id,
       });
       if (!_started || _paused) return;
       _sub = stream

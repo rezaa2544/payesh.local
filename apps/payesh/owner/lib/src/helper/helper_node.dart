@@ -89,6 +89,8 @@ final class HelperNode {
     this.slotsFor,
     Random? random,
     this.acceptWork,
+    this.processingPaused,
+    this.restFor,
   }) : _now = now ?? DateTime.now,
        _sleep = sleep ?? _realSleep,
        host = host ?? _hostName(),
@@ -101,6 +103,12 @@ final class HelperNode {
 
   /// false ⇒ مالک «پردازش کمکی» را خاموش کرده: صف کارها خوانده نمی‌شود (فقط حضور).
   final bool Function()? acceptWork;
+
+  /// ردیف ۱۷۸: «توقف پردازش» مالک ⇒ هیچ کار تازه‌ای برداشته نمی‌شود (کار در حال اجرا تمام می‌شود).
+  final bool Function()? processingPaused;
+
+  /// ردیف ۱۷۸: استراحت پس از هر کار برای ماندن زیر سقف درصد CPU (null ⇒ بدون استراحت).
+  final Duration Function(Duration work)? restFor;
   final String host;
   final String version;
   final int _slots;
@@ -127,6 +135,7 @@ final class HelperNode {
   DateTime? _lastPresence;
   DateTime? _lastGc;
   int _idleStep = 0;
+  DateTime? _restUntil;
   int done = 0;
   int failed = 0;
   String? lastError;
@@ -178,6 +187,12 @@ final class HelperNode {
   void _notify() {
     if (!_changes.isClosed) _changes.add(null);
   }
+
+  /// تنظیمی از بیرون عوض شد (سقف CPU همین دستگاه) ⇒ رابط کاربری دوباره کشیده شود.
+  void refresh() => _notify();
+
+  /// تا این لحظه برای ماندن زیر سقف CPU استراحت می‌کند (null ⇒ نه).
+  DateTime? get restingUntil => _restUntil;
 
   /// تنظیم یا عوض کردن صندوقچه (null ⇒ سرور کمکی بیکار).
   void configure(S3Settings? s3) {
@@ -253,9 +268,18 @@ final class HelperNode {
         _log('متوقف — کاری برداشته نمی‌شود', ok: false);
         return const Duration(seconds: 30);
       }
+      if (processingPaused?.call() ?? false) {
+        _log('پردازش متوقف است — کار تازه‌ای برداشته نمی‌شود', ok: false);
+        return const Duration(seconds: 30);
+      }
       if (!(acceptWork?.call() ?? true)) {
         _log('پردازش کمکی خاموش است — صف خوانده نمی‌شود', ok: false);
         return const Duration(seconds: 30);
+      }
+      final rest = _restUntil;
+      if (rest != null && rest.isAfter(now)) {
+        // زیر سقف CPU: تا پایان استراحت حتی صف را هم نمی‌خوانیم
+        return rest.difference(now);
       }
       if (_lastGc == null || now.difference(_lastGc!) >= gcJobAge) {
         _lastGc = now;
@@ -457,6 +481,14 @@ final class HelperNode {
       renew.cancel();
     }
     final finished = _now();
+    final rest = restFor?.call(finished.difference(started)) ?? Duration.zero;
+    if (rest > Duration.zero) {
+      final until = finished.add(rest);
+      if (_restUntil == null || until.isAfter(_restUntil!)) _restUntil = until;
+      _log(
+        'استراحت ${rest.inMilliseconds} میلی‌ثانیه برای ماندن زیر سقف پردازش',
+      );
+    }
     final t = transport();
     try {
       final resKey = '$helperRoot${HelperDirs.res}$id.json';

@@ -70,10 +70,13 @@ class _HelperCardState extends State<HelperCard> {
   late final HostCpuMeter _cpu = widget.cpu ?? HostCpuMeter();
   PacedTimer? _live;
   int? _rss;
+  double? _cpuDrag;
+  bool _toggling = false;
 
   @override
   void initState() {
     super.initState();
+    widget.service.policy.addListener(_redraw);
     unawaited(_attach());
     final every =
         widget.liveEvery ??
@@ -107,8 +110,13 @@ class _HelperCardState extends State<HelperCard> {
     setState(() {});
   }
 
+  void _redraw() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    widget.service.policy.removeListener(_redraw);
     _live?.cancel();
     unawaited(_sub?.cancel());
     super.dispose();
@@ -168,6 +176,132 @@ class _HelperCardState extends State<HelperCard> {
     }
   }
 
+  /// ردیف ۱۷۸ — چیزی که جلوی کار همین سیستم را گرفته (null ⇒ در حال کار).
+  String? _stopReason(HelperNode node) {
+    final p = widget.service.policy.value;
+    if (p.procPaused) {
+      return 'پردازش همهٔ سیستم‌ها از «کنترل پردازش» متوقف است.';
+    }
+    if (node.paused) return 'متوقف. کاری به این دستگاه داده نمی‌شود.';
+    if (!p.helpers) return 'پردازش کمکی خاموش است (حالت «فقط دیتابیس»).';
+    if (!p.helperOn(node.helperId)) {
+      return 'پردازش کمکی برای همین سیستم خاموش است.';
+    }
+    return null;
+  }
+
+  Future<void> _toggle(bool running) async {
+    setState(() => _toggling = true);
+    try {
+      if (running) {
+        await widget.service.setPaused(true);
+      } else {
+        await widget.service.startHelper();
+      }
+    } finally {
+      if (mounted) setState(() => _toggling = false);
+    }
+  }
+
+  /// ردیف ۱۷۸ — «شروع/توقف» و «مقدار پردازش» همین سیستم، داخل همین کارت.
+  Widget _controls(BuildContext context, HelperNode? node, bool running) {
+    final tk = context.tokens;
+    final svc = widget.service;
+    final local = svc.localCpu;
+    final global = svc.policy.value.cpuPercent;
+    final shown = (_cpuDrag ?? (local ?? 100).toDouble()).round();
+    final eff = minCpu(shown >= 100 ? null : shown, global);
+    final slots = svc.slots ?? slotsForCpu(eff);
+    final ready = node != null && node.configured;
+    return Container(
+      key: const Key('helper-controls'),
+      padding: const EdgeInsets.all(PayeshTokens.space3),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(tk.cardRadius - 4),
+        border: Border.all(color: tk.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  running
+                      ? 'پردازش کمکی این سیستم در حال کار است'
+                      : 'پردازش کمکی این سیستم متوقف است',
+                  key: const Key('helper-run-state'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: running ? tk.success : tk.warning,
+                  ),
+                ),
+              ),
+              running
+                  ? OutlinedButton.icon(
+                      key: const Key('helper-toggle'),
+                      onPressed: !ready || _toggling
+                          ? null
+                          : () => unawaited(_toggle(true)),
+                      icon: const Icon(Icons.stop_circle_outlined),
+                      label: const Text('توقف'),
+                    )
+                  : FilledButton.icon(
+                      key: const Key('helper-toggle'),
+                      onPressed: !ready || _toggling
+                          ? null
+                          : () => unawaited(_toggle(false)),
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: const Text('شروع'),
+                    ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'مقدار پردازش این سیستم',
+            style: TextStyle(color: tk.muted, fontSize: 12),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Slider(
+                  key: const Key('helper-cpu'),
+                  min: minCpuPercent.toDouble(),
+                  max: 100,
+                  divisions: 9,
+                  value: shown.toDouble().clamp(minCpuPercent.toDouble(), 100),
+                  label: '${faDigits(shown)}٪',
+                  onChanged: ready ? (x) => setState(() => _cpuDrag = x) : null,
+                  onChangeEnd: (x) {
+                    setState(() => _cpuDrag = null);
+                    unawaited(svc.setLocalCpu(x.round()));
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 56,
+                child: Text(
+                  shown >= 100 ? 'کامل' : '${faDigits(shown)}٪',
+                  key: const Key('helper-cpu-value'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          Text(
+            '${eff == null ? 'بدون سقف' : 'حداکثر ${faDigits(eff)}٪ از توان این رایانه'}'
+            ' — هم‌زمان حداکثر ${faDigits(slots)} کار'
+            '${eff == null ? '' : '، با استراحت کوتاه بین کارها'}.'
+            '${global != null && (local == null || global < local) ? ' سقف کلی «کنترل پردازش» ${faDigits(global)}٪ است و کمترینِ دو سقف اعمال می‌شود.' : ''}',
+            key: const Key('helper-cpu-note'),
+            style: TextStyle(color: tk.muted, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final node = widget.service.node;
@@ -179,8 +313,8 @@ class _HelperCardState extends State<HelperCard> {
     } else if (!node.configured) {
       status = 'اول دیتابیس را تنظیم و ذخیره کنید؛ بعد این دستگاه خودکار سرور کمکی می‌شود.';
       ok = false;
-    } else if (node.paused) {
-      status = 'متوقف. کاری به این دستگاه داده نمی‌شود.';
+    } else if (_stopReason(node) != null) {
+      status = _stopReason(node)!;
       ok = false;
     } else if (node.lastError != null) {
       status = 'به دیتابیس نرسیدیم: ${node.lastError}';
@@ -195,13 +329,19 @@ class _HelperCardState extends State<HelperCard> {
     return SettingsSection(
       title: 'پردازش کمکی (همین سیستم)',
       subtitle:
-          'روشن/خاموش در کارت «زیرساخت‌ها» است. هر کاری اول روی همان سیستمی انجام می‌شود که '
+          'شروع/توقف و مقدار پردازش همین سیستم در همین کارت است. هر کاری اول روی همان سیستمی انجام می‌شود که '
           'آن را لازم دارد؛ فقط وقتی آن سیستم شلوغ است یا بررسی «از بیرون» لازم است، کار در '
           'دیتابیس گذاشته می‌شود تا یک سیستم کمکیِ روشن انجام دهد. اگر هیچ سیستم کمکی روشن '
           'نباشد، همان سیستم خودش انجام می‌دهد؛ پس پردازش هیچ‌وقت متوقف نمی‌شود. محتوای مدارس '
           'به سیستم کمکی داده نمی‌شود.',
       children: [
         _livePanel(context, node, ok),
+        const SizedBox(height: 12),
+        _controls(
+          context,
+          node,
+          node != null && node.configured && _stopReason(node) == null,
+        ),
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
