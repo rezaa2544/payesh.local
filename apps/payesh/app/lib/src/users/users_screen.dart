@@ -176,7 +176,7 @@ class _UsersScreenState extends State<UsersScreen> {
             TextField(
               key: const Key('usr-search'),
               controller: search,
-              style: const TextStyle(fontSize: 15, color: Web.ink),
+              style: TextStyle(fontSize: 15, color: Web.ink),
               decoration: webInput(hint: 'جستجوی نام، شمارهٔ همراه یا کد ملی…'),
               onChanged: (v) => c.filter(search: v),
               onSubmitted: (v) => c.filter(search: v),
@@ -228,7 +228,7 @@ class _UsersScreenState extends State<UsersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 6),
               child: Text.rich(
                 TextSpan(
@@ -270,9 +270,8 @@ class _UsersScreenState extends State<UsersScreen> {
                   (v) => c.pickAll(v),
                 ),
               },
-              rowColor: (i) => c.picked.contains(c.users[i].id)
-                  ? const Color(0xFFFEF2F2)
-                  : null,
+              rowColor: (i) =>
+                  c.picked.contains(c.users[i].id) ? Web.redBg : null,
               rows: [for (final u in c.users) _row(u, parentCol)],
             ),
             if (c.users.isEmpty && c.error == null)
@@ -297,14 +296,15 @@ class _UsersScreenState extends State<UsersScreen> {
       value: value,
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      side: const BorderSide(color: Color(0xFF767676)),
-      activeColor: const Color(0xFF0075FF),
+      side: BorderSide(color: Web.muted),
+      activeColor: Web.primary,
+      checkColor: Web.onPrimary,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2.5)),
       onChanged: (v) => onChanged(v ?? false),
     ),
   );
 
-  static const _muted = Text('—', style: TextStyle(color: Web.muted));
+  static Widget get _muted => Text('—', style: TextStyle(color: Web.muted));
 
   List<Widget> _row(SchoolUser u, bool parentCol) {
     final small = Web.small.copyWith(color: Web.ink);
@@ -325,7 +325,7 @@ class _UsersScreenState extends State<UsersScreen> {
           ],
           if (!u.active) ...[
             const SizedBox(width: 6),
-            const WebBadge('غیرفعال', tone: WebTone.red),
+            WebBadge('غیرفعال', tone: WebTone.red),
           ],
         ],
       ),
@@ -385,7 +385,7 @@ class _UsersScreenState extends State<UsersScreen> {
   Widget _tinted({
     Key? key,
     required Color border,
-    Color background = Web.card,
+    Color? background,
     required Widget child,
   }) => Padding(
     key: key,
@@ -393,7 +393,7 @@ class _UsersScreenState extends State<UsersScreen> {
     child: Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: background,
+        color: background ?? Web.card,
         border: Border.all(color: border),
         borderRadius: BorderRadius.circular(Web.radius),
         boxShadow: Web.shadow,
@@ -404,8 +404,8 @@ class _UsersScreenState extends State<UsersScreen> {
 
   Widget _followupCard(BuildContext context) => _tinted(
     key: const Key('usr-followup'),
-    border: const Color(0xFFFCD34D),
-    background: const Color(0xFFFFFBEB),
+    border: Web.amber.withValues(alpha: 0.45),
+    background: Web.amberBg,
     child: Wrap(
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -614,7 +614,7 @@ class _PairCardPageState extends State<PairCardPage> {
                       child: Text(
                         r.display,
                         key: const Key('pair-code'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 3,
@@ -622,14 +622,14 @@ class _PairCardPageState extends State<PairCardPage> {
                         ),
                       ),
                     ),
-                    const Text(
+                    Text(
                       'این کد تا وقتی خودتان «کد تازه» نسازید کار می‌کند.',
                       style: Web.small,
                     ),
                     const SizedBox(height: 12),
                     _qr(link, 210, 8, 14, 6),
                     const SizedBox(height: 6),
-                    const Text.rich(
+                    Text.rich(
                       TextSpan(
                         style: TextStyle(fontSize: 13, height: 1.9),
                         children: [
@@ -662,7 +662,7 @@ class _PairCardPageState extends State<PairCardPage> {
                       children: [
                         _qr(_apk, 84, 4, 10, 4),
                         const SizedBox(width: 10),
-                        const Text(
+                        Text(
                           'نصب برنامهٔ بومی\nnative-continuous',
                           style: Web.small,
                         ),
@@ -672,7 +672,7 @@ class _PairCardPageState extends State<PairCardPage> {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'کاربر یا کد را در صفحهٔ ورود می‌زند، یا QR را اسکن می‌کند. این کد چندبار و برای چند دستگاه کار می‌کند — تا وقتی خودتان کد تازه نسازید.',
                 key: Key('pair-how'),
                 style: Web.small,
@@ -702,7 +702,7 @@ class _PairCardPageState extends State<PairCardPage> {
                 ],
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 '«کد تازه» همین کارت را باطل می‌کند و کد تازه می‌سازد — بعد از آن، کد و QR قبلی دیگر کار نمی‌کنند.',
                 style: Web.small,
               ),
@@ -1039,7 +1039,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
         WebCard.tight(
           child: TextField(
             key: const Key('std-search'),
-            style: const TextStyle(fontSize: 15, color: Web.ink),
+            style: TextStyle(fontSize: 15, color: Web.ink),
             decoration: webInput(hint: 'جستجو…'),
             onChanged: c.search,
             onSubmitted: c.search,
@@ -1154,7 +1154,7 @@ List<Widget> recordBlocks(StudentRecord r, {bool first = true}) => [
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(bottom: 8),
             child: Text('مشخصات', style: Web.b),
           ),
@@ -1167,7 +1167,7 @@ List<Widget> recordBlocks(StudentRecord r, {bool first = true}) => [
                 [
                   Text(
                     label,
-                    style: const TextStyle(fontSize: 12.5, color: Web.muted),
+                    style: TextStyle(fontSize: 12.5, color: Web.muted),
                   ),
                   Text(Web.fa(value), style: const TextStyle(fontSize: 12.5)),
                 ],
@@ -1181,7 +1181,7 @@ List<Widget> recordBlocks(StudentRecord r, {bool first = true}) => [
     child: WebTable(
       head: const ['درس', 'نمره', 'وضعیت'],
       empty: r.grades.isEmpty
-          ? const Text('—', style: TextStyle(color: Web.muted))
+          ? Text('—', style: TextStyle(color: Web.muted))
           : null,
       rows: [
         for (final (i, (subject, score, approved)) in r.grades.indexed)

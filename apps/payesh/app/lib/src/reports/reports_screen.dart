@@ -94,7 +94,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Web.primary,
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
@@ -114,13 +114,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _dashEmpty(String t) => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      border: Border.all(color: const Color(0xFF94A3B8)),
+      border: Border.all(color: Web.line),
       borderRadius: BorderRadius.circular(12),
     ),
     child: Text(
       t,
       textAlign: TextAlign.center,
-      style: const TextStyle(color: Web.muted, fontWeight: FontWeight.w600),
+      style: TextStyle(color: Web.muted, fontWeight: FontWeight.w600),
     ),
   );
 
@@ -285,12 +285,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     r.busy
                         ? Text(
                             r.cohort.isEmpty ? '—' : r.cohort,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w800,
                               color: Web.green,
                             ),
                           )
-                        : const Text('—', style: TextStyle(color: Web.muted)),
+                        : Text('—', style: TextStyle(color: Web.muted)),
                     Text(r.busy ? r.subject : '—'),
                     Text(r.busy && r.teacher.isNotEmpty ? r.teacher : '—'),
                   ],
@@ -390,7 +390,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
                       children: [
-                        const Text(
+                        Text(
                           'الان در',
                           style: TextStyle(
                             fontSize: 11,
@@ -401,7 +401,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(width: 5),
                         Text(
                           _bellLabel(d.bell),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             color: Web.primary,
                             fontWeight: FontWeight.w800,
@@ -412,7 +412,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     Text(
                       '${Web.jDays[d.weekday]}، ${Web.fa(Web.jdate(d.today))}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: Web.muted,
                         height: 1.5,
@@ -536,7 +536,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('آخرین اطلاعیه‌ها', style: Web.b),
+              Text('آخرین اطلاعیه‌ها', style: Web.b),
               const SizedBox(height: 8),
               WebList(
                 children: [
@@ -564,7 +564,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('زنگ جاری', style: Web.small),
+                    Text('زنگ جاری', style: Web.small),
                     Text(
                       bell != null
                           ? '${Web.clock24(bell.start)} – ${Web.clock24(bell.end)}'
@@ -587,7 +587,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('زنگ جاری', style: Web.small),
+              Text('زنگ جاری', style: Web.small),
               Text(
                 '${bell.start} – ${bell.end}',
                 key: const Key('dash-bell-text'),
@@ -609,7 +609,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               )
             else
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(bottom: 8),
                 child: Text('برنامهٔ امروز', style: Web.b),
               ),
@@ -880,7 +880,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('حضور هفتگی به تفکیک کلاس', style: Web.b),
+                Text('حضور هفتگی به تفکیک کلاس', style: Web.b),
                 WebTable(
                   key: const Key('rep-week-table'),
                   head: const ['کلاس', 'ثبت', 'حاضر', 'غایب', 'تأخیر', 'درصد'],
@@ -913,7 +913,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               children: [
                 Row(
                   children: [
-                    const Expanded(child: Text('کارنامهٔ کلاسی', style: Web.b)),
+                    Expanded(child: Text('کارنامهٔ کلاسی', style: Web.b)),
                     if (c.week.isNotEmpty)
                       SizedBox(
                         width: 240,
@@ -922,7 +922,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           initialValue: c.classId,
                           isExpanded: true,
                           isDense: true,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             color: Web.ink,
                             fontFamily: 'Vazirmatn',
@@ -944,7 +944,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
                 const SizedBox(height: 8),
                 if (card == null || card.rows.isEmpty)
-                  const Text(
+                  Text(
                     'دانش‌آموزی نیست.',
                     key: Key('rep-card-none'),
                     style: Web.small,
@@ -981,7 +981,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ],
                   ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'میانگین‌ها از نمرات ثبت‌شده محاسبه می‌شوند؛ برای چاپ، دکمهٔ «چاپ» بالا.',
                   style: Web.small,
                 ),
@@ -1097,7 +1097,7 @@ class _DayReportScreenState extends State<DayReportScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: d.notPresent.isEmpty
-                        ? const Text('همه حاضر', style: Web.small)
+                        ? Text('همه حاضر', style: Web.small)
                         : Wrap(
                             spacing: 4,
                             runSpacing: 4,
@@ -1224,7 +1224,7 @@ class _LeaveDeskScreenState extends State<LeaveDeskScreen> {
                 ),
                 Text(
                   '${Web.jdate(l.date)} · ${l.reason}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
                     color: Web.muted,
                     height: 1.6,

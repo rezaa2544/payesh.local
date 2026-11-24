@@ -760,6 +760,9 @@ class _SignedInScreenState extends State<SignedInScreen> {
     runSpacing: 8,
     crossAxisAlignment: WrapCrossAlignment.center,
     children: [
+      // Row 179: روشن / تاریک / سیستم of this device
+      if (PayeshThemeScope.maybeOf(context) != null)
+        const PayeshThemeChoice(key: Key('sys-theme')),
       if (controller.supportAvailable) SupportEntry(controller: controller),
       WebBtn(
         'استفاده از نسخهٔ قبلی (وب)',

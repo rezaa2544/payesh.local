@@ -149,11 +149,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
       initialValue: value,
       isExpanded: true,
       isDense: true,
-      style: const TextStyle(
-        fontSize: 15,
-        color: Web.ink,
-        fontFamily: 'Vazirmatn',
-      ),
+      style: TextStyle(fontSize: 15, color: Web.ink, fontFamily: 'Vazirmatn'),
       decoration: webInput(),
       items: [
         DropdownMenuItem(value: '', child: Text(empty)),
@@ -322,7 +318,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
         children: v == null
             ? const []
             : [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(bottom: 10),
                   child: Text(
                     'هر چیزی که کامل نیست اینجا جمع می‌شود: ردیف‌های ورود دسته‌ای که ساخته نشدند، '
@@ -346,7 +342,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
                         'fu-students-count',
                       ),
                       if (v.students.isEmpty)
-                        const Text(
+                        Text(
                           'پایه و رشتهٔ همهٔ دانش‌آموزان کامل است. ✅',
                           key: Key('fu-students-none'),
                           style: Web.small,
@@ -371,7 +367,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
                         'fu-issues-count',
                       ),
                       if (v.issues.isEmpty)
-                        const Text(
+                        Text(
                           'ردیف ناتمامی از ورود دسته‌ای نمانده. ✅',
                           key: Key('fu-issues-none'),
                           style: Web.small,

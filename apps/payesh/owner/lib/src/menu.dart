@@ -169,11 +169,13 @@ class _NabdNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tk = context.tokens;
-    final fg = selected ? Colors.white : tk.ink;
+    // Row 179 «مینیمال»: the chosen item is a soft grey pill with ink text (no gradient).
+    final pill = tk.isMinimal;
+    final fg = selected ? (pill ? tk.ink : Colors.white) : tk.ink;
     final icon = Icon(
       ownerMenuIcons[item.id],
       size: 21,
-      color: selected ? Colors.white : tk.muted,
+      color: selected ? (pill ? tk.ink : Colors.white) : tk.muted,
     );
     final label = Text(
       item.title,
@@ -200,9 +202,10 @@ class _NabdNavItem extends StatelessWidget {
             onTap: onTap,
             child: Ink(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(13),
-                gradient: selected ? tk.primaryGradient : null,
-                boxShadow: selected
+                borderRadius: BorderRadius.circular(pill ? 8 : 13),
+                color: selected && pill ? tk.soft : null,
+                gradient: selected && !pill ? tk.primaryGradient : null,
+                boxShadow: selected && !pill
                     ? [
                         BoxShadow(
                           color: tk.glow,
@@ -280,7 +283,11 @@ class NabdCapsuleBar extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 22, color: on ? tk.primary : tk.muted),
+                Icon(
+                  icon,
+                  size: 22,
+                  color: on ? (tk.isMinimal ? tk.ink : tk.primary) : tk.muted,
+                ),
                 const SizedBox(height: 2),
                 Text(
                   label,
@@ -288,7 +295,7 @@ class NabdCapsuleBar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 11,
-                    color: on ? tk.primary : tk.muted,
+                    color: on ? (tk.isMinimal ? tk.ink : tk.primary) : tk.muted,
                     fontWeight: on ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),

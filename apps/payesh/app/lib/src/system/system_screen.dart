@@ -347,8 +347,10 @@ class _SystemScreenState extends State<SystemScreen> {
     if (ok) await c.restore(restorePath.text);
   }
 
-  static const _note = TextStyle(fontSize: 12.5, color: Web.muted, height: 1.9);
-  static const _plain = TextStyle(fontSize: 12.5, color: Web.ink, height: 1.9);
+  static TextStyle get _note =>
+      TextStyle(fontSize: 12.5, color: Web.muted, height: 1.9);
+  static TextStyle get _plain =>
+      TextStyle(fontSize: 12.5, color: Web.ink, height: 1.9);
   static const _bold = TextStyle(fontWeight: FontWeight.w700);
 
   /// Web `.row between` card head: bold title, badge on the far side.
@@ -393,7 +395,7 @@ class _SystemScreenState extends State<SystemScreen> {
             style: _plain,
           ),
         if (!p.ok)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 6),
             child: Text(
               'اگر «گذاشتن اجازه» خطا داد، کلیدِ صندوقچه اجازهٔ مدیریت ندارد؛ در پنل ابری یک قانون CORS با * و متدهای GET/PUT/DELETE/HEAD بسازید.',
@@ -421,7 +423,7 @@ class _SystemScreenState extends State<SystemScreen> {
         autocorrect: false,
         enableSuggestions: false,
         autofillHints: [hint],
-        style: const TextStyle(fontSize: 15, color: Web.ink),
+        style: TextStyle(fontSize: 15, color: Web.ink),
         decoration: webInput(),
       ),
     ),
@@ -533,7 +535,7 @@ class _SystemScreenState extends State<SystemScreen> {
             ),
             // Row 172: the web card's words, true for this app: a change is sent the moment it
             // is made; the other devices pick it up on their next automatic round.
-            const Text(
+            Text(
               'هر تغییری که هر کاربر بدهد، همان لحظه برای سرور مدرسه فرستاده می‌شود و دستگاه‌های دیگر در دور خودکار بعدی '
               '(حداکثر حدود یک دقیقه) آن را می‌گیرند. اگر دستگاهی خاموش یا بی‌اینترنت باشد، تغییرهایش روی خودش می‌ماند و '
               'اولین لحظه‌ای که وصل شود فرستاده می‌شود.',
@@ -562,7 +564,7 @@ class _SystemScreenState extends State<SystemScreen> {
             _col(key: const Key('sys-phone-card'), [
               _head('📱 گوشی‌ها به حافظهٔ مدرسه وصل‌اند؟', badge: phoneBadge),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'اگر گوشی پیام «به حافظه نرسیدیم» می‌دهد، این دکمه را بزنید؛ خودش بررسی و درست می‌کند.',
                 style: _note,
               ),
@@ -635,7 +637,7 @@ class _SystemScreenState extends State<SystemScreen> {
               onPressed: pw.busy ? null : _changePassword,
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'اگر رمز فعلی را نمی‌دانید، از مدیر بخواهید رمز تازه بگذارد.',
               style: _note,
             ),
@@ -646,7 +648,7 @@ class _SystemScreenState extends State<SystemScreen> {
             StreamBuilder<void>(
               stream: upd.changes,
               builder: (context, _) => _col(key: const Key('sys-update'), [
-                const Text('به‌روزرسانی برنامه', style: Web.b),
+                Text('به‌روزرسانی برنامه', style: Web.b),
                 const SizedBox(height: 6),
                 Text(
                   upd.available
@@ -672,7 +674,7 @@ class _SystemScreenState extends State<SystemScreen> {
                     ),
                 ], top: 8),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'به‌روزرسانی خود سیستم را مدیر انجام می‌دهد؛ دستگاه شما خودکار تازه می‌شود.',
                   style: _note,
                 ),
@@ -701,7 +703,7 @@ class _SystemScreenState extends State<SystemScreen> {
                       ),
                 bottom: 6,
               ),
-              const Text(
+              Text(
                 'اطلاعات فقط در دیتابیس نیست: یک نسخهٔ خوانا هم روی خودِ این سیستم نگه داشته می‌شود و هر دقیقه با دیتابیس مقایسه می‌شود. '
                 'هر روز یک فایل پشتیبان ساخته می‌شود و اگر همان روز داده عوض شود، همان فایل به‌روز می‌شود. '
                 'اگر روزی دیتابیس از دست رفت یا عوض شد، همین فایل را اینجا آپلود کنید.',
@@ -709,7 +711,7 @@ class _SystemScreenState extends State<SystemScreen> {
               ),
               const SizedBox(height: 8),
               if (m == null)
-                const Text(
+                Text(
                   'برای دیدن وضعیت، دکمهٔ «به‌روزرسانی و مقایسه» را بزنید.',
                   style: _note,
                 )
@@ -779,10 +781,10 @@ class _SystemScreenState extends State<SystemScreen> {
               Container(
                 margin: const EdgeInsets.only(top: 12),
                 padding: const EdgeInsets.only(top: 10),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(top: BorderSide(color: Web.line)),
                 ),
-                child: const Text(
+                child: Text(
                   'بازیابی از فایل پشتیبان (روی همین سیستم یا سیستم تازه):',
                   style: _note,
                 ),
@@ -795,7 +797,7 @@ class _SystemScreenState extends State<SystemScreen> {
                       key: const Key('sys-restore-path'),
                       controller: restorePath,
                       textDirection: TextDirection.ltr,
-                      style: const TextStyle(fontSize: 15, color: Web.ink),
+                      style: TextStyle(fontSize: 15, color: Web.ink),
                       decoration: webInput(
                         hint: 'مسیر فایل پشتیبان (.json)',
                         error: restoreBad ? checkFieldFa : null,
@@ -812,9 +814,9 @@ class _SystemScreenState extends State<SystemScreen> {
               ),
             ]),
             _col(key: const Key('sys-backup-card'), [
-              const Text('پشتیبان‌گیری', style: Web.b),
+              Text('پشتیبان‌گیری', style: Web.b),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'هر ساعت خودکار گرفته می‌شود و ۴۸ نسخه نگه داشته می‌شود.',
                 style: _note,
               ),
@@ -835,7 +837,7 @@ class _SystemScreenState extends State<SystemScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: b.isEmpty
-                      ? const Text(
+                      ? Text(
                           'نسخه‌ای نیست.',
                           key: Key('sys-backups-none'),
                           style: _note,
@@ -855,9 +857,9 @@ class _SystemScreenState extends State<SystemScreen> {
                 ),
             ]),
             _col([
-              const Text('حافظهٔ ابری', style: Web.b),
+              Text('حافظهٔ ابری', style: Web.b),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'جایی که وقتی هیچ سیستمی روشن نیست، پیام‌ها و تکالیف نگه داشته می‌شوند تا اولین دستگاه همه را بردارد.',
                 style: _note,
               ),
@@ -877,12 +879,12 @@ class _SystemScreenState extends State<SystemScreen> {
               ),
             ]),
             _col(key: const Key('sys-dev-card'), [
-              const Text('دستگاه‌های متصل', style: Web.b),
+              Text('دستگاه‌های متصل', style: Web.b),
               const SizedBox(height: 6),
               if (c.devices == null)
-                const Text('برای دیدن فهرست، دکمه را بزنید.', style: _note),
+                Text('برای دیدن فهرست، دکمه را بزنید.', style: _note),
               if (c.devices case final ds? when ds.isEmpty)
-                const Text(
+                Text(
                   'دستگاهی ثبت نشده.',
                   key: Key('sys-dev-none'),
                   style: _note,
@@ -921,14 +923,14 @@ class _SystemScreenState extends State<SystemScreen> {
               ),
             ]),
             _col([
-              const Text('تنظیمات مدرسه', style: Web.b),
+              Text('تنظیمات مدرسه', style: Web.b),
               const SizedBox(height: 8),
               WebField(
                 label: 'نام مدرسه',
                 child: TextField(
                   key: const Key('sys-name'),
                   controller: name,
-                  style: const TextStyle(fontSize: 15, color: Web.ink),
+                  style: TextStyle(fontSize: 15, color: Web.ink),
                   // row 166: the refused field is outlined red
                   decoration: webInput(
                     error: fieldIssueFor(c.error, 'نام مدرسه', name.text),
@@ -949,13 +951,13 @@ class _SystemScreenState extends State<SystemScreen> {
                 ),
               ]),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'قابلیت‌ها، مقطع، نوع، جنسیت، شیفت، آمار، تلفن‌ها، روزهای کاری و پنجرهٔ موجه در «مشخصات مدرسه».',
                 style: _note,
               ),
             ]),
             _col(key: const Key('sys-stats'), [
-              const Text('آمار پایگاه داده', style: Web.b),
+              Text('آمار پایگاه داده', style: Web.b),
               const SizedBox(height: 6),
               Text(
                 'کاربران: ${_fa(c.stats['users'] ?? 0)} · کلاس‌ها: ${_fa(c.stats['classes'] ?? 0)} · حضور: ${_fa(c.stats['attendance'] ?? 0)} · نمره: ${_fa(c.stats['grades'] ?? 0)}',
@@ -981,9 +983,9 @@ class _SystemScreenState extends State<SystemScreen> {
             ]),
           ],
           _col(key: const Key('sys-guide'), [
-            const Text('راهنمای دستگاه‌ها', style: Web.b),
+            Text('راهنمای دستگاه‌ها', style: Web.b),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'همهٔ دستگاه‌ها از طریق حافظهٔ مشترک ابری به همین اطلاعات می‌رسند؛ آدرس زیر فقط آدرس همین دستگاه است:',
               style: _note,
             ),
@@ -1002,7 +1004,7 @@ class _SystemScreenState extends State<SystemScreen> {
                 child: InkWell(
                   key: const Key('sys-guide-install'),
                   onTap: () => app!.openUrl!(server.resolve('/install')),
-                  child: const Text(
+                  child: Text(
                     'صفحهٔ نصب و راهنما',
                     style: TextStyle(
                       fontSize: 12.5,
@@ -1016,9 +1018,9 @@ class _SystemScreenState extends State<SystemScreen> {
           // Native only: the web panel has this check on its sign-in page; the app keeps it
           // here, last, so a device that gets no data can still see where it is stuck.
           _col(key: const Key('sys-diag-card'), [
-            const Text('بررسی اتصال این دستگاه', style: Web.b),
+            Text('بررسی اتصال این دستگاه', style: Web.b),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'اگر اطلاعات به این دستگاه نمی‌رسد، این دکمه گام‌به‌گام بررسی می‌کند کجا گیر است.',
               style: _note,
             ),
@@ -1229,7 +1231,8 @@ class _CloudScreenState extends State<CloudScreen> {
     ),
   );
 
-  static const _note = TextStyle(fontSize: 12.5, color: Web.muted, height: 1.9);
+  static TextStyle get _note =>
+      TextStyle(fontSize: 12.5, color: Web.muted, height: 1.9);
 
   Widget _field(String k, String label, TextEditingController t, bool hide) =>
       Padding(
@@ -1241,7 +1244,7 @@ class _CloudScreenState extends State<CloudScreen> {
             controller: t,
             obscureText: hide,
             textDirection: TextDirection.ltr,
-            style: const TextStyle(fontSize: 15, color: Web.ink),
+            style: TextStyle(fontSize: 15, color: Web.ink),
             decoration: webInput(
               hint: k == 'cld-secret'
                   ? 'کلید خصوصی فعلی می‌ماند'
@@ -1276,7 +1279,7 @@ class _CloudScreenState extends State<CloudScreen> {
         body: const SizedBox.shrink(),
         sub: 'جایی در اینترنت که همهٔ دستگاه‌ها رویش می‌نویسند',
         children: [
-          const WebCard(
+          WebCard(
             child: Text(
               'وقتی هیچ سیستمی در مدرسه روشن نیست، پیام‌ها و تکالیف باید جایی بمانند تا اولین دستگاهِ روشن‌شده همه را بردارد. '
               'اینجا همان «صندوقچه» است.',
@@ -1301,9 +1304,7 @@ class _CloudScreenState extends State<CloudScreen> {
                 children: [
                   Row(
                     children: [
-                      const Expanded(
-                        child: Text('وضعیت صندوقچه', style: Web.b),
-                      ),
+                      Expanded(child: Text('وضعیت صندوقچه', style: Web.b)),
                       WebBadge(
                         cfg.stateFa,
                         key: const Key('cld-state'),
@@ -1387,9 +1388,9 @@ class _CloudScreenState extends State<CloudScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('تنظیمات صندوقچه (تغییر)', style: Web.b),
+                  Text('تنظیمات صندوقچه (تغییر)', style: Web.b),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'فقط وقتی لازم است که صندوقچه عوض شود. مقدار خالی = همان مقدار فعلی می‌ماند.',
                     style: Web.small,
                   ),
@@ -1414,7 +1415,7 @@ class _CloudScreenState extends State<CloudScreen> {
                   ),
                   _field('cld-secret', 'کلید خصوصی (Secret Key)', secret, true),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'کلید فقط روی سرور می‌ماند و هرگز به مرورگر/گوشی برنمی‌گردد؛ برای تغییر، مقدار تازه بگذارید. تست اتصال هم فقط از سرور انجام می‌شود.',
                     style: Web.small,
                   ),
@@ -1435,9 +1436,9 @@ class _CloudScreenState extends State<CloudScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('📱 دسترسی گوشی‌ها', style: Web.b),
+                Text('📱 دسترسی گوشی‌ها', style: Web.b),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'گوشی و رایانهٔ خانه با همین حافظهٔ مشترک کار می‌کنند. این دکمه همه‌چیز را خودش بررسی و درست می‌کند: '
                   'صندوقچه پیدا می‌شود، اجازهٔ خواندن برای گوشی گذاشته می‌شود، و نتیجه را همین‌جا می‌بینید.',
                   style: _note,
@@ -1456,7 +1457,7 @@ class _CloudScreenState extends State<CloudScreen> {
               ],
             ),
           ),
-          const WebCard(
+          WebCard(
             key: Key('cld-cors-card'),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1669,7 +1670,7 @@ class _HealthScreenState extends State<HealthScreen> {
         children: [
           Text(
             ok ? 'درست است' : r.result.message,
-            style: const TextStyle(fontSize: 12, color: Web.muted),
+            style: TextStyle(fontSize: 12, color: Web.muted),
           ),
           if (!ok && r.check.guide.isNotEmpty)
             Padding(
@@ -1774,7 +1775,7 @@ class _HealthScreenState extends State<HealthScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text('ایرادها', style: Web.b),
+                        Text('ایرادها', style: Web.b),
                         const SizedBox(height: 6),
                         WebList(
                           children: [for (final r in bad) _row(context, r)],
@@ -1788,7 +1789,7 @@ class _HealthScreenState extends State<HealthScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text('سالم', style: Web.b),
+                        Text('سالم', style: Web.b),
                         const SizedBox(height: 6),
                         WebList(
                           children: [
@@ -1798,7 +1799,7 @@ class _HealthScreenState extends State<HealthScreen> {
                       ],
                     ),
                   ),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 6),
                   child: Text(
                     '«اصلاح خودکار» فقط برای موردهایی است که هیچ داده‌ای از بین نمی‌رود (مثل ردیف تکراریِ اضافی). '
@@ -2172,7 +2173,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
     super.dispose();
   }
 
-  static const _note = Web.small;
+  static TextStyle get _note => Web.small;
 
   void _copy(String text) {
     Clipboard.setData(ClipboardData(text: text));
@@ -2272,7 +2273,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
     final List<Widget> body;
     if (on) {
       body = [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 8),
           child: Text(
             'آدرس شما، از هر اینترنتی (خانه، مسافرت، موبایل) کار می‌کند:',
@@ -2290,7 +2291,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
             p.publicUrl,
             key: const Key('net-public-url'),
             textDirection: TextDirection.ltr,
-            style: const TextStyle(fontWeight: FontWeight.w700, color: Web.ink),
+            style: TextStyle(fontWeight: FontWeight.w700, color: Web.ink),
           ),
         ),
         buttons([
@@ -2310,7 +2311,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
       ];
     } else if (p.installed && !p.loggedIn) {
       body = [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 8),
           child: Text(
             'Tailscale نصب است ولی وارد حساب نشده. یک‌بار وارد شوید (مرورگر باز می‌شود) و بعد دکمهٔ فعال‌سازی را بزنید.',
@@ -2333,7 +2334,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
       ];
     } else if (p.installed) {
       body = [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 8),
           child: Text(
             'Tailscale نصب و آماده است. با یک کلیک آدرس ثابت عمومی ساخته می‌شود (همان آدرسی که بعد از این، همه از هر اینترنتی وارد می‌شوند).',
@@ -2355,7 +2356,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: DefaultTextStyle.merge(
-            style: const TextStyle(fontSize: 12.5, height: 2, color: Web.ink),
+            style: TextStyle(fontSize: 12.5, height: 2, color: Web.ink),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2365,7 +2366,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                       const TextSpan(text: '1. '),
                       TextSpan(
                         text: 'Tailscale',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Web.green,
                           decoration: TextDecoration.underline,
                         ),
@@ -2406,7 +2407,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
             '🌍 دسترسی از هر اینترنتی (تونل)',
             WebBadge(stateText, key: const Key('net-public-state'), tone: tone),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 6),
             child: Text(
               'هیچ کاربری لازم نیست روی مودم مدرسه باشد: سیستم مدرسه یک تونل خروجی می‌سازد و همه با یک آدرس HTTPS ثابت وصل می‌شوند.',
@@ -2414,7 +2415,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
             ),
           ),
           ...body,
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 10),
             child: Text(
               '🔒 با فعال شدن آدرس عمومی، سرور از اینترنت دیده می‌شود: رمز عبور همهٔ کاربران را جدی بگیرید و دستگاه‌های ناشناس را از «دستگاه‌ها» باطل کنید.',
@@ -2445,7 +2446,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
               'آدرس رسمی (HTTPS)',
               WebBadge(status, key: const Key('net-url-state'), tone: tone),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
                 'این آدرس را روی همهٔ گوشی‌ها و رایانه‌ها باز کنید. بدون آن، برنامه فقط داخل Wi-Fi مدرسه کار می‌کند.',
@@ -2460,7 +2461,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
               textAlign: TextAlign.left,
               keyboardType: TextInputType.url,
               autocorrect: false,
-              style: const TextStyle(fontSize: 15, color: Web.ink),
+              style: TextStyle(fontSize: 15, color: Web.ink),
               decoration: webInput(hint: 'https://payesh.school.ts.net'),
             ),
             const SizedBox(height: 8),
@@ -2501,8 +2502,8 @@ class _NetworkScreenState extends State<NetworkScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('کد QR برای نصب سریع', style: Web.b),
-                const Padding(
+                Text('کد QR برای نصب سریع', style: Web.b),
+                Padding(
                   padding: EdgeInsets.only(top: 6),
                   child: Text(
                     'این کد را روی تخته بزنید یا در گروه بفرستید؛ با دوربین گوشی باز می‌شود.',
@@ -2541,10 +2542,10 @@ class _NetworkScreenState extends State<NetworkScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('آدرس‌های شبکهٔ محلی', style: Web.b),
+                  Text('آدرس‌های شبکهٔ محلی', style: Web.b),
                   const SizedBox(height: 6),
                   if (lan.isEmpty)
-                    const Text('—', style: _note)
+                    Text('—', style: _note)
                   else
                     for (final (i, u) in lan.indexed)
                       // `.ltr` = direction ltr, so the address sits on the left of its column
@@ -2557,14 +2558,14 @@ class _NetworkScreenState extends State<NetworkScreen> {
                           style: _note,
                         ),
                       ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 6),
                     child: Text(
                       'این آدرس‌ها فقط وقتی گوشی به همان Wi-Fi مدرسه وصل است کار می‌کنند.',
                       style: _note,
                     ),
                   ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 4),
                     child: Text(
                       'اگر گوشی با همین Wi-Fi هم وصل نشد، احتمالاً Wi-Fi مدرسه اجازهٔ ارتباط دستگاه‌ها با هم را نمی‌دهد (Client Isolation) — در این حالت فقط آدرس رسمی HTTPS بالا کار می‌کند.',
@@ -2596,7 +2597,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
               lan.isEmpty ? null : _qr(lan.first, 'net-lan-qr'),
             ),
             if (lan.isNotEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 6),
                 child: Text(
                   'گوشی داخل مدرسه: این کد را با دوربین گوشی اسکن کنید — بدون تایپ هیچ آدرسی باز می‌شود.',
@@ -2625,7 +2626,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                       tone: WebTone.green,
                     ),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 6),
               child: Text(
                 'وقتی بعضی دستگاه‌ها خاموش‌اند، ثبت‌هایشان این‌جا می‌ماند و اولین دستگاهی که روشن شود (مدرسه، خانه یا گوشیِ کادر) خودکار اعمالشان می‌کند — لازم نیست کسی کاری کند.',

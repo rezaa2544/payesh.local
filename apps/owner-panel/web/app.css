@@ -27,13 +27,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .brand img { width: 34px; height: auto; }
 .navitem {
   display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; border-radius: 13px; border: 0; background: transparent;
+  padding: 9px 12px; border-radius: 8px; border: 0; background: transparent;
   color: var(--ink); text-align: start; cursor: pointer;
 }
 .navitem:hover { background: var(--soft); }
+/* ردیف ۱۷۹ «مینیمال حرفه‌ای»: بخش فعلی = کپسول خاکستری ملایم با متن پررنگ */
 .navitem[aria-current="page"] {
-  color: var(--card);
-  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: var(--ink);
+  font-weight: 700;
+  background: var(--soft);
 }
 .navitem svg { width: 19px; height: 19px; flex: 0 0 auto; }
 .main { padding: 22px clamp(14px, 3vw, 34px); min-width: 0; }
@@ -60,16 +62,17 @@ code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px;
 /* دکمه، فرم */
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px; border-radius: 12px; border: 1px solid var(--line);
+  padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--card); color: var(--ink); cursor: pointer;
 }
-.btn:hover { border-color: var(--primary); }
-.btn.primary { color: var(--card); border-color: var(--primary); background: linear-gradient(135deg, var(--primary), var(--primary-2)); }
+.btn:hover { background: var(--soft); }
+.btn.primary { color: var(--card); border-color: var(--primary); background: var(--primary); }
+.btn.primary:hover { background: color-mix(in srgb, var(--primary) 86%, var(--ink)); }
 .btn.danger { color: var(--red); border-color: var(--red); background: var(--red-bg); }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 .btn:focus-visible, .navitem:focus-visible, .input:focus { outline: 0; box-shadow: var(--ring); border-color: var(--primary); }
 .input {
-  width: 100%; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line);
+  width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--card);
 }
 label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: 13px; }

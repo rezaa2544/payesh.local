@@ -256,7 +256,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
                 children: [
-                  const Expanded(child: Text('فهرست کلاس', style: Web.b)),
+                  Expanded(child: Text('فهرست کلاس', style: Web.b)),
                   WebBtn(
                     'همه حاضر',
                     key: const Key('att-all-present'),
@@ -319,7 +319,7 @@ class _ClassItem extends StatelessWidget {
       title: item.name,
       subWidget: Text(
         '${Web.fa(item.students)} دانش‌آموز · ${faDigits(item.grade)}',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           color: Web.muted,
           height: Web.lineHeight,
@@ -350,7 +350,7 @@ class _StudentRow extends StatelessWidget {
     return Container(
       key: Key('att-row-${entry.studentId}'),
       padding: const EdgeInsets.symmetric(horizontal: 3.2, vertical: 8),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: Web.line)),
       ),
       child: Row(
@@ -393,40 +393,87 @@ class AttBtnLook {
   );
   final Color fg, border, bg, onFg, onBorder, onBg;
 
-  static AttBtnLook of(AttendanceStatus s) => switch (s) {
-    AttendanceStatus.present => const AttBtnLook(
-      Color(0xFF0D9488),
-      Color(0x660D9488),
-      Color(0x1A14B8A6),
-      Color(0xFF166534),
-      Color(0xFF86EFAC),
-      Color(0xFFDCFCE7),
-    ),
-    AttendanceStatus.absent => const AttBtnLook(
-      Color(0xFFE11D48),
-      Color(0x59E11D48),
-      Color(0x17F43F5E),
-      Color(0xFF991B1B),
-      Color(0xFFFCA5A5),
-      Color(0xFFFEE2E2),
-    ),
-    AttendanceStatus.late => const AttBtnLook(
-      Color(0xFFB45309),
-      Color(0x66F59E0B),
-      Color(0x1AF59E0B),
-      Color(0xFF92400E),
-      Color(0xFFFCD34D),
-      Color(0xFFFEF3C7),
-    ),
-    _ => const AttBtnLook(
-      Color(0xFF0284C7),
-      Color(0x590EA5E9),
-      Color(0x170EA5E9),
-      Color(0xFF3730A3),
-      Color(0xFFA5B4FC),
-      Color(0xFFE0E7FF),
-    ),
-  };
+  /// Row 179: «مینیمال» light keeps the web colours (present = green, not teal); dark mode
+  /// gets its own readable set.
+  static AttBtnLook of(AttendanceStatus s) => Web.dark
+      ? switch (s) {
+          AttendanceStatus.present => const AttBtnLook(
+            Color(0xFF4ADE80),
+            Color(0x664ADE80),
+            Color(0x1A4ADE80),
+            Color(0xFFDCFCE7),
+            Color(0xFF22C55E),
+            Color(0xFF14532D),
+          ),
+          AttendanceStatus.absent => const AttBtnLook(
+            Color(0xFFFB7185),
+            Color(0x59FB7185),
+            Color(0x17FB7185),
+            Color(0xFFFEE2E2),
+            Color(0xFFEF4444),
+            Color(0xFF7F1D1D),
+          ),
+          AttendanceStatus.late => const AttBtnLook(
+            Color(0xFFFBBF24),
+            Color(0x66FBBF24),
+            Color(0x1AFBBF24),
+            Color(0xFFFEF3C7),
+            Color(0xFFF59E0B),
+            Color(0xFF78350F),
+          ),
+          _ => const AttBtnLook(
+            Color(0xFF38BDF8),
+            Color(0x5938BDF8),
+            Color(0x1738BDF8),
+            Color(0xFFE0E7FF),
+            Color(0xFF818CF8),
+            Color(0xFF312E81),
+          ),
+        }
+      : switch (s) {
+          AttendanceStatus.present =>
+            Web.palette.flat
+                ? const AttBtnLook(
+                    Color(0xFF15803D),
+                    Color(0x6615803D),
+                    Color(0x1A22C55E),
+                    Color(0xFF166534),
+                    Color(0xFF86EFAC),
+                    Color(0xFFDCFCE7),
+                  )
+                : const AttBtnLook(
+                    Color(0xFF0D9488),
+                    Color(0x660D9488),
+                    Color(0x1A14B8A6),
+                    Color(0xFF166534),
+                    Color(0xFF86EFAC),
+                    Color(0xFFDCFCE7),
+                  ),
+          AttendanceStatus.absent => const AttBtnLook(
+            Color(0xFFE11D48),
+            Color(0x59E11D48),
+            Color(0x17F43F5E),
+            Color(0xFF991B1B),
+            Color(0xFFFCA5A5),
+            Color(0xFFFEE2E2),
+          ),
+          AttendanceStatus.late => const AttBtnLook(
+            Color(0xFFB45309),
+            Color(0x66F59E0B),
+            Color(0x1AF59E0B),
+            Color(0xFF92400E),
+            Color(0xFFFCD34D),
+            Color(0xFFFEF3C7),
+          ),
+          _ => const AttBtnLook(
+            Color(0xFF0284C7),
+            Color(0x590EA5E9),
+            Color(0x170EA5E9),
+            Color(0xFF3730A3),
+            Color(0xFFA5B4FC),
+            Color(0xFFE0E7FF),
+          ),
+        };
 }
 
 /// One `.att-btn` (public so tests can read its state).

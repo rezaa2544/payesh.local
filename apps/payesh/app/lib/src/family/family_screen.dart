@@ -251,7 +251,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Row(
+        Row(
           children: [
             Expanded(child: Text('📥 صندوقچهٔ ابری', style: Web.b)),
             WebBadge('در انتظار اعمال', tone: WebTone.amber),
@@ -261,7 +261,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
           padding: const EdgeInsets.only(top: 6),
           child: Text.rich(
             TextSpan(
-              style: const TextStyle(fontSize: 12.5, color: Web.ink),
+              style: TextStyle(fontSize: 12.5, color: Web.ink),
               children: [
                 const TextSpan(text: '📤 '),
                 TextSpan(
@@ -275,7 +275,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
             ),
           ),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 6),
           child: Text(
             'لازم نیست کاری کنید: اولین سیستمی که روشن شود (مدرسه، خانه یا گوشیِ کادر) خودش این‌ها را اعمال می‌کند.',
@@ -342,7 +342,7 @@ class ChildPage {
     Widget empty(String t, String key) => Text(
       t,
       key: Key(key),
-      style: const TextStyle(fontSize: 15, color: Web.muted),
+      style: TextStyle(fontSize: 15, color: Web.muted),
     );
     WebTone state(bool approved) => approved ? WebTone.green : WebTone.amber;
     return [
@@ -403,7 +403,7 @@ class ChildPage {
                           if (g.practicalScore != null)
                             TextSpan(
                               text: ' (عملی ${_score(g.practicalScore!)})',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12.5,
                                 color: Web.muted,
                               ),
@@ -600,11 +600,7 @@ class LeavesScreen extends StatelessWidget {
         ),
         Text.rich(
           TextSpan(
-            style: const TextStyle(
-              fontSize: 12.5,
-              color: Web.muted,
-              height: 1.6,
-            ),
+            style: TextStyle(fontSize: 12.5, color: Web.muted, height: 1.6),
             children: [
               TextSpan(text: Web.jdate(l.date)),
               if (l.reason.isNotEmpty) const TextSpan(text: ' · '),

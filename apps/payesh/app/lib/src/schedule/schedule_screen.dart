@@ -225,11 +225,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       initialValue: items.any((i) => i.$1 == value) ? value : null,
       isExpanded: true,
       isDense: true,
-      style: const TextStyle(
-        fontSize: 15,
-        color: Web.ink,
-        fontFamily: 'Vazirmatn',
-      ),
+      style: TextStyle(fontSize: 15, color: Web.ink, fontFamily: 'Vazirmatn'),
       decoration: webInput(),
       items: [
         for (final (v, l) in items)
@@ -259,7 +255,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               style: Web.small,
             ),
             const SizedBox(height: 4),
-            const Text('جابه‌جایی را مدیر انجام می‌دهد.', style: Web.small),
+            Text('جابه‌جایی را مدیر انجام می‌دهد.', style: Web.small),
           ],
         ),
       );
@@ -329,7 +325,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             children: [
                               Text(
                                 '${x.kind == 'teacher' ? 'زنگ «${r.cohort.isEmpty ? '—' : r.cohort}»' : 'درس «${r.subject}»'}:',
-                                style: const TextStyle(color: Web.muted),
+                                style: TextStyle(color: Web.muted),
                               ),
                               WebBtn(
                                 '🔎 پیشنهاد جایِ آزاد',
@@ -339,7 +335,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               ),
                               if (c.openSuggestions.contains(r.id))
                                 if ((c.suggestions[r.id] ?? const []).isEmpty)
-                                  const Text(
+                                  Text(
                                     'جایِ آزاد پیدا نشد — یک زنگ را دستی خالی کنید.',
                                     style: TextStyle(color: Web.red),
                                   )
@@ -375,7 +371,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     Widget head(Widget child) => Padding(
       padding: const EdgeInsets.all(4.8),
       child: DefaultTextStyle.merge(
-        style: const TextStyle(fontSize: 12.5, color: Web.muted),
+        style: TextStyle(fontSize: 12.5, color: Web.muted),
         textAlign: TextAlign.center,
         child: Center(child: child),
       ),
@@ -400,10 +396,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 if (s.room.isNotEmpty)
                   Text(
                     '🏫 ${s.room}',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: Color(0xFF6B7280),
-                    ),
+                    style: TextStyle(fontSize: 12.5, color: Web.muted),
                   ),
                 if (s.subToday != null)
                   Padding(
@@ -411,7 +404,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     child: WebBadge('🔁 ${s.subToday}', tone: WebTone.amber),
                   ),
                 if (s.queued)
-                  const Icon(
+                  Icon(
                     Icons.schedule,
                     size: 14,
                     color: Web.muted,
@@ -489,7 +482,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   Widget _subsList(TimetableView v) => Container(
     margin: const EdgeInsets.only(top: 10),
     padding: const EdgeInsets.only(top: 8),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       border: Border(top: BorderSide(color: Web.line)),
     ),
     child: Column(
@@ -522,7 +515,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 InkWell(
                   key: Key('sch-sub-del-${x.id}'),
                   onTap: c.busy ? null : () => _deleteSub(x),
-                  child: const Text(
+                  child: Text(
                     'حذف',
                     style: TextStyle(
                       color: Web.red,
@@ -631,7 +624,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           ],
                         ),
                         const SizedBox(height: 7),
-                        const Text(
+                        Text(
                           'برنامه برای این پایه و رشته چیده می‌شود؛ محل برگزاری را برای هر زنگ جداگانه انتخاب کنید.',
                           style: Web.small,
                         ),
@@ -687,7 +680,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'برای چیدن برنامه، ابتدا پایه و رشته را در بخش «کلاس‌ها» تعریف کنید.',
                           style: Web.small,
                         ),
@@ -710,7 +703,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       children: [
                         _grid(v),
                         if (v.canEdit)
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(top: 10),
                             child: Text(
                               '💡 روی خانه بزنید تا درس، دبیر و محل برگزاری را مشخص کنید. روزهای غیرفعال از جدول حذف شده‌اند.',
@@ -726,7 +719,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     ),
                   ),
                   if (v.slots.isEmpty && !v.canEdit)
-                    const WebCard(
+                    WebCard(
                       child: Text(
                         'برنامهٔ هفتگی برای این پایه یا کاربر هنوز ثبت نشده است.',
                         style: Web.small,
@@ -762,9 +755,7 @@ class _TtCellState extends State<_TtCell> {
   Widget build(BuildContext context) {
     final on = hover && widget.onTap != null;
     final box = CustomPaint(
-      foregroundPainter: widget.empty && !on
-          ? const _DashedBox(Web.line, 10)
-          : null,
+      foregroundPainter: widget.empty && !on ? _DashedBox(Web.line, 10) : null,
       child: Container(
         constraints: const BoxConstraints(minHeight: 52),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7.2),

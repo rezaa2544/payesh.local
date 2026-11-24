@@ -33,17 +33,6 @@ import 'update/update_service.dart';
 import 'power/activity.dart';
 import 'power/processing_card.dart';
 
-const _themeLabels = {
-  ThemeMode.system: 'پوسته: سیستم',
-  ThemeMode.light: 'پوسته: روشن',
-  ThemeMode.dark: 'پوسته: تاریک',
-};
-const _themeIcons = {
-  ThemeMode.system: Icons.brightness_auto,
-  ThemeMode.light: Icons.light_mode,
-  ThemeMode.dark: Icons.dark_mode,
-};
-
 /// Root of the native owner app: server origin → password + TOTP login → panel.
 class OwnerApp extends StatefulWidget {
   const OwnerApp({
@@ -326,11 +315,7 @@ class _OwnerAppState extends State<OwnerApp> {
     }
     if (!mounted) return;
     setState(() {
-      _theme = switch (t) {
-        'light' => ThemeMode.light,
-        'dark' => ThemeMode.dark,
-        _ => ThemeMode.system,
-      };
+      _theme = PayeshThemeMode.parse(t);
       _loading = false;
       if (o != null) _connect(o);
       final tok = _savedServerToken;
@@ -379,11 +364,7 @@ class _OwnerAppState extends State<OwnerApp> {
   }
 
   Future<void> _cycleTheme() async {
-    final next = switch (_theme) {
-      ThemeMode.system => ThemeMode.light,
-      ThemeMode.light => ThemeMode.dark,
-      ThemeMode.dark => ThemeMode.system,
-    };
+    final next = PayeshThemeMode.next(_theme);
     setState(() => _theme = next);
     await widget.store.write(
       'theme',
@@ -682,8 +663,8 @@ class _OwnerAppState extends State<OwnerApp> {
   /// فقط آیکن (نام پوسته در راهنمای شناور).
   Widget get _themeButton => IconButton(
     key: const Key('theme'),
-    tooltip: _themeLabels[_theme],
-    icon: Icon(_themeIcons[_theme]),
+    tooltip: payeshThemeLabels[_theme],
+    icon: Icon(payeshThemeIcons[_theme]),
     onPressed: _cycleTheme,
   );
 
@@ -727,8 +708,8 @@ class _OwnerAppState extends State<OwnerApp> {
       onPointerDown: (_) => OwnerActivity.instance.markInteraction(),
       child: PayeshMaterialApp(
         navigatorKey: _nav,
-        // ردیف ۱۴۷: پوستهٔ پنل مالک = «نبض» پنل کاربران (client/pulse.css)
-        look: PayeshLook.nabd,
+        // ردیف ۱۷۹: طرح «مینیمال حرفه‌ای» (انتخاب مالک) با پوستهٔ روشن / تاریک / سیستم
+        look: PayeshLook.minimal,
         title: 'پنل مالک پایش',
         themeMode: _theme,
         // ردیف ۱۷۹: پس از هر به‌روزرسانی یک‌بار «چه چیزهایی تازه است؟»

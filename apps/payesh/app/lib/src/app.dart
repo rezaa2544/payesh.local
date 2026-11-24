@@ -15,6 +15,7 @@ import 'login/paywall.dart';
 import 'notices/notices_controller.dart';
 import 'notices/notices_screen.dart';
 import 'pulse/pulse.dart';
+import 'pulse/web.dart';
 import 'school/school_entry.dart';
 import 'school/school_source.dart';
 import 'login/session_controller.dart';
@@ -84,7 +85,27 @@ class PayeshApp extends StatelessWidget {
     this.updater,
     this.openUrl,
     this.whatsNew,
+    this.themeMode,
   });
+
+  /// Row 179: روشن / تاریک / سیستم chosen by the user (kept in prefs `theme`); null = the
+  /// device decides (tests, previews).
+  final PayeshThemeMode? themeMode;
+
+  /// Row 179: the app's look — «مینیمال حرفه‌ای», chosen by the owner.
+  static const look = PayeshLook.minimal;
+
+  /// Keeps the web-parity palette ([Web]) in step with the resolved theme; true when it changed.
+  static bool syncPalette(ThemeData theme) {
+    final dark = theme.brightness == Brightness.dark;
+    if (Web.palette.flat && Web.dark == dark) return false;
+    final p = WebPalette.fromTokens(
+      PayeshTokens.of(look, theme.brightness),
+      theme.brightness,
+    );
+    Web.use(p);
+    return true;
+  }
 
   /// Row 148: version + update light at the top of every page (null in tests/local builds).
   /// Windows: changed files only, applied after the app closes, then it reopens by itself.
@@ -377,14 +398,32 @@ class PayeshApp extends StatelessWidget {
       updater: u,
       openUrl: openUrl,
       child: PayeshMaterialApp(
-        look: PayeshLook.nabd,
+        look: look,
+        themeController: themeMode,
+        onTheme: syncPalette,
         // Row 177: version + update light and the subscription badge in the top-left corner.
         overlayAlignment: Alignment.topLeft,
-        overlay: u == null
+        overlay: u == null && themeMode == null
             ? null
-            : AutoUpdateCheck(
-                updater: u,
-                child: TopStatus(updater: u, session: s, openUrl: openUrl),
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (u != null)
+                    AutoUpdateCheck(
+                      updater: u,
+                      child: TopStatus(
+                        updater: u,
+                        session: s,
+                        openUrl: openUrl,
+                      ),
+                    ),
+                  // Row 179: روشن / تاریک / سیستم, on every page
+                  if (themeMode != null)
+                    const Padding(
+                      padding: EdgeInsetsDirectional.only(start: 4),
+                      child: PayeshThemeButton(compact: true),
+                    ),
+                ],
               ),
         // Row 179: «چه چیزهایی تازه است؟» once after every update (Android, Windows, Win32).
         home: WhatsNewGate(

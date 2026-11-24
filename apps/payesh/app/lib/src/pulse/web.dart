@@ -12,28 +12,162 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
-/// `:root` of client/pulse.css (light) — plus the few literal colours of styles.css.
+/// Row 179: the palette the web-parity widgets paint with. It follows the app's look
+/// («مینیمال حرفه‌ای» by default) and brightness (روشن / تاریک) — [Web.use] is called from the
+/// app root whenever the theme changes. Before row 179 these were `const` teal values of
+/// client/pulse.css (light only); [WebPalette.nabdLight] keeps them for comparison tests.
+@immutable
+final class WebPalette {
+  const WebPalette({
+    required this.primary,
+    required this.primary2,
+    required this.bg,
+    required this.card,
+    required this.ink,
+    required this.muted,
+    required this.line,
+    required this.soft,
+    required this.accent,
+    required this.green,
+    required this.greenBg,
+    required this.red,
+    required this.redBg,
+    required this.amber,
+    required this.amberBg,
+    required this.purple,
+    required this.purpleBg,
+    required this.deleteInk,
+    required this.shadow,
+    required this.flat,
+    required this.onPrimary,
+  });
+
+  final Color primary, primary2, bg, card, ink, muted, line, soft, accent;
+  final Color green, greenBg, red, redBg, amber, amberBg, purple, purpleBg;
+  final Color deleteInk, onPrimary;
+  final List<BoxShadow> shadow;
+
+  /// No gradients (a flat accent fill), as in «مینیمال».
+  final bool flat;
+
+  /// The old «نبض» light palette (client/pulse.css `:root`).
+  static const nabdLight = WebPalette(
+    primary: Color(0xFF0D9488),
+    primary2: Color(0xFF0F766E),
+    bg: Color(0xFFEEF7F5),
+    card: Color(0xFFFFFFFF),
+    ink: Color(0xFF0F2B27),
+    muted: Color(0xFF5D7D76),
+    line: Color(0xFFD7EBE6),
+    soft: Color(0xFFDCF4EE),
+    accent: Color(0xFFF59E0B),
+    green: Color(0xFF0F766E),
+    greenBg: Color(0xFFE2F6F1),
+    red: Color(0xFFB42318),
+    redBg: Color(0xFFFEE4E2),
+    amber: Color(0xFFB45309),
+    amberBg: Color(0xFFFEF3E2),
+    purple: Color(0xFF6D28D9),
+    purpleBg: Color(0xFFF3ECFF),
+    deleteInk: Color(0xFFB91C1C),
+    onPrimary: Color(0xFFFFFFFF),
+    flat: false,
+    shadow: [
+      BoxShadow(
+        color: Color(0x1A0D9488),
+        offset: Offset(0, 10),
+        blurRadius: 25,
+        spreadRadius: -5,
+      ),
+      BoxShadow(
+        color: Color(0x1A0D9488),
+        offset: Offset(0, 8),
+        blurRadius: 10,
+        spreadRadius: -6,
+      ),
+    ],
+  );
+
+  /// From the app's design tokens (row 179: every look, both brightnesses).
+  factory WebPalette.fromTokens(PayeshTokens t, Brightness b) {
+    if (t.isNabd && b == Brightness.light) return nabdLight;
+    final dark = b == Brightness.dark;
+    return WebPalette(
+      primary: t.isNabd ? t.primary2 : t.primary,
+      primary2: t.isNabd ? t.primary : t.primary,
+      bg: t.bg,
+      card: t.card,
+      ink: t.ink,
+      muted: t.muted,
+      line: t.line,
+      soft: t.soft,
+      accent: t.accent,
+      green: t.success,
+      greenBg: t.successBg,
+      red: t.danger,
+      redBg: t.dangerBg,
+      amber: t.warning,
+      amberBg: t.warningBg,
+      purple: t.info,
+      purpleBg: t.infoBg,
+      deleteInk: t.danger,
+      onPrimary: dark ? const Color(0xFF0B1220) : const Color(0xFFFFFFFF),
+      flat: !t.isNabd,
+      shadow: dark || !t.isNabd
+          ? (dark
+                ? const <BoxShadow>[]
+                : const [
+                    BoxShadow(
+                      color: Color(0x0D000000),
+                      offset: Offset(0, 1),
+                      blurRadius: 2,
+                    ),
+                  ])
+          : nabdLight.shadow,
+    );
+  }
+}
+
+/// The web panel's building blocks (client/styles.css + client/pulse.css), painted with the
+/// current [WebPalette].
 abstract final class Web {
-  static const primary = Color(0xFF0D9488);
-  static const primary2 = Color(0xFF0F766E);
-  static const bg = Color(0xFFEEF7F5);
-  static const card = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF0F2B27);
-  static const muted = Color(0xFF5D7D76);
-  static const line = Color(0xFFD7EBE6);
-  static const soft = Color(0xFFDCF4EE);
-  static const accent = Color(0xFFF59E0B);
-  static const green = Color(0xFF0F766E);
-  static const greenBg = Color(0xFFE2F6F1);
-  static const red = Color(0xFFB42318);
-  static const redBg = Color(0xFFFEE4E2);
-  static const amber = Color(0xFFB45309);
-  static const amberBg = Color(0xFFFEF3E2);
-  static const purple = Color(0xFF6D28D9);
-  static const purpleBg = Color(0xFFF3ECFF);
+  static WebPalette _p = WebPalette.fromTokens(
+    PayeshTokens.minimalLight,
+    Brightness.light,
+  );
+
+  /// The palette now in use.
+  static WebPalette get palette => _p;
+
+  /// Called from the app root on every theme change (look + brightness).
+  static void use(WebPalette p) => _p = p;
+
+  static Color get primary => _p.primary;
+  static Color get primary2 => _p.primary2;
+  static Color get bg => _p.bg;
+  static Color get card => _p.card;
+  static Color get ink => _p.ink;
+  static Color get muted => _p.muted;
+  static Color get line => _p.line;
+  static Color get soft => _p.soft;
+  static Color get accent => _p.accent;
+  static Color get green => _p.green;
+  static Color get greenBg => _p.greenBg;
+  static Color get red => _p.red;
+  static Color get redBg => _p.redBg;
+  static Color get amber => _p.amber;
+  static Color get amberBg => _p.amberBg;
+  static Color get purple => _p.purple;
+  static Color get purpleBg => _p.purpleBg;
+
+  /// Dark mode (روشن / تاریک).
+  static bool get dark => _p.card.computeLuminance() < 0.2;
+
+  /// Text / icons on a filled [primary] button.
+  static Color get onPrimary => _p.onPrimary;
 
   /// `style="color:#b91c1c"` of the web «حذف» buttons.
-  static const deleteInk = Color(0xFFB91C1C);
+  static Color get deleteInk => _p.deleteInk;
 
   /// `--radius`.
   /// pulse.css `.stat .num, .num, td, th, .badge, .nabd-num, .att-count, .updbar b {
@@ -43,44 +177,29 @@ abstract final class Web {
     FontFeature('ss01'),
   ];
 
-  static const radius = 18.0;
+  static double get radius => _p.flat ? 10.0 : 18.0;
 
   /// `body{font-size:15px;line-height:1.7}`.
   static const fontSize = 15.0;
   static const lineHeight = 1.7;
 
-  /// `--shadow`.
-  static const shadow = [
-    BoxShadow(
-      color: Color(0x1A0D9488),
-      offset: Offset(0, 10),
-      blurRadius: 25,
-      spreadRadius: -5,
-    ),
-    BoxShadow(
-      color: Color(0x1A0D9488),
-      offset: Offset(0, 8),
-      blurRadius: 10,
-      spreadRadius: -6,
-    ),
-  ];
+  /// `--shadow` (none / hairline for «مینیمال»).
+  static List<BoxShadow> get shadow => _p.shadow;
 
-  /// `linear-gradient(135deg, var(--primary), var(--primary-2))` (.btn.primary, .navitem.on).
-  static const gradient = LinearGradient(
+  /// `linear-gradient(135deg, var(--primary), var(--primary-2))` (.btn.primary, .navitem.on);
+  /// a flat fill for «مینیمال».
+  static LinearGradient get gradient => LinearGradient(
     begin: AlignmentDirectional.topStart,
     end: AlignmentDirectional.bottomEnd,
-    colors: [primary, primary2],
+    colors: [primary, _p.flat ? primary : primary2],
   );
 
   /// `<div class="small muted">` (styles.css `.small{font-size:12.5px}`).
-  static const small = TextStyle(
-    fontSize: 12.5,
-    color: muted,
-    height: lineHeight,
-  );
+  static TextStyle get small =>
+      TextStyle(fontSize: 12.5, color: muted, height: lineHeight);
 
   /// `<b>` card titles.
-  static const b = TextStyle(
+  static TextStyle get b => TextStyle(
     fontSize: fontSize,
     fontWeight: FontWeight.w700,
     color: ink,
@@ -156,7 +275,7 @@ class WebText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DefaultTextStyle.merge(
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: Web.fontSize,
       height: Web.lineHeight,
       color: Web.ink,
@@ -172,8 +291,11 @@ class WebBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
-    decoration: const BoxDecoration(color: Web.bg),
-    child: CustomPaint(painter: _BackdropPainter(), child: child),
+    decoration: BoxDecoration(color: Web.bg),
+    // Row 179 «مینیمال»: a plain surface (no washes)
+    child: Web.palette.flat
+        ? child
+        : CustomPaint(painter: _BackdropPainter(), child: child),
   );
 }
 
@@ -252,7 +374,7 @@ class WebEmpty extends StatelessWidget {
     child: Text(
       message,
       textAlign: TextAlign.center,
-      style: const TextStyle(color: Web.muted),
+      style: TextStyle(color: Web.muted),
     ),
   );
 }
@@ -316,7 +438,7 @@ class WebBtn extends StatefulWidget {
   });
 
   /// `class="btn sm ghost" style="color:#b91c1c"` — the red «حذف» of the lists.
-  const WebBtn.delete(
+  WebBtn.delete(
     this.label, {
     super.key,
     this.onPressed,
@@ -377,7 +499,7 @@ class _WebBtnState extends State<WebBtn> {
     final fg =
         w.color ??
         switch (w.kind) {
-          WebBtnKind.primary => Colors.white,
+          WebBtnKind.primary => Web.onPrimary,
           WebBtnKind.danger => Web.red,
           _ => Web.ink,
         };
@@ -385,7 +507,7 @@ class _WebBtnState extends State<WebBtn> {
         w.background ??
         switch (w.kind) {
           WebBtnKind.primary => Web.primary,
-          WebBtnKind.danger => const Color(0xFFF0B4AE),
+          WebBtnKind.danger => Web.red.withValues(alpha: 0.4),
           _ => Web.line,
         };
     final bg = primary
@@ -404,19 +526,24 @@ class _WebBtnState extends State<WebBtn> {
         color: bg,
         gradient: primary
             ? (_hover
-                  ? const LinearGradient(
+                  ? LinearGradient(
                       begin: AlignmentDirectional.topStart,
                       end: AlignmentDirectional.bottomEnd,
-                      colors: [Web.primary2, Color(0xFF115E59)],
+                      colors: [
+                        Web.primary2,
+                        Web.palette.flat
+                            ? Web.primary2
+                            : const Color(0xFF115E59),
+                      ],
                     )
                   : Web.gradient)
             : null,
         border: Border.all(color: border),
         borderRadius: BorderRadius.circular(radius),
         boxShadow: primary
-            ? const [
+            ? [
                 BoxShadow(
-                  color: Color(0x940D9488),
+                  color: Web.primary.withValues(alpha: 0.58),
                   offset: Offset(0, 7),
                   blurRadius: 18,
                   spreadRadius: -7,
@@ -577,7 +704,7 @@ class WebItem extends StatelessWidget {
                 else if (sub case final s?)
                   Text(
                     s,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: Web.muted,
                       height: Web.lineHeight,
@@ -683,7 +810,7 @@ class WebTable extends StatelessWidget {
     }) => TableRow(
       decoration: BoxDecoration(
         color: th ? Web.soft : color,
-        border: last ? null : const Border(bottom: BorderSide(color: Web.line)),
+        border: last ? null : Border(bottom: BorderSide(color: Web.line)),
       ),
       children: [
         for (var i = 0; i < cols; i++)
@@ -710,7 +837,7 @@ class WebTable extends StatelessWidget {
                   headCells[i] ??
                       Text(
                         h,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                           color: Web.ink,
@@ -825,7 +952,7 @@ class WebPageHead extends StatelessWidget {
               Text(
                 title,
                 key: const Key('web-title'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 19,
                   fontWeight: FontWeight.w700,
                   height: 1.4,
@@ -887,13 +1014,13 @@ class WebNowChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const WebIcon('clock', size: 17, color: Web.primary),
+          WebIcon('clock', size: 17, color: Web.primary),
           const SizedBox(width: 7),
           // a narrow title box (phone + head buttons) wraps the date instead of overflowing
           Flexible(
             child: Text(
               Web.todayChip(WebClock.of(context)),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 color: Web.muted,
@@ -1048,7 +1175,7 @@ class WebStat extends StatelessWidget {
                 ),
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: Web.muted,
                     height: Web.lineHeight,
@@ -1184,7 +1311,7 @@ class WebPills extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       height: Web.lineHeight,
-                      color: id == selected ? Colors.white : Web.ink,
+                      color: id == selected ? Web.onPrimary : Web.ink,
                     ),
                   ),
                 ),
@@ -1222,7 +1349,7 @@ class WebField extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 5),
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: Web.ink,
@@ -1780,7 +1907,7 @@ class _WebJalaliFieldState extends State<WebJalaliField> {
       textDirection: TextDirection.ltr,
       keyboardType: TextInputType.number,
       maxLength: 10,
-      style: const TextStyle(fontSize: 15, color: Web.ink),
+      style: TextStyle(fontSize: 15, color: Web.ink),
       decoration: webInput(hint: '۱۴۰۵/۰۱/۰۱').copyWith(counterText: ''),
       onChanged: _changed,
       onSubmitted: _changed,

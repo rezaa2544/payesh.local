@@ -126,8 +126,8 @@ const ASSET_CHECKS = {
     try { m = JSON.parse(a.manifest); } catch (e) { return ['manifest not JSON']; }
     const { light } = themeGen.parsePulse(a.pulse);
     const out = [];
-    if (m.theme_color !== '#0d9488' || m.theme_color !== light.map['--primary']) out.push('theme_color must equal pulse --primary (#0d9488)');
-    if (m.background_color !== '#eef7f5' || m.background_color !== light.map['--bg']) out.push('background_color must equal pulse --bg (#eef7f5)');
+    if (m.theme_color !== '#5b4bdb' || m.theme_color !== light.map['--primary']) out.push('theme_color must equal pulse --primary (#5b4bdb, row 179 minimal)');
+    if (m.background_color !== '#fafafa' || m.background_color !== light.map['--bg']) out.push('background_color must equal pulse --bg (#fafafa)');
     if (m.lang !== 'fa-IR' || m.dir !== 'rtl') out.push('manifest lang/dir');
     return out;
   },
@@ -153,9 +153,9 @@ function assets() {
   /* کنترل‌های منفی: هر کنترل باید ورودی خراب را رد کند */
   const mutate = (patch) => Object.assign({}, a, patch);
   const N = [
-    ['N1 hand-edited theme (radius 18→16)', 'themeDrift', mutate({ theme: a.theme.replace('--radius: 18px;', '--radius: 16px;') })],
-    ['N1b prompt value leaks into theme', 'tokenDiscrepancies', mutate({ theme: a.theme.replace('--muted: #91b1a8;', '--muted: #7fa39a;') })],
-    ['N1c pulse.css changed without regenerating', 'themeDrift', mutate({ pulse: a.pulse.replace('--primary: #0d9488;', '--primary: #0d9489;') })],
+    ['N1 hand-edited theme (radius 10→16)', 'themeDrift', mutate({ theme: a.theme.replace('--radius: 10px;', '--radius: 16px;') })],
+    ['N1b dark --bg lost from theme', 'themeModes', mutate({ theme: a.theme.split('--bg: #09090b;').join('--bg: #000000;') })],
+    ['N1c pulse.css changed without regenerating', 'themeDrift', mutate({ pulse: a.pulse.replace('--primary: #5b4bdb;', '--primary: #5b4bdc;') })],
     ['N2 CDN script in index.html', 'noExternal', mutate({ html: a.html.replace('</head>', '<script src="https://cdn.example.com/x.js"></script></head>') })],
     ['N2b CDN script also fails html check', 'html', mutate({ html: a.html.replace('</head>', '<script src="https://cdn.example.com/x.js"></script></head>') })],
     ['N2c external font', 'noExternal', mutate({ css: a.css + '\n@font-face{font-family:x;src:url(https://fonts.example.com/v.woff2)}' })],
@@ -165,15 +165,23 @@ function assets() {
     ['N5 hard-coded colour in app.css', 'cssTokensOnly', mutate({ css: a.css + '\n.x{color:#123456}' })],
     ['N6 forced-light broken under OS dark', 'themeModes', mutate({ theme: a.theme.replace(':root:not([data-theme="light"])', ':root') })],
     ['N6b inline script', 'html', mutate({ html: a.html.replace('</body>', '<script>alert(1)</script></body>') })],
-    ['N6c manifest colour drift', 'manifest', mutate({ manifest: a.manifest.replace('#0d9488', '#1e3a8a') })],
+    ['N6c manifest colour drift', 'manifest', mutate({ manifest: a.manifest.replace('#5b4bdb', '#1e3a8a') })],
     ['N6d icon copy drift', 'icons', mutate({ icons: a.icons.map((i, k) => k ? i : Object.assign({}, i, { web: Buffer.concat([i.web, Buffer.from([0])]) })) })],
   ];
   for (const [label, name, broken] of N) {
     check('negative control rejected: ' + label, ASSET_CHECKS[name](broken).length > 0);
   }
   /* جدول اختلاف توکن‌ها صریحاً ثبت شده و چهار ردیف سند ۶۱ §3.1 را پوشش می‌دهد */
-  check('discrepancy table covers radius/muted/line/primary-2',
-    ['--radius', '--muted', '--line', '--primary-2'].every(t => themeGen.TOKEN_DISCREPANCIES.some(d => d.token === t)));
+  /* ردیف ۱۷۹: طرح «مینیمال حرفه‌ای» جای توکن‌های سند ۶۱ را گرفت؛ جدول اختلاف خالی است */
+  check('row 179: discrepancy table empty (doc 61 superseded by the minimal design)',
+    themeGen.TOKEN_DISCREPANCIES.length === 0);
+  {
+    const { light, dark } = themeGen.parsePulse(a.pulse);
+    check('row 179: minimal tokens (zinc + violet, radius 10)',
+      light.map['--bg'] === '#fafafa' && light.map['--primary'] === '#5b4bdb' && light.map['--radius'] === '10px' &&
+      dark.map['--bg'] === '#09090b' && dark.map['--primary'] === '#a89eff');
+    check('row 179: owner app.css has no gradients', !/gradient\(/.test(a.css));
+  }
   check('client/pages.js untouched by this app (no file under apps/owner-panel named pages.js)',
     !fs.readdirSync(WEB).includes('pages.js'));
   return { checks: CHECKS };

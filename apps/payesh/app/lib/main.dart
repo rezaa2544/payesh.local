@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:payesh_ui/payesh_ui.dart';
 import 'package:payesh_core/io.dart';
 import 'package:payesh_data/sqlite.dart' show prepareWebSqlite;
 import 'package:payesh_secure/payesh_secure.dart'
@@ -90,6 +91,11 @@ Future<void> main(List<String> args) async {
           openUrl: openUri,
         )
       : null;
+  // Row 179: روشن / تاریک / سیستم — read before the first frame (no flash of the wrong mode).
+  final themeMode = PayeshThemeMode(
+    save: (v) => prefs.write(PayeshThemeMode.storeKey, v),
+  );
+  await themeMode.load(prefs.read);
   runApp(
     PayeshApp(
       storage: storage,
@@ -108,6 +114,7 @@ Future<void> main(List<String> args) async {
       openUrl: openUri,
       // Row 179: «چه چیزهایی تازه است؟» once after every update.
       whatsNew: WhatsNewStore(read: prefs.read, write: prefs.write),
+      themeMode: themeMode,
     ),
   );
   if (updater != null && ua.now) {

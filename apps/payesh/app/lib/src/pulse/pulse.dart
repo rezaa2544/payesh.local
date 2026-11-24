@@ -167,7 +167,7 @@ class PulseSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 250,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Web.card,
         border: BorderDirectional(end: BorderSide(color: Web.line)),
       ),
@@ -188,7 +188,7 @@ class PulseSidebar extends StatelessWidget {
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(width: 8),
-                  const Flexible(
+                  Flexible(
                     child: Text(
                       'پایش-لوکال',
                       key: Key('pulse-brand'),
@@ -218,7 +218,7 @@ class PulseSidebar extends StatelessWidget {
                 onTap: () => onSelected(m.id),
               ),
             // .navgroup{font-size:11.5px;color:var(--muted);margin:14px 0 4px;padding-inline-start:4px}
-            const Padding(
+            Padding(
               padding: EdgeInsetsDirectional.only(start: 4, top: 14, bottom: 4),
               child: Text(
                 'حساب',
@@ -268,6 +268,7 @@ class _PulseNavTileState extends State<_PulseNavTile> {
   @override
   Widget build(BuildContext context) {
     final on = widget.selected;
+    final flat = Web.palette.flat;
     // .navitem{gap:.5rem;padding:.55rem .7rem;border-radius:13px;font-size:14px}
     // .navitem.on{gradient;color:#fff;font-weight:700;box-shadow:0 7px 16px -7px rgba(13,148,136,.55)}
     return Semantics(
@@ -289,12 +290,13 @@ class _PulseNavTileState extends State<_PulseNavTile> {
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(13),
-              color: on ? null : (_hover ? Web.soft : null),
-              gradient: on ? Web.gradient : null,
-              boxShadow: on
-                  ? const [
+              // Row 179 «مینیمال»: the chosen item is a soft grey pill with ink text.
+              color: on ? (flat ? Web.soft : null) : (_hover ? Web.soft : null),
+              gradient: on && !flat ? Web.gradient : null,
+              boxShadow: on && !flat
+                  ? [
                       BoxShadow(
-                        color: Color(0x8C0D9488),
+                        color: Web.primary.withValues(alpha: 0.55),
                         blurRadius: 16,
                         offset: Offset(0, 7),
                         spreadRadius: -7,
@@ -307,7 +309,7 @@ class _PulseNavTileState extends State<_PulseNavTile> {
                 WebIcon(
                   widget.icon,
                   size: 21,
-                  color: on ? Colors.white : Web.ink,
+                  color: on && !flat ? Colors.white : Web.ink,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -317,7 +319,7 @@ class _PulseNavTileState extends State<_PulseNavTile> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
-                      color: on ? Colors.white : Web.ink,
+                      color: on && !flat ? Colors.white : Web.ink,
                       fontWeight: on ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
@@ -372,10 +374,7 @@ class PulseHero extends StatelessWidget {
             children: [
               TextSpan(
                 text: Web.fa(n),
-                style: const TextStyle(
-                  color: Web.ink,
-                  fontWeight: FontWeight.w900,
-                ),
+                style: TextStyle(color: Web.ink, fontWeight: FontWeight.w900),
               ),
             ],
           ),
@@ -399,7 +398,7 @@ class PulseHero extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Color.lerp(Web.line, Web.primary, 0.25)!),
           ),
-          child: const WebIcon('health', size: 24, color: Web.primary),
+          child: WebIcon('health', size: 24, color: Web.primary),
         ),
         const SizedBox(width: 11),
         Flexible(
@@ -426,7 +425,7 @@ class PulseHero extends StatelessWidget {
             fontSize: narrow ? 36 : (vw * 0.045).clamp(34, 48).toDouble(),
             height: 1.15,
             fontWeight: FontWeight.w900,
-            color: Web.primary,
+            color: Web.palette.flat ? Web.ink : Web.primary,
             // pulse.css `.nabd-num` (and its <small>): tnum + ss01
             fontFeatures: Web.numFeatures,
           ),
@@ -435,7 +434,7 @@ class PulseHero extends StatelessWidget {
         Text(
           'از ${Web.fa(of)} دانش‌آموز حاضر',
           key: const Key('pulse-of'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
             color: Web.muted,
@@ -465,28 +464,36 @@ class PulseHero extends StatelessWidget {
     );
     return Container(
       constraints: BoxConstraints(minHeight: narrow ? 0 : 180),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Color.lerp(Web.line, Web.primary, 0.78)!,
-          width: 2,
-        ),
-        gradient: const LinearGradient(
-          begin: Alignment(-0.82, -0.57),
-          end: Alignment(0.82, 0.57),
-          stops: [0.08, 1],
-          colors: [Web.card, Web.soft],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x5C0D9488),
-            offset: Offset(0, 20),
-            blurRadius: 34,
-            spreadRadius: -18,
-          ),
-          ...Web.shadow,
-        ],
-      ),
+      // Row 179 «مینیمال»: a flat card with a hairline border (pulse.css .nabd-card)
+      decoration: Web.palette.flat
+          ? BoxDecoration(
+              color: Web.card,
+              borderRadius: BorderRadius.circular(Web.radius),
+              border: Border.all(color: Web.line),
+              boxShadow: Web.shadow,
+            )
+          : BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Color.lerp(Web.line, Web.primary, 0.78)!,
+                width: 2,
+              ),
+              gradient: LinearGradient(
+                begin: Alignment(-0.82, -0.57),
+                end: Alignment(0.82, 0.57),
+                stops: [0.08, 1],
+                colors: [Web.card, Web.soft],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Web.primary.withValues(alpha: 0.36),
+                  offset: Offset(0, 20),
+                  blurRadius: 34,
+                  spreadRadius: -18,
+                ),
+                ...Web.shadow,
+              ],
+            ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
@@ -494,7 +501,9 @@ class PulseHero extends StatelessWidget {
           PositionedDirectional(
             start: -90,
             top: -125,
-            child: _glow(230, const Color(0x3814B8A6), 0.70),
+            child: Web.palette.flat
+                ? const SizedBox.shrink()
+                : _glow(230, const Color(0x3814B8A6), 0.70),
           ),
           // ::after — amber glow under the card, 22% from the inline end
           Positioned.fill(
@@ -505,7 +514,9 @@ class PulseHero extends StatelessWidget {
                   PositionedDirectional(
                     end: box.maxWidth * 0.22,
                     bottom: -125,
-                    child: _glow(170, const Color(0x26F59E0B), 0.72),
+                    child: Web.palette.flat
+                        ? const SizedBox.shrink()
+                        : _glow(170, const Color(0x26F59E0B), 0.72),
                   ),
                 ],
               ),
@@ -569,7 +580,7 @@ class _PulseRing extends StatelessWidget {
         child: Text(
           '${Web.fa(ratio)}٪',
           key: const Key('pulse-ratio'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 19,
             fontWeight: FontWeight.w900,
             color: Web.ink,
@@ -719,7 +730,7 @@ class PulseBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Web.card,
         border: Border(top: BorderSide(color: Web.line)),
       ),
@@ -941,9 +952,9 @@ class _PulseTopBarsState extends State<PulseTopBars> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: Web.soft,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: Web.line),
       ),
       child: Wrap(
         spacing: 8,
@@ -978,7 +989,7 @@ class _PulseTopBarsState extends State<PulseTopBars> {
             ),
             key: const Key('update-bar-text'),
             textDirection: TextDirection.rtl,
-            style: const TextStyle(fontSize: 12.5, color: Web.ink),
+            style: TextStyle(fontSize: 12.5, color: Web.ink),
           ),
           if (widget.manager && (avail || ready))
             xs(

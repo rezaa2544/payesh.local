@@ -5,6 +5,38 @@
 'use strict';
 
 const PAGES = {};
+
+/* ردیف ۱۷۹: طرح «مینیمال حرفه‌ای» با پوستهٔ روشن / تاریک / سیستم به انتخاب کاربر.
+   انتخاب در localStorage «payesh.theme» می‌ماند (بدون آن = پیرو سیستم‌عامل) و پیش از ساخته
+   شدن صفحه روی <html data-theme> می‌نشیند تا رنگ اشتباه چشمک نزند. */
+const THEME_KEY = 'payesh.theme';
+const THEME_LABEL = { system: 'پوسته: سیستم', light: 'پوسته: روشن', dark: 'پوسته: تاریک' };
+const THEME_ICON = { system: '🌓', light: '☀️', dark: '🌙' };
+function themeMode() {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    return v === 'light' || v === 'dark' ? v : 'system';
+  } catch (e) { return 'system'; }
+}
+function applyTheme(mode) {
+  if (typeof document === 'undefined' || !document.documentElement) return;
+  const el = document.documentElement;
+  if (mode === 'light' || mode === 'dark') el.setAttribute('data-theme', mode);
+  else el.removeAttribute('data-theme');
+}
+function nextThemeMode(mode) { return { system: 'light', light: 'dark', dark: 'system' }[mode] || 'light'; }
+function setThemeMode(mode) {
+  try {
+    if (mode === 'light' || mode === 'dark') localStorage.setItem(THEME_KEY, mode);
+    else localStorage.removeItem(THEME_KEY);
+  } catch (e) { /* حالت خصوصی مرورگر: فقط همین صفحه */ }
+  applyTheme(mode);
+}
+function themeButtonHtml(extraClass) {
+  const m = themeMode();
+  return `<button class="btn sm ghost ${extraClass || ''}" data-act="theme-cycle" data-theme-mode="${m}" title="${THEME_LABEL[m]}">${THEME_ICON[m]} ${THEME_LABEL[m]}</button>`;
+}
+try { applyTheme(themeMode()); } catch (e) { /* محیط آزمون بدون DOM */ }
 /* ردیف ۱۶۱: پیوندهای دانلود همیشه مستقیم به خودِ فایل‌اند، نه صفحهٔ انتشار یا صفحهٔ معرفی */
 const NATIVE_APK_URL = 'https://github.com/rezaa2544/payesh.local/releases/download/native-continuous/payesh-native.apk';
 const TAILSCALE_WIN_URL = 'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe';
@@ -104,6 +136,7 @@ function shellHtml(view) {
       ${mkNav(false)}
       <div class="navgroup">حساب</div>
       <div class="small muted" style="padding:6px">${esc(S.user ? S.user.name : '')} · ${esc(ROLE_FA[role] || role)}</div>
+      <div style="padding:2px 6px">${themeButtonHtml('theme-side')}</div>
     </aside>
     <main class="main">${canonicalBarHtml()}${updateBarHtml()}${offlineBarHtml()}${view}</main>
   </div>
@@ -1553,6 +1586,7 @@ PAGES.system = () => {
       <button class="btn sm" data-act="sync">همگام‌سازی</button>
       <button class="btn sm" data-act="lock">🔒 خروج</button>
       <button class="btn sm ghost" data-act="whats-new-all">✦ همهٔ تغییرات نسخه‌ها</button>
+      ${themeButtonHtml()}
     </div>`)}
   ${liveCard()}
   ${isManager ? phoneAccessCard() : ''}

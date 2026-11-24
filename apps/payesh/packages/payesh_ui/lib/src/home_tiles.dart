@@ -209,21 +209,24 @@ class PayeshHeaderCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(t.cardRadius + 2),
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.topStart.resolve(
-            Directionality.of(context),
-          ),
-          end: AlignmentDirectional.bottomEnd.resolve(
-            Directionality.of(context),
-          ),
-          colors: [
-            Color.alphaBlend(
-              t.primary.withValues(alpha: dark ? 0.22 : 0.10),
-              t.card,
-            ),
-            t.card,
-          ],
-        ),
+        color: t.isMinimal ? t.card : null,
+        gradient: t.isMinimal
+            ? null
+            : LinearGradient(
+                begin: AlignmentDirectional.topStart.resolve(
+                  Directionality.of(context),
+                ),
+                end: AlignmentDirectional.bottomEnd.resolve(
+                  Directionality.of(context),
+                ),
+                colors: [
+                  Color.alphaBlend(
+                    t.primary.withValues(alpha: dark ? 0.22 : 0.10),
+                    t.card,
+                  ),
+                  t.card,
+                ],
+              ),
         border: Border.all(color: t.line),
       ),
       padding: const EdgeInsets.all(PayeshTokens.space4),
@@ -234,12 +237,15 @@ class PayeshHeaderCard extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              gradient: t.primaryGradient,
-              borderRadius: BorderRadius.circular(16),
+              gradient: t.isMinimal ? null : t.primaryGradient,
+              color: t.isMinimal ? t.infoBg : null,
+              borderRadius: BorderRadius.circular(t.isMinimal ? 10 : 16),
             ),
             child: Icon(
               icon,
-              color: Theme.of(context).colorScheme.onPrimary,
+              color: t.isMinimal
+                  ? t.primary
+                  : Theme.of(context).colorScheme.onPrimary,
               size: 28,
             ),
           ),

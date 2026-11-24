@@ -15,6 +15,7 @@ export 'src/iran_divisions.dart';
 export 'src/jalali.dart';
 export 'src/school_profile.dart';
 export 'src/theme.dart';
+export 'src/theme_mode.dart';
 export 'src/tokens.dart';
 export 'src/status_dot.dart';
 export 'src/widgets.dart';

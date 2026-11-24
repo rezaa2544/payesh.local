@@ -5493,6 +5493,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۷۹ (بخش ۲): طرح «مینیمال حرفه‌ای» + پوستهٔ روشن/تاریک/سیستم در همهٔ پنل‌ها ── */
+  await test('ردیف ۱۷۹: طرح «مینیمال حرفه‌ای» در همهٔ پنل‌ها — توکن‌های وب = فلاتر، کنتراست AA روشن و تاریک، بی‌گرادیان، کلید روشن/تاریک/سیستم در وب، پنل وب مالک و اپ‌های بومی (۹ بررسی + ۷ جهش)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/minimal-design-179.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'minimal-design-179: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|MINIMAL-DESIGN-179/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۷۶ (آزمایشگاه): D-04 خروج دستگاه را باطل می‌کند (ورود/خروج پیاپی هرگز به سقف نمی‌خورد)؛
      D-05 فهرست دستگاه‌های مدیر نام و نقش واقعی کاربر را از records.data نشان می‌دهد ── */
   await test('ردیف ۱۷۶: خروج دستگاه را باطل می‌کند و ورود/خروج پیاپی به سقف نمی‌خورد؛ فهرست دستگاه‌ها نام و نقش واقعی کاربر را نشان می‌دهد (۸ بررسی + ۳ جهش)',

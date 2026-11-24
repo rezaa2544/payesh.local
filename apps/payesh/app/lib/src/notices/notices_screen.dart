@@ -193,7 +193,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
         Text(
           n.body,
           key: Key('ntc-body-${n.id}'),
-          style: const TextStyle(fontSize: 13.5, color: Web.ink, height: 1.6),
+          style: TextStyle(fontSize: 13.5, color: Web.ink, height: 1.6),
         ),
         if (c.canWrite)
           Padding(

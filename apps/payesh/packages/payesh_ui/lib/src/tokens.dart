@@ -9,7 +9,11 @@ import 'package:flutter/material.dart';
 ///   (apps/owner-panel/web/app.css). Light colours that fail AA in pulse.css are darkened here
 ///   (see a11y_contrast_test.dart): muted #5d7d76 → #4f6f68, text/filled primary #0d9488 →
 ///   #0f766e (#0d9488 stays as the gradient start only).
-enum PayeshLook { classic, nabd }
+/// * [minimal] — row 179, chosen by the owner: «مینیمال حرفه‌ای» (shadcn/ui · Linear · Vercel).
+///   Neutral zinc surfaces, hairline borders, flat cards (no glow, no gradients), radius 10, one
+///   violet accent; the active navigation item is a soft grey pill with ink text. Light and dark
+///   are both first-class (each app has a روشن / تاریک / سیستم switch).
+enum PayeshLook { classic, nabd, minimal }
 
 /// Design tokens of the Payesh design system. Colours are the web client's CSS variables
 /// (client/styles.css `:root` and its `prefers-color-scheme: dark` block, or client/pulse.css for
@@ -126,9 +130,56 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
     glow: Color(0x47000000), // --shadow rgba(0,0,0,.28)
   );
 
+  /// «مینیمال حرفه‌ای» — light (row 179): zinc neutrals + violet accent; client/pulse.css
+  /// `html.look-minimal` carries the same values for the web panel.
+  static const PayeshTokens minimalLight = PayeshTokens(
+    look: PayeshLook.minimal,
+    bg: Color(0xFFFAFAFA),
+    card: Color(0xFFFFFFFF),
+    ink: Color(0xFF09090B),
+    muted: Color(0xFF52525B),
+    line: Color(0xFFE4E4E7),
+    primary: Color(0xFF5B4BDB),
+    primary2: Color(0xFF6D5DF5),
+    soft: Color(0xFFF4F4F5),
+    success: Color(0xFF15803D),
+    successBg: Color(0xFFF0FDF4),
+    danger: Color(0xFFB91C1C),
+    dangerBg: Color(0xFFFEF2F2),
+    warning: Color(0xFFA16207),
+    warningBg: Color(0xFFFEFCE8),
+    info: Color(0xFF5B4BDB),
+    infoBg: Color(0xFFF5F3FF),
+    accent: Color(0xFF6D5DF5),
+  );
+
+  /// «مینیمال حرفه‌ای» — dark: near-black zinc, lighter violet so filled buttons keep dark ink.
+  static const PayeshTokens minimalDark = PayeshTokens(
+    look: PayeshLook.minimal,
+    bg: Color(0xFF09090B),
+    card: Color(0xFF111113),
+    ink: Color(0xFFFAFAFA),
+    muted: Color(0xFFA1A1AA),
+    line: Color(0xFF27272A),
+    primary: Color(0xFFA89EFF),
+    primary2: Color(0xFF8B7CF8),
+    soft: Color(0xFF1C1C1F),
+    success: Color(0xFF4ADE80),
+    successBg: Color(0xFF0B2615),
+    danger: Color(0xFFF87171),
+    dangerBg: Color(0xFF2A1010),
+    warning: Color(0xFFFACC15),
+    warningBg: Color(0xFF261F05),
+    info: Color(0xFFC4B5FD),
+    infoBg: Color(0xFF1E1A36),
+    accent: Color(0xFF8B7CF8),
+  );
+
   /// Tokens of [look] for [brightness].
   static PayeshTokens of(PayeshLook look, Brightness brightness) =>
       switch ((look, brightness)) {
+        (PayeshLook.minimal, Brightness.light) => minimalLight,
+        (PayeshLook.minimal, Brightness.dark) => minimalDark,
         (PayeshLook.nabd, Brightness.light) => nabdLight,
         (PayeshLook.nabd, Brightness.dark) => nabdDark,
         (_, Brightness.light) => light,
@@ -148,8 +199,14 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
 
   bool get isNabd => look == PayeshLook.nabd;
 
-  /// Card / button radius: 18 for «نبض» (`--radius: 18px`), [radius] otherwise.
-  double get cardRadius => isNabd ? 18 : radius;
+  /// Row 179: «مینیمال حرفه‌ای».
+  bool get isMinimal => look == PayeshLook.minimal;
+
+  /// A panel look (نبض or مینیمال) — full component theme instead of the Material defaults.
+  bool get isPanel => look != PayeshLook.classic;
+
+  /// Card / button radius: 18 for «نبض» (`--radius: 18px`), 10 for «مینیمال», [radius] otherwise.
+  double get cardRadius => isNabd ? 18 : (isMinimal ? 10 : radius);
 
   /// The active-item / primary-button gradient of the web panels.
   LinearGradient get primaryGradient => LinearGradient(

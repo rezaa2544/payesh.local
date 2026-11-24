@@ -213,57 +213,63 @@ void main() {
     });
   });
 
-  group('row 147: the owner panel wears «نبض» (the user panel theme)', () {
-    testWidgets(
-      'light + dark: نبض tokens, teal primary, radius 18, brand, backdrop, active nav filled',
-      (tester) async {
-        final store = MemorySettingsStore({'origin': _origin});
-        await _pumpApp(tester, backend: FakeBackend(), store: store);
-        final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
-        final light = app.theme!.extension<PayeshTokens>()!;
-        final dark = app.darkTheme!.extension<PayeshTokens>()!;
-        expect(light.look, PayeshLook.nabd);
-        expect(dark.look, PayeshLook.nabd);
-        expect(light, same(PayeshTokens.nabdLight));
-        expect(dark, same(PayeshTokens.nabdDark));
-        // client/pulse.css: --bg #eef7f5, --primary-2 #0f766e (text/filled), --radius 18px
-        expect(app.theme!.colorScheme.primary, const Color(0xFF0F766E));
-        expect(app.theme!.scaffoldBackgroundColor, const Color(0xFFEEF7F5));
-        expect(app.darkTheme!.colorScheme.primary, const Color(0xFF14B8A6));
-        expect(
-          (app.theme!.cardTheme.shape! as RoundedRectangleBorder).borderRadius,
-          const BorderRadius.all(Radius.circular(18)),
-        );
-        // login page: brand mark + teal wash
-        expect(find.byType(PayeshBrandMark), findsOneWidget);
-        expect(find.byKey(const Key('payesh-backdrop')), findsOneWidget);
-        await _login(tester, 'owner', 'pw-owner-1');
-        // shell: sidebar brand like the web panel, active item filled with the primary colour
-        expect(find.byKey(const Key('owner-brand')), findsOneWidget);
-        expect(find.byKey(const Key('payesh-backdrop')), findsOneWidget);
-        final rail = Theme.of(tester.element(find.byKey(const Key('nav-rail'))))
-            .navigationRailTheme;
-        expect(rail.indicatorColor, const Color(0xFF0F766E));
-        expect(rail.selectedIconTheme?.color, Colors.white);
-        // NEG: the user app stays classic (only the owner panel opted in)
-        expect(
-          PayeshUi.light().extension<PayeshTokens>()!.look,
-          PayeshLook.classic,
-        );
-        expect(tester.takeException(), isNull);
-        // dark mode keeps the same look
-        await tester.tap(find.byKey(const Key('theme')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('theme')));
-        await tester.pumpAndSettle();
-        final ctx = tester.element(find.byKey(const Key('nav-rail')));
-        expect(Theme.of(ctx).brightness, Brightness.dark);
-        expect(ctx.tokens.look, PayeshLook.nabd);
-        expect(ctx.tokens.bg, const Color(0xFF07110F));
-        expect(tester.takeException(), isNull);
-      },
-    );
-  });
+  group(
+    'row 179: the owner panel wears «مینیمال حرفه‌ای» (owner\'s choice)',
+    () {
+      testWidgets(
+        'light + dark: minimal tokens, violet primary, radius 10, flat cards, soft nav pill',
+        (tester) async {
+          final store = MemorySettingsStore({'origin': _origin});
+          await _pumpApp(tester, backend: FakeBackend(), store: store);
+          final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+          final light = app.theme!.extension<PayeshTokens>()!;
+          final dark = app.darkTheme!.extension<PayeshTokens>()!;
+          expect(light.look, PayeshLook.minimal);
+          expect(dark.look, PayeshLook.minimal);
+          expect(light, same(PayeshTokens.minimalLight));
+          expect(dark, same(PayeshTokens.minimalDark));
+          // client/pulse.css (row 179): --bg #fafafa, --primary #5b4bdb, --radius 10px
+          expect(app.theme!.colorScheme.primary, const Color(0xFF5B4BDB));
+          expect(app.theme!.scaffoldBackgroundColor, const Color(0xFFFAFAFA));
+          expect(app.darkTheme!.colorScheme.primary, const Color(0xFFA89EFF));
+          expect(
+            (app.theme!.cardTheme.shape! as RoundedRectangleBorder)
+                .borderRadius,
+            const BorderRadius.all(Radius.circular(10)),
+          );
+          expect(app.theme!.cardTheme.elevation ?? 0, 0, reason: 'flat cards');
+          // login page: brand mark + (flat) backdrop
+          expect(find.byType(PayeshBrandMark), findsOneWidget);
+          expect(find.byKey(const Key('payesh-backdrop')), findsNothing);
+          await _login(tester, 'owner', 'pw-owner-1');
+          expect(find.byKey(const Key('owner-brand')), findsOneWidget);
+          // active item: a soft grey pill with ink text (no gradient, no glow)
+          final rail = Theme.of(
+            tester.element(find.byKey(const Key('nav-rail'))),
+          ).navigationRailTheme;
+          expect(rail.indicatorColor, const Color(0xFFF4F4F5));
+          expect(rail.selectedIconTheme?.color, const Color(0xFF09090B));
+          // NEG: classic stays classic
+          expect(
+            PayeshUi.light().extension<PayeshTokens>()!.look,
+            PayeshLook.classic,
+          );
+          expect(tester.takeException(), isNull);
+          // روشن → تاریک: same look, dark zinc surfaces
+          await tester.tap(find.byKey(const Key('theme')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('theme')));
+          await tester.pumpAndSettle();
+          final ctx = tester.element(find.byKey(const Key('nav-rail')));
+          expect(Theme.of(ctx).brightness, Brightness.dark);
+          expect(ctx.tokens.look, PayeshLook.minimal);
+          expect(ctx.tokens.bg, const Color(0xFF09090B));
+          expect(store.values['theme'], 'dark');
+          expect(tester.takeException(), isNull);
+        },
+      );
+    },
+  );
 
   group('all nine pages', () {
     testWidgets(

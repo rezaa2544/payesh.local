@@ -210,13 +210,13 @@ class _GradesScreenState extends State<GradesScreen> {
                 ),
               ),
               if (s == null)
-                const Text(
+                Text(
                   'درسی تعریف نشده است',
                   key: Key('grd-no-subjects'),
                   style: Web.small,
                 )
               else if (c.sheet.isEmpty)
-                const Text(
+                Text(
                   'دانش‌آموزی در این کلاس نیست.',
                   key: Key('grd-empty'),
                   style: Web.small,
@@ -282,7 +282,7 @@ class _GradesScreenState extends State<GradesScreen> {
           initialValue: items.any((i) => i.$1 == value) ? value : null,
           isExpanded: true,
           isDense: true,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             color: Web.ink,
             fontFamily: 'Vazirmatn',
@@ -369,7 +369,7 @@ class _GradeFieldState extends State<_GradeField> {
           controller: text,
           enabled: !widget.c.busy,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: const TextStyle(fontSize: 15, color: Web.ink),
+          style: TextStyle(fontSize: 15, color: Web.ink),
           decoration: d.copyWith(
             hintText: '—',
             errorText: null,

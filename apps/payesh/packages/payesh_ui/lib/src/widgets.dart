@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'digits.dart';
 import 'jalali.dart';
 import 'theme.dart';
+import 'theme_mode.dart';
 import 'tokens.dart';
 
 /// MaterialApp preset: Persian locale (→ RTL), Material/Widgets/Cupertino fa localisations,
@@ -19,7 +20,16 @@ class PayeshMaterialApp extends StatelessWidget {
     this.look = PayeshLook.classic,
     this.overlay,
     this.overlayAlignment = Alignment.topCenter,
+    this.themeController,
+    this.onTheme,
   });
+
+  /// Row 179: the user's روشن / تاریک / سیستم choice; overrides [themeMode] and is reachable
+  /// from every page through [PayeshThemeScope].
+  final PayeshThemeMode? themeController;
+
+  /// Row 179: see [PayeshThemeSync] (the school app syncs its web-parity palette here).
+  final bool Function(ThemeData theme)? onTheme;
 
   final Widget home;
 
@@ -43,7 +53,19 @@ class PayeshMaterialApp extends StatelessWidget {
   final TargetPlatform? platform;
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) {
+    final c = themeController;
+    if (c == null) return _app(themeMode);
+    return PayeshThemeScope(
+      controller: c,
+      child: ValueListenableBuilder<ThemeMode>(
+        valueListenable: c,
+        builder: (context, mode, _) => _app(mode),
+      ),
+    );
+  }
+
+  Widget _app(ThemeMode mode) => MaterialApp(
     navigatorKey: navigatorKey,
     title: title,
     debugShowCheckedModeBanner: false,
@@ -52,15 +74,23 @@ class PayeshMaterialApp extends StatelessWidget {
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     theme: PayeshUi.light(platform: platform, look: look),
     darkTheme: PayeshUi.dark(platform: platform, look: look),
-    themeMode: themeMode,
+    themeMode: mode,
     home: home,
-    builder: overlay == null
+    builder: overlay == null && onTheme == null
         ? null
-        : (context, child) => _TopOverlay(
-            overlay: overlay!,
-            alignment: overlayAlignment,
-            child: child,
-          ),
+        : (context, child) {
+            Widget page = overlay == null
+                ? (child ?? const SizedBox.shrink())
+                : _TopOverlay(
+                    overlay: overlay!,
+                    alignment: overlayAlignment,
+                    child: child,
+                  );
+            if (onTheme case final f?) {
+              page = PayeshThemeSync(onTheme: f, child: page);
+            }
+            return page;
+          },
   );
 }
 
@@ -530,49 +560,57 @@ class NabdHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tk = context.tokens;
+    // Row 179 «مینیمال»: a flat card with a hairline border — no wash, no glow.
+    final flat = tk.isMinimal;
     return Container(
       constraints: const BoxConstraints(minHeight: 150),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(flat ? tk.cardRadius : 24),
+        color: flat ? tk.card : null,
         border: Border.all(
-          color: Color.lerp(tk.primary, tk.line, 0.22)!,
-          width: 2,
+          color: flat ? tk.line : Color.lerp(tk.primary, tk.line, 0.22)!,
+          width: flat ? 1 : 2,
         ),
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
-          colors: [tk.card, tk.soft],
-          stops: const [0.08, 1],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: tk.glow,
-            blurRadius: 34,
-            offset: const Offset(0, 20),
-            spreadRadius: -18,
-          ),
-        ],
+        gradient: flat
+            ? null
+            : LinearGradient(
+                begin: AlignmentDirectional.topStart,
+                end: AlignmentDirectional.bottomEnd,
+                colors: [tk.card, tk.soft],
+                stops: const [0.08, 1],
+              ),
+        boxShadow: flat
+            ? null
+            : [
+                BoxShadow(
+                  color: tk.glow,
+                  blurRadius: 34,
+                  offset: const Offset(0, 20),
+                  spreadRadius: -18,
+                ),
+              ],
       ),
       child: Stack(
         children: [
-          PositionedDirectional(
-            start: -90,
-            top: -125,
-            child: Container(
-              width: 230,
-              height: 230,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    tk.primary.withValues(alpha: 0.22),
-                    tk.primary.withValues(alpha: 0),
-                  ],
+          if (!flat)
+            PositionedDirectional(
+              start: -90,
+              top: -125,
+              child: Container(
+                width: 230,
+                height: 230,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      tk.primary.withValues(alpha: 0.22),
+                      tk.primary.withValues(alpha: 0),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
             child: LayoutBuilder(
@@ -632,10 +670,15 @@ class NabdHeroCard extends StatelessWidget {
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    gradient: tk.primaryGradient,
-                    borderRadius: BorderRadius.circular(20),
+                    gradient: flat ? null : tk.primaryGradient,
+                    color: flat ? tk.infoBg : null,
+                    borderRadius: BorderRadius.circular(flat ? 12 : 20),
                   ),
-                  child: Icon(icon, color: Colors.white, size: 32),
+                  child: Icon(
+                    icon,
+                    color: flat ? tk.primary : Colors.white,
+                    size: 32,
+                  ),
                 );
                 final extra = side;
                 if (extra == null) {

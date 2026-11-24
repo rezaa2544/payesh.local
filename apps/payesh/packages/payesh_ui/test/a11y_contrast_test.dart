@@ -13,6 +13,17 @@ void main() {
       PayeshUi.light(look: PayeshLook.nabd),
     ),
     ('nabd dark', PayeshTokens.nabdDark, PayeshUi.dark(look: PayeshLook.nabd)),
+    // row 179: «مینیمال حرفه‌ای» (the owner's choice) — same AA bar, both modes
+    (
+      'minimal light',
+      PayeshTokens.minimalLight,
+      PayeshUi.light(look: PayeshLook.minimal),
+    ),
+    (
+      'minimal dark',
+      PayeshTokens.minimalDark,
+      PayeshUi.dark(look: PayeshLook.minimal),
+    ),
   ]) {
     group('$name tokens meet WCAG 2.x AA', () {
       test('body text and secondary text on every surface ≥ 4.5:1', () {

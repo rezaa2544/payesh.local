@@ -30,17 +30,10 @@ const REQUIRED_LIGHT = ['--primary', '--primary-2', '--bg', '--card', '--ink', '
 const REQUIRED_DARK = ['--bg', '--card', '--ink', '--muted', '--line', '--soft', '--primary',
   '--primary-2', '--green-bg', '--red-bg', '--amber-bg', '--purple-bg', '--shadow', '--ring'];
 
-/* اختلاف ثبت‌شده بین مقادیر prompt سند ۶۱ (§3.1) و فایل فعلی pulse.css.
-   تصمیم این PR: مقدار pulse.css به‌کار می‌رود و مقدار prompt به‌کار نمی‌رود؛
-   تا تثبیت مالک، هیچ‌یک «تطابق دقیق با نبض» ادعا نمی‌شود. آزمون بررسی
-   می‌کند هر ردیف هنوز همین وضع را دارد؛ اگر pulse.css عوض شود، آزمون این
-   جدول را کهنه اعلام می‌کند تا بازبینی شود. */
-const TOKEN_DISCREPANCIES = [
-  { token: '--radius',    mode: 'light', pulse: '18px',    prompt: '16px' },
-  { token: '--muted',     mode: 'dark',  pulse: '#91b1a8', prompt: '#7fa39a' },
-  { token: '--line',      mode: 'dark',  pulse: '#203b35', prompt: '#16302b' },
-  { token: '--primary-2', mode: 'dark',  pulse: '#2dd4bf', prompt: '#0d9488' },
-];
+/* اختلاف ثبت‌شده بین مقادیر prompt سند ۶۱ (§3.1) و pulse.css (ردیف ۹۸). ردیف ۱۷۹: مالک طرح
+   «مینیمال حرفه‌ای» را برگزید و همهٔ توکن‌های pulse.css عوض شد؛ هیچ‌کدام از چهار اختلاف
+   قدیمی دیگر معنا ندارد، پس جدول خالی است. آزمون خالی‌بودن آن را می‌سنجد. */
+const TOKEN_DISCREPANCIES = [];
 
 function stripComments(css) { return String(css).replace(/\/\*[\s\S]*?\*\//g, ''); }
 

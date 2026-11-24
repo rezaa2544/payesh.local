@@ -301,7 +301,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
                         primary: true,
                         count: '${Web.fa(v.rooms.length)} مورد',
                       ),
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(bottom: 8),
                         child: Text(
                           'فقط نام لازم است؛ همین نام در برنامهٔ هفتگی به هر زنگ داده می‌شود.',
@@ -313,7 +313,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
                         ),
                       ),
                       if (v.rooms.isEmpty)
-                        const Text(
+                        Text(
                           'هنوز کلاس یا کارگاهی تعریف نشده است.',
                           style: Web.small,
                         )

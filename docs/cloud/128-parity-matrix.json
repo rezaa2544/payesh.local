@@ -2166,6 +2166,27 @@
    ]
   },
   {
+   "id": "act:theme-cycle",
+   "status": "native",
+   "wave": "W12",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/login/login_screens.dart",
+     "has": "Key('sys-theme')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_ui/lib/src/theme_mode.dart",
+     "has": "class PayeshThemeButton"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/packages/payesh_ui/test/minimal_theme_179_test.dart",
+     "has": "PayeshThemeMode (روشن / تاریک / سیستم)"
+    }
+   ]
+  },
+  {
    "id": "act:transfer",
    "status": "retired",
    "reason_fa": "ویژهٔ مرورگر (نشانی/origin صفحه)؛ اپ بومی origin ندارد",
