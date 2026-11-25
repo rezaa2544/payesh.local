@@ -5460,7 +5460,7 @@ async function waitFor(fn, ms = 15000) {
   await test('ردیف ۱۷۳: شبیه‌سازی داکر — پروکسی مورد اعتماد و XFF راست، NODE_EXTRA_CA_CERTS، صندوقچه از محیط، سرور مرکزی میزبان، school_inactive، انتشار فوری و نسخهٔ تصویر (۶ بررسی)',
     async () => {
       const { spawnSync } = require('child_process');
-      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/sim-173.js')], { encoding: 'utf8', cwd: ROOT, timeout: 180000 });
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/sim-173.js')], { encoding: 'utf8', cwd: ROOT, timeout: 300000 });
       assert.strictEqual(r.status, 0, 'sim-173: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|SIM-173/.test(l)).join('\n') + (r.stderr || ''));
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });

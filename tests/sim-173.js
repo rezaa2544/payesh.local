@@ -220,13 +220,22 @@ const login = (port, phone, password) => req('POST', port, '/api/auth/login', { 
         /* ردیف ۱۷۶ (D-07): هر تلاش از سهمیهٔ refresh همان IP (۶۰ در دقیقه، server/index.js) کم می‌کند؛ با فاصلهٔ
            ۱۵۰ms روی runner کند سهمیه پیش از رسیدن مدرسه تمام می‌شد و refresh با اثبات 429 می‌گرفت. با ۱۱۰۰ms
            حداکثر ~۵۵ تلاش در هر دقیقه + یک refresh با اثبات، زیر سقف می‌ماند. */
-        for (let i = 0; i < 100; i++) { np = await req('POST', box3.port, '/api/auth/refresh', { device_token: raw }); if (np.json && np.json.error === 'proof_required') break; await sleep(1100); }
+        /* ردیف ۱۸۱: سهمیهٔ refresh پنجرهٔ ثابت است؛ اگر روی runner کند باز 429 آمد، تا تازه‌شدن پنجره صبر کن
+           (سقف نرخ رفتار درست سرور است، موضوع این بررسی proof_required است) */
+        for (let i = 0; i < 100; i++) { np = await req('POST', box3.port, '/api/auth/refresh', { device_token: raw }); if (np.json && np.json.error === 'proof_required') break; await sleep(np.status === 429 ? 61_000 : 1100); }
         assert.strictEqual(np.status, 401, np.body);
         assert.strictEqual(np.json.error, 'proof_required', 'پیش‌تر bad_device سرور اصلی: ' + np.body);
         const ts = Date.now();
         const msg = 'payesh-refresh-v1\n' + devId + '\n' + ts + '\n' + crypto.createHash('sha256').update(raw).digest('hex');
         const sig = crypto.sign('sha256', Buffer.from(msg), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64');
-        const ok = await req('POST', box3.port, '/api/auth/refresh', { device_token: raw, proof: { ts, sig } });
+        let ok = await req('POST', box3.port, '/api/auth/refresh', { device_token: raw, proof: { ts, sig } });
+        if (ok.status === 429) {
+          await sleep(61_000);
+          const ts2 = Date.now();
+          const msg2 = 'payesh-refresh-v1\n' + devId + '\n' + ts2 + '\n' + crypto.createHash('sha256').update(raw).digest('hex');
+          const sig2 = crypto.sign('sha256', Buffer.from(msg2), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64');
+          ok = await req('POST', box3.port, '/api/auth/refresh', { device_token: raw, proof: { ts: ts2, sig: sig2 } });
+        }
         assert.strictEqual(ok.status, 200, ok.body);
         assert.ok(ok.json.session && ok.json.session.token);
       });
