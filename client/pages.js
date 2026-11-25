@@ -1289,7 +1289,7 @@ function parentHome() {
   const chips = `<div class="kid-chips">${kids.map(x => {
     const c = byId('classes', x.class_id) || {};
     const first = String(x.name || '').trim().split(/\s+/)[0] || '';
-    return `<a class="kid-chip${Number(x.id) === Number(k.id) ? ' on' : ''}" href="#/home/${x.id}"><i>${esc(first.charAt(0) || '؟')}</i>${esc(first)}${c.name ? ' · ' + esc(c.name) : ''}</a>`;
+    return `<a class="kid-chip${Number(x.id) === Number(k.id) ? ' on' : ''}" href="#/home/${x.id}"><i>${esc(first.charAt(0) || '؟')}</i>${esc(String(x.name || '').trim())}${c.name ? ' · ' + esc(c.name) : ''}</a>`;
   }).join('')}</div>`;
   const cls = byId('classes', k.class_id) || {};
   const g = list('grades').filter(x => Number(x.student_id) === Number(k.id) && x.status === 'approved');
