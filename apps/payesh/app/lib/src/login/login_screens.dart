@@ -204,20 +204,23 @@ class _SchoolSelectScreenState extends State<SchoolSelectScreen> {
           key: Key('school-help'),
         ),
         const SizedBox(height: PayeshTokens.space4),
-        TextField(
-          key: const Key('school-code'),
-          controller: _code,
-          enabled: !busy,
-          autofocus: true,
-          textDirection: TextDirection.ltr,
-          keyboardType: TextInputType.url,
-          autocorrect: false,
-          textInputAction: TextInputAction.go,
-          onSubmitted: (_) => _submit(),
-          decoration: const InputDecoration(
-            labelText: 'کد مدرسه',
-            hintText: 'alborz-12',
-            border: OutlineInputBorder(),
+        FieldBox(
+          width: kFieldDigits,
+          child: TextField(
+            key: const Key('school-code'),
+            controller: _code,
+            enabled: !busy,
+            autofocus: true,
+            textDirection: TextDirection.ltr,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            textInputAction: TextInputAction.go,
+            onSubmitted: (_) => _submit(),
+            decoration: const InputDecoration(
+              labelText: 'کد مدرسه',
+              hintText: 'alborz-12',
+              border: OutlineInputBorder(),
+            ),
           ),
         ),
         _ErrorText(widget.state.error),
@@ -306,21 +309,24 @@ class _ActivationScreenState extends State<ActivationScreen> {
           'کد فعال‌سازی یک‌بارمصرف را که مدیر مدرسه داده است بنویسید.',
         ),
         const SizedBox(height: PayeshTokens.space3),
-        TextField(
-          key: const Key('activation-code'),
-          controller: _code,
-          enabled: !busy,
-          autofocus: true,
-          textDirection: TextDirection.ltr,
-          autocorrect: false,
-          enableSuggestions: false,
-          textCapitalization: TextCapitalization.characters,
-          inputFormatters: [LengthLimitingTextInputFormatter(48)],
-          textInputAction: TextInputAction.go,
-          onSubmitted: (_) => _submit(),
-          decoration: const InputDecoration(
-            labelText: 'کد فعال‌سازی',
-            border: OutlineInputBorder(),
+        FieldBox(
+          width: kFieldDigits,
+          child: TextField(
+            key: const Key('activation-code'),
+            controller: _code,
+            enabled: !busy,
+            autofocus: true,
+            textDirection: TextDirection.ltr,
+            autocorrect: false,
+            enableSuggestions: false,
+            textCapitalization: TextCapitalization.characters,
+            inputFormatters: [LengthLimitingTextInputFormatter(48)],
+            textInputAction: TextInputAction.go,
+            onSubmitted: (_) => _submit(),
+            decoration: const InputDecoration(
+              labelText: 'کد فعال‌سازی',
+              border: OutlineInputBorder(),
+            ),
           ),
         ),
         _ErrorText(widget.state.error),
@@ -1064,73 +1070,76 @@ class _LanServerScreenState extends State<LanServerScreen> {
     final issue = _issues[key];
     return Padding(
       padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-      child: TextField(
-        key: Key(key),
-        controller: c,
-        onChanged: (_) {
-          if (_issues.containsKey(key)) {
-            setState(() => _issues = {..._issues}..remove(key));
-          }
-        },
-        enabled: !busy,
-        autofocus: autofocus,
-        obscureText: secret && !_showSecret,
-        autocorrect: false,
-        enableSuggestions: !secret,
-        textDirection: ltr ? TextDirection.ltr : null,
-        keyboardType: keyboard,
-        textInputAction: onGo == null
-            ? TextInputAction.next
-            : TextInputAction.go,
-        onSubmitted: onGo == null ? null : (_) => onGo(),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          errorText: issue,
-          errorMaxLines: 3,
-          filled: true,
-          fillColor: t.bg,
-          prefixIcon: icon == null ? null : Icon(icon, color: t.muted),
-          suffixIcon: secret
-              ? IconButton(
-                  tooltip: _showSecret ? 'پنهان کردن رمز' : 'نمایش رمز',
-                  onPressed: () => setState(() => _showSecret = !_showSecret),
-                  icon: Icon(
-                    _showSecret
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: t.muted,
-                  ),
-                )
-              : null,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: radius,
-            borderSide: BorderSide(color: t.line),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: radius,
-            borderSide: BorderSide(color: t.line),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: radius,
-            borderSide: BorderSide(color: t.primary, width: 1.6),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: radius,
-            borderSide: BorderSide(
-              color: Theme.of(context).colorScheme.error,
-              width: 1.6,
+      child: FieldBox(
+        width: kFieldText,
+        child: TextField(
+          key: Key(key),
+          controller: c,
+          onChanged: (_) {
+            if (_issues.containsKey(key)) {
+              setState(() => _issues = {..._issues}..remove(key));
+            }
+          },
+          enabled: !busy,
+          autofocus: autofocus,
+          obscureText: secret && !_showSecret,
+          autocorrect: false,
+          enableSuggestions: !secret,
+          textDirection: ltr ? TextDirection.ltr : null,
+          keyboardType: keyboard,
+          textInputAction: onGo == null
+              ? TextInputAction.next
+              : TextInputAction.go,
+          onSubmitted: onGo == null ? null : (_) => onGo(),
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: hint,
+            errorText: issue,
+            errorMaxLines: 3,
+            filled: true,
+            fillColor: t.bg,
+            prefixIcon: icon == null ? null : Icon(icon, color: t.muted),
+            suffixIcon: secret
+                ? IconButton(
+                    tooltip: _showSecret ? 'پنهان کردن رمز' : 'نمایش رمز',
+                    onPressed: () => setState(() => _showSecret = !_showSecret),
+                    icon: Icon(
+                      _showSecret
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: t.muted,
+                    ),
+                  )
+                : null,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
             ),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: radius,
-            borderSide: BorderSide(
-              color: Theme.of(context).colorScheme.error,
-              width: 2,
+            border: OutlineInputBorder(
+              borderRadius: radius,
+              borderSide: BorderSide(color: t.line),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: radius,
+              borderSide: BorderSide(color: t.line),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: radius,
+              borderSide: BorderSide(color: t.primary, width: 1.6),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: radius,
+              borderSide: BorderSide(
+                color: Theme.of(context).colorScheme.error,
+                width: 1.6,
+              ),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: radius,
+              borderSide: BorderSide(
+                color: Theme.of(context).colorScheme.error,
+                width: 2,
+              ),
             ),
           ),
         ),
@@ -1490,21 +1499,25 @@ class _LanServerScreenState extends State<LanServerScreen> {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-                  child: DropdownButtonFormField<String>(
-                    key: const Key('lan-setup-type'),
-                    initialValue: _schoolType,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'نوع مدرسه',
-                      border: OutlineInputBorder(),
+                  child: FieldBox(
+                    width: kFieldText,
+                    child: DropdownButtonFormField<String>(
+                      key: const Key('lan-setup-type'),
+                      initialValue: _schoolType,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'نوع مدرسه',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        for (final t in setupSchoolTypes)
+                          DropdownMenuItem(value: t, child: Text(t)),
+                      ],
+                      onChanged: busy
+                          ? null
+                          : (v) =>
+                                setState(() => _schoolType = v ?? _schoolType),
                     ),
-                    items: [
-                      for (final t in setupSchoolTypes)
-                        DropdownMenuItem(value: t, child: Text(t)),
-                    ],
-                    onChanged: busy
-                        ? null
-                        : (v) => setState(() => _schoolType = v ?? _schoolType),
                   ),
                 ),
               ),
@@ -1749,15 +1762,18 @@ class _LockScreenState extends State<LockScreen> {
         const SizedBox(height: PayeshTokens.space2),
         const Text('برای باز کردن، رمز عبور خود را بنویسید.'),
         const SizedBox(height: PayeshTokens.space4),
-        TextField(
-          key: const Key('unlock-password'),
-          controller: _password,
-          obscureText: true,
-          enabled: !busy,
-          autofocus: true,
-          textDirection: TextDirection.ltr,
-          onSubmitted: (_) => _go(),
-          decoration: const InputDecoration(labelText: 'رمز عبور'),
+        FieldBox(
+          width: kFieldText,
+          child: TextField(
+            key: const Key('unlock-password'),
+            controller: _password,
+            obscureText: true,
+            enabled: !busy,
+            autofocus: true,
+            textDirection: TextDirection.ltr,
+            onSubmitted: (_) => _go(),
+            decoration: const InputDecoration(labelText: 'رمز عبور'),
+          ),
         ),
         _ErrorText(widget.state.error),
         const SizedBox(height: PayeshTokens.space4),
@@ -1811,24 +1827,30 @@ class _ClaimScreenState extends State<ClaimScreen> {
           key: Key('claim-help'),
         ),
         const SizedBox(height: PayeshTokens.space4),
-        TextField(
-          key: const Key('claim-phone'),
-          controller: _phone,
-          enabled: !busy,
-          keyboardType: TextInputType.phone,
-          textDirection: TextDirection.ltr,
-          decoration: const InputDecoration(labelText: 'شمارهٔ همراه مدیر'),
+        FieldBox(
+          width: kFieldDigits,
+          child: TextField(
+            key: const Key('claim-phone'),
+            controller: _phone,
+            enabled: !busy,
+            keyboardType: TextInputType.phone,
+            textDirection: TextDirection.ltr,
+            decoration: const InputDecoration(labelText: 'شمارهٔ همراه مدیر'),
+          ),
         ),
         const SizedBox(height: PayeshTokens.space3),
-        TextField(
-          key: const Key('claim-password'),
-          controller: _password,
-          enabled: !busy,
-          obscureText: true,
-          textDirection: TextDirection.ltr,
-          onSubmitted: (_) => go(),
-          decoration: const InputDecoration(
-            labelText: 'رمز تازه (حداقل ۴ نویسه)',
+        FieldBox(
+          width: kFieldText,
+          child: TextField(
+            key: const Key('claim-password'),
+            controller: _password,
+            enabled: !busy,
+            obscureText: true,
+            textDirection: TextDirection.ltr,
+            onSubmitted: (_) => go(),
+            decoration: const InputDecoration(
+              labelText: 'رمز تازه (حداقل ۴ نویسه)',
+            ),
           ),
         ),
         _ErrorText(widget.state.error),

@@ -106,20 +106,23 @@ Widget _input(
   Widget? suffix,
 }) => Padding(
   padding: const EdgeInsets.only(bottom: 8),
-  child: TextField(
-    key: Key(key),
-    controller: c,
-    obscureText: secret,
-    textDirection: TextDirection.ltr,
-    autocorrect: false,
-    enableSuggestions: false,
-    keyboardType: digits ? TextInputType.number : TextInputType.text,
-    maxLength: digits ? 6 : null,
-    decoration: InputDecoration(
-      labelText: label,
-      hintText: hint,
-      counterText: '',
-      suffixIcon: suffix,
+  child: FieldBox(
+    width: digits ? kFieldTiny : kFieldText,
+    child: TextField(
+      key: Key(key),
+      controller: c,
+      obscureText: secret,
+      textDirection: TextDirection.ltr,
+      autocorrect: false,
+      enableSuggestions: false,
+      keyboardType: digits ? TextInputType.number : TextInputType.text,
+      maxLength: digits ? 6 : null,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        counterText: '',
+        suffixIcon: suffix,
+      ),
     ),
   ),
 );

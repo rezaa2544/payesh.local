@@ -190,14 +190,17 @@ class _SupportInboxViewState extends State<SupportInboxView> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        key: const Key('support-search'),
-                        controller: _search,
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.search),
-                          hintText: 'جست‌وجو: موضوع، مدرسه، نام، کد یا متن',
+                      child: FieldBox(
+                        width: kFieldSearch,
+                        child: TextField(
+                          key: const Key('support-search'),
+                          controller: _search,
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.search),
+                            hintText: 'جست‌وجو: موضوع، مدرسه، نام، کد یا متن',
+                          ),
+                          onChanged: (v) => setState(() => _query = v),
                         ),
-                        onChanged: (v) => setState(() => _query = v),
                       ),
                     ),
                     const SizedBox(width: 8),

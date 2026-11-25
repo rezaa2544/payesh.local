@@ -146,6 +146,12 @@ const double kFieldText = 360;
 /// A longer one-line title or address.
 const double kFieldWide = 480;
 
+/// Row 184: a few characters — a 6-digit code, a clock time, a score, an order number.
+const double kFieldTiny = 120;
+
+/// Row 184: a search box — long enough for a name or a mobile number, never the whole page.
+const double kFieldSearch = 320;
+
 /// Puts [child] (a text field) in a box at most [width] wide, at the start of the line
 /// (right in Persian). Multi-line text keeps the full width — pass no [FieldBox] there.
 class FieldBox extends StatelessWidget {

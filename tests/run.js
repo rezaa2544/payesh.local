@@ -2940,9 +2940,12 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(css182.includes('.modal.wide{max-width:760px'), 'فرم‌ها در پنجرهٔ کوچک (۷۶۰)');
     assert.ok(css182.includes('.modal.wide.xl{max-width:1180px'), 'فقط xl پهن');
     assert.ok(!/\.modal\.wide\{max-width:1180px/.test(css182), 'فرم دیگر ۱۱۸۰ نیست');
-    // ردیف ۱۸۳: کادرها استاندارد — شماره/کد ملی ۲۲۰، متن ۳۶۰؛ چندخطی و جدول اکسل پهن
-    assert.ok(css182.includes('.modal:not(.xl) .field>.input.ltr,.modal:not(.xl) .field>.input[inputmode=numeric]{max-width:220px}'), 'کادر شماره به اندازهٔ ارقام');
-    assert.ok(css182.includes('.modal:not(.xl) .field>.input:not(textarea),.modal:not(.xl) .field>select.input{max-width:360px}'), 'کادر متن اندازهٔ معمول');
+    // ردیف ۱۸۴: همهٔ کادرها در همهٔ صفحه‌ها (نه فقط پنجره‌ها) استاندارد — متن ۳۶۰، ارقام ۲۲۰، چند نویسه ۱۲۰، جستجو ۳۲۰، نشانی ۴۸۰؛ چندخطی پهن
+    assert.ok(css182.includes('input.input,select.input{max-width:360px}'), 'همهٔ کادرهای متنی و کشویی اندازهٔ معمول');
+    assert.ok(/input\.input\[inputmode=numeric\][^{]*\{max-width:220px\}/.test(css182), 'کادر شماره و کد ملی به اندازهٔ ارقام');
+    assert.ok(/input\.input\[data-search\],input\.input\[type=search\]\{max-width:320px\}/.test(css182), 'کادر جستجو اندازهٔ استاندارد');
+    assert.ok(css182.includes('textarea.input{max-width:none}'), 'متن چندخطی پهن می‌ماند');
+    assert.ok(!/\.modal:not\(\.xl\) \.field>\.input/.test(css182), 'NEG: قاعده دیگر فقط به پنجره‌ها محدود نیست');
     assert.ok(css182.includes('.modal.wide .row>.field{flex:0 1 220px'), 'فیلدهای ردیفی کشیده نمی‌شوند');
 
     /* ذخیرهٔ فهرست پیگیری (با خطاهای سرور هم) */

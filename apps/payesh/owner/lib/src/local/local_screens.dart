@@ -74,25 +74,28 @@ Widget _field(
   void Function(String key)? onEdit,
 }) => Padding(
   padding: const EdgeInsets.only(bottom: 8),
-  child: TextField(
-    key: Key(key),
-    controller: c,
-    obscureText: secret,
-    textDirection: TextDirection.ltr,
-    autocorrect: false,
-    enableSuggestions: false,
-    keyboardType: digits ? TextInputType.number : TextInputType.text,
-    maxLength: digits ? 6 : null,
-    // row 166: a refused field is outlined red until it is edited
-    onChanged: onEdit == null ? null : (_) => onEdit(key),
-    decoration: InputDecoration(
-      labelText: label,
-      hintText: hint,
-      counterText: '',
-      errorText: issues[key],
-      errorMaxLines: 2,
+  child: FieldBox(
+    width: digits ? kFieldTiny : kFieldText,
+    child: TextField(
+      key: Key(key),
+      controller: c,
+      obscureText: secret,
+      textDirection: TextDirection.ltr,
+      autocorrect: false,
+      enableSuggestions: false,
+      keyboardType: digits ? TextInputType.number : TextInputType.text,
+      maxLength: digits ? 6 : null,
+      // row 166: a refused field is outlined red until it is edited
+      onChanged: onEdit == null ? null : (_) => onEdit(key),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        counterText: '',
+        errorText: issues[key],
+        errorMaxLines: 2,
+      ),
+      onSubmitted: onSubmitted,
     ),
-    onSubmitted: onSubmitted,
   ),
 );
 

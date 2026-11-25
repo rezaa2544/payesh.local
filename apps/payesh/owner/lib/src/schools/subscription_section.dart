@@ -117,21 +117,26 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
     int lines = 1,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: TextField(
-      key: Key(key),
-      controller: c,
-      enabled: widget.canManage,
-      maxLines: lines,
-      textDirection: ltr ? TextDirection.ltr : null,
-      keyboardType: numeric ? TextInputType.number : null,
-      inputFormatters: numeric
-          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹]'))]
-          : null,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        border: const OutlineInputBorder(),
-        isDense: true,
+    child: FieldBox(
+      width: lines > 1
+          ? double.infinity
+          : (numeric ? kFieldDigits : kFieldText),
+      child: TextField(
+        key: Key(key),
+        controller: c,
+        enabled: widget.canManage,
+        maxLines: lines,
+        textDirection: ltr ? TextDirection.ltr : null,
+        keyboardType: numeric ? TextInputType.number : null,
+        inputFormatters: numeric
+            ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹]'))]
+            : null,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
       ),
     ),
   );
@@ -400,25 +405,28 @@ class _SubscriptionSectionState extends State<SubscriptionSection>
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 10),
-                        child: TextField(
-                          key: Key('sub-price-$r-${p.key}'),
-                          controller: _price['$r/${p.key}'],
-                          enabled: edit && s.offered(r, p.key),
-                          onChanged: (_) => setState(() {}),
-                          textDirection: TextDirection.ltr,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9۰-۹]'),
+                        child: FieldBox(
+                          width: kFieldDigits,
+                          child: TextField(
+                            key: Key('sub-price-$r-${p.key}'),
+                            controller: _price['$r/${p.key}'],
+                            enabled: edit && s.offered(r, p.key),
+                            onChanged: (_) => setState(() {}),
+                            textDirection: TextDirection.ltr,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9۰-۹]'),
+                              ),
+                            ],
+                            decoration: InputDecoration(
+                              labelText: p.key == 'monthly'
+                                  ? 'مبلغ ماهانه (۳۱ روز)'
+                                  : 'مبلغ سالانه (تا ۳۱ شهریور)',
+                              suffixText: 'ریال',
+                              border: const OutlineInputBorder(),
+                              isDense: true,
                             ),
-                          ],
-                          decoration: InputDecoration(
-                            labelText: p.key == 'monthly'
-                                ? 'مبلغ ماهانه (۳۱ روز)'
-                                : 'مبلغ سالانه (تا ۳۱ شهریور)',
-                            suffixText: 'ریال',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
                           ),
                         ),
                       ),

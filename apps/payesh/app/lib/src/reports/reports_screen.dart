@@ -919,27 +919,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     if (c.week.isNotEmpty)
                       SizedBox(
                         width: 240,
-                        child: DropdownButtonFormField<int>(
-                          key: const Key('rep-class'),
-                          initialValue: c.classId,
-                          isExpanded: true,
-                          isDense: true,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Web.ink,
-                            fontFamily: 'Vazirmatn',
+                        child: FieldBox(
+                          width: kFieldText,
+                          child: DropdownButtonFormField<int>(
+                            key: const Key('rep-class'),
+                            initialValue: c.classId,
+                            isExpanded: true,
+                            isDense: true,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Web.ink,
+                              fontFamily: 'Vazirmatn',
+                            ),
+                            decoration: webInput(),
+                            items: [
+                              for (final w in c.week)
+                                DropdownMenuItem(
+                                  value: w.classId,
+                                  child: Text(w.name),
+                                ),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) c.pick(v);
+                            },
                           ),
-                          decoration: webInput(),
-                          items: [
-                            for (final w in c.week)
-                              DropdownMenuItem(
-                                value: w.classId,
-                                child: Text(w.name),
-                              ),
-                          ],
-                          onChanged: (v) {
-                            if (v != null) c.pick(v);
-                          },
                         ),
                       ),
                   ],

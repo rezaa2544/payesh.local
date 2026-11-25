@@ -296,18 +296,21 @@ class _LoginMethodsSectionState extends State<LoginMethodsSection>
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    key: const Key('auth-test-mobile'),
-                    controller: _testMobile,
-                    textDirection: TextDirection.ltr,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹]')),
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: 'شمارهٔ همراه برای پیامک آزمایشی',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+                  child: FieldBox(
+                    width: kFieldDigits,
+                    child: TextField(
+                      key: const Key('auth-test-mobile'),
+                      controller: _testMobile,
+                      textDirection: TextDirection.ltr,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹]')),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'شمارهٔ همراه برای پیامک آزمایشی',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
                     ),
                   ),
                 ),

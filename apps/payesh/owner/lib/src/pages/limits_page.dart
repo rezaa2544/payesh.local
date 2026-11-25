@@ -50,24 +50,28 @@ class _LimitsPageState extends OwnerPageState<LimitsPage> {
       head = const StateBox.empty('هنوز مدرسه‌ای ثبت نشده است.');
     } else {
       final rows = t.list('tenants');
-      head = DropdownButtonFormField<String>(
-        key: const Key('limits-tenant'),
-        initialValue: _tid,
-        decoration: const InputDecoration(labelText: 'مدرسه'),
-        items: [
-          for (final r in rows)
-            DropdownMenuItem(
-              value: '${r['tenant_id']}',
-              child: Text(
-                '${r['display_name'] ?? shortId(r['tenant_id'])} · ${r['plan_code'] ?? ''}',
+      head = FieldBox(
+        width: kFieldText,
+        child: DropdownButtonFormField<String>(
+          isExpanded: true,
+          key: const Key('limits-tenant'),
+          initialValue: _tid,
+          decoration: const InputDecoration(labelText: 'مدرسه'),
+          items: [
+            for (final r in rows)
+              DropdownMenuItem(
+                value: '${r['tenant_id']}',
+                child: Text(
+                  '${r['display_name'] ?? shortId(r['tenant_id'])} · ${r['plan_code'] ?? ''}',
+                ),
               ),
-            ),
-        ],
-        onChanged: (v) {
-          if (v == null) return;
-          setState(() => _tid = v);
-          _loadOne(v);
-        },
+          ],
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() => _tid = v);
+            _loadOne(v);
+          },
+        ),
       );
       final l = _lim, u = _use;
       if (_detailLoading || l == null || u == null) {

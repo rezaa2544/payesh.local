@@ -780,22 +780,25 @@ class _OriginScreenState extends State<OriginScreen> {
               'نشانی سرور API پلتفرم (Gateway یا سرور پنل مالک) را وارد کنید. این نشانی فقط روی همین دستگاه نگه داشته می‌شود؛ رمز و نشست هرگز ذخیره نمی‌شوند.',
             ),
             const SizedBox(height: PayeshTokens.space3),
-            TextField(
-              key: const Key('origin'),
-              controller: _c,
-              textDirection: TextDirection.ltr,
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              onChanged: (_) {
-                if (_error != null) setState(() => _error = null);
-              },
-              decoration: InputDecoration(
-                labelText: 'نشانی سرور',
-                hintText: 'https://owner.example.ir',
-                // row 166: the refused field is outlined red
-                errorText: _error == null ? null : 'نشانی را اصلاح کنید',
+            FieldBox(
+              width: kFieldWide,
+              child: TextField(
+                key: const Key('origin'),
+                controller: _c,
+                textDirection: TextDirection.ltr,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
+                decoration: InputDecoration(
+                  labelText: 'نشانی سرور',
+                  hintText: 'https://owner.example.ir',
+                  // row 166: the refused field is outlined red
+                  errorText: _error == null ? null : 'نشانی را اصلاح کنید',
+                ),
+                onSubmitted: (_) => _save(),
               ),
-              onSubmitted: (_) => _save(),
             ),
             if (_error != null)
               Padding(
@@ -957,48 +960,57 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('login_id'),
-                      controller: _id,
-                      textDirection: TextDirection.ltr,
-                      autofillHints: const [AutofillHints.username],
-                      onChanged: (_) => _fix('login_id'),
-                      decoration: InputDecoration(
-                        labelText: 'شناسهٔ ورود',
-                        errorText: _issues['login_id'],
-                        errorMaxLines: 2,
+                    FieldBox(
+                      width: kFieldText,
+                      child: TextField(
+                        key: const Key('login_id'),
+                        controller: _id,
+                        textDirection: TextDirection.ltr,
+                        autofillHints: const [AutofillHints.username],
+                        onChanged: (_) => _fix('login_id'),
+                        decoration: InputDecoration(
+                          labelText: 'شناسهٔ ورود',
+                          errorText: _issues['login_id'],
+                          errorMaxLines: 2,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    TextField(
-                      key: const Key('password'),
-                      controller: _pw,
-                      obscureText: true,
-                      textDirection: TextDirection.ltr,
-                      autofillHints: const [AutofillHints.password],
-                      onChanged: (_) => _fix('password'),
-                      decoration: InputDecoration(
-                        labelText: 'رمز عبور',
-                        errorText: _issues['password'],
-                        errorMaxLines: 2,
+                    FieldBox(
+                      width: kFieldText,
+                      child: TextField(
+                        key: const Key('password'),
+                        controller: _pw,
+                        obscureText: true,
+                        textDirection: TextDirection.ltr,
+                        autofillHints: const [AutofillHints.password],
+                        onChanged: (_) => _fix('password'),
+                        decoration: InputDecoration(
+                          labelText: 'رمز عبور',
+                          errorText: _issues['password'],
+                          errorMaxLines: 2,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    TextField(
-                      key: const Key('totp'),
-                      controller: _totp,
-                      textDirection: TextDirection.ltr,
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
-                      autofillHints: const [AutofillHints.oneTimeCode],
-                      onChanged: (_) => _fix('totp'),
-                      decoration: InputDecoration(
-                        labelText: 'کد دومرحله‌ای ۶ رقمی',
-                        errorText: _issues['totp'],
-                        errorMaxLines: 2,
-                        counterText: '',
+                    FieldBox(
+                      width: kFieldTiny,
+                      child: TextField(
+                        key: const Key('totp'),
+                        controller: _totp,
+                        textDirection: TextDirection.ltr,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        autofillHints: const [AutofillHints.oneTimeCode],
+                        onChanged: (_) => _fix('totp'),
+                        decoration: InputDecoration(
+                          labelText: 'کد دومرحله‌ای ۶ رقمی',
+                          errorText: _issues['totp'],
+                          errorMaxLines: 2,
+                          counterText: '',
+                        ),
+                        onSubmitted: (_) => _submit(),
                       ),
-                      onSubmitted: (_) => _submit(),
                     ),
                     const SizedBox(height: 12),
                     Row(

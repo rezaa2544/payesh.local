@@ -219,18 +219,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     ValueChanged<T?> onChanged,
   ) => WebField(
     label: label,
-    child: DropdownButtonFormField<T>(
-      key: Key(key),
-      initialValue: items.any((i) => i.$1 == value) ? value : null,
-      isExpanded: true,
-      isDense: true,
-      style: TextStyle(fontSize: 15, color: Web.ink, fontFamily: 'Vazirmatn'),
-      decoration: webInput(),
-      items: [
-        for (final (v, l) in items)
-          DropdownMenuItem<T>(value: v, child: Text(l)),
-      ],
-      onChanged: onChanged,
+    child: FieldBox(
+      width: kFieldText,
+      child: DropdownButtonFormField<T>(
+        key: Key(key),
+        initialValue: items.any((i) => i.$1 == value) ? value : null,
+        isExpanded: true,
+        isDense: true,
+        style: TextStyle(fontSize: 15, color: Web.ink, fontFamily: 'Vazirmatn'),
+        decoration: webInput(),
+        items: [
+          for (final (v, l) in items)
+            DropdownMenuItem<T>(value: v, child: Text(l)),
+        ],
+        onChanged: onChanged,
+      ),
     ),
   );
 
@@ -642,25 +645,28 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         ),
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 260),
-                          child: DropdownButtonFormField<int>(
-                            key: const Key('sch-home'),
-                            initialValue: c.homeClass ?? 0,
-                            isExpanded: true,
-                            isDense: true,
-                            decoration: webInput(),
-                            items: [
-                              const DropdownMenuItem(
-                                value: 0,
-                                child: Text('تدریس من'),
-                              ),
-                              for (final (id, n) in v.homeClasses)
-                                DropdownMenuItem(
-                                  value: id,
-                                  child: Text('سرپرستی: $n'),
+                          child: FieldBox(
+                            width: kFieldText,
+                            child: DropdownButtonFormField<int>(
+                              key: const Key('sch-home'),
+                              initialValue: c.homeClass ?? 0,
+                              isExpanded: true,
+                              isDense: true,
+                              decoration: webInput(),
+                              items: [
+                                const DropdownMenuItem(
+                                  value: 0,
+                                  child: Text('تدریس من'),
                                 ),
-                            ],
-                            onChanged: (id) =>
-                                c.pickHome(id == null || id == 0 ? null : id),
+                                for (final (id, n) in v.homeClasses)
+                                  DropdownMenuItem(
+                                    value: id,
+                                    child: Text('سرپرستی: $n'),
+                                  ),
+                              ],
+                              onChanged: (id) =>
+                                  c.pickHome(id == null || id == 0 ? null : id),
+                            ),
                           ),
                         ),
                       ],
@@ -1045,28 +1051,31 @@ class _SlotFormPageState extends State<SlotFormPage> {
     if (w != null && mounted) Navigator.pop(context);
   }
 
-  DropdownButtonFormField<int?> _pick(
+  Widget _pick(
     String key,
     String label,
     int? value,
     List<(int?, String)> items,
     ValueChanged<int?> onChanged,
-  ) => DropdownButtonFormField<int?>(
-    key: Key(key),
-    initialValue: items.any((i) => i.$1 == value) ? value : null,
-    isExpanded: true,
-    decoration: InputDecoration(
-      labelText: label,
-      border: const OutlineInputBorder(),
+  ) => FieldBox(
+    width: kFieldText,
+    child: DropdownButtonFormField<int?>(
+      key: Key(key),
+      initialValue: items.any((i) => i.$1 == value) ? value : null,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+      items: [
+        for (final (v, l) in items)
+          DropdownMenuItem<int?>(
+            value: v,
+            child: Text(l, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: onChanged,
     ),
-    items: [
-      for (final (v, l) in items)
-        DropdownMenuItem<int?>(
-          value: v,
-          child: Text(l, overflow: TextOverflow.ellipsis),
-        ),
-    ],
-    onChanged: onChanged,
   );
 
   @override
@@ -1411,18 +1420,22 @@ class _BellsPageState extends State<BellsPage> {
       key: const Key('bell-rotation-help'),
     ),
     const SizedBox(height: PayeshTokens.space3),
-    DropdownButtonFormField<String>(
-      key: const Key('bell-first'),
-      initialValue: first,
-      decoration: const InputDecoration(
-        labelText: 'شیفت هفتهٔ اول',
-        border: OutlineInputBorder(),
+    FieldBox(
+      width: kFieldText,
+      child: DropdownButtonFormField<String>(
+        isExpanded: true,
+        key: const Key('bell-first'),
+        initialValue: first,
+        decoration: const InputDecoration(
+          labelText: 'شیفت هفتهٔ اول',
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          for (final s in rotationShiftsFa)
+            DropdownMenuItem(value: s, child: Text(s)),
+        ],
+        onChanged: (v) => setState(() => first = v ?? shiftMorningFa),
       ),
-      items: [
-        for (final s in rotationShiftsFa)
-          DropdownMenuItem(value: s, child: Text(s)),
-      ],
-      onChanged: (v) => setState(() => first = v ?? shiftMorningFa),
     ),
     const SizedBox(height: PayeshTokens.space2),
     Text(() {
@@ -1532,27 +1545,31 @@ class _BellsPageState extends State<BellsPage> {
                       ],
                     ),
                     const SizedBox(height: PayeshTokens.space2),
-                    DropdownButtonFormField<String>(
-                      key: rotating
-                          ? Key('bell-t-$shown-$i')
-                          : Key('bell-t-$i'),
-                      initialValue: rows![i].type,
-                      decoration: const InputDecoration(
-                        labelText: 'این ردیف',
-                        border: OutlineInputBorder(),
+                    FieldBox(
+                      width: kFieldText,
+                      child: DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        key: rotating
+                            ? Key('bell-t-$shown-$i')
+                            : Key('bell-t-$i'),
+                        initialValue: rows![i].type,
+                        decoration: const InputDecoration(
+                          labelText: 'این ردیف',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'lesson',
+                            child: Text('زنگ درس'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'break',
+                            child: Text('زنگ تفریح'),
+                          ),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => rows![i].type = v ?? 'lesson'),
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'lesson',
-                          child: Text('زنگ درس'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'break',
-                          child: Text('زنگ تفریح'),
-                        ),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => rows![i].type = v ?? 'lesson'),
                     ),
                   ],
                 ),

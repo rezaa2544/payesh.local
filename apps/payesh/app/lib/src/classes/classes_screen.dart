@@ -524,23 +524,26 @@ class _ClassFormPageState extends State<ClassFormPage> {
       if (value.isNotEmpty && !names.contains(value)) value,
       ...names,
     ];
-    return DropdownButtonFormField<String>(
-      key: Key(key),
-      isExpanded: true,
-      initialValue: value,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
+    return FieldBox(
+      width: kFieldText,
+      child: DropdownButtonFormField<String>(
+        key: Key(key),
+        isExpanded: true,
+        initialValue: value,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
+        items: [
+          const DropdownMenuItem(value: '', child: Text('—')),
+          for (final n in all)
+            DropdownMenuItem(
+              value: n,
+              child: Text(names.contains(n) ? n : '$n (تعریف نشده)'),
+            ),
+        ],
+        onChanged: (v) => setState(() => set(v ?? '')),
       ),
-      items: [
-        const DropdownMenuItem(value: '', child: Text('—')),
-        for (final n in all)
-          DropdownMenuItem(
-            value: n,
-            child: Text(names.contains(n) ? n : '$n (تعریف نشده)'),
-          ),
-      ],
-      onChanged: (v) => setState(() => set(v ?? '')),
     );
   }
 
@@ -562,26 +565,32 @@ class _ClassFormPageState extends State<ClassFormPage> {
         if (r != null && context.mounted) Navigator.pop(context);
       },
       fields: [
-        DropdownButtonFormField<String>(
-          key: const Key('cf-f-mode'),
-          isExpanded: true,
-          initialValue: mode,
-          decoration: const InputDecoration(
-            labelText: 'نوع چیدمان',
-            border: OutlineInputBorder(),
+        FieldBox(
+          width: kFieldText,
+          child: DropdownButtonFormField<String>(
+            key: const Key('cf-f-mode'),
+            isExpanded: true,
+            initialValue: mode,
+            decoration: const InputDecoration(
+              labelText: 'نوع چیدمان',
+              border: OutlineInputBorder(),
+            ),
+            items: const [
+              DropdownMenuItem(
+                value: '',
+                child: Text('— خودکار از روی پایه —'),
+              ),
+              DropdownMenuItem(
+                value: 'class',
+                child: Text('کلاس‌محور (ابتدایی و متوسطه اول)'),
+              ),
+              DropdownMenuItem(
+                value: 'field',
+                child: Text('رشته‌محور (متوسطه دوم)'),
+              ),
+            ],
+            onChanged: (x) => setState(() => mode = x ?? ''),
           ),
-          items: const [
-            DropdownMenuItem(value: '', child: Text('— خودکار از روی پایه —')),
-            DropdownMenuItem(
-              value: 'class',
-              child: Text('کلاس‌محور (ابتدایی و متوسطه اول)'),
-            ),
-            DropdownMenuItem(
-              value: 'field',
-              child: Text('رشته‌محور (متوسطه دوم)'),
-            ),
-          ],
-          onChanged: (x) => setState(() => mode = x ?? ''),
         ),
         SchoolField('cf-f-name', 'نام کلاس (خالی = از پایه و رشته)', name),
         _pick(

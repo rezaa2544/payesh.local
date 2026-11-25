@@ -169,17 +169,20 @@ class _CapacityDialogState extends State<_CapacityDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('ظرفیت دیتابیس'),
-    content: TextField(
-      key: const Key('db-capacity-input'),
-      controller: _c,
-      autofocus: true,
-      textDirection: TextDirection.ltr,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: const InputDecoration(
-        labelText: 'گیگابایت (خالی = تعیین نشده)',
-        hintText: '100',
+    content: FieldBox(
+      width: kFieldDigits,
+      child: TextField(
+        key: const Key('db-capacity-input'),
+        controller: _c,
+        autofocus: true,
+        textDirection: TextDirection.ltr,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: const InputDecoration(
+          labelText: 'گیگابایت (خالی = تعیین نشده)',
+          hintText: '100',
+        ),
+        onSubmitted: (t) => Navigator.pop(context, t),
       ),
-      onSubmitted: (t) => Navigator.pop(context, t),
     ),
     actions: [
       TextButton(

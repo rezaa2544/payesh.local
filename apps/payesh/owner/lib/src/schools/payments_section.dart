@@ -316,15 +316,18 @@ class _PaymentsSectionState extends State<PaymentsSection> with RegistryLoader {
                 ],
               ),
               const SizedBox(height: 8),
-              TextField(
-                key: const Key('pay-search'),
-                controller: _search,
-                onChanged: (x) => setState(() => _query = x),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'جست‌وجو: کد پیگیری، نام، شمارهٔ رسید، مدرسه',
-                  border: OutlineInputBorder(),
-                  isDense: true,
+              FieldBox(
+                width: kFieldSearch,
+                child: TextField(
+                  key: const Key('pay-search'),
+                  controller: _search,
+                  onChanged: (x) => setState(() => _query = x),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'جست‌وجو: کد پیگیری، نام، شمارهٔ رسید، مدرسه',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),

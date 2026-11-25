@@ -475,24 +475,28 @@ class _ReasonDialogState extends State<_ReasonDialog> {
         ),
       ),
     ),
-    SelectDialogField() => DropdownButtonFormField<String>(
-      key: Key('dlg-${f.name}'),
-      initialValue: _select[f.name],
-      decoration: InputDecoration(
-        labelText: f.label,
-        errorText: _issues[f.name],
-        errorMaxLines: 3,
+    SelectDialogField() => FieldBox(
+      width: kFieldText,
+      child: DropdownButtonFormField<String>(
+        isExpanded: true,
+        key: Key('dlg-${f.name}'),
+        initialValue: _select[f.name],
+        decoration: InputDecoration(
+          labelText: f.label,
+          errorText: _issues[f.name],
+          errorMaxLines: 3,
+        ),
+        items: [
+          for (final e in f.options.entries)
+            DropdownMenuItem(value: e.key, child: Text(e.value)),
+        ],
+        onChanged: (v) {
+          if (v == null) return;
+          _fix(f.name);
+          setState(() => _select[f.name] = v);
+          f.onChanged?.call(v, _set);
+        },
       ),
-      items: [
-        for (final e in f.options.entries)
-          DropdownMenuItem(value: e.key, child: Text(e.value)),
-      ],
-      onChanged: (v) {
-        if (v == null) return;
-        _fix(f.name);
-        setState(() => _select[f.name] = v);
-        f.onChanged?.call(v, _set);
-      },
     ),
     DateTimeDialogField() => InputDecorator(
       decoration: InputDecoration(labelText: f.label),

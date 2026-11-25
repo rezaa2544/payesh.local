@@ -277,22 +277,25 @@ class _GradesScreenState extends State<GradesScreen> {
       child: WebField(
         label: label,
         bottom: 0,
-        child: DropdownButtonFormField<T>(
-          key: Key(key),
-          initialValue: items.any((i) => i.$1 == value) ? value : null,
-          isExpanded: true,
-          isDense: true,
-          style: TextStyle(
-            fontSize: 15,
-            color: Web.ink,
-            fontFamily: 'Vazirmatn',
+        child: FieldBox(
+          width: kFieldText,
+          child: DropdownButtonFormField<T>(
+            key: Key(key),
+            initialValue: items.any((i) => i.$1 == value) ? value : null,
+            isExpanded: true,
+            isDense: true,
+            style: TextStyle(
+              fontSize: 15,
+              color: Web.ink,
+              fontFamily: 'Vazirmatn',
+            ),
+            decoration: webInput(),
+            items: [
+              for (final (v, l) in items)
+                DropdownMenuItem<T>(value: v, child: Text(l)),
+            ],
+            onChanged: c.busy ? null : onChanged,
           ),
-          decoration: webInput(),
-          items: [
-            for (final (v, l) in items)
-              DropdownMenuItem<T>(value: v, child: Text(l)),
-          ],
-          onChanged: c.busy ? null : onChanged,
         ),
       ),
     );
@@ -364,22 +367,25 @@ class _GradeFieldState extends State<_GradeField> {
       label: bad ? 'نمره، نامعتبر' : 'نمره',
       child: Directionality(
         textDirection: TextDirection.ltr,
-        child: TextField(
-          key: Key('grd-${e.studentId}'),
-          controller: text,
-          enabled: !widget.c.busy,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: TextStyle(fontSize: 15, color: Web.ink),
-          decoration: d.copyWith(
-            hintText: '—',
-            errorText: null,
-            // padding .3rem inside the 44px `.input` min-height
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 4.8,
-              vertical: 11.5,
+        child: FieldBox(
+          width: kFieldTiny,
+          child: TextField(
+            key: Key('grd-${e.studentId}'),
+            controller: text,
+            enabled: !widget.c.busy,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: TextStyle(fontSize: 15, color: Web.ink),
+            decoration: d.copyWith(
+              hintText: '—',
+              errorText: null,
+              // padding .3rem inside the 44px `.input` min-height
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 4.8,
+                vertical: 11.5,
+              ),
             ),
+            onChanged: (v) => widget.c.edit(e.studentId, v),
           ),
-          onChanged: (v) => widget.c.edit(e.studentId, v),
         ),
       ),
     );

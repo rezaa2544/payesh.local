@@ -121,7 +121,16 @@ small,.small{font-size:12.5px}
 .input:focus,select.input:focus,textarea.input:focus{outline:0;border-color:var(--primary);box-shadow:0 0 0 3px rgba(30,58,138,.18)}
 .input.input-invalid,.field-invalid .input{border-color:#f2a7a1!important;background:#fff6f5!important;box-shadow:0 0 0 2px rgba(220,38,38,.08)}
 .field-invalid>span{color:#b42318!important}
-.jalali-date-control{display:block;width:100%}
+.jalali-date-control{display:block;width:100%;max-width:220px}
+/* ردیف ۱۸۴: همهٔ کادرها در همهٔ صفحه‌ها و پنجره‌ها اندازهٔ استاندارد دارند، نه هم‌پهنای صفحه:
+   متن (نام، رمز، فهرست کشویی) ۳۶۰ · ارقام (شماره همراه، کد ملی، تاریخ، کد) ۲۲۰ · چند نویسه (ساعت، نمره) ۱۲۰ ·
+   جستجو ۳۲۰ · نشانی وب و فایل ۴۸۰ · فقط متن چندخطی پهن می‌ماند */
+input.input,select.input{max-width:360px}
+input.input[inputmode=numeric],input.input[inputmode=decimal],input.input[data-digits],input.input.code-input,input.input[maxlength="10"],input.input[maxlength="11"],input.input[maxlength="12"],input.input[maxlength="14"]{max-width:220px}
+input.input.clock-24h,input.input[data-grade],input.input[maxlength="5"]{max-width:120px}
+input.input[data-search],input.input[type=search]{max-width:320px}
+input.input[inputmode=url],input.input[type=file],input.input[name=base],input.input[name=public_url]{max-width:480px}
+textarea.input{max-width:none}
 textarea.input{min-height:90px}
 .ltr{direction:ltr;text-align:left}
 @media (prefers-color-scheme: dark){
@@ -236,9 +245,6 @@ tr:last-child td{border-bottom:0}
 /* ردیف ۱۸۲: فرم‌ها و جزئیات در پنجرهٔ کوچک و مرتب (نه صفحهٔ بزرگ)؛ فقط جدول ورود اکسل پهن است */
 .modal.wide{max-width:760px;width:94vw;max-height:90vh}
 .modal.wide .row>.field{flex:0 1 220px;min-width:0}
-/* ردیف ۱۸۳: کادرها به اندازهٔ محتوا و استاندارد، نه هم‌پهنای پنجره — شماره و کد ملی به اندازهٔ ارقام، نام و رمز اندازهٔ معمول؛ متن چندخطی و جدول ورود اکسل پهن می‌مانند */
-.modal:not(.xl) .field>.input:not(textarea),.modal:not(.xl) .field>select.input{max-width:360px}
-.modal:not(.xl) .field>.input.ltr,.modal:not(.xl) .field>.input[inputmode=numeric]{max-width:220px}
 .modal.wide.xl{max-width:1180px;width:96vw;max-height:94vh}
 @media (max-width:700px){ .modal.wide{width:100vw;max-height:96vh;padding:12px} }
 .modal.wide .table-wrap{max-height:44vh}

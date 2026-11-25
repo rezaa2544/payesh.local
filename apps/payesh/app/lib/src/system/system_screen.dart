@@ -415,16 +415,19 @@ class _SystemScreenState extends State<SystemScreen> {
     padding: const EdgeInsets.only(bottom: 9.6),
     child: WebField(
       label: label,
-      child: TextField(
-        key: Key(key),
-        controller: t,
-        obscureText: true,
-        textDirection: TextDirection.ltr,
-        autocorrect: false,
-        enableSuggestions: false,
-        autofillHints: [hint],
-        style: TextStyle(fontSize: 15, color: Web.ink),
-        decoration: webInput(),
+      child: FieldBox(
+        width: kFieldText,
+        child: TextField(
+          key: Key(key),
+          controller: t,
+          obscureText: true,
+          textDirection: TextDirection.ltr,
+          autocorrect: false,
+          enableSuggestions: false,
+          autofillHints: [hint],
+          style: TextStyle(fontSize: 15, color: Web.ink),
+          decoration: webInput(),
+        ),
       ),
     ),
   );
@@ -793,14 +796,17 @@ class _SystemScreenState extends State<SystemScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      key: const Key('sys-restore-path'),
-                      controller: restorePath,
-                      textDirection: TextDirection.ltr,
-                      style: TextStyle(fontSize: 15, color: Web.ink),
-                      decoration: webInput(
-                        hint: 'مسیر فایل پشتیبان (.json)',
-                        error: restoreBad ? checkFieldFa : null,
+                    child: FieldBox(
+                      width: kFieldWide,
+                      child: TextField(
+                        key: const Key('sys-restore-path'),
+                        controller: restorePath,
+                        textDirection: TextDirection.ltr,
+                        style: TextStyle(fontSize: 15, color: Web.ink),
+                        decoration: webInput(
+                          hint: 'مسیر فایل پشتیبان (.json)',
+                          error: restoreBad ? checkFieldFa : null,
+                        ),
                       ),
                     ),
                   ),
@@ -927,13 +933,16 @@ class _SystemScreenState extends State<SystemScreen> {
               const SizedBox(height: 8),
               WebField(
                 label: 'نام مدرسه',
-                child: TextField(
-                  key: const Key('sys-name'),
-                  controller: name,
-                  style: TextStyle(fontSize: 15, color: Web.ink),
-                  // row 166: the refused field is outlined red
-                  decoration: webInput(
-                    error: fieldIssueFor(c.error, 'نام مدرسه', name.text),
+                child: FieldBox(
+                  width: kFieldText,
+                  child: TextField(
+                    key: const Key('sys-name'),
+                    controller: name,
+                    style: TextStyle(fontSize: 15, color: Web.ink),
+                    // row 166: the refused field is outlined red
+                    decoration: webInput(
+                      error: fieldIssueFor(c.error, 'نام مدرسه', name.text),
+                    ),
                   ),
                 ),
               ),
@@ -1239,23 +1248,26 @@ class _CloudScreenState extends State<CloudScreen> {
         padding: const EdgeInsets.only(top: 8),
         child: WebField(
           label: label,
-          child: TextField(
-            key: Key(k),
-            controller: t,
-            obscureText: hide,
-            textDirection: TextDirection.ltr,
-            style: TextStyle(fontSize: 15, color: Web.ink),
-            decoration: webInput(
-              hint: k == 'cld-secret'
-                  ? 'کلید خصوصی فعلی می‌ماند'
-                  : k == 'cld-endpoint'
-                  // web placeholder names the storage host; D-36 keeps storage hosts out of
-                  // native code, so only the shape is shown
-                  ? 'https://s3.ir-central1.…'
-                  : k == 'cld-region'
-                  ? 'ir-central1'
-                  : null,
-              error: fieldIssueFor(c.error, label, t.text),
+          child: FieldBox(
+            width: kFieldWide,
+            child: TextField(
+              key: Key(k),
+              controller: t,
+              obscureText: hide,
+              textDirection: TextDirection.ltr,
+              style: TextStyle(fontSize: 15, color: Web.ink),
+              decoration: webInput(
+                hint: k == 'cld-secret'
+                    ? 'کلید خصوصی فعلی می‌ماند'
+                    : k == 'cld-endpoint'
+                    // web placeholder names the storage host; D-36 keeps storage hosts out of
+                    // native code, so only the shape is shown
+                    ? 'https://s3.ir-central1.…'
+                    : k == 'cld-region'
+                    ? 'ir-central1'
+                    : null,
+                error: fieldIssueFor(c.error, label, t.text),
+              ),
             ),
           ),
         ),
@@ -2452,15 +2464,18 @@ class _NetworkScreenState extends State<NetworkScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            TextField(
-              key: const Key('net-url'),
-              controller: url,
-              textDirection: TextDirection.ltr,
-              textAlign: TextAlign.left,
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              style: TextStyle(fontSize: 15, color: Web.ink),
-              decoration: webInput(hint: 'https://payesh.school.ts.net'),
+            FieldBox(
+              width: kFieldWide,
+              child: TextField(
+                key: const Key('net-url'),
+                controller: url,
+                textDirection: TextDirection.ltr,
+                textAlign: TextAlign.left,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                style: TextStyle(fontSize: 15, color: Web.ink),
+                decoration: webInput(hint: 'https://payesh.school.ts.net'),
+              ),
             ),
             const SizedBox(height: 8),
             WebBtn(

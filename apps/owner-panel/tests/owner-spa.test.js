@@ -149,6 +149,11 @@ function assets() {
   const a = loadAssets();
   const real = runAssetChecks(a);
   check('asset checks pass on committed files: ' + JSON.stringify(real), Object.keys(real).length === 0);
+  /* ردیف ۱۸۴: همهٔ کادرها در همهٔ صفحه‌ها اندازهٔ استاندارد دارند (نه فقط در پنجره‌ها) */
+  check('row 184: every text box and select is a standard 360px, not the page width', /\ninput\.input, select\.input \{ max-width: 360px; \}/.test(a.css));
+  check('row 184: digit and date boxes are 220px', /input\.input\[inputmode="numeric"\][^{]*\{ max-width: 220px; \}/.test(a.css));
+  check('row 184: the search box is 320px; multi-line text stays wide', /input\.input\[type="search"\] \{ max-width: 320px; \}/.test(a.css) && /textarea\.input \{ max-width: none; \}/.test(a.css));
+  check('row 184 NEG: the rule is no longer limited to dialogs', !/\.modal input\.input/.test(a.css));
 
   /* کنترل‌های منفی: هر کنترل باید ورودی خراب را رد کند */
   const mutate = (patch) => Object.assign({}, a, patch);

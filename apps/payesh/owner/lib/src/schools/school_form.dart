@@ -19,7 +19,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:payesh_ui/payesh_ui.dart'
-    show FieldIssues, fieldsToFixFa, iranCountiesOf;
+    show
+        FieldBox,
+        FieldIssues,
+        fieldsToFixFa,
+        iranCountiesOf,
+        kFieldDigits,
+        kFieldText;
 
 import 'school_registry.dart';
 
@@ -222,27 +228,32 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
     String? helper,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: TextField(
-      key: Key('sf-$k'),
-      controller: _c[k],
-      onChanged: (v) => _changed(k, v),
-      enabled: enabled,
-      obscureText: obscure,
-      maxLines: obscure ? 1 : lines,
-      textDirection: ltr ? TextDirection.ltr : null,
-      keyboardType: numeric ? TextInputType.number : null,
-      inputFormatters: numeric
-          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹]'))]
-          : null,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        helperText: helper,
-        helperMaxLines: 2,
-        errorText: _issues.of(k),
-        errorMaxLines: 3,
-        border: const OutlineInputBorder(),
-        isDense: true,
+    child: FieldBox(
+      width: lines > 1
+          ? double.infinity
+          : (numeric ? kFieldDigits : kFieldText),
+      child: TextField(
+        key: Key('sf-$k'),
+        controller: _c[k],
+        onChanged: (v) => _changed(k, v),
+        enabled: enabled,
+        obscureText: obscure,
+        maxLines: obscure ? 1 : lines,
+        textDirection: ltr ? TextDirection.ltr : null,
+        keyboardType: numeric ? TextInputType.number : null,
+        inputFormatters: numeric
+            ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹]'))]
+            : null,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          helperText: helper,
+          helperMaxLines: 2,
+          errorText: _issues.of(k),
+          errorMaxLines: 3,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
       ),
     ),
   );
@@ -274,31 +285,34 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
     ValueChanged<String> onChanged,
   ) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: DropdownButtonFormField<String>(
-      key: Key('sf-$k'),
-      initialValue: options.containsKey(value) ? value : null,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: label,
-        errorText: _issues.of(k),
-        errorMaxLines: 3,
-        border: const OutlineInputBorder(),
-        isDense: true,
+    child: FieldBox(
+      width: kFieldText,
+      child: DropdownButtonFormField<String>(
+        key: Key('sf-$k'),
+        initialValue: options.containsKey(value) ? value : null,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          errorText: _issues.of(k),
+          errorMaxLines: 3,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
+        items: [
+          for (final e in options.entries)
+            DropdownMenuItem(value: e.key, child: Text(e.value)),
+        ],
+        onChanged: options.length <= 1
+            ? null
+            : (v) {
+                if (v != null) {
+                  setState(() {
+                    _issues.clear(k);
+                    onChanged(v);
+                  });
+                }
+              },
       ),
-      items: [
-        for (final e in options.entries)
-          DropdownMenuItem(value: e.key, child: Text(e.value)),
-      ],
-      onChanged: options.length <= 1
-          ? null
-          : (v) {
-              if (v != null) {
-                setState(() {
-                  _issues.clear(k);
-                  onChanged(v);
-                });
-              }
-            },
     ),
   );
 

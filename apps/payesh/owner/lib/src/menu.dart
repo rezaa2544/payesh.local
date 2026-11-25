@@ -279,26 +279,29 @@ class _MinimalSideNavState extends State<_MinimalSideNav> {
                         Icon(Icons.search_rounded, size: 16, color: tk.muted),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: TextField(
-                            controller: _q,
-                            focusNode: _focus,
-                            onChanged: (_) => setState(() {}),
-                            onSubmitted: (_) {
-                              if (shown.isNotEmpty) {
-                                nav.onSelected(shown.first.$1);
-                              }
-                            },
-                            style: TextStyle(fontSize: 12.5, color: tk.ink),
-                            decoration: InputDecoration(
-                              isCollapsed: true,
-                              filled: false,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              hintText: 'جستجو در پنل…',
-                              hintStyle: TextStyle(
-                                fontSize: 12.5,
-                                color: tk.muted,
+                          child: FieldBox(
+                            width: kFieldSearch,
+                            child: TextField(
+                              controller: _q,
+                              focusNode: _focus,
+                              onChanged: (_) => setState(() {}),
+                              onSubmitted: (_) {
+                                if (shown.isNotEmpty) {
+                                  nav.onSelected(shown.first.$1);
+                                }
+                              },
+                              style: TextStyle(fontSize: 12.5, color: tk.ink),
+                              decoration: InputDecoration(
+                                isCollapsed: true,
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                hintText: 'جستجو در پنل…',
+                                hintStyle: TextStyle(
+                                  fontSize: 12.5,
+                                  color: tk.muted,
+                                ),
                               ),
                             ),
                           ),

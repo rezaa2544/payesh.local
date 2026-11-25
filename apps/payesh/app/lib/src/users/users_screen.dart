@@ -173,13 +173,18 @@ class _UsersScreenState extends State<UsersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              key: const Key('usr-search'),
-              controller: search,
-              style: TextStyle(fontSize: 15, color: Web.ink),
-              decoration: webInput(hint: 'جستجوی نام، شمارهٔ همراه یا کد ملی…'),
-              onChanged: (v) => c.filter(search: v),
-              onSubmitted: (v) => c.filter(search: v),
+            FieldBox(
+              width: kFieldSearch,
+              child: TextField(
+                key: const Key('usr-search'),
+                controller: search,
+                style: TextStyle(fontSize: 15, color: Web.ink),
+                decoration: webInput(
+                  hint: 'جستجوی نام، شمارهٔ همراه یا کد ملی…',
+                ),
+                onChanged: (v) => c.filter(search: v),
+                onSubmitted: (v) => c.filter(search: v),
+              ),
             ),
             const SizedBox(height: 8),
             WebPills(
@@ -805,33 +810,41 @@ class _UserFormPageState extends State<UserFormPage> {
         onSubmit: _save,
         fields: [
           SchoolField('usr-f-name', 'نام و نام خانوادگی', f['name']!),
-          DropdownButtonFormField<String>(
-            key: const Key('usr-f-role'),
-            initialValue: role,
-            decoration: const InputDecoration(
-              labelText: 'نقش',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              for (final MapEntry(:key, :value) in roleFa.entries)
-                DropdownMenuItem(value: key, child: Text(value)),
-            ],
-            onChanged: (v) => setState(() => role = v ?? 'student'),
-          ),
-          if (role == 'student')
-            DropdownButtonFormField<int?>(
-              key: const Key('usr-f-class'),
-              initialValue: classId,
+          FieldBox(
+            width: kFieldText,
+            child: DropdownButtonFormField<String>(
+              isExpanded: true,
+              key: const Key('usr-f-role'),
+              initialValue: role,
               decoration: const InputDecoration(
-                labelText: 'کلاس',
+                labelText: 'نقش',
                 border: OutlineInputBorder(),
               ),
               items: [
-                const DropdownMenuItem<int?>(value: null, child: Text('—')),
-                for (final (id, name) in c.classes)
-                  DropdownMenuItem<int?>(value: id, child: Text(name)),
+                for (final MapEntry(:key, :value) in roleFa.entries)
+                  DropdownMenuItem(value: key, child: Text(value)),
               ],
-              onChanged: (v) => setState(() => classId = v),
+              onChanged: (v) => setState(() => role = v ?? 'student'),
+            ),
+          ),
+          if (role == 'student')
+            FieldBox(
+              width: kFieldText,
+              child: DropdownButtonFormField<int?>(
+                isExpanded: true,
+                key: const Key('usr-f-class'),
+                initialValue: classId,
+                decoration: const InputDecoration(
+                  labelText: 'کلاس',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('—')),
+                  for (final (id, name) in c.classes)
+                    DropdownMenuItem<int?>(value: id, child: Text(name)),
+                ],
+                onChanged: (v) => setState(() => classId = v),
+              ),
             ),
           SchoolField('usr-f-nid', 'کد ملی', f['national_id']!, numeric: true),
           SchoolField(
@@ -1041,12 +1054,15 @@ class _StudentsScreenState extends State<StudentsScreen> {
       subKey: const Key('std-count'),
       children: [
         WebCard.tight(
-          child: TextField(
-            key: const Key('std-search'),
-            style: TextStyle(fontSize: 15, color: Web.ink),
-            decoration: webInput(hint: 'جستجو…'),
-            onChanged: c.search,
-            onSubmitted: c.search,
+          child: FieldBox(
+            width: kFieldSearch,
+            child: TextField(
+              key: const Key('std-search'),
+              style: TextStyle(fontSize: 15, color: Web.ink),
+              decoration: webInput(hint: 'جستجو…'),
+              onChanged: c.search,
+              onSubmitted: c.search,
+            ),
           ),
         ),
         if (c.students.isEmpty)

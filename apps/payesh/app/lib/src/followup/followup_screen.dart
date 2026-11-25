@@ -143,18 +143,21 @@ class _FollowupScreenState extends State<FollowupScreen> {
     ValueChanged<String> onChanged,
   ) => ConstrainedBox(
     constraints: BoxConstraints(minWidth: minWidth, maxWidth: minWidth + 40),
-    child: DropdownButtonFormField<String>(
-      key: key,
-      initialValue: value,
-      isExpanded: true,
-      isDense: true,
-      style: TextStyle(fontSize: 15, color: Web.ink, fontFamily: 'Vazirmatn'),
-      decoration: webInput(),
-      items: [
-        DropdownMenuItem(value: '', child: Text(empty)),
-        for (final x in options) DropdownMenuItem(value: x, child: Text(x)),
-      ],
-      onChanged: (x) => onChanged(x ?? ''),
+    child: FieldBox(
+      width: kFieldText,
+      child: DropdownButtonFormField<String>(
+        key: key,
+        initialValue: value,
+        isExpanded: true,
+        isDense: true,
+        style: TextStyle(fontSize: 15, color: Web.ink, fontFamily: 'Vazirmatn'),
+        decoration: webInput(),
+        items: [
+          DropdownMenuItem(value: '', child: Text(empty)),
+          for (final x in options) DropdownMenuItem(value: x, child: Text(x)),
+        ],
+        onChanged: (x) => onChanged(x ?? ''),
+      ),
     ),
   );
 
@@ -638,19 +641,22 @@ class _ImportScreenState extends State<ImportScreen> {
   );
 
   List<Widget> _stepFile() => [
-    DropdownButtonFormField<String>(
-      key: const Key('imp-kind'),
-      initialValue: c.kind,
-      isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'نوع اطلاعات',
-        border: OutlineInputBorder(),
+    FieldBox(
+      width: kFieldText,
+      child: DropdownButtonFormField<String>(
+        key: const Key('imp-kind'),
+        initialValue: c.kind,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'نوع اطلاعات',
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          for (final MapEntry(:key, :value) in importKindFa.entries)
+            DropdownMenuItem(value: key, child: Text(value)),
+        ],
+        onChanged: (v) => c.setKind(v ?? 'students'),
       ),
-      items: [
-        for (final MapEntry(:key, :value) in importKindFa.entries)
-          DropdownMenuItem(value: key, child: Text(value)),
-      ],
-      onChanged: (v) => c.setKind(v ?? 'students'),
     ),
     if (c.kind == 'students') ...[
       const SizedBox(height: PayeshTokens.space3),
@@ -750,27 +756,33 @@ class _ImportScreenState extends State<ImportScreen> {
       for (var i = 0; i < s.headers.length; i++)
         Padding(
           padding: const EdgeInsets.only(top: PayeshTokens.space3),
-          child: DropdownButtonFormField<String>(
-            key: Key('imp-map-$i'),
-            initialValue: s.map[i],
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: s.headers[i],
-              helperText: [
-                for (final r in s.rows.take(2))
-                  if (i < r.length && r[i].trim().isNotEmpty) r[i].trim(),
-              ].join(' · '),
-              border: const OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem(value: '', child: Text('— نادیده بگیر —')),
-              for (final (k, label, req, _) in ordered)
-                DropdownMenuItem(
-                  value: k,
-                  child: Text(req ? '$label *' : label),
+          child: FieldBox(
+            width: kFieldText,
+            child: DropdownButtonFormField<String>(
+              key: Key('imp-map-$i'),
+              initialValue: s.map[i],
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: s.headers[i],
+                helperText: [
+                  for (final r in s.rows.take(2))
+                    if (i < r.length && r[i].trim().isNotEmpty) r[i].trim(),
+                ].join(' · '),
+                border: const OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem(
+                  value: '',
+                  child: Text('— نادیده بگیر —'),
                 ),
-            ],
-            onChanged: (v) => c.setMap(i, v ?? ''),
+                for (final (k, label, req, _) in ordered)
+                  DropdownMenuItem(
+                    value: k,
+                    child: Text(req ? '$label *' : label),
+                  ),
+              ],
+              onChanged: (v) => c.setMap(i, v ?? ''),
+            ),
           ),
         ),
       const SizedBox(height: PayeshTokens.space3),

@@ -292,27 +292,30 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
     ValueChanged<String> onChanged,
   ) => Padding(
     padding: const EdgeInsets.only(bottom: PayeshTokens.space2),
-    child: DropdownButtonFormField<String>(
-      key: Key('sp-$k'),
-      initialValue: options.containsKey(value) ? value : null,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: label,
-        errorText: _issues[k],
-        errorMaxLines: 3,
-        border: const OutlineInputBorder(),
-        isDense: true,
+    child: FieldBox(
+      width: kFieldText,
+      child: DropdownButtonFormField<String>(
+        key: Key('sp-$k'),
+        initialValue: options.containsKey(value) ? value : null,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          errorText: _issues[k],
+          errorMaxLines: 3,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
+        items: [
+          for (final e in options.entries)
+            DropdownMenuItem(value: e.key, child: Text(e.value)),
+        ],
+        onChanged: (v) {
+          if (v != null) {
+            _fix(k);
+            setState(() => onChanged(v));
+          }
+        },
       ),
-      items: [
-        for (final e in options.entries)
-          DropdownMenuItem(value: e.key, child: Text(e.value)),
-      ],
-      onChanged: (v) {
-        if (v != null) {
-          _fix(k);
-          setState(() => onChanged(v));
-        }
-      },
     ),
   );
 

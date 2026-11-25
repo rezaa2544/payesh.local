@@ -987,21 +987,25 @@ class _LeaveFormState extends State<LeaveForm> {
             children: [
               if (c.formError != null)
                 _error(context, c.formError!, 'lvf-error'),
-              DropdownButtonFormField<int>(
-                key: const Key('lvf-student'),
-                initialValue: _student,
-                // row 166: the refused field is outlined red
-                decoration: InputDecoration(
-                  labelText: 'دانش‌آموز',
-                  errorText: _student == null
-                      ? fieldIssueFor(c.formError, 'دانش‌آموز', '')
-                      : null,
+              FieldBox(
+                width: kFieldText,
+                child: DropdownButtonFormField<int>(
+                  isExpanded: true,
+                  key: const Key('lvf-student'),
+                  initialValue: _student,
+                  // row 166: the refused field is outlined red
+                  decoration: InputDecoration(
+                    labelText: 'دانش‌آموز',
+                    errorText: _student == null
+                        ? fieldIssueFor(c.formError, 'دانش‌آموز', '')
+                        : null,
+                  ),
+                  items: [
+                    for (final k in c.children)
+                      DropdownMenuItem(value: k.id, child: Text(k.name)),
+                  ],
+                  onChanged: (v) => setState(() => _student = v),
                 ),
-                items: [
-                  for (final k in c.children)
-                    DropdownMenuItem(value: k.id, child: Text(k.name)),
-                ],
-                onChanged: (v) => setState(() => _student = v),
               ),
               const SizedBox(height: PayeshTokens.space3),
               FieldBox(

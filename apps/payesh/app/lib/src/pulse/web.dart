@@ -1995,15 +1995,18 @@ class _WebJalaliFieldState extends State<WebJalaliField> {
   @override
   Widget build(BuildContext context) => ConstrainedBox(
     constraints: BoxConstraints(maxWidth: widget.maxWidth),
-    child: TextField(
-      controller: text,
-      textDirection: TextDirection.ltr,
-      keyboardType: TextInputType.number,
-      maxLength: 10,
-      style: TextStyle(fontSize: 15, color: Web.ink),
-      decoration: webInput(hint: '۱۴۰۵/۰۱/۰۱').copyWith(counterText: ''),
-      onChanged: _changed,
-      onSubmitted: _changed,
+    child: FieldBox(
+      width: kFieldDigits,
+      child: TextField(
+        controller: text,
+        textDirection: TextDirection.ltr,
+        keyboardType: TextInputType.number,
+        maxLength: 10,
+        style: TextStyle(fontSize: 15, color: Web.ink),
+        decoration: webInput(hint: '۱۴۰۵/۰۱/۰۱').copyWith(counterText: ''),
+        onChanged: _changed,
+        onSubmitted: _changed,
+      ),
     ),
   );
 }

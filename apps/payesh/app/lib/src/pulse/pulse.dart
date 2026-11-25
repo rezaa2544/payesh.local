@@ -431,26 +431,29 @@ class _D2NavBodyState extends State<_D2NavBody> {
                       Icon(Icons.search_rounded, size: 16, color: Web.muted),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: TextField(
-                          controller: _q,
-                          focusNode: _focus,
-                          onChanged: (_) => setState(() {}),
-                          onSubmitted: (_) {
-                            if (shown.isNotEmpty) {
-                              widget.onSelected(shown.first.id);
-                            }
-                          },
-                          style: TextStyle(fontSize: 12.5, color: Web.ink),
-                          decoration: InputDecoration(
-                            isCollapsed: true,
-                            filled: false,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            hintText: 'جستجو در پنل…',
-                            hintStyle: TextStyle(
-                              fontSize: 12.5,
-                              color: Web.muted,
+                        child: FieldBox(
+                          width: kFieldSearch,
+                          child: TextField(
+                            controller: _q,
+                            focusNode: _focus,
+                            onChanged: (_) => setState(() {}),
+                            onSubmitted: (_) {
+                              if (shown.isNotEmpty) {
+                                widget.onSelected(shown.first.id);
+                              }
+                            },
+                            style: TextStyle(fontSize: 12.5, color: Web.ink),
+                            decoration: InputDecoration(
+                              isCollapsed: true,
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              hintText: 'جستجو در پنل…',
+                              hintStyle: TextStyle(
+                                fontSize: 12.5,
+                                color: Web.muted,
+                              ),
                             ),
                           ),
                         ),

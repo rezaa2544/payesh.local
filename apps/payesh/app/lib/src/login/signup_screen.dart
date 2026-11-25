@@ -65,33 +65,36 @@ class _SignupScreenState extends State<SignupScreen> {
     final issue = _issue(k);
     return Padding(
       padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-      child: TextField(
-        key: Key('signup-$k'),
-        controller: _c[k],
-        enabled: !busy,
-        obscureText: secret,
-        autocorrect: false,
-        enableSuggestions: !secret,
-        textDirection: ltr ? TextDirection.ltr : null,
-        keyboardType: numeric ? TextInputType.number : keyboard,
-        inputFormatters: numeric
-            ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩]'))]
-            : null,
-        onChanged: (v) {
-          _fix(k);
-          // Row 166: the manager's user name defaults to the mobile until typed by hand
-          if (k == 'username') _userTyped = v.isNotEmpty;
-          if (k == 'phone' && !_userTyped) {
-            _c['username']!.text = LanServerRules.digitsOnly(v);
-            _fix('username');
-          }
-        },
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          errorText: issue,
-          errorMaxLines: 3,
-          border: const OutlineInputBorder(),
+      child: FieldBox(
+        width: numeric ? kFieldDigits : kFieldText,
+        child: TextField(
+          key: Key('signup-$k'),
+          controller: _c[k],
+          enabled: !busy,
+          obscureText: secret,
+          autocorrect: false,
+          enableSuggestions: !secret,
+          textDirection: ltr ? TextDirection.ltr : null,
+          keyboardType: numeric ? TextInputType.number : keyboard,
+          inputFormatters: numeric
+              ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩]'))]
+              : null,
+          onChanged: (v) {
+            _fix(k);
+            // Row 166: the manager's user name defaults to the mobile until typed by hand
+            if (k == 'username') _userTyped = v.isNotEmpty;
+            if (k == 'phone' && !_userTyped) {
+              _c['username']!.text = LanServerRules.digitsOnly(v);
+              _fix('username');
+            }
+          },
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: hint,
+            errorText: issue,
+            errorMaxLines: 3,
+            border: const OutlineInputBorder(),
+          ),
         ),
       ),
     );
@@ -122,24 +125,27 @@ class _SignupScreenState extends State<SignupScreen> {
     ValueChanged<String?> onChanged,
   ) => Padding(
     padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-    child: DropdownButtonFormField<String>(
-      key: Key('signup-$k'),
-      initialValue: value,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: label,
-        errorText: _issue(k),
-        border: const OutlineInputBorder(),
+    child: FieldBox(
+      width: kFieldText,
+      child: DropdownButtonFormField<String>(
+        key: Key('signup-$k'),
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          errorText: _issue(k),
+          border: const OutlineInputBorder(),
+        ),
+        items: [
+          for (final o in options) DropdownMenuItem(value: o, child: Text(o)),
+        ],
+        onChanged: widget.controller.busy || options.isEmpty
+            ? null
+            : (v) => setState(() {
+                _fixed.add(k);
+                onChanged(v);
+              }),
       ),
-      items: [
-        for (final o in options) DropdownMenuItem(value: o, child: Text(o)),
-      ],
-      onChanged: widget.controller.busy || options.isEmpty
-          ? null
-          : (v) => setState(() {
-              _fixed.add(k);
-              onChanged(v);
-            }),
     ),
   );
 

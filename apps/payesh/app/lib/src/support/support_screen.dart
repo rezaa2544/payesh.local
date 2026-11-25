@@ -278,17 +278,21 @@ class _NewTicketDialogState extends State<_NewTicketDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DropdownButtonFormField<String>(
-              key: const Key('support-category'),
-              initialValue: _category,
-              decoration: const InputDecoration(labelText: 'موضوع کلی'),
-              items: [
-                for (final (id, fa) in supportCategories)
-                  DropdownMenuItem(value: id, child: Text(fa)),
-              ],
-              onChanged: _busy
-                  ? null
-                  : (v) => setState(() => _category = v ?? 'other'),
+            FieldBox(
+              width: kFieldText,
+              child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                key: const Key('support-category'),
+                initialValue: _category,
+                decoration: const InputDecoration(labelText: 'موضوع کلی'),
+                items: [
+                  for (final (id, fa) in supportCategories)
+                    DropdownMenuItem(value: id, child: Text(fa)),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(() => _category = v ?? 'other'),
+              ),
             ),
             const SizedBox(height: 12),
             FieldBox(

@@ -261,18 +261,21 @@ class _ServerDefinitionPanelState extends State<ServerDefinitionPanel> {
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: TextField(
-            key: const Key('server-url'),
-            controller: _url,
-            enabled: !_busy,
-            textDirection: TextDirection.ltr,
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            decoration: const InputDecoration(
-              labelText: 'نشانی سرور مرکزی',
-              hintText: 'https://server.example.ir',
+          child: FieldBox(
+            width: kFieldWide,
+            child: TextField(
+              key: const Key('server-url'),
+              controller: _url,
+              enabled: !_busy,
+              textDirection: TextDirection.ltr,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: const InputDecoration(
+                labelText: 'نشانی سرور مرکزی',
+                hintText: 'https://server.example.ir',
+              ),
+              onSubmitted: (_) => unawaited(_save()),
             ),
-            onSubmitted: (_) => unawaited(_save()),
           ),
         ),
         Wrap(
