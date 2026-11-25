@@ -392,7 +392,9 @@ class LoginConnectionPill extends StatelessWidget {
         ? (
             t.danger,
             t.dangerBg,
-            'اتصال به دیتابیس برقرار نشد',
+            state.vpn
+                ? 'اتصال برقرار نشد — VPN روشن است'
+                : 'اتصال به دیتابیس برقرار نشد',
             _Dot(color: t.danger),
           )
         : (
@@ -417,31 +419,48 @@ class LoginConnectionPill extends StatelessWidget {
           color: bg,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            lead,
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                text,
-                key: const Key('lan-connection-text'),
-                style: TextStyle(
-                  color: fg,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
+            Row(
+              children: [
+                lead,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    text,
+                    key: const Key('lan-connection-text'),
+                    style: TextStyle(
+                      color: fg,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
-              ),
+                if (info == null && state.notFound)
+                  TextButton.icon(
+                    key: const Key('lan-retry'),
+                    onPressed: busy ? null : onRetry,
+                    style: TextButton.styleFrom(
+                      foregroundColor: fg,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('تلاش دوباره'),
+                  ),
+              ],
             ),
-            if (info == null && state.notFound)
-              TextButton.icon(
-                key: const Key('lan-retry'),
-                onPressed: busy ? null : onRetry,
-                style: TextButton.styleFrom(
-                  foregroundColor: fg,
-                  visualDensity: VisualDensity.compact,
+            // row 186: a VPN is up and nothing answered — say what to do (the app keeps
+            // searching by itself, so nothing else has to be pressed afterwards)
+            if (info == null && state.notFound && state.vpn)
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 4, 4, 4),
+                child: Text(
+                  SessionController.lanVpnFa,
+                  key: const Key('lan-vpn-hint'),
+                  style: TextStyle(color: fg, fontSize: 12.5, height: 1.6),
                 ),
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('تلاش دوباره'),
               ),
           ],
         ),

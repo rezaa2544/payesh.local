@@ -47,15 +47,26 @@ function instanceId(store) {
   return id;
 }
 
-function lanUrls(port) {
-  const out = [];
-  const ifaces = os.networkInterfaces();
-  for (const name of Object.keys(ifaces)) {
+/* ردیف ۱۸۶: نشانی کارتِ VPN (tun0 لنترن/v2ray، WireGuard، OpenVPN، Tailscale، ZeroTier) نشانی
+   شبکهٔ مدرسه نیست — روی گوشیِ دارای VPN همان نشانی (مثل 10.10.1.1) نشانیِ خودِ VPNِ گوشی است و
+   فهرستِ عمومی را گمراه می‌کرد. این‌ها منتشر نمی‌شوند؛ کارت‌های مجازی (WSL/Hyper-V/VirtualBox/VMware)
+   بعد از کارت واقعی (Wi-Fi/Ethernet) می‌آیند. */
+const VPN_IFACE = /^(tun|utun|tap|wg|ppp|ipsec)\d*$|lantern|tailscale|zerotier|wireguard|openvpn|tap-windows|wintun|v2ray|clash|outline|psiphon|nekoray|hiddify/i;
+const VIRTUAL_IFACE = /vethernet|virtualbox|vmware|vmnet|hyper-v|docker|br-|virbr|wsl|loopback|npcap/i;
+function pickLanUrls(ifaces, port) {
+  const real = [], virt = [];
+  for (const name of Object.keys(ifaces || {})) {
+    if (VPN_IFACE.test(name)) continue;
     for (const addr of ifaces[name] || []) {
-      if (addr.family === 'IPv4' && !addr.internal) out.push(`http://${addr.address}:${port}`);
+      if (addr.family !== 'IPv4' && addr.family !== 4) continue;
+      if (addr.internal) continue;
+      (VIRTUAL_IFACE.test(name) ? virt : real).push(`http://${addr.address}:${port}`);
     }
   }
-  return out;
+  return [...real, ...virt];
+}
+function lanUrls(port) {
+  return pickLanUrls(os.networkInterfaces(), port);
 }
 
 /* ردیف ۱۷۳: پروکسی معکوسِ جدا (کانتینر درگاه HTTPS در داکر، nginx روی سیستم دیگر) از نشانی
@@ -161,6 +172,6 @@ async function tunnelStatus(store, { force = false } = {}) {
 }
 
 module.exports = {
-  publicUrl, instanceId, lanUrls, clientIp, tunnelStatus, normalizeUrl,
+  publicUrl, instanceId, lanUrls, pickLanUrls, clientIp, tunnelStatus, normalizeUrl,
   getMeta, setMeta, trustProxyFor,
 };

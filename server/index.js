@@ -8,7 +8,6 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const zlib = require('zlib');
 const crypto = require('crypto');
 
@@ -2584,14 +2583,8 @@ function scheduleRestart(reason) {
 }
 
 function lanAddresses() {
-  const out = [];
-  const ifs = os.networkInterfaces();
-  for (const name of Object.keys(ifs)) {
-    for (const a of ifs[name] || []) {
-      if (a.family === 'IPv4' && !a.internal) out.push(a.address);
-    }
-  }
-  return out;
+  // ردیف ۱۸۶: همان گزینشِ نشانی‌های منتشرشده (بی کارت VPN، کارت واقعی اول)
+  return cfg.lanUrls(PORT).map(u => new URL(u).hostname);
 }
 
 let listenTries = 0;

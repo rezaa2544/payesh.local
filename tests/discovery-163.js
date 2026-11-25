@@ -12,6 +12,7 @@
      DS-05  unchanged content is not rewritten within the hour (no bandwidth burn)
      DS-06  no cloud configured ⇒ nothing is sent
      DS-07  index.js starts the publisher (PAYESH_DISCOVERY=0 turns it off)
+     DS-08  row 186: VPN interface addresses are never published; virtual adapters last
    ═══════════════════════════════════════════════════════════════════ */
 const fs = require('fs');
 const path = require('path');
@@ -126,6 +127,25 @@ check('DS-07', 'index.js starts the publisher, PAYESH_DISCOVERY=0 turns it off',
   const src = fs.readFileSync(path.join(ROOT, 'server/index.js'), 'utf8');
   assert(/PAYESH_DISCOVERY !== '0'/.test(src) && /require\('\.\/discovery'\)\.start\(store/.test(src), 'not wired');
   return 'wired';
+});
+
+check('DS-08', 'row 186: VPN interfaces (tun0 10.10.1.1, Lantern, WireGuard, Tailscale) are never published; virtual adapters come after Wi-Fi/Ethernet', async () => {
+  const { pickLanUrls } = require(path.join(ROOT, 'server/config.js'));
+  const v4 = (address, internal = false) => ({ family: 'IPv4', address, internal });
+  const urls = pickLanUrls({
+    'vEthernet (WSL)': [v4('172.19.240.1')],
+    tun0: [v4('10.10.1.1')],
+    'Lantern': [v4('10.10.1.5')],
+    'Tailscale': [v4('100.106.84.72')],
+    'wg0': [v4('10.8.0.2')],
+    'Wi-Fi': [v4('192.168.1.101'), { family: 'IPv6', address: 'fe80::1', internal: false }],
+    'VirtualBox Host-Only Network': [v4('192.168.56.1')],
+    'Loopback Pseudo-Interface 1': [v4('127.0.0.1', true)],
+  }, 8080);
+  assert(urls[0] === 'http://192.168.1.101:8080', JSON.stringify(urls));
+  assert(!urls.some(u => /10\.10\.1\.|100\.106|10\.8\.0/.test(u)), 'vpn published: ' + JSON.stringify(urls));
+  assert(urls.length === 3 && urls.includes('http://172.19.240.1:8080') && urls.includes('http://192.168.56.1:8080'), JSON.stringify(urls));
+  return urls.join(' ');
 });
 
 (async () => {

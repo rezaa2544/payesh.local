@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart' show fieldsToFixFa;
@@ -47,6 +49,7 @@ final class NeedLan extends SessionState {
     this.otp,
     this.searching = false,
     this.notFound = false,
+    this.vpn = false,
   });
   final LanServerInfo? info;
   final String? error;
@@ -57,6 +60,11 @@ final class NeedLan extends SessionState {
 
   /// Row 163 — the search ended without an answer (the screen offers «تلاش دوباره»).
   final bool notFound;
+
+  /// Row 186 — no server answered AND a VPN is up on this device. A VPN that carries every app
+  /// (Lantern, v2ray, …) also carries the school server's LAN address, and a broken or
+  /// filtered one refuses everything; the screen then says so and how to fix it.
+  final bool vpn;
 
   /// Row 160 — an SMS code was sent: the code (and, for a reset, the new password) comes next.
   final LanOtpStep? otp;
@@ -191,6 +199,8 @@ class SessionController extends ChangeNotifier {
     this.deviceId,
     this.openUrl,
     this.deviceName = 'پایش',
+    this.vpnActive,
+    this.retryDelays = const [],
     DateTime Function()? now,
   }) : _active = flags,
        _now = now ?? DateTime.now;
@@ -234,6 +244,18 @@ class SessionController extends ChangeNotifier {
   /// Row 163 — starts a school server installed on this very computer (Windows: the Payesh Data
   /// Service task, or the school system's own server); true when one was started.
   final Future<bool> Function()? startLocalServer;
+
+  /// Row 186 — whether a VPN is up on this device (Android: a `tun`/`ppp`/`wg` interface); null =
+  /// not checked. Only asked after no school server answered, to explain why.
+  final Future<bool> Function()? vpnActive;
+
+  /// Row 186 — when no school server answered, the search runs again by itself after these
+  /// delays (the last one repeats) until one answers: a phone that joins the school Wi-Fi, a
+  /// VPN switched off or a server that comes back is found without pressing «تلاش دوباره».
+  /// Empty = no automatic retry (tests).
+  final List<Duration> retryDelays;
+  Timer? _retry;
+  int _retryCount = 0;
 
   /// How long the app waits for a school server it just started on this computer.
   static const Duration localStartWait = Duration(seconds: 30);
@@ -316,17 +338,17 @@ class SessionController extends ChangeNotifier {
   /// remembered server and this computer first, then (if a school server is installed here but
   /// not running) starts it, then the address-only list in the owner's database. The login form
   /// is usable meanwhile; a press waits for the search.
-  Future<void> _startLan() {
+  Future<void> _startLan({bool quiet = false}) {
     final f = _finding;
     if (f != null) return f;
-    final run = _findLan().whenComplete(() => _finding = null);
+    final run = _findLan(quiet: quiet).whenComplete(() => _finding = null);
     _finding = run;
     return run;
   }
 
   Future<void>? _finding;
 
-  Future<void> _findLan() async {
+  Future<void> _findLan({bool quiet = false}) async {
     final store = lanAccounts;
     final last = await store.lastServer();
     _lastPrimary = await store.lastPrimary();
@@ -335,7 +357,10 @@ class SessionController extends ChangeNotifier {
       _set(const NeedLan(notFound: true));
       return;
     }
-    _set(NeedLan(searching: true, login: _keepLogin()), busy: _busy);
+    // row 186: an automatic retry keeps the red line (and what the user typed) on screen
+    if (!quiet) {
+      _set(NeedLan(searching: true, login: _keepLogin()), busy: _busy);
+    }
     LanServerInfo? info = await firstAnswering(api, [
       ?last,
       if (last != _loopback) _loopback,
@@ -349,7 +374,7 @@ class SessionController extends ChangeNotifier {
       spare = info;
       info = null;
     }
-    if (info == null && spare == null) {
+    if (info == null && spare == null && !quiet) {
       final start = startLocalServer;
       var started = false;
       if (start != null) {
@@ -384,12 +409,23 @@ class SessionController extends ChangeNotifier {
     // the user went elsewhere meanwhile (signed in, signup, …) — never overwrite that
     if (now is! NeedLan || now.info != null) return;
     if (info == null) {
+      final vpn = await _vpnUp();
+      final again = _state;
+      if (again is! NeedLan || again.info != null) return;
       _set(
-        NeedLan(notFound: true, login: now.login, error: now.error),
+        NeedLan(
+          notFound: true,
+          vpn: vpn,
+          login: again.login,
+          error: again.error,
+        ),
         busy: _busy,
       );
+      _scheduleRetry();
       return;
     }
+    _retry?.cancel();
+    _retryCount = 0;
     _lanShare = info.lanUrls;
     await store.remember(info);
     _lastPrimary = info.loginPrimary;
@@ -422,10 +458,43 @@ class SessionController extends ChangeNotifier {
   static const String lanNotFoundFa =
       'اتصال به دیتابیس برقرار نشد — سرور پایش در دسترس نیست یا این دستگاه به اینترنت وصل نیست. چند لحظه بعد «تلاش دوباره» را بزنید.';
 
+  /// Row 186 — what the login screen says when no school server answered and a VPN is up.
+  static const String lanVpnFa =
+      'یک VPN روی این دستگاه روشن است و راه رسیدن به سرور پایش را بسته است. VPN را خاموش کنید — پایش به VPN نیاز ندارد. (اگر VPN بخش Split tunneling یا «عبور برنامه‌ها» دارد، «پایش» را در آن اضافه کنید و دوباره وصلش کنید.) برنامه خودش دوباره وصل می‌شود.';
+
+  Future<bool> _vpnUp() async {
+    final f = vpnActive;
+    if (f == null) return false;
+    try {
+      return await f().timeout(const Duration(seconds: 3));
+    } on Object {
+      return false;
+    }
+  }
+
+  /// Row 186 — the next automatic search (see [retryDelays]).
+  void _scheduleRetry() {
+    _retry?.cancel();
+    final d = retryDelays;
+    if (d.isEmpty) return;
+    final wait = d[_retryCount < d.length ? _retryCount : d.length - 1];
+    _retryCount++;
+    _retry = Timer(wait, () {
+      final s = _state;
+      if (s is! NeedLan || s.info != null) return;
+      if (_busy || _finding != null) {
+        _scheduleRetry();
+        return;
+      }
+      unawaited(_startLan(quiet: true));
+    });
+  }
+
   /// Row 163 — «تلاش دوباره»: searches for the school server again.
   Future<void> reconnect() {
     final s = _state;
     if (_busy || s is! NeedLan || s.info != null) return Future.value();
+    _retry?.cancel();
     return _startLan();
   }
 
@@ -803,6 +872,7 @@ class SessionController extends ChangeNotifier {
         typed: s.typed,
         login: login.isNotEmpty ? login : s.login,
         notFound: s.info == null,
+        vpn: s.info == null && s.vpn,
         error: s.info == null ? lanNotFoundFa : null,
       ),
     );
@@ -1642,6 +1712,7 @@ class SessionController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _retry?.cancel();
     sync.dispose();
     super.dispose();
   }
