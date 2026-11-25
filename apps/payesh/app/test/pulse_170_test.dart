@@ -75,7 +75,11 @@ void main() {
       expect(textIn(tester, 'pulse-a'), contains('غایب ۱'));
       expect(textIn(tester, 'pulse-a'), contains('حاضر ۱'));
       expect(textIn(tester, 'd2-ring-value'), contains('۳۳٪'));
-      expect(textOf(tester, 'web-title'), startsWith('صبح بخیر'));
+      // the greeting follows the clock of the run (CI runs at any hour)
+      expect(
+        textOf(tester, 'web-title'),
+        matches(RegExp('^(صبح|ظهر|عصر|شب) بخیر')),
+      );
       expect(find.byKey(const Key('dash-week')), findsOneWidget);
       expect(find.byKey(const Key('dash-away')), findsOneWidget);
       // a page opens inside the shell: the sidebar stays, no back button
