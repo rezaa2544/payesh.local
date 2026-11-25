@@ -158,12 +158,12 @@ void main() {
   testWidgets('W11-W01 manager home: counts, cohort coverage, the room in use now, latest notice; '
       'NEG a teacher has no reports, day view or leave list', (tester) async {
     await open(tester, 'home');
-    expect(find.text('داشبورد مدرسه'), findsWidgets);
+    // row 180 design 2: greeting, the ring card, the week and the absent / late list
+    expect(find.byKey(const Key('dash-topbar')), findsOneWidget);
     expect(textIn(tester, 'dash-now'), contains('زنگ اول'));
-    expect(textOf(tester, 'dash-students'), '۳');
-    expect(textOf(tester, 'dash-present'), '۱ / ۲');
-    expect(textOf(tester, 'dash-absent'), '۱');
-    expect(textOf(tester, 'dash-pending'), '۱');
+    expect(textOf(tester, 'pulse-of'), '۱ نفر از ۳ دانش‌آموز');
+    expect(textIn(tester, 'pulse-a'), contains('غایب ۱'));
+    expect(textIn(tester, 'dash-away'), contains('غایب'));
     expect(badgeOf(tester, 'dash-covered'), '۱ از ۲ گروه دارای ثبت');
     expect(badgeOf(tester, 'dash-cov-0'), '۱۰۰٪');
     await reveal(tester, 'dash-room-6');

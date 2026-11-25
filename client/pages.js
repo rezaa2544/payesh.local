@@ -106,7 +106,7 @@ function updateBarHtml() {
     const body = updateBarBody();
     if (body) return body;
   }
-  return `<div class="updbar" id="update-bar" dir="rtl">
+  return `<div class="updbar${!busy && !ready && !avail ? ' is-ok' : ''}" id="update-bar" dir="rtl">
     <span class="upd-dot" style="background:${dot}" title="${esc(text)}"></span>
     <span class="small">نسخهٔ <b class="ltr">${esc(cur)}</b> — ${text}</span>
     ${isManager && !bundled && (avail || ready)
@@ -130,13 +130,12 @@ function shellHtml(view) {
   return `
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand"><img class="brand-mark" src="/icons/logo-mark.png" alt="پایش"><span>پایش-لوکال</span></div>
-      <div class="small muted" style="margin-bottom:10px">${esc((S.server.school && S.server.school.name) || '')}</div>
-      ${nav.slice(0, 1).map(() => '').join('')}
-      ${mkNav(false)}
-      <div class="navgroup">حساب</div>
-      <div class="small muted" style="padding:6px">${esc(S.user ? S.user.name : '')} · ${esc(ROLE_FA[role] || role)}</div>
-      <div style="padding:2px 6px">${themeButtonHtml('theme-side')}</div>
+      <div class="brand d2-brand"><img class="d2-logo brand-mark" src="/icons/logo-mark.png" alt="پایش"><span class="d2-bn"><b>${esc((S.server.school && S.server.school.name) || 'پایش-لوکال')}</b><small>${esc(role === 'manager' ? 'مدیر مدرسه' : (ROLE_FA[role] || role))}</small></span></div>
+      <nav class="d2-nav">${mkNav(false)}</nav>
+      <div class="d2-foot">
+        <div class="d2-acc"><span class="avatar">${esc(String(S.user ? S.user.name : '').trim().charAt(0))}</span><span class="d2-bn"><b>${esc(S.user ? S.user.name : '')}</b><small>${esc(ROLE_FA[role] || role)}</small></span></div>
+        <div class="d2-theme">${themeButtonHtml('theme-side')}</div>
+      </div>
     </aside>
     <main class="main">${canonicalBarHtml()}${updateBarHtml()}${offlineBarHtml()}${view}</main>
   </div>
@@ -484,6 +483,19 @@ function dashboardIsRoom(c) {
 }
 
 /* ══════════════ داشبورد مدیر ══════════════ */
+/* ردیف ۱۸۰ — آیکن‌های خطی طرح ۲ (lucide) */
+function d2Ico(name, size) {
+  const P = {
+    sync: '<path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/><path d="M16 16h5v5"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    back: '<path d="m9 18 6-6-6-6"/>',
+  };
+  const z = size || 18;
+  return `<svg viewBox="0 0 24 24" width="${z}" height="${z}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
+}
+
 function managerHome() {
   const students = sortBy(list('users').filter(u => u.role === 'student' && u.active !== false), 'name');
   const teachers = sortBy(list('users').filter(u => u.role === 'teacher'), 'name');
@@ -541,19 +553,56 @@ function managerHome() {
   const dashboardDay = weekdayIndex();
   const currentBellLabel = bellNow ? (bellNow.label || 'زنگ ' + fa(bellNow.order)) : 'بین زنگ‌های درسی';
 
+  /* Row 180 «مینیمال حرفه‌ای» (طرح ۲، مو به مو): سلام + «امروز · زنگ»، سپس `.mgrid`:
+     «حضور امروز» (حلقه) کنار «هفتهٔ جاری»، «غایبان و تأخیرها» کنار «اطلاعیه‌ها». */
+  const hour = now().getHours();
+  const hello = (hour < 12 ? 'صبح بخیر' : hour < 17 ? 'ظهر بخیر' : hour < 20 ? 'عصر بخیر' : 'شب بخیر') +
+    (S.user && String(S.user.name || '').trim() ? '، ' + String(S.user.name).trim() : '');
+  const pct = students.length ? Math.min(100, Math.round(present * 100 / students.length)) : 0;
+  const perDay = new Map();
+  list('attendance').forEach(a => {
+    const d = String(a.date || '').slice(0, 10);
+    if (d.length < 10 || d > today) return;
+    const x = perDay.get(d) || [0, 0];
+    x[0] += 1; if (a.status === 'present' || a.status === 'late') x[1] += 1;
+    perDay.set(d, x);
+  });
+  const week = [...perDay.keys()].sort().slice(-6).map(d => [d, Math.round(perDay.get(d)[1] * 100 / perDay.get(d)[0])]);
+  const dayLetter = iso => (J_DAYS[weekdayIndex(new Date(iso + 'T12:00:00'))] || ' ').charAt(0);
+  const away = attToday.filter(a => (a.status === 'absent' || a.status === 'late') && byId('users', a.student_id))
+    .map(a => { const st = byId('users', a.student_id); return [st.name || '', (byId('classes', a.class_id || st.class_id) || {}).name || '', a.status]; })
+    .slice(0, 5);
+  const chev = '<svg class="d2-chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m15 18-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const cardH = (title, sub, route) => `<div class="card-h"><h3>${esc(title)}${sub ? ` <small>${esc(sub)}</small>` : ''}</h3>${route ? `<a class="lnk" href="#/${route}">همه ${chev}</a>` : ''}</div>`;
+
   return `
-  <div class="topbar dashboard-topbar">
-    <div><h2>داشبورد مدرسه</h2></div>
-    <div class="dashboard-topbar-left">
+  <div class="topbar dashboard-topbar d2-top">
+    <div class="hello"><h2>${esc(hello)}</h2>
+      <p class="dashboard-now" aria-label="وضعیت زنگ جاری"><span class="dashboard-now-date">${esc(J_DAYS[dashboardDay] + '، ' + fa(jdate(today)))}</span> · <span class="dashboard-now-line"><span class="dashboard-now-kicker">الان در</span><strong>${esc(currentBellLabel)}</strong></span>${bellNow ? ' <span class="muted">در حال برگزاری</span>' : ''}</p></div>
+    <div class="dashboard-topbar-left top-act">
       <div class="row no-print">
-        <button class="btn sm" data-act="sync">🔄 همگام‌سازی</button>
-        <button class="btn sm primary" data-act="goto" data-route="announcements">اطلاعیهٔ جدید</button>
-      </div>
-      <div class="dashboard-now" aria-label="وضعیت زنگ جاری">
-        <div class="dashboard-now-line"><span class="dashboard-now-kicker">الان در</span><strong>${esc(currentBellLabel)}</strong></div>
-        <div class="dashboard-now-date">${esc(J_DAYS[dashboardDay] + '، ' + fa(jdate(today)))}</div>
+        <button class="btn sm primary" data-act="goto" data-route="announcements">＋ اطلاعیهٔ جدید</button>
+        <button class="icon-b" data-act="sync" title="همگام‌سازی" aria-label="همگام‌سازی">${d2Ico('sync')}</button>
+        <a class="icon-b${recentAnn.length ? ' dot' : ''}" href="#/announcements" title="اطلاعیه‌ها" aria-label="اطلاعیه‌ها">${d2Ico('bell')}</a>
+        <span class="avatar me" aria-hidden="true">${esc(String((S.user && S.user.name) || 'م').trim().charAt(0))}</span>
       </div>
     </div>
+  </div>
+  <div class="mgrid" id="dash-mgrid">
+    <section class="card mhero" id="dash-hero">
+      <div class="ring" style="--p:${pct}"><div><b>${fa(pct)}٪</b><small>حاضر</small></div></div>
+      <div class="hero-t"><h3>حضور امروز</h3><p>${fa(present)} نفر از ${fa(students.length)} دانش‌آموز</p>
+        <div class="chips"><span class="chip c-ok">حاضر ${fa(present)}</span><span class="chip c-bad">غایب ${fa(absent)}</span><span class="chip c-warn">تأخیر ${fa(late)}</span></div></div>
+    </section>
+    <section class="card mweek" id="dash-week">${cardH('هفتهٔ جاری', 'درصد حضور')}
+      ${week.length ? `<div class="bars">${week.map(([d, v]) => `<div class="bar${d === today ? ' on' : ''}" title="${fa(v)}٪"><i style="height:${Math.max(4, v)}%"></i><span>${esc(dayLetter(d))}</span></div>`).join('')}</div>` : '<div class="small muted d2-empty">هنوز حضوری ثبت نشده است</div>'}
+    </section>
+    <section class="card mlist" id="dash-away">${cardH('غایبان و تأخیرها', '', 'attendance-report')}
+      ${away.length ? `<ul class="lst">${away.map(([n, c, st]) => `<li><span class="av">${esc(String(n).trim().charAt(0) || '؟')}</span><div class="nm"><b>${esc(n)}</b><small>${esc(c)}</small></div><span class="badge ${st === 'late' ? 'amber' : 'red'}">${st === 'late' ? 'تأخیر' : 'غایب'}</span></li>`).join('')}</ul>` : '<div class="small muted d2-empty">امروز غیبت یا تأخیری ثبت نشده است</div>'}
+    </section>
+    <section class="card mlist" id="dash-recent">${cardH('اطلاعیه‌ها', '', 'announcements')}
+      ${recentAnn.length ? `<ul class="lst">${recentAnn.map(a => `<li><span class="n-ic">${'<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'}</span><div class="nm"><b>${esc(a.title)}</b><small>${esc(fa(jdate(a.date)))}</small></div><a class="d2-go" href="#/announcements" aria-label="باز کردن">${chev}</a></li>`).join('')}</ul>` : '<div class="small muted d2-empty">اطلاعیه‌ای نیست</div>'}
+    </section>
   </div>
   <div class="grid">
     ${statCard('👥', fa(students.length), 'دانش‌آموز')}
@@ -598,15 +647,7 @@ function managerHome() {
       </tbody></table></div>` : '<div class="dashboard-empty">هنوز کلاس یا محل برگزاری تعریف نشده است.</div>'}`)}</section>
   </div>
 
-  <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
-    <a class="card" href="#/users"><b>👥 کاربران</b><div class="small muted">افزودن، کارت پیوند، ورود دسته‌ای</div></a>
-    <a class="card" href="#/reports"><b>📑 گزارش‌ها</b><div class="small muted">حضور، نمره، چاپ کارنامه</div></a>
-    <a class="card" href="#/system"><b>⚙️ سیستم</b><div class="small muted">پشتیبان، دستگاه‌ها، آپدیت</div></a>
-  </div>
-
-  ${recentAnn.length ? card(`<b>آخرین اطلاعیه‌ها</b><div class="list" style="margin-top:8px">
-    ${recentAnn.map(a => `<div class="item"><div class="grow"><div class="t">${esc(a.title)}</div><div class="s">${esc(jdate(a.date))}</div></div></div>`).join('')}
-  </div>`) : ''}`;
+  `;
 }
 
 function statCard(ico, num, label, tone = '') {
@@ -708,36 +749,37 @@ PAGES.attendance = (params) => {
 
   if (!roster.length) return pageHead('حضور و غیاب', cls.name || '') + empty('دانش‌آموزی برای این کلاس ثبت نشده است.');
 
-  return `${pageHead('حضور و غیاب', (cls.name || '') + ' · ' + jdate(date),
-    `<a class="btn sm" href="#/home">بازگشت</a>`)}
-  <div class="card tight">
-    <div class="row between">
-      <span class="badge green">حاضر ${fa(counts.present)}</span>
-      <span class="badge red">غایب ${fa(counts.absent)}</span>
-      <span class="badge amber">تأخیر ${fa(counts.late)}</span>
-      <span class="badge purple">خروج ${fa(counts.early_exit)}</span>
-    </div>
+  /* ردیف ۱۸۰ — طرح ۲: سر صفحه با برگشت، تراشهٔ کلاس‌ها، سه کارت خلاصه، «همه حاضرند؟» با
+     «همه حاضر ✓» بنفش، ردیف هر دانش‌آموز (آواتار، نام، «ردیف n»، گروه دکمه‌های خط‌دار)،
+     دکمهٔ مشکی تمام‌عرض «ثبت حضور · n نفر». کلاس‌ها و data-act ها همان قبلی است. */
+  const mineCls = S.role === 'teacher'
+    ? sortBy(list('classes').filter(c => list('schedule').some(x => Number(x.teacher_id) === Number(S.user.id) && Number(x.class_id) === Number(c.id))), 'name')
+    : [];
+  return `<div class="d2-top att-top"><div class="hello"><h1>حضور و غیاب</h1><p>${esc(cls.name || '')} · ${esc(fa(jdate(date)))}</p></div>
+    <a class="icon-b" href="#/home" title="بازگشت" aria-label="بازگشت">${d2Ico('back')}</a></div>
+  ${mineCls.length > 1 ? `<div class="kid-chips">${[...mineCls].sort((a, b) => (Number(b.id) === clsId) - (Number(a.id) === clsId)).map(c => `<a class="kid-chip sq${Number(c.id) === clsId ? ' on' : ''}" href="#/attendance/${c.id}">${esc(c.name)}</a>`).join('')}</div>` : ''}
+  <div class="att-sum">
+    <div><b class="c-ok">${fa(counts.present)}</b><span>حاضر</span></div>
+    <div><b class="c-warn">${fa(counts.late)}</b><span>تأخیر</span></div>
+    <div><b class="c-bad">${fa(counts.absent)}</b><span>غایب</span></div>
   </div>
-  ${card(`<div class="row between" style="margin-bottom:6px">
-      <b>فهرست کلاس</b>
-      <div class="row">
-        <button class="btn sm" data-act="att-all" data-status="present">همه حاضر</button>
-        <button class="btn sm" data-act="att-all" data-status="absent">همه غایب</button>
-      </div></div>
-    <div id="att-list">${roster.map(s => {
+  <div class="att-allrow"><span class="small muted">همه حاضرند؟</span>
+    <button class="lnk-b muted" data-act="att-all" data-status="absent">همه غایب</button>
+    <button class="lnk-b" data-act="att-all" data-status="present">همه حاضر ${d2Ico('check', 15)}</button></div>
+  <div id="att-list" class="att-d2">${roster.map((s, i) => {
       const v = statusOf(s.id);
       return `<div class="att-row" data-sid="${s.id}">
-        <div class="att-name">${esc(s.name)}</div>
+        <span class="avatar">${esc(String(s.name || '؟').trim().charAt(0))}</span>
+        <div class="att-name"><b>${esc(s.name)}</b><small>ردیف ${fa(i + 1)}</small></div>
         <div class="att-btns">
           <button class="att-btn ${v === 'present' ? 'on-p' : ''}" data-act="att-set" data-s="present">حاضر</button>
-          <button class="att-btn ${v === 'absent' ? 'on-a' : ''}" data-act="att-set" data-s="absent">غایب</button>
           <button class="att-btn ${v === 'late' ? 'on-l' : ''}" data-act="att-set" data-s="late">تأخیر</button>
+          <button class="att-btn ${v === 'absent' ? 'on-a' : ''}" data-act="att-set" data-s="absent">غایب</button>
           <button class="att-btn ${v === 'early_exit' ? 'on-e' : ''}" data-act="att-set" data-s="early_exit">خروج</button>
         </div>
       </div>`;
     }).join('')}</div>
-    <button class="btn primary block" style="margin-top:12px" data-act="att-save" data-class="${clsId}" data-bell="${esc(bell)}">ثبت نهایی حضور</button>
-  `)}`;
+  <button class="btn primary block att-save" data-act="att-save" data-class="${clsId}" data-bell="${esc(bell)}">${d2Ico('check', 18)} ثبت حضور · ${fa(roster.length)} نفر</button>`;
 };
 
 /* ══════════════ نمرات ══════════════ */
@@ -1220,7 +1262,7 @@ function myChildren() {
   return links.map(l => byId('users', l.student_id)).filter(Boolean);
 }
 
-PAGES.home = () => {
+PAGES.home = (params) => {
   if (S.role === 'manager') return managerHome();
   if (S.role === 'teacher') return teacherHome();
   if (S.role === 'parent') return parentHome();
@@ -1229,22 +1271,54 @@ PAGES.home = () => {
 };
 
 function parentHome() {
+  const params = S.params || [];
+  /* ردیف ۱۸۰ — طرح ۲ «مینیمال حرفه‌ای» در گوشی، مو به مو: تاریخ کم‌رنگ بالای «سلام»، زنگوله؛
+     تراشهٔ فرزندان (#/home/<id> انتخاب می‌کند)، دو کاشی فرزند انتخاب‌شده (حضور، معدل بنفش)،
+     «برنامهٔ امروز» با زنگ جاری بنفش و «اکنون»، تازه‌ترین اطلاعیه، مرخصی / اطلاعیه‌ها. */
   const kids = myChildren();
-  return `${pageHead('فرزندان من', fa(kids.length) + ' فرزند', `<button class="btn sm" data-act="sync">🔄</button>`)}
-  ${kids.length ? kids.map(k => {
-    const cls = byId('classes', k.class_id) || {};
-    const g = list('grades').filter(x => Number(x.student_id) === Number(k.id) && x.status === 'approved');
-    const avg = g.length ? (g.reduce((a, x) => a + Number(x.score || 0), 0) / g.length) : 0;
-    const att = list('attendance').filter(x => Number(x.student_id) === Number(k.id));
-    const pct = att.length ? Math.round(att.filter(x => x.status === 'present').length / att.length * 100) : 0;
-    return `<a class="card" href="#/child/${k.id}" style="display:block">
-      <div class="row between"><div><b>${esc(k.name)}</b><div class="small muted">${esc(cls.name || '')}</div></div>
-        <div class="row"><span class="badge ${avg >= 15 ? 'green' : avg >= 10 ? 'amber' : 'red'}">معدل ${fa(avg.toFixed(1))}</span>
-        <span class="badge ${pct >= 90 ? 'green' : 'amber'}">حضور ${fa(pct)}٪</span></div></div>
-    </a>`;
-  }).join('') : empty('فرزندی به حساب شما متصل نیست — با دفتر مدرسه تماس بگیرید.')}
-  ${cloudCard(kids)}
-  ${card(`<div class="row"><a class="btn grow" href="#/leaves">📨 درخواست مرخصی</a><a class="btn grow" href="#/announcements">📢 اطلاعیه‌ها</a></div>`)}`;
+  const pick = Number((params || [])[0] || 0);
+  const k = kids.find(x => Number(x.id) === pick) || kids[0];
+  const today = todayISO();
+  const day = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'][(new Date(today + 'T12:00:00').getDay() + 1) % 7];
+  const notes = list('announcements').filter(n => !n.deleted).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || Number(b.id) - Number(a.id));
+  const head = `<div class="d2-top ph-top"><div class="hello"><p class="ph-date">${esc(day)} ${esc(fa(jdate(today)))}</p><h1>سلام، ${esc(S.user ? S.user.name : '')}</h1></div>
+    <div class="row"><button class="icon-b" data-act="sync" title="همگام‌سازی" aria-label="همگام‌سازی">${d2Ico('sync')}</button>
+    <a class="icon-b${notes.length ? ' dot' : ''}" href="#/announcements" title="اطلاعیه‌ها" aria-label="اطلاعیه‌ها">${d2Ico('bell')}</a></div></div>`;
+  if (!kids.length) return head + empty('فرزندی به حساب شما متصل نیست — با دفتر مدرسه تماس بگیرید.') + cloudCard(kids)
+    + `<div class="ph-acts"><a class="btn grow" href="#/leaves">درخواست مرخصی</a><a class="btn grow" href="#/announcements">اطلاعیه‌ها</a></div>`;
+  const chips = `<div class="kid-chips">${kids.map(x => {
+    const c = byId('classes', x.class_id) || {};
+    const first = String(x.name || '').trim().split(/\s+/)[0] || '';
+    return `<a class="kid-chip${Number(x.id) === Number(k.id) ? ' on' : ''}" href="#/home/${x.id}"><i>${esc(first.charAt(0) || '؟')}</i>${esc(first)}${c.name ? ' · ' + esc(c.name) : ''}</a>`;
+  }).join('')}</div>`;
+  const cls = byId('classes', k.class_id) || {};
+  const g = list('grades').filter(x => Number(x.student_id) === Number(k.id) && x.status === 'approved');
+  const avg = g.length ? (g.reduce((a, x) => a + Number(x.score || 0), 0) / g.length) : 0;
+  const att = list('attendance').filter(x => Number(x.student_id) === Number(k.id));
+  const pct = att.length ? Math.round(att.filter(x => x.status === 'present').length / att.length * 100) : 0;
+  const avgTone = avg >= 15 ? 'green' : avg >= 10 ? 'amber' : 'red';
+  const pctTone = pct >= 90 ? 'green' : 'amber';
+  const tiles = `<div class="ph-tiles">
+    <a class="ph-tile" href="#/child/${k.id}" data-tone="${pctTone}"><span>حضور</span><b>${att.length ? fa(pct) + '٪' : '—'}</b><small>${!att.length ? 'هنوز ثبت نشده' : pct >= 100 ? 'بدون غیبت' : fa(att.length) + ' جلسهٔ ثبت‌شده'}</small></a>
+    <a class="ph-tile v" href="#/child/${k.id}" data-tone="${avgTone}"><span>میانگین نمره</span><b>${g.length ? fa(avg.toFixed(1)) : '—'}</b><small>${g.length ? fa(g.length) + ' نمرهٔ تأییدشده' : 'نمرهٔ تأییدشده‌ای نیست'}</small></a></div>`;
+  const wd = (new Date(today + 'T12:00:00').getDay() + 1) % 7;
+  const bells = new Map(pageBellRows().filter(b => !b.is_break).map(b => [Number(b.order), b]));
+  const cur = typeof currentBell === 'function' ? currentBell() : null;
+  const slots = list('schedule').filter(x => Number(x.weekday) === wd && (Number(x.class_id) === Number(k.class_id)
+      || (cls.grade && String(x.grade || '') === String(cls.grade) && String(x.branch || '') === String(cls.branch || ''))))
+    .sort((a, b) => Number(a.bell_order) - Number(b.bell_order));
+  const plan = card(`<div class="card-h"><h3>برنامهٔ امروز</h3>${slots.length ? `<span class="small muted" style="margin-inline-start:auto">${fa(slots.length)} کلاس</span>` : ''}</div>
+    ${slots.length ? `<ul class="ph-plan">${slots.map(x => {
+      const b = bells.get(Number(x.bell_order)) || {};
+      const now = cur && Number(cur.order) === Number(x.bell_order);
+      const sub = byId('subjects', x.subject_id) || {};
+      const t = byId('users', x.teacher_id) || {};
+      return `<li class="${now ? 'now' : ''}"><time>${esc(fa(b.start || '—'))}</time><i></i><div class="grow"><b>${esc(sub.name || '—')}</b>${t.name ? `<small>${esc(t.name)}</small>` : ''}</div>${now ? '<span class="now-pill">اکنون</span>' : ''}</li>`;
+    }).join('')}</ul>` : '<div class="small muted" style="padding:10px 0">امروز کلاسی در برنامه نیست.</div>'}`, 'd2c');
+  const n = notes[0];
+  const note = n ? `<a class="card d2c ph-note" href="#/announcements"><span class="n-ic">${d2Ico('chat')}</span><div class="grow"><b>${esc(n.title || '')}</b><small>${esc(fa(jdate(n.date || '')))}${n.body ? ' · ' + esc(String(n.body).replace(/\n/g, ' ')) : ''}</small></div></a>` : '';
+  return `${head}${chips}${tiles}${plan}${note}${cloudCard(kids)}
+  <div class="ph-acts"><a class="btn grow" href="#/leaves">درخواست مرخصی</a><a class="btn grow" href="#/announcements">اطلاعیه‌ها</a></div>`;
 }
 
 /* ── وضعیت آفلاین و صندوقچهٔ ابری ──
@@ -1830,7 +1904,7 @@ function modal(html, opts) {
   const scrollTop = previous && (o.preserveScroll || sameDialog) ? previous.scrollTop : 0;
   S.modal = html;
   S.modalOpts = o;
-  root.innerHTML = `<div class="modal-bg${o.lock ? ' locked' : ''}" data-act="modal-bg"${o.lock ? ' data-lock="1"' : ''}><div class="modal${o.wide ? ' wide' : ''}" role="dialog" aria-modal="true"${o.title ? ' data-title="' + esc(o.title) + '"' : ''}>
+  root.innerHTML = `<div class="modal-bg${o.lock ? ' locked' : ''}" data-act="modal-bg"${o.lock ? ' data-lock="1"' : ''}><div class="modal${o.wide ? ' wide' : ''}${o.cls ? ' ' + esc(o.cls) : ''}" role="dialog" aria-modal="true"${o.title ? ' data-title="' + esc(o.title) + '"' : ''}>
     <div class="row between" style="margin-bottom:8px">
       <b>${esc(S.modalTitle || '')}</b>
       <button type="button" class="btn sm ghost" data-act="modal-close" aria-label="بستن" title="بستن">✕</button>

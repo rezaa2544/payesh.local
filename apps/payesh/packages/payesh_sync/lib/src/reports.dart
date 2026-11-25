@@ -157,6 +157,9 @@ final class Dashboard {
     required this.rooms,
     required this.bell,
     required this.recent,
+    this.week = const [],
+    this.away = const [],
+    this.me = '',
   });
   final String today;
   final int weekday;
@@ -174,6 +177,16 @@ final class Dashboard {
 
   /// The three latest notices: (title, iso date).
   final List<(String, String)> recent;
+
+  /// Row 180 «هفتهٔ جاری»: the last six days with records up to today, oldest first —
+  /// (iso date, present+late %), the same as the web `#dash-week`.
+  final List<(String, int)> week;
+
+  /// Row 180 «غایبان و تأخیرها»: today's absent / late students (name, class, status), ≤ 5.
+  final List<(String, String, String)> away;
+
+  /// The signed-in manager's name (the greeting).
+  final String me;
   int get covered => coverage.where((c) => c.checked > 0).length;
 }
 
@@ -581,7 +594,37 @@ final class SchoolReports {
     }
     final notices = (await db.allOrEmpty('announcements'))
       ..sort((a, b) => _s(b.data['date']).compareTo(_s(a.data['date'])));
+    // «هفتهٔ جاری»: present + late share per recorded day (web managerHome `perDay`)
+    final perDay = <String, (int, int)>{};
+    for (final a in await db.allOrEmpty('attendance')) {
+      final d = _s(a.data['date']);
+      if (d.length < 10 || d.substring(0, 10).compareTo(today) > 0) continue;
+      final k = d.substring(0, 10);
+      final st = a.data['status'];
+      final (n, ok) = perDay[k] ?? (0, 0);
+      perDay[k] = (n + 1, ok + (st == 'present' || st == 'late' ? 1 : 0));
+    }
+    final days = perDay.keys.toList()..sort();
+    final week = [
+      for (final d in days.skip(days.length > 6 ? days.length - 6 : 0))
+        (d, (perDay[d]!.$2 * 100 / perDay[d]!.$1).round()),
+    ];
+    final away = <(String, String, String)>[];
+    for (final a in att) {
+      final st = _s(a.data['status']);
+      if (st != 'absent' && st != 'late') continue;
+      final sid = _int(a.data['student_id']);
+      final name = names[sid];
+      if (name == null) continue;
+      final stu = users.where((u) => u.id == sid).firstOrNull;
+      final cid = _int(a.data['class_id']) ?? _int(stu?.data['class_id']);
+      away.add((name, _s(byId[cid]?.data['name']), st));
+      if (away.length == 5) break;
+    }
     return Dashboard(
+      week: week,
+      away: away,
+      me: names[db.uid] ?? '',
       today: today,
       weekday: weekday,
       students: students.length,

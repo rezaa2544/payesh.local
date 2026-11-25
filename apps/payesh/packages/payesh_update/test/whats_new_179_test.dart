@@ -106,9 +106,11 @@ void main() {
     expect(find.byKey(const Key('whats-new-dialog')), findsOneWidget);
     expect(find.text('چه چیزهایی تازه است؟'), findsOneWidget);
     expect(find.textContaining('0.2.205'), findsOneWidget);
-    expect(find.text('همه: پنجرهٔ تازه‌ها'), findsOneWidget);
-    expect(find.text('همه: اعلان فوری'), findsOneWidget);
-    expect(find.text('فقط مالک: کارت پردازش'), findsNothing);
+    // row 180 design 2: «title: description» shows as a bold title over a muted line
+    expect(find.text('همه'), findsWidgets);
+    expect(find.text('پنجرهٔ تازه‌ها'), findsOneWidget);
+    expect(find.text('اعلان فوری'), findsOneWidget);
+    expect(find.text('کارت پردازش'), findsNothing);
     expect(mem.m[WhatsNewStore.key], '0.9.35');
     await t.tap(find.byKey(const Key('whats-new-ok')));
     await t.pumpAndSettle();
@@ -139,12 +141,14 @@ void main() {
     await t.pump(const Duration(milliseconds: 20));
     await t.pumpAndSettle();
     // first run with the feature: only the newest release
-    expect(find.text('همه: پنجرهٔ تازه‌ها'), findsOneWidget);
-    expect(find.text('همه: اعلان فوری'), findsNothing);
+    // row 180 design 2: «title: description» shows as a bold title over a muted line
+    expect(find.text('همه'), findsOneWidget);
+    expect(find.text('پنجرهٔ تازه‌ها'), findsOneWidget);
+    expect(find.text('اعلان فوری'), findsNothing);
     await t.tap(find.byKey(const Key('whats-new-all')));
     await t.pumpAndSettle();
     expect(find.byKey(const Key('release-history')), findsOneWidget);
-    expect(find.text('فقط مالک: کنترل پردازش'), findsOneWidget);
+    expect(find.text('کنترل پردازش'), findsOneWidget);
     expect(find.text('نسخهٔ 0.9.10'), findsOneWidget);
   });
 
@@ -163,4 +167,19 @@ void main() {
     await t.pumpAndSettle();
     expect(find.byKey(const Key('whats-new-dialog')), findsNothing);
   });
+
+  test(
+    'WN-07 row 180: noteParts / noteIcon follow the web wnParts / wnKind',
+    () {
+      expect(noteParts('کنترل پردازش — دکمهٔ شروع'), (
+        'کنترل پردازش',
+        'دکمهٔ شروع',
+      ));
+      expect(noteParts('بدون جداکننده'), ('بدون جداکننده', ''));
+      expect(noteIcon('رفع یک خطا'), Icons.check_rounded);
+      expect(noteIcon('کنترل پردازش'), Icons.memory_rounded);
+      expect(noteIcon('اعلان فوری'), Icons.bolt_rounded);
+      expect(noteIcon('چیز دیگر'), Icons.auto_awesome_outlined);
+    },
+  );
 }

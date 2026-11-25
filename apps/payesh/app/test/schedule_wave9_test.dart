@@ -86,7 +86,14 @@ void main() {
     expect(find.byKey(const Key('sch-grade')), findsOneWidget);
     expect(find.byKey(const Key('sch-noclash')), findsOneWidget);
     expect(find.text('ریاضی'), findsOneWidget);
-    expect(find.text('دبیر ریاضی'), findsOneWidget);
+    // the grid cell (row 180: the sidebar foot also shows the signed-in name)
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('pulse-page-schedule')),
+        matching: find.text('دبیر ریاضی'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('پنج‌شنبه'), findsNothing, reason: 'not a work day');
     expect(find.byKey(const Key('sch-cell-4-4')), findsOneWidget);
     await tester.pumpWidget(const SizedBox());

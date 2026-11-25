@@ -9,10 +9,15 @@ void main() {
       'tokens: zinc surfaces, violet accent, flat (no glow, no gradient)',
       () {
         final l = PayeshTokens.minimalLight, d = PayeshTokens.minimalDark;
-        expect(l.bg, const Color(0xFFFAFAFA));
-        expect(l.primary, const Color(0xFF5B4BDB));
+        // row 180: design 2 as drawn — near-black / near-white primary, violet accent
+        expect(l.bg, const Color(0xFFFFFFFF));
+        expect(l.navBg, const Color(0xFFFAFAFA));
+        expect(l.primary, const Color(0xFF18181B));
+        expect(l.link, const Color(0xFF6D5DF5));
         expect(d.bg, const Color(0xFF09090B));
-        expect(d.primary, const Color(0xFFA89EFF));
+        expect(d.primary, const Color(0xFFFAFAFA));
+        expect(d.onPrimary, const Color(0xFF09090B));
+        expect(d.link, const Color(0xFFA598FF));
         for (final t in [l, d]) {
           expect(t.isMinimal, isTrue);
           expect(t.isPanel, isTrue);

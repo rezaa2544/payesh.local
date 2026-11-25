@@ -40,7 +40,17 @@ final class WebPalette {
     required this.shadow,
     required this.flat,
     required this.onPrimary,
-  });
+    Color? ink2,
+    Color? navBg,
+    Color? track,
+    Color? link,
+  }) : ink2 = ink2 ?? ink,
+       navBg = navBg ?? card,
+       track = track ?? line,
+       link = link ?? primary;
+
+  /// Row 180 (design 2): secondary text, the sidebar surface, slider/ring track, links.
+  final Color ink2, navBg, track, link;
 
   final Color primary, primary2, bg, card, ink, muted, line, soft, accent;
   final Color green, greenBg, red, redBg, amber, amberBg, purple, purpleBg;
@@ -111,9 +121,17 @@ final class WebPalette {
       purple: t.info,
       purpleBg: t.infoBg,
       deleteInk: t.danger,
-      onPrimary: dark ? const Color(0xFF0B1220) : const Color(0xFFFFFFFF),
+      onPrimary: t.isMinimal
+          ? t.onPrimary
+          : (dark ? const Color(0xFF0B1220) : const Color(0xFFFFFFFF)),
+      ink2: t.ink2,
+      navBg: t.navBg,
+      track: t.track,
+      link: t.link,
       flat: !t.isNabd,
-      shadow: dark || !t.isNabd
+      shadow: t.isMinimal
+          ? const <BoxShadow>[]
+          : dark || !t.isNabd
           ? (dark
                 ? const <BoxShadow>[]
                 : const [
@@ -159,6 +177,13 @@ abstract final class Web {
   static Color get amberBg => _p.amberBg;
   static Color get purple => _p.purple;
   static Color get purpleBg => _p.purpleBg;
+  static Color get ink2 => _p.ink2;
+  static Color get navBg => _p.navBg;
+  static Color get track => _p.track;
+  static Color get link => _p.link;
+
+  /// Row 180: design 2 «مینیمال حرفه‌ای» as drawn (flat, hairlines, radius 8/10, outlined pills).
+  static bool get d2 => _p.flat;
 
   /// Dark mode (روشن / تاریک).
   static bool get dark => _p.card.computeLuminance() < 0.2;
@@ -351,7 +376,10 @@ class WebCard extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: margin,
     child: Container(
-      padding: padding,
+      // design 2: `.card{padding:16px 18px}`
+      padding: Web.d2 && padding == const EdgeInsets.all(14)
+          ? const EdgeInsets.symmetric(horizontal: 18, vertical: 16)
+          : padding,
       decoration: BoxDecoration(
         color: Web.card,
         border: Border.all(color: Web.line),
@@ -406,7 +434,10 @@ class WebCardHead extends StatelessWidget {
       spacing: 9.6,
       runSpacing: 9.6,
       children: [
-        Text(icon == null ? title : '$icon $title', style: Web.b),
+        Text(
+          icon == null ? title : '$icon $title',
+          style: Web.d2 ? Web.b.copyWith(fontSize: 14) : Web.b,
+        ),
         if (actions.isNotEmpty)
           Wrap(
             spacing: 6,
@@ -473,7 +504,8 @@ class _WebBtnState extends State<WebBtn> {
     final w = widget;
     final primary = w.kind == WebBtnKind.primary;
     final enabled = w.onPressed != null;
-    final (minH, pad, font, radius) = switch (w.size) {
+    final d2 = Web.d2;
+    final (minH, pad, font, radius0) = switch (w.size) {
       // .btn{padding:.6rem 1rem;min-height:42px;border-radius:11px}
       WebBtnSize.normal => (
         42.0,
@@ -496,6 +528,8 @@ class _WebBtnState extends State<WebBtn> {
         8.0,
       ),
     };
+    // design 2: every button is radius 8, flat, 13.5px w600
+    final radius = d2 ? 8.0 : radius0;
     final fg =
         w.color ??
         switch (w.kind) {
@@ -523,8 +557,10 @@ class _WebBtnState extends State<WebBtn> {
       constraints: BoxConstraints(minHeight: minH),
       padding: pad,
       decoration: BoxDecoration(
-        color: bg,
-        gradient: primary
+        color: d2 && primary
+            ? (_hover ? Web.primary.withValues(alpha: 0.88) : Web.primary)
+            : bg,
+        gradient: primary && !d2
             ? (_hover
                   ? LinearGradient(
                       begin: AlignmentDirectional.topStart,
@@ -540,7 +576,7 @@ class _WebBtnState extends State<WebBtn> {
             : null,
         border: Border.all(color: border),
         borderRadius: BorderRadius.circular(radius),
-        boxShadow: primary
+        boxShadow: primary && !d2
             ? [
                 BoxShadow(
                   color: Web.primary.withValues(alpha: 0.58),
@@ -564,8 +600,8 @@ class _WebBtnState extends State<WebBtn> {
               w.label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: font,
-                fontWeight: FontWeight.w600,
+                fontSize: d2 && w.size == WebBtnSize.normal ? 13.5 : font,
+                fontWeight: d2 ? FontWeight.w500 : FontWeight.w600,
                 color: fg,
                 height: Web.lineHeight,
               ),
@@ -619,6 +655,45 @@ class WebBadge extends StatelessWidget {
       WebTone.amber => (Web.amberBg, Web.amber),
       WebTone.purple => (Web.purpleBg, Web.purple),
     };
+    if (Web.d2) {
+      // design 2: an outlined pill — a 6px dot in the status colour, ink2 text
+      return Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: size == null ? 9 : 6,
+          vertical: size == null ? 1 : 0,
+        ),
+        decoration: BoxDecoration(
+          border: Border.all(color: Web.line),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: tone == WebTone.none ? Web.muted : fg,
+                shape: BoxShape.circle,
+              ),
+            ),
+            SizedBox(width: size == null ? 6 : 4),
+            Flexible(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: size ?? 12,
+                  fontWeight: FontWeight.w500,
+                  color: Web.ink2,
+                  height: Web.lineHeight,
+                  fontFeatures: Web.numFeatures,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: size == null
           ? const EdgeInsets.symmetric(horizontal: 8, vertical: 2)
@@ -673,7 +748,7 @@ class WebItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: Web.card,
         border: Border.all(color: Web.line),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(Web.d2 ? 8 : 12),
       ),
       child: Row(
         children: [
@@ -962,7 +1037,8 @@ class WebPageHead extends StatelessWidget {
               ),
               if (sub case final s? when s.isNotEmpty)
                 Text(s, key: subKey, style: Web.small),
-              if (chip) const WebNowChip(),
+              if (chip && !(Web.d2 && (sub ?? '').isNotEmpty))
+                const WebNowChip(),
             ],
           ),
         ),
@@ -1001,46 +1077,56 @@ class WebNowChip extends StatelessWidget {
   const WebNowChip({super.key});
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 7),
-    child: Container(
-      key: const Key('web-nowchip'),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Web.card.withValues(alpha: 0.76),
-        border: Border.all(color: Web.line),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          WebIcon('clock', size: 17, color: Web.primary),
-          const SizedBox(width: 7),
-          // a narrow title box (phone + head buttons) wraps the date instead of overflowing
-          Flexible(
-            child: Text(
-              Web.todayChip(WebClock.of(context)),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: Web.muted,
-                height: 1.2,
-              ),
+  Widget build(BuildContext context) => Web.d2
+      // design 2: the date is a plain muted line under the title (no pill, no dot)
+      ? Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            Web.todayChip(WebClock.of(context)),
+            key: const Key('web-nowchip'),
+            style: Web.small,
+          ),
+        )
+      : Padding(
+          padding: const EdgeInsets.only(top: 7),
+          child: Container(
+            key: const Key('web-nowchip'),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Web.card.withValues(alpha: 0.76),
+              border: Border.all(color: Web.line),
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                WebIcon('clock', size: 17, color: Web.primary),
+                const SizedBox(width: 7),
+                // a narrow title box (phone + head buttons) wraps the date instead of overflowing
+                Flexible(
+                  child: Text(
+                    Web.todayChip(WebClock.of(context)),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Web.muted,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 7),
-          Container(
-            width: 7,
-            height: 7,
-            decoration: const BoxDecoration(
-              color: Color(0xFF10B981),
-              shape: BoxShape.circle,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+        );
 }
 
 /// The `.main` column of a page: padding 22px 26px 40px (14px 14px 86px on a phone).
@@ -1392,6 +1478,13 @@ InputDecoration webInput({String? hint, String? error}) {
 typedef _Shape = (String tag, List<Object> args);
 
 const Map<String, List<_Shape>> _icons = {
+  // row 180 design 2 «بیشتر» (lucide layout-grid)
+  'grid': [
+    ('rect', [3.0, 3.0, 7.0, 7.0, 1.0]),
+    ('rect', [14.0, 3.0, 7.0, 7.0, 1.0]),
+    ('rect', [14.0, 14.0, 7.0, 7.0, 1.0]),
+    ('rect', [3.0, 14.0, 7.0, 7.0, 1.0]),
+  ],
   'home': [
     ('path', ['m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z']),
     ('polyline', ['9 22 9 12 15 12 15 22']),

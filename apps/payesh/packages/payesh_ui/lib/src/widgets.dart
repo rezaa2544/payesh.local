@@ -301,7 +301,52 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (fg, bg) = context.tokens.tone(tone);
+    final tk = context.tokens;
+    final (fg, bg) = tk.tone(tone);
+    if (tk.isMinimal) {
+      // Row 180 (design 2): an outlined pill — 6px dot in the status colour, ink2 text.
+      return Semantics(
+        container: true,
+        label: label,
+        excludeSemantics: true,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+          decoration: BoxDecoration(
+            border: Border.all(color: tk.line),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null)
+                Icon(
+                  icon,
+                  size: 13,
+                  color: tone == PayeshTone.neutral ? tk.muted : fg,
+                )
+              else
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: tone == PayeshTone.neutral ? tk.muted : fg,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: tk.ink2,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Semantics(
       container: true,
       label: label,
@@ -350,9 +395,12 @@ class PayeshSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final minimal = context.tokens.isMinimal;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(PayeshTokens.space4),
+        padding: minimal
+            ? const EdgeInsets.symmetric(horizontal: 18, vertical: 16)
+            : const EdgeInsets.all(PayeshTokens.space4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -365,6 +413,7 @@ class PayeshSection extends StatelessWidget {
                       title,
                       style: t.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
+                        fontSize: minimal ? 14 : null,
                       ),
                     ),
                   ),
@@ -401,6 +450,54 @@ class StatTile extends StatelessWidget {
     final tk = context.tokens;
     final (fg, bg) = tk.tone(tone);
     final t = Theme.of(context).textTheme;
+    if (tk.isMinimal) {
+      // Row 180 (design 2) KPI: label 12.5 muted, value 26 w700 (tabular), the outlined icon
+      // 16 muted in the corner; no coloured icon box.
+      return Semantics(
+        container: true,
+        label: '$label: ${faNumber(value)}',
+        excludeSemantics: true,
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: t.bodySmall?.copyWith(
+                          color: tk.muted,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        faNumber(value),
+                        style: t.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 26,
+                          height: 1.2,
+                          letterSpacing: -0.5,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          color: tone == PayeshTone.neutral ? tk.ink : fg,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(icon, size: 16, color: tk.muted),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Semantics(
       container: true,
       label: '$label: ${faNumber(value)}',

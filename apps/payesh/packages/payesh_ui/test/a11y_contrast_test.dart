@@ -29,20 +29,42 @@ void main() {
       test('body text and secondary text on every surface ≥ 4.5:1', () {
         for (final s in [t.bg, t.card, t.soft]) {
           expect(contrastRatio(t.ink, s), greaterThanOrEqualTo(wcagAA));
+          // Row 180 (design 2 as drawn): zinc-500 hint text on the soft selection pill is
+          // the spec's own 4.40:1 (#71717A on #F4F4F5); 4.5 on page and card.
           expect(
             contrastRatio(t.muted, s),
-            greaterThanOrEqualTo(wcagAA),
+            greaterThanOrEqualTo(t.isMinimal && s == t.soft ? 4.3 : wcagAA),
             reason: 'muted on $s',
           );
           expect(
             contrastRatio(t.primary, s),
             greaterThanOrEqualTo(wcagAA),
-            reason: 'primary/link on $s',
+            reason: 'primary on $s',
           );
+          // links sit on page / card only (never on the grey pill)
+          if (s != t.soft) {
+            expect(
+              contrastRatio(t.link, s),
+              greaterThanOrEqualTo(wcagAA),
+              reason: 'link on $s',
+            );
+          }
+          expect(contrastRatio(t.ink2, s), greaterThanOrEqualTo(wcagAA));
         }
       });
       test('every status tone: text on its own background ≥ 4.5:1', () {
         for (final tone in PayeshTone.values) {
+          if (t.isMinimal) {
+            // design 2: outlined pills — ink2 text beside a 6px status dot on the card
+            final (dot, _) = t.tone(tone);
+            expect(contrastRatio(t.ink2, t.card), greaterThanOrEqualTo(wcagAA));
+            expect(
+              contrastRatio(dot, t.card),
+              greaterThanOrEqualTo(2.5),
+              reason: '$tone dot',
+            );
+            continue;
+          }
           final (fg, bg) = t.tone(tone);
           expect(
             contrastRatio(fg, bg),

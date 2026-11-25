@@ -43,9 +43,12 @@ abstract final class PayeshUi {
           brightness: b,
         ).copyWith(
           primary: t.primary,
-          onPrimary: b == Brightness.light
-              ? Colors.white
-              : const Color(0xFF0B1220),
+          onPrimary: t.isMinimal
+              ? t.onPrimary
+              : (b == Brightness.light
+                    ? Colors.white
+                    : const Color(0xFF0B1220)),
+          tertiary: t.isMinimal ? t.accent : null,
           primaryContainer: t.isPanel ? t.soft : null,
           onPrimaryContainer: t.isPanel ? t.ink : null,
           surface: t.card,
@@ -63,9 +66,13 @@ abstract final class PayeshUi {
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.all(Radius.circular(t.cardRadius)),
     );
-    final onPrimary = b == Brightness.light
-        ? Colors.white
-        : const Color(0xFF0B1220);
+    final onPrimary = t.isMinimal
+        ? t.onPrimary
+        : (b == Brightness.light ? Colors.white : const Color(0xFF0B1220));
+    // Row 180 (design 2): buttons and inputs are radius 8, cards 10, dialogs 14.
+    final small = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(t.isMinimal ? 8 : t.cardRadius),
+    );
     const minButton = Size(
       PayeshTokens.minTouchTarget,
       PayeshTokens.minTouchTarget,
@@ -104,7 +111,7 @@ abstract final class PayeshUi {
       // (owner-panel/web/app.css `.navitem.active`); classic keeps the Material defaults.
       navigationRailTheme: t.isPanel
           ? NavigationRailThemeData(
-              backgroundColor: t.isMinimal ? t.bg : t.card,
+              backgroundColor: t.isMinimal ? t.navBg : t.card,
               indicatorColor: t.isMinimal ? t.soft : t.primary,
               selectedIconTheme: IconThemeData(
                 color: t.isMinimal ? t.ink : onPrimary,
@@ -160,8 +167,10 @@ abstract final class PayeshUi {
           : null,
       navigationBarTheme: t.isPanel
           ? NavigationBarThemeData(
-              backgroundColor: t.card,
+              backgroundColor: t.isMinimal ? t.bg : t.card,
               indicatorColor: t.soft,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
             )
           : null,
       appBarTheme: AppBarTheme(
@@ -189,7 +198,9 @@ abstract final class PayeshUi {
         // «نبض»: دکمهٔ اصلی با سایهٔ درخشان (pulse `.btn.primary`)
         style: FilledButton.styleFrom(
           minimumSize: minButton,
-          shape: shape,
+          shape: t.isMinimal ? small : shape,
+          backgroundColor: t.isMinimal ? t.primary : null,
+          foregroundColor: t.isMinimal ? t.onPrimary : null,
           elevation: t.isNabd ? 2 : (t.isMinimal ? 0 : null),
           shadowColor: t.isNabd ? t.glow : null,
         ),
@@ -222,8 +233,8 @@ abstract final class PayeshUi {
           : null,
       progressIndicatorTheme: t.isPanel
           ? ProgressIndicatorThemeData(
-              color: t.primary,
-              linearTrackColor: t.soft,
+              color: t.isMinimal ? t.accent : t.primary,
+              linearTrackColor: t.isMinimal ? t.track : t.soft,
             )
           : null,
       dividerTheme: t.isPanel ? DividerThemeData(color: t.line) : null,
@@ -231,8 +242,8 @@ abstract final class PayeshUi {
           ? DataTableThemeData(
               headingTextStyle: TextStyle(
                 color: t.muted,
-                fontWeight: FontWeight.w700,
-                fontSize: 12.5,
+                fontWeight: t.isMinimal ? FontWeight.w500 : FontWeight.w700,
+                fontSize: t.isMinimal ? 11.5 : 12.5,
                 fontFamily: PayeshTokens.fontFamily,
                 package: PayeshTokens.fontPackage,
               ),
@@ -260,34 +271,60 @@ abstract final class PayeshUi {
             )
           : null,
       outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(minimumSize: minButton, shape: shape),
+        style: OutlinedButton.styleFrom(
+          minimumSize: minButton,
+          shape: t.isMinimal ? small : shape,
+          foregroundColor: t.isMinimal ? t.ink : null,
+          side: t.isMinimal ? BorderSide(color: t.line) : null,
+        ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(minimumSize: minButton),
+        style: TextButton.styleFrom(
+          minimumSize: minButton,
+          foregroundColor: t.isMinimal ? t.link : null,
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: t.card,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_fieldRadius(t)),
-          borderSide: BorderSide(color: t.muted),
+          borderSide: BorderSide(color: t.isMinimal ? t.line : t.muted),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_fieldRadius(t)),
-          borderSide: BorderSide(color: t.muted),
+          borderSide: BorderSide(color: t.isMinimal ? t.line : t.muted),
         ),
         // «نبض»: focus ring in the primary colour (pulse.css `--ring`)
         focusedBorder: t.isPanel
             ? OutlineInputBorder(
                 borderRadius: BorderRadius.circular(_fieldRadius(t)),
-                borderSide: BorderSide(color: t.primary, width: 2),
+                borderSide: BorderSide(
+                  color: t.isMinimal ? t.ink : t.primary,
+                  width: t.isMinimal ? 1.5 : 2,
+                ),
               )
             : null,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: t.soft,
+        backgroundColor: t.isMinimal ? t.card : t.soft,
+        selectedColor: t.isMinimal ? t.primary : null,
         side: BorderSide(color: t.line),
+        shape: t.isMinimal
+            ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
+            : null,
       ),
+      sliderTheme: t.isMinimal
+          ? SliderThemeData(
+              trackHeight: 6,
+              activeTrackColor: t.accent,
+              inactiveTrackColor: t.track,
+              thumbColor: t.card,
+              overlayColor: t.accent.withValues(alpha: 0.12),
+              tickMarkShape: SliderTickMarkShape.noTickMark,
+              thumbShape: _RingThumb(t.accent, t.card),
+            )
+          : null,
     );
   }
 }
@@ -299,4 +336,40 @@ double _fieldRadius(PayeshTokens t) => t.isMinimal
 extension PayeshThemeX on BuildContext {
   PayeshTokens get tokens =>
       Theme.of(this).extension<PayeshTokens>() ?? PayeshTokens.light;
+}
+
+/// Row 180 (design 2): the slider thumb — an 18px disc in the card colour with a 2px violet ring.
+class _RingThumb extends SliderComponentShape {
+  const _RingThumb(this.ring, this.fill);
+  final Color ring, fill;
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) => const Size(18, 18);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final c = context.canvas;
+    c.drawCircle(center, 9, Paint()..color = fill);
+    c.drawCircle(
+      center,
+      8,
+      Paint()
+        ..color = ring
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+  }
 }

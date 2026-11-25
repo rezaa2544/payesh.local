@@ -4,6 +4,7 @@ import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../pulse/pulse.dart';
+import '../pulse/d2.dart';
 import '../pulse/web.dart';
 import '../sync_badge.dart';
 import 'attendance_controller.dart';
@@ -213,6 +214,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       final v = c.statusOf(r);
       if (counts.containsKey(v)) counts[v] = counts[v]! + 1;
     }
+    if (Web.d2) return _d2Sheet(open, counts);
     return [
       WebPageHead(
         title: 'حضور و غیاب',
@@ -289,6 +291,300 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ),
       ),
     ];
+  }
+}
+
+extension on _AttendanceScreenState {
+  /// Row 180 — design 2 «حضور و غیاب» on a phone, as drawn: the head (back chevron, title,
+  /// «class · date»), the class chips (radius 6, the open one filled), three outlined summary
+  /// cards (حاضر / تأخیر / غایب with the number in its colour), «همه حاضرند؟» with the violet
+  /// «همه حاضر ✓», one row per student (avatar, name, «ردیف n», the outlined toggle group) and
+  /// the full-width black «✓ ثبت حضور · n نفر».
+  List<Widget> _d2Sheet(
+    AttendanceClass open,
+    Map<AttendanceStatus, int> counts,
+  ) {
+    Widget count(AttendanceStatus s, String label, Color color) => Expanded(
+      child: Semantics(
+        container: true,
+        label: '$label ${Web.fa(counts[s]!)}',
+        child: Container(
+          key: Key('att-count-${s.wire}'),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Web.card,
+            border: Border.all(color: Web.line),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              Text(
+                Web.fa(counts[s]!),
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                  color: color,
+                  fontFeatures: Web.numFeatures,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(label, style: TextStyle(fontSize: 12, color: Web.muted)),
+            ],
+          ),
+        ),
+      ),
+    );
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'حضور و غیاب',
+                    key: const Key('web-title'),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Web.ink,
+                    ),
+                  ),
+                  Text(
+                    '${open.name} · ${Web.fa(Web.jdate(c.date))}',
+                    style: TextStyle(fontSize: 12, color: Web.muted),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              key: const Key('att-back'),
+              tooltip: 'بازگشت',
+              onPressed: c.busy ? null : _back,
+              icon: Icon(Icons.chevron_left_rounded, color: Web.ink),
+            ),
+          ],
+        ),
+      ),
+      if (c.classes.length > 1)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final k in c.classes) ...[
+                  _D2ClassChip(
+                    key: Key('att-chip-${k.id}'),
+                    label: k.name,
+                    on: k.id == open.id,
+                    onTap: c.busy || k.id == open.id
+                        ? null
+                        : () => c.openClass(k),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ..._messages(),
+      Row(
+        children: [
+          count(AttendanceStatus.present, 'حاضر', Web.green),
+          const SizedBox(width: 8),
+          count(AttendanceStatus.late, 'تأخیر', Web.amber),
+          const SizedBox(width: 8),
+          count(AttendanceStatus.absent, 'غایب', Web.red),
+        ],
+      ),
+      Padding(
+        padding: const EdgeInsets.only(top: 14, bottom: 2),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'همه حاضرند؟',
+                style: TextStyle(fontSize: 12, color: Web.muted),
+              ),
+            ),
+            TextButton(
+              key: const Key('att-all-absent'),
+              onPressed: c.busy
+                  ? null
+                  : () => c.markAll(AttendanceStatus.absent),
+              style: TextButton.styleFrom(
+                foregroundColor: Web.muted,
+                minimumSize: const Size(48, 40),
+                textStyle: Theme.of(context).textTheme.labelLarge
+                    ?.copyWith(fontSize: 12.5),
+              ),
+              child: const Text('همه غایب'),
+            ),
+            TextButton.icon(
+              key: const Key('att-all-present'),
+              onPressed: c.busy
+                  ? null
+                  : () => c.markAll(AttendanceStatus.present),
+              style: TextButton.styleFrom(
+                foregroundColor: Web.link,
+                minimumSize: const Size(48, 40),
+                textStyle: Theme.of(context).textTheme.labelLarge
+                    ?.copyWith(fontSize: 12.5),
+              ),
+              iconAlignment: IconAlignment.end,
+              icon: const Icon(Icons.check_rounded, size: 15),
+              label: const Text('همه حاضر'),
+            ),
+          ],
+        ),
+      ),
+      for (final (i, r) in c.roster.indexed)
+        _D2StudentRow(controller: c, entry: r, index: i + 1),
+      const SizedBox(height: 14),
+      SizedBox(
+        height: 48,
+        child: FilledButton.icon(
+          key: const Key('att-save'),
+          onPressed: c.busy ? null : _save,
+          style: FilledButton.styleFrom(
+            backgroundColor: Web.primary,
+            foregroundColor: Web.onPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            textStyle: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          icon: const Icon(Icons.check_rounded, size: 18),
+          label: Text('ثبت حضور · ${Web.fa(c.roster.length)} نفر'),
+        ),
+      ),
+    ];
+  }
+}
+
+/// design 2 `.chip` of the class strip: radius 6, outlined; the open class filled primary.
+class _D2ClassChip extends StatelessWidget {
+  const _D2ClassChip({
+    super.key,
+    required this.label,
+    required this.on,
+    this.onTap,
+  });
+  final String label;
+  final bool on;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: on,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 34),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: on ? Web.primary : Web.card,
+          border: Border.all(color: on ? Web.primary : Web.line),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+            color: on ? Web.onPrimary : Web.ink2,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// design 2 roster row: avatar 32, name + «ردیف n», the outlined toggle group (radius 7, the
+/// chosen state filled in its colour).
+class _D2StudentRow extends StatelessWidget {
+  const _D2StudentRow({
+    required this.controller,
+    required this.entry,
+    required this.index,
+  });
+  final AttendanceController controller;
+  final RosterEntry entry;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = controller.statusOf(entry);
+    return Container(
+      key: Key('att-row-${entry.studentId}'),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Web.line)),
+      ),
+      child: Row(
+        children: [
+          D2Avatar(entry.name, size: 32),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: Web.ink,
+                  ),
+                ),
+                Text(
+                  'ردیف ${Web.fa(index)}',
+                  style: TextStyle(fontSize: 11.5, color: Web.muted),
+                ),
+              ],
+            ),
+          ),
+          if (entry.recorded == null)
+            const SizedBox.shrink(key: Key('att-row-new')),
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              border: Border.all(color: Web.line),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final s in const [
+                  AttendanceStatus.present,
+                  AttendanceStatus.late,
+                  AttendanceStatus.absent,
+                  AttendanceStatus.earlyExit,
+                ])
+                  AttendanceButton(
+                    key: Key('att-${entry.studentId}-${s.wire}'),
+                    status: s,
+                    on: current == s,
+                    label: '${entry.name}: ${s.labelFa}',
+                    onTap: controller.busy
+                        ? null
+                        : () => controller.mark(entry.studentId, s),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -493,6 +789,48 @@ class AttendanceButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AttBtnLook.of(status);
+    if (Web.d2) {
+      // design 2 `.tg`: a segment of the outlined group — muted text, the chosen one filled
+      final fill = switch (status) {
+        AttendanceStatus.present => Web.green,
+        AttendanceStatus.absent => Web.red,
+        AttendanceStatus.late => Web.amber,
+        _ => Web.link,
+      };
+      final onText = Web.dark || status == AttendanceStatus.late
+          ? const Color(0xFF09090B)
+          : Colors.white;
+      return Semantics(
+        button: true,
+        selected: on,
+        inMutuallyExclusiveGroup: true,
+        label: label,
+        enabled: onTap != null,
+        onTap: onTap,
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 34, minWidth: 34),
+            padding: const EdgeInsets.symmetric(horizontal: 7),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: on ? fill : null,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Text(
+              status == AttendanceStatus.earlyExit ? 'خروج' : status.labelFa,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                color: on ? onText : Web.muted,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Semantics(
       button: true,
       selected: on,

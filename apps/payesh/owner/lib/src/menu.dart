@@ -5,6 +5,7 @@
 // گروه کارکردی خودش. صفحه‌های محلی پنل بومی (پرداخت‌ها، پشتیبانی، نگهبان هوشمند، پشتیبان دیتابیس، تنظیمات) هم جای
 // ثابت دارند و فقط وقتی امکانش هست دیده می‌شوند.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:payesh_owner_api/payesh_owner_api.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
@@ -86,6 +87,7 @@ class NabdSideNav extends StatelessWidget {
     required this.onSelected,
     required this.extended,
     this.leading,
+    this.account,
   });
   final List<OwnerMenuItem> items;
   final int selected;
@@ -93,9 +95,13 @@ class NabdSideNav extends StatelessWidget {
   final bool extended;
   final Widget? leading;
 
+  /// Row 180 design 2: the foot of the sidebar («name», «role»).
+  final (String, String)? account;
+
   @override
   Widget build(BuildContext context) {
     final tk = context.tokens;
+    if (tk.isMinimal && extended) return _MinimalSideNav(nav: this);
     return Container(
       width: extended ? 260 : 92,
       decoration: BoxDecoration(
@@ -153,6 +159,246 @@ class NabdSideNav extends StatelessWidget {
   }
 }
 
+/// Row 180 — design 2 `.nav` of the owner panel, as drawn: 240 wide on the nav surface,
+/// padding 12/10; the logo square «پ» with «پایش» / «پنل مالک»; «جستجو در پنل… Ctrl K» (filters
+/// the menu, Enter opens the first); the groups 11.5 muted; 13px items; the account foot.
+class _MinimalSideNav extends StatefulWidget {
+  const _MinimalSideNav({required this.nav});
+  final NabdSideNav nav;
+
+  @override
+  State<_MinimalSideNav> createState() => _MinimalSideNavState();
+}
+
+class _MinimalSideNavState extends State<_MinimalSideNav> {
+  final _q = TextEditingController();
+  final _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _q.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = context.tokens;
+    final nav = widget.nav;
+    final q = _q.text.trim();
+    final shown = [
+      for (final (i, m) in nav.items.indexed)
+        if (q.isEmpty || m.title.contains(q)) (i, m),
+    ];
+    final acc = nav.account;
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
+            _focus.requestFocus(),
+      },
+      child: Container(
+        width: 240,
+        decoration: BoxDecoration(
+          color: tk.navBg,
+          border: BorderDirectional(end: BorderSide(color: tk.line)),
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(10, 12, 10, 4),
+                children: [
+                  Padding(
+                    key: const Key('owner-brand'),
+                    padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 6, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: tk.primary,
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: Text(
+                            'پ',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: tk.onPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'پایش',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.3,
+                                  color: tk.ink,
+                                ),
+                              ),
+                              Text(
+                                'پنل مالک',
+                                style: TextStyle(fontSize: 11, color: tk.muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    key: const Key('nav-search'),
+                    height: 34,
+                    margin: const EdgeInsets.fromLTRB(2, 0, 2, 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: tk.card,
+                      border: Border.all(color: tk.line),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search_rounded, size: 16, color: tk.muted),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _q,
+                            focusNode: _focus,
+                            onChanged: (_) => setState(() {}),
+                            onSubmitted: (_) {
+                              if (shown.isNotEmpty) {
+                                nav.onSelected(shown.first.$1);
+                              }
+                            },
+                            style: TextStyle(fontSize: 12.5, color: tk.ink),
+                            decoration: InputDecoration(
+                              isCollapsed: true,
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              hintText: 'جستجو در پنل…',
+                              hintStyle: TextStyle(
+                                fontSize: 12.5,
+                                color: tk.muted,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: tk.line),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Ctrl K',
+                            textDirection: TextDirection.ltr,
+                            style: TextStyle(fontSize: 10.5, color: tk.muted),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  for (final (j, (i, m)) in shown.indexed) ...[
+                    if (j == 0 || shown[j - 1].$2.group != m.group)
+                      Padding(
+                        key: Key('nav-group-${m.group}'),
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          8,
+                          14,
+                          8,
+                          4,
+                        ),
+                        child: Text(
+                          menuGroupTitle(m.group),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: tk.muted,
+                          ),
+                        ),
+                      ),
+                    _NabdNavItem(
+                      key: Key('nav-${m.id}'),
+                      item: m,
+                      selected: i == nav.selected,
+                      extended: true,
+                      onTap: () => nav.onSelected(i),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (acc != null)
+              Container(
+                key: const Key('nav-account'),
+                margin: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+                padding: const EdgeInsetsDirectional.fromSTEB(8, 10, 8, 0),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: tk.line)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: tk.soft,
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Text(
+                        acc.$1.trim().isEmpty
+                            ? '؟'
+                            : acc.$1.trim().characters.first,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: tk.ink2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            acc.$1,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: tk.ink,
+                            ),
+                          ),
+                          Text(
+                            acc.$2,
+                            style: TextStyle(fontSize: 11, color: tk.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _NabdNavItem extends StatelessWidget {
   const _NabdNavItem({
     super.key,
@@ -174,21 +420,25 @@ class _NabdNavItem extends StatelessWidget {
     final fg = selected ? (pill ? tk.ink : Colors.white) : tk.ink;
     final icon = Icon(
       ownerMenuIcons[item.id],
-      size: 21,
-      color: selected ? (pill ? tk.ink : Colors.white) : tk.muted,
+      size: pill ? 17 : 21,
+      color: selected
+          ? (pill ? tk.ink : Colors.white)
+          : (pill ? tk.ink2 : tk.muted),
     );
     final label = Text(
       item.title,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        color: fg,
-        fontSize: extended ? 14 : 11,
-        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        color: selected || !pill ? fg : tk.ink2,
+        fontSize: extended ? (pill ? 13 : 14) : 11,
+        fontWeight: selected
+            ? (pill ? FontWeight.w500 : FontWeight.w700)
+            : (pill ? FontWeight.w400 : FontWeight.w500),
       ),
     );
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: EdgeInsets.symmetric(vertical: pill ? 0.5 : 2),
       child: Semantics(
         button: true,
         selected: selected,
@@ -202,7 +452,7 @@ class _NabdNavItem extends StatelessWidget {
             onTap: onTap,
             child: Ink(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(pill ? 8 : 13),
+                borderRadius: BorderRadius.circular(pill ? 6 : 13),
                 color: selected && pill ? tk.soft : null,
                 gradient: selected && !pill ? tk.primaryGradient : null,
                 boxShadow: selected && !pill
@@ -217,14 +467,14 @@ class _NabdNavItem extends StatelessWidget {
                     : null,
               ),
               padding: EdgeInsets.symmetric(
-                horizontal: extended ? 11 : 4,
-                vertical: extended ? 9 : 8,
+                horizontal: extended ? (pill ? 8 : 11) : 4,
+                vertical: extended ? (pill ? 7 : 9) : 8,
               ),
               child: extended
                   ? Row(
                       children: [
                         icon,
-                        const SizedBox(width: 9),
+                        SizedBox(width: pill ? 10 : 9),
                         Expanded(child: label),
                       ],
                     )
@@ -277,7 +527,7 @@ class NabdCapsuleBar extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 48),
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             decoration: BoxDecoration(
-              color: on ? tk.soft : null,
+              color: on && !tk.isMinimal ? tk.soft : null,
               borderRadius: BorderRadius.circular(18),
             ),
             child: Column(
@@ -310,6 +560,42 @@ class NabdCapsuleBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tk = context.tokens;
+    if (tk.isMinimal) {
+      // design 2 `.tabbar`: flat, the card colour, a hairline on top; «بیشتر» last
+      return Container(
+        decoration: BoxDecoration(
+          color: tk.card,
+          border: Border(top: BorderSide(color: tk.line)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Row(
+              children: [
+                for (final m in items)
+                  _cell(
+                    context,
+                    key: Key('cap-${m.id}'),
+                    icon: ownerMenuIcons[m.id]!,
+                    label: m.title,
+                    on: m.id == selected,
+                    onTap: () => onSelected(m.id),
+                  ),
+                _cell(
+                  context,
+                  key: const Key('cap-more'),
+                  icon: Icons.grid_view_rounded,
+                  label: 'بیشتر',
+                  on: !items.any((m) => m.id == selected),
+                  onTap: onMore,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return SafeArea(
       top: false,
       child: Padding(

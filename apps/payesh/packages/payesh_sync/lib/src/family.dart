@@ -19,6 +19,9 @@ import 'dart:math';
 import 'package:payesh_data/payesh_data.dart';
 
 import 'attendance.dart';
+import 'notices.dart';
+import 'records.dart';
+import 'reports.dart';
 import 'outbox.dart';
 
 /// Review state of a leave request (web badge «تأییدشده / رد شده / در انتظار»).
@@ -325,6 +328,35 @@ final class FamilyBook {
       approvedGrades: approved.length,
       attendanceRecords: att.length,
     );
+  }
+
+  /// Row 180 (design 2 parent home «برنامهٔ امروز»): today's lessons of a linked child — the
+  /// same slots the child's own «امروز» shows (`SchoolReports.today()` read as that student),
+  /// with the bell running now marked `current`.
+  Future<TodayView> todayOf(int studentId) async {
+    _requireParent();
+    final kid = await _linked(studentId);
+    final records = SchoolRecords(
+      engine: engine,
+      outbox: outbox,
+      role: 'student',
+      uid: kid.id,
+      now: _now,
+    );
+    return SchoolReports(records).today();
+  }
+
+  /// Row 180: the newest live notice of the school (the card under the parent's day), or null.
+  Future<Notice?> latestNotice() async {
+    _requireParent();
+    final list = await NoticeBoard(
+      engine: engine,
+      outbox: outbox,
+      role: role,
+      uid: uid,
+      now: _now,
+    ).list();
+    return list.isEmpty ? null : list.first;
   }
 
   /// Home: one summary per linked child.

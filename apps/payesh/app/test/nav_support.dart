@@ -6,9 +6,21 @@ import 'package:flutter_test/flutter_test.dart';
 
 Finder navOf(String route) => find.byKey(Key('nav-$route'));
 
+/// Opens the «بیشتر» sheet when [route] is folded into it (phone, design 2).
+Future<void> revealNav(WidgetTester tester, String route) async {
+  final more = find.byKey(const Key('nav-more'));
+  if (navOf(route).evaluate().isEmpty && more.evaluate().isNotEmpty) {
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+  }
+}
+
 /// Taps the navigation entry of [route] (scrolling the bottom bar to it first).
 Future<void> openPage(WidgetTester tester, String route) async {
   final f = navOf(route);
+  // row 180 design 2: on a phone a role with more than five pages folds the rest under
+  // «بیشتر» (`nav-more`), which opens them in a sheet
+  await revealNav(tester, route);
   expect(f, findsOneWidget, reason: 'no «$route» in the navigation');
   await tester.ensureVisible(f);
   await tester.pumpAndSettle();

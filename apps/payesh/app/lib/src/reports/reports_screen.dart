@@ -12,6 +12,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../school/school_source.dart';
 import '../pulse/pulse.dart';
+import '../pulse/d2.dart';
 import '../pulse/web.dart';
 import '../users/users_screen.dart' show recordBlocks;
 
@@ -301,191 +302,236 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// web `managerHome()`.
+  /// web `managerHome()` — row 180: design 2 «مینیمال حرفه‌ای» as drawn: the greeting row
+  /// (`.top`: h1 + muted date · bell, «＋ اطلاعیهٔ جدید», bell, avatar), then `.mgrid`:
+  /// «حضور امروز» (ring) beside «هفتهٔ جاری», «غایبان و تأخیرها» beside «اطلاعیه‌ها»; the
+  /// coverage tables follow.
   List<Widget> _manager(Dashboard d) {
     final wide = MediaQuery.sizeOf(context).width > 1200;
-    final title = MediaQuery.sizeOf(context).width * 0.022;
-    return [
-      // .topbar.dashboard-topbar
-      Container(
-        key: const Key('dash-topbar'),
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        decoration: BoxDecoration(
-          border: Border.all(color: Web.line),
-          borderRadius: BorderRadius.circular(Web.radius),
-          gradient: LinearGradient(
-            colors: [Color.lerp(Web.card, Web.primary, 0.06)!, Web.card],
+    final phone = MediaQuery.sizeOf(context).width < 600;
+    final hour = WebClock.of(context).hour;
+    final greet = hour < 12
+        ? 'صبح بخیر'
+        : hour < 17
+        ? 'ظهر بخیر'
+        : hour < 20
+        ? 'عصر بخیر'
+        : 'شب بخیر';
+    final hello = d.me.trim().isEmpty ? greet : '$greet، ${d.me.trim()}';
+    final pct = d.students > 0
+        ? (d.presentToday * 100 / d.students).round().clamp(0, 100)
+        : 0;
+    String letter(String iso) {
+      final t = DateTime.tryParse(iso);
+      return t == null ? ' ' : Web.jDays[(t.weekday + 1) % 7].characters.first;
+    }
+
+    final hero = D2Card(
+      key: const Key('pulse-hero'),
+      child: Row(
+        children: [
+          D2Ring(percent: pct, size: phone ? 96 : 112),
+          SizedBox(width: phone ? 16 : 22),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'حضور امروز',
+                  key: const Key('pulse-title'),
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: Web.ink,
+                  ),
+                ),
+                Text(
+                  '${Web.fa(d.presentToday)} نفر از ${Web.fa(d.students)} دانش‌آموز',
+                  key: const Key('pulse-of'),
+                  style: TextStyle(fontSize: 13, color: Web.muted),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  key: const Key('pulse-a'),
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    D2Chip('حاضر ${Web.fa(d.presentToday)}', color: Web.green),
+                    D2Chip('غایب ${Web.fa(d.absentToday)}', color: Web.red),
+                    D2Chip('تأخیر ${Web.fa(d.lateToday)}', color: Web.amber),
+                  ],
+                ),
+              ],
+            ),
           ),
-          boxShadow: Web.shadow,
-        ),
+        ],
+      ),
+    );
+    final week = D2Card(
+      key: const Key('dash-week'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const D2CardHead(title: 'هفتهٔ جاری', sub: 'درصد حضور'),
+          if (d.week.isEmpty)
+            SizedBox(
+              height: 120,
+              child: Center(
+                child: Text(
+                  'هنوز حضوری ثبت نشده است.',
+                  style: TextStyle(fontSize: 12.5, color: Web.muted),
+                ),
+              ),
+            )
+          else
+            D2Bars(
+              days: [
+                for (final (iso, v) in d.week) (letter(iso), v, iso == d.today),
+              ],
+            ),
+        ],
+      ),
+    );
+    Widget empty(String t) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Text(
+        t,
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 12.5, color: Web.muted),
+      ),
+    );
+    final away = D2Card(
+      key: const Key('dash-away'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          D2CardHead(
+            title: 'غایبان و تأخیرها',
+            link: 'همه',
+            linkKey: const Key('dash-away-all'),
+            onLink: () => _go('attendance-report'),
+          ),
+          if (d.away.isEmpty)
+            empty('امروز غایب یا تأخیری ثبت نشده است.')
+          else
+            D2List(
+              rows: [
+                for (final (i, (name, cls, st)) in d.away.indexed)
+                  D2Row(
+                    key: Key('dash-away-$i'),
+                    leading: D2Avatar(name, size: 34),
+                    title: name,
+                    sub: cls,
+                    trailing: WebBadge(
+                      st == 'late' ? 'تأخیر' : 'غایب',
+                      tone: st == 'late' ? WebTone.amber : WebTone.red,
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+    final notes = D2Card(
+      key: const Key('dash-recent'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          D2CardHead(
+            title: 'اطلاعیه‌ها',
+            link: 'همه',
+            linkKey: const Key('dash-recent-all'),
+            onLink: () => _go('announcements'),
+          ),
+          if (d.recent.isEmpty)
+            empty('اطلاعیه‌ای منتشر نشده است.')
+          else
+            D2List(
+              rows: [
+                for (final (t, date) in d.recent)
+                  D2Row(
+                    leading: const D2IconBox(Icons.chat_bubble_outline_rounded),
+                    title: t,
+                    sub: Web.fa(Web.jdate(date)),
+                    trailing: Icon(
+                      Icons.chevron_left_rounded,
+                      size: 16,
+                      color: Web.muted,
+                    ),
+                    onTap: () => _go('announcements'),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+    return [
+      // `.top`: the greeting and the date line, the actions at the far end
+      Padding(
+        key: const Key('dash-topbar'),
+        padding: const EdgeInsets.only(bottom: 16),
         child: Wrap(
           alignment: WrapAlignment.spaceBetween,
           crossAxisAlignment: WrapCrossAlignment.center,
-          runSpacing: 8,
+          spacing: 12,
+          runSpacing: 10,
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'داشبورد مدرسه',
+                  hello,
                   key: const Key('web-title'),
                   style: TextStyle(
-                    fontSize: title.clamp(20, 27).toDouble(),
-                    fontWeight: FontWeight.w900,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
                     height: 1.4,
                     letterSpacing: -0.2,
+                    color: Web.ink,
                   ),
                 ),
-                const WebNowChip(),
+                Text(
+                  '${Web.jDays[d.weekday]}، ${Web.fa(Web.jdate(d.today))} · ${d.bell == null ? 'بین زنگ‌های درسی' : '${_bellLabel(d.bell)} در حال برگزاری'}',
+                  key: const Key('dash-now'),
+                  style: TextStyle(fontSize: 13, color: Web.muted),
+                ),
               ],
             ),
-            // @media (max-width:700px){.dashboard-topbar-left{width:100%;flex-wrap:wrap;gap:8px}}
-            (MediaQuery.sizeOf(context).width <= 700
-                ? (List<Widget> c) => Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      for (final w in c)
-                        if (w is! SizedBox) w,
-                    ],
-                  )
-                : (List<Widget> c) =>
-                      Row(mainAxisSize: MainAxisSize.min, children: c))([
-              WebBtn(
-                '🔄 همگام‌سازی',
-                key: const Key('dash-sync'),
-                onPressed: widget.onRetry,
-              ),
-              const SizedBox(width: 9.6),
-              WebBtn(
-                'اطلاعیهٔ جدید',
-                key: const Key('dash-new-notice'),
-                kind: WebBtnKind.primary,
-                onPressed: () => _go('announcements'),
-              ),
-              const SizedBox(width: 14),
-              Container(
-                key: const Key('dash-now'),
-                constraints: const BoxConstraints(minWidth: 140),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 9,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                WebBtn(
+                  '+  اطلاعیهٔ جدید',
+                  key: const Key('dash-new-notice'),
+                  kind: WebBtnKind.primary,
+                  onPressed: () => _go('announcements'),
                 ),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Color.lerp(Web.line, Web.primary, 0.28)!,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  color: Web.soft.withValues(alpha: 0.75),
+                const SizedBox(width: 10),
+                D2IconButton(
+                  key: const Key('dash-sync'),
+                  icon: Icons.sync_rounded,
+                  tooltip: 'همگام‌سازی',
+                  onPressed: widget.onRetry,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          'الان در',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Web.muted,
-                            height: 1.5,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          _bellLabel(d.bell),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Web.primary,
-                            fontWeight: FontWeight.w800,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      '${Web.jDays[d.weekday]}، ${Web.fa(Web.jdate(d.today))}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Web.muted,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: 10),
+                D2IconButton(
+                  key: const Key('dash-bell'),
+                  icon: Icons.notifications_none_rounded,
+                  tooltip: 'اطلاعیه‌ها',
+                  dot: d.recent.isNotEmpty,
+                  onPressed: () => _go('announcements'),
                 ),
-              ),
-            ]),
+                const SizedBox(width: 10),
+                D2Avatar(d.me.isEmpty ? 'م' : d.me, size: 38, me: true),
+              ],
+            ),
           ],
         ),
       ),
-      // .grid — pulse.js puts «نبض امروز مدرسه» first, full width
-      if (d.students > 0)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: PulseHero(
-            present: d.presentToday,
-            of: d.students,
-            absent: d.absentToday,
-            late: d.lateToday,
-          ),
-        ),
-      WebGrid(
-        key: const Key('pulse-stats'),
-        children: [
-          WebStat(
-            icon: 'users',
-            num: Web.fa(d.students),
-            label: 'دانش‌آموز',
-            numKey: const Key('dash-students'),
-          ),
-          WebStat(
-            icon: 'teacher',
-            num: Web.fa(d.teachers),
-            label: 'دبیر',
-            numKey: const Key('dash-teachers'),
-          ),
-          WebStat(
-            icon: 'school',
-            num: Web.fa(d.classes),
-            label: 'کلاس',
-            numKey: const Key('dash-classes'),
-          ),
-          WebStat(
-            icon: 'check',
-            num: '${Web.fa(d.presentToday)} / ${Web.fa(d.recordsToday)}',
-            label: 'حاضر امروز',
-            numKey: const Key('dash-present'),
-            numColor: Web.green,
-          ),
-          WebStat(
-            icon: 'cross',
-            num: Web.fa(d.absentToday),
-            label: 'غایب امروز',
-            numKey: const Key('dash-absent'),
-            numColor: Web.red,
-          ),
-          WebStat(
-            icon: 'clock',
-            num: Web.fa(d.lateToday),
-            label: 'تأخیر',
-            numKey: const Key('dash-late'),
-            numColor: Web.amber,
-          ),
-          WebStat(
-            icon: 'pen',
-            num: Web.fa(d.pendingGrades),
-            label: 'نمرهٔ در انتظار تأیید',
-            numKey: const Key('dash-pending'),
-          ),
-        ],
-      ),
+      D2Grid(rows: [(hero, week), (away, notes)]),
+      const SizedBox(height: 16),
       // .dashboard-coverage-grid (two columns above 1200px, one below)
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
@@ -503,50 +549,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
       ),
-      WebGrid(
-        min: 160,
-        children: [
-          for (final (route, title, sub) in const [
-            ('users', '👥 کاربران', 'افزودن، کارت پیوند، ورود دسته‌ای'),
-            ('reports', '📑 گزارش‌ها', 'حضور، نمره، چاپ کارنامه'),
-            ('system', '⚙️ سیستم', 'پشتیبان، دستگاه‌ها، آپدیت'),
-          ])
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                key: Key('dash-go-$route'),
-                onTap: () => _go(route),
-                child: WebCard(
-                  margin: EdgeInsets.zero,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: Web.b.copyWith(color: Web.primary)),
-                      Text(sub, style: Web.small),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-      if (d.recent.isNotEmpty)
-        WebCard(
-          key: const Key('dash-recent'),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('آخرین اطلاعیه‌ها', style: Web.b),
-              const SizedBox(height: 8),
-              WebList(
-                children: [
-                  for (final (t, date) in d.recent)
-                    WebItem(title: t, sub: Web.jdate(date)),
-                ],
-              ),
-            ],
-          ),
-        ),
     ];
   }
 

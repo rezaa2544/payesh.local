@@ -408,8 +408,72 @@ class _OwnerShellState extends State<OwnerShell> {
         body: PayeshBackdrop(child: SafeArea(child: body)),
       );
     }
+    // Row 180 design 2: the page head is the h1 (19, w700) over the muted date line; on the
+    // overview «سلام، همه‌چیز روبه‌راه است».
+    final d2 = tk.isMinimal;
+    final today = JalaliDate.fromDateTime(widget.now());
+    final head = d2
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                  color: tk.ink,
+                ),
+              ),
+              Text(
+                '${id == 'dashboard' ? 'سلام، همه‌چیز روبه‌راه است · ' : ''}${faDigits(today.format(weekday: true))}',
+                key: const Key('owner-date'),
+                style: TextStyle(fontSize: 12.5, color: tk.muted),
+              ),
+            ],
+          )
+        : Text(title);
+    final bar = AppBar(
+      title: head,
+      toolbarHeight: d2 ? 72 : null,
+      titleSpacing: d2 ? 24 : null,
+      automaticallyImplyLeading: false,
+      // design 2: the head sits in the content column, no line under it
+      shape: d2 ? const Border() : null,
+      actions: d2
+          ? [
+              // design 2 `.icon-b`: 38px outlined squares, radius 8, 10px apart
+              IconButtonTheme(
+                data: IconButtonThemeData(
+                  style: IconButton.styleFrom(
+                    fixedSize: const Size(38, 38),
+                    minimumSize: const Size(38, 38),
+                    iconSize: 18,
+                    foregroundColor: tk.ink2,
+                    side: BorderSide(color: tk.line),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final a in actions)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(start: 8),
+                        child: a,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+            ]
+          : actions,
+    );
     return Scaffold(
-      appBar: AppBar(title: Text(title), actions: actions),
+      appBar: d2 ? null : bar,
       body: PayeshBackdrop(
         child: SafeArea(
           child: Row(
@@ -420,8 +484,26 @@ class _OwnerShellState extends State<OwnerShell> {
                 onSelected: _select,
                 extended: size == SizeClass.expanded,
                 leading: _Brand(extended: size == SizeClass.expanded),
+                account: s == null
+                    ? null
+                    : (
+                        s.role == OwnerRole.owner
+                            ? 'مالک پلتفرم'
+                            : s.role.label,
+                        s.role == OwnerRole.owner ? 'مالک' : 'اپراتور',
+                      ),
               ),
-              Expanded(child: body),
+              Expanded(
+                child: d2
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          bar,
+                          Expanded(child: body),
+                        ],
+                      )
+                    : body,
+              ),
             ],
           ),
         ),

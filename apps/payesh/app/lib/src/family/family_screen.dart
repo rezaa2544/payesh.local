@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../pulse/d2.dart';
 import '../pulse/pulse.dart';
 import '../pulse/web.dart';
 import '../sync_badge.dart';
@@ -17,6 +18,9 @@ String averageLabel(double? avg) =>
 String attendanceLabel(int? pct) => 'حضور ${faDigits(pct ?? 0)}٪';
 
 String _score(num n) => faDigits(n % 1 == 0 ? n.toInt() : n);
+
+/// web `parentHome` empty-family text (one literal: the parity test compares it with the web).
+const _noKids = 'فرزندی به حساب شما متصل نیست — با دفتر مدرسه تماس بگیرید.';
 
 Widget _error(BuildContext context, String text, String key) => Padding(
   padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
@@ -148,6 +152,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
 
   List<Widget> _home() {
     final waiting = widget.sync.value.waiting;
+    if (Web.d2) return _d2Home(waiting);
     return [
       WebPageHead(
         title: 'فرزندان من',
@@ -164,11 +169,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
           textKey: const Key('fam-error'),
         ),
       if (c.error == null) ...[
-        if (c.children.isEmpty)
-          const WebEmpty(
-            'فرزندی به حساب شما متصل نیست — با دفتر مدرسه تماس بگیرید.',
-            key: Key('fam-empty'),
-          ),
+        if (c.children.isEmpty) const WebEmpty(_noKids, key: Key('fam-empty')),
         for (final k in c.children) _card(k),
         // web `cloudCard`: only while changes of this device wait
         if (waiting > 0) _cloudCard(waiting),
@@ -198,6 +199,295 @@ class _FamilyScreenState extends State<FamilyScreen> {
               ),
             ],
           ),
+        ),
+      ],
+    ];
+  }
+
+  /// Row 180 — design 2 parent home on a phone, as drawn: the muted date over «سلام» and the
+  /// bell; the kid chips (avatar + «name · class», the chosen one filled); two tiles for the
+  /// chosen child (attendance, then the average in violet); «برنامهٔ امروز» with the running
+  /// lesson in violet and «اکنون»; the newest notice; the leave / notices actions.
+  List<Widget> _d2Home(int waiting) {
+    final now = WebClock.of(context);
+    final iso =
+        '${now.year}-${'${now.month}'.padLeft(2, '0')}-${'${now.day}'.padLeft(2, '0')}';
+    final day = Web.jDays[(now.weekday + 1) % 7];
+    final k =
+        c.children.where((x) => x.id == c.kid).firstOrNull ??
+        c.children.firstOrNull;
+    final today = c.kidToday;
+    final notice = c.latestNotice;
+    Widget card({Key? key, required Widget child, VoidCallback? onTap}) =>
+        Material(
+          key: key,
+          color: Web.card,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: Web.line),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(padding: const EdgeInsets.all(14), child: child),
+          ),
+        );
+    Widget tile({
+      required Key key,
+      required Key valueKey,
+      required String label,
+      required String value,
+      required String sub,
+      required Color color,
+      required String semantics,
+    }) => Expanded(
+      child: card(
+        key: key,
+        onTap: k == null ? null : () => _openChild(k),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontSize: 12, color: Web.muted)),
+            const SizedBox(height: 4),
+            Semantics(
+              label: semantics,
+              excludeSemantics: true,
+              child: Text(
+                value,
+                key: valueKey,
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                  color: color,
+                  fontFeatures: Web.numFeatures,
+                ),
+              ),
+            ),
+            Text(
+              sub,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11.5, color: Web.muted),
+            ),
+          ],
+        ),
+      ),
+    );
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$day ${Web.fa(Web.jdate(iso))}',
+                    style: TextStyle(fontSize: 12, color: Web.muted),
+                  ),
+                  Text(
+                    'سلام 👋',
+                    key: const Key('web-title'),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Web.ink,
+                    ),
+                  ),
+                  if (c.error == null)
+                    Text(
+                      '${Web.fa(c.children.length)} فرزند',
+                      key: const Key('fam-count'),
+                      style: TextStyle(fontSize: 12, color: Web.muted),
+                    ),
+                ],
+              ),
+            ),
+            D2IconButton(
+              key: const Key('fam-sync'),
+              icon: Icons.sync_rounded,
+              tooltip: 'همگام‌سازی',
+              onPressed: widget.onRetry,
+            ),
+            const SizedBox(width: 8),
+            D2IconButton(
+              key: const Key('fam-bell'),
+              icon: Icons.notifications_none_rounded,
+              tooltip: 'اطلاعیه‌ها',
+              dot: notice != null,
+              onPressed: PulseInline.of(context)
+                  ? () => _go('announcements')
+                  : null,
+            ),
+          ],
+        ),
+      ),
+      if (c.error != null)
+        WebBanner(
+          kind: WebBannerKind.err,
+          text: c.error!,
+          textKey: const Key('fam-error'),
+        ),
+      if (c.error == null) ...[
+        if (c.children.isEmpty) const WebEmpty(_noKids, key: Key('fam-empty')),
+        if (c.children.isNotEmpty)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final x in c.children) ...[
+                  _KidChip(
+                    key: Key('fam-card-${x.id}'),
+                    kid: x,
+                    on: x.id == k?.id,
+                    onTap: () => c.pickKid(x.id),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        if (k != null) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              tile(
+                key: Key('fam-open-${k.id}'),
+                valueKey: Key('fam-att-${k.id}'),
+                label: 'حضور',
+                value: k.attendancePercent == null
+                    ? '—'
+                    : '${Web.fa(k.attendancePercent!)}٪',
+                sub: k.attendanceRecords == 0
+                    ? 'هنوز ثبت نشده'
+                    : (k.attendancePercent ?? 0) >= 100
+                    ? 'بدون غیبت'
+                    : '${Web.fa(k.attendanceRecords)} جلسهٔ ثبت‌شده',
+                color: Web.ink,
+                semantics: attendanceLabel(k.attendancePercent),
+              ),
+              const SizedBox(width: 10),
+              tile(
+                key: Key('fam-tile-avg-${k.id}'),
+                valueKey: Key('fam-avg-${k.id}'),
+                label: 'میانگین نمره',
+                value: k.average == null
+                    ? '—'
+                    : Web.fa(k.average!.toStringAsFixed(1)),
+                sub: k.approvedGrades == 0
+                    ? 'نمرهٔ تأییدشده‌ای نیست'
+                    : '${Web.fa(k.approvedGrades)} نمرهٔ تأییدشده',
+                color: Web.link,
+                semantics: averageLabel(k.average),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          card(
+            key: const Key('fam-today'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'برنامهٔ امروز',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Web.ink,
+                        ),
+                      ),
+                    ),
+                    if (today != null && today.slots.isNotEmpty)
+                      Text(
+                        '${Web.fa(today.slots.length)} کلاس',
+                        style: TextStyle(fontSize: 12, color: Web.muted),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (today == null || today.slots.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'امروز کلاسی در برنامه نیست.',
+                      key: const Key('fam-today-empty'),
+                      style: TextStyle(fontSize: 12.5, color: Web.muted),
+                    ),
+                  )
+                else
+                  for (final (i, sl) in today.slots.indexed)
+                    _SlotRow(key: Key('fam-slot-$i'), slot: sl),
+              ],
+            ),
+          ),
+        ],
+        if (notice != null) ...[
+          const SizedBox(height: 12),
+          card(
+            key: const Key('fam-notice'),
+            onTap: PulseInline.of(context) ? () => _go('announcements') : null,
+            child: Row(
+              children: [
+                const D2IconBox(Icons.chat_bubble_outline_rounded),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        notice.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: Web.ink,
+                        ),
+                      ),
+                      Text(
+                        '${Web.fa(Web.jdate(notice.date))} · ${notice.body.replaceAll('\n', ' ')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11.5, color: Web.muted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (waiting > 0) ...[const SizedBox(height: 12), _cloudCard(waiting)],
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: WebBtn(
+                'درخواست مرخصی',
+                key: const Key('fam-leaves'),
+                size: WebBtnSize.normal,
+                block: true,
+                onPressed: () => _go('leaves'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: WebBtn(
+                'اطلاعیه‌ها',
+                key: const Key('fam-notices'),
+                size: WebBtnSize.normal,
+                block: true,
+                onPressed: PulseInline.of(context)
+                    ? () => _go('announcements')
+                    : null,
+              ),
+            ),
+          ],
         ),
       ],
     ];
@@ -854,4 +1144,150 @@ class _FamilyRouteState extends State<FamilyRoute> {
   Widget build(BuildContext context) => widget.leaves
       ? LeavesScreen(controller: c, sync: widget.sync, onRetry: widget.onRetry)
       : FamilyScreen(controller: c, sync: widget.sync, onRetry: widget.onRetry);
+}
+
+/// design 2 kid chip: avatar 22 (radius 5) + «name · class», radius 8; the chosen one filled.
+class _KidChip extends StatelessWidget {
+  const _KidChip({
+    super.key,
+    required this.kid,
+    required this.on,
+    required this.onTap,
+  });
+  final ChildSummary kid;
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final first = kid.name.trim().split(RegExp(r'\s+')).first;
+    final label = kid.className.isEmpty ? first : '$first · ${kid.className}';
+    return Semantics(
+      button: true,
+      selected: on,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 40),
+          padding: const EdgeInsetsDirectional.fromSTEB(6, 6, 12, 6),
+          decoration: BoxDecoration(
+            color: on ? Web.primary : Web.card,
+            border: Border.all(color: on ? Web.primary : Web.line),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: on ? Web.onPrimary : Web.soft,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  kid.name.trim().isEmpty
+                      ? '؟'
+                      : kid.name.trim().characters.first,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: on ? Web.primary : Web.ink2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                key: Key('fam-class-${kid.id}'),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                  color: on ? Web.onPrimary : Web.ink2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// design 2 «برنامهٔ امروز» row: the start time, the subject over the teacher; the running
+/// lesson in violet with the «اکنون» pill.
+class _SlotRow extends StatelessWidget {
+  const _SlotRow({super.key, required this.slot});
+  final TodaySlot slot;
+
+  @override
+  Widget build(BuildContext context) {
+    final cur = slot.current;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 46,
+            child: Text(
+              slot.start.isEmpty ? '—' : Web.fa(slot.start),
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Web.muted,
+                fontFeatures: Web.numFeatures,
+              ),
+            ),
+          ),
+          Container(
+            width: 2,
+            height: 30,
+            margin: const EdgeInsetsDirectional.only(end: 10),
+            decoration: BoxDecoration(
+              color: cur ? Web.link : Web.line,
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  slot.subject,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: cur ? Web.link : Web.ink,
+                  ),
+                ),
+                if (slot.teacher.isNotEmpty)
+                  Text(
+                    slot.teacher,
+                    style: TextStyle(fontSize: 11.5, color: Web.muted),
+                  ),
+              ],
+            ),
+          ),
+          if (cur)
+            Container(
+              key: const Key('fam-now'),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Web.link,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'اکنون',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Web.dark ? const Color(0xFF09090B) : Colors.white,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

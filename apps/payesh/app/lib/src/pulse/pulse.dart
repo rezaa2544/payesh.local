@@ -9,11 +9,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:payesh_sync/payesh_sync.dart'
     show AdminFailure, ServerAdminApi, ServerHealth, SyncPhase, SyncStatus;
 import 'package:payesh_ui/payesh_ui.dart';
 import 'package:payesh_update/payesh_update.dart';
 
+import 'd2.dart';
 import 'web.dart';
 
 /// Wider than this ⇒ the sidebar is shown and pages open inside the shell.
@@ -165,6 +167,7 @@ class PulseSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Web.d2) return _d2(context);
     return Container(
       width: 250,
       decoration: BoxDecoration(
@@ -243,6 +246,252 @@ class PulseSidebar extends StatelessWidget {
       ),
     );
   }
+
+  /// Row 180 — design 2 `.nav`: 240 wide on the #FAFAFA nav surface, padding 12/10; the 28px
+  /// logo (radius 7) with the school and the role; «جستجو… Ctrl K» (filters the pages); 13px
+  /// items; the foot: avatar, name and role above a hairline.
+  Widget _d2(BuildContext context) {
+    final parts = (account ?? '').split(' · ');
+    final name = parts.first.trim();
+    final role = parts.length > 1 ? parts.sublist(1).join(' · ').trim() : '';
+    return Container(
+      width: 240,
+      decoration: BoxDecoration(
+        color: Web.navBg,
+        border: BorderDirectional(end: BorderSide(color: Web.line)),
+      ),
+      child: WebText(
+        child: _D2NavBody(
+          items: items,
+          selected: selected,
+          onSelected: onSelected,
+          head: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 6, 10),
+            child: Row(
+              children: [
+                // design 2 `.logo`: a 28px ink square (radius 7) with the school's initial
+                Container(
+                  key: const Key('pulse-brand-mark'),
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Web.primary,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Text(
+                    (school ?? '').trim().isEmpty
+                        ? 'پ'
+                        : school!.trim().characters.first,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Web.onPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        (school ?? '').isEmpty ? 'پایش' : school!,
+                        key: const Key('pulse-school'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Web.ink,
+                          height: 1.3,
+                        ),
+                      ),
+                      Text(
+                        role.isEmpty
+                            ? 'پایش'
+                            : (role == 'مدیر' ? 'مدیر مدرسه' : role),
+                        key: const Key('pulse-brand'),
+                        style: TextStyle(fontSize: 11, color: Web.muted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          foot: [
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsetsDirectional.fromSTEB(8, 10, 8, 0),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: Web.line)),
+              ),
+              child: Row(
+                children: [
+                  D2Avatar(name, size: 28),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      key: const Key('pulse-account'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          key: const Key('pulse-account-name'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Web.ink,
+                          ),
+                        ),
+                        if (role.isNotEmpty)
+                          Text(
+                            role,
+                            style: TextStyle(fontSize: 11, color: Web.muted),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ...footer,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The scrolling body of the design-2 sidebar with the page filter («Ctrl K»).
+class _D2NavBody extends StatefulWidget {
+  const _D2NavBody({
+    required this.items,
+    required this.selected,
+    required this.onSelected,
+    required this.head,
+    required this.foot,
+  });
+  final List<PulseNavItem> items;
+  final String selected;
+  final ValueChanged<String> onSelected;
+  final Widget head;
+  final List<Widget> foot;
+
+  @override
+  State<_D2NavBody> createState() => _D2NavBodyState();
+}
+
+class _D2NavBodyState extends State<_D2NavBody> {
+  final _q = TextEditingController();
+  final _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _q.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _q.text.trim();
+    final shown = [
+      for (final m in widget.items)
+        if (q.isEmpty || m.label.contains(q)) m,
+    ];
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
+            _focus.requestFocus(),
+      },
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(10, 12, 10, 4),
+              children: [
+                widget.head,
+                Container(
+                  key: const Key('pulse-nav-search'),
+                  height: 34,
+                  margin: const EdgeInsets.fromLTRB(2, 0, 2, 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Web.card,
+                    border: Border.all(color: Web.line),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.search_rounded, size: 16, color: Web.muted),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _q,
+                          focusNode: _focus,
+                          onChanged: (_) => setState(() {}),
+                          onSubmitted: (_) {
+                            if (shown.isNotEmpty) {
+                              widget.onSelected(shown.first.id);
+                            }
+                          },
+                          style: TextStyle(fontSize: 12.5, color: Web.ink),
+                          decoration: InputDecoration(
+                            isCollapsed: true,
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            hintText: 'جستجو در پنل…',
+                            hintStyle: TextStyle(
+                              fontSize: 12.5,
+                              color: Web.muted,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Web.line),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Ctrl K',
+                          textDirection: TextDirection.ltr,
+                          style: TextStyle(fontSize: 10.5, color: Web.muted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                for (final m in shown)
+                  _PulseNavTile(
+                    key: Key('nav-${m.id}'),
+                    icon: m.webIcon,
+                    label: m.label,
+                    selected: widget.selected == m.id,
+                    onTap: () => widget.onSelected(m.id),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: widget.foot,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PulseNavTile extends StatefulWidget {
@@ -284,12 +533,13 @@ class _PulseNavTileState extends State<_PulseNavTile> {
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 11.2,
-              vertical: 8.8,
-            ),
+            // design 2: `.nav-i{font-size:13px;padding:6px 8px;border-radius:6px}`
+            padding: flat
+                ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
+                : const EdgeInsets.symmetric(horizontal: 11.2, vertical: 8.8),
+            margin: flat ? const EdgeInsets.only(bottom: 1) : null,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(13),
+              borderRadius: BorderRadius.circular(flat ? 6 : 13),
               // Row 179 «مینیمال»: the chosen item is a soft grey pill with ink text.
               color: on ? (flat ? Web.soft : null) : (_hover ? Web.soft : null),
               gradient: on && !flat ? Web.gradient : null,
@@ -308,19 +558,25 @@ class _PulseNavTileState extends State<_PulseNavTile> {
               children: [
                 WebIcon(
                   widget.icon,
-                  size: 21,
-                  color: on && !flat ? Colors.white : Web.ink,
+                  size: flat ? 17 : 21,
+                  color: on && !flat
+                      ? Colors.white
+                      : (flat && !on ? Web.ink2 : Web.ink),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: flat ? 10 : 8),
                 Expanded(
                   child: Text(
                     widget.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 14,
-                      color: on && !flat ? Colors.white : Web.ink,
-                      fontWeight: on ? FontWeight.w700 : FontWeight.w400,
+                      fontSize: flat ? 13 : 14,
+                      color: on && !flat
+                          ? Colors.white
+                          : (flat && !on ? Web.ink2 : Web.ink),
+                      fontWeight: on
+                          ? (flat ? FontWeight.w500 : FontWeight.w700)
+                          : FontWeight.w400,
                     ),
                   ),
                 ),
@@ -726,9 +982,86 @@ class PulseBottomNav extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onSelected;
 
+  /// design 2: four pages and «بیشتر» (the rest in a sheet) when a role has more than five.
+  static const int d2Slots = 5;
+
+  void _more(BuildContext context, List<PulseNavItem> rest) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Web.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (sheet) => SafeArea(
+        child: WebText(
+          child: Padding(
+            key: const Key('pulse-more-sheet'),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final m in rest)
+                  _PulseNavTile(
+                    key: Key('nav-${m.id}'),
+                    icon: m.webIcon,
+                    label: m.label,
+                    selected: selected == m.id,
+                    onTap: () {
+                      Navigator.of(sheet).pop();
+                      onSelected(m.id);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
+    if (Web.d2) {
+      final fold = items.length > d2Slots;
+      final shown = fold ? items.take(d2Slots - 1).toList() : items;
+      final rest = fold ? items.skip(d2Slots - 1).toList() : <PulseNavItem>[];
+      return Container(
+        decoration: BoxDecoration(
+          color: Web.card,
+          border: Border(top: BorderSide(color: Web.line)),
+        ),
+        padding: EdgeInsets.fromLTRB(4, 6, 4, 6 + bottom),
+        child: WebText(
+          child: Row(
+            children: [
+              for (final m in shown)
+                Expanded(
+                  child: _PulseBn(
+                    key: Key('nav-${m.id}'),
+                    icon: m.webIcon,
+                    label: m.label,
+                    selected: selected == m.id,
+                    onTap: () => onSelected(m.id),
+                  ),
+                ),
+              if (fold)
+                Expanded(
+                  child: _PulseBn(
+                    key: const Key('nav-more'),
+                    icon: 'grid',
+                    label: 'بیشتر',
+                    selected: rest.any((m) => m.id == selected),
+                    onTap: () => _more(context, rest),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: Web.card,
@@ -777,7 +1110,9 @@ class _PulseBn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = selected ? Web.primary : Web.muted;
+    final d2 = Web.d2;
+    // design 2 `.tab`: muted; the open one ink and w600, no pill
+    final c = selected ? (d2 ? Web.ink : Web.primary) : Web.muted;
     // .bn{gap:2px;font-size:11px;padding:4px 10px;border-radius:10px} .bn .ico{font-size:19px}
     return Semantics(
       button: true,
@@ -789,21 +1124,24 @@ class _PulseBn extends StatelessWidget {
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          constraints: d2 ? const BoxConstraints(minHeight: 48) : null,
           decoration: BoxDecoration(
-            color: selected ? Web.soft : null,
+            color: selected && !d2 ? Web.soft : null,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              WebIcon(icon, size: 19, color: c),
+              WebIcon(icon, size: d2 ? 20 : 19, color: c),
               const SizedBox(height: 2),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 11,
                   color: c,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                  fontWeight: selected
+                      ? (d2 ? FontWeight.w600 : FontWeight.w700)
+                      : FontWeight.w400,
                 ),
               ),
             ],

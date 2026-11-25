@@ -228,10 +228,11 @@ void main() {
           expect(dark.look, PayeshLook.minimal);
           expect(light, same(PayeshTokens.minimalLight));
           expect(dark, same(PayeshTokens.minimalDark));
-          // client/pulse.css (row 179): --bg #fafafa, --primary #5b4bdb, --radius 10px
-          expect(app.theme!.colorScheme.primary, const Color(0xFF5B4BDB));
-          expect(app.theme!.scaffoldBackgroundColor, const Color(0xFFFAFAFA));
-          expect(app.darkTheme!.colorScheme.primary, const Color(0xFFA89EFF));
+          // row 180 design 2 (client/pulse.css): --bg #ffffff, --primary #18181b (ink),
+          // dark --primary #fafafa, --radius 10px
+          expect(app.theme!.colorScheme.primary, const Color(0xFF18181B));
+          expect(app.theme!.scaffoldBackgroundColor, const Color(0xFFFFFFFF));
+          expect(app.darkTheme!.colorScheme.primary, const Color(0xFFFAFAFA));
           expect(
             (app.theme!.cardTheme.shape! as RoundedRectangleBorder)
                 .borderRadius,
@@ -327,13 +328,14 @@ void main() {
       );
       await _login(tester, 'owner', 'pw-owner-1');
       expect(find.byKey(const Key('nav-rail')), findsNothing);
-      // ردیف ۱۵۱: داشبورد با کارت قهرمان «نبض» + کپسول شناور پایین صفحه
-      expect(find.byKey(const Key('nabd-hero')), findsOneWidget);
+      // ردیف ۱۸۰ (طرح ۲): داشبورد با کارت‌های KPI + نوار پایین تخت با «بیشتر»
+      expect(find.byKey(const Key('owner-kpis')), findsOneWidget);
+      expect(find.byKey(const Key('nabd-hero')), findsNothing);
       expect(find.byKey(const Key('nav-capsule')), findsOneWidget);
       expect(find.byKey(const Key('cap-dashboard')), findsOneWidget);
       await tester.tap(find.byKey(const Key('cap-infra')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('nabd-hero')), findsNothing);
+      expect(find.byKey(const Key('owner-kpis')), findsNothing);
       await tester.tap(find.byKey(const Key('cap-more')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('nav-drawer')), findsOneWidget);

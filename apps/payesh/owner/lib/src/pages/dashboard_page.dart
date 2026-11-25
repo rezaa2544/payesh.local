@@ -44,40 +44,69 @@ class _DashboardPageState extends OwnerPageState<DashboardPage> {
       if (_items.every((i) => n(i.$1) == 0)) {
         content = const StateBox.empty('هنوز داده‌ای برای خلاصه وجود ندارد.');
       } else {
+        final d2 = context.tokens.isMinimal;
         // ردیف ۱۵۱: کارت قهرمان «نبض» مثل داشبورد پنل کاربران؛ بالای صفحه
-        hero = NabdHeroCard(
-          key: const Key('nabd-hero'),
-          title: 'نبض پلتفرم',
-          value: n('active_users'),
-          caption: 'کاربران فعال پلتفرم',
-          details: [
-            'اشتراک‌ها: ${faNumber(n('subscriptions'))}',
-            'پلن‌ها: ${faNumber(n('plans'))}',
-            'مجوزهای باز: ${faNumber(n('open_grants'))}',
-          ],
-          side: router == null
-              ? null
-              : LoadCard(router: router, embedded: true),
-        );
+        // ردیف ۱۸۰ (طرح ۲): کارت قهرمان نیست — چهار کارت KPI در یک ردیف، بعد بار و پایش زنده
+        hero = d2
+            ? null
+            : NabdHeroCard(
+                key: const Key('nabd-hero'),
+                title: 'نبض پلتفرم',
+                value: n('active_users'),
+                caption: 'کاربران فعال پلتفرم',
+                details: [
+                  'اشتراک‌ها: ${faNumber(n('subscriptions'))}',
+                  'پلن‌ها: ${faNumber(n('plans'))}',
+                  'مجوزهای باز: ${faNumber(n('open_grants'))}',
+                ],
+                side: router == null
+                    ? null
+                    : LoadCard(router: router, embedded: true),
+              );
         content = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final i in _items)
-                  SizedBox(
-                    width: 260,
-                    child: StatTile(
-                      key: Key('metric-${i.$1}'),
-                      label: i.$2,
-                      value: n(i.$1),
-                      icon: i.$3,
+            if (d2)
+              LayoutBuilder(
+                builder: (context, box) {
+                  final cols = box.maxWidth >= 900 ? 4 : 2;
+                  final w = (box.maxWidth - 12 * (cols - 1)) / cols;
+                  return Wrap(
+                    key: const Key('owner-kpis'),
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      for (final i in _items)
+                        SizedBox(
+                          width: w,
+                          child: StatTile(
+                            key: Key('metric-${i.$1}'),
+                            label: i.$2,
+                            value: n(i.$1),
+                            icon: i.$3,
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final i in _items)
+                    SizedBox(
+                      width: 260,
+                      child: StatTile(
+                        key: Key('metric-${i.$1}'),
+                        label: i.$2,
+                        value: n(i.$1),
+                        icon: i.$3,
+                      ),
                     ),
-                  ),
-              ],
-            ),
+                ],
+              ),
             const Notice(
               'داشبورد فقط شمارش و وضعیت فراداده است؛ محتوای مدارس نمایش داده نمی‌شود.',
             ),
@@ -92,6 +121,8 @@ class _DashboardPageState extends OwnerPageState<DashboardPage> {
         await monitor?.probeNow();
       },
       children: [
+        // ردیف ۱۸۰ (طرح ۲): کارت‌های KPI اول صفحه
+        if (context.tokens.isMinimal) content,
         // ردیف ۱۵۳: بار لحظه‌ای و مسیر بار (پیش‌نیاز حالت‌های معماری)
         if (hero != null)
           hero
@@ -99,7 +130,7 @@ class _DashboardPageState extends OwnerPageState<DashboardPage> {
           LoadCard(router: router),
         if (monitor != null)
           LiveInfraPanel(monitor: monitor, api: api, side: scope.dashSide),
-        content,
+        if (!context.tokens.isMinimal) content,
       ],
     );
   }

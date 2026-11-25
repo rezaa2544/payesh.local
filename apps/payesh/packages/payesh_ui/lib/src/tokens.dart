@@ -41,8 +41,16 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
     Color? primary2,
     Color? glow,
     this.accent = const Color(0xFFF59E0B),
+    Color? ink2,
+    Color? navBg,
+    Color? track,
+    Color? onPrimary,
   }) : primary2 = primary2 ?? primary,
-       glow = glow ?? const Color(0x00000000);
+       glow = glow ?? const Color(0x00000000),
+       ink2 = ink2 ?? ink,
+       navBg = navBg ?? card,
+       track = track ?? line,
+       onPrimary = onPrimary ?? const Color(0xFFFFFFFF);
 
   static const PayeshTokens light = PayeshTokens(
     bg: Color(0xFFF4F6FA),
@@ -130,49 +138,59 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
     glow: Color(0x47000000), // --shadow rgba(0,0,0,.28)
   );
 
-  /// «مینیمال حرفه‌ای» — light (row 179): zinc neutrals + violet accent; client/pulse.css
-  /// `html.look-minimal` carries the same values for the web panel.
+  /// «مینیمال حرفه‌ای» — light. Row 180: design 2 of design/payesh-ui-proposals.html as drawn
+  /// (shadcn/ui zinc): white page, #FAFAFA navigation, near-black filled primary, violet only for
+  /// links / accents, outlined status pills. client/pulse.css `:root` carries the same values.
   static const PayeshTokens minimalLight = PayeshTokens(
     look: PayeshLook.minimal,
-    bg: Color(0xFFFAFAFA),
+    bg: Color(0xFFFFFFFF),
     card: Color(0xFFFFFFFF),
     ink: Color(0xFF09090B),
-    muted: Color(0xFF52525B),
+    muted: Color(0xFF71717A),
     line: Color(0xFFE4E4E7),
-    primary: Color(0xFF5B4BDB),
+    primary: Color(0xFF18181B),
     primary2: Color(0xFF6D5DF5),
     soft: Color(0xFFF4F4F5),
-    success: Color(0xFF15803D),
+    success: Color(0xFF16A34A),
     successBg: Color(0xFFF0FDF4),
-    danger: Color(0xFFB91C1C),
+    danger: Color(0xFFDC2626),
     dangerBg: Color(0xFFFEF2F2),
-    warning: Color(0xFFA16207),
+    warning: Color(0xFFCA8A04),
     warningBg: Color(0xFFFEFCE8),
-    info: Color(0xFF5B4BDB),
-    infoBg: Color(0xFFF5F3FF),
+    info: Color(0xFF6D5DF5),
+    infoBg: Color(0xFFF1EFFE),
     accent: Color(0xFF6D5DF5),
+    ink2: Color(0xFF3F3F46),
+    navBg: Color(0xFFFAFAFA),
+    track: Color(0xFFE4E4E7),
+    onPrimary: Color(0xFFFAFAFA),
   );
 
-  /// «مینیمال حرفه‌ای» — dark: near-black zinc, lighter violet so filled buttons keep dark ink.
+  /// «مینیمال حرفه‌ای» — dark (design 2's owner panel): #09090B page, near-white filled primary
+  /// with near-black text, lighter violet accent.
   static const PayeshTokens minimalDark = PayeshTokens(
     look: PayeshLook.minimal,
     bg: Color(0xFF09090B),
-    card: Color(0xFF111113),
+    card: Color(0xFF0F0F12),
     ink: Color(0xFFFAFAFA),
-    muted: Color(0xFFA1A1AA),
-    line: Color(0xFF27272A),
-    primary: Color(0xFFA89EFF),
-    primary2: Color(0xFF8B7CF8),
-    soft: Color(0xFF1C1C1F),
+    muted: Color(0xFF8B8B94),
+    line: Color(0xFF232328),
+    primary: Color(0xFFFAFAFA),
+    primary2: Color(0xFFA598FF),
+    soft: Color(0xFF1C1C21),
     success: Color(0xFF4ADE80),
-    successBg: Color(0xFF0B2615),
+    successBg: Color(0xFF15241D),
     danger: Color(0xFFF87171),
-    dangerBg: Color(0xFF2A1010),
+    dangerBg: Color(0xFF26191C),
     warning: Color(0xFFFACC15),
-    warningBg: Color(0xFF261F05),
-    info: Color(0xFFC4B5FD),
-    infoBg: Color(0xFF1E1A36),
-    accent: Color(0xFF8B7CF8),
+    warningBg: Color(0xFF272212),
+    info: Color(0xFFA598FF),
+    infoBg: Color(0xFF211F2E),
+    accent: Color(0xFFA598FF),
+    ink2: Color(0xFFD4D4D8),
+    navBg: Color(0xFF09090B),
+    track: Color(0xFF26262B),
+    onPrimary: Color(0xFF09090B),
   );
 
   /// Tokens of [look] for [brightness].
@@ -194,8 +212,16 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
   /// Card glow (pulse.css `--shadow`); transparent for classic (flat cards with a border).
   final Color glow;
 
-  /// Warm accent (pulse.css `--accent`), used only for the background wash.
+  /// Warm accent (pulse.css `--accent`), used only for the background wash; for «مینیمال» the
+  /// violet of links, the «اکنون» chip, the ring and today's bar.
   final Color accent;
+
+  /// Row 180 (design 2): secondary text (`--ink2`), navigation surface (`--nav-bg`), slider /
+  /// ring track (`--track`) and the text on a filled primary button (`--on-primary`).
+  final Color ink2, navBg, track, onPrimary;
+
+  /// Links and accents (violet for «مینیمال», the primary otherwise).
+  Color get link => isMinimal ? accent : primary;
 
   bool get isNabd => look == PayeshLook.nabd;
 
@@ -265,6 +291,10 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
     primary2: primary2,
     glow: glow,
     accent: accent,
+    ink2: ink2,
+    navBg: navBg,
+    track: track,
+    onPrimary: onPrimary,
   );
 
   @override
@@ -291,6 +321,10 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
       primary2: l(primary2, other.primary2),
       glow: l(glow, other.glow),
       accent: l(accent, other.accent),
+      ink2: l(ink2, other.ink2),
+      navBg: l(navBg, other.navBg),
+      track: l(track, other.track),
+      onPrimary: l(onPrimary, other.onPrimary),
     );
   }
 }

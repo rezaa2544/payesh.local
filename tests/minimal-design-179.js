@@ -90,16 +90,22 @@ const C = {
     const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
     const out = [];
     for (const [name, t] of [['light', light.map], ['dark', Object.assign({}, light.map, dark.map)]]) {
+      /* Row 180 (design 2 as drawn): body text 4.5 on every surface; the zinc-500 hint text
+         (--muted) is 4.5 on page/card and ≥ 4.3 on the soft selection pill (the spec's own
+         #71717a on #f4f4f5); status colours are only 6px dots / icons beside --ink2 text in
+         outlined pills, so they need the non-text 2.5 floor against the card. */
       for (const s of ['--bg', '--card', '--soft']) {
-        for (const f of ['--ink', '--muted', '--primary']) {
+        for (const f of ['--ink', '--ink2', '--muted', '--primary']) {
+          const min = f === '--muted' && s === '--soft' ? 4.3 : 4.5;
           const r = ratio(t[f], t[s]);
-          if (r < 4.5) out.push(`${name} ${f} on ${s} = ${r.toFixed(2)}`);
+          if (r < min) out.push(`${name} ${f} on ${s} = ${r.toFixed(2)}`);
         }
       }
       if (ratio(t['--on-primary'], t['--primary']) < 4.5) out.push(`${name} on-primary on primary`);
+      if (ratio(t['--link'], t['--card']) < 4.5) out.push(`${name} --link on --card`);
       for (const k of ['green', 'red', 'amber', 'purple']) {
-        const r = ratio(t['--' + k], t['--' + k + '-bg']);
-        if (r < 4.5) out.push(`${name} --${k} on --${k}-bg = ${r.toFixed(2)}`);
+        const r = ratio(t['--' + k], t['--card']);
+        if (r < 2.5) out.push(`${name} --${k} dot on --card = ${r.toFixed(2)}`);
       }
     }
     return out;
@@ -179,8 +185,8 @@ check('MD-06 theme button on «سیستم» + sidebar; app.js handles theme-cycl
   assert.ok(/case 'theme-cycle': setThemeMode\(nextThemeMode\(themeMode\(\)\)\); render\(\); return;/.test(read('client/app.js')));
   const m = JSON.parse(read('docs/cloud/128-parity-matrix.json'));
   assert.ok(m.items.some(i => i.id === 'act:theme-cycle' && i.status === 'native'));
-  assert.ok(/content="#5b4bdb"/.test(read('client/index.html')));
-  assert.strictEqual(JSON.parse(read('client/manifest.webmanifest')).theme_color, '#5b4bdb');
+  assert.ok(/content="#18181b"/.test(read('client/index.html')));
+  assert.strictEqual(JSON.parse(read('client/manifest.webmanifest')).theme_color, '#18181b');
 });
 check('MD-07 owner web panel: theme.css generated from this pulse.css, flat app.css, manifest colours', () => {
   assert.strictEqual(read('apps/owner-panel/web/theme.css'), themeGen.buildTheme(PULSE));
@@ -188,8 +194,8 @@ check('MD-07 owner web panel: theme.css generated from this pulse.css, flat app.
   assert.ok(!/gradient\(/.test(css), 'no gradients');
   assert.ok(/\.navitem\[aria-current="page"\] \{[^}]*background: var\(--soft\)/.test(css), 'soft pill');
   const man = JSON.parse(read('apps/owner-panel/web/manifest.webmanifest'));
-  assert.strictEqual(man.theme_color, '#5b4bdb');
-  assert.strictEqual(man.background_color, '#fafafa');
+  assert.strictEqual(man.theme_color, '#18181b');
+  assert.strictEqual(man.background_color, '#ffffff');
   assert.ok(/data-action': 'theme'/.test(read('apps/owner-panel/web/app.js')), 'owner panel keeps its روشن/تاریک/سیستم button');
 });
 check('MD-08 native apps: minimal look + persisted روشن/تاریک/سیستم in both apps', () => {
@@ -208,11 +214,11 @@ check('MD-08 native apps: minimal look + persisted روشن/تاریک/سیست�
 
 /* MD-09: جهش‌ها */
 const MUT = [
-  ['token drift (light primary)', () => C.tokens(PULSE.replace('--primary: #5b4bdb;', '--primary: #5b4bdc;'), TOKENS_DART)],
+  ['token drift (light primary)', () => C.tokens(PULSE.replace('--primary: #18181b;', '--primary: #18181c;'), TOKENS_DART)],
   ['token drift (dart dark bg)', () => C.tokens(PULSE, TOKENS_DART.replace(/(minimalDark = PayeshTokens\([\s\S]*?bg: Color\(0xFF)09090B/, '$1000000'))],
   ['explicit light block missing', () => C.modes(PULSE.replace(':root[data-theme="light"] {', '.x-light {'))],
   ['explicit dark differs from media dark', () => C.modes(PULSE.replace(/(html\.dark, body\.dark, \[data-theme="dark"\] \{[\s\S]*?)--bg: #09090b;/, '$1--bg: #000000;'))],
-  ['muted too light', () => C.contrast(PULSE.replace('--muted: #52525b;', '--muted: #a1a1aa;'))],
+  ['muted too light', () => C.contrast(PULSE.replace('--muted: #71717a;', '--muted: #a1a1aa;'))],
   ['gradient back on nav', () => C.flat(PULSE.replace(/(\.navitem\.on \{[^}]*)background: var\(--soft\);/, '$1background: linear-gradient(135deg, var(--primary), var(--primary-2));'))],
   ['teal leftover', () => C.flat(PULSE + '\n.x { color: #0d9488; }')],
 ];

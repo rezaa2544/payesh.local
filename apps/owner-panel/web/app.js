@@ -36,13 +36,13 @@
     createSchool: false, infraRegister: false, infraCheck: false, infraRequestChange: false, infraApprove: false };
 
   var PAGES = [
-    { id: 'dashboard', title: 'داشبورد',           icon: 'M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 9h8V3h-8z' },
+    { id: 'dashboard', title: 'داشبورد', sec: 'اصلی',           icon: 'M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 9h8V3h-8z' },
     { id: 'schools',   title: 'مدارس',             icon: 'M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6' },
-    { id: 'plans',     title: 'پلن و اشتراک',      icon: 'M4 6h16v12H4zM4 10h16M8 15h3' },
+    { id: 'plans',     title: 'پلن و اشتراک', sec: 'کسب‌وکار',      icon: 'M4 6h16v12H4zM4 10h16M8 15h3' },
     { id: 'limits',    title: 'سقف و مصرف',        icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
     { id: 'health',    title: 'سلامت',             icon: 'M3 12h4l3-8 4 16 3-8h4' },
     { id: 'infra',     title: 'زیرساخت',           icon: 'M3 5h18v6H3zM3 13h18v6H3zM7 8h.01M7 16h.01M11 8h6M11 16h6' },
-    { id: 'operators', title: 'اپراتورها و مجوز',  icon: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M17 11l2 2 4-4' },
+    { id: 'operators', title: 'اپراتورها و مجوز', sec: 'سیستم',  icon: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M17 11l2 2 4-4' },
     { id: 'reports',   title: 'گزارش',             icon: 'M6 2h9l5 5v15H6zM14 2v6h6M9 13h8M9 17h8' },
     { id: 'audit',     title: 'ممیزی',             icon: 'M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z' },
   ];
@@ -288,6 +288,20 @@
       });
       return btn;
     }
+    function helloText() {
+      var hr = new Date().getHours();
+      var g = hr < 12 ? 'صبح بخیر' : hr < 17 ? 'روز بخیر' : 'عصر بخیر';
+      return g + '، همه‌چیز روبه‌راه است';
+    }
+    function todayText() {
+      /* «چهارشنبه ۴ آذر ۱۴۰۵» — قطعه‌ها جدا، تا ترتیب مرورگرها یکی باشد */
+      try {
+        var parts = {};
+        new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+          .formatToParts(new Date()).forEach(function (x) { parts[x.type] = x.value; });
+        return parts.weekday + ' ' + parts.day + ' ' + parts.month + ' ' + parts.year;
+      } catch (e) { return ''; }
+    }
     function flashEl() {
       if (!flashMsg) return null;
       var el = h('div', { class: 'flash', 'data-kind': flashMsg.kind, role: flashMsg.kind === 'error' ? 'alert' : 'status', text: flashMsg.text });
@@ -299,22 +313,52 @@
       clear(root);
       if (!session) { renderLogin(); pending = Promise.resolve(); return pending; }
       var caps = capsFor(session.role);
-      var nav = h('nav', { class: 'sidebar', 'aria-label': 'بخش‌های پنل' }, [
-        h('div', { class: 'brand' }, [h('img', { src: 'icons/logo-mark.png', alt: '' }), h('span', { text: 'پنل مالک پایش' })]),
-      ].concat(PAGES.map(function (p) {
-        return h('button', { type: 'button', class: 'navitem', 'data-page': p.id,
+      /* ردیف ۱۸۰ (طرح ۲، مو به مو): لوگو + «پنل مالک»، جستجوی Ctrl K، بخش‌های
+         «اصلی / کسب‌وکار / سیستم»، و پای منو با آواتار، نام و نقش. */
+      var items = [];
+      var search = h('input', { class: 'nav-search', type: 'search', placeholder: 'جستجو در پنل…', 'aria-label': 'جستجو در پنل' });
+      PAGES.forEach(function (p) {
+        if (p.sec) items.push(h('div', { class: 'nav-sec', text: p.sec }));
+        items.push(h('button', { type: 'button', class: 'navitem', 'data-page': p.id,
           'aria-current': p.id === current ? 'page' : null,
-          onclick: function () { show(p.id); } }, [icon(p.icon), h('span', { text: p.title })]);
-      })));
+          onclick: function () { show(p.id); } }, [icon(p.icon), h('span', { text: p.title })]));
+      });
+      search.addEventListener('input', function () {
+        var q = search.value.trim();
+        items.forEach(function (el) {
+          if (el.classList.contains('navitem')) el.hidden = !!q && el.textContent.indexOf(q) < 0;
+          else el.hidden = !!q;
+        });
+      });
+      search.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        var hit = items.filter(function (el) { return el.classList.contains('navitem') && !el.hidden; })[0];
+        if (hit) hit.click();
+      });
+      doc.onkeydown = function (e) { if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); search.focus(); } };
+      var who = (ROLE_LABEL[session.role] || 'مالک').slice(0, 1);
+      var nav = h('nav', { class: 'sidebar', 'aria-label': 'بخش‌های پنل' }, [
+        h('div', { class: 'brand' }, [h('img', { src: 'icons/logo-mark.png', alt: '' }),
+          h('div', {}, [h('b', { text: 'پایش' }), h('small', { text: 'پنل مالک' })])]),
+        h('label', { class: 'nav-find' }, [icon('M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3'), search, h('kbd', { text: 'Ctrl K' })]),
+      ].concat(items).concat([
+        h('div', { class: 'nav-foot' }, [h('span', { class: 'av', text: who }),
+          h('div', {}, [h('b', { text: ROLE_LABEL[session.role] || 'مالک' }), h('small', { class: 'mono', text: String(session.sub || '').slice(0, 18) })])]),
+      ]));
       var page = PAGES.filter(function (p) { return p.id === current; })[0] || PAGES[0];
       var body = h('div', { id: 'page', 'data-page': page.id });
       var main = h('main', { class: 'main' }, [
         h('header', { class: 'topbar' }, [
-          h('h1', { text: page.title }),
+          h('div', { class: 'hello' }, [
+            h('h1', { text: page.id === 'dashboard' ? helloText() : page.title }),
+            h('p', { class: 'hello-sub', text: todayText() + (page.id === 'dashboard' ? ' · ' + page.title : '') }),
+          ]),
           h('div', { class: 'who' }, [
             h('span', { class: 'badge info', 'data-role': session.role, text: ROLE_LABEL[session.role] }),
             themeButton(),
-            h('button', { type: 'button', class: 'btn', 'data-action': 'logout', onclick: logout, text: 'خروج' }),
+            h('button', { type: 'button', class: 'btn icon-b', 'data-action': 'logout', onclick: logout, title: 'خروج', 'aria-label': 'خروج' },
+              [icon('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9')]),
+            h('span', { class: 'av me', text: who }),
           ]),
         ]),
         flashEl(),
@@ -434,8 +478,14 @@
           var d = r.body.dashboard || {};
           var items = [['subscriptions', 'اشتراک‌ها'], ['plans', 'پلن‌ها'], ['active_users', 'کاربران فعال پلتفرم'], ['open_grants', 'مجوزهای باز پشتیبانی']];
           if (items.every(function (i) { return !Number(d[i[0]]); })) return setState(box, 'empty', 'هنوز داده‌ای برای خلاصه وجود ندارد.');
+          /* KPI طرح ۲: برچسب ۱۲٫۵، عدد ۲۶، خط توضیح ۱۱٫۵ و آیکن خط‌دار ۱۶ در گوشه */
+          var KI = { subscriptions: ['M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6', 'مدرسهٔ دارای اشتراک'],
+            plans: ['M4 6h16v12H4zM4 10h16M8 15h3', 'پلن تعریف‌شده'],
+            active_users: ['M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.1a4 4 0 0 1 0 7.8M22 21v-1a6 6 0 0 0-4-5.6', 'حساب فعال پلتفرم'],
+            open_grants: ['M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z', 'درخواست باز'] };
           clear(box).appendChild(h('div', { class: 'stats' }, items.map(function (i) {
-            return h('div', { class: 'stat', 'data-metric': i[0] }, [h('span', { text: i[1] }), h('b', { text: faNum(d[i[0]]) })]);
+            var k = KI[i[0]];
+            return h('div', { class: 'stat', 'data-metric': i[0] }, [h('i', { class: 'k-ic' }, [icon(k[0])]), h('span', { text: i[1] }), h('b', { text: faNum(d[i[0]]) }), h('small', { class: 'delta', text: k[1] })]);
           })));
           box.appendChild(h('p', { class: 'notice', text: 'داشبورد فقط شمارش و وضعیت فراداده است؛ محتوای مدارس نمایش داده نمی‌شود.' }));
         });

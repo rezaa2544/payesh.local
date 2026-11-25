@@ -206,13 +206,19 @@ void main() {
         expect(chipOn(tester, s, 'present'), isTrue);
         expect(chipOn(tester, s, 'absent'), isFalse);
       }
-      // the four web buttons (no «موجه» on the web roster) and the four counts
+      // row 180 design 2: four toggles per row (no «موجه»), three summary cards
       for (final l in ['حاضر', 'غایب', 'تأخیر', 'خروج']) {
-        expect(find.text(l), findsNWidgets(3));
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('att-row-21')),
+            matching: find.text(l),
+          ),
+          findsOneWidget,
+        );
       }
       expect(find.text('موجه'), findsNothing);
-      expect(badgeOf(tester, 'att-count-present'), 'حاضر ۳');
-      expect(badgeOf(tester, 'att-count-absent'), 'غایب ۰');
+      expect(textIn(tester, 'att-count-present'), '۳ حاضر');
+      expect(textIn(tester, 'att-count-absent'), '۰ غایب');
     },
   );
 

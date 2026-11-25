@@ -58,6 +58,11 @@ class FamilyController extends ChangeNotifier {
   List<ChildSummary> children = const [];
   List<LeaveRequest> leaves = const [];
 
+  /// Row 180 (design 2 home): the chosen child chip, its day and the newest notice.
+  int? kid;
+  TodayView? kidToday;
+  Notice? latestNotice;
+
   /// The open child page (null when none is open or it could not be read).
   ChildRecord? child;
   int? _childId;
@@ -88,6 +93,7 @@ class FamilyController extends ChangeNotifier {
       } else {
         children = await b.children();
         leaves = await b.leaveRequests();
+        await _homeExtras(b);
         if (_childId != null) child = await b.child(_childId!);
       }
     } on FamilyFailure catch (e) {
@@ -96,6 +102,41 @@ class FamilyController extends ChangeNotifier {
       error = 'خواندن دادهٔ محلی ناموفق بود';
     }
     loading = false;
+    _emit();
+  }
+
+  Future<void> _homeExtras(FamilyBook b) async {
+    if (children.isEmpty) {
+      kid = null;
+      kidToday = null;
+    } else {
+      if (!children.any((k) => k.id == kid)) kid = children.first.id;
+      try {
+        kidToday = await b.todayOf(kid!);
+      } on Object {
+        kidToday = null;
+      }
+    }
+    try {
+      latestNotice = await b.latestNotice();
+    } on Object {
+      latestNotice = null;
+    }
+  }
+
+  /// Row 180: the kid chips of the home choose whose day is shown.
+  Future<void> pickKid(int id) async {
+    if (kid == id) return;
+    kid = id;
+    kidToday = null;
+    _emit();
+    final b = _book;
+    if (b == null) return;
+    try {
+      kidToday = await b.todayOf(id);
+    } on Object {
+      kidToday = null;
+    }
     _emit();
   }
 

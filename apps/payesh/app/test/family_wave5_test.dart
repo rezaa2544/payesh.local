@@ -250,6 +250,17 @@ Future<void> settle(WidgetTester tester) async {
   }
 }
 
+/// Row 180: choose a kid chip on the parent home (design 2), then its tiles show.
+Future<void> pickKid(WidgetTester tester, int id) async {
+  await tapKey(tester, 'fam-card-$id');
+}
+
+/// Opens a kid's page: its chip, then its tile.
+Future<void> openKid(WidgetTester tester, int id) async {
+  await pickKid(tester, id);
+  await tapKey(tester, 'fam-open-$id');
+}
+
 Future<void> tapKey(WidgetTester tester, String key) async {
   await tester.ensureVisible(find.byKey(Key(key)));
   await tester.tap(find.byKey(Key(key)));
@@ -282,17 +293,18 @@ void main() {
       expect(find.byKey(const Key('fam-card-22')), findsOneWidget);
       expect(find.byKey(const Key('fam-card-21')), findsOneWidget);
       expect(find.byKey(const Key('fam-card-23')), findsNothing);
-      expect(textOf(tester, 'fam-class-21'), 'دهم ریاضی');
-      expect(badgeOf(tester, 'fam-avg-21'), 'معدل ۱۵.۵');
-      expect(badgeOf(tester, 'fam-att-21'), 'حضور ۳۳٪');
-      expect(toneOf(tester, 'fam-avg-21'), WebTone.green);
-      expect(toneOf(tester, 'fam-att-21'), WebTone.amber);
-      // Row 172: the web panel exactly — no grade / no record reads 0 (red / amber badges)
-      expect(badgeOf(tester, 'fam-avg-22'), 'معدل ۰.۰');
-      expect(badgeOf(tester, 'fam-att-22'), 'حضور ۰٪');
-      expect(toneOf(tester, 'fam-avg-22'), WebTone.red);
-      expect(toneOf(tester, 'fam-att-22'), WebTone.amber);
-      // web cards: «📨 درخواست مرخصی» and «📢 اطلاعیه‌ها»
+      // row 180 design 2: kid chips «name · class»; the chosen kid's two tiles
+      expect(textOf(tester, 'fam-class-21'), contains('دهم ریاضی'));
+      await pickKid(tester, 21);
+      expect(textOf(tester, 'fam-avg-21'), '۱۵.۵');
+      expect(textOf(tester, 'fam-att-21'), '۳۳٪');
+      expect(find.byKey(const Key('fam-today')), findsOneWidget);
+      // no grade / no record: a dash, never a made-up 0
+      await pickKid(tester, 22);
+      expect(textOf(tester, 'fam-avg-22'), '—');
+      expect(textOf(tester, 'fam-att-22'), '—');
+      expect(find.byKey(const Key('fam-avg-21')), findsNothing);
+      // «درخواست مرخصی» and «اطلاعیه‌ها»
       expect(find.byKey(const Key('fam-leaves')), findsOneWidget);
       expect(find.byKey(const Key('fam-notices')), findsOneWidget);
       expect(find.byKey(const Key('fam-cloud')), findsNothing);
@@ -304,7 +316,7 @@ void main() {
     (tester) async {
       await boot(tester);
       await openPage(tester, 'home');
-      await tapKey(tester, 'fam-open-21');
+      await openKid(tester, 21);
       expect(find.text('سارا'), findsWidgets);
       // web stat cards: the average of every grade (approved and pending), the share present
       expect(textOf(tester, 'chd-avg'), '۱۲.۰');
@@ -330,7 +342,7 @@ void main() {
     (tester) async {
       await boot(tester);
       await openPage(tester, 'home');
-      await tapKey(tester, 'fam-open-22');
+      await openKid(tester, 22);
       expect(find.byKey(const Key('chd-grades-empty')), findsOneWidget);
       expect(find.byKey(const Key('chd-att-empty')), findsOneWidget);
       expect(textOf(tester, 'chd-count'), '۰');
@@ -501,7 +513,7 @@ void main() {
     (tester) async {
       final (_, src) = await boot(tester);
       await openPage(tester, 'home');
-      await tapKey(tester, 'fam-open-21');
+      await openKid(tester, 21);
       expect(badgeOf(tester, 'chd-state-102'), 'در انتظار');
       await tester.runAsync(
         () => src.engine.put('grades', 102, {
@@ -519,7 +531,8 @@ void main() {
       expect(badgeOf(tester, 'chd-state-102'), 'تأییدشده');
       expect(textOf(tester, 'chd-avg'), '۱۲.۰');
       await tapKey(tester, 'chd-back');
-      expect(badgeOf(tester, 'fam-avg-21'), 'معدل ۱۲.۰');
+      // the home keeps the chosen kid: its average tile is refreshed too
+      expect(textOf(tester, 'fam-avg-21'), '۱۲.۰');
     },
   );
 

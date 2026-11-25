@@ -63,18 +63,21 @@ void main() {
         expect(ys[i], greaterThan(ys[i - 1]), reason: '${order[i]} order');
       }
       expect(textOf(tester, 'pulse-school'), isNotEmpty);
-      expect(textOf(tester, 'pulse-account'), 'مدیر · مدیر');
+      // row 180 design 2: the foot of the sidebar — avatar, name, role
+      expect(textIn(tester, 'pulse-account'), 'مدیر مدیر');
+      expect(find.byKey(const Key('pulse-nav-search')), findsOneWidget);
       // the web sidebar has no native sync light / session menu
       expect(find.byKey(const Key('session-menu')), findsNothing);
-      // «نبض امروز مدرسه»: 1 present of 3 students, 1 absent
+      // «حضور امروز» (design 2 ring card): 1 present of 3 students, 1 absent
       expect(find.byKey(const Key('pulse-hero')), findsOneWidget);
-      expect(textOf(tester, 'pulse-title'), 'نبض امروز مدرسه');
-      expect(textOf(tester, 'pulse-present'), '۱');
-      expect(textOf(tester, 'pulse-of'), 'از ۳ دانش‌آموز حاضر');
+      expect(textOf(tester, 'pulse-title'), 'حضور امروز');
+      expect(textOf(tester, 'pulse-of'), '۱ نفر از ۳ دانش‌آموز');
       expect(textIn(tester, 'pulse-a'), contains('غایب ۱'));
-      expect(textOf(tester, 'pulse-ratio'), '۳۳٪');
-      expect(textOf(tester, 'dash-present'), '۱ / ۲');
-      expect(textOf(tester, 'dash-students'), '۳');
+      expect(textIn(tester, 'pulse-a'), contains('حاضر ۱'));
+      expect(textIn(tester, 'd2-ring-value'), contains('۳۳٪'));
+      expect(textOf(tester, 'web-title'), startsWith('صبح بخیر'));
+      expect(find.byKey(const Key('dash-week')), findsOneWidget);
+      expect(find.byKey(const Key('dash-away')), findsOneWidget);
       // a page opens inside the shell: the sidebar stays, no back button
       await tester.tap(find.byKey(const Key('nav-users')));
       await settle(tester);
@@ -102,9 +105,11 @@ void main() {
     expect(find.byKey(const Key('pulse-page-users')), findsOneWidget);
     expect(find.byKey(const Key('usr-back')), findsNothing);
     expect(tester.takeException(), isNull, reason: 'no overflow at 400 px');
-    // the far end of the bar scrolls into view
-    await tester.ensureVisible(find.byKey(const Key('nav-system')));
+    // row 180 design 2: four pages and «بیشتر»; the rest open from its sheet
+    expect(find.byKey(const Key('nav-system')), findsNothing);
+    await tester.tap(find.byKey(const Key('nav-more')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pulse-more-sheet')), findsOneWidget);
     await tester.tap(find.byKey(const Key('nav-system')));
     await settle(tester);
     expect(find.byKey(const Key('pulse-page-system')), findsOneWidget);

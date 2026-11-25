@@ -105,8 +105,9 @@ void main() {
       expect(find.byKey(const Key('home-grid')), findsNothing);
       expect(find.text('کار روزانه'), findsNothing);
       expect(find.byKey(const Key('pulse-page-home')), findsOneWidget);
-      expect(find.text('داشبورد مدرسه'), findsWidgets);
-      for (final k in ['home', 'users', 'followup', 'classes', 'schedule']) {
+      expect(find.byKey(const Key('dash-topbar')), findsOneWidget);
+      // row 180 design 2: four pages and «بیشتر» on a phone
+      for (final k in ['home', 'users', 'followup', 'classes', 'more']) {
         expect(navOf(k), findsOneWidget, reason: k);
       }
       expect(find.text('sync-v1'), findsNothing);
