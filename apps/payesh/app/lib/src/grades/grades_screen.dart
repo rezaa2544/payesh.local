@@ -105,7 +105,7 @@ class _GradesScreenState extends State<GradesScreen> {
                   leading: IconButton(
                     key: const Key('grd-back'),
                     tooltip: 'بازگشت',
-                    icon: const BackButtonIcon(),
+                    icon: backOrCloseIcon(context),
                     onPressed: () async {
                       if (await _confirmDiscard() && context.mounted) {
                         Navigator.maybePop(context);

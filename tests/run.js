@@ -2934,6 +2934,12 @@ async function waitFor(fn, ms = 15000) {
     const opts = T.importedModalOpts();
     assert.strictEqual(opts.wide, true, 'پنجرهٔ ورود اطلاعات بزرگ است');
     assert.strictEqual(opts.lock, true, 'پنجرهٔ ورود اطلاعات با کلیک بیرون بسته نمی‌شود');
+    /* ردیف ۱۸۲: فقط جدول ورود اکسل پهن است؛ فرم‌ها و جزئیات پنجرهٔ کوچک ۷۶۰ */
+    assert.strictEqual(opts.cls, 'xl', 'ورود اکسل پنجرهٔ پهن xl');
+    const css182 = fs.readFileSync(path.join(ROOT, 'client', 'styles.css'), 'utf8');
+    assert.ok(css182.includes('.modal.wide{max-width:760px'), 'فرم‌ها در پنجرهٔ کوچک (۷۶۰)');
+    assert.ok(css182.includes('.modal.wide.xl{max-width:1180px'), 'فقط xl پهن');
+    assert.ok(!/\.modal\.wide\{max-width:1180px/.test(css182), 'فرم دیگر ۱۱۸۰ نیست');
 
     /* ذخیرهٔ فهرست پیگیری (با خطاهای سرور هم) */
     const saved = T.impSaveIssues(T.S.imp.checks, 'students', 'a.xlsx', [{ row: 2, error: 'duplicate_phone' }]);

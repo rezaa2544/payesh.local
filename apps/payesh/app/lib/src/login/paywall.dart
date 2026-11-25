@@ -113,19 +113,18 @@ class SubBanner extends StatelessWidget {
           ),
           TextButton(
             key: const Key('sub-renew'),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => Scaffold(
-                  appBar: AppBar(title: const Text('تمدید اشتراک')),
-                  body: ListenableBuilder(
-                    listenable: controller,
-                    builder: (context, _) => controller.sub == null
-                        ? const SizedBox.shrink()
-                        : SingleChildScrollView(
-                            padding: const EdgeInsets.all(PayeshTokens.space4),
-                            child: PaywallView(controller: controller),
-                          ),
-                  ),
+            onPressed: () => openPanel<void>(
+              context,
+              (_) => Scaffold(
+                appBar: AppBar(title: const Text('تمدید اشتراک')),
+                body: ListenableBuilder(
+                  listenable: controller,
+                  builder: (context, _) => controller.sub == null
+                      ? const SizedBox.shrink()
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(PayeshTokens.space4),
+                          child: PaywallView(controller: controller),
+                        ),
                 ),
               ),
             ),

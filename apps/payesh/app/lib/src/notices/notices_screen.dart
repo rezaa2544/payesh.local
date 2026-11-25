@@ -44,10 +44,9 @@ class _NoticesScreenState extends State<NoticesScreen> {
   }
 
   Future<void> _openEditor([Notice? n]) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => NoticeEditor(controller: c, editing: n),
-      ),
+    await openPanel<void>(
+      context,
+      (_) => NoticeEditor(controller: c, editing: n),
     );
     c.clearForm();
   }
@@ -134,7 +133,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
                 leading: IconButton(
                   key: const Key('ntc-back'),
                   tooltip: 'بازگشت',
-                  icon: const BackButtonIcon(),
+                  icon: backOrCloseIcon(context),
                   onPressed: () => Navigator.maybePop(context),
                 ),
                 title: const Text('اطلاعیه‌ها'),
@@ -311,7 +310,7 @@ class _NoticeEditorState extends State<NoticeEditor> {
             leading: IconButton(
               key: const Key('ntc-editor-back'),
               tooltip: 'بازگشت',
-              icon: const BackButtonIcon(),
+              icon: backOrCloseIcon(context),
               onPressed: _leave,
             ),
             title: Text(editing ? 'ویرایش اطلاعیه' : 'اطلاعیهٔ جدید'),

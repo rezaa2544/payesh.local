@@ -13,6 +13,7 @@ export 'src/field_issues.dart';
 export 'src/home_tiles.dart';
 export 'src/iran_divisions.dart';
 export 'src/jalali.dart';
+export 'src/panel.dart';
 export 'src/school_profile.dart';
 export 'src/theme.dart';
 export 'src/theme_mode.dart';

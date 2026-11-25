@@ -70,18 +70,18 @@ class _FollowupScreenState extends State<FollowupScreen> {
   }
 
   Future<void> _import() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SchoolOwned(
-          create: () =>
-              ImportController(source: c.source, role: c.role, uid: c.uid),
-          page: (ic) => ImportScreen(
-            controller: ic as ImportController,
-            sync: widget.sync,
-            onRetry: widget.onRetry,
-          ),
+    await openPanel<void>(
+      context,
+      (_) => SchoolOwned(
+        create: () =>
+            ImportController(source: c.source, role: c.role, uid: c.uid),
+        page: (ic) => ImportScreen(
+          controller: ic as ImportController,
+          sync: widget.sync,
+          onRetry: widget.onRetry,
         ),
       ),
+      width: kPanelWideWidth,
     );
     await c.load();
   }
@@ -129,8 +129,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
         },
       );
     }
-    await Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => page));
+    await openPanel<void>(context, (_) => page);
     uc.dispose();
     await c.load();
   }
@@ -817,11 +816,7 @@ class _ImportScreenState extends State<ImportScreen> {
   ].where((x) => x.isNotEmpty).join(' ');
 
   Future<void> _openFix(ImportRow r) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ImportFixPage(controller: c, row: r),
-      ),
-    );
+    await openPanel<void>(context, (_) => ImportFixPage(controller: c, row: r));
   }
 
   List<Widget> _stepCheck(ImportReview r) {

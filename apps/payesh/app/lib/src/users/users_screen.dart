@@ -53,14 +53,14 @@ class _UsersScreenState extends State<UsersScreen> {
   }
 
   Future<void> _open(Widget page) async {
-    // Row 177: the user forms are a half-width dialog on wide windows; other pages stay pages.
+    // Row 177: the user forms are a half-width dialog on wide windows; row 182: every other
+    // user page (نام کاربری و رمز، کارت پیوند) opens as a small panel too.
     if (page is UserProfilePage ||
         page is UserFormPage ||
         page is UserEditPage) {
       await openSchoolForm<void>(context, page);
     } else {
-      await Navigator.of(context)
-          .push(MaterialPageRoute<void>(builder: (_) => page));
+      await openPanel<void>(context, (_) => page);
     }
     c.clearForm();
     // a sub-page with its own controller (credentials) may have changed the list
@@ -113,18 +113,18 @@ class _UsersScreenState extends State<UsersScreen> {
   );
 
   Future<void> _import() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SchoolOwned(
-          create: () =>
-              ImportController(source: c.source, role: c.role, uid: c.uid),
-          page: (ic) => ImportScreen(
-            controller: ic as ImportController,
-            sync: widget.sync,
-            onRetry: widget.onRetry,
-          ),
+    await openPanel<void>(
+      context,
+      (_) => SchoolOwned(
+        create: () =>
+            ImportController(source: c.source, role: c.role, uid: c.uid),
+        page: (ic) => ImportScreen(
+          controller: ic as ImportController,
+          sync: widget.sync,
+          onRetry: widget.onRetry,
         ),
       ),
+      width: kPanelWideWidth,
     );
     if (mounted) await c.load();
   }

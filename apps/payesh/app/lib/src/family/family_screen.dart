@@ -41,7 +41,7 @@ AppBar _bar(
   leading: IconButton(
     key: Key(backKey),
     tooltip: 'بازگشت',
-    icon: const BackButtonIcon(),
+    icon: backOrCloseIcon(context),
     onPressed: () => Navigator.maybePop(context),
   ),
   title: Text(title),
@@ -100,13 +100,12 @@ class _FamilyScreenState extends State<FamilyScreen> {
   void _go(String route) {
     if (PulseInline.go(context, route)) return;
     if (route == 'leaves') {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => LeavesScreen(
-            controller: c,
-            sync: widget.sync,
-            onRetry: widget.onRetry,
-          ),
+      openPanel<void>(
+        context,
+        (_) => LeavesScreen(
+          controller: c,
+          sync: widget.sync,
+          onRetry: widget.onRetry,
         ),
       );
     }
@@ -794,11 +793,7 @@ class LeavesScreen extends StatelessWidget {
   final VoidCallback? onRetry;
 
   Future<void> _openForm(BuildContext context) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => LeaveForm(controller: controller),
-      ),
-    );
+    await openPanel<void>(context, (_) => LeaveForm(controller: controller));
     controller.clearForm();
   }
 
@@ -982,7 +977,7 @@ class _LeaveFormState extends State<LeaveForm> {
             leading: IconButton(
               key: const Key('lvf-back'),
               tooltip: 'بازگشت',
-              icon: const BackButtonIcon(),
+              icon: backOrCloseIcon(context),
               onPressed: _leave,
             ),
             title: const Text('درخواست مرخصی'),

@@ -285,9 +285,7 @@ final List<SchoolPageSpec> schoolPages = [
           controller: c as SystemController,
           sync: a.sync,
           onRetry: a.onRetry,
-          openCloud: () =>
-              Navigator.of(context)
-                  .push(MaterialPageRoute<void>(builder: (_) => _cloud(a))),
+          openCloud: () => openPanel<void>(context, (_) => _cloud(a)),
         ),
       ),
     ),

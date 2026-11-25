@@ -1645,10 +1645,9 @@ class _HealthScreenState extends State<HealthScreen> {
   Future<void> _open(HealthCheck check) async {
     final res = await c.open(check.id);
     if (res == null || !mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _HealthDetail(controller: c, check: check, result: res),
-      ),
+    await openPanel<void>(
+      context,
+      (_) => _HealthDetail(controller: c, check: check, result: res),
     );
     if (mounted) await c.load();
   }
@@ -1836,10 +1835,9 @@ class _HealthDetail extends StatelessWidget {
       );
       return;
     }
-    final merged = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => _MergePage(controller: controller, members: members),
-      ),
+    final merged = await openPanel<bool>(
+      context,
+      (_) => _MergePage(controller: controller, members: members),
     );
     if (merged == true && context.mounted) Navigator.of(context).pop();
   }
@@ -1850,7 +1848,7 @@ class _HealthDetail extends StatelessWidget {
       leading: IconButton(
         key: const Key('hld-back'),
         tooltip: 'بازگشت',
-        icon: const BackButtonIcon(),
+        icon: backOrCloseIcon(context),
         onPressed: () => Navigator.maybePop(context),
       ),
       title: Text(check.title),
@@ -1925,7 +1923,7 @@ class _MergePageState extends State<_MergePage> {
           leading: IconButton(
             key: const Key('hlm-back'),
             tooltip: 'بازگشت',
-            icon: const BackButtonIcon(),
+            icon: backOrCloseIcon(context),
             onPressed: () => Navigator.maybePop(context),
           ),
           title: const Text('ادغام کاربران تکراری'),

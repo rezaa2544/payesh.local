@@ -18,12 +18,11 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 /// Opens the profile page on top of the current route.
 Future<void> openSchoolProfile(BuildContext context, ServerAdminApi? admin) =>
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('مشخصات مدرسه')),
-          body: SchoolProfileView(admin: admin),
-        ),
+    openPanel<void>(
+      context,
+      (_) => Scaffold(
+        appBar: AppBar(title: const Text('مشخصات مدرسه')),
+        body: SchoolProfileView(admin: admin),
       ),
     );
 

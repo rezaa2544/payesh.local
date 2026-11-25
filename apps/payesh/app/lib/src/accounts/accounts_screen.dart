@@ -262,167 +262,178 @@ class _CredsPageState extends State<CredsPage> {
         onRetry: widget.onRetry,
         body: u == null
             ? const SizedBox.shrink()
-            : ListView(
+            // row 182: a short form in a small panel — not lazy, so the message on top stays
+            // put while the save button at the bottom is in view
+            : SingleChildScrollView(
                 padding: const EdgeInsets.all(PayeshTokens.space4),
-                children: [
-                  Text(
-                    [
-                      'نقش: ${roleFa[u['role']] ?? u['role']}',
-                      if ('${u['national_id'] ?? ''}'.isNotEmpty)
-                        'کد ملی: ${u['national_id']}',
-                    ].join(' · '),
-                    key: const Key('crd-role'),
-                  ),
-                  const SizedBox(height: PayeshTokens.space2),
-                  const Text(
-                    'با همین نام کاربری و رمز روی هر گوشی و رایانه‌ای وارد برنامه می‌شود.',
-                  ),
-                  if (c.serverError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: PayeshTokens.space2),
-                      child: Text(
-                        c.serverError!,
-                        key: const Key('crd-server'),
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      [
+                        'نقش: ${roleFa[u['role']] ?? u['role']}',
+                        if ('${u['national_id'] ?? ''}'.isNotEmpty)
+                          'کد ملی: ${u['national_id']}',
+                      ].join(' · '),
+                      key: const Key('crd-role'),
                     ),
-                  if (c.formError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: PayeshTokens.space2),
-                      child: Semantics(
-                        liveRegion: true,
+                    const SizedBox(height: PayeshTokens.space2),
+                    const Text(
+                      'با همین نام کاربری و رمز روی هر گوشی و رایانه‌ای وارد برنامه می‌شود.',
+                    ),
+                    if (c.serverError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          top: PayeshTokens.space2,
+                        ),
                         child: Text(
-                          c.formError!,
-                          key: const Key('crd-form-error'),
+                          c.serverError!,
+                          key: const Key('crd-server'),
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.error,
                           ),
                         ),
                       ),
-                    ),
-                  const SizedBox(height: PayeshTokens.space3),
-                  SchoolField(
-                    'crd-phone',
-                    'شمارهٔ همراه',
-                    phone,
-                    numeric: true,
-                  ),
-                  const SizedBox(height: PayeshTokens.space3),
-                  // row 160 — the manager's own user name (Latin or a 4–9 digit code)
-                  TextField(
-                    key: const Key('crd-username'),
-                    controller: login,
-                    enabled: c.onServer,
-                    textDirection: TextDirection.ltr,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    decoration: InputDecoration(
-                      labelText: 'نام کاربری',
-                      helperText: 'خالی = شمارهٔ همراه · حروف انگلیسی، رقم و . _ - @ (۳ تا ۳۲ نویسه)',
-                      helperMaxLines: 2,
-                      errorText: fieldIssueFor(
-                        c.formError,
-                        'نام کاربری',
-                        login.text,
-                      ),
-                      errorMaxLines: 3,
-                    ),
-                  ),
-                  const SizedBox(height: PayeshTokens.space3),
-                  TextField(
-                    key: const Key('crd-password'),
-                    controller: password,
-                    textDirection: TextDirection.ltr,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    decoration: InputDecoration(
-                      labelText: 'رمز عبور',
-                      helperText: 'خالی = همان رمز فعلی می‌ماند',
-                      errorText: fieldIssueFor(
-                        c.formError,
-                        'رمز',
-                        password.text,
-                      ),
-                      errorMaxLines: 3,
-                    ),
-                  ),
-                  const SizedBox(height: PayeshTokens.space2),
-                  Wrap(
-                    spacing: PayeshTokens.space2,
-                    children: [
-                      OutlinedButton(
-                        key: const Key('crd-auto'),
-                        onPressed: c.busy
-                            ? null
-                            : () async {
-                                if (await c.autoPassword()) {
-                                  password.text = c.shownPassword ?? '';
-                                }
-                              },
-                        child: const Text('رمز = کد ملی'),
-                      ),
-                      OutlinedButton(
-                        key: const Key('crd-random'),
-                        onPressed: () {
-                          password.text = AccountRules.randomPassword();
-                          password.selection = TextSelection(
-                            baseOffset: 0,
-                            extentOffset: password.text.length,
-                          );
-                        },
-                        child: const Text('رمز تصادفی'),
-                      ),
-                      if (password.text.isNotEmpty)
-                        IconButton(
-                          key: const Key('crd-copy'),
-                          tooltip: 'رونوشت رمز',
-                          onPressed: () => Clipboard.setData(
-                            ClipboardData(text: password.text),
-                          ),
-                          icon: const Icon(Icons.copy),
+                    if (c.formError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          top: PayeshTokens.space2,
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: PayeshTokens.space3),
-                  FilledButton(
-                    key: const Key('crd-save'),
-                    onPressed: c.busy
-                        ? null
-                        : () async {
-                            final ok = await c.save(
-                              phone: phone.text,
-                              login: c.onServer ? login.text : null,
-                              password:
-                                  password.text ==
-                                      (c.credential?.password ?? '')
-                                  ? ''
-                                  : password.text,
-                            );
-                            // row 160: the saved (normalized) user name back in the field
-                            if (ok && mounted) login.text = c.customName;
-                          },
-                    child: const Text('ذخیرهٔ نام کاربری و رمز'),
-                  ),
-                  const SizedBox(height: PayeshTokens.space4),
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: FilledButton(
-                      key: const Key('crd-delete'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.error,
-                        foregroundColor: Theme.of(context).colorScheme.onError,
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            c.formError!,
+                            key: const Key('crd-form-error'),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
                       ),
-                      onPressed: c.busy ? null : _delete,
-                      child: const Text('حذف این حساب'),
+                    const SizedBox(height: PayeshTokens.space3),
+                    SchoolField(
+                      'crd-phone',
+                      'شمارهٔ همراه',
+                      phone,
+                      numeric: true,
                     ),
-                  ),
-                  const SizedBox(height: PayeshTokens.space2),
-                  const Text(
-                    'تغییر نام کاربری بدون اینترنت هم در صف می‌ماند و بعد فرستاده می‌شود؛ رمز فقط با اتصال به سرور مدرسه عوض می‌شود و روی این دستگاه نگه داشته نمی‌شود.',
-                  ),
-                ],
+                    const SizedBox(height: PayeshTokens.space3),
+                    // row 160 — the manager's own user name (Latin or a 4–9 digit code)
+                    TextField(
+                      key: const Key('crd-username'),
+                      controller: login,
+                      enabled: c.onServer,
+                      textDirection: TextDirection.ltr,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      decoration: InputDecoration(
+                        labelText: 'نام کاربری',
+                        helperText: 'خالی = شمارهٔ همراه · حروف انگلیسی، رقم و . _ - @ (۳ تا ۳۲ نویسه)',
+                        helperMaxLines: 2,
+                        errorText: fieldIssueFor(
+                          c.formError,
+                          'نام کاربری',
+                          login.text,
+                        ),
+                        errorMaxLines: 3,
+                      ),
+                    ),
+                    const SizedBox(height: PayeshTokens.space3),
+                    TextField(
+                      key: const Key('crd-password'),
+                      controller: password,
+                      textDirection: TextDirection.ltr,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      decoration: InputDecoration(
+                        labelText: 'رمز عبور',
+                        helperText: 'خالی = همان رمز فعلی می‌ماند',
+                        errorText: fieldIssueFor(
+                          c.formError,
+                          'رمز',
+                          password.text,
+                        ),
+                        errorMaxLines: 3,
+                      ),
+                    ),
+                    const SizedBox(height: PayeshTokens.space2),
+                    Wrap(
+                      spacing: PayeshTokens.space2,
+                      children: [
+                        OutlinedButton(
+                          key: const Key('crd-auto'),
+                          onPressed: c.busy
+                              ? null
+                              : () async {
+                                  if (await c.autoPassword()) {
+                                    password.text = c.shownPassword ?? '';
+                                  }
+                                },
+                          child: const Text('رمز = کد ملی'),
+                        ),
+                        OutlinedButton(
+                          key: const Key('crd-random'),
+                          onPressed: () {
+                            password.text = AccountRules.randomPassword();
+                            password.selection = TextSelection(
+                              baseOffset: 0,
+                              extentOffset: password.text.length,
+                            );
+                          },
+                          child: const Text('رمز تصادفی'),
+                        ),
+                        if (password.text.isNotEmpty)
+                          IconButton(
+                            key: const Key('crd-copy'),
+                            tooltip: 'رونوشت رمز',
+                            onPressed: () => Clipboard.setData(
+                              ClipboardData(text: password.text),
+                            ),
+                            icon: const Icon(Icons.copy),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: PayeshTokens.space3),
+                    FilledButton(
+                      key: const Key('crd-save'),
+                      onPressed: c.busy
+                          ? null
+                          : () async {
+                              final ok = await c.save(
+                                phone: phone.text,
+                                login: c.onServer ? login.text : null,
+                                password:
+                                    password.text ==
+                                        (c.credential?.password ?? '')
+                                    ? ''
+                                    : password.text,
+                              );
+                              // row 160: the saved (normalized) user name back in the field
+                              if (ok && mounted) login.text = c.customName;
+                            },
+                      child: const Text('ذخیرهٔ نام کاربری و رمز'),
+                    ),
+                    const SizedBox(height: PayeshTokens.space4),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: FilledButton(
+                        key: const Key('crd-delete'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.error,
+                          foregroundColor: Theme.of(context)
+                              .colorScheme
+                              .onError,
+                        ),
+                        onPressed: c.busy ? null : _delete,
+                        child: const Text('حذف این حساب'),
+                      ),
+                    ),
+                    const SizedBox(height: PayeshTokens.space2),
+                    const Text(
+                      'تغییر نام کاربری بدون اینترنت هم در صف می‌ماند و بعد فرستاده می‌شود؛ رمز فقط با اتصال به سرور مدرسه عوض می‌شود و روی این دستگاه نگه داشته نمی‌شود.',
+                    ),
+                  ],
+                ),
               ),
       );
     },

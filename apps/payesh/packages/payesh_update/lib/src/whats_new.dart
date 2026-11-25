@@ -262,10 +262,9 @@ Future<void> showReleaseHistory(
   BuildContext context,
   NoteAudience audience, {
   List<ReleaseNote> all = kReleaseNotes,
-}) => Navigator.of(context).push(
-  MaterialPageRoute<void>(
-    builder: (_) => ReleaseHistoryPage(audience: audience, notes: all),
-  ),
+}) => openPanel<void>(
+  context,
+  (_) => ReleaseHistoryPage(audience: audience, notes: all),
 );
 
 class ReleaseHistoryPage extends StatelessWidget {

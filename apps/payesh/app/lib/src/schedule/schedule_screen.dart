@@ -175,8 +175,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Future<void> _open(Widget page) async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => page));
+    await openPanel<void>(context, (_) => page);
     c.clearForm();
     await c.load();
   }

@@ -23,10 +23,9 @@ class SupportEntry extends StatelessWidget {
       alignment: AlignmentDirectional.centerStart,
       child: OutlinedButton.icon(
         key: const Key('support-entry'),
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => SupportScreen(link: controller.supportLink),
-          ),
+        onPressed: () => openPanel<void>(
+          context,
+          (_) => SupportScreen(link: controller.supportLink),
         ),
         icon: const Icon(Icons.support_agent_outlined),
         label: const Text('پشتیبانی و گزارش مشکل'),
@@ -107,10 +106,9 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Future<void> _open(SupportTicket t) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SupportThreadScreen(ticket: t, link: widget.link),
-      ),
+    await openPanel<void>(
+      context,
+      (_) => SupportThreadScreen(ticket: t, link: widget.link),
     );
     if (mounted) await _load();
   }

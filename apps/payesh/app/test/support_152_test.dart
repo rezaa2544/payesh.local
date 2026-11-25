@@ -265,7 +265,8 @@ void main() {
         tickets: [_t('TKT-11111111', status: 'closed')],
         online: true,
       ));
-      await tester.tap(find.byType(BackButton));
+      // row 182: on a wide window the thread is a small panel with ✕
+      await tester.tap(find.byType(CloseButton).last);
       await tester.pumpAndSettle();
       expect(text(tester, 'support-status-TKT-11111111'), 'بسته');
     },

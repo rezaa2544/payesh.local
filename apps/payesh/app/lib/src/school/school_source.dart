@@ -225,8 +225,8 @@ class SchoolPage extends StatelessWidget {
               automaticallyImplyLeading: false,
               leading: IconButton(
                 key: Key('$prefix-back'),
-                tooltip: 'بازگشت',
-                icon: const BackButtonIcon(),
+                tooltip: backOrCloseTooltip(context),
+                icon: backOrCloseIcon(context),
                 onPressed: () => Navigator.maybePop(context),
               ),
               title: Text(title),
@@ -266,8 +266,8 @@ class SchoolPage extends StatelessWidget {
               ? null
               : IconButton(
                   key: Key('$prefix-back'),
-                  tooltip: 'بازگشت',
-                  icon: const BackButtonIcon(),
+                  tooltip: backOrCloseTooltip(context),
+                  icon: backOrCloseIcon(context),
                   onPressed: () => Navigator.maybePop(context),
                 ),
           title: Text(title),
@@ -334,8 +334,7 @@ const double schoolFormDialogBreakpoint = 900;
 /// away what was typed.
 Future<T?> openSchoolForm<T>(BuildContext context, Widget form) {
   if (MediaQuery.sizeOf(context).width < schoolFormDialogBreakpoint) {
-    return Navigator.of(context)
-        .push<T>(MaterialPageRoute<T>(builder: (_) => form));
+    return openPanel<T>(context, (_) => form);
   }
   return showDialog<T>(
     context: context,
@@ -498,8 +497,8 @@ class SchoolForm extends StatelessWidget {
               appBar: AppBar(
                 leading: IconButton(
                   key: Key('$prefix-form-back'),
-                  tooltip: 'بازگشت',
-                  icon: const BackButtonIcon(),
+                  tooltip: backOrCloseTooltip(context),
+                  icon: backOrCloseIcon(context),
                   onPressed: () => Navigator.maybePop(context),
                 ),
                 title: Text(title),
