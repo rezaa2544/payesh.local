@@ -12,21 +12,23 @@ import 'package:payesh_ui/payesh_ui.dart';
 /// یک گروه منو: عنوان + شناسهٔ صفحه‌ها به همان ترتیب نمایش.
 typedef OwnerMenuGroup = ({String id, String title, List<String> pages});
 
+// Row 180 (design 2, exact): three sections as drawn — «اصلی»، «کسب‌وکار»، «سیستم».
 const List<OwnerMenuGroup> ownerMenuGroups = [
-  (id: 'overview', title: 'نمای کلی', pages: ['dashboard']),
   (
-    id: 'people',
-    title: 'مدارس و کاربران',
-    pages: ['schools', 'operators', 'support'],
+    id: 'main',
+    title: 'اصلی',
+    pages: ['dashboard', 'schools', 'operators', 'support'],
   ),
   (
-    id: 'finance',
-    title: 'مالی و اشتراک',
-    pages: ['plans', 'payments', 'limits'],
+    id: 'business',
+    title: 'کسب‌وکار',
+    pages: ['plans', 'payments', 'limits', 'infra', 'health', 'guard'],
   ),
-  (id: 'infra', title: 'زیرساخت و پایش', pages: ['infra', 'health', 'guard']),
-  (id: 'records', title: 'گزارش و ممیزی', pages: ['reports', 'audit']),
-  (id: 'system', title: 'سیستم', pages: ['backup', 'settings']),
+  (
+    id: 'system',
+    title: 'سیستم',
+    pages: ['reports', 'audit', 'backup', 'settings'],
+  ),
 ];
 
 /// عنوان صفحه‌های محلی (غیر از ownerPages).
@@ -88,6 +90,8 @@ class NabdSideNav extends StatelessWidget {
     required this.extended,
     this.leading,
     this.account,
+    this.roleKey,
+    this.footActions = const [],
   });
   final List<OwnerMenuItem> items;
   final int selected;
@@ -97,6 +101,12 @@ class NabdSideNav extends StatelessWidget {
 
   /// Row 180 design 2: the foot of the sidebar («name», «role»).
   final (String, String)? account;
+
+  /// Row 180: the key of the role line in the foot (e.g. `role-platform_owner`).
+  final Key? roleKey;
+
+  /// Row 180: small icon actions at the end of the account foot (theme, sign out).
+  final List<Widget> footActions;
 
   @override
   Widget build(BuildContext context) {
@@ -382,13 +392,35 @@ class _MinimalSideNavState extends State<_MinimalSideNav> {
                               color: tk.ink,
                             ),
                           ),
-                          Text(
-                            acc.$2,
-                            style: TextStyle(fontSize: 11, color: tk.muted),
+                          KeyedSubtree(
+                            key: nav.roleKey,
+                            child: Text(
+                              acc.$2,
+                              style: TextStyle(fontSize: 11, color: tk.muted),
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    if (nav.footActions.isNotEmpty)
+                      IconButtonTheme(
+                        data: IconButtonThemeData(
+                          style: IconButton.styleFrom(
+                            fixedSize: const Size(30, 30),
+                            minimumSize: const Size(30, 30),
+                            padding: EdgeInsets.zero,
+                            iconSize: 17,
+                            foregroundColor: tk.muted,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: nav.footActions,
+                        ),
+                      ),
                   ],
                 ),
               ),

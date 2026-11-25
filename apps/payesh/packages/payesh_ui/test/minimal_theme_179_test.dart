@@ -183,6 +183,62 @@ void main() {
       },
     );
   });
+  testWidgets('ردیف ۱۸۱: StatTile طرح ۲ — عدد نمایشی، خط زیرین سبز/خاکستری', (
+    tester,
+  ) async {
+    final tk = PayeshUi.light(look: PayeshLook.minimal)
+        .extension<PayeshTokens>()!;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: PayeshUi.light(look: PayeshLook.minimal),
+        home: const Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            body: Column(
+              children: [
+                StatTile(
+                  key: Key('a'),
+                  label: 'درآمد آبان',
+                  value: 48600000,
+                  display: '۴۸٫۶',
+                  icon: Icons.credit_card_outlined,
+                  sub: 'میلیون تومان · +۱۲٪',
+                  subTone: PayeshTone.success,
+                ),
+                StatTile(
+                  key: Key('b'),
+                  label: 'کاربران',
+                  value: 1240,
+                  icon: Icons.people_outline,
+                  sub: 'هم‌اکنون',
+                ),
+                StatTile(
+                  key: Key('c'),
+                  label: 'خطا',
+                  value: 3,
+                  icon: Icons.error_outline,
+                  tone: PayeshTone.danger,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('۴۸٫۶'), findsOneWidget);
+    expect(find.text('۴۸۶۰۰۰۰۰'), findsNothing);
+    expect(find.text('۱٬۲۴۰'), findsOneWidget);
+    final green = tester.widget<Text>(find.text('میلیون تومان · +۱۲٪'));
+    expect(green.style!.color, tk.success);
+    final calm = tester.widget<Text>(find.text('هم‌اکنون'));
+    expect(calm.style!.color, tk.muted);
+    expect(tester.widget<Text>(find.text('۳')).style!.color, tk.danger);
+    expect(tester.widget<Text>(find.text('۱٬۲۴۰')).style!.fontSize, 26);
+    expect(
+      tester.getSemantics(find.byKey(const Key('a'))).label,
+      'درآمد آبان: ۴۸٫۶ — میلیون تومان · +۱۲٪',
+    );
+  });
 }
 
 class _Counter extends StatelessWidget {

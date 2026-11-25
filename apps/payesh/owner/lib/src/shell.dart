@@ -20,6 +20,7 @@ import 'guard/guard_engine.dart';
 import 'infra/load_route.dart';
 import 'monitor/live_monitor.dart';
 import 'schools/school_registry.dart';
+import 'status/status_lights.dart' show DbLight;
 import 'menu.dart';
 import 'widgets.dart';
 
@@ -203,6 +204,10 @@ class _OwnerShellState extends State<OwnerShell> {
       guard: widget.guard,
       backup: widget.backup,
       dashSide: widget.dashSide,
+      open: (pid) {
+        final i = _pages.indexWhere((p) => p.$1 == pid);
+        if (i >= 0) _select(i);
+      },
       child: KeyedSubtree(
         key: ValueKey('page-$id-${identityHashCode(api)}'),
         child: id == 'infra' && widget.infraSide != null
@@ -408,32 +413,164 @@ class _OwnerShellState extends State<OwnerShell> {
         body: PayeshBackdrop(child: SafeArea(child: body)),
       );
     }
-    // Row 180 design 2: the page head is the h1 (19, w700) over the muted date line; on the
-    // overview «سلام، همه‌چیز روبه‌راه است».
+    // Row 180 design 2 (exact): the page head is the h1 (19, w700) over the muted date line;
+    // on the overview «سلام، همه‌چیز روبه‌راه است» (or how many guard findings need a look). With
+    // the 240 sidebar the head keeps only «✦ نسخه · تازه‌ها», the bell and the avatar; the DB
+    // light and the work mode sit on the date line, theme / sign-out and the role in the foot.
     final d2 = tk.isMinimal;
+    final d2Wide = d2 && size == SizeClass.expanded;
     final today = JalaliDate.fromDateTime(widget.now());
-    final head = d2
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final guard = widget.guard;
+    final db = widget.dbLight;
+    final dbInline = d2Wide && db is DbLight
+        ? DbLight(key: db.key, monitor: db.monitor, compact: true)
+        : db;
+    Widget headText() {
+      final open = guard == null
+          ? 0
+          : guard.findings
+                .where(
+                  (f) =>
+                      (f.level == GuardLevel.warning ||
+                          f.level == GuardLevel.danger) &&
+                      (f.fraud == null || !guard.isAcked(f.fraud!)),
+                )
+                .length;
+      final hello = open == 0
+          ? 'سلام، همه‌چیز روبه‌راه است'
+          : 'سلام، ${faNumber(open)} مورد نیاز به بررسی دارد';
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            d2Wide && id == 'dashboard' ? hello : title,
+            key: const Key('owner-title'),
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+              color: tk.ink,
+            ),
+          ),
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                  color: tk.ink,
+              Flexible(
+                child: Text(
+                  '${!d2Wide && id == 'dashboard' ? 'سلام، همه‌چیز روبه‌راه است · ' : ''}${faDigits(today.format(weekday: true))}',
+                  key: const Key('owner-date'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, color: tk.muted),
                 ),
               ),
-              Text(
-                '${id == 'dashboard' ? 'سلام، همه‌چیز روبه‌راه است · ' : ''}${faDigits(today.format(weekday: true))}',
-                key: const Key('owner-date'),
-                style: TextStyle(fontSize: 12.5, color: tk.muted),
-              ),
+              if (d2Wide && dbInline != null) ...[
+                Text(' · ', style: TextStyle(fontSize: 12.5, color: tk.muted)),
+                dbInline,
+              ],
+              if (d2Wide && widget.badge != null) ...[
+                Text(' · ', style: TextStyle(fontSize: 12.5, color: tk.muted)),
+                Flexible(
+                  child: KeyedSubtree(
+                    key: const Key('mode-badge'),
+                    child: Text(
+                      widget.badge!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12.5, color: tk.muted),
+                    ),
+                  ),
+                ),
+              ],
             ],
-          )
+          ),
+        ],
+      );
+    }
+
+    final head = d2
+        ? (guard == null
+              ? headText()
+              : ListenableBuilder(
+                  listenable: guard,
+                  builder: (context, _) => headText(),
+                ))
         : Text(title);
+    int pageIndex(String pid) => pages.indexWhere((p) => p.$1 == pid);
+    final bellTarget = pageIndex('guard') >= 0 ? 'guard' : 'support';
+    Widget bell() {
+      final hot =
+          guard != null &&
+          (guard.level == GuardLevel.warning ||
+              guard.level == GuardLevel.danger);
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          IconButton(
+            key: const Key('owner-bell'),
+            tooltip: 'اعلان‌ها',
+            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: pageIndex(bellTarget) < 0
+                ? null
+                : () => _select(pageIndex(bellTarget)),
+          ),
+          if (hot)
+            PositionedDirectional(
+              top: 8,
+              end: 9,
+              child: Container(
+                key: const Key('owner-bell-dot'),
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: tk.danger,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: tk.card, width: 1.5),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    final avatar = Tooltip(
+      message: 'حساب و تنظیمات',
+      child: Material(
+        color: tk.primary,
+        borderRadius: BorderRadius.circular(8),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: const Key('owner-avatar'),
+          onTap: pageIndex('settings') < 0
+              ? null
+              : () => _select(pageIndex('settings')),
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Center(
+              child: Text(
+                s == null || s.role == OwnerRole.owner ? 'م' : 'ا',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: tk.onPrimary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final wideActions = <Widget>[
+      ?widget.updateLight,
+      ...widget.extraActions,
+      if (guard == null)
+        bell()
+      else
+        ListenableBuilder(listenable: guard, builder: (context, _) => bell()),
+      avatar,
+    ];
     final bar = AppBar(
       title: head,
       toolbarHeight: d2 ? 72 : null,
@@ -460,7 +597,7 @@ class _OwnerShellState extends State<OwnerShell> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    for (final a in actions)
+                    for (final a in d2Wide ? wideActions : actions)
                       Padding(
                         padding: const EdgeInsetsDirectional.only(start: 8),
                         child: a,
@@ -485,13 +622,25 @@ class _OwnerShellState extends State<OwnerShell> {
                 extended: size == SizeClass.expanded,
                 leading: _Brand(extended: size == SizeClass.expanded),
                 account: s == null
-                    ? null
+                    ? (d2Wide ? ('پنل مالک', 'بدون اتصال به سرور') : null)
                     : (
                         s.role == OwnerRole.owner
                             ? 'مالک پلتفرم'
                             : s.role.label,
                         s.role == OwnerRole.owner ? 'مالک' : 'اپراتور',
                       ),
+                roleKey: s == null ? null : Key('role-${s.role.wire}'),
+                footActions: d2Wide
+                    ? [
+                        widget.themeButton,
+                        IconButton(
+                          key: const Key('logout'),
+                          tooltip: 'خروج',
+                          icon: const Icon(Icons.logout),
+                          onPressed: widget.onSignOut,
+                        ),
+                      ]
+                    : const [],
               ),
               Expanded(
                 child: d2

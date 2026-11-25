@@ -833,6 +833,74 @@ void main() {
       },
     );
 
+    testWidgets(
+      'ردیف ۱۸۱ (طرح ۲): کپسول «✦ نسخه · تازه‌ها» در پنجرهٔ پهن؛ «تازه‌ها» تاریخچه را باز می‌کند',
+      (tester) async {
+        tester.view.physicalSize = const Size(1200, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final u = AppUpdater(
+          channel: channel,
+          http: http,
+          windows: false,
+          currentBuild: 7,
+          retry: UpdateRetry.none,
+          stagingRoot: staging,
+          installDir: install,
+        );
+        Widget app() => MaterialApp(
+          theme: PayeshUi.dark(look: PayeshLook.minimal),
+          home: Scaffold(
+            body: Center(
+              child: UpdateLight(
+                updater: u,
+                audience: NoteAudience.owner,
+                openUrl: (x) async {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpWidget(app());
+        expect(find.byKey(const ValueKey('update-pill-idle')), findsOneWidget);
+        expect(find.text('نسخهٔ '), findsOneWidget);
+        expect(find.text('· تازه‌ها'), findsOneWidget);
+        expect(find.byIcon(Icons.auto_awesome_outlined), findsOneWidget);
+        // آرام ⇒ حاشیهٔ خنثی؛ آماده ⇒ حاشیهٔ هم‌رنگ وضعیت
+        Color border(String phase) =>
+            ((tester
+                                .widget<Container>(
+                                  find.byKey(ValueKey('update-pill-$phase')),
+                                )
+                                .decoration!
+                            as BoxDecoration)
+                        .border!
+                    as Border)
+                .top
+                .color;
+        final tk = PayeshUi.dark(look: PayeshLook.minimal)
+            .extension<PayeshTokens>()!;
+        expect(border('idle'), tk.line);
+        await tester.tap(find.byKey(const Key('update-light')));
+        await tester.pump(const Duration(milliseconds: 20));
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(u.phase, UpdatePhase.ready);
+        expect(border('ready'), isNot(tk.line));
+        await tester.tap(find.byKey(const Key('update-whats-new')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('release-history')), findsOneWidget);
+        tester.state<NavigatorState>(find.byType(Navigator)).pop();
+        await tester.pumpAndSettle();
+        // پنجرهٔ باریک ⇒ همان کپسول کوچک قدیمی
+        tester.view.physicalSize = const Size(700, 800);
+        await tester.pumpWidget(app());
+        await tester.pump();
+        expect(find.text('· تازه‌ها'), findsNothing);
+        expect(find.byType(StadiumBorder, skipOffstage: false), findsNothing);
+        await tester.pumpWidget(const SizedBox());
+        await u.dispose();
+      },
+    );
+
     test(
       'اندروید: ساخت تازه ولی APK منتشر نشده ⇒ به‌روز (پیوند خالی نه)',
       () async {

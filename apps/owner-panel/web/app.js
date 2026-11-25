@@ -47,6 +47,10 @@
     { id: 'audit',     title: 'ممیزی',             icon: 'M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z' },
   ];
 
+  /* OWNER_WHATS_NEW:BEGIN — ساخته‌شده با tools/gen-whats-new-179.mjs؛ دستی ویرایش نکنید */
+  var OWNER_WHATS_NEW = [{"v":"0.9.38","n":["پنل مالک مو به مو مطابق طرح: نوار کناری با سه گروه «اصلی، کسب‌وکار، سیستم»، سربرگ با سلام و تاریخ، زنگ اعلان، آواتار و کپسول «✦ نسخه · تازه‌ها»؛ پوسته و خروج به پایین منو رفتند.","داشبورد مالک: چهار کارت «مدارس، کاربران، درآمد این ماه، سلامت» با تغییر نسبت به قبل، و کارت «مدارس» با زبانه‌های همه / آزمایشی / نیازمند توجه و نشان آنلاین، آفلاین یا به‌روزرسانی معوق برای هر مدرسه.","کارت «پردازش کمکی» در داشبورد مالک فشرده شد: دکمهٔ شروع|توقف، لغزندهٔ «مقدار پردازش» و سه کاشی پردازنده، کار امروز و استراحت."]},{"v":"0.9.37","n":["ظاهر «مینیمال حرفه‌ای» حالا مو به مو مطابق طرح انتخابی پیاده شده است: نوار کناری ۲۴۰ پیکسلی با لوگوی مدرسه، جستجوی سریع (Ctrl K) و حساب کاربری در پایین، و سربرگ هر صفحه با تاریخ امروز و دکمه‌های گرد.","پنل مالک: نوار کناری با جستجو و حساب، سربرگ با تاریخ و دکمه‌های گرد، و چهار کارت شاخص بالای نمای کلی به جای کارت بزرگ قبلی.","وقتی برنامه به‌روز است، نوار نسخه به یک برچسب کوچک تبدیل می‌شود و فقط هنگام وجود نسخهٔ تازه بزرگ و پررنگ می‌شود."]},{"v":"0.9.36","n":["ظاهر تازهٔ «مینیمال حرفه‌ای» در همهٔ پنل‌ها (پنل مالک، اپ مدرسه روی گوشی و ویندوز، پنل وب و پنل وب مالک): سطح‌های ساده و آرام، کارت‌های تخت با خط نازک، بدون سایه و گرادیان، و یک رنگ بنفش فقط برای کارهای اصلی. بخش فعلی منو با یک کپسول خاکستری ملایم مشخص می‌شود.","پوستهٔ روشن و تاریک به انتخاب خودتان: در هر پنل می‌توانید «روشن»، «تاریک» یا «سیستم» (پیرو تنظیم گوشی یا ویندوز) را برگزینید و انتخاب روی همان دستگاه می‌ماند.","در پنل مالک، دکمهٔ پوسته در نوار بالا است."]},{"v":"0.9.35","n":["پس از هر به‌روزرسانی، همهٔ پنل‌ها (پنل مالک، اپ مدرسه روی گوشی و ویندوز، و پنل وب) یک‌بار پنجرهٔ «چه چیزهایی تازه است؟» را نشان می‌دهند تا بدانید در این نسخه چه چیزی اضافه یا عوض شده است. اگر چند نسخه را جا انداخته باشید، تغییرات همهٔ آن‌ها با هم نشان داده می‌شود.","صفحهٔ «همهٔ تغییرات نسخه‌ها» اضافه شد: تاریخچهٔ تغییرات هر نسخه را هر وقت خواستید از بخش به‌روزرسانی (یا «سیستم») باز کنید."]},{"v":"0.9.34","n":["تغییرات تازه حتی از راه اینترنت (بدون شبکهٔ مدرسه) فوراً به گوشی‌ها و رایانه‌ها می‌رسد؛ برنامه دیگر هر چند ثانیه سرور را بررسی نمی‌کند، پس اینترنت و باتری کمتری مصرف می‌شود.","دکمه‌های «شروع» و «توقف» و نوار «مقدار پردازش» حالا داخل خود کارت «پردازش کمکی (همین سیستم)» هستند.","وقتی پردازش متوقف است، کارهای پس‌زمینهٔ سرور کمکی هم واقعاً می‌ایستند و سقف مصرف پردازنده همه‌جا رعایت می‌شود. کار کاربران هیچ‌وقت کند نمی‌شود."]}];
+  /* OWNER_WHATS_NEW:END */
+
   var ERRORS = {
     network: 'ارتباط با سرور برقرار نشد. اتصال شبکه یا Gateway را بررسی کنید.',
     bad_response: 'پاسخ سرور قابل‌خواندن نبود.',
@@ -278,15 +282,39 @@
       else el.removeAttribute('data-theme');
       try { if (mode === 'system') win.localStorage.removeItem(THEME_KEY); else win.localStorage.setItem(THEME_KEY, mode); } catch (e) { /* noop */ }
     }
-    function themeButton() {
+    function themeButton(compact) {
       var labels = { system: 'پوسته: سیستم', light: 'پوسته: روشن', dark: 'پوسته: تاریک' };
-      var btn = h('button', { type: 'button', class: 'btn', 'data-action': 'theme', text: labels[themeMode()] });
+      /* ردیف ۱۸۰: در پای منو فقط آیکن (خورشید/ماه/نیم‌دایره) با برچسب در title */
+      var ICON = { system: 'M12 3a9 9 0 1 0 0 18zM12 3a9 9 0 0 1 0 18', light: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
+        dark: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z' };
+      function paint(btn, mode) {
+        if (!compact) { btn.textContent = labels[mode]; return; }
+        clear(btn).appendChild(icon(ICON[mode]));
+        btn.setAttribute('title', labels[mode]); btn.setAttribute('aria-label', labels[mode]);
+      }
+      var btn = h('button', { type: 'button', class: compact ? 'btn icon-b sm' : 'btn', 'data-action': 'theme' });
+      paint(btn, themeMode());
       btn.addEventListener('click', function () {
         var next = { system: 'light', light: 'dark', dark: 'system' }[themeMode()];
         applyTheme(next);
-        btn.textContent = labels[next];
+        paint(btn, next);
       });
       return btn;
+    }
+    /* «چه چیزهایی تازه است؟» پنل وب مالک — از RELEASE_NOTES.json (مخاطب owner) */
+    function whatsNew() {
+      var wrap;
+      function close() { if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap); }
+      var list = h('div', { class: 'wn-list' }, OWNER_WHATS_NEW.map(function (r) {
+        return h('section', { class: 'wn-ver' }, [h('h3', null, [h('span', { text: 'نسخهٔ ' }), h('span', { class: 'mono', text: r.v })]),
+          h('ul', null, r.n.map(function (t) { return h('li', { text: t }); }))]);
+      }));
+      var box = h('div', { class: 'modal card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'wn-title', id: 'whats-new' }, [
+        h('h2', { id: 'wn-title', text: 'چه چیزهایی تازه است؟' }), list,
+        h('div', { class: 'actions' }, [h('button', { type: 'button', class: 'btn primary', 'data-action': 'whats-new-close', text: 'باشه', onclick: close })]),
+      ]);
+      wrap = h('div', { class: 'modal-backdrop', id: 'dialog-wn', onclick: function (e) { if (e.target === wrap) close(); } }, [box]);
+      root.appendChild(wrap);
     }
     function helloText() {
       var hr = new Date().getHours();
@@ -337,13 +365,18 @@
       });
       doc.onkeydown = function (e) { if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); search.focus(); } };
       var who = (ROLE_LABEL[session.role] || 'مالک').slice(0, 1);
+      var ROLE_SHORT = { platform_owner: 'مالک', platform_operator: 'اپراتور', platform_support: 'پشتیبان' };
       var nav = h('nav', { class: 'sidebar', 'aria-label': 'بخش‌های پنل' }, [
         h('div', { class: 'brand' }, [h('img', { src: 'icons/logo-mark.png', alt: '' }),
           h('div', {}, [h('b', { text: 'پایش' }), h('small', { text: 'پنل مالک' })])]),
         h('label', { class: 'nav-find' }, [icon('M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3'), search, h('kbd', { text: 'Ctrl K' })]),
       ].concat(items).concat([
+        /* پای منو مثل طرح: آواتار، نام و نقش؛ پوسته و خروج آیکن‌های کوچک کنارش */
         h('div', { class: 'nav-foot' }, [h('span', { class: 'av', text: who }),
-          h('div', {}, [h('b', { text: ROLE_LABEL[session.role] || 'مالک' }), h('small', { class: 'mono', text: String(session.sub || '').slice(0, 18) })])]),
+          h('div', { class: 'nf-t' }, [h('b', { text: ROLE_LABEL[session.role] || 'مالک' }), h('small', { 'data-role': session.role, text: ROLE_SHORT[session.role] || '' })]),
+          themeButton(true),
+          h('button', { type: 'button', class: 'btn icon-b sm', 'data-action': 'logout', onclick: logout, title: 'خروج', 'aria-label': 'خروج' },
+            [icon('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9')])]),
       ]));
       var page = PAGES.filter(function (p) { return p.id === current; })[0] || PAGES[0];
       var body = h('div', { id: 'page', 'data-page': page.id });
@@ -351,14 +384,15 @@
         h('header', { class: 'topbar' }, [
           h('div', { class: 'hello' }, [
             h('h1', { text: page.id === 'dashboard' ? helloText() : page.title }),
-            h('p', { class: 'hello-sub', text: todayText() + (page.id === 'dashboard' ? ' · ' + page.title : '') }),
+            h('p', { class: 'hello-sub', text: todayText() }),
           ]),
+          /* طرح ۲: «✦ نسخهٔ … · تازه‌ها»، زنگ و آواتار */
           h('div', { class: 'who' }, [
-            h('span', { class: 'badge info', 'data-role': session.role, text: ROLE_LABEL[session.role] }),
-            themeButton(),
-            h('button', { type: 'button', class: 'btn icon-b', 'data-action': 'logout', onclick: logout, title: 'خروج', 'aria-label': 'خروج' },
-              [icon('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9')]),
-            h('span', { class: 'av me', text: who }),
+            OWNER_WHATS_NEW.length ? h('button', { type: 'button', class: 'btn ver-pill', 'data-action': 'whats-new', onclick: whatsNew },
+              [icon('M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 3v4M21 5h-4'), h('span', { class: 'vp-t', text: 'نسخهٔ ' }), h('b', { class: 'mono', text: OWNER_WHATS_NEW[0].v }), h('span', { text: ' · تازه‌ها' })]) : null,
+            h('button', { type: 'button', class: 'btn icon-b', 'data-action': 'bell', title: 'سلامت و هشدارها', 'aria-label': 'سلامت و هشدارها', onclick: function () { show('health'); } },
+              [icon('M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0')]),
+            h('span', { class: 'av me', title: ROLE_LABEL[session.role] || '', text: who }),
           ]),
         ]),
         flashEl(),
@@ -468,6 +502,42 @@
       return render();
     }
 
+    /* ردیف ۱۸۰ — کارت «مدارس» داشبورد: فقط فراداده (شناسهٔ کوتاه، پلن، وضعیت، پایان اشتراک) */
+    var ATTENTION = { suspended: 1, past_due: 1, grace: 1, canceled: 1, expired: 1, disabled: 1, locked: 1 };
+    function needsAttention(x) {
+      if (ATTENTION[x.status]) return true;
+      var end = x.ends_at ? new Date(x.ends_at).getTime() : NaN;
+      return isFinite(end) && end - Date.now() < 14 * 86400000;
+    }
+    function schoolsCard(all) {
+      var tab = 'all';
+      var listBox = h('div', { class: 'sch-list' });
+      var tabs = h('div', { class: 'seg', role: 'tablist', 'aria-label': 'صافی مدارس' });
+      function paint() {
+        var rows = all.filter(function (x) {
+          return tab === 'all' || (tab === 'trial' && x.status === 'trialing') || (tab === 'attention' && needsAttention(x));
+        }).slice(0, 5);
+        Array.prototype.forEach.call(tabs.children, function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === tab ? 'true' : 'false'); });
+        if (!rows.length) {
+          return setState(listBox, 'empty', !all.length ? 'هنوز مدرسه‌ای ثبت نشده است.' : tab === 'trial' ? 'مدرسه‌ای در دورهٔ آزمایشی نیست.' : 'همهٔ مدارس روبه‌راه‌اند.');
+        }
+        clear(listBox).appendChild(table(['مدرسه', 'پلن', 'وضعیت', 'پایان اشتراک'], rows, function (x) {
+          return [h('span', { class: 'sch' }, [h('span', { class: 'av', text: String(x.plan_code || 'م').slice(0, 1) }), h('code', { title: x.tenant_id, text: shortId(x.tenant_id) })]),
+            x.plan_code || '—', badge(x.status), faDate(x.ends_at)];
+        }));
+      }
+      [['all', 'همه'], ['trial', 'آزمایشی'], ['attention', 'نیازمند توجه']].forEach(function (p) {
+        tabs.appendChild(h('button', { type: 'button', role: 'tab', class: 'seg-b', 'data-tab': p[0], text: p[1], onclick: function () { tab = p[0]; paint(); } }));
+      });
+      paint();
+      return h('section', { class: 'card', id: 'dash-schools' }, [
+        h('div', { class: 'card-h' }, [h('h2', { text: 'مدارس' }), tabs,
+          h('button', { type: 'button', class: 'lnk', 'data-action': 'schools-all', onclick: function () { show('schools'); } },
+            [h('span', { text: 'مشاهدهٔ همه' }), icon('M15 18l-6-6 6-6')])]),
+        listBox,
+      ]);
+    }
+
     /* ── صفحه‌ها ───────────────────────────────────────────────────── */
     var LOADERS = {
       dashboard: function (body) {
@@ -487,7 +557,11 @@
             var k = KI[i[0]];
             return h('div', { class: 'stat', 'data-metric': i[0] }, [h('i', { class: 'k-ic' }, [icon(k[0])]), h('span', { text: i[1] }), h('b', { text: faNum(d[i[0]]) }), h('small', { class: 'delta', text: k[1] })]);
           })));
-          box.appendChild(h('p', { class: 'notice', text: 'داشبورد فقط شمارش و وضعیت فراداده است؛ محتوای مدارس نمایش داده نمی‌شود.' }));
+          /* ردیف ۱۸۰ (طرح ۲، مو به مو): کارت «مدارس» با زبانه‌های همه / آزمایشی / نیازمند توجه */
+          /* بدون مسدود کردن KPIها: کارت مدارس وقتی فهرست رسید اضافه می‌شود (خطا ⇒ بدون کارت) */
+          api('GET', '/tenants').then(function (t) {
+            if (t && t.ok && box.isConnected !== false) box.appendChild(schoolsCard((t.body && t.body.tenants) || []));
+          });
         });
       },
 

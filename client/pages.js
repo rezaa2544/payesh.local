@@ -106,38 +106,61 @@ function updateBarHtml() {
     const body = updateBarBody();
     if (body) return body;
   }
-  return `<div class="updbar${!busy && !ready && !avail ? ' is-ok' : ''}" id="update-bar" dir="rtl">
+  const calm = !busy && !ready && !avail;
+  return `<div class="updbar${calm ? ' is-ok' : ''}" id="update-bar" dir="rtl">
     <span class="upd-dot" style="background:${dot}" title="${esc(text)}"></span>
-    <span class="small">نسخهٔ <b class="ltr">${esc(cur)}</b> — ${text}</span>
+    <span class="small">نسخهٔ <b class="ltr">${esc(cur)}</b><span class="${calm ? 'sr-only' : ''}"> — ${text}</span></span>
+    ${calm ? `<button type="button" class="upd-new" data-act="whats-new-all" title="همهٔ تغییرات نسخه‌ها">· تازه‌ها</button>` : ''}
     ${isManager && !bundled && (avail || ready)
       ? `<button class="btn xs primary" data-act="${ready ? 'update-install' : 'update-now'}">${ready ? 'نصب و راه‌اندازی دوباره' : 'دانلود و نصب'}</button>`
       : ''}
     ${isManager && !bundled && !avail && !ready && !busy
-      ? `<button class="btn xs ghost" data-act="update-recheck">بررسی آپدیت</button>`
+      ? `<button class="icon-b xs" data-act="update-recheck" title="بررسی آپدیت" aria-label="بررسی آپدیت">${typeof d2Ico === 'function' ? d2Ico('sync') : '↻'}</button>`
       : ''}
   </div>`;
 }
 
+/* Row 180 (طرح ۲ مو به مو): جستجوی سریع نوار کناری — مدیر در «کاربران»،
+   دبیر/معاون/مشاور در «دانش‌آموزان»؛ Ctrl K کادر را فعال می‌کند. */
+function sideSearchRoute(role) {
+  if (role === 'manager') return 'users';
+  return navConfig(role).some(([r]) => r === 'students') ? 'students' : '';
+}
+function sideSearchHtml(role) {
+  const route = sideSearchRoute(role);
+  if (!route) return '';
+  return `<label class="d2-search" for="side-q">${typeof d2Ico === 'function' ? d2Ico('search') : ''}<input id="side-q" type="search" data-focus-key="side-q" data-side-search="${route}" placeholder="${route === 'users' ? 'جستجوی دانش‌آموز…' : 'جستجوی دانش‌آموز…'}" value="${esc(S.q || '')}" autocomplete="off" aria-label="جستجو"><kbd class="ltr">Ctrl K</kbd></label>`;
+}
+/* وقتی برنامه به‌روز است، نوار نسخه یک برچسب کوچک در پایین نوار کناری است
+   (طرح: «نسخه · تازه‌ها»)؛ فقط نسخهٔ تازه/دانلود/آمادهٔ نصب بالای صفحه می‌آید. */
+function updateBarIsCalm(html) { return /class="updbar is-ok"/.test(html || ''); }
+
 function shellHtml(view) {
   const role = S.role || 'student';
   const nav = navConfig(role);
+  const cloudDot = role === 'manager' && !(S.server && S.server.cloudReady) && !(S.server && S.server.publicUrl);
   const mkNav = (mobile) => nav.map(([r, ico, label]) => {
     const on = S.route === r || (r === 'home' && ['home', 'child', 'record'].includes(S.route));
+    const dot = r === 'cloud' && cloudDot ? '<span class="d2-dot" title="حافظهٔ ابری هنوز تنظیم نشده" aria-label="نیاز به تنظیم"></span>' : '';
     return mobile
       ? `<a class="bn ${on ? 'on' : ''}" href="#/${r}"><span class="ico">${ico}</span>${esc(label)}</a>`
-      : `<a class="navitem ${on ? 'on' : ''}" href="#/${r}"><span>${ico}</span>${esc(label)}</a>`;
+      : `<a class="navitem ${on ? 'on' : ''}" href="#/${r}"><span>${ico}</span>${esc(label)}${dot}</a>`;
   }).join('');
+  const upd = updateBarHtml();
+  const calm = updateBarIsCalm(upd);
   return `
   <div class="shell">
     <aside class="sidebar">
       <div class="brand d2-brand"><img class="d2-logo brand-mark" src="/icons/logo-mark.png" alt="پایش"><span class="d2-bn"><b>${esc((S.server.school && S.server.school.name) || 'پایش-لوکال')}</b><small>${esc(role === 'manager' ? 'مدیر مدرسه' : (ROLE_FA[role] || role))}</small></span></div>
+      ${sideSearchHtml(role)}
       <nav class="d2-nav">${mkNav(false)}</nav>
       <div class="d2-foot">
+        ${calm ? upd : ''}
         <div class="d2-acc"><span class="avatar">${esc(String(S.user ? S.user.name : '').trim().charAt(0))}</span><span class="d2-bn"><b>${esc(S.user ? S.user.name : '')}</b><small>${esc(ROLE_FA[role] || role)}</small></span></div>
         <div class="d2-theme">${themeButtonHtml('theme-side')}</div>
       </div>
     </aside>
-    <main class="main">${canonicalBarHtml()}${updateBarHtml()}${offlineBarHtml()}${view}</main>
+    <main class="main">${canonicalBarHtml()}${calm ? '' : upd}${offlineBarHtml()}${view}</main>
   </div>
   <nav class="bottomnav">${mkNav(true)}</nav>`;
 }
@@ -162,6 +185,9 @@ function canonicalBarHtml() {
      مشترک ابری همه‌جا در دسترس است. فقط اگر خودِ حافظه تنظیم نشده باشد،
      یک یادآوری کوچک با دکمهٔ تنظیم خودکار نشان می‌دهیم. */
   if (S.server && S.server.cloudReady) return '';
+  /* طرح ۲: بالای داشبورد هیچ نواری نیست؛ یادآوری فقط در صفحهٔ «حافظهٔ ابری»
+     (و یک نقطهٔ کوچک کنار همان گزینه در نوار کناری). */
+  if (S.route !== 'cloud') return '';
   if (localStorage.getItem('payesh.originbar.off') === 'none') return '';
   return `<div class="banner warn" id="origin-bar">
     <div>☁️ حافظهٔ مشترک ابری هنوز آماده نیست — با یک کلیک خودکار تنظیم می‌شود؛ بعد از آن گوشی و خانه هم به همه‌چیز دسترسی دارند.</div>
@@ -237,11 +263,15 @@ function offlineBarHtml() {
 function updateTopChrome() {
   const bar = $('#update-bar');
   const html = updateBarHtml();
-  if (bar) { bar.outerHTML = html || '<div id="update-bar" hidden></div>'; return; }
-  if (html) {
-    const main = $('.main');
-    if (main) main.insertAdjacentHTML('afterbegin', html);
-  }
+  const calm = updateBarIsCalm(html);
+  const foot = $('.sidebar .d2-foot');
+  const inFoot = !!(bar && foot && foot.contains(bar));
+  if (bar && (!html || inFoot === (calm && !!foot))) { bar.outerHTML = html || '<div id="update-bar" hidden></div>'; return; }
+  if (bar) bar.remove();
+  if (!html) return;
+  if (calm && foot) { foot.insertAdjacentHTML('afterbegin', html); return; }
+  const main = $('.main');
+  if (main) main.insertAdjacentHTML('afterbegin', html);
 }
 
 
@@ -491,6 +521,7 @@ function d2Ico(name, size) {
     chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     check: '<path d="M20 6 9 17l-5-5"/>',
     back: '<path d="m9 18 6-6-6-6"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
   };
   const z = size || 18;
   return `<svg viewBox="0 0 24 24" width="${z}" height="${z}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
@@ -498,14 +529,12 @@ function d2Ico(name, size) {
 
 function managerHome() {
   const students = sortBy(list('users').filter(u => u.role === 'student' && u.active !== false), 'name');
-  const teachers = sortBy(list('users').filter(u => u.role === 'teacher'), 'name');
   const classes = sortBy(list('classes'), 'name');
   const today = todayISO();
   const attToday = list('attendance').filter(a => a.date === today);
   const present = attToday.filter(a => a.status === 'present').length;
   const absent = attToday.filter(a => a.status === 'absent').length;
   const late = attToday.filter(a => a.status === 'late').length;
-  const pending = list('grades').filter(g => g.status === 'pending').length;
   /* پوشش حضور مدرسه بر مبنای پایه/رشته است، نه نام محل برگزاری. */
   const cohortClasses = classes.filter(c => !dashboardIsRoom(c));
   const coverageByKey = new Map();
@@ -582,7 +611,6 @@ function managerHome() {
     <div class="dashboard-topbar-left top-act">
       <div class="row no-print">
         <button class="btn sm primary" data-act="goto" data-route="announcements">＋ اطلاعیهٔ جدید</button>
-        <button class="icon-b" data-act="sync" title="همگام‌سازی" aria-label="همگام‌سازی">${d2Ico('sync')}</button>
         <a class="icon-b${recentAnn.length ? ' dot' : ''}" href="#/announcements" title="اطلاعیه‌ها" aria-label="اطلاعیه‌ها">${d2Ico('bell')}</a>
         <span class="avatar me" aria-hidden="true">${esc(String((S.user && S.user.name) || 'م').trim().charAt(0))}</span>
       </div>
@@ -603,15 +631,6 @@ function managerHome() {
     <section class="card mlist" id="dash-recent">${cardH('اطلاعیه‌ها', '', 'announcements')}
       ${recentAnn.length ? `<ul class="lst">${recentAnn.map(a => `<li><span class="n-ic">${'<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'}</span><div class="nm"><b>${esc(a.title)}</b><small>${esc(fa(jdate(a.date)))}</small></div><a class="d2-go" href="#/announcements" aria-label="باز کردن">${chev}</a></li>`).join('')}</ul>` : '<div class="small muted d2-empty">اطلاعیه‌ای نیست</div>'}
     </section>
-  </div>
-  <div class="grid">
-    ${statCard('👥', fa(students.length), 'دانش‌آموز')}
-    ${statCard('👨‍🏫', fa(teachers.length), 'دبیر')}
-    ${statCard('🏛️', fa(classes.length), 'کلاس')}
-    ${statCard('✅', fa(present) + ' / ' + fa(attToday.length), 'حاضر امروز', 'green')}
-    ${statCard('❌', fa(absent), 'غایب امروز', 'red')}
-    ${statCard('⏰', fa(late), 'تأخیر', 'amber')}
-    ${statCard('📝', fa(pending), 'نمرهٔ در انتظار تأیید', 'purple')}
   </div>
 
   <div class="dashboard-coverage-grid">

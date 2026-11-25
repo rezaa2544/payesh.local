@@ -639,3 +639,19 @@ a, .lnk { color: var(--link); }
 .d2-acc .avatar { width: 28px; height: 28px; font-size: 12px; }
 .updbar.is-ok { width: fit-content; margin-inline-start: auto; border-radius: 999px; padding: 4px 12px; gap: 8px; min-height: 0; }
 .updbar.is-ok .small { font-size: 11.5px; color: var(--muted); }
+
+/* Row 180 (design 2, exact): sidebar quick search with Ctrl K, nav warning dot, calm version pill in the foot */
+.d2-search { display: flex; align-items: center; gap: 8px; height: 34px; margin: 0 2px 12px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--muted); cursor: text; }
+.d2-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 12.5px; padding: 0; }
+.d2-search input::placeholder { color: var(--muted); }
+.d2-search input::-webkit-search-cancel-button { display: none; }
+.d2-search:focus-within { border-color: var(--ink2); }
+.d2-search kbd { font: 600 10.5px/1 ui-monospace, monospace; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 3px 5px; background: var(--soft); white-space: nowrap; }
+.navitem .d2-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); margin-inline-start: auto; flex: none; }
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.d2-foot .updbar.is-ok { width: auto; margin: 0; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 3px 4px 3px 10px; display: flex; align-items: center; gap: 6px; box-shadow: none; }
+.d2-foot .updbar.is-ok .upd-dot { width: 7px; height: 7px; flex: none; }
+.updbar.is-ok .upd-new { border: 0; background: none; padding: 0; font: inherit; font-size: 11.5px; font-weight: 600; color: var(--ink); cursor: pointer; }
+.updbar.is-ok .upd-new:hover { text-decoration: underline; }
+.updbar.is-ok .icon-b.xs { width: 24px; height: 24px; border-radius: 999px; margin-inline-start: auto; border: 0; background: transparent; }
+.updbar.is-ok .icon-b.xs svg { width: 14px; height: 14px; }

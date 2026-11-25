@@ -23,7 +23,11 @@ class OwnerScope extends InheritedWidget {
     this.guard,
     this.backup,
     this.dashSide,
+    this.open,
   });
+
+  /// Row 180: open another page of the shell by id (e.g. «مشاهدهٔ همه» → schools).
+  final void Function(String pageId)? open;
 
   /// ردیف ۱۷۲: کارت «پردازش کمکی (همین سیستم)» در داشبورد، سمت چپ کنار «پایش زنده» دیتابیس.
   final Widget? dashSide;

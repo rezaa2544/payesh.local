@@ -9,10 +9,20 @@ import 'package:flutter/material.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import 'updater.dart';
+import 'whats_new.dart';
 
 class UpdateLight extends StatefulWidget {
-  const UpdateLight({super.key, required this.updater, this.openUrl});
+  const UpdateLight({
+    super.key,
+    required this.updater,
+    this.openUrl,
+    this.audience,
+  });
   final AppUpdater updater;
+
+  /// Row 180 design 2: with an audience, the minimal look draws the head pill as drawn —
+  /// «✦ نسخهٔ x · تازه‌ها»; «تازه‌ها» opens the release history of that audience.
+  final NoteAudience? audience;
 
   /// اندروید بدون نصب‌کنندهٔ بومی: بستهٔ کامل با مرورگر.
   final Future<void> Function(Uri url)? openUrl;
@@ -84,6 +94,110 @@ class _UpdateLightState extends State<UpdateLight> {
       ),
       UpdatePhase.idle => (tk.muted, 'بررسی به‌روزرسانی'),
     };
+    final aud = widget.audience;
+    if (aud != null &&
+        tk.isMinimal &&
+        MediaQuery.sizeOf(context).width >= PayeshTokens.mediumMax) {
+      final calm =
+          u.phase == UpdatePhase.idle || u.phase == UpdatePhase.upToDate;
+      final ink = Theme.of(context).colorScheme.onSurface;
+      return Semantics(
+        button: true,
+        label: '${u.channel.version} — $label',
+        value: u.phase.name,
+        liveRegion: u.busy,
+        child: Tooltip(
+          message: label,
+          child: Container(
+            key: ValueKey('update-pill-${u.phase.name}'),
+            height: 38,
+            decoration: BoxDecoration(
+              color: tk.card,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: calm ? tk.line : color.withValues(alpha: 0.7),
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    key: const Key('update-light'),
+                    onTap: () => unawaited(_tap()),
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                        12,
+                        0,
+                        4,
+                        0,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_outlined,
+                            size: 15,
+                            color: tk.link,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'نسخهٔ ',
+                            style: TextStyle(fontSize: 12.5, color: ink),
+                          ),
+                          Text(
+                            u.channel.version,
+                            key: const Key('app-version'),
+                            textDirection: TextDirection.ltr,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: ink,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          StatusDot(
+                            key: ValueKey('update-light-${u.phase.name}'),
+                            color: color,
+                            busy: u.busy,
+                            progress: progress,
+                            size: calm ? 12 : 18,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    key: const Key('update-whats-new'),
+                    onTap: () => unawaited(showReleaseHistory(context, aud)),
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                        2,
+                        0,
+                        12,
+                        0,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '· تازه‌ها',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: ink,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Semantics(
       button: true,
       label: '${u.channel.version} — $label',

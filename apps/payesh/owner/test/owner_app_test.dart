@@ -296,11 +296,12 @@ void main() {
         };
         for (final (id, title) in ownerPages) {
           await _go(tester, id);
+          // Row 181 (design 2): on the wide overview the head is the greeting, not the page name.
+          final headTitle = id == 'dashboard'
+              ? find.textContaining('سلام،')
+              : find.text(title);
           expect(
-            find.descendant(
-              of: find.byType(AppBar),
-              matching: find.text(title),
-            ),
+            find.descendant(of: find.byType(AppBar), matching: headTitle),
             findsOneWidget,
             reason: id,
           );
@@ -339,7 +340,7 @@ void main() {
       await tester.tap(find.byKey(const Key('cap-more')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('nav-drawer')), findsOneWidget);
-      expect(find.byKey(const Key('nav-group-finance')), findsOneWidget);
+      expect(find.byKey(const Key('nav-group-business')), findsOneWidget);
       await tester.tap(find.byKey(const Key('nav-health')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('health-configured')), findsOneWidget);

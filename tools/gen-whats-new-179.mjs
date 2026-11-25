@@ -7,6 +7,7 @@
  * خروجی‌ها:
  *   apps/payesh/packages/payesh_update/lib/src/whats_new_data.dart  (پنل مالک + اپ مدرسه)
  *   client/app.js بین نشانه‌های WHATS_NEW:BEGIN/END                 (پنل وب)
+ *   apps/owner-panel/web/app.js بین OWNER_WHATS_NEW:BEGIN/END        (پنل وب مالک — ردیف ۱۸۱)
  * هر خط یا رشته است (همهٔ پنل‌ها) یا {t, for:[owner|school|web]}.
  */
 import fs from 'node:fs';
@@ -72,6 +73,18 @@ export function webBlock(rel) {
 }
 
 const BLOCK_RE = /\/\* WHATS_NEW:BEGIN[\s\S]*?\/\* WHATS_NEW:END \*\//;
+const OWNER_RE = /\/\* OWNER_WHATS_NEW:BEGIN[\s\S]*?\/\* OWNER_WHATS_NEW:END \*\//;
+
+/* ردیف ۱۸۱: پنل وب مالک — فقط خط‌های مخاطب owner (۵ نسخهٔ اخیر) */
+export function ownerBlock(rel) {
+  const own = rel
+    .map(r => ({ v: r.v, n: r.items.filter(n => n.for.includes('owner')).map(n => n.t) }))
+    .filter(r => r.n.length)
+    .slice(0, 5);
+  return '/* OWNER_WHATS_NEW:BEGIN — ساخته‌شده با tools/gen-whats-new-179.mjs؛ دستی ویرایش نکنید */\n'
+    + '  var OWNER_WHATS_NEW = ' + JSON.stringify(own) + ';\n'
+    + '  /* OWNER_WHATS_NEW:END */';
+}
 
 export function build(root = ROOT) {
   const all = JSON.parse(fs.readFileSync(path.join(root, 'RELEASE_NOTES.json'), 'utf8'));
@@ -80,9 +93,13 @@ export function build(root = ROOT) {
   const appFile = path.join(root, 'client/app.js');
   const app = fs.readFileSync(appFile, 'utf8');
   if (!BLOCK_RE.test(app)) throw new Error('client/app.js: WHATS_NEW block missing');
+  const ownerFile = path.join(root, 'apps/owner-panel/web/app.js');
+  const owner = fs.readFileSync(ownerFile, 'utf8');
+  if (!OWNER_RE.test(owner)) throw new Error('apps/owner-panel/web/app.js: OWNER_WHATS_NEW block missing');
   return [
     { file: dartFile, want: dartSource(rel) },
     { file: appFile, want: app.replace(BLOCK_RE, webBlock(rel)) },
+    { file: ownerFile, want: owner.replace(OWNER_RE, ownerBlock(rel)) },
   ];
 }
 

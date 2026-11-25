@@ -577,25 +577,35 @@ void main() {
           expect(find.byKey(const Key('update-badge')), findsNothing);
           expect(_text(tester, 'app-version'), ownerVersion);
           expect(find.byKey(const Key('update-light-idle')), findsOneWidget);
-          // بالا-چپ: در راست‌به‌چپ، چپ‌ترین چیزِ نوار بالا
+          // ردیف ۱۸۰ (طرح ۲، مو به مو): سربرگ = «✦ نسخه · تازه‌ها»، زنگ و آواتار؛ چراغ دیتابیس و
+          // «سرور مستقل» روی خط تاریخ زیر عنوان؛ پوسته و خروج و نقش در پایین نوار کناری.
           final bar = find.byType(AppBar);
-          final db = tester.getRect(find.byKey(const Key('db-light')));
-          for (final k in ['logout', 'theme', 'update-light', 'mode-badge']) {
+          for (final k in ['update-light', 'owner-bell', 'owner-avatar']) {
             expect(
-              db.right,
-              lessThanOrEqualTo(tester.getRect(find.byKey(Key(k))).left),
+              find.descendant(of: bar, matching: find.byKey(Key(k))),
+              findsOneWidget,
               reason: k,
             );
           }
+          expect(find.byKey(const Key('update-whats-new')), findsOneWidget);
+          final date = tester.getRect(find.byKey(const Key('owner-date')));
+          final db = tester.getRect(find.byKey(const Key('db-light')));
+          expect((db.center.dy - date.center.dy).abs(), lessThan(4));
           expect(
-            find.descendant(
-              of: bar,
-              matching: find.byKey(const Key('db-light')),
-            ),
-            findsOneWidget,
+            db.right,
+            lessThanOrEqualTo(date.left),
+            reason: 'بعد از تاریخ',
           );
+          final foot = find.byKey(const Key('nav-account'));
+          for (final k in ['theme', 'logout']) {
+            expect(
+              find.descendant(of: foot, matching: find.byKey(Key(k))),
+              findsOneWidget,
+              reason: k,
+            );
+          }
           expect(find.byType(StatusDot), findsNWidgets(2));
-          // نوار بالا تمیز (ردیف ۱۳۱): پوسته و خروج فقط آیکن، «سرور مستقل»، چراغ «دیتابیس»
+          // پوسته و خروج فقط آیکن، «سرور مستقل»، چراغ «دیتابیس»
           expect(
             find.descendant(
               of: find.byKey(const Key('theme')),

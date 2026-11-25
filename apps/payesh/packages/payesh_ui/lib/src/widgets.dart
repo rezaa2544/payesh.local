@@ -438,12 +438,24 @@ class StatTile extends StatelessWidget {
     required this.value,
     required this.icon,
     this.tone = PayeshTone.neutral,
+    this.display,
+    this.sub,
+    this.subTone = PayeshTone.neutral,
   });
 
   final String label;
   final int value;
   final IconData icon;
   final PayeshTone tone;
+
+  /// Row 180 design 2: the value as drawn (e.g. «۴۸٫۶» or «۹۹٫۸٪») instead of [value].
+  final String? display;
+
+  /// Row 180 design 2: the small line under the value («+۳ این ماه»، «هم‌اکنون»).
+  final String? sub;
+
+  /// Tone of [sub]: success = green, neutral = muted.
+  final PayeshTone subTone;
 
   @override
   Widget build(BuildContext context) {
@@ -455,7 +467,8 @@ class StatTile extends StatelessWidget {
       // 16 muted in the corner; no coloured icon box.
       return Semantics(
         container: true,
-        label: '$label: ${faNumber(value)}',
+        label:
+            '$label: ${display ?? faNumber(value)}${sub == null ? '' : ' — $sub'}',
         excludeSemantics: true,
         child: Card(
           child: Padding(
@@ -478,7 +491,7 @@ class StatTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        faNumber(value),
+                        display ?? faNumber(value),
                         style: t.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                           fontSize: 26,
@@ -488,6 +501,20 @@ class StatTile extends StatelessWidget {
                           color: tone == PayeshTone.neutral ? tk.ink : fg,
                         ),
                       ),
+                      if (sub != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          sub!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: t.bodySmall?.copyWith(
+                            fontSize: 12,
+                            color: subTone == PayeshTone.neutral
+                                ? tk.muted
+                                : tk.tone(subTone).$1,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

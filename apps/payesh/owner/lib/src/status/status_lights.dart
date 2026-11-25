@@ -148,8 +148,12 @@ final class DbMonitor extends ChangeNotifier {
 
 /// چراغ دیتابیس.
 class DbLight extends StatelessWidget {
-  const DbLight({super.key, required this.monitor});
+  const DbLight({super.key, required this.monitor, this.compact = false});
   final DbMonitor monitor;
+
+  /// Row 180 design 2: inline on the date line of the page head — a small dot, «دیتابیس» and
+  /// the state word, no capsule.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -166,6 +170,56 @@ class DbLight extends StatelessWidget {
       final detail = st == 'error' && monitor.state?.error != null
           ? '$label: ${monitor.state!.error}'
           : label;
+      if (compact) {
+        final word = switch (st) {
+          'synced' => 'وصل',
+          'error' => 'قطع',
+          'not_configured' => 'تنظیم نشده',
+          _ => '…',
+        };
+        return Semantics(
+          button: true,
+          label: detail,
+          value: st ?? 'unknown',
+          child: Tooltip(
+            message: detail,
+            child: InkWell(
+              key: const Key('db-light'),
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => unawaited(monitor.refresh()),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StatusDot(
+                      key: ValueKey('db-light-${st ?? 'unknown'}'),
+                      color: color,
+                      busy: monitor.checking,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'دیتابیس',
+                      key: const Key('db-light-label'),
+                      style: TextStyle(fontSize: 12.5, color: tk.muted),
+                    ),
+                    Text(
+                      ' $word',
+                      key: const Key('db-light-state'),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: st == 'error' ? tk.danger : tk.ink2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
       return Semantics(
         button: true,
         label: detail,

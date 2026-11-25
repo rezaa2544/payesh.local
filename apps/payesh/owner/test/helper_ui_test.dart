@@ -110,26 +110,56 @@ void main() {
       lessThan(tester.getTopLeft(find.byKey(const Key('live-infra'))).dy),
     );
     expect(find.byKey(const Key('route-chain')), findsOneWidget);
-    // ردیف ۱۷۲: «پردازش کمکی (همین سیستم)» در داشبورد، در همان ردیف و سمت چپ کارت دیتابیس
-    final side = find.byKey(const Key('live-side'));
+    // ردیف ۱۸۱ (طرح ۲، مو به مو): «پردازش کمکی (همین سیستم)» فشرده زیر KPIها در «dash-pair»
+    // (کنار کارت «مدارس» وقتی سرور وصل است) — بالای «بار لحظه‌ای» و پایش زنده.
+    final pair = find.byKey(const Key('dash-pair'));
     expect(
       find.descendant(
-        of: side,
+        of: pair,
         matching: find.byKey(const Key('dash-helper-card')),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
-        of: side,
-        matching: find.text('پردازش کمکی (همین سیستم)'),
+        of: pair,
+        matching: find.byKey(const Key('helper-compact')),
       ),
       findsOneWidget,
     );
-    final db = tester.getRect(find.byKey(const Key('live-db')));
-    final hc = tester.getRect(side);
-    expect(hc.right, lessThanOrEqualTo(db.left), reason: 'left of the db card');
-    expect(hc.top, db.top, reason: 'same row');
+    expect(
+      find.descendant(
+        of: pair,
+        matching: find.text('پردازش کمکی (همین سیستم)', findRichText: true),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('live-side')), findsNothing);
+    expect(
+      tester.getRect(pair).bottom,
+      lessThanOrEqualTo(
+        tester.getTopLeft(find.byKey(const Key('load-card'))).dy,
+      ),
+      reason: 'helper above the load card',
+    );
+    for (final k in [
+      'helper-start',
+      'helper-stop',
+      'helper-cpu',
+      'helper-stat-cpu',
+      'helper-stat-done',
+      'helper-stat-rest',
+    ]) {
+      expect(find.byKey(Key(k)), findsOneWidget, reason: k);
+    }
+    // کارت فشرده: توقف ⇒ «متوقف»، شروع دوباره ⇒ آماده/در حال کار
+    await tester.ensureVisible(find.byKey(const Key('helper-stop')));
+    await tester.tap(find.byKey(const Key('helper-stop')));
+    await tester.pumpAndSettle();
+    expect(text(tester, 'helper-run-state'), 'متوقف');
+    await tester.tap(find.byKey(const Key('helper-start')));
+    await tester.pumpAndSettle();
+    expect(text(tester, 'helper-run-state'), isNot('متوقف'));
 
     // زیرساخت: کارت «زیرساخت‌ها» بالای صفحه (ردیف ۱۳۱)
     await tap(tester, 'nav-infra');

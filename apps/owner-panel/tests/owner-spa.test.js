@@ -451,6 +451,29 @@ async function ui() {
       check('all requests same-origin relative under /api/platform/v1', calls.every(c => c.url.startsWith(P + '/')));
       await app.show('dashboard'); await settle(app, win);
       check('dashboard shows Persian digits', $(doc, '[data-metric="subscriptions"] b').textContent === '۲');
+      /* ردیف ۱۸۱ (طرح ۲، مو به مو): کارت «مدارس» با زبانه‌ها، «✦ نسخه · تازه‌ها»، زنگ، پوسته/خروج در پای منو */
+      for (let i = 0; i < 100 && !$(doc, '#dash-schools'); i++) await new Promise(r => setTimeout(r, 10));
+      check('dashboard: schools card with 2 rows', !!$(doc, '#dash-schools') && $$(doc, '#dash-schools tbody tr').length === 2);
+      check('dashboard: tabs همه / آزمایشی / نیازمند توجه', $$(doc, '#dash-schools [role="tab"]').map(b => b.textContent).join('|') === 'همه|آزمایشی|نیازمند توجه'
+        && $(doc, '#dash-schools [data-tab="all"]').getAttribute('aria-selected') === 'true');
+      $(doc, '#dash-schools [data-tab="trial"]').click();
+      check('dashboard: trial tab filters (no trialing school ⇒ empty)', $$(doc, '#dash-schools tbody tr').length === 0 && !!$(doc, '#dash-schools .state[data-state="empty"]'));
+      $(doc, '#dash-schools [data-tab="all"]').click();
+      check('dashboard: all tab restores rows', $$(doc, '#dash-schools tbody tr').length === 2);
+      check('dashboard: no notice paragraph', !$(doc, '#page .notice'));
+      check('topbar: ✦ version pill + bell + avatar; theme/logout live in the nav foot',
+        !!$(doc, '.topbar [data-action="whats-new"]') && /تازه‌ها/.test($(doc, '[data-action="whats-new"]').textContent)
+        && !!$(doc, '.topbar [data-action="bell"]') && !!$(doc, '.topbar .av.me')
+        && !!$(doc, '.nav-foot [data-action="theme"]') && !!$(doc, '.nav-foot [data-action="logout"]') && !$(doc, '.topbar [data-action="logout"]'));
+      check('nav foot shows the role, never the account id', $(doc, '.nav-foot small').textContent === 'مالک' && !$(doc, '.nav-foot').textContent.includes(ids.owner));
+      $(doc, '[data-action="whats-new"]').click();
+      check('what\'s new dialog lists owner notes', !!$(doc, '#whats-new') && $$(doc, '#whats-new li').length > 0 && /نسخهٔ/.test($(doc, '#whats-new h3').textContent));
+      $(doc, '[data-action="whats-new-close"]').click();
+      check('what\'s new dialog closes', !$(doc, '#whats-new'));
+      $(doc, '[data-action="schools-all"]').click(); await settle(app, win);
+      check('«مشاهدهٔ همه» opens the schools page', $(doc, '.navitem[data-page="schools"]').getAttribute('aria-current') === 'page');
+      $(doc, '[data-action="bell"]').click(); await settle(app, win);
+      check('bell opens health', $(doc, '.navitem[data-page="health"]').getAttribute('aria-current') === 'page');
       await app.show('schools'); await settle(app, win);
       check('owner sees delete-request and suspend', $$(doc, '[data-action="delete-request"]').length === 2 && $$(doc, '[data-action="suspend"]').length === 2);
       check('dates rendered in Jalali', /۱۴[۰-۹]{2}/.test($(doc, '#page table').textContent));

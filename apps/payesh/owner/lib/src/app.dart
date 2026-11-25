@@ -551,6 +551,7 @@ class _OwnerAppState extends State<OwnerApp> {
               key: const Key('dash-helper-card'),
               service: widget.helper!,
               now: widget.now,
+              compact: true,
             ),
       // ردیف ۱۶۴: «زیرساخت» = راست: مدل پردازش (حالت معماری)؛ چپ: تعریف سرور، تعریف دیتابیس و
       // کلیدهای زیرساخت و سرور کمکی. فهرست ارائه‌دهنده‌ها/سرویس‌ها/Endpointها/عدد دستی حذف شد.
@@ -627,7 +628,11 @@ class _OwnerAppState extends State<OwnerApp> {
       backup: _backup,
       updateLight: widget.updater == null
           ? null
-          : UpdateLight(updater: widget.updater!, openUrl: widget.openUrl),
+          : UpdateLight(
+              updater: widget.updater!,
+              openUrl: widget.openUrl,
+              audience: NoteAudience.owner,
+            ),
       settings: OwnerSettingsPage(
         extra: [
           if (widget.updater != null) UpdateCard(updater: widget.updater!),

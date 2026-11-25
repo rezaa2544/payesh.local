@@ -616,6 +616,8 @@ void main() {
 
     test('منو: «پشتیبان دیتابیس» در گروه سیستم و فقط وقتی هست', () {
       expect(ownerMenuGroups.firstWhere((g) => g.id == 'system').pages, [
+        'reports',
+        'audit',
         'backup',
         'settings',
       ]);

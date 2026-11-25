@@ -43,7 +43,13 @@ class HelperCard extends StatefulWidget {
     this.cpu,
     this.liveEvery,
     this.memory,
+    this.compact = false,
   });
+
+  /// Row 180 design 2: the dashboard's compact card as drawn — title + status line, the
+  /// segmented «شروع | توقف», «مقدار پردازش» with its slider (۱۰٪ … کامل) and three stats
+  /// (پردازنده · کار امروز · استراحت). The full card stays on «زیرساخت».
+  final bool compact;
   final OwnerHelperService service;
   final DateTime Function()? now;
 
@@ -302,10 +308,294 @@ class _HelperCardState extends State<HelperCard> {
     );
   }
 
+  /// Row 180 — the compact dashboard card (design 2).
+  Widget _compactCard(BuildContext context, HelperNode? node) {
+    final tk = context.tokens;
+    final svc = widget.service;
+    final ready = node != null && node.configured;
+    final stop = node == null ? null : _stopReason(node);
+    final running = ready && stop == null;
+    final local = svc.localCpu;
+    final global = svc.policy.value.cpuPercent;
+    final shown = (_cpuDrag ?? (local ?? 100).toDouble()).round();
+    final eff = minCpu(shown >= 100 ? null : shown, global);
+    final cpu = _cpu.last;
+    final recent = node?.recent ?? const [];
+    final avgMs = recent.isEmpty
+        ? 0
+        : recent.map((j) => j.ms).reduce((a, b) => a + b) ~/ recent.length;
+    final rest = restForCpu(Duration(milliseconds: avgMs), eff);
+    String sec(Duration d) {
+      final t = (d.inMilliseconds / 100).round() / 10;
+      return '${faDigits(t.toStringAsFixed(1)).replaceAll('.', '٫')} ث';
+    }
+
+    final String line;
+    if (node == null) {
+      line = 'در حال آماده‌سازی…';
+    } else if (!node.configured) {
+      line = 'اول دیتابیس را تنظیم کنید';
+    } else if (stop != null) {
+      line = 'متوقف';
+    } else if (node.lastError != null) {
+      line = 'به دیتابیس نرسیدیم';
+    } else {
+      line = node.activeJobs > 0
+          ? 'در حال کار · ${faNumber(node.activeJobs)} کار در جریان'
+          : 'آماده · کاری در صف نیست';
+    }
+    final lineTone = !ready || node.lastError != null
+        ? tk.danger
+        : stop != null
+        ? tk.warning
+        : tk.success;
+    Widget seg(String key, String label, IconData icon, bool on, bool start) {
+      return Expanded(
+        child: Material(
+          color: on ? tk.card : Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(6),
+            side: BorderSide(color: on ? tk.line : Colors.transparent),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: Key(key),
+            onTap: !ready || _toggling || on
+                ? null
+                : () => unawaited(_toggle(!start)),
+            child: SizedBox(
+              height: 36,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                      color: on ? tk.ink : tk.muted,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(icon, size: 16, color: on ? tk.ink : tk.muted),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget stat(String key, String label, String value) => Expanded(
+      child: Container(
+        key: Key(key),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: tk.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontSize: 11.5, color: tk.muted)),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: tk.ink,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    final small = TextStyle(fontSize: 11, color: tk.muted);
+    return Card(
+      key: const Key('helper-compact'),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'پردازش کمکی',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: tk.ink,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' (همین سیستم)',
+                              style: TextStyle(fontSize: 12.5, color: tk.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: lineTone,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              line,
+                              key: const Key('helper-run-state'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: tk.muted),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: tk.line),
+                  ),
+                  child: Icon(Icons.memory_rounded, size: 18, color: tk.ink2),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: tk.soft,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: tk.line),
+              ),
+              child: Row(
+                children: [
+                  seg(
+                    'helper-start',
+                    'شروع',
+                    Icons.play_arrow_outlined,
+                    running,
+                    true,
+                  ),
+                  const SizedBox(width: 3),
+                  seg('helper-stop', 'توقف', Icons.pause, !running, false),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'مقدار پردازش',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: tk.ink,
+                    ),
+                  ),
+                ),
+                Text(
+                  shown >= 100 ? 'کامل' : '${faDigits(shown)}٪',
+                  key: const Key('helper-cpu-value'),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: tk.ink,
+                  ),
+                ),
+              ],
+            ),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 4,
+                activeTrackColor: tk.link,
+                inactiveTrackColor: tk.track,
+                thumbColor: tk.card,
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                thumbShape: const RoundSliderThumbShape(
+                  enabledThumbRadius: 8,
+                  elevation: 0,
+                  pressedElevation: 0,
+                ),
+              ),
+              child: Slider(
+                key: const Key('helper-cpu'),
+                min: minCpuPercent.toDouble(),
+                max: 100,
+                divisions: 9,
+                value: shown.toDouble().clamp(minCpuPercent.toDouble(), 100),
+                label: '${faDigits(shown)}٪',
+                onChanged: ready ? (x) => setState(() => _cpuDrag = x) : null,
+                onChangeEnd: (x) {
+                  setState(() => _cpuDrag = null);
+                  unawaited(svc.setLocalCpu(x.round()));
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                children: [
+                  Text('${faDigits(minCpuPercent)}٪', style: small),
+                  const Spacer(),
+                  Text('${faDigits(50)}٪', style: small),
+                  const Spacer(),
+                  Text('کامل', style: small),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                stat(
+                  'helper-stat-cpu',
+                  'پردازنده',
+                  cpu == null ? '—' : '${faDigits(cpu.round())}٪',
+                ),
+                const SizedBox(width: 8),
+                stat(
+                  'helper-stat-done',
+                  'انجام‌شده',
+                  faNumber(node?.done ?? 0),
+                ),
+                const SizedBox(width: 8),
+                stat('helper-stat-rest', 'استراحت', sec(rest)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final node = widget.service.node;
     final tk = context.tokens;
+    if (widget.compact && tk.isMinimal) return _compactCard(context, node);
     final String status;
     var ok = true;
     if (node == null) {

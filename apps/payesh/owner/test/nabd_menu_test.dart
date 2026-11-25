@@ -32,13 +32,21 @@ void main() {
       expect(groups, [for (final g in ownerMenuGroups) g.id]);
       // جای درست هر صفحه
       String g(String id) => all.firstWhere((m) => m.id == id).group;
-      expect(g('payments'), 'finance');
-      expect(g('plans'), 'finance');
-      expect(g('infra'), 'infra');
-      expect(g('health'), 'infra');
-      expect(g('schools'), 'people');
-      expect(g('audit'), 'records');
+      // ردیف ۱۸۰ (طرح ۲): سه بخش «اصلی»، «کسب‌وکار»، «سیستم»
+      expect(g('dashboard'), 'main');
+      expect(g('schools'), 'main');
+      expect(g('support'), 'main');
+      expect(g('payments'), 'business');
+      expect(g('plans'), 'business');
+      expect(g('infra'), 'business');
+      expect(g('health'), 'business');
+      expect(g('guard'), 'business');
+      expect(g('audit'), 'system');
       expect(g('settings'), 'system');
+      expect(
+        [for (final x in ownerMenuGroups) x.title],
+        ['اصلی', 'کسب‌وکار', 'سیستم'],
+      );
       for (final id in ids) {
         expect(ownerMenuIcons.containsKey(id), isTrue, reason: id);
       }
@@ -53,7 +61,7 @@ void main() {
         for (final m in ownerMenu(local: {'payments'})) m.id,
       ];
       expect(withPay.indexOf('payments'), withPay.indexOf('plans') + 1);
-      expect(menuGroupTitle('finance'), 'مالی و اشتراک');
+      expect(menuGroupTitle('business'), 'کسب‌وکار');
     });
   });
 

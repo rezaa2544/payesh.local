@@ -7,6 +7,7 @@
  *   WN-05 منطق وب: نسخه‌های جاافتاده، نخستین اجرا = فقط آخرین نسخه، به‌روز = هیچ
  *   WN-06 پنجره در پنل وب یک‌بار برای هر نسخه (نشانهٔ payesh.whatsnew.seen) و دکمهٔ تاریخچه در «سیستم»
  *   WN-07 جهش: یادداشت تازه بدون اجرای مولد ⇒ بررسی هم‌ترازی شکست می‌خورد
+ *   WN-08 ردیف ۱۸۱: پنل وب مالک — بلوک OWNER_WHATS_NEW فقط خط‌های مالک و کپسول «✦ نسخه · تازه‌ها»
  */
 const fs = require('fs');
 const os = require('os');
@@ -94,7 +95,7 @@ check('WN-06 web: once per version + history button', () => {
 check('WN-07 mutant: new note without regenerating ⇒ check fails', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wn179-'));
   try {
-    for (const f of ['RELEASE_NOTES.json', 'client/app.js', 'apps/payesh/packages/payesh_update/lib/src/whats_new_data.dart', 'tools/gen-whats-new-179.mjs']) {
+    for (const f of ['RELEASE_NOTES.json', 'client/app.js', 'apps/owner-panel/web/app.js', 'apps/payesh/packages/payesh_update/lib/src/whats_new_data.dart', 'tools/gen-whats-new-179.mjs']) {
       fs.mkdirSync(path.dirname(path.join(tmp, f)), { recursive: true });
       fs.copyFileSync(path.join(ROOT, f), path.join(tmp, f));
     }
@@ -107,6 +108,18 @@ check('WN-07 mutant: new note without regenerating ⇒ check fails', () => {
     assert.strictEqual(r1.status, 1, 'mutant must be caught');
     assert.ok(/stale/.test(r1.stderr));
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+check('WN-08 owner web panel: owner-only notes + ✦ version pill', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'apps/owner-panel/web/app.js'), 'utf8');
+  const m = /var OWNER_WHATS_NEW = (\[[\s\S]*?\]);\n/.exec(src);
+  assert.ok(m, 'OWNER_WHATS_NEW block');
+  const list = JSON.parse(m[1]);
+  assert.strictEqual(list[0].v, version, 'newest owner notes = package version');
+  const ownerTexts = new Set();
+  for (const [, l] of Object.entries(notes)) for (const n of l) if (typeof n === 'string' || !n.for || n.for.includes('owner')) ownerTexts.add(typeof n === 'string' ? n : n.t);
+  for (const r of list) for (const t of r.n) assert.ok(ownerTexts.has(t), 'not an owner line: ' + t.slice(0, 40));
+  assert.ok(/'data-action': 'whats-new'/.test(src) && /· تازه‌ها/.test(src), '✦ pill in the top bar');
 });
 
 console.log(`WHATS-NEW-179: ${ok}/${ok + bad} ${bad ? 'FAIL' : 'OK'}`);

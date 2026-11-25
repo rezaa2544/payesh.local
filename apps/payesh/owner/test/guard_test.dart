@@ -560,7 +560,7 @@ void main() {
       g.dispose();
     });
 
-    test('منوی کناری: «نگهبان هوشمند» در گروه زیرساخت و فقط وقتی هست', () {
+    test('منوی کناری: «نگهبان هوشمند» در گروه «کسب‌وکار» و فقط وقتی هست', () {
       final ids = [
         for (final m in ownerMenu(local: {'guard'})) m.id,
       ];
@@ -568,7 +568,7 @@ void main() {
       expect(ownerMenuIcons['guard'], isNotNull);
       expect(localPageTitles['guard'], 'نگهبان هوشمند');
       expect(
-        ownerMenuGroups.firstWhere((g) => g.id == 'infra').pages,
+        ownerMenuGroups.firstWhere((g) => g.id == 'business').pages,
         contains('guard'),
       );
       expect([for (final m in ownerMenu()) m.id], isNot(contains('guard')));
