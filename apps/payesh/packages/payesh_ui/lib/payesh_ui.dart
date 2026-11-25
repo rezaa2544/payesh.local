@@ -10,6 +10,7 @@ export 'src/a11y.dart';
 export 'src/academic_year.dart';
 export 'src/digits.dart';
 export 'src/field_issues.dart';
+export 'src/flow.dart';
 export 'src/home_tiles.dart';
 export 'src/iran_divisions.dart';
 export 'src/jalali.dart';

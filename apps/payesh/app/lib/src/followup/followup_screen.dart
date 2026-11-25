@@ -200,7 +200,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
         key: Key('fu-reason-${s.id}'),
         style: Web.small.copyWith(color: Web.ink),
       ),
-      Wrap(
+      WebWrap(
         spacing: 4,
         runSpacing: 4,
         children: [
@@ -222,7 +222,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
           ),
         ],
       ),
-      Wrap(
+      WebWrap(
         spacing: 4,
         runSpacing: 4,
         children: [
@@ -274,7 +274,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
         tone: i.userId != null ? WebTone.green : WebTone.red,
       ),
     ),
-    Wrap(
+    WebWrap(
       spacing: 4,
       runSpacing: 4,
       children: [
@@ -333,72 +333,83 @@ class _FollowupScreenState extends State<FollowupScreen> {
                     ),
                   ),
                 ),
-                WebCard(
-                  key: const Key('fu-students'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _cardHead(
-                        'دانش‌آموزانی که پایه/رشته‌شان کامل نیست',
-                        '${Web.fa(v.students.length)} نفر',
-                        'fu-students-count',
-                      ),
-                      if (v.students.isEmpty)
-                        Text(
-                          'پایه و رشتهٔ همهٔ دانش‌آموزان کامل است. ✅',
-                          key: Key('fu-students-none'),
-                          style: Web.small,
-                        )
-                      else
-                        WebTable(
-                          minWidth: 640,
-                          head: const ['دانش‌آموز', 'دلیل', 'پایه و رشته', ''],
-                          rows: [for (final s in v.students) _student(v, s)],
+                wideIf(
+                  v.students.isNotEmpty,
+                  WebCard(
+                    key: const Key('fu-students'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _cardHead(
+                          'دانش‌آموزانی که پایه/رشته‌شان کامل نیست',
+                          '${Web.fa(v.students.length)} نفر',
+                          'fu-students-count',
                         ),
-                    ],
+                        if (v.students.isEmpty)
+                          Text(
+                            'پایه و رشتهٔ همهٔ دانش‌آموزان کامل است. ✅',
+                            key: Key('fu-students-none'),
+                            style: Web.small,
+                          )
+                        else
+                          WebTable(
+                            minWidth: 640,
+                            head: const [
+                              'دانش‌آموز',
+                              'دلیل',
+                              'پایه و رشته',
+                              '',
+                            ],
+                            rows: [for (final s in v.students) _student(v, s)],
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-                WebCard(
-                  key: const Key('fu-issues'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _cardHead(
-                        'ردیف‌های ورود دسته‌ای',
-                        '${Web.fa(v.issues.length)} ردیف',
-                        'fu-issues-count',
-                      ),
-                      if (v.issues.isEmpty)
-                        Text(
-                          'ردیف ناتمامی از ورود دسته‌ای نمانده. ✅',
-                          key: Key('fu-issues-none'),
-                          style: Web.small,
-                        )
-                      else ...[
-                        WebTable(
-                          minWidth: 640,
-                          head: const [
-                            'نام',
-                            'شمارهٔ همراه',
-                            'دلیل',
-                            'وضعیت',
-                            '',
-                          ],
-                          rows: [for (final i in v.issues) _issue(i)],
+                wideIf(
+                  v.issues.isNotEmpty,
+                  WebCard(
+                    key: const Key('fu-issues'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _cardHead(
+                          'ردیف‌های ورود دسته‌ای',
+                          '${Web.fa(v.issues.length)} ردیف',
+                          'fu-issues-count',
                         ),
-                        const SizedBox(height: 10),
-                        Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: WebBtn(
-                            'همه را حل‌شده کن',
-                            key: const Key('fu-issues-clear'),
-                            kind: WebBtnKind.primary,
-                            size: WebBtnSize.normal,
-                            onPressed: c.busy ? null : c.issuesClear,
+                        if (v.issues.isEmpty)
+                          Text(
+                            'ردیف ناتمامی از ورود دسته‌ای نمانده. ✅',
+                            key: Key('fu-issues-none'),
+                            style: Web.small,
+                          )
+                        else ...[
+                          WebTable(
+                            minWidth: 640,
+                            head: const [
+                              'نام',
+                              'شمارهٔ همراه',
+                              'دلیل',
+                              'وضعیت',
+                              '',
+                            ],
+                            rows: [for (final i in v.issues) _issue(i)],
                           ),
-                        ),
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: WebBtn(
+                              'همه را حل‌شده کن',
+                              key: const Key('fu-issues-clear'),
+                              kind: WebBtnKind.primary,
+                              size: WebBtnSize.normal,
+                              onPressed: c.busy ? null : c.issuesClear,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -624,7 +635,7 @@ class _ImportScreenState extends State<ImportScreen> {
 
   Widget _bar() => Padding(
     padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
-    child: Wrap(
+    child: WebWrap(
       spacing: PayeshTokens.space2,
       children: [
         for (var i = 0; i < _steps.length; i++)
@@ -664,7 +675,7 @@ class _ImportScreenState extends State<ImportScreen> {
         'این فایل شامل چه پایه‌هایی است؟ اگر فقط یک پایه تیک بخورد، همان به همهٔ سطرهای بی‌پایه '
         'داده می‌شود؛ اگر چند پایه (فایل کل مدرسه)، دانش‌آموزِ بی‌پایه در «نیازمند پیگیری» می‌آید.',
       ),
-      Wrap(
+      WebWrap(
         spacing: PayeshTokens.space2,
         children: [
           for (final g in importGrades)
@@ -855,7 +866,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 for (var i = 0; i < r.branchAsk.length; i++)
                   Padding(
                     padding: const EdgeInsets.only(top: PayeshTokens.space2),
-                    child: Wrap(
+                    child: WebWrap(
                       spacing: PayeshTokens.space2,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
@@ -885,7 +896,7 @@ class _ImportScreenState extends State<ImportScreen> {
           '✍️ غلط تایپی اصلاح شد: ${r.branchFixes.map((f) => '«${f.$1}» ← ${f.$2}').join(' · ')}',
           key: const Key('imp-fixes'),
         ),
-      Wrap(
+      WebWrap(
         spacing: PayeshTokens.space2,
         runSpacing: PayeshTokens.space2,
         children: [
@@ -1052,7 +1063,7 @@ class _ImportScreenState extends State<ImportScreen> {
         'در کل ${_fa(r.openIssues)} ردیف نیازمند پیگیری در فهرست مانده است.',
       ),
     const SizedBox(height: PayeshTokens.space3),
-    Wrap(
+    WebWrap(
       spacing: PayeshTokens.space2,
       alignment: WrapAlignment.center,
       children: [

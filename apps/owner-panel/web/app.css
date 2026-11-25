@@ -71,12 +71,20 @@ button, input, select, textarea { font: inherit; color: inherit; }
   box-shadow: var(--shadow); padding: 16px 18px; margin-bottom: 16px;
 }
 .card h2 { margin: 0 0 12px; font-size: 14px; font-weight: 700; }
+/* ردیف ۱۸۵: «حذف فضاهای بیخود و اضافی در کل برنامه» — کارت‌های هر صفحه ستونی کنار هم (حداکثر سه ستون)؛
+   کارتِ جدولِ چهارستونه به بالا، آمار و هر چیزی که کارت نیست تمام‌عرض می‌ماند؛ تک‌کارت هم تمام‌عرض */
+#page { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, max(340px, calc((100% - 32px) / 3))), 1fr)); column-gap: 16px; align-items: start; }
+#page > * { grid-column: 1 / -1; min-width: 0; }
+#page > .card:not(.wide) { grid-column: auto; }
+#page > .card:has(table th:nth-child(4)) { grid-column: 1 / -1; }
+#page:not(:has(> .card:not(.wide) ~ .card:not(.wide))) > .card { grid-column: 1 / -1; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 16px; }
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
 .stat span { display: block; color: var(--muted); font-size: 12.5px; }
 .stat b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -.5px; color: var(--ink); }
 .table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
+/* ردیف ۱۸۵: جدول فقط هم‌اندازهٔ ستون‌هایش است، نه کشیده تا لبهٔ کارت */
+table { width: auto; max-width: 100%; border-collapse: collapse; }
 th, td { text-align: start; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; font-size: 13px; }
 th { color: var(--muted); font-weight: 500; font-size: 11.5px; padding: 6px 8px; }
 code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; direction: ltr; unicode-bidi: isolate; }
@@ -102,7 +110,7 @@ code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px;
 input.input, select.input { max-width: 360px; }
 input.input[inputmode="numeric"], input.input[type="datetime-local"], input.input[type="date"] { max-width: 220px; }
 input.input[maxlength="6"] { max-width: 120px; }
-input.input[type="search"] { max-width: 320px; }
+input.input[type="search"] { max-width: 240px; }
 textarea.input { max-width: none; }
 label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: 13px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

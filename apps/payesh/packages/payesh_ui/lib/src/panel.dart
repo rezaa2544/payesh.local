@@ -150,7 +150,11 @@ const double kFieldWide = 480;
 const double kFieldTiny = 120;
 
 /// Row 184: a search box — long enough for a name or a mobile number, never the whole page.
-const double kFieldSearch = 320;
+/// Row 185: shorter still (the owner: «کادر سرچ … میتونه کوتاهتر هم باشه که جمع و جورتره»).
+const double kFieldSearch = 240;
+
+/// Row 185: a filter dropdown in a bar (پایه، رشته، کلاس) — a short word or two.
+const double kFieldFilter = 170;
 
 /// Puts [child] (a text field) in a box at most [width] wide, at the start of the line
 /// (right in Persian). Multi-line text keeps the full width — pass no [FieldBox] there.
@@ -168,6 +172,8 @@ class FieldBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Align(
     alignment: AlignmentDirectional.centerStart,
+    // row 185: as wide as the field in a row or a wrap too (a filter bar), not the whole line
+    widthFactor: 1,
     child: ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
       child: child,

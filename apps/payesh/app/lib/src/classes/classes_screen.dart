@@ -286,74 +286,8 @@ class _ClassesScreenState extends State<ClassesScreen> {
         children: v == null
             ? const []
             : [
-                WebCard(
-                  key: const Key('cls-rooms'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _head(
-                        'کلاس‌ها و کارگاه‌ها (محل برگزاری)',
-                        'cls-room-add',
-                        'کلاس/کارگاه',
-                        () => _open(RoomFormPage(controller: c)),
-                        icon: '🏫',
-                        primary: true,
-                        count: '${Web.fa(v.rooms.length)} مورد',
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          'فقط نام لازم است؛ همین نام در برنامهٔ هفتگی به هر زنگ داده می‌شود.',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: Web.muted,
-                            height: 2,
-                          ),
-                        ),
-                      ),
-                      if (v.rooms.isEmpty)
-                        Text(
-                          'هنوز کلاس یا کارگاهی تعریف نشده است.',
-                          style: Web.small,
-                        )
-                      else
-                        WebTable(
-                          key: const Key('cls-rooms-table'),
-                          head: const ['نام', 'دانش‌آموز', ''],
-                          rows: [
-                            for (final r in v.rooms)
-                              [
-                                Wrap(
-                                  key: Key('cls-room-${r.id}'),
-                                  spacing: 4,
-                                  children: [
-                                    Text(
-                                      r.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    ..._queued(r.queued),
-                                  ],
-                                ),
-                                Text(Web.fa(r.students)),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: _rowActions(
-                                    'cls-room-edit-${r.id}',
-                                    () => _open(
-                                      RoomFormPage(controller: c, row: r),
-                                    ),
-                                    'cls-room-delete-${r.id}',
-                                    () => _deleteClass(r),
-                                  ),
-                                ),
-                              ],
-                          ],
-                        ),
-                    ],
-                  ),
-                ),
+                // row 185: three columns side by side — «پایه‌ها» on the right, «رشته‌ها» in the
+                // middle, «کلاس و محل برگزاری» on the left (FlowColumns puts the first on the right)
                 for (final (kind, title, rows) in [
                   ('grade', 'پایه‌ها', v.grades),
                   ('branch', 'رشته‌ها', v.branches),
@@ -397,6 +331,74 @@ class _ClassesScreenState extends State<ClassesScreen> {
                       ],
                     ),
                   ),
+                WebCard(
+                  key: const Key('cls-rooms'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _head(
+                        'کلاس‌ها و کارگاه‌ها (محل برگزاری)',
+                        'cls-room-add',
+                        'کلاس/کارگاه',
+                        () => _open(RoomFormPage(controller: c)),
+                        icon: '🏫',
+                        primary: true,
+                        count: '${Web.fa(v.rooms.length)} مورد',
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'فقط نام لازم است؛ همین نام در برنامهٔ هفتگی به هر زنگ داده می‌شود.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: Web.muted,
+                            height: 2,
+                          ),
+                        ),
+                      ),
+                      if (v.rooms.isEmpty)
+                        Text(
+                          'هنوز کلاس یا کارگاهی تعریف نشده است.',
+                          style: Web.small,
+                        )
+                      else
+                        WebTable(
+                          key: const Key('cls-rooms-table'),
+                          head: const ['نام', 'دانش‌آموز', ''],
+                          rows: [
+                            for (final r in v.rooms)
+                              [
+                                WebWrap(
+                                  key: Key('cls-room-${r.id}'),
+                                  spacing: 4,
+                                  children: [
+                                    Text(
+                                      r.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    ..._queued(r.queued),
+                                  ],
+                                ),
+                                Text(Web.fa(r.students)),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: _rowActions(
+                                    'cls-room-edit-${r.id}',
+                                    () => _open(
+                                      RoomFormPage(controller: c, row: r),
+                                    ),
+                                    'cls-room-delete-${r.id}',
+                                    () => _deleteClass(r),
+                                  ),
+                                ),
+                              ],
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
                 WebCard(
                   key: const Key('cls-subjects'),
                   child: Column(

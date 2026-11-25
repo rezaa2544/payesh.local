@@ -157,33 +157,54 @@ Widget cellOf(Object? c) => switch (c) {
 };
 
 /// Horizontally scrollable table (phone and desktop).
-class OwnerTable extends StatelessWidget {
+class OwnerTable extends StatefulWidget {
   const OwnerTable({super.key, required this.columns, required this.rows});
   final List<String> columns;
   final List<List<Object?>> rows;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: DataTable(
-      headingRowHeight: 40,
-      dataRowMinHeight: 44,
-      dataRowMaxHeight: double.infinity,
-      columns: [for (final c in columns) DataColumn(label: Text(c))],
-      rows: [
-        for (final r in rows)
-          DataRow(
-            cells: [
-              for (final c in r)
-                DataCell(
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: cellOf(c),
+  State<OwnerTable> createState() => _OwnerTableState();
+}
+
+/// ردیف ۱۸۵: جدول هم‌اندازهٔ ستون‌هایش است؛ اگر از کارت پهن‌تر شود نوار پیمایش
+/// افقی همیشه دیده می‌شود تا ستون «عملیات» پنهان نماند.
+class _OwnerTableState extends State<OwnerTable> {
+  final _h = ScrollController();
+
+  @override
+  void dispose() {
+    _h.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scrollbar(
+    controller: _h,
+    thumbVisibility: true,
+    child: SingleChildScrollView(
+      controller: _h,
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DataTable(
+        headingRowHeight: 40,
+        dataRowMinHeight: 44,
+        dataRowMaxHeight: double.infinity,
+        columns: [for (final c in widget.columns) DataColumn(label: Text(c))],
+        rows: [
+          for (final r in widget.rows)
+            DataRow(
+              cells: [
+                for (final c in r)
+                  DataCell(
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: cellOf(c),
+                    ),
                   ),
-                ),
-            ],
-          ),
-      ],
+              ],
+            ),
+        ],
+      ),
     ),
   );
 }
@@ -207,7 +228,7 @@ class ActionRow extends StatelessWidget {
   final List<Widget> children;
   @override
   Widget build(BuildContext context) =>
-      Wrap(spacing: 8, runSpacing: 8, children: children);
+      SpacedWrap(spacing: 8, runSpacing: 8, children: children);
 }
 
 Widget actionButton(
@@ -234,23 +255,70 @@ Widget actionButton(
   );
 }
 
-/// Page body: a scrollable list of sections with pull-to-refresh.
+/// Row 185: whether a page block needs the whole width — a table of four columns or more
+/// (looked up through the usual wrappers), or anything that is not a plain section card.
+bool ownerWideBlock(Widget w) {
+  bool table(Widget? w) => switch (w) {
+    OwnerTable(:final columns) => columns.length >= 4,
+    PayeshSection(:final child) => table(child),
+    Padding(:final child) => table(child),
+    SizedBox(:final child) => table(child),
+    Align(:final child) => table(child),
+    ConstrainedBox(:final child) => table(child),
+    Flexible(:final child) => table(child),
+    KeyedSubtree(:final child) => table(child),
+    Column(:final children) => children.any(table),
+    Row(:final children) => children.any(table),
+    Wrap(:final children) => children.any(table),
+    _ => false,
+  };
+  return w is FlowWide || (w is! PayeshSection && w is! Card) || table(w);
+}
+
+/// Row 185: [child] takes the page's whole width when [wide] (a grid of tiles, say).
+Widget wideIfOwner(bool wide, Widget child) =>
+    wide ? FlowWide(child: child) : child;
+
+/// Page body: a scrollable list of sections with pull-to-refresh. Row 185: on a wide window the
+/// section cards sit side by side in columns ([FlowColumns]) — «حذف فضاهای بیخود و اضافی در کل
+/// برنامه»; big tables and custom blocks keep the full width, a phone keeps one column.
 class PageList extends StatelessWidget {
   const PageList({super.key, required this.children, required this.onRefresh});
   final List<Widget> children;
   final Future<void> Function() onRefresh;
   @override
-  Widget build(BuildContext context) => RefreshIndicator(
-    onRefresh: onRefresh,
-    child: ListView(
-      padding: const EdgeInsets.all(PayeshTokens.space4),
-      children: [
-        for (final c in children) ...[
-          c,
-          const SizedBox(height: PayeshTokens.space3),
+  Widget build(BuildContext context) {
+    // one card alone keeps the whole width (nothing to sit beside)
+    final flow = children.where((c) => !ownerWideBlock(c)).length > 1;
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        padding: const EdgeInsets.all(PayeshTokens.space4),
+        children: [
+          FlowColumns(
+            gap: PayeshTokens.space3,
+            wide: (w) => w is _Gap && w.wide,
+            children: [
+              for (final c in children)
+                _Gap(wide: !flow || ownerWideBlock(c), child: c),
+            ],
+          ),
         ],
-      ],
-    ),
+      ),
+    );
+  }
+}
+
+/// One block of a [PageList] with the space under it; keeps its full-width choice.
+class _Gap extends StatelessWidget {
+  const _Gap({required this.wide, required this.child});
+  final bool wide;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: PayeshTokens.space3),
+    child: child,
   );
 }
 

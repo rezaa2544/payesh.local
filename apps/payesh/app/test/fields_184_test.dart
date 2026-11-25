@@ -1,5 +1,5 @@
 // Row 184 — every input box in every panel has a standard width: text 360, digits 220,
-// a few characters 120, search 320, an address 480; only multi-line text keeps the full width.
+// a few characters 120, search 240 (row 185; 320 in row 184), an address 480; only multi-line text keeps the full width.
 // The owner: «همه کادرها در همه پنل‌ها … شامل تمام کادرها از جمله کادرهای ورود اطلاعات و سرچ‌ها».
 import 'dart:io';
 
@@ -92,7 +92,7 @@ void main() {
   });
 
   testWidgets(
-    'F184-04 «کاربران» on a Windows window: the search box is a standard 320, not the page width',
+    'F184-04 «کاربران» on a Windows window: the search box is the standard search width (row 185: 240), not the page width',
     (tester) async {
       tester.view.physicalSize = const Size(1568, 900);
       tester.view.devicePixelRatio = 1;

@@ -741,6 +741,14 @@ class WebItem extends StatelessWidget {
   final List<Widget> actions;
   final VoidCallback? onTap;
 
+  /// Row 185: the actions sit next to the content and wrap (never overflow) in a narrow column.
+  Widget _withActions(Widget main) => actions.isEmpty
+      ? main
+      : TrailingRow(
+          main: main,
+          trailing: SpacedWrap(spacing: 4, runSpacing: 4, children: actions),
+        );
+
   @override
   Widget build(BuildContext context) {
     final body = Container(
@@ -750,49 +758,47 @@ class WebItem extends StatelessWidget {
         border: Border.all(color: Web.line),
         borderRadius: BorderRadius.circular(Web.d2 ? 8 : 12),
       ),
-      child: Row(
-        children: [
-          if (leading != null) ...[leading!, const SizedBox(width: 9.6)],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Wrap(
-                  spacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
+      child: _withActions(
+        Row(
+          children: [
+            if (leading != null) ...[leading!, const SizedBox(width: 9.6)],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Wrap(
+                    spacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          height: Web.lineHeight,
+                          color: titleColor,
+                        ),
+                      ),
+                      ...titleTrailing,
+                    ],
+                  ),
+                  if (subWidget != null)
+                    subWidget!
+                  else if (sub case final s?)
                     Text(
-                      title,
+                      s,
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                        fontSize: 12,
+                        color: Web.muted,
                         height: Web.lineHeight,
-                        color: titleColor,
                       ),
                     ),
-                    ...titleTrailing,
-                  ],
-                ),
-                if (subWidget != null)
-                  subWidget!
-                else if (sub case final s?)
-                  Text(
-                    s,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Web.muted,
-                      height: Web.lineHeight,
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          for (final (i, a) in actions.indexed) ...[
-            if (i > 0) const SizedBox(width: 4),
-            a,
           ],
-        ],
+        ),
       ),
     );
     return onTap == null
@@ -804,21 +810,58 @@ class WebItem extends StatelessWidget {
   }
 }
 
-/// `.list` — items 8px apart.
+/// `.list` — items 8px apart. Row 185: on a wide card the items sit side by side in columns of
+/// at least [kListColumnMin] (a row is never a long empty stretch between its name and buttons).
 class WebList extends StatelessWidget {
   const WebList({super.key, required this.children});
   final List<Widget> children;
 
-  @override
-  Widget build(BuildContext context) => Column(
+  /// Narrowest column of a wide list.
+  static const double kListColumnMin = 300;
+
+  Widget _column(List<Widget> items) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      for (final (i, c) in children.indexed) ...[
+      for (final (i, c) in items.indexed) ...[
         if (i > 0) const SizedBox(height: 8),
         c,
       ],
     ],
   );
+
+  @override
+  Widget build(BuildContext context) => children.length < 2
+      ? _column(children)
+      : LayoutBuilder(
+          builder: (context, box) {
+            final n = box.maxWidth.isFinite
+                ? flowColumnsFor(
+                    box.maxWidth,
+                    min: kListColumnMin,
+                    max: 4,
+                    gap: 8,
+                  )
+                : 1;
+            if (n == 1) return _column(children);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < children.length; i += n) ...[
+                  if (i > 0) const SizedBox(height: 8),
+                  WebEqualRow(
+                    gap: 8,
+                    children: [
+                      for (var j = i; j < i + n; j++)
+                        j < children.length
+                            ? children[j]
+                            : const SizedBox.shrink(),
+                    ],
+                  ),
+                ],
+              ],
+            );
+          },
+        );
 }
 
 /// `table` inside `.table-wrap`: th soft + bold 12px, td 13.5px, padding .5rem .45rem, a line
@@ -839,7 +882,13 @@ class WebTable extends StatelessWidget {
     this.widths = const {},
     this.empty,
     this.headless = false,
+    this.stretch = false,
   });
+
+  /// Row 185: a table is as wide as its columns need and sits at the start of the line — no
+  /// empty stretches between a name and its buttons. [stretch] keeps the old full width (the
+  /// dashboard's coverage tables).
+  final bool stretch;
 
   /// A `<table><tbody>` with no `<thead>` (e.g. the record's «مشخصات»).
   final bool headless;
@@ -876,7 +925,9 @@ class WebTable extends StatelessWidget {
         ? FixedColumnWidth(widths[i]!)
         : fixed != null
         ? FractionColumnWidth(fixed![i])
-        : const _HtmlAutoColumn();
+        : stretch
+        ? const _HtmlAutoColumn()
+        : const _HtmlAutoColumn(grow: false);
     TableRow row(
       List<Widget> cells, {
       required bool th,
@@ -932,7 +983,7 @@ class WebTable extends StatelessWidget {
         ],
       ),
     );
-    final body = Container(
+    final box = Container(
       decoration: BoxDecoration(
         color: bordered ? Web.card : null,
         border: bordered ? Border.all(color: Web.line) : null,
@@ -949,24 +1000,64 @@ class WebTable extends StatelessWidget {
             )
           : table,
     );
+    final body = stretch || fixed != null
+        ? box
+        : Align(alignment: AlignmentDirectional.topStart, child: box);
     final mw = minWidth;
     // no LayoutBuilder unless a min-width can make it scroll (intrinsic-size parents)
     if (mw == null) return body;
     return LayoutBuilder(
-      builder: (context, box) => box.maxWidth >= mw
+      builder: (context, size) => size.maxWidth >= mw
           ? body
-          : SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(width: mw, child: body),
+          // row 185: below the min-width the table scrolls sideways at its own (content)
+          // width with an always-visible bar, so the «عملیات» column is never just cut off
+          : WebHScroll(
+              child: stretch || fixed != null
+                  ? SizedBox(width: mw, child: body)
+                  : box,
             ),
     );
   }
 }
 
+/// Row 185: a sideways scroller with an always-visible scrollbar (phone tables).
+class WebHScroll extends StatefulWidget {
+  const WebHScroll({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<WebHScroll> createState() => _WebHScrollState();
+}
+
+class _WebHScrollState extends State<WebHScroll> {
+  final _c = ScrollController();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scrollbar(
+    controller: _c,
+    thumbVisibility: true,
+    child: SingleChildScrollView(
+      controller: _c,
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.only(bottom: 10),
+      child: widget.child,
+    ),
+  );
+}
+
 /// HTML `table-layout:auto`: a column is as wide as its widest cell, and spare width goes to
 /// the columns in proportion to that width.
 class _HtmlAutoColumn extends TableColumnWidth {
-  const _HtmlAutoColumn();
+  const _HtmlAutoColumn({this.grow = true});
+
+  /// Whether the column takes a share of the spare width (row 185: only when stretched).
+  final bool grow;
 
   double _max(Iterable<RenderBox> cells) {
     var w = 0.0;
@@ -990,7 +1081,8 @@ class _HtmlAutoColumn extends TableColumnWidth {
       _max(cells);
 
   @override
-  double? flex(Iterable<RenderBox> cells) => math.max(_max(cells), 1);
+  double? flex(Iterable<RenderBox> cells) =>
+      grow ? math.max(_max(cells), 1) : null;
 }
 
 /// `pageHead(title, sub, actions)` + pulse.js `.nowchip`: the title box on the right (h2 19px,
@@ -1131,24 +1223,56 @@ class WebNowChip extends StatelessWidget {
 
 /// The `.main` column of a page: padding 22px 26px 40px (14px 14px 86px on a phone).
 class WebPageBody extends StatelessWidget {
-  const WebPageBody({super.key, required this.children, this.controller});
+  const WebPageBody({
+    super.key,
+    required this.children,
+    this.controller,
+    this.flow = true,
+  });
   final List<Widget> children;
   final ScrollController? controller;
+
+  /// Row 185: the page's cards sit side by side in columns ([FlowColumns]) — «حذف فضاهای
+  /// بیخود و اضافی در کل برنامه». Titles, banners and [FlowWide] blocks keep the full width.
+  final bool flow;
+
+  /// Only a card flows in a column; anything else (title row, banner, paragraph, stats grid)
+  /// takes the whole line.
+  static bool wideBlock(Widget w) => w is! WebCard && w is! WebEmpty;
 
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 900;
+    final all = [?WebMainTop.of(context), ...children];
     return WebText(
       child: ListView(
         controller: controller,
         padding: wide
             ? const EdgeInsets.fromLTRB(26, 22, 26, 40)
             : const EdgeInsets.fromLTRB(14, 14, 14, 86),
-        children: [?WebMainTop.of(context), ...children],
+        children:
+            flow &&
+                all
+                        .where(
+                          (w) =>
+                              w is FlowCell ||
+                              (w is! FlowWide && !wideBlock(w)),
+                        )
+                        .length >
+                    1
+            ? [FlowColumns(wide: wideBlock, children: all)]
+            : all,
       ),
     );
   }
 }
+
+/// Row 185: a [Wrap] whose widest size counts the gaps between its children too ([SpacedWrap]).
+typedef WebWrap = SpacedWrap;
+
+/// Row 185: [child] takes the page's whole width when [wide] (a filled table), else it flows in a
+/// column like any card.
+Widget wideIf(bool wide, Widget child) => wide ? FlowWide(child: child) : child;
 
 /// Row 172: what the shell puts at the top of every `.main` (the cloud banner and the version
 /// bar of the web `shellHtml`); [WebPageBody] shows it first, scrolling with the page.
@@ -1360,7 +1484,11 @@ class WebPills extends StatelessWidget {
     required this.selected,
     required this.onSelected,
     this.keyPrefix = 'pill',
+    this.bottom = 16,
   });
+
+  /// Space under the pills.
+  final double bottom;
   final List<(String id, String label)> tabs;
   final String selected;
   final ValueChanged<String> onSelected;
@@ -1368,7 +1496,7 @@ class WebPills extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
+    padding: EdgeInsets.only(bottom: bottom),
     child: SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(

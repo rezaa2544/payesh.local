@@ -2943,7 +2943,11 @@ async function waitFor(fn, ms = 15000) {
     // ردیف ۱۸۴: همهٔ کادرها در همهٔ صفحه‌ها (نه فقط پنجره‌ها) استاندارد — متن ۳۶۰، ارقام ۲۲۰، چند نویسه ۱۲۰، جستجو ۳۲۰، نشانی ۴۸۰؛ چندخطی پهن
     assert.ok(css182.includes('input.input,select.input{max-width:360px}'), 'همهٔ کادرهای متنی و کشویی اندازهٔ معمول');
     assert.ok(/input\.input\[inputmode=numeric\][^{]*\{max-width:220px\}/.test(css182), 'کادر شماره و کد ملی به اندازهٔ ارقام');
-    assert.ok(/input\.input\[data-search\],input\.input\[type=search\]\{max-width:320px\}/.test(css182), 'کادر جستجو اندازهٔ استاندارد');
+    // ردیف ۱۸۵: جستجو کوتاه‌تر (۲۴۰)؛ کارت‌ها ستونی کنار هم، فهرست پهن چندستونه، جدول هم‌اندازهٔ ستون‌هایش
+    assert.ok(/input\.input\[data-search\],input\.input\[type=search\]\{max-width:240px\}/.test(css182), 'کادر جستجو کوتاه و جمع‌وجور (۲۴۰)');
+    assert.ok(css182.includes('.flow{display:grid;grid-template-columns:repeat(auto-fit') && css182.includes('.flow>.card:not(.wide){grid-column:auto}'), 'کارت‌های صفحه ستونی کنار هم');
+    assert.ok(css182.includes('.card .list{display:grid'), 'فهرست پهن چندستونه است، نه ردیف‌های کشیده');
+    assert.ok(css182.includes('{width:auto;max-width:100%}') && css182.includes('.table-wrap>table:not(.dashboard-table)'), 'جدول هم‌اندازهٔ ستون‌هایش است');
     assert.ok(css182.includes('textarea.input{max-width:none}'), 'متن چندخطی پهن می‌ماند');
     assert.ok(!/\.modal:not\(\.xl\) \.field>\.input/.test(css182), 'NEG: قاعده دیگر فقط به پنجره‌ها محدود نیست');
     assert.ok(css182.includes('.modal.wide .row>.field{flex:0 1 220px'), 'فیلدهای ردیفی کشیده نمی‌شوند');
@@ -3692,6 +3696,28 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/<td class="small">نقشه‌کشی<\/td>/.test(parRow), 'رشتهٔ فرزند برای ولی');
     T.S.roleFilter = '';
 
+    /* ردیف ۱۸۵: فیلتر «دانش‌آموز» بر اساس پایه و رشته جدا می‌کند */
+    T.S.data.users.set(14, { id: 14, name: 'سینا', role: 'student', grade: 'یازدهم', field: 'برق' });
+    assert.ok(!/usr-grade-filter/.test(T.PAGES.users()), 'فیلتر پایه فقط برای دانش‌آموزان');
+    T.S.roleFilter = 'student';
+    let stHtml = T.PAGES.users();
+    assert.ok(stHtml.includes('id="usr-grade-filter" data-set="gradeFilter"') && stHtml.includes('id="usr-branch-filter" data-set="branchFilter"'), 'فیلتر پایه و رشته هست');
+    assert.ok(stHtml.includes('<option value="یازدهم" >یازدهم</option>') && stHtml.includes('<option value="نقشه‌کشی" >نقشه‌کشی</option>'), 'گزینه‌ها از تعریف‌ها و دانش‌آموزان');
+    assert.ok(stHtml.includes('سینا') && stHtml.includes('آرین رحمانی'), 'بدون فیلتر همهٔ دانش‌آموزان');
+    T.S.gradeFilter = 'دهم';
+    stHtml = T.PAGES.users();
+    assert.ok(stHtml.includes('آرین رحمانی') && !stHtml.includes('سینا'), 'فقط پایهٔ دهم');
+    T.S.gradeFilter = ''; T.S.branchFilter = 'برق';
+    stHtml = T.PAGES.users();
+    assert.ok(stHtml.includes('سینا') && !stHtml.includes('آرین رحمانی'), 'فقط رشتهٔ برق');
+    T.S.branchFilter = '-';
+    stHtml = T.PAGES.users();
+    assert.ok(stHtml.includes('آرسام سعیدی') && !stHtml.includes('سینا'), 'گزینهٔ «بدون رشته»');
+    assert.ok(stHtml.includes('class="card tight wide filter-bar"'), 'جستجو، نقش‌ها و فیلترها در یک نوار');
+    assert.ok(stHtml.includes('<div class="card wide">'), 'جدول کاربران تمام‌عرض');
+    T.S.branchFilter = ''; T.S.roleFilter = '';
+    T.S.data.users.delete(14);
+
     /* صفحهٔ پیگیری: رشتهٔ استخراج‌شده از اکسل حتی بدون تعریف، انتخاب‌شده نشان داده می‌شود */
     T.S.data.users.set(12, { id: 12, name: 'آرسام سعیدی', role: 'student', national_id: '3750943478', followup_reason: 'پایهٔ کلاس در فایل نبود (رشته: گرافیک)' });
     T.S.route = 'followup';
@@ -3843,7 +3869,7 @@ async function waitFor(fn, ms = 15000) {
     const win = dom.window;
     const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
     win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/authz.js') + '\n;\n'
-      + strip('client/app.js') + '\n;window.__t = { S, list, byId, impCheck, impPlaceOf, roomFormHtml, classFormHtml, PAGES, actUserFull };');
+      + strip('client/app.js') + '\n;window.__t = { S, list, byId, impCheck, impPlaceOf, roomFormHtml, classFormHtml, PAGES, actUserFull, flowHtml };');
     const T = win.__t;
     T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
     T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'classes'; T.S.queue = []; T.S.online = false;
@@ -3890,6 +3916,11 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(/کلاس‌ها و کارگاه‌ها/.test(pageHtml), 'کارت محل برگزاری باقی است');
     assert.ok(!/کلاس‌های ثبت‌نام/.test(pageHtml), 'بخش کلاس‌های ثبت‌نام حذف شده است');
     assert.ok(!/گروه‌های ثبت‌نام/.test(pageHtml), 'کارت «گروه‌های ثبت‌نام» وجود ندارد');
+    // ردیف ۱۸۵: سه ستون کنار هم — پایه‌ها (راست)، رشته‌ها (وسط)، کلاس و محل برگزاری (چپ)
+    const iG = pageHtml.indexOf('<b>پایه‌ها</b>'), iB = pageHtml.indexOf('<b>رشته‌ها</b>'), iR = pageHtml.indexOf('کلاس‌ها و کارگاه‌ها');
+    assert.ok(iG >= 0 && iG < iB && iB < iR, 'ترتیب کارت‌ها: پایه‌ها، رشته‌ها، کلاس/محل');
+    assert.ok(T.flowHtml('<div class="card">x</div>').includes('<div class="flow">'), 'صفحه‌ها در .flow چیده می‌شوند');
+    assert.ok(!T.flowHtml('<div class="dashboard-topbar"></div>').includes('class="flow"'), 'داشبورد مدیر چیدمان خودش را دارد');
     assert.strictEqual((pageHtml.match(/data-act="room-add"/g) || []).length, 1, 'دکمهٔ افزودن کلاس/کارگاه فقط یک‌بار، داخل کارت محل برگزاری می‌آید');
 
     /* ── ۳) مشخصات کامل: ویرایش شمارهٔ پدر روی حساب ولی هم می‌نشیند ── */

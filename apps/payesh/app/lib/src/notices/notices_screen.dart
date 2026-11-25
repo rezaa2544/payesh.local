@@ -164,14 +164,18 @@ class _NoticesScreenState extends State<NoticesScreen> {
         Row(
           children: [
             Expanded(child: Text(n.title, style: Web.b)),
-            if (n.queued) ...[
-              WebBadge(
-                'در صف ارسال',
-                key: Key('ntc-queued-${n.id}'),
-                tone: WebTone.amber,
+            // row 185: in a narrow column the badges wrap instead of overflowing
+            if (n.queued)
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 6),
+                  child: WebBadge(
+                    'در صف ارسال',
+                    key: Key('ntc-queued-${n.id}'),
+                    tone: WebTone.amber,
+                  ),
+                ),
               ),
-              const SizedBox(width: 6),
-            ],
             // the severity is the badge's colour, as on the web; its name is read aloud
             Semantics(
               key: Key('ntc-sev-${n.id}'),
@@ -197,7 +201,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
         if (c.canWrite)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Wrap(
+            child: WebWrap(
               spacing: 8,
               runSpacing: 8,
               children: [

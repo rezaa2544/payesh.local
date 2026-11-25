@@ -315,12 +315,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Wrap(
+                    WebWrap(
                       spacing: 8,
                       runSpacing: 6,
                       children: [
                         for (final r in x.rows)
-                          Wrap(
+                          WebWrap(
                             spacing: 6,
                             runSpacing: 6,
                             crossAxisAlignment: WrapCrossAlignment.center,
@@ -499,7 +499,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           Padding(
             key: Key('sch-sub-${x.id}'),
             padding: const EdgeInsets.only(bottom: 4),
-            child: Wrap(
+            child: WebWrap(
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text.rich(
@@ -1235,7 +1235,7 @@ class _SlotFormPageState extends State<SlotFormPage> {
             (null, '— انتخاب دبیر —'),
             for (final t in teachers) (t.id, t.name),
           ], (v) => setState(() => subTeacher = v)),
-          Wrap(
+          WebWrap(
             spacing: PayeshTokens.space2,
             children: [
               FilledButton.tonal(

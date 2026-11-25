@@ -760,7 +760,7 @@ class _SignedInScreenState extends State<SignedInScreen> {
   }
 
   /// Native-only controls of this device for the system page's last card.
-  Widget _extras(BuildContext context) => Wrap(
+  Widget _extras(BuildContext context) => WebWrap(
     key: const Key('sys-extras'),
     spacing: 8,
     runSpacing: 8,
@@ -1428,7 +1428,7 @@ class _LanServerScreenState extends State<LanServerScreen> {
         ],
       );
     }
-    final header = Wrap(
+    final header = WebWrap(
       spacing: PayeshTokens.space2,
       children: [
         Text(

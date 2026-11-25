@@ -128,7 +128,7 @@ small,.small{font-size:12.5px}
 input.input,select.input{max-width:360px}
 input.input[inputmode=numeric],input.input[inputmode=decimal],input.input[data-digits],input.input.code-input,input.input[maxlength="10"],input.input[maxlength="11"],input.input[maxlength="12"],input.input[maxlength="14"]{max-width:220px}
 input.input.clock-24h,input.input[data-grade],input.input[maxlength="5"]{max-width:120px}
-input.input[data-search],input.input[type=search]{max-width:320px}
+input.input[data-search],input.input[type=search]{max-width:240px}
 input.input[inputmode=url],input.input[type=file],input.input[name=base],input.input[name=public_url]{max-width:480px}
 textarea.input{max-width:none}
 textarea.input{min-height:90px}
@@ -190,6 +190,18 @@ tr:last-child td{border-bottom:0}
 .dashboard-empty{padding:14px;border:1px dashed #94a3b8;border-radius:12px;color:var(--muted);font-weight:600;text-align:center}
 
 .list{display:flex;flex-direction:column;gap:8px}
+/* ردیف ۱۸۵: «حذف فضاهای بیخود و اضافی در کل برنامه» — کارت‌های هر صفحه ستونی کنار هم می‌نشینند
+   (کلاس‌ها: پایه‌ها راست، رشته‌ها وسط، کلاس و محل برگزاری چپ)، فهرستِ پهن چندستونه می‌شود و جدول
+   فقط هم‌اندازهٔ ستون‌هایش است؛ عنوان صفحه، نوارها و کارت‌های .wide (جدول کاربران) تمام‌عرض می‌مانند. */
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,max(340px,calc((100% - 24px)/3))),1fr));column-gap:12px;align-items:start}
+.flow>*{grid-column:1/-1;min-width:0}
+.flow>.card:not(.wide){grid-column:auto}
+.flow:not(:has(>.card:not(.wide)~.card:not(.wide)))>.card{grid-column:1/-1}
+.card .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:8px}
+.table-wrap>table:not(.dashboard-table):not(.dashboard-room-table):not(.tt){width:auto;max-width:100%}
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.filter-bar .pill-tabs{margin:0}
+.filter-bar select.input{max-width:170px;width:auto}
 .item{display:flex;gap:.6rem;align-items:center;padding:.65rem .7rem;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 .item .t{font-weight:600;font-size:14px}
 .item .s{font-size:12px;color:var(--muted)}

@@ -156,6 +156,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           else
             WebTable(
               key: const Key('dash-coverage-table'),
+              stretch: true,
               bordered: true,
               fontSize: twoCol ? 12 : 13.5,
               minWidth: twoCol ? null : 680,
@@ -188,7 +189,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       '${Web.fa(g.checked)} / ${Web.fa(g.roster)}',
                       style: strong,
                     ),
-                    Wrap(
+                    WebWrap(
                       spacing: 4,
                       runSpacing: 4,
                       children: [
@@ -252,6 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           else
             WebTable(
               key: const Key('dash-rooms-table'),
+              stretch: true,
               bordered: true,
               fontSize: twoCol ? 12 : 13.5,
               minWidth: twoCol ? null : 600,
@@ -352,7 +354,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(fontSize: 13, color: Web.muted),
                 ),
                 const SizedBox(height: 12),
-                Wrap(
+                WebWrap(
                   key: const Key('pulse-a'),
                   spacing: 6,
                   runSpacing: 6,
@@ -471,7 +473,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       Padding(
         key: const Key('dash-topbar'),
         padding: const EdgeInsets.only(bottom: 16),
-        child: Wrap(
+        child: WebWrap(
           alignment: WrapAlignment.spaceBetween,
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 12,
@@ -1103,7 +1105,7 @@ class _DayReportScreenState extends State<DayReportScreen> {
                     padding: const EdgeInsets.only(top: 6),
                     child: d.notPresent.isEmpty
                         ? Text('همه حاضر', style: Web.small)
-                        : Wrap(
+                        : WebWrap(
                             spacing: 4,
                             runSpacing: 4,
                             children: [
@@ -1237,7 +1239,7 @@ class _LeaveDeskScreenState extends State<LeaveDeskScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Wrap(
+                  child: WebWrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [

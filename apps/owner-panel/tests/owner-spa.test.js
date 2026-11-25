@@ -152,7 +152,9 @@ function assets() {
   /* ردیف ۱۸۴: همهٔ کادرها در همهٔ صفحه‌ها اندازهٔ استاندارد دارند (نه فقط در پنجره‌ها) */
   check('row 184: every text box and select is a standard 360px, not the page width', /\ninput\.input, select\.input \{ max-width: 360px; \}/.test(a.css));
   check('row 184: digit and date boxes are 220px', /input\.input\[inputmode="numeric"\][^{]*\{ max-width: 220px; \}/.test(a.css));
-  check('row 184: the search box is 320px; multi-line text stays wide', /input\.input\[type="search"\] \{ max-width: 320px; \}/.test(a.css) && /textarea\.input \{ max-width: none; \}/.test(a.css));
+  check('row 185: the search box is a shorter 240px; multi-line text stays wide', /input\.input\[type="search"\] \{ max-width: 240px; \}/.test(a.css) && /textarea\.input \{ max-width: none; \}/.test(a.css));
+  check('row 185: the cards of a page sit side by side in up to three columns', /#page \{ display: grid; grid-template-columns: repeat\(auto-fit/.test(a.css) && /#page > \.card:not\(\.wide\) \{ grid-column: auto; \}/.test(a.css));
+  check('row 185: a table is as wide as its columns, not the card', /table \{ width: auto; max-width: 100%;/.test(a.css));
   check('row 184 NEG: the rule is no longer limited to dialogs', !/\.modal input\.input/.test(a.css));
 
   /* کنترل‌های منفی: هر کنترل باید ورودی خراب را رد کند */

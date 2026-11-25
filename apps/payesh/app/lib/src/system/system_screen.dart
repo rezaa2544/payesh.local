@@ -356,17 +356,17 @@ class _SystemScreenState extends State<SystemScreen> {
   /// Web `.row between` card head: bold title, badge on the far side.
   Widget _head(String title, {Widget? badge, double bottom = 0}) => Padding(
     padding: EdgeInsets.only(bottom: bottom),
-    child: Row(
-      children: [
-        Expanded(child: Text(title, style: Web.b)),
-        ?badge,
-      ],
-    ),
+    child: badge == null
+        ? Text(title, style: Web.b)
+        : TrailingRow(
+            main: Text(title, style: Web.b),
+            trailing: badge,
+          ),
   );
 
   Widget _btns(List<Widget> children, {double top = 10}) => Padding(
     padding: EdgeInsets.only(top: top),
-    child: Wrap(spacing: 6, runSpacing: 6, children: children),
+    child: WebWrap(spacing: 6, runSpacing: 6, children: children),
   );
 
   Widget _col(List<Widget> children, {Key? key}) => WebCard(
@@ -1360,7 +1360,7 @@ class _CloudScreenState extends State<CloudScreen> {
                       style: _note,
                     ),
                   const SizedBox(height: 12),
-                  Wrap(
+                  WebWrap(
                     spacing: 6,
                     runSpacing: 6,
                     children: [
@@ -1750,7 +1750,7 @@ class _HealthScreenState extends State<HealthScreen> {
             : [
                 WebCard.tight(
                   key: const Key('hlt-summary'),
-                  child: Wrap(
+                  child: WebWrap(
                     alignment: WrapAlignment.spaceBetween,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     spacing: 8,
@@ -2236,11 +2236,10 @@ class _NetworkScreenState extends State<NetworkScreen> {
     },
   );
 
-  Widget _head(String title, Widget badge) => Row(
-    children: [
-      Expanded(child: Text(title, style: Web.b)),
-      badge,
-    ],
+  // row 185: a long state badge wraps in a narrow column instead of overflowing
+  Widget _head(String title, Widget badge) => TrailingRow(
+    main: Text(title, style: Web.b),
+    trailing: badge,
   );
 
   Future<void> _off() async {
@@ -2270,7 +2269,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
         : ('خاموش', WebTone.amber);
     Widget buttons(List<Widget> b) => Padding(
       padding: const EdgeInsets.only(top: 10),
-      child: Wrap(spacing: 6, runSpacing: 6, children: b),
+      child: WebWrap(spacing: 6, runSpacing: 6, children: b),
     );
     final refresh = WebBtn(
       busy ? '…' : 'بازبینی',
@@ -2524,7 +2523,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
+                WebWrap(
                   spacing: 8,
                   runSpacing: 6,
                   children: [
@@ -2588,7 +2587,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                   if (lan.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Wrap(
+                      child: WebWrap(
                         spacing: 8,
                         runSpacing: 6,
                         children: [

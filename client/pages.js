@@ -52,6 +52,10 @@ function pageHead(title, sub, actions) {
     <div class="row no-print">${actions || ''}</div>
   </div>`;
 }
+/* ردیف ۱۸۵: کارت‌های صفحه ستونی کنار هم (styles.css .flow)؛ داشبورد مدیر چیدمان خودش را دارد. */
+function flowHtml(view) {
+  return /dashboard-topbar/.test(String(view || '')) ? view : `<div class="flow">${view}</div>`;
+}
 function card(body, cls = '') { return `<div class="card ${cls}">${body}</div>`; }
 function empty(msg) { return `<div class="card center muted" style="padding:26px">${esc(msg)}</div>`; }
 function badge(text, kind = '') { return `<span class="badge ${kind}">${esc(text)}</span>`; }
@@ -160,7 +164,7 @@ function shellHtml(view) {
         <div class="d2-theme">${themeButtonHtml('theme-side')}</div>
       </div>
     </aside>
-    <main class="main">${canonicalBarHtml()}${calm ? '' : upd}${offlineBarHtml()}${view}</main>
+    <main class="main">${canonicalBarHtml()}${calm ? '' : upd}${offlineBarHtml()}${flowHtml(view)}</main>
   </div>
   <nav class="bottomnav">${mkNav(true)}</nav>`;
 }
@@ -895,6 +899,19 @@ PAGES.users = () => {
   const role = S.roleFilter || '';
   let users = list('users');
   if (role) users = users.filter(u => u.role === role);
+  /* ردیف ۱۸۵: دانش‌آموزان بر اساس پایه و رشته جدا می‌شوند ('-' = بدون پایه/رشته) */
+  const gradeOf = u => String((byId('classes', u.class_id) || {}).grade || u.grade || '').trim();
+  const branchOf = u => String((byId('classes', u.class_id) || {}).branch || u.field || u.branch || '').trim();
+  const gf = role === 'student' ? String(S.gradeFilter || '') : '';
+  const bf = role === 'student' ? String(S.branchFilter || '') : '';
+  const hit = (v, want) => !want || (want === '-' ? !v : v === want);
+  if (gf || bf) users = users.filter(u => hit(gradeOf(u), gf) && hit(branchOf(u), bf));
+  const studentsAll = list('users').filter(u => u.role === 'student');
+  const optsOf = (kind, of) => [...new Set([...lookupList(kind).map(l => String(l.name || '').trim()), ...studentsAll.map(of)].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'fa'));
+  const filterSel = (id, key, all, none, opts, cur) => `<select class="input" id="${id}" data-set="${key}">
+      <option value="">${all}</option>${opts.map(o => `<option value="${esc(o)}" ${cur === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+      <option value="-" ${cur === '-' ? 'selected' : ''}>${none}</option></select>`;
   if (q) users = users.filter(u => String(u.name).includes(q) || String(u.phone || '').includes(q) || String(u.national_id || '').includes(q));
   users = sortBy(users, 'name').slice(0, 300);
 
@@ -919,12 +936,14 @@ PAGES.users = () => {
       </span>
     </div></div>` : ''}
 
-  <div class="card tight">
-    <input class="input" id="q-search" data-focus-key="q-search" data-search="q" placeholder="جستجوی نام، شمارهٔ همراه یا کد ملی…" value="${esc(q)}">
-    <div class="pill-tabs" style="margin-top:8px">
+  <div class="card tight wide filter-bar" id="usr-filters">
+    <input class="input" id="q-search" data-focus-key="q-search" data-search="q" placeholder="جستجوی نام، شماره یا کد ملی…" value="${esc(q)}">
+    <div class="pill-tabs">
       ${[['', 'همه'], ['student', 'دانش‌آموز'], ['teacher', 'دبیر'], ['parent', 'ولی'], ['manager', 'مدیر'], ['vice', 'معاون'], ['staff', 'کارمند']].map(([v, t]) =>
         `<span class="pill ${role === v ? 'on' : ''}" data-act="role-filter" data-role="${v}">${t}</span>`).join('')}
     </div>
+    ${role === 'student' ? filterSel('usr-grade-filter', 'gradeFilter', 'همهٔ پایه‌ها', 'بدون پایه', optsOf('grade', gradeOf), gf)
+      + filterSel('usr-branch-filter', 'branchFilter', 'همهٔ رشته‌ها', 'بدون رشته', optsOf('branch', branchOf), bf) : ''}
   </div>
 
   ${picked.size ? `<div class="card tight" style="border-color:#b91c1c">
@@ -964,7 +983,7 @@ PAGES.users = () => {
       </td>
     </tr>`;
     }).join('')}
-  </tbody></table></div>${users.length ? '' : empty('کاربری با این مشخصات پیدا نشد.')}`)}`;
+  </tbody></table></div>${users.length ? '' : empty('کاربری با این مشخصات پیدا نشد.')}`, 'wide')}`;
 };
 
 /* ══════════════ پیگیری ردیف‌های ناتمامِ ورود دسته‌ای ══════════════
@@ -1104,7 +1123,8 @@ PAGES.followup = () => {
       ? `<div class="table-wrap"><table><thead><tr>
            <th>دانش‌آموز</th><th>دلیل</th><th style="min-width:190px">پایه و رشته</th><th></th>
          </tr></thead><tbody>${studRows}</tbody></table></div>`
-      : `<div class="small muted">پایه و رشتهٔ همهٔ دانش‌آموزان کامل است. ✅</div>`)
+      : `<div class="small muted">پایه و رشتهٔ همهٔ دانش‌آموزان کامل است. ✅</div>`),
+    studs.length ? 'wide' : ''
   );
 
   const issuesCard = card(
@@ -1114,7 +1134,8 @@ PAGES.followup = () => {
       ? importIssuesTableHtml(issues) +
         `<div class="row" style="margin-top:10px;gap:8px">
            <button class="btn primary" data-act="issues-clear">همه را حل‌شده کن</button></div>`
-      : `<div class="small muted">ردیف ناتمامی از ورود دسته‌ای نمانده. ✅</div>`)
+      : `<div class="small muted">ردیف ناتمامی از ورود دسته‌ای نمانده. ✅</div>`),
+    issues.length ? 'wide' : ''
   );
 
   return `${pageHead('نیازمند پیگیری', fa(total) + ' مورد برای رسیدگی',
@@ -1178,9 +1199,8 @@ PAGES.classes = () => {
   const headerAction = isFieldSchool
     ? ''
     : `<button class="btn sm primary" data-act="class-add">+ کلاس جدید</button>`;
+  /* ردیف ۱۸۵: سه ستون کنار هم — پایه‌ها راست، رشته‌ها وسط، کلاس و محل برگزاری چپ */
   return `${pageHead('کلاس‌ها و تعریف‌ها', '', headerAction)}
-
-  ${roomsCard}
 
   ${card(`<div class="row between" style="margin-bottom:8px"><b>پایه‌ها</b>
       <button class="btn sm" data-act="def-add" data-kind="grade">+ پایه</button></div>
@@ -1189,6 +1209,8 @@ PAGES.classes = () => {
   ${card(`<div class="row between" style="margin-bottom:8px"><b>رشته‌ها</b>
       <button class="btn sm" data-act="def-add" data-kind="branch">+ رشته</button></div>
     <div class="list">${lookupList('branch').map(r => lookupRowHtml(r, 'branch')).join('')}</div>`)}
+
+  ${roomsCard}
 
   ${card(`<div class="row between" style="margin-bottom:8px"><b>دروس</b>
       <button class="btn sm" data-act="subject-add">+ درس</button></div>

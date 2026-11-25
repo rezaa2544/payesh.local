@@ -440,7 +440,7 @@ class SchoolForm extends StatelessWidget {
                 child: LayoutBuilder(
                   builder: (context, box) {
                     final half = (box.maxWidth - gap) / 2;
-                    return Wrap(
+                    return WebWrap(
                       spacing: gap,
                       runSpacing: PayeshTokens.space4,
                       children: [

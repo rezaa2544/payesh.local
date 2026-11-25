@@ -429,64 +429,67 @@ class _InfraPageState extends OwnerPageState<InfraPage> {
       );
 
       sections.add(
-        PayeshSection(
-          title: 'سرویس‌ها، ظرفیت و مصرف',
-          child: services.isEmpty
-              ? const StateBox.empty('هنوز سرویسی ثبت نشده است.')
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final s in services) ...[
-                      Text(
-                        [
-                          '${s['name']}',
-                          infraServiceKinds['${s['kind']}'] ?? '${s['kind']}',
-                          provName['${s['provider_id']}'] ??
-                              shortId(s['provider_id']),
-                          if (s['region'] != null && s['region'] != '')
-                            '${s['region']}',
-                        ].join(' · '),
-                        key: Key('service-${s['id']}'),
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final (k, t) in infraMetrics)
-                            _metric(
-                              k,
-                              t,
-                              (s['metrics'] is Map
-                                  ? s['metrics']! as Map
-                                  : const <String, Object?>{})[k],
-                            ),
-                        ],
-                      ),
-                      if (caps.infraRegister)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: ActionRow([
-                            actionButton(
-                              'infra-add-endpoint-${s['id']}',
-                              'ثبت Endpoint',
-                              () => _addEndpoint(s),
-                            ),
-                            actionButton(
-                              'infra-record-metric-${s['id']}',
-                              'ثبت عدد دستی',
-                              () => _recordMetric(s),
-                            ),
-                          ]),
+        wideIfOwner(
+          services.isNotEmpty,
+          PayeshSection(
+            title: 'سرویس‌ها، ظرفیت و مصرف',
+            child: services.isEmpty
+                ? const StateBox.empty('هنوز سرویسی ثبت نشده است.')
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final s in services) ...[
+                        Text(
+                          [
+                            '${s['name']}',
+                            infraServiceKinds['${s['kind']}'] ?? '${s['kind']}',
+                            provName['${s['provider_id']}'] ??
+                                shortId(s['provider_id']),
+                            if (s['region'] != null && s['region'] != '')
+                              '${s['region']}',
+                          ].join(' · '),
+                          key: Key('service-${s['id']}'),
+                          style: Theme.of(context).textTheme.titleSmall,
                         ),
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final (k, t) in infraMetrics)
+                              _metric(
+                                k,
+                                t,
+                                (s['metrics'] is Map
+                                    ? s['metrics']! as Map
+                                    : const <String, Object?>{})[k],
+                              ),
+                          ],
+                        ),
+                        if (caps.infraRegister)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: ActionRow([
+                              actionButton(
+                                'infra-add-endpoint-${s['id']}',
+                                'ثبت Endpoint',
+                                () => _addEndpoint(s),
+                              ),
+                              actionButton(
+                                'infra-record-metric-${s['id']}',
+                                'ثبت عدد دستی',
+                                () => _recordMetric(s),
+                              ),
+                            ]),
+                          ),
+                        const SizedBox(height: 12),
+                      ],
+                      const Notice(
+                        '«نامعلوم» یعنی هیچ منبع واقعی (API ارائه‌دهنده یا ثبت دستی با برچسب [M]/[E]) برای این عدد نیست. API ارائه‌دهنده‌ها هنوز وصل نیست (ردیف ۱۲۴).',
+                      ),
                     ],
-                    const Notice(
-                      '«نامعلوم» یعنی هیچ منبع واقعی (API ارائه‌دهنده یا ثبت دستی با برچسب [M]/[E]) برای این عدد نیست. API ارائه‌دهنده‌ها هنوز وصل نیست (ردیف ۱۲۴).',
-                    ),
-                  ],
-                ),
+                  ),
+          ),
         ),
       );
 

@@ -15,6 +15,15 @@ class UsersController extends SchoolController {
   List<(int, String)> classes = const [];
   String roleFilter = '';
   String query = '';
+
+  /// Row 185: «دانش‌آموزان» split by پایه and رشته ('' = all, [noValue] = none set).
+  String gradeFilter = '';
+  String branchFilter = '';
+  List<String> gradeOptions = const [];
+  List<String> branchOptions = const [];
+
+  /// The «بدون پایه / بدون رشته» choice of the student filters.
+  static const noValue = '-';
   final Set<int> picked = {};
 
   /// Web «N کاربر» (every user, not the filtered list).
@@ -32,7 +41,35 @@ class UsersController extends SchoolController {
   @override
   Future<void> read(SchoolRecords db) async {
     final dir = UserDirectory(db);
-    users = await dir.list(role: roleFilter, query: query);
+    final all = await dir.list(role: roleFilter, query: query);
+    final grades = <String>{}, branches = <String>{};
+    for (final l in await db.allOrEmpty('lookups')) {
+      final name = SchoolRecords.str(l.data['name']).trim();
+      if (name.isEmpty) continue;
+      switch (SchoolRecords.str(l.data['kind'])) {
+        case 'grade':
+          grades.add(name);
+        case 'branch':
+          branches.add(name);
+      }
+    }
+    for (final u in all.where((u) => u.role == 'student')) {
+      if (u.grade.trim().isNotEmpty) grades.add(u.grade.trim());
+      if (u.branch.trim().isNotEmpty) branches.add(u.branch.trim());
+    }
+    gradeOptions = grades.toList()..sort();
+    branchOptions = branches.toList()..sort();
+    bool hit(String value, String want) => want.isEmpty
+        ? true
+        : want == noValue
+        ? value.trim().isEmpty
+        : value.trim() == want;
+    users = roleFilter == 'student'
+        ? [
+            for (final u in all)
+              if (hit(u.grade, gradeFilter) && hit(u.branch, branchFilter)) u,
+          ]
+        : all;
     total = (await db.allOrEmpty('users')).length;
     try {
       final f = await Followup(db).view();
@@ -48,9 +85,19 @@ class UsersController extends SchoolController {
     picked.removeWhere((id) => !users.any((u) => u.id == id));
   }
 
-  Future<void> filter({String? role, String? search}) async {
-    if (role != null) roleFilter = role;
+  Future<void> filter({
+    String? role,
+    String? search,
+    String? grade,
+    String? branch,
+  }) async {
+    if (role != null && role != roleFilter) {
+      roleFilter = role;
+      gradeFilter = branchFilter = '';
+    }
     if (search != null) query = search;
+    if (grade != null) gradeFilter = grade;
+    if (branch != null) branchFilter = branch;
     await load();
   }
 

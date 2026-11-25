@@ -147,7 +147,10 @@ class _UsersScreenState extends State<UsersScreen> {
       headActions: [
         if (c.canManage) ...[
           WebBtn(
-            '📥 ورود دسته‌ای (اکسل/CSV)',
+            // row 185: one line on a phone
+            MediaQuery.sizeOf(context).width < 600
+                ? '📥 ورود دسته‌ای'
+                : '📥 ورود دسته‌ای (اکسل/CSV)',
             key: const Key('usr-import'),
             onPressed: _import,
           ),
@@ -167,36 +170,60 @@ class _UsersScreenState extends State<UsersScreen> {
 
   List<Widget> _body(BuildContext context) {
     final parentCol = c.roleFilter == 'parent';
+    final phone = MediaQuery.sizeOf(context).width < 600;
     return [
       if (c.followups > 0) _followupCard(context),
-      WebCard.tight(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            FieldBox(
-              width: kFieldSearch,
-              child: TextField(
-                key: const Key('usr-search'),
-                controller: search,
-                style: TextStyle(fontSize: 15, color: Web.ink),
-                decoration: webInput(
-                  hint: 'جستجوی نام، شمارهٔ همراه یا کد ملی…',
+      // row 185: one compact bar — the search (240), the role pills and, for «دانش‌آموز», the
+      // پایه / رشته filters that split the students
+      FlowWide(
+        child: WebCard.tight(
+          key: const Key('usr-filters'),
+          child: WebWrap(
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FieldBox(
+                width: kFieldSearch,
+                child: TextField(
+                  key: const Key('usr-search'),
+                  controller: search,
+                  style: TextStyle(fontSize: 15, color: Web.ink),
+                  decoration: webInput(hint: 'جستجوی نام، شماره یا کد ملی…'),
+                  onChanged: (v) => c.filter(search: v),
+                  onSubmitted: (v) => c.filter(search: v),
                 ),
-                onChanged: (v) => c.filter(search: v),
-                onSubmitted: (v) => c.filter(search: v),
               ),
-            ),
-            const SizedBox(height: 8),
-            WebPills(
-              keyPrefix: 'usr-role',
-              tabs: [
-                for (final (v, label) in roleFilters)
-                  (v.isEmpty ? 'all' : v, label),
+              WebPills(
+                keyPrefix: 'usr-role',
+                bottom: 0,
+                tabs: [
+                  for (final (v, label) in roleFilters)
+                    (v.isEmpty ? 'all' : v, label),
+                ],
+                selected: c.roleFilter.isEmpty ? 'all' : c.roleFilter,
+                onSelected: (v) => c.filter(role: v == 'all' ? '' : v),
+              ),
+              if (c.roleFilter == 'student') ...[
+                _studentFilter(
+                  const Key('usr-grade-filter'),
+                  'همهٔ پایه‌ها',
+                  'بدون پایه',
+                  c.gradeOptions,
+                  c.gradeFilter,
+                  (v) => c.filter(grade: v),
+                ),
+                _studentFilter(
+                  const Key('usr-branch-filter'),
+                  'همهٔ رشته‌ها',
+                  'بدون رشته',
+                  c.branchOptions,
+                  c.branchFilter,
+                  (v) => c.filter(branch: v),
+                ),
               ],
-              selected: c.roleFilter.isEmpty ? 'all' : c.roleFilter,
-              onSelected: (v) => c.filter(role: v == 'all' ? '' : v),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       if (c.picked.isNotEmpty)
@@ -228,70 +255,102 @@ class _UsersScreenState extends State<UsersScreen> {
             ],
           ),
         ),
-      WebCard(
-        key: const Key('usr-table'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(bottom: 6),
-              child: Text.rich(
-                TextSpan(
-                  style: Web.small,
-                  children: [
-                    TextSpan(text: 'کاربری و رمز هر نفر داخل دکمهٔ '),
-                    TextSpan(text: '«کاربری»', style: Web.b),
-                    TextSpan(
-                      text:
-                          ' است — همان‌جا می‌بینید، عوض می‌کنید یا حساب را حذف می‌کنید. '
-                          'نام کاربری همان ',
-                    ),
-                    TextSpan(text: 'شمارهٔ همراه', style: Web.b),
-                    TextSpan(text: ' است (اگر شماره نبود، '),
-                    TextSpan(text: 'کد ملی', style: Web.b),
-                    TextSpan(text: ') و رمز اولیه '),
-                    TextSpan(text: 'کد ملی', style: Web.b),
-                    TextSpan(text: '. این جدول را فقط مدیر می‌بیند.'),
+      FlowWide(
+        child: WebCard(
+          key: const Key('usr-table'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(bottom: 6),
+                child: Text.rich(
+                  TextSpan(
+                    style: Web.small,
+                    children: [
+                      TextSpan(text: 'کاربری و رمز هر نفر داخل دکمهٔ '),
+                      TextSpan(text: '«کاربری»', style: Web.b),
+                      TextSpan(
+                        text:
+                            ' است — همان‌جا می‌بینید، عوض می‌کنید یا حساب را حذف می‌کنید. '
+                            'نام کاربری همان ',
+                      ),
+                      TextSpan(text: 'شمارهٔ همراه', style: Web.b),
+                      TextSpan(text: ' است (اگر شماره نبود، '),
+                      TextSpan(text: 'کد ملی', style: Web.b),
+                      TextSpan(text: ') و رمز اولیه '),
+                      TextSpan(text: 'کد ملی', style: Web.b),
+                      TextSpan(text: '. این جدول را فقط مدیر می‌بیند.'),
+                    ],
+                  ),
+                ),
+              ),
+              WebTable(
+                minWidth: phone ? null : 760,
+                head: [
+                  '',
+                  'نام و نام خانوادگی',
+                  if (!phone) ...[
+                    'نقش',
+                    'پایه',
+                    'رشته',
+                    if (parentCol) 'ولیِ چه دانش‌آموزی',
                   ],
-                ),
+                  'عملیات',
+                ],
+                widths: const {0: 34},
+                headCells: {
+                  0: _check(
+                    const Key('usr-pick-all'),
+                    c.users.isNotEmpty && c.picked.length == c.users.length,
+                    (v) => c.pickAll(v),
+                  ),
+                },
+                rowColor: (i) =>
+                    c.picked.contains(c.users[i].id) ? Web.redBg : null,
+                rows: [
+                  for (final u in c.users) _row(u, parentCol, phone: phone),
+                ],
               ),
-            ),
-            WebTable(
-              minWidth: 760,
-              head: [
-                '',
-                'نام و نام خانوادگی',
-                'نقش',
-                'پایه',
-                'رشته',
-                if (parentCol) 'ولیِ چه دانش‌آموزی',
-                'عملیات',
-              ],
-              widths: const {0: 34},
-              headCells: {
-                0: _check(
-                  const Key('usr-pick-all'),
-                  c.users.isNotEmpty && c.picked.length == c.users.length,
-                  (v) => c.pickAll(v),
+              if (c.users.isEmpty && c.error == null)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: WebEmpty(
+                    'کاربری با این مشخصات پیدا نشد.',
+                    key: Key('usr-empty'),
+                  ),
                 ),
-              },
-              rowColor: (i) =>
-                  c.picked.contains(c.users[i].id) ? Web.redBg : null,
-              rows: [for (final u in c.users) _row(u, parentCol)],
-            ),
-            if (c.users.isEmpty && c.error == null)
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
-                child: WebEmpty(
-                  'کاربری با این مشخصات پیدا نشد.',
-                  key: Key('usr-empty'),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     ];
   }
+
+  /// Row 185: a پایه / رشته filter of the student list (all · each value · none set).
+  Widget _studentFilter(
+    Key key,
+    String all,
+    String none,
+    List<String> options,
+    String value,
+    ValueChanged<String> onChanged,
+  ) => FieldBox(
+    width: kFieldFilter,
+    child: DropdownButtonFormField<String>(
+      key: key,
+      isExpanded: true,
+      initialValue: value == UsersController.noValue || options.contains(value)
+          ? value
+          : '',
+      decoration: webInput(hint: all),
+      items: [
+        DropdownMenuItem(value: '', child: Text(all)),
+        for (final o in options) DropdownMenuItem(value: o, child: Text(o)),
+        DropdownMenuItem(value: UsersController.noValue, child: Text(none)),
+      ],
+      onChanged: (v) => onChanged(v ?? ''),
+    ),
+  );
 
   Widget _check(Key key, bool value, ValueChanged<bool> onChanged) => SizedBox(
     width: 20,
@@ -311,78 +370,108 @@ class _UsersScreenState extends State<UsersScreen> {
 
   static Widget get _muted => Text('—', style: TextStyle(color: Web.muted));
 
-  List<Widget> _row(SchoolUser u, bool parentCol) {
+  List<Widget> _row(SchoolUser u, bool parentCol, {bool phone = false}) {
     final small = Web.small.copyWith(color: Web.ink);
+    final nameRow = Row(
+      key: Key('usr-row-${u.id}'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(child: Text(u.name)),
+        if (u.queued) ...[
+          const SizedBox(width: 6),
+          const WebBadge('در صف ارسال', tone: WebTone.amber),
+        ],
+        if (!u.active) ...[
+          const SizedBox(width: 6),
+          WebBadge('غیرفعال', tone: WebTone.red),
+        ],
+      ],
+    );
+    // row 185: on a phone نقش · پایه · رشته (· فرزند) sit in one muted line under the name, so
+    // the table is three columns (☐ · نام · عملیات) and fits the screen without sideways scroll
+    final facts = [
+      if (u.role != 'student') u.roleLabel,
+      if (u.grade.isNotEmpty) u.grade,
+      if (u.branch.isNotEmpty) u.branch,
+      if (parentCol && u.kids.isNotEmpty) u.kids.join('، '),
+    ];
     return [
       _check(
         Key('usr-pick-${u.id}'),
         c.picked.contains(u.id),
         (_) => c.togglePick(u.id),
       ),
-      Row(
-        key: Key('usr-row-${u.id}'),
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(child: Text(u.name)),
-          if (u.queued) ...[
-            const SizedBox(width: 6),
-            const WebBadge('در صف ارسال', tone: WebTone.amber),
+      if (phone)
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            nameRow,
+            if (facts.isNotEmpty)
+              Text(
+                facts.join(' · '),
+                key: Key('usr-facts-${u.id}'),
+                style: Web.small,
+              ),
           ],
-          if (!u.active) ...[
-            const SizedBox(width: 6),
-            WebBadge('غیرفعال', tone: WebTone.red),
-          ],
-        ],
-      ),
-      if (u.role == 'student')
-        _muted
+        )
       else
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: WebBadge(
-            u.roleLabel,
-            tone: u.role == 'manager' ? WebTone.purple : WebTone.none,
+        nameRow,
+      if (!phone) ...[
+        if (u.role == 'student')
+          _muted
+        else
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: WebBadge(
+              u.roleLabel,
+              tone: u.role == 'manager' ? WebTone.purple : WebTone.none,
+            ),
           ),
+        if (u.grade.isEmpty) _muted else Text(u.grade, style: small),
+        if (u.branch.isEmpty) _muted else Text(u.branch, style: small),
+        if (parentCol)
+          if (u.kids.isEmpty) _muted else Text(u.kids.join('، '), style: small),
+      ],
+      // row 185: on a phone the buttons take two short rows, so the table fits the screen
+      ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: phone ? 190 : double.infinity),
+        child: WebWrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            WebBtn(
+              'مشخصات کامل',
+              key: Key('usr-full-${u.id}'),
+              kind: WebBtnKind.primary,
+              onPressed: () => _open(UserProfilePage(controller: c, user: u)),
+            ),
+            if (widget.accounts)
+              WebBtn(
+                'کاربری',
+                key: Key('usr-creds-${u.id}'),
+                onPressed: () => _creds(u),
+              ),
+            if (c.source.accounts != null)
+              WebBtn(
+                'کارت پیوند',
+                key: Key('usr-pair-${u.id}'),
+                onPressed: () =>
+                    _open(PairCardPage(accounts: c.source.accounts!, user: u)),
+              ),
+            WebBtn(
+              'ویرایش',
+              key: Key('usr-edit-${u.id}'),
+              kind: WebBtnKind.ghost,
+              onPressed: () => _open(UserEditPage(controller: c, user: u)),
+            ),
+            WebBtn.delete(
+              'حذف',
+              key: Key('usr-delete-${u.id}'),
+              onPressed: c.busy ? null : () => _delete(u),
+            ),
+          ],
         ),
-      if (u.grade.isEmpty) _muted else Text(u.grade, style: small),
-      if (u.branch.isEmpty) _muted else Text(u.branch, style: small),
-      if (parentCol)
-        if (u.kids.isEmpty) _muted else Text(u.kids.join('، '), style: small),
-      Wrap(
-        spacing: 4,
-        runSpacing: 4,
-        children: [
-          WebBtn(
-            'مشخصات کامل',
-            key: Key('usr-full-${u.id}'),
-            kind: WebBtnKind.primary,
-            onPressed: () => _open(UserProfilePage(controller: c, user: u)),
-          ),
-          if (widget.accounts)
-            WebBtn(
-              'کاربری',
-              key: Key('usr-creds-${u.id}'),
-              onPressed: () => _creds(u),
-            ),
-          if (c.source.accounts != null)
-            WebBtn(
-              'کارت پیوند',
-              key: Key('usr-pair-${u.id}'),
-              onPressed: () =>
-                  _open(PairCardPage(accounts: c.source.accounts!, user: u)),
-            ),
-          WebBtn(
-            'ویرایش',
-            key: Key('usr-edit-${u.id}'),
-            kind: WebBtnKind.ghost,
-            onPressed: () => _open(UserEditPage(controller: c, user: u)),
-          ),
-          WebBtn.delete(
-            'حذف',
-            key: Key('usr-delete-${u.id}'),
-            onPressed: c.busy ? null : () => _delete(u),
-          ),
-        ],
       ),
     ];
   }
@@ -411,7 +500,7 @@ class _UsersScreenState extends State<UsersScreen> {
     key: const Key('usr-followup'),
     border: Web.amber.withValues(alpha: 0.45),
     background: Web.amberBg,
-    child: Wrap(
+    child: WebWrap(
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 8,
@@ -434,7 +523,7 @@ class _UsersScreenState extends State<UsersScreen> {
             ),
           ],
         ),
-        Wrap(
+        WebWrap(
           spacing: 8,
           children: [
             WebBtn(
