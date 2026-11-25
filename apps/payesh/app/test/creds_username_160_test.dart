@@ -1,6 +1,8 @@
 // Row 160 — the manager sets each user's own user name (Latin or a 4–9 digit code) next to the
 // mobile on «نام کاربری و رمز»; empty = the user signs in with the mobile again.
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:payesh_ui/payesh_ui.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 
 import 'accounts_wave7_test.dart' show openCreds, serverCreds, fieldText;
@@ -37,6 +39,28 @@ void main() {
       expect(acc.calls, contains('set:11:-:-:u='));
       expect(textOf(tester, 'crd-notice'), 'نام کاربری = شمارهٔ همراه شد');
       expect(acc.creds[11]!.username, '09120000011');
+    },
+  );
+
+  testWidgets(
+    'L183-W01 «کاربری — نام» on a Windows window: a small panel whose boxes are '
+    'standard-width — the mobile as wide as its digits, user name and password a normal size',
+    (tester) async {
+      tester.view.physicalSize = const Size(1568, 830);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await openCreds(tester, 11);
+      expect(find.byKey(const Key('panel')), findsOneWidget);
+      expect(tester.getSize(find.byKey(const Key('panel'))).width, kPanelWidth);
+      Size box(String k) => tester.getSize(find.byKey(Key(k)));
+      expect(box('crd-phone').width, kFieldDigits);
+      expect(box('crd-username').width, kFieldText);
+      expect(box('crd-password').width, kFieldText);
+      expect(box('crd-save').width, kFieldText);
+      // NEG: no box spans the panel any more
+      for (final k in ['crd-phone', 'crd-username', 'crd-password']) {
+        expect(box(k).width, lessThan(kPanelWidth - 100), reason: k);
+      }
     },
   );
 }

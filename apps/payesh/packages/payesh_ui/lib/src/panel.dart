@@ -7,8 +7,8 @@ import 'theme.dart';
 /// whole Windows window). Phones keep the usual full-screen page — there the screen *is* small.
 const double kPanelBreakpoint = 600;
 
-/// Width of a [openPanel] panel: a form or a detail view.
-const double kPanelWidth = 640;
+/// Width of a [openPanel] panel: a form or a detail view (row 183: 560, fields are standard-width).
+const double kPanelWidth = 560;
 
 /// Width of a [openPanel] panel that holds a table (Excel import preview and the like).
 const double kPanelWideWidth = 960;
@@ -29,7 +29,9 @@ Future<T?> openPanel<T>(
   double width = kPanelWidth,
 }) {
   final nav = Navigator.of(context);
-  if (MediaQuery.sizeOf(context).width < kPanelBreakpoint) {
+  // the window decides, not the box we are in: inside a panel MediaQuery reports the panel
+  // (560 < 600), and a page opened from a panel must still be a panel, not a full page
+  if (MediaQuery.sizeOf(nav.context).width < kPanelBreakpoint) {
     return nav.push<T>(MaterialPageRoute<T>(builder: builder));
   }
   return nav.push<T>(PanelRoute<T>(builder: builder, width: width));
@@ -132,3 +134,37 @@ Widget backOrCloseIcon(BuildContext context) =>
 /// Tooltip matching [backOrCloseIcon].
 String backOrCloseTooltip(BuildContext context) =>
     inPanel(context) ? 'بستن' : 'بازگشت';
+
+/// Row 183: standard field widths — a box as wide as what goes in it, not the whole form
+/// (the owner: «کادر شمارهٔ همراه به همان اندازهٔ ارقام شماره و استاندارد باشد»).
+/// Digits: a mobile number (۱۱ رقم), a national code, a date, a code.
+const double kFieldDigits = 220;
+
+/// A name, a user name, a password, a short title.
+const double kFieldText = 360;
+
+/// A longer one-line title or address.
+const double kFieldWide = 480;
+
+/// Puts [child] (a text field) in a box at most [width] wide, at the start of the line
+/// (right in Persian). Multi-line text keeps the full width — pass no [FieldBox] there.
+class FieldBox extends StatelessWidget {
+  const FieldBox({super.key, this.width = kFieldText, required this.child});
+
+  /// Widest the field gets.
+  final double width;
+  final Widget child;
+
+  /// The standard width for a one-line field: digits or text.
+  static double standard({bool digits = false}) =>
+      digits ? kFieldDigits : kFieldText;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: width),
+      child: child,
+    ),
+  );
+}

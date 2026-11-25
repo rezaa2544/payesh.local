@@ -395,18 +395,20 @@ class _PaywallViewState extends State<PaywallView> {
                           ),
                         ),
                       const SizedBox(height: PayeshTokens.space2),
-                      TextField(
-                        key: const Key('paywall-ref'),
-                        controller: _ref,
-                        enabled: !busy,
-                        textDirection: TextDirection.ltr,
-                        decoration: InputDecoration(
-                          labelText: 'شمارهٔ پیگیری / رسید',
-                          border: const OutlineInputBorder(),
-                          errorText: fieldIssueFor(
-                            c.subError,
-                            'شمارهٔ پیگیری / رسید',
-                            _ref.text,
+                      FieldBox(
+                        child: TextField(
+                          key: const Key('paywall-ref'),
+                          controller: _ref,
+                          enabled: !busy,
+                          textDirection: TextDirection.ltr,
+                          decoration: InputDecoration(
+                            labelText: 'شمارهٔ پیگیری / رسید',
+                            border: const OutlineInputBorder(),
+                            errorText: fieldIssueFor(
+                              c.subError,
+                              'شمارهٔ پیگیری / رسید',
+                              _ref.text,
+                            ),
                           ),
                         ),
                       ),

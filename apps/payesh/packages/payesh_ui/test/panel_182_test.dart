@@ -171,4 +171,77 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'PN-06 row 183: fields are standard-width — digits 220, text 360, multi-line full',
+    (tester) async {
+      await setSize(tester, const Size(1200, 800));
+      await tester.pumpWidget(
+        _host(
+          const Size(1200, 800),
+          (c) => openPanel<void>(
+            c,
+            (_) => Scaffold(
+              body: ListView(
+                children: const [
+                  FieldBox(
+                    width: kFieldDigits,
+                    child: TextField(key: Key('f-phone')),
+                  ),
+                  FieldBox(child: TextField(key: Key('f-name'))),
+                  TextField(key: Key('f-body'), maxLines: 4),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('go')));
+      await tester.pumpAndSettle();
+      final panel = tester.getSize(find.byKey(const Key('panel'))).width;
+      expect(panel, kPanelWidth);
+      expect(
+        tester.getSize(find.byKey(const Key('f-phone'))).width,
+        kFieldDigits,
+      );
+      expect(tester.getSize(find.byKey(const Key('f-name'))).width, kFieldText);
+      expect(
+        tester.getSize(find.byKey(const Key('f-body'))).width,
+        greaterThan(panel - 3),
+      );
+      // the boxes sit at the start of the line (right in Persian), like the labels
+      expect(
+        tester.getTopLeft(find.byKey(const Key('f-phone'))).dx,
+        closeTo(tester.getTopLeft(find.byKey(const Key('f-body'))).dx, 0.01),
+      );
+    },
+  );
+
+  testWidgets('PN-07 row 183: a page opened from inside a panel is a panel too (the window decides, '
+      'not the 560 box); on a phone both are pages', (tester) async {
+    Widget inner(BuildContext c) => Scaffold(
+      appBar: AppBar(title: const Text('جزئیات')),
+      body: TextButton(
+        key: const Key('go2'),
+        onPressed: () => openPanel<void>(c, (_) => const _Page()),
+        child: const Text('بیشتر'),
+      ),
+    );
+    for (final wide in [true, false]) {
+      final size = wide ? const Size(1200, 800) : const Size(412, 860);
+      await setSize(tester, size);
+      await tester.pumpWidget(_host(size, (c) => openPanel<void>(c, inner)));
+      await tester.tap(find.byKey(const Key('go')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('go2')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('panel')),
+        wide ? findsNWidgets(2) : findsNothing,
+        reason: '$size',
+      );
+      expect(find.byType(CloseButton), wide ? findsNWidgets(2) : findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
 }

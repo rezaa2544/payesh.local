@@ -1004,18 +1004,22 @@ class _LeaveFormState extends State<LeaveForm> {
                 onChanged: (v) => setState(() => _student = v),
               ),
               const SizedBox(height: PayeshTokens.space3),
-              TextField(
-                key: const Key('lvf-date'),
-                controller: _day,
-                keyboardType: TextInputType.datetime,
-                decoration: InputDecoration(
-                  labelText: 'تاریخ شمسی',
-                  hintText: '۱۴۰۵/۰۸/۲۱',
-                  errorText:
-                      c.formError == FamilyError.badDate.messageFa ||
-                          fieldIssueFor(c.formError, 'تاریخ', _day.text) != null
-                      ? checkFieldFa
-                      : null,
+              FieldBox(
+                width: kFieldDigits,
+                child: TextField(
+                  key: const Key('lvf-date'),
+                  controller: _day,
+                  keyboardType: TextInputType.datetime,
+                  decoration: InputDecoration(
+                    labelText: 'تاریخ شمسی',
+                    hintText: '۱۴۰۵/۰۸/۲۱',
+                    errorText:
+                        c.formError == FamilyError.badDate.messageFa ||
+                            fieldIssueFor(c.formError, 'تاریخ', _day.text) !=
+                                null
+                        ? checkFieldFa
+                        : null,
+                  ),
                 ),
               ),
               const SizedBox(height: PayeshTokens.space3),

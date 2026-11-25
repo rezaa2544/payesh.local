@@ -526,6 +526,7 @@ class _ClassFormPageState extends State<ClassFormPage> {
     ];
     return DropdownButtonFormField<String>(
       key: Key(key),
+      isExpanded: true,
       initialValue: value,
       decoration: InputDecoration(
         labelText: label,
@@ -563,6 +564,7 @@ class _ClassFormPageState extends State<ClassFormPage> {
       fields: [
         DropdownButtonFormField<String>(
           key: const Key('cf-f-mode'),
+          isExpanded: true,
           initialValue: mode,
           decoration: const InputDecoration(
             labelText: 'نوع چیدمان',

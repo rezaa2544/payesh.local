@@ -2940,6 +2940,10 @@ async function waitFor(fn, ms = 15000) {
     assert.ok(css182.includes('.modal.wide{max-width:760px'), 'فرم‌ها در پنجرهٔ کوچک (۷۶۰)');
     assert.ok(css182.includes('.modal.wide.xl{max-width:1180px'), 'فقط xl پهن');
     assert.ok(!/\.modal\.wide\{max-width:1180px/.test(css182), 'فرم دیگر ۱۱۸۰ نیست');
+    // ردیف ۱۸۳: کادرها استاندارد — شماره/کد ملی ۲۲۰، متن ۳۶۰؛ چندخطی و جدول اکسل پهن
+    assert.ok(css182.includes('.modal:not(.xl) .field>.input.ltr,.modal:not(.xl) .field>.input[inputmode=numeric]{max-width:220px}'), 'کادر شماره به اندازهٔ ارقام');
+    assert.ok(css182.includes('.modal:not(.xl) .field>.input:not(textarea),.modal:not(.xl) .field>select.input{max-width:360px}'), 'کادر متن اندازهٔ معمول');
+    assert.ok(css182.includes('.modal.wide .row>.field{flex:0 1 220px'), 'فیلدهای ردیفی کشیده نمی‌شوند');
 
     /* ذخیرهٔ فهرست پیگیری (با خطاهای سرور هم) */
     const saved = T.impSaveIssues(T.S.imp.checks, 'students', 'a.xlsx', [{ row: 2, error: 'duplicate_phone' }]);

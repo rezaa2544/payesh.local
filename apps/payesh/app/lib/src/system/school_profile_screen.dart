@@ -229,25 +229,37 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
     int lines = 1,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: PayeshTokens.space2),
-    child: TextField(
-      key: Key('sp-$k'),
-      controller: _c[k],
-      onChanged: (_) => _fix(k),
-      maxLines: lines,
-      textDirection: ltr ? TextDirection.ltr : null,
-      keyboardType: numeric ? TextInputType.number : null,
-      inputFormatters: numeric
-          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹]'))]
-          : null,
-      decoration: InputDecoration(
-        labelText: label,
-        errorText: _issues[k],
-        errorMaxLines: 3,
-        border: const OutlineInputBorder(),
-        isDense: true,
+    child: _sized(
+      lines,
+      numeric,
+      TextField(
+        key: Key('sp-$k'),
+        controller: _c[k],
+        onChanged: (_) => _fix(k),
+        maxLines: lines,
+        textDirection: ltr ? TextDirection.ltr : null,
+        keyboardType: numeric ? TextInputType.number : null,
+        inputFormatters: numeric
+            ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹]'))]
+            : null,
+        decoration: InputDecoration(
+          labelText: label,
+          errorText: _issues[k],
+          errorMaxLines: 3,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
       ),
     ),
   );
+
+  /// Row 183: a one-line box as wide as what goes in it (digits / a name); text keeps the width.
+  Widget _sized(int lines, bool numeric, Widget field) => lines > 1
+      ? field
+      : FieldBox(
+          width: FieldBox.standard(digits: numeric),
+          child: field,
+        );
 
   /// گروه چیپ/چک‌باکس با قاب قرمز و پیام وقتی ایراد دارد (ردیف ۱۶۶).
   Widget _group(String k, Widget child) {

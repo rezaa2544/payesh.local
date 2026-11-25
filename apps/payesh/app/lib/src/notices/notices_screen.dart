@@ -329,17 +329,20 @@ class _NoticeEditorState extends State<NoticeEditor> {
                     ),
                   ),
                 ),
-              TextField(
-                key: const Key('ntc-title'),
-                controller: title,
-                enabled: !c.busy,
-                decoration: InputDecoration(
-                  labelText: 'عنوان',
-                  border: const OutlineInputBorder(),
-                  errorText: fieldIssueFor(c.formError, 'عنوان', title.text),
-                  errorMaxLines: 3,
+              FieldBox(
+                width: kFieldWide,
+                child: TextField(
+                  key: const Key('ntc-title'),
+                  controller: title,
+                  enabled: !c.busy,
+                  decoration: InputDecoration(
+                    labelText: 'عنوان',
+                    border: const OutlineInputBorder(),
+                    errorText: fieldIssueFor(c.formError, 'عنوان', title.text),
+                    errorMaxLines: 3,
+                  ),
+                  onChanged: (_) => setState(() {}),
                 ),
-                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: PayeshTokens.space3),
               TextField(

@@ -578,136 +578,140 @@ class _PairCardPageState extends State<PairCardPage> {
       backgroundColor: Web.bg,
       appBar: AppBar(title: const Text('کارت پیوند')),
       body: WebText(
-        child: ListView(
+        // row 183: not a lazy ListView — in the panel the lower rows must stay built
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          children: [
-            if (error != null)
-              WebBanner(
-                key: const Key('pair-error'),
-                kind: WebBannerKind.err,
-                text: error!,
-              ),
-            if (r == null && error == null)
-              const Center(child: CircularProgressIndicator()),
-            if (r != null) ...[
-              Container(
-                key: const Key('pair-card'),
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Web.card,
-                  border: Border.all(color: Web.line, width: 2),
-                  borderRadius: BorderRadius.circular(Web.radius),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (error != null)
+                WebBanner(
+                  key: const Key('pair-error'),
+                  kind: WebBannerKind.err,
+                  text: error!,
                 ),
-                child: Column(
-                  children: [
-                    Text(
-                      r.name.isEmpty ? widget.user.name : r.name,
-                      style: Web.b.copyWith(fontSize: 18),
-                    ),
-                    Text(
-                      roleFa[r.role] ?? widget.user.roleLabel,
-                      style: Web.small,
-                    ),
-                    const SizedBox(height: 8),
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Text(
-                        r.display,
-                        key: const Key('pair-code'),
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 3,
-                          color: Web.primary2,
+              if (r == null && error == null)
+                const Center(child: CircularProgressIndicator()),
+              if (r != null) ...[
+                Container(
+                  key: const Key('pair-card'),
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Web.card,
+                    border: Border.all(color: Web.line, width: 2),
+                    borderRadius: BorderRadius.circular(Web.radius),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        r.name.isEmpty ? widget.user.name : r.name,
+                        style: Web.b.copyWith(fontSize: 18),
+                      ),
+                      Text(
+                        roleFa[r.role] ?? widget.user.roleLabel,
+                        style: Web.small,
+                      ),
+                      const SizedBox(height: 8),
+                      Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Text(
+                          r.display,
+                          key: const Key('pair-code'),
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 3,
+                            color: Web.primary2,
+                          ),
                         ),
                       ),
-                    ),
-                    Text(
-                      'این کد تا وقتی خودتان «کد تازه» نسازید کار می‌کند.',
-                      style: Web.small,
-                    ),
-                    const SizedBox(height: 12),
-                    _qr(link, 210, 8, 14, 6),
-                    const SizedBox(height: 6),
-                    Text.rich(
-                      TextSpan(
-                        style: TextStyle(fontSize: 13, height: 1.9),
+                      Text(
+                        'این کد تا وقتی خودتان «کد تازه» نسازید کار می‌کند.',
+                        style: Web.small,
+                      ),
+                      const SizedBox(height: 12),
+                      _qr(link, 210, 8, 14, 6),
+                      const SizedBox(height: 6),
+                      Text.rich(
+                        TextSpan(
+                          style: TextStyle(fontSize: 13, height: 1.9),
+                          children: [
+                            TextSpan(text: '📷 '),
+                            TextSpan(
+                              text: 'با دوربین گوشی اسکن کنید',
+                              style: Web.b,
+                            ),
+                            TextSpan(
+                              text:
+                                  '\nبرنامه نصب است؟ بی‌درنگ وارد حساب خودتان می‌شوید.'
+                                  '\nنصب نیست؟ همین اسکن، برنامه را نصب می‌کند و بعد از نصب هم خودکار وارد می‌شوید.',
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Text(
+                          link,
+                          style: Web.small.copyWith(fontSize: 10),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          TextSpan(text: '📷 '),
-                          TextSpan(
-                            text: 'با دوربین گوشی اسکن کنید',
-                            style: Web.b,
-                          ),
-                          TextSpan(
-                            text:
-                                '\nبرنامه نصب است؟ بی‌درنگ وارد حساب خودتان می‌شوید.'
-                                '\nنصب نیست؟ همین اسکن، برنامه را نصب می‌کند و بعد از نصب هم خودکار وارد می‌شوید.',
+                          _qr(_apk, 84, 4, 10, 4),
+                          const SizedBox(width: 10),
+                          Text(
+                            'نصب برنامهٔ بومی\nnative-continuous',
+                            style: Web.small,
                           ),
                         ],
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Text(
-                        link,
-                        style: Web.small.copyWith(fontSize: 10),
-                        textAlign: TextAlign.center,
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'کاربر یا کد را در صفحهٔ ورود می‌زند، یا QR را اسکن می‌کند. این کد چندبار و برای چند دستگاه کار می‌کند — تا وقتی خودتان کد تازه نسازید.',
+                  key: Key('pair-how'),
+                  style: Web.small,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: WebBtn(
+                        '🖨️ چاپ کارت',
+                        key: const Key('pair-print'),
+                        size: WebBtnSize.normal,
+                        block: true,
+                        onPressed: busy ? null : () => _print(r, link),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _qr(_apk, 84, 4, 10, 4),
-                        const SizedBox(width: 10),
-                        Text(
-                          'نصب برنامهٔ بومی\nnative-continuous',
-                          style: Web.small,
-                        ),
-                      ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: WebBtn(
+                        '🔄 کد تازه',
+                        key: const Key('pair-refresh'),
+                        size: WebBtnSize.normal,
+                        block: true,
+                        onPressed: busy ? null : () => _load(true),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'کاربر یا کد را در صفحهٔ ورود می‌زند، یا QR را اسکن می‌کند. این کد چندبار و برای چند دستگاه کار می‌کند — تا وقتی خودتان کد تازه نسازید.',
-                key: Key('pair-how'),
-                style: Web.small,
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: WebBtn(
-                      '🖨️ چاپ کارت',
-                      key: const Key('pair-print'),
-                      size: WebBtnSize.normal,
-                      block: true,
-                      onPressed: busy ? null : () => _print(r, link),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: WebBtn(
-                      '🔄 کد تازه',
-                      key: const Key('pair-refresh'),
-                      size: WebBtnSize.normal,
-                      block: true,
-                      onPressed: busy ? null : () => _load(true),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '«کد تازه» همین کارت را باطل می‌کند و کد تازه می‌سازد — بعد از آن، کد و QR قبلی دیگر کار نمی‌کنند.',
-                style: Web.small,
-              ),
+                const SizedBox(height: 6),
+                Text(
+                  '«کد تازه» همین کارت را باطل می‌کند و کد تازه می‌سازد — بعد از آن، کد و QR قبلی دیگر کار نمی‌کنند.',
+                  style: Web.small,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

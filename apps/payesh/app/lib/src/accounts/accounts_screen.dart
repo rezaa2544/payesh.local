@@ -319,41 +319,45 @@ class _CredsPageState extends State<CredsPage> {
                     ),
                     const SizedBox(height: PayeshTokens.space3),
                     // row 160 — the manager's own user name (Latin or a 4–9 digit code)
-                    TextField(
-                      key: const Key('crd-username'),
-                      controller: login,
-                      enabled: c.onServer,
-                      textDirection: TextDirection.ltr,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      decoration: InputDecoration(
-                        labelText: 'نام کاربری',
-                        helperText: 'خالی = شمارهٔ همراه · حروف انگلیسی، رقم و . _ - @ (۳ تا ۳۲ نویسه)',
-                        helperMaxLines: 2,
-                        errorText: fieldIssueFor(
-                          c.formError,
-                          'نام کاربری',
-                          login.text,
+                    FieldBox(
+                      child: TextField(
+                        key: const Key('crd-username'),
+                        controller: login,
+                        enabled: c.onServer,
+                        textDirection: TextDirection.ltr,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        decoration: InputDecoration(
+                          labelText: 'نام کاربری',
+                          helperText: 'خالی = شمارهٔ همراه · حروف انگلیسی، رقم و . _ - @ (۳ تا ۳۲ نویسه)',
+                          helperMaxLines: 2,
+                          errorText: fieldIssueFor(
+                            c.formError,
+                            'نام کاربری',
+                            login.text,
+                          ),
+                          errorMaxLines: 3,
                         ),
-                        errorMaxLines: 3,
                       ),
                     ),
                     const SizedBox(height: PayeshTokens.space3),
-                    TextField(
-                      key: const Key('crd-password'),
-                      controller: password,
-                      textDirection: TextDirection.ltr,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      decoration: InputDecoration(
-                        labelText: 'رمز عبور',
-                        helperText: 'خالی = همان رمز فعلی می‌ماند',
-                        errorText: fieldIssueFor(
-                          c.formError,
-                          'رمز',
-                          password.text,
+                    FieldBox(
+                      child: TextField(
+                        key: const Key('crd-password'),
+                        controller: password,
+                        textDirection: TextDirection.ltr,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        decoration: InputDecoration(
+                          labelText: 'رمز عبور',
+                          helperText: 'خالی = همان رمز فعلی می‌ماند',
+                          errorText: fieldIssueFor(
+                            c.formError,
+                            'رمز',
+                            password.text,
+                          ),
+                          errorMaxLines: 3,
                         ),
-                        errorMaxLines: 3,
                       ),
                     ),
                     const SizedBox(height: PayeshTokens.space2),
@@ -394,24 +398,29 @@ class _CredsPageState extends State<CredsPage> {
                       ],
                     ),
                     const SizedBox(height: PayeshTokens.space3),
-                    FilledButton(
-                      key: const Key('crd-save'),
-                      onPressed: c.busy
-                          ? null
-                          : () async {
-                              final ok = await c.save(
-                                phone: phone.text,
-                                login: c.onServer ? login.text : null,
-                                password:
-                                    password.text ==
-                                        (c.credential?.password ?? '')
-                                    ? ''
-                                    : password.text,
-                              );
-                              // row 160: the saved (normalized) user name back in the field
-                              if (ok && mounted) login.text = c.customName;
-                            },
-                      child: const Text('ذخیرهٔ نام کاربری و رمز'),
+                    FieldBox(
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          key: const Key('crd-save'),
+                          onPressed: c.busy
+                              ? null
+                              : () async {
+                                  final ok = await c.save(
+                                    phone: phone.text,
+                                    login: c.onServer ? login.text : null,
+                                    password:
+                                        password.text ==
+                                            (c.credential?.password ?? '')
+                                        ? ''
+                                        : password.text,
+                                  );
+                                  // row 160: the saved (normalized) user name back in the field
+                                  if (ok && mounted) login.text = c.customName;
+                                },
+                          child: const Text('ذخیرهٔ نام کاربری و رمز'),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: PayeshTokens.space4),
                     Align(
@@ -517,19 +526,21 @@ class _OwnPasswordPageState extends State<OwnPasswordPage> {
 
   // row 166: inside the form's issue scope ⇒ the refused field is outlined red
   Widget _secret(String key, String label, TextEditingController t) => Builder(
-    builder: (context) => TextField(
-      key: Key(key),
-      controller: t,
-      obscureText: true,
-      textDirection: TextDirection.ltr,
-      autocorrect: false,
-      enableSuggestions: false,
-      onChanged: (_) => clearFieldIssue(context, key),
-      decoration: issueDecoration(
-        context,
-        key,
-        t,
-        InputDecoration(labelText: '$label *'),
+    builder: (context) => FieldBox(
+      child: TextField(
+        key: Key(key),
+        controller: t,
+        obscureText: true,
+        textDirection: TextDirection.ltr,
+        autocorrect: false,
+        enableSuggestions: false,
+        onChanged: (_) => clearFieldIssue(context, key),
+        decoration: issueDecoration(
+          context,
+          key,
+          t,
+          InputDecoration(labelText: '$label *'),
+        ),
       ),
     ),
   );

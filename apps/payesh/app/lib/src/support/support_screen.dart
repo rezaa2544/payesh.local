@@ -291,17 +291,20 @@ class _NewTicketDialogState extends State<_NewTicketDialog> {
                   : (v) => setState(() => _category = v ?? 'other'),
             ),
             const SizedBox(height: 12),
-            TextField(
-              key: const Key('support-subject'),
-              controller: _subject,
-              maxLength: 120,
-              enabled: !_busy,
-              onChanged: (_) {
-                if (_bad == 'subject') setState(() => _bad = null);
-              },
-              decoration: InputDecoration(
-                labelText: 'عنوان',
-                errorText: _bad == 'subject' ? checkFieldFa : null,
+            FieldBox(
+              width: kFieldWide,
+              child: TextField(
+                key: const Key('support-subject'),
+                controller: _subject,
+                maxLength: 120,
+                enabled: !_busy,
+                onChanged: (_) {
+                  if (_bad == 'subject') setState(() => _bad = null);
+                },
+                decoration: InputDecoration(
+                  labelText: 'عنوان',
+                  errorText: _bad == 'subject' ? checkFieldFa : null,
+                ),
               ),
             ),
             TextField(

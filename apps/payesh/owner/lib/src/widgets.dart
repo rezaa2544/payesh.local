@@ -459,17 +459,20 @@ class _ReasonDialogState extends State<_ReasonDialog> {
   }
 
   Widget _field(DialogField f) => switch (f) {
-    TextDialogField() => TextField(
-      key: Key('dlg-${f.name}'),
-      controller: _text[f.name],
-      textDirection: f.ltr ? TextDirection.ltr : null,
-      keyboardType: f.numeric ? TextInputType.number : null,
-      onChanged: (_) => _fix(f.name),
-      decoration: InputDecoration(
-        labelText: f.label,
-        hintText: f.hint,
-        errorText: _issues[f.name],
-        errorMaxLines: 3,
+    TextDialogField() => FieldBox(
+      width: f.numeric ? kFieldDigits : kFieldText,
+      child: TextField(
+        key: Key('dlg-${f.name}'),
+        controller: _text[f.name],
+        textDirection: f.ltr ? TextDirection.ltr : null,
+        keyboardType: f.numeric ? TextInputType.number : null,
+        onChanged: (_) => _fix(f.name),
+        decoration: InputDecoration(
+          labelText: f.label,
+          hintText: f.hint,
+          errorText: _issues[f.name],
+          errorMaxLines: 3,
+        ),
       ),
     ),
     SelectDialogField() => DropdownButtonFormField<String>(
@@ -534,15 +537,17 @@ class _ReasonDialogState extends State<_ReasonDialog> {
             ),
             if (widget.retype != null) ...[
               const SizedBox(height: 8),
-              TextField(
-                key: const Key('dlg-retype'),
-                controller: _retype,
-                textDirection: TextDirection.ltr,
-                onChanged: (_) => _fix('retype'),
-                decoration: InputDecoration(
-                  labelText:
-                      'برای تأیید دوباره، این مقدار را تایپ کنید: ${widget.retype}',
-                  errorText: _issues['retype'],
+              FieldBox(
+                child: TextField(
+                  key: const Key('dlg-retype'),
+                  controller: _retype,
+                  textDirection: TextDirection.ltr,
+                  onChanged: (_) => _fix('retype'),
+                  decoration: InputDecoration(
+                    labelText:
+                        'برای تأیید دوباره، این مقدار را تایپ کنید: ${widget.retype}',
+                    errorText: _issues['retype'],
+                  ),
                 ),
               ),
             ],

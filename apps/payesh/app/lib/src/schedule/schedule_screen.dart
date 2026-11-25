@@ -866,13 +866,15 @@ class _NameDialogState extends State<_NameDialog> {
       children: [
         Text(widget.hint),
         const SizedBox(height: PayeshTokens.space2),
-        TextField(
-          key: Key('${widget.k}-name'),
-          controller: t,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: widget.label,
-            border: const OutlineInputBorder(),
+        FieldBox(
+          child: TextField(
+            key: Key('${widget.k}-name'),
+            controller: t,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: widget.label,
+              border: const OutlineInputBorder(),
+            ),
           ),
         ),
       ],

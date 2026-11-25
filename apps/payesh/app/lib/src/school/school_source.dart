@@ -599,6 +599,7 @@ class SchoolField extends StatelessWidget {
     super.key,
     this.numeric = false,
     this.lines = 1,
+    this.width,
   });
 
   final String keyName;
@@ -607,11 +608,15 @@ class SchoolField extends StatelessWidget {
   final bool numeric;
   final int lines;
 
+  /// Row 183: widest the box gets; by default as wide as what goes in it (digits / a name),
+  /// multi-line text keeps the whole width.
+  final double? width;
+
   @override
   Widget build(BuildContext context) {
     final issues = FieldIssueScope.maybeOf(context);
     issues?.register(keyName, () => (label: label, value: controller.text));
-    return TextField(
+    final field = TextField(
       key: Key(keyName),
       controller: controller,
       keyboardType: numeric ? TextInputType.number : null,
@@ -626,6 +631,8 @@ class SchoolField extends StatelessWidget {
         border: const OutlineInputBorder(),
       ),
     );
+    final w = width ?? (lines > 1 ? null : FieldBox.standard(digits: numeric));
+    return w == null ? field : FieldBox(width: w, child: field);
   }
 }
 

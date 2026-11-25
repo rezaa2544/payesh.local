@@ -235,7 +235,10 @@ tr:last-child td{border-bottom:0}
 /* پنجرهٔ بزرگ برای کارهای حساس (ورود اطلاعات): عرض و ارتفاع بیشتر */
 /* ردیف ۱۸۲: فرم‌ها و جزئیات در پنجرهٔ کوچک و مرتب (نه صفحهٔ بزرگ)؛ فقط جدول ورود اکسل پهن است */
 .modal.wide{max-width:760px;width:94vw;max-height:90vh}
-.modal.wide .row>.field{flex:1 1 200px;min-width:0}
+.modal.wide .row>.field{flex:0 1 220px;min-width:0}
+/* ردیف ۱۸۳: کادرها به اندازهٔ محتوا و استاندارد، نه هم‌پهنای پنجره — شماره و کد ملی به اندازهٔ ارقام، نام و رمز اندازهٔ معمول؛ متن چندخطی و جدول ورود اکسل پهن می‌مانند */
+.modal:not(.xl) .field>.input:not(textarea),.modal:not(.xl) .field>select.input{max-width:360px}
+.modal:not(.xl) .field>.input.ltr,.modal:not(.xl) .field>.input[inputmode=numeric]{max-width:220px}
 .modal.wide.xl{max-width:1180px;width:96vw;max-height:94vh}
 @media (max-width:700px){ .modal.wide{width:100vw;max-height:96vh;padding:12px} }
 .modal.wide .table-wrap{max-height:44vh}
