@@ -122,6 +122,26 @@ final class DirectRoute {
   int directConnections = 0;
   int vpnConnections = 0;
 
+  // اتصال‌های keep-alive که از راه VPN باز شده‌اند تا وقتی درخواست می‌آید هیچ‌وقت بیکار
+  // نمی‌شوند و openDirect دیگر صدا زده نمی‌شود (روی رایانهٔ مالک دیده شد: «از راه VPN» تا
+  // ابد). پس وقتی IP واقعی رسید یا مهلت ۲ دقیقه‌ای تمام شد، مخزن اتصال‌ها خبر می‌گیرد تا
+  // اتصال‌های بیکار را کنار بگذارد و اتصال بعدی دوباره مسیر مستقیم را امتحان کند.
+  final Set<void Function()> _listeners = {};
+  Timer? _retryTimer;
+
+  /// [fn] وقتی صدا زده می‌شود که اتصال تازه ممکن است مسیر بهتری بگیرد.
+  void onRouteChange(void Function() fn) => _listeners.add(fn);
+
+  void _notify() {
+    for (final fn in _listeners.toList()) {
+      try {
+        fn();
+      } on Object {
+        // یک شنونده نباید بقیه را بشکند
+      }
+    }
+  }
+
   /// فقط دیتابیس‌های داخلی (دامنهٔ ‎.ir) — هیچ سرویس خارجی IP ایران را نمی‌بیند.
   bool eligible(String host) {
     final h = host.toLowerCase();
@@ -172,8 +192,11 @@ final class DirectRoute {
       final r = await _doh(host);
       final ips = r.ips.where((a) => !isFakeIp(a)).toList();
       if (ips.isNotEmpty) {
+        final first = _real[host] == null;
         final ttl = r.ttl.clamp(60, 1800);
         _real[host] = (ips: ips, until: _now().add(Duration(seconds: ttl)));
+        // اتصال‌هایی که در این فاصله از راه VPN باز شدند کنار بروند
+        if (first && mode == DirectMode.viaVpn) _notify();
       }
     } on Object {
       // دفعهٔ بعد دوباره
@@ -213,25 +236,55 @@ final class DirectRoute {
       mode = DirectMode.viaVpn;
       return null;
     }
-    final srcs = (await sources()).take(3).toList();
-    for (final s in srcs) {
-      final tryIps = s.address == _goodSource ? ips.take(2) : ips.take(1);
-      for (final ip in tryIps) {
-        try {
-          final sock = await _connect(ip, port, s.address, attemptTimeout);
-          _goodSource = s.address;
-          sourceName = s.name;
-          mode = DirectMode.direct;
-          directConnections++;
-          return sock;
-        } on Object {
-          // کارت/نشانی بعدی
-        }
-      }
+    // همهٔ کارت‌ها هم‌زمان (نه پشت سر هم): کارت مجازیِ بی‌راه (مثلاً VirtualBox «Ethernet 4»
+    // با 192.168.56.1) دیگر ۲ ثانیه جلوی Wi-Fi را نمی‌گیرد؛ اولین اتصال برنده است.
+    final srcs = (await sources()).take(4).toList();
+    final attempts = [
+      for (final s in srcs)
+        for (final ip in s.address == _goodSource ? ips.take(2) : ips.take(1))
+          (s, ip),
+    ];
+    final won = await _race(attempts, port);
+    if (won != null) {
+      final (sock, s) = won;
+      _goodSource = s.address;
+      sourceName = s.name;
+      mode = DirectMode.direct;
+      directConnections++;
+      return sock;
     }
     _downUntil = _now().add(retryAfter);
     mode = DirectMode.viaVpn;
+    _retryTimer?.cancel();
+    _retryTimer = Timer(retryAfter, () {
+      _retryTimer = null;
+      _notify();
+    });
     return null;
+  }
+
+  Future<(Socket, NetIface)?> _race(
+    List<(NetIface, InternetAddress)> attempts,
+    int port,
+  ) {
+    if (attempts.isEmpty) return Future.value();
+    final done = Completer<(Socket, NetIface)?>();
+    var left = attempts.length;
+    void failed() {
+      if (--left == 0 && !done.isCompleted) done.complete(null);
+    }
+
+    for (final (s, ip) in attempts) {
+      Future<Socket>.sync(() => _connect(ip, port, s.address, attemptTimeout))
+          .then((sock) {
+            if (done.isCompleted) {
+              sock.destroy(); // دیر رسید؛ برندهٔ دیگری داریم
+            } else {
+              done.complete((sock, s));
+            }
+          }, onError: (Object _) => failed());
+    }
+    return done.future;
   }
 
   /// [HttpClient.connectionFactory]: مسیر مستقیم برای دیتابیس داخلی، وگرنه همان اتصال عادی.
@@ -282,6 +335,9 @@ final class DirectRoute {
     _ifacesAt = null;
     _downUntil = null;
     _goodSource = null;
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _listeners.clear();
     mode = DirectMode.normal;
     sourceName = null;
     directConnections = 0;

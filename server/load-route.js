@@ -68,14 +68,19 @@ function step(prev, s, t = THRESHOLDS) {
   }
   const metric = (tier) => tier === 'external' ? s.ext : tier === 'db' ? s.db : null;
   const last = chain[level];
-  if (level < chain.length - 1 && stressed(metric(last), t)) {
+  const hot = level < chain.length - 1 && stressed(metric(last), t);
+  if (hot) {
     const next = chain[level + 1];
     if (next === 'helpers' && s.helpers === 0) {
       reason = 'no_helpers';
     } else {
       level += 1; changed_ms = now; calm_ms = null; reason = 'escalate:' + last;
     }
-  } else if (level > 0) {
+  } else if (reason === 'no_helpers') {
+    // ردیف ۱۹۲: فشار تمام شد ⇒ پیام «کمک می‌خواهد» نماند (پیش‌تر با اعداد سبز هم می‌ماند)
+    reason = 'calm';
+  }
+  if (!hot && level > 0) {
     const trigger = chain[level - 1];
     if (calm(metric(trigger), t)) {
       if (calm_ms == null) calm_ms = now;

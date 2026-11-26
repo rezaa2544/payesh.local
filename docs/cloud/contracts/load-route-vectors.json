@@ -1019,6 +1019,67 @@
           }
         }
       ]
+    },
+    {
+      "name": "no_helpers_clears_when_calm",
+      "steps": [
+        {
+          "sample": {
+            "now_ms": 0,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 3000,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 0
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "no_helpers",
+            "active": [
+              "db"
+            ]
+          }
+        },
+        {
+          "sample": {
+            "now_ms": 5000,
+            "mode": "helpers",
+            "ext": null,
+            "db": {
+              "p95": 150,
+              "err": 0,
+              "n": 20,
+              "busy": false
+            },
+            "helpers": 0
+          },
+          "expect": {
+            "v": 1,
+            "chain": [
+              "db",
+              "helpers"
+            ],
+            "level": 0,
+            "changed_ms": 0,
+            "calm_ms": null,
+            "reason": "calm",
+            "active": [
+              "db"
+            ]
+          }
+        }
+      ]
     }
   ],
   "p95": [

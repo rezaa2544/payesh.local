@@ -217,7 +217,8 @@ RouteState routeStep(
     _ => null,
   };
   final last = chain[level];
-  if (level < chain.length - 1 && tierStressed(metric(last), t)) {
+  final hot = level < chain.length - 1 && tierStressed(metric(last), t);
+  if (hot) {
     final next = chain[level + 1];
     if (next == RouteTiers.helpers && s.helpers == 0) {
       reason = 'no_helpers';
@@ -227,7 +228,11 @@ RouteState routeStep(
       calm = null;
       reason = 'escalate:$last';
     }
-  } else if (level > 0) {
+  } else if (reason == 'no_helpers') {
+    // فشار تمام شد ⇒ پیام «کمک می‌خواهد» نماند (پیش‌تر با اعداد سبز هم می‌ماند)
+    reason = 'calm';
+  }
+  if (!hot && level > 0) {
     final trigger = chain[level - 1];
     if (tierCalm(metric(trigger), t)) {
       calm ??= now;

@@ -416,6 +416,8 @@ final class S3ConnectionPool {
     if (route.enabled && HttpOverrides.current == null) {
       c2.connectionFactory = (uri, host, port) =>
           route.connectionFactory(uri, host, port, context);
+      // IP واقعی رسید / مهلت تمام شد ⇒ اتصال‌های keep-alive ِ VPN کنار بروند
+      route.onRouteChange(recycle);
     }
     return _client = c2;
   }

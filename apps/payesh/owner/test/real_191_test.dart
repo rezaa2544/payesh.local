@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // ردیف ۱۹۱ — «همه‌چیز واقعی»: مصرف واقعی همین برنامه، سقف قطعی، توقفِ واقعی، ورود زودتر
 // پردازش کمکی و مسیر مستقیم دیتابیس داخلی وقتی VPN روشن است.
 import 'package:flutter_test/flutter_test.dart';
@@ -294,6 +296,53 @@ void main() {
       await r.openDirect('a.arvanstorage.ir', 443);
       expect(connects, 2);
     });
+
+    test('رسیدن IP واقعی ⇒ مخزن اتصال‌ها خبر می‌گیرد (اتصال keep-alive ِ VPN تا ابد نمی‌ماند)', () async {
+      var recycles = 0;
+      final r = DirectRoute(
+        enabled: true,
+        lookup: (_) async => [fake],
+        interfaces: () async => [(name: 'Wi-Fi', address: wifi)],
+        doh: (_) async => (ips: [real], ttl: 300),
+        connect: (ip, port, src, timeout) async => _FakeSocket(),
+      )..onRouteChange(() => recycles++);
+      expect(await r.openDirect('s3.ir-central1.arvanstorage.ir', 443), isNull);
+      expect(r.mode, DirectMode.viaVpn);
+      await r.resolving;
+      expect(recycles, 1);
+      expect(
+        await r.openDirect('s3.ir-central1.arvanstorage.ir', 443),
+        isNotNull,
+      );
+      expect(r.mode, DirectMode.direct);
+      expect(recycles, 1, reason: 'فقط یک بار، نه با هر اتصال');
+    });
+
+    test(
+      'کارت مجازیِ کند جلوی Wi-Fi را نمی‌گیرد (هم‌زمان امتحان می‌شوند)',
+      () async {
+        final slow = Completer<Socket>();
+        final r = DirectRoute(
+          enabled: true,
+          lookup: (_) async => [fake],
+          interfaces: () async => [
+            (name: 'Ethernet 4', address: vbox),
+            (name: 'Wi-Fi', address: wifi),
+          ],
+          doh: (_) async => (ips: [real], ttl: 300),
+          connect: (ip, port, src, timeout) =>
+              src == vbox ? slow.future : Future.value(_FakeSocket()),
+        );
+        await r.openDirect('s3.ir-central1.arvanstorage.ir', 443);
+        await r.resolving;
+        final s = await r
+            .openDirect('s3.ir-central1.arvanstorage.ir', 443)
+            .timeout(const Duration(milliseconds: 500));
+        expect(s, isNotNull);
+        expect(r.sourceName, 'Wi-Fi');
+        slow.completeError(const SocketException('timeout'));
+      },
+    );
 
     test('پاسخ dns-json ⇒ نشانی‌های A و کمترین TTL', () {
       final r = parseDohJson(
