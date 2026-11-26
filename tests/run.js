@@ -2866,7 +2866,7 @@ async function waitFor(fn, ms = 15000) {
     const win = dom.window;
     const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
     win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
-      + '\n;window.__t = { S, actUserEdit, handleSubmit, setApi: (fn) => { api = fn; } };');
+      + '\n;window.__t = { S, actUserEdit, handleSubmit, setApi: (fn) => { api = fn; }, quiet: () => { render = () => {}; pullAll = async () => {}; flushQueue = async () => {}; } };');
     const T = win.__t;
     T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
     T.S.role = 'manager'; T.S.route = 'users'; T.S.session = 'x';
@@ -2934,6 +2934,9 @@ async function waitFor(fn, ms = 15000) {
     await T.handleSubmit(f);
     b = patchOf();
     assert.strictEqual(b.relation, 'مادر');
+    /* کار ناهمگامِ پس از ذخیره (render/pull) پس از بستن پنجره نباید اجرا شود (Node 22) */
+    T.quiet();
+    await new Promise(r => setTimeout(r, 400));
     dom.window.close();
   });
 
