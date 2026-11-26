@@ -105,6 +105,17 @@
       ]
     },
     {
+      "old": "61007a5828b0409afc285714ed6a096f766b4c31",
+      "new": "66d9208770b223ed339711fc56d321b8256d4977",
+      "kind": "rebased-or-local",
+      "source": "ردیف ۱۹۷-Q02: بازپایه روی مانیفست 0.9.53 ربات CI (4de58697)؛ همان کامیت «release: manifest for main» 0.9.54",
+      "files": [
+        "docs/cloud/reports/evidence/mission-05-11-structure.txt",
+        "docs/cloud/reports/evidence/mission-05-tests-run.log",
+        "docs/cloud/reports/evidence/tests-run-61007a5-20261126T205907Z.log"
+      ]
+    },
+    {
       "old": "6c09e15cad36324c6b878cefd970330f18f69fe7",
       "new": "c0b26c1d096b75f8a29b90b4fae6f4bb93ac7e93",
       "kind": "rebased-or-local",

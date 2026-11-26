@@ -292,7 +292,13 @@ void main() {
     expect(s2.phase, SyncPhase.idle, reason: '${s2.lastError}');
     final row = (await serverRow(requested))!;
     expect(row['version'], 1);
-    expect(row['data'], {
+    // ردیف ۱۹۷-Q02: درخواست مرخصی زمان ثبت (created_at، UTC) را برای
+    // مرتب‌سازی میز مدیر همراه دارد؛ بقیهٔ کلیدها باید دقیقاً همین باشند.
+    final data = Map<String, Object?>.from(row['data'] as Map);
+    final createdAt = data.remove('created_at');
+    expect(createdAt, isA<String>());
+    expect(DateTime.parse(createdAt! as String).isUtc, isTrue);
+    expect(data, {
       'id': requested,
       'student_id': 22,
       'date': utcToday(),
