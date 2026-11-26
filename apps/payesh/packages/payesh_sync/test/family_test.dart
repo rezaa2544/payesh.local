@@ -307,6 +307,8 @@ void main() {
       'reason': 'مراجعه به پزشک',
       'status': 'pending',
       'by_id': 30,
+      // ردیف ۱۹۷: زمان ثبت مثل وب (created_at) — ترتیب «تازه‌ترین» در میز مدیر
+      'created_at': clock.toUtc().toIso8601String(),
     });
     final stored = await e.get('leaves', r.id);
     expect(stored!.data, op.payload);
@@ -405,10 +407,90 @@ void main() {
           studentId: 21,
           reason: 'ا' * (FamilyBook.maxOpBytes ~/ 2),
         ),
-        throwsA(refusedWith(FamilyError.tooLarge)),
+        // ردیف ۱۹۷: سقف علت ۵۰۰ نویسه است (همان وب و سرور) — پیش از سقف حجم عملیات رد می‌شود
+        throwsA(refusedWith(FamilyError.invalid)),
       );
       expect(ob2.list(), isEmpty);
       expect(await e2.count('leaves'), before);
     },
   );
+
+  test('W5-U197 ردیف ۱۹۷: درخواست کامل ولی — بازه/ساعتی/نوع/پیوست با شکل ردیف وب؛ NEG هر قاعده '
+      'با FamilyError.invalid و کد خودش، پیوست بزرگ با tooLarge؛ هیچ‌کدام در صف نمی‌رود', () async {
+    final (e, ob) = await seeded();
+    final b = book(e, ob);
+    Future<void> refused(Future<Object?> f, FamilyError k, [String? code]) =>
+        expectLater(
+          f,
+          throwsA(
+            allOf(
+              refusedWith(k),
+              predicate<Object?>(
+                (x) => code == null || (x as FamilyFailure).detail == code,
+                'detail $code',
+              ),
+            ),
+          ),
+        );
+    await refused(
+      b.requestLeave(studentId: 21, date: '2026-11-12', dateTo: '2026-11-10'),
+      FamilyError.invalid,
+      'bad_range',
+    );
+    await refused(
+      b.requestLeave(
+        studentId: 21,
+        date: '2026-11-12',
+        kind: 'hours',
+        timeFrom: '12:00',
+        timeTo: '10:00',
+      ),
+      FamilyError.invalid,
+      'bad_time',
+    );
+    await refused(
+      b.requestLeave(studentId: 21, date: '2026-11-12', type: 'vip'),
+      FamilyError.invalid,
+      'bad_type',
+    );
+    await refused(
+      b.requestLeave(
+        studentId: 21,
+        date: '2026-11-12',
+        attachment: 'data:image/png;base64,${'A' * 70000}',
+      ),
+      FamilyError.tooLarge,
+    );
+    final before = ob.list().length;
+    expect(before, 0);
+    final w = await b.requestLeave(
+      studentId: 21,
+      date: '2026-11-12',
+      dateTo: '2026-11-13',
+      type: 'sick',
+      reason: ' تب ',
+      attachment: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+    );
+    final p = ob.list().single.payload!;
+    expect(p['date_to'], '2026-11-13');
+    expect(p['type'], 'sick');
+    expect(p['reason'], 'تب');
+    expect(p['status'], 'pending');
+    expect(p.containsKey('kind'), isFalse);
+    expect(
+      (await e.get('leaves', w.id))!.data['attachment'],
+      startsWith('data:image/png'),
+    );
+    await b.requestLeave(
+      studentId: 22,
+      date: '2026-11-12',
+      kind: 'hours',
+      timeFrom: '10:00',
+      timeTo: '11:00',
+    );
+    final h = ob.list().last.payload!;
+    expect(h['kind'], 'hours');
+    expect(h['time_from'], '10:00');
+    expect(h.containsKey('date_to'), isFalse);
+  });
 }

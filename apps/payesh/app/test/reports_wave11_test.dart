@@ -2,14 +2,10 @@
 // manager's leave decisions. Widget tests drive the REAL app shell, pages, controllers and
 // SchoolReports on an in-memory SQLite + durable outbox; the real server path is
 // packages/payesh_sync/test/school_admin_it_test.dart W11-IT-*.
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:payesh_app/src/flags.dart';
 import 'package:payesh_app/src/reports/reports_screen.dart';
-import 'package:payesh_app/src/school/school_entry.dart';
-import 'package:payesh_sync/payesh_sync.dart' show SyncPhase, SyncStatus;
 
 import 'nav_support.dart';
 import 'school_support.dart';
@@ -124,32 +120,7 @@ Future<MemorySchool> open(
       }
     },
   );
-  if (page == 'leaves') {
-    // Row 172: like the web panel, «مرخصی» is not in the manager's navigation (web
-    // `navConfig`); the request desk itself is still the native page — opened directly here.
-    expect(navOf('leaves'), findsNothing);
-    final spec = schoolPages.firstWhere((p) => p.id == 'leaves');
-    final args = SchoolRouteArgs(
-      source: s,
-      role: role,
-      uid: 10,
-      sync: ValueNotifier(
-        const SyncStatus(
-          phase: SyncPhase.idle,
-          pending: 0,
-          inflight: 0,
-          blocked: 0,
-        ),
-      ),
-      flags: ClientFlags.parse(school: 'reports'),
-    );
-    unawaited(
-      Navigator.of(tester.element(find.byKey(const Key('pulse-shell'))))
-          .push(MaterialPageRoute<void>(builder: (_) => spec.build(args))),
-    );
-    await settle(tester);
-    return s;
-  }
+  // ردیف ۱۹۷ (F28): «مرخصی‌ها» در منوی مدیر است (پیش‌تر نبود و درخواست ولی به مدیر نمی‌رسید)
   await openPage(tester, page);
   return s;
 }
@@ -270,7 +241,7 @@ void main() {
   testWidgets('W11-W05 leaves: approve and reject (queued with who decided); delete asks first '
       '(NEG cancel keeps it)', (tester) async {
     final s = await open(tester, 'leaves');
-    expect(textOf(tester, 'lvd-count'), '۲ درخواست');
+    expect(textOf(tester, 'lvd-count'), '۲ درخواست · ۲ در انتظار');
     expect(badgeOf(tester, 'lvd-status-60'), 'در انتظار');
     await tapKey(tester, 'lvd-approve-60');
     expect(textOf(tester, 'lvd-notice'), 'درخواست تأیید شد');
@@ -291,4 +262,92 @@ void main() {
     expect(s.outbox.list().last.type, 'del');
     expect(await tester.runAsync(() => s.engine.get('leaves', 61)), isNull);
   });
+
+  // ردیف ۱۹۷ (Q02 / F28): مدیر مرخصی را می‌بیند، ثبت می‌کند و گواهی را باز می‌کند
+  const png1 =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+  Future<void> pick(WidgetTester tester, String key, String text) async {
+    await tester.ensureVisible(find.byKey(Key(key)));
+    await tester.tap(find.byKey(Key(key)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(text).last);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'W11-197a داشبورد مدیر: کارت «۲ درخواست مرخصی در انتظار تأیید» → صفحهٔ مرخصی‌ها',
+    (tester) async {
+      await open(tester, 'home');
+      expect(textOf(tester, 'dash-leaves-text'), contains('۲ درخواست مرخصی'));
+      await tapKey(tester, 'dash-leaves');
+      expect(find.byKey(const Key('lvd-row-60')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'W11-197b ثبت مرخصی به‌دست مدیر: NEG بی‌دانش‌آموز رد؛ چندروزه + تأیید فوری ⇒ approved با '
+    'decided_by و پیوست؛ «مشاهدهٔ گواهی» تصویر را باز می‌کند',
+    (tester) async {
+      final s = await open(tester, 'leaves');
+      LeaveDeskForm.pick = () async => png1;
+      addTearDown(() => LeaveDeskForm.pick = null);
+      await tapKey(tester, 'lvd-add');
+      // پهنای ۸۰۰ ⇒ صفحهٔ کامل فرم (گوشی)
+      expect(find.byKey(const Key('lvm-save')), findsOneWidget);
+      // NEG: دانش‌آموز انتخاب نشده
+      await tapKey(tester, 'lvm-save');
+      expect(find.text('دانش‌آموز را انتخاب کنید'), findsOneWidget);
+      expect(s.outbox.list(), isEmpty);
+      await pick(tester, 'lvm-student', 'بهار — دهم الکترونیک');
+      await tester.enterText(
+        find.byKey(const Key('lvm-date-to')),
+        '۱۴۰۵/۰۸/۲۲',
+      );
+      await pick(tester, 'lvm-type', 'استعلاجی (بیماری)');
+      await tester.enterText(find.byKey(const Key('lvm-reason')), 'سرماخوردگی');
+      await tapKey(tester, 'lvm-attach');
+      await tapKey(tester, 'lvm-save');
+      expect(find.byKey(const Key('lvm-save')), findsNothing);
+      final op = s.outbox.list().single;
+      expect(op.collection, 'leaves');
+      expect(op.payload!['student_id'], 21);
+      expect(op.payload!['date'], '2026-11-12');
+      expect(op.payload!['date_to'], '2026-11-13');
+      expect(op.payload!['status'], 'approved');
+      expect(op.payload!['decided_by'], 10);
+      expect(op.payload!['type'], 'sick');
+      expect(op.payload!['attachment'], png1);
+      expect(textOf(tester, 'lvd-count'), '۳ درخواست · ۲ در انتظار');
+      final id = op.id;
+      expect(textOf(tester, 'lvd-when-$id'), contains('(۲ روز)'));
+      await tapKey(tester, 'lvd-att-$id');
+      expect(find.byKey(const Key('lv-att-dialog')), findsOneWidget);
+      expect(find.byKey(const Key('lv-att-image')), findsOneWidget);
+      await tapKey(tester, 'lv-att-close');
+      expect(find.byKey(const Key('lv-att-dialog')), findsNothing);
+      // NEG: درخواست‌های بدون گواهی دکمهٔ گواهی ندارند
+      expect(find.byKey(const Key('lvd-att-60')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'W11-197c ثبت مرخصی ساعتی بدون تأیید فوری ⇒ pending و در صدر فهرست',
+    (tester) async {
+      final s = await open(tester, 'leaves');
+      await tapKey(tester, 'lvd-add');
+      await pick(tester, 'lvm-student', 'آرش — دهم الکترونیک');
+      await pick(tester, 'lvm-kind', 'ساعتی (خروج زودهنگام / ورود دیرتر)');
+      await tester.enterText(find.byKey(const Key('lvm-time-from')), '10');
+      await tester.enterText(find.byKey(const Key('lvm-time-to')), '11:30');
+      await tapKey(tester, 'lvm-approve');
+      await tapKey(tester, 'lvm-save');
+      final op = s.outbox.list().single;
+      expect(op.payload!['status'], 'pending');
+      expect(op.payload!.containsKey('decided_by'), isFalse);
+      expect(op.payload!['time_from'], '10:00');
+      expect(op.payload!['time_to'], '11:30');
+      expect(textOf(tester, 'lvd-count'), '۳ درخواست · ۳ در انتظار');
+    },
+  );
 }

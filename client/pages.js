@@ -72,7 +72,7 @@ function navConfig(role) {
   const base = [];
   if (role === 'manager') {
     base.push(['home', '🏠', 'داشبورد'], ['users', '👥', 'کاربران'], ['followup', '⚠️', 'پیگیری'], ['classes', '🏛️', 'کلاس‌ها'],
-      ['schedule', '🗓️', 'برنامه'], ['attendance-report', '✅', 'حضور'], ['reports', '📑', 'گزارش‌ها'], ['cqueue', '📨', 'ارجاع مشاور'],
+      ['schedule', '🗓️', 'برنامه'], ['attendance-report', '✅', 'حضور'], ['leaves', '📨', 'مرخصی‌ها'], ['reports', '📑', 'گزارش‌ها'], ['cqueue', '📨', 'ارجاع مشاور'],
       ['announcements', '📢', 'اطلاعیه‌ها'], ['health', '🩺', 'سلامت'], ['network', '🌐', 'شبکه'],
       ['cloud', '☁️', 'حافظهٔ ابری'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'teacher') {
@@ -623,6 +623,8 @@ function managerHome() {
       </div>
     </div>
   </div>
+  ${leavePendingCount() ? `<a class="card dash-leaves" id="dash-leaves" href="#/leaves" style="display:flex;align-items:center;gap:10px;text-decoration:none;border-inline-start:4px solid #d97706">
+    <span aria-hidden="true">📨</span><b>${fa(leavePendingCount())} درخواست مرخصی در انتظار تأیید</b><span class="small muted" style="margin-inline-start:auto">بررسی ←</span></a>` : ''}
   <div class="mgrid" id="dash-mgrid">
     <section class="card mhero" id="dash-hero">
       <div class="ring" style="--p:${pct}"><div><b>${fa(pct)}٪</b><small>حاضر</small></div></div>
@@ -765,10 +767,12 @@ PAGES.attendance = (params) => {
   const existing = new Map(attendanceFor(clsId, date).map(a => [Number(a.student_id), a]));
   const cls = byId('classes', clsId) || {};
   const draft = S.attDraft && S.attDraft.key === clsId + ':' + date ? S.attDraft : (S.attDraft = { key: clsId + ':' + date, map: new Map() });
+  /* ردیف ۱۹۷: مرخصی تأییدشدهٔ امروز — برچسب «مرخصی» و پیش‌فرض «موجه» برای تمام‌روز */
+  const leaveOf = (sid) => leaveApprovedOn(sid, date);
   const statusOf = (sid) => {
     if (draft.map.has(sid)) return draft.map.get(sid);
     const e = existing.get(sid);
-    return e ? e.status : 'present';
+    return e ? e.status : attDefaultStatus(sid, date);
   };
   const counts = { present: 0, absent: 0, late: 0, early_exit: 0 };
   roster.forEach(s => { const v = statusOf(s.id); if (counts[v] != null) counts[v]++; });
@@ -796,12 +800,13 @@ PAGES.attendance = (params) => {
       const v = statusOf(s.id);
       return `<div class="att-row" data-sid="${s.id}">
         <span class="avatar">${esc(String(s.name || '؟').trim().charAt(0))}</span>
-        <div class="att-name"><b>${esc(s.name)}</b><small>ردیف ${fa(i + 1)}</small></div>
+        <div class="att-name"><b>${esc(s.name)}</b><small>ردیف ${fa(i + 1)}</small>${leaveOf(s.id) ? `<small class="att-leave" style="color:#b45309;font-weight:700">${esc(leaveTagFa(leaveOf(s.id)))}</small>` : ''}</div>
         <div class="att-btns">
           <button class="att-btn ${v === 'present' ? 'on-p' : ''}" data-act="att-set" data-s="present">حاضر</button>
           <button class="att-btn ${v === 'late' ? 'on-l' : ''}" data-act="att-set" data-s="late">تأخیر</button>
           <button class="att-btn ${v === 'absent' ? 'on-a' : ''}" data-act="att-set" data-s="absent">غایب</button>
           <button class="att-btn ${v === 'early_exit' ? 'on-e' : ''}" data-act="att-set" data-s="early_exit">خروج</button>
+          ${leaveOf(s.id) || v === 'excused' ? `<button class="att-btn ${v === 'excused' ? 'on-p' : ''}" data-act="att-set" data-s="excused">موجه</button>` : ''}
         </div>
       </div>`;
     }).join('')}</div>
@@ -1471,17 +1476,99 @@ function actCrefAdd() {
   </form>`);
 }
 
+/* ردیف ۱۹۷ (Q02 / F25، F28): مرخصی کامل — روزانه (یک روز یا بازه) یا ساعتی (خروج زودهنگام /
+   ورود دیرتر)، نوع، و پیوست گواهی. همان قواعد packages/payesh_sync/lib/src/leave_spec.dart و
+   server/policy.js `leaveIssue`. */
+const LEAVE_TYPES = [['sick', 'استعلاجی (بیماری)'], ['family', 'خانوادگی'], ['personal', 'شخصی / ضروری'], ['travel', 'سفر'], ['other', 'سایر']];
+const LEAVE_MAX_DAYS = 31;
+const LEAVE_ATTACH_MAX = 60000;
+const LEAVE_ISSUE_FA = {
+  bad_date: 'تاریخ را درست انتخاب کنید',
+  bad_range: 'تاریخ پایان نباید پیش از تاریخ شروع باشد',
+  range_too_long: 'هر درخواست حداکثر ۳۱ روز است',
+  bad_kind: 'نوع مرخصی (روزانه/ساعتی) درست نیست',
+  bad_time: 'ساعت شروع و پایان را درست بنویسید (مثلاً ۱۰:۰۰ تا ۱۲:۳۰)',
+  bad_type: 'نوع مرخصی شناخته نشد',
+  reason_too_long: 'علت بیش از ۵۰۰ نویسه است',
+  bad_attachment: 'پیوست باید عکس (JPG/PNG) و کم‌حجم باشد',
+  leave_decided: 'این درخواست بررسی شده و دیگر تغییر نمی‌کند',
+  approval_denied: 'تأیید یا رد مرخصی فقط با مدیر/معاون است',
+};
+function leaveIsoOk(v) {
+  const t = String(v || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  const d = new Date(t + 'T00:00:00Z');
+  return isNaN(d) || d.toISOString().slice(0, 10) !== t ? null : d;
+}
+function leaveIssue(d) {
+  const from = leaveIsoOk(d.date);
+  if (!from) return 'bad_date';
+  const kind = String(d.kind || 'day');
+  if (kind !== 'day' && kind !== 'hours') return 'bad_kind';
+  const to = String(d.date_to || '');
+  if (kind === 'day' && to) {
+    const t = leaveIsoOk(to);
+    if (!t) return 'bad_date';
+    if (t < from) return 'bad_range';
+    if (Math.round((t - from) / 86400000) + 1 > LEAVE_MAX_DAYS) return 'range_too_long';
+  }
+  if (kind === 'hours') {
+    const hm = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const a = String(d.time_from || ''), b = String(d.time_to || '');
+    if (!hm.test(a) || !hm.test(b) || a >= b) return 'bad_time';
+    if (to && to !== String(d.date)) return 'bad_range';
+  }
+  if (d.type && !LEAVE_TYPES.some(([k]) => k === d.type)) return 'bad_type';
+  if (String(d.reason || '').trim().length > 500) return 'reason_too_long';
+  const att = String(d.attachment || '');
+  if (att && (att.length > LEAVE_ATTACH_MAX || !/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(att))) return 'bad_attachment';
+  return null;
+}
+function leaveDays(l) {
+  const a = leaveIsoOk(l.date), b = leaveIsoOk(l.date_to);
+  return a && b && b >= a ? Math.round((b - a) / 86400000) + 1 : 1;
+}
+function leaveWhenFa(l) {
+  if (l.kind === 'hours') return `${jdate(l.date)} · ساعت ${fa(l.time_from || '')} تا ${fa(l.time_to || '')}`;
+  if (l.date_to && l.date_to !== l.date) return `${jdate(l.date)} تا ${jdate(l.date_to)} (${fa(leaveDays(l))} روز)`;
+  return jdate(l.date);
+}
+function leaveTypeFa(t) { const x = LEAVE_TYPES.find(([k]) => k === t); return x ? x[1] : ''; }
+function leaveCovers(l, iso) {
+  if (!l || !l.date) return false;
+  const to = (l.kind === 'hours' || !l.date_to) ? l.date : l.date_to;
+  return iso >= l.date && iso <= to;
+}
+function leaveApprovedOn(sid, iso) {
+  const ls = list('leaves').filter(l => Number(l.student_id) === Number(sid) && l.status === 'approved' && leaveCovers(l, iso));
+  return ls.find(l => l.kind !== 'hours') || ls[0] || null;
+}
+function leaveTagFa(l) {
+  if (l.kind === 'hours') return 'مرخصی ساعتی ' + fa(l.time_from || '') + ' تا ' + fa(l.time_to || '');
+  return l.type ? 'مرخصی (' + leaveTypeFa(l.type).split(' ')[0] + ')' : 'مرخصی';
+}
+function attDefaultStatus(sid, iso) {
+  const l = leaveApprovedOn(sid, iso);
+  return l && l.kind !== 'hours' ? 'excused' : 'present';
+}
+function leavePendingCount() { return list('leaves').filter(l => !l.status || l.status === 'pending').length; }
+
 PAGES.leaves = () => {
   /* ردیف ۱۸۷: تأیید/رد مرخصی فقط با مدیر/معاون (server/policy.js) */
   const canManage = S.role === 'manager';
   const mine = S.role === 'parent' ? myChildren().map(k => Number(k.id)) : [Number(S.user.id)];
   let rows = list('leaves');
   if (!canManage) rows = rows.filter(l => mine.includes(Number(l.student_id)));
-  rows = rows.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-  return `${pageHead('مرخصی و غیبت موجه', fa(rows.length) + ' درخواست', `<button class="btn sm primary" data-act="leave-add">+ درخواست</button>`)}
+  /* ردیف ۱۹۷: «در انتظار» همیشه بالا، بعد تازه‌ترین روز */
+  const pend = l => (!l.status || l.status === 'pending') ? 0 : 1;
+  rows = rows.sort((a, b) => pend(a) - pend(b) || String(b.date || '').localeCompare(String(a.date || '')) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  const waiting = rows.filter(l => pend(l) === 0).length;
+  const sub = fa(rows.length) + ' درخواست' + (waiting ? ' · ' + fa(waiting) + ' در انتظار' : '');
+  return `${pageHead('مرخصی و غیبت موجه', sub, `<button class="btn sm primary" data-act="leave-add" aria-label="${canManage ? 'ثبت مرخصی' : 'درخواست مرخصی'}">${canManage ? '+ ثبت مرخصی' : '+ درخواست'}</button>`)}
   ${rows.length ? rows.map(l => card(`<div class="row between"><b>${esc((byId('users', l.student_id) || {}).name || '')}</b>
       ${badge(l.status === 'approved' ? 'تأییدشده' : l.status === 'rejected' ? 'رد شده' : 'در انتظار', l.status === 'approved' ? 'green' : l.status === 'rejected' ? 'red' : 'amber')}</div>
-    <div class="small muted">${esc(jdate(l.date))} · ${esc(l.reason || '')}</div>
+    <div class="small muted" data-leave-when="${l.id}">${esc(leaveWhenFa(l))}${l.type ? ' · ' + esc(leaveTypeFa(l.type)) : ''}${l.reason ? ' · ' + esc(l.reason) : ''}</div>
+    ${l.attachment ? `<div style="margin-top:6px"><button class="btn sm ghost" data-act="leave-att" data-id="${l.id}">📎 دیدن گواهی پیوست</button></div>` : ''}
     ${canManage ? `<div class="row" style="gap:8px;margin-top:8px">
       <button class="btn sm" data-act="leave-set" data-id="${l.id}" data-status="approved">تأیید</button>
       <button class="btn sm ghost" data-act="leave-set" data-id="${l.id}" data-status="rejected">رد</button>
@@ -2074,7 +2161,7 @@ async function actAttendanceSave(classId, bell) {
   const existing = new Map(attendanceFor(classId, date).map(a => [Number(a.student_id), a]));
   let n = 0;
   for (const s of roster) {
-    const status = draft && draft.map.has(s.id) ? draft.map.get(s.id) : (existing.has(s.id) ? existing.get(s.id).status : 'present');
+    const status = draft && draft.map.has(s.id) ? draft.map.get(s.id) : (existing.has(s.id) ? existing.get(s.id).status : attDefaultStatus(s.id, date));
     const ex = existing.get(s.id);
     if (ex && ex.status === status) continue;
     putLocal('attendance', {
@@ -2122,16 +2209,77 @@ async function actGradeSave() {
 }
 
 function actLeaveAdd() {
-  const kids = S.role === 'parent' ? myChildren() : [S.user];
-  S.modalTitle = 'درخواست مرخصی';
+  /* ردیف ۱۹۷: مدیر برای هر دانش‌آموز ثبت می‌کند (تماس تلفنی ولی)؛ ولی فقط برای فرزند خودش */
+  const manager = S.role === 'manager';
+  const kids = S.role === 'parent' ? myChildren()
+    : manager ? sortBy(list('users').filter(u => u.role === 'student' && u.active !== false), 'name') : [S.user];
+  S.modalTitle = manager ? 'ثبت مرخصی دانش‌آموز' : 'درخواست مرخصی';
   modal(`<form data-form="leave">
     <label class="field"><span>دانش‌آموز</span><select class="input" name="student_id">
-      ${kids.map(k => `<option value="${k.id}">${esc(k.name)}</option>`).join('')}
+      ${kids.map(k => `<option value="${k.id}">${esc(k.name)}${manager && byId('classes', k.class_id) ? ' — ' + esc(byId('classes', k.class_id).name) : ''}</option>`).join('')}
     </select></label>
-    <label class="field"><span>تاریخ شمسی</span>${jalaliDateControl('date', todayISO(), { required: true })}</label>
-    <label class="field"><span>علت</span><textarea class="input" name="reason" placeholder="مثلاً مراجعه به پزشک"></textarea></label>
-    <button class="btn primary block">ثبت درخواست</button>
+    <label class="field"><span>نوع مرخصی</span><select class="input" name="kind" data-leave-kind>
+      <option value="day">روزانه</option><option value="hours">ساعتی (خروج زودهنگام / ورود دیرتر)</option></select></label>
+    <label class="field"><span>از تاریخ</span>${jalaliDateControl('date', todayISO(), { required: true })}</label>
+    <label class="field" data-leave-days><span>تا تاریخ (برای چند روز؛ خالی = همان روز)</span>${jalaliDateControl('date_to', '')}</label>
+    <div class="row" data-leave-hours style="gap:8px;display:none">
+      <label class="field grow"><span>از ساعت</span><input class="input ltr" type="time" name="time_from" value="10:00"></label>
+      <label class="field grow"><span>تا ساعت</span><input class="input ltr" type="time" name="time_to" value="12:00"></label>
+    </div>
+    <label class="field"><span>علت مرخصی</span><select class="input" name="type"><option value="">— انتخاب —</option>
+      ${LEAVE_TYPES.map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join('')}</select></label>
+    <label class="field"><span>توضیح</span><textarea class="input" name="reason" maxlength="500" placeholder="مثلاً مراجعه به پزشک"></textarea></label>
+    <label class="field"><span>پیوست گواهی (عکس، اختیاری)</span><input class="input" type="file" name="attachment" accept="image/jpeg,image/png,image/*"></label>
+    ${manager ? `<label class="row" style="gap:6px"><input type="checkbox" name="approve" checked> همین حالا تأیید شود</label>` : ''}
+    <button class="btn primary block">${manager ? 'ثبت مرخصی' : 'ثبت درخواست'}</button>
   </form>`);
+  const form = document.querySelector('form[data-form="leave"]');
+  const sel = form && form.querySelector('[data-leave-kind]');
+  if (sel) sel.addEventListener('change', () => {
+    const hours = sel.value === 'hours';
+    form.querySelector('[data-leave-days]').style.display = hours ? 'none' : '';
+    form.querySelector('[data-leave-hours]').style.display = hours ? '' : 'none';
+  });
+}
+
+/* ردیف ۱۹۷: عکس گواهی → JPEG کوچک (حداکثر ۶۰٬۰۰۰ نویسه) تا در یک عملیات همگام‌سازی جا شود */
+function leaveShrinkImage(file) {
+  return new Promise((resolve) => {
+    if (!file) return resolve('');
+    const fr = new FileReader();
+    fr.onerror = () => resolve(null);
+    fr.onload = () => {
+      const src = String(fr.result || '');
+      if (src.length <= LEAVE_ATTACH_MAX && /^data:image\/(jpeg|png);base64,/.test(src)) return resolve(src);
+      const img = new Image();
+      img.onerror = () => resolve(null);
+      img.onload = () => {
+        try {
+          for (const side of [1280, 1024, 800, 640, 480, 360]) {
+            const k = Math.min(1, side / Math.max(img.width, img.height));
+            const c = document.createElement('canvas');
+            c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            for (const q of [0.8, 0.65, 0.5, 0.4]) {
+              const out = c.toDataURL('image/jpeg', q);
+              if (out.length <= LEAVE_ATTACH_MAX) return resolve(out);
+            }
+          }
+        } catch (e) { /* بوم در دسترس نیست */ }
+        resolve(null);
+      };
+      img.src = src;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+function actLeaveAttachment(id) {
+  const l = byId('leaves', Number(id));
+  if (!l || !l.attachment) return;
+  S.modalTitle = 'گواهی پیوست مرخصی';
+  modal(`<div style="text-align:center"><img src="${esc(l.attachment)}" alt="گواهی پیوست" style="max-width:100%;max-height:70vh;border-radius:8px"></div>
+    <div class="small muted" style="margin-top:8px">${esc((byId('users', l.student_id) || {}).name || '')} · ${esc(leaveWhenFa(l))}</div>`);
 }
 
 function actAnnAdd(row) {

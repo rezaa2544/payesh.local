@@ -49,7 +49,10 @@ class AttendanceController extends ChangeNotifier {
   String get date => AttendanceBook.dateOf(_now());
 
   AttendanceStatus statusOf(RosterEntry r) =>
-      draft[r.studentId] ?? r.recorded ?? AttendanceStatus.present;
+      draft[r.studentId] ??
+      r.recorded ??
+      // ردیف ۱۹۷: مرخصی تمام‌روز تأییدشده ⇒ «موجه»
+      (r.leaveAllDay ? AttendanceStatus.excused : AttendanceStatus.present);
 
   int get changes => roster.where((r) => statusOf(r) != r.recorded).length;
 

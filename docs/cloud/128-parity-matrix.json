@@ -1354,6 +1354,31 @@
    ]
   },
   {
+   "id": "act:leave-att",
+   "status": "native",
+   "wave": "W11",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/reports/reports_screen.dart",
+     "has": "Key('lvd-att-${l.id}')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/family/leave_fields.dart",
+     "has": "Key('lv-att-dialog')"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/reports_wave11_test.dart",
+     "has": "'W11-197b"
+    },
+    {
+     "file": "apps/payesh/app/test/family_wave5_test.dart",
+     "has": "'W5-197a"
+    }
+   ]
+  },
+  {
    "id": "act:leave-delete",
    "status": "native",
    "wave": "W11",

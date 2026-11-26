@@ -19,6 +19,7 @@ import 'dart:math';
 import 'package:payesh_data/payesh_data.dart';
 
 import 'attendance.dart';
+import 'leave_spec.dart';
 import 'notices.dart';
 import 'records.dart';
 import 'reports.dart';
@@ -47,13 +48,17 @@ enum FamilyError {
   notParent,
   notLinked,
   badDate,
-  tooLarge;
+  tooLarge,
+
+  /// ردیف ۱۹۷: یکی از قواعد [leaveIssue] رعایت نشده (کد در `detail`).
+  invalid;
 
   String get messageFa => switch (this) {
     FamilyError.notParent => 'این صفحه فقط برای ولی دانش‌آموز است',
     FamilyError.notLinked => 'این دانش‌آموز به حساب شما متصل نیست',
     FamilyError.badDate => 'تاریخ را درست انتخاب کنید',
-    FamilyError.tooLarge => 'علت بیش از حد بلند است',
+    FamilyError.tooLarge => 'علت یا پیوست بیش از حد بزرگ است',
+    FamilyError.invalid => 'درخواست مرخصی کامل نیست',
   };
 }
 
@@ -61,7 +66,9 @@ final class FamilyFailure implements Exception {
   const FamilyFailure(this.kind, [this.detail]);
   final FamilyError kind;
   final Object? detail;
-  String get messageFa => kind.messageFa;
+  String get messageFa => kind == FamilyError.invalid && detail is String
+      ? leaveIssueFa(detail! as String)
+      : kind.messageFa;
   @override
   String toString() =>
       'FamilyFailure(${kind.name}${detail == null ? '' : ': $detail'})';
@@ -168,6 +175,7 @@ final class LeaveRequest {
     required this.reason,
     required this.state,
     this.queued = false,
+    this.data = const {},
   });
   final int id;
   final int studentId;
@@ -175,6 +183,18 @@ final class LeaveRequest {
   final String date;
   final String reason;
   final LeaveState state;
+
+  /// ردیف ۱۹۷: کل ردیف (بازه، ساعت، نوع، پیوست).
+  final Map<String, Object?> data;
+
+  /// «۲۱ آبان تا ۲۳ آبان (۳ روز)» / «… · ساعت ۱۰:۰۰ تا ۱۲:۰۰».
+  String whenFa(String Function(String iso) jdate) =>
+      leaveWhenFa(data.isEmpty ? {'date': date} : data, jdate);
+
+  /// برچسب نوع مرخصی (خالی وقتی نوعی انتخاب نشده).
+  String get typeFa => leaveTypesFa['${data['type'] ?? ''}'] ?? '';
+
+  bool get hasAttachment => '${data['attachment'] ?? ''}'.isNotEmpty;
 
   /// The request is still in the outbox (not yet confirmed by the Gateway).
   final bool queued;
@@ -452,6 +472,7 @@ final class FamilyBook {
             reason: '${l.data['reason'] ?? ''}',
             state: LeaveState.fromWire(l.data['status']),
             queued: queued.contains(l.id),
+            data: l.data,
           ),
         );
       }
@@ -478,11 +499,32 @@ final class FamilyBook {
     required int studentId,
     String? date,
     String reason = '',
+    String? dateTo,
+    String kind = 'day',
+    String? timeFrom,
+    String? timeTo,
+    String? type,
+    String? attachment,
   }) async {
     _requireParent();
     await _linked(studentId);
     final day = (date == null || date.trim().isEmpty) ? today() : date.trim();
     if (!validDay(day)) throw FamilyFailure(FamilyError.badDate, day);
+    final to = (dateTo ?? '').trim();
+    final extra = <String, Object?>{
+      if (kind != 'day') 'kind': kind,
+      if (kind == 'day' && to.isNotEmpty && to != day) 'date_to': to,
+      if (kind == 'hours') 'time_from': (timeFrom ?? '').trim(),
+      if (kind == 'hours') 'time_to': (timeTo ?? '').trim(),
+      if ((type ?? '').trim().isNotEmpty) 'type': type!.trim(),
+      if ((attachment ?? '').isNotEmpty) 'attachment': attachment,
+    };
+    final issue = leaveIssue({'date': day, 'reason': reason.trim(), ...extra});
+    if (issue == 'bad_attachment' &&
+        (attachment ?? '').length > leaveAttachMax) {
+      throw FamilyFailure(FamilyError.tooLarge, attachment!.length);
+    }
+    if (issue != null) throw FamilyFailure(FamilyError.invalid, issue);
     var id = _newId();
     for (var i = 0; i < 8 && await engine.get(leaves, id) != null; i++) {
       id = _newId();
@@ -492,8 +534,10 @@ final class FamilyBook {
       'student_id': studentId,
       'date': day,
       'reason': reason.trim(),
+      ...extra,
       'status': 'pending',
       'by_id': uid,
+      'created_at': _now().toUtc().toIso8601String(),
     };
     final bytes = utf8.encode(jsonEncode(data)).length;
     if (bytes > maxOpBytes) throw FamilyFailure(FamilyError.tooLarge, bytes);

@@ -78,8 +78,11 @@ function nw2Semantics(s) {
   assert(/u\.role === 'student' && Number\(u\.class_id\) === Number\(classId\)/.test(fn), 'web roster rule changed — re-check parity');
   assert(/engine\.byRef\('users', 'class_id', classId\)/.test(b) && /if \(u\.data\['role'\] != 'student'\) continue;/.test(b), 'Dart roster must be role student + same class_id');
   // default present + skip unchanged
-  assert(/: 'present'\);/.test(fn) && /if \(ex && ex\.status === status\) continue;/.test(fn), 'web default/skip changed');
-  assert(/marks\[r\.studentId\] \?\? r\.recorded \?\? AttendanceStatus\.present/.test(b), 'Dart default must be present (draft → stored → present)');
+  // ردیف ۱۹۷: پیش‌فرض = «حاضر»، جز مرخصی تمام‌روز تأییدشده ⇒ «موجه» (وب attDefaultStatus، Dart leaveAllDay)
+  assert(/: attDefaultStatus\(s\.id, date\)\);/.test(fn) && /if \(ex && ex\.status === status\) continue;/.test(fn), 'web default/skip changed');
+  const dflt = /function attDefaultStatus\(sid, iso\) \{([\s\S]*?)\n\}/.exec(s.pages);
+  assert(dflt && /'excused'/.test(dflt[1]) && /'present'/.test(dflt[1]) && /leaveApprovedOn\(sid, iso\)/.test(dflt[1]), 'web attDefaultStatus must be excused (full-day leave) else present');
+  assert(/marks\[r\.studentId\] \?\?\s*r\.recorded \?\?\s*\(r\.leaveAllDay \? AttendanceStatus\.excused : AttendanceStatus\.present\)/.test(b), 'Dart default must be present (draft → stored → full-day leave excused → present)');
   assert(/if \(r\.recorded == status\) \{\s*unchanged\+\+;\s*continue;/.test(b), 'Dart must skip unchanged students');
   // day key
   assert(/const todayISO = \(\) => now\(\)\.toISOString\(\)\.slice\(0, 10\);/.test(s.appjs), 'web todayISO changed');
@@ -215,7 +218,7 @@ const MUTANTS = [
   ['M1 Dart label drifts from the web', s => nw2Statuses(mut(s, 'book', "earlyExit('early_exit', 'خروج')", "earlyExit('early_exit', 'خروج زودهنگام')"))],
   ['M2 server gains a status the client lacks', s => nw2Statuses(mut(s, 'policy', "const ATT_STATUS = ['present', 'absent', 'late', 'early_exit', 'excused'];", "const ATT_STATUS = ['present', 'absent', 'late', 'early_exit', 'excused', 'sick'];"))],
   ['M3 unknown status mapped to present', s => nw2Statuses(mut(s, 'book', '    return null;\n  }\n}', '    return AttendanceStatus.present;\n  }\n}'))],
-  ['M4 default becomes absent', s => nw2Semantics(mut(s, 'book', 'r.recorded ?? AttendanceStatus.present', 'r.recorded ?? AttendanceStatus.absent'))],
+  ['M4 default becomes absent', s => nw2Semantics(mut(s, 'book', 'AttendanceStatus.excused : AttendanceStatus.present)', 'AttendanceStatus.excused : AttendanceStatus.absent)'))],
   ['M5 unchanged students rewritten', s => nw2Semantics(mut(s, 'book', 'if (r.recorded == status) {', 'if (false) {'))],
   ['M6 local-time day key', s => nw2Semantics(mut(s, 'book', 't.toUtc().toIso8601String().substring(0, 10)', 't.toIso8601String().substring(0, 10)'))],
   ['M7 record gains a field the web does not send', s => nw2Semantics(mut(s, 'book', "        'source': 'teacher',\n", "        'source': 'teacher',\n        'device': 'native',\n"))],

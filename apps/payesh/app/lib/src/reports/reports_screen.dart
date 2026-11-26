@@ -15,6 +15,7 @@ import '../pulse/pulse.dart';
 import '../pulse/d2.dart';
 import '../pulse/web.dart';
 import '../users/users_screen.dart' show recordBlocks;
+import '../family/leave_fields.dart';
 
 String _jd(String iso) => faDigits(JalaliDate.fromIso(iso)?.slash ?? '—');
 
@@ -532,6 +533,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
+      // ردیف ۱۹۷ (F28): درخواست مرخصی «در انتظار» به چشم مدیر/معاون برسد
+      if (d.pendingLeaves > 0)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Semantics(
+            button: true,
+            label: '${Web.fa(d.pendingLeaves)} درخواست مرخصی در انتظار تأیید',
+            excludeSemantics: true,
+            child: D2Card(
+              key: const Key('dash-leaves'),
+              child: InkWell(
+                onTap: () => _go('leaves'),
+                child: Row(
+                  children: [
+                    Icon(Icons.mark_email_unread_outlined, color: Web.amber),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${Web.fa(d.pendingLeaves)} درخواست مرخصی در انتظار تأیید',
+                        key: const Key('dash-leaves-text'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Web.ink,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'بررسی',
+                      style: TextStyle(fontSize: 12.5, color: Web.muted),
+                    ),
+                    Icon(
+                      Icons.chevron_left_rounded,
+                      size: 18,
+                      color: Web.muted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       D2Grid(rows: [(hero, week), (away, notes)]),
       const SizedBox(height: 16),
       // .dashboard-coverage-grid (two columns above 1200px, one below)
@@ -1137,9 +1179,59 @@ class LeaveDeskController extends SchoolController {
 
   List<LeaveRow> rows = const [];
 
+  /// ردیف ۱۹۷: دانش‌آموزان فعال برای «ثبت مرخصی».
+  List<LeavePick> students = const [];
+
+  int get pending => rows.where((r) => r.pending).length;
+
+  String get todayJalali =>
+      JalaliDate.fromIso(
+        (db?.now() ?? DateTime.now()).toUtc().toIso8601String().substring(
+          0,
+          10,
+        ),
+      )?.formatShort() ??
+      '';
+
   @override
   Future<void> read(SchoolRecords db) async {
-    rows = await SchoolReports(db).leaves();
+    final r = SchoolReports(db);
+    rows = await r.leaves();
+    students = await r.leaveStudents();
+  }
+
+  /// ردیف ۱۹۷: مدیر/معاون مرخصی را خودش ثبت می‌کند (تماس تلفنی ولی).
+  Future<RecordWrite?> add(
+    int? studentId,
+    LeaveDraft d, {
+    bool approve = true,
+  }) {
+    if (studentId == null) {
+      formError = 'دانش‌آموز را انتخاب کنید';
+      emit();
+      return Future.value();
+    }
+    final issue = d.issue();
+    if (issue != null) {
+      formError = leaveIssueFa(issue);
+      emit();
+      return Future.value();
+    }
+    return run(
+      (db) => SchoolReports(db).addLeave(
+        studentId: studentId,
+        date: d.fromIso!,
+        dateTo: d.kind == 'day' ? d.toIso : null,
+        kind: d.kind,
+        timeFrom: LeaveDraft.hhmm(d.timeFrom.text),
+        timeTo: LeaveDraft.hhmm(d.timeTo.text),
+        type: d.type,
+        reason: d.reason.text,
+        attachment: d.attachment,
+        approve: approve,
+      ),
+      form: true,
+    );
   }
 
   Future<RecordWrite?> decide(int id, String status) =>
@@ -1183,8 +1275,14 @@ class _LeaveDeskScreenState extends State<LeaveDeskScreen> {
     if (ok) await c.delete(l.id);
   }
 
+  Future<void> _add() async {
+    await openSchoolForm<void>(context, LeaveDeskForm(controller: c));
+    c.clearForm();
+  }
+
   /// Row 172: web `PAGES.leaves` (manager view) — pageHead «مرخصی و غیبت موجه» + «N درخواست»;
   /// per request: bold name, state badge, «date · reason», «تأیید» / «رد» / «حذف».
+  /// ردیف ۱۹۷: «در انتظار» بالا، بازه/ساعت، نوع، کلاس، گواهی پیوست و «+ ثبت مرخصی».
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: c,
@@ -1195,8 +1293,17 @@ class _LeaveDeskScreenState extends State<LeaveDeskScreen> {
       sync: widget.sync,
       onRetry: widget.onRetry,
       body: const SizedBox.shrink(),
-      sub: '${faNumber(c.rows.length)} درخواست',
+      sub:
+          '${faNumber(c.rows.length)} درخواست${c.pending > 0 ? ' · ${faNumber(c.pending)} در انتظار' : ''}',
       subKey: const Key('lvd-count'),
+      headActions: [
+        WebBtn(
+          '+ ثبت مرخصی',
+          key: const Key('lvd-add'),
+          kind: WebBtnKind.primary,
+          onPressed: c.busy || c.db == null ? null : _add,
+        ),
+      ],
       children: [
         if (c.rows.isEmpty)
           const WebEmpty('درخواستی ثبت نشده.', key: Key('lvd-none')),
@@ -1230,7 +1337,13 @@ class _LeaveDeskScreenState extends State<LeaveDeskScreen> {
                   ],
                 ),
                 Text(
-                  '${Web.jdate(l.date)} · ${l.reason}',
+                  [
+                    if (l.className.isNotEmpty) l.className,
+                    l.whenFa(Web.jdate),
+                    if (l.typeFa.isNotEmpty) l.typeFa,
+                    if (l.reason.isNotEmpty) l.reason,
+                  ].join(' · '),
+                  key: Key('lvd-when-${l.id}'),
                   style: TextStyle(
                     fontSize: 12.5,
                     color: Web.muted,
@@ -1243,6 +1356,17 @@ class _LeaveDeskScreenState extends State<LeaveDeskScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
+                      if (l.hasAttachment)
+                        WebBtn(
+                          '📎 گواهی',
+                          key: Key('lvd-att-${l.id}'),
+                          kind: WebBtnKind.ghost,
+                          onPressed: () => showLeaveAttachment(
+                            context,
+                            'گواهی پیوست — ${l.student}',
+                            l.attachment,
+                          ),
+                        ),
                       WebBtn(
                         'تأیید',
                         key: Key('lvd-approve-${l.id}'),
@@ -1269,6 +1393,91 @@ class _LeaveDeskScreenState extends State<LeaveDeskScreen> {
               ],
             ),
           ),
+      ],
+    ),
+  );
+}
+
+/// ردیف ۱۹۷: «ثبت مرخصی» مدیر/معاون — دانش‌آموز، همان فیلدهای فرم ولی، و «همین حالا تأیید شود».
+class LeaveDeskForm extends StatefulWidget {
+  const LeaveDeskForm({super.key, required this.controller});
+  final LeaveDeskController controller;
+
+  /// انتخاب عکس گواهی — آزمون‌ها جایگزین می‌کنند.
+  static Future<String?> Function()? pick;
+
+  @override
+  State<LeaveDeskForm> createState() => _LeaveDeskFormState();
+}
+
+class _LeaveDeskFormState extends State<LeaveDeskForm> {
+  LeaveDeskController get c => widget.controller;
+  int? _student;
+  bool _approve = true;
+  late final LeaveDraft _d = LeaveDraft(todayJalali: c.todayJalali);
+
+  @override
+  void dispose() {
+    _d.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final res = await c.add(_student, _d, approve: _approve);
+    if (res != null && mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: c,
+    builder: (context, _) => SchoolForm(
+      prefix: 'lvm',
+      title: 'ثبت مرخصی دانش‌آموز',
+      controller: c,
+      submitLabel: 'ثبت مرخصی',
+      onSubmit: c.busy ? () {} : _submit,
+      fields: [
+        SchoolFormFull(
+          child: FieldBox(
+            width: kFieldText,
+            child: DropdownButtonFormField<int>(
+              key: const Key('lvm-student'),
+              isExpanded: true,
+              initialValue: _student,
+              decoration: InputDecoration(
+                labelText: 'دانش‌آموز',
+                errorText:
+                    _student == null &&
+                        c.formError == 'دانش‌آموز را انتخاب کنید'
+                    ? checkFieldFa
+                    : null,
+              ),
+              items: [
+                for (final k in c.students)
+                  DropdownMenuItem(value: k.id, child: Text(k.label)),
+              ],
+              onChanged: (v) => setState(() => _student = v),
+            ),
+          ),
+        ),
+        SchoolFormFull(
+          child: LeaveFields(
+            draft: _d,
+            prefix: 'lvm',
+            error: c.formError,
+            pick: LeaveDeskForm.pick,
+          ),
+        ),
+        SchoolFormFull(
+          child: CheckboxListTile(
+            key: const Key('lvm-approve'),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: _approve,
+            title: const Text('همین حالا تأیید شود'),
+            onChanged: (v) => setState(() => _approve = v ?? true),
+          ),
+        ),
       ],
     ),
   );

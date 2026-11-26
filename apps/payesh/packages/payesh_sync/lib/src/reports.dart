@@ -5,8 +5,12 @@
 // `studentHomeCard`) and the manager's leave decisions (`leave-set`, `leave-delete`).
 // Nothing here talks to a server: reads come from the synced copy, the two leave writes go
 // through the durable outbox first (local-first, like every other row-128 write).
+import 'dart:math';
+
 import 'package:payesh_data/payesh_data.dart';
 
+import 'family.dart' show FamilyBook;
+import 'leave_spec.dart';
 import 'records.dart';
 import 'timetable.dart';
 
@@ -160,6 +164,7 @@ final class Dashboard {
     this.week = const [],
     this.away = const [],
     this.me = '',
+    this.pendingLeaves = 0,
   });
   final String today;
   final int weekday;
@@ -187,6 +192,9 @@ final class Dashboard {
 
   /// The signed-in manager's name (the greeting).
   final String me;
+
+  /// ردیف ۱۹۷ (F28): درخواست‌های مرخصی «در انتظار» — کارت هشدار داشبورد.
+  final int pendingLeaves;
   int get covered => coverage.where((c) => c.checked > 0).length;
 }
 
@@ -242,6 +250,8 @@ final class LeaveRow {
     required this.reason,
     required this.status,
     required this.queued,
+    this.data = const {},
+    this.className = '',
   });
   final int id;
   final int? studentId;
@@ -250,7 +260,28 @@ final class LeaveRow {
   final String reason;
   final String status;
   final bool queued;
+
+  /// ردیف ۱۹۷: کل ردیف (بازه، ساعت، نوع، پیوست).
+  final Map<String, Object?> data;
+
+  /// کلاس دانش‌آموز (برای مدیر).
+  final String className;
   String get statusFa => leaveStatusFa[status] ?? leaveStatusFa['pending']!;
+  bool get pending => status == 'pending';
+  String whenFa(String Function(String iso) jdate) =>
+      leaveWhenFa(data.isEmpty ? {'date': date} : data, jdate);
+  String get typeFa => leaveTypesFa['${data['type'] ?? ''}'] ?? '';
+  bool get hasAttachment => '${data['attachment'] ?? ''}'.isNotEmpty;
+  List<int>? get attachment => leaveAttachmentBytes(data);
+}
+
+/// ردیف ۱۹۷: دانش‌آموزی که مدیر برایش مرخصی ثبت می‌کند (نام — کلاس).
+final class LeavePick {
+  const LeavePick(this.id, this.name, this.className);
+  final int id;
+  final String name;
+  final String className;
+  String get label => className.isEmpty ? name : '$name — $className';
 }
 
 final class SchoolReports {
@@ -622,6 +653,7 @@ final class SchoolReports {
       if (away.length == 5) break;
     }
     return Dashboard(
+      pendingLeaves: await pendingLeaves(),
       week: week,
       away: away,
       me: names[db.uid] ?? '',
@@ -724,17 +756,30 @@ final class SchoolReports {
 
   // ─────────────────────────────── leaves (manager) ───────────────────────────────
 
-  /// Web `PAGES.leaves` for the manager: every request, newest first.
+  /// Web `PAGES.leaves` for the manager: every request — ردیف ۱۹۷: «در انتظار» بالا، بعد
+  /// تازه‌ترین روز (و تازه‌ترین ثبت).
   Future<List<LeaveRow>> leaves() async {
     _requireManager();
-    final names = {
-      for (final u in await db.allOrEmpty('users')) u.id: _s(u.data['name']),
+    final users = await db.allOrEmpty('users');
+    final names = {for (final u in users) u.id: _s(u.data['name'])};
+    final classOf = {for (final u in users) u.id: _int(u.data['class_id'])};
+    final classNames = {
+      for (final c in await db.allOrEmpty('classes')) c.id: _s(c.data['name']),
     };
     final q = db.queuedIds('leaves');
+    int pend(EngineRow l) {
+      final st = _s(l.data['status']);
+      return st.isEmpty || st == 'pending' ? 0 : 1;
+    }
+
     final rows = (await db.allOrEmpty('leaves'))
-      ..sort(
-        (a, b) => _s(b.data['created_at']).compareTo(_s(a.data['created_at'])),
-      );
+      ..sort((a, b) {
+        final p = pend(a).compareTo(pend(b));
+        if (p != 0) return p;
+        final d = _s(b.data['date']).compareTo(_s(a.data['date']));
+        if (d != 0) return d;
+        return _s(b.data['created_at']).compareTo(_s(a.data['created_at']));
+      });
     return [
       for (final l in rows)
         LeaveRow(
@@ -747,8 +792,97 @@ final class SchoolReports {
               ? 'pending'
               : _s(l.data['status']),
           queued: q.contains(l.id),
+          data: l.data,
+          className: classNames[classOf[_int(l.data['student_id'])]] ?? '',
         ),
     ];
+  }
+
+  /// ردیف ۱۹۷: تعداد درخواست‌های «در انتظار» (کارت داشبورد مدیر).
+  Future<int> pendingLeaves() async =>
+      (await db.allOrEmpty('leaves')).where((l) {
+        final st = _s(l.data['status']);
+        return st.isEmpty || st == 'pending';
+      }).length;
+
+  /// ردیف ۱۹۷: دانش‌آموزان فعال برای «ثبت مرخصی» مدیر، به ترتیب نام.
+  Future<List<LeavePick>> leaveStudents() async {
+    _requireManager();
+    final classNames = {
+      for (final c in await db.allOrEmpty('classes')) c.id: _s(c.data['name']),
+    };
+    final out = [
+      for (final u in await db.allOrEmpty('users'))
+        if (u.data['role'] == 'student' && u.data['active'] != false)
+          LeavePick(
+            u.id,
+            _s(u.data['name']),
+            classNames[_int(u.data['class_id'])] ?? '',
+          ),
+    ]..sort((a, b) => a.name.compareTo(b.name));
+    return out;
+  }
+
+  /// ردیف ۱۹۷: مدیر/معاون مرخصی را خودش ثبت می‌کند (مثلاً تماس تلفنی ولی) — همان شکل
+  /// درخواست ولی؛ با [approve] همزمان تأیید می‌شود.
+  Future<RecordWrite> addLeave({
+    required int studentId,
+    required String date,
+    String? dateTo,
+    String kind = 'day',
+    String? timeFrom,
+    String? timeTo,
+    String? type,
+    String reason = '',
+    String? attachment,
+    bool approve = true,
+  }) async {
+    _requireManager();
+    final st = await db.engine.get('users', studentId);
+    // دانش‌آموز غیرفعال (انتقالی/ترک تحصیل) مرخصی تازه نمی‌گیرد
+    if (st == null ||
+        st.data['role'] != 'student' ||
+        st.data['active'] == false) {
+      throw const RecordFailure('not_found', 'دانش‌آموز را انتخاب کنید');
+    }
+    final to = (dateTo ?? '').trim();
+    final now = db.now().toUtc().toIso8601String();
+    final data = <String, Object?>{
+      'student_id': studentId,
+      'date': date.trim(),
+      if (kind == 'hours') 'kind': 'hours',
+      if (kind != 'hours' && to.isNotEmpty && to != date.trim()) 'date_to': to,
+      if (kind == 'hours') 'time_from': (timeFrom ?? '').trim(),
+      if (kind == 'hours') 'time_to': (timeTo ?? '').trim(),
+      if ((type ?? '').trim().isNotEmpty) 'type': type!.trim(),
+      'reason': reason.trim(),
+      if ((attachment ?? '').isNotEmpty) 'attachment': attachment,
+      'status': approve ? 'approved' : 'pending',
+      'by_id': db.uid,
+      'created_at': now,
+      if (approve) 'decided_by': db.uid,
+      if (approve) 'decided_at': now,
+    };
+    final issue = leaveIssue(data);
+    if (issue != null) throw RecordFailure(issue, leaveIssueFa(issue));
+    // ردیف ۱۹۷: همان بازهٔ تصادفی شناسهٔ مرخصی ولی (FamilyBook.idBase) — مرخصی برش id ندارد
+    var id = _leaveId();
+    for (var i = 0; i < 8 && await db.engine.get('leaves', id) != null; i++) {
+      id = _leaveId();
+    }
+    final k = await db.put('leaves', id, data);
+    return RecordWrite(
+      approve ? 'مرخصی ثبت و تأیید شد' : 'مرخصی ثبت شد',
+      id: id,
+      keys: [k],
+    );
+  }
+
+  static final Random _rnd = Random.secure();
+  static int _leaveId() {
+    final hi = _rnd.nextInt(1 << 32);
+    final lo = _rnd.nextInt(1 << 32);
+    return FamilyBook.idBase + ((hi << 32) | lo) % FamilyBook.idSpan;
   }
 
   /// `leave-set` (approved / rejected), with who decided and when.

@@ -34,6 +34,8 @@ List<(String, String, String, String)> webNavConfig(String? role) =>
         ('classes', 'school', 'کلاس‌ها', 'classes'),
         ('schedule', 'calendar', 'برنامه', 'schedule'),
         ('attendance-report', 'check', 'حضور', 'attendance-report'),
+        // ردیف ۱۹۷ (F28): درخواست‌های مرخصی ولی‌ها باید به مدیر/معاون برسد.
+        ('leaves', 'mail', 'مرخصی‌ها', 'leaves'),
         ('reports', 'report', 'گزارش‌ها', 'reports'),
         ('cqueue', 'mail', 'ارجاع مشاور', 'cqueue'),
         ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
@@ -84,7 +86,7 @@ List<(String, String, String, String)> webNavConfig(String? role) =>
 const List<(String, String, String, String)> grantNavExtra = [
   ('attendance', 'check', 'ثبت حضور', 'attendance'),
   ('grades', 'pen', 'نمره', 'grades'),
-  ('leaves', 'mail', 'مرخصی‌ها', 'leaves'),
+  // «مرخصی‌ها» از ردیف ۱۹۷ در منوی خود مدیر است (webNavConfig).
 ];
 
 /// Row 194: the signed-in staff member's ticks («سطح دسترسی»), read from the user's own row of

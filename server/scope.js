@@ -192,6 +192,12 @@ function rowInScope(scope, collection, row) {
 
 /* ── بازنویسی ردیف بر اساس نقش (همان قواعد canWriteRow، حداقلی و صریح) ── */
 function canWriteRow(scope, collection, row, existing) {
+  /* ردیف ۱۹۷: شکل مرخصی برای همهٔ نقش‌ها (همان policy.leaveIssue) */
+  /* حذف (row همان existing است) هیچ‌وقت به‌خاطر شکل ردیف قدیمی رد نمی‌شود */
+  if (collection === 'leaves' && row && row !== existing && row.date !== undefined) {
+    const li = policy.leaveIssue(row);
+    if (li) return { ok: false, error: li };
+  }
   if (!scope || scope.all) return { ok: true };
   if ((scope.grantWrite || []).includes(collection)) {
     if (collection === 'attendance' && row && row.status != null &&
@@ -217,6 +223,9 @@ function canWriteRow(scope, collection, row, existing) {
        Gateway ردیف موجود را برای put نمی‌خواند، پس به‌جای پایین‌آوردن بی‌صدا، صریح رد می‌کند (ردیف ۷۴، موج ۳). */
     if (collection === 'grades' && row && row.status != null &&
         String(row.status) !== 'pending') return { ok: false, error: 'approval_denied' };
+    /* ردیف ۱۹۷: تأیید/رد مرخصی هم فقط با مدیر/معاون است */
+    if (collection === 'leaves' && row && row.status != null &&
+        !policy.LEAVE_REQUEST_STATUSES.includes(String(row.status))) return { ok: false, error: 'approval_denied' };
     return { ok: true };
   }
   if (scope.role === 'parent' || scope.role === 'student') {
@@ -226,6 +235,9 @@ function canWriteRow(scope, collection, row, existing) {
        بی‌صدا به pending برمی‌گرداند). Gateway ردیف موجود را برای put نمی‌خواند، پس صریح رد می‌کند (ردیف ۷۴، موج ۵). */
     if (row && row.status != null &&
         !policy.LEAVE_REQUEST_STATUSES.includes(String(row.status))) return { ok: false, error: 'approval_denied' };
+    if (existing && existing.status && !policy.LEAVE_REQUEST_STATUSES.includes(String(existing.status))) {
+      return { ok: false, error: 'leave_decided' };
+    }
     return { ok: true };
   }
   if (scope.role === 'counselor') {

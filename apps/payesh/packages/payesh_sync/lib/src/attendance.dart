@@ -10,6 +10,7 @@ import 'package:crypto/crypto.dart';
 import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_data/payesh_data.dart';
 
+import 'leave_spec.dart';
 import 'outbox.dart';
 import 'school_access.dart' show permRole;
 
@@ -93,9 +94,18 @@ final class RosterEntry {
     this.recordId,
     this.version = 0,
     this.note = '',
+    this.leave,
+    this.leaveAllDay = false,
   });
   final int studentId;
   final String name;
+
+  /// ردیف ۱۹۷: مرخصی تأییدشده‌ای که این روز را می‌پوشاند — «مرخصی (استعلاجی)» یا
+  /// «مرخصی ساعتی ۱۰:۰۰ تا ۱۲:۰۰»؛ null = مرخصی ندارد.
+  final String? leave;
+
+  /// مرخصی تمام‌روز: وضعیت پیش‌فرض «موجه» است، نه «حاضر».
+  final bool leaveAllDay;
 
   /// Status already stored for the day (pulled from the server or saved here), or null.
   final AttendanceStatus? recorded;
@@ -300,11 +310,33 @@ final class AttendanceBook {
       final prev = existing[sid];
       if (prev == null || a.id < prev.id) existing[sid] = a;
     }
+    // ردیف ۱۹۷: مرخصی‌های تأییدشدهٔ همین روز
+    final leaves = <int, Map<String, Object?>>{};
+    List<EngineRow> allLeaves = const [];
+    try {
+      allLeaves = await engine.list('leaves', limit: 5000);
+    } on Object {
+      allLeaves = const [];
+    }
+    for (final l in allLeaves) {
+      final sid = _int(l.data['student_id']);
+      if (sid == null || '${l.data['status']}' != 'approved') continue;
+      if (!leaveCovers(l.data, date)) continue;
+      final prev = leaves[sid];
+      // تمام‌روز بر ساعتی مقدم است
+      if (prev == null || '${prev['kind'] ?? ''}' == 'hours') {
+        leaves[sid] = l.data;
+      }
+    }
+    String? leaveFa(Map<String, Object?>? l) =>
+        l == null ? null : leaveTagFa(l);
+
     final out = <RosterEntry>[];
     for (final u in await engine.byRef('users', 'class_id', classId)) {
       if (u.data['role'] != 'student') continue;
       if (u.data['active'] == false || u.data['deleted'] == true) continue;
       final ex = existing[u.id];
+      final lv = leaves[u.id];
       out.add(
         RosterEntry(
           studentId: u.id,
@@ -315,6 +347,8 @@ final class AttendanceBook {
           recordId: ex?.id,
           version: ex?.version ?? 0,
           note: '${ex?.data['note'] ?? ''}',
+          leave: leaveFa(lv),
+          leaveAllDay: lv != null && '${lv['kind'] ?? ''}' != 'hours',
         ),
       );
     }
@@ -355,8 +389,11 @@ final class AttendanceBook {
     final plan = <(RosterEntry, AttendanceStatus, int)>[];
     var unchanged = 0;
     for (final r in list) {
+      // ردیف ۱۹۷: مرخصی تمام‌روز تأییدشده ⇒ پیش‌فرض «موجه»
       final status =
-          marks[r.studentId] ?? r.recorded ?? AttendanceStatus.present;
+          marks[r.studentId] ??
+          r.recorded ??
+          (r.leaveAllDay ? AttendanceStatus.excused : AttendanceStatus.present);
       if (r.recorded == status) {
         unchanged++;
         continue;

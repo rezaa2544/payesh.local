@@ -248,9 +248,10 @@ void main() {
     final (e, ob) = await seeded();
     final r = SchoolReports(db(e, ob));
     final l = await r.leaves();
-    expect(l.map((x) => x.id), [61, 60]);
-    expect(l.last.statusFa, 'در انتظار');
-    expect(l.first.statusFa, 'تأییدشده');
+    // ردیف ۱۹۷: «در انتظار» اول (کار مدیر)، بعد تازه‌ترین تاریخ
+    expect(l.map((x) => x.id), [60, 61]);
+    expect(l.first.statusFa, 'در انتظار');
+    expect(l.last.statusFa, 'تأییدشده');
     final w = await r.decide(60, 'rejected');
     expect(w.messageFa, 'درخواست رد شد');
     final op = ob.list().single;

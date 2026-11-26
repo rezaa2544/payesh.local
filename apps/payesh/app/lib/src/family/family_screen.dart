@@ -10,6 +10,7 @@ import '../pulse/pulse.dart';
 import '../pulse/web.dart';
 import '../sync_badge.dart';
 import 'family_controller.dart';
+import 'leave_fields.dart';
 
 /// Row 172: the web text exactly — no grade / no record reads «۰.۰» / «۰٪» like the web panel.
 String averageLabel(double? avg) =>
@@ -887,13 +888,23 @@ class LeavesScreen extends StatelessWidget {
           TextSpan(
             style: TextStyle(fontSize: 12.5, color: Web.muted, height: 1.6),
             children: [
-              TextSpan(text: Web.jdate(l.date)),
+              TextSpan(text: l.whenFa(Web.jdate)),
+              if (l.typeFa.isNotEmpty) TextSpan(text: ' · ${l.typeFa}'),
               if (l.reason.isNotEmpty) const TextSpan(text: ' · '),
               if (l.reason.isNotEmpty) TextSpan(text: l.reason),
             ],
           ),
           key: Key('lvs-date-${l.id}'),
         ),
+        if (l.hasAttachment)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              '📎 گواهی پیوست شده',
+              key: Key('lvs-att-${l.id}'),
+              style: TextStyle(fontSize: 12, color: Web.muted),
+            ),
+          ),
       ],
     ),
   );
@@ -906,6 +917,9 @@ class LeaveForm extends StatefulWidget {
 
   final FamilyController controller;
 
+  /// ردیف ۱۹۷: انتخاب عکس گواهی — آزمون‌ها جایگزین می‌کنند.
+  static Future<String?> Function()? pick;
+
   @override
   State<LeaveForm> createState() => _LeaveFormState();
 }
@@ -913,25 +927,27 @@ class LeaveForm extends StatefulWidget {
 class _LeaveFormState extends State<LeaveForm> {
   FamilyController get c => widget.controller;
   late int? _student = c.children.isEmpty ? null : c.children.first.id;
-  late final TextEditingController _day = TextEditingController(
-    text: c.todayJalali,
-  );
-  final TextEditingController _reason = TextEditingController();
+  late final LeaveDraft _d = LeaveDraft(todayJalali: c.todayJalali);
 
-  bool get _dirty => _reason.text.trim().isNotEmpty;
+  bool get _dirty => _d.dirty;
 
   @override
   void dispose() {
-    _day.dispose();
-    _reason.dispose();
+    _d.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     final res = await c.requestLeave(
       studentId: _student,
-      jalaliDay: _day.text,
-      reason: _reason.text,
+      jalaliDay: _d.from.text,
+      reason: _d.reason.text,
+      dateToJalali: _d.kind == 'day' ? _d.to.text : '',
+      kind: _d.kind,
+      timeFrom: LeaveDraft.hhmm(_d.timeFrom.text),
+      timeTo: LeaveDraft.hhmm(_d.timeTo.text),
+      type: _d.type,
+      attachment: _d.attachment,
     );
     if (res != null && mounted) Navigator.of(context).pop();
   }
@@ -1008,34 +1024,12 @@ class _LeaveFormState extends State<LeaveForm> {
                 ),
               ),
               const SizedBox(height: PayeshTokens.space3),
-              FieldBox(
-                width: kFieldDigits,
-                child: TextField(
-                  key: const Key('lvf-date'),
-                  controller: _day,
-                  keyboardType: TextInputType.datetime,
-                  decoration: InputDecoration(
-                    labelText: 'تاریخ شمسی',
-                    hintText: '۱۴۰۵/۰۸/۲۱',
-                    errorText:
-                        c.formError == FamilyError.badDate.messageFa ||
-                            fieldIssueFor(c.formError, 'تاریخ', _day.text) !=
-                                null
-                        ? checkFieldFa
-                        : null,
-                  ),
-                ),
-              ),
-              const SizedBox(height: PayeshTokens.space3),
-              TextField(
-                key: const Key('lvf-reason'),
-                controller: _reason,
-                minLines: 2,
-                maxLines: 5,
-                decoration: const InputDecoration(
-                  labelText: 'علت',
-                  hintText: 'مثلاً مراجعه به پزشک',
-                ),
+              // ردیف ۱۹۷ (F25): روزانه/بازه یا ساعتی، نوع، توضیح، پیوست گواهی
+              LeaveFields(
+                draft: _d,
+                prefix: 'lvf',
+                error: c.formError,
+                pick: LeaveForm.pick,
               ),
               const SizedBox(height: PayeshTokens.space4),
               FilledButton.icon(

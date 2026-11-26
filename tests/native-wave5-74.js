@@ -122,20 +122,29 @@ function nw5Reads(s) {
 
 function nw5Writes(s) {
   const b = code(s.book), save = webSave(s), form = webForm(s);
-  const row = /putLocal\('leaves', \{([\s\S]*?)\}\);/.exec(save);
-  assert(row, 'web leave row missing');
-  const webKeys = [...row[1].matchAll(/([a-z_]+):/g)].map(m => m[1]).filter(k => k !== 'school_id');
+  // ردیف ۱۹۷ (Q02): ردیف پایه + فیلدهای اختیاری (بازه/ساعتی/نوع/پیوست) + وضعیت/by_id/created_at
+  const base = /const row = \{ ([^}]*) \};/.exec(save);
+  assert(base, 'web leave row missing');
+  const assign = /putLocal\('leaves', Object\.assign\(row, \{([\s\S]*?)\}/.exec(save);
+  assert(assign, 'web leave putLocal missing');
+  const webOpt = [...save.matchAll(/(?:row\.|\{ |, )(kind|time_from|time_to|date_to|type|attachment)(?: =|:)/g)].map(m => m[1]);
+  const webKeys = [...base[1].split(',').map(t => /^\s*([a-z_]+)/.exec(t)[1]),
+    ...[...assign[1].matchAll(/([a-z_]+):/g)].map(m => m[1]), ...webOpt].filter(k => k !== 'school_id');
   const rq = block(b, 'Future<LeaveWriteResult> requestLeave({', 'final bytes =');
   const dm = /final data = <String, Object\?>\{([\s\S]*?)\};/.exec(rq);
   assert(dm, 'Dart leave record missing');
-  const dartKeys = [...dm[1].matchAll(/'([a-z_]+)':/g)].map(m => m[1]).filter(k => k !== 'id');
-  assert(JSON.stringify([...dartKeys].sort()) === JSON.stringify([...new Set(webKeys)].sort()), 'record fields Dart ' + dartKeys + ' ≠ web ' + webKeys);
-  assert(/status: 'pending'/.test(row[1]) && /'status': 'pending',/.test(dm[1]), 'a request is always pending');
-  assert(/by_id: S\.user \? S\.user\.id : null/.test(row[1]) && /'by_id': uid,/.test(dm[1]), 'by_id = the requesting user');
-  assert(/reason: String\(f\.reason\.value \|\| ''\)\.trim\(\)/.test(row[1]) && /'reason': reason\.trim\(\),/.test(dm[1]), 'reason must be trimmed (web)');
-  assert(/date: \(f\.date && f\.date\.value\) \|\| todayISO\(\)/.test(row[1]) && /jalaliDateControl\('date', todayISO\(\)/.test(form), 'web date default changed');
+  const ex = /final extra = <String, Object\?>\{([\s\S]*?)\};/.exec(rq);
+  assert(ex && /\.\.\.extra,/.test(dm[1]), 'Dart optional leave fields missing');
+  const dartKeys = [...dm[1].matchAll(/'([a-z_]+)':/g), ...ex[1].matchAll(/'([a-z_]+)':/g)].map(m => m[1]).filter(k => k !== 'id');
+  const uniq = (a) => JSON.stringify([...new Set(a)].sort());
+  assert(uniq(dartKeys) === uniq(webKeys), 'record fields Dart ' + uniq(dartKeys) + ' ≠ web ' + uniq(webKeys));
+  assert(/status: approveNow \? 'approved' : 'pending'/.test(assign[1]) && /const approveNow = S\.role === 'manager' && /.test(save) && /'status': 'pending',/.test(dm[1]), 'a parent request is always pending (only the manager may approve now)');
+  assert(/by_id: S\.user \? S\.user\.id : null/.test(assign[1]) && /'by_id': uid,/.test(dm[1]), 'by_id = the requesting user');
+  assert(/reason: val\('reason'\)/.test(base[1]) && /String\(e\.value\)\.trim\(\)/.test(save) && /'reason': reason\.trim\(\),/.test(dm[1]), 'reason must be trimmed (web)');
+  assert(/const date = val\('date'\) \|\| todayISO\(\);/.test(save) && /jalaliDateControl\('date', todayISO\(\)/.test(form), 'web date default changed');
   assert(/String today\(\) => _now\(\)\.toUtc\(\)\.toIso8601String\(\)\.substring\(0, 10\);/.test(b) && /\? today\(\) : date\.trim\(\);/.test(rq), 'Dart default day must be the UTC day');
-  assert(/const kids = S\.role === 'parent' \? myChildren\(\) : \[S\.user\];/.test(form), 'web form children changed');
+  assert(/const issue = leaveIssue\(row\);/.test(save) && /final issue = leaveIssue\(/.test(rq), 'both sides must run the shared leaveIssue rules before writing');
+  assert(/const kids = S\.role === 'parent' \? myChildren\(\)/.test(form), 'web form children changed');
   assert(/_requireParent\(\);\s*await _linked\(studentId\);/.test(rq), 'Dart must refuse non-parents and children not linked to this parent');
   assert(/if \(!validDay\(day\)\) throw FamilyFailure\(FamilyError\.badDate, day\);/.test(rq), 'Dart must refuse a day that does not exist');
   assert(/return t != null && t\.toIso8601String\(\)\.substring\(0, 10\) == d;/.test(b), 'validDay must round-trip (no 2026-02-30)');
@@ -150,7 +159,7 @@ function nw5Gateway(s) {
   const sc = code(s.scope), pol = code(s.policy);
   const ls = /const LEAVE_REQUEST_STATUSES = \[([^\]]+)\];/.exec(pol);
   assert(ls && JSON.stringify(dartList(ls[1])) === JSON.stringify(['pending', 'canceled']), 'policy LEAVE_REQUEST_STATUSES must be pending/canceled');
-  assert(/LEAVE_REQUEST_STATUSES, COLLECTIONS,/.test(pol), 'policy must export LEAVE_REQUEST_STATUSES');
+  assert(/LEAVE_REQUEST_STATUSES, LEAVE_TYPES, leaveIssue, leaveRequesterIssue, COLLECTIONS,/.test(pol), 'policy must export LEAVE_REQUEST_STATUSES');
   assert(/if \(row\.status && !LEAVE_REQUEST_STATUSES\.includes\(row\.status\)\) row\.status = 'pending';/.test(pol), 'school-server path must use the same list');
   const pr = block(sc, "if (scope.role === 'parent' || scope.role === 'student') {", "if (scope.role === 'counselor')");
   assert(/if \(collection !== 'leaves'\) return \{ ok: false, error: 'role_denied' \};/.test(pr), 'parent may only write leaves');
@@ -268,12 +277,12 @@ const MUTANTS = [
   ['M8 attendance % floored', s => nw5Reads(mut(s, 'book', '(present * 100 / att.length).round(),', '(present * 100 ~/ att.length),'))],
   ['M9 20 attendance rows', s => nw5Reads(mut(s, 'book', 'static const int recentAttendance = 12;', 'static const int recentAttendance = 20;'))],
   ['M10 empty-family text drifts', s => nw5Reads(mut(s, 'screen', 'فرزندی به حساب شما متصل نیست — با دفتر مدرسه تماس بگیرید.', 'فرزندی ثبت نشده است.'))],
-  ['M11 record gains a field the web does not send', s => nw5Writes(mut(s, 'book', "      'by_id': uid,\n    };", "      'by_id': uid,\n      'device': 'native',\n    };"))],
+  ['M11 record gains a field the web does not send', s => nw5Writes(mut(s, 'book', "      'by_id': uid,\n      'created_at'", "      'by_id': uid,\n      'device': 'native',\n      'created_at'"))],
   ['M12 request sent as approved', s => nw5Writes(mut(s, 'book', "      'status': 'pending',\n      'by_id': uid,", "      'status': 'approved',\n      'by_id': uid,"))],
-  ['M13 reason not trimmed', s => nw5Writes(mut(s, 'book', "'reason': reason.trim(),", "'reason': reason,"))],
+  ['M13 reason not trimmed', s => nw5Writes(mut(s, 'book', "'reason': reason.trim(),\n      ...extra,", "'reason': reason,\n      ...extra,"))],
   ['M14 request for any child', s => nw5Writes(mut(s, 'book', '    _requireParent();\n    await _linked(studentId);\n', '    _requireParent();\n'))],
   ['M15 leaves oldest first', s => nw5Writes(mut(s, 'book', '    out.sort((a, b) {\n      final c = b.date.compareTo(a.date);', '    out.sort((a, b) {\n      final c = a.date.compareTo(b.date);'))],
-  ['M16 Gateway approval guard removed', s => nw5Gateway(mut(s, 'scope', "!policy.LEAVE_REQUEST_STATUSES.includes(String(row.status))) return { ok: false, error: 'approval_denied' };", "false) return { ok: false, error: 'approval_denied' };"))],
+  ['M16 Gateway approval guard removed', s => nw5Gateway(mut(s, 'scope', "    if (row && row.status != null &&\n        !policy.LEAVE_REQUEST_STATUSES.includes(String(row.status))) return { ok: false, error: 'approval_denied' };", "    if (row && row.status != null &&\n        false) return { ok: false, error: 'approval_denied' };"))],
   ['M17 policy lets parents approve', s => nw5Gateway(mut(s, 'policy', "const LEAVE_REQUEST_STATUSES = ['pending', 'canceled'];", "const LEAVE_REQUEST_STATUSES = ['pending', 'canceled', 'approved'];"))],
   ['M18 contract vector weakened', s => nw5Gateway(mut(s, 'vectors', '"status": "approved",\n        "by_id": 7\n      },\n      "expect": {\n        "ok": false,\n        "error": "approval_denied"', '"status": "approved",\n        "by_id": 7\n      },\n      "expect": {\n        "ok": true'))],
   ['M19 id range overlaps attendance', s => nw5DataPath(mut(s, 'book', 'static const int idBase = 3000000000000000;', 'static const int idBase = 3500000000000000;'))],

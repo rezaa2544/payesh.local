@@ -177,6 +177,12 @@ class FamilyController extends ChangeNotifier {
     required int? studentId,
     required String jalaliDay,
     required String reason,
+    String dateToJalali = '',
+    String kind = 'day',
+    String? timeFrom,
+    String? timeTo,
+    String? type,
+    String? attachment,
   }) async {
     final b = _book;
     if (b == null || busy) return null;
@@ -188,7 +194,8 @@ class FamilyController extends ChangeNotifier {
       return null;
     }
     final iso = jalaliToIso(jalaliDay);
-    if (iso == null) {
+    final toIso = dateToJalali.trim().isEmpty ? '' : jalaliToIso(dateToJalali);
+    if (iso == null || (kind == 'day' && toIso == null)) {
       formError = FamilyError.badDate.messageFa;
       _emit();
       return null;
@@ -201,6 +208,12 @@ class FamilyController extends ChangeNotifier {
         studentId: studentId,
         date: iso,
         reason: reason,
+        dateTo: toIso,
+        kind: kind,
+        timeFrom: timeFrom,
+        timeTo: timeTo,
+        type: type,
+        attachment: attachment,
       );
       notice = res.messageFa;
       source.queued();

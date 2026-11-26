@@ -1581,9 +1581,11 @@ async function api(req, res, url, ip) {
     });
   }
 
-  if (um && m === 'DELETE') {
+  /* ردیف ۱۹۷: لنگر جدا برای DELETE (دروازهٔ openapi-drift فقط ۱۰۰ خط پس از لنگر را می‌خواند) */
+  const umDel = p.match(/^\/api\/admin\/users\/(\d+)$/);
+  if (umDel && m === 'DELETE') {
     if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
-    const id = Number(um[1]);
+    const id = Number(umDel[1]);
     const user = store.get('users', id);
     if (!user) return json({ ok: false, error: 'user_not_found' }, 404);
     if (id === actor.user.id) return json({ ok: false, error: 'cannot_delete_self' }, 400);

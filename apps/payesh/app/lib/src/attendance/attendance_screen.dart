@@ -550,6 +550,7 @@ class _D2StudentRow extends StatelessWidget {
                   'ردیف ${Web.fa(index)}',
                   style: TextStyle(fontSize: 11.5, color: Web.muted),
                 ),
+                if (entry.leave != null) _LeaveTag(entry),
               ],
             ),
           ),
@@ -564,11 +565,14 @@ class _D2StudentRow extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final s in const [
+                for (final s in [
                   AttendanceStatus.present,
                   AttendanceStatus.late,
                   AttendanceStatus.absent,
                   AttendanceStatus.earlyExit,
+                  if (entry.leave != null ||
+                      current == AttendanceStatus.excused)
+                    AttendanceStatus.excused,
                 ])
                   AttendanceButton(
                     key: Key('att-${entry.studentId}-${s.wire}'),
@@ -652,13 +656,23 @@ class _StudentRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(entry.name, style: const TextStyle(fontSize: 14)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(entry.name, style: const TextStyle(fontSize: 14)),
+                if (entry.leave != null) _LeaveTag(entry),
+              ],
+            ),
           ),
           if (entry.recorded == null)
             // native: the day has nothing stored for this student yet (screen readers)
             const SizedBox.shrink(key: Key('att-row-new')),
           const SizedBox(width: 8),
-          for (final (i, s) in _webStates.indexed) ...[
+          for (final (i, s) in [
+            ..._webStates,
+            if (entry.leave != null || current == AttendanceStatus.excused)
+              AttendanceStatus.excused,
+          ].indexed) ...[
             if (i > 0) const SizedBox(width: 4),
             AttendanceButton(
               key: Key('att-${entry.studentId}-${s.wire}'),
@@ -961,5 +975,25 @@ class _AttendanceRouteState extends State<AttendanceRoute> {
     controller: controller,
     sync: widget.sync,
     onRetry: widget.onRetry,
+  );
+}
+
+/// ردیف ۱۹۷: برچسب «مرخصی …» زیر نام دانش‌آموزی که مرخصی تأییدشده دارد.
+class _LeaveTag extends StatelessWidget {
+  const _LeaveTag(this.entry);
+  final RosterEntry entry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 2),
+    child: Text(
+      Web.fa(entry.leave!),
+      key: Key('att-leave-${entry.studentId}'),
+      style: TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w700,
+        color: Web.amber,
+      ),
+    ),
   );
 }

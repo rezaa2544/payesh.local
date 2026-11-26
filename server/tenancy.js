@@ -703,7 +703,9 @@ async function deleteProduct(pool, tenantId, { collection, id, claims = null }) 
     if (claims) {
       const scope = await scopeMod.build(c, claims);
       const cur = await c.query(`select data from ${PRODUCT_TABLE} where collection = $1 and record_id = $2`, [col, Number(id)]);
-      const verdict = scopeMod.canWriteRow(scope, col, cur.rows.length ? cur.rows[0].data : {}, null);
+      /* ردیف ۱۹۷: حذف = همان ردیف موجود به‌عنوان row و existing (مثل مسیر batch) */
+      const curData = cur.rows.length ? cur.rows[0].data : null;
+      const verdict = scopeMod.canWriteRow(scope, col, curData || {}, curData);
       if (!verdict.ok) throw new TenancyError(verdict.error, 403, { collection: col, id: Number(id) });
     }
     return deleteInTx(c, col, Number(id));

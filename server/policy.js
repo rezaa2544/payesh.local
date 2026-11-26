@@ -24,6 +24,49 @@ const GRADE_KINDS = ['monthly', 'midterm', 'final', 'practical', 'theory'];
 /* درخواست مرخصی ولی/دانش‌آموز فقط با این وضعیت‌ها ثبت می‌شود؛ تأیید و رد با مدرسه است (ردیف ۷۴، موج ۵). */
 const LEAVE_REQUEST_STATUSES = ['pending', 'canceled'];
 
+/* ردیف ۱۹۷ (Q02 / F25): شکل کامل مرخصی — همان قواعد packages/payesh_sync/lib/src/leave_spec.dart
+   و client/pages.js `leaveIssue`. روزانه (یک روز یا بازهٔ حداکثر ۳۱ روزه) یا ساعتی (ساعت از–تا)،
+   نوع مرخصی، و پیوست گواهی (فقط data URI عکس JPG/PNG، حداکثر ۶۰٬۰۰۰ نویسه). */
+const LEAVE_TYPES = ['sick', 'family', 'personal', 'travel', 'other'];
+const LEAVE_MAX_DAYS = 31;
+const LEAVE_ATTACH_MAX = 60000;
+function leaveDay(v) {
+  const t = String(v == null ? '' : v);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  const d = new Date(t + 'T00:00:00Z');
+  return isNaN(d) || d.toISOString().slice(0, 10) !== t ? null : d;
+}
+function leaveIssue(row) {
+  if (!row) return null;
+  const from = leaveDay(row.date);
+  if (!from) return 'bad_date';
+  const kind = row.kind == null || row.kind === '' ? 'day' : String(row.kind);
+  if (kind !== 'day' && kind !== 'hours') return 'bad_kind';
+  const to = row.date_to == null ? '' : String(row.date_to);
+  if (kind === 'day' && to) {
+    const t = leaveDay(to);
+    if (!t) return 'bad_date';
+    if (t < from) return 'bad_range';
+    if (Math.round((t - from) / 86400000) + 1 > LEAVE_MAX_DAYS) return 'range_too_long';
+  }
+  if (kind === 'hours') {
+    const hm = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const a = String(row.time_from || ''), b = String(row.time_to || '');
+    if (!hm.test(a) || !hm.test(b) || a >= b) return 'bad_time';
+    if (to && to !== String(row.date)) return 'bad_range';
+  }
+  if (row.type != null && row.type !== '' && !LEAVE_TYPES.includes(String(row.type))) return 'bad_type';
+  if (String(row.reason || '').trim().length > 500) return 'reason_too_long';
+  const att = row.attachment == null ? '' : String(row.attachment);
+  if (att && (att.length > LEAVE_ATTACH_MAX || !/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(att))) return 'bad_attachment';
+  return null;
+}
+/* ولی/دانش‌آموز/دبیر: درخواستِ بررسی‌شده دیگر عوض نمی‌شود (جز «لغو» پیش از بررسی) */
+function leaveRequesterIssue(row, existing) {
+  if (existing && existing.status && !LEAVE_REQUEST_STATUSES.includes(String(existing.status))) return 'leave_decided';
+  return leaveIssue(row);
+}
+
 /* write: نقش‌های مجاز به نوشتن · read: all یا فهرست نقش‌ها */
 const COLLECTIONS = {
   schools:          { write: ['manager'], read: 'all' },
@@ -246,6 +289,11 @@ function rowInScope(scope, collection, row) {
 function canWriteRow(store, user, role, collection, row, existing) {
   role = permRole(role);
   /* ردیف ۱۹۴: ناحیهٔ تیک‌خورده ⇒ همان قواعد مدیر برای همین کالکشن (و فقط همین) */
+  /* ردیف ۱۹۷: درخواست مرخصی ناقص/نادرست از هیچ نقشی پذیرفته نمی‌شود (حذف = row تهی) */
+  if (collection === 'leaves' && row && row.date !== undefined) {
+    const li = leaveIssue(row);
+    if (li) return { ok: false, error: li };
+  }
   if (role !== 'manager' && grantWrites(Object.assign({}, user, { role })).has(collection)) {
     if (collection === 'attendance' && row && row.status != null && !ATT_STATUS.includes(row.status)) return { ok: false, error: 'bad_status' };
     if (collection === 'grades' && row && row.score != null && (Number(row.score) < 0 || Number(row.score) > 20)) return { ok: false, error: 'bad_score' };
@@ -278,7 +326,13 @@ function canWriteRow(store, user, role, collection, row, existing) {
       }
       return { ok: true };
     }
-    if (collection === 'leaves') return { ok: true };
+    if (collection === 'leaves') {
+      /* ردیف ۱۹۷: دبیر فقط درخواست ثبت می‌کند؛ تأیید/رد با مدیر/معاون است */
+      const li = leaveRequesterIssue(row, existing);
+      if (li) return { ok: false, error: li };
+      if (row.status && !LEAVE_REQUEST_STATUSES.includes(row.status)) return { ok: false, error: 'approval_denied' };
+      return { ok: true };
+    }
     if (collection === 'internships') {
       const st = store.get('users', row.student_id);
       if (!st || !belongs(st.class_id)) return { ok: false, error: 'out_of_scope' };
@@ -296,6 +350,8 @@ function canWriteRow(store, user, role, collection, row, existing) {
     const scope = buildScope(store, user);
     if (!scope.studentIds.has(Number(row.student_id))) return { ok: false, error: 'out_of_scope' };
     /* ولی فقط درخواست می‌دهد؛ تأیید با مدرسه است */
+    const li = leaveRequesterIssue(row, existing);
+    if (li) return { ok: false, error: li };
     if (row.status && !LEAVE_REQUEST_STATUSES.includes(row.status)) row.status = 'pending';
     return { ok: true };
   }
@@ -401,7 +457,7 @@ function scrubUserIdentity(data) {
 }
 
 module.exports = {
-  ROLES, USER_ROLES, ROLE_ALIASES, permRole, ATT_STATUS, GRADE_KINDS, LEAVE_REQUEST_STATUSES, COLLECTIONS,
+  ROLES, USER_ROLES, ROLE_ALIASES, permRole, ATT_STATUS, GRADE_KINDS, LEAVE_REQUEST_STATUSES, LEAVE_TYPES, leaveIssue, leaveRequesterIssue, COLLECTIONS,
   GRANTABLE_ROLES, STAFF_ACCESS, staffAccessOf, grantWrites, grantReads, canWriteFor, canReadFor,
   collectionAllowed, canRead, canWrite, buildScope, rowInScope, canWriteRow,
   USER_PUBLIC_FIELDS, USER_IDENTITY_FIELDS, SECRET_FIELD_RE, isSecretField,

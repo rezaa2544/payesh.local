@@ -626,4 +626,110 @@ void main() {
       c.dispose();
     });
   });
+
+  // ردیف ۱۹۷ (Q02 / F25): فرم کامل مرخصی ولی
+  Future<void> pick(WidgetTester tester, String key, String text) async {
+    await tester.ensureVisible(find.byKey(Key(key)));
+    await tester.tap(find.byKey(Key(key)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(text).last);
+    await tester.pumpAndSettle();
+  }
+
+  const tinyJpeg =
+      'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgK';
+
+  testWidgets(
+    'W5-197a مرخصی ساعتی با نوع و پیوست گواهی: همه در صف می‌رود و کارت «ساعت … تا …» نشان می‌دهد',
+    (tester) async {
+      final (_, src) = await boot(tester);
+      LeaveForm.pick = () async => tinyJpeg;
+      addTearDown(() => LeaveForm.pick = null);
+      await openPage(tester, 'home');
+      await tapKey(tester, 'fam-leaves');
+      await tapKey(tester, 'lvs-add');
+      await pick(tester, 'lvf-kind', 'ساعتی (خروج زودهنگام / ورود دیرتر)');
+      // روزانه نیست ⇒ «تا تاریخ» پنهان، ساعت‌ها پیدا
+      expect(find.byKey(const Key('lvf-date-to')), findsNothing);
+      await tester.enterText(find.byKey(const Key('lvf-time-from')), '۹:۳۰');
+      await tester.enterText(find.byKey(const Key('lvf-time-to')), '۱۱:۰۰');
+      await pick(tester, 'lvf-type', 'استعلاجی (بیماری)');
+      await tapKey(tester, 'lvf-attach');
+      expect(find.byKey(const Key('lvf-attach-ok')), findsOneWidget);
+      await tapKey(tester, 'lvf-submit');
+      expect(find.byKey(const Key('lvf-submit')), findsNothing);
+      final op = src.outbox.list().single;
+      expect(op.payload!['kind'], 'hours');
+      expect(op.payload!['time_from'], '09:30');
+      expect(op.payload!['time_to'], '11:00');
+      expect(op.payload!['type'], 'sick');
+      expect(op.payload!['attachment'], tinyJpeg);
+      expect(op.payload!['status'], 'pending');
+      expect(op.payload!['created_at'], isNotNull);
+      expect(op.payload!.containsKey('date_to'), isFalse);
+      final card = tester
+          .widget<Text>(find.byKey(Key('lvs-date-${op.id}')))
+          .textSpan!
+          .toPlainText();
+      expect(card, contains('ساعت ۰۹:۳۰ تا ۱۱:۰۰'));
+      expect(card, contains('استعلاجی'));
+      expect(find.byKey(Key('lvs-att-${op.id}')), findsOneWidget);
+    },
+  );
+
+  testWidgets('W5-197b مرخصی چندروزه: «تا تاریخ» ⇒ date_to و «(۳ روز)»؛ NEG پایان پیش از شروع و ساعت '
+      'وارونه رد می‌شوند و چیزی در صف نمی‌رود', (tester) async {
+    final (_, src) = await boot(tester);
+    await openPage(tester, 'home');
+    await tapKey(tester, 'fam-leaves');
+    await tapKey(tester, 'lvs-add');
+    // NEG ۱: پایان پیش از شروع (۲۰ آبان < ۲۱ آبان)
+    await tester.enterText(find.byKey(const Key('lvf-date-to')), '۱۴۰۵/۰۸/۲۰');
+    await tapKey(tester, 'lvf-submit');
+    expect(
+      textOf(tester, 'lvf-error'),
+      'تاریخ پایان نباید پیش از تاریخ شروع باشد',
+    );
+    expect(src.outbox.list(), isEmpty);
+    // NEG ۲: بیش از ۳۱ روز
+    await tester.enterText(find.byKey(const Key('lvf-date-to')), '۱۴۰۵/۰۹/۳۰');
+    await tapKey(tester, 'lvf-submit');
+    expect(textOf(tester, 'lvf-error'), 'هر درخواست حداکثر ۳۱ روز است');
+    expect(src.outbox.list(), isEmpty);
+    // NEG ۳: ساعت وارونه
+    await pick(tester, 'lvf-kind', 'ساعتی (خروج زودهنگام / ورود دیرتر)');
+    await tester.enterText(find.byKey(const Key('lvf-time-from')), '12:00');
+    await tester.enterText(find.byKey(const Key('lvf-time-to')), '10:00');
+    await tapKey(tester, 'lvf-submit');
+    expect(textOf(tester, 'lvf-error'), startsWith('ساعت شروع و پایان'));
+    expect(src.outbox.list(), isEmpty);
+    // درست: روزانه ۲۱ تا ۲۳ آبان
+    await pick(tester, 'lvf-kind', 'روزانه');
+    await tester.enterText(find.byKey(const Key('lvf-date-to')), '۱۴۰۵/۰۸/۲۳');
+    await pick(tester, 'lvf-type', 'خانوادگی');
+    await tapKey(tester, 'lvf-submit');
+    final op = src.outbox.list().single;
+    expect(op.payload!['date'], '2026-11-12');
+    expect(op.payload!['date_to'], '2026-11-14');
+    expect(op.payload!['type'], 'family');
+    expect(op.payload!.containsKey('kind'), isFalse);
+    final card = tester
+        .widget<Text>(find.byKey(Key('lvs-date-${op.id}')))
+        .textSpan!
+        .toPlainText();
+    expect(card, contains('(۳ روز)'));
+    expect(card, contains('خانوادگی'));
+  });
+
+  testWidgets(
+    'W5-197c دکمهٔ «+ درخواست» در درخت دسترسی (F25) با برچسب خودش دیده می‌شود',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await boot(tester);
+      await openPage(tester, 'home');
+      await tapKey(tester, 'fam-leaves');
+      expect(find.bySemanticsLabel(RegExp(r'\+ درخواست')), findsOneWidget);
+      handle.dispose();
+    },
+  );
 }

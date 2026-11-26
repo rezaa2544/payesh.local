@@ -2940,6 +2940,87 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  await test('ردیف ۱۹۷ (Q02): مرخصی در پنل وب — «مرخصی‌ها» در منوی مدیر، کارت داشبورد، فرم بازه/ساعتی با NEG ساعت وارونه و بازهٔ وارونه، «همین حالا تأیید»، دکمهٔ گواهی، و در حضور و غیاب برچسب مرخصی با پیش‌فرض «موجه» (ساعتی ⇒ حاضر)', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, PAGES, navConfig, managerHome, actLeaveAdd, handleSubmit, todayISO, setApi: (fn) => { api = fn; }, quiet: () => { render = () => {}; pullAll = async () => {}; flushQueue = async () => {}; syncNow = () => {}; } };');
+    const T = win.__t;
+    T.quiet();
+    T.setApi(async () => ({ ok: true }));
+    const day = T.todayISO();
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.route = 'leaves'; T.S.session = 'x'; T.S.online = false;
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    T.S.data = {
+      users: new Map([
+        [21, { id: 21, name: 'بهار', role: 'student', class_id: 5 }],
+        [22, { id: 22, name: 'آرش', role: 'student', class_id: 5 }],
+        [23, { id: 23, name: 'سارا', role: 'student', class_id: 5 }],
+      ]),
+      classes: new Map([[5, { id: 5, name: 'دهم الف' }]]),
+      leaves: new Map([
+        [701, { id: 701, student_id: 21, date: day, type: 'sick', status: 'approved', attachment: png }],
+        [702, { id: 702, student_id: 22, date: day, kind: 'hours', time_from: '10:00', time_to: '11:30', status: 'approved' }],
+        [703, { id: 703, student_id: 23, date: day, status: 'pending' }],
+        [704, { id: 704, student_id: 23, date: day, status: 'pending' }],
+      ]),
+      attendance: new Map(), schedule: new Map(), parent_links: new Map(), subjects: new Map(), lookups: new Map(),
+    };
+    T.S.queue = [];
+    /* ۱) منو و داشبورد */
+    const nav = JSON.stringify(T.navConfig('manager'));
+    assert.ok(nav.includes('leaves'), 'مرخصی‌ها در منوی مدیر: ' + nav.slice(0, 200));
+    const home = win.document.createElement('div'); home.innerHTML = T.managerHome();
+    const dash = home.querySelector('#dash-leaves');
+    assert.ok(dash && dash.textContent.includes('۲'), 'کارت «۲ درخواست در انتظار»: ' + (dash && dash.textContent));
+    /* ۲) صفحهٔ مرخصی‌ها: دکمهٔ گواهی فقط برای درخواست پیوست‌دار */
+    const lv = win.document.createElement('div'); lv.innerHTML = T.PAGES.leaves();
+    assert.ok(lv.querySelector('[data-act="leave-att"][data-id="701"]'), 'دکمهٔ «دیدن گواهی»');
+    assert.ok(!lv.querySelector('[data-act="leave-att"][data-id="703"]'), 'NEG: بی‌پیوست دکمه ندارد');
+    /* ۳) حضور و غیاب */
+    const at = win.document.createElement('div'); at.innerHTML = T.PAGES.attendance(['5']);
+    const rowOf = (sid) => at.querySelector(`.att-row[data-sid="${sid}"]`);
+    assert.strictEqual(rowOf(21).querySelector('.att-leave').textContent, 'مرخصی (استعلاجی)');
+    assert.ok(rowOf(21).querySelector('[data-s="excused"]').className.includes('on-'), 'تمام‌روز ⇒ موجه');
+    assert.ok(!rowOf(21).querySelector('[data-s="present"]').className.includes('on-'), 'تمام‌روز ⇒ حاضر نیست');
+    assert.strictEqual(rowOf(22).querySelector('.att-leave').textContent, 'مرخصی ساعتی ۱۰:۰۰ تا ۱۱:۳۰');
+    assert.ok(rowOf(22).querySelector('[data-s="present"]').className.includes('on-'), 'ساعتی ⇒ حاضر');
+    assert.ok(!rowOf(23).querySelector('.att-leave') && !rowOf(23).querySelector('[data-s="excused"]'), 'NEG: درخواست در انتظار اثری ندارد');
+    /* ۴) فرم مدیر */
+    const fill = (vals) => {
+      T.actLeaveAdd();
+      const el = win.document.querySelector('#modal-root form[data-form="leave"]');
+      assert.ok(el, 'فرم مرخصی باز شد');
+      for (const [k, v] of Object.entries(vals)) {
+        const x = el.elements.namedItem(k);
+        if (x && x.type === 'checkbox') x.checked = v; else if (x) x.value = v;
+      }
+      return el;
+    };
+    const lastToast = () => { const ts = win.document.querySelectorAll('#toasts > *'); return ts.length ? ts[ts.length - 1].textContent : ''; };
+    const before = T.S.data.leaves.size;
+    await T.handleSubmit(fill({ student_id: '22', kind: 'hours', time_from: '12:00', time_to: '10:00' }));
+    assert.strictEqual(T.S.data.leaves.size, before, 'NEG: ساعت وارونه ذخیره نشد');
+    assert.ok(/ساعت/.test(lastToast()), 'پیام ساعت: ' + lastToast());
+    await T.handleSubmit(fill({ student_id: '22', kind: 'day', date: '2026-11-20', date_to: '2026-11-18' }));
+    assert.strictEqual(T.S.data.leaves.size, before, 'NEG: بازهٔ وارونه ذخیره نشد');
+    await T.handleSubmit(fill({ student_id: '22', kind: 'day', date: '2026-11-20', date_to: '2026-11-22', type: 'family', reason: 'سفر خانوادگی' }));
+    assert.strictEqual(T.S.data.leaves.size, before + 1, 'مرخصی سه‌روزه ثبت شد');
+    const made = [...T.S.data.leaves.values()].pop();
+    assert.strictEqual(made.status, 'approved'); assert.strictEqual(made.decided_by, 1);
+    assert.strictEqual(made.date_to, '2026-11-22'); assert.strictEqual(made.type, 'family');
+    await T.handleSubmit(fill({ student_id: '23', kind: 'hours', date: '2026-11-24', time_from: '09:00', time_to: '10:30', approve: false }));
+    const h = [...T.S.data.leaves.values()].pop();
+    assert.strictEqual(h.status, 'pending'); assert.strictEqual(h.kind, 'hours');
+    assert.strictEqual(h.time_from, '09:00'); assert.strictEqual(h.date_to, undefined);
+    await new Promise(r => setTimeout(r, 300));
+    dom.window.close();
+  });
+
   /* — پروندهٔ دانش‌آموز: فیلدهای آمده از اکسل دیده می‌شوند ───────── */
   await test('پروندهٔ دانش‌آموز همهٔ مشخصات واردشده را نشان می‌دهد', async () => {
     const { JSDOM } = require('jsdom');
@@ -4686,6 +4767,58 @@ async function waitFor(fn, ms = 15000) {
     ] } });
     assert.strictEqual(ok.data.applied.length, 1, JSON.stringify(ok.data).slice(0, 300));
     assert.strictEqual((await row(staffId)).role, 'staff');
+  });
+
+  await test('ردیف ۱۹۷ (Q02): مرخصی کامل — بازه/ساعتی/نوع/گواهی از ولی پذیرفته می‌شود؛ NEG بازهٔ وارونه، ساعت وارونه، پیوست غیرتصویری، تأیید به‌دست دبیر و ویرایش درخواستِ بررسی‌شده رد می‌شود؛ حذف هیچ‌وقت به‌خاطر شکل ردیف قدیمی رد نمی‌شود (۱۲ بررسی)', async () => {
+    const pair = async (uid) => (await req('/api/auth/pair', { method: 'POST', body: { code: (await req('/api/admin/pair-code', { method: 'POST', token: managerToken, body: { user_id: uid } })).data.code } })).data.session.token;
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync(path.join(TMP, 'payesh.sqlite'));
+    const links = db.prepare("SELECT data FROM records WHERE collection='parent_links'").all().map(r => JSON.parse(r.data));
+    db.close();
+    const link = links.find(l => Number(l.parent_id) > 0 && Number(l.student_id) > 0);
+    assert.ok(link, 'یک ولیِ پیونددار برای آزمون هست');
+    const kid = Number(link.student_id);
+    const parentTok = await pair(Number(link.parent_id)), teacherTok = await pair(2);
+    const sync = (tok, ops) => req('/api/sync', { method: 'POST', token: tok, body: { ops } });
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    const base = { student_id: kid, reason: 'آزمون ۱۹۷', status: 'pending' };
+    /* NEG ۱–۴ */
+    const bad = await sync(parentTok, [
+      { uid: 'lv197-b1', collection: 'leaves', type: 'put', data: Object.assign({}, base, { date: '2026-11-20', date_to: '2026-11-18' }) },
+      { uid: 'lv197-b2', collection: 'leaves', type: 'put', data: Object.assign({}, base, { date: '2026-11-20', kind: 'hours', time_from: '12:00', time_to: '10:00' }) },
+      { uid: 'lv197-b3', collection: 'leaves', type: 'put', data: Object.assign({}, base, { date: '2026-11-20', attachment: 'data:text/html;base64,PHNjcmlwdD4=' }) },
+      { uid: 'lv197-b4', collection: 'leaves', type: 'put', data: Object.assign({}, base, { date: '2026-11-01', date_to: '2026-12-15' }) },
+    ]);
+    assert.strictEqual(bad.data.applied.length, 0, JSON.stringify(bad.data).slice(0, 300));
+    assert.deepStrictEqual(bad.data.rejected.map(r => r.error), ['bad_range', 'bad_time', 'bad_attachment', 'range_too_long']);
+    /* ۵) درست: سه‌روزه، استعلاجی، با گواهی؛ «approved» از ولی بی‌صدا «در انتظار» می‌شود */
+    const ok = await sync(parentTok, [
+      { uid: 'lv197-ok', collection: 'leaves', type: 'put', data: Object.assign({}, base, { date: '2026-11-21', date_to: '2026-11-23', type: 'sick', attachment: png, status: 'approved' }) },
+      { uid: 'lv197-h', collection: 'leaves', type: 'put', data: Object.assign({}, base, { date: '2026-11-24', kind: 'hours', time_from: '10:00', time_to: '11:30', type: 'personal' }) },
+    ]);
+    assert.strictEqual(ok.data.applied.length, 2, JSON.stringify(ok.data).slice(0, 300));
+    const lid = ok.data.applied[0].id;
+    const leaveRow = async () => (await req('/api/v1/pull?collections=leaves', { token: managerToken })).data.collections.leaves.find(l => Number(l.id) === Number(lid));
+    let l = await leaveRow();
+    assert.strictEqual(l.status, 'pending', 'ولی نمی‌تواند خودش تأیید کند');
+    assert.strictEqual(l.date_to, '2026-11-23'); assert.strictEqual(l.type, 'sick'); assert.strictEqual(l.attachment, png);
+    /* ۶) NEG: دبیر تأیید نمی‌کند */
+    const t1 = await sync(teacherTok, [{ uid: 'lv197-t', collection: 'leaves', type: 'put', id: lid, base_version: l._version, data: Object.assign({}, l, { status: 'approved' }) }]);
+    assert.strictEqual(t1.data.applied.length, 0); assert.strictEqual(t1.data.rejected[0].error, 'approval_denied');
+    /* ۷) مدیر تأیید می‌کند */
+    const m1 = await sync(managerToken, [{ uid: 'lv197-m', collection: 'leaves', type: 'put', id: lid, base_version: l._version, data: Object.assign({}, l, { status: 'approved', decided_by: 1 }) }]);
+    assert.strictEqual(m1.data.applied.length, 1, JSON.stringify(m1.data).slice(0, 300));
+    l = await leaveRow();
+    assert.strictEqual(l.status, 'approved');
+    /* ۸) NEG: ولی درخواستِ بررسی‌شده را عوض نمی‌کند */
+    const p2 = await sync(parentTok, [{ uid: 'lv197-p2', collection: 'leaves', type: 'put', id: lid, base_version: l._version, data: Object.assign({}, l, { date_to: '2026-11-30', status: 'pending' }) }]);
+    assert.strictEqual(p2.data.applied.length, 0); assert.strictEqual(p2.data.rejected[0].error, 'leave_decided');
+    /* ۹) قاعدهٔ Gateway (scope.js) همان کدها را می‌دهد و حذفِ ردیف قدیمی رد نمی‌شود */
+    const sc = require('../server/scope');
+    assert.strictEqual(sc.canWriteRow({ role: 'manager', all: true }, 'leaves', { date: '1405/08/20' }, null).error, 'bad_date');
+    const legacy = { student_id: kid, date: '1405/08/20' };
+    assert.strictEqual(sc.canWriteRow({ role: 'manager', all: true }, 'leaves', legacy, legacy).ok, true, 'حذف ردیف قدیمی');
+    assert.strictEqual(sc.canWriteRow({ role: 'teacher', uid: 2, all: false, classIds: [], studentIds: [kid], cohorts: [], grantRead: [], grantWrite: [] }, 'leaves', Object.assign({}, base, { date: '2026-11-21', status: 'approved' }), null).error, 'approval_denied');
   });
 
   await test('آینهٔ داده روی دیسک، پشتیبان روزانه و بازیابی در دیتابیس', async () => {

@@ -575,4 +575,47 @@ void main() {
       c.dispose();
     });
   });
+
+  testWidgets('W2-197 ردیف ۱۹۷: مرخصی تأییدشده در فهرست حضور — تمام‌روز ⇒ «موجه» و برچسب، ساعتی ⇒ حاضر با '
+      'برچسب؛ NEG مرخصی «در انتظار» اثری ندارد', (tester) async {
+    final (_, src) = await boot(tester);
+    await tester.runAsync(() async {
+      await src.engine.put('leaves', 701, {
+        'student_id': 21,
+        'date': '2026-11-11',
+        'date_to': '2026-11-13',
+        'type': 'sick',
+        'status': 'approved',
+      }, version: 1);
+      await src.engine.put('leaves', 702, {
+        'student_id': 22,
+        'date': day,
+        'kind': 'hours',
+        'time_from': '10:00',
+        'time_to': '11:00',
+        'status': 'approved',
+      }, version: 1);
+      await src.engine.put('leaves', 703, {
+        'student_id': 23,
+        'date': day,
+        'status': 'pending',
+      }, version: 1);
+    });
+    await openClass5(tester);
+    expect(textOf(tester, 'att-leave-21'), 'مرخصی (استعلاجی)');
+    expect(chipOn(tester, 21, 'excused'), isTrue);
+    expect(chipOn(tester, 21, 'present'), isFalse);
+    expect(textOf(tester, 'att-leave-22'), 'مرخصی ساعتی ۱۰:۰۰ تا ۱۱:۰۰');
+    expect(chipOn(tester, 22, 'present'), isTrue);
+    // NEG: درخواست بررسی‌نشده حضور را تغییر نمی‌دهد
+    expect(find.byKey(const Key('att-leave-23')), findsNothing);
+    expect(find.byKey(const Key('att-23-excused')), findsNothing);
+    expect(chipOn(tester, 23, 'present'), isTrue);
+    await tapKey(tester, 'att-save');
+    final ops = src.outbox.list();
+    final of21 = ops.firstWhere((o) => o.payload!['student_id'] == 21);
+    expect(of21.payload!['status'], 'excused');
+    final of22 = ops.firstWhere((o) => o.payload!['student_id'] == 22);
+    expect(of22.payload!['status'], 'present');
+  });
 }

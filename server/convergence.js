@@ -43,7 +43,7 @@ const RULES = {
   },
   /* مرخصی: وضعیت تک‌مقداری است — هیچ ادغام فیلدی */
   leaves: {
-    unit: 'row', merge: 'none', auto: [], manual: ['status', 'from_date', 'to_date', 'reason', 'student_id'],
+    unit: 'row', merge: 'none', auto: [], manual: ['status', 'from_date', 'to_date', 'date', 'date_to', 'kind', 'time_from', 'time_to', 'type', 'attachment', 'reason', 'student_id'],
   },
   /* کاربران: نام/تلفن/نشانی ادغام؛ نقش و شناسه و رمز هرگز */
   users: {
