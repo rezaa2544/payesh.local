@@ -127,7 +127,7 @@ async function adoptHosted(store, sid, { schools, auth, instance, now = Date.now
     }
   } catch (e) { return { ok: false, error: 'registry_unreachable' }; }
   schools.adoptSchool(store, sch, { instance });
-  await schools.writeAck(store, { instance, now }).catch(() => {});
+  await schools.writeAck(store, { instance, now, force: true }).catch(() => {});
   return { ok: true, adopted: true };
 }
 

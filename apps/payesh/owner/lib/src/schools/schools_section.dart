@@ -299,7 +299,8 @@ class _SchoolsRegistrySectionState extends State<SchoolsRegistrySection>
     final at = DateTime.tryParse('${a['at']}');
     final fresh =
         at != null &&
-        DateTime.now().difference(at) < const Duration(minutes: 5);
+        // ردیف ۱۹۸: سرور مدرسه رسیدِ بی‌تغییر را فقط هر ۱۰ دقیقه تازه می‌کند (کاهش نوشتن در صندوقچه)
+        DateTime.now().difference(at) < const Duration(minutes: 25);
     final users = a['users'] is Map ? (a['users']! as Map)['total'] : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

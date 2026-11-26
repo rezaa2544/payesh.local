@@ -37,20 +37,50 @@ const MAX_DEVICE_ITEMS = 200;
 /* نقش‌هایی که اجازه دارند «سرور» شوند و صندوقچه را اعمال کنند */
 const SERVER_ROLES = new Set(['manager', 'vice', 'teacher', 'staff']);
 
-/* نوشتن فقط اگر محتوا عوض شده باشد — «هر ثانیه نوشتن» نباید پهنای‌باند بسوزاند */
+/* نوشتن فقط اگر محتوا عوض شده باشد — «هر ثانیه نوشتن» نباید پهنای‌باند بسوزاند.
+   ردیف ۱۹۸: صندوقچه نسخه‌بندی دارد ⇒ هر نوشتنِ بی‌تغییر یک نسخهٔ تازه (حجم + درخواست) است.
+   اثر انگشت‌ها در meta همین سرور ماندگار می‌شوند تا پس از هر راه‌اندازی دوباره (به‌روزرسانی،
+   خاموش/روشن) همهٔ auth/ و data/person/ از نو نوشته نشوند (۹۵هزار نسخهٔ بیهوده). */
 const PUT_HASH = new Map();
+const PUT_HASH_META = 'outbox:put_hash:v1';
+let hashStore = null;
+let hashDirty = null;
+const shortHash = (t) => crypto.createHash('sha1').update(String(t)).digest('hex').slice(0, 20);
+function bindHashStore(store) {
+  if (!store || hashStore === store) return;
+  hashStore = store;
+  try {
+    const raw = store.getMeta(PUT_HASH_META, null);
+    const m = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null;
+    if (m && typeof m === 'object') for (const [k, v] of Object.entries(m)) if (typeof v === 'string' && !PUT_HASH.has(k)) PUT_HASH.set(k, v);
+  } catch (e) { /* از نو */ }
+}
+function saveHashes() {
+  if (!hashStore || hashDirty) return;
+  hashDirty = setTimeout(() => {
+    hashDirty = null;
+    try { hashStore.setMeta(PUT_HASH_META, JSON.stringify(Object.fromEntries(PUT_HASH))); } catch (e) { /* دفعهٔ بعد */ }
+  }, 2_000);
+  hashDirty.unref?.();
+}
+function flushHashes() {
+  if (hashDirty) { clearTimeout(hashDirty); hashDirty = null; }
+  if (hashStore) { try { hashStore.setMeta(PUT_HASH_META, JSON.stringify(Object.fromEntries(PUT_HASH))); } catch (e) { /* noop */ } }
+}
 async function putIfChanged(cfg, key, text, stable) {
   /* کلید کش باید «صندوقچه + مسیر» باشد؛ وگرنه با عوض شدن صندوقچه،
      فایل به صندوقچهٔ تازه نوشته نمی‌شود. */
-  const id = String(cfg.endpoint || '') + '|' + String(cfg.bucket || '') + '|' + key;
-  const h = crypto.createHash('sha1').update(String(stable == null ? text : stable)).digest('hex');
+  const id = shortHash(String(cfg.endpoint || '') + '|' + String(cfg.bucket || '') + '|' + key);
+  const h = shortHash(stable == null ? text : stable);
   if (PUT_HASH.get(id) === h) return false;
   await s3mem.put(cfg, key, text);
   PUT_HASH.set(id, h);
+  saveHashes();
   return true;
 }
-function forgetPutHashes(prefix) {
-  for (const k of [...PUT_HASH.keys()]) if (!prefix || k.includes(prefix)) PUT_HASH.delete(k);
+function forgetPutHashes() {
+  PUT_HASH.clear();
+  flushHashes();
 }
 
 function keyOf(cfg, rel) {
@@ -459,6 +489,7 @@ function summary(store, student) {
 }
 
 async function pushSnapshot(store, { students } = {}) {
+  bindHashStore(store);
   const cfg = await cloud(store);
   if (!cfg) return { ok: false, error: 'no_cloud', count: 0 };
   let list = students;
@@ -469,7 +500,11 @@ async function pushSnapshot(store, { students } = {}) {
   for (const st of list) {
     if (!st || st.id == null || st.role !== 'student') continue;
     try {
-      if (await putIfChanged(cfg, keyOf(cfg, STATE + st.id + '.json'), JSON.stringify(summary(store, st)))) count++;
+      /* ردیف ۱۹۸: «at» هر بار تازه است ⇒ مقایسه بدون آن (وگرنه هر ۳ دقیقه همهٔ دانش‌آموزان دوباره نوشته می‌شدند:
+         ۵۸۷هزار نسخه در صندوقچهٔ واقعی) */
+      const sum = summary(store, st);
+      const stable = JSON.stringify(Object.assign({}, sum, { at: null }));
+      if (await putIfChanged(cfg, keyOf(cfg, STATE + st.id + '.json'), JSON.stringify(sum), stable)) count++;
     } catch (e) {
       writeMeta(store, { last_error: 'snapshot: ' + String(e.message || e).slice(0, 120) });
       break;
@@ -545,6 +580,7 @@ function start(store, { everyMs = 3 * 60_000 } = {}) {
 function stop() {
   if (timer) clearInterval(timer);
   timer = null;
+  flushHashes();
 }
 
 
@@ -599,6 +635,7 @@ function directory(store) {
 }
 
 async function publishAuth(store) {
+  bindHashStore(store);
   const cfg = await cloud(store);
   if (!cfg) return { ok: false, error: 'no_cloud', count: 0 };
   let count = 0;
@@ -659,6 +696,7 @@ function corePayload(store) {
 }
 
 async function publishData(store) {
+  bindHashStore(store);
   const cfg = await cloud(store);
   if (!cfg) return { ok: false, error: 'no_cloud', count: 0 };
   const core = corePayload(store);
@@ -695,7 +733,7 @@ async function publishAll(store) {
 module.exports = {
   submit, verifyEnvelope, buildEnvelope, acceptEnvelope, serverTenant, signKey, ignoredClaims,
   corePayload, directory,
-  publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop, putIfChanged, forgetPutHashes,
+  publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop, putIfChanged, forgetPutHashes, flushHashes,
   publishAuth, publishData, publishAll, personData, meRow, CORE_COLLECTIONS, PERSON_COLLECTIONS,
   SERVER_ROLES, summary, PENDING, DONE, STATE, loginKey,
 };

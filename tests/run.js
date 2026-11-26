@@ -5797,6 +5797,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۸: مصرف بی‌دلیل صندوقچهٔ آروان (نوشتن‌های بی‌تغییر در صندوقچهٔ نسخه‌بندی‌شده) ── */
+  await test('ردیف ۱۹۸: خلاصهٔ دانش‌آموز و auth/data فقط با تغییر واقعی (ماندگار پس از راه‌اندازی دوباره)، رسید مدرسه بی‌تغییر هر ۱۰ دقیقه، پشتیبان مالک بی‌updates و روزی یک بار روی دیتابیس (۵ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/storage-198.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'storage-198: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|^ {5}|STORAGE-198/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۲: صفحهٔ «اشتراک» — همهٔ پرداخت‌ها و همهٔ اشتراک‌های کاربر ── */
   await test('ردیف ۱۹۲: /api/sub/history همهٔ پرداخت‌ها (در انتظار/تأیید/رد با دلیل/لغو) و همهٔ اشتراک‌ها (آزمایشی، خرید، تمدید از پایان قبلی، هدیه) را فقط برای خود کاربر می‌دهد؛ بازنشانی تاریخچه را پاک نمی‌کند؛ مالک دفتر را در ack می‌گیرد (۱۱ بررسی)',
     async () => {

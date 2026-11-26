@@ -40,6 +40,14 @@ const String backupManifestName = 'payesh-backup.json';
 /// بزرگ‌تر از این، خوانده نمی‌شود (گزارش می‌شود).
 const int backupMaxObjectBytes = 256 << 20;
 
+/// ردیف ۱۹۸: پرونده‌های گذرا یا دوباره‌ساختنی در پشتیبان نمی‌آیند — به‌ویژه `updates/`
+/// (فایل‌های نصبی پنل مالک، ۱۲۹ مگابایت) که فایل پشتیبان را از ~۴ به ~۱۳۳ مگابایت می‌رساند.
+/// بازیابی هم به این پرونده‌ها دست نمی‌زند (در فایل نیستند).
+final RegExp _backupSkip = RegExp(
+  r'^(?:[^/]+/)?(?:h/[^/]+/)?(?:updates|helpers|jobs|realtime)/',
+);
+bool backupSkipsKey(String key) => _backupSkip.hasMatch(key);
+
 String sha256Hex(List<int> b) => sha256.convert(b).toString();
 
 /// یک فایل در فهرست؛ [etag] اثر محتوای S3 برای تشخیص تغییرِ هم‌اندازه در همان ثانیه.

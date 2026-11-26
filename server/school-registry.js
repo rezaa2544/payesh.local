@@ -83,6 +83,8 @@ const ID_RE = /^[0-9]{13}-[0-9a-f]{16}$/;
 const DEV_RE = /^[0-9a-f]{64}$/;
 const PAY_RE = /^SUB-[0-9A-F]{8}$/;
 const INTERVAL_MS = 60_000;
+/* ردیف ۱۹۸: رسیدِ بی‌تغییر فقط هر ۱۰ دقیقه (پنل مالک «سرور وصل» را تا ۲۵ دقیقه نشان می‌دهد) */
+const ACK_REFRESH_MS = 10 * 60_000;
 
 class RegistryError extends Error {
   constructor(code) { super(code); this.code = code; }
@@ -139,7 +141,7 @@ const writeEnv = (cfg, key, kind, rev, plain) =>
   s3mem.put(cfg, key, JSON.stringify(seal(cfg.secret, kind, rev, JSON.stringify(plain))));
 
 /* ── تنظیمات و فهرست ──────────────────────────────────────────────── */
-const META = { registry: 'schools:registry', bound: 'schools:bound', subs: 'sub:state', applied: 'sub:applied', mine: 'schools:my_requests', trials: 'sub:trials' };
+const META = { ackLast: 'schools:ack_last', registry: 'schools:registry', bound: 'schools:bound', subs: 'sub:state', applied: 'sub:applied', mine: 'schools:my_requests', trials: 'sub:trials' };
 
 function cloud(store) {
   const c = s3mem.usingMeta(store).get();
@@ -776,7 +778,7 @@ async function adoptOnLogin(store, login, password, { needsSetup, instance, now 
     }
   } catch (e) { /* صندوقچه در دسترس نیست: نمی‌توانیم مطمئن شویم */ return { ok: false, error: 'registry_unreachable' }; }
   const manager = adoptSchool(store, sch, { instance });
-  await writeAck(store, { instance, now }).catch(() => {});
+  await writeAck(store, { instance, now, force: true }).catch(() => {});
   return { ok: true, manager };
 }
 
@@ -826,7 +828,7 @@ async function linkOnLogin(store, login, password, { instance, now = Date.now() 
   if (s1) store.update('schools', 1, { owner_school_id: sch.id });
   store.setMeta(META.bound, { school_id: sch.id, at: nowISO(), manager_rev: m.rev || 1, username, instance: instance || null, owner_profile: ownerProfileOf(sch), linked: true });
   store.audit({ user_id: local.id, role: 'manager', action: 'school_link', collection: 'schools', record_id: 1, after: { owner_school_id: sch.id } });
-  await writeAck(store, { instance, now }).catch(() => {});
+  await writeAck(store, { instance, now, force: true }).catch(() => {});
   return { ok: true, manager: store.get('users', local.id) };
 }
 
@@ -884,7 +886,7 @@ function applySchool(store, sch) {
   return changed;
 }
 
-async function writeAck(store, { instance, publicUrl, version, now = Date.now() } = {}) {
+async function writeAck(store, { instance, publicUrl, version, now = Date.now(), force = false } = {}) {
   const cfg = cloud(store);
   const b = boundOf(store);
   if (!cfg || !b) return false;
@@ -902,11 +904,20 @@ async function writeAck(store, { instance, publicUrl, version, now = Date.now() 
     const log = Array.isArray(rec.log) ? rec.log.slice(-20) : [];
     subs.push({ uid: Number(uid), name: u ? u.name || '' : '', role: rec.role || (u && u.role) || '', status: st, plan: rec.plan || null, start: rec.start || null, end: ay.iso(endMs), log });
   }
-  await writeEnv(cfg, cfg.prefix + DIR.ack + b.school_id + '.json', K.ack, now, {
+  const body = {
     v: 1, school_id: b.school_id, instance: instance || b.instance || null, at: new Date(now).toISOString(),
     public_url: publicUrl || null, version: version || null,
     users: { total: users.length, by_role: byRole }, subs: subs.slice(0, 2000),
-  });
+  };
+  /* ردیف ۱۹۸: رسید هر ۶۰ ثانیه بی‌شرط نوشته می‌شد (صندوقچهٔ نسخه‌بندی‌شده ⇒ ۲۱هزار نسخه).
+     حالا فقط وقتی محتوا عوض شده یا «زنده بودن» باید تازه شود (هر ACK_REFRESH_MS). */
+  const key = cfg.prefix + DIR.ack + b.school_id + '.json';
+  const h = crypto.createHash('sha1').update(String(cfg.bucket || '') + '|' + key + '|' + JSON.stringify(Object.assign({}, body, { at: null }))).digest('hex');
+  let last = null;
+  try { last = store.getMeta(META.ackLast, null); if (typeof last === 'string') last = JSON.parse(last); } catch (e) { last = null; }
+  if (!force && last && last.h === h && Number.isFinite(last.at) && now - last.at >= 0 && now - last.at < ACK_REFRESH_MS) return false;
+  await writeEnv(cfg, key, K.ack, now, body);
+  try { store.setMeta(META.ackLast, { h, at: now }); } catch (e) { /* noop */ }
   return true;
 }
 

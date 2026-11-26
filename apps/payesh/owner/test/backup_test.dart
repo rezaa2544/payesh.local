@@ -161,7 +161,7 @@ void main() {
       bucket
         ..putText('payesh/schools/registry.json', '{"v":1}')
         ..putText('payesh/data/core.json', '{"a":1}')
-        ..putText('payesh/updates/owner.zip', 'ZIP');
+        ..putText('payesh/data/person/7.json', 'ZIP');
       r = await eng.run();
       expect((r.ok, r.created, r.count, r.fetched), (true, true, 3, 3));
       expect(diskFiles(), [backupFileName], reason: 'فقط یک فایل');
@@ -170,7 +170,7 @@ void main() {
       ], reason: 'روی دیتابیس هم فقط یک فایل');
       var a = diskArchive()!;
       expect(a.snapshot.bucket, 'payesh-madrese');
-      expect(utf8.decode(a.content('payesh/updates/owner.zip')!), 'ZIP');
+      expect(utf8.decode(a.content('payesh/data/person/7.json')!), 'ZIP');
       expect(dbArchive()!.snapshot.fingerprint, a.snapshot.fingerprint);
       expect(eng.lastError, isNull);
 
@@ -189,9 +189,10 @@ void main() {
       expect(diskFile().lastModifiedSync(), stamp);
 
       // یک تغییر + یک حذف ⇒ فقط همان یکی دانلود؛ همان یک فایل به‌روز می‌شود
-      clock = clock.add(const Duration(minutes: 15));
+      // ردیف ۱۹۸: نسخهٔ دیتابیس روزی یک بار ⇒ برای دیدن آن، یک روز جلو
+      clock = clock.add(OwnerBackupEngine.dbEvery);
       bucket.putText('payesh/schools/registry.json', '{"v":2}');
-      bucket.objects.remove('payesh/updates/owner.zip');
+      bucket.objects.remove('payesh/data/person/7.json');
       r = await eng.run();
       expect((r.created, r.fetched, r.count), (true, 1, 2));
       expect(diskFiles(), [backupFileName]);
@@ -199,7 +200,7 @@ void main() {
       expect(a.snapshot.count, 2);
       expect(
         a.snapshot.objects.keys,
-        isNot(contains('payesh/updates/owner.zip')),
+        isNot(contains('payesh/data/person/7.json')),
       );
       expect(
         utf8.decode(a.content('payesh/schools/registry.json')!),
@@ -210,6 +211,7 @@ void main() {
       expect(bucket.keysUnder(bucketBackupRoot), hasLength(1));
 
       // تغییرِ هم‌اندازه در همان ثانیه ⇒ با ETag دیده می‌شود
+      clock = clock.add(OwnerBackupEngine.dbEvery);
       bucket.putText('payesh/data/core.json', '{"a":9}', at: clock);
       r = await eng.run();
       expect((r.created, r.fetched), (true, 1));
@@ -255,6 +257,88 @@ void main() {
       expect([for (final f in eng.files) f.target], ['disk', 'db']);
       expect(eng.files.first.count, 2);
       expect(eng.files.first.size, diskFile().lengthSync());
+    });
+
+    test('ردیف ۱۹۸: updates/ و پرونده‌های گذرا در پشتیبان نیستند؛ دیتابیس روزی یک بار؛ بی‌دانلود دوباره', () async {
+      expect(backupSkipsKey('payesh/updates/owner/abc.gz'), isTrue);
+      expect(backupSkipsKey('payesh/helpers/6a69.json'), isTrue);
+      expect(backupSkipsKey('payesh/jobs/req/1.json'), isTrue);
+      expect(backupSkipsKey('payesh/realtime/x.json'), isTrue);
+      expect(backupSkipsKey('payesh/h/s-177dd0b62048/realtime/x.json'), isTrue);
+      expect(backupSkipsKey('payesh/h/s-177dd0b62048/data/core.json'), isFalse);
+      expect(backupSkipsKey('payesh/data/person/updates/1.json'), isFalse);
+      expect(backupSkipsKey('payesh/schools/registry.json'), isFalse);
+      bucket
+        ..putText('payesh/schools/registry.json', 'R')
+        ..putText('payesh/data/core.json', 'C')
+        ..putText('payesh/updates/owner/big.gz', 'BIN' * 1000)
+        ..putText('payesh/helpers/6a69.json', 'H');
+      var r = await eng.run();
+      expect((r.ok, r.created, r.count), (true, true, 2));
+      expect(dbArchive()!.snapshot.objects.keys.toSet(), {
+        'payesh/schools/registry.json',
+        'payesh/data/core.json',
+      });
+      int puts() => bucket.log
+          .where(
+            (l) =>
+                l.startsWith('PUT /$bucketBackupRoot') ||
+                l.startsWith('POST /$bucketBackupRoot'),
+          )
+          .length;
+      int zipGets() => bucket.log
+          .where((l) => l.startsWith('GET /${BucketBackupTarget.key}'))
+          .length;
+      final p0 = puts();
+      final g0 = zipGets();
+      // «بازخوانی» پس از نوشتن: فایل ۱۰۰ مگابایتی دوباره دانلود نمی‌شود
+      await eng.refresh();
+      expect(zipGets(), g0);
+      expect([for (final f in eng.files) f.target], ['disk', 'db']);
+
+      // ۹۶ دور (یک روز، هر ۱۵ دقیقه یک تغییر) ⇒ دیسک هر بار، دیتابیس صفر بار
+      for (var i = 0; i < 95; i++) {
+        clock = clock.add(OwnerBackupEngine.every);
+        bucket.putText('payesh/data/core.json', 'C$i');
+        r = await eng.run();
+        expect(r.created, isTrue);
+      }
+      expect(puts(), p0, reason: 'کمتر از یک روز ⇒ هیچ نوشتنی روی دیتابیس');
+      expect(
+        utf8.decode(diskArchive()!.content('payesh/data/core.json')!),
+        'C94',
+      );
+      clock = clock.add(OwnerBackupEngine.every);
+      r = await eng.run();
+      expect(puts(), greaterThan(p0), reason: 'پس از یک روز ⇒ یک نوشتن');
+      expect(
+        dbArchive()!.snapshot.fingerprint,
+        diskArchive()!.snapshot.fingerprint,
+      );
+      // «پشتیبان‌گیری اکنون» همیشه دیتابیس را هم می‌نویسد
+      final p1 = puts();
+      clock = clock.add(OwnerBackupEngine.every);
+      bucket.putText('payesh/data/core.json', 'NOW');
+      r = await eng.run(force: true);
+      expect(puts(), greaterThan(p1));
+      expect(
+        utf8.decode(dbArchive()!.content('payesh/data/core.json')!),
+        'NOW',
+      );
+
+      // باز شدن دوبارهٔ برنامه (موتور تازه با همان وضعیت): فایل دیتابیس دانلود نمی‌شود
+      final g1 = zipGets();
+      final again = OwnerBackupEngine(
+        secure: secure,
+        s3Factory: () => bucket.transport(),
+        now: () => clock,
+        retryDelay: Duration.zero,
+      );
+      await again.refresh();
+      expect(zipGets(), g1, reason: 'ETag همان است ⇒ از وضعیت ذخیره‌شده');
+      expect(again.files.single.target, 'db');
+      expect(again.files.single.count, 2);
+      again.dispose();
     });
 
     test('ردیف ۱۶۶: قالب قدیمی (blobs/ و snaps/) پس از نخستین فایل جامع پاک می‌شود', () async {
@@ -581,7 +665,7 @@ void main() {
         List<int>.generate(s3PartBytes + 1000, (_) => rnd.nextInt(256)),
       );
       bucket.modified['payesh/big.bin'] = clock;
-      clock = clock.add(const Duration(minutes: 15));
+      clock = clock.add(OwnerBackupEngine.dbEvery);
       bucket.failWhen = (m, k) => m == 'PUT' && k == BucketBackupTarget.key;
       final r = await eng.run();
       expect(r.ok, isFalse);

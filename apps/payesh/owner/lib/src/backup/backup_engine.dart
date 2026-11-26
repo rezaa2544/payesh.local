@@ -79,6 +79,10 @@ class OwnerBackupEngine extends ChangeNotifier {
   final DateTime Function() _now;
 
   static const Duration every = Duration(minutes: 15);
+
+  /// ردیف ۱۹۸: نسخهٔ روی دیتابیس (صندوقچهٔ نسخه‌بندی‌شده) حداکثر روزی یک بار نوشته می‌شود؛
+  /// دیسک همچنان هر ۱۵ دقیقه. «پشتیبان‌گیری اکنون» همیشه هر دو را می‌نویسد.
+  static const Duration dbEvery = Duration(hours: 24);
   static const String autoId = 'backup:auto';
   static const String dbId = 'backup:db';
   static const String statusKey = 'owner.backup.status';
@@ -119,6 +123,9 @@ class OwnerBackupEngine extends ChangeNotifier {
   String? _dbEtag;
   BackupFileInfo? _dbInfo;
 
+  /// آخرین نوشتن روی دیتابیس (ماندگار در وضعیت) — برای [dbEvery].
+  DateTime? _dbWrittenAt;
+
   /// پس از بازیابی در دیتابیس تازه: پشتیبانِ صندوقچهٔ قبلی را می‌شود با این صندوقچه نوشت.
   String? _adopt;
   int _refreshGen = 0;
@@ -146,6 +153,25 @@ class OwnerBackupEngine extends ChangeNotifier {
         lastSuccess = DateTime.tryParse('${m['ok'] ?? ''}');
         lastSnapshot = m['snap'] as String?;
         lastError = m['error'] as String?;
+        _dbWrittenAt = DateTime.tryParse('${m['db_at'] ?? ''}');
+        // ردیف ۱۹۸: آخرین فایل دیتابیس (ETag + خلاصه) ⇒ با هر باز شدن برنامه کل فایل دوباره دانلود نمی‌شود
+        final di = m['db_info'];
+        final etag = m['db_etag'];
+        if (di is Map && etag is String && etag.isNotEmpty) {
+          final at = DateTime.tryParse('${di['at'] ?? ''}');
+          if (at != null) {
+            _dbEtag = etag;
+            _dbInfo = (
+              target: 'db',
+              at: at,
+              count: (di['count'] as num?)?.toInt() ?? 0,
+              bytes: (di['bytes'] as num?)?.toInt() ?? 0,
+              size: (di['size'] as num?)?.toInt() ?? 0,
+              bucket: '${di['bucket'] ?? ''}',
+              fp: '${di['fp'] ?? ''}',
+            );
+          }
+        }
       }
       final f = await secure.read(flagsKey);
       if (f != null) {
@@ -167,6 +193,17 @@ class OwnerBackupEngine extends ChangeNotifier {
           'ok': lastSuccess?.toUtc().toIso8601String(),
           'snap': lastSnapshot,
           'error': lastError,
+          'db_at': _dbWrittenAt?.toUtc().toIso8601String(),
+          if (_dbEtag != null && _dbInfo != null) 'db_etag': _dbEtag,
+          if (_dbEtag != null && _dbInfo != null)
+            'db_info': {
+              'at': _dbInfo!.at.toUtc().toIso8601String(),
+              'count': _dbInfo!.count,
+              'bytes': _dbInfo!.bytes,
+              'size': _dbInfo!.size,
+              'bucket': _dbInfo!.bucket,
+              'fp': _dbInfo!.fp,
+            },
         }),
       );
     } on Object {
@@ -207,6 +244,7 @@ class OwnerBackupEngine extends ChangeNotifier {
       await _saveFlags();
     }
     _fp.remove('db');
+    if (on) _dbWrittenAt = null; // روشن کردن دوباره ⇒ دور بعد همان‌جا نوشته شود
     _notify();
   }
 
@@ -337,11 +375,26 @@ class OwnerBackupEngine extends ChangeNotifier {
   Future<String> _fpOf(BackupTarget tg) async {
     final known = _fp[tg.id];
     if (known != null) return known;
-    if (tg is BucketBackupTarget && await tg.head() == null) {
-      return _fp[tg.id] = '';
+    if (tg is BucketBackupTarget) {
+      final h = await tg.head();
+      if (h == null) return _fp[tg.id] = '';
+      // ردیف ۱۹۸: همان فایلی که خودمان نوشتیم/خواندیم ⇒ اثر انگشت بی‌دانلود
+      final info = _dbInfo;
+      if (info != null && h.etag.isNotEmpty && h.etag == _dbEtag) {
+        return _fp[tg.id] = info.fp;
+      }
     }
     final a = await _open(tg);
     return _fp[tg.id] = a?.snapshot.fingerprint ?? '';
+  }
+
+  /// دیسک همیشه؛ دیتابیس فقط اگر [dbEvery] گذشته یا «اکنون» یا فایلی آنجا نیست.
+  bool _due(BackupTarget tg, DateTime now, bool force) {
+    if (tg is! BucketBackupTarget || force) return true;
+    final at = _dbWrittenAt;
+    if (at == null || _fp[tg.id] == '') return true; // هنوز فایلی آنجا نیست
+    final age = now.difference(at);
+    return age.isNegative || age >= dbEvery;
   }
 
   Future<BackupRunResult> _backup(DateTime now, bool force) async {
@@ -366,7 +419,7 @@ class OwnerBackupEngine extends ChangeNotifier {
     }
     objs = [
       for (final o in objs)
-        if (!o.key.startsWith(bucketBackupRoot)) o,
+        if (!o.key.startsWith(bucketBackupRoot) && !backupSkipsKey(o.key)) o,
     ];
     if (objs.isEmpty) {
       // صندوقچهٔ خالی (مثلاً دیتابیس تازه) هرگز جای پشتیبان خوب را نمی‌گیرد
@@ -456,7 +509,7 @@ class OwnerBackupEngine extends ChangeNotifier {
     final fp = snap.fingerprint;
     final need = <BackupTarget>[
       for (final tg in targets)
-        if (await _fpOf(tg) != fp) tg,
+        if (await _fpOf(tg) != fp && _due(tg, now, force)) tg,
     ];
     if (need.isEmpty) {
       return (
@@ -505,10 +558,19 @@ class OwnerBackupEngine extends ChangeNotifier {
         bytes,
       ); // دیتابیس: هر تکه با تلاش دوباره (BucketBackupTarget.retry)
       _fp[tg.id] = outFp;
+      if (tg is BucketBackupTarget) {
+        // ردیف ۱۹۸: پس از نوشتن، فایل برای «بازخوانی» دوباره دانلود نمی‌شود (پیش‌تر ۱۳۳ مگابایت هر دور)
+        _dbWrittenAt = now;
+        _dbInfo = infoOf(tg.id, archive);
+        try {
+          _dbEtag = (await tg.head())?.etag;
+        } on Object {
+          _dbEtag = null;
+        }
+      }
     }
     _base = archive;
     _adopt = null;
-    _dbEtag = null;
     return (
       ok: true,
       created: true,
@@ -727,6 +789,7 @@ class OwnerBackupEngine extends ChangeNotifier {
     _base = null;
     _fp.clear();
     _dbEtag = null;
+    _dbWrittenAt = null;
     _notify();
     unawaited(run());
     return (
