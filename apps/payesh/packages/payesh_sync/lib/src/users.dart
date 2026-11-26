@@ -16,6 +16,8 @@
 //     without a child (`deleteStudentWithParents`).
 // The server enforces the same (server/sync.js: unique mobile, default credentials = national id,
 // role changes by the manager only). Writes are local-first through SchoolRecords.
+import 'package:payesh_data/payesh_data.dart';
+
 import 'records.dart';
 import 'staff_access.dart';
 
@@ -292,7 +294,11 @@ final class UserDraft {
     this.access = const [],
     this.teaches = const [],
     this.childId,
+    this.active,
   });
+
+  /// ردیف ۱۹۷: فقط در ویرایش — فعال/غیرفعال (null = همان قبلی).
+  final bool? active;
   final String name;
   final String role;
   final int? classId;
@@ -801,6 +807,159 @@ final class UserDirectory {
     if (_same(data, prev.data)) return const RecordWrite('تغییری نبود');
     final k = await db.put(users, id, data, prev: prev);
     return RecordWrite('کاربر ویرایش شد', id: id, keys: [k]);
+  }
+
+  /// ردیف ۱۹۷ (F45/F47): ویرایش کامل هر نقش با همان فهرست فرم «کاربر جدید» — پیش از این
+  /// ویرایش برای همه فیلدهای دانش‌آموز را نشان می‌داد و پس از ساخت، تیک‌های دسترسی کارکنان،
+  /// درس‌های دبیر، پایه/رشته/کلاس دانش‌آموز و نسبت ولی هرگز عوض نمی‌شد.
+  ///   * نقش دانش‌آموز/دبیر/ولی ثابت می‌ماند (جابه‌جایی آن پرونده را می‌شکند)؛ میان سمت‌های
+  ///     «عوامل اجرایی» (معاون، مشاور، کارمند، …) جابه‌جایی مجاز است؛
+  ///   * کادر خالی = پاک شدن همان مقدار (مثل ویرایش قبلی)؛ حساب پدر/مادر در ویرایش ساخته نمی‌شود.
+  Future<RecordWrite> update(int id, UserDraft d) async {
+    _requireManager();
+    final prev = await db.existing(users, id, 'این کاربر');
+    final prevRole = SchoolRecords.str(prev.data['role']);
+    final name = d.name.trim();
+    if (name.isEmpty) throw const RecordFailure('invalid', 'نام را بنویسید');
+    var role = prevRole;
+    if (d.role != prevRole) {
+      if (execRoles.contains(prevRole) && execRoles.contains(d.role)) {
+        role = d.role;
+      } else {
+        throw RecordFailure(
+          'invalid',
+          'نقش «${roleFa[prevRole] ?? prevRole}» را نمی‌شود به «${roleFa[d.role] ?? d.role}» '
+              'تغییر داد — برای نقش دیگر کاربر تازه بسازید',
+        );
+      }
+    }
+    final nid = _nid(d.nationalId);
+    final phone = _mobile(d.phone);
+    final rows = await _rows();
+    for (final r in rows) {
+      if (r.id == id) continue;
+      if (nid.isNotEmpty &&
+          SchoolRecords.digitsOnly(r.data['national_id']) == nid) {
+        throw RecordFailure(
+          'duplicate',
+          'این کد ملی برای «${fullName(r.data)}» ثبت شده است',
+        );
+      }
+    }
+    await _uniquePhone(phone, id, rows);
+    // مدرسه بی‌مدیر نماند: آخرین مدیر را نمی‌شود به سمت دیگر برد
+    if (prevRole == 'manager' &&
+        role != 'manager' &&
+        !rows.any(
+          (r) =>
+              r.id != id &&
+              SchoolRecords.str(r.data['role']) == 'manager' &&
+              r.data['active'] != false,
+        )) {
+      throw const RecordFailure(
+        'invalid',
+        'این تنها مدیر مدرسه است — اول مدیر دیگری تعریف کنید، بعد سمت او را عوض کنید',
+      );
+    }
+    final data = <String, Object?>{...prev.data, 'name': name, 'role': role};
+    // کادر خالی فقط مقدار موجود را پاک می‌کند؛ کلید تازهٔ خالی ساخته نمی‌شود («تغییری نبود»)
+    void put(String k, String v) {
+      if (v.isNotEmpty) {
+        data[k] = v;
+      } else if (SchoolRecords.str(prev.data[k]).isNotEmpty) {
+        data[k] = '';
+      }
+    }
+
+    put('national_id', nid);
+    put('phone', phone);
+    put('birth_date', d.birthDate.trim());
+    put('gender', d.gender.trim());
+    if (d.active != null) data['active'] = d.active;
+    _extras(data, prev.data, {
+      for (final k in userProfileKeys)
+        if (d.extra.containsKey(k)) k: d.extra[k]!,
+    });
+    if (role == 'student') {
+      if (d.classId != null || prev.data['class_id'] != null) {
+        data['class_id'] = d.classId;
+      }
+      put('grade', d.grade.trim());
+      put('field', d.branch.trim());
+    }
+    if (role == 'teacher' &&
+        (d.teaches.isNotEmpty ||
+            TeachDraft.listOf(prev.data['teaches']).isNotEmpty)) {
+      final t = {...d.teaches}.toList();
+      data['teaches'] = [for (final x in t) x.toJson()];
+      data['subject'] = {for (final x in t) x.subject}.join('، ');
+    }
+    if (grantableRoles.contains(role)) {
+      data['access'] = staffAccessOf(role, d.access);
+    } else if (prev.data.containsKey('access')) {
+      data['access'] = const <String>[];
+    }
+    db.precheck(users, data);
+    // ولی: نسبت در پیوندهای فرزند هم عوض شود و فرزند تازه (اگر انتخاب شد) وصل شود
+    final relKey = switch (SchoolRecords.str(data['relation'])) {
+      'پدر' => 'father',
+      'مادر' => 'mother',
+      _ => 'guardian',
+    };
+    final links = role == 'parent'
+        ? [
+            for (final l in await db.allOrEmpty('parent_links'))
+              if (SchoolRecords.asInt(l.data['parent_id']) == id) l,
+          ]
+        : const <EngineRow>[];
+    final relinks =
+        role == 'parent' && SchoolRecords.str(data['relation']).isNotEmpty
+        ? [
+            for (final l in links)
+              if (SchoolRecords.str(l.data['relation']) != relKey &&
+                  !const {
+                    'پدر',
+                    'مادر',
+                  }.contains(SchoolRecords.str(l.data['relation'])))
+                l,
+          ]
+        : const <EngineRow>[];
+    final child =
+        role == 'parent' &&
+            d.childId != null &&
+            !links.any(
+              (l) => SchoolRecords.asInt(l.data['student_id']) == d.childId,
+            )
+        ? await db.existing(users, d.childId!, 'این دانش‌آموز')
+        : null;
+    final same = _same(data, prev.data);
+    if (same && relinks.isEmpty && child == null) {
+      return const RecordWrite('تغییری نبود');
+    }
+    db.requireRoom((same ? 0 : 1) + relinks.length + (child == null ? 0 : 1));
+    final keys = <String>[if (!same) await db.put(users, id, data, prev: prev)];
+    for (final l in relinks) {
+      keys.add(
+        await db.put('parent_links', l.id, {
+          ...l.data,
+          'relation': relKey,
+        }, prev: l),
+      );
+    }
+    var msg = 'کاربر ویرایش شد';
+    if (role != prevRole) msg += ' — سمت: ${roleFa[role] ?? role}';
+    if (child != null) {
+      final lid = await db.newId('parent_links');
+      keys.add(
+        await db.put('parent_links', lid, {
+          'parent_id': id,
+          'student_id': child.id,
+          'relation': relKey,
+        }),
+      );
+      msg += ' · به «${fullName(child.data)}» وصل شد';
+    }
+    return RecordWrite(msg, id: id, keys: keys);
   }
 
   /// W7 `user-creds`, username part: the mobile number IS the username — an ordinary users

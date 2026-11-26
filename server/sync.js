@@ -268,6 +268,20 @@ function push(store, actor, body, ctx = {}) {
       }
     }
 
+    /* ردیف ۱۹۷: حتی مدیر نقش اصلی (دانش‌آموز/دبیر/ولی) را جابه‌جا نمی‌کند — فقط میان سمت‌های
+       عوامل اجرایی؛ و آخرین مدیرِ فعال سمتش عوض نمی‌شود (همان قاعدهٔ اپ و /api/admin/users) */
+    if (collection === 'users' && existing && incoming.role !== undefined &&
+        String(incoming.role) !== String(existing.role)) {
+      const EXEC = ['manager', 'vice', 'counselor', 'staff', 'office', 'guard'];
+      const lastManager = existing.role === 'manager' && !store.all('users').some(x =>
+        Number(x.id) !== Number(id) && x.role === 'manager' && x.active !== false);
+      if (!EXEC.includes(String(existing.role)) || !EXEC.includes(String(incoming.role)) || lastManager) {
+        const c = noteRejected(store, actor, ctx, { collection, record_id: id, local: incoming, reason: 'role_change_denied' });
+        rejected.push({ uid, error: 'role_change_denied', conflict_id: c.id });
+        continue;
+      }
+    }
+
     if (existing) {
       const base = op.base_version != null ? Number(op.base_version) : null;
       /* base=0 تنها برای به‌روزرسانی «اثر انگشت رمز» مجاز است؛ هر دادهٔ دیگر

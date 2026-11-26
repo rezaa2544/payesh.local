@@ -1500,7 +1500,40 @@ async function api(req, res, url, ip) {
       patch.national_id = nid;
     }
     if (body.active != null) patch.active = !!body.active;
-    if (body.role && policy.USER_ROLES.includes(body.role)) patch.role = body.role;
+    /* ردیف ۱۹۷ (F45/F47): نقش اصلی (دانش‌آموز/دبیر/ولی) در ویرایش جابه‌جا نمی‌شود — فقط میان
+       سمت‌های عوامل اجرایی؛ آخرین مدیرِ فعال هم سمتش عوض نمی‌شود (همان قاعدهٔ اپ). */
+    if (body.role && policy.USER_ROLES.includes(body.role) && body.role !== user.role) {
+      const EXEC = ['manager', 'vice', 'counselor', 'staff', 'office', 'guard'];
+      if (!EXEC.includes(user.role) || !EXEC.includes(body.role)) {
+        return json({ ok: false, error: 'role_change_denied' }, 400);
+      }
+      if (user.role === 'manager' && !store.all('users').some(x =>
+        Number(x.id) !== id && x.role === 'manager' && x.active !== false)) {
+        return json({ ok: false, error: 'last_manager' }, 400);
+      }
+      patch.role = body.role;
+    }
+    /* ردیف ۱۹۷: تیک‌های دسترسی فقط کلیدهای شناخته و فقط برای نقش‌های تیک‌پذیر */
+    if (body.access !== undefined) {
+      patch.access = policy.staffAccessOf(patch.role || user.role, body.access);
+    }
+    /* ردیف ۱۹۷: درس‌های دبیر (همان شکل اپ: subject_id، subject، grade، branch) */
+    if (body.teaches !== undefined && (patch.role || user.role) === 'teacher') {
+      const t = (Array.isArray(body.teaches) ? body.teaches : []).slice(0, 60)
+        .filter(x => x && Number(x.subject_id) > 0)
+        .map(x => {
+          const o = { subject_id: Number(x.subject_id), subject: String(x.subject || '').slice(0, 80) };
+          if (x.grade) o.grade = String(x.grade).slice(0, 40);
+          if (x.branch) o.branch = String(x.branch).slice(0, 60);
+          return o;
+        });
+      patch.teaches = t;
+      patch.subject = [...new Set(t.map(x => x.subject))].join('، ');
+    }
+    for (const k of ['relation', 'position', 'personnel_code', 'study_field', 'employment', 'service_years', 'start_date', 'job']) {
+      if (body[k] === undefined) continue;
+      patch[k] = body[k] == null ? '' : String(body[k]).slice(0, 120);
+    }
     /* فیلدهای شناسنامه‌ای و تکمیلی (تاریخ تولد، جنسیت، پدر و مادر، …) */
     for (const k of IMP_STORE_FIELDS) {
       if (body[k] === undefined) continue;

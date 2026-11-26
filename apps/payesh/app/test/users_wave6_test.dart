@@ -195,11 +195,11 @@ void main() {
       final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
       await openPage(tester, 'users');
       await tapKey(tester, 'usr-edit-22');
-      await typeKey(tester, 'usr-e-phone', '09120000040');
+      await typeKey(tester, 'usr-f-phone', '09120000040');
       await tapKey(tester, 'usr-save');
       expect(textOf(tester, 'usr-form-error'), contains('«مریم»'));
       expect(s.outbox.list(), isEmpty);
-      await typeKey(tester, 'usr-e-phone', '9125550000');
+      await typeKey(tester, 'usr-f-phone', '9125550000');
       await tapKey(tester, 'usr-e-active');
       await tapKey(tester, 'usr-save');
       final op = s.outbox.list().single;

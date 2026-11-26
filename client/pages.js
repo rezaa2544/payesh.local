@@ -2264,7 +2264,8 @@ function actUserEdit(id) {
           <option value="دختر" ${u.gender === 'دختر' ? 'selected' : ''}>دختر</option>
         </select></label>
     </div>
-    ${userExtraFieldsHtml(u)}
+    ${userRoleEditHtml(u)}
+    ${u.role === 'student' ? userExtraFieldsHtml(u) : ''}
     <label class="field"><span>رمز عبور تازه (خالی بگذارید تا عوض نشود)</span>
       <input class="input ltr" name="password" placeholder="رمز تازه"></label>
     <div class="row" style="margin-top:6px">
@@ -2406,6 +2407,62 @@ const USER_EXTRA_FORM = [
   ['address', 'نشانی', ''], ['last_gpa', 'معدل سال گذشته', 'num'],
   ['covered', 'حمایتی (بله/خیر)', ''], ['talent', 'استعداد', ''],
 ];
+/* ردیف ۱۹۷ (F45/F47): بخش مخصوص نقش در «ویرایش کاربر» — همان کلیدهای server/policy.js
+   STAFF_ACCESS و staff_access.dart. پیش از این ویرایش برای همه فیلدهای خانوادهٔ دانش‌آموز بود و
+   تیک دسترسی، سمت، درس‌های دبیر، پایه/رشته/کلاس و نسبت ولی پس از ساخت عوض نمی‌شد. */
+const EDIT_EXEC_ROLES = [['vice', 'معاون'], ['counselor', 'مشاور'], ['staff', 'کارمند'], ['office', 'اجرایی'], ['guard', 'نگهبان'], ['manager', 'مدیر']];
+const EDIT_GRANTABLE = ['counselor', 'staff', 'office', 'guard'];
+const EDIT_STAFF_ACCESS = [['attendance', 'حضور و غیاب دانش‌آموزان'], ['leaves', 'مرخصی‌ها'], ['notices', 'اطلاعیه‌ها'],
+  ['schedule', 'برنامهٔ هفتگی'], ['classes', 'کلاس‌ها، پایه‌ها و دروس'], ['grades', 'نمرات'],
+  ['reports', 'گزارش‌ها (فقط دیدن)'], ['counsel', 'ارجاع به مشاور']];
+function userRoleEditHtml(u) {
+  const sel = (name, pairs, val) => `<select class="input" name="${name}">${pairs.map(([v, t]) =>
+    `<option value="${esc(v)}" ${String(v) === String(val == null ? '' : val) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+  const text = (name, label, val) => `<label class="field grow" style="min-width:150px"><span>${label}</span><input class="input" name="${name}" value="${esc(val || '')}"></label>`;
+  if (EDIT_EXEC_ROLES.some(([r]) => r === u.role)) {
+    const have = new Set(Array.isArray(u.access) ? u.access : String(u.access || '').split(','));
+    return `<div class="row" style="flex-wrap:wrap">
+      <label class="field grow"><span>سمت در مدرسه</span>${sel('role', EDIT_EXEC_ROLES, u.role)}</label>
+      ${text('position', 'سمت / عنوان کار', u.position)}
+    </div>
+    <fieldset class="field" data-edit-access style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">
+      <legend class="small">سطح دسترسی (فقط مشاور، کارمند، اجرایی و نگهبان؛ معاون و مدیر همه‌چیز را دارند)</legend>
+      ${EDIT_STAFF_ACCESS.map(([k, t]) => `<label class="row small" style="gap:6px;align-items:center">
+        <input type="checkbox" name="access_${k}" ${have.has(k) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}
+    </fieldset>`;
+  }
+  if (u.role === 'student') {
+    const g = lookupList('grade').map(x => [x.name, x.name]);
+    const b = lookupList('branch').map(x => [x.name, x.name]);
+    const cls = sortBy(list('classes'), 'name').map(c => [c.id, c.name]);
+    return `<div class="row" style="flex-wrap:wrap">
+      <label class="field grow"><span>پایه</span>${sel('grade', [['', '—'], ...g], u.grade)}</label>
+      <label class="field grow"><span>رشته</span>${sel('field', [['', '—'], ...b], u.field)}</label>
+      <label class="field grow"><span>کلاس</span>${sel('class_id', [['', '—'], ...cls], u.class_id)}</label>
+    </div>`;
+  }
+  if (u.role === 'parent') {
+    return `<div class="row" style="flex-wrap:wrap">
+      <label class="field grow"><span>نسبت با دانش‌آموز</span>${sel('relation', [['', '—'], ['پدر', 'پدر'], ['مادر', 'مادر'], ['سرپرست', 'سرپرست']], u.relation)}</label>
+      ${text('job', 'شغل', u.job)}
+    </div>`;
+  }
+  if (u.role === 'teacher') {
+    const cur = Array.isArray(u.teaches) ? u.teaches : [];
+    const curIds = new Set(cur.map(t => Number(t.subject_id)));
+    return `<fieldset class="field" data-edit-teaches style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">
+      <legend class="small">دروسی که تدریس می‌کند</legend>
+      ${sortBy(list('subjects'), 'name').map(sb => {
+        const t = cur.find(x => Number(x.subject_id) === Number(sb.id));
+        return `<label class="row small" style="gap:6px;align-items:center">
+          <input type="checkbox" name="teach_${esc(sb.id)}" data-subject="${esc(sb.name)}" data-grade="${esc((t && t.grade) || '')}" data-branch="${esc((t && t.branch) || '')}" ${curIds.has(Number(sb.id)) ? 'checked' : ''}> ${esc(sb.name)}${t && t.grade ? ' — ' + esc(t.grade) : ''}</label>`;
+      }).join('') || '<div class="small muted">هنوز درسی تعریف نشده.</div>'}
+    </fieldset>
+    <div class="row" style="flex-wrap:wrap">${text('position', 'سمت / عنوان کار', u.position)}</div>`;
+  }
+  return '';
+}
+
 function userExtraFieldsHtml(u) {
   const src = u || {};
   return `<div class="row" style="flex-wrap:wrap">

@@ -443,6 +443,84 @@ void main() {
     passed++;
   }, skip: skip);
 
+  test('W197-IT-01 ویرایش هر نقش به سرور می‌رسد: سمت کارمند → مشاور با تیک‌های تازه، '
+      'درس‌های دبیر، نسبت ولی در پیوند؛ NEG نقش اصلی عوض نمی‌شود و تیک ناشناخته را سرور دور می‌ریزد', () async {
+    final users = UserDirectory(manager.db);
+    final staff = await users.add(
+      const UserDraft(
+        name: 'کارمند ۱۹۷',
+        role: 'staff',
+        phone: '09121970106',
+        access: ['notices'],
+      ),
+    );
+    final teacher = await users.add(
+      const UserDraft(
+        name: 'دبیر ۱۹۷',
+        role: 'teacher',
+        phone: '09121970101',
+        teaches: [TeachDraft(subjectId: 9001, subject: 'ریاضی', grade: 'دهم')],
+      ),
+    );
+    expect((await manager.sync()).waiting, 0);
+    expect((await serverRow('users', staff.id!))!['access'], ['notices']);
+    await users.update(
+      staff.id!,
+      const UserDraft(
+        name: 'کارمند ۱۹۷',
+        role: 'counselor',
+        phone: '09121970106',
+        access: ['attendance', 'notices'],
+      ),
+    );
+    await users.update(
+      teacher.id!,
+      const UserDraft(
+        name: 'دبیر ۱۹۷',
+        role: 'teacher',
+        phone: '09121970101',
+        teaches: [
+          TeachDraft(subjectId: 9002, subject: 'فیزیک', grade: 'یازدهم'),
+        ],
+      ),
+    );
+    final s1 = await manager.sync();
+    expect(s1.waiting, 0, reason: '${s1.lastError}');
+    final st = (await serverRow('users', staff.id!))!;
+    expect(st['role'], 'counselor');
+    expect(st['access'], ['attendance', 'notices']);
+    final te = (await serverRow('users', teacher.id!))!;
+    expect(te['subject'], 'فیزیک');
+    expect((te['teaches'] as List).single, containsPair('subject_id', 9002));
+    // NEG: نقش اصلی (دبیر → دانش‌آموز) روی دستگاه رد می‌شود و چیزی به صف نمی‌رود
+    await expectLater(
+      users.update(
+        teacher.id!,
+        const UserDraft(name: 'دبیر ۱۹۷', role: 'student'),
+      ),
+      throwsA(isA<RecordFailure>()),
+    );
+    expect(manager.outbox.list(), isEmpty);
+    // NEG: تیک ناشناخته که مستقیم به سرور برسد دور ریخته می‌شود (server/sync.js staffAccessOf)
+    final pr = await push(managerLogin.token, [
+      {
+        'uid': 'w197-acc',
+        'collection': 'users',
+        'type': 'put',
+        'id': staff.id,
+        'base_version': st['_version'],
+        'data': {
+          ...st,
+          'access': ['attendance', 'root_everything'],
+        },
+      },
+    ]);
+    expect(pr['rejected'] ?? const [], isEmpty, reason: jsonEncode(pr));
+    expect((await serverRow('users', staff.id!))!['access'], ['attendance']);
+    negatives += 2;
+    passed++;
+  }, skip: skip);
+
   test('W6-IT-03 NEG stale edit of a sensitive field from a second manager device → conflict '
       'kept for review, never a silent overwrite', () async {
     final other = Device(server, managerLogin, seed: 9);

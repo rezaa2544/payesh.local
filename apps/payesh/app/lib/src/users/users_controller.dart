@@ -218,6 +218,10 @@ class UsersController extends SchoolController {
     form: true,
   );
 
+  /// ردیف ۱۹۷: ویرایش کامل هر نقش (فرم «کاربر جدید» در حالت ویرایش).
+  Future<RecordWrite?> update(int id, UserDraft d) =>
+      run((db) => UserDirectory(db).update(id, d), form: true);
+
   Future<RecordWrite?> saveFull(int id, Map<String, String> fields) =>
       run((db) => UserDirectory(db).saveFull(id, fields), form: true);
 

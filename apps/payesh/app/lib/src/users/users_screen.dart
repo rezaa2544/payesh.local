@@ -298,7 +298,8 @@ class _UsersScreenState extends State<UsersScreen> {
                     'رشته',
                     if (parentCol) 'ولیِ چه دانش‌آموزی',
                   ],
-                  'عملیات',
+                  // ردیف ۱۹۷ (F46): روی گوشی دکمه‌ها زیر نام‌اند، نه در ستونی باریک
+                  if (!phone) 'عملیات',
                 ],
                 widths: const {0: 34},
                 headCells: {
@@ -398,6 +399,45 @@ class _UsersScreenState extends State<UsersScreen> {
       if (u.branch.isNotEmpty) u.branch,
       if (parentCol && u.kids.isNotEmpty) u.kids.join('، '),
     ];
+    // ردیف ۱۹۷ (F46): روی گوشی ستون «عملیات» فقط ~۱۲۰ نقطه پهنا داشت — پنج دکمه زیر هم،
+    // «مشخصات کامل» دو خطی و ردیف ۲۴۵ نقطه بلند؛ لمس‌ها به دکمهٔ کناری می‌خورد. حالا دکمه‌ها
+    // در تمام پهنای ردیف زیر نام می‌آیند (دو ردیف کوتاه، بی‌شکستن متن).
+    final actions = WebWrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        WebBtn(
+          'مشخصات کامل',
+          key: Key('usr-full-${u.id}'),
+          kind: WebBtnKind.primary,
+          onPressed: () => _open(UserProfilePage(controller: c, user: u)),
+        ),
+        if (widget.accounts)
+          WebBtn(
+            'کاربری',
+            key: Key('usr-creds-${u.id}'),
+            onPressed: () => _creds(u),
+          ),
+        if (c.source.accounts != null)
+          WebBtn(
+            'کارت پیوند',
+            key: Key('usr-pair-${u.id}'),
+            onPressed: () =>
+                _open(PairCardPage(accounts: c.source.accounts!, user: u)),
+          ),
+        WebBtn(
+          'ویرایش',
+          key: Key('usr-edit-${u.id}'),
+          kind: WebBtnKind.ghost,
+          onPressed: () => _open(UserEditPage(controller: c, user: u)),
+        ),
+        WebBtn.delete(
+          'حذف',
+          key: Key('usr-delete-${u.id}'),
+          onPressed: c.busy ? null : () => _delete(u),
+        ),
+      ],
+    );
     return [
       _check(
         Key('usr-pick-${u.id}'),
@@ -416,6 +456,8 @@ class _UsersScreenState extends State<UsersScreen> {
                 key: Key('usr-facts-${u.id}'),
                 style: Web.small,
               ),
+            const SizedBox(height: 6),
+            actions,
           ],
         )
       else
@@ -436,46 +478,7 @@ class _UsersScreenState extends State<UsersScreen> {
         if (parentCol)
           if (u.kids.isEmpty) _muted else Text(u.kids.join('، '), style: small),
       ],
-      // row 185: on a phone the buttons take two short rows, so the table fits the screen
-      ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: phone ? 190 : double.infinity),
-        child: WebWrap(
-          spacing: 4,
-          runSpacing: 4,
-          children: [
-            WebBtn(
-              'مشخصات کامل',
-              key: Key('usr-full-${u.id}'),
-              kind: WebBtnKind.primary,
-              onPressed: () => _open(UserProfilePage(controller: c, user: u)),
-            ),
-            if (widget.accounts)
-              WebBtn(
-                'کاربری',
-                key: Key('usr-creds-${u.id}'),
-                onPressed: () => _creds(u),
-              ),
-            if (c.source.accounts != null)
-              WebBtn(
-                'کارت پیوند',
-                key: Key('usr-pair-${u.id}'),
-                onPressed: () =>
-                    _open(PairCardPage(accounts: c.source.accounts!, user: u)),
-              ),
-            WebBtn(
-              'ویرایش',
-              key: Key('usr-edit-${u.id}'),
-              kind: WebBtnKind.ghost,
-              onPressed: () => _open(UserEditPage(controller: c, user: u)),
-            ),
-            WebBtn.delete(
-              'حذف',
-              key: Key('usr-delete-${u.id}'),
-              onPressed: c.busy ? null : () => _delete(u),
-            ),
-          ],
-        ),
-      ),
+      if (!phone) actions,
     ];
   }
 
@@ -815,8 +818,10 @@ class _PairCardPageState extends State<PairCardPage> {
   }
 }
 
-/// `user-edit` (web «ویرایش کاربر»): name, mobile, active, extra fields.
-class UserEditPage extends StatefulWidget {
+/// `user-edit` (web «ویرایش کاربر»). ردیف ۱۹۷ (F45/F47): همان فرم کامل «کاربر جدید» برای
+/// نقش خود کاربر — پیش از این، فرم ویرایش برای همه یکسان بود (فیلدهای خانوادهٔ دانش‌آموز) و
+/// تیک‌های دسترسی کارکنان، درس‌های دبیر، پایه/کلاس دانش‌آموز و نسبت ولی پس از ساخت عوض نمی‌شد.
+class UserEditPage extends StatelessWidget {
   const UserEditPage({
     super.key,
     required this.controller,
@@ -830,64 +835,8 @@ class UserEditPage extends StatefulWidget {
   final Future<void> Function(RecordWrite w)? onSaved;
 
   @override
-  State<UserEditPage> createState() => _UserEditPageState();
-}
-
-class _UserEditPageState extends State<UserEditPage> {
-  late final name = TextEditingController(
-    text: SchoolRecords.str(widget.user.data['name']),
-  );
-  late final phone = TextEditingController(text: widget.user.phone);
-  late bool active = widget.user.active;
-  late final extra = {
-    for (final (k, _, _) in userExtraFields)
-      k: TextEditingController(text: widget.user.field(k)),
-  };
-
-  @override
-  void dispose() {
-    name.dispose();
-    phone.dispose();
-    for (final c in extra.values) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final r = await widget.controller.edit(
-      widget.user.id,
-      name: name.text,
-      phone: phone.text,
-      active: active,
-      extra: {for (final e in extra.entries) e.key: e.value.text},
-    );
-    if (r != null) await widget.onSaved?.call(r);
-    if (r != null && mounted) Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) => SchoolForm(
-    prefix: 'usr',
-    title: 'ویرایش ${widget.user.name}',
-    controller: widget.controller,
-    submitLabel: 'ذخیره',
-    onSubmit: _save,
-    fields: [
-      SchoolField('usr-e-name', 'نام', name),
-      SchoolField('usr-e-phone', 'شمارهٔ همراه', phone, numeric: true),
-      StatefulBuilder(
-        builder: (context, set) => SwitchListTile(
-          key: const Key('usr-e-active'),
-          title: const Text('فعال'),
-          value: active,
-          onChanged: (v) => set(() => active = v),
-        ),
-      ),
-      for (final (k, label, numeric) in userExtraFields)
-        SchoolField('usr-e-$k', label, extra[k]!, numeric: numeric),
-    ],
-  );
+  Widget build(BuildContext context) =>
+      UserFormPage(controller: controller, editing: user, onSaved: onSaved);
 }
 
 /// `user-full` (web «مشخصات کامل»).

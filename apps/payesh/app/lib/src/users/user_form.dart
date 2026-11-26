@@ -38,8 +38,13 @@ class UserFormPage extends StatefulWidget {
     required this.controller,
     this.initial = const {},
     this.onSaved,
+    this.editing,
   });
   final UsersController controller;
+
+  /// ردیف ۱۹۷ (F45/F47): ویرایش همان کاربر با فهرست کامل نقش خودش (تیک‌های دسترسی کارکنان،
+  /// درس‌های دبیر، پایه/رشته/کلاس دانش‌آموز، نسبت و فرزند ولی). null = «کاربر جدید».
+  final SchoolUser? editing;
 
   /// W10 `issue-fix`: the form opens with the values of the import row.
   final Map<String, String> initial;
@@ -115,6 +120,43 @@ class _UserFormPageState extends State<UserFormPage> {
     grade = widget.initial['grade'] ?? '';
     branch = widget.initial['field'] ?? widget.initial['branch'] ?? '';
     employment = widget.initial['employment'] ?? '';
+    final u = widget.editing;
+    if (u != null) _fillFrom(u);
+  }
+
+  bool get _isEdit => widget.editing != null;
+  bool active = true;
+
+  /// ردیف ۱۹۷: کادرها با مقدار فعلی همان کاربر پر می‌شوند.
+  void _fillFrom(SchoolUser u) {
+    for (final k in f.keys) {
+      if (k == 'newsubject') continue;
+      f[k]!.text = u.field(k);
+    }
+    f['name']!.text = u.name;
+    final r = u.role;
+    if (execRoles.contains(r)) {
+      kind = 'exec';
+      execRole = r;
+    } else {
+      kind = r;
+    }
+    gender = u.field('gender');
+    grade = u.field('grade');
+    branch = u.field('field');
+    classId = u.classId;
+    employment = u.field('employment');
+    active = u.active;
+    final rel = u.field('relation');
+    if (const {'پدر', 'مادر', 'سرپرست'}.contains(rel)) relation = rel;
+    access
+      ..clear()
+      ..addAll(staffAccessOf(r, u.data['access']));
+    teaches
+      ..clear()
+      ..addAll(TeachDraft.listOf(u.data['teaches']));
+    makeFather = false;
+    makeMother = false;
   }
 
   @override
@@ -141,29 +183,31 @@ class _UserFormPageState extends State<UserFormPage> {
       if (employment.isNotEmpty) 'employment': employment,
       if (kind == 'parent') 'relation': relation,
     };
-    final r = await c.add(
-      UserDraft(
-        name: f['name']!.text,
-        role: role,
-        classId: kind == 'student' ? classId : null,
-        nationalId: f['national_id']!.text,
-        phone: f['phone']!.text,
-        birthDate: f['birth_date']!.text,
-        gender: gender,
-        extra: extra,
-        grade: kind == 'student' ? grade : '',
-        branch: kind == 'student' ? branch : '',
-        parentAccounts: kind == 'student'
-            ? {if (makeFather) 'father', if (makeMother) 'mother'}
-            : const {},
-        access: [
-          for (final a in staffAccessAreas)
-            if (access.contains(a.key)) a.key,
-        ],
-        teaches: kind == 'teacher' ? [...teaches] : const [],
-        childId: kind == 'parent' ? childId : null,
-      ),
+    final draft = UserDraft(
+      name: f['name']!.text,
+      role: role,
+      classId: kind == 'student' ? classId : null,
+      nationalId: f['national_id']!.text,
+      phone: f['phone']!.text,
+      birthDate: f['birth_date']!.text,
+      gender: gender,
+      extra: extra,
+      grade: kind == 'student' ? grade : '',
+      branch: kind == 'student' ? branch : '',
+      parentAccounts: kind == 'student'
+          ? {if (makeFather) 'father', if (makeMother) 'mother'}
+          : const {},
+      access: [
+        for (final a in staffAccessAreas)
+          if (access.contains(a.key)) a.key,
+      ],
+      teaches: kind == 'teacher' ? [...teaches] : const [],
+      childId: kind == 'parent' ? childId : null,
+      active: _isEdit ? active : null,
     );
+    final r = _isEdit
+        ? await c.update(widget.editing!.id, draft)
+        : await c.add(draft);
     if (r != null) await widget.onSaved?.call(r);
     if (r != null && mounted) Navigator.pop(context);
   }
@@ -322,18 +366,19 @@ class _UserFormPageState extends State<UserFormPage> {
     _text('usr-f-father_phone', 'father_phone', 'همراه پدر', numeric: true),
     _text('usr-f-father_edu', 'father_edu', 'تحصیلات پدر'),
     _text('usr-f-father_job', 'father_job', 'شغل پدر'),
-    SchoolFormFull(
-      child: CheckboxListTile(
-        key: const Key('usr-f-make-father'),
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
-        value: makeFather,
-        title: const Text(
-          'حساب کاربری پدر هم ساخته شود و به دانش‌آموز وصل شود',
+    if (!_isEdit)
+      SchoolFormFull(
+        child: CheckboxListTile(
+          key: const Key('usr-f-make-father'),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: makeFather,
+          title: const Text(
+            'حساب کاربری پدر هم ساخته شود و به دانش‌آموز وصل شود',
+          ),
+          onChanged: (v) => setState(() => makeFather = v ?? false),
         ),
-        onChanged: (v) => setState(() => makeFather = v ?? false),
       ),
-    ),
     const SchoolFormSection(
       'مشخصات مادر',
       note: 'نام کاربری مادر همراه اوست و رمز اولیه‌اش کد ملی‌اش.',
@@ -343,18 +388,19 @@ class _UserFormPageState extends State<UserFormPage> {
     _text('usr-f-mother_phone', 'mother_phone', 'همراه مادر', numeric: true),
     _text('usr-f-mother_edu', 'mother_edu', 'تحصیلات مادر'),
     _text('usr-f-mother_job', 'mother_job', 'شغل مادر'),
-    SchoolFormFull(
-      child: CheckboxListTile(
-        key: const Key('usr-f-make-mother'),
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
-        value: makeMother,
-        title: const Text(
-          'حساب کاربری مادر هم ساخته شود و به دانش‌آموز وصل شود',
+    if (!_isEdit)
+      SchoolFormFull(
+        child: CheckboxListTile(
+          key: const Key('usr-f-make-mother'),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: makeMother,
+          title: const Text(
+            'حساب کاربری مادر هم ساخته شود و به دانش‌آموز وصل شود',
+          ),
+          onChanged: (v) => setState(() => makeMother = v ?? false),
         ),
-        onChanged: (v) => setState(() => makeMother = v ?? false),
       ),
-    ),
     const SchoolFormSection('سرپرست و نشانی'),
     _text('usr-f-guardian', 'guardian', 'سرپرست (نسبت و نام)'),
     _text(
@@ -542,6 +588,42 @@ class _UserFormPageState extends State<UserFormPage> {
     _accessBlock(),
   ];
 
+  /// ردیف ۱۹۷: سرِ فرم ویرایش — نقش (ثابت) و فعال/غیرفعال.
+  Widget _editHead() {
+    final u = widget.editing!;
+    return SchoolFormFull(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            kind == 'exec'
+                ? 'نقش: عوامل اجرایی — سمت را از فهرست «سمت در مدرسه» می‌شود عوض کرد'
+                : 'نقش: ${u.roleLabel} (برای نقش دیگر کاربر تازه بسازید)',
+            key: const Key('usr-f-edit-role'),
+            style: Theme.of(context).textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          if (u.kids.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: PayeshTokens.space1),
+              child: Text(
+                'فرزندان وصل‌شده: ${u.kids.join('، ')}',
+                key: const Key('usr-f-edit-kids'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          SwitchListTile(
+            key: const Key('usr-e-active'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(active ? 'فعال' : 'غیرفعال (ورود بسته است)'),
+            value: active,
+            onChanged: (v) => setState(() => active = v),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<Widget> _parent() => [
     const SchoolFormSection(
       'مشخصات ولی',
@@ -555,10 +637,13 @@ class _UserFormPageState extends State<UserFormPage> {
     ], (v) => relation = v),
     _text('usr-f-degree', 'degree', 'تحصیلات'),
     _text('usr-f-job', 'job', 'شغل'),
-    _drop<int?>('usr-f-child', 'فرزند (دانش‌آموز)', childId, [
-      (null, '—'),
-      ...c.studentRows,
-    ], (v) => childId = v),
+    _drop<int?>(
+      'usr-f-child',
+      _isEdit ? 'وصل کردن فرزند دیگر' : 'فرزند (دانش‌آموز)',
+      childId,
+      [(null, '—'), ...c.studentRows],
+      (v) => childId = v,
+    ),
     _text('usr-f-landline', 'landline', 'تلفن ثابت', numeric: true),
     SchoolField('usr-f-address', 'نشانی', f['address']!, lines: 2),
   ];
@@ -568,12 +653,12 @@ class _UserFormPageState extends State<UserFormPage> {
     listenable: c,
     builder: (context, _) => SchoolForm(
       prefix: 'usr',
-      title: 'کاربر جدید',
+      title: _isEdit ? 'ویرایش — ${widget.editing!.name}' : 'کاربر جدید',
       controller: c,
       submitLabel: c.samePerson != null ? 'شخص دیگری است — ذخیره' : 'ذخیره',
       onSubmit: _save,
       fields: [
-        _kindPicker(),
+        if (_isEdit) _editHead() else _kindPicker(),
         ...switch (kind) {
           'student' => _student(),
           'teacher' => _teacher(),

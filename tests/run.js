@@ -2858,6 +2858,85 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  /* — ردیف ۱۹۷: «ویرایش کاربر» وب برای هر نقش بخش خودش را دارد ───────── */
+  await test('ردیف ۱۹۷: ویرایش کاربر در پنل وب — کارمند با سمت و تیک دسترسی (بی فیلدهای خانوادهٔ دانش‌آموز)، دبیر با درس‌ها، دانش‌آموز با پایه/رشته/کلاس، ولی با نسبت؛ ذخیره همان‌ها را به PATCH می‌فرستد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, actUserEdit, handleSubmit, setApi: (fn) => { api = fn; } };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.route = 'users'; T.S.session = 'x';
+    T.S.data = {
+      users: new Map([
+        [30, { id: 30, name: 'کارمند آزمون', role: 'staff', phone: '09121970006', access: ['notices'], position: 'دفتردار' }],
+        [31, { id: 31, name: 'دبیر آزمون', role: 'teacher', teaches: [{ subject_id: 41, subject: 'ریاضی', grade: 'دهم' }] }],
+        [21, { id: 21, name: 'بهار', role: 'student', grade: 'دهم', class_id: 5, father_name: 'رضا' }],
+        [40, { id: 40, name: 'مریم', role: 'parent', relation: 'سرپرست' }],
+      ]),
+      classes: new Map([[5, { id: 5, name: 'دهم الف' }], [6, { id: 6, name: 'یازدهم ب' }]]),
+      subjects: new Map([[41, { id: 41, name: 'ریاضی' }], [42, { id: 42, name: 'فیزیک' }]]),
+      lookups: new Map([[1, { id: 1, kind: 'grade', name: 'دهم' }], [2, { id: 2, kind: 'grade', name: 'یازدهم' }]]),
+      parent_links: new Map(),
+    };
+    T.S.queue = [];
+    let sent = [];
+    const patchOf = () => {
+      const hit = sent.filter(x => /^\/api\/admin\/users\/\d+$/.test(x.p)).pop();
+      sent = [];
+      assert.ok(hit, 'درخواست PATCH فرستاده نشد');
+      return hit.body;
+    };
+    T.setApi(async (p, o) => { sent.push({ p, body: o && o.body }); return { ok: true }; });
+    /* jsdom دسترسی نام‌دار فرم (form.phone) را مثل مرورگر ندارد — همان رفتار مرورگر را می‌سازیم */
+    const form = () => {
+      const el = win.document.querySelector('#modal-root form[data-form="user-edit"]');
+      for (const x of Array.from(el.elements)) {
+        if (x.name) Object.defineProperty(el, x.name, { configurable: true, get: () => el.elements.namedItem(x.name) });
+      }
+      return el;
+    };
+
+    T.actUserEdit(30);
+    let f = form();
+    const roleOf = (x) => x.elements.namedItem('role');
+    assert.ok(roleOf(f) && roleOf(f).value === 'staff', 'سمت در فرم هست');
+    assert.ok(f.access_notices.checked && !f.access_attendance.checked, 'تیک‌های فعلی پر شده‌اند');
+    assert.ok(!f.father_name && !f.last_gpa, 'فیلدهای خانوادهٔ دانش‌آموز در فرم کارمند نیست');
+    f.access_attendance.checked = true; roleOf(f).value = 'counselor';
+    await T.handleSubmit(f);
+    let b = patchOf();
+    assert.strictEqual(b.role, 'counselor');
+    assert.deepStrictEqual(Array.from(b.access), ['attendance', 'notices']);
+
+    T.actUserEdit(31); f = form();
+    assert.ok(f.teach_41.checked && !f.teach_42.checked, 'درس فعلی تیک دارد');
+    f.teach_41.checked = false; f.teach_42.checked = true;
+    await T.handleSubmit(f);
+    b = patchOf();
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(b.teaches)), [{ subject_id: 42, subject: 'فیزیک' }]);
+    assert.strictEqual(b.subject, 'فیزیک');
+
+    T.actUserEdit(21); f = form();
+    assert.strictEqual(f.grade.value, 'دهم'); assert.strictEqual(f.class_id.value, '5');
+    assert.ok(f.father_name, 'دانش‌آموز فیلدهای خانواده را دارد');
+    f.grade.value = 'یازدهم'; f.class_id.value = '6';
+    await T.handleSubmit(f);
+    b = patchOf();
+    assert.strictEqual(b.grade, 'یازدهم'); assert.strictEqual(b.class_id, 6); assert.strictEqual(b.role, undefined);
+
+    T.actUserEdit(40); f = form();
+    assert.strictEqual(f.relation.value, 'سرپرست');
+    f.relation.value = 'مادر';
+    await T.handleSubmit(f);
+    b = patchOf();
+    assert.strictEqual(b.relation, 'مادر');
+    dom.window.close();
+  });
+
   /* — پروندهٔ دانش‌آموز: فیلدهای آمده از اکسل دیده می‌شوند ───────── */
   await test('پروندهٔ دانش‌آموز همهٔ مشخصات واردشده را نشان می‌دهد', async () => {
     const { JSDOM } = require('jsdom');
@@ -4560,6 +4639,52 @@ async function waitFor(fn, ms = 15000) {
   });
 
   /* ══ آینهٔ داده + پشتیبان روزانه + بازیابی ════════════════════════ */
+  await test('ردیف ۱۹۷: ویرایش هر نقش — سمت و تیک دسترسی کارمند، درس‌های دبیر و نسبت ولی از PATCH و همگام‌سازی ذخیره می‌شود؛ NEG دانش‌آموز ← دبیر و برداشتن آخرین مدیر رد می‌شود، تیک ناشناخته دور ریخته می‌شود (۸ بررسی)', async () => {
+    const made = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'e197-1', collection: 'users', type: 'put', data: { name: 'کارمند ۱۹۷', role: 'staff', phone: '09121970201', access: ['notices'] } },
+      { uid: 'e197-2', collection: 'users', type: 'put', data: { name: 'دبیر ۱۹۷', role: 'teacher', phone: '09121970202' } },
+      { uid: 'e197-3', collection: 'users', type: 'put', data: { name: 'دانش‌آموز ۱۹۷', role: 'student', phone: '09121970203' } },
+    ] } });
+    assert.strictEqual(made.data.applied.length, 3, JSON.stringify(made.data));
+    const [staffId, teacherId, studentId] = made.data.applied.map(x => x.id);
+    const row = async (id) => (await req('/api/v1/pull?collections=users', { token: managerToken })).data.collections.users.find(u => Number(u.id) === Number(id));
+    /* ۱) PATCH: کارمند ← مشاور با تیک تازه + تیک ناشناخته */
+    const e1 = await req('/api/admin/users/' + staffId, { method: 'PATCH', token: managerToken, body: { role: 'counselor', access: ['attendance', 'notices', 'root_all'], position: 'مشاور پایهٔ دهم' } });
+    assert.strictEqual(e1.data.ok, true, JSON.stringify(e1.data));
+    let u = await row(staffId);
+    assert.strictEqual(u.role, 'counselor');
+    assert.deepStrictEqual(u.access, ['attendance', 'notices']);
+    assert.strictEqual(u.position, 'مشاور پایهٔ دهم');
+    /* ۲) PATCH: درس‌های دبیر */
+    const e2 = await req('/api/admin/users/' + teacherId, { method: 'PATCH', token: managerToken, body: { teaches: [{ subject_id: 41, subject: 'ریاضی', grade: 'دهم' }, { subject_id: 0, subject: 'بی‌شناسه' }] } });
+    assert.strictEqual(e2.data.ok, true, JSON.stringify(e2.data));
+    u = await row(teacherId);
+    assert.deepStrictEqual(u.teaches, [{ subject_id: 41, subject: 'ریاضی', grade: 'دهم' }]);
+    assert.strictEqual(u.subject, 'ریاضی');
+    /* ۳) NEG: دانش‌آموز ← دبیر (PATCH و همگام‌سازی) */
+    const n1 = await req('/api/admin/users/' + studentId, { method: 'PATCH', token: managerToken, body: { role: 'teacher' } });
+    assert.strictEqual(n1.status, 400); assert.strictEqual(n1.data.error, 'role_change_denied');
+    const sv = (await row(studentId))._version;
+    const n2 = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'e197-4', collection: 'users', type: 'put', id: studentId, base_version: sv, data: { role: 'teacher' } },
+    ] } });
+    assert.strictEqual(n2.data.applied.length, 0); assert.strictEqual(n2.data.rejected[0].error, 'role_change_denied');
+    assert.strictEqual((await row(studentId)).role, 'student');
+    /* ۴) NEG: آخرین مدیر فعال */
+    const managers = (await req('/api/v1/pull?collections=users', { token: managerToken })).data.collections.users.filter(x => x.role === 'manager' && x.active !== false && x.deleted !== true);
+    if (managers.length === 1) {
+      const n3 = await req('/api/admin/users/' + managers[0].id, { method: 'PATCH', token: managerToken, body: { role: 'vice' } });
+      assert.strictEqual(n3.data.error, 'last_manager', JSON.stringify(n3.data));
+    }
+    /* ۵) همگام‌سازی: مشاور ← کارمند مجاز است */
+    const cv = (await row(staffId))._version;
+    const ok = await req('/api/sync', { method: 'POST', token: managerToken, body: { ops: [
+      { uid: 'e197-5', collection: 'users', type: 'put', id: staffId, base_version: cv, data: Object.assign({}, await row(staffId), { role: 'staff', access: ['notices'] }) },
+    ] } });
+    assert.strictEqual(ok.data.applied.length, 1, JSON.stringify(ok.data).slice(0, 300));
+    assert.strictEqual((await row(staffId)).role, 'staff');
+  });
+
   await test('آینهٔ داده روی دیسک، پشتیبان روزانه و بازیابی در دیتابیس', async () => {
     const r1 = await req('/api/admin/mirror/refresh', { method: 'POST', token: managerToken, body: {} });
     assert.strictEqual(r1.data.ok, true, JSON.stringify(r1.data));
