@@ -1373,6 +1373,51 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  /// Row 188 — the data path (AutoSync pull/push) could not reach the current address of the
+  /// school server. Before, only a token refresh (≈ once per session lifetime) looked for the
+  /// server elsewhere, so a phone whose LAN address stopped answering (e.g. a VPN switched on)
+  /// stayed offline for hours. Now the same row-165 search runs at once (throttled to once per
+  /// 20 s); when the server answers at another address the session moves there and the data path
+  /// is rebuilt on it. Returns whether the session moved.
+  Future<bool> serverUnreachable() {
+    final cur = _moving;
+    if (cur != null) return cur;
+    final f = _moveLan().whenComplete(() => _moving = null);
+    _moving = f;
+    return f;
+  }
+
+  Future<bool>? _moving;
+
+  Future<bool> _moveLan() async {
+    final l = _lan;
+    final api = lan;
+    if (l == null || api == null || _state is! SignedIn) return false;
+    final SavedLan? moved;
+    try {
+      moved = await _relocateLan(l, api);
+    } on Object {
+      return false;
+    }
+    final s = _state;
+    if (moved == null || s is! SignedIn || !identical(_lan, moved)) {
+      return false;
+    }
+    _lanRelocated = moved.server;
+    _set(
+      SignedIn(
+        school: s.school,
+        role: s.role,
+        uid: s.uid,
+        session: s.session,
+        lanServer: moved.server,
+        schoolName: s.schoolName,
+      ),
+      busy: _busy,
+    );
+    return true;
+  }
+
   /// Last address the session moved to (row 165; tests and the diagnostics read it).
   Uri? get lanRelocated => _lanRelocated;
   Uri? _lanRelocated;

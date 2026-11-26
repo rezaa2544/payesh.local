@@ -104,16 +104,89 @@ final class GatewayAttendanceSource
     _follow();
   }
 
+  /// Row 188: owner + server address the running data path was built for. The session can move
+  /// to another address of the SAME server while signed in (row 165 relocation: LAN ⇄ public
+  /// tunnel, e.g. when a VPN switches on). The transports keep the address they were built with,
+  /// so the data path is rebuilt whenever the address changes — before row 188 it kept pulling
+  /// the old, unreachable address forever (no request ever reached the server, the offline bar
+  /// stayed until the app was killed).
+  String? _key;
+  Timer? _restartTimer;
+
   void _follow() {
     final s = session.state;
     final uid = s is SignedIn ? s.currentUid : null;
     if (s is SignedIn && uid != null) {
       final owner = DeviceOwner.tag(s.school, uid);
-      if (owner != _owner) {
-        _starting = _start(owner);
+      final key = '$owner@${session.cellUrl}';
+      if (owner != _owner || key != _key) {
+        _key = key;
+        _restartTimer?.cancel();
+        _restartTimer = null;
+        // one start at a time: two overlapping starts would leave a second AutoSync running
+        final prev = _starting;
+        _starting =
+            (prev == null
+                    ? Future<void>.value()
+                    : prev.catchError((Object _) {}))
+                .then((_) => _startSafe(owner, key));
       }
-    } else if (_owner != null) {
+    } else if (_owner != null || _key != null) {
+      _key = null;
+      _restartTimer?.cancel();
+      _restartTimer = null;
       unawaited(_stop());
+    }
+  }
+
+  /// Row 188: a failed start (database not open yet, secure storage busy…) used to leave the
+  /// device with no data path until the app was restarted. Now it is reported and retried.
+  Future<void> _startSafe(String owner, String key) async {
+    // signed out / moved again while the previous start was finishing — the newer call wins
+    if (_key != key) return;
+    try {
+      await _start(owner);
+    } on Object catch (e) {
+      _owner = null;
+      _key = null;
+      session.publishOutbox(
+        SyncStatus(
+          phase: SyncPhase.offline,
+          pending: 0,
+          inflight: 0,
+          blocked: 0,
+          lastError: 'start: $e',
+        ),
+      );
+      _restartTimer?.cancel();
+      _restartTimer = Timer(restartDelay, () {
+        _restartTimer = null;
+        _follow();
+      });
+    }
+  }
+
+  /// Row 188: wait before a failed start is tried again.
+  @visibleForTesting
+  static Duration restartDelay = const Duration(seconds: 10);
+
+  /// Row 188: a transport failure that means "this address does not answer" (nothing reached the
+  /// server) — the session then looks for the same server at its other addresses.
+  static bool unreachable(Object e) =>
+      e is SyncFailure &&
+      e.status == null &&
+      (e.message == 'timeout' ||
+          e.message.startsWith('network') ||
+          e.message.startsWith('tls'));
+
+  Future<T> _guard<T>(Future<T> Function() call) async {
+    try {
+      return await call();
+    } on Object catch (e) {
+      if (session.onLan && unreachable(e)) {
+        unawaited(session.serverUnreachable());
+      }
+      rethrow;
     }
   }
 
@@ -212,13 +285,13 @@ final class GatewayAttendanceSource
       outbox: outbox,
       push: (ops) async {
         await _auth();
-        return send(ops);
+        return _guard(() => send(ops));
       },
       pull: () async {
         await _auth();
         // the feed opens only with a valid token (first cycle), never with an empty one
         if (_foreground) _feed?.start();
-        final r = await fetch();
+        final r = await _guard(fetch);
         if (r.rows > 0 || r.deleted > 0) _changed.value++;
       },
     );
@@ -323,6 +396,8 @@ final class GatewayAttendanceSource
   /// Stops syncing and lets go of the session (before the session itself is disposed).
   Future<void> dispose() async {
     session.removeListener(_follow);
+    _restartTimer?.cancel();
+    _restartTimer = null;
     await _starting;
     await _stop();
     _changed.dispose();
