@@ -86,6 +86,19 @@ async function boot(dir, extraEnv) {
 }
 const stop = (box) => new Promise((res) => { box.child.once('exit', res); box.child.kill('SIGTERM'); setTimeout(res, 3000); });
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+/* ردیف ۱۹۷: سقف ورود هر کاربر ۲۰ در دقیقه است (login-user، server/index.js، پنجرهٔ ثابت). حلقه‌های انتظار
+   با فاصلهٔ ۱۵۰ms روی runner کند پیش از آماده‌شدن مدرسهٔ میزبانی‌شده سهمیه را تمام می‌کردند و از آن به بعد
+   فقط 429 می‌گرفتند (CI ۰.۹.۵۳/۰.۹.۵۴: «rate_limited 429 !== 200»). سقف نرخ رفتار درست سرور است؛ اینجا
+   با فاصلهٔ ۱ ثانیه تلاش می‌کنیم و در 429 تا تازه‌شدن پنجره صبر می‌کنیم. */
+async function pollLogin(send, done, tries = 100) {
+  let r = null;
+  for (let i = 0; i < tries; i++) {
+    r = await send();
+    if (done(r)) return r;
+    await sleep(r.status === 429 ? 61_000 : 1000);
+  }
+  return r;
+}
 const login = (port, phone, password) => req('POST', port, '/api/auth/login', { phone, password, platform: 'windows' });
 
 (async () => {
@@ -185,7 +198,7 @@ const login = (port, phone, password) => req('POST', port, '/api/auth/login', { 
         const pa = plainOf([Object.assign(schoolA(), { active: false }), schoolB()]);
         await publishRegistry(cfg, 4, pa);
         let r = null;
-        for (let i = 0; i < 100; i++) { r = await login(box.port, 'sima173', 'Sim-A-pass-1'); if (r.status === 403) break; await sleep(150); }
+        r = await pollLogin(() => login(box.port, 'sima173', 'Sim-A-pass-1'), x => x.status === 403);
         assert.strictEqual(r.status, 403, r.body);
         assert.strictEqual(r.json.error, 'school_inactive');
         const lb = await login(box.port, 'simb173', 'Sim-B-pass-1');
@@ -195,7 +208,7 @@ const login = (port, phone, password) => req('POST', port, '/api/auth/login', { 
         const nobody = await login(box.port, 'nobody173', 'whatever-1');
         assert.strictEqual(nobody.status, 401, 'کاربر ناشناس «مدرسه غیرفعال» نمی‌بیند: ' + nobody.body);
         await publishRegistry(cfg, 5, plainOf([schoolA(), schoolB()]));
-        for (let i = 0; i < 100; i++) { r = await login(box.port, 'sima173', 'Sim-A-pass-1'); if (r.status === 200) break; await sleep(150); }
+        r = await pollLogin(() => login(box.port, 'sima173', 'Sim-A-pass-1'), x => x.status === 200);
         assert.strictEqual(r.status, 200, 'دوباره فعال: ' + r.body);
       });
     } finally { if (process.env.S173_LOG) console.log(box.log); await stop(box); }
@@ -210,7 +223,7 @@ const login = (port, phone, password) => req('POST', port, '/api/auth/login', { 
         const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
         const pub = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
         let l = null;
-        for (let i = 0; i < 100; i++) { l = await req('POST', box2.port, '/api/auth/login', { phone: 'sima173', password: 'Sim-A-pass-1', platform: 'windows', name: 'd14', device_pubkey: pub }); if (l.status === 200) break; await sleep(150); }
+        l = await pollLogin(() => req('POST', box2.port, '/api/auth/login', { phone: 'sima173', password: 'Sim-A-pass-1', platform: 'windows', name: 'd14', device_pubkey: pub }), x => x.status === 200);
         assert.strictEqual(l.status, 200, l.body);
         const raw = l.json.device_token; const devId = l.json.device_id;
         assert.ok(raw && devId, 'device_token');
