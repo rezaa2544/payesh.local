@@ -25,9 +25,26 @@
         "parent",
         "student",
         "counselor",
-        "guard"
+        "guard",
+        "staff",
+        "office"
       ],
       "description": "Mirror of server/policy.js ROLES (tests/native-contract-64.js asserts equality)."
+    },
+    "userRole": {
+      "type": "string",
+      "enum": [
+        "manager",
+        "teacher",
+        "parent",
+        "student",
+        "counselor",
+        "guard",
+        "staff",
+        "office",
+        "vice"
+      ],
+      "description": "Mirror of server/policy.js USER_ROLES — the role stored on the user row (row 187: «vice» معاون is shown as such and has the manager's access; the session `role` is the permission role)."
     },
     "errorResponse": {
       "type": "object",
@@ -154,7 +171,7 @@
           "type": "string"
         },
         "role": {
-          "$ref": "#/$defs/role"
+          "$ref": "#/$defs/userRole"
         }
       },
       "additionalProperties": true,

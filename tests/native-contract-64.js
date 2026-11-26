@@ -434,6 +434,7 @@ async function partB() {
     await test('NC-00', 'schema compiles; role enum mirrors server/policy.js ROLES', async () => {
       const policy = require(path.join(ROOT, 'server/policy.js'));
       assert.deepStrictEqual(NATIVE.$defs.role.enum, policy.ROLES);
+      assert.deepStrictEqual(NATIVE.$defs.userRole.enum, policy.USER_ROLES); // row 187: vice is stored, shown, and maps to manager
       for (const k of Object.keys(NATIVE.$defs)) V(k);
       return Object.keys(NATIVE.$defs).length + ' defs';
     });

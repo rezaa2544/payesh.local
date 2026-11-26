@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const policy = require('../server/policy');
 
-const roles = ['manager', 'teacher', 'parent', 'student', 'counselor', 'guard'];
+const roles = ['manager', 'teacher', 'parent', 'student', 'counselor', 'guard', 'staff', 'office'];
 const collections = [
   'schools', 'school_years', 'users', 'classes', 'subjects', 'lookups', 'schedule',
   'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves',
@@ -19,6 +19,9 @@ const readByRole = {
   counselor: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'app_settings', 'import_issues', 'conflicts'].includes(c)),
   guard: collections.filter((c) => ['schools', 'school_years', 'users', 'classes', 'subjects', 'lookups', 'schedule', 'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'internships', 'homework', 'exams', 'calendar'].includes(c)),
 };
+// row 187 (p2): کارمند and اجرایی read exactly what the guard reads
+readByRole.staff = readByRole.guard;
+readByRole.office = readByRole.guard;
 const scopes = {
   manager: { role: 'manager', selfId: 1, all: true, classIds: new Set(), studentIds: new Set(), cohorts: new Set() },
   teacher: { role: 'teacher', selfId: 2, all: false, classIds: new Set([10]), studentIds: new Set([3]), cohorts: new Set() },
@@ -26,6 +29,8 @@ const scopes = {
   student: { role: 'student', selfId: 3, all: false, classIds: new Set([10]), studentIds: new Set([3]), cohorts: new Set() },
   counselor: { role: 'counselor', selfId: 5, all: false, classIds: new Set(), studentIds: new Set(), cohorts: new Set() },
   guard: { role: 'guard', selfId: 6, all: false, classIds: new Set(), studentIds: new Set(), cohorts: new Set() },
+  staff: { role: 'staff', selfId: 7, all: false, classIds: new Set(), studentIds: new Set(), cohorts: new Set() },
+  office: { role: 'office', selfId: 8, all: false, classIds: new Set(), studentIds: new Set(), cohorts: new Set() },
 };
 const rows = {
   schools: { id: 1 }, school_years: { id: 1 }, users: { id: 3 }, classes: { id: 10 },
@@ -46,6 +51,8 @@ const readScopeByRole = {
   counselor: ['schools', 'school_years', 'subjects', 'bell_schedules', 'announcements', 'counselor_refs', 'counselor_notes', 'homework', 'exams', 'calendar'],
   guard: ['schools', 'school_years', 'subjects', 'bell_schedules', 'announcements', 'homework', 'exams', 'calendar'],
 };
+readScopeByRole.staff = readScopeByRole.guard;
+readScopeByRole.office = readScopeByRole.guard;
 const secretFields = ['password_hash', 'password_enc', 'password_plain', 'phone_hash', '__password_verifier', 'pin_hash', 'token', 'secret', 'accessKey'];
 const identityFields = ['national_id', 'father_nid', 'mother_nid', 'shenasname_serial', 'shenasname_seri', 'phone', 'address'];
 let matrixChecks = 0;
