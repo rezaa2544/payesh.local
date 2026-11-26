@@ -20,8 +20,10 @@ class D2Card extends StatelessWidget {
         padding ?? const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
     decoration: BoxDecoration(
       color: Web.card,
-      border: Border.all(color: Web.line),
+      // row 190: a stronger frame and a faint lift so the blocks stand apart
+      border: Border.all(color: Web.frame),
       borderRadius: BorderRadius.circular(10),
+      boxShadow: Web.shadow,
     ),
     child: child,
   );

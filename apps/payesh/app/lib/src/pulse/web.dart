@@ -44,13 +44,18 @@ final class WebPalette {
     Color? navBg,
     Color? track,
     Color? link,
+    Color? frame,
   }) : ink2 = ink2 ?? ink,
+       frame = frame ?? line,
        navBg = navBg ?? card,
        track = track ?? line,
        link = link ?? primary;
 
   /// Row 180 (design 2): secondary text, the sidebar surface, slider/ring track, links.
   final Color ink2, navBg, track, link;
+
+  /// Row 190: the outline of a card / section — a step darker than the inner hairlines.
+  final Color frame;
 
   final Color primary, primary2, bg, card, ink, muted, line, soft, accent;
   final Color green, greenBg, red, redBg, amber, amberBg, purple, purpleBg;
@@ -128,9 +133,25 @@ final class WebPalette {
       navBg: t.navBg,
       track: t.track,
       link: t.link,
+      frame: t.frame,
       flat: !t.isNabd,
       shadow: t.isMinimal
-          ? const <BoxShadow>[]
+          // row 190: a faint lift under the light cards (none in dark — the frame carries it)
+          ? (dark
+                ? const <BoxShadow>[]
+                : const [
+                    BoxShadow(
+                      color: Color(0x0F000000),
+                      offset: Offset(0, 1),
+                      blurRadius: 3,
+                    ),
+                    BoxShadow(
+                      color: Color(0x0A000000),
+                      offset: Offset(0, 1),
+                      blurRadius: 2,
+                      spreadRadius: -1,
+                    ),
+                  ])
           : dark || !t.isNabd
           ? (dark
                 ? const <BoxShadow>[]
@@ -167,6 +188,9 @@ abstract final class Web {
   static Color get ink => _p.ink;
   static Color get muted => _p.muted;
   static Color get line => _p.line;
+
+  /// Row 190: card / section outline.
+  static Color get frame => _p.frame;
   static Color get soft => _p.soft;
   static Color get accent => _p.accent;
   static Color get green => _p.green;
@@ -382,7 +406,7 @@ class WebCard extends StatelessWidget {
           : padding,
       decoration: BoxDecoration(
         color: Web.card,
-        border: Border.all(color: Web.line),
+        border: Border.all(color: Web.frame),
         borderRadius: BorderRadius.circular(Web.radius),
         boxShadow: Web.shadow,
       ),

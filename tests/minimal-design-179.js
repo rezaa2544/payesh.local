@@ -195,7 +195,7 @@ check('MD-07 owner web panel: theme.css generated from this pulse.css, flat app.
   assert.ok(/\.navitem\[aria-current="page"\] \{[^}]*background: var\(--soft\)/.test(css), 'soft pill');
   const man = JSON.parse(read('apps/owner-panel/web/manifest.webmanifest'));
   assert.strictEqual(man.theme_color, '#18181b');
-  assert.strictEqual(man.background_color, '#ffffff');
+  assert.strictEqual(man.background_color, '#fafafa');
   assert.ok(/data-action': 'theme'/.test(read('apps/owner-panel/web/app.js')), 'owner panel keeps its روشن/تاریک/سیستم button');
 });
 check('MD-08 native apps: minimal look + persisted روشن/تاریک/سیستم in both apps', () => {
@@ -218,7 +218,7 @@ const MUT = [
   ['token drift (dart dark bg)', () => C.tokens(PULSE, TOKENS_DART.replace(/(minimalDark = PayeshTokens\([\s\S]*?bg: Color\(0xFF)09090B/, '$1000000'))],
   ['explicit light block missing', () => C.modes(PULSE.replace(':root[data-theme="light"] {', '.x-light {'))],
   ['explicit dark differs from media dark', () => C.modes(PULSE.replace(/(html\.dark, body\.dark, \[data-theme="dark"\] \{[\s\S]*?)--bg: #09090b;/, '$1--bg: #000000;'))],
-  ['muted too light', () => C.contrast(PULSE.replace('--muted: #71717a;', '--muted: #a1a1aa;'))],
+  ['muted too light', () => C.contrast(PULSE.replace('--muted: #6b6b73;', '--muted: #a1a1aa;'))],
   ['gradient back on nav', () => C.flat(PULSE.replace(/(\.navitem\.on \{[^}]*)background: var\(--soft\);/, '$1background: linear-gradient(135deg, var(--primary), var(--primary-2));'))],
   ['teal leftover', () => C.flat(PULSE + '\n.x { color: #0d9488; }')],
 ];

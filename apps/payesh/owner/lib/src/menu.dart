@@ -210,7 +210,7 @@ class _MinimalSideNavState extends State<_MinimalSideNav> {
         width: 240,
         decoration: BoxDecoration(
           color: tk.navBg,
-          border: BorderDirectional(end: BorderSide(color: tk.line)),
+          border: BorderDirectional(end: BorderSide(color: tk.frame)),
         ),
         child: Column(
           children: [
@@ -335,7 +335,7 @@ class _MinimalSideNavState extends State<_MinimalSideNav> {
                           menuGroupTitle(m.group),
                           style: TextStyle(
                             fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w700,
                             color: tk.muted,
                           ),
                         ),
@@ -451,29 +451,43 @@ class _NabdNavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final tk = context.tokens;
     // Row 179 «مینیمال»: the chosen item is a soft grey pill with ink text (no gradient).
+    // Row 190 (owner: «گزینه‌های منو پررنگ‌تر و برجسته‌تر»): 14px w600 ink labels, 19px ink
+    // icons; the chosen item is a framed card-white pill, a violet bar at its start, a violet
+    // icon and w800 text.
     final pill = tk.isMinimal;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final fg = selected ? (pill ? tk.ink : Colors.white) : tk.ink;
     final icon = Icon(
       ownerMenuIcons[item.id],
-      size: pill ? 17 : 21,
+      size: pill ? 19 : 21,
       color: selected
-          ? (pill ? tk.ink : Colors.white)
-          : (pill ? tk.ink2 : tk.muted),
+          ? (pill ? tk.link : Colors.white)
+          : (pill ? tk.ink : tk.muted),
     );
     final label = Text(
       item.title,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        color: selected || !pill ? fg : tk.ink2,
-        fontSize: extended ? (pill ? 13 : 14) : 11,
+        color: fg,
+        fontSize: extended ? 14 : 11,
         fontWeight: selected
-            ? (pill ? FontWeight.w500 : FontWeight.w700)
-            : (pill ? FontWeight.w400 : FontWeight.w500),
+            ? (pill ? FontWeight.w800 : FontWeight.w700)
+            : (pill ? FontWeight.w600 : FontWeight.w500),
+      ),
+    );
+    final bar = Container(
+      key: selected ? const Key('nav-on-bar') : null,
+      width: 3,
+      height: 18,
+      margin: const EdgeInsetsDirectional.only(end: 8),
+      decoration: BoxDecoration(
+        color: selected ? tk.link : const Color(0x00000000),
+        borderRadius: BorderRadius.circular(2),
       ),
     );
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: pill ? 0.5 : 2),
+      padding: EdgeInsets.symmetric(vertical: pill ? 1 : 2),
       child: Semantics(
         button: true,
         selected: selected,
@@ -482,13 +496,18 @@ class _NabdNavItem extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(13),
-            hoverColor: tk.soft,
+            borderRadius: BorderRadius.circular(pill ? 8 : 13),
+            hoverColor: pill ? tk.line.withValues(alpha: 0.55) : tk.soft,
             onTap: onTap,
             child: Ink(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(pill ? 6 : 13),
-                color: selected && pill ? tk.soft : null,
+                borderRadius: BorderRadius.circular(pill ? 8 : 13),
+                color: selected && pill ? (dark ? tk.soft : tk.card) : null,
+                border: pill
+                    ? Border.all(
+                        color: selected ? tk.frame : const Color(0x00000000),
+                      )
+                    : null,
                 gradient: selected && !pill ? tk.primaryGradient : null,
                 boxShadow: selected && !pill
                     ? [
@@ -502,12 +521,13 @@ class _NabdNavItem extends StatelessWidget {
                     : null,
               ),
               padding: EdgeInsets.symmetric(
-                horizontal: extended ? (pill ? 8 : 11) : 4,
-                vertical: extended ? (pill ? 7 : 9) : 8,
+                horizontal: extended ? (pill ? 10 : 11) : 4,
+                vertical: extended ? (pill ? 8 : 9) : 8,
               ),
               child: extended
                   ? Row(
                       children: [
+                        if (pill) bar,
                         icon,
                         SizedBox(width: pill ? 10 : 9),
                         Expanded(child: label),
@@ -561,9 +581,12 @@ class NabdCapsuleBar extends StatelessWidget {
           child: Container(
             constraints: const BoxConstraints(minHeight: 48),
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            // row 190: bolder tabs — ink2 w600 labels; the open one a soft framed pill with a
+            // violet icon and w800 ink text
             decoration: BoxDecoration(
-              color: on && !tk.isMinimal ? tk.soft : null,
-              borderRadius: BorderRadius.circular(18),
+              color: on ? tk.soft : null,
+              border: on && tk.isMinimal ? Border.all(color: tk.line) : null,
+              borderRadius: BorderRadius.circular(tk.isMinimal ? 10 : 18),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -571,7 +594,9 @@ class NabdCapsuleBar extends StatelessWidget {
                 Icon(
                   icon,
                   size: 22,
-                  color: on ? (tk.isMinimal ? tk.ink : tk.primary) : tk.muted,
+                  color: on
+                      ? (tk.isMinimal ? tk.link : tk.primary)
+                      : (tk.isMinimal ? tk.ink2 : tk.muted),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -579,9 +604,13 @@ class NabdCapsuleBar extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 11,
-                    color: on ? (tk.isMinimal ? tk.ink : tk.primary) : tk.muted,
-                    fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: tk.isMinimal ? 12 : 11,
+                    color: on
+                        ? (tk.isMinimal ? tk.ink : tk.primary)
+                        : (tk.isMinimal ? tk.ink2 : tk.muted),
+                    fontWeight: on
+                        ? (tk.isMinimal ? FontWeight.w800 : FontWeight.w700)
+                        : (tk.isMinimal ? FontWeight.w600 : FontWeight.w500),
                   ),
                 ),
               ],
@@ -600,7 +629,16 @@ class NabdCapsuleBar extends StatelessWidget {
       return Container(
         decoration: BoxDecoration(
           color: tk.card,
-          border: Border(top: BorderSide(color: tk.line)),
+          border: Border(top: BorderSide(color: tk.frame)),
+          boxShadow: Theme.of(context).brightness == Brightness.dark
+              ? null
+              : const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    offset: Offset(0, -2),
+                    blurRadius: 8,
+                  ),
+                ],
         ),
         child: SafeArea(
           top: false,

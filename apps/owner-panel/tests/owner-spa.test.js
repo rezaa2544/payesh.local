@@ -127,7 +127,7 @@ const ASSET_CHECKS = {
     const { light } = themeGen.parsePulse(a.pulse);
     const out = [];
     if (m.theme_color !== '#18181b' || m.theme_color !== light.map['--primary']) out.push('theme_color must equal pulse --primary (#18181b, row 180 design 2)');
-    if (m.background_color !== '#ffffff' || m.background_color !== light.map['--bg']) out.push('background_color must equal pulse --bg (#ffffff)');
+    if (m.background_color !== '#fafafa' || m.background_color !== light.map['--bg']) out.push('background_color must equal pulse --bg (#fafafa, row 190)');
     if (m.lang !== 'fa-IR' || m.dir !== 'rtl') out.push('manifest lang/dir');
     return out;
   },
@@ -185,7 +185,7 @@ function assets() {
   {
     const { light, dark } = themeGen.parsePulse(a.pulse);
     check('row 179: minimal tokens (zinc + violet, radius 10)',
-      light.map['--bg'] === '#ffffff' && light.map['--primary'] === '#18181b' && light.map['--radius'] === '10px' &&
+      light.map['--bg'] === '#fafafa' && light.map['--primary'] === '#18181b' && light.map['--radius'] === '10px' &&
       dark.map['--bg'] === '#09090b' && dark.map['--primary'] === '#fafafa');
     check('row 179: owner app.css has no gradients', !/gradient\(/.test(a.css));
   }

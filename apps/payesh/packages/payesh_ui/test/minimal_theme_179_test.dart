@@ -5,34 +5,33 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 void main() {
   group('minimal look', () {
-    test(
-      'tokens: zinc surfaces, violet accent, flat (no glow, no gradient)',
-      () {
-        final l = PayeshTokens.minimalLight, d = PayeshTokens.minimalDark;
-        // row 180: design 2 as drawn — near-black / near-white primary, violet accent
-        expect(l.bg, const Color(0xFFFFFFFF));
-        expect(l.navBg, const Color(0xFFFAFAFA));
-        expect(l.primary, const Color(0xFF18181B));
-        expect(l.link, const Color(0xFF6D5DF5));
-        expect(d.bg, const Color(0xFF09090B));
-        expect(d.primary, const Color(0xFFFAFAFA));
-        expect(d.onPrimary, const Color(0xFF09090B));
-        expect(d.link, const Color(0xFFA598FF));
-        for (final t in [l, d]) {
-          expect(t.isMinimal, isTrue);
-          expect(t.isPanel, isTrue);
-          expect(t.isNabd, isFalse);
-          expect(t.glow.a, 0, reason: 'flat cards');
-          expect(t.primaryGradient.colors.toSet(), {t.primary});
-          expect(t.cardRadius, 10);
-        }
-        expect(PayeshTokens.of(PayeshLook.minimal, Brightness.light), same(l));
-        expect(PayeshTokens.of(PayeshLook.minimal, Brightness.dark), same(d));
-        // NEG: the other looks are untouched
-        expect(PayeshTokens.nabdLight.isMinimal, isFalse);
-        expect(PayeshTokens.light.isPanel, isFalse);
-      },
-    );
+    test('tokens: zinc surfaces, violet accent, flat (no glow, no gradient)', () {
+      final l = PayeshTokens.minimalLight, d = PayeshTokens.minimalDark;
+      // row 180: design 2 as drawn — near-black / near-white primary, violet accent
+      // row 190: a faint grey page under white cards, a darker sidebar surface
+      expect(l.bg, const Color(0xFFFAFAFA));
+      expect(l.card, const Color(0xFFFFFFFF));
+      expect(l.navBg, const Color(0xFFF4F4F5));
+      expect(l.primary, const Color(0xFF18181B));
+      expect(l.link, const Color(0xFF6656F0)); // row 190: AA on the grey page
+      expect(d.bg, const Color(0xFF09090B));
+      expect(d.primary, const Color(0xFFFAFAFA));
+      expect(d.onPrimary, const Color(0xFF09090B));
+      expect(d.link, const Color(0xFFA598FF));
+      for (final t in [l, d]) {
+        expect(t.isMinimal, isTrue);
+        expect(t.isPanel, isTrue);
+        expect(t.isNabd, isFalse);
+        expect(t.glow.a, 0, reason: 'flat cards');
+        expect(t.primaryGradient.colors.toSet(), {t.primary});
+        expect(t.cardRadius, 10);
+      }
+      expect(PayeshTokens.of(PayeshLook.minimal, Brightness.light), same(l));
+      expect(PayeshTokens.of(PayeshLook.minimal, Brightness.dark), same(d));
+      // NEG: the other looks are untouched
+      expect(PayeshTokens.nabdLight.isMinimal, isFalse);
+      expect(PayeshTokens.light.isPanel, isFalse);
+    });
 
     test(
       'theme: flat cards with a hairline, soft grey nav pill with ink text',
@@ -43,9 +42,12 @@ void main() {
               : PayeshUi.dark(look: PayeshLook.minimal);
           final t = PayeshTokens.of(PayeshLook.minimal, b);
           expect(theme.brightness, b);
-          expect(theme.cardTheme.elevation ?? 0, 0);
+          // row 190: the card outline is the stronger frame (a step darker than the inner
+          // hairlines); light cards get a hint of lift, dark ones stay flat
+          expect(theme.cardTheme.elevation ?? 0, b == Brightness.light ? 1 : 0);
           final shape = theme.cardTheme.shape as RoundedRectangleBorder;
-          expect(shape.side.color, t.line);
+          expect(shape.side.color, t.frame);
+          expect(t.frame, isNot(t.line));
           expect(shape.borderRadius, BorderRadius.circular(10));
           final rail = theme.navigationRailTheme;
           expect(rail.indicatorColor, t.soft);

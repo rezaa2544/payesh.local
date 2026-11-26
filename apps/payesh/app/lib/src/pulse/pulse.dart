@@ -258,7 +258,7 @@ class PulseSidebar extends StatelessWidget {
       width: 240,
       decoration: BoxDecoration(
         color: Web.navBg,
-        border: BorderDirectional(end: BorderSide(color: Web.line)),
+        border: BorderDirectional(end: BorderSide(color: Web.frame)),
       ),
       child: WebText(
         child: _D2NavBody(
@@ -536,15 +536,23 @@ class _PulseNavTileState extends State<_PulseNavTile> {
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
           child: Container(
-            // design 2: `.nav-i{font-size:13px;padding:6px 8px;border-radius:6px}`
+            // row 190 (owner: «گزینه‌های منو پررنگ‌تر و برجسته‌تر»): 14px w600 ink labels and
+            // 19px ink icons; the chosen item is a framed card-white pill with a violet bar at
+            // its start, w800 text and a violet icon.
             padding: flat
-                ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
+                ? const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 8)
                 : const EdgeInsets.symmetric(horizontal: 11.2, vertical: 8.8),
-            margin: flat ? const EdgeInsets.only(bottom: 1) : null,
+            margin: flat ? const EdgeInsets.only(bottom: 2) : null,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(flat ? 6 : 13),
-              // Row 179 «مینیمال»: the chosen item is a soft grey pill with ink text.
-              color: on ? (flat ? Web.soft : null) : (_hover ? Web.soft : null),
+              borderRadius: BorderRadius.circular(flat ? 8 : 13),
+              color: on
+                  ? (flat ? (Web.dark ? Web.soft : Web.card) : null)
+                  : (_hover
+                        ? (flat ? Web.line.withValues(alpha: 0.55) : Web.soft)
+                        : null),
+              border: on && flat
+                  ? Border.all(color: Web.frame)
+                  : (flat ? Border.all(color: const Color(0x00000000)) : null),
               gradient: on && !flat ? Web.gradient : null,
               boxShadow: on && !flat
                   ? [
@@ -555,16 +563,27 @@ class _PulseNavTileState extends State<_PulseNavTile> {
                         spreadRadius: -7,
                       ),
                     ]
-                  : null,
+                  : (on && flat ? Web.shadow : null),
             ),
             child: Row(
               children: [
+                if (flat)
+                  Container(
+                    key: on ? const Key('pulse-nav-bar') : null,
+                    width: 3,
+                    height: 18,
+                    margin: const EdgeInsetsDirectional.only(end: 8),
+                    decoration: BoxDecoration(
+                      color: on ? Web.accent : const Color(0x00000000),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 WebIcon(
                   widget.icon,
-                  size: flat ? 17 : 21,
+                  size: flat ? 19 : 21,
                   color: on && !flat
                       ? Colors.white
-                      : (flat && !on ? Web.ink2 : Web.ink),
+                      : (flat && on ? Web.accent : Web.ink),
                 ),
                 SizedBox(width: flat ? 10 : 8),
                 Expanded(
@@ -573,13 +592,11 @@ class _PulseNavTileState extends State<_PulseNavTile> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: flat ? 13 : 14,
-                      color: on && !flat
-                          ? Colors.white
-                          : (flat && !on ? Web.ink2 : Web.ink),
+                      fontSize: 14,
+                      color: on && !flat ? Colors.white : Web.ink,
                       fontWeight: on
-                          ? (flat ? FontWeight.w500 : FontWeight.w700)
-                          : FontWeight.w400,
+                          ? (flat ? FontWeight.w800 : FontWeight.w700)
+                          : (flat ? FontWeight.w600 : FontWeight.w400),
                     ),
                   ),
                 ),
@@ -1036,9 +1053,19 @@ class PulseBottomNav extends StatelessWidget {
       final shown = fold ? items.take(d2Slots - 1).toList() : items;
       final rest = fold ? items.skip(d2Slots - 1).toList() : <PulseNavItem>[];
       return Container(
+        // row 190: a framed bar lifted off the page
         decoration: BoxDecoration(
           color: Web.card,
-          border: Border(top: BorderSide(color: Web.line)),
+          border: Border(top: BorderSide(color: Web.frame)),
+          boxShadow: Web.dark
+              ? null
+              : const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    offset: Offset(0, -2),
+                    blurRadius: 8,
+                  ),
+                ],
         ),
         padding: EdgeInsets.fromLTRB(4, 6, 4, 6 + bottom),
         child: WebText(
@@ -1118,8 +1145,11 @@ class _PulseBn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d2 = Web.d2;
-    // design 2 `.tab`: muted; the open one ink and w600, no pill
-    final c = selected ? (d2 ? Web.ink : Web.primary) : Web.muted;
+    // row 190: bolder tabs — ink2 w600 labels, 22px icons; the open one a soft pill with a
+    // violet icon and w800 ink text
+    final c = selected
+        ? (d2 ? Web.ink : Web.primary)
+        : (d2 ? Web.ink2 : Web.muted);
     // .bn{gap:2px;font-size:11px;padding:4px 10px;border-radius:10px} .bn .ico{font-size:19px}
     return Semantics(
       button: true,
@@ -1133,22 +1163,29 @@ class _PulseBn extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           constraints: d2 ? const BoxConstraints(minHeight: 48) : null,
           decoration: BoxDecoration(
-            color: selected && !d2 ? Web.soft : null,
+            color: selected ? Web.soft : null,
+            border: selected && d2 ? Border.all(color: Web.line) : null,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              WebIcon(icon, size: d2 ? 20 : 19, color: c),
+              WebIcon(
+                icon,
+                size: d2 ? 22 : 19,
+                color: selected && d2 ? Web.accent : c,
+              ),
               const SizedBox(height: 2),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: d2 ? 12 : 11,
                   color: c,
                   fontWeight: selected
-                      ? (d2 ? FontWeight.w600 : FontWeight.w700)
-                      : FontWeight.w400,
+                      ? (d2 ? FontWeight.w800 : FontWeight.w700)
+                      : (d2 ? FontWeight.w600 : FontWeight.w400),
                 ),
               ),
             ],

@@ -228,17 +228,28 @@ void main() {
           expect(dark.look, PayeshLook.minimal);
           expect(light, same(PayeshTokens.minimalLight));
           expect(dark, same(PayeshTokens.minimalDark));
-          // row 180 design 2 (client/pulse.css): --bg #ffffff, --primary #18181b (ink),
-          // dark --primary #fafafa, --radius 10px
+          // row 180 design 2 (client/pulse.css): --primary #18181b (ink), dark --primary
+          // #fafafa, --radius 10px; row 190: --bg #fafafa (a faint grey page under white cards)
           expect(app.theme!.colorScheme.primary, const Color(0xFF18181B));
-          expect(app.theme!.scaffoldBackgroundColor, const Color(0xFFFFFFFF));
+          expect(app.theme!.scaffoldBackgroundColor, const Color(0xFFFAFAFA));
           expect(app.darkTheme!.colorScheme.primary, const Color(0xFFFAFAFA));
           expect(
             (app.theme!.cardTheme.shape! as RoundedRectangleBorder)
                 .borderRadius,
             const BorderRadius.all(Radius.circular(10)),
           );
-          expect(app.theme!.cardTheme.elevation ?? 0, 0, reason: 'flat cards');
+          // row 190: a hint of lift under the stronger frame in light, flat in dark
+          expect(app.theme!.cardTheme.elevation, 1, reason: 'faint lift');
+          expect(
+            app.darkTheme!.cardTheme.elevation ?? 0,
+            0,
+            reason: 'flat cards',
+          );
+          expect(
+            (app.theme!.cardTheme.shape! as RoundedRectangleBorder).side.color,
+            const Color(0xFFC4C4CC),
+            reason: 'row 190: the stronger card frame',
+          );
           // login page: brand mark + (flat) backdrop
           expect(find.byType(PayeshBrandMark), findsOneWidget);
           expect(find.byKey(const Key('payesh-backdrop')), findsNothing);

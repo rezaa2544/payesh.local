@@ -384,7 +384,11 @@ class _OwnerShellState extends State<OwnerShell> {
                   padding: const EdgeInsetsDirectional.fromSTEB(28, 14, 16, 4),
                   child: Text(
                     menuGroupTitle(m.group),
-                    style: TextStyle(fontSize: 11.5, color: tk.muted),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: tk.muted,
+                    ),
                   ),
                 ),
               NavigationDrawerDestination(

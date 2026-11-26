@@ -45,7 +45,9 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
     Color? navBg,
     Color? track,
     Color? onPrimary,
+    Color? frame,
   }) : primary2 = primary2 ?? primary,
+       frame = frame ?? line,
        glow = glow ?? const Color(0x00000000),
        ink2 = ink2 ?? ink,
        navBg = navBg ?? card,
@@ -143,13 +145,16 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
   /// links / accents, outlined status pills. client/pulse.css `:root` carries the same values.
   static const PayeshTokens minimalLight = PayeshTokens(
     look: PayeshLook.minimal,
-    bg: Color(0xFFFFFFFF),
+    // row 190: a faint grey page under white cards, a darker hint text and stronger hairlines /
+    // card frames so the parts of a page are told apart at a glance
+    bg: Color(0xFFFAFAFA),
     card: Color(0xFFFFFFFF),
     ink: Color(0xFF09090B),
-    muted: Color(0xFF71717A),
-    line: Color(0xFFE4E4E7),
+    muted: Color(0xFF6B6B73),
+    line: Color(0xFFD4D4D8),
+    frame: Color(0xFFC4C4CC),
     primary: Color(0xFF18181B),
-    primary2: Color(0xFF6D5DF5),
+    primary2: Color(0xFF6656F0),
     soft: Color(0xFFF4F4F5),
     success: Color(0xFF16A34A),
     successBg: Color(0xFFF0FDF4),
@@ -157,11 +162,11 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
     dangerBg: Color(0xFFFEF2F2),
     warning: Color(0xFFCA8A04),
     warningBg: Color(0xFFFEFCE8),
-    info: Color(0xFF6D5DF5),
+    info: Color(0xFF6656F0),
     infoBg: Color(0xFFF1EFFE),
-    accent: Color(0xFF6D5DF5),
+    accent: Color(0xFF6656F0),
     ink2: Color(0xFF3F3F46),
-    navBg: Color(0xFFFAFAFA),
+    navBg: Color(0xFFF4F4F5),
     track: Color(0xFFE4E4E7),
     onPrimary: Color(0xFFFAFAFA),
   );
@@ -174,7 +179,8 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
     card: Color(0xFF0F0F12),
     ink: Color(0xFFFAFAFA),
     muted: Color(0xFF8B8B94),
-    line: Color(0xFF232328),
+    line: Color(0xFF2E2E34),
+    frame: Color(0xFF3F3F46),
     primary: Color(0xFFFAFAFA),
     primary2: Color(0xFFA598FF),
     soft: Color(0xFF1C1C21),
@@ -188,7 +194,7 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
     infoBg: Color(0xFF211F2E),
     accent: Color(0xFFA598FF),
     ink2: Color(0xFFD4D4D8),
-    navBg: Color(0xFF09090B),
+    navBg: Color(0xFF0C0C0F),
     track: Color(0xFF26262B),
     onPrimary: Color(0xFF09090B),
   );
@@ -219,6 +225,10 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
   /// Row 180 (design 2): secondary text (`--ink2`), navigation surface (`--nav-bg`), slider /
   /// ring track (`--track`) and the text on a filled primary button (`--on-primary`).
   final Color ink2, navBg, track, onPrimary;
+
+  /// Row 190: the outline of a card / section (a step darker than [line], the inner hairlines),
+  /// so the boxes of a page stand apart; = [line] for the older looks.
+  final Color frame;
 
   /// Links and accents (violet for «مینیمال», the primary otherwise).
   Color get link => isMinimal ? accent : primary;
@@ -295,6 +305,7 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
     navBg: navBg,
     track: track,
     onPrimary: onPrimary,
+    frame: frame,
   );
 
   @override
@@ -325,6 +336,7 @@ final class PayeshTokens extends ThemeExtension<PayeshTokens> {
       navBg: l(navBg, other.navBg),
       track: l(track, other.track),
       onPrimary: l(onPrimary, other.onPrimary),
+      frame: l(frame, other.frame),
     );
   }
 }

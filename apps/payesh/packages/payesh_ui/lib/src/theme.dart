@@ -101,11 +101,16 @@ abstract final class PayeshUi {
       cardTheme: CardThemeData(
         color: t.card,
         // «نبض»: layered surface with the soft teal glow (pulse.css `.card` → `--shadow`)
-        elevation: t.isNabd ? 3 : 0,
-        shadowColor: t.isNabd ? t.glow : null,
+        // row 190 «مینیمال» light: a hint of lift under the stronger frame
+        elevation: t.isNabd
+            ? 3
+            : (t.isMinimal && b == Brightness.light ? 1 : 0),
+        shadowColor: t.isNabd
+            ? t.glow
+            : (t.isMinimal ? const Color(0x40000000) : null),
         surfaceTintColor: t.isPanel ? Colors.transparent : null,
         margin: EdgeInsets.zero,
-        shape: shape.copyWith(side: BorderSide(color: t.line)),
+        shape: shape.copyWith(side: BorderSide(color: t.frame)),
       ),
       // «نبض»: the active item is filled with the primary colour and its icon is white
       // (owner-panel/web/app.css `.navitem.active`); classic keeps the Material defaults.
@@ -137,28 +142,37 @@ abstract final class PayeshUi {
           : null,
       navigationDrawerTheme: t.isPanel
           ? NavigationDrawerThemeData(
-              backgroundColor: t.isMinimal ? t.bg : t.card,
-              indicatorColor: t.isMinimal ? t.soft : t.primary,
+              // row 190: the phone menu is bolder — ink icons, w600 labels, a clearly framed
+              // chosen item
+              backgroundColor: t.isMinimal ? t.navBg : t.card,
+              indicatorColor: t.isMinimal
+                  ? (b == Brightness.light ? t.card : t.soft)
+                  : t.primary,
               indicatorShape: RoundedRectangleBorder(
+                side: t.isMinimal
+                    ? BorderSide(color: t.frame)
+                    : BorderSide.none,
                 borderRadius: BorderRadius.circular(
                   t.isMinimal ? 8 : PayeshTokens.radius,
                 ),
               ),
               iconTheme: WidgetStateProperty.resolveWith(
                 (s) => IconThemeData(
+                  size: t.isMinimal ? 22 : null,
                   color: s.contains(WidgetState.selected)
-                      ? (t.isMinimal ? t.ink : onPrimary)
-                      : t.muted,
+                      ? (t.isMinimal ? t.link : onPrimary)
+                      : (t.isMinimal ? t.ink : t.muted),
                 ),
               ),
               labelTextStyle: WidgetStateProperty.resolveWith(
                 (s) => TextStyle(
+                  fontSize: t.isMinimal ? 14 : null,
                   color: s.contains(WidgetState.selected)
                       ? (t.isMinimal ? t.ink : onPrimary)
                       : t.ink,
                   fontWeight: s.contains(WidgetState.selected)
-                      ? FontWeight.w700
-                      : FontWeight.w400,
+                      ? (t.isMinimal ? FontWeight.w800 : FontWeight.w700)
+                      : (t.isMinimal ? FontWeight.w600 : FontWeight.w400),
                   fontFamily: PayeshTokens.fontFamily,
                   package: PayeshTokens.fontPackage,
                 ),
