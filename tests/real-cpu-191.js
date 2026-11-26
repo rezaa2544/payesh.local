@@ -8,6 +8,8 @@
    RC-04  اسکریپت دستگیرهٔ Job را در خود سرور می‌گذارد (DuplicateHandle) تا Job تودرتو ساخته نشود
    RC-05  شکست سیستم‌عامل ⇒ وضعیت error با پیام و تلاش دوباره در خواندن بعدی سیاست
    RC-06  غیر ویندوز ⇒ soft (فقط استراحت بین کارها) و هیچ اجرایی
+   RC-07  ردیف ۱۹۶: سیاست «سقف ۱۰٪» به‌خودی‌خود سرور را در Job نمی‌گذارد (کار کاربران آزاد)؛
+          فقط PAYESH_OS_CAP=1 سقف قطعی را روشن می‌کند
    Run: node tests/real-cpu-191.js
    ═══════════════════════════════════════════════════════════════════════ */
 const assert = require('node:assert');
@@ -73,5 +75,29 @@ async function check(id, name, fn) {
     assert.strictEqual(st.mode, 'soft');
     assert.strictEqual(runs.length, n);
   });
-  console.log('REAL-CPU-191 passed=' + passed + '/6');
+  await check('RC-07', 'ردیف ۱۹۶: سیاست سقف ⇒ بی‌Job مگر PAYESH_OS_CAP=1', async () => {
+    const recorded = [];
+    P._setCapRunner(async (script) => { recorded.push(script); return 'CAP-OK'; });
+    P._reset();
+    delete process.env.PAYESH_NO_OS_CAP;
+    delete process.env.PAYESH_OS_CAP;
+    try {
+      const st = P.apply({ proc: { paused: false, cpu: 10 } }, {});
+      await new Promise((r) => setTimeout(r, 20));
+      assert.strictEqual(st.cpu_pct, 10, 'سقف نرم همچنان دانسته است');
+      assert.strictEqual(P.restMs(100), 900, 'کار پس‌زمینه استراحت می‌کند');
+      assert.strictEqual(recorded.length, 0, 'NEG: هیچ Job سیستم‌عاملی');
+      assert.strictEqual(P.status().os_cap.mode, 'none');
+      process.env.PAYESH_OS_CAP = '1';
+      P.apply({ proc: { paused: false, cpu: 10 } }, {});
+      await new Promise((r) => setTimeout(r, 20));
+      assert.strictEqual(recorded.length, 1, 'انتخاب صریح ⇒ سقف قطعی');
+    } finally {
+      delete process.env.PAYESH_OS_CAP;
+      process.env.PAYESH_NO_OS_CAP = '1';
+      P._setCapRunner(null);
+      P._reset();
+    }
+  });
+  console.log('REAL-CPU-191 passed=' + passed + '/7');
 })();

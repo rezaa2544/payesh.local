@@ -148,14 +148,16 @@ final class ProcessCpuMeter {
 
 typedef CpuCapApplier = bool Function(int? pct);
 
-bool _defaultCapApplier(int? pct) =>
-    Platform.isWindows ? windowsApplyCpuCap(pct) : false;
+/// ردیف ۱۹۶: پنل مالک هرگز خودش را در سیستم‌عامل محدود نمی‌کند. «سقف قطعی ویندوز» (Job
+/// Object با HARD_CAP، ردیف ۱۹۱) کل فرایند را محدود می‌کرد — رشته‌های رابط و رسم صفحه هم —
+/// و روی رایانهٔ مالک با سقف ۱۰٪ (کمتر از یک هسته از ۸) همهٔ صفحه‌ها گیر می‌کرد.
+bool _noOsCap(int? pct) => false;
 
-/// سقف قطعی درصد پردازندهٔ همین برنامه (ویندوز: Job Object با «HARD_CAP»).
-/// [hard] false ⇒ سیستم‌عامل سقف را نپذیرفت و فقط کم‌کردن کارهای هم‌زمان و استراحت بین
-/// کارها (روش قبلی) می‌ماند.
+/// سقف درصد پردازندهٔ کارهای پس‌زمینهٔ همین برنامه (پردازش کمکی، پشتیبان خودکار، پایش).
+/// با کم کردن کارهای هم‌زمان و استراحت بین کارها رعایت می‌شود؛ خود صفحه آزاد می‌ماند.
+/// [hard] فقط وقتی true است که یک [apply] تزریقی (آزمون) سقف را پذیرفته باشد.
 final class CpuCap {
-  CpuCap({CpuCapApplier? apply}) : _apply = apply ?? _defaultCapApplier;
+  CpuCap({CpuCapApplier? apply}) : _apply = apply ?? _noOsCap;
 
   static CpuCap instance = CpuCap();
 

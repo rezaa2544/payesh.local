@@ -327,27 +327,22 @@ class _HelperCardState extends State<HelperCard> {
     return '${faDigits(t).replaceAll('.', '٫')}٪';
   }
 
-  /// ردیف ۱۹۱: سقف واقعاً چطور اعمال می‌شود — قطعی (ویندوز) یا فقط کم کردن کارها.
+  /// ردیف ۱۹۱/۱۹۶: سقف چطور اعمال می‌شود. ردیف ۱۹۶: سقف فقط کارهای پس‌زمینه را محدود
+  /// می‌کند؛ خود صفحه هیچ‌وقت محدود نمی‌شود تا روان بماند.
   Widget _capLine(BuildContext context, int? eff) {
     final tk = context.tokens;
-    final cap = widget.service.cap;
     final stopped = widget.service.stopped;
     final String text;
     final Color color;
     if (eff == null) {
-      text =
-          'بدون سقف: این برنامه هر قدر لازم باشد از پردازنده استفاده می‌کند.';
+      text = 'بدون سقف: کارهای پس‌زمینه هر قدر لازم باشد از پردازنده استفاده می‌کنند.';
       color = tk.muted;
-    } else if (cap.hard && cap.percent == eff) {
-      text =
-          'سقف قطعی ویندوز: این برنامه (پردازش کمکی، پشتیبان، پایش و خود صفحه) '
-          'هرگز بیش از ${faDigits(eff)}٪ از کل پردازندهٔ این رایانه مصرف نمی‌کند.';
-      color = tk.success;
     } else {
       text =
-          'سقف ${faDigits(eff)}٪ با کم کردن کارهای هم‌زمان و استراحت بین کارها رعایت '
-          'می‌شود (سقف قطعی سیستم‌عامل روی این دستگاه در دسترس نیست).';
-      color = tk.warning;
+          'سقف ${faDigits(eff)}٪ فقط برای کارهای پس‌زمینه (پردازش کمکی، پشتیبان خودکار، '
+          'پایش): کارهای هم‌زمان کمتر و استراحت بین کارها. خود صفحه هیچ‌وقت محدود '
+          'نمی‌شود تا روان بماند.';
+      color = tk.success;
     }
     return Text(
       stopped
