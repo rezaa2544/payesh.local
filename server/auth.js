@@ -556,7 +556,7 @@ const PUBLIC_EXTRA = ['birth_date', 'gender', 'father_name', 'father_nid', 'fath
   'mother_name', 'mother_nid', 'mother_phone', 'guardian', 'guardian_alive', 'covered',
   'org_type', 'org_percent', 'talent', 'landline', 'residence', 'village', 'residence_status',
   'address', 'shenasname_serial', 'shenasname_seri', 'last_gpa', 'failed_count', 'field',
-  'degree', 'subject', 'position', 'username'];
+  'degree', 'subject', 'position', 'username', 'access', 'teaches'];
 
 function publicUser(u) {
   const out = {

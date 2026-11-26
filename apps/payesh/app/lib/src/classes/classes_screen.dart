@@ -115,7 +115,8 @@ class _ClassesScreenState extends State<ClassesScreen> {
     String addLabel,
     VoidCallback add, {
     String? icon,
-    bool primary = false,
+    // row 194: every «+ …» of this page looks like «+ کلاس/کارگاه» (the filled black button)
+    bool primary = true,
     String? count,
   }) => WebCardHead(
     title: title,
@@ -342,7 +343,6 @@ class _ClassesScreenState extends State<ClassesScreen> {
                         'کلاس/کارگاه',
                         () => _open(RoomFormPage(controller: c)),
                         icon: '🏫',
-                        primary: true,
                         count: '${Web.fa(v.rooms.length)} مورد',
                       ),
                       Padding(

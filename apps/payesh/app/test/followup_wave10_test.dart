@@ -3,12 +3,13 @@
 // durable outbox; the real server path is packages/payesh_sync/test/school_admin_it_test.dart
 // W10-IT-*.
 import 'dart:convert';
-import 'dart:io' show FileSystemException;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payesh_app/src/followup/followup_screen.dart';
+import 'package:payesh_app/src/platform/file_pick.dart';
+import 'package:payesh_app/src/pulse/web.dart';
 
 import 'nav_support.dart';
 import 'school_support.dart';
@@ -178,9 +179,7 @@ void main() {
       expect(find.byKey(const Key('imp-grade-hint')), findsOneWidget);
       await reveal(tester, 'imp-next');
       expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('imp-next')))
-            .onPressed,
+        tester.widget<WebBtn>(find.byKey(const Key('imp-next'))).onPressed,
         isNull,
       );
       await tapKey(tester, 'imp-grade-دهم');
@@ -196,18 +195,19 @@ void main() {
       expect(badgeOf(tester, 'imp-mapped'), '۴ ستون نگاشت شد');
       await tapKey(tester, 'imp-check');
       expect(find.byKey(const Key('imp-ask')), findsOneWidget);
-      expect(badgeOf(tester, 'imp-stat-total'), 'کل ردیف‌ها: ۳');
+      expect(textOf(tester, 'imp-stat-total'), '۳');
       await tapKey(tester, 'imp-ask-yes-0');
       expect(find.byKey(const Key('imp-ask')), findsNothing);
       await top(tester);
       expect(find.byKey(const Key('imp-fixes')), findsOneWidget);
-      expect(badgeOf(tester, 'imp-stat-ready'), 'آمادهٔ ثبت: ۱');
+      expect(textOf(tester, 'imp-stat-ready'), '۱');
       // a short mobile is fixed in place
       await tapKey(tester, 'imp-fix-0');
       await typeKey(tester, 'imp-fix-f-phone', '09125555555');
       await tapKey(tester, 'imp-fix-save');
       expect(textOf(tester, 'imp-notice'), 'اصلاح شد و به «آمادهٔ ثبت» رفت ✅');
-      expect(badgeOf(tester, 'imp-stat-ready'), 'آمادهٔ ثبت: ۲');
+      await top(tester);
+      expect(textOf(tester, 'imp-stat-ready'), '۲');
       await tapKey(tester, 'imp-recheck');
       expect(textOf(tester, 'imp-notice'), 'دوباره بررسی شد');
       expect(
@@ -230,33 +230,50 @@ void main() {
     },
   );
 
-  testWidgets('W10-W07 import-open from a file on the device; import-back; NEG an unreadable '
-      'file is reported and the wizard stays on step 1', (tester) async {
-    final saved = ImportController.readFile;
-    addTearDown(() => ImportController.readFile = saved);
-    ImportController.readFile = (p) async {
-      if (p.contains('missing')) {
-        throw const FileSystemException('not found', 'missing.csv');
-      }
-      return Uint8List.fromList(utf8.encode('نام\nعلی رضایی\n'));
-    };
-    await openFollowup(tester);
-    await tapKey(tester, 'fu-import');
-    await tapKey(tester, 'imp-grade-هفتم');
-    await typeKey(tester, 'imp-path', '/data/missing.csv');
-    await tapKey(tester, 'imp-next');
-    expect(textOf(tester, 'imp-form-error'), startsWith('فایل خوانده نشد'));
-    await typeKey(tester, 'imp-path', r'C:\school\list.csv');
-    await tapKey(tester, 'imp-next');
-    expect(find.textContaining('«list.csv»'), findsOneWidget);
-    await tapKey(tester, 'imp-prev');
-    expect(find.byKey(const Key('imp-path')), findsOneWidget);
-    await tapKey(tester, 'imp-next');
-    await tapKey(tester, 'imp-check');
-    expect(textOf(tester, 'imp-newclasses'), contains('هفتم'));
-    await tapKey(tester, 'imp-prev');
-    expect(find.byKey(const Key('imp-check')), findsOneWidget);
-  });
+  testWidgets(
+    'W10-W07 «انتخاب فایل» opens the system dialog and goes straight to the '
+    'columns; import-back; NEG an unreadable file is reported and the wizard stays on step 1; '
+    'a cancelled dialog changes nothing',
+    (tester) async {
+      final saved = ImportController.pickFile;
+      addTearDown(() => ImportController.pickFile = saved);
+      var answer = 'missing';
+      ImportController.pickFile = () async => switch (answer) {
+        'missing' => throw const FilePickFailure('فایل خوانده نشد: not found'),
+        'cancel' => null,
+        _ => PickedFile(
+          'list.csv',
+          Uint8List.fromList(utf8.encode('نام\nعلی رضایی\n')),
+        ),
+      };
+      await openFollowup(tester);
+      await tapKey(tester, 'fu-import');
+      expect(
+        tester.widget<WebBtn>(find.byKey(const Key('imp-pick'))).onPressed,
+        isNull,
+        reason: 'no پایه yet',
+      );
+      await tapKey(tester, 'imp-grade-هفتم');
+      await tapKey(tester, 'imp-pick');
+      expect(textOf(tester, 'imp-form-error'), startsWith('فایل خوانده نشد'));
+      answer = 'cancel';
+      await tapKey(tester, 'imp-pick');
+      expect(find.byKey(const Key('imp-drop')), findsOneWidget);
+      answer = 'ok';
+      await tapKey(tester, 'imp-pick');
+      expect(find.textContaining('«list.csv»'), findsOneWidget);
+      expect(find.byKey(const Key('imp-step-1-done')), findsOneWidget);
+      await tapKey(tester, 'imp-prev');
+      expect(find.byKey(const Key('imp-pick')), findsOneWidget);
+      expect(find.byKey(const Key('imp-step-1-done')), findsNothing);
+      await tapKey(tester, 'imp-pick');
+      await tapKey(tester, 'imp-check');
+      expect(badgeOf(tester, 'imp-newclasses'), contains('هفتم'));
+      expect(find.byKey(const Key('imp-step-2-done')), findsOneWidget);
+      await tapKey(tester, 'imp-prev');
+      expect(find.byKey(const Key('imp-check')), findsOneWidget);
+    },
+  );
 
   testWidgets('W10-W08 imp-branch-no: a look-alike branch stays separate and is added to the '
       'list on «ثبت»; NEG nothing is merged by itself', (tester) async {
@@ -270,7 +287,7 @@ void main() {
     );
     await tapKey(tester, 'imp-next');
     await tapKey(tester, 'imp-check');
-    expect(badgeOf(tester, 'imp-stat-ready'), 'آمادهٔ ثبت: ۱');
+    expect(textOf(tester, 'imp-stat-ready'), '۱');
     expect(find.byKey(const Key('imp-ask')), findsOneWidget);
     await tapKey(tester, 'imp-ask-no-0');
     expect(find.byKey(const Key('imp-ask')), findsNothing);

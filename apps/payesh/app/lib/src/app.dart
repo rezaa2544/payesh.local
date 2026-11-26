@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:payesh_core/payesh_core.dart';
-import 'package:payesh_sync/payesh_sync.dart' show permRole;
+import 'package:payesh_sync/payesh_sync.dart'
+    show grantableRoles, permRole, staffAccessOf, staffAccessPages;
 import 'package:payesh_ui/payesh_ui.dart';
 import 'package:payesh_update/payesh_update.dart';
 
@@ -77,6 +78,64 @@ List<(String, String, String, String)> webNavConfig(String? role) =>
         ('system', 'gear', 'سیستم', 'system'),
       ],
     };
+
+/// Row 194: pages a ticked staff member may get that are not in the manager's sidebar (the
+/// manager reaches them from the home tiles): (web route, pulse.js icon, label, native page id).
+const List<(String, String, String, String)> grantNavExtra = [
+  ('attendance', 'check', 'ثبت حضور', 'attendance'),
+  ('grades', 'pen', 'نمره', 'grades'),
+  ('leaves', 'mail', 'مرخصی‌ها', 'leaves'),
+];
+
+/// Row 194: the signed-in staff member's ticks («سطح دسترسی»), read from the user's own row of
+/// the local database and read again whenever a sync changed local data — a tick the manager
+/// adds or removes shows up in the menu without signing in again.
+final StaffAccessCache staffAccessCache = StaffAccessCache();
+
+class StaffAccessCache extends ChangeNotifier {
+  String _key = '';
+  List<String> _access = const [];
+  SchoolSource? _src;
+  int _gen = 0;
+
+  /// The ticks known now for [uid] ([] until the first read finished; [] for roles that are
+  /// not ticked — the role itself decides).
+  List<String> current(SchoolSource src, String role, int uid) {
+    if (!grantableRoles.contains(role)) return const [];
+    final key = '${identityHashCode(src)}/$role/$uid';
+    if (key != _key) {
+      _src?.changed.removeListener(_reload);
+      _key = key;
+      _access = const [];
+      _src = src..changed.addListener(_reload);
+      _role = role;
+      _uid = uid;
+      _reload();
+    }
+    return _access;
+  }
+
+  String _role = '';
+  int _uid = 0;
+
+  Future<void> _reload() async {
+    final src = _src;
+    if (src == null) return;
+    final gen = ++_gen;
+    try {
+      final db = await src.recordsFor(role: _role, uid: _uid);
+      final row = await db?.get('users', _uid);
+      final next = staffAccessOf(_role, row?.data['access']);
+      if (gen != _gen) return;
+      if (next.join(',') != _access.join(',')) {
+        _access = next;
+        notifyListeners();
+      }
+    } on Object {
+      // a closed or not-yet-open local database: keep what is known
+    }
+  }
+}
 
 /// Root widget of the native Payesh client (ADR-43). Persian, right-to-left, Material 3, built on
 /// the payesh_ui design system (row 73): tokens, light/dark themes, bundled Vazirmatn, Jalali.
@@ -168,12 +227,12 @@ class PayeshApp extends StatelessWidget {
     WidgetBuilder? notices,
     WidgetBuilder? family,
   })
-  _routes(SessionController s, SignedIn state) {
+  _routes(SessionController s, SignedIn state, {String? as}) {
     final src = attendance;
     final gsrc = grades;
     final nsrc = notices;
     final fsrc = family;
-    final role = state.currentRole;
+    final role = as ?? state.currentRole;
     final uid = state.currentUid;
     if (role == null || uid == null) {
       return (attendance: null, grades: null, notices: null, family: null);
@@ -226,14 +285,19 @@ class PayeshApp extends StatelessWidget {
     NoticesEntry ntc,
     SchoolEntry sch,
   })
-  _entries(BuildContext context, SessionController s, SignedIn state) {
+  _entries(
+    BuildContext context,
+    SessionController s,
+    SignedIn state, {
+    String? as,
+  }) {
     final src = attendance;
     final gsrc = grades;
     final nsrc = notices;
     final fsrc = family;
-    final role = state.currentRole;
+    final role = as ?? state.currentRole;
     final uid = state.currentUid;
-    final r = _routes(s, state);
+    final r = _routes(s, state, as: as);
     final fam = FamilyEntry(
       enabled: fsrc != null && s.flags.uses(NativeWave.parents),
       role: role,
@@ -297,8 +361,44 @@ class PayeshApp extends StatelessWidget {
     SessionController s,
     SignedIn state,
   ) {
-    final e = _entries(context, s, state);
-    final r = _routes(s, state);
+    final own = _navOf(context, s, state, webNavConfig(state.currentRole));
+    // Row 194: what the manager ticked for this staff member («سطح دسترسی») — those pages open
+    // as the manager's pages; the school server accepts only the ticked collections.
+    final role = state.currentRole;
+    final uid = state.currentUid;
+    final src = school;
+    final access = src == null || role == null || uid == null
+        ? const <String>[]
+        : staffAccessCache.current(src, role, uid);
+    if (access.isEmpty) return own;
+    final pages = staffAccessPages(access);
+    final granted = _navOf(context, s, state, [
+      for (final n in [...webNavConfig('manager'), ...grantNavExtra])
+        if (pages.contains(n.$4)) n,
+    ], as: 'manager');
+    final ids = {for (final m in granted) m.id};
+    final kept = [
+      for (final m in own)
+        if (!ids.contains(m.id)) m,
+    ];
+    final at = kept.indexWhere((m) => m.id == 'system');
+    return [
+      ...at < 0 ? kept : kept.take(at),
+      for (final m in granted)
+        if (!kept.any((k) => k.id == m.id)) m,
+      if (at >= 0) ...kept.skip(at),
+    ];
+  }
+
+  List<PulseNavItem> _navOf(
+    BuildContext context,
+    SessionController s,
+    SignedIn state,
+    List<(String, String, String, String)> config, {
+    String? as,
+  }) {
+    final e = _entries(context, s, state, as: as);
+    final r = _routes(s, state, as: as);
     final native = <String, PulseNavItem>{
       for (final m in e.sch.navItems()) m.id: m,
       if (e.att.isTile && r.attendance != null)
@@ -346,7 +446,7 @@ class PayeshApp extends StatelessWidget {
         ),
     };
     return [
-      for (final (route, icon, label, from) in webNavConfig(state.currentRole))
+      for (final (route, icon, label, from) in config)
         if (native[from] case final m?)
           PulseNavItem(
             id: route,
@@ -449,13 +549,17 @@ class PayeshApp extends StatelessWidget {
           appVersion: u?.channel.version,
           child: s == null
               ? HomeScreen(storage: storage, today: today)
-              : SessionGate(
-                  controller: s,
-                  home: HomeFooter(storage: storage, today: today),
-                  pages: (context, state) => _pages(context, s, state),
-                  nav: (context, state) => _nav(context, s, state),
-                  accountName: _accountName,
-                  admin: () => school?.admin,
+              : ListenableBuilder(
+                  // row 194: the menu follows the staff member's ticks
+                  listenable: staffAccessCache,
+                  builder: (context, _) => SessionGate(
+                    controller: s,
+                    home: HomeFooter(storage: storage, today: today),
+                    pages: (context, state) => _pages(context, s, state),
+                    nav: (context, state) => _nav(context, s, state),
+                    accountName: _accountName,
+                    admin: () => school?.admin,
+                  ),
                 ),
         ),
       ),

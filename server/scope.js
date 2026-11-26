@@ -28,7 +28,7 @@ const OPEN_COLLECTIONS = [
 const STUDENT_COLLECTIONS = ['attendance', 'grades', 'internships', 'discipline'];
 
 function emptyScope(role, uid) {
-  return { role, uid, all: false, classIds: [], studentIds: [], cohorts: [] };
+  return { role, uid, all: false, classIds: [], studentIds: [], cohorts: [], grantRead: [], grantWrite: [] };
 }
 
 /* ── ساخت اسکوپ از دادهٔ خودِ مستأجر (داخل همان تراکنش/زمینهٔ RLS) ── */
@@ -82,6 +82,17 @@ async function build(c, claims) {
     }
   }
 
+  /* ردیف ۱۹۴: تیک‌های دسترسی عوامل اجرایی — آینهٔ policy.buildScope / canWriteRow */
+  if (policy.GRANTABLE_ROLES.includes(role)) {
+    const me = await c.query(
+      `select data->'access' as access from ${T()} r
+        where collection = 'users' and deleted_at is null and record_id = $1`, [uid]
+    );
+    const user = { role, access: me.rows.length ? me.rows[0].access : null };
+    scope.grantRead = [...policy.grantReads(user)];
+    scope.grantWrite = [...policy.grantWrites(user)];
+  }
+
   if (role !== 'student' && (role === 'teacher' || role === 'parent') && scope.studentIds.length === 0) {
     /* دانش‌آموزان کلاس‌های در اختیار (برای teacher) — ولی فقط برای همان مستأجر */
     if (role === 'teacher' && scope.classIds.length) {
@@ -114,18 +125,21 @@ function outOfScopeError(code, details) {
 function canReadCollection(scope, collection) {
   if (!scope) return true;
   if (scope.all) return true;
+  if ((scope.grantRead || []).includes(collection)) return true;
   return policy.canRead(scope.role, collection);
 }
 
 function canWriteCollection(scope, collection) {
   if (!scope) return true;
   if (scope.all) return true;
+  if ((scope.grantWrite || []).includes(collection)) return true;
   return policy.canWrite(scope.role, collection);
 }
 
 /* ── آیا این ردیف در اسکوپ است؟ (آینهٔ policy.rowInScope) ── */
 function rowInScope(scope, collection, row) {
   if (!scope || scope.all) return true;
+  if ((scope.grantRead || []).includes(collection)) return true;
   const uid = scope.uid;
   const has = (arr, v) => arr.includes(Number(v));
   const data = row || {};
@@ -179,6 +193,15 @@ function rowInScope(scope, collection, row) {
 /* ── بازنویسی ردیف بر اساس نقش (همان قواعد canWriteRow، حداقلی و صریح) ── */
 function canWriteRow(scope, collection, row, existing) {
   if (!scope || scope.all) return { ok: true };
+  if ((scope.grantWrite || []).includes(collection)) {
+    if (collection === 'attendance' && row && row.status != null &&
+        !policy.ATT_STATUS.includes(String(row.status))) return { ok: false, error: 'bad_status' };
+    if (collection === 'grades' && row && row.score != null &&
+        (Number(row.score) < 0 || Number(row.score) > 20)) return { ok: false, error: 'bad_score' };
+    if (collection === 'grades' && row && row.kind != null &&
+        !policy.GRADE_KINDS.includes(String(row.kind))) return { ok: false, error: 'bad_kind' };
+    return { ok: true };
+  }
   if (!canWriteCollection(scope, collection)) return { ok: false, error: 'role_denied' };
   if (scope.role === 'teacher') {
     if (!rowInScope(scope, collection, row) && !rowInScope(scope, collection, existing || {})) {
@@ -221,7 +244,10 @@ function sqlPredicate(scope, startIndex = 1) {
   const role = scope.role;
   const pieces = [];
 
-  const readable = Object.keys(policy.COLLECTIONS).filter(c => policy.collectionAllowed(c) && policy.canRead(role, c));
+  /* ردیف ۱۹۴: کالکشن‌هایی که تیک‌ها برای کل مدرسه باز کرده‌اند — بی‌شرط (نام‌ها از فهرست ثابت policy) */
+  const granted = Object.keys(policy.COLLECTIONS).filter(c => policy.collectionAllowed(c) && (scope.grantRead || []).includes(c));
+  if (granted.length) pieces.push(`r.collection in (${granted.map(c => `'${c}'`).join(',')})`);
+  const readable = Object.keys(policy.COLLECTIONS).filter(c => policy.collectionAllowed(c) && policy.canRead(role, c) && !granted.includes(c));
   const open = OPEN_COLLECTIONS.filter(c => readable.includes(c));
   if (open.length) pieces.push(`r.collection in (${open.map(c => `'${c}'`).join(',')})`);
 

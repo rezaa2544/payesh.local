@@ -61,6 +61,62 @@ const COLLECTIONS = {
 
 const PROTECTED = new Set(['audit', 'devices', 'sessions', 'pair_codes', 'sync_log']);
 
+/* ── ردیف ۱۹۴: «سطح دسترسی» عوامل اجرایی ─────────────────────────────
+   مدیر برای هر کارمند/اجرایی/نگهبان/مشاور تیک می‌زند؛ فهرست کلیدها روی ردیف کاربر
+   در `access` می‌ماند. هر ناحیه: کالکشن‌هایی که مثل مدیر می‌نویسد (write) و
+   کالکشن‌هایی که از کل مدرسه می‌بیند (read). معاون نیست (همهٔ دسترسی مدیر را
+   دارد) و هیچ ناحیه‌ای users، parent_links یا app_settings را نمی‌نویسد — پس
+   کسی با تیک نمی‌تواند نقش یا دسترسی خودش را بالا ببرد.
+   رونوشتِ همین فهرست در apps/payesh/packages/payesh_sync/lib/src/staff_access.dart است
+   و test/staff_access_test.dart جدا شدنشان را می‌گیرد. */
+const GRANTABLE_ROLES = Object.freeze(['counselor', 'staff', 'office', 'guard']);
+const STAFF_ACCESS = Object.freeze({
+  attendance: { write: ['attendance'], read: ['attendance', 'users', 'classes', 'schedule'] },
+  leaves:     { write: ['leaves'], read: ['leaves', 'users', 'classes'] },
+  notices:    { write: ['announcements'], read: ['announcements'] },
+  schedule:   { write: ['schedule', 'bell_schedules', 'substitutions'], read: ['schedule', 'substitutions', 'classes', 'users'] },
+  classes:    { write: ['classes', 'subjects', 'lookups'], read: ['classes', 'users'] },
+  grades:     { write: ['grades'], read: ['grades', 'users', 'classes'] },
+  reports:    { write: [], read: ['attendance', 'grades', 'discipline', 'users', 'classes'] },
+  counsel:    { write: ['counselor_refs'], read: ['counselor_refs', 'users'] },
+});
+
+/* کلیدهای شناخته‌شدهٔ access (فهرست یا رشتهٔ ویرگولی)؛ برای نقشی که تیک‌پذیر نیست خالی */
+function staffAccessOf(role, access) {
+  if (!GRANTABLE_ROLES.includes(permRole(role))) return [];
+  const raw = Array.isArray(access) ? access : String(access == null ? '' : access).split(',');
+  const want = new Set(raw.map(x => String(x == null ? '' : x).trim()));
+  return Object.keys(STAFF_ACCESS).filter(k => want.has(k));
+}
+function grantWrites(user) {
+  const out = new Set();
+  if (!user) return out;
+  for (const k of staffAccessOf(user.role, user.access)) STAFF_ACCESS[k].write.forEach(c => out.add(c));
+  return out;
+}
+function grantReads(user) {
+  const out = new Set();
+  if (!user) return out;
+  for (const k of staffAccessOf(user.role, user.access)) {
+    STAFF_ACCESS[k].read.forEach(c => out.add(c));
+    STAFF_ACCESS[k].write.forEach(c => out.add(c));
+  }
+  return out;
+}
+/* نقش + تیک‌های خودِ کاربر — مسیرهای همگام‌سازی از این دو استفاده می‌کنند */
+function canWriteFor(user, collection) {
+  if (!user) return false;
+  if (canWrite(user.role, collection)) return true;
+  return collectionAllowed(collection) && grantWrites(user).has(collection);
+}
+function canReadFor(user, collection) {
+  if (!user) return false;
+  if (canRead(user.role, collection)) return true;
+  return collectionAllowed(collection) && grantReads(user).has(collection);
+}
+
+
+
 function collectionAllowed(name) {
   return Object.prototype.hasOwnProperty.call(COLLECTIONS, name) && !PROTECTED.has(name);
 }
@@ -94,6 +150,8 @@ function buildScope(store, user) {
     scope.all = true;
     return scope;
   }
+  /* ردیف ۱۹۴: کالکشن‌هایی که تیک‌های مدیر برای کل مدرسه باز کرده‌اند */
+  scope.grantRead = grantReads(user);
   if (user.role === 'teacher') {
     const rows = store.byRef('schedule', 'ref2', user.id);
     rows.forEach(s => { if (s.class_id != null) scope.classIds.add(Number(s.class_id)); });
@@ -134,6 +192,7 @@ function buildScope(store, user) {
 /* آیا این ردیف در محدودهٔ کاربر هست؟ */
 function rowInScope(scope, collection, row) {
   if (scope.all) return true;
+  if (scope.grantRead && scope.grantRead.has(collection)) return true;
   const uid = scope.selfId;
   switch (collection) {
     case 'users':
@@ -186,6 +245,13 @@ function rowInScope(scope, collection, row) {
 /* آیا کاربر اجازهٔ نوشتن این ردیف را دارد؟ (مالکیت، نه فقط نقش) */
 function canWriteRow(store, user, role, collection, row, existing) {
   role = permRole(role);
+  /* ردیف ۱۹۴: ناحیهٔ تیک‌خورده ⇒ همان قواعد مدیر برای همین کالکشن (و فقط همین) */
+  if (role !== 'manager' && grantWrites(Object.assign({}, user, { role })).has(collection)) {
+    if (collection === 'attendance' && row && row.status != null && !ATT_STATUS.includes(row.status)) return { ok: false, error: 'bad_status' };
+    if (collection === 'grades' && row && row.score != null && (Number(row.score) < 0 || Number(row.score) > 20)) return { ok: false, error: 'bad_score' };
+    if (collection === 'grades' && row && row.kind && !GRADE_KINDS.includes(row.kind)) return { ok: false, error: 'bad_kind' };
+    return { ok: true };
+  }
   if (!canWrite(role, collection)) return { ok: false, error: 'role_denied' };
   if (role === 'manager') return { ok: true };
 
@@ -286,6 +352,8 @@ const USER_PUBLIC_FIELDS = new Set([
   'field', 'last_gpa', 'failed_count', 'father_edu', 'father_alive', 'father_job',
   'mother_edu', 'mother_alive', 'mother_job', 'guardian', 'guardian_alive', 'sisters', 'brothers',
   'covered', 'org_type', 'org_percent', 'talent', 'degree',
+  /* ردیف ۱۹۴: تیک‌های دسترسی و دروسِ دبیر (کسی که آن را می‌بیند باید بداند چه کاری از او برمی‌آید) */
+  'access', 'teaches',
 ]);
 
 /* الگوی فیلد رازگونه — برای بازرسی و پاکسازی در هر مسیری که users می‌رود */
@@ -334,6 +402,7 @@ function scrubUserIdentity(data) {
 
 module.exports = {
   ROLES, USER_ROLES, ROLE_ALIASES, permRole, ATT_STATUS, GRADE_KINDS, LEAVE_REQUEST_STATUSES, COLLECTIONS,
+  GRANTABLE_ROLES, STAFF_ACCESS, staffAccessOf, grantWrites, grantReads, canWriteFor, canReadFor,
   collectionAllowed, canRead, canWrite, buildScope, rowInScope, canWriteRow,
   USER_PUBLIC_FIELDS, USER_IDENTITY_FIELDS, SECRET_FIELD_RE, isSecretField,
   scrubUser, scrubUserFor, scrubUserIdentity,

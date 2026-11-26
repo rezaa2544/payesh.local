@@ -847,6 +847,92 @@ final class ImportRow {
   String get name => SchoolRecords.str(data['full_name']);
 }
 
+/// Row 194 — p2 `41-class-placement.js` `PLACE_DEFAULTS` / `placeSettings`: the rules of the
+/// automatic class placement. Both optional rules are OFF by default (small and village schools
+/// are mixed; some schools deliberately separate siblings). Kept on the school row (`schools/1`
+/// `place_rules`).
+final class PlaceRules {
+  const PlaceRules({
+    this.autoDistribute = true,
+    this.separateGender = false,
+    this.keepSiblings = false,
+  });
+
+  /// The saved rules; in a boys' or girls' school «تفکیک جنسیتی» is meaningless and is off.
+  factory PlaceRules.of(Object? raw, {bool mixed = true}) {
+    final m = raw is Map ? raw : const <String, Object?>{};
+    return PlaceRules(
+      autoDistribute: m['autoDistribute'] != false,
+      separateGender: mixed && m['separateGender'] == true,
+      keepSiblings: m['keepSiblings'] == true,
+    );
+  }
+
+  /// «توزیع خودکار میان شعبه‌ها».
+  final bool autoDistribute;
+
+  /// «تفکیک جنسیتی شعبه‌ها».
+  final bool separateGender;
+
+  /// «خواهر و برادر هم‌کلاس شوند» (by the father's or mother's national code only).
+  final bool keepSiblings;
+
+  Map<String, Object?> toJson() => {
+    'autoDistribute': autoDistribute,
+    'separateGender': separateGender,
+    'keepSiblings': keepSiblings,
+  };
+}
+
+/// p2 `isMixedSchool`: only a «پسرانه» or «دخترانه» school is single-gender.
+bool importMixedSchool(Object? gender) {
+  final g = SchoolRecords.str(gender).trim();
+  return g != 'پسرانه' && g != 'دخترانه';
+}
+
+/// One line of p2 `impCapTable` («نتیجهٔ کلاس‌بندی پیش از ثبت»).
+final class ImportCap {
+  const ImportCap({
+    required this.id,
+    required this.name,
+    required this.before,
+    required this.added,
+    required this.cap,
+  });
+  final int id;
+  final String name;
+  final int before;
+  final int added;
+  final int cap;
+  int get after => before + added;
+  bool get over => after > cap;
+}
+
+/// A class a manual row could go to: id, name, students now, capacity.
+typedef ImportSeat = ({int id, String name, int n, int cap});
+
+/// One row of p2 `impManualBlock` («نیازمند بررسی دستی»): every section of its grade is full.
+final class ImportManual {
+  const ImportManual({
+    required this.row,
+    required this.name,
+    required this.wanted,
+    required this.candidates,
+  });
+  final int row;
+  final String name;
+  final String wanted;
+  final List<ImportSeat> candidates;
+}
+
+final class _Occ {
+  _Occ(this.cap);
+  int cap;
+  int n = 0;
+  int boys = 0;
+  int girls = 0;
+}
+
 final class ImportReview {
   const ImportReview({
     required this.rows,
@@ -854,8 +940,24 @@ final class ImportReview {
     required this.branchFixes,
     required this.branchAsk,
     required this.phonesFixed,
+    this.capRows = const [],
+    this.manualRows = const [],
+    this.rules = const PlaceRules(),
+    this.mixed = true,
   });
   final List<ImportRow> rows;
+
+  /// Row 194 (p2 `capRows`): every class that receives students, before → after vs capacity.
+  final List<ImportCap> capRows;
+
+  /// Row 194 (p2 `manualRows`): rows set aside because every section was full.
+  final List<ImportManual> manualRows;
+  final PlaceRules rules;
+  final bool mixed;
+
+  /// p2 `counts.auto`: ready rows the system placed in a section by itself.
+  int get autoCount =>
+      rows.where((r) => r.ready && r.data['auto_placed'] == true).length;
   final List<String> newClasses;
   final List<(String, String)> branchFixes;
 
@@ -981,6 +1083,29 @@ final class SchoolImport {
       }.toList();
     }
     final mapped = s.mappedRows();
+
+    // Row 194 — p2 automatic placement: the school's rules and the classes' occupancy, counted
+    // in memory and updated with every placement (re-reading the database would put every row
+    // of the file into the same class, as none of them is saved yet).
+    final school = (await db.get('schools', 1))?.data ?? const {};
+    final mixed = importMixedSchool(school['gender']);
+    final rules = PlaceRules.of(school['place_rules'], mixed: mixed);
+    bool isClass(EngineRow c) =>
+        _s(c.data['kind']) != 'group' && _s(c.data['kind']) != 'room';
+    final occ = <int, _Occ>{
+      for (final c in classes)
+        if (isClass(c)) c.id: _Occ(_int(c.data['capacity']) ?? 30),
+    };
+    for (final u in users) {
+      if (u.data['role'] != 'student' || u.data['active'] == false) continue;
+      final o = occ[_int(u.data['class_id'])];
+      if (o == null) continue;
+      o.n++;
+      if (_s(u.data['gender']) == 'پسر') o.boys++;
+      if (_s(u.data['gender']) == 'دختر') o.girls++;
+    }
+    final famCls = <String, (int, String)>{};
+    final manualRows = <ImportManual>[];
 
     // branches not in the definitions: ask, never merge silently
     final alias = <String, String>{};
@@ -1141,11 +1266,117 @@ final class SchoolImport {
         final level = gradeLevel(grade);
         data['grade'] = grade;
         if (branch.isNotEmpty) data['field'] = branch;
-        final cls = place.isEmpty ? null : clsByName[normName(place)];
-        if (cls != null &&
-            _s(cls.data['kind']) != 'group' &&
-            _s(cls.data['kind']) != 'room') {
+        // a section the file names itself («دهم الکترونیک ۲») is always respected
+        var cls = cname.isEmpty ? null : clsByName[normName(cname)];
+        if (cls != null && isClass(cls)) {
+          if (_s(cls.data['grade']).isNotEmpty) {
+            data['grade'] = _s(cls.data['grade']);
+          }
+          if (_s(cls.data['branch']).isNotEmpty) {
+            data['field'] = _s(cls.data['branch']);
+          } else if (!bc.$2) {
+            data.remove('field');
+          }
+        } else {
+          cls = place.isEmpty ? null : clsByName[normName(place)];
+        }
+        var manual = false;
+        // p2 `pickBranch`: only when matching failed — the least-filled section with room
+        if ((cls == null || !isClass(cls)) &&
+            rules.autoDistribute &&
+            grade.isNotEmpty) {
+          final cands = [
+            for (final c in classes)
+              if (isClass(c) &&
+                  normName(c.data['grade']) == normName(grade) &&
+                  normName(c.data['branch']) == normName(branch))
+                c,
+          ]..sort((a, b) => a.id.compareTo(b.id));
+          if (cands.isNotEmpty) {
+            final g0 = normName(o['gender']);
+            final gender = RegExp('پسر|مذکر|مرد').hasMatch(g0)
+                ? 'پسر'
+                : RegExp('دختر|مونث|مؤنث|زن').hasMatch(g0)
+                ? 'دختر'
+                : '';
+            final fam = [
+              _d(o['father_nid']),
+              _d(o['mother_nid']),
+            ].where((x) => x.length == 10).firstOrNull;
+            bool fits(EngineRow c) {
+              final x = occ[c.id]!;
+              if (x.n >= x.cap) return false;
+              if (rules.separateGender && gender.isNotEmpty) {
+                if (gender == 'پسر' && x.girls > x.boys) return false;
+                if (gender == 'دختر' && x.boys > x.girls) return false;
+              }
+              return true;
+            }
+
+            final open = cands.where(fits).toList();
+            EngineRow? picked;
+            if (rules.keepSiblings && fam != null) {
+              final f = famCls[fam];
+              if (f != null && normName(f.$2) == normName(grade)) {
+                picked = open.where((c) => c.id == f.$1).firstOrNull;
+              }
+            }
+            if (picked == null && open.isNotEmpty) {
+              picked = open.reduce(
+                (a, b) => occ[b.id]!.n < occ[a.id]!.n ? b : a,
+              );
+            }
+            if (picked != null) {
+              cls = picked;
+              data['auto_placed'] = true;
+            } else {
+              manual = true;
+              data['needs_manual'] = true;
+              manualRows.add(
+                ImportManual(
+                  row: rowNo,
+                  name: full,
+                  wanted: place,
+                  candidates: [
+                    for (final c in cands)
+                      (
+                        id: c.id,
+                        name: _s(c.data['name']),
+                        n: occ[c.id]!.n,
+                        cap: occ[c.id]!.cap,
+                      ),
+                  ],
+                ),
+              );
+              fixIt('همهٔ شعبه‌های «$place» پر است — نیازمند بررسی دستی');
+            }
+          }
+        }
+        if (manual) {
+          data['class_id'] = null;
+        } else if (cls != null && isClass(cls)) {
           data['class_id'] = cls.id;
+          final x = occ[cls.id];
+          final same =
+              _int(
+                users
+                    .where((u) => u.id == _int(data['existing_id']))
+                    .firstOrNull
+                    ?.data['class_id'],
+              ) ==
+              cls.id;
+          if (x != null && !same) {
+            x.n++;
+            final g1 = normName(o['gender']);
+            if (RegExp('پسر|مذکر|مرد').hasMatch(g1)) x.boys++;
+            if (RegExp('دختر|مونث|مؤنث|زن').hasMatch(g1)) x.girls++;
+          }
+          if (rules.keepSiblings) {
+            for (final k in ['father_nid', 'mother_nid']) {
+              final v = _d(o[k]);
+              if (v.length == 10) famCls.putIfAbsent(v, () => (cls!.id, grade));
+            }
+          }
         } else if (level >= 10 && grade.isNotEmpty) {
           data['class_id'] = null;
           data['new_grade'] = grade;
@@ -1407,12 +1638,81 @@ final class SchoolImport {
       }
       out.add(r);
     }
+    // p2 `capRows`: class / now / added / total / capacity — the ready rows only
+    final added = <int, int>{};
+    for (final r in out) {
+      if (!r.ready) continue;
+      final cid = _int(r.data['class_id']);
+      if (cid == null || !occ.containsKey(cid)) continue;
+      final ex = users
+          .where((u) => u.id == _int(r.data['existing_id']))
+          .firstOrNull;
+      if (ex != null && _int(ex.data['class_id']) == cid) continue;
+      added[cid] = (added[cid] ?? 0) + 1;
+    }
+    final now = <int, int>{};
+    for (final u in users) {
+      if (u.data['role'] != 'student' || u.data['active'] == false) continue;
+      final cid = _int(u.data['class_id']);
+      if (cid != null) now[cid] = (now[cid] ?? 0) + 1;
+    }
+    final capRows = [
+      for (final e in added.entries)
+        ImportCap(
+          id: e.key,
+          name: _s(classes.firstWhere((c) => c.id == e.key).data['name']),
+          before: now[e.key] ?? 0,
+          added: e.value,
+          cap: occ[e.key]!.cap,
+        ),
+    ]..sort((a, b) => a.name.compareTo(b.name));
     return ImportReview(
       rows: out,
       newClasses: newClasses,
       branchFixes: fixes,
       branchAsk: asks,
       phonesFixed: phones,
+      capRows: capRows,
+      manualRows: manualRows,
+      rules: rules,
+      mixed: mixed,
+    );
+  }
+
+  /// p2 `place-rules-save`: the placement rules of this school.
+  Future<RecordWrite> savePlaceRules(PlaceRules r) async {
+    _requireManager();
+    final prev = await db.get('schools', 1);
+    final k = await db.put('schools', 1, {
+      ...?prev?.data,
+      'place_rules': r.toJson(),
+    }, prev: prev);
+    return RecordWrite('قواعد کلاس‌بندی ذخیره شد', id: 1, keys: [k]);
+  }
+
+  /// p2 `imp-raise-cap`: the capacity only goes up with the manager's explicit number — the
+  /// system never raises it by itself (or a 55-student class is found months later).
+  Future<RecordWrite> raiseCapacity(int classId, int cap) async {
+    _requireManager();
+    final prev = await db.existing('classes', classId, 'این کلاس');
+    final cur = _int(prev.data['capacity']) ?? 30;
+    if (cap < 1) {
+      throw const RecordFailure('invalid', 'ظرفیت معتبر وارد کنید');
+    }
+    if (cap < cur) {
+      throw const RecordFailure(
+        'invalid',
+        'ظرفیت تازه نباید کمتر از ظرفیت فعلی باشد',
+      );
+    }
+    final k = await db.put('classes', classId, {
+      ...prev.data,
+      'capacity': cap,
+    }, prev: prev);
+    return RecordWrite(
+      'ظرفیت «${_s(prev.data['name'])}» به ${_faNum(cap)} نفر رسید',
+      id: classId,
+      keys: [k],
     );
   }
 

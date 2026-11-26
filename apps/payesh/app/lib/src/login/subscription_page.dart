@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../pulse/pulse.dart';
 import 'paywall.dart';
 import 'session_controller.dart';
 
@@ -36,6 +37,17 @@ bool showsSubscriptionPage(SessionController c) {
   if (sub.blockedSchool) return false;
   const leaders = {'manager', 'vice', 'deputy'};
   return sub.status != 'free' || leaders.contains(sub.role);
+}
+
+/// Row 194: [nav] with «اشتراک» placed right above «سیستم» (at the end when there is none);
+/// the order of every other entry stays exactly as it was.
+List<PulseNavItem> withSubscription(List<PulseNavItem> nav, PulseNavItem sub) {
+  final at = nav.indexWhere((m) => m.id == 'system');
+  return [
+    for (final m in at < 0 ? nav : nav.take(at)) m,
+    sub,
+    if (at >= 0) ...nav.skip(at),
+  ];
 }
 
 /// Payment result as the user should read it.

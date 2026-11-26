@@ -125,17 +125,18 @@ void main() {
       final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
       await openPage(tester, 'users');
       await tapKey(tester, 'usr-add');
+      await tapKey(tester, 'usr-f-kind-student');
       await typeKey(tester, 'usr-f-name', 'کیان');
       await typeKey(tester, 'usr-f-nid', '۰۰۹۸۷۶۵۴۳۲');
-      await typeKey(tester, 'usr-f-parent-name', 'علی');
-      await typeKey(tester, 'usr-f-parent-phone', '9124445566');
+      await typeKey(tester, 'usr-f-father_name', 'علی');
+      await typeKey(tester, 'usr-f-father_phone', '9124445566');
       await tapKey(tester, 'usr-save');
       expect(
         find.byKey(const Key('usr-save')),
         findsNothing,
         reason: 'form closed',
       );
-      expect(textOf(tester, 'usr-notice'), contains('حساب ولی هم ساخته شد'));
+      expect(textOf(tester, 'usr-notice'), contains('حساب پدر ساخته شد'));
       expect(s.outbox.list().map((o) => o.collection), [
         'users',
         'users',
@@ -153,6 +154,7 @@ void main() {
       final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
       await openPage(tester, 'users');
       await tapKey(tester, 'usr-add');
+      await tapKey(tester, 'usr-f-kind-student');
       await typeKey(tester, 'usr-f-name', 'کیان');
       await typeKey(tester, 'usr-f-nid', '12345');
       await tapKey(tester, 'usr-save');
@@ -175,6 +177,7 @@ void main() {
       final (_, s) = await bootTall(tester, role: 'manager', seed: seed);
       await openPage(tester, 'users');
       await tapKey(tester, 'usr-add');
+      await tapKey(tester, 'usr-f-kind-student');
       await typeKey(tester, 'usr-f-name', 'بهار سعیدی');
       await typeKey(tester, 'usr-f-birth', '2010-03-01');
       await tapKey(tester, 'usr-save');
@@ -379,6 +382,7 @@ void main() {
       await bootTall(tester, role: 'manager', seed: seed, source: s);
       await openPage(tester, 'users');
       await tapKey(tester, 'usr-add');
+      await tapKey(tester, 'usr-f-kind-student');
       await typeKey(tester, 'usr-f-name', 'کیان');
       await tapKey(tester, 'usr-save');
       expect(textOf(tester, 'usr-form-error'), contains('صف ارسال پر است'));

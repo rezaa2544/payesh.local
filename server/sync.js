@@ -53,7 +53,8 @@ function pull(store, actor, params) {
   let nextId = null;
 
   for (const name of list) {
-    if (!policy.collectionAllowed(name) || !policy.canRead(actor.role, name)) continue;
+    /* ردیف ۱۹۴: نقش + تیک‌های دسترسیِ خودِ کاربر */
+    if (!policy.collectionAllowed(name) || !policy.canReadFor(Object.assign({}, actor.user, { role: actor.role }), name)) continue;
     const rows = store.changedSince(name, since, ROW_LIMIT + 1, sinceId);
     const truncated = rows.length > ROW_LIMIT;
     const slice = truncated ? rows.slice(0, ROW_LIMIT) : rows;
@@ -225,7 +226,7 @@ function push(store, actor, body, ctx = {}) {
     if (type === 'del') {
       const existing = op.id != null ? store.get(collection, op.id) : null;
       if (!existing) { rejected.push({ uid, error: 'not_found' }); continue; }
-      if (role !== 'manager') {
+      if (role !== 'manager' && !policy.grantWrites(Object.assign({}, actor.user, { role })).has(collection)) {
         const c = noteRejected(store, actor, ctx, { collection, record_id: op.id, local: incoming, server: existing, reason: 'role_denied' });
         rejected.push({ uid, error: 'role_denied', conflict_id: c.id }); continue;
       }
@@ -322,6 +323,11 @@ function push(store, actor, body, ctx = {}) {
       if (incoming.phone) {
         const dup = auth.phoneTaken(store, incoming.phone, id != null ? id : null);
         if (dup) { rejected.push({ uid, error: 'duplicate_phone', detail: 'این شماره قبلاً برای ' + dup.name + ' ثبت شده' }); continue; }
+      }
+      /* ردیف ۱۹۴: فقط کلیدهای شناخته‌شدهٔ سطح دسترسی، و فقط برای نقش‌های تیک‌پذیر */
+      if (incoming.access !== undefined) {
+        const r = incoming.role !== undefined ? incoming.role : (existing ? existing.role : '');
+        incoming.access = policy.staffAccessOf(r, incoming.access);
       }
       /* F‑01: هیچ رمز خام/رمزنگاری‌شده‌ای از کلاینت پذیرفته نمی‌شود */
       delete incoming.password_plain;

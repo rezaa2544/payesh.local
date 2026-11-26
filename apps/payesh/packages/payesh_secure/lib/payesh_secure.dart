@@ -13,6 +13,7 @@ export 'src/database_key.dart';
 export 'src/e2e1.dart';
 export 'src/dpapi_secure_store.dart';
 export 'src/fake_secure_store.dart';
+export 'src/file_dialog.dart';
 export 'src/legacy_windows_trust.dart';
 export 'src/native_update.dart';
 export 'src/secure_store.dart';

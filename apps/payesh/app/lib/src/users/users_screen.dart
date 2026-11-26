@@ -11,7 +11,10 @@ import '../pulse/pulse.dart';
 import '../pulse/web.dart';
 import '../reports/reports_screen.dart' show ReportsController;
 import '../school/school_source.dart';
+import 'user_form.dart';
 import 'users_controller.dart';
+
+export 'user_form.dart';
 
 /// Native `#/users` (row 128, W6): the manager's user list — search (name, mobile, national
 /// id), role filter, multi-select with bulk delete, and per user: full profile, edit, delete.
@@ -807,155 +810,6 @@ class _PairCardPageState extends State<PairCardPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// The `user` form (web «کاربر جدید»).
-class UserFormPage extends StatefulWidget {
-  const UserFormPage({
-    super.key,
-    required this.controller,
-    this.initial = const {},
-    this.onSaved,
-  });
-  final UsersController controller;
-
-  /// W10 `issue-fix`: the form opens with the values of the import row.
-  final Map<String, String> initial;
-
-  /// Runs after a successful save, before the form closes.
-  final Future<void> Function(RecordWrite w)? onSaved;
-
-  @override
-  State<UserFormPage> createState() => _UserFormPageState();
-}
-
-class _UserFormPageState extends State<UserFormPage> {
-  final f = {
-    for (final k in [
-      'name',
-      'national_id',
-      'phone',
-      'birth_date',
-      'gender',
-      'parent_name',
-      'parent_phone',
-    ])
-      k: TextEditingController(),
-    for (final (k, _, _) in userExtraFields) k: TextEditingController(),
-  };
-  late String role = roleFa.containsKey(widget.initial['role'])
-      ? widget.initial['role']!
-      : 'student';
-  int? classId;
-
-  @override
-  void initState() {
-    super.initState();
-    for (final e in widget.initial.entries) {
-      f[e.key]?.text = e.value;
-    }
-  }
-
-  @override
-  void dispose() {
-    for (final c in f.values) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final r = await widget.controller.add(
-      UserDraft(
-        name: f['name']!.text,
-        role: role,
-        classId: role == 'student' ? classId : null,
-        nationalId: f['national_id']!.text,
-        phone: f['phone']!.text,
-        birthDate: f['birth_date']!.text,
-        gender: f['gender']!.text,
-        parentName: f['parent_name']!.text,
-        parentPhone: f['parent_phone']!.text,
-        extra: {for (final (k, _, _) in userExtraFields) k: f[k]!.text},
-      ),
-    );
-    if (r != null) await widget.onSaved?.call(r);
-    if (r != null && mounted) Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = widget.controller;
-    return ListenableBuilder(
-      listenable: c,
-      builder: (context, _) => SchoolForm(
-        prefix: 'usr',
-        title: 'کاربر جدید',
-        controller: c,
-        submitLabel: c.samePerson != null ? 'شخص دیگری است — ذخیره' : 'ذخیره',
-        onSubmit: _save,
-        fields: [
-          SchoolField('usr-f-name', 'نام و نام خانوادگی', f['name']!),
-          FieldBox(
-            width: kFieldText,
-            child: DropdownButtonFormField<String>(
-              isExpanded: true,
-              key: const Key('usr-f-role'),
-              initialValue: role,
-              decoration: const InputDecoration(
-                labelText: 'نقش',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                for (final MapEntry(:key, :value) in roleFa.entries)
-                  DropdownMenuItem(value: key, child: Text(value)),
-              ],
-              onChanged: (v) => setState(() => role = v ?? 'student'),
-            ),
-          ),
-          if (role == 'student')
-            FieldBox(
-              width: kFieldText,
-              child: DropdownButtonFormField<int?>(
-                isExpanded: true,
-                key: const Key('usr-f-class'),
-                initialValue: classId,
-                decoration: const InputDecoration(
-                  labelText: 'کلاس',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('—')),
-                  for (final (id, name) in c.classes)
-                    DropdownMenuItem<int?>(value: id, child: Text(name)),
-                ],
-                onChanged: (v) => setState(() => classId = v),
-              ),
-            ),
-          SchoolField('usr-f-nid', 'کد ملی', f['national_id']!, numeric: true),
-          SchoolField(
-            'usr-f-phone',
-            'شمارهٔ همراه (نام کاربری)',
-            f['phone']!,
-            numeric: true,
-          ),
-          SchoolField('usr-f-birth', 'تاریخ تولد', f['birth_date']!),
-          SchoolField('usr-f-gender', 'جنسیت', f['gender']!),
-          if (role == 'student') ...[
-            SchoolField('usr-f-parent-name', 'نام ولی', f['parent_name']!),
-            SchoolField(
-              'usr-f-parent-phone',
-              'همراه ولی',
-              f['parent_phone']!,
-              numeric: true,
-            ),
-          ],
-          for (final (k, label, numeric) in userExtraFields)
-            SchoolField('usr-f-$k', label, f[k]!, numeric: numeric),
-        ],
       ),
     );
   }

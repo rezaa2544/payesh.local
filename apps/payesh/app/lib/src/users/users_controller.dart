@@ -33,6 +33,16 @@ class UsersController extends SchoolController {
   int followups = 0;
   int followupIssues = 0;
 
+  /// Row 194: what the new-user form picks from — the school's own definitions (کلاس‌ها و
+  /// تعریف‌ها), never a fixed list: پایه‌ها and رشته‌ها the manager defined, the classes with
+  /// their پایه/رشته, the subjects (دروس) of the weekly schedule and the students (a parent's
+  /// child).
+  List<String> definedGrades = const [];
+  List<String> definedBranches = const [];
+  List<(int, String, String, String)> classRows = const [];
+  List<(int, String)> subjects = const [];
+  List<(int, String)> studentRows = const [];
+
   /// Set when the add form found the same person; the next save confirms (web banner).
   SamePersonFailure? samePerson;
 
@@ -57,6 +67,24 @@ class UsersController extends SchoolController {
       if (u.grade.trim().isNotEmpty) grades.add(u.grade.trim());
       if (u.branch.trim().isNotEmpty) branches.add(u.branch.trim());
     }
+    final defG = <String>[], defB = <String>[];
+    for (final l in await db.allOrEmpty('lookups')) {
+      final name = SchoolRecords.str(l.data['name']).trim();
+      if (name.isEmpty) continue;
+      switch (SchoolRecords.str(l.data['kind'])) {
+        case 'grade':
+          if (!defG.contains(name)) defG.add(name);
+        case 'branch':
+          if (!defB.contains(name)) defB.add(name);
+      }
+    }
+    definedGrades = defG;
+    definedBranches = defB;
+    subjects = [
+      for (final x in await db.allOrEmpty('subjects'))
+        if (SchoolRecords.str(x.data['name']).trim().isNotEmpty)
+          (x.id, SchoolRecords.str(x.data['name']).trim()),
+    ]..sort((a, b) => a.$2.compareTo(b.$2));
     gradeOptions = grades.toList()..sort();
     branchOptions = branches.toList()..sort();
     bool hit(String value, String want) => want.isEmpty
@@ -78,9 +106,22 @@ class UsersController extends SchoolController {
     } on Object {
       followups = followupIssues = 0;
     }
-    classes = [
-      for (final c in await db.allOrEmpty('classes'))
-        (c.id, SchoolRecords.str(c.data['name'])),
+    final cls = await db.allOrEmpty('classes');
+    classes = [for (final c in cls) (c.id, SchoolRecords.str(c.data['name']))]
+      ..sort((a, b) => a.$2.compareTo(b.$2));
+    classRows = [
+      for (final c in cls)
+        if (SchoolRecords.str(c.data['kind']) != 'room')
+          (
+            c.id,
+            SchoolRecords.str(c.data['name']),
+            SchoolRecords.str(c.data['grade']).trim(),
+            SchoolRecords.str(c.data['branch']).trim(),
+          ),
+    ]..sort((a, b) => a.$2.compareTo(b.$2));
+    studentRows = [
+      for (final u in await db.allOrEmpty('users'))
+        if (u.data['role'] == 'student') (u.id, fullName(u.data)),
     ]..sort((a, b) => a.$2.compareTo(b.$2));
     picked.removeWhere((id) => !users.any((u) => u.id == id));
   }
@@ -131,6 +172,31 @@ class UsersController extends SchoolController {
       }
     }, form: true);
     return out;
+  }
+
+  /// Row 194: «+ درس جدید» inside the teacher form — the subject goes into «دروس» (the same
+  /// list the weekly schedule uses) and is returned to be picked right away.
+  Future<(int, String)?> addSubject(String name) async {
+    final n = name.trim();
+    if (n.isEmpty) {
+      formError = 'نام درس را بنویسید';
+      emit();
+      return null;
+    }
+    final had = subjects.where((x) => x.$2 == n).firstOrNull;
+    if (had != null) return had;
+    final w = await run(
+      (db) => ClassBook(db).saveSubject(name: n, workshop: false),
+      form: true,
+    );
+    final id = w?.id;
+    if (id == null) return null;
+    final made = (id, n);
+    if (!subjects.any((x) => x.$1 == id)) {
+      subjects = [...subjects, made]..sort((a, b) => a.$2.compareTo(b.$2));
+    }
+    emit();
+    return made;
   }
 
   Future<RecordWrite?> edit(

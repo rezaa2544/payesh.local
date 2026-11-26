@@ -446,7 +446,9 @@ class SchoolForm extends StatelessWidget {
                       children: [
                         for (final f in fields)
                           SizedBox(
-                            width: f is SchoolField && f.lines > 1
+                            width:
+                                (f is SchoolField && f.lines > 1) ||
+                                    f is SchoolFormFull
                                 ? box.maxWidth
                                 : half,
                             child: f,
@@ -588,6 +590,52 @@ class _IssueHostState extends State<_IssueHost> {
   @override
   Widget build(BuildContext context) =>
       FieldIssueScope(issues: issues, child: widget.child);
+}
+
+/// Row 194: a [SchoolForm] entry that takes the whole row in the two-column dialog (a section
+/// title, a group of ticks, a picker with its own buttons).
+class SchoolFormFull extends StatelessWidget {
+  const SchoolFormFull({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
+}
+
+/// Row 194: the title line of one part of a long form («مشخصات پدر», «سطح دسترسی», …).
+class SchoolFormSection extends StatelessWidget {
+  const SchoolFormSection(this.title, {super.key, this.note});
+  final String title;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SchoolFormFull(
+      child: Padding(
+        padding: const EdgeInsets.only(top: PayeshTokens.space2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            if (note != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(note!, style: theme.textTheme.bodySmall),
+              ),
+            const SizedBox(height: PayeshTokens.space1),
+            const Divider(height: 1),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Labelled text field of a [SchoolForm].

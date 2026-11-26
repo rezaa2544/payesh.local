@@ -5527,6 +5527,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۴: «سطح دسترسی» عوامل اجرایی — سرور نگهبان است ── */
+  await test('ردیف ۱۹۴: تیک‌های سطح دسترسی عوامل اجرایی را سرور اعمال می‌کند — بی‌تیک هیچ نوشتنی، تیک حضور ⇒ حضور همهٔ کلاس‌ها و نه چیز دیگر، خواندن کل مدرسه فقط برای ناحیهٔ تیک‌خورده، هیچ تیکی کاربر/نقش را نمی‌نویسد، آینهٔ ابری و رونوشت Dart برابر (۸ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/access-194.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'access-194: ' + (r.stdout || '').split('\n').filter(l => /^FAIL/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۲: صفحهٔ «اشتراک» — همهٔ پرداخت‌ها و همهٔ اشتراک‌های کاربر ── */
   await test('ردیف ۱۹۲: /api/sub/history همهٔ پرداخت‌ها (در انتظار/تأیید/رد با دلیل/لغو) و همهٔ اشتراک‌ها (آزمایشی، خرید، تمدید از پایان قبلی، هدیه) را فقط برای خود کاربر می‌دهد؛ بازنشانی تاریخچه را پاک نمی‌کند؛ مالک دفتر را در ack می‌گیرد (۱۱ بررسی)',
     async () => {

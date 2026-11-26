@@ -23,11 +23,11 @@
       "sites": 4
     },
     "payesh-sql-string-concat": {
-      "max": 21,
-      "reason": "رشتهٔ قالبی فقط برای نام جدول/ستونِ شناسه‌اعتبارسنجی‌شده: در کد محصول از ثابت‌های داخلی (BIG()/T())، و در ابزار انتقال ردیف ۵۴ از transfer.table()/transfer.ident() که فقط فهرست بستهٔ ALLOWED_TABLES و الگوی ^[a-z_][a-z0-9_]{0,62}$ را می‌پذیرد. همهٔ مقادیر با $n پارامتر می‌شوند و قاعدهٔ taint برای سرور صفر یافته داد. ردیف ۱۸۷: یک محل تازه در server/scope.js (اسکوپ مشاور: select distinct BIG(student_id) from T() با collection ثابت counselor_refs) — فقط ثابت‌های داخلی، بدون ورودی کاربر و بدون پارامتر.",
+      "max": 22,
+      "reason": "رشتهٔ قالبی فقط برای نام جدول/ستونِ شناسه‌اعتبارسنجی‌شده: در کد محصول از ثابت‌های داخلی (BIG()/T())، و در ابزار انتقال ردیف ۵۴ از transfer.table()/transfer.ident() که فقط فهرست بستهٔ ALLOWED_TABLES و الگوی ^[a-z_][a-z0-9_]{0,62}$ را می‌پذیرد. همهٔ مقادیر با $n پارامتر می‌شوند و قاعدهٔ taint برای سرور صفر یافته داد. ردیف ۱۸۷: یک محل تازه در server/scope.js (اسکوپ مشاور: select distinct BIG(student_id) from T() با collection ثابت counselor_refs) — فقط ثابت‌های داخلی، بدون ورودی کاربر و بدون پارامتر. ردیف ۱۹۴: یک محل تازه در server/scope.js (تیک‌های دسترسی عوامل اجرایی: select data->'access' from T() با collection ثابت users و record_id پارامتر $1) — فقط ثابت داخلی T().",
       "owner": "code",
       "reviewed_at": "2026-11-26",
-      "sites": 21
+      "sites": 22
     }
   }
 }

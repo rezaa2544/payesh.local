@@ -17,6 +17,7 @@
 // The server enforces the same (server/sync.js: unique mobile, default credentials = national id,
 // role changes by the manager only). Writes are local-first through SchoolRecords.
 import 'records.dart';
+import 'staff_access.dart';
 
 /// Web `ROLE_FA`.
 const Map<String, String> roleFa = {
@@ -31,19 +32,36 @@ const Map<String, String> roleFa = {
   'guard': 'نگهبان',
 };
 
-/// Role filter chips of the users page (web order).
+/// Row 194: the «عوامل اجرایی» of a school — every role that is not a student, a teacher or a
+/// parent (مدیر، معاون، مشاور، کارمند، اجرایی، نگهبان).
+const Set<String> execRoles = {
+  'manager',
+  'vice',
+  'counselor',
+  'staff',
+  'office',
+  'guard',
+};
+
+/// The role-filter value that stands for [execRoles] together.
+const String execGroup = 'exec';
+
+/// Role filter chips of the users page. Row 194: only «همه · دانش‌آموز · دبیر · ولی · عوامل
+/// اجرایی» — معاون، مشاور و … are all under «عوامل اجرایی».
 const List<(String, String)> roleFilters = [
   ('', 'همه'),
   ('student', 'دانش‌آموز'),
   ('teacher', 'دبیر'),
   ('parent', 'ولی'),
-  ('manager', 'مدیر'),
-  ('vice', 'معاون'),
-  ('counselor', 'مشاور'),
-  ('staff', 'کارمند'),
-  ('office', 'اجرایی'),
-  ('guard', 'نگهبان'),
+  (execGroup, 'عوامل اجرایی'),
 ];
+
+/// True when [role] passes the users-page filter [filter] ('' = every role).
+bool roleMatches(String filter, String role) => filter.isEmpty
+    ? true
+    : filter == execGroup
+    ? execRoles.contains(role)
+    : role == filter;
 
 /// Extra profile fields of the user forms (web `USER_EXTRA_FORM`): key, label, numeric.
 const List<(String, String, bool)> userExtraFields = [
@@ -61,6 +79,100 @@ const List<(String, String, bool)> userExtraFields = [
   ('covered', 'حمایتی (بله/خیر)', false),
   ('talent', 'استعداد', false),
 ];
+
+/// Row 194: personnel fields of a teacher or a staff member (manager only — never pulled by
+/// another role): key, label, numeric.
+const List<(String, String, bool)> personnelFields = [
+  ('personnel_code', 'کد پرسنلی', true),
+  ('position', 'سمت', false),
+  ('degree', 'مدرک تحصیلی', false),
+  ('study_field', 'رشتهٔ تحصیلی', false),
+  ('employment', 'نوع استخدام', false),
+  ('service_years', 'سابقهٔ خدمت (سال)', true),
+  ('start_date', 'تاریخ شروع در این مدرسه', false),
+];
+
+/// Row 194: «نوع استخدام» choices.
+const List<String> employmentKinds = [
+  'رسمی',
+  'پیمانی',
+  'قراردادی',
+  'حق‌التدریس',
+  'خرید خدمات',
+  'نیروی آزاد',
+];
+
+/// Row 194: the rest of a student's family data (education and job of each parent, who the
+/// guardian is) and a parent's relation to the student: key, label, numeric.
+const List<(String, String, bool)> familyFields = [
+  ('father_edu', 'تحصیلات پدر', false),
+  ('father_job', 'شغل پدر', false),
+  ('mother_edu', 'تحصیلات مادر', false),
+  ('mother_job', 'شغل مادر', false),
+  ('guardian', 'سرپرست (نسبت و نام)', false),
+  ('relation', 'نسبت با دانش‌آموز', false),
+  ('job', 'شغل', false),
+];
+
+/// Every profile key the new-user form may store.
+final Set<String> userProfileKeys = {
+  for (final (k, _, _) in [
+    ...userExtraFields,
+    ...personnelFields,
+    ...familyFields,
+  ])
+    k,
+};
+
+/// Row 194: one subject a teacher teaches, for a پایه and a رشته (both optional).
+final class TeachDraft {
+  const TeachDraft({
+    required this.subjectId,
+    required this.subject,
+    this.grade = '',
+    this.branch = '',
+  });
+  final int subjectId;
+  final String subject;
+  final String grade;
+  final String branch;
+
+  Map<String, Object?> toJson() => {
+    'subject_id': subjectId,
+    'subject': subject,
+    if (grade.trim().isNotEmpty) 'grade': grade.trim(),
+    if (branch.trim().isNotEmpty) 'branch': branch.trim(),
+  };
+
+  /// «ریاضی — دهم — الکترونیک».
+  String get labelFa => [
+    subject,
+    if (grade.trim().isNotEmpty) grade.trim(),
+    if (branch.trim().isNotEmpty) branch.trim(),
+  ].join(' — ');
+
+  static List<TeachDraft> listOf(Object? raw) => [
+    if (raw is List)
+      for (final x in raw)
+        if (x is Map && SchoolRecords.asInt(x['subject_id']) != null)
+          TeachDraft(
+            subjectId: SchoolRecords.asInt(x['subject_id'])!,
+            subject: SchoolRecords.str(x['subject']),
+            grade: SchoolRecords.str(x['grade']),
+            branch: SchoolRecords.str(x['branch']),
+          ),
+  ];
+
+  @override
+  bool operator ==(Object other) =>
+      other is TeachDraft &&
+      other.subjectId == subjectId &&
+      other.grade.trim() == grade.trim() &&
+      other.branch.trim() == branch.trim();
+
+  @override
+  int get hashCode => Object.hash(subjectId, grade.trim(), branch.trim());
+}
 
 /// Web `fullName`: the last name is not repeated when the name already contains it.
 String fullName(Map<String, Object?> u) {
@@ -174,6 +286,12 @@ final class UserDraft {
     this.parentName = '',
     this.parentPhone = '',
     this.extra = const {},
+    this.grade = '',
+    this.branch = '',
+    this.parentAccounts = const {},
+    this.access = const [],
+    this.teaches = const [],
+    this.childId,
   });
   final String name;
   final String role;
@@ -185,6 +303,23 @@ final class UserDraft {
   final String parentName;
   final String parentPhone;
   final Map<String, String> extra;
+
+  /// Row 194: a student's پایه and رشته.
+  final String grade;
+  final String branch;
+
+  /// Row 194: `father` / `mother` — make (or re-use) that parent's account from the father_* /
+  /// mother_* fields of [extra], linked to the new student.
+  final Set<String> parentAccounts;
+
+  /// Row 194: a staff member's «سطح دسترسی» (keys of [staffAccessAreas]).
+  final List<String> access;
+
+  /// Row 194: what a teacher teaches.
+  final List<TeachDraft> teaches;
+
+  /// Row 194: a new parent's child (a `parent_links` row is made).
+  final int? childId;
 }
 
 /// The add form found people who look like the same person (web `userDupBanner`).
@@ -241,7 +376,7 @@ final class UserDirectory {
     final out = <SchoolUser>[];
     for (final r in rows) {
       final u = SchoolUser(id: r.id, data: r.data);
-      if (role.isNotEmpty && u.role != role) continue;
+      if (!roleMatches(role, u.role)) continue;
       if (q.isNotEmpty &&
           !SchoolRecords.str(r.data['name']).contains(q) &&
           !u.phone.contains(q) &&
@@ -398,10 +533,10 @@ final class UserDirectory {
     return m;
   }
 
-  static String _nid(String raw) {
+  static String _nid(String raw, {String whatFa = 'کد ملی'}) {
     final d = SchoolRecords.digitsOnly(raw);
     if (d.isNotEmpty && d.length != 10) {
-      throw const RecordFailure('invalid', 'کد ملی باید دقیقاً ۱۰ رقم باشد');
+      throw RecordFailure('invalid', '$whatFa باید دقیقاً ۱۰ رقم باشد');
     }
     return d;
   }
@@ -475,62 +610,169 @@ final class UserDirectory {
       if (d.birthDate.trim().isNotEmpty) 'birth_date': d.birthDate.trim(),
       if (d.gender.trim().isNotEmpty) 'gender': d.gender.trim(),
       'active': true,
-      for (final (k, _, _) in userExtraFields)
+      for (final k in userProfileKeys)
         if ((d.extra[k] ?? '').trim().isNotEmpty)
           k: k.endsWith('_phone')
               ? (SchoolRecords.mobile11(d.extra[k]).isEmpty
                     ? d.extra[k]!.trim()
                     : SchoolRecords.mobile11(d.extra[k]))
               : d.extra[k]!.trim(),
+      if (d.role == 'student' && d.grade.trim().isNotEmpty)
+        'grade': d.grade.trim(),
+      if (d.role == 'student' && d.branch.trim().isNotEmpty)
+        'field': d.branch.trim(),
+      if (d.role == 'teacher' && d.teaches.isNotEmpty) ...{
+        'teaches': [
+          for (final t in {...d.teaches}) t.toJson(),
+        ],
+        'subject': {for (final t in d.teaches) t.subject}.join('، '),
+      },
+      if (grantableRoles.contains(d.role))
+        'access': staffAccessOf(d.role, d.access),
     };
     db.precheck(users, row);
-    final withParent =
-        d.role == 'student' &&
-        (d.parentName.trim().isNotEmpty || parentPhone.isNotEmpty);
-    db.requireRoom(withParent ? 3 : 1);
+    // Row 194: the parents' accounts are planned (and checked) before anything is written.
+    final plan = d.role == 'student'
+        ? await _parentPlan(d, name, nid, phone, parentPhone, rows)
+        : const <_ParentPlan>[];
+    final child = d.role == 'parent' && d.childId != null
+        ? await db.existing(users, d.childId!, 'این دانش‌آموز')
+        : null;
+    db.requireRoom(
+      1 +
+          plan.fold<int>(0, (n, p) => n + (p.reuse == null ? 2 : 1)) +
+          (child == null ? 0 : 1),
+    );
     final keys = <String>[];
     final id = await db.newId(users);
     keys.add(await db.put(users, id, row));
     var msg =
         'کاربر ساخته شد — نام کاربری: ${phone.isNotEmpty ? phone : (nid.isNotEmpty ? nid : 'ثبت نشده')}'
         '، رمز اولیه: ${nid.isNotEmpty ? 'کد ملی' : 'با «کاربری» تعیین کنید'}';
-    final pName = d.parentName.trim();
-    if (d.role == 'student' && (pName.isNotEmpty || parentPhone.isNotEmpty)) {
-      EngineRowLike? parent;
-      if (parentPhone.isNotEmpty) {
-        for (final r in rows) {
-          if (r.data['role'] == 'parent' &&
-              SchoolRecords.digitsOnly(r.data['phone']) == parentPhone) {
-            parent = r;
-          }
-        }
-        if (parent == null) await _uniquePhone(parentPhone, null, rows);
-      }
-      var pid = parent?.id;
+    final made = <String, int>{};
+    for (final p in plan) {
+      var pid = p.reuse?.id ?? (p.phone.isEmpty ? null : made[p.phone]);
+      final fresh = pid == null;
       if (pid == null) {
         pid = await db.newId(users);
         keys.add(
           await db.put(users, pid, {
-            'name': pName.isEmpty ? 'ولی $name' : pName,
+            'name': p.name,
             'role': 'parent',
-            'phone': parentPhone,
+            'phone': p.phone,
+            if (p.nid.isNotEmpty) 'national_id': p.nid,
+            'relation': p.relationFa,
             'active': true,
           }),
         );
+        if (p.phone.isNotEmpty) made[p.phone] = pid;
       }
       final lid = await db.newId('parent_links');
       keys.add(
         await db.put('parent_links', lid, {
           'parent_id': pid,
           'student_id': id,
-          'relation': 'father',
+          'relation': p.relation,
         }),
       );
-      msg += parent == null
-          ? ' · حساب ولی هم ساخته شد'
-          : ' · به ولیِ موجود وصل شد';
+      msg += p.legacy
+          ? (fresh ? ' · حساب ولی هم ساخته شد' : ' · به ولیِ موجود وصل شد')
+          : fresh
+          ? ' · حساب ${p.whoFa} ساخته شد'
+          : ' · به حساب موجود ${p.whoFa} وصل شد';
+    }
+    if (child != null) {
+      final lid = await db.newId('parent_links');
+      keys.add(
+        await db.put('parent_links', lid, {
+          'parent_id': id,
+          'student_id': child.id,
+          'relation': switch ((d.extra['relation'] ?? '').trim()) {
+            'پدر' => 'father',
+            'مادر' => 'mother',
+            _ => 'guardian',
+          },
+        }),
+      );
+      msg += ' · به «${fullName(child.data)}» وصل شد';
     }
     return RecordWrite(msg, id: id, keys: keys);
+  }
+
+  /// Row 194: which parent accounts a new student brings — the father and the mother from the
+  /// father_* / mother_* fields (when ticked), else the old single «ولی» name + mobile. A parent
+  /// already in the school (same mobile or national code) is re-used, never duplicated; a
+  /// mobile of a non-parent user is refused (it is that user's username).
+  Future<List<_ParentPlan>> _parentPlan(
+    UserDraft d,
+    String name,
+    String nid,
+    String phone,
+    String parentPhone,
+    List<EngineRowLike> rows,
+  ) async {
+    final want = <(String, String, String, String)>[
+      for (final rel in ['father', 'mother'])
+        if (d.parentAccounts.contains(rel))
+          (
+            rel,
+            (d.extra['${rel}_name'] ?? '').trim(),
+            d.extra['${rel}_nid'] ?? '',
+            d.extra['${rel}_phone'] ?? '',
+          ),
+    ];
+    if (want.isEmpty &&
+        (d.parentName.trim().isNotEmpty || parentPhone.isNotEmpty)) {
+      want.add(('guardian', d.parentName.trim(), '', parentPhone));
+    }
+    final out = <_ParentPlan>[];
+    for (final (rel, pName, rawNid, rawPhone) in want) {
+      // the old single «ولی» of the form / an import row
+      final legacy = rel == 'guardian';
+      final who = rel == 'mother' ? 'مادر' : (legacy ? 'ولی' : 'پدر');
+      final m = _mobile(rawPhone, whatFa: 'همراه $who');
+      var n = _nid(rawNid, whatFa: 'کد ملی $who');
+      if (pName.isEmpty && m.isEmpty && n.isEmpty) continue;
+      if (m.isNotEmpty && m == phone) {
+        throw RecordFailure(
+          'invalid',
+          'همراه $who با همراه خود دانش‌آموز یکی است — نام کاربری هر نفر جداست',
+        );
+      }
+      EngineRowLike? reuse;
+      for (final r in rows) {
+        if (r.data['role'] != 'parent') continue;
+        if ((m.isNotEmpty && SchoolRecords.digitsOnly(r.data['phone']) == m) ||
+            (n.isNotEmpty &&
+                SchoolRecords.digitsOnly(r.data['national_id']) == n)) {
+          reuse = r;
+          break;
+        }
+      }
+      if (reuse == null) {
+        await _uniquePhone(m, null, rows);
+        // the code of a parent who is also a teacher/staff here stays on that user only
+        if (n.isNotEmpty &&
+            (n == nid ||
+                rows.any(
+                  (r) => SchoolRecords.digitsOnly(r.data['national_id']) == n,
+                ))) {
+          n = '';
+        }
+      }
+      out.add(
+        _ParentPlan(
+          relation: legacy ? 'father' : rel,
+          legacy: legacy,
+          whoFa: who,
+          name: pName.isNotEmpty ? pName : '$who $name',
+          nid: n,
+          phone: m,
+          reuse: reuse,
+        ),
+      );
+    }
+    return out;
   }
 
   /// `user-edit`: name, mobile, active, birth date, gender and the extra fields.
@@ -780,6 +1022,27 @@ final class UserDirectory {
 }
 
 /// Minimal row view used inside this file (id, data, version).
+final class _ParentPlan {
+  const _ParentPlan({
+    required this.relation,
+    required this.whoFa,
+    required this.name,
+    required this.nid,
+    required this.phone,
+    this.reuse,
+    this.legacy = false,
+  });
+  final bool legacy;
+  final String relation;
+  final String whoFa;
+  final String name;
+  final String nid;
+  final String phone;
+  final EngineRowLike? reuse;
+
+  String get relationFa => legacy ? 'پدر' : whoFa;
+}
+
 final class EngineRowLike {
   const EngineRowLike(this.id, this.data, [this.version = 0]);
   final int id;

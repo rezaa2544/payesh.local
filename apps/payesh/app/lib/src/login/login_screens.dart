@@ -602,10 +602,12 @@ class _SignedInScreenState extends State<SignedInScreen> {
           ];
     // Row 192: «اشتراک» is always in the menu of a school Payesh manages (status, renew, buy,
     // payment report, all subscriptions) — not only behind the paywall.
+    // Row 194: it goes right above «سیستم» and nothing else moves (pulseSorted only knows the
+    // native ids, so it pushed «داشبورد», «ارجاع مشاور», «اطلاعیه‌ها» and «شبکه» to the end).
     final nav = nav0.isEmpty || !showsSubscriptionPage(controller)
         ? nav0
-        : pulseSorted([
-            ...nav0,
+        : withSubscription(
+            nav0,
             PulseNavItem(
               id: 'subscription',
               label: 'اشتراک',
@@ -613,7 +615,7 @@ class _SignedInScreenState extends State<SignedInScreen> {
               webIcon: 'check',
               page: (context) => SubscriptionPage(controller: controller),
             ),
-          ]);
+          );
     final wide = w >= pulseWideBreakpoint;
     final brand = const Row(
       mainAxisSize: MainAxisSize.min,
