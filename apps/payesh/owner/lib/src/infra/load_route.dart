@@ -64,6 +64,18 @@ final class RouteThresholds {
 
 const RouteThresholds routeThresholds = RouteThresholds();
 
+/// ردیف ۱۹۱: آستانهٔ همین پنل مالک — پردازش کمکی «پیش از» زرد شدن عددها وارد مدار
+/// می‌شود: p95 بیش از ۴۰۰ میلی‌ثانیه (مرز زرد ۵۰۰ است) یا خطای بیش از ۲٪؛ برگشت پس از یک
+/// دقیقه پیوسته زیر ۲۵۰ میلی‌ثانیه و بی‌خطا. رنگ عددهای کارت همان [routeThresholds] است
+/// (سبز تا ۵۰۰، زرد تا ۱۲۰۰، قرمز بالاتر) و قرارداد سرور مدرسه دست نخورده است.
+const RouteThresholds ownerRouteThresholds = RouteThresholds(
+  hiMs: 400,
+  loMs: 250,
+  errHi: 0.02,
+  errLo: 0.005,
+  minSamples: 3,
+);
+
 /// سنجهٔ یک زیرساخت در پنجرهٔ اخیر.
 @immutable
 final class TierStats {
@@ -294,7 +306,11 @@ class LoadRouter extends ChangeNotifier {
     this.probe,
     this.busy,
     DateTime Function()? now,
+    this.thresholds = ownerRouteThresholds,
   }) : _now = now ?? DateTime.now;
+
+  /// ردیف ۱۹۱: آستانه‌های بالا/پایین رفتن پله (پیش‌فرض: زودتر از رنگ زرد).
+  final RouteThresholds thresholds;
 
   /// حالت و نشانی سرور بیرونی از سیاست زیرساخت.
   final ({String mode, String external}) Function() policy;
@@ -392,6 +408,7 @@ class LoadRouter extends ChangeNotifier {
         ext: extStats,
         helpers: helpers,
       ),
+      thresholds,
     );
     if (!_disposed) notifyListeners();
   }
@@ -427,14 +444,14 @@ const Map<String, String> archModeTitles = {
 String routeReasonFa(String reason) {
   if (reason.startsWith('escalate:')) {
     final t = routeTierTitles[reason.substring(9)] ?? reason.substring(9);
-    return 'زمان پاسخ یا خطای «$t» بالا رفت؛ پلهٔ بعد به کمک آمد.';
+    return 'پیش از رسیدن زمان پاسخ یا خطای «$t» به حد زرد و قرمز، پلهٔ بعد به کمک آمد.';
   }
   if (reason.startsWith('recovered:')) {
     final t = routeTierTitles[reason.substring(10)] ?? reason.substring(10);
     return '«$t» یک دقیقه آرام بود؛ یک پله برگشت.';
   }
   return switch (reason) {
-    'no_helpers' => 'دیتابیس کمک می‌خواهد ولی فعلاً سیستم کمکیِ روشنی نیست؛ همین سیستم ادامه می‌دهد.',
+    'no_helpers' => 'دیتابیس کمک می‌خواهد ولی پردازش کمکی همین سیستم متوقف است و سیستم کمکی دیگری هم روشن نیست؛ با «شروع» در کارت پردازش کمکی به کمک می‌آید.',
     'external_down' => 'سرور مرکزی در دسترس نیست؛ دیتابیس مسیر اصلی شد.',
     'mode' => 'حالت معماری تغییر کرد.',
     _ => 'همه‌چیز عادی است؛ فقط زیرساخت اصلی کار می‌کند.',

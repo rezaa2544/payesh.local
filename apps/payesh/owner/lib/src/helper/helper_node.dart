@@ -91,6 +91,7 @@ final class HelperNode {
     this.acceptWork,
     this.processingPaused,
     this.restFor,
+    this.urgent,
   }) : _now = now ?? DateTime.now,
        _sleep = sleep ?? _realSleep,
        host = host ?? _hostName(),
@@ -106,6 +107,10 @@ final class HelperNode {
 
   /// ردیف ۱۷۸: «توقف پردازش» مالک ⇒ هیچ کار تازه‌ای برداشته نمی‌شود (کار در حال اجرا تمام می‌شود).
   final bool Function()? processingPaused;
+
+  /// ردیف ۱۹۱: مسیر بار سیستم‌های کمکی را به کار گرفته ⇒ صف کارها بی‌درنگ (هر ۳ ثانیه)
+  /// خوانده می‌شود، نه با فاصلهٔ رو به افزایش بیکاری.
+  final bool Function()? urgent;
 
   /// ردیف ۱۷۸: استراحت پس از هر کار برای ماندن زیر سقف درصد CPU (null ⇒ بدون استراحت).
   final Duration Function(Duration work)? restFor;
@@ -246,6 +251,10 @@ final class HelperNode {
   }
 
   Duration _idle() {
+    if (urgent?.call() ?? false) {
+      _idleStep = 0;
+      return const Duration(seconds: 3);
+    }
     const steps = [5, 10, 20, 30];
     final d = Duration(seconds: steps[min(_idleStep, steps.length - 1)]);
     if (_idleStep < steps.length - 1) _idleStep++;

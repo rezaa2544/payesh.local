@@ -6,6 +6,7 @@ import 'package:payesh_owner/src/app.dart';
 import 'package:payesh_owner/src/helper/helper_service.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
 import 'package:payesh_owner/src/platform.dart';
+import 'package:payesh_owner/src/power/activity.dart';
 import 'package:payesh_owner/src/update/update_service.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
@@ -148,7 +149,8 @@ void main() {
       'helper-cpu',
       'helper-stat-cpu',
       'helper-stat-done',
-      'helper-stat-rest',
+      'helper-stat-host',
+      'helper-cap',
     ]) {
       expect(find.byKey(Key(k)), findsOneWidget, reason: k);
     }
@@ -157,9 +159,13 @@ void main() {
     await tester.tap(find.byKey(const Key('helper-stop')));
     await tester.pumpAndSettle();
     expect(text(tester, 'helper-run-state'), 'متوقف');
+    // ردیف ۱۹۱: «توقف» همین سیستم کارهای سنگین پس‌زمینهٔ پنل را هم نگه می‌دارد
+    expect(OwnerActivity.instance.processingPaused, isTrue);
+    expect(text(tester, 'helper-cap'), contains('متوقف است'));
     await tester.tap(find.byKey(const Key('helper-start')));
     await tester.pumpAndSettle();
     expect(text(tester, 'helper-run-state'), isNot('متوقف'));
+    expect(OwnerActivity.instance.processingPaused, isFalse);
 
     // زیرساخت: کارت «زیرساخت‌ها» بالای صفحه (ردیف ۱۳۱)
     await tap(tester, 'nav-infra');

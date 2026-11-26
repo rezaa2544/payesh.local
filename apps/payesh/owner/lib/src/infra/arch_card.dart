@@ -11,6 +11,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../net/direct_route.dart';
 import 'infra_policy.dart';
 import 'load_route.dart';
 
@@ -208,10 +209,12 @@ class _ArchCardState extends State<ArchCard> {
               ),
             const SizedBox(height: 6),
             Text(
-              'بالا رفتن پله: p95 بیش از ${_ms(routeThresholds.hiMs)} یا خطای بیش از '
-              '${_pct(routeThresholds.errHi)} (فوری). برگشت: یک دقیقه پیوسته زیر '
-              '${_ms(routeThresholds.loMs)} و خطای کمتر از ${_pct(routeThresholds.errLo)} '
-              '(بدون نوسان).',
+              'بالا رفتن پله (پیش از زرد شدن عددها): p95 بیش از '
+              '${_ms(ownerRouteThresholds.hiMs)} یا خطای بیش از '
+              '${_pct(ownerRouteThresholds.errHi)} (فوری). برگشت: یک دقیقه پیوسته زیر '
+              '${_ms(ownerRouteThresholds.loMs)} و خطای کمتر از '
+              '${_pct(ownerRouteThresholds.errLo)} (بدون نوسان). رنگ عددها: سبز تا '
+              '${_ms(routeThresholds.loMs)}، زرد تا ${_ms(routeThresholds.hiMs)}.',
               key: const Key('arch-thresholds'),
               style: Theme.of(context).textTheme.bodySmall
                   ?.copyWith(color: tk.muted),
@@ -330,6 +333,17 @@ class LoadCard extends StatelessWidget {
             key: const Key('load-reason'),
             style: t.bodySmall?.copyWith(color: tk.muted),
           ),
+          // ردیف ۱۹۱: دیتابیس داخلی با VPN روشن مستقیم از کارت شبکه می‌رود (یا نه)
+          if (DirectRoute.instance.mode != DirectMode.normal)
+            Text(
+              DirectRoute.instance.statusFa,
+              key: const Key('load-direct'),
+              style: t.bodySmall?.copyWith(
+                color: DirectRoute.instance.mode == DirectMode.direct
+                    ? tk.success
+                    : tk.warning,
+              ),
+            ),
         ],
       );
       if (embedded) {

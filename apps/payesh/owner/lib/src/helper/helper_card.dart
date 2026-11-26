@@ -41,6 +41,7 @@ class HelperCard extends StatefulWidget {
     required this.service,
     this.now,
     this.cpu,
+    this.procCpu,
     this.liveEvery,
     this.memory,
     this.compact = false,
@@ -48,13 +49,16 @@ class HelperCard extends StatefulWidget {
 
   /// Row 180 design 2: the dashboard's compact card as drawn — title + status line, the
   /// segmented «شروع | توقف», «مقدار پردازش» with its slider (۱۰٪ … کامل) and three stats
-  /// (پردازنده · کار امروز · استراحت). The full card stays on «زیرساخت».
+  /// (row 191: مصرف این برنامه · کل سیستم · انجام‌شده). The full card stays on «زیرساخت».
   final bool compact;
   final OwnerHelperService service;
   final DateTime Function()? now;
 
   /// ردیف ۱۶۵ — مصرف زندهٔ پردازندهٔ همین رایانه (پیش‌فرض: [HostCpuMeter]).
   final HostCpuMeter? cpu;
+
+  /// ردیف ۱۹۱ — مصرف واقعی همین برنامه (پیش‌فرض: [ProcessCpuMeter]).
+  final ProcessCpuMeter? procCpu;
 
   /// فاصلهٔ نمونه‌گیری زنده؛ پیش‌فرض ۱ ثانیه (در آزمون‌ها خاموش مگر صریحاً داده شود).
   final Duration? liveEvery;
@@ -74,7 +78,9 @@ class _HelperCardState extends State<HelperCard> {
   String? _usage;
   bool _usageOk = true;
   late final HostCpuMeter _cpu = widget.cpu ?? HostCpuMeter();
+  late final ProcessCpuMeter _proc = widget.procCpu ?? ProcessCpuMeter();
   PacedTimer? _live;
+  int _quietTicks = 0;
   int? _rss;
   double? _cpuDrag;
   bool _toggling = false;
@@ -92,6 +98,9 @@ class _HelperCardState extends State<HelperCard> {
     _sampleLive();
     if (every != null) {
       _live = PacedTimer.periodic(every, () {
+        // ردیف ۱۹۱: وقتی همین سیستم «متوقف» است خودِ پایش هم کم‌کار می‌شود (هر ۵ ثانیه)
+        // تا عدد نشان‌داده‌شده مصرف واقعیِ برنامهٔ متوقف باشد، نه هزینهٔ اندازه‌گیری.
+        if (widget.service.stopped && ++_quietTicks % 5 != 0) return;
         _sampleLive();
         if (mounted) setState(() {});
       }, idleEvery: every * 10);
@@ -100,6 +109,7 @@ class _HelperCardState extends State<HelperCard> {
 
   void _sampleLive() {
     _cpu.sample();
+    _proc.sample();
     try {
       _rss = (widget.memory ?? () => ProcessInfo.currentRss)();
     } on Object {
@@ -303,8 +313,49 @@ class _HelperCardState extends State<HelperCard> {
             key: const Key('helper-cpu-note'),
             style: TextStyle(color: tk.muted, fontSize: 12),
           ),
+          const SizedBox(height: 6),
+          _capLine(context, eff),
         ],
       ),
+    );
+  }
+
+  /// ردیف ۱۹۱: درصد با یک رقم اعشار زیر ۱۰ (۰٫۴٪)، بی‌اعشار بالاتر؛ نامعلوم ⇒ «—».
+  static String _pctFa(double? v) {
+    if (v == null) return '—';
+    final t = v < 10 ? v.toStringAsFixed(1) : v.round().toString();
+    return '${faDigits(t).replaceAll('.', '٫')}٪';
+  }
+
+  /// ردیف ۱۹۱: سقف واقعاً چطور اعمال می‌شود — قطعی (ویندوز) یا فقط کم کردن کارها.
+  Widget _capLine(BuildContext context, int? eff) {
+    final tk = context.tokens;
+    final cap = widget.service.cap;
+    final stopped = widget.service.stopped;
+    final String text;
+    final Color color;
+    if (eff == null) {
+      text =
+          'بدون سقف: این برنامه هر قدر لازم باشد از پردازنده استفاده می‌کند.';
+      color = tk.muted;
+    } else if (cap.hard && cap.percent == eff) {
+      text =
+          'سقف قطعی ویندوز: این برنامه (پردازش کمکی، پشتیبان، پایش و خود صفحه) '
+          'هرگز بیش از ${faDigits(eff)}٪ از کل پردازندهٔ این رایانه مصرف نمی‌کند.';
+      color = tk.success;
+    } else {
+      text =
+          'سقف ${faDigits(eff)}٪ با کم کردن کارهای هم‌زمان و استراحت بین کارها رعایت '
+          'می‌شود (سقف قطعی سیستم‌عامل روی این دستگاه در دسترس نیست).';
+      color = tk.warning;
+    }
+    return Text(
+      stopped
+          ? '$text پردازش این سیستم متوقف است: کار کمکی، پشتیبان خودکار و سنجش‌های '
+                'سنگین اجرا نمی‌شوند؛ آنچه می‌ماند فقط خود صفحه است.'
+          : text,
+      key: const Key('helper-cap'),
+      style: TextStyle(color: color, fontSize: 11.5),
     );
   }
 
@@ -320,15 +371,7 @@ class _HelperCardState extends State<HelperCard> {
     final shown = (_cpuDrag ?? (local ?? 100).toDouble()).round();
     final eff = minCpu(shown >= 100 ? null : shown, global);
     final cpu = _cpu.last;
-    final recent = node?.recent ?? const [];
-    final avgMs = recent.isEmpty
-        ? 0
-        : recent.map((j) => j.ms).reduce((a, b) => a + b) ~/ recent.length;
-    final rest = restForCpu(Duration(milliseconds: avgMs), eff);
-    String sec(Duration d) {
-      final t = (d.inMilliseconds / 100).round() / 10;
-      return '${faDigits(t.toStringAsFixed(1)).replaceAll('.', '٫')} ث';
-    }
+    final mine = _proc.last;
 
     final String line;
     if (node == null) {
@@ -570,21 +613,21 @@ class _HelperCardState extends State<HelperCard> {
             const SizedBox(height: 16),
             Row(
               children: [
-                stat(
-                  'helper-stat-cpu',
-                  'پردازنده',
-                  cpu == null ? '—' : '${faDigits(cpu.round())}٪',
-                ),
+                // ردیف ۱۹۱: عدد واقعی همین برنامه (همان ستون CPU در Task Manager)،
+                // جدا از مصرف کل رایانه که برنامه‌های دیگر هم در آن هستند
+                stat('helper-stat-cpu', 'مصرف این برنامه', _pctFa(mine)),
+                const SizedBox(width: 8),
+                stat('helper-stat-host', 'کل سیستم', _pctFa(cpu)),
                 const SizedBox(width: 8),
                 stat(
                   'helper-stat-done',
                   'انجام‌شده',
                   faNumber(node?.done ?? 0),
                 ),
-                const SizedBox(width: 8),
-                stat('helper-stat-rest', 'استراحت', sec(rest)),
               ],
             ),
+            const SizedBox(height: 8),
+            _capLine(context, eff),
           ],
         ),
       ),
@@ -800,9 +843,10 @@ class _HelperCardState extends State<HelperCard> {
           const SizedBox(height: 10),
           Row(
             children: [
+              stat('helper-live-proc', 'مصرف این برنامه', _pctFa(_proc.last)),
               stat(
                 'helper-live-cpu',
-                'پردازندهٔ این رایانه',
+                'کل رایانه',
                 cpu == null ? '—' : '${faNumber(cpu.round())}٪',
                 color: cpuTone,
               ),

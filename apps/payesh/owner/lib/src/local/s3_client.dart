@@ -7,6 +7,7 @@ import 'package:payesh_core/io.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
 import '../monitor/net_meter.dart';
+import '../net/direct_route.dart';
 import '../net/resilience.dart';
 import 'trust_bundle.dart';
 
@@ -407,9 +408,16 @@ final class S3ConnectionPool {
     c?.close();
     _overrides = HttpOverrides.current;
     clientsCreated++;
-    return _client = HttpClient(context: context)
+    final c2 = HttpClient(context: context)
       ..connectionTimeout = connectTimeout
       ..idleTimeout = idle;
+    // ردیف ۱۹۱: دیتابیس داخلی (.ir) با VPN روشن ⇒ مستقیم از کارت شبکهٔ واقعی (نه از تونل)
+    final route = DirectRoute.instance;
+    if (route.enabled && HttpOverrides.current == null) {
+      c2.connectionFactory = (uri, host, port) =>
+          route.connectionFactory(uri, host, port, context);
+    }
+    return _client = c2;
   }
 
   /// اتصال‌های بیکار دور ریخته می‌شوند (و DNS از نو)؛ درخواست‌های در جریان تمام می‌شوند.

@@ -14,6 +14,7 @@ import '../update/owner_update.dart';
 import 'helper_box.dart';
 import 'helper_jobs.dart';
 import 'helper_node.dart';
+import 'host_cpu.dart';
 
 abstract final class HelperKeys {
   static const String id = 'owner.helper.id';
@@ -34,7 +35,9 @@ final class OwnerHelperService {
     this.autoStart = true,
     this.slots,
     ExternalProbe? externalProbe,
-  }) : transport = transport ?? IoS3Transport.new,
+    CpuCap? cap,
+  }) : cap = cap ?? CpuCap.instance,
+       transport = transport ?? IoS3Transport.new,
        _now = now ?? DateTime.now {
     policy = InfraPolicyStore(
       secure: secure,
@@ -63,6 +66,9 @@ final class OwnerHelperService {
   final Sleeper? sleep;
   final int? slots;
   late final JobExecutor executor;
+
+  /// ردیف ۱۹۱: سقف قطعی درصد پردازندهٔ همین برنامه (ویندوز: Job Object).
+  final CpuCap cap;
 
   /// سیاست زیرساخت مالک: «پردازش کمکی» و زیرساخت‌های غیرفعال (ردیف ۱۳۱).
   late final InfraPolicyStore policy;
@@ -98,19 +104,22 @@ final class OwnerHelperService {
       slotsFor: slots != null ? null : () => slotsForCpu(effectiveCpu),
       restFor: (work) => restForCpu(work, effectiveCpu),
       processingPaused: () => policy.value.procPaused,
+      // ردیف ۱۹۱: مسیر بار سیستم‌های کمکی را خواست ⇒ صف کارها بی‌درنگ خوانده می‌شود
+      urgent: () => router.state.helpersActive,
       // ردیف ۱۵۳: حالت «فقط دیتابیس» یا کلید خاموشِ همین سیستم ⇒ کار دیگران را برنمی‌دارد؛
       // ردیف ۱۷۷: «توقف پردازش» مالک هم همین‌طور
       acceptWork: () => policy.value.helpers && policy.value.helperOn(id!),
     );
-    // ردیف ۱۷۷: «توقف پردازش» به همهٔ کارهای پس‌زمینهٔ همین پنل هم می‌رسد (PacedTimer.heavy)
-    void follow() =>
-        OwnerActivity.instance.setProcessingPaused(policy.value.procPaused);
-    policy.addListener(follow);
-    follow();
     _node = n;
+    // ردیف ۱۷۷: «توقف پردازش» به همهٔ کارهای پس‌زمینهٔ همین پنل هم می‌رسد (PacedTimer.heavy)
+    // ردیف ۱۹۱: «توقف» همین سیستم هم (پشتیبان خودکار، نگهبان، سنجش حجم و صف کارها)؛ و سقف
+    // درصد با Job Object ویندوز قطعی می‌شود
+    policy.addListener(_follow);
+    _follow();
     await policy.loadCache();
     if (await _read(HelperKeys.paused) == '1') await n.setPaused(true);
     _localCpu = _parseCpu(await _read(HelperKeys.cpu));
+    _follow();
     await reload();
     if (autoStart) {
       n.start();
@@ -134,6 +143,14 @@ final class OwnerHelperService {
   }
 
   int? _localCpu;
+
+  /// همین سیستم با دست «توقف» شده یا «توقف پردازش» کلی روشن است.
+  bool get stopped => policy.value.procPaused || (_node?.paused ?? false);
+
+  void _follow() {
+    OwnerActivity.instance.setProcessingPaused(stopped);
+    cap.set(effectiveCpu);
+  }
 
   /// ردیف ۱۷۸: سقف درصد پردازش سرور کمکیِ همین سیستم (null ⇒ بدون سقف محلی).
   int? get localCpu => _localCpu;
@@ -159,6 +176,7 @@ final class OwnerHelperService {
     } else {
       await _write(HelperKeys.cpu, '$_localCpu');
     }
+    _follow();
     _node?.refresh();
   }
 
@@ -188,6 +206,7 @@ final class OwnerHelperService {
       }
     }
     await _node?.setPaused(v);
+    _follow();
   }
 
   /// فرستادن یک کار: همین دستگاه؛ سرور کمکیِ دیگر فقط هنگام نیاز.
@@ -228,7 +247,7 @@ final class OwnerHelperService {
     if (s == null || s.bucket.isEmpty) return null;
     final at = _now();
     final list = await helpers();
-    return list
+    final others = list
         .where(
           (h) =>
               h.onlineAt(at) &&
@@ -236,6 +255,19 @@ final class OwnerHelperService {
               policy.value.helperOn(h.helperId),
         )
         .length;
+    // ردیف ۱۹۱: پردازش کمکیِ خودِ همین سیستم هم (اگر روشن است) کمک حساب می‌شود
+    return others + (selfHelping ? 1 : 0);
+  }
+
+  /// ردیف ۱۹۱: پردازش کمکی همین سیستم روشن است و می‌تواند به کمک بیاید.
+  bool get selfHelping {
+    final n = _node;
+    final v = policy.value;
+    return n != null &&
+        n.configured &&
+        !stopped &&
+        v.helpers &&
+        v.helperOn(n.helperId);
   }
 
   static Future<({bool ok, int ms})> _probeExternal(Uri url) async {

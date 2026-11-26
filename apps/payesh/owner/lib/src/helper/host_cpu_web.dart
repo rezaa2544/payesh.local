@@ -1,5 +1,10 @@
-// ردیف ۱۶۹ — نسخهٔ ۳۲بیتی ویندوز (وب در پوستهٔ CEF): زمان‌های پردازنده در دسترس نیست
-// (کارت «پردازش کمکی» درصد را «نامعلوم» نشان می‌دهد).
+// ردیف ۱۶۹: نسخهٔ وب ۳۲بیتی dart:ffi ندارد.
 import 'host_cpu.dart' show CpuTimes;
 
 CpuTimes? windowsCpuTimes() => null;
+
+/// ردیف ۱۹۱: در نسخهٔ وب خوانده نمی‌شود.
+int? windowsProcessCpuMicros() => null;
+
+/// ردیف ۱۹۱: در نسخهٔ وب سقف قطعی نیست.
+bool windowsApplyCpuCap(int? pct) => false;

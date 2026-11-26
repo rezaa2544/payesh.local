@@ -5527,6 +5527,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۱: سقف درصد پردازنده با Job Object ویندوز قطعی (نه فقط استراحت بین کارها) ── */
+  await test('ردیف ۱۹۱: سقف CPU سرور داده روی ویندوز با Job Object (HARD_CAP) قطعی است، همان Job با هر تغییر تنظیم می‌شود، برداشتن سقف = نرخ ۱۰۰٪، شکست ⇒ error و تلاش دوباره (۶ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'tests/real-cpu-191.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'real-cpu-191: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|REAL-CPU-191/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۷۸: اعلان تغییر از راه Gateway (SSE) — بدون اتصال باز صفر کار دیتابیس؛ بخش PostgreSQL در CI ── */
   await test('ردیف ۱۷۸: اعلان فوری از راه Gateway — hello/missed، یکجاسازی، فیلتر بخش و مستأجر، پشتیبان هنگام قطع LISTEN، سقف اتصال و بستن هنگام خاموشی (۷ بررسی بی‌دیتابیس)',
     async () => {
