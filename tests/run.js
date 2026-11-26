@@ -5527,6 +5527,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۲: صفحهٔ «اشتراک» — همهٔ پرداخت‌ها و همهٔ اشتراک‌های کاربر ── */
+  await test('ردیف ۱۹۲: /api/sub/history همهٔ پرداخت‌ها (در انتظار/تأیید/رد با دلیل/لغو) و همهٔ اشتراک‌ها (آزمایشی، خرید، تمدید از پایان قبلی، هدیه) را فقط برای خود کاربر می‌دهد؛ بازنشانی تاریخچه را پاک نمی‌کند؛ مالک دفتر را در ack می‌گیرد (۱۱ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/sub-192.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'sub-192: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|^ {5}|SUB-192/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۱: سقف درصد پردازنده با Job Object ویندوز قطعی (نه فقط استراحت بین کارها) ── */
   await test('ردیف ۱۹۱: سقف CPU سرور داده روی ویندوز با Job Object (HARD_CAP) قطعی است، همان Job با هر تغییر تنظیم می‌شود، برداشتن سقف = نرخ ۱۰۰٪، شکست ⇒ error و تلاش دوباره (۶ بررسی)',
     async () => {

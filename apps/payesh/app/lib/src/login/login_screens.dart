@@ -15,6 +15,7 @@ import '../pulse/pulse.dart';
 import '../pulse/web.dart';
 import '../flags.dart';
 import 'paywall.dart';
+import 'subscription_page.dart';
 import '../support/support_screen.dart';
 import 'login_brand.dart';
 import 'session_controller.dart';
@@ -541,6 +542,10 @@ class _SignedInScreenState extends State<SignedInScreen> {
         if (controller.paywalled) ...[
           const SizedBox(height: PayeshTokens.space4),
           PaywallView(controller: controller),
+          // Row 192: behind the paywall too — every payment (rejected ones with the reason) and
+          // every earlier subscription, so a user knows why access is closed.
+          const SizedBox(height: PayeshTokens.space3),
+          _PaywallHistory(controller: controller),
         ] else ...[
           if (controller.sub case final sub?
               when sub.managed &&
@@ -583,7 +588,7 @@ class _SignedInScreenState extends State<SignedInScreen> {
     // Row 172: every web role ends with «⚙️ سیستم»; when this build has no system page for the
     // user, a small one keeps «🔒 خروج» and this device's controls reachable (never a shell
     // without a way out).
-    final nav = pages0.isEmpty || pages0.any((m) => m.id == 'system')
+    final nav0 = pages0.isEmpty || pages0.any((m) => m.id == 'system')
         ? pages0
         : [
             ...pages0,
@@ -595,6 +600,20 @@ class _SignedInScreenState extends State<SignedInScreen> {
               page: (context) => const _DevicePage(),
             ),
           ];
+    // Row 192: «اشتراک» is always in the menu of a school Payesh manages (status, renew, buy,
+    // payment report, all subscriptions) — not only behind the paywall.
+    final nav = nav0.isEmpty || !showsSubscriptionPage(controller)
+        ? nav0
+        : pulseSorted([
+            ...nav0,
+            PulseNavItem(
+              id: 'subscription',
+              label: 'اشتراک',
+              icon: Icons.workspace_premium_outlined,
+              webIcon: 'check',
+              page: (context) => SubscriptionPage(controller: controller),
+            ),
+          ]);
     final wide = w >= pulseWideBreakpoint;
     final brand = const Row(
       mainAxisSize: MainAxisSize.min,
@@ -1868,4 +1887,29 @@ class _ClaimScreenState extends State<ClaimScreen> {
       ],
     );
   }
+}
+
+/// Row 192: the payment report under the paywall (loads once when shown).
+class _PaywallHistory extends StatefulWidget {
+  const _PaywallHistory({required this.controller});
+  final SessionController controller;
+
+  @override
+  State<_PaywallHistory> createState() => _PaywallHistoryState();
+}
+
+class _PaywallHistoryState extends State<_PaywallHistory> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.controller.subHistory == null) {
+        widget.controller.loadSubHistory();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      SubHistoryView(controller: widget.controller);
 }

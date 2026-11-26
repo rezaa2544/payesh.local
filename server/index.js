@@ -950,6 +950,10 @@ async function api(req, res, url, ip) {
   if (p === '/api/sub/status' && m === 'GET') {
     return json(Object.assign({ ok: true }, schools.gate(store, actor.user)));
   }
+  /* ردیف ۱۹۲: صفحهٔ «اشتراک» — وضعیت + همهٔ پرداخت‌ها و همهٔ اشتراک‌های همین کاربر */
+  if (p === '/api/sub/history' && m === 'GET') {
+    return json(schools.history(store, actor.user));
+  }
   if (p === '/api/sub/trial' && m === 'POST') {
     if (!rateLimit('sub-trial:' + actor.user.id, 10, 60 * 60_000)) return json({ ok: false, error: 'rate_limited' }, 429);
     let body = {};

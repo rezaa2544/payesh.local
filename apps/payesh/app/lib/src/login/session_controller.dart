@@ -305,6 +305,14 @@ class SessionController extends ChangeNotifier {
   String? get subNotice => _subNotice;
   String? _subNotice;
 
+  /// Row 192 — the «اشتراک» page: every payment and every subscription (null until loaded).
+  SubHistory? get subHistory => _subHistory;
+  SubHistory? _subHistory;
+  bool get subHistoryLoading => _subHistoryLoading;
+  bool _subHistoryLoading = false;
+  String? get subHistoryError => _subHistoryError;
+  String? _subHistoryError;
+
   /// The role needs a subscription (or the school is inactive) — the app shows the paywall.
   bool get paywalled {
     final s = _sub;
@@ -729,6 +737,8 @@ class SessionController extends ChangeNotifier {
       final t = s is SignedIn ? s.session?.token : null;
       _lan = null;
       _sub = null;
+      _subHistory = null;
+      _subHistoryError = null;
       _autoTrialTried = false;
       await lanAccounts.clear();
       if (t != null) await lan?.logout(server: l.server, token: t);
@@ -1660,9 +1670,45 @@ class SessionController extends ChangeNotifier {
       _autoTrialTried = true;
       await startTrial(auto: true);
     }
+    // Row 192: «بررسی دوباره» also refreshes an open payment report (approval/rejection).
+    await _refreshHistory();
   }
 
   bool _autoTrialTried = false;
+
+  /// Row 192: reads `/api/sub/history` (status + all payments + all subscriptions). Offline keeps
+  /// the last report and says so; the status from the same answer refreshes [sub] too.
+  Future<void> loadSubHistory() async {
+    final api = schools;
+    final l = _lan;
+    if (api == null || l == null || _state is! SignedIn) return;
+    if (_subHistoryLoading) return;
+    _subHistoryLoading = true;
+    _subHistoryError = null;
+    notifyListeners();
+    final token = await validToken();
+    try {
+      if (token == null) {
+        _subHistoryError = LanAccessError.unreachable.messageFa();
+        return;
+      }
+      final h = await api.subHistory(l.server, token);
+      _subHistory = h;
+      _sub = h.sub;
+    } on LanAccessFailure catch (e) {
+      _subHistoryError = schoolsErrorFa(e);
+    } on Object {
+      _subHistoryError = _unknown;
+    } finally {
+      _subHistoryLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// After a trial/receipt the open report shows the new row at once.
+  Future<void> _refreshHistory() async {
+    if (_subHistory != null || _subHistoryError != null) await loadSubHistory();
+  }
 
   /// «شروع دورهٔ آزمایشی» — once per device (hashed system id), even after reinstall.
   /// `auto`: started by [checkSub] — a failure stays quiet (the paywall still shows the button).
@@ -1694,6 +1740,7 @@ class SessionController extends ChangeNotifier {
         sub: st,
         notice: 'دورهٔ آزمایشی ${faCount(st.daysLeft)} روزه فعال شد',
       );
+      await _refreshHistory();
     } on LanAccessFailure catch (e) {
       _subSet(error: auto ? null : schoolsErrorFa(e));
     } on Object {
@@ -1721,6 +1768,7 @@ class SessionController extends ChangeNotifier {
             ? 'صفحهٔ پرداخت باز شد (کد پیگیری ${r.paymentId}). پس از پرداخت، «بررسی دوباره» را بزنید.'
             : 'پیوند پرداخت آماده است (کد پیگیری ${r.paymentId}) — آن را در مرورگر باز کنید.',
       );
+      unawaited(_refreshHistory());
       return r.payUrl;
     } on LanAccessFailure catch (e) {
       _subSet(error: schoolsErrorFa(e));

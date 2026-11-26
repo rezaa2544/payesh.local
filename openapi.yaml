@@ -1149,6 +1149,17 @@ paths:
           $ref: '#/components/responses/Ok'
         '401':
           $ref: '#/components/responses/Error'
+  /api/sub/history:
+    get:
+      operationId: getApiSubHistory
+      tags: [auth]
+      summary: "ردیف ۱۹۲ — صفحهٔ اشتراک: وضعیت (sub) + همهٔ پرداخت‌های کاربر (payments، با نتیجه و دلیل رد) + همهٔ اشتراک‌ها (periods)"
+      x-source: server/index.js:953
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Error'
   /api/sub/trial:
     post:
       operationId: postApiSubTrial

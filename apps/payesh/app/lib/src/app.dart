@@ -13,6 +13,7 @@ import 'grades/grades_controller.dart';
 import 'grades/grades_screen.dart';
 import 'login/login_screens.dart';
 import 'login/paywall.dart';
+import 'login/subscription_page.dart';
 import 'notices/notices_controller.dart';
 import 'notices/notices_screen.dart';
 import 'pulse/pulse.dart';
@@ -79,6 +80,12 @@ List<(String, String, String, String)> webNavConfig(String? role) =>
 
 /// Root widget of the native Payesh client (ADR-43). Persian, right-to-left, Material 3, built on
 /// the payesh_ui design system (row 73): tokens, light/dark themes, bundled Vazirmatn, Jalali.
+/// Row 192: the app's navigator — the top-left strip lives in an overlay above it, so its
+/// subscription badge opens the «اشتراک» page through this key.
+final GlobalKey<NavigatorState> payeshAppNavigator = GlobalKey<NavigatorState>(
+  debugLabel: 'payesh-app',
+);
+
 class PayeshApp extends StatelessWidget {
   const PayeshApp({
     super.key,
@@ -407,6 +414,7 @@ class PayeshApp extends StatelessWidget {
       updater: u,
       openUrl: openUrl,
       child: PayeshMaterialApp(
+        navigatorKey: payeshAppNavigator,
         look: look,
         themeController: themeMode,
         onTheme: syncPalette,
@@ -634,7 +642,14 @@ class TopStatus extends StatelessWidget {
             builder: (context, _) => showsSubStatus(s)
                 ? Padding(
                     padding: const EdgeInsetsDirectional.only(start: 6),
-                    child: SubBadge(sub: s.sub!),
+                    child: SubBadge(
+                      sub: s.sub!,
+                      // Row 192: the badge opens the «اشتراک» page
+                      onTap: () {
+                        final nav = payeshAppNavigator.currentContext;
+                        if (nav != null) openSubscription(nav, s);
+                      },
+                    ),
                   )
                 : const SizedBox.shrink(),
           ),

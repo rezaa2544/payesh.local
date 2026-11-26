@@ -4,6 +4,7 @@ import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import 'session_controller.dart';
+import 'subscription_page.dart';
 
 /// Row 145 — صفحهٔ اشتراک (برگردان viewSubscription در p2 src/js/23-subscription.js).
 ///
@@ -59,13 +60,16 @@ bool showsSubStatus(SessionController c) {
 /// Row 177: the small «🎁 تست رایگان — N روز» / «✅ اشتراک فعال» badge on its own — with an
 /// updater it lives in the top-left strip next to the version, not above the page.
 class SubBadge extends StatelessWidget {
-  const SubBadge({super.key, required this.sub});
+  const SubBadge({super.key, required this.sub, this.onTap});
   final SubStatus sub;
+
+  /// Row 192: opens the «اشتراک» page.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final trial = sub.status == 'trial';
-    return StatusBadge(
+    final badge = StatusBadge(
       trial
           ? '🎁 تست رایگان — ${faDigits(sub.daysLeft)} روز'
           : '✅ اشتراک فعال — تا ${_date(sub.end)}',
@@ -73,6 +77,16 @@ class SubBadge extends StatelessWidget {
       tone: trial || sub.daysLeft <= 7
           ? PayeshTone.warning
           : PayeshTone.success,
+    );
+    if (onTap == null) return badge;
+    return Tooltip(
+      message: 'اشتراک، تمدید و گزارش پرداخت‌ها',
+      child: InkWell(
+        key: const Key('sub-badge-open'),
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: badge,
+      ),
     );
   }
 }
@@ -113,33 +127,31 @@ class SubBanner extends StatelessWidget {
           ),
           TextButton(
             key: const Key('sub-renew'),
-            onPressed: () => openPanel<void>(
-              context,
-              (_) => Scaffold(
-                appBar: AppBar(title: const Text('تمدید اشتراک')),
-                body: ListenableBuilder(
-                  listenable: controller,
-                  builder: (context, _) => controller.sub == null
-                      ? const SizedBox.shrink()
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.all(PayeshTokens.space4),
-                          child: PaywallView(controller: controller),
-                        ),
-                ),
-              ),
-            ),
+            // Row 192: the full «اشتراک» page (status, plans, payment report, all subscriptions)
+            onPressed: () => openSubscription(context, controller),
             child: const Text('تمدید'),
           ),
         ],
-        if (showBadge) SubBadge(sub: sub),
+        if (showBadge)
+          SubBadge(
+            sub: sub,
+            onTap: () => openSubscription(context, controller),
+          ),
       ],
     );
   }
 }
 
 class PaywallView extends StatefulWidget {
-  const PaywallView({super.key, required this.controller});
+  const PaywallView({
+    super.key,
+    required this.controller,
+    this.showStatus = true,
+  });
   final SessionController controller;
+
+  /// Row 192: false on the «اشتراک» page, which has its own fuller status card.
+  final bool showStatus;
 
   @override
   State<PaywallView> createState() => _PaywallViewState();
@@ -191,37 +203,45 @@ class _PaywallViewState extends State<PaywallView> {
       key: const Key('paywall'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PayeshSection(
-          title: 'اشتراک',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              StatusBadge(
-                switch (s.status) {
-                  _ when s.access => 'فعال — تا ${_date(s.end)}',
-                  'expired' => 'منقضی — ${_date(s.end)}',
-                  'cancelled' => 'لغو شده',
-                  _ => 'بدون اشتراک',
-                },
-                key: const Key('paywall-status'),
-                tone: s.access ? PayeshTone.warning : PayeshTone.danger,
-              ),
-              const SizedBox(height: PayeshTokens.space2),
-              Text(switch (s.status) {
-                _ when s.access => 'برای سال تحصیلی جدید اشتراک را تمدید کنید؛ اشتراک سالانه‌ای که از ۱ تیر خریده شود تا ۳۱ شهریور سال بعد اعتبار دارد.',
-                'expired' => 'اشتراک شما منقضی شده است. برای ادامهٔ کار یکی از طرح‌های زیر را تهیه کنید.',
-                'cancelled' => 'اشتراک شما از سوی پشتیبانی پایش لغو شده است. برای ادامهٔ کار دوباره اشتراک تهیه کنید یا با پشتیبانی تماس بگیرید.',
-                _ => 'برای نقش شما اشتراک لازم است؛ تا پرداخت و تأیید آن، امکانات برنامه فعال نمی‌شود.',
-              }, key: const Key('paywall-help')),
-              const SizedBox(height: PayeshTokens.space2),
-              Text(
-                'همهٔ اشتراک‌ها در پایان سال تحصیلی (۳۱ شهریور) تمام می‌شوند.',
-                key: const Key('paywall-year-end'),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+        if (widget.showStatus)
+          PayeshSection(
+            title: 'اشتراک',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                StatusBadge(
+                  switch (s.status) {
+                    // row 192: a running trial is not called «فعال» (it is the free trial)
+                    'trial' when s.access => 'تست رایگان — تا ${_date(s.end)}',
+                    _ when s.access => 'فعال — تا ${_date(s.end)}',
+                    'expired' => 'منقضی — ${_date(s.end)}',
+                    'cancelled' => 'لغو شده',
+                    _ => 'بدون اشتراک',
+                  },
+                  key: const Key('paywall-status'),
+                  tone: !s.access
+                      ? PayeshTone.danger
+                      : s.renewWarning || s.daysLeft <= 7 || s.status == 'trial'
+                      ? PayeshTone.warning
+                      : PayeshTone.success,
+                ),
+                const SizedBox(height: PayeshTokens.space2),
+                Text(switch (s.status) {
+                  _ when s.access && s.renewWarning => 'برای سال تحصیلی جدید اشتراک را تمدید کنید؛ اشتراک سالانه‌ای که از ۱ تیر خریده شود تا ۳۱ شهریور سال بعد اعتبار دارد.',
+                  _ when s.access => 'برای تمدید یکی از طرح‌های زیر را بخرید؛ اعتبار تازه از پایان اشتراک فعلی حساب می‌شود و روزهای باقی‌مانده از بین نمی‌رود.',
+                  'expired' => 'اشتراک شما منقضی شده است. برای ادامهٔ کار یکی از طرح‌های زیر را تهیه کنید.',
+                  'cancelled' => 'اشتراک شما از سوی پشتیبانی پایش لغو شده است. برای ادامهٔ کار دوباره اشتراک تهیه کنید یا با پشتیبانی تماس بگیرید.',
+                  _ => 'برای نقش شما اشتراک لازم است؛ تا پرداخت و تأیید آن، امکانات برنامه فعال نمی‌شود.',
+                }, key: const Key('paywall-help')),
+                const SizedBox(height: PayeshTokens.space2),
+                Text(
+                  'همهٔ اشتراک‌ها در پایان سال تحصیلی (۳۱ شهریور) تمام می‌شوند.',
+                  key: const Key('paywall-year-end'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
-        ),
         if (c.subNotice != null)
           Padding(
             padding: const EdgeInsets.only(top: PayeshTokens.space3),

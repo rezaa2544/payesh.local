@@ -8,6 +8,7 @@ import 'package:payesh_app/src/flags.dart';
 import 'package:payesh_app/src/login/device_identity.dart';
 import 'package:payesh_app/src/login/paywall.dart';
 import 'package:payesh_app/src/login/session_controller.dart';
+import 'package:payesh_app/src/login/subscription_page.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_update/payesh_update.dart';
@@ -26,6 +27,10 @@ final class FakeSchools implements LanSchoolsApi {
   final trials = <Object>[];
   final pays = <Object>[];
   final receipts = <Object>[];
+
+  /// Row 192: `/api/sub/history` answers; empty ⇒ «unreachable» (not counted in [calls], so
+  /// the older flows keep their exact call lists; the status is left as it is).
+  final histories = <Object>[];
   Map<String, Object?>? lastForm;
 
   Future<T> _next<T>(List<Object> q, String what) {
@@ -64,6 +69,14 @@ final class FakeSchools implements LanSchoolsApi {
     String token,
     String plan,
   ) => _next(pays, 'pay:$plan');
+
+  @override
+  Future<SubHistory> subHistory(Uri server, String token) {
+    if (histories.isEmpty) {
+      return Future.error(const LanAccessFailure(LanAccessError.unreachable));
+    }
+    return _next<SubHistory>(histories, 'history');
+  }
 
   @override
   Future<SubPayment> submitReceipt(
@@ -638,10 +651,12 @@ void main() {
       expect(find.byKey(const Key('paywall')), findsNothing);
       expect(find.byKey(const Key('sub-renew-warning')), findsOneWidget);
       await tap(tester, 'sub-renew');
+      // row 192: «تمدید» opens the whole «اشتراک» page — its status card + the plans
+      expect(find.byKey(const Key('subscription-page')), findsOneWidget);
       expect(find.byKey(const Key('paywall')), findsOneWidget);
       expect(
         find.descendant(
-          of: find.byKey(const Key('paywall-status')),
+          of: find.byKey(const Key('sub-state')),
           matching: find.textContaining('فعال'),
         ),
         findsOneWidget,
@@ -649,7 +664,239 @@ void main() {
       // active user: no trial; both role prices shown in rial
       expect(find.byKey(const Key('paywall-trial')), findsNothing);
       expect(find.textContaining('۳٬۵۰۰٬۰۰۰ ریال'), findsOneWidget);
-      expect(find.byKey(const Key('paywall-year-end')), findsOneWidget);
+      expect(text(tester, 'sub-help'), contains('۳۱ شهریور'));
+    },
+  );
+
+  // ── Row 192: the «اشتراک» page — status, renew, payment report, all subscriptions ──
+  SubHistory history192(SubStatus sub) => SubHistory.fromJson({
+    'sub': {
+      'managed': true,
+      'access': sub.access,
+      'status': sub.status,
+      'role': 'manager',
+      'policy': 'required',
+      'school': 'هنرستان باهنر',
+      'plan': sub.access ? 'monthly' : null,
+      'days_left': sub.daysLeft,
+      'end': '2026-12-13T08:00:00.000Z',
+      'plans': [
+        {'key': 'monthly', 'price': 400000},
+        {'key': 'yearly', 'price': 3500000},
+      ],
+      'gateway': false,
+      'receipt': true,
+      'pending': <Object>[],
+    },
+    'payments': [
+      {
+        'id': 'SUB-AAAA0003',
+        'plan': 'yearly',
+        'amount': 3500000,
+        'method': 'receipt',
+        'status': 'pending',
+        'ref': 'R-3',
+        'created_at': '2026-11-12T07:00:00.000Z',
+        'awaiting_owner': true,
+      },
+      {
+        'id': 'SUB-AAAA0002',
+        'plan': 'monthly',
+        'amount': 400000,
+        'method': 'receipt',
+        'status': 'rejected',
+        'ref': 'R-2',
+        'created_at': '2026-11-05T07:00:00.000Z',
+        'reason': 'مبلغ واریز کم است',
+      },
+      {
+        'id': 'SUB-AAAA0001',
+        'plan': 'monthly',
+        'amount': 400000,
+        'method': 'gateway',
+        'status': 'paid',
+        'created_at': '2026-11-01T07:00:00.000Z',
+        'paid_at': '2026-11-01T07:05:00.000Z',
+        'period_start': '2026-11-12T08:00:00.000Z',
+        'period_end': '2026-12-13T08:00:00.000Z',
+      },
+    ],
+    'periods': [
+      {
+        'kind': 'paid',
+        'plan': 'monthly',
+        'start': '2026-11-12T08:00:00.000Z',
+        'end': '2026-12-13T08:00:00.000Z',
+        'payment': 'SUB-AAAA0001',
+        'amount': 400000,
+        'state': 'current',
+      },
+      {
+        'kind': 'trial',
+        'plan': 'trial',
+        'start': '2026-10-22T08:00:00.000Z',
+        'end': '2026-11-12T08:00:00.000Z',
+        'state': 'ended',
+      },
+    ],
+  });
+
+  test(
+    'S192-U01 /api/sub/history parses payments (reason, period) and periods',
+    () {
+      final h = history192(active(status: 'active', days: 31));
+      expect(h.payments, hasLength(3));
+      expect(h.payments[1].reason, 'مبلغ واریز کم است');
+      expect(h.payments[0].awaitingOwner, isTrue);
+      expect(h.payments[2].periodEnd, DateTime.utc(2026, 12, 13, 8));
+      expect(h.periods.map((p) => p.kind), ['paid', 'trial']);
+      expect(h.periods.first.state, 'current');
+      expect(h.sub.plan, 'monthly');
+      expect(SubHistory.fromJson(const {}).payments, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'S192-W01 an active manager opens «اشتراک» from the badge: status, renew plans, every payment '
+    '(rejected with the reason, paid with its period) and every subscription',
+    (tester) async {
+      final c = await boot(tester);
+      await toLogin(tester);
+      lan.logins.add(lanSession(role: 'manager', uid: 1, token: 'acc-m'));
+      final sub = SubStatus.fromJson({
+        'managed': true,
+        'access': true,
+        'status': 'active',
+        'role': 'manager',
+        'policy': 'required',
+        'days_left': 31,
+        'end': '2026-12-13T08:00:00.000Z',
+        'plans': [
+          {'key': 'monthly', 'price': 400000},
+          {'key': 'yearly', 'price': 3500000},
+        ],
+        'receipt': true,
+      });
+      schools.subs.add(sub);
+      schools.histories.add(history192(sub));
+      await type(tester, 'lan-phone', 'm.karimi');
+      await type(tester, 'lan-password', 'Karimi-1403');
+      await tap(tester, 'lan-login');
+      expect(showsSubscriptionPage(c), isTrue);
+      await tap(tester, 'sub-badge-open');
+      expect(find.byKey(const Key('subscription-page')), findsOneWidget);
+      expect(schools.calls.where((x) => x == 'history'), hasLength(1));
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('sub-state')),
+          matching: find.textContaining('فعال — ۳۱ روز مانده'),
+        ),
+        findsOneWidget,
+      );
+      expect(text(tester, 'sub-plan'), 'یک‌ماهه');
+      // renew/buy is on the same page, without a second status header
+      expect(find.byKey(const Key('paywall')), findsOneWidget);
+      expect(find.byKey(const Key('paywall-status')), findsNothing);
+      expect(find.byKey(const Key('plan-yearly')), findsOneWidget);
+      // the payment report
+      for (final id in ['SUB-AAAA0001', 'SUB-AAAA0002', 'SUB-AAAA0003']) {
+        expect(find.byKey(Key('sub-pay-$id')), findsOneWidget, reason: id);
+      }
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('sub-pay-state-SUB-AAAA0002')),
+          matching: find.text('رد شد'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        text(tester, 'sub-pay-reason-SUB-AAAA0002'),
+        'دلیل: مبلغ واریز کم است',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('sub-pay-state-SUB-AAAA0003')),
+          matching: find.text('در انتظار تأیید پشتیبانی'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        text(tester, 'sub-pay-period-SUB-AAAA0001'),
+        startsWith('اعتبار: '),
+      );
+      // every subscription: the current purchase and the earlier trial
+      expect(find.byKey(const Key('sub-period-SUB-AAAA0001')), findsOneWidget);
+      expect(find.text('تست رایگان'), findsWidgets);
+      expect(find.text('پایان یافته'), findsOneWidget);
+      expect(find.text('جاری'), findsOneWidget);
+      // refresh reads the report again
+      schools.histories.add(history192(sub));
+      await tap(tester, 'sub-history-refresh');
+      expect(schools.calls.where((x) => x == 'history'), hasLength(2));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('S192-W02 behind the paywall the payment report shows why access is closed (rejected + reason); '
+      'offline keeps the last report and says so', (tester) async {
+    await boot(tester);
+    await toLogin(tester);
+    lan.logins.add(lanSession(role: 'manager', uid: 1, token: 'acc-m'));
+    final sub = paywalled(trial: false, gateway: false);
+    schools.subs.add(sub);
+    schools.histories.add(history192(sub));
+    await type(tester, 'lan-phone', 'm.karimi');
+    await type(tester, 'lan-password', 'Karimi-1403');
+    await tap(tester, 'lan-login');
+    expect(find.byKey(const Key('paywall')), findsOneWidget);
+    expect(find.byKey(const Key('sub-history')), findsOneWidget);
+    expect(
+      text(tester, 'sub-pay-reason-SUB-AAAA0002'),
+      'دلیل: مبلغ واریز کم است',
+    );
+    // the server is gone ⇒ the report stays, with a note
+    schools.histories.add(const LanAccessFailure(LanAccessError.unreachable));
+    await tap(tester, 'sub-history-refresh');
+    expect(find.byKey(const Key('sub-pay-SUB-AAAA0002')), findsOneWidget);
+    expect(text(tester, 'sub-history-note'), startsWith('به‌روز نشد'));
+    expect(find.byKey(const Key('paywall')), findsOneWidget);
+  });
+
+  testWidgets(
+    'S192-W03 a running trial is called «تست رایگان», not «فعال»; a free role has no «اشتراک» page',
+    (tester) async {
+      final c = await boot(tester);
+      await toLogin(tester);
+      lan.logins.add(lanSession(role: 'teacher', uid: 5, token: 'acc-t'));
+      schools.subs.add(
+        SubStatus.fromJson({
+          'managed': true,
+          'access': true,
+          'status': 'free',
+          'role': 'teacher',
+          'policy': 'free',
+        }),
+      );
+      await type(tester, 'lan-phone', 't.ahmadi');
+      await type(tester, 'lan-password', 'Ahmadi-1403');
+      await tap(tester, 'lan-login');
+      expect(showsSubscriptionPage(c), isFalse);
+      expect(find.byKey(const Key('sub-badge-open')), findsNothing);
+      // the trial wording of the status card
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SubStatusCard(sub: active(status: 'trial', days: 9)),
+          ),
+        ),
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('sub-state')),
+          matching: find.text('تست رایگان — ۹ روز مانده'),
+        ),
+        findsOneWidget,
+      );
     },
   );
 

@@ -409,6 +409,12 @@ class _PaymentsSectionState extends State<PaymentsSection> with RegistryLoader {
                         faDate(m['end']),
                         edit
                             ? ActionRow([
+                                // ردیف ۱۹۲: همهٔ اشتراک‌ها و پرداخت‌های همین کاربر
+                                actionButton(
+                                  'sub-history-$sid-${m['uid']}',
+                                  '📜 سابقه',
+                                  () => _history(v, sid, m, names[sid]),
+                                ),
                                 actionButton(
                                   'sub-gift-$sid-${m['uid']}',
                                   '🎁 فعال‌سازی',
@@ -427,7 +433,13 @@ class _PaymentsSectionState extends State<PaymentsSection> with RegistryLoader {
                                   () => _grant(sid, m, 'reset'),
                                 ),
                               ])
-                            : const Text('—'),
+                            : ActionRow([
+                                actionButton(
+                                  'sub-history-$sid-${m['uid']}',
+                                  '📜 سابقه',
+                                  () => _history(v, sid, m, names[sid]),
+                                ),
+                              ]),
                       ],
                   ],
                 ),
@@ -441,6 +453,120 @@ class _PaymentsSectionState extends State<PaymentsSection> with RegistryLoader {
           ),
         ),
       ],
+    );
+  }
+
+  /// ردیف ۱۹۲: «سابقه» — همهٔ اشتراک‌های یک کاربر (دفتر گزارش مدرسه: آزمایشی، خرید، هدیه، لغو،
+  /// بازنشانی) و همهٔ پرداخت‌هایش در همان مدرسه، تازه‌ترین بالا، در یک پنجرهٔ کوچک.
+  Future<void> _history(
+    SchoolsView v,
+    String sid,
+    Map<String, Object?> m,
+    String? school,
+  ) {
+    final uid = '${m['uid']}';
+    final log = [
+      if (m['log'] is List)
+        for (final e in (m['log']! as List).reversed)
+          if (e is Map) e.cast<String, Object?>(),
+    ];
+    final pays = [
+      for (final p in v.payments)
+        if ('${p['school_id']}' == sid && '${p['uid']}' == uid) p,
+    ]..sort((a, b) => '${b['created_at']}'.compareTo('${a['created_at']}'));
+    String kindFa(Map<String, Object?> e) => switch (e['kind']) {
+      'trial' => 'آزمایشی',
+      'paid' => 'خرید ${planTitleFa(e['plan'])}',
+      'gift' => 'هدیه',
+      'cancel' => 'لغو اشتراک',
+      'reset' => 'بازنشانی',
+      _ => '${e['kind'] ?? '—'}',
+    };
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('sub-history-dialog'),
+        title: Text('سابقهٔ اشتراک — ${m['name'] ?? '—'}'),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${school ?? '—'} · ${subRoleTitles[m['role']] ?? m['role'] ?? ''} · وضعیت فعلی: ${planTitleFa(m['plan'])}${m['end'] != null ? ' تا ${faDate(m['end'])}' : ''}',
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'همهٔ اشتراک‌ها',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                if (log.isEmpty)
+                  const Text(
+                    'دفتر اشتراک این کاربر هنوز از سرور مدرسه نرسیده است (سرور مدرسه نسخهٔ ۰٫۹٫۴۸ به بعد).',
+                    key: Key('sub-history-log-empty'),
+                  ),
+                for (final (i, e) in log.indexed)
+                  Padding(
+                    key: Key('sub-history-log-$i'),
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      [
+                        kindFa(e),
+                        if (e['start'] != null || e['end'] != null)
+                          '${faDate(e['start'] ?? e['at'])} تا ${faDate(e['end'])}',
+                        if (e['amount'] is num) '${faNum(e['amount'])} ریال',
+                        if (e['days'] is num) '${faNum(e['days'])} روز',
+                        if (e['payment'] != null) '${e['payment']}',
+                        'ثبت ${faDate(e['at'])}',
+                      ].join(' · '),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                const Text(
+                  'پرداخت‌ها',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                if (pays.isEmpty)
+                  const Text(
+                    'پرداختی ندارد.',
+                    key: Key('sub-history-pays-empty'),
+                  ),
+                for (final p in pays)
+                  Padding(
+                    key: Key('sub-history-pay-${p['id']}'),
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Code('${p['id']}'),
+                        Text(
+                          '${faDate(p['created_at'])} · ${planTitleFa(p['plan'])} — ${faNum(p['amount'] ?? 0)} ریال',
+                        ),
+                        _payStatus(p),
+                        if (p['reason'] is String &&
+                            '${p['reason']}'.trim().isNotEmpty)
+                          Text('دلیل: ${p['reason']}'),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('sub-history-close'),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('بستن'),
+          ),
+        ],
+      ),
     );
   }
 

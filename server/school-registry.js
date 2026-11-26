@@ -250,6 +250,16 @@ function userSub(state, uid) {
   return state.users[String(uid)] || null;
 }
 
+/* ردیف ۱۹۲: دفتر همهٔ اشتراک‌های یک کاربر (آزمایشی، خرید، هدیه، لغو، بازنشانی) — همیشه می‌ماند
+   تا کاربر و مالک «همهٔ اشتراک‌های خریداری‌شده» را ببینند؛ بیشینه ۱۰۰ ردیف آخر. */
+const LOG_MAX = 100;
+function logSub(rec, entry, now) {
+  const log = Array.isArray(rec.log) ? rec.log : [];
+  log.push(Object.assign({ at: new Date(now).toISOString() }, entry));
+  rec.log = log.slice(-LOG_MAX);
+  return rec;
+}
+
 /* وضعیت دسترسی یک کاربر — همان «effectiveAccess» p2 با سیاست نقش مالک */
 function gate(store, user, { now = Date.now() } = {}) {
   const reg = registry(store);
@@ -294,6 +304,62 @@ function publicPayment(p) {
   return { id: p.id, plan: p.plan, amount: p.amount, method: p.method, status: p.status, ref: p.ref || null, created_at: p.created_at };
 }
 
+/* ردیف ۱۹۲: گزارش کامل همین کاربر — همهٔ پرداخت‌ها (با نتیجه و دلیل رد/لغو) و همهٔ اشتراک‌ها.
+   فقط دادهٔ خودِ کاربر؛ پارامترهای درگاه و پرچم‌های داخلی بیرون نمی‌روند. */
+function historyRow(p) {
+  return Object.assign(publicPayment(p), {
+    months: p.months || null,
+    paid_at: p.paid_at || null,
+    reason: p.status === 'rejected' || p.status === 'cancelled' ? p.reason || null : null,
+    awaiting_owner: p.status === 'pending' ? (p.method === 'receipt' || !!p.awaiting_owner) : false,
+    period_start: p.period_start || null,
+    period_end: p.period_end || null,
+  });
+}
+function periodsOf(rec, payments, now) {
+  const log = rec && Array.isArray(rec.log) ? rec.log : [];
+  const out = [];
+  const seen = new Set();
+  for (const e of log) {
+    if (!e || !['trial', 'paid', 'gift'].includes(e.kind)) continue;
+    if (e.payment) seen.add(e.payment);
+    out.push({ kind: e.kind, plan: e.plan || e.kind, start: e.start || e.at || null, end: e.end || null, payment: e.payment || null, amount: e.amount == null ? null : e.amount, at: e.at || null });
+  }
+  /* پرداخت‌های تأییدشدهٔ پیش از ردیف ۱۹۲ (بی‌دفتر) هم در فهرست می‌آیند */
+  for (const p of payments) {
+    if (p.status !== 'paid' && !(p.status === 'cancelled' && p.paid_at)) continue;
+    if (seen.has(p.id)) continue;
+    out.push({ kind: 'paid', plan: p.plan, start: p.period_start || p.paid_at || null, end: p.period_end || null, payment: p.id, amount: p.amount, at: p.paid_at || null });
+  }
+  /* آزمایشیِ پیش از ردیف ۱۹۲ */
+  if (rec && rec.plan === 'trial' && rec.start && !out.some(x => x.kind === 'trial')) {
+    out.push({ kind: 'trial', plan: 'trial', start: rec.start, end: rec.end || null, payment: null, amount: null, at: rec.start });
+  }
+  const cancelled = new Set(payments.filter(p => p.status === 'cancelled').map(p => p.id));
+  for (const x of out) {
+    const endMs = Date.parse(x.end || '') || 0;
+    x.state = x.payment && cancelled.has(x.payment) ? 'cancelled'
+      : (Date.parse(x.start || '') || 0) > now ? 'upcoming'
+      : endMs > now ? 'current' : 'ended';
+  }
+  /* اشتراکی که مالک لغو کرده (بی‌پرداخت، مثل هدیه) دیگر «جاری» نیست */
+  if (rec && rec.status === 'cancelled') for (const x of out) if (x.state === 'current' || x.state === 'upcoming') x.state = 'cancelled';
+  out.sort((a, b) => String(b.start || '').localeCompare(String(a.start || '')));
+  return out.slice(0, LOG_MAX);
+}
+function history(store, user, { now = Date.now() } = {}) {
+  const g = gate(store, user, { now });
+  if (!user) return { ok: true, sub: g, payments: [], periods: [] };
+  const state = subsState(store);
+  const mine = state.payments.filter(p => p && Number(p.uid) === Number(user.id));
+  const rec = userSub(state, user.id);
+  return {
+    ok: true, sub: g,
+    payments: mine.slice().reverse().slice(0, 200).map(historyRow),
+    periods: periodsOf(rec, mine, now),
+  };
+}
+
 /* آزمایشی: یک بار برای هر کاربر و یک بار برای هر دستگاه (دفتر سراسری صندوقچه) */
 const trialKey = (deviceHash) => crypto.createHash('sha256').update('payesh-trial/v1:' + deviceHash).digest('hex');
 
@@ -320,7 +386,8 @@ async function startTrial(store, user, deviceHash, { now = Date.now() } = {}) {
   store.setMeta(META.trials, local.concat([key]).slice(-5000));
   const state = subsState(store);
   const cur = state.users[String(user.id)] || {};
-  state.users[String(user.id)] = Object.assign(cur, { status: 'trial', plan: 'trial', start: rec.started_at, end: rec.ends_at, trial_used: true, role: user.role, rule: PLAN_RULE });
+  state.users[String(user.id)] = logSub(Object.assign(cur, { status: 'trial', plan: 'trial', start: rec.started_at, end: rec.ends_at, trial_used: true, role: user.role, rule: PLAN_RULE }),
+    { kind: 'trial', plan: 'trial', start: rec.started_at, end: rec.ends_at, days }, now);
   saveSubs(store, state);
   store.audit({ user_id: user.id, role: user.role, action: 'sub_trial', collection: 'subscriptions', after: { days } });
   return { ok: true, sub: gate(store, user, { now }) };
@@ -437,6 +504,10 @@ function markPaid(store, p, { gatewayRef = null, by = 'gateway', now = Date.now(
   rec.status = 'active';
   rec.plan = row.plan;
   rec.role = row.role;
+  /* ردیف ۱۹۲: بازهٔ همین خرید (تمدید پیش از پایان ⇒ از پایان قبلی) روی خود پرداخت و در دفتر */
+  row.period_start = new Date(cur > now ? cur : now).toISOString();
+  row.period_end = rec.end;
+  logSub(rec, { kind: 'paid', plan: row.plan, start: row.period_start, end: rec.end, payment: row.id, amount: row.amount, method: row.method }, now);
   state.users[String(row.uid)] = rec;
   saveSubs(store, state);
   store.audit({ user_id: row.uid, role: row.role, action: 'sub_paid', collection: 'subscriptions', after: { id: row.id, plan: row.plan, amount: row.amount, by } });
@@ -519,12 +590,15 @@ function applyOwner(store, plain, { now = Date.now() } = {}) {
       if (g.kind === 'reset') {
         const prev = state.users[k];
         delete state.users[k];
-        /* بازنشانی p2: رکورد اشتراک پاک می‌شود؛ دفتر دستگاه (آزمایشی) دست‌نخورده می‌ماند */
-        if (prev && prev.trial_used) state.users[k] = { trial_used: true };
+        /* بازنشانی p2: رکورد اشتراک پاک می‌شود؛ دفتر دستگاه (آزمایشی) دست‌نخورده می‌ماند.
+           ردیف ۱۹۲: دفتر اشتراک‌ها (تاریخچه) هم می‌ماند و خودِ بازنشانی در آن ثبت می‌شود. */
+        if (prev && (prev.trial_used || Array.isArray(prev.log))) {
+          state.users[k] = logSub(Object.assign(prev.trial_used ? { trial_used: true } : {}, prev.log ? { log: prev.log } : {}), { kind: 'reset' }, now);
+        }
       } else if (g.kind === 'cancel') {
         /* ردیف ۱۴۹: لغو اشتراک از پنل مالک — همین حالا تمام می‌شود */
         const rec = state.users[k];
-        if (rec && rec.end) { rec.end = new Date(now).toISOString(); rec.status = 'cancelled'; rec.rule = PLAN_RULE; }
+        if (rec && rec.end) { rec.end = new Date(now).toISOString(); rec.status = 'cancelled'; rec.rule = PLAN_RULE; logSub(rec, { kind: 'cancel', plan: rec.plan || null }, now); }
       } else if (g.kind === 'gift') {
         const days = Math.max(1, Math.min(3650, Number(g.days) || 0));
         const rec = state.users[k] || { trial_used: false };
@@ -535,6 +609,7 @@ function applyOwner(store, plain, { now = Date.now() } = {}) {
         rec.status = 'active';
         rec.plan = rec.plan && rec.plan !== 'trial' ? rec.plan : 'gift';
         rec.role = u.role;
+        logSub(rec, { kind: 'gift', plan: 'gift', start: new Date(cur > now ? cur : now).toISOString(), end: rec.end, days }, now);
         state.users[k] = rec;
       }
     }
@@ -560,7 +635,7 @@ function applyOwner(store, plain, { now = Date.now() } = {}) {
         row.status = 'cancelled';
         row.reason = String(d.reason || '').slice(0, 200);
         const rec = s2.users[String(row.uid)];
-        if (wasPaid && rec && rec.end) { rec.end = new Date(now).toISOString(); rec.status = 'cancelled'; rec.rule = PLAN_RULE; }
+        if (wasPaid && rec && rec.end) { rec.end = new Date(now).toISOString(); rec.status = 'cancelled'; rec.rule = PLAN_RULE; logSub(rec, { kind: 'cancel', plan: row.plan, payment: row.id }, now); }
         saveSubs(store, s2);
         store.audit({ user_id: row.uid, role: row.role, action: 'sub_cancelled', collection: 'subscriptions', after: { id: row.id } });
       }
@@ -823,7 +898,9 @@ async function writeAck(store, { instance, publicUrl, version, now = Date.now() 
     if (!rec.end) continue;
     const endMs = effectiveEnd(rec, now);
     const st = rec.status === 'cancelled' ? 'cancelled' : endMs > now ? rec.status || 'active' : 'expired';
-    subs.push({ uid: Number(uid), name: u ? u.name || '' : '', role: rec.role || (u && u.role) || '', status: st, plan: rec.plan || null, start: rec.start || null, end: ay.iso(endMs) });
+    /* ردیف ۱۹۲: همهٔ اشتراک‌های کاربر برای پنل مالک (۲۰ ردیف آخر دفتر) */
+    const log = Array.isArray(rec.log) ? rec.log.slice(-20) : [];
+    subs.push({ uid: Number(uid), name: u ? u.name || '' : '', role: rec.role || (u && u.role) || '', status: st, plan: rec.plan || null, start: rec.start || null, end: ay.iso(endMs), log });
   }
   await writeEnv(cfg, cfg.prefix + DIR.ack + b.school_id + '.json', K.ack, now, {
     v: 1, school_id: b.school_id, instance: instance || b.instance || null, at: new Date(now).toISOString(),
@@ -947,7 +1024,7 @@ function callbackPage(r) {
 module.exports = {
   K, DIR, SALT: SALT.toString('utf8'), PLANS, ROLES, OFFERED, DEFAULTS, plansFor, effectiveEnd, LEVELS, USERNAME_RE,
   RegistryError, seal, open, keyFor, readEnv, writeEnv, trialKey, settingsOf, verifyOk, fill,
-  cloud, registry, boundOf, schoolOf, gate, startTrial, startPayment, submitReceipt, callback, callbackPage,
+  cloud, registry, boundOf, schoolOf, gate, history, startTrial, startPayment, submitReceipt, callback, callbackPage,
   applyOwner, applySchool, adoptOnLogin, linkOnLogin, adoptSchool, ownerProfileOf, OWNER_PROFILE_KEYS, findManager, loginShape, register, requestStatus, validRequest,
   pullRegistry, writeAck, poll, start, stop, subsState, markPaid, reportPayment, resendUnreported, normRef,
 };

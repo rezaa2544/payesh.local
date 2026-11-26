@@ -427,6 +427,17 @@ void main() {
               'status': 'trial',
               'plan': 'trial',
               'end': '2026-12-01T00:00:00.000Z',
+              // ردیف ۱۹۲: دفتر اشتراک‌های کاربر
+              'log': [
+                {
+                  'at': '2026-11-10T09:00:00.000Z',
+                  'kind': 'trial',
+                  'plan': 'trial',
+                  'start': '2026-11-10T09:00:00.000Z',
+                  'end': '2026-12-01T00:00:00.000Z',
+                  'days': 21,
+                },
+              ],
             },
           ],
         }),
@@ -455,6 +466,27 @@ void main() {
       expect(find.text('پرداختی با این پالایه پیدا نشد.'), findsOneWidget);
       await tap(tester, 'pay-filter-pending');
       expect(find.byKey(const Key('pay-approve-SUB-0A1B2C3D')), findsOneWidget);
+      // ردیف ۱۹۲: «سابقه» ⇒ همهٔ اشتراک‌ها (دفتر) + همهٔ پرداخت‌های همین کاربر در همین مدرسه
+      await tap(tester, 'sub-history-$id-1');
+      expect(find.byKey(const Key('sub-history-dialog')), findsOneWidget);
+      expect(find.byKey(const Key('sub-history-log-0')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('sub-history-log-0')),
+          matching: find.textContaining('آزمایشی'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('sub-history-pay-SUB-0A1B2C3D')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('sub-history-pay-SUB-0A1B2C3E')),
+        findsOneWidget,
+      );
+      await tap(tester, 'sub-history-close');
+      expect(find.byKey(const Key('sub-history-dialog')), findsNothing);
       await type(tester, 'pay-search', 'trx-sub-0a1b2c3e');
       expect(find.byKey(const Key('pay-approve-SUB-0A1B2C3D')), findsNothing);
       expect(find.byKey(const Key('pay-approve-SUB-0A1B2C3E')), findsOneWidget);

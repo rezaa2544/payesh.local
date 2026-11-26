@@ -60,6 +60,7 @@ const List<String> pulseNavOrder = [
   'record',
   'health',
   'cloud',
+  'subscription',
   'system',
   'password',
 ];

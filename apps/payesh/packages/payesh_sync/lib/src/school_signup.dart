@@ -310,16 +310,39 @@ final class SubPayment {
     required this.method,
     required this.status,
     this.ref,
+    this.createdAt,
+    this.paidAt,
+    this.reason,
+    this.awaitingOwner = false,
+    this.periodStart,
+    this.periodEnd,
   });
   final String id;
   final String plan;
   final int amount;
+
+  /// gateway | receipt
   final String method;
+
+  /// pending | paid | rejected | cancelled | failed
   final String status;
   final String? ref;
 
+  /// Row 192 — the full report (`/api/sub/history`): when it was made and paid, why it was
+  /// rejected/cancelled, whether it waits for the owner, and the period it bought.
+  final DateTime? createdAt;
+  final DateTime? paidAt;
+  final String? reason;
+  final bool awaitingOwner;
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
+
+  static DateTime? _time(Object? v) =>
+      v is String ? DateTime.tryParse(v) : null;
+
   static SubPayment? fromJson(Object? j) {
     if (j is! Map || j['id'] is! String) return null;
+    final reason = j['reason'];
     return SubPayment(
       id: j['id']! as String,
       plan: '${j['plan'] ?? ''}',
@@ -327,8 +350,78 @@ final class SubPayment {
       method: '${j['method'] ?? ''}',
       status: '${j['status'] ?? ''}',
       ref: j['ref'] as String?,
+      createdAt: _time(j['created_at']),
+      paidAt: _time(j['paid_at']),
+      reason: reason is String && reason.trim().isNotEmpty ? reason : null,
+      awaitingOwner: j['awaiting_owner'] == true,
+      periodStart: _time(j['period_start']),
+      periodEnd: _time(j['period_end']),
     );
   }
+}
+
+/// Row 192 — one subscription the user had: a trial, a purchase or a gift from Payesh support.
+final class SubPeriod {
+  const SubPeriod({
+    required this.kind,
+    required this.plan,
+    required this.state,
+    this.start,
+    this.end,
+    this.payment,
+    this.amount,
+  });
+
+  /// trial | paid | gift
+  final String kind;
+  final String plan;
+
+  /// current | upcoming | ended | cancelled
+  final String state;
+  final DateTime? start;
+  final DateTime? end;
+  final String? payment;
+  final int? amount;
+
+  static SubPeriod? fromJson(Object? j) {
+    if (j is! Map || j['kind'] is! String) return null;
+    return SubPeriod(
+      kind: j['kind']! as String,
+      plan: '${j['plan'] ?? j['kind']}',
+      state: '${j['state'] ?? 'ended'}',
+      start: SubPayment._time(j['start']),
+      end: SubPayment._time(j['end']),
+      payment: j['payment'] as String?,
+      amount: j['amount'] is num ? (j['amount']! as num).round() : null,
+    );
+  }
+}
+
+/// Row 192 — `/api/sub/history`: the status plus every payment and every subscription of the
+/// signed-in user (newest first).
+final class SubHistory {
+  const SubHistory({
+    required this.sub,
+    this.payments = const [],
+    this.periods = const [],
+  });
+  final SubStatus sub;
+  final List<SubPayment> payments;
+  final List<SubPeriod> periods;
+
+  static SubHistory fromJson(Map<String, Object?> j) => SubHistory(
+    sub: SubStatus.fromJson(
+      j['sub'] is Map ? (j['sub']! as Map).cast<String, Object?>() : j,
+    ),
+    payments: [
+      if (j['payments'] is List)
+        for (final p in j['payments']! as List) ?SubPayment.fromJson(p),
+    ],
+    periods: [
+      if (j['periods'] is List)
+        for (final p in j['periods']! as List) ?SubPeriod.fromJson(p),
+    ],
+  );
 }
 
 /// پاسخ `/api/sub/status` (همان gate() سرور).
@@ -475,6 +568,9 @@ abstract interface class LanSchoolsApi {
   });
   Future<SignupStatus> registrationStatus(SignupTicket t);
   Future<SubStatus> subStatus(Uri server, String token);
+
+  /// Row 192 — the «اشتراک» page: every payment and every subscription of this user.
+  Future<SubHistory> subHistory(Uri server, String token);
   Future<SubStatus> startTrial(Uri server, String token, String deviceHash);
 
   /// پیوند درگاه برای باز کردن در مرورگر.
@@ -539,6 +635,17 @@ final class LanSchoolsClient implements LanSchoolsApi {
         await client.request(
           'GET',
           server.resolve('/api/sub/status'),
+          null,
+          token: token,
+        ),
+      );
+
+  @override
+  Future<SubHistory> subHistory(Uri server, String token) async =>
+      SubHistory.fromJson(
+        await client.request(
+          'GET',
+          server.resolve('/api/sub/history'),
           null,
           token: token,
         ),
