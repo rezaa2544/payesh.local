@@ -941,6 +941,8 @@ void main() {
         period: 1,
         subjectId: subj,
         teacherId: teacherId,
+        // ردیف ۱۹۵: دبیرستانِ رشته‌محور — محلِ هر زنگِ تازه را مدیر تعیین می‌کند
+        roomId: roomId,
       ),
     );
     w9Slot = w.id!;
@@ -957,6 +959,7 @@ void main() {
     expect(sg!['class_id'], w9Class);
     expect(sg['teacher_id'], teacherId);
     expect(sg['weekday'], 2);
+    expect(sg['room_id'], roomId);
     expect((await serverRow('classes', w9Class))!['name'], 'دوازدهم شبکه');
     expect((await serverRow('schools', 1))!['workdays'], [0, 1, 2, 3, 4]);
     final bells = await serverRows('bell_schedules');
