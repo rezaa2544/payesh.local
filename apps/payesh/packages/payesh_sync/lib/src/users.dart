@@ -39,7 +39,10 @@ const List<(String, String)> roleFilters = [
   ('parent', 'ولی'),
   ('manager', 'مدیر'),
   ('vice', 'معاون'),
+  ('counselor', 'مشاور'),
   ('staff', 'کارمند'),
+  ('office', 'اجرایی'),
+  ('guard', 'نگهبان'),
 ];
 
 /// Extra profile fields of the user forms (web `USER_EXTRA_FORM`): key, label, numeric.
@@ -205,12 +208,9 @@ final class UserDirectory {
   bool get canManage => db.canWrite(users);
 
   /// Roles that see every student of the school (web `PAGES.students`).
-  static const Set<String> wholeSchool = {
-    'manager',
-    'vice',
-    'counselor',
-    'office',
-  };
+  /// Row 187: only the manager (معاون = مدیر via `permRole`); the counselor sees its referral
+  /// queue only (p2), as the server scope does.
+  static const Set<String> wholeSchool = {'manager'};
 
   Future<Map<int, String>> _classNames() async => {
     for (final c in await db.allOrEmpty('classes'))

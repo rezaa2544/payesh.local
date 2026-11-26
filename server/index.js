@@ -222,7 +222,8 @@ function actorFrom(req) {
   /* row 85: the access log carries the school of the authenticated actor
      (an opaque number, never the user's name or id) */
   try { req.__payeshLog = { school_id: s.user.school_id != null ? s.user.school_id : null, role: s.user.role }; } catch (e) { /* noop */ }
-  return { user: s.user, role: s.user.role, device: s.device, session: s.session };
+  /* ردیف ۱۸۷: actor.role = نقشِ مجوز (معاون ⇒ مدیر)؛ نقشِ نمایشی در actor.user.role می‌ماند */
+  return { user: s.user, role: policy.permRole(s.user.role), device: s.device, session: s.session };
 }
 
 /* ── تیکت کوتاه‌عمرِ صندوقچه برای گوشی (D‑23 / F‑04) ──────────────────
@@ -1495,7 +1496,7 @@ async function api(req, res, url, ip) {
       patch.national_id = nid;
     }
     if (body.active != null) patch.active = !!body.active;
-    if (body.role && ['student', 'teacher', 'parent', 'vice', 'counselor', 'office', 'staff', 'manager'].includes(body.role)) patch.role = body.role;
+    if (body.role && policy.USER_ROLES.includes(body.role)) patch.role = body.role;
     /* فیلدهای شناسنامه‌ای و تکمیلی (تاریخ تولد، جنسیت، پدر و مادر، …) */
     for (const k of IMP_STORE_FIELDS) {
       if (body[k] === undefined) continue;

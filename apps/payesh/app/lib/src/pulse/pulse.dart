@@ -1001,22 +1001,26 @@ class PulseBottomNav extends StatelessWidget {
           child: Padding(
             key: const Key('pulse-more-sheet'),
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final m in rest)
-                  _PulseNavTile(
-                    key: Key('nav-${m.id}'),
-                    icon: m.webIcon,
-                    label: m.label,
-                    selected: selected == m.id,
-                    onTap: () {
-                      Navigator.of(sheet).pop();
-                      onSelected(m.id);
-                    },
-                  ),
-              ],
+            // row 187: a role with many pages (manager + «ارجاع مشاور») scrolls inside the
+            // sheet instead of overflowing on a short screen
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final m in rest)
+                    _PulseNavTile(
+                      key: Key('nav-${m.id}'),
+                      icon: m.webIcon,
+                      label: m.label,
+                      selected: selected == m.id,
+                      onTap: () {
+                        Navigator.of(sheet).pop();
+                        onSelected(m.id);
+                      },
+                    ),
+                ],
+              ),
             ),
           ),
         ),

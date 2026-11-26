@@ -562,6 +562,54 @@
    ]
   },
   {
+   "id": "act:cref-add",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/cqueue_screen.dart",
+     "has": "Key('cq-add')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/counselor.dart",
+     "has": "Future<RecordWrite> refer("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/roles_187_test.dart",
+     "has": "'R187-A05"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/roles_187_test.dart",
+     "has": "'R187-04"
+    }
+   ]
+  },
+  {
+   "id": "act:cref-done",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/cqueue_screen.dart",
+     "has": "Key('cq-done-save')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/counselor.dart",
+     "has": "Future<RecordWrite> handle("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/roles_187_test.dart",
+     "has": "'R187-A04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/roles_187_test.dart",
+     "has": "'R187-04"
+    }
+   ]
+  },
+  {
    "id": "act:def-add",
    "status": "native",
    "wave": "W8",
@@ -2672,6 +2720,22 @@
    ]
   },
   {
+   "id": "form:cref",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/cqueue_screen.dart",
+     "has": "class _ReferForm"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/roles_187_test.dart",
+     "has": "'R187-A05"
+    }
+   ]
+  },
+  {
    "id": "form:def",
    "status": "native",
    "wave": "W8",
@@ -3285,6 +3349,26 @@
     {
      "file": "apps/payesh/packages/payesh_sync/test/school_admin_it_test.dart",
      "has": "'W12-IT-03"
+    }
+   ]
+  },
+  {
+   "id": "page:cqueue",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/cqueue_screen.dart",
+     "has": "class CqueueScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'cqueue'"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/roles_187_test.dart",
+     "has": "'R187-A04"
     }
    ]
   },

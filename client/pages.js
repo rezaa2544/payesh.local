@@ -72,7 +72,7 @@ function navConfig(role) {
   const base = [];
   if (role === 'manager') {
     base.push(['home', '🏠', 'داشبورد'], ['users', '👥', 'کاربران'], ['followup', '⚠️', 'پیگیری'], ['classes', '🏛️', 'کلاس‌ها'],
-      ['schedule', '🗓️', 'برنامه'], ['attendance-report', '✅', 'حضور'], ['reports', '📑', 'گزارش‌ها'],
+      ['schedule', '🗓️', 'برنامه'], ['attendance-report', '✅', 'حضور'], ['reports', '📑', 'گزارش‌ها'], ['cqueue', '📨', 'ارجاع مشاور'],
       ['announcements', '📢', 'اطلاعیه‌ها'], ['health', '🩺', 'سلامت'], ['network', '🌐', 'شبکه'],
       ['cloud', '☁️', 'حافظهٔ ابری'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'teacher') {
@@ -82,6 +82,9 @@ function navConfig(role) {
     base.push(['home', '👨‍👩‍👦', 'فرزندان'], ['schedule', '🗓️', 'برنامه'], ['leaves', '📨', 'مرخصی'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'student') {
     base.push(['home', '🏠', 'خانه'], ['schedule', '🗓️', 'برنامه'], ['record', '📁', 'پرونده'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
+  } else if (role === 'counselor') {
+    /* ردیف ۱۸۷ (تعریفِ p2): خانهٔ مشاور «صف ارجاع» است */
+    base.push(['cqueue', '📨', 'صف ارجاع'], ['home', '🏠', 'خانه'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   } else {
     base.push(['home', '🏠', 'خانه'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   }
@@ -863,7 +866,8 @@ PAGES.grades = (params) => {
 /* ══════════════ دانش‌آموزان دبیر ══════════════ */
 PAGES.students = () => {
   const myClasses = new Set(list('schedule').filter(s => Number(s.teacher_id) === Number(S.user.id)).map(s => Number(s.class_id)));
-  const all = ['manager', 'vice', 'counselor', 'office'].includes(S.role);
+  /* ردیف ۱۸۷: همهٔ دانش‌آموزان فقط برای مدیر/معاون (سرور هم همین را می‌دهد) */
+  const all = S.role === 'manager';
   const students = sortBy(list('users').filter(u => u.role === 'student' && (all || myClasses.has(Number(u.class_id)))), 'name');
   const q = (S.q || '').trim();
   const rows = students.filter(s => !q || String(s.name).includes(q));
@@ -939,7 +943,7 @@ PAGES.users = () => {
   <div class="card tight wide filter-bar" id="usr-filters">
     <input class="input" id="q-search" data-focus-key="q-search" data-search="q" placeholder="جستجوی نام، شماره یا کد ملی…" value="${esc(q)}">
     <div class="pill-tabs">
-      ${[['', 'همه'], ['student', 'دانش‌آموز'], ['teacher', 'دبیر'], ['parent', 'ولی'], ['manager', 'مدیر'], ['vice', 'معاون'], ['staff', 'کارمند']].map(([v, t]) =>
+      ${[['', 'همه'], ['student', 'دانش‌آموز'], ['teacher', 'دبیر'], ['parent', 'ولی'], ['manager', 'مدیر'], ['vice', 'معاون'], ['counselor', 'مشاور'], ['staff', 'کارمند'], ['office', 'اجرایی'], ['guard', 'نگهبان']].map(([v, t]) =>
         `<span class="pill ${role === v ? 'on' : ''}" data-act="role-filter" data-role="${v}">${t}</span>`).join('')}
     </div>
     ${role === 'student' ? filterSel('usr-grade-filter', 'gradeFilter', 'همهٔ پایه‌ها', 'بدون پایه', optsOf('grade', gradeOf), gf)
@@ -1308,8 +1312,22 @@ PAGES.home = (params) => {
   if (S.role === 'teacher') return teacherHome();
   if (S.role === 'parent') return parentHome();
   if (S.role === 'student') return studentHome();
-  return pageHead('خانه') + empty('نقش شما در این نسخه صفحهٔ اختصاصی ندارد.');
+  return staffHome();
 };
+
+/* ردیف ۱۸۷: خانهٔ مشاور، نگهبان، کارمند و اجرایی (صفحه‌های عمومیِ p2) — تازه‌ترین اطلاعیه‌ها
+   و برای مشاور شمارِ ارجاع‌های باز */
+function staffHome() {
+  const anns = list('announcements').slice()
+    .sort((a, b) => String(b.created_at || b.date || '').localeCompare(String(a.created_at || a.date || ''))).slice(0, 3);
+  const open = S.role === 'counselor' ? list('counselor_refs').filter(r => r.status === 'open').length : 0;
+  return `${pageHead('خانه', esc(ROLE_FA[roleTitle()] || ''))}
+  ${S.role === 'counselor' ? card(`<div class="row between"><b>📨 صف ارجاع</b>${badge(fa(open) + ' باز', open ? 'amber' : 'green')}</div>
+    <a class="btn sm" href="#/cqueue" style="margin-top:8px">دیدن صف</a>`, 'tight') : ''}
+  ${card(`<div class="row between"><b>📢 تازه‌ترین اطلاعیه‌ها</b><a class="small" href="#/announcements">همه</a></div>
+    ${anns.length ? `<div class="list">${anns.map(a => `<div class="item"><div class="grow"><div class="t">${esc(a.title || '')}</div>
+      <div class="s">${esc(String(a.body || '').slice(0, 120))}</div></div></div>`).join('')}</div>` : '<div class="small muted">اطلاعیه‌ای نیست.</div>'}`)}`;
+}
 
 function parentHome() {
   const params = S.params || [];
@@ -1408,8 +1426,54 @@ PAGES.child = (params) => {
   </tbody></table></div>`) : ''}`;
 };
 
+/* ══════════════ صف ارجاع مشاور (ردیف ۱۸۷ — تعریفِ p2) ══════════════
+   مدیر/معاون دانش‌آموز را ارجاع می‌دهد؛ مشاور فقط همین صف را می‌بیند: نام، پایه/رشته،
+   علت و الگوی حضورِ ۳۰ روز اخیر — نه نمره و نه پروندهٔ کامل. */
+function crefPattern(studentId) {
+  const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const rows = list('attendance').filter(a => Number(a.student_id) === Number(studentId) && String(a.date || '') >= since);
+  const n = st => rows.filter(a => a.status === st).length;
+  return { absent: n('absent'), late: n('late'), exit: n('early_exit') };
+}
+PAGES.cqueue = () => {
+  if (S.role !== 'manager' && S.role !== 'counselor') return pageHead('صف ارجاع') + empty('دسترسی ندارید.');
+  const isMgr = S.role === 'manager';
+  const refs = list('counselor_refs').slice().sort((a, b) =>
+    (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1) ||
+    String(b.referred_at || '').localeCompare(String(a.referred_at || '')));
+  const open = refs.filter(r => r.status === 'open').length;
+  const rows = refs.map(r => {
+    const st = byId('users', r.student_id) || {};
+    const p = crefPattern(r.student_id);
+    const who = [st.grade, st.branch].filter(Boolean).join(' · ');
+    return card(`<div class="row between"><b>${esc(st.name || ('دانش‌آموز ' + fa(r.student_id)))}</b>
+        ${badge(r.status === 'open' ? 'باز' : 'پیگیری شد', r.status === 'open' ? 'amber' : 'green')}</div>
+      <div class="small muted">${esc(who)}${who ? ' · ' : ''}ارجاع: ${esc(jdate(String(r.referred_at || '').slice(0, 10)))}</div>
+      <div class="small" style="margin-top:4px">${esc(r.reason || '')}</div>
+      <div class="small muted" style="margin-top:4px">۳۰ روز اخیر: غیبت ${fa(p.absent)} · تأخیر ${fa(p.late)} · خروج زودهنگام ${fa(p.exit)}</div>
+      ${r.note ? `<div class="small" style="margin-top:4px">📝 ${esc(r.note)}</div>` : ''}
+      ${r.status === 'open' ? `<div class="row" style="margin-top:8px;gap:8px">
+        <button class="btn sm primary" data-act="cref-done" data-id="${r.id}">پیگیری شد</button></div>` : ''}`, 'tight');
+  }).join('');
+  return `${pageHead('صف ارجاع', fa(open) + ' ارجاعِ باز', isMgr ? `<button class="btn sm primary" data-act="cref-add">+ ارجاع به مشاور</button>` : '')}
+  ${rows || empty(isMgr ? 'هنوز دانش‌آموزی به مشاور ارجاع نشده است.' : 'دانش‌آموزی به شما ارجاع نشده است.')}`;
+};
+
+function actCrefAdd() {
+  const studs = sortBy(list('users').filter(u => u.role === 'student' && u.active !== false), 'name');
+  S.modalTitle = 'ارجاع به مشاور';
+  modal(`<form data-form="cref">
+    <label class="field"><span>دانش‌آموز</span><select class="input" name="student_id" required>
+      <option value="">— انتخاب —</option>${studs.map(k => `<option value="${k.id}">${esc(k.name)}</option>`).join('')}
+    </select></label>
+    <label class="field"><span>علت ارجاع</span><textarea class="input" name="reason" required placeholder="مثلاً تأخیر مکرر در این ماه"></textarea></label>
+    <button class="btn primary block">ثبت ارجاع</button>
+  </form>`);
+}
+
 PAGES.leaves = () => {
-  const canManage = ['manager', 'vice', 'office', 'staff'].includes(S.role);
+  /* ردیف ۱۸۷: تأیید/رد مرخصی فقط با مدیر/معاون (server/policy.js) */
+  const canManage = S.role === 'manager';
   const mine = S.role === 'parent' ? myChildren().map(k => Number(k.id)) : [Number(S.user.id)];
   let rows = list('leaves');
   if (!canManage) rows = rows.filter(l => mine.includes(Number(l.student_id)));
@@ -1693,7 +1757,7 @@ PAGES.system = () => {
   return `${pageHead('سیستم', 'نسخه ' + esc(S.server.version || '') , '')}
   ${card(`<div class="row between"><b>وضعیت</b>${S.online ? badge('متصل', 'green') : badge('آفلاین', 'amber')}</div>
     <div class="small muted" style="margin-top:6px">
-      کاربر: ${esc(S.user.name)} · نقش: ${esc(ROLE_FA[S.role] || S.role)}<br>
+      کاربر: ${esc(S.user.name)} · نقش: ${esc(ROLE_FA[roleTitle()] || roleTitle())}<br>
       آخرین همگام‌سازی: ${S.lastSync ? esc(jdate(S.lastSync) + ' ' + time24(new Date(S.lastSync))) : '—'}<br>
       تغییرات در صف: ${fa(S.queue.length)}
     </div>
@@ -1796,7 +1860,7 @@ function phoneAccessCard() {
 function accountCard() {
   const u = S.user || {};
   const phone = u.phone || (S.boot && S.boot.user && S.boot.user.phone) || '';
-  return card(`<div class="row between"><b>👤 حساب من</b>${badge(ROLE_FA[S.role] || S.role, '')}</div>
+  return card(`<div class="row between"><b>👤 حساب من</b>${badge(ROLE_FA[roleTitle()] || roleTitle(), '')}</div>
     <div class="small muted" style="margin-top:6px">نام: <b>${esc(u.name || '')}</b></div>
     <div class="small muted" style="margin-top:2px">نام کاربری (شمارهٔ همراه): <span class="ltr">${esc(phone || '—')}</span></div>
     ${u.password ? `<div class="small muted" style="margin-top:2px">رمز عبور فعلی: <span class="ltr"><b>${esc(u.password)}</b></span></div>` : ''}

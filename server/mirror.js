@@ -30,7 +30,7 @@ const FORMAT = 'payesh-backup';
 const FORMAT_VERSION = 2;   /* F‑02: پشتیبان امضاشده (نسخهٔ ۱ بی‌امضا و رد می‌شود) */
 const SIGN_META = 'secret:backup-key';
 /* نقش‌های مجاز در پشتیبان (شامل معاون/عامل اجرایی که در policy.ROLES نیستند) */
-const ALLOWED_ROLES = ['manager', 'vice', 'teacher', 'staff', 'counselor', 'guard', 'parent', 'student'];
+const ALLOWED_ROLES = require('./policy').USER_ROLES; /* ردیف ۱۸۷: «اجرایی» جا مانده بود */
 const DATA_COLLECTIONS = Object.keys(COLLECTIONS);
 const KEEP_DAYS = 400;
 

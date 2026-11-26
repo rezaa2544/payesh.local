@@ -7,8 +7,10 @@ rem School data stays in %ProgramData%\Payesh\data (kept on uninstall).
 setlocal
 set "PAYESH_HEADLESS=1"
 set "PAYESH_DATA=%ProgramData%\Payesh\data"
-set "PAYESH_UPDATE_AUTO=0"
-set "PAYESH_UPDATE_AUTO_APPLY=0"
+rem Row 187: the school server keeps itself current - it checks the published release
+rem every 15 minutes and applies it in place (data folder untouched, backup kept for rollback).
+set "PAYESH_UPDATE_AUTO=1"
+set "PAYESH_UPDATE_AUTO_APPLY=1"
 if not defined PORT set "PORT=8080"
 if not exist "%PAYESH_DATA%" mkdir "%PAYESH_DATA%"
 cd /d "%~dp0"

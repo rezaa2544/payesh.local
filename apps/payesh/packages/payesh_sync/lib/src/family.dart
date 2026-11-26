@@ -23,6 +23,7 @@ import 'notices.dart';
 import 'records.dart';
 import 'reports.dart';
 import 'outbox.dart';
+import 'school_access.dart' show permRole;
 
 /// Review state of a leave request (web badge «تأییدشده / رد شده / در انتظار»).
 enum LeaveState {
@@ -194,11 +195,12 @@ final class FamilyBook {
   FamilyBook({
     required this.engine,
     required this.outbox,
-    required this.role,
+    required String role,
     required this.uid,
     DateTime Function()? now,
     Random? random,
-  }) : _now = now ?? DateTime.now,
+  }) : role = permRole(role),
+       _now = now ?? DateTime.now,
        _random = random ?? Random.secure();
 
   final DataEngine engine;

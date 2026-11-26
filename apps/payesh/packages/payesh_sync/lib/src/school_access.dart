@@ -135,9 +135,20 @@ enum SchoolAccessError {
 }
 
 /// Persian name of a school role (unknown roles are shown verbatim).
+/// Row 187: the display role → the permission role (server/policy.js `permRole`).
+/// معاون (`vice`, or `deputy` of the owner panel) has exactly the manager's access.
+String permRole(String role) => switch (role) {
+  'vice' || 'deputy' => 'manager',
+  _ => role,
+};
+
 String roleNameFa(String role) => switch (role) {
   'manager' => 'مدیر',
-  'deputy' => 'معاون',
+  'deputy' || 'vice' => 'معاون',
+  'counselor' => 'مشاور',
+  'staff' => 'کارمند',
+  'office' => 'اجرایی',
+  'guard' => 'نگهبان',
   'teacher' => 'معلم',
   'parent' => 'ولی',
   'student' => 'دانش‌آموز',

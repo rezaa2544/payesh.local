@@ -372,7 +372,7 @@ async function drain(store, { limit = MAX_DRAIN } = {}) {
       continue;
     }
     /* نقش و مستأجر از خودِ کاربرِ پایگاه داده خوانده می‌شود، نه از پاکت هم */
-    const actor = { user, role: user.role, device: null };
+    const actor = { user, role: policy.permRole(user.role), device: null };
 
     for (const item of env.items) {
       const uid = String((item && item.uid) || '').slice(0, 80);
@@ -675,7 +675,7 @@ async function publishData(store) {
   }
   for (const u of (store.all('users') || [])) {
     if (u.active === false) continue;
-    if (!['manager', 'vice', 'teacher', 'parent', 'student', 'staff', 'counselor'].includes(u.role)) continue;
+    if (!policy.USER_ROLES.includes(u.role)) continue;
     try {
       const pd = personData(store, u);
       const stablePerson = JSON.stringify(Object.assign({}, pd, { at: undefined }));

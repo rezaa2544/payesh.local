@@ -18,6 +18,7 @@ import 'dart:math';
 import 'package:payesh_data/payesh_data.dart';
 
 import 'outbox.dart';
+import 'school_access.dart' show permRole;
 
 /// Importance of a notice (web select «عادی / اطلاع‌رسانی / مهم»).
 enum NoticeSeverity {
@@ -121,11 +122,12 @@ final class NoticeBoard {
   NoticeBoard({
     required this.engine,
     required this.outbox,
-    required this.role,
+    required String role,
     required this.uid,
     DateTime Function()? now,
     Random? random,
-  }) : _now = now ?? DateTime.now,
+  }) : role = permRole(role),
+       _now = now ?? DateTime.now,
        _random = random ?? Random.secure();
 
   final DataEngine engine;
@@ -145,6 +147,8 @@ final class NoticeBoard {
     'student',
     'counselor',
     'guard',
+    'staff',
+    'office',
   };
 
   /// Roles that may write (server/policy.js `COLLECTIONS.announcements.write`).

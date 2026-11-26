@@ -19,6 +19,7 @@ import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_data/payesh_data.dart';
 
 import 'outbox.dart';
+import 'school_access.dart' show permRole;
 
 /// Read/write roles of one collection (server/policy.js `COLLECTIONS`).
 final class CollectionRule {
@@ -60,11 +61,12 @@ final class SchoolRecords {
   SchoolRecords({
     required this.engine,
     required this.outbox,
-    required this.role,
+    required String role,
     required this.uid,
     DateTime Function()? now,
     Random? random,
-  }) : now = now ?? DateTime.now,
+  }) : role = permRole(role),
+       now = now ?? DateTime.now,
        _random = random ?? Random.secure();
 
   final DataEngine engine;
@@ -82,6 +84,8 @@ final class SchoolRecords {
     'student',
     'counselor',
     'guard',
+    'staff',
+    'office',
   };
 
   /// server/policy.js `COLLECTIONS` (kept equal by test/records_test.dart, which parses
@@ -110,7 +114,7 @@ final class SchoolRecords {
     ),
     'counselor_notes': CollectionRule({'counselor', 'manager'}, {'counselor'}),
     'discipline': CollectionRule(
-      {'manager', 'teacher', 'counselor'},
+      {'manager', 'teacher'},
       {'manager', 'teacher', 'counselor', 'parent'},
     ),
     'homework': CollectionRule({'manager', 'teacher'}),
@@ -135,6 +139,8 @@ final class SchoolRecords {
     'discipline',
     'import_issues',
     'app_settings',
+    // Row 187: the counselor's referral queue (slot 11 = [2.1e15, 2.2e15)).
+    'counselor_refs',
   ];
   static const int idFloor = 1000000000000000;
   static const int idSlotSpan = 100000000000000;

@@ -10,6 +10,7 @@ library;
 export 'src/accounts.dart';
 export 'src/attendance.dart';
 export 'src/classes.dart';
+export 'src/counselor.dart';
 export 'src/timetable.dart';
 export 'src/followup.dart';
 export 'src/school_import.dart';

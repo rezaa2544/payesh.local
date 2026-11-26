@@ -17,6 +17,7 @@ import 'package:payesh_data/payesh_data.dart';
 
 import 'attendance.dart';
 import 'outbox.dart';
+import 'school_access.dart' show permRole;
 
 /// The three terms of the web client's grade page (stored as the same Persian text in `term`).
 enum GradeTerm {
@@ -136,9 +137,9 @@ final class GradeBook {
   GradeBook({
     required this.engine,
     required this.outbox,
-    required this.role,
+    required String role,
     required this.uid,
-  });
+  }) : role = permRole(role);
 
   final DataEngine engine;
   final SqliteOutbox outbox;

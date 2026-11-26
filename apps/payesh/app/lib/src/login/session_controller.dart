@@ -158,8 +158,15 @@ final class SignedIn extends SessionState {
   /// Last known user id (saved on the device) — used offline before the first refresh.
   final int? uid;
 
-  /// Current role: the fresh session's, else the saved one.
-  String? get currentRole => session?.role ?? role;
+  /// Current role: the fresh session's, else the saved one — as the PERMISSION role
+  /// (row 187: معاون = مدیر, `permRole`). The display role is [titleRole].
+  String? get currentRole {
+    final r = titleRole;
+    return r == null ? null : permRole(r);
+  }
+
+  /// The role as saved on the user (e.g. `vice`) — for display only.
+  String? get titleRole => session?.role ?? role;
 
   /// Current user id: the fresh session's, else the saved one.
   int? get currentUid => session?.uid ?? uid;

@@ -33,7 +33,7 @@ function emptyScope(role, uid) {
 
 /* ── ساخت اسکوپ از دادهٔ خودِ مستأجر (داخل همان تراکنش/زمینهٔ RLS) ── */
 async function build(c, claims) {
-  const role = String((claims && claims.role) || '');
+  const role = policy.permRole(String((claims && claims.role) || ''));
   if (!policy.ROLES.includes(role)) throw outOfScopeError('bad_role');
   const uid = Number((claims && claims.uid) || 0);
   if (role === 'manager') return { role, uid, all: true, classIds: [], studentIds: [], cohorts: [] };
@@ -63,6 +63,13 @@ async function build(c, claims) {
           and ${BIG('parent_id')} = $1`, [uid]
     );
     scope.studentIds = nums(links.rows, 'student_id');
+  } else if (role === 'counselor') {
+    /* ردیف ۱۸۷ (تعریفِ p2): مشاور فقط دانش‌آموزانِ ارجاع‌شده — آینهٔ policy.buildScope */
+    const refs = await c.query(
+      `select distinct ${BIG('student_id')} as student_id from ${T()} r
+        where collection = 'counselor_refs' and deleted_at is null`, []
+    );
+    scope.studentIds = nums(refs.rows, 'student_id');
   } else if (role === 'student') {
     scope.studentIds = [uid];
     const own = await c.query(
@@ -125,9 +132,12 @@ function rowInScope(scope, collection, row) {
   switch (collection) {
     case 'users':
       return Number(row && row.id) === uid || has(scope.studentIds, row && row.id);
-    case 'attendance':
     case 'grades':
     case 'internships':
+      if (scope.role === 'counselor') return false;
+      return has(scope.studentIds, data.student_id) ||
+        (scope.role === 'teacher' && has(scope.classIds, data.class_id));
+    case 'attendance':
     case 'discipline':
       return has(scope.studentIds, data.student_id) ||
         (scope.role === 'teacher' && has(scope.classIds, data.class_id));
@@ -218,7 +228,9 @@ function sqlPredicate(scope, startIndex = 1) {
   if (readable.includes('users')) {
     pieces.push(`(r.collection = 'users' and (r.record_id = ${ph(scope.uid)} or r.record_id = any(${ph(scope.studentIds)}::bigint[])))`);
   }
-  const studentCols = STUDENT_COLLECTIONS.filter(c => readable.includes(c));
+  /* ردیف ۱۸۷: مشاور نمره و کارآموزی نمی‌بیند (فقط دادهٔ الگو: حضور و انضباط) */
+  const studentCols = STUDENT_COLLECTIONS.filter(c => readable.includes(c) &&
+    !(role === 'counselor' && (c === 'grades' || c === 'internships')));
   if (studentCols.length) {
     const inner = `(${BIG('student_id')} = any(${ph(scope.studentIds)}::bigint[])` +
       (role === 'teacher' ? ` or ${BIG('class_id')} = any(${ph(scope.classIds)}::bigint[])` : '') + ')';

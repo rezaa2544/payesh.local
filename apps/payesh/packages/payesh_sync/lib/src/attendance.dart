@@ -11,6 +11,7 @@ import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_data/payesh_data.dart';
 
 import 'outbox.dart';
+import 'school_access.dart' show permRole;
 
 /// The five attendance states of the web client (`ATT_LABEL`) and the server
 /// (`server/policy.js` `ATT_STATUS`).
@@ -130,9 +131,9 @@ final class AttendanceBook {
   AttendanceBook({
     required this.engine,
     required this.outbox,
-    required this.role,
+    required String role,
     required this.uid,
-  });
+  }) : role = permRole(role);
 
   final DataEngine engine;
   final SqliteOutbox outbox;

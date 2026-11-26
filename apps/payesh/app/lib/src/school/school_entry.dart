@@ -5,6 +5,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../accounts/accounts_screen.dart';
 import '../classes/classes_screen.dart';
+import '../counselor/cqueue_screen.dart';
 import '../flags.dart';
 import '../followup/followup_screen.dart';
 import '../pulse/pulse.dart';
@@ -93,7 +94,7 @@ final List<SchoolPageSpec> schoolPages = [
     wave: SchoolWave.users,
     label: 'دانش‌آموزان',
     icon: Icons.school_outlined,
-    roles: const {'manager', 'teacher', 'counselor'},
+    roles: const {'manager', 'teacher'},
     build: (a) => SchoolOwned(
       create: () =>
           StudentsController(source: a.source, role: a.role, uid: a.uid),
@@ -115,6 +116,23 @@ final List<SchoolPageSpec> schoolPages = [
           RecordController(source: a.source, role: a.role, uid: a.uid),
       page: (c) => RecordScreen(
         controller: c as RecordController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
+  // Row 187 (p2): the counselor's referral queue; the manager (and معاون) refers.
+  SchoolPageSpec(
+    id: 'cqueue',
+    wave: SchoolWave.users,
+    label: 'صف ارجاع',
+    icon: Icons.forward_to_inbox_outlined,
+    roles: const {'manager', 'counselor'},
+    build: (a) => SchoolOwned(
+      create: () =>
+          CqueueController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => CqueueScreen(
+        controller: c as CqueueController,
         sync: a.sync,
         onRetry: a.onRetry,
       ),

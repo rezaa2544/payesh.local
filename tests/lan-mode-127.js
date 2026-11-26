@@ -91,7 +91,7 @@ function rules(src) {
   need(!/schtasks\.exe"; Parameters: "\/Create/.test(src.iss), 'LM-05 schtasks /Create (72 h limit) used');
   need(/localport=8080 profile=private,domain"/.test(src.iss) && !/profile=(any|public)/.test(src.iss), 'LM-05 firewall must be private/domain only');
   need(/uninsneveruninstall/.test(src.iss), 'LM-05 school data must survive uninstall');
-  need(/set "PAYESH_HEADLESS=1"/.test(src.cmd) && /PAYESH_UPDATE_AUTO=0/.test(src.cmd) && /server\\start\.js/.test(src.cmd), 'LM-05 launcher not headless');
+  need(/set "PAYESH_HEADLESS=1"/.test(src.cmd) && /PAYESH_UPDATE_AUTO=1/.test(src.cmd) && /PAYESH_UPDATE_AUTO_APPLY=1/.test(src.cmd) && /server\\start\.js/.test(src.cmd), 'LM-05 launcher not headless or not self-updating (row 187)');
   // LM-06 Linux
   need(/Environment=PAYESH_HEADLESS=1/.test(src.linux), 'LM-06 systemd unit not headless');
   need(!/cp -r "\$DIR\/server" "\$DIR\/client"/.test(src.linux) && !/cp -r[^\n]*"\$DIR\/client"\s/.test(src.linux), 'LM-06 install.sh copies the web UI');
@@ -128,6 +128,7 @@ const MUTANTS = [
   ['M09b', 'task back to Register-ScheduledTask (Windows 8+)', 'iss', (s) => s.replace('[Run]\n', '[Run]\nFilename: "powershell.exe"; Parameters: "Register-ScheduledTask -TaskName PayeshDataService"\n')],
   ['M10', 'firewall opened for public networks', 'iss', (s) => s.replace('profile=private,domain"', 'profile=any"')],
   ['M11', 'launcher not headless', 'cmd', (s) => s.replace('set "PAYESH_HEADLESS=1"', 'rem')],
+  ['M11b', 'launcher stops self-updating (row 187)', 'cmd', (s) => s.replace('set "PAYESH_UPDATE_AUTO_APPLY=1"', 'set "PAYESH_UPDATE_AUTO_APPLY=0"')],
   ['M12', 'linux unit serves the web UI', 'linux', (s) => s.replace('Environment=PAYESH_HEADLESS=1\n', '')],
   ['M13', 'linux copies client/', 'linux', (s) => s.replace('$SUDO cp -r "$DIR/server" "$DIR/package.json" "$TARGET/"', '$SUDO cp -r "$DIR/server" "$DIR/client" "$TARGET/"')],
   ['M14', 'Android trusts user CAs', 'nsc', (s) => s.replace('<certificates src="system"/>', '<certificates src="system"/>\n            <certificates src="user"/>')],

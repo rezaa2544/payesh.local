@@ -86,6 +86,10 @@ class SystemController extends SchoolController with _Online {
 
   String user = '';
   String phone = '';
+
+  /// Row 187: the role saved on the user (e.g. `vice` = معاون) — [role] is the permission role.
+  String title = '';
+  String get roleShown => title.isEmpty ? role : title;
   String school = '';
   int queued = 0;
   Map<String, int> stats = const {};
@@ -103,6 +107,7 @@ class SystemController extends SchoolController with _Online {
   Future<void> read(SchoolRecords db) async {
     final me = await db.get('users', uid);
     user = SchoolRecords.str(me?.data['name']);
+    title = SchoolRecords.str(me?.data['role']);
     phone = SchoolRecords.str(me?.data['phone']);
     school = SchoolRecords.str((await db.get('schools', 1))?.data['name']);
     queued = db.outbox.list().length;
@@ -499,7 +504,7 @@ class _SystemScreenState extends State<SystemScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'کاربر: ${c.user.isEmpty ? '—' : c.user} · نقش: ${roleFa[c.role] ?? c.role}',
+              'کاربر: ${c.user.isEmpty ? '—' : c.user} · نقش: ${roleFa[c.roleShown] ?? c.roleShown}',
               key: const Key('sys-user'),
               style: _note,
             ),
@@ -587,7 +592,10 @@ class _SystemScreenState extends State<SystemScreen> {
           _col(key: const Key('sys-account'), [
             _head(
               '👤 حساب من',
-              badge: WebBadge(roleFa[c.role] ?? c.role, tone: WebTone.none),
+              badge: WebBadge(
+                roleFa[c.roleShown] ?? c.roleShown,
+                tone: WebTone.none,
+              ),
             ),
             const SizedBox(height: 6),
             Text.rich(

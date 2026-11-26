@@ -5,7 +5,19 @@
    کلاینت هرگز مرجع امنیتی نیست.
    ─────────────────────────────────────────────────────────────────── */
 
-const ROLES = ['manager', 'teacher', 'parent', 'student', 'counselor', 'guard'];
+const ROLES = ['manager', 'teacher', 'parent', 'student', 'counselor', 'guard', 'staff', 'office'];
+
+/* ردیف ۱۸۷: نقشِ «نمایشی» → نقشِ «مجوز». معاون دقیقاً همهٔ دسترسی‌های مدیر را دارد
+   (همان تعریفِ مخزن p2: معاون = کاربرِ مدیر با عنوانِ معاون). پیش از این «vice» در
+   ROLES نبود و fail-closed همه‌چیز را رد می‌کرد ⇒ «نقش شما به این بخش دسترسی ندارد».
+   همهٔ گاردها (سرور محلی، ابر، صندوقچه، وب و گوشی) از همین نگاشت می‌خوانند. */
+const ROLE_ALIASES = Object.freeze({ vice: 'manager', deputy: 'manager' });
+/* همهٔ نقش‌هایی که می‌شود به کاربر داد (نمایشی) — ساخت/ویرایش کاربر، پشتیبان و صندوقچه */
+const USER_ROLES = Object.freeze([...ROLES, 'vice']);
+function permRole(role) {
+  const r = String(role == null ? '' : role);
+  return Object.prototype.hasOwnProperty.call(ROLE_ALIASES, r) ? ROLE_ALIASES[r] : r;
+}
 
 const ATT_STATUS = ['present', 'absent', 'late', 'early_exit', 'excused'];
 const GRADE_KINDS = ['monthly', 'midterm', 'final', 'practical', 'theory'];
@@ -35,7 +47,8 @@ const COLLECTIONS = {
   staff_posts:      { write: ['manager'], read: ['manager', 'teacher'] },
   counselor_refs:   { write: ['manager', 'counselor'], read: ['manager', 'counselor'] },
   counselor_notes:  { write: ['counselor', 'manager'], read: ['counselor'] },
-  discipline:       { write: ['manager', 'teacher', 'counselor'], read: ['manager', 'teacher', 'counselor', 'parent'] },
+  /* ردیف ۱۸۷ (p2): انضباط را مدیر و دبیر ثبت می‌کنند؛ مشاور فقط می‌خواند (canWriteRow هم رد می‌کرد) */
+  discipline:       { write: ['manager', 'teacher'], read: ['manager', 'teacher', 'counselor', 'parent'] },
   homework:         { write: ['manager', 'teacher'], read: 'all' },
   exams:            { write: ['manager'], read: 'all' },
   calendar:         { write: ['manager'], read: 'all' },
@@ -53,12 +66,14 @@ function collectionAllowed(name) {
 }
 
 function canWrite(role, collection) {
+  role = permRole(role);
   if (!collectionAllowed(collection)) return false;
   const c = COLLECTIONS[collection];
   return Array.isArray(c.write) && c.write.includes(role);
 }
 
 function canRead(role, collection) {
+  role = permRole(role);
   if (PROTECTED.has(collection)) return false;
   if (!collectionAllowed(collection)) return false;
   const c = COLLECTIONS[collection];
@@ -67,6 +82,7 @@ function canRead(role, collection) {
 
 /* ── اسکوپ: چه چیزی را این کاربر می‌تواند ببیند ── */
 function buildScope(store, user) {
+  user = Object.assign({}, user, { role: permRole(user && user.role) });
   const scope = {
     role: user.role,
     selfId: Number(user.id),
@@ -98,6 +114,14 @@ function buildScope(store, user) {
     });
     return scope;
   }
+  /* ردیف ۱۸۷ (تعریفِ p2): مشاور فقط دانش‌آموزانِ «ارجاع‌شده» به صف خودش را می‌بیند —
+     نام، پایه/رشته و دادهٔ الگو (حضور/انضباط)؛ نه نمره، نه برنامه، نه پروندهٔ کامل. */
+  if (user.role === 'counselor') {
+    store.all('counselor_refs').forEach(r => {
+      if (r && r.student_id != null && !r.deleted_at) scope.studentIds.add(Number(r.student_id));
+    });
+    return scope;
+  }
   if (user.role === 'student') {
     scope.studentIds.add(Number(user.id));
     if (user.class_id != null) scope.classIds.add(Number(user.class_id));
@@ -114,9 +138,12 @@ function rowInScope(scope, collection, row) {
   switch (collection) {
     case 'users':
       return Number(row.id) === uid || scope.studentIds.has(Number(row.id));
-    case 'attendance':
     case 'grades':
     case 'internships':
+      if (scope.role === 'counselor') return false;
+      return scope.studentIds.has(Number(row.student_id)) ||
+        (scope.role === 'teacher' && scope.classIds.has(Number(row.class_id)));
+    case 'attendance':
       return scope.studentIds.has(Number(row.student_id)) ||
         (scope.role === 'teacher' && scope.classIds.has(Number(row.class_id)));
     case 'leaves':
@@ -158,6 +185,7 @@ function rowInScope(scope, collection, row) {
 
 /* آیا کاربر اجازهٔ نوشتن این ردیف را دارد؟ (مالکیت، نه فقط نقش) */
 function canWriteRow(store, user, role, collection, row, existing) {
+  role = permRole(role);
   if (!canWrite(role, collection)) return { ok: false, error: 'role_denied' };
   if (role === 'manager') return { ok: true };
 
@@ -305,7 +333,7 @@ function scrubUserIdentity(data) {
 }
 
 module.exports = {
-  ROLES, ATT_STATUS, GRADE_KINDS, LEAVE_REQUEST_STATUSES, COLLECTIONS,
+  ROLES, USER_ROLES, ROLE_ALIASES, permRole, ATT_STATUS, GRADE_KINDS, LEAVE_REQUEST_STATUSES, COLLECTIONS,
   collectionAllowed, canRead, canWrite, buildScope, rowInScope, canWriteRow,
   USER_PUBLIC_FIELDS, USER_IDENTITY_FIELDS, SECRET_FIELD_RE, isSecretField,
   scrubUser, scrubUserFor, scrubUserIdentity,

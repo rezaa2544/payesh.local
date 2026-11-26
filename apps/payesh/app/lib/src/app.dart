@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:payesh_core/payesh_core.dart';
+import 'package:payesh_sync/payesh_sync.dart' show permRole;
 import 'package:payesh_ui/payesh_ui.dart';
 import 'package:payesh_update/payesh_update.dart';
 
@@ -23,7 +24,7 @@ import 'secure/local_storage.dart';
 
 /// client/pages.js `navConfig(role)`: (web route, pulse.js icon, label, native page id).
 List<(String, String, String, String)> webNavConfig(String? role) =>
-    switch (role) {
+    switch (role == null ? null : permRole(role)) {
       'manager' => const [
         ('home', 'home', 'داشبورد', 'today'),
         ('users', 'users', 'کاربران', 'users'),
@@ -32,6 +33,7 @@ List<(String, String, String, String)> webNavConfig(String? role) =>
         ('schedule', 'calendar', 'برنامه', 'schedule'),
         ('attendance-report', 'check', 'حضور', 'attendance-report'),
         ('reports', 'report', 'گزارش‌ها', 'reports'),
+        ('cqueue', 'mail', 'ارجاع مشاور', 'cqueue'),
         ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
         ('health', 'health', 'سلامت', 'health'),
         ('network', 'globe', 'شبکه', 'network'),
@@ -58,6 +60,13 @@ List<(String, String, String, String)> webNavConfig(String? role) =>
         ('home', 'home', 'خانه', 'today'),
         ('schedule', 'calendar', 'برنامه', 'schedule'),
         ('record', 'folder', 'پرونده', 'record'),
+        ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
+        ('system', 'gear', 'سیستم', 'system'),
+      ],
+      // Row 187 (p2): the counselor's home is the referral queue.
+      'counselor' => const [
+        ('cqueue', 'mail', 'صف ارجاع', 'cqueue'),
+        ('home', 'home', 'خانه', 'today'),
         ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
         ('system', 'gear', 'سیستم', 'system'),
       ],

@@ -259,7 +259,8 @@ function gate(store, user, { now = Date.now() } = {}) {
   if (!sch) return { managed: true, access: false, status: 'school_removed' };
   if (sch.active === false) return { managed: true, access: false, status: 'school_inactive' };
   const st = settingsOf(reg.plain);
-  const role = String(user.role || '');
+  /* ردیف ۱۸۷: نقشِ کاربر «vice» است ولی سیاستِ قیمتِ مالک با کلیدِ «deputy» ذخیره می‌شود */
+  const role = String(user.role || '') === 'vice' ? 'deputy' : String(user.role || '');
   const policy = st.roles[role] || 'free';
   const base = {
     managed: true, role, policy, school: sch.name || '',
@@ -283,7 +284,7 @@ function gate(store, user, { now = Date.now() } = {}) {
     end: endMs ? ay.iso(endMs) : null,
     days_left: active ? Math.max(0, Math.ceil((endMs - now) / DAY_MS)) : 0,
     /* هشدار تمدید فقط برای مدیر مدرسه، از ۱ تیر تا وقتی اشتراک سال بعد خریده نشده */
-    renew_warning: role === 'manager' && ay.renewWarning(now, endMs),
+    renew_warning: (role === 'manager' || role === 'deputy') && ay.renewWarning(now, endMs),
     trial_available: st.trial_enabled && st.trial_days > 0 && !(rec && rec.trial_used),
     pending,
   });

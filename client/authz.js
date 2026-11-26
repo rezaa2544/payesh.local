@@ -15,12 +15,15 @@
 
 /* مسیرهایی که در منو نیستند ولی برای همان نقش مجازند */
 const AUTHZ_EXTRA_ROUTES = {
-  manager: ['record', 'child', 'attendance-report', 'followup', 'health', 'reports', 'network', 'cloud', 'system'],
+  manager: ['record', 'child', 'attendance-report', 'followup', 'health', 'reports', 'network', 'cloud', 'system', 'cqueue'],
   teacher: ['record', 'students', 'attendance', 'grades', 'schedule', 'system'],
   parent: ['child', 'record', 'schedule', 'leaves', 'system'],
   student: ['record', 'schedule', 'system'],
-  counselor: ['record', 'students', 'schedule', 'system'],
-  guard: ['schedule', 'system'],
+  /* ردیف ۱۸۷ (تعریفِ p2): مشاور فقط صف ارجاع (نه پرونده/دانش‌آموزان)؛ نگهبان، کارمند و اجرایی فقط صفحه‌های عمومی */
+  counselor: ['cqueue', 'system'],
+  guard: ['system'],
+  staff: ['system'],
+  office: ['system'],
 };
 
 /* برای همهٔ نقش‌های واردشده باز است */
@@ -37,7 +40,7 @@ function authzNavRoutes(role) {
 
 /** مجموعهٔ مسیرهای مجاز یک نقش (با کش) */
 function authzRoutes(role) {
-  const r = String(role || '');
+  const r = String((typeof permRole === 'function' ? permRole(role) : role) || '');
   if (_AUTHZ_CACHE[r]) return _AUTHZ_CACHE[r];
   const set = Object.create(null);
   authzNavRoutes(r).forEach(x => { if (x) set[x] = true; });
@@ -48,6 +51,7 @@ function authzRoutes(role) {
 }
 
 function authzCanRoute(route, role) {
+  if (typeof permRole === 'function') role = permRole(role);
   const r = String(route || 'home');
   if (!role) return false;
   return !!authzRoutes(role)[r];
@@ -72,11 +76,14 @@ const AUTHZ_BACKUP_OK = /^(mirror-refresh|mirror-restore)$/;
 
 function authzCanAct(act, role) {
   const a = String(act || '');
-  const r = String(role || '');
+  const r = String((typeof permRole === 'function' ? permRole(role) : role) || '');
   if (!a) return true;
   if (AUTHZ_ALWAYS.test(a)) return true;
   if (r === 'manager') return true;
-  if (AUTHZ_BACKUP_OK.test(a)) return ['manager', 'teacher', 'counselor', 'guard'].indexOf(r) >= 0;
+  /* ردیف ۱۸۷: آینه/بازگردانی فقط مدیر/معاون — همان server/index.js BACKUP_ROLES */
+  if (AUTHZ_BACKUP_OK.test(a)) return false;
+  if (a === 'cref-add') return false;
+  if (a === 'cref-done') return r === 'counselor';
   if (AUTHZ_MANAGER_ONLY.test(a)) return false;
   /* خانواده (مرخصی) پیش از دبیر بررسی می‌شود: کنش مشترک است */
   if (AUTHZ_FAMILY_OK.test(a)) return r === 'teacher' || r === 'parent' || r === 'student';
@@ -87,7 +94,7 @@ function authzCanAct(act, role) {
 /* ── صفحهٔ «دسترسی ندارید» ──────────────────────────────────────── */
 function authzDeniedHtml(route) {
   const label = (typeof AUTHZ_ROUTE_FA !== 'undefined' && AUTHZ_ROUTE_FA[route]) || '';
-  const home = S.user ? S.role : '';
+  const home = S.user ? (typeof roleTitle === 'function' ? roleTitle() : S.role) : '';
   return `<div class="topbar"><div><h2>دسترسی ندارید</h2>
       <div class="small muted">این صفحه برای نقش شما باز نیست</div></div></div>
     <div class="card center" style="padding:26px">
@@ -105,7 +112,7 @@ const AUTHZ_ROUTE_FA = {
   home: 'خانه', users: 'کاربران', classes: 'کلاس‌ها', schedule: 'برنامه', reports: 'گزارش‌ها',
   attendance: 'حضور و غیاب', 'attendance-report': 'حضور و غیاب', grades: 'نمره', students: 'دانش‌آموزان',
   announcements: 'اطلاعیه‌ها', leaves: 'مرخصی', record: 'پرونده', network: 'شبکه',
-  cloud: 'حافظهٔ ابری', system: 'سیستم', followup: 'نیازمند پیگیری', health: 'سلامت داده', child: 'فرزند',
+  cloud: 'حافظهٔ ابری', system: 'سیستم', cqueue: 'صف ارجاع', followup: 'نیازمند پیگیری', health: 'سلامت داده', child: 'فرزند',
 };
 
 window.authzCanRoute = authzCanRoute;

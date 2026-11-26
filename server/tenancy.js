@@ -90,6 +90,11 @@ function verifyToken(token, secret, now = Date.now()) {
   if (!claims || claims.v !== TOKEN_VERSION) throw new TenancyError('unauthorized', 401);
   if (!UUID_RE.test(String(claims.tid || ''))) throw new TenancyError('unauthorized', 401);
   if (!Number.isFinite(claims.exp) || claims.exp <= now) throw new TenancyError('token_expired', 401);
+  /* ردیف ۱۸۷: نقشِ مجوز (معاون ⇒ مدیر)؛ نقشِ نمایشی برای برگرداندن به کاربر در title_role */
+  if (claims.role != null && policy.permRole(claims.role) !== claims.role) {
+    claims.title_role = claims.role;
+    claims.role = policy.permRole(claims.role);
+  }
   return claims;
 }
 

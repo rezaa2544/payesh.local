@@ -5455,6 +5455,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۸۷: هر نقش دقیقاً دسترسیِ خودش (تعریف p2) — معاون = مدیر ── */
+  await test('ردیف ۱۸۷: نقش‌ها و دسترسی‌ها — معاون دقیقاً مثل مدیر، مشاور فقط صف ارجاع، کارمند/اجرایی/نگهبان صفحه‌های عمومی (۱۳ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/roles-187.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(r.status, 0, 'roles-187: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|ROLES-187/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۶۴: یک دیتابیس برای همه، از هر اینترنتی (گره خوردن سرور قدیمی، سرور مرکزی، تونل) ── */
   await test('ردیف ۱۶۴: سرور قدیمی با ورود مدیر به مدرسهٔ پنل مالک گره می‌خورد (بدون پاک شدن داده)؛ سرور مرکزی https در فهرست نشانی‌ها؛ پیوند تأیید تونل؛ آدرس دستی پایدار (۱۰ بررسی)',
     async () => {
