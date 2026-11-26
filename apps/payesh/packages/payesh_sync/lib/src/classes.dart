@@ -18,6 +18,7 @@
 import 'package:payesh_data/payesh_data.dart';
 
 import 'records.dart';
+import 'school_structure.dart';
 import 'users.dart' show nameKey;
 
 const Map<String, String> lookupFa = {'grade': 'پایه', 'branch': 'رشته'};
@@ -75,10 +76,20 @@ final class ClassRow {
     required this.mode,
     required this.students,
     required this.queued,
+    this.room = '',
+    this.capacity = 30,
+    this.teacherId,
+    this.teacher = '',
   });
   final int id;
   final String name;
   final bool isRoom;
+
+  /// ردیف ۱۹۵ (p2 classModal): اتاق ثابت، ظرفیت و دبیر پایه (سرپرست) کلاس.
+  final String room;
+  final int capacity;
+  final int? teacherId;
+  final String teacher;
   final String grade;
   final String branch;
 
@@ -131,7 +142,11 @@ final class ClassesView {
     required this.grades,
     required this.branches,
     required this.subjects,
+    this.structure = const SchoolStructure(level: '', fieldBased: true),
   });
+
+  /// ردیف ۱۹۵: کلاس‌محور یا رشته‌محور (از مقطع مدرسه).
+  final SchoolStructure structure;
   final List<ClassRow> rooms;
   final List<ClassRow> classes;
   final List<LookupRow> grades;
@@ -146,10 +161,18 @@ final class ClassDraft {
     this.name = '',
     this.branch = '',
     this.mode = '',
+    this.room = '',
+    this.capacity = '',
+    this.teacherId,
   });
   final String name;
   final String grade;
   final String branch;
+
+  /// ردیف ۱۹۵ (p2 classModal): اتاق، ظرفیت (متن عددی؛ خالی = ۳۰) و دبیر پایه.
+  final String room;
+  final String capacity;
+  final int? teacherId;
 
   /// '' = automatic from the grade (≤ 9 → class, ≥ 10 → field).
   final String mode;
@@ -194,6 +217,10 @@ final class ClassBook {
     final ql = db.queuedIds('lookups');
     final qs = db.queuedIds('subjects');
     final count = <int, int>{};
+    final names = {
+      for (final u in users)
+        if (u.data['role'] == 'teacher') u.id: _s(u.data['name']),
+    };
     for (final u in users) {
       if (u.data['role'] != 'student') continue;
       final c = _int(u.data['class_id']);
@@ -214,6 +241,10 @@ final class ClassBook {
                       : 'class')),
       students: count[r.id] ?? 0,
       queued: qc.contains(r.id),
+      room: _s(r.data['room']),
+      capacity: _int(r.data['capacity']) ?? 30,
+      teacherId: _int(r.data['teacher_id']),
+      teacher: names[_int(r.data['teacher_id'])] ?? '',
     );
     int byName(ClassRow a, ClassRow b) => a.name.compareTo(b.name);
     final all = [for (final c in classes) row(c)];
@@ -240,6 +271,7 @@ final class ClassBook {
     }
 
     return ClassesView(
+      structure: await SchoolStructure.read(db),
       rooms: all.where((c) => c.isRoom).toList()..sort(byName),
       classes: all.where((c) => !c.isRoom).toList()..sort(byName),
       grades: defs('grade'),
@@ -317,7 +349,18 @@ final class ClassBook {
         'پایه و رشته یکی شده‌اند — رشته («$branch») را در کادر پایه نوشته‌اید؛ پایه را اصلاح کنید',
       );
     }
-    final mode = d.mode.trim().isNotEmpty
+    final structure = await SchoolStructure.read(db);
+    if (!structure.gradeFits(grade)) {
+      throw RecordFailure(
+        'invalid',
+        'پایهٔ «$grade» در مقطع این مدرسه («${structure.level}») نیست — پایه‌های مجاز: ${structure.grades.join('، ')}',
+      );
+    }
+    // ردیف ۱۹۵: وقتی مقطع مدرسه معلوم است، نوع چیدمان از خود مقطع می‌آید (ابتدایی و متوسطه اول
+    // کلاس‌محور، متوسطه دوم رشته‌محور) — نه از انتخاب دستی.
+    final mode = structure.level.isNotEmpty
+        ? (structure.fieldBased ? 'field' : 'class')
+        : d.mode.trim().isNotEmpty
         ? d.mode.trim()
         : (level >= 10 ? 'field' : 'class');
     if (mode == 'field' && branch.isEmpty) {
@@ -332,7 +375,27 @@ final class ClassBook {
         'کلاس کلاس‌محور رشته ندارد — یا نوع چیدمان را «رشته‌محور» کنید یا رشته را خالی بگذارید',
       );
     }
+    if (mode == 'field' && !structure.fieldFits(branch)) {
+      throw RecordFailure(
+        'invalid',
+        'رشتهٔ «$branch» جزو شاخه‌های اعلام‌شدهٔ مدرسه نیست — رشته‌ها را در «سیستم ← مشخصات مدرسه» تعیین کنید',
+      );
+    }
     if (mode == 'class') branch = '';
+    final capText = SchoolRecords.digitsOnly(d.capacity.trim());
+    final cap = capText.isEmpty ? null : int.tryParse(capText);
+    if (d.capacity.trim().isNotEmpty && (cap == null || cap < 1 || cap > 200)) {
+      throw const RecordFailure('invalid', 'ظرفیت باید عددی بین ۱ تا ۲۰۰ باشد');
+    }
+    if (d.teacherId != null) {
+      final t = await db.get('users', d.teacherId!);
+      if (t == null || t.data['role'] != 'teacher') {
+        throw const RecordFailure(
+          'invalid',
+          'دبیر پایه باید یکی از دبیران مدرسه باشد',
+        );
+      }
+    }
     final name = d.name.trim().isNotEmpty
         ? d.name.trim()
         : '$grade${branch.isEmpty ? '' : ' $branch'}'.trim();
@@ -389,7 +452,9 @@ final class ClassBook {
         'mode': mode,
         'grade_level': level,
         'kind': 'class',
-        'capacity': _int(prev?.data['capacity']) ?? 30,
+        'capacity': cap ?? _int(prev?.data['capacity']) ?? 30,
+        'room': d.room.trim(),
+        'teacher_id': d.teacherId,
       }, prev: prev),
     ];
     for (final e in touched.entries) {
@@ -547,6 +612,31 @@ final class ClassBook {
     final k = kind == 'branch' ? 'branch' : 'grade';
     final n = name.trim();
     if (n.isEmpty) throw const RecordFailure('invalid', 'نام را بنویسید');
+    final structure = await SchoolStructure.read(db);
+    if (k == 'grade' && gradeLevel(n) == 0) {
+      throw RecordFailure(
+        'invalid',
+        '«$n» پایه نیست — پایه یکی از اول تا دوازدهم است',
+      );
+    }
+    if (k == 'grade' && !structure.gradeFits(n)) {
+      throw RecordFailure(
+        'invalid',
+        'پایهٔ «$n» در مقطع این مدرسه («${structure.level}») نیست — پایه‌های مجاز: ${structure.grades.join('، ')}',
+      );
+    }
+    if (k == 'branch' && structure.level.isNotEmpty && structure.classBased) {
+      throw RecordFailure(
+        'invalid',
+        'مدرسهٔ «${structure.level}» کلاس‌محور است و رشته ندارد — رشته فقط در متوسطه دوم معنا دارد',
+      );
+    }
+    if (k == 'branch' && !structure.fieldFits(n)) {
+      throw RecordFailure(
+        'invalid',
+        'رشتهٔ «$n» جزو شاخه‌های اعلام‌شدهٔ مدرسه نیست — مجاز: ${structure.allowedFields.join('، ')}',
+      );
+    }
     final all = await db.all('lookups');
     if (all.any(
       (l) => l.data['kind'] == k && _s(l.data['name']) == n && l.id != id,

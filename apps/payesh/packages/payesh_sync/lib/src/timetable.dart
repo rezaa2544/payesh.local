@@ -1,8 +1,11 @@
 // Row 128, wave W9 — the weekly schedule (web client/schedule.js `schedPage`, forms `slot`,
 // `bells`, `workdays`, `sched-teacher`, `sched-room`, actions sched-* / slot-del / sub-* / bell-* /
 // schedgen-* / workdays-edit). Same semantics as the web client:
-//   * the manager plans per grade + branch («پایه و رشته»); the cohort's class row is created on
-//     the first saved slot (web `schedGroupFor(…, true)`);
+//   * ردیف ۱۹۵ (p2 `15-schedule.js`): در مدرسهٔ «کلاس‌محور» (ابتدایی / متوسطه اول) برنامه برای هر
+//     کلاسِ ثابت جدا چیده می‌شود (کلید = class_id؛ «هفتم الف» و «هفتم ب» دو برنامهٔ جدا دارند)؛
+//   * در مدرسهٔ «رشته‌محور» (متوسطه دوم) the manager plans per grade + branch («پایه و رشته»);
+//     the cohort's class row is created on the first saved slot (web `schedGroupFor(…, true)`) and
+//     the room (کلاس/کارگاه) of every bell is chosen in the slot form — required once rooms exist;
 //   * a slot needs a subject and an active school day; the cohort, the teacher (school-wide) and
 //     the room must be free at that day + bell — a clash is refused, never stored;
 //   * existing clashes (imported/merged data) are listed with up to three free slots to move to;
@@ -20,6 +23,7 @@ import 'package:payesh_data/payesh_data.dart';
 
 import 'classes.dart' show gradeLevel, normName;
 import 'records.dart';
+import 'school_structure.dart';
 
 const List<String> schedDayFa = [
   'شنبه',
@@ -144,9 +148,13 @@ final class Slot {
     required this.room,
     required this.queued,
     this.subToday,
+    this.className = '',
   });
   final int id;
   final int? classId;
+
+  /// ردیف ۱۹۵: نام کلاسِ زنگ (در کلاس‌محور «سوم الف» به‌جای پایهٔ مشترک «سوم»).
+  final String className;
   final String grade;
   final String branch;
   final int day;
@@ -163,6 +171,11 @@ final class Slot {
   final String? subToday;
   String get cohort =>
       grade.isEmpty ? '' : '$grade${branch.isEmpty ? '' : ' $branch'}';
+
+  /// نام گروهِ زنگ برای نمایش: در کلاس‌محور نام کلاس، در رشته‌محور «پایه رشته».
+  String get group => branch.isEmpty && className.isNotEmpty
+      ? className
+      : (cohort.isNotEmpty ? cohort : className);
 }
 
 final class Sub {
@@ -221,6 +234,11 @@ final class TimetableView {
     this.grade = '',
     this.branch = '',
     this.cohortClassId,
+    this.classBased = false,
+    this.classOptions = const [],
+    this.classId,
+    this.homeRoom = '',
+    this.homeroom = '',
     this.homeClasses = const [],
     this.children = const [],
     this.sub = '',
@@ -241,6 +259,15 @@ final class TimetableView {
   final String grade;
   final String branch;
   final int? cohortClassId;
+
+  /// ردیف ۱۹۵: مدرسهٔ کلاس‌محور — مدیر کلاسِ ثابت را انتخاب می‌کند ([classOptions]، [classId]).
+  final bool classBased;
+  final List<(int, String)> classOptions;
+  final int? classId;
+
+  /// اتاق ثابت و دبیر پایهٔ کلاسِ نمایش‌داده (کلاس‌محور).
+  final String homeRoom;
+  final String homeroom;
 
   /// Teacher: classes where they are the home-room teacher («سرپرستی»).
   final List<(int, String)> homeClasses;
@@ -462,6 +489,7 @@ final class Timetable {
               ? _s(r.data['room'])
               : (classes[_int(r.data['room_id'])] ?? ''),
           queued: q.contains(r.id),
+          className: classes[_int(r.data['class_id'])] ?? '',
           subToday: subsToday.containsKey(r.id)
               ? (users[subsToday[r.id]] ?? 'بدون دبیر')
               : null,
@@ -546,11 +574,13 @@ final class Timetable {
   Future<TimetableView> view({
     String? grade,
     String? branch,
+    int? classId,
     int? homeClass,
     int? child,
   }) async {
     db.requireRead('schedule');
     final role = db.role;
+    final structure = await SchoolStructure.read(db);
     final all = await _slots();
     final days = await workDays();
     final shown = days.isEmpty ? const [0, 1, 2, 3, 4, 5] : days;
@@ -586,6 +616,42 @@ final class Timetable {
     bool sameCohort(Slot s, String g, String b) =>
         s.grade.trim() == g.trim() && s.branch.trim() == b.trim();
 
+    if (role == 'manager' && structure.classBased) {
+      // p2 viewSchedule: انتخابگر کلاس؛ برنامهٔ همان کلاس (class_id)
+      final options = [
+        for (final c in groups)
+          if (_s(c.data['mode']) != 'field') (c.id, _s(c.data['name'])),
+      ];
+      final pick = options.any((o) => o.$1 == classId)
+          ? classId
+          : (options.isEmpty ? null : options.first.$1);
+      final cls = pick == null ? null : await db.get('classes', pick);
+      final rows = [
+        for (final s in all)
+          if (pick != null && s.classId == pick) s,
+      ];
+      return TimetableView(
+        title: 'برنامهٔ هفتگی',
+        days: shown,
+        periods: periods,
+        slots: rows,
+        clashes: await clashes(all),
+        subs: pick == null ? const [] : await subsOf(rows),
+        canEdit: pick != null,
+        grade: _s(cls?.data['grade']),
+        cohortClassId: pick,
+        classBased: true,
+        classOptions: options,
+        classId: pick,
+        homeRoom: _s(cls?.data['room']),
+        homeroom: users[_int(cls?.data['teacher_id'])] ?? '',
+        sub: [
+          _s(cls?.data['name']),
+          if (_s(cls?.data['grade']).isNotEmpty)
+            'پایهٔ ${_s(cls?.data['grade'])}',
+        ].where((x) => x.isNotEmpty).join(' · '),
+      );
+    }
     if (role == 'manager') {
       final lookups = await db.allOrEmpty('lookups');
       List<String> namesOf(String kind, String field) {
@@ -658,12 +724,12 @@ final class Timetable {
     }
     // student / parent / other staff: read-only view of one class
     var children = <(int, String)>[];
-    int? classId;
+    int? ownClass;
     String g = '', b = '';
     Future<void> cohortOf(EngineRow? u) async {
       if (u == null) return;
-      classId = _int(u.data['class_id']);
-      final cls = classId == null ? null : await db.get('classes', classId!);
+      ownClass = _int(u.data['class_id']);
+      final cls = ownClass == null ? null : await db.get('classes', ownClass!);
       g = _s(u.data['grade']).isNotEmpty
           ? _s(u.data['grade'])
           : _s(cls?.data['grade']);
@@ -687,12 +753,12 @@ final class Timetable {
           : (children.isEmpty ? null : children.first.$1);
       if (pick != null) await cohortOf(await db.get('users', pick));
     } else {
-      classId = groups.isEmpty ? null : groups.first.id;
+      ownClass = groups.isEmpty ? null : groups.first.id;
     }
     final rows = [
       for (final s in all)
-        if ((classId != null && s.classId == classId) ||
-            (g.isNotEmpty && sameCohort(s, g, b)))
+        if ((ownClass != null && s.classId == ownClass) ||
+            (structure.fieldBased && g.isNotEmpty && sameCohort(s, g, b)))
           s,
     ];
     return TimetableView(
@@ -704,7 +770,7 @@ final class Timetable {
       subs: const [],
       canEdit: false,
       children: children,
-      sub: await _cohortLine(classId),
+      sub: await _cohortLine(ownClass),
     );
   }
 
@@ -784,6 +850,8 @@ final class Timetable {
   /// Form `slot` (`sched-slot`): add or edit one cell.
   Future<RecordWrite> saveSlot(SlotDraft d) async {
     _requireManager();
+    final structure = await SchoolStructure.read(db);
+    if (structure.classBased) return _saveClassSlot(d);
     final grade = d.grade.trim(), branch = d.branch.trim();
     if (grade.isEmpty) {
       throw const RecordFailure('invalid', 'پایه را انتخاب کنید');
@@ -828,6 +896,18 @@ final class Timetable {
       throw const RecordFailure(
         'duplicate',
         'این محل در آن روز و زنگ رزرو شده است',
+      );
+    }
+    // ردیف ۱۹۵: در رشته‌محور (پایهٔ دهم به بالا) محلِ هر زنگِ تازه را مدیر تعیین می‌کند
+    // (زنگ‌های قدیمیِ بی‌محل همچنان ویرایش می‌شوند تا داده‌ای گیر نکند)
+    if (d.id == null &&
+        gradeLevel(grade) >= 10 &&
+        d.roomId == null &&
+        d.legacyRoom.trim().isEmpty &&
+        (await rooms()).isNotEmpty) {
+      throw const RecordFailure(
+        'invalid',
+        'محل برگزاری (کلاس/کارگاه) را انتخاب کنید — در مدرسهٔ رشته‌محور، مدیر کلاسِ هر زنگ را در برنامهٔ هفتگی تعیین می‌کند',
       );
     }
     final prev = d.id == null
@@ -880,6 +960,67 @@ final class Timetable {
       }, prev: prev),
     );
     return RecordWrite('برنامه ذخیره شد', id: id, keys: keys);
+  }
+
+  /// ردیف ۱۹۵ — زنگِ مدرسهٔ کلاس‌محور (p2 `slot-save`): کلید = کلاسِ ثابت؛ تکرارِ همان کلاس در
+  /// یک روز و زنگ، دبیرِ مشغول (در کل مدرسه) و محلِ رزروشده رد می‌شود. محل اختیاری است (پیش‌فرض
+  /// اتاق خود کلاس؛ فقط برای فضای ویژه مثل آزمایشگاه یا کارگاه انتخاب می‌شود).
+  Future<RecordWrite> _saveClassSlot(SlotDraft d) async {
+    final cid = d.classId;
+    final cls = cid == null ? null : await db.get('classes', cid);
+    if (cls == null || cls.data['kind'] == 'room') {
+      throw const RecordFailure('invalid', 'کلاس را انتخاب کنید');
+    }
+    if (d.subjectId == null) {
+      throw const RecordFailure('invalid', 'درس را انتخاب کنید');
+    }
+    if (!(await workDays()).contains(d.day)) {
+      throw const RecordFailure('invalid', 'این روز در روزهای فعال مدرسه نیست');
+    }
+    final rows = await db.allOrEmpty('schedule');
+    if (_busy(rows, 'class_id', cls.id, d.day, d.period, d.id)) {
+      throw RecordFailure(
+        'duplicate',
+        'کلاس «${_s(cls.data['name'])}» ${schedDayFa[d.day]} زنگ ${_faDigits(d.period)} برنامه دارد',
+      );
+    }
+    if (d.teacherId != null &&
+        _busy(rows, 'teacher_id', d.teacherId!, d.day, d.period, d.id)) {
+      throw RecordFailure(
+        'duplicate',
+        'تداخل ساعت: این دبیر ${schedDayFa[d.day]} زنگ ${_faDigits(d.period)} برنامهٔ دیگری دارد',
+      );
+    }
+    if (d.roomId != null &&
+        _busy(rows, 'room_id', d.roomId!, d.day, d.period, d.id)) {
+      throw const RecordFailure(
+        'duplicate',
+        'این محل در آن روز و زنگ رزرو شده است',
+      );
+    }
+    final prev = d.id == null
+        ? null
+        : await db.existing('schedule', d.id!, 'این زنگ');
+    db.requireRoom(1);
+    final roomName = d.roomId == null
+        ? (d.legacyRoom.trim().isNotEmpty
+              ? d.legacyRoom.trim()
+              : _s(cls.data['room']))
+        : _s((await db.get('classes', d.roomId!))?.data['name']);
+    final id = d.id ?? await db.newId('schedule');
+    final key = await db.put('schedule', id, {
+      ...?prev?.data,
+      'class_id': cls.id,
+      'grade': _s(cls.data['grade']),
+      'branch': '',
+      'subject_id': d.subjectId,
+      'teacher_id': d.teacherId,
+      'room_id': d.roomId,
+      'room': roomName,
+      'weekday': d.day,
+      'bell_order': d.period,
+    }, prev: prev);
+    return RecordWrite('برنامه ذخیره شد', id: id, keys: [key]);
   }
 
   /// `slot-del`: the slot and its substitutions.
@@ -1247,16 +1388,20 @@ final class Timetable {
   Future<GenResult> generate() async {
     _requireManager();
     final classes = await db.allOrEmpty('classes');
+    // ردیف ۱۹۵: کلاس‌محور = هر کلاسِ ثابت برنامهٔ خودش (کلید = شناسهٔ کلاس)؛
+    // رشته‌محور = هر «پایه × رشته» یک برنامه
+    final byClass = (await SchoolStructure.read(db)).classBased;
     final cohorts = <String, (int, String, String)>{};
     for (final c in classes) {
       if (c.data['kind'] == 'room' || _s(c.data['grade']).isEmpty) continue;
       cohorts.putIfAbsent(
-        '${_s(c.data['grade'])}|${_s(c.data['branch'])}',
+        byClass ? '#${c.id}' : '${_s(c.data['grade'])}|${_s(c.data['branch'])}',
         () => (c.id, _s(c.data['grade']), _s(c.data['branch'])),
       );
     }
-    int cohortId(String g, String b, int? fallback) =>
-        cohorts['${g.trim()}|${b.trim()}']?.$1 ?? fallback ?? 0;
+    int cohortId(String g, String b, int? fallback) => byClass
+        ? (fallback ?? 0)
+        : cohorts['${g.trim()}|${b.trim()}']?.$1 ?? fallback ?? 0;
     final subjects = await db.allOrEmpty('subjects');
     final teachers = [
       for (final u in await db.allOrEmpty('users'))

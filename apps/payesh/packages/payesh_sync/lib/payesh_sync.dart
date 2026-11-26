@@ -15,6 +15,7 @@ export 'src/timetable.dart';
 export 'src/followup.dart';
 export 'src/school_import.dart';
 export 'src/school_signup.dart';
+export 'src/school_structure.dart';
 export 'src/sheet_reader.dart';
 export 'src/reports.dart';
 export 'src/data_health.dart';

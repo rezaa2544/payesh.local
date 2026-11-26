@@ -266,6 +266,7 @@ void main() {
         period: 1,
         subjectId: 41,
         teacherId: 10,
+        roomId: 6,
       ),
     );
     expect(ob.list(), hasLength(1));

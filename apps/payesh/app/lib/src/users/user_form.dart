@@ -295,16 +295,17 @@ class _UserFormPageState extends State<UserFormPage> {
         classId = null;
       },
     ),
-    _drop<String>(
-      'usr-f-branch',
-      'رشته',
-      branch,
-      [const ('', '—'), for (final b in c.definedBranches) (b, b)],
-      (v) {
-        branch = v;
-        classId = null;
-      },
-    ),
+    if (c.showBranch)
+      _drop<String>(
+        'usr-f-branch',
+        'رشته',
+        branch,
+        [const ('', '—'), for (final b in c.definedBranches) (b, b)],
+        (v) {
+          branch = v;
+          classId = null;
+        },
+      ),
     _drop<int?>('usr-f-class', 'کلاس', classId, [
       (null, '—'),
       ..._classesForGrade,
@@ -414,10 +415,11 @@ class _UserFormPageState extends State<UserFormPage> {
       const ('', 'همهٔ پایه‌ها'),
       for (final g in c.definedGrades) (g, g),
     ], (v) => teachGrade = v),
-    _drop<String>('usr-f-teach-branch', 'رشته', teachBranch, [
-      const ('', 'همهٔ رشته‌ها'),
-      for (final b in c.definedBranches) (b, b),
-    ], (v) => teachBranch = v),
+    if (c.showBranch)
+      _drop<String>('usr-f-teach-branch', 'رشته', teachBranch, [
+        const ('', 'همهٔ رشته‌ها'),
+        for (final b in c.definedBranches) (b, b),
+      ], (v) => teachBranch = v),
     Align(
       alignment: AlignmentDirectional.centerStart,
       child: FilledButton.tonal(

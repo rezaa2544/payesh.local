@@ -39,6 +39,9 @@ class UsersController extends SchoolController {
   /// child).
   List<String> definedGrades = const [];
   List<String> definedBranches = const [];
+
+  /// ردیف ۱۹۵: کادر «رشته» فقط در مدرسهٔ رشته‌محور (ابتدایی و متوسطه اول رشته ندارند).
+  bool showBranch = true;
   List<(int, String, String, String)> classRows = const [];
   List<(int, String)> subjects = const [];
   List<(int, String)> studentRows = const [];
@@ -80,6 +83,9 @@ class UsersController extends SchoolController {
     }
     definedGrades = defG;
     definedBranches = defB;
+    // ردیف ۱۹۵: رشته فقط در مدرسهٔ رشته‌محور (متوسطه دوم) معنا دارد
+    final st = await SchoolStructure.read(db);
+    showBranch = st.fieldBased || (st.level.isEmpty && defB.isNotEmpty);
     subjects = [
       for (final x in await db.allOrEmpty('subjects'))
         if (SchoolRecords.str(x.data['name']).trim().isNotEmpty)

@@ -18,16 +18,20 @@ class ClassesController extends SchoolController {
 
   ClassesView? view;
 
-  /// web `isFieldSchool`: the school level is «متوسطهٔ دوم».
-  bool fieldSchool = false;
+  /// ردیف ۱۹۵: دبیران مدرسه (برای «دبیر پایه» در فرم کلاس).
+  List<(int, String)> teachers = const [];
+
+  /// web `isFieldSchool` — ردیف ۱۹۵: از مقطع مدرسه (متوسطه دوم = رشته‌محور).
+  bool get fieldSchool => view?.structure.fieldBased ?? false;
 
   @override
   Future<void> read(SchoolRecords db) async {
     view = await ClassBook(db).overview();
-    final level = SchoolRecords.str(
-      (await db.get('schools', 1))?.data['level'],
-    );
-    fieldSchool = RegExp('متوسطهٔ? ?دوم').hasMatch(level);
+    teachers = [
+      for (final u in await db.allOrEmpty('users'))
+        if (u.data['role'] == 'teacher' && u.data['active'] != false)
+          (u.id, SchoolRecords.str(u.data['name'])),
+    ]..sort((a, b) => a.$2.compareTo(b.$2));
   }
 
   Future<RecordWrite?> saveRoom({int? id, required String name}) =>
@@ -73,6 +77,15 @@ class ClassesController extends SchoolController {
 
   Future<RecordWrite?> deleteSubject(int id) =>
       run((db) => ClassBook(db).deleteSubject(id));
+}
+
+/// ردیف ۱۹۵ — خط ساختار مدرسه: کلاس‌محور (ابتدایی / متوسطه اول) یا رشته‌محور (متوسطه دوم).
+String structureLine(SchoolStructure st) {
+  final head =
+      'ساختار مدرسه: ${st.modeFa}${st.level.isEmpty ? ' (مقطع تعیین نشده — در «سیستم ← مشخصات مدرسه» تعیین کنید)' : ' · ${st.level}'}';
+  return st.fieldBased
+      ? '$head — محور اصلی «پایه × رشته» است و کلاس/کارگاهِ هر زنگ را مدیر در برنامهٔ هفتگی تعیین می‌کند.'
+      : '$head — کلاس‌ها ثابت‌اند؛ هر کلاس اتاق و دبیر پایهٔ خودش را دارد و رشته ندارد.';
 }
 
 class ClassesScreen extends StatefulWidget {
@@ -147,6 +160,67 @@ class _ClassesScreenState extends State<ClassesScreen> {
     ),
     WebBtn.delete('حذف', key: Key(delete), onPressed: c.busy ? null : onDelete),
   ];
+
+  /// ردیف ۱۹۵ — کلاس‌های ثابتِ مدرسهٔ کلاس‌محور (p2 viewClasses): پایه، اتاق، دبیر پایه، پرشدگی.
+  Widget _classesCard(ClassesView v) => WebCard(
+    key: const Key('cls-classes'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        WebCardHead(
+          title: 'کلاس‌ها',
+          icon: '🏛️',
+          actions: [Text('${Web.fa(v.classes.length)} کلاس', style: Web.small)],
+        ),
+        if (v.classes.isEmpty)
+          Text(
+            'هنوز کلاسی تعریف نشده — با «+ کلاس جدید» کلاس‌های ثابت (مثل «سوم الف») را بسازید.',
+            style: Web.small,
+          )
+        else
+          WebTable(
+            key: const Key('cls-classes-table'),
+            head: const ['کلاس', 'پایه', 'اتاق', 'دبیر پایه', 'دانش‌آموز', ''],
+            rows: [
+              for (final r in v.classes)
+                [
+                  WebWrap(
+                    key: Key('cls-class-${r.id}'),
+                    spacing: 4,
+                    children: [
+                      Text(
+                        r.name,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      ..._queued(r.queued),
+                    ],
+                  ),
+                  Text(r.grade.isEmpty ? '—' : r.grade),
+                  Text(r.room.isEmpty ? '—' : r.room),
+                  Text(r.teacher.isEmpty ? '—' : r.teacher),
+                  WebBadge(
+                    '${Web.fa(r.students)} / ${Web.fa(r.capacity)}',
+                    tone: r.students > r.capacity
+                        ? WebTone.red
+                        : (r.students * 10 >= r.capacity * 9
+                              ? WebTone.amber
+                              : WebTone.green),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: _rowActions(
+                      'cls-class-edit-${r.id}',
+                      () => _open(ClassFormPage(controller: c, row: r)),
+                      'cls-class-delete-${r.id}',
+                      () => _deleteClass(r),
+                    ),
+                  ),
+                ],
+            ],
+          ),
+      ],
+    ),
+  );
 
   Future<void> _deleteClass(ClassRow r) async {
     final n = await c.studentsOf(r.id);
@@ -263,12 +337,15 @@ class _ClassesScreenState extends State<ClassesScreen> {
     builder: (context, _) {
       final v = c.view;
       // web PAGES.classes: `isFieldSchool` hides «+ کلاس جدید» (field schools get their
-      // classes from the grade × branch pairs).
-      final field =
-          c.fieldSchool || (v?.classes.any((x) => x.mode == 'field') ?? false);
+      // classes from the grade × branch pairs). ردیف ۱۹۵: ساختار از مقطع مدرسه می‌آید.
+      final field = c.fieldSchool;
+      final st = v?.structure;
       return SchoolPage(
         prefix: 'cls',
         title: 'کلاس‌ها و تعریف‌ها',
+        // ردیف ۱۹۵: ساختار مدرسه (p2 «نوع چیدمان») در خط زیر عنوان — بدون کارت اضافه
+        sub: st == null ? null : structureLine(st),
+        subKey: const Key('cls-structure'),
         controller: c,
         sync: widget.sync,
         onRetry: widget.onRetry,
@@ -287,11 +364,13 @@ class _ClassesScreenState extends State<ClassesScreen> {
         children: v == null
             ? const []
             : [
+                if (!field) _classesCard(v),
                 // row 185: three columns side by side — «پایه‌ها» on the right, «رشته‌ها» in the
                 // middle, «کلاس و محل برگزاری» on the left (FlowColumns puts the first on the right)
+                // ردیف ۱۹۵: مدرسهٔ کلاس‌محور رشته ندارد — کارت «رشته‌ها» فقط در رشته‌محور
                 for (final (kind, title, rows) in [
                   ('grade', 'پایه‌ها', v.grades),
-                  ('branch', 'رشته‌ها', v.branches),
+                  if (field) ('branch', 'رشته‌ها', v.branches),
                 ])
                   WebCard(
                     key: Key('cls-defs-$kind'),
@@ -338,7 +417,9 @@ class _ClassesScreenState extends State<ClassesScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _head(
-                        'کلاس‌ها و کارگاه‌ها (محل برگزاری)',
+                        field
+                            ? 'کلاس‌ها و کارگاه‌ها (محل برگزاری)'
+                            : 'فضاهای ویژه (آزمایشگاه، کارگاه، نمازخانه…)',
                         'cls-room-add',
                         'کلاس/کارگاه',
                         () => _open(RoomFormPage(controller: c)),
@@ -348,7 +429,9 @@ class _ClassesScreenState extends State<ClassesScreen> {
                       Padding(
                         padding: EdgeInsets.only(bottom: 8),
                         child: Text(
-                          'فقط نام لازم است؛ همین نام در برنامهٔ هفتگی به هر زنگ داده می‌شود.',
+                          field
+                              ? 'فقط نام لازم است؛ مدیر همین نام را در برنامهٔ هفتگی به هر زنگ می‌دهد (کلاسِ هر زنگ در رشته‌محور ثابت نیست).'
+                              : 'کلاس‌های ثابت اتاق خودشان را دارند؛ این‌جا فقط فضاهای مشترک را تعریف کنید تا در برنامهٔ هفتگی برای زنگ‌های ویژه انتخاب شوند.',
                           style: TextStyle(
                             fontSize: 12.5,
                             color: Web.muted,
@@ -506,10 +589,17 @@ class _ClassFormPageState extends State<ClassFormPage> {
   late String grade = widget.row?.grade ?? '';
   late String branch = widget.row?.branch ?? '';
   late String mode = widget.row?.mode ?? '';
+  late final room = TextEditingController(text: widget.row?.room ?? '');
+  late final capacity = TextEditingController(
+    text: widget.row == null ? '' : '${widget.row!.capacity}',
+  );
+  late int? teacher = widget.row?.teacherId;
 
   @override
   void dispose() {
     name.dispose();
+    room.dispose();
+    capacity.dispose();
     super.dispose();
   }
 
@@ -552,6 +642,8 @@ class _ClassFormPageState extends State<ClassFormPage> {
   @override
   Widget build(BuildContext context) {
     final v = widget.controller.view;
+    final st =
+        v?.structure ?? const SchoolStructure(level: '', fieldBased: false);
     return SchoolForm(
       prefix: 'cf',
       title: widget.row == null
@@ -561,40 +653,61 @@ class _ClassFormPageState extends State<ClassFormPage> {
       submitLabel: widget.row == null ? 'ایجاد کلاس' : 'ذخیرهٔ تغییرات',
       onSubmit: () async {
         final r = await widget.controller.saveClass(
-          ClassDraft(name: name.text, grade: grade, branch: branch, mode: mode),
+          ClassDraft(
+            name: name.text,
+            grade: grade,
+            branch: branch,
+            mode: mode,
+            room: room.text,
+            capacity: capacity.text,
+            teacherId: teacher,
+          ),
           id: widget.row?.id,
         );
         if (r != null && context.mounted) Navigator.pop(context);
       },
       fields: [
-        FieldBox(
-          width: kFieldText,
-          child: DropdownButtonFormField<String>(
-            key: const Key('cf-f-mode'),
-            isExpanded: true,
-            initialValue: mode,
-            decoration: const InputDecoration(
-              labelText: 'نوع چیدمان',
-              border: OutlineInputBorder(),
+        // ردیف ۱۹۵: وقتی مقطع مدرسه معلوم است، نوع چیدمان از مقطع می‌آید و انتخابی نیست
+        if (st.level.isNotEmpty)
+          Text(
+            'نوع چیدمان: ${st.modeFa} (مقطع ${st.level})',
+            key: const Key('cf-mode-fixed'),
+          )
+        else
+          FieldBox(
+            width: kFieldText,
+            child: DropdownButtonFormField<String>(
+              key: const Key('cf-f-mode'),
+              isExpanded: true,
+              initialValue: mode,
+              decoration: const InputDecoration(
+                labelText: 'نوع چیدمان',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: '',
+                  child: Text('— خودکار از روی پایه —'),
+                ),
+                DropdownMenuItem(
+                  value: 'class',
+                  child: Text('کلاس‌محور (ابتدایی و متوسطه اول)'),
+                ),
+                DropdownMenuItem(
+                  value: 'field',
+                  child: Text('رشته‌محور (متوسطه دوم)'),
+                ),
+              ],
+              onChanged: (x) => setState(() => mode = x ?? ''),
             ),
-            items: const [
-              DropdownMenuItem(
-                value: '',
-                child: Text('— خودکار از روی پایه —'),
-              ),
-              DropdownMenuItem(
-                value: 'class',
-                child: Text('کلاس‌محور (ابتدایی و متوسطه اول)'),
-              ),
-              DropdownMenuItem(
-                value: 'field',
-                child: Text('رشته‌محور (متوسطه دوم)'),
-              ),
-            ],
-            onChanged: (x) => setState(() => mode = x ?? ''),
           ),
+        SchoolField(
+          'cf-f-name',
+          st.fieldBased
+              ? 'نام کلاس (خالی = از پایه و رشته)'
+              : 'نام کلاس (مثل «سوم الف»؛ خالی = نام پایه)',
+          name,
         ),
-        SchoolField('cf-f-name', 'نام کلاس (خالی = از پایه و رشته)', name),
         _pick(
           'cf-f-grade',
           'پایه (الزامی)',
@@ -602,15 +715,50 @@ class _ClassFormPageState extends State<ClassFormPage> {
           grade,
           (x) => grade = x,
         ),
-        _pick(
-          'cf-f-branch',
-          'رشته (فقط رشته‌محور)',
-          v?.branches ?? const [],
-          branch,
-          (x) => branch = x,
+        if (!(st.level.isNotEmpty && st.classBased))
+          _pick(
+            'cf-f-branch',
+            'رشته (فقط رشته‌محور)',
+            v?.branches ?? const [],
+            branch,
+            (x) => branch = x,
+          ),
+        SchoolField(
+          'cf-f-room',
+          st.fieldBased ? 'اتاق پیش‌فرض (اختیاری)' : 'اتاق کلاس (اختیاری)',
+          room,
         ),
-        const Text(
-          'اگر پایه یا رشتهٔ دلخواه در فهرست نیست، از بخش «پایه‌ها» یا «رشته‌ها» اضافه کنید.',
+        SchoolField(
+          'cf-f-capacity',
+          'ظرفیت (خالی = ۳۰)',
+          capacity,
+          numeric: true,
+        ),
+        FieldBox(
+          width: kFieldText,
+          child: DropdownButtonFormField<int>(
+            key: const Key('cf-f-teacher'),
+            isExpanded: true,
+            initialValue: widget.controller.teachers.any((t) => t.$1 == teacher)
+                ? teacher
+                : 0,
+            decoration: const InputDecoration(
+              labelText: 'دبیر پایه (سرپرست کلاس)',
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              const DropdownMenuItem(value: 0, child: Text('— انتخاب دبیر —')),
+              for (final (id, n) in widget.controller.teachers)
+                DropdownMenuItem(value: id, child: Text(n)),
+            ],
+            onChanged: (x) =>
+                setState(() => teacher = x == null || x == 0 ? null : x),
+          ),
+        ),
+        Text(
+          st.classBased
+              ? 'اگر پایهٔ دلخواه در فهرست نیست، از بخش «پایه‌ها» اضافه کنید.'
+              : 'اگر پایه یا رشتهٔ دلخواه در فهرست نیست، از بخش «پایه‌ها» یا «رشته‌ها» اضافه کنید.',
         ),
       ],
     );

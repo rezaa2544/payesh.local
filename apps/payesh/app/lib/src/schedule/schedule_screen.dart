@@ -31,6 +31,9 @@ class ScheduleController extends SchoolController {
   String? weekShiftFa;
   String? grade;
   String? branch;
+
+  /// ردیف ۱۹۵: کلاسِ انتخاب‌شده در مدرسهٔ کلاس‌محور.
+  int? classId;
   int? homeClass;
   int? child;
 
@@ -42,8 +45,13 @@ class ScheduleController extends SchoolController {
 
   @override
   Future<void> read(SchoolRecords db) async {
-    view = await Timetable(db)
-        .view(grade: grade, branch: branch, homeClass: homeClass, child: child);
+    view = await Timetable(db).view(
+      grade: grade,
+      branch: branch,
+      classId: classId,
+      homeClass: homeClass,
+      child: child,
+    );
     weekShiftFa = await Timetable(db).weekShift();
     for (final id in openSuggestions) {
       suggestions[id] = await Timetable(db).suggest(id);
@@ -56,6 +64,11 @@ class ScheduleController extends SchoolController {
       this.branch = null; // web: a new grade starts at its first branch
     }
     if (branch != null) this.branch = branch;
+    load();
+  }
+
+  void pickClass(int? id) {
+    classId = id;
     load();
   }
 
@@ -188,6 +201,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         grade: v.grade,
         branch: v.branch,
         classId: s?.classId ?? v.cohortClassId,
+        classBased: v.classBased,
+        className: v.classBased
+            ? [
+                    for (final o in v.classOptions)
+                      if (o.$1 == v.classId) o.$2,
+                  ].firstOrNull ??
+                  ''
+            : '',
         slot: s,
         day: day,
         period: period,
@@ -309,7 +330,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           TextSpan(
                             text:
                                 ' — ${schedDayFa[x.day]} زنگ ${_fa(x.period)}: '
-                                '${x.rows.map((r) => x.kind == 'teacher' ? r.cohort : r.subject).join(' و ')}',
+                                '${x.rows.map((r) => x.kind == 'teacher' ? r.group : r.subject).join(' و ')}',
                           ),
                         ],
                       ),
@@ -326,7 +347,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
-                                '${x.kind == 'teacher' ? 'زنگ «${r.cohort.isEmpty ? '—' : r.cohort}»' : 'درس «${r.subject}»'}:',
+                                '${x.kind == 'teacher' ? 'زنگ «${r.group.isEmpty ? '—' : r.group}»' : 'درس «${r.subject}»'}:',
                                 style: TextStyle(color: Web.muted),
                               ),
                               WebBtn(
@@ -394,7 +415,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     fontSize: 13,
                   ),
                 ),
-                Text(showTeacher ? s.teacher : s.cohort, style: Web.small),
+                Text(showTeacher ? s.teacher : s.group, style: Web.small),
                 if (s.room.isNotEmpty)
                   Text(
                     '🏫 ${s.room}',
@@ -589,7 +610,28 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       ),
                     ),
                   ),
-                if (mgr)
+                if (mgr && v.classBased)
+                  WebCard.tight(
+                    key: const Key('sch-class-pick'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _dropdown<int>('sch-class', 'کلاس', v.classId ?? 0, [
+                          for (final o in v.classOptions) o,
+                          if (v.classOptions.isEmpty) (0, 'کلاسی تعریف نشده'),
+                        ], (id) => c.pickClass(id == 0 ? null : id)),
+                        const SizedBox(height: 7),
+                        Text(
+                          'مدرسهٔ کلاس‌محور: برنامه برای هر کلاسِ ثابت جدا چیده می‌شود'
+                          '${v.homeRoom.isEmpty ? '' : ' · اتاق: ${v.homeRoom}'}'
+                          '${v.homeroom.isEmpty ? '' : ' · دبیر پایه: ${v.homeroom}'}',
+                          key: const Key('sch-class-hint'),
+                          style: Web.small,
+                        ),
+                      ],
+                    ),
+                  ),
+                if (mgr && !v.classBased)
                   WebCard.tight(
                     key: const Key('sch-cohort'),
                     child: Column(
@@ -627,7 +669,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         ),
                         const SizedBox(height: 7),
                         Text(
-                          'برنامه برای این پایه و رشته چیده می‌شود؛ محل برگزاری را برای هر زنگ جداگانه انتخاب کنید.',
+                          'مدرسهٔ رشته‌محور: برنامه برای این پایه و رشته چیده می‌شود؛ کلاس/کارگاهِ هر زنگ را شما در همین برنامه تعیین می‌کنید.',
                           style: Web.small,
                         ),
                       ],
@@ -679,7 +721,28 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     selected: '${c.child ?? v.children.first.$1}',
                     onSelected: (id) => c.pickChild(int.parse(id)),
                   ),
-                if (mgr && v.grades.isEmpty)
+                if (mgr && v.classBased && v.classOptions.isEmpty)
+                  WebCard(
+                    key: const Key('sch-no-class'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'برای چیدن برنامه، ابتدا کلاس‌های ثابت (مثل «سوم الف») را در بخش «کلاس‌ها» تعریف کنید.',
+                          style: Web.small,
+                        ),
+                        const SizedBox(height: 8),
+                        WebBtn(
+                          'تعریف کلاس',
+                          key: const Key('sch-go-classes-c'),
+                          kind: WebBtnKind.primary,
+                          size: WebBtnSize.normal,
+                          onPressed: () => PulseInline.go(context, 'classes'),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (mgr && !v.classBased && v.grades.isEmpty)
                   WebCard(
                     key: const Key('sch-no-grade'),
                     child: Column(
@@ -911,10 +974,16 @@ class SlotFormPage extends StatefulWidget {
     required this.day,
     required this.period,
     this.classId,
+    this.classBased = false,
+    this.className = '',
     this.slot,
     this.subs = const [],
   });
   final ScheduleController controller;
+
+  /// ردیف ۱۹۵: زنگِ کلاسِ ثابت (کلاس‌محور) — محل اختیاری است (پیش‌فرض اتاق خود کلاس).
+  final bool classBased;
+  final String className;
   final String grade;
   final String branch;
   final int? classId;
@@ -1081,8 +1150,9 @@ class _SlotFormPageState extends State<SlotFormPage> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.slot != null;
-    final cohort =
-        '${widget.grade}${widget.branch.isEmpty ? '' : ' · ${widget.branch}'}';
+    final cohort = widget.classBased
+        ? widget.className
+        : '${widget.grade}${widget.branch.isEmpty ? '' : ' · ${widget.branch}'}';
     return SchoolForm(
       prefix: 'slot',
       title: editing
@@ -1110,7 +1180,10 @@ class _SlotFormPageState extends State<SlotFormPage> {
         if (w != null && context.mounted) Navigator.pop(context);
       },
       fields: [
-        Text('پایه و رشته: $cohort', key: const Key('slot-cohort')),
+        Text(
+          widget.classBased ? 'کلاس: $cohort' : 'پایه و رشته: $cohort',
+          key: const Key('slot-cohort'),
+        ),
         _pick(
           'slot-f-day',
           'روز فعال مدرسه',
@@ -1177,7 +1250,9 @@ class _SlotFormPageState extends State<SlotFormPage> {
         ),
         _pick(
           'slot-f-room',
-          'محل برگزاری',
+          widget.classBased
+              ? 'محل (اختیاری — فقط فضای ویژه؛ پیش‌فرض اتاق خود کلاس)'
+              : 'محل برگزاری (کلاس/کارگاه) *',
           room,
           [
             (
@@ -1186,7 +1261,9 @@ class _SlotFormPageState extends State<SlotFormPage> {
                       widget.slot!.roomId == null &&
                       widget.slot!.room.isNotEmpty
                   ? 'مکان قبلی: ${widget.slot!.room}'
-                  : '— انتخاب محل —',
+                  : (widget.classBased
+                        ? '— اتاق خود کلاس —'
+                        : '— انتخاب محل —'),
             ),
             ...rooms,
             (addNew, '＋ افزودن محل تازه…'),
