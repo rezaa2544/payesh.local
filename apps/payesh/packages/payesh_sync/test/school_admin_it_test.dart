@@ -939,7 +939,11 @@ void main() {
     final u = await serverRow('users', mergeStudent);
     expect(u, isNotNull, reason: 'students are never deleted with their class');
     expect(u!['class_id'], isNull);
-    expect('${u['followup_reason']}', contains('یازدهم شبکه'));
+    // row 204: a field school (یازدهم شبکه) keeps the student's پایه + رشته — it stays
+    // counted there and does not go to follow-up just because the group was removed
+    expect(gradeLevel('${u['grade']}'), 11);
+    expect('${u['field'] ?? u['branch']}', 'شبکه');
+    expect(u['followup_reason'], isNull);
     passed++;
   }, skip: skip);
 
