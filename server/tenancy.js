@@ -601,6 +601,10 @@ function productRowOf(r) {
    اما دیگر کدام فیلدهای هویتیِ آن ردیف‌ها را نه.
    ═════════════════════════════════════════════════════════════════ */
 function scrubUsersRow(scope, row) {
+  /* ردیف ۱۹۷ (Q06): نگهبانِ «درِ مدرسه» — مرخصی بی‌علت و بی‌گواهی */
+  if (row && row.collection === 'leaves' && scope && scope.gateLeaves && row.data && typeof row.data === 'object') {
+    return Object.assign({}, row, { data: policy.leaveForGate(row.data) });
+  }
   if (!row || row.collection !== 'users') return row;
   if (!scope || scope.role === 'manager' || scope.all) return row;
   const data = (row.data && typeof row.data === 'object') ? row.data : null;
@@ -639,12 +643,14 @@ async function getProduct(pool, tenantId, { collection, id, claims = null }) {
     const q = await c.query(`select collection, record_id, version, data, deleted_at, updated_at
                              from ${PRODUCT_TABLE} where collection = $1 and record_id = $2`, [col, Number(id)]);
     if (!q.rows.length) return null;
+    let gateLeaves = false;
     if (claims) {
       const scope = await scopeMod.build(c, claims);
       if (!scopeMod.canReadCollection(scope, col)) throw new TenancyError('forbidden_collection', 403, { collection: col });
       if (!scopeMod.rowInScope(scope, col, q.rows[0].data || {})) throw new TenancyError('out_of_scope', 403, { collection: col });
+      gateLeaves = !!scope.gateLeaves;
     }
-    return scrubUsersRow(claims ? { role: String((claims && claims.role) || ''), uid: Number((claims && claims.uid) || 0) } : null, productRowOf(q.rows[0]));
+    return scrubUsersRow(claims ? { role: String((claims && claims.role) || ''), uid: Number((claims && claims.uid) || 0), gateLeaves } : null, productRowOf(q.rows[0]));
   });
 }
 
@@ -1334,7 +1340,7 @@ async function rekeyFields(pool, tenantId) {
   });
 }
 
-module.exports = { SCHOOL_TABLE, CRED_TABLE, upsertInTx, createPool, poolErrorCount, rekeyFields, replicaPolicy, transfer, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
+module.exports = { scrubUsersRow, SCHOOL_TABLE, CRED_TABLE, upsertInTx, createPool, poolErrorCount, rekeyFields, replicaPolicy, transfer, maxFeedSeq, scopeMod, getPool, applyOps, takeQuota, readiness, poolSnapshot, poolMax, acquire, poolWaitReset, poolWaitSnapshot, appendFeed, listFeed, pruneFeed, compressFeed, feedStats, feedPayload, FEED_TABLE, OPS_TABLE, QUOTA_TABLE, MAX_OPS_PER_REQUEST, MAX_OP_BYTES,
   TABLE, PRODUCT_TABLE, JOBS_TABLE, OWNER_ROLE, RUNTIME_ROLE, SCHEMA_SQL, TOKEN_VERSION,
   TenancyError, signToken, verifyToken, migrate, rollbackProduct, createPool, withTenant, txAttempts, txRetryCount, SCHEMA_FINGERPRINT, SCHEMA_META_TABLE,
   listRecords, getRecord, createRecord, updateRecord, deleteRecord,

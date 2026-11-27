@@ -26,6 +26,8 @@ const DEFAULT_COLLECTIONS = [
   'schools', 'school_years', 'users', 'classes', 'subjects', 'lookups', 'schedule', 'bell_schedules',
   'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'parent_links', 'internships',
   'staff_attendance', 'staff_posts', 'discipline', 'homework', 'exams', 'calendar', 'import_issues',
+  /* ردیف ۱۹۷ (Q06): دفتر مراجعین؛ و صف ارجاع که مشاور بی‌آن روی همگام‌سازی محلی خالی می‌دید */
+  'visitors', 'counselor_refs',
 ];
 
 /* شمارهٔ همراه: ارقام فارسی/عربی به لاتین، و اگر اکسل صفرِ اول را
@@ -46,6 +48,8 @@ function pull(store, actor, params) {
   const requested = String(params.collections || '').split(',').map(s => s.trim()).filter(Boolean);
   const list = requested.length ? requested : DEFAULT_COLLECTIONS;
   const scope = policy.buildScope(store, actor.user);
+  /* ردیف ۱۹۷ (Q06): نگهبانِ «درِ مدرسه» از مرخصی فقط زمان و وضعیت را می‌گیرد */
+  const gateLeaves = actor.role !== 'manager' && policy.gateLeavesOnly(Object.assign({}, actor.user, { role: actor.role }));
   const collections = {};
   const deleted = [];
   let more = false;
@@ -77,6 +81,7 @@ function pull(store, actor, params) {
       if (name === 'users' && actor.role !== 'manager') {
         data = policy.scrubUserFor({ id: scope.selfId }, data);
       }
+      if (name === 'leaves' && gateLeaves) data = policy.leaveForGate(data);
       out.push(data);
     }
     if (out.length || truncated) collections[name] = out;
@@ -350,7 +355,7 @@ function push(store, actor, body, ctx = {}) {
       /* ردیف ۱۹۴: فقط کلیدهای شناخته‌شدهٔ سطح دسترسی، و فقط برای نقش‌های تیک‌پذیر */
       if (incoming.access !== undefined) {
         const r = incoming.role !== undefined ? incoming.role : (existing ? existing.role : '');
-        incoming.access = policy.staffAccessOf(r, incoming.access);
+        incoming.access = policy.accessToStore(r, incoming.access);
       }
       /* F‑01: هیچ رمز خام/رمزنگاری‌شده‌ای از کلاینت پذیرفته نمی‌شود */
       delete incoming.password_plain;

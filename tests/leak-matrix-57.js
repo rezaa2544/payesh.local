@@ -9,14 +9,14 @@ const collections = [
   'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves',
   'parent_links', 'internships', 'staff_attendance', 'staff_posts', 'counselor_refs',
   'counselor_notes', 'discipline', 'homework', 'exams', 'calendar', 'app_settings',
-  'import_issues', 'conflicts',
+  'import_issues', 'conflicts', 'visitors',
 ];
 const readByRole = {
   manager: collections.filter((c) => c !== 'counselor_notes'),
-  teacher: collections.filter((c) => !['parent_links', 'staff_attendance', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts'].includes(c)),
-  parent: collections.filter((c) => !['staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts'].includes(c)),
-  student: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'discipline', 'app_settings', 'import_issues', 'conflicts'].includes(c)),
-  counselor: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'app_settings', 'import_issues', 'conflicts'].includes(c)),
+  teacher: collections.filter((c) => !['parent_links', 'staff_attendance', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors'].includes(c)),
+  parent: collections.filter((c) => !['staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors'].includes(c)),
+  student: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'discipline', 'app_settings', 'import_issues', 'conflicts', 'visitors'].includes(c)),
+  counselor: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'app_settings', 'import_issues', 'conflicts', 'visitors'].includes(c)),
   guard: collections.filter((c) => ['schools', 'school_years', 'users', 'classes', 'subjects', 'lookups', 'schedule', 'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'internships', 'homework', 'exams', 'calendar'].includes(c)),
 };
 // row 187 (p2): کارمند and اجرایی read exactly what the guard reads
@@ -41,7 +41,7 @@ const rows = {
   internships: { id: 1, student_id: 3, class_id: 10 }, staff_attendance: { id: 1 }, staff_posts: { id: 1 },
   counselor_refs: { id: 1 }, counselor_notes: { id: 1 }, discipline: { id: 1, student_id: 3, class_id: 10 },
   homework: { id: 1 }, exams: { id: 1 }, calendar: { id: 1 }, app_settings: { id: 1 },
-  import_issues: { id: 1 }, conflicts: { id: 1 },
+  import_issues: { id: 1 }, conflicts: { id: 1 }, visitors: { id: 1 },
 };
 const readScopeByRole = {
   manager: collections,

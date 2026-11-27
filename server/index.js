@@ -1550,7 +1550,7 @@ async function api(req, res, url, ip) {
     }
     /* ردیف ۱۹۷: تیک‌های دسترسی فقط کلیدهای شناخته و فقط برای نقش‌های تیک‌پذیر */
     if (body.access !== undefined) {
-      patch.access = policy.staffAccessOf(patch.role || user.role, body.access);
+      patch.access = policy.accessToStore(patch.role || user.role, body.access);
     }
     /* ردیف ۱۹۷: درس‌های دبیر (همان شکل اپ: subject_id، subject، grade، branch) */
     if (body.teaches !== undefined && (patch.role || user.role) === 'teacher') {

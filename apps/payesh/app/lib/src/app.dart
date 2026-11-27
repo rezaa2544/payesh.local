@@ -23,6 +23,7 @@ import 'school/school_entry.dart';
 import 'school/school_source.dart';
 import 'login/session_controller.dart';
 import 'secure/local_storage.dart';
+import 'users/no_access_guide.dart';
 
 /// client/pages.js `navConfig(role)`: (web route, pulse.js icon, label, native page id).
 List<(String, String, String, String)> webNavConfig(String? role) =>
@@ -87,6 +88,8 @@ const List<(String, String, String, String)> grantNavExtra = [
   ('attendance', 'check', 'ثبت حضور', 'attendance'),
   ('grades', 'pen', 'نمره', 'grades'),
   // «مرخصی‌ها» از ردیف ۱۹۷ در منوی خود مدیر است (webNavConfig).
+  // ردیف ۱۹۷ (Q06): نگهبان — مراجعین و خروج زودهنگام امروز.
+  ('gate', 'clock', 'درِ مدرسه', 'gate'),
 ];
 
 /// Row 194: the signed-in staff member's ticks («سطح دسترسی»), read from the user's own row of
@@ -109,6 +112,7 @@ class StaffAccessCache extends ChangeNotifier {
       _src?.changed.removeListener(_reload);
       _key = key;
       _access = const [];
+      _loaded = false;
       _src = src..changed.addListener(_reload);
       _role = role;
       _uid = uid;
@@ -119,6 +123,11 @@ class StaffAccessCache extends ChangeNotifier {
 
   String _role = '';
   int _uid = 0;
+  bool _loaded = false;
+
+  /// Row 197 (Q06): the user's own row was read at least once (the «دسترسی ندارید» guide waits
+  /// for it — an empty list before that only means «not read yet»).
+  bool get loaded => _loaded;
 
   Future<void> _reload() async {
     final src = _src;
@@ -129,8 +138,9 @@ class StaffAccessCache extends ChangeNotifier {
       final row = await db?.get('users', _uid);
       final next = staffAccessOf(_role, row?.data['access']);
       if (gen != _gen) return;
-      if (next.join(',') != _access.join(',')) {
+      if (next.join(',') != _access.join(',') || !_loaded) {
         _access = next;
+        _loaded = true;
         notifyListeners();
       }
     } on Object {
@@ -372,7 +382,25 @@ class PayeshApp extends StatelessWidget {
     final access = src == null || role == null || uid == null
         ? const <String>[]
         : staffAccessCache.current(src, role, uid);
-    if (access.isEmpty) return own;
+    if (access.isEmpty) {
+      // Row 197 (Q06 / F41): the manager chose «هیچ» for this staff member — say so, and where
+      // access is opened, instead of a menu of only «اطلاعیه‌ها / سیستم».
+      if (role != null &&
+          noAccessGuideRoles.contains(permRole(role)) &&
+          staffAccessCache.loaded) {
+        return [
+          PulseNavItem(
+            id: 'today',
+            label: 'دسترسی من',
+            icon: Icons.lock_outline,
+            webIcon: 'alert',
+            page: (_) => NoAccessGuide(role: permRole(role)),
+          ),
+          ...own.where((m) => m.id != 'today'),
+        ];
+      }
+      return own;
+    }
     final pages = staffAccessPages(access);
     final granted = _navOf(context, s, state, [
       for (final n in [...webNavConfig('manager'), ...grantNavExtra])

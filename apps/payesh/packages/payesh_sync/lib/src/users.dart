@@ -634,7 +634,7 @@ final class UserDirectory {
         'subject': {for (final t in d.teaches) t.subject}.join('، '),
       },
       if (grantableRoles.contains(d.role))
-        'access': staffAccessOf(d.role, d.access),
+        'access': accessToStore(d.role, d.access),
     };
     db.precheck(users, row);
     // Row 194: the parents' accounts are planned (and checked) before anything is written.
@@ -895,7 +895,7 @@ final class UserDirectory {
       data['subject'] = {for (final x in t) x.subject}.join('، ');
     }
     if (grantableRoles.contains(role)) {
-      data['access'] = staffAccessOf(role, d.access);
+      data['access'] = accessToStore(role, d.access);
     } else if (prev.data.containsKey('access')) {
       data['access'] = const <String>[];
     }

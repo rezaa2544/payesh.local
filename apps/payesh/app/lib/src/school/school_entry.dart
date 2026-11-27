@@ -8,6 +8,7 @@ import '../classes/classes_screen.dart';
 import '../counselor/cqueue_screen.dart';
 import '../flags.dart';
 import '../followup/followup_screen.dart';
+import '../gate/gate_screen.dart';
 import '../pulse/pulse.dart';
 import '../reports/reports_screen.dart';
 import '../system/system_screen.dart';
@@ -198,6 +199,7 @@ final List<SchoolPageSpec> schoolPages = [
       'counselor',
       'staff',
       'office',
+      'guard',
       'parent',
       'student',
     },
@@ -255,6 +257,23 @@ final List<SchoolPageSpec> schoolPages = [
       ),
     ),
   ),
+  // Row 197 (Q06 / F38, F44): «درِ مدرسه» — the guard's visitors and today's early exits. A
+  // manager tile; a guard gets it through its «درِ مدرسه» area (its post default).
+  SchoolPageSpec(
+    id: 'gate',
+    wave: SchoolWave.reports,
+    label: 'درِ مدرسه',
+    icon: Icons.door_front_door_outlined,
+    roles: const {'manager'},
+    build: (a) => SchoolOwned(
+      create: () => GateController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => GateScreen(
+        controller: c as GateController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
   SchoolPageSpec(
     id: 'health',
     wave: SchoolWave.server,
@@ -292,6 +311,7 @@ final List<SchoolPageSpec> schoolPages = [
       'counselor',
       'staff',
       'office',
+      'guard',
       'parent',
       'student',
     },
@@ -546,6 +566,7 @@ const Map<String, String> schoolPageGroups = {
   'attendance-report': 'school',
   'reports': 'school',
   'leaves': 'school',
+  'gate': 'daily',
   'health': 'system',
   'network': 'system',
   'cloud': 'system',

@@ -100,6 +100,8 @@ const COLLECTIONS = {
   import_issues:    { write: ['manager'], read: ['manager'] },
   /* D‑28: تعارض‌ها فقط از سمت سرور ساخته/حل می‌شوند؛ کلاینت هیچ‌گاه نمی‌نویسد */
   conflicts:        { write: [], read: ['manager'] },
+  /* ردیف ۱۹۷ (Q06 / F38، F44): دفتر مراجعینِ درِ مدرسه — مدیر، و نگهبان با ناحیهٔ «درِ مدرسه» */
+  visitors:         { write: ['manager'], read: ['manager'] },
 };
 
 const PROTECTED = new Set(['audit', 'devices', 'sessions', 'pair_codes', 'sync_log']);
@@ -122,14 +124,77 @@ const STAFF_ACCESS = Object.freeze({
   grades:     { write: ['grades'], read: ['grades', 'users', 'classes'] },
   reports:    { write: [], read: ['attendance', 'grades', 'discipline', 'users', 'classes'] },
   counsel:    { write: ['counselor_refs'], read: ['counselor_refs', 'users'] },
+  /* ردیف ۱۹۷ (Q06): نگهبان — ثبت مراجعین و دیدن خروج زودهنگامِ مرخصی‌دارِ امروز */
+  gate:       { write: ['visitors'], read: ['visitors', 'leaves', 'users', 'classes'] },
 });
+
+/* ردیف ۱۹۷ (Q06 / F41، F42، F44): پیش‌فرض واقعی هر سمت. تا مدیر برای کسی چیزی تیک نزده
+   (access خالی یا نبود)، همین ناحیه‌ها باز است؛ تیک مدیر جای پیش‌فرض را می‌گیرد و
+   «هیچ» صریح به‌صورت ['none'] ذخیره می‌شود (یعنی واقعاً هیچ — راهنمای «دسترسی ندارید»).
+   پیش از این بی‌تیک = هیچ بود و کارمند/اجرایی/نگهبان فقط «اطلاعیه‌ها/سیستم» می‌دید.
+   رونوشت در staff_access.dart (`roleDefaultAccess`) — tests/access-194.js برابری را می‌گیرد. */
+const ACCESS_NONE = 'none';
+const ROLE_DEFAULT_ACCESS = Object.freeze({
+  staff:     Object.freeze(['attendance', 'leaves', 'notices']),
+  office:    Object.freeze(['attendance', 'leaves', 'notices', 'classes', 'grades', 'reports']),
+  guard:     Object.freeze(['gate']),
+  counselor: Object.freeze([]),
+});
+function accessRaw(access) {
+  const raw = Array.isArray(access) ? access : String(access == null ? '' : access).split(',');
+  return raw.map(x => String(x == null ? '' : x).trim()).filter(Boolean);
+}
 
 /* کلیدهای شناخته‌شدهٔ access (فهرست یا رشتهٔ ویرگولی)؛ برای نقشی که تیک‌پذیر نیست خالی */
 function staffAccessOf(role, access) {
-  if (!GRANTABLE_ROLES.includes(permRole(role))) return [];
-  const raw = Array.isArray(access) ? access : String(access == null ? '' : access).split(',');
-  const want = new Set(raw.map(x => String(x == null ? '' : x).trim()));
+  const r = permRole(role);
+  if (!GRANTABLE_ROLES.includes(r)) return [];
+  const raw = accessRaw(access);
+  if (raw.includes(ACCESS_NONE)) return [];
+  if (!raw.length) return [...(ROLE_DEFAULT_ACCESS[r] || [])];
+  const want = new Set(raw);
   return Object.keys(STAFF_ACCESS).filter(k => want.has(k));
+}
+/* ردیف ۱۹۷ (Q06): آنچه روی ردیف کاربر ذخیره می‌شود — [] = «پیش‌فرض سمت»، ['none'] = هیچ،
+   وگرنه فقط کلیدهای شناخته. فهرستی که هیچ کلید شناخته‌ای ندارد = هیچ (fail-closed). */
+function accessToStore(role, access) {
+  if (!GRANTABLE_ROLES.includes(permRole(role))) return [];
+  const raw = accessRaw(access);
+  if (raw.includes(ACCESS_NONE)) return [ACCESS_NONE];
+  if (!raw.length) return [];
+  const want = new Set(raw);
+  const known = Object.keys(STAFF_ACCESS).filter(k => want.has(k));
+  return known.length ? known : [ACCESS_NONE];
+}
+/* ردیف ۱۹۷ (Q06): نگهبانی که مرخصی‌ها را فقط از راه «درِ مدرسه» می‌بیند — فقط تاریخ/ساعت و
+   وضعیت می‌گیرد؛ علت و گواهی پیوست (پزشکی) به او نمی‌رسد. */
+function gateLeavesOnly(user) {
+  if (!user) return false;
+  const a = staffAccessOf(user.role, user.access);
+  return a.includes('gate') && !a.includes('leaves');
+}
+const GATE_LEAVE_FIELDS = ['id', 'student_id', 'date', 'date_to', 'kind', 'time_from', 'time_to', 'status', 'type', '_version'];
+function leaveForGate(data) {
+  const out = {};
+  for (const k of GATE_LEAVE_FIELDS) if (data && data[k] !== undefined) out[k] = data[k];
+  return out;
+}
+/* ردیف ۱۹۷ (Q06): شکل ردیف مراجع — همان visitorIssue در payesh_sync/lib/src/gate.dart */
+function visitorIssue(row) {
+  if (!row) return null;
+  const name = String(row.name == null ? '' : row.name).trim();
+  if (!name) return 'visitor_name';
+  if (name.length > 80) return 'visitor_name';
+  if (String(row.phone || '').replace(/\D/g, '').length > 15) return 'visitor_phone';
+  if (String(row.reason || '').length > 200 || String(row.host || '').length > 80) return 'visitor_too_long';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(row.date || ''))) return 'bad_date';
+  const at = Date.parse(String(row.in_at || ''));
+  if (!Number.isFinite(at)) return 'bad_time';
+  if (row.out_at != null && row.out_at !== '') {
+    const out = Date.parse(String(row.out_at));
+    if (!Number.isFinite(out) || out < at) return 'bad_time';
+  }
+  return null;
 }
 function grantWrites(user) {
   const out = new Set();
@@ -279,6 +344,8 @@ function rowInScope(scope, collection, row) {
     case 'staff_attendance':
     case 'staff_posts':
     case 'app_settings':
+    /* ردیف ۱۹۷ (Q06): مراجعین فقط برای مدیر یا ناحیهٔ «درِ مدرسه» (grantRead بالا) */
+    case 'visitors':
       return scope.role === 'manager';
     default:
       return false;
@@ -293,6 +360,10 @@ function canWriteRow(store, user, role, collection, row, existing) {
   if (collection === 'leaves' && row && row.date !== undefined) {
     const li = leaveIssue(row);
     if (li) return { ok: false, error: li };
+  }
+  if (collection === 'visitors' && row && row.name !== undefined) {
+    const vi = visitorIssue(row);
+    if (vi) return { ok: false, error: vi };
   }
   if (role !== 'manager' && grantWrites(Object.assign({}, user, { role })).has(collection)) {
     if (collection === 'attendance' && row && row.status != null && !ATT_STATUS.includes(row.status)) return { ok: false, error: 'bad_status' };
@@ -458,7 +529,8 @@ function scrubUserIdentity(data) {
 
 module.exports = {
   ROLES, USER_ROLES, ROLE_ALIASES, permRole, ATT_STATUS, GRADE_KINDS, LEAVE_REQUEST_STATUSES, LEAVE_TYPES, leaveIssue, leaveRequesterIssue, COLLECTIONS,
-  GRANTABLE_ROLES, STAFF_ACCESS, staffAccessOf, grantWrites, grantReads, canWriteFor, canReadFor,
+  GRANTABLE_ROLES, STAFF_ACCESS, ACCESS_NONE, ROLE_DEFAULT_ACCESS, staffAccessOf, accessToStore,
+  gateLeavesOnly, leaveForGate, visitorIssue, grantWrites, grantReads, canWriteFor, canReadFor,
   collectionAllowed, canRead, canWrite, buildScope, rowInScope, canWriteRow,
   USER_PUBLIC_FIELDS, USER_IDENTITY_FIELDS, SECRET_FIELD_RE, isSecretField,
   scrubUser, scrubUserFor, scrubUserIdentity,

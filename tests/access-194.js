@@ -4,7 +4,8 @@
    Row 194 — «سطح دسترسی» of the executive staff: the manager ticks what a
    staff member may do; the SERVER enforces it (local sync and cloud scope).
 
-     AC-01  without ticks a staff/office/guard user still writes nothing (row 187 kept)
+     AC-01  an explicit «هیچ» (['none']) ⇒ the staff/guard user writes nothing (row 197 Q06:
+            no ticks at all now means the role's default areas — tests/staff-roles-197.js)
      AC-02  tick «حضور و غیاب» ⇒ the staff user writes attendance of ANY class, nothing else
      AC-03  the ticked collections are pulled for the whole school; others stay closed
      AC-04  unknown keys / non-grantable roles are dropped when the manager saves access
@@ -49,12 +50,13 @@ const managerSaves = (data, id) => sync.push(st, actor(mgr), {
   ops: [op('users', data, id != null ? { id, base_version: st.get('users', id)._version } : {})],
 });
 
-/* the manager creates a staff member (no ticks) and a guard */
-const r0 = managerSaves({ name: 'کارمند', role: 'staff', active: true, phone: '09120000194', access: [] });
+/* the manager creates a staff member and a guard with «هیچ» (row 197 Q06: explicit none) */
+const r0 = managerSaves({ name: 'کارمند', role: 'staff', active: true, phone: '09120000194', access: ['none'] });
 const staffId = r0.applied[0].id;
-const guardId = managerSaves({ name: 'نگهبان', role: 'guard', active: true, phone: '09120000195' }).applied[0].id;
+const guardId = managerSaves({ name: 'نگهبان', role: 'guard', active: true, phone: '09120000195', access: ['none'] }).applied[0].id;
 
-check('AC-01', 'no ticks ⇒ the staff user writes nothing', () => {
+check('AC-01', '«هیچ» ⇒ the staff user writes nothing', () => {
+  assert(JSON.stringify(st.get('users', staffId).access) === '["none"]', 'stored ' + JSON.stringify(st.get('users', staffId).access));
   const r = sync.push(st, actor(st.get('users', staffId)), { ops: [op('attendance', { student_id: s1.id, class_id: 10, date: '2026-11-26', status: 'absent' })] });
   assert(r.applied.length === 0 && r.rejected[0].error === 'role_denied', JSON.stringify(r.rejected));
   const g = sync.push(st, actor(st.get('users', guardId)), { ops: [op('announcements', { title: 'x', body: 'y' })] });
@@ -138,8 +140,11 @@ check('AC-07', 'cloud scope mirrors the local guard', async () => {
   const { sql } = scope.sqlPredicate(cs, 1);
   const open = (sql.match(/^\(r\.collection in \(([^)]*)\)/) || [])[1] || '';
   assert(/'attendance'/.test(open) && /'users'/.test(open) && !/'grades'/.test(open), sql.slice(0, 200));
-  const none = await scope.build({ query: async () => ({ rows: [] }) }, { role: 'guard', uid: 8 });
-  assert(none.grantWrite.length === 0 && !scope.canWriteCollection(none, 'attendance'), 'guard without ticks');
+  const none = await scope.build({ query: async (sql) => /data->'access'/.test(sql) ? { rows: [{ access: ['none'] }] } : { rows: [] } }, { role: 'guard', uid: 8 });
+  assert(none.grantWrite.length === 0 && !scope.canWriteCollection(none, 'attendance'), 'guard with «هیچ»');
+  /* row 197 (Q06): a guard nobody ticked gets its role default — the gate, nothing else */
+  const dflt = await scope.build({ query: async () => ({ rows: [] }) }, { role: 'guard', uid: 8 });
+  assert(JSON.stringify(dflt.grantWrite) === '["visitors"]' && !scope.canWriteCollection(dflt, 'attendance'), 'guard default ' + JSON.stringify(dflt.grantWrite));
   return 'read/write/sql';
 });
 
@@ -156,7 +161,13 @@ check('AC-08', 'Dart copy has the same areas', () => {
   }
   const roles = (dart.match(/grantableRoles = \{([^}]*)\}/) || [])[1] || '';
   assert(JSON.stringify(roles.match(/'([a-z]+)'/g).map(x => x.replace(/'/g, ''))) === JSON.stringify(policy.GRANTABLE_ROLES), 'roles');
-  return `${keys.length} areas equal`;
+  /* row 197 (Q06): the post defaults are the same on both sides */
+  const dm = (dart.match(/roleDefaultAccess = \{([\s\S]*?)\n\};/) || [])[1] || '';
+  const dartDefaults = {};
+  for (const m of dm.matchAll(/'([a-z]+)': \[([^\]]*)\]/g)) dartDefaults[m[1]] = (m[2].match(/'([a-z_]+)'/g) || []).map(x => x.replace(/'/g, ''));
+  assert(JSON.stringify(dartDefaults) === JSON.stringify(policy.ROLE_DEFAULT_ACCESS), 'defaults ' + JSON.stringify(dartDefaults));
+  assert((dart.match(/accessNone = '([a-z]+)'/) || [])[1] === policy.ACCESS_NONE, 'none marker');
+  return `${keys.length} areas and ${Object.keys(dartDefaults).length} post defaults equal`;
 });
 
 (async () => {

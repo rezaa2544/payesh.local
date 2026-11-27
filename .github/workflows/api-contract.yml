@@ -323,14 +323,14 @@ jobs:
       # no token, quota bypass F1..F5 (fixed by migration 0005); every control is
       # reverted by a mutant and its attack must then succeed. Row 108 is re-run on
       # top of 0005 (write tickets must not break the protocol). Both run on the
-      # head migration (0007 since row 80: RLS InitPlan rewrite and telemetry change nothing).
+      # head migration (0008 since row 197 Q06: InitPlan, telemetry and the visitors allow-list change nothing).
       - name: RLS pentest (row 109, real postgres:16)
         env:
           PAYESH_PG_ADMIN: postgres://postgres@127.0.0.1:5432/payesh_c64
           RP109_REQUIRE_PG: '1'
           DS108_REQUIRE_PG: '1'
-          DS108_TO: 0007_direct_telemetry
-          RLS109_TO: 0007_direct_telemetry
+          DS108_TO: 0008_direct_visitors
+          RLS109_TO: 0008_direct_visitors
           DS108_RUNS: '4'
         run: |
           set -o pipefail

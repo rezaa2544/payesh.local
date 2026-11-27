@@ -5797,6 +5797,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۷ (Q06): پیش‌فرض واقعی هر سمت، «هیچ» آگاهانه، نگهبان و «درِ مدرسه» ── */
+  await test('ردیف ۱۹۷ (Q06): بی‌تیک = پیش‌فرض واقعی سمت (کارمند حضور/مرخصی/اطلاعیه، اجرایی + نمره/کلاس/گزارش، نگهبان درِ مدرسه)، [none] = هیچ، نگهبان ورود/خروج مراجع را ثبت می‌کند و مرخصی امروز را بی‌علت و بی‌گواهی می‌بیند، آینهٔ ابری و فرم وب برابر (۸ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/staff-roles-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'staff-roles-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۸: مصرف بی‌دلیل صندوقچهٔ آروان (نوشتن‌های بی‌تغییر در صندوقچهٔ نسخه‌بندی‌شده) ── */
   await test('ردیف ۱۹۸: خلاصهٔ دانش‌آموز و auth/data فقط با تغییر واقعی (ماندگار پس از راه‌اندازی دوباره)، رسید مدرسه بی‌تغییر هر ۱۰ دقیقه، پشتیبان مالک بی‌updates و روزی یک بار روی دیتابیس (۵ بررسی)',
     async () => {

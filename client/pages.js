@@ -2562,19 +2562,31 @@ const EDIT_EXEC_ROLES = [['vice', 'معاون'], ['counselor', 'مشاور'], ['
 const EDIT_GRANTABLE = ['counselor', 'staff', 'office', 'guard'];
 const EDIT_STAFF_ACCESS = [['attendance', 'حضور و غیاب دانش‌آموزان'], ['leaves', 'مرخصی‌ها'], ['notices', 'اطلاعیه‌ها'],
   ['schedule', 'برنامهٔ هفتگی'], ['classes', 'کلاس‌ها، پایه‌ها و دروس'], ['grades', 'نمرات'],
-  ['reports', 'گزارش‌ها (فقط دیدن)'], ['counsel', 'ارجاع به مشاور']];
+  ['reports', 'گزارش‌ها (فقط دیدن)'], ['counsel', 'ارجاع به مشاور'], ['gate', 'درِ مدرسه (مراجعین و خروج زودهنگام)']];
+/* ردیف ۱۹۷ (Q06): پیش‌فرض واقعی هر سمت — همان policy.ROLE_DEFAULT_ACCESS؛ access خالی = پیش‌فرض،
+   ['none'] = «هیچ» (آگاهانه). فرم تیک‌های مؤثر را نشان می‌دهد و «هیچ‌کدام» را ['none'] ذخیره می‌کند. */
+const EDIT_ROLE_DEFAULT_ACCESS = { staff: ['attendance', 'leaves', 'notices'],
+  office: ['attendance', 'leaves', 'notices', 'classes', 'grades', 'reports'], guard: ['gate'], counselor: [] };
+function editAccessOf(u) {
+  const raw = (Array.isArray(u.access) ? u.access : String(u.access || '').split(',')).map(x => String(x).trim()).filter(Boolean);
+  if (raw.includes('none')) return new Set();
+  return new Set(raw.length ? raw : (EDIT_ROLE_DEFAULT_ACCESS[u.role] || []));
+}
 function userRoleEditHtml(u) {
   const sel = (name, pairs, val) => `<select class="input" name="${name}">${pairs.map(([v, t]) =>
     `<option value="${esc(v)}" ${String(v) === String(val == null ? '' : val) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const text = (name, label, val) => `<label class="field grow" style="min-width:150px"><span>${label}</span><input class="input" name="${name}" value="${esc(val || '')}"></label>`;
   if (EDIT_EXEC_ROLES.some(([r]) => r === u.role)) {
-    const have = new Set(Array.isArray(u.access) ? u.access : String(u.access || '').split(','));
+    const have = editAccessOf(u);
+    const isDefault = EDIT_GRANTABLE.includes(u.role) && !(Array.isArray(u.access) ? u.access.length : String(u.access || '').trim());
     return `<div class="row" style="flex-wrap:wrap">
       <label class="field grow"><span>سمت در مدرسه</span>${sel('role', EDIT_EXEC_ROLES, u.role)}</label>
       ${text('position', 'سمت / عنوان کار', u.position)}
     </div>
     <fieldset class="field" data-edit-access style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">
       <legend class="small">سطح دسترسی (فقط مشاور، کارمند، اجرایی و نگهبان؛ معاون و مدیر همه‌چیز را دارند)</legend>
+      ${isDefault ? `<div class="small muted" data-access-default>هنوز تیکی ذخیره نشده؛ پیش‌فرض سمت باز است (همین تیک‌ها).</div>` : ''}
+      <div class="small muted">اگر هیچ تیکی نزنید، این شخص پس از ورود فقط راهنمای «دسترسی ندارید» را می‌بیند.</div>
       ${EDIT_STAFF_ACCESS.map(([k, t]) => `<label class="row small" style="gap:6px;align-items:center">
         <input type="checkbox" name="access_${k}" ${have.has(k) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}
     </fieldset>`;

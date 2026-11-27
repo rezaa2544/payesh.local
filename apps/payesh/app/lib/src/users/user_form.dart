@@ -82,6 +82,9 @@ class _UserFormPageState extends State<UserFormPage> {
   bool makeFather = true;
   bool makeMother = true;
   final Set<String> access = {};
+
+  /// Row 197 (Q06): nobody ticked anything for this person yet — the post's default is open.
+  bool accessDefault = false;
   final List<TeachDraft> teaches = [];
   int? teachSubject;
   String teachGrade = '';
@@ -113,6 +116,8 @@ class _UserFormPageState extends State<UserFormPage> {
     if (execRoles.contains(r)) {
       kind = 'exec';
       execRole = r;
+      // Row 197 (Q06): a new staff member starts with the real default of the post.
+      access.addAll(roleDefaultAccess[r] ?? const []);
     } else if (const {'student', 'teacher', 'parent'}.contains(r)) {
       kind = r;
     }
@@ -152,6 +157,8 @@ class _UserFormPageState extends State<UserFormPage> {
     access
       ..clear()
       ..addAll(staffAccessOf(r, u.data['access']));
+    accessDefault =
+        grantableRoles.contains(r) && accessIsDefault(u.data['access']);
     teaches
       ..clear()
       ..addAll(TeachDraft.listOf(u.data['teaches']));
@@ -197,10 +204,9 @@ class _UserFormPageState extends State<UserFormPage> {
       parentAccounts: kind == 'student'
           ? {if (makeFather) 'father', if (makeMother) 'mother'}
           : const {},
-      access: [
-        for (final a in staffAccessAreas)
-          if (access.contains(a.key)) a.key,
-      ],
+      // Row 197 (Q06): nothing ticked = «هیچ» on purpose (['none']); the post default is
+      // what the form pre-ticks, so it is saved as explicit ticks.
+      access: accessForSave(role, access),
       teaches: kind == 'teacher' ? [...teaches] : const [],
       childId: kind == 'parent' ? childId : null,
       active: _isEdit ? active : null,
@@ -534,18 +540,44 @@ class _UserFormPageState extends State<UserFormPage> {
                   ),
                 ),
                 TextButton(
+                  key: const Key('usr-f-access-default-btn'),
+                  onPressed: () => setState(() {
+                    access
+                      ..clear()
+                      ..addAll(roleDefaultAccess[execRole] ?? const []);
+                    accessDefault = false;
+                  }),
+                  child: const Text('پیش‌فرض سمت'),
+                ),
+                TextButton(
                   key: const Key('usr-f-access-every'),
-                  onPressed: () => setState(
-                    () => access.addAll(staffAccessAreas.map((a) => a.key)),
-                  ),
+                  onPressed: () => setState(() {
+                    access.addAll(staffAccessAreas.map((a) => a.key));
+                    accessDefault = false;
+                  }),
                   child: const Text('همه'),
                 ),
                 TextButton(
                   key: const Key('usr-f-access-none'),
-                  onPressed: () => setState(access.clear),
+                  onPressed: () => setState(() {
+                    access.clear();
+                    accessDefault = false;
+                  }),
                   child: const Text('هیچ'),
                 ),
               ],
+            ),
+          if (!all && accessDefault)
+            Text(
+              'برای این شخص هنوز تیکی ذخیره نشده؛ پیش‌فرض سمت «${roleFa[execRole] ?? execRole}» باز است (همین تیک‌ها).',
+              key: const Key('usr-f-access-default'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          if (!all && access.isEmpty)
+            Text(
+              'هیچ کاری تیک نخورده: این شخص بعد از ورود فقط راهنمای «دسترسی ندارید» را می‌بیند.',
+              key: const Key('usr-f-access-empty'),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           Wrap(
             spacing: PayeshTokens.space2,
@@ -563,11 +595,12 @@ class _UserFormPageState extends State<UserFormPage> {
                     subtitle: Text(a.hint),
                     onChanged: all
                         ? null
-                        : (v) => setState(
-                            () => v == true
+                        : (v) => setState(() {
+                            v == true
                                 ? access.add(a.key)
-                                : access.remove(a.key),
-                          ),
+                                : access.remove(a.key);
+                            accessDefault = false;
+                          }),
                   ),
                 ),
             ],
@@ -578,9 +611,21 @@ class _UserFormPageState extends State<UserFormPage> {
   }
 
   List<Widget> _exec() => [
-    _drop<String>('usr-f-role', 'سمت در مدرسه', execRole, [
-      for (final r in execRoleOrder) (r, roleFa[r] ?? r),
-    ], (v) => execRole = v),
+    _drop<String>(
+      'usr-f-role',
+      'سمت در مدرسه',
+      execRole,
+      [for (final r in execRoleOrder) (r, roleFa[r] ?? r)],
+      (v) {
+        execRole = v;
+        // Row 197 (Q06): a new person gets the default of the post just picked.
+        if (!_isEdit) {
+          access
+            ..clear()
+            ..addAll(roleDefaultAccess[v] ?? const []);
+        }
+      },
+    ),
     const SchoolFormSection('مشخصات شخصی'),
     ..._personal(adult: true),
     ..._personnel(post: true),

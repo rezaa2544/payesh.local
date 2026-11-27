@@ -104,6 +104,37 @@ const List<StaffAccessArea> staffAccessAreas = [
     write: {'counselor_refs'},
     read: {'counselor_refs', 'users'},
   ),
+  // Row 197 (Q06 / F38, F44): the guard — visitor log and today's early exits with leave.
+  StaffAccessArea(
+    key: 'gate',
+    label: 'درِ مدرسه (مراجعین و خروج زودهنگام)',
+    hint: 'ثبت ورود و خروج مراجعین و دیدن دانش‌آموزانی که امروز با مرخصی تأییدشده زودتر می‌روند',
+    pages: ['gate'],
+    write: {'visitors'},
+    read: {'visitors', 'leaves', 'users', 'classes'},
+  ),
+];
+
+/// Row 197 (Q06 / F41, F42, F44): the real default of each post — open until the manager
+/// ticks something for that person. Same as server/policy.js `ROLE_DEFAULT_ACCESS`
+/// (tests/access-194.js keeps them equal).
+const Map<String, List<String>> roleDefaultAccess = {
+  'staff': ['attendance', 'leaves', 'notices'],
+  'office': ['attendance', 'leaves', 'notices', 'classes', 'grades', 'reports'],
+  'guard': ['gate'],
+  'counselor': [],
+};
+
+/// Stored as `['none']` when the manager chose «هیچ» on purpose (server/policy.js
+/// `ACCESS_NONE`); an empty list means «the post's default».
+const String accessNone = 'none';
+
+List<String> _accessRaw(Object? access) => [
+  for (final x
+      in access is List
+          ? access.map(SchoolRecords.str)
+          : SchoolRecords.str(access).split(','))
+    if (x.trim().isNotEmpty) x.trim(),
 ];
 
 /// The area of [key] (null for an unknown key).
@@ -117,17 +148,52 @@ StaffAccessArea? staffAccessArea(String key) {
 /// The known access keys of a user row's `access` value (a list, or a comma list from an older
 /// copy); unknown keys are dropped. Only [grantableRoles] carry access — for every other role
 /// the result is empty (the role itself decides).
+///
+/// Row 197 (Q06): nothing stored (or an empty list) ⇒ the post's [roleDefaultAccess];
+/// `['none']` ⇒ nothing.
 List<String> staffAccessOf(String role, Object? access) {
-  if (!grantableRoles.contains(permRole(role))) return const [];
-  final raw = access is List
-      ? access.map(SchoolRecords.str)
-      : SchoolRecords.str(access).split(',');
-  final want = {for (final x in raw) x.trim()};
+  final r = permRole(role);
+  if (!grantableRoles.contains(r)) return const [];
+  final raw = _accessRaw(access);
+  if (raw.contains(accessNone)) return const [];
+  if (raw.isEmpty) return [...?roleDefaultAccess[r]];
+  final want = raw.toSet();
   return [
     for (final a in staffAccessAreas)
       if (want.contains(a.key)) a.key,
   ];
 }
+
+/// Row 197 (Q06): what the user form saves for [ticked] — the ticks, or `['none']` when the
+/// manager ticked nothing (server/policy.js `accessToStore` keeps the same value).
+List<String> accessForSave(String role, Iterable<String> ticked) {
+  if (!grantableRoles.contains(permRole(role))) return const [];
+  final want = ticked.toSet();
+  final known = [
+    for (final a in staffAccessAreas)
+      if (want.contains(a.key)) a.key,
+  ];
+  return known.isEmpty ? const [accessNone] : known;
+}
+
+/// Row 197 (Q06): the stored `access` of a user row — same as server/policy.js
+/// `accessToStore`: `[]` = the post's default, `['none']` = nothing, else the known keys (a list
+/// with no known key = nothing, fail-closed).
+List<String> accessToStore(String role, Object? access) {
+  if (!grantableRoles.contains(permRole(role))) return const [];
+  final raw = _accessRaw(access);
+  if (raw.contains(accessNone)) return const [accessNone];
+  if (raw.isEmpty) return const [];
+  final want = raw.toSet();
+  final known = [
+    for (final a in staffAccessAreas)
+      if (want.contains(a.key)) a.key,
+  ];
+  return known.isEmpty ? const [accessNone] : known;
+}
+
+/// Row 197 (Q06): true when nobody ticked anything for this person yet (the default applies).
+bool accessIsDefault(Object? access) => _accessRaw(access).isEmpty;
 
 /// The native pages a staff member with [access] may open (beyond what the role has).
 Set<String> staffAccessPages(Iterable<String> access) => {

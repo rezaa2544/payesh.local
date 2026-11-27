@@ -8,10 +8,10 @@
      RL-03  vice scope = whole school (local buildScope and cloud scope.build)
      RL-04  every server guard reads the PERMISSION role (actorFrom, outbox, cloud token)
      RL-05  cloud token of a vice: role=manager, title_role=vice (display kept)
-     RL-06  staff/office are known roles: common pages only (announcements…), no writes
+     RL-06  staff/office are known roles: «هیچ» = common pages only; no ticks = the post default (197)
      RL-07  counselor (p2): only the referred students — attendance/discipline, never grades;
             writes counselor_refs/notes only, never discipline
-     RL-08  guard: common pages only, no writes
+     RL-08  guard: no role-level writes; the gate by its default area (197)
      RL-09  every assignable role is accepted by user edit, backup and the outbox
      RL-10  owner price policy «deputy» applies to the vice user
      RL-11  web client: S.role is the permission role, labels keep «معاون»
@@ -107,17 +107,23 @@ check('RL-05', 'cloud token of a vice: role manager, title_role vice', () => {
   return 'manager/vice';
 });
 
-check('RL-06', 'staff and office: known roles, common pages only, no writes', () => {
+/* ردیف ۱۹۷ (Q06 / F41): بی‌تیک دیگر «هیچ» نیست — پیش‌فرض واقعی سمت باز است
+   (tests/staff-roles-197.js)؛ «فقط صفحه‌های عمومی» حالا انتخاب آگاهانهٔ مدیر است: access ['none']. */
+check('RL-06', 'staff and office: known roles; with «هیچ» common pages only; with no ticks the post default', () => {
   for (const r of ['staff', 'office']) {
     assert(policy.ROLES.includes(r), r + ' in ROLES');
     assert(policy.canRead(r, 'announcements'), r + ' reads announcements');
     for (const c of COLS) assert(!policy.canWrite(r, c), r + ' writes ' + c);
-    const s = policy.buildScope(S0, ROWS.users.find(u => u.role === r));
+    const u = ROWS.users.find(x => x.role === r);
+    const s = policy.buildScope(S0, Object.assign({}, u, { access: ['none'] }));
     assert(!s.all && s.studentIds.size === 0, r + ' scope');
     assert(!policy.rowInScope(s, 'users', { id: 3 }), r + ' sees a student');
     assert(policy.rowInScope(s, 'users', { id: s.selfId }), r + ' sees self');
+    const d = policy.buildScope(S0, u);
+    assert(policy.grantWrites(u).has('attendance') && d.grantRead.has('leaves'), r + ' default');
+    assert(policy.grantWrites(Object.assign({}, u, { access: ['none'] })).size === 0, r + ' «هیچ» writes');
   }
-  return 'staff, office';
+  return 'staff, office (none + default)';
 });
 
 check('RL-07', 'counselor: referred students only, no grades, writes only its queue', () => {
@@ -137,10 +143,14 @@ check('RL-07', 'counselor: referred students only, no grades, writes only its qu
   return 'students [3]';
 });
 
-check('RL-08', 'guard: common pages only, no writes', () => {
+check('RL-08', 'guard: no role-level writes; the gate only through its default area', () => {
   for (const c of COLS) assert(!policy.canWrite('guard', c), 'guard writes ' + c);
   assert(policy.canRead('guard', 'announcements'), 'announcements');
-  return 'read-only';
+  const g = ROWS.users.find(x => x.role === 'guard');
+  assert([...policy.grantWrites(g)].join() === 'visitors', 'guard default = gate only');
+  assert(policy.buildScope(S0, g).grantRead.has('visitors'), 'guard reads visitors');
+  assert(policy.grantWrites(Object.assign({}, g, { access: ['none'] })).size === 0, 'guard «هیچ»');
+  return 'role read-only; gate by default';
 });
 
 check('RL-09', 'every assignable role is accepted by user edit, backup and the outbox', () => {

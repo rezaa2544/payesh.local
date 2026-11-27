@@ -91,6 +91,8 @@ async function build(c, claims) {
     const user = { role, access: me.rows.length ? me.rows[0].access : null };
     scope.grantRead = [...policy.grantReads(user)];
     scope.grantWrite = [...policy.grantWrites(user)];
+    /* ردیف ۱۹۷ (Q06): نگهبانِ «درِ مدرسه» از مرخصی فقط زمان و وضعیت (آینهٔ sync.pull) */
+    scope.gateLeaves = policy.gateLeavesOnly(user);
   }
 
   if (role !== 'student' && (role === 'teacher' || role === 'parent') && scope.studentIds.length === 0) {
@@ -175,6 +177,8 @@ function rowInScope(scope, collection, row) {
     case 'app_settings':
     case 'import_issues':
     case 'conflicts':
+    /* ردیف ۱۹۷ (Q06): مراجعین — فقط مدیر (all) یا ناحیهٔ «درِ مدرسه» (grantRead) */
+    case 'visitors':
       return false;
     case 'subjects':
     case 'announcements':
@@ -197,6 +201,10 @@ function canWriteRow(scope, collection, row, existing) {
   if (collection === 'leaves' && row && row !== existing && row.date !== undefined) {
     const li = policy.leaveIssue(row);
     if (li) return { ok: false, error: li };
+  }
+  if (collection === 'visitors' && row && row.name !== undefined) {
+    const vi = policy.visitorIssue(row);
+    if (vi) return { ok: false, error: vi };
   }
   if (!scope || scope.all) return { ok: true };
   if ((scope.grantWrite || []).includes(collection)) {
