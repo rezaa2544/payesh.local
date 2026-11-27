@@ -624,7 +624,10 @@ class LoginPrimaryButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
             textStyle: const TextStyle(
+              // row 199: the font lives in payesh_ui — without the package the browser edition
+              // has no glyphs for this label (native builds hid it with a system font)
               fontFamily: PayeshTokens.fontFamily,
+              package: PayeshTokens.fontPackage,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),

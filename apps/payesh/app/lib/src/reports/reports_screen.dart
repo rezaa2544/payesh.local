@@ -973,7 +973,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             style: TextStyle(
                               fontSize: 15,
                               color: Web.ink,
-                              fontFamily: 'Vazirmatn',
+                              fontFamily: PayeshTokens.fontFamily,
+                              package: PayeshTokens.fontPackage,
                             ),
                             decoration: webInput(),
                             items: [

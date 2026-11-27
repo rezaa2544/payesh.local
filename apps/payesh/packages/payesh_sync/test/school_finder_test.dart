@@ -290,6 +290,56 @@ void main() {
       expect(hits, everyElement('/payesh/pub/school-servers.json'));
     });
 
+    test('DF-199 row 199: the domain answers a valid but EMPTY list (placeholder) ⇒ the baked list still wins; all empty ⇒ empty', () async {
+      final dom = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => dom.close(force: true));
+      var domBody = '';
+      dom.listen((req) {
+        req.response.write(domBody);
+        unawaited(req.response.close());
+      });
+      String list(List<Map<String, Object?>> rows, {String? central}) =>
+          jsonEncode({
+            'v': 1,
+            'kind': 'payesh-school-servers',
+            if (central != null) 'central': {'url': central},
+            'servers': rows,
+          });
+      Map<String, Object?> row(String instance, Duration age) => {
+        'instance': instance,
+        'lan': ['http://192.168.1.10:8080'],
+        'at': now.subtract(age).toIso8601String(),
+      };
+      SchoolDirectoryClient c() => SchoolDirectoryClient(
+        url: Uri.parse(
+          'http://127.0.0.1:${server.port}/pub/school-servers.json',
+        ),
+        domain: Uri.parse(
+          'http://127.0.0.1:${dom.port}/payesh/pub/school-servers.json',
+        ),
+        mirror: Uri.parse('http://127.0.0.1:1/none.json'),
+        central: Uri.parse('https://central.example'),
+        client: HttpClient(),
+        now: () => now,
+      );
+      // exactly what payeshschool.ir served on 2026-11-27: kind ok, servers []
+      domBody = list(const []);
+      body = list([row('baked', const Duration(minutes: 1))]);
+      expect((await c().entries()).single.instance, 'baked');
+      // only stale rows on the domain count as empty too
+      domBody = list([row('old', const Duration(days: 30))]);
+      expect((await c().entries()).single.instance, 'baked');
+      // a non-empty domain list is still read first
+      domBody = list([row('moved', const Duration(minutes: 1))]);
+      expect((await c().entries()).single.instance, 'moved');
+      // every source empty ⇒ empty, and the domain's central is kept
+      domBody = list(const [], central: 'https://dom-central.example');
+      body = list(const []);
+      final client = c();
+      expect(await client.entries(), isEmpty);
+      expect(client.central, Uri.parse('https://dom-central.example'));
+    });
+
     group('row 171 — reachable from any network', () {
       String list(String instance, {String? central}) => jsonEncode({
         'v': 1,

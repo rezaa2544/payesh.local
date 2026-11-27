@@ -183,15 +183,26 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
     _central = null;
     // row 170: the domain first, then the address baked into the build; row 171: then the copy
     // outside Iran (GitHub)
+    // Row 199: a source whose list is valid but has no usable row (the domain's placeholder
+    // `servers: []`, or only stale rows) no longer hides the next source — the first non-empty
+    // list wins; an empty one is the answer only when every source is empty.
+    List<SchoolServerEntry>? empty;
+    Uri? emptyCentral;
     for (final u in [?domainUrl, ?url, ?mirrorUrl]) {
       try {
         final r = await _read(u);
-        if (r != null) return r;
+        if (r == null) continue;
+        if (r.isNotEmpty) return r;
+        if (empty == null) {
+          empty = r;
+          emptyCentral = _central;
+        }
       } on Object {
         // not reachable: the next source
       }
     }
-    return const [];
+    _central = emptyCentral;
+    return empty ?? const [];
   }
 
   /// One source; null = no valid list there.

@@ -1,12 +1,18 @@
 <!DOCTYPE html>
 <!-- Row 169 (D-50): the 32-bit Windows edition of the school app — the same Flutter code compiled to
-     JavaScript, shown by tools/web32/shell (CEF 109 x86). Not a website: it is served only
-     from the shell's private scheme and never from the network. -->
+     JavaScript, shown by tools/web32/shell (CEF 109 x86) from the shell's private scheme.
+     Row 199: the very same build is also the browser edition at https://app.payeshschool.ir —
+     without the shell the app keeps its files in this browser's IndexedDB (payesh_idb.js). -->
 <html lang="fa" dir="rtl">
 <head>
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
-  <meta name="description" content="پایش مدرسه">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="پایش مدرسه — نسخهٔ مرورگر">
+  <meta name="theme-color" content="#5b4bdb">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="پایش مدرسه">
   <link rel="icon" type="image/png" href="favicon.png">
   <title>پایش مدرسه</title>
   <style>
@@ -17,6 +23,8 @@
 </head>
 <body>
   <div id="payesh-loading">در حال آماده‌سازی پایش مدرسه…</div>
+  <noscript>برای اجرای پایش مدرسه، جاوااسکریپت مرورگر را روشن کنید.</noscript>
+  <script src="payesh_idb.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

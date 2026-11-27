@@ -51,7 +51,7 @@ Future<void> main(List<String> args) async {
     support: lanClient == null ? null : LanSupportClient(lanClient),
     deviceId: platformDeviceId,
     openUrl: openExternalUrl,
-    deviceName: 'پایش ${Platform.operatingSystem}',
+    deviceName: isBrowser ? 'پایش مرورگر' : 'پایش ${Platform.operatingSystem}',
     // Row 186: no server answered → say so when a VPN is the reason (Android) and search again
     // by itself (5 s, 10 s, 20 s, then every 30 s) until the school server answers.
     vpnActive: Platform.isAndroid ? vpnInterfaceUp : null,
@@ -89,7 +89,8 @@ Future<void> main(List<String> args) async {
     await openExternalUrl(u.toString());
   }
 
-  final updater = appBuild > 0 || ua.from != null
+  // Row 199: the browser edition never self-updates — the next visit loads the new release.
+  final updater = (appBuild > 0 && !isBrowser) || ua.from != null
       ? AppUpdater(
           channel: appChannel,
           manifestUrl: ua.manifest('app-update.json'),

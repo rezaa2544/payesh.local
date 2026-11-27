@@ -247,7 +247,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         initialValue: items.any((i) => i.$1 == value) ? value : null,
         isExpanded: true,
         isDense: true,
-        style: TextStyle(fontSize: 15, color: Web.ink, fontFamily: 'Vazirmatn'),
+        style: TextStyle(
+          fontSize: 15,
+          color: Web.ink,
+          fontFamily: PayeshTokens.fontFamily,
+          package: PayeshTokens.fontPackage,
+        ),
         decoration: webInput(),
         items: [
           for (final (v, l) in items)

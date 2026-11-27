@@ -35,6 +35,14 @@ const List<(String, String)> sheetFilters = [
   ('همهٔ فایل‌ها', '*.*'),
 ];
 
+/// Row 199: the dialog filters as an HTML `accept` list (`*.xlsx;*.csv` → `.xlsx,.csv`); the
+/// first filter is the one the dialog starts with, «همهٔ فایل‌ها» (`*.*`) adds nothing.
+String browserAccept(List<(String, String)> filters) => [
+  for (final (_, pattern) in filters.take(1))
+    for (final p in pattern.split(';'))
+      if (p.startsWith('*.') && p != '*.*') p.substring(1),
+].join(',');
+
 // coverage:ignore-start
 // Platform code — Windows (FFI dialog) and Android (system picker) are checked on the PC and
 // the phone; widget tests replace [ImportController.pickFile].
@@ -46,6 +54,11 @@ Future<PickedFile?> pickSystemFile({
 }) async {
   if (!isWeb32 && kIsWeb) {
     throw const FilePickFailure('انتخاب فایل در این نسخه پشتیبانی نمی‌شود');
+  }
+  if (isBrowser) {
+    // row 199 (app.payeshschool.ir): the browser's own «choose file» dialog
+    final r = await pickBrowserFile(accept: browserAccept(filters));
+    return r == null ? null : PickedFile(r.$1, r.$2);
   }
   if (Platform.isAndroid) {
     try {

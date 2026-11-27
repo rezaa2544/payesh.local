@@ -1,0 +1,112 @@
+name: web-app-publish
+
+# ═══════════════════════════════════════════════════════════════════
+#  Row 199 — the school app in the browser: https://app.payeshschool.ir
+#  Owner order (1405/09/06): «نسخه وب در ظاهر و کارکرد نباید هیچ تفاوتی با دیگه نسخه های نصبی
+#  داشته باشه … و هر تغییر یا آپدیتی در آینده باید روی نسخه تحت وب هم اعمال بشه».
+#
+#  So there is no separate web project: the browser edition is the very `flutter build web`
+#  output of the school app that win32-edition.yml builds, checks (dart:io + encrypted SQLite
+#  conformance) and installs/e2e-tests for the 32-bit Windows edition on every push to main.
+#  In a plain browser (no window.payeshHost) the same code keeps its files in IndexedDB
+#  (web/payesh_idb.js, payesh_core BrowserHost), opens the database with the same SQLite3MC
+#  (wasm) and reaches the school server over its https public address (rendezvous list).
+#
+#  Fail-closed: only after a SUCCESSFUL win32-edition push run on main; the uploaded folder must
+#  be the real app (tools/web-app/publish.mjs checks it), index.html goes last, every object is
+#  read back and the public index.html / version.json are fetched before the run is green.
+#  An older run never overwrites a newer one (web-app-status: run number in the bucket).
+#  Keys: PAYESH_WEB_S3_ACCESS_KEY / PAYESH_WEB_S3_SECRET (the owner's separate web account).
+# ═══════════════════════════════════════════════════════════════════
+
+on:
+  workflow_run:
+    workflows: [win32-edition]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'win32-edition run id (empty = the latest successful push run on main)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: web-app-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish the school app (browser edition) to app.payeshschool.ir
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PAYESH_WEB_BUCKET: payesh-app
+      PAYESH_WEB_S3_ENDPOINT: https://s3.ir-central1.arvanstorage.ir
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Which win32-edition run
+        id: src
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EV_RUN: ${{ github.event.workflow_run.id }}
+          EV_NUM: ${{ github.event.workflow_run.run_number }}
+          IN_RUN: ${{ github.event.inputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -n "${EV_RUN:-}" ]; then id=$EV_RUN; num=$EV_NUM
+          else
+            q="repos/${{ github.repository }}/actions/workflows/win32-edition.yml/runs?branch=main&event=push&status=success&per_page=1"
+            if [ -n "${IN_RUN:-}" ]; then q="repos/${{ github.repository }}/actions/runs/$IN_RUN"; fi
+            j=$(gh api "$q")
+            id=$(echo "$j" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const r=j.workflow_runs?j.workflow_runs[0]:j;if(r.conclusion!=="success")process.exit(3);console.log(r.id)})')
+            num=$(gh api "repos/${{ github.repository }}/actions/runs/$id" --jq .run_number)
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"; echo "num=$num" >> "$GITHUB_OUTPUT"
+          echo "win32-edition run $id (#$num)"
+      - uses: actions/download-artifact@v4
+        with:
+          name: web32-web
+          path: in
+          run-id: ${{ steps.src.outputs.id }}
+          github-token: ${{ github.token }}
+      - name: Check the folder (dry run, no keys)
+        run: |
+          set -euo pipefail
+          W=in/apps/payesh/app/build/web; [ -d "$W" ] || W=in/app/build/web
+          echo "W=$W" >> "$GITHUB_ENV"
+          PAYESH_WEB_DRY=1 node tools/web-app/publish.mjs "$W"
+      - name: Never overwrite a newer run
+        env:
+          NUM: ${{ steps.src.outputs.num }}
+        run: |
+          set -euo pipefail
+          cur=$(curl -fsS -m 60 "https://$PAYESH_WEB_BUCKET.s3.ir-central1.arvanstorage.ir/download/web-app-status.json" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).run_number||0)}catch(e){console.log(0)}})' || echo 0)
+          echo "published run: $cur · this run: $NUM"
+          if [ "$cur" -gt "$NUM" ]; then echo "::notice::a newer build (#$cur) is already live — skipping"; echo "SKIP=1" >> "$GITHUB_ENV"; fi
+      - name: Publish to ${{ env.PAYESH_WEB_BUCKET }} (app.payeshschool.ir)
+        if: env.SKIP != '1'
+        env:
+          PAYESH_WEB_S3_ACCESS_KEY: ${{ secrets.PAYESH_WEB_S3_ACCESS_KEY }}
+          PAYESH_WEB_S3_SECRET: ${{ secrets.PAYESH_WEB_S3_SECRET }}
+          NUM: ${{ steps.src.outputs.num }}
+          SRC: ${{ steps.src.outputs.id }}
+        run: |
+          set -euo pipefail
+          node -e 'const v=require(process.argv[1]);require("fs").writeFileSync("status.json",JSON.stringify({run_number:+process.env.NUM,run_id:+process.env.SRC,version:v.version,build:v.build_number,at:new Date().toISOString()}))' "$PWD/$W/version.json"
+          mkdir -p "$W/download" && cp status.json "$W/download/web-app-status.json"
+          node tools/web-app/publish.mjs "$W" | tee publish.txt
+          grep -q '^WEB-APP-PUBLISH-OK' publish.txt

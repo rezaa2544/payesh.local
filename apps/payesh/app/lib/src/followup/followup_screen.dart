@@ -152,7 +152,12 @@ class _FollowupScreenState extends State<FollowupScreen> {
         initialValue: value,
         isExpanded: true,
         isDense: true,
-        style: TextStyle(fontSize: 15, color: Web.ink, fontFamily: 'Vazirmatn'),
+        style: TextStyle(
+          fontSize: 15,
+          color: Web.ink,
+          fontFamily: PayeshTokens.fontFamily,
+          package: PayeshTokens.fontPackage,
+        ),
         decoration: webInput(),
         items: [
           DropdownMenuItem(value: '', child: Text(empty)),

@@ -443,7 +443,15 @@ final class _FetchRequest implements io.HttpClientRequest {
     final init = JSObject();
     init.setProperty('method'.toJS, method.toJS);
     final h = JSObject();
+    // Row 199: in a plain browser a cross-origin GET with `cache-control`/`pragma` needs a CORS
+    // preflight that a static file host (the domain's list) does not answer. `cache: no-store`
+    // below already bypasses every cache, so these are dropped from unsigned requests.
+    var signed = false;
     headers.forEach((k, v) {
+      if (k == 'authorization' || k.startsWith('x-amz-')) signed = true;
+    });
+    headers.forEach((k, v) {
+      if (!signed && (k == 'cache-control' || k == 'pragma')) return;
       if (!_forbidden.contains(k) &&
           !k.startsWith('sec-') &&
           !k.startsWith('proxy-')) {
