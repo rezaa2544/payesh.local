@@ -1,0 +1,15 @@
+# Render Blueprint — free always-ready (sleeping) status backend for Payesh.
+# Owner connects this repo once at dashboard.render.com (GitHub OAuth,
+# no credit card for the free plan). Holds no school data.
+services:
+  - type: web
+    name: payesh-status
+    runtime: docker
+    plan: free
+    region: Frankfurt
+    dockerfilePath: ./services/status-service/Dockerfile
+    dockerContext: ./services/status-service
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production

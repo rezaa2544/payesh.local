@@ -1,0 +1,49 @@
+name: payesh-free-tasks
+
+# Free scheduled compute for Payesh (replaces the paid LightVela monitor):
+# - every 6 hours: uptime + rendezvous-JSON validation, Telegram report
+# - manual runs from the Actions tab (workflow_dispatch)
+# Limits of the free tier: jobs are ephemeral, max 6h per job, cron is
+# best-effort (may drift a few minutes). No school data is processed here.
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      send_telegram:
+        description: 'Send Telegram report'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: payesh-free-tasks
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Uptime + data validation (every 6h)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check endpoints and validate school-servers data
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PAYESH_SEND_TELEGRAM: ${{ (github.event_name == 'schedule' || inputs.send_telegram) && 'true' || 'false' }}
+          PAYESH_REPORT_PATH: payesh-monitor-report.json
+        run: node tools/payesh-monitor.mjs
+      - name: Upload monitor report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: payesh-monitor-report-${{ github.run_id }}
+          path: payesh-monitor-report.json
+          retention-days: 30
