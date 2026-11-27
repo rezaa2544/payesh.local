@@ -143,6 +143,12 @@ final class HelperNode {
   DateTime? _restUntil;
   int done = 0;
   int failed = 0;
+
+  /// ردیف ۱۹۸-U4: کارهایی که پردازش همین سیستم برای خود پنل انجام داد (کار فرستاده‌شده‌ای که
+  /// محلی اجرا شد، یا کار پس‌زمینه مثل شمارش فضای دیتابیس). «انجام‌شده» = [done] + این.
+  int localDone = 0;
+
+  int get doneTotal => done + localDone;
   String? lastError;
   DateTime? lastPoll;
   final Set<String> _active = {};
@@ -154,7 +160,29 @@ final class HelperNode {
   final _changes = StreamController<void>.broadcast();
 
   /// کاری که از همین دستگاه فرستاده شد و نتیجه‌اش رسید (محلی یا سرور کمکی دیگر).
+  /// ردیف ۱۹۸-U4: یک کار پس‌زمینهٔ خود پنل که پردازش همین سیستم انجام داد.
+  void noteLocalWork(String kind, {required bool ok, required int ms}) {
+    if (ok) {
+      localDone++;
+    } else {
+      failed++;
+    }
+    final at = _now();
+    recent.insert(
+      0,
+      HelperJobLog('local-${at.millisecondsSinceEpoch}', kind, ok, at, ms),
+    );
+    if (recent.length > 20) recent.removeLast();
+    final name = helperJobKindsFa[kind] ?? kind;
+    _log(
+      ok ? 'انجام شد روی همین دستگاه: $name · $ms میلی‌ثانیه' : 'ناموفق: $name',
+      ok: ok,
+    );
+    _notify();
+  }
+
   void noteSubmitted(String kind, JobOutcome r) {
+    if (r.ok && !r.byHelper) localDone++;
     final name = helperJobKindsFa[kind] ?? kind;
     _log(
       r.ok

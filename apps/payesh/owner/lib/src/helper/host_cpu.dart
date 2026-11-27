@@ -46,12 +46,27 @@ CpuTimes? defaultCpuTimes() {
   return null;
 }
 
+/// درصد «Processor Utility» (همان Task Manager)؛ null ⇒ ندارد (ویندوز ۷، لینوکس، اندروید).
+typedef CpuUtilityReader = double? Function();
+
+double? defaultCpuUtility() => Platform.isWindows ? windowsCpuUtility() : null;
+
 /// نمونه‌گیر درصد مصرف پردازنده + تاریخچهٔ کوتاه برای نمودار.
+///
+/// ردیف ۱۹۸-U4: روی ویندوز ۸ به بعد عدد نشان‌داده‌شده همان «Processor Utility» ِ Task Manager
+/// است؛ نسبت Utility به Time ([scale]) برای هم‌خوان کردن «مصرف این برنامه» هم نگه داشته می‌شود.
 final class HostCpuMeter {
-  HostCpuMeter({CpuTimesReader? read, this.keep = 60})
-    : _read = read ?? defaultCpuTimes;
+  HostCpuMeter({
+    CpuTimesReader? read,
+    CpuUtilityReader? utility,
+    this.keep = 60,
+  }) : _read = read ?? defaultCpuTimes,
+       _utility = utility ?? (read == null ? defaultCpuUtility : _none);
+
+  static double? _none() => null;
 
   final CpuTimesReader _read;
+  final CpuUtilityReader _utility;
   final int keep;
   CpuTimes? _prev;
 
@@ -61,18 +76,49 @@ final class HostCpuMeter {
   /// آخرین درصد (null تا وقتی دو نمونه نگرفته‌ایم یا سیستم پشتیبانی نمی‌شود).
   double? get last => history.isEmpty ? null : history.last;
 
+  /// Utility ÷ Time در آخرین نمونهٔ معتبر (۱ ⇒ بی‌تبدیل).
+  double scale = 1;
+
+  /// عدد آخرین نمونه «Processor Utility» بود (همان Task Manager)؟
+  bool utilityBased = false;
+
   double? sample() {
     final now = _read();
-    if (now == null) return null;
+    final u = _utility();
     final prev = _prev;
-    _prev = now;
-    if (prev == null) return null;
-    final dt = now.total - prev.total;
-    if (dt <= 0) return last;
-    final pct = (100 * (1 - (now.idle - prev.idle) / dt)).clamp(0.0, 100.0);
+    if (now != null) _prev = now;
+    double? time;
+    if (now != null && prev != null) {
+      final dt = now.total - prev.total;
+      if (dt > 0) {
+        time = (100 * (1 - (now.idle - prev.idle) / dt)).clamp(0.0, 100.0);
+      }
+    }
+    final double pct;
+    if (u != null) {
+      pct = u.clamp(0.0, 100.0);
+      utilityBased = true;
+      // زیر ۰٫۵٪ نسبت پر از نویز است؛ نسبت قبلی می‌ماند
+      if (time != null && time >= 0.5) scale = (pct / time).clamp(1.0, 20.0);
+    } else if (time != null) {
+      pct = time;
+      utilityBased = false;
+      scale = 1;
+    } else {
+      return now == null ? null : last;
+    }
     history.add(pct);
     if (history.length > keep) history.removeAt(0);
     return pct;
+  }
+
+  /// درصد یک فرایند (از GetProcessTimes) به مقیاس Task Manager: همان نسبت Utility/Time،
+  /// و هرگز بیش از کل سیستم.
+  double? asTaskManager(double? processPct) {
+    if (processPct == null) return null;
+    final v = processPct * scale;
+    final all = last;
+    return all != null && v > all ? all : v;
   }
 }
 

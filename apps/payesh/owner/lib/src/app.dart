@@ -274,6 +274,7 @@ class _OwnerAppState extends State<OwnerApp> {
       checker: widget.endpointChecker,
       fetcher: widget.metricsFetcher,
       now: widget.now,
+      backgroundJob: helper?.runLocalJob,
     );
   }
 

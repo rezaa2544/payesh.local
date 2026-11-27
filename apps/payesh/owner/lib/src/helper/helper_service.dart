@@ -236,6 +236,23 @@ final class OwnerHelperService {
     return r;
   }
 
+  /// ردیف ۱۹۸-U4: کار پس‌زمینهٔ خود پنل با حساب پردازش کمکی همین سیستم: «توقف» ⇒ اجرا نمی‌شود
+  /// (false)؛ وگرنه اجرا، ثبت در «انجام‌شده» و فهرست کارها، و رعایت سقف پردازش (true).
+  Future<bool> runLocalJob(String kind, Future<void> Function() work) async {
+    final n = _node;
+    if (stopped || n == null || !n.configured) return false;
+    final sw = Stopwatch()..start();
+    var ok = false;
+    try {
+      await work();
+      ok = true;
+    } on Object {
+      ok = false;
+    }
+    n.noteLocalWork(kind, ok: ok, ms: sw.elapsedMilliseconds);
+    return true;
+  }
+
   bool _nodeBusy() {
     final n = _node;
     return n != null && n.activeJobs >= n.slots;

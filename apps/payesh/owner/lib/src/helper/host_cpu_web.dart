@@ -5,3 +5,5 @@ CpuTimes? windowsCpuTimes() => null;
 
 /// ردیف ۱۹۱: در نسخهٔ وب خوانده نمی‌شود.
 int? windowsProcessCpuMicros() => null;
+
+double? windowsCpuUtility() => null;

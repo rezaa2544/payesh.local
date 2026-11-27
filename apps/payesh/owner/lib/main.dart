@@ -9,6 +9,7 @@ import 'package:payesh_secure/payesh_secure.dart'
 import 'src/app.dart';
 import 'src/helper/helper_service.dart';
 import 'src/local/connect_bundle.dart';
+import 'src/monitor/net_meter.dart';
 import 'src/platform.dart';
 import 'src/update/update_service.dart';
 
@@ -32,6 +33,15 @@ Future<void> main(List<String> args) async {
     apkInstaller: Platform.isAndroid ? const ChannelApkInstaller() : null,
     openUrl: platformOpenUrl,
   );
+  // ردیف ۱۹۸-U4: خلاصهٔ یک دقیقه‌ای زمان پاسخ/کندترین درخواست‌ها/مصرف پردازنده روی ویندوز
+  // (`%LOCALAPPDATA%/PayeshOwner/diag/load.json`) برای بررسی روی خود رایانه
+  if (Platform.isWindows && !isWeb32) {
+    try {
+      NetMeter.diagDir = await platformDataDir();
+    } on Object {
+      // بی‌اهمیت
+    }
+  }
   runApp(
     OwnerApp(
       store: platformSettingsStore(),

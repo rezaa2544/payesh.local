@@ -197,6 +197,7 @@ class LiveMonitor extends ChangeNotifier {
     OwnerActivity? activity,
     this.capacityPages = 20,
     this.enabled,
+    this.backgroundJob,
   }) : _checker = checker ?? defaultEndpointCheck,
        _fetch = fetcher ?? defaultMetricsFetch,
        _now = now ?? DateTime.now,
@@ -217,6 +218,11 @@ class LiveMonitor extends ChangeNotifier {
 
   /// سیاست مالک: false ⇒ این سرویس غیرفعال است و سنجیده نمی‌شود (ردیف ۱۳۱).
   final bool Function(String serviceId)? enabled;
+
+  /// ردیف ۱۹۸-U4: اجرای شمارش خودکار فضا به‌عنوان کار «پردازش کمکی همین سیستم»
+  /// (false ⇒ پردازش متوقف است و شمارش خودکار انجام نشد؛ لمس کارت همیشه می‌شمارد).
+  final Future<bool> Function(String kind, Future<void> Function() work)?
+  backgroundJob;
 
   final InfraLive _db = InfraLive('db', 'db', 'دیتابیس');
   final Map<String, _Svc> _svcs = {};
@@ -375,7 +381,7 @@ class LiveMonitor extends ChangeNotifier {
           _dbConfigured &&
           !_activity.processingPaused &&
           (lc == null || _now().difference(lc) >= capacityEvery)) {
-        unawaited(scanCapacity());
+        unawaited(_autoScan());
       }
     } finally {
       _changed();
@@ -463,6 +469,20 @@ class LiveMonitor extends ChangeNotifier {
       text: '$usedText از ${bytesText(cap)}$objects',
       editable: true,
     );
+  }
+
+  Future<void> _autoScan() async {
+    final job = backgroundJob;
+    if (job == null) return scanCapacity();
+    if (_scanning != null) return;
+    _lastCapacity = _now();
+    final ran = await job('storage.usage', scanCapacity);
+    // پردازش همین سیستم متوقف بود ⇒ دقیقهٔ بعد دوباره نگاه می‌کنیم، نه ۳۰ دقیقهٔ بعد
+    if (!ran) {
+      _lastCapacity = _now().subtract(
+        capacityEvery - const Duration(minutes: 1),
+      );
+    }
   }
 
   /// مجموع اندازهٔ فایل‌های صندوقچه (ListObjectsV2؛ حداکثر [capacityPages] صفحه).

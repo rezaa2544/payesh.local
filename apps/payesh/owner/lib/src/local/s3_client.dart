@@ -301,9 +301,14 @@ final class S3Response {
     this.rawBytes,
     this.wireBytes,
     this.etag,
+    this.latencyMs,
   });
   final int status;
   final String body;
+
+  /// ردیف ۱۹۸-U4: زمان پاسخ واقعی = برقراری اتصال + انتظار تا سرآیند پاسخ؛ بدون زمان
+  /// فرستادن بدنهٔ بزرگ (بارگذاری پشتیبان) و بدون زمان دریافت بدنه. null در جعلی‌ها.
+  final int? latencyMs;
 
   /// سرآیند ETag پاسخ (برای تکه‌های بارگذاری تکه‌ای)؛ null در جعلی‌هایی که نمی‌دهند.
   final String? etag;
@@ -544,7 +549,9 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
     Map<String, String> headers,
     List<int>? body,
   ) async {
+    final sw = Stopwatch()..start();
     final req = await client.openUrl(method, url).timeout(_timeout);
+    final connectMs = sw.elapsedMilliseconds;
     req.followRedirects = false;
     headers.forEach((k, v) {
       if (k != 'host') req.headers.set(k, v);
@@ -552,8 +559,12 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
     if (body != null) {
       req.contentLength = body.length;
       req.add(body);
+      // ردیف ۱۹۸-U4: زمان فرستادن بدنه (پهنای باند بالارو) زمان پاسخ سرور نیست
+      if (body.length >= 16 * 1024) await req.flush().timeout(_timeout);
     }
+    final sentAt = sw.elapsedMilliseconds;
     final res = await req.close().timeout(_timeout);
+    final latency = connectMs + (sw.elapsedMilliseconds - sentAt);
     final addr = res.connectionInfo?.remoteAddress;
     if (addr != null && InternetAddress.tryParse(url.host) == null) {
       // Row 169: rebuilt from the address so the 32-bit edition (own InternetAddress type,
@@ -576,6 +587,7 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
         rawBytes: raw,
         wireBytes: raw.length,
         etag: res.headers.value('etag'),
+        latencyMs: latency,
       );
     }
     // متن تا ۶۴K نویسه نگه داشته می‌شود، اما همهٔ بایت‌ها شمرده می‌شوند
@@ -591,6 +603,7 @@ final class IoS3Transport implements S3Transport, ResettableTransport {
       text.length > 65536 ? text.substring(0, 65536) : text,
       wireBytes: wire,
       etag: res.headers.value('etag'),
+      latencyMs: latency,
     );
   }
 
@@ -771,6 +784,8 @@ Future<S3Response> _s3RequestAt(
         sent: sent,
         received: (r.wireBytes ?? r.bytes.length) + 200,
         elapsedMs: sw.elapsedMilliseconds,
+        latencyMs: r.latencyMs,
+        what: '$method ${NetMeter.pathClass(path)}',
         ok: r.status < 500,
       );
     } on S3Failure {

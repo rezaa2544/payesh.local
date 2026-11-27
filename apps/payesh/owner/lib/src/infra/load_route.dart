@@ -344,6 +344,7 @@ class LoadRouter extends ChangeNotifier {
   static const int helpersEveryMs = 30000;
 
   void start({Duration every = const Duration(seconds: 5)}) {
+    LoopLag.instance.start();
     // ردیف ۱۷۷: کوچک‌شده/بیکار ⇒ هر ۶۰ ثانیه (نه ۵)؛ سرور کمکی همین دستگاه هنوز پیرو می‌ماند
     _timer ??= PacedTimer.periodic(
       every,
@@ -414,6 +415,19 @@ class LoadRouter extends ChangeNotifier {
         helpers: helpers,
       ),
       thresholds,
+    );
+    NetMeter.maybeWriteDiag(
+      now,
+      extra: {
+        'route': {
+          'mode': p.mode,
+          'active': _state.active,
+          'helpers_active': _state.helpersActive,
+          'reason': _state.reason,
+        },
+        'helpers_online': helpers,
+        ...?NetMeter.diagExtra?.call(),
+      },
     );
     if (!_disposed) notifyListeners();
   }

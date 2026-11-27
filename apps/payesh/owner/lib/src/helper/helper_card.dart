@@ -10,6 +10,7 @@ import 'helper_box.dart';
 import 'helper_node.dart';
 import 'helper_service.dart';
 import 'host_cpu.dart';
+import '../monitor/net_meter.dart';
 import '../power/activity.dart';
 
 String fmtBytesFa(int b) {
@@ -79,6 +80,7 @@ class _HelperCardState extends State<HelperCard> {
   bool _usageOk = true;
   late final HostCpuMeter _cpu = widget.cpu ?? HostCpuMeter();
   late final ProcessCpuMeter _proc = widget.procCpu ?? ProcessCpuMeter();
+  Map<String, Object?> Function()? _diagFn;
   PacedTimer? _live;
   int _quietTicks = 0;
   int? _rss;
@@ -96,6 +98,18 @@ class _HelperCardState extends State<HelperCard> {
             ? null
             : const Duration(seconds: 1));
     _sampleLive();
+    // ردیف ۱۹۸-U4: همان درصدهای نشان‌داده‌شده در پروندهٔ عیب‌یابی (مقایسه با Task Manager)
+    NetMeter.diagExtra = _diagFn = () => {
+      'cpu': {
+        'system_pct': _cpu.last,
+        'utility_based': _cpu.utilityBased,
+        'scale': _cpu.scale,
+        'app_pct_raw': _proc.last,
+        'app_pct_shown': _cpu.asTaskManager(_proc.last),
+        'done': widget.service.node?.done,
+        'local_done': widget.service.node?.localDone,
+      },
+    };
     if (every != null) {
       _live = PacedTimer.periodic(every, () {
         // ردیف ۱۹۱: وقتی همین سیستم «متوقف» است خودِ پایش هم کم‌کار می‌شود (هر ۵ ثانیه)
@@ -132,6 +146,7 @@ class _HelperCardState extends State<HelperCard> {
 
   @override
   void dispose() {
+    if (identical(NetMeter.diagExtra, _diagFn)) NetMeter.diagExtra = null;
     widget.service.policy.removeListener(_redraw);
     _live?.cancel();
     unawaited(_sub?.cancel());
@@ -366,7 +381,7 @@ class _HelperCardState extends State<HelperCard> {
     final shown = (_cpuDrag ?? (local ?? 100).toDouble()).round();
     final eff = minCpu(shown >= 100 ? null : shown, global);
     final cpu = _cpu.last;
-    final mine = _proc.last;
+    final mine = _cpu.asTaskManager(_proc.last);
 
     final String line;
     if (node == null) {
@@ -617,7 +632,7 @@ class _HelperCardState extends State<HelperCard> {
                 stat(
                   'helper-stat-done',
                   'انجام‌شده',
-                  faNumber(node?.done ?? 0),
+                  faNumber(node?.doneTotal ?? 0),
                 ),
               ],
             ),
@@ -649,7 +664,7 @@ class _HelperCardState extends State<HelperCard> {
       ok = false;
     } else {
       status =
-          'فعال — ${node.done} کار انجام شد'
+          'فعال — ${node.doneTotal} کار انجام شد'
           '${node.failed > 0 ? '، ${node.failed} ناموفق' : ''}'
           '${node.activeJobs > 0 ? '، ${node.activeJobs} در حال انجام' : ''}'
           '؛ هم‌زمان حداکثر ${node.slots} کار.';
@@ -838,7 +853,11 @@ class _HelperCardState extends State<HelperCard> {
           const SizedBox(height: 10),
           Row(
             children: [
-              stat('helper-live-proc', 'مصرف این برنامه', _pctFa(_proc.last)),
+              stat(
+                'helper-live-proc',
+                'مصرف این برنامه',
+                _pctFa(_cpu.asTaskManager(_proc.last)),
+              ),
               stat(
                 'helper-live-cpu',
                 'کل رایانه',
@@ -862,7 +881,7 @@ class _HelperCardState extends State<HelperCard> {
                 'انجام‌شده',
                 node == null
                     ? '—'
-                    : faNumber(node.done) +
+                    : faNumber(node.doneTotal) +
                           (node.failed > 0
                               ? ' · ${faNumber(node.failed)} ناموفق'
                               : ''),
