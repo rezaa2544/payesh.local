@@ -41,3 +41,17 @@ None for end users today: the Flutter app keeps using Arvan + the fixed
 rendezvous address. These two free services are auxiliary (monitoring +
 status), so if either is down, the school app is unaffected. They replace the
 LightVela paid-after-trial monitor with a free, owner-controlled equivalent.
+
+## Status 2026-11-28 (deployment attempt)
+
+- GitHub Actions: DONE and proven live. Workflow merged to `main` (PR #220),
+  manual run succeeded — all three endpoints 200, rendezvous JSON valid,
+  Telegram report delivered (`telegram: 200`). Schedule: every 6 hours.
+- Render: account created with GitHub OAuth (rezaa2544) and email verified,
+  `render.yaml` blueprint ready in this repo. DEPLOYMENT BLOCKED: Render now
+  requires credit-card identity verification before creating any service
+  (even free). The owner has no international card (Iran), so no Render
+  service was created and no card data was entered. If a card ever becomes
+  available: dashboard.render.com → New → Blueprint → this repo → Apply.
+  No-card alternatives for the same status service: Hugging Face Spaces
+  (Docker) or Cloudflare Workers — `services/status-service` ports as-is.
