@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
@@ -220,7 +222,10 @@ class LocalLoginScreen extends StatefulWidget {
     required this.themeButton,
     this.notice,
   });
-  final String? Function(String id, String password, String code) onLogin;
+
+  /// ردیف ۱۹۸-U3: ممکن است ناهمگام باشد (رمز این دستگاه نخورد ⇒ بستهٔ حساب در دیتابیس).
+  final FutureOr<String?> Function(String id, String password, String code)
+  onLogin;
   final Future<void> Function() onReset;
   final Widget themeButton;
   final String? notice;
@@ -250,9 +255,24 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  bool _busy = false;
+
+  Future<void> _submit() async {
+    if (_busy) return;
     final id = _id.text, pw = _pw.text, code = _code.text;
-    final err = widget.onLogin(id, pw, code);
+    final pending = widget.onLogin(id, pw, code);
+    String? err;
+    if (pending is Future<String?>) {
+      setState(() => _busy = true);
+      try {
+        err = await pending;
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+    } else {
+      err = pending;
+    }
+    if (!mounted) return;
     _pw.clear();
     _code.clear();
     setState(() {
@@ -327,8 +347,8 @@ class _LocalLoginScreenState extends State<LocalLoginScreen> {
           children: [
             FilledButton(
               key: const Key('local-submit'),
-              onPressed: _submit,
-              child: const Text('ورود'),
+              onPressed: _busy ? null : _submit,
+              child: Text(_busy ? 'در حال بررسی…' : 'ورود'),
             ),
             TextButton(
               key: const Key('local-reset'),

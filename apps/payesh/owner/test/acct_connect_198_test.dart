@@ -6,14 +6,18 @@
 // later starts connect with no password either. Still no database key in any code (D-23).
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:payesh_owner/src/app.dart';
 import 'package:payesh_owner/src/local/acct_connect.dart';
 import 'package:payesh_owner/src/local/connect_bundle.dart';
 import 'package:payesh_owner/src/local/local_account.dart';
 import 'package:payesh_owner/src/local/s3_client.dart';
 import 'package:payesh_owner/src/net/resilience.dart';
+import 'package:payesh_owner/src/platform.dart';
 import 'package:payesh_secure/payesh_secure.dart';
 
+import 'support/fake_backend.dart';
 import 'support/fake_bucket.dart';
 
 Future<({List<int> pw, List<int> code})> _syncHasher(
@@ -141,5 +145,57 @@ void main() {
       iterations: it,
     );
     expect(await conn(phone, bucket).tryWithRecord(other), AcctOutcome.none);
+  });
+
+  testWidgets('AC-04 phone already has another local account: the PC id + password + code fail '
+      'locally ⇒ the account bundle is tried, adopted, signed in and the database connected; '
+      'a wrong password still fails', (tester) async {
+    final bucket = FakeBucket(() => clock);
+    await conn(FakeSecureStore(), bucket).publishIfChanged(db, pcRecord());
+    final phone = FakeSecureStore();
+    final old = LocalAccountRecord.create(
+      loginId: 'old-phone',
+      password: 'other-pass-1',
+      code: '111111',
+      iterations: it,
+    );
+    await phone.write(LocalAccountKeys.account, old.encode());
+    tester.view.physicalSize = const Size(1400, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      OwnerApp(
+        store: MemorySettingsStore(),
+        httpFactory: FakeBackend.new,
+        secure: phone,
+        s3Factory: bucket.transport,
+        connectBases: [connectBaseOf(db)],
+        acctHasher: _syncHasher,
+        pbkdf2Iterations: it,
+        now: () => clock,
+        dbAutoCheck: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+    Future<void> login(String pw) async {
+      await tester.enterText(find.byKey(const Key('local-id')), 'owner');
+      await tester.enterText(find.byKey(const Key('local-pw')), pw);
+      await tester.enterText(find.byKey(const Key('local-code')), '123456');
+      await tester.tap(find.byKey(const Key('local-submit')));
+      await tester.pumpAndSettle();
+    }
+
+    await login('wrong-pass-9');
+    expect(find.byKey(const Key('local-submit')), findsOneWidget);
+    expect(await S3Settings.load(phone), isNull);
+
+    await login('Owner-pass-1');
+    expect(find.byKey(const Key('local-submit')), findsNothing);
+    expect((await S3Settings.load(phone))?.sameTarget(db), isTrue);
+    final adopted = LocalAccountRecord.decode(
+      (await phone.read(LocalAccountKeys.account))!,
+    );
+    expect(adopted.verify('owner', 'Owner-pass-1', '123456'), isTrue);
+    await tester.pumpWidget(const SizedBox());
   });
 }

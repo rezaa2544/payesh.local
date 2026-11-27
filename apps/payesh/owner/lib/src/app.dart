@@ -324,6 +324,7 @@ class _OwnerAppState extends State<OwnerApp> {
   DateTime _now() => (widget.now ?? DateTime.now)();
 
   Timer? _updateTimer;
+  Timer? _applyRetry;
   PacedTimer? _updateEvery;
   AppLifecycleListener? _life;
 
@@ -346,15 +347,32 @@ class _OwnerAppState extends State<OwnerApp> {
     final u = widget.updater;
     if (u != null) {
       u.readLastApply();
-      // بررسی خودکار: ۳۰ ثانیه پس از باز شدن (پس از بررسی سلامتِ اسکریپت اعمال، تا نتیجهٔ
-      // به‌روزرسانیِ تازه هم خوانده شود) و بعد هر ۳۰ دقیقه (چراغ نوار بالا رنگ عوض می‌کند)
-      _updateTimer = Timer(const Duration(seconds: 30), () {
+      // ردیف ۱۹۸-U2: به‌روزرسانی خودکار و پنهان — ۱۰ ثانیه پس از باز شدن و بعد هر ۱۰ دقیقه
+      // بررسی ⇐ دریافت ⇐ نصب (اندروید بی‌صفحه؛ ویندوز فقط وقتی مالک ۹۰ ثانیه کاری نکرده).
+      // پیش‌تر فقط «بررسی» بود و تا مالک «نصب» را لمس نمی‌کرد هیچ اتفاقی نمی‌افتاد.
+      UserIdle.ensure();
+      bool idle() => UserIdle.idleFor >= const Duration(seconds: 90);
+      Future<void> run() async {
+        await u.autoUpdate(idle: idle);
+        _applyRetry?.cancel();
+        if (u.phase == UpdatePhase.staged) {
+          _applyRetry = Timer.periodic(const Duration(minutes: 1), (t) {
+            if (u.phase != UpdatePhase.staged) {
+              t.cancel();
+            } else if (idle()) {
+              unawaited(u.applyAndRestart());
+            }
+          });
+        }
+      }
+
+      _updateTimer = Timer(const Duration(seconds: 10), () {
         u.readLastApply();
-        unawaited(u.check());
+        unawaited(run());
         _updateEvery = PacedTimer.periodic(
-          const Duration(minutes: 30),
-          () => unawaited(u.check()),
-          idleEvery: const Duration(minutes: 30),
+          const Duration(minutes: 10),
+          () => unawaited(run()),
+          idleEvery: const Duration(minutes: 10),
           background: true,
           wakeRefresh: false,
         );
@@ -529,20 +547,58 @@ class _OwnerAppState extends State<OwnerApp> {
     }
   }
 
-  String? _loginLocal(String id, String pw, String code) {
+  FutureOr<String?> _loginLocal(String id, String pw, String code) {
     final rec = _account;
     if (rec == null) return _localError;
-    final r = _localAuth!.login(rec, loginId: id, password: pw, code: code);
+    final auth = _localAuth!;
+    final r = auth.login(rec, loginId: id, password: pw, code: code);
     if (r.ok) {
-      _localAuth!.saveSession(rec).ignore();
+      auth.saveSession(rec).ignore();
       unawaited(_autoConnect(id, pw, code));
       setState(() {
         _localSignedIn = true;
         _localNotice = null;
         _openLocalPlatform(rec.loginId);
       });
+      return null;
     }
-    return r.error;
+    // ردیف ۱۹۸-U3: حساب این دستگاه پیش‌تر (با شناسه/رمز دیگری) ساخته شده؛ اگر همین
+    // شناسه + رمز + کد، بستهٔ حساب پنل مالک رایانه را باز کند، همان حساب این دستگاه
+    // می‌شود و دیتابیس بی‌هیچ تعریف سروری وصل است.
+    final acct = _acct;
+    if (acct == null || auth.locked || id.trim().isEmpty) return r.error;
+    return _loginViaBundle(acct, auth, id, pw, code, r.error);
+  }
+
+  Future<String?> _loginViaBundle(
+    AcctConnector acct,
+    LocalAuth auth,
+    String id,
+    String pw,
+    String code,
+    String? fail,
+  ) async {
+    final LocalAccountRecord? fresh;
+    try {
+      fresh = await acct.tryWithPassword(id, pw, code);
+    } on Object {
+      return fail;
+    }
+    if (fresh == null || !mounted) return fail;
+    auth.clearFailures();
+    await auth.saveSession(fresh);
+    if (!mounted) return null;
+    _closeLocalPlatform();
+    _platform = null;
+    _localApi = null;
+    setState(() {
+      _account = fresh;
+      _localSignedIn = true;
+      _localError = null;
+      _openLocalPlatform(fresh!.loginId);
+    });
+    _afterAcctConnected();
+    return null;
   }
 
   Future<void> _resetLocal() async {
@@ -743,6 +799,7 @@ class _OwnerAppState extends State<OwnerApp> {
   @override
   void dispose() {
     _updateTimer?.cancel();
+    _applyRetry?.cancel();
     _updateEvery?.cancel();
     _life?.dispose();
     HardwareKeyboard.instance.removeHandler(_onKey);

@@ -333,6 +333,51 @@ class AppUpdater {
     }
   }
 
+  /// ردیف ۱۹۸-U2: پیش‌تر هیچ مسیری خودکار نصب نمی‌کرد — زمان‌سنج‌ها فقط [check] می‌زدند و
+  /// تا کاربر «دانلود و نصب» را لمس نمی‌کرد هیچ اتفاقی نمی‌افتاد (گوشی روی 0.2.224 ماند،
+  /// درحالی‌که 0.2.231 منتشر شده بود). حالا هر بررسی خودکار تا آخر می‌رود و پنهان است:
+  ///   • اندروید: دریافت APK + نصب بی‌صفحه (نشست PackageInstaller، USER_ACTION_NOT_REQUIRED)؛
+  ///     اگر اندروید باز هم تأیید خواست (نصب نخست از مرورگر/کابل)، فقط یک بار در هر اجرا.
+  ///   • ویندوز: دریافت فقط فایل‌های تغییرکرده در پس‌زمینه؛ اعمال (بستن و باز شدن دوباره)
+  ///     فقط وقتی [idle] بگوید کاربر مشغول نیست — تا وسط کار پنجره بسته نشود.
+  /// شکست ⇒ دور بعدی دوباره (فایل‌های سالم دوباره دانلود نمی‌شوند).
+  Future<void> autoUpdate({bool Function()? idle}) async {
+    if (busy || _autoRunning) return;
+    _autoRunning = true;
+    try {
+      if (phase != UpdatePhase.staged) await check();
+      if (!available && phase != UpdatePhase.staged) return;
+      if (!isWindows) {
+        if (apkInstaller == null) return; // بی‌نصب‌کنندهٔ بومی: فقط چراغ
+        final b = plan?.manifest.build;
+        if (silentInstall && _autoApkBuild == b) return; // نصب پنهان در راه است
+        // تأیید سیستم یک بار نشان داده شد
+        if (_autoPromptedBuild == b && b != null) return;
+        await installApk();
+        if (silentInstall) {
+          _autoApkBuild = b;
+        } else if (phase == UpdatePhase.applying) {
+          _autoPromptedBuild = b;
+        }
+        return;
+      }
+      if (phase != UpdatePhase.staged ||
+          staged == null ||
+          staged!.plan != plan) {
+        await download();
+      }
+      if (phase == UpdatePhase.staged && (idle == null || idle())) {
+        await applyAndRestart();
+      }
+    } finally {
+      _autoRunning = false;
+    }
+  }
+
+  bool _autoRunning = false;
+  int? _autoApkBuild;
+  int? _autoPromptedBuild;
+
   Future<void> dispose() => _changes.close();
 }
 

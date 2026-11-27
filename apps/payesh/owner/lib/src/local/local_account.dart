@@ -194,6 +194,18 @@ final class LocalAuth {
   int _failures = 0;
   DateTime? _lockedUntil;
 
+  /// ورود به‌خاطر تلاش‌های نادرست پیاپی موقتاً بسته است؟
+  bool get locked {
+    final until = _lockedUntil;
+    return until != null && _now().isBefore(until);
+  }
+
+  /// ورود موفق از راه دیگر (بستهٔ حساب): شمارش تلاش‌های نادرست صفر شود.
+  void clearFailures() {
+    _failures = 0;
+    _lockedUntil = null;
+  }
+
   /// حساب ذخیره‌شده یا null. خطای انبار امن یا رکورد خراب به بالادست می‌رود.
   Future<LocalAccountRecord?> load() async {
     final s = await store.read(LocalAccountKeys.account);

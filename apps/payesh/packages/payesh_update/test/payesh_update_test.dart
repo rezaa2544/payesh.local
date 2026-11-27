@@ -446,6 +446,87 @@ void main() {
       await u.dispose();
     });
 
+    test('ردیف ۱۹۸-U2: autoUpdate ویندوز — بی‌لمس دریافت؛ کاربر مشغول ⇒ فقط آماده؛ بیکار ⇒ اعمال', () async {
+      final h = http();
+      var launched = 0;
+      final u = AppUpdater(
+        channel: channel,
+        http: () => h,
+        installDir: install,
+        stagingRoot: staging,
+        windows: true,
+        retry: UpdateRetry.none,
+        launcher: (s) async => launched++,
+      );
+      await u.autoUpdate(idle: () => false);
+      expect(u.phase, UpdatePhase.staged);
+      expect(launched, 0);
+      h.hits.clear();
+      await u.autoUpdate(idle: () => true);
+      expect(launched, 1);
+      expect(u.phase, UpdatePhase.applying);
+      // آماده بود ⇒ نه مانیفست دوباره، نه دانلود دوباره
+      expect(h.hits, isEmpty);
+      await u.dispose();
+    });
+
+    test('ردیف ۱۹۸-U2: autoUpdate اندروید — دریافت و نصب پنهان بی‌لمس؛ تکرار نمی‌کند؛ '
+        'تأیید سیستم فقط یک بار؛ به‌روز ⇒ هیچ', () async {
+      final h = http();
+      final inst = FakeInstaller(Directory('${tmp.path}/cache2'))
+        ..answer = 'silent';
+      final u = AppUpdater(
+        channel: channel,
+        http: () => h,
+        windows: false,
+        currentBuild: 7,
+        retry: UpdateRetry.none,
+        apkInstaller: inst,
+        stagingRoot: staging,
+        installDir: install,
+      );
+      await u.autoUpdate();
+      expect(inst.installed!.path, endsWith('payesh-update-8.apk'));
+      expect(u.silentInstall, isTrue);
+      inst.installed = null;
+      await u.autoUpdate();
+      expect(inst.installed, isNull);
+
+      final inst2 = FakeInstaller(Directory('${tmp.path}/cache3'));
+      final v = AppUpdater(
+        channel: channel,
+        http: () => h,
+        windows: false,
+        currentBuild: 7,
+        retry: UpdateRetry.none,
+        apkInstaller: inst2,
+        stagingRoot: staging,
+        installDir: install,
+      );
+      await v.autoUpdate();
+      expect(inst2.installed, isNotNull);
+      inst2.installed = null;
+      await v.autoUpdate();
+      expect(inst2.installed, isNull, reason: 'system prompt once per run');
+
+      final w = AppUpdater(
+        channel: channel,
+        http: () => h,
+        windows: false,
+        currentBuild: 8,
+        retry: UpdateRetry.none,
+        apkInstaller: inst2,
+        stagingRoot: staging,
+        installDir: install,
+      );
+      await w.autoUpdate();
+      expect(w.phase, UpdatePhase.upToDate);
+      expect(inst2.installed, isNull);
+      await u.dispose();
+      await v.dispose();
+      await w.dispose();
+    });
+
     test('اسکریپت شروع نشد ⇒ برنامه باز می‌ماند، پیام فارسی', () async {
       final h = http();
       var exited = false;

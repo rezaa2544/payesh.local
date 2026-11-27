@@ -5,7 +5,9 @@
 
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show GestureBinding;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HardwareKeyboard;
 import 'package:payesh_ui/payesh_ui.dart';
 
 import 'updater.dart';
@@ -258,36 +260,81 @@ class AutoUpdateCheck extends StatefulWidget {
     super.key,
     required this.updater,
     required this.child,
-    this.first = const Duration(seconds: 30),
-    this.every = const Duration(minutes: 30),
+    this.first = const Duration(seconds: 10),
+    this.every = const Duration(minutes: 10),
+    this.idleAfter = const Duration(seconds: 90),
   });
   final AppUpdater updater;
   final Widget child;
   final Duration first;
   final Duration every;
 
+  /// ویندوز: اعمال (بستن و باز شدن دوباره) فقط پس از این مدت بی‌لمس و بی‌کلید.
+  final Duration idleAfter;
+
   @override
   State<AutoUpdateCheck> createState() => _AutoUpdateCheckState();
 }
 
+/// ردیف ۱۹۸-U2: آخرین لمس/کلید کاربر در کل برنامه (برای اعمال پنهان به‌روزرسانی ویندوز).
+abstract final class UserIdle {
+  static DateTime _last = DateTime.now();
+  static bool _on = false;
+
+  static void mark() => _last = DateTime.now();
+
+  static Duration get idleFor => DateTime.now().difference(_last);
+
+  static void ensure() {
+    if (_on) return;
+    _on = true;
+    GestureBinding.instance.pointerRouter.addGlobalRoute((_) => mark());
+    HardwareKeyboard.instance.addHandler((_) {
+      mark();
+      return false;
+    });
+  }
+}
+
 class _AutoUpdateCheckState extends State<AutoUpdateCheck> {
   Timer? _timer;
+  Timer? _applyRetry;
+
+  bool _idle() => UserIdle.idleFor >= widget.idleAfter;
+
+  Future<void> _run() async {
+    final u = widget.updater;
+    await u.autoUpdate(idle: _idle);
+    // ویندوز: آماده ولی کاربر مشغول بود ⇒ هر دقیقه دوباره، تا بیکار شود
+    _applyRetry?.cancel();
+    if (u.phase == UpdatePhase.staged) {
+      _applyRetry = Timer.periodic(const Duration(minutes: 1), (t) {
+        if (u.phase != UpdatePhase.staged) {
+          t.cancel();
+          return;
+        }
+        if (_idle()) unawaited(u.applyAndRestart());
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    UserIdle.ensure();
     final u = widget.updater;
     u.readLastApply();
     _timer = Timer(widget.first, () {
       u.readLastApply();
-      unawaited(u.check());
-      _timer = Timer.periodic(widget.every, (_) => unawaited(u.check()));
+      unawaited(_run());
+      _timer = Timer.periodic(widget.every, (_) => unawaited(_run()));
     });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _applyRetry?.cancel();
     super.dispose();
   }
 
