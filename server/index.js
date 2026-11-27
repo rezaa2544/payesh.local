@@ -1032,8 +1032,9 @@ async function api(req, res, url, ip) {
       const closed = g.status === 'school_inactive' || g.status === 'school_removed';
       /* ردیف ۱۹۷-Q03: «هستهٔ رایگان» ولی — فقط خواندن داده (bootstrap، رویدادهای زنده، pull با
          کالکشن‌های رایگان) و نوشتن درخواست مرخصی؛ هر چیز دیگر همان 402 */
-      const freeRoute = (p === '/api/bootstrap' || p === '/api/v1/events' || p === '/api/v1/pull' || p === '/api/live/rev') && m === 'GET'
-        || (p === '/api/sync' && m === 'POST');
+      /* (فهرست «روش مسیر»، نه «p === …»: این بررسی دسترسی است، نه مسیر تازه — دروازهٔ OpenAPI ردیف ۸۱) */
+      const freeRoute = ['GET /api/bootstrap', 'GET /api/v1/events', 'GET /api/v1/pull', 'GET /api/live/rev',
+        'POST /api/sync'].includes(m + ' ' + p);
       if (closed || !g.free_core || !freeRoute) {
         return json({ ok: false, error: closed ? g.status : 'subscription_required', sub: g }, closed ? 403 : 402);
       }
