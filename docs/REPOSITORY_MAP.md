@@ -17,6 +17,7 @@
 | [`prototype/`](../prototype/) | نمونه‌های عمودی مأموریت‌های ۱۷–۲۱ (نه محصول) | نمونه |
 | [`tests/`](../tests/) | آزمون‌های اجرایی؛ `npm test` = [`tests/run.js`](../tests/run.js) | همه |
 | [`tools/`](../tools/) · [`scripts/`](../scripts/) · [`bench/`](../bench/) | ابزار شاهد/اندازه‌گیری، ساخت نسخه، بنچمارک | همه |
+| [`services/`](../services/) | سرویس وضعیت سبک (`status-service`: Node + Dockerfile) برای طرح زیرساخت رایگان Render — [`render.yaml`](../render.yaml)، [`free-infra-actions-render.md`](cloud/free-infra-actions-render.md) | زیرساخت |
 | [`deploy/`](../deploy/) | استقرار سرور مقصد (env نمونه، بکاپ، پایش) | لایهٔ مقصد |
 | [`site/`](../site/) | صفحهٔ ایستای دانلود/به‌روزرسانی `payeshschool.ir` روی GitHub Pages (بدون سرور، بدون Cloudflare)؛ ساخت با `tools/landing-114.mjs` — [سند ۱۱۴](cloud/114-landing-pages-dns.md) | انتشار — ردیف ۱۱۴ |
 | [`releases/`](../releases/) | مانیفست نسخه‌ها (commit ربات پس از هر ادغام در main) | اپ مدرسه |
