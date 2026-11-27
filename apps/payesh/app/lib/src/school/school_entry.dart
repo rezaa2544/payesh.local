@@ -8,6 +8,7 @@ import '../classes/classes_screen.dart';
 import '../counselor/cqueue_screen.dart';
 import '../flags.dart';
 import '../followup/followup_screen.dart';
+import '../finance/finance_screen.dart';
 import '../gate/gate_screen.dart';
 import '../pulse/pulse.dart';
 import '../reports/reports_screen.dart';
@@ -26,6 +27,7 @@ final class SchoolPageSpec {
     required this.icon,
     required this.roles,
     required this.build,
+    this.feature,
   });
 
   /// Key suffix (`adm-<id>`) and the web route it replaces.
@@ -37,6 +39,10 @@ final class SchoolPageSpec {
   /// Roles the web navigation shows this page to (client/pages.js `navConfig`).
   final Set<String> roles;
   final Widget Function(SchoolRouteArgs a) build;
+
+  /// Row 197 (Q07 / F31): the school feature this page belongs to (payesh_ui `schoolFeatures`:
+  /// the school type and its capabilities) — null = every school has it.
+  final String? feature;
 }
 
 /// What a page route gets.
@@ -274,6 +280,42 @@ final List<SchoolPageSpec> schoolPages = [
       ),
     ),
   ),
+  // Row 197 (Q07 / F32, F33): «کمک‌های مردمی» (every school; tuition only in a غیرانتفاعی) and
+  // «هیئت امنا» (a public school) — shown by the school type and capabilities.
+  SchoolPageSpec(
+    id: 'contributions',
+    wave: SchoolWave.reports,
+    label: 'کمک‌های مردمی',
+    icon: Icons.volunteer_activism_outlined,
+    roles: const {'manager'},
+    feature: 'contributions',
+    build: (a) => SchoolOwned(
+      create: () =>
+          ContributionsController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => ContributionsScreen(
+        controller: c as ContributionsController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
+  SchoolPageSpec(
+    id: 'trustees',
+    wave: SchoolWave.reports,
+    label: 'هیئت امنا',
+    icon: Icons.groups_2_outlined,
+    roles: const {'manager'},
+    feature: 'trustees',
+    build: (a) => SchoolOwned(
+      create: () =>
+          TrusteesController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => TrusteesScreen(
+        controller: c as TrusteesController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
   SchoolPageSpec(
     id: 'health',
     wave: SchoolWave.server,
@@ -342,6 +384,7 @@ class SchoolEntry extends StatelessWidget {
     required this.uid,
     required this.sync,
     this.onRetry,
+    this.features,
   });
 
   final ClientFlags flags;
@@ -351,9 +394,17 @@ class SchoolEntry extends StatelessWidget {
   final ValueListenable<SyncStatus> sync;
   final VoidCallback? onRetry;
 
+  /// Row 197 (Q07 / F31): what this school has (`schoolFeatures` of its type and capabilities);
+  /// null = not read yet — a page that needs a feature waits for it (never a dead page).
+  final Set<String>? features;
+
   List<SchoolPageSpec> get visible => [
     for (final p in schoolPages)
-      if (role != null && p.roles.contains(role) && flags.usesSchool(p.wave)) p,
+      if (role != null &&
+          p.roles.contains(role) &&
+          flags.usesSchool(p.wave) &&
+          (p.feature == null || (features?.contains(p.feature) ?? false)))
+        p,
   ];
 
   @override
@@ -567,6 +618,8 @@ const Map<String, String> schoolPageGroups = {
   'reports': 'school',
   'leaves': 'school',
   'gate': 'daily',
+  'contributions': 'school',
+  'trustees': 'school',
   'health': 'system',
   'network': 'system',
   'cloud': 'system',

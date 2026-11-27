@@ -174,6 +174,8 @@ class _SchoolFormDialogState extends State<SchoolFormDialog> {
     'capabilities': {
       ..._caps,
       if (_shift == 'شب' || _shift == 'هر دو') 'has_evening': 1,
+      // ردیف ۱۹۷ (Q07 / F32): مدرسهٔ دولتی شهریه ندارد (دادهٔ قدیمی هم خاموش می‌شود)
+      if (isPublicSchoolType(_schoolType)) 'has_tuition': 0,
     },
     'staff_count': _int('staff'),
     'student_count': _int('students'),

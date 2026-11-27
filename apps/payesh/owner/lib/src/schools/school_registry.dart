@@ -27,6 +27,7 @@ import 'package:payesh_ui/payesh_ui.dart'
         schoolShifts,
         schoolKindsFa,
         schoolTypeDefs,
+        isPublicSchoolType,
         capDefs,
         schoolBranches,
         defaultWorkDays;
@@ -48,6 +49,7 @@ export 'package:payesh_ui/payesh_ui.dart'
         schoolShifts,
         schoolKindsFa,
         schoolTypeDefs,
+        isPublicSchoolType,
         capDefs,
         capDefaults,
         capsForType,
@@ -1013,6 +1015,8 @@ final class SchoolRegistry {
     final type = schoolTypeDefs.any((d) => d.$1 == t('school_type'))
         ? t('school_type')
         : 'governmental';
+    // ردیف ۱۹۷ (Q07 / F32): مدرسهٔ دولتی شهریه ندارد
+    if (isPublicSchoolType(type)) caps['has_tuition'] = 0;
     final wd = f['work_days'] is List
         ? ([
             for (final d in f['work_days']! as List)

@@ -125,6 +125,9 @@ final class SchoolRecords {
     'conflicts': CollectionRule({}, {'manager'}),
     // Row 197 (Q06): the gate's visitor log (a guard writes it through the «درِ مدرسه» area).
     'visitors': CollectionRule({'manager'}, {'manager'}),
+    // Row 197 (Q07): voluntary contributions and the board of trustees (manager only).
+    'contributions': CollectionRule({'manager'}, {'manager'}),
+    'trustees': CollectionRule({'manager'}, {'manager'}),
   };
 
   /// Id ranges of rows created by row-128 pages: slot i = [1e15 + i·1e14, 1e15 + (i+1)·1e14).
@@ -145,6 +148,9 @@ final class SchoolRecords {
     'counselor_refs',
     // Row 197 (Q06): the gate's visitor log (slot 12 = [2.2e15, 2.3e15)).
     'visitors',
+    // Row 197 (Q07): slot 13 = [2.3e15, 2.4e15), slot 14 = [2.4e15, 2.5e15).
+    'contributions',
+    'trustees',
   ];
   static const int idFloor = 1000000000000000;
   static const int idSlotSpan = 100000000000000;

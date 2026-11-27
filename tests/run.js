@@ -5806,6 +5806,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۷ (Q07): نوع مدرسه با اثر واقعی، هیئت امنا و کمک داوطلبانه ── */
+  await test('ردیف ۱۹۷ (Q07): شهریه فقط در غیرانتفاعی (نمونه دولتی/شاهد/… بی‌شهریه، دادهٔ قدیمی خاموش)، منوها با قابلیت‌ها، کمک داوطلبانه و هیئت امنا (اعضا + جلسه/مصوبه) فقط مدیر، آینهٔ ابری و رجیستری مالک (۹ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/school-type-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'school-type-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۸: مصرف بی‌دلیل صندوقچهٔ آروان (نوشتن‌های بی‌تغییر در صندوقچهٔ نسخه‌بندی‌شده) ── */
   await test('ردیف ۱۹۸: خلاصهٔ دانش‌آموز و auth/data فقط با تغییر واقعی (ماندگار پس از راه‌اندازی دوباره)، رسید مدرسه بی‌تغییر هر ۱۰ دقیقه، پشتیبان مالک بی‌updates و روزی یک بار روی دیتابیس (۵ بررسی)',
     async () => {

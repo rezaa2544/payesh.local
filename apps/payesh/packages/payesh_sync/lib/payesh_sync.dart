@@ -38,6 +38,7 @@ export 'src/pinning.dart';
 export 'src/records.dart';
 export 'src/school_access.dart';
 export 'src/gate.dart';
+export 'src/finance.dart';
 export 'src/staff_access.dart';
 export 'src/support.dart';
 export 'src/sync_client.dart';

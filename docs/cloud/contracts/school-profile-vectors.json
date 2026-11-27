@@ -1,5 +1,5 @@
 {
-  "contract": "school-profile v1",
+  "contract": "school-profile v2",
   "levels": [
     "ابتدایی",
     "متوسطه اول",
@@ -31,7 +31,11 @@
     "exceptional",
     "rural",
     "boarding",
-    "vocational"
+    "vocational",
+    "kardanesh",
+    "adult",
+    "quranic",
+    "minority"
   ],
   "caps": [
     "has_tuition",
@@ -93,7 +97,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -124,7 +127,7 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
+          "has_tuition": 0,
           "has_dorm": 0,
           "has_iep": 0,
           "has_workshop": 0,
@@ -160,7 +163,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -193,7 +195,7 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
+          "has_tuition": 0,
           "has_dorm": 0,
           "has_iep": 0,
           "has_workshop": 0,
@@ -299,7 +301,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -330,7 +331,7 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
+          "has_tuition": 0,
           "has_dorm": 0,
           "has_iep": 0,
           "has_workshop": 0,
@@ -366,7 +367,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -398,7 +398,7 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
+          "has_tuition": 0,
           "has_dorm": 0,
           "has_iep": 0,
           "has_workshop": 0,
@@ -434,7 +434,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -470,7 +469,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -506,7 +504,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -542,7 +539,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -578,7 +574,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -614,7 +609,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -650,7 +644,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -686,7 +679,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -722,7 +714,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -751,7 +742,6 @@
         "work_days": [],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -782,7 +772,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -818,7 +807,6 @@
         ],
         "excuse_window_minutes": 500,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -889,7 +877,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [],
@@ -923,7 +910,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -959,7 +945,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -995,7 +980,6 @@
         ],
         "excuse_window_minutes": 15,
         "capabilities": {
-          "has_tuition": 1,
           "has_second_term_exam": true
         },
         "branches": [
@@ -1008,6 +992,605 @@
         "public_goals": true
       },
       "error": "boom_goals"
+    },
+    {
+      "id": "tuition-public-governmental",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "governmental",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "tuition_public"
+    },
+    {
+      "id": "tuition-public-exemplary",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "exemplary",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "tuition_public"
+    },
+    {
+      "id": "tuition-public-shahed",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "shahed",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "tuition_public"
+    },
+    {
+      "id": "tuition-public-boarding",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "boarding",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "error": "tuition_public"
+    },
+    {
+      "id": "ok-nonprofit-tuition",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "non_profit",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "patch": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "non_profit",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "05142233445",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": 250,
+        "work_days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 1,
+          "has_dorm": 0,
+          "has_iep": 0,
+          "has_workshop": 0,
+          "has_multigrade": 0,
+          "has_second_term_exam": 1,
+          "has_evening": 0
+        },
+        "branches": [],
+        "fields": [],
+        "boom_goals": "هدف",
+        "public_goals": true
+      }
+    },
+    {
+      "id": "ok-type-kardanesh",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "kardanesh",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "patch": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "kardanesh",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "05142233445",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": 250,
+        "work_days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 0,
+          "has_dorm": 0,
+          "has_iep": 0,
+          "has_workshop": 0,
+          "has_multigrade": 0,
+          "has_second_term_exam": 1,
+          "has_evening": 0
+        },
+        "branches": [],
+        "fields": [],
+        "boom_goals": "هدف",
+        "public_goals": true
+      }
+    },
+    {
+      "id": "ok-type-adult",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "adult",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "patch": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "adult",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "05142233445",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": 250,
+        "work_days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 0,
+          "has_dorm": 0,
+          "has_iep": 0,
+          "has_workshop": 0,
+          "has_multigrade": 0,
+          "has_second_term_exam": 1,
+          "has_evening": 0
+        },
+        "branches": [],
+        "fields": [],
+        "boom_goals": "هدف",
+        "public_goals": true
+      }
+    },
+    {
+      "id": "ok-type-quranic",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "quranic",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "patch": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "quranic",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "05142233445",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": 250,
+        "work_days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 0,
+          "has_dorm": 0,
+          "has_iep": 0,
+          "has_workshop": 0,
+          "has_multigrade": 0,
+          "has_second_term_exam": 1,
+          "has_evening": 0
+        },
+        "branches": [],
+        "fields": [],
+        "boom_goals": "هدف",
+        "public_goals": true
+      }
+    },
+    {
+      "id": "ok-type-minority",
+      "input": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "minority",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "۰۵۱۴۲۲۳۳۴۴۵",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": "250",
+        "work_days": [
+          4,
+          0,
+          1,
+          2,
+          3,
+          3
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_second_term_exam": true
+        },
+        "branches": [
+          "نظری"
+        ],
+        "fields": [
+          "ریاضی فیزیک"
+        ],
+        "boom_goals": "هدف",
+        "public_goals": true
+      },
+      "patch": {
+        "level": "متوسطه اول",
+        "type": "عادی",
+        "school_type": "minority",
+        "gender": "پسرانه",
+        "shift": "صبح",
+        "landline": "05142233445",
+        "phone": "09121234567",
+        "staff_count": 20,
+        "student_count": 250,
+        "work_days": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "excuse_window_minutes": 15,
+        "capabilities": {
+          "has_tuition": 0,
+          "has_dorm": 0,
+          "has_iep": 0,
+          "has_workshop": 0,
+          "has_multigrade": 0,
+          "has_second_term_exam": 1,
+          "has_evening": 0
+        },
+        "branches": [],
+        "fields": [],
+        "boom_goals": "هدف",
+        "public_goals": true
+      }
+    }
+  ],
+  "type_caps": {
+    "governmental": [],
+    "exemplary": [],
+    "non_profit": [
+      "has_tuition"
+    ],
+    "sampad": [],
+    "shahed": [],
+    "exceptional": [
+      "has_iep"
+    ],
+    "rural": [
+      "has_multigrade"
+    ],
+    "boarding": [
+      "has_dorm"
+    ],
+    "vocational": [
+      "has_workshop"
+    ],
+    "kardanesh": [
+      "has_workshop"
+    ],
+    "adult": [
+      "has_evening"
+    ],
+    "quranic": [],
+    "minority": []
+  },
+  "tuition_types": [
+    "non_profit"
+  ],
+  "features": [
+    {
+      "id": "f-governmental",
+      "school_type": "governmental",
+      "caps": {},
+      "features": [
+        "contributions",
+        "trustees"
+      ]
+    },
+    {
+      "id": "f-governmental-stale-tuition",
+      "school_type": "governmental",
+      "caps": {
+        "has_tuition": 1
+      },
+      "features": [
+        "contributions",
+        "trustees"
+      ]
+    },
+    {
+      "id": "f-exemplary",
+      "school_type": "exemplary",
+      "caps": {
+        "has_tuition": 1
+      },
+      "features": [
+        "contributions",
+        "trustees"
+      ]
+    },
+    {
+      "id": "f-nonprofit",
+      "school_type": "non_profit",
+      "caps": {
+        "has_tuition": 1,
+        "has_dorm": 1
+      },
+      "features": [
+        "contributions",
+        "tuition",
+        "dorm"
+      ]
+    },
+    {
+      "id": "f-nonprofit-no-tuition",
+      "school_type": "non_profit",
+      "caps": {},
+      "features": [
+        "contributions"
+      ]
+    },
+    {
+      "id": "f-exceptional",
+      "school_type": "exceptional",
+      "caps": {
+        "has_iep": 1
+      },
+      "features": [
+        "contributions",
+        "trustees",
+        "iep"
+      ]
+    },
+    {
+      "id": "f-rural-evening",
+      "school_type": "rural",
+      "caps": {
+        "has_multigrade": 1,
+        "has_evening": 1
+      },
+      "features": [
+        "contributions",
+        "trustees",
+        "multigrade",
+        "evening"
+      ]
+    },
+    {
+      "id": "f-kardanesh",
+      "school_type": "kardanesh",
+      "caps": {
+        "has_workshop": 1
+      },
+      "features": [
+        "contributions",
+        "trustees",
+        "workshop"
+      ]
     }
   ]
 }

@@ -21,21 +21,42 @@ const List<String> schoolKindsFa = [
 ];
 
 /// p2 SCHOOL_TYPE_DEFS: شناسه، عنوان، قابلیت‌هایی که روشن می‌کند.
+///
+/// ردیف ۱۹۷ (Q07 / F32): شهریه فقط در «غیردولتی / غیرانتفاعی» ([tuitionSchoolTypes])؛ نمونه
+/// دولتی، شاهد، هنرستان و شبانه‌روزی دولتی‌اند و طبق بخشنامهٔ ۱۴۰۵ شهریه ندارند — «کمک
+/// داوطلبانه» جای آن است. «هیئت امنا» شیوهٔ مدیریت همهٔ مدارس دولتی است، نه یک نوع (F33).
+/// ردیف ۱۹۷ (Q07 / F37): کاردانش جدا از هنرستان فنی‌وحرفه‌ای، بزرگسالان، قرآنی/معارف، اقلیت‌ها.
+/// رونوشت سرور: server/school-profile.js `SCHOOL_TYPES` + `TYPE_CAPS`.
 const List<(String, String, Set<String>)> schoolTypeDefs = [
   ('governmental', 'دولتی معمولی', {}),
-  ('exemplary', 'نمونه دولتی (هیئت امنایی)', {'has_tuition'}),
-  ('non_profit', 'غیردولتی / غیرانتفاعی', {'has_tuition', 'has_dorm'}),
+  ('exemplary', 'نمونه دولتی', {}),
+  ('non_profit', 'غیردولتی / غیرانتفاعی', {'has_tuition'}),
   ('sampad', 'تیزهوشان (سمپاد)', {}),
-  ('shahed', 'شاهد', {'has_tuition'}),
+  ('shahed', 'شاهد', {}),
   ('exceptional', 'استثنایی', {'has_iep'}),
   ('rural', 'روستایی / عشایری', {'has_multigrade'}),
-  ('boarding', 'شبانه‌روزی', {'has_tuition', 'has_dorm'}),
-  ('vocational', 'هنرستان', {'has_tuition', 'has_workshop'}),
+  ('boarding', 'شبانه‌روزی', {'has_dorm'}),
+  ('vocational', 'هنرستان فنی و حرفه‌ای', {'has_workshop'}),
+  ('kardanesh', 'هنرستان کاردانش', {'has_workshop'}),
+  ('adult', 'بزرگسالان', {'has_evening'}),
+  ('quranic', 'قرآنی / معارف', {}),
+  ('minority', 'اقلیت‌های دینی', {}),
 ];
+
+/// ردیف ۱۹۷ (Q07): نوع‌هایی که شهریهٔ اجباری در آن‌ها مجاز است (server/school-finance.js).
+const Set<String> tuitionSchoolTypes = {'non_profit'};
+
+/// مدرسهٔ دولتی؟ (هر نوعی جز غیرانتفاعی) — هیئت امنا دارد و شهریه ندارد.
+bool isPublicSchoolType(String? type) =>
+    !tuitionSchoolTypes.contains(type ?? 'governmental');
 
 /// p2 CAP_DEFS.
 const List<(String, String, String)> capDefs = [
-  ('has_tuition', 'شهریه', 'مدرسه شهریه می‌گیرد — ماژول مالی و شهریه فعال است'),
+  (
+    'has_tuition',
+    'شهریه',
+    'فقط مدرسهٔ غیرانتفاعی — مدرسهٔ دولتی شهریه ندارد و «کمک داوطلبانه» ثبت می‌کند',
+  ),
   ('has_dorm', 'اسکان و خانه‌دانش‌آموزی', 'مدرسه بخش اسکان دارد'),
   (
     'has_iep',
@@ -56,7 +77,7 @@ const List<(String, String, String)> capDefs = [
   ),
 ];
 const Map<String, int> capDefaults = {
-  'has_tuition': 1,
+  'has_tuition': 0,
   'has_dorm': 0,
   'has_iep': 0,
   'has_workshop': 0,
@@ -78,7 +99,32 @@ Map<String, int> capsForType(String type) {
   ]) {
     out[k] = row != null && row.$3.contains(k) ? 1 : 0;
   }
+  if (row != null && row.$3.contains('has_evening')) out['has_evening'] = 1;
   return out;
+}
+
+/// ردیف ۱۹۷ (Q07 / F31): صفحه‌هایی که این مدرسه دارد — منوی برنامه با همین روشن/خاموش
+/// می‌شود. رونوشت server/school-finance.js `schoolFeatures` (همان ترتیب).
+///   contributions  «کمک‌های مردمی» (همهٔ مدارس)
+///   trustees       «هیئت امنا» (مدرسهٔ دولتی)
+///   tuition        شهریه (فقط غیرانتفاعی با قابلیت شهریه)
+///   iep / dorm / workshop / multigrade / evening — قابلیت‌های روشن
+List<String> schoolFeatures(String? type, Map<Object?, Object?>? caps) {
+  bool has(String k) => caps?[k] == 1 || caps?[k] == true;
+  final public = isPublicSchoolType(type);
+  return [
+    'contributions',
+    if (public) 'trustees',
+    if (!public && has('has_tuition')) 'tuition',
+    for (final (cap, f) in const [
+      ('has_iep', 'iep'),
+      ('has_dorm', 'dorm'),
+      ('has_workshop', 'workshop'),
+      ('has_multigrade', 'multigrade'),
+      ('has_evening', 'evening'),
+    ])
+      if (has(cap)) f,
+  ];
 }
 
 /// p2 BRANCHES (شاخه‌ها و رشته‌های متوسطه دوم).
@@ -134,6 +180,7 @@ const Map<String, String> schoolProfileErrorsFa = {
   'branches': 'برای متوسطه دوم دست‌کم یک شاخه (نظری، فنی و حرفه‌ای یا کاردانش) انتخاب کنید',
   'fields': 'رشته باید از شاخه‌های انتخاب‌شده باشد',
   'boom_goals': 'متن اهداف بوم حداکثر ۲٬۰۰۰ نویسه باشد',
+  'tuition_public': 'مدرسهٔ دولتی شهریهٔ اجباری ندارد (بخشنامهٔ ۱۴۰۵) — کمک‌های داوطلبانه را در «کمک‌های مردمی» ثبت کنید',
 };
 
 String _digits(Object? v) {
@@ -207,6 +254,7 @@ abstract final class SchoolProfile {
       'branches': ['نظری'],
       'fields': <String>[],
       'boom_goals': '',
+      'tuition_public': null,
     };
     final out = <String, String>{};
     final m = Map<String, Object?>.of(b);
@@ -217,6 +265,13 @@ abstract final class SchoolProfile {
       out[e] = r.messageFa!;
       if (e == 'excuse') {
         m['excuse_window_minutes'] = fill[e];
+      } else if (e == 'tuition_public') {
+        m['capabilities'] = {
+          ...(m['capabilities'] is Map
+              ? Map<Object?, Object?>.from(m['capabilities']! as Map)
+              : const <Object?, Object?>{}),
+          'has_tuition': 0,
+        };
       } else if (e == 'branches') {
         m['branches'] = fill[e];
         m['fields'] = const <String>[];
@@ -298,6 +353,9 @@ abstract final class SchoolProfile {
       for (final d in capDefs) d.$1: rc[d.$1] == 1 || rc[d.$1] == true ? 1 : 0,
     };
     if (shift == 'شب' || shift == 'هر دو') caps['has_evening'] = 1;
+    if (caps['has_tuition'] == 1 && !tuitionSchoolTypes.contains(st)) {
+      return const SchoolProfileCheck.error('tuition_public');
+    }
     var branches = <String>[];
     var fields = <String>[];
     if (level == 'متوسطه دوم') {

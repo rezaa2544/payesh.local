@@ -28,6 +28,8 @@ const DEFAULT_COLLECTIONS = [
   'staff_attendance', 'staff_posts', 'discipline', 'homework', 'exams', 'calendar', 'import_issues',
   /* ردیف ۱۹۷ (Q06): دفتر مراجعین؛ و صف ارجاع که مشاور بی‌آن روی همگام‌سازی محلی خالی می‌دید */
   'visitors', 'counselor_refs',
+  /* ردیف ۱۹۷ (Q07): کمک داوطلبانه و هیئت امنا */
+  'contributions', 'trustees',
 ];
 
 /* شمارهٔ همراه: ارقام فارسی/عربی به لاتین، و اگر اکسل صفرِ اول را

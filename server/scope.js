@@ -16,6 +16,7 @@
    تا مسیر محلی و ابری یک سیاست داشته باشند.
    ═══════════════════════════════════════════════════════════════════ */
 const policy = require('./policy');
+const finance = require('./school-finance');
 
 const T = () => require('./tenancy').PRODUCT_TABLE;
 const BIG = (col) => `(case when r.data->>'${col}' ~ '^[0-9]{1,18}$' then (r.data->>'${col}')::bigint end)`;
@@ -179,6 +180,9 @@ function rowInScope(scope, collection, row) {
     case 'conflicts':
     /* ردیف ۱۹۷ (Q06): مراجعین — فقط مدیر (all) یا ناحیهٔ «درِ مدرسه» (grantRead) */
     case 'visitors':
+    /* ردیف ۱۹۷ (Q07): کمک‌ها و هیئت امنا — فقط مدیر */
+    case 'contributions':
+    case 'trustees':
       return false;
     case 'subjects':
     case 'announcements':
@@ -205,6 +209,15 @@ function canWriteRow(scope, collection, row, existing) {
   if (collection === 'visitors' && row && row.name !== undefined) {
     const vi = policy.visitorIssue(row);
     if (vi) return { ok: false, error: vi };
+  }
+  /* ردیف ۱۹۷ (Q07): شکل ردیف (آینهٔ ابری ردیف مدرسه را ندارد؛ قاعدهٔ شهریه روی سرور مدرسه) */
+  if (collection === 'contributions' && row && row.amount !== undefined) {
+    const ci = finance.contributionIssue(row);
+    if (ci) return { ok: false, error: ci };
+  }
+  if (collection === 'trustees' && row && row.kind !== undefined) {
+    const ti = finance.trusteeIssue(row);
+    if (ti) return { ok: false, error: ti };
   }
   if (!scope || scope.all) return { ok: true };
   if ((scope.grantWrite || []).includes(collection)) {

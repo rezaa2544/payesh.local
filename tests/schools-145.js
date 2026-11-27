@@ -552,6 +552,9 @@ function req(method, port, p, body, headers = {}) {
       assert.deepStrictEqual(PV.levels, sp.LEVELS); assert.deepStrictEqual(PV.levels, sr.LEVELS);
       assert.deepStrictEqual(PV.caps, sp.CAPS); assert.deepStrictEqual(PV.branches, sp.BRANCHES); assert.deepStrictEqual(PV.school_types, sp.SCHOOL_TYPES);
       assert.ok(PV.cases.length >= 20);
+      /* ردیف ۱۹۷ (Q07): قابلیت‌های هر نوع، نوع‌های شهریه‌دار و منوها (features) همان بردارها */
+      assert.deepStrictEqual(PV.type_caps, sp.TYPE_CAPS); assert.deepStrictEqual(PV.tuition_types, require('../server/school-finance').TUITION_TYPES);
+      for (const f of PV.features) assert.deepStrictEqual(require('../server/school-finance').schoolFeatures({ school_type: f.school_type, capabilities: f.caps }), f.features, f.id);
       for (const c of PV.cases) {
         const r = sp.validateProfile(c.input);
         if (c.error) assert.strictEqual(r.error, c.error, c.id);

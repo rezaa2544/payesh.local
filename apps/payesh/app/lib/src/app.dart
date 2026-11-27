@@ -38,6 +38,10 @@ List<(String, String, String, String)> webNavConfig(String? role) =>
         // ردیف ۱۹۷ (F28): درخواست‌های مرخصی ولی‌ها باید به مدیر/معاون برسد.
         ('leaves', 'mail', 'مرخصی‌ها', 'leaves'),
         ('reports', 'report', 'گزارش‌ها', 'reports'),
+        // ردیف ۱۹۷ (Q07): فقط اگر نوع مدرسه و قابلیت‌هایش این صفحه را دارد (schoolFeatures) —
+        // کمک‌های مردمی برای همه، هیئت امنا برای مدرسهٔ دولتی (برنامهٔ بومی؛ پنل وب ندارد).
+        ('contributions', 'chart', 'کمک‌های مردمی', 'contributions'),
+        ('trustees', 'users', 'هیئت امنا', 'trustees'),
         ('cqueue', 'mail', 'ارجاع مشاور', 'cqueue'),
         ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
         ('health', 'health', 'سلامت', 'health'),
@@ -141,6 +145,61 @@ class StaffAccessCache extends ChangeNotifier {
       if (next.join(',') != _access.join(',') || !_loaded) {
         _access = next;
         _loaded = true;
+        notifyListeners();
+      }
+    } on Object {
+      // a closed or not-yet-open local database: keep what is known
+    }
+  }
+}
+
+/// Row 197 (Q07 / F31): what this school has — `schoolFeatures` of the school row's type and
+/// capabilities (`schools/1` of the local database), read again after every sync. The manager's
+/// home shows «کمک‌های مردمی» / «هیئت امنا» by it; a change of the school type or a capability
+/// turns the menu on or off without signing in again.
+final SchoolFeaturesCache schoolFeaturesCache = SchoolFeaturesCache();
+
+class SchoolFeaturesCache extends ChangeNotifier {
+  String _key = '';
+  Set<String>? _features;
+  SchoolSource? _src;
+  String _role = '';
+  int _uid = 0;
+  int _gen = 0;
+
+  /// The features known now (null until the first read finished).
+  Set<String>? current(SchoolSource src, String role, int uid) {
+    final key = '${identityHashCode(src)}/$role/$uid';
+    if (key != _key) {
+      _src?.changed.removeListener(_reload);
+      _key = key;
+      _features = null;
+      _src = src..changed.addListener(_reload);
+      _role = role;
+      _uid = uid;
+      _reload();
+    }
+    return _features;
+  }
+
+  Future<void> _reload() async {
+    final src = _src;
+    if (src == null) return;
+    final gen = ++_gen;
+    try {
+      final db = await src.recordsFor(role: _role, uid: _uid);
+      if (db == null) return;
+      final rows = await db.allOrEmpty('schools');
+      final row = rows.where((r) => r.id == 1).firstOrNull ?? rows.firstOrNull;
+      final caps = row?.data['capabilities'];
+      final next = schoolFeatures(
+        row == null ? null : '${row.data['school_type'] ?? ''}'.trim(),
+        caps is Map ? caps : null,
+      ).toSet();
+      if (gen != _gen) return;
+      final was = _features;
+      if (was == null || was.length != next.length || !was.containsAll(next)) {
+        _features = next;
         notifyListeners();
       }
     } on Object {
@@ -354,13 +413,18 @@ class PayeshApp extends StatelessWidget {
         }
       },
     );
+    final ssrc = school;
     final sch = SchoolEntry(
       flags: s.flags,
-      source: school,
+      source: ssrc,
       role: role,
       uid: uid,
       sync: s.sync,
       onRetry: onRetrySync,
+      // Row 197 (Q07): pages of the school type (read as the signed-in user — `schools` is open).
+      features: ssrc == null || uid == null || state.currentRole == null
+          ? null
+          : schoolFeaturesCache.current(ssrc, state.currentRole!, uid),
     );
     return (fam: fam, att: att, grd: grd, ntc: ntc, sch: sch);
   }
@@ -581,7 +645,11 @@ class PayeshApp extends StatelessWidget {
               ? HomeScreen(storage: storage, today: today)
               : ListenableBuilder(
                   // row 194: the menu follows the staff member's ticks
-                  listenable: staffAccessCache,
+                  // row 197 (Q07): and the school type's pages
+                  listenable: Listenable.merge([
+                    staffAccessCache,
+                    schoolFeaturesCache,
+                  ]),
                   builder: (context, _) => SessionGate(
                     controller: s,
                     home: HomeFooter(storage: storage, today: today),

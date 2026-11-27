@@ -114,6 +114,9 @@ void main() {
     await tester.tap(find.byKey(const Key('nav-more')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('pulse-more-sheet')), findsOneWidget);
+    // row 197 (Q07): the sheet scrolls — «هیئت امنا» / «کمک‌های مردمی» come before «سیستم»
+    await tester.ensureVisible(find.byKey(const Key('nav-system')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('nav-system')));
     await settle(tester);
     expect(find.byKey(const Key('pulse-page-system')), findsOneWidget);

@@ -1,4 +1,5 @@
 'use strict';
+const finance = require('./school-finance');
 /* ───────────────────────────────────────────────────────────────────
    سیاست دسترسی — همان ایدهٔ fail-closed پایش اصلی
    هر کالکشن ناشناس = رد. هر نقش ناشناس = رد. اسکوپ خواندن سمت سرور.
@@ -102,6 +103,9 @@ const COLLECTIONS = {
   conflicts:        { write: [], read: ['manager'] },
   /* ردیف ۱۹۷ (Q06 / F38، F44): دفتر مراجعینِ درِ مدرسه — مدیر، و نگهبان با ناحیهٔ «درِ مدرسه» */
   visitors:         { write: ['manager'], read: ['manager'] },
+  /* ردیف ۱۹۷ (Q07 / F32, F33): کمک داوطلبانه (و شهریهٔ غیرانتفاعی) و هیئت امنا — فقط مدیر */
+  contributions:    { write: ['manager'], read: ['manager'] },
+  trustees:         { write: ['manager'], read: ['manager'] },
 };
 
 const PROTECTED = new Set(['audit', 'devices', 'sessions', 'pair_codes', 'sync_log']);
@@ -364,6 +368,16 @@ function canWriteRow(store, user, role, collection, row, existing) {
   if (collection === 'visitors' && row && row.name !== undefined) {
     const vi = visitorIssue(row);
     if (vi) return { ok: false, error: vi };
+  }
+  /* ردیف ۱۹۷ (Q07): شکل ردیف + «اثر واقعی» نوع مدرسه — شهریه فقط غیرانتفاعی، هیئت امنا فقط دولتی */
+  if (collection === 'contributions' && row && row.amount !== undefined) {
+    const ci = finance.contributionIssue(row, (store && store.get('schools', 1)) || null);
+    if (ci) return { ok: false, error: ci };
+  }
+  if (collection === 'trustees' && row && row.kind !== undefined) {
+    const ti = finance.trusteeIssue(row);
+    if (ti) return { ok: false, error: ti };
+    if (store && !finance.isPublicSchool(store.get('schools', 1) || null)) return { ok: false, error: 'feature_off' };
   }
   if (role !== 'manager' && grantWrites(Object.assign({}, user, { role })).has(collection)) {
     if (collection === 'attendance' && row && row.status != null && !ATT_STATUS.includes(row.status)) return { ok: false, error: 'bad_status' };

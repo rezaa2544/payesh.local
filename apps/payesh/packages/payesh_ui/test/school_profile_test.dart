@@ -129,6 +129,40 @@ void main() {
     );
     expect(weekDays.length, 7);
     expect(defaultWorkDays, [0, 1, 2, 3, 4]);
-    expect(capDefaults['has_tuition'], 1);
+    // Row 197 (Q07 / F32): tuition is off by default and only غیرانتفاعی turns it on.
+    expect(capDefaults['has_tuition'], 0);
+  });
+
+  test('ردیف ۱۹۷ (Q07): شهریه فقط غیرانتفاعی؛ منوها با نوع و قابلیت‌ها (بردارهای مشترک)', () {
+    final tc = (v['type_caps']! as Map).cast<String, Object?>();
+    expect(tc.keys.toList(), [for (final d in schoolTypeDefs) d.$1]);
+    for (final d in schoolTypeDefs) {
+      expect((tc[d.$1]! as List).toSet(), d.$3, reason: d.$1);
+    }
+    expect((v['tuition_types']! as List).toSet(), tuitionSchoolTypes);
+    for (final t in ['exemplary', 'shahed', 'boarding', 'vocational']) {
+      expect(capsForType(t)['has_tuition'], 0, reason: t);
+      expect(isPublicSchoolType(t), isTrue, reason: t);
+    }
+    expect(capsForType('non_profit')['has_tuition'], 1);
+    expect(capsForType('adult')['has_evening'], 1);
+    expect(capsForType('kardanesh')['has_workshop'], 1);
+    for (final f in (v['features']! as List).cast<Map<String, Object?>>()) {
+      expect(
+        schoolFeatures(f['school_type']! as String, f['caps']! as Map),
+        f['features'],
+        reason: '${f['id']}',
+      );
+    }
+    final all = SchoolProfile.problems({
+      'level': 'ابتدایی',
+      'gender': 'دخترانه',
+      'school_type': 'shahed',
+      'work_days': [0],
+      'excuse_window_minutes': 10,
+      'capabilities': {'has_tuition': 1},
+    });
+    expect(all.keys, ['tuition_public']);
+    expect(all['tuition_public'], contains('کمک'));
   });
 }

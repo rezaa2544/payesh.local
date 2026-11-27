@@ -833,14 +833,14 @@ void main() {
 
       await pick('sp-level', 'متوسطه دوم');
       await pick('sp-gender', 'دخترانه');
-      await pick('sp-school_type', 'هنرستان');
+      await pick('sp-school_type', 'هنرستان فنی و حرفه‌ای');
       await top();
       await reveal(tester, 'sp-cap-has_workshop');
       final ws = tester.widget<CheckboxListTile>(
         find.byKey(const Key('sp-cap-has_workshop')),
       );
       expect(ws.value, isTrue, reason: 'vocational ⇒ workshop');
-      await pick('sp-shift', 'هر دو شیفت');
+      await pick('sp-shift', 'هر دو شیفت (دونوبته)');
       await top();
       await reveal(tester, 'sp-cap-has_evening');
       final ev = tester.widget<CheckboxListTile>(

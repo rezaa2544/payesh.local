@@ -38,6 +38,7 @@ const s3mem = require('./s3mem');
 const { trustFetch } = require('./s3-https');
 const { nowISO, verifySecret, normDigits } = require('./util');
 const schoolProfile = require('./school-profile');
+const schoolFinance = require('./school-finance');
 
 const SALT = Buffer.from('payesh/schools', 'utf8');
 const INFO = Buffer.from('v1', 'utf8');
@@ -766,6 +767,12 @@ function withProfileRules(s1, patch) {
     if (caps.has_evening !== 1) { caps.has_evening = 1; patch.capabilities = caps; }
   }
   if (patch.level && patch.level !== SECOND_LEVEL) { patch.branches = []; patch.fields = []; }
+  /* ردیف ۱۹۷ (Q07 / F32): مدرسهٔ دولتی (هر نوعی جز غیرانتفاعی) شهریهٔ اجباری ندارد */
+  const st = patch.school_type || (s1 && s1.school_type) || 'governmental';
+  if (!schoolFinance.TUITION_TYPES.includes(st)) {
+    const caps = patch.capabilities || Object.assign({}, (s1 && s1.capabilities) || {});
+    if (caps.has_tuition) { caps.has_tuition = 0; patch.capabilities = caps; }
+  }
   return patch;
 }
 

@@ -157,6 +157,8 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
     _caps = rc is Map
         ? {for (final d in capDefs) d.$1: rc[d.$1] == 1 ? 1 : 0}
         : capsForType(_schoolType);
+    // Row 197 (Q07 / F32): a public school has no tuition (stale rows from before 0.9.64).
+    if (isPublicSchoolType(_schoolType)) _caps['has_tuition'] = 0;
     _branches = {
       if (p['branches'] is List)
         for (final b in p['branches']! as List) '$b',
@@ -417,6 +419,13 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
               _caps = capsForType(v);
             },
           ),
+          // Row 197 (Q07 / F33): «هیئت امنا» is how every public school is run, not a type.
+          _muted(
+            isPublicSchoolType(_schoolType)
+                ? 'مدرسهٔ دولتی: شهریهٔ اجباری ندارد؛ «هیئت امنا» (اعضا، جلسه‌ها و مصوبه‌ها) و «کمک‌های مردمی» (داوطلبانه، با رسید) در خانهٔ مدیر هستند.'
+                : 'مدرسهٔ غیرانتفاعی: با روشن بودن «شهریه»، ثبت شهریه در «کمک‌ها و شهریه» فعال است.',
+            key: const Key('sp-type-note'),
+          ),
           _select('gender', 'جنسیت *', _gender, {
             '': '— انتخاب جنسیت —',
             for (final g in schoolGenders) g: g,
@@ -425,7 +434,7 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
             'صبح': 'صبح',
             'بعدازظهر': 'بعدازظهر',
             'شب': 'شب (نوبت دوم / بزرگسالان)',
-            'هر دو': 'هر دو شیفت',
+            'هر دو': 'هر دو شیفت (دونوبته)',
             rotatingShift: 'چرخشی (هفته‌ای صبح، هفته‌ای بعدازظهر)',
           }, (v) => _shift = v),
           if (_shift == rotatingShift)
@@ -470,10 +479,16 @@ class _SchoolProfileViewState extends State<SchoolProfileView> {
               key: Key('sp-cap-${d.$1}'),
               dense: true,
               contentPadding: EdgeInsets.zero,
-              value: _caps[d.$1] == 1 || (d.$1 == 'has_evening' && _evening),
+              value:
+                  (_caps[d.$1] == 1 &&
+                      !(d.$1 == 'has_tuition' &&
+                          isPublicSchoolType(_schoolType))) ||
+                  (d.$1 == 'has_evening' && _evening),
               title: Text(d.$2),
               subtitle: Text(d.$3),
-              onChanged: d.$1 == 'has_evening' && _evening
+              onChanged:
+                  (d.$1 == 'has_evening' && _evening) ||
+                      (d.$1 == 'has_tuition' && isPublicSchoolType(_schoolType))
                   ? null
                   : (v) => setState(() => _caps[d.$1] = v == true ? 1 : 0),
             ),

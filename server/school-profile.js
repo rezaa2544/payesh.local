@@ -16,13 +16,24 @@
  *   • ردیف ۱۶۶: «ظرفیت» حذف شد؛ تعداد دانش‌آموزان سقف ندارد.
  *   • ردیف ۱۶۶: شیفت «چرخشی» = کل مدرسه یک هفته صبح و هفتهٔ بعد بعدازظهر (زنگ‌های جدا در برنامهٔ هفتگی).
  *   • دست‌کم یک روز کاری.
+ *   • ردیف ۱۹۷ (Q07 / F32): شهریه فقط در «غیردولتی / غیرانتفاعی» (school-finance.TUITION_TYPES)؛
+ *     در نوع دولتی قابلیت شهریه خطای tuition_public است و داده‌های قدیمی هنگام خواندن خاموش می‌شوند.
+ *   • ردیف ۱۹۷ (Q07 / F37): نوع‌های کاردانش، بزرگسالان، قرآنی/معارف و اقلیت‌های دینی.
  */
+const finance = require('./school-finance');
 
 const LEVELS = ['ابتدایی', 'متوسطه اول', 'متوسطه دوم'];
 const GENDERS = ['پسرانه', 'دخترانه'];
 const SHIFTS = ['صبح', 'بعدازظهر', 'شب', 'هر دو', 'چرخشی'];
 const KINDS = ['عادی', 'علوم تجربی', 'ریاضی', 'فنی و حرفه‌ای'];
-const SCHOOL_TYPES = ['governmental', 'exemplary', 'non_profit', 'sampad', 'shahed', 'exceptional', 'rural', 'boarding', 'vocational'];
+const SCHOOL_TYPES = ['governmental', 'exemplary', 'non_profit', 'sampad', 'shahed', 'exceptional', 'rural', 'boarding',
+  'vocational', 'kardanesh', 'adult', 'quranic', 'minority'];
+/* ردیف ۱۹۷ (Q07): قابلیت‌هایی که هر نوع پیش‌فرض روشن می‌کند — رونوشت Dart: schoolTypeDefs */
+const TYPE_CAPS = {
+  governmental: [], exemplary: [], non_profit: ['has_tuition'], sampad: [], shahed: [],
+  exceptional: ['has_iep'], rural: ['has_multigrade'], boarding: ['has_dorm'], vocational: ['has_workshop'],
+  kardanesh: ['has_workshop'], adult: ['has_evening'], quranic: [], minority: [],
+};
 const CAPS = ['has_tuition', 'has_dorm', 'has_iep', 'has_workshop', 'has_multigrade', 'has_second_term_exam', 'has_evening'];
 const BRANCHES = {
   'نظری': ['ریاضی فیزیک', 'علوم تجربی', 'ادبیات و علوم انسانی', 'علوم و معارف اسلامی'],
@@ -55,11 +66,15 @@ function profileOf(s) {
   s = s || {};
   const caps = {};
   for (const k of CAPS) caps[k] = s.capabilities && (s.capabilities[k] === 1 || s.capabilities[k] === true) ? 1 : 0;
+  const schoolType = SCHOOL_TYPES.includes(s.school_type) ? s.school_type : 'governmental';
+  /* ردیف ۱۹۷ (Q07 / F32): شهریهٔ ذخیره‌شده در مدرسهٔ دولتی (نمونه دولتی/شاهد/… قدیمی) خاموش خوانده می‌شود */
+  if (!finance.TUITION_TYPES.includes(schoolType)) caps.has_tuition = 0;
+  const shaped = Object.assign({}, s, { school_type: schoolType, capabilities: caps });
   return {
     name: s.name || '', code: s.code || '', province: s.province || '', county: s.county || '', district: s.district || '',
     level: LEVELS.includes(s.level) ? s.level : '',
     type: KINDS.includes(s.type) ? s.type : 'عادی',
-    school_type: SCHOOL_TYPES.includes(s.school_type) ? s.school_type : 'governmental',
+    school_type: schoolType,
     gender: GENDERS.includes(s.gender) ? s.gender : '',
     shift: SHIFTS.includes(s.shift) ? s.shift : 'صبح',
     landline: digits(s.landline), phone: digits(s.phone),
@@ -72,6 +87,9 @@ function profileOf(s) {
     fields: Array.isArray(s.fields) ? s.fields.map(String) : [],
     boom_goals: s.boom_goals || '', public_goals: !!s.public_goals,
     complete: !!(LEVELS.includes(s.level) && GENDERS.includes(s.gender)),
+    /* ردیف ۱۹۷ (Q07): دولتی؟ و صفحه‌هایی که این مدرسه دارد (منوها) */
+    public_school: finance.isPublicSchool(shaped),
+    features: finance.schoolFeatures(shaped),
   };
 }
 
@@ -105,6 +123,8 @@ function validateProfile(body) {
   for (const k of Object.keys(rc)) if (!CAPS.includes(k)) return { error: 'capabilities' };
   for (const k of CAPS) caps[k] = rc[k] === 1 || rc[k] === true ? 1 : 0;
   if (shift === 'شب' || shift === 'هر دو') caps.has_evening = 1;
+  /* ردیف ۱۹۷ (Q07 / F32): مدرسهٔ دولتی شهریهٔ اجباری ندارد — «کمک داوطلبانه» جای آن است */
+  if (caps.has_tuition && !finance.TUITION_TYPES.includes(schoolType)) return { error: 'tuition_public' };
   let branches = [];
   let fields = [];
   if (level === 'متوسطه دوم') {
@@ -125,4 +145,4 @@ function validateProfile(body) {
   } };
 }
 
-module.exports = { LEVELS, GENDERS, SHIFTS, KINDS, SCHOOL_TYPES, CAPS, BRANCHES, FIELDS, MAX, profileOf, validateProfile, digits };
+module.exports = { LEVELS, GENDERS, SHIFTS, KINDS, SCHOOL_TYPES, TYPE_CAPS, CAPS, BRANCHES, FIELDS, MAX, profileOf, validateProfile, digits };
