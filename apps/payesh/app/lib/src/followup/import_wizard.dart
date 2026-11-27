@@ -10,6 +10,7 @@
 //     (explicit capacity raise) and «بررسی ردیف‌به‌ردیف» (plus the native in-place fixes);
 //   * step 4 — «🎉 ورود اطلاعات کامل شد» with the four result cards.
 // Every write stays local-first through SchoolImport (queue first, then the local copy).
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -53,6 +54,16 @@ class ImportController extends SchoolController {
   /// only these (row 194).
   List<String> definedGrades = const [];
 
+  /// Row 202: the رشته‌ها the manager defined — a column of the file without a title is a
+  /// رشته when its values are these (or common branch names).
+  List<String> definedBranches = const [];
+
+  /// Row 202 (owner: «موقع ثبت نهایی برنامه قفل می‌شود»): progress of `imp-apply` —
+  /// stage `prepare` (rows of the file) then `write` (records saved), done of total.
+  String progStage = '';
+  int progDone = 0;
+  int progTotal = 0;
+
   /// p2 `placeSettings` / `isMixedSchool`.
   PlaceRules rules = const PlaceRules();
   bool mixed = true;
@@ -61,7 +72,14 @@ class ImportController extends SchoolController {
   @override
   Future<void> read(SchoolRecords db) async {
     final defs = <(int, String)>[];
-    for (final l in await db.allOrEmpty('lookups')) {
+    final lookups = await db.allOrEmpty('lookups');
+    definedBranches = [
+      for (final l in lookups)
+        if (l.data['kind'] == 'branch' &&
+            SchoolRecords.str(l.data['name']).trim().isNotEmpty)
+          SchoolRecords.str(l.data['name']).trim(),
+    ];
+    for (final l in lookups) {
       if (l.data['kind'] != 'grade') continue;
       final n = SchoolRecords.str(l.data['name']).trim();
       if (n.isEmpty || defs.any((d) => d.$2 == n)) continue;
@@ -121,6 +139,7 @@ class ImportController extends SchoolController {
         for (final g in definedGrades)
           if (grades.contains(g)) g,
       ],
+      branches: definedBranches,
     );
     step = 2;
   }
@@ -266,16 +285,32 @@ class ImportController extends SchoolController {
   }
 
   /// `imp-commit`.
-  Future<RecordWrite?> apply() {
+  Future<RecordWrite?> apply() async {
     final s = session;
     final r = review;
-    if (s == null || r == null) return Future.value();
-    return run((db) async {
-      final res = await SchoolImport(db).apply(s, r);
+    if (s == null || r == null) return null;
+    progStage = 'prepare';
+    progDone = 0;
+    progTotal = r.ready.length;
+    final pending = run((db) async {
+      final res = await SchoolImport(
+        db,
+        onProgress: (stage, done, total) {
+          progStage = stage;
+          progDone = done;
+          progTotal = total;
+          emit();
+        },
+      ).apply(s, r);
       result = res;
       step = 4;
       return RecordWrite(res.summaryFa, keys: res.keys);
     });
+    // after the reading again of run(): «در حال ثبت» closes on the result (or the refusal)
+    final w = await pending;
+    progStage = '';
+    emit();
+    return w;
   }
 
   /// `imp-reset` («ورود فایل دیگر»).
@@ -738,6 +773,17 @@ class _ImportScreenState extends State<ImportScreen> {
               '«${s.fileName}» — برگهٔ «${s.sheetName}» با ${_fa(s.rows.length)} سطر',
               style: Web.small.copyWith(color: Web.muted),
             ),
+            if (s.detected.any((i) => s.map[i].isNotEmpty))
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '🤖 ${_fa(s.detected.where((i) => s.map[i].isNotEmpty).length)} ستونِ بی‌عنوان یا '
+                  'ناآشنا از روی داده‌هایش شناخته شد (رشته، سرپرست، محل سکونت، کد ملی، موبایل، …) — '
+                  'یک نگاه بیندازید و اگر جایی درست نیست، همان‌جا عوضش کنید.',
+                  key: const Key('imp-auto-note'),
+                  style: Web.small.copyWith(color: Web.muted),
+                ),
+              ),
             const SizedBox(height: 8),
             WebTable(
               head: const ['ستون فایل', 'نمونه داده', 'فیلد سامانه'],
@@ -745,7 +791,19 @@ class _ImportScreenState extends State<ImportScreen> {
               rows: [
                 for (var i = 0; i < s.headers.length; i++)
                   [
-                    Text(s.headers[i], style: Web.b.copyWith(fontSize: 13)),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(s.headers[i], style: Web.b.copyWith(fontSize: 13)),
+                        if (s.detected.contains(i) && s.map[i].isNotEmpty)
+                          Text(
+                            '🤖 از روی محتوا',
+                            key: Key('imp-auto-$i'),
+                            style: Web.small.copyWith(color: Web.muted),
+                          ),
+                      ],
+                    ),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 260),
                       child: Text(() {
@@ -824,6 +882,75 @@ class _ImportScreenState extends State<ImportScreen> {
     SchoolRecords.str(r.data['grade']),
     SchoolRecords.str(r.data['field']),
   ].where((x) => x.isNotEmpty).join(' ');
+
+  /// Row 202: «ثبت نهایی» with a window that says what is happening and how far it is —
+  /// the screen no longer looks frozen while hundreds of students are saved.
+  Future<void> _applyWithProgress() async {
+    final nav = Navigator.of(context);
+    var open = true;
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => PopScope(
+          canPop: false,
+          child: ListenableBuilder(
+            listenable: c,
+            builder: (context, _) {
+              final t = c.progTotal;
+              final d = c.progDone.clamp(0, t > 0 ? t : 0);
+              final writing = c.progStage == 'write';
+              final kind = c.session?.kind ?? 'students';
+              final who = switch (kind) {
+                'teachers' => 'دبیران',
+                'grades' => 'نمره‌ها',
+                'attendance' => 'حضور و غیاب',
+                _ => 'دانش‌آموزان و اولیا',
+              };
+              return AlertDialog(
+                key: const Key('imp-progress'),
+                title: Text(
+                  writing ? 'در حال ثبت $who…' : 'در حال آماده‌سازی ردیف‌ها…',
+                ),
+                content: SizedBox(
+                  width: 380,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      LinearProgressIndicator(
+                        value: t > 0 ? d / t : null,
+                        minHeight: 8,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        t == 0
+                            ? 'لطفاً صبر کنید…'
+                            : writing
+                            ? '${_fa(d)} از ${_fa(t)} رکورد ثبت شد'
+                            : '${_fa(d)} از ${_fa(t)} ردیف خوانده و آماده شد',
+                        key: const Key('imp-progress-text'),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'برنامه را نبندید؛ چند لحظه بیشتر طول نمی‌کشد.',
+                        style: Web.small.copyWith(color: Web.muted),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ).whenComplete(() => open = false),
+    );
+    try {
+      await c.apply();
+    } finally {
+      if (open && mounted) nav.pop();
+    }
+  }
 
   Future<void> _openFix(ImportRow r) async {
     await openPanel<void>(context, (_) => ImportFixPage(controller: c, row: r));
@@ -1370,7 +1497,7 @@ class _ImportScreenState extends State<ImportScreen> {
                   kind: WebBtnKind.primary,
                   onPressed: c.busy || ready.isEmpty || r.pendingAsks > 0
                       ? null
-                      : c.apply,
+                      : _applyWithProgress,
                 ),
                 if (r.pendingAsks > 0)
                   Text(

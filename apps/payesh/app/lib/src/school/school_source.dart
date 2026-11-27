@@ -387,9 +387,14 @@ class SchoolForm extends StatelessWidget {
     required this.fields,
     required this.submitLabel,
     required this.onSubmit,
+    this.presetIssues = const {},
   });
 
   final String prefix;
+
+  /// Row 202: boxes that open red (box key → message) — e.g. the wrong fields of an import
+  /// row; each stays red until the user changes that box.
+  final Map<String, String> presetIssues;
   final String title;
   final SchoolController controller;
   final List<Widget> fields;
@@ -512,6 +517,7 @@ class SchoolForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _IssueHost(
+    preset: presetIssues,
     controller: controller,
     child: ListenableBuilder(
       listenable: controller,
@@ -577,8 +583,13 @@ class SchoolForm extends StatelessWidget {
 /// required (`*`) fields and the field whose label the message names. Typing in a field
 /// clears its outline.
 class _IssueHost extends StatefulWidget {
-  const _IssueHost({required this.controller, required this.child});
+  const _IssueHost({
+    required this.controller,
+    required this.child,
+    this.preset = const {},
+  });
   final SchoolController controller;
+  final Map<String, String> preset;
   final Widget child;
 
   @override
@@ -586,24 +597,40 @@ class _IssueHost extends StatefulWidget {
 }
 
 class _IssueHostState extends State<_IssueHost> {
-  final FieldIssues issues = FieldIssues();
+  late final FieldIssues issues = FieldIssues(widget.preset);
   String? _seen;
+
+  /// Row 202: preset boxes the user has not changed yet (they stay red over [guessFrom]).
+  late final Map<String, String> _open = {...widget.preset};
+  bool _syncing = false;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_sync);
+    issues.addListener(_cleared);
+  }
+
+  void _cleared() {
+    if (_syncing) return;
+    _open.removeWhere((k, _) => !issues.has(k));
   }
 
   void _sync() {
     final e = widget.controller.formError;
     if (e == _seen) return;
     _seen = e;
+    _syncing = true;
     issues.guessFrom(e);
+    for (final x in _open.entries) {
+      if (!issues.has(x.key)) issues.set(x.key, x.value);
+    }
+    _syncing = false;
   }
 
   @override
   void dispose() {
+    issues.removeListener(_cleared);
     widget.controller.removeListener(_sync);
     issues.dispose();
     super.dispose();

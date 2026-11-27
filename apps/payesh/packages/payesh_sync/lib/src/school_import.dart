@@ -775,6 +775,477 @@ List<String> importAutoMap(List<String> headers, String kind) {
 // ───────────────────────────────── session and review ─────────────────────────────────
 
 /// The wizard state (web `S.imp`): file, mapping, in-place fixes and branch answers.
+/// Row 202 — common branch names of Iranian schools (هنرستان / کاردانش / نظری), so a column of
+/// «گرافیک · معماری» is a رشته even when the school has not defined those yet.
+const List<String> importBranchWords = [
+  'ریاضی',
+  'تجربی',
+  'انسانی',
+  'معارف',
+  'علوم',
+  'الکترونیک',
+  'الکتروتکنیک',
+  'برق', //
+  'مکانیک',
+  'مکاترونیک',
+  'تعمیر',
+  'موتور',
+  'خودرو',
+  'نقشه',
+  'معماری',
+  'گرافیک',
+  'حسابداری',
+  'کامپیوتر',
+  'رایانه',
+  'شبکه',
+  'نرم افزار',
+  'تاسیسات',
+  'تأسیسات',
+  'ساختمان',
+  'عمران',
+  'صنایع',
+  'چوب',
+  'فتوگرافیک',
+  'پویانمایی',
+  'انیمیشن',
+  'طراحی',
+  'دوخت',
+  'پوشاک',
+  'تربیت بدنی',
+  'کودکیاری',
+  'بهداشت',
+  'ماشین',
+  'جوشکاری',
+  'متالورژی',
+  'سرامیک',
+  'شیمی',
+  'نساجی',
+  'کشاورزی',
+  'دامپروری',
+  'باغبانی',
+  'هتلداری',
+  'گردشگری',
+  'آشپزی',
+  'مدیریت',
+  'بازرگانی',
+  'امور اداری',
+  'سینما',
+  'موسیقی',
+  'نقاشی',
+  'هنر',
+  'فناوری',
+  'الکتروموتور',
+  'سردخانه',
+  'تبرید',
+  'ابزار',
+  'صنعتی', 'کنترل', 'چاپ', 'زیبایی', 'آرایش', 'پیراپزشکی',
+];
+
+String _cv(String v) => normName(_latin(v));
+
+/// Row 202 (owner: «اکسل با هر شکلی… به صورت هوش مصنوعی و خودکار تشخیص داده بشه»): a
+/// field for each column the titles did not map, judged from its values — the column has
+/// no title (`ستون ۵۴`) or a title the synonyms do not know. Returns column → field key; a
+/// key already in [map] is never given twice, and a column with a known «ردیف» title, an
+/// empty column or a column whose values say nothing is left alone (the manager still
+/// chooses in step 2). [branches] / [grades] are the school's own definitions.
+Map<int, String> importContentMap(
+  List<String> headers,
+  List<List<String>> rows,
+  List<String> map,
+  String kind, {
+  List<String> branches = const [],
+  List<String> grades = const [],
+}) {
+  final allowed = {
+    for (final f in importFields[kind] ?? const <ImportField>[]) f.$1,
+  };
+  final used = {...map.where((m) => m.isNotEmpty)};
+  final cur = [...map];
+  final out = <int, String>{};
+  final width = map.length;
+  final sample = rows.length > 400 ? rows.sublist(0, 400) : rows;
+  List<String> vals(int c) => [
+    for (final r in sample)
+      if (c < r.length)
+        if (r[c].trim().isNotEmpty &&
+            !RegExp(r'^[\-–—_.\s]+$').hasMatch(r[c].trim()))
+          r[c].trim(),
+  ];
+  double ratio(List<String> v, bool Function(String) t) =>
+      v.isEmpty ? 0 : v.where(t).length / v.length;
+  bool give(int c, String key) {
+    if (!allowed.contains(key) || used.contains(key)) return false;
+    used.add(key);
+    cur[c] = key;
+    out[c] = key;
+    return true;
+  }
+
+  bool giveFirst(int c, List<String> keys) => keys.any((k) => give(c, k));
+  // the person a column belongs to, from the columns around it (پدر / مادر / سرپرست)
+  String relNear(int c) {
+    for (final d in const [-1, 1, -2, 2]) {
+      final j = c + d;
+      if (j < 0 || j >= width) continue;
+      final k = cur[j];
+      for (final r in const ['father', 'mother', 'guardian']) {
+        if (k.startsWith(r)) return r;
+      }
+      final h = normName(j < headers.length ? headers[j] : '');
+      if (h.contains('مادر')) return 'mother';
+      if (h.contains('پدر')) return 'father';
+      if (RegExp('سرپرست|ولی').hasMatch(h)) return 'guardian';
+    }
+    return '';
+  }
+
+  bool isMobile(String v) {
+    final d = SchoolRecords.digitsOnly(v);
+    return RegExp(r'^(0|98|0098)?9\d{9}$').hasMatch(d) &&
+        !RegExp('[a-zA-Z]').hasMatch(v);
+  }
+
+  bool isNid(String v) {
+    final t = _latin(v).replaceAll(RegExp(r'[\s\-]'), '');
+    return RegExp(r'^\d{8,10}$').hasMatch(t) && !t.startsWith('09');
+  }
+
+  bool isLand(String v) {
+    final d = SchoolRecords.digitsOnly(
+      _latin(v).replaceAll(RegExp(r'[\s\-]'), ''),
+    );
+    return (RegExp(r'^0[1-8]\d{9}$').hasMatch(d) ||
+            RegExp(r'^[2-8]\d{7}$').hasMatch(d)) &&
+        !RegExp(r'[^\d\s\-+()۰-۹]').hasMatch(v);
+  }
+
+  bool inSet(String v, Set<String> set) =>
+      set.contains(_cv(v).replaceAll(' ', ''));
+  bool has(String v, String re) => RegExp(re).hasMatch(_cv(v));
+  final names = <int>[];
+  // pass 1: what a column is by itself (رشته, سرپرست, محل سکونت …); pass 2: the columns of a
+  // person (موبایل, کد ملی, حیات, تحصیلات, شغل), whose owner comes from the columns around
+  // them — so «در قید حیات» next to «والدین / فقط پدر» is the guardian's
+  for (final pass in const [1, 2]) {
+    for (var c = 0; c < width; c++) {
+      if (map[c].isNotEmpty || out.containsKey(c)) continue;
+      final h = normName(c < headers.length ? headers[c] : '');
+      if (_ignoreCols.contains(h)) continue;
+      final v = vals(c);
+      if (v.isEmpty) continue;
+      // a «ردیف» column without its title: 1, 2, 3, …
+      final ints = [for (final x in v) int.tryParse(_latin(x))];
+      if (v.length >= 3 && ints.every((n) => n != null && n < 100000)) {
+        var seq = true;
+        for (var i = 1; i < ints.length && seq; i++) {
+          seq = ints[i]! == ints[i - 1]! + 1;
+        }
+        if (seq) continue;
+      }
+      const sure = 0.6;
+      final rel = relNear(c);
+      if (ratio(v, isMobile) >= sure) {
+        if (pass == 1) continue;
+        giveFirst(c, [
+          if (rel.isNotEmpty) '${rel}_phone',
+          'phone', 'father_phone', 'mother_phone', 'guardian_phone', //
+        ]);
+        continue;
+      }
+      if (ratio(v, isNid) >= sure) {
+        if (pass == 1) continue;
+        if (kind == 'students' || kind == 'teachers') {
+          giveFirst(c, [
+            if (rel == 'father' || rel == 'mother') '${rel}_nid',
+            'national_id', 'father_nid', 'mother_nid', //
+          ]);
+        } else {
+          give(c, 'national_id');
+        }
+        continue;
+      }
+      if (ratio(v, isLand) >= sure) {
+        give(c, 'landline');
+        continue;
+      }
+      if (ratio(
+            v,
+            (x) =>
+                RegExp(r'\d{4}\D\d{1,2}\D\d{1,2}').hasMatch(_latin(x)) &&
+                importDate(x).isNotEmpty,
+          ) >=
+          sure) {
+        giveFirst(c, ['birth_date', 'date']);
+        continue;
+      }
+      if (ratio(
+            v,
+            (x) => inSet(x, const {
+              'پسر',
+              'دختر',
+              'مذکر',
+              'مونث',
+              'مؤنث',
+              'مرد',
+              'زن',
+            }),
+          ) >=
+          sure) {
+        give(c, 'gender');
+        continue;
+      }
+      if (ratio(v, (x) => has(x, 'حیات|فوت|متوفی|مرحوم|زنده|درگذشت')) >= sure) {
+        if (pass == 1) continue;
+        giveFirst(c, [
+          if (rel.isNotEmpty) '${rel}_alive',
+          'father_alive', 'mother_alive', 'guardian_alive', //
+        ]);
+        continue;
+      }
+      if (ratio(
+            v,
+            (x) => has(
+              x,
+              '^(فقط )?(والدین|پدر|مادر|قیم|ولی|پدربزرگ|مادربزرگ|پدر و مادر|برادر|خواهر|عمو|دایی|خود|سایر|هر دو)\$',
+            ),
+          ) >=
+          sure) {
+        give(c, 'guardian');
+        continue;
+      }
+      if (ratio(
+            v,
+            (x) => inSet(x, const {
+              'شهر',
+              'روستا',
+              'شهری',
+              'روستایی',
+              'عشایر',
+              'عشایری',
+              'حاشیهشهر',
+            }),
+          ) >=
+          sure) {
+        give(c, 'residence');
+        continue;
+      }
+      if (ratio(
+            v,
+            (x) => inSet(x, const {
+              'بلی',
+              'بله',
+              'خیر',
+              'دارد',
+              'ندارد',
+              'آری',
+              'اری',
+              'هست',
+              'نیست',
+              'نه',
+            }),
+          ) >=
+          sure) {
+        give(c, 'covered');
+        continue;
+      }
+      if (ratio(
+            v,
+            (x) => has(
+              x,
+              '^(ایرانی|اتباع|افغانی|افغانستانی|افغان|عراقی|پاکستانی|غیر ایرانی|مهاجر|خارجی)\$',
+            ),
+          ) >=
+          sure) {
+        give(c, 'residence_status');
+        continue;
+      }
+      if (ratio(v, (x) => has(x, 'کمیته|امداد|بهزیستی|شاهد|ایثارگر|بنیاد')) >=
+          sure) {
+        give(c, 'org_type');
+        continue;
+      }
+      if (ratio(
+            v,
+            (x) => has(
+              x,
+              'دیپلم|لیسانس|کارشناسی|سیکل|ابتدایی|بیسواد|بی سواد|دکتر|ارشد|راهنمایی|متوسطه|حوزوی|نهضت',
+            ),
+          ) >=
+          sure) {
+        if (pass == 1) continue;
+        giveFirst(c, [
+          if (rel == 'father' || rel == 'mother') '${rel}_edu',
+          'father_edu', 'mother_edu', 'degree', //
+        ]);
+        continue;
+      }
+      if (ratio(
+            v,
+            (x) => has(
+              x,
+              '^(آزاد|ازاد|کارمند|کارگر|خانه ?دار|بازنشسته|کشاورز|راننده|فرهنگی|نظامی|بیکار|مغازه ?دار|دامدار|معلم|کاسب|پزشک|مهندس|فوت شده)\$',
+            ),
+          ) >=
+          sure) {
+        if (pass == 1) continue;
+        final mom = ratio(v, (x) => has(x, 'خانه ?دار')) >= 0.5;
+        giveFirst(c, [
+          if (rel == 'father' || rel == 'mother') '${rel}_job',
+          if (mom) 'mother_job',
+          'father_job', 'mother_job', //
+        ]);
+        continue;
+      }
+      if (ratio(
+            v,
+            (x) => has(x, '^(حاضر|غایب|تاخیر|تأخیر|موجه|غیبت|غیر موجه)'),
+          ) >=
+          sure) {
+        give(c, 'status');
+        continue;
+      }
+      final nums = [
+        for (final x in v) double.tryParse(_latin(x).replaceAll('/', '.')),
+      ];
+      if (nums.every((n) => n != null && n >= 0 && n <= 20) &&
+          ratio(v, (x) => RegExp(r'[./]\d').hasMatch(_latin(x))) >= 0.3) {
+        giveFirst(c, ['last_gpa', 'score']);
+        continue;
+      }
+      if (ratio(v, (x) => RegExp(r'^\d{1,3}\s*[%٪]$').hasMatch(_latin(x))) >=
+          sure) {
+        give(c, 'org_percent');
+        continue;
+      }
+      // پایه («دهم») / کلاس («دهم الکترونیک ۲»)
+      final gradeOnly = ratio(v, (x) {
+        final t = _cv(x).replaceAll('پایه', '').trim();
+        return gradeLevel(t) > 0 &&
+            t.split(' ').length <= 1 &&
+            (grades.isEmpty ||
+                importGradeCanon(t, grades).isNotEmpty ||
+                gradeLevel(t) > 0);
+      });
+      if (gradeOnly >= sure &&
+          v.any((x) => !RegExp(r'^\d+$').hasMatch(_latin(x).trim()))) {
+        give(c, 'grade');
+        continue;
+      }
+      bool branchy(String x) {
+        final t = _cv(x);
+        if (t.isEmpty || RegExp(r'\d').hasMatch(t) && gradeLevel(t) == 0) {
+          return false;
+        }
+        if (branches.any((b) {
+          final nb = normName(b);
+          return nb.isNotEmpty && (t == nb || t.contains(nb) || nb.contains(t));
+        })) {
+          return true;
+        }
+        return importBranchWords.any((w) => t.contains(normName(w)));
+      }
+
+      if (ratio(
+                v,
+                (x) =>
+                    gradeLevel(_cv(x)) > 0 &&
+                    branchy(
+                      x.replaceAll(
+                        RegExp('دهم|یازدهم|دوازدهم|نهم|هشتم|هفتم'),
+                        '',
+                      ),
+                    ),
+              ) >=
+              sure ||
+          ratio(
+                v,
+                (x) =>
+                    gradeLevel(_cv(x)) > 0 &&
+                    RegExp(r'\d').hasMatch(_latin(x)) &&
+                    _cv(x).split(' ').length >= 2,
+              ) >=
+              sure) {
+        give(c, 'class_name');
+        continue;
+      }
+      if (ratio(v, branchy) >= 0.5) {
+        giveFirst(c, ['field', 'subject']);
+        continue;
+      }
+      if (ratio(
+            v,
+            (x) =>
+                _cv(x).split(' ').length >= 3 &&
+                has(
+                  x,
+                  'خیابان|کوچه|بلوار|پلاک|میدان|محله|شهرک|روستای|بن ?بست|خ |ک |کوی|جاده|نبش',
+                ),
+          ) >=
+          0.3) {
+        give(c, 'address');
+        continue;
+      }
+      if (h.isEmpty &&
+          ratio(
+                v,
+                (x) =>
+                    RegExp(r'^[\u0600-\u06FF\u200c ]{2,40}$')
+                        .hasMatch(x.trim()),
+              ) >=
+              0.8) {
+        if (pass == 2) names.add(c);
+      }
+    }
+  }
+  // names last: «نام و نام خانوادگی» / «نام» + «نام خانوادگی», then the father and the mother
+  final hasName = {'full_name', 'first_name', 'last_name'}.any(used.contains);
+  for (final c in names) {
+    final v = vals(c);
+    final words = v.isEmpty
+        ? 0
+        : v.map((x) => _cv(x).split(' ').length).reduce((a, b) => a + b) /
+              v.length;
+    final distinct = v.map(_cv).toSet().length / v.length;
+    // a few repeated words: not names
+    if (v.length >= 4 && distinct < 0.3) continue;
+    if (c > 0 && cur[c - 1] == 'residence') {
+      give(c, 'village');
+      continue;
+    }
+    if (!hasName &&
+        !used.contains('first_name') &&
+        !used.contains('full_name')) {
+      if (words >= 1.8) {
+        give(c, 'full_name');
+      } else {
+        give(c, 'first_name');
+      }
+      continue;
+    }
+    if (!hasName &&
+        used.contains('first_name') &&
+        !used.contains('last_name')) {
+      give(c, 'last_name');
+      continue;
+    }
+    if (kind == 'students' && words < 1.8) {
+      final rel = relNear(c);
+      giveFirst(c, [
+        if (rel == 'father' || rel == 'mother') '${rel}_name',
+        'father_name', 'mother_name', //
+      ]);
+    }
+  }
+  return out;
+}
+
+/// Row 202: a cell that is data, never a column title — a long number (national id, mobile)
+/// or a date.
+bool _dataLike(String c) =>
+    RegExp(r'\d{5}').hasMatch(_latin(c)) ||
+    RegExp(r'\d{4}\D\d{1,2}\D\d{1,2}').hasMatch(_latin(c));
+
 final class ImportSession {
   ImportSession({
     required this.kind,
@@ -785,6 +1256,7 @@ final class ImportSession {
     required this.map,
     this.headerRow = 0,
     this.grades = const [],
+    this.detected = const {},
   });
 
   /// Step 1 (`import-file`): picks the sheet, finds the header row, guesses the mapping.
@@ -793,6 +1265,7 @@ final class ImportSession {
     required String kind,
     required String fileName,
     List<String> grades = const [],
+    List<String> branches = const [],
   }) {
     if (!importKindFa.containsKey(kind)) {
       throw RecordFailure('invalid', 'نوع «$kind» شناخته نیست');
@@ -815,11 +1288,25 @@ final class ImportSession {
       throw const RecordFailure('invalid', 'در این فایل سطر داده‌ای نیست');
     }
     final width = all.fold(0, (m, r) => r.length > m ? r.length : m);
+    // row 202: the title row is the one whose cells are most like titles (a data row has
+    // more filled cells when the last titles are empty — the owner's file); without any
+    // title-like row the file has no titles and every row is data
     var hi = 0;
+    var bestTitles = 0;
     var bestCells = 0;
     for (var i = 0; i < all.length && i < 5; i++) {
-      final n = all[i].where((c) => c.trim().isNotEmpty).length;
-      if (n > bestCells) {
+      final row = [
+        for (var c = 0; c < width; c++)
+          c < all[i].length ? all[i][c].trim() : '',
+      ];
+      // a row with a long number or a date in it is data, never the titles
+      final t = row.any(_dataLike)
+          ? 0
+          : importAutoMap(row, kind).where((g) => g.isNotEmpty).length;
+      final n = row.where((c) => c.isNotEmpty).length;
+      if (t > bestTitles ||
+          (t == bestTitles && bestTitles == 0 && n > bestCells)) {
+        bestTitles = t;
         bestCells = n;
         hi = i;
       }
@@ -829,23 +1316,40 @@ final class ImportSession {
         i < all[hi].length ? all[hi][i].trim() : '',
     ];
     final guess = importAutoMap(first, kind);
-    final hasHeader = guess.any((g) => g.isNotEmpty);
+    // row 202: a first row of DATA is not a title row even when one of its cells looks like
+    // a title («فقط پدر» ⇒ «پدر») — numbers and dates say it is data
+    final hasHeader = guess.any((g) => g.isNotEmpty) && !first.any(_dataLike);
     final rows = hasHeader ? all.sublist(hi + 1) : all;
     if (rows.isEmpty) {
       throw const RecordFailure('invalid', 'در این فایل سطر داده‌ای نیست');
+    }
+    final headers = [
+      for (var i = 0; i < width; i++)
+        hasHeader && first[i].isNotEmpty ? first[i] : 'ستون ${_faNum(i + 1)}',
+    ];
+    final map = hasHeader ? guess : List.filled(width, '');
+    // row 202: the columns the titles did not map are judged from their values
+    final found = importContentMap(
+      [for (var i = 0; i < width; i++) hasHeader ? first[i] : ''],
+      rows,
+      map,
+      kind,
+      branches: branches,
+      grades: grades,
+    );
+    for (final e in found.entries) {
+      map[e.key] = e.value;
     }
     return ImportSession(
       kind: kind,
       fileName: fileName,
       sheetName: sheet.name,
-      headers: [
-        for (var i = 0; i < width; i++)
-          hasHeader && first[i].isNotEmpty ? first[i] : 'ستون ${_faNum(i + 1)}',
-      ],
+      headers: headers,
       rows: rows,
-      map: hasHeader ? guess : List.filled(width, ''),
+      map: map,
       headerRow: hasHeader ? hi + 1 : 0,
       grades: grades,
+      detected: found.keys.toSet(),
     );
   }
 
@@ -859,6 +1363,10 @@ final class ImportSession {
   final List<String> map;
   final int headerRow;
   final List<String> grades;
+
+  /// Row 202: columns mapped from their VALUES (no or unknown title) — step 2 marks them
+  /// «🤖 از روی محتوا» so the manager can check the guess.
+  final Set<int> detected;
 
   /// `imp-fix`: row index → field → corrected value ('' clears).
   final Map<int, Map<String, String>> edits = {};
@@ -946,6 +1454,10 @@ final class ImportRow {
       );
 
   String get name => SchoolRecords.str(data['full_name']);
+
+  /// Row 202: field → what is wrong with it (red outline in the fix forms).
+  Map<String, String> get problems =>
+      importProblemFields([...errors, ...blocks, ...warns]);
 }
 
 /// Row 194 — p2 `41-class-placement.js` `PLACE_DEFAULTS` / `placeSettings`: the rules of the
@@ -1131,6 +1643,100 @@ const Map<String, String> importErrorFa = {
   'subject_not_found': 'درس پیدا نشد',
 };
 
+/// Row 202 — text of a reason with ZWNJ as a space, one form of ی/ک and no hamza mark, so
+/// «دانش‌آموز», «دانش آموز» and «شمارهٔ» / «شماره» are matched alike.
+String _reasonText(String r) => r
+    .replaceAll('\u200c', ' ')
+    .replaceAll(RegExp('[ىي]'), 'ی')
+    .replaceAll('ك', 'ک')
+    .replaceAll('\u0654', '')
+    .replaceAll(RegExp(r'\s+'), ' ');
+
+/// Row 202 (owner: «قسمت‌های مشکل‌دار باید با کادر قرمز مشخص بشن»): the fields of the user
+/// form a reason of the import is about — empty for a reason that only informs («قبلاً ثبت
+/// شده — به‌روزرسانی می‌شود», «کلاس … ساخته می‌شود»). The keys are the import keys
+/// ([importFields]): `full_name`, `national_id`, `phone`, `father_nid`, … , `grade`, `field`.
+/// Old follow-up rows only kept their sentences, so this works from the text alone.
+List<String> importReasonFields(String reason) {
+  final t = _reasonText(reason);
+  final flat = t.replaceAll(' ', '');
+  if (flat.contains('بهروزرسانیمیشود') ||
+      flat.contains('ساختهمیشود') ||
+      flat.contains('اضافهمیشود') ||
+      RegExp(r'ثبتمیشود\.?$').hasMatch(flat)) {
+    // «… با صفرِ اول «09…» می‌شود — ثبت می‌شود.» is a fix already made, not a problem
+    return const [];
+  }
+  final out = <String>[];
+  void add(String k) {
+    if (!out.contains(k)) out.add(k);
+  }
+
+  for (final (who, nid, ph) in const [
+    ('پدر', 'father_nid', 'father_phone'),
+    ('مادر', 'mother_nid', 'mother_phone'),
+  ]) {
+    if (RegExp('برای $who نه شماره').hasMatch(t)) {
+      add(ph);
+      add(nid);
+    }
+    if (t.contains('کد ملی $who')) add(nid);
+    if (RegExp('(موبایل|همراه|تلفن) $who').hasMatch(t) &&
+        !t.contains('پدر و مادر یکی')) {
+      add(ph);
+    }
+  }
+  if (t.contains('پدر و مادر یکی')) add('mother_phone');
+  if (RegExp('(موبایل|همراه|تلفن) سرپرست').hasMatch(t)) add('guardian_phone');
+  if (RegExp('(موبایل|همراه) دانش ?آموز').hasMatch(t) ||
+      t.contains('این شماره همراه برای') ||
+      RegExp('^بدون شماره').hasMatch(t)) {
+    add('phone');
+  }
+  if (out.isEmpty &&
+      (RegExp('^کد ملی «').hasMatch(t) ||
+          t.startsWith('بدون کد ملی') ||
+          t.startsWith('کد ملی متعلق') ||
+          t.contains('با کد ملی «'))) {
+    add('national_id');
+  }
+  if (t.startsWith('نام و نام خانوادگی') ||
+      t.startsWith('نام ندارد') ||
+      t.startsWith('چند دانش آموز')) {
+    add('full_name');
+  }
+  if (t.contains('تاریخ تولد')) add('birth_date');
+  if (t.contains('معدل')) add('last_gpa');
+  if (t.contains('جنسیت')) add('gender');
+  if (RegExp('^رشته «|رشته: ').hasMatch(t) && !t.contains('پایه در فایل')) {
+    add('field');
+  }
+  if (t.contains('پایه در فایل نبود') ||
+      t.startsWith('کلاس ساخته نشد') ||
+      t.startsWith('بدون کلاس') ||
+      t.contains('شعبه های')) {
+    add('grade');
+  }
+  return out;
+}
+
+/// Row 202: the value of the file a reason quotes («کد ملی مادر «38409918467» معتبر نیست» ⇒
+/// 38409918467), '' when it quotes none — old follow-up rows did not keep the wrong value
+/// itself, so the fix form shows it from the sentence.
+String importReasonValue(String reason) =>
+    RegExp('«([^»]*)»').firstMatch(reason)?.group(1)?.trim() ?? '';
+
+/// Row 202: field → the reasons about it, for one checked row or follow-up row.
+Map<String, String> importProblemFields(Iterable<String> reasons) {
+  final out = <String, String>{};
+  for (final r in reasons) {
+    for (final k in importReasonFields(r)) {
+      out[k] = out.containsKey(k) ? '${out[k]}\n$r' : r;
+    }
+  }
+  return out;
+}
+
 final class _Op {
   _Op(this.collection, this.id, this.data, this.prev);
   final String collection;
@@ -1140,8 +1746,13 @@ final class _Op {
 }
 
 final class SchoolImport {
-  SchoolImport(this.db);
+  SchoolImport(this.db, {this.onProgress});
   final SchoolRecords db;
+
+  /// Row 202 (owner: «موقع ثبت نهایی برنامه قفل می‌شود»): [apply] reports (stage, done,
+  /// total) — stage `prepare` per file row, then `write` per saved record — and pauses between
+  /// steps so the wizard can show «در حال ثبت … از …» instead of freezing.
+  final void Function(String stage, int done, int total)? onProgress;
 
   static String _s(Object? v) => SchoolRecords.str(v);
   static int? _int(Object? v) => SchoolRecords.asInt(v);
@@ -1160,6 +1771,17 @@ final class SchoolImport {
   Future<ImportReview> check(ImportSession s) async {
     _requireManager();
     final users = await db.allOrEmpty('users');
+    // row 202: national id / mobile → users, built once (the check ran a full scan per row)
+    final usersByNid = <String, List<EngineRow>>{};
+    final usersByPhone = <String, List<EngineRow>>{};
+    final usersById = <int, EngineRow>{};
+    for (final u in users) {
+      usersById[u.id] = u;
+      final n = _d(u.data['national_id']);
+      if (n.isNotEmpty) (usersByNid[n] ??= []).add(u);
+      final p = _d(u.data['phone']);
+      if (p.isNotEmpty) (usersByPhone[p] ??= []).add(u);
+    }
     final classes = await db.allOrEmpty('classes');
     final lookups = await db.allOrEmpty('lookups');
     final subjects = await db.allOrEmpty('subjects');
@@ -1339,9 +1961,7 @@ final class SchoolImport {
         } else {
           seen[nid] = (rowNo, full, '', '');
           EngineRow? owner;
-          for (final u in users) {
-            if (_d(u.data['national_id']) == nid) owner = u;
-          }
+          owner = usersByNid[nid]?.last;
           if (owner != null && (kind == 'students' || kind == 'teachers')) {
             if (owner.data['role'] == 'student' || kind == 'teachers') {
               r.warns.add('قبلاً ثبت شده — به‌روزرسانی می‌شود');
@@ -1380,8 +2000,8 @@ final class SchoolImport {
       if (kind == 'students') mobile('father_phone', 'پدر');
       final ph = _s(data['phone']);
       if (ph.isNotEmpty) {
-        for (final u in users) {
-          if (_d(u.data['phone']) == ph && u.id != _int(data['existing_id'])) {
+        for (final u in usersByPhone[ph] ?? const <EngineRow>[]) {
+          if (u.id != _int(data['existing_id'])) {
             r.errors.add(
               'این شمارهٔ همراه برای «${_s(u.data['name'])}» با نقش '
               '${roleFa[u.data['role']] ?? _s(u.data['role'])} ثبت شده است — هر شماره یک حساب دارد',
@@ -1512,10 +2132,7 @@ final class SchoolImport {
           final x = occ[cls.id];
           final same =
               _int(
-                users
-                    .where((u) => u.id == _int(data['existing_id']))
-                    .firstOrNull
-                    ?.data['class_id'],
+                usersById[_int(data['existing_id']) ?? -1]?.data['class_id'],
               ) ==
               cls.id;
           if (x != null && !same) {
@@ -1797,9 +2414,7 @@ final class SchoolImport {
       if (!r.ready) continue;
       final cid = _int(r.data['class_id']);
       if (cid == null || !occ.containsKey(cid)) continue;
-      final ex = users
-          .where((u) => u.id == _int(r.data['existing_id']))
-          .firstOrNull;
+      final ex = usersById[_int(r.data['existing_id']) ?? -1];
       if (ex != null && _int(ex.data['class_id']) == cid) continue;
       added[cid] = (added[cid] ?? 0) + 1;
     }
@@ -1894,14 +2509,38 @@ final class SchoolImport {
           normName(c.data['name']): c.id,
     };
     final newUsers = <int, Map<String, Object?>>{};
-    Iterable<(int, Map<String, Object?>)> allUsers() sync* {
-      for (final u in users.values) {
-        yield (u.id, newUsers[u.id] ?? u.data);
+    // row 202: the users by mobile / national id, kept current as rows are added — scanning
+    // every user three times per parent made a 300-student file take seconds. [pos] keeps the
+    // order of the old scan (stored users first, then the new ones) so the same one wins.
+    final pos = <int, int>{};
+    final cur = <int, Map<String, Object?>>{};
+    final byPhone = <String, Set<int>>{};
+    final byNid = <String, Set<int>>{};
+    void index(int id, Map<String, Object?> u) {
+      final old = cur[id];
+      if (old != null) {
+        byPhone[_d(old['phone'])]?.remove(id);
+        byNid[_d(old['national_id'])]?.remove(id);
       }
-      for (final e in newUsers.entries) {
-        if (!users.containsKey(e.key)) yield (e.key, e.value);
-      }
+      pos.putIfAbsent(id, () => pos.length);
+      cur[id] = u;
+      final ph = _d(u['phone']);
+      if (ph.isNotEmpty) (byPhone[ph] ??= {}).add(id);
+      final n = _d(u['national_id']);
+      if (n.isNotEmpty) (byNid[n] ??= {}).add(id);
     }
+
+    for (final u in users.values) {
+      index(u.id, u.data);
+    }
+    void setUser(int id, Map<String, Object?> u) {
+      newUsers[id] = u;
+      index(id, u);
+    }
+
+    final linkKeys = {
+      for (final l in links) '${_int(l['parent_id'])}|${_int(l['student_id'])}',
+    };
 
     final ids = <int>{};
     Future<int> fresh(String c) async {
@@ -1929,7 +2568,16 @@ final class SchoolImport {
       ops.add(_Op('lookups', await fresh('lookups'), row, null));
     }
 
+    var prepared = 0;
+    onProgress?.call('prepare', 0, ready.length);
     for (final r in ready) {
+      if (onProgress != null) {
+        prepared++;
+        if (prepared % 25 == 0) {
+          onProgress!('prepare', prepared, ready.length);
+          await Future<void>.delayed(Duration.zero);
+        }
+      }
       final d = r.data;
       if (kind == 'grades' || kind == 'attendance') {
         final stu = _int(d['student_id'])!;
@@ -2055,12 +2703,12 @@ final class SchoolImport {
       if (existing != null) {
         uid = existing.id;
         final merged = {...existing.data, ...row};
-        newUsers[uid] = merged;
+        setUser(uid, merged);
         ops.add(_Op('users', uid, merged, existing));
         res.updated++;
       } else {
         uid = await fresh('users');
-        newUsers[uid] = row;
+        setUser(uid, row);
         ops.add(_Op('users', uid, row, null));
         res.created++;
         if (row['role'] == 'student') {
@@ -2087,27 +2735,29 @@ final class SchoolImport {
         if (pnid.isEmpty && pname.isEmpty && pphone.isEmpty) continue;
         int? pid;
         if (pnid.isNotEmpty) {
-          for (final (id, u) in allUsers()) {
-            if (u['role'] == 'parent' && _d(u['national_id']) == pnid) pid = id;
+          // the last parent with this national id (as the old full scan)
+          for (final id in byNid[pnid] ?? const <int>{}) {
+            if (cur[id]!['role'] != 'parent') continue;
+            if (pid == null || pos[id]! > pos[pid]!) pid = id;
           }
         }
-        if (pid == null && pphone.isNotEmpty) {
-          for (final (id, u) in allUsers()) {
-            if (_d(u['phone']) != pphone) continue;
-            final cn = _d(u['national_id']);
-            if (u['role'] == 'parent' &&
-                (pnid.isEmpty || cn.isEmpty || cn == pnid)) {
-              pid = id;
-            }
-            break;
+        final phoneOwners = pphone.isEmpty
+            ? const <int>{}
+            : (byPhone[pphone] ?? const <int>{});
+        if (pid == null && phoneOwners.isNotEmpty) {
+          // the first user with this mobile decides (as the old scan's `break`)
+          final first = phoneOwners.reduce(
+            (a, b) => pos[a]! <= pos[b]! ? a : b,
+          );
+          final u = cur[first]!;
+          final cn = _d(u['national_id']);
+          if (u['role'] == 'parent' &&
+              (pnid.isEmpty || cn.isEmpty || cn == pnid)) {
+            pid = first;
           }
         }
         if (pid == null) {
-          final free =
-              pphone.isNotEmpty &&
-                  !allUsers().any((e) => _d(e.$2['phone']) == pphone)
-              ? pphone
-              : '';
+          final free = pphone.isNotEmpty && phoneOwners.isEmpty ? pphone : '';
           pid = await fresh('users');
           final p = <String, Object?>{
             'name': pname.isEmpty ? '$rel $name' : pname,
@@ -2116,14 +2766,11 @@ final class SchoolImport {
             'phone': free,
             'active': true,
           };
-          newUsers[pid] = p;
+          setUser(pid, p);
           ops.add(_Op('users', pid, p, null));
           res.parents++;
         }
-        final linked = links.any(
-          (l) => _int(l['parent_id']) == pid && _int(l['student_id']) == uid,
-        );
-        if (!linked) {
+        if (linkKeys.add('$pid|$uid')) {
           final l = {'parent_id': pid, 'student_id': uid, 'relation': rel};
           links.add(l);
           ops.add(_Op('parent_links', await fresh('parent_links'), l, null));
@@ -2157,6 +2804,17 @@ final class SchoolImport {
           'row_no': c.row,
           'file_name': s.fileName,
           'reasons': [...c.errors, ...c.warns, ...?errRows[c.row]],
+          // row 202: which fields are wrong and what the file had in them, so the fix form
+          // shows every value of the student and outlines the wrong ones in red
+          'fields': importProblemFields([
+            ...c.errors,
+            ...c.warns,
+            ...?errRows[c.row],
+          ]),
+          'raw': {
+            for (final e in c.raw.entries)
+              if (e.value.trim().isNotEmpty) e.key: e.value.trim(),
+          },
           'data': {
             for (final e in c.data.entries)
               if (e.value != null) e.key: e.value,
@@ -2167,9 +2825,13 @@ final class SchoolImport {
       res.savedIssues++;
     }
     db.requireRoom(ops.length);
-    for (final o in ops) {
-      res.keys.add(await db.put(o.collection, o.id, o.data, prev: o.prev));
-    }
+    // row 202: chunked — one commit per 100 records instead of two per record (300 students
+    // took ~5.5 s and froze the screen), with progress between the chunks
+    res.keys.addAll(
+      await db.putAll([
+        for (final o in ops) (o.collection, o.id, o.data, o.prev),
+      ], onProgress: (d, t) => onProgress?.call('write', d, t)),
+    );
     res.openIssues = (await db.allOrEmpty('import_issues'))
         .where((i) => i.data['status'] != 'done')
         .length;

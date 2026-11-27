@@ -11,6 +11,7 @@ import 'package:payesh_data/payesh_data.dart';
 
 import 'classes.dart' show gradeLevel, normName;
 import 'records.dart';
+import 'school_import.dart' show importProblemFields;
 
 final class FollowupStudent {
   const FollowupStudent({
@@ -40,6 +41,8 @@ final class ImportIssue {
     required this.reasons,
     required this.data,
     required this.userId,
+    this.fields = const {},
+    this.raw = const {},
   });
   final int id;
   final String name;
@@ -50,6 +53,14 @@ final class ImportIssue {
 
   /// The user this row already became (national id / mobile / name), null = not created.
   final int? userId;
+
+  /// Row 202: field → what is wrong with it (import keys: `national_id`, `father_nid`, …);
+  /// rows saved before 0.9.71 get it from their [reasons].
+  final Map<String, String> fields;
+
+  /// Row 202: the values of the file row as they were (import keys), so a value the import
+  /// could not take (a 9-digit national id) is still shown in the fix form.
+  final Map<String, String> raw;
 }
 
 final class FollowupView {
@@ -214,6 +225,21 @@ final class Followup {
               ? {for (final e in data.entries) '${e.key}': e.value}
               : const {},
           userId: uid,
+          fields: () {
+            final f = i.data['fields'];
+            if (f is Map && f.isNotEmpty) {
+              return {for (final e in f.entries) '${e.key}': '${e.value}'};
+            }
+            return importProblemFields(
+              reasons is List ? [for (final r in reasons) '$r'] : const [],
+            );
+          }(),
+          raw: () {
+            final r = i.data['raw'];
+            return r is Map
+                ? {for (final e in r.entries) '${e.key}': '${e.value ?? ''}'}
+                : const <String, String>{};
+          }(),
         ),
       );
     }

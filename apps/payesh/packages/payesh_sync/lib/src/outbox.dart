@@ -281,11 +281,37 @@ final class SqliteOutbox {
   );
 
   /// Adds an op; idempotent on `k` (or `uid`). Input uses the web-outbox field names.
-  EnqueueResult enqueue(Map<String, Object?> op) {
+  EnqueueResult enqueue(Map<String, Object?> op) => _tx(() => _enqueue1(op));
+
+  /// Row 202: [enqueue] for many ops in ONE transaction (a bulk import of 300 students is
+  /// 1 500 ops — one commit each froze the app for seconds). All or nothing: when the queue
+  /// cannot take them all, nothing is added and the first refusal is returned for every op.
+  List<EnqueueResult> enqueueAll(List<Map<String, Object?>> ops) {
+    if (ops.isEmpty) return const [];
+    _db.execute('BEGIN IMMEDIATE');
+    try {
+      final out = <EnqueueResult>[];
+      for (final op in ops) {
+        final r = _enqueue1(op);
+        if (!r.ok) {
+          _db.execute('ROLLBACK');
+          return [for (final _ in ops) r];
+        }
+        out.add(r);
+      }
+      _db.execute('COMMIT');
+      return out;
+    } catch (_) {
+      _db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  EnqueueResult _enqueue1(Map<String, Object?> op) {
     final raw = '${op['k'] ?? op['uid'] ?? ''}'.trim();
     final k = raw.isEmpty ? newIdempotencyKey() : raw;
     final now = _nowMs();
-    return _tx(() {
+    return (() {
       if (_db.select('SELECT 1 FROM outbox WHERE k = ?', [k]).isNotEmpty) {
         return EnqueueResult(ok: true, k: k, duplicate: true);
       }
@@ -325,7 +351,7 @@ final class SqliteOutbox {
         ],
       );
       return EnqueueResult(ok: true, k: k, seq: seq);
-    });
+    })();
   }
 
   /// Leases up to [limit] ready ops (pending past backoff, or inflight with an expired lease),

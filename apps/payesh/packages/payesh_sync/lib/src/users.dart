@@ -116,12 +116,31 @@ const List<(String, String, bool)> familyFields = [
   ('job', 'شغل', false),
 ];
 
+/// Row 202 (owner: «فرم اصلاح باید تمام اطلاعات مربوط به دانش‌آموز را داشته باشد»): the
+/// rest of what a school file brings for a student (import keys), so the user form can show
+/// and fix every one of them: key, label, numeric.
+const List<(String, String, bool)> studentMoreFields = [
+  ('failed_count', 'تعداد درس افتاده', true),
+  ('father_alive', 'وضعیت حیات پدر', false),
+  ('mother_alive', 'وضعیت حیات مادر', false),
+  ('guardian_alive', 'وضعیت حیات سرپرست', false),
+  ('sisters', 'تعداد خواهر', true),
+  ('brothers', 'تعداد برادر', true),
+  ('org_type', 'نوع ارگان حمایتی', false),
+  ('org_percent', 'درصد حمایت', false),
+  ('village', 'نام روستا', false),
+  ('residence_status', 'وضعیت اقامت / تابعیت', false),
+  ('shenasname_serial', 'سریال شناسنامه', false),
+  ('shenasname_seri', 'سری شناسنامه', false),
+];
+
 /// Every profile key the new-user form may store.
 final Set<String> userProfileKeys = {
   for (final (k, _, _) in [
     ...userExtraFields,
     ...personnelFields,
     ...familyFields,
+    ...studentMoreFields,
   ])
     k,
 };

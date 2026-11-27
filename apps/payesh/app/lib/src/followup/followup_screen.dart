@@ -45,6 +45,54 @@ class FollowupController extends SchoolController {
   Future<RecordWrite?> issuesClear() => run((db) => Followup(db).issuesClear());
 }
 
+/// Row 202 — what the «✏️ اصلاح» form of a follow-up row opens with: every value of the row
+/// (the stored ones, then the file's own values for what the import could not take — a
+/// 9-digit national id, a short mobile; for rows saved before 0.9.71 the value quoted in the
+/// reason) and the wrong fields (data key → message) that open framed in red.
+({Map<String, String> values, Map<String, String> issues}) followupFixValues(
+  ImportIssue i,
+) {
+  final d = i.data;
+  final values = <String, String>{
+    for (final e in d.entries)
+      if (e.value != null && e.value is! Map && e.value is! List)
+        e.key: '${e.value}',
+  };
+  for (final e in i.raw.entries) {
+    if ((values[e.key] ?? '').isEmpty || i.fields.containsKey(e.key)) {
+      values[e.key] = e.value;
+    }
+  }
+  String pick(String k, String fallback) =>
+      (values[k] ?? '').isNotEmpty ? values[k]! : fallback;
+  final first = values['first_name'] ?? '';
+  final last = values['last_name'] ?? '';
+  values['name'] = pick(
+    'full_name',
+    '$first $last'.trim().isNotEmpty ? '$first $last'.trim() : i.name,
+  );
+  values['national_id'] = pick('national_id', i.nationalId);
+  values['phone'] = pick('phone', i.phone);
+  values['role'] = pick('role', 'student');
+  for (final e in i.fields.entries) {
+    if ((values[e.key] ?? '').isNotEmpty) continue;
+    for (final line in e.value.split('\n')) {
+      final q = importReasonValue(line);
+      if (q.isNotEmpty && q != i.name) {
+        values[e.key] = q;
+        break;
+      }
+    }
+  }
+  return (
+    values: values,
+    issues: {
+      for (final e in i.fields.entries)
+        e.key == 'full_name' ? 'name' : e.key: e.value,
+    },
+  );
+}
+
 class FollowupScreen extends StatefulWidget {
   const FollowupScreen({
     super.key,
@@ -104,31 +152,24 @@ class _FollowupScreenState extends State<FollowupScreen> {
     final existing = i.userId == null
         ? null
         : uc.users.where((u) => u.id == i.userId).firstOrNull;
+    final fix = followupFixValues(i);
     final Widget page;
     if (existing != null) {
-      page = UserEditPage(controller: uc, user: existing, onSaved: done);
+      page = UserEditPage(
+        controller: uc,
+        user: existing,
+        onSaved: done,
+        issues: fix.issues,
+        notes: i.reasons,
+        initial: fix.values,
+      );
     } else {
-      final d = i.data;
       page = UserFormPage(
         controller: uc,
         onSaved: done,
-        initial: {
-          for (final e in d.entries)
-            if (e.value != null && e.value is! Map && e.value is! List)
-              e.key: '${e.value}',
-          'name': SchoolRecords.str(d['full_name']).isNotEmpty
-              ? SchoolRecords.str(d['full_name'])
-              : i.name,
-          'national_id': SchoolRecords.str(d['national_id']).isNotEmpty
-              ? SchoolRecords.str(d['national_id'])
-              : i.nationalId,
-          'phone': SchoolRecords.str(d['phone']).isNotEmpty
-              ? SchoolRecords.str(d['phone'])
-              : i.phone,
-          'role': SchoolRecords.str(d['role']).isEmpty
-              ? 'student'
-              : SchoolRecords.str(d['role']),
-        },
+        initial: fix.values,
+        issues: fix.issues,
+        notes: i.reasons,
       );
     }
     await openPanel<void>(context, (_) => page);
@@ -519,8 +560,21 @@ class ImportFixPage extends StatefulWidget {
 }
 
 class _ImportFixPageState extends State<ImportFixPage> {
-  late final List<(String, String, bool)> fields =
-      importFixFields[widget.controller.session?.kind ?? 'students']!;
+  late final String _kind = widget.controller.session?.kind ?? 'students';
+
+  /// The fix fields of the kind, then (row 202) every other wrong field of this row.
+  late final List<(String, String, bool)> fields = [
+    ...importFixFields[_kind]!,
+    for (final k in widget.row.problems.keys)
+      if (!importFixFields[_kind]!.any((x) => x.$1 == k))
+        for (final x in importFields[_kind] ?? const <ImportField>[])
+          if (x.$1 == k)
+            (
+              k,
+              x.$2,
+              k.endsWith('_nid') || k.endsWith('phone') || k == 'national_id',
+            ),
+  ];
   late final Map<String, TextEditingController> f = {
     for (final (k, _, _) in fields)
       k: TextEditingController(
@@ -552,6 +606,11 @@ class _ImportFixPageState extends State<ImportFixPage> {
       controller: widget.controller,
       submitLabel: '✔ ذخیره و بررسی دوباره',
       onSubmit: _save,
+      // row 202: the wrong boxes open framed in red
+      presetIssues: {
+        for (final e in r.problems.entries)
+          if (fields.any((x) => x.$1 == e.key)) 'imp-fix-f-${e.key}': e.value,
+      },
       fields: [
         for (final e in r.errors)
           Text(

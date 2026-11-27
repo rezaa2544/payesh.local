@@ -39,8 +39,18 @@ class UserFormPage extends StatefulWidget {
     this.initial = const {},
     this.onSaved,
     this.editing,
+    this.issues = const {},
+    this.notes = const [],
   });
   final UsersController controller;
+
+  /// Row 202 (owner: «قسمت‌های مشکل‌دار باید با کادر قرمز مشخص بشن»): field (data key —
+  /// `name`, `national_id`, `phone`, `birth_date`, `gender`, `grade`, `field`, `father_nid`,
+  /// …) → what is wrong with it; those boxes open with a red frame and the message under them.
+  final Map<String, String> issues;
+
+  /// Row 202: the reasons of a follow-up row, listed above the fields.
+  final List<String> notes;
 
   /// ردیف ۱۹۷ (F45/F47): ویرایش همان کاربر با فهرست کامل نقش خودش (تیک‌های دسترسی کارکنان،
   /// درس‌های دبیر، پایه/رشته/کلاس دانش‌آموز، نسبت و فرزند ولی). null = «کاربر جدید».
@@ -126,8 +136,29 @@ class _UserFormPageState extends State<UserFormPage> {
     branch = widget.initial['field'] ?? widget.initial['branch'] ?? '';
     employment = widget.initial['employment'] ?? '';
     final u = widget.editing;
-    if (u != null) _fillFrom(u);
+    if (u != null) {
+      _fillFrom(u);
+      // row 202: a wrong value of the file the user row does not have is still shown
+      for (final k in widget.issues.keys) {
+        final v = widget.initial[k] ?? '';
+        if (v.isNotEmpty && (f[k]?.text.isEmpty ?? false)) f[k]!.text = v;
+      }
+    }
   }
+
+  /// Row 202: [UserFormPage.issues] under the names of the boxes of this form.
+  static String issueBox(String k) => switch (k) {
+    'name' || 'full_name' || 'first_name' || 'last_name' => 'usr-f-name',
+    'national_id' => 'usr-f-nid',
+    'birth_date' => 'usr-f-birth',
+    'field' || 'branch' => 'usr-f-branch',
+    'class_name' || 'class_id' => 'usr-f-class',
+    _ => 'usr-f-$k',
+  };
+
+  late final Map<String, String> _preset = {
+    for (final e in widget.issues.entries) issueBox(e.key): e.value,
+  };
 
   bool get _isEdit => widget.editing != null;
   bool active = true;
@@ -229,24 +260,33 @@ class _UserFormPageState extends State<UserFormPage> {
     T value,
     List<(T, String)> items,
     ValueChanged<T> onChanged,
-  ) => FieldBox(
-    width: kFieldText,
-    child: DropdownButtonFormField<T>(
-      key: Key(key),
-      isExpanded: true,
-      initialValue: items.any((x) => x.$1 == value) ? value : null,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
-      items: [
-        for (final (v, t) in items)
-          DropdownMenuItem<T>(value: v, child: Text(t)),
-      ],
-      onChanged: (v) {
-        if (v is T) setState(() => onChanged(v));
-      },
-    ),
+  ) => Builder(
+    builder: (context) {
+      final issues = FieldIssueScope.maybeOf(context);
+      return FieldBox(
+        width: kFieldText,
+        child: DropdownButtonFormField<T>(
+          key: Key(key),
+          isExpanded: true,
+          initialValue: items.any((x) => x.$1 == value) ? value : null,
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            // row 202: a wrong grade / branch / gender of the import row is framed red too
+            errorText: issues?.of(key),
+            errorMaxLines: 3,
+          ),
+          items: [
+            for (final (v, t) in items)
+              DropdownMenuItem<T>(value: v, child: Text(t)),
+          ],
+          onChanged: (v) {
+            FieldIssueScope.maybeOf(context)?.clear(key);
+            if (v is T) setState(() => onChanged(v));
+          },
+        ),
+      );
+    },
   );
 
   Widget _kindPicker() => SchoolFormFull(
@@ -361,8 +401,20 @@ class _UserFormPageState extends State<UserFormPage> {
       ..._classesForGrade,
     ], (v) => classId = v),
     _text('usr-f-last_gpa', 'last_gpa', 'معدل سال گذشته', numeric: true),
+    _text(
+      'usr-f-failed_count',
+      'failed_count',
+      'تعداد درس افتاده',
+      numeric: true,
+    ),
     _text('usr-f-covered', 'covered', 'حمایتی (بله/خیر)'),
+    _text('usr-f-org_type', 'org_type', 'نوع ارگان حمایتی'),
+    _text('usr-f-org_percent', 'org_percent', 'درصد حمایت'),
     _text('usr-f-talent', 'talent', 'استعداد'),
+    _text('usr-f-shenasname_serial', 'shenasname_serial', 'سریال شناسنامه'),
+    _text('usr-f-shenasname_seri', 'shenasname_seri', 'سری شناسنامه'),
+    _text('usr-f-sisters', 'sisters', 'تعداد خواهر', numeric: true),
+    _text('usr-f-brothers', 'brothers', 'تعداد برادر', numeric: true),
     const SchoolFormSection(
       'مشخصات پدر',
       note: 'نام کاربری پدر همراه اوست و رمز اولیه‌اش کد ملی‌اش.',
@@ -372,6 +424,7 @@ class _UserFormPageState extends State<UserFormPage> {
     _text('usr-f-father_phone', 'father_phone', 'همراه پدر', numeric: true),
     _text('usr-f-father_edu', 'father_edu', 'تحصیلات پدر'),
     _text('usr-f-father_job', 'father_job', 'شغل پدر'),
+    _text('usr-f-father_alive', 'father_alive', 'وضعیت حیات پدر'),
     if (!_isEdit)
       SchoolFormFull(
         child: CheckboxListTile(
@@ -394,6 +447,7 @@ class _UserFormPageState extends State<UserFormPage> {
     _text('usr-f-mother_phone', 'mother_phone', 'همراه مادر', numeric: true),
     _text('usr-f-mother_edu', 'mother_edu', 'تحصیلات مادر'),
     _text('usr-f-mother_job', 'mother_job', 'شغل مادر'),
+    _text('usr-f-mother_alive', 'mother_alive', 'وضعیت حیات مادر'),
     if (!_isEdit)
       SchoolFormFull(
         child: CheckboxListTile(
@@ -409,6 +463,7 @@ class _UserFormPageState extends State<UserFormPage> {
       ),
     const SchoolFormSection('سرپرست و نشانی'),
     _text('usr-f-guardian', 'guardian', 'سرپرست (نسبت و نام)'),
+    _text('usr-f-guardian_alive', 'guardian_alive', 'وضعیت حیات سرپرست'),
     _text(
       'usr-f-guardian_phone',
       'guardian_phone',
@@ -417,6 +472,8 @@ class _UserFormPageState extends State<UserFormPage> {
     ),
     _text('usr-f-landline', 'landline', 'تلفن ثابت', numeric: true),
     _text('usr-f-residence', 'residence', 'محل سکونت'),
+    _text('usr-f-village', 'village', 'نام روستا'),
+    _text('usr-f-residence_status', 'residence_status', 'وضعیت اقامت / تابعیت'),
     SchoolField('usr-f-address', 'نشانی', f['address']!, lines: 2),
   ];
 
@@ -693,6 +750,40 @@ class _UserFormPageState extends State<UserFormPage> {
     SchoolField('usr-f-address', 'نشانی', f['address']!, lines: 2),
   ];
 
+  /// Row 202: what the import found wrong in this row, above the fields.
+  Widget _notesBox() {
+    final theme = Theme.of(context);
+    return SchoolFormFull(
+      child: Container(
+        key: const Key('usr-f-notes'),
+        padding: const EdgeInsets.all(PayeshTokens.space2),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.errorContainer.withValues(alpha: 0.35),
+          border: Border.all(color: theme.colorScheme.error),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              _preset.isEmpty
+                  ? 'ایرادهای این ردیف در فایل:'
+                  : 'ایرادهای این ردیف در فایل — ${fieldsToFixFa(_preset.length)}:',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            for (final n in widget.notes)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('• $n', style: theme.textTheme.bodySmall),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: c,
@@ -702,7 +793,9 @@ class _UserFormPageState extends State<UserFormPage> {
       controller: c,
       submitLabel: c.samePerson != null ? 'شخص دیگری است — ذخیره' : 'ذخیره',
       onSubmit: _save,
+      presetIssues: _preset,
       fields: [
+        if (widget.notes.isNotEmpty) _notesBox(),
         if (_isEdit) _editHead() else _kindPicker(),
         ...switch (kind) {
           'student' => _student(),

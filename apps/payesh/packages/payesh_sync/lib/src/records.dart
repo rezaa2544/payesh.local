@@ -334,6 +334,69 @@ final class SchoolRecords {
     return k;
   }
 
+  /// Row 202: [put] for many rows — queued in chunks of [chunk], each chunk one outbox
+  /// transaction and one local transaction (outbox first, then the local copy, as in [put]),
+  /// with [onProgress] (done, total) and a pause between chunks so the screen can draw the
+  /// progress instead of freezing. Returns the outbox keys in the order of [rows].
+  Future<List<String>> putAll(
+    List<(String, int, Map<String, Object?>, EngineRow?)> rows, {
+    int chunk = 100,
+    void Function(int done, int total)? onProgress,
+  }) async {
+    final keys = <String>[];
+    final total = rows.length;
+    onProgress?.call(0, total);
+    // the queued ops of a row (base version) — counted once, not per row
+    final queued = <String, int>{};
+    if (rows.any((r) => r.$4 != null)) {
+      for (final o in outbox.list()) {
+        final k = '${o.collection}/${o.id}';
+        queued[k] = (queued[k] ?? 0) + 1;
+      }
+    }
+    for (var i = 0; i < total; i += chunk) {
+      final part = rows.sublist(i, i + chunk > total ? total : i + chunk);
+      final ops = <Map<String, Object?>>[];
+      final local = <RowInput>[];
+      for (final (collection, id, data, prev) in part) {
+        final row = {
+          for (final e in data.entries)
+            if (!neverSent.contains(e.key)) e.key: e.value,
+          'id': id,
+        };
+        precheck(collection, row);
+        final qk = '$collection/$id';
+        final base = prev == null ? 0 : prev.version + (queued[qk] ?? 0);
+        queued[qk] = (queued[qk] ?? 0) + 1;
+        ops.add({
+          'collection': collection,
+          'type': 'put',
+          'id': id,
+          'data': row,
+          'base_version': base,
+        });
+        local.add(
+          RowInput(
+            collection: collection,
+            id: id,
+            data: row,
+            version: prev?.version ?? 0,
+          ),
+        );
+      }
+      final q = outbox.enqueueAll(ops);
+      final bad = q.where((x) => !x.ok).firstOrNull;
+      if (bad != null) {
+        throw SyncFailure(bad.error?.wire ?? 'queue_full', code: bad.error);
+      }
+      await engine.putMany(local);
+      keys.addAll([for (final x in q) x.k!]);
+      onProgress?.call(keys.length, total);
+      if (keys.length < total) await Future<void>.delayed(Duration.zero);
+    }
+    return keys;
+  }
+
   /// Deletes a stored row (the server keeps a tombstone; other devices drop it on pull).
   Future<String> del(String collection, EngineRow prev) async {
     precheck(collection, null);

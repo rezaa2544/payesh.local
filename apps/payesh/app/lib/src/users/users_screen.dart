@@ -896,6 +896,9 @@ class UserEditPage extends StatelessWidget {
     required this.controller,
     required this.user,
     this.onSaved,
+    this.issues = const {},
+    this.notes = const [],
+    this.initial = const {},
   });
   final UsersController controller;
   final SchoolUser user;
@@ -903,9 +906,20 @@ class UserEditPage extends StatelessWidget {
   /// Runs after a successful save, before the form closes (W10 `issue-fix`).
   final Future<void> Function(RecordWrite w)? onSaved;
 
+  /// Row 202: the wrong fields of a follow-up row (red), its reasons and the file's values.
+  final Map<String, String> issues;
+  final List<String> notes;
+  final Map<String, String> initial;
+
   @override
-  Widget build(BuildContext context) =>
-      UserFormPage(controller: controller, editing: user, onSaved: onSaved);
+  Widget build(BuildContext context) => UserFormPage(
+    controller: controller,
+    editing: user,
+    onSaved: onSaved,
+    issues: issues,
+    notes: notes,
+    initial: initial,
+  );
 }
 
 /// `user-full` (web «مشخصات کامل»).
