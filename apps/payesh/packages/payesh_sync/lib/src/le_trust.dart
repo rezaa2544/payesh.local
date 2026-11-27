@@ -8,6 +8,7 @@
 import 'dart:convert';
 
 import 'package:payesh_core/io.dart';
+import 'package:payesh_core/net.dart' show installDnsFallback;
 
 import 'package:payesh_secure/payesh_secure.dart' show addLegacyWindowsRoots;
 
@@ -30,7 +31,15 @@ SecurityContext _build() {
 }
 
 /// An [HttpClient] that trusts the system roots + the Let's Encrypt chain.
-HttpClient trustedHttpClient() => HttpClient(context: payeshTrustContext());
+/// Row 197-Q05 (F48/F43): when the device's DNS cannot resolve the server name (always-on VPN
+/// whose `direct` route has no DNS), the real IP comes from DNS-over-HTTPS; SNI and certificate
+/// checks stay on the server name.
+HttpClient trustedHttpClient() {
+  final ctx = payeshTrustContext();
+  final c = HttpClient(context: ctx);
+  installDnsFallback(c, context: ctx);
+  return c;
+}
 
 const List<String> _letsEncryptChainPems = [
   // ISRG Root X1 (ریشه) — تا Jun  4 11:04:38 2035 GMT

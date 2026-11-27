@@ -76,6 +76,8 @@ const hosting = require('./hosting');
    نشانی‌اش را منتشر/اعلام کند، نه ۵ دقیقهٔ بعد (تا آن موقع دستگاه‌های شبکهٔ دیگر پیدایش نمی‌کردند) */
 function kickDiscovery() { if (!HOSTED && process.env.PAYESH_DISCOVERY !== '0') { try { require('./discovery').kick(3000); } catch (e) { /* noop */ } } }
 const rendezvous = require('./rendezvous'); /* ردیف ۱۷۱: نقطهٔ قرار سرورهای مدرسه (فهرست + اعلام) */
+/* ردیف ۱۹۷-Q05: رلهٔ به‌روزرسانی برنامه‌ها (مانیفست/APK/فایل‌ها از GitHub، از راه همین سرور) */
+const updateRelay = require('./update-relay').create({ dataDir: DATA_DIR });
 const HOSTED = /^[A-Za-z0-9_-]{1,64}$/.test(String(process.env.PAYESH_HOSTED || '')) ? String(process.env.PAYESH_HOSTED) : null;
 let hostedPublicUrl = null;
 let host = null;
@@ -2375,6 +2377,8 @@ const baseHandler = async (req, res) => {
       });
       if (done) return;
     }
+    /* ردیف ۱۹۷-Q05: به‌روزرسانی گوشی/ویندوز وقتی GitHub از آن شبکه نمی‌رسد (بی‌نشست، بی‌راز) */
+    if (url.pathname.startsWith('/api/update-relay/') && await updateRelay.handle(req, res, url)) return;
     if (url.pathname === '/healthz') {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
       res.end(JSON.stringify({ ok: true, instance: 'payesh-local', version: RUNNING_VERSION, uptime_s: Math.round(process.uptime()) }));

@@ -348,6 +348,25 @@ class SessionController extends ChangeNotifier {
   /// Row 127: the data path talks Sync v1 (`/api/v1/pull`, `/api/sync`) to the LAN server.
   bool get onLan => _lan != null;
 
+  /// Row 197-Q05 (F26): the school servers this device knows (the signed-in one first). The
+  /// in-app update fetches the release files through them (`/api/update-relay/`) when GitHub is
+  /// filtered on this network (mobile data, a VPN whose direct route has no DNS).
+  Future<List<Uri>> updateRelays() async {
+    final out = <Uri>[];
+    void add(Uri? u) {
+      if (u != null && !out.contains(u)) out.add(u);
+    }
+
+    add(_lan?.server);
+    try {
+      add(await lanAccounts.lastServer());
+      add(await lanAccounts.homeServer());
+    } on Object {
+      // nothing remembered yet
+    }
+    return out;
+  }
+
   /// Whether this build offers the LAN login.
   bool get lanAvailable => lan != null;
 

@@ -524,9 +524,13 @@ final class LanAccessClient implements LanAccessApi {
       Duration(seconds: 1),
       Duration(seconds: 4),
     ],
+    this.loginRetryDelay = const Duration(seconds: 2),
     String Function()? requestId,
   }) : _client = client ?? trustedHttpClient(),
        _requestId = requestId ?? newIdempotencyKey;
+
+  /// Row 197-Q05 (F43): wait before the one automatic sign-in retry (null ⇒ no retry).
+  final Duration? loginRetryDelay;
 
   final String clientVersion;
 
@@ -592,12 +596,28 @@ final class LanAccessClient implements LanAccessApi {
     required String password,
     required String deviceName,
   }) async {
-    final j = await _send('POST', server.resolve('/api/auth/login'), {
-      'phone': LanServerRules.normalizeLogin(phone),
-      'password': password,
-      'name': deviceName,
-      'platform': platform,
-    }, unauthorized: LanAccessError.badCredentials);
+    Future<Map<String, Object?>> once() =>
+        _send('POST', server.resolve('/api/auth/login'), {
+          'phone': LanServerRules.normalizeLogin(phone),
+          'password': password,
+          'name': deviceName,
+          'platform': platform,
+        }, unauthorized: LanAccessError.badCredentials);
+    Map<String, Object?> j;
+    try {
+      j = await once();
+    } on LanAccessFailure catch (e) {
+      // Row 197-Q05 (F43): on mobile data the first sign-in often failed («سرور مدرسه پاسخ نداد»)
+      // and the second one worked. A failure BEFORE any answer (connect/DNS/TLS — not a timeout,
+      // so no session can have been made) is tried once more by itself.
+      if (e.kind != LanAccessError.unreachable ||
+          e.wire == 'timeout' ||
+          loginRetryDelay == null) {
+        rethrow;
+      }
+      await Future<void>.delayed(loginRetryDelay!);
+      j = await once();
+    }
     return LanSession.fromJson(j);
   }
 

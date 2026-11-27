@@ -39,6 +39,7 @@ class AppUpdater {
     this.openUrl,
     this.retry = const UpdateRetry(),
     this.exitApp,
+    this.relays,
     int? currentBuild,
   }) : currentBuild = currentBuild ?? channel.build,
        http = http ?? IoUpdateHttp.new,
@@ -66,6 +67,42 @@ class AppUpdater {
 
   /// شمارهٔ ساخت همین برنامه (پیش‌فرض از [channel]؛ آزمون‌ها عوضش می‌کنند).
   final int currentBuild;
+
+  /// ردیف ۱۹۷-Q05 (F26): سرورهای مدرسه‌ای که این دستگاه می‌شناسد. هر سرور پایش همان فایل‌های
+  /// انتشار GitHub را بایت‌به‌بایت از `/api/update-relay/` جلو می‌گذارد (server/update-relay.js)؛
+  /// روی شبکه‌ای که GitHub فیلتر است (دادهٔ همراه، VPN با مسیر direct بی‌DNS) همین راه همیشه
+  /// کار می‌کند. اول سرورهای مدرسه، بعد GitHub. همهٔ هش‌ها مثل قبل بررسی می‌شوند.
+  final Future<List<Uri>> Function()? relays;
+
+  /// سرور مدرسه‌ای که آخرین مانیفست از آن آمد (null ⇒ GitHub)؛ فایل‌ها و APK هم از همان.
+  Uri? relaySource;
+
+  /// نشانی APK همان منبعی که مانیفست از آن آمد.
+  Uri get apkUrl {
+    final r = relaySource;
+    return (r == null ? null : relayUri(r, channel.apkUrl)) ?? channel.apkUrl;
+  }
+
+  Future<List<Uri>> _relayList() async {
+    final f = relays;
+    // --update-from (پوشهٔ محلی) و نشانی‌های غیر GitHub رله ندارند
+    if (f == null ||
+        relayUri(Uri.parse('http://127.0.0.1/'), _manifestUrl) == null) {
+      return const [];
+    }
+    try {
+      final seen = <String>{};
+      return [
+        for (final u in await f().timeout(const Duration(seconds: 5)))
+          if ((u.scheme == 'http' || u.scheme == 'https') &&
+              u.host.isNotEmpty &&
+              seen.add(u.origin))
+            u,
+      ];
+    } on Object {
+      return const [];
+    }
+  }
 
   /// null ⇒ Platform.isWindows.
   final bool? windows;
@@ -162,12 +199,7 @@ class AppUpdater {
     _set(UpdatePhase.checking);
     final h = http();
     try {
-      final m = await fetchManifest(
-        h,
-        url: _manifestUrl,
-        schema: channel.schema,
-        retry: retry,
-      );
+      final m = await _fetchFromAny(h);
       if (!isWindows) {
         // اندروید: بستهٔ کامل (APK) لازم است
         plan = UpdatePlan(m, const []);
@@ -186,6 +218,39 @@ class AppUpdater {
     }
   }
 
+  /// ردیف ۱۹۷-Q05: اول سرورهای مدرسه (هر کدام حداکثر ۲ تلاش کوتاه)، بعد GitHub.
+  Future<UpdateManifest> _fetchFromAny(UpdateHttp h) async {
+    final quick = UpdateRetry(
+      attempts: retry.attempts < 2 ? retry.attempts : 2,
+      base: retry.base,
+      max: retry.max,
+    );
+    for (final r in await _relayList()) {
+      final url = relayUri(r, _manifestUrl);
+      if (url == null) continue;
+      try {
+        final m = await fetchManifest(
+          h,
+          url: url,
+          schema: channel.schema,
+          retry: quick,
+        );
+        relaySource = r;
+        return m;
+      } on Object {
+        continue;
+      }
+    }
+    final m = await fetchManifest(
+      h,
+      url: _manifestUrl,
+      schema: channel.schema,
+      retry: retry,
+    );
+    relaySource = null;
+    return m;
+  }
+
   Future<void> download() async {
     final p = plan;
     if (p == null || p.upToDate || !isWindows || busy) return;
@@ -194,15 +259,29 @@ class AppUpdater {
     _set(UpdatePhase.downloading);
     final h = http();
     try {
-      staged = await downloadUpdate(
+      final mirror = await _mirror();
+      Future<StagedUpdate> from(Uri base) => downloadUpdate(
         p,
         http: h,
         stagingRoot: stagingRoot,
-        mirror: await _mirror(),
-        blobBase: _blobBase,
+        mirror: mirror,
+        blobBase: base,
         retry: retry,
         onProgress: _progress,
       );
+      final r = relaySource;
+      final viaRelay = r == null ? null : relayUri(r, _blobBase);
+      if (viaRelay == null) {
+        staged = await from(_blobBase);
+      } else {
+        try {
+          staged = await from(viaRelay);
+        } on UpdateException {
+          // سرور مدرسه همین لحظه نرسید ⇒ GitHub (فایل‌های رسیده دوباره دریافت نمی‌شوند)
+          relaySource = null;
+          staged = await from(_blobBase);
+        }
+      }
       progressDone = progressTotal;
       _set(UpdatePhase.staged);
     } on UpdateException catch (e) {
@@ -261,7 +340,7 @@ class AppUpdater {
     final inst = apkInstaller;
     if (apk == null || inst == null) {
       // بدون اطلاعات APK یا نصب‌کنندهٔ بومی: صفحهٔ دانلود
-      await openUrl?.call(channel.apkUrl);
+      await openUrl?.call(apkUrl);
       return;
     }
     progressDone = 0;
@@ -269,15 +348,28 @@ class AppUpdater {
     _set(UpdatePhase.downloading);
     final h = http();
     try {
-      final file = await downloadApk(
+      final dir = await inst.cacheDir();
+      Future<File> from(Uri url) => downloadApk(
         apk: apk,
-        url: channel.apkUrl,
+        url: url,
         http: h,
-        dir: await inst.cacheDir(),
+        dir: dir,
         build: p.manifest.build,
         retry: retry,
         onProgress: _progress,
       );
+      final File file;
+      if (relaySource == null) {
+        file = await from(channel.apkUrl);
+      } else {
+        File? got;
+        try {
+          got = await from(apkUrl);
+        } on UpdateException {
+          relaySource = null;
+        }
+        file = got ?? await from(channel.apkUrl);
+      }
       _set(UpdatePhase.applying);
       final r = await inst.install(file);
       if (r == 'needs_permission') {

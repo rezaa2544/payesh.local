@@ -39,3 +39,21 @@ final class UpdateChannel {
   String versionOf(int b) => '$versionBase.$b';
   String get version => versionOf(build);
 }
+
+/// ردیف ۱۹۷-Q05: همان فایل انتشار GitHub از راه رلهٔ سرور مدرسه —
+/// `https://github.com/<repo>/releases/download/<tag>/<name>` ⇒
+/// `<server>/api/update-relay/<tag>/<name>` (پوشهٔ فایل‌ها با `/` پایانی). غیر GitHub ⇒ null.
+Uri? relayUri(Uri server, Uri github) {
+  if (github.host != 'github.com') return null;
+  final seg = github.pathSegments;
+  final i = seg.indexOf('download');
+  if (i < 2 || seg[i - 1] != 'releases' || i + 1 >= seg.length) return null;
+  final rest = seg.sublist(i + 1);
+  final path = server.path.endsWith('/') ? server.path : '${server.path}/';
+  return Uri(
+    scheme: server.scheme,
+    host: server.host,
+    port: server.hasPort ? server.port : null,
+    path: '${path}api/update-relay/${rest.join('/')}',
+  );
+}

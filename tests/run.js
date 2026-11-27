@@ -5806,6 +5806,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۷-Q05: به‌روزرسانی گوشی/ویندوز از راه سرور مدرسه (GitHub فیلتر) ── */
+  await test('ردیف ۱۹۷-Q05: رلهٔ به‌روزرسانی — مانیفست/APK/فایل از راه سرور مدرسه با بررسی هش؛ نام دلخواه و هش فهرست‌نشده رد؛ GitHub قطع ⇒ نسخهٔ ذخیره‌شده',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/update-relay-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'update-relay-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|^ {5}|UPDATE-RELAY-197/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۷-Q04: کلاس دانش‌آموزی (پایه + رشته) جدا از اتاق ── */
   await test('ردیف ۱۹۷-Q04: در مدرسهٔ رشته‌محور دانش‌آموز بی‌کلاس به کلاس «پایه + رشته» وصل می‌شود (ساخته اگر نبود)، اتاق هرگز کلاس نمی‌شود، کلاس دستی مقدم است، تعریف تکراری حذف، کلاس‌محور دست‌نخورده (۹ بررسی)',
     async () => {

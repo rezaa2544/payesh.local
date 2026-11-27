@@ -26,6 +26,7 @@ import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
 import 'package:payesh_core/io.dart';
+import 'package:payesh_core/net.dart' show installDnsFallback;
 
 const int _maxFileBytes = 256 * 1024 * 1024;
 const int _maxFiles = 4000;
@@ -235,7 +236,10 @@ final class IoUpdateHttp implements UpdateHttp {
     : _timeout = timeout ?? const Duration(seconds: 60),
       _client = HttpClient(context: context)
         ..connectionTimeout = const Duration(seconds: 20)
-        ..idleTimeout = const Duration(seconds: 15);
+        ..idleTimeout = const Duration(seconds: 15) {
+    // ردیف ۱۹۷-Q05 (F26): DNS دستگاه نام GitHub/سرور مدرسه را نداد ⇒ IP از DNS-over-HTTPS
+    installDnsFallback(_client, context: context);
+  }
   final HttpClient _client;
   final Duration _timeout;
 

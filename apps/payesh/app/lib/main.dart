@@ -99,6 +99,9 @@ Future<void> main(List<String> args) async {
           // installer; no browser.
           apkInstaller: Platform.isAndroid ? const ChannelApkInstaller() : null,
           openUrl: openUri,
+          // Row 197-Q05 (F26): GitHub is filtered on mobile data (with or without a VPN) — the
+          // school server this device uses relays the very same release files.
+          relays: session.updateRelays,
         )
       : null;
   // Row 179: روشن / تاریک / سیستم — read before the first frame (no flash of the wrong mode).

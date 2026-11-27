@@ -58,7 +58,7 @@ class _UpdateLightState extends State<UpdateLight> {
         u.apkInstaller == null &&
         (u.phase == UpdatePhase.ready ||
             (u.phase == UpdatePhase.failed && u.available))) {
-      await (widget.openUrl ?? u.openUrl)?.call(u.channel.apkUrl);
+      await (widget.openUrl ?? u.openUrl)?.call(u.apkUrl);
       return;
     }
     await u.tap();
@@ -74,9 +74,13 @@ class _UpdateLightState extends State<UpdateLight> {
       UpdatePhase.ready || UpdatePhase.staged => (
         tk.warning,
         u.error ??
-            'نسخهٔ ${u.channel.versionOf(next ?? 0)} آماده است — برای نصب لمس کنید',
+            'نسخهٔ ${u.channel.versionOf(next ?? 0)} آماده است${u.relaySource == null ? '' : ' (از راه سرور مدرسه)'} — برای نصب لمس کنید',
       ),
-      UpdatePhase.upToDate => (tk.success, 'به‌روز است'),
+      // ردیف ۱۹۷-Q05: مانیفست از راه سرور مدرسه آمد
+      UpdatePhase.upToDate => (
+        tk.success,
+        u.relaySource == null ? 'به‌روز است' : 'به‌روز است (از راه سرور مدرسه)',
+      ),
       UpdatePhase.failed => (
         tk.danger,
         '${u.error ?? 'بررسی ناموفق'}${u.available ? ' — برای تلاش دوباره لمس کنید' : ''}',
@@ -374,7 +378,7 @@ class _UpdateBannerState extends State<UpdateBanner> {
   Future<void> _install() async {
     final u = widget.updater;
     if (!u.isWindows && u.apkInstaller == null) {
-      await (widget.openUrl ?? u.openUrl)?.call(u.channel.apkUrl);
+      await (widget.openUrl ?? u.openUrl)?.call(u.apkUrl);
       return;
     }
     await u.tap();

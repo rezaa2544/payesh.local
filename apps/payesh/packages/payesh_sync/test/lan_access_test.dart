@@ -272,11 +272,13 @@ void main() {
     final bodies = <String, Map<String, Object?>>{};
     var health = <String, Object?>{};
     var refreshFails = 0;
+    var loginFails = 0; // row 197-Q05: connection cut before any answer
 
     setUp(() async {
       seen.clear();
       bodies.clear();
       refreshFails = 0;
+      loginFails = 0;
       health = {
         'ok': true,
         'name': 'payesh-local',
@@ -295,6 +297,11 @@ void main() {
         var status = 200;
         if (r.uri.path == '/api/health') {
           out = health;
+        } else if (r.uri.path == '/api/auth/login' && loginFails > 0) {
+          loginFails--;
+          final sock = await r.response.detachSocket(writeHeaders: false);
+          sock.destroy();
+          return;
         } else if (r.uri.path == '/api/auth/login') {
           final j = jsonDecode(body) as Map;
           if (j['phone'] == '09120000001' && j['password'] == 'pass1234') {
@@ -393,6 +400,58 @@ void main() {
         reason: 'X-Payesh-Client on every call',
       );
       c.close();
+    });
+
+    test('LAN-197Q05 (F43) first sign-in cut before any answer → retried once by itself; '
+        'NEG no retry ⇒ «سرور مدرسه پاسخ نداد»; a wrong password is never retried', () async {
+      final c = LanAccessClient(loginRetryDelay: Duration.zero);
+      loginFails = 1;
+      final s = await c.login(
+        server: base,
+        phone: '09120000001',
+        password: 'pass1234',
+        deviceName: 'd',
+      );
+      expect(s.token, 'acc-1');
+      expect(seen.where((x) => x.startsWith('POST /api/auth/login')).length, 2);
+      // negative control: the old behaviour (no retry) shows the misleading error
+      final old = LanAccessClient(loginRetryDelay: null);
+      loginFails = 1;
+      await expectLater(
+        old.login(
+          server: base,
+          phone: '09120000001',
+          password: 'pass1234',
+          deviceName: 'd',
+        ),
+        throwsA(
+          isA<LanAccessFailure>().having(
+            (e) => e.kind,
+            'kind',
+            LanAccessError.unreachable,
+          ),
+        ),
+      );
+      // wrong password: one request only
+      seen.clear();
+      await expectLater(
+        c.login(
+          server: base,
+          phone: '09120000001',
+          password: 'nope',
+          deviceName: 'd',
+        ),
+        throwsA(
+          isA<LanAccessFailure>().having(
+            (e) => e.kind,
+            'kind',
+            LanAccessError.badCredentials,
+          ),
+        ),
+      );
+      expect(seen.where((x) => x.startsWith('POST /api/auth/login')).length, 1);
+      c.close();
+      old.close();
     });
 
     test(
