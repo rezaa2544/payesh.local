@@ -15,6 +15,7 @@ import 'infra/arch_card.dart';
 import 'infra/connect_modes_card.dart';
 import 'infra/infra_card.dart';
 import 'infra/server_panel.dart';
+import 'local/acct_connect.dart';
 import 'local/connect_bundle.dart';
 import 'local/local_account.dart';
 import 'local/local_platform.dart';
@@ -53,12 +54,16 @@ class OwnerApp extends StatefulWidget {
     this.metricsFetcher,
     this.backupDir,
     this.connectBases,
+    this.acctHasher,
   });
 
   /// ردیف ۱۷۰: پایه‌های «بستهٔ اتصال» (payeshschool.ir اول). با ورود مالک روی دستگاه تازه،
   /// دیتابیس از بستهٔ مهرشده با شناسه + رمز + کد خودکار تنظیم می‌شود و روی دستگاهِ وصل، بسته
   /// تازه نوشته می‌شود. null (آزمون‌ها) = خاموش.
   final List<String>? connectBases;
+
+  /// ردیف ۱۹۸-U3: هش PBKDF2 بستهٔ حساب (آزمون‌ها سریع/هم‌زمان؛ پیش‌فرض Isolate).
+  final AcctHasher? acctHasher;
 
   /// خواندن /metrics سرورها در پایش زنده (پیش‌فرض: درخواست واقعی).
   final MetricsFetcher? metricsFetcher;
@@ -122,6 +127,71 @@ class _OwnerAppState extends State<OwnerApp> {
 
   /// چراغ دیتابیس: سنجش دوره‌ای + وصل شدن خودکار.
   DbMonitor? _dbMonitor;
+
+  /// ردیف ۱۹۸-U3: بستهٔ حساب مالک (انتشار روی دستگاه دارای تنظیم، یافتن روی دستگاه تازه).
+  AcctConnector? _acctConn;
+  AcctConnector? get _acct {
+    final secure = widget.secure;
+    final bases = widget.connectBases;
+    if (secure == null || bases == null || bases.isEmpty) return null;
+    return _acctConn ??= AcctConnector(
+      secure: secure,
+      transport: widget.s3Factory ?? IoS3Transport.new,
+      bases: bases,
+      now: _now,
+      hasher: widget.acctHasher,
+    );
+  }
+
+  Timer? _acctTimer;
+  bool _acctBusy = false;
+  bool _acctAskedPassword = false;
+
+  /// بی‌رمز و در پس‌زمینه: تنظیم هست ⇒ بسته را (فقط اگر نبود/فرق داشت) منتشر کن؛
+  /// تنظیم نیست ⇒ از بسته بخوان. هر ۱۰ دقیقه و با هر باز شدن پنل.
+  Future<void> _syncAcct() async {
+    final acct = _acct;
+    final rec = _account;
+    final secure = widget.secure;
+    if (acct == null || rec == null || secure == null || _acctBusy) return;
+    if (!_localSignedIn) return;
+    _acctBusy = true;
+    try {
+      final cur = await S3Settings.load(secure);
+      if (cur != null && cur.bucket.isNotEmpty) {
+        await acct.publishIfChanged(cur, rec);
+        return;
+      }
+      final r = await acct.tryWithRecord(rec);
+      if (!mounted) return;
+      if (r == AcctOutcome.connected) {
+        _afterAcctConnected();
+      } else if (r == AcctOutcome.needsPassword && !_acctAskedPassword) {
+        // تنظیم دیتابیس آماده است ولی این دستگاه حسابش را پیش از انتشار بسته ساخته:
+        // یک بار ورود با رمز ⇒ اتصال خودکار و از آن پس بی‌رمز.
+        _acctAskedPassword = true;
+        setState(() {
+          _localSignedIn = false;
+          _localNotice =
+              'دیتابیس آمادهٔ اتصال خودکار است: یک بار با همان شناسه، رمز و کدِ پنل مالک رایانه وارد شوید تا بی‌هیچ تعریف سرور یا دیتابیسی وصل شود.';
+        });
+      }
+    } on Object {
+      // بی‌اینترنت: ۱۰ دقیقهٔ دیگر دوباره
+    } finally {
+      _acctBusy = false;
+    }
+  }
+
+  void _afterAcctConnected() {
+    unawaited(widget.helper?.reload());
+    unawaited(_dbMonitor?.refresh());
+    if (!mounted) return;
+    setState(
+      () => _localNotice =
+          'دیتابیس خودکار وصل شد — نیازی به تعریف سرور یا وارد کردن کلید نبود.',
+    );
+  }
 
   /// مدارس، درخواست ثبت‌نام و اشتراک در صندوقچه (ردیف ۱۴۵).
   SchoolRegistry? _schoolsReg;
@@ -232,6 +302,13 @@ class _OwnerAppState extends State<OwnerApp> {
         p.backgroundProbe = true;
         m.start();
       }
+    }
+    if (widget.dbAutoCheck || widget.acctHasher != null) {
+      _acctTimer ??= Timer.periodic(
+        const Duration(minutes: 10),
+        (_) => unawaited(_syncAcct()),
+      );
+      Future<void>.delayed(Duration.zero, _syncAcct);
     }
   }
 
@@ -386,6 +463,19 @@ class _OwnerAppState extends State<OwnerApp> {
     final t = (widget.s3Factory ?? IoS3Transport.new)();
     try {
       final cur = await S3Settings.load(secure);
+      final acct = _acct;
+      if ((cur == null || cur.bucket.isEmpty) && acct != null) {
+        final rec = await acct.tryWithPassword(id, pw, code);
+        if (rec != null) {
+          _account = rec;
+          _afterAcctConnected();
+          return;
+        }
+      }
+      if (cur != null && cur.bucket.isNotEmpty && acct != null) {
+        final rec = _account;
+        if (rec != null) await acct.publishIfChanged(cur, rec);
+      }
       if (cur == null || cur.bucket.isEmpty) {
         final found = await discoverOwnerDatabase(
           t,
@@ -657,6 +747,7 @@ class _OwnerAppState extends State<OwnerApp> {
     _updateEvery?.cancel();
     _life?.dispose();
     HardwareKeyboard.instance.removeHandler(_onKey);
+    _acctTimer?.cancel();
     _dbMonitor?.dispose();
     _live?.dispose();
     _guardEngine?.dispose();

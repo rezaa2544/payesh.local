@@ -227,3 +227,183 @@ Future<S3Settings?> discoverOwnerDatabase(
     env,
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ردیف ۱۹۸-U3 — «بستهٔ حساب مالک» (a-…): اتصال خودکار پنل مالکِ گوشی/رایانهٔ تازه.
+//
+// علت گزارش «گوشی تعریف سرور می‌خواهد»: بستهٔ o-… فقط هنگام «ساخت حساب» یا «ورود با رمز» منتشر
+// می‌شد؛ پنل مالکِ رایانه نشست ماندگار دارد و هرگز دوباره رمز نمی‌گیرد ⇒ در صندوقچه هیچ
+// `payesh/pub/connect/` نبود (فهرست واقعی ۱۴۰۵/۹/۶) و گوشی چیزی برای یافتن نداشت.
+//
+// این بسته با «هش ذخیره‌شدهٔ حساب» مهر می‌شود (نه با خود رمز) ⇒ پنل رایانه هر وقت باز باشد و
+// تنظیم دیتابیس داشته باشد، بی‌نیاز به رمز آن را منتشر می‌کند. نمک و تکرار PBKDF2 رکورد حساب
+// آشکار در بسته است؛ گوشی با همان شناسه + رمز + کد همان هش‌ها را می‌سازد و باز می‌کند. هزینهٔ
+// حدس آفلاین = همان PBKDF2 حساب (۱۲۰هزار تکرار). کلید دیتابیس در هیچ کد یا بسته‌ای نیست (D‑23).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const String acctKind = 'payesh-connect-acct';
+const String acctSalt = 'payesh/connect-acct';
+
+/// `connect/a-<۳۲ نویسهٔ اول sha256>.json` (نسبت به پایه).
+String acctBundlePath(String login) {
+  final h = hash.sha256
+      .convert(utf8.encode('payesh/connect/acct/${connectNorm(login)}'))
+      .toString()
+      .substring(0, 32);
+  return 'connect/a-$h.json';
+}
+
+/// رمز بستهٔ حساب از دو هش رکورد (hex).
+String acctSecret(List<int> passwordHash, List<int> codeHash) => hash.sha256
+    .convert([...utf8.encode('$acctSalt\u0000'), ...passwordHash, ...codeHash])
+    .toString();
+
+/// متن بسته (بی‌زمان) — برای تشخیص «تغییری نبود» بی‌نوشتن دوباره (درس U1).
+String acctMark(S3Settings s, String login, List<int> salt, int iter,
+        List<int> passwordHash, List<int> codeHash) =>
+    hash.sha256
+        .convert(utf8.encode(jsonEncode({
+          'endpoint': endpointText(s.endpoint),
+          'bucket': s.bucket,
+          'a': s.accessKey,
+          'k': s.secretKey,
+          'login': connectNorm(login),
+          'salt': base64.encode(salt),
+          'iter': iter,
+          'h': acctSecret(passwordHash, codeHash),
+        })))
+        .toString();
+
+/// پاکت بستهٔ حساب.
+Future<Map<String, Object?>> sealAcct({
+  required S3Settings s,
+  required List<int> salt,
+  required int iter,
+  required List<int> passwordHash,
+  required List<int> codeHash,
+  required int rev,
+  List<int>? nonce,
+}) async {
+  final env = await sealBox(
+    secret: acctSecret(passwordHash, codeHash),
+    salt: acctSalt,
+    kind: acctKind,
+    rev: rev,
+    plaintext: controlPlaintext(s, rev),
+    nonce: nonce,
+  );
+  return {...env, 'psalt': base64.encode(salt), 'piter': iter};
+}
+
+/// باز کردن بستهٔ حساب با هش‌های ساخته‌شده از همان نمک؛ هر خطا ⇒ null.
+Future<S3Settings?> openAcct(
+  Map<String, Object?> env,
+  List<int> passwordHash,
+  List<int> codeHash,
+) async {
+  try {
+    final j = jsonDecode(await openBox(
+      secret: acctSecret(passwordHash, codeHash),
+      salt: acctSalt,
+      kind: acctKind,
+      env: env,
+    ));
+    if (j is! Map<String, Object?> || j['v'] != 1 || j['rev'] != env['rev']) {
+      return null;
+    }
+    final e = normalizeS3Endpoint(j['endpoint'] as String?);
+    final a = j['accessKey'], k = j['secret'], b = j['bucket'];
+    if (e == null ||
+        a is! String ||
+        k is! String ||
+        b is! String ||
+        a.isEmpty ||
+        k.isEmpty ||
+        !bucketNameRe.hasMatch(b)) {
+      return null;
+    }
+    return S3Settings(endpoint: e, accessKey: a, secretKey: k, bucket: b);
+  } on Object {
+    return null;
+  }
+}
+
+/// نمک/تکرار آشکار بسته (null = بستهٔ نامعتبر).
+({List<int> salt, int iter})? acctParams(Map<String, Object?> env) {
+  final s = env['psalt'], i = env['piter'];
+  if (s is! String || i is! int || i < 1 || i > 10000000) return null;
+  try {
+    final salt = base64.decode(s);
+    if (salt.length < 8 || salt.length > 64) return null;
+    return (salt: salt, iter: i);
+  } on FormatException {
+    return null;
+  }
+}
+
+/// انتشار بستهٔ حساب در `payesh/pub/connect/` (عمومی، بی‌کش) + `connect.json`.
+Future<void> publishAcctBundle({
+  required S3Settings s,
+  required S3Transport t,
+  required String login,
+  required List<int> salt,
+  required int iter,
+  required List<int> passwordHash,
+  required List<int> codeHash,
+  DateTime Function()? now,
+}) async {
+  final at = (now ?? DateTime.now)();
+  final rev = at.millisecondsSinceEpoch;
+  final env = await sealAcct(
+    s: s,
+    salt: salt,
+    iter: iter,
+    passwordHash: passwordHash,
+    codeHash: codeHash,
+    rev: rev,
+  );
+  const pub = {'x-amz-acl': 'public-read', 'cache-control': 'no-cache'};
+  await s3PutJson(s, t, '$connectPubDir${acctBundlePath(login)}',
+      jsonEncode(env), now: now, headers: pub);
+  await s3PutJson(
+    s,
+    t,
+    '${connectPubDir}connect.json',
+    jsonEncode({
+      'v': 1,
+      'kind': 'payesh-connect-index',
+      'base': connectBaseOf(s),
+      'at': at.toUtc().toIso8601String(),
+    }),
+    now: now,
+    headers: pub,
+  );
+}
+
+/// خواندن بستهٔ حساب از پایه‌ها (همان پیمایش `connect.json`)؛ نبود ⇒ null.
+Future<Map<String, Object?>?> fetchAcctBundle(
+  S3Transport t,
+  String login, {
+  List<String> bases = defaultConnectBases,
+}) async {
+  final rel = acctBundlePath(login);
+  final seen = <String>{};
+  Future<Map<String, Object?>?> tryBase(String base, int depth) async {
+    if (!_okBase(base) || !seen.add(base)) return null;
+    final b = await _getJson(t, '$base$rel');
+    if (b is Map<String, Object?> && b['kind'] == acctKind) return b;
+    if (depth < 2) {
+      final idx = await _getJson(t, '${base}connect.json');
+      if (idx is Map && idx['base'] is String) {
+        return tryBase(idx['base'] as String, depth + 1);
+      }
+    }
+    return null;
+  }
+
+  for (final base in bases) {
+    final r = await tryBase(base, 0);
+    if (r != null) return r;
+  }
+  return null;
+}

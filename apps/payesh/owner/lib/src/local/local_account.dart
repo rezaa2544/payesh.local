@@ -96,6 +96,17 @@ final class LocalAccountRecord {
   static List<int> _code(String code, List<int> salt, int it) =>
       pbkdf2Sha256(utf8.encode('code:$code'), salt, it);
 
+  /// ردیف ۱۹۸-U3: هش‌های رمز و کد با نمک/تکرار داده‌شده (بستهٔ حساب مالک).
+  static ({List<int> pw, List<int> code}) hashesFor(
+    String password,
+    String code,
+    List<int> salt,
+    int iterations,
+  ) => (
+    pw: _pw(password, salt, iterations),
+    code: _code(code, salt, iterations),
+  );
+
   /// حساب تازه با نمک تصادفی ۱۶ بایتی.
   factory LocalAccountRecord.create({
     required String loginId,
