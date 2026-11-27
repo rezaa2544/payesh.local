@@ -25,6 +25,26 @@
   <div id="payesh-loading">در حال آماده‌سازی پایش مدرسه…</div>
   <noscript>برای اجرای پایش مدرسه، جاوااسکریپت مرورگر را روشن کنید.</noscript>
   <script src="payesh_idb.js"></script>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Row 199 (row 171 follow-up): inside the 32-bit shell (http://payesh.localhost) the app MUST
+    // have the shell's real files (window.payeshHost). On the first navigation of a fresh renderer
+    // CEF can create the page without it; starting Flutter then would silently use this
+    // renderer's IndexedDB instead of the disk. Reload (at most 3 times) before Flutter starts —
+    // the new document gets the host. A plain browser (app.payeshschool.ir) never reloads.
+    (function () {
+      if (location.protocol + '//' + location.host === 'http://payesh.localhost' && !window.payeshHost) {
+        var m = /[?&]host-retry=(\d)/.exec(location.search);
+        var n = m ? Number(m[1]) : 0;
+        if (n < 3) {
+          location.replace(location.pathname + '?host-retry=' + (n + 1) + location.hash);
+          return;
+        }
+      }
+      var s = document.createElement('script');
+      s.src = 'flutter_bootstrap.js';
+      s.async = true;
+      document.body.appendChild(s);
+    })();
+  </script>
 </body>
 </html>
