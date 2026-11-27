@@ -59,12 +59,13 @@ class _UsersScreenState extends State<UsersScreen> {
     });
   }
 
-  /// Row 200: the list is read again 300 ms after the last keystroke, not on every letter.
+  /// Row 200: the list is filtered after a short pause, not on every letter; row 201: the
+  /// filter is in memory now (no database read), so the pause is short.
   Timer? _typing;
   void _searchLater(String v) {
     _typing?.cancel();
     _typing = Timer(
-      const Duration(milliseconds: 300),
+      const Duration(milliseconds: 150),
       () => c.filter(search: v),
     );
   }

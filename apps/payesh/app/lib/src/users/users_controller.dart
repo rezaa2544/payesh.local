@@ -76,11 +76,17 @@ class UsersController extends SchoolController {
   @override
   Future<void> read(SchoolRecords db) async {
     final dir = UserDirectory(db);
-    final all = await dir.list(role: roleFilter, query: query);
+    // row 201: every user is read once; search / role / پایه / رشته filter this list in
+    // memory (a keystroke used to read the whole database again — letters lagged on the PC)
     // row 200: every collection is read once per load (it was users ×4, lookups ×3, classes ×3)
     final lookups = await db.allOrEmpty('lookups');
     final everyone = await db.allOrEmpty('users');
     final cls = await db.allOrEmpty('classes');
+    _every = dir.listFrom(
+      rows: everyone,
+      classRows: cls,
+      links: await db.allOrEmpty('parent_links'),
+    );
     final grades = <String>{}, branches = <String>{};
     final defG = <String>[], defB = <String>[];
     for (final l in lookups) {
@@ -95,11 +101,8 @@ class UsersController extends SchoolController {
           if (!defB.contains(name)) defB.add(name);
       }
     }
-    for (final u in all) {
-      if (u.role != 'student') continue;
-      if (u.grade.trim().isNotEmpty) grades.add(u.grade.trim());
-      if (u.branch.trim().isNotEmpty) branches.add(u.branch.trim());
-    }
+    _defGrades = grades;
+    _defBranches = branches;
     definedGrades = defG;
     definedBranches = defB;
     // ردیف ۱۹۵: رشته فقط در مدرسهٔ رشته‌محور (متوسطه دوم) معنا دارد
@@ -110,20 +113,7 @@ class UsersController extends SchoolController {
         if (SchoolRecords.str(x.data['name']).trim().isNotEmpty)
           (x.id, SchoolRecords.str(x.data['name']).trim()),
     ]..sort((a, b) => a.$2.compareTo(b.$2));
-    gradeOptions = grades.toList()..sort();
-    branchOptions = branches.toList()..sort();
-    bool hit(String value, String want) => want.isEmpty
-        ? true
-        : want == noValue
-        ? value.trim().isEmpty
-        : value.trim() == want;
-    users = roleFilter == 'student'
-        ? [
-            for (final u in all)
-              if (hit(u.grade, gradeFilter) && hit(u.branch, branchFilter)) u,
-          ]
-        : all;
-    if (page >= pages) page = pages - 1;
+    _apply();
     total = everyone.length;
     try {
       final f = await Followup(db)
@@ -149,6 +139,56 @@ class UsersController extends SchoolController {
       for (final u in everyone)
         if (u.data['role'] == 'student') (u.id, fullName(u.data)),
     ]..sort((a, b) => a.$2.compareTo(b.$2));
+  }
+
+  List<SchoolUser> _every = const [];
+  Set<String> _defGrades = const {};
+  Set<String> _defBranches = const {};
+
+  /// Row 201: search text in one form — ي/ك, ZWNJ, Persian/Arabic digits and spaces aside, so
+  /// «۰۹۱۲» finds 0912… and «علي» finds «علی».
+  static String searchKey(String v) => v
+      .replaceAllMapped(
+        RegExp('[۰-۹٠-٩]'),
+        (m) => SchoolRecords.digitsOnly(m[0]),
+      )
+      .replaceAll(RegExp('[ىي]'), 'ی')
+      .replaceAll('ك', 'ک')
+      .replaceAll(RegExp(r'[\u200c\s]+'), '')
+      .toLowerCase();
+
+  /// Row 201: the filtered list from the users already read — no database work.
+  void _apply() {
+    final q = searchKey(query.trim());
+    final all = <SchoolUser>[
+      for (final u in _every)
+        if (roleMatches(roleFilter, u.role) &&
+            (q.isEmpty ||
+                searchKey(SchoolRecords.str(u.data['name'])).contains(q) ||
+                searchKey(u.phone).contains(q) ||
+                searchKey(u.nationalId).contains(q)))
+          u,
+    ];
+    final grades = {..._defGrades}, branches = {..._defBranches};
+    for (final u in all) {
+      if (u.role != 'student') continue;
+      if (u.grade.trim().isNotEmpty) grades.add(u.grade.trim());
+      if (u.branch.trim().isNotEmpty) branches.add(u.branch.trim());
+    }
+    gradeOptions = grades.toList()..sort();
+    branchOptions = branches.toList()..sort();
+    bool hit(String value, String want) => want.isEmpty
+        ? true
+        : want == noValue
+        ? value.trim().isEmpty
+        : value.trim() == want;
+    users = roleFilter == 'student'
+        ? [
+            for (final u in all)
+              if (hit(u.grade, gradeFilter) && hit(u.branch, branchFilter)) u,
+          ]
+        : all;
+    if (page >= pages) page = pages - 1;
     final ids = {for (final u in users) u.id};
     picked.removeWhere((id) => !ids.contains(id));
   }
@@ -167,6 +207,12 @@ class UsersController extends SchoolController {
     if (grade != null) gradeFilter = grade;
     if (branch != null) branchFilter = branch;
     page = 0;
+    // row 201: once the page has its data a filter is instant (in memory)
+    if (db != null && !loading) {
+      _apply();
+      emit();
+      return;
+    }
     await load();
   }
 

@@ -18,6 +18,7 @@
 import 'package:payesh_data/payesh_data.dart';
 
 import 'records.dart';
+import 'school_import.dart' show importBranchGuess;
 import 'school_structure.dart';
 import 'users.dart' show nameKey;
 
@@ -214,6 +215,53 @@ final class LookupUsage {
   const LookupUsage(this.classes, this.students);
   final List<String> classes;
   final int students;
+}
+
+/// Row 201 — why a grade/branch probably is another one (for the detail panel).
+const Map<String, String> lookupLikeFa = {
+  'same': 'همان نام با نگارش دیگر',
+  'repeat': 'یک کلمه دو بار نوشته شده',
+  'alias': 'هم‌معنی',
+};
+
+/// Row 201 — the detail panel of a grade / branch: its students and classes, and the
+/// definition it most likely duplicates («تعمیر موتور موتور» → «تعمیر موتور»).
+final class LookupDetail {
+  const LookupDetail({
+    required this.students,
+    required this.classes,
+    this.likeId,
+    this.like = '',
+    this.why = '',
+  });
+
+  /// (id, name, the other half: the branch of a grade's student / the grade of a branch's).
+  final List<(int, String, String)> students;
+  final List<String> classes;
+  final int? likeId;
+  final String like;
+
+  /// A key of [lookupLikeFa]; '' = nothing like it.
+  final String why;
+}
+
+/// Row 201 — the detail panel of a class / room: who is in it and what the timetable has.
+final class ClassDetail {
+  const ClassDetail({required this.students, required this.slots});
+  final List<(int, String)> students;
+  final int slots;
+}
+
+/// Row 201 — the detail panel of a subject: where and by whom it is taught.
+final class SubjectDetail {
+  const SubjectDetail({
+    required this.classes,
+    required this.teachers,
+    required this.slots,
+  });
+  final List<String> classes;
+  final List<String> teachers;
+  final int slots;
 }
 
 final class ClassBook {
@@ -705,7 +753,12 @@ final class ClassBook {
     if (all.any(
       (l) => l.data['kind'] == k && _s(l.data['name']) == n && l.id != id,
     )) {
-      throw const RecordFailure('duplicate', 'این مورد قبلاً ثبت شده است');
+      throw RecordFailure(
+        'duplicate',
+        id == null
+            ? 'این مورد قبلاً ثبت شده است'
+            : '${lookupFa[k]} «$n» از قبل هست — برای یکی کردن این دو، «ادغام» را بزنید',
+      );
     }
     final prev = id == null
         ? null
@@ -714,6 +767,19 @@ final class ClassBook {
     final ord =
         _int(SchoolRecords.digitsOnly(order)) ??
         (all.where((l) => l.data['kind'] == k).length + 1);
+    if (id != null && groupKey(n) != groupKey(prev?.data['name'])) {
+      if (all.any(
+        (l) =>
+            l.data['kind'] == k &&
+            groupKey(l.data['name']) == groupKey(n) &&
+            l.id != id,
+      )) {
+        throw RecordFailure(
+          'duplicate',
+          '${lookupFa[k]} «$n» از قبل هست — برای یکی کردن این دو، «ادغام» را بزنید',
+        );
+      }
+    }
     final key = await db.put('lookups', lid, {
       ...?prev?.data,
       'kind': k,
@@ -722,10 +788,233 @@ final class ClassBook {
           ? all.where((l) => l.data['kind'] == k).length + 1
           : ord,
     }, prev: prev);
+    // row 201: a renamed grade/branch takes its students and classes along (they kept the old
+    // name and fell out of every list)
+    final old = _s(prev?.data['name']);
+    final moved = prev == null || old == n
+        ? (const <String>[], 0)
+        : await _moveLookup(k, old, n);
     return RecordWrite(
-      '${lookupFa[k]}${id == null ? ' ثبت شد' : ' ویرایش شد'}',
+      '${lookupFa[k]}${id == null ? ' ثبت شد' : ' ویرایش شد'}'
+      '${moved.$2 > 0 ? ' · ${moved.$2} دانش‌آموز هم به‌روز شد' : ''}',
       id: lid,
-      keys: [key],
+      keys: [key, ...moved.$1],
+    );
+  }
+
+  /// Row 201: students and classes of the grade/branch [from] go to [to] (a rename or a
+  /// merge); a class that would then have the name of another one is merged into it.
+  /// Returns the write keys and the number of students changed.
+  Future<(List<String>, int)> _moveLookup(
+    String kind,
+    String from,
+    String to,
+  ) async {
+    final k = groupKey(from);
+    if (k.isEmpty || k == groupKey(to) && from == to) return (<String>[], 0);
+    final field = kind == 'grade' ? 'grade' : 'branch';
+    final users = await db.allOrEmpty('users');
+    final classes = await db.allOrEmpty('classes');
+    final kids = [
+      for (final u in users)
+        if (u.data['role'] == 'student' &&
+            (kind == 'grade'
+                ? groupKey(u.data['grade']) == k
+                : groupKey(u.data['field']) == k ||
+                      groupKey(u.data['branch']) == k))
+          u,
+    ];
+    final touched = [
+      for (final c in classes)
+        if (c.data['kind'] != 'room' && groupKey(c.data[field]) == k) c,
+    ];
+    db.requireRoom(kids.length + touched.length);
+    final keys = <String>[];
+    for (final u in kids) {
+      final d = {...u.data};
+      if (kind == 'grade') {
+        d['grade'] = to;
+      } else {
+        if (groupKey(d['field']) == k) d['field'] = to;
+        if (groupKey(d['branch']) == k) d['branch'] = to;
+      }
+      keys.add(await db.put('users', u.id, d, prev: u));
+    }
+    final merges = <(int, int)>[];
+    for (final c in touched) {
+      final g = _s(c.data['grade']), b = _s(c.data['branch']);
+      final ng = kind == 'grade' ? to : g;
+      final nb = kind == 'grade' ? b : to;
+      final name = _s(c.data['name']);
+      // a name made of its grade and branch («دهم تعمیر موتور موتور») follows them
+      final auto =
+          groupKey(name) == groupKey('$g $b') || groupKey(name) == groupKey(g);
+      final newName = !auto
+          ? name
+          : (groupKey(name) == groupKey(g) && b.isEmpty
+                ? ng
+                : '$ng${nb.isEmpty ? '' : ' $nb'}');
+      final twin = classes
+          .where(
+            (x) =>
+                x.id != c.id &&
+                x.data['kind'] != 'room' &&
+                groupKey(x.data['name']) == groupKey(newName),
+          )
+          .firstOrNull;
+      if (twin != null) {
+        merges.add((c.id, twin.id));
+        continue;
+      }
+      keys.add(
+        await db.put('classes', c.id, {
+          ...c.data,
+          'name': newName,
+          'grade': ng,
+          'branch': nb,
+        }, prev: c),
+      );
+    }
+    for (final (a, b) in merges) {
+      keys.addAll((await mergeClass(a, b)).keys);
+    }
+    return (keys, kids.length);
+  }
+
+  /// Row 201 `def-merge`: everything of the grade/branch [from] (students, classes) goes to
+  /// [into]; [from] — and any other definition written the same way — is deleted.
+  Future<RecordWrite> mergeLookup(int from, int into) async {
+    _requireManager();
+    if (from == into) {
+      throw const RecordFailure('invalid', 'مقصد ادغام را انتخاب کنید');
+    }
+    final a = await db.existing('lookups', from, 'این مورد');
+    final b = await db.existing('lookups', into, 'مقصد ادغام');
+    final k = _s(a.data['kind']) == 'grade' ? 'grade' : 'branch';
+    if (_s(b.data['kind']) != _s(a.data['kind'])) {
+      throw const RecordFailure(
+        'invalid',
+        'پایه فقط با پایه و رشته فقط با رشته ادغام می‌شود',
+      );
+    }
+    final fromName = _s(a.data['name']), toName = _s(b.data['name']);
+    final moved = await _moveLookup(k, fromName, toName);
+    final keys = [...moved.$1];
+    for (final l in await db.all('lookups')) {
+      if (l.id != into &&
+          l.data['kind'] == a.data['kind'] &&
+          groupKey(l.data['name']) == groupKey(fromName)) {
+        keys.add(await db.del('lookups', l));
+      }
+    }
+    return RecordWrite(
+      '«$fromName» در «$toName» ادغام شد'
+      '${moved.$2 > 0 ? ' · ${moved.$2} دانش‌آموز منتقل شد' : ''}',
+      id: into,
+      keys: keys,
+    );
+  }
+
+  /// Row 201: the detail panel of a grade/branch.
+  Future<LookupDetail> lookupDetail(int id) async {
+    db.requireRead('classes');
+    final l = await db.existing('lookups', id, 'این مورد');
+    final kind = _s(l.data['kind']) == 'grade' ? 'grade' : 'branch';
+    final name = _s(l.data['name']);
+    final k = groupKey(name);
+    final students = <(int, String, String)>[
+      for (final u in await db.allOrEmpty('users'))
+        if (u.data['role'] == 'student' &&
+            u.data['active'] != false &&
+            groupKey(
+                  kind == 'grade' ? u.data['grade'] : studentBranch(u.data),
+                ) ==
+                k)
+          (
+            u.id,
+            _s(u.data['name']),
+            kind == 'grade' ? studentBranch(u.data) : _s(u.data['grade']),
+          ),
+    ]..sort((a, b) => a.$2.compareTo(b.$2));
+    final field = kind == 'grade' ? 'grade' : 'branch';
+    final classes = [
+      for (final c in await db.allOrEmpty('classes'))
+        if (c.data['kind'] != 'room' && groupKey(c.data[field]) == k)
+          _s(c.data['name']),
+    ]..sort();
+    // the definition this one duplicates (never the other way round: «تعمیر موتور» is not
+    // offered to go into «تعمیر موتور موتور»)
+    int? likeId;
+    var like = '', why = '';
+    if (kind == 'branch') {
+      final others = [
+        for (final o in await db.allOrEmpty('lookups'))
+          if (o.data['kind'] == 'branch' &&
+              o.id != id &&
+              groupKey(o.data['name']).isNotEmpty)
+            o,
+      ];
+      final (to, w) = importBranchGuess(name, [
+        for (final o in others) _s(o.data['name']),
+      ]);
+      if (lookupLikeFa.containsKey(w) && !(w == 'same' && to == name)) {
+        likeId = others.firstWhere((o) => _s(o.data['name']) == to).id;
+        like = to;
+        why = w;
+      }
+    }
+    return LookupDetail(
+      students: students,
+      classes: classes,
+      likeId: likeId,
+      like: like,
+      why: why,
+    );
+  }
+
+  /// Row 201: the detail panel of a class / room.
+  Future<ClassDetail> classDetail(int id) async {
+    db.requireRead('classes');
+    final c = await db.existing('classes', id, 'این کلاس');
+    final students = <(int, String)>[
+      for (final u in await db.allOrEmpty('users'))
+        if (u.data['role'] == 'student' &&
+            u.data['active'] != false &&
+            (_int(u.data['class_id']) == id ||
+                fieldGroupMember(c.data, u.data)))
+          (u.id, _s(u.data['name'])),
+    ]..sort((a, b) => a.$2.compareTo(b.$2));
+    final slots = (await db.allOrEmpty('schedule'))
+        .where((x) => _int(x.data['class_id']) == id)
+        .length;
+    return ClassDetail(students: students, slots: slots);
+  }
+
+  /// Row 201: the detail panel of a subject.
+  Future<SubjectDetail> subjectDetail(int id) async {
+    db.requireRead('classes');
+    await db.existing('subjects', id, 'این درس');
+    final slots = (await db.allOrEmpty('schedule'))
+        .where((x) => _int(x.data['subject_id']) == id)
+        .toList();
+    final cls = {
+      for (final c in await db.allOrEmpty('classes')) c.id: _s(c.data['name']),
+    };
+    final ppl = {
+      for (final u in await db.allOrEmpty('users')) u.id: _s(u.data['name']),
+    };
+    return SubjectDetail(
+      classes: {
+        for (final x in slots)
+          if ((cls[_int(x.data['class_id'])] ?? '').isNotEmpty)
+            cls[_int(x.data['class_id'])]!,
+      }.toList()..sort(),
+      teachers: {
+        for (final x in slots)
+          if ((ppl[_int(x.data['teacher_id'])] ?? '').isNotEmpty)
+            ppl[_int(x.data['teacher_id'])]!,
+      }.toList()..sort(),
+      slots: slots.length,
     );
   }
 

@@ -222,6 +222,15 @@ class ImportController extends SchoolController {
     emit();
   }
 
+  /// Row 201 «همهٔ رشته‌های تازه اضافه شوند».
+  Future<void> answerAll(List<(String, String)> answers) async {
+    for (final (from, to) in answers) {
+      session?.branchAsk[from] = to;
+    }
+    await _check();
+    emit();
+  }
+
   /// `imp-back`.
   void back() {
     step = step > 1 ? step - 1 : 1;
@@ -1026,11 +1035,69 @@ class _ImportScreenState extends State<ImportScreen> {
     );
   }
 
+  /// Row 201: one asked branch — «بله» (when there is a guess), «نه / تازه است», or the
+  /// right branch picked from the school's list.
+  Widget _askRow(
+    ImportReview r,
+    String from,
+    String text, {
+    (String, String, String)? yes,
+    required String noLabel,
+    required String noKey,
+    required String pickKey,
+  }) {
+    final picks = [
+      for (final b in r.branchChoices)
+        if (b != yes?.$3) b,
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
+          if (yes != null)
+            WebBtn(
+              yes.$1,
+              key: Key(yes.$2),
+              kind: WebBtnKind.primary,
+              onPressed: c.busy ? null : () => c.answer(from, yes.$3),
+            ),
+          WebBtn(
+            noLabel,
+            key: Key(noKey),
+            kind: WebBtnKind.ghost,
+            onPressed: c.busy ? null : () => c.answer(from, ''),
+          ),
+          if (picks.isNotEmpty)
+            PopupMenuButton<String>(
+              key: Key(pickKey),
+              tooltip: 'رشتهٔ درست را انتخاب کنید',
+              onSelected: (b) => c.answer(from, b),
+              itemBuilder: (_) => [
+                for (final b in picks)
+                  PopupMenuItem<String>(value: b, child: Text(b)),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Text(
+                  'همان رشتهٔ دیگری است… ▾',
+                  style: Web.small.copyWith(color: Web.muted),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   List<Widget> _stepCheck(ImportReview r) {
     final ready = r.ready;
     final todo = r.todo;
     return [
-      if (r.branchAsk.isNotEmpty)
+      if (r.pendingAsks > 0)
         WebCard(
           key: const Key('imp-ask'),
           child: Column(
@@ -1038,39 +1105,52 @@ class _ImportScreenState extends State<ImportScreen> {
             children: [
               WebCardHead(
                 icon: '❓',
-                title: '${_fa(r.branchAsk.length)} رشته نیاز به تأیید شما دارد',
+                title: '${_fa(r.pendingAsks)} رشته نیاز به تأیید شما دارد',
               ),
               Text(
-                'این نام‌ها در فهرست رشته‌ها نیستند و فقط شبیه یک رشتهٔ موجود هستند. اگر اشتباه '
-                'تایپی است «بله» را بزنید تا زیر همان رشته ثبت شوند؛ اگر رشتهٔ جداست «نه» — هیچ '
-                'رشته‌ای خودبه‌خود ادغام نمی‌شود.',
+                'این نام‌ها در فهرست رشته‌های مدرسه نیستند. اگر همان رشتهٔ موجود است «بله» را بزنید '
+                '(یا رشتهٔ درست را از فهرست انتخاب کنید) تا زیر همان رشته ثبت شوند؛ اگر رشتهٔ '
+                'جداست «نه» — هیچ رشته‌ای بدون پاسخ شما ساخته یا ادغام نمی‌شود.',
                 style: Web.small.copyWith(color: Web.muted),
               ),
               for (var i = 0; i < r.branchAsk.length; i++)
+                _askRow(
+                  r,
+                  r.branchAsk[i].$1,
+                  '«${r.branchAsk[i].$1}» شبیه «${r.branchAsk[i].$2}» است',
+                  yes: (
+                    'بله، همان «${r.branchAsk[i].$2}» است',
+                    'imp-ask-yes-$i',
+                    r.branchAsk[i].$2,
+                  ),
+                  noLabel: 'نه، رشتهٔ جداست',
+                  noKey: 'imp-ask-no-$i',
+                  pickKey: 'imp-ask-pick-$i',
+                ),
+              for (var i = 0; i < r.branchNew.length; i++)
+                _askRow(
+                  r,
+                  r.branchNew[i],
+                  'رشتهٔ «${r.branchNew[i]}» در فهرست رشته‌ها نیست',
+                  noLabel: 'رشتهٔ تازه است — اضافه شود',
+                  noKey: 'imp-new-add-$i',
+                  pickKey: 'imp-new-pick-$i',
+                ),
+              if (r.branchNew.length > 1)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        '«${r.branchAsk[i].$1}» شبیه «${r.branchAsk[i].$2}»',
-                      ),
-                      WebBtn(
-                        'بله، همان «${r.branchAsk[i].$2}» است',
-                        key: Key('imp-ask-yes-$i'),
-                        kind: WebBtnKind.primary,
-                        onPressed: () =>
-                            c.answer(r.branchAsk[i].$1, r.branchAsk[i].$2),
-                      ),
-                      WebBtn(
-                        'نه، رشتهٔ جداست',
-                        key: Key('imp-ask-no-$i'),
-                        kind: WebBtnKind.ghost,
-                        onPressed: () => c.answer(r.branchAsk[i].$1, ''),
-                      ),
-                    ],
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: WebBtn(
+                      'همهٔ ${_fa(r.branchNew.length)} رشتهٔ تازه اضافه شوند',
+                      key: const Key('imp-new-all'),
+                      kind: WebBtnKind.ghost,
+                      onPressed: c.busy
+                          ? null
+                          : () => c.answerAll([
+                              for (final b in r.branchNew) (b, ''),
+                            ]),
+                    ),
                   ),
                 ),
             ],
@@ -1079,9 +1159,34 @@ class _ImportScreenState extends State<ImportScreen> {
       if (r.branchFixes.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: Text(
-            '✍️ غلط تایپی اصلاح شد: ${r.branchFixes.map((f) => '«${f.$1}» ← ${f.$2}').join(' · ')}',
+          child: Wrap(
             key: const Key('imp-fixes'),
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('✍️ رشته‌ها خودکار یکی شد:', style: Web.small),
+              for (var i = 0; i < r.branchFixes.length; i++)
+                WebWrap(
+                  key: Key('imp-bfix-$i'),
+                  spacing: 2,
+                  children: [
+                    WebBadge(
+                      '«${r.branchFixes[i].$1}» ← ${r.branchFixes[i].$2}',
+                      tone: WebTone.green,
+                    ),
+                    WebBtn(
+                      'جدا بماند',
+                      key: Key('imp-bfix-undo-$i'),
+                      kind: WebBtnKind.ghost,
+                      size: WebBtnSize.xs,
+                      onPressed: c.busy
+                          ? null
+                          : () => c.answer(r.branchFixes[i].$1, ''),
+                    ),
+                  ],
+                ),
+            ],
           ),
         ),
       // p2: statCard ×4 (کل / آماده / خطا / به‌روزرسانی)
@@ -1263,8 +1368,16 @@ class _ImportScreenState extends State<ImportScreen> {
                       : 'ثبت ${_fa(ready.length)} ردیف در سامانه',
                   key: const Key('imp-apply'),
                   kind: WebBtnKind.primary,
-                  onPressed: c.busy || ready.isEmpty ? null : c.apply,
+                  onPressed: c.busy || ready.isEmpty || r.pendingAsks > 0
+                      ? null
+                      : c.apply,
                 ),
+                if (r.pendingAsks > 0)
+                  Text(
+                    'اول به ${_fa(r.pendingAsks)} پرسش رشته (بالای صفحه) پاسخ دهید.',
+                    key: const Key('imp-apply-wait'),
+                    style: Web.small.copyWith(color: Web.red),
+                  ),
                 if (todo.isNotEmpty)
                   Text(
                     '${_fa(todo.length)} ردیف فعلاً ثبت نمی‌شود؛ اگر همین‌جا اصلاحش نکنید، پس از '

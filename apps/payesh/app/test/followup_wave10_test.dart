@@ -90,8 +90,9 @@ void main() {
     expect(find.byKey(const Key('fu-stud-21')), findsOneWidget);
     expect(find.byKey(const Key('fu-stud-22')), findsNothing);
     expect(textOf(tester, 'fu-reason-21'), '⚠️ پایه و رشته ندارد');
-    await reveal(tester, 'fu-issue-state-70');
-    expect(badgeOf(tester, 'fu-issue-state-70'), 'ساخته نشده');
+    // row 201: no «ساخته نشده» chip — only a user already in the system is marked
+    await reveal(tester, 'fu-issue-70');
+    expect(find.byKey(const Key('fu-issue-state-70')), findsNothing);
     await reveal(tester, 'fu-issue-state-71');
     expect(badgeOf(tester, 'fu-issue-state-71'), 'در سامانه هست');
     await tester.pumpWidget(const SizedBox());
@@ -133,10 +134,17 @@ void main() {
     'W10-W04 issue-done and issues-clear close the import rows (queued)',
     (tester) async {
       final s = await openFollowup(tester);
+      // row 201 «حذف / نادیده گرفتن» asks first; «انصراف» keeps the row
       await tapKey(tester, 'fu-issue-done-71');
+      await tapKey(tester, 'fu-issue-confirm-cancel');
+      expect(find.byKey(const Key('fu-issue-71')), findsOneWidget);
+      expect(s.outbox.list(), isEmpty);
+      await tapKey(tester, 'fu-issue-done-71');
+      await tapKey(tester, 'fu-issue-confirm-ok');
       expect(find.byKey(const Key('fu-issue-71')), findsNothing);
       expect(s.outbox.list().single.payload!['status'], 'done');
       await tapKey(tester, 'fu-issues-clear');
+      await tapKey(tester, 'fu-issues-confirm-ok');
       expect(textOf(tester, 'fu-notice'), '۱ ردیف حل‌شده شد');
       expect(find.byKey(const Key('fu-issues-none')), findsOneWidget);
       expect(s.outbox.list(), hasLength(2));

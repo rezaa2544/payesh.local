@@ -8,6 +8,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../pulse/web.dart';
 import '../school/school_source.dart';
+import 'class_details.dart';
 
 class ClassesController extends SchoolController {
   ClassesController({
@@ -77,6 +78,18 @@ class ClassesController extends SchoolController {
 
   Future<RecordWrite?> deleteSubject(int id) =>
       run((db) => ClassBook(db).deleteSubject(id));
+
+  /// Row 201: the details of an item (read when its panel opens).
+  Future<LookupDetail?> lookupDetail(int id) async =>
+      db == null ? null : ClassBook(db!).lookupDetail(id);
+  Future<ClassDetail?> classDetail(int id) async =>
+      db == null ? null : ClassBook(db!).classDetail(id);
+  Future<SubjectDetail?> subjectDetail(int id) async =>
+      db == null ? null : ClassBook(db!).subjectDetail(id);
+
+  /// Row 201 `def-merge`.
+  Future<RecordWrite?> mergeLookup(int from, int into) =>
+      run((db) => ClassBook(db).mergeLookup(from, into));
 }
 
 /// ردیف ۱۹۵ — خط ساختار مدرسه: کلاس‌محور (ابتدایی / متوسطه اول) یا رشته‌محور (متوسطه دوم).
@@ -120,6 +133,17 @@ class _ClassesScreenState extends State<ClassesScreen> {
   /// Native-only: a write still waiting for the server (the web has no offline queue).
   List<Widget> _queued(bool q) =>
       q ? const [WebBadge('در صف ارسال', tone: WebTone.amber)] : const [];
+
+  /// Row 201: a table cell that opens the row's details + edit.
+  Widget _tap(String key, VoidCallback open, Widget child) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      key: Key(key),
+      behavior: HitTestBehavior.opaque,
+      onTap: c.busy ? null : open,
+      child: child,
+    ),
+  );
 
   /// `<div class="row between" style="margin-bottom:8px"><b>…</b><button class="btn sm">…`
   Widget _head(
@@ -184,16 +208,20 @@ class _ClassesScreenState extends State<ClassesScreen> {
             rows: [
               for (final r in v.classes)
                 [
-                  WebWrap(
-                    key: Key('cls-class-${r.id}'),
-                    spacing: 4,
-                    children: [
-                      Text(
-                        r.name,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      ..._queued(r.queued),
-                    ],
+                  _tap(
+                    'cls-class-open-${r.id}',
+                    () => _open(ClassFormPage(controller: c, row: r)),
+                    WebWrap(
+                      key: Key('cls-class-${r.id}'),
+                      spacing: 4,
+                      children: [
+                        Text(
+                          r.name,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        ..._queued(r.queued),
+                      ],
+                    ),
                   ),
                   Text(r.grade.isEmpty ? '—' : r.grade),
                   Text(r.room.isEmpty ? '—' : r.room),
@@ -389,6 +417,16 @@ class _ClassesScreenState extends State<ClassesScreen> {
                               WebItem(
                                 key: Key('cls-def-${r.id}'),
                                 title: r.name,
+                                // row 201: the item opens its details + edit
+                                onTap: c.busy
+                                    ? null
+                                    : () => _open(
+                                        DefFormPage(
+                                          controller: c,
+                                          kind: kind,
+                                          row: r,
+                                        ),
+                                      ),
                                 // row 197-Q04: the students of this grade/branch (their own
                                 // grade/major) — a field school lists no classes, so «بدون
                                 // استفاده» alone read as an empty major
@@ -462,18 +500,24 @@ class _ClassesScreenState extends State<ClassesScreen> {
                           rows: [
                             for (final r in v.rooms)
                               [
-                                WebWrap(
-                                  key: Key('cls-room-${r.id}'),
-                                  spacing: 4,
-                                  children: [
-                                    Text(
-                                      r.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
+                                _tap(
+                                  'cls-room-open-${r.id}',
+                                  () => _open(
+                                    RoomFormPage(controller: c, row: r),
+                                  ),
+                                  WebWrap(
+                                    key: Key('cls-room-${r.id}'),
+                                    spacing: 4,
+                                    children: [
+                                      Text(
+                                        r.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
-                                    ),
-                                    ..._queued(r.queued),
-                                  ],
+                                      ..._queued(r.queued),
+                                    ],
+                                  ),
                                 ),
                                 Text(Web.fa(r.students)),
                                 Row(
@@ -513,6 +557,11 @@ class _ClassesScreenState extends State<ClassesScreen> {
                               WebItem(
                                 key: Key('cls-subject-${r.id}'),
                                 title: r.name,
+                                onTap: c.busy
+                                    ? null
+                                    : () => _open(
+                                        SubjectFormPage(controller: c, row: r),
+                                      ),
                                 titleTrailing: [
                                   if (r.workshop)
                                     const WebBadge(
@@ -577,6 +626,21 @@ class _RoomFormPageState extends State<RoomFormPage> {
       if (r != null && context.mounted) Navigator.pop(context);
     },
     fields: [
+      if (widget.row != null)
+        SchoolFormFull(
+          child: DetailLoader<ClassDetail>(
+            read: () => widget.controller.classDetail(widget.row!.id),
+            builder: (context, d) => DetailCard(
+              key: const Key('room-detail'),
+              stats: [
+                ('دانش‌آموز', Web.fa(d.students.length)),
+                ('زنگ در برنامهٔ هفتگی', Web.fa(d.slots)),
+              ],
+              namesTitle: d.students.isEmpty ? '' : 'دانش‌آموزان',
+              names: [for (final (_, n) in d.students) n],
+            ),
+          ),
+        ),
       SchoolField('room-f-name', 'نام کلاس / کارگاه', name),
       const Text(
         'همین نام در برنامهٔ هفتگی به هر زنگ داده می‌شود. چیز دیگری لازم نیست.',
@@ -691,6 +755,31 @@ class _ClassFormPageState extends State<ClassFormPage> {
         if (r != null && context.mounted) Navigator.pop(context);
       },
       fields: [
+        if (widget.row != null)
+          SchoolFormFull(
+            child: DetailLoader<ClassDetail>(
+              read: () => widget.controller.classDetail(widget.row!.id),
+              builder: (context, d) => DetailCard(
+                key: const Key('cf-detail'),
+                stats: [
+                  if (widget.row!.grade.isNotEmpty) ('پایه', widget.row!.grade),
+                  if (widget.row!.branch.isNotEmpty)
+                    ('رشته', widget.row!.branch),
+                  (
+                    'دانش‌آموز',
+                    '${Web.fa(d.students.length)} از ${Web.fa(widget.row!.capacity)}',
+                  ),
+                  if (widget.row!.teacher.isNotEmpty)
+                    ('دبیر پایه', widget.row!.teacher),
+                  if (widget.row!.room.isNotEmpty) ('اتاق', widget.row!.room),
+                  ('زنگ در برنامهٔ هفتگی', Web.fa(d.slots)),
+                ],
+                namesTitle: 'دانش‌آموزان',
+                empty: 'هنوز دانش‌آموزی در این کلاس نیست.',
+                names: [for (final (_, n) in d.students) n],
+              ),
+            ),
+          ),
         // ردیف ۱۹۵: وقتی مقطع مدرسه معلوم است، نوع چیدمان از مقطع می‌آید و انتخابی نیست
         if (st.level.isNotEmpty)
           Text(
@@ -821,9 +910,17 @@ class _DefFormPageState extends State<DefFormPage> {
     super.dispose();
   }
 
+  Future<void> _merge(int into, String intoName) async {
+    final row = widget.row!;
+    if (!await confirmMerge(context, row, intoName)) return;
+    final r = await widget.controller.mergeLookup(row.id, into);
+    if (r != null && mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final label = lookupFa[widget.kind] ?? 'مورد';
+    final row = widget.row;
     return SchoolForm(
       prefix: 'def',
       title: widget.row == null
@@ -841,6 +938,14 @@ class _DefFormPageState extends State<DefFormPage> {
         if (r != null && context.mounted) Navigator.pop(context);
       },
       fields: [
+        if (row != null)
+          SchoolFormFull(
+            child: DetailLoader<LookupDetail>(
+              read: () => widget.controller.lookupDetail(row.id),
+              builder: (context, d) =>
+                  lookupDetailCard(context, row, d, onMerge: _merge),
+            ),
+          ),
         SchoolField('def-f-name', 'نام $label', name),
         SchoolField(
           'def-f-order',
@@ -848,6 +953,25 @@ class _DefFormPageState extends State<DefFormPage> {
           order,
           numeric: true,
         ),
+        if (row != null)
+          SchoolFormFull(
+            child: LookupMergeRow(
+              row: row,
+              others: [
+                for (final o
+                    in (widget.kind == 'grade'
+                            ? widget.controller.view?.grades
+                            : widget.controller.view?.branches) ??
+                        const <LookupRow>[])
+                  if (o.id != row.id) o,
+              ],
+              onMerge: (o) => _merge(o.id, o.name),
+            ),
+          ),
+        if (row != null)
+          const Text(
+            'تغییر نام، دانش‌آموزان و کلاس‌های همین مورد را هم به نام تازه می‌برد.',
+          ),
       ],
     );
   }
@@ -888,6 +1012,23 @@ class _SubjectFormPageState extends State<SubjectFormPage> {
       if (r != null && context.mounted) Navigator.pop(context);
     },
     fields: [
+      if (widget.row != null)
+        SchoolFormFull(
+          child: DetailLoader<SubjectDetail>(
+            read: () => widget.controller.subjectDetail(widget.row!.id),
+            builder: (context, d) => DetailCard(
+              key: const Key('sub-detail'),
+              stats: [
+                ('زنگ در برنامهٔ هفتگی', Web.fa(d.slots)),
+                ('کلاس', Web.fa(d.classes.length)),
+                ('دبیر', Web.fa(d.teachers.length)),
+                ('نوع', widget.row!.workshop ? 'کارگاهی' : 'نظری'),
+              ],
+              namesTitle: d.slots == 0 ? '' : 'کلاس‌ها و دبیران',
+              names: [...d.classes, ...d.teachers.map((t) => '👤 $t')],
+            ),
+          ),
+        ),
       SchoolField('sub-f-name', 'نام درس', name),
       StatefulBuilder(
         builder: (context, set) => SwitchListTile(

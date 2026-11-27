@@ -19,7 +19,7 @@
 import 'package:payesh_data/payesh_data.dart';
 
 import 'attendance.dart' show AttendanceBook;
-import 'classes.dart' show gradeLevel, normName;
+import 'classes.dart' show gradeLevel, groupKey, normName;
 import 'grades.dart' show GradeBook, GradeTerm;
 import 'records.dart';
 import 'sheet_reader.dart';
@@ -438,6 +438,107 @@ String importGradeCanon(Object? text, List<String> known) {
   }
   return (raw, false, '');
 }
+
+/// Row 201 — branches the owner says are one and the same (file name → defined name). Keys
+/// are compared with [groupKey], so spaces / ZWNJ / letter forms do not matter. Only used when
+/// the target is a branch of the school (or of the same file).
+const Map<String, String> importBranchAliases = {
+  'برق': 'الکتروتکنیک',
+  'برق صنعتی': 'الکتروتکنیک',
+  'برقکار': 'الکتروتکنیک',
+  'الکتروتکنیک صنعتی': 'الکتروتکنیک',
+  'معماری': 'نقشه کشی',
+  'نقشه کشی معماری': 'نقشه کشی',
+  'نقشه کشی ساختمان': 'نقشه کشی',
+};
+
+/// Row 201: «تعمیر موتور موتور» / «تعمیر موتورموتور» → «تعمیر موتور» — a word written twice
+/// (with or without a space) is written once.
+String importBranchCollapse(Object? text) {
+  final out = <String>[];
+  for (var t in normName(text).split(' ')) {
+    if (t.isEmpty) continue;
+    if (t.length >= 4 && t.length.isEven) {
+      final h = t.length ~/ 2;
+      if (t.substring(0, h) == t.substring(h)) t = t.substring(0, h);
+    }
+    // «موتورموتور» glued to the previous word's copy: «موتور موتورموتور»
+    if (out.isNotEmpty && t.startsWith(out.last) && t != out.last) {
+      final rest = t.substring(out.last.length);
+      if (rest == out.last) t = out.last;
+    }
+    if (out.isNotEmpty && out.last == t) continue;
+    out.add(t);
+  }
+  return out.join(' ');
+}
+
+/// Row 201: what a branch name most likely means — (defined name, why). `why` is
+/// * `same` — the same name (spaces / ZWNJ / letter forms aside),
+/// * `repeat` — a word written twice («تعمیر موتور موتور» → «تعمیر موتور»),
+/// * `alias` — a known synonym («برق صنعتی» → «الکتروتکنیک»),
+/// * `typo` — at most two letters differ (asked, never merged by itself),
+/// * `contains` — one name inside the other (asked),
+/// * '' — nothing like it (a new branch; asked too).
+/// The first three are certain and applied by the import; the rest are asked.
+(String, String) importBranchGuess(Object? text, List<String> known) {
+  var raw = '${text ?? ''}'.replaceAll(RegExp(r'\s+'), ' ').trim();
+  raw = raw
+      .replaceFirst(RegExp(r'^رشتهٔ?\s*'), '')
+      .replaceFirst(RegExp(r'\s*رشتهٔ?$'), '')
+      .trim();
+  final k = groupKey(raw);
+  if (k.isEmpty) return ('', '');
+  String? find(String key) {
+    for (final g in known) {
+      if (groupKey(g) == key) return g;
+    }
+    return null;
+  }
+
+  final same = find(k);
+  if (same != null) return (same, 'same');
+  final col = importBranchCollapse(raw);
+  final rep = find(groupKey(col));
+  if (rep != null) return (rep, 'repeat');
+  for (final cand in {raw, col}) {
+    final ck = groupKey(cand);
+    for (final e in importBranchAliases.entries) {
+      if (groupKey(e.key) != ck) continue;
+      final to = find(groupKey(e.value));
+      if (to != null) return (to, 'alias');
+    }
+  }
+  var best = '';
+  var bestD = 999;
+  final ck = groupKey(col);
+  for (final g in known) {
+    final gk = groupKey(g);
+    if (gk.isEmpty) continue;
+    final d = importLev(gk, ck);
+    if (d < bestD) {
+      bestD = d;
+      best = g;
+    }
+  }
+  if (best.isEmpty) return ('', '');
+  if (bestD <= 2) return (best, 'typo');
+  final gk = groupKey(best);
+  for (final g in known) {
+    final x = groupKey(g);
+    if (x.length >= 3 && (x.contains(ck) || ck.contains(x))) {
+      return (g, 'contains');
+    }
+  }
+  if (gk.length >= 3 && (gk.contains(ck) || ck.contains(gk))) {
+    return (best, 'contains');
+  }
+  return ('', '');
+}
+
+/// Row 201: is [why] (from [importBranchGuess]) sure enough to apply without asking?
+bool importBranchSure(String why) =>
+    why == 'same' || why == 'repeat' || why == 'alias';
 
 String _stripGrade(String name, String grade) {
   final g = normName(grade).split(' ').where((x) => x.isNotEmpty).toList();
@@ -939,6 +1040,8 @@ final class ImportReview {
     required this.newClasses,
     required this.branchFixes,
     required this.branchAsk,
+    this.branchNew = const [],
+    this.branchChoices = const [],
     required this.phonesFixed,
     this.capRows = const [],
     this.manualRows = const [],
@@ -963,6 +1066,16 @@ final class ImportReview {
 
   /// Branches that only look like a defined one: (from, to) waiting for yes/no.
   final List<(String, String)> branchAsk;
+
+  /// Row 201: branches of the file that look like nothing defined — asked before they are
+  /// added («رشتهٔ تازه است» / «همان … است»).
+  final List<String> branchNew;
+
+  /// Row 201: the school's branches an asked name can be put under (the «همان …» menu).
+  final List<String> branchChoices;
+
+  /// Row 201: questions still waiting for the owner (the import is not saved before them).
+  int get pendingAsks => branchAsk.length + branchNew.length;
   final int phonesFixed;
 
   List<ImportRow> get ready => [
@@ -1107,31 +1220,71 @@ final class SchoolImport {
     final famCls = <String, (int, String)>{};
     final manualRows = <ImportManual>[];
 
-    // branches not in the definitions: ask, never merge silently
+    // Row 201 — branches not in the definitions. The sure ones (the same name written another
+    // way, a word written twice, a known synonym) go under the defined branch by themselves and
+    // are listed; a typo, one name inside the other and a brand-new name are ASKED — nothing is
+    // merged or added silently. A definition that is itself a repeat / synonym of another one
+    // (made by an older import, e.g. «تعمیر موتور موتور») is not a target.
     final alias = <String, String>{};
     final fixes = <(String, String)>[];
     final asks = <(String, String)>[];
+    final newAsks = <String>[];
+    final choices = <String>[];
     if (kind == 'students') {
-      final defs = {for (final b in branches) normName(b): b};
+      final known = [
+        for (final b in branches)
+          if (!importBranchSure(
+            importBranchGuess(b, [
+              for (final x in branches)
+                if (groupKey(x) != groupKey(b)) x,
+            ]).$2,
+          ))
+            b,
+      ];
+      final fileVals = <String>[];
       final seenB = <String>{};
       for (final (_, _, o) in mapped) {
         final v = (o['field'] ?? '').trim();
+        if (normName(v).isNotEmpty && seenB.add(normName(v))) fileVals.add(v);
+      }
+      // other names of the same file that are clean themselves («تعمیر موتور» next to
+      // «تعمیر موتور موتور» when the school has no definitions yet)
+      final cleanFile = [
+        for (final f in fileVals)
+          if (importBranchCollapse(f) == normName(f)) f,
+      ];
+      choices.addAll(known);
+      for (final v in fileVals) {
         final k = normName(v);
-        if (k.isEmpty || !seenB.add(k) || defs.containsKey(k)) continue;
-        var best = '';
-        var bestD = 999;
-        for (final e in defs.entries) {
-          final d = importLev(e.key, k);
-          if (d < bestD) {
-            bestD = d;
-            best = e.value;
-          }
-        }
+        final exact = branches.any((b) => normName(b) == k);
         final ask = s.branchAsk[v];
-        if (ask == null && best.isNotEmpty && bestD <= 2) asks.add((v, best));
-        if (ask != null && ask.isNotEmpty) {
-          alias[k] = ask;
-          fixes.add((v, ask));
+        if (ask != null) {
+          if (ask.isNotEmpty && normName(ask) != k) {
+            alias[k] = ask;
+            fixes.add((v, ask));
+          }
+          continue;
+        }
+        final targets = [
+          ...known,
+          for (final f in cleanFile)
+            if (normName(f) != k &&
+                !known.any((b) => groupKey(b) == groupKey(f)))
+              f,
+        ];
+        final (to, why) = importBranchGuess(v, targets);
+        if (why == 'same') {
+          if (normName(to) != k) alias[k] = to;
+          continue;
+        }
+        if (exact && !importBranchSure(why)) continue;
+        if (importBranchSure(why)) {
+          alias[k] = to;
+          fixes.add((v, to));
+        } else if (to.isNotEmpty) {
+          asks.add((v, to));
+        } else {
+          newAsks.add(v);
         }
       }
     }
@@ -1671,6 +1824,8 @@ final class SchoolImport {
       newClasses: newClasses,
       branchFixes: fixes,
       branchAsk: asks,
+      branchNew: newAsks,
+      branchChoices: choices,
       phonesFixed: phones,
       capRows: capRows,
       manualRows: manualRows,

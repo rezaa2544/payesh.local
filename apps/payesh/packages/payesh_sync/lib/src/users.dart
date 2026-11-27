@@ -372,15 +372,32 @@ final class UserDirectory {
     _requireManager();
     // row 200: classes read once; a parent's children come from an index, not a scan of
     // every link per parent
-    final classRows = await db.allOrEmpty('classes');
+    return listFrom(
+      rows: await db.all(users),
+      classRows: await db.allOrEmpty('classes'),
+      links: await db.allOrEmpty('parent_links'),
+      role: role,
+      query: query,
+    );
+  }
+
+  /// Row 201: [list] from rows the caller already read (the users page reads every
+  /// collection once per load).
+  List<SchoolUser> listFrom({
+    required List<EngineRow> rows,
+    required List<EngineRow> classRows,
+    required List<EngineRow> links,
+    String role = '',
+    String query = '',
+  }) {
+    _requireManager();
     final classes = {
       for (final c in classRows) c.id: SchoolRecords.str(c.data['name']),
     };
     final queued = db.queuedIds(users);
-    final rows = await db.all(users);
     final byId = {for (final r in rows) r.id: r};
     final kidsOf = <int, List<EngineRow>>{};
-    for (final l in await db.allOrEmpty('parent_links')) {
+    for (final l in links) {
       final p = SchoolRecords.asInt(l.data['parent_id']);
       final k = byId[SchoolRecords.asInt(l.data['student_id'])];
       if (p != null && k != null) (kidsOf[p] ??= []).add(k);

@@ -253,52 +253,125 @@ class _FollowupScreenState extends State<FollowupScreen> {
     ];
   }
 
-  List<Widget> _issue(ImportIssue i) => [
-    _nameCell(i.name, i.nationalId, key: Key('fu-issue-${i.id}')),
-    Directionality(
-      textDirection: TextDirection.ltr,
-      child: Text(
-        i.phone.isEmpty ? '—' : i.phone,
-        style: Web.small.copyWith(color: Web.ink),
-        textAlign: TextAlign.right,
-      ),
-    ),
-    i.reasons.isEmpty
+  /// Row 201 «حذف / نادیده گرفتن»: the row leaves the list (the file's data is not used).
+  Future<void> _ignore(ImportIssue i) async {
+    final ok = await confirmAction(
+      context,
+      prefix: 'fu-issue',
+      title: 'حذف از پیگیری',
+      message:
+          'ردیف «${i.name.isEmpty ? '—' : i.name}» از «نیازمند پیگیری» حذف و نادیده گرفته شود؟'
+          '${i.userId == null ? ' کاربری برای او ساخته نمی‌شود.' : ''}',
+      confirm: 'حذف و نادیده گرفتن',
+    );
+    if (ok) await c.issueDone(i.id);
+  }
+
+  /// Row 201 — one import row as a card line: who (name, national id, mobile) · why · the
+  /// two actions «✏️ اصلاح» (the user form, prefilled; saving removes the row) and «حذف /
+  /// نادیده گرفتن». The buttons never wrap word by word (they were squeezed into a column).
+  Widget _issueTile(ImportIssue i) {
+    final who = Column(
+      key: Key('fu-issue-${i.id}'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Wrap(
+          spacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              i.name.isEmpty ? '—' : i.name,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            if (i.userId != null)
+              WebBadge(
+                'در سامانه هست',
+                key: Key('fu-issue-state-${i.id}'),
+                tone: WebTone.green,
+              ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          [
+            if (i.nationalId.isNotEmpty) 'کد ملی ${i.nationalId}',
+            if (i.phone.isNotEmpty) '☎ ${i.phone}',
+            if (i.nationalId.isEmpty && i.phone.isEmpty) '—',
+          ].join(' · '),
+          style: Web.small.copyWith(color: Web.muted),
+        ),
+      ],
+    );
+    final why = i.reasons.isEmpty
         ? Text('—', style: Web.small.copyWith(color: Web.ink))
         : Column(
+            key: Key('fu-issue-why-${i.id}'),
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final r in i.reasons.take(4))
-                Text('⚠️ $r', style: Web.small.copyWith(color: Web.ink)),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(
+                    '⚠️ $r',
+                    style: Web.small.copyWith(color: Web.ink, height: 1.7),
+                  ),
+                ),
             ],
-          ),
-    Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: WebBadge(
-        i.userId != null ? 'در سامانه هست' : 'ساخته نشده',
-        key: Key('fu-issue-state-${i.id}'),
-        tone: i.userId != null ? WebTone.green : WebTone.red,
-      ),
-    ),
-    WebWrap(
-      spacing: 4,
-      runSpacing: 4,
+          );
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         WebBtn(
-          i.userId != null ? 'اصلاح' : 'ساختن کاربر',
+          '✏️ اصلاح',
           key: Key('fu-issue-fix-${i.id}'),
+          kind: WebBtnKind.primary,
           onPressed: c.busy ? null : () => _fix(i),
         ),
-        WebBtn(
-          'حل شد',
+        const SizedBox(width: 6),
+        WebBtn.delete(
+          'حذف / نادیده گرفتن',
           key: Key('fu-issue-done-${i.id}'),
-          kind: WebBtnKind.ghost,
-          onPressed: c.busy ? null : () => c.issueDone(i.id),
+          onPressed: c.busy ? null : () => _ignore(i),
         ),
       ],
-    ),
-  ];
+    );
+    return LayoutBuilder(
+      builder: (context, box) {
+        final narrow = box.maxWidth < 720;
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Web.line)),
+          ),
+          child: narrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    who,
+                    const SizedBox(height: 6),
+                    why,
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: actions,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    SizedBox(width: 220, child: who),
+                    const SizedBox(width: 12),
+                    Expanded(child: why),
+                    const SizedBox(width: 12),
+                    actions,
+                  ],
+                ),
+        );
+      },
+    );
+  }
 
   /// Row 172: web `PAGES.followup` exactly — pageHead «نیازمند پیگیری» + «N مورد برای
   /// رسیدگی» with «📥 ورود دسته‌ای», the muted note, then the students card and the import
@@ -392,26 +465,33 @@ class _FollowupScreenState extends State<FollowupScreen> {
                             style: Web.small,
                           )
                         else ...[
-                          WebTable(
-                            minWidth: 640,
-                            head: const [
-                              'نام',
-                              'شمارهٔ همراه',
-                              'دلیل',
-                              'وضعیت',
-                              '',
-                            ],
-                            rows: [for (final i in v.issues) _issue(i)],
+                          Text(
+                            'هر ردیف را با «✏️ اصلاح» در همان فرم تعریف کاربر درست و ذخیره کنید تا '
+                            'از این فهرست برود؛ یا اگر لازم نیست، «حذف / نادیده گرفتن» را بزنید.',
+                            style: Web.small.copyWith(color: Web.muted),
                           ),
+                          const SizedBox(height: 4),
+                          for (final i in v.issues) _issueTile(i),
                           const SizedBox(height: 10),
                           Align(
                             alignment: AlignmentDirectional.centerStart,
-                            child: WebBtn(
-                              'همه را حل‌شده کن',
+                            child: WebBtn.delete(
+                              'همه را نادیده بگیر',
                               key: const Key('fu-issues-clear'),
-                              kind: WebBtnKind.primary,
                               size: WebBtnSize.normal,
-                              onPressed: c.busy ? null : c.issuesClear,
+                              onPressed: c.busy
+                                  ? null
+                                  : () async {
+                                      final ok = await confirmAction(
+                                        context,
+                                        prefix: 'fu-issues',
+                                        title: 'حذف همهٔ ردیف‌ها',
+                                        message:
+                                            'همهٔ ${Web.fa(v.issues.length)} ردیف ورود دسته‌ای از «نیازمند پیگیری» حذف و نادیده گرفته شود؟',
+                                        confirm: 'همه حذف شود',
+                                      );
+                                      if (ok) await c.issuesClear();
+                                    },
                             ),
                           ),
                         ],
