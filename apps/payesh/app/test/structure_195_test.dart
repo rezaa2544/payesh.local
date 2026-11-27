@@ -156,10 +156,12 @@ void main() {
     expect(inside('cls-defs-grade', 'دهم'), findsOneWidget);
     expect(inside('cls-def-students-2', '۳ دانش‌آموز'), findsOneWidget);
     expect(inside('cls-def-students-1', '۳ دانش‌آموز'), findsOneWidget);
-    // the room «نقشه کشی» is not counted as a class
+    // the room «نقشه کشی» is not counted; row 204: a field school names the grades of a branch,
+    // never «کلاس»
+    expect(inside('cls-defs-branch', 'در ۱ پایه'), findsOneWidget);
     expect(
       inside('cls-defs-branch', '۱ کلاس از این مورد استفاده می‌کند'),
-      findsOneWidget,
+      findsNothing,
     );
   });
 

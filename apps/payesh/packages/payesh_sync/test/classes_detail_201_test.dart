@@ -79,7 +79,7 @@ void main() {
       final (e, ob) = await seeded();
       final b = ClassBook(db(e, ob));
       final dup = await b.lookupDetail(11);
-      expect(dup.students.map((s) => s.$2), ['رضا', 'مینا']);
+      expect(dup.students.map((s) => s.name), ['رضا', 'مینا']);
       expect(dup.classes, [
         'دهم تعمیر موتور موتور',
         'یازدهم تعمیر موتور موتور',

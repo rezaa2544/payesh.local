@@ -503,7 +503,7 @@ function schedGenerate(plan) {
     let slot = findSlot(dm.class_id, tid, dm.subject_id);
     if (!slot) slot = displace(dm.class_id, tid, dm.subject_id);
     if (slot) commit({ class_id: dm.class_id, subject_id: dm.subject_id, teacher_id: tid, day: slot.day, period: slot.period });
-    else unplaced.push({ class_id: dm.class_id, subject_id: dm.subject_id, teacher_id: tid, reason: tid == null ? 'جایِ خالی برای کلاس نیست' : 'جایِ خالیِ مشترک برای کلاس و دبیر نیست' });
+    else unplaced.push({ class_id: dm.class_id, subject_id: dm.subject_id, teacher_id: tid, reason: tid == null ? 'جایِ خالی در برنامه نیست' : 'جایِ خالیِ مشترک با برنامهٔ دبیر نیست' });
   });
 
   return { placements, unplaced, stats: { demands: demands.length, placed: placements.length, unplaced: unplaced.length, noSpecialist } };
@@ -809,7 +809,7 @@ const SCHED_ACTIONS = {
     const r = byId('schedule', id);
     if (!r) { render(); return; }
     if (!schedWorkDays().includes(day)) return toast('روز انتخاب‌شده در روزهای فعال مدرسه نیست', 'err');
-    if (schedClassBusyAt(r.class_id, day, period, id)) return toast('این جای کلاس دیگر پر شده است', 'err');
+    if (schedClassBusyAt(r.class_id, day, period, id)) return toast('این گروه در آن روز و زنگ برنامهٔ دیگری دارد', 'err');
     if (r.teacher_id && schedTeacherBusyAt(r.teacher_id, day, period, id)) return toast('این دبیر در آن ساعت مشغول است', 'err');
     putLocal('schedule', Object.assign({}, r, { weekday: day, bell_order: period }));
     saveCache(); render();
@@ -835,7 +835,7 @@ const SCHED_ACTIONS = {
     if (Number(tid) === Number(slot.teacher_id)) return toast('دبیر جایگزین نمی‌تواند همان دبیرِ این زنگ باشد', 'err');
     const dow = (new Date(date + 'T12:00:00').getDay() + 1) % 7;
     if (dow !== Number(slot.weekday)) return toast('تاریخ باید روز «' + SCHED_DAY_FA[Number(slot.weekday)] + '» باشد', 'err');
-    if (schedTeacherBusyAt(tid, slot.weekday, slot.bell_order, slot.id)) return toast('این دبیر در آن ساعت کلاس دارد', 'err');
+    if (schedTeacherBusyAt(tid, slot.weekday, slot.bell_order, slot.id)) return toast('این دبیر در آن ساعت زنگ دیگری دارد', 'err');
     const ex = schedSubs(id)[0];
     const row = { schedule_id: Number(id), class_id: Number(slot.class_id) || null, sub_teacher_id: tid, date, school_id: 1 };
     if (ex) putLocal('substitutions', Object.assign({}, ex, row, { id: ex.id }));

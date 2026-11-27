@@ -489,7 +489,8 @@ void main() {
       await reveal(tester, 'sys-stats-text');
       expect(
         textOf(tester, 'sys-stats-text'),
-        'کاربران: ۴ · کلاس‌ها: ۱ · حضور: ۰ · نمره: ۱',
+        // row 204: the fixture reads as field-based — active students, venues, پایه و رشته
+        'کاربران: ۴ (دانش‌آموز فعال: ۲) · محل برگزاری: ۰ · پایه و رشته: ۱ · حضور: ۰ · نمره: ۱',
       );
       await tapKey(tester, 'sys-devices');
       expect(find.text('مدیر · مدیر'), findsOneWidget);

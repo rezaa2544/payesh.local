@@ -8,8 +8,10 @@
 // queued write (outbox first), so it works offline and reaches the server on the next sync.
 // Web difference: the web took a server backup before a fix; the native app's fixes are
 // queued ops the server applies with its own versioning, and the server keeps tombstones.
+import 'classes.dart' show sameGrade;
 import 'followup.dart';
 import 'records.dart';
+import 'school_structure.dart' show SchoolStructure;
 import 'timetable.dart';
 
 enum HealthSeverity {
@@ -290,6 +292,7 @@ final class DataHealth {
   /// severity, the rest in declaration order.
   Future<HealthRun> run() async {
     _requireManager();
+    final field = await _fieldBased();
     final rows = <HealthRow>[];
     for (final c in checks) {
       HealthResult r;
@@ -298,7 +301,7 @@ final class DataHealth {
       } on Object catch (e) {
         r = HealthResult.bad(1, 'این آزمون اجرا نشد: $e');
       }
-      rows.add(HealthRow(c, r));
+      rows.add(HealthRow(field ? fieldCheck(c) : c, r));
     }
     final order = {for (var i = 0; i < rows.length; i++) rows[i]: i};
     rows.sort((a, b) {
@@ -307,6 +310,52 @@ final class DataHealth {
       return s != 0 ? s : order[a]!.compareTo(order[b]!);
     });
     return HealthRun(db.now(), rows);
+  }
+
+  /// Row 204: a field school (رشته‌محور) — its checks and messages say «پایه و رشته».
+  bool? _field;
+  Future<bool> _fieldBased() async =>
+      _field ??= (await SchoolStructure.read(db)).fieldBased;
+
+  /// Row 204: the wording of a check in a field school — «کلاس» only for a venue.
+  static HealthCheck fieldCheck(HealthCheck c) {
+    HealthCheck as(String title, String description, [String? guide]) =>
+        HealthCheck(
+          id: c.id,
+          title: title,
+          description: description,
+          severity: c.severity,
+          guide: guide ?? c.guide,
+          safe: c.safe,
+          fixable: c.fixable,
+          mergeable: c.mergeable,
+        );
+    return switch (c.id) {
+      'orphan-class-ref' => as(
+        'دانش‌آموز در پایه و رشتهٔ پاک‌شده',
+        'گروه پایه و رشته‌ای که حذف شده ولی دانش‌آموزش هنوز به همان گروه اشاره می‌کند',
+      ),
+      'no-class' => as(
+        'دانش‌آموز بدون پایه یا رشته',
+        'دانش‌آموزی که پایه یا رشته‌اش خالی است یا با تعریف‌ها جور نیست',
+        'در «پیگیری» یا «پایه و رشته ← بدون پایه» برای هر نفر پایه و رشتهٔ درست را انتخاب کنید.',
+      ),
+      'class-no-grade' => as(
+        'پایه و رشتهٔ بدون پایه',
+        'گروهی که پایه‌اش خالی یا تعریف‌نشده است (بیشتر از ورود دسته‌ای قدیمی)',
+        'در صفحهٔ «پایه و رشته» پایهٔ درست را تعریف کنید یا رشتهٔ تکراری را ادغام کنید.',
+      ),
+      'dup-class' => as(
+        'پایه و رشتهٔ تکراری',
+        'دو گروه با همان پایه و رشته',
+        'در صفحهٔ «پایه و رشته» رشته یا پایهٔ تکراری را با «ادغام» یکی کنید.',
+      ),
+      'sched-conflict' => as(
+        c.title,
+        'یک دبیر یا یک پایه و رشته در یک زنگ دو درس دارد',
+      ),
+      _ => c,
+    };
   }
 
   Future<List<HealthRowData>> _rows(String c) async => [
@@ -427,7 +476,12 @@ final class DataHealth {
                 !classes.contains(_int(u.data['class_id'])))
               HealthItem(id: u.id, name: nameOf(u.data)),
         ];
-        return res(bad, '${bad.length} کاربر به کلاسِ پاک‌شده اشاره می‌کنند');
+        return res(
+          bad,
+          await _fieldBased()
+              ? '${bad.length} کاربر به پایه و رشتهٔ پاک‌شده اشاره می‌کنند'
+              : '${bad.length} کاربر به کلاسِ پاک‌شده اشاره می‌کنند',
+        );
       case 'no-class':
         final users = await db.allOrEmpty('users');
         final classes = {
@@ -447,24 +501,36 @@ final class DataHealth {
             bad.add(HealthItem(id: u.id, name: nameOf(u.data), note: r));
           }
         }
-        return res(bad, '${bad.length} دانش‌آموز کلاسِ درست ندارد');
+        return res(
+          bad,
+          await _fieldBased()
+              ? '${bad.length} دانش‌آموز پایه یا رشتهٔ درست ندارد'
+              : '${bad.length} دانش‌آموز کلاسِ درست ندارد',
+        );
       case 'class-no-grade':
         final grades = [
           for (final l in await _rows('lookups'))
             if (_s(l.data['kind']) == 'grade') _s(l.data['name']),
         ];
+        // row 204: a venue (room) never has a grade; «پایه دهم» is the grade «دهم»
         final bad = [
           for (final c in await _rows('classes'))
-            if (_s(c.data['grade']).trim().isEmpty ||
-                (grades.isNotEmpty &&
-                    !grades.contains(_s(c.data['grade']).trim())))
+            if (c.data['kind'] != 'room' &&
+                (_s(c.data['grade']).trim().isEmpty ||
+                    (grades.isNotEmpty &&
+                        !grades.any((g) => sameGrade(g, c.data['grade'])))))
               HealthItem(
                 id: c.id,
                 name: _s(c.data['name']),
                 note: _s(c.data['grade']),
               ),
         ];
-        return res(bad, '${bad.length} کلاس پایهٔ درست ندارد');
+        return res(
+          bad,
+          await _fieldBased()
+              ? '${bad.length} پایه و رشته پایهٔ درست ندارد'
+              : '${bad.length} کلاس پایهٔ درست ندارد',
+        );
       case 'dup-class':
         final by = _by(await _rows('classes'), (c) {
           final k = normName('${_s(c['grade'])} ${_s(c['branch'])}');
@@ -478,7 +544,12 @@ final class DataHealth {
                 name: e.value.map((c) => _s(c.data['name'])).join('، '),
               ),
         ];
-        return res(g, '${g.length} کلاس هم‌نام/هم‌پایه وجود دارد');
+        return res(
+          g,
+          await _fieldBased()
+              ? '${g.length} پایه و رشتهٔ تکراری وجود دارد'
+              : '${g.length} کلاس هم‌نام/هم‌پایه وجود دارد',
+        );
       case 'dup-lookup':
         final by = _by(
           await _rows('lookups'),
@@ -565,15 +636,26 @@ final class DataHealth {
         return RecordWrite('$n پیوند بی‌صاحب پاک شد', keys: keys);
       case 'orphan-class-ref':
         final classes = {for (final c in await db.allOrEmpty('classes')) c.id};
+        final field = await _fieldBased();
         for (final u in await db.allOrEmpty('users')) {
           final cid = _int(u.data['class_id']);
           if (cid == null || classes.contains(cid)) continue;
+          // row 204: a field-school student keeps its پایه + رشته — the group was only a link
+          final placed =
+              field &&
+              _s(u.data['grade']).isNotEmpty &&
+              (_s(u.data['field']).isNotEmpty ||
+                  _s(u.data['branch']).isNotEmpty);
           keys.add(
             await db.put('users', u.id, {
               ...u.data,
               'class_id': null,
-              'followup_reason': 'کلاسش پاک شده بود — کلاس تازه انتخاب کنید',
-              'followup_ack': false,
+              if (!placed) ...{
+                'followup_reason': field
+                    ? 'پایه و رشته‌اش پاک شده بود — پایه و رشتهٔ درست را انتخاب کنید'
+                    : 'کلاسش پاک شده بود — کلاس تازه انتخاب کنید',
+                'followup_ack': false,
+              },
             }, prev: u),
           );
           n++;

@@ -343,7 +343,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
             onPressed: c.busy ? null : () => c.assign(s.id, g, b),
           ),
           Tooltip(
-            message: 'بی‌کلاس بماند',
+            message: 'همین‌طور بماند و از این فهرست برود',
             child: WebBtn(
               'حل شد',
               key: Key('fu-ack-${s.id}'),
@@ -389,7 +389,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
             ),
             if (i.tempUserId != null)
               WebBadge(
-                'ثبت موقت — در فهرست کلاس',
+                'ثبت موقت — در فهرست کاربران',
                 key: Key('fu-issue-temp-${i.id}'),
                 tone: WebTone.amber,
               )

@@ -303,7 +303,8 @@ void main() {
     final r = await x.check(s);
     expect(r.newClasses, ['هشتم']);
     expect(r.rows[0].data['new_class'], 'هشتم');
-    expect(r.rows[1].warns, contains('بدون کلاس'));
+    // row 204: the school reads as field-based (a class has a branch) — no «کلاس» in its words
+    expect(r.rows[1].warns, contains('بدون پایه و رشته'));
     expect(r.rows[2].data['class_id'], isNull);
     expect(r.rows[2].data['new_grade'], 'یازدهم');
     final one = csvSession('نام\nعلی رضایی\n', grades: const ['هفتم']);

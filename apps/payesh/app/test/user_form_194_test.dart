@@ -82,8 +82,10 @@ void main() {
       await typeKey(tester, 'usr-f-name', 'کیان رادمهر');
       await typeKey(tester, 'usr-f-nid', '0098765432');
       await pick(tester, 'usr-f-grade', 'دهم');
-      await pick(tester, 'usr-f-class', 'دهم الف');
-      expect(find.text('یازدهم ب'), findsNothing, reason: 'other پایه hidden');
+      // row 204: the school reads as field-based (a class has a branch) — the student is placed
+      // by پایه + رشته, there is no «کلاس» to choose
+      expect(find.byKey(const Key('usr-f-class')), findsNothing);
+      await pick(tester, 'usr-f-branch', 'الکترونیک');
       await typeKey(tester, 'usr-f-father_name', 'علی رادمهر');
       await typeKey(tester, 'usr-f-father_phone', '09124445566');
       await typeKey(tester, 'usr-f-father_job', 'کارمند');
@@ -104,7 +106,8 @@ void main() {
       final st = out.first.payload!;
       expect(st['role'], 'student');
       expect(st['grade'], 'دهم');
-      expect(st['class_id'], 5);
+      expect(st['class_id'], isNull);
+      expect(st['field'], 'الکترونیک');
       expect(st['father_job'], 'کارمند');
       expect(out[1].payload!['role'], 'parent');
       expect(out[1].payload!['phone'], '09124445566');

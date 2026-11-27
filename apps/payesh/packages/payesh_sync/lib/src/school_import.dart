@@ -19,9 +19,10 @@
 import 'package:payesh_data/payesh_data.dart';
 
 import 'attendance.dart' show AttendanceBook;
-import 'classes.dart' show gradeLevel, groupKey, normName;
+import 'classes.dart' show gradeLevel, groupKey, normName, sameGrade;
 import 'grades.dart' show GradeBook, GradeTerm;
 import 'records.dart';
+import 'school_structure.dart' show SchoolStructure;
 import 'sheet_reader.dart';
 import 'users.dart' show nidRestoreZeros, roleFa;
 
@@ -1273,7 +1274,7 @@ final class ImportSession {
     if (kind == 'students' && grades.isEmpty) {
       throw const RecordFailure(
         'invalid',
-        'اول پایه را انتخاب کنید — بدون پایه، دانش‌آموز و کلاسش ساخته نمی‌شود',
+        'اول پایه را انتخاب کنید — بدون پایه، دانش‌آموز ثبت نمی‌شود',
       );
     }
     final sheet = book.firstWithRows;
@@ -1611,6 +1612,9 @@ final class ImportResult {
   int classes = 0;
   int students = 0;
   int staff = 0;
+
+  /// Row 204: a field school — [classes] are new «پایه و رشته» groups.
+  bool fieldBased = false;
   int marks = 0;
   int savedIssues = 0;
   int openIssues = 0;
@@ -1628,7 +1632,11 @@ final class ImportResult {
     }
     if (updated > 0) b.write(' · ${_faNum(updated)} به‌روزرسانی');
     if (parents > 0) b.write(' · ${_faNum(parents)} حساب ولی');
-    if (classes > 0) b.write(' · ${_faNum(classes)} کلاس تازه');
+    if (classes > 0) {
+      b.write(
+        ' · ${_faNum(classes)} ${fieldBased ? 'پایه و رشتهٔ تازه' : 'کلاس تازه'}',
+      );
+    }
     if (savedIssues > 0) {
       b.write(' · ${_faNum(savedIssues)} ردیف در «نیازمند پیگیری» ماند');
     }
@@ -1713,7 +1721,9 @@ List<String> importReasonFields(String reason) {
   }
   if (t.contains('پایه در فایل نبود') ||
       t.startsWith('کلاس ساخته نشد') ||
+      t.startsWith('پایه ثبت نشد') ||
       t.startsWith('بدون کلاس') ||
+      t.startsWith('بدون پایه') ||
       t.contains('شعبه های')) {
     add('grade');
   }
@@ -1789,6 +1799,8 @@ final class SchoolImport {
   /// Step 3 (`import-check` / `imp-recheck`): every rule of the web `impCheck`.
   Future<ImportReview> check(ImportSession s) async {
     _requireManager();
+    // row 204: a field school (رشته‌محور) names its groups «پایه و رشته», never «کلاس»
+    final field = (await SchoolStructure.read(db)).fieldBased;
     final users = await db.allOrEmpty('users');
     // row 202: national id / mobile → users, built once (the check ran a full scan per row)
     final usersByNid = <String, List<EngineRow>>{};
@@ -2095,7 +2107,7 @@ final class SchoolImport {
           final cands = [
             for (final c in classes)
               if (isClass(c) &&
-                  normName(c.data['grade']) == normName(grade) &&
+                  sameGrade(c.data['grade'], grade) &&
                   normName(c.data['branch']) == normName(branch))
                 c,
           ]..sort((a, b) => a.id.compareTo(b.id));
@@ -2197,15 +2209,19 @@ final class SchoolImport {
           data['new_grade'] = grade;
           data['new_branch'] = branch;
           if (!newClasses.contains(place)) newClasses.add(place);
-          r.warns.add('کلاس «$place» ساخته می‌شود');
+          r.warns.add(
+            field
+                ? 'پایه و رشتهٔ «$place» ثبت می‌شود'
+                : 'کلاس «$place» ساخته می‌شود',
+          );
         } else if (branch.isNotEmpty) {
           data['class_id'] = null;
           data['followup_reason'] = 'پایه در فایل نبود (رشته: $branch)';
           r.warns.add(
-            'کلاس ساخته نشد: ${data['followup_reason']} — در «نیازمند پیگیری» کامل کنید',
+            '${field ? 'پایه ثبت نشد' : 'کلاس ساخته نشد'}: ${data['followup_reason']} — در «نیازمند پیگیری» کامل کنید',
           );
         } else {
-          r.warns.add('بدون کلاس');
+          r.warns.add(field ? 'بدون پایه و رشته' : 'بدون کلاس');
         }
         if (branch.isNotEmpty &&
             bc.$3.isNotEmpty &&
@@ -2532,7 +2548,8 @@ final class SchoolImport {
       );
     }
     final kind = s.kind;
-    final res = ImportResult();
+    final res = ImportResult()
+      ..fieldBased = (await SchoolStructure.read(db)).fieldBased;
     final ops = <_Op>[];
     final users = {for (final u in await db.allOrEmpty('users')) u.id: u};
     final lookups = [for (final l in await db.allOrEmpty('lookups')) l.data];

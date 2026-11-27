@@ -93,6 +93,9 @@ class SystemController extends SchoolController with _Online {
   String school = '';
   int queued = 0;
   Map<String, int> stats = const {};
+
+  /// Row 204: a field school (رشته‌محور).
+  bool field = false;
   ServerHealth? health;
   MirrorState? mirror;
   List<String>? backups;
@@ -114,9 +117,15 @@ class SystemController extends SchoolController with _Online {
     if (isManager) {
       final users = await db.allOrEmpty('users');
       names = {for (final u in users) u.id: SchoolRecords.str(u.data['name'])};
+      final classes = await db.allOrEmpty('classes');
+      // row 204: a field school counts its venues and its پایه × رشته groups — no «کلاس»
+      field = (await SchoolStructure.read(db)).fieldBased;
       stats = {
         'users': users.length,
-        for (final c in const ['classes', 'attendance', 'grades'])
+        'students': users.where((u) => rosterStudent(u.data)).length,
+        'classes': classes.length,
+        'rooms': classes.where((c) => c.data['kind'] == 'room').length,
+        for (final c in const ['attendance', 'grades'])
           c: (await db.allOrEmpty(c)).length,
       };
     }
@@ -977,7 +986,12 @@ class _SystemScreenState extends State<SystemScreen> {
               Text('آمار پایگاه داده', style: Web.b),
               const SizedBox(height: 6),
               Text(
-                'کاربران: ${_fa(c.stats['users'] ?? 0)} · کلاس‌ها: ${_fa(c.stats['classes'] ?? 0)} · حضور: ${_fa(c.stats['attendance'] ?? 0)} · نمره: ${_fa(c.stats['grades'] ?? 0)}',
+                c.field
+                    ? 'کاربران: ${_fa(c.stats['users'] ?? 0)} (دانش‌آموز فعال: ${_fa(c.stats['students'] ?? 0)}) · '
+                          'محل برگزاری: ${_fa(c.stats['rooms'] ?? 0)} · '
+                          'پایه و رشته: ${_fa((c.stats['classes'] ?? 0) - (c.stats['rooms'] ?? 0))} · '
+                          'حضور: ${_fa(c.stats['attendance'] ?? 0)} · نمره: ${_fa(c.stats['grades'] ?? 0)}'
+                    : 'کاربران: ${_fa(c.stats['users'] ?? 0)} · کلاس‌ها: ${_fa(c.stats['classes'] ?? 0)} · حضور: ${_fa(c.stats['attendance'] ?? 0)} · نمره: ${_fa(c.stats['grades'] ?? 0)}',
                 key: const Key('sys-stats-text'),
                 style: _note,
               ),

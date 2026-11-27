@@ -42,6 +42,9 @@ class UsersController extends SchoolController {
 
   /// ردیف ۱۹۵: کادر «رشته» فقط در مدرسهٔ رشته‌محور (ابتدایی و متوسطه اول رشته ندارند).
   bool showBranch = true;
+
+  /// Row 204: a field school (رشته‌محور) — a student is placed by پایه and رشته; no «کلاس».
+  bool fieldSchool = false;
   List<(int, String, String, String)> classRows = const [];
   List<(int, String)> subjects = const [];
   List<(int, String)> studentRows = const [];
@@ -108,6 +111,7 @@ class UsersController extends SchoolController {
     // ردیف ۱۹۵: رشته فقط در مدرسهٔ رشته‌محور (متوسطه دوم) معنا دارد
     final st = await SchoolStructure.read(db);
     showBranch = st.fieldBased || (st.level.isEmpty && defB.isNotEmpty);
+    fieldSchool = st.fieldBased;
     subjects = [
       for (final x in await db.allOrEmpty('subjects'))
         if (SchoolRecords.str(x.data['name']).trim().isNotEmpty)
@@ -169,23 +173,37 @@ class UsersController extends SchoolController {
                 searchKey(u.nationalId).contains(q)))
           u,
     ];
-    final grades = {..._defGrades}, branches = {..._defBranches};
+    // row 204: one option per grade — «پایه دهم», «۱۰» and «دهم» are the same grade (the
+    // classes page counts them together), a defined name wins over a student's spelling
+    final grades = <String, String>{for (final g in _defGrades) gradeKey(g): g};
+    final branches = <String, String>{
+      for (final b in _defBranches) groupKey(b): b,
+    };
     for (final u in all) {
       if (u.role != 'student') continue;
-      if (u.grade.trim().isNotEmpty) grades.add(u.grade.trim());
-      if (u.branch.trim().isNotEmpty) branches.add(u.branch.trim());
+      final g = u.grade.trim(), b = u.branch.trim();
+      if (gradeKey(g).isNotEmpty) grades.putIfAbsent(gradeKey(g), () => g);
+      if (groupKey(b).isNotEmpty) branches.putIfAbsent(groupKey(b), () => b);
     }
-    gradeOptions = grades.toList()..sort();
-    branchOptions = branches.toList()..sort();
-    bool hit(String value, String want) => want.isEmpty
+    gradeOptions = grades.values.toList()
+      ..sort(
+        (a, b) => gradeLevel(a) != gradeLevel(b)
+            ? gradeLevel(a).compareTo(gradeLevel(b))
+            : a.compareTo(b),
+      );
+    branchOptions = branches.values.toList()..sort();
+    bool hit(String value, String want, bool Function(String, String) same) =>
+        want.isEmpty
         ? true
         : want == noValue
         ? value.trim().isEmpty
-        : value.trim() == want;
+        : same(value, want);
     users = roleFilter == 'student'
         ? [
             for (final u in all)
-              if (hit(u.grade, gradeFilter) && hit(u.branch, branchFilter)) u,
+              if (hit(u.grade, gradeFilter, sameGrade) &&
+                  hit(u.branch, branchFilter, sameBranch))
+                u,
           ]
         : all;
     if (page >= pages) page = pages - 1;

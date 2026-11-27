@@ -517,7 +517,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '🔁 جابه‌جای‌های موقت این کلاس',
+          v.classBased
+              ? '🔁 جابه‌جای‌های موقت این کلاس'
+              : '🔁 جابه‌جای‌های موقت این پایه و رشته',
           style: Web.b.copyWith(fontSize: 12.5),
         ),
         const SizedBox(height: 4),
@@ -754,7 +756,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'برای چیدن برنامه، ابتدا پایه و رشته را در بخش «کلاس‌ها» تعریف کنید.',
+                          'برای چیدن برنامه، ابتدا پایه و رشته را در بخش «پایه و رشته» تعریف کنید.',
                           style: Web.small,
                         ),
                         const SizedBox(height: 8),
@@ -1087,7 +1089,9 @@ class _SlotFormPageState extends State<SlotFormPage> {
       key: 'slot-add-room',
       title: 'محل برگزاری جدید',
       label: 'نام محل',
-      hint: 'این محل در فهرست کلاس‌ها/محل‌ها نیز ذخیره می‌شود.',
+      hint: widget.classBased
+          ? 'این محل در فهرست کلاس‌ها/محل‌ها نیز ذخیره می‌شود.'
+          : 'این محل در فهرست محل‌های برگزاری نیز ذخیره می‌شود.',
     );
     if (n == null) return;
     final w = await c.addRoom(n);
@@ -1741,14 +1745,19 @@ class _GeneratorPageState extends State<GeneratorPage> {
             key: const Key('gen-stats'),
           ),
           if (ids.isEmpty)
-            const Text(
-              'تقاضایی نیست (درسِ هم‌خوان با کلاس‌ها پیدا نشد — برای هر درس «ساعت در هفته» را تعیین کنید).',
+            Text(
+              widget.controller.view?.classBased ?? true
+                  ? 'تقاضایی نیست (درسِ هم‌خوان با کلاس‌ها پیدا نشد — برای هر درس «ساعت در هفته» را تعیین کنید).'
+                  : 'تقاضایی نیست (درسِ هم‌خوان با پایه و رشته‌ها پیدا نشد — برای هر درس «ساعت در هفته» را تعیین کنید).',
             ),
           for (final id in ids)
             Card(
               key: Key('gen-class-$id'),
               child: ListTile(
-                title: Text(classNames[id] ?? 'کلاس $id'),
+                title: Text(
+                  classNames[id] ??
+                      '${widget.controller.view?.classBased ?? true ? 'کلاس' : 'پایه و رشته'} $id',
+                ),
                 subtitle: Text(
                   [
                     '${_fa(byClass[id]!.$1)} زنگ',

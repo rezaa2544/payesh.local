@@ -55,8 +55,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('تغییرات ذخیره نشده'),
-        content: const Text(
-          'تغییرات این کلاس هنوز ذخیره نشده است. بدون ذخیره برمی‌گردید؟',
+        content: Text(
+          c.field
+              ? 'تغییرات این پایه و رشته هنوز ذخیره نشده است. بدون ذخیره برمی‌گردید؟'
+              : 'تغییرات این کلاس هنوز ذخیره نشده است. بدون ذخیره برمی‌گردید؟',
         ),
         actions: [
           TextButton(
@@ -160,7 +162,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   /// one card with a `.list` of `a.item` rows — the class name (link colour), «N دانش‌آموز ·
   /// grade», and a green «ثبت‌شده» or amber «ثبت‌نشده» badge.
   List<Widget> _classList() => [
-    const WebPageHead(title: 'حضور و غیاب', sub: 'کلاس را انتخاب کنید'),
+    WebPageHead(
+      title: 'حضور و غیاب',
+      sub: c.field ? 'پایه و رشته را انتخاب کنید' : 'کلاس را انتخاب کنید',
+    ),
     ..._messages(),
     if (c.loading && c.classes.isEmpty)
       const Center(
@@ -172,9 +177,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     else if (c.error == null || c.classes.isNotEmpty)
       WebCard(
         child: c.classes.isEmpty
-            ? const WebEmpty(
-                'کلاسی به شما تخصیص نیافته است.',
-                key: Key('att-no-classes'),
+            ? WebEmpty(
+                c.field
+                    ? 'پایه و رشته‌ای به شما تخصیص نیافته است.'
+                    : 'کلاسی به شما تخصیص نیافته است.',
+                key: const Key('att-no-classes'),
               )
             : WebList(
                 children: [
@@ -203,9 +210,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return [
         WebPageHead(title: 'حضور و غیاب', sub: open.name, actions: [back]),
         ..._messages(),
-        const WebEmpty(
-          'دانش‌آموزی برای این کلاس ثبت نشده است.',
-          key: Key('att-empty'),
+        WebEmpty(
+          c.field
+              ? 'دانش‌آموزی برای این پایه و رشته ثبت نشده است.'
+              : 'دانش‌آموزی برای این کلاس ثبت نشده است.',
+          key: const Key('att-empty'),
         ),
       ];
     }
@@ -258,7 +267,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
                 children: [
-                  Expanded(child: Text('فهرست کلاس', style: Web.b)),
+                  Expanded(
+                    child: Text(
+                      c.field ? 'فهرست دانش‌آموزان' : 'فهرست کلاس',
+                      style: Web.b,
+                    ),
+                  ),
                   WebBtn(
                     'همه حاضر',
                     key: const Key('att-all-present'),

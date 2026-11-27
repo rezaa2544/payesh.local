@@ -147,7 +147,8 @@ class _GateScreenState extends State<GateScreen> {
                     tone: e.hours ? WebTone.amber : WebTone.purple,
                   ),
                 ],
-                sub: e.className.isEmpty ? null : 'کلاس ${e.className}',
+                // row 204: the name alone — «دهم الکترونیک» of a field school is no «کلاس»
+                sub: e.className.isEmpty ? null : e.className,
               ),
             ),
         const WebCardHead(

@@ -14,6 +14,7 @@ import 'classes.dart' show fieldGroupMember;
 import 'leave_spec.dart';
 import 'outbox.dart';
 import 'school_access.dart' show permRole;
+import 'school_structure.dart' show SchoolStructure;
 
 /// The five attendance states of the web client (`ATT_LABEL`) and the server
 /// (`server/policy.js` `ATT_STATUS`).
@@ -53,8 +54,8 @@ enum AttendanceError {
     AttendanceError.notAllowed =>
       'ثبت حضور و غیاب فقط برای معلم و مدیر مجاز است',
     AttendanceError.badDate => 'تاریخ نامعتبر است',
-    AttendanceError.unknownClass => 'این کلاس در فهرست کلاس‌های شما نیست',
-    AttendanceError.notInClass => 'این دانش‌آموز در فهرست این کلاس نیست',
+    AttendanceError.unknownClass => 'این گروه در فهرست شما نیست',
+    AttendanceError.notInClass => 'این دانش‌آموز در این فهرست نیست',
     AttendanceError.badStudent => 'شناسهٔ دانش‌آموز نامعتبر است',
   };
 }
@@ -138,6 +139,24 @@ final class AttendanceSaveResult {
 
 /// Teacher attendance on the device. Reads the pulled local copy (users, classes, schedule,
 /// attendance) and writes through [outbox]; nothing here talks to the network.
+/// Row 204: [SchoolStructure.fieldBased] read straight from an engine (the attendance and
+/// grade books); false when the device cannot read it.
+Future<bool> engineFieldBased(DataEngine engine) async {
+  try {
+    final s =
+        (await engine.get('schools', 1))?.data ?? const <String, Object?>{};
+    final classes = <Map<String, Object?>>[];
+    for (var off = 0; ; off += 500) {
+      final page = await engine.list('classes', limit: 500, offset: off);
+      classes.addAll(page.map((r) => r.data));
+      if (page.length < 500) break;
+    }
+    return SchoolStructure.from(s, classes).fieldBased;
+  } on Object {
+    return false;
+  }
+}
+
 final class AttendanceBook {
   AttendanceBook({
     required this.engine,
@@ -244,6 +263,9 @@ final class AttendanceBook {
     if (!canWrite) throw AttendanceFailure(AttendanceError.notAllowed, role);
   }
 
+  /// Row 204: a field school (رشته‌محور) — the page says «پایه و رشته», never «کلاس».
+  Future<bool> fieldBased() => engineFieldBased(engine);
+
   /// Classes this user takes attendance for: a teacher's classes from the schedule
   /// (`teacher_id`) plus their own `class_id`; a manager sees every class.
   Future<List<AttendanceClass>> classes() async {
@@ -257,7 +279,7 @@ final class AttendanceBook {
       // students — it never shows up for attendance
       if (c.data['kind'] == 'room') continue;
       rows[c.id] = c.data;
-      names[c.id] = _name(c.data, c.id, 'کلاس');
+      names[c.id] = _name(c.data, c.id, 'گروه');
       grades[c.id] = '${c.data['grade'] ?? ''}';
       if (role == 'manager') ids.add(c.id);
     }
@@ -284,7 +306,7 @@ final class AttendanceBook {
           for (final id in ids)
             AttendanceClass(
               id: id,
-              name: names[id] ?? 'کلاس $id',
+              name: names[id] ?? 'گروه $id',
               grade: grades[id] ?? '',
               students: students[id] ?? 0,
             ),

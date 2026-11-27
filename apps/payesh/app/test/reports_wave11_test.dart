@@ -196,7 +196,8 @@ void main() {
     );
     final html = files.values.single;
     expect(html, contains('هنرستان نمونه — گزارش‌ها'));
-    expect(html, contains('کارنامهٔ کلاسی — دهم الکترونیک'));
+    // row 204: a field school (هنرستان) prints «پایه و رشته», never «کلاس»
+    expect(html, contains('کارنامهٔ پایه و رشته — دهم الکترونیک'));
     await tapKey(tester, 'rep-class');
     await tester.tap(find.text('هفتم').last);
     await settle(tester);

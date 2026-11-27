@@ -87,7 +87,8 @@ void main() {
     expect(v.classes.map((c) => c.name), ['دهم الکترونیک', 'هفتم الف']);
     expect(v.classes.first.students, 1);
     expect(v.classes.first.mode, 'field');
-    expect(v.grades.map((g) => '${g.name}:${g.classes}'), ['دهم:1', 'هفتم:1']);
+    // row 204: grades in school order (هفتم before دهم), not alphabetical
+    expect(v.grades.map((g) => '${g.name}:${g.classes}'), ['هفتم:1', 'دهم:1']);
     expect(v.branches.single.classes, 1);
     expect(v.subjects.single.slots, 3);
   });
@@ -137,7 +138,7 @@ void main() {
         name: 'دهم الکترونیک ۲',
       ),
     );
-    expect(w.messageFa, 'کلاس ساخته شد · 1 دانش‌آموز به آن وصل شد');
+    expect(w.messageFa, 'پایه و رشته ساخته شد · 1 دانش‌آموز به آن وصل شد');
     final u = (await e.get('users', 22))!.data;
     expect(u['class_id'], w.id);
     expect(u.containsKey('followup_reason'), isFalse);
@@ -171,7 +172,17 @@ void main() {
     expect(await e.get('classes', 5), isNull);
     final u = (await e.get('users', 21))!.data;
     expect(u['class_id'], isNull);
-    expect(u['followup_reason'], contains('دهم الکترونیک'));
+    // row 204: the school reads as field-based — the student keeps the group's پایه + رشته as
+    // its own (still counted there) and does not go to follow-up
+    expect((u['grade'], u['field']), ('دهم', 'الکترونیک'));
+    expect(u['followup_reason'], isNull);
+    expect(w.messageFa, 'پایه و رشته حذف شد');
+    // a class school: the student goes to follow-up with the reason
+    await e.put('schools', 1, {'id': 1, 'level': 'متوسطه اول'}, version: 1);
+    final w2 = await ClassBook(db(e, ob)).deleteClass(7);
+    final n = (await e.get('users', 23))!.data;
+    expect(n['followup_reason'], contains('هفتم'));
+    expect(w2.messageFa, contains('کلاس حذف شد'));
   });
 
   test('W8-U06 merge: students, schedule, grades, attendance move; a clashing slot is dropped '
@@ -207,7 +218,8 @@ void main() {
     expect((await e.get('lookups', w.id!))!.data['order'], 2);
     final u = await b.lookupUsage(1);
     expect(u.classes, ['دهم الکترونیک']);
-    expect(u.students, 1);
+    // row 204: the students its figure counts — بهار (its class) and آرش (grade دهم, no class)
+    expect(u.students, 2);
     // only the definition
     await b.deleteLookup(2, LookupDelete.only);
     expect(await e.get('classes', 5), isNotNull);

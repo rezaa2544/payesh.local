@@ -54,6 +54,9 @@ class ImportController extends SchoolController {
   /// only these (row 194).
   List<String> definedGrades = const [];
 
+  /// Row 204: a field school (رشته‌محور) — its groups are «پایه و رشته», never «کلاس».
+  bool field = false;
+
   /// Row 202: the رشته‌ها the manager defined — a column of the file without a title is a
   /// رشته when its values are these (or common branch names).
   List<String> definedBranches = const [];
@@ -71,6 +74,7 @@ class ImportController extends SchoolController {
 
   @override
   Future<void> read(SchoolRecords db) async {
+    field = (await SchoolStructure.read(db)).fieldBased;
     final defs = <(int, String)>[];
     final lookups = await db.allOrEmpty('lookups');
     definedBranches = [
@@ -122,10 +126,12 @@ class ImportController extends SchoolController {
   String? _gradeGate() {
     if (kind != 'students') return null;
     if (definedGrades.isEmpty) {
-      return 'هنوز پایه‌ای تعریف نشده — اول در «کلاس‌ها» پایه‌های مدرسه را تعریف کنید';
+      return 'هنوز پایه‌ای تعریف نشده — اول در «${field ? 'پایه و رشته' : 'کلاس‌ها'}» پایه‌های مدرسه را تعریف کنید';
     }
     if (grades.isEmpty) {
-      return 'اول پایه را انتخاب کنید — بدون پایه، دانش‌آموز و کلاسش ساخته نمی‌شود';
+      return field
+          ? 'اول پایه را انتخاب کنید — بدون پایه، دانش‌آموز در هیچ پایه و رشته‌ای شمرده نمی‌شود'
+          : 'اول پایه را انتخاب کنید — بدون پایه، دانش‌آموز و کلاسش ساخته نمی‌شود';
     }
     return null;
   }
@@ -507,7 +513,7 @@ class _ImportScreenState extends State<ImportScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'فقط پایه‌هایی که در «کلاس‌ها» تعریف کرده‌اید. اگر یک پایه تیک بخورد، همان به '
+                'فقط پایه‌هایی که در «${c.field ? 'پایه و رشته' : 'کلاس‌ها'}» تعریف کرده‌اید. اگر یک پایه تیک بخورد، همان به '
                 'همهٔ سطرهای بی‌پایه داده می‌شود؛ اگر چند پایه (فایل کل مدرسه)، دانش‌آموزِ بی‌پایه '
                 'در «نیازمند پیگیری» می‌آید.',
                 style: Web.small.copyWith(color: Web.muted),
@@ -515,7 +521,7 @@ class _ImportScreenState extends State<ImportScreen> {
               const SizedBox(height: 8),
               if (c.definedGrades.isEmpty)
                 Text(
-                  '⚠️ هنوز پایه‌ای تعریف نشده — اول در «کلاس‌ها» پایه‌های مدرسه را تعریف کنید.',
+                  '⚠️ هنوز پایه‌ای تعریف نشده — اول در «${c.field ? 'پایه و رشته' : 'کلاس‌ها'}» پایه‌های مدرسه را تعریف کنید.',
                   key: const Key('imp-grade-none'),
                   style: TextStyle(color: Web.amber),
                 )
@@ -830,7 +836,15 @@ class _ImportScreenState extends State<ImportScreen> {
                           for (final (k, label, req, _) in ordered)
                             DropdownMenuItem(
                               value: k,
-                              child: Text(req ? '$label *' : label),
+                              // row 204: a field school has no «کلاس» — the file's
+                              // class column is just its group/section
+                              child: Text(
+                                req
+                                    ? '$label *'
+                                    : c.field && k == 'class_name'
+                                    ? 'گروه/شعبه در فایل (اختیاری)'
+                                    : label,
+                              ),
                             ),
                         ],
                         onChanged: (v) => c.setMap(i, v ?? ''),
@@ -1383,7 +1397,7 @@ class _ImportScreenState extends State<ImportScreen> {
               actions: [
                 if (r.newClasses.isNotEmpty)
                   WebBadge(
-                    'کلاس‌های جدید: ${r.newClasses.join('، ')}',
+                    '${c.field ? 'پایه و رشته‌های تازه' : 'کلاس‌های جدید'}: ${r.newClasses.join('، ')}',
                     key: const Key('imp-newclasses'),
                     tone: WebTone.amber,
                   ),
@@ -1572,7 +1586,7 @@ class _ImportScreenState extends State<ImportScreen> {
                   _stat(
                     '🏛️',
                     _fa(r.classes),
-                    'کلاس جدید',
+                    c.field ? 'پایه و رشتهٔ تازه' : 'کلاس جدید',
                     Web.amber,
                     const Key('imp-done-classes'),
                   ),
@@ -1583,7 +1597,7 @@ class _ImportScreenState extends State<ImportScreen> {
             if (kind == 'students')
               Text(
                 '🎓 دانش‌آموز: ${_fa(r.students)} · 👨‍👩‍👦 اولیا: ${_fa(r.parents)} · '
-                '♻️ به‌روزرسانی: ${_fa(r.updated)} · 🏛️ کلاس تازه: ${_fa(r.classes)}',
+                '♻️ به‌روزرسانی: ${_fa(r.updated)} · 🏛️ ${c.field ? 'پایه و رشتهٔ تازه' : 'کلاس تازه'}: ${_fa(r.classes)}',
                 key: const Key('imp-result-detail'),
                 style: Web.small.copyWith(color: Web.muted),
               ),

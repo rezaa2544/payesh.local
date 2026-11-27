@@ -9,6 +9,15 @@ import 'dart:math';
 
 import 'package:payesh_data/payesh_data.dart';
 
+import 'classes.dart'
+    show
+        gradeKey,
+        groupKey,
+        rosterStudent,
+        sameGrade,
+        studentBranchOf,
+        studentGradeOf;
+import 'school_structure.dart' show SchoolStructure;
 import 'family.dart' show FamilyBook;
 import 'leave_spec.dart';
 import 'records.dart';
@@ -165,7 +174,14 @@ final class Dashboard {
     this.away = const [],
     this.me = '',
     this.pendingLeaves = 0,
+    this.fieldBased = false,
+    this.cohorts = 0,
   });
+
+  /// Row 204: a field school (رشته‌محور) names no «کلاس» but its venues; its home shows the
+  /// پایه × رشته groups ([cohorts]) instead of a class count.
+  final bool fieldBased;
+  final int cohorts;
   final String today;
   final int weekday;
   final int students;
@@ -495,9 +511,10 @@ final class SchoolReports {
     final today = db.today();
     final weekday = schoolWeekday(today);
     final users = await db.allOrEmpty('users');
+    // row 204: the same roster as the classes page and attendance
     final students = [
       for (final u in users)
-        if (u.data['role'] == 'student' && u.data['active'] != false) u,
+        if (rosterStudent(u.data)) u,
     ];
     final classes = await _classes();
     final byId = {for (final c in classes) c.id: c};
@@ -511,8 +528,9 @@ final class SchoolReports {
     // coverage by cohort (grade + branch), not by the room the lesson is held in
     final groups = <String, _Group>{};
     _Group group(String g, String b, int? classId, String name) {
+      // row 204: «پایه دهم» and «دهم» are one cohort
       final key = g.isNotEmpty || b.isNotEmpty
-          ? 'cohort|$g\u001f$b'
+          ? 'cohort|${gradeKey(g)}\u001f${groupKey(b)}'
           : 'class|${classId ?? 'unknown'}';
       final x = groups.putIfAbsent(key, () => _Group(g, b, name));
       if (classId != null) x.classIds.add(classId);
@@ -527,12 +545,10 @@ final class SchoolReports {
     for (final s in students) {
       final cid = _int(s.data['class_id']);
       final cls = byId[cid]?.data ?? const {};
-      final g = _s(s.data['grade']).isNotEmpty
-          ? _s(s.data['grade'])
-          : _s(cls['grade']);
-      final b = _s(s.data['branch']).isNotEmpty
-          ? _s(s.data['branch'])
-          : _s(cls['branch']);
+      // row 204: the grade/branch every page shows (the import writes the branch as `field`,
+      // which this read missed — those students fell into a cohort of no branch)
+      final g = studentGradeOf(s.data, cls);
+      final b = studentBranchOf(s.data, cls);
       group(
         g,
         b,
@@ -660,6 +676,8 @@ final class SchoolReports {
       today: today,
       weekday: weekday,
       students: students.length,
+      fieldBased: (await SchoolStructure.read(db)).fieldBased,
+      cohorts: coverage.where((c) => c.grade.isNotEmpty).length,
       teachers: users.where((u) => u.data['role'] == 'teacher').length,
       classes: classes.length,
       recordsToday: att.length,
@@ -690,19 +708,17 @@ final class SchoolReports {
       for (final c in await db.allOrEmpty('classes')) c.id: c.data,
     };
     final myClass = _int(me?.data['class_id']);
-    final g = _s(me?.data['grade']).isNotEmpty
-        ? _s(me?.data['grade'])
-        : _s(classes[myClass]?['grade']);
-    final b = _s(me?.data['branch']).isNotEmpty
-        ? _s(me?.data['branch'])
-        : _s(classes[myClass]?['branch']);
+    // row 204: the same grade/branch every page shows (its class first, then its own; the
+    // import writes the branch as `field`, which this read missed)
+    final g = me == null ? '' : studentGradeOf(me.data, classes[myClass]);
+    final b = me == null ? '' : studentBranchOf(me.data, classes[myClass]);
     bool mine(EngineRow s) => switch (db.role) {
       'teacher' => _int(s.data['teacher_id']) == db.uid,
       'student' =>
         (myClass != null && _int(s.data['class_id']) == myClass) ||
             (g.isNotEmpty &&
-                _s(s.data['grade']) == g &&
-                _s(s.data['branch']) == b),
+                sameGrade(s.data['grade'], g) &&
+                groupKey(s.data['branch']) == groupKey(b)),
       _ => false,
     };
     final (cur, next) = await bells();
@@ -926,7 +942,10 @@ final class SchoolReports {
     required String dateFa,
     required List<ClassWeek> week,
     ReportCard? card,
+    bool fieldBased = false,
   }) {
+    // row 204: a field school (رشته‌محور) reports by پایه و رشته — no «کلاس»
+    final unit = fieldBased ? 'پایه و رشته' : 'کلاس';
     final b = StringBuffer()
       ..write(
         '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">',
@@ -944,7 +963,7 @@ final class SchoolReports {
         '<h1>${_esc(school)} — گزارش‌ها</h1><p>هفتهٔ منتهی به ${_esc(dateFa)}</p>',
       )
       ..write(
-        '<h2>حضور هفتگی به تفکیک کلاس</h2><table><thead><tr><th>کلاس</th><th>ثبت</th>',
+        '<h2>حضور هفتگی به تفکیک $unit</h2><table><thead><tr><th>$unit</th><th>ثبت</th>',
       )
       ..write(
         '<th>حاضر</th><th>غایب</th><th>تأخیر</th><th>درصد</th></tr></thead><tbody>',
@@ -958,7 +977,7 @@ final class SchoolReports {
     b.write('</tbody></table>');
     if (card != null) {
       b.write(
-        '<h2>کارنامهٔ کلاسی — ${_esc(card.className)}</h2><table><thead><tr><th>دانش‌آموز</th>',
+        '<h2>${fieldBased ? 'کارنامهٔ پایه و رشته' : 'کارنامهٔ کلاسی'} — ${_esc(card.className)}</h2><table><thead><tr><th>دانش‌آموز</th>',
       );
       for (final (_, n) in card.subjects) {
         b.write('<th>${_esc(n)}</th>');

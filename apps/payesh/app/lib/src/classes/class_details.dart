@@ -18,7 +18,11 @@ class DetailCard extends StatelessWidget {
     this.names = const [],
     this.empty = '',
     this.top,
+    this.below,
   });
+
+  /// Row 204: what follows the figures instead of the names (the student list).
+  final Widget? below;
 
   final List<(String, String)> stats;
   final String namesTitle;
@@ -51,6 +55,7 @@ class DetailCard extends StatelessWidget {
               WebBadge('$label: $value', tone: WebTone.none),
           ],
         ),
+        ?below,
         if (namesTitle.isNotEmpty) ...[
           const SizedBox(height: 10),
           Text(namesTitle, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -130,7 +135,11 @@ class LookupMergeRow extends StatefulWidget {
     required this.row,
     required this.others,
     required this.onMerge,
+    this.field = true,
   });
+
+  /// Row 204: a field school has no «کلاس» to mention.
+  final bool field;
   final LookupRow row;
   final List<LookupRow> others;
   final Future<void> Function(LookupRow into) onMerge;
@@ -151,8 +160,8 @@ class _LookupMergeRowState extends State<LookupMergeRow> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'ادغام: اگر این $label همان $label دیگری است، همهٔ دانش‌آموزان و کلاس‌هایش به آن '
-          'منتقل و این $label حذف می‌شود.',
+          'ادغام: اگر این $label همان $label دیگری است، همهٔ دانش‌آموزانش '
+          '${widget.field ? '' : 'و کلاس‌هایش '}به آن منتقل و این $label حذف می‌شود.',
           style: Web.small.copyWith(color: Web.muted),
         ),
         const SizedBox(height: 6),
@@ -196,13 +205,17 @@ class _LookupMergeRowState extends State<LookupMergeRow> {
 }
 
 /// Row 201 — the grey details of a grade/branch, with the «احتمالاً همان …» suggestion.
+/// Row 204: a field school (رشته‌محور) has no «کلاس»: a branch shows how many پایه it has, a
+/// grade how many رشته; the students are a sorted list with their details and filters, not a
+/// cloud of names. [onOpen] opens a student (to correct it right there).
 Widget lookupDetailCard(
   BuildContext context,
   LookupRow row,
   LookupDetail d, {
   required Future<void> Function(int into, String name) onMerge,
+  bool field = true,
+  Future<void> Function(int studentId)? onOpen,
 }) {
-  final other = row.kind == 'grade' ? 'رشته' : 'پایه';
   return DetailCard(
     key: const Key('def-detail'),
     top: d.likeId == null
@@ -236,30 +249,213 @@ Widget lookupDetailCard(
               ),
             ),
           ),
-    stats: [
-      ('دانش‌آموز', Web.fa(d.students.length)),
-      ('کلاس', Web.fa(d.classes.length)),
-      if (row.order > 0) ('ترتیب', Web.fa(row.order)),
-    ],
-    namesTitle: 'دانش‌آموزان',
-    empty: 'دانش‌آموزی با این ${lookupFa[row.kind]} نیست.',
-    names: [
-      for (final (_, n, o) in d.students) o.isEmpty ? n : '$n · $other $o',
-    ],
+    stats: lookupStats(row, d, field: field),
+    below: LookupStudents(
+      key: const Key('def-students'),
+      kind: row.kind,
+      detail: d,
+      field: field,
+      onOpen: onOpen,
+      empty: 'دانش‌آموزی با این ${lookupFa[row.kind]} نیست.',
+    ),
   );
+}
+
+/// Row 204: the figures of a grade/branch. Field school: «پایه» (of a branch) / «رشته» (of a
+/// grade) — never «کلاس»; a class school keeps its real classes.
+List<(String, String)> lookupStats(
+  LookupRow row,
+  LookupDetail d, {
+  required bool field,
+}) => [
+  ('دانش‌آموز', Web.fa(d.students.length)),
+  if (field)
+    (row.kind == 'branch' ? 'پایه' : 'رشته', Web.fa(row.others))
+  else
+    ('کلاس', Web.fa(d.classes.length)),
+  if (row.order > 0) ('ترتیب', Web.fa(row.order)),
+  if (d.inactive > 0) ('غیرفعال (در شمار نیست)', Web.fa(d.inactive)),
+];
+
+/// Row 204 — the students of a grade/branch (or of «بدون پایه»): filter pills by the other
+/// half (a branch → پایه, a grade → رشته; a class school's grade → کلاس) over a table sorted
+/// by name with پایه، رشته، کد ملی and شمارهٔ همراه, like the users list.
+class LookupStudents extends StatefulWidget {
+  const LookupStudents({
+    super.key,
+    required this.kind,
+    required this.detail,
+    required this.field,
+    this.onOpen,
+    this.empty = '',
+    this.filters = true,
+  });
+
+  /// Row 204: false = no filter pills (a class/room has one grade).
+  final bool filters;
+
+  /// The kind of the list's own definition: 'grade' or 'branch'.
+  final String kind;
+  final LookupDetail detail;
+  final bool field;
+  final Future<void> Function(int studentId)? onOpen;
+  final String empty;
+
+  /// The table shows this many; the filters narrow a longer list.
+  static const maxRows = 400;
+
+  @override
+  State<LookupStudents> createState() => _LookupStudentsState();
+}
+
+class _LookupStudentsState extends State<LookupStudents> {
+  String pick = 'all';
+
+  /// What the pills split by: a grade of a field school by رشته, a class school's grade by
+  /// its classes, a branch (and «بدون رشته») by پایه.
+  String _of(LookupStudent s) => widget.kind == 'grade'
+      ? (widget.field ? s.branch : s.className)
+      : s.grade;
+
+  String _key(String v) => widget.kind == 'grade' ? groupKey(v) : gradeKey(v);
+
+  @override
+  Widget build(BuildContext context) {
+    final all = widget.detail.students;
+    final by = widget.kind == 'grade'
+        ? (widget.field ? 'رشته' : 'کلاس')
+        : 'پایه';
+    final groups = <String, (String, int)>{};
+    for (final s in all) {
+      final v = _of(s);
+      final k = _key(v);
+      final (name, n) = groups[k] ?? (v, 0);
+      groups[k] = (name, n + 1);
+    }
+    final keys = groups.keys.toList()
+      ..sort((a, b) {
+        if (a.isEmpty != b.isEmpty) return a.isEmpty ? 1 : -1;
+        final x = groups[a]!.$1, y = groups[b]!.$1;
+        final lx = gradeLevel(x), ly = gradeLevel(y);
+        return widget.kind != 'grade' && lx != ly
+            ? lx.compareTo(ly)
+            : x.compareTo(y);
+      });
+    if (pick != 'all' && !groups.containsKey(pick)) pick = 'all';
+    final rows = [
+      for (final s in all)
+        if (pick == 'all' || _key(_of(s)) == pick) s,
+    ];
+    final cols = widget.field
+        ? const [
+            '',
+            'نام و نام خانوادگی',
+            'پایه',
+            'رشته',
+            'کد ملی',
+            'شمارهٔ همراه',
+          ]
+        : const [
+            '',
+            'نام و نام خانوادگی',
+            'پایه',
+            'کلاس',
+            'کد ملی',
+            'شمارهٔ همراه',
+          ];
+    Widget cell(String t, {Key? key}) =>
+        Text(t.isEmpty ? '—' : Web.fa(t), key: key, style: Web.small);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 10),
+        const Text(
+          'دانش‌آموزان',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        if (all.isEmpty)
+          Text(widget.empty, style: Web.small.copyWith(color: Web.muted))
+        else ...[
+          if (widget.filters && (groups.length > 1 || keys.first.isEmpty))
+            WebPills(
+              key: const Key('def-filter'),
+              keyPrefix: 'def-filter',
+              bottom: 8,
+              selected: pick,
+              onSelected: (k) => setState(() => pick = k),
+              tabs: [
+                ('all', 'همه (${Web.fa(all.length)})'),
+                for (final k in keys)
+                  (
+                    k,
+                    '${groups[k]!.$1.isEmpty ? 'بدون $by' : groups[k]!.$1} '
+                        '(${Web.fa(groups[k]!.$2)})',
+                  ),
+              ],
+            ),
+          WebTable(
+            key: const Key('def-students-table'),
+            minWidth: 640,
+            bordered: true,
+            head: cols,
+            rows: [
+              for (final (i, s) in rows.take(LookupStudents.maxRows).indexed)
+                [
+                  Text(
+                    Web.fa(i + 1),
+                    style: Web.small.copyWith(color: Web.muted),
+                  ),
+                  MouseRegion(
+                    cursor: widget.onOpen == null
+                        ? MouseCursor.defer
+                        : SystemMouseCursors.click,
+                    child: GestureDetector(
+                      key: Key('def-stu-${s.id}'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: widget.onOpen == null
+                          ? null
+                          : () => widget.onOpen!(s.id),
+                      child: Text(
+                        s.name,
+                        style: Web.small.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: widget.onOpen == null ? null : Web.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  cell(s.grade),
+                  cell(widget.field ? s.branch : s.className),
+                  cell(s.nationalId),
+                  cell(s.phone),
+                ],
+            ],
+          ),
+          if (rows.length > LookupStudents.maxRows)
+            Text(
+              'و ${Web.fa(rows.length - LookupStudents.maxRows)} نفر دیگر — با دکمه‌های بالا جدا کنید.',
+              style: Web.small.copyWith(color: Web.muted),
+            ),
+        ],
+      ],
+    );
+  }
 }
 
 /// Asks before a merge; true = confirmed.
 Future<bool> confirmMerge(
   BuildContext context,
   LookupRow row,
-  String into,
-) => confirmAction(
+  String into, {
+  bool field = true,
+}) => confirmAction(
   context,
   prefix: 'def-merge',
   title: 'ادغام ${lookupFa[row.kind]}',
   message:
-      '«${row.name}» در «$into» ادغام شود؟ همهٔ دانش‌آموزان و کلاس‌هایش به «$into» منتقل '
-      'و «${row.name}» حذف می‌شود.',
+      '«${row.name}» در «$into» ادغام شود؟ همهٔ دانش‌آموزانش${field ? '' : ' و کلاس‌هایش'} '
+      'به «$into» منتقل و «${row.name}» حذف می‌شود.',
   confirm: 'ادغام',
 );

@@ -58,9 +58,9 @@ enum GradeError {
 
   String get messageFa => switch (this) {
     GradeError.notAllowed => 'ثبت نمره فقط برای معلم و مدیر مجاز است',
-    GradeError.unknownClass => 'این کلاس در فهرست کلاس‌های شما نیست',
+    GradeError.unknownClass => 'این گروه در فهرست شما نیست',
     GradeError.unknownSubject => 'این درس در فهرست درس‌ها نیست',
-    GradeError.notInClass => 'این دانش‌آموز در فهرست این کلاس نیست',
+    GradeError.notInClass => 'این دانش‌آموز در این فهرست نیست',
     GradeError.badScore => 'نمرهٔ نامعتبر برای یکی از دانش‌آموزان',
   };
 }

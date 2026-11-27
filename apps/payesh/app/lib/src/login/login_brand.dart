@@ -336,7 +336,7 @@ class _BrandSide extends StatelessWidget {
         feature(
           Icons.fact_check_outlined,
           'حضور و غیاب لحظه‌ای',
-          'ثبت در کلاس و پیام فوری به اولیا',
+          'ثبت با یک لمس و پیام فوری به اولیا',
         ),
         feature(
           Icons.insights_outlined,

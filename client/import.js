@@ -216,7 +216,8 @@ function impGradeLevel(txt) {
     .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
   if (!t) return 0;
   const fa = { 'اول': 1, 'دوم': 2, 'سوم': 3, 'چهارم': 4, 'پنجم': 5, 'ششم': 6, 'هفتم': 7, 'هشتم': 8, 'نهم': 9, 'دهم': 10, 'یازدهم': 11, 'دوازدهم': 12 };
-  for (const w of Object.keys(fa)) if (t === w || t.indexOf(w) > -1) return fa[w];
+  /* ردیف ۲۰۴: بلندترین واژه اول — «یازدهم» و «دوازدهم» شامل «دهم»اند و ۱۰ شمرده می‌شدند */
+  for (const w of Object.keys(fa).sort((x, y) => y.length - x.length)) if (t === w || t.indexOf(w) > -1) return fa[w];
   const m = t.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
   if (m && Number(m[1]) >= 1 && Number(m[1]) <= 12) return Number(m[1]);
   return 0;
@@ -1192,7 +1193,7 @@ function impStepHtml() {
           <td class="small muted">${esc(preview.map(r => r[i]).filter(v => String(v || '').trim()).join(' · ') || '—').slice(0, 30)}</td>
           <td><select class="input" data-imp-map="${i}" style="min-width:200px">
             <option value="">— نادیده بگیر —</option>
-            ${impOrderedFields(imp.kind).map(f => `<option value="${f[0]}" ${map[i] === f[0] ? 'selected' : ''}>${esc(f[1])}${f[2] ? ' *' : ''}</option>`).join('')}
+            ${impOrderedFields(imp.kind).map(f => `<option value="${f[0]}" ${map[i] === f[0] ? 'selected' : ''}>${esc(f[0] === 'class_name' && typeof isFieldSchoolNow === 'function' && isFieldSchoolNow() ? 'گروه/شعبه در فایل (اختیاری)' : f[1])}${f[2] ? ' *' : ''}</option>`).join('')}
             ${(() => {
               const cur = String(map[i] || '');
               const labels = impCustomLabels();

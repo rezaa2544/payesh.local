@@ -104,6 +104,19 @@ final class SchoolStructure {
 
   static Future<SchoolStructure> read(SchoolRecords db) async {
     final s = (await db.get('schools', 1))?.data ?? const {};
+    if (levelOf(s['level']).isNotEmpty ||
+        (s['branches'] is List && (s['branches'] as List).isNotEmpty)) {
+      return from(s, const []);
+    }
+    return from(s, [for (final c in await db.allOrEmpty('classes')) c.data]);
+  }
+
+  /// Row 204: the same answer from the school row and the class rows already read (the
+  /// attendance and grade books read their own engine, not [SchoolRecords]).
+  static SchoolStructure from(
+    Map<String, Object?> s,
+    Iterable<Map<String, Object?>> classes,
+  ) {
     final level = levelOf(s['level']);
     List<String> list(Object? v) => [
       if (v is List)
@@ -123,13 +136,13 @@ final class SchoolStructure {
     // مقطع هنوز تعیین نشده: از داده حدس می‌زنیم (رفتار پیش از ردیف ۱۹۵ حفظ می‌شود)
     var field = branches.isNotEmpty;
     if (!field) {
-      for (final c in await db.allOrEmpty('classes')) {
-        if (c.data['kind'] == 'room') continue;
-        final mode = SchoolRecords.str(c.data['mode']);
+      for (final c in classes) {
+        if (c['kind'] == 'room') continue;
+        final mode = SchoolRecords.str(c['mode']);
         if (mode == 'field' ||
             (mode.isEmpty &&
-                (SchoolRecords.str(c.data['branch']).isNotEmpty ||
-                    gradeLevel(c.data['grade'] ?? c.data['name']) >= 10))) {
+                (SchoolRecords.str(c['branch']).isNotEmpty ||
+                    gradeLevel(c['grade'] ?? c['name']) >= 10))) {
           field = true;
           break;
         }

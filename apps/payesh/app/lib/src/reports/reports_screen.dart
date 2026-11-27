@@ -240,17 +240,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _covHead(
-            'پوشش کلاس‌ها',
+            d.fieldBased ? 'پوشش محل‌های برگزاری' : 'پوشش کلاس‌ها',
             bell != null
                 ? 'وضعیت محل‌ها در زنگ ${bell.label.isNotEmpty ? bell.label : Web.fa(bell.order)} · ${Web.clock24(bell.start)}'
                 : 'در حال حاضر زنگ درسی فعالی نیست.',
             WebBadge(
-              '${Web.fa(d.rooms.length)} کلاس / محل',
+              d.fieldBased
+                  ? '${Web.fa(d.rooms.length)} محل برگزاری'
+                  : '${Web.fa(d.rooms.length)} کلاس / محل',
               tone: d.rooms.any((r) => r.busy) ? WebTone.green : WebTone.none,
             ),
           ),
           if (d.rooms.isEmpty)
-            _dashEmpty('هنوز کلاس یا محل برگزاری تعریف نشده است.')
+            _dashEmpty(
+              d.fieldBased
+                  ? 'هنوز محل برگزاری تعریف نشده است.'
+                  : 'هنوز کلاس یا محل برگزاری تعریف نشده است.',
+            )
           else
             WebTable(
               key: const Key('dash-rooms-table'),
@@ -265,7 +271,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               rowColor: (i) => d.rooms[i].busy
                   ? Color.lerp(Web.card, Web.greenBg, 0.55)
                   : null,
-              head: const ['کلاس / محل', 'وضعیت', 'پایه و رشته', 'درس', 'دبیر'],
+              head: [
+                d.fieldBased ? 'محل برگزاری' : 'کلاس / محل',
+                'وضعیت',
+                'پایه و رشته',
+                'درس',
+                'دبیر',
+              ],
               rows: [
                 for (final r in d.rooms)
                   [
@@ -661,7 +673,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             if (t.slots.isEmpty)
               Text(
-                teacher ? 'امروز کلاسی در برنامه ندارید.' : 'برنامه‌ای نیست.',
+                teacher
+                    ? 'امروز زنگ درسی در برنامه ندارید.'
+                    : 'برنامه‌ای نیست.',
                 key: const Key('dash-today-none'),
                 style: Web.small,
               ),
@@ -827,9 +841,13 @@ class ReportsController extends SchoolController {
   int? classId;
   String school = '';
 
+  /// Row 204: a field school (رشته‌محور) — the page says «پایه و رشته», never «کلاس».
+  bool field = false;
+
   @override
   Future<void> read(SchoolRecords db) async {
     final r = SchoolReports(db);
+    field = (await SchoolStructure.read(db)).fieldBased;
     week = await r.weekly();
     school = SchoolRecords.str((await db.get('schools', 1))?.data['name']);
     final classes = week.map((w) => w.classId).toList();
@@ -857,6 +875,7 @@ class ReportsController extends SchoolController {
         dateFa: _jd(d.today()),
         week: week,
         card: card,
+        fieldBased: field,
       );
       final path = await save('payesh-report-${d.today()}.html', html);
       notice = 'نسخهٔ چاپی ذخیره شد: $path — آن را باز کنید و چاپ بگیرید';
@@ -926,10 +945,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('حضور هفتگی به تفکیک کلاس', style: Web.b),
+                Text(
+                  c.field
+                      ? 'حضور هفتگی به تفکیک پایه و رشته'
+                      : 'حضور هفتگی به تفکیک کلاس',
+                  style: Web.b,
+                ),
                 WebTable(
                   key: const Key('rep-week-table'),
-                  head: const ['کلاس', 'ثبت', 'حاضر', 'غایب', 'تأخیر', 'درصد'],
+                  head: [
+                    c.field ? 'پایه و رشته' : 'کلاس',
+                    'ثبت',
+                    'حاضر',
+                    'غایب',
+                    'تأخیر',
+                    'درصد',
+                  ],
                   rows: [
                     for (final r in c.week)
                       [
@@ -959,7 +990,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text('کارنامهٔ کلاسی', style: Web.b)),
+                    Expanded(
+                      child: Text(
+                        c.field ? 'کارنامهٔ پایه و رشته' : 'کارنامهٔ کلاسی',
+                        style: Web.b,
+                      ),
+                    ),
                     if (c.week.isNotEmpty)
                       SizedBox(
                         width: 240,

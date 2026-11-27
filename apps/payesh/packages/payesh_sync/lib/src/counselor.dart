@@ -6,6 +6,7 @@
 // students). Statuses: `open` → `handled` (with an optional note).
 import 'package:payesh_data/payesh_data.dart';
 
+import 'classes.dart' show rosterStudent;
 import 'records.dart';
 
 /// One row of `counselor_refs` with what the queue shows about the student.
@@ -95,9 +96,7 @@ final class CounselorQueue {
   /// Active students the manager can refer, by name.
   Future<List<EngineRow>> students() async {
     final all = await db.allOrEmpty('users');
-    final s = all
-        .where((u) => u.data['role'] == 'student' && u.data['active'] != false)
-        .toList();
+    final s = all.where((u) => rosterStudent(u.data)).toList();
     s.sort(
       (a, b) =>
           SchoolRecords.str(a.data['name'])

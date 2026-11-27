@@ -535,7 +535,7 @@ function d2Ico(name, size) {
 }
 
 function managerHome() {
-  const students = sortBy(list('users').filter(u => u.role === 'student' && u.active !== false), 'name');
+  const students = sortBy(list('users').filter(rosterStudent), 'name');
   const classes = sortBy(list('classes'), 'name');
   const today = todayISO();
   const attToday = list('attendance').filter(a => a.date === today);
@@ -545,8 +545,9 @@ function managerHome() {
   /* پوشش حضور مدرسه بر مبنای پایه/رشته است، نه نام محل برگزاری. */
   const cohortClasses = classes.filter(c => !dashboardIsRoom(c));
   const coverageByKey = new Map();
+  /* ردیف ۲۰۴: «پایه دهم» و «دهم» یک گروه‌اند (همان قاعدهٔ صفحهٔ پایه و رشته) */
   const cohortKey = (grade, branch, classId) => (grade || branch)
-    ? 'cohort|' + grade + '\u001f' + branch
+    ? 'cohort|' + gradeKey(grade) + '\u001f' + defKey(branch)
     : 'class|' + (Number(classId) || 'unknown');
   const ensureCoverage = (grade, branch, classId, name) => {
     const g = String(grade || '').trim(), b = String(branch || '').trim();
@@ -562,8 +563,10 @@ function managerHome() {
   });
   students.forEach(student => {
     const cls = byId('classes', student.class_id) || {};
-    const grade = String(student.grade || cls.grade || '').trim();
-    const branch = String(student.branch || cls.branch || '').trim();
+    /* ردیف ۲۰۴: پایه و رشته اول از گروه خود دانش‌آموز، بعد از فیلد خودش (field یا branch) */
+    const place = stuPlace(student);
+    const grade = place.g.trim();
+    const branch = place.b.trim();
     const group = ensureCoverage(grade, branch, student.class_id, cls.name || student.name);
     group.students.set(Number(student.id), student);
   });
@@ -652,8 +655,8 @@ function managerHome() {
         <td><span class="badge ${tone}">${roster ? fa(ratio) + '٪' : records.length ? 'ثبت دارد' : 'بدون دانش‌آموز'}</span></td></tr>`).join('')}
       </tbody></table></div>` : '<div class="dashboard-empty">هنوز پایه یا رشته‌ای برای پوشش حضور تعریف نشده است.</div>'}`)}</section>
 
-  <section id="dashboard-room-coverage">${card(`<div class="row between" style="margin-bottom:10px"><div><b class="dashboard-card-title">پوشش کلاس‌ها</b><div class="small muted">${bellNow ? 'وضعیت محل‌ها در زنگ ' + esc(bellNow.label || fa(bellNow.order)) + ' · ' + esc(clock24(bellNow.start) || bellNow.start || '') : 'در حال حاضر زنگ درسی فعالی نیست.'}</div></div><span class="badge ${todaySlots.some(s => Number(s.room_id) > 0) ? 'green' : ''}">${fa(rooms.length)} کلاس / محل</span></div>
-    ${rooms.length ? `<div class="table-wrap dashboard-table-wrap"><table class="dashboard-table dashboard-room-table"><thead><tr><th>کلاس / محل</th><th>وضعیت</th><th>پایه و رشته</th><th>درس</th><th>دبیر</th></tr></thead><tbody>
+  <section id="dashboard-room-coverage">${card(`<div class="row between" style="margin-bottom:10px"><div><b class="dashboard-card-title">${isFieldSchoolNow() ? 'پوشش محل‌های برگزاری' : 'پوشش کلاس‌ها'}</b><div class="small muted">${bellNow ? 'وضعیت محل‌ها در زنگ ' + esc(bellNow.label || fa(bellNow.order)) + ' · ' + esc(clock24(bellNow.start) || bellNow.start || '') : 'در حال حاضر زنگ درسی فعالی نیست.'}</div></div><span class="badge ${todaySlots.some(s => Number(s.room_id) > 0) ? 'green' : ''}">${fa(rooms.length)} کلاس / محل</span></div>
+    ${rooms.length ? `<div class="table-wrap dashboard-table-wrap"><table class="dashboard-table dashboard-room-table"><thead><tr><th>${isFieldSchoolNow() ? 'محل برگزاری' : 'کلاس / محل'}</th><th>وضعیت</th><th>پایه و رشته</th><th>درس</th><th>دبیر</th></tr></thead><tbody>
       ${rooms.map(room => {
         const active = todaySlots.filter(s => {
           const scheduledClass = byId('classes', s.class_id) || {};
@@ -672,7 +675,7 @@ function managerHome() {
           <td>${slot ? `<strong>${esc(grade || '—')}${branch ? ' · ' + esc(branch) : ''}</strong>` : '<span class="muted">—</span>'}</td>
           <td>${esc(subject)}</td><td>${esc(teacher)}</td></tr>`;
       }).join('')}
-      </tbody></table></div>` : '<div class="dashboard-empty">هنوز کلاس یا محل برگزاری تعریف نشده است.</div>'}`)}</section>
+      </tbody></table></div>` : `<div class="dashboard-empty">${isFieldSchoolNow() ? 'هنوز محل برگزاری تعریف نشده است.' : 'هنوز کلاس یا محل برگزاری تعریف نشده است.'}</div>`}`)}</section>
   </div>
 
   `;
@@ -935,11 +938,19 @@ PAGES.users = () => {
   const branchOf = u => String((byId('classes', u.class_id) || {}).branch || u.field || u.branch || '').trim();
   const gf = role === 'student' ? String(S.gradeFilter || '') : '';
   const bf = role === 'student' ? String(S.branchFilter || '') : '';
-  const hit = (v, want) => !want || (want === '-' ? !v : v === want);
-  if (gf || bf) users = users.filter(u => hit(gradeOf(u), gf) && hit(branchOf(u), bf));
+  /* ردیف ۲۰۴: همان قاعدهٔ صفحهٔ پایه و رشته — «پایه دهم»، «۱۰» و «دهم» یک گزینه‌اند و هر سه را می‌گیرند */
+  const hit = (v, want, key) => !want || (want === '-' ? !v : key(v) === key(want));
+  if (gf || bf) users = users.filter(u => hit(gradeOf(u), gf, gradeKey) && hit(branchOf(u), bf, defKey));
   const studentsAll = list('users').filter(u => u.role === 'student');
-  const optsOf = (kind, of) => [...new Set([...lookupList(kind).map(l => String(l.name || '').trim()), ...studentsAll.map(of)].filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b, 'fa'));
+  const optsOf = (kind, of) => {
+    const key = kind === 'grade' ? gradeKey : defKey;
+    const m = new Map();
+    for (const v of [...lookupList(kind).map(l => String(l.name || '').trim()), ...studentsAll.map(of)]) {
+      if (v && key(v) && !m.has(key(v))) m.set(key(v), v);
+    }
+    const lvl = v => (kind === 'grade' && typeof impGradeLevel === 'function' ? impGradeLevel(v) : 0);
+    return [...m.values()].sort((a, b) => (lvl(a) - lvl(b)) || a.localeCompare(b, 'fa'));
+  };
   const filterSel = (id, key, all, none, opts, cur) => `<select class="input" id="${id}" data-set="${key}">
       <option value="">${all}</option>${opts.map(o => `<option value="${esc(o)}" ${cur === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
       <option value="-" ${cur === '-' ? 'selected' : ''}>${none}</option></select>`;
@@ -960,7 +971,7 @@ PAGES.users = () => {
   ${fuCount ? `<div class="card tight" style="border-color:#fcd34d;background:#fffbeb">
     <div class="row between" style="gap:8px;flex-wrap:wrap">
       <div><b>🕒 ${fa(fuCount)} مورد نیاز به پیگیری دارد</b>
-        <div class="small muted" style="margin-top:4px">${fa(openIssues.length)} ردیف از ورود دسته‌ای + ${fa(fuCount - openIssues.length)} دانش‌آموز که کلاسش درست نیست (رشته یا پایه‌اش حذف شده یا پایه نداشت).</div></div>
+        <div class="small muted" style="margin-top:4px">${fa(openIssues.length)} ردیف از ورود دسته‌ای + ${fa(fuCount - openIssues.length)} دانش‌آموز که ${isFieldSchoolNow() ? 'پایه یا رشته‌اش' : 'کلاسش'} درست نیست (رشته یا پایه‌اش حذف شده یا پایه نداشت).</div></div>
       <span class="row" style="gap:8px;flex-wrap:wrap">
         <a class="btn sm ghost" href="#/followup">صفحهٔ پیگیری</a>
         <button class="btn sm" data-act="issues-open">مشاهده و اصلاح</button>
@@ -1191,16 +1202,72 @@ function lookupList(kind) {
   return sortBy(list('lookups').filter(l => String(l.kind) === String(kind)), 'name');
 }
 
+/* ردیف ۲۰۴: یک قاعده برای همهٔ شمارها (همان برنامهٔ بومی): «پایه دهم»، «۱۰» و «دهم» یک پایه‌اند؛
+   پایه/رشتهٔ دانش‌آموز اول از کلاس خودش، بعد از فیلد خودش؛ دانش‌آموزِ غیرفعال شمرده نمی‌شود. */
+function defKey(v) { return (typeof impNorm === 'function' ? impNorm(v) : String(v || '').trim()).replace(/\s+/g, ''); }
+function gradeKey(v) {
+  const l = typeof impGradeLevel === 'function' ? impGradeLevel(v) : 0;
+  return l ? 'L' + l : defKey(v);
+}
+function rosterStudent(u) { return u && u.role === 'student' && u.active !== false && u.active !== 0; }
+function stuPlace(u) {
+  const c = u.class_id ? byId('classes', u.class_id) : null;
+  const inCls = c && String(c.kind || '') !== 'room';
+  const g = inCls && c.grade ? String(c.grade) : String(u.grade || '');
+  const b = inCls && c.branch ? String(c.branch) : String(u.field || u.branch || '');
+  return { g, b };
+}
+function isFieldSchoolNow() {
+  const lvl = String((S.server.school && S.server.school.level) || '');
+  if (lvl) return /متوسطهٔ? ?دوم/.test(lvl);
+  return list('classes').some(c => String(c.mode || '') === 'field' || (String(c.kind || '') !== 'room' && String(c.branch || '')));
+}
+
 /* یک ردیف تعریف با دکمه‌های ویرایش و حذف */
-function lookupRowHtml(row, kind) {
-  const used = kind === 'grade'
-    ? list('classes').filter(c => String(c.grade || '') === String(row.name)).length
-    : list('classes').filter(c => String(c.branch || '') === String(row.name)).length;
+function lookupRowHtml(row, kind, field) {
+  const grade = kind === 'grade';
+  const key = v => (grade ? gradeKey(v) : defKey(v));
+  const k = key(row.name);
+  const used = list('classes').filter(c => String(c.kind || '') !== 'room' && key(grade ? c.grade : c.branch) === k).length;
+  const others = new Set();
+  let students = 0;
+  for (const u of list('users')) {
+    if (!rosterStudent(u)) continue;
+    const p = stuPlace(u);
+    if (key(grade ? p.g : p.b) !== k) continue;
+    students++;
+    const o = grade ? defKey(p.b) : gradeKey(p.g);
+    if (o) others.add(o);
+  }
+  for (const c of list('classes')) {
+    if (String(c.kind || '') === 'room' || key(grade ? c.grade : c.branch) !== k) continue;
+    const o = grade ? defKey(c.branch) : gradeKey(c.grade);
+    if (o) others.add(o);
+  }
+  /* ردیف ۲۰۴: مدرسهٔ رشته‌محور «کلاس» ندارد — رشته در چند پایه است، پایه چند رشته دارد */
+  const sub = field
+    ? (others.size ? (grade ? fa(others.size) + ' رشته' : 'در ' + fa(others.size) + ' پایه') : (students ? '' : 'بدون استفاده'))
+    : (used ? fa(used) + ' کلاس از این مورد استفاده می‌کند' : 'بدون استفاده');
   const actions = `<button class="btn sm ghost" data-act="def-edit" data-id="${row.id}">ویرایش</button>
        <button class="btn sm ghost" style="color:#b91c1c" data-act="def-delete" data-id="${row.id}">حذف</button>`;
-  return `<div class="item"><div class="grow"><div class="t">${esc(row.name)}</div>
-      <div class="s">${used ? fa(used) + ' کلاس از این مورد استفاده می‌کند' : 'بدون استفاده'}</div></div>
+  return `<div class="item"><div class="grow"><div class="t">${esc(row.name)}${students ? ' ' + badge(fa(students) + ' دانش‌آموز', 'green') : ''}</div>
+      <div class="s">${sub}</div></div>
     ${actions}</div>`;
+}
+
+/* ردیف ۲۰۴: دانش‌آموزانی که هیچ پایه/رشتهٔ تعریف‌شده‌ای شمرده نشده‌اند — تا جمع ستون‌ها درست باشد */
+function unassignedHtml(kind) {
+  const grade = kind === 'grade';
+  const defs = new Set(lookupList(kind).map(l => (grade ? gradeKey(l.name) : defKey(l.name))).filter(Boolean));
+  const n = list('users').filter(u => {
+    if (!rosterStudent(u)) return false;
+    const p = stuPlace(u);
+    const v = grade ? gradeKey(p.g) : defKey(p.b);
+    return !v || !defs.has(v);
+  }).length;
+  if (!n) return '';
+  return `<div class="item"><div class="grow"><div class="t">بدون ${LOOKUP_FA[kind]} ${badge(fa(n) + ' دانش‌آموز', 'amber')}</div>
+      <div class="s">${LOOKUP_FA[kind]} خالی یا ناشناخته — از «کاربران» یا «پیگیری» درست کنید</div></div></div>`;
 }
 
 /* ══════════════ مدیر: کلاس‌ها و تعریف‌ها ══════════════ */
@@ -1212,8 +1279,7 @@ PAGES.classes = () => {
   /* گروه‌های خودکارِ ورود دسته‌ایِ قدیمی (kind='group') دیگر کلاس نیستند؛
      کلاس فقط چیزی است که مدیر خودش ساخته است. */
   const rooms = sortBy(all.filter(c => String(c.kind || '') === 'room'), 'name');
-  const lvl = String((S.server.school && S.server.school.level) || '');
-  const isFieldSchool = /متوسطهٔ? ?دوم/.test(lvl) || all.some(c => String(c.mode || '') === 'field');
+  const isFieldSchool = isFieldSchoolNow();
 
   const roomsCard = card(
     `<div class="row between" style="margin-bottom:8px"><b>🏫 کلاس‌ها و کارگاه‌ها (محل برگزاری)</b>
@@ -1225,21 +1291,22 @@ PAGES.classes = () => {
        ${rooms.map(c => `<tr><td><b>${esc(c.name)}</b></td><td>${fa(countOf(c.id))}</td>
          <td class="nowrap"><button class="btn sm ghost" data-act="room-edit" data-id="${esc(c.id)}">ویرایش</button>
          <button class="btn sm ghost" data-act="class-delete" data-id="${esc(c.id)}" style="color:#b91c1c">حذف</button></td></tr>`).join('')}
-     </tbody></table></div>` : '<div class="small muted">هنوز کلاس یا کارگاهی تعریف نشده است.</div>'}`);
+     </tbody></table></div>` : `<div class="small muted">${isFieldSchool ? 'هنوز محل برگزاری تعریف نشده است.' : 'هنوز کلاس یا کارگاهی تعریف نشده است.'}</div>`}`);
 
   const headerAction = isFieldSchool
     ? ''
     : `<button class="btn sm primary" data-act="class-add">+ کلاس جدید</button>`;
   /* ردیف ۱۸۵: سه ستون کنار هم — پایه‌ها راست، رشته‌ها وسط، کلاس و محل برگزاری چپ */
-  return `${pageHead('کلاس‌ها و تعریف‌ها', '', headerAction)}
+  /* ردیف ۲۰۴: در مدرسهٔ رشته‌محور «کلاس» فقط محل برگزاری است */
+  return `${pageHead(isFieldSchool ? 'پایه‌ها، رشته‌ها و محل برگزاری' : 'کلاس‌ها و تعریف‌ها', '', headerAction)}
 
   ${card(`<div class="row between" style="margin-bottom:8px"><b>پایه‌ها</b>
       <button class="btn sm" data-act="def-add" data-kind="grade">+ پایه</button></div>
-    <div class="list">${lookupList('grade').map(r => lookupRowHtml(r, 'grade')).join('')}</div>`)}
+    <div class="list">${lookupList('grade').map(r => lookupRowHtml(r, 'grade', isFieldSchool)).join('')}${unassignedHtml('grade')}</div>`)}
 
-  ${card(`<div class="row between" style="margin-bottom:8px"><b>رشته‌ها</b>
+  ${isFieldSchool ? card(`<div class="row between" style="margin-bottom:8px"><b>رشته‌ها</b>
       <button class="btn sm" data-act="def-add" data-kind="branch">+ رشته</button></div>
-    <div class="list">${lookupList('branch').map(r => lookupRowHtml(r, 'branch')).join('')}</div>`)}
+    <div class="list">${lookupList('branch').map(r => lookupRowHtml(r, 'branch', true)).join('')}${unassignedHtml('branch')}</div>`) : ''}
 
   ${roomsCard}
 
@@ -1272,12 +1339,12 @@ PAGES.reports = () => {
     return { c, p, ab, lt, pct, n: rowsC.length };
   });
   return `${pageHead('گزارش‌ها', 'هفتهٔ اخیر', `<button class="btn sm" data-act="print">🖨️ چاپ</button>`)}
-  ${card(`<b>حضور هفتگی به تفکیک کلاس</b>
-    <div class="table-wrap"><table><thead><tr><th>کلاس</th><th>ثبت</th><th>حاضر</th><th>غایب</th><th>تأخیر</th><th>درصد</th></tr></thead><tbody>
+  ${card(`<b>حضور هفتگی به تفکیک ${isFieldSchoolNow() ? 'پایه و رشته' : 'کلاس'}</b>
+    <div class="table-wrap"><table><thead><tr><th>${isFieldSchoolNow() ? 'پایه و رشته' : 'کلاس'}</th><th>ثبت</th><th>حاضر</th><th>غایب</th><th>تأخیر</th><th>درصد</th></tr></thead><tbody>
     ${rows.map(r => `<tr><td>${esc(r.c.name)}</td><td>${fa(r.n)}</td><td>${fa(r.p)}</td><td>${fa(r.ab)}</td><td>${fa(r.lt)}</td>
       <td>${badge(fa(r.pct) + '٪', r.pct >= 90 ? 'green' : r.pct >= 75 ? 'amber' : 'red')}</td></tr>`).join('')}
     </tbody></table></div>`)}
-  ${card(`<div class="row between"><b>کارنامهٔ کلاسی</b>
+  ${card(`<div class="row between"><b>${isFieldSchoolNow() ? 'کارنامهٔ پایه و رشته' : 'کارنامهٔ کلاسی'}</b>
       <select class="input" style="max-width:240px" id="rc-class" data-set="repClass">
         ${classes.map(c => `<option value="${c.id}" ${Number(S.repClass) === Number(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
       </select></div>
@@ -1393,14 +1460,14 @@ function parentHome() {
   const slots = list('schedule').filter(x => Number(x.weekday) === wd && (Number(x.class_id) === Number(k.class_id)
       || (cls.grade && String(x.grade || '') === String(cls.grade) && String(x.branch || '') === String(cls.branch || ''))))
     .sort((a, b) => Number(a.bell_order) - Number(b.bell_order));
-  const plan = card(`<div class="card-h"><h3>برنامهٔ امروز</h3>${slots.length ? `<span class="small muted" style="margin-inline-start:auto">${fa(slots.length)} کلاس</span>` : ''}</div>
+  const plan = card(`<div class="card-h"><h3>برنامهٔ امروز</h3>${slots.length ? `<span class="small muted" style="margin-inline-start:auto">${fa(slots.length)} زنگ</span>` : ''}</div>
     ${slots.length ? `<ul class="ph-plan">${slots.map(x => {
       const b = bells.get(Number(x.bell_order)) || {};
       const now = cur && Number(cur.order) === Number(x.bell_order);
       const sub = byId('subjects', x.subject_id) || {};
       const t = byId('users', x.teacher_id) || {};
       return `<li class="${now ? 'now' : ''}"><time>${esc(fa(b.start || '—'))}</time><i></i><div class="grow"><b>${esc(sub.name || '—')}</b>${t.name ? `<small>${esc(t.name)}</small>` : ''}</div>${now ? '<span class="now-pill">اکنون</span>' : ''}</li>`;
-    }).join('')}</ul>` : '<div class="small muted" style="padding:10px 0">امروز کلاسی در برنامه نیست.</div>'}`, 'd2c');
+    }).join('')}</ul>` : '<div class="small muted" style="padding:10px 0">امروز زنگ درسی در برنامه نیست.</div>'}`, 'd2c');
   const n = notes[0];
   const note = n ? `<a class="card d2c ph-note" href="#/announcements"><span class="n-ic">${d2Ico('chat')}</span><div class="grow"><b>${esc(n.title || '')}</b><small>${esc(fa(jdate(n.date || '')))}${n.body ? ' · ' + esc(String(n.body).replace(/\n/g, ' ')) : ''}</small></div></a>` : '';
   return `${head}${chips}${tiles}${plan}${note}${cloudCard(kids)}
@@ -2009,7 +2076,14 @@ function managerSystemSections() {
     <div class="row"><button class="btn sm" data-act="settings-save">ذخیره</button></div>
     <div class="small muted" style="margin-top:8px">قابلیت‌ها: ${Object.entries((S.server.school && S.server.school.capabilities) || {}).filter(([, v]) => v).map(([k]) => esc(k)).join(' · ')}</div>`)}
   ${card(`<b>آمار پایگاه داده</b><div class="small muted" style="margin-top:6px">
-    کاربران: ${fa(stats.users || 0)} · کلاس‌ها: ${fa(stats.classes || 0)} · حضور: ${fa(stats.attendance || 0)} · نمره: ${fa(stats.grades || 0)}
+    ${isFieldSchoolNow()
+      ? (() => {
+        /* ردیف ۲۰۴: مدرسهٔ رشته‌محور «کلاس» ندارد — دانش‌آموز فعال، محل برگزاری و گروه‌های پایه و رشته */
+        const rooms = list('classes').filter(c => String(c.kind || '') === 'room').length;
+        const groups = list('classes').length - rooms;
+        return `کاربران: ${fa(stats.users || 0)} (دانش‌آموز فعال: ${fa(list('users').filter(rosterStudent).length)}) · محل برگزاری: ${fa(rooms)} · پایه و رشته: ${fa(groups)} · حضور: ${fa(stats.attendance || 0)} · نمره: ${fa(stats.grades || 0)}`;
+      })()
+      : `کاربران: ${fa(stats.users || 0)} · کلاس‌ها: ${fa(stats.classes || 0)} · حضور: ${fa(stats.attendance || 0)} · نمره: ${fa(stats.grades || 0)}`}
   </div><button class="btn sm" style="margin-top:8px" data-act="audit-list">سابقهٔ تغییرات</button>`)}
   `;
 }
@@ -2594,7 +2668,7 @@ const USER_EXTRA_FORM = [
 const EDIT_EXEC_ROLES = [['vice', 'معاون'], ['counselor', 'مشاور'], ['staff', 'کارمند'], ['office', 'اجرایی'], ['guard', 'نگهبان'], ['manager', 'مدیر']];
 const EDIT_GRANTABLE = ['counselor', 'staff', 'office', 'guard'];
 const EDIT_STAFF_ACCESS = [['attendance', 'حضور و غیاب دانش‌آموزان'], ['leaves', 'مرخصی‌ها'], ['notices', 'اطلاعیه‌ها'],
-  ['schedule', 'برنامهٔ هفتگی'], ['classes', 'کلاس‌ها، پایه‌ها و دروس'], ['grades', 'نمرات'],
+  ['schedule', 'برنامهٔ هفتگی'], ['classes', 'ساختار مدرسه و دروس'], ['grades', 'نمرات'],
   ['reports', 'گزارش‌ها (فقط دیدن)'], ['counsel', 'ارجاع به مشاور'], ['gate', 'درِ مدرسه (مراجعین و خروج زودهنگام)']];
 /* ردیف ۱۹۷ (Q06): پیش‌فرض واقعی هر سمت — همان policy.ROLE_DEFAULT_ACCESS؛ access خالی = پیش‌فرض،
    ['none'] = «هیچ» (آگاهانه). فرم تیک‌های مؤثر را نشان می‌دهد و «هیچ‌کدام» را ['none'] ذخیره می‌کند. */
@@ -2631,7 +2705,7 @@ function userRoleEditHtml(u) {
     return `<div class="row" style="flex-wrap:wrap">
       <label class="field grow"><span>پایه</span>${sel('grade', [['', '—'], ...g], u.grade)}</label>
       <label class="field grow"><span>رشته</span>${sel('field', [['', '—'], ...b], u.field)}</label>
-      <label class="field grow"><span>کلاس</span>${sel('class_id', [['', '—'], ...cls], u.class_id)}</label>
+      ${isFieldSchoolNow() ? '' : `<label class="field grow"><span>کلاس</span>${sel('class_id', [['', '—'], ...cls], u.class_id)}</label>`}
     </div>`;
   }
   if (u.role === 'parent') {
@@ -2679,8 +2753,8 @@ function actUserAdd(prefill, issueId) {
     <div class="row">
       <label class="field grow"><span>نقش</span><select class="input" name="role">
         ${roles.map(([v, t]) => `<option value="${v}" ${(P.role || 'student') === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-      <label class="field grow"><span>کلاس (دانش‌آموز)</span><select class="input" name="class_id">
-        <option value="">—</option>${sortBy(list('classes'), 'name').map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
+      ${isFieldSchoolNow() ? '' : `<label class="field grow"><span>کلاس (دانش‌آموز)</span><select class="input" name="class_id">
+        <option value="">—</option>${sortBy(list('classes'), 'name').map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>`}
     </div>
     <div class="row">
       <label class="field grow"><span>کد ملی</span><input class="input ltr" name="national_id" inputmode="numeric" maxlength="10" value="${pv('national_id')}"></label>

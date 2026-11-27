@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_sync/payesh_sync.dart'
-    show grantableRoles, permRole, staffAccessOf, staffAccessPages;
+    show
+        SchoolStructure,
+        grantableRoles,
+        levelOf,
+        permRole,
+        staffAccessOf,
+        staffAccessPages;
 import 'package:payesh_ui/payesh_ui.dart';
 import 'package:payesh_update/payesh_update.dart';
 
@@ -192,6 +198,15 @@ class SchoolFeaturesCache extends ChangeNotifier {
       final rows = await db.allOrEmpty('schools');
       final row = rows.where((r) => r.id == 1).firstOrNull ?? rows.firstOrNull;
       final caps = row?.data['capabilities'];
+      // row 204: the menu names the «classes» page by the school's structure
+      final data = row?.data ?? const <String, Object?>{};
+      final field = SchoolStructure.from(
+        data,
+        levelOf(data['level']).isEmpty
+            ? [for (final c in await db.allOrEmpty('classes')) c.data]
+            : const [],
+      ).fieldBased;
+      if (gen == _gen) schoolFieldBased.value = field;
       final next = schoolFeatures(
         row == null ? null : '${row.data['school_type'] ?? ''}'.trim(),
         caps is Map ? caps : null,
@@ -544,7 +559,8 @@ class PayeshApp extends StatelessWidget {
         if (native[from] case final m?)
           PulseNavItem(
             id: route,
-            label: label,
+            // row 204: «پایه و رشته» in a field school
+            label: route == 'classes' ? classesPageLabel(label) : label,
             icon: m.icon,
             webIcon: icon,
             page: m.page,
@@ -649,6 +665,7 @@ class PayeshApp extends StatelessWidget {
                   listenable: Listenable.merge([
                     staffAccessCache,
                     schoolFeaturesCache,
+                    schoolFieldBased,
                   ]),
                   builder: (context, _) => SessionGate(
                     controller: s,

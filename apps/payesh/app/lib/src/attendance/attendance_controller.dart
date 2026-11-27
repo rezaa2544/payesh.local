@@ -40,6 +40,9 @@ class AttendanceController extends ChangeNotifier {
   String? error;
   String? notice;
   List<AttendanceClass> classes = const [];
+
+  /// Row 204: a field school (رشته‌محور) — «پایه و رشته», never «کلاس».
+  bool field = false;
   Map<int, bool> recorded = const {};
   AttendanceClass? open;
   List<RosterEntry> roster = const [];
@@ -70,6 +73,7 @@ class AttendanceController extends ChangeNotifier {
         error = 'پایگاه محلی هنوز آماده نیست';
       } else {
         classes = await b.classes();
+        field = await b.fieldBased();
         final d = date;
         recorded = {for (final c in classes) c.id: await b.recorded(c.id, d)};
         if (open != null) await _loadRoster(open!.id);

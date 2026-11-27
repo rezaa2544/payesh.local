@@ -7,6 +7,15 @@ import '../pulse/pulse.dart';
 import '../pulse/web.dart';
 import '../sync_badge.dart';
 
+/// Row 204: is the signed-in school field-based (رشته‌محور, متوسطه دوم)? null until read. A
+/// field school names no «کلاس» but its venues, so the menu and the home tiles call the
+/// «classes» page «پایه و رشته» ([classesPageLabel]).
+final ValueNotifier<bool?> schoolFieldBased = ValueNotifier<bool?>(null);
+
+/// Row 204: the label of the «classes» page for this school.
+String classesPageLabel(String classBased) =>
+    schoolFieldBased.value == true ? 'پایه و رشته' : classBased;
+
 /// Where the school-management pages of row 128 (waves W6..W12) read and write. Production: the
 /// same encrypted local database + outbox + AutoSync as attendance/grades/notices
 /// (attendance_wiring.dart); tests pass an in-memory one.

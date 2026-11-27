@@ -147,7 +147,10 @@ void main() {
       await settleAsync(tester);
       expect(find.byKey(const Key('def-detail')), findsOneWidget);
       expect(find.byKey(const Key('def-like')), findsOneWidget);
-      expect(find.text('رضا تکراری · پایه دهم'), findsOneWidget);
+      // row 204: a sorted table of the students with their details, not a cloud of names
+      expect(find.byKey(const Key('def-students-table')), findsOneWidget);
+      expect(find.byKey(const Key('def-stu-101')), findsOneWidget);
+      expect(find.text('رضا تکراری'), findsWidgets);
       expect(find.byKey(const Key('def-f-name')), findsOneWidget);
       await tapKey(tester, 'def-like-merge');
       await tapKey(tester, 'def-merge-confirm-ok');

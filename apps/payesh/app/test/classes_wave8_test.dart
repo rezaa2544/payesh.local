@@ -76,14 +76,17 @@ void main() {
     '(classes themselves are not listed, like the web); NEG not on a teacher\'s home',
     (tester) async {
       await openClasses(tester);
-      expect(textOf(tester, 'web-title'), 'کلاس‌ها و تعریف‌ها');
+      // row 204: a field school names no «کلاس» but its venues
+      expect(textOf(tester, 'web-title'), 'پایه‌ها، رشته‌ها و محل برگزاری');
       expect(find.byKey(const Key('cls-room-6')), findsOneWidget);
       expect(find.byKey(const Key('cls-room-5')), findsNothing);
       expect(find.byKey(const Key('cls-room-7')), findsNothing);
       // a field school (a class in «field» mode): no «+ کلاس جدید», like web `isFieldSchool`
       expect(find.byKey(const Key('cls-class-add')), findsNothing);
       await reveal(tester, 'cls-def-1');
-      expect(find.text('۱ کلاس از این مورد استفاده می‌کند'), findsWidgets);
+      // row 204: a field school's grade counts its branches, never «کلاس»
+      expect(find.text('۱ رشته'), findsWidgets);
+      expect(find.text('۱ کلاس از این مورد استفاده می‌کند'), findsNothing);
       await reveal(tester, 'cls-subject-41');
       expect(find.text('۱ زنگ در برنامه'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
@@ -128,7 +131,8 @@ void main() {
     expect(textOf(tester, 'room-form-error'), contains('قبلاً ثبت شده'));
     await typeKey(tester, 'room-f-name', 'کارگاه ۲');
     await tapKey(tester, 'room-save');
-    expect(textOf(tester, 'cls-notice'), 'کلاس/کارگاه اضافه شد');
+    // row 204: the fixture is a field school — a room is «محل برگزاری»
+    expect(textOf(tester, 'cls-notice'), 'محل برگزاری اضافه شد');
     await tapKey(tester, 'cls-room-edit-6');
     await typeKey(tester, 'room-f-name', 'کارگاه برق');
     await tapKey(tester, 'room-save');
@@ -212,7 +216,8 @@ void main() {
     expect(await tester.runAsync(() => s.engine.get('users', 23)), isNull);
     expect(await tester.runAsync(() => s.engine.get('classes', 7)), isNull);
     expect(await tester.runAsync(() => s.engine.get('schedule', 900)), isNull);
-    expect(textOf(tester, 'cls-notice'), '1 دانش‌آموز و 1 کلاس حذف شد');
+    // row 204: a field school's words name no «کلاس»
+    expect(textOf(tester, 'cls-notice'), 'پایه و 1 دانش‌آموزش حذف شد');
   });
 
   testWidgets(

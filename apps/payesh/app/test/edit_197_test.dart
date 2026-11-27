@@ -168,10 +168,11 @@ void main() {
       expect(find.byKey(const Key('usr-f-make-father')), findsNothing);
       expect(fieldText(tester, 'usr-f-father_name'), 'رضا');
       await pick(tester, 'usr-f-grade', 'یازدهم');
-      await pick(tester, 'usr-f-class', 'یازدهم ب');
+      // row 204: a field school (a class has a branch) has no «کلاس» box — پایه decides
+      expect(find.byKey(const Key('usr-f-class')), findsNothing);
       await tapKey(tester, 'usr-save');
       final op = userOp(s, 21);
-      expect(op['class_id'], 6);
+      expect(op['class_id'], isNull);
       expect(op['grade'], 'یازدهم');
       expect(op['father_name'], 'رضا');
       // پیوند ولی دست نخورد و حساب تازه‌ای ساخته نشد

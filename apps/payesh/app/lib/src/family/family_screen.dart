@@ -404,7 +404,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                     ),
                     if (today != null && today.slots.isNotEmpty)
                       Text(
-                        '${Web.fa(today.slots.length)} کلاس',
+                        '${Web.fa(today.slots.length)} زنگ',
                         style: TextStyle(fontSize: 12, color: Web.muted),
                       ),
                   ],
@@ -414,7 +414,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Text(
-                      'امروز کلاسی در برنامه نیست.',
+                      'امروز زنگ درسی در برنامه نیست.',
                       key: const Key('fam-today-empty'),
                       style: TextStyle(fontSize: 12.5, color: Web.muted),
                     ),

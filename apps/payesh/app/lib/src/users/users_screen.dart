@@ -592,7 +592,8 @@ class _UsersScreenState extends State<UsersScreen> {
             const SizedBox(height: 4),
             Text(
               '${Web.fa(c.followupIssues)} ردیف از ورود دسته‌ای + '
-              '${Web.fa(c.followups - c.followupIssues)} دانش‌آموز که کلاسش درست نیست '
+              '${Web.fa(c.followups - c.followupIssues)} دانش‌آموز که '
+              '${c.fieldSchool ? 'پایه یا رشته‌اش' : 'کلاسش'} درست نیست '
               '(رشته یا پایه‌اش حذف شده یا پایه نداشت).',
               style: Web.small,
             ),
@@ -1127,9 +1128,11 @@ class _UserProfilePageState extends State<UserProfilePage> {
         SchoolFormSection(title),
         for (final (k, label, numeric) in list)
           // a school with no رشته shows the box only when the row has one
-          if (k != 'field' ||
-              widget.controller.showBranch ||
-              (pick['field'] ?? '').isNotEmpty)
+          if ((k != 'field' ||
+                  widget.controller.showBranch ||
+                  (pick['field'] ?? '').isNotEmpty) &&
+              // row 204: a field school has no «کلاس» — پایه + رشته place the student
+              (k != 'class_id' || !widget.controller.fieldSchool))
             _box(k, label, numeric),
       ],
       if (others.isNotEmpty) ...[

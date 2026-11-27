@@ -19,6 +19,7 @@
 import 'package:payesh_data/payesh_data.dart';
 
 import 'records.dart';
+import 'school_structure.dart' show SchoolStructure;
 import 'staff_access.dart';
 
 /// Web `ROLE_FA`.
@@ -410,7 +411,7 @@ String profileLabel(String k) {
     if (key == k) return label;
   }
   return const {
-        'class_name': 'نام کلاس (از فایل)',
+        'class_name': 'گروه/شعبه (از فایل)',
         'subject': 'درس',
         'birth_place': 'محل تولد',
         'religion': 'دین',
@@ -1071,7 +1072,8 @@ final class UserDirectory {
     final w = await add(clean, samePersonOk: samePersonOk);
     return (
       RecordWrite(
-        'ثبت موقت شد — «${d.name.trim()}» در فهرست کاربران و کلاسش هست و برای تکمیل مشخصات '
+        'ثبت موقت شد — «${d.name.trim()}» در فهرست کاربران و '
+        '${(await SchoolStructure.read(db)).fieldBased ? 'پایه و رشته‌اش' : 'کلاسش'} هست و برای تکمیل مشخصات '
         'در «پیگیری» می‌ماند',
         id: w.id,
         keys: w.keys,

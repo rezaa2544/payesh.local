@@ -172,9 +172,11 @@ class _GradesScreenState extends State<GradesScreen> {
         const WebPageHead(title: 'ثبت نمره'),
         ..._messages(),
         if (c.error == null)
-          const WebEmpty(
-            'کلاسی به شما تخصیص نیافته است.',
-            key: Key('grd-no-classes'),
+          WebEmpty(
+            c.field
+                ? 'پایه و رشته‌ای به شما تخصیص نیافته است.'
+                : 'کلاسی به شما تخصیص نیافته است.',
+            key: const Key('grd-no-classes'),
           ),
       ];
     }
@@ -217,8 +219,10 @@ class _GradesScreenState extends State<GradesScreen> {
                 )
               else if (c.sheet.isEmpty)
                 Text(
-                  'دانش‌آموزی در این کلاس نیست.',
-                  key: Key('grd-empty'),
+                  c.field
+                      ? 'دانش‌آموزی در این پایه و رشته نیست.'
+                      : 'دانش‌آموزی در این کلاس نیست.',
+                  key: const Key('grd-empty'),
                   style: Web.small,
                 )
               else ...[
@@ -304,9 +308,13 @@ class _GradesScreenState extends State<GradesScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        select<int>('grd-class', 'پایه / رشته', _selClass ?? c.open?.id, [
-          for (final k in c.classes) (k.id, k.name),
-        ], (v) => setState(() => _selClass = v)),
+        select<int>(
+          'grd-class',
+          c.field ? 'پایه / رشته' : 'کلاس',
+          _selClass ?? c.open?.id,
+          [for (final k in c.classes) (k.id, k.name)],
+          (v) => setState(() => _selClass = v),
+        ),
         gap,
         select<int>('grd-subject', 'درس', _selSubject ?? c.subject?.id, [
           for (final x in c.subjects) (x.id, x.name),

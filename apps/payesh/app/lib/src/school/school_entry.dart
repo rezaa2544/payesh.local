@@ -451,7 +451,7 @@ class SchoolEntry extends StatelessWidget {
         PayeshTile(
           key: Key('adm-${p.id}'),
           icon: p.icon,
-          label: p.label,
+          label: p.id == 'classes' ? classesPageLabel(p.label) : p.label,
           tone: switch (g) {
             'daily' => PayeshTone.success,
             'system' => PayeshTone.warning,
@@ -487,7 +487,7 @@ class SchoolEntry extends StatelessWidget {
       for (final p in visible)
         PulseNavItem(
           id: p.id == 'home' ? 'today' : p.id,
-          label: p.label,
+          label: p.id == 'classes' ? classesPageLabel(p.label) : p.label,
           icon: p.icon,
           page: (_) => p.build(args),
         ),
@@ -562,11 +562,12 @@ class _PulseHomeState extends State<_PulseHome> {
                   value: n(d.teachers),
                   label: 'دبیر',
                 ),
+                // row 204: a field school has no «کلاس» — its پایه × رشته groups
                 PulseStat(
                   id: 'home-classes',
                   icon: Icons.class_outlined,
-                  value: n(d.classes),
-                  label: 'کلاس',
+                  value: n(d.fieldBased ? d.cohorts : d.classes),
+                  label: d.fieldBased ? 'پایه و رشته' : 'کلاس',
                 ),
                 PulseStat(
                   id: 'home-present',

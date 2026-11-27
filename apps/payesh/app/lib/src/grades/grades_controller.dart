@@ -38,6 +38,9 @@ class GradesController extends ChangeNotifier {
   String? error;
   String? notice;
   List<AttendanceClass> classes = const [];
+
+  /// Row 204: a field school (رشته‌محور) — «پایه / رشته», never «کلاس».
+  bool field = true;
   List<GradeSubject> subjects = const [];
   AttendanceClass? open;
   GradeSubject? subject;
@@ -75,6 +78,7 @@ class GradesController extends ChangeNotifier {
         error = 'پایگاه محلی هنوز آماده نیست';
       } else {
         classes = await b.classes();
+        field = await engineFieldBased(b.engine);
         subjects = await b.subjects();
         // web `S.gradeSel`: the first class is selected from the start (no class list)
         if (open != null && !classes.any((k) => k.id == open!.id)) open = null;

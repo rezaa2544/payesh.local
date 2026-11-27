@@ -538,10 +538,12 @@ class _UserFormPageState extends State<UserFormPage> {
           classId = null;
         },
       ),
-    _drop<int?>('usr-f-class', 'کلاس', classId, [
-      (null, '—'),
-      ..._classesForGrade,
-    ], (v) => classId = v),
+    // row 204: a field school places a student by پایه + رشته — no «کلاس» to choose
+    if (!c.fieldSchool)
+      _drop<int?>('usr-f-class', 'کلاس', classId, [
+        (null, '—'),
+        ..._classesForGrade,
+      ], (v) => classId = v),
     _text('usr-f-last_gpa', 'last_gpa', 'معدل سال گذشته', numeric: true),
     _text(
       'usr-f-failed_count',
@@ -956,7 +958,8 @@ class _UserFormPageState extends State<UserFormPage> {
           if (widget.onTemp != null && !_isEdit && kind == 'student')
             Tooltip(
               message:
-                  'مشخصات هنوز کامل نیست ولی نامش در فهرست کاربران و کلاس ثبت شود؛ مقدارهای نادرست '
+                  'مشخصات هنوز کامل نیست ولی نامش در فهرست کاربران و '
+                  '${c.fieldSchool ? 'پایه و رشته' : 'کلاس'} ثبت شود؛ مقدارهای نادرست '
                   'ثبت نمی‌شوند و ردیف برای تکمیل در «پیگیری» می‌ماند.',
               child: OutlinedButton.icon(
                 key: const Key('usr-f-temp'),

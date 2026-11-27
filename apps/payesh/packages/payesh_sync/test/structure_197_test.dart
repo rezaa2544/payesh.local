@@ -187,15 +187,17 @@ void main() {
     final b = {for (final x in v.branches) x.name: x};
     expect(
       b['نقشه کشی']!.students,
-      6,
-      reason: '4 + 113 + یازدهمی; inactive and parent left out',
+      5,
+      reason:
+          '4 + یازدهمی; inactive and parent left out — row 204: 113 is in the class '
+          '«دهم تعمیر موتور», so its branch is that class\'s (as the users list shows it)',
     );
     expect(
       b['نقشه کشی']!.classes,
       1,
       reason: 'the room «نقشه کشی» is not a class',
     );
-    expect(b['تعمیر موتور']!.students, 1);
+    expect(b['تعمیر موتور']!.students, 2);
     expect(v.rooms.map((r) => r.name), unorderedEquals(['نقشه کشی', '202']));
     expect(v.classes.firstWhere((c) => c.id == 60).students, 4);
   });

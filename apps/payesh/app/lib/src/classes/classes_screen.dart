@@ -8,6 +8,8 @@ import 'package:payesh_ui/payesh_ui.dart';
 
 import '../pulse/web.dart';
 import '../school/school_source.dart';
+import '../users/users_controller.dart';
+import '../users/users_screen.dart';
 import 'class_details.dart';
 
 class ClassesController extends SchoolController {
@@ -28,6 +30,7 @@ class ClassesController extends SchoolController {
   @override
   Future<void> read(SchoolRecords db) async {
     view = await ClassBook(db).overview();
+    schoolFieldBased.value = view!.structure.fieldBased;
     teachers = [
       for (final u in await db.allOrEmpty('users'))
         if (u.data['role'] == 'teacher' && u.data['active'] != false)
@@ -82,6 +85,10 @@ class ClassesController extends SchoolController {
   /// Row 201: the details of an item (read when its panel opens).
   Future<LookupDetail?> lookupDetail(int id) async =>
       db == null ? null : ClassBook(db!).lookupDetail(id);
+
+  /// Row 204: the students «بدون پایه» / «بدون رشته».
+  Future<LookupDetail?> unassignedDetail(String kind) async =>
+      db == null ? null : ClassBook(db!).unassignedDetail(kind);
   Future<ClassDetail?> classDetail(int id) async =>
       db == null ? null : ClassBook(db!).classDetail(id);
   Future<SubjectDetail?> subjectDetail(int id) async =>
@@ -90,6 +97,25 @@ class ClassesController extends SchoolController {
   /// Row 201 `def-merge`.
   Future<RecordWrite?> mergeLookup(int from, int into) =>
       run((db) => ClassBook(db).mergeLookup(from, into));
+}
+
+/// Row 204: a student of a grade/branch list opens its own edit form (the users page's) so a
+/// wrong or empty پایه/رشته is corrected right there; every figure is read again after.
+Future<void> openStudentEdit(
+  BuildContext context,
+  ClassesController c,
+  int id,
+) async {
+  final uc = UsersController(source: c.source, role: c.role, uid: c.uid);
+  await uc.load();
+  final u = uc.users.where((x) => x.id == id).firstOrNull;
+  if (u == null || !context.mounted) {
+    uc.dispose();
+    return;
+  }
+  await openPanel<void>(context, (_) => UserEditPage(controller: uc, user: u));
+  uc.dispose();
+  await c.load(quiet: true);
 }
 
 /// ردیف ۱۹۵ — خط ساختار مدرسه: کلاس‌محور (ابتدایی / متوسطه اول) یا رشته‌محور (متوسطه دوم).
@@ -256,8 +282,17 @@ class _ClassesScreenState extends State<ClassesScreen> {
     final ok = await confirmAction(
       context,
       prefix: 'cls',
-      title: 'حذف کلاس',
-      message: n > 0
+      // row 204: a venue is «محل برگزاری»; a field school's group keeps its students' پایه و رشته
+      title: r.isRoom
+          ? 'حذف محل برگزاری'
+          : c.fieldSchool
+          ? 'حذف گروه پایه و رشته'
+          : 'حذف کلاس',
+      message: r.isRoom
+          ? '«${r.name}» از محل‌های برگزاری حذف شود؟'
+          : c.fieldSchool
+          ? '«${r.name}» حذف شود؟ دانش‌آموزانش با همان پایه و رشته می‌مانند.'
+          : n > 0
           ? 'کلاس «${r.name}» حذف شود؟ $n دانش‌آموز بدون کلاس می‌شوند (خودشان حذف نمی‌شوند).'
           : 'کلاس «${r.name}» حذف شود؟',
     );
@@ -266,12 +301,20 @@ class _ClassesScreenState extends State<ClassesScreen> {
 
   Future<void> _deleteLookup(LookupRow r) async {
     final label = lookupFa[r.kind] ?? 'مورد';
-    if (r.classes == 0) {
+    // row 204: a field school has no «کلاس» — its پایه+رشته groups are named by the other half
+    final field = c.fieldSchool;
+    String used(int n) => field
+        ? '${Web.fa(n)} ${r.kind == 'branch' ? 'پایه' : 'رشته'}'
+        : '${Web.fa(n)} کلاس';
+    if (r.classes == 0 && (!field || r.students == 0)) {
       final ok = await confirmAction(
         context,
         prefix: 'def',
         title: 'حذف $label',
-        message: '«${r.name}» از فهرست $labelها حذف شود؟',
+        message: r.students > 0
+            ? '«${r.name}» از فهرست $labelها حذف شود؟ ${Web.fa(r.students)} دانش‌آموزش '
+                  'می‌مانند و تا $label تازه بگیرند در «بدون $label» شمرده می‌شوند.'
+            : '«${r.name}» از فهرست $labelها حذف شود؟',
       );
       if (ok) await c.deleteLookup(r.id, LookupDelete.only);
       return;
@@ -287,14 +330,17 @@ class _ClassesScreenState extends State<ClassesScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'این $label در $n کلاس استفاده شده است: ${u.classes.take(8).join('، ')}${n > 8 ? ' …' : ''}',
-            ),
+            if (n > 0)
+              Text(
+                'این $label در ${used(n)} استفاده شده است: ${u.classes.take(8).join('، ')}${n > 8 ? ' …' : ''}',
+              ),
             if (u.students > 0)
               Padding(
                 padding: const EdgeInsets.only(top: PayeshTokens.space2),
                 child: Text(
-                  'در این کلاس‌ها ${u.students} دانش‌آموز هست. تکلیفشان چه شود؟',
+                  field
+                      ? '${Web.fa(u.students)} دانش‌آموز این $label هست. تکلیفشان چه شود؟'
+                      : 'در این کلاس‌ها ${u.students} دانش‌آموز هست. تکلیفشان چه شود؟',
                 ),
               ),
             const SizedBox(height: PayeshTokens.space3),
@@ -302,7 +348,9 @@ class _ClassesScreenState extends State<ClassesScreen> {
               key: const Key('def-del-cascade'),
               onPressed: () => Navigator.pop(ctx, LookupDelete.cascade),
               child: Text(
-                '$label و $n کلاسش حذف شوند — دانش‌آموزان بمانند و به «نیازمند پیگیری» بروند',
+                field
+                    ? '$label حذف شود — دانش‌آموزانش بمانند و به «نیازمند پیگیری» بروند'
+                    : '$label و $n کلاسش حذف شوند — دانش‌آموزان بمانند و به «نیازمند پیگیری» بروند',
               ),
             ),
             if (u.students > 0)
@@ -315,7 +363,9 @@ class _ClassesScreenState extends State<ClassesScreen> {
                   ),
                   onPressed: () => Navigator.pop(ctx, LookupDelete.students),
                   child: Text(
-                    '$label، $n کلاس و ${u.students} دانش‌آموزش هم حذف شوند',
+                    field
+                        ? '$label و ${Web.fa(u.students)} دانش‌آموزش هم حذف شوند'
+                        : '$label، $n کلاس و ${u.students} دانش‌آموزش هم حذف شوند',
                   ),
                 ),
               ),
@@ -323,7 +373,11 @@ class _ClassesScreenState extends State<ClassesScreen> {
             TextButton(
               key: const Key('def-del-only'),
               onPressed: () => Navigator.pop(ctx, LookupDelete.only),
-              child: Text('فقط $label از فهرست حذف شود (کلاس‌ها بمانند)'),
+              child: Text(
+                field
+                    ? 'فقط $label از فهرست حذف شود (دانش‌آموزان و برنامه دست نخورند)'
+                    : 'فقط $label از فهرست حذف شود (کلاس‌ها بمانند)',
+              ),
             ),
             TextButton(
               key: const Key('def-del-cancel'),
@@ -340,8 +394,9 @@ class _ClassesScreenState extends State<ClassesScreen> {
         context,
         prefix: 'def',
         title: 'حذف دانش‌آموزان',
-        message:
-            '«${r.name}» با $n کلاس و ${u.students} دانش‌آموزش حذف شود؟ این کار برگشت‌پذیر نیست.',
+        message: field
+            ? '«${r.name}» با ${u.students} دانش‌آموزش حذف شود؟ این کار برگشت‌پذیر نیست.'
+            : '«${r.name}» با $n کلاس و ${u.students} دانش‌آموزش حذف شود؟ این کار برگشت‌پذیر نیست.',
       );
       if (!ok) return;
     }
@@ -370,7 +425,8 @@ class _ClassesScreenState extends State<ClassesScreen> {
       final st = v?.structure;
       return SchoolPage(
         prefix: 'cls',
-        title: 'کلاس‌ها و تعریف‌ها',
+        // row 204: a field school has no «کلاس» but its venues
+        title: field ? 'پایه‌ها، رشته‌ها و محل برگزاری' : 'کلاس‌ها و تعریف‌ها',
         // ردیف ۱۹۵: ساختار مدرسه (p2 «نوع چیدمان») در خط زیر عنوان — بدون کارت اضافه
         sub: st == null ? null : structureLine(st),
         subKey: const Key('cls-structure'),
@@ -439,7 +495,17 @@ class _ClassesScreenState extends State<ClassesScreen> {
                                     ),
                                   ..._queued(r.queued),
                                 ],
-                                sub: r.classes > 0
+                                // row 204: a field school has no «کلاس» — a branch is in N
+                                // grades, a grade has N branches
+                                sub: field
+                                    ? (r.others > 0
+                                          ? (kind == 'branch'
+                                                ? 'در ${Web.fa(r.others)} پایه'
+                                                : '${Web.fa(r.others)} رشته')
+                                          : r.students > 0
+                                          ? null
+                                          : 'بدون استفاده')
+                                    : r.classes > 0
                                     ? '${Web.fa(r.classes)} کلاس از این مورد استفاده می‌کند'
                                     : 'بدون استفاده',
                                 actions: _rowActions(
@@ -454,6 +520,30 @@ class _ClassesScreenState extends State<ClassesScreen> {
                                   'cls-def-delete-${r.id}',
                                   () => _deleteLookup(r),
                                 ),
+                              ),
+                            // row 204: the students no grade/branch above counted (empty or
+                            // unknown), so the column adds up to every student
+                            if ((kind == 'grade' ? v.noGrade : v.noBranch) > 0)
+                              WebItem(
+                                key: Key('cls-def-none-$kind'),
+                                title: 'بدون ${lookupFa[kind]}',
+                                onTap: c.busy
+                                    ? null
+                                    : () => _open(
+                                        UnassignedPage(
+                                          controller: c,
+                                          kind: kind,
+                                        ),
+                                      ),
+                                titleTrailing: [
+                                  WebBadge(
+                                    '${Web.fa(kind == 'grade' ? v.noGrade : v.noBranch)} دانش‌آموز',
+                                    key: Key('cls-def-none-students-$kind'),
+                                    tone: WebTone.amber,
+                                  ),
+                                ],
+                                sub:
+                                    '${lookupFa[kind]} خالی یا ناشناخته — برای دیدن و درست‌کردن باز کنید',
                               ),
                           ],
                         ),
@@ -774,9 +864,17 @@ class _ClassFormPageState extends State<ClassFormPage> {
                   if (widget.row!.room.isNotEmpty) ('اتاق', widget.row!.room),
                   ('زنگ در برنامهٔ هفتگی', Web.fa(d.slots)),
                 ],
-                namesTitle: 'دانش‌آموزان',
-                empty: 'هنوز دانش‌آموزی در این کلاس نیست.',
-                names: [for (final (_, n) in d.students) n],
+                // row 204: a sorted list with details, not a cloud of names
+                below: LookupStudents(
+                  key: const Key('def-students'),
+                  kind: 'class',
+                  detail: LookupDetail(students: d.members, classes: const []),
+                  field: st.fieldBased,
+                  filters: false,
+                  empty: 'هنوز دانش‌آموزی در این کلاس نیست.',
+                  onOpen: (id) =>
+                      openStudentEdit(context, widget.controller, id),
+                ),
               ),
             ),
           ),
@@ -910,9 +1008,30 @@ class _DefFormPageState extends State<DefFormPage> {
     super.dispose();
   }
 
+  int _rev = 0;
+
+  /// Row 204: the figures of this row as the page has them now (after an edit).
+  LookupRow _fresh(LookupRow row) {
+    final v = widget.controller.view;
+    final all = widget.kind == 'grade' ? v?.grades : v?.branches;
+    return all?.where((r) => r.id == row.id).firstOrNull ?? row;
+  }
+
+  Future<void> _student(int id) async {
+    await openStudentEdit(context, widget.controller, id);
+    if (mounted) setState(() => _rev++);
+  }
+
   Future<void> _merge(int into, String intoName) async {
     final row = widget.row!;
-    if (!await confirmMerge(context, row, intoName)) return;
+    if (!await confirmMerge(
+      context,
+      row,
+      intoName,
+      field: widget.controller.fieldSchool,
+    )) {
+      return;
+    }
     final r = await widget.controller.mergeLookup(row.id, into);
     if (r != null && mounted) Navigator.pop(context);
   }
@@ -941,9 +1060,17 @@ class _DefFormPageState extends State<DefFormPage> {
         if (row != null)
           SchoolFormFull(
             child: DetailLoader<LookupDetail>(
+              // row 204: read again after a student of the list was edited
+              key: ValueKey(_rev),
               read: () => widget.controller.lookupDetail(row.id),
-              builder: (context, d) =>
-                  lookupDetailCard(context, row, d, onMerge: _merge),
+              builder: (context, d) => lookupDetailCard(
+                context,
+                _fresh(row),
+                d,
+                onMerge: _merge,
+                field: widget.controller.fieldSchool,
+                onOpen: _student,
+              ),
             ),
           ),
         SchoolField('def-f-name', 'نام $label', name),
@@ -957,6 +1084,7 @@ class _DefFormPageState extends State<DefFormPage> {
           SchoolFormFull(
             child: LookupMergeRow(
               row: row,
+              field: widget.controller.fieldSchool,
               others: [
                 for (final o
                     in (widget.kind == 'grade'
@@ -969,9 +1097,77 @@ class _DefFormPageState extends State<DefFormPage> {
             ),
           ),
         if (row != null)
-          const Text(
-            'تغییر نام، دانش‌آموزان و کلاس‌های همین مورد را هم به نام تازه می‌برد.',
+          Text(
+            widget.controller.fieldSchool
+                ? 'تغییر نام، دانش‌آموزان و برنامهٔ همین $label را هم به نام تازه می‌برد.'
+                : 'تغییر نام، دانش‌آموزان و کلاس‌های همین مورد را هم به نام تازه می‌برد.',
           ),
+      ],
+    );
+  }
+}
+
+/// Row 204 — «بدون پایه» / «بدون رشته»: the students no definition counted, with the same
+/// list and filters as a grade/branch; each opens its edit form to be corrected.
+class UnassignedPage extends StatefulWidget {
+  const UnassignedPage({
+    super.key,
+    required this.controller,
+    required this.kind,
+  });
+  final ClassesController controller;
+  final String kind;
+
+  @override
+  State<UnassignedPage> createState() => _UnassignedPageState();
+}
+
+class _UnassignedPageState extends State<UnassignedPage> {
+  int _rev = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = lookupFa[widget.kind] ?? 'مورد';
+    return SchoolForm(
+      prefix: 'none',
+      title: 'دانش‌آموزان بدون $label',
+      controller: widget.controller,
+      submitLabel: 'بستن',
+      onSubmit: () => Navigator.pop(context),
+      fields: [
+        SchoolFormFull(
+          child: Text(
+            '$label این دانش‌آموزان خالی است یا با هیچ‌کدام از $labelهای تعریف‌شده جور نیست؛ '
+            'برای همین در شمار هیچ $label نیامده‌اند. روی نام هر نفر بزنید و $label درست را '
+            'انتخاب کنید — همهٔ شمارها همان لحظه به‌روز می‌شوند.',
+            style: Web.small.copyWith(color: Web.muted),
+          ),
+        ),
+        SchoolFormFull(
+          child: DetailLoader<LookupDetail>(
+            key: ValueKey(_rev),
+            read: () => widget.controller.unassignedDetail(widget.kind),
+            builder: (context, d) => DetailCard(
+              key: const Key('none-detail'),
+              stats: [
+                ('دانش‌آموز', Web.fa(d.students.length)),
+                if (d.inactive > 0)
+                  ('غیرفعال (در شمار نیست)', Web.fa(d.inactive)),
+              ],
+              below: LookupStudents(
+                key: const Key('def-students'),
+                kind: widget.kind,
+                detail: d,
+                field: widget.controller.fieldSchool,
+                empty: 'همهٔ دانش‌آموزان $label درست دارند.',
+                onOpen: (id) async {
+                  await openStudentEdit(context, widget.controller, id);
+                  if (mounted) setState(() => _rev++);
+                },
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -1020,11 +1216,19 @@ class _SubjectFormPageState extends State<SubjectFormPage> {
               key: const Key('sub-detail'),
               stats: [
                 ('زنگ در برنامهٔ هفتگی', Web.fa(d.slots)),
-                ('کلاس', Web.fa(d.classes.length)),
+                // row 204: a field school's groups are «پایه و رشته»
+                (
+                  widget.controller.fieldSchool ? 'پایه و رشته' : 'کلاس',
+                  Web.fa(d.classes.length),
+                ),
                 ('دبیر', Web.fa(d.teachers.length)),
                 ('نوع', widget.row!.workshop ? 'کارگاهی' : 'نظری'),
               ],
-              namesTitle: d.slots == 0 ? '' : 'کلاس‌ها و دبیران',
+              namesTitle: d.slots == 0
+                  ? ''
+                  : widget.controller.fieldSchool
+                  ? 'پایه و رشته‌ها و دبیران'
+                  : 'کلاس‌ها و دبیران',
               names: [...d.classes, ...d.teachers.map((t) => '👤 $t')],
             ),
           ),

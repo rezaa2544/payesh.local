@@ -43,7 +43,7 @@ const List<StaffAccessArea> staffAccessAreas = [
   StaffAccessArea(
     key: 'attendance',
     label: 'حضور و غیاب دانش‌آموزان',
-    hint: 'ثبت و ویرایش حضور، غیبت و تأخیر همهٔ کلاس‌ها',
+    hint: 'ثبت و ویرایش حضور، غیبت و تأخیر همهٔ دانش‌آموزان',
     pages: ['attendance', 'attendance-report'],
     write: {'attendance'},
     read: {'attendance', 'users', 'classes', 'schedule'},
@@ -74,8 +74,8 @@ const List<StaffAccessArea> staffAccessAreas = [
   ),
   StaffAccessArea(
     key: 'classes',
-    label: 'کلاس‌ها، پایه‌ها و دروس',
-    hint: 'تعریف و ویرایش کلاس، پایه، رشته و درس',
+    label: 'ساختار مدرسه و دروس',
+    hint: 'تعریف و ویرایش پایه، رشته (یا کلاس در مدرسهٔ کلاس‌محور)، محل برگزاری و درس',
     pages: ['classes'],
     write: {'classes', 'subjects', 'lookups'},
     read: {'classes', 'users'},

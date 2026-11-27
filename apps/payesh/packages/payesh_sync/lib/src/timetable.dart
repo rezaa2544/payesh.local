@@ -21,7 +21,7 @@
 // are written by the manager only).
 import 'package:payesh_data/payesh_data.dart';
 
-import 'classes.dart' show gradeLevel, normName;
+import 'classes.dart' show gradeLevel, normName, sameGrade, sameBranch;
 import 'records.dart';
 import 'school_structure.dart';
 
@@ -665,7 +665,9 @@ final class Timetable {
 
       final grades = namesOf('grade', 'grade');
       final g = grade ?? (grades.isEmpty ? '' : grades.first);
-      final matching = groups.where((c) => _s(c.data['grade']) == g).toList();
+      final matching = groups
+          .where((c) => sameGrade(c.data['grade'], g))
+          .toList();
       final branches = <String>{
         for (final c in matching) _s(c.data['branch']),
         ...namesOf('branch', 'branch'),
@@ -787,8 +789,10 @@ final class Timetable {
     if (g.trim().isEmpty) return null;
     for (final c in classes) {
       if (c.data['kind'] != 'room' &&
-          _s(c.data['grade']) == g.trim() &&
-          _s(c.data['branch']) == b.trim()) {
+          sameGrade(c.data['grade'], g) &&
+          (b.trim().isEmpty
+              ? _s(c.data['branch']).isEmpty
+              : sameBranch(c.data['branch'], b))) {
         return c;
       }
     }
@@ -873,7 +877,10 @@ final class Timetable {
     final dup = rows.any(
       (x) =>
           same(x) &&
-          ((_s(x.data['grade']) == grade && _s(x.data['branch']) == branch) ||
+          ((sameGrade(x.data['grade'], grade) &&
+                  (branch.trim().isEmpty
+                      ? _s(x.data['branch']).isEmpty
+                      : sameBranch(x.data['branch'], branch))) ||
               (_s(x.data['grade']).isEmpty &&
                   classId != null &&
                   _int(x.data['class_id']) == classId)),
@@ -909,7 +916,7 @@ final class Timetable {
         (await rooms()).isNotEmpty) {
       throw const RecordFailure(
         'invalid',
-        'محل برگزاری (کلاس/کارگاه) را انتخاب کنید — در مدرسهٔ رشته‌محور، مدیر کلاسِ هر زنگ را در برنامهٔ هفتگی تعیین می‌کند',
+        'محل برگزاری (کلاس/کارگاه) را انتخاب کنید — در مدرسهٔ رشته‌محور، محلِ هر زنگ را مدیر در برنامهٔ هفتگی تعیین می‌کند',
       );
     }
     final prev = d.id == null
@@ -1078,7 +1085,10 @@ final class Timetable {
     final rows = await db.allOrEmpty('schedule');
     final cls = _int(r.data['class_id']);
     if (cls != null && _busy(rows, 'class_id', cls, day, period, id)) {
-      throw const RecordFailure('duplicate', 'این جای کلاس دیگر پر شده است');
+      throw const RecordFailure(
+        'duplicate',
+        'این گروه در آن روز و زنگ برنامهٔ دیگری دارد',
+      );
     }
     final t = _int(r.data['teacher_id']);
     if (t != null && _busy(rows, 'teacher_id', t, day, period, id)) {
@@ -1132,7 +1142,10 @@ final class Timetable {
       _int(slot.data['bell_order']) ?? 0,
       slotId,
     )) {
-      throw const RecordFailure('duplicate', 'این دبیر در آن ساعت کلاس دارد');
+      throw const RecordFailure(
+        'duplicate',
+        'این دبیر در آن ساعت زنگ دیگری دارد',
+      );
     }
     final ex = (await db.allOrEmpty('substitutions'))
         .where((x) => _int(x.data['schedule_id']) == slotId)
@@ -1568,8 +1581,8 @@ final class Timetable {
             subId,
             t,
             t == null
-                ? 'جایِ خالی برای کلاس نیست'
-                : 'جایِ خالیِ مشترک برای کلاس و دبیر نیست',
+                ? 'جایِ خالی در برنامه نیست'
+                : 'جایِ خالیِ مشترک با برنامهٔ دبیر نیست',
           ),
         );
       }
