@@ -145,5 +145,29 @@ check('Q04-S09 کلید و پایه: «نقشه‌کشی» = «نقشه کشی»
   assert.strictEqual(sr.gradeLevel('الکترونیک'), 0);
 });
 
+check('Q04-S10 حضور واقعی: پس از ترمیم، مدیر و دبیرِ (برنامه‌دار) «دهم نقشه کشی» حضور هر ۳۲ نفر را ثبت می‌کنند؛ پیش از ترمیم دبیر رد می‌شد (کنترل منفی)', () => {
+  const policy = require(path.join(ROOT, 'server', 'policy.js'));
+  const { st, ids, teacher } = realShape();
+  const t = st.get('users', teacher);
+  const mgr = st.insert('users', { name: 'مدیر', role: 'manager', active: true });
+  /* پیش از ترمیم کلاسی نیست؛ دبیر روی کلاس دستیِ بی‌دانش‌آموز «دهم» هم نمی‌تواند حضور «ن۰» را بزند */
+  const dahom = named(st, 'دهم')[0];
+  st.insert('schedule', { class_id: dahom.id, teacher_id: teacher, day: 0, period: 1 });
+  const before = policy.canWriteRow(st, t, 'teacher', 'attendance', { class_id: dahom.id, student_id: ids.naghshe[0], date: '1405-09-06', status: 'present' }, null);
+  assert.strictEqual(before.ok, false, 'NEG: student without class must be refused');
+  sr.repair(st);
+  const cls = named(st, 'دهم نقشه کشی')[0];
+  assert.ok(cls, 'class created');
+  st.insert('schedule', { class_id: cls.id, teacher_id: teacher, day: 1, period: 2 });
+  for (const sid of ids.naghshe) {
+    const row = { class_id: cls.id, student_id: sid, date: '1405-09-06', status: 'present' };
+    assert.deepStrictEqual(policy.canWriteRow(st, t, 'teacher', 'attendance', row, null), { ok: true }, 'teacher ' + sid);
+    assert.deepStrictEqual(policy.canWriteRow(st, mgr, 'manager', 'attendance', row, null), { ok: true }, 'manager ' + sid);
+  }
+  /* هنرجوی رشتهٔ دیگر در فهرست این کلاس نیست */
+  const other = policy.canWriteRow(st, t, 'teacher', 'attendance', { class_id: cls.id, student_id: ids.motor[0], date: '1405-09-06', status: 'present' }, null);
+  assert.strictEqual(other.ok, false);
+});
+
 console.log(`\nSTRUCTURE-197 ${failed ? 'FAIL' : 'OK'} checks=${passed + failed} failed=${failed}`);
 process.exit(failed ? 1 : 0);
