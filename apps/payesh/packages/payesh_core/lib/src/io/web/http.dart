@@ -327,8 +327,20 @@ final class FetchHttpClient implements HttpClient {
   }
 }
 
+/// True when the page itself was served over https (row 199, app.payeshschool.ir).
+bool _pageIsHttps() {
+  final loc = globalContext.getProperty<JSAny?>('location'.toJS);
+  if (loc == null || !loc.isA<JSObject>()) return false;
+  final p = (loc as JSObject).getProperty<JSAny?>('protocol'.toJS);
+  return p != null && p.isA<JSString>() && (p as JSString).toDart == 'https:';
+}
+
 /// Identity headers only the installed apps send (row 199).
-const Set<String> _nativeOnly = {'x-payesh-client', 'x-payesh-api'};
+const Set<String> _nativeOnly = {
+  'x-payesh-client',
+  'x-payesh-api',
+  'x-device-id',
+};
 
 const Set<String> _forbidden = {
   'host',
@@ -450,11 +462,13 @@ final class _FetchRequest implements io.HttpClientRequest {
     // Row 199: in a plain browser a cross-origin GET with `cache-control`/`pragma` needs a CORS
     // preflight that a static file host (the domain's list) does not answer. `cache: no-store`
     // below already bypasses every cache, so these are dropped from unsigned requests.
+    // Only an S3 SigV4 signature (it always carries x-amz-date) may have signed these headers;
+    // a Bearer token to a school server has not, and keeping them there fails the preflight.
     var signed = false;
     headers.forEach((k, v) {
-      if (k == 'authorization' || k.startsWith('x-amz-')) signed = true;
+      if (k.startsWith('x-amz-')) signed = true;
     });
-    // Row 199: school servers released before 0.9.66 do not list the native identity headers in
+    // Row 199: school servers released before 0.9.67 do not list the native identity headers in
     // their CORS allow-list, so a plain browser drops the whole request. Without them the server
     // treats the browser edition like the web client (no native version gate) — which it is.
     final browser = !WebHost.instance.isShell;
@@ -468,6 +482,19 @@ final class _FetchRequest implements io.HttpClientRequest {
       }
     });
     init.setProperty('headers'.toJS, h);
+    // Row 199: from an https page a plain-http address can only fail — mixed content, and for
+    // loopback/LAN addresses the browser would first ask the user for «local network» access.
+    // Fail at once, like an unreachable host, without the prompt.
+    if (browser && uri.scheme == 'http' && _pageIsHttps()) {
+      if (!_done.isCompleted) {
+        _done.completeError(
+          io.SocketException(
+            'Connection failed (http from an https page), host: ${uri.host}, port: ${uri.port}',
+          ),
+        );
+      }
+      return;
+    }
     final body = _body.takeBytes();
     if (body.isNotEmpty && method != 'GET' && method != 'HEAD') {
       init.setProperty('body'.toJS, body.toJS);

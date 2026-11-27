@@ -13,9 +13,14 @@
 //  Fail-closed:
 //   · the folder must be a real Flutter build of the school app (flutter_bootstrap.js with
 //     useLocalCanvasKit, main.dart.js, payesh_idb.js, sqlite3mc.wasm, canvaskit) — never a stub;
-//   · every file is uploaded with its content type (application/wasm for streaming compile)
-//     and `no-cache` (file names are not hashed: the browser revalidates by ETag);
+//   · Arvan's CDN in front of the domain caches every file except HTML, `no-cache` or not
+//     (main.dart.js stayed the old build after a publish). So each build goes under its own
+//     folder v/<version>-<build>-<hash>/ (immutable, cacheable) and only the root index.html —
+//     never cached — changes: its <base href> points at the new folder, so a reload IS the
+//     update. version.json is also kept at the root for status checks;
+//   · every file is uploaded with its content type (application/wasm for streaming compile);
 //   · index.html goes LAST, so a visitor never gets a new page with old scripts;
+//   · the previous build's folder is kept (open tabs still load their lazy files), older ones go;
 //   · the old «دریافت برنامه» page, if it is still the bucket's index.html, is kept as
 //     download/index.html (https://app.payeshschool.ir/download/);
 //   · keys the new build no longer has are deleted afterwards (download/ and payesh/ kept);
@@ -48,6 +53,11 @@ if (!index.includes('flutter_bootstrap.js') || !index.includes('payesh_idb.js'))
 if (!fs.readFileSync(path.join(DIR, 'assets/FontManifest.json'), 'utf8').includes('Vazirmatn')) fail('Vazirmatn font missing');
 const version = JSON.parse(fs.readFileSync(path.join(DIR, 'version.json'), 'utf8'));
 if (fs.statSync(path.join(DIR, 'main.dart.js')).size < 1_000_000) fail('main.dart.js too small');
+if (!/<base href="\/">/.test(index)) fail('index.html must have <base href="/"> (flutter build web default)');
+const BUILD_ID = [version.version, version.build_number || '0',
+  crypto.createHash('sha256').update(fs.readFileSync(path.join(DIR, 'main.dart.js'))).update(boot).digest('hex').slice(0, 10)].join('-');
+const PREFIX = `v/${BUILD_ID}/`;
+const rootIndex = Buffer.from(index.replace('<base href="/">', `<base href="/${PREFIX}">`), 'utf8');
 
 function walk(d, out = []) {
   for (const e of fs.readdirSync(d, { withFileTypes: true })) {
@@ -56,11 +66,17 @@ function walk(d, out = []) {
   }
   return out;
 }
-const files = walk(DIR).map((p) => ({ p, key: path.relative(DIR, p).split(path.sep).join('/') }))
-  .filter((f) => !f.key.endsWith('.symbols') && f.key !== '.last_build_id');
-files.sort((a, b) => (a.key === 'index.html') - (b.key === 'index.html'));
-const total = files.reduce((n, f) => n + fs.statSync(f.p).size, 0);
-console.log(`folder ok: ${files.length} files, ${(total / 1048576).toFixed(1)} MB, version ${version.version}+${version.build_number || ''}`);
+const built = walk(DIR).map((p) => ({ p, rel: path.relative(DIR, p).split(path.sep).join('/') }))
+  .filter((f) => !f.rel.endsWith('.symbols') && f.rel !== '.last_build_id' && f.rel !== 'index.html');
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+// every object: { key, data() , size, type, cache }
+const files = [
+  ...built.map((f) => ({ key: PREFIX + f.rel, data: () => fs.readFileSync(f.p), size: fs.statSync(f.p).size, cache: IMMUTABLE })),
+  { key: 'version.json', data: () => fs.readFileSync(path.join(DIR, 'version.json')), size: fs.statSync(path.join(DIR, 'version.json')).size, cache: 'no-cache' },
+  { key: 'index.html', data: () => rootIndex, size: rootIndex.length, cache: 'no-cache' },
+];
+const total = files.reduce((n, f) => n + f.size, 0);
+console.log(`folder ok: ${files.length} files, ${(total / 1048576).toFixed(1)} MB, version ${version.version}+${version.build_number || ''}, folder ${PREFIX}`);
 if (DRY) { console.log('WEB-APP-PUBLISH-DRY-OK'); process.exit(0); }
 if (!AK || !SK) fail('PAYESH_WEB_S3_ACCESS_KEY / PAYESH_WEB_S3_SECRET not set');
 
@@ -106,8 +122,9 @@ const TYPES = {
 };
 const typeOf = (k) => TYPES[path.extname(k).toLowerCase()] || (k.endsWith('NOTICES') ? 'text/plain; charset=utf-8' : 'application/octet-stream');
 
-// ── 3) keep the old downloads page ──
+// ── 3) keep the old downloads page; remember which build folder is live now ──
 const old = await s3('GET', 'index.html');
+const liveBase = old.status === 200 ? ((old.body.toString('utf8').match(/<base href="\/([^"]*)">/) || [])[1] ?? null) : null;
 if (old.status === 200 && !old.body.toString('utf8').includes('flutter_bootstrap.js')) {
   const r = await s3('PUT', 'download/index.html', { body: old.body, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'x-amz-acl': 'public-read' } });
   if (r.status !== 200) fail('keeping the downloads page: HTTP ' + r.status);
@@ -116,14 +133,15 @@ if (old.status === 200 && !old.body.toString('utf8').includes('flutter_bootstrap
 
 // ── 4) upload (index.html last) ──
 let done = 0;
-const queue = files.filter((f) => f.key !== 'index.html');
+const queue = files.filter((f) => f.key !== 'index.html' && f.key !== 'version.json');
 async function put(f) {
-  const body = fs.readFileSync(f.p);
-  const r = await s3('PUT', f.key, { body, headers: { 'content-type': typeOf(f.key), 'cache-control': 'no-cache', 'x-amz-acl': 'public-read' } });
+  const body = f.data();
+  const r = await s3('PUT', f.key, { body, headers: { 'content-type': typeOf(f.key), 'cache-control': f.cache, 'x-amz-acl': 'public-read' } });
   if (r.status !== 200) fail(`PUT ${f.key}: HTTP ${r.status} ${r.body.toString().slice(0, 200)}`);
   done++;
 }
 await Promise.all(Array.from({ length: 6 }, async () => { for (let f; (f = queue.shift());) await put(f); }));
+await put(files.find((f) => f.key === 'version.json'));
 await put(files.find((f) => f.key === 'index.html'));
 console.log(`uploaded ${done} files`);
 
@@ -146,9 +164,11 @@ async function listAll() {
   return out;
 }
 const listed = [...(await listAll()).keys()];
+// the build that was live until a moment ago stays one more round (tabs opened before the swap)
+const keepPrev = (k) => liveBase === '' ? !k.startsWith('v/') : (liveBase && liveBase.startsWith('v/') && k.startsWith(liveBase));
 let removed = 0;
 for (const k of listed) {
-  if (want.has(k) || KEEP.some((p) => k.startsWith(p))) continue;
+  if (want.has(k) || KEEP.some((p) => k.startsWith(p)) || keepPrev(k)) continue;
   const r = await s3('DELETE', k);
   if (r.status !== 204 && r.status !== 200) fail(`DELETE ${k}: HTTP ${r.status}`);
   removed++;
@@ -159,7 +179,7 @@ console.log(`removed ${removed} stale objects`);
 const sizes = await listAll();
 for (const f of files) {
   const size = sizes.get(f.key);
-  if (size !== fs.statSync(f.p).size) fail(`read-back ${f.key}: size ${size} ≠ ${fs.statSync(f.p).size}`);
+  if (size !== f.size) fail(`read-back ${f.key}: size ${size} ≠ ${f.size}`);
   const r = await s3('HEAD', f.key);
   if (r.status !== 200) fail(`read-back ${f.key}: HTTP ${r.status}`);
   if (!String(r.headers.get('content-type') || '').startsWith(typeOf(f.key).split(';')[0])) fail(`content type of ${f.key}: ${r.headers.get('content-type')}`);
@@ -170,5 +190,8 @@ const pv = await fetch(pub + '/version.json', { cache: 'no-store' });
 const pit = await pi.text();
 const pvj = await pv.json().catch(() => ({}));
 if (pi.status !== 200 || !pit.includes('flutter_bootstrap.js')) fail('public index.html is not the app (HTTP ' + pi.status + ')');
+if (!pit.includes(`<base href="/${PREFIX}">`)) fail('public index.html does not point at ' + PREFIX);
+const pm = await fetch(`${pub}/${PREFIX}main.dart.js`, { method: 'HEAD' });
+if (pm.status !== 200) fail(`public ${PREFIX}main.dart.js: HTTP ${pm.status}`);
 if (pvj.version !== version.version) fail(`public version.json ${pvj.version} ≠ ${version.version}`);
-console.log(`WEB-APP-PUBLISH-OK bucket=${BUCKET} files=${files.length} version=${version.version}+${version.build_number || ''} url=${pub}/`);
+console.log(`WEB-APP-PUBLISH-OK bucket=${BUCKET} files=${files.length} version=${version.version}+${version.build_number || ''} folder=${PREFIX} url=${pub}/`);

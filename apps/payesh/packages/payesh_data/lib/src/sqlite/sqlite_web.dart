@@ -1,4 +1,6 @@
 // 32-bit Windows edition: SQLite3MC as WebAssembly on the shell's files (row 169, D-50).
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -27,9 +29,20 @@ Future<void> prepareWebSqlite({
   if (_sqlite3 != null) return;
   final s = wasmBytes != null
       ? await WasmSqlite3.load(wasmBytes)
-      : await WasmSqlite3.loadFromUrlString(wasmUrl);
+      : await WasmSqlite3.loadFromUrlString(resolveAgainstDocument(wasmUrl));
   s.registerVirtualFileSystem(HostFileSystem(), makeDefault: true);
   _sqlite3 = _CipherSqlite3(s);
+}
+
+/// Row 199: a relative [url] resolved like the page's own scripts — against the document's
+/// `<base href>` (the browser edition lives in a per-build folder, `/v/<build>/`), not the
+/// page address, which is what `Uri.base` gives. Outside a page (node checks) it is unchanged.
+String resolveAgainstDocument(String url) {
+  final doc = globalContext.getProperty<JSAny?>('document'.toJS);
+  if (doc == null || !doc.isA<JSObject>()) return url;
+  final base = (doc as JSObject).getProperty<JSAny?>('baseURI'.toJS);
+  if (base == null || !base.isA<JSString>()) return url;
+  return Uri.parse((base as JSString).toDart).resolve(url).toString();
 }
 
 /// SQLite3MC encrypts only through its own VFS layer: opening with the VFS name
