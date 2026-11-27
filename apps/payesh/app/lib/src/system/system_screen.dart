@@ -1092,7 +1092,7 @@ class CloudController extends SchoolController with _Online {
   String? loadError;
 
   @override
-  Future<void> load() async {
+  Future<void> load({bool quiet = false}) async {
     if (busy) return;
     loading = true;
     loadError = null;
@@ -2029,7 +2029,7 @@ class NetworkController extends SchoolController with _Online {
   Future<void> read(SchoolRecords db) async {}
 
   @override
-  Future<void> load({bool force = false}) async {
+  Future<void> load({bool quiet = false, bool force = false}) async {
     if (busy) return;
     loading = true;
     loadError = null;

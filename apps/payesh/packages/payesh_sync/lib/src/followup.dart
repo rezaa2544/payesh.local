@@ -114,11 +114,29 @@ final class Followup {
     return '';
   }
 
-  Future<FollowupView> view() async {
+  /// Row 200: a page that already read users / classes / lookups passes them in (a big
+  /// school's users list read them four times per load).
+  Future<FollowupView> view({
+    List<EngineRow>? users,
+    List<EngineRow>? classes,
+    List<EngineRow>? lookups,
+  }) async {
     _requireManager();
-    final users = await db.all('users');
-    final classes = {for (final c in await db.allOrEmpty('classes')) c.id: c};
-    final lookups = await db.allOrEmpty('lookups');
+    final everyone = users ?? await db.all('users');
+    final byClass = {
+      for (final c in classes ?? await db.allOrEmpty('classes')) c.id: c,
+    };
+    final defsRows = lookups ?? await db.allOrEmpty('lookups');
+    return _view(everyone, byClass, defsRows);
+  }
+
+  static final _branchGuess = RegExp(r'رشته:\s*([^)\n]+)');
+
+  Future<FollowupView> _view(
+    List<EngineRow> users,
+    Map<int, EngineRow> classes,
+    List<EngineRow> lookups,
+  ) async {
     List<String> defs(String k) => [
       for (final l in lookups)
         if (l.data['kind'] == k && _s(l.data['name']).isNotEmpty)
@@ -131,7 +149,7 @@ final class Followup {
       final reason = reasonOf(u.data, classes, grades, branches);
       if (reason.isEmpty) continue;
       final c = classes[_int(u.data['class_id']) ?? -1];
-      final m = RegExp(r'رشته:\s*([^)\n]+)').firstMatch(reason);
+      final m = _branchGuess.firstMatch(reason);
       final guess = m == null
           ? ''
           : m[1]!.replaceFirst(RegExp(r'\(.*$'), '').trim();
@@ -150,6 +168,19 @@ final class Followup {
       );
     }
     students.sort((a, b) => a.name.compareTo(b.name));
+    // row 200: one index instead of a scan of every user per open issue (75 × 1177);
+    // the first user wins, as the scan did
+    final byNid = <String, int>{},
+        byPhone = <String, int>{},
+        byName = <String, int>{};
+    for (final u in users) {
+      final n = _s(u.data['national_id']);
+      final p = _s(u.data['phone']);
+      if (n.isNotEmpty) byNid.putIfAbsent(n, () => u.id);
+      if (p.isNotEmpty) byPhone.putIfAbsent(p, () => u.id);
+      byName.putIfAbsent(_s(u.data['name']), () => u.id);
+    }
+    final order = {for (final (i, u) in users.indexed) u.id: i};
     final issues = <ImportIssue>[];
     for (final i in await db.allOrEmpty('import_issues')) {
       if (i.data['status'] == 'done') continue;
@@ -157,13 +188,16 @@ final class Followup {
       final phone = _s(i.data['phone']);
       final name = _s(i.data['name']);
       int? uid;
-      for (final u in users) {
-        if ((nid.isNotEmpty && _s(u.data['national_id']) == nid) ||
-            (phone.isNotEmpty && _s(u.data['phone']) == phone) ||
-            (nid.isEmpty && phone.isEmpty && _s(u.data['name']) == name)) {
-          uid = u.id;
-          break;
-        }
+      if (nid.isEmpty && phone.isEmpty) {
+        uid = byName[name];
+      } else {
+        final a = nid.isEmpty ? null : byNid[nid];
+        final b = phone.isEmpty ? null : byPhone[phone];
+        uid = a == null
+            ? b
+            : b == null || order[a]! <= order[b]!
+            ? a
+            : b;
       }
       final reasons = i.data['reasons'];
       final data = i.data['data'];

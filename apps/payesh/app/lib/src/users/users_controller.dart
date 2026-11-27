@@ -51,35 +51,54 @@ class UsersController extends SchoolController {
 
   bool get canManage => SchoolRecords.rules['users']!.writers.contains(role);
 
+  /// Row 200: a big school (≈1200 users) drew every row at once — the page froze on each
+  /// click, keystroke and sync. The table now shows [pageSize] rows a page.
+  static const pageSize = 50;
+  int page = 0;
+  int get pages =>
+      users.isEmpty ? 1 : (users.length + pageSize - 1) ~/ pageSize;
+
+  /// The rows of the current page.
+  List<SchoolUser> get shown {
+    final from = page * pageSize;
+    if (from >= users.length) return const [];
+    final to = from + pageSize;
+    return users.sublist(from, to > users.length ? users.length : to);
+  }
+
+  void goPage(int p) {
+    final next = p < 0 ? 0 : (p >= pages ? pages - 1 : p);
+    if (next == page) return;
+    page = next;
+    emit();
+  }
+
   @override
   Future<void> read(SchoolRecords db) async {
     final dir = UserDirectory(db);
     final all = await dir.list(role: roleFilter, query: query);
+    // row 200: every collection is read once per load (it was users ×4, lookups ×3, classes ×3)
+    final lookups = await db.allOrEmpty('lookups');
+    final everyone = await db.allOrEmpty('users');
+    final cls = await db.allOrEmpty('classes');
     final grades = <String>{}, branches = <String>{};
-    for (final l in await db.allOrEmpty('lookups')) {
+    final defG = <String>[], defB = <String>[];
+    for (final l in lookups) {
       final name = SchoolRecords.str(l.data['name']).trim();
       if (name.isEmpty) continue;
       switch (SchoolRecords.str(l.data['kind'])) {
         case 'grade':
           grades.add(name);
-        case 'branch':
-          branches.add(name);
-      }
-    }
-    for (final u in all.where((u) => u.role == 'student')) {
-      if (u.grade.trim().isNotEmpty) grades.add(u.grade.trim());
-      if (u.branch.trim().isNotEmpty) branches.add(u.branch.trim());
-    }
-    final defG = <String>[], defB = <String>[];
-    for (final l in await db.allOrEmpty('lookups')) {
-      final name = SchoolRecords.str(l.data['name']).trim();
-      if (name.isEmpty) continue;
-      switch (SchoolRecords.str(l.data['kind'])) {
-        case 'grade':
           if (!defG.contains(name)) defG.add(name);
         case 'branch':
+          branches.add(name);
           if (!defB.contains(name)) defB.add(name);
       }
+    }
+    for (final u in all) {
+      if (u.role != 'student') continue;
+      if (u.grade.trim().isNotEmpty) grades.add(u.grade.trim());
+      if (u.branch.trim().isNotEmpty) branches.add(u.branch.trim());
     }
     definedGrades = defG;
     definedBranches = defB;
@@ -104,15 +123,16 @@ class UsersController extends SchoolController {
               if (hit(u.grade, gradeFilter) && hit(u.branch, branchFilter)) u,
           ]
         : all;
-    total = (await db.allOrEmpty('users')).length;
+    if (page >= pages) page = pages - 1;
+    total = everyone.length;
     try {
-      final f = await Followup(db).view();
+      final f = await Followup(db)
+          .view(users: everyone, classes: cls, lookups: lookups);
       followups = f.total;
       followupIssues = f.issues.length;
     } on Object {
       followups = followupIssues = 0;
     }
-    final cls = await db.allOrEmpty('classes');
     classes = [for (final c in cls) (c.id, SchoolRecords.str(c.data['name']))]
       ..sort((a, b) => a.$2.compareTo(b.$2));
     classRows = [
@@ -126,10 +146,11 @@ class UsersController extends SchoolController {
           ),
     ]..sort((a, b) => a.$2.compareTo(b.$2));
     studentRows = [
-      for (final u in await db.allOrEmpty('users'))
+      for (final u in everyone)
         if (u.data['role'] == 'student') (u.id, fullName(u.data)),
     ]..sort((a, b) => a.$2.compareTo(b.$2));
-    picked.removeWhere((id) => !users.any((u) => u.id == id));
+    final ids = {for (final u in users) u.id};
+    picked.removeWhere((id) => !ids.contains(id));
   }
 
   Future<void> filter({
@@ -145,6 +166,7 @@ class UsersController extends SchoolController {
     if (search != null) query = search;
     if (grade != null) gradeFilter = grade;
     if (branch != null) branchFilter = branch;
+    page = 0;
     await load();
   }
 

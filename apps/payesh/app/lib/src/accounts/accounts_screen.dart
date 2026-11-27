@@ -42,8 +42,8 @@ class CredsController extends SchoolController {
   }
 
   @override
-  Future<void> load() async {
-    await super.load();
+  Future<void> load({bool quiet = false}) async {
+    await super.load(quiet: quiet);
     await loadCredential();
   }
 
@@ -463,7 +463,7 @@ class OwnPasswordController extends SchoolController {
   Future<void> read(SchoolRecords db) async {}
 
   @override
-  Future<void> load() async {
+  Future<void> load({bool quiet = false}) async {
     loading = false;
     emit();
   }

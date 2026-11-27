@@ -370,14 +370,22 @@ final class UserDirectory {
   /// `PAGES.users`: every user (manager only), filtered by role and search, sorted by name.
   Future<List<SchoolUser>> list({String role = '', String query = ''}) async {
     _requireManager();
-    final classes = await _classNames();
+    // row 200: classes read once; a parent's children come from an index, not a scan of
+    // every link per parent
+    final classRows = await db.allOrEmpty('classes');
+    final classes = {
+      for (final c in classRows) c.id: SchoolRecords.str(c.data['name']),
+    };
     final queued = db.queuedIds(users);
     final rows = await db.all(users);
     final byId = {for (final r in rows) r.id: r};
-    final links = await db.allOrEmpty('parent_links');
-    final groups = {
-      for (final c in await db.allOrEmpty('classes')) c.id: c.data,
-    };
+    final kidsOf = <int, List<EngineRow>>{};
+    for (final l in await db.allOrEmpty('parent_links')) {
+      final p = SchoolRecords.asInt(l.data['parent_id']);
+      final k = byId[SchoolRecords.asInt(l.data['student_id'])];
+      if (p != null && k != null) (kidsOf[p] ??= []).add(k);
+    }
+    final groups = {for (final c in classRows) c.id: c.data};
     final q = query.trim();
     final out = <SchoolUser>[];
     for (final r in rows) {
@@ -390,12 +398,8 @@ final class UserDirectory {
         continue;
       }
       final kidRows = u.role == 'parent'
-          ? [
-              for (final l in links)
-                if (SchoolRecords.asInt(l.data['parent_id']) == r.id)
-                  ?byId[SchoolRecords.asInt(l.data['student_id'])],
-            ]
-          : rows.take(0).toList();
+          ? (kidsOf[r.id] ?? const <EngineRow>[])
+          : const <EngineRow>[];
       final subject = kidRows.isNotEmpty ? kidRows.first.data : r.data;
       final grp =
           groups[SchoolRecords.asInt(subject['class_id'])] ??
@@ -435,7 +439,13 @@ final class UserDirectory {
             ?SchoolRecords.asInt(s.data['class_id']),
     };
     final classes = await _classNames();
-    final grades = await db.allOrEmpty('grades');
+    // row 200: scores grouped once per student (was a scan of every grade per student)
+    final scores = <int, List<num>>{};
+    for (final x in await db.allOrEmpty('grades')) {
+      final sid = SchoolRecords.asInt(x.data['student_id']);
+      if (sid == null) continue;
+      (scores[sid] ??= []).add(num.tryParse('${x.data['score'] ?? 0}') ?? 0);
+    }
     final q = query.trim();
     final out = <StudentRow>[];
     for (final r in await db.all(users)) {
@@ -450,11 +460,7 @@ final class UserDirectory {
       if (q.isNotEmpty && !SchoolRecords.str(r.data['name']).contains(q)) {
         continue;
       }
-      final g = [
-        for (final x in grades)
-          if (SchoolRecords.asInt(x.data['student_id']) == r.id)
-            num.tryParse('${x.data['score'] ?? 0}') ?? 0,
-      ];
+      final g = scores[r.id] ?? const <num>[];
       final avg = g.isEmpty ? 0.0 : g.fold<num>(0, (a, b) => a + b) / g.length;
       out.add(StudentRow(u, u.className, avg.toDouble(), g.length));
     }

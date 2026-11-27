@@ -1,3 +1,4 @@
+import 'dart:async' show Timer;
 import 'dart:convert' show HtmlEscape, HtmlEscapeMode;
 
 import 'package:flutter/foundation.dart';
@@ -43,6 +44,36 @@ class _UsersScreenState extends State<UsersScreen> {
   UsersController get c => widget.controller;
   final search = TextEditingController();
 
+  /// Row 200: a new page starts at the top of the table, not under its last row.
+  final _tableTop = GlobalKey();
+  void _goPage(int p) {
+    c.goPage(p);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _tableTop.currentContext;
+      if (ctx != null && ctx.mounted) {
+        Scrollable.ensureVisible(
+          ctx,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+        );
+      }
+    });
+  }
+
+  /// Row 200: the list is read again 300 ms after the last keystroke, not on every letter.
+  Timer? _typing;
+  void _searchLater(String v) {
+    _typing?.cancel();
+    _typing = Timer(
+      const Duration(milliseconds: 300),
+      () => c.filter(search: v),
+    );
+  }
+
+  void _searchNow(String v) {
+    _typing?.cancel();
+    c.filter(search: v);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +82,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
   @override
   void dispose() {
+    _typing?.cancel();
     search.dispose();
     super.dispose();
   }
@@ -173,6 +205,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
   List<Widget> _body(BuildContext context) {
     final parentCol = c.roleFilter == 'parent';
+    final shown = c.shown;
     final phone = MediaQuery.sizeOf(context).width < 600;
     return [
       if (c.followups > 0) _followupCard(context),
@@ -193,8 +226,8 @@ class _UsersScreenState extends State<UsersScreen> {
                   controller: search,
                   style: TextStyle(fontSize: 15, color: Web.ink),
                   decoration: webInput(hint: 'جستجوی نام، شماره یا کد ملی…'),
-                  onChanged: (v) => c.filter(search: v),
-                  onSubmitted: (v) => c.filter(search: v),
+                  onChanged: _searchLater,
+                  onSubmitted: _searchNow,
                 ),
               ),
               WebPills(
@@ -265,6 +298,7 @@ class _UsersScreenState extends State<UsersScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
+                key: _tableTop,
                 padding: EdgeInsets.only(bottom: 6),
                 child: Text.rich(
                   TextSpan(
@@ -310,11 +344,10 @@ class _UsersScreenState extends State<UsersScreen> {
                   ),
                 },
                 rowColor: (i) =>
-                    c.picked.contains(c.users[i].id) ? Web.redBg : null,
-                rows: [
-                  for (final u in c.users) _row(u, parentCol, phone: phone),
-                ],
+                    c.picked.contains(shown[i].id) ? Web.redBg : null,
+                rows: [for (final u in shown) _row(u, parentCol, phone: phone)],
               ),
+              if (c.pages > 1) _pager(),
               if (c.users.isEmpty && c.error == null)
                 const Padding(
                   padding: EdgeInsets.only(top: 12),
@@ -328,6 +361,41 @@ class _UsersScreenState extends State<UsersScreen> {
         ),
       ),
     ];
+  }
+
+  /// Row 200: «قبلی · ۱ تا ۵۰ از ۱۱۷۷ · بعدی» under the table of a big school.
+  Widget _pager() {
+    final from = c.page * UsersController.pageSize;
+    final to = from + c.shown.length;
+    return Padding(
+      key: const Key('usr-pager'),
+      padding: const EdgeInsets.only(top: 10),
+      child: WebWrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 6,
+        children: [
+          WebBtn(
+            'قبلی',
+            key: const Key('usr-page-prev'),
+            kind: WebBtnKind.ghost,
+            onPressed: c.page > 0 ? () => _goPage(c.page - 1) : null,
+          ),
+          Text(
+            '${Web.fa(from + 1)} تا ${Web.fa(to)} از ${Web.fa(c.users.length)}',
+            key: const Key('usr-page-info'),
+            style: Web.small,
+          ),
+          WebBtn(
+            'بعدی',
+            key: const Key('usr-page-next'),
+            kind: WebBtnKind.ghost,
+            onPressed: c.page < c.pages - 1 ? () => _goPage(c.page + 1) : null,
+          ),
+        ],
+      ),
+    );
   }
 
   /// Row 185: a پایه / رشته filter of the student list (all · each value · none set).

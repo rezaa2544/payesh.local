@@ -60,10 +60,12 @@ abstract class SchoolController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
-  Future<void> load() async {
+  /// [quiet]: a background reload (a synced change) keeps the page as it is until the new
+  /// data is read — no extra rebuild for the «loading» flag (row 200).
+  Future<void> load({bool quiet = false}) async {
     loading = true;
     error = null;
-    emit();
+    if (!quiet || db == null) emit();
     try {
       final d = db ??= await source.recordsFor(role: role, uid: uid);
       if (d == null) {
@@ -80,8 +82,28 @@ abstract class SchoolController extends ChangeNotifier {
     emit();
   }
 
+  Future<void>? _reloading;
+  bool _reloadAgain = false;
+
+  /// Row 200: a sync pulls a big school in many batches and each one fires [SchoolSource.changed];
+  /// every change started a whole new read of the page in parallel. Now one reload runs at a
+  /// time and the changes that arrive meanwhile fold into one more.
   void _reload() {
-    if (!busy && !_disposed) load();
+    if (busy || _disposed) return;
+    if (_reloading != null) {
+      _reloadAgain = true;
+      return;
+    }
+    _reloading = () async {
+      try {
+        do {
+          _reloadAgain = false;
+          await load(quiet: true);
+        } while (_reloadAgain && !_disposed && !busy);
+      } finally {
+        _reloading = null;
+      }
+    }();
   }
 
   static String syncMessage(SyncFailure e) => e.code?.wire == 'queue_full'
