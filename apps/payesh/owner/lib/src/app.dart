@@ -172,8 +172,7 @@ class _OwnerAppState extends State<OwnerApp> {
         _acctAskedPassword = true;
         setState(() {
           _localSignedIn = false;
-          _localNotice =
-              'دیتابیس آمادهٔ اتصال خودکار است: یک بار با همان شناسه، رمز و کدِ پنل مالک رایانه وارد شوید تا بی‌هیچ تعریف سرور یا دیتابیسی وصل شود.';
+          _localNotice = 'دیتابیس آمادهٔ اتصال خودکار است: یک بار با همان شناسه، رمز و کدِ پنل مالک رایانه وارد شوید تا بی‌هیچ تعریف سرور یا دیتابیسی وصل شود.';
         });
       }
     } on Object {

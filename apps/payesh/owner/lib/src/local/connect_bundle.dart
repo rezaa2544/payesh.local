@@ -259,10 +259,17 @@ String acctSecret(List<int> passwordHash, List<int> codeHash) => hash.sha256
     .toString();
 
 /// متن بسته (بی‌زمان) — برای تشخیص «تغییری نبود» بی‌نوشتن دوباره (درس U1).
-String acctMark(S3Settings s, String login, List<int> salt, int iter,
-        List<int> passwordHash, List<int> codeHash) =>
-    hash.sha256
-        .convert(utf8.encode(jsonEncode({
+String acctMark(
+  S3Settings s,
+  String login,
+  List<int> salt,
+  int iter,
+  List<int> passwordHash,
+  List<int> codeHash,
+) => hash.sha256
+    .convert(
+      utf8.encode(
+        jsonEncode({
           'endpoint': endpointText(s.endpoint),
           'bucket': s.bucket,
           'a': s.accessKey,
@@ -271,8 +278,10 @@ String acctMark(S3Settings s, String login, List<int> salt, int iter,
           'salt': base64.encode(salt),
           'iter': iter,
           'h': acctSecret(passwordHash, codeHash),
-        })))
-        .toString();
+        }),
+      ),
+    )
+    .toString();
 
 /// پاکت بستهٔ حساب.
 Future<Map<String, Object?>> sealAcct({
@@ -302,12 +311,14 @@ Future<S3Settings?> openAcct(
   List<int> codeHash,
 ) async {
   try {
-    final j = jsonDecode(await openBox(
-      secret: acctSecret(passwordHash, codeHash),
-      salt: acctSalt,
-      kind: acctKind,
-      env: env,
-    ));
+    final j = jsonDecode(
+      await openBox(
+        secret: acctSecret(passwordHash, codeHash),
+        salt: acctSalt,
+        kind: acctKind,
+        env: env,
+      ),
+    );
     if (j is! Map<String, Object?> || j['v'] != 1 || j['rev'] != env['rev']) {
       return null;
     }
@@ -363,8 +374,14 @@ Future<void> publishAcctBundle({
     rev: rev,
   );
   const pub = {'x-amz-acl': 'public-read', 'cache-control': 'no-cache'};
-  await s3PutJson(s, t, '$connectPubDir${acctBundlePath(login)}',
-      jsonEncode(env), now: now, headers: pub);
+  await s3PutJson(
+    s,
+    t,
+    '$connectPubDir${acctBundlePath(login)}',
+    jsonEncode(env),
+    now: now,
+    headers: pub,
+  );
   await s3PutJson(
     s,
     t,

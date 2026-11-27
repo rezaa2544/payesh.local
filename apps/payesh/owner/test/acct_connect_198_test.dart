@@ -86,8 +86,10 @@ void main() {
     await conn(FakeSecureStore(), bucket).publishIfChanged(db, pcRecord());
 
     final phone = FakeSecureStore();
-    final rec = await conn(phone, bucket)
-        .tryWithPassword('owner', 'Owner-pass-1', '123456');
+    final rec = await conn(
+      phone,
+      bucket,
+    ).tryWithPassword('owner', 'Owner-pass-1', '123456');
     expect(rec, isNotNull);
     expect((await S3Settings.load(phone))?.sameTarget(db), isTrue);
     expect(rec!.verify('owner', 'Owner-pass-1', '123456'), isTrue);
@@ -108,11 +110,17 @@ void main() {
     await conn(FakeSecureStore(), bucket).publishIfChanged(db, pcRecord());
     final phone = FakeSecureStore();
     expect(
-      await conn(phone, bucket).tryWithPassword('owner', 'Owner-pass-1', '654321'),
+      await conn(
+        phone,
+        bucket,
+      ).tryWithPassword('owner', 'Owner-pass-1', '654321'),
       isNull,
     );
     expect(
-      await conn(phone, bucket).tryWithPassword('owner', 'wrong-pass-9', '123456'),
+      await conn(
+        phone,
+        bucket,
+      ).tryWithPassword('owner', 'wrong-pass-9', '123456'),
       isNull,
     );
     expect(await S3Settings.load(phone), isNull);
@@ -122,7 +130,10 @@ void main() {
       code: '123456',
       iterations: it,
     );
-    expect(await conn(phone, bucket).tryWithRecord(own), AcctOutcome.needsPassword);
+    expect(
+      await conn(phone, bucket).tryWithRecord(own),
+      AcctOutcome.needsPassword,
+    );
     final other = LocalAccountRecord.create(
       loginId: 'someone',
       password: 'Owner-pass-1',

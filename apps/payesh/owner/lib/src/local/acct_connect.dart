@@ -15,13 +15,12 @@ import 'local_account.dart';
 import 's3_client.dart';
 
 /// هش رمز و کد با نمک داده‌شده (PBKDF2 کند ⇒ پیش‌فرض در Isolate).
-typedef AcctHasher =
-    Future<({List<int> pw, List<int> code})> Function(
-      String password,
-      String code,
-      List<int> salt,
-      int iterations,
-    );
+typedef AcctHasher = Future<({List<int> pw, List<int> code})> Function(
+  String password,
+  String code,
+  List<int> salt,
+  int iterations,
+);
 
 ({List<int> pw, List<int> code}) _hashJob(
   ({String pw, String code, List<int> salt, int iter}) m,
@@ -32,12 +31,8 @@ Future<({List<int> pw, List<int> code})> isolateAcctHasher(
   String code,
   List<int> salt,
   int iterations,
-) => compute(_hashJob, (
-  pw: password,
-  code: code,
-  salt: salt,
-  iter: iterations,
-));
+) =>
+    compute(_hashJob, (pw: password, code: code, salt: salt, iter: iterations));
 
 enum AcctOutcome {
   /// تنظیم دیتابیس از بسته خوانده و ذخیره شد.
