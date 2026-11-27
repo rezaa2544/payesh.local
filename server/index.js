@@ -122,6 +122,14 @@ const TENANCY = tenancy.init({
   } catch (e) { /* بی‌صدا: نداشتن این فهرست نباید بالا آمدن سرور را بشکند */ }
 })();
 
+/* ── ردیف ۱۹۷-Q04: کلاس دانش‌آموزی (پایه + رشته) جدا از اتاق ────────────
+   تعریف تکراری حذف، و در مدرسهٔ رشته‌محور دانش‌آموز بی‌کلاس به کلاس «پایه + رشته»
+   وصل می‌شود (یک بار هنگام بالا آمدن، و چند ثانیه پس از هر تغییر). شرح در
+   server/structure-repair.js */
+require('./structure-repair').install(store, {
+  log: (r) => { try { console.log('[structure-repair]', JSON.stringify(r)); } catch (e) { /* noop */ } },
+});
+
 /* ── تعمیر خودکار حساب‌های بی‌رمز ────────────────────────────────────
    هر کاربری که شمارهٔ همراه دارد ولی رمز ندارد (مثلاً ولی‌ای که هنگام ثبت
    دانش‌آموز ساخته شد و کد ملی نداشت) تا امروز نمی‌توانست وارد شود و پیام
@@ -1020,7 +1028,17 @@ async function api(req, res, url, ip) {
   /* نقشِ «اشتراکی» بدون اشتراک فعال، یا مدرسهٔ غیرفعال ⇒ هیچ امکانی (فقط ورود، خروج، صفحهٔ اشتراک و مدیریت دستگاه‌های خود) */
   {
     const g = schools.gate(store, actor.user);
-    if (!g.access) return json({ ok: false, error: g.status === 'school_inactive' || g.status === 'school_removed' ? g.status : 'subscription_required', sub: g }, g.status === 'school_inactive' || g.status === 'school_removed' ? 403 : 402);
+    if (!g.access) {
+      const closed = g.status === 'school_inactive' || g.status === 'school_removed';
+      /* ردیف ۱۹۷-Q03: «هستهٔ رایگان» ولی — فقط خواندن داده (bootstrap، رویدادهای زنده، pull با
+         کالکشن‌های رایگان) و نوشتن درخواست مرخصی؛ هر چیز دیگر همان 402 */
+      const freeRoute = (p === '/api/bootstrap' || p === '/api/v1/events' || p === '/api/v1/pull' || p === '/api/live/rev') && m === 'GET'
+        || (p === '/api/sync' && m === 'POST');
+      if (closed || !g.free_core || !freeRoute) {
+        return json({ ok: false, error: closed ? g.status : 'subscription_required', sub: g }, closed ? 403 : 402);
+      }
+      actor.freeCore = g.free_core;
+    }
   }
 
   if (p === '/api/bootstrap' && m === 'GET') {
@@ -1050,7 +1068,14 @@ async function api(req, res, url, ip) {
 
   if (p === '/api/v1/pull' && m === 'GET') {
     live.touch();
-    const out = sync.pull(store, actor, { since: q.get('since'), since_seq: q.get('since_seq'), since_id: q.get('since_id'), collections: q.get('collections') });
+    let cols = q.get('collections');
+    if (actor.freeCore) {
+      /* ردیف ۱۹۷-Q03: بی‌اشتراک ⇒ فقط کالکشن‌های هستهٔ رایگان (درخواستِ فقط‌اشتراکی ⇒ هیچ) */
+      const asked = String(cols || '').split(',').map(x => x.trim()).filter(Boolean);
+      const keep = (asked.length ? asked : schools.FREE_CORE_READ).filter(x => schools.FREE_CORE_READ.includes(x));
+      cols = keep.length ? keep.join(',') : '-';
+    }
+    const out = sync.pull(store, actor, { since: q.get('since'), since_seq: q.get('since_seq'), since_id: q.get('since_id'), collections: cols });
     /* ردیف ۴۲: درخواست بدون تغییر ⇒ ۳۰۴ با بدنهٔ خالی. مکان‌نمای مرکب
        (since, since_id) بخشی از ETag است، پس ۳۰۴ هرگز دادهٔ جامانده را
        پنهان نمی‌کند. */
@@ -1076,6 +1101,13 @@ async function api(req, res, url, ip) {
 
   if (p === '/api/sync' && m === 'POST') {
     const body = await readBody(req, 8 * 1024 * 1024);
+    if (actor.freeCore) {
+      /* ردیف ۱۹۷-Q03: بی‌اشتراک فقط درخواست مرخصی (همهٔ عملیات یک بسته، یا هیچ‌کدام) */
+      const ops = Array.isArray(body && body.ops) ? body.ops : [];
+      if (ops.some(op => !schools.FREE_CORE_WRITE.includes(String(op && op.collection || '')))) {
+        return json({ ok: false, error: 'subscription_required', sub: schools.gate(store, actor.user) }, 402);
+      }
+    }
     const ctx = { device_id: actor.device ? actor.device.id : null, ip };
     const out = sync.push(store, actor, body, ctx);
     /* قرارداد Sync v1: خطای سطح درخواست همیشه 4xx است، نه 200 با ok:false */

@@ -547,8 +547,16 @@ class _SignedInScreenState extends State<SignedInScreen> {
           const SizedBox(height: PayeshTokens.space3),
           _PaywallHistory(controller: controller),
         ] else ...[
+          // Row 197-Q03: free core (parent without a subscription) — what is free, and the
+          // trial / subscription one tap away.
+          if (controller.limited)
+            Padding(
+              padding: const EdgeInsets.only(top: PayeshTokens.space3),
+              child: FreeCoreBanner(controller: controller),
+            ),
           if (controller.sub case final sub?
-              when sub.managed &&
+              when !controller.limited &&
+                  sub.managed &&
                   sub.status != 'free' &&
                   (!_badgeInStrip(context) || sub.renewWarning))
             Padding(
@@ -582,9 +590,16 @@ class _SignedInScreenState extends State<SignedInScreen> {
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    final pages0 = controller.paywalled
+    final all0 = controller.paywalled
         ? const <PulseNavItem>[]
         : (widget.nav?.call(context, state) ?? const <PulseNavItem>[]);
+    // Row 197-Q03: without a subscription only the free core stays in the menu.
+    final pages0 = controller.limited
+        ? [
+            for (final m in all0)
+              if (freeCorePages.contains(m.id)) m,
+          ]
+        : all0;
     // Row 172: every web role ends with «⚙️ سیستم»; when this build has no system page for the
     // user, a small one keeps «🔒 خروج» and this device's controls reachable (never a shell
     // without a way out).
@@ -720,9 +735,18 @@ class _SignedInScreenState extends State<SignedInScreen> {
     final main = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Row 197-Q03: the free core says what is free and keeps the trial one tap away, above
+        // every page of the shell (not only on the bare home).
+        if (controller.limited)
+          Padding(
+            padding: wide
+                ? const EdgeInsets.fromLTRB(26, 12, 26, 0)
+                : const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: FreeCoreBanner(controller: controller),
+          )
         // Row 177: with an updater the badge sits in the top-left strip next to the version;
         // only the renewal warning (if any) stays above the page.
-        if (sub != null &&
+        else if (sub != null &&
             sub.managed &&
             sub.status != 'free' &&
             (!_badgeInStrip(context) || sub.renewWarning))

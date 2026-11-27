@@ -445,6 +445,7 @@ final class SubStatus {
     this.pending = const [],
     this.renewWarning = false,
     this.yearEnd,
+    this.freeCore = const [],
   });
   final bool managed;
   final bool access;
@@ -470,6 +471,10 @@ final class SubStatus {
 
   /// پایان سال تحصیلی جاری (۳۱ شهریور) — همهٔ اشتراک‌ها آن‌جا تمام می‌شوند.
   final DateTime? yearEnd;
+
+  /// ردیف ۱۹۷-Q03: بخش‌هایی که این نقش بی‌اشتراک هم دارد (ولی: grades, attendance, schedule,
+  /// leaves) — «هستهٔ رایگان». خالی = بی‌اشتراک هیچ امکانی نیست (دیوار اشتراک).
+  final List<String> freeCore;
 
   bool get blockedSchool =>
       status == 'school_inactive' || status == 'school_removed';
@@ -502,6 +507,11 @@ final class SubStatus {
       daysLeft: n(sub['days_left']),
       renewWarning: sub['renew_warning'] == true,
       yearEnd: DateTime.tryParse('${sub['year_end']}'),
+      freeCore: [
+        if (sub['free_core'] is List)
+          for (final f in sub['free_core']! as List)
+            if (f is String) f,
+      ],
       pending: [
         if (sub['pending'] is List)
           for (final p in sub['pending']! as List) ?SubPayment.fromJson(p),

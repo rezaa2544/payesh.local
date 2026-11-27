@@ -389,7 +389,18 @@ class _ClassesScreenState extends State<ClassesScreen> {
                               WebItem(
                                 key: Key('cls-def-${r.id}'),
                                 title: r.name,
-                                titleTrailing: _queued(r.queued),
+                                // row 197-Q04: the students of this grade/branch (their own
+                                // grade/major) — a field school lists no classes, so «بدون
+                                // استفاده» alone read as an empty major
+                                titleTrailing: [
+                                  if (r.students > 0)
+                                    WebBadge(
+                                      '${Web.fa(r.students)} دانش‌آموز',
+                                      key: Key('cls-def-students-${r.id}'),
+                                      tone: WebTone.green,
+                                    ),
+                                  ..._queued(r.queued),
+                                ],
                                 sub: r.classes > 0
                                     ? '${Web.fa(r.classes)} کلاس از این مورد استفاده می‌کند'
                                     : 'بدون استفاده',
@@ -608,12 +619,19 @@ class _ClassFormPageState extends State<ClassFormPage> {
     String label,
     List<LookupRow> rows,
     String value,
-    ValueChanged<String> set,
-  ) {
-    final names = [for (final r in rows) r.name];
+    ValueChanged<String> set, {
+    List<String> extra = const [],
+  }) {
+    // row 197-Q04: one item per name (a grade defined twice made the menu fail) + the grades of
+    // the school's level, so the menu is never empty or broken
+    final seen = <String>{};
+    final names = [
+      for (final n in [...rows.map((r) => r.name), ...extra])
+        if (n.trim().isNotEmpty && seen.add(groupKey(n))) n,
+    ];
     // a value not in the definitions still shows (editing an old class must not change it)
     final all = [
-      if (value.isNotEmpty && !names.contains(value)) value,
+      if (value.isNotEmpty && !seen.contains(groupKey(value))) value,
       ...names,
     ];
     return FieldBox(
@@ -621,7 +639,13 @@ class _ClassFormPageState extends State<ClassFormPage> {
       child: DropdownButtonFormField<String>(
         key: Key(key),
         isExpanded: true,
-        initialValue: value,
+        // the same name written another way («نقشه‌کشی» / «نقشه کشی») selects its item
+        initialValue: value.isEmpty
+            ? value
+            : all.firstWhere(
+                (n) => groupKey(n) == groupKey(value),
+                orElse: () => value,
+              ),
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
@@ -714,6 +738,7 @@ class _ClassFormPageState extends State<ClassFormPage> {
           v?.grades ?? const [],
           grade,
           (x) => grade = x,
+          extra: st.grades,
         ),
         if (!(st.level.isNotEmpty && st.classBased))
           _pick(

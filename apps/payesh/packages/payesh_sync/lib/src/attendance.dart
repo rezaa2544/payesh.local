@@ -10,6 +10,7 @@ import 'package:crypto/crypto.dart';
 import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_data/payesh_data.dart';
 
+import 'classes.dart' show fieldGroupMember;
 import 'leave_spec.dart';
 import 'outbox.dart';
 import 'school_access.dart' show permRole;
@@ -250,7 +251,12 @@ final class AttendanceBook {
     final ids = <int>{};
     final names = <int, String>{};
     final grades = <int, String>{};
+    final rows = <int, Map<String, Object?>>{};
     for (final c in await _all('classes')) {
+      // row 197-Q04: a room/workshop («۲۰۲»، «کارگاه نقشه کشی») is a place, not a class of
+      // students — it never shows up for attendance
+      if (c.data['kind'] == 'room') continue;
+      rows[c.id] = c.data;
       names[c.id] = _name(c.data, c.id, 'کلاس');
       grades[c.id] = '${c.data['grade'] ?? ''}';
       if (role == 'manager') ids.add(c.id);
@@ -258,19 +264,20 @@ final class AttendanceBook {
     if (role == 'teacher') {
       for (final s in await engine.byRef('schedule', 'teacher_id', uid)) {
         final cid = _int(s.data['class_id']);
-        if (cid != null && cid > 0) ids.add(cid);
+        if (cid != null && cid > 0 && rows.containsKey(cid)) ids.add(cid);
       }
       final me = await engine.get('users', uid);
       final own = _int(me?.data['class_id']);
-      if (own != null && own > 0) ids.add(own);
+      if (own != null && own > 0 && rows.containsKey(own)) ids.add(own);
     }
     final students = <int, int>{};
-    for (final id in ids) {
-      students[id] = (await engine.byRef(
-        'users',
-        'class_id',
-        id,
-      )).where((u) => u.data['role'] == 'student').length;
+    if (ids.isNotEmpty) {
+      final users = await _all('users');
+      for (final id in ids) {
+        students[id] = users
+            .where((u) => _isMember(rows[id]!, id, u.data))
+            .length;
+      }
     }
     final out =
         [
@@ -286,6 +293,20 @@ final class AttendanceBook {
           return c != 0 ? c : a.id.compareTo(b.id);
         });
     return out;
+  }
+
+  /// Row 197-Q04: a student of class [id] — its own `class_id`, or (no class yet) the
+  /// «پایه + رشته» group of a field-mode class.
+  static bool _isMember(
+    Map<String, Object?> cls,
+    int id,
+    Map<String, Object?> u,
+  ) {
+    if (u['role'] != 'student') return false;
+    if (u['active'] == false || u['deleted'] == true) return false;
+    final own = _int(u['class_id']) ?? 0;
+    if (own != 0) return own == id;
+    return fieldGroupMember(cls, u);
   }
 
   Future<void> _requireClass(int classId) async {
@@ -332,9 +353,9 @@ final class AttendanceBook {
         l == null ? null : leaveTagFa(l);
 
     final out = <RosterEntry>[];
-    for (final u in await engine.byRef('users', 'class_id', classId)) {
-      if (u.data['role'] != 'student') continue;
-      if (u.data['active'] == false || u.data['deleted'] == true) continue;
+    final cls = (await engine.get('classes', classId))?.data ?? const {};
+    for (final u in await _all('users')) {
+      if (!_isMember(cls, classId, u.data)) continue;
       final ex = existing[u.id];
       final lv = leaves[u.id];
       out.add(

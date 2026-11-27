@@ -69,12 +69,16 @@ class SubBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trial = sub.status == 'trial';
+    // Row 197-Q03: the free core (parent without a subscription) is not «اشتراک فعال»
+    final free = !sub.access;
     final badge = StatusBadge(
-      trial
+      free
+          ? '🔓 نسخهٔ رایگان'
+          : trial
           ? '🎁 تست رایگان — ${faDigits(sub.daysLeft)} روز'
           : '✅ اشتراک فعال — تا ${_date(sub.end)}',
       key: const Key('sub-banner'),
-      tone: trial || sub.daysLeft <= 7
+      tone: free || trial || sub.daysLeft <= 7
           ? PayeshTone.warning
           : PayeshTone.success,
     );
@@ -138,6 +142,86 @@ class SubBanner extends StatelessWidget {
             onTap: () => openSubscription(context, controller),
           ),
       ],
+    );
+  }
+}
+
+/// Row 197-Q03: page ids a role keeps without a subscription (its free core). The parent's
+/// «فرزندان» home shows each child's grades and attendance; «برنامه» and «مرخصی» are pages of
+/// their own; «سیستم», «تغییر رمز» and «اشتراک» stay for everyone.
+const Set<String> freeCorePages = {
+  'home',
+  'schedule',
+  'leaves',
+  'system',
+  'password',
+  'subscription',
+};
+
+/// Row 197-Q03: what the free core covers, in the words of the parent.
+String freeCoreLabel(List<String> core) {
+  const fa = {
+    'grades': 'نمره',
+    'attendance': 'حضور و غیاب',
+    'schedule': 'برنامهٔ هفتگی',
+    'leaves': 'درخواست مرخصی',
+  };
+  final parts = [for (final k in core) ?fa[k]];
+  if (parts.length < 2) return parts.join();
+  return '${parts.sublist(0, parts.length - 1).join('، ')} و ${parts.last}';
+}
+
+/// Row 197-Q03: a short card above the free pages — the core is free, the rest needs a
+/// subscription; the trial (when the owner offers it) is one tap away and opens everything at
+/// once, without signing in again or restarting the app.
+class FreeCoreBanner extends StatelessWidget {
+  const FreeCoreBanner({super.key, required this.controller});
+  final SessionController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = controller.sub;
+    if (s == null) return const SizedBox.shrink();
+    final busy = controller.subBusy;
+    return PayeshSection(
+      key: const Key('free-core'),
+      title: '🔓 نسخهٔ رایگان',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${freeCoreLabel(s.freeCore)} فرزندتان همیشه رایگان است. اطلاعیه‌ها و امکانات دیگر با اشتراک یا تست رایگان باز می‌شوند.',
+            key: const Key('free-core-help'),
+          ),
+          if (controller.subError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: PayeshTokens.space2),
+              child: Text(
+                controller.subError!,
+                key: const Key('free-core-error'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          const SizedBox(height: PayeshTokens.space3),
+          Wrap(
+            spacing: PayeshTokens.space2,
+            runSpacing: PayeshTokens.space2,
+            children: [
+              if (s.trialAvailable)
+                FilledButton.tonal(
+                  key: const Key('free-core-trial'),
+                  onPressed: busy ? null : controller.startTrial,
+                  child: Text('شروع تست رایگان ${faDigits(s.trialDays)} روزه'),
+                ),
+              OutlinedButton(
+                key: const Key('free-core-subscribe'),
+                onPressed: () => openSubscription(context, controller),
+                child: const Text('اشتراک'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

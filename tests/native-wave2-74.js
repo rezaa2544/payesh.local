@@ -76,7 +76,12 @@ function nw2Semantics(s) {
   const fn = web.slice(0, web.indexOf('\n}\n'));
   // roster
   assert(/u\.role === 'student' && Number\(u\.class_id\) === Number\(classId\)/.test(fn), 'web roster rule changed — re-check parity');
-  assert(/engine\.byRef\('users', 'class_id', classId\)/.test(b) && /if \(u\.data\['role'\] != 'student'\) continue;/.test(b), 'Dart roster must be role student + same class_id');
+  // ردیف ۱۹۷-Q04: همان class_id، یا (بی‌کلاس) عضو گروه «پایه + رشته» همان کلاس — سرور همین
+  // دانش‌آموزان را با structure-repair به همان کلاس وصل می‌کند، پس وب پس از همگام‌سازی همین را می‌بیند
+  const member = /static bool _isMember\([\s\S]*?\n  \}/.exec(b);
+  assert(member && /if \(u\['role'\] != 'student'\) return false;/.test(member[0]) &&
+    /if \(own != 0\) return own == id;/.test(member[0]) && /return fieldGroupMember\(cls, u\);/.test(member[0]) &&
+    /if \(!_isMember\(cls, classId, u\.data\)\) continue;/.test(b), 'Dart roster must be role student + same class_id (or its grade+field group)');
   // default present + skip unchanged
   // ردیف ۱۹۷: پیش‌فرض = «حاضر»، جز مرخصی تمام‌روز تأییدشده ⇒ «موجه» (وب attDefaultStatus، Dart leaveAllDay)
   assert(/: attDefaultStatus\(s\.id, date\)\);/.test(fn) && /if \(ex && ex\.status === status\) continue;/.test(fn), 'web default/skip changed');

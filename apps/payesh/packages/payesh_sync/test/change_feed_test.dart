@@ -188,6 +188,34 @@ void main() {
       await f.stop();
     });
 
+    test('row 197-Q03: refused (402) ⇒ long backoff; reconnectNow connects at once', () async {
+      srv.status = 402;
+      final f = ChangeFeed(
+        baseUri: srv.base,
+        token: () => 't',
+        client: HttpClient(),
+        minRetry: const Duration(seconds: 30),
+        maxRetry: const Duration(seconds: 60),
+      )..start();
+      await until(() => f.connects == 1);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(f.connects, 1, reason: 'waits in its backoff');
+      expect(f.live, isFalse);
+      srv.status = 200; // the trial opened access
+      f.reconnectNow();
+      await until(() => f.live, max: const Duration(seconds: 2));
+      expect(f.connects, 2);
+      f.reconnectNow(); // live already ⇒ nothing
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(f.connects, 2);
+      f.pause();
+      f.reconnectNow(); // paused (background) ⇒ nothing
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(f.connects, 2);
+      await f.stop();
+      f.reconnectNow(); // stopped ⇒ nothing, no throw
+    });
+
     test('a connector that throws is handled like a drop', () async {
       var n = 0;
       final f = ChangeFeed(

@@ -314,9 +314,27 @@ class SessionController extends ChangeNotifier {
   String? _subHistoryError;
 
   /// The role needs a subscription (or the school is inactive) — the app shows the paywall.
+  /// Row 197-Q03: not for a role with a free core (parent): it keeps those pages.
   bool get paywalled {
     final s = _sub;
-    return _state is SignedIn && s != null && s.managed && !s.access;
+    return _state is SignedIn &&
+        s != null &&
+        s.managed &&
+        !s.access &&
+        (s.blockedSchool || s.freeCore.isEmpty);
+  }
+
+  /// Row 197-Q03 (F30/F22/F23): no subscription, but the role's free core is open — a parent
+  /// keeps the grades, attendance, weekly schedule and leave requests of the children; the rest
+  /// waits for a subscription or the trial (and opens at once when it starts).
+  bool get limited {
+    final s = _sub;
+    return _state is SignedIn &&
+        s != null &&
+        s.managed &&
+        !s.access &&
+        !s.blockedSchool &&
+        s.freeCore.isNotEmpty;
   }
 
   /// Whether this build/server offers the registration request.

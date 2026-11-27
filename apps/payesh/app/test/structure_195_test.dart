@@ -121,6 +121,48 @@ void main() {
     },
   );
 
+  testWidgets('Q04-W01 هنرستان: اتاق «نقشه کشی» کلاس شمرده نمی‌شود، '
+      'پایهٔ تکراری یک بار، رشته‌ها با شمار دانش‌آموز', (tester) async {
+    Future<void> voc(MemorySchool s) async {
+      await s.put('schools', 1, {'name': 'هنرستان', 'level': 'متوسطه دوم'});
+      await s.put('users', 10, {'name': 'مدیر', 'role': 'manager'});
+      await s.put('lookups', 1, {'kind': 'grade', 'name': 'دهم'});
+      await s.put('lookups', 9, {'kind': 'grade', 'name': 'دهم'});
+      await s.put('lookups', 2, {'kind': 'branch', 'name': 'نقشه کشی'});
+      await s.put('classes', 7, {'name': 'نقشه کشی', 'kind': 'room'});
+      await s.put('classes', 8, {
+        'name': 'دهم نقشه کشی',
+        'grade': 'دهم',
+        'branch': 'نقشه کشی',
+        'mode': 'field',
+        'kind': 'class',
+      });
+      for (var i = 0; i < 3; i++) {
+        await s.put('users', 100 + i, {
+          'name': 'هنرجو $i',
+          'role': 'student',
+          'grade': 'دهم',
+          'field': 'نقشه کشی',
+          'class_id': i == 0 ? 8 : null,
+        });
+      }
+    }
+
+    await open(tester, 'classes', voc);
+    // like the web (row 172) a field school lists no classes; the group class is in attendance
+    expect(find.byKey(const Key('cls-class-add')), findsNothing);
+    Finder inside(String key, String text) =>
+        find.descendant(of: find.byKey(Key(key)), matching: find.text(text));
+    expect(inside('cls-defs-grade', 'دهم'), findsOneWidget);
+    expect(inside('cls-def-students-2', '۳ دانش‌آموز'), findsOneWidget);
+    expect(inside('cls-def-students-1', '۳ دانش‌آموز'), findsOneWidget);
+    // the room «نقشه کشی» is not counted as a class
+    expect(
+      inside('cls-defs-branch', '۱ کلاس از این مورد استفاده می‌کند'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('S195-W03 دبیرستان (رشته‌محور): خط ساختار، کارت «رشته‌ها»؛ NEG بدون «+ کلاس جدید»؛ '
       'برنامه با پایه و رشته و محل الزامی', (tester) async {
     Future<void> high(MemorySchool s) async {

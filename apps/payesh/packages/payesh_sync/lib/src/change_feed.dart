@@ -171,6 +171,14 @@ final class ChangeFeed {
     if (_started) unawaited(_open());
   }
 
+  /// Row 197-Q03: access just opened (trial/subscription) — the feed was refused (402) and
+  /// waits in its backoff; connect again now.
+  void reconnectNow() {
+    _fails = 0;
+    if (!_started || _paused || _sub != null) return;
+    unawaited(_open());
+  }
+
   Future<void> stop() async {
     _started = false;
     _close();

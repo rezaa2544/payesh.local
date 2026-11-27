@@ -33,6 +33,30 @@ String normName(Object? v) => '${v ?? ''}'
     .trim()
     .toLowerCase();
 
+/// Row 197-Q04: the key of a grade/branch («پایه + رشته») — [normName] without spaces too, so
+/// «نقشه‌کشی», «نقشه کشی» and «نقشهکشی» are one branch.
+String groupKey(Object? v) => normName(v).replaceAll(' ', '');
+
+/// Row 197-Q04: the branch of a student (the import writes `field`; old rows may have `branch`).
+String studentBranch(Map<String, Object?> u) {
+  final f = SchoolRecords.str(u['field']);
+  return f.isNotEmpty ? f : SchoolRecords.str(u['branch']);
+}
+
+/// Row 197-Q04: is [u] (no class of its own) a member of the field-mode class [c]
+/// («دهم نقشه کشی» = every 10th-grade student of نقشه کشی)? Rooms never have members.
+bool fieldGroupMember(Map<String, Object?> c, Map<String, Object?> u) {
+  if (c['kind'] == 'room' || u['role'] != 'student') return false;
+  if ((SchoolRecords.asInt(u['class_id']) ?? 0) != 0) return false;
+  // «نیازمند پیگیری» (e.g. its class was deleted) waits for the manager, not for a group
+  if (SchoolRecords.str(u['followup_reason']).isNotEmpty) return false;
+  final branch = SchoolRecords.str(c['branch']);
+  final grade = SchoolRecords.str(c['grade']);
+  if (branch.isEmpty || grade.isEmpty) return false;
+  return groupKey(u['grade']) == groupKey(grade) &&
+      groupKey(studentBranch(u)) == groupKey(branch);
+}
+
 /// Grade number 1..12 of a grade text, 0 = not a grade (web `impGradeLevel`). The longest word
 /// is matched first, so «یازدهم» is 11 (the web loop answered 10 for it because «دهم» comes
 /// first in its table; both are ≥ 10, so the class mode is the same).
@@ -107,6 +131,7 @@ final class LookupRow {
     required this.order,
     required this.classes,
     required this.queued,
+    this.students = 0,
   });
   final int id;
   final String kind;
@@ -116,6 +141,9 @@ final class LookupRow {
   /// Classes using this grade/branch.
   final int classes;
   final bool queued;
+
+  /// Row 197-Q04: students of this grade/branch (their own `grade` / `field`).
+  final int students;
 }
 
 final class SubjectRow {
@@ -224,7 +252,19 @@ final class ClassBook {
     for (final u in users) {
       if (u.data['role'] != 'student') continue;
       final c = _int(u.data['class_id']);
-      if (c != null) count[c] = (count[c] ?? 0) + 1;
+      if (c != null && c != 0) {
+        count[c] = (count[c] ?? 0) + 1;
+        continue;
+      }
+      // row 197-Q04: a student with no class of its own belongs to its «پایه + رشته» group
+      // (only active ones — the same list attendance shows)
+      if (u.data['active'] == false || u.data['deleted'] == true) continue;
+      for (final k in classes) {
+        if (fieldGroupMember(k.data, u.data)) {
+          count[k.id] = (count[k.id] ?? 0) + 1;
+          break;
+        }
+      }
     }
     ClassRow row(EngineRow r) => ClassRow(
       id: r.id,
@@ -249,24 +289,48 @@ final class ClassBook {
     int byName(ClassRow a, ClassRow b) => a.name.compareTo(b.name);
     final all = [for (final c in classes) row(c)];
     List<LookupRow> defs(String kind) {
-      final out = [
+      // row 197-Q04: one row per name — a grade defined twice («دهم» and «دهم») made the grade
+      // menu of the class form fail (two equal values) and split the counts
+      final field = kind == 'grade' ? 'grade' : 'branch';
+      final seen = <String>{};
+      final out = <LookupRow>[];
+      final sorted = [
         for (final l in lookups)
-          if (l.data['kind'] == kind)
-            LookupRow(
-              id: l.id,
-              kind: kind,
-              name: _s(l.data['name']),
-              order: _int(l.data['order']) ?? 0,
-              classes: classes
-                  .where(
-                    (c) =>
-                        _s(c.data[kind == 'grade' ? 'grade' : 'branch']) ==
-                        _s(l.data['name']),
-                  )
-                  .length,
-              queued: ql.contains(l.id),
-            ),
-      ]..sort((a, b) => a.name.compareTo(b.name));
+          if (l.data['kind'] == kind && groupKey(l.data['name']).isNotEmpty) l,
+      ]..sort((a, b) => a.id.compareTo(b.id));
+      for (final l in sorted) {
+        final k = groupKey(l.data['name']);
+        if (!seen.add(k)) continue;
+        out.add(
+          LookupRow(
+            id: l.id,
+            kind: kind,
+            name: _s(l.data['name']),
+            order: _int(l.data['order']) ?? 0,
+            classes: classes
+                .where(
+                  (c) =>
+                      c.data['kind'] != 'room' && groupKey(c.data[field]) == k,
+                )
+                .length,
+            queued: ql.contains(l.id),
+            students: users
+                .where(
+                  (u) =>
+                      u.data['role'] == 'student' &&
+                      u.data['active'] != false &&
+                      groupKey(
+                            kind == 'grade'
+                                ? u.data['grade']
+                                : studentBranch(u.data),
+                          ) ==
+                          k,
+                )
+                .length,
+          ),
+        );
+      }
+      out.sort((a, b) => a.name.compareTo(b.name));
       return out;
     }
 

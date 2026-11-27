@@ -5806,6 +5806,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۷-Q04: کلاس دانش‌آموزی (پایه + رشته) جدا از اتاق ── */
+  await test('ردیف ۱۹۷-Q04: در مدرسهٔ رشته‌محور دانش‌آموز بی‌کلاس به کلاس «پایه + رشته» وصل می‌شود (ساخته اگر نبود)، اتاق هرگز کلاس نمی‌شود، کلاس دستی مقدم است، تعریف تکراری حذف، کلاس‌محور دست‌نخورده (۹ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/structure-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'structure-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|^ {5}|STRUCTURE-197/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۲: صفحهٔ «اشتراک» — همهٔ پرداخت‌ها و همهٔ اشتراک‌های کاربر ── */
   await test('ردیف ۱۹۲: /api/sub/history همهٔ پرداخت‌ها (در انتظار/تأیید/رد با دلیل/لغو) و همهٔ اشتراک‌ها (آزمایشی، خرید، تمدید از پایان قبلی، هدیه) را فقط برای خود کاربر می‌دهد؛ بازنشانی تاریخچه را پاک نمی‌کند؛ مالک دفتر را در ack می‌گیرد (۱۱ بررسی)',
     async () => {

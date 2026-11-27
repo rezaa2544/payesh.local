@@ -15,6 +15,8 @@
 //   SR-08  غیرفعال کردن مدرسه در پنل مالک ورود را می‌بندد؛ گزارش سرور (ack) برای پنل مالک.
 //   SR-09  سرور واقعی (HTTP): ثبت‌نام عمومی، ورود با نام کاربری، 402 subscription_required، آزمایشی، بازگشت درگاه HTML؛
 //          ردیف ۱۵۰: GET/POST /api/admin/school (مشخصات مدرسه در تنظیمات مدیر) · بدون نشست 401.
+//   SR-13  ردیف ۱۹۷-Q03 (سرور واقعی): ولی بی‌اشتراک «هستهٔ رایگان» دارد — نمره/حضور/برنامه/مرخصی فرزند در pull،
+//          درخواست مرخصی پذیرفته؛ اطلاعیه و هر مسیر دیگر 402؛ پس از آزمایشی، همان نشست بی‌ورود دوباره همه‌چیز را می‌گیرد.
 
 //   SR-11  ردیف ۱۵۰: بردارهای school-profile v1؛ رجیستری مالک مقطع/قابلیت‌های تعیین‌شدهٔ مدیر را بازنویسی نمی‌کند.
 //   SR-12  ردیف ۱۵۸: مشخصات فرم مالک (مقطع، نوع، جنسیت، شیفت، ظرفیت، تلفن‌ها، آمار) هنگام میزبانی به سرور مدرسه
@@ -679,6 +681,94 @@ function req(method, port, p, body, headers = {}) {
         /* سرور دوم با همان مدیر ⇒ 409 */
         const again = await req('POST', port, '/api/auth/login', { phone: 'web.mgr', password: 'Web-Pass-1', platform: 'android' });
         assert.strictEqual(again.status, 200, 'same server logs in again');
+      } finally {
+        child.kill('SIGKILL');
+        await new Promise((r) => child.once('exit', r));
+      }
+    });
+
+    await check('SR-13 ردیف ۱۹۷-Q03: ولی بی‌اشتراک نمره/حضور/برنامه/مرخصی را دارد؛ بقیه 402؛ آزمایشی ⇒ فوراً همه', async () => {
+      await wipe(S);
+      const o = owner(cfg);
+      o.addSchool('s-0197', 'q3.mgr', 'Q3-Pass-1');
+      o.plain.settings = { trial_days: 5, roles: { manager: 'free', parent: 'required' } };
+      await o.publish();
+      const port = await freePort();
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sr197srv-'));
+      tmpDirs.push(dir);
+      const pre = openStore(path.join(dir, 'payesh.sqlite'));
+      s3mem.usingMeta(pre).set(Object.assign({}, cfg));
+      pre.close();
+      const env = Object.assign({}, process.env, {
+        PORT: String(port), HOST: '127.0.0.1', PAYESH_DATA: dir, PAYESH_LOG: '0', PAYESH_AUTO_BACKUP: '0', PAYESH_UPDATE_AUTO: '0',
+        PAYESH_LIVE_MS: '0', PAYESH_OUTBOX_AUTO: '0', PAYESH_CLOUD_AUTO: '0', PAYESH_MIRROR: '0', PAYESH_HEADLESS: '1',
+      });
+      const child = spawn(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', 'server/index.js'], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      let log = ''; child.stdout.on('data', (c) => { log += c; }); child.stderr.on('data', (c) => { log += c; });
+      try {
+        let up = false;
+        for (let i = 0; i < 200 && !up; i++) { up = (await req('GET', port, '/api/health')).status === 200; if (!up) await new Promise(r => setTimeout(r, 100)); }
+        assert.ok(up, 'server up\n' + log);
+        const lg = await req('POST', port, '/api/auth/login', { phone: 'q3.mgr', password: 'Q3-Pass-1', platform: 'android' });
+        assert.strictEqual(lg.status, 200, lg.body);
+        const M = { authorization: 'Bearer ' + lg.json.session.token };
+        const sync = (H, ops) => req('POST', port, '/api/sync', { ops }, H);
+        const cls = await sync(M, [{ uid: 'q3c', collection: 'classes', type: 'put', data: { name: 'پنجم الف', grade: 'پنجم' } }]);
+        assert.strictEqual(cls.status, 200, cls.body);
+        const classId = Number(cls.json.applied[0].id);
+        const us = await sync(M, [
+          { uid: 'q3s', collection: 'users', type: 'put', data: { name: 'سارا', role: 'student', phone: '09121970001', national_id: '1970000015', class_id: classId } },
+          { uid: 'q3p', collection: 'users', type: 'put', data: { name: 'ولی سارا', role: 'parent', phone: '09121970002', national_id: '1970000023' } },
+          { uid: 'q3t', collection: 'users', type: 'put', data: { name: 'دبیر', role: 'teacher', phone: '09121970003', national_id: '1970000031' } },
+        ]);
+        assert.strictEqual((us.json.applied || []).length, 3, us.body);
+        const id = {}; us.json.applied.forEach(a => { id[a.uid] = Number(a.id); });
+        const today = new Date().toISOString().slice(0, 10);
+        const data = await sync(M, [
+          { uid: 'q3l', collection: 'parent_links', type: 'put', data: { parent_id: id.q3p, student_id: id.q3s } },
+          { uid: 'q3sc', collection: 'schedule', type: 'put', data: { class_id: classId, teacher_id: id.q3t, weekday: 'sat', lesson: 'ریاضی' } },
+          { uid: 'q3g', collection: 'grades', type: 'put', data: { student_id: id.q3s, class_id: classId, subject: 'ریاضی', score: 18, term: 1, date: today } },
+          { uid: 'q3a', collection: 'attendance', type: 'put', data: { student_id: id.q3s, class_id: classId, date: today, status: 'absent' } },
+          { uid: 'q3n', collection: 'announcements', type: 'put', data: { title: 'اطلاعیهٔ اشتراکی', body: 'متن', audience: 'all' } },
+        ]);
+        assert.strictEqual((data.json.applied || []).length, 5, data.body);
+
+        const pl = await req('POST', port, '/api/auth/login', { phone: '09121970002', password: '1970000023', platform: 'android' });
+        assert.strictEqual(pl.status, 200, pl.body);
+        const P = { authorization: 'Bearer ' + pl.json.session.token };
+        const st = await req('GET', port, '/api/sub/status', null, P);
+        assert.strictEqual(st.json.access, false, st.body);
+        assert.deepStrictEqual(st.json.free_core, ['grades', 'attendance', 'schedule', 'leaves']);
+        assert.strictEqual(st.json.trial_available, true);
+        assert.strictEqual((await req('GET', port, '/api/bootstrap', null, P)).status, 200, 'bootstrap در هستهٔ رایگان');
+        const all = await req('GET', port, '/api/v1/pull?since=1970-01-01T00:00:00.000Z', null, P);
+        assert.strictEqual(all.status, 200, all.body);
+        const c = all.json.collections || {};
+        assert.ok((c.grades || []).some(g => Number(g.student_id) === id.q3s && Number(g.score) === 18), 'نمرهٔ فرزند: ' + JSON.stringify(Object.keys(c)));
+        assert.ok((c.attendance || []).some(a => Number(a.student_id) === id.q3s), 'حضور فرزند');
+        assert.ok((c.schedule || []).some(x => Number(x.class_id) === classId), 'برنامهٔ کلاس فرزند');
+        assert.ok((c.users || []).some(u => Number(u.id) === id.q3s), 'ردیف فرزند');
+        assert.strictEqual(c.announcements, undefined, 'اطلاعیه اشتراکی است');
+        const only = await req('GET', port, '/api/v1/pull?since=1970-01-01T00:00:00.000Z&collections=announcements', null, P);
+        assert.strictEqual(only.status, 200); assert.deepStrictEqual(only.json.collections, {}, 'درخواستِ فقط‌اشتراکی ⇒ هیچ');
+        const lv = await sync(P, [{ uid: 'q3lv', collection: 'leaves', type: 'put', data: { student_id: id.q3s, date: today, kind: 'day', type: 'sick', reason: 'بیماری', status: 'pending' } }]);
+        assert.strictEqual(lv.status, 200, 'درخواست مرخصی بی‌اشتراک: ' + lv.body);
+        assert.strictEqual((lv.json.applied || []).length, 1, lv.body);
+        const mixed = await sync(P, [
+          { uid: 'q3lv2', collection: 'leaves', type: 'put', data: { student_id: id.q3s, date: today, kind: 'day', type: 'travel', reason: 'سفر', status: 'pending' } },
+          { uid: 'q3x', collection: 'announcements', type: 'put', data: { title: 'x' } },
+        ]);
+        assert.strictEqual(mixed.status, 402, 'بستهٔ آمیخته ⇒ 402'); assert.strictEqual(mixed.json.error, 'subscription_required');
+        assert.strictEqual((await req('GET', port, '/api/students/' + id.q3s, null, P)).status, 402, 'مسیرهای دیگر اشتراکی');
+        assert.strictEqual((await req('GET', port, '/api/admin/stats', null, P)).status, 402);
+        /* آزمایشی ⇒ همان نشست، بی‌ورود دوباره، همه‌چیز */
+        const tr = await req('POST', port, '/api/sub/trial', { device_hash: DEV_A }, P);
+        assert.strictEqual(tr.status, 200, tr.body); assert.strictEqual(tr.json.sub.access, true);
+        assert.strictEqual(tr.json.sub.free_core, undefined, 'با دسترسی کامل هستهٔ رایگان معنی ندارد');
+        const full = await req('GET', port, '/api/v1/pull?since=1970-01-01T00:00:00.000Z', null, P);
+        assert.ok(((full.json.collections || {}).announcements || []).length >= 1, 'پس از آزمایشی اطلاعیه هم می‌آید');
+        /* مدیر «رایگان» هیچ‌گاه free_core نمی‌گیرد */
+        assert.strictEqual((await req('GET', port, '/api/sub/status', null, M)).json.free_core, undefined);
       } finally {
         child.kill('SIGKILL');
         await new Promise((r) => child.once('exit', r));

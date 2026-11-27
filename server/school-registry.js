@@ -262,6 +262,19 @@ function logSub(rec, entry, now) {
   return rec;
 }
 
+/* ردیف ۱۹۷-Q03 (F30/F22/F23، اصل ۰٫۴ سند جامع): ولی بدون اشتراک هم نمره، حضور، برنامه و مرخصی
+   فرزندش را می‌بیند — «هستهٔ رایگان». پیش‌تر نقش «اشتراکی» بی‌اشتراک هیچ امکانی نداشت و چون
+   پیش‌فرض مالک parent:'required' است، همهٔ ولی‌ها پشت دیوار می‌ماندند. اطلاعیه، انضباط، تکلیف،
+   امتحان و بقیه همچنان اشتراکی‌اند. فقط برای قفلِ اشتراک — مدرسهٔ غیرفعال/حذف‌شده همچنان بسته است.
+     FREE_CORE[role]        نام بخش‌ها برای برنامه (منو)
+     FREE_CORE_READ         کالکشن‌هایی که pull برمی‌گرداند (پایه + همان چهار بخش)
+     FREE_CORE_WRITE        کالکشن‌هایی که push می‌پذیرد (درخواست مرخصی / موجه کردن غیبت) */
+const FREE_CORE = { parent: ['grades', 'attendance', 'schedule', 'leaves'] };
+const FREE_CORE_READ = ['schools', 'school_years', 'users', 'classes', 'subjects', 'lookups', 'parent_links',
+  'schedule', 'bell_schedules', 'substitutions', 'calendar', 'attendance', 'grades', 'leaves'];
+const FREE_CORE_WRITE = ['leaves'];
+function freeCoreOf(role) { return FREE_CORE[String(role || '')] || null; }
+
 /* وضعیت دسترسی یک کاربر — همان «effectiveAccess» p2 با سیاست نقش مالک */
 function gate(store, user, { now = Date.now() } = {}) {
   const reg = registry(store);
@@ -289,7 +302,8 @@ function gate(store, user, { now = Date.now() } = {}) {
   const endMs = effectiveEnd(rec, now);
   const active = endMs > now && rec.status !== 'cancelled';
   const pending = state.payments.filter(p => p.uid === user.id && p.status === 'pending').map(publicPayment);
-  return Object.assign(base, {
+  const fc = active ? null : freeCoreOf(role);
+  return Object.assign(base, fc ? { free_core: fc } : {}, {
     access: active,
     status: active ? (rec.status || 'active') : (rec && rec.status === 'cancelled' ? 'cancelled' : rec && rec.end ? 'expired' : 'none'),
     plan: rec ? rec.plan || null : null,
@@ -1034,6 +1048,7 @@ function callbackPage(r) {
 
 module.exports = {
   K, DIR, SALT: SALT.toString('utf8'), PLANS, ROLES, OFFERED, DEFAULTS, plansFor, effectiveEnd, LEVELS, USERNAME_RE,
+  FREE_CORE, FREE_CORE_READ, FREE_CORE_WRITE, freeCoreOf,
   RegistryError, seal, open, keyFor, readEnv, writeEnv, trialKey, settingsOf, verifyOk, fill,
   cloud, registry, boundOf, schoolOf, gate, history, startTrial, startPayment, submitReceipt, callback, callbackPage,
   applyOwner, applySchool, adoptOnLogin, linkOnLogin, adoptSchool, ownerProfileOf, OWNER_PROFILE_KEYS, findManager, loginShape, register, requestStatus, validRequest,

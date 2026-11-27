@@ -113,7 +113,40 @@ final class GatewayAttendanceSource
   String? _key;
   Timer? _restartTimer;
 
+  /// Row 197-Q03: last known «locked» state of the signed-in user (no subscription). null =
+  /// unknown. When it turns from locked to open (the trial started, a payment was approved), the
+  /// data path pulls everything at once — no restart, no new sign-in.
+  bool? _locked;
+  SyncClient? _lanSync;
+
+  void _watchAccess() {
+    final sub = session.sub;
+    if (session.state is! SignedIn || sub == null) {
+      // signed out / not checked yet — never an «unlock»
+      if (session.state is! SignedIn) _locked = null;
+      return;
+    }
+    final locked = sub.managed && !sub.access;
+    final was = _locked;
+    _locked = locked;
+    if (was == true && !locked) unawaited(_unlocked());
+  }
+
+  Future<void> _unlocked() async {
+    await _starting;
+    // the free core advanced the cursor without the subscription-only collections — forget it so
+    // the next pull brings every row the user may now read
+    try {
+      _lanSync?.resetCursor();
+    } on Object {
+      // a closed database: the next start pulls from scratch anyway
+    }
+    _feed?.reconnectNow();
+    _auto?.notifyRemoteChange();
+  }
+
   void _follow() {
+    _watchAccess();
     final s = session.state;
     final uid = s is SignedIn ? s.currentUid : null;
     if (s is SignedIn && uid != null) {
@@ -255,6 +288,7 @@ final class GatewayAttendanceSource
       );
       send = transport.push;
       fetch = sync.pull;
+      _lanSync = sync;
       // Row 177: event-driven — the server says when (and what) changed; no idle polling.
       _feed = ChangeFeed(baseUri: cell, token: () => _token, client: lanClient);
     } else {
@@ -269,6 +303,7 @@ final class GatewayAttendanceSource
         deviceId: deviceId,
         client: pinned,
       );
+      _lanSync = null;
       final sync = GatewaySync(engine: engine, transport: transport);
       send = transport.push;
       fetch = sync.pull;
