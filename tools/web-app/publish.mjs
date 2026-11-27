@@ -129,16 +129,23 @@ console.log(`uploaded ${done} files`);
 
 // ── 5) delete what the new build no longer has ──
 const want = new Set(files.map((f) => f.key));
-const listed = [];
-for (let marker = ''; ;) {
-  const r = await s3('GET', '', { q: marker ? { marker } : {} });
-  if (r.status !== 200) fail('LIST: HTTP ' + r.status);
-  const x = r.body.toString();
-  const keys = [...x.matchAll(/<Key>([^<]+)<\/Key>/g)].map((m) => m[1].replace(/&amp;/g, '&'));
-  listed.push(...keys);
-  if (!/<IsTruncated>true<\/IsTruncated>/.test(x) || !keys.length) break;
-  marker = keys[keys.length - 1];
+async function listAll() {
+  const out = new Map();
+  for (let marker = ''; ;) {
+    const r = await s3('GET', '', { q: marker ? { marker } : {} });
+    if (r.status !== 200) fail('LIST: HTTP ' + r.status);
+    const x = r.body.toString();
+    const rows = [...x.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)].map((m) => [
+      (m[1].match(/<Key>([^<]+)<\/Key>/) || [])[1]?.replace(/&amp;/g, '&'),
+      Number((m[1].match(/<Size>(\d+)<\/Size>/) || [])[1]),
+    ]).filter((e) => e[0]);
+    for (const [k, n] of rows) out.set(k, n);
+    if (!/<IsTruncated>true<\/IsTruncated>/.test(x) || !rows.length) break;
+    marker = rows[rows.length - 1][0];
+  }
+  return out;
 }
+const listed = [...(await listAll()).keys()];
 let removed = 0;
 for (const k of listed) {
   if (want.has(k) || KEEP.some((p) => k.startsWith(p))) continue;
@@ -148,11 +155,13 @@ for (const k of listed) {
 }
 console.log(`removed ${removed} stale objects`);
 
-// ── 6) read back ──
+// ── 6) read back: sizes from the listing (Arvan's HEAD has no usable content-length), types by HEAD ──
+const sizes = await listAll();
 for (const f of files) {
+  const size = sizes.get(f.key);
+  if (size !== fs.statSync(f.p).size) fail(`read-back ${f.key}: size ${size} ≠ ${fs.statSync(f.p).size}`);
   const r = await s3('HEAD', f.key);
-  const size = Number(r.headers.get('content-length'));
-  if (r.status !== 200 || size !== fs.statSync(f.p).size) fail(`read-back ${f.key}: HTTP ${r.status} size ${size}`);
+  if (r.status !== 200) fail(`read-back ${f.key}: HTTP ${r.status}`);
   if (!String(r.headers.get('content-type') || '').startsWith(typeOf(f.key).split(';')[0])) fail(`content type of ${f.key}: ${r.headers.get('content-type')}`);
 }
 const pub = `https://${BUCKET}.${host}`;

@@ -2346,13 +2346,15 @@ const baseHandler = async (req, res) => {
      نسخهٔ اندروید فایل‌هایش را از مبدأ محلی باز می‌کند
      (https://appassets.androidplatform.net) و برای حرف زدن با سیستم مدرسه
      به این سرآیندها نیاز دارد. بدون آن، مرورگر پاسخ را دور می‌ریزد و
-     کاربر فقط «به سیستم نرسیدیم» می‌بیند. */
+     کاربر فقط «به سیستم نرسیدیم» می‌بیند. ردیف ۱۹۹: برنامهٔ مرورگر
+     (app.payeshschool.ir) هم از مبدأ دیگری می‌آید؛ سرآیندهای شناسهٔ برنامهٔ
+     نصبی (x-payesh-client / x-payesh-api) هم باید مجاز باشند. */
   const origin = String(req.headers.origin || '');
   res.setHeader('access-control-allow-origin', origin || '*');
   res.setHeader('vary', 'Origin');
   res.setHeader('access-control-allow-methods', 'GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS');
-  res.setHeader('access-control-allow-headers', 'authorization, content-type, accept, x-requested-with, x-payesh-device, x-request-id');
-  res.setHeader('access-control-expose-headers', 'content-length, etag, x-request-id');
+  res.setHeader('access-control-allow-headers', 'authorization, content-type, accept, x-requested-with, x-payesh-device, x-request-id, x-payesh-client, x-payesh-api');
+  res.setHeader('access-control-expose-headers', 'content-length, etag, x-request-id, x-payesh-api, x-payesh-api-supported');
   res.setHeader('access-control-max-age', '86400');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   /* شمارش واقعی هر پاسخ (کلاس ۲xx..۵xx) برای نرخ خطا — ردیف ۴۹.

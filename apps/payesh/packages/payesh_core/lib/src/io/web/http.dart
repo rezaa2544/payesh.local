@@ -9,6 +9,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
+import 'host.dart' show WebHost;
 import 'net.dart' show SecurityContext;
 
 @JS('fetch')
@@ -326,6 +327,9 @@ final class FetchHttpClient implements HttpClient {
   }
 }
 
+/// Identity headers only the installed apps send (row 199).
+const Set<String> _nativeOnly = {'x-payesh-client', 'x-payesh-api'};
+
 const Set<String> _forbidden = {
   'host',
   'content-length',
@@ -450,8 +454,13 @@ final class _FetchRequest implements io.HttpClientRequest {
     headers.forEach((k, v) {
       if (k == 'authorization' || k.startsWith('x-amz-')) signed = true;
     });
+    // Row 199: school servers released before 0.9.66 do not list the native identity headers in
+    // their CORS allow-list, so a plain browser drops the whole request. Without them the server
+    // treats the browser edition like the web client (no native version gate) — which it is.
+    final browser = !WebHost.instance.isShell;
     headers.forEach((k, v) {
       if (!signed && (k == 'cache-control' || k == 'pragma')) return;
+      if (browser && _nativeOnly.contains(k)) return;
       if (!_forbidden.contains(k) &&
           !k.startsWith('sec-') &&
           !k.startsWith('proxy-')) {

@@ -237,8 +237,16 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
     // has its own central): a fresh install with no list at all still has one address to try
     final c = fallbackCentral;
     if (c != null && !out.contains(c)) out.add(c);
-    return out;
+    return isBrowser ? browserReachable(out) : out;
   }
+
+  /// Row 199: what a page served over https can actually reach — only https addresses. Plain
+  /// http LAN addresses are mixed content, and loopback/private ones make the browser ask the
+  /// user for "local network" permission; both only ever fail, so they are never tried.
+  static List<Uri> browserReachable(List<Uri> list) => [
+    for (final u in list)
+      if (u.scheme == 'https') u,
+  ];
 
   /// The owner's central server first (reachable from any internet), then LAN addresses of every
   /// server (fast, inside the school), then the servers' own public addresses.
@@ -261,8 +269,10 @@ final class SchoolDirectoryClient implements SchoolDirectoryApi {
   }
 
   @override
-  Future<List<Uri>> addressesOf(String instance) async =>
-      addressesIn(await entries(), instance);
+  Future<List<Uri>> addressesOf(String instance) async {
+    final out = addressesIn(await entries(), instance);
+    return isBrowser ? browserReachable(out) : out;
+  }
 
   /// LAN then public addresses of the row whose `instance` is [instance].
   static List<Uri> addressesIn(List<SchoolServerEntry> list, String instance) {

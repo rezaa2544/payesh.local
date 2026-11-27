@@ -2371,6 +2371,10 @@ async function waitFor(fn, ms = 15000) {
     assert.strictEqual(pre.status, 204, 'پاسخ به پیش‌پرواز مرورگر');
     assert.ok(/POST/.test(pre.headers.get('access-control-allow-methods') || ''), 'متدها اعلام شده‌اند');
     assert.ok(/authorization/i.test(pre.headers.get('access-control-allow-headers') || ''), 'هدرها اعلام شده‌اند');
+    /* ردیف ۱۹۹: برنامهٔ مرورگر از app.payeshschool.ir سرآیندهای شناسهٔ برنامهٔ نصبی را هم می‌فرستد */
+    for (const h of ['x-payesh-client', 'x-payesh-api', 'x-payesh-device', 'x-request-id']) {
+      assert.ok(new RegExp('(^|[ ,])' + h + '($|[ ,])', 'i').test(pre.headers.get('access-control-allow-headers') || ''), 'CORS سرآیند ' + h + ' را مجاز می‌داند');
+    }
   });
 
   await test('نسخهٔ اندروید درخواست حافظه را بومی می‌فرستد (بدون CORS)', async () => {
