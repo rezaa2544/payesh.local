@@ -45,7 +45,7 @@ const PUT_HASH = new Map();
 const PUT_HASH_META = 'outbox:put_hash:v1';
 let hashStore = null;
 let hashDirty = null;
-const shortHash = (t) => crypto.createHash('sha1').update(String(t)).digest('hex').slice(0, 20);
+const shortHash = (t) => crypto.createHash('sha256').update(String(t)).digest('hex').slice(0, 20);
 function bindHashStore(store) {
   if (!store || hashStore === store) return;
   hashStore = store;

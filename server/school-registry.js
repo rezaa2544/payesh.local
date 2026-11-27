@@ -912,7 +912,7 @@ async function writeAck(store, { instance, publicUrl, version, now = Date.now(),
   /* ردیف ۱۹۸: رسید هر ۶۰ ثانیه بی‌شرط نوشته می‌شد (صندوقچهٔ نسخه‌بندی‌شده ⇒ ۲۱هزار نسخه).
      حالا فقط وقتی محتوا عوض شده یا «زنده بودن» باید تازه شود (هر ACK_REFRESH_MS). */
   const key = cfg.prefix + DIR.ack + b.school_id + '.json';
-  const h = crypto.createHash('sha1').update(String(cfg.bucket || '') + '|' + key + '|' + JSON.stringify(Object.assign({}, body, { at: null }))).digest('hex');
+  const h = crypto.createHash('sha256').update(String(cfg.bucket || '') + '|' + key + '|' + JSON.stringify(Object.assign({}, body, { at: null }))).digest('hex');
   let last = null;
   try { last = store.getMeta(META.ackLast, null); if (typeof last === 'string') last = JSON.parse(last); } catch (e) { last = null; }
   if (!force && last && last.h === h && Number.isFinite(last.at) && now - last.at >= 0 && now - last.at < ACK_REFRESH_MS) return false;
