@@ -11,7 +11,7 @@ import 'package:payesh_data/payesh_data.dart';
 
 import 'classes.dart' show gradeLevel, normName;
 import 'records.dart';
-import 'school_import.dart' show importProblemFields;
+import 'school_import.dart' show importFieldOk, importProblemFields;
 
 final class FollowupStudent {
   const FollowupStudent({
@@ -43,6 +43,8 @@ final class ImportIssue {
     required this.userId,
     this.fields = const {},
     this.raw = const {},
+    this.draft = const {},
+    this.tempUserId,
   });
   final int id;
   final String name;
@@ -61,6 +63,17 @@ final class ImportIssue {
   /// Row 202: the values of the file row as they were (import keys), so a value the import
   /// could not take (a 9-digit national id) is still shown in the fix form.
   final Map<String, String> raw;
+
+  /// Row 203 (owner: «با تغییر در اطلاعات اتوماتیک ذخیره شود و فقط با تأیید نهایی، ذخیرهٔ
+  /// نهایی شود»): what the manager already typed in «✏️ اصلاح» (form keys — `name`,
+  /// `national_id`, `father_nid`, `class_id`, …), kept until the final save.
+  final Map<String, String> draft;
+
+  /// Row 203 «ثبت موقت در لیست»: the user made from this row while it is still incomplete.
+  final int? tempUserId;
+
+  /// The fields of the row the manager has fixed so far (in [draft], no longer in [fields]).
+  int get fixedCount => draft.length;
 }
 
 final class FollowupView {
@@ -212,6 +225,8 @@ final class Followup {
             ? a
             : b;
       }
+      final temp = _int(i.data['temp_user_id']);
+      if (temp != null && order.containsKey(temp)) uid = temp;
       final reasons = i.data['reasons'];
       final data = i.data['data'];
       issues.add(
@@ -240,6 +255,13 @@ final class Followup {
                 ? {for (final e in r.entries) '${e.key}': '${e.value ?? ''}'}
                 : const <String, String>{};
           }(),
+          draft: () {
+            final r = i.data['draft'];
+            return r is Map
+                ? {for (final e in r.entries) '${e.key}': '${e.value ?? ''}'}
+                : const <String, String>{};
+          }(),
+          tempUserId: temp != null && order.containsKey(temp) ? temp : null,
         ),
       );
     }
@@ -327,6 +349,117 @@ final class Followup {
       keys: keys,
     );
   }
+
+  /// Row 203 (owner: «اگر سه بخش از اطلاعاتش ناقص بود و دو تا را اصلاح کردیم، آن دو بخش باید
+  /// ذخیره شود»): what the manager typed in «✏️ اصلاح» ([values], form keys) is kept on the
+  /// follow-up row; a wrong field whose new value is right ([importFieldOk]) leaves [fields]
+  /// and its reasons leave the list, the rest stay (red) — the row closes only with the final
+  /// save ([issueDone]). [tempUserId]: the row was «ثبت موقت» as that user.
+  Future<RecordWrite> saveDraft(
+    int id,
+    Map<String, String> values, {
+    int? tempUserId,
+  }) async {
+    _requireManager();
+    final r = await db.existing('import_issues', id, 'این ردیف');
+    String norm(Object? v) => _s(v).replaceAll(RegExp(r'\s+'), ' ').trim();
+    final data = r.data['data'] is Map
+        ? {for (final e in (r.data['data'] as Map).entries) '${e.key}': e.value}
+        : <String, Object?>{};
+    final raw = r.data['raw'] is Map
+        ? {
+            for (final e in (r.data['raw'] as Map).entries)
+              '${e.key}': '${e.value ?? ''}',
+          }
+        : <String, String>{};
+    final reasons = r.data['reasons'] is List
+        ? [for (final x in r.data['reasons'] as List) '$x']
+        : <String>[];
+    final stored = r.data['fields'];
+    final fields = stored is Map && stored.isNotEmpty
+        ? {for (final e in stored.entries) '${e.key}': '${e.value}'}
+        : importProblemFields(reasons);
+    final draft = r.data['draft'] is Map
+        ? {
+            for (final e in (r.data['draft'] as Map).entries)
+              '${e.key}': '${e.value ?? ''}',
+          }
+        : <String, String>{};
+    // the value the row had before: the file's own value, else what the import kept
+    String before(String k) {
+      final ik = k == 'name' ? 'full_name' : k;
+      final a = norm(raw[ik]);
+      if (a.isNotEmpty) return a;
+      if (k == 'name') return norm(r.data['name']);
+      return norm(data[ik]);
+    }
+
+    for (final e in values.entries) {
+      final v = norm(e.value);
+      if (v == before(e.key) && !draft.containsKey(e.key)) continue;
+      draft[e.key] = v;
+    }
+    // which wrong fields are right now
+    final fixed = <String>{};
+    for (final k in fields.keys) {
+      final fk = k == 'full_name' ? 'name' : k;
+      String? v = draft[fk];
+      if (k == 'grade') {
+        final g = draft['grade'] ?? '';
+        final c = draft['class_id'] ?? '';
+        if (g.isNotEmpty || c.isNotEmpty) v = g.isNotEmpty ? g : c;
+      }
+      if (v == null || v == before(fk)) continue;
+      if (importFieldOk(k, v)) fixed.add(k);
+    }
+    final gone = <String>{for (final k in fixed) ...fields[k]!.split('\n')};
+    final left = {
+      for (final e in fields.entries)
+        if (!fixed.contains(e.key)) e.key: e.value,
+    };
+    final row = <String, Object?>{
+      ...r.data,
+      'draft': draft,
+      'fields': left,
+      'reasons': [
+        for (final x in reasons)
+          if (!gone.contains(x)) x,
+      ],
+      'fixed': [
+        ...{
+          if (r.data['fixed'] is List)
+            for (final x in r.data['fixed'] as List) '$x',
+          ...gone,
+        },
+      ],
+      'draft_at': db.now().toUtc().toIso8601String(),
+      'temp_user_id': ?tempUserId,
+    };
+    // the list shows (and finds the user by) the corrected name / national id / mobile
+    final nid = SchoolRecords.digitsOnly(draft['national_id']);
+    if (nid.length == 10) row['national_id'] = nid;
+    final ph = SchoolRecords.mobile11(draft['phone'] ?? '');
+    if (RegExp(r'^09\d{9}$').hasMatch(ph)) row['phone'] = ph;
+    if (importFieldOk('name', draft['name'] ?? '')) row['name'] = draft['name'];
+    final had = r.data['draft'] is Map ? '${r.data['draft']}' : '{}';
+    if (had == '$draft' && tempUserId == null) {
+      return RecordWrite('تغییری نبود', id: id);
+    }
+    final k = await db.put('import_issues', id, row, prev: r);
+    final n = left.length;
+    return RecordWrite(
+      n == 0
+          ? 'همهٔ ایرادها اصلاح شد — برای ثبت نهایی «ذخیره» را بزنید'
+          : 'اصلاح‌ها ذخیره شد — ${_faN(n)} مورد مانده',
+      id: id,
+      keys: [k],
+    );
+  }
+
+  static String _faN(int n) => '$n'.replaceAllMapped(
+    RegExp('[0-9]'),
+    (m) => '۰۱۲۳۴۵۶۷۸۹'[int.parse(m[0]!)],
+  );
 
   /// `followup-ack`: stays as it is and leaves the list.
   Future<RecordWrite> ack(int id) async {

@@ -388,9 +388,17 @@ class SchoolForm extends StatelessWidget {
     required this.submitLabel,
     required this.onSubmit,
     this.presetIssues = const {},
+    this.actions = const [],
+    this.footer,
   });
 
   final String prefix;
+
+  /// Row 203: more buttons beside the submit button (e.g. «ثبت موقت در لیست»).
+  final List<Widget> actions;
+
+  /// Row 203: a short line at the start of the bottom bar (e.g. «✓ اصلاح‌ها ذخیره شد»).
+  final Widget? footer;
 
   /// Row 202: boxes that open red (box key → message) — e.g. the wrong fields of an import
   /// row; each stays red until the user changes that box.
@@ -475,7 +483,9 @@ class SchoolForm extends StatelessWidget {
                           SizedBox(
                             width:
                                 (f is SchoolField && f.lines > 1) ||
-                                    f is SchoolFormFull
+                                    f is SchoolFormFull ||
+                                    // row 203: a section title starts its own row
+                                    f is SchoolFormSection
                                 ? box.maxWidth
                                 : half,
                             child: f,
@@ -492,11 +502,16 @@ class SchoolForm extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  if (footer != null) Expanded(child: footer!),
                   TextButton(
                     key: Key('$prefix-form-cancel'),
                     onPressed: () => Navigator.maybePop(context),
                     child: const Text('انصراف'),
                   ),
+                  for (final a in actions) ...[
+                    const SizedBox(width: PayeshTokens.space3),
+                    a,
+                  ],
                   const SizedBox(width: PayeshTokens.space3),
                   FilledButton(
                     key: Key('$prefix-save'),
@@ -566,10 +581,21 @@ class SchoolForm extends StatelessWidget {
               bottomNavigationBar: SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(PayeshTokens.space3),
-                  child: FilledButton(
-                    key: Key('$prefix-save'),
-                    onPressed: controller.busy ? null : onSubmit,
-                    child: Text(submitLabel),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ?footer,
+                      for (final a in actions) ...[
+                        a,
+                        const SizedBox(height: PayeshTokens.space2),
+                      ],
+                      FilledButton(
+                        key: Key('$prefix-save'),
+                        onPressed: controller.busy ? null : onSubmit,
+                        child: Text(submitLabel),
+                      ),
+                    ],
                   ),
                 ),
               ),

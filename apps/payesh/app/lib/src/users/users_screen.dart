@@ -899,9 +899,15 @@ class UserEditPage extends StatelessWidget {
     this.issues = const {},
     this.notes = const [],
     this.initial = const {},
+    this.draft = const {},
+    this.onDraft,
   });
   final UsersController controller;
   final SchoolUser user;
+
+  /// Row 203: the follow-up row's saved changes, and where new ones go.
+  final Map<String, String> draft;
+  final Future<void> Function(Map<String, String> changed)? onDraft;
 
   /// Runs after a successful save, before the form closes (W10 `issue-fix`).
   final Future<void> Function(RecordWrite w)? onSaved;
@@ -919,10 +925,18 @@ class UserEditPage extends StatelessWidget {
     issues: issues,
     notes: notes,
     initial: initial,
+    draft: draft,
+    onDraft: onDraft,
   );
 }
 
 /// `user-full` (web «مشخصات کامل»).
+///
+/// Row 203 (owner: «نام را نوشتی آرتین رحمانی و فامیلی را رحمانی» — «مشخصات پروفایل کامل
+/// نیست؛ اطلاعات دانش‌آموز مثل رشته و پایه نیست»): «نام» and «نام خانوادگی» apart
+/// ([splitName]), every field of the role in sections ([profileSections]) — پایه / رشته /
+/// کلاس picked from lists — and whatever else the row holds (an import column no form names)
+/// under «سایر اطلاعات», so nothing the school file gave is hidden.
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({
     super.key,
@@ -932,24 +946,74 @@ class UserProfilePage extends StatefulWidget {
   final UsersController controller;
   final SchoolUser user;
 
-  static const List<(String, String, bool)> base = [
-    ('name', 'نام', false),
-    ('last_name', 'نام خانوادگی', false),
-    ('national_id', 'کد ملی', true),
-    ('phone', 'شمارهٔ همراه', true),
-    ('birth_date', 'تاریخ تولد', false),
-    ('gender', 'جنسیت', false),
-  ];
+  /// Row 203: the box key of a profile field (`first_name` keeps the old `usr-p-name`).
+  static String boxKey(String k) =>
+      k == 'first_name' ? 'usr-p-name' : 'usr-p-$k';
+
+  /// Row 203: keys of «مشخصات کامل» picked from a list.
+  static const Set<String> picked = {
+    'gender',
+    'grade',
+    'field',
+    'class_id',
+    'employment',
+  };
 
   @override
   State<UserProfilePage> createState() => _UserProfilePageState();
 }
 
 class _UserProfilePageState extends State<UserProfilePage> {
-  late final f = {
-    for (final (k, _, _) in [...UserProfilePage.base, ...userExtraFields])
-      k: TextEditingController(text: widget.user.field(k)),
+  late final SchoolUser u = widget.user;
+  late final sections = profileSections(u.role);
+  late final Map<String, String> start = _start();
+  late final Map<String, String> pick = {
+    for (final k in UserProfilePage.picked)
+      if (start.containsKey(k)) k: start[k]!,
   };
+  late final Map<String, TextEditingController> f = {
+    for (final e in start.entries)
+      if (!UserProfilePage.picked.contains(e.key))
+        e.key: TextEditingController(text: e.value),
+  };
+
+  /// Keys of the row no section names (an import column, an old field) — shown too.
+  late final List<String> others = [
+    for (final e in u.data.entries)
+      if (!_named.contains(e.key) &&
+          !profileHidden(e.key) &&
+          e.value is! Map &&
+          e.value is! List &&
+          SchoolRecords.str(e.value).isNotEmpty)
+        e.key,
+  ]..sort();
+
+  late final Set<String> _named = {
+    for (final (_, list) in sections)
+      for (final (k, _, _) in list) k,
+  };
+
+  Map<String, String> _start() {
+    final n = splitName(u.data);
+    final out = <String, String>{};
+    for (final (_, list) in sections) {
+      for (final (k, _, _) in list) {
+        out[k] = switch (k) {
+          'first_name' => n.first,
+          'last_name' => n.last,
+          'class_id' => '${SchoolRecords.asInt(u.data['class_id']) ?? ''}',
+          _ => u.field(k),
+        };
+      }
+    }
+    for (final e in u.data.entries) {
+      if (out.containsKey(e.key) || profileHidden(e.key)) continue;
+      if (e.value is Map || e.value is List) continue;
+      final v = SchoolRecords.str(e.value);
+      if (v.isNotEmpty) out[e.key] = v;
+    }
+    return out;
+  }
 
   @override
   void dispose() {
@@ -960,27 +1024,118 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   Future<void> _save() async {
-    final r = await widget.controller.saveFull(widget.user.id, {
-      for (final e in f.entries)
-        if (e.value.text.trim() != widget.user.field(e.key))
-          e.key: e.value.text,
+    final now = {
+      for (final e in f.entries) e.key: e.value.text.trim(),
+      ...pick,
+    };
+    final r = await widget.controller.saveFull(u.id, {
+      for (final e in now.entries)
+        if (e.value != (start[e.key] ?? '')) e.key: e.value,
     });
     if (r != null && mounted) Navigator.pop(context);
   }
 
+  /// The choices of a picked field; the value the row has stays one of them.
+  List<(String, String)> _choices(String k) {
+    final c = widget.controller;
+    final have = pick[k] ?? '';
+    List<(String, String)> plain(Iterable<String> xs) => [
+      const ('', '—'),
+      for (final x in {...xs, if (have.isNotEmpty) have}) (x, x),
+    ];
+    switch (k) {
+      case 'gender':
+        return plain(
+          u.role == 'student' ? const ['پسر', 'دختر'] : const ['مرد', 'زن'],
+        );
+      case 'grade':
+        return plain(c.definedGrades);
+      case 'field':
+        return plain(c.definedBranches);
+      case 'employment':
+        return plain(employmentKinds);
+      default: // class_id
+        final g = pick['grade'] ?? '', b = pick['field'] ?? '';
+        final rows = [
+          for (final x in c.classRows)
+            if ((g.isEmpty || x.$3.isEmpty || x.$3 == g) &&
+                (b.isEmpty || x.$4.isEmpty || x.$4 == b))
+              x,
+        ];
+        final list = rows.isEmpty ? c.classRows : rows;
+        return [
+          const ('', '—'),
+          for (final x in list) ('${x.$1}', x.$2),
+          if (have.isNotEmpty && !list.any((x) => '${x.$1}' == have))
+            for (final x in c.classRows)
+              if ('${x.$1}' == have) ('${x.$1}', x.$2),
+        ];
+    }
+  }
+
+  Widget _drop(String k, String label) {
+    final items = _choices(k);
+    final v = pick[k] ?? '';
+    return FieldBox(
+      width: kFieldText,
+      child: DropdownButtonFormField<String>(
+        key: Key(UserProfilePage.boxKey(k)),
+        isExpanded: true,
+        initialValue: items.any((x) => x.$1 == v) ? v : '',
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
+        items: [
+          for (final (x, t) in items)
+            DropdownMenuItem<String>(value: x, child: Text(t)),
+        ],
+        onChanged: (x) => setState(() {
+          pick[k] = x ?? '';
+          if (k == 'grade' || k == 'field') {
+            final cls = pick['class_id'] ?? '';
+            if (cls.isNotEmpty &&
+                !_choices('class_id').any((c) => c.$1 == cls)) {
+              pick['class_id'] = '';
+            }
+          }
+        }),
+      ),
+    );
+  }
+
+  Widget _box(String k, String label, bool numeric) =>
+      UserProfilePage.picked.contains(k) && pick.containsKey(k)
+      ? _drop(k, label)
+      : SchoolField(
+          UserProfilePage.boxKey(k),
+          label,
+          f[k]!,
+          numeric: numeric,
+          lines: k == 'address' ? 2 : 1,
+        );
+
   @override
   Widget build(BuildContext context) => SchoolForm(
     prefix: 'usr',
-    title: 'مشخصات کامل — ${widget.user.name}',
+    title: 'مشخصات کامل — ${u.name}',
     controller: widget.controller,
     submitLabel: 'ذخیرهٔ مشخصات',
     onSubmit: _save,
     fields: [
-      for (final (k, label, numeric) in [
-        ...UserProfilePage.base,
-        ...userExtraFields,
-      ])
-        SchoolField('usr-p-$k', label, f[k]!, numeric: numeric),
+      for (final (title, list) in sections) ...[
+        SchoolFormSection(title),
+        for (final (k, label, numeric) in list)
+          // a school with no رشته shows the box only when the row has one
+          if (k != 'field' ||
+              widget.controller.showBranch ||
+              (pick['field'] ?? '').isNotEmpty)
+            _box(k, label, numeric),
+      ],
+      if (others.isNotEmpty) ...[
+        const SchoolFormSection('سایر اطلاعات'),
+        for (final k in others) SchoolField('usr-p-$k', profileLabel(k), f[k]!),
+      ],
     ],
   );
 }

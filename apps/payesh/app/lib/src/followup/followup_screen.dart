@@ -43,15 +43,43 @@ class FollowupController extends SchoolController {
       run((db) => Followup(db).issueDone(id));
 
   Future<RecordWrite?> issuesClear() => run((db) => Followup(db).issuesClear());
+
+  /// Row 203: the «✏️ اصلاح» form keeps what was typed on the row as it goes — quietly (no
+  /// busy flag, no reload under the open form; the list is read again when it closes).
+  Future<RecordWrite?> saveDraft(
+    int id,
+    Map<String, String> values, {
+    int? tempUserId,
+  }) async {
+    final d = db;
+    if (d == null) return null;
+    try {
+      final w = await Followup(d).saveDraft(id, values, tempUserId: tempUserId);
+      if (w.queued) source.queued();
+      return w;
+    } on RecordFailure catch (e) {
+      error = e.messageFa;
+    } on SyncFailure catch (e) {
+      error = SchoolController.syncMessage(e);
+    }
+    emit();
+    return null;
+  }
 }
 
 /// Row 202 — what the «✏️ اصلاح» form of a follow-up row opens with: every value of the row
 /// (the stored ones, then the file's own values for what the import could not take — a
 /// 9-digit national id, a short mobile; for rows saved before 0.9.71 the value quoted in the
 /// reason) and the wrong fields (data key → message) that open framed in red.
-({Map<String, String> values, Map<String, String> issues}) followupFixValues(
-  ImportIssue i,
-) {
+///
+/// Row 203: then what was already typed ([ImportIssue.draft]); `auto` = national ids whose
+/// dropped leading zeros were put back (fixed without asking, saved on the row at once).
+({
+  Map<String, String> values,
+  Map<String, String> issues,
+  Map<String, String> auto,
+})
+followupFixValues(ImportIssue i) {
   final d = i.data;
   final values = <String, String>{
     for (final e in d.entries)
@@ -84,13 +112,23 @@ class FollowupController extends SchoolController {
       }
     }
   }
-  return (
-    values: values,
-    issues: {
-      for (final e in i.fields.entries)
-        e.key == 'full_name' ? 'name' : e.key: e.value,
-    },
-  );
+  // row 203: what the manager already typed (kept by «✏️ اصلاح»)
+  values.addAll(i.draft);
+  final issues = {
+    for (final e in i.fields.entries)
+      e.key == 'full_name' ? 'name' : e.key: e.value,
+  };
+  // row 203: a national id whose leading zeros Excel dropped is fixed right away
+  final auto = <String, String>{};
+  for (final k in issues.keys.toList()) {
+    if (k != 'national_id' && !k.endsWith('_nid')) continue;
+    final z = nidRestoreZeros(values[k]);
+    if (z.isEmpty) continue;
+    values[k] = z;
+    auto[k] = z;
+    issues.remove(k);
+  }
+  return (values: values, issues: issues, auto: auto);
 }
 
 class FollowupScreen extends StatefulWidget {
@@ -153,6 +191,21 @@ class _FollowupScreenState extends State<FollowupScreen> {
         ? null
         : uc.users.where((u) => u.id == i.userId).firstOrNull;
     final fix = followupFixValues(i);
+    if (fix.auto.isNotEmpty) {
+      await c.saveDraft(i.id, fix.auto);
+      if (!mounted) {
+        uc.dispose();
+        return;
+      }
+    }
+    // row 203: every change is kept on the row as it is typed; «ذخیره» is the final save
+    Future<void> pending = Future<void>.value();
+    Future<void> draft(Map<String, String> m) {
+      final f = c.saveDraft(i.id, m).then((_) {});
+      pending = f;
+      return f;
+    }
+
     final Widget page;
     if (existing != null) {
       page = UserEditPage(
@@ -162,6 +215,8 @@ class _FollowupScreenState extends State<FollowupScreen> {
         issues: fix.issues,
         notes: i.reasons,
         initial: fix.values,
+        draft: {...i.draft, ...fix.auto},
+        onDraft: draft,
       );
     } else {
       page = UserFormPage(
@@ -170,9 +225,16 @@ class _FollowupScreenState extends State<FollowupScreen> {
         initial: fix.values,
         issues: fix.issues,
         notes: i.reasons,
+        onDraft: draft,
+        // row 203 «ثبت موقت در لیست»: in the class list now, still on this list to complete
+        onTemp: (w, dropped, values) async {
+          await c.saveDraft(i.id, values, tempUserId: w.id);
+        },
       );
     }
     await openPanel<void>(context, (_) => page);
+    // what was typed just before closing is written before the list is read again
+    await pending;
     uc.dispose();
     await c.load();
   }
@@ -325,7 +387,13 @@ class _FollowupScreenState extends State<FollowupScreen> {
               i.name.isEmpty ? '—' : i.name,
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
-            if (i.userId != null)
+            if (i.tempUserId != null)
+              WebBadge(
+                'ثبت موقت — در فهرست کلاس',
+                key: Key('fu-issue-temp-${i.id}'),
+                tone: WebTone.amber,
+              )
+            else if (i.userId != null)
               WebBadge(
                 'در سامانه هست',
                 key: Key('fu-issue-state-${i.id}'),
@@ -344,8 +412,23 @@ class _FollowupScreenState extends State<FollowupScreen> {
         ),
       ],
     );
+    final saved = i.draft.isEmpty
+        ? null
+        : Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              i.reasons.isEmpty
+                  ? '✓ همهٔ ایرادها اصلاح و ذخیره شد — ثبت نهایی: «✏️ اصلاح» ← «ذخیره»'
+                  : '✓ اصلاح‌های قبلی ذخیره شده است؛ ${_fa(i.reasons.length)} مورد مانده',
+              key: Key('fu-issue-draft-${i.id}'),
+              style: Web.small.copyWith(
+                color: Colors.green.shade800,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          );
     final why = i.reasons.isEmpty
-        ? Text('—', style: Web.small.copyWith(color: Web.ink))
+        ? (saved ?? Text('—', style: Web.small.copyWith(color: Web.ink)))
         : Column(
             key: Key('fu-issue-why-${i.id}'),
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,6 +442,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
                     style: Web.small.copyWith(color: Web.ink, height: 1.7),
                   ),
                 ),
+              ?saved,
             ],
           );
     final actions = Row(

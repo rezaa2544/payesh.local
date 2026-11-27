@@ -888,6 +888,28 @@ PAGES.students = () => {
 };
 
 /* ══════════════ مدیر: کاربران ══════════════ */
+/* ردیف ۲۰۳: «نام» و «نام خانوادگی» جدا — name همهٔ نام را دارد؛ نام خانوادگیِ ثبت‌شده از
+   انتهای آن بریده می‌شود، وگرنه پیش از آخرین کلمه (دو کلمه اگر آخری «زاده/نژاد/پور…» باشد). */
+function splitName(u) {
+  const norm = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  const n = norm(u && u.name), l = norm(u && u.last_name), f = norm(u && u.first_name);
+  const words = n ? n.split(' ') : [];
+  const key = v => (typeof impNorm === 'function' ? impNorm(v) : v);
+  if (l) {
+    if (!n) return { first: f, last: l };
+    const lw = l.split(' ').length;
+    if (words.length > lw && key(words.slice(words.length - lw).join(' ')) === key(l)) {
+      return { first: words.slice(0, words.length - lw).join(' '), last: l };
+    }
+    if (key(n) === key(l)) return { first: f, last: l };
+    return { first: n, last: l };
+  }
+  if (words.length < 2) return { first: n, last: '' };
+  const tails = ['زاده', 'نژاد', 'پور', 'فر', 'راد', 'نیا', 'وند', 'منش', 'کیا', 'دوست', 'فرد', 'مقدم', 'لو', 'زاد', 'آبادی', 'اصل', 'خواه', 'پناه', 'تبار'];
+  let cut = words.length - 1;
+  if (words.length >= 3 && tails.indexOf(key(words[words.length - 1])) > -1) cut--;
+  return { first: words.slice(0, cut).join(' '), last: words.slice(cut).join(' ') };
+}
 /* نام کامل — اگر «نام» خودش نام خانوادگی را داشته باشد، دوباره تکرار نمی‌شود
    (باگ: «آرسام سعیدی سعیدی»). */
 function fullName(u) {
@@ -1608,7 +1630,16 @@ function userDetailRows(u) {
   add('نشانی', u.address);
   add('خواهر', u.sisters != null ? fa(u.sisters) : '');
   add('برادر', u.brothers != null ? fa(u.brothers) : '');
+  add('پایه', u.grade);
   add('رشته', u.field);
+  add('تحصیلات پدر', u.father_edu);
+  add('شغل پدر', u.father_job);
+  add('وضعیت حیات پدر', u.father_alive);
+  add('تحصیلات مادر', u.mother_edu);
+  add('شغل مادر', u.mother_job);
+  add('وضعیت حیات مادر', u.mother_alive);
+  add('همراه سرپرست', u.guardian_phone);
+  add('وضعیت حیات سرپرست', u.guardian_alive);
   add('مدرک', u.degree);
   add('درس تخصصی', u.subject);
   return rows;
@@ -2306,12 +2337,14 @@ function actUserFull(id) {
   if (typeof IMP_FIELDS !== 'undefined' && IMP_FIELDS.students) IMP_FIELDS.students.forEach(fd => { lbl[fd[0]] = fd[1]; });
   const inp = (k, title, val, extra) => `<label class="field"><span>${esc(title)}</span>
     <input class="input" name="${esc(k)}" value="${esc(val == null ? '' : val)}" ${extra || ''}></label>`;
+  const nm = splitName(u);
   const core = [
-    inp('name', 'نام', u.name, 'required'),
-    inp('last_name', 'نام خانوادگی', u.last_name || ''),
+    inp('first_name', 'نام', nm.first, 'required'),
+    inp('last_name', 'نام خانوادگی', nm.last),
     inp('national_id', 'کد ملی', u.national_id || '', 'inputmode="numeric" maxlength="10" class="input ltr"'),
     `<label class="field"><span>تاریخ تولد (شمسی)</span>${jalaliDateControl('birth_date', u.birth_date || '')}</label>`,
     inp('gender', 'جنسیت', u.gender || ''),
+    u.role === 'student' ? inp('grade', 'پایه', u.grade || '') : '',
   ].join('');
   /* شمارهٔ همراه‌ها — همان ستون‌های اکسل، همگی اینجا و همه قابل ویرایش.
      اگر در اکسل بوده و اینجا خالی است، یعنی آن ستون در مرحلهٔ نگاشت به
@@ -2326,7 +2359,7 @@ function actUserFull(id) {
   ].join('');
   const phoneKeys = ['phone', 'father_phone', 'mother_phone', 'guardian_phone'];
   const extras = (typeof IMP_EXTRA_FIELDS !== 'undefined' ? IMP_EXTRA_FIELDS : [])
-    .filter(k => phoneKeys.indexOf(k) < 0)
+    .filter(k => phoneKeys.indexOf(k) < 0 && ['first_name', 'last_name', 'gender'].indexOf(k) < 0)
     .map(k => inp(k, lbl[k] || k, u[k] || ''))
     .join('');
   /* فیلدهای دلخواهی که مدیر در ورود اکسل خودش تعریف کرده است */

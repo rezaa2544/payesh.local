@@ -164,15 +164,18 @@ void main() {
       await typeKey(tester, 'usr-f-nid', '123');
       await tapKey(tester, 'usr-save');
       expect(find.byKey(const Key('usr-form-error')), findsOneWidget);
-      expect(s.outbox.list(), isEmpty);
+      // row 203: no user yet — only what was typed is kept on the row (auto-save)
+      expect(s.outbox.list().where((o) => o.collection == 'users'), isEmpty);
       await typeKey(tester, 'usr-f-nid', '0076543219');
       await typeKey(tester, 'usr-f-phone', '09120000070');
       await tapKey(tester, 'usr-save');
       expect(find.byKey(const Key('usr-save')), findsNothing);
-      expect(s.outbox.list().map((o) => o.collection), [
-        'users',
-        'import_issues',
-      ]);
+      expect(
+        s.outbox.list().where((o) => o.collection == 'users'),
+        hasLength(1),
+      );
+      expect(s.outbox.list().last.collection, 'import_issues');
+      expect(s.outbox.list().last.payload!['status'], 'done');
       expect(find.byKey(const Key('fu-issue-70')), findsNothing);
       expect(badgeOf(tester, 'fu-issue-state-71'), 'در سامانه هست');
     },

@@ -248,6 +248,26 @@ class UsersController extends SchoolController {
     return out;
   }
 
+  /// Row 203: the keys «ثبت موقت در لیست» left out (wrong values) at the last [addTemporary].
+  List<String> tempDropped = const [];
+
+  /// Row 203 «ثبت موقت در لیست»: the user is made with only its valid values.
+  Future<RecordWrite?> addTemporary(UserDraft d) async {
+    final confirmed = samePerson != null;
+    return run((db) async {
+      try {
+        final (w, dropped) = await UserDirectory(db)
+            .addTemporary(d, samePersonOk: confirmed);
+        samePerson = null;
+        tempDropped = dropped;
+        return w;
+      } on SamePersonFailure catch (e) {
+        samePerson = e;
+        rethrow;
+      }
+    }, form: true);
+  }
+
   /// Row 194: «+ درس جدید» inside the teacher form — the subject goes into «دروس» (the same
   /// list the weekly schedule uses) and is returned to be picked right away.
   Future<(int, String)?> addSubject(String name) async {

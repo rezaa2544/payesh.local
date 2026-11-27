@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
@@ -41,8 +44,29 @@ class UserFormPage extends StatefulWidget {
     this.editing,
     this.issues = const {},
     this.notes = const [],
+    this.draft = const {},
+    this.onDraft,
+    this.onTemp,
   });
   final UsersController controller;
+
+  /// Row 203: what the manager already typed for this follow-up row (form keys), put over the
+  /// user's own values when the form edits an existing user.
+  final Map<String, String> draft;
+
+  /// Row 203 (owner: «با تغییر در اطلاعات اتوماتیک ذخیره شود و فقط با تأیید نهایی، ذخیرهٔ
+  /// نهایی شود»): called a moment after each change with every value changed since the form
+  /// opened (form keys); the final save is still «ذخیره».
+  final Future<void> Function(Map<String, String> changed)? onDraft;
+
+  /// Row 203 «ثبت موقت در لیست»: shown on a new user; makes the user with its valid values
+  /// (in the class picked) and hands the write, the left-out keys and the values to the caller.
+  final Future<void> Function(
+    RecordWrite w,
+    List<String> dropped,
+    Map<String, String> values,
+  )?
+  onTemp;
 
   /// Row 202 (owner: «قسمت‌های مشکل‌دار باید با کادر قرمز مشخص بشن»): field (data key —
   /// `name`, `national_id`, `phone`, `birth_date`, `gender`, `grade`, `field`, `father_nid`,
@@ -135,6 +159,7 @@ class _UserFormPageState extends State<UserFormPage> {
     grade = widget.initial['grade'] ?? '';
     branch = widget.initial['field'] ?? widget.initial['branch'] ?? '';
     employment = widget.initial['employment'] ?? '';
+    classId = int.tryParse(widget.initial['class_id'] ?? '');
     final u = widget.editing;
     if (u != null) {
       _fillFrom(u);
@@ -143,7 +168,102 @@ class _UserFormPageState extends State<UserFormPage> {
         final v = widget.initial[k] ?? '';
         if (v.isNotEmpty && (f[k]?.text.isEmpty ?? false)) f[k]!.text = v;
       }
+      // row 203: what was already typed for the follow-up row
+      for (final e in widget.draft.entries) {
+        _put(e.key, e.value);
+      }
     }
+    // row 203: the class the file named («دهم الف»), when the school has it
+    final cn = (widget.initial['class_name'] ?? '').trim();
+    if (classId == null && cn.isNotEmpty) {
+      classId = c.classRows
+          .where((x) => normName(x.$2) == normName(cn))
+          .map((x) => x.$1)
+          .firstOrNull;
+    }
+    _start = _values();
+    if (widget.onDraft != null) {
+      for (final x in f.values) {
+        x.addListener(_changed);
+      }
+    }
+  }
+
+  /// Row 203: one form value by its key (dropdowns included).
+  void _put(String k, String v) {
+    switch (k) {
+      case 'gender':
+        gender = v;
+      case 'grade':
+        grade = v;
+      case 'field' || 'branch':
+        branch = v;
+      case 'class_id':
+        classId = int.tryParse(v);
+      case 'employment':
+        employment = v;
+      case 'relation':
+        if (const {'پدر', 'مادر', 'سرپرست'}.contains(v)) relation = v;
+      default:
+        f[k]?.text = v;
+    }
+  }
+
+  /// Row 203: every value of the form (form keys) — what a draft is made of.
+  Map<String, String> _values() => {
+    for (final e in f.entries)
+      if (e.key != 'newsubject') e.key: e.value.text.trim(),
+    'gender': gender,
+    'grade': grade,
+    'field': branch,
+    'class_id': classId == null ? '' : '$classId',
+    'employment': employment,
+    if (kind == 'parent') 'relation': relation,
+  };
+
+  late Map<String, String> _start;
+  Map<String, String> _sent = const {};
+  Timer? _draftTimer;
+  String? _draftNote;
+
+  void _changed() {
+    if (widget.onDraft == null) return;
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 900), _flushDraft);
+  }
+
+  /// Row 203: what changed since the form opened (or was sent before) goes to [onDraft].
+  Future<void> _flushDraft() async {
+    _draftTimer?.cancel();
+    _draftTimer = null;
+    final cb = widget.onDraft;
+    if (cb == null) return;
+    final now = _values();
+    final out = <String, String>{
+      for (final e in now.entries)
+        if (e.value != (_start[e.key] ?? '') || _sent.containsKey(e.key))
+          e.key: e.value,
+    };
+    if (out.isEmpty || mapEquals(out, _sent)) return;
+    _sent = out;
+    await cb(out);
+    if (mounted) {
+      setState(() => _draftNote = '✓ اصلاح‌ها ذخیره شد — ثبت نهایی با «ذخیره»');
+    }
+  }
+
+  /// Row 203 «ثبت موقت در لیست».
+  Future<void> _temp() async {
+    final d = _draft();
+    if (d == null) return;
+    final r = await c.addTemporary(d);
+    if (r == null) return;
+    _draftTimer?.cancel();
+    _draftTimer = null;
+    final values = _values();
+    _sent = values;
+    await widget.onTemp?.call(r, c.tempDropped, values);
+    if (mounted) Navigator.pop(context);
   }
 
   /// Row 202: [UserFormPage.issues] under the names of the boxes of this form.
@@ -199,6 +319,8 @@ class _UserFormPageState extends State<UserFormPage> {
 
   @override
   void dispose() {
+    // a change typed just before closing is still kept
+    if (_draftTimer != null) unawaited(_flushDraft());
     for (final x in f.values) {
       x.dispose();
     }
@@ -211,10 +333,24 @@ class _UserFormPageState extends State<UserFormPage> {
   });
 
   Future<void> _save() async {
+    final draft = _draft();
+    if (draft == null) return;
+    final r = _isEdit
+        ? await c.update(widget.editing!.id, draft)
+        : await c.add(draft);
+    if (r != null) {
+      _draftTimer?.cancel();
+      _draftTimer = null;
+      await widget.onSaved?.call(r);
+    }
+    if (r != null && mounted) Navigator.pop(context);
+  }
+
+  UserDraft? _draft() {
     if (role.isEmpty) {
       c.formError = 'اول نقش را انتخاب کنید';
       c.emit();
-      return;
+      return null;
     }
     final extra = <String, String>{
       for (final k in userProfileKeys) k: f[k]!.text,
@@ -242,11 +378,7 @@ class _UserFormPageState extends State<UserFormPage> {
       childId: kind == 'parent' ? childId : null,
       active: _isEdit ? active : null,
     );
-    final r = _isEdit
-        ? await c.update(widget.editing!.id, draft)
-        : await c.add(draft);
-    if (r != null) await widget.onSaved?.call(r);
-    if (r != null && mounted) Navigator.pop(context);
+    return draft;
   }
 
   // ───────────────────────────── pieces ─────────────────────────────
@@ -283,6 +415,7 @@ class _UserFormPageState extends State<UserFormPage> {
           onChanged: (v) {
             FieldIssueScope.maybeOf(context)?.clear(key);
             if (v is T) setState(() => onChanged(v));
+            _changed();
           },
         ),
       );
@@ -379,18 +512,27 @@ class _UserFormPageState extends State<UserFormPage> {
       'usr-f-grade',
       'پایه',
       grade,
-      [const ('', '—'), for (final g in c.definedGrades) (g, g)],
+      [
+        const ('', '—'),
+        // row 203: the student's own پایه stays shown even if the school list lacks it
+        for (final g in {...c.definedGrades, if (grade.isNotEmpty) grade})
+          (g, g),
+      ],
       (v) {
         grade = v;
         classId = null;
       },
     ),
-    if (c.showBranch)
+    if (c.showBranch || branch.isNotEmpty)
       _drop<String>(
         'usr-f-branch',
         'رشته',
         branch,
-        [const ('', '—'), for (final b in c.definedBranches) (b, b)],
+        [
+          const ('', '—'),
+          for (final b in {...c.definedBranches, if (branch.isNotEmpty) branch})
+            (b, b),
+        ],
         (v) {
           branch = v;
           classId = null;
@@ -787,24 +929,56 @@ class _UserFormPageState extends State<UserFormPage> {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: c,
-    builder: (context, _) => SchoolForm(
-      prefix: 'usr',
-      title: _isEdit ? 'ویرایش — ${widget.editing!.name}' : 'کاربر جدید',
-      controller: c,
-      submitLabel: c.samePerson != null ? 'شخص دیگری است — ذخیره' : 'ذخیره',
-      onSubmit: _save,
-      presetIssues: _preset,
-      fields: [
-        if (widget.notes.isNotEmpty) _notesBox(),
-        if (_isEdit) _editHead() else _kindPicker(),
-        ...switch (kind) {
-          'student' => _student(),
-          'teacher' => _teacher(),
-          'exec' => _exec(),
-          'parent' => _parent(),
-          _ => const <Widget>[],
-        },
-      ],
+    // row 203: a change typed just before closing is saved as the form goes (the follow-up
+    // list waits for it before it is read again)
+    builder: (context, _) => PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop && _draftTimer != null) unawaited(_flushDraft());
+      },
+      child: SchoolForm(
+        prefix: 'usr',
+        title: _isEdit ? 'ویرایش — ${widget.editing!.name}' : 'کاربر جدید',
+        controller: c,
+        submitLabel: c.samePerson != null ? 'شخص دیگری است — ذخیره' : 'ذخیره',
+        onSubmit: _save,
+        presetIssues: _preset,
+        footer: _draftNote == null
+            ? null
+            : Text(
+                _draftNote!,
+                key: const Key('usr-f-draft-saved'),
+                style: TextStyle(
+                  color: Colors.green.shade800,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+        actions: [
+          if (widget.onTemp != null && !_isEdit && kind == 'student')
+            Tooltip(
+              message:
+                  'مشخصات هنوز کامل نیست ولی نامش در فهرست کاربران و کلاس ثبت شود؛ مقدارهای نادرست '
+                  'ثبت نمی‌شوند و ردیف برای تکمیل در «پیگیری» می‌ماند.',
+              child: OutlinedButton.icon(
+                key: const Key('usr-f-temp'),
+                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 46)),
+                onPressed: c.busy ? null : _temp,
+                icon: const Icon(Icons.playlist_add, size: 20),
+                label: const Text('ثبت موقت در لیست'),
+              ),
+            ),
+        ],
+        fields: [
+          if (widget.notes.isNotEmpty) _notesBox(),
+          if (_isEdit) _editHead() else _kindPicker(),
+          ...switch (kind) {
+            'student' => _student(),
+            'teacher' => _teacher(),
+            'exec' => _exec(),
+            'parent' => _parent(),
+            _ => const <Widget>[],
+          },
+        ],
+      ),
     ),
   );
 }

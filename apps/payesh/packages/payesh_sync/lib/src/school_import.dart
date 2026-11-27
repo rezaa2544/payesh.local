@@ -23,7 +23,7 @@ import 'classes.dart' show gradeLevel, groupKey, normName;
 import 'grades.dart' show GradeBook, GradeTerm;
 import 'records.dart';
 import 'sheet_reader.dart';
-import 'users.dart' show roleFa;
+import 'users.dart' show nidRestoreZeros, roleFa;
 
 typedef ImportField = (String key, String label, bool required, List<String>);
 
@@ -1726,6 +1726,25 @@ List<String> importReasonFields(String reason) {
 String importReasonValue(String reason) =>
     RegExp('«([^»]*)»').firstMatch(reason)?.group(1)?.trim() ?? '';
 
+/// Row 203: is [value] now right for the import field [key] (a follow-up row being fixed)?
+/// A national id is 10 digits (or 8–9 whose dropped zeros give a valid check digit), a mobile
+/// 11 digits from 09, a name at least 3 letters; any other field just has to be filled in.
+bool importFieldOk(String key, String value) {
+  final v = value.trim();
+  if (key == 'national_id' || key.endsWith('_nid')) {
+    final d = SchoolRecords.digitsOnly(v);
+    return d.length == 10 || nidRestoreZeros(d).isNotEmpty;
+  }
+  if (key == 'phone' || key.endsWith('_phone')) {
+    return RegExp(r'^09\d{9}$').hasMatch(SchoolRecords.mobile11(v));
+  }
+  if (key == 'full_name' || key == 'name') {
+    return v.replaceAll(RegExp(r'\s'), '').length >= 2 &&
+        !RegExp(r'\d').hasMatch(v);
+  }
+  return v.isNotEmpty;
+}
+
 /// Row 202: field → the reasons about it, for one checked row or follow-up row.
 Map<String, String> importProblemFields(Iterable<String> reasons) {
   final out = <String, String>{};
@@ -1922,6 +1941,21 @@ final class SchoolImport {
       void fixIt(String m) {
         r.blocks.add(m);
         r.warns.add(m);
+      }
+
+      // row 203: Excel drops the leading zeros of a national id («441659330» was
+      // «0441659330»); with the zeros back and a valid check digit it is taken as it is
+      for (final (k, who) in const [
+        ('national_id', ''),
+        ('father_nid', ' پدر'),
+        ('mother_nid', ' مادر'),
+      ]) {
+        final z = nidRestoreZeros(o[k]);
+        if (z.isEmpty) continue;
+        r.warns.add(
+          'صفرِ اولِ کد ملی$who «${(o[k] ?? '').trim()}» در اکسل افتاده بود — «$z» ثبت می‌شود.',
+        );
+        o = {...o, k: z};
       }
 
       String sp(String? v) => (v ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();

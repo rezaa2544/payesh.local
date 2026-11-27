@@ -229,6 +229,245 @@ String nameKey(Object? v) {
   return s.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
+/// Row 203 (owner: «نام را نوشتی آرتین رحمانی و فامیلی را رحمانی»): a user row keeps the
+/// whole name in `name` (and, from an import, `first_name` / `last_name` too). The forms that
+/// show «نام» and «نام خانوادگی» apart take them from here: the stored last name is cut off the
+/// end of `name`; a name with no stored last name is split before its last word (two words
+/// when the last is «زاده»، «نژاد»، «پور»، … : «حسین زاده»).
+({String first, String last}) splitName(Map<String, Object?> u) {
+  String norm(Object? v) => '${v ?? ''}'.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final n = norm(u['name']);
+  final l = norm(u['last_name']);
+  final f = norm(u['first_name']);
+  final words = n.isEmpty ? <String>[] : n.split(' ');
+  if (l.isNotEmpty) {
+    if (n.isEmpty) return (first: f, last: l);
+    final lw = l.split(' ').length;
+    if (words.length > lw &&
+        nameKey(words.skip(words.length - lw).join(' ')) == nameKey(l)) {
+      return (first: words.take(words.length - lw).join(' '), last: l);
+    }
+    if (nameKey(n) == nameKey(l)) return (first: f, last: l);
+    // the name does not hold the last name: [fullName] shows «name last»
+    return (first: n, last: l);
+  }
+  if (words.length < 2) return (first: n, last: '');
+  const tails = {
+    'زاده', 'نژاد', 'پور', 'فر', 'راد', 'نیا', 'وند', 'منش', 'کیا', 'دوست', //
+    'فرد', 'مقدم', 'لو', 'زادە', 'زاد', 'آبادی', 'اصل', 'خواه', 'پناه', 'تبار',
+  };
+  var cut = words.length - 1;
+  if (words.length >= 3 && tails.contains(nameKey(words.last))) cut--;
+  return (first: words.take(cut).join(' '), last: words.skip(cut).join(' '));
+}
+
+/// The name a user row stores for [first] + [last].
+String joinName(String first, String last) =>
+    '${first.trim()} ${last.trim()}'.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+/// Row 203: the official check digit of a national id (10 digits).
+bool nidChecksumOk(String d) {
+  if (!RegExp(r'^\d{10}$').hasMatch(d) || RegExp(r'^(\d)\1{9}$').hasMatch(d)) {
+    return false;
+  }
+  var s = 0;
+  for (var i = 0; i < 9; i++) {
+    s += (d.codeUnitAt(i) - 48) * (10 - i);
+  }
+  final r = s % 11;
+  final c = d.codeUnitAt(9) - 48;
+  return r < 2 ? c == r : c == 11 - r;
+}
+
+/// Row 203: Excel drops the leading zeros of a national id («441659330» was «0441659330»).
+/// The 10-digit id when the zeros put back give a valid check digit, else ''.
+String nidRestoreZeros(Object? raw) {
+  final d = SchoolRecords.digitsOnly(raw);
+  if (d.length < 8 || d.length > 9) return '';
+  final p = d.padLeft(10, '0');
+  return nidChecksumOk(p) ? p : '';
+}
+
+/// Row 203 (owner: «همه جایی که مشخصات یک کاربر را می‌آورد باید همه اطلاعاتش را نشان دهد»):
+/// every field of «مشخصات کامل» for a role, in sections, in the order of the user form —
+/// key, label, numeric. `grade`, `field`, `class_id` and `gender` are picked from lists.
+List<(String, List<(String, String, bool)>)> profileSections(String role) {
+  const personal = [
+    ('first_name', 'نام', false),
+    ('last_name', 'نام خانوادگی', false),
+    ('national_id', 'کد ملی', true),
+    ('phone', 'شمارهٔ همراه', true),
+    ('birth_date', 'تاریخ تولد', false),
+    ('gender', 'جنسیت', false),
+  ];
+  const tail = [('landline', 'تلفن ثابت', true), ('address', 'نشانی', false)];
+  switch (role) {
+    case 'student':
+      return const [
+        (
+          'مشخصات دانش‌آموز',
+          [
+            ...personal,
+            ('grade', 'پایه', false),
+            ('field', 'رشته', false),
+            ('class_id', 'کلاس', false),
+            ('last_gpa', 'معدل سال گذشته', true),
+            ('failed_count', 'تعداد درس افتاده', true),
+            ('covered', 'حمایتی (بله/خیر)', false),
+            ('org_type', 'نوع ارگان حمایتی', false),
+            ('org_percent', 'درصد حمایت', false),
+            ('talent', 'استعداد', false),
+            ('shenasname_serial', 'سریال شناسنامه', false),
+            ('shenasname_seri', 'سری شناسنامه', false),
+            ('sisters', 'تعداد خواهر', true),
+            ('brothers', 'تعداد برادر', true),
+          ],
+        ),
+        (
+          'مشخصات پدر',
+          [
+            ('father_name', 'نام پدر', false),
+            ('father_nid', 'کد ملی پدر', true),
+            ('father_phone', 'همراه پدر', true),
+            ('father_edu', 'تحصیلات پدر', false),
+            ('father_job', 'شغل پدر', false),
+            ('father_alive', 'وضعیت حیات پدر', false),
+          ],
+        ),
+        (
+          'مشخصات مادر',
+          [
+            ('mother_name', 'نام مادر', false),
+            ('mother_nid', 'کد ملی مادر', true),
+            ('mother_phone', 'همراه مادر', true),
+            ('mother_edu', 'تحصیلات مادر', false),
+            ('mother_job', 'شغل مادر', false),
+            ('mother_alive', 'وضعیت حیات مادر', false),
+          ],
+        ),
+        (
+          'سرپرست و نشانی',
+          [
+            ('guardian', 'سرپرست (نسبت و نام)', false),
+            ('guardian_alive', 'وضعیت حیات سرپرست', false),
+            ('guardian_phone', 'همراه سرپرست', true),
+            ('landline', 'تلفن ثابت', true),
+            ('residence', 'محل سکونت', false),
+            ('village', 'نام روستا', false),
+            ('residence_status', 'وضعیت اقامت / تابعیت', false),
+            ('address', 'نشانی', false),
+          ],
+        ),
+      ];
+    case 'parent':
+      return const [
+        (
+          'مشخصات ولی',
+          [
+            ...personal,
+            ('relation', 'نسبت با دانش‌آموز', false),
+            ('degree', 'تحصیلات', false),
+            ('job', 'شغل', false),
+            ...tail,
+          ],
+        ),
+      ];
+    default:
+      return [
+        ('مشخصات شخصی', personal),
+        (
+          'مشخصات پرسنلی',
+          [
+            ('personnel_code', 'کد پرسنلی', true),
+            if (role != 'teacher') ('position', 'سمت / عنوان کار', false),
+            ('degree', 'مدرک تحصیلی', false),
+            ('study_field', 'رشتهٔ تحصیلی', false),
+            ('employment', 'نوع استخدام', false),
+            ('service_years', 'سابقهٔ خدمت (سال)', true),
+            ('start_date', 'تاریخ شروع در این مدرسه', false),
+            ...tail,
+          ],
+        ),
+      ];
+  }
+}
+
+/// Row 203: the Persian label of a profile key (the key itself when no list names it).
+String profileLabel(String k) {
+  for (final role in const ['student', 'parent', 'teacher', 'staff']) {
+    for (final (_, list) in profileSections(role)) {
+      for (final (key, label, _) in list) {
+        if (key == k) return label;
+      }
+    }
+  }
+  for (final (key, label, _) in [
+    ...userExtraFields,
+    ...personnelFields,
+    ...familyFields,
+    ...studentMoreFields,
+  ]) {
+    if (key == k) return label;
+  }
+  return const {
+        'class_name': 'نام کلاس (از فایل)',
+        'subject': 'درس',
+        'birth_place': 'محل تولد',
+        'religion': 'دین',
+        'nationality': 'تابعیت',
+        'postal_code': 'کد پستی',
+        'email': 'ایمیل',
+        'note': 'یادداشت',
+      }[k] ??
+      k;
+}
+
+/// Keys of a user row that are bookkeeping, never shown as «سایر اطلاعات».
+const Set<String> profileHiddenKeys = {
+  'id',
+  'name',
+  'full_name',
+  'role',
+  'active',
+  'access',
+  'class_id',
+  'teaches', //
+  'password',
+  'password_hash',
+  'pass',
+  'salt',
+  'token',
+  'pin',
+  'username',
+  'must_change',
+  'created_at',
+  'updated_at',
+  'deleted',
+  'deleted_at',
+  'version',
+  'followup_ack',
+  'school_id',
+  'avatar',
+  'photo',
+  'last_login',
+  'login_at',
+  'parent_name',
+  'parent_phone',
+  'import_id', 'import_row', 'source',
+  'auto_placed', 'needs_manual', 'existing_id', 'kind', 'status', 'workshop',
+};
+
+/// Row 203: a user-row key that is bookkeeping (never shown with the profile).
+bool profileHidden(String k) =>
+    profileHiddenKeys.contains(k) ||
+    k.startsWith('_') ||
+    k.startsWith('followup') ||
+    k.startsWith('import') ||
+    k.startsWith('new_') ||
+    k.endsWith('_at') ||
+    k.endsWith('_hash') ||
+    k.endsWith('_token');
+
 /// One user as the pages show it.
 final class SchoolUser {
   const SchoolUser({
@@ -539,32 +778,34 @@ final class UserDirectory {
     );
   }
 
-  /// Web `userDetailRows`.
+  /// Web `userDetailRows`. Row 203 (owner: «همه جایی که مشخصات یک کاربر را می‌آورد باید
+  /// همه اطلاعاتش را نشان دهد»): every field of the role ([profileSections]) the row has —
+  /// پایه and رشته included — then whatever else it holds (an import column no form names).
   static List<(String, String)> detailRows(Map<String, Object?> u) {
     final out = <(String, String)>[];
+    final seen = <String>{'first_name', 'last_name', 'class_id'};
     void add(String label, Object? v) {
       final t = SchoolRecords.str(v);
       if (t.isNotEmpty && t != '—') out.add((label, t));
     }
 
-    add('تاریخ تولد', u['birth_date']);
-    add('جنسیت', u['gender']);
-    add('نام پدر', u['father_name']);
-    add('کد ملی پدر', u['father_nid']);
-    add('همراه پدر', u['father_phone']);
-    add('نام مادر', u['mother_name']);
-    add('کد ملی مادر', u['mother_nid']);
-    add('همراه مادر', u['mother_phone']);
-    add('سرپرست', u['guardian']);
-    add('معدل سال گذشته', u['last_gpa']);
-    add('حمایتی', u['covered']);
-    add('استعداد', u['talent']);
-    add('تلفن ثابت', u['landline']);
-    add('شمارهٔ همراه', u['phone']);
-    add('کد ملی', u['national_id']);
-    add('محل سکونت', u['residence']);
-    add('نشانی', u['address']);
-    add('رشته', u['field']);
+    for (final (_, list) in profileSections(SchoolRecords.str(u['role']))) {
+      for (final (k, label, _) in list) {
+        if (!seen.add(k)) continue;
+        add(label, u[k]);
+      }
+    }
+    final rest = [
+      for (final e in u.entries)
+        if (!seen.contains(e.key) &&
+            !profileHidden(e.key) &&
+            e.value is! Map &&
+            e.value is! List)
+          e.key,
+    ]..sort();
+    for (final k in rest) {
+      add(profileLabel(k), u[k]);
+    }
     return out;
   }
 
@@ -584,6 +825,9 @@ final class UserDirectory {
   static String _nid(String raw, {String whatFa = 'کد ملی'}) {
     final d = SchoolRecords.digitsOnly(raw);
     if (d.isNotEmpty && d.length != 10) {
+      // row 203: the zeros Excel dropped («441659330» ⇒ «0441659330»)
+      final z = nidRestoreZeros(d);
+      if (z.isNotEmpty) return z;
       throw RecordFailure('invalid', '$whatFa باید دقیقاً ۱۰ رقم باشد');
     }
     return d;
@@ -747,6 +991,95 @@ final class UserDirectory {
     return RecordWrite(msg, id: id, keys: keys);
   }
 
+  /// Row 203 «ثبت موقت در لیست» (owner: «دانش‌آموز اطلاعاتش ناقص است ولی لازم است توی لیست
+  /// کلاسی اسمش ثبت شود»): [add] with only what is valid — a national id / mobile that is not
+  /// 10 / 11 digits (or belongs to another user), a parent's wrong national id or mobile, are
+  /// left out (they stay on the follow-up row to be completed). The name is still required.
+  /// Returns the write and the keys that were left out.
+  Future<(RecordWrite, List<String>)> addTemporary(
+    UserDraft d, {
+    bool samePersonOk = false,
+  }) async {
+    _requireManager();
+    final rows = await _rows();
+    final dropped = <String>[];
+    bool usedBy(String k, String v) =>
+        rows.any((r) => SchoolRecords.digitsOnly(r.data[k]) == v);
+    String okNid(String k, String raw, {bool unique = false}) {
+      final v = SchoolRecords.digitsOnly(raw);
+      if (v.isEmpty) return '';
+      // the check digit too: a wrong id stays for the follow-up row to fix
+      final z = v.length == 10
+          ? (nidChecksumOk(v) ? v : '')
+          : nidRestoreZeros(v);
+      if (z.isEmpty || (unique && usedBy('national_id', z))) {
+        dropped.add(k);
+        return '';
+      }
+      return z;
+    }
+
+    String okPhone(String k, String raw, {bool unique = false}) {
+      if (SchoolRecords.digitsOnly(raw).isEmpty) return '';
+      final m = SchoolRecords.mobile11(raw);
+      if (!RegExp(r'^09\d{9}$').hasMatch(m) || (unique && usedBy('phone', m))) {
+        dropped.add(k);
+        return '';
+      }
+      return m;
+    }
+
+    final phone = okPhone('phone', d.phone, unique: true);
+    final extra = <String, String>{...d.extra};
+    for (final k in extra.keys.toList()) {
+      final v = extra[k]!;
+      if (k.endsWith('_nid')) {
+        extra[k] = okNid(k, v);
+      } else if (k.endsWith('_phone')) {
+        var m = okPhone(k, v);
+        // a parent's mobile that is the student's own, or a teacher's / staff member's
+        // username, cannot make the parent's account
+        if (m.isNotEmpty &&
+            (m == phone ||
+                rows.any(
+                  (r) =>
+                      r.data['role'] != 'parent' &&
+                      SchoolRecords.digitsOnly(r.data['phone']) == m,
+                ))) {
+          dropped.add(k);
+          m = '';
+        }
+        extra[k] = m;
+      }
+    }
+    final clean = UserDraft(
+      name: d.name,
+      role: d.role,
+      classId: d.classId,
+      nationalId: okNid('national_id', d.nationalId, unique: true),
+      phone: phone,
+      birthDate: d.birthDate,
+      gender: d.gender,
+      extra: extra,
+      grade: d.grade,
+      branch: d.branch,
+      parentAccounts: d.parentAccounts,
+      access: d.access,
+      teaches: d.teaches,
+      childId: d.childId,
+    );
+    final w = await add(clean, samePersonOk: samePersonOk);
+    return (
+      RecordWrite(
+        'ثبت موقت شد — «${d.name.trim()}» در فهرست کاربران و کلاسش هست و برای تکمیل مشخصات '
+        'در «پیگیری» می‌ماند',
+        id: w.id,
+        keys: w.keys,
+      ),
+      dropped,
+    );
+  }
+
   /// Row 194: which parent accounts a new student brings — the father and the mother from the
   /// father_* / mother_* fields (when ticked), else the old single «ولی» name + mobile. A parent
   /// already in the school (same mobile or national code) is re-used, never duplicated; a
@@ -846,6 +1179,7 @@ final class UserDirectory {
       'gender': ?gender?.trim(),
     };
     _extras(data, prev.data, extra);
+    _alignName(data, prev.data);
     if (_same(data, prev.data)) return const RecordWrite('تغییری نبود');
     final k = await db.put(users, id, data, prev: prev);
     return RecordWrite('کاربر ویرایش شد', id: id, keys: [k]);
@@ -904,6 +1238,7 @@ final class UserDirectory {
       );
     }
     final data = <String, Object?>{...prev.data, 'name': name, 'role': role};
+    _alignName(data, prev.data);
     // کادر خالی فقط مقدار موجود را پاک می‌کند؛ کلید تازهٔ خالی ساخته نمی‌شود («تغییری نبود»)
     void put(String k, String v) {
       if (v.isNotEmpty) {
@@ -1024,6 +1359,26 @@ final class UserDirectory {
     return RecordWrite('نام کاربری در صف ارسال است', id: id, keys: [k]);
   }
 
+  /// Row 203: `first_name` / `last_name` follow a changed `name` — a stale last name made
+  /// [fullName] show «آرتین کریمی رحمانی» after the name was edited.
+  static void _alignName(Map<String, Object?> data, Map<String, Object?> prev) {
+    final n = SchoolRecords.str(data['name']);
+    if (nameKey(n) == nameKey(prev['name'])) return;
+    final l = SchoolRecords.str(data['last_name']);
+    final f = SchoolRecords.str(data['first_name']);
+    if (l.isEmpty && f.isEmpty) return;
+    final words = n.split(RegExp(r'\s+'));
+    final lw = l.isEmpty ? 0 : l.split(RegExp(r'\s+')).length;
+    if (lw > 0 &&
+        words.length > lw &&
+        nameKey(words.skip(words.length - lw).join(' ')) == nameKey(l)) {
+      data['first_name'] = words.take(words.length - lw).join(' ');
+      return;
+    }
+    if (f.isNotEmpty) data['first_name'] = '';
+    if (l.isNotEmpty) data['last_name'] = '';
+  }
+
   static void _extras(
     Map<String, Object?> data,
     Map<String, Object?> prev,
@@ -1056,6 +1411,21 @@ final class UserDirectory {
     final prev = await db.existing(users, id, 'کاربر');
     final data = <String, Object?>{...prev.data};
     final f = {...fields};
+    // row 203: «نام» and «نام خانوادگی» apart; `name` keeps the whole name
+    if (f.containsKey('first_name') || f.containsKey('last_name')) {
+      final was = splitName(prev.data);
+      final fn = (f['first_name'] ?? was.first).trim();
+      final ln = (f['last_name'] ?? was.last).trim();
+      f['name'] = joinName(fn, ln);
+      f['first_name'] = fn;
+      f['last_name'] = ln;
+    }
+    // row 203: the class of a student is picked in «مشخصات کامل» too
+    if (f.containsKey('class_id')) {
+      final c = f.remove('class_id')!.trim();
+      final cid = int.tryParse(c);
+      if (cid != null || prev.data['class_id'] != null) data['class_id'] = cid;
+    }
     if (f.containsKey('phone')) f['phone'] = _mobile(f['phone']!);
     if (f.containsKey('national_id')) {
       f['national_id'] = _nid(f['national_id']!);
