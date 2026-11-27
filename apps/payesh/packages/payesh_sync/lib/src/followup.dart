@@ -116,7 +116,9 @@ final class Followup {
 
   /// Row 200: a page that already read users / classes / lookups passes them in (a big
   /// school's users list read them four times per load).
-  Future<FollowupView> view({
+  Future<FollowupView> view() => viewFrom();
+
+  Future<FollowupView> viewFrom({
     List<EngineRow>? users,
     List<EngineRow>? classes,
     List<EngineRow>? lookups,

@@ -127,7 +127,7 @@ class UsersController extends SchoolController {
     total = everyone.length;
     try {
       final f = await Followup(db)
-          .view(users: everyone, classes: cls, lookups: lookups);
+          .viewFrom(users: everyone, classes: cls, lookups: lookups);
       followups = f.total;
       followupIssues = f.issues.length;
     } on Object {
