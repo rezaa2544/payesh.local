@@ -2869,9 +2869,16 @@ function actUserFull(id) {
 }
 
 /* ── پنجرهٔ «کاربری»: نام کاربری و رمز، در یک جا، قابل ویرایش و حذف ── */
-function actUserCreds(id) {
+async function actUserCreds(id) {
   const u = byId('users', Number(id));
   if (!u) return toast('این کاربر پیدا نشد — صفحه را تازه کنید', 'err');
+  /* رمزها تنبل خوانده می‌شوند: فقط همین‌جا، نخستین بار که مدیر پنجرهٔ
+     «کاربری» کسی را باز می‌کند — نه با هر ورود به صفحهٔ کاربران. */
+  if (S.creds === undefined && !isPhoneMode() && typeof loadCreds === 'function') {
+    toast('در حال خواندن رمزها…');
+    await loadCreds();
+    if (!byId('users', Number(id))) return;
+  }
   const c = (S.creds && S.creds[u.id]) || null;
   const username = String((c && c.phone) || u.phone || u.national_id || '');
   /* F‑01: رمز فقط از پاسخ مدیر (رمزنگاری‌شده در سرور) می‌آید، نه از دادهٔ محلی */

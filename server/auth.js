@@ -317,16 +317,40 @@ function setPassword(store, userId, nextPw) {
 /* رمزِ جاری هر حساب — برای اینکه مدیر بتواند به کاربر بگوید «رمزت این است».
    اگر رمزی که مدیر تعیین کرده ذخیره شده باشد همان را می‌دهیم؛ وگرنه اگر رمز
    هنوز همان کد ملی باشد آن را برمی‌گردانیم و در پایگاه داده ثبت می‌کنیم. */
+/* کشِ حافظه‌ای نتیجهٔ passwordOf: کلید، خودِ password_hash است؛ پس وقتی رمز
+   عوض شود (hash تازه) نتیجهٔ کهنه خودبه‌خود بی‌اعتبار می‌شود. بدون این کش،
+   فهرست رمزهای مدیر برای هر کاربری که password_enc نداشت در هر درخواست یک
+   PBKDF2 کامل (۱۵۰هزار دور) اجرا می‌کرد — برای مدرسهٔ پرجمعیت یعنی چند
+   ثانیه قفلِ کاملِ سرورِ تک‌رشته‌ای، هر بار که مدیر وارد «کاربران» می‌شد. */
+const _passwordOfCache = new Map();
 function passwordOf(store, user) {
   if (!user) return null;
   if (user.password_enc) {
     const plain = openSecret(store, user.password_enc);
     if (plain) return plain;
   }
+  if (!user.password_hash) return null;
+  const cacheKey = Number(user.id) + '|' + String(user.password_hash);
+  if (_passwordOfCache.has(cacheKey)) return _passwordOfCache.get(cacheKey);
   /* رمز پیش‌فرض (کد ملی) فقط در لحظه بررسی خوانده می‌شود؛ ذخیرهٔ خام ندارد */
   const nid = normDigits(user.national_id);
-  if (nid.length >= 4 && user.password_hash && verifySecret(nid, user.password_hash)) return nid;
-  return null;
+  let out = null;
+  if (nid.length >= 4 && verifySecret(nid, user.password_hash)) {
+    out = nid;
+    /* همان یک بار کافی است: نتیجه به‌صورت مهرشده (password_enc، AES-GCM —
+       درست مثل setPassword) در خودِ ردیف می‌نشیند تا این بررسیِ پرهزینه
+       برای این کاربر هرگز تکرار نشود. updateDataInPlace نسخه/updated_at
+       را تکان نمی‌دهد ⇒ هیچ دلتای اضافی به دستگاه‌ها نمی‌رود. */
+    try {
+      if (store && typeof store.updateDataInPlace === 'function') {
+        const sealed = sealSecret(store, nid);
+        if (sealed) store.updateDataInPlace('users', user.id, d => (d.password_enc ? null : Object.assign({}, d, { password_enc: sealed })));
+      }
+    } catch (e) { /* مهر نشد؛ کشِ حافظه‌ای همین فرآیند را نجات می‌دهد */ }
+  }
+  if (_passwordOfCache.size > 10000) _passwordOfCache.clear();
+  _passwordOfCache.set(cacheKey, out);
+  return out;
 }
 
 function changeOwnPassword(store, userId, currentPw, nextPw) {

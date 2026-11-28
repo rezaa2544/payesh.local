@@ -119,6 +119,14 @@ class UsersController extends SchoolController {
         if (SchoolRecords.str(x.data['name']).trim().isNotEmpty)
           (x.id, SchoolRecords.str(x.data['name']).trim()),
     ]..sort((a, b) => a.$2.compareTo(b.$2));
+    _keys = [
+      for (final u in _every)
+        (
+          searchKey(SchoolRecords.str(u.data['name'])),
+          searchKey(u.phone),
+          searchKey(u.nationalId),
+        ),
+    ];
     _apply();
     total = everyone.length;
     try {
@@ -153,26 +161,34 @@ class UsersController extends SchoolController {
 
   /// Row 201: search text in one form — ي/ك, ZWNJ, Persian/Arabic digits and spaces aside, so
   /// «۰۹۱۲» finds 0912… and «علي» finds «علی».
+  /// Perf: the patterns are compiled once — [searchKey] used to build four
+  /// fresh [RegExp]s per call, and a keystroke called it for the name, phone
+  /// and national id of every one of the school's 1177 users.
+  static final _faDigits = RegExp('[۰-۹٠-٩]');
+  static final _arabicYeh = RegExp('[ىي]');
+  static final _spaceLike = RegExp(r'[\u200c\s]+');
   static String searchKey(String v) => v
-      .replaceAllMapped(
-        RegExp('[۰-۹٠-٩]'),
-        (m) => SchoolRecords.digitsOnly(m[0]),
-      )
-      .replaceAll(RegExp('[ىي]'), 'ی')
+      .replaceAllMapped(_faDigits, (m) => SchoolRecords.digitsOnly(m[0]))
+      .replaceAll(_arabicYeh, 'ی')
       .replaceAll('ك', 'ک')
-      .replaceAll(RegExp(r'[\u200c\s]+'), '')
+      .replaceAll(_spaceLike, '')
       .toLowerCase();
+
+  /// Perf: the search keys of [_every], aligned by index — built once per
+  /// load so filtering (every keystroke) is plain substring checks.
+  List<(String, String, String)> _keys = const [];
 
   /// Row 201: the filtered list from the users already read — no database work.
   void _apply() {
     final q = searchKey(query.trim());
     final all = <SchoolUser>[
-      for (final u in _every)
+      for (final (i, u) in _every.indexed)
         if (roleMatches(roleFilter, u.role) &&
             (q.isEmpty ||
-                searchKey(SchoolRecords.str(u.data['name'])).contains(q) ||
-                searchKey(u.phone).contains(q) ||
-                searchKey(u.nationalId).contains(q)))
+                i >= _keys.length ||
+                _keys[i].$1.contains(q) ||
+                _keys[i].$2.contains(q) ||
+                _keys[i].$3.contains(q)))
           u,
     ];
     // row 204: one option per grade — «پایه دهم», «۱۰» and «دهم» are the same grade (the
