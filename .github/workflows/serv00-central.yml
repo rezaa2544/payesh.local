@@ -17,7 +17,7 @@ on:
         description: 'release version (empty = newest)'
         required: false
         default: ''
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- publish chain only runs on successful main-branch runs (guarded by conclusion/event/head_branch checks in the job if:); see docs/security/CI-HARDENING.md
     workflows: [build-and-release]
     types: [completed]
     branches: [main]
@@ -67,8 +67,9 @@ jobs:
       PAYESH_S3_SECRET: ${{ secrets.PAYESH_S3_SECRET }}
       PAYESH_VERSION: ${{ github.event.inputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           ref: main
       - name: install / update on serv00
         run: |

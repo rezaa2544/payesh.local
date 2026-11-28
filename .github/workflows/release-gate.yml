@@ -42,7 +42,18 @@ jobs:
     name: G1+G3 native client (row 63 gate, conformance, APK/AAB/EXE)
     uses: ./.github/workflows/native-client.yml
     # rows 76/77: the release build needs the owner signing secrets (APK key, optional Authenticode)
-    secrets: inherit
+    # CI hardening: explicit secret list instead of `secrets: inherit` (zizmor secrets-inherit)
+    secrets:
+      PAYESH_KEYSTORE_B64: ${{ secrets.PAYESH_KEYSTORE_B64 }}
+      PAYESH_KEYSTORE_PASS: ${{ secrets.PAYESH_KEYSTORE_PASS }}
+      PAYESH_KEY_ALIAS: ${{ secrets.PAYESH_KEY_ALIAS }}
+      PAYESH_KEY_PASS: ${{ secrets.PAYESH_KEY_PASS }}
+      PAYESH_OWNER_KEYSTORE_B64: ${{ secrets.PAYESH_OWNER_KEYSTORE_B64 }}
+      PAYESH_OWNER_KEYSTORE_PASS: ${{ secrets.PAYESH_OWNER_KEYSTORE_PASS }}
+      PAYESH_OWNER_KEY_ALIAS: ${{ secrets.PAYESH_OWNER_KEY_ALIAS }}
+      PAYESH_OWNER_KEY_PASS: ${{ secrets.PAYESH_OWNER_KEY_PASS }}
+      PAYESH_WIN_PFX_B64: ${{ secrets.PAYESH_WIN_PFX_B64 }}
+      PAYESH_WIN_PFX_PASS: ${{ secrets.PAYESH_WIN_PFX_PASS }}
     permissions:
       contents: read
 
@@ -56,11 +67,13 @@ jobs:
     name: G2 leak matrix (row 57)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          package-manager-cache: false
           node-version: '22'
-          cache: npm
       - run: npm ci
       - name: role × collection × field leak matrix + pull-leak negative controls
         run: |
@@ -73,9 +86,12 @@ jobs:
     name: G5 evidence labels (row 55)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          package-manager-cache: false
           node-version: '22'
       - run: node tests/labels-gate-55.js
 
@@ -83,11 +99,13 @@ jobs:
     name: G6 device identity + mutation controls (row 65)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          package-manager-cache: false
           node-version: '22'
-          cache: npm
       - run: npm ci
       - run: |
           set -o pipefail
@@ -97,9 +115,12 @@ jobs:
     name: G4 SBOM (CycloneDX from every shipped lockfile)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          package-manager-cache: false
           node-version: '22'
       - name: Generate + validate
         run: |
@@ -124,7 +145,7 @@ jobs:
         run: |
           set -o pipefail
           node tests/vuln-scan-84.js | tee sbom/vuln-scan-84.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: sbom
@@ -134,11 +155,13 @@ jobs:
     name: G7 release-gate negative tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
+          package-manager-cache: false
           node-version: '22'
       - run: node tests/release-gate-95.js
 
@@ -148,11 +171,13 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
+          package-manager-cache: false
           node-version: '22'
       - name: Aggregate every gate (raw summary)
         env:
@@ -164,7 +189,7 @@ jobs:
           mkdir -p gate
           node tools/release-gate-95.mjs --mode "$MODE" --tag "$TAG" --sha "$GITHUB_SHA" \
             --out gate/release-gate-summary.txt --json gate/release-gate-summary.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: release-gate-summary
@@ -178,7 +203,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: dl
       - name: Create the GitHub release

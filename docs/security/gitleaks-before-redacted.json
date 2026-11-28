@@ -1,0 +1,366 @@
+[
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/app/test/notices_wave4_test.dart",
+  "StartLine": 21,
+  "Fingerprint": "apps/payesh/app/test/notices_wave4_test.dart:generic-api-key:21"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/app/test/family_wave5_test.dart",
+  "StartLine": 24,
+  "Fingerprint": "apps/payesh/app/test/family_wave5_test.dart:generic-api-key:24"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/app/test/grades_wave3_test.dart",
+  "StartLine": 20,
+  "Fingerprint": "apps/payesh/app/test/grades_wave3_test.dart:generic-api-key:20"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/app/test/school_support.dart",
+  "StartLine": 14,
+  "Fingerprint": "apps/payesh/app/test/school_support.dart:generic-api-key:14"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/app/test/attendance_wave2_test.dart",
+  "StartLine": 20,
+  "Fingerprint": "apps/payesh/app/test/attendance_wave2_test.dart:generic-api-key:20"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/app/test/login_wave1_test.dart",
+  "StartLine": 17,
+  "Fingerprint": "apps/payesh/app/test/login_wave1_test.dart:generic-api-key:17"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/owner/test/local_platform_test.dart",
+  "StartLine": 66,
+  "Fingerprint": "apps/payesh/owner/test/local_platform_test.dart:generic-api-key:66"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/owner/test/local_platform_test.dart",
+  "StartLine": 589,
+  "Fingerprint": "apps/payesh/owner/test/local_platform_test.dart:generic-api-key:589"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/owner/test/local_platform_test.dart",
+  "StartLine": 671,
+  "Fingerprint": "apps/payesh/owner/test/local_platform_test.dart:generic-api-key:671"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/owner/test/local_mode_test.dart",
+  "StartLine": 820,
+  "Fingerprint": "apps/payesh/owner/test/local_mode_test.dart:generic-api-key:820"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/cloud-control-vectors.json",
+  "StartLine": 7,
+  "Fingerprint": "docs/cloud/contracts/cloud-control-vectors.json:generic-api-key:7"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/schools-vectors.json",
+  "StartLine": 10,
+  "Fingerprint": "docs/cloud/contracts/schools-vectors.json:generic-api-key:10"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/schools-vectors.json",
+  "StartLine": 136,
+  "Fingerprint": "docs/cloud/contracts/schools-vectors.json:generic-api-key:136"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/connect-vectors.json",
+  "StartLine": 14,
+  "Fingerprint": "docs/cloud/contracts/connect-vectors.json:generic-api-key:14"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/connect-vectors.json",
+  "StartLine": 30,
+  "Fingerprint": "docs/cloud/contracts/connect-vectors.json:generic-api-key:30"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/connect-vectors.json",
+  "StartLine": 47,
+  "Fingerprint": "docs/cloud/contracts/connect-vectors.json:generic-api-key:47"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/helper-jobs-vectors-v2.json",
+  "StartLine": 3,
+  "Fingerprint": "docs/cloud/contracts/helper-jobs-vectors-v2.json:generic-api-key:3"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/helper-jobs-vectors.json",
+  "StartLine": 3,
+  "Fingerprint": "docs/cloud/contracts/helper-jobs-vectors.json:generic-api-key:3"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/helper-jobs-vectors.json",
+  "StartLine": 6,
+  "Fingerprint": "docs/cloud/contracts/helper-jobs-vectors.json:generic-api-key:6"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/e2e1-vectors-107.json",
+  "StartLine": 259,
+  "Fingerprint": "docs/cloud/contracts/e2e1-vectors-107.json:generic-api-key:259"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/contracts/e2e1-vectors-107.json",
+  "StartLine": 290,
+  "Fingerprint": "docs/cloud/contracts/e2e1-vectors-107.json:generic-api-key:290"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/reports/evidence/cc15-gate.txt",
+  "StartLine": 27,
+  "Fingerprint": "docs/cloud/reports/evidence/cc15-gate.txt:generic-api-key:27"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/reports/evidence/cc15-raw-drill.txt",
+  "StartLine": 15,
+  "Fingerprint": "docs/cloud/reports/evidence/cc15-raw-drill.txt:generic-api-key:15"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/reports/evidence/load-82-direct-report.json",
+  "StartLine": 11,
+  "Fingerprint": "docs/cloud/reports/evidence/load-82-direct-report.json:generic-api-key:11"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3ext.h",
+  "StartLine": 429,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3ext.h:generic-api-key:429"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3ext.h",
+  "StartLine": 585,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3ext.h:generic-api-key:585"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3ext.h",
+  "StartLine": 677,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3ext.h:generic-api-key:677"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "docs/cloud/reports/lab-176/evidence/GRADLE-VERIFY.attempt1-compare-bug.log",
+  "StartLine": 81,
+  "Fingerprint": "docs/cloud/reports/lab-176/evidence/GRADLE-VERIFY.attempt1-compare-bug.log:generic-api-key:81"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tests/connect-165.js",
+  "StartLine": 246,
+  "Fingerprint": "tests/connect-165.js:generic-api-key:246"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tests/direct-identity-106.js",
+  "StartLine": 34,
+  "Fingerprint": "tests/direct-identity-106.js:generic-api-key:34"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tests/fixtures/apksigner-37/v2-v3.txt",
+  "StartLine": 16,
+  "Fingerprint": "tests/fixtures/apksigner-37/v2-v3.txt:generic-api-key:16"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tests/fixtures/apksigner-37/v2-v3.txt",
+  "StartLine": 17,
+  "Fingerprint": "tests/fixtures/apksigner-37/v2-v3.txt:generic-api-key:17"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tests/host-probe-115.js",
+  "StartLine": 38,
+  "Fingerprint": "tests/host-probe-115.js:generic-api-key:38"
+ },
+ {
+  "RuleID": "jwt",
+  "Description": "Uncovered a JSON Web Token, which may lead to unauthorized access to web applications and sensitive user data.",
+  "File": "tests/host-probe-115.js",
+  "StartLine": 156,
+  "Fingerprint": "tests/host-probe-115.js:jwt:156"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tests/e2e-keys-107.js",
+  "StartLine": 36,
+  "Fingerprint": "tests/e2e-keys-107.js:generic-api-key:36"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tests/fixtures/apksigner-37/v2-only.txt",
+  "StartLine": 16,
+  "Fingerprint": "tests/fixtures/apksigner-37/v2-only.txt:generic-api-key:16"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tests/fixtures/apksigner-37/v2-only.txt",
+  "StartLine": 17,
+  "Fingerprint": "tests/fixtures/apksigner-37/v2-only.txt:generic-api-key:17"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tools/load-82-direct.mjs",
+  "StartLine": 63,
+  "Fingerprint": "tools/load-82-direct.mjs:generic-api-key:63"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tests/direct-sync-108.js",
+  "StartLine": 48,
+  "Fingerprint": "tests/direct-sync-108.js:generic-api-key:48"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tools/sim/docker-compose.sim.yml",
+  "StartLine": 84,
+  "Fingerprint": "tools/sim/docker-compose.sim.yml:generic-api-key:84"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tools/sim/docker-compose.sim.yml",
+  "StartLine": 120,
+  "Fingerprint": "tools/sim/docker-compose.sim.yml:generic-api-key:120"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "tools/sim/docker-compose.sim.yml",
+  "StartLine": 146,
+  "Fingerprint": "tools/sim/docker-compose.sim.yml:generic-api-key:146"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.h",
+  "StartLine": 15195,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.h:generic-api-key:15195"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.h",
+  "StartLine": 15351,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.h:generic-api-key:15351"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.h",
+  "StartLine": 15443,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.h:generic-api-key:15443"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c",
+  "StartLine": 143539,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c:generic-api-key:143539"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c",
+  "StartLine": 143695,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c:generic-api-key:143695"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c",
+  "StartLine": 143787,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c:generic-api-key:143787"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c",
+  "StartLine": 261220,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c:generic-api-key:261220"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c",
+  "StartLine": 286706,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c:generic-api-key:286706"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c",
+  "StartLine": 286862,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c:generic-api-key:286862"
+ },
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "File": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c",
+  "StartLine": 286954,
+  "Fingerprint": "apps/payesh/third_party/sqlite3mc-2.6.1/sqlite3mc_amalgamation.c:generic-api-key:286954"
+ }
+]

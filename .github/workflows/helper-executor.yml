@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '*/15 * * * *'
+permissions:
+  contents: read
+
 concurrency:
   group: helper-executor
   cancel-in-progress: false
@@ -13,8 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
       - name: Poll Helper queue (max 5 jobs)
@@ -25,7 +30,7 @@ jobs:
           PAYESH_HELPER_S3_SECRET_KEY: ${{ secrets.PAYESH_HELPER_S3_SECRET_KEY }}
           HELPER_MAX_JOBS: '5'
         run: node tools/helper-executor/run.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: helper-executor-report
