@@ -13,7 +13,9 @@ const collections = [
 ];
 const readByRole = {
   manager: collections.filter((c) => c !== 'counselor_notes'),
-  teacher: collections.filter((c) => !['parent_links', 'staff_attendance', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
+  // row 197 (F19): the teacher refers their own students to the counselor and reads back only the
+  // referrals they made (row scope below: referred_by === self) — never counselor_notes
+  teacher: collections.filter((c) => !['parent_links', 'staff_attendance', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
   parent: collections.filter((c) => !['staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
   student: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'discipline', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
   counselor: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
@@ -140,6 +142,15 @@ try {
   assert.deepEqual(policy.ROLES, roles, 'matrix role list drifted; update the explicit matrix');
   console.log(`PASS  MATRIX-COVERAGE roles=${roles.length} collections=${collections.length}`);
   checkReadMatrix();
+  /* row 197 (F19): a teacher sees exactly the referrals they made — not a colleague's, not an unsigned one */
+  const ownRef = { id: 2, student_id: 3, referred_by: 2 };
+  const otherRef = { id: 3, student_id: 3, referred_by: 9 };
+  assert.equal(policy.rowInScope(scopes.teacher, 'counselor_refs', ownRef), true, 'teacher must see the referral they made');
+  assert.equal(policy.rowInScope(scopes.teacher, 'counselor_refs', otherRef), false, "teacher must not see a colleague's referral");
+  assert.equal(policy.rowInScope(scopes.teacher, 'counselor_refs', rows.counselor_refs), false, 'teacher must not see an unsigned referral');
+  assert.equal(policy.rowInScope(scopes.teacher, 'counselor_notes', ownRef), false, 'teacher must never see counselor notes');
+  matrixChecks += 4;
+  console.log('PASS  F19 teacher counselor_refs: own=1 colleague=0 unsigned=0 notes=0');
   checkUserFields();
   checkNegativeControls();
   console.log(`LEAK-MATRIX-57-OK roles=${roles.length} collections=${collections.length} role_collection_checks=${matrixChecks} field_checks=${fieldChecks} fail=0`);

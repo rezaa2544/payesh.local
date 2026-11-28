@@ -5,6 +5,10 @@
 import 'whats_new.dart';
 
 const List<ReleaseNote> kReleaseNotes = [
+  ReleaseNote('0.9.81', [
+    NoteItem('نسخهٔ سرور مدرسه که در ۰٫۹٫۸۰ ساخته نشده بود، این بار ساخته و منتشر می‌شود؛ ابزارهای کلاسِ دبیر (اطلاعیهٔ کلاس، تکلیف، یادداشت انضباطی، ارجاع به مشاور) حالا روی سرور مدرسه هم فعال است.', {NoteAudience.school, NoteAudience.web}),
+    NoteItem('ردیف ۱۹۷ F19 — ادامهٔ ۰٫۹٫۸۰: build-and-release روی tests/leak-matrix-57.js شکست خورد چون ماتریس صریح نقش×مجموعه هنوز خواندن counselor_refs را برای دبیر ممنوع می‌دانست. ماتریس به قاعدهٔ F19 به‌روز شد و ۴ بررسی تازه گرفت: دبیر فقط ارجاعِ خودش (referred_by=خودش) را می‌بیند، نه ارجاع همکار، نه ارجاع بی‌امضا، و هرگز counselor_notes. پیش از انتشار همهٔ ۳۵ اسکریپت node که در CI صدا زده می‌شوند به‌صورت محلی اجرا شد. ۰٫۹٫۸۰ روی native-client، win32-edition، api-contract، win32-publish و web-app-publish سبز بود.', {NoteAudience.owner}),
+  ]),
   ReleaseNote('0.9.80', [
     NoteItem('دبیرها حالا ابزارهای کلاس خودشان را دارند: «اطلاعیهٔ کلاس» برای کلاس‌هایی که درس می‌دهند (فقط همان کلاس می‌بیند)، «تکلیف» با مهلت، «یادداشت انضباطی» (تشویق / تذکر / یادداشت) و «ارجاع به مشاور» برای دانش‌آموزان خودشان — در وب، برنامهٔ ویندوز و گوشی. دبیری که هنوز در برنامهٔ هفتگی نیست، به‌جای «دانش‌آموزی یافت نشد» توضیح می‌بیند که چرا فهرستش خالی است.', {NoteAudience.school, NoteAudience.web}),
     NoteItem('ردیف ۱۹۷ Q12 / F19: policy.js و scope.js — announcements برای دبیر فقط با class_id کلاس خودش (بی‌کلاس role_denied، کلاس دیگر out_of_scope، ردیف دیگری not_author) و author_id را سرور مهر می‌کند؛ خواندن اطلاعیهٔ کلاس فقط همان کلاس + نویسنده + مدیر (هم rowInScope هم sqlPredicate؛ announcements از OPEN_COLLECTIONS بیرون آمد). counselor_refs: دبیر می‌نویسد (فقط دانش‌آموز خودش، فقط open، referred_by مهر سرور) و فقط ارجاع‌های خودش را می‌خواند؛ counselor_notes هرگز. حذف تکلیف/اطلاعیهٔ کلاسِ خودِ دبیر مجاز (teacherCanDelete)؛ بقیهٔ حذف‌ها همچنان فقط مدیر. classNoteIssue (text_required/text_too_long/bad_date/bad_kind). Dart: ClassNotes، NoticeBoard(classId)، CounselorQueue.refer محدود به دانش‌آموزان دبیر؛ اپ: کارت تکالیف و فرم‌های تکلیف/انضباط/ارجاع در «دانش‌آموزان من». آزمون‌ها: tests/teacher-tools-197.js (T01–T07)، class_notes_197_test (CN197-01..04)، teacher_tools_197_test (TT197-A01..A04)، ۸ بردار تازهٔ scope-v1، SY-05 روی PG سبز. محدودیت شناخته‌شده: مسیر مستقیم (direct، ردیف ۱۰۶) هنوز اطلاعیه را با قابلیت «school» می‌خواند، پس اطلاعیهٔ کلاس در آن مسیر از کلاس‌های دیگر پنهان نمی‌شود.', {NoteAudience.owner}),
@@ -88,11 +92,6 @@ const List<ReleaseNote> kReleaseNotes = [
     NoteItem('نسخهٔ مرورگر (app.payeshschool.ir) پس از ورود همگام‌سازی کامل دارد: درخواست دریافت داده‌ها دیگر به‌خاطر سرآیند شناسهٔ دستگاه رد نمی‌شود. نسخهٔ مرورگر از صفحهٔ https هیچ نشانی http (شبکهٔ محلی یا همین رایانه) را امتحان نمی‌کند، پس پنجرهٔ اجازهٔ «دسترسی به شبکهٔ محلی» باز نمی‌شود.', {NoteAudience.school}),
     NoteItem('هر نسخهٔ تازهٔ برنامهٔ مرورگر در پوشهٔ جدای خودش منتشر می‌شود. پیش‌تر کش شبکهٔ آروان فایل‌های نسخهٔ قبل را نگه می‌داشت و به‌روزرسانی دیر دیده می‌شد؛ حالا یک بار بازکردن دوبارهٔ صفحه همان لحظه نسخهٔ تازه را می‌آورد.', {NoteAudience.school}),
     NoteItem('سرور مدرسه سرآیندهای x-device-id و cache-control را هم در CORS مجاز می‌داند. انتشار وب: هر ساخت در v/<نسخه>-<هش>/ و index.html ریشه با <base href> به آن اشاره می‌کند؛ ساخت قبلی یک دور نگه داشته می‌شود.', {NoteAudience.web}),
-    NoteItem('پنل مالک تغییری ندارد.', {NoteAudience.owner}),
-  ]),
-  ReleaseNote('0.9.66', [
-    NoteItem('نسخهٔ مرورگر (app.payeshschool.ir) حالا به سرور مدرسه وصل می‌شود: پیش‌تر مرورگر درخواست‌ها را به‌خاطر یک سرآیند مجازنشده رد می‌کرد و صفحهٔ ورود «اتصال به دیتابیس برقرار نشد» نشان می‌داد. نسخهٔ مرورگر دیگر نشانی‌های شبکهٔ محلی را هم امتحان نمی‌کند، پس مرورگر اجازهٔ «دسترسی به شبکهٔ محلی» نمی‌خواهد.', {NoteAudience.school}),
-    NoteItem('سرور مدرسه درخواست‌های برنامهٔ مرورگر را با همهٔ سرآیندهای برنامهٔ نصبی می‌پذیرد (CORS: x-payesh-client و x-payesh-api).', {NoteAudience.web}),
     NoteItem('پنل مالک تغییری ندارد.', {NoteAudience.owner}),
   ]),
 ];
