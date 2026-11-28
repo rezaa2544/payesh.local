@@ -1,0 +1,14 @@
+# Gitleaks configuration for payesh.local (CI hardening task, 2026-11-28).
+# Extends the built-in default rules. Historical, reviewed false-positive /
+# test-only findings live in the baseline file `.gitleaksignore` (repo root);
+# anything not in that baseline fails the `security-scan` workflow.
+title = "payesh.local gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Vendored third-party sources and generated amalgamations (not project secrets)"
+paths = [
+  '''apps/payesh/third_party/''',
+]

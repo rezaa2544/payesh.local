@@ -231,8 +231,8 @@ function checkDnsDoc(doc) {
       ['CSP allowing a remote host', () => checkCsp(html.replace("connect-src 'self'", "connect-src 'self' https://api.example.com"))],
       ['deploy on every push', () => checkWorkflow(wf.replace('on:\n  workflow_dispatch:', 'on:\n  push:\n  workflow_dispatch:'))],
       ['deploy without the OWNER gate', () => checkWorkflow(wf.replace(" && vars.PAYESH_PAGES_ENABLED == 'true' && github.ref", ' && github.ref'))],
-      ['third-party deploy action', () => checkWorkflow(wf.replace('actions/deploy-pages@v4', 'peaceiris/actions-gh-pages@v4'))],
-      ['write token for the check job', () => checkWorkflow(wf.replace('    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4', '    runs-on: ubuntu-latest\n    permissions:\n      contents: write\n    steps:\n      - uses: actions/checkout@v4'))],
+      ['third-party deploy action', () => checkWorkflow(wf.replace('actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e', 'peaceiris/actions-gh-pages@v4'))],
+      ['write token for the check job', () => checkWorkflow(wf.replace('    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262', '    runs-on: ubuntu-latest\n    permissions:\n      contents: write\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262'))],
       ['Cloudflare nameserver hint in the workflow', () => checkNoCloudflare('m', wf + '\n# dns: ns1.cloudflare.com\n')],
       ['Cloudflare IP in the DNS table', () => checkDnsDoc(doc.replace(/\| @ \| A \| 185\.199\.108\.153 \|/, '| @ | A | 104.21.5.9 |'))],
     ];

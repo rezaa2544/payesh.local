@@ -20,7 +20,7 @@ name: web-app-publish
 # ═══════════════════════════════════════════════════════════════════
 
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- publish chain only runs on successful main-branch runs (guarded by conclusion/event/head_branch checks in the job if:); see docs/security/CI-HARDENING.md
     workflows: [win32-edition]
     types: [completed]
   workflow_dispatch:
@@ -52,10 +52,11 @@ jobs:
       PAYESH_WEB_BUCKET: payesh-app
       PAYESH_WEB_S3_ENDPOINT: https://s3.ir-central1.arvanstorage.ir
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           ref: main
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
       - name: Which win32-edition run
@@ -77,33 +78,36 @@ jobs:
           fi
           echo "id=$id" >> "$GITHUB_OUTPUT"; echo "num=$num" >> "$GITHUB_OUTPUT"
           echo "win32-edition run $id (#$num)"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: web32-web
           path: in
           run-id: ${{ steps.src.outputs.id }}
           github-token: ${{ github.token }}
       - name: Check the folder (dry run, no keys)
+        id: webdir
         run: |
           set -euo pipefail
           W=in/apps/payesh/app/build/web; [ -d "$W" ] || W=in/app/build/web
-          echo "W=$W" >> "$GITHUB_ENV"
+          echo "w=$W" >> "$GITHUB_OUTPUT"
           PAYESH_WEB_DRY=1 node tools/web-app/publish.mjs "$W"
       - name: Never overwrite a newer run
+        id: newercheck
         env:
           NUM: ${{ steps.src.outputs.num }}
         run: |
           set -euo pipefail
           cur=$(curl -fsS -m 60 "https://$PAYESH_WEB_BUCKET.s3.ir-central1.arvanstorage.ir/download/web-app-status.json" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).run_number||0)}catch(e){console.log(0)}})' || echo 0)
           echo "published run: $cur · this run: $NUM"
-          if [ "$cur" -gt "$NUM" ]; then echo "::notice::a newer build (#$cur) is already live — skipping"; echo "SKIP=1" >> "$GITHUB_ENV"; fi
+          if [ "$cur" -gt "$NUM" ]; then echo "::notice::a newer build (#$cur) is already live — skipping"; echo "skip=1" >> "$GITHUB_OUTPUT"; fi
       - name: Publish to ${{ env.PAYESH_WEB_BUCKET }} (app.payeshschool.ir)
-        if: env.SKIP != '1'
+        if: steps.newercheck.outputs.skip != '1'
         env:
           PAYESH_WEB_S3_ACCESS_KEY: ${{ secrets.PAYESH_WEB_S3_ACCESS_KEY }}
           PAYESH_WEB_S3_SECRET: ${{ secrets.PAYESH_WEB_S3_SECRET }}
           NUM: ${{ steps.src.outputs.num }}
           SRC: ${{ steps.src.outputs.id }}
+          W: ${{ steps.webdir.outputs.w }}
         run: |
           set -euo pipefail
           node -e 'const v=require(process.argv[1]);require("fs").writeFileSync("status.json",JSON.stringify({run_number:+process.env.NUM,run_id:+process.env.SRC,version:v.version,build:v.build_number,at:new Date().toISOString()}))' "$PWD/$W/version.json"

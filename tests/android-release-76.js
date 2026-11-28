@@ -184,7 +184,7 @@ check('W-5', 'windows job: MSVC app-local, ISCC, silent install → gate 63 + du
 });
 check('W-6', 'release-gate passes secrets to the native workflow; policy = Google Play 2026', () => {
   const rg = read('.github/workflows/release-gate.yml');
-  assert(/uses: \.\/\.github\/workflows\/native-client\.yml\n(?:\s*#.*\n)*\s*secrets: inherit/.test(rg), 'native job does not inherit secrets');
+  assert(/uses: \.\/\.github\/workflows\/native-client\.yml\n(?:\s*#.*\n)*\s*secrets:(?: inherit|\n(?:.*PAYESH_(?:KEYSTORE|OWNER|WIN)_.*\n)+)/.test(rg), 'native job does not pass the signing secrets');
   const pol = JSON.parse(read('docs/cloud/76-android-release.json'));
   assert(pol.min_target_sdk >= 36 && pol.application_id === 'ir.payesh.school.payesh_app' && pol.required_permissions.includes('android.permission.INTERNET'), JSON.stringify(pol));
   return `min_target_sdk=${pol.min_target_sdk}`;

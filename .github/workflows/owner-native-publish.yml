@@ -27,7 +27,7 @@ name: owner-native-publish
 # ═══════════════════════════════════════════════════════════════════
 
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- publish chain only runs on successful main-branch runs (guarded by conclusion/event/head_branch checks in the job if:); see docs/security/CI-HARDENING.md
     workflows: [native-client]
     types: [completed]
 
@@ -50,25 +50,29 @@ jobs:
       contents: write
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           ref: ${{ github.event.workflow_run.head_sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: owner-native-android
           path: in/android
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: owner-native-windows
           path: in/windows
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
       - name: Re-verify the native artifacts of that run (fail-closed)
+        env:
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          SRC_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           A=in/android; W=in/windows
@@ -89,7 +93,7 @@ jobs:
           node tools/owner-update-manifest.mjs --check "$W/owner-update.json" --blobs "$W/owner-files" | tee -a gate-publish.txt
           grep -q '^OWNER-UPDATE-MANIFEST-OK' gate-publish.txt
           mkdir -p zipcheck && (cd zipcheck && unzip -q "$GITHUB_WORKSPACE/$W/payesh-owner-windows.zip")
-          RUN_NUMBER=${{ github.event.workflow_run.run_number }} SRC_SHA=${{ github.event.workflow_run.head_sha }} node -e '
+          RUN_NUMBER="$RUN_NUMBER" SRC_SHA="$SRC_SHA" node -e '
             const fs = require("fs"), crypto = require("crypto"), path = require("path");
             const m = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
             if (m.build !== Number(process.env.RUN_NUMBER)) throw new Error("manifest build " + m.build + " != run " + process.env.RUN_NUMBER);
@@ -215,7 +219,7 @@ jobs:
           node tools/native-independence-gate.mjs --android back/payesh-owner.apk --windows back/payesh-owner-windows.zip | tee -a gate-publish.txt
           grep -q "\"webview\": false" back/owner-native-status.json
           echo "OWNER-NATIVE-PUBLISH-OK $(node -p "require('./back/owner-native-status.json').run_number")" | tee -a gate-publish.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: owner-native-publish
