@@ -278,7 +278,7 @@ Map<String, Object?> validJobParams(
 }
 
 /// Row 209 — school helper token: school_id + '.' + b64u(HMAC-SHA256(secret,
-/// 'payesh/school-helper:<id>')) — identical to server/helper-v2.js.
+/// 'payesh/school-helper:SCHOOL_ID')) — identical to server/helper-v2.js.
 /// The bucket secret itself is never given to a school; the owner issues
 /// this derived token per school and can revoke by rotating/revoking.
 String schoolHelperToken(String secret, String schoolId) {
