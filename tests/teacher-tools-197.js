@@ -107,7 +107,9 @@ check('T03', 'local server reads: class notice audience; teacher sees own referr
   assert(seen(s1.id).includes('آزمونک شنبه') && !seen(s1.id).includes('کلاس هشتم'), 'student of class 10: ' + seen(s1.id));
   assert(!seen(s2.id).includes('آزمونک شنبه') && seen(s2.id).includes('کلاس هشتم'), 'student of class 11: ' + seen(s2.id));
   assert(seen(s1.id).includes('اردو') && seen(s2.id).includes('اردو'), 'school-wide reaches everyone');
-  assert(seen(couns.id).includes('اردو') && !seen(couns.id).includes('آزمونک شنبه'), 'counselor: no class notices');
+  /* ردیف ۱۹۷ (F29) جای «مشاور فقط ارجاع‌شده‌ها» را گرفت: دامنهٔ مشاور همهٔ دانش‌آموزان و کلاس‌هایشان است،
+     پس مثل مدیر اطلاعیهٔ هر کلاس را هم می‌بیند (و همچنان اطلاعیهٔ عمومی را) */
+  assert(seen(couns.id).includes('اردو') && seen(couns.id).includes('آزمونک شنبه') && seen(couns.id).includes('کلاس هشتم'), 'counselor (F29): every class notice ' + seen(couns.id));
   assert(seen(mgr.id).includes('آزمونک شنبه') && seen(mgr.id).includes('کلاس هشتم'), 'manager sees all');
   assert(seen(t1.id).includes('آزمونک شنبه'), 'author sees it');
   // referrals: t1 refers s1; the counselor's own referral of s2 is not visible to t1

@@ -236,6 +236,9 @@ final class FamilyBook {
   final String role;
   final int uid;
   final DateTime Function() _now;
+
+  /// The book's clock — row 197 (F27): the child page's school records share it.
+  DateTime Function() get clock => _now;
   final Random _random;
 
   static const String leaves = 'leaves';

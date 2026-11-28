@@ -1,4 +1,33 @@
 {
+  "0.9.84": [
+    {
+      "t": "صفحهٔ هر فرزند برای اولیا کامل‌تر شد: کارنامه، تکلیف‌های باز، امتحان‌های پیش رو و یادداشت‌های انضباطیِ همان فرزند. اگر فرزند امروز غایب، با تأخیر یا با خروج زودهنگام ثبت شده باشد، بالای صفحه اطلاع داده می‌شود. کمک‌ها و پرداخت‌های ثبت‌شده هم فقط برای دیدن نمایش داده می‌شوند.",
+      "for": [
+        "school",
+        "web"
+      ]
+    },
+    {
+      "t": "اولیا از صفحهٔ فرزند به مدرسه، دبیرِ یک درس یا مشاور پیام می‌دهند یا از مدرسه یا مشاور وقت ملاقات می‌خواهند. پاسخ در همان صفحه می‌آید و هر دو ولیِ دانش‌آموز گفتگوها را می‌بینند. دبیر فقط پیام‌های خودش را می‌بیند و پاسخ می‌دهد. مشاور و مدیر وقت ملاقات را با روز و ساعت تعیین می‌کنند.",
+      "for": [
+        "school",
+        "web"
+      ]
+    },
+    {
+      "t": "مشاور حالا منوی خودش را دارد: صف ارجاع، همهٔ دانش‌آموزان (با جستجوی نام)، پیام‌ها و وقت ملاقات. پروندهٔ هر دانش‌آموز را فقط می‌خواند (کارنامه، حضور، انضباط) و یادداشت جلسهٔ مشاوره یا هدایت تحصیلی با رشتهٔ پیشنهادی ثبت می‌کند. این یادداشت‌ها را فقط مشاور می‌بیند. مشاور برای اولیای هر دانش‌آموز می‌تواند وقت ملاقات تعیین کند.",
+      "for": [
+        "school",
+        "web"
+      ]
+    },
+    {
+      "t": "ردیف ۱۹۷ Q12 / F27 + F29. (۱) کالکشن تازهٔ parent_msgs (server/parent-msgs.js، مهاجرت direct 0010): to=school|teacher|counselor، kind=message|appointment (ملاقات با دبیر نه)، text ≤۱۰۰۰، want_date، reply ≤۱۰۰۰، appt_date/appt_time، status=open|answered|scheduled|closed. ولی parent_id را خودش مهر می‌کند و فقط برای فرزند خودش و دبیرِ برنامهٔ کلاس او می‌نویسد. گیرنده (دبیرِ همان پیام / مشاور برای to=counselor / مدیر) فقط پاسخ، وضعیت و نوبت را تغییر می‌دهد و فیلدهای ثابت (student_id، parent_id، to، teacher_id، kind، text) با msg_fixed رد می‌شوند. scheduled فقط برای مشاور و مدیر است. مشاور نوبت قطعی می‌سازد (parent_id=null) و حذف فقط با مدیر است. خواندن: هر دو ولی همهٔ گفتگوهای فرزند را می‌بینند، دبیر فقط پیام‌های خودش، مشاور فقط to=counselor، دانش‌آموز هیچ. مسیرهای محلی (policy/scope/sync)، ابری (rowInScope + sqlPredicate) و Dart (records.dart، slot 18) یکسان‌اند. (۲) F29: دامنهٔ مشاور همهٔ دانش‌آموزان است با خواندن grades/attendance/discipline/internships، و کارکنان پنهان می‌مانند. counselor_notes kind=session|guidance با track از شش رشتهٔ هدایت تحصیلی (slot 19، فقط نویسنده). contributions برای ولی فقط ردیف‌های فرزند خودش و فقط‌خواندنی است. (۳) وب: PAGES.child با data-child=today-*/report-card/homework/exams/discipline/msgs/contrib؛ PAGES.pmsgs، cstudents، cstudent؛ کارهای pmsg-add، pmsg-reply، cnote-add؛ authz و منوها (counselor = cqueue/cstudents/pmsgs/home). (۴) بومی: ChildPage با کارت‌های F27 و ChildMsgForm؛ counselor/family_counsel_screens.dart (PmsgsScreen، PmsgReplyForm، PmsgBookForm، CstudentsScreen، CstudentScreen، CnoteForm)؛ UserDirectory.recordOf(studentId)؛ FamilyBook.clock؛ webNavConfig هم‌ارز navConfig. parity: ۹ قلم تازه، همه native. آزمون‌ها: family-counsel-197 (F01–F10، شامل برابری ۱۲+۹ بردار msgIssue/noteIssue وب با سرور)، family_counsel_197 در payesh_sync (FC197-01..06) و در اپ (FC197-W01..W06)، leak-matrix-57، direct-sync-108 (ADDED_IN parent_msgs). roles-187 RL-07، student-record-197 R02/R06 و teacher-tools-197 T03 به تعریف تازهٔ مشاور (F29) به‌روز شدند.",
+      "for": [
+        "owner"
+      ]
+    }
+  ],
   "0.9.83": [
     "صفحهٔ «کاربران» در مدرسه‌های پرجمعیت سریع شد: بازشدن فهرست کاربران و جستجو دیگر معطل نمی‌کند و برنامه هنگام کار با فهرست بزرگ مکث ندارد. رمزهای کاربران هم فقط وقتی پنجرهٔ «کاربری» کسی را باز می‌کنید از سرور خوانده می‌شوند، نه با هر ورود به صفحهٔ کاربران."
   ],

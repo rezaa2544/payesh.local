@@ -5931,11 +5931,20 @@ async function waitFor(fn, ms = 15000) {
     });
 
   /* ── ردیف ۱۹۷ (Q12 / F21): پروندهٔ دانش‌آموز و تقویم امتحان ── */
-  await test('ردیف ۱۹۷ (F21): امتحان فقط مدیر و خواندن همه، دانش‌آموز فقط انضباط خودش (مشاور هیچ)، فرم/حذف امتحان وب، خانهٔ دانش‌آموز (تکلیف باز، امتحان کلاس/پایه، آخرین انضباط)، معدل و کارنامه، همتای Dart (۶ بررسی)',
+  await test('ردیف ۱۹۷ (F21): امتحان فقط مدیر و خواندن همه، دانش‌آموز فقط انضباط خودش (مشاور همه — F29)، فرم/حذف امتحان وب، خانهٔ دانش‌آموز (تکلیف باز، امتحان کلاس/پایه، آخرین انضباط)، معدل و کارنامه، همتای Dart (۶ بررسی)',
     async () => {
       const { spawnSync } = require('child_process');
       const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/student-record-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
       assert.strictEqual(r.status, 0, 'student-record-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
+  /* ── ردیف ۱۹۷ (Q12 / F27، F29): صفحهٔ فرزند برای ولی، پیام/وقت ملاقات، میز مشاور ── */
+  await test('ردیف ۱۹۷ (F27/F29): پیام و درخواست ملاقات ولی به مدرسه/دبیر/مشاور، پاسخ فقط گیرنده (نوبت با مشاور/مدیر)، دریافت هر دو ولی، مشاور همهٔ پرونده‌ها + یادداشت جلسه/هدایت تحصیلی، کمک‌های فرزند فقط‌خواندنی، صفحهٔ فرزند وب، میز مشاور وب، همتای وب = سرور (۱۰ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/family-counsel-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'family-counsel-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL/.test(l)).join('\n') + (r.stderr || ''));
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 

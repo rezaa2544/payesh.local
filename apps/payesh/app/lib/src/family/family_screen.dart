@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../counselor/family_counsel_screens.dart' show pmsgItem;
 import '../notices/notices_screen.dart' show dayOffBanner;
 import '../pulse/d2.dart';
 import '../pulse/pulse.dart';
 import '../pulse/web.dart';
 import '../sync_badge.dart';
+import '../users/users_screen.dart' show disciplineCard, studentHomeBlocks;
 import 'family_controller.dart';
 import 'leave_fields.dart';
 
@@ -99,6 +101,17 @@ class _FamilyScreenState extends State<FamilyScreen> {
     setState(() => _open = null);
   }
 
+  /// Row 197 (F27): «پیام / درخواست ملاقات» about the open child.
+  Future<void> _msg() async {
+    final id = _open;
+    if (id == null) return;
+    c.clearForm();
+    await openPanel<void>(
+      context,
+      (_) => ChildMsgForm(controller: c, studentId: id),
+    );
+  }
+
   void _go(String route) {
     if (PulseInline.go(context, route)) return;
     if (route == 'leaves') {
@@ -126,7 +139,11 @@ class _FamilyScreenState extends State<FamilyScreen> {
             : WebPageBody(
                 children: _open == null
                     ? _home()
-                    : ChildPage(controller: c, onBack: _closeChild).blocks(),
+                    : ChildPage(
+                        controller: c,
+                        onBack: _closeChild,
+                        onMsg: _msg,
+                      ).blocks(),
               );
         return PopScope(
           canPop: _open == null,
@@ -595,10 +612,19 @@ WebTone webAverageTone(double avg) => avg >= 15
 /// cards (معدل, حضور, نمره ثبت‌شده), «نمرات» (درس / نوبت / نمره / وضعیت), «حضور و غیاب» (the
 /// latest 12: تاریخ / وضعیت) and «کارآموزی» when there is any.
 class ChildPage {
-  const ChildPage({required this.controller, required this.onBack});
+  const ChildPage({required this.controller, required this.onBack, this.onMsg});
 
   final FamilyController controller;
   final VoidCallback onBack;
+
+  /// Row 197 (F27): opens «پیام / درخواست ملاقات» for this child.
+  final VoidCallback? onMsg;
+
+  static const Map<String, String> _todayFa = {
+    'absent': 'غایب',
+    'late': 'تأخیر',
+    'early_exit': 'خروج زودهنگام',
+  };
 
   List<Widget> blocks() {
     final c = controller;
@@ -647,8 +673,17 @@ class ChildPage {
       style: TextStyle(fontSize: 15, color: Web.muted),
     );
     WebTone state(bool approved) => approved ? WebTone.green : WebTone.amber;
+    final rec = c.childRecord;
     return [
       WebPageHead(title: s.name, sub: s.className, actions: [back]),
+      // row 197 (F27): today's absence / lateness, at the top
+      if (_todayFa.containsKey(c.childToday))
+        WebBanner(
+          kind: WebBannerKind.err,
+          text:
+              '⚠️ ${s.name} امروز «${_todayFa[c.childToday]}» ثبت شده است. اگر اشتباه است یا علتی دارد، از «پیام به مدرسه» پایین همین صفحه خبر دهید.',
+          textKey: Key('chd-today-${c.childToday}'),
+        ),
       WebGrid(
         children: [
           WebStat(
@@ -766,6 +801,7 @@ class ChildPage {
           ],
         ),
       ),
+      ..._childExtras(c, rec, title, empty, onMsg),
       if (r.internships.isNotEmpty)
         WebCard(
           child: Column(
@@ -796,6 +832,121 @@ class ChildPage {
     ];
   }
 }
+
+/// Row 197 (F27) — ChildPage additions, web `PAGES.child`: report card, open homework,
+/// upcoming exams, discipline, the threads with the school and the contributions (read only).
+List<Widget> _childExtras(
+  FamilyController c,
+  StudentRecord? rec,
+  Widget Function(String) title,
+  Widget Function(String, String) empty,
+  VoidCallback? onMsg,
+) => [
+  if (rec != null) ...[
+    WebCard(
+      key: const Key('chd-report-card'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          title('کارنامه'),
+          WebTable(
+            head: const ['عنوان درس', 'میانگین / ارزشیابی'],
+            empty: rec.reportCard.isEmpty
+                ? empty('هنوز نمره‌ای ثبت نشده.', 'chd-report-empty')
+                : null,
+            rows: [
+              for (final (i, (subject, value)) in rec.reportCard.indexed)
+                [
+                  Text(subject, key: Key('chd-rc-$i')),
+                  Text(
+                    value,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
+            ],
+          ),
+        ],
+      ),
+    ),
+    // open homework + upcoming exams: the student's home cards (row 197 F21)
+    ...studentHomeBlocks(rec, c.todayIso).take(2),
+    disciplineCard(
+      rec.discipline,
+      key: const Key('chd-discipline'),
+      keyPrefix: 'chd-disc',
+    ),
+  ],
+  WebCard(
+    key: const Key('chd-msgs'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('💬 پیام و وقت ملاقات', style: Web.b),
+            if (c.role == 'parent' && onMsg != null)
+              WebBtn(
+                '+ پیام / درخواست ملاقات',
+                key: const Key('chd-msg-add'),
+                kind: WebBtnKind.primary,
+                onPressed: onMsg,
+              ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 6),
+          child: Text(
+            'به مدرسه، دبیرِ یک درس یا مشاور بنویسید؛ پاسخ همین‌جا می‌آید. هر دو ولیِ دانش‌آموز این گفتگوها را می‌بینند.',
+            style: Web.small.copyWith(color: Web.muted),
+          ),
+        ),
+        if (c.childMsgs.isEmpty)
+          empty('هنوز پیامی نفرستاده‌اید.', 'chd-msgs-none')
+        else
+          for (final m in c.childMsgs) pmsgItem(m),
+      ],
+    ),
+  ),
+  if (c.childContrib.isNotEmpty)
+    WebCard(
+      key: const Key('chd-contrib'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          title('💳 کمک‌ها و پرداخت‌های ثبت‌شده'),
+          WebTable(
+            head: const ['تاریخ', 'مبلغ (ریال)', 'بابت'],
+            rows: [
+              for (final x in c.childContrib)
+                [
+                  Text(Web.jdate(SchoolRecords.str(x.data['date']))),
+                  Text(faNumber(SchoolRecords.asInt(x.data['amount']) ?? 0)),
+                  Text(
+                    SchoolRecords.str(x.data['purpose']).isNotEmpty
+                        ? SchoolRecords.str(x.data['purpose'])
+                        : x.data['kind'] == 'tuition'
+                        ? 'شهریه'
+                        : 'کمک داوطلبانه',
+                    style: Web.small,
+                  ),
+                ],
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              'فقط برای دیدن است؛ ثبت و اصلاح با دفتر مدرسه است.',
+              style: Web.small.copyWith(color: Web.muted),
+            ),
+          ),
+        ],
+      ),
+    ),
+];
 
 /// Leave requests of the children — web `PAGES.leaves` (parent view: no approve / reject /
 /// delete) — and the «+ درخواست» button.
@@ -1058,6 +1209,155 @@ class _LeaveFormState extends State<LeaveForm> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Row 197 (F27) — web form `pmsg` (parent): to the school / a teacher of the child (shown as
+/// «دبیرِ <درس>») / the counselor; a message or an appointment request (not with a teacher).
+class ChildMsgForm extends StatefulWidget {
+  const ChildMsgForm({
+    super.key,
+    required this.controller,
+    required this.studentId,
+  });
+
+  final FamilyController controller;
+  final int studentId;
+
+  @override
+  State<ChildMsgForm> createState() => _ChildMsgFormState();
+}
+
+class _ChildMsgFormState extends State<ChildMsgForm> {
+  FamilyController get c => widget.controller;
+  String to = 'school';
+  int? teacher;
+  String kind = 'message';
+  String? want;
+  final text = TextEditingController();
+
+  @override
+  void dispose() {
+    text.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final ok = await c.sendMsg(
+      studentId: widget.studentId,
+      to: to,
+      teacherId: to == 'teacher' ? teacher : null,
+      kind: to == 'teacher' ? 'message' : kind,
+      text: text.text,
+      wantDate: kind == 'appointment' && to != 'teacher' ? (want ?? '') : '',
+    );
+    if (ok && mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: c,
+      builder: (context, _) => Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            key: const Key('pmf-back'),
+            tooltip: 'بازگشت',
+            icon: backOrCloseIcon(context),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: const Text('پیام / درخواست ملاقات'),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(PayeshTokens.space4),
+          children: [
+            if (c.formError != null) _error(context, c.formError!, 'pmf-error'),
+            FieldBox(
+              width: kFieldText,
+              child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                key: const Key('pmf-to'),
+                initialValue: to,
+                decoration: const InputDecoration(labelText: 'به'),
+                items: [
+                  for (final t in msgTo)
+                    if (t != 'teacher' || c.childTeachers.isNotEmpty)
+                      DropdownMenuItem(value: t, child: Text(msgToFa[t] ?? t)),
+                ],
+                onChanged: (v) => setState(() => to = v ?? 'school'),
+              ),
+            ),
+            if (to == 'teacher') ...[
+              const SizedBox(height: PayeshTokens.space3),
+              FieldBox(
+                width: kFieldText,
+                child: DropdownButtonFormField<int?>(
+                  isExpanded: true,
+                  key: const Key('pmf-teacher'),
+                  initialValue: teacher,
+                  decoration: const InputDecoration(labelText: 'دبیر'),
+                  items: [
+                    const DropdownMenuItem<int?>(value: null, child: Text('—')),
+                    for (final t in c.childTeachers)
+                      DropdownMenuItem<int?>(
+                        value: t.teacherId,
+                        child: Text(t.label),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => teacher = v),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: PayeshTokens.space3),
+              FieldBox(
+                width: kFieldText,
+                child: DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  key: const Key('pmf-kind'),
+                  initialValue: kind,
+                  decoration: const InputDecoration(labelText: 'نوع'),
+                  items: [
+                    for (final k in msgKinds)
+                      DropdownMenuItem(
+                        value: k,
+                        child: Text(msgKindFa[k] ?? k),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => kind = v ?? 'message'),
+                ),
+              ),
+              if (kind == 'appointment') ...[
+                const SizedBox(height: PayeshTokens.space3),
+                const Text('روز پیشنهادی (اختیاری)'),
+                WebJalaliField(
+                  key: const Key('pmf-want'),
+                  iso: want,
+                  onChanged: (v) => want = v,
+                ),
+              ],
+            ],
+            const SizedBox(height: PayeshTokens.space3),
+            FieldBox(
+              width: kFieldText,
+              child: TextField(
+                key: const Key('pmf-text'),
+                controller: text,
+                maxLines: 5,
+                maxLength: msgTextMax,
+                decoration: const InputDecoration(labelText: 'متن'),
+              ),
+            ),
+            const SizedBox(height: PayeshTokens.space4),
+            FilledButton.icon(
+              key: const Key('pmf-submit'),
+              onPressed: c.busy ? null : _submit,
+              icon: const Icon(Icons.send_outlined),
+              label: const Text('ارسال'),
+            ),
+          ],
         ),
       ),
     );

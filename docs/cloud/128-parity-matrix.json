@@ -4027,6 +4027,194 @@
      "has": "'TT197-A02"
     }
    ]
+  },
+  {
+   "id": "act:cnote-add",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/family_counsel_screens.dart",
+     "has": "Key('cs-note-add'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/family_counsel.dart",
+     "has": "Future<RecordWrite> addNote("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_counsel_197_test.dart",
+     "has": "'FC197-W06"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/family_counsel_197_test.dart",
+     "has": "'FC197-0"
+    }
+   ]
+  },
+  {
+   "id": "act:pmsg-add",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/family/family_screen.dart",
+     "has": "Key('chd-msg-add'"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/counselor/family_counsel_screens.dart",
+     "has": "Key('pm-book'"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/family_counsel.dart",
+     "has": "Future<RecordWrite> send("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_counsel_197_test.dart",
+     "has": "'FC197-W02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/family_counsel_197_test.dart",
+     "has": "'FC197-0"
+    }
+   ]
+  },
+  {
+   "id": "act:pmsg-reply",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/family_counsel_screens.dart",
+     "has": "Key('pm-reply-"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/family_counsel.dart",
+     "has": "Future<RecordWrite> answer("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_counsel_197_test.dart",
+     "has": "'FC197-W04"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/family_counsel_197_test.dart",
+     "has": "'FC197-0"
+    }
+   ]
+  },
+  {
+   "id": "form:cnote",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/family_counsel_screens.dart",
+     "has": "class CnoteForm"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_counsel_197_test.dart",
+     "has": "'FC197-W06"
+    }
+   ]
+  },
+  {
+   "id": "form:pmsg",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/family/family_screen.dart",
+     "has": "class ChildMsgForm"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/counselor/family_counsel_screens.dart",
+     "has": "class PmsgBookForm"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_counsel_197_test.dart",
+     "has": "'FC197-W02"
+    }
+   ]
+  },
+  {
+   "id": "form:pmsg-reply",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/family_counsel_screens.dart",
+     "has": "class PmsgReplyForm"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_counsel_197_test.dart",
+     "has": "'FC197-W04"
+    }
+   ]
+  },
+  {
+   "id": "page:cstudent",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/family_counsel_screens.dart",
+     "has": "class CstudentScreen"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_counsel_197_test.dart",
+     "has": "'FC197-W06"
+    }
+   ]
+  },
+  {
+   "id": "page:cstudents",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/family_counsel_screens.dart",
+     "has": "class CstudentsScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'cstudents'"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_counsel_197_test.dart",
+     "has": "'FC197-W06"
+    }
+   ]
+  },
+  {
+   "id": "page:pmsgs",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/counselor/family_counsel_screens.dart",
+     "has": "class PmsgsScreen"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/school/school_entry.dart",
+     "has": "id: 'pmsgs'"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/family_counsel_197_test.dart",
+     "has": "'FC197-W04"
+    },
+    {
+     "file": "apps/payesh/app/test/family_counsel_197_test.dart",
+     "has": "'FC197-W05"
+    }
+   ]
   }
  ]
 }

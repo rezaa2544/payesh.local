@@ -26,6 +26,7 @@ export 'src/auto_sync.dart';
 export 'src/change_feed.dart';
 export 'src/direct_transport.dart';
 export 'src/family.dart';
+export 'src/family_counsel.dart';
 export 'src/gateway_transport.dart';
 export 'src/grade_scheme.dart';
 export 'src/grades.dart';

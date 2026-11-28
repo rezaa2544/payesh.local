@@ -15,12 +15,13 @@
 
 /* مسیرهایی که در منو نیستند ولی برای همان نقش مجازند */
 const AUTHZ_EXTRA_ROUTES = {
-  manager: ['record', 'child', 'attendance-report', 'followup', 'health', 'reports', 'network', 'cloud', 'system', 'cqueue'],
+  manager: ['record', 'child', 'attendance-report', 'followup', 'health', 'reports', 'network', 'cloud', 'system', 'cqueue', 'pmsgs', 'cstudents', 'cstudent'],
   teacher: ['record', 'students', 'attendance', 'grades', 'schedule', 'system'],
   parent: ['child', 'record', 'schedule', 'leaves', 'system'],
   student: ['record', 'schedule', 'system'],
-  /* ردیف ۱۸۷ (تعریفِ p2): مشاور فقط صف ارجاع (نه پرونده/دانش‌آموزان)؛ نگهبان، کارمند و اجرایی فقط صفحه‌های عمومی */
-  counselor: ['cqueue', 'system'],
+  /* ردیف ۱۸۷: مشاور صف ارجاع؛ ردیف ۱۹۷ (F29، جای قاعدهٔ «فقط ارجاع‌شده‌ها» را گرفت): + همهٔ دانش‌آموزان،
+     پروندهٔ فقط‌خواندنی و پیام/وقت ملاقات. نگهبان، کارمند و اجرایی فقط صفحه‌های عمومی */
+  counselor: ['cqueue', 'cstudents', 'cstudent', 'pmsgs', 'system'],
   guard: ['system'],
   staff: ['system'],
   office: ['system'],
@@ -86,6 +87,10 @@ function authzCanAct(act, role) {
   /* ردیف ۱۹۷ (F19): دبیر هم دانش‌آموزِ کلاس خودش را ارجاع می‌دهد */
   if (a === 'cref-add') return r === 'teacher';
   if (a === 'cref-done') return r === 'counselor';
+  /* ردیف ۱۹۷ (F27، F29): ولی می‌فرستد و مشاور وقت می‌گذارد؛ گیرنده پاسخ می‌دهد؛ یادداشت فقط مشاور */
+  if (a === 'pmsg-add') return r === 'parent' || r === 'counselor';
+  if (a === 'pmsg-reply') return r === 'teacher' || r === 'counselor';
+  if (a === 'cnote-add') return r === 'counselor';
   if (AUTHZ_MANAGER_ONLY.test(a)) return false;
   /* خانواده (مرخصی) پیش از دبیر بررسی می‌شود: کنش مشترک است */
   if (AUTHZ_FAMILY_OK.test(a)) return r === 'teacher' || r === 'parent' || r === 'student';
@@ -115,6 +120,7 @@ const AUTHZ_ROUTE_FA = {
   attendance: 'حضور و غیاب', 'attendance-report': 'حضور و غیاب', grades: 'نمره', students: 'دانش‌آموزان',
   announcements: 'اطلاعیه‌ها', leaves: 'مرخصی', record: 'پرونده', network: 'شبکه',
   cloud: 'حافظهٔ ابری', system: 'سیستم', cqueue: 'صف ارجاع', followup: 'نیازمند پیگیری', health: 'سلامت داده', child: 'فرزند',
+  pmsgs: 'پیام اولیا', cstudents: 'دانش‌آموزان', cstudent: 'پروندهٔ دانش‌آموز',
 };
 
 window.authzCanRoute = authzCanRoute;

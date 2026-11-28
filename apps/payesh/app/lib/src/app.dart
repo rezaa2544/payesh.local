@@ -50,6 +50,8 @@ List<(String, String, String, String)> webNavConfig(String? role) =>
         ('contributions', 'chart', 'کمک‌های مردمی', 'contributions'),
         ('trustees', 'users', 'هیئت امنا', 'trustees'),
         ('cqueue', 'mail', 'ارجاع مشاور', 'cqueue'),
+        // ردیف ۱۹۷ (F27): پیام و درخواست ملاقاتِ اولیا
+        ('pmsgs', 'mail', 'پیام اولیا', 'pmsgs'),
         ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
         ('health', 'health', 'سلامت', 'health'),
         ('network', 'globe', 'شبکه', 'network'),
@@ -62,6 +64,7 @@ List<(String, String, String, String)> webNavConfig(String? role) =>
         ('attendance', 'check', 'حضور', 'attendance'),
         ('grades', 'pen', 'نمره', 'grades'),
         ('students', 'users', 'دانش‌آموزان', 'students'),
+        ('pmsgs', 'mail', 'پیام اولیا', 'pmsgs'),
         ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
         ('system', 'gear', 'سیستم', 'system'),
       ],
@@ -82,6 +85,9 @@ List<(String, String, String, String)> webNavConfig(String? role) =>
       // Row 187 (p2): the counselor's home is the referral queue.
       'counselor' => const [
         ('cqueue', 'mail', 'صف ارجاع', 'cqueue'),
+        // Row 197 (F29): every student (read-only record + notes) and the parents' messages.
+        ('cstudents', 'users', 'دانش‌آموزان', 'cstudents'),
+        ('pmsgs', 'mail', 'پیام و ملاقات', 'pmsgs'),
         ('home', 'home', 'خانه', 'today'),
         ('announcements', 'megaphone', 'اطلاعیه‌ها', 'notices'),
         ('system', 'gear', 'سیستم', 'system'),

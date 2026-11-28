@@ -72,19 +72,19 @@ function navConfig(role) {
   const base = [];
   if (role === 'manager') {
     base.push(['home', '🏠', 'داشبورد'], ['users', '👥', 'کاربران'], ['followup', '⚠️', 'پیگیری'], ['classes', '🏛️', 'کلاس‌ها'],
-      ['schedule', '🗓️', 'برنامه'], ['attendance-report', '✅', 'حضور'], ['leaves', '📨', 'مرخصی‌ها'], ['reports', '📑', 'گزارش‌ها'], ['cqueue', '📨', 'ارجاع مشاور'],
+      ['schedule', '🗓️', 'برنامه'], ['attendance-report', '✅', 'حضور'], ['leaves', '📨', 'مرخصی‌ها'], ['reports', '📑', 'گزارش‌ها'], ['cqueue', '📨', 'ارجاع مشاور'], ['pmsgs', '💬', 'پیام اولیا'],
       ['announcements', '📢', 'اطلاعیه‌ها'], ['health', '🩺', 'سلامت'], ['network', '🌐', 'شبکه'],
       ['cloud', '☁️', 'حافظهٔ ابری'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'teacher') {
     base.push(['home', '🏠', 'امروز'], ['schedule', '🗓️', 'برنامه'], ['attendance', '✅', 'حضور'], ['grades', '📝', 'نمره'],
-      ['students', '👥', 'دانش‌آموزان'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
+      ['students', '👥', 'دانش‌آموزان'], ['pmsgs', '💬', 'پیام اولیا'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'parent') {
     base.push(['home', '👨‍👩‍👦', 'فرزندان'], ['schedule', '🗓️', 'برنامه'], ['leaves', '📨', 'مرخصی'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'student') {
     base.push(['home', '🏠', 'خانه'], ['schedule', '🗓️', 'برنامه'], ['record', '📁', 'پرونده'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   } else if (role === 'counselor') {
-    /* ردیف ۱۸۷ (تعریفِ p2): خانهٔ مشاور «صف ارجاع» است */
-    base.push(['cqueue', '📨', 'صف ارجاع'], ['home', '🏠', 'خانه'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
+    /* ردیف ۱۸۷ (تعریفِ p2): خانهٔ مشاور «صف ارجاع» است. ردیف ۱۹۷ (F29): + همهٔ دانش‌آموزان و پیام/وقت ملاقات */
+    base.push(['cqueue', '📨', 'صف ارجاع'], ['cstudents', '🎓', 'دانش‌آموزان'], ['pmsgs', '💬', 'پیام و ملاقات'], ['home', '🏠', 'خانه'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   } else {
     base.push(['home', '🏠', 'خانه'], ['announcements', '📢', 'اطلاعیه‌ها'], ['system', '⚙️', 'سیستم']);
   }
@@ -1682,6 +1682,9 @@ function staffHome() {
   return `${pageHead('خانه', esc(ROLE_FA[roleTitle()] || ''))}
   ${S.role === 'counselor' ? card(`<div class="row between"><b>📨 صف ارجاع</b>${badge(fa(open) + ' باز', open ? 'amber' : 'green')}</div>
     <a class="btn sm" href="#/cqueue" style="margin-top:8px">دیدن صف</a>`, 'tight') : ''}
+  ${S.role === 'counselor' ? (() => { const pm = list('parent_msgs').filter(m => pmsgRecipient(m) && (m.status || 'open') === 'open').length;
+    return card(`<div class="row between"><b data-home="pmsgs">💬 پیام و وقت ملاقات</b>${badge(fa(pm) + ' بی‌پاسخ', pm ? 'amber' : 'green')}</div>
+    <div class="row" style="gap:8px;margin-top:8px"><a class="btn sm" href="#/pmsgs">پیام‌ها</a><a class="btn sm" href="#/cstudents">دانش‌آموزان</a></div>`, 'tight'); })() : ''}
   ${card(`<div class="row between"><b>📢 تازه‌ترین اطلاعیه‌ها</b><a class="small" href="#/announcements">همه</a></div>
     ${anns.length ? `<div class="list">${anns.map(a => `<div class="item"><div class="grow"><div class="t">${esc(a.title || '')}</div>
       <div class="s">${esc(String(a.body || '').slice(0, 120))}</div></div></div>`).join('')}</div>` : '<div class="small muted">اطلاعیه‌ای نیست.</div>'}`)}`;
@@ -1766,12 +1769,34 @@ PAGES.child = (params) => {
   const pct = att.length ? Math.round(att.filter(a => a.status === 'present').length / att.length * 100) : null;
   const avg = avgOfGrades(grades);
   const internships = list('internships').filter(i => Number(i.student_id) === Number(k.id));
+  /* ردیف ۱۹۷ (Q12 / F27): صفحهٔ فرزند = هشدار غیبت امروز، کارنامه، انضباط، تکلیف‌های باز،
+     امتحان‌های پیش رو، کمک‌های ثبت‌شده (فقط خواندنی) و پیام/وقت ملاقات با مدرسه، دبیر یا مشاور */
+  const today = todayISO();
+  const todaySt = (att.find(a => String(a.date) === today) || {}).status;
+  const cset = k.class_id ? new Set([Number(k.class_id)]) : new Set();
+  const openHw = homeworkFor(cset).filter(h => !h.due || String(h.due) >= today);
+  const rc = reportCardOf(grades);
+  const contrib = list('contributions').filter(c => !c.deleted && Number(c.student_id) === Number(k.id))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   return `${pageHead(k.name, cls.name || '', `<a class="btn sm" href="#/home">بازگشت</a>`)}
+  ${todaySt === 'absent' || todaySt === 'late' || todaySt === 'early_exit' ? `<div class="card tight" data-child="today-${esc(todaySt)}" style="border:1px solid #fecaca;background:#fef2f2">
+    <b>⚠️ ${esc(k.name)} امروز «${esc(ATT_LABEL[todaySt] || todaySt)}» ثبت شده است.</b>
+    <div class="small muted" style="margin-top:4px">اگر اشتباه است یا علتی دارد، از «پیام به مدرسه» پایین همین صفحه خبر دهید.</div></div>` : ''}
   <div class="grid">
     ${statCard('📊', avg == null ? '—' : fa(avg.toFixed(1)), 'معدل', avg == null ? '' : avg >= 15 ? 'green' : avg >= 10 ? '' : 'red')}
     ${statCard('✅', pct == null ? '—' : fa(pct) + '٪', 'حضور', pct == null ? '' : pct >= 90 ? 'green' : 'amber')}
     ${statCard('📝', fa(grades.length), 'نمره ثبت‌شده')}
   </div>
+  ${card(`<b>کارنامه</b>${rc.length ? `<div class="table-wrap" data-child="report-card" style="margin-top:8px"><table><thead><tr><th>عنوان درس</th><th>میانگین / ارزشیابی</th></tr></thead><tbody>
+    ${rc.map(r => `<tr><td>${esc(r.subject)}</td><td><b>${esc(r.value)}</b></td></tr>`).join('')}</tbody></table></div>`
+    : '<div class="small muted" data-child="report-empty" style="margin-top:8px">هنوز نمره‌ای ثبت نشده.</div>'}`, 'tight')}
+  <div data-child="homework">${homeworkCard(cset, { limit: 6, rows: openHw })}</div>
+  <div data-child="exams">${studentExamsCard(myStudentExams(k))}</div>
+  <div data-child="discipline">${disciplineCard(new Set([Number(k.id)]), { key: 'child' })}</div>
+  ${pmsgThreadsCard(k)}
+  ${contrib.length ? card(`<b data-child="contrib">💳 کمک‌ها و پرداخت‌های ثبت‌شده</b><div class="table-wrap" style="margin-top:8px"><table><thead><tr><th>تاریخ</th><th>مبلغ (ریال)</th><th>بابت</th></tr></thead><tbody>
+    ${contrib.map(c => `<tr><td>${esc(jdate(c.date || ''))}</td><td>${fa(Number(c.amount || 0).toLocaleString('en-US'))}</td><td class="small">${esc(c.purpose || (c.kind === 'tuition' ? 'شهریه' : 'کمک داوطلبانه'))}</td></tr>`).join('')}
+  </tbody></table></div><div class="small muted" style="margin-top:6px">فقط برای دیدن است؛ ثبت و اصلاح با دفتر مدرسه است.</div>`, 'tight') : ''}
   ${card(`<b>نمرات</b><div class="table-wrap" style="margin-top:8px"><table><thead><tr><th>درس</th><th>نوبت</th><th>نمره</th><th>وضعیت</th></tr></thead><tbody>
     ${grades.map(g => `<tr><td>${esc((byId('subjects', g.subject_id) || {}).name || '—')}</td><td class="small">${esc(g.term || '')}</td>
       <td><b>${esc(gradeValueText(g))}</b>${g.practical_score != null ? `<span class="small muted"> (عملی ${fa(g.practical_score)})</span>` : ''}</td>
@@ -1785,6 +1810,230 @@ PAGES.child = (params) => {
       <td>${badge(i.status === 'approved' ? 'تأییدشده' : 'در انتظار', i.status === 'approved' ? 'green' : 'amber')}</td></tr>`).join('')}
   </tbody></table></div>`) : ''}`;
 };
+
+/* ══════════════ ردیف ۱۹۷ (Q12 / F27، F29): پیام ولی، وقت ملاقات، میز مشاور ══════════════
+   همتای server/parent-msgs.js و packages/payesh_sync/lib/src/family_counsel.dart — همان ثابت‌ها
+   و همان سنجش‌ها (آزمون: tests/family-counsel-197.js F07/F08). سدِ نهایی سرور است. */
+const PMSG_TO = ['school', 'teacher', 'counselor'];
+const PMSG_TO_FA = { school: 'مدرسه (مدیر/معاون)', teacher: 'دبیر', counselor: 'مشاور' };
+const PMSG_KINDS = ['message', 'appointment'];
+const PMSG_KIND_FA = { message: 'پیام', appointment: 'درخواست وقت ملاقات' };
+const PMSG_STATUSES = ['open', 'answered', 'scheduled', 'closed'];
+const PMSG_STATUS_FA = { open: 'در انتظار پاسخ', answered: 'پاسخ داده شد', scheduled: 'وقت ملاقات تعیین شد', closed: 'بسته شد' };
+const CNOTE_KINDS = ['session', 'guidance'];
+const CNOTE_KIND_FA = { session: 'جلسهٔ مشاوره', guidance: 'هدایت تحصیلی' };
+const GUIDANCE_TRACKS = ['ریاضی و فیزیک', 'علوم تجربی', 'علوم انسانی', 'علوم و معارف اسلامی', 'فنی‌وحرفه‌ای', 'کاردانش'];
+const PMSG_LIMITS = { text: 1000, reply: 1000, note: 2000 };
+const PMSG_ISSUE_FA = {
+  student_required: 'دانش‌آموز را انتخاب کنید',
+  bad_to: 'گیرنده را درست انتخاب کنید (وقت ملاقات با مدرسه یا مشاور است)',
+  bad_kind: 'نوع را درست انتخاب کنید',
+  teacher_required: 'دبیر را انتخاب کنید',
+  text_required: 'متن را بنویسید',
+  text_too_long: 'متن طولانی است',
+  bad_date: 'تاریخ را درست انتخاب کنید',
+  bad_time: 'ساعت را مثل ۱۰:۳۰ بنویسید',
+  bad_status: 'این وضعیت مجاز نیست',
+  appt_required: 'برای تعیین وقت، روز ملاقات را انتخاب کنید',
+  bad_track: 'رشتهٔ پیشنهادی را از فهرست انتخاب کنید',
+};
+const _pmStr = v => (v == null ? '' : String(v)).trim();
+const _pmIsDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) && !!leaveIsoOk(v);
+const _pmPos = v => v != null && /^\d{1,15}$/.test(String(v)) && Number(v) > 0;
+function pmsgIssue(row) {
+  if (!_pmPos(row.student_id)) return 'student_required';
+  const to = _pmStr(row.to);
+  if (!PMSG_TO.includes(to)) return 'bad_to';
+  const kind = _pmStr(row.kind) || 'message';
+  if (!PMSG_KINDS.includes(kind)) return 'bad_kind';
+  if (to === 'teacher' ? !_pmPos(row.teacher_id) : _pmStr(row.teacher_id) !== '') return 'teacher_required';
+  if (kind === 'appointment' && to === 'teacher') return 'bad_to';
+  const t = _pmStr(row.text);
+  if (!t) return 'text_required';
+  if (t.length > PMSG_LIMITS.text || _pmStr(row.reply).length > PMSG_LIMITS.reply) return 'text_too_long';
+  if (_pmStr(row.want_date) && !_pmIsDate(row.want_date)) return 'bad_date';
+  if (_pmStr(row.appt_date) && !_pmIsDate(row.appt_date)) return 'bad_date';
+  if (_pmStr(row.appt_time) && !/^([01]\d|2[0-3]):[0-5]\d$/.test(_pmStr(row.appt_time))) return 'bad_time';
+  if (_pmStr(row.appt_time) && !_pmStr(row.appt_date)) return 'bad_date';
+  const st = _pmStr(row.status) || 'open';
+  if (!PMSG_STATUSES.includes(st)) return 'bad_status';
+  if (st === 'scheduled' && (kind !== 'appointment' || !_pmStr(row.appt_date))) return 'appt_required';
+  return '';
+}
+function cnoteIssue(row) {
+  if (!_pmPos(row.student_id)) return 'student_required';
+  const k = _pmStr(row.kind) || 'session';
+  if (!CNOTE_KINDS.includes(k)) return 'bad_kind';
+  if (_pmStr(row.date) && !_pmIsDate(row.date)) return 'bad_date';
+  const t = _pmStr(row.text);
+  if (!t && k === 'session') return 'text_required';
+  if (t.length > PMSG_LIMITS.note) return 'text_too_long';
+  if (k === 'guidance' && !GUIDANCE_TRACKS.includes(_pmStr(row.track))) return 'bad_track';
+  return '';
+}
+function pmsgRecipient(row) {
+  const me = Number(S.user && S.user.id);
+  if (S.role === 'manager') return true;
+  if (S.role === 'teacher') return row.to === 'teacher' && Number(row.teacher_id) === me;
+  if (S.role === 'counselor') return row.to === 'counselor';
+  return false;
+}
+/* دبیرهای کلاس فرزند از برنامهٔ هفتگی — ولی نام دبیر را نمی‌بیند، «دبیرِ <درس>» را می‌بیند */
+function pmsgTeachersOf(k) {
+  const by = new Map();
+  for (const s of list('schedule')) {
+    if (!k || Number(s.class_id) !== Number(k.class_id) || !s.teacher_id) continue;
+    const t = Number(s.teacher_id);
+    if (!by.has(t)) by.set(t, new Set());
+    const n = (byId('subjects', s.subject_id) || {}).name;
+    if (n) by.get(t).add(n);
+  }
+  return [...by.entries()].map(([id, subs]) => ({ id, label: subs.size ? 'دبیرِ ' + [...subs].sort().join('، ') : 'دبیر' }))
+    .sort((a, b) => (a.label < b.label ? -1 : a.label > b.label ? 1 : 0));
+}
+function pmsgToLabel(m) {
+  if (m.to !== 'teacher') return PMSG_TO_FA[m.to] || m.to || '';
+  const subs = new Set(list('schedule').filter(s => Number(s.teacher_id) === Number(m.teacher_id))
+    .map(s => (byId('subjects', s.subject_id) || {}).name).filter(Boolean));
+  return subs.size ? 'دبیرِ ' + [...subs].sort().join('، ') : 'دبیر';
+}
+function pmsgSorted(rows) {
+  return rows.filter(m => !m.deleted).sort((a, b) =>
+    (a.status === 'open' || !a.status ? 0 : 1) - (b.status === 'open' || !b.status ? 0 : 1) ||
+    String(b.created_at || '').localeCompare(String(a.created_at || '')) || Number(b.id) - Number(a.id));
+}
+function pmsgRowHtml(m, opts) {
+  const o = opts || {};
+  const st = m.status || 'open';
+  const who = o.showStudent ? esc((byId('users', m.student_id) || {}).name || '') + ' · ' : '';
+  return `<div class="item" data-pmsg-row="${m.id}"><div class="grow">
+    <div class="t">${who}${esc(PMSG_KIND_FA[m.kind] || 'پیام')} به ${esc(pmsgToLabel(m))}</div>
+    <div class="small" style="white-space:pre-wrap;margin-top:2px">${esc(m.text || '')}</div>
+    ${m.want_date ? `<div class="small muted">روز دلخواه: ${esc(jdate(m.want_date))}</div>` : ''}
+    ${m.reply ? `<div class="small" style="margin-top:4px;white-space:pre-wrap">↩️ ${esc(m.reply)}</div>` : ''}
+    ${st === 'scheduled' && m.appt_date ? `<div class="small" data-pmsg-appt="${m.id}" style="margin-top:4px">📅 وقت ملاقات: <b>${esc(jdate(m.appt_date))}${m.appt_time ? ' ساعت ' + esc(fa(m.appt_time)) : ''}</b></div>` : ''}
+    ${o.canReply && st !== 'closed' ? `<button class="btn sm" style="margin-top:6px" data-act="pmsg-reply" data-id="${m.id}">پاسخ / تعیین وضعیت</button>` : ''}
+  </div>${badge(PMSG_STATUS_FA[st] || st, st === 'open' ? 'amber' : st === 'closed' ? '' : 'green')}</div>`;
+}
+/* کارت پیام‌ها در صفحهٔ فرزند (ولی) */
+function pmsgThreadsCard(k) {
+  const rows = pmsgSorted(list('parent_msgs').filter(m => Number(m.student_id) === Number(k.id)));
+  const can = S.role === 'parent';
+  return card(`<div class="row between"><b data-child="msgs">💬 پیام و وقت ملاقات</b>
+      ${can ? `<button class="btn sm primary" data-act="pmsg-add" data-id="${k.id}">+ پیام / درخواست ملاقات</button>` : ''}</div>
+    <div class="small muted" style="margin-top:4px">به مدرسه، دبیرِ یک درس یا مشاور بنویسید؛ پاسخ همین‌جا می‌آید. هر دو ولیِ دانش‌آموز این گفتگوها را می‌بینند.</div>
+    ${rows.length ? `<div class="list" style="margin-top:8px">${rows.map(m => pmsgRowHtml(m)).join('')}</div>` : '<div class="small muted" style="margin-top:8px">هنوز پیامی نفرستاده‌اید.</div>'}`, 'tight');
+}
+
+/* صندوق گیرنده‌ها: مدیر همه، دبیر پیام‌های خودش، مشاور «به مشاور» */
+PAGES.pmsgs = () => {
+  if (!['manager', 'teacher', 'counselor'].includes(S.role)) return pageHead('پیام اولیا') + empty('دسترسی ندارید.');
+  const rows = pmsgSorted(list('parent_msgs').filter(pmsgRecipient));
+  const open = rows.filter(m => (m.status || 'open') === 'open').length;
+  const title = S.role === 'counselor' ? 'پیام و وقت ملاقات' : 'پیام اولیا';
+  return `${pageHead(title, fa(open) + ' پیامِ بی‌پاسخ', S.role === 'counselor' ? `<button class="btn sm primary" data-act="pmsg-add">+ تعیین وقت برای اولیا</button>` : '')}
+  ${rows.length ? card(`<div class="list" data-pmsg-list="1">${rows.map(m => pmsgRowHtml(m, { showStudent: true, canReply: true })).join('')}</div>`, 'tight')
+    : empty(S.role === 'teacher' ? 'پیامی از اولیا برای شما نیامده است.' : 'پیامی نیامده است.')}`;
+};
+
+/* ردیف ۱۹۷ (F29): میز مشاور — همهٔ دانش‌آموزان (جستجو با نام) → پروندهٔ فقط‌خواندنی + یادداشت‌ها */
+PAGES.cstudents = () => {
+  if (S.role !== 'counselor' && S.role !== 'manager') return pageHead('دانش‌آموزان') + empty('دسترسی ندارید.');
+  const q = String(S.cq || '').trim();
+  const rows = sortBy(list('users').filter(u => u.role === 'student' && u.active !== false && !u.deleted && (!q || String(u.name || '').includes(q))), 'name');
+  return `${pageHead('دانش‌آموزان', fa(rows.length) + ' نفر')}
+  <div class="card tight"><input class="input" id="cq-search" data-focus-key="cq-search" data-search="cq" placeholder="جستجوی نام…" value="${esc(q)}"></div>
+  ${rows.length ? card(`<div class="list" data-cst-list="1">${rows.slice(0, 300).map(u => `<a class="item" href="#/cstudent/${u.id}" data-cst-row="${u.id}"><div class="grow">
+    <div class="t">${esc(u.name || '')}</div><div class="s">${esc([(byId('classes', u.class_id) || {}).name, u.grade, u.branch].filter(Boolean).join(' · '))}</div></div><span class="small muted">پرونده ←</span></a>`).join('')}</div>`, 'tight')
+    : empty('دانش‌آموزی پیدا نشد.')}`;
+};
+PAGES.cstudent = (params) => {
+  if (S.role !== 'counselor' && S.role !== 'manager') return pageHead('پرونده') + empty('دسترسی ندارید.');
+  const k = byId('users', Number((params || [])[0]));
+  if (!k || k.role !== 'student') return pageHead('پرونده') + empty('دانش‌آموز پیدا نشد.');
+  const cls = byId('classes', k.class_id) || {};
+  const grades = list('grades').filter(g => Number(g.student_id) === Number(k.id));
+  const att = list('attendance').filter(a => Number(a.student_id) === Number(k.id));
+  const pct = att.length ? Math.round(att.filter(a => a.status === 'present').length / att.length * 100) : null;
+  const n = st => att.filter(a => a.status === st).length;
+  const rc = reportCardOf(grades);
+  const avg = meanOrNull(grades.map(gradeAvgScore));
+  const notes = list('counselor_notes').filter(x => !x.deleted && Number(x.student_id) === Number(k.id))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || Number(b.id) - Number(a.id));
+  const isC = S.role === 'counselor';
+  return `${pageHead(k.name, [cls.name, k.grade, k.branch].filter(Boolean).join(' · '), `<a class="btn sm" href="#/cstudents">بازگشت</a>`)}
+  <div class="grid">${statCard('✅', pct == null ? '—' : fa(pct) + '٪', 'حضور', pct == null ? '' : pct >= 90 ? 'green' : 'amber')}
+    ${statCard('🎓', avg == null ? '—' : fa1(avg), 'معدل', avg == null ? '' : avg >= 12 ? 'green' : 'amber')}
+    ${statCard('⏰', fa(n('absent')) + ' / ' + fa(n('late')), 'غیبت / تأخیر')}</div>
+  ${card(`<b>کارنامه</b>${rc.length ? `<div class="table-wrap" data-cst="report-card" style="margin-top:8px"><table><thead><tr><th>عنوان درس</th><th>میانگین / ارزشیابی</th></tr></thead><tbody>
+    ${rc.map(r => `<tr><td>${esc(r.subject)}</td><td><b>${esc(r.value)}</b></td></tr>`).join('')}</tbody></table></div>` : '<div class="small muted" style="margin-top:8px">هنوز نمره‌ای ثبت نشده.</div>'}`, 'tight')}
+  ${disciplineCard(new Set([Number(k.id)]), { key: 'cstudent' })}
+  ${isC ? card(`<div class="row between"><b data-cst="notes">🗂️ یادداشت‌های مشاوره (فقط شما می‌بینید)</b>
+      <div class="row" style="gap:6px"><button class="btn sm" data-act="pmsg-add" data-id="${k.id}">📅 وقت برای اولیا</button>
+      <button class="btn sm primary" data-act="cnote-add" data-id="${k.id}">+ یادداشت</button></div></div>
+    ${notes.length ? `<div class="list" style="margin-top:8px">${notes.map(x => `<div class="item" data-cnote-row="${x.id}"><div class="grow">
+      <div class="t">${esc(CNOTE_KIND_FA[x.kind || 'session'] || '')}${x.track ? ' · رشتهٔ پیشنهادی: <b>' + esc(x.track) + '</b>' : ''}</div>
+      <div class="small" style="white-space:pre-wrap">${esc(x.text || x.note || '')}</div></div>${badge(jdate(x.date || ''), '')}</div>`).join('')}</div>`
+      : '<div class="small muted" style="margin-top:8px">یادداشتی ثبت نشده.</div>'}`, 'tight') : ''}`;
+};
+
+function actPmsgAdd(pick) {
+  if (S.role === 'counselor') {
+    const studs = sortBy(list('users').filter(u => u.role === 'student' && u.active !== false && !u.deleted), 'name');
+    S.modalTitle = 'تعیین وقت ملاقات برای اولیا';
+    return modal(`<form data-form="pmsg">
+      <label class="field"><span>دانش‌آموز</span><select class="input" name="student_id" required>
+        <option value="">— انتخاب —</option>${studs.map(k => `<option value="${k.id}" ${Number(k.id) === Number(pick) ? 'selected' : ''}>${esc(k.name)}</option>`).join('')}</select></label>
+      <label class="field"><span>روز ملاقات</span>${jalaliDateControl('appt_date', todayISO(), { required: true })}</label>
+      <label class="field"><span>ساعت (اختیاری)</span><input class="input" name="appt_time" placeholder="10:30" dir="ltr"></label>
+      <label class="field"><span>موضوع</span><textarea class="input" name="text" required maxlength="${PMSG_LIMITS.text}" placeholder="مثلاً جلسهٔ هدایت تحصیلی"></textarea></label>
+      <button class="btn primary block">ثبت وقت</button></form>`);
+  }
+  const k = byId('users', Number(pick)) || myChildren()[0];
+  if (!k) return toast('برای حساب شما فرزندی ثبت نشده است', 'err');
+  const teachers = pmsgTeachersOf(k);
+  S.modalTitle = 'پیام / درخواست ملاقات — ' + (k.name || '');
+  modal(`<form data-form="pmsg"><input type="hidden" name="student_id" value="${k.id}">
+    <label class="field"><span>به</span><select class="input" name="to" required>
+      ${PMSG_TO.map(t => `<option value="${t}">${esc(PMSG_TO_FA[t])}</option>`).join('')}</select></label>
+    <label class="field"><span>دبیر (اگر «دبیر» را انتخاب کرده‌اید)</span><select class="input" name="teacher_id">
+      <option value="">—</option>${teachers.map(t => `<option value="${t.id}">${esc(t.label)}</option>`).join('')}</select></label>
+    <label class="field"><span>نوع</span><select class="input" name="kind">
+      ${PMSG_KINDS.map(t => `<option value="${t}">${esc(PMSG_KIND_FA[t])}</option>`).join('')}</select></label>
+    <label class="field"><span>روز دلخواه برای ملاقات (اختیاری)</span>${jalaliDateControl('want_date', '', {})}</label>
+    <label class="field"><span>متن</span><textarea class="input" name="text" required maxlength="${PMSG_LIMITS.text}"></textarea></label>
+    <div class="small muted">وقت ملاقات با مدرسه یا مشاور است؛ با دبیر فقط پیام.</div>
+    <button class="btn primary block" style="margin-top:8px">فرستادن</button></form>`);
+}
+function actPmsgReply(id) {
+  const m = byId('parent_msgs', Number(id));
+  if (!m || !pmsgRecipient(m)) return;
+  const canSched = m.kind === 'appointment' && (S.role === 'counselor' || S.role === 'manager');
+  S.modalTitle = 'پاسخ به ' + ((byId('users', m.student_id) || {}).name || 'اولیا');
+  modal(`<form data-form="pmsg-reply"><input type="hidden" name="id" value="${m.id}">
+    <div class="small" style="white-space:pre-wrap;margin-bottom:8px">${esc(m.text || '')}</div>
+    <label class="field"><span>پاسخ</span><textarea class="input" name="reply" maxlength="${PMSG_LIMITS.reply}">${esc(m.reply || '')}</textarea></label>
+    <label class="field"><span>وضعیت</span><select class="input" name="status">
+      <option value="answered">${PMSG_STATUS_FA.answered}</option>
+      ${canSched ? `<option value="scheduled" ${m.status === 'scheduled' ? 'selected' : ''}>${PMSG_STATUS_FA.scheduled}</option>` : ''}
+      <option value="closed">${PMSG_STATUS_FA.closed}</option></select></label>
+    ${canSched ? `<label class="field"><span>روز ملاقات</span>${jalaliDateControl('appt_date', m.appt_date || m.want_date || '', {})}</label>
+    <label class="field"><span>ساعت (اختیاری)</span><input class="input" name="appt_time" value="${esc(m.appt_time || '')}" placeholder="10:30" dir="ltr"></label>` : ''}
+    <button class="btn primary block">ثبت</button></form>`);
+}
+function actCnoteAdd(pick) {
+  const k = byId('users', Number(pick));
+  if (!k || S.role !== 'counselor') return;
+  S.modalTitle = 'یادداشت مشاوره — ' + (k.name || '');
+  modal(`<form data-form="cnote"><input type="hidden" name="student_id" value="${k.id}">
+    <label class="field"><span>نوع</span><select class="input" name="kind">
+      ${CNOTE_KINDS.map(t => `<option value="${t}">${esc(CNOTE_KIND_FA[t])}</option>`).join('')}</select></label>
+    <label class="field"><span>رشتهٔ پیشنهادی (برای هدایت تحصیلی)</span><select class="input" name="track">
+      <option value="">—</option>${GUIDANCE_TRACKS.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}</select></label>
+    <label class="field"><span>روز</span>${jalaliDateControl('date', todayISO(), {})}</label>
+    <label class="field"><span>شرح</span><textarea class="input" name="text" maxlength="${PMSG_LIMITS.note}"></textarea></label>
+    <button class="btn primary block">ثبت</button></form>`);
+}
 
 /* ══════════════ صف ارجاع مشاور (ردیف ۱۸۷ — تعریفِ p2) ══════════════
    مدیر/معاون دانش‌آموز را ارجاع می‌دهد؛ مشاور فقط همین صف را می‌بیند: نام، پایه/رشته،

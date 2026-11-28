@@ -2,6 +2,7 @@
 const gradeScheme = require('./grade-scheme');
 const schoolCalendar = require('./school-calendar');
 const finance = require('./school-finance');
+const parentMsgs = require('./parent-msgs');
 /* ───────────────────────────────────────────────────────────────────
    سیاست دسترسی — همان ایدهٔ fail-closed پایش اصلی
    هر کالکشن ناشناس = رد. هر نقش ناشناس = رد. اسکوپ خواندن سمت سرور.
@@ -139,8 +140,11 @@ const COLLECTIONS = {
   /* ردیف ۱۹۷ (Q06 / F38، F44): دفتر مراجعینِ درِ مدرسه — مدیر، و نگهبان با ناحیهٔ «درِ مدرسه» */
   visitors:         { write: ['manager'], read: ['manager'] },
   /* ردیف ۱۹۷ (Q07 / F32, F33): کمک داوطلبانه (و شهریهٔ غیرانتفاعی) و هیئت امنا — فقط مدیر */
-  contributions:    { write: ['manager'], read: ['manager'] },
+  /* ردیف ۱۹۷ (Q12 / F27): ولی کمک/شهریهٔ ثبت‌شده برای فرزند خودش را می‌بیند (اسکوپ ردیف: student_id) */
+  contributions:    { write: ['manager'], read: ['manager', 'parent'] },
   trustees:         { write: ['manager'], read: ['manager'] },
+  /* ردیف ۱۹۷ (Q12 / F27، F29): پیام ولی به مدرسه/دبیر/مشاور و نوبت مشاوره — server/parent-msgs.js */
+  parent_msgs:      { write: ['manager', 'teacher', 'counselor', 'parent'], read: ['manager', 'teacher', 'counselor', 'parent'] },
 };
 
 const PROTECTED = new Set(['audit', 'devices', 'sessions', 'pair_codes', 'sync_log']);
@@ -319,9 +323,16 @@ function buildScope(store, user) {
     });
     return scope;
   }
-  /* ردیف ۱۸۷ (تعریفِ p2): مشاور فقط دانش‌آموزانِ «ارجاع‌شده» به صف خودش را می‌بیند —
-     نام، پایه/رشته و دادهٔ الگو (حضور/انضباط)؛ نه نمره، نه برنامه، نه پروندهٔ کامل. */
+  /* ردیف ۱۹۷ (Q12 / F29) — جای تعریفِ ردیف ۱۸۷ (فقط ارجاع‌شده‌ها، بی‌نمره) را گرفت: مشاور هر
+     دانش‌آموز مدرسه را جست‌وجو می‌کند و پرونده‌اش (حضور، نمره، کارنامه، انضباط) را برای مشاوره و
+     هدایت تحصیلی می‌بیند — فقط خواندن؛ نوشتنش همچنان فقط صف ارجاع، یادداشت مشاوره و پیام/نوبت است. */
   if (user.role === 'counselor') {
+    store.all('users').forEach(u => {
+      if (u && u.role === 'student' && !u.deleted_at) {
+        scope.studentIds.add(Number(u.id));
+        if (u.class_id != null) scope.classIds.add(Number(u.class_id));
+      }
+    });
     store.all('counselor_refs').forEach(r => {
       if (r && r.student_id != null && !r.deleted_at) scope.studentIds.add(Number(r.student_id));
     });
@@ -346,7 +357,6 @@ function rowInScope(scope, collection, row) {
       return Number(row.id) === uid || scope.studentIds.has(Number(row.id));
     case 'grades':
     case 'internships':
-      if (scope.role === 'counselor') return false;
       return scope.studentIds.has(Number(row.student_id)) ||
         (scope.role === 'teacher' && scope.classIds.has(Number(row.class_id)));
     case 'attendance':
@@ -386,6 +396,13 @@ function rowInScope(scope, collection, row) {
       return scope.role === 'counselor' || scope.role === 'manager';
     case 'counselor_notes':
       return scope.role === 'counselor' || scope.role === 'manager';
+    /* ردیف ۱۹۷ (Q12 / F27، F29): ولی پیام‌های فرزندان خودش؛ دبیر فقط پیامِ به خودش؛ مشاور «به مشاور» */
+    case 'parent_msgs':
+      if (scope.role === 'parent') return scope.studentIds.has(Number(row.student_id));
+      return parentMsgs.isRecipient(scope.role, uid, row);
+    /* ردیف ۱۹۷ (Q12 / F27): کمک/شهریهٔ ثبت‌شده برای فرزندِ همین ولی */
+    case 'contributions':
+      return scope.role === 'parent' && row.student_id != null && scope.studentIds.has(Number(row.student_id));
     case 'staff_attendance':
     case 'staff_posts':
     case 'app_settings':
@@ -407,6 +424,31 @@ function teacherCanDelete(store, user, role, collection, existing) {
   const mine = new Set(rows.map(s => Number(s.class_id)).filter(Boolean));
   if (user.class_id) mine.add(Number(user.class_id));
   return mine.has(Number(existing.class_id));
+}
+
+/* ردیف ۱۹۷ (Q12 / F27، F29): گیرندهٔ پیام (دبیرِ همان پیام / مشاور) فقط پاسخ، وضعیت و نوبت را
+   می‌گذارد؛ متن، فرزند و گیرنده ثابت است. پیامِ تازه از غیرولی فقط «نوبتی» است که مشاور می‌گذارد. */
+function recipientMsgWrite(store, user, role, row, existing) {
+  const uid = Number(user.id);
+  if (existing && !parentMsgs.isRecipient(role, uid, existing)) return { ok: false, error: 'out_of_scope' };
+  if (row && row !== existing && !parentMsgs.isRecipient(role, uid, Object.assign({}, existing || {}, row))) return { ok: false, error: 'out_of_scope' };
+  if (!existing) {
+    /* ساختن: فقط مشاور، فقط نوبتِ قطعی برای ولیِ یک دانش‌آموز */
+    if (role !== 'counselor') return { ok: false, error: 'role_denied' };
+    if (!row || row.kind !== 'appointment' || row.status !== 'scheduled') return { ok: false, error: 'appt_required' };
+    const st = store.get('users', row.student_id);
+    if (!st || st.role !== 'student') return { ok: false, error: 'out_of_scope' };
+    row.parent_id = null;
+  } else if (row !== existing) {
+    const fi = parentMsgs.fixedChanged(row, existing);
+    if (fi) return { ok: false, error: fi };
+    if (row.status === 'open' && existing.status !== 'open') return { ok: false, error: 'bad_status' };
+    if (row.status === 'scheduled' && role !== 'counselor') return { ok: false, error: 'bad_status' };
+  } else {
+    return { ok: false, error: 'role_denied' }; /* حذف فقط با مدیر */
+  }
+  row.replied_by = uid;
+  return { ok: true };
 }
 
 /* آیا کاربر اجازهٔ نوشتن این ردیف را دارد؟ (مالکیت، نه فقط نقش) */
@@ -445,6 +487,15 @@ function canWriteRow(store, user, role, collection, row, existing) {
     const ti = finance.trusteeIssue(row);
     if (ti) return { ok: false, error: ti };
     if (store && !finance.isPublicSchool(store.get('schools', 1) || null)) return { ok: false, error: 'feature_off' };
+  }
+  /* ردیف ۱۹۷ (Q12 / F27، F29): شکل پیام/نوبت و یادداشت مشاوره برای همهٔ نقش‌ها (حذف = row تهی) */
+  if (collection === 'parent_msgs' && row && row !== existing) {
+    const mi = parentMsgs.msgIssue(Object.assign({}, existing || {}, row));
+    if (mi) return { ok: false, error: mi };
+  }
+  if (collection === 'counselor_notes' && row && row !== existing) {
+    const ni = parentMsgs.noteIssue(Object.assign({}, existing || {}, row));
+    if (ni) return { ok: false, error: ni };
   }
   if (role !== 'manager' && grantWrites(Object.assign({}, user, { role })).has(collection)) {
     if (collection === 'attendance' && row && row.status != null && !ATT_STATUS.includes(row.status)) return { ok: false, error: 'bad_status' };
@@ -508,6 +559,8 @@ function canWriteRow(store, user, role, collection, row, existing) {
       row.author_id = Number(user.id);
       return { ok: true };
     }
+    /* ردیف ۱۹۷ (Q12 / F27): دبیر فقط به پیامِ «به دبیر»ی که به خودش رسیده پاسخ می‌دهد — نمی‌سازد */
+    if (collection === 'parent_msgs') return recipientMsgWrite(store, user, 'teacher', row, existing);
     if (collection === 'counselor_refs') {
       const scope = buildScope(store, user);
       if (!scope.studentIds.has(Number(row.student_id))) return { ok: false, error: 'out_of_scope' };
@@ -521,6 +574,18 @@ function canWriteRow(store, user, role, collection, row, existing) {
     return { ok: false, error: 'role_denied' };
   }
 
+  /* ردیف ۱۹۷ (Q12 / F27): ولی پیام/درخواست نوبت برای فرزند خودش می‌فرستد؛ پاسخ و نوبت با مدرسه است */
+  if (role === 'parent' && collection === 'parent_msgs') {
+    const scope = buildScope(store, user);
+    if (!scope.studentIds.has(Number(Object.assign({}, existing || {}, row || {}).student_id))) return { ok: false, error: 'out_of_scope' };
+    if (existing && (!scope.studentIds.has(Number(existing.student_id)) ||
+        (existing.parent_id != null && Number(existing.parent_id) !== Number(user.id)))) return { ok: false, error: 'not_author' };
+    /* ویرایشِ پیامِ هنوز باز: فقط متن و روز دلخواه */
+    const pi = parentMsgs.parentMsgIssue(row, existing) || parentMsgs.fixedChanged(row, existing, ['text']);
+    if (pi) return { ok: false, error: pi };
+    if (!existing) { row.parent_id = Number(user.id); row.status = 'open'; if (!row.kind) row.kind = 'message'; }
+    return { ok: true };
+  }
   if (role === 'parent' || role === 'student') {
     if (collection !== 'leaves') return { ok: false, error: 'role_denied' };
     const scope = buildScope(store, user);
@@ -534,6 +599,8 @@ function canWriteRow(store, user, role, collection, row, existing) {
 
   if (role === 'counselor') {
     if (collection === 'counselor_refs' || collection === 'counselor_notes') return { ok: true };
+    /* ردیف ۱۹۷ (Q12 / F29): پاسخ به پیامِ «به مشاور»، و نوبتِ تازه با ولیِ هر دانش‌آموز */
+    if (collection === 'parent_msgs') return recipientMsgWrite(store, user, 'counselor', row, existing);
     return { ok: false, error: 'role_denied' };
   }
 

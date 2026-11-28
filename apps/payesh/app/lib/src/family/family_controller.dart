@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:payesh_data/payesh_data.dart' show EngineRow;
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
@@ -69,11 +70,23 @@ class FamilyController extends ChangeNotifier {
 
   /// The open child page (null when none is open or it could not be read).
   ChildRecord? child;
+
+  /// Row 197 (Q12 / F27): what the child page adds — report card, discipline, homework and
+  /// exams ([childRecord]), today's absence, contributions (read only) and the threads with
+  /// the school / a teacher / the counselor.
+  StudentRecord? childRecord;
+  String childToday = '';
+  List<EngineRow> childContrib = const [];
+  List<ParentMsg> childMsgs = const [];
+  List<ChildTeacher> childTeachers = const [];
   int? _childId;
   String? childError;
 
   /// Error of the last request attempt (shown inside the form, which stays open).
   String? formError;
+
+  /// Today's (UTC) ISO day (open homework of the child page).
+  String get todayIso => _book?.today() ?? '';
 
   /// Today's (UTC) day in Jalali digits — the default of the request form (web: `todayISO()`).
   String get todayJalali =>
@@ -98,7 +111,10 @@ class FamilyController extends ChangeNotifier {
         children = await b.children();
         leaves = await b.leaveRequests();
         await _homeExtras(b);
-        if (_childId != null) child = await b.child(_childId!);
+        if (_childId != null) {
+          child = await b.child(_childId!);
+          await _childExtras(b, _childId!);
+        }
       }
     } on FamilyFailure catch (e) {
       error = e.messageFa;
@@ -179,6 +195,7 @@ class FamilyController extends ChangeNotifier {
         childError = 'پایگاه محلی هنوز آماده نیست';
       } else {
         child = await b.child(id);
+        await _childExtras(b, id);
       }
     } on FamilyFailure catch (e) {
       childError = e.messageFa;
@@ -192,6 +209,80 @@ class FamilyController extends ChangeNotifier {
     _childId = null;
     child = null;
     childError = null;
+    childRecord = null;
+    childMsgs = const [];
+  }
+
+  SchoolRecords _db(FamilyBook b) => SchoolRecords(
+    engine: b.engine,
+    outbox: b.outbox,
+    role: b.role,
+    uid: b.uid,
+    now: b.clock,
+  );
+
+  Future<void> _childExtras(FamilyBook b, int id) async {
+    final db = _db(b);
+    try {
+      childRecord = await UserDirectory(db).recordOf(id);
+    } on Object {
+      childRecord = null;
+    }
+    try {
+      final x = ChildExtras(db);
+      childToday = await x.todayStatus(id);
+      childContrib = await x.contributions(id);
+      final pm = ParentMessages(db);
+      childMsgs = await pm.list(studentId: id);
+      childTeachers = await pm.teachersOf(id);
+    } on Object {
+      childToday = '';
+      childContrib = const [];
+      childMsgs = const [];
+      childTeachers = const [];
+    }
+  }
+
+  /// Row 197 (F27): a message / an appointment request about the open child. Returns false
+  /// when refused (message in [formError]); the form stays open.
+  Future<bool> sendMsg({
+    required int studentId,
+    required String to,
+    int? teacherId,
+    required String kind,
+    required String text,
+    String wantDate = '',
+  }) async {
+    final b = _book;
+    if (b == null || busy) return false;
+    formError = null;
+    notice = null;
+    busy = true;
+    _emit();
+    var ok = false;
+    try {
+      final w = await ParentMessages(_db(b)).send(
+        studentId: studentId,
+        to: to,
+        teacherId: teacherId,
+        kind: kind,
+        text: text,
+        wantDate: wantDate,
+      );
+      notice = w.messageFa;
+      source.queued();
+      childMsgs = await ParentMessages(_db(b)).list(studentId: studentId);
+      ok = true;
+    } on RecordFailure catch (e) {
+      formError = e.messageFa;
+    } on SyncFailure catch (e) {
+      formError = e.code?.wire == 'queue_full'
+          ? 'صف ارسال پر است — پیش از ثبت تازه، اتصال را برقرار کنید'
+          : 'ذخیره ناموفق بود';
+    }
+    busy = false;
+    _emit();
+    return ok;
   }
 
   /// Sends a leave request. Returns null when refused (message in [formError]); the form

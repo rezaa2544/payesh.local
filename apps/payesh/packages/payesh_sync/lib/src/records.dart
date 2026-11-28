@@ -131,8 +131,16 @@ final class SchoolRecords {
     // Row 197 (Q06): the gate's visitor log (a guard writes it through the «درِ مدرسه» area).
     'visitors': CollectionRule({'manager'}, {'manager'}),
     // Row 197 (Q07): voluntary contributions and the board of trustees (manager only).
-    'contributions': CollectionRule({'manager'}, {'manager'}),
+    // Row 197 (Q12 / F27): a parent reads the rows of their own children (server row scope).
+    'contributions': CollectionRule({'manager'}, {'manager', 'parent'}),
     'trustees': CollectionRule({'manager'}, {'manager'}),
+    // Row 197 (Q12 / F27، F29): a parent's message / appointment request, answered by its
+    // recipient (school → manager, teacher → that teacher, counselor). The server narrows
+    // reads to the rows each one may see (server/parent-msgs.js `isRecipient`).
+    'parent_msgs': CollectionRule(
+      {'manager', 'teacher', 'counselor', 'parent'},
+      {'manager', 'teacher', 'counselor', 'parent'},
+    ),
   };
 
   /// Id ranges of rows created by row-128 pages: slot i = [1e15 + i·1e14, 1e15 + (i+1)·1e14).
@@ -162,6 +170,10 @@ final class SchoolRecords {
     'homework',
     // Row 197 (Q12 / F21): the manager's exam calendar (slot 17 = [2.7e15, 2.8e15)).
     'exams',
+    // Row 197 (Q12 / F27، F29): parent messages (slot 18 = [2.8e15, 2.9e15)) and the
+    // counselor's session / guidance notes (slot 19 = [2.9e15, 3e15) — family starts at 3e15).
+    'parent_msgs',
+    'counselor_notes',
   ];
   static const int idFloor = 1000000000000000;
   static const int idSlotSpan = 100000000000000;

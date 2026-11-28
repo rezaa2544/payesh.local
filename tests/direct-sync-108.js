@@ -399,7 +399,7 @@ async function main() {
       /* the SQL allow-list equals policy.collectionAllowed */
       const names = [...Object.keys(policy.COLLECTIONS), 'audit', 'devices', 'sessions', 'pair_codes', 'sync_log', 'zz_unknown', 'record', 'sync_op'];
       /* row 197 (Q06): a collection added by a later migration is known only from that one on */
-      const ADDED_IN = { visitors: '0008_direct_visitors', contributions: '0009_direct_finance', trustees: '0009_direct_finance' };
+      const ADDED_IN = { visitors: '0008_direct_visitors', contributions: '0009_direct_finance', trustees: '0009_direct_finance', parent_msgs: '0010_direct_parent_msgs' };
       for (const nm of names) {
         const sqlOk = (await admin.query('SELECT payesh_direct.collection_known($1) AS ok', [nm])).rows[0].ok;
         const want = policy.collectionAllowed(nm) && !(ADDED_IN[nm] && OWN < ADDED_IN[nm]);

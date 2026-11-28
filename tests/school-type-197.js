@@ -14,7 +14,8 @@
           «tuition» row in a public school ⇒ tuition_public; in a غیرانتفاعی it is accepted
      T05  board of trustees: members (post from the list) and meetings with resolutions;
           refused in a غیرانتفاعی (feature_off); bad shapes refused
-     T06  only the manager: teacher/parent/staff/office/guard cannot write or pull them
+     T06  only the manager writes; teacher/staff/office/guard/student pull none — the parent (Q12 / F27)
+          pulls only the contribution of their own child (student_id), never the other gift or trustees
      T07  cloud scope mirrors the shape checks and keeps them manager-only
      T08  owner registry: a public school_type from the owner panel drops has_tuition
      T09  negative control: switching the school to غیرانتفاعی turns trustees off and
@@ -129,16 +130,19 @@ check('T05', 'board of trustees: members and meetings; bad shapes refused', () =
   return '3 applied; 5 refused';
 });
 
-check('T06', 'only the manager writes or pulls contributions and trustees', () => {
+check('T06', 'only the manager writes; parent pulls only its child\'s contribution; trustees manager-only', () => {
   for (const u of [teacher, par, staff, office, guard, s1]) {
     const r = push(u.id, [op('contributions', gift()), op('trustees', member())]);
     assert(r.applied.length === 0 && r.rejected.every(x => x.error === 'role_denied'), u.role + ' ' + J(r));
     const p = sync.pull(st, actor(u.id), {});
-    assert(!(p.collections.contributions || []).length && !(p.collections.trustees || []).length, u.role + ' pulled');
+    const pc = p.collections.contributions || [];
+    /* ردیف ۱۹۷ (Q12 / F27): ولی فقط کمکِ ثبت‌شده برای فرزند خودش را می‌بیند (نه کمک بی‌دانش‌آموز، نه هیئت امنا) */
+    const okC = u === par ? pc.length === 1 && Number(pc[0].student_id) === Number(s1.id) : pc.length === 0;
+    assert(okC && !(p.collections.trustees || []).length, u.role + ' pulled ' + pc.length);
   }
   const m = sync.pull(st, actor(mgr.id), {});
   assert((m.collections.contributions || []).length === 2 && (m.collections.trustees || []).length === 3, 'manager pull');
-  return '6 roles denied; manager pulls 2 + 3';
+  return '6 roles write-denied; parent pulls 1 (own child); manager pulls 2 + 3';
 });
 
 check('T07', 'cloud scope: shape checks and manager-only', async () => {

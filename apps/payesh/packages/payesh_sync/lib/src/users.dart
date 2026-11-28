@@ -821,7 +821,33 @@ final class UserDirectory {
     if (db.role != 'student') {
       throw const RecordFailure('not_reader', 'پرونده فقط برای دانش‌آموز است');
     }
-    final me = await db.existing(users, db.uid, 'پروندهٔ شما');
+    return recordOf(db.uid);
+  }
+
+  /// Row 197 (Q12 / F27، F29): the same record for one student — the student themself, a
+  /// parent of that student (the child page), the counselor (every student: grades,
+  /// attendance and discipline, read only — server/policy.js `buildScope` counselor) or the
+  /// manager. A teacher keeps the class pages; staff roles have no record.
+  Future<StudentRecord> recordOf(int studentId) async {
+    final ok = switch (db.role) {
+      'student' => studentId == db.uid,
+      'manager' || 'counselor' => true,
+      'parent' => (await db.allOrEmpty('parent_links')).any(
+        (l) =>
+            l.data['deleted'] != true &&
+            SchoolRecords.asInt(l.data['parent_id']) == db.uid &&
+            SchoolRecords.asInt(l.data['student_id']) == studentId,
+      ),
+      _ => false,
+    };
+    if (!ok) {
+      throw const RecordFailure(
+        'not_reader',
+        'پروندهٔ این دانش‌آموز برای نقش شما باز نیست',
+      );
+    }
+    final sid = studentId;
+    final me = await db.existing(users, sid, 'پروندهٔ دانش‌آموز');
     final classes = await _classNames();
     final subjects = {
       for (final s in await db.allOrEmpty('subjects'))
@@ -829,12 +855,12 @@ final class UserDirectory {
     };
     final att = [
       for (final a in await db.allOrEmpty('attendance'))
-        if (SchoolRecords.asInt(a.data['student_id']) == db.uid) a,
+        if (SchoolRecords.asInt(a.data['student_id']) == sid) a,
     ];
     final present = att.where((a) => a.data['status'] == 'present').length;
     final mine = [
       for (final g in await db.allOrEmpty('grades'))
-        if (SchoolRecords.asInt(g.data['student_id']) == db.uid) g,
+        if (SchoolRecords.asInt(g.data['student_id']) == sid) g,
     ];
     String subjectOf(Map<String, Object?> g) {
       final n = subjects[SchoolRecords.asInt(g['subject_id'])] ?? '';
@@ -900,7 +926,7 @@ final class UserDirectory {
         grade: grade,
         branch: branch,
       ),
-      discipline: await notes.discipline(studentIds: {db.uid}),
+      discipline: await notes.discipline(studentIds: {sid}),
     );
   }
 

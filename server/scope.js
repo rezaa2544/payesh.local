@@ -19,6 +19,7 @@ const gradeScheme = require('./grade-scheme');
 const schoolCalendar = require('./school-calendar');
 const policy = require('./policy');
 const finance = require('./school-finance');
+const parentMsgs = require('./parent-msgs');
 
 const T = () => require('./tenancy').PRODUCT_TABLE;
 const BIG = (col) => `(case when r.data->>'${col}' ~ '^[0-9]{1,18}$' then (r.data->>'${col}')::bigint end)`;
@@ -67,12 +68,18 @@ async function build(c, claims) {
     );
     scope.studentIds = nums(links.rows, 'student_id');
   } else if (role === 'counselor') {
-    /* ردیف ۱۸۷ (تعریفِ p2): مشاور فقط دانش‌آموزانِ ارجاع‌شده — آینهٔ policy.buildScope */
-    const refs = await c.query(
-      `select distinct ${BIG('student_id')} as student_id from ${T()} r
+    /* ردیف ۱۹۷ (Q12 / F29): مشاور هر دانش‌آموز مدرسه (و کلاسش) — آینهٔ policy.buildScope؛
+       به‌علاوهٔ ارجاع‌شده‌ها (ارجاعِ دانش‌آموزی که ردیفش هنوز نرسیده) */
+    /* یک پرس‌وجو (union) — همان محلِ ثابتِ ردیف ۱۸۷؛ فقط ثابت‌های داخلی T()/BIG()، بدون ورودی */
+    const st = await c.query(
+      `select record_id as student_id, ${BIG('class_id')} as class_id from ${T()} r
+        where collection = 'users' and deleted_at is null and r.data->>'role' = 'student'
+       union
+       select ${BIG('student_id')} as student_id, null::bigint as class_id from ${T()} r
         where collection = 'counselor_refs' and deleted_at is null`, []
     );
-    scope.studentIds = nums(refs.rows, 'student_id');
+    scope.studentIds = [...new Set(nums(st.rows, 'student_id'))];
+    scope.classIds = [...new Set(nums(st.rows, 'class_id'))];
   } else if (role === 'student') {
     scope.studentIds = [uid];
     const own = await c.query(
@@ -153,7 +160,6 @@ function rowInScope(scope, collection, row) {
       return Number(row && row.id) === uid || has(scope.studentIds, row && row.id);
     case 'grades':
     case 'internships':
-      if (scope.role === 'counselor') return false;
       return has(scope.studentIds, data.student_id) ||
         (scope.role === 'teacher' && has(scope.classIds, data.class_id));
     case 'attendance':
@@ -178,6 +184,12 @@ function rowInScope(scope, collection, row) {
       return scope.role === 'counselor';
     case 'counselor_notes':
       return scope.role === 'counselor';
+    /* ردیف ۱۹۷ (Q12 / F27، F29): آینهٔ policy.rowInScope */
+    case 'parent_msgs':
+      if (scope.role === 'parent') return has(scope.studentIds, data.student_id);
+      return parentMsgs.isRecipient(scope.role, uid, data);
+    case 'contributions':
+      return scope.role === 'parent' && data.student_id != null && has(scope.studentIds, data.student_id);
     case 'staff_attendance':
     case 'staff_posts':
     case 'app_settings':
@@ -185,8 +197,7 @@ function rowInScope(scope, collection, row) {
     case 'conflicts':
     /* ردیف ۱۹۷ (Q06): مراجعین — فقط مدیر (all) یا ناحیهٔ «درِ مدرسه» (grantRead) */
     case 'visitors':
-    /* ردیف ۱۹۷ (Q07): کمک‌ها و هیئت امنا — فقط مدیر */
-    case 'contributions':
+    /* ردیف ۱۹۷ (Q07): هیئت امنا — فقط مدیر (کمک‌ها بالا: ولی برای فرزند خودش) */
     case 'trustees':
       return false;
     /* ردیف ۱۹۷ (F19): اطلاعیهٔ کلاس فقط برای همان کلاس و نویسنده (مدیر all) */
@@ -237,6 +248,16 @@ function canWriteRow(scope, collection, row, existing) {
     const ti = finance.trusteeIssue(row);
     if (ti) return { ok: false, error: ti };
   }
+  /* ردیف ۱۹۷ (Q12 / F27، F29): شکل پیام/نوبت و یادداشت مشاوره (آینهٔ policy). Gateway برای put ردیف
+     موجود را نمی‌خواند ⇒ put همیشه ردیف کامل است و همین ردیف سنجیده می‌شود. */
+  if (collection === 'parent_msgs' && row && row !== existing) {
+    const mi = parentMsgs.msgIssue(Object.assign({}, existing || {}, row));
+    if (mi) return { ok: false, error: mi };
+  }
+  if (collection === 'counselor_notes' && row && row !== existing) {
+    const ni = parentMsgs.noteIssue(Object.assign({}, existing || {}, row));
+    if (ni) return { ok: false, error: ni };
+  }
   if (!scope || scope.all) return { ok: true };
   if ((scope.grantWrite || []).includes(collection)) {
     if (collection === 'attendance' && row && row.status != null &&
@@ -266,6 +287,8 @@ function canWriteRow(scope, collection, row, existing) {
       if (row && row !== existing && Number(row.author_id) !== scope.uid) return { ok: false, error: 'not_author' };
       return { ok: true };
     }
+    /* ردیف ۱۹۷ (Q12 / F27): پاسخِ دبیر فقط به پیامِ خودش (مُهرِ replied_by = خودش) */
+    if (collection === 'parent_msgs') return cloudRecipientMsg(scope, row, existing);
     /* ارجاع به مشاور: فقط دانش‌آموزِ خودش، فقط «باز» */
     if (collection === 'counselor_refs') {
       const r = row || existing || {};
@@ -294,6 +317,16 @@ function canWriteRow(scope, collection, row, existing) {
         !policy.LEAVE_REQUEST_STATUSES.includes(String(row.status))) return { ok: false, error: 'approval_denied' };
     return { ok: true };
   }
+  /* ردیف ۱۹۷ (Q12 / F27): ولی فقط پیامِ «باز» برای فرزند خودش، با parent_id = خودش */
+  if (scope.role === 'parent' && collection === 'parent_msgs') {
+    if (row === existing) return { ok: false, error: 'role_denied' };
+    if (!rowInScope(scope, collection, row || {})) return { ok: false, error: 'out_of_scope' };
+    if (existing && !rowInScope(scope, collection, existing)) return { ok: false, error: 'out_of_scope' };
+    if (Number((row || {}).parent_id) !== scope.uid) return { ok: false, error: 'not_author' };
+    const pi = parentMsgs.parentMsgIssue(row, existing) || (existing ? parentMsgs.fixedChanged(row, existing, ['text']) : '');
+    if (pi) return { ok: false, error: pi };
+    return { ok: true };
+  }
   if (scope.role === 'parent' || scope.role === 'student') {
     if (collection !== 'leaves') return { ok: false, error: 'role_denied' };
     if (!rowInScope(scope, collection, row || existing || {})) return { ok: false, error: 'out_of_scope' };
@@ -307,10 +340,27 @@ function canWriteRow(scope, collection, row, existing) {
     return { ok: true };
   }
   if (scope.role === 'counselor') {
+    if (collection === 'parent_msgs') return cloudRecipientMsg(scope, row, existing);
     if (rowInScope(scope, collection, row || existing || {})) return { ok: true };
     return { ok: false, error: 'out_of_scope' };
   }
   return { ok: false, error: 'role_denied' };
+}
+
+/* ردیف ۱۹۷ (Q12 / F27، F29): گیرنده (دبیرِ همان پیام / مشاور) — آینهٔ policy.recipientMsgWrite.
+   حذف فقط با مدیر؛ ردیف باید مُهرِ replied_by = خودِ نویسنده و پاسخ/نوبت داشته باشد (پیامِ ولی را
+   نمی‌شود به نامِ ولی ساخت: parent_id فقط از خودِ ولی پذیرفته می‌شود)؛ ساختنِ تازه فقط نوبتِ مشاور. */
+function cloudRecipientMsg(scope, row, existing) {
+  if (!row || row === existing) return { ok: false, error: 'role_denied' };
+  if (!parentMsgs.isRecipient(scope.role, scope.uid, row)) return { ok: false, error: 'out_of_scope' };
+  if (existing && !parentMsgs.isRecipient(scope.role, scope.uid, existing)) return { ok: false, error: 'out_of_scope' };
+  if (existing) { const fi = parentMsgs.fixedChanged(row, existing); if (fi) return { ok: false, error: fi }; }
+  if (!scope.studentIds.includes(Number(row.student_id))) return { ok: false, error: 'out_of_scope' };
+  if (Number(row.replied_by) !== scope.uid) return { ok: false, error: 'not_author' };
+  const st = String(row.status || 'open');
+  if (st === 'open') return { ok: false, error: 'bad_status' };
+  if (st === 'scheduled' && scope.role !== 'counselor') return { ok: false, error: 'bad_status' };
+  return { ok: true };
 }
 
 /* ── شرط SQL روی alias `r` (جدول product) با پارامترهای شماره‌دار ──
@@ -332,9 +382,8 @@ function sqlPredicate(scope, startIndex = 1) {
   if (readable.includes('users')) {
     pieces.push(`(r.collection = 'users' and (r.record_id = ${ph(scope.uid)} or r.record_id = any(${ph(scope.studentIds)}::bigint[])))`);
   }
-  /* ردیف ۱۸۷: مشاور نمره و کارآموزی نمی‌بیند (فقط دادهٔ الگو: حضور و انضباط) */
-  const studentCols = STUDENT_COLLECTIONS.filter(c => readable.includes(c) &&
-    !(role === 'counselor' && (c === 'grades' || c === 'internships')));
+  /* ردیف ۱۹۷ (Q12 / F29): مشاور پروندهٔ کامل را می‌بیند (جای قاعدهٔ ردیف ۱۸۷ «بی‌نمره») */
+  const studentCols = STUDENT_COLLECTIONS.filter(c => readable.includes(c));
   if (studentCols.length) {
     const inner = `(${BIG('student_id')} = any(${ph(scope.studentIds)}::bigint[])` +
       (role === 'teacher' ? ` or ${BIG('class_id')} = any(${ph(scope.classIds)}::bigint[])` : '') + ')';
@@ -370,6 +419,15 @@ function sqlPredicate(scope, startIndex = 1) {
     if (role === 'teacher' && cols.includes('counselor_refs')) {
       pieces.push(`(r.collection = 'counselor_refs' and ${BIG('referred_by')} = ${ph(scope.uid)})`);
     }
+  }
+  /* ردیف ۱۹۷ (Q12 / F27، F29): آینهٔ rowInScope بالا */
+  if (readable.includes('parent_msgs')) {
+    if (role === 'parent') pieces.push(`(r.collection = 'parent_msgs' and ${BIG('student_id')} = any(${ph(scope.studentIds)}::bigint[]))`);
+    else if (role === 'teacher') pieces.push(`(r.collection = 'parent_msgs' and r.data->>'to' = 'teacher' and ${BIG('teacher_id')} = ${ph(scope.uid)})`);
+    else if (role === 'counselor') pieces.push(`(r.collection = 'parent_msgs' and r.data->>'to' = 'counselor')`);
+  }
+  if (readable.includes('contributions') && role === 'parent') {
+    pieces.push(`(r.collection = 'contributions' and ${BIG('student_id')} = any(${ph(scope.studentIds)}::bigint[]))`);
   }
 
   return { sql: pieces.length ? '(' + pieces.join(' or ') + ')' : 'false', params };

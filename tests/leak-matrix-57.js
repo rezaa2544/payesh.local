@@ -10,16 +10,18 @@ const collections = [
   'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves',
   'parent_links', 'internships', 'staff_attendance', 'staff_posts', 'counselor_refs',
   'counselor_notes', 'discipline', 'homework', 'exams', 'calendar', 'app_settings',
-  'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees',
+  'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees', 'parent_msgs',
 ];
 const readByRole = {
   manager: collections.filter((c) => c !== 'counselor_notes'),
   // row 197 (F19): the teacher refers their own students to the counselor and reads back only the
   // referrals they made (row scope below: referred_by === self) — never counselor_notes
   teacher: collections.filter((c) => !['parent_links', 'staff_attendance', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
-  parent: collections.filter((c) => !['staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
+  // row 197 (Q12 / F27): the parent reads the contributions recorded for their own child and the
+  // messages/appointments of their own children (row scope below: student_id ∈ children)
+  parent: collections.filter((c) => !['staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'trustees'].includes(c)),
   // row 197 (F21): the student reads their own discipline notes (row scope below: own student_id only)
-  student: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
+  student: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees', 'parent_msgs'].includes(c)),
   counselor: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
   guard: collections.filter((c) => ['schools', 'school_years', 'users', 'classes', 'subjects', 'lookups', 'schedule', 'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'internships', 'homework', 'exams', 'calendar'].includes(c)),
 };
@@ -31,7 +33,8 @@ const scopes = {
   teacher: { role: 'teacher', selfId: 2, all: false, classIds: new Set([10]), studentIds: new Set([3]), cohorts: new Set() },
   parent: { role: 'parent', selfId: 4, all: false, classIds: new Set([10]), studentIds: new Set([3]), cohorts: new Set() },
   student: { role: 'student', selfId: 3, all: false, classIds: new Set([10]), studentIds: new Set([3]), cohorts: new Set() },
-  counselor: { role: 'counselor', selfId: 5, all: false, classIds: new Set(), studentIds: new Set(), cohorts: new Set() },
+  // row 197 (Q12 / F29): the counselor's scope is every student of the school (and their classes)
+  counselor: { role: 'counselor', selfId: 5, all: false, classIds: new Set([10]), studentIds: new Set([3]), cohorts: new Set() },
   guard: { role: 'guard', selfId: 6, all: false, classIds: new Set(), studentIds: new Set(), cohorts: new Set() },
   staff: { role: 'staff', selfId: 7, all: false, classIds: new Set(), studentIds: new Set(), cohorts: new Set() },
   office: { role: 'office', selfId: 8, all: false, classIds: new Set(), studentIds: new Set(), cohorts: new Set() },
@@ -45,14 +48,15 @@ const rows = {
   internships: { id: 1, student_id: 3, class_id: 10 }, staff_attendance: { id: 1 }, staff_posts: { id: 1 },
   counselor_refs: { id: 1 }, counselor_notes: { id: 1 }, discipline: { id: 1, student_id: 3, class_id: 10 },
   homework: { id: 1 }, exams: { id: 1 }, calendar: { id: 1 }, app_settings: { id: 1 },
-  import_issues: { id: 1 }, conflicts: { id: 1 }, visitors: { id: 1 }, contributions: { id: 1 }, trustees: { id: 1 },
+  import_issues: { id: 1 }, conflicts: { id: 1 }, visitors: { id: 1 }, contributions: { id: 1, student_id: 3 }, trustees: { id: 1 },
+  parent_msgs: { id: 1, student_id: 3, to: 'counselor', kind: 'appointment' },
 };
 const readScopeByRole = {
   manager: collections,
   teacher: ['schools', 'school_years', 'users', 'classes', 'subjects', 'schedule', 'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'internships', 'discipline', 'homework', 'exams', 'calendar'],
-  parent: ['schools', 'school_years', 'users', 'classes', 'subjects', 'schedule', 'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'parent_links', 'internships', 'discipline', 'homework', 'exams', 'calendar'],
+  parent: ['schools', 'school_years', 'users', 'classes', 'subjects', 'schedule', 'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'parent_links', 'internships', 'discipline', 'homework', 'exams', 'calendar', 'contributions', 'parent_msgs'],
   student: ['schools', 'school_years', 'users', 'classes', 'subjects', 'schedule', 'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'internships', 'discipline', 'homework', 'exams', 'calendar'],
-  counselor: ['schools', 'school_years', 'subjects', 'bell_schedules', 'announcements', 'counselor_refs', 'counselor_notes', 'homework', 'exams', 'calendar'],
+  counselor: ['schools', 'school_years', 'users', 'classes', 'subjects', 'schedule', 'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'internships', 'counselor_refs', 'counselor_notes', 'discipline', 'homework', 'exams', 'calendar', 'parent_msgs'],
   guard: ['schools', 'school_years', 'subjects', 'bell_schedules', 'announcements', 'homework', 'exams', 'calendar'],
 };
 readScopeByRole.staff = readScopeByRole.guard;
@@ -162,6 +166,27 @@ try {
   assert.equal(policy.canRead('student', 'counselor_notes') || policy.canRead('student', 'counselor_refs'), false, 'student never reads counselor data');
   matrixChecks += 4;
   console.log('PASS  F21 student discipline: own=1 classmate=0 cloud-classmate=0 counselor=0');
+  /* row 197 (Q12 / F27, F29): parent messages — each side sees only its own threads (local and cloud) */
+  const toMe = { id: 2, student_id: 3, to: 'teacher', teacher_id: 2, kind: 'message' };
+  const toColleague = { id: 3, student_id: 3, to: 'teacher', teacher_id: 9, kind: 'message' };
+  const toSchool = { id: 4, student_id: 3, to: 'school', kind: 'message' };
+  const otherChild = { id: 5, student_id: 77, to: 'school', kind: 'message' };
+  const cloudOf = (sc) => Object.assign({}, sc, { uid: sc.selfId, classIds: [...sc.classIds], studentIds: [...sc.studentIds], cohorts: [] });
+  for (const [mirror, rs, conv] of [['local', policy.rowInScope, (x) => x], ['cloud', scope.rowInScope, cloudOf]]) {
+    assert.equal(rs(conv(scopes.teacher), 'parent_msgs', toMe), true, mirror + ': teacher sees the message to them');
+    assert.equal(rs(conv(scopes.teacher), 'parent_msgs', toColleague), false, mirror + ": teacher must not see a colleague's message");
+    assert.equal(rs(conv(scopes.teacher), 'parent_msgs', toSchool), false, mirror + ': teacher must not see a message to the school');
+    assert.equal(rs(conv(scopes.teacher), 'parent_msgs', rows.parent_msgs), false, mirror + ': teacher must not see a counseling appointment');
+    assert.equal(rs(conv(scopes.counselor), 'parent_msgs', toMe), false, mirror + ': counselor must not see a message to a teacher');
+    assert.equal(rs(conv(scopes.counselor), 'parent_msgs', rows.parent_msgs), true, mirror + ': counselor sees «به مشاور»');
+    assert.equal(rs(conv(scopes.parent), 'parent_msgs', toColleague), true, mirror + ": parent sees every thread of their child");
+    assert.equal(rs(conv(scopes.parent), 'parent_msgs', otherChild), false, mirror + ": parent must not see another child's thread");
+    assert.equal(rs(conv(scopes.parent), 'contributions', { id: 6, student_id: 77 }), false, mirror + ": parent must not see another child's contribution");
+    assert.equal(rs(conv(scopes.parent), 'contributions', { id: 7 }), false, mirror + ': parent must not see a contribution with no child');
+    assert.equal(rs(conv(scopes.teacher), 'contributions', rows.contributions), false, mirror + ': teacher never sees contributions');
+  }
+  assert.equal(policy.canRead('student', 'parent_msgs'), false, 'student never reads parent messages');
+  console.log('PASS  F27/F29 parent_msgs: teacher own=1 colleague=0 school=0; counselor teacher-msg=0; parent other-child=0; contributions other/none=0 (local+cloud)');
   checkUserFields();
   checkNegativeControls();
   console.log(`LEAK-MATRIX-57-OK roles=${roles.length} collections=${collections.length} role_collection_checks=${matrixChecks} field_checks=${fieldChecks} fail=0`);

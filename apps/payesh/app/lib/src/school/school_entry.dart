@@ -6,6 +6,7 @@ import 'package:payesh_ui/payesh_ui.dart';
 import '../accounts/accounts_screen.dart';
 import '../classes/classes_screen.dart';
 import '../counselor/cqueue_screen.dart';
+import '../counselor/family_counsel_screens.dart';
 import '../flags.dart';
 import '../followup/followup_screen.dart';
 import '../finance/finance_screen.dart';
@@ -140,6 +141,39 @@ final List<SchoolPageSpec> schoolPages = [
           CqueueController(source: a.source, role: a.role, uid: a.uid),
       page: (c) => CqueueScreen(
         controller: c as CqueueController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
+  // Row 197 (Q12 / F29): the counselor's desk — every student, a read-only record and notes.
+  SchoolPageSpec(
+    id: 'cstudents',
+    wave: SchoolWave.users,
+    label: 'دانش‌آموزان',
+    icon: Icons.psychology_outlined,
+    roles: const {'counselor'},
+    build: (a) => SchoolOwned(
+      create: () =>
+          CstudentsController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => CstudentsScreen(
+        controller: c as CstudentsController,
+        sync: a.sync,
+        onRetry: a.onRetry,
+      ),
+    ),
+  ),
+  // Row 197 (Q12 / F27): the parents' messages and appointment requests, for the recipient.
+  SchoolPageSpec(
+    id: 'pmsgs',
+    wave: SchoolWave.users,
+    label: 'پیام اولیا',
+    icon: Icons.mark_email_unread_outlined,
+    roles: const {'manager', 'teacher', 'counselor'},
+    build: (a) => SchoolOwned(
+      create: () => PmsgsController(source: a.source, role: a.role, uid: a.uid),
+      page: (c) => PmsgsScreen(
+        controller: c as PmsgsController,
         sync: a.sync,
         onRetry: a.onRetry,
       ),

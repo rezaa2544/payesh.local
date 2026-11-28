@@ -9,8 +9,8 @@
      RL-04  every server guard reads the PERMISSION role (actorFrom, outbox, cloud token)
      RL-05  cloud token of a vice: role=manager, title_role=vice (display kept)
      RL-06  staff/office are known roles: «هیچ» = common pages only; no ticks = the post default (197)
-     RL-07  counselor (p2): only the referred students — attendance/discipline, never grades;
-            writes counselor_refs/notes only, never discipline
+     RL-07  counselor (197 F29, replaces p2): every student read-only — attendance/discipline/
+            grades; staff rows hidden; writes counselor_refs/notes/messages only, never discipline
      RL-08  guard: no role-level writes; the gate by its default area (197)
      RL-09  every assignable role is accepted by user edit, backup and the outbox
      RL-10  owner price policy «deputy» applies to the vice user
@@ -126,21 +126,37 @@ check('RL-06', 'staff and office: known roles; with «هیچ» common pages only
   return 'staff, office (none + default)';
 });
 
-check('RL-07', 'counselor: referred students only, no grades, writes only its queue', () => {
+/* ردیف ۱۹۷ (Q12 / F29) جای تعریفِ p2 را گرفت: مشاور هر دانش‌آموز را جست‌وجو می‌کند و پرونده‌اش
+   (حضور، نمره، کارآموزی، انضباط) را می‌بیند — فقط خواندن؛ کادر، کلاس‌های بی‌دانش‌آموز، حضور کادر
+   و تنظیمات همچنان بسته‌اند و نوشتن همان صف/یادداشت/پیامِ «به مشاور» است. */
+check('RL-07', 'counselor (F29): every student read-only (record incl. grades), staff rows hidden, writes only its queue/notes/messages', async () => {
   const s = policy.buildScope(S0, ROWS.users[4]);
-  assert(s.studentIds.has(3) && !s.studentIds.has(4), 'referred only ' + [...s.studentIds]);
-  assert(policy.rowInScope(s, 'users', { id: 3 }) && !policy.rowInScope(s, 'users', { id: 4 }), 'users');
-  assert(policy.rowInScope(s, 'attendance', { student_id: 3 }), 'attendance pattern');
-  assert(policy.rowInScope(s, 'discipline', { student_id: 3 }), 'discipline');
-  assert(!policy.rowInScope(s, 'grades', { student_id: 3 }), 'grades hidden');
-  assert(!policy.rowInScope(s, 'internships', { student_id: 3 }), 'internships hidden');
-  assert(!policy.canWrite('counselor', 'discipline'), 'no discipline write');
+  assert(s.studentIds.has(3) && s.studentIds.has(4) && s.studentIds.size === 2, 'all students ' + [...s.studentIds]);
+  assert(s.classIds.has(10) && s.classIds.has(11), 'their classes ' + [...s.classIds]);
+  assert(policy.rowInScope(s, 'users', { id: 3 }) && policy.rowInScope(s, 'users', { id: 4 }), 'users');
+  for (const id of [1, 2, 6, 7, 8]) assert(!policy.rowInScope(s, 'users', { id }), 'staff user ' + id + ' hidden');
+  for (const c of ['attendance', 'discipline', 'grades', 'internships']) {
+    assert(policy.rowInScope(s, c, { student_id: 4 }), c + ' of a non-referred student');
+    assert(!policy.rowInScope(s, c, { student_id: 99 }), c + ' of a non-student');
+  }
+  for (const c of ['staff_attendance', 'staff_posts', 'app_settings', 'visitors', 'contributions', 'trustees']) {
+    assert(!policy.rowInScope(s, c, { student_id: 3 }), c + ' hidden');
+  }
+  assert(!policy.canWrite('counselor', 'discipline') && !policy.canWrite('counselor', 'grades') && !policy.canWrite('counselor', 'attendance'), 'record stays read-only');
   assert(policy.canWrite('counselor', 'counselor_refs') && policy.canWrite('counselor', 'counselor_notes'), 'queue writes');
-  const cs = { role: 'counselor', uid: 5, all: false, classIds: [], studentIds: [3], cohorts: [] };
-  assert(!scope.rowInScope(cs, 'grades', { student_id: 3 }) && scope.rowInScope(cs, 'attendance', { student_id: 3 }), 'cloud rows');
+  const g = policy.canWriteRow(S0, ROWS.users[4], 'counselor', 'grades', { student_id: 3, class_id: 10, score: 20 }, null);
+  assert(!g.ok && g.error === 'role_denied', 'grade write ' + JSON.stringify(g));
+  /* cloud mirror: build() asks the tenant for every student */
+  /* one union query (users role=student ∪ counselor_refs) — the shape the database returns */
+  const q = async (sql) => /'student'/.test(sql) && /counselor_refs/.test(sql)
+    ? { rows: [{ student_id: 3, class_id: 10 }, { student_id: 4, class_id: 11 }, { student_id: 3, class_id: null }] } : { rows: [] };
+  const cs = await scope.build({ query: q }, { role: 'counselor', uid: 5 });
+  assert(cs.studentIds.slice().sort().join() === '3,4' && cs.classIds.slice().sort().join() === '10,11', 'cloud scope ' + JSON.stringify(cs));
+  assert(scope.rowInScope(cs, 'grades', { student_id: 4 }) && scope.rowInScope(cs, 'attendance', { student_id: 4 }), 'cloud rows');
+  assert(!scope.rowInScope(cs, 'grades', { student_id: 99 }) && !scope.rowInScope(cs, 'users', { id: 6 }), 'cloud outside');
   const sql = scope.sqlPredicate(cs).sql;
-  assert(!/'grades'/.test(sql) && /'attendance'/.test(sql), 'cloud SQL ' + sql.slice(0, 120));
-  return 'students [3]';
+  assert(/'grades'/.test(sql) && /'attendance'/.test(sql) && !/'staff_attendance'/.test(sql), 'cloud SQL ' + sql.slice(0, 160));
+  return 'students [3,4] (refs ∪ all), grades visible, writes queue/notes only';
 });
 
 check('RL-08', 'guard: no role-level writes; the gate only through its default area', () => {

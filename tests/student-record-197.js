@@ -5,7 +5,7 @@
 
      R01  local server: exams manager-only (teacher/student role_denied); everyone reads them
      R02  local server + cloud scope: a student reads ONLY their own discipline notes
-          (classmate's note never shipped); a counselor still never
+          (classmate's note never shipped); the counselor (F29) reads every note
      R03  web manager: «افزودن امتحان» writes the exams row (tomorrow by default, whole school);
           NEG no subject/title refused; «حذف» removes it; both acts are manager-only in authz
      R04  web student home: open homework, own class/cohort/school exams, the latest discipline;
@@ -80,10 +80,10 @@ check('R02', 'a student reads only their own discipline notes', () => {
   assert(mine.length === 1 && Number(mine[0].student_id) === s1.id, 'student pull ' + J(mine));
   const theirs = (sync.pull(st, actor(s2.id), { collections: 'discipline' }).collections.discipline || []);
   assert(theirs.length === 1 && Number(theirs[0].student_id) === s2.id, 'classmate pull ' + J(theirs));
-  /* NEG: the counselor still gets none (row 197 F19 decision unchanged) */
+  /* row 197 F29: the counselor reads every student's record (discipline included) — read-only */
   const c = sync.pull(st, actor(counselor.id), { collections: 'discipline' }).collections.discipline || [];
-  assert(!c.length, 'counselor pull ' + J(c));
-  return 'cloud own/classmate true/false; local pull 1/1; counselor 0';
+  assert(c.length === 2, 'counselor pull ' + J(c));
+  return 'cloud own/classmate true/false; local pull 1/1; counselor (F29) 2';
 });
 
 function web(role, user, extra) {
@@ -193,7 +193,9 @@ check('R06', 'Dart twin', () => {
   for (const c of ['not_allowed', 'bad_date', 'text_required', 'text_too_long']) assert(ex.includes(`'${c}'`), 'Dart ' + c);
   assert(/internal\('داخلی'\)/.test(ex) && /national\('نهایی'\)/.test(ex), 'Dart kinds');
   const rec = fs.readFileSync(path.join(ROOT, 'apps/payesh/packages/payesh_sync/lib/src/records.dart'), 'utf8');
-  assert(/'exams',\s*\];/.test(rec), 'exams id slot');
+  /* ردیف ۱۹۷ (F27/F29): parent_msgs و counselor_notes پس از exams آمدند — exams همچنان در idSlots */
+  const slots = (rec.match(/idSlots = \[([\s\S]*?)\];/) || [])[1] || '';
+  assert(/'exams',/.test(slots), 'exams id slot');
   assert(/'discipline': CollectionRule\([\s\S]*?'student'\}/.test(rec), 'Dart student reads discipline');
   const ui = fs.readFileSync(path.join(ROOT, 'apps/payesh/app/lib/src/users/users_screen.dart'), 'utf8');
   for (const k of ['rec-average', 'rec-report-card', 'rec-discipline', 'home-discipline']) assert(ui.includes(`'${k}'`), 'Dart key ' + k);
