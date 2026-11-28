@@ -1,6 +1,6 @@
 {
   "version": "0.9.83",
-  "built_at": "2026-11-28T15:15:01.686Z",
+  "built_at": "2026-11-28T15:22:12.227Z",
   "notes": [
     "صفحهٔ «کاربران» در مدرسه‌های پرجمعیت سریع شد: بازشدن فهرست کاربران و جستجو دیگر معطل نمی‌کند و برنامه هنگام کار با فهرست بزرگ مکث ندارد. رمزهای کاربران هم فقط وقتی پنجرهٔ «کاربری» کسی را باز می‌کنید از سرور خوانده می‌شوند، نه با هر ورود به صفحهٔ کاربران."
   ],
@@ -23,8 +23,8 @@
     {
       "path": "client/cloud-baked.js",
       "kind": "client",
-      "sha256": "7ae3eb1efbd445bf9d74e7755db5c670701e043fb4b2b6985054a44f87cd9b80",
-      "size": 611
+      "sha256": "3d624b4dd843aea06c768523ab5b39862a23c48efcfd3785d7f70b4ba2939e26",
+      "size": 599
     },
     {
       "path": "client/diag.js",
@@ -101,14 +101,14 @@
     {
       "path": "client/lib/hash.js",
       "kind": "client",
-      "sha256": "df3a41caaf19e400b7979c7d93380dbb12a8763bcd86c5e421010391381de5c0",
-      "size": 6277
+      "sha256": "5b7c5a70d25f50876074f13a7a9b3eda5b7daac2464eb17459edce3747dde645",
+      "size": 6150
     },
     {
       "path": "client/lib/phone.js",
       "kind": "client",
-      "sha256": "70b3f5493e156c51a123d2d3e5bf43fbeca7fe01fd12512bcd7b6449704dc308",
-      "size": 24790
+      "sha256": "8241a807da5ca3ca4b70c79ca9eef197b0daa93c45d3d49fb1383744a6be9407",
+      "size": 24200
     },
     {
       "path": "client/lib/s3mini.js",
@@ -119,8 +119,8 @@
     {
       "path": "client/lib/sigv4.js",
       "kind": "client",
-      "sha256": "40ae6de88a9f7c5004012fbe9651821fd3ca9881611b37d02bd63816c0bfcaf9",
-      "size": 11692
+      "sha256": "29379ac85eefa3fc14d0c4461ec7ff39c0d68e4e499a432ee4b94bf948292551",
+      "size": 11468
     },
     {
       "path": "client/lib/xlsx.js",
@@ -161,14 +161,14 @@
     {
       "path": "client/pulse.js",
       "kind": "client",
-      "sha256": "4864cf6bb999761bd50db303cdd266c5a8e178e3e6cbca8d775fadd760af432d",
-      "size": 16492
+      "sha256": "11b6c5cdbb4e58df14dd4d16419ce8886f351162f12184dcecc03eb77389d363",
+      "size": 16116
     },
     {
       "path": "client/scan.js",
       "kind": "client",
-      "sha256": "159ce759777df85347c2c246fa0abcf34278ae595ee7f544df524268f016b600",
-      "size": 12005
+      "sha256": "df61043a4da903383229b37e812ab54eef79ebf4b11998bf5964ed2eb7fae5e3",
+      "size": 11761
     },
     {
       "path": "client/schedule.js",
@@ -197,8 +197,8 @@
     {
       "path": "client/sync-schedule.js",
       "kind": "client",
-      "sha256": "de6b90f4616c91bc557c8bf7da272a221dbe6d56c7bf63d0786bf505506c3e5c",
-      "size": 4588
+      "sha256": "6f2818a5c2c6c3a50c8b4091317551a1c950d23a1565265ab5418641847a7c7a",
+      "size": 4505
     },
     {
       "path": "client/telemetry.js",
@@ -215,8 +215,8 @@
     {
       "path": "install.bat",
       "kind": "server",
-      "sha256": "f084c218755dd35d35413d1274519d362904c29b2b7975c272513ccca5ec14df",
-      "size": 419
+      "sha256": "e7bff8e3fda9a280ced1550fe52d5cb404a3aa9472added6b0825f6d864f2799",
+      "size": 409
     },
     {
       "path": "package.json",
@@ -233,8 +233,8 @@
     {
       "path": "server/alerts.js",
       "kind": "server",
-      "sha256": "140e0702220aa4ce07b929a2333e54c3f57d2454ea695ae95b8945c97500b5f8",
-      "size": 7620
+      "sha256": "bae9be2e87df3ab6c7d6240ca4701bc786db32a178628645ec0901c876ba7016",
+      "size": 7485
     },
     {
       "path": "server/api-version.js",
@@ -245,8 +245,8 @@
     {
       "path": "server/archive.js",
       "kind": "server",
-      "sha256": "41a40f9adc4dfb79230c881e38adbd47d05a122cdb8d15a0c545b445b13611dc",
-      "size": 13859
+      "sha256": "f1d33a03674c23a7d4ca9fe3a7b1a6c2871e988f5da021b8024112a02372b405",
+      "size": 13576
     },
     {
       "path": "server/auth.js",
@@ -431,8 +431,8 @@
     {
       "path": "server/pitr.js",
       "kind": "server",
-      "sha256": "5f4f19ff387d010e4bbdf5c47974abd94ca93dcc78e8c735a006371ae8e560ba",
-      "size": 8904
+      "sha256": "f775f0792434145dd336a6bc54b08286b8b0a7fbdac0333bf290b4da01c071e7",
+      "size": 8691
     },
     {
       "path": "server/policy.js",
@@ -455,8 +455,8 @@
     {
       "path": "server/qr.js",
       "kind": "server",
-      "sha256": "56c540d3e57d7abdbd7412fc9927211cb82ebec58eaa9a75503c8cd240d2e04a",
-      "size": 13718
+      "sha256": "5a3540a4e33af3acf3261a5a66c9d4547521203b7f71cedf45d91300268f6a65",
+      "size": 13353
     },
     {
       "path": "server/quick-tunnel.js",
@@ -473,8 +473,8 @@
     {
       "path": "server/replica-policy.js",
       "kind": "server",
-      "sha256": "8e3d2f4ce292a6690b13dc6408444f59e08f72e0b2f41366fd3cd60a61566f0d",
-      "size": 5198
+      "sha256": "9fe4502090fc7030282af36d6d16a691b69a04017f8c1d1794d0bae383609122",
+      "size": 5119
     },
     {
       "path": "server/s3-https.js",
@@ -527,8 +527,8 @@
     {
       "path": "server/seed.js",
       "kind": "server",
-      "sha256": "192c269ee1ae0a93695b53fe4f3e2798d80bff48fa24ae0196c2ca8b9e487986",
-      "size": 13426
+      "sha256": "1a0f7c07a032f33d140e344b33e4e4dd9ea9f60460b9de06bd0d0961a53eed97",
+      "size": 13166
     },
     {
       "path": "server/slo.js",
@@ -545,8 +545,8 @@
     {
       "path": "server/start.js",
       "kind": "server",
-      "sha256": "1d45c35070fe7e3757b059cfb55d3a1e5dde94579c5af6711435a8eb095dcbf1",
-      "size": 6939
+      "sha256": "ff18a82ec7fbeac0b863768d10b09ba40de0d08ea383a57ea97b7ad32f91d9a7",
+      "size": 6781
     },
     {
       "path": "server/structure-repair.js",
@@ -575,14 +575,14 @@
     {
       "path": "server/tenant-context.js",
       "kind": "server",
-      "sha256": "7cad87b2b7c0c215d4d52795bb314995148e024f2440e95231bad57194d9876b",
-      "size": 4070
+      "sha256": "b256e4744cb92daea75c2bf6a63188226d2553c7e4f3d85f36ebd9cecf545ea0",
+      "size": 4006
     },
     {
       "path": "server/transfer.js",
       "kind": "server",
-      "sha256": "912c49bb282917355627da73e2850bb2c88ae7b86f5e531d34c894ea28418d67",
-      "size": 8820
+      "sha256": "89587f0a950b42ec2427e565560ba018cb5350b3616d689a204dc1aebc21ea1a",
+      "size": 8650
     },
     {
       "path": "server/tunnel.js",
@@ -599,20 +599,20 @@
     {
       "path": "server/update.js",
       "kind": "server",
-      "sha256": "4dbc1719bd12b523ed96b6d712194a01facf9d54697662f9860a34f9ef489423",
-      "size": 33355
+      "sha256": "73c34f6606060059ad998fcb714c8d27e7f55290b7012c0f3ebfb94b48a78b45",
+      "size": 32724
     },
     {
       "path": "server/util.js",
       "kind": "server",
-      "sha256": "c1f95c048a5a302a57931ecce0e151b2b35817444125cdcfb829a105cde353b7",
-      "size": 4346
+      "sha256": "1eabdea403cafa34baa9758bebbdbe349a6be0c4ae45db1d2abb91c819224ac8",
+      "size": 4254
     },
     {
       "path": "start.bat",
       "kind": "server",
-      "sha256": "9c008099dd74bd4fc6de56d45d767192753712a490d9a17ea481e6b8f42c8129",
-      "size": 302
+      "sha256": "104c83f90f839e39f904e4bfe135caad385c7c82bb3d43c64bf46abf13e53a7f",
+      "size": 292
     },
     {
       "path": "start.sh",
@@ -623,15 +623,15 @@
     {
       "path": "uninstall.bat",
       "kind": "server",
-      "sha256": "e9497c89c7076c60c21207bfed68ed915f44604aec24b451e26e1f862fcdf99c",
-      "size": 155
+      "sha256": "2c421ee99ad515ed535fd346758883535d9a49b20058194001fd035bb775ded0",
+      "size": 151
     }
   ],
   "counts": {
     "client": 34,
     "server": 69
   },
-  "client_size": 1662060,
-  "server_size": 1138017,
-  "total_size": 2800077
+  "client_size": 1660404,
+  "server_size": 1135543,
+  "total_size": 2795947
 }
