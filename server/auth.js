@@ -127,10 +127,11 @@ function createDevice(store, userId, opts = {}) {
   const deviceId = randomId(12);
   const pk = opts.pubkey && opts.pubkey.ok && !opts.pubkey.none ? opts.pubkey : null;
   store.db.prepare(
-    `INSERT INTO devices(id,user_id,name,platform,pin_hash,created_at,last_seen_at,pubkey,pubkey_alg)
-     VALUES(?,?,?,?,?,?,?,?,?)`
+    `INSERT INTO devices(id,user_id,name,platform,pin_hash,created_at,last_seen_at,pubkey,pubkey_alg,via)
+     VALUES(?,?,?,?,?,?,?,?,?,?)`
   ).run(deviceId, Number(userId), String(opts.name || 'دستگاه').slice(0, 60),
-    String(opts.platform || 'web').slice(0, 20), '', nowISO(), nowISO(), pk ? pk.spki : null, pk ? pk.alg : null);
+    String(opts.platform || 'web').slice(0, 20), '', nowISO(), nowISO(), pk ? pk.spki : null, pk ? pk.alg : null,
+    opts.via ? String(opts.via).slice(0, 12) : null);
   /* ردیف ۶۵: توکن دستگاه = refresh token نسل ۱؛ فقط هش آن ذخیره می‌شود */
   const deviceToken = identity.issueToken(store, deviceId, 1);
   identity.audit(store, { id: deviceId, user_id: userId }, 'device_login',
@@ -215,8 +216,10 @@ function refreshWithDevice(store, input = {}) {
   }
   try { store.db.prepare('UPDATE devices SET last_seen_at=? WHERE id=?').run(nowISO(), device.id); } catch (e) { /* noop */ }
   const session = createSession(store, user.id, device.id);
-  return withMustChange({ ok: true, user: publicUser(user), session, device_token: rot.device_token, device_id: device.id,
-    rotated: rot.rotated, generation: rot.generation, auth: 'device' }, user);
+  const out = { ok: true, user: publicUser(user), session, device_token: rot.device_token, device_id: device.id,
+    rotated: rot.rotated, generation: rot.generation, auth: 'device' };
+  /* ردیف ۱۹۷ (F16): فقط دستگاهی که با «رمز عبور» وارد شده؛ کارت پیوند/انتقال/دستگاه قدیمی بی‌اجبار */
+  return device.via === 'login' ? withMustChange(out, user) : out;
 }
 
 /* ── ورود با شمارهٔ همراه و رمز عبور ──────────────────────────────── */

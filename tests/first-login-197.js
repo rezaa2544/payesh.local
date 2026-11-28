@@ -72,6 +72,25 @@ check('F02', 'change: not the national id, not the same; afterwards no must_chan
   return 'password_is_default, password_unchanged, then clean';
 });
 
+check('F03b', 'NEG: a device paired with the manager\'s card (no password typed) is not forced on refresh', () => {
+  const s2 = st.insert('users', auth.applyDefaultCredentials({ name: 'دانش‌آموز', role: 'student', phone: '09121970077', national_id: '1970000777', active: true }, st));
+  assert(auth.mustChangePassword(st.get('users', s2.id)) === true, 'still the first password');
+  const pc = auth.createPairCode(st, s2.id, teacher.id);
+  assert(pc.ok && pc.code, 'pair code ' + J(pc));
+  const dev = auth.pair(st, { code: pc.code, name: 'گوشی', platform: 'android' });
+  assert(dev.ok, 'paired ' + J(dev));
+  const rf = auth.refreshWithDevice(st, { device_token: dev.device_token });
+  assert(rf.ok && !rf.must_change, 'pair refresh ' + J(rf));
+  // a device from before this release (no «via») is not forced either
+  const login1 = auth.login(st, { phone: '09121970077', password: '1970000777', platform: 'web', name: 'old' });
+  st.db.prepare('UPDATE devices SET via=NULL WHERE id=?').run(login1.device_id);
+  const rl = auth.refreshWithDevice(st, { device_token: login1.device_token });
+  assert(rl.ok && !rl.must_change, 'legacy device ' + J(rl));
+  const typed = auth.login(st, { phone: '09121970077', password: '1970000777', platform: 'web', name: 't' });
+  assert(typed.ok && typed.must_change === true, 'a password login still is ' + J(typed));
+  return 'pair / legacy refresh not forced; password login forced';
+});
+
 check('F03', 'NEG: manager-set or national-id-less passwords are not forced', () => {
   const m = st.insert('users', { name: 'مدیر', role: 'manager', phone: '09121970099', national_id: '1970000996', active: true });
   auth.setPassword(st, m.id, 'Owner-77');

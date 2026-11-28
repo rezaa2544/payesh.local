@@ -41,6 +41,9 @@ const ADDED_COLUMNS = [
   ['devices', 'pubkey_alg', 'TEXT'],
   ['devices', 'proof_ts', 'INTEGER'],
   ['devices', 'revoke_reason', 'TEXT'],
+  /* ردیف ۱۹۷ (F16): دستگاه از چه راهی ساخته شد (login/otp/pair/transfer) — اجبار تغییر رمزِ
+     اولیه هنگام تازه‌سازی فقط برای دستگاهی که با رمز عبور وارد شده */
+  ['devices', 'via', 'TEXT'],
 ];
 
 class Store {
