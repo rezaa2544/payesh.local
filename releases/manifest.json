@@ -1,28 +1,27 @@
 {
-  "version": "0.9.73",
-  "built_at": "2026-11-27T23:36:33.565Z",
+  "version": "0.9.74",
+  "built_at": "2026-11-28T01:38:14.484Z",
   "notes": [
-    "شمار دانش‌آموزان هر پایه و رشته درست شد و همه‌جا یکی است: «پایه دهم»، «۱۰» و «دهم» یک پایه شمرده می‌شوند، پایه و رشتهٔ دانش‌آموزی که در یک گروه است از همان گروه خوانده می‌شود، و دانش‌آموزِ غیرفعال در هیچ شماری نمی‌آید. دانش‌آموزانی که پایه یا رشته‌شان خالی یا ناشناخته است زیر «بدون پایه» / «بدون رشته» با شمارشان دیده و همان‌جا درست می‌شوند، تا جمع هر ستون با شمار کل دانش‌آموزان برابر باشد. کارت خانه، گزارش‌ها، فیلتر پایهٔ کاربران و آمار «سیستم» همین قاعده را دارند و با هر تغییر فوراً به‌روز می‌شوند.",
-    "با باز کردن یک رشته یا پایه، دانش‌آموزانش در یک فهرست مرتب با جزئیات (پایه، رشته، کد ملی، همراه) می‌آیند و بالای فهرست فیلتر پایه‌ها (برای رشته) یا رشته‌ها (برای پایه) با شمار هر کدام هست؛ با زدن نام هر دانش‌آموز فرم ویرایشش باز می‌شود.",
-    "هنرستان و دبیرستان (رشته‌محور) دیگر «کلاس» ندارند — همه‌جا «پایه» و «رشته» نوشته می‌شود و «کلاس» فقط برای محل برگزاری است: عنوان صفحهٔ «پایه‌ها، رشته‌ها و محل برگزاری»، جزئیات رشته («پایه: ۳» به‌جای «کلاس: ۳»)، فرم کاربر (بدون جعبهٔ کلاس)، حضور و غیاب، نمره، گزارش‌ها، برنامهٔ هفتگی، ورود از اکسل، پیگیری، سلامت داده‌ها و آمار سیستم. مدرسهٔ کلاس‌محور (ابتدایی و متوسطه اول) مثل قبل با کلاس کار می‌کند.",
-    "حذف یک پایه یا رشته در مدرسهٔ رشته‌محور همهٔ دانش‌آموزانی را که زیر آن شمرده می‌شوند در نظر می‌گیرد (نه فقط دانش‌آموزانِ یک کلاس)؛ حذف یک گروهِ پایه و رشته دانش‌آموزانش را با همان پایه و رشته نگه می‌دارد و بی‌دلیل به «پیگیری» نمی‌فرستد.",
-    "ردیف ۲۰۴: sameGrade/sameBranch/gradeKey/rosterStudent/studentGradeOf/studentBranchOf؛ ClassesView.noGrade/noBranch و LookupRow.others؛ LookupDetail.students=List<LookupStudent> و unassignedDetail؛ ClassDetail.members؛ Dashboard.fieldBased/cohorts؛ SchoolStructure.from و engineFieldBased؛ DataHealth.fieldCheck؛ _matcher/_studentsOf در lookupUsage/deleteLookup؛ deleteClass رشته‌محور؛ ImportResult.fieldBased؛ اپ: schoolFieldBased/classesPageLabel، LookupStudents (def-filter، def-students-table)، UnassignedPage؛ وب: gradeKey/stuPlace/isFieldSchoolNow و unassignedHtml؛ impGradeLevel بلندترین واژه اول. آزمون‌ها: counts_204، row204."
+    "دانش‌آموزی که پایه و رشته‌اش را در «پیگیری» درست کرده بودید (مثل دانش‌آموز رشتهٔ حذف‌شدهٔ «حسابداری» که پایهٔ دوازدهم و رشتهٔ الکتروتکنیک گرفت) دیگر دوباره به «دانش‌آموزانی که پایه/رشته‌شان کامل نیست» برنمی‌گردد. ذخیره درست انجام می‌شد، ولی دلیل قدیمی پیگیری روی سرور مدرسه می‌ماند و با همگام‌سازی بعدی برمی‌گشت. حالا دلیل همان لحظه پاک می‌شود، سرور مدرسه دلیل کهنه‌ای را که از نسخه‌های قدیمی برنامه بماند خودش پاک می‌کند، و دانش‌آموزی که پایه و رشتهٔ درست دارد با دلیل کهنه دیگر در فهرست نمی‌آید.",
+    "«ثبت موقت در لیست» حالا روی خود هر ردیف «پیگیری» هم هست، کنار «✏️ اصلاح» و «حذف»؛ با تیک «انتخاب همه» (یا تیک چند ردیف) و دکمهٔ «ثبت موقت انتخاب‌شده‌ها» همه یک‌جا با همان اطلاعات درستشان در فهرست کاربران و پایه/رشته‌شان ثبت می‌شوند و هر ردیف با نشان «ثبت موقت» برای تکمیل در پیگیری می‌ماند. ردیفی که همان شخص در سامانه هست هرگز تکراری ساخته نمی‌شود.",
+    "پنل وب مدرسه: همان «ثبت موقت در لیست» روی هر ردیف و دسته‌ای با «انتخاب همه»؛ «اصلاح» روی ردیفِ ثبت‌موقت‌شده همان کاربر را ویرایش می‌کند. دلیل پیگیری پس از انتخاب پایه/رشته پاک می‌شود و دیگر برنمی‌گردد.",
+    "ردیف ۲۰۵: followup_reason همه‌جا با '' پاک می‌شود نه با حذف کلید (Followup.assign، ClassBook، DataHealth، وب app/diag)؛ server/sync.js دلیل کهنه را در put بی‌کلید که پایه/رشته/کلاس را عوض می‌کند پاک می‌کند (LAN update ادغامی بود)؛ reasonOf/followupStudentReason دلیل ساختاری کهنه را با پایه ≥۱۰ و رشتهٔ تعریف‌شده نادیده می‌گیرند؛ FollowupController.tempRegister و کلیدهای fu-issue-temp-btn/fu-issue-pick/fu-issues-all/fu-issues-temp؛ وب issueTempRegister/importIssueCanTemp و issue-temp/issues-temp. شبیه‌سازی Docker سرور کمکی: tools/sim/helper-205 و docs/cloud/reports/HELPER-SIM-205-REPORT.md. آزمون‌ها: followup_205، row205، W205-IT-01، W205."
   ],
   "shell": {
-    "android": "0.9.73"
+    "android": "0.9.74"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "bcf76446454effd38b278404d568e030fc8eabc41bdf72ce2b3013c6c380cc28",
-      "size": 244696
+      "sha256": "9173a1fc01c1e95bcea1d826d915c14df54c91d74eebe57171b33005bd3d8684",
+      "size": 253399
     },
     {
       "path": "client/authz.js",
       "kind": "client",
-      "sha256": "5a21f7746ec6dd909b91c3919fa65cbc6a64fc1d7ac26c188bae0deaeec4c293",
-      "size": 8848
+      "sha256": "1e7e4beab32d607f59684f7d7c1df82e4f1e055907a1776dd938b62aa8592fb8",
+      "size": 8871
     },
     {
       "path": "client/cloud-baked.js",
@@ -33,8 +32,8 @@
     {
       "path": "client/diag.js",
       "kind": "client",
-      "sha256": "f74461a0a4dfed6358244f8eb85d9403ce5ee9179047e130c93691c2f7c1f19d",
-      "size": 35176
+      "sha256": "dd6bc267e7cc81a2514e5b58b647fdfa399fa9c41a55f64605b1ad2d41c25c58",
+      "size": 35256
     },
     {
       "path": "client/engine-web.js",
@@ -147,8 +146,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "f131f0ec1a1b5be6b517aedbe40195d97584f270ea3a28ae6e145e0debc6e609",
-      "size": 209254
+      "sha256": "58a689092570b699b3890c5262498ba349d941b2d9a605c38369304e942fbd46",
+      "size": 212877
     },
     {
       "path": "client/provider-postgrest.js",
@@ -225,7 +224,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "de37cb0670dae7b53a6b0a591d637ec6f8198a8690f5f938245cc0620dcea4a5",
+      "sha256": "7fe4f0f7b2e057a40ce06cda2922b5c268ced51785b987e47ce31feab3c61753",
       "size": 8172
     },
     {
@@ -543,8 +542,8 @@
     {
       "path": "server/sync.js",
       "kind": "server",
-      "sha256": "6a3773db4d82dd94b87ec7f13aa813f4d2afa19af5fd08c2da0241af225c6868",
-      "size": 23250
+      "sha256": "dcbdd1c0a12de1cca11d08644071452b591c84e49e0712ba6965f9e2b5a0f3f5",
+      "size": 24080
     },
     {
       "path": "server/tenancy.js",
@@ -611,7 +610,7 @@
     "client": 34,
     "server": 65
   },
-  "client_size": 1605202,
-  "server_size": 1082379,
-  "total_size": 2687581
+  "client_size": 1617631,
+  "server_size": 1083209,
+  "total_size": 2700840
 }
