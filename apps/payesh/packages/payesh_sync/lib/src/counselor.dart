@@ -7,6 +7,7 @@
 import 'package:payesh_data/payesh_data.dart';
 
 import 'classes.dart' show rosterStudent;
+import 'class_notes.dart' show ClassNotes;
 import 'records.dart';
 
 /// One row of `counselor_refs` with what the queue shows about the student.
@@ -48,8 +49,9 @@ final class CounselorQueue {
   static const String refs = 'counselor_refs';
 
   /// The manager refers; the counselor handles (server/policy.js `counselor_refs`).
-  bool get canRefer => db.role == 'manager';
-  bool get canHandle => db.canWrite(refs);
+  /// Row 197 (Q12 / F19): the teacher refers their own students too (server/policy.js).
+  bool get canRefer => db.role == 'manager' || db.role == 'teacher';
+  bool get canHandle => db.role == 'manager' || db.role == 'counselor';
 
   /// Open referrals first, then the newest.
   Future<List<CounselorRef>> list() async {
@@ -93,10 +95,17 @@ final class CounselorQueue {
     return out;
   }
 
-  /// Active students the manager can refer, by name.
+  /// Active students this user can refer, by name — every student for the manager, only
+  /// the students of the teacher's own classes for a teacher (server `out_of_scope`).
   Future<List<EngineRow>> students() async {
     final all = await db.allOrEmpty('users');
-    final s = all.where((u) => rosterStudent(u.data)).toList();
+    final Set<int>? mine = db.role == 'teacher'
+        ? (await ClassNotes(db).myClasses()).map((c) => c.id).toSet()
+        : null;
+    final s = all
+        .where((u) => rosterStudent(u.data))
+        .where((u) => mine == null || mine.contains(_cid(u.data['class_id'])))
+        .toList();
     s.sort(
       (a, b) =>
           SchoolRecords.str(a.data['name'])
@@ -114,6 +123,14 @@ final class CounselorQueue {
       throw RecordFailure(
         'not_allowed',
         'این کار برای نقش شما مجاز نیست',
+        refs,
+      );
+    }
+    if (db.role == 'teacher' &&
+        !(await students()).any((u) => u.id == studentId)) {
+      throw RecordFailure(
+        'out_of_scope',
+        'این دانش‌آموز در کلاس‌های شما نیست',
         refs,
       );
     }
@@ -140,3 +157,6 @@ final class CounselorQueue {
     return RecordWrite('ارجاع پیگیری شد', id: ref.id, keys: [k]);
   }
 }
+
+int? _cid(Object? v) =>
+    v is int ? v : (v is num ? v.toInt() : int.tryParse('${v ?? ''}'));

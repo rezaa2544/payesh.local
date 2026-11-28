@@ -25,7 +25,7 @@ const BIG = (col) => `(case when r.data->>'${col}' ~ '^[0-9]{1,18}$' then (r.dat
 
 /* کالکشن‌هایی که در سیاست «همه می‌خوانند» هستند و در اسکوپ هیچ محدودیتی ندارند */
 const OPEN_COLLECTIONS = [
-  'schools', 'school_years', 'subjects', 'bell_schedules', 'announcements',
+  'schools', 'school_years', 'subjects', 'bell_schedules',
   'calendar', 'exams', 'homework',
 ];
 const STUDENT_COLLECTIONS = ['attendance', 'grades', 'internships', 'discipline'];
@@ -172,7 +172,10 @@ function rowInScope(scope, collection, row) {
       return has(scope.classIds, row && row.id);
     case 'substitutions':
       return data.class_id == null || has(scope.classIds, data.class_id);
+    /* ردیف ۱۹۷ (F19): دبیر فقط ارجاع‌های خودش؛ یادداشت مشاوره فقط مشاور */
     case 'counselor_refs':
+      if (scope.role === 'teacher') return data.referred_by != null && Number(data.referred_by) === uid;
+      return scope.role === 'counselor';
     case 'counselor_notes':
       return scope.role === 'counselor';
     case 'staff_attendance':
@@ -186,8 +189,11 @@ function rowInScope(scope, collection, row) {
     case 'contributions':
     case 'trustees':
       return false;
-    case 'subjects':
+    /* ردیف ۱۹۷ (F19): اطلاعیهٔ کلاس فقط برای همان کلاس و نویسنده (مدیر all) */
     case 'announcements':
+      if (data.class_id == null || data.class_id === '') return true;
+      return has(scope.classIds, data.class_id) || (data.author_id != null && Number(data.author_id) === uid);
+    case 'subjects':
     case 'calendar':
     case 'exams':
     case 'homework':
@@ -243,6 +249,33 @@ function canWriteRow(scope, collection, row, existing) {
   }
   if (!canWriteCollection(scope, collection)) return { ok: false, error: 'role_denied' };
   if (scope.role === 'teacher') {
+    const has = (arr, v) => v != null && arr.includes(Number(v));
+    /* ردیف ۱۹۷ (Q12 / F19): تکلیف، اطلاعیهٔ کلاس و انضباط — شکل ردیف (آینهٔ policy.classNoteIssue) */
+    if ((collection === 'homework' || collection === 'announcements' || collection === 'discipline') && row && row !== existing) {
+      const ni = policy.classNoteIssue(collection, row);
+      if (ni) return { ok: false, error: ni };
+    }
+    /* این دو کالکشن را همه می‌خوانند؛ نوشتنِ دبیر فقط برای کلاس خودش (اطلاعیهٔ کل مدرسه فقط مدیر) */
+    if (collection === 'homework' || collection === 'announcements') {
+      /* اطلاعیهٔ کل مدرسه (بی‌کلاس) مالِ مدیر است — ساختن، ویرایش و حذفش برای دبیر role_denied */
+      if (collection === 'announcements' && ((row || {}).class_id == null || (existing && existing.class_id == null))) return { ok: false, error: 'role_denied' };
+      if (!has(scope.classIds, (row || existing || {}).class_id)) return { ok: false, error: 'out_of_scope' };
+      if (existing && !has(scope.classIds, existing.class_id)) return { ok: false, error: 'out_of_scope' };
+      if (existing && existing.author_id != null && Number(existing.author_id) !== scope.uid) return { ok: false, error: 'not_author' };
+      /* آینهٔ policy: سرور مدرسه author_id را مُهر می‌کند؛ ابر نویسندهٔ دیگری را نمی‌پذیرد */
+      if (row && row !== existing && Number(row.author_id) !== scope.uid) return { ok: false, error: 'not_author' };
+      return { ok: true };
+    }
+    /* ارجاع به مشاور: فقط دانش‌آموزِ خودش، فقط «باز» */
+    if (collection === 'counselor_refs') {
+      const r = row || existing || {};
+      if (!has(scope.studentIds, r.student_id)) return { ok: false, error: 'out_of_scope' };
+      if (existing && Number(existing.referred_by) !== scope.uid) return { ok: false, error: 'not_author' };
+      if (row && row !== existing && row.status != null && String(row.status) !== 'open') return { ok: false, error: 'approval_denied' };
+      if (row && row !== existing && !String(row.reason || '').trim()) return { ok: false, error: 'reason_required' };
+      if (row && row !== existing && Number(row.referred_by) !== scope.uid) return { ok: false, error: 'not_author' };
+      return { ok: true };
+    }
     if (!rowInScope(scope, collection, row) && !rowInScope(scope, collection, existing || {})) {
       return { ok: false, error: 'out_of_scope' };
     }
@@ -328,9 +361,15 @@ function sqlPredicate(scope, startIndex = 1) {
   if (readable.includes('substitutions')) {
     pieces.push(`(r.collection = 'substitutions' and (${BIG('class_id')} is null or ${BIG('class_id')} = any(${ph(scope.classIds)}::bigint[])))`);
   }
+  if (readable.includes('announcements')) {
+    pieces.push(`(r.collection = 'announcements' and (coalesce(r.data->>'class_id', '') = '' or ${BIG('class_id')} = any(${ph(scope.classIds)}::bigint[]) or ${BIG('author_id')} = ${ph(scope.uid)}))`);
+  }
   if (readable.includes('counselor_refs') || readable.includes('counselor_notes')) {
     const cols = ['counselor_refs', 'counselor_notes'].filter(c => readable.includes(c));
     pieces.push(`(r.collection in (${cols.map(c => `'${c}'`).join(',')}) and ${role === 'counselor' ? 'true' : 'false'})`);
+    if (role === 'teacher' && cols.includes('counselor_refs')) {
+      pieces.push(`(r.collection = 'counselor_refs' and ${BIG('referred_by')} = ${ph(scope.uid)})`);
+    }
   }
 
   return { sql: pieces.length ? '(' + pieces.join(' or ') + ')' : 'false', params };

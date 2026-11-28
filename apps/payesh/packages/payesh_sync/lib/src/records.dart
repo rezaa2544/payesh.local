@@ -103,15 +103,18 @@ final class SchoolRecords {
     'substitutions': CollectionRule({'manager'}),
     'attendance': CollectionRule({'manager', 'teacher'}),
     'grades': CollectionRule({'manager', 'teacher'}),
-    'announcements': CollectionRule({'manager'}),
+    // Row 197 (F19): a teacher for their own classes (server/policy.js canWriteRow).
+    'announcements': CollectionRule({'manager', 'teacher'}),
     'leaves': CollectionRule({'manager', 'teacher', 'parent', 'student'}),
     'parent_links': CollectionRule({'manager'}, {'manager', 'parent'}),
     'internships': CollectionRule({'manager', 'teacher'}),
     'staff_attendance': CollectionRule({'manager'}, {'manager'}),
     'staff_posts': CollectionRule({'manager'}, {'manager', 'teacher'}),
+    // Row 197 (F19): a teacher refers their own students (writes «open» rows only) and
+    // reads back only their own referrals (server scope `referred_by`).
     'counselor_refs': CollectionRule(
-      {'manager', 'counselor'},
-      {'manager', 'counselor'},
+      {'manager', 'counselor', 'teacher'},
+      {'manager', 'counselor', 'teacher'},
     ),
     'counselor_notes': CollectionRule({'counselor', 'manager'}, {'counselor'}),
     'discipline': CollectionRule(
@@ -154,6 +157,8 @@ final class SchoolRecords {
     'trustees',
     // Row 197 (Q10): announced days off (slot 15 = [2.5e15, 2.6e15)).
     'calendar',
+    // Row 197 (Q12 / F19): a teacher's homework (slot 16 = [2.6e15, 2.7e15)).
+    'homework',
   ];
   static const int idFloor = 1000000000000000;
   static const int idSlotSpan = 100000000000000;

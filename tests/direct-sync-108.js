@@ -419,6 +419,10 @@ async function main() {
             if (sc.role === 'teacher' && policy.canRead(sc.role, c)) await S.cap(u, 'read', 'class', cl, c);
             if (sc.role === 'teacher' && policy.canWrite(sc.role, c)) await S.cap(u, 'write', 'class', cl, c);
           }
+          /* row 197 (F19): homework and class notices — the teacher writes for their own classes */
+          if (c === 'discipline' && sc.role === 'teacher') {
+            for (const cl of sc.classIds) for (const cc of ['homework', 'announcements']) await S.cap(u, 'write', 'class', cl, cc);
+          }
           for (const st of sc.studentIds) if (policy.canRead(sc.role, c)) await S.cap(u, 'read', 'student', st, c);
         }
         for (const st of sc.studentIds) {
@@ -462,7 +466,9 @@ async function main() {
       /* row 197: module/descriptive grades (Q08/Q09) and day-off calendar rows (Q10) are field
          checks too — the database sees only ciphertext */
       const FIELD_ERRORS = new Set(['bad_score', 'bad_kind', 'bad_status', 'approval_denied',
-        'bad_module', 'bad_level', 'bad_date', 'reason_required', 'reason_too_long', 'bad_range']);
+        'bad_module', 'bad_level', 'bad_date', 'reason_required', 'reason_too_long', 'bad_range',
+        /* row 197 (F19): class notes — text shape and «whose row» are read from the plaintext */
+        'text_required', 'text_too_long', 'not_author', 'ref_handled']);
       let dbRefused = 0, deviceRefused = 0, ok = 0;
       for (const wc of v.write) {
         const rid = 9500 + (++id);

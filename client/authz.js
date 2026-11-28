@@ -62,10 +62,11 @@ function authzCanRoute(route, role) {
    در این جدول نباشد با قاعدهٔ هر نقش در صفحه اجرا می‌شود (پیش‌فرض باز
    برای کنش‌های نمایشی). کنش‌های مدیریتی هیچ‌وقت با نقش دیگری اجرا نمی‌شوند.
    ───────────────────────────────────────────────────────────────── */
-const AUTHZ_MANAGER_ONLY = /^(user-add|user-edit|user-delete|user-password|user-auto-pw|users-bulk-delete|pick-clear|role-filter|class-add|class-edit|class-delete|class-merge|def-add|def-edit|def-delete|def-delete-only|def-delete-cascade|def-delete-students|subject-add|subject-edit|subject-delete|import-open|import-back|import-check|import-apply|imp-recheck|imp-branch-yes|imp-branch-no|issue-fix|issue-done|issue-temp|issues-temp|issues-open|issues-clear|followup-assign|followup-ack|diag-rerun|diag-fix|diag-open|diag-merge-open|diag-merge-do|backup-now|backup-list|mirror-refresh|mirror-restore|devices-list|revoke-device|audit-list|cloud-edit|cloud-save|cloud-test|cloud-test-browser|cloud-cors|cloud-reset|cloud-phone-check|net-refresh|network|tunnel-enable|tunnel-login|tunnel-off|tunnel-refresh|update-apply|update-auto|update-autoapply|update-check|update-fetch|update-recheck|update-rollback|upd-retry|update-later|pair-code|pair-refresh|transfer|settings-save|att-all|ann-add|ann-edit|ann-delete|dayoff-add|dayoff-delete|sched-class|schedgen-open|schedgen-apply|bell-edit|bell-add|bell-del|sched-conf-move|sched-conf-sug|sched-slot|slot-del|sub-save|sub-del|sub-del-route)$/;
+const AUTHZ_MANAGER_ONLY = /^(user-add|user-edit|user-delete|user-password|user-auto-pw|users-bulk-delete|pick-clear|role-filter|class-add|class-edit|class-delete|class-merge|def-add|def-edit|def-delete|def-delete-only|def-delete-cascade|def-delete-students|subject-add|subject-edit|subject-delete|import-open|import-back|import-check|import-apply|imp-recheck|imp-branch-yes|imp-branch-no|issue-fix|issue-done|issue-temp|issues-temp|issues-open|issues-clear|followup-assign|followup-ack|diag-rerun|diag-fix|diag-open|diag-merge-open|diag-merge-do|backup-now|backup-list|mirror-refresh|mirror-restore|devices-list|revoke-device|audit-list|cloud-edit|cloud-save|cloud-test|cloud-test-browser|cloud-cors|cloud-reset|cloud-phone-check|net-refresh|network|tunnel-enable|tunnel-login|tunnel-off|tunnel-refresh|update-apply|update-auto|update-autoapply|update-check|update-fetch|update-recheck|update-rollback|upd-retry|update-later|pair-code|pair-refresh|transfer|settings-save|att-all|dayoff-add|dayoff-delete|sched-class|schedgen-open|schedgen-apply|bell-edit|bell-add|bell-del|sched-conf-move|sched-conf-sug|sched-slot|slot-del|sub-save|sub-del|sub-del-route)$/;
 
 /* کنش‌هایی که دبیر هم دارد (ثبت حضور و نمره و مرخصی) */
-const AUTHZ_TEACHER_OK = /^(att-save|att-set|grade-save|grade-reload|leave-add|leave-delete|leave-set)$/;
+/* ردیف ۱۹۷ (Q12 / F19): اطلاعیهٔ کلاس، تکلیف، یادداشت انضباطی (دبیر برای کلاس خودش؛ سرور هم می‌سنجد) */
+const AUTHZ_TEACHER_OK = /^(att-save|att-set|grade-save|grade-reload|leave-add|leave-delete|leave-set|ann-add|ann-edit|ann-delete|hw-add|hw-delete|disc-add)$/;
 /* کنش‌هایی که ولی/دانش‌آموز هم دارد */
 const AUTHZ_FAMILY_OK = /^(leave-add|leave-delete|leave-set)$/;
 /* کنش‌های همیشه‌مجاز (نشست، نمایش، بستن پنجره، چاپ) */
@@ -82,7 +83,8 @@ function authzCanAct(act, role) {
   if (r === 'manager') return true;
   /* ردیف ۱۸۷: آینه/بازگردانی فقط مدیر/معاون — همان server/index.js BACKUP_ROLES */
   if (AUTHZ_BACKUP_OK.test(a)) return false;
-  if (a === 'cref-add') return false;
+  /* ردیف ۱۹۷ (F19): دبیر هم دانش‌آموزِ کلاس خودش را ارجاع می‌دهد */
+  if (a === 'cref-add') return r === 'teacher';
   if (a === 'cref-done') return r === 'counselor';
   if (AUTHZ_MANAGER_ONLY.test(a)) return false;
   /* خانواده (مرخصی) پیش از دبیر بررسی می‌شود: کنش مشترک است */

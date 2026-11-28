@@ -258,7 +258,7 @@ void main() {
       ? false
       : 'set PAYESH_GW_IT=1 (+ PAYESH_PG_ADMIN/RUNTIME) for the real Gateway';
 
-  test('W4-IT-01 teacher and parent pull the web notices and read them; neither may write', () async {
+  test('W4-IT-01 teacher and parent pull the web notices and read them; neither may publish school-wide', () async {
     expect(teacher.session.role, 'teacher');
     expect(parent.session.role, 'parent');
     for (final d in [teacher, parent]) {
@@ -267,7 +267,9 @@ void main() {
       expect(l.map((n) => n.id), [collide, 1], reason: d.session.role);
       expect(l.last.title, 'آغاز سال تحصیلی');
       expect(l.first.severity, NoticeSeverity.info);
-      expect(d.board.canWrite, isFalse);
+      // row 197 F19: a teacher writes class notices only — never a school-wide one
+      expect(d.board.canWriteSchool, isFalse);
+      expect(d.board.canWrite, d.session.role == 'teacher');
       await expectLater(
         d.board.publish(title: 't', body: 'b'),
         throwsA(isA<NoticeFailure>()),

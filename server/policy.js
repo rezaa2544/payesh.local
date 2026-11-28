@@ -40,6 +40,35 @@ function leaveDay(v) {
   const d = new Date(t + 'T00:00:00Z');
   return isNaN(d) || d.toISOString().slice(0, 10) !== t ? null : d;
 }
+/* ردیف ۱۹۷ (Q12 / F19): شکل یادداشت‌های کلاسیِ دبیر — انضباط (تشویق/تذکر/یادداشت)، تکلیف و
+   اطلاعیهٔ کلاس. همان قاعده در server/scope.js (ابر) و packages/payesh_sync/lib/src/class_notes.dart. */
+const DISCIPLINE_KINDS = ['positive', 'negative', 'note'];
+const NOTE_LIMITS = { title: 200, homework_body: 2000, announcement_body: 4000, discipline_note: 1000 };
+function classNoteIssue(collection, row) {
+  if (!row) return null;
+  const txt = (v) => String(v == null ? '' : v).trim();
+  const day = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v)) && !Number.isNaN(Date.parse(String(v) + 'T00:00:00Z'));
+  if (collection === 'discipline') {
+    if (row.kind != null && !DISCIPLINE_KINDS.includes(String(row.kind))) return 'bad_kind';
+    if (!txt(row.note)) return 'text_required';
+    if (txt(row.note).length > NOTE_LIMITS.discipline_note) return 'text_too_long';
+    if (row.date != null && !day(row.date)) return 'bad_date';
+    return null;
+  }
+  if (collection === 'homework') {
+    if (!txt(row.title)) return 'text_required';
+    if (txt(row.title).length > NOTE_LIMITS.title || txt(row.body).length > NOTE_LIMITS.homework_body) return 'text_too_long';
+    if (row.due != null && row.due !== '' && !day(row.due)) return 'bad_date';
+    return null;
+  }
+  if (collection === 'announcements') {
+    if (!txt(row.title)) return 'text_required';
+    if (txt(row.title).length > NOTE_LIMITS.title || txt(row.body).length > NOTE_LIMITS.announcement_body) return 'text_too_long';
+    return null;
+  }
+  return null;
+}
+
 function leaveIssue(row) {
   if (!row) return null;
   const from = leaveDay(row.date);
@@ -86,13 +115,15 @@ const COLLECTIONS = {
   substitutions:    { write: ['manager'], read: 'all' },
   attendance:       { write: ['manager', 'teacher'], read: 'all' },
   grades:           { write: ['manager', 'teacher'], read: 'all' },
-  announcements:    { write: ['manager'], read: 'all' },
+  /* ردیف ۱۹۷ (Q12 / F19): دبیر هم برای کلاس‌های خودش (class_id) اطلاعیه می‌دهد؛ اطلاعیهٔ کل مدرسه فقط مدیر */
+  announcements:    { write: ['manager', 'teacher'], read: 'all' },
   leaves:           { write: ['manager', 'teacher', 'parent', 'student'], read: 'all' },
   parent_links:     { write: ['manager'], read: ['manager', 'parent'] },
   internships:      { write: ['manager', 'teacher'], read: 'all' },
   staff_attendance: { write: ['manager'], read: ['manager'] },
   staff_posts:      { write: ['manager'], read: ['manager', 'teacher'] },
-  counselor_refs:   { write: ['manager', 'counselor'], read: ['manager', 'counselor'] },
+  /* ردیف ۱۹۷ (F19): دبیر دانش‌آموزِ کلاس خودش را ارجاع می‌دهد (فقط ثبتِ «باز»؛ دیدن صف با مشاور/مدیر) */
+  counselor_refs:   { write: ['manager', 'counselor', 'teacher'], read: ['manager', 'counselor', 'teacher'] },
   counselor_notes:  { write: ['counselor', 'manager'], read: ['counselor'] },
   /* ردیف ۱۸۷ (p2): انضباط را مدیر و دبیر ثبت می‌کنند؛ مشاور فقط می‌خواند (canWriteRow هم رد می‌کرد) */
   discipline:       { write: ['manager', 'teacher'], read: ['manager', 'teacher', 'counselor', 'parent'] },
@@ -332,7 +363,10 @@ function rowInScope(scope, collection, row) {
       return scope.classIds.has(Number(row.id));
     case 'subjects':
       return true;
+    /* ردیف ۱۹۷ (Q12 / F19): اطلاعیهٔ کلاس فقط برای همان کلاس، نویسنده و مدیر */
     case 'announcements':
+      if (row.class_id == null || row.class_id === '') return true;
+      return scope.classIds.has(Number(row.class_id)) || (row.author_id != null && Number(row.author_id) === uid);
     case 'calendar':
     case 'exams':
     case 'homework':
@@ -345,7 +379,10 @@ function rowInScope(scope, collection, row) {
     case 'discipline':
       return scope.studentIds.has(Number(row.student_id)) ||
         (scope.role === 'teacher' && scope.classIds.has(Number(row.class_id)));
+    /* ردیف ۱۹۷ (F19): دبیر فقط ارجاع‌های خودش را می‌بیند؛ یادداشت مشاوره هرگز */
     case 'counselor_refs':
+      if (scope.role === 'teacher') return row.referred_by != null && Number(row.referred_by) === uid;
+      return scope.role === 'counselor' || scope.role === 'manager';
     case 'counselor_notes':
       return scope.role === 'counselor' || scope.role === 'manager';
     case 'staff_attendance':
@@ -357,6 +394,18 @@ function rowInScope(scope, collection, row) {
     default:
       return false;
   }
+}
+
+/* ردیف ۱۹۷ (F19): حذف برای غیرمدیر بسته است، جز تکلیف/اطلاعیهٔ کلاسِ خودِ دبیر که خودش نوشته */
+function teacherCanDelete(store, user, role, collection, existing) {
+  if (permRole(role) !== 'teacher' || !existing || !user) return false;
+  if (collection !== 'homework' && collection !== 'announcements') return false;
+  if (existing.class_id == null || existing.author_id == null) return false;
+  if (Number(existing.author_id) !== Number(user.id)) return false;
+  const rows = store.byRef('schedule', 'ref2', user.id);
+  const mine = new Set(rows.map(s => Number(s.class_id)).filter(Boolean));
+  if (user.class_id) mine.add(Number(user.class_id));
+  return mine.has(Number(existing.class_id));
 }
 
 /* آیا کاربر اجازهٔ نوشتن این ردیف را دارد؟ (مالکیت، نه فقط نقش) */
@@ -442,6 +491,30 @@ function canWriteRow(store, user, role, collection, row, existing) {
     }
     if (collection === 'discipline') {
       if (!belongs(row.class_id)) return { ok: false, error: 'out_of_scope' };
+      const di = classNoteIssue('discipline', row);
+      if (di) return { ok: false, error: di };
+      return { ok: true };
+    }
+    /* ردیف ۱۹۷ (Q12 / F19): تکلیف و اطلاعیهٔ کلاس — فقط کلاس خود دبیر و فقط ردیف خودش */
+    if (collection === 'homework' || collection === 'announcements') {
+      if (row.class_id == null && collection === 'announcements') return { ok: false, error: 'role_denied' };
+      if (!belongs(row.class_id)) return { ok: false, error: 'out_of_scope' };
+      if (existing && (!belongs(existing.class_id) || (existing.author_id != null && Number(existing.author_id) !== Number(user.id)))) {
+        return { ok: false, error: 'not_author' };
+      }
+      const ni = classNoteIssue(collection, row);
+      if (ni) return { ok: false, error: ni };
+      row.author_id = Number(user.id);
+      return { ok: true };
+    }
+    if (collection === 'counselor_refs') {
+      const scope = buildScope(store, user);
+      if (!scope.studentIds.has(Number(row.student_id))) return { ok: false, error: 'out_of_scope' };
+      if (existing && Number(existing.referred_by) !== Number(user.id)) return { ok: false, error: 'not_author' };
+      if (existing && existing.status === 'handled') return { ok: false, error: 'ref_handled' };
+      if (row.status != null && row.status !== 'open') return { ok: false, error: 'approval_denied' };
+      if (!String(row.reason || '').trim()) return { ok: false, error: 'reason_required' };
+      row.referred_by = Number(user.id);
       return { ok: true };
     }
     return { ok: false, error: 'role_denied' };
@@ -561,8 +634,8 @@ function scrubUserIdentity(data) {
 module.exports = {
   ROLES, USER_ROLES, ROLE_ALIASES, permRole, ATT_STATUS, GRADE_KINDS, LEAVE_REQUEST_STATUSES, LEAVE_TYPES, leaveIssue, leaveRequesterIssue, COLLECTIONS,
   GRANTABLE_ROLES, STAFF_ACCESS, ACCESS_NONE, ROLE_DEFAULT_ACCESS, staffAccessOf, accessToStore,
-  gateLeavesOnly, leaveForGate, visitorIssue, grantWrites, grantReads, canWriteFor, canReadFor,
-  collectionAllowed, canRead, canWrite, buildScope, rowInScope, canWriteRow,
+  gateLeavesOnly, leaveForGate, visitorIssue, classNoteIssue, DISCIPLINE_KINDS, NOTE_LIMITS, grantWrites, grantReads, canWriteFor, canReadFor,
+  collectionAllowed, canRead, canWrite, buildScope, rowInScope, canWriteRow, teacherCanDelete,
   USER_PUBLIC_FIELDS, USER_IDENTITY_FIELDS, SECRET_FIELD_RE, isSecretField,
   scrubUser, scrubUserFor, scrubUserIdentity,
 };

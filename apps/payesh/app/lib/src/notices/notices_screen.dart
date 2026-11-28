@@ -95,7 +95,9 @@ class _NoticesScreenState extends State<NoticesScreen> {
                       : null,
                   subKey: const Key('ntc-count'),
                   actions: [
-                    if (c.canWrite)
+                    // row 197 F19: a teacher with no class yet has nothing to publish to
+                    if (c.canWrite &&
+                        (c.canWriteSchool || c.classes.isNotEmpty))
                       WebBtn(
                         '+ اطلاعیه',
                         key: const Key('ntc-add'),
@@ -120,8 +122,8 @@ class _NoticesScreenState extends State<NoticesScreen> {
                     ),
                   ),
                 // row 197 Q10: the manager announces a day off; everyone sees today/tomorrow
-                if (c.canWrite && c.error == null) _dayOffCard(),
-                if (!c.canWrite) ...[
+                if (c.canWriteSchool && c.error == null) _dayOffCard(),
+                if (!c.canWriteSchool) ...[
                   if (c.todayOff case final d?)
                     dayOffBanner(d, 'ntc-dayoff-today'),
                   if (c.tomorrowOff case final d?)
@@ -282,12 +284,21 @@ class _NoticesScreenState extends State<NoticesScreen> {
           ],
         ),
         const SizedBox(height: 6),
+        if (n.classId != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              '🏫 اطلاعیهٔ کلاس${c.className(n.classId).isEmpty ? '' : ' ${c.className(n.classId)}'}',
+              key: Key('ntc-class-${n.id}'),
+              style: TextStyle(fontSize: 12, color: Web.muted),
+            ),
+          ),
         Text(
           n.body,
           key: Key('ntc-body-${n.id}'),
           style: TextStyle(fontSize: 13.5, color: Web.ink, height: 1.6),
         ),
-        if (c.canWrite)
+        if (c.canChange(n))
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: WebWrap(
@@ -334,6 +345,12 @@ class _NoticeEditorState extends State<NoticeEditor> {
   );
   late NoticeSeverity severity =
       widget.editing?.severity ?? NoticeSeverity.normal;
+
+  /// Row 197 (F19): the class a notice is for — required for a teacher (their own classes
+  /// only), optional for the manager (empty = the whole school).
+  late int? classId =
+      widget.editing?.classId ??
+      (c.canWriteSchool || c.classes.length != 1 ? null : c.classes.first.id);
 
   NoticesController get c => widget.controller;
 
@@ -384,6 +401,7 @@ class _NoticeEditorState extends State<NoticeEditor> {
       title: title.text,
       body: body.text,
       severity: severity,
+      classId: classId,
     );
     if (res != null && mounted) Navigator.pop(context);
   }
@@ -422,6 +440,42 @@ class _NoticeEditorState extends State<NoticeEditor> {
                     ),
                   ),
                 ),
+              if (!editing && (!c.canWriteSchool || c.classes.isNotEmpty)) ...[
+                FieldBox(
+                  width: kFieldText,
+                  child: DropdownButtonFormField<int?>(
+                    key: const Key('ntc-class'),
+                    initialValue: classId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: c.canWriteSchool ? 'مخاطب' : 'کلاس',
+                      border: const OutlineInputBorder(),
+                      helperText: !c.canWriteSchool && c.classes.isEmpty
+                          ? 'کلاسی در برنامهٔ هفتگی شما ثبت نشده است'
+                          : null,
+                    ),
+                    items: [
+                      if (c.canWriteSchool)
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('همهٔ مدرسه'),
+                        ),
+                      for (final k in c.classes)
+                        DropdownMenuItem<int?>(
+                          value: k.id,
+                          child: Text(
+                            SchoolRecords.str(k.data['name']),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: c.busy
+                        ? null
+                        : (v) => setState(() => classId = v),
+                  ),
+                ),
+                const SizedBox(height: PayeshTokens.space3),
+              ],
               FieldBox(
                 width: kFieldWide,
                 child: TextField(

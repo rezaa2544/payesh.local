@@ -5939,6 +5939,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۷ (Q12 / F19): ابزارهای کلاسِ دبیر ── */
+  await test('ردیف ۱۹۷ (F19): دبیر — اطلاعیهٔ کلاس فقط برای کلاس خودش و فقط همان کلاس می‌بیند، تکلیف (حذف فقط ردیف خودش)، یادداشت انضباطی، ارجاع به مشاور فقط دانش‌آموز خودش، ابر = سرور مدرسه، فرم‌های وب، همتای Dart (۷ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/teacher-tools-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 90000 });
+      assert.strictEqual(r.status, 0, 'teacher-tools-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۸: مصرف بی‌دلیل صندوقچهٔ آروان (نوشتن‌های بی‌تغییر در صندوقچهٔ نسخه‌بندی‌شده) ── */
   await test('ردیف ۱۹۸: خلاصهٔ دانش‌آموز و auth/data فقط با تغییر واقعی (ماندگار پس از راه‌اندازی دوباره)، رسید مدرسه بی‌تغییر هر ۱۰ دقیقه، پشتیبان مالک بی‌updates و روزی یک بار روی دیتابیس (۵ بررسی)',
     async () => {

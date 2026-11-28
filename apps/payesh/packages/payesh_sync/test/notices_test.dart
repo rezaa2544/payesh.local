@@ -95,7 +95,8 @@ void main() {
     ]);
     expect(NoticeSeverity.fromWire('urgent'), NoticeSeverity.normal);
     expect(NoticeSeverity.fromWire(null), NoticeSeverity.normal);
-    expect(NoticeBoard.writers, {'manager'});
+    // row 197 F19: a teacher writes class notices for their own classes
+    expect(NoticeBoard.writers, {'manager', 'teacher'});
   });
 
   test(
@@ -196,7 +197,19 @@ void main() {
 
   test('W4-U06 non-managers cannot publish, edit or delete; nothing queued (negative)', () async {
     final (e, ob) = await seeded();
-    for (final r in ['teacher', 'parent', 'student', 'counselor', 'guard']) {
+    // row 197 F19: a teacher may write class notices only — not a school-wide one, and never
+    // another author's notice
+    final t = board(e, ob, role: 'teacher', uid: 10);
+    await expectLater(
+      t.publish(title: 't', body: 'b'),
+      refused(NoticeError.classRequired),
+    );
+    await expectLater(
+      t.edit(id: 1, title: 't', body: 'b', severity: NoticeSeverity.info),
+      refused(NoticeError.notAuthor),
+    );
+    await expectLater(t.delete(1), refused(NoticeError.notAuthor));
+    for (final r in ['parent', 'student', 'counselor', 'guard']) {
       final b = board(e, ob, role: r, uid: 10);
       await expectLater(
         b.publish(title: 't', body: 'b'),

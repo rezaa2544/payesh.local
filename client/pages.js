@@ -742,7 +742,8 @@ function teacherHome() {
     card(`<div class="row between"><div><div class="small muted">زنگ جاری</div><b>${nxt ? 'زنگ بعدی: ' + esc(clock24(nxt.start) || nxt.start) : 'زنگ درسی در جریان نیست'}</b></div></div>`)}
   ${card(`<div class="row between" style="margin-bottom:8px"><b>برنامهٔ امروز</b><span class="small muted">${fa(rows.length)} زنگ</span></div>
     ${rows.length ? `<div class="list">${rows.map(s => slotCard(s, cur && Number(s.bell_order) === Number(cur.order))).join('')}</div>` : '<div class="muted small">امروز کلاسی در برنامه ندارید.</div>'}`)}
-  ${card(`<div class="row"><a class="btn grow" href="#/grades">📝 ثبت نمره</a><a class="btn grow" href="#/students">👥 دانش‌آموزان</a></div>`)}`;
+  ${card(`<div class="row"><a class="btn grow" href="#/grades">📝 ثبت نمره</a><a class="btn grow" href="#/students">👥 دانش‌آموزان</a><a class="btn grow" href="#/announcements">📢 اطلاعیهٔ کلاس</a></div>`)}
+  ${homeworkCard(myTeachClassIds(), { canAdd: true })}`;
 }
 
 /* ══════════════ حضور و غیاب ══════════════ */
@@ -970,8 +971,12 @@ PAGES.students = () => {
     const g = list('grades').filter(x => Number(x.student_id) === Number(s.id));
     const avg = avgOfGrades(g); /* ردیف ۱۹۷ F24: بی‌نمره ⇒ «—» */
     return `<div class="item"><div class="grow"><div class="t">${esc(s.name)}</div><div class="s">${esc(cls.name || '')}</div></div>
-      <span class="badge">معدل ${avg == null ? '—' : fa(avg.toFixed(1))}</span></div>`;
-  }).join('')}</div>`) : empty('دانش‌آموزی یافت نشد.')}`;
+      <span class="badge">معدل ${avg == null ? '—' : fa(avg.toFixed(1))}</span>
+      ${S.role === 'teacher' ? `<button class="btn sm ghost" data-act="disc-add" data-id="${s.id}">انضباط</button>
+      <button class="btn sm ghost" data-act="cref-add" data-id="${s.id}">ارجاع به مشاور</button>` : ''}</div>`;
+  }).join('')}</div>`) : (students.length ? empty('دانش‌آموزی یافت نشد.')
+    /* ردیف ۱۹۷ (F19): «۰ نفر» بی‌توضیح نماند */
+    : empty(all ? 'دانش‌آموزی ثبت نشده.' : 'هنوز در برنامهٔ هفتگی زنگی به نام شما ثبت نشده است؛ دانش‌آموزانِ کلاس‌هایی که درس می‌دهید پس از ثبت برنامه اینجا می‌آیند. از مدیر بخواهید برنامهٔ شما را ثبت کند.'))}`;
 };
 
 /* ══════════════ مدیر: کاربران ══════════════ */
@@ -1534,14 +1539,68 @@ function dayOffCard() {
       : '<div class="small muted" style="margin-top:8px">روزی اعلام نشده است.</div>'}`, 'tight');
 }
 
+/* ردیف ۱۹۷ (Q12 / F19): کلاس‌هایی که این کاربر می‌بیند/برایشان می‌نویسد — دبیر: کلاس‌های برنامه‌اش؛
+   دانش‌آموز: کلاس خودش؛ ولی: کلاس فرزندان. اطلاعیهٔ کلاس (class_id) فقط برای همین‌ها و نویسنده. */
+function myTeachClassIds() {
+  const me = Number(S.user && S.user.id);
+  const ids = new Set(list('schedule').filter(s => Number(s.teacher_id) === me).map(s => Number(s.class_id)).filter(Boolean));
+  if (S.user && S.user.class_id) ids.add(Number(S.user.class_id));
+  return ids;
+}
+function myClassIdsAll() {
+  if (S.role === 'teacher') return myTeachClassIds();
+  const ids = new Set();
+  if (S.user && S.user.class_id) ids.add(Number(S.user.class_id));
+  if (S.role === 'parent') myChildren().forEach(k => { if (k.class_id) ids.add(Number(k.class_id)); });
+  return ids;
+}
+function annVisible(a) {
+  if (!a || a.deleted) return false;
+  if (a.class_id == null || a.class_id === '' || S.role === 'manager') return true;
+  if (Number(a.author_id) === Number(S.user && S.user.id)) return true;
+  return myClassIdsAll().has(Number(a.class_id));
+}
+function visibleAnnouncements() { return list('announcements').filter(annVisible); }
+function annCanChange(a) { return S.role === 'manager' || (S.role === 'teacher' && Number(a.author_id) === Number(S.user && S.user.id)); }
+
+/* ردیف ۱۹۷ (F19 / F21 / F27): تکلیف‌های کلاس — دبیر می‌نویسد؛ دانش‌آموز و ولی می‌بینند */
+const DISC_KIND_FA = { positive: 'تشویق', negative: 'تذکر', note: 'یادداشت' };
+function homeworkFor(classIds) {
+  return list('homework').filter(h => !h.deleted && (!classIds || classIds.has(Number(h.class_id))))
+    .sort((a, b) => String(b.due || b.date || '').localeCompare(String(a.due || a.date || '')) || Number(b.id) - Number(a.id));
+}
+function homeworkCard(classIds, opts) {
+  const o = opts || {};
+  const rows = homeworkFor(classIds).slice(0, o.limit || 8);
+  const me = Number(S.user && S.user.id);
+  return card(`<div class="row between"><b>📚 تکلیف‌ها</b>${o.canAdd ? '<button class="btn sm primary" data-act="hw-add">+ تکلیف</button>' : ''}</div>
+    ${rows.length ? `<div class="list" data-hw-list="1">${rows.map(h => {
+      const c = byId('classes', h.class_id) || {};
+      const sub = byId('subjects', h.subject_id) || {};
+      return `<div class="item"><div class="grow"><div class="t">${esc(h.title || '')}</div>
+        <div class="s">${esc([c.name, sub.name].filter(Boolean).join(' · '))}${h.due ? ' · مهلت ' + esc(jdate(h.due)) : ''}</div>
+        ${h.body ? `<div class="small" style="white-space:pre-wrap;margin-top:4px">${esc(h.body)}</div>` : ''}</div>
+        ${o.canAdd && (S.role === 'manager' || Number(h.author_id) === me) ? `<button class="btn sm ghost" style="color:#b91c1c" data-act="hw-delete" data-id="${h.id}">حذف</button>` : ''}</div>`;
+    }).join('')}</div>` : '<div class="small muted">تکلیفی ثبت نشده.</div>'}`, 'tight');
+}
+function disciplineCard(studentIds) {
+  const rows = list('discipline').filter(d => !d.deleted && studentIds.has(Number(d.student_id)))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || Number(b.id) - Number(a.id)).slice(0, 10);
+  return card(`<b>🧭 انضباط</b>
+    ${rows.length ? `<div class="list" data-disc-list="1">${rows.map(d => `<div class="item"><div class="grow"><div class="t">${esc(DISC_KIND_FA[d.kind] || 'یادداشت')}${studentIds.size > 1 ? ' · ' + esc((byId('users', d.student_id) || {}).name || '') : ''}</div>
+      <div class="s">${esc(d.note || '')}</div></div>${badge(jdate(d.date || ''), d.kind === 'positive' ? 'green' : d.kind === 'negative' ? 'red' : '')}</div>`).join('')}</div>` : '<div class="small muted">موردی ثبت نشده.</div>'}`, 'tight');
+}
+
 PAGES.announcements = () => {
-  const rows = sortBy(list('announcements'), 'date').reverse();
-  const canWrite = S.role === 'manager';
-  return `${pageHead('اطلاعیه‌ها', fa(rows.length) + ' مورد', canWrite ? `<button class="btn sm primary" data-act="ann-add">+ اطلاعیه</button>` : '')}
-  ${canWrite ? dayOffCard() : dayOffBanner(todayISO(), 'today') + dayOffBanner(new Date(Date.now() + 86400000).toISOString().slice(0, 10), 'tomorrow')}
+  const rows = sortBy(visibleAnnouncements(), 'date').reverse();
+  /* ردیف ۱۹۷ (F19): دبیرِ بی‌کلاس (هنوز در برنامهٔ هفتگی نیست) اطلاعیه‌ای نمی‌تواند بدهد */
+  const canWrite = S.role === 'manager' || (S.role === 'teacher' && myTeachClassIds().size > 0);
+  return `${pageHead('اطلاعیه‌ها', fa(rows.length) + ' مورد', canWrite ? `<button class="btn sm primary" data-act="ann-add">${S.role === 'teacher' ? '+ اطلاعیهٔ کلاس' : '+ اطلاعیه'}</button>` : '')}
+  ${S.role === 'manager' ? dayOffCard() : dayOffBanner(todayISO(), 'today') + dayOffBanner(new Date(Date.now() + 86400000).toISOString().slice(0, 10), 'tomorrow')}
   ${rows.length ? rows.map(a => card(`<div class="row between"><b>${esc(a.title)}</b>${badge(jdate(a.date), a.severity === 'important' ? 'red' : a.severity === 'info' ? 'purple' : '')}</div>
+    ${a.class_id ? `<div class="small muted" data-ann-class="${esc(a.class_id)}">ویژهٔ ${esc((byId('classes', a.class_id) || {}).name || 'یک کلاس')}</div>` : ''}
     <div class="small" style="margin-top:6px;white-space:pre-wrap">${esc(a.body)}</div>
-    ${canWrite ? `<div class="row" style="gap:8px;margin-top:8px">
+    ${annCanChange(a) ? `<div class="row" style="gap:8px;margin-top:8px">
       <button class="btn sm ghost" data-act="ann-edit" data-id="${a.id}">ویرایش</button>
       <button class="btn sm ghost" style="color:#b91c1c" data-act="ann-delete" data-id="${a.id}">حذف</button>
     </div>` : ''}`)).join('') : empty('اطلاعیه‌ای ثبت نشده.')}`;
@@ -1566,7 +1625,7 @@ PAGES.home = (params) => {
 /* ردیف ۱۸۷: خانهٔ مشاور، نگهبان، کارمند و اجرایی (صفحه‌های عمومیِ p2) — تازه‌ترین اطلاعیه‌ها
    و برای مشاور شمارِ ارجاع‌های باز */
 function staffHome() {
-  const anns = list('announcements').slice()
+  const anns = visibleAnnouncements().slice()
     .sort((a, b) => String(b.created_at || b.date || '').localeCompare(String(a.created_at || a.date || ''))).slice(0, 3);
   const open = S.role === 'counselor' ? list('counselor_refs').filter(r => r.status === 'open').length : 0;
   return `${pageHead('خانه', esc(ROLE_FA[roleTitle()] || ''))}
@@ -1587,7 +1646,7 @@ function parentHome() {
   const k = kids.find(x => Number(x.id) === pick) || kids[0];
   const today = todayISO();
   const day = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'][(new Date(today + 'T12:00:00').getDay() + 1) % 7];
-  const notes = list('announcements').filter(n => !n.deleted).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || Number(b.id) - Number(a.id));
+  const notes = visibleAnnouncements().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || Number(b.id) - Number(a.id));
   const head = `<div class="d2-top ph-top"><div class="hello"><p class="ph-date">${esc(day)} ${esc(fa(jdate(today)))}</p><h1>سلام، ${esc(S.user ? S.user.name : '')}</h1></div>
     <div class="row"><button class="icon-b" data-act="sync" title="همگام‌سازی" aria-label="همگام‌سازی">${d2Ico('sync')}</button>
     <a class="icon-b${notes.length ? ' dot' : ''}" href="#/announcements" title="اطلاعیه‌ها" aria-label="اطلاعیه‌ها">${d2Ico('bell')}</a></div></div>`;
@@ -1709,12 +1768,14 @@ PAGES.cqueue = () => {
   ${rows || empty(isMgr ? 'هنوز دانش‌آموزی به مشاور ارجاع نشده است.' : 'دانش‌آموزی به شما ارجاع نشده است.')}`;
 };
 
-function actCrefAdd() {
-  const studs = sortBy(list('users').filter(u => u.role === 'student' && u.active !== false), 'name');
+function actCrefAdd(pick) {
+  /* ردیف ۱۹۷ (F19): دبیر فقط دانش‌آموزانِ کلاس‌های خودش */
+  const mine = S.role === 'teacher' ? myTeachClassIds() : null;
+  const studs = sortBy(list('users').filter(u => u.role === 'student' && u.active !== false && (!mine || mine.has(Number(u.class_id)))), 'name');
   S.modalTitle = 'ارجاع به مشاور';
   modal(`<form data-form="cref">
     <label class="field"><span>دانش‌آموز</span><select class="input" name="student_id" required>
-      <option value="">— انتخاب —</option>${studs.map(k => `<option value="${k.id}">${esc(k.name)}</option>`).join('')}
+      <option value="">— انتخاب —</option>${studs.map(k => `<option value="${k.id}" ${Number(k.id) === Number(pick) ? 'selected' : ''}>${esc(k.name)}</option>`).join('')}
     </select></label>
     <label class="field"><span>علت ارجاع</span><textarea class="input" name="reason" required placeholder="مثلاً تأخیر مکرر در این ماه"></textarea></label>
     <button class="btn primary block">ثبت ارجاع</button>
@@ -2613,6 +2674,13 @@ function actAnnAdd(row) {
   const sev = editing ? String(row.severity || 'normal') : 'normal';
   modal(`<form data-form="ann">
     ${editing ? `<input type="hidden" name="id" value="${esc(row.id)}">` : ''}
+    ${S.role === 'teacher' ? (() => {
+      const cls = sortBy(list('classes').filter(c => myTeachClassIds().has(Number(c.id))), 'name');
+      const cur = editing ? Number(row.class_id) : 0;
+      return `<label class="field"><span>برای کلاس</span><select class="input" name="class_id" required>
+        <option value="">— انتخاب —</option>${cls.map(c => `<option value="${c.id}" ${Number(c.id) === cur ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+        <span class="small muted">دانش‌آموزان این کلاس و اولیای آن‌ها می‌بینند.</span></label>`;
+    })() : ''}
     <label class="field"><span>عنوان</span><input class="input" name="title" required value="${esc(editing ? row.title : '')}"></label>
     <label class="field"><span>متن</span><textarea class="input" name="body" required>${esc(editing ? row.body : '')}</textarea></label>
     <label class="field"><span>اهمیت</span><select class="input" name="severity">
@@ -3049,4 +3117,36 @@ async function actAudit() {
       <td class="small">${esc(a.user_id || '—')}</td><td class="small">${esc(a.action || '')}</td><td class="small">${esc(a.collection || '')}</td></tr>`).join('')}
     </tbody></table></div>`);
   } catch (e) { toast(e.message, 'err'); }
+}
+
+/* ردیف ۱۹۷ (Q12 / F19): تکلیف تازه برای یکی از کلاس‌های دبیر */
+function actHwAdd() {
+  const cls = sortBy(list('classes').filter(c => S.role === 'manager' || myTeachClassIds().has(Number(c.id))), 'name');
+  if (!cls.length) return toast('کلاسی در برنامهٔ شما نیست — از مدیر بخواهید برنامهٔ هفتگی شما را ثبت کند', 'err');
+  const subs = sortBy(list('subjects'), 'name');
+  S.modalTitle = 'تکلیف تازه';
+  modal(`<form data-form="hw">
+    <label class="field"><span>کلاس</span><select class="input" name="class_id" required>
+      ${cls.length > 1 ? '<option value="">— انتخاب —</option>' : ''}${cls.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
+    <label class="field"><span>درس</span><select class="input" name="subject_id"><option value="">—</option>${subs.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label>
+    <label class="field"><span>عنوان</span><input class="input" name="title" required maxlength="200" placeholder="مثلاً تمرین‌های صفحهٔ ۴۲"></label>
+    <label class="field"><span>توضیح</span><textarea class="input" name="body" maxlength="2000"></textarea></label>
+    <label class="field"><span>مهلت</span><input class="input" type="date" name="due"></label>
+    <button class="btn primary block">ثبت تکلیف</button>
+  </form>`);
+}
+
+/* ردیف ۱۹۷ (F19): یادداشت انضباطی (تشویق / تذکر / یادداشت) برای یک دانش‌آموزِ کلاس دبیر */
+function actDiscAdd(sid) {
+  const st = byId('users', Number(sid));
+  if (!st) return toast('این دانش‌آموز پیدا نشد', 'err');
+  S.modalTitle = 'یادداشت انضباطی — ' + (st.name || '');
+  modal(`<form data-form="disc">
+    <input type="hidden" name="student_id" value="${esc(st.id)}">
+    <label class="field"><span>نوع</span><select class="input" name="kind">
+      <option value="positive">تشویق</option><option value="negative">تذکر</option><option value="note" selected>یادداشت</option></select></label>
+    <label class="field"><span>متن</span><textarea class="input" name="note" required maxlength="1000"></textarea></label>
+    <div class="small muted">ولیِ دانش‌آموز، مشاور و مدیر این یادداشت را می‌بینند.</div>
+    <button class="btn primary block">ثبت</button>
+  </form>`);
 }

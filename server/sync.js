@@ -242,7 +242,8 @@ function push(store, actor, body, ctx = {}) {
     if (type === 'del') {
       const existing = op.id != null ? store.get(collection, op.id) : null;
       if (!existing) { rejected.push({ uid, error: 'not_found' }); continue; }
-      if (role !== 'manager' && !policy.grantWrites(Object.assign({}, actor.user, { role })).has(collection)) {
+      if (role !== 'manager' && !policy.grantWrites(Object.assign({}, actor.user, { role })).has(collection) &&
+          !policy.teacherCanDelete(store, actor.user, role, collection, existing)) {
         const c = noteRejected(store, actor, ctx, { collection, record_id: op.id, local: incoming, server: existing, reason: 'role_denied' });
         rejected.push({ uid, error: 'role_denied', conflict_id: c.id }); continue;
       }

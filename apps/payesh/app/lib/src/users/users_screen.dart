@@ -12,6 +12,7 @@ import '../pulse/pulse.dart';
 import '../pulse/web.dart';
 import '../reports/reports_screen.dart' show ReportsController;
 import '../school/school_source.dart';
+import 'class_notes_screen.dart';
 import 'user_form.dart';
 import 'users_controller.dart';
 
@@ -1165,6 +1166,14 @@ class StudentsScreen extends StatefulWidget {
 class _StudentsScreenState extends State<StudentsScreen> {
   StudentsController get c => widget.controller;
 
+  Future<void> _open(Widget form) async {
+    c.clearForm();
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => form),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1201,8 +1210,16 @@ class _StudentsScreenState extends State<StudentsScreen> {
             ),
           ),
         ),
+        // row 197 F19: the teacher's homework and, with no timetable yet, why the list is empty
+        if (c.teacher) HomeworkCard(controller: c),
         if (c.students.isEmpty)
-          const WebEmpty('دانش‌آموزی یافت نشد.', key: Key('std-empty'))
+          WebEmpty(
+            c.teacher && c.total == 0
+                ? 'هنوز کلاسی در برنامهٔ هفتگی شما ثبت نشده است؛ دانش‌آموزان کلاس‌هایتان '
+                      'پس از ثبت برنامه توسط مدیر اینجا می‌آیند.'
+                : 'دانش‌آموزی یافت نشد.',
+            key: const Key('std-empty'),
+          )
         else
           WebCard(
             child: WebList(
@@ -1220,6 +1237,27 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             : 'معدل ${faDigits(s.average!.toStringAsFixed(1))}',
                         key: Key('std-avg-${s.user.id}'),
                       ),
+                      if (c.teacher) ...[
+                        WebBtn(
+                          'انضباط',
+                          key: Key('std-disc-${s.user.id}'),
+                          kind: WebBtnKind.ghost,
+                          onPressed: c.busy
+                              ? null
+                              : () => _open(
+                                  DisciplineForm(controller: c, student: s),
+                                ),
+                        ),
+                        WebBtn(
+                          'ارجاع به مشاور',
+                          key: Key('std-cref-${s.user.id}'),
+                          kind: WebBtnKind.ghost,
+                          onPressed: c.busy
+                              ? null
+                              : () =>
+                                    _open(ReferForm(controller: c, student: s)),
+                        ),
+                      ],
                     ],
                   ),
               ],

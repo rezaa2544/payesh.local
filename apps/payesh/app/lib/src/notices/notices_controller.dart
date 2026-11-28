@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:payesh_data/payesh_data.dart' show EngineRow;
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
@@ -45,6 +46,21 @@ class NoticesController extends ChangeNotifier {
 
   bool get canWrite => NoticeBoard.writers.contains(role);
 
+  /// Row 197 (F19): school-wide notices and days off are the manager's; a teacher writes only
+  /// class notices for their own classes and changes only their own.
+  bool get canWriteSchool => role == 'manager';
+  bool canChange(Notice n) =>
+      role == 'manager' || (role == 'teacher' && n.authorId == uid);
+
+  /// The classes a teacher may address (empty for the manager, who may also pick one).
+  List<EngineRow> classes = const [];
+  String className(int? id) {
+    for (final c in classes) {
+      if (c.id == id) return SchoolRecords.str(c.data['name']);
+    }
+    return '';
+  }
+
   /// Row 197 Q10: upcoming days off (manager list) and today's / tomorrow's (everyone's banner).
   List<DayOff> daysOff = const [];
   DayOff? todayOff;
@@ -70,7 +86,10 @@ class NoticesController extends ChangeNotifier {
     final db = _records(b)!;
     todayOff = await dayOffOn(db, today);
     tomorrowOff = await dayOffOn(db, tomorrow);
-    daysOff = canWrite ? await SchoolCalendar(db).upcoming(today) : const [];
+    daysOff = canWriteSchool
+        ? await SchoolCalendar(db).upcoming(today)
+        : const [];
+    classes = canWrite ? await ClassNotes(db).myClasses() : const [];
   }
 
   /// Announces a day off (calendar row + important notice + internal exams moved). Returns
@@ -209,9 +228,15 @@ class NoticesController extends ChangeNotifier {
     required String title,
     required String body,
     required NoticeSeverity severity,
+    int? classId,
   }) => _write(
     (b) => id == null
-        ? b.publish(title: title, body: body, severity: severity)
+        ? b.publish(
+            title: title,
+            body: body,
+            severity: severity,
+            classId: classId,
+          )
         : b.edit(id: id, title: title, body: body, severity: severity),
     form: true,
   );

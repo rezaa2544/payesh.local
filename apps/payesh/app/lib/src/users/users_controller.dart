@@ -1,5 +1,7 @@
+import 'package:payesh_data/payesh_data.dart' show EngineRow;
 import 'package:payesh_sync/payesh_sync.dart';
 
+import '../family/family_controller.dart' show jalaliToIso;
 import '../school/school_source.dart';
 
 /// `#/users` (manager): search, role filter, multi-select, add / edit / full profile / delete.
@@ -364,6 +366,12 @@ class StudentsController extends SchoolController {
   /// Web pageHead «N نفر» counts every student of the page, not the search hits.
   int total = 0;
 
+  /// Row 197 (Q12 / F19): the teacher's own classes and their homework; per-student
+  /// discipline notes and «ارجاع به مشاور». The server checks the class is the teacher's.
+  bool get teacher => role == 'teacher';
+  List<EngineRow> classes = const [];
+  List<Homework> homework = const [];
+
   @override
   Future<void> read(SchoolRecords db) async {
     final dir = UserDirectory(db);
@@ -371,11 +379,69 @@ class StudentsController extends SchoolController {
     total = query.trim().isEmpty
         ? students.length
         : (await dir.students(query: '')).length;
+    if (teacher) {
+      final notes = ClassNotes(db);
+      classes = await notes.myClasses();
+      homework = await notes.homework(
+        classIds: {for (final c in classes) c.id},
+      );
+    }
   }
 
   Future<void> search(String q) async {
     query = q;
     await load();
+  }
+
+  /// [due] is a Jalali day as typed (or empty).
+  Future<RecordWrite?> addHomework({
+    required int? classId,
+    required String title,
+    String body = '',
+    String due = '',
+  }) {
+    String? iso;
+    if (due.trim().isNotEmpty) {
+      iso = jalaliToIso(due);
+      if (iso == null) return _refuse('مهلت را مثل ۱۴۰۵/۰۹/۰۶ بنویسید');
+    }
+    if (classId == null) return _refuse('کلاس را انتخاب کنید');
+    return run(
+      (db) => ClassNotes(
+        db,
+      ).addHomework(classId: classId, title: title, body: body, due: iso ?? ''),
+      form: true,
+    );
+  }
+
+  Future<RecordWrite?> deleteHomework(Homework h) =>
+      run((db) => ClassNotes(db).deleteHomework(h));
+
+  Future<RecordWrite?> addDiscipline(
+    StudentRow s,
+    DisciplineKind kind,
+    String note,
+  ) {
+    final cid = s.user.classId;
+    if (cid == null) return _refuse('کلاس این دانش‌آموز ثبت نشده است');
+    return run(
+      (db) => ClassNotes(db).addDiscipline(
+        studentId: s.user.id,
+        classId: cid,
+        kind: kind,
+        note: note,
+      ),
+      form: true,
+    );
+  }
+
+  Future<RecordWrite?> refer(StudentRow s, String reason) =>
+      run((db) => CounselorQueue(db).refer(s.user.id, reason), form: true);
+
+  Future<RecordWrite?> _refuse(String why) async {
+    formError = why;
+    emit();
+    return null;
   }
 }
 

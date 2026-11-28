@@ -575,6 +575,119 @@
         "ok": false,
         "error": "role_denied"
       }
+    },
+    {
+      "scope": "teacher",
+      "collection": "homework",
+      "row": {
+        "title": "تمرین صفحهٔ ۴۲",
+        "class_id": 10,
+        "author_id": 5,
+        "date": "2026-11-12",
+        "due": "2026-11-20"
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "homework",
+      "row": {
+        "title": "تمرین",
+        "class_id": 11,
+        "author_id": 5
+      },
+      "expect": {
+        "ok": false,
+        "error": "out_of_scope"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "homework",
+      "row": {
+        "title": " ",
+        "class_id": 10,
+        "author_id": 5
+      },
+      "expect": {
+        "ok": false,
+        "error": "text_required"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "announcements",
+      "row": {
+        "title": "آزمونک شنبه",
+        "body": "فصل ۳",
+        "severity": "normal",
+        "class_id": 10,
+        "author_id": 5
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "announcements",
+      "row": {
+        "title": "آزمونک",
+        "body": "x",
+        "severity": "normal",
+        "class_id": 11,
+        "author_id": 5
+      },
+      "expect": {
+        "ok": false,
+        "error": "out_of_scope"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "announcements",
+      "row": {
+        "title": "آزمونک",
+        "body": "x",
+        "severity": "normal",
+        "class_id": 10,
+        "author_id": 6
+      },
+      "expect": {
+        "ok": false,
+        "error": "not_author"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "discipline",
+      "row": {
+        "student_id": 1,
+        "class_id": 10,
+        "kind": "positive",
+        "note": "",
+        "date": "2026-11-12"
+      },
+      "expect": {
+        "ok": false,
+        "error": "text_required"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "counselor_refs",
+      "row": {
+        "student_id": 100,
+        "reason": "افت نمره",
+        "status": "open",
+        "referred_by": 5
+      },
+      "expect": {
+        "ok": false,
+        "error": "out_of_scope"
+      }
     }
   ]
 }

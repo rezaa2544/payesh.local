@@ -256,7 +256,8 @@ void main() {
       expect(sevOf(tester, 'ntc-sev-3'), 'عادی');
       expect(find.byKey(const Key('ntc-date-2')), findsOneWidget);
       expect(textOf(tester, 'ntc-body-2'), 'مدرسه شنبه تعطیل است');
-      // NEG: a teacher gets no publish / edit / delete controls
+      // NEG: a teacher with no class (row 197 F19: class notices only) gets no publish control,
+      // and never edit / delete on the manager's notices
       expect(find.byKey(const Key('ntc-add')), findsNothing);
       expect(find.byKey(const Key('ntc-edit-2')), findsNothing);
       expect(find.byKey(const Key('ntc-delete-2')), findsNothing);

@@ -48,16 +48,26 @@ enum NoticeError {
   emptyTitle,
   emptyBody,
   tooLarge,
-  unknownNotice;
+  unknownNotice,
+
+  /// Row 197 (Q12 / F19): a teacher's notice goes to one of their own classes.
+  classRequired,
+
+  /// Row 197 (F19): a teacher edits / deletes only their own class notices.
+  notAuthor;
 
   String get messageFa => switch (this) {
-    NoticeError.notAllowed => 'انتشار و ویرایش اطلاعیه فقط برای مدیر مجاز است',
+    NoticeError.notAllowed => 'انتشار و ویرایش اطلاعیه برای نقش شما مجاز نیست',
     NoticeError.notReader => 'نقش شما به اطلاعیه‌ها دسترسی ندارد',
     NoticeError.emptyTitle => 'عنوان اطلاعیه را بنویسید',
     NoticeError.emptyBody => 'متن اطلاعیه را بنویسید',
     NoticeError.tooLarge => 'متن اطلاعیه بیش از حد بلند است',
     NoticeError.unknownNotice =>
       'این اطلاعیه پیدا نشد — صفحه را دوباره باز کنید',
+    NoticeError.classRequired =>
+      'کلاس را انتخاب کنید — اطلاعیهٔ دبیر برای یکی از کلاس‌های خود اوست',
+    NoticeError.notAuthor =>
+      'فقط اطلاعیه‌های خودتان را می‌توانید ویرایش یا حذف کنید',
   };
 }
 
@@ -82,8 +92,13 @@ final class Notice {
     this.authorId,
     this.version = 0,
     this.queued = false,
+    this.classId,
   });
   final int id;
+
+  /// Row 197 (Q12 / F19): a class notice (its teacher, students and their parents see it);
+  /// null = the whole school.
+  final int? classId;
   final String title;
   final String body;
   final NoticeSeverity severity;
@@ -151,14 +166,56 @@ final class NoticeBoard {
     'office',
   };
 
-  /// Roles that may write (server/policy.js `COLLECTIONS.announcements.write`).
-  static const Set<String> writers = {'manager'};
+  /// Roles that may write (server/policy.js `COLLECTIONS.announcements.write`). Row 197 (F19):
+  /// a teacher only for their own classes (`class_id`), the manager for everyone.
+  static const Set<String> writers = {'manager', 'teacher'};
 
   /// Gateway per-op payload ceiling (server/tenancy.js `MAX_OP_BYTES`).
   static const int maxOpBytes = 64 * 1024;
 
   bool get canRead => readers.contains(role);
   bool get canWrite => writers.contains(role);
+
+  /// Row 197 (F19): a notice for the whole school (no class) — the manager only.
+  bool get canWriteSchool => role == 'manager';
+
+  /// Row 197 (F19): may this user change [n]? (the manager: any; a teacher: their own).
+  bool canChange(Notice n) =>
+      role == 'manager' || (role == 'teacher' && n.authorId == uid);
+
+  /// Row 197 (F19): the classes whose notices this user sees — a teacher's timetable classes,
+  /// a student's class, a parent's children's classes (web `annVisible`).
+  Future<Set<int>> myClassIds() async {
+    Future<List<EngineRow>> all(String c) async {
+      final out = <EngineRow>[];
+      for (var off = 0; ; off += 500) {
+        final page = await engine.list(c, limit: 500, offset: off);
+        out.addAll(page);
+        if (page.length < 500) return out;
+      }
+    }
+
+    final ids = <int>{};
+    final me = await engine.get('users', uid);
+    final own = _int(me?.data['class_id']);
+    if (own != null) ids.add(own);
+    if (role == 'teacher') {
+      for (final s in await all('schedule')) {
+        final t = _int(s.data['teacher_id']) ?? _int(s.data['ref2']);
+        final c = _int(s.data['class_id']);
+        if (t == uid && c != null) ids.add(c);
+      }
+    } else if (role == 'parent') {
+      for (final l in await all('parent_links')) {
+        if (_int(l.data['parent_id']) != uid) continue;
+        final sid = _int(l.data['student_id']);
+        final st = sid == null ? null : await engine.get('users', sid);
+        final c = _int(st?.data['class_id']);
+        if (c != null) ids.add(c);
+      }
+    }
+    return ids;
+  }
 
   /// Reserved id range for notices created by the native client. The Gateway takes
   /// client-chosen positive ids (no temp-id remap) and a notice has no natural key, so the id
@@ -212,16 +269,28 @@ final class NoticeBoard {
     authorId: _int(r.data['author_id']),
     version: r.version,
     queued: queued.contains(r.id),
+    classId: _int(r.data['class_id']),
   );
 
   /// Every notice, newest first (date descending; same date: higher id first).
   Future<List<Notice>> list() async {
     if (!canRead) throw NoticeFailure(NoticeError.notReader, role);
     final queued = _queuedIds();
-    final out = [
-      for (final r in await _all())
-        if (r.data['deleted'] != true) _of(r, queued),
-    ];
+    // row 197 (F19): a class notice only for that class's people (and its author)
+    final mine = role == 'manager' ? const <int>{} : await myClassIds();
+    final out =
+        [
+              for (final r in await _all())
+                if (r.data['deleted'] != true) _of(r, queued),
+            ]
+            .where(
+              (n) =>
+                  n.classId == null ||
+                  role == 'manager' ||
+                  n.authorId == uid ||
+                  mine.contains(n.classId),
+            )
+            .toList();
     out.sort((a, b) {
       final c = b.date.compareTo(a.date);
       return c != 0 ? c : b.id.compareTo(a.id);
@@ -271,8 +340,17 @@ final class NoticeBoard {
     required String title,
     required String body,
     NoticeSeverity severity = NoticeSeverity.normal,
+    int? classId,
   }) async {
     _requireWriter();
+    if (!canWriteSchool && classId == null) {
+      throw const NoticeFailure(NoticeError.classRequired);
+    }
+    if (classId != null &&
+        !canWriteSchool &&
+        !(await myClassIds()).contains(classId)) {
+      throw NoticeFailure(NoticeError.classRequired, classId);
+    }
     final (t, b) = _clean(title, body);
     var id = _newId();
     for (var i = 0; i < 8 && await engine.get(collection, id) != null; i++) {
@@ -285,6 +363,7 @@ final class NoticeBoard {
       'severity': severity.wire,
       'date': today(),
       'author_id': uid,
+      'class_id': ?classId,
     };
     _requireSize(data);
     final k = await _enqueue('put', id, data, 0);
@@ -312,6 +391,7 @@ final class NoticeBoard {
     final (t, b) = _clean(title, body);
     final r = await _existing(id);
     final cur = _of(r, const {});
+    if (!canChange(cur)) throw NoticeFailure(NoticeError.notAuthor, id);
     if (cur.title == t &&
         cur.body == b &&
         '${r.data['severity'] ?? ''}' == severity.wire) {
@@ -337,6 +417,9 @@ final class NoticeBoard {
   Future<NoticeWriteResult> delete(int id) async {
     _requireWriter();
     final r = await _existing(id);
+    if (!canChange(_of(r, const {}))) {
+      throw NoticeFailure(NoticeError.notAuthor, id);
+    }
     final k = await _enqueue('del', id, null, r.version + _queued(id));
     await engine.del(collection, id);
     return NoticeWriteResult(id: id, key: k, action: NoticeAction.deleted);

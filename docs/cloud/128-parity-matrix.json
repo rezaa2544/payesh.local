@@ -3863,6 +3863,110 @@
      "has": "'W6-IT-04"
     }
    ]
+  },
+  {
+   "id": "act:hw-add",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/class_notes_screen.dart",
+     "has": "Key('hw-add')"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/class_notes.dart",
+     "has": "Future<RecordWrite> addHomework("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/teacher_tools_197_test.dart",
+     "has": "'TT197-A01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/class_notes_197_test.dart",
+     "has": "'CN197-02"
+    }
+   ]
+  },
+  {
+   "id": "act:hw-delete",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/class_notes_screen.dart",
+     "has": "Key('hw-delete-"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/class_notes.dart",
+     "has": "Future<RecordWrite> deleteHomework("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/teacher_tools_197_test.dart",
+     "has": "'TT197-A01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/class_notes_197_test.dart",
+     "has": "'CN197-02"
+    }
+   ]
+  },
+  {
+   "id": "act:disc-add",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/users_screen.dart",
+     "has": "Key('std-disc-"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/lib/src/class_notes.dart",
+     "has": "Future<RecordWrite> addDiscipline("
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/teacher_tools_197_test.dart",
+     "has": "'TT197-A02"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/class_notes_197_test.dart",
+     "has": "'CN197-03"
+    }
+   ]
+  },
+  {
+   "id": "form:hw",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/class_notes_screen.dart",
+     "has": "class HomeworkForm"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/teacher_tools_197_test.dart",
+     "has": "'TT197-A01"
+    }
+   ]
+  },
+  {
+   "id": "form:disc",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/users/class_notes_screen.dart",
+     "has": "class DisciplineForm"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/teacher_tools_197_test.dart",
+     "has": "'TT197-A02"
+    }
+   ]
   }
  ]
 }

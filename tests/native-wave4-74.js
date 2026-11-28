@@ -7,8 +7,9 @@
    NW4-02  معنای نوشتن = فرم ann وب: عنوان و متن الزامی و trim، شکل رکورد = ردیف وب منهای
            school_id، تاریخ = روز UTC (todayISO) و در ویرایش ثابت، ویرایش فیلدهای دیگر را نگه
            می‌دارد (Object.assign)، ترتیب جدیدترین اول، خواننده‌ها = ROLES، نویسنده = policy
-   NW4-03  نگهبان Gateway: announcements فقط برای مدیر؛ del هم از canWriteCollection رد می‌شود؛
-           والد/دانش‌آموز نگهبان دوم دارند؛ بردارهای scope-v1 همین را می‌گویند
+   NW4-03  نگهبان Gateway: اطلاعیهٔ کل مدرسه فقط برای مدیر؛ دبیر فقط اطلاعیهٔ کلاس خودش (ردیف ۱۹۷
+           F19)؛ del هم از canWriteCollection رد می‌شود؛ والد/دانش‌آموز نگهبان دوم دارند؛ بردارهای
+           scope-v1 همین را می‌گویند
    NW4-04  شناسه: بازهٔ رزرو بالای بازهٔ نمره و زیر 2^53؛ رکورد تازه با base 0 (برخورد ⇐ تعارض)،
            قرعهٔ دوباره برای برخورد محلی؛ ویرایش/حذف با base = نسخه + صف
    NW4-05  مسیر داده: همان پایگاه/صندوقچه/Gateway (noticeBoardFor)، main فقط با موج روشن،
@@ -101,6 +102,9 @@ function nw4Semantics(s) {
   }
   entries.push(cur);
   const webKeys = entries.map(t => /^\s*([a-z_]+)\s*(?::|$)/.exec(t)).filter(Boolean).map(m => m[1]).filter(k => k !== 'school_id');
+  /* row 197 (F19): a teacher's notice also carries class_id (web sets it after the row literal) */
+  if (/row\.class_id = cid;/.test(save)) webKeys.push('class_id');
+  assert(/if \(!canWriteSchool && classId == null\) \{\s*throw const NoticeFailure\(NoticeError\.classRequired\);/.test(b), 'Dart: a teacher notice must name a class (web: «کلاس را انتخاب کنید»)');
   const pub = block(b, 'Future<NoticeWriteResult> publish({', '_requireSize(data);');
   const dm = /final data = <String, Object\?>\{([\s\S]*?)\};/.exec(pub);
   assert(dm, 'Dart publish record missing');
@@ -119,7 +123,7 @@ function nw4Semantics(s) {
   assert(/Object\.assign\(\{\}, byId\('announcements', id\) \|\| \{\}, row, \{ id \}\)/.test(save), 'web edit merge changed');
   assert(/\.\.\.r\.data,/.test(ed), 'Dart edit must keep the other stored fields');
   // order
-  assert(/sortBy\(list\('announcements'\), 'date'\)\.reverse\(\)/.test(webPage(s)), 'web order changed');
+  assert(/sortBy\((?:list\('announcements'\)|visibleAnnouncements\(\)), 'date'\)\.reverse\(\)/.test(webPage(s)), 'web order changed');
   assert(/final c = b\.date\.compareTo\(a\.date\);/.test(b), 'Dart order must be newest first');
   // readers / writers
   const pol = /announcements:\s*\{ write: \[([^\]]+)\], read: '([a-z]+)' \}/.exec(s.policy);
@@ -148,8 +152,11 @@ function nw4Gateway(s) {
   assert(has('teacher', { ok: false, error: 'role_denied' }), 'scope-v1 lacks: teacher announcements → role_denied');
   assert(has('parent', { ok: false, error: 'role_denied' }), 'scope-v1 lacks: parent announcements → role_denied');
   assert(has('manager', { ok: true }), 'scope-v1 lacks: manager announcements → ok');
+  /* row 197 (F19): a teacher's class notice — own class ok, another class refused */
+  assert(has('teacher', { ok: true }) && has('teacher', { ok: false, error: 'out_of_scope' }), 'scope-v1 lacks the teacher class-notice vectors');
+  assert(/if \(collection === 'announcements' && \(\(row \|\| \{\}\)\.class_id == null \|\| \(existing && existing\.class_id == null\)\)\) return \{ ok: false, error: 'role_denied' \};/.test(sc), 'cloud: a teacher must not publish, edit or delete a school-wide notice');
   assert(v.read.some(c => c.scope === 'parent' && c.collection === 'announcements' && c.expect === true), 'scope-v1 lacks: parent reads announcements');
-  return 'manager-only writes (put + del) · parent/student second guard · 3 write + 1 read vectors';
+  return 'school-wide = manager, class notice = own class (put + del) · parent/student second guard · 5 write + 1 read vectors';
 }
 
 function nw4Ids(s) {
@@ -202,7 +209,7 @@ function nw4Flags(s) {
   assert(/if \(!enabled\) \{\s*return const Text\(\s*'اطلاعیه‌ها فعلاً در نسخهٔ وب نمایش داده می‌شود\.'/.test(entry), 'wave off ⇒ old (web) client message');
   assert(/if \(uid == null\)/.test(entry), 'unknown uid ⇒ no dead button');
   // row 172: like the web page head — «+ اطلاعیه» in the head actions and ویرایش/حذف per card, each behind canWrite
-  assert(/if \(c\.canWrite\)\s*WebBtn\(\s*'\+ اطلاعیه',\s*key: const Key\('ntc-add'\)/.test(sc) && /if \(c\.canWrite\)\s*Padding\([\s\S]{0,260}Key\('ntc-edit-/.test(sc) && (sc.match(/Key\('ntc-add'\)|Key\('ntc-edit-\$\{|Key\('ntc-delete-\$\{/g) || []).length === 3, 'write controls only for writers');
+  assert(/if \(c\.canWrite &&\s*\(c\.canWriteSchool \|\| c\.classes\.isNotEmpty\)\)\s*WebBtn\(\s*'\+ اطلاعیه',\s*key: const Key\('ntc-add'\)/.test(sc) && /if \(c\.canChange\(n\)\)\s*Padding\([\s\S]{0,260}Key\('ntc-edit-/.test(sc) && (sc.match(/Key\('ntc-add'\)|Key\('ntc-edit-\$\{|Key\('ntc-delete-\$\{/g) || []).length === 3, 'write controls only for writers');
   assert(/bool get canWrite => NoticeBoard\.writers\.contains\(role\);/.test(code(s.ctrl)), 'controller canWrite must come from the board writers');
   for (const k of ['ctrl', 'screen', 'wiring', 'app']) assert(!/webview|WebView|InAppWebView/.test(code(s[k])), k + ': no WebView');
   return 'default login,attendance,grades,notices · readers see it · writers write · legacy message';
@@ -255,13 +262,15 @@ const MUTANTS = [
   ['M4 important shown in a neutral tone', s => nw4Severity(mut(s, 'screen', 'NoticeSeverity.important => PayeshTone.danger,', 'NoticeSeverity.important => PayeshTone.neutral,'))],
   ['M5 body no longer required', s => nw4Semantics(mut(s, 'board', 'if (b.isEmpty) throw const NoticeFailure(NoticeError.emptyBody);', ''))],
   ['M6 title not trimmed', s => nw4Semantics(mut(s, 'board', 'final t = title.trim();', 'final t = title;'))],
-  ['M7 record gains a field the web does not send', s => nw4Semantics(mut(s, 'board', "      'author_id': uid,\n    };\n    _requireSize(data);\n    final k = await _enqueue('put', id, data, 0);", "      'author_id': uid,\n      'device': 'native',\n    };\n    _requireSize(data);\n    final k = await _enqueue('put', id, data, 0);"))],
+  ['M7 record gains a field the web does not send', s => nw4Semantics(mut(s, 'board', "      'author_id': uid,\n      'class_id': ?classId,\n    };\n    _requireSize(data);\n    final k = await _enqueue('put', id, data, 0);", "      'author_id': uid,\n      'class_id': ?classId,\n      'device': 'native',\n    };\n    _requireSize(data);\n    final k = await _enqueue('put', id, data, 0);"))],
   ['M8 device-local date instead of UTC', s => nw4Semantics(mut(s, 'board', '_now().toUtc().toIso8601String()', '_now().toIso8601String()'))],
   ['M9 edit re-dates the notice', s => nw4Semantics(mut(s, 'board', "'date': stored.isEmpty ? today() : stored,", "'date': today(),"))],
   ['M10 edit drops the other stored fields', s => nw4Semantics(mut(s, 'board', '      ...r.data,\n', ''))],
   ['M11 oldest first', s => nw4Semantics(mut(s, 'board', 'final c = b.date.compareTo(a.date);', 'final c = a.date.compareTo(b.date);'))],
-  ['M12 teachers may write notices', s => nw4Semantics(mut(s, 'board', "static const Set<String> writers = {'manager'};", "static const Set<String> writers = {'manager', 'teacher'};"))],
-  ['M13 Gateway policy lets teachers write', s => nw4Semantics(mut(s, 'policy', "announcements:    { write: ['manager'], read: 'all' },", "announcements:    { write: ['manager', 'teacher'], read: 'all' },"))],
+  ['M12 Dart writers drift from the policy', s => nw4Semantics(mut(s, 'board', "static const Set<String> writers = {'manager', 'teacher'};", "static const Set<String> writers = {'manager'};"))],
+  ['M13 Gateway policy lets parents write', s => nw4Semantics(mut(s, 'policy', "announcements:    { write: ['manager', 'teacher'], read: 'all' },", "announcements:    { write: ['manager', 'teacher', 'parent'], read: 'all' },"))],
+  ['M12b a teacher publishes a school-wide notice (Dart)', s => nw4Semantics(mut(s, 'board', 'if (!canWriteSchool && classId == null) {', 'if (false) {'))],
+  ['M13b a teacher publishes a school-wide notice (cloud)', s => nw4Gateway(mut(s, 'scope', "if (collection === 'announcements' && ((row || {}).class_id == null || (existing && existing.class_id == null))) return { ok: false, error: 'role_denied' };", ''))],
   ['M14 parent second guard removed', s => nw4Gateway(mut(s, 'scope', "if (collection !== 'leaves') return { ok: false, error: 'role_denied' };", ''))],
   ['M15 contract vector weakened', s => nw4Gateway(mut(s, 'vectors', '"collection": "announcements",\n      "row": {\n        "title": "اطلاعیه",\n        "body": "متن",\n        "severity": "normal",\n        "date": "2026-11-12"\n      },\n      "expect": {\n        "ok": false,\n        "error": "role_denied"', '"collection": "announcements",\n      "row": {\n        "title": "اطلاعیه",\n        "body": "متن",\n        "severity": "normal",\n        "date": "2026-11-12"\n      },\n      "expect": {\n        "ok": false,\n        "error": "out_of_scope"'))],
   ['M16 id range overlaps grades', s => nw4Ids(mut(s, 'board', 'static const int idBase = 9000000000000000;', 'static const int idBase = 8000000000000000;'))],
@@ -271,7 +280,7 @@ const MUTANTS = [
   ['M20 notices wired with the wave off', s => nw4DataPath(mut(s, 'main', 'notices: flags.ships(NativeWave.notices) ? attendance : null,', 'notices: attendance,'))],
   ['M21 page ignores the wave flag', s => nw4Flags(mut(s, 'app', 'enabled: nsrc != null && s.flags.uses(NativeWave.notices),', 'enabled: nsrc != null,'))],
   ['M22 default waves drop notices', s => nw4Flags(mut(s, 'flags', "defaultValue: 'login,attendance,grades,notices", "defaultValue: 'login,attendance,grades,x"))],
-  ['M23 add button for every role', s => nw4Flags(mut(s, 'screen', "if (c.canWrite)\n                      WebBtn(\n                        '+ اطلاعیه',", "if (true)\n                      WebBtn(\n                        '+ اطلاعیه',"))],
+  ['M23 add button for every role', s => nw4Flags(mut(s, 'screen', "if (c.canWrite &&\n                        (c.canWriteSchool || c.classes.isNotEmpty))\n                      WebBtn(\n                        '+ اطلاعیه',", "if (true)\n                      WebBtn(\n                        '+ اطلاعیه',"))],
   ['M24 wave-4 IT removed from CI', s => nw4Tests(mut(s, 'ci', ' test/notices_it_test.dart', ''))],
   ['M25 doc claims a real-device PASS', s => nw4Doc(mut(s, 'doc', 'NOT RUN [M]', 'PASS [M]'))],
 ];
@@ -283,7 +292,7 @@ async function main(opts) {
   const run = (id, desc, fn) => { try { const d = fn(); passed++; out.push(`PASS  ${id}  ${desc}  → ${d === undefined ? 'ok' : d}`); } catch (e) { failures.push(id + ': ' + e.message); out.push(`FAIL  ${id}  ${desc}  → ${e.message}`); } };
   run('NW4-01', 'severities = web form options, default normal', () => nw4Severity(s));
   run('NW4-02', 'write semantics = web ann form', () => nw4Semantics(s));
-  run('NW4-03', 'manager-only writes, also in the Gateway', () => nw4Gateway(s));
+  run('NW4-03', 'school-wide = manager, class notice = own class, also in the Gateway', () => nw4Gateway(s));
   run('NW4-04', 'record id range and base_version', () => nw4Ids(s));
   run('NW4-05', 'shared Gateway data path, queue before local write', () => nw4DataPath(s));
   run('NW4-06', 'wave flag, reader/writer roles', () => nw4Flags(s));
