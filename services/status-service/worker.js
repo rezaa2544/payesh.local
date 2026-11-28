@@ -213,6 +213,8 @@ async function executorTick(env) {
     v: 2, helper_id: HELPER_ID, host: 'cloudflare-worker', app: 'payesh-status', version: 'dp-1',
     slots: 1, paused: false, kinds: KINDS, caps: KINDS, cls: 'cloudflare', capacity: 1,
     cpu_cap: null, region: 'cf', contract: '2', school_id: null, at: now, done: counters.done, failed: counters.failed,
+    /* ردیف ۲۱۳: cron هر دقیقه ⇒ خواندن بعدی سر دقیقهٔ بعد */
+    poll_ms: 60_000, next_poll_at: Math.ceil((now + 1) / 60_000) * 60_000, accepting: true,
   });
   const keys = await s3list(env, cfg, P + 'jobs/');
   const names = keys.map((k) => k.key.slice((P + 'jobs/').length));

@@ -48,6 +48,9 @@ function normalizePresence(p) {
     region: typeof p.region === 'string' ? p.region.slice(0, 40) : '',
     contract: typeof p.contract === 'string' ? p.contract.slice(0, 20) : (p.v === 2 ? '2' : '1'),
     school_id: typeof p.school_id === 'string' && SCHOOL_ID_RE.test(p.school_id) ? p.school_id : null,
+    poll_ms: Number.isSafeInteger(p.poll_ms) && p.poll_ms >= 1000 && p.poll_ms <= MAX_POLL_MS ? p.poll_ms : null,
+    next_poll_at: Number.isSafeInteger(p.next_poll_at) ? p.next_poll_at : null,
+    accepting: p.accepting !== false,
   };
 }
 
@@ -99,11 +102,32 @@ function pickExecutor(candidates, job, now = Date.now()) {
 }
 
 /* ردیف ۲۱۰ — polling تطبیقی: صف خالی ⇒ backoff نمایی با jitter تا سقف؛ کار هست ⇒ کوتاه */
-function nextPollDelay(attempt, { hasJob = false, baseMs = 5000, maxMs = 300000, rand = Math.random } = {}) {
+/* ردیف ۲۱۳: سقف بیکاری پیش‌فرض ۱۵ ثانیه (زیر پنجرهٔ ۲۰ ثانیه‌ای برداشت کار در runJob)؛ بیش از این،
+   «آنلاین» بودن سیستم کمکی هیچ سودی ندارد چون کار را پیش از پایان پنجره نمی‌بیند. */
+const IDLE_POLL_CAP_MS = 15_000;
+/* حضور v1 (پنل مالکِ پیش از ۲۱۳) فاصلهٔ خواندن صف را اعلام نمی‌کند: پله‌های بیکاری قدیم تا ۳۰ ثانیه */
+const LEGACY_POLL_MS = 30_000;
+const MAX_POLL_MS = 24 * 3600_000;
+
+function nextPollDelay(attempt, { hasJob = false, baseMs = 5000, maxMs = IDLE_POLL_CAP_MS, rand = Math.random } = {}) {
   if (hasJob) return baseMs;
   const a = Math.max(0, Math.min(Number(attempt) || 0, 20));
   const d = Math.min(maxMs, baseMs * Math.pow(2, a));
   return Math.round(d * (0.8 + rand() * 0.4));
+}
+
+/* ردیف ۲۱۳ — حداکثر چند میلی‌ثانیه تا خواندن بعدی صف توسط این سیستم کمکی؟
+   حضور v2 فیلدهای poll_ms (بیشترین فاصلهٔ دو خواندن صف در حالت فعلی) و next_poll_at
+   (زمان تقریبی خواندن بعدی؛ برای cron) را دارد. accepting:false ⇒ صف را نمی‌خواند (null).
+   بدون poll_ms ⇒ LEGACY_POLL_MS. خروجی بدترین حالت است، نه میانگین. */
+function pollEta(p, now) {
+  if (!p || typeof p !== 'object') return null;
+  if (p.accepting === false || p.paused === true) return null;
+  const pm = Number.isSafeInteger(p.poll_ms) && p.poll_ms >= 1000 && p.poll_ms <= MAX_POLL_MS ? p.poll_ms : null;
+  const period = pm || LEGACY_POLL_MS;
+  const next = Number.isSafeInteger(p.next_poll_at) ? p.next_poll_at : null;
+  if (next !== null && next >= now && next - now <= period) return next - now;
+  return period;
 }
 
 /* ردیف ۲۰۹ — توکن اختصاصی مدرسه: <school_id>.<b64u(HMAC-SHA256(secret, "school-helper:"+id))>
@@ -137,6 +161,7 @@ function verifySchoolTokenEx(secret, token, revoked) {
 
 module.exports = {
   EXECUTOR_CLASSES, DATA_CLASSES, PRIORITIES, JOB_CATALOG, catalogOf,
-  normalizePresence, normalizeJobMeta, canLease, pickExecutor, nextPollDelay,
+  normalizePresence, normalizeJobMeta, canLease, pickExecutor, nextPollDelay, pollEta,
+  IDLE_POLL_CAP_MS, LEGACY_POLL_MS,
   schoolToken, verifySchoolToken, verifySchoolTokenEx, SCHOOL_ID_RE,
 };

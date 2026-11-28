@@ -15,7 +15,9 @@ const v2 = require('./helper-v2');
 const LEASE_MS = 60_000;
 const SETTLE_MS = 1500;
 
-async function writePresence(cfg, me, { done = 0, failed = 0, now = Date.now() } = {}) {
+/* ردیف ۲۱۳: poll_ms = بیشترین فاصلهٔ دو خواندن صف (cron Actions ۱۵ دقیقه، Worker ۱ دقیقه)؛
+   next_poll_at = خواندن بعدی. سرور مدرسه فقط وقتی کار را به صف می‌فرستد که کسی به‌موقع آن را ببیند. */
+async function writePresence(cfg, me, { done = 0, failed = 0, now = Date.now(), pollMs = me.pollMs || null, nextPollAt = null } = {}) {
   const plain = {
     v: 2, helper_id: me.id, host: String(me.host || me.cls).slice(0, 80), app: 'helper-executor',
     version: String(me.version || 'dp-1'), slots: me.capacity || 1, paused: false,
@@ -23,6 +25,10 @@ async function writePresence(cfg, me, { done = 0, failed = 0, now = Date.now() }
     cpu_cap: me.cpu_cap || null, region: me.region || '', contract: '2',
     school_id: me.school_id || null, at: now, done, failed,
   };
+  if (Number.isSafeInteger(pollMs) && pollMs >= 1000) {
+    plain.poll_ms = pollMs; plain.accepting = true;
+    plain.next_poll_at = Number.isSafeInteger(nextPollAt) ? nextPollAt : now + pollMs;
+  }
   await s3mem.put(cfg, cfg.prefix + hj.DIR.helpers + me.id + '.json',
     JSON.stringify(hj.seal(cfg.secret, hj.K.presence, now, JSON.stringify(plain))));
   return plain;

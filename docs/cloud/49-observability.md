@@ -39,7 +39,7 @@
 | `payesh_backup_age_seconds` / `payesh_mirror_age_seconds` | عمر پشتیبان/آینه | mtime جدیدترین فایل |
 | `payesh_sync_lag_seconds` | بیشترین فاصلهٔ «آخرین تماس دستگاه» تا الان | جدول `devices.last_seen_at` |
 | `payesh_sync_devices_total` | دستگاه‌های فعال (بدون ابطال) | همان جدول |
-| `payesh_sync_queue_depth` | ردیف‌های منتظر در صندوقچهٔ ماندگار | شمارش `outbox/pending/*.json` |
+| `payesh_sync_queue_depth` | پاکت‌های منتظر در صندوقچهٔ ماندگار (از ردیف ۲۱۲ هر پاکت = یک همگام‌سازی یا یک ارسال دستگاه، تا ۲۰۰ قلم؛ نه یک ردیف) | شمارش `outbox/pending/*.json` |
 | `payesh_http_requests_total{class}` | شمارش پاسخ‌ها بر کلاس | `res.on('finish')` روی هر پاسخ واقعی |
 | `payesh_http_error_ratio` | سهم ۵xx در ۵ دقیقهٔ گذشته | همان رویدادها |
 | `payesh_pg_pool_wait_seconds` | زمان گرفتن اتصال از pool | اندازه‌گیری acquire در scrape (Gateway) |

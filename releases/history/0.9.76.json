@@ -1,0 +1,626 @@
+{
+  "version": "0.9.76",
+  "built_at": "2026-11-28T06:10:40.001Z",
+  "notes": [
+    "همگام‌سازی سبک‌تر شد: سرور مدرسه به جای یک درخواست برای هر ردیف، برای هر همگام‌سازی فقط یک فایل امضاشده در صندوقچهٔ ابری می‌نویسد. در آزمایش بار، درخواست‌ها به صندوقچه حدود ۲۰ برابر کم شد و همگام‌سازی گوشی‌ها در ساعت شلوغ حدود یک‌سوم سریع‌تر شد.",
+    "«سرور کمکی» دیگر باعث انتظار بیهوده نمی‌شود: کاری که منتظرش هستید فقط وقتی به سرور کمکی سپرده می‌شود که زودتر از خودِ سرور جواب بدهد. اگر سرور کمکی دیر سر بزند یا راهش کندتر باشد، کار بلافاصله روی همان سرور انجام می‌شود. پنل مالک وقتی بیکار است هر ۱۵ ثانیه (به جای ۳۰ ثانیه) صف را نگاه می‌کند."
+  ],
+  "shell": {
+    "android": "0.9.76"
+  },
+  "files": [
+    {
+      "path": "client/app.js",
+      "kind": "client",
+      "sha256": "b59959d3c2fed19d4bfce042b7492a9c4771620c92c7b759855abc76bc85c1bc",
+      "size": 253600
+    },
+    {
+      "path": "client/authz.js",
+      "kind": "client",
+      "sha256": "1e7e4beab32d607f59684f7d7c1df82e4f1e055907a1776dd938b62aa8592fb8",
+      "size": 8871
+    },
+    {
+      "path": "client/cloud-baked.js",
+      "kind": "client",
+      "sha256": "3d624b4dd843aea06c768523ab5b39862a23c48efcfd3785d7f70b4ba2939e26",
+      "size": 599
+    },
+    {
+      "path": "client/diag.js",
+      "kind": "client",
+      "sha256": "dd6bc267e7cc81a2514e5b58b647fdfa399fa9c41a55f64605b1ad2d41c25c58",
+      "size": 35256
+    },
+    {
+      "path": "client/engine-web.js",
+      "kind": "client",
+      "sha256": "a16b6927f2aadfed0f91ea8c49e3e9d9fcece8f0800f00b1549e0f1486ab4b62",
+      "size": 10042
+    },
+    {
+      "path": "client/icons/apple-touch-icon.png",
+      "kind": "client",
+      "sha256": "aff311c44167f09dafa73e4501221445b7df7bb114b8fc399ae0a030cbec59cf",
+      "size": 32187
+    },
+    {
+      "path": "client/icons/favicon-32.png",
+      "kind": "client",
+      "sha256": "327de29f936779ac81af3cdd01526513b41c81f1a9b8b4baca59f26bc0000ff4",
+      "size": 2095
+    },
+    {
+      "path": "client/icons/favicon-64.png",
+      "kind": "client",
+      "sha256": "f912dac91cf9953822da32452cbeee8e2bf8212121861ee25b74cac7cc5b05f9",
+      "size": 5961
+    },
+    {
+      "path": "client/icons/icon-192.png",
+      "kind": "client",
+      "sha256": "c3837f64806a1f92b9b0379eb76c0218917893c96934d0c7bf5752cc8d16e443",
+      "size": 35805
+    },
+    {
+      "path": "client/icons/icon-512.png",
+      "kind": "client",
+      "sha256": "eec91028667f5b96d0301c4f90fbfb005c2d2c6796e95b9958d0d343094deab3",
+      "size": 182588
+    },
+    {
+      "path": "client/icons/logo-mark.png",
+      "kind": "client",
+      "sha256": "36e76c29b4f35226d4f09ae60ae25721d12f62c3a21fbf921e213ad88eddfe50",
+      "size": 83504
+    },
+    {
+      "path": "client/icons/logo.png",
+      "kind": "client",
+      "sha256": "ff2e6746aa44e186e5c01e0bf6f8c1b83ca6d3017e89059b8c42812018ebd3fd",
+      "size": 364145
+    },
+    {
+      "path": "client/import.js",
+      "kind": "client",
+      "sha256": "f7c49c5f898172aef53d405a9e338d557f1857058352301f0ebe0267669e8043",
+      "size": 94945
+    },
+    {
+      "path": "client/index.html",
+      "kind": "client",
+      "sha256": "86004408f1f4fe824be030c16df7c2d0ee5c467104b58c34c171f57315c2fa97",
+      "size": 1844
+    },
+    {
+      "path": "client/install.html",
+      "kind": "client",
+      "sha256": "cb46761e0525912ae4822c0f03612415e6b2e9bb1a7ef947cb8a81988aa32087",
+      "size": 9210
+    },
+    {
+      "path": "client/lib/hash.js",
+      "kind": "client",
+      "sha256": "5b7c5a70d25f50876074f13a7a9b3eda5b7daac2464eb17459edce3747dde645",
+      "size": 6150
+    },
+    {
+      "path": "client/lib/phone.js",
+      "kind": "client",
+      "sha256": "8241a807da5ca3ca4b70c79ca9eef197b0daa93c45d3d49fb1383744a6be9407",
+      "size": 24200
+    },
+    {
+      "path": "client/lib/s3mini.js",
+      "kind": "client",
+      "sha256": "42828d2dd55ba2028bf4b120c127571695c91a741161f78822b8911bb71c9909",
+      "size": 18188
+    },
+    {
+      "path": "client/lib/sigv4.js",
+      "kind": "client",
+      "sha256": "29379ac85eefa3fc14d0c4461ec7ff39c0d68e4e499a432ee4b94bf948292551",
+      "size": 11468
+    },
+    {
+      "path": "client/lib/xlsx.js",
+      "kind": "client",
+      "sha256": "95bdbafc579fe2cba19804d657609cf75cbad165651dfd9c2db0d7b4e0da44f5",
+      "size": 11511
+    },
+    {
+      "path": "client/manifest.webmanifest",
+      "kind": "client",
+      "sha256": "ee0723a8b1596a3427f13315e369b7a1c10d6d7b9239a8d4146e7f86368bfb5d",
+      "size": 960
+    },
+    {
+      "path": "client/outbox-web.js",
+      "kind": "client",
+      "sha256": "8dfa1d187a9b6f3454e0ab1f98c3dde53a94ecca7bf95f761fdc963d9b2cbe88",
+      "size": 19332
+    },
+    {
+      "path": "client/pages.js",
+      "kind": "client",
+      "sha256": "58a689092570b699b3890c5262498ba349d941b2d9a605c38369304e942fbd46",
+      "size": 212877
+    },
+    {
+      "path": "client/provider-postgrest.js",
+      "kind": "client",
+      "sha256": "a70ae3c157f57c728ddacbba3a5c7596da85db5e332c533f03f8a29736bd0c0b",
+      "size": 10121
+    },
+    {
+      "path": "client/pulse.css",
+      "kind": "client",
+      "sha256": "89a32743ce5034c70782e1dbdee535c041f9bd0ac02cb61e98e64df3e7be350e",
+      "size": 36990
+    },
+    {
+      "path": "client/pulse.js",
+      "kind": "client",
+      "sha256": "11b6c5cdbb4e58df14dd4d16419ce8886f351162f12184dcecc03eb77389d363",
+      "size": 16116
+    },
+    {
+      "path": "client/scan.js",
+      "kind": "client",
+      "sha256": "df61043a4da903383229b37e812ab54eef79ebf4b11998bf5964ed2eb7fae5e3",
+      "size": 11761
+    },
+    {
+      "path": "client/schedule.js",
+      "kind": "client",
+      "sha256": "c086eb8509c5ee4bfae685da19696be199e2409c1fea7fb528dc80cc09603349",
+      "size": 61230
+    },
+    {
+      "path": "client/secure-web.js",
+      "kind": "client",
+      "sha256": "8c168be7827ad0e2886e8eacfb02ba9be55bfcc7c0b2d273dd6312e1442db58d",
+      "size": 16623
+    },
+    {
+      "path": "client/styles.css",
+      "kind": "client",
+      "sha256": "36119346e31e4770606991e8b1cfb3a2b71245926fca39946dd4ead1d6de1b6d",
+      "size": 22970
+    },
+    {
+      "path": "client/sw.js",
+      "kind": "client",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "client/sync-schedule.js",
+      "kind": "client",
+      "sha256": "6f2818a5c2c6c3a50c8b4091317551a1c950d23a1565265ab5418641847a7c7a",
+      "size": 4505
+    },
+    {
+      "path": "client/telemetry.js",
+      "kind": "client",
+      "sha256": "d0f033b129adaa0f421d420bd18dbdf7d3e85c024f185ff889bc6f503413f6c0",
+      "size": 6437
+    },
+    {
+      "path": "client/transport.js",
+      "kind": "client",
+      "sha256": "ec3b773d52c119c8d81d2a27c05def43f5f831a56549678ed1e9d9c419a67991",
+      "size": 5741
+    },
+    {
+      "path": "install.bat",
+      "kind": "server",
+      "sha256": "e7bff8e3fda9a280ced1550fe52d5cb404a3aa9472added6b0825f6d864f2799",
+      "size": 409
+    },
+    {
+      "path": "package.json",
+      "kind": "server",
+      "sha256": "3716c5f68763b9556e0bfb7adb80b6cb069a0b963cb548e2d45a698ed9a05fe2",
+      "size": 8172
+    },
+    {
+      "path": "server/academic-year.js",
+      "kind": "server",
+      "sha256": "e2082bae5fbc2d3e3bf16f3feab82478d87da3d162646823b0a8d786b30d346c",
+      "size": 6805
+    },
+    {
+      "path": "server/alerts.js",
+      "kind": "server",
+      "sha256": "bae9be2e87df3ab6c7d6240ca4701bc786db32a178628645ec0901c876ba7016",
+      "size": 7485
+    },
+    {
+      "path": "server/api-version.js",
+      "kind": "server",
+      "sha256": "c311a64eee4e8cd011539acd4c8019f9c09b8e9ea91ab1f3439a2374b7f50d7f",
+      "size": 5265
+    },
+    {
+      "path": "server/archive.js",
+      "kind": "server",
+      "sha256": "f1d33a03674c23a7d4ca9fe3a7b1a6c2871e988f5da021b8024112a02372b405",
+      "size": 13576
+    },
+    {
+      "path": "server/auth.js",
+      "kind": "server",
+      "sha256": "e3fccffb93c45a58002f1a42f3ee8fcc1089685b4e398c4b27f1f0e2ecd806c5",
+      "size": 35168
+    },
+    {
+      "path": "server/cloud-control.js",
+      "kind": "server",
+      "sha256": "e91471bc9575217eb9ed2b05e7261d6045c5f661b60190f82b78a8f320562923",
+      "size": 12711
+    },
+    {
+      "path": "server/cloud-defaults.js",
+      "kind": "server",
+      "sha256": "226c926dbc06bef5ee21a9c6be33949163da2e9093375fb817c7b03bdc894727",
+      "size": 4010
+    },
+    {
+      "path": "server/config.js",
+      "kind": "server",
+      "sha256": "e8999af86d4e8eb1271aaa0a58924e8d13a37c6be32d31c316f4716e6b281005",
+      "size": 8482
+    },
+    {
+      "path": "server/connect.js",
+      "kind": "server",
+      "sha256": "a4e28a92f5883a4ac647d173a3e13ae2438775949f6538bcab3298e64381c365",
+      "size": 12279
+    },
+    {
+      "path": "server/convergence.js",
+      "kind": "server",
+      "sha256": "1269e66d50b3f5c188129730e35eeb9257faa7cc7058f1f33ae1069cac049eea",
+      "size": 8412
+    },
+    {
+      "path": "server/db.js",
+      "kind": "server",
+      "sha256": "0b8d7193d842da99bca3323c5787f935a3f3a99e6bd5714ed55abbec6b59a971",
+      "size": 20503
+    },
+    {
+      "path": "server/directory-api.js",
+      "kind": "server",
+      "sha256": "46cc8f7fc025b55ab8fbd599720f0a988d0a7b64782c37e87bedeaff1776beae",
+      "size": 5145
+    },
+    {
+      "path": "server/directory.js",
+      "kind": "server",
+      "sha256": "314d58df4152827a4f6d146c9ee339a696188d310f672c8b30fe94c931f67c57",
+      "size": 10377
+    },
+    {
+      "path": "server/discovery.js",
+      "kind": "server",
+      "sha256": "99584ebd3177b3e7a553d85598bfcd5d593eef2a93bb365a50c51f75d2801247",
+      "size": 11337
+    },
+    {
+      "path": "server/events.js",
+      "kind": "server",
+      "sha256": "da1949a5789ca494ca8150499070069dbbe92d6c5d0a5b7cddb064da3eed3971",
+      "size": 6230
+    },
+    {
+      "path": "server/field-crypto.js",
+      "kind": "server",
+      "sha256": "5530a6bcb274be9d39679487ae0557d6693d2d7d42af30ff35102fdcfca1c778",
+      "size": 9180
+    },
+    {
+      "path": "server/gateway.js",
+      "kind": "server",
+      "sha256": "bfa455491b2b9ab5715eca6047cd7e9b174c3c5c833f972702dc32c03b1b9dc1",
+      "size": 35171
+    },
+    {
+      "path": "server/gw-events.js",
+      "kind": "server",
+      "sha256": "f7fd61f5316bfb20f56ff59c0a8a782fa06dcf2325728e8e26182d50ee2011f5",
+      "size": 9747
+    },
+    {
+      "path": "server/helper-executor.js",
+      "kind": "server",
+      "sha256": "e0ee39a86e2287959664cb2e1459f43f41bca34e0af02b31917b54ec134bec89",
+      "size": 5761
+    },
+    {
+      "path": "server/helper-jobs.js",
+      "kind": "server",
+      "sha256": "1ceaff29084730c3324c9c5e0d93cd67899cf626db4da27e2d4ee2e007997b80",
+      "size": 37019
+    },
+    {
+      "path": "server/helper-v2.js",
+      "kind": "server",
+      "sha256": "5888830fe829f56f05eb81a4a14e814967eeee5ad1548e81ffd80c1d64128aa0",
+      "size": 10227
+    },
+    {
+      "path": "server/hosting.js",
+      "kind": "server",
+      "sha256": "aad76ebfb5c8cb0f563060f5ba601f0d6ddec177f95bad168a3e6d615f5dbcee",
+      "size": 30894
+    },
+    {
+      "path": "server/identity.js",
+      "kind": "server",
+      "sha256": "0de7c29ef682177f46d2e259634cd0a4ca09a17811fa243a27328b22ad9903dc",
+      "size": 12555
+    },
+    {
+      "path": "server/index.js",
+      "kind": "server",
+      "sha256": "044b29e85f99fe5d5633e21fc9f1437435bcf88a78fdc5e5dcfc214e74225440",
+      "size": 161150
+    },
+    {
+      "path": "server/kill-switch.js",
+      "kind": "server",
+      "sha256": "fa018d953baf100ab574cd5eeff211085678b11463842e0ab6347103b60ae90d",
+      "size": 3745
+    },
+    {
+      "path": "server/le-trust.js",
+      "kind": "server",
+      "sha256": "281b984119f687298068f2f6970ed6e40b538f982ee40e9de40167655b48bb01",
+      "size": 33853
+    },
+    {
+      "path": "server/live.js",
+      "kind": "server",
+      "sha256": "e73cdc8314bcf757e274bf00b584f3f765bfe41c98cfec059f6f29d0303ad068",
+      "size": 12143
+    },
+    {
+      "path": "server/load-route.js",
+      "kind": "server",
+      "sha256": "a34f339a3c529c7b6e9067ad1d80cb5515625a14ae8cea79e4b733a5b0f321bd",
+      "size": 9185
+    },
+    {
+      "path": "server/logger.js",
+      "kind": "server",
+      "sha256": "98a57f6a7148c006ddca553fa1b018ea3b7f7dc00ab248ae188ff86bbb9b58f9",
+      "size": 7440
+    },
+    {
+      "path": "server/metrics.js",
+      "kind": "server",
+      "sha256": "21cff0951aa22bcd481ef427e2b425d461b2c42371d82148c1a68188b7a647eb",
+      "size": 12330
+    },
+    {
+      "path": "server/migrator.js",
+      "kind": "server",
+      "sha256": "18f47dc1c227fd9931a431aa871fce08cee54271d63ca39af8065221a16bf8cf",
+      "size": 21862
+    },
+    {
+      "path": "server/mirror.js",
+      "kind": "server",
+      "sha256": "3cde2ac02c7fbe8be6cb411179d809974c630c1608a25474d68dd4fe87c9d5c9",
+      "size": 15661
+    },
+    {
+      "path": "server/outbox.js",
+      "kind": "server",
+      "sha256": "c5d177a92cac1ce469390f6cd078564a7421c34edc4bd3af437ce09768910267",
+      "size": 35977
+    },
+    {
+      "path": "server/pitr.js",
+      "kind": "server",
+      "sha256": "f775f0792434145dd336a6bc54b08286b8b0a7fbdac0333bf290b4da01c071e7",
+      "size": 8691
+    },
+    {
+      "path": "server/policy.js",
+      "kind": "server",
+      "sha256": "bc8b1f1ec8359807fa4d8a4ba2ffd4908cb4306205db30c37717b179416a0ea5",
+      "size": 31309
+    },
+    {
+      "path": "server/privacy.js",
+      "kind": "server",
+      "sha256": "8831c9b24d432af4d21fd13ab9213af814b9eada06ecff3f9406bea440b9da0b",
+      "size": 5384
+    },
+    {
+      "path": "server/processing.js",
+      "kind": "server",
+      "sha256": "52dd743fcf67bcde651401ae8f8b5a66068270b433e08d8a241899b55c6ab4a5",
+      "size": 11213
+    },
+    {
+      "path": "server/qr.js",
+      "kind": "server",
+      "sha256": "5a3540a4e33af3acf3261a5a66c9d4547521203b7f71cedf45d91300268f6a65",
+      "size": 13353
+    },
+    {
+      "path": "server/quick-tunnel.js",
+      "kind": "server",
+      "sha256": "b95619d8ebca97e42134ffaef8c56e96ec3f05d7b6be0962825afc820e04df60",
+      "size": 12244
+    },
+    {
+      "path": "server/rendezvous.js",
+      "kind": "server",
+      "sha256": "48dc62e7ae6b0997f3f04b842a2561639a87b3f825fc9d52286f92b8a330340d",
+      "size": 15594
+    },
+    {
+      "path": "server/replica-policy.js",
+      "kind": "server",
+      "sha256": "9fe4502090fc7030282af36d6d16a691b69a04017f8c1d1794d0bae383609122",
+      "size": 5119
+    },
+    {
+      "path": "server/s3-https.js",
+      "kind": "server",
+      "sha256": "3c6c5a9cf377cc90b953b27b542f65e7eb9289e7ce83b5818c8558bebcd291c7",
+      "size": 2684
+    },
+    {
+      "path": "server/s3mem.js",
+      "kind": "server",
+      "sha256": "819b5bb0b5c3ecaca2b7d95640b7d5be4055195727e55c5a1444155995a83f45",
+      "size": 5329
+    },
+    {
+      "path": "server/school-access.js",
+      "kind": "server",
+      "sha256": "3f3d68c21d1db3230122b1bccbbba35ddb2b07e2e2ba859e45322e308cd7e3f9",
+      "size": 10460
+    },
+    {
+      "path": "server/school-finance.js",
+      "kind": "server",
+      "sha256": "90699df6dc8980332e3929c02af9c51f9e613207132189b058b3ad73ed5032a5",
+      "size": 6144
+    },
+    {
+      "path": "server/school-profile.js",
+      "kind": "server",
+      "sha256": "10b59802b053beebab7690031400c97b0231ea60cfc434ca4309489fd63b7ae7",
+      "size": 9862
+    },
+    {
+      "path": "server/school-registry.js",
+      "kind": "server",
+      "sha256": "339f928fba8dd616ffd83f576a5c586751b7139ccd7062d458c226cd11d80807",
+      "size": 64196
+    },
+    {
+      "path": "server/scope.js",
+      "kind": "server",
+      "sha256": "f67737040b2f22341821cf3520d71bd5ecc6553a496e140ac35a26f93ca89d48",
+      "size": 18092
+    },
+    {
+      "path": "server/seed.js",
+      "kind": "server",
+      "sha256": "1a0f7c07a032f33d140e344b33e4e4dd9ea9f60460b9de06bd0d0961a53eed97",
+      "size": 13166
+    },
+    {
+      "path": "server/slo.js",
+      "kind": "server",
+      "sha256": "26a61491903cb401d2742428e6aea35433e6e5fb546ff09dbd64d3acf5248b10",
+      "size": 3435
+    },
+    {
+      "path": "server/sms.js",
+      "kind": "server",
+      "sha256": "0cd7a0a16c41171756b85cd61867eb4f99e8a0aa94d204263e956f1d9538515c",
+      "size": 14844
+    },
+    {
+      "path": "server/start.js",
+      "kind": "server",
+      "sha256": "ff18a82ec7fbeac0b863768d10b09ba40de0d08ea383a57ea97b7ad32f91d9a7",
+      "size": 6781
+    },
+    {
+      "path": "server/structure-repair.js",
+      "kind": "server",
+      "sha256": "5c986dac0542fd4c70f80a06f6652ea14a9261cfe16d4f6598e9ef0c0b869e20",
+      "size": 8064
+    },
+    {
+      "path": "server/support.js",
+      "kind": "server",
+      "sha256": "74b3b08d77330fe00749316d6d6399fae08ce00a914723412f658c65a73231d9",
+      "size": 10550
+    },
+    {
+      "path": "server/sync.js",
+      "kind": "server",
+      "sha256": "dcbdd1c0a12de1cca11d08644071452b591c84e49e0712ba6965f9e2b5a0f3f5",
+      "size": 24080
+    },
+    {
+      "path": "server/tenancy.js",
+      "kind": "server",
+      "sha256": "d707abdf8eef9feff3f7b66818bf191b2edd74173d5d8f5df1be9f82857dda2e",
+      "size": 81219
+    },
+    {
+      "path": "server/tenant-context.js",
+      "kind": "server",
+      "sha256": "b256e4744cb92daea75c2bf6a63188226d2553c7e4f3d85f36ebd9cecf545ea0",
+      "size": 4006
+    },
+    {
+      "path": "server/transfer.js",
+      "kind": "server",
+      "sha256": "89587f0a950b42ec2427e565560ba018cb5350b3616d689a204dc1aebc21ea1a",
+      "size": 8650
+    },
+    {
+      "path": "server/tunnel.js",
+      "kind": "server",
+      "sha256": "5266b5272f744cf7481f84efb987b310c7f8ab1a80052f57bd61a802a78a762f",
+      "size": 21958
+    },
+    {
+      "path": "server/update-relay.js",
+      "kind": "server",
+      "sha256": "fbc7e8da8bcb2df1eef7bf5deaff316276d4065124900fc2cfaf342e63c0fb75",
+      "size": 14159
+    },
+    {
+      "path": "server/update.js",
+      "kind": "server",
+      "sha256": "73c34f6606060059ad998fcb714c8d27e7f55290b7012c0f3ebfb94b48a78b45",
+      "size": 32724
+    },
+    {
+      "path": "server/util.js",
+      "kind": "server",
+      "sha256": "1eabdea403cafa34baa9758bebbdbe349a6be0c4ae45db1d2abb91c819224ac8",
+      "size": 4254
+    },
+    {
+      "path": "start.bat",
+      "kind": "server",
+      "sha256": "104c83f90f839e39f904e4bfe135caad385c7c82bb3d43c64bf46abf13e53a7f",
+      "size": 292
+    },
+    {
+      "path": "start.sh",
+      "kind": "server",
+      "sha256": "17e259f0bea3105270ae99f1f36b12087f5727672e2c7269d24239e3ac5da506",
+      "size": 409
+    },
+    {
+      "path": "uninstall.bat",
+      "kind": "server",
+      "sha256": "2c421ee99ad515ed535fd346758883535d9a49b20058194001fd035bb775ded0",
+      "size": 151
+    }
+  ],
+  "counts": {
+    "client": 34,
+    "server": 67
+  },
+  "client_size": 1617832,
+  "server_size": 1108682,
+  "total_size": 2726514
+}

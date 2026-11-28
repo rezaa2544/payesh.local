@@ -59,6 +59,16 @@ const Duration claimWait = Duration(seconds: 20);
 const Duration leaseFor = Duration(seconds: 60);
 const Duration leaseRenewEvery = Duration(seconds: 20);
 const Duration claimSettle = Duration(milliseconds: 1500);
+
+/// ردیف ۲۱۳: سقف فاصلهٔ خواندن صف در بیکاری (زیر [claimWait]) — بیشتر از این، «آنلاین» بودن
+/// سودی ندارد چون کار پیش از پایان پنجرهٔ برداشت دیده نمی‌شود (همان IDLE_POLL_CAP_MS در Node).
+const Duration idlePollCap = Duration(seconds: 15);
+
+/// حضور قدیمی (بی poll_ms): پله‌های بیکاری پیش از ۲۱۳ تا ۳۰ ثانیه بود.
+const Duration legacyPollEvery = Duration(seconds: 30);
+
+/// حاشیهٔ برداشت پس از خواندن صف (settle + jitter + رفت‌وبرگشت) — CLAIM_MARGIN_MS در Node.
+const Duration claimMargin = Duration(seconds: 5);
 const Duration jobDeadline = Duration(minutes: 10);
 const Duration gcJobAge = Duration(hours: 1);
 const Duration gcHelperAge = Duration(days: 7);
@@ -138,6 +148,9 @@ final class HelperPresence {
     required this.at,
     required this.done,
     required this.failed,
+    this.pollMs,
+    this.nextPollAt,
+    this.accepting = true,
     this.cls = 'owner',
     this.caps = const [],
     this.schoolId,
@@ -153,17 +166,39 @@ final class HelperPresence {
   final int done;
   final int failed;
 
+  /// ردیف ۲۱۳: بیشترین فاصلهٔ دو خواندن صف (null = حضور قدیمی).
+  final int? pollMs;
+
+  /// زمان تقریبی خواندن بعدی صف (ms از epoch؛ برای cron).
+  final int? nextPollAt;
+
+  /// false ⇒ صف را نمی‌خواند (پردازش کمکی خاموش/متوقف).
+  final bool accepting;
+
+  /// بدترین حالتِ «تا خواندن بعدی صف» — همان pollEta در server/helper-v2.js.
+  /// null ⇒ این سیستم صف را نمی‌خواند.
+  Duration? pollEtaAt(DateTime now) {
+    if (!accepting || paused) return null;
+    final period = pollMs ?? legacyPollEvery.inMilliseconds;
+    final next = nextPollAt;
+    final n = now.millisecondsSinceEpoch;
+    if (next != null && next >= n && next - n <= period) {
+      return Duration(milliseconds: next - n);
+    }
+    return Duration(milliseconds: period);
+  }
+
+  bool onlineAt(DateTime now) =>
+      !paused &&
+      now.difference(at) <= presenceFresh &&
+      at.difference(now) <= presenceFresh;
+
   // Row 205/209/210 (v2, additive): executor class + capabilities + school id.
   // v1 presence has none of these: cls=owner, caps=kinds, schoolId=null
   // (same defaults as server/helper-v2.js normalizePresence).
   final String cls;
   final List<String> caps;
   final String? schoolId;
-
-  bool onlineAt(DateTime now) =>
-      !paused &&
-      now.difference(at) <= presenceFresh &&
-      at.difference(now) <= presenceFresh;
 
   Map<String, Object?> toPlain() => {
     'v': 1,
@@ -177,6 +212,9 @@ final class HelperPresence {
     'at': at.millisecondsSinceEpoch,
     'done': done,
     'failed': failed,
+    if (pollMs != null) 'poll_ms': pollMs,
+    if (nextPollAt != null) 'next_poll_at': nextPollAt,
+    if (pollMs != null || !accepting) 'accepting': accepting,
   };
 
   static HelperPresence? fromPlain(String id, Map<String, Object?> p) {
@@ -205,10 +243,17 @@ final class HelperPresence {
       failed: p['failed'] is int ? p['failed']! as int : 0,
       cls: clsRaw is String && classes.contains(clsRaw) ? clsRaw : 'owner',
       caps: capList.isEmpty ? kindList : capList,
-      schoolId: sidRaw is String && schoolIdRe.hasMatch(sidRaw) ? sidRaw : null,
+      schoolId:
+          sidRaw is String && schoolIdRe.hasMatch(sidRaw) ? sidRaw : null,
+      pollMs: _pollMsOf(p['poll_ms']),
+      nextPollAt: p['next_poll_at'] is int ? p['next_poll_at']! as int : null,
+      accepting: p['accepting'] != false,
     );
   }
 }
+
+int? _pollMsOf(Object? v) =>
+    v is int && v >= 1000 && v <= 24 * 3600 * 1000 ? v : null;
 
 extension on String {
   String get characters80 => length > 80 ? substring(0, 80) : this;
@@ -328,6 +373,7 @@ bool verifySchoolHelperToken(String secret, String token) {
   }
   return diff == 0;
 }
+
 
 /// ردیف ۲۱۰ — وضعیت صف کارها برای نمای یکپارچهٔ پنل (فقط شمارش؛ بدون محتوا).
 /// هم‌معنای queueStatus در server/helper-jobs.js است.

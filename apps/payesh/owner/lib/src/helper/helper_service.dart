@@ -209,6 +209,9 @@ final class OwnerHelperService {
     _follow();
   }
 
+  /// ردیف ۲۱۳: برآورد انتظار (کمکی در برابر محلی) برای کارهایی که مالک منتظرشان است.
+  final WaitEstimator waitEstimator = WaitEstimator();
+
   /// فرستادن یک کار: همین دستگاه؛ سرور کمکیِ دیگر فقط هنگام نیاز.
   Future<JobOutcome> submit(
     String kind, [
@@ -231,6 +234,7 @@ final class OwnerHelperService {
       // همین دستگاه پر است یا مسیر بار سیستم‌های کمکی را به کار گرفته ⇒ نیاز به سرور کمکی
       busy: () => _nodeBusy() || router.state.helpersActive,
       helperAllowed: policy.value.helperOn,
+      estimator: waitEstimator,
     );
     _node?.noteSubmitted(kind, r);
     return r;

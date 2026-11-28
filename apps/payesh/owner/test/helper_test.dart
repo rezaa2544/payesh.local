@@ -247,8 +247,11 @@ void main() {
         },
       );
       expect(r.by, 'local', reason: 'paused helper never claims');
+      // ردیف ۲۱۳: حضور accepting:false دارد ⇒ اصلاً منتظرش نمی‌مانیم
+      expect(r.why, 'helper_idle');
       expect(b.done, 0);
       paused = false;
+      await b.tick(); // چرخهٔ بعد: «دوباره می‌پذیرم» بی‌درنگ اعلام می‌شود
       final r2 = await submitJob(
         busy: () => true,
         s3: s3,
@@ -353,6 +356,169 @@ void main() {
         expect(bucket.keysUnder('payesh/jobs/'), isEmpty);
       },
     );
+
+    // ردیف ۲۱۳ — فقط سیستم کمکی‌ای که پیش از پایان پنجره صف را می‌خواند.
+    test(
+      'row 213: idle loop caps at 15 s and presence advertises poll_ms',
+      () async {
+        final b = node('b000000000000001');
+        final steps = <Duration>[];
+        for (var i = 0; i < 6; i++) {
+          steps.add(await b.tick());
+          clock = clock.add(steps.last);
+        }
+        expect(steps.every((d) => d <= idlePollCap), isTrue, reason: '$steps');
+        expect(steps.last, idlePollCap);
+        expect(idlePollCap + claimMargin <= claimWait, isTrue);
+        final h = (await readHelpers(s3, bucket.transport())).single;
+        expect(h.pollMs, idlePollCap.inMilliseconds);
+        expect(h.accepting, isTrue);
+        expect(h.pollEtaAt(clock), idlePollCap);
+      },
+    );
+
+    test('row 213: switching processing off rewrites presence at once (accepting:false)', () async {
+      var accept = true;
+      final b = HelperNode(
+        helperId: 'b000000000000001',
+        transport: bucket.transport,
+        executor: exec(),
+        now: () => clock,
+        sleep: (_) async {},
+        host: 'PC-b',
+        slots: 1,
+        acceptWork: () => accept,
+      )..configure(s3);
+      await b.tick();
+      expect(
+        (await readHelpers(s3, bucket.transport())).single.accepting,
+        isTrue,
+      );
+      accept = false;
+      clock = clock.add(
+        const Duration(seconds: 5),
+      ); // well before presenceEvery
+      await b.tick();
+      final h = (await readHelpers(s3, bucket.transport())).single;
+      expect(h.accepting, isFalse);
+      expect(h.pollEtaAt(clock), isNull);
+      var slept = Duration.zero;
+      final r = await submitJob(
+        busy: () => true,
+        s3: s3,
+        transport: bucket.transport,
+        executor: exec(),
+        kind: 'storage.usage',
+        now: () => clock,
+        sleep: (d) async => slept += d,
+      );
+      expect(r.why, 'helper_idle');
+      expect(slept, Duration.zero);
+      expect(bucket.keysUnder('payesh/jobs/'), isEmpty);
+      await b.dispose();
+    });
+
+    test('row 213: legacy presence (no poll_ms, 30 s idle) => local at once, no wait', () async {
+      final at = clock.millisecondsSinceEpoch;
+      bucket.putText(
+        'payesh/helpers/c000000000000001.json',
+        await sealHelper('sk-test', HelperKinds.presence, at, {
+          'v': 1,
+          'helper_id': 'c000000000000001',
+          'host': 'old',
+          'version': 'old',
+          'slots': 1,
+          'paused': false,
+          'kinds': jobKinds,
+          'at': at,
+          'done': 0,
+          'failed': 0,
+        }),
+      );
+      var slept = Duration.zero;
+      final r = await submitJob(
+        busy: () => true,
+        s3: s3,
+        transport: bucket.transport,
+        executor: exec(),
+        kind: 'storage.usage',
+        now: () => clock,
+        sleep: (d) async => slept += d,
+      );
+      expect(r.ok, isTrue);
+      expect(r.by, 'local');
+      expect(r.why, 'helper_idle');
+      expect(slept, Duration.zero);
+      expect(bucket.keysUnder('payesh/jobs/'), isEmpty);
+    });
+
+    test('row 213: slow helper path => learn local once, then local_faster (no queue)', () async {
+      final b = node('b000000000000001');
+      await b.tick();
+      final est = WaitEstimator();
+      // ۱) کمکی برمی‌دارد اما رفت‌وبرگشت کند است (سرور شلوغ دیر نگاه می‌کند)
+      var n = 0;
+      final r1 = await submitJob(
+        busy: () => true,
+        s3: s3,
+        transport: bucket.transport,
+        executor: exec(),
+        kind: 'storage.usage',
+        selfHelperId: 'a000000000000001',
+        now: () => clock,
+        estimator: est,
+        sleep: (d) async {
+          clock = clock.add(d);
+          if (++n == 2) {
+            await b.tick();
+            await settle();
+            clock = clock.add(const Duration(seconds: 10));
+          }
+        },
+      );
+      expect(r1.by, 'b000000000000001');
+      expect(est.view['storage.usage']!['helper_ms']!, greaterThan(5000));
+      // ۲) زمان محلی نامعلوم ⇒ یک بار محلی (یاد گرفتن)، بی‌انتظار
+      await b.tick();
+      Future<JobOutcome> again() => submitJob(
+        busy: () => true,
+        s3: s3,
+        transport: bucket.transport,
+        executor: exec(),
+        kind: 'storage.usage',
+        selfHelperId: 'a000000000000001',
+        now: () => clock,
+        estimator: est,
+        sleep: (_) async => fail('must not wait'),
+      );
+      final r2 = await again();
+      expect(r2.by, 'local');
+      expect(r2.why, 'learning');
+      expect(est.view['storage.usage']!['local_ms'], isNotNull);
+      // ۳) محلی تندتر از برداشت + سربار ⇒ محلی، هیچ کاری در صف نمی‌نشیند
+      final r3 = await again();
+      expect(r3.why, 'local_faster');
+      expect(bucket.keysUnder('payesh/jobs/req/'), isEmpty);
+      await b.dispose();
+    });
+
+    test('row 213: WaitEstimator — fast helper path never gated; slow-but-faster helper still used', () {
+      final e = WaitEstimator();
+      e.feed('k', 'helper_ms', 3000);
+      expect(e.choice('k', const Duration(seconds: 3)), isNull);
+      e
+        ..feed('x', 'helper_ms', 12000)
+        ..feed('x', 'helper_overhead_ms', 9000)
+        ..feed('x', 'local_ms', 40000);
+      expect(e.choice('x', const Duration(seconds: 3)), isNull);
+      e.feed('x', 'local_ms', -1); // نادیده
+      expect(e.view['x']!['local_ms'], 40000);
+      e.feed('x', 'local_ms', 0);
+      expect(e.view['x']!['local_ms'], 28000); // EWMA 0.3
+      e.feed('y', 'helper_ms', 12000);
+      e.feed('y', 'local_ms', 2000);
+      expect(e.choice('y', const Duration(seconds: 3)), 'local_faster');
+    });
 
     test('سرور کمکی وسط کار خاموش شد (رزرو منقضی) ⇒ محلی', () async {
       await node('b000000000000001').tick();
