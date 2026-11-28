@@ -28,6 +28,9 @@ abstract final class HelperKinds {
   static const String lease = 'payesh-job-lease';
   static const String result = 'payesh-job-result';
 
+  /// ردیف ۲۰۹ — نشان ابطال توکن مدرسه (مالک می‌نویسد؛ کلید صندوقچه لازم دارد).
+  static const String schoolTokenRevoked = 'payesh-school-token-revoked';
+
   /// سیاست زیرساخت که پنل مالک می‌نویسد (ردیف ۱۳۱؛ `infra/infra_policy.dart`).
   static const String policy = 'payesh-infra-policy';
 }
@@ -37,6 +40,9 @@ abstract final class HelperDirs {
   static const String req = 'jobs/req/';
   static const String lease = 'jobs/lease/';
   static const String res = 'jobs/res/';
+
+  /// ردیف ۲۰۹ — یک فایل برای هر مدرسهٔ باطل‌شده: `helpers/revoked/SCHOOL_ID.json`
+  static const String revoked = 'helpers/revoked/';
 }
 
 /// نوع کارهایی که سرور کمکی انجام می‌دهد — همه «بدون محتوای مدرسه» (D-21).
@@ -145,6 +151,9 @@ final class HelperPresence {
     this.pollMs,
     this.nextPollAt,
     this.accepting = true,
+    this.cls = 'owner',
+    this.caps = const [],
+    this.schoolId,
   });
 
   final String helperId;
@@ -184,10 +193,12 @@ final class HelperPresence {
       now.difference(at) <= presenceFresh &&
       at.difference(now) <= presenceFresh;
 
-  // Row 205/209 (v2, additive): executor class + capabilities + school id.
-  String get cls => 'owner';
-  List<String> get caps => kinds;
-  String? get schoolId => null;
+  // Row 205/209/210 (v2, additive): executor class + capabilities + school id.
+  // v1 presence has none of these: cls=owner, caps=kinds, schoolId=null
+  // (same defaults as server/helper-v2.js normalizePresence).
+  final String cls;
+  final List<String> caps;
+  final String? schoolId;
 
   Map<String, Object?> toPlain() => {
     'v': 1,
@@ -210,18 +221,29 @@ final class HelperPresence {
     final at = p['at'];
     if (p['helper_id'] != id || at is! int) return null;
     final kinds = p['kinds'];
+    final kindList = kinds is List
+        ? kinds.whereType<String>().where(jobKinds.contains).toList()
+        : const <String>[];
+    final capsRaw = p['caps'];
+    final capList = capsRaw is List
+        ? capsRaw.whereType<String>().take(32).toList()
+        : kindList;
+    const classes = ['owner', 'school', 'cloudflare', 'actions'];
+    final clsRaw = p['cls'];
+    final sidRaw = p['school_id'];
     return HelperPresence(
       helperId: id,
       host: '${p['host'] ?? ''}'.characters80,
       version: '${p['version'] ?? ''}'.characters40,
       slots: p['slots'] is int ? p['slots']! as int : 1,
       paused: p['paused'] == true,
-      kinds: kinds is List
-          ? kinds.whereType<String>().where(jobKinds.contains).toList()
-          : const [],
+      kinds: kindList,
       at: DateTime.fromMillisecondsSinceEpoch(at, isUtc: true),
       done: p['done'] is int ? p['done']! as int : 0,
       failed: p['failed'] is int ? p['failed']! as int : 0,
+      cls: clsRaw is String && classes.contains(clsRaw) ? clsRaw : 'owner',
+      caps: capList.isEmpty ? kindList : capList,
+      schoolId: sidRaw is String && schoolIdRe.hasMatch(sidRaw) ? sidRaw : null,
       pollMs: _pollMsOf(p['poll_ms']),
       nextPollAt: p['next_poll_at'] is int ? p['next_poll_at']! as int : null,
       accepting: p['accepting'] != false,
@@ -334,11 +356,14 @@ String schoolHelperToken(String secret, String schoolId) {
   return '$schoolId.$b';
 }
 
+/// شناسهٔ معتبر مدرسه (همان SCHOOL_ID_RE در server/helper-v2.js).
+final RegExp schoolIdRe = RegExp(r'^[a-z0-9][a-z0-9_-]{1,62}$');
+
 bool verifySchoolHelperToken(String secret, String token) {
   final i = token.lastIndexOf('.');
   if (i <= 0) return false;
   final id = token.substring(0, i);
-  if (!RegExp(r'^[a-z0-9][a-z0-9_-]{1,62}$').hasMatch(id)) return false;
+  if (!schoolIdRe.hasMatch(id)) return false;
   final want = schoolHelperToken(secret, id);
   if (want.length != token.length) return false;
   var diff = 0;
@@ -346,4 +371,78 @@ bool verifySchoolHelperToken(String secret, String token) {
     diff |= want.codeUnitAt(j) ^ token.codeUnitAt(j);
   }
   return diff == 0;
+}
+
+/// ردیف ۲۱۰ — وضعیت صف کارها برای نمای یکپارچهٔ پنل (فقط شمارش؛ بدون محتوا).
+/// هم‌معنای queueStatus در server/helper-jobs.js است.
+final class HelperQueueStatus {
+  const HelperQueueStatus({
+    required this.pending,
+    required this.leased,
+    required this.done,
+    required this.stuck,
+    required this.at,
+  });
+
+  final int pending;
+  final int leased;
+  final int done;
+  final int stuck;
+  final DateTime at;
+}
+
+/// شمارش خالص از روی کلیدهای صندوقچه: [keys] کلیدهای زیر jobs/،
+/// [leaseUntilMs] مهلت اجارهٔ هر کار (از پاکت lease؛ نبودش یعنی نامشخص)،
+/// و [now] لحظهٔ شمارش. کاری «گیرکرده» است که اجاره‌اش گذشته و نتیجه ندارد.
+HelperQueueStatus queueStatusFromKeys(
+  Iterable<String> keys, {
+  Map<String, int> leaseUntilMs = const {},
+  required DateTime now,
+}) {
+  final resIds = <String>{};
+  final reqIds = <String>{};
+  final leaseIds = <String>{};
+  for (final k in keys) {
+    final id = nameOfKey(k);
+    if (k.contains('/res/')) {
+      resIds.add(id);
+    } else if (k.contains('/req/')) {
+      reqIds.add(id);
+    } else if (k.contains('/lease/')) {
+      leaseIds.add(id);
+    }
+  }
+  var stuck = 0;
+  for (final id in leaseIds) {
+    final until = leaseUntilMs[id];
+    if (until != null &&
+        until < now.millisecondsSinceEpoch &&
+        !resIds.contains(id)) {
+      stuck++;
+    }
+  }
+  var pending = 0;
+  for (final id in reqIds) {
+    if (!resIds.contains(id) && !leaseIds.contains(id)) pending++;
+  }
+  return HelperQueueStatus(
+    pending: pending,
+    leased: leaseIds.length,
+    done: resIds.length,
+    stuck: stuck,
+    at: now,
+  );
+}
+
+/// ردیف ۲۰۹ — متن داخل پاکت «ابطال توکن مدرسه» و خواندنش.
+Map<String, Object?> schoolTokenRevokedPlain(String schoolId, DateTime at) => {
+  'v': 1,
+  'school_id': schoolId,
+  'revoked_at': at.millisecondsSinceEpoch,
+};
+
+String? schoolIdFromRevokedPlain(Map<String, Object?>? p) {
+  if (p == null) return null;
+  final id = p['school_id'];
+  return id is String && schoolIdRe.hasMatch(id) ? id : null;
 }

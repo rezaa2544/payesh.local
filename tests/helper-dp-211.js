@@ -50,6 +50,14 @@ async function check(name, fn) {
     assert.strictEqual(v2.verifySchoolToken('other', t), null);
   });
 
+  await check('DP-209 revocation: revoked school token is rejected', async () => {
+    const t = v2.schoolToken(V.secret, 'school-01');
+    assert.strictEqual(v2.verifySchoolTokenEx(V.secret, t, []), 'school-01');
+    assert.strictEqual(v2.verifySchoolTokenEx(V.secret, t, ['school-01']), null);
+    assert.strictEqual(v2.verifySchoolTokenEx(V.secret, t, { 'school-01': 1 }), null);
+    assert.strictEqual(v2.verifySchoolTokenEx(V.secret, t, ['school-02']), 'school-01');
+  });
+
   await check('DP-205 pickExecutor prefers capable/fresh', async () => {
     const now = Date.now();
     const a = { helper_id: 'a', cls: 'owner', caps: ['storage.usage'], kinds: [], capacity: 1, at: now - 80000, online: true };

@@ -79,6 +79,14 @@ class _HelperCardState extends State<HelperCard> {
   String? _usage;
   bool _usageOk = true;
   late final HostCpuMeter _cpu = widget.cpu ?? HostCpuMeter();
+  // ردیف ۲۱۰: وضعیت صف؛ ردیف ۲۰۹: صدور/ابطال توکن مدرسه.
+  HelperQueueStatus? _queue;
+  final TextEditingController _schoolIdCtl = TextEditingController();
+  String? _issuedToken;
+  String? _tokenMsg;
+  bool _tokenOk = true;
+  List<String> _revokedSchools = const [];
+
   late final ProcessCpuMeter _proc = widget.procCpu ?? ProcessCpuMeter();
   Map<String, Object?> Function()? _diagFn;
   PacedTimer? _live;
@@ -146,6 +154,7 @@ class _HelperCardState extends State<HelperCard> {
 
   @override
   void dispose() {
+    _schoolIdCtl.dispose();
     if (identical(NetMeter.diagExtra, _diagFn)) NetMeter.diagExtra = null;
     widget.service.policy.removeListener(_redraw);
     _live?.cancel();
@@ -165,6 +174,98 @@ class _HelperCardState extends State<HelperCard> {
       if (mounted) setState(() => _helpers = h);
     } on S3Failure catch (e) {
       if (mounted) setState(() => _helpersError = e.messageFa);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// ردیف ۲۱۰ — خط وضعیت یک اجراکننده در نمای یکپارچه (کلاس/توانایی/مدرسه).
+  /// ردیف ۲۱۰ — خط شمارش صف (در انتظار/در حال انجام/انجام‌شده/گیرکرده).
+  String _queueLine(HelperQueueStatus q) {
+    final parts = <String>[
+      '${faNumber(q.pending)} در انتظار',
+      '${faNumber(q.leased)} در حال انجام',
+      '${faNumber(q.done)} انجام‌شده',
+      '${faNumber(q.stuck)} گیرکرده',
+    ];
+    return 'صف کارها: ${parts.join(' · ')}';
+  }
+
+  String _helperSubtitle(HelperPresence h) {
+    final parts = <String>[
+      h.onlineAt(_clock())
+          ? 'فعال'
+          : h.paused
+          ? 'متوقف'
+          : 'خاموش',
+      '${h.done} کار',
+      h.version,
+      'کلاس: ${h.cls}',
+      if (h.schoolId != null) 'مدرسه: ${h.schoolId}',
+      'توانایی‌ها: ${h.caps.join('، ')}',
+    ];
+    return parts.join(' · ');
+  }
+
+  /// ردیف ۲۱۰ — خواندن وضعیت صف و فهرست ابطال‌ها برای نمای یکپارچه.
+  Future<void> _loadQueue() async {
+    setState(() => _busy = true);
+    try {
+      final q = await widget.service.queueStatus();
+      final r = await widget.service.revokedSchools();
+      if (mounted) {
+        setState(() {
+          _queue = q;
+          _revokedSchools = r;
+        });
+      }
+    } on S3Failure catch (e) {
+      if (mounted) setState(() => _helpersError = e.messageFa);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// ردیف ۲۰۹ — صدور توکن مدرسه (فقط توکن مشتق‌شده نشان داده می‌شود).
+  void _issueToken() {
+    try {
+      final t = widget.service.issueSchoolToken(_schoolIdCtl.text);
+      setState(() {
+        _issuedToken = t;
+        _tokenOk = true;
+        _tokenMsg = 'توکن مدرسه صادر شد؛ فقط همین را به مدرسه بدهید.';
+      });
+    } on S3Failure catch (e) {
+      setState(() {
+        _issuedToken = null;
+        _tokenOk = false;
+        _tokenMsg = e.messageFa;
+      });
+    }
+  }
+
+  /// ردیف ۲۰۹ — ابطال توکن مدرسهٔ نوشته‌شده در کادر شناسه.
+  Future<void> _revokeToken() async {
+    setState(() => _busy = true);
+    try {
+      final id = _schoolIdCtl.text.trim();
+      await widget.service.revokeSchoolToken(id);
+      final r = await widget.service.revokedSchools();
+      if (mounted) {
+        setState(() {
+          _revokedSchools = r;
+          _issuedToken = null;
+          _tokenOk = true;
+          _tokenMsg = 'توکن مدرسهٔ $id باطل شد.';
+        });
+      }
+    } on S3Failure catch (e) {
+      if (mounted) {
+        setState(() {
+          _tokenOk = false;
+          _tokenMsg = e.messageFa;
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -712,6 +813,13 @@ class _HelperCardState extends State<HelperCard> {
                   : _runUsage,
               child: const Text('محاسبهٔ مصرف فضای دیتابیس'),
             ),
+            OutlinedButton(
+              key: const Key('helper-queue'),
+              onPressed: _busy || node == null || !node.configured
+                  ? null
+                  : _loadQueue,
+              child: const Text('وضعیت صف کارها'),
+            ),
           ],
         ),
         if (_busy)
@@ -758,15 +866,74 @@ class _HelperCardState extends State<HelperCard> {
                 '${h.host.isEmpty ? h.helperId : h.host}'
                 '${h.helperId == node?.helperId ? ' (همین دستگاه)' : ''}',
               ),
-              subtitle: Text(
-                '${h.onlineAt(_clock())
-                    ? 'فعال'
-                    : h.paused
-                    ? 'متوقف'
-                    : 'خاموش'} · ${h.done} کار · ${h.version}',
-              ),
+              subtitle: Text(_helperSubtitle(h)),
             ),
         ],
+        if (_queue != null) ...[
+          const SizedBox(height: 12),
+          Text(_queueLine(_queue!), key: const Key('helper-queue-result')),
+        ],
+        const SizedBox(height: 16),
+        const Text('توکن مدرسه (ردیف ۲۰۹):'),
+        const SizedBox(height: 8),
+        FieldBox(
+          width: kFieldText,
+          child: TextField(
+            key: const Key('helper-school-id'),
+            controller: _schoolIdCtl,
+            decoration: const InputDecoration(
+              labelText: 'شناسهٔ مدرسه (مثل school-01)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton(
+              key: const Key('helper-token-issue'),
+              onPressed: _busy || node == null || !node.configured
+                  ? null
+                  : _issueToken,
+              child: const Text('صدور توکن مدرسه'),
+            ),
+            OutlinedButton(
+              key: const Key('helper-token-revoke'),
+              onPressed: _busy || node == null || !node.configured
+                  ? null
+                  : _revokeToken,
+              child: const Text('ابطال توکن مدرسه'),
+            ),
+          ],
+        ),
+        if (_tokenMsg != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _tokenMsg!,
+              key: const Key('helper-token-status'),
+              style: TextStyle(color: _tokenOk ? tk.success : tk.danger),
+            ),
+          ),
+        if (_issuedToken != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: SelectableText(
+              _issuedToken!,
+              key: const Key('helper-token-result'),
+            ),
+          ),
+        if (_revokedSchools.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'توکن باطل‌شده: ${_revokedSchools.join('، ')}',
+              key: const Key('helper-token-revoked'),
+              style: TextStyle(color: tk.muted),
+            ),
+          ),
         if (node != null && node.recent.isNotEmpty) ...[
           const SizedBox(height: 12),
           const Text('آخرین کارهای این دستگاه:'),

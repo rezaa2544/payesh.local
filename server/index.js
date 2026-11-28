@@ -1275,7 +1275,37 @@ async function api(req, res, url, ip) {
   /* ── سرورهای کمکی (سیستم‌های پنل مالک) — server/helper-jobs.js ───── */
   if (p === '/api/admin/helpers' && m === 'GET') {
     if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
-    return json(Object.assign({ ok: true, processing: processing.status() }, await helperJobs.status(store)));
+    const out = Object.assign({ ok: true, processing: processing.status() }, await helperJobs.status(store));
+    /* ردیف ۲۱۰: عمق صف و کارهای گیرکرده (بدون محتوا) برای نمای یکپارچهٔ پنل */
+    try {
+      const c = s3mem.usingMeta(store).get();
+      if (c && c.enabled) out.queue = await helperJobs.queueStatus(c);
+    } catch (e) { /* صف نامشخص؛ وضعیت اصلی دست‌نخورده می‌ماند */ }
+    return json(out);
+  }
+  /* ردیف ۲۰۹: صدور/ابطال توکن اختصاصی مدرسه (HMAC از کلید صندوقچه؛ کلید هرگز داده نمی‌شود) */
+  if (p === '/api/admin/helpers/school-token' && m === 'POST') {
+    if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
+    const body = await readBody(req).catch(() => ({}));
+    const c = s3mem.usingMeta(store).get();
+    if (!c || !c.enabled || !c.secret) return json({ ok: false, error: 'not_configured' }, 400);
+    const schoolId = String(body.school_id || '');
+    const state = store.getMeta('school_helper_tokens', null) || { issued: {}, revoked: {} };
+    if (body.action === 'revoke') {
+      if (!helperJobs.helperV2.SCHOOL_ID_RE.test(schoolId)) return json({ ok: false, error: 'bad_school_id' }, 400);
+      state.revoked[schoolId] = Date.now();
+      delete state.issued[schoolId];
+      store.setMeta('school_helper_tokens', state);
+      store.audit({ user_id: actor.user.id, role: 'manager', action: 'school_token_revoke', collection: 'config', after: { school_id: schoolId } });
+      return json({ ok: true, school_id: schoolId, revoked: true });
+    }
+    let token;
+    try { token = helperJobs.helperV2.schoolToken(c.secret, schoolId); } catch (e) { return json({ ok: false, error: 'bad_school_id' }, 400); }
+    state.issued[schoolId] = Date.now();
+    delete state.revoked[schoolId];
+    store.setMeta('school_helper_tokens', state);
+    store.audit({ user_id: actor.user.id, role: 'manager', action: 'school_token_issue', collection: 'config', after: { school_id: schoolId } });
+    return json({ ok: true, school_id: schoolId, token });
   }
   if (p === '/api/admin/helpers/usage' && m === 'POST') {
     if (actor.role !== 'manager') return json({ ok: false, error: 'forbidden' }, 403);
