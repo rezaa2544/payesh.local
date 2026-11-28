@@ -282,8 +282,10 @@ Map<String, Object?> validJobParams(
 /// The bucket secret itself is never given to a school; the owner issues
 /// this derived token per school and can revoke by rotating/revoking.
 String schoolHelperToken(String secret, String schoolId) {
-  final mac = Hmac(sha256, utf8.encode(secret))
-      .convert(utf8.encode('payesh/school-helper:$schoolId'));
+  final mac = Hmac(
+    sha256,
+    utf8.encode(secret),
+  ).convert(utf8.encode('payesh/school-helper:$schoolId'));
   final b = base64Url.encode(mac.bytes).replaceAll('=', '');
   return '$schoolId.$b';
 }
