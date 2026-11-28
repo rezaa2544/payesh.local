@@ -22,6 +22,9 @@
    فقط دارندهٔ کلید همان صندوقچه (پنل مالک و سرورهای مدرسه) می‌تواند کاری بگذارد یا
    نتیجه‌ای بنویسد؛ برچسب GCM یعنی نتیجهٔ دستکاری‌شده باز نمی‌شود.
 
+   ردیف ۲۰۸ (کاتالوگ v2 در server/helper-v2.js): storage.usage/internal، object.verify/internal،
+   endpoint.check/public، bucket.gc/internal، backup.verify/internal، report.aggregate/school-content
+   (فقط owner یا همان مدرسه)، update.build/internal (owner/actions). نگاشت کامل: docs/cloud/208-job-catalog.md
    فقط کارهای «بدون محتوای مدرسه» (قاعدهٔ D-21): هیچ نوع کاری محتوای خوانای مدرسه را
    به سرور کمکی نمی‌دهد.
      storage.usage   جمع حجم و تعداد فایل‌های صندوقچه به تفکیک بخش
@@ -40,6 +43,7 @@ const s3mem = require('./s3mem');
 const processing = require('./processing');
 const { trustFetch } = require('./s3-https');
 const loadRoute = require('./load-route');
+const helperV2 = require('./helper-v2');
 
 const SALT = Buffer.from('payesh/helper-jobs', 'utf8');
 const INFO = Buffer.from('v1', 'utf8');
@@ -116,7 +120,7 @@ function open(secret, kind, env) {
   }
   let plain;
   try { plain = JSON.parse(text); } catch (e) { throw new HelperError('bad_plain'); }
-  if (!plain || typeof plain !== 'object' || plain.v !== 1) throw new HelperError('bad_plain');
+  if (!plain || typeof plain !== 'object' || (plain.v !== 1 && plain.v !== 2)) throw new HelperError('bad_plain');
   return { rev, plain };
 }
 
@@ -174,7 +178,14 @@ async function helpersOnline(cfg, { now = Date.now() } = {}) {
       version: String(p.version || '').slice(0, 40),
       slots: Number(p.slots) || 1,
       paused: p.paused === true,
-      kinds: Array.isArray(p.kinds) ? p.kinds.filter(x => KINDS.includes(x)) : [],
+      kinds: Array.isArray(p.kinds) ? p.kinds.filter(x => KINDS.includes(x) || !!helperV2.catalogOf(x)) : [],
+      cls: helperV2.normalizePresence(p).cls,
+      caps: helperV2.normalizePresence(p).caps,
+      capacity: helperV2.normalizePresence(p).capacity,
+      cpu_cap: helperV2.normalizePresence(p).cpu_cap,
+      region: helperV2.normalizePresence(p).region,
+      contract: helperV2.normalizePresence(p).contract,
+      school_id: helperV2.normalizePresence(p).school_id,
       at: p.at,
       done: Number(p.done) || 0,
       failed: Number(p.failed) || 0,
@@ -436,8 +447,15 @@ async function runJob(cfg, kind, params, opts = {}) {
   const route = opts.route !== undefined ? opts.route : await routeNow(policy, { busy, now: now() });
   const skip = helperNeed(kind, { policy, busy, route });
   if (skip) return local(skip);
+  const meta = {
+    priority: helperV2.PRIORITIES.includes(opts.priority) ? opts.priority : 'normal',
+    data_class: helperV2.DATA_CLASSES.includes(opts.dataClass) ? opts.dataClass : (helperV2.catalogOf(kind) || {}).data_class || 'internal',
+    idempotency_key: String(opts.idempotencyKey || '').slice(0, 128) || null,
+    school_id: typeof opts.schoolId === 'string' && helperV2.SCHOOL_ID_RE.test(opts.schoolId) ? opts.schoolId : null,
+  };
+  const jobView = { kind, priority: meta.priority, data_class: meta.data_class, school_id: meta.school_id };
   let online = [];
-  try { online = (await helpersOnline(cfg, { now: now() })).filter(h => h.online && h.kinds.includes(kind) && !helperOff(policy, h.helper_id)); }
+  try { online = (await helpersOnline(cfg, { now: now() })).filter(h => h.online && (h.caps.includes(kind) || h.kinds.includes(kind)) && !helperOff(policy, h.helper_id) && helperV2.canLease(h, jobView)); }
   catch (e) { return local('bucket_unreachable'); }
   if (!online.length) return local('no_helper');
 
@@ -446,10 +464,11 @@ async function runJob(cfg, kind, params, opts = {}) {
   const keys = { req: cfg.prefix + DIR.req + id + '.json', lease: cfg.prefix + DIR.lease + id + '.json', res: cfg.prefix + DIR.res + id + '.json' };
   const cleanup = () => Promise.all([removeKey(cfg, keys.req), removeKey(cfg, keys.lease), removeKey(cfg, keys.res)]);
   try {
-    await writeEnv(cfg, keys.req, K.request, t0, {
+    const hasV2 = opts.priority !== undefined || opts.dataClass !== undefined || opts.idempotencyKey !== undefined || opts.schoolId !== undefined;
+    await writeEnv(cfg, keys.req, K.request, t0, Object.assign({
       v: 1, job_id: id, kind, params: p, from: String(opts.from || 'school-server').slice(0, 80),
       created_at: t0, deadline_at: t0 + deadlineMs,
-    });
+    }, hasV2 ? { v: 2, priority: meta.priority, data_class: meta.data_class, idempotency_key: meta.idempotency_key || id, school_id: meta.school_id } : {}));
   } catch (e) { return local('bucket_unreachable'); }
 
   let claimedBy = null;
@@ -542,11 +561,31 @@ function start(store, { everyMs = 30 * 60_000, publicUrl = () => null, log = (m)
   routeTimer.unref();
 }
 
+/* ردیف ۲۱۰ — وضعیت صف برای پنل مالک/Worker: عمق صف و کارهای گیرکرده (بدون محتوا) */
+async function queueStatus(cfg, { now = Date.now() } = {}) {
+  const out = { pending: 0, leased: 0, done: 0, stuck: 0, at: now };
+  try {
+    const { keys } = await listAll(cfg, cfg.prefix + 'jobs/', 5);
+    const resIds = new Set(keys.filter(k => k.key.includes('/res/')).map(k => nameOf(k.key)));
+    for (const k of keys) {
+      if (k.key.includes('/req/')) { const id = nameOf(k.key); if (!resIds.has(id)) out.pending++; }
+      else if (k.key.includes('/lease/')) {
+        out.leased++;
+        const lease = await readEnv(cfg, k.key, K.lease).catch(() => null);
+        if (lease && !lease.invalid && Number(lease.plain.until) < now && !resIds.has(nameOf(k.key))) out.stuck++;
+      }
+      else if (k.key.includes('/res/')) out.done++;
+    }
+    out.pending = Math.max(0, out.pending - out.leased);
+  } catch (e) { out.error = 'unreachable'; }
+  return out;
+}
+
 module.exports = {
   K, DIR, KINDS, SALT: SALT.toString('utf8'), PRESENCE_FRESH_MS, CLAIM_WAIT_MS, GC_JOB_AGE_MS,
   HelperError, seal, open, keyFor, newJobId, jobAt, isPublicIp, validParams,
   helpersOnline, runLocal, runJob, checkEndpoint, status, checkPublicUrl, start, listAll,
-  POLICY_KEY, readPolicy, writePolicy, validPolicy, helperNeed, busyNow, routeNow, helperOff,
+  POLICY_KEY, readPolicy, writePolicy, validPolicy, helperNeed, busyNow, routeNow, helperOff, queueStatus, helperV2,
   _resetPolicyCache: () => { policyCache = { key: '', at: 0, value: null }; },
   _routeSkipped: () => routeSkipped,
 };

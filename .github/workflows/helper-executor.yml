@@ -1,0 +1,33 @@
+name: helper-executor
+# Row 207 — GitHub Actions executor for the Helper job queue (batch only).
+# Never-fail semantics: missing secrets => green run with configured:false.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+concurrency:
+  group: helper-executor
+  cancel-in-progress: false
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Poll Helper queue (max 5 jobs)
+        env:
+          PAYESH_HELPER_S3_ENDPOINT: ${{ secrets.PAYESH_HELPER_S3_ENDPOINT }}
+          PAYESH_HELPER_S3_BUCKET: ${{ secrets.PAYESH_HELPER_S3_BUCKET }}
+          PAYESH_HELPER_S3_ACCESS_KEY: ${{ secrets.PAYESH_HELPER_S3_ACCESS_KEY }}
+          PAYESH_HELPER_S3_SECRET_KEY: ${{ secrets.PAYESH_HELPER_S3_SECRET_KEY }}
+          HELPER_MAX_JOBS: '5'
+        run: node tools/helper-executor/run.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: helper-executor-report
+          path: helper-executor-report.json
+          retention-days: 30

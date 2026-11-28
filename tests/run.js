@@ -5748,6 +5748,8 @@ async function waitFor(fn, ms = 15000) {
       const { spawnSync } = require('child_process');
       const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/helper-jobs-130.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
       assert.strictEqual(r.status, 0, 'helper-jobs-130: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|HELPER-JOBS/.test(l)).join('\n') + (r.stderr || ''));
+      const rdp = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/helper-dp-211.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(rdp.status, 0, 'helper-dp-211: ' + (rdp.stdout || '').split('\n').filter(l => /^FAIL|HELPER-DP/.test(l)).join('\n') + (rdp.stderr || ''));
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 

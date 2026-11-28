@@ -13,6 +13,8 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
+
 import 'package:payesh_core/io.dart';
 
 import '../local/cloud_control.dart';
@@ -111,7 +113,7 @@ Future<Map<String, Object?>?> openHelper(
       env: env,
     );
     final p = jsonDecode(clear);
-    if (p is! Map<String, Object?> || p['v'] != 1) return null;
+    if (p is! Map<String, Object?> || (p['v'] != 1 && p['v'] != 2)) return null;
     return p;
   } on Object {
     return null;
@@ -146,6 +148,11 @@ final class HelperPresence {
       !paused &&
       now.difference(at) <= presenceFresh &&
       at.difference(now) <= presenceFresh;
+
+  // Row 205/209 (v2, additive): executor class + capabilities + school id.
+  String get cls => 'owner';
+  List<String> get caps => kinds;
+  String? get schoolId => null;
 
   Map<String, Object?> toPlain() => {
     'v': 1,
@@ -268,4 +275,31 @@ Map<String, Object?> validJobParams(
       return {};
   }
   throw JobRejected('unknown_kind', kind);
+}
+
+/// Row 209 — school helper token: school_id + '.' + b64u(HMAC-SHA256(secret,
+/// 'payesh/school-helper:SCHOOL_ID')) — identical to server/helper-v2.js.
+/// The bucket secret itself is never given to a school; the owner issues
+/// this derived token per school and can revoke by rotating/revoking.
+String schoolHelperToken(String secret, String schoolId) {
+  final mac = Hmac(
+    sha256,
+    utf8.encode(secret),
+  ).convert(utf8.encode('payesh/school-helper:$schoolId'));
+  final b = base64Url.encode(mac.bytes).replaceAll('=', '');
+  return '$schoolId.$b';
+}
+
+bool verifySchoolHelperToken(String secret, String token) {
+  final i = token.lastIndexOf('.');
+  if (i <= 0) return false;
+  final id = token.substring(0, i);
+  if (!RegExp(r'^[a-z0-9][a-z0-9_-]{1,62}$').hasMatch(id)) return false;
+  final want = schoolHelperToken(secret, id);
+  if (want.length != token.length) return false;
+  var diff = 0;
+  for (var j = 0; j < want.length; j++) {
+    diff |= want.codeUnitAt(j) ^ token.codeUnitAt(j);
+  }
+  return diff == 0;
 }
