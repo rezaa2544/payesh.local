@@ -201,7 +201,9 @@ void main() {
     await tapKey(tester, 'rep-class');
     await tester.tap(find.text('هفتم').last);
     await settle(tester);
-    expect(textOf(tester, 'rep-avg-23'), '۰.۰۰');
+    // row 197 F20/F24: no grade ⇒ «—», never «۰.۰۰»
+    expect(textOf(tester, 'rep-avg-23'), '—');
+    expect(textOf(tester, 'rep-att-23'), '—');
     expect(find.byKey(const Key('rep-avg-21')), findsNothing);
     ReportsController.save = (name, html) async =>
         throw const FormatException('disk full');

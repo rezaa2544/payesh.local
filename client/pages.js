@@ -781,6 +781,9 @@ PAGES.attendance = (params) => {
   roster.forEach(s => { const v = statusOf(s.id); if (counts[v] != null) counts[v]++; });
 
   if (!roster.length) return pageHead('حضور و غیاب', cls.name || '') + empty('دانش‌آموزی برای این کلاس ثبت نشده است.');
+  /* ردیف ۱۹۷ Q10: روز تعطیل ⇒ حضوری ثبت نمی‌شود؛ غیرحضوری ⇒ فقط «حاضر» (کلاس مجازی) */
+  const off = dayOffOf(date);
+  if (off && off.kind === 'closed') return pageHead('حضور و غیاب', cls.name || '') + dayOffBanner(date, 'att');
 
   /* ردیف ۱۸۰ — طرح ۲: سر صفحه با برگشت، تراشهٔ کلاس‌ها، سه کارت خلاصه، «همه حاضرند؟» با
      «همه حاضر ✓» بنفش، ردیف هر دانش‌آموز (آواتار، نام، «ردیف n»، گروه دکمه‌های خط‌دار)،
@@ -790,6 +793,7 @@ PAGES.attendance = (params) => {
     : [];
   return `<div class="d2-top att-top"><div class="hello"><h1>حضور و غیاب</h1><p>${esc(cls.name || '')} · ${esc(fa(jdate(date)))}</p></div>
     <a class="icon-b" href="#/home" title="بازگشت" aria-label="بازگشت">${d2Ico('back')}</a></div>
+  ${off ? dayOffBanner(date, 'att') : ''}
   ${mineCls.length > 1 ? `<div class="kid-chips">${[...mineCls].sort((a, b) => (Number(b.id) === clsId) - (Number(a.id) === clsId)).map(c => `<a class="kid-chip sq${Number(c.id) === clsId ? ' on' : ''}" href="#/attendance/${c.id}">${esc(c.name)}</a>`).join('')}</div>` : ''}
   <div class="att-sum">
     <div><b class="c-ok">${fa(counts.present)}</b><span>حاضر</span></div>
@@ -817,6 +821,56 @@ PAGES.attendance = (params) => {
 };
 
 /* ══════════════ نمرات ══════════════ */
+/* ردیف ۱۹۷ Q08/Q09 — سه شیوهٔ ارزشیابی (همتای server/grade-scheme.js و Dart grade_scheme.dart):
+   عددی ۰–۲۰ با نوبت؛ پودمانی برای دروس شایستگی هنرستان (۵ پودمان، شایستگی ۱/۲/۳ × ۵ + مستمر
+   ۰–۵، قبولی ۱۲، وگرنه «ناتمام»)؛ توصیفی برای ابتدایی (خیلی خوب / خوب / قابل قبول / نیاز به تلاش بیشتر). */
+const DESC_LEVELS = ['خیلی خوب', 'خوب', 'قابل قبول', 'نیاز به تلاش بیشتر'];
+const COMPETENCY_FA = { 1: 'عدم احراز شایستگی', 2: 'احراز شایستگی', 3: 'بالاتر از حد انتظار' };
+const MODULE_TERMS = ['پودمان ۱', 'پودمان ۲', 'پودمان ۳', 'پودمان ۴', 'پودمان ۵'];
+const NUMERIC_TERMS = ['نوبت اول', 'نوبت دوم', 'پایانی'];
+function gradeSchemeOf(subject) {
+  const school = byId('schools', 1) || {};
+  const lv = String(school.level || '');
+  if (/ابتدا|دبستان/.test(lv)) return 'descriptive';
+  if (subject && subject.modular === true) return 'modular';
+  if (subject && subject.modular === false) return 'numeric';
+  if (['vocational', 'kardanesh'].includes(String(school.school_type || '')) && subject && subject.workshop) return 'modular';
+  return 'numeric';
+}
+function moduleOfTerm(t) {
+  const m = /^پودمان\s*([1-5])$/.exec(String(t == null ? '' : t).replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0)).trim());
+  return m ? Number(m[1]) : null;
+}
+/* نمره‌ای که در میانگین می‌آید: فقط عددی (سطح توصیفی عدد ندارد؛ پودمان با نتیجهٔ درس) */
+function avgScoreOf(g) {
+  if (!g || g.kind === 'descriptive' || g.kind === 'module') return null;
+  if (g.score == null || String(g.score).trim() === '') return null;
+  const n = Number(g.score);
+  return isFinite(n) ? n : null;
+}
+/* ردیف ۱۹۷ F20/F24: میانگین یا null (نمایش «—»، نه ۰) */
+function avgOfGrades(gs) {
+  const v = gs.map(avgScoreOf).filter(x => x != null);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+}
+function gradeValueText(g) {
+  if (g && g.kind === 'descriptive') return g.level || '—';
+  return g && g.score != null && String(g.score) !== '' ? fa(g.score) : '—';
+}
+/* نتیجهٔ درس پودمانی یک دانش‌آموز از ۵ پودمان */
+function moduleResultOf(classId, subjectId, sid) {
+  const scores = [null, null, null, null, null];
+  list('grades').filter(g => Number(g.class_id) === Number(classId) && Number(g.subject_id) === Number(subjectId) && Number(g.student_id) === Number(sid))
+    .forEach(g => { const k = moduleOfTerm(g.term); if (k && g.score != null) scores[k - 1] = Number(g.score); });
+  const failed = [], missing = [];
+  scores.forEach((x, i) => { if (x == null) missing.push(i + 1); else if (x < 12) failed.push(i + 1); });
+  const passed = !failed.length && !missing.length;
+  const average = passed ? Math.round(scores.reduce((a, b) => a + b, 0) / 5 * 100) / 100 : null;
+  const label = passed ? 'قبول — ' + fa(average).replace('.', '٫')
+    : failed.length ? 'ناتمام (' + failed.map(k => 'پودمان ' + fa(k)).join('، ') + ')'
+    : 'در حال ارزشیابی (' + fa(5 - missing.length) + ' از ۵ پودمان)';
+  return { scores, failed, missing, passed, average, label };
+}
 PAGES.grades = (params) => {
   if (S.role === 'teacher' || S.role === 'manager') {
     const classes = sortBy(S.role === 'manager' ? list('classes') :
@@ -828,6 +882,10 @@ PAGES.grades = (params) => {
       const sc = list('schedule').find(s => Number(s.class_id) === Number(sel.class));
       sel.subject = sc ? sc.subject_id : (subjects[0] && subjects[0].id);
     }
+    /* ردیف ۱۹۷ Q08: درس پودمانی با «پودمان ۱ تا ۵»، درس دیگر با نوبت */
+    const scheme = gradeSchemeOf(byId('subjects', sel.subject) || {});
+    const terms = scheme === 'modular' ? MODULE_TERMS : NUMERIC_TERMS;
+    if (!terms.includes(sel.term)) sel.term = terms[0];
     const roster = sortBy(list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(sel.class) && u.active !== false), 'name');
     const subject = byId('subjects', sel.subject) || {};
     const existing = new Map(list('grades')
@@ -838,9 +896,42 @@ PAGES.grades = (params) => {
     const valOf = (sid) => {
       if (draft.map.has(sid)) return draft.map.get(sid);
       const e = existing.get(sid);
-      return e ? (e.practical_score != null ? e.practical_score : e.score) : '';
+      if (!e) return '';
+      if (scheme === 'descriptive') return e.level || '';
+      if (scheme === 'modular') return e.competency != null ? e.competency : '';
+      return e.practical_score != null ? e.practical_score : e.score;
     };
     const isWorkshop = !!subject.workshop;
+    const stateBadge = (e) => e ? badge(e.status === 'approved' ? 'تأییدشده' : 'در انتظار', e.status === 'approved' ? 'green' : 'amber') : badge('جدید', '');
+    const scale = scheme === 'modular' ? 'ارزشیابی پودمانی — شایستگی (۱ تا ۳) × ۵ + مستمر (۰ تا ۵)، قبولی هر پودمان ۱۲'
+      : scheme === 'descriptive' ? 'ارزشیابی کیفی‌ـ‌توصیفی (ابتدایی)'
+      : isWorkshop ? 'درس کارگاهی — نمرهٔ عملی' : 'نمره از ۲۰';
+    const sheet = scheme === 'modular'
+      ? `<div class="table-wrap"><table data-grade-modular><thead><tr><th>دانش‌آموز</th><th style="width:170px">شایستگی</th><th style="width:90px">مستمر (۰–۵)</th><th>نمرهٔ پودمان</th><th>نتیجهٔ درس</th><th style="width:90px">وضعیت</th></tr></thead><tbody>
+        ${roster.map(s => {
+          const e = existing.get(s.id);
+          const c = valOf(s.id);
+          const m = e && e.continuous != null ? e.continuous : '';
+          const r = moduleResultOf(sel.class, sel.subject, s.id);
+          return `<tr><td>${esc(s.name)}</td>
+            <td><select class="input" style="padding:.3rem" data-grade="${s.id}"><option value="">—</option>${[1, 2, 3].map(k => `<option value="${k}" ${String(c) === String(k) ? 'selected' : ''}>${fa(k)} — ${COMPETENCY_FA[k]}</option>`).join('')}</select></td>
+            <td><input class="input ltr" style="padding:.3rem" inputmode="decimal" data-grade-cont="${s.id}" value="${esc(m)}" placeholder="—"></td>
+            <td class="small">${e && e.score != null ? fa(e.score) + (Number(e.score) < 12 ? ' (زیر ۱۲)' : '') : '—'}</td>
+            <td class="small"><b style="color:${r.passed ? 'var(--green,#15803d)' : r.failed.length ? 'var(--red,#b91c1c)' : 'inherit'}">${esc(r.label)}</b></td>
+            <td>${stateBadge(e)}</td></tr>`;
+        }).join('')}
+      </tbody></table></div>`
+      : `<table><thead><tr><th>دانش‌آموز</th><th style="width:${scheme === 'descriptive' ? 190 : 110}px">${scheme === 'descriptive' ? 'ارزشیابی' : 'نمره'}</th><th style="width:90px">وضعیت</th></tr></thead><tbody>
+        ${roster.map(s => {
+          const e = existing.get(s.id);
+          const field = scheme === 'descriptive'
+            ? `<select class="input" style="padding:.3rem" data-grade="${s.id}"><option value="">—</option>${DESC_LEVELS.map(l => `<option ${valOf(s.id) === l ? 'selected' : ''}>${l}</option>`).join('')}</select>`
+            : `<input class="input ltr" style="padding:.3rem" inputmode="decimal" data-grade="${s.id}" value="${esc(valOf(s.id))}" placeholder="—">`;
+          return `<tr><td>${esc(s.name)}</td>
+            <td>${field}</td>
+            <td>${stateBadge(e)}</td></tr>`;
+        }).join('')}
+      </tbody></table>`;
 
     return `${pageHead('ثبت نمره', subject.name || 'یک درس را انتخاب کنید')}
     <div class="card tight">
@@ -849,22 +940,15 @@ PAGES.grades = (params) => {
           <select class="input" id="g-class">${classes.map(c => `<option value="${c.id}" ${Number(c.id) === Number(sel.class) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
         <label class="field grow" style="margin:0"><span>درس</span>
           <select class="input" id="g-subject">${subjects.map(s => `<option value="${s.id}" ${Number(s.id) === Number(sel.subject) ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>
-        <label class="field grow" style="margin:0"><span>نوبت</span>
-          <select class="input" id="g-term">${['نوبت اول', 'نوبت دوم', 'پایانی'].map(t => `<option ${t === sel.term ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+        <label class="field grow" style="margin:0"><span>${scheme === 'modular' ? 'پودمان' : 'نوبت'}</span>
+          <select class="input" id="g-term">${terms.map(t => `<option ${t === sel.term ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
         <button class="btn sm" data-act="grade-reload" style="align-self:end">نمایش</button>
       </div>
     </div>
     ${card(`<div class="row between" style="margin-bottom:8px"><b>${esc(subject.name || '')}</b>
-        <span class="small muted">${isWorkshop ? 'درس کارگاهی — نمرهٔ عملی' : 'نمره از ۲۰'}</span></div>
-      ${roster.length ? `<table><thead><tr><th>دانش‌آموز</th><th style="width:110px">نمره</th><th style="width:90px">وضعیت</th></tr></thead><tbody>
-        ${roster.map(s => {
-          const e = existing.get(s.id);
-          return `<tr><td>${esc(s.name)}</td>
-            <td><input class="input ltr" style="padding:.3rem" inputmode="decimal" data-grade="${s.id}" value="${esc(valOf(s.id))}" placeholder="—"></td>
-            <td>${e ? badge(e.status === 'approved' ? 'تأییدشده' : 'در انتظار', e.status === 'approved' ? 'green' : 'amber') : badge('جدید', '')}</td></tr>`;
-        }).join('')}
-      </tbody></table>
-      <button class="btn primary block" style="margin-top:12px" data-act="grade-save">ثبت نمرات</button>` :
+        <span class="small muted">${scale}</span></div>
+      ${roster.length ? `${sheet}
+      <button class="btn primary block" style="margin-top:12px" data-act="grade-save">${scheme === 'descriptive' ? 'ثبت ارزشیابی' : 'ثبت نمرات'}</button>` :
         '<div class="muted small">دانش‌آموزی در این کلاس نیست.</div>'}
     `)}`;
   }
@@ -884,9 +968,9 @@ PAGES.students = () => {
   ${rows.length ? card(`<div class="list">${rows.map(s => {
     const cls = byId('classes', s.class_id) || {};
     const g = list('grades').filter(x => Number(x.student_id) === Number(s.id));
-    const avg = g.length ? (g.reduce((a, x) => a + Number(x.score || 0), 0) / g.length) : 0;
+    const avg = avgOfGrades(g); /* ردیف ۱۹۷ F24: بی‌نمره ⇒ «—» */
     return `<div class="item"><div class="grow"><div class="t">${esc(s.name)}</div><div class="s">${esc(cls.name || '')}</div></div>
-      <span class="badge">معدل ${fa(avg.toFixed(1))}</span></div>`;
+      <span class="badge">معدل ${avg == null ? '—' : fa(avg.toFixed(1))}</span></div>`;
   }).join('')}</div>`) : empty('دانش‌آموزی یافت نشد.')}`;
 };
 
@@ -1350,7 +1434,7 @@ PAGES.classes = () => {
   ${card(`<div class="row between" style="margin-bottom:8px"><b>دروس</b>
       <button class="btn sm" data-act="subject-add">+ درس</button></div>
     ${subjects.length ? `<div class="list">${subjects.map(sub => `<div class="item">
-        <div class="grow"><div class="t">${esc(sub.name)}${sub.workshop ? ' <span class="badge purple">کارگاهی</span>' : ''}</div>
+        <div class="grow"><div class="t">${esc(sub.name)}${sub.workshop ? ' <span class="badge purple">کارگاهی</span>' : ''}${gradeSchemeOf(sub) === 'modular' ? ' <span class="badge green">پودمانی</span>' : gradeSchemeOf(sub) === 'descriptive' ? ' <span class="badge green">توصیفی</span>' : ''}</div>
         <div class="s">${fa(list('schedule').filter(x => Number(x.subject_id) === Number(sub.id)).length)} زنگ در برنامه</div></div>
         <button class="btn sm ghost" data-act="subject-edit" data-id="${sub.id}">ویرایش</button>
         <button class="btn sm ghost" style="color:#b91c1c" data-act="subject-delete" data-id="${sub.id}">حذف</button>
@@ -1398,11 +1482,12 @@ function classReportTable(classId) {
   return `<table><thead><tr><th>دانش‌آموز</th>${subs.map(id => `<th>${esc((byId('subjects', id) || {}).name || '')}</th>`).join('')}<th>معدل</th><th>حضور</th></tr></thead><tbody>
     ${roster.map(s => {
       const gs = list('grades').filter(g => Number(g.student_id) === Number(s.id));
-      const cells = subs.map(id => { const g = gs.find(x => Number(x.subject_id) === Number(id)); return `<td>${g ? fa(g.score) : '—'}</td>`; }).join('');
-      const avg = gs.length ? gs.reduce((a, x) => a + Number(x.score || 0), 0) / gs.length : 0;
+      const cells = subs.map(id => { const g = gs.find(x => Number(x.subject_id) === Number(id)); return `<td>${g ? esc(gradeValueText(g)) : '—'}</td>`; }).join('');
+      /* ردیف ۱۹۷ F20/F24: بی‌نمره/بی‌حضور ⇒ «—» نه ۰ */
+      const avg = avgOfGrades(gs);
       const a = att.filter(x => Number(x.student_id) === Number(s.id));
-      const pct = a.length ? Math.round(a.filter(x => x.status === 'present').length / a.length * 100) : 0;
-      return `<tr><td>${esc(s.name)}</td>${cells}<td><b>${fa(avg.toFixed(2))}</b></td><td>${fa(pct)}٪</td></tr>`;
+      const pct = a.length ? Math.round(a.filter(x => x.status === 'present').length / a.length * 100) : null;
+      return `<tr><td>${esc(s.name)}</td>${cells}<td><b>${avg == null ? '—' : fa(avg.toFixed(2))}</b></td><td>${pct == null ? '—' : fa(pct) + '٪'}</td></tr>`;
     }).join('')}
   </tbody></table>`;
 }
@@ -1420,10 +1505,40 @@ PAGES['attendance-report'] = () => {
 };
 
 /* ══════════════ اطلاعیه‌ها ══════════════ */
+/* ══════════════ ردیف ۱۹۷ (Q10 / F36): روز تعطیل یا غیرحضوری ══════════════
+   همتای server/school-calendar.js و Dart school_calendar.dart. آن روز غیبت/تأخیر ثبت نمی‌شود،
+   اطلاعیهٔ «مهم» برای همه (اولیا) منتشر می‌شود و امتحان‌های داخلی آن روز جابه‌جا می‌شوند. */
+const DAY_OFF_FA = { closed: 'تعطیل', remote: 'غیرحضوری' };
+function dayOffOf(date) {
+  const d = String(date || '').slice(0, 10);
+  return list('calendar').find(r => String(r.date) === d && DAY_OFF_FA[r.kind]) || null;
+}
+function dayOffBanner(date, key) {
+  const off = dayOffOf(date);
+  if (!off) return '';
+  return `<div class="card tight" data-dayoff="${esc(key || 'banner')}" style="border-color:#f59e0b;background:#fffbeb">
+    <b>${off.kind === 'closed' ? '⛔' : '💻'} ${esc(jdate(off.date))} — ${DAY_OFF_FA[off.kind]}</b>
+    <div class="small" style="margin-top:4px">${esc(off.reason || '')}</div>
+    <div class="small muted" style="margin-top:4px">در این روز غیبت و تأخیر ثبت نمی‌شود${off.kind === 'remote' ? '؛ حضور در کلاس مجازی را می‌توانید «حاضر» بزنید' : ''}.</div></div>`;
+}
+function dayOffCard() {
+  const today = todayISO();
+  const rows = sortBy(list('calendar').filter(r => DAY_OFF_FA[r.kind] && String(r.date) >= today), 'date');
+  return card(`<div class="row between"><b>🗓️ تعطیلی و غیرحضوری</b>
+      <button class="btn sm" data-act="dayoff-add">+ اعلام تعطیلی / غیرحضوری</button></div>
+    <div class="small muted" style="margin-top:4px">برای روزهایی مثل آلودگی هوا یا کمبود انرژی: غیبت نمی‌خورد، اولیا با اطلاعیه باخبر می‌شوند و امتحان‌های داخلی آن روز جابه‌جا می‌شوند.</div>
+    ${rows.length ? `<div class="list" style="margin-top:8px">${rows.map(r => `<div class="item" data-dayoff-row="${r.id}"><div class="grow">
+      <div class="t">${esc(jdate(r.date))} · ${badge(DAY_OFF_FA[r.kind], r.kind === 'closed' ? 'red' : 'amber')}</div>
+      <div class="s">${esc(r.reason || '')}${r.exams_to ? ' · امتحان‌ها به ' + esc(jdate(r.exams_to)) : ''}</div></div>
+      <button class="btn sm ghost" style="color:#b91c1c" data-act="dayoff-delete" data-id="${r.id}">لغو</button></div>`).join('')}</div>`
+      : '<div class="small muted" style="margin-top:8px">روزی اعلام نشده است.</div>'}`, 'tight');
+}
+
 PAGES.announcements = () => {
   const rows = sortBy(list('announcements'), 'date').reverse();
   const canWrite = S.role === 'manager';
   return `${pageHead('اطلاعیه‌ها', fa(rows.length) + ' مورد', canWrite ? `<button class="btn sm primary" data-act="ann-add">+ اطلاعیه</button>` : '')}
+  ${canWrite ? dayOffCard() : dayOffBanner(todayISO(), 'today') + dayOffBanner(new Date(Date.now() + 86400000).toISOString().slice(0, 10), 'tomorrow')}
   ${rows.length ? rows.map(a => card(`<div class="row between"><b>${esc(a.title)}</b>${badge(jdate(a.date), a.severity === 'important' ? 'red' : a.severity === 'info' ? 'purple' : '')}</div>
     <div class="small" style="margin-top:6px;white-space:pre-wrap">${esc(a.body)}</div>
     ${canWrite ? `<div class="row" style="gap:8px;margin-top:8px">
@@ -1440,10 +1555,12 @@ function myChildren() {
 
 PAGES.home = (params) => {
   if (S.role === 'manager') return managerHome();
-  if (S.role === 'teacher') return teacherHome();
-  if (S.role === 'parent') return parentHome();
-  if (S.role === 'student') return studentHome();
-  return staffHome();
+  /* ردیف ۱۹۷ Q10: «امروز/فردا تعطیل یا غیرحضوری است» بالای خانهٔ همه */
+  const off = dayOffBanner(todayISO(), 'today') + dayOffBanner(new Date(Date.now() + 86400000).toISOString().slice(0, 10), 'tomorrow');
+  if (S.role === 'teacher') return off + teacherHome();
+  if (S.role === 'parent') return off + parentHome();
+  if (S.role === 'student') return off + studentHome();
+  return off + staffHome();
 };
 
 /* ردیف ۱۸۷: خانهٔ مشاور، نگهبان، کارمند و اجرایی (صفحه‌های عمومیِ p2) — تازه‌ترین اطلاعیه‌ها
@@ -1483,14 +1600,15 @@ function parentHome() {
   }).join('')}</div>`;
   const cls = byId('classes', k.class_id) || {};
   const g = list('grades').filter(x => Number(x.student_id) === Number(k.id) && x.status === 'approved');
-  const avg = g.length ? (g.reduce((a, x) => a + Number(x.score || 0), 0) / g.length) : 0;
+  const avgN = avgOfGrades(g);
+  const avg = avgN == null ? 0 : avgN;
   const att = list('attendance').filter(x => Number(x.student_id) === Number(k.id));
   const pct = att.length ? Math.round(att.filter(x => x.status === 'present').length / att.length * 100) : 0;
   const avgTone = avg >= 15 ? 'green' : avg >= 10 ? 'amber' : 'red';
   const pctTone = pct >= 90 ? 'green' : 'amber';
   const tiles = `<div class="ph-tiles">
     <a class="ph-tile" href="#/child/${k.id}" data-tone="${pctTone}"><span>حضور</span><b>${att.length ? fa(pct) + '٪' : '—'}</b><small>${!att.length ? 'هنوز ثبت نشده' : pct >= 100 ? 'بدون غیبت' : fa(att.length) + ' جلسهٔ ثبت‌شده'}</small></a>
-    <a class="ph-tile v" href="#/child/${k.id}" data-tone="${avgTone}"><span>میانگین نمره</span><b>${g.length ? fa(avg.toFixed(1)) : '—'}</b><small>${g.length ? fa(g.length) + ' نمرهٔ تأییدشده' : 'نمرهٔ تأییدشده‌ای نیست'}</small></a></div>`;
+    <a class="ph-tile v" href="#/child/${k.id}" data-tone="${avgTone}"><span>میانگین نمره</span><b>${avgN != null ? fa(avg.toFixed(1)) : '—'}</b><small>${g.length ? fa(g.length) + ' نمرهٔ تأییدشده' : 'نمرهٔ تأییدشده‌ای نیست'}</small></a></div>`;
   const wd = (new Date(today + 'T12:00:00').getDay() + 1) % 7;
   const bells = new Map(pageBellRows().filter(b => !b.is_break).map(b => [Number(b.order), b]));
   const cur = typeof currentBell === 'function' ? currentBell() : null;
@@ -1534,18 +1652,19 @@ PAGES.child = (params) => {
   const cls = byId('classes', k.class_id) || {};
   const grades = list('grades').filter(g => Number(g.student_id) === Number(k.id));
   const att = list('attendance').filter(a => Number(a.student_id) === Number(k.id)).sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  const pct = att.length ? Math.round(att.filter(a => a.status === 'present').length / att.length * 100) : 0;
-  const avg = grades.length ? grades.reduce((a, g) => a + Number(g.score || 0), 0) / grades.length : 0;
+  /* ردیف ۱۹۷ F20/F24: بی‌حضور/بی‌نمره ⇒ «—» نه ۰ */
+  const pct = att.length ? Math.round(att.filter(a => a.status === 'present').length / att.length * 100) : null;
+  const avg = avgOfGrades(grades);
   const internships = list('internships').filter(i => Number(i.student_id) === Number(k.id));
   return `${pageHead(k.name, cls.name || '', `<a class="btn sm" href="#/home">بازگشت</a>`)}
   <div class="grid">
-    ${statCard('📊', fa(avg.toFixed(1)), 'معدل', avg >= 15 ? 'green' : avg >= 10 ? '' : 'red')}
-    ${statCard('✅', fa(pct) + '٪', 'حضور', pct >= 90 ? 'green' : 'amber')}
+    ${statCard('📊', avg == null ? '—' : fa(avg.toFixed(1)), 'معدل', avg == null ? '' : avg >= 15 ? 'green' : avg >= 10 ? '' : 'red')}
+    ${statCard('✅', pct == null ? '—' : fa(pct) + '٪', 'حضور', pct == null ? '' : pct >= 90 ? 'green' : 'amber')}
     ${statCard('📝', fa(grades.length), 'نمره ثبت‌شده')}
   </div>
   ${card(`<b>نمرات</b><div class="table-wrap" style="margin-top:8px"><table><thead><tr><th>درس</th><th>نوبت</th><th>نمره</th><th>وضعیت</th></tr></thead><tbody>
     ${grades.map(g => `<tr><td>${esc((byId('subjects', g.subject_id) || {}).name || '—')}</td><td class="small">${esc(g.term || '')}</td>
-      <td><b>${fa(g.score)}</b>${g.practical_score != null ? `<span class="small muted"> (عملی ${fa(g.practical_score)})</span>` : ''}</td>
+      <td><b>${esc(gradeValueText(g))}</b>${g.practical_score != null ? `<span class="small muted"> (عملی ${fa(g.practical_score)})</span>` : ''}</td>
       <td>${badge(g.status === 'approved' ? 'تأییدشده' : 'در انتظار', g.status === 'approved' ? 'green' : 'amber')}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">نمره‌ای ثبت نشده</td></tr>'}
   </tbody></table></div>`)}
   ${card(`<b>حضور و غیاب</b><div class="table-wrap" style="margin-top:8px"><table><thead><tr><th>تاریخ</th><th>وضعیت</th></tr></thead><tbody>
@@ -1753,16 +1872,16 @@ PAGES.record = () => {
   const k = S.user;
   const grades = list('grades').filter(g => Number(g.student_id) === Number(k.id));
   const att = list('attendance').filter(a => Number(a.student_id) === Number(k.id));
-  const pct = att.length ? Math.round(att.filter(a => a.status === 'present').length / att.length * 100) : 0;
+  const pct = att.length ? Math.round(att.filter(a => a.status === 'present').length / att.length * 100) : null;
   const details = userDetailRows(k);
   return `${pageHead('پروندهٔ من', (byId('classes', k.class_id) || {}).name || '')}
-  <div class="grid">${statCard('✅', fa(pct) + '٪', 'حضور', pct >= 90 ? 'green' : 'amber')}
+  <div class="grid">${statCard('✅', pct == null ? '—' : fa(pct) + '٪', 'حضور', pct == null ? '' : pct >= 90 ? 'green' : 'amber')}
     ${statCard('📝', fa(grades.length), 'نمره')}</div>
   ${details.length ? card(`<b>مشخصات</b><div class="table-wrap" style="margin-top:8px"><table><tbody>
     ${details.map(([l, v]) => `<tr><td class="small muted" style="width:40%">${esc(l)}</td><td class="small">${esc(fa(v))}</td></tr>`).join('')}
   </tbody></table></div>`) : ''}
   ${card(`<div class="table-wrap"><table><thead><tr><th>درس</th><th>نمره</th><th>وضعیت</th></tr></thead><tbody>
-    ${grades.map(g => `<tr><td>${esc((byId('subjects', g.subject_id) || {}).name || '')}</td><td><b>${fa(g.score)}</b></td>
+    ${grades.map(g => `<tr><td>${esc((byId('subjects', g.subject_id) || {}).name || '')}${moduleOfTerm(g.term) ? ' — ' + esc(g.term) : ''}</td><td><b>${esc(gradeValueText(g))}</b></td>
       <td>${badge(g.status === 'approved' ? 'تأییدشده' : 'در انتظار', g.status === 'approved' ? 'green' : 'amber')}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">—</td></tr>'}
   </tbody></table></div>`)}`;
 };
@@ -2301,11 +2420,15 @@ async function actAttendanceSave(classId, bell) {
   const date = todayISO();
   const roster = list('users').filter(u => u.role === 'student' && Number(u.class_id) === Number(classId));
   const existing = new Map(attendanceFor(classId, date).map(a => [Number(a.student_id), a]));
-  let n = 0;
+  /* ردیف ۱۹۷ Q10: روز تعطیل/غیرحضوری ⇒ غیبت و تأخیر ثبت نمی‌شود (سرور هم day_off می‌دهد) */
+  const off = dayOffOf(date);
+  if (off && off.kind === 'closed') { toast('امروز تعطیل اعلام شده — حضور و غیاب ثبت نمی‌شود', 'err'); return; }
+  let n = 0, skipped = 0;
   for (const s of roster) {
     const status = draft && draft.map.has(s.id) ? draft.map.get(s.id) : (existing.has(s.id) ? existing.get(s.id).status : attDefaultStatus(s.id, date));
     const ex = existing.get(s.id);
     if (ex && ex.status === status) continue;
+    if (off && (status === 'absent' || status === 'late')) { skipped++; continue; }
     putLocal('attendance', {
       id: ex ? ex.id : undefined, student_id: s.id, class_id: Number(classId), date, status,
       note: '', source: 'teacher', school_id: 1, _version: ex ? ex._version : 0,
@@ -2313,6 +2436,7 @@ async function actAttendanceSave(classId, bell) {
     n++;
   }
   if (draft) draft.map.clear();
+  if (skipped) toast(fa(skipped) + ' غیبت/تأخیر ثبت نشد — امروز ' + DAY_OFF_FA[off.kind] + ' اعلام شده', 'err');
   toast(n ? fa(n) + ' رکورد ذخیره شد' : 'تغییری نبود', 'ok');
   saveCache();
   await flushQueue();
@@ -2326,21 +2450,43 @@ async function actGradeSave() {
   const existing = new Map(list('grades')
     .filter(g => Number(g.class_id) === Number(sel.class) && Number(g.subject_id) === Number(sel.subject) && String(g.term) === String(sel.term))
     .map(g => [Number(g.student_id), g]));
+  const scheme = gradeSchemeOf(subject);
   let n = 0;
   for (const inp of inputs) {
     const sid = Number(inp.getAttribute('data-grade'));
     const raw = norm(inp.value).trim();
-    if (!raw) continue;
-    const score = Number(raw);
-    if (isNaN(score) || score < 0 || score > 20) { toast('نمرهٔ نامعتبر برای یکی از دانش‌آموزان', 'err'); continue; }
     const ex = existing.get(sid);
-    if (ex && Number(ex.score) === score) continue;
-    const row = {
+    const base = {
       id: ex ? ex.id : undefined, student_id: sid, class_id: Number(sel.class), subject_id: Number(sel.subject),
-      term: sel.term, kind: subject.workshop ? 'practical' : 'midterm',
-      score, status: S.role === 'manager' ? 'approved' : 'pending', school_id: 1, _version: ex ? ex._version : 0,
+      term: sel.term, status: S.role === 'manager' ? 'approved' : 'pending', school_id: 1, _version: ex ? ex._version : 0,
     };
-    if (subject.workshop) row.practical_score = score;
+    let row;
+    if (scheme === 'descriptive') {
+      /* ردیف ۱۹۷ Q09 */
+      if (!raw) continue;
+      if (!DESC_LEVELS.includes(raw)) { toast('ارزشیابی توصیفی نامعتبر برای یکی از دانش‌آموزان', 'err'); continue; }
+      if (ex && ex.level === raw) continue;
+      row = Object.assign(base, { kind: 'descriptive', level: raw, score: null });
+    } else if (scheme === 'modular') {
+      /* ردیف ۱۹۷ Q08: نمرهٔ پودمان = شایستگی × ۵ + مستمر */
+      const contEl = document.querySelector(`[data-grade-cont="${sid}"]`);
+      const rawM = contEl ? norm(contEl.value).trim().replace('٫', '.').replace('/', '.') : '';
+      if (!raw && !rawM) continue;
+      const c = raw ? Number(raw) : (ex ? Number(ex.competency) : NaN);
+      const m = rawM !== '' ? Number(rawM) : (ex && ex.continuous != null ? Number(ex.continuous) : NaN);
+      if (![1, 2, 3].includes(c) || !(m >= 0 && m <= 5) || !Number.isInteger(m * 2)) {
+        toast('نمرهٔ پودمان: شایستگی ۱ تا ۳ و مستمر ۰ تا ۵ (گام ۰٫۵)', 'err'); continue;
+      }
+      if (ex && Number(ex.competency) === c && Number(ex.continuous) === m) continue;
+      row = Object.assign(base, { kind: 'module', competency: c, continuous: m, score: c * 5 + m });
+    } else {
+      if (!raw) continue;
+      const score = Number(raw);
+      if (isNaN(score) || score < 0 || score > 20) { toast('نمرهٔ نامعتبر برای یکی از دانش‌آموزان', 'err'); continue; }
+      if (ex && Number(ex.score) === score) continue;
+      row = Object.assign(base, { kind: subject.workshop ? 'practical' : 'midterm', score });
+      if (subject.workshop) row.practical_score = score;
+    }
     putLocal('grades', row);
     n++;
   }
@@ -2348,6 +2494,23 @@ async function actGradeSave() {
   saveCache();
   await flushQueue();
   render();
+}
+
+/* ردیف ۱۹۷ Q10: فرم «اعلام تعطیلی / غیرحضوری» (پیش‌فرض فردا — معمولاً شب قبل اعلام می‌شود) */
+function actDayOffAdd() {
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  S.modalTitle = 'اعلام تعطیلی / غیرحضوری';
+  modal(`<form data-form="dayoff">
+    <label class="field"><span>روز</span>${jalaliDateControl('date', tomorrow, { required: true })}</label>
+    <label class="field"><span>نوع</span><select class="input" name="kind">
+      <option value="closed">تعطیل — مدرسه بسته است</option>
+      <option value="remote">غیرحضوری — آموزش مجازی</option></select></label>
+    <label class="field"><span>علت (در اطلاعیهٔ اولیا می‌آید)</span>
+      <input class="input" name="reason" required maxlength="300" placeholder="مثلاً آلودگی هوا به اعلام استانداری"></label>
+    <label class="field"><span>امتحان‌های داخلی این روز منتقل شوند به (اختیاری)</span>${jalaliDateControl('exams_to', '', {})}</label>
+    <label class="row" style="gap:6px;margin:6px 0"><input type="checkbox" name="notify" checked> اطلاعیهٔ «مهم» برای همهٔ اولیا و دانش‌آموزان منتشر شود</label>
+    <button class="btn primary block">ثبت و اعلام</button>
+  </form>`);
 }
 
 function actLeaveAdd() {
@@ -2677,6 +2840,12 @@ function subjectFormHtml(sb) {
         <option value="" ${editing && sb.workshop ? '' : 'selected'}>نظری — نمره از ۲۰</option>
         <option value="1" ${editing && sb.workshop ? 'selected' : ''}>کارگاهی — نمرهٔ عملی</option>
       </select></label>
+    ${gradeSchemeOf(sb || {}) === 'descriptive' ? '' : `<label class="field"><span>شیوهٔ ارزشیابی</span>
+      <select class="input" name="modular">
+        <option value="" selected>خودکار — ${gradeSchemeOf(Object.assign({}, sb || {}, { modular: undefined })) === 'modular' ? 'پودمانی' : 'نوبتی (۰ تا ۲۰)'}</option>
+        <option value="1" ${editing && sb.modular === true ? 'selected' : ''}>پودمانی — ۵ پودمان، شایستگی × ۵ + مستمر، قبولی ۱۲</option>
+        <option value="0" ${editing && sb.modular === false ? 'selected' : ''}>نوبتی — نمره از ۲۰</option>
+      </select></label>`}
     <button class="btn primary block">${editing ? 'ذخیرهٔ تغییرات' : 'ثبت درس'}</button>
   </form>`;
 }

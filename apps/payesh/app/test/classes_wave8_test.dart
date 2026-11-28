@@ -249,6 +249,42 @@ void main() {
     },
   );
 
+  testWidgets(
+    'W8-W197 row 197 Q08: «ارزشیابی پودمانی» toggle on a subject — stored, badge, details row',
+    (tester) async {
+      final s = await openClasses(
+        tester,
+        extra: (s) => s.put('schools', 1, {
+          'level': 'متوسطه دوم',
+          'school_type': 'governmental',
+        }),
+      );
+      expect(find.byKey(const Key('cls-subject-scheme-41')), findsNothing);
+      await tapKey(tester, 'cls-subject-edit-41');
+      expect(find.byKey(const Key('sub-f-modular')), findsOneWidget);
+      await tapKey(tester, 'sub-f-modular');
+      await tapKey(tester, 'sub-save');
+      final row = await tester.runAsync(() => s.engine.get('subjects', 41));
+      expect(row!.data['modular'], isTrue);
+      await reveal(tester, 'cls-subject-scheme-41');
+      expect(textIn(tester, 'cls-subject-scheme-41'), contains('پودمانی'));
+    },
+  );
+
+  testWidgets(
+    'W8-W197b row 197 Q09: an ابتدایی school shows «توصیفی» and no پودمانی toggle',
+    (tester) async {
+      await openClasses(
+        tester,
+        extra: (s) => s.put('schools', 1, {'level': 'ابتدایی'}),
+      );
+      await reveal(tester, 'cls-subject-scheme-41');
+      expect(textIn(tester, 'cls-subject-scheme-41'), contains('توصیفی'));
+      await tapKey(tester, 'cls-subject-edit-41');
+      expect(find.byKey(const Key('sub-f-modular')), findsNothing);
+    },
+  );
+
   testWidgets('W8-W10 NEG full queue: a multi-row delete is refused with the queue message and '
       'nothing changes', (tester) async {
     final src = MemorySchool(config: const OutboxConfig(capacity: 1));

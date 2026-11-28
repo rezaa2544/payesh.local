@@ -62,10 +62,13 @@ function nw3Terms(s) {
   const b = code(s.book);
   const en = /enum GradeTerm \{([\s\S]*?);\n/.exec(b);
   assert(en, 'enum GradeTerm missing');
-  const dart = [...en[1].matchAll(/^\s+[a-zA-Z]+\('([^']+)'\)/gm)].map(m => m[1]);
-  const w = /\[('نوبت اول'[^\]]*)\]\.map\(t =>/.exec(webGrades(s));
-  assert(w, 'web term list missing');
-  const web = w[1].split(',').map(x => x.trim().replace(/'/g, ''));
+  const dart = [...en[1].matchAll(/^\s+[a-zA-Z][a-zA-Z0-9]*\('([^']+)'\)/gm)].map(m => m[1]);
+  /* ردیف ۱۹۷ Q08: نوبت‌ها + ۵ پودمان (دروس پودمانی) — هر دو فهرست وب، به همان ترتیب Dart */
+  const w = /const NUMERIC_TERMS = \[('نوبت اول'[^\]]*)\];/.exec(s.pages);
+  const wm = /const MODULE_TERMS = \[('پودمان ۱'[^\]]*)\];/.exec(s.pages);
+  assert(w && wm, 'web term list missing');
+  assert(/const terms = scheme === 'modular' \? MODULE_TERMS : NUMERIC_TERMS;/.test(webGrades(s)) && /terms\.map\(t =>/.test(webGrades(s)), 'web term select must follow the scheme');
+  const web = (w[1] + ',' + wm[1]).split(',').map(x => x.trim().replace(/'/g, ''));
   assert(JSON.stringify(dart) === JSON.stringify(web), 'Dart terms ' + dart + ' ≠ web ' + web);
   assert(/sel = S\.gradeSel \|\| \(S\.gradeSel = \{ class: classes\[0\]\.id, subject: '', term: 'نوبت اول' \}\)/.test(webGrades(s)), 'web default term changed');
   assert(/GradeTerm term = GradeTerm\.first;/.test(code(s.ctrl)), 'native default term must be the first (نوبت اول)');
@@ -90,16 +93,27 @@ function nw3Semantics(s) {
   assert(/if \(ex && Number\(ex\.score\) === score\) continue;/.test(fn), 'web unchanged rule changed');
   assert(/if \(e\.score != null && e\.score! == score\) \{\s*unchanged\+\+;\s*continue;/.test(b), 'Dart must skip unchanged scores');
   // record shape
-  const row = /const row = \{([\s\S]*?)\};/.exec(fn);
-  assert(row, 'web grade row missing');
+  const row = /const base = \{([\s\S]*?)\};/.exec(fn);
+  const num = /row = Object\.assign\(base, \{ (kind: subject\.workshop \? 'practical' : 'midterm', score) \}\);/.exec(fn);
+  assert(row && num, 'web grade row missing');
   /* `key: value` and shorthand `key` entries (values here contain no commas) */
-  const webKeys = row[1].split(',').map(t => /^\s*([a-z_]+)\s*(?::|$)/.exec(t)).filter(Boolean).map(m => m[1])
-    .filter(k => !['school_id', '_version'].includes(k));
+  const keysOf = (t) => t.split(',').map(x => /^\s*([a-z_]+)\s*(?::|$)/.exec(x)).filter(Boolean).map(m => m[1]);
+  const webKeys = keysOf(row[1] + ',' + num[1]).filter(k => !['school_id', '_version'].includes(k));
+  /* ردیف ۱۹۷ Q08/Q09: فیلدهای پودمانی و توصیفی هم برابر */
+  for (const [kind, dre] of [['descriptive', /'kind': 'descriptive',([^}]*)\}/], ['module', /'kind': 'module',([^}]*)\}/]]) {
+    const wr = new RegExp("row = Object\\.assign\\(base, \\{ kind: '" + kind + "',([^}]*)\\}\\);").exec(fn);
+    const dr = dre.exec(b);
+    assert(wr && dr, kind + ' row missing');
+    const wk = keysOf(wr[1]).sort().join(), dk = [...dr[1].matchAll(/'([a-z_]+)':/g)].map(m => m[1]).sort().join();
+    assert(wk === dk, kind + ' fields web ' + wk + ' ≠ Dart ' + dk);
+  }
   assert(/if \(subject\.workshop\) row\.practical_score = score;/.test(fn), 'web practical_score rule changed');
   webKeys.push('practical_score');
   const data = /final data = <String, Object\?>\{([\s\S]*?)\};/.exec(b);
-  assert(data, 'Dart record map missing');
-  const dartKeys = [...data[1].matchAll(/'([a-z_]+)':/g)].map(m => m[1]);
+  const dnum = /case GradeScheme\.numeric:[\s\S]*?fields = \{([\s\S]*?)\};/.exec(b);
+  assert(data && dnum && /\.\.\.fields,/.test(data[1]), 'Dart record map missing');
+  const dartKeys = [...(data[1] + dnum[1]).matchAll(/'([a-z_]+)':/g)].map(m => m[1]).filter(k => k !== 'practical_score');
+  dartKeys.push('practical_score');
   assert(JSON.stringify([...dartKeys].sort()) === JSON.stringify([...webKeys].sort()), 'record fields Dart ' + dartKeys + ' ≠ web ' + webKeys);
   assert(/if \(subject\.workshop\) 'practical_score': score,/.test(b), 'practical_score only for workshop subjects');
   assert(/delete clean\.school_id;/.test(s.tenancy), 'Gateway no longer strips school_id — re-check record shape');
@@ -158,7 +172,7 @@ function nw3DataPath(s) {
   const b = code(s.book);
   assert(!/HttpClient|Transport|GatewaySync|\/api\//.test(b), 'GradeBook must not talk to the network');
   const iParse = b.indexOf('parseScore(raw, studentId: e.studentId)'), iCap = b.indexOf('outbox.config.capacity');
-  const iLoop = b.indexOf('for (final (e, score, id) in plan)'), iEnq = b.indexOf('outbox.enqueue(');
+  const iLoop = b.indexOf('for (final (e, fields, id) in plan)'), iEnq = b.indexOf('outbox.enqueue(');
   assert(iParse > 0 && iCap > iParse && iLoop > iCap && iEnq > iLoop, 'every score and the queue room must be checked before the first write');
   const iNot = b.indexOf('GradeError.notInClass');
   assert(iNot > 0 && iNot < iParse, 'student/class check must precede planning');
@@ -220,7 +234,7 @@ class AnchorError extends Error {}
 const mut = (s, k, from, to) => { if (!s[k].includes(from)) throw new AnchorError('mutant anchor missing in ' + k + ': ' + from.slice(0, 50)); return Object.assign({}, s, { [k]: s[k].replace(from, to) }); };
 const MUTANTS = [
   ['M1 Dart term drifts from the web', s => nw3Terms(mut(s, 'book', "second('نوبت دوم')", "second('نوبت ۲')"))],
-  ['M2 web gains a term the client lacks', s => nw3Terms(mut(s, 'pages', "['نوبت اول', 'نوبت دوم', 'پایانی'].map(t =>", "['نوبت اول', 'نوبت دوم', 'پایانی', 'تابستان'].map(t =>"))],
+  ['M2 web gains a term the client lacks', s => nw3Terms(mut(s, 'pages', "const NUMERIC_TERMS = ['نوبت اول', 'نوبت دوم', 'پایانی'];", "const NUMERIC_TERMS = ['نوبت اول', 'نوبت دوم', 'پایانی', 'تابستان'];"))],
   ['M3 review label drifts from the web badge', s => nw3Terms(mut(s, 'book', "approved('تأییدشده')", "approved('تایید شده')"))],
   ['M4 range widened to 25', s => nw3Semantics(mut(s, 'book', 'if (v < 0 || v > 20) throw', 'if (v < 0 || v > 25) throw'))],
   ['M5 lenient parse (hex / exponent)', s => nw3Semantics(mut(s, 'book', "RegExp(r'^\\d{1,3}(\\.\\d{1,3})?$')", "RegExp(r'^[\\dxe.]+$')"))],

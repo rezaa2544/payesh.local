@@ -354,6 +354,13 @@
             "bad_status",
             "bad_score",
             "bad_kind",
+            "bad_module",
+            "bad_level",
+            "day_off",
+            "bad_date",
+            "reason_required",
+            "reason_too_long",
+            "bad_range",
             "write_failed"
           ]
         },

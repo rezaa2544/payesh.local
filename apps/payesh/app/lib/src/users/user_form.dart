@@ -289,7 +289,8 @@ class _UserFormPageState extends State<UserFormPage> {
       if (k == 'newsubject') continue;
       f[k]!.text = u.field(k);
     }
-    f['name']!.text = u.name;
+    // row 204: the whole name once — a stored last name is not repeated or dropped
+    f['name']!.text = fullName(u.data);
     final r = u.role;
     if (execRoles.contains(r)) {
       kind = 'exec';

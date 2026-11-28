@@ -15,6 +15,28 @@ final class Sheet {
   final List<List<String>> rows;
 }
 
+/// Row 197 F3 (owner: «موبایل 91887514.390000001 خوانده شد»): Excel keeps a number cell as a
+/// binary float, so `<v>` may carry float noise («9188751439.0000001», «91887514.390000001»,
+/// «9.188751439E9»). Such a value is rounded to the 15 digits Excel itself shows and written
+/// plainly: «9188751439», «91887514.39». An ordinary number («18.75», «12») is left as it is.
+/// Web twin: `PayeshXlsx.numberText`.
+String excelNumberText(String v) {
+  final t = v.trim();
+  if (!RegExp(r'^-?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$').hasMatch(t)) return v;
+  final sci = t.contains(RegExp('[eE]'));
+  final sig = t
+      .split(RegExp('[eE]'))
+      .first
+      .replaceAll(RegExp(r'[-.]'), '')
+      .replaceFirst(RegExp('^0+'), '');
+  if (!sci && sig.length <= 15) return v;
+  final n = double.tryParse(t);
+  if (n == null || !n.isFinite || n.abs() >= 1e15) return v;
+  final r = double.parse(n.toStringAsPrecision(15));
+  if (r == r.truncateToDouble()) return r.toInt().toString();
+  return sci ? v : r.toString();
+}
+
 final class SheetBook {
   const SheetBook(this.sheets);
   final List<Sheet> sheets;
@@ -203,7 +225,7 @@ abstract final class SheetReader {
           'inlineStr' => _texts(body),
           'str' => xmlUnescape(v),
           'b' => v.trim() == '1' ? '1' : '0',
-          _ => v,
+          _ => excelNumberText(v.trim()),
         };
         final idx = ref.isEmpty ? cells.length : colIndex(ref);
         if (idx < 0) continue;

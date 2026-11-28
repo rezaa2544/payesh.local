@@ -18,6 +18,7 @@
 // role changes by the manager only). Writes are local-first through SchoolRecords.
 import 'package:payesh_data/payesh_data.dart';
 
+import 'grade_scheme.dart';
 import 'records.dart';
 import 'school_structure.dart' show SchoolStructure;
 import 'staff_access.dart';
@@ -292,7 +293,27 @@ String nidRestoreZeros(Object? raw) {
 /// Row 203 (owner: «همه جایی که مشخصات یک کاربر را می‌آورد باید همه اطلاعاتش را نشان دهد»):
 /// every field of «مشخصات کامل» for a role, in sections, in the order of the user form —
 /// key, label, numeric. `grade`, `field`, `class_id` and `gender` are picked from lists.
-List<(String, List<(String, String, bool)>)> profileSections(String role) {
+/// Row 204 (owner: «مدرسهٔ رشته‌محور هیچ‌جا اسم کلاس نیاید»): with [fieldBased] the student
+/// has no «کلاس» field — پایه and رشته already place them.
+List<(String, List<(String, String, bool)>)> profileSections(
+  String role, {
+  bool fieldBased = false,
+}) {
+  final all = _profileSections(role);
+  if (!fieldBased) return all;
+  return [
+    for (final (title, list) in all)
+      (
+        title,
+        [
+          for (final f in list)
+            if (f.$1 != 'class_id') f,
+        ],
+      ),
+  ];
+}
+
+List<(String, List<(String, String, bool)>)> _profileSections(String role) {
   const personal = [
     ('first_name', 'نام', false),
     ('last_name', 'نام خانوادگی', false),
@@ -508,7 +529,9 @@ final class StudentRow {
   const StudentRow(this.user, this.className, this.average, this.gradeCount);
   final SchoolUser user;
   final String className;
-  final double average;
+
+  /// Row 197 F24: the mean of the numeric grades, null (shown «—») when there is none.
+  final double? average;
   final int gradeCount;
 }
 
@@ -521,14 +544,21 @@ final class StudentRecord {
     required this.attendanceDays,
     required this.grades,
     required this.details,
+    this.gradeValues = const [],
   });
   final SchoolUser user;
   final String className;
   final int presentPercent;
   final int attendanceDays;
 
-  /// (subject, score, approved)
+  /// (subject, score, approved) — score null for a descriptive grade (row 197 Q09).
   final List<(String, num?, bool)> grades;
+
+  /// What each grade of [grades] shows (same index): the score, or the descriptive level.
+  final List<String> gradeValues;
+
+  /// Row 197 F20: «—» rather than «۰٪» when no attendance was taken yet.
+  bool get hasAttendance => attendanceDays > 0;
 
   /// (label, value) — web `userDetailRows`.
   final List<(String, String)> details;
@@ -716,11 +746,12 @@ final class UserDirectory {
     };
     final classes = await _classNames();
     // row 200: scores grouped once per student (was a scan of every grade per student)
-    final scores = <int, List<num>>{};
+    final scores = <int, List<num?>>{};
     for (final x in await db.allOrEmpty('grades')) {
       final sid = SchoolRecords.asInt(x.data['student_id']);
       if (sid == null) continue;
-      (scores[sid] ??= []).add(num.tryParse('${x.data['score'] ?? 0}') ?? 0);
+      // row 197 F24: a missing or descriptive score is not a 0
+      (scores[sid] ??= []).add(averageScore(x.data));
     }
     final q = query.trim();
     final out = <StudentRow>[];
@@ -736,9 +767,8 @@ final class UserDirectory {
       if (q.isNotEmpty && !SchoolRecords.str(r.data['name']).contains(q)) {
         continue;
       }
-      final g = scores[r.id] ?? const <num>[];
-      final avg = g.isEmpty ? 0.0 : g.fold<num>(0, (a, b) => a + b) / g.length;
-      out.add(StudentRow(u, u.className, avg.toDouble(), g.length));
+      final g = scores[r.id] ?? const <num?>[];
+      out.add(StudentRow(u, u.className, averageOf(g), g.length));
     }
     out.sort((a, b) => a.user.name.compareTo(b.user.name));
     return out;
@@ -760,14 +790,25 @@ final class UserDirectory {
         if (SchoolRecords.asInt(a.data['student_id']) == db.uid) a,
     ];
     final present = att.where((a) => a.data['status'] == 'present').length;
-    final grades = [
+    final mine = [
       for (final g in await db.allOrEmpty('grades'))
-        if (SchoolRecords.asInt(g.data['student_id']) == db.uid)
-          (
-            subjects[SchoolRecords.asInt(g.data['subject_id'])] ?? '',
-            num.tryParse('${g.data['score'] ?? ''}'),
-            g.data['status'] == 'approved',
-          ),
+        if (SchoolRecords.asInt(g.data['student_id']) == db.uid) g,
+    ];
+    String subjectOf(Map<String, Object?> g) {
+      final n = subjects[SchoolRecords.asInt(g['subject_id'])] ?? '';
+      // row 197 Q08: a module grade names its module
+      return moduleOfTerm(g['term']) == null ? n : '$n — ${g['term']}';
+    }
+
+    final grades = [
+      for (final g in mine)
+        (
+          subjectOf(g.data),
+          SchoolRecords.str(g.data['kind']) == 'descriptive'
+              ? null
+              : num.tryParse('${g.data['score'] ?? ''}'),
+          g.data['status'] == 'approved',
+        ),
     ];
     return StudentRecord(
       user: SchoolUser(id: me.id, data: me.data),
@@ -775,6 +816,7 @@ final class UserDirectory {
       presentPercent: att.isEmpty ? 0 : (present * 100 / att.length).round(),
       attendanceDays: att.length,
       grades: grades,
+      gradeValues: [for (final g in mine) gradeValueText(g.data)],
       details: detailRows(me.data),
     );
   }
@@ -1377,8 +1419,11 @@ final class UserDirectory {
       data['first_name'] = words.take(words.length - lw).join(' ');
       return;
     }
-    if (f.isNotEmpty) data['first_name'] = '';
-    if (l.isNotEmpty) data['last_name'] = '';
+    // row 204 (owner: «نام هیچ‌وقت نام خانوادگی را نداشته باشد»): a new last name is cut
+    // off the new name, so «نام» and «نام خانوادگی» stay apart and never repeat each other
+    final cut = splitName({'name': n});
+    data['first_name'] = cut.first;
+    data['last_name'] = cut.last;
   }
 
   static void _extras(

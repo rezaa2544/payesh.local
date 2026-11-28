@@ -201,12 +201,21 @@ class _GradesScreenState extends State<GradesScreen> {
                 child: Row(
                   children: [
                     Expanded(child: Text(s?.name ?? '', style: Web.b)),
-                    Text(
-                      s?.workshop ?? false
-                          ? 'درس کارگاهی — نمرهٔ عملی'
-                          : 'نمره از ۲۰',
-                      key: const Key('grd-scale'),
-                      style: Web.small,
+                    Flexible(
+                      child: Text(
+                        switch (c.scheme) {
+                          GradeScheme.modular => 'ارزشیابی پودمانی — شایستگی (۱ تا ۳) × ۵ + مستمر (۰ تا ۵)، قبولی هر پودمان ۱۲',
+                          GradeScheme.descriptive =>
+                            'ارزشیابی کیفی‌ـ‌توصیفی (ابتدایی)',
+                          GradeScheme.numeric =>
+                            s?.workshop ?? false
+                                ? 'درس کارگاهی — نمرهٔ عملی'
+                                : 'نمره از ۲۰',
+                        },
+                        key: const Key('grd-scale'),
+                        style: Web.small,
+                        textAlign: TextAlign.end,
+                      ),
                     ),
                   ],
                 ),
@@ -226,36 +235,51 @@ class _GradesScreenState extends State<GradesScreen> {
                   style: Web.small,
                 )
               else ...[
-                WebTable(
-                  head: const ['دانش‌آموز', 'نمره', 'وضعیت'],
-                  widths: const {1: 110, 2: 90},
-                  rows: [
-                    for (final e in c.sheet)
-                      [
-                        Text(e.name, key: Key('grd-row-${e.studentId}')),
-                        _GradeField(
-                          key: ValueKey('grd-field-${e.studentId}'),
-                          c: c,
-                          e: e,
-                        ),
-                        Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: WebBadge(
-                            e.state.labelFa,
-                            key: Key('grd-state-${e.studentId}'),
-                            tone: switch (e.state) {
-                              GradeState.approved => WebTone.green,
-                              GradeState.pending => WebTone.amber,
-                              GradeState.fresh => WebTone.none,
-                            },
+                if (c.scheme == GradeScheme.modular)
+                  _modularTable()
+                else
+                  WebTable(
+                    head: [
+                      'دانش‌آموز',
+                      c.scheme == GradeScheme.descriptive ? 'ارزشیابی' : 'نمره',
+                      'وضعیت',
+                    ],
+                    widths: {
+                      1: c.scheme == GradeScheme.descriptive ? 190 : 110,
+                      2: 90,
+                    },
+                    rows: [
+                      for (final e in c.sheet)
+                        [
+                          Text(e.name, key: Key('grd-row-${e.studentId}')),
+                          if (c.scheme == GradeScheme.descriptive)
+                            _levelField(e)
+                          else
+                            _GradeField(
+                              key: ValueKey('grd-field-${e.studentId}'),
+                              c: c,
+                              e: e,
+                            ),
+                          Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: WebBadge(
+                              e.state.labelFa,
+                              key: Key('grd-state-${e.studentId}'),
+                              tone: switch (e.state) {
+                                GradeState.approved => WebTone.green,
+                                GradeState.pending => WebTone.amber,
+                                GradeState.fresh => WebTone.none,
+                              },
+                            ),
                           ),
-                        ),
-                      ],
-                  ],
-                ),
+                        ],
+                    ],
+                  ),
                 const SizedBox(height: 12),
                 WebBtn(
-                  'ثبت نمرات',
+                  c.scheme == GradeScheme.descriptive
+                      ? 'ثبت ارزشیابی'
+                      : 'ثبت نمرات',
                   key: const Key('grd-save'),
                   kind: WebBtnKind.primary,
                   size: WebBtnSize.normal,
@@ -267,6 +291,144 @@ class _GradesScreenState extends State<GradesScreen> {
           ),
         ),
     ];
+  }
+
+  Widget _stateBadge(GradeEntry e) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: WebBadge(
+      e.state.labelFa,
+      key: Key('grd-state-${e.studentId}'),
+      tone: switch (e.state) {
+        GradeState.approved => WebTone.green,
+        GradeState.pending => WebTone.amber,
+        GradeState.fresh => WebTone.none,
+      },
+    ),
+  );
+
+  /// A small dropdown of the sheet (competency / level); the stored value re-keys it so a
+  /// save or a pull shows the new value.
+  Widget _pick(
+    Key key,
+    String stored,
+    String value,
+    List<(String, String)> items,
+    String label,
+    ValueChanged<String> onChanged,
+    double width,
+  ) => KeyedSubtree(
+    key: ValueKey('$key|$stored'),
+    child: Semantics(
+      label: label,
+      child: FieldBox(
+        width: width,
+        child: DropdownButtonFormField<String>(
+          key: key,
+          initialValue: items.any((i) => i.$1 == value) ? value : null,
+          isExpanded: true,
+          isDense: true,
+          hint: const Text('—'),
+          decoration: webInput(),
+          items: [
+            for (final (v, l) in items)
+              DropdownMenuItem(value: v, child: Text(l)),
+          ],
+          onChanged: c.busy ? null : (v) => onChanged(v ?? ''),
+        ),
+      ),
+    ),
+  );
+
+  /// Row 197 Q09: «خیلی خوب / خوب / قابل قبول / نیاز به تلاش بیشتر».
+  Widget _levelField(GradeEntry e) => _pick(
+    Key('grd-l-${e.studentId}'),
+    e.level ?? '',
+    c.valueOf(e),
+    [for (final l in descriptiveLevels) (l, l)],
+    'ارزشیابی توصیفی',
+    (v) => c.edit(e.studentId, v),
+    180,
+  );
+
+  /// Row 197 Q08: one module of a competency subject — شایستگی, مستمر, the module score and
+  /// the course result over the five modules.
+  Widget _modularTable() => WebTable(
+    key: const Key('grd-modular'),
+    minWidth: 640,
+    head: const [
+      'دانش‌آموز',
+      'شایستگی',
+      'مستمر (۰–۵)',
+      'نمرهٔ پودمان',
+      'نتیجهٔ درس',
+      'وضعیت',
+    ],
+    widths: const {1: 170, 2: 90, 3: 80, 5: 90},
+    rows: [
+      for (final e in c.sheet)
+        [
+          Text(e.name, key: Key('grd-row-${e.studentId}')),
+          _pick(
+            Key('grd-c-${e.studentId}'),
+            e.competency == null ? '' : '${e.competency}',
+            c.valueOf(e),
+            [
+              for (final MapEntry(:key, :value) in competencyLevels.entries)
+                ('$key', '${faDigits('$key')} — $value'),
+            ],
+            'شایستگی',
+            (v) => c.edit(e.studentId, v),
+            160,
+          ),
+          _GradeField(
+            key: ValueKey('grd-m-field-${e.studentId}'),
+            c: c,
+            e: e,
+            continuous: true,
+          ),
+          Text(
+            _moduleScore(e),
+            key: Key('grd-ms-${e.studentId}'),
+            style: Web.small,
+          ),
+          Builder(
+            builder: (_) {
+              final r = c.modules[e.studentId];
+              return Text(
+                r?.labelFa ?? '—',
+                key: Key('grd-result-${e.studentId}'),
+                style: Web.small.copyWith(
+                  color: r == null
+                      ? Web.muted
+                      : r.passed
+                      ? Colors.green.shade800
+                      : r.failed.isNotEmpty
+                      ? Colors.red.shade800
+                      : Web.muted,
+                  fontWeight: FontWeight.w600,
+                ),
+              );
+            },
+          ),
+          _stateBadge(e),
+        ],
+    ],
+  );
+
+  /// The module score from the fields as typed (live), «—» while incomplete.
+  String _moduleScore(GradeEntry e) {
+    try {
+      final cs = c.valueOf(e).trim();
+      final ms = c.contOf(e).trim();
+      if (cs.isEmpty || ms.isEmpty) return '—';
+      final v = moduleScore(
+        GradeBook.parseCompetency(cs),
+        GradeBook.parseContinuous(ms),
+      );
+      return '${faDigits('$v').replaceAll('.', '٫')}${v < modulePass ? ' (زیر ۱۲)' : ''}';
+    } on GradeFailure {
+      return '—';
+    }
   }
 
   /// `<div class="row">` of three `label.field.grow` selects + «نمایش» at the bottom.
@@ -320,9 +482,23 @@ class _GradesScreenState extends State<GradesScreen> {
           for (final x in c.subjects) (x.id, x.name),
         ], (v) => setState(() => _selSubject = v)),
         gap,
-        select<GradeTerm>('grd-term', 'نوبت', _selTerm ?? c.term, [
-          for (final t in GradeTerm.values) (t, t.wire),
-        ], (v) => setState(() => _selTerm = v)),
+        Builder(
+          builder: (_) {
+            // row 197 Q08: a competency subject is assessed per «پودمان ۱ تا ۵»
+            final sid = _selSubject ?? c.subject?.id;
+            final sub = c.subjects.where((x) => x.id == sid);
+            final scheme = sub.isEmpty ? GradeScheme.numeric : sub.first.scheme;
+            final terms = GradeTerm.of(scheme);
+            final pick = _selTerm ?? c.term;
+            return select<GradeTerm>(
+              'grd-term',
+              scheme == GradeScheme.modular ? 'پودمان' : 'نوبت',
+              terms.contains(pick) ? pick : terms.first,
+              [for (final t in terms) (t, t.wire)],
+              (v) => setState(() => _selTerm = v),
+            );
+          },
+        ),
         gap,
         WebBtn(
           'نمایش',
@@ -336,10 +512,22 @@ class _GradesScreenState extends State<GradesScreen> {
 
 /// `<input class="input ltr" style="padding:.3rem" inputmode="decimal" placeholder="—">`.
 class _GradeField extends StatefulWidget {
-  const _GradeField({super.key, required this.c, required this.e});
+  const _GradeField({
+    super.key,
+    required this.c,
+    required this.e,
+    this.continuous = false,
+  });
 
   final GradesController c;
   final GradeEntry e;
+
+  /// Row 197 Q08: the «مستمر» field of a module instead of the score.
+  final bool continuous;
+
+  String get value => continuous ? c.contOf(e) : c.valueOf(e);
+  bool get drafted =>
+      (continuous ? c.draftCont : c.draft).containsKey(e.studentId);
 
   @override
   State<_GradeField> createState() => _GradeFieldState();
@@ -347,15 +535,15 @@ class _GradeField extends StatefulWidget {
 
 class _GradeFieldState extends State<_GradeField> {
   late final TextEditingController text = TextEditingController(
-    text: widget.c.valueOf(widget.e),
+    text: widget.value,
   );
 
   @override
   void didUpdateWidget(_GradeField old) {
     super.didUpdateWidget(old);
-    final v = widget.c.valueOf(widget.e);
+    final v = widget.value;
     // after a save / pull / sheet change the stored value replaces the field text
-    if (!widget.c.draft.containsKey(widget.e.studentId) && text.text != v) {
+    if (!widget.drafted && text.text != v) {
       text.text = v;
     }
   }
@@ -372,14 +560,17 @@ class _GradeFieldState extends State<_GradeField> {
     final bad = widget.c.invalid == e.studentId;
     final d = webInput(error: bad ? '' : null);
     // the web input has no visible label; screen readers hear «نمره» (+ «نامعتبر»)
+    final name = widget.continuous ? 'نمرهٔ مستمر' : 'نمره';
     return Semantics(
-      label: bad ? 'نمره، نامعتبر' : 'نمره',
+      label: bad ? '$name، نامعتبر' : name,
       child: Directionality(
         textDirection: TextDirection.ltr,
         child: FieldBox(
           width: kFieldTiny,
           child: TextField(
-            key: Key('grd-${e.studentId}'),
+            key: Key(
+              widget.continuous ? 'grd-m-${e.studentId}' : 'grd-${e.studentId}',
+            ),
             controller: text,
             enabled: !widget.c.busy,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -393,7 +584,9 @@ class _GradeFieldState extends State<_GradeField> {
                 vertical: 11.5,
               ),
             ),
-            onChanged: (v) => widget.c.edit(e.studentId, v),
+            onChanged: (v) => widget.continuous
+                ? widget.c.editCont(e.studentId, v)
+                : widget.c.edit(e.studentId, v),
           ),
         ),
       ),

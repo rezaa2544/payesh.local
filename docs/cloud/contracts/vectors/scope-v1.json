@@ -442,6 +442,139 @@
       "expect": {
         "ok": true
       }
+    },
+    {
+      "scope": "teacher",
+      "collection": "grades",
+      "row": {
+        "student_id": 100,
+        "class_id": 10,
+        "term": "پودمان ۱",
+        "kind": "module",
+        "competency": 2,
+        "continuous": 4.5,
+        "score": 14.5,
+        "status": "pending"
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "grades",
+      "row": {
+        "student_id": 100,
+        "class_id": 10,
+        "term": "پودمان ۱",
+        "kind": "module",
+        "competency": 4,
+        "continuous": 4.5,
+        "score": 24.5,
+        "status": "pending"
+      },
+      "expect": {
+        "ok": false,
+        "error": "bad_module"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "grades",
+      "row": {
+        "student_id": 100,
+        "class_id": 10,
+        "term": "نوبت اول",
+        "kind": "descriptive",
+        "level": "خوب",
+        "score": null,
+        "status": "pending"
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "grades",
+      "row": {
+        "student_id": 100,
+        "class_id": 10,
+        "term": "نوبت اول",
+        "kind": "descriptive",
+        "level": "عالی",
+        "score": null,
+        "status": "pending"
+      },
+      "expect": {
+        "ok": false,
+        "error": "bad_level"
+      }
+    },
+    {
+      "scope": "manager",
+      "collection": "calendar",
+      "row": {
+        "date": "2026-11-13",
+        "kind": "closed",
+        "reason": "آلودگی هوا"
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "scope": "manager",
+      "collection": "calendar",
+      "row": {
+        "date": "2026-11-13",
+        "kind": "holiday",
+        "reason": "آلودگی هوا"
+      },
+      "expect": {
+        "ok": false,
+        "error": "bad_kind"
+      }
+    },
+    {
+      "scope": "manager",
+      "collection": "calendar",
+      "row": {
+        "date": "2026-11-13",
+        "kind": "remote",
+        "reason": ""
+      },
+      "expect": {
+        "ok": false,
+        "error": "reason_required"
+      }
+    },
+    {
+      "scope": "manager",
+      "collection": "calendar",
+      "row": {
+        "date": "2026-11-13",
+        "kind": "remote",
+        "reason": "آلودگی هوا",
+        "exams_to": "2026-11-12"
+      },
+      "expect": {
+        "ok": false,
+        "error": "bad_range"
+      }
+    },
+    {
+      "scope": "teacher",
+      "collection": "calendar",
+      "row": {
+        "date": "2026-11-13",
+        "kind": "closed",
+        "reason": "آلودگی هوا"
+      },
+      "expect": {
+        "ok": false,
+        "error": "role_denied"
+      }
     }
   ]
 }

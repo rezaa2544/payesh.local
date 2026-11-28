@@ -451,6 +451,10 @@ function impFixStats() { return IMP_FIX_STATS; }
 function impMobileFromPart(part) {
   let t = impLatin(String(part == null ? '' : part)).trim();
   if (!t) return '';
+  /* ردیف ۱۹۷ F3: خطای ممیز اکسل («91887514.390000001» ← «91887514.39») */
+  const X = typeof PayeshXlsx !== 'undefined' ? PayeshXlsx
+    : (typeof window !== 'undefined' && window.PayeshXlsx) || null;
+  if (X && X.numberText) t = String(X.numberText(t));
   /* اکسل عدد صحیح را گاهی «9123456789.0» می‌نویسد */
   const dec = t.match(/^(\d+)[.,]0+$/);
   if (dec) t = dec[1];

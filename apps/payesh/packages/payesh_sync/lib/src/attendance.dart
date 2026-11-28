@@ -14,6 +14,7 @@ import 'classes.dart' show fieldGroupMember;
 import 'leave_spec.dart';
 import 'outbox.dart';
 import 'school_access.dart' show permRole;
+import 'school_calendar.dart' show DayOff, DayOffKind;
 import 'school_structure.dart' show SchoolStructure;
 
 /// The five attendance states of the web client (`ATT_LABEL`) and the server
@@ -48,7 +49,9 @@ enum AttendanceError {
   badDate,
   unknownClass,
   notInClass,
-  badStudent;
+  badStudent,
+  // row 197 Q10: the day is announced closed / remote — no absence that day
+  dayOff;
 
   String get messageFa => switch (this) {
     AttendanceError.notAllowed =>
@@ -57,6 +60,8 @@ enum AttendanceError {
     AttendanceError.unknownClass => 'این گروه در فهرست شما نیست',
     AttendanceError.notInClass => 'این دانش‌آموز در این فهرست نیست',
     AttendanceError.badStudent => 'شناسهٔ دانش‌آموز نامعتبر است',
+    AttendanceError.dayOff =>
+      'این روز تعطیل/غیرحضوری اعلام شده — غیبت و تأخیر ثبت نمی‌شود',
   };
 }
 
@@ -417,11 +422,30 @@ final class AttendanceBook {
   /// Saves the day's attendance of [classId]. [marks] holds the statuses the teacher changed;
   /// every other student keeps the stored status or defaults to present. All checks run
   /// before the first write: a refused save writes nothing.
+  /// Row 197 Q10: the announced day off of [date] (calendar), or null.
+  Future<DayOff?> dayOff(String date) async {
+    for (final r in await engine.list('calendar', limit: 100000)) {
+      final d = DayOff.of(r.id, r.data);
+      if (d != null && d.date == date) return d;
+    }
+    return null;
+  }
+
   Future<AttendanceSaveResult> save({
     required int classId,
     required String date,
     Map<int, AttendanceStatus> marks = const {},
   }) async {
+    // row 197 Q10: a closed day takes no attendance; a remote day no absence / lateness
+    // (server/school-calendar.js answers `day_off` too)
+    final off = await dayOff(date);
+    if (off != null &&
+        (off.kind == DayOffKind.closed ||
+            marks.values.any(
+              (m) => m == AttendanceStatus.absent || m == AttendanceStatus.late,
+            ))) {
+      throw AttendanceFailure(AttendanceError.dayOff, off.date);
+    }
     final list = await roster(classId, date);
     final inClass = {for (final r in list) r.studentId};
     for (final sid in marks.keys) {

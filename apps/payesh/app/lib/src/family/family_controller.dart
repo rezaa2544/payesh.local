@@ -63,6 +63,10 @@ class FamilyController extends ChangeNotifier {
   TodayView? kidToday;
   Notice? latestNotice;
 
+  /// Row 197 Q10: today's / tomorrow's announced day off (banner on the parent's home).
+  DayOff? todayOff;
+  DayOff? tomorrowOff;
+
   /// The open child page (null when none is open or it could not be read).
   ChildRecord? child;
   int? _childId;
@@ -121,6 +125,25 @@ class FamilyController extends ChangeNotifier {
       latestNotice = await b.latestNotice();
     } on Object {
       latestNotice = null;
+    }
+    try {
+      final db = SchoolRecords(
+        engine: b.engine,
+        outbox: b.outbox,
+        role: b.role,
+        uid: b.uid,
+      );
+      final day = b.today();
+      todayOff = await dayOffOn(db, day);
+      tomorrowOff = await dayOffOn(
+        db,
+        DateTime.parse(day)
+            .add(const Duration(days: 1))
+            .toIso8601String()
+            .substring(0, 10),
+      );
+    } on Object {
+      todayOff = tomorrowOff = null;
     }
   }
 

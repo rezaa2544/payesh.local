@@ -966,7 +966,10 @@ class UserProfilePage extends StatefulWidget {
 
 class _UserProfilePageState extends State<UserProfilePage> {
   late final SchoolUser u = widget.user;
-  late final sections = profileSections(u.role);
+  late final sections = profileSections(
+    u.role,
+    fieldBased: schoolFieldBased.value == true,
+  );
   late final Map<String, String> start = _start();
   late final Map<String, String> pick = {
     for (final k in UserProfilePage.picked)
@@ -1211,7 +1214,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
                     sub: s.className,
                     actions: [
                       WebBadge(
-                        'معدل ${faDigits(s.average.toStringAsFixed(1))}',
+                        // row 197 F24: no grade yet ⇒ «—», not «معدل ۰٫۰»
+                        s.average == null
+                            ? 'معدل —'
+                            : 'معدل ${faDigits(s.average!.toStringAsFixed(1))}',
                         key: Key('std-avg-${s.user.id}'),
                       ),
                     ],
@@ -1288,10 +1294,15 @@ List<Widget> recordBlocks(StudentRecord r, {bool first = true}) => [
     children: [
       WebStat(
         icon: 'check',
-        num: '${Web.fa(r.presentPercent)}٪',
+        // row 197 F20: no attendance taken yet ⇒ «—», not «۰٪»
+        num: r.hasAttendance ? '${Web.fa(r.presentPercent)}٪' : '—',
         label: 'حضور',
         numKey: const Key('rec-present'),
-        numColor: r.presentPercent >= 90 ? Web.green : Web.amber,
+        numColor: !r.hasAttendance
+            ? null
+            : r.presentPercent >= 90
+            ? Web.green
+            : Web.amber,
       ),
       WebStat(
         icon: 'pen',
@@ -1341,7 +1352,11 @@ List<Widget> recordBlocks(StudentRecord r, {bool first = true}) => [
           [
             Text(subject, key: Key('rec-grade-$i')),
             Text(
-              score == null ? '' : Web.fa(score),
+              i < r.gradeValues.length
+                  ? r.gradeValues[i]
+                  : score == null
+                  ? '—'
+                  : Web.fa(score),
               key: Key('rec-score-$i'),
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),

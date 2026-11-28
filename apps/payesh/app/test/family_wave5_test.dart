@@ -346,7 +346,8 @@ void main() {
       expect(find.byKey(const Key('chd-grades-empty')), findsOneWidget);
       expect(find.byKey(const Key('chd-att-empty')), findsOneWidget);
       expect(textOf(tester, 'chd-count'), '۰');
-      expect(textOf(tester, 'chd-avg'), '۰.۰');
+      // row 197 F20/F24: no grade ⇒ «—», never «۰.۰»
+      expect(textOf(tester, 'chd-avg'), '—');
     },
   );
 

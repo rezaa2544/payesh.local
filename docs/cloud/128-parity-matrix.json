@@ -1055,6 +1055,46 @@
    ]
   },
   {
+   "id": "act:dayoff-add",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('ntc-dayoff-add"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/day_off_197_test.dart",
+     "has": "'DO197-01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_calendar_197_test.dart",
+     "has": "'C197-02"
+    }
+   ]
+  },
+  {
+   "id": "act:dayoff-delete",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('ntc-dayoff-cancel-"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/day_off_197_test.dart",
+     "has": "'DO197-01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_calendar_197_test.dart",
+     "has": "'C197-02"
+    }
+   ]
+  },
+  {
    "id": "act:imp-branch-no",
    "status": "native",
    "wave": "W10",
@@ -2704,6 +2744,26 @@
     {
      "file": "apps/payesh/packages/payesh_sync/test/notices_it_test.dart",
      "has": "test("
+    }
+   ]
+  },
+  {
+   "id": "form:dayoff",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('dof-submit"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/day_off_197_test.dart",
+     "has": "'DO197-01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_calendar_197_test.dart",
+     "has": "'C197-02"
     }
    ]
   },

@@ -612,6 +612,7 @@ bool importValidNid(Object? v) =>
 String _mobilePart(String part) {
   var t = _latin(part).trim();
   if (t.isEmpty) return '';
+  t = excelNumberText(t); // row 197 F3: «91887514.390000001» → «91887514.39»
   final dec = RegExp(r'^(\d+)[.,]0+$').firstMatch(t);
   if (dec != null) t = dec[1]!;
   final sci = t.replaceAll(RegExp(r'\s'), '');

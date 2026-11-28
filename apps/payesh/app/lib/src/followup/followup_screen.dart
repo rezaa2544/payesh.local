@@ -334,9 +334,12 @@ class _FollowupScreenState extends State<FollowupScreen> {
                           }
                         }),
                 ),
-                Text(
-                  'انتخاب همه (${Web.fa(open.length)} ردیفی که هنوز در فهرست نیستند)',
-                  style: Web.small.copyWith(color: Web.ink),
+                // row 197 F2: wraps on a phone instead of running off screen
+                Flexible(
+                  child: Text(
+                    'انتخاب همه (${Web.fa(open.length)} ردیفی که هنوز در فهرست نیستند)',
+                    style: Web.small.copyWith(color: Web.ink),
+                  ),
                 ),
               ],
             ),
@@ -506,6 +509,23 @@ class _FollowupScreenState extends State<FollowupScreen> {
     ],
   );
 
+  /// Row 197 F2: the cells of one table row, one under the other (phone width).
+  Widget _stacked(List<Widget> cells) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: Web.line)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < cells.length; i++) ...[
+          if (i > 0) const SizedBox(height: 6),
+          Align(alignment: AlignmentDirectional.centerStart, child: cells[i]),
+        ],
+      ],
+    ),
+  );
+
   List<Widget> _student(FollowupView v, FollowupStudent s) {
     final g = _grade[s.id] ?? s.grade;
     final b = _branch[s.id] ?? s.branch;
@@ -656,8 +676,11 @@ class _FollowupScreenState extends State<FollowupScreen> {
               ?saved,
             ],
           );
-    final actions = Row(
-      mainAxisSize: MainAxisSize.min,
+    // row 197 F2: a Wrap — on a phone the three buttons go to a second line instead of
+    // running off screen
+    final actions = Wrap(
+      spacing: 6,
+      runSpacing: 6,
       children: [
         WebBtn(
           '✏️ اصلاح',
@@ -665,16 +688,13 @@ class _FollowupScreenState extends State<FollowupScreen> {
           kind: WebBtnKind.primary,
           onPressed: c.busy ? null : () => _fix(i),
         ),
-        if (_canTemp(i)) ...[
-          const SizedBox(width: 6),
+        if (_canTemp(i))
           // row 205: the form's «ثبت موقت در لیست» right on the row too
           WebBtn(
             '📋 ثبت موقت در لیست',
             key: Key('fu-issue-temp-btn-${i.id}'),
             onPressed: c.busy ? null : () => _temp([i]),
           ),
-        ],
-        const SizedBox(width: 6),
         WebBtn.delete(
           'حذف / نادیده گرفتن',
           key: Key('fu-issue-done-${i.id}'),
@@ -798,15 +818,32 @@ class _FollowupScreenState extends State<FollowupScreen> {
                             style: Web.small,
                           )
                         else
-                          WebTable(
-                            minWidth: 640,
-                            head: const [
-                              'دانش‌آموز',
-                              'دلیل',
-                              'پایه و رشته',
-                              '',
-                            ],
-                            rows: [for (final s in v.students) _student(v, s)],
+                          // row 197 F2: on a phone the table was cut («دلیل» clipped, the
+                          // buttons off screen) — each student is a stacked card there
+                          LayoutBuilder(
+                            builder: (context, box) => box.maxWidth < 720
+                                ? Column(
+                                    key: const Key('fu-students-list'),
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      for (final s in v.students)
+                                        _stacked(_student(v, s)),
+                                    ],
+                                  )
+                                : WebTable(
+                                    minWidth: 640,
+                                    head: const [
+                                      'دانش‌آموز',
+                                      'دلیل',
+                                      'پایه و رشته',
+                                      '',
+                                    ],
+                                    rows: [
+                                      for (final s in v.students)
+                                        _student(v, s),
+                                    ],
+                                  ),
                           ),
                       ],
                     ),
@@ -899,7 +936,10 @@ class _ImportFixPageState extends State<ImportFixPage> {
           if (x.$1 == k)
             (
               k,
-              x.$2,
+              // row 197 (row 204 leftover): a field school has no «کلاس»
+              widget.controller.field && k == 'class_name'
+                  ? 'گروه/شعبه در فایل'
+                  : x.$2,
               k.endsWith('_nid') || k.endsWith('phone') || k == 'national_id',
             ),
   ];

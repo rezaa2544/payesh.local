@@ -15,6 +15,8 @@
    منبع حقیقت مجوزها همان `server/policy.js` است (COLLECTIONS/canRead/canWrite)،
    تا مسیر محلی و ابری یک سیاست داشته باشند.
    ═══════════════════════════════════════════════════════════════════ */
+const gradeScheme = require('./grade-scheme');
+const schoolCalendar = require('./school-calendar');
 const policy = require('./policy');
 const finance = require('./school-finance');
 
@@ -209,6 +211,16 @@ function canWriteRow(scope, collection, row, existing) {
   if (collection === 'visitors' && row && row.name !== undefined) {
     const vi = policy.visitorIssue(row);
     if (vi) return { ok: false, error: vi };
+  }
+  /* ردیف ۱۹۷ Q10: شکل ردیف تعطیلی (روزهای اعلام‌شده روی سرور مدرسه سنجیده می‌شوند) */
+  if (collection === 'calendar' && row && row !== existing && row.date !== undefined) {
+    const di = schoolCalendar.dayOffIssue(row);
+    if (di) return { ok: false, error: di };
+  }
+  /* ردیف ۱۹۷ Q08/Q09: شکل نمرهٔ پودمانی/توصیفی/عددی (همان server/grade-scheme.js) */
+  if (collection === 'grades' && row && row !== existing && (row.score !== undefined || row.kind !== undefined)) {
+    const gi = gradeScheme.gradeIssue(row);
+    if (gi) return { ok: false, error: gi };
   }
   /* ردیف ۱۹۷ (Q07): شکل ردیف (آینهٔ ابری ردیف مدرسه را ندارد؛ قاعدهٔ شهریه روی سرور مدرسه) */
   if (collection === 'contributions' && row && row.amount !== undefined) {

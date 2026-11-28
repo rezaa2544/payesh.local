@@ -83,6 +83,34 @@ Future<void> top(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('W10-W197 row 197 F2: on a phone each student is a stacked card — reason, پایه/رشته '
+      'and the buttons stay on screen (no clipped table)', (tester) async {
+    tester.view.physicalSize = const Size(1080, 6000);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await bootSchool(tester, role: 'manager', seed: seed);
+    await openPage(tester, 'followup');
+    expect(find.byKey(const Key('fu-students-list')), findsOneWidget);
+    final screen =
+        tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    for (final k in ['fu-stud-21', 'fu-reason-21']) {
+      await tester.ensureVisible(find.byKey(Key(k)));
+      final r = tester.getRect(find.byKey(Key(k)));
+      expect(r.left >= 0 && r.right <= screen + 0.5, isTrue, reason: '$k $r');
+    }
+    expect(textOf(tester, 'fu-reason-21'), '⚠️ پایه و رشته ندارد');
+    // row 197 F1: an import row on a phone has its «اصلاح» on screen and it opens the form
+    for (final k in ['fu-issue-fix-70', 'fu-issue-temp-btn-70']) {
+      await tester.ensureVisible(find.byKey(Key(k)));
+      await tester.pumpAndSettle();
+      final r = tester.getRect(find.byKey(Key(k)));
+      expect(r.left >= 0 && r.right <= screen + 0.5, isTrue, reason: '$k $r');
+    }
+    await tapKey(tester, 'fu-issue-fix-70');
+    expect(find.byKey(const Key('usr-f-name')), findsOneWidget);
+    expect(find.byKey(const Key('usr-save')), findsOneWidget);
+  });
+
   testWidgets('W10-W01 the list: incomplete students and open import rows; NEG a teacher has no '
       'follow-up page and a complete student is not listed', (tester) async {
     await openFollowup(tester);

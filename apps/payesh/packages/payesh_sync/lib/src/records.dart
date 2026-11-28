@@ -18,6 +18,7 @@ import 'dart:math';
 import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_data/payesh_data.dart';
 
+import 'notices.dart' show NoticeBoard;
 import 'outbox.dart';
 import 'school_access.dart' show permRole;
 
@@ -151,6 +152,8 @@ final class SchoolRecords {
     // Row 197 (Q07): slot 13 = [2.3e15, 2.4e15), slot 14 = [2.4e15, 2.5e15).
     'contributions',
     'trustees',
+    // Row 197 (Q10): announced days off (slot 15 = [2.5e15, 2.6e15)).
+    'calendar',
   ];
   static const int idFloor = 1000000000000000;
   static const int idSlotSpan = 100000000000000;
@@ -255,10 +258,14 @@ final class SchoolRecords {
   }
 
   Future<int> newId(String collection) async {
-    final base = idBaseOf(collection);
-    var id = base + _rand(idSlotSpan);
+    // Row 197 (Q10): a notice written beside another record (a day off) takes the notice
+    // board's own range, so it can never collide with one published from «اطلاعیه‌ها».
+    final (base, span) = collection == NoticeBoard.collection
+        ? (NoticeBoard.idBase, NoticeBoard.idSpan)
+        : (idBaseOf(collection), idSlotSpan);
+    var id = base + _rand(span);
     for (var i = 0; i < 8 && await engine.get(collection, id) != null; i++) {
-      id = base + _rand(idSlotSpan);
+      id = base + _rand(span);
     }
     return id;
   }

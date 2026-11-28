@@ -74,8 +74,10 @@ class ClassesController extends SchoolController {
     int? id,
     required String name,
     required bool workshop,
+    bool? modular,
   }) => run(
-    (db) => ClassBook(db).saveSubject(id: id, name: name, workshop: workshop),
+    (db) => ClassBook(db)
+        .saveSubject(id: id, name: name, workshop: workshop, modular: modular),
     form: true,
   );
 
@@ -658,6 +660,15 @@ class _ClassesScreenState extends State<ClassesScreen> {
                                       'کارگاهی',
                                       tone: WebTone.purple,
                                     ),
+                                  // row 197 Q08/Q09: how the subject is graded
+                                  if (r.scheme != GradeScheme.numeric)
+                                    WebBadge(
+                                      r.scheme == GradeScheme.modular
+                                          ? 'پودمانی'
+                                          : 'توصیفی',
+                                      key: Key('cls-subject-scheme-${r.id}'),
+                                      tone: WebTone.green,
+                                    ),
                                   ..._queued(r.queued),
                                 ],
                                 sub: '${Web.fa(r.slots)} زنگ در برنامه',
@@ -1186,6 +1197,8 @@ class SubjectFormPage extends StatefulWidget {
 class _SubjectFormPageState extends State<SubjectFormPage> {
   late final name = TextEditingController(text: widget.row?.name ?? '');
   late bool workshop = widget.row?.workshop ?? false;
+  late final bool modularAtStart = widget.row?.scheme == GradeScheme.modular;
+  late bool modular = modularAtStart;
 
   @override
   void dispose() {
@@ -1204,6 +1217,8 @@ class _SubjectFormPageState extends State<SubjectFormPage> {
         id: widget.row?.id,
         name: name.text,
         workshop: workshop,
+        // row 197 Q08: only a change by hand is stored (else the school's rule)
+        modular: modular == modularAtStart ? null : modular,
       );
       if (r != null && context.mounted) Navigator.pop(context);
     },
@@ -1223,6 +1238,7 @@ class _SubjectFormPageState extends State<SubjectFormPage> {
                 ),
                 ('دبیر', Web.fa(d.teachers.length)),
                 ('نوع', widget.row!.workshop ? 'کارگاهی' : 'نظری'),
+                ('ارزشیابی', widget.row!.scheme.labelFa),
               ],
               namesTitle: d.slots == 0
                   ? ''
@@ -1242,6 +1258,19 @@ class _SubjectFormPageState extends State<SubjectFormPage> {
           onChanged: (x) => set(() => workshop = x),
         ),
       ),
+      // row 197 Q08: دروس شایستگی هنرستان — ۵ پودمان، شایستگی × ۵ + مستمر، قبولی ۱۲
+      if (widget.row?.scheme != GradeScheme.descriptive)
+        StatefulBuilder(
+          builder: (context, set) => SwitchListTile(
+            key: const Key('sub-f-modular'),
+            title: const Text('ارزشیابی پودمانی (۵ پودمان، قبولی ۱۲)'),
+            subtitle: const Text(
+              'درس شایستگی هنرستان: نمرهٔ هر پودمان = شایستگی (۱ تا ۳) × ۵ + مستمر (۰ تا ۵)',
+            ),
+            value: modular,
+            onChanged: (x) => set(() => modular = x),
+          ),
+        ),
     ],
   );
 }

@@ -5912,6 +5912,24 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۷ (Q08/Q09/Q11/Q12): ارزشیابی پودمانی و توصیفی، «—» به‌جای ۰، اعشار اکسل ── */
+  await test('ردیف ۱۹۷ (Q08/Q09): ارزشیابی پودمانی هنرستان (۵ پودمان، شایستگی × ۵ + مستمر، قبولی ۱۲، ناتمام) و توصیفی ابتدایی، سرور/ابر/وب یکسان؛ F20/F24 «—» به‌جای ۰؛ F3 اعشار اکسل (۹ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/grades-scheme-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'grades-scheme-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
+  /* ── ردیف ۱۹۷ (Q10): روز تعطیل/غیرحضوری ── */
+  await test('ردیف ۱۹۷ (Q10): روز تعطیل/غیرحضوری — فقط مدیر، غیبت/تأخیر آن روز رد (day_off)، اطلاعیهٔ مهم برای اولیا، جابه‌جایی امتحان داخلی (نهایی نه)، بنر در خانه/حضور (۷ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/day-off-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'day-off-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۸: مصرف بی‌دلیل صندوقچهٔ آروان (نوشتن‌های بی‌تغییر در صندوقچهٔ نسخه‌بندی‌شده) ── */
   await test('ردیف ۱۹۸: خلاصهٔ دانش‌آموز و auth/data فقط با تغییر واقعی (ماندگار پس از راه‌اندازی دوباره)، رسید مدرسه بی‌تغییر هر ۱۰ دقیقه، پشتیبان مالک بی‌updates و روزی یک بار روی دیتابیس (۵ بررسی)',
     async () => {

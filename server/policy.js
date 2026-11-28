@@ -1,4 +1,6 @@
 'use strict';
+const gradeScheme = require('./grade-scheme');
+const schoolCalendar = require('./school-calendar');
 const finance = require('./school-finance');
 /* ───────────────────────────────────────────────────────────────────
    سیاست دسترسی — همان ایدهٔ fail-closed پایش اصلی
@@ -21,7 +23,8 @@ function permRole(role) {
 }
 
 const ATT_STATUS = ['present', 'absent', 'late', 'early_exit', 'excused'];
-const GRADE_KINDS = ['monthly', 'midterm', 'final', 'practical', 'theory'];
+/* ردیف ۱۹۷ Q08/Q09: پودمان (هنرستان) و توصیفی (ابتدایی) — server/grade-scheme.js */
+const GRADE_KINDS = ['monthly', 'midterm', 'final', 'practical', 'theory', 'module', 'descriptive'];
 /* درخواست مرخصی ولی/دانش‌آموز فقط با این وضعیت‌ها ثبت می‌شود؛ تأیید و رد با مدرسه است (ردیف ۷۴، موج ۵). */
 const LEAVE_REQUEST_STATUSES = ['pending', 'canceled'];
 
@@ -368,6 +371,20 @@ function canWriteRow(store, user, role, collection, row, existing) {
   if (collection === 'visitors' && row && row.name !== undefined) {
     const vi = visitorIssue(row);
     if (vi) return { ok: false, error: vi };
+  }
+  /* ردیف ۱۹۷ Q10: روز تعطیل/غیرحضوری — شکل ردیف، و غیبت/تأخیر آن روز ثبت نمی‌شود */
+  if (collection === 'calendar' && row && row !== existing && row.date !== undefined) {
+    const di = schoolCalendar.dayOffIssue(row);
+    if (di) return { ok: false, error: di };
+  }
+  if (collection === 'attendance' && row && row !== existing) {
+    const ai = schoolCalendar.attendanceDayIssue(store, row);
+    if (ai) return { ok: false, error: ai };
+  }
+  /* ردیف ۱۹۷ Q08/Q09: شکل نمرهٔ پودمانی/توصیفی/عددی برای همهٔ نقش‌ها (مدیر هم) */
+  if (collection === 'grades' && row && row !== existing && (row.score !== undefined || row.kind !== undefined)) {
+    const gi = gradeScheme.gradeIssue(row);
+    if (gi) return { ok: false, error: gi };
   }
   /* ردیف ۱۹۷ (Q07): شکل ردیف + «اثر واقعی» نوع مدرسه — شهریه فقط غیرانتفاعی، هیئت امنا فقط دولتی */
   if (collection === 'contributions' && row && row.amount !== undefined) {

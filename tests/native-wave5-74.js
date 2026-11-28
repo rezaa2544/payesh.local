@@ -103,9 +103,13 @@ function nw5Reads(s) {
   assert(/final u = await engine\.get\('users', sid\);/.test(b), 'child record = users row (web byId)');
   // approved-only average, rounded attendance
   assert(/x\.status === 'approved'\);/.test(home) && /Math\.round\(att\.filter\(x => x\.status === 'present'\)\.length \/ att\.length \* 100\)/.test(home), 'web home average/attendance formula changed');
-  assert(/if \(g\.data\['status'\] == 'approved'\) _num\(g\.data\['score'\]\),/.test(b), 'Dart average must use approved grades only');
+  /* ردیف ۱۹۷ F24/Q09: فقط نمرهٔ عددی تأییدشده (توصیفی/پودمانی معدل را ۰ نمی‌کند) — وب avgOfGrades */
+  assert(/if \(g\.data\['status'\] == 'approved'\) \?averageScore\(g\.data\),/.test(b), 'Dart average must use approved grades only');
   assert(/\(present \* 100 \/ att\.length\)\.round\(\),/.test(b), 'Dart attendance % must be rounded like Math.round');
-  assert(/static num _num\(Object\? v\) => switch \(v\) \{[\s\S]*?_ => 0,/.test(b) && /Number\(x\.score \|\| 0\)/.test(home), 'missing score counts as 0 (web Number(x || 0))');
+  /* ردیف ۱۹۷ F24: نمرهٔ خالی/توصیفی/پودمانی در معدل نمی‌آید (نه ۰) — وب avgScoreOf ≡ Dart averageScore */
+  const gsrc = code(read('apps/payesh/packages/payesh_sync/lib/src/grade_scheme.dart'));
+  assert(/if \(k == 'descriptive' \|\| k == 'module'\) return null;/.test(gsrc) && /if \(!g \|\| g\.kind === 'descriptive' \|\| g\.kind === 'module'\) return null;/.test(s.pages)
+    && /const avgN = avgOfGrades\(g\);/.test(home), 'average must skip empty/descriptive/module scores on both (web avgOfGrades)');
   // child page
   assert(/att\.slice\(0, 12\)/.test(child) && /\.sort\(\(a, b\) => String\(b\.date\)\.localeCompare\(String\(a\.date\)\)\)/.test(child), 'web child attendance slice/order changed');
   assert(/static const int recentAttendance = 12;/.test(b), 'Dart child page must show 12 attendance records');
@@ -273,7 +277,7 @@ const MUTANTS = [
   ['M4 rejected shown amber', s => nw5Badges(mut(s, 'screen', 'LeaveState.rejected => WebTone.red,', 'LeaveState.rejected => WebTone.amber,'))],
   ['M5 web gains an attendance label the client lacks', s => nw5Badges(mut(s, 'pages', "excused: 'موجه' }", "excused: 'موجه', sick: 'بیمار' }"))],
   ['M6 other parents\' links count', s => nw5Reads(mut(s, 'book', "if (_live(l) && _int(l.data['parent_id']) == uid) l,", 'if (_live(l)) l,'))],
-  ['M7 pending grades in the average', s => nw5Reads(mut(s, 'book', "if (g.data['status'] == 'approved') _num(g.data['score']),", "_num(g.data['score']),"))],
+  ['M7 pending grades in the average', s => nw5Reads(mut(s, 'book', "if (g.data['status'] == 'approved') ?averageScore(g.data),", "?averageScore(g.data),"))],
   ['M8 attendance % floored', s => nw5Reads(mut(s, 'book', '(present * 100 / att.length).round(),', '(present * 100 ~/ att.length),'))],
   ['M9 20 attendance rows', s => nw5Reads(mut(s, 'book', 'static const int recentAttendance = 12;', 'static const int recentAttendance = 20;'))],
   ['M10 empty-family text drifts', s => nw5Reads(mut(s, 'screen', 'فرزندی به حساب شما متصل نیست — با دفتر مدرسه تماس بگیرید.', 'فرزندی ثبت نشده است.'))],

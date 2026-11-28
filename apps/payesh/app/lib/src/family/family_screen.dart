@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../notices/notices_screen.dart' show dayOffBanner;
 import '../pulse/d2.dart';
 import '../pulse/pulse.dart';
 import '../pulse/web.dart';
@@ -152,7 +153,12 @@ class _FamilyScreenState extends State<FamilyScreen> {
 
   List<Widget> _home() {
     final waiting = widget.sync.value.waiting;
-    if (Web.d2) return _d2Home(waiting);
+    // row 197 Q10: «امروز/فردا تعطیل یا غیرحضوری است»
+    final off = [
+      if (c.todayOff case final d?) dayOffBanner(d, 'fam-dayoff-today'),
+      if (c.tomorrowOff case final d?) dayOffBanner(d, 'fam-dayoff-tomorrow'),
+    ];
+    if (Web.d2) return [...off, ..._d2Home(waiting)];
     return [
       WebPageHead(
         title: 'فرزندان من',
@@ -162,6 +168,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
           WebBtn('🔄', key: const Key('fam-sync'), onPressed: widget.onRetry),
         ],
       ),
+      ...off,
       if (c.error != null)
         WebBanner(
           kind: WebBannerKind.err,
@@ -620,11 +627,16 @@ class ChildPage {
       ];
     }
     final s = r.summary;
-    // web: the average of every grade of the child (approved and pending), 0 when none
-    final avg = r.grades.isEmpty
-        ? 0.0
-        : r.grades.fold<double>(0, (a, g) => a + g.score) / r.grades.length;
-    final pct = s.attendancePercent ?? 0;
+    // the average of the numeric grades of the child (approved and pending); row 197
+    // F20/F24: «—» when there is none — a level or a single module is not a number
+    final nums = [
+      for (final g in r.grades)
+        if (g.numeric) g.score,
+    ];
+    final avg = nums.isEmpty
+        ? null
+        : nums.fold<double>(0, (a, b) => a + b) / nums.length;
+    final pct = s.attendancePercent;
     Widget title(String t) => Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(t, style: Web.b),
@@ -641,10 +653,12 @@ class ChildPage {
         children: [
           WebStat(
             icon: 'chart',
-            num: Web.fa(avg.toStringAsFixed(1)),
+            num: avg == null ? '—' : Web.fa(avg.toStringAsFixed(1)),
             label: 'معدل',
             numKey: const Key('chd-avg'),
-            numColor: avg >= 15
+            numColor: avg == null
+                ? null
+                : avg >= 15
                 ? Web.green
                 : avg >= 10
                 ? null
@@ -652,10 +666,14 @@ class ChildPage {
           ),
           WebStat(
             icon: 'check',
-            num: '${Web.fa(pct)}٪',
+            num: pct == null ? '—' : '${Web.fa(pct)}٪',
             label: 'حضور',
             numKey: const Key('chd-att'),
-            numColor: pct >= 90 ? Web.green : Web.amber,
+            numColor: pct == null
+                ? null
+                : pct >= 90
+                ? Web.green
+                : Web.amber,
           ),
           WebStat(
             icon: 'pen',
@@ -687,7 +705,7 @@ class ChildPage {
                       TextSpan(
                         children: [
                           TextSpan(
-                            text: _score(g.score),
+                            text: g.level ?? _score(g.score),
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           if (g.practicalScore != null)

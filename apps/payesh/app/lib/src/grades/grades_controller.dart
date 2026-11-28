@@ -47,22 +47,52 @@ class GradesController extends ChangeNotifier {
   GradeTerm term = GradeTerm.first;
   List<GradeEntry> sheet = const [];
 
-  /// Field text per student as typed (only fields the user touched).
+  /// Field text per student as typed (only fields the user touched). For a modular subject
+  /// this is the competency (1..3), for a descriptive one the level text.
   final Map<int, String> draft = {};
+
+  /// Row 197 Q08: the continuous score (0..5) per student as typed, modular subjects only.
+  final Map<int, String> draftCont = {};
+
+  /// Row 197 Q08: the five modules + course result per student (modular subject only).
+  Map<int, ModuleResult> modules = const {};
+
+  GradeScheme get scheme => subject?.scheme ?? GradeScheme.numeric;
 
   /// Student whose field was refused by the last save (highlighted on the sheet).
   int? invalid;
 
   /// Text shown in a student's field: the draft, else the stored score.
-  String valueOf(GradeEntry e) =>
-      draft[e.studentId] ?? (e.score == null ? '' : '${e.score}');
+  String valueOf(GradeEntry e) => draft[e.studentId] ?? storedOf(e);
+
+  /// What is stored for the main field of [e] in the current scheme.
+  String storedOf(GradeEntry e) => switch (scheme) {
+    GradeScheme.numeric => e.score == null ? '' : '${e.score}',
+    GradeScheme.descriptive => e.level ?? '',
+    GradeScheme.modular => e.competency == null ? '' : '${e.competency}',
+  };
+
+  /// Row 197 Q08: the continuous field of [e] (draft, else stored).
+  String contOf(GradeEntry e) =>
+      draftCont[e.studentId] ?? (e.continuous == null ? '' : '${e.continuous}');
 
   /// Fields whose text differs from what is stored (not yet validated).
   int get changes => sheet.where((e) {
     final d = draft[e.studentId];
-    if (d == null || d.trim().isEmpty) return false;
-    return d.trim() != (e.score == null ? '' : '${e.score}');
+    final m = draftCont[e.studentId];
+    final main = d != null && d.trim().isNotEmpty && d.trim() != storedOf(e);
+    final cont =
+        m != null &&
+        m.trim().isNotEmpty &&
+        m.trim() != (e.continuous == null ? '' : '${e.continuous}');
+    return main || cont;
   }).length;
+
+  /// A modular subject is graded per module, any other per نوبت.
+  void _fitTerm() {
+    final terms = GradeTerm.of(scheme);
+    if (!terms.contains(term)) term = terms.first;
+  }
 
   void _emit() {
     if (!_disposed) notifyListeners();
@@ -108,8 +138,13 @@ class GradesController extends ChangeNotifier {
       sheet = const [];
       return;
     }
+    _fitTerm();
     sheet = await _book!.sheet(classId: c.id, subjectId: s.id, term: term);
     draft.removeWhere((sid, _) => !sheet.any((e) => e.studentId == sid));
+    draftCont.removeWhere((sid, _) => !sheet.any((e) => e.studentId == sid));
+    modules = s.scheme == GradeScheme.modular
+        ? await _book!.moduleResults(classId: c.id, subjectId: s.id)
+        : const {};
   }
 
   Future<void> _select(Future<void> Function() change) async {
@@ -132,6 +167,7 @@ class GradesController extends ChangeNotifier {
   Future<void> openClass(AttendanceClass c) => _select(() async {
     open = c;
     draft.clear();
+    draftCont.clear();
     subject = await _book!.defaultSubject(c.id);
   });
 
@@ -142,22 +178,26 @@ class GradesController extends ChangeNotifier {
         subject = s ?? await _book!.defaultSubject(c.id);
         term = t;
         draft.clear();
+        draftCont.clear();
       });
 
   Future<void> chooseSubject(GradeSubject s) => _select(() async {
     subject = s;
     draft.clear();
+    draftCont.clear();
   });
 
   Future<void> chooseTerm(GradeTerm t) => _select(() async {
     term = t;
     draft.clear();
+    draftCont.clear();
   });
 
   void closeClass() {
     open = null;
     sheet = const [];
     draft.clear();
+    draftCont.clear();
     error = null;
     invalid = null;
     _emit();
@@ -165,6 +205,14 @@ class GradesController extends ChangeNotifier {
 
   void edit(int studentId, String text) {
     draft[studentId] = text;
+    notice = null;
+    if (invalid == studentId) invalid = null;
+    _emit();
+  }
+
+  /// Row 197 Q08: the continuous score of a module.
+  void editCont(int studentId, String text) {
+    draftCont[studentId] = text;
     notice = null;
     if (invalid == studentId) invalid = null;
     _emit();
@@ -188,14 +236,21 @@ class GradesController extends ChangeNotifier {
         subjectId: s.id,
         term: term,
         inputs: Map.of(draft),
+        continuous: Map.of(draftCont),
       );
       draft.clear();
+      draftCont.clear();
       notice = res.messageFa;
       if (res.written > 0) source.queued();
       await _loadSheet();
     } on GradeFailure catch (e) {
       error = e.messageFa;
-      if (e.kind == GradeError.badScore && e.detail is int) {
+      if (const {
+            GradeError.badScore,
+            GradeError.badLevel,
+            GradeError.badModule,
+          }.contains(e.kind) &&
+          e.detail is int) {
         invalid = e.detail! as int;
         final who = sheet.where((x) => x.studentId == invalid);
         if (who.isNotEmpty) error = '${e.messageFa}: ${who.first.name}';

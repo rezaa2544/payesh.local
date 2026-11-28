@@ -10,6 +10,7 @@ import 'package:payesh_core/io.dart' show Directory, File, Platform;
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
+import '../notices/notices_screen.dart' show dayOffBanner;
 import '../school/school_source.dart';
 import '../pulse/pulse.dart';
 import '../pulse/d2.dart';
@@ -34,9 +35,22 @@ class HomeController extends SchoolController {
   /// Row 172: web `studentHome` = `studentHomeCard()` + `PAGES.record()`.
   StudentRecord? record;
 
+  /// Row 197 Q10: today's / tomorrow's announced day off (banner on top of the home).
+  DayOff? todayOff;
+  DayOff? tomorrowOff;
+
   @override
   Future<void> read(SchoolRecords db) async {
     final r = SchoolReports(db);
+    final day = db.today();
+    todayOff = await dayOffOn(db, day);
+    tomorrowOff = await dayOffOn(
+      db,
+      DateTime.parse(day)
+          .add(const Duration(days: 1))
+          .toIso8601String()
+          .substring(0, 10),
+    );
     if (role == 'manager') {
       dashboard = await r.dashboard();
     } else {
@@ -514,8 +528,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            // row 197 F2 (phone): a Wrap — on a 360 px phone the four actions overflowed
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 WebBtn(
                   '+  اطلاعیهٔ جدید',
@@ -523,14 +540,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   kind: WebBtnKind.primary,
                   onPressed: () => _go('announcements'),
                 ),
-                const SizedBox(width: 10),
                 D2IconButton(
                   key: const Key('dash-sync'),
                   icon: Icons.sync_rounded,
                   tooltip: 'همگام‌سازی',
                   onPressed: widget.onRetry,
                 ),
-                const SizedBox(width: 10),
                 D2IconButton(
                   key: const Key('dash-bell'),
                   icon: Icons.notifications_none_rounded,
@@ -538,7 +553,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   dot: d.recent.isNotEmpty,
                   onPressed: () => _go('announcements'),
                 ),
-                const SizedBox(width: 10),
                 D2Avatar(d.me.isEmpty ? 'م' : d.me, size: 38, me: true),
               ],
             ),
@@ -803,6 +817,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
         ],
         children: [
+          // row 197 Q10: «امروز/فردا تعطیل یا غیرحضوری است»
+          if (c.todayOff case final o?) dayOffBanner(o, 'dash-dayoff-today'),
+          if (c.tomorrowOff case final o?)
+            dayOffBanner(o, 'dash-dayoff-tomorrow'),
           if (d != null) ..._manager(d),
           if (t != null) ..._today(t),
           if (c.record case final r?) ...recordBlocks(r, first: false),
@@ -1049,18 +1067,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         [
                           Text(r.name),
                           for (final (id, _) in card.subjects)
-                            Text(
-                              r.scores[id] == null
-                                  ? '—'
-                                  : faDigits(r.scores[id]),
-                            ),
+                            Text(faDigits(r.valueOf(id))),
                           Text(
-                            faDigits(r.average.toStringAsFixed(2)),
+                            r.average == null
+                                ? '—'
+                                : faDigits(r.average!.toStringAsFixed(2)),
                             key: Key('rep-avg-${r.studentId}'),
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           Text(
-                            '${Web.fa(r.attendancePct)}٪',
+                            r.attendancePct == null
+                                ? '—'
+                                : '${Web.fa(r.attendancePct!)}٪',
                             key: Key('rep-att-${r.studentId}'),
                           ),
                         ],

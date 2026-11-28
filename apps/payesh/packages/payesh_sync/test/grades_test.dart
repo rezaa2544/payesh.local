@@ -51,10 +51,16 @@ Matcher refused(GradeError k) =>
 
 void main() {
   test('W3-U01 terms and review labels are exactly the web set', () {
+    // row 197 Q08: + the five modules of a competency subject (web NUMERIC_TERMS + MODULE_TERMS)
     expect(GradeTerm.values.map((t) => t.wire), [
       'نوبت اول',
       'نوبت دوم',
       'پایانی',
+      'پودمان ۱',
+      'پودمان ۲',
+      'پودمان ۳',
+      'پودمان ۴',
+      'پودمان ۵',
     ]);
     expect(GradeState.values.map((s) => s.labelFa), [
       'جدید',

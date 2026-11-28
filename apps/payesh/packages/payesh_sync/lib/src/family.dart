@@ -19,6 +19,7 @@ import 'dart:math';
 import 'package:payesh_data/payesh_data.dart';
 
 import 'attendance.dart';
+import 'grade_scheme.dart';
 import 'leave_spec.dart';
 import 'notices.dart';
 import 'records.dart';
@@ -106,6 +107,7 @@ final class ChildGrade {
     required this.score,
     this.practicalScore,
     required this.approved,
+    this.level,
   });
   final int id;
 
@@ -115,6 +117,12 @@ final class ChildGrade {
   final num score;
   final num? practicalScore;
   final bool approved;
+
+  /// Row 197 Q09: the descriptive level (ابتدایی) — shown instead of a score.
+  final String? level;
+
+  /// Counts in the average: a numeric grade (not a level, not one module).
+  bool get numeric => level == null && moduleOfTerm(term) == null;
 }
 
 final class ChildAttendance {
@@ -334,7 +342,7 @@ final class FamilyBook {
   ) async {
     final approved = [
       for (final g in grades)
-        if (g.data['status'] == 'approved') _num(g.data['score']),
+        if (g.data['status'] == 'approved') ?averageScore(g.data),
     ];
     final present = att.where((a) => a.data['status'] == 'present').length;
     return ChildSummary(
@@ -347,7 +355,9 @@ final class FamilyBook {
       attendancePercent: att.isEmpty
           ? null
           : (present * 100 / att.length).round(),
-      approvedGrades: approved.length,
+      approvedGrades: grades
+          .where((g) => g.data['status'] == 'approved')
+          .length,
       attendanceRecords: att.length,
     );
   }
@@ -428,6 +438,9 @@ final class FamilyBook {
             score: _num(g.data['score']),
             practicalScore: _numOrNull(g.data['practical_score']),
             approved: g.data['status'] == 'approved',
+            level: g.data['kind'] == 'descriptive'
+                ? gradeValueText(g.data)
+                : null,
           ),
       ],
       attendance: [

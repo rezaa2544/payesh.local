@@ -7,6 +7,7 @@ import '../pulse/pulse.dart';
 import '../pulse/d2.dart';
 import '../pulse/web.dart';
 import '../sync_badge.dart';
+import '../notices/notices_screen.dart' show dayOffBanner;
 import 'attendance_controller.dart';
 
 /// Tone + icon per status — colour is never the only signal (label text is always shown).
@@ -291,6 +292,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ],
               ),
             ),
+            if (c.dayOff case final d?) dayOffBanner(d, 'att-dayoff'),
             for (final r in c.roster) _StudentRow(controller: c, entry: r),
             const SizedBox(height: 12),
             WebBtn(
@@ -299,7 +301,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               kind: WebBtnKind.primary,
               size: WebBtnSize.normal,
               block: true,
-              onPressed: c.busy ? null : _save,
+              onPressed: c.busy || c.closedDay ? null : _save,
             ),
           ],
         ),
@@ -456,6 +458,7 @@ extension on _AttendanceScreenState {
           ],
         ),
       ),
+      if (c.dayOff case final d?) dayOffBanner(d, 'att-dayoff'),
       for (final (i, r) in c.roster.indexed)
         _D2StudentRow(controller: c, entry: r, index: i + 1),
       const SizedBox(height: 14),
@@ -463,7 +466,7 @@ extension on _AttendanceScreenState {
         height: 48,
         child: FilledButton.icon(
           key: const Key('att-save'),
-          onPressed: c.busy ? null : _save,
+          onPressed: c.busy || c.closedDay ? null : _save,
           style: FilledButton.styleFrom(
             backgroundColor: Web.primary,
             foregroundColor: Web.onPrimary,

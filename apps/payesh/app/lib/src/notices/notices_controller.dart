@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:payesh_sync/payesh_sync.dart';
+import 'package:payesh_ui/payesh_ui.dart';
 
 /// Where the notices of the signed-in user come from (row 74, wave 4). The production source is
 /// the same encrypted local database + outbox + Gateway as attendance and grades
@@ -44,6 +45,95 @@ class NoticesController extends ChangeNotifier {
 
   bool get canWrite => NoticeBoard.writers.contains(role);
 
+  /// Row 197 Q10: upcoming days off (manager list) and today's / tomorrow's (everyone's banner).
+  List<DayOff> daysOff = const [];
+  DayOff? todayOff;
+  DayOff? tomorrowOff;
+
+  /// Error of the last «اعلام تعطیلی» attempt (shown in its form).
+  String? dayOffError;
+
+  /// The day the controller treats as today (tests pin it).
+  DateTime Function() now = DateTime.now;
+
+  // UTC day, like SchoolRecords.today() and the web client's todayISO()
+  String _iso(DateTime t) => _ymd(t.toUtc());
+  String _ymd(DateTime t) =>
+      '${t.year.toString().padLeft(4, '0')}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+  String get today => _iso(now());
+  String get tomorrow => _iso(now().add(const Duration(days: 1)));
+
+  SchoolRecords? _records(NoticeBoard b) =>
+      SchoolRecords(engine: b.engine, outbox: b.outbox, role: role, uid: uid);
+
+  Future<void> _loadDays(NoticeBoard b) async {
+    final db = _records(b)!;
+    todayOff = await dayOffOn(db, today);
+    tomorrowOff = await dayOffOn(db, tomorrow);
+    daysOff = canWrite ? await SchoolCalendar(db).upcoming(today) : const [];
+  }
+
+  /// Announces a day off (calendar row + important notice + internal exams moved). Returns
+  /// null when refused (message in [dayOffError]).
+  Future<DayOffResult?> announceDayOff({
+    required String date,
+    required DayOffKind kind,
+    required String reason,
+    String? examsTo,
+    bool notify = true,
+  }) async {
+    final b = _board;
+    if (b == null || busy) return null;
+    busy = true;
+    dayOffError = null;
+    notice = null;
+    _emit();
+    DayOffResult? res;
+    try {
+      res = await SchoolCalendar(_records(b)!).announce(
+        date: date,
+        kind: kind,
+        reason: reason,
+        examsTo: examsTo,
+        notify: notify,
+        today: today,
+        jdate: (iso) => faDigits(JalaliDate.fromIso(iso)?.slash ?? iso),
+      );
+      notice = '${kind.labelFa} ${res.messageFa}';
+      source.queued();
+      notices = await b.list();
+      await _loadDays(b);
+    } on RecordFailure catch (e) {
+      dayOffError = e.messageFa;
+    } on SyncFailure catch (e) {
+      dayOffError = _syncMessage(e);
+    }
+    busy = false;
+    _emit();
+    return res;
+  }
+
+  /// Cancels an announced day off (the notice already went out and stays).
+  Future<void> cancelDayOff(int id) async {
+    final b = _board;
+    if (b == null || busy) return;
+    busy = true;
+    error = null;
+    _emit();
+    try {
+      await SchoolCalendar(_records(b)!).cancel(id);
+      notice = 'اعلام تعطیلی لغو شد';
+      source.queued();
+      await _loadDays(b);
+    } on RecordFailure catch (e) {
+      error = e.messageFa;
+    } on SyncFailure catch (e) {
+      error = _syncMessage(e);
+    }
+    busy = false;
+    _emit();
+  }
+
   void _emit() {
     if (!_disposed) notifyListeners();
   }
@@ -58,6 +148,7 @@ class NoticesController extends ChangeNotifier {
         error = 'پایگاه محلی هنوز آماده نیست';
       } else {
         notices = await b.list();
+        await _loadDays(b);
       }
     } on NoticeFailure catch (e) {
       error = e.messageFa;

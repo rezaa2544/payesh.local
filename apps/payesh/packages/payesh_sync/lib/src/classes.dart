@@ -17,6 +17,7 @@
 // The server re-checks the role (server/policy.js: manager only for all of these).
 import 'package:payesh_data/payesh_data.dart';
 
+import 'grade_scheme.dart';
 import 'records.dart';
 import 'school_import.dart' show importBranchGuess;
 import 'school_structure.dart';
@@ -225,10 +226,14 @@ final class SubjectRow {
     required this.workshop,
     required this.slots,
     required this.queued,
+    this.scheme = GradeScheme.numeric,
   });
   final int id;
   final String name;
   final bool workshop;
+
+  /// Row 197 Q08/Q09: how this subject is graded in this school.
+  final GradeScheme scheme;
 
   /// Schedule slots using this subject.
   final int slots;
@@ -396,6 +401,7 @@ final class ClassBook {
     final lookups = await db.allOrEmpty('lookups');
     final subjects = await db.allOrEmpty('subjects');
     final schedule = await db.allOrEmpty('schedule');
+    final school = (await db.get('schools', 1))?.data;
     final qc = db.queuedIds('classes');
     final ql = db.queuedIds('lookups');
     final qs = db.queuedIds('subjects');
@@ -530,6 +536,7 @@ final class ClassBook {
             id: s.id,
             name: _s(s.data['name']),
             workshop: s.data['workshop'] == true,
+            scheme: gradeSchemeOf(school, s.data),
             slots: schedule
                 .where((x) => _int(x.data['subject_id']) == s.id)
                 .length,
@@ -1476,6 +1483,7 @@ final class ClassBook {
     int? id,
     required String name,
     required bool workshop,
+    bool? modular,
   }) async {
     _requireManager();
     final n = name.trim();
@@ -1488,6 +1496,8 @@ final class ClassBook {
       ...?prev?.data,
       'name': n,
       'workshop': workshop,
+      // row 197 Q08: «ارزشیابی پودمانی» set by hand (null = the school's rule)
+      'modular': ?modular,
     }, prev: prev);
     return RecordWrite(
       id == null ? 'درس ثبت شد' : 'درس ویرایش شد',

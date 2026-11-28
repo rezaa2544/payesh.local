@@ -46,6 +46,10 @@ class AttendanceController extends ChangeNotifier {
   Map<int, bool> recorded = const {};
   AttendanceClass? open;
   List<RosterEntry> roster = const [];
+
+  /// Row 197 Q10: the day off announced for [date] (banner; a closed day takes no attendance).
+  DayOff? dayOff;
+  bool get closedDay => dayOff?.kind == DayOffKind.closed;
   final Map<int, AttendanceStatus> draft = {};
 
   /// The day being recorded (web `todayISO()` rule: UTC calendar day).
@@ -93,6 +97,7 @@ class AttendanceController extends ChangeNotifier {
 
   Future<void> _loadRoster(int classId) async {
     roster = await _book!.roster(classId, date);
+    dayOff = await _book!.dayOff(date);
     draft.removeWhere((sid, _) => !roster.any((r) => r.studentId == sid));
   }
 

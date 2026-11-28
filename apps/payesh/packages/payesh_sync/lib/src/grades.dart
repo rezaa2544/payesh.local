@@ -16,6 +16,7 @@ import 'package:payesh_core/payesh_core.dart';
 import 'package:payesh_data/payesh_data.dart';
 
 import 'attendance.dart';
+import 'grade_scheme.dart';
 import 'outbox.dart';
 import 'school_access.dart' show permRole;
 
@@ -23,12 +24,26 @@ import 'school_access.dart' show permRole;
 enum GradeTerm {
   first('نوبت اول'),
   second('نوبت دوم'),
-  finalTerm('پایانی');
+  finalTerm('پایانی'),
+  // row 197 Q08: the five modules of a competency subject (ارزشیابی پودمانی)
+  module1('پودمان ۱'),
+  module2('پودمان ۲'),
+  module3('پودمان ۳'),
+  module4('پودمان ۴'),
+  module5('پودمان ۵');
 
   const GradeTerm(this.wire);
 
   /// Value stored in the record (`term`) — also the label.
   final String wire;
+
+  /// Module number 1..5, or null for a نوبت.
+  int? get module => moduleOfTerm(wire);
+
+  /// The terms of a scheme: five modules for a modular subject, the نوبت‌ها otherwise.
+  static List<GradeTerm> of(GradeScheme scheme) => scheme == GradeScheme.modular
+      ? const [module1, module2, module3, module4, module5]
+      : const [first, second, finalTerm];
 
   static GradeTerm? fromWire(Object? v) {
     for (final t in values) {
@@ -54,7 +69,10 @@ enum GradeError {
   unknownClass,
   unknownSubject,
   notInClass,
-  badScore;
+  badScore,
+  badLevel,
+  badModule,
+  wrongTerm;
 
   String get messageFa => switch (this) {
     GradeError.notAllowed => 'ثبت نمره فقط برای معلم و مدیر مجاز است',
@@ -62,6 +80,10 @@ enum GradeError {
     GradeError.unknownSubject => 'این درس در فهرست درس‌ها نیست',
     GradeError.notInClass => 'این دانش‌آموز در این فهرست نیست',
     GradeError.badScore => 'نمرهٔ نامعتبر برای یکی از دانش‌آموزان',
+    GradeError.badLevel => gradeIssueFa('bad_level'),
+    GradeError.badModule => gradeIssueFa('bad_module'),
+    GradeError.wrongTerm =>
+      'درس پودمانی با «پودمان ۱ تا ۵» ارزشیابی می‌شود و درس دیگر با نوبت',
   };
 }
 
@@ -82,12 +104,16 @@ final class GradeSubject {
     required this.id,
     required this.name,
     this.workshop = false,
+    this.scheme = GradeScheme.numeric,
   });
   final int id;
   final String name;
 
   /// Workshop subject: the score is the practical score (web «درس کارگاهی — نمرهٔ عملی»).
   final bool workshop;
+
+  /// Row 197 Q08/Q09: numeric, modular (هنرستان) or descriptive (ابتدایی).
+  final GradeScheme scheme;
 }
 
 /// One student of the sheet with what is stored for (class, subject, term).
@@ -99,9 +125,19 @@ final class GradeEntry {
     this.recordId,
     this.version = 0,
     this.state = GradeState.fresh,
+    this.competency,
+    this.continuous,
+    this.level,
   });
   final int studentId;
   final String name;
+
+  /// Modular grade: competency 1..3 and continuous 0..5 (score = competency × 5 + continuous).
+  final int? competency;
+  final num? continuous;
+
+  /// Descriptive grade: one of [descriptiveLevels].
+  final String? level;
 
   /// Stored score (`practical_score` when present, else `score`), or null.
   final num? score;
@@ -182,6 +218,78 @@ final class GradeBook {
     return v == v.truncateToDouble() ? v.toInt() : v;
   }
 
+  static String _latinDigits(String raw) => raw
+      .trim()
+      .replaceAllMapped(
+        RegExp('[۰-۹]'),
+        (m) => '${m[0]!.codeUnitAt(0) - 0x06F0}',
+      )
+      .replaceAllMapped(
+        RegExp('[٠-٩]'),
+        (m) => '${m[0]!.codeUnitAt(0) - 0x0660}',
+      )
+      .replaceAll('٫', '.')
+      .replaceAll('/', '.');
+
+  /// Row 197 Q09: a descriptive level — its text, or 1..4 (1 = «خیلی خوب»).
+  static String parseLevel(String raw, {int studentId = 0}) {
+    final t = raw.trim().replaceAll(RegExp(r'\s+'), ' ').replaceAll('ي', 'ی');
+    final i = int.tryParse(_latinDigits(t));
+    if (i != null && i >= 1 && i <= descriptiveLevels.length) {
+      return descriptiveLevels[i - 1];
+    }
+    if (descriptiveLevels.contains(t)) return t;
+    throw GradeFailure(GradeError.badLevel, studentId);
+  }
+
+  /// Row 197 Q08: competency of a module, 1..3.
+  static int parseCompetency(String raw, {int studentId = 0}) {
+    final i = int.tryParse(_latinDigits(raw));
+    if (i == null || i < 1 || i > 3) {
+      throw GradeFailure(GradeError.badModule, studentId);
+    }
+    return i;
+  }
+
+  /// Row 197 Q08: continuous score of a module, 0..5 in steps of 0.5.
+  static num parseContinuous(String raw, {int studentId = 0}) {
+    final t = _latinDigits(raw);
+    final v = RegExp(r'^\d(\.\d{1,2})?$').hasMatch(t) ? double.parse(t) : null;
+    if (v == null || v < 0 || v > 5 || v * 2 != (v * 2).truncateToDouble()) {
+      throw GradeFailure(GradeError.badModule, studentId);
+    }
+    return v == v.truncateToDouble() ? v.toInt() : v;
+  }
+
+  /// Row 197 Q08: the five module scores of every student of the sheet for one competency
+  /// subject, with the course result («قبول — میانگین» / «ناتمام»).
+  Future<Map<int, ModuleResult>> moduleResults({
+    required int classId,
+    required int subjectId,
+  }) async {
+    final out = <int, List<num?>>{};
+    final ids = <int, List<int?>>{};
+    for (final e in await sheet(
+      classId: classId,
+      subjectId: subjectId,
+      term: GradeTerm.module1,
+    )) {
+      out[e.studentId] = List<num?>.filled(moduleCount, null);
+      ids[e.studentId] = List<int?>.filled(moduleCount, null);
+    }
+    for (final g in await engine.byRef(collection, 'class_id', classId)) {
+      if (_int(g.data['subject_id']) != subjectId) continue;
+      final k = moduleOfTerm(g.data['term']);
+      final sid = _int(g.data['student_id']);
+      if (k == null || sid == null || !out.containsKey(sid)) continue;
+      final prev = ids[sid]![k - 1];
+      if (prev != null && prev < g.id) continue; // lowest id wins (as [sheet])
+      ids[sid]![k - 1] = g.id;
+      out[sid]![k - 1] = _num(g.data['score']);
+    }
+    return {for (final e in out.entries) e.key: ModuleResult(e.value)};
+  }
+
   /// Reserved id range for grades created by the native client: the Gateway takes client-chosen
   /// positive ids (no temp-id remap), so the id is derived from (class, subject, term,
   /// student). Two devices entering the same grade write the SAME record: the second one meets
@@ -252,6 +360,7 @@ final class GradeBook {
   /// Every subject, sorted by name (the web page lists all subjects).
   Future<List<GradeSubject>> subjects() async {
     _requireWriter();
+    final school = (await engine.get('schools', 1))?.data;
     final out =
         [
           for (final s in await _all('subjects'))
@@ -260,6 +369,7 @@ final class GradeBook {
                 id: s.id,
                 name: _name(s.data, s.id, 'درس'),
                 workshop: s.data['workshop'] == true,
+                scheme: gradeSchemeOf(school, s.data),
               ),
         ]..sort((a, b) {
           final c = a.name.compareTo(b.name);
@@ -327,6 +437,11 @@ final class GradeBook {
               : _num(ex.data['practical_score']) ?? _num(ex.data['score']),
           recordId: ex?.id,
           version: ex?.version ?? 0,
+          competency: ex == null ? null : _int(ex.data['competency']),
+          continuous: ex == null ? null : _num(ex.data['continuous']),
+          level: ex == null || '${ex.data['level'] ?? ''}'.isEmpty
+              ? null
+              : '${ex.data['level']}',
           state: ex == null
               ? GradeState.fresh
               : ex.data['status'] == 'approved'
@@ -356,33 +471,77 @@ final class GradeBook {
     required int subjectId,
     required GradeTerm term,
     required Map<int, String> inputs,
+    Map<int, String> continuous = const {},
   }) async {
     final subject = await _requireSubject(subjectId);
+    if ((subject.scheme == GradeScheme.modular) != (term.module != null)) {
+      throw GradeFailure(GradeError.wrongTerm, term.wire);
+    }
     final list = await sheet(
       classId: classId,
       subjectId: subjectId,
       term: term,
     );
     final byStudent = {for (final e in list) e.studentId: e};
-    for (final sid in inputs.keys) {
+    for (final sid in {...inputs.keys, ...continuous.keys}) {
       if (!byStudent.containsKey(sid)) {
         throw GradeFailure(GradeError.notInClass, sid);
       }
     }
-    final plan = <(GradeEntry, num, int)>[];
+    final plan = <(GradeEntry, Map<String, Object?>, int)>[];
     var unchanged = 0;
     for (final e in list) {
       final raw = inputs[e.studentId];
-      if (raw == null) continue;
-      final score = parseScore(raw, studentId: e.studentId);
-      if (score == null) continue;
-      if (e.score != null && e.score! == score) {
-        unchanged++;
-        continue;
+      final Map<String, Object?> fields;
+      switch (subject.scheme) {
+        case GradeScheme.numeric:
+          if (raw == null) continue;
+          final score = parseScore(raw, studentId: e.studentId);
+          if (score == null) continue;
+          if (e.score != null && e.score! == score) {
+            unchanged++;
+            continue;
+          }
+          fields = {
+            'kind': subject.workshop ? 'practical' : 'midterm',
+            'score': score,
+            if (subject.workshop) 'practical_score': score,
+          };
+        case GradeScheme.descriptive:
+          if (raw == null || raw.trim().isEmpty) continue;
+          final level = parseLevel(raw, studentId: e.studentId);
+          if (level == e.level) {
+            unchanged++;
+            continue;
+          }
+          fields = {'kind': 'descriptive', 'level': level, 'score': null};
+        case GradeScheme.modular:
+          final rc = raw?.trim() ?? '';
+          final rm = continuous[e.studentId]?.trim() ?? '';
+          if (rc.isEmpty && rm.isEmpty) continue;
+          final c = rc.isEmpty
+              ? e.competency
+              : parseCompetency(rc, studentId: e.studentId);
+          final m = rm.isEmpty
+              ? e.continuous
+              : parseContinuous(rm, studentId: e.studentId);
+          if (c == null || m == null) {
+            throw GradeFailure(GradeError.badModule, e.studentId);
+          }
+          if (c == e.competency && m == e.continuous) {
+            unchanged++;
+            continue;
+          }
+          fields = {
+            'kind': 'module',
+            'competency': c,
+            'continuous': m,
+            'score': moduleScore(c, m),
+          };
       }
       plan.add((
         e,
-        score,
+        fields,
         e.recordId ??
             recordId(
               classId: classId,
@@ -401,17 +560,15 @@ final class GradeBook {
       throw const SyncFailure('queue_full', code: PayeshErrorCode.queueFull);
     }
     final keys = <String>[];
-    for (final (e, score, id) in plan) {
+    for (final (e, fields, id) in plan) {
       final data = <String, Object?>{
         'id': id,
         'student_id': e.studentId,
         'class_id': classId,
         'subject_id': subjectId,
         'term': term.wire,
-        'kind': subject.workshop ? 'practical' : 'midterm',
-        'score': score,
+        ...fields,
         'status': writeStatus,
-        if (subject.workshop) 'practical_score': score,
       };
       final base = e.version + _queued(id);
       final q = outbox.enqueue({

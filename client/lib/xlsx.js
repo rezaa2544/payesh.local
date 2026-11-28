@@ -29,6 +29,23 @@
     try { return decodeURIComponent(escape(out)); } catch (e) { return out; }
   }
 
+  /* ردیف ۱۹۷ F3: اکسل عدد را دودویی نگه می‌دارد و <v> گاهی خطای ممیز دارد
+     («9188751439.0000001»، «91887514.390000001»، «9.188751439E9»)؛ همان ۱۵ رقمی که
+     خودِ اکسل نشان می‌دهد ساده نوشته می‌شود. عدد معمولی («18.75») دست نمی‌خورد.
+     همتای Dart: excelNumberText. */
+  function numberText(v) {
+    const t = String(v == null ? '' : v).trim();
+    if (!/^-?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(t)) return v;
+    const sci = /[eE]/.test(t);
+    const sig = t.split(/[eE]/)[0].replace(/[-.]/g, '').replace(/^0+/, '');
+    if (!sci && sig.length <= 15) return v;
+    const n = Number(t);
+    if (!isFinite(n) || Math.abs(n) >= 1e15) return v;
+    const r = Number(n.toPrecision(15));
+    if (Number.isInteger(r)) return String(r);
+    return sci ? v : String(r);
+  }
+
   function xmlUnescape(s) {
     return String(s == null ? '' : s)
       .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
@@ -170,7 +187,7 @@
         } else if (type === 'b') {
           value = (String((/<v>([\s\S]*?)<\/v>/.exec(body) || [])[1] || '') === '1') ? '1' : '0';
         } else {
-          value = (/<v>([\s\S]*?)<\/v>/.exec(body) || [])[1] || '';
+          value = numberText(String((/<v>([\s\S]*?)<\/v>/.exec(body) || [])[1] || '').trim());
         }
         const idx = ref ? colIndex(ref) : cells.length;
         if (idx >= 0) cells[idx] = String(value).trim();
@@ -236,7 +253,7 @@
     return { sheets: [{ name: 'CSV', rows }] };
   }
 
-  const api = { read, fromCsv, xmlUnescape, colIndex };
+  const api = { read, fromCsv, xmlUnescape, colIndex, numberText };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   global.PayeshXlsx = api;
 })(typeof window !== 'undefined' ? window : globalThis);

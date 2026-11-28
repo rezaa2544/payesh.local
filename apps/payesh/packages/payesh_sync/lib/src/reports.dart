@@ -19,6 +19,7 @@ import 'classes.dart'
         studentGradeOf;
 import 'school_structure.dart' show SchoolStructure;
 import 'family.dart' show FamilyBook;
+import 'grade_scheme.dart';
 import 'leave_spec.dart';
 import 'records.dart';
 import 'timetable.dart';
@@ -73,12 +74,25 @@ final class ReportRow {
     required this.scores,
     required this.average,
     required this.attendancePct,
+    this.values = const {},
   });
   final int studentId;
   final String name;
   final Map<int, num> scores;
-  final double average;
-  final int attendancePct;
+
+  /// Row 197 Q09: what each subject shows — the score, or the descriptive level.
+  final Map<int, String> values;
+
+  /// Row 197 F24: mean of the numeric grades; null (shown «—») when there is none.
+  final double? average;
+
+  /// Row 197 F20: null (shown «—») when no attendance was taken.
+  final int? attendancePct;
+
+  /// Cell text of [subjectId]: the level / score, «—» when nothing is given.
+  String valueOf(int subjectId) =>
+      values[subjectId] ??
+      (scores[subjectId] == null ? '—' : '${scores[subjectId]}');
 }
 
 /// «کارنامهٔ کلاسی» (web `classReportTable`).
@@ -405,18 +419,20 @@ final class SchoolReports {
           if (_int(g.data['student_id']) == s.id) g,
       ];
       final scores = <int, num>{};
+      final values = <int, String>{};
       for (final id in subjectIds) {
         for (final g in mine) {
-          if (_int(g.data['subject_id']) == id && g.data['score'] is num) {
+          if (_int(g.data['subject_id']) != id) continue;
+          if (g.data['kind'] == 'descriptive') {
+            values[id] = gradeValueText(g.data);
+            break;
+          }
+          if (g.data['score'] is num) {
             scores[id] = g.data['score']! as num;
             break;
           }
         }
       }
-      final sum = mine.fold<num>(
-        0,
-        (a, g) => a + (num.tryParse('${g.data['score'] ?? 0}') ?? 0),
-      );
       final a = [
         for (final x in att)
           if (_int(x.data['student_id']) == s.id) x,
@@ -426,11 +442,14 @@ final class SchoolReports {
           studentId: s.id,
           name: _s(s.data['name']),
           scores: scores,
-          average: mine.isEmpty ? 0 : sum / mine.length,
-          attendancePct: _pct(
-            a.where((x) => x.data['status'] == 'present').length,
-            a.length,
-          ),
+          values: values,
+          average: averageOf([for (final g in mine) averageScore(g.data)]),
+          attendancePct: a.isEmpty
+              ? null
+              : _pct(
+                  a.where((x) => x.data['status'] == 'present').length,
+                  a.length,
+                ),
         ),
       );
     }
@@ -986,12 +1005,11 @@ final class SchoolReports {
       for (final r in card.rows) {
         b.write('<tr><td>${_esc(r.name)}</td>');
         for (final (id, _) in card.subjects) {
-          b.write(
-            '<td>${r.scores[id] == null ? '—' : _fa(r.scores[id]!)}</td>',
-          );
+          b.write('<td>${_esc(_fa(r.valueOf(id)))}</td>');
         }
         b.write(
-          '<td><b>${_fa(r.average.toStringAsFixed(2))}</b></td><td>${_fa(r.attendancePct)}٪</td></tr>',
+          '<td><b>${r.average == null ? '—' : _fa(r.average!.toStringAsFixed(2))}</b></td>'
+          '<td>${r.attendancePct == null ? '—' : '${_fa(r.attendancePct!)}٪'}</td></tr>',
         );
       }
       b.write('</tbody></table>');

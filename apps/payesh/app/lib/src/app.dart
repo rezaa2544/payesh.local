@@ -351,6 +351,7 @@ class PayeshApp extends StatelessWidget {
               uid: uid,
               sync: s.sync,
               onRetry: onRetrySync,
+              now: today,
             ),
       family: fsrc == null
           ? null
@@ -601,6 +602,15 @@ class PayeshApp extends StatelessWidget {
         if (updater case final u?) UpdateBanner(updater: u, openUrl: openUrl),
         // Row 170: «نبض امروز مدرسه» of the web panel on the manager's home
         ?hero,
+        // Row 197 Q10: «فردا تعطیل/غیرحضوری است» for every role
+        if (notices case final n?
+            when state.currentRole != null && state.currentUid != null)
+          HomeDayOff(
+            source: n,
+            role: state.currentRole!,
+            uid: state.currentUid!,
+            now: today,
+          ),
         if (daily.isNotEmpty)
           PayeshTileSection(title: 'کار روزانه', tiles: daily),
         if (groups['school'] case final t? when t.isNotEmpty) ...[
