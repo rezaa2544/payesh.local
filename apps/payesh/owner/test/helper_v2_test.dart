@@ -30,7 +30,7 @@ void main() {
     expect(
       verifySchoolHelperToken(
         'sk-vector-0123456789abcdef',
-        'school-02.' + t.split('.')[1],
+        'school-02.${t.split('.')[1]}',
       ),
       isFalse,
     );
