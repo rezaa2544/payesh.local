@@ -1539,6 +1539,56 @@ function dayOffCard() {
       : '<div class="small muted" style="margin-top:8px">روزی اعلام نشده است.</div>'}`, 'tight');
 }
 
+/* ══════════════ ردیف ۱۹۷ (Q12 / F21): تقویم امتحان ══════════════
+   همتای Dart school_exams.dart. مدیر ثبت/حذف می‌کند؛ دانش‌آموز امتحان کلاس خودش، پایه×رشتهٔ خودش
+   یا امتحان کل مدرسه (بی‌کلاس و بی‌پایه) را در «امروز» می‌بیند. نهایی (national) با روز تعطیل جابه‌جا نمی‌شود. */
+const EXAM_KIND_FA = { internal: 'داخلی', national: 'نهایی' };
+function examLabel(e) {
+  const sub = (byId('subjects', e.subject_id) || {}).name || '';
+  const t = String(e.title || '').trim();
+  return sub && t ? sub + ' — ' + t : (sub || t || 'امتحان');
+}
+function examAudience(e) {
+  if (e.class_id) return (byId('classes', e.class_id) || {}).name || 'یک کلاس';
+  if (String(e.grade || '').trim()) return 'پایهٔ ' + fa(e.grade) + (String(e.branch || '').trim() ? ' ' + e.branch : '');
+  return 'همهٔ مدرسه';
+}
+function examIsFor(e, classId, grade, branch) {
+  if (e.class_id) return Number(e.class_id) === Number(classId);
+  const g = String(e.grade || '').trim();
+  if (!g) return true;
+  return g === String(grade || '').trim() && String(e.branch || '').trim() === String(branch || '').trim();
+}
+function examsUpcoming(filter) {
+  const today = todayISO();
+  return list('exams').filter(e => !e.deleted && String(e.date || '') >= today && (!filter || filter(e)))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || Number(a.id) - Number(b.id));
+}
+function myStudentExams(k) {
+  const u = k || S.user || {};
+  const cls = byId('classes', u.class_id) || {};
+  const grade = String(u.grade || cls.grade || '').trim();
+  const branch = String(u.branch || cls.branch || '').trim();
+  return examsUpcoming(e => examIsFor(e, u.class_id, grade, branch));
+}
+function examsCard() {
+  const rows = examsUpcoming();
+  return card(`<div class="row between"><b>📝 امتحان‌ها</b>
+      <button class="btn sm" data-act="exam-add">+ افزودن امتحان</button></div>
+    <div class="small muted" style="margin-top:4px">دانش‌آموزان امتحان‌های کلاس و پایهٔ خودشان را در صفحهٔ «امروز» می‌بینند.</div>
+    ${rows.length ? `<div class="list" style="margin-top:8px">${rows.map(e => `<div class="item" data-exam-row="${e.id}"><div class="grow">
+      <div class="t">${esc(jdate(e.date))} · ${badge(EXAM_KIND_FA[e.kind] || 'داخلی', e.kind === 'national' ? 'red' : 'green')}</div>
+      <div class="s">${esc(examLabel(e))} · ${esc(examAudience(e))}</div></div>
+      <button class="btn sm ghost" style="color:#b91c1c" data-act="exam-delete" data-id="${e.id}">حذف</button></div>`).join('')}</div>`
+      : '<div class="small muted" style="margin-top:8px">امتحانی ثبت نشده است.</div>'}`, 'tight');
+}
+function studentExamsCard(rows) {
+  return card(`<b>📝 امتحان‌های پیش رو</b>
+    ${rows.length ? `<div class="list" data-exam-list="1" style="margin-top:8px">${rows.slice(0, 6).map(e => `<div class="item"><div style="width:84px" class="small"><b>${esc(jdate(e.date))}</b></div>
+      <div class="grow"><div class="t">${esc(examLabel(e))}</div></div>${e.kind === 'national' ? badge('نهایی', 'red') : ''}</div>`).join('')}</div>`
+      : '<div class="small muted" style="margin-top:8px">امتحانی اعلام نشده.</div>'}`, 'tight');
+}
+
 /* ردیف ۱۹۷ (Q12 / F19): کلاس‌هایی که این کاربر می‌بیند/برایشان می‌نویسد — دبیر: کلاس‌های برنامه‌اش؛
    دانش‌آموز: کلاس خودش؛ ولی: کلاس فرزندان. اطلاعیهٔ کلاس (class_id) فقط برای همین‌ها و نویسنده. */
 function myTeachClassIds() {
@@ -1571,7 +1621,7 @@ function homeworkFor(classIds) {
 }
 function homeworkCard(classIds, opts) {
   const o = opts || {};
-  const rows = homeworkFor(classIds).slice(0, o.limit || 8);
+  const rows = (o.rows || homeworkFor(classIds)).slice(0, o.limit || 8);
   const me = Number(S.user && S.user.id);
   return card(`<div class="row between"><b>📚 تکلیف‌ها</b>${o.canAdd ? '<button class="btn sm primary" data-act="hw-add">+ تکلیف</button>' : ''}</div>
     ${rows.length ? `<div class="list" data-hw-list="1">${rows.map(h => {
@@ -1583,10 +1633,11 @@ function homeworkCard(classIds, opts) {
         ${o.canAdd && (S.role === 'manager' || Number(h.author_id) === me) ? `<button class="btn sm ghost" style="color:#b91c1c" data-act="hw-delete" data-id="${h.id}">حذف</button>` : ''}</div>`;
     }).join('')}</div>` : '<div class="small muted">تکلیفی ثبت نشده.</div>'}`, 'tight');
 }
-function disciplineCard(studentIds) {
+function disciplineCard(studentIds, opts) {
+  const o = opts || {};
   const rows = list('discipline').filter(d => !d.deleted && studentIds.has(Number(d.student_id)))
-    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || Number(b.id) - Number(a.id)).slice(0, 10);
-  return card(`<b>🧭 انضباط</b>
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || Number(b.id) - Number(a.id)).slice(0, o.limit || 10);
+  return card(`<b data-disc="${esc(o.key || 'card')}">🧭 انضباط${o.limit && o.limit < 10 ? ' (آخرین موارد)' : ''}</b>
     ${rows.length ? `<div class="list" data-disc-list="1">${rows.map(d => `<div class="item"><div class="grow"><div class="t">${esc(DISC_KIND_FA[d.kind] || 'یادداشت')}${studentIds.size > 1 ? ' · ' + esc((byId('users', d.student_id) || {}).name || '') : ''}</div>
       <div class="s">${esc(d.note || '')}</div></div>${badge(jdate(d.date || ''), d.kind === 'positive' ? 'green' : d.kind === 'negative' ? 'red' : '')}</div>`).join('')}</div>` : '<div class="small muted">موردی ثبت نشده.</div>'}`, 'tight');
 }
@@ -1596,7 +1647,7 @@ PAGES.announcements = () => {
   /* ردیف ۱۹۷ (F19): دبیرِ بی‌کلاس (هنوز در برنامهٔ هفتگی نیست) اطلاعیه‌ای نمی‌تواند بدهد */
   const canWrite = S.role === 'manager' || (S.role === 'teacher' && myTeachClassIds().size > 0);
   return `${pageHead('اطلاعیه‌ها', fa(rows.length) + ' مورد', canWrite ? `<button class="btn sm primary" data-act="ann-add">${S.role === 'teacher' ? '+ اطلاعیهٔ کلاس' : '+ اطلاعیه'}</button>` : '')}
-  ${S.role === 'manager' ? dayOffCard() : dayOffBanner(todayISO(), 'today') + dayOffBanner(new Date(Date.now() + 86400000).toISOString().slice(0, 10), 'tomorrow')}
+  ${S.role === 'manager' ? dayOffCard() + examsCard() : dayOffBanner(todayISO(), 'today') + dayOffBanner(new Date(Date.now() + 86400000).toISOString().slice(0, 10), 'tomorrow')}
   ${rows.length ? rows.map(a => card(`<div class="row between"><b>${esc(a.title)}</b>${badge(jdate(a.date), a.severity === 'important' ? 'red' : a.severity === 'info' ? 'purple' : '')}</div>
     ${a.class_id ? `<div class="small muted" data-ann-class="${esc(a.class_id)}">ویژهٔ ${esc((byId('classes', a.class_id) || {}).name || 'یک کلاس')}</div>` : ''}
     <div class="small" style="margin-top:6px;white-space:pre-wrap">${esc(a.body)}</div>
@@ -1935,9 +1986,18 @@ PAGES.record = () => {
   const att = list('attendance').filter(a => Number(a.student_id) === Number(k.id));
   const pct = att.length ? Math.round(att.filter(a => a.status === 'present').length / att.length * 100) : null;
   const details = userDetailRows(k);
+  /* ردیف ۱۹۷ (Q12 / F21): معدل و کارنامه — هر درس یک سطر: میانگین نمره‌های عددی (یک رقم اعشار)
+     وگرنه آخرین نمرهٔ توصیفی؛ معدل = میانگین درس‌های عددی، نبودِ نمره = «—» */
+  const rc = reportCardOf(grades);
+  const avg = meanOrNull(grades.map(gradeAvgScore));
   return `${pageHead('پروندهٔ من', (byId('classes', k.class_id) || {}).name || '')}
   <div class="grid">${statCard('✅', pct == null ? '—' : fa(pct) + '٪', 'حضور', pct == null ? '' : pct >= 90 ? 'green' : 'amber')}
-    ${statCard('📝', fa(grades.length), 'نمره')}</div>
+    ${statCard('📝', fa(grades.length), 'نمره')}
+    <span data-rec="average">${statCard('🎓', avg == null ? '—' : fa1(avg), 'معدل', avg == null ? '' : avg >= 12 ? 'green' : 'amber')}</span></div>
+  ${card(`<b>کارنامه</b>${rc.length ? `<div class="table-wrap" data-rec="report-card" style="margin-top:8px"><table><thead><tr><th>عنوان درس</th><th>میانگین / ارزشیابی</th></tr></thead><tbody>
+    ${rc.map(r => `<tr><td>${esc(r.subject)}</td><td><b>${esc(r.value)}</b></td></tr>`).join('')}</tbody></table></div>`
+    : '<div class="small muted" data-rec="report-empty" style="margin-top:8px">هنوز نمره‌ای ثبت نشده.</div>'}`, 'tight')}
+  ${disciplineCard(new Set([Number(k.id)]), { key: 'record' })}
   ${details.length ? card(`<b>مشخصات</b><div class="table-wrap" style="margin-top:8px"><table><tbody>
     ${details.map(([l, v]) => `<tr><td class="small muted" style="width:40%">${esc(l)}</td><td class="small">${esc(fa(v))}</td></tr>`).join('')}
   </tbody></table></div>`) : ''}
@@ -1947,8 +2007,44 @@ PAGES.record = () => {
   </tbody></table></div>`)}`;
 };
 
+/* ردیف ۱۹۷ (Q12 / F21): کارنامهٔ دانش‌آموز — همتای StudentRecord.reportCard در Dart */
+function fa1(n) { return fa(n.toFixed(1)).replace('.', '٫'); }
+/* همتای averageScore در grade_scheme.dart: توصیفی و پودمانی عدد معدل ندارند */
+function gradeAvgScore(g) {
+  if (!g || g.kind === 'descriptive' || g.kind === 'module') return null;
+  if (g.score == null || String(g.score).trim() === '') return null;
+  const v = Number(g.score);
+  return Number.isFinite(v) ? v : null;
+}
+function meanOrNull(vals) {
+  const v = vals.filter(x => x != null);
+  return v.length ? v.reduce((t, x) => t + x, 0) / v.length : null;
+}
+function reportCardOf(grades) {
+  const by = new Map();
+  for (const g of grades) {
+    const name = (byId('subjects', g.subject_id) || {}).name || '—';
+    if (!by.has(name)) by.set(name, []);
+    by.get(name).push(g);
+  }
+  return [...by.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).map(subject => {
+    const gs = by.get(subject);
+    const num = meanOrNull(gs.map(gradeAvgScore));
+    return { subject, num, value: num != null ? fa1(num) : gradeValueText(gs[gs.length - 1]) };
+  });
+}
+
+/* ردیف ۱۹۷ (Q12 / F21): خانهٔ دانش‌آموز = «امروز» + تکلیف‌های باز + امتحان‌های پیش رو + آخرین انضباط.
+   پرونده (معدل، کارنامه، انضباط کامل) دیگر این‌جا تکرار نمی‌شود — صفحهٔ «پروندهٔ من» است. */
 function studentHome() {
-  return studentHomeCard() + PAGES.record();
+  const k = S.user || {};
+  const today = todayISO();
+  const cls = k.class_id ? new Set([Number(k.class_id)]) : new Set();
+  const open = homeworkFor(cls).filter(h => !h.due || String(h.due) >= today);
+  return studentHomeCard()
+    + `<div data-home="homework">${homeworkCard(cls, { limit: 6, rows: open })}</div>`
+    + `<div data-home="exams">${studentExamsCard(myStudentExams(k))}</div>`
+    + `<div data-home="discipline">${disciplineCard(new Set([Number(k.id)]), { limit: 3, key: 'home' })}</div>`;
 }
 function studentHomeCard() {
   const day = weekdayIndex();
@@ -2591,6 +2687,23 @@ function actDayOffAdd() {
     <label class="field"><span>امتحان‌های داخلی این روز منتقل شوند به (اختیاری)</span>${jalaliDateControl('exams_to', '', {})}</label>
     <label class="row" style="gap:6px;margin:6px 0"><input type="checkbox" name="notify" checked> اطلاعیهٔ «مهم» برای همهٔ اولیا و دانش‌آموزان منتشر شود</label>
     <button class="btn primary block">ثبت و اعلام</button>
+  </form>`);
+}
+
+/* ردیف ۱۹۷ (Q12 / F21): فرم «افزودن امتحان» (پیش‌فرض فردا) */
+function actExamAdd() {
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  S.modalTitle = 'افزودن امتحان';
+  modal(`<form data-form="exam">
+    <label class="field"><span>روز امتحان</span>${jalaliDateControl('date', tomorrow, { required: true })}</label>
+    <label class="field"><span>درس</span><select class="input" name="subject_id"><option value="">— (فقط عنوان)</option>
+      ${sortBy(list('subjects'), 'name').map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label>
+    <label class="field"><span>برای</span><select class="input" name="class_id"><option value="">همهٔ مدرسه</option>
+      ${sortBy(list('classes'), 'name').map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label>
+    <label class="field"><span>نوع</span><select class="input" name="kind">
+      <option value="internal">داخلی (مدرسه)</option><option value="national">نهایی (کشوری)</option></select></label>
+    <label class="field"><span>عنوان (اختیاری)</span><input class="input" name="title" maxlength="200" placeholder="مثلاً میان‌نوبت اول"></label>
+    <button class="btn primary block">ثبت امتحان</button>
   </form>`);
 }
 

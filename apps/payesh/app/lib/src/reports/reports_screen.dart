@@ -15,7 +15,7 @@ import '../school/school_source.dart';
 import '../pulse/pulse.dart';
 import '../pulse/d2.dart';
 import '../pulse/web.dart';
-import '../users/users_screen.dart' show recordBlocks;
+import '../users/users_screen.dart' show studentHomeBlocks;
 import '../family/leave_fields.dart';
 
 String _jd(String iso) => faDigits(JalaliDate.fromIso(iso)?.slash ?? '—');
@@ -32,8 +32,12 @@ class HomeController extends SchoolController {
   Dashboard? dashboard;
   TodayView? today;
 
-  /// Row 172: web `studentHome` = `studentHomeCard()` + `PAGES.record()`.
+  /// Row 197 F21: the student's record — its homework / upcoming exams / latest discipline
+  /// show on the home under «امروز» (the record itself is the «پرونده» tab).
   StudentRecord? record;
+
+  /// The day [read] treated as today (ISO).
+  String todayIso = '';
 
   /// Row 197 Q10: today's / tomorrow's announced day off (banner on top of the home).
   DayOff? todayOff;
@@ -43,6 +47,7 @@ class HomeController extends SchoolController {
   Future<void> read(SchoolRecords db) async {
     final r = SchoolReports(db);
     final day = db.today();
+    todayIso = day;
     todayOff = await dayOffOn(db, day);
     tomorrowOff = await dayOffOn(
       db,
@@ -823,7 +828,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             dayOffBanner(o, 'dash-dayoff-tomorrow'),
           if (d != null) ..._manager(d),
           if (t != null) ..._today(t),
-          if (c.record case final r?) ...recordBlocks(r, first: false),
+          // row 197 F21: the student's home is «امروز» + what is due/coming — the full record
+          // lives on its own tab («پروندهٔ من»), no longer repeated here
+          if (c.record case final r?)
+            ...studentHomeBlocks(r, t?.today ?? c.todayIso),
         ],
       );
     },

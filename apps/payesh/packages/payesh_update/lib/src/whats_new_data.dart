@@ -5,6 +5,11 @@
 import 'whats_new.dart';
 
 const List<ReleaseNote> kReleaseNotes = [
+  ReleaseNote('0.9.82', [
+    NoteItem('دانش‌آموز حالا «پروندهٔ من» کامل دارد: معدل (اگر هنوز نمره‌ای نیست «—»)، کارنامه با یک سطر برای هر درس، و یادداشت‌های انضباطیِ خودش. صفحهٔ «امروز» دانش‌آموز هم تکلیف‌های باز، امتحان‌های پیش رو و آخرین یادداشت‌های انضباطی را نشان می‌دهد و دیگر پرونده را تکرار نمی‌کند.', {NoteAudience.school, NoteAudience.web}),
+    NoteItem('مدیر از صفحهٔ «اطلاعیه‌ها» امتحان ثبت و حذف می‌کند: روز، درس یا عنوان، یک کلاس یا همهٔ مدرسه، و نوع داخلی یا نهایی. هر دانش‌آموز فقط امتحان‌های کلاس و پایهٔ خودش و امتحان‌های کل مدرسه را می‌بیند.', {NoteAudience.school, NoteAudience.web}),
+    NoteItem('ردیف ۱۹۷ Q12 / F21 + Schemathesis + Dependabot. (۱) server/index.js readBody: بدنهٔ JSON که شیء نیست (null، عدد، رشته، آرایه) با 400 bad_json رد می‌شود و دیگر به 500 نمی‌رسد. این گارد مرکزی است و همهٔ مسیرها از جمله login، claim، transfer/redeem و unlock را پوشش می‌دهد؛ آزمون tests/auth-body-shape.js با ۳۴ بررسی (۲۵ مورد روی کد قبلی قرمز بود). (۲) .github/dependabot.yml برای npm (ریشه)، github-actions و pub (ریشهٔ workspace در apps/payesh که هر ۹ پکیج را پوشش می‌دهد) هر هفته، با cooldown ۷ روزه و بدون مرج خودکار. تصمیم pub در docs/security/DEPENDENCY-UPDATES.md ثبت شده: Dependabot، نه Renovate. (۳) F21: خواندن discipline برای student فقط ردیف‌های خودش (policy.js، records.dart؛ rowInScope ابری با studentIds=[uid])، مشاور همچنان هیچ؛ SchoolExams (slot 17، فقط مدیر، not_allowed/bad_date/text_required/text_too_long)؛ StudentRecord.average/reportCard/homework/exams/discipline؛ وب examsCard/studentHome/PAGES.record؛ parity act:exam-add، act:exam-delete، form:exam. آزمون‌ها: student-record-197 (R01–R06)، school_exams_197 (E197-01..03)، exam_197 (EX197-01..03)، leak-matrix-57 (+۴). W11-W02 به رفتار تازه به‌روز شد (خانهٔ دانش‌آموز پرونده را تکرار نمی‌کند) و جهش MU-03 در parity-128 به نام ناموجود exam-room منتقل شد چون form:exam اکنون واقعی است.', {NoteAudience.owner}),
+  ]),
   ReleaseNote('0.9.81', [
     NoteItem('نسخهٔ سرور مدرسه که در ۰٫۹٫۸۰ ساخته نشده بود، این بار ساخته و منتشر می‌شود؛ ابزارهای کلاسِ دبیر (اطلاعیهٔ کلاس، تکلیف، یادداشت انضباطی، ارجاع به مشاور) حالا روی سرور مدرسه هم فعال است.', {NoteAudience.school, NoteAudience.web}),
     NoteItem('ردیف ۱۹۷ F19 — ادامهٔ ۰٫۹٫۸۰: build-and-release روی tests/leak-matrix-57.js شکست خورد چون ماتریس صریح نقش×مجموعه هنوز خواندن counselor_refs را برای دبیر ممنوع می‌دانست. ماتریس به قاعدهٔ F19 به‌روز شد و ۴ بررسی تازه گرفت: دبیر فقط ارجاعِ خودش (referred_by=خودش) را می‌بیند، نه ارجاع همکار، نه ارجاع بی‌امضا، و هرگز counselor_notes. پیش از انتشار همهٔ ۳۵ اسکریپت node که در CI صدا زده می‌شوند به‌صورت محلی اجرا شد. ۰٫۹٫۸۰ روی native-client، win32-edition، api-contract، win32-publish و web-app-publish سبز بود.', {NoteAudience.owner}),
@@ -86,12 +91,6 @@ const List<ReleaseNote> kReleaseNotes = [
   ReleaseNote('0.9.68', [
     NoteItem('نسخهٔ ۳۲ بیتی ویندوز: اگر برنامه در نخستین بازشدن بدون دسترسی به پرونده‌های رایانه بالا می‌آمد (گاه‌به‌گاه)، حالا پیش از شروع، صفحه خودکار دوباره بار می‌شود تا داده‌ها همیشه روی همان رایانه ذخیره شوند.', {NoteAudience.school}),
     NoteItem('index.html: درون پوستهٔ ۳۲ بیتی (payesh.localhost) بدون window.payeshHost تا ۳ بار بازخوانی پیش از اجرای Flutter؛ مرورگر عادی هرگز بازخوانی نمی‌شود.', {NoteAudience.web}),
-    NoteItem('پنل مالک تغییری ندارد.', {NoteAudience.owner}),
-  ]),
-  ReleaseNote('0.9.67', [
-    NoteItem('نسخهٔ مرورگر (app.payeshschool.ir) پس از ورود همگام‌سازی کامل دارد: درخواست دریافت داده‌ها دیگر به‌خاطر سرآیند شناسهٔ دستگاه رد نمی‌شود. نسخهٔ مرورگر از صفحهٔ https هیچ نشانی http (شبکهٔ محلی یا همین رایانه) را امتحان نمی‌کند، پس پنجرهٔ اجازهٔ «دسترسی به شبکهٔ محلی» باز نمی‌شود.', {NoteAudience.school}),
-    NoteItem('هر نسخهٔ تازهٔ برنامهٔ مرورگر در پوشهٔ جدای خودش منتشر می‌شود. پیش‌تر کش شبکهٔ آروان فایل‌های نسخهٔ قبل را نگه می‌داشت و به‌روزرسانی دیر دیده می‌شد؛ حالا یک بار بازکردن دوبارهٔ صفحه همان لحظه نسخهٔ تازه را می‌آورد.', {NoteAudience.school}),
-    NoteItem('سرور مدرسه سرآیندهای x-device-id و cache-control را هم در CORS مجاز می‌داند. انتشار وب: هر ساخت در v/<نسخه>-<هش>/ و index.html ریشه با <base href> به آن اشاره می‌کند؛ ساخت قبلی یک دور نگه داشته می‌شود.', {NoteAudience.web}),
     NoteItem('پنل مالک تغییری ندارد.', {NoteAudience.owner}),
   ]),
 ];

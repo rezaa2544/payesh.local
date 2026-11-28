@@ -47,3 +47,4 @@ export 'src/sync_client.dart';
 export 'src/transport.dart';
 export 'src/users.dart';
 export 'src/school_calendar.dart';
+export 'src/school_exams.dart';

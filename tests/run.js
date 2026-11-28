@@ -5930,6 +5930,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۷ (Q12 / F21): پروندهٔ دانش‌آموز و تقویم امتحان ── */
+  await test('ردیف ۱۹۷ (F21): امتحان فقط مدیر و خواندن همه، دانش‌آموز فقط انضباط خودش (مشاور هیچ)، فرم/حذف امتحان وب، خانهٔ دانش‌آموز (تکلیف باز، امتحان کلاس/پایه، آخرین انضباط)، معدل و کارنامه، همتای Dart (۶ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/student-record-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'student-record-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۷ (Q12 / F16): تغییر اجباری رمز اولیه ── */
   await test('ردیف ۱۹۷ (F16): ورود با رمز اولیه (کد ملی) ⇒ must_change در ورود/تازه‌سازی/بازگشایی، رمز تازه نه کد ملی نه همان رمز، وب فقط فرم رمز تازه، همتای Dart (۵ بررسی)',
     async () => {
@@ -6131,6 +6140,15 @@ async function waitFor(fn, ms = 15000) {
       assert.strictEqual(r.status, 0, 'lan-mode-127: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|LAN-MODE/.test(l)).join('\n') + (r.stderr || ''));
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
+
+  /* ── یافتهٔ Schemathesis: بدنهٔ JSON غیرآبجکت در مسیرهای auth ⇒ ۴۰۰ bad_json، نه ۵۰۰ ── */
+  await test('Schemathesis: null/عدد/رشته/آرایه در login/claim/transfer/unlock ⇒ ۴۰۰ bad_json؛ {} و JSON خراب بی‌تغییر', async () => {
+    const { spawnSync } = require('child_process');
+    const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/auth-body-shape.js')],
+      { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+    assert.strictEqual(r.status, 0, 'auth-body-shape: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|AUTH-BODY/.test(l)).join('\n') + (r.stderr || ''));
+    console.log('    ' + r.stdout.trim().split('\n').pop());
+  });
 
   childExited = true;
   child.kill('SIGTERM');

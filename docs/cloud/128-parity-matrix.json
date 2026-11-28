@@ -1095,6 +1095,46 @@
    ]
   },
   {
+   "id": "act:exam-add",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('ntc-exam-add"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/exam_197_test.dart",
+     "has": "'EX197-01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_exams_197_test.dart",
+     "has": "'E197-01"
+    }
+   ]
+  },
+  {
+   "id": "act:exam-delete",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('ntc-exam-del-"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/exam_197_test.dart",
+     "has": "'EX197-01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_exams_197_test.dart",
+     "has": "'E197-01"
+    }
+   ]
+  },
+  {
    "id": "act:imp-branch-no",
    "status": "native",
    "wave": "W10",
@@ -2764,6 +2804,26 @@
     {
      "file": "apps/payesh/packages/payesh_sync/test/school_calendar_197_test.dart",
      "has": "'C197-02"
+    }
+   ]
+  },
+  {
+   "id": "form:exam",
+   "status": "native",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/notices/notices_screen.dart",
+     "has": "Key('exm-submit"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/exam_197_test.dart",
+     "has": "'EX197-01"
+    },
+    {
+     "file": "apps/payesh/packages/payesh_sync/test/school_exams_197_test.dart",
+     "has": "'E197-01"
     }
    ]
   },

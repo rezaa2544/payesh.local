@@ -1,0 +1,69 @@
+# Dependabot — به‌روزرسانی وابستگی‌ها (تسک Notion «[اکنون] فعال‌سازی Dependabot»، تصمیم مالک ۱۴۰۵/۰۹/۰۶).
+#
+# سه اکوسیستم زندهٔ این مخزن:
+#   1) npm      — ریشه (سرور/ابزار؛ شامل override امنیتی lodash در package.json)
+#   2) actions  — گردش‌کارهای GitHub (همه با SHA پین شده‌اند؛ Dependabot SHA و کامنت نسخه را با هم به‌روز می‌کند)
+#   3) pub      — ۹ پکیج Flutter در apps/payesh که یک «pub workspace» هستند.
+#
+# تصمیم pub (Dependabot، نه Renovate): Dependabot روی pub workspace فقط از «ریشهٔ workspace» کار می‌کند؛
+# اگر پوشهٔ تک‌تک پکیج‌ها را بدهیم هر اجرا با
+#   "dependency_services failed: Only apply dependency_services to the root of the workspace."
+# شکست می‌خورد. از ریشه (apps/payesh) یک resolution مشترک و یک pubspec.lock همهٔ ۹ پکیج را پوشش می‌دهد،
+# پس Renovate لازم نیست (نصب هم‌زمان هر دو ممنوع است). شرح کامل: docs/security/DEPENDENCY-UPDATES.md
+#
+# قید سخت: هیچ PR آپدیتی خودکار مرج نمی‌شود؛ مرج فقط پس از سبز بودن npm test و release-gate روی همان PR.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: saturday
+      time: "04:00"
+      timezone: Asia/Tehran
+    open-pull-requests-limit: 5
+    # نسخهٔ تازه‌منتشرشده ۷ روز صبر می‌کند (zizmor dependabot-cooldown) — بستهٔ آلوده معمولاً در همین بازه کشف و برداشته می‌شود
+    cooldown:
+      default-days: 7
+    labels: [dependencies, npm]
+    commit-message:
+      prefix: "deps(npm)"
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: saturday
+      time: "04:30"
+      timezone: Asia/Tehran
+    open-pull-requests-limit: 5
+    # نسخهٔ تازه‌منتشرشده ۷ روز صبر می‌کند (zizmor dependabot-cooldown) — بستهٔ آلوده معمولاً در همین بازه کشف و برداشته می‌شود
+    cooldown:
+      default-days: 7
+    labels: [dependencies, github-actions]
+    commit-message:
+      prefix: "deps(actions)"
+    groups:
+      actions-all:
+        patterns: ["*"]
+
+  - package-ecosystem: pub
+    directory: "/apps/payesh"
+    schedule:
+      interval: weekly
+      day: saturday
+      time: "05:00"
+      timezone: Asia/Tehran
+    open-pull-requests-limit: 5
+    # نسخهٔ تازه‌منتشرشده ۷ روز صبر می‌کند (zizmor dependabot-cooldown) — بستهٔ آلوده معمولاً در همین بازه کشف و برداشته می‌شود
+    cooldown:
+      default-days: 7
+    labels: [dependencies, pub]
+    commit-message:
+      prefix: "deps(pub)"
+    groups:
+      pub-minor-patch:
+        update-types: [minor, patch]

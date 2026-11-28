@@ -123,6 +123,8 @@ class _NoticesScreenState extends State<NoticesScreen> {
                   ),
                 // row 197 Q10: the manager announces a day off; everyone sees today/tomorrow
                 if (c.canWriteSchool && c.error == null) _dayOffCard(),
+                // row 197 (Q12 / F21): the manager's exam calendar (students see it on their home)
+                if (c.canWriteSchool && c.error == null) _examsCard(),
                 if (!c.canWriteSchool) ...[
                   if (c.todayOff case final d?)
                     dayOffBanner(d, 'ntc-dayoff-today'),
@@ -239,6 +241,83 @@ class _NoticesScreenState extends State<NoticesScreen> {
       ],
     ),
   );
+
+  /// Row 197 (Q12 / F21): «امتحان‌ها» — upcoming exams with «حذف», and «+ افزودن امتحان».
+  Widget _examsCard() => WebCard(
+    key: const Key('ntc-exams-card'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
+          children: [
+            Text('📝 امتحان‌ها', style: Web.b),
+            WebBtn(
+              '+ افزودن امتحان',
+              key: const Key('ntc-exam-add'),
+              onPressed: c.busy ? null : _openExam,
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'دانش‌آموزان امتحان‌های کلاس و پایهٔ خودشان را در صفحهٔ «امروز» می‌بینند.',
+          style: Web.small.copyWith(color: Web.muted),
+        ),
+        const SizedBox(height: 8),
+        if (c.exams.isEmpty)
+          Text(
+            'امتحانی ثبت نشده است.',
+            key: const Key('ntc-exams-none'),
+            style: Web.small.copyWith(color: Web.muted),
+          ),
+        for (final e in c.exams)
+          Padding(
+            key: Key('ntc-exam-${e.id}'),
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          Text(Web.fa(Web.jdate(e.date)), style: Web.b),
+                          WebBadge(
+                            e.kind.labelFa,
+                            tone: e.kind == ExamKind.national
+                                ? WebTone.red
+                                : WebTone.green,
+                          ),
+                        ],
+                      ),
+                      Text('${e.label} · ${e.audience}', style: Web.small),
+                    ],
+                  ),
+                ),
+                WebBtn.delete(
+                  'حذف',
+                  key: Key('ntc-exam-del-${e.id}'),
+                  onPressed: c.busy ? null : () => c.deleteExam(e),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+
+  Future<void> _openExam() async {
+    c.examError = null;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => ExamEditor(controller: c)));
+  }
 
   Future<void> _openDayOff() async {
     c.dayOffError = null;
@@ -787,6 +866,181 @@ class _DayOffEditorState extends State<DayOffEditor> {
                 WebBtn(
                   'ثبت و اعلام',
                   key: const Key('dof-submit'),
+                  kind: WebBtnKind.primary,
+                  onPressed: c.busy ? null : _submit,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Row 197 (Q12 / F21): the «افزودن امتحان» form — tomorrow by default.
+class ExamEditor extends StatefulWidget {
+  const ExamEditor({super.key, required this.controller});
+  final NoticesController controller;
+
+  @override
+  State<ExamEditor> createState() => _ExamEditorState();
+}
+
+class _ExamEditorState extends State<ExamEditor> {
+  NoticesController get c => widget.controller;
+  late String date = c.tomorrow;
+  ExamKind kind = ExamKind.internal;
+  int? subjectId;
+  int? classId;
+  final title = TextEditingController();
+
+  @override
+  void dispose() {
+    title.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final ok = await c.addExam(
+      date: date,
+      kind: kind,
+      subjectId: subjectId,
+      classId: classId,
+      title: title.text,
+    );
+    if (ok && mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: c,
+    builder: (context, _) => Scaffold(
+      backgroundColor: Web.bg,
+      appBar: AppBar(
+        leading: IconButton(
+          key: const Key('exm-back'),
+          tooltip: 'بازگشت',
+          icon: backOrCloseIcon(context),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+        title: const Text('افزودن امتحان'),
+      ),
+      body: WebPageBody(
+        children: [
+          WebCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (c.examError != null)
+                  WebBanner(
+                    kind: WebBannerKind.err,
+                    text: c.examError!,
+                    textKey: const Key('exm-error'),
+                  ),
+                Text('روز امتحان', style: Web.small),
+                WebJalaliField(
+                  key: const Key('exm-date'),
+                  iso: date,
+                  onChanged: (v) => setState(() => date = v),
+                ),
+                const SizedBox(height: 10),
+                Text('درس', style: Web.small),
+                Semantics(
+                  label: 'درس',
+                  child: FieldBox(
+                    child: DropdownButtonFormField<int?>(
+                      key: const Key('exm-subject'),
+                      initialValue: subjectId,
+                      isExpanded: true,
+                      decoration: webInput(),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('— (فقط عنوان)'),
+                        ),
+                        for (final s in c.subjects)
+                          DropdownMenuItem<int?>(
+                            value: s.id,
+                            child: Text(
+                              SchoolRecords.str(s.data['name']),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => subjectId = v),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text('برای', style: Web.small),
+                Semantics(
+                  label: 'کلاس',
+                  child: FieldBox(
+                    child: DropdownButtonFormField<int?>(
+                      key: const Key('exm-class'),
+                      initialValue: classId,
+                      isExpanded: true,
+                      decoration: webInput(),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('همهٔ مدرسه'),
+                        ),
+                        for (final k in c.classes)
+                          DropdownMenuItem<int?>(
+                            value: k.id,
+                            child: Text(
+                              SchoolRecords.str(k.data['name']),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => classId = v),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text('نوع', style: Web.small),
+                Semantics(
+                  label: 'نوع امتحان',
+                  child: FieldBox(
+                    child: DropdownButtonFormField<ExamKind>(
+                      key: const Key('exm-kind'),
+                      initialValue: kind,
+                      isExpanded: true,
+                      decoration: webInput(),
+                      items: const [
+                        DropdownMenuItem(
+                          value: ExamKind.internal,
+                          child: Text('داخلی (مدرسه)'),
+                        ),
+                        DropdownMenuItem(
+                          value: ExamKind.national,
+                          child: Text('نهایی (کشوری)'),
+                        ),
+                      ],
+                      onChanged: (v) => setState(() => kind = v ?? kind),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text('عنوان (اختیاری)', style: Web.small),
+                Semantics(
+                  label: 'عنوان امتحان',
+                  child: FieldBox(
+                    child: TextField(
+                      key: const Key('exm-title'),
+                      controller: title,
+                      maxLength: ExamLimits.title,
+                      decoration: webInput(hint: 'مثلاً میان‌نوبت اول'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                WebBtn(
+                  'ثبت امتحان',
+                  key: const Key('exm-submit'),
                   kind: WebBtnKind.primary,
                   onPressed: c.busy ? null : _submit,
                 ),

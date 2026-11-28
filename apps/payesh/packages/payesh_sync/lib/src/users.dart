@@ -18,8 +18,10 @@
 // role changes by the manager only). Writes are local-first through SchoolRecords.
 import 'package:payesh_data/payesh_data.dart';
 
+import 'class_notes.dart';
 import 'grade_scheme.dart';
 import 'records.dart';
+import 'school_exams.dart';
 import 'school_structure.dart' show SchoolStructure;
 import 'staff_access.dart';
 
@@ -545,11 +547,51 @@ final class StudentRecord {
     required this.grades,
     required this.details,
     this.gradeValues = const [],
+    this.average,
+    this.reportCard = const [],
+    this.homework = const [],
+    this.exams = const [],
+    this.discipline = const [],
   });
   final SchoolUser user;
   final String className;
   final int presentPercent;
   final int attendanceDays;
+
+  /// Row 197 F21: the mean of the numeric grades — null (shown «—») when there is none.
+  final double? average;
+
+  /// Row 197 F21 «کارنامه»: (subject, value) per subject — the mean of its numeric grades,
+  /// else its latest descriptive level / module result text.
+  final List<(String, String)> reportCard;
+
+  /// Row 197 F21: the homework of the student's class (newest due first).
+  final List<Homework> homework;
+
+  /// Row 197 F21: the upcoming exams this student sits (soonest first).
+  final List<Exam> exams;
+
+  /// Row 197 F21: the student's own discipline notes (newest first).
+  final List<DisciplineNote> discipline;
+
+  /// Homework still open on [today]: due today or later, or with no due date and given in
+  /// the last two weeks.
+  List<Homework> openHomework(String today) {
+    final t = DateTime.tryParse(today);
+    final since = t == null
+        ? ''
+        : t
+              .subtract(const Duration(days: 14))
+              .toIso8601String()
+              .substring(0, 10);
+    return [
+      for (final h in homework)
+        if (h.due.isNotEmpty
+            ? h.due.compareTo(today) >= 0
+            : h.date.compareTo(since) >= 0)
+          h,
+    ];
+  }
 
   /// (subject, score, approved) — score null for a descriptive grade (row 197 Q09).
   final List<(String, num?, bool)> grades;
@@ -810,14 +852,55 @@ final class UserDirectory {
           g.data['status'] == 'approved',
         ),
     ];
+    // Row 197 F21 «کارنامه»: one line per subject
+    final bySubject = <String, List<Map<String, Object?>>>{};
+    for (final g in mine) {
+      final n = subjects[SchoolRecords.asInt(g.data['subject_id'])] ?? '';
+      (bySubject[n.isEmpty ? '—' : n] ??= []).add(g.data);
+    }
+    final reportCard = <(String, String)>[
+      for (final e
+          in (bySubject.entries.toList()
+            ..sort((a, b) => a.key.compareTo(b.key))))
+        (
+          e.key,
+          switch (averageOf([for (final g in e.value) averageScore(g)])) {
+            final double a => _fa1(a),
+            null => gradeValueText(e.value.last),
+          },
+        ),
+    ];
+    final classId = SchoolRecords.asInt(me.data['class_id']);
+    final cls = classId == null
+        ? null
+        : await db.engine.get('classes', classId);
+    final grade = SchoolRecords.str(me.data['grade']).trim().isNotEmpty
+        ? SchoolRecords.str(me.data['grade'])
+        : SchoolRecords.str(cls?.data['grade']);
+    final branch = SchoolRecords.str(me.data['branch']).trim().isNotEmpty
+        ? SchoolRecords.str(me.data['branch'])
+        : SchoolRecords.str(cls?.data['branch']);
+    final notes = ClassNotes(db);
     return StudentRecord(
       user: SchoolUser(id: me.id, data: me.data),
-      className: classes[SchoolRecords.asInt(me.data['class_id'])] ?? '',
+      className: classes[classId] ?? '',
       presentPercent: att.isEmpty ? 0 : (present * 100 / att.length).round(),
       attendanceDays: att.length,
       grades: grades,
       gradeValues: [for (final g in mine) gradeValueText(g.data)],
       details: detailRows(me.data),
+      average: averageOf([for (final g in mine) averageScore(g.data)]),
+      reportCard: reportCard,
+      homework: classId == null
+          ? const []
+          : await notes.homework(classIds: {classId}),
+      exams: await SchoolExams(db).upcomingFor(
+        from: db.today(),
+        classId: classId,
+        grade: grade,
+        branch: branch,
+      ),
+      discipline: await notes.discipline(studentIds: {db.uid}),
     );
   }
 
@@ -1667,3 +1750,9 @@ final class EngineRowLike {
   final Map<String, Object?> data;
   final int version;
 }
+
+/// One decimal, Persian digits («۱۷٫۵»).
+String _fa1(double v) => v
+    .toStringAsFixed(1)
+    .replaceAll('.', '٫')
+    .replaceAllMapped(RegExp(r'\d'), (m) => '۰۱۲۳۴۵۶۷۸۹'[int.parse(m[0]!)]);

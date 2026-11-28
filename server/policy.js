@@ -126,7 +126,8 @@ const COLLECTIONS = {
   counselor_refs:   { write: ['manager', 'counselor', 'teacher'], read: ['manager', 'counselor', 'teacher'] },
   counselor_notes:  { write: ['counselor', 'manager'], read: ['counselor'] },
   /* ردیف ۱۸۷ (p2): انضباط را مدیر و دبیر ثبت می‌کنند؛ مشاور فقط می‌خواند (canWriteRow هم رد می‌کرد) */
-  discipline:       { write: ['manager', 'teacher'], read: ['manager', 'teacher', 'counselor', 'parent'] },
+  /* ردیف ۱۹۷ (Q12 / F21): دانش‌آموز یادداشت‌های خودش را می‌بیند (اسکوپ ردیف: فقط student_id خودش) */
+  discipline:       { write: ['manager', 'teacher'], read: ['manager', 'teacher', 'counselor', 'parent', 'student'] },
   homework:         { write: ['manager', 'teacher'], read: 'all' },
   exams:            { write: ['manager'], read: 'all' },
   calendar:         { write: ['manager'], read: 'all' },

@@ -1,4 +1,26 @@
 {
+  "0.9.82": [
+    {
+      "t": "دانش‌آموز حالا «پروندهٔ من» کامل دارد: معدل (اگر هنوز نمره‌ای نیست «—»)، کارنامه با یک سطر برای هر درس، و یادداشت‌های انضباطیِ خودش. صفحهٔ «امروز» دانش‌آموز هم تکلیف‌های باز، امتحان‌های پیش رو و آخرین یادداشت‌های انضباطی را نشان می‌دهد و دیگر پرونده را تکرار نمی‌کند.",
+      "for": [
+        "school",
+        "web"
+      ]
+    },
+    {
+      "t": "مدیر از صفحهٔ «اطلاعیه‌ها» امتحان ثبت و حذف می‌کند: روز، درس یا عنوان، یک کلاس یا همهٔ مدرسه، و نوع داخلی یا نهایی. هر دانش‌آموز فقط امتحان‌های کلاس و پایهٔ خودش و امتحان‌های کل مدرسه را می‌بیند.",
+      "for": [
+        "school",
+        "web"
+      ]
+    },
+    {
+      "t": "ردیف ۱۹۷ Q12 / F21 + Schemathesis + Dependabot. (۱) server/index.js readBody: بدنهٔ JSON که شیء نیست (null، عدد، رشته، آرایه) با 400 bad_json رد می‌شود و دیگر به 500 نمی‌رسد. این گارد مرکزی است و همهٔ مسیرها از جمله login، claim، transfer/redeem و unlock را پوشش می‌دهد؛ آزمون tests/auth-body-shape.js با ۳۴ بررسی (۲۵ مورد روی کد قبلی قرمز بود). (۲) .github/dependabot.yml برای npm (ریشه)، github-actions و pub (ریشهٔ workspace در apps/payesh که هر ۹ پکیج را پوشش می‌دهد) هر هفته، با cooldown ۷ روزه و بدون مرج خودکار. تصمیم pub در docs/security/DEPENDENCY-UPDATES.md ثبت شده: Dependabot، نه Renovate. (۳) F21: خواندن discipline برای student فقط ردیف‌های خودش (policy.js، records.dart؛ rowInScope ابری با studentIds=[uid])، مشاور همچنان هیچ؛ SchoolExams (slot 17، فقط مدیر، not_allowed/bad_date/text_required/text_too_long)؛ StudentRecord.average/reportCard/homework/exams/discipline؛ وب examsCard/studentHome/PAGES.record؛ parity act:exam-add، act:exam-delete، form:exam. آزمون‌ها: student-record-197 (R01–R06)، school_exams_197 (E197-01..03)، exam_197 (EX197-01..03)، leak-matrix-57 (+۴). W11-W02 به رفتار تازه به‌روز شد (خانهٔ دانش‌آموز پرونده را تکرار نمی‌کند) و جهش MU-03 در parity-128 به نام ناموجود exam-room منتقل شد چون form:exam اکنون واقعی است.",
+      "for": [
+        "owner"
+      ]
+    }
+  ],
   "0.9.81": [
     {
       "t": "نسخهٔ سرور مدرسه که در ۰٫۹٫۸۰ ساخته نشده بود، این بار ساخته و منتشر می‌شود؛ ابزارهای کلاسِ دبیر (اطلاعیهٔ کلاس، تکلیف، یادداشت انضباطی، ارجاع به مشاور) حالا روی سرور مدرسه هم فعال است.",

@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const policy = require('../server/policy');
+const scope = require('../server/scope');
 
 const roles = ['manager', 'teacher', 'parent', 'student', 'counselor', 'guard', 'staff', 'office'];
 const collections = [
@@ -17,7 +18,8 @@ const readByRole = {
   // referrals they made (row scope below: referred_by === self) — never counselor_notes
   teacher: collections.filter((c) => !['parent_links', 'staff_attendance', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
   parent: collections.filter((c) => !['staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
-  student: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'discipline', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
+  // row 197 (F21): the student reads their own discipline notes (row scope below: own student_id only)
+  student: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'counselor_refs', 'counselor_notes', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
   counselor: collections.filter((c) => !['parent_links', 'staff_attendance', 'staff_posts', 'app_settings', 'import_issues', 'conflicts', 'visitors', 'contributions', 'trustees'].includes(c)),
   guard: collections.filter((c) => ['schools', 'school_years', 'users', 'classes', 'subjects', 'lookups', 'schedule', 'bell_schedules', 'substitutions', 'attendance', 'grades', 'announcements', 'leaves', 'internships', 'homework', 'exams', 'calendar'].includes(c)),
 };
@@ -151,6 +153,15 @@ try {
   assert.equal(policy.rowInScope(scopes.teacher, 'counselor_notes', ownRef), false, 'teacher must never see counselor notes');
   matrixChecks += 4;
   console.log('PASS  F19 teacher counselor_refs: own=1 colleague=0 unsigned=0 notes=0');
+  /* row 197 (F21): a student sees their own discipline notes — never a classmate's */
+  const ownDisc = { id: 4, student_id: 3, class_id: 10 };
+  const mateDisc = { id: 5, student_id: 9, class_id: 10 };
+  assert.equal(policy.rowInScope(scopes.student, 'discipline', ownDisc), true, 'student must see their own discipline note');
+  assert.equal(policy.rowInScope(scopes.student, 'discipline', mateDisc), false, "student must not see a classmate's discipline note");
+  assert.equal(scope.rowInScope({ role: 'student', uid: 3, all: false, classIds: [10], studentIds: [3], cohorts: [] }, 'discipline', mateDisc), false, "cloud scope: student must not see a classmate's discipline note");
+  assert.equal(policy.canRead('student', 'counselor_notes') || policy.canRead('student', 'counselor_refs'), false, 'student never reads counselor data');
+  matrixChecks += 4;
+  console.log('PASS  F21 student discipline: own=1 classmate=0 cloud-classmate=0 counselor=0');
   checkUserFields();
   checkNegativeControls();
   console.log(`LEAK-MATRIX-57-OK roles=${roles.length} collections=${collections.length} role_collection_checks=${matrixChecks} field_checks=${fieldChecks} fail=0`);

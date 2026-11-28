@@ -1342,6 +1342,15 @@ List<Widget> recordBlocks(StudentRecord r, {bool first = true}) => [
             ? Web.green
             : Web.amber,
       ),
+      // row 197 F21: the average («—» when there is no numeric grade)
+      WebStat(
+        icon: 'chart',
+        num: r.average == null
+            ? '—'
+            : Web.fa(r.average!.toStringAsFixed(1).replaceAll('.', '٫')),
+        label: 'معدل',
+        numKey: const Key('rec-average'),
+      ),
       WebStat(
         icon: 'pen',
         num: Web.fa(r.grades.length),
@@ -1410,4 +1419,204 @@ List<Widget> recordBlocks(StudentRecord r, {bool first = true}) => [
       ],
     ),
   ),
+  // row 197 F21: «کارنامه» — one line per subject
+  WebCard(
+    key: const Key('rec-report-card'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text('کارنامه', style: Web.b),
+        ),
+        WebTable(
+          head: const ['عنوان درس', 'میانگین / ارزشیابی'],
+          empty: r.reportCard.isEmpty
+              ? Text(
+                  'هنوز نمره‌ای ثبت نشده.',
+                  key: const Key('rec-report-empty'),
+                  style: TextStyle(color: Web.muted),
+                )
+              : null,
+          rows: [
+            for (final (i, (subject, value)) in r.reportCard.indexed)
+              [
+                Text(subject, key: Key('rec-rc-subject-$i')),
+                Text(
+                  value,
+                  key: Key('rec-rc-value-$i'),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+          ],
+        ),
+      ],
+    ),
+  ),
+  // row 197 F21: the student's own discipline notes
+  disciplineCard(
+    r.discipline,
+    key: const Key('rec-discipline'),
+    keyPrefix: 'rec-disc',
+  ),
 ];
+
+/// Row 197 F21: «انضباط» — the student's own notes, newest first ([limit] = the home's
+/// «آخرین یادداشت‌ها»).
+Widget disciplineCard(
+  List<DisciplineNote> notes, {
+  required Key key,
+  required String keyPrefix,
+  int? limit,
+}) {
+  final shown = limit == null ? notes : notes.take(limit).toList();
+  return WebCard(
+    key: key,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            limit == null ? 'انضباط' : 'آخرین یادداشت‌های انضباطی',
+            style: Web.b,
+          ),
+        ),
+        if (shown.isEmpty)
+          Text(
+            'یادداشتی ثبت نشده.',
+            key: Key('$keyPrefix-none'),
+            style: Web.small.copyWith(color: Web.muted),
+          ),
+        for (final (i, n) in shown.indexed)
+          Padding(
+            key: Key('$keyPrefix-$i'),
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                WebBadge(
+                  n.kind.labelFa,
+                  tone: n.kind == DisciplineKind.positive
+                      ? WebTone.green
+                      : n.kind == DisciplineKind.negative
+                      ? WebTone.red
+                      : WebTone.amber,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(n.note, style: Web.small.copyWith(color: Web.ink)),
+                      Text(
+                        Web.fa(Web.jdate(n.date)),
+                        style: Web.small.copyWith(color: Web.muted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+/// Row 197 F21: the student's home under «امروز» — what is due and what is coming, not a copy
+/// of «پروندهٔ من»: open homework, the upcoming exams and the latest discipline notes.
+List<Widget> studentHomeBlocks(StudentRecord r, String today) {
+  final hw = r.openHomework(today);
+  return [
+    WebCard(
+      key: const Key('home-homework'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('تکلیف‌ها', style: Web.b),
+          ),
+          if (hw.isEmpty)
+            Text(
+              'تکلیف بازی نداری.',
+              key: const Key('home-homework-none'),
+              style: Web.small.copyWith(color: Web.muted),
+            ),
+          for (final (i, h) in hw.take(6).indexed)
+            Padding(
+              key: Key('home-hw-$i'),
+              padding: const EdgeInsets.only(top: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    h.subjectName.isEmpty
+                        ? h.title
+                        : '${h.subjectName} — ${h.title}',
+                    style: Web.b,
+                  ),
+                  if (h.body.isNotEmpty)
+                    Text(h.body, style: Web.small.copyWith(color: Web.ink)),
+                  Text(
+                    h.due.isEmpty
+                        ? 'داده‌شده ${Web.fa(Web.jdate(h.date))}'
+                        : 'مهلت: ${Web.fa(Web.jdate(h.due))}',
+                    style: Web.small.copyWith(
+                      color: h.due == today ? Web.amber : Web.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+    WebCard(
+      key: const Key('home-exams'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('امتحان‌های پیش رو', style: Web.b),
+          ),
+          if (r.exams.isEmpty)
+            Text(
+              'امتحانی اعلام نشده.',
+              key: const Key('home-exams-none'),
+              style: Web.small.copyWith(color: Web.muted),
+            ),
+          for (final (i, e) in r.exams.take(6).indexed)
+            Padding(
+              key: Key('home-exam-$i'),
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 84,
+                    child: Text(Web.fa(Web.jdate(e.date)), style: Web.b),
+                  ),
+                  Expanded(
+                    child: Text(
+                      e.label,
+                      style: Web.small.copyWith(color: Web.ink),
+                    ),
+                  ),
+                  if (e.kind == ExamKind.national)
+                    WebBadge(e.kind.labelFa, tone: WebTone.red),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+    disciplineCard(
+      r.discipline,
+      key: const Key('home-discipline'),
+      keyPrefix: 'home-disc',
+      limit: 3,
+    ),
+  ];
+}

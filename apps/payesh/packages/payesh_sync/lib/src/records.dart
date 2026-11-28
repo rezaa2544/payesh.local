@@ -117,9 +117,10 @@ final class SchoolRecords {
       {'manager', 'counselor', 'teacher'},
     ),
     'counselor_notes': CollectionRule({'counselor', 'manager'}, {'counselor'}),
+    // Row 197 (Q12 / F21): a student reads their own notes too (server row scope: own id).
     'discipline': CollectionRule(
       {'manager', 'teacher'},
-      {'manager', 'teacher', 'counselor', 'parent'},
+      {'manager', 'teacher', 'counselor', 'parent', 'student'},
     ),
     'homework': CollectionRule({'manager', 'teacher'}),
     'exams': CollectionRule({'manager'}),
@@ -159,6 +160,8 @@ final class SchoolRecords {
     'calendar',
     // Row 197 (Q12 / F19): a teacher's homework (slot 16 = [2.6e15, 2.7e15)).
     'homework',
+    // Row 197 (Q12 / F21): the manager's exam calendar (slot 17 = [2.7e15, 2.8e15)).
+    'exams',
   ];
   static const int idFloor = 1000000000000000;
   static const int idSlotSpan = 100000000000000;

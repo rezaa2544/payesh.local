@@ -27,7 +27,7 @@ const path = require('node:path');
   const MUT = [
     ['MU-01', 'new web page without a matrix row', 'P-01', () => [clone(), readWith('client/pages.js', (s) => s + "\nPAGES.homework = () => '';\n")]],
     ['MU-02', 'new click action without a matrix row', 'P-01', () => [clone(), readWith('client/app.js', (s) => s.replace("case 'retry':", "case 'homework-add': return;\n    case 'retry':"))]],
-    ['MU-03', 'new schedule form without a matrix row', 'P-01', () => [clone(), readWith('client/schedule.js', (s) => s.replace('const SCHED_FORMS = {', "const SCHED_FORMS = {\n  'exam': () => {},"))]],
+    ['MU-03', 'new schedule form without a matrix row', 'P-01', () => [clone(), readWith('client/schedule.js', (s) => s.replace('const SCHED_FORMS = {', "const SCHED_FORMS = {\n  'exam-room': () => {},"))]],
     ['MU-04', 'matrix row whose web source was deleted', 'P-02', () => { const x = clone(); x.items.push({ id: 'act:ghost', status: 'ui', reason_fa: 'x' }); return [x, base.read]; }],
     ['MU-05', 'duplicate matrix row', 'P-03', () => { const x = clone(); x.items.push(Object.assign({}, x.items[0])); return [x, base.read]; }],
     ['MU-06', 'unknown status', 'P-03', () => { const x = clone(); x.items[0].status = 'done'; return [x, base.read]; }],

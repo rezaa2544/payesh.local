@@ -352,8 +352,14 @@ function readBody(req, limit = 4 * 1024 * 1024) {
     });
     req.on('end', () => {
       if (!chunks.length) return resolve({});
-      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-      catch (e) { reject(new Error('bad_json')); }
+      let v;
+      try { v = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+      catch (e) { return reject(new Error('bad_json')); }
+      /* یافتهٔ Schemathesis: JSON معتبرِ غیرآبجکت (null، عدد، رشته، آرایه) پیش‌تر
+         به destructure در handlerها می‌رسید و ۵۰۰ می‌داد. همهٔ مسیرهای API بدنهٔ
+         آبجکت می‌خواهند ⇒ همین‌جا ۴۰۰ bad_json. */
+      if (v === null || typeof v !== 'object' || Array.isArray(v)) return reject(new Error('bad_json'));
+      resolve(v);
     });
     req.on('error', reject);
   });

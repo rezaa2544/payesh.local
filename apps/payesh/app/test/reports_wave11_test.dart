@@ -168,10 +168,14 @@ void main() {
     expect(find.byKey(const Key('dash-slot-1')), findsNothing);
     expect(find.text('ریاضی'), findsOneWidget);
     expect(find.byKey(const Key('dash-done-2')), findsNothing);
-    // Row 172: web `studentHome` = the today card + `PAGES.record` («پروندهٔ من» below)
-    expect(find.text('پروندهٔ من'), findsOneWidget);
-    expect(find.byKey(const Key('rec-present')), findsOneWidget);
-    expect(find.byKey(const Key('rec-grades')), findsOneWidget);
+    // Row 197 (Q12 / F21): the student home = «امروز» + open homework + upcoming exams +
+    // the latest discipline notes; the record is its own page («پروندهٔ من»), not repeated
+    expect(find.byKey(const Key('home-homework')), findsOneWidget);
+    expect(find.byKey(const Key('home-exams')), findsOneWidget);
+    expect(find.byKey(const Key('home-discipline')), findsOneWidget);
+    expect(find.text('پروندهٔ من'), findsNothing);
+    expect(find.byKey(const Key('rec-present')), findsNothing);
+    expect(find.byKey(const Key('rec-grades')), findsNothing);
   });
 
   testWidgets('W11-W03 reports: weekly share per class, class report card, another class; print '

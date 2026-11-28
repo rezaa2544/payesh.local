@@ -69,6 +69,14 @@ class NoticesController extends ChangeNotifier {
   /// Error of the last «اعلام تعطیلی» attempt (shown in its form).
   String? dayOffError;
 
+  /// Row 197 (Q12 / F21): the manager's exam calendar — upcoming exams, and the subjects the
+  /// «افزودن امتحان» form offers.
+  List<Exam> exams = const [];
+  List<EngineRow> subjects = const [];
+
+  /// Error of the last «افزودن امتحان» attempt (shown in its form).
+  String? examError;
+
   /// The day the controller treats as today (tests pin it).
   DateTime Function() now = DateTime.now;
 
@@ -90,6 +98,73 @@ class NoticesController extends ChangeNotifier {
         ? await SchoolCalendar(db).upcoming(today)
         : const [];
     classes = canWrite ? await ClassNotes(db).myClasses() : const [];
+    exams = canWriteSchool ? await SchoolExams(db).list(from: today) : const [];
+    subjects = canWriteSchool
+        ? ((await db.allOrEmpty('subjects')).toList()..sort(
+            (a, b) =>
+                SchoolRecords.str(a.data['name'])
+                    .compareTo(SchoolRecords.str(b.data['name'])),
+          ))
+        : const [];
+  }
+
+  /// Row 197 (Q12 / F21): adds an exam (manager). Returns false when refused (message in
+  /// [examError]); the form stays open.
+  Future<bool> addExam({
+    required String date,
+    required ExamKind kind,
+    int? subjectId,
+    int? classId,
+    String title = '',
+  }) async {
+    final b = _board;
+    if (b == null || busy) return false;
+    busy = true;
+    examError = null;
+    notice = null;
+    _emit();
+    var ok = false;
+    try {
+      final w = await SchoolExams(_records(b)!).add(
+        date: date,
+        kind: kind,
+        subjectId: subjectId,
+        classId: classId,
+        title: title,
+        today: today,
+      );
+      notice = w.messageFa;
+      source.queued();
+      await _loadDays(b);
+      ok = true;
+    } on RecordFailure catch (e) {
+      examError = e.messageFa;
+    } on SyncFailure catch (e) {
+      examError = _syncMessage(e);
+    }
+    busy = false;
+    _emit();
+    return ok;
+  }
+
+  Future<void> deleteExam(Exam e) async {
+    final b = _board;
+    if (b == null || busy) return;
+    busy = true;
+    error = null;
+    _emit();
+    try {
+      final w = await SchoolExams(_records(b)!).delete(e);
+      notice = w.messageFa;
+      source.queued();
+      await _loadDays(b);
+    } on RecordFailure catch (x) {
+      error = x.messageFa;
+    } on SyncFailure catch (x) {
+      error = _syncMessage(x);
+    }
+    busy = false;
+    _emit();
   }
 
   /// Announces a day off (calendar row + important notice + internal exams moved). Returns
