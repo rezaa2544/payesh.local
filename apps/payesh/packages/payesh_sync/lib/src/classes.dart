@@ -680,7 +680,7 @@ final class ClassBook {
           continue;
         }
         touched[u] = {...u.data, 'followup_ack': false}
-          ..remove('followup_reason');
+          ..['followup_reason'] = '';
       }
     }
     var joined = 0;
@@ -699,7 +699,7 @@ final class ClassBook {
           normName(name) != normName('$grade $ub')) {
         continue;
       }
-      touched[u] = {...u.data, 'class_id': cid}..remove('followup_reason');
+      touched[u] = {...u.data, 'class_id': cid}..['followup_reason'] = '';
       joined++;
     }
     db.requireRoom(1 + touched.length);
@@ -765,6 +765,8 @@ final class ClassBook {
           'class_id': null,
           if (keep) ...{
             'grade': g,
+            // row 205: complete پایه + رشته ⇒ an old reason is settled (emptied, never dropped)
+            if (_s(u.data['followup_reason']).isNotEmpty) 'followup_reason': '',
             if (_s(u.data['field']).isEmpty && _s(u.data['branch']).isEmpty)
               'field': b,
           } else ...{
@@ -848,7 +850,7 @@ final class ClassBook {
           'users',
           u.id,
           {...u.data, 'class_id': into, 'followup_ack': false}
-            ..remove('followup_reason'),
+            ..['followup_reason'] = '',
           prev: u,
         ),
       );

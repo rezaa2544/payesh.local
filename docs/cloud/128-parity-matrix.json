@@ -1292,6 +1292,56 @@
    ]
   },
   {
+   "id": "act:issue-temp",
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('fu-issue-temp-btn-${i.id}')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Future<RecordWrite?> tempRegister(List<ImportIssue> rows)"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/row205_test.dart",
+     "has": "'R205-02"
+    },
+    {
+     "file": "tests/run.js",
+     "has": "W205:"
+    }
+   ]
+  },
+  {
+   "id": "act:issues-temp",
+   "status": "native",
+   "wave": "W10",
+   "native": [
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('fu-issues-temp')"
+    },
+    {
+     "file": "apps/payesh/app/lib/src/followup/followup_screen.dart",
+     "has": "Key('fu-issues-all')"
+    }
+   ],
+   "tests": [
+    {
+     "file": "apps/payesh/app/test/row205_test.dart",
+     "has": "'R205-03"
+    },
+    {
+     "file": "tests/run.js",
+     "has": "W205:"
+    }
+   ]
+  },
+  {
    "id": "act:issues-clear",
    "status": "native",
    "wave": "W10",

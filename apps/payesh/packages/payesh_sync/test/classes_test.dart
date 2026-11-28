@@ -141,7 +141,8 @@ void main() {
     expect(w.messageFa, 'پایه و رشته ساخته شد · 1 دانش‌آموز به آن وصل شد');
     final u = (await e.get('users', 22))!.data;
     expect(u['class_id'], w.id);
-    expect(u.containsKey('followup_reason'), isFalse);
+    // row 205: emptied, never dropped (the LAN server merges, so a dropped key came back)
+    expect('${u['followup_reason'] ?? ''}', '');
     final c = (await e.get('classes', w.id!))!.data;
     expect(c['grade_level'], 10);
     expect(c['mode'], 'field');

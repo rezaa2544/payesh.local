@@ -483,7 +483,7 @@ function diagMergeUsers(keepId, dropIds) {
     }
   }
   const patch = Object.assign({}, keep, fill);
-  delete patch.followup_reason;
+  patch.followup_reason = ''; /* ردیف ۲۰۵: خالی، نه حذف (سرور ادغام می‌کند) */
   putLocal('users', patch);
 
   /* ۲) داده‌های وابسته منتقل می‌شوند */

@@ -535,7 +535,8 @@ void main() {
     expect(w.messageFa, 'پایه و رشته ثبت شد — دهم شبکه');
     final arash = await e.get('users', 22);
     expect(arash!.data['grade'], 'دهم');
-    expect(arash.data.containsKey('followup_reason'), isFalse);
+    // row 205: emptied, never dropped (the LAN server merges, so a dropped key came back)
+    expect(arash.data['followup_reason'], '');
     expect(
       (await e.list('lookups')).any((l) => l.data['name'] == 'شبکه'),
       isTrue,

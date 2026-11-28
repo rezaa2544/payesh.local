@@ -268,9 +268,12 @@ const login = (port, phone, password) => req('POST', port, '/api/auth/login', { 
     const compose = fs.readFileSync(path.join(sim, 'docker-compose.sim.yml'), 'utf8');
     for (const s of ['central:', 'school1:', 'school2:', 'front:', 'driver:', 'PAYESH_TRUST_PROXY', 'NODE_EXTRA_CA_CERTS', '/var/run/docker.sock']) assert.ok(compose.includes(s), 'compose: ' + s);
     assert.ok(!/payesh-(pg|redis)-ha|benzin|hermes/.test(compose), 'به کانتینرهای دیگر دست نمی‌زند');
-    for (const f of fs.readdirSync(sim)) {
-      const t = fs.readFileSync(path.join(sim, f), 'utf8');
-      assert.ok(!/AKIA[0-9A-Z]{12,}|-----BEGIN (RSA |EC )?PRIVATE KEY-{5}/.test(t), 'کلید واقعی در ' + f);
+    /* ردیف ۲۰۵: زیرپوشه‌ها هم (tools/sim/helper-205) — بی‌کلید واقعی و از نظر نحو سالم */
+    const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
+    for (const full of walk(sim)) {
+      const t = fs.readFileSync(full, 'utf8');
+      assert.ok(!/AKIA[0-9A-Z]{12,}|-----BEGIN (RSA |EC )?PRIVATE KEY-{5}/.test(t), 'کلید واقعی در ' + path.relative(sim, full));
+      if (/helper-205[\\/].+\.js$/.test(full)) execFileSync(process.execPath, ['--check', full]);
     }
   });
 
