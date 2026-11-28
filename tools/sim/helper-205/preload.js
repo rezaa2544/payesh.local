@@ -55,7 +55,8 @@ function areaOf(path) {
   let p = String(path || '').split('?')[0];
   const q = String(path || '').includes('list-type=2') ? 'list:' : '';
   if (q) { const m = /[?&]prefix=([^&]*)/.exec(String(path)); p = '/b/' + (m ? decodeURIComponent(m[1]) : ''); }
-  const m = /\/payesh\/([^/]+)\/(?:([^/]+)\/)?/.exec(p + '/');
+  const keyPath = `${p}/`;
+  const m = /\/payesh\/([^/]+)\/(?:([^/]+)\/)?/.exec(keyPath);
   if (!m) return q + (p.length > 1 ? 'other' : 'root');
   if (m[1] === 'jobs' || m[1] === 'outbox') return q + m[1] + '/' + (m[2] || '');
   return q + m[1] + '/';

@@ -1335,8 +1335,12 @@ void main() {
     );
     await x.apply(a, await x.check(a));
     expect((await manager.sync()).waiting, 0);
+    // the W10-IT-01 import auto-groups the student into the field class «یازدهم مکاترونیک»;
+    // the grade id is keyed on that class (0 only for a student without one)
+    final stuClass =
+        (await serverRow('users', w10Student))!['class_id'] as num?;
     final gid = GradeBook.recordId(
-      classId: 0,
+      classId: stuClass?.toInt() ?? 0,
       subjectId: 41,
       term: GradeTerm.first,
       studentId: w10Student,
