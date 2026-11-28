@@ -180,6 +180,17 @@ class _HelperCardState extends State<HelperCard> {
   }
 
   /// ردیف ۲۱۰ — خط وضعیت یک اجراکننده در نمای یکپارچه (کلاس/توانایی/مدرسه).
+  /// ردیف ۲۱۰ — خط شمارش صف (در انتظار/در حال انجام/انجام‌شده/گیرکرده).
+  String _queueLine(HelperQueueStatus q) {
+    final parts = <String>[
+      '${faNumber(q.pending)} در انتظار',
+      '${faNumber(q.leased)} در حال انجام',
+      '${faNumber(q.done)} انجام‌شده',
+      '${faNumber(q.stuck)} گیرکرده',
+    ];
+    return 'صف کارها: ${parts.join(' · ')}';
+  }
+
   String _helperSubtitle(HelperPresence h) {
     final parts = <String>[
       h.onlineAt(_clock())

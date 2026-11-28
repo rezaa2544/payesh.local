@@ -41,7 +41,7 @@ abstract final class HelperDirs {
   static const String lease = 'jobs/lease/';
   static const String res = 'jobs/res/';
 
-  /// ردیف ۲۰۹ — یک فایل برای هر مدرسهٔ باطل‌شده: helpers/revoked/<school_id>.json
+  /// ردیف ۲۰۹ — یک فایل برای هر مدرسهٔ باطل‌شده: `helpers/revoked/SCHOOL_ID.json`
   static const String revoked = 'helpers/revoked/';
 }
 
