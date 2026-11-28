@@ -243,8 +243,7 @@ final class HelperPresence {
       failed: p['failed'] is int ? p['failed']! as int : 0,
       cls: clsRaw is String && classes.contains(clsRaw) ? clsRaw : 'owner',
       caps: capList.isEmpty ? kindList : capList,
-      schoolId:
-          sidRaw is String && schoolIdRe.hasMatch(sidRaw) ? sidRaw : null,
+      schoolId: sidRaw is String && schoolIdRe.hasMatch(sidRaw) ? sidRaw : null,
       pollMs: _pollMsOf(p['poll_ms']),
       nextPollAt: p['next_poll_at'] is int ? p['next_poll_at']! as int : null,
       accepting: p['accepting'] != false,
@@ -373,7 +372,6 @@ bool verifySchoolHelperToken(String secret, String token) {
   }
   return diff == 0;
 }
-
 
 /// ردیف ۲۱۰ — وضعیت صف کارها برای نمای یکپارچهٔ پنل (فقط شمارش؛ بدون محتوا).
 /// هم‌معنای queueStatus در server/helper-jobs.js است.
