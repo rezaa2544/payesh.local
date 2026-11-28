@@ -171,6 +171,23 @@ class _HelperCardState extends State<HelperCard> {
     }
   }
 
+  /// ردیف ۲۱۰ — خط وضعیت یک اجراکننده در نمای یکپارچه (کلاس/توانایی/مدرسه).
+  String _helperSubtitle(HelperPresence h) {
+    final parts = <String>[
+      h.onlineAt(_clock())
+          ? 'فعال'
+          : h.paused
+          ? 'متوقف'
+          : 'خاموش',
+      '${h.done} کار',
+      h.version,
+      'کلاس: ${h.cls}',
+      if (h.schoolId != null) 'مدرسه: ${h.schoolId}',
+      'توانایی‌ها: ${h.caps.join('، ')}',
+    ];
+    return parts.join(' · ');
+  }
+
   /// ردیف ۲۱۰ — خواندن وضعیت صف و فهرست ابطال‌ها برای نمای یکپارچه.
   Future<void> _loadQueue() async {
     setState(() => _busy = true);
@@ -832,24 +849,12 @@ class _HelperCardState extends State<HelperCard> {
                 '${h.host.isEmpty ? h.helperId : h.host}'
                 '${h.helperId == node?.helperId ? ' (همین دستگاه)' : ''}',
               ),
-              subtitle: Text(
-                '${h.onlineAt(_clock())
-                    ? 'فعال'
-                    : h.paused
-                    ? 'متوقف'
-                    : 'خاموش'} · ${h.done} کار · ${h.version}',
-              ),
+              subtitle: Text(_helperSubtitle(h)),
             ),
         ],
         if (_queue != null) ...[
           const SizedBox(height: 12),
-          Text(
-            'صف کارها: ${faNumber(_queue!.pending)} در انتظار · '
-            '${faNumber(_queue!.leased)} در حال انجام · '
-            '${faNumber(_queue!.done)} انجام‌شده · '
-            '${faNumber(_queue!.stuck)} گیرکرده',
-            key: const Key('helper-queue-result'),
-          ),
+          Text(_queueLine(_queue!), key: const Key('helper-queue-result')),
         ],
         const SizedBox(height: 16),
         const Text('توکن مدرسه (ردیف ۲۰۹):'),

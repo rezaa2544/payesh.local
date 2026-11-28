@@ -424,6 +424,34 @@ paths:
           $ref: '#/components/responses/Error'
         '403':
           $ref: '#/components/responses/Error'
+  /api/admin/helpers/school-token:
+    post:
+      operationId: postApiAdminHelpersSchoolToken
+      tags: [admin]
+      summary: "admin: POST admin/helpers/school-token — صدور یا ابطال توکن اختصاصی مدرسه (HMAC مشتق از کلید صندوقچه؛ کلید هرگز داده نمی‌شود)؛ ردیف ۲۰۹"
+      x-source: server/index.js:1286
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [school_id]
+              properties:
+                school_id:
+                  type: string
+                action:
+                  type: string
+                  enum: [issue, revoke]
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
   /api/admin/helpers/check-public:
     post:
       operationId: postApiAdminHelpersCheckPublic
