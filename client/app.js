@@ -301,10 +301,38 @@ async function cacheWrite(plain) {
   return 'plaintext_legacy';
 }
 
-function saveCache() {
+/* ذخیرهٔ کش با ادغام فراخوانی‌های پشت‌سرهم: پیش‌تر هر تغییر (و هنگام
+   همگام‌سازی، هر دسته) کل دادهٔ مدرسه را از نو رشته‌سازی + AES-GCM و
+   بازنویسی می‌کرد و رشتهٔ اصلی را می‌بست — همان مکثی که در همهٔ صفحه‌ها
+   حس می‌شد. حالا در یک بازهٔ کوتاه فقط یک نوشتن انجام می‌شود؛ هنگام
+   پنهان‌شدن/بسته‌شدن صفحه هم بی‌درنگ نوشته می‌شود تا چیزی از دست نرود.
+   کش فقط کش است: منبع حقیقت سرور (یا صندوقچه) است و صف عملیات مسیر
+   ماندگارِ جداگانه دارد. */
+let _cacheTimer = null, _cacheWaiters = [];
+function _writeCacheNow() {
+  if (_cacheTimer) { clearTimeout(_cacheTimer); _cacheTimer = null; }
   const plain = {};
   for (const c of Object.keys(S.data)) plain[c] = [...S.data[c].values()];
-  return cacheWrite(plain);
+  const p = cacheWrite(plain);
+  const w = _cacheWaiters; _cacheWaiters = [];
+  if (w.length) Promise.resolve(p).then(() => w.forEach(r => r()), () => w.forEach(r => r()));
+  return p;
+}
+function saveCache() {
+  return new Promise(resolve => {
+    _cacheWaiters.push(resolve);
+    if (_cacheTimer) return;
+    _cacheTimer = setTimeout(() => { _writeCacheNow(); }, 250);
+  });
+}
+/* بستن/پنهان‌شدن صفحه: کش همان لحظه روی دیسک بنشیند */
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && _cacheTimer) _writeCacheNow();
+  });
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('pagehide', () => { if (_cacheTimer) _writeCacheNow(); });
 }
 /* ── صف عملیات: ماندگار روی دستگاه (ردیف ۴۰) ────────────────────────
    قبلاً این‌جا صف به ۵۰۰ عملیات آخر بریده و ذخیره می‌شد؛ صفِ بزرگ‌تر،
@@ -1799,6 +1827,26 @@ function paintApp(html) {
   if (snap) focusRestore(snap);
 }
 
+/* رمزهای کاربران فقط وقتی لازم‌اند که مدیر پنجرهٔ «کاربری» کسی را باز
+   کند؛ پس تنبل خوانده می‌شوند — نه با هر ورود به صفحهٔ کاربران، که هم
+   صفحه را بی‌دلیل دوباره می‌ساخت و هم مدیر را منتظر پاسخ سرور می‌گذاشت. */
+let _credsPromise = null;
+async function loadCreds() {
+  if (S.creds !== undefined) return S.creds;
+  if (_credsPromise) return _credsPromise;
+  _credsPromise = (async () => {
+    try {
+      const r = await api('/api/admin/users/credentials');
+      const m = {};
+      (r.users || []).forEach(u => { m[u.id] = u; });
+      S.creds = m;
+    } catch (e) { S.creds = {}; }
+    _credsPromise = null;
+    return S.creds;
+  })();
+  return _credsPromise;
+}
+
 function render() {
   const root = $('#app');
   if (!root) return;
@@ -1822,17 +1870,6 @@ function render() {
   if (S.route === 'network' && S.role === 'manager' && !S.network && !S._netLoading) {
     S._netLoading = true;
     loadNetwork(false).then(() => { S._netLoading = false; if (S.route === 'network') render(); });
-  }
-  if (S.route === 'users' && S.role === 'manager' && S.creds === undefined && !S._credsLoading && !PHONE_MODE) {
-    S._credsLoading = true;
-    api('/api/admin/users/credentials')
-      .then(r => {
-        const m = {};
-        (r.users || []).forEach(u => { m[u.id] = u; });
-        S.creds = m;
-      })
-      .catch(() => { S.creds = {}; })
-      .then(() => { S._credsLoading = false; render(); });
   }
 
   /* وضعیت به‌روزرسانی در صفحهٔ «سیستم» (همان snapshot k3-reval) */

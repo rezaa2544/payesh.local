@@ -340,6 +340,24 @@ class Store {
     return this.get(collection, id);
   }
 
+  /* به‌روزرسانیِ درجا و بی‌صدا: فقط ستون data عوض می‌شود — نه version، نه
+     updated_at، نه ایندکس‌ها و نه خبرِ نوشتن. برای مهرکردنِ اطلاعاتی که از
+     دیدِ همگام‌سازی «تغییر کاربر» نیستند (مثل password_enc که یک‌بار از روی
+     رمز پیش‌فرض ساخته می‌شود) تا نه دلتای اضافی به دستگاه‌ها برود و نه
+     نسخهٔ ردیف بی‌دلیل بالا برود. همان الگوی rekeyFields. */
+  updateDataInPlace(collection, id, mutator) {
+    const row = this.getRow(collection, id);
+    if (!row || row.deleted_at || typeof mutator !== 'function') return false;
+    let data;
+    try { data = mutator(this._open(collection, row)); } catch (e) { return false; }
+    if (!data || typeof data !== 'object') return false;
+    try {
+      this.db.prepare('UPDATE records SET data=? WHERE collection=? AND id=?')
+        .run(JSON.stringify(fc.sealRecord(collection, Number(id), data)), collection, Number(id));
+      return true;
+    } catch (e) { return false; }
+  }
+
   remove(collection, id) {
     const ts = nowISO();
     this.db.prepare('UPDATE records SET deleted_at=?, updated_at=?, version=version+1 WHERE collection=? AND id=?')
