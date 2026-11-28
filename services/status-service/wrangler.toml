@@ -2,3 +2,9 @@ name = "payesh-status"
 main = "worker.js"
 compatibility_date = "2026-11-27"
 workers_dev = true
+
+# Row 206: Helper executor tick (contract v2). Secrets (never in repo):
+#   wrangler secret put HELPER_S3_ENDPOINT / HELPER_S3_BUCKET /
+#   HELPER_S3_ACCESS_KEY / HELPER_S3_SECRET_KEY / HELPER_BOX_SECRET
+[triggers]
+crons = ["* * * * *"]
