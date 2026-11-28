@@ -1046,6 +1046,14 @@ PAGES.users = () => {
   if (q) users = users.filter(u => String(u.name).includes(q) || String(u.phone || '').includes(q) || String(u.national_id || '').includes(q));
   users = sortBy(users, 'name').slice(0, 300);
 
+  /* نمایهٔ یک‌بارهٔ پیوند ولی→دانش‌آموز برای ردیف‌های جدول */
+  const linksByParent = new Map();
+  for (const l of list('parent_links')) {
+    const pid = Number(l.parent_id);
+    if (!linksByParent.has(pid)) linksByParent.set(pid, []);
+    linksByParent.get(pid).push(l);
+  }
+
   const picked = S.picked instanceof Set ? S.picked : new Set();
   const pickedVisible = users.filter(u => picked.has(Number(u.id)));
   const allPicked = users.length > 0 && pickedVisible.length === users.length;
@@ -1091,9 +1099,10 @@ PAGES.users = () => {
     <th style="width:34px"><input type="checkbox" data-pick="all" ${allPicked ? 'checked' : ''} title="انتخاب همه"></th>
     <th>نام و نام خانوادگی</th><th>نقش</th><th>پایه</th><th>رشته</th>${S.roleFilter === 'parent' ? '<th>ولیِ چه دانش‌آموزی</th>' : ''}<th>عملیات</th></tr></thead><tbody>
     ${users.map(u => {
-      /* پایه و رشته از گروه ثبت‌نام (کلاس) خوانده می‌شود؛ برای ولی، از فرزندش */
-      const link = u.role === 'parent' ? list('parent_links').find(l => Number(l.parent_id) === Number(u.id)) : null;
-      const kids = u.role === 'parent' ? list('parent_links').filter(l => Number(l.parent_id) === Number(u.id)).map(l => byId('users', l.student_id)).filter(Boolean) : [];
+      /* پایه و رشته از گروه ثبت‌نام (کلاس) خوانده می‌شود؛ برای ولی، از فرزندش.
+         پیوندها یک بار پیش از حلقه نمایه شده‌اند (linksByParent) تا برای هر
+         ردیف، کل فهرست پیوندها از نو ساخته و پیمایش نشود. */
+      const kids = u.role === 'parent' ? (linksByParent.get(Number(u.id)) || []).map(l => byId('users', l.student_id)).filter(Boolean) : [];
       const subject = (u.role === 'parent' && kids.length) ? kids[0] : u;
       const grp = byId('classes', subject.class_id) || {};
       const gr = String(grp.grade || subject.grade || '');
@@ -1196,7 +1205,7 @@ function importIssueRows() {
 }
 
 /** چرا این دانش‌آموز کلاس درست ندارد؟ رشتهٔ خالی برچسب نمی‌خورد. */
-function followupStudentReason(u) {
+function followupStudentReason(u, lk) {
   if (!u || u.role !== 'student') return '';
   if (u.followup_ack) return '';
   const c = u.class_id ? byId('classes', u.class_id) : null;
@@ -1206,8 +1215,8 @@ function followupStudentReason(u) {
     const sg = String(u.grade || '').trim();
     const sf = String(u.field || u.branch || '').trim();
     const lvl = typeof impGradeLevel === 'function' ? impGradeLevel(sg) : 0;
-    const gNames = lookupList('grade').map(l => String(l.name));
-    const bNames = lookupList('branch').map(l => String(l.name));
+    const gNames = lk ? lk.gradeNames : lookupList('grade').map(l => String(l.name));
+    const bNames = lk ? lk.branchNames : lookupList('branch').map(l => String(l.name));
     const key = (x) => typeof gradeKey === 'function' ? gradeKey(x) : String(x || '').trim();
     const nb = (x) => String(x || '').replace(/\s+/g, ' ').replace(/ي/g, 'ی').replace(/ك/g, 'ک').trim();
     const gradeOk = lvl >= 10 && (!gNames.length || gNames.some(g => key(g) === key(sg)));
@@ -1219,8 +1228,8 @@ function followupStudentReason(u) {
     }
     return own || 'پایه و رشته ندارد';
   }
-  const gradeNames = lookupList('grade').map(l => String(l.name));
-  const branchNames = lookupList('branch').map(l => String(l.name));
+  const gradeNames = lk ? lk.gradeNames : lookupList('grade').map(l => String(l.name));
+  const branchNames = lk ? lk.branchNames : lookupList('branch').map(l => String(l.name));
   const g = String(c.grade || '').trim();
   const b = String(c.branch || '').trim();
   if (!g) return u.followup_reason || 'پایه‌اش در فایل نبود';
@@ -1232,9 +1241,16 @@ function followupStudentReason(u) {
 
 function followupStudents() {
   const out = [];
+  /* فهرست پایه/رشته یک بار ساخته می‌شود، نه برای هر دانش‌آموز از نو
+     (lookupList در هر فراخوانی کل مجموعه را کپی و مرتب می‌کند و این
+     تابع روی هر ساختِ صفحهٔ کاربران صدا زده می‌شود). */
+  const lk = {
+    gradeNames: lookupList('grade').map(l => String(l.name)),
+    branchNames: lookupList('branch').map(l => String(l.name)),
+  };
   for (const u of list('users')) {
     if (u.role !== 'student') continue;
-    const r = followupStudentReason(u);
+    const r = followupStudentReason(u, lk);
     if (r) out.push({ user: u, reason: r });
   }
   out.sort((a, b) => alphaCompare(a.user.name, b.user.name));
@@ -2756,9 +2772,16 @@ function actUserFull(id) {
 }
 
 /* ── پنجرهٔ «کاربری»: نام کاربری و رمز، در یک جا، قابل ویرایش و حذف ── */
-function actUserCreds(id) {
+async function actUserCreds(id) {
   const u = byId('users', Number(id));
   if (!u) return toast('این کاربر پیدا نشد — صفحه را تازه کنید', 'err');
+  /* رمزها تنبل خوانده می‌شوند: فقط همین‌جا، نخستین بار که مدیر پنجرهٔ
+     «کاربری» کسی را باز می‌کند — نه با هر ورود به صفحهٔ کاربران. */
+  if (S.creds === undefined && !isPhoneMode() && typeof loadCreds === 'function') {
+    toast('در حال خواندن رمزها…');
+    await loadCreds();
+    if (!byId('users', Number(id))) return;
+  }
   const c = (S.creds && S.creds[u.id]) || null;
   const username = String((c && c.phone) || u.phone || u.national_id || '');
   /* F‑01: رمز فقط از پاسخ مدیر (رمزنگاری‌شده در سرور) می‌آید، نه از دادهٔ محلی */

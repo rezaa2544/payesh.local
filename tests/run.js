@@ -5575,6 +5575,14 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ADR-117-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
     });
 
+  /* ── کندی صفحهٔ کاربران (استثنای مالک ۲۰۲۶-۱۱-۲۸): PBKDF2 تکراری، واکشی eager رمزها، بازنویسی کامل کش ── */
+  await test('کندی کاربران — passwordOf یک‌بارمهر، رمز تنبل، کش ادغامی، کنترل منفی',
+    async () => {
+      const r = await require('./users-perf.js').main({ quiet: true });
+      if (r.failed) throw new Error('USERS-PERF failures: ' + r.failures.join(','));
+      console.log('    USERS-PERF-OK passed=' + r.passed + ' negative_controls=' + r.negatives);
+    });
+
   /* ── ردیف ۱۲۱: ساخت مدرسه از پنل مالک (migration 005 + POST /tenants) ─── */
   const tenantProvisioning = require('../apps/owner-panel/tests/tenant-provisioning.test.js');
   await test('ردیف ۱۲۱: ساخت مدرسه از پنل مالک — فقط owner، reason، provision_op_id idempotent، saga (provisioning→active)، کد یک‌بارمصرف بیرون از audit، کنترل منفی',

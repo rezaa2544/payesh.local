@@ -1496,10 +1496,20 @@ async function api(req, res, url, ip) {
     /* ردیف ۲۸: پاسخ گاوصندوق نباید در هیچ کشی بنشیند */
     res.setHeader('cache-control', 'no-store, max-age=0');
     res.setHeader('pragma', 'no-cache');
-    const rows = (store.all('users') || []).map(u => ({
-      id: u.id, name: u.name, role: u.role,
-      phone: u.phone || '', username: u.username || '', password: auth.passwordOf(store, u),
-    }));
+    /* passwordOf برای کاربرِ بدون password_enc یک بررسی PBKDF2 دارد (فقط
+       بارِ اول؛ بعدش مهرشده در ردیف است و از کش می‌آید). این‌جا بین هر چند
+       کاربر به حلقهٔ رویداد نفس می‌دهیم تا همان بارِ اول هم سرورِ تک‌رشته‌ای
+       برای بقیهٔ مدرسه قفل نشود. */
+    const all = store.all('users') || [];
+    const rows = [];
+    for (let i = 0; i < all.length; i++) {
+      if (i && i % 8 === 0) await new Promise(r => setImmediate(r));
+      const u = all[i];
+      rows.push({
+        id: u.id, name: u.name, role: u.role,
+        phone: u.phone || '', username: u.username || '', password: auth.passwordOf(store, u),
+      });
+    }
     return json({ ok: true, users: rows });
   }
 
