@@ -133,10 +133,10 @@ jobs:
     name: Native gate — self-test + negative controls (row 63)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - name: Gate unit tests (synthetic clean/dirty APK, AAB, Windows bundles)
@@ -165,7 +165,7 @@ jobs:
             --android neg/payesh-local.apk neg/payesh-owner.apk \
             --windows install/legacy-webview-fixtures/payesh-local-windows-0.9.2.zip | tee native-gate-negative.txt
           grep -q 'NATIVE-GATE-NEGATIVE-CONTROL-OK' native-gate-negative.txt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-gate-negative-controls
           path: native-gate-negative.txt
@@ -174,10 +174,10 @@ jobs:
     name: Web parity — shared engine + outbox + Jalali vectors on the web client (rows 70/71/73)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -201,10 +201,10 @@ jobs:
     name: Dart sync client against the REAL Node server (row 71)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -265,7 +265,7 @@ jobs:
           # every test counted itself (passed=N equals the executed count) and negatives ran
           grep -qE "^NATIVE-ADMIN-IT passed=${ran} negative_controls=[1-9][0-9]*$" "$GITHUB_WORKSPACE/admin-real-server.txt"
           echo "ADMIN-REAL-SERVER-OK tests=${ran}"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: sync-real-server
@@ -289,10 +289,10 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 5s --health-retries 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -353,7 +353,7 @@ jobs:
           test "$(grep -cE '^PASS  O119-S[0-9]{2} ' "$GITHUB_WORKSPACE/offline-119.txt")" = 20
           grep -qE '^OFFLINE-119 scenarios=20 data_loss=0 duplicate=0 order_violations=0 cross_tenant=0$' "$GITHUB_WORKSPACE/offline-119.txt"
           echo OFFLINE-119-OK
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: gateway-real
@@ -368,7 +368,7 @@ jobs:
       run:
         working-directory: apps/payesh
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Flutter ${{ env.FLUTTER_VERSION }} (pinned, sha256-verified)
@@ -431,12 +431,12 @@ jobs:
           ls test/goldens/*.png | tee -a "$GITHUB_WORKSPACE/ui-73.txt"
           sha256sum test/goldens/*.png fonts/*.ttf | tee -a "$GITHUB_WORKSPACE/ui-73.txt"
           echo UI-73-OK | tee -a "$GITHUB_WORKSPACE/ui-73.txt"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: golden-failures
           path: apps/payesh/packages/payesh_ui/test/failures/
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-coverage
           path: |
@@ -451,14 +451,14 @@ jobs:
     needs: dart
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: '17'
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - name: Flutter ${{ env.FLUTTER_VERSION }} (pinned, sha256-verified)
@@ -630,7 +630,7 @@ jobs:
           done | tee native-out/sqlite-cipher-android.txt
           test "$(grep -c 'Multiple Ciphers' native-out/sqlite-cipher-android.txt)" -ge 1
           echo SQLITE-CIPHER-ANDROID-OK | tee -a native-out/sqlite-cipher-android.txt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-android
           path: native-out/
@@ -640,10 +640,10 @@ jobs:
     needs: dart
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - name: Flutter ${{ env.FLUTTER_VERSION }} (pinned, sha256-verified)
@@ -984,7 +984,7 @@ jobs:
         if: always()
         shell: pwsh
         run: Remove-Item (Join-Path $env:RUNNER_TEMP 'payesh-native-sign.pfx') -Force -ErrorAction SilentlyContinue
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-windows
           path: native-out/
@@ -999,10 +999,10 @@ jobs:
     name: Native owner client against the REAL owner stack (row 126)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - name: npm ci
@@ -1029,7 +1029,7 @@ jobs:
           PAYESH_OWNER_IT=1 dart test --reporter expanded test/real_server_it_test.dart test/parity_test.dart 2>&1 | tee "$GITHUB_WORKSPACE/owner-out/owner-native-it.txt"
           grep -q '^OWNER-NATIVE-IT-OK' "$GITHUB_WORKSPACE/owner-out/owner-native-it.txt"
           if grep -qE '~[0-9]+' "$GITHUB_WORKSPACE/owner-out/owner-native-it.txt"; then echo 'OWNER-IT-SKIPPED'; exit 1; fi
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: owner-native-it
@@ -1040,14 +1040,14 @@ jobs:
     needs: dart
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: '17'
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - name: Flutter ${{ env.FLUTTER_VERSION }} (pinned, sha256-verified)
@@ -1195,7 +1195,7 @@ jobs:
       - name: Remove signing material
         if: always()
         run: rm -f "$RUNNER_TEMP/payesh-owner-native.p12"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: owner-native-android
           path: owner-out/
@@ -1205,10 +1205,10 @@ jobs:
     needs: dart
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - name: Flutter ${{ env.FLUTTER_VERSION }} (pinned, sha256-verified)
@@ -1402,7 +1402,7 @@ jobs:
           "OWNER-INSTALLER-OK upgrade-from-webview=$legacy install+gate+run+uninstall" | Tee-Object -FilePath $log -Append
           $h = (Get-FileHash 'owner-out\payesh-owner-setup.exe' -Algorithm SHA256).Hash.ToLower()
           "$h  payesh-owner-setup.exe" | Tee-Object -FilePath owner-out\SHA256SUMS-owner-installer
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: owner-native-windows
           path: owner-out/
@@ -1419,14 +1419,14 @@ jobs:
       matrix:
         api: [21, 23]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: native-android
           path: native-out
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: owner-native-android
           path: owner-out
@@ -1445,7 +1445,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
           script: bash tools/android21/emulator-smoke.sh emu-out native-out/payesh-native.apk ir.payesh.school.payesh_app owner-out/payesh-owner.apk ir.payesh.owner
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: android-api${{ matrix.api }}-emulator
