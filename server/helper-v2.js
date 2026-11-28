@@ -127,8 +127,16 @@ function verifySchoolToken(secret, token) {
   return a.length === b.length && crypto.timingSafeEqual(a, b) ? id : null;
 }
 
+/* ردیف ۲۰۹ — Verify با فهرست ابطال مالک: توکن مدرسهٔ باطل‌شده رد می‌شود. */
+function verifySchoolTokenEx(secret, token, revoked) {
+  const id = verifySchoolToken(secret, token);
+  if (!id) return null;
+  const list = Array.isArray(revoked) ? revoked : Object.keys(revoked || {});
+  return list.includes(id) ? null : id;
+}
+
 module.exports = {
   EXECUTOR_CLASSES, DATA_CLASSES, PRIORITIES, JOB_CATALOG, catalogOf,
   normalizePresence, normalizeJobMeta, canLease, pickExecutor, nextPollDelay,
-  schoolToken, verifySchoolToken, SCHOOL_ID_RE,
+  schoolToken, verifySchoolToken, verifySchoolTokenEx, SCHOOL_ID_RE,
 };
