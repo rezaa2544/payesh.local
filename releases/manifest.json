@@ -1,24 +1,25 @@
 {
-  "version": "0.9.81",
-  "built_at": "2026-11-28T09:52:06.377Z",
+  "version": "0.9.82",
+  "built_at": "2026-11-28T13:39:49.701Z",
   "notes": [
-    "نسخهٔ سرور مدرسه که در ۰٫۹٫۸۰ ساخته نشده بود، این بار ساخته و منتشر می‌شود؛ ابزارهای کلاسِ دبیر (اطلاعیهٔ کلاس، تکلیف، یادداشت انضباطی، ارجاع به مشاور) حالا روی سرور مدرسه هم فعال است."
+    "دانش‌آموز حالا «پروندهٔ من» کامل دارد: معدل (اگر هنوز نمره‌ای نیست «—»)، کارنامه با یک سطر برای هر درس، و یادداشت‌های انضباطیِ خودش. صفحهٔ «امروز» دانش‌آموز هم تکلیف‌های باز، امتحان‌های پیش رو و آخرین یادداشت‌های انضباطی را نشان می‌دهد و دیگر پرونده را تکرار نمی‌کند.",
+    "مدیر از صفحهٔ «اطلاعیه‌ها» امتحان ثبت و حذف می‌کند: روز، درس یا عنوان، یک کلاس یا همهٔ مدرسه، و نوع داخلی یا نهایی. هر دانش‌آموز فقط امتحان‌های کلاس و پایهٔ خودش و امتحان‌های کل مدرسه را می‌بیند."
   ],
   "shell": {
-    "android": "0.9.81"
+    "android": "0.9.82"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "8ac53d1c7d133e7cabf05d78ed886444609c717175b402b652ee15abf2b65676",
-      "size": 257960
+      "sha256": "8490091e6b38f4749a1fcc615633b2076cb8d046aa082968cd43dc048a767d05",
+      "size": 259345
     },
     {
       "path": "client/authz.js",
       "kind": "client",
-      "sha256": "b6e7f29dbe8846b909517947577833e64fef2c9ab140017c6978cbbec56d393a",
-      "size": 9223
+      "sha256": "defd7dd11f79f383dbc0626063355fe8937d5c67d40257785d0f6e989ccb261f",
+      "size": 9244
     },
     {
       "path": "client/cloud-baked.js",
@@ -143,8 +144,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "d5cdefd35a01031ed33d937651392760c7818ab183ab10bb92601f1a986b8384",
-      "size": 237484
+      "sha256": "1f0ff3a237e8be96793157814a74c7c249fed9752cb97808388634d23853a846",
+      "size": 245618
     },
     {
       "path": "client/provider-postgrest.js",
@@ -221,8 +222,8 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "76f556e4cf2f41cd1d8cf3375dc57e4aa54fc7a29002645fb4c8f202ad146ed8",
-      "size": 8417
+      "sha256": "792cb1cdf477b1fc072b8646e87e264beffccc65e92ac9195c0794d7488ca380",
+      "size": 8502
     },
     {
       "path": "server/academic-year.js",
@@ -371,8 +372,8 @@
     {
       "path": "server/index.js",
       "kind": "server",
-      "sha256": "f14f9a36658ecb4af63668f76673363ab0645d3ad917eadb88f2c50f11d4d278",
-      "size": 163196
+      "sha256": "abaa5a5f489ecc91c394356aea6a4e1281580f255bd0137c0ef7caa64e425c95",
+      "size": 163662
     },
     {
       "path": "server/kill-switch.js",
@@ -437,8 +438,8 @@
     {
       "path": "server/policy.js",
       "kind": "server",
-      "sha256": "97466e175361472326434a17490f3b50c1b1de5e640bd83f09cf294e2f07e5b1",
-      "size": 37392
+      "sha256": "07a45739b8035559caa206f0a3f4b1146d92af2fccd3249584ad724331945fdc",
+      "size": 37564
     },
     {
       "path": "server/privacy.js",
@@ -631,7 +632,7 @@
     "client": 34,
     "server": 69
   },
-  "client_size": 1648382,
-  "server_size": 1131242,
-  "total_size": 2779624
+  "client_size": 1657922,
+  "server_size": 1131965,
+  "total_size": 2789887
 }
