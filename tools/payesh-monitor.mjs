@@ -9,6 +9,7 @@ const TARGETS = [
   { name: 'site', url: 'https://payeshschool.ir/', expect: 'http200' },
   { name: 'web-app', url: 'https://app.payeshschool.ir/', expect: 'http200' },
   { name: 'school-servers', url: 'https://payeshschool.ir/payesh/pub/school-servers.json', expect: 'servers-json' },
+  { name: 'status-worker', url: 'https://payesh-status.0skttfw1vayxk0lghrl.workers.dev/health', expect: 'http200' },
 ];
 
 async function check(t) {
