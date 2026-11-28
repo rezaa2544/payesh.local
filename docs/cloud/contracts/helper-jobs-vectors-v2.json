@@ -1,0 +1,162 @@
+{
+  "description": "Helper contract v2 (row 205). Envelope stays v1 (server/helper-jobs.js seal/open); plain may be v:2 with additive fields. v1 readers ignore extras; v2 readers default v1 plains to cls=owner, caps=kinds, data_class=internal.",
+  "secret": "sk-vector-0123456789abcdef",
+  "executor_classes": [
+    "owner",
+    "school",
+    "cloudflare",
+    "actions"
+  ],
+  "data_classes": [
+    "public",
+    "internal",
+    "school-content"
+  ],
+  "priorities": [
+    "high",
+    "normal",
+    "low"
+  ],
+  "catalog": {
+    "storage.usage": {
+      "data_class": "internal",
+      "executors": [
+        "owner",
+        "school",
+        "cloudflare",
+        "actions"
+      ],
+      "idempotent": true,
+      "max_ms": 120000
+    },
+    "object.verify": {
+      "data_class": "internal",
+      "executors": [
+        "owner",
+        "school",
+        "cloudflare",
+        "actions"
+      ],
+      "idempotent": true,
+      "max_ms": 300000
+    },
+    "endpoint.check": {
+      "data_class": "public",
+      "executors": [
+        "owner",
+        "school",
+        "cloudflare",
+        "actions"
+      ],
+      "idempotent": true,
+      "max_ms": 30000
+    },
+    "bucket.gc": {
+      "data_class": "internal",
+      "executors": [
+        "owner",
+        "cloudflare",
+        "actions"
+      ],
+      "idempotent": true,
+      "max_ms": 180000
+    },
+    "backup.verify": {
+      "data_class": "internal",
+      "executors": [
+        "owner",
+        "school",
+        "actions"
+      ],
+      "idempotent": true,
+      "max_ms": 600000
+    },
+    "report.aggregate": {
+      "data_class": "school-content",
+      "executors": [
+        "owner",
+        "school"
+      ],
+      "idempotent": true,
+      "max_ms": 600000
+    },
+    "update.build": {
+      "data_class": "internal",
+      "executors": [
+        "owner",
+        "actions"
+      ],
+      "idempotent": true,
+      "max_ms": 900000
+    }
+  },
+  "cases": {
+    "presence_v2": {
+      "plain": {
+        "v": 2,
+        "helper_id": "cf00000000000001",
+        "host": "cloudflare-worker",
+        "app": "payesh-status",
+        "version": "dp-1",
+        "slots": 1,
+        "paused": false,
+        "kinds": [
+          "endpoint.check"
+        ],
+        "caps": [
+          "endpoint.check",
+          "storage.usage"
+        ],
+        "cls": "cloudflare",
+        "capacity": 1,
+        "cpu_cap": null,
+        "region": "cf",
+        "contract": "2",
+        "school_id": null,
+        "at": 1762990000000,
+        "done": 0,
+        "failed": 0
+      }
+    },
+    "job_priority": {
+      "plain": {
+        "v": 2,
+        "job_id": "1762990000000-0011223344556677",
+        "kind": "object.verify",
+        "params": {
+          "key": "payesh/backups/a.json"
+        },
+        "from": "school-server",
+        "created_at": 1762990000000,
+        "deadline_at": 1762990600000,
+        "priority": "high",
+        "data_class": "internal",
+        "idempotency_key": "1762990000000-0011223344556677",
+        "school_id": null
+      }
+    },
+    "lease_expired": {
+      "rule": "lease.until < now and no result => another executor may claim; requester falls back local (lease_expired)"
+    },
+    "data_class_rejected": {
+      "rule": "cloudflare/actions must not lease data_class=school-content; school must not lease another school job",
+      "expect": {
+        "cloudflare_school_content": false,
+        "actions_school_content": false,
+        "other_school": false,
+        "own_school": true,
+        "owner_school_content": true
+      }
+    },
+    "v1_compat": {
+      "rule": "plain v:1 accepted everywhere; defaults cls=owner caps=kinds data_class=internal"
+    },
+    "duplicate_result": {
+      "rule": "result is keyed by job_id and carries idempotency_key; a second result for same job_id is ignored by requester after first valid result"
+    }
+  },
+  "school_token": {
+    "school_id": "school-01",
+    "token": "school-01.UeUJL184KhyoeMsVGSd7XjES2J9aWmOVzQttEqCqkg4"
+  }
+}
