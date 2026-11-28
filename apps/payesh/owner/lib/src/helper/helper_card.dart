@@ -432,8 +432,7 @@ class _HelperCardState extends State<HelperCard> {
     final String text;
     final Color color;
     if (eff == null) {
-      text =
-          'بدون سقف: کارهای پس‌زمینه هر قدر لازم باشد از پردازنده استفاده می‌کنند.';
+      text = 'بدون سقف: کارهای پس‌زمینه هر قدر لازم باشد از پردازنده استفاده می‌کنند.';
       color = tk.muted;
     } else {
       text =
@@ -737,8 +736,7 @@ class _HelperCardState extends State<HelperCard> {
     if (node == null) {
       status = 'در حال آماده‌سازی…';
     } else if (!node.configured) {
-      status =
-          'اول دیتابیس را تنظیم و ذخیره کنید؛ بعد این دستگاه خودکار سرور کمکی می‌شود.';
+      status = 'اول دیتابیس را تنظیم و ذخیره کنید؛ بعد این دستگاه خودکار سرور کمکی می‌شود.';
       ok = false;
     } else if (_stopReason(node) != null) {
       status = _stopReason(node)!;
