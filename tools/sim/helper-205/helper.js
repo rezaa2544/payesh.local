@@ -33,7 +33,10 @@ const SLOTS = Math.max(1, Number(process.env.SLOTS || 1));
 const P = cfg.prefix;
 const PRESENCE_EVERY = 60_000, LEASE_FOR = 60_000, LEASE_RENEW = 20_000, SETTLE = 1500;
 const JOB_DEADLINE = 10 * 60_000;
-const IDLE = [5, 10, 20, 30];
+/* row 213: helper_node.dart idle steps 5→10→15 s (cap below the 20 s claim window) and presence
+   advertises poll_ms/accepting. LEGACY=1 reproduces the row-205 owner panel (5→30 s, v1 presence). */
+const LEGACY = process.env.LEGACY === '1';
+const IDLE = LEGACY ? [5, 10, 20, 30] : [5, 10, 15];
 const URGENT = process.env.URGENT === '1';
 const JOB_RE = /^[0-9]{13}-[0-9a-f]{16}$/;
 
@@ -52,6 +55,7 @@ async function presence() {
   await put(P + hj.DIR.helpers + ID + '.json', hj.K.presence, at, {
     v: 1, helper_id: ID, host: 'sim-' + ID.slice(0, 4), app: 'owner-panel', version: 'sim-205',
     slots: SLOTS, paused: false, kinds: hj.KINDS, at, done: stats.done, failed: stats.failed,
+    ...(LEGACY ? {} : { poll_ms: (URGENT ? 3 : IDLE[IDLE.length - 1]) * 1000, accepting: true }),
   });
   lastPresence = at;
 }

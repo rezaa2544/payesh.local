@@ -294,37 +294,53 @@ function newUid(prefix) {
     Math.random().toString(36).slice(2, 8);
 }
 
-/* ── نوشتن یک ثبت در صندوقچه ─────────────────────────────────────── */
+/* ── نوشتن ثبت‌ها در صندوقچه ─────────────────────────────────────────
+   ردیف ۲۱۲: پیش‌تر هر ردیف یک فایل جدا و **بی‌امضای** v1 بود (outbox/pending/<uid>.json) —
+   یعنی هر ردیف ≈ ۴ درخواست (PUT، و در drain: GET + PUT قرنطینه + DELETE) و هیچ‌وقت هم اعمال
+   نمی‌شد چون drain فقط پاکت امضاشدهٔ v2 را می‌پذیرد (F‑06). حالا هر فراخوان = یک پاکت امضاشده
+   (همان buildEnvelope مسیر submit) با همهٔ ردیف‌ها: outbox/pending/sync-<دستگاه>-<زمان>-<تصادفی>.json
+   (بیش از MAX_DEVICE_ITEMS ردیف یا MAX_ENVELOPE_BYTES ⇒ چند پاکت). */
+const MAX_ENVELOPE_BYTES = 1024 * 1024;
+const safeName = (x) => String(x || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'server';
+
+function chunkItems(items) {
+  const chunks = [];
+  let cur = [], bytes = 0;
+  for (const it of items) {
+    const b = Buffer.byteLength(JSON.stringify(it));
+    if (b > MAX_ITEM_BYTES) continue;
+    if (cur.length && (cur.length >= MAX_DEVICE_ITEMS || bytes + b > MAX_ENVELOPE_BYTES)) { chunks.push(cur); cur = []; bytes = 0; }
+    cur.push(it); bytes += b;
+  }
+  if (cur.length) chunks.push(cur);
+  return chunks;
+}
+
 async function publish(store, items, actor) {
   /* F‑06: هویت از فراخوانِ سمت‌سرور (نشست یا پاکت امضاشده) می‌آید */
   if (!actor || !actor.user) return { ok: false, error: 'unauthorized', count: 0 };
-  const list = (Array.isArray(items) ? items : [items]).filter(Boolean);
-  if (!list.length) return { ok: true, count: 0, skipped: 'empty' };
+  const list = (Array.isArray(items) ? items : [items]).filter(Boolean)
+    .map(it => Object.assign({}, it, { uid: String(it.uid || '').slice(0, 80) || newUid() }));
+  const clean = cleanItems(list);
+  if (!clean.length) return { ok: true, count: 0, skipped: 'empty' };
   const cfg = await cloud(store);
   if (!cfg) return { ok: false, error: 'no_cloud', count: 0 };
+  const device = (list.find(it => it.device_id) || {}).device_id || 'server';
   let count = 0;
-  for (const item of list) {
-    const uid = String(item.uid || '').slice(0, 80) || newUid();
-    const body = JSON.stringify({
-      v: 1,
-      uid,
-      user_id: Number(actor.user.id),
-      role: String(actor.role || actor.user.role || ''),
-      device_id: item.device_id || null,
-      op: item.op || null,
-      created_at: item.created_at || new Date().toISOString(),
-    });
-    if (body.length > MAX_ITEM_BYTES) continue;
+  const files = [];
+  for (const chunk of chunkItems(clean)) {
+    const env = buildEnvelope(store, { user: actor.user, device, items: chunk });
+    const name = 'sync-' + safeName(device) + '-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex') + '.json';
     try {
-      await s3mem.put(cfg, keyOf(cfg, PENDING + uid + '.json'), body);
-      count++;
+      await s3mem.put(cfg, keyOf(cfg, PENDING + name), JSON.stringify(env));
+      count += env.items.length; files.push(name);
     } catch (e) {
       writeMeta(store, { last_error: 'publish: ' + String(e.message || e).slice(0, 120) });
-      return { ok: false, error: 'publish_failed', detail: String(e.message || e).slice(0, 160), count };
+      return { ok: false, error: 'publish_failed', detail: String(e.message || e).slice(0, 160), count, files };
     }
   }
   if (count) writeMeta(store, { last_publish: new Date().toISOString() });
-  return { ok: true, count };
+  return { ok: true, count, files };
 }
 
 /* آینه‌کردن ثبت‌های تازه‌ای که همین دستگاه اعمال کرده — تا اگر دستگاه
@@ -407,6 +423,10 @@ async function drain(store, { limit = MAX_DRAIN } = {}) {
     for (const item of env.items) {
       const uid = String((item && item.uid) || '').slice(0, 80);
       if (!uid || !item.op) { out.skipped++; continue; }
+
+      /* ردیف ۲۱۲: همین سرور این ثبت را خودش اعمال کرده (مثلاً آینهٔ /api/sync خودش) ⇒ بی هیچ
+         درخواستی به صندوقچه رد می‌شود. نشان done/ فقط برای سرور دیگری است که آن را ندیده. */
+      if (typeof store.syncSeen === 'function' && store.syncSeen(uid)) { out.skipped++; out.seen_local = (out.seen_local || 0) + 1; continue; }
 
       /* یک‌بار اعمال شده؟ */
       const doneKey = keyOf(cfg, DONE + uid + '.json');
@@ -735,5 +755,5 @@ module.exports = {
   corePayload, directory,
   publish, mirror, drain, pushSnapshot, readSnapshot, state, start, stop, putIfChanged, forgetPutHashes, flushHashes,
   publishAuth, publishData, publishAll, personData, meRow, CORE_COLLECTIONS, PERSON_COLLECTIONS,
-  SERVER_ROLES, summary, PENDING, DONE, STATE, loginKey,
+  SERVER_ROLES, summary, PENDING, DONE, STATE, loginKey, MAX_ENVELOPE_BYTES, chunkItems,
 };

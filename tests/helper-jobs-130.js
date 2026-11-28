@@ -33,7 +33,7 @@ async function check(name, fn) {
 }
 
 /* شبیه‌ساز پنل مالک (همان پروتکل helper_node.dart) */
-function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
+function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS, pollMs = 15000 } = {}) {
   const P = cfg.prefix;
   const put = (key, kind, rev, plain) => s3mem.put(cfg, key, JSON.stringify(hj.seal(cfg.secret, kind, rev, JSON.stringify(plain))));
   const read = async (key, kind) => {
@@ -46,6 +46,8 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       await put(P + hj.DIR.helpers + id + '.json', hj.K.presence, at, {
         v: 1, helper_id: id, host: 'PC-' + id.slice(0, 4), app: 'owner-panel', version: 'test',
         slots: 1, paused, kinds, at, done: h.done, failed: 0,
+        /* ردیف ۲۱۳: پنل مالک آهنگ خواندن صف را اعلام می‌کند (pollMs:null ⇒ حضور قدیمی بدون آن) */
+        ...(pollMs ? { poll_ms: pollMs, accepting: true } : {}),
       });
     },
     /* یک دور: فهرست، رزرو، بازخوانی، اجرا، نتیجه */
@@ -281,7 +283,8 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       const rec = await hj.checkPublicUrl(store, 'https://payesh.example.test/', {
         sleep: async () => {}, claimWaitMs: 1, checkEndpoint: async () => ({ reachable: true, status: 200 }),
       });
-      assert.strictEqual(rec.by, 'local'); assert.strictEqual(rec.why, 'not_claimed'); assert.strictEqual(rec.reachable, true);
+      /* ردیف ۲۱۳: پنجرهٔ ۱ میلی‌ثانیه‌ای ⇒ هیچ سیستم کمکی پیش از آن صف را نمی‌خواند ⇒ بی‌درنگ محلی */
+      assert.strictEqual(rec.by, 'local'); assert.strictEqual(rec.why, 'helper_idle'); assert.strictEqual(rec.reachable, true);
       assert.strictEqual(meta.get('helper:public_check').url, 'https://payesh.example.test/');
     });
 
@@ -309,7 +312,7 @@ function fakeHelper(cfg, id, { now, paused = false, kinds = hj.KINDS } = {}) {
       assert.strictEqual(r2.by, b.id);
       /* بررسی از بیرون حتی وقتی سرور جا دارد */
       const r3 = await hj.runJob(cfg, 'endpoint.check', { url: 'https://example.com/' }, {
-        busy: false, now, sleep: async (ms) => { clock += ms; }, claimWaitMs: 1,
+        busy: false, now, sleep: async (ms) => { clock += ms; },
         checkEndpoint: async () => ({ reachable: true, status: 200 }),
       });
       assert.strictEqual(r3.why, 'not_claimed', 'به صف رفت (سرور کمکی ثبت‌شده برنداشت)');

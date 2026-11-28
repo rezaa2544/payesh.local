@@ -5750,6 +5750,12 @@ async function waitFor(fn, ms = 15000) {
       assert.strictEqual(r.status, 0, 'helper-jobs-130: ' + (r.stdout || '').split('\n').filter(l => /^FAIL|HELPER-JOBS/.test(l)).join('\n') + (r.stderr || ''));
       const rdp = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/helper-dp-211.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
       assert.strictEqual(rdp.status, 0, 'helper-dp-211: ' + (rdp.stdout || '').split('\n').filter(l => /^FAIL|HELPER-DP/.test(l)).join('\n') + (rdp.stderr || ''));
+      /* ردیف ۲۱۳: کار فقط به سیستم کمکی‌ای می‌رود که پیش از پایان پنجره صف را می‌خواند */
+      const ridle = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/helper-idle-213.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(ridle.status, 0, 'helper-idle-213: ' + (ridle.stdout || '').split('\n').filter(l => /^FAIL|HELPER-IDLE/.test(l)).join('\n') + (ridle.stderr || ''));
+      /* ردیف ۲۱۲: آینهٔ صندوقچه = یک پاکت امضاشده به ازای هر همگام‌سازی */
+      const rob = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/outbox-batch-212.js')], { encoding: 'utf8', cwd: ROOT, timeout: 120000 });
+      assert.strictEqual(rob.status, 0, 'outbox-batch-212: ' + (rob.stdout || '').split('\n').filter(l => /^FAIL|OUTBOX-BATCH/.test(l)).join('\n') + (rob.stderr || ''));
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 

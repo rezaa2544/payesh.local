@@ -1,0 +1,380 @@
+{
+ "secs_per_phase": 75,
+ "total_s": 565,
+ "phases": {
+  "A_off": {
+   "phase": "A_off",
+   "secs": 78.2,
+   "cpus": 1,
+   "devices": 16,
+   "think_ms": 1500,
+   "helpers": 0,
+   "user_requests": 3016,
+   "req_per_s": 38.6,
+   "attendance_rows": 22470,
+   "sync_p50": 41.6,
+   "sync_p95": 94.8,
+   "pull_p95": 98.9,
+   "me_p95": 64.7,
+   "sqlite_statements": 267939,
+   "sqlite_per_req": 88.84,
+   "sqlite_ms": 26020.5,
+   "server_cpu_ms": 24639,
+   "server_cpu_ms_per_req": 8.17,
+   "server_bucket_requests": 791,
+   "server_bucket_by_area": {
+    "GET list:helpers/": 15,
+    "PUT outbox/pending": 749,
+    "GET control/": 2,
+    "GET list:other": 25
+   },
+   "outbox_puts": 749,
+   "helper_bucket_requests": 0,
+   "helper_cpu_ms": 0,
+   "bucket_total": 792,
+   "usage_jobs": [
+    {
+     "at_s": 5.9,
+     "manager_wait_ms": 299,
+     "by": "local:not_needed",
+     "objects": 4067
+    },
+    {
+     "at_s": 21.3,
+     "manager_wait_ms": 244,
+     "by": "local:not_needed",
+     "objects": 4226
+    },
+    {
+     "at_s": 36.8,
+     "manager_wait_ms": 261,
+     "by": "local:not_needed",
+     "objects": 4380
+    },
+    {
+     "at_s": 52.3,
+     "manager_wait_ms": 297,
+     "by": "local:not_needed",
+     "objects": 4531
+    },
+    {
+     "at_s": 67.8,
+     "manager_wait_ms": 332,
+     "by": "local:not_needed",
+     "objects": 4686
+    }
+   ],
+   "helper_work": [],
+   "docker_cpu_avg": {
+    "s3": 1.5,
+    "school": 28.6,
+    "load": 5.1
+   },
+   "route": "db"
+  },
+  "B_on": {
+   "phase": "B_on",
+   "secs": 79.3,
+   "cpus": 1,
+   "devices": 16,
+   "think_ms": 1500,
+   "helpers": 2,
+   "user_requests": 3016,
+   "req_per_s": 38,
+   "attendance_rows": 22470,
+   "sync_p50": 37.5,
+   "sync_p95": 88.9,
+   "pull_p95": 83.6,
+   "me_p95": 62.9,
+   "sqlite_statements": 268178,
+   "sqlite_per_req": 88.92,
+   "sqlite_ms": 24577.5,
+   "server_cpu_ms": 23781,
+   "server_cpu_ms_per_req": 7.88,
+   "server_bucket_requests": 822,
+   "server_bucket_by_area": {
+    "GET schools/": 1,
+    "GET list:helpers/": 15,
+    "GET helpers/": 30,
+    "PUT outbox/pending": 749,
+    "GET control/": 2,
+    "GET list:other": 25
+   },
+   "outbox_puts": 749,
+   "helper_bucket_requests": 20,
+   "helper_cpu_ms": 431,
+   "bucket_total": 836,
+   "usage_jobs": [
+    {
+     "at_s": 5.7,
+     "manager_wait_ms": 370,
+     "by": "local:not_needed",
+     "objects": 4070
+    },
+    {
+     "at_s": 21.5,
+     "manager_wait_ms": 288,
+     "by": "local:not_needed",
+     "objects": 4232
+    },
+    {
+     "at_s": 37.5,
+     "manager_wait_ms": 319,
+     "by": "local:not_needed",
+     "objects": 4389
+    },
+    {
+     "at_s": 53.2,
+     "manager_wait_ms": 255,
+     "by": "local:not_needed",
+     "objects": 4544
+    },
+    {
+     "at_s": 69,
+     "manager_wait_ms": 236,
+     "by": "local:not_needed",
+     "objects": 4704
+    }
+   ],
+   "helper_work": [],
+   "docker_cpu_avg": {
+    "helper2": 0.1,
+    "helper1": 0.1,
+    "s3": 1.3,
+    "school": 26.8,
+    "load": 4.8
+   },
+   "route": "db"
+  },
+  "C_off_busy": {
+   "phase": "C_off_busy",
+   "secs": 81,
+   "cpus": 0.35,
+   "devices": 32,
+   "think_ms": 0,
+   "helpers": 0,
+   "user_requests": 3072,
+   "req_per_s": 37.9,
+   "attendance_rows": 22950,
+   "sync_p50": 789.3,
+   "sync_p95": 1335.8,
+   "pull_p95": 1186.8,
+   "me_p95": 1104.1,
+   "sqlite_statements": 273614,
+   "sqlite_per_req": 89.07,
+   "sqlite_ms": 58678,
+   "server_cpu_ms": 26780,
+   "server_cpu_ms_per_req": 8.72,
+   "server_bucket_requests": 803,
+   "server_bucket_by_area": {
+    "GET list:helpers/": 11,
+    "PUT outbox/pending": 765,
+    "GET control/": 2,
+    "GET list:other": 25
+   },
+   "outbox_puts": 765,
+   "helper_bucket_requests": 0,
+   "helper_cpu_ms": 0,
+   "bucket_total": 804,
+   "usage_jobs": [
+    {
+     "at_s": 10.6,
+     "manager_wait_ms": 4612,
+     "by": "local:not_needed",
+     "objects": 4105
+    },
+    {
+     "at_s": 34.3,
+     "manager_wait_ms": 8930,
+     "by": "local:no_helper",
+     "objects": 4340
+    },
+    {
+     "at_s": 49.3,
+     "manager_wait_ms": 8599,
+     "by": "local:no_helper",
+     "objects": 4508
+    },
+    {
+     "at_s": 65.5,
+     "manager_wait_ms": 9718,
+     "by": "local:no_helper",
+     "objects": 4669
+    },
+    {
+     "at_s": 75.9,
+     "manager_wait_ms": 2482,
+     "by": "local:no_helper",
+     "objects": 4775
+    }
+   ],
+   "helper_work": [],
+   "docker_cpu_avg": {
+    "s3": 1.9,
+    "school": 31.5,
+    "load": 5.2
+   },
+   "route": "db+helpers"
+  },
+  "D_on_busy": {
+   "phase": "D_on_busy",
+   "secs": 89.2,
+   "cpus": 0.35,
+   "devices": 32,
+   "think_ms": 0,
+   "helpers": 2,
+   "user_requests": 2991,
+   "req_per_s": 33.5,
+   "attendance_rows": 22380,
+   "sync_p50": 806.1,
+   "sync_p95": 1500.9,
+   "pull_p95": 1093.5,
+   "me_p95": 1080.8,
+   "sqlite_statements": 266655,
+   "sqlite_per_req": 89.15,
+   "sqlite_ms": 59005,
+   "server_cpu_ms": 26748,
+   "server_cpu_ms_per_req": 8.94,
+   "server_bucket_requests": 800,
+   "server_bucket_by_area": {
+    "GET list:helpers/": 7,
+    "PUT outbox/pending": 746,
+    "GET helpers/": 14,
+    "GET control/": 2,
+    "PUT jobs/req": 3,
+    "GET jobs/res": 11,
+    "GET jobs/lease": 8,
+    "DELETE jobs/req": 3,
+    "DELETE jobs/lease": 3,
+    "DELETE jobs/res": 3
+   },
+   "outbox_puts": 746,
+   "helper_bucket_requests": 53,
+   "helper_cpu_ms": 583,
+   "bucket_total": 847,
+   "usage_jobs": [
+    {
+     "at_s": 23.9,
+     "manager_wait_ms": 18200,
+     "by": "helper a205",
+     "objects": 4180
+    },
+    {
+     "at_s": 57,
+     "manager_wait_ms": 22690,
+     "by": "helper b205",
+     "objects": 4489
+    },
+    {
+     "at_s": 84,
+     "manager_wait_ms": 17158,
+     "by": "helper a205",
+     "objects": 4760
+    }
+   ],
+   "helper_work": [
+    {
+     "kind": "storage.usage",
+     "work_ms": 248,
+     "claim_wait_ms": 9462
+    },
+    {
+     "kind": "storage.usage",
+     "work_ms": 238,
+     "claim_wait_ms": 12347
+    },
+    {
+     "kind": "storage.usage",
+     "work_ms": 248,
+     "claim_wait_ms": 9795
+    }
+   ],
+   "docker_cpu_avg": {
+    "helper2": 0.1,
+    "helper1": 0.3,
+    "s3": 1.5,
+    "school": 29.5,
+    "load": 4.5
+   },
+   "route": "db+helpers"
+  },
+  "E_on_urgent": {
+   "phase": "E_on_urgent",
+   "secs": 78.3,
+   "cpus": 0.35,
+   "devices": 32,
+   "think_ms": 0,
+   "helpers": 2,
+   "user_requests": 2864,
+   "req_per_s": 36.6,
+   "attendance_rows": 21420,
+   "sync_p50": 857.8,
+   "sync_p95": 1496.3,
+   "pull_p95": 1085.2,
+   "me_p95": 1080.2,
+   "sqlite_statements": 255227,
+   "sqlite_per_req": 89.12,
+   "sqlite_ms": 59447.6,
+   "server_cpu_ms": 26862,
+   "server_cpu_ms_per_req": 9.38,
+   "server_bucket_requests": 754,
+   "server_bucket_by_area": {
+    "GET list:helpers/": 7,
+    "PUT outbox/pending": 714,
+    "GET helpers/": 14,
+    "GET control/": 2,
+    "GET list:other": 5,
+    "PUT jobs/req": 2,
+    "GET jobs/res": 3,
+    "GET jobs/lease": 1,
+    "DELETE jobs/req": 2,
+    "DELETE jobs/lease": 2,
+    "DELETE jobs/res": 2
+   },
+   "outbox_puts": 714,
+   "helper_bucket_requests": 84,
+   "helper_cpu_ms": 654,
+   "bucket_total": 827,
+   "usage_jobs": [
+    {
+     "at_s": 10.4,
+     "manager_wait_ms": 4703,
+     "by": "local:not_needed",
+     "objects": 4100
+    },
+    {
+     "at_s": 44,
+     "manager_wait_ms": 14823,
+     "by": "helper a205",
+     "objects": 4351
+    },
+    {
+     "at_s": 67.4,
+     "manager_wait_ms": 14284,
+     "by": "helper b205",
+     "objects": 4592
+    }
+   ],
+   "helper_work": [
+    {
+     "kind": "storage.usage",
+     "work_ms": 246,
+     "claim_wait_ms": 3956
+    },
+    {
+     "kind": "storage.usage",
+     "work_ms": 254,
+     "claim_wait_ms": 1908
+    }
+   ],
+   "docker_cpu_avg": {
+    "helper2": 0.2,
+    "helper1": 0.2,
+    "s3": 1.9,
+    "school": 32.7,
+    "load": 6.2
+   },
+   "route": "db+helpers"
+  }
+ }
+}

@@ -158,5 +158,93 @@
   "school_token": {
     "school_id": "school-01",
     "token": "school-01.UeUJL184KhyoeMsVGSd7XjES2J9aWmOVzQttEqCqkg4"
+  },
+  "poll_eta": {
+    "description": "Row 213: worst-case ms until the helper next reads the queue (null = does not read). Offload only if eta + claim_margin_ms <= claim window; window = min(claim_wait_ms, soonest eta + claim_margin_ms). Background jobs may wait up to background_claim_max_ms.",
+    "idle_poll_cap_ms": 15000,
+    "legacy_poll_ms": 30000,
+    "claim_margin_ms": 5000,
+    "claim_wait_ms": 20000,
+    "background_claim_max_ms": 90000,
+    "now": 1700000000000,
+    "cases": [
+      {
+        "name": "v1_legacy",
+        "presence": {
+          "v": 1,
+          "at": 1700000000000
+        },
+        "eta": 30000
+      },
+      {
+        "name": "owner_idle_cap",
+        "presence": {
+          "v": 1,
+          "at": 1700000000000,
+          "poll_ms": 15000,
+          "accepting": true
+        },
+        "eta": 15000
+      },
+      {
+        "name": "cron_next",
+        "presence": {
+          "v": 2,
+          "at": 1700000000000,
+          "poll_ms": 60000,
+          "next_poll_at": 1700000007000
+        },
+        "eta": 7000
+      },
+      {
+        "name": "cron_late",
+        "presence": {
+          "v": 2,
+          "at": 1700000000000,
+          "poll_ms": 60000,
+          "next_poll_at": 1699999995000
+        },
+        "eta": 60000
+      },
+      {
+        "name": "next_beyond_period",
+        "presence": {
+          "v": 2,
+          "at": 1700000000000,
+          "poll_ms": 60000,
+          "next_poll_at": 1700003600000
+        },
+        "eta": 60000
+      },
+      {
+        "name": "not_accepting",
+        "presence": {
+          "v": 1,
+          "at": 1700000000000,
+          "poll_ms": 15000,
+          "accepting": false
+        },
+        "eta": null
+      },
+      {
+        "name": "paused",
+        "presence": {
+          "v": 1,
+          "at": 1700000000000,
+          "poll_ms": 15000,
+          "paused": true
+        },
+        "eta": null
+      },
+      {
+        "name": "invalid_poll_ms",
+        "presence": {
+          "v": 1,
+          "at": 1700000000000,
+          "poll_ms": 5
+        },
+        "eta": 30000
+      }
+    ]
   }
 }

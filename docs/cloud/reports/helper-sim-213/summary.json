@@ -1,0 +1,388 @@
+{
+ "secs_per_phase": 75,
+ "total_s": 559,
+ "phases": {
+  "A_off": {
+   "phase": "A_off",
+   "secs": 78.6,
+   "cpus": 1,
+   "devices": 16,
+   "think_ms": 1500,
+   "helpers": 0,
+   "user_requests": 3016,
+   "req_per_s": 38.4,
+   "attendance_rows": 22470,
+   "sync_p50": 46.5,
+   "sync_p95": 119.4,
+   "pull_p95": 124.6,
+   "me_p95": 98.6,
+   "sqlite_statements": 267901,
+   "sqlite_per_req": 88.83,
+   "sqlite_ms": 28108.2,
+   "server_cpu_ms": 26529,
+   "server_cpu_ms_per_req": 8.8,
+   "server_bucket_requests": 791,
+   "server_bucket_by_area": {
+    "GET list:helpers/": 15,
+    "PUT outbox/pending": 749,
+    "GET control/": 2,
+    "GET list:other": 25
+   },
+   "outbox_puts": 749,
+   "helper_bucket_requests": 0,
+   "helper_cpu_ms": 0,
+   "bucket_total": 792,
+   "usage_jobs": [
+    {
+     "at_s": 6.1,
+     "manager_wait_ms": 240,
+     "by": "local:not_needed",
+     "objects": 4076
+    },
+    {
+     "at_s": 21.6,
+     "manager_wait_ms": 253,
+     "by": "local:not_needed",
+     "objects": 4231
+    },
+    {
+     "at_s": 37.2,
+     "manager_wait_ms": 329,
+     "by": "local:not_needed",
+     "objects": 4388
+    },
+    {
+     "at_s": 52.9,
+     "manager_wait_ms": 462,
+     "by": "local:not_needed",
+     "objects": 4546
+    },
+    {
+     "at_s": 68.4,
+     "manager_wait_ms": 275,
+     "by": "local:not_needed",
+     "objects": 4696
+    }
+   ],
+   "helper_work": [],
+   "docker_cpu_avg": {
+    "s3": 1.7,
+    "school": 32,
+    "load": 6.5
+   },
+   "route": "db"
+  },
+  "B_on": {
+   "phase": "B_on",
+   "secs": 78.5,
+   "cpus": 1,
+   "devices": 16,
+   "think_ms": 1500,
+   "helpers": 2,
+   "user_requests": 3000,
+   "req_per_s": 38.2,
+   "attendance_rows": 22350,
+   "sync_p50": 41.1,
+   "sync_p95": 99.6,
+   "pull_p95": 97.6,
+   "me_p95": 89.3,
+   "sqlite_statements": 266746,
+   "sqlite_per_req": 88.92,
+   "sqlite_ms": 26466.9,
+   "server_cpu_ms": 25654,
+   "server_cpu_ms_per_req": 8.55,
+   "server_bucket_requests": 818,
+   "server_bucket_by_area": {
+    "GET schools/": 1,
+    "GET list:helpers/": 15,
+    "PUT outbox/pending": 745,
+    "GET helpers/": 30,
+    "GET control/": 2,
+    "GET list:other": 25
+   },
+   "outbox_puts": 745,
+   "helper_bucket_requests": 20,
+   "helper_cpu_ms": 452,
+   "bucket_total": 832,
+   "usage_jobs": [
+    {
+     "at_s": 5.6,
+     "manager_wait_ms": 242,
+     "by": "local:not_needed",
+     "objects": 4068
+    },
+    {
+     "at_s": 21.3,
+     "manager_wait_ms": 245,
+     "by": "local:not_needed",
+     "objects": 4223
+    },
+    {
+     "at_s": 36.9,
+     "manager_wait_ms": 242,
+     "by": "local:not_needed",
+     "objects": 4379
+    },
+    {
+     "at_s": 52.5,
+     "manager_wait_ms": 311,
+     "by": "local:not_needed",
+     "objects": 4536
+    },
+    {
+     "at_s": 68.2,
+     "manager_wait_ms": 303,
+     "by": "local:not_needed",
+     "objects": 4685
+    }
+   ],
+   "helper_work": [],
+   "docker_cpu_avg": {
+    "helper2": 0.1,
+    "helper1": 0.1,
+    "s3": 1.8,
+    "school": 28.6,
+    "load": 5.8
+   },
+   "route": "db"
+  },
+  "C_off_busy": {
+   "phase": "C_off_busy",
+   "secs": 81.5,
+   "cpus": 0.35,
+   "devices": 32,
+   "think_ms": 0,
+   "helpers": 0,
+   "user_requests": 2868,
+   "req_per_s": 35.2,
+   "attendance_rows": 21420,
+   "sync_p50": 821.8,
+   "sync_p95": 1683.4,
+   "pull_p95": 1201.7,
+   "me_p95": 1190.2,
+   "sqlite_statements": 255261,
+   "sqlite_per_req": 89,
+   "sqlite_ms": 58384.8,
+   "server_cpu_ms": 26755,
+   "server_cpu_ms_per_req": 9.33,
+   "server_bucket_requests": 752,
+   "server_bucket_by_area": {
+    "GET list:helpers/": 11,
+    "PUT outbox/pending": 714,
+    "GET control/": 2,
+    "GET list:other": 25
+   },
+   "outbox_puts": 714,
+   "helper_bucket_requests": 0,
+   "helper_cpu_ms": 0,
+   "bucket_total": 753,
+   "usage_jobs": [
+    {
+     "at_s": 10.4,
+     "manager_wait_ms": 4183,
+     "by": "local:not_needed",
+     "objects": 4090
+    },
+    {
+     "at_s": 33.8,
+     "manager_wait_ms": 10114,
+     "by": "local:no_helper",
+     "objects": 4305
+    },
+    {
+     "at_s": 51.5,
+     "manager_wait_ms": 10911,
+     "by": "local:no_helper",
+     "objects": 4465
+    },
+    {
+     "at_s": 65.7,
+     "manager_wait_ms": 6891,
+     "by": "local:no_helper",
+     "objects": 4612
+    },
+    {
+     "at_s": 76.4,
+     "manager_wait_ms": 2440,
+     "by": "local:no_helper",
+     "objects": 4724
+    }
+   ],
+   "helper_work": [],
+   "docker_cpu_avg": {
+    "s3": 2.6,
+    "school": 31.4,
+    "load": 4.9
+   },
+   "route": "db+helpers"
+  },
+  "D_on_busy": {
+   "phase": "D_on_busy",
+   "secs": 81.3,
+   "cpus": 0.35,
+   "devices": 32,
+   "think_ms": 0,
+   "helpers": 2,
+   "user_requests": 3137,
+   "req_per_s": 38.6,
+   "attendance_rows": 23460,
+   "sync_p50": 770.5,
+   "sync_p95": 1408.7,
+   "pull_p95": 996.8,
+   "me_p95": 1022.4,
+   "sqlite_statements": 279674,
+   "sqlite_per_req": 89.15,
+   "sqlite_ms": 59246.9,
+   "server_cpu_ms": 26896,
+   "server_cpu_ms_per_req": 8.57,
+   "server_bucket_requests": 835,
+   "server_bucket_by_area": {
+    "GET list:helpers/": 9,
+    "PUT outbox/pending": 782,
+    "GET helpers/": 18,
+    "GET control/": 2,
+    "PUT jobs/req": 1,
+    "GET jobs/res": 3,
+    "GET jobs/lease": 2,
+    "DELETE jobs/req": 1,
+    "DELETE jobs/lease": 1,
+    "DELETE jobs/res": 1,
+    "GET list:other": 15
+   },
+   "outbox_puts": 782,
+   "helper_bucket_requests": 31,
+   "helper_cpu_ms": 464,
+   "bucket_total": 861,
+   "usage_jobs": [
+    {
+     "at_s": 21.8,
+     "manager_wait_ms": 16219,
+     "by": "helper a205",
+     "objects": 4198
+    },
+    {
+     "at_s": 40.8,
+     "manager_wait_ms": 10505,
+     "by": "local:learning",
+     "objects": 4425
+    },
+    {
+     "at_s": 58.9,
+     "manager_wait_ms": 9660,
+     "by": "local:local_faster",
+     "objects": 4600
+    },
+    {
+     "at_s": 76.2,
+     "manager_wait_ms": 7123,
+     "by": "local:local_faster",
+     "objects": 4794
+    }
+   ],
+   "helper_work": [
+    {
+     "kind": "storage.usage",
+     "work_ms": 250,
+     "claim_wait_ms": 10054
+    }
+   ],
+   "docker_cpu_avg": {
+    "helper2": 0.1,
+    "helper1": 0.1,
+    "s3": 1.5,
+    "school": 30.6,
+    "load": 5
+   },
+   "route": "db+helpers"
+  },
+  "E_on_urgent": {
+   "phase": "E_on_urgent",
+   "secs": 81.6,
+   "cpus": 0.35,
+   "devices": 32,
+   "think_ms": 0,
+   "helpers": 2,
+   "user_requests": 3029,
+   "req_per_s": 37.1,
+   "attendance_rows": 22650,
+   "sync_p50": 799.2,
+   "sync_p95": 1490.6,
+   "pull_p95": 1093.6,
+   "me_p95": 1083.5,
+   "sqlite_statements": 270027,
+   "sqlite_per_req": 89.15,
+   "sqlite_ms": 57484.4,
+   "server_cpu_ms": 27040,
+   "server_cpu_ms_per_req": 8.93,
+   "server_bucket_requests": 806,
+   "server_bucket_by_area": {
+    "GET list:helpers/": 9,
+    "PUT outbox/pending": 755,
+    "GET helpers/": 18,
+    "GET control/": 2,
+    "PUT jobs/req": 3,
+    "GET jobs/res": 4,
+    "GET jobs/lease": 1,
+    "DELETE jobs/req": 3,
+    "DELETE jobs/lease": 3,
+    "DELETE jobs/res": 3,
+    "GET list:other": 5
+   },
+   "outbox_puts": 755,
+   "helper_bucket_requests": 95,
+   "helper_cpu_ms": 627,
+   "bucket_total": 889,
+   "usage_jobs": [
+    {
+     "at_s": 17.6,
+     "manager_wait_ms": 12061,
+     "by": "helper a205",
+     "objects": 4130
+    },
+    {
+     "at_s": 36.1,
+     "manager_wait_ms": 10460,
+     "by": "local:learning",
+     "objects": 4367
+    },
+    {
+     "at_s": 55.3,
+     "manager_wait_ms": 11001,
+     "by": "helper b205",
+     "objects": 4539
+    },
+    {
+     "at_s": 76.5,
+     "manager_wait_ms": 9422,
+     "by": "helper a205",
+     "objects": 4753
+    }
+   ],
+   "helper_work": [
+    {
+     "kind": "storage.usage",
+     "work_ms": 246,
+     "claim_wait_ms": 3737
+    },
+    {
+     "kind": "storage.usage",
+     "work_ms": 247,
+     "claim_wait_ms": 2372
+    },
+    {
+     "kind": "storage.usage",
+     "work_ms": 245,
+     "claim_wait_ms": 2895
+    }
+   ],
+   "docker_cpu_avg": {
+    "helper2": 0.2,
+    "helper1": 0.2,
+    "s3": 1.7,
+    "school": 32.9,
+    "load": 5.7
+   },
+   "route": "db+helpers"
+  }
+ }
+}

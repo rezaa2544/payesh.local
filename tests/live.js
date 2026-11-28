@@ -161,12 +161,12 @@ async function main() {
 
     await test('ثبت گوشی در کمتر از ۲ ثانیه به پایگاه دادهٔ مدرسه می‌رسد', async () => {
       const uid = 'ob-live-' + Date.now();
-      const item = {
-        v: 1, uid, user_id: managerId, role: 'manager', device_id: 'phone-test',
-        op: { collection: 'announcements', type: 'put', data: { title: 'خبر زندهٔ گوشی', body: 'سریع', date: new Date().toISOString().slice(0, 10), audience: 'all' } },
-        created_at: new Date().toISOString(),
-      };
-      await putObject(`payesh/outbox/pending/${uid}.json`, JSON.stringify(item));
+      /* ردیف ۲۱۲: فایل v1 بی‌امضا از F‑06 قرنطینه می‌شود؛ گوشی واقعی از مسیر امضاشدهٔ /api/outbox/submit می‌فرستد */
+      const sub = await req('/api/outbox/submit', { method: 'POST', token, body: {
+        device_id: 'phone-test',
+        items: [{ uid, op: { collection: 'announcements', type: 'put', data: { title: 'خبر زندهٔ گوشی', body: 'سریع', date: new Date().toISOString().slice(0, 10), audience: 'all' } }, created_at: new Date().toISOString() }],
+      } });
+      assert.ok(sub.data && sub.data.ok, 'پاکت امضاشده پذیرفته شد: ' + JSON.stringify(sub.data).slice(0, 200));
       await bumpRev();
       const t0 = Date.now();
       const found = await waitFor(async () => {

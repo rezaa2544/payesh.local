@@ -1116,7 +1116,8 @@ async function api(req, res, url, ip) {
     /* قرارداد Sync v1: خطای سطح درخواست همیشه 4xx است، نه 200 با ok:false */
     if (!out || !out.ok) return json(out || { ok: false, error: 'write_failed' }, 400);
     /* ثبت‌های تازه در صندوقچهٔ ابری آینه می‌شوند تا اگر «مدرسه» دستگاهی
-       دیگر باشد، همان‌ها را هم ببیند. خطای ابر هرگز جلوی ثبت را نمی‌گیرد. */
+       دیگر باشد، همان‌ها را هم ببیند. خطای ابر هرگز جلوی ثبت را نمی‌گیرد.
+       ردیف ۲۱۲: یک پاکت امضاشده به ازای هر همگام‌سازی (نه یک فایل به ازای هر ردیف). */
     if (out && out.ok && (out.applied || []).length) {
       const okUids = new Set((out.applied || []).map(a => a.uid));
       const fresh = (Array.isArray(body && body.ops) ? body.ops : []).filter(op => okUids.has(String(op && op.uid || '')));

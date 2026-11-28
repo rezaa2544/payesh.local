@@ -138,6 +138,7 @@ final class HelperNode {
   bool _running = false;
   Timer? _timer;
   DateTime? _lastPresence;
+  bool? _lastAccepting;
   DateTime? _lastGc;
   int _idleStep = 0;
   DateTime? _restUntil;
@@ -245,7 +246,7 @@ final class HelperNode {
     _notify();
     if (_s3 != null) {
       try {
-        await _writePresence(_s3!);
+        await _writePresence(_s3!, accepting: _accepting);
       } on Object {
         // چرخهٔ بعد
       }
@@ -283,7 +284,8 @@ final class HelperNode {
       _idleStep = 0;
       return const Duration(seconds: 3);
     }
-    const steps = [5, 10, 20, 30];
+    // ردیف ۲۱۳: سقف ۱۵ ثانیه (idlePollCap) — زیر پنجرهٔ ۲۰ ثانیه‌ای برداشت کار
+    const steps = [5, 10, 15];
     final d = Duration(seconds: steps[min(_idleStep, steps.length - 1)]);
     if (_idleStep < steps.length - 1) _idleStep++;
     return d;
@@ -296,9 +298,13 @@ final class HelperNode {
     final now = _now();
     lastPoll = now;
     try {
+      // ردیف ۲۱۳: تغییر «می‌پذیرم/نمی‌پذیرم» بی‌درنگ اعلام می‌شود تا سرور برای این دستگاه
+      // بیهوده ۲۰ ثانیه منتظر نماند.
+      final accepting = _accepting;
       if (_lastPresence == null ||
-          now.difference(_lastPresence!) >= presenceEvery) {
-        await _writePresence(s3);
+          now.difference(_lastPresence!) >= presenceEvery ||
+          accepting != _lastAccepting) {
+        await _writePresence(s3, accepting: accepting);
         _log('حضور این دستگاه در دیتابیس ثبت شد');
       }
       if (_paused) {
@@ -348,7 +354,12 @@ final class HelperNode {
     }
   }
 
-  Future<void> _writePresence(S3Settings s3) async {
+  bool get _accepting =>
+      !_paused &&
+      !(processingPaused?.call() ?? false) &&
+      (acceptWork?.call() ?? true);
+
+  Future<void> _writePresence(S3Settings s3, {required bool accepting}) async {
     final now = _now();
     final t = transport();
     try {
@@ -370,10 +381,13 @@ final class HelperNode {
             at: now,
             done: done,
             failed: failed,
+            pollMs: accepting ? idlePollCap.inMilliseconds : null,
+            accepting: accepting,
           ).toPlain(),
         ),
       );
       _lastPresence = now;
+      _lastAccepting = accepting;
     } finally {
       t.close();
     }
@@ -616,6 +630,41 @@ String? helperNeed(String kind, {required bool helpersOn, required bool busy}) {
   return busy ? null : 'not_needed';
 }
 
+/// ردیف ۲۱۳ (هم‌سان server/helper-jobs.js): برآورد انتظار کاربر — سرور کمکی فقط وقتی که زودتر
+/// از اجرای محلی جواب بدهد. میانگین نمایی هر دو مسیر، فقط در وضعیت «نیاز به کمک»:
+/// مسیر کمکی تند (≤ [helperFast]) ⇒ مثل قبل؛ کند و زمان محلی نامعلوم ⇒ یک بار محلی (`learning`)؛
+/// کند ⇒ فقط اگر زمان تا برداشت + سربار آموخته < زمان محلی، وگرنه محلی (`local_faster`).
+class WaitEstimator {
+  static const double alpha = 0.3;
+  static const Duration helperFast = Duration(seconds: 5);
+  final Map<String, Map<String, int>> _m = {};
+
+  /// field: `local_ms` | `helper_ms` | `helper_overhead_ms`
+  void feed(String kind, String field, int ms) {
+    if (ms < 0) return;
+    final e = _m.putIfAbsent(kind, () => <String, int>{});
+    final old = e[field];
+    e[field] = old == null ? ms : (old + alpha * (ms - old)).round();
+  }
+
+  String? choice(String kind, Duration eta) {
+    final e = _m[kind];
+    final helper = e?['helper_ms'];
+    if (e == null || helper == null || helper <= helperFast.inMilliseconds) {
+      return null;
+    }
+    final local = e['local_ms'];
+    if (local == null) return 'learning';
+    return eta.inMilliseconds + (e['helper_overhead_ms'] ?? 0) < local
+        ? null
+        : 'local_faster';
+  }
+
+  Map<String, Map<String, int>> get view => {
+    for (final k in _m.keys) k: Map<String, int>.of(_m[k]!),
+  };
+}
+
 /// فرستادن یک کار: مسیر عادی همین دستگاه است؛ سرور کمکیِ دیگر فقط هنگام نیاز
 /// ([helperNeed]: این دستگاه شلوغ است یا کار دید بیرونی می‌خواهد). هرگز متوقف نمی‌شود.
 Future<JobOutcome> submitJob({
@@ -633,18 +682,24 @@ Future<JobOutcome> submitJob({
   bool helpersOn = true,
   bool Function()? busy,
   bool Function(String helperId)? helperAllowed,
+  WaitEstimator? estimator,
 }) async {
   final clock = now ?? DateTime.now;
   final wait = sleep ?? _realSleep;
   final p = validJobParams(kind, params);
+  var considered = false;
   Future<JobOutcome> local(String why) async {
     try {
-      return JobOutcome(
-        ok: true,
-        by: 'local',
-        why: why,
-        result: await executor.run(s3, kind, p),
-      );
+      final l0 = clock();
+      final result = await executor.run(s3, kind, p);
+      if (considered) {
+        estimator?.feed(
+          kind,
+          'local_ms',
+          clock().difference(l0).inMilliseconds,
+        );
+      }
+      return JobOutcome(ok: true, by: 'local', why: why, result: result);
     } on JobRejected catch (e) {
       return JobOutcome(ok: false, by: 'local', why: why, error: e.code);
     }
@@ -656,6 +711,7 @@ Future<JobOutcome> submitJob({
     busy: busy?.call() ?? false,
   );
   if (skip != null) return local(skip);
+  considered = true;
 
   final t = transport();
   try {
@@ -675,6 +731,19 @@ Future<JobOutcome> submitJob({
       return await local('bucket_unreachable');
     }
     if (online.isEmpty) return await local('no_helper');
+    // ردیف ۲۱۳: فقط اگر کسی پیش از پایان پنجره صف را می‌خواند؛ پنجره = نزدیک‌ترین خواندن + حاشیه
+    final etaAt = clock();
+    final etas = online
+        .map((h) => h.pollEtaAt(etaAt))
+        .whereType<Duration>()
+        .where((e) => e + claimMargin <= claimWait)
+        .toList();
+    if (etas.isEmpty) return await local('helper_idle');
+    final nearest = etas.reduce((a, b) => a < b ? a : b);
+    final soonest = nearest + claimMargin;
+    final window = soonest < claimWait ? soonest : claimWait;
+    final slow = estimator?.choice(kind, nearest);
+    if (slow != null) return await local(slow);
 
     final t0 = clock();
     final id = newJobId(t0, random);
@@ -729,6 +798,13 @@ Future<JobOutcome> submitJob({
       }
       if (res != null && res['job_id'] == id) {
         await cleanup();
+        final took = at.difference(t0).inMilliseconds;
+        estimator?.feed(kind, 'helper_ms', took);
+        estimator?.feed(
+          kind,
+          'helper_overhead_ms',
+          took - nearest.inMilliseconds < 0 ? 0 : took - nearest.inMilliseconds,
+        );
         final by = '${res['helper_id']}';
         if (res['ok'] == true) {
           final r = res['result'];
@@ -760,7 +836,7 @@ Future<JobOutcome> submitJob({
           await cleanup();
           return await local('lease_expired');
         }
-      } else if (claimedBy == null && at.difference(t0) >= claimWait) {
+      } else if (claimedBy == null && at.difference(t0) >= window) {
         await cleanup();
         return await local('not_claimed');
       } else if (claimedBy != null) {

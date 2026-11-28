@@ -27,7 +27,9 @@ const cfg = hj && require('../../server/s3mem.js').normalize({
 });
 const me = { id: 'ac00000000000001', cls: 'actions', host: 'github-actions',
   caps: ['storage.usage', 'object.verify', 'endpoint.check', 'bucket.gc', 'backup.verify', 'update.build'],
-  capacity: 1, version: 'dp-2' };
+  capacity: 1, version: 'dp-2',
+  /* ردیف ۲۱۳: cron هر ۱۵ دقیقه ⇒ کار کاربرِ منتظر هرگز برای Actions در صف نمی‌ماند */
+  pollMs: Number(env.HELPER_POLL_MS || 15 * 60_000) };
 // s3mini normalize uses `secret` as secretKey field name in this repo; keep both aligned:
 cfg.secret = env.PAYESH_HELPER_S3_SECRET_KEY; // repo design: bucket secret signs S3 and seals boxes
 try {

@@ -67,6 +67,10 @@ const LOAD_SAMPLE_MS = 5_000;
 
 const PRESENCE_FRESH_MS = 90_000;     /* حضوری که از این قدیمی‌تر باشد «خاموش» است */
 const CLAIM_WAIT_MS = 20_000;         /* اگر کسی کار را برنداشت ⇒ خودمان */
+/* ردیف ۲۱۳: حاشیهٔ برداشت پس از خواندن صف (settle ۱٫۵ ثانیه + jitter + رفت‌وبرگشت صندوقچه) */
+const CLAIM_MARGIN_MS = 5_000;
+/* کار پس‌زمینه (کاربری منتظر نیست) تا خواندن بعدی یک cron (مثلاً Worker هر دقیقه) صبر می‌کند */
+const BACKGROUND_CLAIM_MAX_MS = 90_000;
 const JOB_DEADLINE_MS = 10 * 60_000;  /* سقف کل یک کار */
 const RESULT_POLL_MS = 2_000;
 const GC_JOB_AGE_MS = 60 * 60_000;    /* فایل‌های صف پس از ۱ ساعت */
@@ -165,10 +169,13 @@ async function listAll(cfg, prefix, maxPages = USAGE_MAX_PAGES) {
 async function helpersOnline(cfg, { now = Date.now() } = {}) {
   const { keys } = await listAll(cfg, cfg.prefix + DIR.helpers, 2);
   const out = [];
-  for (const k of keys) {
+  /* ردیف ۲۱۳: حضورها هم‌زمان خوانده می‌شوند (نه یکی‌یکی) — روی سرور شلوغ هر رفت‌وبرگشت گران است */
+  const ok = keys.filter(k => ID_RE.test(nameOf(k.key)));
+  const envs = await Promise.all(ok.map(k => readEnv(cfg, k.key, K.presence).catch(() => null)));
+  for (let i = 0; i < ok.length; i++) {
+    const k = ok[i];
     const id = nameOf(k.key);
-    if (!ID_RE.test(id)) continue;
-    const r = await readEnv(cfg, k.key, K.presence).catch(() => null);
+    const r = envs[i];
     if (!r || r.invalid) continue;
     const p = r.plain;
     if (p.helper_id !== id || !Number.isSafeInteger(p.at)) continue;
@@ -186,6 +193,11 @@ async function helpersOnline(cfg, { now = Date.now() } = {}) {
       region: helperV2.normalizePresence(p).region,
       contract: helperV2.normalizePresence(p).contract,
       school_id: helperV2.normalizePresence(p).school_id,
+      /* ردیف ۲۱۳: آهنگ خواندن صف (بدترین حالت تا خواندن بعدی؛ null = صف را نمی‌خواند) */
+      poll_ms: helperV2.normalizePresence(p).poll_ms,
+      next_poll_at: helperV2.normalizePresence(p).next_poll_at,
+      accepting: p.accepting !== false,
+      poll_eta_ms: helperV2.pollEta(p, now),
       at: p.at,
       done: Number(p.done) || 0,
       failed: Number(p.failed) || 0,
@@ -417,6 +429,34 @@ async function routeNow(policy, { busy = false, now = Date.now() } = {}) {
   return loadRoute.tick(policy, { busy, now });
 }
 
+/* ── ردیف ۲۱۳: برآورد انتظار کاربر — «سرور کمکی فقط وقتی که زودتر از خودمان جواب بدهد» ──
+   شبیه‌سازی Docker (HELPER-SIM-213): روی سرور شلوغ، کار از راه سرور کمکی با برداشت ۲ تا ۴
+   ثانیه‌ای هم ۱۴ ثانیه طول کشید (رفت‌وبرگشت‌های صف روی سرورِ کم‌CPU) و اجرای محلی ۲٫۵ تا ۹٫۷.
+   پس برای کاری که کاربری منتظرش است میانگین نمایی (EWMA) هر دو مسیر، هر کدام فقط در همان
+   وضعیت «نیاز به کمک» (شلوغ/مسیر helpers)، نگه داشته می‌شود:
+     • مسیر سرور کمکی تند است (≤ HELPER_FAST_MS) ⇒ مثل قبل به سرور کمکی (بار از سرور کم می‌شود)؛
+     • کند است و زمان محلی را هنوز نمی‌دانیم ⇒ یک بار محلی (learning)؛
+     • کند است ⇒ فقط اگر (زمان تا برداشت + سربار آموخته) < زمان محلی، وگرنه محلی (local_faster).
+   کار پس‌زمینه (کسی منتظر نیست) و endpoint.check پس‌زمینه از این قاعده مستثنا هستند. */
+const EST_ALPHA = 0.3;
+const HELPER_FAST_MS = 5_000;
+const estimates = new Map();
+function feedEstimate(kind, field, ms) {
+  if (!Number.isFinite(ms) || ms < 0) return;
+  const e = estimates.get(kind) || { local_ms: null, helper_ms: null, helper_overhead_ms: null, n_local: 0, n_helper: 0 };
+  e[field] = e[field] == null ? Math.round(ms) : Math.round(e[field] + EST_ALPHA * (ms - e[field]));
+  if (field === 'local_ms') e.n_local++;
+  if (field === 'helper_ms') e.n_helper++;
+  estimates.set(kind, e);
+}
+function waitChoice(kind, etaMs) {
+  const e = estimates.get(kind);
+  if (!e || e.helper_ms == null || e.helper_ms <= HELPER_FAST_MS) return null;
+  if (e.local_ms == null) return 'learning';
+  return etaMs + (e.helper_overhead_ms || 0) < e.local_ms ? null : 'local_faster';
+}
+const estimatesView = () => Object.fromEntries([...estimates].map(([k, v]) => [k, Object.assign({}, v)]));
+
 /* ── ارسال یک کار: سرور کمکی ⇐ یا خودمان (هرگز متوقف نمی‌شود) ─────────── */
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -427,9 +467,11 @@ async function runJob(cfg, kind, params, opts = {}) {
   const pollMs = opts.pollMs || RESULT_POLL_MS;
   const deadlineMs = opts.deadlineMs || JOB_DEADLINE_MS;
   const p = validParams(cfg, kind, params);
+  let considered = false;   /* «نیاز به کمک» بود ⇒ زمان محلی در برآورد همان وضعیت می‌نشیند */
   const local = async (why) => {
     const t0 = Date.now();
     const result = await runLocal(cfg, kind, p, opts);
+    if (considered && !opts.background) feedEstimate(kind, 'local_ms', Date.now() - t0);
     /* ردیف ۱۷۸: کار پس‌زمینه سقف CPU مالک را رعایت می‌کند (درخواست کاربر معطل نمی‌شود) */
     if (opts.background) await (opts.throttle || processing.throttle)(Date.now() - t0);
     return { ok: true, by: 'local', why, result };
@@ -447,6 +489,7 @@ async function runJob(cfg, kind, params, opts = {}) {
   const route = opts.route !== undefined ? opts.route : await routeNow(policy, { busy, now: now() });
   const skip = helperNeed(kind, { policy, busy, route });
   if (skip) return local(skip);
+  considered = true;
   const meta = {
     priority: helperV2.PRIORITIES.includes(opts.priority) ? opts.priority : 'normal',
     data_class: helperV2.DATA_CLASSES.includes(opts.dataClass) ? opts.dataClass : (helperV2.catalogOf(kind) || {}).data_class || 'internal',
@@ -458,6 +501,18 @@ async function runJob(cfg, kind, params, opts = {}) {
   try { online = (await helpersOnline(cfg, { now: now() })).filter(h => h.online && (h.caps.includes(kind) || h.kinds.includes(kind)) && !helperOff(policy, h.helper_id) && helperV2.canLease(h, jobView)); }
   catch (e) { return local('bucket_unreachable'); }
   if (!online.length) return local('no_helper');
+  /* ردیف ۲۱۳: «آنلاین» کافی نیست — فقط اگر دست‌کم یک سیستم کمکی پیش از پایان پنجرهٔ برداشت صف را
+     می‌خواند کار فرستاده می‌شود؛ وگرنه بی‌درنگ محلی (انتظار مدیر هرگز بیشتر از پردازش محلی نمی‌شود).
+     پنجره هم به نزدیک‌ترین خواندن بعدی + حاشیه کوتاه می‌شود، نه همیشه ۲۰ ثانیه. */
+  const maxWait = opts.background ? Math.max(claimWait, BACKGROUND_CLAIM_MAX_MS) : claimWait;
+  const etas = online.map(h => h.poll_eta_ms).filter(e => Number.isFinite(e) && e + CLAIM_MARGIN_MS <= maxWait);
+  if (!etas.length) return local('helper_idle');
+  const soonest = Math.min(...etas);
+  const window = Math.min(maxWait, soonest + CLAIM_MARGIN_MS);
+  if (!opts.background) {
+    const why = waitChoice(kind, soonest);
+    if (why) return local(why);
+  }
 
   const t0 = now();
   const id = newJobId(t0);
@@ -479,6 +534,10 @@ async function runJob(cfg, kind, params, opts = {}) {
     try { res = await readEnv(cfg, keys.res, K.result); } catch (e) { /* موقتی */ }
     if (res && !res.invalid && res.plain.job_id === id) {
       await cleanup();
+      if (!opts.background) {
+        feedEstimate(kind, 'helper_ms', t - t0);
+        feedEstimate(kind, 'helper_overhead_ms', Math.max(0, t - t0 - soonest));
+      }
       if (res.plain.ok) return { ok: true, by: res.plain.helper_id, result: res.plain.result };
       /* خطای خود کار (مثلاً پارامتر) را دوباره محلی امتحان نمی‌کنیم مگر خطای زیرساخت باشد */
       if (res.plain.error === 'bad_params' || res.plain.error === 'unknown_kind') {
@@ -491,7 +550,7 @@ async function runJob(cfg, kind, params, opts = {}) {
     if (lease && !lease.invalid && lease.plain.job_id === id) {
       claimedBy = lease.plain.helper_id;
       if (Number(lease.plain.until) < t) { await cleanup(); return local('lease_expired'); }
-    } else if (!claimedBy && t - t0 >= claimWait) {
+    } else if (!claimedBy && t - t0 >= window) {
       await cleanup(); return local('not_claimed');
     } else if (claimedBy) {
       await cleanup(); return local('lease_lost');
@@ -513,7 +572,7 @@ async function status(store) {
   try {
     const helpers = await helpersOnline(cfg);
     const policy = await readPolicy(cfg);
-    return Object.assign({ configured: true, helpers, online: helpers.filter(h => h.online).length, public_check: store.getMeta(META_PUBLIC_CHECK, null) }, use(policy));
+    return Object.assign({ configured: true, helpers, online: helpers.filter(h => h.online).length, public_check: store.getMeta(META_PUBLIC_CHECK, null), wait_estimates: estimatesView() }, use(policy));
   } catch (e) {
     return Object.assign({ configured: true, error: 'unreachable', helpers: [], online: 0, public_check: store.getMeta(META_PUBLIC_CHECK, null) }, use(null));
   }
@@ -582,10 +641,11 @@ async function queueStatus(cfg, { now = Date.now() } = {}) {
 }
 
 module.exports = {
-  K, DIR, KINDS, SALT: SALT.toString('utf8'), PRESENCE_FRESH_MS, CLAIM_WAIT_MS, GC_JOB_AGE_MS,
+  K, DIR, KINDS, SALT: SALT.toString('utf8'), PRESENCE_FRESH_MS, CLAIM_WAIT_MS, CLAIM_MARGIN_MS, BACKGROUND_CLAIM_MAX_MS, GC_JOB_AGE_MS,
   HelperError, seal, open, keyFor, newJobId, jobAt, isPublicIp, validParams,
   helpersOnline, runLocal, runJob, checkEndpoint, status, checkPublicUrl, start, listAll,
   POLICY_KEY, readPolicy, writePolicy, validPolicy, helperNeed, busyNow, routeNow, helperOff, queueStatus, helperV2,
+  HELPER_FAST_MS, estimates: estimatesView, _resetEstimates: () => estimates.clear(),
   _resetPolicyCache: () => { policyCache = { key: '', at: 0, value: null }; },
   _routeSkipped: () => routeSkipped,
 };
