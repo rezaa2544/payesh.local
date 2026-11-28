@@ -876,12 +876,15 @@ class _HelperCardState extends State<HelperCard> {
         const SizedBox(height: 16),
         const Text('توکن مدرسه (ردیف ۲۰۹):'),
         const SizedBox(height: 8),
-        TextField(
-          key: const Key('helper-school-id'),
-          controller: _schoolIdCtl,
-          decoration: const InputDecoration(
-            labelText: 'شناسهٔ مدرسه (مثل school-01)',
-            border: OutlineInputBorder(),
+        FieldBox(
+          width: kFieldText,
+          child: TextField(
+            key: const Key('helper-school-id'),
+            controller: _schoolIdCtl,
+            decoration: const InputDecoration(
+              labelText: 'شناسهٔ مدرسه (مثل school-01)',
+              border: OutlineInputBorder(),
+            ),
           ),
         ),
         const SizedBox(height: 8),
