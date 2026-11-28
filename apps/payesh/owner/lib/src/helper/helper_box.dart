@@ -40,6 +40,9 @@ abstract final class HelperDirs {
   static const String req = 'jobs/req/';
   static const String lease = 'jobs/lease/';
   static const String res = 'jobs/res/';
+
+  /// ردیف ۲۰۹ — یک فایل برای هر مدرسهٔ باطل‌شده: helpers/revoked/<school_id>.json
+  static const String revoked = 'helpers/revoked/';
 }
 
 /// نوع کارهایی که سرور کمکی انجام می‌دهد — همه «بدون محتوای مدرسه» (D-21).
@@ -309,11 +312,14 @@ String schoolHelperToken(String secret, String schoolId) {
   return '$schoolId.$b';
 }
 
+/// شناسهٔ معتبر مدرسه (همان SCHOOL_ID_RE در server/helper-v2.js).
+final RegExp schoolIdRe = RegExp(r'^[a-z0-9][a-z0-9_-]{1,62}$');
+
 bool verifySchoolHelperToken(String secret, String token) {
   final i = token.lastIndexOf('.');
   if (i <= 0) return false;
   final id = token.substring(0, i);
-  if (!RegExp(r'^[a-z0-9][a-z0-9_-]{1,62}$').hasMatch(id)) return false;
+  if (!schoolIdRe.hasMatch(id)) return false;
   final want = schoolHelperToken(secret, id);
   if (want.length != token.length) return false;
   var diff = 0;

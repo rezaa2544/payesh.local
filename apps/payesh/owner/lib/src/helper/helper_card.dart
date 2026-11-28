@@ -79,6 +79,14 @@ class _HelperCardState extends State<HelperCard> {
   String? _usage;
   bool _usageOk = true;
   late final HostCpuMeter _cpu = widget.cpu ?? HostCpuMeter();
+  // ردیف ۲۱۰: وضعیت صف؛ ردیف ۲۰۹: صدور/ابطال توکن مدرسه.
+  HelperQueueStatus? _queue;
+  final TextEditingController _schoolIdCtl = TextEditingController();
+  String? _issuedToken;
+  String? _tokenMsg;
+  bool _tokenOk = true;
+  List<String> _revokedSchools = const [];
+
   late final ProcessCpuMeter _proc = widget.procCpu ?? ProcessCpuMeter();
   Map<String, Object?> Function()? _diagFn;
   PacedTimer? _live;
