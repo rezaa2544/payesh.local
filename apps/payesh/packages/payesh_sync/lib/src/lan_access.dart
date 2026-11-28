@@ -364,9 +364,14 @@ final class LanSession {
     required this.role,
     this.deviceId,
     this.name,
+    this.mustChange = false,
   });
   final String token;
   final DateTime expiresAt;
+
+  /// Row 197 (Q12 / F16): still the first password (the national id) — the app asks for a new
+  /// one before any page (server/auth.js `must_change`).
+  final bool mustChange;
   final String deviceToken;
   final String? deviceId;
   final int uid;
@@ -412,6 +417,7 @@ final class LanSession {
       uid: uid.toInt(),
       role: role,
       name: u['name'] as String?,
+      mustChange: j['must_change'] == true,
     );
   }
 }

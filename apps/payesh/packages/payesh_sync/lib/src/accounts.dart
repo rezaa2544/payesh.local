@@ -66,6 +66,12 @@ enum AccountError {
 
   /// Row 160 — the user name is someone else's user name / mobile / national id.
   duplicateUsername,
+
+  /// Row 197 (F16) — own password: the new one is the first password (the national id).
+  passwordIsDefault,
+
+  /// Row 197 (F16) — own password: the new one is the current one.
+  passwordUnchanged,
   unknown,
 }
 
@@ -88,6 +94,10 @@ final class AccountFailure implements Exception {
     AccountError.badUsername => AccountRules.usernameRuleFa,
     AccountError.duplicateUsername =>
       'این نام کاربری قبلاً برای ${detail ?? 'کاربر دیگری'} ثبت شده',
+    AccountError.passwordIsDefault =>
+      'رمز تازه نباید کد ملی باشد — رمز دیگری انتخاب کنید',
+    AccountError.passwordUnchanged =>
+      'رمز تازه با رمز فعلی یکی است — رمز دیگری انتخاب کنید',
     AccountError.unknown => 'انجام نشد — دوباره امتحان کنید',
   };
 
@@ -261,6 +271,12 @@ final class LanAccounts implements AccountsApi {
         'no_phone' ||
         'no_national_id' => const AccountFailure(AccountError.noLogin),
         'bad_credentials' => const AccountFailure(AccountError.wrongCurrent),
+        'password_is_default' => const AccountFailure(
+          AccountError.passwordIsDefault,
+        ),
+        'password_unchanged' => const AccountFailure(
+          AccountError.passwordUnchanged,
+        ),
         _ when e.kind == LanAccessError.unreachable => const AccountFailure(
           AccountError.offline,
         ),

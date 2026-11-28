@@ -459,7 +459,10 @@ async function main() {
         readOut.push(seen ? 'y' : 'n');
       }
       /* writes */
-      const FIELD_ERRORS = new Set(['bad_score', 'bad_kind', 'bad_status', 'approval_denied']);
+      /* row 197: module/descriptive grades (Q08/Q09) and day-off calendar rows (Q10) are field
+         checks too — the database sees only ciphertext */
+      const FIELD_ERRORS = new Set(['bad_score', 'bad_kind', 'bad_status', 'approval_denied',
+        'bad_module', 'bad_level', 'bad_date', 'reason_required', 'reason_too_long', 'bad_range']);
       let dbRefused = 0, deviceRefused = 0, ok = 0;
       for (const wc of v.write) {
         const rid = 9500 + (++id);

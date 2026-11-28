@@ -1384,6 +1384,7 @@ paths:
       operationId: postApiAuthPassword
       tags: [auth]
       summary: "Change own password"
+      description: "Errors: bad_password (shorter than 4), bad_credentials (current is wrong), password_is_default (row 197 F16: the new password is the national id), password_unchanged (the new password is the current one)."
       x-source: server/index.js:1254
       requestBody:
         required: false
@@ -3184,6 +3185,9 @@ components:
         auth:
           type: string
           enum: [password, device, pair]
+        must_change:
+          type: boolean
+          description: "Row 197 (F16): the account still has its first password (the national id); clients show only the new-password form until POST /api/auth/password succeeds."
       additionalProperties: true
     Tombstone:
       type: object

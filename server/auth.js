@@ -215,12 +215,29 @@ function refreshWithDevice(store, input = {}) {
   }
   try { store.db.prepare('UPDATE devices SET last_seen_at=? WHERE id=?').run(nowISO(), device.id); } catch (e) { /* noop */ }
   const session = createSession(store, user.id, device.id);
-  return { ok: true, user: publicUser(user), session, device_token: rot.device_token, device_id: device.id,
-    rotated: rot.rotated, generation: rot.generation, auth: 'device' };
+  return withMustChange({ ok: true, user: publicUser(user), session, device_token: rot.device_token, device_id: device.id,
+    rotated: rot.rotated, generation: rot.generation, auth: 'device' }, user);
 }
 
 /* ── ورود با شمارهٔ همراه و رمز عبور ──────────────────────────────── */
 function hasPassword(user) { return !!(user && user.password_hash); }
+
+/* ردیف ۱۹۷ (Q12 / F16): رمز اولیهٔ هر حساب کد ملی است (credentialsFor)؛ تا وقتی همان
+   مانده باشد، پاسخ ورود/تازه‌سازی/بازکردن قفل must_change: true دارد و پنل‌ها پیش از هر
+   صفحه‌ای «رمز تازه» می‌خواهند. فقط با هش بررسی می‌شود — هیچ رمز خامی نگه داشته نمی‌شود. */
+function mustChangePassword(user, typed) {
+  const nid = normDigits(user && user.national_id);
+  if (nid.length < 4 || !user.password_hash) return false;
+  if (typed != null) {
+    const latin = String(typed).trim()
+      .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+      .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+    return latin === nid;
+  }
+  return verifySecret(nid, user.password_hash);
+}
+const withMustChange = (r, user, typed) =>
+  (r && r.ok && mustChangePassword(user, typed) ? Object.assign(r, { must_change: true }) : r);
 
 function login(store, input = {}) {
   /* نام کاربری: شمارهٔ همراه (۱۱ رقم) یا کد ملی (۱۰ رقم) برای کسانی که
@@ -242,7 +259,7 @@ function login(store, input = {}) {
     /* برای ورود بدون سرور روی گوشی لازم است */
     user = store.update('users', user.id, { phone_hash: pbkdf2Hash(pw) });
   }
-  return issueLogin(store, user, input, 'password');
+  return withMustChange(issueLogin(store, user, input, 'password'), user, pw);
 }
 
 /* ردیف ۱۶۰: بعد از اثبات هویت (رمز یا کد پیامکی) — نشست/دستگاه با همان قواعد سقف و کلید عمومی */
@@ -275,7 +292,8 @@ function unlockWithPassword(store, input = {}) {
   if (!user.password_hash) return { ok: false, error: 'no_password' };
   if (!verifySecret(String(input.password || ''), user.password_hash)) return { ok: false, error: 'bad_credentials' };
   store.db.prepare('UPDATE devices SET last_seen_at=? WHERE id=?').run(nowISO(), device.id);
-  return { ok: true, user: publicUser(user), session: createSession(store, user.id, device.id), auth: 'password' };
+  return withMustChange({ ok: true, user: publicUser(user), session: createSession(store, user.id, device.id), auth: 'password' },
+    user, String(input.password || ''));
 }
 
 /* تعیین/تغییر رمز عبور (مدیر برای هر کاربر، یا خودِ کاربر با رمز فعلی) */
@@ -314,6 +332,11 @@ function changeOwnPassword(store, userId, currentPw, nextPw) {
   if (user.password_hash && !verifySecret(String(currentPw || ''), user.password_hash)) {
     return { ok: false, error: 'bad_credentials' };
   }
+  /* ردیف ۱۹۷ (F16): رمز تازه نباید همان رمز اولیه (کد ملی) یا همان رمز فعلی باشد */
+  const next = String(nextPw || '');
+  const nid = normDigits(user.national_id);
+  if (nid.length >= 4 && next.trim() === nid) return { ok: false, error: 'password_is_default' };
+  if (next === String(currentPw || '') && next.length >= 4) return { ok: false, error: 'password_unchanged' };
   return setPassword(store, userId, nextPw);
 }
 
@@ -581,7 +604,7 @@ module.exports = {
   findUserByLogin, validUsername, normUsername, loginTaken, issueLogin, USERNAME_RE, USERCODE_RE,
   needsSetup, setup, createPairCode, pair,
   credentialsFor, applyDefaultCredentials, phoneTaken, passwordOf, randomDigits,
-  hasPassword, login, refreshWithDevice, unlockWithPassword, setPassword, changeOwnPassword,
+  hasPassword, login, refreshWithDevice, mustChangePassword, unlockWithPassword, setPassword, changeOwnPassword,
   createTransfer, redeemTransfer,
   verifySession, listDevices, revokeDevice, logout, publicUser, prune, findUserByPhone,
   SESSION_HOURS, accessTtlMs, deviceFromToken,

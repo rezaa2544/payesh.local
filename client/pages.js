@@ -2197,6 +2197,26 @@ function phoneAccessCard() {
     <div id="cloud-phone-out" class="small" style="margin-top:8px">${r ? phoneCheckHtml(r) : ''}</div>`);
 }
 
+/* ردیف ۱۹۷ (Q12 / F16): ورود با رمز اولیه (کد ملی) ⇒ پیش از هر صفحه‌ای رمز تازه.
+   سرور must_change را در پاسخ ورود/تازه‌سازی می‌دهد؛ تا عوض نشود هیچ صفحهٔ دیگری باز نمی‌شود. */
+function forcedPasswordHtml() {
+  const u = S.user || {};
+  const known = !!S.loginPw;
+  return `<div class="card" data-forced-pw="1" style="max-width:460px;margin:24px auto">
+    <h3 style="margin:0 0 6px">🔐 رمز عبور تازه بگذارید</h3>
+    <div class="small muted">${esc(u.name || '')} عزیز، شما با رمز اولیه (کد ملی) وارد شده‌اید. کد ملی را دیگران هم می‌دانند؛
+      برای امنیت حسابتان پیش از ادامه یک رمز تازه بگذارید. رمز تازه نباید کد ملی باشد.</div>
+    <form data-form="own-password" data-forced="1" style="margin-top:10px">
+      ${known ? '<input type="hidden" name="current" value="">'
+        : '<label class="field"><span>رمز فعلی (کد ملی)</span><input class="input ltr" type="password" name="current" autocomplete="current-password"></label>'}
+      <label class="field"><span>رمز تازه (حداقل ۴ نویسه)</span><input class="input ltr" type="password" name="next" autocomplete="new-password"></label>
+      <label class="field"><span>تکرار رمز تازه</span><input class="input ltr" type="password" name="again" autocomplete="new-password"></label>
+      <button class="btn primary block">ثبت رمز تازه و ادامه</button>
+    </form>
+    <div class="row" style="margin-top:8px;justify-content:center"><button class="btn sm ghost" data-act="lock">🔒 خروج</button></div>
+  </div>`;
+}
+
 /* کارت حساب: نام کاربری + تغییر رمز عبور (هر نقشی) */
 function accountCard() {
   const u = S.user || {};

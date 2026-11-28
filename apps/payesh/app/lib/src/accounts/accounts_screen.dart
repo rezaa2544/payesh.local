@@ -11,6 +11,7 @@ import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
 import '../school/school_source.dart';
+import '../pulse/web.dart';
 
 /// The manager's credential page of one user.
 class CredsController extends SchoolController {
@@ -575,5 +576,157 @@ class _OwnPasswordPageState extends State<OwnPasswordPage> {
         ],
       );
     },
+  );
+}
+
+/// Row 197 (Q12 / F16): signed in with the first password (the national id) — nothing else
+/// opens until a new password is set (web `forcedPasswordHtml`). The password typed at sign-in
+/// is used as «رمز فعلی» when the app still has it in memory; otherwise it is asked for.
+class ForcedPasswordScreen extends StatefulWidget {
+  const ForcedPasswordScreen({
+    super.key,
+    required this.source,
+    required this.role,
+    required this.uid,
+    required this.onDone,
+    required this.onSignOut,
+    this.signInPassword,
+  });
+  final SchoolSource source;
+  final String role;
+  final int uid;
+  final String? signInPassword;
+  final VoidCallback onDone;
+  final VoidCallback onSignOut;
+
+  @override
+  State<ForcedPasswordScreen> createState() => _ForcedPasswordScreenState();
+}
+
+class _ForcedPasswordScreenState extends State<ForcedPasswordScreen> {
+  late final OwnPasswordController c = OwnPasswordController(
+    source: widget.source,
+    role: widget.role,
+    uid: widget.uid,
+  );
+  final current = TextEditingController();
+  final next = TextEditingController();
+  final again = TextEditingController();
+
+  @override
+  void dispose() {
+    c.dispose();
+    current.dispose();
+    next.dispose();
+    again.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final now = widget.signInPassword ?? current.text;
+    // the account still has its first password (the national id): the same text again is
+    // refused here already (the server says password_is_default too)
+    if (now.trim().isNotEmpty && next.text.trim() == now.trim()) {
+      c.formError = const AccountFailure(AccountError.passwordIsDefault)
+          .messageFa;
+      c.emit();
+      return;
+    }
+    final ok = await c.change(current: now, next: next.text, again: again.text);
+    if (ok) widget.onDone();
+  }
+
+  Widget _secret(String key, String label, TextEditingController t) => Padding(
+    padding: const EdgeInsets.only(top: 10),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Web.small),
+        Semantics(
+          label: label,
+          child: FieldBox(
+            child: TextField(
+              key: Key(key),
+              controller: t,
+              obscureText: true,
+              textDirection: TextDirection.ltr,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: webInput(),
+              onSubmitted: (_) => _submit(),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: c,
+    builder: (context, _) => Scaffold(
+      key: const Key('fpw-screen'),
+      backgroundColor: Web.bg,
+      body: WebBackdrop(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: WebCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '🔐 رمز عبور تازه بگذارید',
+                        key: const Key('fpw-title'),
+                        style: Web.b.copyWith(fontSize: 17),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'شما با رمز اولیه (کد ملی) وارد شده‌اید. کد ملی را دیگران هم می‌دانند؛ برای '
+                        'امنیت حسابتان پیش از ادامه یک رمز تازه بگذارید. رمز تازه نباید کد ملی باشد.',
+                        style: Web.small.copyWith(color: Web.muted),
+                      ),
+                      if (c.formError case final e?)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: WebBanner(
+                            kind: WebBannerKind.err,
+                            text: e,
+                            textKey: const Key('fpw-error'),
+                          ),
+                        ),
+                      if (widget.signInPassword == null)
+                        _secret('fpw-current', 'رمز فعلی (کد ملی)', current),
+                      _secret('fpw-next', 'رمز تازه (حداقل ۴ نویسه)', next),
+                      _secret('fpw-again', 'تکرار رمز تازه', again),
+                      const SizedBox(height: 14),
+                      WebBtn(
+                        'ثبت رمز تازه و ادامه',
+                        key: const Key('fpw-submit'),
+                        kind: WebBtnKind.primary,
+                        block: true,
+                        onPressed: c.busy ? null : _submit,
+                      ),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: WebBtn(
+                          '🔒 خروج',
+                          key: const Key('fpw-signout'),
+                          kind: WebBtnKind.ghost,
+                          onPressed: widget.onSignOut,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 }

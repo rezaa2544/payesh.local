@@ -11,6 +11,7 @@ import 'package:payesh_sync/payesh_sync.dart'
 import 'package:payesh_ui/payesh_ui.dart';
 import 'package:payesh_update/payesh_update.dart';
 
+import 'accounts/accounts_screen.dart' show ForcedPasswordScreen;
 import 'attendance/attendance_controller.dart';
 import 'attendance/attendance_screen.dart';
 import 'family/family_controller.dart';
@@ -683,6 +684,18 @@ class PayeshApp extends StatelessWidget {
                     pages: (context, state) => _pages(context, s, state),
                     nav: (context, state) => _nav(context, s, state),
                     accountName: _accountName,
+                    // row 197 (F16): the first password (national id) must be changed first
+                    forcedPassword: school == null
+                        ? null
+                        : (context, st) => ForcedPasswordScreen(
+                            key: ValueKey('fpw-${st.currentUid}'),
+                            source: school!,
+                            role: st.currentRole ?? '',
+                            uid: st.currentUid ?? 0,
+                            signInPassword: s.signInPassword,
+                            onDone: s.passwordChanged,
+                            onSignOut: s.signOut,
+                          ),
                     admin: () => school?.admin,
                   ),
                 ),

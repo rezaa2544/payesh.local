@@ -31,9 +31,14 @@ class SessionGate extends StatelessWidget {
     this.nav,
     this.accountName,
     this.admin,
+    this.forcedPassword,
   });
 
   final SessionController controller;
+
+  /// Row 197 (Q12 / F16): «رمز تازه» shown instead of every page while the account still has
+  /// its first password ([SessionController.mustChangePassword]).
+  final Widget Function(BuildContext context, SignedIn state)? forcedPassword;
 
   /// Body under the signed-in header (the existing home content).
   final Widget? home;
@@ -80,6 +85,9 @@ class SessionGate extends StatelessWidget {
         final NeedSignup s => SignupScreen(controller: controller, state: s),
         final Locked s => LockScreen(controller: controller, state: s),
         final NeedClaim s => ClaimScreen(controller: controller, state: s),
+        final SignedIn s
+            when controller.mustChangePassword && forcedPassword != null =>
+          forcedPassword!(context, s),
         final SignedIn s => SignedInScreen(
           controller: controller,
           state: s,

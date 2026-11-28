@@ -5930,6 +5930,15 @@ async function waitFor(fn, ms = 15000) {
       console.log('    ' + r.stdout.trim().split('\n').pop());
     });
 
+  /* ── ردیف ۱۹۷ (Q12 / F16): تغییر اجباری رمز اولیه ── */
+  await test('ردیف ۱۹۷ (F16): ورود با رمز اولیه (کد ملی) ⇒ must_change در ورود/تازه‌سازی/بازگشایی، رمز تازه نه کد ملی نه همان رمز، وب فقط فرم رمز تازه، همتای Dart (۵ بررسی)',
+    async () => {
+      const { spawnSync } = require('child_process');
+      const r = spawnSync(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', path.join(ROOT, 'tests/first-login-197.js')], { encoding: 'utf8', cwd: ROOT, timeout: 60000 });
+      assert.strictEqual(r.status, 0, 'first-login-197: ' + (r.stdout || '').split('\n').filter(l => /^FAIL/.test(l)).join('\n') + (r.stderr || ''));
+      console.log('    ' + r.stdout.trim().split('\n').pop());
+    });
+
   /* ── ردیف ۱۹۸: مصرف بی‌دلیل صندوقچهٔ آروان (نوشتن‌های بی‌تغییر در صندوقچهٔ نسخه‌بندی‌شده) ── */
   await test('ردیف ۱۹۸: خلاصهٔ دانش‌آموز و auth/data فقط با تغییر واقعی (ماندگار پس از راه‌اندازی دوباره)، رسید مدرسه بی‌تغییر هر ۱۰ دقیقه، پشتیبان مالک بی‌updates و روزی یک بار روی دیتابیس (۵ بررسی)',
     async () => {

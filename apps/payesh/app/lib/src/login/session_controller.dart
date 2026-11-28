@@ -768,6 +768,8 @@ class SessionController extends ChangeNotifier {
   /// the manager revokes it; a new activation code is needed to come back).
   Future<void> signOut() async {
     if (_busy) return;
+    mustChangePassword = false;
+    signInPassword = null;
     final l = _lan;
     if (l != null) {
       final s = _state;
@@ -812,7 +814,30 @@ class SessionController extends ChangeNotifier {
       ? u.host
       : '${u.host}:${u.port}';
 
-  SignedIn _lanSignedIn(SavedLan l, [LanSession? fresh]) => SignedIn(
+  /// Row 197 (Q12 / F16): the server said this account still has its first password (the
+  /// national id) — [SessionGate] shows only «رمز تازه» until [passwordChanged].
+  bool mustChangePassword = false;
+
+  /// Row 197 (F16): the password typed at this sign-in (memory only, never stored), so the
+  /// forced form does not ask for it again; dropped once the password is changed.
+  String? signInPassword;
+
+  /// Row 197 (F16): the new password was accepted by the school server.
+  void passwordChanged() {
+    mustChangePassword = false;
+    signInPassword = null;
+    notifyListeners();
+  }
+
+  SignedIn _lanSignedIn(SavedLan l, [LanSession? fresh]) {
+    if (fresh != null) {
+      mustChangePassword = fresh.mustChange;
+      if (!fresh.mustChange) signInPassword = null;
+    }
+    return _lanSignedInState(l, fresh);
+  }
+
+  SignedIn _lanSignedInState(SavedLan l, [LanSession? fresh]) => SignedIn(
     school: l.school,
     role: fresh?.role ?? l.role,
     uid: fresh?.uid ?? l.uid,
@@ -962,6 +987,7 @@ class SessionController extends ChangeNotifier {
         password: password,
         deviceName: deviceName,
       );
+      signInPassword = fresh.mustChange ? password : null;
       await _lanSignedInWith(info, fresh);
     } on LanAccessFailure catch (e) {
       if (await _loginElsewhere(info, phone, password, e)) return;
@@ -1053,6 +1079,7 @@ class SessionController extends ChangeNotifier {
         await lanAccounts.remember(other);
         _lanShare = other.lanUrls;
         _lastPrimary = other.loginPrimary;
+        signInPassword = fresh.mustChange ? password : null;
         await _lanSignedInWith(other, fresh);
         return true;
       } on LanAccessFailure catch (f) {
@@ -1283,6 +1310,7 @@ class SessionController extends ChangeNotifier {
       );
       await lanAccounts.setLocked(false);
       _publish(SyncPhase.idle, ok: _now());
+      signInPassword = fresh.mustChange ? password : null;
       _set(_lanSignedIn(l, fresh));
     } on LanAccessFailure catch (e) {
       if (e.kind == LanAccessError.deviceRevoked) {
