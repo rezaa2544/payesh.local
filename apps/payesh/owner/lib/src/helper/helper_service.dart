@@ -303,6 +303,69 @@ final class OwnerHelperService {
     }
   }
 
+  /// ردیف ۲۱۰ — وضعیت یکپارچهٔ صف کارها برای پنل (بدون محتوای کارها).
+  Future<HelperQueueStatus> queueStatus() async {
+    final s = _s3;
+    if (s == null || s.bucket.isEmpty) {
+      throw const S3Failure('اول دیتابیس را در همین صفحه تنظیم و ذخیره کنید.');
+    }
+    final t = transport();
+    try {
+      return await readQueueStatus(s, t, now: _now);
+    } finally {
+      t.close();
+    }
+  }
+
+  /// ردیف ۲۰۹ — صدور توکن اختصاصی مدرسه از کلید صندوقچهٔ همین پنل.
+  /// کلید صندوقچه هرگز داده نمی‌شود؛ فقط توکن مشتق‌شدهٔ همان مدرسه برمی‌گردد.
+  String issueSchoolToken(String schoolId) {
+    final s = _s3;
+    if (s == null || s.bucket.isEmpty) {
+      throw const S3Failure('اول دیتابیس را در همین صفحه تنظیم و ذخیره کنید.');
+    }
+    final id = schoolId.trim();
+    if (!schoolIdRe.hasMatch(id)) {
+      throw const S3Failure(
+        'شناسهٔ مدرسه معتبر نیست (حروف کوچک/عدد/خط تیره، ۲ تا ۶۳ نویسه).',
+      );
+    }
+    return schoolHelperToken(s.secretKey, id);
+  }
+
+  /// ردیف ۲۰۹ — مدرسه‌هایی که توکنشان باطل شده است.
+  Future<List<String>> revokedSchools() async {
+    final s = _s3;
+    if (s == null || s.bucket.isEmpty) return const [];
+    final t = transport();
+    try {
+      return await readRevokedSchools(s, t);
+    } finally {
+      t.close();
+    }
+  }
+
+  /// ردیف ۲۰۹ — ابطال توکن مدرسه: نشان مهرشده در صندوقچه نوشته می‌شود تا
+  /// هر اجراکننده‌ای پیش از پذیرش کار مدرسه آن را ببیند و رد کند.
+  Future<void> revokeSchoolToken(String schoolId) async {
+    final s = _s3;
+    if (s == null || s.bucket.isEmpty) {
+      throw const S3Failure('اول دیتابیس را در همین صفحه تنظیم و ذخیره کنید.');
+    }
+    final id = schoolId.trim();
+    if (!schoolIdRe.hasMatch(id)) {
+      throw const S3Failure(
+        'شناسهٔ مدرسه معتبر نیست (حروف کوچک/عدد/خط تیره، ۲ تا ۶۳ نویسه).',
+      );
+    }
+    final t = transport();
+    try {
+      await writeSchoolTokenRevoked(s, t, id, _now());
+    } finally {
+      t.close();
+    }
+  }
+
   Future<String?> _read(String k) async {
     try {
       return await secure.read(k);

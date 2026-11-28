@@ -606,6 +606,80 @@ Future<List<HelperPresence>> readHelpers(S3Settings s3, S3Transport t) async {
   return out;
 }
 
+/// ردیف ۲۱۰ — وضعیت صف از روی کلیدهای jobs/ (بدون خواندن محتوای کارها؛ فقط
+/// پاکت lease برای مهلتش باز می‌شود تا کار گیرکرده شمرده شود).
+Future<HelperQueueStatus> readQueueStatus(
+  S3Settings s3,
+  S3Transport t, {
+  DateTime Function()? now,
+}) async {
+  final clock = now ?? DateTime.now;
+  final (objs, _) = await s3ListObjects(
+    s3,
+    t,
+    '${helperRoot}jobs/',
+    maxPages: 5,
+  );
+  final untilMs = <String, int>{};
+  for (final o in objs) {
+    if (!o.key.contains('/lease/')) continue;
+    final text = await s3GetText(s3, t, o.key);
+    if (text == null) continue;
+    final p = await openHelper(s3.secretKey, HelperKinds.lease, text);
+    final u = p?['until'];
+    if (u is int) untilMs[nameOfKey(o.key)] = u;
+  }
+  return queueStatusFromKeys(
+    objs.map((o) => o.key),
+    leaseUntilMs: untilMs,
+    now: clock(),
+  );
+}
+
+/// ردیف ۲۰۹ — مدرسه‌هایی که توکنشان باطل شده (از روی نشان‌های مهرشده).
+Future<List<String>> readRevokedSchools(S3Settings s3, S3Transport t) async {
+  final (objs, _) = await s3ListObjects(
+    s3,
+    t,
+    '$helperRoot${HelperDirs.revoked}',
+    maxPages: 1,
+  );
+  final out = <String>[];
+  for (final o in objs) {
+    final text = await s3GetText(s3, t, o.key);
+    if (text == null) continue;
+    final p = await openHelper(
+      s3.secretKey,
+      HelperKinds.schoolTokenRevoked,
+      text,
+    );
+    final id = schoolIdFromRevokedPlain(p);
+    if (id != null && id == nameOfKey(o.key)) out.add(id);
+  }
+  out.sort();
+  return out;
+}
+
+/// ردیف ۲۰۹ — نوشتن نشان ابطال توکن یک مدرسه (فقط مالکِ دارندهٔ کلید صندوقچه).
+Future<void> writeSchoolTokenRevoked(
+  S3Settings s3,
+  S3Transport t,
+  String schoolId,
+  DateTime at,
+) async {
+  await s3PutJson(
+    s3,
+    t,
+    '$helperRoot${HelperDirs.revoked}$schoolId.json',
+    await sealHelper(
+      s3.secretKey,
+      HelperKinds.schoolTokenRevoked,
+      at.millisecondsSinceEpoch,
+      schoolTokenRevokedPlain(schoolId, at),
+    ),
+  );
+}
+
 /// آیا کار به سرور کمکی نیاز دارد؟ null = بله؛ وگرنه دلیلِ انجام روی همین دستگاه
 /// (همان `helperNeed` در server/helper-jobs.js).
 String? helperNeed(String kind, {required bool helpersOn, required bool busy}) {
