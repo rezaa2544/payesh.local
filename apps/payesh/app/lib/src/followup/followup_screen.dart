@@ -4,6 +4,7 @@
 // Every write is local-first through Followup / SchoolImport (queue first, then the local copy).
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:payesh_data/payesh_data.dart' show EngineRow;
 import 'package:payesh_sync/payesh_sync.dart';
 import 'package:payesh_ui/payesh_ui.dart';
 
@@ -43,6 +44,66 @@ class FollowupController extends SchoolController {
       run((db) => Followup(db).issueDone(id));
 
   Future<RecordWrite?> issuesClear() => run((db) => Followup(db).issuesClear());
+
+  /// Row 205: (done, total) of the running «ثبت موقت در لیست» of many rows; null = idle.
+  (int, int)? tempProgress;
+
+  /// Row 205 «ثبت موقت در لیست» right on the row(s), without opening the form: each row's
+  /// user is made with only its valid values (as the button inside the form does) and the
+  /// row stays on this list, marked «ثبت موقت», until its data is complete. A row that is
+  /// already in the system is skipped; a row that looks like a person already here (same
+  /// name, other code) is left for «✏️ اصلاح» — never merged or duplicated without asking.
+  Future<RecordWrite?> tempRegister(List<ImportIssue> rows) {
+    final todo = [
+      for (final i in rows)
+        if (i.userId == null && i.tempUserId == null) i,
+    ];
+    if (todo.isEmpty) {
+      notice = 'همهٔ ردیف‌های انتخاب‌شده از قبل در فهرست کاربران هستند';
+      emit();
+      return Future.value(null);
+    }
+    return run((db) async {
+      final keys = <String>[];
+      final classes = await db.allOrEmpty('classes');
+      final dir = UserDirectory(db);
+      final fu = Followup(db);
+      var done = 0, same = 0, dropped = 0;
+      final failed = <String>[];
+      for (final (n, i) in todo.indexed) {
+        tempProgress = (n, todo.length);
+        emit();
+        // a frame between rows: a long list must not freeze the screen
+        await Future<void>.delayed(Duration.zero);
+        try {
+          final fix = followupFixValues(i);
+          final (w, drop) = await dir.addTemporary(
+            followupTempDraft(i, classes: classes, fix: fix.values),
+          );
+          keys.addAll(w.keys);
+          final d = await fu.saveDraft(i.id, fix.values, tempUserId: w.id);
+          keys.addAll(d.keys);
+          done++;
+          if (drop.isNotEmpty) dropped++;
+        } on SamePersonFailure {
+          same++;
+        } on RecordFailure catch (e) {
+          failed.add('${i.name.isEmpty ? '—' : i.name}: ${e.messageFa}');
+        }
+      }
+      tempProgress = null;
+      final parts = [
+        '${_fa(done)} نفر ثبت موقت شد${done == 0 ? '' : ' — در فهرست کاربران هستند و ردیفشان برای تکمیل در «پیگیری» می‌ماند'}',
+        if (dropped > 0) '${_fa(dropped)} نفر مقدارهای نادرستشان ثبت نشد',
+        if (same > 0)
+          '${_fa(same)} نفر شبیه کاربری است که از قبل هست — با «✏️ اصلاح» بررسی کنید',
+        if (failed.isNotEmpty)
+          '${_fa(failed.length)} نفر ثبت نشد (${failed.take(3).join('؛ ')})',
+      ];
+      if (done == 0) throw RecordFailure('invalid', parts.join(' · '));
+      return RecordWrite(parts.join(' · '), keys: keys);
+    });
+  }
 
   /// Row 203: the «✏️ اصلاح» form keeps what was typed on the row as it goes — quietly (no
   /// busy flag, no reload under the open form; the list is read again when it closes).
@@ -131,6 +192,62 @@ followupFixValues(ImportIssue i) {
   return (values: values, issues: issues, auto: auto);
 }
 
+/// Row 205 — the user a follow-up row becomes on «ثبت موقت در لیست» without its form: the
+/// values the «✏️ اصلاح» form opens with ([followupFixValues]), read the way the form reads
+/// them (the single «ولی» is the father; the class the file named, when the school has it).
+UserDraft followupTempDraft(
+  ImportIssue i, {
+  List<EngineRow> classes = const [],
+  Map<String, String>? fix,
+}) {
+  final v = fix ?? followupFixValues(i).values;
+  String g(String k) => (v[k] ?? '').trim();
+  final extra = <String, String>{
+    for (final k in userProfileKeys)
+      if (g(k).isNotEmpty) k: g(k),
+  };
+  for (final (from, to) in const [
+    ('parent_name', 'father_name'),
+    ('parent_phone', 'father_phone'),
+  ]) {
+    if (g(from).isNotEmpty && (extra[to] ?? '').isEmpty) extra[to] = g(from);
+  }
+  final role = g('role').isEmpty ? 'student' : g('role');
+  final student = role == 'student';
+  var classId = int.tryParse(g('class_id'));
+  final cn = g('class_name');
+  if (classId == null && cn.isNotEmpty) {
+    classId = classes
+        .where((c) => normName(c.data['name']) == normName(cn))
+        .map((c) => c.id)
+        .firstOrNull;
+  }
+  bool has(String rel) => [
+    '${rel}_name',
+    '${rel}_phone',
+    '${rel}_nid',
+  ].any((k) => (extra[k] ?? '').isNotEmpty);
+  return UserDraft(
+    name: g('name'),
+    role: role,
+    classId: student ? classId : null,
+    nationalId: g('national_id'),
+    phone: g('phone'),
+    birthDate: g('birth_date'),
+    gender: g('gender'),
+    extra: extra,
+    grade: student ? g('grade') : '',
+    branch: student ? (g('field').isNotEmpty ? g('field') : g('branch')) : '',
+    parentAccounts: student
+        ? {
+            for (final r in const ['father', 'mother'])
+              if (has(r)) r,
+          }
+        : const {},
+    access: accessForSave(role, roleDefaultAccess[role] ?? const []),
+  );
+}
+
 class FollowupScreen extends StatefulWidget {
   const FollowupScreen({
     super.key,
@@ -150,6 +267,100 @@ class _FollowupScreenState extends State<FollowupScreen> {
   FollowupController get c => widget.controller;
   final Map<int, String> _grade = {};
   final Map<int, String> _branch = {};
+
+  /// Row 205: the import rows ticked for one «ثبت موقت در لیست».
+  final Set<int> _picked = {};
+
+  static bool _canTemp(ImportIssue i) =>
+      i.userId == null && i.tempUserId == null;
+
+  Future<void> _temp(List<ImportIssue> rows) async {
+    if (rows.length > 1) {
+      final ok = await confirmAction(
+        context,
+        prefix: 'fu-temp',
+        title: 'ثبت موقت در لیست',
+        message:
+            '${Web.fa(rows.length)} نفر با همان اطلاعات درستشان در فهرست کاربران ثبت شوند؟ '
+            'مقدارهای نادرست ثبت نمی‌شوند و ردیف هر نفر برای تکمیل در «پیگیری» می‌ماند.',
+        confirm: 'ثبت موقت همه',
+      );
+      if (!ok) return;
+    }
+    final r = await c.tempRegister(rows);
+    if (r != null && mounted) setState(() => _picked.clear());
+  }
+
+  Widget _tempBar(List<ImportIssue> issues) {
+    final open = [
+      for (final i in issues)
+        if (_canTemp(i)) i,
+    ];
+    _picked.removeWhere((id) => !open.any((i) => i.id == id));
+    if (open.isEmpty) return const SizedBox.shrink();
+    final all = _picked.length == open.length;
+    final p = c.tempProgress;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 2),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          InkWell(
+            key: const Key('fu-issues-all'),
+            onTap: c.busy
+                ? null
+                : () => setState(() {
+                    if (all) {
+                      _picked.clear();
+                    } else {
+                      _picked.addAll(open.map((i) => i.id));
+                    }
+                  }),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Checkbox(
+                  value: _picked.isEmpty ? false : (all ? true : null),
+                  tristate: true,
+                  onChanged: c.busy
+                      ? null
+                      : (_) => setState(() {
+                          if (all) {
+                            _picked.clear();
+                          } else {
+                            _picked.addAll(open.map((i) => i.id));
+                          }
+                        }),
+                ),
+                Text(
+                  'انتخاب همه (${Web.fa(open.length)} ردیفی که هنوز در فهرست نیستند)',
+                  style: Web.small.copyWith(color: Web.ink),
+                ),
+              ],
+            ),
+          ),
+          WebBtn(
+            '📋 ثبت موقت انتخاب‌شده‌ها${_picked.isEmpty ? '' : ' (${Web.fa(_picked.length)})'}',
+            key: const Key('fu-issues-temp'),
+            onPressed: c.busy || _picked.isEmpty
+                ? null
+                : () => _temp([
+                    for (final i in open)
+                      if (_picked.contains(i.id)) i,
+                  ]),
+          ),
+          if (p != null)
+            Text(
+              'در حال ثبت موقت: ${Web.fa(p.$1)} از ${Web.fa(p.$2)}',
+              key: const Key('fu-issues-progress'),
+              style: Web.small.copyWith(color: Web.muted),
+            ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -454,6 +665,15 @@ class _FollowupScreenState extends State<FollowupScreen> {
           kind: WebBtnKind.primary,
           onPressed: c.busy ? null : () => _fix(i),
         ),
+        if (_canTemp(i)) ...[
+          const SizedBox(width: 6),
+          // row 205: the form's «ثبت موقت در لیست» right on the row too
+          WebBtn(
+            '📋 ثبت موقت در لیست',
+            key: Key('fu-issue-temp-btn-${i.id}'),
+            onPressed: c.busy ? null : () => _temp([i]),
+          ),
+        ],
         const SizedBox(width: 6),
         WebBtn.delete(
           'حذف / نادیده گرفتن',
@@ -462,6 +682,21 @@ class _FollowupScreenState extends State<FollowupScreen> {
         ),
       ],
     );
+    final pick = _canTemp(i)
+        ? Checkbox(
+            key: Key('fu-issue-pick-${i.id}'),
+            value: _picked.contains(i.id),
+            onChanged: c.busy
+                ? null
+                : (v) => setState(() {
+                    if (v ?? false) {
+                      _picked.add(i.id);
+                    } else {
+                      _picked.remove(i.id);
+                    }
+                  }),
+          )
+        : const SizedBox(width: 48);
     return LayoutBuilder(
       builder: (context, box) {
         final narrow = box.maxWidth < 720;
@@ -474,7 +709,12 @@ class _FollowupScreenState extends State<FollowupScreen> {
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    who,
+                    Row(
+                      children: [
+                        pick,
+                        Expanded(child: who),
+                      ],
+                    ),
                     const SizedBox(height: 6),
                     why,
                     const SizedBox(height: 8),
@@ -486,6 +726,7 @@ class _FollowupScreenState extends State<FollowupScreen> {
                 )
               : Row(
                   children: [
+                    pick,
                     SizedBox(width: 220, child: who),
                     const SizedBox(width: 12),
                     Expanded(child: why),
@@ -592,9 +833,12 @@ class _FollowupScreenState extends State<FollowupScreen> {
                         else ...[
                           Text(
                             'هر ردیف را با «✏️ اصلاح» در همان فرم تعریف کاربر درست و ذخیره کنید تا '
-                            'از این فهرست برود؛ یا اگر لازم نیست، «حذف / نادیده گرفتن» را بزنید.',
+                            'از این فهرست برود؛ با «📋 ثبت موقت در لیست» همان حالا با اطلاعات درستش در '
+                            'فهرست کاربران می‌آید و برای تکمیل اینجا می‌ماند (چند ردیف را تیک بزنید یا '
+                            '«انتخاب همه» تا یک‌جا ثبت شوند)؛ یا اگر لازم نیست، «حذف / نادیده گرفتن» را بزنید.',
                             style: Web.small.copyWith(color: Web.muted),
                           ),
+                          _tempBar(v.issues),
                           const SizedBox(height: 4),
                           for (final i in v.issues) _issueTile(i),
                           const SizedBox(height: 10),

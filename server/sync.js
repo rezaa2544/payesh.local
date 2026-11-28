@@ -379,6 +379,14 @@ function push(store, actor, body, ctx = {}) {
         for (const f of ['password_hash', 'phone_hash', 'password_enc', 'phone', 'national_id']) {
           if (incoming[f] === undefined && existing[f] !== undefined) incoming[f] = existing[f];
         }
+        /* ردیف ۲۰۵: دلیل «پیگیری» با جای تازه پاک می‌شود. store.update ادغام می‌کند؛ دستگاهی
+           که کلید followup_reason را «انداخته» (نه خالی کرده) با پایه/رشته/کلاس تازه می‌فرستد،
+           پیش‌تر دلیل کهنه را روی سرور نگه می‌داشت و دانش‌آموز با هر pull به پیگیری برمی‌گشت. */
+        if (incoming.followup_reason === undefined && String(existing.followup_reason || '').trim() &&
+            ['grade', 'field', 'branch', 'class_id'].some(k => incoming[k] !== undefined &&
+              String(incoming[k] == null ? '' : incoming[k]) !== String(existing[k] == null ? '' : existing[k]))) {
+          incoming.followup_reason = '';
+        }
       }
     }
 

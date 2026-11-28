@@ -1,26 +1,26 @@
 {
-  "version": "0.9.74",
-  "built_at": "2026-11-28T01:19:18.972Z",
+  "version": "0.9.75",
+  "built_at": "2026-11-28T01:57:06.019Z",
   "notes": [
     "پردازش کمکی پایش حالا می‌تواند میان چند اجراکننده پخش شود: پنل مالک، رایانه‌های مدرسه، و اجراکننده‌های ابری؛ اگر هیچ‌کدام در دسترس نباشند، کار مثل قبل روی همان سرور انجام می‌شود و هیچ کاری متوقف نمی‌ماند.",
     "امنیت داده‌های مدرسه سخت‌گیرانه‌تر شد: کارهای دارای محتوای مدرسه فقط روی پنل مالک یا رایانهٔ همان مدرسه انجام می‌شوند و هرگز به اجراکننده‌های بیرونی سپرده نمی‌شوند. برای هر مدرسه یک توکن جداگانه و قابل ابطال صادر می‌شود و کلید اصلی صندوقچه هرگز به مدرسه داده نمی‌شود.",
     "اگر اجراکننده‌ای وسط کار خاموش شود، کار پس از پایان مهلت اجاره به‌صورت خودکار به اجراکنندهٔ دیگری یا به اجرای محلی سپرده می‌شود و نتیجهٔ تکراری دوباره اعمال نمی‌شود."
   ],
   "shell": {
-    "android": "0.9.74"
+    "android": "0.9.75"
   },
   "files": [
     {
       "path": "client/app.js",
       "kind": "client",
-      "sha256": "f3f9bb310ce7c516237ba12476d1139e4c8653280c53d9bdde7c5ee79f995820",
-      "size": 245700
+      "sha256": "ba33781caf49d546dff3738de09b8ea3ae632ec91959129b38523b1cb2f43644",
+      "size": 252853
     },
     {
       "path": "client/authz.js",
       "kind": "client",
-      "sha256": "5a21f7746ec6dd909b91c3919fa65cbc6a64fc1d7ac26c188bae0deaeec4c293",
-      "size": 8848
+      "sha256": "1e7e4beab32d607f59684f7d7c1df82e4f1e055907a1776dd938b62aa8592fb8",
+      "size": 8871
     },
     {
       "path": "client/cloud-baked.js",
@@ -31,8 +31,8 @@
     {
       "path": "client/diag.js",
       "kind": "client",
-      "sha256": "e7348a01dae024bea2de74edcd6c96a86a06b72bf11f7bf2ebbcb6999bbea6a7",
-      "size": 35827
+      "sha256": "dd6bc267e7cc81a2514e5b58b647fdfa399fa9c41a55f64605b1ad2d41c25c58",
+      "size": 35256
     },
     {
       "path": "client/engine-web.js",
@@ -145,8 +145,8 @@
     {
       "path": "client/pages.js",
       "kind": "client",
-      "sha256": "f131f0ec1a1b5be6b517aedbe40195d97584f270ea3a28ae6e145e0debc6e609",
-      "size": 209254
+      "sha256": "58a689092570b699b3890c5262498ba349d941b2d9a605c38369304e942fbd46",
+      "size": 212877
     },
     {
       "path": "client/provider-postgrest.js",
@@ -223,7 +223,7 @@
     {
       "path": "package.json",
       "kind": "server",
-      "sha256": "7fe4f0f7b2e057a40ce06cda2922b5c268ced51785b987e47ce31feab3c61753",
+      "sha256": "89674fe0050041c5eee733a369edaf46104b188acb9d0e6b5077b90b388d7dd1",
       "size": 8172
     },
     {
@@ -553,8 +553,8 @@
     {
       "path": "server/sync.js",
       "kind": "server",
-      "sha256": "6a3773db4d82dd94b87ec7f13aa813f4d2afa19af5fd08c2da0241af225c6868",
-      "size": 23250
+      "sha256": "dcbdd1c0a12de1cca11d08644071452b591c84e49e0712ba6965f9e2b5a0f3f5",
+      "size": 24080
     },
     {
       "path": "server/tenancy.js",
@@ -621,7 +621,7 @@
     "client": 34,
     "server": 67
   },
-  "client_size": 1608755,
-  "server_size": 1101192,
-  "total_size": 2709947
+  "client_size": 1618983,
+  "server_size": 1102022,
+  "total_size": 2721005
 }

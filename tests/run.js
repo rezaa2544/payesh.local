@@ -3154,6 +3154,91 @@ async function waitFor(fn, ms = 15000) {
     dom.window.close();
   });
 
+  /* — ردیف ۲۰۵: «ثبت موقت در لیست» کنار هر ردیف پیگیری + انتخاب همه؛ دلیلِ کهنه دوباره نمی‌پرسد ── */
+  await test('W205: پیگیری — «ثبت موقت در لیست» روی هر ردیف و دسته‌ای؛ بی‌تکرار؛ دلیل کهنهٔ رشتهٔ حذف‌شده دوباره نمی‌پرسد', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body><div id="app"></div><div id="toasts"></div><div id="modal-root"></div></body></html>',
+      { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const win = dom.window;
+    const strip = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^'use strict';?\s*/m, '');
+    win.eval(strip('client/pages.js') + '\n;\n' + strip('client/import.js') + '\n;\n' + strip('client/app.js')
+      + '\n;window.__t = { S, actImportIssues, issueTempRegister, importIssueCanTemp, followupStudentReason, followupStudents, list, byId };');
+    const T = win.__t;
+    T.S.user = { id: 1, name: 'مدیر', role: 'manager' };
+    T.S.role = 'manager'; T.S.session = 'x'; T.S.route = 'users';
+    T.S.data = {
+      schools: new Map([[1, { id: 1, name: 'کاردانش آینده سازان', level: 'متوسطه دوم' }]]),
+      users: new Map([[1, { id: 1, name: 'مدیر', role: 'manager' }],
+        [2, { id: 2, name: 'سارا موجود', role: 'student', national_id: '1000000011', grade: 'دهم', field: 'الکتروتکنیک' }],
+        [3, { id: 3, name: 'کاندیش احمدی', role: 'student', grade: 'دوازدهم', field: 'الکتروتکنیک', class_id: null,
+          followup_reason: 'رشتهٔ «حسابداری» حذف شد — کلاس تازه انتخاب کنید' }]]),
+      classes: new Map(), subjects: new Map(), parent_links: new Map(),
+      lookups: new Map([[1, { id: 1, kind: 'grade', name: 'دهم' }], [2, { id: 2, kind: 'grade', name: 'دوازدهم' }], [3, { id: 3, kind: 'branch', name: 'الکتروتکنیک' }]]),
+      import_issues: new Map([
+        [11, { id: 11, name: 'سارا موجود', national_id: '1000000011', status: 'open', reasons: ['موبایل پدر نامعتبر است'], data: { full_name: 'سارا موجود', national_id: '1000000011' } }],
+        [12, { id: 12, name: 'رضا تازه', national_id: '1000000028', phone: '09121112233', status: 'open', reasons: ['موبایل پدر «9181» نامعتبر است'],
+          data: { full_name: 'رضا تازه', national_id: '1000000028', phone: '09121112233', new_grade: 'دهم', new_branch: 'الکتروتکنیک', father_phone: '9181', father_name: 'حسن' } }],
+        [13, { id: 13, name: 'مینا ناقص', national_id: '12345', phone: '0912', status: 'open', reasons: ['کد ملی معتبر نیست'],
+          data: { full_name: 'مینا ناقص', national_id: '12345', phone: '0912', grade: 'دوازدهم', field: 'الکتروتکنیک' } }],
+      ]),
+    };
+    T.S.queue = []; T.S.online = false;
+
+    /* مورد ۱: پایه و رشتهٔ درست + دلیل کهنهٔ «رشتهٔ حسابداری حذف شد» ⇒ دیگر در فهرست نیست */
+    assert.strictEqual(T.followupStudentReason(T.byId('users', 3)), '', 'دلیل کهنه با پایه و رشتهٔ تعریف‌شده نمی‌ماند');
+    assert.ok(!T.followupStudents().some(x => x.user.id === 3), 'کاندیش احمدی دوباره پرسیده نمی‌شود');
+    const noField = Object.assign({}, T.byId('users', 3), { field: '' });
+    assert.ok(T.followupStudentReason(noField), 'NEG: بی‌رشته هنوز پیگیری لازم دارد');
+    /* پاک‌کردن دلیل = '' (نه حذف کلید) — وگرنه سرور LAN دلیل کهنه را نگه می‌دارد */
+    const app = fs.readFileSync(path.join(ROOT, 'client', 'app.js'), 'utf8');
+    assert.ok(!/delete\s+(patch|next|row|u)\.followup_reason/.test(app), 'هیچ مسیر app.js دلیل را با delete پاک نمی‌کند');
+    const sync = fs.readFileSync(path.join(ROOT, 'server', 'sync.js'), 'utf8');
+    assert.ok(/followup_reason/.test(sync), 'سرور دلیل کهنهٔ نسخه‌های قدیمی را پاک می‌کند');
+
+    /* مورد ۲: دکمه روی خود ردیف + انتخاب همه */
+    T.actImportIssues();
+    let box = win.document.getElementById('modal-root').innerHTML;
+    assert.ok(box.includes('data-act="issue-temp" data-id="12"') && box.includes('data-act="issue-temp" data-id="13"'), 'ثبت موقت کنار ردیف‌های ساخته‌نشده');
+    assert.ok(!box.includes('data-act="issue-temp" data-id="11"'), 'NEG: ردیفی که در سامانه هست ثبت موقت ندارد');
+    assert.ok(box.includes('data-issue-pick="all"') && box.includes('(۲)'), 'انتخاب همهٔ ردیف‌های ساخته‌نشده');
+    const all = win.document.querySelector('[data-issue-pick="all"]');
+    all.checked = true;
+    all.dispatchEvent(new win.Event('change', { bubbles: true }));
+    assert.deepStrictEqual([...T.S.issuePicked].sort(), [12, 13], 'انتخاب همه فقط ردیف‌های ساخته‌نشده');
+    box = win.document.getElementById('modal-root').innerHTML;
+    assert.ok(box.includes('data-act="issues-temp"') && box.includes('ثبت موقت ۲ ردیف'), 'دکمهٔ ثبت موقت دسته‌ای');
+
+    const before = T.list('users').length;
+    const out = T.issueTempRegister([T.byId('import_issues', 12), T.byId('import_issues', 13), T.byId('import_issues', 11)]);
+    assert.strictEqual(out.done, 2, 'دو نفر ثبت موقت شدند');
+    assert.strictEqual(out.skipped, 1, 'ردیفِ موجود رد شد (کاربر تکراری ساخته نمی‌شود)');
+    assert.strictEqual(T.list('users').length, before + 2);
+    const reza = T.list('users').find(u => u.name === 'رضا تازه');
+    assert.strictEqual(reza.national_id, '1000000028');
+    assert.strictEqual(reza.phone, '09121112233');
+    assert.strictEqual(reza.grade, 'دهم'); assert.strictEqual(reza.field, 'الکتروتکنیک');
+    assert.strictEqual(reza.father_name, 'حسن');
+    assert.ok(!reza.father_phone, 'موبایل نادرست پدر ثبت نمی‌شود');
+    const mina = T.list('users').find(u => u.name === 'مینا ناقص');
+    assert.strictEqual(mina.national_id, '', 'کد ملی نادرست ثبت نمی‌شود');
+    assert.strictEqual(mina.phone, '', 'همراه نادرست ثبت نمی‌شود');
+    assert.strictEqual(mina.grade, 'دوازدهم');
+    assert.strictEqual(T.byId('import_issues', 12).status, 'open', 'ردیف برای تکمیل در پیگیری می‌ماند');
+    assert.strictEqual(Number(T.byId('import_issues', 12).temp_user_id), Number(reza.id));
+    assert.strictEqual(T.importIssueCanTemp(T.byId('import_issues', 13)), false, 'دوباره ثبت موقت نمی‌شود');
+    const again = T.issueTempRegister([T.byId('import_issues', 12)]);
+    assert.strictEqual(again.done, 0, 'NEG: بار دوم کاربر تکراری ساخته نمی‌شود');
+    assert.strictEqual(T.list('users').length, before + 2);
+    T.actImportIssues();
+    box = win.document.getElementById('modal-root').innerHTML;
+    assert.ok(box.includes('ثبت موقت — در فهرست'), 'نشان «ثبت موقت» روی ردیف');
+    assert.ok(!box.includes('data-act="issue-temp"'), 'پس از ثبت موقت دکمه‌اش نمی‌ماند');
+    assert.ok(T.S.queue.some(q => q.collection === 'users') && T.S.queue.some(q => q.collection === 'import_issues'), 'در صف همگام‌سازی است');
+    const authz = fs.readFileSync(path.join(ROOT, 'client', 'authz.js'), 'utf8');
+    assert.ok(/\|issue-temp\|issues-temp\|/.test(authz), 'فقط مدیر');
+    dom.window.close();
+  });
+
   /* — گوشی/آفلاین: پدر و مادر هر دو با نام کاربری درست ساخته می‌شوند ── */
   await test('ورود دسته‌ای (روی دستگاه): پدر و مادر هر دو ساخته می‌شوند و شمارهٔ دانش‌آموز به آن‌ها داده نمی‌شود', async () => {
     const { JSDOM } = require('jsdom');

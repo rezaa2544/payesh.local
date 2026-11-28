@@ -69,17 +69,34 @@ function putObj(b, key, body, type, acl) {
   fs.writeFileSync(f + '.bin.tmp', body); fs.renameSync(f + '.bin.tmp', f + '.bin');
   const meta = { key, type: type || 'application/octet-stream', acl: acl || 'private', mtime: Date.now(), size: body.length, etag: sha256hex(body).slice(0, 32) };
   fs.writeFileSync(f + '.json', JSON.stringify(meta));
+  indexOf(b).set(key, meta); sortedCache.delete(b);
   return meta;
 }
 function metaOf(b, key) { try { return JSON.parse(fs.readFileSync(fileOf(b, key) + '.json', 'utf8')); } catch (e) { return null; } }
 function bodyOf(b, key) { return fs.readFileSync(fileOf(b, key) + '.bin'); }
-function delObj(b, key) { for (const s of ['.bin', '.json']) fs.rmSync(fileOf(b, key) + s, { force: true }); }
-function listMetas(b) {
+function delObj(b, key) { for (const s of ['.bin', '.json']) fs.rmSync(fileOf(b, key) + s, { force: true }); indexOf(b).delete(key); sortedCache.delete(b); }
+/* Row 205: an in-memory index of the metas (built once from disk, kept by PUT/DELETE) —
+   a real bucket lists from an index; reading every meta file per LIST made listing O(objects)
+   disk reads and turned this stand-in into the bottleneck of a long simulation. */
+const indexes = new Map();
+const sortedCache = new Map();
+function indexOf(b) {
+  let ix = indexes.get(b);
+  if (ix) return ix;
+  ix = new Map();
   let names = [];
-  try { names = fs.readdirSync(bucketDir(b)).filter(n => n.endsWith('.json')); } catch (e) { return []; }
-  const out = [];
-  for (const n of names) { try { out.push(JSON.parse(fs.readFileSync(path.join(bucketDir(b), n), 'utf8'))); } catch (e) { /* half written */ } }
-  return out.sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0));
+  try { names = fs.readdirSync(bucketDir(b)).filter(n => n.endsWith('.json')); } catch (e) { names = []; }
+  for (const n of names) { try { const m = JSON.parse(fs.readFileSync(path.join(bucketDir(b), n), 'utf8')); ix.set(m.key, m); } catch (e) { /* half written */ } }
+  indexes.set(b, ix);
+  return ix;
+}
+function listMetas(b) {
+  let out = sortedCache.get(b);
+  if (!out) {
+    out = [...indexOf(b).values()].sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0));
+    sortedCache.set(b, out);
+  }
+  return out;
 }
 
 const stats = { started: new Date().toISOString(), requests: 0, by_method: {}, rejected: 0, anonymous_ok: 0, anonymous_denied: 0, bytes_in: 0, bytes_out: 0 };

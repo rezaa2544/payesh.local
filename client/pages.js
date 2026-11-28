@@ -1032,26 +1032,44 @@ PAGES.users = () => {
    هر ردیفی که ساخته نشد یا مشخصاتش ناقص بود اینجا می‌ماند: دلیلش را
    می‌بینید، با یک دکمه فرم کاربر با همان اطلاعات باز می‌شود تا کاملش
    کنید، و بعد «حل شد» می‌زنید. */
+/* ردیف ۲۰۵: «در سامانه هست؟» — همان قاعدهٔ ستون «وضعیت»؛ «ثبت موقت در لیست» هم از همین می‌پرسد */
+function importIssueExisting(r) {
+  return list('users').find(u =>
+    (r.national_id && String(u.national_id || '') === String(r.national_id)) ||
+    (r.phone && String(u.phone || '') === String(r.phone)) ||
+    (!r.national_id && !r.phone && String(u.name || '') === String(r.name)));
+}
+/** ردیفی که هنوز ساخته نشده و ثبت موقت هم نشده ⇒ «ثبت موقت در لیست» دارد */
+function importIssueCanTemp(r) {
+  if (r.temp_user_id && byId('users', Number(r.temp_user_id))) return false;
+  return !importIssueExisting(r);
+}
 function importIssuesTableHtml(all) {
+  const picked = S.issuePicked instanceof Set ? S.issuePicked : new Set();
+  const canTemp = all.filter(importIssueCanTemp);
+  const allPicked = canTemp.length > 0 && canTemp.every(r => picked.has(Number(r.id)));
   const rows = all.map(r => {
-    const d = r.data || {};
-    const existed = list('users').find(u =>
-      (r.national_id && String(u.national_id || '') === String(r.national_id)) ||
-      (r.phone && String(u.phone || '') === String(r.phone)) ||
-      (!r.national_id && !r.phone && String(u.name || '') === String(r.name)));
+    const temp = r.temp_user_id && byId('users', Number(r.temp_user_id));
+    const existed = temp ? null : importIssueExisting(r);
+    const can = !temp && !existed;
     return `<tr>
+      <td>${can ? `<input type="checkbox" data-issue-pick="row" value="${esc(r.id)}" ${picked.has(Number(r.id)) ? 'checked' : ''} title="انتخاب برای ثبت موقت">` : ''}</td>
       <td><b>${esc(r.name || '—')}</b>
         ${r.national_id ? `<div class="small muted ltr">${esc(r.national_id)}</div>` : ''}</td>
       <td class="small ltr">${esc(r.phone || '—')}</td>
       <td class="small">${(r.reasons || []).slice(0, 4).map(x => `<div>⚠️ ${esc(x)}</div>`).join('') || '—'}</td>
-      <td class="small">${existed ? badge('در سامانه هست', 'green') : badge('ساخته نشده', 'red')}</td>
+      <td class="small">${temp ? badge('ثبت موقت — در فهرست', 'amber') : existed ? badge('در سامانه هست', 'green') : badge('ساخته نشده', 'red')}</td>
       <td class="nowrap">
-        <button class="btn sm" data-act="issue-fix" data-id="${esc(r.id)}">${existed ? 'اصلاح' : 'ساختن کاربر'}</button>
+        <button class="btn sm" data-act="issue-fix" data-id="${esc(r.id)}">${existed || temp ? 'اصلاح' : 'ساختن کاربر'}</button>
+        ${can ? `<button class="btn sm" data-act="issue-temp" data-id="${esc(r.id)}" title="با همان اطلاعات درستش در فهرست کاربران و ${isFieldSchoolNow() ? 'پایه و رشته‌اش' : 'کلاسش'} ثبت می‌شود و در پیگیری می‌ماند">ثبت موقت در لیست</button>` : ''}
         <button class="btn sm ghost" data-act="issue-done" data-id="${esc(r.id)}">حل شد</button>
       </td></tr>`;
   }).join('');
-  return `<div class="table-wrap" style="max-height:52vh;overflow:auto"><table><thead><tr>
-      <th>نام</th><th>شمارهٔ همراه</th><th>دلیل</th><th>وضعیت</th><th></th></tr></thead>
+  return `${canTemp.length ? `<div class="row" style="gap:8px;margin-bottom:6px;align-items:center">
+      <label class="small row" style="gap:6px;align-items:center"><input type="checkbox" data-issue-pick="all" ${allPicked ? 'checked' : ''}> انتخاب همهٔ ردیف‌های ساخته‌نشده (${fa(canTemp.length)})</label>
+      ${picked.size ? `<button class="btn sm primary" data-act="issues-temp">ثبت موقت ${fa(picked.size)} ردیف انتخاب‌شده</button>` : ''}
+    </div>` : ''}<div class="table-wrap" style="max-height:52vh;overflow:auto"><table><thead><tr>
+      <th style="width:34px"></th><th>نام</th><th>شمارهٔ همراه</th><th>دلیل</th><th>وضعیت</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 
@@ -1060,6 +1078,7 @@ function importIssuesHtml() {
   return `<div class="small muted" style="margin-bottom:8px;line-height:2">
       این فهرست برای ردیف‌هایی است که در ورود دسته‌ای ساخته نشدند یا مشخصاتشان کامل نبود.
       با «ساختن/اصلاح» فرم کاربر با همان اطلاعات باز می‌شود؛ بعد از ذخیره، ردیف از این فهرست برداشته می‌شود.
+      «ثبت موقت در لیست» دانش‌آموز را با همان اطلاعات درستش در فهرست می‌گذارد و ردیف برای تکمیل همین‌جا می‌ماند.
     </div>
     ${all.length ? importIssuesTableHtml(all) + `<div class="row" style="margin-top:10px;gap:8px">
         <button class="btn ghost" data-act="modal-close">بستن</button>
@@ -1092,7 +1111,25 @@ function followupStudentReason(u) {
   if (!u || u.role !== 'student') return '';
   if (u.followup_ack) return '';
   const c = u.class_id ? byId('classes', u.class_id) : null;
-  if (!c) return u.followup_reason || 'پایه و رشته ندارد';
+  if (!c) {
+    /* رشته‌محور (پایهٔ ۱۰ به بالا): پایه و رشتهٔ خودِ دانش‌آموز کافی است (همان قاعدهٔ اپ) */
+    const own = String(u.followup_reason || '').trim();
+    const sg = String(u.grade || '').trim();
+    const sf = String(u.field || u.branch || '').trim();
+    const lvl = typeof impGradeLevel === 'function' ? impGradeLevel(sg) : 0;
+    const gNames = lookupList('grade').map(l => String(l.name));
+    const bNames = lookupList('branch').map(l => String(l.name));
+    const key = (x) => typeof gradeKey === 'function' ? gradeKey(x) : String(x || '').trim();
+    const nb = (x) => String(x || '').replace(/\s+/g, ' ').replace(/ي/g, 'ی').replace(/ك/g, 'ک').trim();
+    const gradeOk = lvl >= 10 && (!gNames.length || gNames.some(g => key(g) === key(sg)));
+    if (gradeOk && !own) return '';
+    /* ردیف ۲۰۵: دلیلِ کهنهٔ «کلاس/پایه/رشته حذف شد» با پایه و رشتهٔ تعریف‌شده دیگر نمی‌ماند */
+    if (gradeOk && sf && (!bNames.length || bNames.some(b => nb(b) === nb(sf))) && /کلاس|پایه|رشته/.test(own)) return '';
+    if (own && typeof isFieldSchoolNow === 'function' && isFieldSchoolNow()) {
+      return own.replace('کلاس تازه انتخاب کنید', 'پایه و رشتهٔ درست را انتخاب کنید').replace('کلاسش پاک شده بود', 'پایه و رشته‌اش پاک شده بود');
+    }
+    return own || 'پایه و رشته ندارد';
+  }
   const gradeNames = lookupList('grade').map(l => String(l.name));
   const branchNames = lookupList('branch').map(l => String(l.name));
   const g = String(c.grade || '').trim();

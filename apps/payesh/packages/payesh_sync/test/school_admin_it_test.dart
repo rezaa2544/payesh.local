@@ -943,7 +943,8 @@ void main() {
     // counted there and does not go to follow-up just because the group was removed
     expect(gradeLevel('${u['grade']}'), 11);
     expect('${u['field'] ?? u['branch']}', 'شبکه');
-    expect(u['followup_reason'], isNull);
+    // row 205: an emptied reason is '' (never a dropped key the server merge would keep)
+    expect('${u['followup_reason'] ?? ''}', '');
     passed++;
   }, skip: skip);
 
@@ -1247,6 +1248,74 @@ void main() {
     expect((await serverRow('import_issues', issue.id))!['status'], 'done');
     await manager.pull();
     expect((await Followup(manager.db).view()).issues, isEmpty);
+    passed++;
+  }, skip: skip);
+
+  test('W205-IT-01 «ذخیره» پایه و رشته on follow-up: the reason is gone on the server and the '
+      'student does not come back after a pull (old app put without the key too)', () async {
+    const stale = 'رشتهٔ «حسابداری» حذف شد — کلاس تازه انتخاب کنید';
+    final id = await manager.db.newId('users');
+    await manager.db.put('users', id, {
+      'name': 'کاندیش احمدی',
+      'role': 'student',
+      'national_id': '0012345679',
+      'grade': 'دوازدهم',
+      'field': 'حسابداری',
+      'followup_reason': stale,
+      'followup_ack': false,
+    });
+    expect((await manager.sync()).waiting, 0);
+    expect((await serverRow('users', id))!['followup_reason'], stale);
+    // 1) the new app: assign sends followup_reason '' ⇒ the server row has none
+    await manager.pull();
+    await Followup(manager.db)
+        .assign(id, grade: 'دوازدهم', branch: 'الکتروتکنیک');
+    expect((await manager.sync()).waiting, 0);
+    final a = await serverRow('users', id);
+    expect(a!['field'], 'الکتروتکنیک');
+    expect(
+      '${a['followup_reason'] ?? ''}',
+      '',
+      reason: 'the server merge kept a dropped key',
+    );
+    final other = Device(server, managerLogin, seed: 205);
+    await other.pull();
+    expect(
+      (await Followup(other.db).view()).students.any((s) => s.id == id),
+      isFalse,
+      reason: 'came back to «پایه/رشته‌شان کامل نیست» after the pull',
+    );
+    // 2) an older app (0.9.73 and before) dropped the key: the server clears it itself when the
+    //    put gives the student another grade / field / class
+    final st = (await serverRow('users', id))!;
+    final put1 = await push(managerLogin.token, [
+      {
+        'uid': 'w205-stale',
+        'collection': 'users',
+        'type': 'put',
+        'id': id,
+        'base_version': st['_version'],
+        'data': {...st, 'field': 'حسابداری', 'followup_reason': stale}
+          ..remove('_version'),
+      },
+    ]);
+    expect(put1['ok'], isTrue, reason: '$put1');
+    final st2 = (await serverRow('users', id))!;
+    expect(st2['followup_reason'], stale);
+    final put2 = await push(managerLogin.token, [
+      {
+        'uid': 'w205-old-app',
+        'collection': 'users',
+        'type': 'put',
+        'id': id,
+        'base_version': st2['_version'],
+        'data': ({...st2, 'field': 'الکتروتکنیک'}
+          ..remove('_version')
+          ..remove('followup_reason')),
+      },
+    ]);
+    expect(put2['ok'], isTrue, reason: '$put2');
+    expect('${(await serverRow('users', id))!['followup_reason'] ?? ''}', '');
     passed++;
   }, skip: skip);
 

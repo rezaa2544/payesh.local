@@ -819,7 +819,7 @@ final class DataHealth {
       final row = await db.get('users', u.id);
       if (row != null) keys.add(await db.del('users', row));
     }
-    final patch = {...keep.data, ...fill}..remove('followup_reason');
+    final patch = {...keep.data, ...fill}..['followup_reason'] = '';
     final fresh = await db.get('users', keepId);
     keys.add(await db.put('users', keepId, patch, prev: fresh));
     return MergeResult(moved, drops.length, keys);

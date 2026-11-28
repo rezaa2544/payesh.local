@@ -9,7 +9,8 @@
 // class (the manager builds classes by hand), class mode attaches/creates the class «grade».
 import 'package:payesh_data/payesh_data.dart';
 
-import 'classes.dart' show gradeLevel, normName;
+import 'classes.dart' show gradeLevel, normName, sameBranch, sameGrade;
+import 'school_structure.dart' show SchoolStructure;
 import 'records.dart';
 import 'school_import.dart' show importFieldOk, importProblemFields;
 
@@ -105,6 +106,17 @@ final class Followup {
     }
   }
 
+  /// Row 205: a stored reason that only says where the student was (a deleted class, grade
+  /// or field) — not a reason of its own such as a duplicate mobile.
+  static bool staleStructureReason(String r) =>
+      RegExp('کلاس|پایه|رشته').hasMatch(r);
+
+  /// Row 205: a reason written before 0.9.74 in a field school still said «کلاس تازه انتخاب
+  /// کنید» — a field school never mentions «کلاس».
+  static String fieldWording(String r) => r
+      .replaceAll('کلاس تازه انتخاب کنید', 'پایه و رشتهٔ درست را انتخاب کنید')
+      .replaceAll('کلاسش پاک شده بود', 'پایه و رشته‌اش پاک شده بود');
+
   /// Web `followupStudentReason`; '' = nothing to follow up.
   static String reasonOf(
     Map<String, Object?> u,
@@ -119,9 +131,18 @@ final class Followup {
       // field mode (≥ 10th): grade + branch on the student is complete — classes are built by
       // hand (the web list kept such students forever after «ذخیره», against its own rule)
       final g = _s(u['grade']);
-      if (own.isEmpty &&
+      final gradeOk =
           gradeLevel(g) >= 10 &&
-          (grades.isEmpty || grades.contains(g))) {
+          (grades.isEmpty || grades.any((x) => sameGrade(x, g)));
+      if (own.isEmpty && gradeOk) return '';
+      // row 205: a reason about a deleted class / grade / field is stale once the student
+      // has a defined grade and field again (an older app or the LAN server kept it after
+      // «ذخیره», so the student came back to this list after every sync)
+      final f = _s(u['field']).isNotEmpty ? _s(u['field']) : _s(u['branch']);
+      if (gradeOk &&
+          f.isNotEmpty &&
+          (branches.isEmpty || branches.any((x) => sameBranch(x, f))) &&
+          staleStructureReason(own)) {
         return '';
       }
       return own.isNotEmpty ? own : 'پایه و رشته ندارد';
@@ -171,9 +192,11 @@ final class Followup {
     final grades = defs('grade');
     final branches = defs('branch');
     final students = <FollowupStudent>[];
+    final field = (await SchoolStructure.read(db)).fieldBased;
     for (final u in users) {
-      final reason = reasonOf(u.data, classes, grades, branches);
+      var reason = reasonOf(u.data, classes, grades, branches);
       if (reason.isEmpty) continue;
+      if (field) reason = fieldWording(reason);
       final c = classes[_int(u.data['class_id']) ?? -1];
       final m = _branchGuess.firstMatch(reason);
       final guess = m == null
@@ -188,8 +211,19 @@ final class Followup {
               ? _s(u.data['phone'])
               : _s(u.data['national_id']),
           reason: reason,
-          grade: _s(c?.data['grade']),
-          branch: cb.isNotEmpty ? cb : guess,
+          // row 205: what the student already has opens chosen (field schools have no class)
+          grade: _s(c?.data['grade']).isNotEmpty
+              ? _s(c?.data['grade'])
+              : grades.firstWhere(
+                  (x) => sameGrade(x, u.data['grade']),
+                  orElse: () => '',
+                ),
+          branch: cb.isNotEmpty
+              ? cb
+              : branches.firstWhere(
+                  (x) => sameBranch(x, u.data['field'] ?? u.data['branch']),
+                  orElse: () => guess,
+                ),
         ),
       );
     }
@@ -292,7 +326,7 @@ final class Followup {
     final u = await db.existing('users', id, 'این دانش‌آموز');
     final level = gradeLevel(g);
     final patch = {...u.data, 'grade': g, 'field': b, 'followup_ack': false}
-      ..remove('followup_reason');
+      ..['followup_reason'] = '';
     final keys = <String>[];
     final lookups = await db.allOrEmpty('lookups');
     var className = '';
